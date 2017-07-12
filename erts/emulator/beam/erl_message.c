@@ -39,11 +39,7 @@ ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(message_ref,
 				 ERL_MESSAGE_BUF_SZ,
 				 ERTS_ALC_T_MSG_REF)
 
-#if defined(DEBUG) && 0
-#define HARD_DEBUG
-#else
 #undef HARD_DEBUG
-#endif
 
 void
 init_message(void)
@@ -265,9 +261,7 @@ erts_queue_dist_message(Process *rcvr,
     Sint tok_lastcnt = 0;
     Sint tok_serial = 0;
 #endif
-#ifdef ERTS_SMP
     erts_aint_t state;
-#endif
 
     ERTS_SMP_LC_ASSERT(rcvr_locks == erts_proc_lc_my_proc_locks(rcvr));
 
@@ -283,7 +277,6 @@ erts_queue_dist_message(Process *rcvr,
 #endif
 	ERL_MESSAGE_TOKEN(mp) = token;
 
-#ifdef ERTS_SMP
     if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ)) {
 	if (erts_smp_proc_trylock(rcvr, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
 	    ErtsProcLocks need_locks = ERTS_PROC_LOCK_MSGQ;
@@ -305,7 +298,6 @@ erts_queue_dist_message(Process *rcvr,
 	erts_cleanup_messages(mp);
     }
     else
-#endif
     if (IS_TRACED_FL(rcvr, F_TRACE_RECEIVE)) {
         if (from == am_Empty)
             from = dist_ext->dep->sysname;
@@ -364,11 +356,7 @@ erts_queue_dist_message(Process *rcvr,
 	    erts_smp_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
 
 	erts_proc_notify_new_message(rcvr,
-#ifdef ERTS_SMP
 				     rcvr_locks
-#else
-				     0
-#endif
 	    );
     }
 }
@@ -393,7 +381,6 @@ queue_messages(Process* receiver,
            ERL_MESSAGE_TOKEN(first) == NIL ||
            is_tuple(ERL_MESSAGE_TOKEN(first)));
 
-#ifdef ERTS_SMP
 #ifdef ERTS_ENABLE_LOCK_CHECK
     ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(receiver) < ERTS_PROC_LOCK_MSGQ ||
                        receiver_locks == erts_proc_lc_my_proc_locks(receiver));
@@ -420,14 +407,11 @@ queue_messages(Process* receiver,
 	locked_msgq = 1;
     }
 
-#endif
 
     state = erts_smp_atomic32_read_nob(&receiver->state);
 
     if (state & (ERTS_PSFLG_PENDING_EXIT|ERTS_PSFLG_EXITING)) {
-#ifdef ERTS_SMP
     exiting:
-#endif
 	/* Drop message if receiver is exiting or has a pending exit... */
 	if (locked_msgq)
 	    erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
@@ -436,7 +420,6 @@ queue_messages(Process* receiver,
     }
 
     res = receiver->msg.len;
-#ifdef ERTS_SMP
     if (receiver_locks & ERTS_PROC_LOCK_MAIN) {
 	/*
 	 * We move 'in queue' to 'private queue' and place
@@ -451,7 +434,6 @@ queue_messages(Process* receiver,
         LINK_MESSAGE_PRIVQ(receiver, first, last, len);
     }
     else
-#endif
     {
 	LINK_MESSAGE(receiver, first, last, len);
     }
@@ -492,11 +474,7 @@ queue_messages(Process* receiver,
 	erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
     }
 
-#ifdef ERTS_SMP
     erts_proc_notify_new_message(receiver, receiver_locks);
-#else
-    erts_proc_notify_new_message(receiver, 0);
-#endif
     return res;
 }
 
@@ -597,9 +575,7 @@ erts_try_alloc_message_on_heap(Process *pp,
 			       ErlOffHeap **ohpp,
 			       int *on_heap_p)
 {
-#ifdef ERTS_SMP
     int locked_main = 0;
-#endif
     ErtsMessage *mp;
 
     ASSERT(!(*psp & ERTS_PSFLG_OFF_HEAP_MSGQ));
@@ -607,15 +583,9 @@ erts_try_alloc_message_on_heap(Process *pp,
     if ((*psp) & ERTS_PSFLGS_VOLATILE_HEAP)
 	goto in_message_fragment;
     else if (
-#if defined(ERTS_SMP)
 	*plp & ERTS_PROC_LOCK_MAIN
-#else
-	pp
-#endif
 	) {
-#ifdef ERTS_SMP
     try_on_heap:
-#endif
 	if (((*psp) & ERTS_PSFLGS_VOLATILE_HEAP)
 	    || (pp->flags & F_DISABLE_GC)
 	    || HEAP_LIMIT(pp) - HEAP_TOP(pp) <= sz) {
@@ -623,12 +593,10 @@ erts_try_alloc_message_on_heap(Process *pp,
 	     * The heap is either potentially in an inconsistent
 	     * state, or not large enough.
 	     */
-#ifdef ERTS_SMP
 	    if (locked_main) {
 		*plp &= ~ERTS_PROC_LOCK_MAIN;
 		erts_smp_proc_unlock(pp, ERTS_PROC_LOCK_MAIN);
 	    }
-#endif
 	    goto in_message_fragment;
 	}
 
@@ -639,14 +607,12 @@ erts_try_alloc_message_on_heap(Process *pp,
 	mp->data.attached = NULL;
 	*on_heap_p = !0;
     }
-#ifdef ERTS_SMP
     else if (pp && erts_smp_proc_trylock(pp, ERTS_PROC_LOCK_MAIN) == 0) {
 	locked_main = 1;
 	*psp = erts_smp_atomic32_read_nob(&pp->state);
 	*plp |= ERTS_PROC_LOCK_MAIN;
 	goto try_on_heap;
     }
-#endif
     else {
     in_message_fragment:
 	if (!((*psp) & ERTS_PSFLG_ON_HEAP_MSGQ)) {

@@ -131,13 +131,11 @@ static erts_cpu_groups_map_t *reader_groups_map;
 
 #define ERTS_MAX_CPU_TOPOLOGY_ID ((int) 0xffff)
 
-#ifdef ERTS_SMP
 static void cpu_bind_order_sort(erts_cpu_topology_t *cpudata,
 				int size,
 				ErtsCpuBindOrder bind_order,
 				int mk_seq);
 static void write_schedulers_bind_change(erts_cpu_topology_t *cpudata, int size);
-#endif
 
 static void reader_groups_callback(int, ErtsSchedulerData *, int, void *);
 static erts_cpu_groups_map_t *add_cpu_groups(int groups,
@@ -434,7 +432,6 @@ processor_order_cmp(const void *vx, const void *vy)
     return 0;
 }
 
-#ifdef ERTS_SMP
 void
 erts_sched_check_cpu_bind_prep_suspend(ErtsSchedulerData *esdp)
 {
@@ -490,7 +487,6 @@ erts_sched_check_cpu_bind_post_suspend(ErtsSchedulerData *esdp)
     (void) ERTS_RUNQ_FLGS_SET(esdp->run_queue, ERTS_RUNQ_FLG_CHK_CPU_BIND);
 }
 
-#endif
 
 void
 erts_sched_check_cpu_bind(ErtsSchedulerData *esdp)
@@ -556,7 +552,6 @@ erts_sched_check_cpu_bind(ErtsSchedulerData *esdp)
     erts_smp_runq_lock(esdp->run_queue);
 }
 
-#ifdef ERTS_SMP
 void
 erts_sched_init_check_cpu_bind(ErtsSchedulerData *esdp)
 {
@@ -594,7 +589,6 @@ erts_sched_init_check_cpu_bind(ErtsSchedulerData *esdp)
     if (esdp->no <= max_main_threads)
 	erts_thr_set_main_status(1, (int) esdp->no);
 }
-#endif
 
 static void
 write_schedulers_bind_change(erts_cpu_topology_t *cpudata, int size)

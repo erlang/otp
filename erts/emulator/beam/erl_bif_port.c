@@ -273,10 +273,8 @@ BIF_RETTYPE erts_internal_port_call_3(BIF_ALIST_3)
 
     state = erts_smp_atomic32_read_acqb(&BIF_P->state);
     if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
-#ifdef ERTS_SMP
 	if (state & ERTS_PSFLG_PENDING_EXIT)
 	    erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
-#endif
 	ERTS_BIF_EXITED(BIF_P);
     }
 
@@ -323,10 +321,8 @@ BIF_RETTYPE erts_internal_port_control_3(BIF_ALIST_3)
 
     state = erts_smp_atomic32_read_acqb(&BIF_P->state);
     if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
-#ifdef ERTS_SMP
 	if (state & ERTS_PSFLG_PENDING_EXIT)
 	    erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
-#endif
 	ERTS_BIF_EXITED(BIF_P);
     }
 
@@ -511,7 +507,6 @@ cleanup_old_port_data(erts_aint_t data)
 	ASSERT(is_immed((Eterm) data));
     }
     else {
-#ifdef ERTS_SMP
 	ErtsPortDataHeap *pdhp = (ErtsPortDataHeap *) data;
 	size_t size;
 	ERTS_SMP_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
@@ -520,9 +515,6 @@ cleanup_old_port_data(erts_aint_t data)
 						(void *) pdhp,
 						&pdhp->later_op,
 						size);
-#else
-	free_port_data_heap((void *) data);
-#endif
     }
 }
 

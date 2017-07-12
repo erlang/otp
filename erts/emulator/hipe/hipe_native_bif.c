@@ -143,12 +143,10 @@ BIF_RETTYPE nbif_impl_hipe_set_timeout(NBIF_ALIST_1)
     else {
 	int tres = erts_set_proc_timer_term(p, timeout_value);
 	if (tres != 0) { /* Wrong time */
-#ifdef ERTS_SMP
 	    if (p->hipe_smp.have_receive_locks) {
 		p->hipe_smp.have_receive_locks = 0;
 		erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	    }
-#endif
 	    BIF_ERROR(p, EXC_TIMEOUT_VALUE);
 	}
     }
@@ -335,9 +333,7 @@ Binary *hipe_bs_reallocate(Binary* oldbptr, int newsize)
 }
 
 int hipe_bs_put_big_integer(
-#ifdef ERTS_SMP
     Process *p,
-#endif
     Eterm arg, Uint num_bits, byte* base, unsigned offset, unsigned flags)
 {
     byte *save_bin_buf;
@@ -530,7 +526,6 @@ Eterm hipe_check_get_msg(Process *c_p)
     msgp = PEEK_MESSAGE(c_p);
 
     if (!msgp) {
-#ifdef ERTS_SMP
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	/* Make sure messages wont pass exit signals... */
 	if (ERTS_PROC_PENDING_EXIT(c_p)) {
@@ -544,12 +539,9 @@ Eterm hipe_check_get_msg(Process *c_p)
 	else {
 	    /* XXX: BEAM doesn't need this */
 	    c_p->hipe_smp.have_receive_locks = 1;
-#endif
 	    c_p->flags &= ~F_DELAY_GC;
 	    return THE_NON_VALUE;
-#ifdef ERTS_SMP
 	}
-#endif
     }
 
     if (is_non_value(ERL_MESSAGE_TERM(msgp))
@@ -573,7 +565,6 @@ Eterm hipe_check_get_msg(Process *c_p)
 /*
  * SMP-specific stuff
  */
-#ifdef ERTS_SMP
 
 /*
  * This is like the timeout BEAM instruction.
@@ -584,14 +575,12 @@ void hipe_clear_timeout(Process *c_p)
      * A timeout has occurred.  Reset the save pointer so that the next
      * receive statement will examine the first message first.
      */
-#ifdef ERTS_SMP
     /* XXX: BEAM has different entries for the locked and unlocked
        cases. HiPE doesn't, so we must check dynamically. */
     if (c_p->hipe_smp.have_receive_locks) {
 	c_p->hipe_smp.have_receive_locks = 0;
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
     }
-#endif
     if (IS_TRACED_FL(c_p, F_TRACE_RECEIVE)) {
 	trace_receive(c_p, am_clock_service, am_timeout, NULL);
     }
@@ -604,4 +593,3 @@ void hipe_atomic_inc(int *counter)
     erts_smp_atomic_inc_nob((erts_smp_atomic_t*)counter);
 }
 
-#endif

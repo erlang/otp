@@ -24,10 +24,8 @@
 #define ERTS_ALCU_VSN_STR "3.0"
 
 #include "erl_alloc_types.h"
-#ifdef USE_THREADS
 #define ERL_THREADS_EMU_INTERNAL__
 #include "erl_threads.h"
-#endif
 
 #include "erl_mseg.h"
 #include "lttng-wrapper.h"
@@ -162,12 +160,10 @@ void *	erts_alcu_alloc(ErtsAlcType_t, void *, Uint);
 void *	erts_alcu_realloc(ErtsAlcType_t, void *, void *, Uint);
 void *	erts_alcu_realloc_mv(ErtsAlcType_t, void *, void *, Uint);
 void	erts_alcu_free(ErtsAlcType_t, void *, void *);
-#ifdef USE_THREADS
 void *	erts_alcu_alloc_ts(ErtsAlcType_t, void *, Uint);
 void *	erts_alcu_realloc_ts(ErtsAlcType_t, void *, void *, Uint);
 void *	erts_alcu_realloc_mv_ts(ErtsAlcType_t, void *, void *, Uint);
 void	erts_alcu_free_ts(ErtsAlcType_t, void *, void *);
-#ifdef ERTS_SMP
 void *	erts_alcu_alloc_thr_spec(ErtsAlcType_t, void *, Uint);
 void *	erts_alcu_realloc_thr_spec(ErtsAlcType_t, void *, void *, Uint);
 void *	erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t, void *, void *, Uint);
@@ -176,8 +172,6 @@ void *	erts_alcu_alloc_thr_pref(ErtsAlcType_t, void *, Uint);
 void *	erts_alcu_realloc_thr_pref(ErtsAlcType_t, void *, void *, Uint);
 void *	erts_alcu_realloc_mv_thr_pref(ErtsAlcType_t, void *, void *, Uint);
 void	erts_alcu_free_thr_pref(ErtsAlcType_t, void *, void *);
-#endif
-#endif
 Eterm	erts_alcu_au_info_options(fmtfn_t *, void *, Uint **, Uint *);
 Eterm	erts_alcu_info_options(Allctr_t *, fmtfn_t *, void *, Uint **, Uint *);
 Eterm	erts_alcu_sz_info(Allctr_t *, int, int, fmtfn_t *, void *, Uint **, Uint *);
@@ -185,9 +179,7 @@ Eterm	erts_alcu_info(Allctr_t *, int, int, fmtfn_t *, void *, Uint **, Uint *);
 void	erts_alcu_init(AlcUInit_t *);
 void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *,
 			       ErtsAlcUFixInfo_t *, int);
-#ifdef ERTS_SMP
 void    erts_alcu_check_delayed_dealloc(Allctr_t *, int, int *, ErtsThrPrgrVal *, int *);
-#endif
 erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 
 #ifdef ARCH_32
@@ -308,7 +300,6 @@ void erts_lcnt_update_allocator_locks(int enable);
 
 typedef union {char c[ERTS_ALLOC_ALIGN_BYTES]; long l; double d;} Unit_t;
 
-#ifdef ERTS_SMP
 
 typedef struct ErtsDoubleLink_t_ {
     struct ErtsDoubleLink_t_ *next;
@@ -327,7 +318,6 @@ typedef struct {
     ErtsDoubleLink_t abandoned; /* node in pooled_list or traitor_list */
 } ErtsAlcCPoolData_t;
 
-#endif
 
 typedef struct Carrier_t_ Carrier_t;
 struct Carrier_t_ {
@@ -335,9 +325,7 @@ struct Carrier_t_ {
     Carrier_t *next;
     Carrier_t *prev;
     erts_smp_atomic_t allctr;
-#ifdef ERTS_SMP
     ErtsAlcCPoolData_t cpool; /* Overwritten by block if sbc */
-#endif
 };
 
 #define ERTS_ALC_CARRIER_TO_ALLCTR(C) \
@@ -434,7 +422,6 @@ typedef struct {
     } while (0)
 #endif
 
-#ifdef ERTS_SMP
 
 typedef union ErtsAllctrDDBlock_t_ ErtsAllctrDDBlock_t;
 
@@ -477,7 +464,6 @@ typedef struct {
     } head;
 } ErtsAllctrDDQueue_t;
 
-#endif
 
 typedef struct {
     size_t type_size;
@@ -500,7 +486,6 @@ typedef struct {
 } ErtsAlcFixList_t;
 
 struct Allctr_t_ {
-#ifdef ERTS_SMP
     struct {
 	/*
 	 * We want the queue at the beginning of
@@ -511,7 +496,6 @@ struct Allctr_t_ {
 	int		use;
 	int		ix;
     } dd;
-#endif
 
     /* Allocator name prefix */
     char *		name_prefix;
@@ -560,7 +544,6 @@ struct Allctr_t_ {
     /* Carriers */
     CarrierList_t	mbc_list;
     CarrierList_t	sbc_list;
-#ifdef ERTS_SMP
     struct {
 	/* pooled_list, traitor list and dc_list contain only
            carriers _created_ by this allocator */
@@ -579,7 +562,6 @@ struct Allctr_t_ {
 	    erts_atomic_t	no_carriers;
 	} stat;
     } cpool;
-#endif
 
     /* Main carrier (if there is one) */
     Carrier_t *		main_carrier;
@@ -622,7 +604,6 @@ struct Allctr_t_ {
     int			fix_shrink_scheduled;
     ErtsAlcFixList_t	*fix;
 
-#ifdef USE_THREADS
     /* Mutex for this allocator */
     erts_mtx_t		mutex;
     int			thread_safe;
@@ -631,7 +612,6 @@ struct Allctr_t_ {
 	Allctr_t	*next;
     } ts_list;
 
-#endif
 
     int			atoms_initialized;
 
@@ -654,12 +634,10 @@ struct Allctr_t_ {
     CarriersStats_t	mbcs;
     
 #ifdef DEBUG
-#ifdef USE_THREADS
     struct {
 	int saved_tid;
 	erts_tid_t tid;
     } debug;
-#endif
 #endif
 };
 

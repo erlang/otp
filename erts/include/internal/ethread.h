@@ -141,9 +141,6 @@ typedef pthread_key_t ethr_tsd_key;
 #  define ETHR_USE_OWN_RWMTX_IMPL__
 #endif
 
-#if !defined(ETHR_FORCE_PTHREAD_MUTEX) && 0
-#  define ETHR_USE_OWN_MTX_IMPL__
-#endif
 
 #elif defined(ETHR_WIN32_THREADS)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\

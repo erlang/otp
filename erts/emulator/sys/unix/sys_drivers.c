@@ -53,9 +53,7 @@
 #define WANT_NONBLOCKING    /* must define this to pull in defs from sys.h */
 #include "sys.h"
 
-#ifdef USE_THREADS
 #include "erl_threads.h"
-#endif
 
 extern char **environ;
 extern erts_smp_rwmtx_t environ_rwmtx;
@@ -86,11 +84,7 @@ static Eterm forker_port;
 #define MAXIOV 16
 #endif
 
-#ifdef USE_THREADS
 #  define FDBLOCK 1
-#else
-#  define FDBLOCK 0
-#endif
 
 /* Used by the fd driver iff the fd could not be set to non-blocking */
 typedef struct ErtsSysBlocking_ {
@@ -178,9 +172,7 @@ void
 erl_sys_late_init(void)
 {
     SysDriverOpts opts;
-#ifdef ERTS_SMP
     Port *port;
-#endif
 
     sys_signal(SIGPIPE, SIG_IGN); /* Ignore - we'll handle the write failure */
 
@@ -197,13 +189,9 @@ erl_sys_late_init(void)
     opts.argv = NULL;
     opts.parallelism = erts_port_parallelism;
 
-#ifdef ERTS_SMP
     port =
-#endif
         erts_open_driver(&forker_driver, make_internal_pid(0), "forker", &opts, NULL, NULL);
-#ifdef ERTS_SMP
     erts_mtx_unlock(port->lock);
-#endif
     erts_sys_unix_later_init(); /* Need to be called after forker has been started */
 }
 
@@ -220,10 +208,8 @@ static ErlDrvData vanilla_start(ErlDrvPort, char*, SysDriverOpts*);
 
 /* II.III FD prototypes */
 static ErlDrvData fd_start(ErlDrvPort, char*, SysDriverOpts*);
-#if FDBLOCK
 static void fd_async(void *);
 static void fd_ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data);
-#endif
 static ErlDrvSSizeT fd_control(ErlDrvData, unsigned int, char *, ErlDrvSizeT,
 			       char **, ErlDrvSizeT);
 static void fd_stop(ErlDrvData);
@@ -287,11 +273,7 @@ struct erl_drv_entry fd_driver_entry = {
     fd_control,
     NULL,
     outputv,
-#if FDBLOCK
     fd_ready_async, /* ready_async */
-#else
-    NULL,
-#endif
     fd_flush, /* flush */
     NULL, /* call */
     NULL, /* event */
@@ -1092,13 +1074,11 @@ static void fd_stop(ErlDrvData ev)  /* Does not close the fds */
     ErlDrvPort prt = dd->port_num;
     int sz = sizeof(ErtsSysDriverData);
 
-#if FDBLOCK
     if (dd->blocking) {
         erts_free(ERTS_ALC_T_SYS_BLOCKING, dd->blocking);
         dd->blocking = NULL;
         sz += sizeof(ErtsSysBlocking);
     }
-#endif
 
     if (dd->ifd) {
         sz += sizeof(ErtsSysFdData);
@@ -1220,7 +1200,6 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
 	driver_enqv(ix, ev, n);  /* n is the skip value */
 	driver_select(ix, ofd, ERL_DRV_WRITE|ERL_DRV_USE, 1);
     }
-#if FDBLOCK
     else {
         if (ev->size != 0) {
             driver_enqv(ix, ev, 0);
@@ -1231,7 +1210,6 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
             driver_pdl_unlock(dd->blocking->pdl);
         }
     }
-#endif
     /* return 0;*/
 }
 
@@ -1579,7 +1557,6 @@ static void stop_select(ErlDrvEvent fd, void* _)
     close((int)fd);
 }
 
-#if FDBLOCK
 
 static void
 fd_async(void *async_data)
@@ -1658,7 +1635,6 @@ void fd_ready_async(ErlDrvData drv_data,
     return; /* 0; */
 }
 
-#endif
 
 /* Forker driver */
 

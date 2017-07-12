@@ -63,10 +63,8 @@ typedef struct db_table_hash {
 
     /* List of slots where elements have been deleted while table was fixed */
     erts_smp_atomic_t fixdel;  /* (FixedDeletion*) */	
-#ifdef ERTS_SMP
     erts_smp_atomic_t is_resizing; /* grow/shrink in progress */
     DbTableHashFineLocks* locks;
-#endif
 } DbTableHash;
 
 

@@ -183,13 +183,11 @@ void
 erts_erase_fun_entry(ErlFunEntry* fe)
 {
     erts_fun_write_lock();
-#ifdef ERTS_SMP
     /*
      * We have to check refc again since someone might have looked up
      * the fun entry and incremented refc after last check.
      */
     if (erts_smp_refc_dectest(&fe->refc, -1) <= 0)
-#endif
     {
 	if (fe->address != unloaded_fun)
 	    erts_exit(ERTS_ERROR_EXIT,

@@ -109,11 +109,7 @@
 #define NSEG_2   256 /* Size of second segment table */
 #define NSEG_INC 128 /* Number of segments to grow after that */
 
-#ifdef ERTS_SMP
 #  define DB_USING_FINE_LOCKING(TB) (((TB))->common.type & DB_FINE_LOCKED)
-#else
-#  define DB_USING_FINE_LOCKING(TB) 0
-#endif
 
 #ifdef ETHR_ORDERED_READ_DEPEND
 #define SEGTAB(tb) ((struct segment**) erts_smp_atomic_read_nob(&(tb)->segtab))
@@ -191,7 +187,6 @@ static ERTS_INLINE int add_fixed_deletion(DbTableHash* tb, int ix,
     ((is_atom(term) ? (atom_tab(atom_val(term))->slot.bucket.hvalue) : \
       make_internal_hash(term, 0)) % MAX_HASH)
 
-#ifdef ERTS_SMP
 #  define DB_HASH_LOCK_MASK (DB_HASH_LOCK_CNT-1)
 #  define GET_LOCK(tb,hval) (&(tb)->locks->lck_vec[(hval) & DB_HASH_LOCK_MASK].lck)
 #  define GET_LOCK_MAYBE(tb,hval) ((tb)->common.is_thread_safe ? NULL : GET_LOCK(tb,hval))
@@ -234,12 +229,6 @@ static ERTS_INLINE void WUNLOCK_HASH(erts_smp_rwmtx_t* lck)
 	erts_smp_rwmtx_rwunlock(lck);
     }
 }
-#else /* ERTS_SMP */
-# define RLOCK_HASH(tb,hval) NULL 
-# define WLOCK_HASH(tb,hval) NULL
-# define RUNLOCK_HASH(lck) ((void)lck) 
-# define WUNLOCK_HASH(lck) ((void)lck)
-#endif /* ERTS_SMP */
 
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -261,31 +250,23 @@ static ERTS_INLINE void WUNLOCK_HASH(erts_smp_rwmtx_t* lck)
 static ERTS_INLINE Sint next_slot(DbTableHash* tb, Uint ix,
 				  erts_smp_rwmtx_t** lck_ptr)
 {
-#ifdef ERTS_SMP
     ix += DB_HASH_LOCK_CNT;
     if (ix < NACTIVE(tb)) return ix;
     RUNLOCK_HASH(*lck_ptr);
     ix = (ix + 1) & DB_HASH_LOCK_MASK;
     if (ix != 0) *lck_ptr = RLOCK_HASH(tb,ix);
     return ix;
-#else
-    return (++ix < NACTIVE(tb)) ? ix : 0;
-#endif
 }
 /* Same as next_slot but with WRITE locking */
 static ERTS_INLINE Sint next_slot_w(DbTableHash* tb, Uint ix,
 				    erts_smp_rwmtx_t** lck_ptr)
 {
-#ifdef ERTS_SMP
     ix += DB_HASH_LOCK_CNT;
     if (ix < NACTIVE(tb)) return ix;
     WUNLOCK_HASH(*lck_ptr);
     ix = (ix + 1) & DB_HASH_LOCK_MASK;
     if (ix != 0) *lck_ptr = WLOCK_HASH(tb,ix);
     return ix;
-#else
-    return next_slot(tb,ix,lck_ptr);
-#endif
 }
 
 #ifndef MIN
@@ -334,9 +315,7 @@ struct segment {
 
 /* An extended segment table */
 struct ext_segtab {
-#ifdef ERTS_SMP
     ErtsThrPrgrLaterOp lop;
-#endif
     struct segment** prev_segtab;  /* Used when table is shrinking */
     int prev_nsegs;                /* Size of prev_segtab */
     int nsegs;                     /* Size of this segtab */
@@ -662,7 +641,6 @@ int db_create_hash(Process *p, DbTable *tbl)
                                                           SIZEOF_SEGMENT(FIRST_SEGSZ));
     sys_memset(tb->first_segtab[0], 0, SIZEOF_SEGMENT(FIRST_SEGSZ));
 
-#ifdef ERTS_SMP
     erts_smp_atomic_init_nob(&tb->is_resizing, 0);
     if (tb->common.type & DB_FINE_LOCKED) {
 	erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
@@ -687,7 +665,6 @@ int db_create_hash(Process *p, DbTable *tbl)
 	tb->locks = NULL;
     }
     ERTS_THR_MEMORY_BARRIER;
-#endif /* ERST_SMP */
     return DB_ERROR_NONE;
 }
 
@@ -1232,15 +1209,10 @@ static int match_traverse(Process* p, DbTableHash* tb,
     Sint got = 0;                  /* Matched terms counter */
     erts_smp_rwmtx_t* lck;         /* Slot lock */
     int ret_value;
-#ifdef ERTS_SMP
     erts_smp_rwmtx_t* (*lock_hash_function)(DbTableHash*, HashValue)
         = (lock_for_write ? WLOCK_HASH : RLOCK_HASH);
     void (*unlock_hash_function)(erts_smp_rwmtx_t*)
         = (lock_for_write ? WUNLOCK_HASH : RUNLOCK_HASH);
-#else
-    #define lock_hash_function(tb, hval) NULL
-    #define unlock_hash_function(lck) ((void)lck)
-#endif
     Sint (*next_slot_function)(DbTableHash*, Uint, erts_smp_rwmtx_t**)
         = (lock_for_write ? next_slot_w : next_slot);
 
@@ -1359,10 +1331,6 @@ done:
     }
     return ret_value;
 
-#ifndef SMP
-#undef lock_hash_function
-#undef unlock_hash_function
-#endif
 }
 
 /*
@@ -1391,15 +1359,10 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
     Eterm match_res;
     erts_smp_rwmtx_t* lck;
     int ret_value;
-#ifdef ERTS_SMP
     erts_smp_rwmtx_t* (*lock_hash_function)(DbTableHash*, HashValue)
         = (lock_for_write ? WLOCK_HASH : RLOCK_HASH);
     void (*unlock_hash_function)(erts_smp_rwmtx_t*)
         = (lock_for_write ? WUNLOCK_HASH : RUNLOCK_HASH);
-#else
-    #define lock_hash_function(tb, hval) NULL
-    #define unlock_hash_function(lck) ((void)lck)
-#endif
     Sint (*next_slot_function)(DbTableHash* tb, Uint ix, erts_smp_rwmtx_t** lck_ptr)
         = (lock_for_write ? next_slot_w : next_slot);
 
@@ -1475,10 +1438,6 @@ done:
      */
     return ret_value;
 
-#ifndef SMP
-#undef lock_hash_function
-#undef unlock_hash_function
-#endif
 }
 
 
@@ -2051,11 +2010,7 @@ static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid, Eterm patt
     sd_context.tid = tid;
     sd_context.hp = NULL;
     sd_context.prev_continuation_tptr = NULL;
-#ifdef ERTS_SMP
     sd_context.fixated_by_me = sd_context.tb->common.is_thread_safe ? 0 : 1; /* TODO: something nicer */
-#else
-    sd_context.fixated_by_me = 0;
-#endif
     sd_context.last_pseudo_delete = (Uint) -1;
 
     return match_traverse(
@@ -2330,7 +2285,6 @@ static void db_print_hash(fmtfn_t to, void *to_arg, int show, DbTable *tbl)
 
     erts_print(to, to_arg, "Buckets: %d\n", NACTIVE(tb));
 
-#ifdef ERTS_SMP
     i = tbl->common.is_thread_safe;
     /* If crash dumping we set table to thread safe in order to
        avoid taking any locks */
@@ -2340,9 +2294,6 @@ static void db_print_hash(fmtfn_t to, void *to_arg, int show, DbTable *tbl)
     db_calc_stats_hash(&tbl->hash, &stats);
 
     tbl->common.is_thread_safe = i;
-#else
-    db_calc_stats_hash(&tbl->hash, &stats);
-#endif
 
     erts_print(to, to_arg, "Chain Length Avg: %f\n", stats.avg_chain_len);
     erts_print(to, to_arg, "Chain Length Max: %d\n", stats.max_chain_len);
@@ -2423,7 +2374,6 @@ static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
 	    return reds;	/* Not done */
 	}
     }
-#ifdef ERTS_SMP
     if (tb->locks != NULL) {
 	int i;
 	for (i=0; i<DB_HASH_LOCK_CNT; ++i) {
@@ -2433,7 +2383,6 @@ static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
 		     (void*)tb->locks, sizeof(DbTableHashFineLocks));
 	tb->locks = NULL;
     }
-#endif    
     ASSERT(erts_smp_atomic_read_nob(&tb->common.memory_size) == sizeof(DbTable));
     return reds;			/* Done */
 }
@@ -2637,14 +2586,12 @@ static void alloc_seg(DbTableHash *tb)
     tb->nslots += EXT_SEGSZ;
 }
 
-#ifdef ERTS_SMP
 static void dealloc_ext_segtab(void* lop_data)
 {
     struct ext_segtab* est = (struct ext_segtab*) lop_data;
 
     erts_free(ERTS_ALC_T_DB_SEG, est);
 }
-#endif
 
 /* Shrink table by freeing the top segment
 ** free_records: 1=free any records in segment, 0=assume segment is empty 
@@ -2683,7 +2630,6 @@ static int free_seg(DbTableHash *tb, int free_records)
             SET_SEGTAB(tb, est->prev_segtab);
             tb->nsegs = est->prev_nsegs;
 
-#ifdef ERTS_SMP
             if (!tb->common.is_thread_safe) {
                 /*
                  * Table is doing a graceful shrink operation and we must avoid
@@ -2701,7 +2647,6 @@ static int free_seg(DbTableHash *tb, int free_records)
                                                         sz);
             }
             else
-#endif
                 erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable*)tb, est,
                              SIZEOF_EXT_SEGTAB(est->nsegs));
         }
@@ -2762,22 +2707,18 @@ static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
 static ERTS_INLINE int
 begin_resizing(DbTableHash* tb)
 {
-#ifdef ERTS_SMP
     if (DB_USING_FINE_LOCKING(tb))
 	return !erts_atomic_xchg_acqb(&tb->is_resizing, 1);
     else
         ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&tb->common.rwlock));
-#endif
     return 1;
 }
 
 static ERTS_INLINE void
 done_resizing(DbTableHash* tb)
 {
-#ifdef ERTS_SMP
     if (DB_USING_FINE_LOCKING(tb))
 	erts_atomic_set_relb(&tb->is_resizing, 0);
-#endif
 }
 
 /* Grow table with one or more new buckets.

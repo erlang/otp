@@ -84,31 +84,17 @@ typedef struct erl_bin_match_struct{
 #define ms_matchbuffer(_Ms) &(((ErlBinMatchState*) boxed_val(_Ms))->mb)
 
 
-#if defined(ERTS_SMP)
 #define ERL_BITS_REENTRANT
-#else
-/* uncomment to test the reentrant API in the non-SMP runtime system */
-/* #define ERL_BITS_REENTRANT */
-#endif
 
-#ifdef ERL_BITS_REENTRANT
 
 /*
  * Reentrant API with the state passed as a parameter.
  * (Except when the current Process* already is a parameter.)
  */
-#ifdef ERTS_SMP
 /* the state resides in the current process' scheduler data */
 #define ERL_BITS_DECLARE_STATEP			struct erl_bits_state *EBS
 #define ERL_BITS_RELOAD_STATEP(P)		do{EBS = &erts_proc_sched_data((P))->erl_bits_state;}while(0)
 #define ERL_BITS_DEFINE_STATEP(P)		struct erl_bits_state *EBS = &erts_proc_sched_data((P))->erl_bits_state
-#else
-/* reentrant API but with a hidden single global state, for testing only */
-extern struct erl_bits_state ErlBitsState_;
-#define ERL_BITS_DECLARE_STATEP			struct erl_bits_state *EBS = &ErlBitsState_
-#define ERL_BITS_RELOAD_STATEP(P)		do{}while(0)
-#define ERL_BITS_DEFINE_STATEP(P)		ERL_BITS_DECLARE_STATEP
-#endif
 #define ErlBitsState				(*EBS)
 
 #define ERL_BITS_PROTO_0			struct erl_bits_state *EBS
@@ -120,26 +106,6 @@ extern struct erl_bits_state ErlBitsState_;
 #define ERL_BITS_ARGS_2(ARG1,ARG2)		EBS, ARG1, ARG2
 #define ERL_BITS_ARGS_3(ARG1,ARG2,ARG3)		EBS, ARG1, ARG2, ARG3
 
-#else	/* ERL_BITS_REENTRANT */
-
-/*
- * Non-reentrant API with a single global state.
- */
-extern struct erl_bits_state ErlBitsState;
-#define ERL_BITS_DECLARE_STATEP			/*empty*/
-#define ERL_BITS_RELOAD_STATEP(P)		do{}while(0)
-#define ERL_BITS_DEFINE_STATEP(P)		/*empty*/
-
-#define ERL_BITS_PROTO_0			void
-#define ERL_BITS_PROTO_1(PARM1)			PARM1
-#define ERL_BITS_PROTO_2(PARM1,PARM2)		PARM1, PARM2
-#define ERL_BITS_PROTO_3(PARM1,PARM2,PARM3)	PARM1, PARM2, PARM3
-#define ERL_BITS_ARGS_0				/*empty*/
-#define ERL_BITS_ARGS_1(ARG1)			ARG1
-#define ERL_BITS_ARGS_2(ARG1,ARG2)		ARG1, ARG2
-#define ERL_BITS_ARGS_3(ARG1,ARG2,ARG3)		ARG1, ARG2, ARG3
-
-#endif	/* ERL_BITS_REENTRANT */
 
 #define erts_bin_offset		(ErlBitsState.erts_bin_offset_)
 #define erts_current_bin	(ErlBitsState.erts_current_bin_)
@@ -158,10 +124,8 @@ extern struct erl_bits_state ErlBitsState;
   }  while (0)
 
 void erts_init_bits(void);	/* Initialization once. */
-#ifdef ERTS_SMP
 void erts_bits_init_state(ERL_BITS_PROTO_0);
 void erts_bits_destroy_state(ERL_BITS_PROTO_0);
-#endif
 
 
 /*

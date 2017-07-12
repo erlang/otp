@@ -82,7 +82,6 @@ static __inline__ void hipe_delete_process(struct hipe_process_state *p)
 	erts_free(ERTS_ALC_T_HIPE_STK, (void*)p->nstack);
 }
 
-#ifdef ERTS_SMP
 struct hipe_process_state_smp {
     int have_receive_locks;
 };
@@ -91,6 +90,5 @@ static __inline__ void hipe_init_process_smp(struct hipe_process_state_smp *p)
 {
     p->have_receive_locks = 0;
 }
-#endif
 
 #endif /* HIPE_PROCESS_H */

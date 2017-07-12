@@ -98,14 +98,12 @@ static int insert_internal_link(Process* p, Eterm rpid)
 
     ASSERT(is_internal_pid(rpid));
 
-#ifdef ERTS_SMP
     if (IS_TRACED(p)
 	&& (ERTS_TRACE_FLAGS(p) & (F_TRACE_SOL|F_TRACE_SOL1))) {
 	rp_locks = ERTS_PROC_LOCKS_ALL;
     }
 
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_LINK);
-#endif
 
     /* get a pointer to the process struct of the linked process */
     rp = erts_pid2proc_opt(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK,
@@ -290,9 +288,6 @@ remote_demonitor(Process *c_p, DistEntry *dep, Eterm ref, Eterm to)
     ErtsMonitor *mon;
     int code;
     Eterm res = am_false;
-#ifndef ERTS_SMP
-    int stale_mon = 0;
-#endif
 
     ERTS_SMP_LC_ASSERT((ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK)
 		       == erts_proc_lc_my_proc_locks(c_p));
@@ -301,13 +296,6 @@ remote_demonitor(Process *c_p, DistEntry *dep, Eterm ref, Eterm to)
     switch (code) {
     case ERTS_DSIG_PREP_NOT_ALIVE:
     case ERTS_DSIG_PREP_NOT_CONNECTED:
-#ifndef ERTS_SMP
-	/* XXX Is this possible? Shouldn't this link
-	   previously have been removed if the node
-	   had previously been disconnected. */
-	ASSERT(0);
-	stale_mon = 1;
-#endif
 	/*
 	 * In the smp case this is possible if the node goes
 	 * down just before the call to demonitor.
@@ -335,13 +323,6 @@ remote_demonitor(Process *c_p, DistEntry *dep, Eterm ref, Eterm to)
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_LINK);
 
 	if (!dmon) {
-#ifndef ERTS_SMP
-	    /* XXX How is this possible? Shouldn't this link
-	       previously have been removed when the distributed
-	       end was removed. */
-	    ASSERT(0);
-	    stale_mon = 1;
-#endif
 	    /*
 	     * This is possible when smp support is enabled.
 	     * 'DOWN' message just arrived.
@@ -370,18 +351,6 @@ remote_demonitor(Process *c_p, DistEntry *dep, Eterm ref, Eterm to)
         return am_internal_error;
     }
 
-#ifndef ERTS_SMP
-    if (stale_mon) {
-	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp, "Stale process monitor %T to ", ref);
-	if (is_atom(to))
-	    erts_dsprintf(dsbufp, "{%T, %T}", to, dep->sysname);
-	else
-	    erts_dsprintf(dsbufp, "%T", to);
-	erts_dsprintf(dsbufp, " found\n");
-	erts_send_error_to_logger(c_p->group_leader, dsbufp);
-    }
-#endif
 
     /*
      * We aren't allowed to destroy 'mon' until now, since 'to'
@@ -405,13 +374,9 @@ demonitor_local_process(Process *c_p, Eterm ref, Eterm to, Eterm *res)
                            ERTS_P2P_FLG_ALLOW_OTHER_X);
     ErtsMonitor *mon = erts_remove_monitor(&ERTS_P_MONITORS(c_p), ref);
 
-#ifndef ERTS_SMP
-    ASSERT(mon);
-#else
     if (!mon)
         *res = am_false;
     else
-#endif
     {
         *res = am_true;
         erts_destroy_monitor(mon);
@@ -1151,10 +1116,8 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 
     if (is_internal_port(BIF_ARG_1)) {
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
-#ifdef ERTS_SMP
 	if (ERTS_PROC_PENDING_EXIT(BIF_P))
 	    goto handle_pending_exit;
-#endif
 
 	l = erts_remove_link(&ERTS_P_LINKS(BIF_P), BIF_ARG_1);
 
@@ -1201,10 +1164,8 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 	   us in a state where monitors might be inconsistent, but the dist
 	   code should take care of it. */
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
-#ifdef ERTS_SMP
 	if (ERTS_PROC_PENDING_EXIT(BIF_P))
 	    goto handle_pending_exit;
-#endif
 	l = erts_remove_link(&ERTS_P_LINKS(BIF_P), BIF_ARG_1);
 
 	erts_smp_proc_unlock(BIF_P,
@@ -1258,13 +1219,11 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 			   BIF_ARG_1, ERTS_PROC_LOCK_LINK,
 			   ERTS_P2P_FLG_ALLOW_OTHER_X);
 
-#ifdef ERTS_SMP
     if (ERTS_PROC_PENDING_EXIT(BIF_P)) {
 	if (rp && rp != BIF_P)
 	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 	goto handle_pending_exit;
     }
-#endif
 
     /* unlink and ignore errors */
     l = erts_remove_link(&ERTS_P_LINKS(BIF_P), BIF_ARG_1);
@@ -1294,7 +1253,6 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 
     BIF_RET(am_true);
 
-#ifdef ERTS_SMP
  handle_pending_exit:
     erts_handle_pending_exit(BIF_P, (ERTS_PROC_LOCK_MAIN
 				     | ERTS_PROC_LOCK_LINK
@@ -1302,7 +1260,6 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
     ASSERT(ERTS_PROC_IS_EXITING(BIF_P)); 
     erts_smp_proc_unlock(BIF_P,	ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
     ERTS_BIF_EXITED(BIF_P);
-#endif
 }
 
 BIF_RETTYPE hibernate_3(BIF_ALIST_3)
@@ -1657,12 +1614,10 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
 			       NIL,
 			       NULL,
 			       BIF_P == rp ? ERTS_XSIG_FLG_NO_IGN_NORMAL : 0);
-#ifdef ERTS_SMP
 	 if (rp == BIF_P)
 	     rp_locks &= ~ERTS_PROC_LOCK_MAIN;
 	 if (rp_locks)
 	     erts_smp_proc_unlock(rp, rp_locks);
-#endif
 	 /*
 	  * We may have exited ourselves and may have to take action.
 	  */
@@ -1783,12 +1738,10 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 						  ~ERTS_PSFLG_TRAP_EXIT);
        erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCKS_XSIG_SEND);
 
-#ifdef ERTS_SMP
        if (state & ERTS_PSFLG_PENDING_EXIT) {
 	   erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
 	   ERTS_BIF_EXITED(BIF_P);
        }
-#endif
 
        old_value = (state & ERTS_PSFLG_TRAP_EXIT) ? am_true : am_false;
        BIF_RET(old_value);
@@ -1811,9 +1764,7 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
        }
        else {
 	   new = erts_schedid2runq(sched);
-#ifdef ERTS_SMP
 	   erts_atomic_set_nob(&BIF_P->run_queue, (erts_aint_t) new);
-#endif
 	   state = erts_smp_atomic32_read_bor_mb(&BIF_P->state,
 						 ERTS_PSFLG_BOUND);
        }
@@ -1946,15 +1897,11 @@ BIF_RETTYPE process_flag_3(BIF_ALIST_3)
    Process *rp;
    Eterm res;
 
-#ifdef ERTS_SMP
    rp = erts_pid2proc_not_running(BIF_P, ERTS_PROC_LOCK_MAIN,
 				  BIF_ARG_1, ERTS_PROC_LOCK_MAIN);
    if (rp == ERTS_PROC_LOCK_BUSY)
        ERTS_BIF_YIELD3(bif_export[BIF_process_flag_3], BIF_P,
 		       BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
-#else
-   rp = erts_proc_lookup(BIF_ARG_1);
-#endif
 
    if (!rp)
        BIF_ERROR(BIF_P, BADARG);
@@ -2296,10 +2243,8 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
  send_message: {
 	ErtsProcLocks rp_locks = 0;
 	Sint res;
-#ifdef ERTS_SMP
 	if (p == rp)
 	    rp_locks |= ERTS_PROC_LOCK_MAIN;
-#endif
 	/* send to local process */
 	res = erts_send_message(p, rp, &rp_locks, msg, 0);
 	if (erts_use_sender_punish)
@@ -4563,9 +4508,6 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
     if (BIF_ARG_1 == am_multi_scheduling) {
 	if (BIF_ARG_2 == am_block || BIF_ARG_2 == am_unblock
 	    || BIF_ARG_2 == am_block_normal || BIF_ARG_2 == am_unblock_normal) {
-#ifndef ERTS_SMP
-	    BIF_RET(am_disabled);
-#else
 	    int block = (BIF_ARG_2 == am_block
 			 || BIF_ARG_2 == am_block_normal);
 	    int normal = (BIF_ARG_2 == am_block_normal
@@ -4601,15 +4543,8 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
                 BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
                 break;
             }
-#endif
 	}
     } else if (BIF_ARG_1 == am_schedulers_online) {
-#ifndef ERTS_SMP
-	if (BIF_ARG_2 != make_small(1))
-	    goto error;
-	else
-	    BIF_RET(make_small(1));
-#else
 	Sint old_no;
 	if (!is_small(BIF_ARG_2))
 	    goto error;
@@ -4633,7 +4568,6 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
 	    break;
 	}
-#endif
     } else if (BIF_ARG_1 == am_fullsweep_after) {
 	Uint16 nval;
 	Uint oval;
@@ -5019,7 +4953,6 @@ static BIF_RETTYPE bif_return_trap(BIF_ALIST_2)
     Eterm res = BIF_ARG_1;
 
     switch (BIF_ARG_2) {
-#ifdef ERTS_SMP
     case am_multi_scheduling: {
 	int msb = erts_is_multi_scheduling_blocked();
 	if (msb > 0)
@@ -5030,7 +4963,6 @@ static BIF_RETTYPE bif_return_trap(BIF_ALIST_2)
 	    ERTS_INTERNAL_ERROR("Unexpected multi scheduling block state");
 	break;
     }
-#endif
     default:
 	break;
     }

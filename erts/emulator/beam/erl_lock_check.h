@@ -116,11 +116,7 @@ int erts_lc_is_emu_thr(void);
 
 #define ERTS_LC_ASSERT(A) \
     ((void) (((A) || ERTS_SOMEONE_IS_CRASH_DUMPING) ? 1 : erts_lc_assert_failed(__FILE__, __LINE__, #A)))
-#ifdef ERTS_SMP
 #define ERTS_SMP_LC_ASSERT(A) ERTS_LC_ASSERT(A)
-#else
-#define ERTS_SMP_LC_ASSERT(A) ((void) 1)
-#endif
 #else /* #ifdef ERTS_ENABLE_LOCK_CHECK */
 #define ERTS_SMP_LC_ASSERT(A) ((void) 1)
 #define ERTS_LC_ASSERT(A) ((void) 1)

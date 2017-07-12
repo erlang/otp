@@ -69,16 +69,8 @@
  * The variables below (prefixed with etp_) are for erts/etc/unix/etp-commands
  * only. Do not remove even though they aren't used elsewhere in the emulator!
  */
-#ifdef ERTS_SMP
 const int etp_smp_compiled = 1;
-#else
-const int etp_smp_compiled = 0;
-#endif
-#ifdef USE_THREADS
 const int etp_thread_compiled = 1;
-#else
-const int etp_thread_compiled = 0;
-#endif
 const char etp_erts_version[] = ERLANG_VERSION;
 const char etp_otp_release[] = ERLANG_OTP_RELEASE;
 const char etp_compile_date[] = ERLANG_COMPILE_DATE;
@@ -156,17 +148,10 @@ static void erl_init(int ncpu,
 
 static erts_atomic_t exiting;
 
-#ifdef ERTS_SMP
 erts_smp_atomic32_t erts_writing_erl_crash_dump;
 erts_tsd_key_t erts_is_crash_dumping_key;
-#else
-volatile int erts_writing_erl_crash_dump = 0;
-#endif
 int erts_initialized = 0;
 
-#if defined(USE_THREADS) && !defined(ERTS_SMP)
-erts_tid_t erts_main_thread;
-#endif
 
 int erts_use_sender_punish;
 
@@ -682,7 +667,6 @@ void erts_usage(void)
     erts_exit(1, "");
 }
 
-#ifdef USE_THREADS
 /*
  * allocators for thread lib
  */
@@ -724,7 +708,6 @@ static void ethr_ll_free(void *ptr)
     erts_free(ERTS_ALC_T_ETHR_LL, ptr);
 }
 
-#endif
 
 static int
 early_init(int *argc, char **argv) /*
@@ -754,9 +737,6 @@ early_init(int *argc, char **argv) /*
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;
 
-#if defined(USE_THREADS) && !defined(ERTS_SMP)
-    erts_main_thread = erts_thr_self();
-#endif
 
     erts_save_emu_args(*argc, argv);
 
@@ -781,11 +761,6 @@ early_init(int *argc, char **argv) /*
 				     &ncpu,
 				     &ncpuonln,
 				     &ncpuavail);
-#ifndef ERTS_SMP
-    ncpu = 1;
-    ncpuonln = 1;
-    ncpuavail = 1;
-#endif
 
     ignore_break = 0;
     replace_intr = 0;
@@ -797,16 +772,10 @@ early_init(int *argc, char **argv) /*
 
     erts_sys_pre_init();
     erts_atomic_init_nob(&exiting, 0);
-#ifdef ERTS_SMP
     erts_thr_progress_pre_init();
-#endif
 
-#ifdef ERTS_SMP
     erts_smp_atomic32_init_nob(&erts_writing_erl_crash_dump, 0L);
     erts_tsd_key_create(&erts_is_crash_dumping_key,"erts_is_crash_dumping_key");
-#else
-    erts_writing_erl_crash_dump = 0;
-#endif
 
     erts_smp_atomic32_init_nob(&erts_max_gen_gcs,
 			       (erts_aint32_t) ((Uint16) -1));
@@ -1093,7 +1062,6 @@ early_init(int *argc, char **argv) /*
 	    i++;
 	}
 
-#ifdef ERTS_SMP
 	/* apply any scheduler percentages */
 	if (schdlrs_percentage != 100 || schdlrs_onln_percentage != 100) {
 	    schdlrs = schdlrs * schdlrs_percentage / 100;
@@ -1117,11 +1085,6 @@ early_init(int *argc, char **argv) /*
 		erts_usage();
 	    }
 	}
-#else
-	/* Silence gcc warnings */
-	(void)schdlrs_percentage;
-	(void)schdlrs_onln_percentage;
-#endif
 #ifdef ERTS_DIRTY_SCHEDULERS
 	/* apply any dirty scheduler precentages */
 	if (dirty_cpu_scheds_pctg != 100 || dirty_cpu_scheds_onln_pctg != 100) {
@@ -1139,18 +1102,11 @@ early_init(int *argc, char **argv) /*
 #endif
     }
 
-#ifndef USE_THREADS
-    erts_async_max_threads = 0;
-#endif
 
-#ifdef ERTS_SMP
     no_schedulers = schdlrs;
     no_schedulers_online = schdlrs_onln;
 
     erts_no_schedulers = (Uint) no_schedulers;
-#else
-    erts_no_schedulers = 1;
-#endif
 #ifdef ERTS_DIRTY_SCHEDULERS
     erts_no_dirty_cpu_schedulers = no_dirty_cpu_schedulers = dirty_cpu_scheds;
     no_dirty_cpu_schedulers_online = dirty_cpu_scheds_online;
@@ -1162,7 +1118,6 @@ early_init(int *argc, char **argv) /*
     erts_alloc_init(argc, argv, &alloc_opts); /* Handles (and removes)
 						 -M flags. */
     /* Require allocators */
-#ifdef ERTS_SMP
     /*
      * Thread progress management:
      *
@@ -1185,7 +1140,6 @@ early_init(int *argc, char **argv) /*
 			   erts_no_dirty_io_schedulers
 #endif
 			   );
-#endif
     erts_thr_q_init();
     erts_init_utils();
     erts_early_init_cpu_topology(no_schedulers,
@@ -1193,7 +1147,6 @@ early_init(int *argc, char **argv) /*
 				 max_reader_groups,
 				 &reader_groups);
 
-#ifdef USE_THREADS
     {
 	erts_thr_late_init_data_t elid = ERTS_THR_LATE_INIT_DATA_DEF_INITER;
 	elid.mem.std.alloc = ethr_std_alloc;
@@ -1210,7 +1163,6 @@ early_init(int *argc, char **argv) /*
 
 	erts_thr_late_init(&elid);
     }
-#endif
     erts_msacc_early_init();
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -1237,40 +1189,6 @@ early_init(int *argc, char **argv) /*
     return ncpu;
 }
 
-#ifndef ERTS_SMP
-
-void *erts_scheduler_stack_limit;
-
-
-static void set_main_stack_size(void)
-{
-    char c;
-    UWord stacksize;
-# if HAVE_DECL_GETRLIMIT && HAVE_DECL_SETRLIMIT && HAVE_DECL_RLIMIT_STACK
-    struct rlimit rl;
-    int bytes;
-    stacksize = erts_sched_thread_suggested_stack_size * sizeof(Uint) * 1024;
-    /* Add some extra pages... neede by some systems... */
-    bytes = (int) stacksize + 3*erts_sys_get_page_size();
-    if (getrlimit(RLIMIT_STACK, &rl) != 0 ||
-        (rl.rlim_cur = bytes, setrlimit(RLIMIT_STACK, &rl) != 0)) {
-        erts_fprintf(stderr, "failed to set stack size for scheduler "
-                     "thread to %d bytes\n", bytes);
-        erts_usage();
-    }
-# else
-    if (modified_sched_thread_suggested_stack_size) {
-	erts_fprintf(stderr, "no OS support for dynamic stack size limit\n");
-	erts_usage();
-    }
-    /* Be conservative and hope it is not more than 64 kWords... */
-    stacksize = 64*1024*sizeof(void *);
-# endif
-
-    erts_scheduler_stack_limit = erts_calc_stacklimit(&c, stacksize);
-}
-
-#endif
 
 void
 erl_start(int argc, char **argv)
@@ -1490,12 +1408,8 @@ erl_start(int argc, char **argv)
 #ifdef DEBUG
 		strcat(tmp, ",DEBUG");
 #endif
-#ifdef ERTS_SMP
 		strcat(tmp, ",SMP");
-#endif
-#ifdef USE_THREADS
 		strcat(tmp, ",ASYNC_THREADS");
-#endif
 #ifdef HIPE
 		strcat(tmp, ",HIPE");
 #endif
@@ -2007,9 +1921,7 @@ erl_start(int argc, char **argv)
 				 arg);
 		    erts_usage();
 		}
-#ifdef ERTS_SMP
 		erts_runq_supervision_interval = val;
-#endif
 	    }
 	    else {
 		erts_fprintf(stderr, "bad scheduling option %s\n", argv[i]);
@@ -2355,7 +2267,6 @@ erl_start(int argc, char **argv)
 
     }
 
-#ifdef ERTS_SMP
     erts_start_schedulers();
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -2364,31 +2275,9 @@ erl_start(int argc, char **argv)
 
     /* Let system specific code decide what to do with the main thread... */
     erts_sys_main_thread(); /* May or may not return! */
-#else
-    {
-	ErtsSchedulerData *esdp = erts_get_scheduler_data();
-        erts_msacc_init_thread("scheduler", 1, 1);
-	erts_thr_set_main_status(1, 1);
-#if ERTS_USE_ASYNC_READY_Q
-	esdp->aux_work_data.async_ready.queue
-	    = erts_get_async_ready_queue(1);
-#endif
-	set_main_stack_size();
-	erts_sched_init_time_sup(esdp);
-        erts_ets_sched_spec_data_init(esdp);
-        erts_aux_work_timeout_late_init(esdp);
-
-#ifdef ERTS_ENABLE_LOCK_COUNT
-        erts_lcnt_post_startup();
-#endif
-
-	process_main(esdp->x_reg_array, esdp->f_reg_array);
-    }
-#endif
 }
 
 
-#ifdef USE_THREADS
 
 __decl_noreturn void erts_thr_fatal_error(int err, char *what)
 {
@@ -2402,7 +2291,6 @@ __decl_noreturn void erts_thr_fatal_error(int err, char *what)
     abort();
 }
 
-#endif
 
 static void
 system_cleanup(int flush_async)
@@ -2415,7 +2303,6 @@ system_cleanup(int flush_async)
 	 * Another thread is currently exiting the system;
 	 * wait for it to do its job.
 	 */
-#ifdef ERTS_SMP
 	if (erts_thr_progress_is_managed_thread()) {
 	    /*
 	     * The exiting thread might be waiting for
@@ -2424,7 +2311,6 @@ system_cleanup(int flush_async)
 	    erts_thr_progress_active(NULL, 0);
 	    erts_thr_progress_prepare_wait(NULL);
 	}
-#endif
 	/* Wait forever... */
 	while (1)
 	    erts_milli_sleep(10000000);
@@ -2439,16 +2325,11 @@ system_cleanup(int flush_async)
 
     if (!flush_async
 	|| !erts_initialized
-#if defined(USE_THREADS) && !defined(ERTS_SMP)
-	|| !erts_equal_tids(erts_main_thread, erts_thr_self())
-#endif
 	)
 	return;
 
-#ifdef ERTS_SMP
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0);
-#endif
 #endif
 
     erts_exit_flush_async();

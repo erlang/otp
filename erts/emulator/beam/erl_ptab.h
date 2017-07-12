@@ -387,10 +387,8 @@ ERTS_GLB_INLINE Sint erts_ptab_atmc_dec_test_refc(ErtsPTabElementCommon *ptab_el
 {
     erts_aint_t refc = erts_atomic_dec_read_relb(&ptab_el->refc.atmc);
     ERTS_SMP_LC_ASSERT(refc >= 0);
-#ifdef ERTS_SMP
     if (refc == 0)
 	ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
-#endif
     return (Sint) refc;
 }
 

@@ -62,7 +62,6 @@
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-#  ifdef ERTS_SMP
 #    define PROCESS_MAIN_CHK_LOCKS(P)					\
 do {									\
     if ((P))								\
@@ -80,11 +79,6 @@ do {									\
     if ((P))								\
 	erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN);		\
 } while (0)
-#  else
-#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)
-#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)
-#    define PROCESS_MAIN_CHK_LOCKS(P) erts_lc_check_exact(NULL, 0)
-#  endif
 #else
 #  define PROCESS_MAIN_CHK_LOCKS(P)
 #  define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)
@@ -1943,7 +1937,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      msgp = PEEK_MESSAGE(c_p);
 
      if (!msgp) {
-#ifdef ERTS_SMP
 	 erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	 /* Make sure messages wont pass exit signals... */
 	 if (ERTS_PROC_PENDING_EXIT(c_p)) {
@@ -1958,7 +1951,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 if (msgp)
 	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	 else
-#endif
 	 {
 	     c_p->flags &= ~F_DELAY_GC;
 	     SET_I((BeamInstr *) Arg(0));
@@ -2180,23 +2172,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 OpCase(wait_f):
 
 	 wait2: {
-#ifndef ERTS_SMP
-	     if (ERTS_PROC_IS_EXITING(c_p)) {
-		 /*
-		  * I non smp case:
-		  *
-		  * Currently executing process might be sent an exit
-		  * signal if it is traced by a port that it also is
-		  * linked to, and the port terminates during the
-		  * trace. In this case we do *not* want to clear
-		  * the active flag, which will make the process hang
-		  * in limbo forever.
-		  */
-		 SWAPOUT;
-                 c_p->arity = 0;
-		 goto do_schedule;
-	     }
-#endif
 	     c_p->i = (BeamInstr *) Arg(0); /* L1 */
 	     SWAPOUT;
 	     c_p->arity = 0;
@@ -3622,9 +3597,7 @@ do {						\
 		typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
 		NifF* fp = vbf = (NifF*) I[1];
 		struct enif_environment_t env;
-#ifdef ERTS_SMP
 		ASSERT(c_p->scheduler_data);
-#endif
 		live_hf_end = c_p->mbuf;
 		ERTS_CHK_MBUF_SZ(c_p);
 		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2], NULL);
@@ -6539,22 +6512,6 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
     int arity;
     Eterm tmp;
 
-#ifndef ERTS_SMP
-    if (ERTS_PROC_IS_EXITING(c_p)) {
-	/*
-	 * I non smp case:
-	 *
-	 * Currently executing process might be sent an exit
-	 * signal if it is traced by a port that it also is
-	 * linked to, and the port terminates during the
-	 * trace. In this case we do *not* want to clear
-	 * the active flag, which will make the process hang
-	 * in limbo forever. Get out of here and terminate
-	 * the process...
-	 */
-	return -1;
-    }
-#endif
 
     if (is_not_atom(module) || is_not_atom(function)) {
 	/*
@@ -6632,19 +6589,8 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-#ifndef ERTS_SMP
-	if (ERTS_PROC_IS_EXITING(c_p)) {
-	    /*
-	     * See comment in the beginning of the function...
-	     *
-	     * This second test is needed since gc might be traced.
-	     */
-	    return -1;
-	}
-#else /* ERTS_SMP */
         ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
 	if (!c_p->msg.len)
-#endif
 	    erts_smp_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     }

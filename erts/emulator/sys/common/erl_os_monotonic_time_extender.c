@@ -23,7 +23,6 @@
 #endif
 #include "erl_os_monotonic_time_extender.h"
 
-#ifdef USE_THREADS
 
 static void *os_monotonic_time_extender(void *vstatep)
 {
@@ -49,30 +48,22 @@ static void *os_monotonic_time_extender(void *vstatep)
 }
 
 static erts_tid_t os_monotonic_extender_tid;
-#endif
 
 void
 erts_init_os_monotonic_time_extender(ErtsOsMonotonicTimeExtendState *statep,
 				     Uint32 (*raw_os_monotonic_time)(void),
 				     int check_seconds)
 {
-#ifdef USE_THREADS
     statep->raw_os_monotonic_time = raw_os_monotonic_time;
     erts_atomic32_init_nob(&statep->extend[0], (erts_aint32_t) 0);
     erts_atomic32_init_nob(&statep->extend[1], (erts_aint32_t) 0);
     statep->check_interval = check_seconds;
 
-#else
-    statep->extend[0] = (Uint32) 0;
-    statep->extend[1] = (Uint32) 0;
-    statep->last_msb = (ErtsMonotonicTime) 0;
-#endif
 }
 
 void
 erts_late_init_os_monotonic_time_extender(ErtsOsMonotonicTimeExtendState *statep)
 {
-#ifdef USE_THREADS
     erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
     thr_opts.detached = 1;
     thr_opts.suggested_stack_size = 4;
@@ -85,5 +76,4 @@ erts_late_init_os_monotonic_time_extender(ErtsOsMonotonicTimeExtendState *statep
 		    os_monotonic_time_extender,
 		    (void*) statep,
 		    &thr_opts);
-#endif
 }

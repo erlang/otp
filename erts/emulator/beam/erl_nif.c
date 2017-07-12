@@ -564,7 +564,6 @@ void enif_clear_env(ErlNifEnv* env)
     free_tmp_objs(env);
 }
 
-#ifdef ERTS_SMP
 #ifdef DEBUG
 static int enif_send_delay = 0;
 #define ERTS_FORCE_ENIF_SEND_DELAY() (enif_send_delay++ % 2 == 0)
@@ -648,16 +647,13 @@ error:
     return reds;
 }
 
-#endif
 
 int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	      ErlNifEnv* msg_env, ERL_NIF_TERM msg)
 {
     struct enif_msg_environment_t* menv = (struct enif_msg_environment_t*)msg_env;
     ErtsProcLocks rp_locks = 0;
-#ifdef ERTS_SMP
     ErtsProcLocks lc_locks = 0;
-#endif
     Process* rp;
     Process* c_p;
     ErtsMessage *mp;
@@ -666,13 +662,6 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 
     execution_state(env, &c_p, &scheduler);
 
-#ifndef ERTS_SMP
-    if (!scheduler) {
-	erts_exit(ERTS_ABORT_EXIT,
-		  "enif_send: called from non-scheduler thread on non-SMP VM");
-	return 0;
-   }
-#endif
 
     if (scheduler > 0) { /* Normal scheduler */
 	rp = erts_proc_lookup(receiver);
@@ -756,7 +745,6 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	    full_cache_env(env);
 	}
     }
-#ifdef ERTS_SMP
     else {
         /* This clause is taken when the nif is called in the context
            of a traced process. We do not know which locks we have
@@ -814,12 +802,10 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
             rp_locks |= ERTS_PROC_LOCK_MSGQ;
         }
     }
-#endif /* ERTS_SMP */
 
     erts_queue_message(rp, rp_locks, mp, msg,
                        c_p ? c_p->common.id : am_undefined);
 
-#ifdef ERTS_SMP
 done:
     if (c_p == rp)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
@@ -827,7 +813,6 @@ done:
 	erts_smp_proc_unlock(rp, rp_locks & ~lc_locks);
     if (c_p && (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC))
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
-#endif
     if (scheduler <= 0)
 	erts_proc_dec_refc(rp);
 
@@ -857,15 +842,9 @@ enif_port_command(ErlNifEnv *env, const ErlNifPort* to_port,
     if (scheduler > 0)
 	prt = erts_port_lookup(to_port->port_id, iflags);
     else {
-#ifdef ERTS_SMP
 	if (ERTS_PROC_IS_EXITING(c_p))
 	    return 0;
 	prt = erts_thr_port_lookup(to_port->port_id, iflags);
-#else
-        erts_exit(ERTS_ABORT_EXIT,
-		  "enif_port_command: called from non-scheduler "
-                  "thread on non-SMP VM");
-#endif
     }
 
     if (!prt)
@@ -1847,18 +1826,11 @@ int enif_is_process_alive(ErlNifEnv* env, ErlNifPid *proc)
     if (scheduler > 0)
 	return !!erts_proc_lookup(proc->pid);
     else {
-#ifdef ERTS_SMP
 	Process* rp = erts_pid2proc_opt(NULL, 0, proc->pid, 0,
 					ERTS_P2P_FLG_INC_REFC);
 	if (rp)
 	    erts_proc_dec_refc(rp);
 	return !!rp;
-#else
-	erts_exit(ERTS_ABORT_EXIT, "enif_is_process_alive: "
-		  "called from non-scheduler thread "
-                  "in non-smp emulator");
-	return 0;
-#endif
     }
 }
 
@@ -1874,17 +1846,10 @@ int enif_is_port_alive(ErlNifEnv *env, ErlNifPort *port)
     if (scheduler > 0)
 	return !!erts_port_lookup(port->port_id, iflags);
     else {
-#ifdef ERTS_SMP
 	Port *prt = erts_thr_port_lookup(port->port_id, iflags);
 	if (prt)
 	    erts_port_dec_refc(prt);
 	return !!prt;
-#else
-	erts_exit(ERTS_ABORT_EXIT, "enif_is_port_alive: "
-		  "called from non-scheduler thread "
-                  "in non-smp emulator");
-	return 0;
-#endif
     }
 }
 
@@ -2231,12 +2196,7 @@ static void destroy_one_monitor(ErtsMonitor* mon, void* context)
         rp = erts_proc_lookup(mon->u.pid);
     }
     else {
-#ifdef ERTS_SMP
         rp = erts_proc_lookup_inc_refc(mon->u.pid);
-#else
-        ASSERT(!"nif monitor destruction in non-scheduler thread");
-        rp = NULL;
-#endif
     }
 
     if (!rp) {
@@ -2252,10 +2212,8 @@ static void destroy_one_monitor(ErtsMonitor* mon, void* context)
             is_exiting = 0;
         }
         erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-#ifdef ERTS_SMP
         if (ctx->scheduler <= 0)
             erts_proc_dec_refc(rp);
-#endif
     }
     if (is_exiting) {
         ctx->resource->monitors->pending_failed_fire++;
@@ -2281,34 +2239,7 @@ static void destroy_all_monitors(ErtsMonitor* monitors, ErtsResource* resource)
 }
 
 
-#ifdef ERTS_SMP
 #  define NIF_RESOURCE_DTOR &nif_resource_dtor
-#else
-#  define NIF_RESOURCE_DTOR &nosmp_nif_resource_dtor_prologue
-
-/*
- * NO-SMP: Always run resource destructor on scheduler thread 
- *         as we may have to remove process monitors.
- */
-static int nif_resource_dtor(Binary*);
-
-static void nosmp_nif_resource_dtor_scheduled(void* vbin)
-{
-    erts_bin_free((Binary*)vbin);
-}
-
-static int nosmp_nif_resource_dtor_prologue(Binary* bin)
-{
-    if (is_scheduler()) {
-        return nif_resource_dtor(bin);
-    }
-    else {
-        erts_schedule_misc_aux_work(1, nosmp_nif_resource_dtor_scheduled, bin);
-        return 0; /* do not free */
-    }
-}
-
-#endif /* !ERTS_SMP */
 
 static int nif_resource_dtor(Binary* bin)
 {
@@ -3216,18 +3147,10 @@ int enif_monitor_process(ErlNifEnv* env, void* obj, const ErlNifPid* target_pid,
 
     execution_state(env, NULL, &scheduler);
 
-#ifdef ERTS_SMP
     if (scheduler > 0) /* Normal scheduler */
         rp = erts_proc_lookup_raw(target_pid->pid);
     else
         rp = erts_proc_lookup_raw_inc_refc(target_pid->pid);
-#else
-    if (scheduler <= 0) {
-        erts_exit(ERTS_ABORT_EXIT, "enif_monitor_process: called from "
-                  "non-scheduler thread on non-SMP VM");
-    }
-    rp = erts_proc_lookup(target_pid->pid);
-#endif
 
     if (!rp)
         return 1;
@@ -3247,10 +3170,8 @@ int enif_monitor_process(ErlNifEnv* env, void* obj, const ErlNifPid* target_pid,
     erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
     erts_smp_mtx_unlock(&rsrc->monitors->lock);
 
-#ifdef ERTS_SMP
     if (scheduler <= 0)
         erts_proc_dec_refc(rp);
-#endif
     if (monitor)
         erts_ref_to_driver_monitor(ref,monitor);
 
@@ -3289,18 +3210,10 @@ int enif_demonitor_process(ErlNifEnv* env, void* obj, const ErlNifMonitor* monit
     ASSERT(mon->type == MON_ORIGIN);
     ASSERT(is_internal_pid(mon->u.pid));
 
-#ifdef ERTS_SMP
     if (scheduler > 0) /* Normal scheduler */
         rp = erts_proc_lookup(mon->u.pid);
     else
         rp = erts_proc_lookup_inc_refc(mon->u.pid);
-#else
-    if (scheduler <= 0) {
-        erts_exit(ERTS_ABORT_EXIT, "enif_demonitor_process: called from "
-                  "non-scheduler thread on non-SMP VM");
-    }
-    rp = erts_proc_lookup(mon->u.pid);
-#endif
 
     if (!rp) {
         is_exiting = 1;
@@ -3316,10 +3229,8 @@ int enif_demonitor_process(ErlNifEnv* env, void* obj, const ErlNifMonitor* monit
         }
         erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 
-#ifdef ERTS_SMP
         if (scheduler <= 0)
             erts_proc_dec_refc(rp);
-#endif
     }
     if (is_exiting) {
         rsrc->monitors->pending_failed_fire++;

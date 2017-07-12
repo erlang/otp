@@ -808,7 +808,6 @@ void erts_init_node_tables(int dd_sec)
     references_atoms_need_init = 1;
 }
 
-#ifdef ERTS_SMP
 #ifdef ERTS_ENABLE_LOCK_CHECK
 int erts_lc_is_de_rwlocked(DistEntry *dep)
 {
@@ -818,7 +817,6 @@ int erts_lc_is_de_rlocked(DistEntry *dep)
 {
     return erts_smp_lc_rwmtx_is_rlocked(&dep->rwmtx);
 }
-#endif
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -1292,13 +1290,11 @@ init_referred_dist(void *dist, void *unused)
     no_referred_dists++;
 }
 
-#ifdef ERTS_SMP
 static void
 insert_sys_msg(Eterm from, Eterm to, Eterm msg, ErlHeapFragment *bp)
 {
     insert_offheap(&bp->off_heap, HEAP_REF, to);
 }
-#endif
 
 static void
 insert_delayed_delete_node(void *state,
@@ -1381,9 +1377,7 @@ setup_reference_table(void)
 	    int mli;
 	    ErtsMessage *msg_list[] = {
 		proc->msg.first,
-#ifdef ERTS_SMP
 		proc->msg_inq.first,
-#endif
 		proc->msg_frag};
 
 	    /* Insert Heap */
@@ -1430,9 +1424,7 @@ setup_reference_table(void)
 	}
     }
     
-#ifdef ERTS_SMP
     erts_foreach_sys_msg_in_q(insert_sys_msg);
-#endif
 
     /* Insert all ports */
     max = erts_ptab_max(&erts_port);

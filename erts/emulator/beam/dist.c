@@ -283,10 +283,8 @@ static void doit_monitor_net_exits(ErtsMonitor *mon, void *vnecp)
 	    watched = (is_atom(rmon->name)
 		       ? TUPLE2(lhp, rmon->name, dep->sysname)
 		       : rmon->u.pid);
-#ifdef ERTS_SMP
 	    rp_locks |= ERTS_PROC_LOCKS_MSG_SEND;
 	    erts_smp_proc_lock(rp, ERTS_PROC_LOCKS_MSG_SEND);
-#endif
 	    erts_queue_monitor_message(rp, &rp_locks, mon->ref, am_process, 
 				       watched, am_noconnection);
 	    erts_destroy_monitor(rmon);
@@ -2902,10 +2900,8 @@ BIF_RETTYPE dist_exit_3(BIF_ALIST_3)
 				     NIL,
 				     NULL,
 				     0);
-#ifdef ERTS_SMP
 	if (lp == BIF_P)
 	    lp_locks &= ~ERTS_PROC_LOCK_MAIN;
-#endif
 	erts_smp_proc_unlock(lp, lp_locks);
 	if (lp == BIF_P) {
 	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&BIF_P->state);
@@ -2913,10 +2909,8 @@ BIF_RETTYPE dist_exit_3(BIF_ALIST_3)
 	     * We may have exited current process and may have to take action.
 	     */
 	    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
-#ifdef ERTS_SMP
 		if (state & ERTS_PSFLG_PENDING_EXIT)
 		    erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
-#endif
 		ERTS_BIF_EXITED(BIF_P);
 	    }
 	}

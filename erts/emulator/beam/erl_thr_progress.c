@@ -80,7 +80,6 @@
 #include "erl_thr_progress.h"
 #include "global.h"
 
-#ifdef ERTS_SMP
 
 #define ERTS_THR_PRGR_DBG_CHK_WAKEUP_REQUEST_VALUE 0
 
@@ -1513,4 +1512,3 @@ void erts_thr_progress_dbg_print_state(void)
 
 }
 
-#endif

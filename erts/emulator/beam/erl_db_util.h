@@ -241,12 +241,10 @@ typedef struct db_table_common {
     erts_smp_refc_t fix_count;/* fixation counter */
     DbTableList all;
     DbTableList owned;
-#ifdef ERTS_SMP
     erts_smp_rwmtx_t rwlock;  /* rw lock on table */
     erts_smp_mtx_t fixlock;   /* Protects fixing_procs and time */
     int is_thread_safe;       /* No fine locking inside table needed */
     Uint32 type;              /* table type, *read only* after creation */
-#endif
     Eterm owner;              /* Pid of the creator */
     Eterm heir;               /* Pid of the heir */
     UWord heir_data;          /* To send in ETS-TRANSFER (is_immed or (DbTerm*) */

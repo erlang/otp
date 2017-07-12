@@ -86,22 +86,14 @@ ERTS_GLB_INLINE Uint64
 erts_smp_current_interval_nob(erts_interval_t *icp)
 {
     ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
     return erts_current_interval_nob__(icp);
-#else
-    return icp->counter.not_atomic;
-#endif
 }
 
 ERTS_GLB_INLINE Uint64
 erts_smp_current_interval_acqb(erts_interval_t *icp)
 {
     ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
     return erts_current_interval_acqb__(icp);
-#else
-    return icp->counter.not_atomic;
-#endif
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */

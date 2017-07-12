@@ -60,9 +60,6 @@
 #  define ERTS_GC_ASSERT(B) ((void) 1)
 #endif
 
-#if defined(DEBUG) && 0
-#  define HARDDEBUG 1
-#endif
 
 /*
  * Returns number of elements in an array.
@@ -3335,13 +3332,11 @@ erts_gc_info_request(Process *c_p)
 
     erts_proc_add_refc(c_p, (Sint) erts_no_schedulers);
 
-#ifdef ERTS_SMP
     if (erts_no_schedulers > 1)
 	erts_schedule_multi_misc_aux_work(1,
 					  erts_no_schedulers,
 					  reply_gc_info,
 					  (void *) gcirp);
-#endif
 
     reply_gc_info((void *) gcirp);
 

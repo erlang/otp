@@ -159,11 +159,7 @@ struct erl_msacc_t_ {
 
 #ifdef ERTS_ENABLE_MSACC
 
-#ifdef USE_THREADS
 extern erts_tsd_key_t erts_msacc_key;
-#else
-extern ErtsMsAcc *erts_msacc;
-#endif
 
 #ifdef ERTS_MSACC_ALWAYS_ON
 #define erts_msacc_enabled 1
@@ -171,13 +167,8 @@ extern ErtsMsAcc *erts_msacc;
 extern int erts_msacc_enabled;
 #endif
 
-#ifdef USE_THREADS
 #define ERTS_MSACC_TSD_GET() erts_tsd_get(erts_msacc_key)
 #define ERTS_MSACC_TSD_SET(tsd) erts_tsd_set(erts_msacc_key,tsd)
-#else
-#define ERTS_MSACC_TSD_GET() erts_msacc
-#define ERTS_MSACC_TSD_SET(tsd) erts_msacc = tsd
-#endif
 
 void erts_msacc_early_init(void);
 void erts_msacc_init(void);

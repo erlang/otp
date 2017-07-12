@@ -83,14 +83,6 @@
 #define ERTS_ALC_DEFAULT_ACUL_EHEAP_ALLOC ERTS_ALC_DEFAULT_ENABLED_ACUL_EHEAP_ALLOC
 #define ERTS_ALC_DEFAULT_ACUL_LL_ALLOC ERTS_ALC_DEFAULT_ENABLED_ACUL_LL_ALLOC
 
-#ifndef ERTS_SMP
-#  undef ERTS_ALC_DEFAULT_ACUL
-#  define ERTS_ALC_DEFAULT_ACUL 0
-#  undef ERTS_ALC_DEFAULT_ACUL_EHEAP_ALLOC
-#  define ERTS_ALC_DEFAULT_ACUL_EHEAP_ALLOC 0
-#  undef ERTS_ALC_DEFAULT_ACUL_LL_ALLOC
-#  define ERTS_ALC_DEFAULT_ACUL_LL_ALLOC 0
-#endif
 
 #ifdef DEBUG
 static Uint install_debug_functions(void);
@@ -528,7 +520,6 @@ set_default_test_alloc_opts(struct au_init *ip)
 }
 
 
-#ifdef ERTS_SMP
 
 static void
 adjust_tpref(struct au_init *ip, int no_sched)
@@ -551,7 +542,6 @@ adjust_tpref(struct au_init *ip, int no_sched)
     }
 }
 
-#endif
 
 static void handle_args(int *, char **, erts_alc_hndl_args_init_t *);
 
@@ -580,7 +570,6 @@ static void adjust_fix_alloc_sizes(UWord extra_block_size)
     if (extra_block_size && erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].enabled) {
 	int j;
 
-#ifdef ERTS_SMP
 	if (erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].thr_spec) {
 	    int i;
 	    ErtsAllocatorThrSpec_t* tspec;
@@ -596,7 +585,6 @@ static void adjust_fix_alloc_sizes(UWord extra_block_size)
 	    }
 	}
 	else
-#endif
 	{
 	    Allctr_t* allctr = erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].extra;
 	    for (j=0; j < ERTS_ALC_NO_FIXED_SIZES; ++j) {
@@ -619,7 +607,6 @@ strategy_support_carrier_migration(struct au_init *auip)
 static ERTS_INLINE void
 adjust_carrier_migration_support(struct au_init *auip)
 {
-#ifdef ERTS_SMP
     if (auip->init.util.acul) {
 	auip->thr_spec = -1; /* Need thread preferred */
 
@@ -633,9 +620,6 @@ adjust_carrier_migration_support(struct au_init *auip)
 	    auip->init.aoff.flavor = AOFF_BF;
 	}
     }
-#else
-    auip->init.util.acul = 0;
-#endif
 }
 
 void
@@ -668,10 +652,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
         = sizeof(ErtsNifSelectDataState);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MSG_REF)]
 	= sizeof(ErtsMessageRef);
-#ifdef ERTS_SMP
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_THR_Q_EL_SL)]
 	= sizeof(ErtsThrQElement_t);
-#endif
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_LL_PTIMER)]
 	= erts_timer_type_size(ERTS_ALC_T_LL_PTIMER);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_HL_PTIMER)]
@@ -734,20 +716,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 #endif
     }
 
-#ifndef ERTS_SMP
-    init.sl_alloc.thr_spec = 0;
-    init.std_alloc.thr_spec = 0;
-    init.ll_alloc.thr_spec = 0;
-    init.eheap_alloc.thr_spec = 0;
-    init.binary_alloc.thr_spec = 0;
-    init.ets_alloc.thr_spec = 0;
-    init.driver_alloc.thr_spec = 0;
-    init.fix_alloc.thr_spec = 0;
-    init.literal_alloc.thr_spec = 0;
-#ifdef ERTS_ALC_A_EXEC
-    init.exec_alloc.thr_spec = 0;
-#endif
-#endif
 
     /* Make adjustments for carrier migration support */
     init.temp_alloc.init.util.acul = 0;
@@ -798,7 +766,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 #endif
     }
 
-#ifdef ERTS_SMP
     /* Only temp_alloc can use thread specific interface */
     if (init.temp_alloc.thr_spec)
 	init.temp_alloc.thr_spec = erts_no_schedulers;
@@ -817,10 +784,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     adjust_tpref(&init.exec_alloc, erts_no_schedulers);
 #endif
 
-#else
-    /* No thread specific if not smp */
-    init.temp_alloc.thr_spec = 0;
-#endif
 
     /*
      * The following allocators cannot be run with afit strategy.
@@ -839,10 +802,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     refuse_af_strategy(&init.exec_alloc);
 #endif
 
-#ifdef ERTS_SMP 
     if (!init.temp_alloc.thr_spec)
 	refuse_af_strategy(&init.temp_alloc);
-#endif
 
     erts_mtrace_pre_init();
 #if HAVE_ERTS_MSEG
@@ -1006,8 +967,6 @@ set_au_allocator(ErtsAlcType_t alctr_n, struct au_init *init, int ncpu)
 	return;
     }
 
-#ifdef USE_THREADS
-#ifdef ERTS_SMP
     if (init->thr_spec) {
 	if (init->thr_spec > 0) {
 	    af->alloc = erts_alcu_alloc_thr_spec;
@@ -1037,7 +996,6 @@ set_au_allocator(ErtsAlcType_t alctr_n, struct au_init *init, int ncpu)
 	ai->thr_spec	= tspec->size;
     }
     else
-#endif
 	if (init->init.util.ts) {
 	af->alloc = erts_alcu_alloc_ts;
 	if (init->init.util.fix_type_size)
@@ -1049,21 +1007,9 @@ set_au_allocator(ErtsAlcType_t alctr_n, struct au_init *init, int ncpu)
 	af->free = erts_alcu_free_ts;
     }
     else
-#endif
     {
-#ifdef ERTS_SMP
         erts_exit(ERTS_ABORT_EXIT, "%salloc is not thread safe\n",
                  init->init.util.name_prefix);
-#else
-	af->alloc = erts_alcu_alloc;
-	if (init->init.util.fix_type_size)
-	    af->realloc = erts_realloc_fixed_size;
-	else if (init->init.util.ramv)
-	    af->realloc = erts_alcu_realloc_mv;
-	else
-	    af->realloc = erts_alcu_realloc;
-	af->free = erts_alcu_free;
-#endif
     }
     af->extra	= NULL;
     ai->alloc_util	= 1;
@@ -1915,7 +1861,6 @@ erts_alloc_register_scheduler(void *vesdp)
     }
 }
 
-#ifdef ERTS_SMP
 void
 erts_alloc_scheduler_handle_delayed_dealloc(void *vesdp,
 					    int *need_thr_progress,
@@ -1944,12 +1889,10 @@ erts_alloc_scheduler_handle_delayed_dealloc(void *vesdp,
 	}
     }
 }
-#endif
 
 erts_aint32_t
 erts_alloc_fix_alloc_shrink(int ix, erts_aint32_t flgs)
 {
-#ifdef ERTS_SMP
     ErtsAllocatorThrSpec_t *tspec;
     tspec = &erts_allctr_thr_spec[ERTS_ALC_A_FIXED_SIZE];
     if (erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].thr_spec && tspec->enabled)
@@ -1957,11 +1900,6 @@ erts_alloc_fix_alloc_shrink(int ix, erts_aint32_t flgs)
     if (ix == 0 && erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].extra)
 	return erts_alcu_fix_alloc_shrink(
 	    erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].extra, flgs);
-#else
-    if (ix == 1 && erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].extra)
-	return erts_alcu_fix_alloc_shrink(
-	    erts_allctrs_info[ERTS_ALC_A_FIXED_SIZE].extra, flgs);
-#endif
     return 0;
 }
 
@@ -2845,11 +2783,7 @@ erts_allocator_info(fmtfn_t to, void *arg)
 #if HAVE_ERTS_MSEG
     {
 	struct erts_mmap_info_struct emis;
-#ifdef ERTS_SMP
 	int max = (int) erts_no_schedulers;
-#else
-	int max = 0;
-#endif
 	int i;
 	for (i = 0; i <= max; i++) {
 	    erts_print(to, arg, "=allocator:mseg_alloc[%d]\n", i);
@@ -3451,13 +3385,11 @@ erts_request_alloc_info(struct process *c_p,
 
     erts_proc_add_refc(c_p, (Sint) erts_no_schedulers);
 
-#ifdef ERTS_SMP
     if (erts_no_schedulers > 1)
 	erts_schedule_multi_misc_aux_work(1,
 					  erts_no_schedulers,
 					  reply_alloc_info,
 					  (void *) air);
-#endif
 
     reply_alloc_info((void *) air);
 
@@ -3532,35 +3464,29 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
     case 0xf:
 	switch (op) {
 	case 0xf00:
-#ifdef USE_THREADS
 	    if (((Allctr_t *) a1)->thread_safe)
 		return (UWord) erts_alcu_alloc_ts(ERTS_ALC_T_UNDEF,
 							  (void *) a1,
 							  (Uint) a2);
 	    else
-#endif
 		return (UWord) erts_alcu_alloc(ERTS_ALC_T_UNDEF,
 						       (void *) a1,
 						       (Uint) a2);
 	case 0xf01:
-#ifdef USE_THREADS
 	    if (((Allctr_t *) a1)->thread_safe)
 		return (UWord) erts_alcu_realloc_ts(ERTS_ALC_T_UNDEF,
 							    (void *) a1,
 							    (void *) a2,
 							    (Uint) a3);
 	    else
-#endif
 		return (UWord) erts_alcu_realloc(ERTS_ALC_T_UNDEF,
 							 (void *) a1,
 							 (void *) a2,
 							 (Uint) a3);
 	case 0xf02:
-#ifdef USE_THREADS
 	    if (((Allctr_t *) a1)->thread_safe)
 		erts_alcu_free_ts(ERTS_ALC_T_UNDEF, (void *) a1, (void *) a2);
 	    else
-#endif
 		erts_alcu_free(ERTS_ALC_T_UNDEF, (void *) a1, (void *) a2);
 	    return 0;
 	case 0xf03: {
@@ -3571,11 +3497,7 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 	    init.enable = 1;
 	    init.atype = GOODFIT;
 	    init.init.util.name_prefix = (char *) a1;
-#ifdef ERTS_SMP
 	    init.init.util.ts = 1;
-#else
-            init.init.util.ts = a2 ? 1 : 0;
-#endif
 	    if ((char **) a3) {
 		char **argv = (char **) a3;
 		int i = 0;
@@ -3630,7 +3552,6 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 	    erts_alcu_stop((Allctr_t *) a1);
 	    erts_free(ERTS_ALC_T_UNDEF, (void *) a1);
 	    break;
-#ifdef USE_THREADS
 	case 0xf05: return (UWord) 1;
 	case 0xf06: return (UWord) ((Allctr_t *) a1)->thread_safe;
 #ifdef ETHR_NO_FORKSAFETY
@@ -3700,12 +3621,7 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 	    ethr_thr_exit((void *) a1);
 	    ERTS_ALC_TEST_ABORT;
 	    break;
-#endif /* #ifdef USE_THREADS */
-#ifdef ERTS_SMP
 	case 0xf13: return (UWord) 1;
-#else
-	case 0xf13: return (UWord) 0;
-#endif
 	case 0xf14: return (UWord) erts_alloc(ERTS_ALC_T_TEST, (Uint)a1);
 
 	case 0xf15: erts_free(ERTS_ALC_T_TEST, (void*)a1); return 0;
@@ -3909,10 +3825,8 @@ void check_allocators(void)
 	    ErtsAllocatorFunctions_t *real_af = (ErtsAllocatorFunctions_t *) erts_allctrs[i].extra;
 	    Allctr_t *allctr = real_af->extra;
 	    Carrier_t *ct;
-#ifdef USE_THREADS
 	if (allctr->thread_safe)
 	    erts_mtx_lock(&allctr->mutex);
-#endif
 
 	    if (allctr->check_mbc) {
 		for (ct = allctr->mbc_list.first; ct; ct = ct->next) {
@@ -3920,10 +3834,8 @@ void check_allocators(void)
 		    allctr->check_mbc(allctr,ct);
 		}
 	    }
-#ifdef USE_THREADS
 	if (allctr->thread_safe)
 	    erts_mtx_unlock(&allctr->mutex);
-#endif
 	}
     }
 }

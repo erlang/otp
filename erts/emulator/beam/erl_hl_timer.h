@@ -63,13 +63,11 @@ void erts_hl_timer_init(void);
 void erts_start_timer_callback(ErtsMonotonicTime,
 			       void (*)(void *),
 			       void *);
-#ifdef ERTS_SMP
 void
 erts_handle_canceled_timers(void *vesdp,
 			    int *need_thr_progress,
 			    ErtsThrPrgrVal *thr_prgr_p,
 			    int *need_more_work);
-#endif
 
 Uint erts_bif_timer_memory_size(void);
 void erts_print_bif_timer_info(fmtfn_t to, void *to_arg);

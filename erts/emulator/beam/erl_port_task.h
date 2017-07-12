@@ -125,9 +125,7 @@ typedef struct {
 	ErtsPortTaskBusyPortQ *bpq;
     } taskq;
     erts_smp_atomic32_t flags;
-#ifdef ERTS_SMP
     erts_mtx_t mtx;
-#endif
 } ErtsPortTaskSched;
 
 ERTS_GLB_INLINE void erts_port_task_handle_init(ErtsPortTaskHandle *pthp);
@@ -175,9 +173,7 @@ ERTS_GLB_INLINE void erts_port_task_pre_init_sched(ErtsPortTaskSched *ptsp,
 ERTS_GLB_INLINE void
 erts_port_task_init_sched(ErtsPortTaskSched *ptsp, Eterm instr_id)
 {
-#ifdef ERTS_SMP
     char *lock_str = "port_sched_lock";
-#endif
     ptsp->next = NULL;
     ptsp->taskq.local.busy.first = NULL;
     ptsp->taskq.local.busy.last = NULL;
@@ -187,25 +183,19 @@ erts_port_task_init_sched(ErtsPortTaskSched *ptsp, Eterm instr_id)
     ptsp->taskq.in.first = NULL;
     ptsp->taskq.in.last = NULL;
     erts_smp_atomic32_init_nob(&ptsp->flags, 0);
-#ifdef ERTS_SMP
     erts_mtx_init(&ptsp->mtx, lock_str, instr_id, ERTS_LOCK_FLAGS_CATEGORY_IO);
-#endif
 }
 
 ERTS_GLB_INLINE void
 erts_port_task_sched_lock(ErtsPortTaskSched *ptsp)
 {
-#ifdef ERTS_SMP
     erts_mtx_lock(&ptsp->mtx);
-#endif
 }
 
 ERTS_GLB_INLINE void
 erts_port_task_sched_unlock(ErtsPortTaskSched *ptsp)
 {
-#ifdef ERTS_SMP
     erts_mtx_unlock(&ptsp->mtx);
-#endif
 }
 
 ERTS_GLB_INLINE int
@@ -222,9 +212,7 @@ erts_port_task_sched_lock_is_locked(ErtsPortTaskSched *ptsp)
 ERTS_GLB_INLINE void
 erts_port_task_fini_sched(ErtsPortTaskSched *ptsp)
 {
-#ifdef ERTS_SMP
     erts_mtx_destroy(&ptsp->mtx);
-#endif
 }
 
 ERTS_GLB_INLINE void
@@ -265,10 +253,8 @@ ErtsProc2PortSigData *erts_port_task_alloc_p2p_sig_data(void);
 ErtsProc2PortSigData *erts_port_task_alloc_p2p_sig_data_extra(size_t extra, void **extra_ptr);
 void erts_port_task_free_p2p_sig_data(ErtsProc2PortSigData *sigdp);
 
-#ifdef ERTS_SMP
 void erts_enqueue_port(ErtsRunQueue *rq, Port *pp);
 Port *erts_dequeue_port(ErtsRunQueue *rq);
-#endif
 #undef ERTS_INCLUDE_SCHEDULER_INTERNALS
 #endif /* ERL_PORT_TASK_H__ */
 #endif /* ERTS_PORT_TASK_ONLY_BASIC_TYPES__ */

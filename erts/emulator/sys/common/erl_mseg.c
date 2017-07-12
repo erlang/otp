@@ -188,7 +188,6 @@ typedef union {
 static int no_mseg_allocators;
 static ErtsAlgndMsegAllctr_t *aligned_mseg_allctr;
 
-#ifdef ERTS_SMP
 
 #define ERTS_MSEG_ALLCTR_IX(IX) \
   (&aligned_mseg_allctr[(IX)].mseg_alloc)
@@ -199,18 +198,6 @@ static ErtsAlgndMsegAllctr_t *aligned_mseg_allctr;
 #define ERTS_MSEG_ALLCTR_OPT(OPT) \
   ((OPT)->sched_spec ? ERTS_MSEG_ALLCTR_SS() : ERTS_MSEG_ALLCTR_IX(0))
 
-#else
-
-#define ERTS_MSEG_ALLCTR_IX(IX) \
-  (&aligned_mseg_allctr[0].mseg_alloc)
-
-#define ERTS_MSEG_ALLCTR_SS() \
-  (&aligned_mseg_allctr[0].mseg_alloc)
-
-#define ERTS_MSEG_ALLCTR_OPT(OPT) \
-  (&aligned_mseg_allctr[0].mseg_alloc)
-
-#endif
 
 #define ERTS_MSEG_LOCK(MA)		\
 do {					\
@@ -1404,11 +1391,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
     int i;
     UWord x;
 
-#ifdef ERTS_SMP
     no_mseg_allocators = init->nos + 1;
-#else
-    no_mseg_allocators = 1;
-#endif
 
     x = (UWord) malloc(sizeof(ErtsAlgndMsegAllctr_t)
 		       *no_mseg_allocators

@@ -110,11 +110,6 @@ extern void (*hipe_handle_stack_trap(Process*))(void);
 extern void hipe_update_stack_trap(Process*, const struct hipe_sdesc*);
 extern int hipe_fill_stacktrace(Process*, int, Eterm**);
 
-#if 0 && defined(HIPE_NSTACK_GROWS_UP)
-#define hipe_nstack_start(p)	((p)->hipe.nstack)
-#define hipe_nstack_used(p)	((p)->hipe.nsp - (p)->hipe.nstack)
-#define hipe_nstack_avail(p)	((p)->hipe.nstend - (p)->hipe.nsp)
-#endif
 #if defined(HIPE_NSTACK_GROWS_DOWN)
 #define hipe_nstack_start(p)	((p)->hipe.nsp)
 #define hipe_nstack_used(p)	((p)->hipe.nstend - (p)->hipe.nsp)

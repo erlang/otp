@@ -265,7 +265,6 @@ struct m {
 };
 
 static Eterm staging_epilogue(Process* c_p, int, Eterm res, int, struct m*, int, int);
-#ifdef ERTS_SMP
 static void smp_code_ix_commiter(void*);
 
 static struct /* Protected by code_write_permission */
@@ -273,7 +272,6 @@ static struct /* Protected by code_write_permission */
     Process* stager;
     ErtsThrPrgrLaterOp lop;
 } committer_state;
-#endif
 
 static Eterm
 exception_list(Process* p, Eterm tag, struct m* mp, Sint exceptions)
@@ -465,9 +463,7 @@ static Eterm
 staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 		 struct m* mods, int nmods, int free_mods)
 {    
-#ifdef ERTS_SMP
     if (is_blocking || !commit)
-#endif
     {
 	if (commit) {
 	    int i;
@@ -496,7 +492,6 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	erts_release_code_write_permission();
 	return res;
     }
-#ifdef ERTS_SMP
     else {
 	ASSERT(is_value(res));
 
@@ -521,11 +516,9 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	 */
 	ERTS_BIF_YIELD_RETURN(c_p, res);
     }
-#endif
 }
 
 
-#ifdef ERTS_SMP
 static void smp_code_ix_commiter(void* null)
 {
     Process* p = committer_state.stager;
@@ -542,7 +535,6 @@ static void smp_code_ix_commiter(void* null)
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     erts_proc_dec_refc(p);
 }
-#endif /* ERTS_SMP */
 
 
 
@@ -1312,7 +1304,6 @@ hfrag_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
     }
 }
 
-#ifdef ERTS_SMP
 
 ErtsThrPrgrLaterOp later_literal_area_switch;
 
@@ -1340,7 +1331,6 @@ complete_literal_area_switch(void *literal_area)
     if (literal_area)
 	erts_release_literal_area((ErtsLiteralArea *) literal_area);
 }
-#endif
 
 BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
 {
@@ -1366,7 +1356,6 @@ BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
     if (!la_ref) {
 	ERTS_SET_COPY_LITERAL_AREA(NULL);
 	if (unused_la) {
-#ifdef ERTS_SMP
 	    ErtsLaterReleasLiteralArea *lrlap;
 	    lrlap = erts_alloc(ERTS_ALC_T_RELEASE_LAREA,
 			       sizeof(ErtsLaterReleasLiteralArea));
@@ -1380,9 +1369,6 @@ BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
 		 + ((unused_la->end
 		     - &unused_la->start[0])
 		    - 1)*(sizeof(Eterm))));
-#else
-	    erts_release_literal_area(unused_la);
-#endif
 	}
 	BIF_RET(am_false);
     }
@@ -1391,16 +1377,11 @@ BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
 
     erts_free(ERTS_ALC_T_LITERAL_REF, la_ref);
 
-#ifdef ERTS_SMP
     erts_schedule_thr_prgr_later_op(complete_literal_area_switch,
 				    unused_la,
 				    &later_literal_area_switch);
     erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
     ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
-#else
-    erts_release_literal_area(unused_la);
-    BIF_RET(am_true);
-#endif
 
 }
 
@@ -1506,7 +1487,6 @@ finalize_purge_operation(Process *c_p, int succeded)
     purge_state.fe_ix = 0;
 }
 
-#ifdef ERTS_SMP
 
 static ErtsThrPrgrLaterOp purger_lop_data;
 
@@ -1529,7 +1509,6 @@ finalize_purge_abort(void *unused)
     resume_purger(NULL);
 }
 
-#endif /* ERTS_SMP */
 
 BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 {
@@ -1604,9 +1583,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    }
 	}
 	
-#ifndef ERTS_SMP
-	BIF_RET(res);
-#else
 	if (res != am_true)
 	    BIF_RET(res);
 	else {
@@ -1625,7 +1601,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
 	    ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
 	}
-#endif
     }
 
     case am_abort: {
@@ -1639,11 +1614,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 
 	erts_fun_purge_abort_prepare(purge_state.funs, purge_state.fe_ix);
 
-#ifndef ERTS_SMP
-	erts_fun_purge_abort_finalize(purge_state.funs, purge_state.fe_ix);
-	finalize_purge_operation(BIF_P, 0);
-	BIF_RET(am_false);
-#else
 	/*
 	 * We need to restore the code addresses of the funs in
 	 * two stages in order to ensure that we do not get any
@@ -1659,7 +1629,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 					&purger_lop_data);
 	erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
 	ERTS_BIF_YIELD_RETURN(BIF_P, am_false);
-#endif
     }
 
     case am_complete: {

@@ -96,12 +96,8 @@ typedef enum {
 
 #define ERTS_BIF_TIMER_SHORT_TIME 5000
 
-#ifdef ERTS_SMP
 #  define ERTS_HLT_SMP_MEMBAR_LoadLoad_LoadStore \
     ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore)
-#else
-#  define ERTS_HLT_SMP_MEMBAR_LoadLoad_LoadStore
-#endif
 
 /* Bit 0 to 9 contains scheduler id (see mask below) */
 #define ERTS_TMR_ROFLG_HLT		(((Uint32) 1) << 10)
@@ -269,7 +265,6 @@ typedef struct {
     erts_atomic_t last;
 } ErtsHLTCncldTmrQTail;
 
-#ifdef ERTS_SMP
 
 typedef struct {
     /*
@@ -301,7 +296,6 @@ typedef struct {
     } head;
 } ErtsHLTCncldTmrQ;
 
-#endif /* ERTS_SMP */
 
 typedef struct {
     ErtsHLTimer *root;
@@ -309,9 +303,7 @@ typedef struct {
 } ErtsYieldingTimeoutState;
 
 struct ErtsHLTimerService_ {
-#ifdef ERTS_SMP
     ErtsHLTCncldTmrQ canceled_queue;
-#endif
     ErtsHLTimer *time_tree;
 #ifndef ERTS_MAGIC_REF_BIF_TIMERS
     ErtsBifTimer *btm_tree;
@@ -720,9 +712,7 @@ proc_btm_list_foreach_destroy_yielding(ErtsBifTimer **list,
 
 #endif /* !ERTS_MAGIC_REF_BIF_TIMERS */
 
-#ifdef ERTS_SMP
 static void init_canceled_queue(ErtsHLTCncldTmrQ *cq);
-#endif
 
 void
 erts_hl_timer_init(void)
@@ -747,9 +737,7 @@ erts_create_timer_service(void)
     srv->yield = init_yield;
     erts_twheel_init_timer(&srv->service_timer);
 
-#ifdef ERTS_SMP
     init_canceled_queue(&srv->canceled_queue);
-#endif
 
     return srv;
 }
@@ -1186,7 +1174,6 @@ hl_timer_dec_refc(ErtsHLTimer *tmr, Uint32 roflgs)
 }
 
 static void hlt_service_timeout(void *vesdp);
-#ifdef ERTS_SMP
 static void handle_canceled_queue(ErtsSchedulerData *esdp,
 				  ErtsHLTCncldTmrQ *cq,
 				  int use_limit,
@@ -1194,7 +1181,6 @@ static void handle_canceled_queue(ErtsSchedulerData *esdp,
 				  int *need_thr_progress,
 				  ErtsThrPrgrVal *thr_prgr_p,
 				  int *need_more_work);
-#endif
 
 static ERTS_INLINE void
 check_canceled_queue(ErtsSchedulerData *esdp, ErtsHLTimerService *srv)
@@ -1663,7 +1649,6 @@ cleanup_sched_local_canceled_timer(ErtsSchedulerData *esdp,
     }
 }
 
-#ifdef ERTS_SMP
 
 static void
 init_canceled_queue(ErtsHLTCncldTmrQ *cq)
@@ -1886,31 +1871,24 @@ erts_handle_canceled_timers(void *vesdp,
 			  need_more_work);
 }
 
-#endif /* ERTS_SMP */
 
 static void
 queue_canceled_timer(ErtsSchedulerData *esdp, int rsched_id, ErtsTimer *tmr)
 {
-#ifdef ERTS_SMP
     ErtsHLTCncldTmrQ *cq;
     cq = &ERTS_SCHEDULER_IX(rsched_id-1)->timer_service->canceled_queue;
     if (cq_enqueue(cq, tmr, rsched_id - (int) esdp->no))
 	erts_notify_canceled_timer(esdp, rsched_id);
-#else
-    ERTS_INTERNAL_ERROR("Unexpected enqueue of canceled timer");
-#endif
 }
 
 static void
 continue_cancel_ptimer(ErtsSchedulerData *esdp, ErtsTimer *tmr)
 {
-#ifdef ERTS_SMP
     Uint32 sid = (tmr->head.roflgs & ERTS_TMR_ROFLG_SID_MASK);
 
     if (esdp->no != sid)
 	queue_canceled_timer(esdp, sid, tmr);
     else
-#endif
 	cleanup_sched_local_canceled_timer(esdp, tmr);
 }
 

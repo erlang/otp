@@ -455,7 +455,6 @@ void erts_proc_lc_unrequire_lock(Process *p, ErtsProcLocks locks);
 #ifndef ERTS_PROCESS_LOCK_H__
 #define ERTS_PROCESS_LOCK_H__
 
-#ifdef ERTS_SMP
 
 typedef struct {
     union {
@@ -947,7 +946,6 @@ erts_proc_lock_op_debug(Process *p, ErtsProcLocks locks, int locked)
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#endif /* ERTS_SMP */
 
 #ifdef ERTS_ENABLE_LOCK_POSITION
 ERTS_GLB_INLINE void erts_smp_proc_lock_x(Process *, ErtsProcLocks, char *file, unsigned int line);
@@ -979,7 +977,7 @@ erts_smp_proc_lock(Process *p, ErtsProcLocks locks)
 			 ERTS_PID2PIXLOCK(p->common.id),
 #endif /*ERTS_PROC_LOCK_ATOMIC_IMPL*/
 			 locks, file, line);
-#elif defined(ERTS_SMP)
+#else
     erts_smp_proc_lock__(p,
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
 			 NULL,
@@ -993,7 +991,6 @@ erts_smp_proc_lock(Process *p, ErtsProcLocks locks)
 ERTS_GLB_INLINE void
 erts_smp_proc_unlock(Process *p, ErtsProcLocks locks)
 {
-#ifdef ERTS_SMP
     erts_smp_proc_unlock__(p,
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
 			   NULL,
@@ -1001,15 +998,11 @@ erts_smp_proc_unlock(Process *p, ErtsProcLocks locks)
 			   ERTS_PID2PIXLOCK(p->common.id),
 #endif
 			   locks);
-#endif
 }
 
 ERTS_GLB_INLINE int
 erts_smp_proc_trylock(Process *p, ErtsProcLocks locks)
 {
-#ifndef ERTS_SMP
-    return 0;
-#else
     return erts_smp_proc_trylock__(p,
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
 				   NULL,
@@ -1017,28 +1010,19 @@ erts_smp_proc_trylock(Process *p, ErtsProcLocks locks)
 				   ERTS_PID2PIXLOCK(p->common.id),
 #endif
 				   locks);
-#endif
 }
 
 ERTS_GLB_INLINE void erts_proc_inc_refc(Process *p)
 {
     ASSERT(!(erts_smp_atomic32_read_nob(&p->state) & ERTS_PSFLG_PROXY));
-#ifdef ERTS_SMP
     erts_ptab_atmc_inc_refc(&p->common);
-#else
-    erts_ptab_inc_refc(&p->common);
-#endif
 }
 
 ERTS_GLB_INLINE void erts_proc_dec_refc(Process *p)
 {
     Sint referred;
     ASSERT(!(erts_smp_atomic32_read_nob(&p->state) & ERTS_PSFLG_PROXY));
-#ifdef ERTS_SMP
     referred = erts_ptab_atmc_dec_test_refc(&p->common);
-#else
-    referred = erts_ptab_dec_test_refc(&p->common);
-#endif
     if (!referred) {
 	ASSERT(ERTS_PROC_IS_EXITING(p));
 	erts_free_proc(p);
@@ -1049,11 +1033,7 @@ ERTS_GLB_INLINE void erts_proc_add_refc(Process *p, Sint add_refc)
 {
     Sint referred;
     ASSERT(!(erts_smp_atomic32_read_nob(&p->state) & ERTS_PSFLG_PROXY));
-#ifdef ERTS_SMP
     referred = erts_ptab_atmc_add_test_refc(&p->common, add_refc);
-#else
-    referred = erts_ptab_add_test_refc(&p->common, add_refc);
-#endif
     if (!referred) {
 	ASSERT(ERTS_PROC_IS_EXITING(p));
 	erts_free_proc(p);
@@ -1063,16 +1043,11 @@ ERTS_GLB_INLINE void erts_proc_add_refc(Process *p, Sint add_refc)
 ERTS_GLB_INLINE Sint erts_proc_read_refc(Process *p)
 {
     ASSERT(!(erts_smp_atomic32_read_nob(&p->state) & ERTS_PSFLG_PROXY));
-#ifdef ERTS_SMP
     return erts_ptab_atmc_read_refc(&p->common);
-#else
-    return erts_ptab_read_refc(&p->common);
-#endif
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#ifdef ERTS_SMP
 void erts_proc_lock_init(Process *);
 void erts_proc_lock_fin(Process *);
 void erts_proc_safelock(Process *a_proc,
@@ -1081,7 +1056,6 @@ void erts_proc_safelock(Process *a_proc,
 			Process *b_proc,
 			ErtsProcLocks b_have_locks,
 			ErtsProcLocks b_need_locks);
-#endif
 
 /*
  * --- Process table lookup ------------------------------------------------
@@ -1113,9 +1087,6 @@ ERTS_GLB_INLINE Process *erts_pix2proc(int ix);
 ERTS_GLB_INLINE Process *erts_proc_lookup_raw(Eterm pid);
 ERTS_GLB_INLINE Process *erts_proc_lookup(Eterm pid);
 
-#ifndef ERTS_SMP
-ERTS_GLB_INLINE
-#endif
 Process *erts_pid2proc_opt(Process *, ErtsProcLocks, Eterm, ErtsProcLocks, int);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -1152,25 +1123,6 @@ ERTS_GLB_INLINE Process *erts_proc_lookup(Eterm pid)
     return proc;
 }
 
-#ifndef ERTS_SMP
-ERTS_GLB_INLINE Process *
-erts_pid2proc_opt(Process *c_p_unused,
-		  ErtsProcLocks c_p_have_locks_unused,
-		  Eterm pid,
-		  ErtsProcLocks pid_need_locks_unused,
-		  int flags)
-{
-    Process *proc = erts_proc_lookup_raw(pid);
-    if (!proc)
-	return NULL;
-    if (!(flags & ERTS_P2P_FLG_ALLOW_OTHER_X)
-	&& ERTS_PROC_IS_EXITING(proc))
-	return NULL;
-    if (flags & ERTS_P2P_FLG_INC_REFC)
-	erts_proc_inc_refc(proc);
-    return proc;
-}
-#endif /* !ERTS_SMP */
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 

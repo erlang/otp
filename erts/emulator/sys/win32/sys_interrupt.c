@@ -35,17 +35,11 @@
 #  define WIN_SYS_INLINE __forceinline
 #endif
 
-#ifdef ERTS_SMP
 erts_smp_atomic32_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
   erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
   erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
-#else
-volatile int erts_break_requested = 0;
-#define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
-#define ERTS_UNSET_BREAK_REQUESTED (erts_break_requested = 0)
-#endif
 
 extern int nohup;
 HANDLE erts_sys_break_event = NULL;

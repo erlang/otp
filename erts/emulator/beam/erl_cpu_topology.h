@@ -60,11 +60,9 @@ int erts_init_scheduler_bind_type_string(char *how);
 int erts_init_cpu_topology_string(char *topology_str);
 
 void erts_sched_check_cpu_bind(ErtsSchedulerData *esdp);
-#ifdef ERTS_SMP
 void erts_sched_init_check_cpu_bind(ErtsSchedulerData *esdp);
 void erts_sched_check_cpu_bind_prep_suspend(ErtsSchedulerData *esdp);
 void erts_sched_check_cpu_bind_post_suspend(ErtsSchedulerData *esdp);
-#endif
 
 int erts_update_cpu_info(void);
 

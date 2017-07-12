@@ -86,11 +86,9 @@ typedef struct {
     Sint patches;		/* Index (into code buffer) to first location
 				 * which must be patched with the value of this label.
 				 */
-#ifdef ERTS_SMP
     Uint looprec_targeted;	/* Non-zero if this label is the target of a loop_rec
 				 * instruction.
 				 */
-#endif
 } Label;
 
 /*
@@ -1875,9 +1873,7 @@ read_code_header(LoaderState* stp)
     for (i = 0; i < stp->num_labels; i++) {
 	stp->labels[i].value = 0;
 	stp->labels[i].patches = -1;
-#ifdef ERTS_SMP
 	stp->labels[i].looprec_targeted = 0;
-#endif
     }
 
     stp->catches = 0;
@@ -3389,11 +3385,7 @@ negation_is_small(LoaderState* stp, GenOpArg Int)
 static int
 smp(LoaderState* stp)
 {
-#ifdef ERTS_SMP
     return 1;
-#else
-    return 0;
-#endif
 }
 
 /*
@@ -3402,10 +3394,8 @@ smp(LoaderState* stp)
 static int
 smp_mark_target_label(LoaderState* stp, GenOpArg L)
 {
-#ifdef ERTS_SMP
     ASSERT(L.type == TAG_f);
     stp->labels[L.val].looprec_targeted = 1;
-#endif
     return 1;
 }
 
@@ -3416,12 +3406,8 @@ smp_mark_target_label(LoaderState* stp, GenOpArg L)
 static int
 smp_already_locked(LoaderState* stp, GenOpArg L)
 {
-#ifdef ERTS_SMP
     ASSERT(L.type == TAG_u);
     return stp->labels[L.val].looprec_targeted;
-#else
-    return 0;
-#endif
 }
 
 /*

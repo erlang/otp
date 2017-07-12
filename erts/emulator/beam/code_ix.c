@@ -115,9 +115,7 @@ void erts_abort_staging_code_ix(void)
 int erts_try_seize_code_write_permission(Process* c_p)
 {
     int success;
-#ifdef ERTS_SMP
     ASSERT(!erts_smp_thr_progress_is_blocking()); /* to avoid deadlock */
-#endif
     ASSERT(c_p != NULL);
 
     erts_smp_mtx_lock(&code_write_permission_mtx);

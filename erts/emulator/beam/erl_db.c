@@ -61,15 +61,9 @@ enum DbIterSafety {
     ITER_SAFE_LOCKED, /* Safe while table is locked, not between trap calls */
     ITER_SAFE         /* No need to fixate at all */
 };
-#ifdef ERTS_SMP
 #  define ITERATION_SAFETY(Proc,Tab) \
     ((IS_TREE_TABLE((Tab)->common.status) || ONLY_WRITER(Proc,Tab)) ? ITER_SAFE \
      : (((Tab)->common.status & DB_FINE_LOCKED) ? ITER_UNSAFE : ITER_SAFE_LOCKED))
-#else
-#  define ITERATION_SAFETY(Proc,Tab) \
-    ((IS_TREE_TABLE((Tab)->common.status) || ONLY_WRITER(Proc,Tab)) \
-     ? ITER_SAFE : ITER_SAFE_LOCKED)
-#endif
 
 #define DID_TRAP(P,Ret) (!is_value(Ret) && ((P)->freason == TRAP))
 
@@ -264,11 +258,7 @@ is_table_alive(DbTable *tb)
 static ERTS_INLINE int
 is_table_named(DbTable *tb)
 {
-#ifdef ERTS_SMP
     return tb->common.type & DB_NAMED_TABLE;
-#else
-    return tb->common.status & DB_NAMED_TABLE;
-#endif
 }
 
 
@@ -297,13 +287,11 @@ make_tid(Process *c_p, DbTable *tb)
 /* 
 ** The meta hash table of all NAMED ets tables
 */
-#ifdef ERTS_SMP
 #  define META_NAME_TAB_LOCK_CNT 16
 union {
     erts_smp_rwmtx_t lck;
     byte _cache_line_alignment[64];
 }meta_name_tab_rwlocks[META_NAME_TAB_LOCK_CNT];
-#endif
 static struct meta_name_tab_entry {
     union {
 	Eterm name_atom;
@@ -323,9 +311,7 @@ struct meta_name_tab_entry* meta_name_tab_bucket(Eterm name,
 {
     unsigned bix = atom_val(name) & meta_name_tab_mask;
     struct meta_name_tab_entry* bucket = &meta_name_tab[bix];
-#ifdef ERTS_SMP
     *lockp = &meta_name_tab_rwlocks[bix % META_NAME_TAB_LOCK_CNT].lck;
-#endif
     return bucket;
 }    
 
@@ -396,10 +382,8 @@ free_dbtable(void *vtb)
 			 tb->common.fixations);
 	}
 #endif
-#ifdef ERTS_SMP
 	erts_smp_rwmtx_destroy(&tb->common.rwlock);
 	erts_smp_mtx_destroy(&tb->common.fixlock);
-#endif
 	ASSERT(is_immed(tb->common.heir_data));
 
         if (tb->common.btid)
@@ -577,25 +561,20 @@ delete_owned_table(Process *p, DbTable *tb)
 
 static ERTS_INLINE void db_init_lock(DbTable* tb, int use_frequent_read_lock)
 {
-#ifdef ERTS_SMP
     erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     if (use_frequent_read_lock)
 	rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
     if (erts_ets_rwmtx_spin_count >= 0)
 	rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
-#endif
-#ifdef ERTS_SMP
     erts_smp_rwmtx_init_opt(&tb->common.rwlock, &rwmtx_opt, "db_tab",
         tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
     erts_smp_mtx_init(&tb->common.fixlock, "db_tab_fix",
         tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
     tb->common.is_thread_safe = !(tb->common.status & DB_FINE_LOCKED);
-#endif
 }
 
 static ERTS_INLINE void db_lock(DbTable* tb, db_lock_kind_t kind)
 {
-#ifdef ERTS_SMP
     if (tb->common.type & DB_FINE_LOCKED) {
 	if (kind == LCK_WRITE) {	   
 	    erts_smp_rwmtx_rwlock(&tb->common.rwlock);
@@ -617,7 +596,6 @@ static ERTS_INLINE void db_lock(DbTable* tb, db_lock_kind_t kind)
 	}
 	ASSERT(tb->common.is_thread_safe);
     }
-#endif
 }
 
 static ERTS_INLINE void db_unlock(DbTable* tb, db_lock_kind_t kind)
@@ -627,7 +605,6 @@ static ERTS_INLINE void db_unlock(DbTable* tb, db_lock_kind_t kind)
      * DbTable structure. That is, ONLY the SMP case is allowed
      * to follow the tb pointer!
      */
-#ifdef ERTS_SMP
     if (tb->common.type & DB_FINE_LOCKED) {
 	if (kind == LCK_WRITE) {
 	    ASSERT(tb->common.is_thread_safe);
@@ -650,7 +627,6 @@ static ERTS_INLINE void db_unlock(DbTable* tb, db_lock_kind_t kind)
 	    erts_smp_rwmtx_runlock(&tb->common.rwlock);
 	}
     }
-#endif
 }
 
 static ERTS_INLINE
@@ -790,13 +766,11 @@ static int remove_named_tab(DbTable *tb, int have_lock)
     struct meta_name_tab_entry* bucket = meta_name_tab_bucket(name_atom,
 							      &rwlock);
     ASSERT(is_table_named(tb));
-#ifdef ERTS_SMP
     if (!have_lock && erts_smp_rwmtx_tryrwlock(rwlock) == EBUSY) {
 	db_unlock(tb, LCK_WRITE);
 	erts_smp_rwmtx_rwlock(rwlock);
 	db_lock(tb, LCK_WRITE);
     }
-#endif
 
     ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(rwlock));
 
@@ -1598,9 +1572,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     Uint32 status;
     Sint keypos;
     int is_named, is_compressed;
-#ifdef ERTS_SMP
     int is_fine_locked, frequent_read;
-#endif
 #ifdef DEBUG
     int cret;
 #endif
@@ -1616,10 +1588,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     status = DB_SET | DB_PROTECTED;
     keypos = 1;
     is_named = 0;
-#ifdef ERTS_SMP
     is_fine_locked = 0;
     frequent_read = 0;
-#endif
     heir = am_none;
     heir_data = (UWord) am_undefined;
     is_compressed = erts_ets_always_compress;
@@ -1647,30 +1617,18 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		    keypos = signed_val(tp[2]);
 		}		
 		else if (tp[1] == am_write_concurrency) {
-#ifdef ERTS_SMP
 		    if (tp[2] == am_true) {
 			is_fine_locked = 1;
 		    } else if (tp[2] == am_false) {
 			is_fine_locked = 0;
 		    } else break;
-#else
-		    if ((tp[2] != am_true) &&  (tp[2] != am_false)) {
-			break;
-		    }
-#endif
 		}
 		else if (tp[1] == am_read_concurrency) {
-#ifdef ERTS_SMP
 		    if (tp[2] == am_true) {
 			frequent_read = 1;
 		    } else if (tp[2] == am_false) {
 			frequent_read = 0;
 		    } else break;
-#else
-		    if ((tp[2] != am_true) &&  (tp[2] != am_false)) {
-			break;
-		    }
-#endif
 		    
 		}
 		else if (tp[1] == am_heir && tp[2] == am_none) {
@@ -1712,11 +1670,9 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     }
     if (IS_HASH_TABLE(status)) {
 	meth = &db_hash;
-#ifdef ERTS_SMP
 	if (is_fine_locked && !(status & DB_PRIVATE)) {
 	    status |= DB_FINE_LOCKED;
 	}
-#endif
     }
     else if (IS_TREE_TABLE(status)) {
 	meth = &db_tree;
@@ -1725,10 +1681,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-#ifdef ERTS_SMP
     if (frequent_read && !(status & DB_PRIVATE))
 	status |= DB_FREQ_READ;
-#endif
 
     /* we create table outside any table lock
      * and take the unusal cost of destroy table if it
@@ -1747,10 +1701,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     tb->common.meth = meth;
     tb->common.the_name = BIF_ARG_1;
     tb->common.status = status;    
-#ifdef ERTS_SMP
     tb->common.type = status & ERTS_ETS_TABLE_TYPES;
     /* Note, 'type' is *read only* from now on... */
-#endif
     erts_smp_refc_init(&tb->common.fix_count, 0);
     db_init_lock(tb, status & (DB_FINE_LOCKED|DB_FREQ_READ));
     tb->common.keypos = keypos;
@@ -2522,13 +2474,11 @@ BIF_RETTYPE ets_internal_request_all_0(BIF_ALIST_0)
     req->proc = BIF_P;
     erts_proc_add_refc(BIF_P, (Sint) erts_no_schedulers);
 
-#ifdef ERTS_SMP
     if (erts_no_schedulers > 1)
 	erts_schedule_multi_misc_aux_work(1,
 					  erts_no_schedulers,
                                           handle_ets_all_request,
 					  (void *) req);
-#endif
 
     handle_ets_all_request((void *) req);
     BIF_RET(ref);
@@ -3345,7 +3295,6 @@ void init_db(ErtsDbSpinCount db_spin_count)
     unsigned bits;
     size_t size;
 
-#ifdef ERTS_SMP
     int max_spin_count = (1 << 15) - 1; /* internal limit */
     erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
@@ -3393,7 +3342,6 @@ void init_db(ErtsDbSpinCount db_spin_count)
             "meta_name_tab", make_small(i),
             ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DB);
     }
-#endif
 
     erts_smp_atomic_init_nob(&erts_ets_misc_mem_size, 0);
     db_initialize_util();
@@ -3584,9 +3532,7 @@ static SWord proc_cleanup_fixed_table(Process* p, DbFixation* fix)
 	db_lock(tb, LCK_WRITE_REC);
 	if (!(tb->common.status & DB_DELETE)) {
 	    erts_aint_t diff;
-    #ifdef ERTS_SMP
 	    erts_smp_mtx_lock(&tb->common.fixlock);
-    #endif
 
 	    ASSERT(fixing_procs_rbt_lookup(tb->common.fixing_procs, p));
 
@@ -3596,9 +3542,7 @@ static SWord proc_cleanup_fixed_table(Process* p, DbFixation* fix)
 
 	    fixing_procs_rbt_delete(&tb->common.fixing_procs, fix);
 
-    #ifdef ERTS_SMP
 	    erts_smp_mtx_unlock(&tb->common.fixlock);
-    #endif
 	    if (!IS_FIXED(tb) && IS_HASH_TABLE(tb->common.status)) {
 		work += db_unfix_table_hash(&(tb->hash));
 	    }
@@ -3754,9 +3698,7 @@ static void fix_table_locked(Process* p, DbTable* tb)
 {
     DbFixation *fix;
 
-#ifdef ERTS_SMP
     erts_smp_mtx_lock(&tb->common.fixlock);
-#endif
     erts_smp_refc_inc(&tb->common.fix_count,1);
     fix = tb->common.fixing_procs;
     if (fix == NULL) {
@@ -3770,9 +3712,7 @@ static void fix_table_locked(Process* p, DbTable* tb)
 	    ASSERT(fixed_tabs_find(NULL, fix));
 	    ++(fix->counter);
 
-#ifdef ERTS_SMP
 	    erts_smp_mtx_unlock(&tb->common.fixlock);
-#endif
 	    return;
 	}
     }
@@ -3785,9 +3725,7 @@ static void fix_table_locked(Process* p, DbTable* tb)
     fix->counter = 1;
     fixing_procs_rbt_insert(&tb->common.fixing_procs, fix);
 
-#ifdef ERTS_SMP
     erts_smp_mtx_unlock(&tb->common.fixlock);
-#endif
     p->flags |= F_USING_DB;
 
     fixed_tabs_insert(p, fix);
@@ -3800,9 +3738,7 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
 {
     DbFixation* fix;
 
-#ifdef ERTS_SMP
     erts_smp_mtx_lock(&tb->common.fixlock);
-#endif
     fix = fixing_procs_rbt_lookup(tb->common.fixing_procs, p);
 
     if (fix) {
@@ -3811,9 +3747,7 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
 	ASSERT(fix->counter >= 0);
 	if (fix->counter == 0) {
 	    fixing_procs_rbt_delete(&tb->common.fixing_procs, fix);
-#ifdef ERTS_SMP
 	    erts_smp_mtx_unlock(&tb->common.fixlock);
-#endif
 	    fixed_tabs_delete(p, fix);
 
 	    erts_refc_dec(&fix->tabs.btid->intern.refc, 1);
@@ -3824,14 +3758,11 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
 	    goto unlocked;
 	}
     }
-#ifdef ERTS_SMP
     erts_smp_mtx_unlock(&tb->common.fixlock);
-#endif
 unlocked:
 
     if (!IS_FIXED(tb) && IS_HASH_TABLE(tb->common.status)
 	&& erts_smp_atomic_read_nob(&tb->hash.fixdel) != (erts_aint_t)NULL) {
-#ifdef ERTS_SMP
 	if (*kind_p == LCK_READ && tb->common.is_thread_safe) {
 	    /* Must have write lock while purging pseudo-deleted (OTP-8166) */
 	    erts_smp_rwmtx_runlock(&tb->common.rwlock);
@@ -3839,7 +3770,6 @@ unlocked:
 	    *kind_p = LCK_WRITE;
 	    if (tb->common.status & DB_DELETE) return;
 	}
-#endif
 	db_unfix_table_hash(&(tb->hash));
     }
 }
@@ -3866,7 +3796,6 @@ static void free_fixations_op(DbFixation* fix, void* vctx)
     diff = -((erts_aint_t) fix->counter);
     erts_smp_refc_add(&ctx->tb->common.fix_count, diff, 0);
 
-#ifdef ERTS_SMP
     if (fix->procs.p != ctx->p) { /* Fixated by other process */
         fix->counter = 0;
 
@@ -3882,7 +3811,6 @@ static void free_fixations_op(DbFixation* fix, void* vctx)
          */
     }
     else
-#endif
     {
         fixed_tabs_delete(fix->procs.p, fix);
 
@@ -3895,7 +3823,6 @@ static void free_fixations_op(DbFixation* fix, void* vctx)
     ctx->cnt++;
 }
 
-#ifdef ERTS_SMP
 int erts_db_execute_free_fixation(Process* p, DbFixation* fix)
 {
     ASSERT(fix->counter == 0);
@@ -3907,7 +3834,6 @@ int erts_db_execute_free_fixation(Process* p, DbFixation* fix)
     ERTS_ETS_MISC_MEM_ADD(-sizeof(DbFixation));
     return 1;
 }
-#endif
 
 static SWord free_fixations_locked(Process* p, DbTable *tb)
 {
@@ -4115,9 +4041,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 		= ERTS_IS_ATOM_STR("safe_fixed_monotonic_time",
 				   What))
 	       || ERTS_IS_ATOM_STR("safe_fixed", What)) {
-#ifdef ERTS_SMP
 	erts_smp_mtx_lock(&tb->common.fixlock);
-#endif
 	if (IS_FIXED(tb)) {
 	    Uint need;
 	    Eterm *hp;
@@ -4159,9 +4083,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	} else {
 	    ret = am_false;
 	}
-#ifdef ERTS_SMP
 	erts_smp_mtx_unlock(&tb->common.fixlock);
-#endif
     } else if (What == am_atom_put("stats",5)) {
 	if (IS_HASH_TABLE(tb->common.status)) {
 	    FloatDef f;

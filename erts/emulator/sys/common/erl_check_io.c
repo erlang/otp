@@ -84,9 +84,6 @@ typedef char EventStateFlags;
 #define ERTS_CIO_POLL_CTL	ERTS_POLL_EXPORT(erts_poll_control)
 #define ERTS_CIO_POLL_CTLV	ERTS_POLL_EXPORT(erts_poll_controlv)
 #define ERTS_CIO_POLL_WAIT	ERTS_POLL_EXPORT(erts_poll_wait)
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-#define ERTS_CIO_POLL_AS_INTR 	ERTS_POLL_EXPORT(erts_poll_async_sig_interrupt)
-#endif
 #define ERTS_CIO_POLL_INTR 	ERTS_POLL_EXPORT(erts_poll_interrupt)
 #define ERTS_CIO_POLL_INTR_TMD	ERTS_POLL_EXPORT(erts_poll_interrupt_timed)
 #define ERTS_CIO_NEW_POLLSET 	ERTS_POLL_EXPORT(erts_poll_create_pollset)
@@ -108,10 +105,8 @@ static struct pollset_info
 	int size;
 	ErtsSysFdType *array;
     } active_fd;
-#ifdef ERTS_SMP
     struct removed_fd* removed_list;       /* list of deselected fd's*/
     erts_smp_spinlock_t removed_list_lock;
-#endif
 }pollset;
 #define NUM_OF_POLLSETS 1
 
@@ -137,7 +132,6 @@ typedef struct {
     EventStateFlags flags;
 } ErtsDrvEventState;
 
-#ifdef ERTS_SMP
 struct removed_fd {
     struct removed_fd *next;
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
@@ -150,7 +144,6 @@ struct removed_fd {
 #endif
 
 };
-#endif
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
 static int max_fds = -1;
@@ -161,7 +154,6 @@ static union {
     byte _cache_line_alignment[64];
 }drv_ev_state_locks[DRV_EV_STATE_LOCK_CNT];
 
-#ifdef ERTS_SMP
 static ERTS_INLINE erts_smp_mtx_t* fd_mtx(ErtsSysFdType fd)
 {
     int hash = (int)fd;
@@ -170,9 +162,6 @@ static ERTS_INLINE erts_smp_mtx_t* fd_mtx(ErtsSysFdType fd)
 # endif
     return &drv_ev_state_locks[hash % DRV_EV_STATE_LOCK_CNT].lck;
 }
-#else
-#  define fd_mtx(fd) NULL
-#endif
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
 
@@ -249,9 +238,7 @@ static void
 steal_pending_stop_nif(erts_dsprintf_buf_t *dsbufp, ErtsResource*,
                        ErtsDrvEventState *state, int mode, int on);
 
-#ifdef ERTS_SMP
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(removed_fd, struct removed_fd, 64, ERTS_ALC_T_FD_LIST)
-#endif
 
 static ERTS_INLINE void
 init_iotask(ErtsIoTask *io_task)
@@ -337,7 +324,6 @@ free_drv_event_data(ErtsDrvEventDataState *dep)
 static ERTS_INLINE void
 remember_removed(ErtsDrvEventState *state, struct pollset_info* psi)
 {
-#ifdef ERTS_SMP
     struct removed_fd *fdlp;
     ERTS_SMP_LC_ASSERT(erts_smp_lc_mtx_is_locked(fd_mtx(state->fd)));
     if (erts_smp_atomic_read_nob(&psi->in_poll_wait)) {
@@ -355,29 +341,23 @@ remember_removed(ErtsDrvEventState *state, struct pollset_info* psi)
 	psi->removed_list = fdlp;
 	erts_smp_spin_unlock(&psi->removed_list_lock);
     }
-#endif
 }
 
 
 static ERTS_INLINE int
 is_removed(ErtsDrvEventState *state)
 {
-#ifdef ERTS_SMP
     /* Note that there is a possible race here, where an fd is removed
        (increasing remove_cnt) and then added again just before erts_poll_wait
        is called by erts_check_io. Any polled event on the re-added fd will then
        be falsely ignored. But that does not matter, as the event will trigger
        again next time erl_check_io is called. */
     return state->remove_cnt > 0;
-#else
-    return 0;
-#endif
 }
 
 static void
 forget_removed(struct pollset_info* psi)
 {
-#ifdef ERTS_SMP
     struct removed_fd* fdlp;
     struct removed_fd* tofree;
 
@@ -460,7 +440,6 @@ forget_removed(struct pollset_info* psi)
 	fdlp = fdlp->next;
 	removed_fd_free(tofree);
     }
-#endif /* ERTS_SMP */
 }
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
@@ -2118,13 +2097,6 @@ eready(Eterm id, ErtsDrvEventState *state, ErlDrvEventData event_data,
 
 static void bad_fd_in_pollset(ErtsDrvEventState *, Eterm inport, Eterm outport);
 
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-void
-ERTS_CIO_EXPORT(erts_check_io_async_sig_interrupt)(void)
-{
-    ERTS_CIO_POLL_AS_INTR(pollset.ps);
-}
-#endif
 
 void
 ERTS_CIO_EXPORT(erts_check_io_interrupt)(int set)
@@ -2355,9 +2327,7 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
                 add_active_fd(state->fd);
             }
 
-#ifdef ERTS_SMP
             erts_smp_mtx_unlock(fd_mtx(fd));
-#endif
             if (is_not_nil(in.pid)) {
                 send_event_tuple(&in, resource, am_ready_input);
             }
@@ -2404,9 +2374,7 @@ ERTS_CIO_EXPORT(erts_check_io)(int do_wait)
 	}
 
 	next_pollres:;
-#ifdef ERTS_SMP
 	erts_smp_mtx_unlock(fd_mtx(fd));
-#endif
         next_pollres_unlocked:;
     }
 
@@ -2561,7 +2529,6 @@ ERTS_CIO_EXPORT(erts_init_check_io)(void)
 #endif
 
 
-#ifdef ERTS_SMP
     init_removed_fd_alloc();
     pollset.removed_list = NULL;
     erts_smp_spinlock_init(&pollset.removed_list_lock, "pollset_rm_list", NIL,
@@ -2573,7 +2540,6 @@ ERTS_CIO_EXPORT(erts_init_check_io)(void)
                 ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_IO);
         }
     }
-#endif
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     max_fds = ERTS_CIO_POLL_MAX_FDS();
     erts_smp_atomic_init_nob(&drv_ev_state_len, 0);

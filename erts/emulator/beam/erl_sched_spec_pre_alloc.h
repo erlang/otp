@@ -31,7 +31,6 @@
 #ifndef ERTS_SCHED_SPEC_PRE_ALLOC_H__
 #define ERTS_SCHED_SPEC_PRE_ALLOC_H__
 
-#ifdef ERTS_SMP
 
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #define ERL_THR_PROGRESS_TSD_TYPE_ONLY
@@ -236,6 +235,5 @@ erts_sspa_free(erts_sspa_data_t *data, int cix, char *cblk)
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#endif /* ERTS_SMP */
 
 #endif /* ERTS_SCHED_SPEC_PRE_ALLOC_H__ */

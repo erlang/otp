@@ -359,32 +359,24 @@ am_atom_put(const char* name, int len)
 int atom_table_size(void)
 {
     int ret;
-#ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	atom_read_lock();
-#endif
     ret = erts_atom_table.entries;
-#ifdef ERTS_SMP
     if (lock)
 	atom_read_unlock();
-#endif
     return ret;
 }
 
 int atom_table_sz(void)
 {
     int ret;
-#ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	atom_read_lock();
-#endif
     ret = index_table_sz(&erts_atom_table);
-#ifdef ERTS_SMP
     if (lock)
 	atom_read_unlock();
-#endif
     return ret;
 }
 
@@ -412,19 +404,15 @@ erts_atom_get(const char *name, int len, Eterm* ap, ErtsAtomEncoding enc)
 void
 erts_atom_get_text_space_sizes(Uint *reserved, Uint *used)
 {
-#ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	atom_read_lock();
-#endif
     if (reserved)
 	*reserved = reserved_atom_space;
     if (used)
 	*used = atom_space;
-#ifdef ERTS_SMP
     if (lock)
 	atom_read_unlock();
-#endif
 }
 
 void

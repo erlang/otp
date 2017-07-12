@@ -69,7 +69,6 @@
 #include "erl_process.h"
 #include "erl_thr_progress.h"
 
-#ifdef ERTS_SMP
 
 #if ERTS_PROC_LOCK_OWN_IMPL
 
@@ -1002,11 +1001,9 @@ static ERTS_INLINE
 Process *proc_lookup_inc_refc(Eterm pid, int allow_exit)
 {
     Process *proc;
-#ifdef ERTS_SMP
     ErtsThrPrgrDelayHandle dhndl;
 
     dhndl = erts_thr_progress_unmanaged_delay();
-#endif
 
     proc = erts_proc_lookup_raw(pid);
     if (proc) {
@@ -1016,9 +1013,7 @@ Process *proc_lookup_inc_refc(Eterm pid, int allow_exit)
             erts_proc_inc_refc(proc);
     }
 
-#ifdef ERTS_SMP
     erts_thr_progress_unmanaged_continue(dhndl);
-#endif
 
     return proc;
 }
@@ -1785,4 +1780,3 @@ check_queue(erts_proc_lock_t *lck)
 }
 #endif
 
-#endif /* ERTS_SMP */

@@ -361,11 +361,7 @@ typedef struct {
 } ErtsMatchPseudoProcess;
 
 
-#ifdef ERTS_SMP
 static erts_smp_tsd_key_t match_pseudo_process_key;
-#else
-static ErtsMatchPseudoProcess *match_pseudo_process;
-#endif
 
 static ERTS_INLINE void
 cleanup_match_pseudo_process(ErtsMatchPseudoProcess *mpsp, int keep_heap)
@@ -414,7 +410,6 @@ static ERTS_INLINE ErtsMatchPseudoProcess *
 get_match_pseudo_process(Process *c_p, Uint heap_size)
 {
     ErtsMatchPseudoProcess *mpsp;
-#ifdef ERTS_SMP
     ErtsSchedulerData *esdp;
 
     esdp = c_p ? c_p->scheduler_data : erts_get_scheduler_data();
@@ -436,10 +431,6 @@ get_match_pseudo_process(Process *c_p, Uint heap_size)
         mpsp->process.scheduler_data = esdp;
 	erts_smp_tsd_set(match_pseudo_process_key, (void *) mpsp);
     }
-#else
-    mpsp = match_pseudo_process;
-    cleanup_match_pseudo_process(mpsp, 0);
-#endif
     if (heap_size > ERTS_DEFAULT_MS_HEAP_SIZE*sizeof(Eterm)) {
 	mpsp->u.heap = (Eterm*) erts_alloc(ERTS_ALC_T_DB_MS_RUN_HEAP, heap_size);
     }
@@ -449,7 +440,6 @@ get_match_pseudo_process(Process *c_p, Uint heap_size)
     return mpsp;
 }
 
-#ifdef ERTS_SMP
 static void
 destroy_match_pseudo_process(void)
 {
@@ -461,19 +451,14 @@ destroy_match_pseudo_process(void)
 	erts_smp_tsd_set(match_pseudo_process_key, (void *) NULL);
     }
 }
-#endif
 
 static
 void
 match_pseudo_process_init(void)
 {
-#ifdef ERTS_SMP
     erts_smp_tsd_key_create(&match_pseudo_process_key,
 			    "erts_match_pseudo_process_key");
     erts_smp_install_exit_handler(destroy_match_pseudo_process);
-#else
-    match_pseudo_process = create_match_pseudo_process();
-#endif
 }
 
 void

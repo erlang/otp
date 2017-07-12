@@ -209,9 +209,7 @@ struct erts_driver_t_ {
     } version;
     int flags;
     DE_Handle *handle;
-#ifdef ERTS_SMP
     erts_smp_mtx_t *lock;
-#endif
     ErlDrvEntry *entry;
     ErlDrvData (*start)(ErlDrvPort port, char *command, SysDriverOpts* opts);
     void (*stop)(ErlDrvData drv_data);
@@ -1127,18 +1125,12 @@ extern ErtsModifiedTimings erts_modified_timings[];
 extern int erts_no_line_info;
 extern Eterm erts_error_logger_warnings;
 extern int erts_initialized;
-#if defined(USE_THREADS) && !defined(ERTS_SMP)
-extern erts_tid_t erts_main_thread;
-#endif
 extern int erts_compat_rel;
 extern int erts_use_sender_punish;
 void erl_start(int, char**);
 void erts_usage(void);
 Eterm erts_preloaded(Process* p);
 
-#ifndef ERTS_SMP
-extern void *erts_scheduler_stack_limit;
-#endif
 
 /* erl_md5.c */
 

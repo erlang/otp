@@ -44,10 +44,6 @@ Eterm erts_check_io_info_kp(void *);
 Eterm erts_check_io_info_nkp(void *);
 int erts_check_io_max_files_kp(void);
 int erts_check_io_max_files_nkp(void);
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-void erts_check_io_async_sig_interrupt_kp(void);
-void erts_check_io_async_sig_interrupt_nkp(void);
-#endif
 void erts_check_io_interrupt_kp(int);
 void erts_check_io_interrupt_nkp(int);
 void erts_check_io_interrupt_timed_kp(int, ErtsMonotonicTime);
@@ -69,9 +65,6 @@ void erts_lcnt_update_cio_locks_nkp(int enable);
 Uint erts_check_io_size(void);
 Eterm erts_check_io_info(void *);
 int erts_check_io_max_files(void);
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-void erts_check_io_async_sig_interrupt(void);
-#endif
 void erts_check_io_interrupt(int);
 void erts_check_io_interrupt_timed(int, ErtsMonotonicTime);
 void erts_check_io(int);

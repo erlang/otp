@@ -80,9 +80,7 @@ static int application_type(const wchar_t* originalName, wchar_t fullPath[MAX_PA
 
 HANDLE erts_service_event;
 
-#ifdef ERTS_SMP
 static erts_smp_tsd_key_t win32_errstr_key;
-#endif
 
 static erts_smp_atomic_t pipe_creation_counter;
 
@@ -94,10 +92,8 @@ static erts_smp_atomic_t pipe_creation_counter;
 
 static int driver_write(long, HANDLE, byte*, int);
 static int create_file_thread(struct async_io* aio, int mode);
-#ifdef ERTS_SMP
 static void close_active_handle(DriverData *, HANDLE handle);
 static DWORD WINAPI threaded_handle_closer(LPVOID param);
-#endif
 static DWORD WINAPI threaded_reader(LPVOID param);
 static DWORD WINAPI threaded_writer(LPVOID param);
 static DWORD WINAPI threaded_exiter(LPVOID param);
@@ -450,9 +446,7 @@ typedef struct async_io {
 				 * the console for Windows NT).
 				 */
   HANDLE fd;			/* Handle for file or pipe. */
-#ifdef ERTS_SMP
   int async_io_active;          /* if true, a close of the file will signal the event in ov */
-#endif
   OVERLAPPED ov;		/* Control structure for overlapped reading.
 				 * When overlapped reading is simulated with
 				 * a thread, the fields are used as follows:
@@ -691,7 +685,6 @@ buf_alloc_error:
 static void
 release_driver_data(DriverData* dp)
 {
-#ifdef ERTS_SMP
 #ifdef USE_CANCELIOEX
     if (fpCancelIoEx != NULL) {
 	if (dp->in.thread == (HANDLE) -1 && dp->in.fd != INVALID_HANDLE_VALUE) {
@@ -734,14 +727,6 @@ release_driver_data(DriverData* dp)
 	    DEBUGF(("...done\n"));
 	}
     }
-#else
-	if (dp->in.thread == (HANDLE) -1 && dp->in.fd != INVALID_HANDLE_VALUE) {
-	     CancelIo(dp->in.fd); 
-	}
-	if (dp->out.thread == (HANDLE) -1 && dp->out.fd != INVALID_HANDLE_VALUE) {
-	    CancelIo(dp->out.fd); 
-	}
-#endif
 
     if (dp->inbuf != NULL) {
 	ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= dp->inBufSize);
@@ -777,7 +762,6 @@ release_driver_data(DriverData* dp)
     unrefer_driver_data(dp);
 }
 
-#ifdef ERTS_SMP
 
 struct handles_to_be_closed {
     HANDLE handles[MAXIMUM_WAIT_OBJECTS];
@@ -870,7 +854,6 @@ threaded_handle_closer(LPVOID param)
     DEBUGF(("threaded_handle_closer %p terminating\r\n", htbc));
     return 0;
 }
-#endif /* ERTS_SMP */
 
 /*
  * Stores input and output file descriptors in the DriverData structure,
@@ -946,9 +929,7 @@ init_async_io(DriverData *dp, AsyncIo* aio, int use_threads)
     aio->flushReplyEvent = NULL;
     aio->pendingError = 0;
     aio->bytesTransferred = 0;
-#ifdef ERTS_SMP
     aio->async_io_active = 0;
-#endif
     aio->ov.hEvent = CreateManualEvent(FALSE);
     if (aio->ov.hEvent == NULL)
 	return -1;
@@ -1029,9 +1010,7 @@ async_read_file(AsyncIo* aio, LPVOID buf, DWORD numToRead)
 	ResetEvent(aio->ov.hEvent);
 	SetEvent(aio->ioAllowed);
     } else {
-#ifdef ERTS_SMP
 	aio->async_io_active = 1; /* Will get 0 when the event actually happened */
-#endif
 	if (ReadFile(aio->fd, buf, numToRead,
 		     &aio->bytesTransferred, &aio->ov)) {
 	    DEBUGF(("async_read_file: ReadFile() suceeded: %d bytes\n",
@@ -1079,16 +1058,12 @@ async_write_file(AsyncIo* aio,		/* Pointer to async control block. */
 	ResetEvent(aio->ov.hEvent);
 	SetEvent(aio->ioAllowed);
     } else {
-#ifdef ERTS_SMP
 	aio->async_io_active = 1; /* Will get 0 when the event actually happened */
-#endif
 	if (WriteFile(aio->fd, buf, numToWrite,
 		      &aio->bytesTransferred, &aio->ov)) {
 	    DEBUGF(("async_write_file: WriteFile() suceeded: %d bytes\n",
 		    aio->bytesTransferred));
-#ifdef ERTS_SMP
 	    aio->async_io_active = 0; /* The event will not be signalled */
-#endif
 	    ResetEvent(aio->ov.hEvent);
 	    return TRUE;
 	} else {
@@ -2511,11 +2486,9 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
     int pb;
 
     pb = dp->packet_bytes;
-#ifdef ERTS_SMP
     if(dp->in.thread == (HANDLE) -1) {
 	dp->in.async_io_active = 0;
     }
-#endif
     DEBUGF(("ready_input: dp %p, event 0x%x\n", dp, ready_event));
 
     /*
@@ -2680,11 +2653,9 @@ ready_output(ErlDrvData drv_data, ErlDrvEvent ready_event)
     DriverData *dp = (DriverData *) drv_data;
     int error;
 
-#ifdef ERTS_SMP
     if(dp->out.thread == (HANDLE) -1) {
 	dp->out.async_io_active = 0;
     }
-#endif
     DEBUGF(("ready_output(%p, 0x%x)\n", drv_data, ready_event));
     set_busy_port(dp->port_num, 0);
     if (!(dp->outbuf)) {
@@ -2743,7 +2714,6 @@ sys_init_io(void)
     max_files = 2*erts_ptab_max(&erts_port);
 }
 
-#ifdef ERTS_SMP
 void
 erts_sys_main_thread(void)
 {
@@ -2756,7 +2726,6 @@ erts_sys_main_thread(void)
 	WaitForSingleObject(dummy, INFINITE);
     }
 }
-#endif
 
 void erts_sys_alloc_init(void)
 {
@@ -2938,11 +2907,7 @@ sys_get_key(int fd)
 
 char* win32_errorstr(int error)
 {
-#ifdef SMP
   LPTSTR lpBufPtr = erts_smp_tsd_get(win32_errstr_key);
-#else
-  static LPTSTR lpBufPtr = NULL;
-#endif
   if (lpBufPtr) {
       LocalFree(lpBufPtr);
   }
@@ -2956,9 +2921,7 @@ char* win32_errorstr(int error)
 		0,
 		NULL);
   SetLastError(error);
-#ifdef ERTS_SMP
   erts_smp_tsd_set(win32_errstr_key,lpBufPtr);
-#endif
   return lpBufPtr;
 }
 
@@ -3131,7 +3094,6 @@ check_supported_os_version(void)
 #endif
 }
 
-#ifdef USE_THREADS
 
 typedef struct {
     int sched_bind_data;
@@ -3176,19 +3138,15 @@ thr_create_prepare_child(void *vtcdp)
     erts_sched_bind_atthrcreate_child(tcdp->sched_bind_data);
 }
 
-#endif /* USE_THREADS */
 
 void
 erts_sys_pre_init(void)
 {
-#ifdef USE_THREADS
     erts_thr_init_data_t eid = ERTS_THR_INIT_DATA_DEF_INITER;
-#endif
     int_os_version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
     GetVersionEx(&int_os_version);
     check_supported_os_version();
 
-#ifdef USE_THREADS
     eid.thread_create_child_func = thr_create_prepare_child;
     /* Before creation in parent */
     eid.thread_create_prepare_func = thr_create_prepare;
@@ -3209,7 +3167,6 @@ erts_sys_pre_init(void)
     erts_lc_init();
 #endif
 
-#endif /* USE_THREADS */
 
     erts_init_sys_time_sup();
 
@@ -3233,10 +3190,8 @@ void erl_sys_init(void)
     noinherit_std_handle(STD_INPUT_HANDLE);
     noinherit_std_handle(STD_ERROR_HANDLE);
 
-#ifdef ERTS_SMP
     erts_smp_tsd_key_create(&win32_errstr_key,"win32_errstr_key");
     InitializeCriticalSection(&htbc_lock);
-#endif
     erts_smp_atomic_init_nob(&pipe_creation_counter,0);
     /*
      * Test if we have named pipes or not.
@@ -3299,13 +3254,11 @@ erts_sys_schedule_interrupt(int set)
     erts_check_io_interrupt(set);
 }
 
-#ifdef ERTS_SMP
 void
 erts_sys_schedule_interrupt_timed(int set, ErtsMonotonicTime timeout_time)
 {
     erts_check_io_interrupt_timed(set, timeout_time);
 }
-#endif
 
 /*
  * Called from schedule() when it runs out of runnable processes,

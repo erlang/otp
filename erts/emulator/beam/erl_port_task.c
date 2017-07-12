@@ -43,11 +43,7 @@
  */
 #define ERTS_PORT_CALLBACK_VREDS (CONTEXT_REDS/20)
 
-#if defined(DEBUG) && 0
-#define ERTS_HARD_DEBUG_TASK_QUEUES
-#else
 #undef ERTS_HARD_DEBUG_TASK_QUEUES
-#endif
 
 #ifdef ERTS_HARD_DEBUG_TASK_QUEUES
 static void chk_task_queues(Port *pp, ErtsPortTask *execq, int processing_busy_queue);
@@ -126,9 +122,7 @@ struct ErtsPortTaskHandleList_ {
     ErtsPortTaskHandle handle;
     union {
 	ErtsPortTaskHandleList *next;
-#ifdef ERTS_SMP
 	ErtsThrPrgrLaterOp release;
-#endif
     } u;
 };
 
@@ -161,25 +155,19 @@ ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(busy_caller_table,
 				 50,
 				 ERTS_ALC_T_BUSY_CALLER_TAB)
 
-#ifdef ERTS_SMP
 static void
 call_port_task_free(void *vptp)
 {
     port_task_free((ErtsPortTask *) vptp);
 }
-#endif
 
 static ERTS_INLINE void
 schedule_port_task_free(ErtsPortTask *ptp)
 {
-#ifdef ERTS_SMP
     erts_schedule_thr_prgr_later_cleanup_op(call_port_task_free,
 					    (void *) ptp,
 					    &ptp->u.release,
 					    sizeof(ErtsPortTask));
-#else
-    port_task_free(ptp);
-#endif
 }
 
 static ERTS_INLINE ErtsPortTask *
@@ -830,25 +818,19 @@ erl_drv_busy_msgq_limits(ErlDrvPort dport, ErlDrvSizeT *lowp, ErlDrvSizeT *highp
  * No-suspend handles.
  */
 
-#ifdef ERTS_SMP
 static void
 free_port_task_handle_list(void *vpthlp)
 {
     erts_free(ERTS_ALC_T_PT_HNDL_LIST, vpthlp);
 }
-#endif
 
 static void
 schedule_port_task_handle_list_free(ErtsPortTaskHandleList *pthlp)
 {
-#ifdef ERTS_SMP
     erts_schedule_thr_prgr_later_cleanup_op(free_port_task_handle_list,
 					    (void *) pthlp,
 					    &pthlp->u.release,
 					    sizeof(ErtsPortTaskHandleList));
-#else
-    erts_free(ERTS_ALC_T_PT_HNDL_LIST, pthlp);
-#endif
 }
 
 static ERTS_INLINE void
@@ -946,10 +928,8 @@ enqueue_port(ErtsRunQueue *runq, Port *pp)
 
     erts_smp_inc_runq_len(runq, &runq->ports.info, ERTS_PORT_PRIO_LEVEL);
 
-#ifdef ERTS_SMP
     if (ERTS_RUNQ_FLGS_GET_NOB(runq) & ERTS_RUNQ_FLG_HALTING)
 	erts_non_empty_runq(runq);
-#endif
 }
 
 static ERTS_INLINE Port *
@@ -1301,9 +1281,7 @@ erts_port_task_abort(ErtsPortTaskHandle *pthp)
 {
     int res;
     ErtsPortTask *ptp;
-#ifdef ERTS_SMP
     ErtsThrPrgrDelayHandle dhndl = erts_thr_progress_unmanaged_delay();
-#endif
 
     ptp = handle2task(pthp);
     if (!ptp)
@@ -1345,9 +1323,7 @@ erts_port_task_abort(ErtsPortTaskHandle *pthp)
 	}
     }
 
-#ifdef ERTS_SMP
     erts_thr_progress_unmanaged_continue(dhndl);
-#endif
 
     return res;
 }
@@ -1356,9 +1332,7 @@ void
 erts_port_task_abort_nosuspend_tasks(Port *pp)
 {
     ErtsPortTaskHandleList *abort_list;
-#ifdef ERTS_SMP
     ErtsThrPrgrDelayHandle dhndl = ERTS_THR_PRGR_DHANDLE_INVALID;
-#endif
 
     erts_port_task_sched_lock(&pp->sched);
     erts_smp_atomic32_read_band_nob(&pp->sched.flags,
@@ -1381,18 +1355,14 @@ erts_port_task_abort_nosuspend_tasks(Port *pp)
 	pthlp = abort_list;
 	abort_list = pthlp->u.next;
 
-#ifdef ERTS_SMP
 	if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
 	    dhndl = erts_thr_progress_unmanaged_delay();
-#endif
 
 	pthp = &pthlp->handle;
 	ptp = handle2task(pthp);
 	if (!ptp) {
-#ifdef ERTS_SMP
 	    if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
 		erts_thr_progress_unmanaged_continue(dhndl);
-#endif
 	    schedule_port_task_handle_list_free(pthlp);
 	    continue;
 	}
@@ -1411,10 +1381,8 @@ erts_port_task_abort_nosuspend_tasks(Port *pp)
 						  ERTS_PT_STATE_SCHEDULED);
 	if (old_state != ERTS_PT_STATE_SCHEDULED) {
 	    /* Task already aborted, executing, or executed */
-#ifdef ERTS_SMP
 	    if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
 		erts_thr_progress_unmanaged_continue(dhndl);
-#endif
 	    schedule_port_task_handle_list_free(pthlp);
 	    continue;
 	}
@@ -1424,10 +1392,8 @@ erts_port_task_abort_nosuspend_tasks(Port *pp)
 	type = ptp->type;
 	td = ptp->u.alive.td;
 
-#ifdef ERTS_SMP
 	if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
 	    erts_thr_progress_unmanaged_continue(dhndl);
-#endif
 	schedule_port_task_handle_list_free(pthlp);
 
 	abort_nosuspend_task(pp, type, &td, pp->sched.taskq.bpq != NULL);
@@ -1446,10 +1412,8 @@ erts_port_task_schedule(Eterm id,
 {
     ErtsProc2PortSigData *sigdp = NULL;
     ErtsPortTaskHandleList *ns_pthlp = NULL;
-#ifdef ERTS_SMP
     ErtsRunQueue *xrunq;
     ErtsThrPrgrDelayHandle dhndl;
-#endif
     ErtsRunQueue *runq;
     Port *pp;
     ErtsPortTask *ptp = NULL;
@@ -1460,19 +1424,15 @@ erts_port_task_schedule(Eterm id,
 
     ASSERT(is_internal_port(id));
 
-#ifdef ERTS_SMP
     dhndl = erts_thr_progress_unmanaged_delay();
-#endif
 
     pp = erts_port_lookup_raw(id);
 
-#ifdef ERTS_SMP
     if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED) {
 	if (pp)
 	    erts_port_inc_refc(pp);
 	erts_thr_progress_unmanaged_continue(dhndl);
     }
-#endif
 
     if (!pp)
 	goto fail;
@@ -1581,7 +1541,6 @@ erts_port_task_schedule(Eterm id,
     if (!runq)
 	ERTS_INTERNAL_ERROR("Missing run-queue");
 
-#ifdef ERTS_SMP
     xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
     ERTS_SMP_LC_ASSERT(runq != xrunq);
     ERTS_SMP_LC_VERIFY_RQ(runq, pp);
@@ -1593,7 +1552,6 @@ erts_port_task_schedule(Eterm id,
 	if (!runq)
 	    ERTS_INTERNAL_ERROR("Missing run-queue");
     }
-#endif
 
     enqueue_port(runq, pp);
 
@@ -1606,19 +1564,15 @@ done:
     if (prof_runnable_ports)
 	erts_port_task_sched_unlock(&pp->sched);
 
-#ifdef ERTS_SMP
     if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
 	erts_port_dec_refc(pp);
-#endif
 
     return 0;
 
 abort_nosuspend:
 
-#ifdef ERTS_SMP
     if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
 	erts_port_dec_refc(pp);
-#endif
 
     abort_nosuspend_task(pp, ptp->type, &ptp->u.alive.td, 0);
 
@@ -1632,10 +1586,8 @@ abort_nosuspend:
 
 fail:
 
-#ifdef ERTS_SMP
     if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
 	erts_port_dec_refc(pp);
-#endif
 
     if (ptp) {
         abort_signal_task(pp, ERTS_PROC2PORT_SIG_ABORT,
@@ -1892,9 +1844,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 				 -1*io_tasks_executed);
     }
 
-#ifdef ERTS_SMP
     ASSERT(runq == (ErtsRunQueue *) erts_smp_atomic_read_nob(&pp->run_queue));
-#endif
 
     active = finalize_exec(pp, &execq, processing_busy_q);
 
@@ -1907,21 +1857,16 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     erts_smp_runq_lock(runq);
  
     if (active) {
-#ifdef ERTS_SMP
 	ErtsRunQueue *xrunq;
-#endif
 
 	ASSERT(!(erts_atomic32_read_nob(&pp->state) & ERTS_PORT_SFLGS_DEAD));
 
-#ifdef ERTS_SMP
 	xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
 	ERTS_SMP_LC_ASSERT(runq != xrunq);
 	ERTS_SMP_LC_VERIFY_RQ(runq, pp);
 	if (!xrunq) {
-#endif
 	    enqueue_port(runq, pp);
 	    /* No need to notify ourselves about inc in runq. */
-#ifdef ERTS_SMP
 	}
 	else {
 	    /* Emigrate port... */
@@ -1936,7 +1881,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
 	    erts_smp_runq_lock(runq);
 	}
-#endif
     }
 
  done:
@@ -1951,7 +1895,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     return res;
 }
 
-#ifdef ERTS_SMP
 static void
 release_port(void *vport)
 {
@@ -1967,7 +1910,6 @@ schedule_release_port(void *vport) {
 				  &pp->common.u.release);
 }
 
-#endif
 
 static void
 begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
@@ -2161,7 +2103,6 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
     /*
      * Schedule cleanup of port structure...
      */
-#ifdef ERTS_SMP
     /* We might not be a scheduler, eg. traceing to port we are sys_msg_dispatcher */
     if (!erts_get_scheduler_data()) {
       erts_schedule_misc_aux_work(1, schedule_release_port, (void*)pp);
@@ -2171,12 +2112,8 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 				      (void *) pp,
 				      &pp->common.u.release);
     }
-#else
-    pp->cleanup = 1;
-#endif
 }
 
-#ifdef ERTS_SMP
 
 void
 erts_enqueue_port(ErtsRunQueue *rq, Port *pp)
@@ -2200,7 +2137,6 @@ erts_dequeue_port(ErtsRunQueue *rq)
     return pp;
 }
 
-#endif
 
 /*
  * Initialize the module.

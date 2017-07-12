@@ -45,10 +45,8 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef ERTS_SMP
 #include "sys.h"
 #include "erl_alloc.h"
-#endif
 #include "hipe_signal.h"
 
 #if defined(__GLIBC__) && __GLIBC__ == 2 && (__GLIBC_MINOR__ >= 3)
@@ -259,7 +257,6 @@ static void hipe_sigaltstack(void *ss_sp)
     }
 }
 
-#ifdef ERTS_SMP
 /*
  * Set up alternate signal stack for an Erlang process scheduler thread.
  */
@@ -269,7 +266,6 @@ void hipe_thread_signal_init(void)
        We use it to suppress false leak report from valgrind */
     hipe_sigaltstack(erts_alloc_permanent_cache_aligned(ERTS_ALC_T_HIPE_LL, SIGSTKSZ));
 }
-#endif
 
 /*
  * Set up alternate signal stack for the main thread,
@@ -277,10 +273,6 @@ void hipe_thread_signal_init(void)
  */
 static void hipe_sigaltstack_init(void)
 {
-#if !defined(ERTS_SMP)
-    static unsigned long my_sigstack[SIGSTKSZ/sizeof(long)];
-    hipe_sigaltstack(my_sigstack);
-#endif
 }
 
 /*

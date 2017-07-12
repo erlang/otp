@@ -85,17 +85,13 @@ static struct export_blob* entry_to_blob(struct export_entry* ee)
 void
 export_info(fmtfn_t to, void *to_arg)
 {
-#ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	export_staging_lock();
-#endif
     index_info(to, to_arg, &export_tables[erts_active_code_ix()]);
     hash_info(to, to_arg, &export_tables[erts_staging_code_ix()].htable);
-#ifdef ERTS_SMP
     if (lock)
 	export_staging_unlock();
-#endif
 }
 
 

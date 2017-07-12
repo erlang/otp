@@ -87,10 +87,7 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 #ifdef ARCH_64
 				     " [64-bit]"
 #endif
-#ifdef ERTS_SMP
 				     " [smp:%beu:%beu]"
-#endif
-#ifdef USE_THREADS
 #if defined(ERTS_DIRTY_SCHEDULERS) && defined(ERTS_SMP)
 				     " [ds:%beu:%beu:%beu]"
 #endif
@@ -98,7 +95,6 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     " [dirty-schedulers-TEST]"
 #endif
 				     " [async-threads:%d]"
-#endif
 #ifdef HIPE
 				     " [hipe]"
 #endif	
@@ -353,14 +349,12 @@ erts_print_system_version(fmtfn_t to, void *arg, Process *c_p)
     char *rc_str = "";
     char rc_buf[100];
     char *ov = otp_version;
-#ifdef ERTS_SMP
     Uint total, online, active;
     Uint dirty_cpu, dirty_cpu_onln, dirty_io;
 
     erts_schedulers_state(&total, &online, &active,
 			  &dirty_cpu, &dirty_cpu_onln, NULL,
 			  &dirty_io, NULL);
-#endif
     for (i = 0; i < sizeof(otp_version)-4; i++) {
 	if (ov[i] == '-' && ov[i+1] == 'r' && ov[i+2] == 'c')
 	    rc = atoi(&ov[i+3]);
@@ -375,15 +369,11 @@ erts_print_system_version(fmtfn_t to, void *arg, Process *c_p)
     }
     return erts_print(to, arg, erts_system_version,
 		      rc_str
-#ifdef ERTS_SMP
 		      , total, online
 #ifdef ERTS_DIRTY_SCHEDULERS
 		      , dirty_cpu, dirty_cpu_onln, dirty_io
 #endif
-#endif
-#ifdef USE_THREADS
 		      , erts_async_max_threads
-#endif
 #ifdef ERTS_ENABLE_KERNEL_POLL
 		      , erts_use_kernel_poll ? "true" : "false"
 #endif
@@ -763,7 +753,6 @@ process_info_init(void)
 static ERTS_INLINE Process *
 pi_pid2proc(Process *c_p, Eterm pid, ErtsProcLocks info_locks)
 {
-#ifdef ERTS_SMP
     /*
      * If the main lock is needed, we use erts_pid2proc_not_running()
      * instead of erts_pid2proc() for two reasons:
@@ -781,7 +770,6 @@ pi_pid2proc(Process *c_p, Eterm pid, ErtsProcLocks info_locks)
 	return erts_pid2proc_not_running(c_p, ERTS_PROC_LOCK_MAIN,
 					 pid, info_locks);
     else
-#endif
 	return erts_pid2proc(c_p, ERTS_PROC_LOCK_MAIN,
 			     pid, info_locks);
 }
@@ -1086,12 +1074,10 @@ BIF_RETTYPE process_info_2(BIF_ALIST_2)
     }
     ASSERT(is_value(res));
 
-#ifdef ERTS_SMP
     if (BIF_P == rp)
 	info_locks &= ~ERTS_PROC_LOCK_MAIN;
     if (rp && info_locks)
 	erts_smp_proc_unlock(rp, info_locks);
-#endif
 
     ASSERT(!(BIF_P->flags & F_P2PNR_RESCHED));
     BIF_RET(res);
@@ -2144,9 +2130,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	ASSERT(erts_compat_rel > 0);
 	BIF_RET(make_small(erts_compat_rel));
     } else if (BIF_ARG_1 == am_multi_scheduling) {
-#ifndef ERTS_SMP
-	BIF_RET(am_disabled);
-#else
 #ifndef ERTS_DIRTY_SCHEDULERS
 	if (erts_no_schedulers == 1)
 	    BIF_RET(am_disabled);
@@ -2160,7 +2143,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 		       ? am_blocked
 		       : am_blocked_normal));
 	}
-#endif
     } else if (BIF_ARG_1 == am_build_type) {
 #if defined(DEBUG)
 	ERTS_DECL_AM(debug);
@@ -2392,16 +2374,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(erts_allocator_options((void *) BIF_P));
     }
     else if (BIF_ARG_1 == am_thread_pool_size) {
-#ifdef USE_THREADS
 	extern int erts_async_max_threads;
-#endif
 	int n;
 	
-#ifdef USE_THREADS
 	n = erts_async_max_threads;
-#else
-	n = 0;
-#endif
 	BIF_RET(make_small(n));
     }
     else if (BIF_ARG_1 == am_alloc_util_allocators) {
@@ -2549,11 +2525,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(res);
 #endif
     } else if (BIF_ARG_1 == am_threads) {
-#ifdef USE_THREADS
 	return am_true;
-#else
-	return am_false;
-#endif
     } else if (BIF_ARG_1 == am_creation) {
 	return make_small(erts_this_node->creation);
     } else if (BIF_ARG_1 == am_break_ignored) {
@@ -2612,11 +2584,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	hp = HAlloc(BIF_P, 2*n);
 	BIF_RET(buf_to_intlist(&hp, buf, n, NIL));
     } else if (ERTS_IS_ATOM_STR("smp_support", BIF_ARG_1)) {
-#ifdef ERTS_SMP
 	BIF_RET(am_true);
-#else
-	BIF_RET(am_false);
-#endif
     } else if (ERTS_IS_ATOM_STR("scheduler_bind_type", BIF_ARG_1)) {
 	BIF_RET(erts_bound_schedulers_term(BIF_P));
     } else if (ERTS_IS_ATOM_STR("scheduler_bindings", BIF_ARG_1)) {
@@ -2628,11 +2596,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	res = make_small(erts_no_schedulers);
 	BIF_RET(res);
     } else if (ERTS_IS_ATOM_STR("schedulers_state", BIF_ARG_1)) {
-#ifndef ERTS_SMP
-	Eterm *hp = HAlloc(BIF_P, 4);
-	res = TUPLE3(hp, make_small(1), make_small(1), make_small(1));
-	BIF_RET(res);
-#else
 	Eterm *hp;
 	Uint total, online, active;
 	erts_schedulers_state(&total, &online, &active,
@@ -2643,13 +2606,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 		     make_small(online),
 		     make_small(active));
 	BIF_RET(res);
-#endif
     } else if (ERTS_IS_ATOM_STR("schedulers_state", BIF_ARG_1)) {
-#ifndef ERTS_SMP
-	Eterm *hp = HAlloc(BIF_P, 4);
-	res = TUPLE3(hp, make_small(1), make_small(1), make_small(1));
-	BIF_RET(res);
-#else
 	Eterm *hp;
 	Uint total, online, active;
 	erts_schedulers_state(&total, &online, &active,
@@ -2660,19 +2617,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 		     make_small(online),
 		     make_small(active));
 	BIF_RET(res);
-#endif
     } else if (ERTS_IS_ATOM_STR("all_schedulers_state", BIF_ARG_1)) {
-#ifndef ERTS_SMP
-	Eterm *hp = HAlloc(BIF_P, 2+5);
-	res = CONS(hp+5,
-		   TUPLE4(hp,
-			  am_normal,
-			  make_small(1),
-			  make_small(1),
-			  make_small(1)),
-		   NIL);
-	BIF_RET(res);
-#else
 	Eterm *hp, tpl;
 	Uint sz, total, online, active,
 	    dirty_cpu_total, dirty_cpu_online, dirty_cpu_active,
@@ -2718,23 +2663,14 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	hp += 5;
 	res = CONS(hp, tpl, res);
 	BIF_RET(res);
-#endif
     } else if (ERTS_IS_ATOM_STR("schedulers_online", BIF_ARG_1)) {
-#ifndef ERTS_SMP
-	BIF_RET(make_small(1));
-#else
 	Uint online;
 	erts_schedulers_state(NULL, &online, NULL, NULL, NULL, NULL, NULL, NULL);
 	BIF_RET(make_small(online));
-#endif
     } else if (ERTS_IS_ATOM_STR("schedulers_active", BIF_ARG_1)) {
-#ifndef ERTS_SMP
-	BIF_RET(make_small(1));
-#else
 	Uint active;
 	erts_schedulers_state(NULL, NULL, &active, NULL, NULL, NULL, NULL, NULL);
 	BIF_RET(make_small(active));
-#endif
     } else if (ERTS_IS_ATOM_STR("dirty_cpu_schedulers", BIF_ARG_1)) {
 	Uint dirty_cpu;
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -2804,23 +2740,15 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
     } else if (ERTS_IS_ATOM_STR("check_io", BIF_ARG_1)) {
 	BIF_RET(erts_check_io_info(BIF_P));
     } else if (ERTS_IS_ATOM_STR("multi_scheduling_blockers", BIF_ARG_1)) {
-#ifndef ERTS_SMP
-	BIF_RET(NIL);
-#else
 	if (erts_no_schedulers == 1)
 	    BIF_RET(NIL);
 	else
 	    BIF_RET(erts_multi_scheduling_blockers(BIF_P, 0));
-#endif
     } else if (ERTS_IS_ATOM_STR("normal_multi_scheduling_blockers", BIF_ARG_1)) {
-#ifndef ERTS_SMP
-	BIF_RET(NIL);
-#else
 	if (erts_no_schedulers == 1)
 	    BIF_RET(NIL);
 	else
 	    BIF_RET(erts_multi_scheduling_blockers(BIF_P, 1));
-#endif
     } else if (ERTS_IS_ATOM_STR("modified_timing_level", BIF_ARG_1)) {
 	BIF_RET(ERTS_USE_MODIFIED_TIMING()
 		? make_small(erts_modified_timing_level)
@@ -2883,12 +2811,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(am_false);
 #endif	
     }
-#ifdef ERTS_SMP
     else if (ERTS_IS_ATOM_STR("thread_progress", BIF_ARG_1)) {
 	erts_thr_progress_dbg_print_state();
 	BIF_RET(am_true);
     }
-#endif
     else if (BIF_ARG_1 == am_message_queue_data) {
 	switch (erts_default_spo_flags & (SPO_ON_HEAP_MSGQ|SPO_OFF_HEAP_MSGQ)) {
 	case SPO_OFF_HEAP_MSGQ:
@@ -3171,9 +3097,6 @@ erts_bld_port_info(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, Port *prt,
     }
     else if (ERTS_IS_ATOM_STR("locking", item)) {
 	if (hpp) {
-#ifndef ERTS_SMP
-	    res = am_false;
-#else
 	    if (erts_atomic32_read_nob(&prt->state)
 		& ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK) {
 		DECL_AM(port_level);
@@ -3187,7 +3110,6 @@ erts_bld_port_info(Eterm **hpp, ErlOffHeap *ohp, Uint *szp, Port *prt,
 			 & ERL_DRV_FLAG_USE_PORT_LOCKING));
 		res = AM_driver_level;
 	    }
-#endif
 	}
 	if (szp) {
 	    res = am_true;
@@ -3425,11 +3347,9 @@ BIF_RETTYPE process_display_2(BIF_ALIST_2)
 				   2);
    }
    erts_stack_dump(ERTS_PRINT_STDERR, NULL, rp);
-#ifdef ERTS_SMP
    erts_smp_proc_unlock(rp, (BIF_P == rp
 			     ? ERTS_PROC_LOCKS_ALL_MINOR
 			     : ERTS_PROC_LOCKS_ALL));
-#endif
    BIF_RET(am_true);
 }
 
@@ -4239,10 +4159,8 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 			BIF_RET(AM_dead);
 		    }
 
-#ifdef ERTS_SMP
 		    if (BIF_P == rp)
 			rp_locks |= ERTS_PROC_LOCK_MAIN;
-#endif
 		    xres = erts_send_exit_signal(NULL, /* NULL in order to
 							  force a pending exit
 							  when we send to our
@@ -4254,10 +4172,8 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 						 NIL,
 						 NULL,
 						 0);
-#ifdef ERTS_SMP
 		    if (BIF_P == rp)
 			rp_locks &= ~ERTS_PROC_LOCK_MAIN;
-#endif
 		    erts_smp_proc_unlock(rp, rp_locks);
 		    if (xres > 1) {
 			DECL_AM(message);
@@ -4364,7 +4280,6 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	    }
 	}
 	else if (ERTS_IS_ATOM_STR("not_running_optimization", BIF_ARG_1)) {
-#ifdef ERTS_SMP
 	    int old_use_opt, use_opt;
 	    switch (BIF_ARG_2) {
 	    case am_true:
@@ -4384,9 +4299,6 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	    erts_smp_thr_progress_unblock();
 	    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    BIF_RET(old_use_opt ? am_true : am_false);
-#else
-	    BIF_ERROR(BIF_P,  EXC_NOTSUP);
-#endif
 	}
 	else if (ERTS_IS_ATOM_STR("wait", BIF_ARG_1)) {
 	    if (ERTS_IS_ATOM_STR("deallocations", BIF_ARG_2)) {

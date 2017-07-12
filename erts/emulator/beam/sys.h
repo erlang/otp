@@ -34,9 +34,6 @@
   (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12) | __GNUC_PATCHLEVEL__) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
 #endif
 
-#if defined(ERTS_DIRTY_SCHEDULERS) && !defined(ERTS_SMP)
-# error "Dirty schedulers not supported without smp support"
-#endif
 
 #ifdef ERTS_INLINE
 #  ifndef ERTS_CAN_INLINE
@@ -221,11 +218,7 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 #  define ASSERT(e) ((void) 1)
 #endif
 
-#ifdef ERTS_SMP
 #  define ERTS_SMP_ASSERT(e) ASSERT(e)
-#else
-#  define ERTS_SMP_ASSERT(e) ((void)1)
-#endif
 
 /* ERTS_UNDEF can be used to silence false warnings about
  * "variable may be used uninitialized" while keeping the variable
@@ -476,35 +469,19 @@ int erts_send_warning_to_logger_str_nogl(char *);
 #include "erl_smp.h"
 
 #ifdef ERTS_WANT_BREAK_HANDLING
-#  ifdef ERTS_SMP
 extern erts_smp_atomic32_t erts_break_requested;
 #    define ERTS_BREAK_REQUESTED \
   ((int) erts_smp_atomic32_read_nob(&erts_break_requested))
-#  else
-extern volatile int erts_break_requested;
-#    define ERTS_BREAK_REQUESTED erts_break_requested
-#  endif
 void erts_do_break_handling(void);
 #endif
 
-#if !defined(ERTS_SMP) && !defined(__WIN32__)
-extern volatile Uint erts_signal_state;
-#define ERTS_SIGNAL_STATE erts_signal_state
-void erts_handle_signal_state(void);
-#endif
 
-#ifdef ERTS_SMP
 extern erts_smp_atomic32_t erts_writing_erl_crash_dump;
 extern erts_tsd_key_t erts_is_crash_dumping_key;
 #define ERTS_SOMEONE_IS_CRASH_DUMPING \
   ((int) erts_smp_atomic32_read_mb(&erts_writing_erl_crash_dump))
 #define ERTS_IS_CRASH_DUMPING \
   ((int) (SWord) erts_tsd_get(erts_is_crash_dumping_key))
-#else
-extern volatile int erts_writing_erl_crash_dump;
-#define ERTS_SOMEONE_IS_CRASH_DUMPING erts_writing_erl_crash_dump
-#define ERTS_IS_CRASH_DUMPING erts_writing_erl_crash_dump
-#endif
 
 /* Deal with memcpy() vs bcopy() etc. We want to use the mem*() functions,
    but be able to fall back on bcopy() etc on systems that don't have
@@ -765,10 +742,8 @@ extern char *erts_sys_ddll_error(int code);
  * System interfaces for startup.
  */
 void erts_sys_schedule_interrupt(int set);
-#ifdef ERTS_SMP
 void erts_sys_schedule_interrupt_timed(int, ErtsMonotonicTime);
 void erts_sys_main_thread(void);
-#endif
 
 extern int erts_sys_prepare_crash_dump(int secs);
 extern void erts_sys_pre_init(void);
@@ -859,12 +834,10 @@ int erts_sys_unsetenv(char *key);
 char *erts_read_env(char *key);
 void erts_free_read_env(void *value);
 
-#if defined(ERTS_SMP)
 #if defined(ERTS_THR_HAVE_SIG_FUNCS) && !defined(ETHR_UNUSABLE_SIGUSRX)
 extern void sys_thr_resume(erts_tid_t tid);
 extern void sys_thr_suspend(erts_tid_t tid);
 #define ERTS_SYS_SUSPEND_SIGNAL SIGUSR2
-#endif
 #endif
 
 /* utils.c */
