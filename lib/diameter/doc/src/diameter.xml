@@ -539,7 +539,7 @@ that matches no peer.</p>
 <p>
 The <c>host</c> and <c>realm</c> filters cause the Destination-Host
 and Destination-Realm AVPs to be extracted from the
-outgoing request, assuming it to be a record-, list- or map-valued
+outgoing request, assuming it to be a record- or list-valued
 <c>&codec_message;</c>, and assuming at most one of each AVP.
 If this is not the case then the <c>{host|realm, &dict_DiameterIdentity;}</c>
 filters must be used to achieve the desired result.
@@ -802,10 +802,16 @@ be matched by corresponding &capability; configuration, of
 <c>{decode_format, record | list | map | false}</c></tag>
 <item>
 <p>
-The type of decoded messages and grouped AVPs in the <c>msg</c> field
+The format of decoded messages and grouped AVPs in the <c>msg</c> field
 of diameter_packet records and <c>value</c> field of diameter_avp
 records respectively.
-If <c>false</c> then the fields are set this value.
+If <c>record</c> then a record whose definition is generated from the
+dictionary file in question.
+If <c>list</c> or <c>map</c> then a <c>[Name | Avps]</c> pair where
+<c>Avps</c> is either a list of AVP name/values pairs or a map keyed on
+AVP names respectively.
+If <c>false</c> then the representation is omitted and <c>msg</c> and
+<c>value</c> fields are set to <c>false</c>.
 See also &codec_message;.</p>
 
 <p>

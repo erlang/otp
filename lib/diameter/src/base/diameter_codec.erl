@@ -275,9 +275,6 @@ rec2msg(_, [Name|_])
   when is_atom(Name) ->
     Name;
 
-rec2msg(_, #{':name' := Name}) ->
-    Name;
-
 rec2msg(Mod, Rec) ->
     Mod:rec2msg(element(1, Rec)).
 
@@ -383,7 +380,9 @@ decode_avps(MsgName, Mod, AppMod, Opts, Pkt, Avps) ->  %% ... or not
                         errors = Errors,
                         avps = As}.
 
-reformat(MsgName, Avps, #{decode_format := list}) ->
+reformat(MsgName, Avps, #{decode_format := T})
+  when T == map;
+       T == list ->
     [MsgName | Avps];
 
 reformat(_, Msg, _) ->

@@ -621,14 +621,8 @@ is_answer_message(#diameter_packet{msg = Msg}, Dict0) ->
 is_answer_message([#diameter_header{is_request = R, is_error = E} | _], _) ->
     E andalso not R;
 
-%% Message sent as a tagged avp/value list.
+%% Message sent as a map or tagged avp/value list.
 is_answer_message([Name | _], _) ->
-    Name == 'answer-message';
-
-%% Message sent as a map.
-is_answer_message(Map, _)
-  when is_map(Map) ->
-    #{':name' := Name} = Map,
     Name == 'answer-message';
 
 %% Message sent as a record.
@@ -875,14 +869,12 @@ reset(Msg, [RC | Avps], Dict) ->
 
 %% set/3
 
-%% Reply as name and tuple list ...
+%% Reply as name/values list ...
+set([Name|As], Avps, _)
+  when is_map(As) ->
+    [Name | maps:merge(As, maps:from_list(Avps))];
 set([_|_] = Ans, Avps, _) ->
     Ans ++ Avps;  %% Values nearer tail take precedence.
-
-%% ... a map ...
-set(Ans, Avps, _)
-  when is_map(Ans) ->
-    maps:merge(Ans, maps:from_list(Avps));
 
 %% ... or record.
 set(Rec, Avps, Dict) ->
@@ -901,9 +893,6 @@ rc([MsgName | _], RC, Dict) ->
         {0,1} -> [{K, [RC]}];
         _     -> []
     end;
-
-rc(#{':name' := Name}, RC, Dict) ->
-    rc([Name], RC, Dict);
 
 rc(Rec, RC, Dict) ->
     rc([Dict:rec2msg(element(1, Rec))], RC, Dict).
@@ -937,10 +926,6 @@ failed(Msg, FailedAvp, Dict) ->
 msg2rec([MsgName | _], Dict) ->
     Dict:msg2rec(MsgName);
 
-%% ... map ...
-msg2rec(#{':name' := MsgName}, Dict) ->
-    Dict:msg2rec(MsgName);
-
 %% ... or record.
 msg2rec(Rec, _) ->
     element(1, Rec).
@@ -949,12 +934,11 @@ msg2rec(Rec, _) ->
 
 %% Message as name/values list ...
 values([_ | Avps], F, _) ->
-    proplists:get_value(F, Avps, []);
-
-%% ... map ...
-values(Msg, F, _)
-  when is_map(Msg) ->
-    maps:get(F, Msg, []);
+    if is_map(Avps) ->
+            maps:get(F, Avps, []);
+       is_list(Avps) ->
+            proplists:get_value(F, Avps, [])
+    end;
 
 %% ... or record.
 values(Rec, F, Dict) ->
@@ -1906,20 +1890,10 @@ get_avp(Dict, Name, [#diameter_header{} | Avps]) ->
 
 %% Message as name/values list ...
 get_avp(_, Name, [_MsgName | Avps]) ->
-    case lists:keyfind(Name, 1, Avps) of
+    case find(Name, Avps) of
         {_, V} ->
             #diameter_avp{name = Name, value = V};
         _ ->
-            undefined
-    end;
-
-%% ... map ...
-get_avp(_, Name, Map)
-  when is_map(Map) ->
-    case maps:find(Name, Map) of
-        {ok, V} ->
-            #diameter_avp{name = Name, value = V};
-        error ->
             undefined
     end;
 
@@ -1931,6 +1905,16 @@ get_avp(Dict, Name, Rec) ->
         error:_ ->
             undefined
     end.
+
+%% find/2
+
+find(Key, Map)
+  when is_map(Map) ->
+    maps:find(Key, Map);
+
+find(Key, List)
+  when is_list(List) ->
+    lists:keyfind(Key, 1, List).
 
 %% get_avp_value/3
 
