@@ -124,9 +124,12 @@ enc(_, _, {0,_}, [], _, _) ->
 enc(_, _, _, undefined, _, _) ->
     [];
 
-enc(_, AvpName, _, T, _, _)
-  when not is_list(T) ->
-    ?THROW([repeated_avp_as_non_list, AvpName, T]);
+%% Be forgiving when a list of values is expected. If the value itself
+%% is a list then the user has to wrap it to avoid each member from
+%% being interpreted as an individual AVP value.
+enc(Name, AvpName, Arity, V, Opts, Mod)
+  when not is_list(V) ->
+    enc(Name, AvpName, Arity, [V], Opts, Mod);
 
 enc(Name, AvpName, {Min, Max}, Values, Opts, Mod) ->
     H = avp_header(AvpName, Mod),
