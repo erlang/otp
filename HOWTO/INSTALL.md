@@ -18,9 +18,6 @@ Required Utilities
 
 These are the tools you need in order to unpack and build Erlang/OTP.
 
-> *WARNING*: Please have a look at the [Known platform issues][] chapter
-> before you start.
-
 ### Unpacking ###
 
 *   GNU unzip, or a modern uncompress.
@@ -343,12 +340,6 @@ use the `--prefix` argument like this: `./configure --prefix=<Dir>`.
 Some of the available `configure` options are:
 
 *   `--prefix=PATH` - Specify installation prefix.
-*   `--enable-plain-emulator` - Build a threaded emulator that only
-    uses one scheduler. This emulator type is deprecated and will be
-    removed in a future release.
-*   `--disable-threads` - Build a non-threaded emulator. This emulator type
-    is deprecated and will be
-    removed in a future release.
 *   `--{enable,disable}-kernel-poll` - Kernel poll support (enabled by
     default if possible)
 *   `--{enable,disable}-hipe` - HiPE support (enabled by default on supported
@@ -575,16 +566,12 @@ as before, but the build process will take a much longer time.
 
 After completing all the normal building steps described above a debug
 enabled runtime system can be built. To do this you have to change
-directory to `$ERL_TOP/erts/emulator`.
+directory to `$ERL_TOP/erts/emulator` and execute:
 
-In this directory execute:
+    $ (cd $ERL_TOP/erts/emulator && make debug)
 
-    $ make debug FLAVOR=$FLAVOR
-
-where `$FLAVOR` is either `plain` or `smp`. The flavor options will
-produce a beam.debug and beam.smp.debug executable respectively. The
-files are installed along side with the normal (opt) versions `beam.smp`
-and `beam`.
+This will produce a  beam.smp.debug executable. The
+file are installed along side with the normal (opt) version `beam.smp`.
 
 To start the debug enabled runtime system execute:
 
@@ -598,7 +585,7 @@ using appropriate configure options.
 There are other types of runtime systems that can be built as well
 using the similar steps just described.
 
-    $ make $TYPE FLAVOR=$FLAVOR
+    $ (cd $ERL_TOP/erts/emulator && make $TYPE)
 
 where `$TYPE` is `opt`, `gcov`, `gprof`, `debug`, `valgrind`, or `lcnt`.
 These different beam types are useful for debugging and profiling
@@ -794,7 +781,6 @@ Use `hipe:help_options/0` to print out the available options.
    [man pages]: http://www.erlang.org/download/otp_doc_man_%OTP-VSN%.tar.gz
    [the released source tar ball]: http://www.erlang.org/download/otp_src_%OTP-VSN%.tar.gz
    [System Principles]: ../system_principles/system_principles
-   [Known platform issues]: #Known-platform-issues
    [native build]: #How-to-Build-and-Install-ErlangOTP
    [cross build]: INSTALL-CROSS.md
    [Required Utilities]: #Required-Utilities
