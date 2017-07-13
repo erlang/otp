@@ -2283,13 +2283,8 @@ write_concurrency(Config) when is_list(Config) ->
     NoHashMem = ets:info(No7,memory),
     NoHashMem = ets:info(No8,memory),
 
-    case erlang:system_info(smp_support) of
-	true ->
-	    true = YesMem > NoHashMem,
-	    true = YesMem > NoTreeMem;
-	false ->
-	    true = YesMem =:= NoHashMem
-    end,
+    true = YesMem > NoHashMem,
+    true = YesMem > NoTreeMem,
 
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,{write_concurrency,foo}])),
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,{write_concurrency}])),
@@ -5912,16 +5907,11 @@ add_lists([E1|T1], [E2|T2], Acc) ->
 run_smp_workers(InitF,ExecF,FiniF,Laps) ->
     run_smp_workers(InitF,ExecF,FiniF,Laps, 0).
 run_smp_workers(InitF,ExecF,FiniF,Laps, Exclude) ->
-    case erlang:system_info(smp_support) of
-	true ->
-            case erlang:system_info(schedulers_online) of
-                N when N > Exclude ->
-                    run_workers_do(InitF,ExecF,FiniF,Laps, N - Exclude);
-                _ ->
-                    {skipped, "Too few schedulers online"}
-            end;
-	false ->
-	    {skipped,"No smp support"}
+    case erlang:system_info(schedulers_online) of
+        N when N > Exclude ->
+            run_workers_do(InitF,ExecF,FiniF,Laps, N - Exclude);
+        _ ->
+            {skipped, "Too few schedulers online"}
     end.
 
 run_sched_workers(InitF,ExecF,FiniF,Laps) ->
@@ -6231,11 +6221,9 @@ spawn_monitor_with_pid(Pid, Fun, N) ->
 only_if_smp(Func) ->
     only_if_smp(2, Func).
 only_if_smp(Schedulers, Func) ->
-    case {erlang:system_info(smp_support),
-	  erlang:system_info(schedulers_online)} of
-	{false,_} -> {skip,"No smp support"};
-	{true,N} when N < Schedulers -> {skip,"Too few schedulers online"};
-	{true,_} -> Func()
+    case erlang:system_info(schedulers_online) of
+	N when N < Schedulers -> {skip,"Too few schedulers online"};
+	_ -> Func()
     end.
 
 %% Copy-paste from emulator/test/binary_SUITE.erl

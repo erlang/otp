@@ -88,11 +88,9 @@ native_atomics(Config) when is_list(Config) ->
     {value,{NA32Key, NA32, _}} = lists:keysearch(NA32Key, 1, EthreadInfo),
     {value,{NA64Key, NA64, _}} = lists:keysearch(NA64Key, 1, EthreadInfo),
     {value,{DWNAKey, DWNA, _}} = lists:keysearch(DWNAKey, 1, EthreadInfo),
-    case {erlang:system_info(build_type), erlang:system_info(smp_support), NA32, NA64, DWNA} of
-	{opt, true, "no", "no", _} ->
+    case {erlang:system_info(build_type), NA32, NA64, DWNA} of
+	{opt, "no", "no", _} ->
 	    ct:fail(optimized_smp_runtime_without_native_atomics);
-	{_, false, "no", "no", _} ->
-	    {comment, "No native atomics"};
 	_ ->
 	    {comment,
 	     NA32 ++ " 32-bit, "
