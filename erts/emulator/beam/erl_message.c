@@ -170,7 +170,7 @@ erts_cleanup_offheap(ErlOffHeap *offheap)
             erts_bin_release(u.pb->val);
 	    break;
 	case FUN_SUBTAG:
-	    if (erts_smp_refc_dectest(&u.fun->fe->refc, 0) == 0) {
+	    if (erts_refc_dectest(&u.fun->fe->refc, 0) == 0) {
 		erts_erase_fun_entry(u.fun->fe);		    
 	    }
 	    break;
@@ -267,7 +267,7 @@ erts_queue_dist_message(Process *rcvr,
 #endif
     erts_aint_t state;
 
-    ERTS_SMP_LC_ASSERT(rcvr_locks == erts_proc_lc_my_proc_locks(rcvr));
+    ERTS_LC_ASSERT(rcvr_locks == erts_proc_lc_my_proc_locks(rcvr));
 
     mp = erts_alloc_message(0, NULL);
     mp->data.dist_ext = dist_ext;
@@ -282,22 +282,22 @@ erts_queue_dist_message(Process *rcvr,
 	ERL_MESSAGE_TOKEN(mp) = token;
 
     if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ)) {
-	if (erts_smp_proc_trylock(rcvr, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
+	if (erts_proc_trylock(rcvr, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
 	    ErtsProcLocks need_locks = ERTS_PROC_LOCK_MSGQ;
             ErtsProcLocks unlocks =
                 rcvr_locks & ERTS_PROC_LOCKS_HIGHER_THAN(ERTS_PROC_LOCK_MSGQ);
 	    if (unlocks) {
-		erts_smp_proc_unlock(rcvr, unlocks);
+		erts_proc_unlock(rcvr, unlocks);
 		need_locks |= unlocks;
 	    }
-	    erts_smp_proc_lock(rcvr, need_locks);
+	    erts_proc_lock(rcvr, need_locks);
 	}
     }
 
-    state = erts_smp_atomic32_read_acqb(&rcvr->state);
+    state = erts_atomic32_read_acqb(&rcvr->state);
     if (state & (ERTS_PSFLG_PENDING_EXIT|ERTS_PSFLG_EXITING)) {
 	if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ))
-	    erts_smp_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
+	    erts_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
 	/* Drop message if receiver is exiting or has a pending exit ... */
 	erts_cleanup_messages(mp);
     }
@@ -308,7 +308,7 @@ erts_queue_dist_message(Process *rcvr,
 
 	/* Ahh... need to decode it in order to trace it... */
 	if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ))
-	    erts_smp_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
+	    erts_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
 	if (!erts_decode_dist_message(rcvr, rcvr_locks, mp, 0))
 	    erts_free_message(mp);
 	else {
@@ -357,7 +357,7 @@ erts_queue_dist_message(Process *rcvr,
 	LINK_MESSAGE(rcvr, mp, &mp->next, 1);
 
 	if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ))
-	    erts_smp_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
+	    erts_proc_unlock(rcvr, ERTS_PROC_LOCK_MSGQ);
 
 	erts_proc_notify_new_message(rcvr,
 				     rcvr_locks
@@ -386,39 +386,39 @@ queue_messages(Process* receiver,
            is_tuple(ERL_MESSAGE_TOKEN(first)));
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-    ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(receiver) < ERTS_PROC_LOCK_MSGQ ||
+    ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(receiver) < ERTS_PROC_LOCK_MSGQ ||
                        receiver_locks == erts_proc_lc_my_proc_locks(receiver));
 #endif
 
     if (!(receiver_locks & ERTS_PROC_LOCK_MSGQ)) {
-	if (erts_smp_proc_trylock(receiver, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
+	if (erts_proc_trylock(receiver, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
             ErtsProcLocks need_locks;
 
 	    if (receiver_state)
 		state = *receiver_state;
 	    else
-		state = erts_smp_atomic32_read_nob(&receiver->state);
+		state = erts_atomic32_read_nob(&receiver->state);
 	    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))
 		goto exiting;
 
             need_locks = receiver_locks & ERTS_PROC_LOCKS_HIGHER_THAN(ERTS_PROC_LOCK_MSGQ);
 	    if (need_locks) {
-		erts_smp_proc_unlock(receiver, need_locks);
+		erts_proc_unlock(receiver, need_locks);
 	    }
             need_locks |= ERTS_PROC_LOCK_MSGQ;
-	    erts_smp_proc_lock(receiver, need_locks);
+	    erts_proc_lock(receiver, need_locks);
 	}
 	locked_msgq = 1;
     }
 
 
-    state = erts_smp_atomic32_read_nob(&receiver->state);
+    state = erts_atomic32_read_nob(&receiver->state);
 
     if (state & (ERTS_PSFLG_PENDING_EXIT|ERTS_PSFLG_EXITING)) {
     exiting:
 	/* Drop message if receiver is exiting or has a pending exit... */
 	if (locked_msgq)
-	    erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
+	    erts_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
 	erts_cleanup_messages(first);
 	return 0;
     }
@@ -434,7 +434,7 @@ queue_messages(Process* receiver,
 	 * the root set when garbage collecting.
 	 */
 	res += receiver->msg_inq.len;
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(receiver);
+	ERTS_MSGQ_MV_INQ2PRIVQ(receiver);
         LINK_MESSAGE_PRIVQ(receiver, first, last, len);
     }
     else
@@ -475,7 +475,7 @@ queue_messages(Process* receiver,
 
     }
     if (locked_msgq) {
-	erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
+	erts_proc_unlock(receiver, ERTS_PROC_LOCK_MSGQ);
     }
 
     erts_proc_notify_new_message(receiver, receiver_locks);
@@ -599,7 +599,7 @@ erts_try_alloc_message_on_heap(Process *pp,
 	     */
 	    if (locked_main) {
 		*plp &= ~ERTS_PROC_LOCK_MAIN;
-		erts_smp_proc_unlock(pp, ERTS_PROC_LOCK_MAIN);
+		erts_proc_unlock(pp, ERTS_PROC_LOCK_MAIN);
 	    }
 	    goto in_message_fragment;
 	}
@@ -611,9 +611,9 @@ erts_try_alloc_message_on_heap(Process *pp,
 	mp->data.attached = NULL;
 	*on_heap_p = !0;
     }
-    else if (pp && erts_smp_proc_trylock(pp, ERTS_PROC_LOCK_MAIN) == 0) {
+    else if (pp && erts_proc_trylock(pp, ERTS_PROC_LOCK_MAIN) == 0) {
 	locked_main = 1;
-	*psp = erts_smp_atomic32_read_nob(&pp->state);
+	*psp = erts_atomic32_read_nob(&pp->state);
 	*plp |= ERTS_PROC_LOCK_MAIN;
 	goto try_on_heap;
     }
@@ -685,7 +685,7 @@ erts_send_message(Process* sender,
     }
 #endif
 
-    receiver_state = erts_smp_atomic32_read_nob(&receiver->state);
+    receiver_state = erts_atomic32_read_nob(&receiver->state);
 
     if (SEQ_TRACE_TOKEN(sender) != NIL && !(flags & ERTS_SND_FLG_NO_SEQ_TRACE)) {
         Eterm* hp;
@@ -934,7 +934,7 @@ erts_move_messages_off_heap(Process *c_p)
 
     reds += c_p->msg.len / 10;
 
-    ASSERT(erts_smp_atomic32_read_nob(&c_p->state)
+    ASSERT(erts_atomic32_read_nob(&c_p->state)
 	   & ERTS_PSFLG_OFF_HEAP_MSGQ);
     ASSERT(c_p->flags & F_OFF_HEAP_MSGQ_CHNG);
 
@@ -999,9 +999,9 @@ erts_complete_off_heap_message_queue_change(Process *c_p)
 {
     int reds = 1;
 
-    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(c_p));
     ASSERT(c_p->flags & F_OFF_HEAP_MSGQ_CHNG);
-    ASSERT(erts_smp_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_OFF_HEAP_MSGQ);
+    ASSERT(erts_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_OFF_HEAP_MSGQ);
 
     /*
      * This job was first initiated when the process changed to off heap
@@ -1013,13 +1013,13 @@ erts_complete_off_heap_message_queue_change(Process *c_p)
      */
 
     if (!(c_p->flags & F_OFF_HEAP_MSGQ))
-	erts_smp_atomic32_read_band_nob(&c_p->state,
+	erts_atomic32_read_band_nob(&c_p->state,
 					~ERTS_PSFLG_OFF_HEAP_MSGQ);
     else {
 	reds += 2;
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
-	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+	erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+	ERTS_MSGQ_MV_INQ2PRIVQ(c_p);
+	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 	reds += erts_move_messages_off_heap(c_p);
     }
     c_p->flags &= ~F_OFF_HEAP_MSGQ_CHNG;
@@ -1056,16 +1056,16 @@ erts_change_message_queue_management(Process *c_p, Eterm new_state)
 
 #ifdef DEBUG
     if (c_p->flags & F_OFF_HEAP_MSGQ) {
-	ASSERT(erts_smp_atomic32_read_nob(&c_p->state)
+	ASSERT(erts_atomic32_read_nob(&c_p->state)
 	       & ERTS_PSFLG_OFF_HEAP_MSGQ);
     }
     else {
 	if (c_p->flags & F_OFF_HEAP_MSGQ_CHNG) {
-	    ASSERT(erts_smp_atomic32_read_nob(&c_p->state)
+	    ASSERT(erts_atomic32_read_nob(&c_p->state)
 		   & ERTS_PSFLG_OFF_HEAP_MSGQ);
 	}
 	else {
-	    ASSERT(!(erts_smp_atomic32_read_nob(&c_p->state)
+	    ASSERT(!(erts_atomic32_read_nob(&c_p->state)
 		     & ERTS_PSFLG_OFF_HEAP_MSGQ));
 	}
     }
@@ -1082,7 +1082,7 @@ erts_change_message_queue_management(Process *c_p, Eterm new_state)
 	case am_on_heap:
 	    c_p->flags |= F_ON_HEAP_MSGQ;
 	    c_p->flags &= ~F_OFF_HEAP_MSGQ;
-	    erts_smp_atomic32_read_bor_nob(&c_p->state,
+	    erts_atomic32_read_bor_nob(&c_p->state,
 					   ERTS_PSFLG_ON_HEAP_MSGQ);
 	    /*
 	     * We are not allowed to clear ERTS_PSFLG_OFF_HEAP_MSGQ
@@ -1091,7 +1091,7 @@ erts_change_message_queue_management(Process *c_p, Eterm new_state)
 	     */
 	    if (!(c_p->flags & F_OFF_HEAP_MSGQ_CHNG)) {
 		/* Safe to clear ERTS_PSFLG_OFF_HEAP_MSGQ... */
-		erts_smp_atomic32_read_band_nob(&c_p->state,
+		erts_atomic32_read_band_nob(&c_p->state,
 						~ERTS_PSFLG_OFF_HEAP_MSGQ);
 	    }
 	    break;
@@ -1109,7 +1109,7 @@ erts_change_message_queue_management(Process *c_p, Eterm new_state)
 	    break;
 	case am_off_heap:
 	    c_p->flags &= ~F_ON_HEAP_MSGQ;
-	    erts_smp_atomic32_read_band_nob(&c_p->state,
+	    erts_atomic32_read_band_nob(&c_p->state,
 					    ~ERTS_PSFLG_ON_HEAP_MSGQ);
 	    goto change_to_off_heap;
 	default:
@@ -1144,7 +1144,7 @@ change_to_off_heap:
 	 * change has completed, GC does not need to inspect
 	 * the message queue at all.
 	 */
-	erts_smp_atomic32_read_bor_nob(&c_p->state,
+	erts_atomic32_read_bor_nob(&c_p->state,
 				       ERTS_PSFLG_OFF_HEAP_MSGQ);
 	c_p->flags |= F_OFF_HEAP_MSGQ_CHNG;
 	cohmq = erts_alloc(ERTS_ALC_T_MSGQ_CHNG,
@@ -1425,7 +1425,7 @@ erts_factory_message_create(ErtsHeapFactory* factory,
     int on_heap;
     erts_aint32_t state;
 
-    state = proc ? erts_smp_atomic32_read_nob(&proc->state) : 0;
+    state = proc ? erts_atomic32_read_nob(&proc->state) : 0;
 
     if (state & ERTS_PSFLG_OFF_HEAP_MSGQ) {
 	msgp = erts_alloc_message(sz, &hp);
@@ -1440,7 +1440,7 @@ erts_factory_message_create(ErtsHeapFactory* factory,
     }
 
     if (on_heap) {
-	ERTS_SMP_ASSERT(*proc_locksp & ERTS_PROC_LOCK_MAIN);
+	ERTS_ASSERT(*proc_locksp & ERTS_PROC_LOCK_MAIN);
 	ASSERT(ohp == &proc->off_heap);
 	factory->mode = FACTORY_HALLOC;
 	factory->p = proc;

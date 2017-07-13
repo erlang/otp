@@ -601,7 +601,7 @@ long driver_async(ErlDrvPort ix, unsigned int* key,
     if (prt == ERTS_INVALID_ERL_DRV_PORT)
 	return -1;
 
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 
     a = (ErtsAsync*) erts_alloc(ERTS_ALC_T_ASYNC, sizeof(ErtsAsync));
 

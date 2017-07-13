@@ -45,11 +45,6 @@
  *      Data dependency read barrier. Orders *only* loads
  *      according to data dependency across the barrier.
  *
- * If thread support has been disabled, these barriers will become no-ops.
- *
- * If the prefix ERTS_THR_ is replaced with ERTS_SMP_, the barriers will
- * be enabled only in the SMP enabled runtime system.
- *
  * --- Atomic operations ---
  *
  * Atomics operations exist for 32-bit, word size, and double word size
@@ -85,20 +80,6 @@
  *          loads according to data dependency across the
  *          barrier. Load in atomic operation is ordered
  *          before the barrier.
- *
- * If thread support has been disabled, these functions are mapped to
- * functions that performs the same operation, but aren't atomic
- * and don't imply any memory barriers.
- *
- * If the atomic operations are prefixed with erts_smp_ instead of only
- * erts_ the atomic operations will only be atomic in the SMP enabled
- * runtime system, and will be mapped to non-atomic operations without
- * memory barriers in the runtime system without SMP support. Atomic
- * operations with erts_smp_ prefix should use the atomic types
- * erts_smp_atomic32_t, erts_smp_atomic_t, and erts_smp_dw_atomic_t
- * instead of erts_atomic32_t, erts_atomic_t, and erts_dw_atomic_t. The
- * integer data types erts_aint32_t, erts_aint_t, and erts_dw_atomic_t
- * are the same.
  *
  * --- 32-bit atomic operations ---
  *

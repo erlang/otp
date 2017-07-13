@@ -24,7 +24,6 @@
 #define ERTS_WANT_MEM_MAPPERS
 #include "sys.h"
 #include "erl_process.h"
-#include "erl_smp.h"
 #include "atom.h"
 #include "erl_mmap.h"
 #include <stddef.h>
@@ -62,11 +61,11 @@
     (((UWord) (PTR)) - ((UWord) mm->sa.bot)			\
      < ((UWord) mm->sua.top) - ((UWord) mm->sa.bot))
 #define ERTS_MMAP_IN_SUPERALIGNED_AREA(PTR)				\
-    (ERTS_SMP_LC_ASSERT(erts_lc_mtx_is_locked(&mm->mtx)),	\
+    (ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&mm->mtx)),	\
      (((UWord) (PTR)) - ((UWord) mm->sa.bot)			\
       < ((UWord) mm->sa.top) - ((UWord) mm->sa.bot)))
 #define ERTS_MMAP_IN_SUPERUNALIGNED_AREA(PTR)				\
-    (ERTS_SMP_LC_ASSERT(erts_lc_mtx_is_locked(&mm->mtx)),	\
+    (ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&mm->mtx)),	\
      (((UWord) (PTR)) - ((UWord) mm->sua.bot)			\
       < ((UWord) mm->sua.top) - ((UWord) mm->sua.bot)))
 
@@ -199,10 +198,10 @@ static ErtsMMapOp mmap_ops[ERTS_MMAP_OP_RINGBUF_SZ];
 
 #define ERTS_MMAP_OP_LCK(RES, IN_SZ, OUT_SZ)			\
     do {							\
-	erts_smp_mtx_lock(&mm->mtx);			\
+	erts_mtx_lock(&mm->mtx);			\
 	ERTS_MMAP_OP_START((IN_SZ));				\
 	ERTS_MMAP_OP_END((RES), (OUT_SZ));			\
-	erts_smp_mtx_unlock(&mm->mtx);			\
+	erts_mtx_unlock(&mm->mtx);			\
     } while (0)
 
 #define ERTS_MUNMAP_OP(PTR, SZ)					\
@@ -221,9 +220,9 @@ static ErtsMMapOp mmap_ops[ERTS_MMAP_OP_RINGBUF_SZ];
 
 #define ERTS_MUNMAP_OP_LCK(PTR, SZ)				\
     do {							\
-	erts_smp_mtx_lock(&mm->mtx);			\
+	erts_mtx_lock(&mm->mtx);			\
 	ERTS_MUNMAP_OP((PTR), (SZ));				\
-	erts_smp_mtx_unlock(&mm->mtx);			\
+	erts_mtx_unlock(&mm->mtx);			\
     } while (0)
 
 #define ERTS_MREMAP_OP_START(OLD_PTR, OLD_SZ, IN_SZ)		\
@@ -249,10 +248,10 @@ static ErtsMMapOp mmap_ops[ERTS_MMAP_OP_RINGBUF_SZ];
 
 #define ERTS_MREMAP_OP_LCK(RES, OLD_PTR, OLD_SZ, IN_SZ, OUT_SZ)	\
     do {							\
-	erts_smp_mtx_lock(&mm->mtx);			\
+	erts_mtx_lock(&mm->mtx);			\
 	ERTS_MREMAP_OP_START((OLD_PTR), (OLD_SZ), (IN_SZ));	\
 	ERTS_MREMAP_OP_END((RES), (OUT_SZ));			\
-	erts_smp_mtx_unlock(&mm->mtx);			\
+	erts_mtx_unlock(&mm->mtx);			\
     } while (0)
 
 #define ERTS_MMAP_OP_ABORT()					\
@@ -321,7 +320,7 @@ struct ErtsMemMapper_ {
 #if HAVE_MMAP && (!defined(MAP_ANON) && !defined(MAP_ANONYMOUS))
     int mmap_fd;
 #endif
-    erts_smp_mtx_t mtx;
+    erts_mtx_t mtx;
     struct {
 	char *free_list;
 	char *unused_start;
@@ -1536,7 +1535,7 @@ erts_mmap(ErtsMemMapper* mm, Uint32 flags, UWord *sizep)
 	ErtsFreeSegDesc *desc;
 	Uint32 superaligned = (ERTS_MMAPFLG_SUPERALIGNED & flags);
 
-	erts_smp_mtx_lock(&mm->mtx);
+	erts_mtx_lock(&mm->mtx);
 
 	ERTS_MMAP_OP_START(*sizep);
 
@@ -1660,7 +1659,7 @@ erts_mmap(ErtsMemMapper* mm, Uint32 flags, UWord *sizep)
 	}
 
 	ERTS_MMAP_OP_ABORT();
-	erts_smp_mtx_unlock(&mm->mtx);
+	erts_mtx_unlock(&mm->mtx);
     }
 
 #if ERTS_HAVE_OS_MMAP
@@ -1724,13 +1723,13 @@ supercarrier_success:
 #endif
 
     ERTS_MMAP_OP_END(seg, asize);
-    erts_smp_mtx_unlock(&mm->mtx);
+    erts_mtx_unlock(&mm->mtx);
 
     *sizep = asize;
     return (void *) seg;
 
 supercarrier_reserve_failure:
-    erts_smp_mtx_unlock(&mm->mtx);
+    erts_mtx_unlock(&mm->mtx);
     *sizep = 0;
     return NULL;
 }
@@ -1760,7 +1759,7 @@ erts_munmap(ErtsMemMapper* mm, Uint32 flags, void *ptr, UWord size)
 	start = (char *) ptr;
 	end = start + size;
 
-	erts_smp_mtx_lock(&mm->mtx);
+	erts_mtx_lock(&mm->mtx);
 
 	ERTS_MUNMAP_OP(ptr, size);
 
@@ -1829,7 +1828,7 @@ erts_munmap(ErtsMemMapper* mm, Uint32 flags, void *ptr, UWord size)
 	    if (unres_sz)
 		mm->unreserve_physical(((char *) ptr) + ad_sz, unres_sz);
 
-            erts_smp_mtx_unlock(&mm->mtx);
+            erts_mtx_unlock(&mm->mtx);
 	}
     }
 }
@@ -1948,12 +1947,12 @@ erts_mremap(ErtsMemMapper* mm,
 		 ? ERTS_SUPERALIGNED_CEILING(*sizep)
 		 : ERTS_PAGEALIGNED_CEILING(*sizep));
 
-	erts_smp_mtx_lock(&mm->mtx);
+	erts_mtx_lock(&mm->mtx);
 
 	if (ERTS_MMAP_IN_SUPERALIGNED_AREA(ptr)
 	    ? (!superaligned && lookup_free_seg(&mm->sua.map, asize))
 	    : (superaligned && lookup_free_seg(&mm->sa.map, asize))) {
-	    erts_smp_mtx_unlock(&mm->mtx);
+	    erts_mtx_unlock(&mm->mtx);
 	    /*
 	     * Segment currently in wrong area (due to a previous memory
 	     * shortage), move it to the right area.
@@ -2068,7 +2067,7 @@ erts_mremap(ErtsMemMapper* mm,
 	}
 
 	ERTS_MMAP_OP_ABORT();
-	erts_smp_mtx_unlock(&mm->mtx);
+	erts_mtx_unlock(&mm->mtx);
 
 	/* Failed to resize... */
     }
@@ -2090,14 +2089,14 @@ supercarrier_resize_success:
 #endif
 
     ERTS_MREMAP_OP_END(new_ptr, asize);
-    erts_smp_mtx_unlock(&mm->mtx);
+    erts_mtx_unlock(&mm->mtx);
 
     *sizep = asize;
     return new_ptr;
 
 supercarrier_reserve_failure:
     ERTS_MREMAP_OP_END(NULL, old_size);
-    erts_smp_mtx_unlock(&mm->mtx);
+    erts_mtx_unlock(&mm->mtx);
     *sizep = old_size;
     return NULL;
     
@@ -2212,7 +2211,7 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init, int executable)
 	erts_exit(1, "erts_mmap: Failed to open /dev/zero\n");
 #endif
 
-    erts_smp_mtx_init(&mm->mtx, "erts_mmap", NIL,
+    erts_mtx_init(&mm->mtx, "erts_mmap", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     if (is_first_call) {
         erts_mtx_init(&am.init_mutex, "mmap_init_atoms", NIL,
@@ -2407,7 +2406,7 @@ Eterm erts_mmap_info(ErtsMemMapper* mm,
     Eterm res = THE_NON_VALUE;
 
     if (!hpp) {
-        erts_smp_mtx_lock(&mm->mtx);
+        erts_mtx_lock(&mm->mtx);
         emis->sizes[0] = mm->size.supercarrier.total;
         emis->sizes[1] = mm->sa.top  - mm->sa.bot;
         emis->sizes[2] = mm->sua.top - mm->sua.bot;
@@ -2423,7 +2422,7 @@ Eterm erts_mmap_info(ErtsMemMapper* mm,
         emis->segs[5] = mm->sua.map.nseg;
 
         emis->os_used = mm->size.os.used;
-        erts_smp_mtx_unlock(&mm->mtx);
+        erts_mtx_unlock(&mm->mtx);
     }
 
     list[lix] = erts_mmap_info_options(mm, "option ", print_to_p, print_to_arg,
@@ -2543,14 +2542,14 @@ Eterm erts_mmap_debug_info(Process* p)
         Eterm *hp, *hp_end;
         Uint may_need;
 
-        erts_smp_mtx_lock(&mm->mtx);
+        erts_mtx_lock(&mm->mtx);
         values[0] = (UWord)mm->sa.bot;
         values[1] = (UWord)mm->sa.top;
         values[2] = (UWord)mm->sua.bot;
         values[3] = (UWord)mm->sua.top;
         sa_list = build_free_seg_list(p, &mm->sa.map);
         sua_list = build_free_seg_list(p, &mm->sua.map);
-        erts_smp_mtx_unlock(&mm->mtx);
+        erts_mtx_unlock(&mm->mtx);
 
         may_need = 4*(2+3+2) + 2*(2+3);
         hp = HAlloc(p, may_need);

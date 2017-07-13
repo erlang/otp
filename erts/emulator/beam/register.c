@@ -38,14 +38,14 @@ static Hash process_reg;
 
 #define REG_HASH(term) ((HashValue) atom_val(term))
 
-static erts_smp_rwmtx_t regtab_rwmtx;
+static erts_rwmtx_t regtab_rwmtx;
 
-#define reg_try_read_lock()		erts_smp_rwmtx_tryrlock(&regtab_rwmtx)
-#define reg_try_write_lock()		erts_smp_rwmtx_tryrwlock(&regtab_rwmtx)
-#define reg_read_lock()			erts_smp_rwmtx_rlock(&regtab_rwmtx)
-#define reg_write_lock()		erts_smp_rwmtx_rwlock(&regtab_rwmtx)
-#define reg_read_unlock()		erts_smp_rwmtx_runlock(&regtab_rwmtx)
-#define reg_write_unlock()		erts_smp_rwmtx_rwunlock(&regtab_rwmtx)
+#define reg_try_read_lock()		erts_rwmtx_tryrlock(&regtab_rwmtx)
+#define reg_try_write_lock()		erts_rwmtx_tryrwlock(&regtab_rwmtx)
+#define reg_read_lock()			erts_rwmtx_rlock(&regtab_rwmtx)
+#define reg_write_lock()		erts_rwmtx_rwlock(&regtab_rwmtx)
+#define reg_read_unlock()		erts_rwmtx_runlock(&regtab_rwmtx)
+#define reg_write_unlock()		erts_rwmtx_rwunlock(&regtab_rwmtx)
 
 static ERTS_INLINE void
 reg_safe_read_lock(Process *c_p, ErtsProcLocks *c_p_locks)
@@ -63,7 +63,7 @@ reg_safe_read_lock(Process *c_p, ErtsProcLocks *c_p_locks)
 	}
 
 	/* Release process locks in order to avoid deadlock */
-	erts_smp_proc_unlock(c_p, *c_p_locks);
+	erts_proc_unlock(c_p, *c_p_locks);
 	*c_p_locks = 0;
     }
 
@@ -86,7 +86,7 @@ reg_safe_write_lock(Process *c_p, ErtsProcLocks *c_p_locks)
 	}
 
 	/* Release process locks in order to avoid deadlock */
-	erts_smp_proc_unlock(c_p, *c_p_locks);
+	erts_proc_unlock(c_p, *c_p_locks);
 	*c_p_locks = 0;
     }
 
@@ -139,11 +139,11 @@ static void reg_free(RegProc *obj)
 void init_register_table(void)
 {
     HashFunctions f;
-    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
-    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
-    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
+    erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
+    rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
+    rwmtx_opt.lived = ERTS_RWMTX_LONG_LIVED;
 
-    erts_smp_rwmtx_init_opt(&regtab_rwmtx, &rwmtx_opt, "reg_tab", NIL,
+    erts_rwmtx_init_opt(&regtab_rwmtx, &rwmtx_opt, "reg_tab", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     f.hash = (H_FUN) reg_hash;
@@ -173,7 +173,7 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
     Process *proc = NULL;
     Port *port = NULL;
     RegProc r, *rp;
-    ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
+    ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
 
     if (is_not_atom(name) || name == am_undefined)
 	return res;
@@ -183,7 +183,7 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
     else {
 	if (is_not_internal_pid(id) && is_not_internal_port(id))
 	    return res;
-	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 	if (is_internal_port(id)) {
 	    port = erts_id2port(id);
 	    if (!port)
@@ -196,7 +196,7 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
 	reg_safe_write_lock(proc, &proc_locks);
 
 	if (proc && !proc_locks)
-	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+	    erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
     }
 
     if (is_internal_pid(id)) {
@@ -211,7 +211,7 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
     }
     else {
 	ASSERT(!INVALID_PORT(port, id));
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(port));
+	ERTS_LC_ASSERT(erts_lc_is_port_locked(port));
 	r.pt = port;
 	if (r.pt->common.u.alive.reg)
 	    goto done;
@@ -246,8 +246,8 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
 	erts_port_release(port);
     if (c_p != proc) {
 	if (proc)
-	    erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+	    erts_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
+	erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
     }
     return res;
 }
@@ -271,12 +271,12 @@ erts_whereis_name_to_id(Process *c_p, Eterm name)
     ErtsProcLocks c_p_locks = 0;
     if (c_p) {
         c_p_locks = ERTS_PROC_LOCK_MAIN;
-        ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
+        ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
     }
     reg_safe_read_lock(c_p, &c_p_locks);
 
     if (c_p && !c_p_locks)
-        erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+        erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
     hval = REG_HASH(name);
     ix = hval % process_reg.size;
@@ -378,7 +378,7 @@ erts_whereis_name(Process *c_p,
 		    *proc = rp->p;
 		else {
 		    if (need_locks)
-			erts_smp_proc_unlock(rp->p, need_locks);
+			erts_proc_unlock(rp->p, need_locks);
 		    *proc = NULL;
 		}
 	    }
@@ -402,11 +402,11 @@ erts_whereis_name(Process *c_p,
                         pending_port = NULL;
                     }
 		    
-                    if (erts_smp_port_trylock(rp->pt) == EBUSY) {
+                    if (erts_port_trylock(rp->pt) == EBUSY) {
                         Eterm id = rp->pt->common.id; /* id read only... */
                         /* Unlock all locks, acquire port lock, and restart... */
                         if (current_c_p_locks) {
-                            erts_smp_proc_unlock(c_p, current_c_p_locks);
+                            erts_proc_unlock(c_p, current_c_p_locks);
                             current_c_p_locks = 0;
                         }
                         reg_read_unlock();
@@ -414,14 +414,14 @@ erts_whereis_name(Process *c_p,
                         goto restart;
                     }
                 }
-                ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(rp->pt));
+                ERTS_LC_ASSERT(erts_lc_is_port_locked(rp->pt));
             }
 	    *port = rp->pt;
 	}
     }
 
     if (c_p && !current_c_p_locks)
-	erts_smp_proc_lock(c_p, c_p_locks);
+	erts_proc_lock(c_p, c_p_locks);
     if (pending_port)
 	erts_port_release(pending_port);
 
@@ -477,7 +477,7 @@ int erts_unregister_name(Process *c_p,
 	/* Unregister current process name */
 	ASSERT(c_p);
 	if (current_c_p_locks != c_p_locks) {
-	    erts_smp_proc_lock(c_p, c_p_locks);
+	    erts_proc_lock(c_p, c_p_locks);
 	    current_c_p_locks = c_p_locks;
 	}
 	if (c_p->common.u.alive.reg) {
@@ -498,11 +498,11 @@ int erts_unregister_name(Process *c_p,
 		    port = NULL;
 		}
 
-		if (erts_smp_port_trylock(rp->pt) == EBUSY) {
+		if (erts_port_trylock(rp->pt) == EBUSY) {
 		    Eterm id = rp->pt->common.id; /* id read only... */
 		    /* Unlock all locks, acquire port lock, and restart... */
 		    if (current_c_p_locks) {
-			erts_smp_proc_unlock(c_p, current_c_p_locks);
+			erts_proc_unlock(c_p, current_c_p_locks);
 			current_c_p_locks = 0;
 		    }
 		    reg_write_unlock();
@@ -513,13 +513,13 @@ int erts_unregister_name(Process *c_p,
 	    }
 
 	    ASSERT(rp->pt == port);
-	    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(port));
+	    ERTS_LC_ASSERT(erts_lc_is_port_locked(port));
 
 	    rp->pt->common.u.alive.reg = NULL;
 
 	    if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
                 if (current_c_p_locks) {
-                    erts_smp_proc_unlock(c_p, current_c_p_locks);
+                    erts_proc_unlock(c_p, current_c_p_locks);
                     current_c_p_locks = 0;
                 }
 		trace_port(port, am_unregister, r.name);
@@ -540,7 +540,7 @@ int erts_unregister_name(Process *c_p,
                            rp->p, am_unregister, r.name);
 	    }
 	    if (rp->p != c_p) {
-		erts_smp_proc_unlock(rp->p, ERTS_PROC_LOCK_MAIN);
+		erts_proc_unlock(rp->p, ERTS_PROC_LOCK_MAIN);
 	    }
 	}
 	hash_erase(&process_reg, (void*) &r);
@@ -555,11 +555,11 @@ int erts_unregister_name(Process *c_p,
 	    erts_port_release(port);
 	}
 	if (c_prt) {
-	    erts_smp_port_lock(c_prt);
+	    erts_port_lock(c_prt);
 	}
     }
     if (c_p && !current_c_p_locks) {
-	erts_smp_proc_lock(c_p, c_p_locks);
+	erts_proc_lock(c_p, c_p_locks);
     }
     return res;
 }
@@ -603,10 +603,10 @@ BIF_RETTYPE registered_0(BIF_ALIST_0)
     HashBucket **bucket;
     ErtsProcLocks proc_locks = ERTS_PROC_LOCK_MAIN;
 
-    ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(BIF_P);
+    ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(BIF_P);
     reg_safe_read_lock(BIF_P, &proc_locks);
     if (!proc_locks)
-	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
     bucket = process_reg.bucket;
 

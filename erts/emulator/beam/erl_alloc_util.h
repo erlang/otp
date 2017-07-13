@@ -324,12 +324,12 @@ struct Carrier_t_ {
     UWord chdr;
     Carrier_t *next;
     Carrier_t *prev;
-    erts_smp_atomic_t allctr;
+    erts_atomic_t allctr;
     ErtsAlcCPoolData_t cpool; /* Overwritten by block if sbc */
 };
 
 #define ERTS_ALC_CARRIER_TO_ALLCTR(C) \
-  ((Allctr_t *) (erts_smp_atomic_read_nob(&(C)->allctr) & ~FLG_MASK))
+  ((Allctr_t *) (erts_atomic_read_nob(&(C)->allctr) & ~FLG_MASK))
 
 typedef struct {
     Carrier_t *first;

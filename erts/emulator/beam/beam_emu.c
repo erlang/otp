@@ -66,23 +66,23 @@
 do {									\
     if ((P))								\
 	erts_proc_lc_chk_only_proc_main((P));				\
-    ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());		\
+    ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());		\
 } while (0)
-#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)				\
+#    define ERTS_REQ_PROC_MAIN_LOCK(P)				\
 do {									\
     if ((P))								\
 	erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,		\
 				  __FILE__, __LINE__);			\
 } while (0)
-#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)				\
+#    define ERTS_UNREQ_PROC_MAIN_LOCK(P)				\
 do {									\
     if ((P))								\
 	erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN);		\
 } while (0)
 #else
 #  define PROCESS_MAIN_CHK_LOCKS(P)
-#  define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)
-#  define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)
+#  define ERTS_REQ_PROC_MAIN_LOCK(P)
+#  define ERTS_UNREQ_PROC_MAIN_LOCK(P)
 #endif
 
 /*
@@ -294,7 +294,7 @@ void** beam_ops;
      HEAP_TOP((P)) = HTOP;  						\
      (P)->stop = E;  							\
      PROCESS_MAIN_CHK_LOCKS((P));					\
-     ERTS_SMP_UNREQ_PROC_MAIN_LOCK((P))
+     ERTS_UNREQ_PROC_MAIN_LOCK((P))
 
 #define db(N) (N)
 #define tb(N) (N)
@@ -1358,7 +1358,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     }
 
     PROCESS_MAIN_CHK_LOCKS(c_p);
-    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     c_p = erts_schedule(NULL, c_p, reds_used);
     ASSERT(!(c_p->flags & F_HIPE_MODE));
@@ -1367,7 +1367,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 #ifdef DEBUG
     pid = c_p->common.id; /* Save for debugging purposes */
 #endif
-    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
 
     ERTS_MSACC_UPDATE_CACHE_X();
@@ -1740,7 +1740,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      result = erl_send(c_p, r(0), x(1));
      PreFetch(0, next);
      ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+     ERTS_REQ_PROC_MAIN_LOCK(c_p);
      PROCESS_MAIN_CHK_LOCKS(c_p);
      HTOP = HEAP_TOP(c_p);
      FCALLS = c_p->fcalls;
@@ -1937,19 +1937,19 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      msgp = PEEK_MESSAGE(c_p);
 
      if (!msgp) {
-	 erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	 erts_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	 /* Make sure messages wont pass exit signals... */
 	 if (ERTS_PROC_PENDING_EXIT(c_p)) {
-	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	     erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	     SWAPOUT;
 	     c_p->flags &= ~F_DELAY_GC;
              c_p->arity = 0;
 	     goto do_schedule; /* Will be rescheduled for exit */
 	 }
-	 ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
+	 ERTS_MSGQ_MV_INQ2PRIVQ(c_p);
 	 msgp = PEEK_MESSAGE(c_p);
 	 if (msgp)
-	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	     erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	 else
 	 {
 	     c_p->flags &= ~F_DELAY_GC;
@@ -2115,7 +2115,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
 
  OpCase(i_wait_timeout_fs): {
-     erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+     erts_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 
      /* Fall through */
  }
@@ -2148,7 +2148,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	     }
 	     else { /* Wrong time */
 	     OpCase(i_wait_error_locked): {
-		     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+		     erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 		     /* Fall through */
 		 }
 	     OpCase(i_wait_error): {
@@ -2177,24 +2177,24 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	     c_p->arity = 0;
 
 	     if (!ERTS_PTMR_IS_TIMED_OUT(c_p))
-		 erts_smp_atomic32_read_band_relb(&c_p->state,
+		 erts_atomic32_read_band_relb(&c_p->state,
 						  ~ERTS_PSFLG_ACTIVE);
 	     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	     erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	     c_p->current = NULL;
 	     goto do_schedule;
 	 }
 	 OpCase(wait_unlocked_f): {
-	     erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	     erts_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	     goto wait2;
 	 }
      }
-     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+     erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
      Next(2);
  }
 
  OpCase(i_wait_timeout_fI): {
-     erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+     erts_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
  }
 
  OpCase(i_wait_timeout_locked_fI):
@@ -2216,7 +2216,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      * receive statement will examine the first message first.
      */
  OpCase(timeout_locked): {
-     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+     erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
  }
 
  OpCase(timeout): {
@@ -2672,12 +2672,12 @@ do {						\
 	c_p->fcalls = FCALLS;
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, reg, live);
 	ERTS_CHK_MBUF_SZ(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+	ERTS_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	SWAPIN;
 	ERTS_HOLE_CHECK(c_p);
@@ -2715,12 +2715,12 @@ do {						\
 	c_p->fcalls = FCALLS;
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, reg, live);
 	ERTS_CHK_MBUF_SZ(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+	ERTS_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	SWAPIN;
 	ERTS_HOLE_CHECK(c_p);
@@ -2760,12 +2760,12 @@ do {						\
 	c_p->fcalls = FCALLS;
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 	ERTS_CHK_MBUF_SZ(c_p);
 	result = (*bf)(c_p, reg, live);
 	ERTS_CHK_MBUF_SZ(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+	ERTS_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	SWAPIN;
 	ERTS_HOLE_CHECK(c_p);
@@ -2890,7 +2890,7 @@ do {						\
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_HOLE_CHECK(c_p);
-	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+	ERTS_REQ_PROC_MAIN_LOCK(c_p);
 	if (ERTS_IS_GC_DESIRED(c_p)) {
 	    Uint arity = GET_BIF_ARITY(export);
 	    result = erts_gc_after_bif_call_lhf(c_p, live_hf_end, result, reg, arity);
@@ -3400,7 +3400,7 @@ do {						\
      Eterm* argp;
      int i;
 
-     if (erts_smp_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_EXITING) {
+     if (erts_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_EXITING) {
          c_p->i = beam_exit;
          c_p->arity = 0;
          c_p->current = NULL;
@@ -3476,16 +3476,16 @@ do {						\
      SWAPOUT;
      c_p->freason = EXC_NORMAL;
      c_p->arity = 0;		/* In case this process will never be garbed again. */
-     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
      erts_do_exit_process(c_p, am_normal);
-     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+     ERTS_REQ_PROC_MAIN_LOCK(c_p);
      goto do_schedule;
  }
 
  OpCase(continue_exit): {
-     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
      erts_continue_exit_process(c_p);
-     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+     ERTS_REQ_PROC_MAIN_LOCK(c_p);
      goto do_schedule;
  }
 
@@ -3590,7 +3590,7 @@ do {						\
 
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
 	    bif_nif_arity = codemfa->arity;
-	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	    {
@@ -3655,7 +3655,7 @@ do {						\
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
 	    bif_nif_arity = codemfa->arity;
             ASSERT(bif_nif_arity <= 4);
-	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	    {
 		ErtsBifFunc bf = vbf;
@@ -3678,7 +3678,7 @@ do {						\
 	    DTRACE_BIF_RETURN(c_p, codemfa);
 
 	apply_bif_or_nif_epilogue:
-	    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+	    ERTS_REQ_PROC_MAIN_LOCK(c_p);
 	    ERTS_HOLE_CHECK(c_p);
 	    if (ERTS_IS_GC_DESIRED(c_p)) {
 		nif_bif_result = erts_gc_after_bif_call_lhf(c_p, live_hf_end,
@@ -4751,9 +4751,9 @@ do {						\
      ErtsCodeMFA* mfa = (ErtsCodeMFA *)(E[0]);
      
      SWAPOUT;		/* Needed for shared heap */
-     ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+     ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
      erts_trace_return(c_p, mfa, r(0), ERTS_TRACER_FROM_ETERM(E+1)/* tracer */);
-     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+     ERTS_REQ_PROC_MAIN_LOCK(c_p);
      SWAPIN;
      c_p->cp = NULL;
      SET_I((BeamInstr *) cp_val(E[2]));
@@ -4794,9 +4794,9 @@ do {						\
 	     } else break;
 	 }
 	 SWAPOUT;		/* Needed for shared heap */
-	 ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	 ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 	 erts_trace_return_to(c_p, cp_val(*cpp));
-	 ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+	 ERTS_REQ_PROC_MAIN_LOCK(c_p);
 	 SWAPIN;
      }
      c_p->cp = NULL;
@@ -5331,7 +5331,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	}
 
 	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	c_p = erts_schedule(esdp, c_p, reds_used);
 
@@ -5345,7 +5345,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 #ifdef DEBUG
     pid = c_p->common.id; /* Save for debugging purposes */
 #endif
-    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
 
     ASSERT(!(c_p->flags & F_HIPE_MODE));
@@ -5360,7 +5360,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
     else
 	c_p->fcalls = CONTEXT_REDS;
 
-    if (erts_smp_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_DIRTY_RUNNING_SYS) {
+    if (erts_atomic32_read_nob(&c_p->state) & ERTS_PSFLG_DIRTY_RUNNING_SYS) {
 	erts_execute_dirty_system_task(c_p);
 	goto do_dirty_schedule;
     }
@@ -5431,7 +5431,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	c_p->current = codemfa;
 	SWAPOUT;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	if (em_apply_bif == (BeamInstr *) *I) {
@@ -5445,7 +5445,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	ASSERT(!(c_p->flags & F_HIBERNATE_SCHED));
 
 	PROCESS_MAIN_CHK_LOCKS(c_p);
-	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+	ERTS_REQ_PROC_MAIN_LOCK(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
 	if (exiting)
@@ -5624,9 +5624,9 @@ handle_error(Process* c_p, BeamInstr* pc, Eterm* reg, ErtsCodeMFA *bif_mfa)
 	}
 	if (c_p->catches > 0) erts_exit(ERTS_ERROR_EXIT, "Catch not found");
     }
-    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     terminate_proc(c_p, Value);
-    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
     return NULL;
 }
 
@@ -6579,22 +6579,22 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
      * If there are no waiting messages, garbage collect and
      * shrink the heap. 
      */
-    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
+    erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
+    ERTS_MSGQ_MV_INQ2PRIVQ(c_p);
     if (!c_p->msg.len) {
-	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
+	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
 	c_p->fvalue = NIL;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	erts_garbage_collect_hibernate(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-        ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
+	erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
+        ERTS_MSGQ_MV_INQ2PRIVQ(c_p);
 	if (!c_p->msg.len)
-	    erts_smp_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
+	    erts_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     }
-    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
+    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
     c_p->current = &bif_export[BIF_hibernate_3]->info.mfa;
     c_p->flags |= F_HIBERNATE_SCHED; /* Needed also when woken! */
     return 1;
@@ -6684,7 +6684,7 @@ call_fun(Process* p,		/* Current process. */
 
 		module = fe->module;
 
-		ERTS_SMP_READ_MEMORY_BARRIER;
+		ERTS_THR_READ_MEMORY_BARRIER;
 		if (fe->pend_purge_address) {
 		    /*
 		     * The system is currently trying to purge the
@@ -6815,7 +6815,7 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     p->htop = hp + needed;
     funp = (ErlFunThing *) hp;
     hp = funp->env;
-    erts_smp_refc_inc(&fe->refc, 2);
+    erts_refc_inc(&fe->refc, 2);
     funp->thing_word = HEADER_FUN;
     funp->next = MSO(p).first;
     MSO(p).first = (struct erl_off_heap_header*) funp;

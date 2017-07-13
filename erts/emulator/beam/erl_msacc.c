@@ -202,7 +202,7 @@ typedef struct {
     Eterm ref;
     Eterm ref_heap[ERTS_REF_THING_SIZE];
     Uint req_sched;
-    erts_smp_atomic32_t refc;
+    erts_atomic32_t refc;
 } ErtsMSAccReq;
 
 static ErtsMsAcc* get_msacc(void) {
@@ -253,7 +253,7 @@ static void send_reply(ErtsMsAcc *msacc, ErtsMSAccReq *msaccrp) {
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
 
     if (rp_locks)
-	erts_smp_proc_unlock(rp, rp_locks);
+	erts_proc_unlock(rp, rp_locks);
 
 }
 
@@ -289,7 +289,7 @@ reply_msacc(void *vmsaccrp)
 
     erts_proc_dec_refc(msaccrp->proc);
 
-    if (erts_smp_atomic32_dec_read_nob(&msaccrp->refc) == 0)
+    if (erts_atomic32_dec_read_nob(&msaccrp->refc) == 0)
       erts_free(ERTS_ALC_T_MSACC, vmsaccrp);
 }
 
@@ -359,7 +359,7 @@ erts_msacc_request(Process *c_p, int action, Eterm *threads)
     *threads = erts_no_schedulers;
     *threads += 1; /* aux thread */
 
-    erts_smp_atomic32_init_nob(&msaccrp->refc,(erts_aint32_t)*threads);
+    erts_atomic32_init_nob(&msaccrp->refc,(erts_aint32_t)*threads);
 
     erts_proc_add_refc(c_p, *threads);
 

@@ -86,25 +86,25 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
         erts_make_ref_in_array(port->async_open_port->ref);
         port->async_open_port->to = BIF_P->common.id;
 
-        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE | ERTS_PROC_LOCK_LINK);
+        erts_proc_lock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE | ERTS_PROC_LOCK_LINK);
         if (ERTS_PROC_PENDING_EXIT(BIF_P)) {
 	    /* need to exit caller instead */
-	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE | ERTS_PROC_LOCK_LINK);
+	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE | ERTS_PROC_LOCK_LINK);
 	    KILL_CATCHES(BIF_P);
 	    BIF_P->freason = EXC_EXIT;
             erts_port_release(port);
             BIF_RET(am_badarg);
 	}
 
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(BIF_P);
+	ERTS_MSGQ_MV_INQ2PRIVQ(BIF_P);
 	BIF_P->msg.save = BIF_P->msg.last;
 
-	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	erts_proc_unlock(BIF_P, ERTS_PROC_LOCKS_MSG_RECEIVE);
 
         res = erts_proc_store_ref(BIF_P, port->async_open_port->ref);
     } else {
         res = port->common.id;
-        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
+        erts_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
     }
 
     erts_add_link(&ERTS_P_LINKS(port), LINK_PID, BIF_P->common.id);
@@ -114,7 +114,7 @@ BIF_RETTYPE erts_internal_open_port_2(BIF_ALIST_2)
         trace_proc(BIF_P, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK, BIF_P,
                    am_link, port->common.id);
 
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
+    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
 
     erts_port_release(port);
 
@@ -271,7 +271,7 @@ BIF_RETTYPE erts_internal_port_call_3(BIF_ALIST_3)
 	break;
     }
 
-    state = erts_smp_atomic32_read_acqb(&BIF_P->state);
+    state = erts_atomic32_read_acqb(&BIF_P->state);
     if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
 	if (state & ERTS_PSFLG_PENDING_EXIT)
 	    erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
@@ -319,7 +319,7 @@ BIF_RETTYPE erts_internal_port_control_3(BIF_ALIST_3)
 	break;
     }
 
-    state = erts_smp_atomic32_read_acqb(&BIF_P->state);
+    state = erts_atomic32_read_acqb(&BIF_P->state);
     if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
 	if (state & ERTS_PSFLG_PENDING_EXIT)
 	    erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
@@ -509,7 +509,7 @@ cleanup_old_port_data(erts_aint_t data)
     else {
 	ErtsPortDataHeap *pdhp = (ErtsPortDataHeap *) data;
 	size_t size;
-	ERTS_SMP_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
+	ERTS_THR_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
 	size = sizeof(ErtsPortDataHeap) + (pdhp->hsize-1)*sizeof(Eterm);
 	erts_schedule_thr_prgr_later_cleanup_op(free_port_data_heap,
 						(void *) pdhp,
@@ -521,21 +521,21 @@ cleanup_old_port_data(erts_aint_t data)
 void
 erts_init_port_data(Port *prt)
 {
-    erts_smp_atomic_init_nob(&prt->data, (erts_aint_t) am_undefined);
+    erts_atomic_init_nob(&prt->data, (erts_aint_t) am_undefined);
 }
 
 void
 erts_cleanup_port_data(Port *prt)
 {
     ASSERT(erts_atomic32_read_nob(&prt->state) & ERTS_PORT_SFLGS_INVALID_LOOKUP);
-    cleanup_old_port_data(erts_smp_atomic_xchg_nob(&prt->data,
+    cleanup_old_port_data(erts_atomic_xchg_nob(&prt->data,
 						   (erts_aint_t) NULL));
 }
 
 Uint
 erts_port_data_size(Port *prt)
 {
-    erts_aint_t data = erts_smp_atomic_read_ddrb(&prt->data);
+    erts_aint_t data = erts_atomic_read_ddrb(&prt->data);
 
     if ((data & 0x3) != 0) {
 	ASSERT(is_immed((Eterm) (UWord) data));
@@ -550,7 +550,7 @@ erts_port_data_size(Port *prt)
 ErlOffHeap *
 erts_port_data_offheap(Port *prt)
 {
-    erts_aint_t data = erts_smp_atomic_read_ddrb(&prt->data);
+    erts_aint_t data = erts_atomic_read_ddrb(&prt->data);
 
     if ((data & 0x3) != 0) {
 	ASSERT(is_immed((Eterm) (UWord) data));
@@ -595,11 +595,11 @@ BIF_RETTYPE port_set_data_2(BIF_ALIST_2)
 	ASSERT((data & 0x3) == 0);
     }
 
-    data = erts_smp_atomic_xchg_wb(&prt->data, data);
+    data = erts_atomic_xchg_wb(&prt->data, data);
 
     if (data == (erts_aint_t)NULL) {
 	/* Port terminated by racing thread */
-	data = erts_smp_atomic_xchg_wb(&prt->data, data);
+	data = erts_atomic_xchg_wb(&prt->data, data);
 	ASSERT(data != (erts_aint_t)NULL);
 	cleanup_old_port_data(data);
 	BIF_ERROR(BIF_P, BADARG);
@@ -622,7 +622,7 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
     if (!prt)
         BIF_ERROR(BIF_P, BADARG);
 
-    data = erts_smp_atomic_read_ddrb(&prt->data);
+    data = erts_atomic_read_ddrb(&prt->data);
     if (data == (erts_aint_t)NULL)
         BIF_ERROR(BIF_P, BADARG);  /* Port terminated by racing thread */
 
@@ -917,7 +917,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     }
     
 
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
+    erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
 
     port = erts_open_driver(driver, p->common.id, name_buf, &opts, err_typep, err_nump);
 #ifdef USE_VM_PROBES
@@ -934,7 +934,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     if (port && IS_TRACED_FL(port, F_TRACE_PORTS))
         trace_port(port, am_getting_linked, p->common.id);
 
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+    erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 
     if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
         trace_sched(p, ERTS_PROC_LOCK_MAIN, am_in);

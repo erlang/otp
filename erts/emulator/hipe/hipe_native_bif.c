@@ -145,7 +145,7 @@ BIF_RETTYPE nbif_impl_hipe_set_timeout(NBIF_ALIST_1)
 	if (tres != 0) { /* Wrong time */
 	    if (p->hipe_smp.have_receive_locks) {
 		p->hipe_smp.have_receive_locks = 0;
-		erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+		erts_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	    }
 	    BIF_ERROR(p, EXC_TIMEOUT_VALUE);
 	}
@@ -526,16 +526,16 @@ Eterm hipe_check_get_msg(Process *c_p)
     msgp = PEEK_MESSAGE(c_p);
 
     if (!msgp) {
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	erts_proc_lock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	/* Make sure messages wont pass exit signals... */
 	if (ERTS_PROC_PENDING_EXIT(c_p)) {
-	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	    erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	    return THE_NON_VALUE; /* Will be rescheduled for exit */
 	}
-	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
+	ERTS_MSGQ_MV_INQ2PRIVQ(c_p);
 	msgp = PEEK_MESSAGE(c_p);
 	if (msgp)
-	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	    erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	else {
 	    /* XXX: BEAM doesn't need this */
 	    c_p->hipe_smp.have_receive_locks = 1;
@@ -579,7 +579,7 @@ void hipe_clear_timeout(Process *c_p)
        cases. HiPE doesn't, so we must check dynamically. */
     if (c_p->hipe_smp.have_receive_locks) {
 	c_p->hipe_smp.have_receive_locks = 0;
-	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
     }
     if (IS_TRACED_FL(c_p, F_TRACE_RECEIVE)) {
 	trace_receive(c_p, am_clock_service, am_timeout, NULL);
@@ -590,6 +590,6 @@ void hipe_clear_timeout(Process *c_p)
 
 void hipe_atomic_inc(int *counter)
 {
-    erts_smp_atomic_inc_nob((erts_smp_atomic_t*)counter);
+    erts_atomic_inc_nob((erts_atomic_t*)counter);
 }
 

@@ -98,7 +98,7 @@ index_put_entry(IndexTable* t, void* tmpl)
      * Do a write barrier here to allow readers to do lock free iteration.
      * erts_index_num_entries() does matching read barrier.
      */
-    ERTS_SMP_WRITE_MEMORY_BARRIER;
+    ERTS_THR_WRITE_MEMORY_BARRIER;
     t->entries++;
 
     return p;

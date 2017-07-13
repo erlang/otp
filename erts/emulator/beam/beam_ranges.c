@@ -29,12 +29,12 @@
 
 typedef struct {
     BeamInstr* start;		/* Pointer to start of module. */
-    erts_smp_atomic_t end; /* (BeamInstr*) Points one word beyond last function in module. */
+    erts_atomic_t end; /* (BeamInstr*) Points one word beyond last function in module. */
 } Range;
 
 /* Range 'end' needs to be atomic as we purge module
     by setting end=start in active code_ix */
-#define RANGE_END(R) ((BeamInstr*)erts_smp_atomic_read_nob(&(R)->end))
+#define RANGE_END(R) ((BeamInstr*)erts_atomic_read_nob(&(R)->end))
 
 static Range* find_range(BeamInstr* pc);
 static void lookup_loc(FunctionInfo* fi, const BeamInstr* pc,
@@ -49,10 +49,10 @@ struct ranges {
     Range* modules;	       /* Sorted lists of module addresses. */
     Sint n;		       /* Number of range entries. */
     Sint allocated;	       /* Number of allocated entries. */
-    erts_smp_atomic_t mid;     /* Cached search start point */
+    erts_atomic_t mid;     /* Cached search start point */
 };
 static struct ranges r[ERTS_NUM_CODE_IX];
-static erts_smp_atomic_t mem_used;
+static erts_atomic_t mem_used;
 static Range* write_ptr;
 
 #ifdef HARD_DEBUG
@@ -90,12 +90,12 @@ erts_init_ranges(void)
 {
     Sint i;
 
-    erts_smp_atomic_init_nob(&mem_used, 0);
+    erts_atomic_init_nob(&mem_used, 0);
     for (i = 0; i < ERTS_NUM_CODE_IX; i++) {
 	r[i].modules = 0;
 	r[i].n = 0;
 	r[i].allocated = 0;
-	erts_smp_atomic_init_nob(&r[i].mid, 0);
+	erts_atomic_init_nob(&r[i].mid, 0);
     }
 }
 
@@ -107,12 +107,12 @@ erts_start_staging_ranges(int num_new)
     Sint need;
 
     if (r[dst].modules) {
-	erts_smp_atomic_add_nob(&mem_used, -r[dst].allocated);
+	erts_atomic_add_nob(&mem_used, -r[dst].allocated);
 	erts_free(ERTS_ALC_T_MODULE_REFS, r[dst].modules);
     }
 
     need = r[dst].allocated = r[src].n + num_new;
-    erts_smp_atomic_add_nob(&mem_used, need);
+    erts_atomic_add_nob(&mem_used, need);
     write_ptr = erts_alloc(ERTS_ALC_T_MODULE_REFS,
 			   need * sizeof(Range));
     r[dst].modules = write_ptr;
@@ -135,7 +135,7 @@ erts_end_staging_ranges(int commit)
 	    if (rp->start < RANGE_END(rp)) {
 		/* Only insert a module that has not been purged. */
 		write_ptr->start = rp->start;
-		erts_smp_atomic_init_nob(&write_ptr->end,
+		erts_atomic_init_nob(&write_ptr->end,
 					 (erts_aint_t)(RANGE_END(rp)));
 		write_ptr++;
 	    }
@@ -161,7 +161,7 @@ erts_end_staging_ranges(int commit)
 	}
 	r[dst].modules = mp;
 	CHECK(&r[dst]);
-	erts_smp_atomic_set_nob(&r[dst].mid,
+	erts_atomic_set_nob(&r[dst].mid,
 				(erts_aint_t) (r[dst].modules +
 					       r[dst].n / 2));
     }
@@ -182,7 +182,7 @@ erts_update_ranges(BeamInstr* code, Uint size)
 	 */
 	if (r[dst].modules == NULL) {
 	    Sint need = 128;
-	    erts_smp_atomic_add_nob(&mem_used, need);
+	    erts_atomic_add_nob(&mem_used, need);
 	    r[dst].modules = erts_alloc(ERTS_ALC_T_MODULE_REFS,
 					need * sizeof(Range));
 	    r[dst].allocated = need;
@@ -192,7 +192,7 @@ erts_update_ranges(BeamInstr* code, Uint size)
 
     ASSERT(r[dst].modules);
     write_ptr->start = code;
-    erts_smp_atomic_init_nob(&(write_ptr->end),
+    erts_atomic_init_nob(&(write_ptr->end),
 			     (erts_aint_t)(((byte *)code) + size));
     write_ptr++;
 }
@@ -201,13 +201,13 @@ void
 erts_remove_from_ranges(BeamInstr* code)
 {
     Range* rp = find_range(code);
-    erts_smp_atomic_set_nob(&rp->end, (erts_aint_t)rp->start);
+    erts_atomic_set_nob(&rp->end, (erts_aint_t)rp->start);
 }
 
 UWord
 erts_ranges_sz(void)
 {
-    return erts_smp_atomic_read_nob(&mem_used) * sizeof(Range);
+    return erts_atomic_read_nob(&mem_used) * sizeof(Range);
 }
 
 /*
@@ -262,7 +262,7 @@ find_range(BeamInstr* pc)
     ErtsCodeIndex active = erts_active_code_ix();
     Range* low = r[active].modules;
     Range* high = low + r[active].n;
-    Range* mid = (Range *) erts_smp_atomic_read_nob(&r[active].mid);
+    Range* mid = (Range *) erts_atomic_read_nob(&r[active].mid);
 
     CHECK(&r[active]);
     while (low < high) {
@@ -271,7 +271,7 @@ find_range(BeamInstr* pc)
 	} else if (pc >= RANGE_END(mid)) {
 	    low = mid + 1;
 	} else {
-	    erts_smp_atomic_set_nob(&r[active].mid, (erts_aint_t) mid);
+	    erts_atomic_set_nob(&r[active].mid, (erts_aint_t) mid);
 	    return mid;
 	}
 	mid = low + (high-low) / 2;

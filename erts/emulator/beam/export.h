@@ -66,9 +66,9 @@ Export *export_get(Export*);
 void export_start_staging(void);
 void export_end_staging(int commit);
 
-extern erts_smp_mtx_t export_staging_lock;
-#define export_staging_lock()	erts_smp_mtx_lock(&export_staging_lock)
-#define export_staging_unlock()	erts_smp_mtx_unlock(&export_staging_lock)
+extern erts_mtx_t export_staging_lock;
+#define export_staging_lock()	erts_mtx_lock(&export_staging_lock)
+#define export_staging_unlock()	erts_mtx_unlock(&export_staging_lock)
 
 #include "beam_load.h" /* For em_* extern declarations */ 
 #define ExportIsBuiltIn(EntryPtr) 			\

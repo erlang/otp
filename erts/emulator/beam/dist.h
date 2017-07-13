@@ -100,7 +100,7 @@ typedef struct {
 } ErtsDSigData;
 
 #define ERTS_DE_IS_NOT_CONNECTED(DEP) \
-  (ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&(DEP)->rwmtx) \
+  (ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&(DEP)->rwmtx) \
 		      || erts_lc_rwmtx_is_rwlocked(&(DEP)->rwmtx)), \
    (is_nil((DEP)->cid) || ((DEP)->status & ERTS_DE_SFLG_EXITING)))
 
@@ -153,19 +153,19 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
     if (!dep)
 	return ERTS_DSIG_PREP_NOT_CONNECTED;
     if (dspl == ERTS_DSP_RWLOCK)
-	erts_smp_de_rwlock(dep);
+	erts_de_rwlock(dep);
     else
-	erts_smp_de_rlock(dep);
+	erts_de_rlock(dep);
     if (ERTS_DE_IS_NOT_CONNECTED(dep)) {
 	failure = ERTS_DSIG_PREP_NOT_CONNECTED;
 	goto fail;
     }
     if (no_suspend) {
 	failure = ERTS_DSIG_PREP_CONNECTED;
-	erts_smp_mtx_lock(&dep->qlock);
+	erts_mtx_lock(&dep->qlock);
 	if (dep->qflgs & ERTS_DE_QFLG_BUSY)
 	    failure = ERTS_DSIG_PREP_WOULD_SUSPEND;
-	erts_smp_mtx_unlock(&dep->qlock);
+	erts_mtx_unlock(&dep->qlock);
 	if (failure == ERTS_DSIG_PREP_WOULD_SUSPEND)
 	    goto fail;
     }
@@ -175,14 +175,14 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
     dsdp->connection_id = dep->connection_id;
     dsdp->no_suspend = no_suspend;
     if (dspl == ERTS_DSP_NO_LOCK)
-	erts_smp_de_runlock(dep);
+	erts_de_runlock(dep);
     return ERTS_DSIG_PREP_CONNECTED;
 
  fail:
     if (dspl == ERTS_DSP_RWLOCK)
-	erts_smp_de_rwunlock(dep);
+	erts_de_rwunlock(dep);
     else
-	erts_smp_de_runlock(dep);
+	erts_de_runlock(dep);
     return failure;
 
 }
@@ -194,7 +194,7 @@ void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
     Eterm id;
 
     if (prt) {
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+	ERTS_LC_ASSERT(erts_lc_is_port_locked(prt));
 	ASSERT((erts_atomic32_read_nob(&prt->state)
 		& ERTS_PORT_SFLGS_DEAD) == 0);
 	ASSERT(prt->dist_entry);
@@ -204,7 +204,7 @@ void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
     }
     else {
 	ASSERT(dist_entry);
-	ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&dist_entry->rwmtx)
+	ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&dist_entry->rwmtx)
 			   || erts_lc_rwmtx_is_rwlocked(&dist_entry->rwmtx));
 	ASSERT(is_internal_port(dist_entry->cid));
 
@@ -212,7 +212,7 @@ void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
 	id = dep->cid;
     }
 
-    if (!erts_smp_atomic_xchg_mb(&dep->dist_cmd_scheduled, 1))
+    if (!erts_atomic_xchg_mb(&dep->dist_cmd_scheduled, 1))
 	erts_port_task_schedule(id, &dep->dist_cmd, ERTS_PORT_TASK_DIST_CMD);
 }
 
@@ -238,7 +238,7 @@ erts_remove_dist_link(ErtsDistLinkData *dldp,
 		      Eterm rid,
 		      DistEntry *dep)
 {
-    erts_smp_de_links_lock(dep);
+    erts_de_links_lock(dep);
     dldp->d_lnk = erts_lookup_link(dep->nlinks, lid);
     if (!dldp->d_lnk)
 	dldp->d_sub_lnk = NULL;
@@ -248,7 +248,7 @@ erts_remove_dist_link(ErtsDistLinkData *dldp,
 		       ? NULL
 		       : erts_remove_link(&dep->nlinks, lid));
     }
-    erts_smp_de_links_unlock(dep);
+    erts_de_links_unlock(dep);
 }
 
 ERTS_GLB_INLINE int

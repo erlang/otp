@@ -148,7 +148,7 @@ erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
 			ErtsTracer meta_tracer);
 
 void erts_send_pending_trace_msgs(ErtsSchedulerData *esdp);
-#define ERTS_SMP_CHK_PEND_TRACE_MSGS(ESDP)				\
+#define ERTS_CHK_PEND_TRACE_MSGS(ESDP)				\
 do {									\
     if ((ESDP)->pending_trace_msgs)					\
 	erts_send_pending_trace_msgs((ESDP));				\

@@ -148,7 +148,7 @@ static void erl_init(int ncpu,
 
 static erts_atomic_t exiting;
 
-erts_smp_atomic32_t erts_writing_erl_crash_dump;
+erts_atomic32_t erts_writing_erl_crash_dump;
 erts_tsd_key_t erts_is_crash_dumping_key;
 int erts_initialized = 0;
 
@@ -170,7 +170,7 @@ int erts_backtrace_depth;	/* How many functions to show in a backtrace
 				 * in error codes.
 				 */
 
-erts_smp_atomic32_t erts_max_gen_gcs;
+erts_atomic32_t erts_max_gen_gcs;
 
 Eterm erts_error_logger_warnings; /* What to map warning logs to, am_error, 
 				     am_info or am_warning, am_error is 
@@ -395,7 +395,7 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
      */
 
     erts_init_empty_process(&parent);
-    erts_smp_proc_lock(&parent, ERTS_PROC_LOCK_MAIN);
+    erts_proc_lock(&parent, ERTS_PROC_LOCK_MAIN);
     hp = HAlloc(&parent, argc*2 + 4);
     args = NIL;
     for (i = argc-1; i >= 0; i--) {
@@ -410,7 +410,7 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
 
     so.flags = erts_default_spo_flags|SPO_SYSTEM_PROC;
     res = erl_create_process(&parent, start_mod, am_start, args, &so);
-    erts_smp_proc_unlock(&parent, ERTS_PROC_LOCK_MAIN);
+    erts_proc_unlock(&parent, ERTS_PROC_LOCK_MAIN);
     erts_cleanup_empty_process(&parent);
     return res;
 }
@@ -435,7 +435,7 @@ erl_system_process_otp(Eterm parent_pid, char* modname, int off_heap_msgq)
     if (off_heap_msgq)
         so.flags |= SPO_OFF_HEAP_MSGQ;
     res = erl_create_process(parent, start_mod, am_start, NIL, &so);
-    erts_smp_proc_unlock(parent, ERTS_PROC_LOCK_MAIN);
+    erts_proc_unlock(parent, ERTS_PROC_LOCK_MAIN);
     return res;
 }
 
@@ -774,10 +774,10 @@ early_init(int *argc, char **argv) /*
     erts_atomic_init_nob(&exiting, 0);
     erts_thr_progress_pre_init();
 
-    erts_smp_atomic32_init_nob(&erts_writing_erl_crash_dump, 0L);
+    erts_atomic32_init_nob(&erts_writing_erl_crash_dump, 0L);
     erts_tsd_key_create(&erts_is_crash_dumping_key,"erts_is_crash_dumping_key");
 
-    erts_smp_atomic32_init_nob(&erts_max_gen_gcs,
+    erts_atomic32_init_nob(&erts_max_gen_gcs,
 			       (erts_aint32_t) ((Uint16) -1));
 
     erts_pre_init_process();
@@ -1222,7 +1222,7 @@ erl_start(int argc, char **argv)
     envbufsz = sizeof(envbuf);
     if (erts_sys_getenv_raw("ERL_FULLSWEEP_AFTER", envbuf, &envbufsz) == 0) {
 	Uint16 max_gen_gcs = atoi(envbuf);
-	erts_smp_atomic32_set_nob(&erts_max_gen_gcs,
+	erts_atomic32_set_nob(&erts_max_gen_gcs,
 				  (erts_aint32_t) max_gen_gcs);
     }
 

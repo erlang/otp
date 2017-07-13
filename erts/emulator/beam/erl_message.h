@@ -216,7 +216,7 @@ typedef struct erl_trace_message_queue__ {
 #define LINK_MESSAGE(p, first_msg, last_msg, len)       \
     LINK_MESSAGE_IMPL(p, first_msg, last_msg, len, msg_inq)
 
-#define ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p)                   \
+#define ERTS_MSGQ_MV_INQ2PRIVQ(p)                   \
     do {                                                \
         if (p->msg_inq.first) {                         \
             *p->msg.last = p->msg_inq.first;            \

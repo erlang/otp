@@ -56,9 +56,9 @@
 #include "erl_threads.h"
 
 extern char **environ;
-extern erts_smp_rwmtx_t environ_rwmtx;
+extern erts_rwmtx_t environ_rwmtx;
 
-extern erts_smp_atomic_t sys_misc_mem_sz;
+extern erts_atomic_t sys_misc_mem_sz;
 
 static Eterm forker_port;
 
@@ -343,7 +343,7 @@ static int set_blocking_data(ErtsSysDriverData *dd) {
 
     dd->blocking = erts_alloc(ERTS_ALC_T_SYS_BLOCKING, sizeof(ErtsSysBlocking));
 
-    erts_smp_atomic_add_nob(&sys_misc_mem_sz, sizeof(ErtsSysBlocking));
+    erts_atomic_add_nob(&sys_misc_mem_sz, sizeof(ErtsSysBlocking));
 
     dd->blocking->pdl = driver_pdl_create(dd->port_num);
     dd->blocking->res = 0;
@@ -386,7 +386,7 @@ create_driver_data(ErlDrvPort port_num,
         size += sizeof(ErtsSysFdData);
 
     data = erts_alloc(ERTS_ALC_T_DRV_TAB,size);
-    erts_smp_atomic_add_nob(&sys_misc_mem_sz, size);
+    erts_atomic_add_nob(&sys_misc_mem_sz, size);
 
     driver_data = (ErtsSysDriverData*)data;
     data += sizeof(*driver_data);
@@ -452,7 +452,7 @@ static char **build_unix_environment(char *block)
     char **cpp;
     char** old_env;
     
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_rwmtx_is_rlocked(&environ_rwmtx));
+    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&environ_rwmtx));
 
     cp = block;
     len = 0;
@@ -600,12 +600,12 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
 	len = CMD_LINE_PREFIX_STR_SZ + len + 1;
     }
 
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
+    erts_rwmtx_rlock(&environ_rwmtx);
 
     if (opts->envir == NULL) {
 	new_environ = environ;
     } else if ((new_environ = build_unix_environment(opts->envir)) == NULL) {
-	erts_smp_rwmtx_runlock(&environ_rwmtx);
+	erts_rwmtx_runlock(&environ_rwmtx);
         close_pipes(ifd, ofd);
 	erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
 	errno = ENOMEM;
@@ -621,7 +621,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
         erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
         if (new_environ != environ)
             erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
-        erts_smp_rwmtx_runlock(&environ_rwmtx);
+        erts_rwmtx_runlock(&environ_rwmtx);
         errno = err;
         return ERL_DRV_ERROR_ERRNO;
     }
@@ -661,7 +661,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
 
         if (!io_vector) {
             close_pipes(ifd, ofd);
-            erts_smp_rwmtx_runlock(&environ_rwmtx);
+            erts_rwmtx_runlock(&environ_rwmtx);
             erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
             if (new_environ != environ)
                 erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
@@ -746,7 +746,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
                 erts_free(ERTS_ALC_T_TMP, io_vector);
                 if (new_environ != environ)
                     erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
-                erts_smp_rwmtx_runlock(&environ_rwmtx);
+                erts_rwmtx_runlock(&environ_rwmtx);
                 erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
                 errno = err;
                 return ERL_DRV_ERROR_ERRNO;
@@ -775,7 +775,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
     if (new_environ != environ)
 	erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
 
-    erts_smp_rwmtx_runlock(&environ_rwmtx);
+    erts_rwmtx_runlock(&environ_rwmtx);
 
     dd = create_driver_data(port_num, ifd[0], ofd[1], opts->packet_bytes,
                              DO_WRITE | DO_READ, opts->exit_status,
@@ -1048,8 +1048,8 @@ static void clear_fd_data(ErtsSysFdData *fdd)
 {
     if (fdd->sz > 0) {
 	erts_free(ERTS_ALC_T_FD_ENTRY_BUF, (void *) fdd->buf);
-	ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= fdd->sz);
-	erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*fdd->sz);
+	ASSERT(erts_atomic_read_nob(&sys_misc_mem_sz) >= fdd->sz);
+	erts_atomic_add_nob(&sys_misc_mem_sz, -1*fdd->sz);
     }
     fdd->buf = NULL;
     fdd->sz = 0;
@@ -1088,7 +1088,7 @@ static void fd_stop(ErlDrvData ev)  /* Does not close the fds */
     }
 
      erts_free(ERTS_ALC_T_DRV_TAB, dd);
-     erts_smp_atomic_add_nob(&sys_misc_mem_sz, -sz);
+     erts_atomic_add_nob(&sys_misc_mem_sz, -sz);
 }
 
 static void fd_flush(ErlDrvData ev)
@@ -1384,7 +1384,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 
             if (dd->ifd->fd < 0) {
                 driver_select(port_num, abs(dd->ifd->fd), ERL_DRV_READ|ERL_DRV_USE, 0);
-                erts_smp_atomic_add_nob(&sys_misc_mem_sz, -sizeof(ErtsSysFdData));
+                erts_atomic_add_nob(&sys_misc_mem_sz, -sizeof(ErtsSysFdData));
                 dd->ifd = NULL;
             }
 
@@ -1490,7 +1490,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 			port_inp_failure(dd, -1);
 		    }
 		    else {
-			erts_smp_atomic_add_nob(&sys_misc_mem_sz, h);
+			erts_atomic_add_nob(&sys_misc_mem_sz, h);
 			sys_memcpy(buf, cpos, bytes_left);
 			dd->ifd->buf = buf;
 			dd->ifd->sz = h;
@@ -1525,7 +1525,7 @@ static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
                should close the output fd as soon as the command has
                been sent. */
             driver_select(ix, ready_fd, ERL_DRV_WRITE|ERL_DRV_USE, 0);
-            erts_smp_atomic_add_nob(&sys_misc_mem_sz, -sizeof(ErtsSysFdData));
+            erts_atomic_add_nob(&sys_misc_mem_sz, -sizeof(ErtsSysFdData));
             dd->ofd = NULL;
         }
         if (dd->terminating)

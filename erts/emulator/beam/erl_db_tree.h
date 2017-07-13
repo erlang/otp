@@ -41,7 +41,7 @@ typedef struct db_table_tree {
     /* Tree-specific fields */
     TreeDbTerm *root;         /* The tree root */
     Uint deletion;		/* Being deleted */
-    erts_smp_atomic_t is_stack_busy;
+    erts_atomic_t is_stack_busy;
     DbTreeStack static_stack;
 } DbTableTree;
 

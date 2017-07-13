@@ -33,11 +33,6 @@
 
 #include "sys.h"
 
-
-#define erts_smp_thr_progress_block erts_thr_progress_block
-#define erts_smp_thr_progress_unblock erts_thr_progress_unblock
-#define erts_smp_thr_progress_is_blocking erts_thr_progress_is_blocking
-
 void erts_thr_progress_block(void);
 void erts_thr_progress_unblock(void);
 int erts_thr_progress_is_blocking(void);

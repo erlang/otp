@@ -27,11 +27,11 @@
 #ifndef ERTS_PORT_TASK_H_BASIC_TYPES__
 #define ERTS_PORT_TASK_H_BASIC_TYPES__
 #include "erl_sys_driver.h"
-#include "erl_smp.h"
+#include "erl_threads.h"
 #define ERL_PORT_GET_PORT_TYPE_ONLY__
 #include "erl_port.h"
 #undef ERL_PORT_GET_PORT_TYPE_ONLY__
-typedef erts_smp_atomic_t ErtsPortTaskHandle;
+typedef erts_atomic_t ErtsPortTaskHandle;
 #endif
 
 #ifndef ERTS_PORT_TASK_ONLY_BASIC_TYPES__
@@ -64,7 +64,7 @@ typedef enum {
 
 #ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
 /* NOTE: Do not access any of the exported variables directly */
-extern erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
+extern erts_atomic_t erts_port_task_outstanding_io_tasks;
 #endif
 
 #define ERTS_PTS_FLG_IN_RUNQ			(((erts_aint32_t) 1) <<  0)
@@ -98,8 +98,8 @@ extern erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
 
 typedef struct {
     ErlDrvSizeT high;
-    erts_smp_atomic_t low;
-    erts_smp_atomic_t size;
+    erts_atomic_t low;
+    erts_atomic_t size;
 }  ErtsPortTaskBusyPortQ;
 
 typedef struct ErtsPortTask_ ErtsPortTask;
@@ -124,7 +124,7 @@ typedef struct {
 	} in;
 	ErtsPortTaskBusyPortQ *bpq;
     } taskq;
-    erts_smp_atomic32_t flags;
+    erts_atomic32_t flags;
     erts_mtx_t mtx;
 } ErtsPortTaskSched;
 
@@ -149,13 +149,13 @@ ERTS_GLB_INLINE int erts_port_task_have_outstanding_io_tasks(void);
 ERTS_GLB_INLINE void
 erts_port_task_handle_init(ErtsPortTaskHandle *pthp)
 {
-    erts_smp_atomic_init_nob(pthp, (erts_aint_t) NULL);
+    erts_atomic_init_nob(pthp, (erts_aint_t) NULL);
 }
 
 ERTS_GLB_INLINE int
 erts_port_task_is_scheduled(ErtsPortTaskHandle *pthp)
 {
-    return ((void *) erts_smp_atomic_read_acqb(pthp)) != NULL;
+    return ((void *) erts_atomic_read_acqb(pthp)) != NULL;
 }
 
 ERTS_GLB_INLINE void erts_port_task_pre_init_sched(ErtsPortTaskSched *ptsp,
@@ -163,9 +163,9 @@ ERTS_GLB_INLINE void erts_port_task_pre_init_sched(ErtsPortTaskSched *ptsp,
 {
     if (bpq) {
 	erts_aint_t low = (erts_aint_t) ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_LOW;
-	erts_smp_atomic_init_nob(&bpq->low, low);
+	erts_atomic_init_nob(&bpq->low, low);
  	bpq->high = (ErlDrvSizeT) ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_HIGH;
-	erts_smp_atomic_init_nob(&bpq->size, (erts_aint_t) 0);
+	erts_atomic_init_nob(&bpq->size, (erts_aint_t) 0);
     }
     ptsp->taskq.bpq = bpq;
 }
@@ -182,7 +182,7 @@ erts_port_task_init_sched(ErtsPortTaskSched *ptsp, Eterm instr_id)
     ptsp->taskq.local.first = NULL;
     ptsp->taskq.in.first = NULL;
     ptsp->taskq.in.last = NULL;
-    erts_smp_atomic32_init_nob(&ptsp->flags, 0);
+    erts_atomic32_init_nob(&ptsp->flags, 0);
     erts_mtx_init(&ptsp->mtx, lock_str, instr_id, ERTS_LOCK_FLAGS_CATEGORY_IO);
 }
 
@@ -218,7 +218,7 @@ erts_port_task_fini_sched(ErtsPortTaskSched *ptsp)
 ERTS_GLB_INLINE void
 erts_port_task_sched_enter_exiting_state(ErtsPortTaskSched *ptsp)
 {
-    erts_smp_atomic32_read_bor_nob(&ptsp->flags, ERTS_PTS_FLG_EXITING);
+    erts_atomic32_read_bor_nob(&ptsp->flags, ERTS_PTS_FLG_EXITING);
 }
 
 #ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
@@ -226,7 +226,7 @@ erts_port_task_sched_enter_exiting_state(ErtsPortTaskSched *ptsp)
 ERTS_GLB_INLINE int
 erts_port_task_have_outstanding_io_tasks(void)
 {
-    return (erts_smp_atomic_read_acqb(&erts_port_task_outstanding_io_tasks)
+    return (erts_atomic_read_acqb(&erts_port_task_outstanding_io_tasks)
 	    != 0);
 }
 

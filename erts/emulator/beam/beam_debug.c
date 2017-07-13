@@ -157,8 +157,8 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
 	ERTS_BIF_YIELD2(bif_export[BIF_erts_debug_breakpoint_2],
 			BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
+    erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
+    erts_thr_progress_block();
 
     erts_bp_match_functions(&f, &mfa, specified);
     if (boolean == am_true) {
@@ -174,8 +174,8 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     res = make_small(f.matched);
     erts_bp_free_matched_functions(&f);
 
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+    erts_thr_progress_unblock();
+    erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     erts_release_code_write_permission();
     return res;
 
@@ -1096,7 +1096,7 @@ dirty_send_message(Process *c_p, Eterm to, Eterm tag)
     if (rp == real_c_p)
 	rp_locks &= ~c_p_locks;
     if (rp_locks)
-	erts_smp_proc_unlock(rp, rp_locks);
+	erts_proc_unlock(rp, rp_locks);
 
     erts_proc_dec_refc(rp);
 

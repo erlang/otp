@@ -141,7 +141,7 @@ void erl_drv_thr_init(void)
 /*
  * These functions implement the driver thread interface in erl_driver.h.
  * NOTE: Only use this interface from drivers. From within the emulator use
- * either the erl_threads.h, the erl_smp.h or the ethread.h interface.
+ * either the erl_threads.h or the ethread.h interface.
  */
 
 ErlDrvMutex *

@@ -44,7 +44,6 @@
 #include "erl_alloc.h"
 #include "erl_process.h"
 #include "erl_monitors.h"
-#include "erl_smp.h"
 #define ERTS_PORT_TASK_ONLY_BASIC_TYPES__
 #include "erl_port_task.h"
 #undef ERTS_PORT_TASK_ONLY_BASIC_TYPES__
@@ -107,9 +106,9 @@ typedef struct dist_entry_ {
     HashBucket hash_bucket;     /* Hash bucket */
     struct dist_entry_ *next;	/* Next entry in dist_table (not sorted) */
     struct dist_entry_ *prev;	/* Previous entry in dist_table (not sorted) */
-    erts_smp_refc_t refc;		/* Reference count */
+    erts_refc_t refc;		/* Reference count */
 
-    erts_smp_rwmtx_t rwmtx;     /* Protects all fields below until lck_mtx. */
+    erts_rwmtx_t rwmtx;     /* Protects all fields below until lck_mtx. */
     Eterm sysname;		/* name@host atom for efficiency */
     Uint32 creation;		/* creation of connected node */
     Eterm cid;			/* connection handler (pid or port), NIL == free */
@@ -120,7 +119,7 @@ typedef struct dist_entry_ {
     unsigned long version;	/* Protocol version */
 
 
-    erts_smp_mtx_t lnk_mtx;     /* Protects node_links, nlinks, and
+    erts_mtx_t lnk_mtx;     /* Protects node_links, nlinks, and
 				   monitors. */
     ErtsLink *node_links;       /* In a dist entry, node links are kept 
 				   in a separate tree, while they are 
@@ -132,14 +131,14 @@ typedef struct dist_entry_ {
     ErtsLink *nlinks;           /* Link tree with subtrees */
     ErtsMonitor *monitors;      /* Monitor tree */
 
-    erts_smp_mtx_t qlock;       /* Protects qflgs and out_queue */
+    erts_mtx_t qlock;       /* Protects qflgs and out_queue */
     Uint32 qflgs;
     Sint qsize;
     ErtsDistOutputQueue out_queue;
     struct ErtsProcList_ *suspended;
 
     ErtsDistOutputQueue finalized_out_queue;
-    erts_smp_atomic_t dist_cmd_scheduled;
+    erts_atomic_t dist_cmd_scheduled;
     ErtsPortTaskHandle dist_cmd;
 
     Uint (*send)(Port *prt, ErtsDistOutputBuf *obuf);
@@ -149,7 +148,7 @@ typedef struct dist_entry_ {
 
 typedef struct erl_node_ {
   HashBucket hash_bucket;	/* Hash bucket */
-  erts_smp_refc_t refc;		/* Reference count */
+  erts_refc_t refc;		/* Reference count */
   Eterm	sysname;		/* name@host atom for efficiency */
   Uint32 creation;		/* Creation */
   DistEntry *dist_entry;	/* Corresponding dist entry */
@@ -158,8 +157,8 @@ typedef struct erl_node_ {
 
 extern Hash erts_dist_table;
 extern Hash erts_node_table;
-extern erts_smp_rwmtx_t erts_dist_table_rwmtx;
-extern erts_smp_rwmtx_t erts_node_table_rwmtx;
+extern erts_rwmtx_t erts_dist_table_rwmtx;
+extern erts_rwmtx_t erts_node_table_rwmtx;
 
 extern DistEntry *erts_hidden_dist_entries;
 extern DistEntry *erts_visible_dist_entries;
@@ -201,12 +200,12 @@ void erts_lcnt_update_distribution_locks(int enable);
 
 ERTS_GLB_INLINE void erts_deref_dist_entry(DistEntry *dep);
 ERTS_GLB_INLINE void erts_deref_node_entry(ErlNode *np);
-ERTS_GLB_INLINE void erts_smp_de_rlock(DistEntry *dep);
-ERTS_GLB_INLINE void erts_smp_de_runlock(DistEntry *dep);
-ERTS_GLB_INLINE void erts_smp_de_rwlock(DistEntry *dep);
-ERTS_GLB_INLINE void erts_smp_de_rwunlock(DistEntry *dep);
-ERTS_GLB_INLINE void erts_smp_de_links_lock(DistEntry *dep);
-ERTS_GLB_INLINE void erts_smp_de_links_unlock(DistEntry *dep);
+ERTS_GLB_INLINE void erts_de_rlock(DistEntry *dep);
+ERTS_GLB_INLINE void erts_de_runlock(DistEntry *dep);
+ERTS_GLB_INLINE void erts_de_rwlock(DistEntry *dep);
+ERTS_GLB_INLINE void erts_de_rwunlock(DistEntry *dep);
+ERTS_GLB_INLINE void erts_de_links_lock(DistEntry *dep);
+ERTS_GLB_INLINE void erts_de_links_unlock(DistEntry *dep);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -214,7 +213,7 @@ ERTS_GLB_INLINE void
 erts_deref_dist_entry(DistEntry *dep)
 {
     ASSERT(dep);
-    if (erts_smp_refc_dectest(&dep->refc, 0) == 0)
+    if (erts_refc_dectest(&dep->refc, 0) == 0)
 	erts_schedule_delete_dist_entry(dep);
 }
 
@@ -222,44 +221,44 @@ ERTS_GLB_INLINE void
 erts_deref_node_entry(ErlNode *np)
 {
     ASSERT(np);
-    if (erts_smp_refc_dectest(&np->refc, 0) == 0)
+    if (erts_refc_dectest(&np->refc, 0) == 0)
 	erts_schedule_delete_node(np);
 }
 
 ERTS_GLB_INLINE void
-erts_smp_de_rlock(DistEntry *dep)
+erts_de_rlock(DistEntry *dep)
 {
-    erts_smp_rwmtx_rlock(&dep->rwmtx);
+    erts_rwmtx_rlock(&dep->rwmtx);
 }
 
 ERTS_GLB_INLINE void
-erts_smp_de_runlock(DistEntry *dep)
+erts_de_runlock(DistEntry *dep)
 {
-    erts_smp_rwmtx_runlock(&dep->rwmtx);
+    erts_rwmtx_runlock(&dep->rwmtx);
 }
 
 ERTS_GLB_INLINE void
-erts_smp_de_rwlock(DistEntry *dep)
+erts_de_rwlock(DistEntry *dep)
 {
-    erts_smp_rwmtx_rwlock(&dep->rwmtx);
+    erts_rwmtx_rwlock(&dep->rwmtx);
 }
 
 ERTS_GLB_INLINE void
-erts_smp_de_rwunlock(DistEntry *dep)
+erts_de_rwunlock(DistEntry *dep)
 {
-    erts_smp_rwmtx_rwunlock(&dep->rwmtx);
+    erts_rwmtx_rwunlock(&dep->rwmtx);
 }
 
 ERTS_GLB_INLINE void
-erts_smp_de_links_lock(DistEntry *dep)
+erts_de_links_lock(DistEntry *dep)
 {
-    erts_smp_mtx_lock(&dep->lnk_mtx);
+    erts_mtx_lock(&dep->lnk_mtx);
 }
 
 ERTS_GLB_INLINE void
-erts_smp_de_links_unlock(DistEntry *dep)
+erts_de_links_unlock(DistEntry *dep)
 {
-    erts_smp_mtx_unlock(&dep->lnk_mtx);
+    erts_mtx_unlock(&dep->lnk_mtx);
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */

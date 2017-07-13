@@ -42,8 +42,8 @@ typedef struct hash_db_term {
 
 typedef struct db_table_hash_fine_locks {
     union {
-	erts_smp_rwmtx_t lck;
-	byte _cache_line_alignment[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_smp_rwmtx_t))];
+	erts_rwmtx_t lck;
+	byte _cache_line_alignment[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_rwmtx_t))];
     }lck_vec[DB_HASH_LOCK_CNT];
 } DbTableHashFineLocks;
 
@@ -51,10 +51,10 @@ typedef struct db_table_hash {
     DbTableCommon common;
 
     /* SMP: szm and nactive are write-protected by is_resizing or table write lock */
-    erts_smp_atomic_t szm;     /* current size mask. */
-    erts_smp_atomic_t nactive; /* Number of "active" slots */
+    erts_atomic_t szm;     /* current size mask. */
+    erts_atomic_t nactive; /* Number of "active" slots */
 
-    erts_smp_atomic_t segtab;  /* The segment table (struct segment**) */
+    erts_atomic_t segtab;  /* The segment table (struct segment**) */
     struct segment* first_segtab[1];
 
     /* SMP: nslots and nsegs are protected by is_resizing or table write lock */
@@ -62,8 +62,8 @@ typedef struct db_table_hash {
     int nsegs;        /* Size of segment table */
 
     /* List of slots where elements have been deleted while table was fixed */
-    erts_smp_atomic_t fixdel;  /* (FixedDeletion*) */	
-    erts_smp_atomic_t is_resizing; /* grow/shrink in progress */
+    erts_atomic_t fixdel;  /* (FixedDeletion*) */
+    erts_atomic_t is_resizing; /* grow/shrink in progress */
     DbTableHashFineLocks* locks;
 } DbTableHash;
 

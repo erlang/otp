@@ -34,20 +34,18 @@
 
 IndexTable erts_atom_table;	/* The index table */
 
-#include "erl_smp.h"
+static erts_rwmtx_t atom_table_lock;
 
-static erts_smp_rwmtx_t atom_table_lock;
-
-#define atom_read_lock()	erts_smp_rwmtx_rlock(&atom_table_lock)
-#define atom_read_unlock()	erts_smp_rwmtx_runlock(&atom_table_lock)
-#define atom_write_lock()	erts_smp_rwmtx_rwlock(&atom_table_lock)
-#define atom_write_unlock()	erts_smp_rwmtx_rwunlock(&atom_table_lock)
+#define atom_read_lock()	erts_rwmtx_rlock(&atom_table_lock)
+#define atom_read_unlock()	erts_rwmtx_runlock(&atom_table_lock)
+#define atom_write_lock()	erts_rwmtx_rwlock(&atom_table_lock)
+#define atom_write_unlock()	erts_rwmtx_rwunlock(&atom_table_lock)
 
 #if 0
 #define ERTS_ATOM_PUT_OPS_STAT
 #endif
 #ifdef ERTS_ATOM_PUT_OPS_STAT
-static erts_smp_atomic_t atom_put_ops;
+static erts_atomic_t atom_put_ops;
 #endif
 
 /* Functions for allocating space for the ext of atoms. We do not
@@ -76,7 +74,7 @@ void atom_info(fmtfn_t to, void *to_arg)
     index_info(to, to_arg, &erts_atom_table);
 #ifdef ERTS_ATOM_PUT_OPS_STAT
     erts_print(to, to_arg, "atom_put_ops: %ld\n",
-	       erts_smp_atomic_read_nob(&atom_put_ops));
+	       erts_atomic_read_nob(&atom_put_ops));
 #endif
 
     if (lock)
@@ -246,7 +244,7 @@ erts_atom_put_index(const byte *name, int len, ErtsAtomEncoding enc, int trunc)
     int aix;
 
 #ifdef ERTS_ATOM_PUT_OPS_STAT
-    erts_smp_atomic_inc_nob(&atom_put_ops);
+    erts_atomic_inc_nob(&atom_put_ops);
 #endif
 
     if (tlen < 0) {
@@ -421,16 +419,16 @@ init_atom_table(void)
     HashFunctions f;
     int i;
     Atom a;
-    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
+    erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
 
-    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
-    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
+    rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
+    rwmtx_opt.lived = ERTS_RWMTX_LONG_LIVED;
 
 #ifdef ERTS_ATOM_PUT_OPS_STAT
-    erts_smp_atomic_init_nob(&atom_put_ops, 0);
+    erts_atomic_init_nob(&atom_put_ops, 0);
 #endif
 
-    erts_smp_rwmtx_init_opt(&atom_table_lock, &rwmtx_opt, "atom_tab", NIL,
+    erts_rwmtx_init_opt(&atom_table_lock, &rwmtx_opt, "atom_tab", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     f.hash = (H_FUN) atom_hash;

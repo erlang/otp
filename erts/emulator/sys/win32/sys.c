@@ -80,9 +80,9 @@ static int application_type(const wchar_t* originalName, wchar_t fullPath[MAX_PA
 
 HANDLE erts_service_event;
 
-static erts_smp_tsd_key_t win32_errstr_key;
+static erts_tsd_key_t win32_errstr_key;
 
-static erts_smp_atomic_t pipe_creation_counter;
+static erts_atomic_t pipe_creation_counter;
 
 /* Results from application_type(_w) is one of */
 #define APPL_NONE 0
@@ -141,7 +141,7 @@ static BOOL (WINAPI *fpCancelIoEx)(HANDLE,LPOVERLAPPED);
    - call erl_start() to parse arguments and do other init
 */
 
-static erts_smp_atomic_t sys_misc_mem_sz;
+static erts_atomic_t sys_misc_mem_sz;
 
 HMODULE beam_module = NULL;
 
@@ -192,7 +192,7 @@ Uint
 erts_sys_misc_mem_sz(void)
 {
     Uint res = (Uint) erts_check_io_size();
-    res += (Uint) erts_smp_atomic_read_mb(&sys_misc_mem_sz);
+    res += (Uint) erts_atomic_read_mb(&sys_misc_mem_sz);
     return res;
 }
 
@@ -659,7 +659,7 @@ new_driver_data(ErlDrvPort port_num, int packet_bytes, int wait_objs_required, i
     dp->inbuf = DRV_BUF_ALLOC(dp->inBufSize);
     if (dp->inbuf == NULL)
 	goto buf_alloc_error;
-    erts_smp_atomic_add_nob(&sys_misc_mem_sz, dp->inBufSize);
+    erts_atomic_add_nob(&sys_misc_mem_sz, dp->inBufSize);
     dp->outBufSize = 0;
     dp->outbuf = NULL;
     dp->port_num = port_num;
@@ -729,8 +729,8 @@ release_driver_data(DriverData* dp)
     }
 
     if (dp->inbuf != NULL) {
-	ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= dp->inBufSize);
-	erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*dp->inBufSize);
+	ASSERT(erts_atomic_read_nob(&sys_misc_mem_sz) >= dp->inBufSize);
+	erts_atomic_add_nob(&sys_misc_mem_sz, -1*dp->inBufSize);
 	DRV_BUF_FREE(dp->inbuf);
 	dp->inBufSize = 0;
 	dp->inbuf = NULL;
@@ -738,8 +738,8 @@ release_driver_data(DriverData* dp)
     ASSERT(dp->inBufSize == 0);
 
     if (dp->outbuf != NULL) {
-	ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= dp->outBufSize);
-	erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*dp->outBufSize);
+	ASSERT(erts_atomic_read_nob(&sys_misc_mem_sz) >= dp->outBufSize);
+	erts_atomic_add_nob(&sys_misc_mem_sz, -1*dp->outBufSize);
 	DRV_BUF_FREE(dp->outbuf);
 	dp->outBufSize = 0;
 	dp->outbuf = NULL;
@@ -1737,7 +1737,7 @@ static int create_pipe(HANDLE *phRead, HANDLE *phWrite, BOOL inheritRead, BOOL o
      * Otherwise, create named pipes.
      */
 
-    calls = (UWord) erts_smp_atomic_inc_read_nob(&pipe_creation_counter);
+    calls = (UWord) erts_atomic_inc_read_nob(&pipe_creation_counter);
     erts_snprintf(pipe_name, sizeof(pipe_name),
 		  "\\\\.\\pipe\\erlang44_%d_%bpu", getpid(), calls);
 
@@ -2422,7 +2422,7 @@ output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
     }
 
     dp->outBufSize = pb+len;
-    erts_smp_atomic_add_nob(&sys_misc_mem_sz, dp->outBufSize);
+    erts_atomic_add_nob(&sys_misc_mem_sz, dp->outBufSize);
 
     /*
      * Store header bytes (if any).
@@ -2451,8 +2451,8 @@ output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
     } else {
 	dp->out.ov.Offset += pb+len; /* For vanilla driver. */
 	/* XXX OffsetHigh should be changed too. */
-	ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= dp->outBufSize);
-	erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*dp->outBufSize);
+	ASSERT(erts_atomic_read_nob(&sys_misc_mem_sz) >= dp->outBufSize);
+	erts_atomic_add_nob(&sys_misc_mem_sz, -1*dp->outBufSize);
 	DRV_BUF_FREE(dp->outbuf);
 	dp->outBufSize = 0;
 	dp->outbuf = NULL;
@@ -2563,8 +2563,8 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
 			    error = ERROR_NOT_ENOUGH_MEMORY;
 			    break; /* Break out of loop into error handler. */
 			}
-			ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= dp->inBufSize);
-			erts_smp_atomic_add_nob(&sys_misc_mem_sz,
+			ASSERT(erts_atomic_read_nob(&sys_misc_mem_sz) >= dp->inBufSize);
+			erts_atomic_add_nob(&sys_misc_mem_sz,
 						dp->totalNeeded - dp->inBufSize);
 			dp->inBufSize = dp->totalNeeded;
 			dp->inbuf = new_buf;
@@ -2663,8 +2663,8 @@ ready_output(ErlDrvData drv_data, ErlDrvEvent ready_event)
 	   write... */
 	return;
     }
-    ASSERT(erts_smp_atomic_read_nob(&sys_misc_mem_sz) >= dp->outBufSize);
-    erts_smp_atomic_add_nob(&sys_misc_mem_sz, -1*dp->outBufSize);
+    ASSERT(erts_atomic_read_nob(&sys_misc_mem_sz) >= dp->outBufSize);
+    erts_atomic_add_nob(&sys_misc_mem_sz, -1*dp->outBufSize);
     DRV_BUF_FREE(dp->outbuf);
     dp->outBufSize = 0;
     dp->outbuf = NULL;
@@ -2812,7 +2812,7 @@ Preload* sys_preloaded(void)
 			   (num_preloaded+1)*sizeof(Preload));
     res_name = erts_alloc(ERTS_ALC_T_PRELOADED,
 			  (num_preloaded+1)*sizeof(unsigned));
-    erts_smp_atomic_add_nob(&sys_misc_mem_sz,
+    erts_atomic_add_nob(&sys_misc_mem_sz,
 			    (num_preloaded+1)*sizeof(Preload)
 			    + (num_preloaded+1)*sizeof(unsigned));
     for (i = 0; i < num_preloaded; i++) {
@@ -2825,7 +2825,7 @@ Preload* sys_preloaded(void)
 	n = GETWORD(data);
 	data += 2;
 	preloaded[i].name = erts_alloc(ERTS_ALC_T_PRELOADED, n+1);
-	erts_smp_atomic_add_nob(&sys_misc_mem_sz, n+1);
+	erts_atomic_add_nob(&sys_misc_mem_sz, n+1);
 	sys_memcpy(preloaded[i].name, data, n);
 	preloaded[i].name[n] = '\0';
 	data += n;
@@ -2907,7 +2907,7 @@ sys_get_key(int fd)
 
 char* win32_errorstr(int error)
 {
-  LPTSTR lpBufPtr = erts_smp_tsd_get(win32_errstr_key);
+  LPTSTR lpBufPtr = erts_tsd_get(win32_errstr_key);
   if (lpBufPtr) {
       LocalFree(lpBufPtr);
   }
@@ -2921,7 +2921,7 @@ char* win32_errorstr(int error)
 		0,
 		NULL);
   SetLastError(error);
-  erts_smp_tsd_set(win32_errstr_key,lpBufPtr);
+  erts_tsd_set(win32_errstr_key,lpBufPtr);
   return lpBufPtr;
 }
 
@@ -3170,7 +3170,7 @@ erts_sys_pre_init(void)
 
     erts_init_sys_time_sup();
 
-    erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
+    erts_atomic_init_nob(&sys_misc_mem_sz, 0);
 }
 
 void noinherit_std_handle(DWORD type)
@@ -3190,9 +3190,9 @@ void erl_sys_init(void)
     noinherit_std_handle(STD_INPUT_HANDLE);
     noinherit_std_handle(STD_ERROR_HANDLE);
 
-    erts_smp_tsd_key_create(&win32_errstr_key,"win32_errstr_key");
+    erts_tsd_key_create(&win32_errstr_key,"win32_errstr_key");
     InitializeCriticalSection(&htbc_lock);
-    erts_smp_atomic_init_nob(&pipe_creation_counter,0);
+    erts_atomic_init_nob(&pipe_creation_counter,0);
     /*
      * Test if we have named pipes or not.
      */
@@ -3269,6 +3269,6 @@ void
 erl_sys_schedule(int runnable)
 {
     erts_check_io(!runnable);
-    ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());
 }
 

@@ -391,7 +391,7 @@ clean(ErtsThrQ_t *q, int max_ops, int do_notify)
 		ilast = (erts_aint_t) enqueue_marker(q, NULL);
 
 	    if (q->head.unref_end == (ErtsThrQElement_t *) ilast)
-		ERTS_SMP_MEMORY_BARRIER;
+		ERTS_THR_MEMORY_BARRIER;
 	    else {
 		q->head.next.unref_end = (ErtsThrQElement_t *) ilast;
 		q->head.next.thr_progress = erts_thr_progress_later(NULL);

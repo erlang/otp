@@ -83,14 +83,14 @@ static void chk_task_queues(Port *pp, ErtsPortTask *execq, int processing_busy_q
 #define LTTNG_DRIVER(TRACEPOINT, PP) do {} while(0)
 #endif
 
-#define ERTS_SMP_LC_VERIFY_RQ(RQ, PP)					\
+#define ERTS_LC_VERIFY_RQ(RQ, PP)					\
     do {								\
-	ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));		\
-	ERTS_SMP_LC_ASSERT((RQ) == ((ErtsRunQueue *)			\
-				    erts_smp_atomic_read_nob(&(PP)->run_queue))); \
+	ERTS_LC_ASSERT(erts_lc_runq_is_locked(runq));		\
+	ERTS_LC_ASSERT((RQ) == ((ErtsRunQueue *)			\
+				    erts_atomic_read_nob(&(PP)->run_queue))); \
     } while (0)
 
-erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
+erts_atomic_t erts_port_task_outstanding_io_tasks;
 
 #define ERTS_PT_STATE_SCHEDULED		0
 #define ERTS_PT_STATE_ABORTED		1
@@ -108,7 +108,7 @@ typedef union {
 } ErtsPortTaskTypeData;
 
 struct ErtsPortTask_ {
-    erts_smp_atomic32_t state;
+    erts_atomic32_t state;
     ErtsPortTaskType type;
     union {
 	struct {
@@ -191,7 +191,7 @@ p2p_sig_data_init(ErtsPortTask *ptp)
 
     ptp->type = ERTS_PORT_TASK_PROC_SIG;
     ptp->u.alive.flags = ERTS_PT_FLG_SIG_DEP;
-    erts_smp_atomic32_init_nob(&ptp->state, ERTS_PT_STATE_SCHEDULED);
+    erts_atomic32_init_nob(&ptp->state, ERTS_PT_STATE_SCHEDULED);
 
     ASSERT(ptp == p2p_sig_data_to_task(&ptp->u.alive.td.psig.data));
 
@@ -282,7 +282,7 @@ popped_from_busy_queue(Port *pp, ErtsPortTask *ptp, int last)
 #ifdef DEBUG
 	    erts_aint32_t flags =
 #endif
-		erts_smp_atomic32_read_band_nob(
+		erts_atomic32_read_band_nob(
 		    &pp->sched.flags,
 		    ~ERTS_PTS_FLG_HAVE_BUSY_TASKS);
 	    ASSERT(flags & ERTS_PTS_FLG_HAVE_BUSY_TASKS);
@@ -329,7 +329,7 @@ busy_wait_move_to_busy_queue(Port *pp, ErtsPortTask *ptp)
 #ifdef DEBUG
 	flags = 
 #endif
-	    erts_smp_atomic32_read_bor_nob(&pp->sched.flags,
+	    erts_atomic32_read_bor_nob(&pp->sched.flags,
 					   ERTS_PTS_FLG_HAVE_BUSY_TASKS);
 	ASSERT(!(flags & ERTS_PTS_FLG_HAVE_BUSY_TASKS));
 
@@ -469,7 +469,7 @@ no_sig_dep_move_from_busyq(Port *pp)
 	int bix;
 	erts_aint32_t flags =
 #endif
-	    erts_smp_atomic32_read_band_nob(
+	    erts_atomic32_read_band_nob(
 		&pp->sched.flags,
 		~ERTS_PTS_FLG_HAVE_BUSY_TASKS);
 	ASSERT(flags & ERTS_PTS_FLG_HAVE_BUSY_TASKS);
@@ -502,11 +502,11 @@ chk_task_queues(Port *pp, ErtsPortTask *execq, int processing_busy_queue)
     if (!first) {
 	ASSERT(!tabp);
 	ASSERT(!pp->sched.taskq.local.busy.last);
-	ASSERT(!(erts_smp_atomic32_read_nob(&pp->sched.flags) & ERTS_PTS_FLG_HAVE_BUSY_TASKS));
+	ASSERT(!(erts_atomic32_read_nob(&pp->sched.flags) & ERTS_PTS_FLG_HAVE_BUSY_TASKS));
 	return;
     }
 
-    ASSERT(erts_smp_atomic32_read_nob(&pp->sched.flags) & ERTS_PTS_FLG_HAVE_BUSY_TASKS);
+    ASSERT(erts_atomic32_read_nob(&pp->sched.flags) & ERTS_PTS_FLG_HAVE_BUSY_TASKS);
     ASSERT(tabp);
 
     tot_count = 0;
@@ -562,13 +562,13 @@ chk_task_queues(Port *pp, ErtsPortTask *execq, int processing_busy_queue)
 static ERTS_INLINE void
 reset_port_task_handle(ErtsPortTaskHandle *pthp)
 {
-    erts_smp_atomic_set_relb(pthp, (erts_aint_t) NULL);
+    erts_atomic_set_relb(pthp, (erts_aint_t) NULL);
 }
 
 static ERTS_INLINE ErtsPortTask *
 handle2task(ErtsPortTaskHandle *pthp)
 {
-    return (ErtsPortTask *) erts_smp_atomic_read_acqb(pthp);
+    return (ErtsPortTask *) erts_atomic_read_acqb(pthp);
 }
 
 static ERTS_INLINE void
@@ -595,7 +595,7 @@ set_handle(ErtsPortTask *ptp, ErtsPortTaskHandle *pthp)
 {
     ptp->u.alive.handle = pthp;
     if (pthp) {
-	erts_smp_atomic_set_relb(pthp, (erts_aint_t) ptp);
+	erts_atomic_set_relb(pthp, (erts_aint_t) ptp);
 	ASSERT(ptp == handle2task(ptp->u.alive.handle));
     }
 }
@@ -609,7 +609,7 @@ set_tmp_handle(ErtsPortTask *ptp, ErtsPortTaskHandle *pthp)
 	 * IMPORTANT! Task either need to be aborted, or task handle
 	 * need to be detached before thread progress has been made.
 	 */
-	erts_smp_atomic_set_relb(pthp, (erts_aint_t) ptp);
+	erts_atomic_set_relb(pthp, (erts_aint_t) ptp);
     }
 }
 
@@ -627,20 +627,20 @@ check_unset_busy_port_q(Port *pp,
     int resume_procs = 0;
 
     ASSERT(bpq);
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(pp));
 
     erts_port_task_sched_lock(&pp->sched);
-    qsize = (ErlDrvSizeT) erts_smp_atomic_read_nob(&bpq->size);
-    low = (ErlDrvSizeT) erts_smp_atomic_read_nob(&bpq->low);
+    qsize = (ErlDrvSizeT) erts_atomic_read_nob(&bpq->size);
+    low = (ErlDrvSizeT) erts_atomic_read_nob(&bpq->low);
     if (qsize < low) {
 	erts_aint32_t mask = ~(ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q
 			       | ERTS_PTS_FLG_BUSY_PORT_Q);
-	flags = erts_smp_atomic32_read_band_relb(&pp->sched.flags, mask);
+	flags = erts_atomic32_read_band_relb(&pp->sched.flags, mask);
 	if ((flags & ERTS_PTS_FLGS_BUSY) == ERTS_PTS_FLG_BUSY_PORT_Q)
 	    resume_procs = 1;
     }
     else if (flags & ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q) {
-	flags = erts_smp_atomic32_read_band_relb(&pp->sched.flags,
+	flags = erts_atomic32_read_band_relb(&pp->sched.flags,
 						 ~ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q);
 	flags &= ~ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q;
     }
@@ -665,16 +665,16 @@ aborted_proc2port_data(Port *pp, ErlDrvSizeT size)
 
     bpq = pp->sched.taskq.bpq;
 
-    qsz = (ErlDrvSizeT) erts_smp_atomic_add_read_acqb(&bpq->size,
+    qsz = (ErlDrvSizeT) erts_atomic_add_read_acqb(&bpq->size,
 						      (erts_aint_t) -size);
     ASSERT(qsz + size > qsz);
-    flags = erts_smp_atomic32_read_nob(&pp->sched.flags);
+    flags = erts_atomic32_read_nob(&pp->sched.flags);
     ASSERT(pp->sched.taskq.bpq);
     if ((flags & (ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q
 		  | ERTS_PTS_FLG_BUSY_PORT_Q)) != ERTS_PTS_FLG_BUSY_PORT_Q)
 	return;
-    if (qsz < (ErlDrvSizeT) erts_smp_atomic_read_nob(&bpq->low))
-	erts_smp_atomic32_read_bor_nob(&pp->sched.flags,
+    if (qsz < (ErlDrvSizeT) erts_atomic_read_nob(&bpq->low))
+	erts_atomic32_read_bor_nob(&pp->sched.flags,
 				       ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q);
 }
 
@@ -692,13 +692,13 @@ dequeued_proc2port_data(Port *pp, ErlDrvSizeT size)
 
     bpq = pp->sched.taskq.bpq;
 
-    qsz = (ErlDrvSizeT) erts_smp_atomic_add_read_acqb(&bpq->size,
+    qsz = (ErlDrvSizeT) erts_atomic_add_read_acqb(&bpq->size,
 						      (erts_aint_t) -size);
     ASSERT(qsz + size > qsz);
-    flags = erts_smp_atomic32_read_nob(&pp->sched.flags);
+    flags = erts_atomic32_read_nob(&pp->sched.flags);
     if (!(flags & ERTS_PTS_FLG_BUSY_PORT_Q))
 	return;
-    if (qsz < (ErlDrvSizeT) erts_smp_atomic_read_acqb(&bpq->low))
+    if (qsz < (ErlDrvSizeT) erts_atomic_read_acqb(&bpq->low))
 	check_unset_busy_port_q(pp, flags, bpq);
 }
 
@@ -711,19 +711,19 @@ enqueue_proc2port_data(Port *pp,
     if (sigdp && bpq) {
 	ErlDrvSizeT size = erts_proc2port_sig_command_data_size(sigdp);
 	if (size) {
-	    erts_aint_t asize = erts_smp_atomic_add_read_acqb(&bpq->size,
+	    erts_aint_t asize = erts_atomic_add_read_acqb(&bpq->size,
 							      (erts_aint_t) size);
 	    ErlDrvSizeT qsz = (ErlDrvSizeT) asize;
 
 	    ASSERT(qsz - size < qsz);
 
 	    if (!(flags & ERTS_PTS_FLG_BUSY_PORT_Q) && qsz > bpq->high) {
-		flags = erts_smp_atomic32_read_bor_acqb(&pp->sched.flags,
+		flags = erts_atomic32_read_bor_acqb(&pp->sched.flags,
 							ERTS_PTS_FLG_BUSY_PORT_Q);
 		flags |= ERTS_PTS_FLG_BUSY_PORT_Q;
-		qsz = (ErlDrvSizeT) erts_smp_atomic_read_acqb(&bpq->size);
-		if (qsz < (ErlDrvSizeT) erts_smp_atomic_read_nob(&bpq->low)) {
-		    flags = (erts_smp_atomic32_read_bor_relb(
+		qsz = (ErlDrvSizeT) erts_atomic_read_acqb(&bpq->size);
+		if (qsz < (ErlDrvSizeT) erts_atomic_read_nob(&bpq->low)) {
+		    flags = (erts_atomic32_read_bor_relb(
 				 &pp->sched.flags,
 				 ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q));
 		    flags |= ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q;
@@ -771,18 +771,18 @@ erl_drv_busy_msgq_limits(ErlDrvPort dport, ErlDrvSizeT *lowp, ErlDrvSizeT *highp
 	erts_aint32_t flags;
 	pp->sched.taskq.bpq = NULL;
 	flags = ~(ERTS_PTS_FLG_BUSY_PORT_Q|ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q);
-	flags = erts_smp_atomic32_read_band_acqb(&pp->sched.flags, flags);
+	flags = erts_atomic32_read_band_acqb(&pp->sched.flags, flags);
 	if ((flags & ERTS_PTS_FLGS_BUSY) == ERTS_PTS_FLG_BUSY_PORT_Q)
 	    resume_procs = 1;
     }
     else {
 
 	if (!low)
-	    low = (ErlDrvSizeT) erts_smp_atomic_read_nob(&bpq->low);
+	    low = (ErlDrvSizeT) erts_atomic_read_nob(&bpq->low);
 	else {
 	    if (bpq->high < low)
 		bpq->high = low;
-	    erts_smp_atomic_set_relb(&bpq->low, (erts_aint_t) low);
+	    erts_atomic_set_relb(&bpq->low, (erts_aint_t) low);
 	    written = 1;
 	}
     
@@ -791,19 +791,19 @@ erl_drv_busy_msgq_limits(ErlDrvPort dport, ErlDrvSizeT *lowp, ErlDrvSizeT *highp
 	else {
 	    if (low > high) {
 		low = high;
-		erts_smp_atomic_set_relb(&bpq->low, (erts_aint_t) low);
+		erts_atomic_set_relb(&bpq->low, (erts_aint_t) low);
 	    }
 	    bpq->high = high;
 	    written = 1;
 	}
 
 	if (written) {
-	    ErlDrvSizeT size = (ErlDrvSizeT) erts_smp_atomic_read_nob(&bpq->size);
+	    ErlDrvSizeT size = (ErlDrvSizeT) erts_atomic_read_nob(&bpq->size);
 	    if (size > high)
-		erts_smp_atomic32_read_bor_relb(&pp->sched.flags,
+		erts_atomic32_read_bor_relb(&pp->sched.flags,
 						ERTS_PTS_FLG_BUSY_PORT_Q);
 	    else if (size < low)
-		erts_smp_atomic32_read_bor_relb(&pp->sched.flags,
+		erts_atomic32_read_bor_relb(&pp->sched.flags,
 						ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q);
 	}
     }
@@ -877,7 +877,7 @@ get_free_nosuspend_handles(Port *pp)
 {
     ErtsPortTaskHandleList *nshp, *last_nshp = NULL;
 
-    ERTS_SMP_LC_ASSERT(erts_port_task_sched_lock_is_locked(&pp->sched));
+    ERTS_LC_ASSERT(erts_port_task_sched_lock_is_locked(&pp->sched));
 
     nshp = pp->sched.taskq.local.busy.nosuspend;
 
@@ -893,7 +893,7 @@ get_free_nosuspend_handles(Port *pp)
 	pp->sched.taskq.local.busy.nosuspend = last_nshp->u.next;
 	last_nshp->u.next = NULL;
 	if (!pp->sched.taskq.local.busy.nosuspend)
-	    erts_smp_atomic32_read_band_nob(&pp->sched.flags,
+	    erts_atomic32_read_band_nob(&pp->sched.flags,
 					    ~ERTS_PTS_FLG_HAVE_NS_TASKS);
     }
     return nshp;
@@ -916,7 +916,7 @@ free_nosuspend_handles(ErtsPortTaskHandleList *free_nshp)
 static ERTS_INLINE void
 enqueue_port(ErtsRunQueue *runq, Port *pp)
 {
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
+    ERTS_LC_ASSERT(erts_lc_runq_is_locked(runq));
     pp->sched.next = NULL;
     if (runq->ports.end) {
 	ASSERT(runq->ports.start);
@@ -930,7 +930,7 @@ enqueue_port(ErtsRunQueue *runq, Port *pp)
     runq->ports.end = pp;
     ASSERT(runq->ports.start && runq->ports.end);
 
-    erts_smp_inc_runq_len(runq, &runq->ports.info, ERTS_PORT_PRIO_LEVEL);
+    erts_inc_runq_len(runq, &runq->ports.info, ERTS_PORT_PRIO_LEVEL);
 
     if (ERTS_RUNQ_FLGS_GET_NOB(runq) & ERTS_RUNQ_FLG_HALTING)
 	erts_non_empty_runq(runq);
@@ -940,7 +940,7 @@ static ERTS_INLINE Port *
 pop_port(ErtsRunQueue *runq)
 {
     Port *pp = runq->ports.start;
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
+    ERTS_LC_ASSERT(erts_lc_runq_is_locked(runq));
     if (!pp) {
 	ASSERT(!runq->ports.end);
     }
@@ -950,7 +950,7 @@ pop_port(ErtsRunQueue *runq)
 	    ASSERT(runq->ports.end == pp);
 	    runq->ports.end = NULL;
 	}
-	erts_smp_dec_runq_len(runq, &runq->ports.info, ERTS_PORT_PRIO_LEVEL);
+	erts_dec_runq_len(runq, &runq->ports.info, ERTS_PORT_PRIO_LEVEL);
     }
 
     ASSERT(runq->ports.start || !runq->ports.end);
@@ -977,7 +977,7 @@ enqueue_task(Port *pp,
     if (ns_pthlp)
 	fail_flags |= ERTS_PTS_FLG_BUSY_PORT;
     erts_port_task_sched_lock(&pp->sched);
-    flags = erts_smp_atomic32_read_nob(&pp->sched.flags);
+    flags = erts_atomic32_read_nob(&pp->sched.flags);
     if (flags & fail_flags)
 	res = 0;
     else {
@@ -1008,7 +1008,7 @@ enqueue_task(Port *pp,
 static ERTS_INLINE void
 prepare_exec(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 {
-    erts_aint32_t act = erts_smp_atomic32_read_nob(&pp->sched.flags);
+    erts_aint32_t act = erts_atomic32_read_nob(&pp->sched.flags);
 
     if (!pp->sched.taskq.local.busy.first || (act & ERTS_PTS_FLG_BUSY_PORT)) {
 	*execqp = pp->sched.taskq.local.first;
@@ -1029,7 +1029,7 @@ prepare_exec(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 	new &= ~ERTS_PTS_FLG_IN_RUNQ;
 	new |= ERTS_PTS_FLG_EXEC;
 
-	act = erts_smp_atomic32_cmpxchg_nob(&pp->sched.flags, new, exp);
+	act = erts_atomic32_cmpxchg_nob(&pp->sched.flags, new, exp);
 
 	ASSERT(act & ERTS_PTS_FLG_IN_RUNQ);
 
@@ -1056,7 +1056,7 @@ finalize_exec(Port *pp, ErtsPortTask **execq, int processing_busy_q)
 
     *execq = NULL;
 
-    act = erts_smp_atomic32_read_nob(&pp->sched.flags);
+    act = erts_atomic32_read_nob(&pp->sched.flags);
     if (act & ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q)
 	act = check_unset_busy_port_q(pp, act, pp->sched.taskq.bpq);
 
@@ -1073,7 +1073,7 @@ finalize_exec(Port *pp, ErtsPortTask **execq, int processing_busy_q)
 	if (act & ERTS_PTS_FLG_HAVE_TASKS)
 	    new |= ERTS_PTS_FLG_IN_RUNQ;
 
-	act = erts_smp_atomic32_cmpxchg_relb(&pp->sched.flags, new, exp);
+	act = erts_atomic32_cmpxchg_relb(&pp->sched.flags, new, exp);
 
 	ERTS_LC_ASSERT(!(act & ERTS_PTS_FLG_IN_RUNQ));
 	ERTS_LC_ASSERT(!(act & ERTS_PTS_FLG_EXEC_IMM));
@@ -1099,7 +1099,7 @@ finalize_exec(Port *pp, ErtsPortTask **execq, int processing_busy_q)
 static ERTS_INLINE erts_aint32_t
 select_queue_for_exec(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 {
-    erts_aint32_t flags = erts_smp_atomic32_read_nob(&pp->sched.flags);
+    erts_aint32_t flags = erts_atomic32_read_nob(&pp->sched.flags);
 
     if (flags & ERTS_PTS_FLG_CHK_UNSET_BUSY_PORT_Q)
 	flags = check_unset_busy_port_q(pp, flags, pp->sched.taskq.bpq);
@@ -1209,7 +1209,7 @@ fetch_in_queue(Port *pp, ErtsPortTask **execqp)
     if (ptp)
 	*execqp = ptp->u.alive.next;
     else
-	erts_smp_atomic32_read_band_nob(&pp->sched.flags,
+	erts_atomic32_read_band_nob(&pp->sched.flags,
 					~ERTS_PTS_FLG_HAVE_TASKS);
 
     
@@ -1272,7 +1272,7 @@ erl_drv_consume_timeslice(ErlDrvPort dprt, int percent)
 void
 erts_port_task_tmp_handle_detach(ErtsPortTaskHandle *pthp)
 {
-    ERTS_SMP_LC_ASSERT(erts_thr_progress_lc_is_delaying());
+    ERTS_LC_ASSERT(erts_thr_progress_lc_is_delaying());
     reset_port_task_handle(pthp);
 }
 
@@ -1295,14 +1295,14 @@ erts_port_task_abort(ErtsPortTaskHandle *pthp)
 
 #ifdef DEBUG
 	ErtsPortTaskHandle *saved_pthp = ptp->u.alive.handle;
-	ERTS_SMP_READ_MEMORY_BARRIER;
-	old_state = erts_smp_atomic32_read_nob(&ptp->state);
+	ERTS_THR_READ_MEMORY_BARRIER;
+	old_state = erts_atomic32_read_nob(&ptp->state);
 	if (old_state == ERTS_PT_STATE_SCHEDULED) {
 	    ASSERT(!saved_pthp || saved_pthp == pthp);
 	}
 #endif
 
-	old_state = erts_smp_atomic32_cmpxchg_nob(&ptp->state,
+	old_state = erts_atomic32_cmpxchg_nob(&ptp->state,
 						  ERTS_PT_STATE_ABORTED,
 						  ERTS_PT_STATE_SCHEDULED);
 	if (old_state != ERTS_PT_STATE_SCHEDULED)
@@ -1315,9 +1315,9 @@ erts_port_task_abort(ErtsPortTaskHandle *pthp)
 	    case ERTS_PORT_TASK_INPUT:
 	    case ERTS_PORT_TASK_OUTPUT:
 	    case ERTS_PORT_TASK_EVENT:
-		ASSERT(erts_smp_atomic_read_nob(
+		ASSERT(erts_atomic_read_nob(
 			   &erts_port_task_outstanding_io_tasks) > 0);
-		erts_smp_atomic_dec_relb(&erts_port_task_outstanding_io_tasks);
+		erts_atomic_dec_relb(&erts_port_task_outstanding_io_tasks);
 		break;
 	    default:
 		break;
@@ -1339,7 +1339,7 @@ erts_port_task_abort_nosuspend_tasks(Port *pp)
     ErtsThrPrgrDelayHandle dhndl = ERTS_THR_PRGR_DHANDLE_INVALID;
 
     erts_port_task_sched_lock(&pp->sched);
-    erts_smp_atomic32_read_band_nob(&pp->sched.flags,
+    erts_atomic32_read_band_nob(&pp->sched.flags,
 				    ~ERTS_PTS_FLG_HAVE_NS_TASKS);
     abort_list = pp->sched.taskq.local.busy.nosuspend;
     pp->sched.taskq.local.busy.nosuspend = NULL;
@@ -1373,14 +1373,14 @@ erts_port_task_abort_nosuspend_tasks(Port *pp)
 
 #ifdef DEBUG
 	saved_pthp = ptp->u.alive.handle;
-	ERTS_SMP_READ_MEMORY_BARRIER;
-	old_state = erts_smp_atomic32_read_nob(&ptp->state);
+	ERTS_THR_READ_MEMORY_BARRIER;
+	old_state = erts_atomic32_read_nob(&ptp->state);
 	if (old_state == ERTS_PT_STATE_SCHEDULED) {
 	    ASSERT(saved_pthp == pthp);
 	}
 #endif
 
-	old_state = erts_smp_atomic32_cmpxchg_nob(&ptp->state,
+	old_state = erts_atomic32_cmpxchg_nob(&ptp->state,
 						  ERTS_PT_STATE_ABORTED,
 						  ERTS_PT_STATE_SCHEDULED);
 	if (old_state != ERTS_PT_STATE_SCHEDULED) {
@@ -1447,7 +1447,7 @@ erts_port_task_schedule(Eterm id,
 	ptp->type = type;
 	ptp->u.alive.flags = 0;
 
-	erts_smp_atomic32_init_nob(&ptp->state, ERTS_PT_STATE_SCHEDULED);
+	erts_atomic32_init_nob(&ptp->state, ERTS_PT_STATE_SCHEDULED);
 
 	set_handle(ptp, pthp);
     }
@@ -1459,7 +1459,7 @@ erts_port_task_schedule(Eterm id,
 	va_start(argp, type);
 	ptp->u.alive.td.io.event = va_arg(argp, ErlDrvEvent);
 	va_end(argp);
-	erts_smp_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
+	erts_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
 	break;
     }
     case ERTS_PORT_TASK_EVENT: {
@@ -1468,7 +1468,7 @@ erts_port_task_schedule(Eterm id,
 	ptp->u.alive.td.io.event = va_arg(argp, ErlDrvEvent);
 	ptp->u.alive.td.io.event_data = va_arg(argp, ErlDrvEventData);
 	va_end(argp);
-	erts_smp_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
+	erts_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
 	break;
     }
     case ERTS_PORT_TASK_PROC_SIG: {
@@ -1520,7 +1520,7 @@ erts_port_task_schedule(Eterm id,
 	if (!(act & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)))
 	    new |= ERTS_PTS_FLG_IN_RUNQ;
 
-	act = erts_smp_atomic32_cmpxchg_relb(&pp->sched.flags, new, exp);
+	act = erts_atomic32_cmpxchg_relb(&pp->sched.flags, new, exp);
 
 	if (exp == act) {
 	    if (!(act & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)))
@@ -1546,12 +1546,12 @@ erts_port_task_schedule(Eterm id,
 	ERTS_INTERNAL_ERROR("Missing run-queue");
 
     xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
-    ERTS_SMP_LC_ASSERT(runq != xrunq);
-    ERTS_SMP_LC_VERIFY_RQ(runq, pp);
+    ERTS_LC_ASSERT(runq != xrunq);
+    ERTS_LC_VERIFY_RQ(runq, pp);
     if (xrunq) {
 	/* Emigrate port ... */
-	erts_smp_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
-	erts_smp_runq_unlock(runq);
+	erts_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
+	erts_runq_unlock(runq);
 	runq = erts_port_runq(pp);
 	if (!runq)
 	    ERTS_INTERNAL_ERROR("Missing run-queue");
@@ -1559,9 +1559,9 @@ erts_port_task_schedule(Eterm id,
 
     enqueue_port(runq, pp);
 
-    erts_smp_runq_unlock(runq);
+    erts_runq_unlock(runq);
 
-    erts_smp_notify_inc_runq(runq);
+    erts_notify_inc_runq(runq);
 
 done:
 
@@ -1611,14 +1611,14 @@ erts_port_task_free_port(Port *pp)
     erts_aint32_t flags;
     ErtsRunQueue *runq;
 
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(pp));
     ASSERT(!(erts_atomic32_read_nob(&pp->state) & ERTS_PORT_SFLGS_DEAD));
 
     runq = erts_port_runq(pp);
     if (!runq)
 	ERTS_INTERNAL_ERROR("Missing run-queue");
     erts_port_task_sched_lock(&pp->sched);
-    flags = erts_smp_atomic32_read_bor_relb(&pp->sched.flags,
+    flags = erts_atomic32_read_bor_relb(&pp->sched.flags,
 					    ERTS_PTS_FLG_EXIT);
     erts_port_task_sched_unlock(&pp->sched);
     erts_atomic32_read_bset_relb(&pp->state,
@@ -1628,7 +1628,7 @@ erts_port_task_free_port(Port *pp)
 				  | ERTS_PORT_SFLG_FREE),
 				 ERTS_PORT_SFLG_FREE);
 
-    erts_smp_runq_unlock(runq);
+    erts_runq_unlock(runq);
 
     if (!(flags & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)))
 	begin_port_cleanup(pp, NULL, NULL);
@@ -1658,7 +1658,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     ErtsSchedulerData *esdp = runq->scheduler;
     ERTS_MSACC_PUSH_STATE_M();
 
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
+    ERTS_LC_ASSERT(erts_lc_runq_is_locked(runq));
 
     pp = pop_port(runq);
     if (!pp) {
@@ -1666,9 +1666,9 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	goto done;
     }
 
-    ERTS_SMP_LC_VERIFY_RQ(runq, pp);
+    ERTS_LC_VERIFY_RQ(runq, pp);
 
-    erts_smp_runq_unlock(runq);
+    erts_runq_unlock(runq);
 
     *curr_port_pp = pp;
     
@@ -1676,19 +1676,19 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	Uint old = ERTS_PORT_SCHED_ID(pp, esdp->no);
 	int migrated = old && old != esdp->no;
 
-	erts_smp_spin_lock(&erts_sched_stat.lock);
+	erts_spin_lock(&erts_sched_stat.lock);
 	erts_sched_stat.prio[ERTS_PORT_PRIO_LEVEL].total_executed++;
 	erts_sched_stat.prio[ERTS_PORT_PRIO_LEVEL].executed++;
 	if (migrated) {
 	    erts_sched_stat.prio[ERTS_PORT_PRIO_LEVEL].total_migrated++;
 	    erts_sched_stat.prio[ERTS_PORT_PRIO_LEVEL].migrated++;
 	}
-	erts_smp_spin_unlock(&erts_sched_stat.lock);
+	erts_spin_unlock(&erts_sched_stat.lock);
     }
 
     prepare_exec(pp, &execq, &processing_busy_q);
 
-    erts_smp_port_lock(pp);
+    erts_port_lock(pp);
 
     /* trace port scheduling, in */
     if (IS_TRACED_FL(pp, F_TRACE_SCHED_PORTS)) {
@@ -1710,7 +1710,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	if (!ptp)
 	    break;
 
-	task_state = erts_smp_atomic32_cmpxchg_nob(&ptp->state,
+	task_state = erts_atomic32_cmpxchg_nob(&ptp->state,
 						   ERTS_PT_STATE_EXECUTING,
 						   ERTS_PT_STATE_SCHEDULED);
 	if (task_state != ERTS_PT_STATE_SCHEDULED) {
@@ -1722,8 +1722,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    start_time = erts_timestamp_millis();
 	}
 
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
-	ERTS_SMP_CHK_NO_PROC_LOCKS;
+	ERTS_LC_ASSERT(erts_lc_is_port_locked(pp));
+	ERTS_CHK_NO_PROC_LOCKS;
 	ASSERT(pp->drv_ptr);
 
 	switch (ptp->type) {
@@ -1842,13 +1842,13 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
 
     if (io_tasks_executed) {
-	ASSERT(erts_smp_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
+	ASSERT(erts_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
 	       >= io_tasks_executed);
-	erts_smp_atomic_add_relb(&erts_port_task_outstanding_io_tasks,
+	erts_atomic_add_relb(&erts_port_task_outstanding_io_tasks,
 				 -1*io_tasks_executed);
     }
 
-    ASSERT(runq == (ErtsRunQueue *) erts_smp_atomic_read_nob(&pp->run_queue));
+    ASSERT(runq == (ErtsRunQueue *) erts_atomic_read_nob(&pp->run_queue));
 
     active = finalize_exec(pp, &execq, processing_busy_q);
 
@@ -1858,7 +1858,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
     *curr_port_pp = NULL;
 
-    erts_smp_runq_lock(runq);
+    erts_runq_lock(runq);
  
     if (active) {
 	ErtsRunQueue *xrunq;
@@ -1866,34 +1866,34 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	ASSERT(!(erts_atomic32_read_nob(&pp->state) & ERTS_PORT_SFLGS_DEAD));
 
 	xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
-	ERTS_SMP_LC_ASSERT(runq != xrunq);
-	ERTS_SMP_LC_VERIFY_RQ(runq, pp);
+	ERTS_LC_ASSERT(runq != xrunq);
+	ERTS_LC_VERIFY_RQ(runq, pp);
 	if (!xrunq) {
 	    enqueue_port(runq, pp);
 	    /* No need to notify ourselves about inc in runq. */
 	}
 	else {
 	    /* Emigrate port... */
-	    erts_smp_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
-	    erts_smp_runq_unlock(runq);
+	    erts_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
+	    erts_runq_unlock(runq);
 
 	    xrunq = erts_port_runq(pp);
 	    ASSERT(xrunq);
 	    enqueue_port(xrunq, pp);
-	    erts_smp_runq_unlock(xrunq);
-	    erts_smp_notify_inc_runq(xrunq);
+	    erts_runq_unlock(xrunq);
+	    erts_notify_inc_runq(xrunq);
 
-	    erts_smp_runq_lock(runq);
+	    erts_runq_lock(runq);
 	}
     }
 
  done:
-    res = (erts_smp_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
+    res = (erts_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
 	   != (erts_aint_t) 0);
 
     runq->scheduler->reductions += reds;
 
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
+    ERTS_LC_ASSERT(erts_lc_runq_is_locked(runq));
     ERTS_PORT_REDUCTIONS_EXECUTED(esdp, runq, reds);
 
     return res;
@@ -1924,7 +1924,7 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
     ErtsPortTaskHandleList *free_nshp = NULL;
     ErtsProcList *plp;
 
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(pp));
 
     /*
      * Abort remaining tasks...
@@ -1997,11 +1997,11 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 	    qs[i] = ptp->u.alive.next;
 
 	    /* Normal case here is aborted tasks... */
-	    state = erts_smp_atomic32_read_nob(&ptp->state);
+	    state = erts_atomic32_read_nob(&ptp->state);
 	    if (state == ERTS_PT_STATE_ABORTED)
 		goto aborted_port_task;
 
-	    state = erts_smp_atomic32_cmpxchg_nob(&ptp->state,
+	    state = erts_atomic32_cmpxchg_nob(&ptp->state,
 						  ERTS_PT_STATE_EXECUTING,
 						  ERTS_PT_STATE_SCHEDULED);
 	    if (state != ERTS_PT_STATE_SCHEDULED) {
@@ -2065,7 +2065,7 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 	}
     }
 
-    erts_smp_atomic32_read_band_nob(&pp->sched.flags,
+    erts_atomic32_read_band_nob(&pp->sched.flags,
 				    ~(ERTS_PTS_FLG_HAVE_BUSY_TASKS
 				      |ERTS_PTS_FLG_HAVE_TASKS
 				      |ERTS_PTS_FLGS_BUSY));
@@ -2122,9 +2122,9 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 void
 erts_enqueue_port(ErtsRunQueue *rq, Port *pp)
 {
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
-    ASSERT(rq == (ErtsRunQueue *) erts_smp_atomic_read_nob(&pp->run_queue));
-    ASSERT(erts_smp_atomic32_read_nob(&pp->sched.flags) & ERTS_PTS_FLG_IN_RUNQ);
+    ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
+    ASSERT(rq == (ErtsRunQueue *) erts_atomic_read_nob(&pp->run_queue));
+    ASSERT(erts_atomic32_read_nob(&pp->sched.flags) & ERTS_PTS_FLG_IN_RUNQ);
     enqueue_port(rq, pp);
 }
 
@@ -2132,11 +2132,11 @@ Port *
 erts_dequeue_port(ErtsRunQueue *rq)
 {
     Port *pp;
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
+    ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
     pp = pop_port(rq);
     ASSERT(!pp
-	   || rq == (ErtsRunQueue *) erts_smp_atomic_read_nob(&pp->run_queue));
-    ASSERT(!pp || (erts_smp_atomic32_read_nob(&pp->sched.flags)
+	   || rq == (ErtsRunQueue *) erts_atomic_read_nob(&pp->run_queue));
+    ASSERT(!pp || (erts_atomic32_read_nob(&pp->sched.flags)
 		   & ERTS_PTS_FLG_IN_RUNQ));
     return pp;
 }
@@ -2148,7 +2148,7 @@ erts_dequeue_port(ErtsRunQueue *rq)
 void
 erts_port_task_init(void)
 {
-    erts_smp_atomic_init_nob(&erts_port_task_outstanding_io_tasks,
+    erts_atomic_init_nob(&erts_port_task_outstanding_io_tasks,
 			     (erts_aint_t) 0);
     init_port_task_alloc();
     init_busy_caller_table_alloc();

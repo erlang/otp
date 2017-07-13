@@ -63,7 +63,7 @@
 #include "erl_mseg.h"
 
 extern char **environ;
-erts_smp_rwmtx_t environ_rwmtx;
+erts_rwmtx_t environ_rwmtx;
 
 #define MAX_VSIZE 16		/* Max number of entries allowed in an I/O
 				 * vector sock_sendv().
@@ -92,11 +92,11 @@ extern void erts_sys_init_float(void);
 static int debug_log = 0;
 #endif
 
-static erts_smp_atomic32_t have_prepared_crash_dump;
+static erts_atomic32_t have_prepared_crash_dump;
 #define ERTS_PREPARED_CRASH_DUMP \
-  ((int) erts_smp_atomic32_xchg_nob(&have_prepared_crash_dump, 1))
+  ((int) erts_atomic32_xchg_nob(&have_prepared_crash_dump, 1))
 
-erts_smp_atomic_t sys_misc_mem_sz;
+erts_atomic_t sys_misc_mem_sz;
 
 static void smp_sig_notify(int signum);
 static int sig_notify_fds[2] = {-1, -1};
@@ -118,11 +118,11 @@ static int max_files = -1;
 /* 
  * a few variables used by the break handler 
  */
-erts_smp_atomic32_t erts_break_requested;
+erts_atomic32_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
+  erts_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
+  erts_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
 
 
 /* set early so the break handler has access to initial mode */
@@ -262,7 +262,7 @@ Uint
 erts_sys_misc_mem_sz(void)
 {
     Uint res = ERTS_CHK_IO_SZ();
-    res += erts_smp_atomic_read_mb(&sys_misc_mem_sz);
+    res += erts_atomic_read_mb(&sys_misc_mem_sz);
     return res;
 }
 
@@ -399,11 +399,11 @@ erts_sys_pre_init(void)
     erts_init_sys_time_sup();
 
 
-    erts_smp_atomic32_init_nob(&erts_break_requested, 0);
-    erts_smp_atomic32_init_nob(&have_prepared_crash_dump, 0);
+    erts_atomic32_init_nob(&erts_break_requested, 0);
+    erts_atomic32_init_nob(&have_prepared_crash_dump, 0);
 
 
-    erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
+    erts_atomic_init_nob(&sys_misc_mem_sz, 0);
 
     {
       /*
@@ -605,7 +605,7 @@ static void signal_notify_requested(Eterm type) {
         erts_queue_message(p, locks, msgp, msg, am_system);
 
         if (locks)
-            erts_smp_proc_unlock(p, locks);
+            erts_proc_unlock(p, locks);
         erts_proc_dec_refc(p);
     }
 }
@@ -869,7 +869,7 @@ void os_version(int *pMajor, int *pMinor, int *pBuild) {
 
 void init_getenv_state(GETENV_STATE *state)
 {
-   erts_smp_rwmtx_rlock(&environ_rwmtx);
+   erts_rwmtx_rlock(&environ_rwmtx);
    *state = NULL;
 }
 
@@ -878,7 +878,7 @@ char *getenv_string(GETENV_STATE *state0)
    char **state = (char **) *state0;
    char *cp;
 
-   ERTS_SMP_LC_ASSERT(erts_smp_lc_rwmtx_is_rlocked(&environ_rwmtx));
+   ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&environ_rwmtx));
 
    if (state == NULL)
       state = environ;
@@ -892,7 +892,7 @@ char *getenv_string(GETENV_STATE *state0)
 void fini_getenv_state(GETENV_STATE *state)
 {
    *state = NULL;
-   erts_smp_rwmtx_runlock(&environ_rwmtx);
+   erts_rwmtx_runlock(&environ_rwmtx);
 }
 
 void erts_do_break_handling(void)
@@ -905,7 +905,7 @@ void erts_do_break_handling(void)
      * therefore, make sure that all threads but this one are blocked before
      * proceeding!
      */
-    erts_smp_thr_progress_block();
+    erts_thr_progress_block();
 
     /* during break we revert to initial settings */
     /* this is done differently for oldshell */
@@ -933,7 +933,7 @@ void erts_do_break_handling(void)
       tcsetattr(0,TCSANOW,&temp_mode);
     }
 
-    erts_smp_thr_progress_unblock();
+    erts_thr_progress_unblock();
 }
 
 
@@ -963,14 +963,14 @@ erts_sys_putenv(char *key, char *value)
     env = erts_alloc(ERTS_ALC_T_TMP, need);
 #else
     env = erts_alloc(ERTS_ALC_T_PUTENV_STR, need);
-    erts_smp_atomic_add_nob(&sys_misc_mem_sz, need);
+    erts_atomic_add_nob(&sys_misc_mem_sz, need);
 #endif
     strcpy(env,key);
     strcat(env,"=");
     strcat(env,value);
-    erts_smp_rwmtx_rwlock(&environ_rwmtx);
+    erts_rwmtx_rwlock(&environ_rwmtx);
     res = putenv(env);
-    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
+    erts_rwmtx_rwunlock(&environ_rwmtx);
 #ifdef HAVE_COPYING_PUTENV
     erts_free(ERTS_ALC_T_TMP, env);
 #endif
@@ -1017,9 +1017,9 @@ int
 erts_sys_getenv(char *key, char *value, size_t *size)
 {
     int res;
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
+    erts_rwmtx_rlock(&environ_rwmtx);
     res = erts_sys_getenv__(key, value, size);
-    erts_smp_rwmtx_runlock(&environ_rwmtx);
+    erts_rwmtx_runlock(&environ_rwmtx);
     return res;
 }
 
@@ -1027,9 +1027,9 @@ int
 erts_sys_unsetenv(char *key)
 {
     int res;
-    erts_smp_rwmtx_rwlock(&environ_rwmtx);
+    erts_rwmtx_rwlock(&environ_rwmtx);
     res = unsetenv(key);
-    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
+    erts_rwmtx_rwunlock(&environ_rwmtx);
     return res;
 }
 
@@ -1200,12 +1200,12 @@ void
 erl_sys_schedule(int runnable)
 {
     ERTS_CHK_IO(!runnable);
-    ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());
 }
 
 
 
-static erts_smp_tid_t sig_dispatcher_tid;
+static erts_tid_t sig_dispatcher_tid;
 
 static void
 smp_sig_notify(int signum)
@@ -1279,7 +1279,7 @@ signal_dispatcher_thread_func(void *unused)
                 }
                 signal_notify_requested(signal);
         }
-        ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
+        ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());
     }
     return NULL;
 }
@@ -1287,7 +1287,7 @@ signal_dispatcher_thread_func(void *unused)
 static void
 init_smp_sig_notify(void)
 {
-    erts_smp_thr_opts_t thr_opts = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+    erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
     thr_opts.detached = 1;
     thr_opts.name = "sys_sig_dispatcher";
 
@@ -1299,7 +1299,7 @@ init_smp_sig_notify(void)
     }
 
     /* Start signal handler thread */
-    erts_smp_thr_create(&sig_dispatcher_tid,
+    erts_thr_create(&sig_dispatcher_tid,
 			signal_dispatcher_thread_func,
 			NULL,
 			&thr_opts);
@@ -1425,7 +1425,7 @@ erl_sys_args(int* argc, char** argv)
 {
     int i, j;
 
-    erts_smp_rwmtx_init(&environ_rwmtx, "environ", NIL,
+    erts_rwmtx_init(&environ_rwmtx, "environ", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     i = 1;

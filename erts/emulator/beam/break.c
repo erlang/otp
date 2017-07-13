@@ -109,8 +109,8 @@ process_killer(void)
 		    ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
 		    erts_aint32_t state;
 		    erts_proc_inc_refc(rp);
-		    erts_smp_proc_lock(rp, rp_locks);
-		    state = erts_smp_atomic32_read_acqb(&rp->state);
+		    erts_proc_lock(rp, rp_locks);
+		    state = erts_atomic32_read_acqb(&rp->state);
 		    if (state & (ERTS_PSFLG_FREE
 				 | ERTS_PSFLG_EXITING
 				 | ERTS_PSFLG_ACTIVE
@@ -132,7 +132,7 @@ process_killer(void)
 						     NULL,
 						     0);
 		    }
-		    erts_smp_proc_unlock(rp, rp_locks);
+		    erts_proc_unlock(rp, rp_locks);
 		    erts_proc_dec_refc(rp);
 		}
 		case 'n': br = 1; break;
@@ -219,7 +219,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
     /* Display the state */
     erts_print(to, to_arg, "State: ");
 
-    state = erts_smp_atomic32_read_acqb(&p->state);
+    state = erts_atomic32_read_acqb(&p->state);
     erts_dump_process_state(to, to_arg, state);
     if (state & ERTS_PSFLG_GC) {
         garbing = 1;
@@ -258,7 +258,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
     erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
     approx_started = (time_t) p->approx_started;
     erts_print(to, to_arg, "Started: %s", ctime(&approx_started));
-    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
+    ERTS_MSGQ_MV_INQ2PRIVQ(p);
     erts_print(to, to_arg, "Message queue length: %d\n", p->msg.len);
 
     /* display the message queue only if there is anything in it */
@@ -508,7 +508,7 @@ do_break(void)
     erts_free_read_env(mode);
 #endif /* __WIN32__ */
 
-    ASSERT(erts_smp_thr_progress_is_blocking());
+    ASSERT(erts_thr_progress_is_blocking());
 
     erts_printf("\n"
 		"BREAK: (a)bort (c)ontinue (p)roc info (i)nfo (l)oaded\n"
@@ -734,8 +734,8 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 #endif
 
     /* Allow us to pass certain places without locking... */
-    erts_smp_atomic32_set_mb(&erts_writing_erl_crash_dump, 1);
-    erts_smp_tsd_set(erts_is_crash_dumping_key, (void *) 1);
+    erts_atomic32_set_mb(&erts_writing_erl_crash_dump, 1);
+    erts_tsd_set(erts_is_crash_dumping_key, (void *) 1);
 
 
     envsz = sizeof(env);

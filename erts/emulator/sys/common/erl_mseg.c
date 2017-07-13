@@ -339,11 +339,11 @@ mseg_recreate(ErtsMsegAllctr_t *ma, Uint flags, void *old_seg, UWord old_size, U
 do {									\
     if ((MA)->is_thread_safe)						\
 	ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&(MA)->mtx)		\
-		       || erts_smp_thr_progress_is_blocking()		\
+		       || erts_thr_progress_is_blocking()		\
 		       || ERTS_IS_CRASH_DUMPING);			\
     else								\
 	ERTS_LC_ASSERT((MA)->ix == (int) erts_get_scheduler_id()	\
-		       || erts_smp_thr_progress_is_blocking()		\
+		       || erts_thr_progress_is_blocking()		\
 		       || ERTS_IS_CRASH_DUMPING);			\
 } while (0)
 #else

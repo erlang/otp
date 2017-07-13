@@ -69,7 +69,7 @@ erts_deep_process_dump(fmtfn_t to, void *to_arg)
     for (i = 0; i < max; i++) {
 	Process *p = erts_pix2proc(i);
 	if (p && p->i != ENULL) {
-	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
+	    erts_aint32_t state = erts_atomic32_read_acqb(&p->state);
 	    if (!(state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_GC)))
 		dump_process_info(to, to_arg, p);
        }
@@ -85,7 +85,7 @@ Uint erts_process_memory(Process *p, int incl_msg_inq) {
   size += sizeof(Process);
 
   if (incl_msg_inq)
-      ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
+      ERTS_MSGQ_MV_INQ2PRIVQ(p);
 
   erts_doforall_links(ERTS_P_LINKS(p), &erts_one_link_size, &size);
   erts_doforall_monitors(ERTS_P_MONITORS(p), &erts_one_mon_size, &size);
@@ -106,7 +106,7 @@ Uint erts_process_memory(Process *p, int incl_msg_inq) {
     size += p->arity * sizeof(p->arg_reg[0]);
   }
 
-  if (erts_smp_atomic_read_nob(&p->psd) != (erts_aint_t) NULL)
+  if (erts_atomic_read_nob(&p->psd) != (erts_aint_t) NULL)
     size += sizeof(ErtsPSD);
 
   scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
@@ -126,7 +126,7 @@ dump_process_info(fmtfn_t to, void *to_arg, Process *p)
     ErtsMessage* mp;
     int yreg = -1;
 
-    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
+    ERTS_MSGQ_MV_INQ2PRIVQ(p);
 
     if ((ERTS_TRACE_FLAGS(p) & F_SENSITIVE) == 0 && p->msg.first) {
 	erts_print(to, to_arg, "=proc_messages:%T\n", p->common.id);

@@ -32,12 +32,12 @@ static WCHAR **env_to_arg(WCHAR *env);
 static WCHAR **find_arg(WCHAR **arg, WCHAR *str);
 static int compare(const void *a, const void *b);
 
-static erts_smp_rwmtx_t environ_rwmtx;
+static erts_rwmtx_t environ_rwmtx;
 
 void
 erts_sys_env_init(void)
 {
-    erts_smp_rwmtx_init(&environ_rwmtx, "environ", NIL,
+    erts_rwmtx_init(&environ_rwmtx, "environ", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 }
 
@@ -45,10 +45,10 @@ int
 erts_sys_putenv_raw(char *key, char *value)
 {
     int res;
-    erts_smp_rwmtx_rwlock(&environ_rwmtx);
+    erts_rwmtx_rwlock(&environ_rwmtx);
     res = (SetEnvironmentVariable((LPCTSTR) key,
 				  (LPCTSTR) value) ? 0 : 1);
-    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
+    erts_rwmtx_rwunlock(&environ_rwmtx);
     return res;
 }
 
@@ -58,10 +58,10 @@ erts_sys_putenv(char *key, char *value)
     int res;
     WCHAR *wkey = (WCHAR *) key;
     WCHAR *wvalue = (WCHAR *) value;
-    erts_smp_rwmtx_rwlock(&environ_rwmtx);
+    erts_rwmtx_rwlock(&environ_rwmtx);
     res = (SetEnvironmentVariableW(wkey,
 				   wvalue) ? 0 : 1);
-    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
+    erts_rwmtx_rwunlock(&environ_rwmtx);
     return res;
 }
 
@@ -76,12 +76,12 @@ erts_sys_getenv(char *key, char *value, size_t *size)
     DWORD wsize = *size / (sizeof(WCHAR) / sizeof(char));
 
     SetLastError(0);
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
+    erts_rwmtx_rlock(&environ_rwmtx);
     new_size = GetEnvironmentVariableW(wkey,
 				       wvalue,
 				      (DWORD) wsize);
     res = !new_size && GetLastError() == ERROR_ENVVAR_NOT_FOUND ? -1 : 0;
-    erts_smp_rwmtx_runlock(&environ_rwmtx);
+    erts_rwmtx_runlock(&environ_rwmtx);
     if (res < 0)
 	return res;
     res = new_size > wsize ? 1 : 0;
@@ -111,22 +111,22 @@ int
 erts_sys_getenv_raw(char *key, char *value, size_t *size)
 {
     int res;
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
+    erts_rwmtx_rlock(&environ_rwmtx);
     res = erts_sys_getenv__(key, value, size);
-    erts_smp_rwmtx_runlock(&environ_rwmtx);
+    erts_rwmtx_runlock(&environ_rwmtx);
     return res;
 }
 
 void init_getenv_state(GETENV_STATE *state)
 {
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
+    erts_rwmtx_rlock(&environ_rwmtx);
     state->environment_strings = GetEnvironmentStringsW();
     state->next_string = state->environment_strings;
 }
 
 char *getenv_string(GETENV_STATE *state)
 {
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_rwmtx_is_rlocked(&environ_rwmtx));
+    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&environ_rwmtx));
     if (state->next_string[0] == L'\0') {
 	return NULL;
     } else {
@@ -140,7 +140,7 @@ void fini_getenv_state(GETENV_STATE *state)
 {
     FreeEnvironmentStringsW(state->environment_strings);
     state->environment_strings = state->next_string = NULL;
-    erts_smp_rwmtx_runlock(&environ_rwmtx);
+    erts_rwmtx_runlock(&environ_rwmtx);
 }
 
 int erts_sys_unsetenv(char *key)
@@ -149,7 +149,7 @@ int erts_sys_unsetenv(char *key)
     WCHAR *wkey = (WCHAR *) key;
 
     SetLastError(0);
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
+    erts_rwmtx_rlock(&environ_rwmtx);
     GetEnvironmentVariableW(wkey,
                             NULL,
                             0);
@@ -157,7 +157,7 @@ int erts_sys_unsetenv(char *key)
         res = (SetEnvironmentVariableW(wkey,
                                        NULL) ? 0 : 1);
     }
-    erts_smp_rwmtx_runlock(&environ_rwmtx);
+    erts_rwmtx_runlock(&environ_rwmtx);
     return res;
 }
 
@@ -171,12 +171,12 @@ win_build_environment(char* new_env)
 
 	tmp_new = (WCHAR *) new_env;
 	
-	erts_smp_rwmtx_rlock(&environ_rwmtx);
+	erts_rwmtx_rlock(&environ_rwmtx);
 	tmp = GetEnvironmentStringsW();
 	merged = merge_environment(tmp, tmp_new);
 
 	FreeEnvironmentStringsW(tmp);
-	erts_smp_rwmtx_runlock(&environ_rwmtx);
+	erts_rwmtx_runlock(&environ_rwmtx);
 	return (char *) merged;
     }
 }

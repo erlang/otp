@@ -237,12 +237,12 @@ typedef struct {
  */
 
 typedef struct db_table_common {
-    erts_smp_refc_t refc;     /* reference count of table struct */
-    erts_smp_refc_t fix_count;/* fixation counter */
+    erts_refc_t refc;     /* reference count of table struct */
+    erts_refc_t fix_count;/* fixation counter */
     DbTableList all;
     DbTableList owned;
-    erts_smp_rwmtx_t rwlock;  /* rw lock on table */
-    erts_smp_mtx_t fixlock;   /* Protects fixing_procs and time */
+    erts_rwmtx_t rwlock;  /* rw lock on table */
+    erts_mtx_t fixlock;   /* Protects fixing_procs and time */
     int is_thread_safe;       /* No fine locking inside table needed */
     Uint32 type;              /* table type, *read only* after creation */
     Eterm owner;              /* Pid of the creator */
@@ -252,8 +252,8 @@ typedef struct db_table_common {
     Eterm the_name;           /* an atom */
     Binary *btid;
     DbTableMethod* meth;      /* table methods */
-    erts_smp_atomic_t nitems; /* Total number of items in table */
-    erts_smp_atomic_t memory_size;/* Total memory size. NOTE: in bytes! */
+    erts_atomic_t nitems; /* Total number of items in table */
+    erts_atomic_t memory_size;/* Total memory size. NOTE: in bytes! */
     struct {                  /* Last fixation time */
 	ErtsMonotonicTime monotonic;
 	ErtsMonotonicTime offset;
@@ -286,7 +286,7 @@ typedef struct db_table_common {
 				  (DB_BAG | DB_SET | DB_DUPLICATE_BAG)))
 #define IS_TREE_TABLE(Status) (!!((Status) & \
 				  DB_ORDERED_SET))
-#define NFIXED(T) (erts_smp_refc_read(&(T)->common.fix_count,0))
+#define NFIXED(T) (erts_refc_read(&(T)->common.fix_count,0))
 #define IS_FIXED(T) (NFIXED(T) != 0) 
 
 /*

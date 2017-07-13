@@ -43,7 +43,6 @@
 #include "erl_printf.h"
 #include "erl_threads.h"
 #include "erl_lock_count.h"
-#include "erl_smp.h"
 #include "erl_time.h"
 #include "erl_thr_progress.h"
 #include "erl_thr_queue.h"
@@ -3527,7 +3526,7 @@ store_external_or_ref_(Uint **hpp, ErlOffHeap* oh, Eterm ns)
     if (is_external_header(*from_hp)) {
 	ExternalThing *etp = (ExternalThing *) from_hp;
 	ASSERT(is_external(ns));
-	erts_smp_refc_inc(&etp->node->refc, 2);
+	erts_refc_inc(&etp->node->refc, 2);
     }
     else if (is_ordinary_ref_thing(from_hp))
 	return make_internal_ref(to_hp);
@@ -4628,18 +4627,6 @@ void
 erts_interval_init(erts_interval_t *icp)
 {
     erts_atomic64_init_nob(&icp->counter.atomic, 0);
-#ifdef DEBUG
-    icp->smp_api = 0;
-#endif
-}
-
-void
-erts_smp_interval_init(erts_interval_t *icp)
-{
-    erts_interval_init(icp);
-#ifdef DEBUG
-    icp->smp_api = 1;
-#endif
 }
 
 static ERTS_INLINE Uint64
@@ -4679,56 +4666,24 @@ ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
 Uint64
 erts_step_interval_nob(erts_interval_t *icp)
 {
-    ASSERT(!icp->smp_api);
     return step_interval_nob(icp);
 }
 
 Uint64
 erts_step_interval_relb(erts_interval_t *icp)
 {
-    ASSERT(!icp->smp_api);
-    return step_interval_relb(icp);
-}
-
-Uint64
-erts_smp_step_interval_nob(erts_interval_t *icp)
-{
-    ASSERT(icp->smp_api);
-    return step_interval_nob(icp);
-}
-
-Uint64
-erts_smp_step_interval_relb(erts_interval_t *icp)
-{
-    ASSERT(icp->smp_api);
     return step_interval_relb(icp);
 }
 
 Uint64
 erts_ensure_later_interval_nob(erts_interval_t *icp, Uint64 ic)
 {
-    ASSERT(!icp->smp_api);
     return ensure_later_interval_nob(icp, ic);
 }
 
 Uint64
 erts_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
 {
-    ASSERT(!icp->smp_api);
-    return ensure_later_interval_acqb(icp, ic);
-}
-
-Uint64
-erts_smp_ensure_later_interval_nob(erts_interval_t *icp, Uint64 ic)
-{
-    ASSERT(icp->smp_api);
-    return ensure_later_interval_nob(icp, ic);
-}
-
-Uint64
-erts_smp_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
-{
-    ASSERT(icp->smp_api);
     return ensure_later_interval_acqb(icp, ic);
 }
 

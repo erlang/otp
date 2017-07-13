@@ -140,7 +140,7 @@ enum {
 };
 
 typedef struct {
-    erts_smp_atomic32_t refc;
+    erts_atomic32_t refc;
     int only_sz;
     int internal;
     Uint req_sched;
@@ -2103,7 +2103,7 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
     int only_one_value = 0;
     ErtsAlcUFixInfo_t fi[ERTS_ALC_NO_FIXED_SIZES] = {{0,0}};
 
-    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 
     /* Figure out whats wanted... */
 
@@ -2276,10 +2276,10 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 
 
     if (proc) {
-	ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN
+	ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN
 			   == erts_proc_lc_my_proc_locks(proc));
 	/* We'll need locks early in the lock order */
-	erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
+	erts_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
     }
 
     /* Calculate values needed... */
@@ -2437,7 +2437,7 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	Uint *hp;
 	Uint hsz;
 
-	erts_smp_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
+	erts_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
 
 	if (only_one_value) {
 	    ASSERT(length == 1);
@@ -2486,11 +2486,11 @@ erts_allocated_areas(fmtfn_t *print_to_p, void *print_to_arg, void *proc)
     Uint reserved_atom_space, atom_space;
 
     if (proc) {
-	ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN
+	ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN
 			   == erts_proc_lc_my_proc_locks(proc));
 
 	/* We'll need locks early in the lock order */
-	erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
+	erts_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
     }
 
     i = 0;
@@ -2642,7 +2642,7 @@ erts_allocated_areas(fmtfn_t *print_to_p, void *print_to_arg, void *proc)
 	Uint hsz;
 	Uint *hszp;
 
-	erts_smp_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
+	erts_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
 
 	hpp = NULL;
 	hsz = 0;
@@ -2730,7 +2730,7 @@ erts_allocator_info(fmtfn_t to, void *arg)
 {
     ErtsAlcType_t a;
 
-    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 
     for (a = ERTS_ALC_A_MIN; a <= ERTS_ALC_A_MAX; a++) {
 	int ai;
@@ -3298,10 +3298,10 @@ reply_alloc_info(void *vair)
     if (air->req_sched == sched_id)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
  
-    erts_smp_proc_unlock(rp, rp_locks);
+    erts_proc_unlock(rp, rp_locks);
     erts_proc_dec_refc(rp);
 
-    if (erts_smp_atomic32_dec_read_nob(&air->refc) == 0) {
+    if (erts_atomic32_dec_read_nob(&air->refc) == 0) {
         erts_iref_storage_clean(&air->iref);
 	aireq_free(air);
     }
@@ -3380,7 +3380,7 @@ erts_request_alloc_info(struct process *c_p,
 
     air->allocs[airix] = ERTS_ALC_A_INVALID;
 
-    erts_smp_atomic32_init_nob(&air->refc,
+    erts_atomic32_init_nob(&air->refc,
 			       (erts_aint32_t) erts_no_schedulers);
 
     erts_proc_add_refc(c_p, (Sint) erts_no_schedulers);

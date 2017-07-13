@@ -205,16 +205,16 @@ ErtsCodeMFA *erts_code_to_codemfa(BeamInstr *I)
     return mfa;
 }
 
-extern erts_smp_atomic32_t the_active_code_index;
-extern erts_smp_atomic32_t the_staging_code_index;
+extern erts_atomic32_t the_active_code_index;
+extern erts_atomic32_t the_staging_code_index;
 
 ERTS_GLB_INLINE ErtsCodeIndex erts_active_code_ix(void)
 {
-    return erts_smp_atomic32_read_nob(&the_active_code_index);
+    return erts_atomic32_read_nob(&the_active_code_index);
 }
 ERTS_GLB_INLINE ErtsCodeIndex erts_staging_code_ix(void)
 {
-    return erts_smp_atomic32_read_nob(&the_staging_code_index);
+    return erts_atomic32_read_nob(&the_staging_code_index);
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */

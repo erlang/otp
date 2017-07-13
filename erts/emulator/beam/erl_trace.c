@@ -77,8 +77,8 @@ static Eterm system_profile;
 int erts_cpu_timestamp;
 #endif
 
-static erts_smp_mtx_t smq_mtx;
-static erts_smp_rwmtx_t sys_trace_rwmtx;
+static erts_mtx_t smq_mtx;
+static erts_rwmtx_t sys_trace_rwmtx;
 
 enum ErtsSysMsgType {
     SYS_MSG_TYPE_UNDEFINED,
@@ -322,11 +322,11 @@ static void tracer_free_fun(void*);
 typedef struct ErtsTracerNif_ ErtsTracerNif;
 
 void erts_init_trace(void) {
-    erts_smp_rwmtx_opt_t rwmtx_opts = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
-    rwmtx_opts.type = ERTS_SMP_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
-    rwmtx_opts.lived = ERTS_SMP_RWMTX_LONG_LIVED;
+    erts_rwmtx_opt_t rwmtx_opts = ERTS_RWMTX_OPT_DEFAULT_INITER;
+    rwmtx_opts.type = ERTS_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
+    rwmtx_opts.lived = ERTS_RWMTX_LONG_LIVED;
 
-    erts_smp_rwmtx_init_opt(&sys_trace_rwmtx, &rwmtx_opts, "sys_tracers", NIL,
+    erts_rwmtx_init_opt(&sys_trace_rwmtx, &rwmtx_opts, "sys_tracers", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
 
 #ifdef HAVE_ERTS_NOW_CPU
@@ -400,14 +400,14 @@ static Uint active_sched;
 void
 erts_system_profile_setup_active_schedulers(void)
 {
-    ERTS_SMP_LC_ASSERT(erts_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
     active_sched = erts_active_schedulers();
 }
 
 static void
 exiting_reset(Eterm exiting)
 {
-    erts_smp_rwmtx_rwlock(&sys_trace_rwmtx);
+    erts_rwmtx_rwlock(&sys_trace_rwmtx);
     if (exiting == system_monitor) {
 	system_monitor = NIL;
 	/* Let the trace message dispatcher clear flags, etc */
@@ -416,19 +416,19 @@ exiting_reset(Eterm exiting)
 	system_profile = NIL;
 	/* Let the trace message dispatcher clear flags, etc */
     }
-    erts_smp_rwmtx_rwunlock(&sys_trace_rwmtx);
+    erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
 void
 erts_trace_check_exiting(Eterm exiting)
 {
     int reset = 0;
-    erts_smp_rwmtx_rlock(&sys_trace_rwmtx);
+    erts_rwmtx_rlock(&sys_trace_rwmtx);
     if (exiting == system_monitor)
 	reset = 1;
     else if (exiting == system_profile)
 	reset = 1;
-    erts_smp_rwmtx_runlock(&sys_trace_rwmtx);
+    erts_rwmtx_runlock(&sys_trace_rwmtx);
     if (reset)
 	exiting_reset(exiting);
 }
@@ -448,7 +448,7 @@ erts_set_system_seq_tracer(Process *c_p, ErtsProcLocks c_p_locks, ErtsTracer new
         }
     }
 
-    erts_smp_rwmtx_rwlock(&sys_trace_rwmtx);
+    erts_rwmtx_rwlock(&sys_trace_rwmtx);
     old = system_seq_tracer;
     system_seq_tracer = erts_tracer_nil;
     erts_tracer_update(&system_seq_tracer, new);
@@ -456,7 +456,7 @@ erts_set_system_seq_tracer(Process *c_p, ErtsProcLocks c_p_locks, ErtsTracer new
 #ifdef DEBUG_PRINTOUTS
     erts_fprintf(stderr, "set seq tracer new=%T old=%T\n", new, old);
 #endif
-    erts_smp_rwmtx_rwunlock(&sys_trace_rwmtx);
+    erts_rwmtx_rwunlock(&sys_trace_rwmtx);
     return old;
 }
 
@@ -464,12 +464,12 @@ ErtsTracer
 erts_get_system_seq_tracer(void)
 {
     ErtsTracer st;
-    erts_smp_rwmtx_rlock(&sys_trace_rwmtx);
+    erts_rwmtx_rlock(&sys_trace_rwmtx);
     st = system_seq_tracer;
 #ifdef DEBUG_PRINTOUTS
     erts_fprintf(stderr, "get seq tracer %T\n", st);
 #endif
-    erts_smp_rwmtx_runlock(&sys_trace_rwmtx);
+    erts_rwmtx_runlock(&sys_trace_rwmtx);
 
     if (st != erts_tracer_nil &&
         call_enabled_tracer(st, NULL, TRACE_FUN_ENABLED,
@@ -502,8 +502,8 @@ get_default_tracing(Uint *flagsp, ErtsTracer *tracerp,
             ErtsTracer curr_default_tracer = *default_tracer;
             if (tracerp) {
                 /* we only have a rlock, so we have to unlock and then rwlock */
-                erts_smp_rwmtx_runlock(&sys_trace_rwmtx);
-                erts_smp_rwmtx_rwlock(&sys_trace_rwmtx);
+                erts_rwmtx_runlock(&sys_trace_rwmtx);
+                erts_rwmtx_rwlock(&sys_trace_rwmtx);
             }
             /* check if someone else changed default tracer
                while we got the write lock, if so we don't do
@@ -513,8 +513,8 @@ get_default_tracing(Uint *flagsp, ErtsTracer *tracerp,
                 ERTS_TRACER_CLEAR(default_tracer);
             }
             if (tracerp) {
-                erts_smp_rwmtx_rwunlock(&sys_trace_rwmtx);
-                erts_smp_rwmtx_rlock(&sys_trace_rwmtx);
+                erts_rwmtx_rwunlock(&sys_trace_rwmtx);
+                erts_rwmtx_rlock(&sys_trace_rwmtx);
             }
         }
         }
@@ -547,81 +547,81 @@ void
 erts_change_default_proc_tracing(int setflags, Uint flagsp,
                                  const ErtsTracer tracer)
 {
-    erts_smp_rwmtx_rwlock(&sys_trace_rwmtx);
+    erts_rwmtx_rwlock(&sys_trace_rwmtx);
     erts_change_default_tracing(
         setflags, flagsp, tracer,
         &default_proc_trace_flags,
         &default_proc_tracer);
-    erts_smp_rwmtx_rwunlock(&sys_trace_rwmtx);
+    erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
 void
 erts_change_default_port_tracing(int setflags, Uint flagsp,
                                  const ErtsTracer tracer)
 {
-    erts_smp_rwmtx_rwlock(&sys_trace_rwmtx);
+    erts_rwmtx_rwlock(&sys_trace_rwmtx);
     erts_change_default_tracing(
         setflags, flagsp, tracer,
         &default_port_trace_flags,
         &default_port_tracer);
-    erts_smp_rwmtx_rwunlock(&sys_trace_rwmtx);
+    erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
 void
 erts_get_default_proc_tracing(Uint *flagsp, ErtsTracer *tracerp)
 {
-    erts_smp_rwmtx_rlock(&sys_trace_rwmtx);
+    erts_rwmtx_rlock(&sys_trace_rwmtx);
     *tracerp = erts_tracer_nil; /* initialize */
     get_default_tracing(
         flagsp, tracerp,
         &default_proc_trace_flags,
         &default_proc_tracer);
-    erts_smp_rwmtx_runlock(&sys_trace_rwmtx);
+    erts_rwmtx_runlock(&sys_trace_rwmtx);
 }
 
 void
 erts_get_default_port_tracing(Uint *flagsp, ErtsTracer *tracerp)
 {
-    erts_smp_rwmtx_rlock(&sys_trace_rwmtx);
+    erts_rwmtx_rlock(&sys_trace_rwmtx);
     *tracerp = erts_tracer_nil; /* initialize */
     get_default_tracing(
         flagsp, tracerp,
         &default_port_trace_flags,
         &default_port_tracer);
-    erts_smp_rwmtx_runlock(&sys_trace_rwmtx);
+    erts_rwmtx_runlock(&sys_trace_rwmtx);
 }
 
 void
 erts_set_system_monitor(Eterm monitor)
 {
-    erts_smp_rwmtx_rwlock(&sys_trace_rwmtx);
+    erts_rwmtx_rwlock(&sys_trace_rwmtx);
     system_monitor = monitor;
-    erts_smp_rwmtx_rwunlock(&sys_trace_rwmtx);
+    erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
 Eterm
 erts_get_system_monitor(void)
 {
     Eterm monitor;
-    erts_smp_rwmtx_rlock(&sys_trace_rwmtx);
+    erts_rwmtx_rlock(&sys_trace_rwmtx);
     monitor = system_monitor;
-    erts_smp_rwmtx_runlock(&sys_trace_rwmtx);
+    erts_rwmtx_runlock(&sys_trace_rwmtx);
     return monitor;
 }
 
 /* Performance monitoring */
 void erts_set_system_profile(Eterm profile) {
-    erts_smp_rwmtx_rwlock(&sys_trace_rwmtx);
+    erts_rwmtx_rwlock(&sys_trace_rwmtx);
     system_profile = profile;
-    erts_smp_rwmtx_rwunlock(&sys_trace_rwmtx);
+    erts_rwmtx_rwunlock(&sys_trace_rwmtx);
 }
 
 Eterm
 erts_get_system_profile(void) {
     Eterm profile;
-    erts_smp_rwmtx_rlock(&sys_trace_rwmtx);
+    erts_rwmtx_rlock(&sys_trace_rwmtx);
     profile = system_profile;
-    erts_smp_rwmtx_runlock(&sys_trace_rwmtx);
+    erts_rwmtx_runlock(&sys_trace_rwmtx);
     return profile;
 }
 
@@ -1093,7 +1093,7 @@ erts_call_trace(Process* p, ErtsCodeInfo *info, Binary *match_spec,
     Eterm transformed_args[MAX_ARG];
     ErtsTracer pre_ms_tracer = erts_tracer_nil;
 
-    ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(p) & ERTS_PROC_LOCK_MAIN);
+    ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(p) & ERTS_PROC_LOCK_MAIN);
 
     ASSERT(tracer);
     if (ERTS_TRACER_COMPARE(*tracer, erts_tracer_true)) {
@@ -1618,7 +1618,7 @@ profile_scheduler(Eterm scheduler_id, Eterm state) {
     bp = new_message_buffer(hsz);
     hp = bp->mem;
 
-    erts_smp_mtx_lock(&smq_mtx);
+    erts_mtx_lock(&smq_mtx);
 
     switch (state) {
     case am_active:
@@ -1641,7 +1641,7 @@ profile_scheduler(Eterm scheduler_id, Eterm state) {
     hp[-1] = write_ts(erts_system_profile_ts_type, hp, bp, NULL);
 
     enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, NIL, NIL, msg, bp);
-    erts_smp_mtx_unlock(&smq_mtx);
+    erts_mtx_unlock(&smq_mtx);
 
 }
 
@@ -1650,7 +1650,7 @@ profile_scheduler(Eterm scheduler_id, Eterm state) {
 void
 trace_port_open(Port *p, Eterm calling_pid, Eterm drv_name) {
     ErtsTracerNif *tnif = NULL;
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
     if (is_tracer_enabled(NULL, 0, &p->common, &tnif, TRACE_FUN_E_PORTS, am_open))
         send_to_tracer_nif(NULL, &p->common, p->common.id, tnif, TRACE_FUN_T_PORTS,
                 am_open, calling_pid, drv_name, am_true);
@@ -1667,9 +1667,9 @@ void
 trace_port(Port *t_p, Eterm what, Eterm data) {
 
     ErtsTracerNif *tnif = NULL;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p)
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(t_p)
 		       || erts_thr_progress_is_blocking());
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
     if (is_tracer_enabled(NULL, 0, &t_p->common, &tnif, TRACE_FUN_E_PORTS, what))
         send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif, TRACE_FUN_T_PORTS,
                            what, data, THE_NON_VALUE, am_true);
@@ -1712,9 +1712,9 @@ void
 trace_port_receive(Port *t_p, Eterm caller, Eterm what, ...)
 {
     ErtsTracerNif *tnif = NULL;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p)
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(t_p)
 		       || erts_thr_progress_is_blocking());
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
     if (is_tracer_enabled(NULL, 0, &t_p->common, &tnif, TRACE_FUN_E_RECEIVE, am_receive)) {
         /* We can use a stack heap here, as the nif is called in the
            context of a port */
@@ -1829,9 +1829,9 @@ trace_port_send(Port *t_p, Eterm receiver, Eterm msg, int exists)
 {
     ErtsTracerNif *tnif = NULL;
     Eterm op = exists ? am_send : am_send_to_non_existing_process;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p)
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(t_p)
 		       || erts_thr_progress_is_blocking());
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
     if (is_tracer_enabled(NULL, 0, &t_p->common, &tnif, TRACE_FUN_E_SEND, op))
         send_to_tracer_nif(NULL, &t_p->common, t_p->common.id, tnif, TRACE_FUN_T_SEND,
                            op, msg, receiver, am_true);
@@ -1840,9 +1840,9 @@ trace_port_send(Port *t_p, Eterm receiver, Eterm msg, int exists)
 void trace_port_send_binary(Port *t_p, Eterm to, Eterm what, char *bin, Sint sz)
 {
     ErtsTracerNif *tnif = NULL;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p)
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(t_p)
 		       || erts_thr_progress_is_blocking());
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
     if (is_tracer_enabled(NULL, 0, &t_p->common, &tnif, TRACE_FUN_E_SEND, am_send)) {
         Eterm msg;
         Binary* bptr = NULL;
@@ -1888,9 +1888,9 @@ trace_sched_ports(Port *p, Eterm what) {
 void
 trace_sched_ports_where(Port *t_p, Eterm what, Eterm where) {
     ErtsTracerNif *tnif = NULL;
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p)
+    ERTS_LC_ASSERT(erts_lc_is_port_locked(t_p)
 		       || erts_thr_progress_is_blocking());
-    ERTS_SMP_CHK_NO_PROC_LOCKS;
+    ERTS_CHK_NO_PROC_LOCKS;
     if (is_tracer_enabled(NULL, 0, &t_p->common, &tnif, TRACE_FUN_E_SCHED_PORT, what))
         send_to_tracer_nif(NULL, &t_p->common, t_p->common.id,
                            tnif, TRACE_FUN_T_SCHED_PORT,
@@ -1912,7 +1912,7 @@ profile_runnable_port(Port *p, Eterm status) {
     bp = new_message_buffer(hsz);
     hp = bp->mem;
 
-    erts_smp_mtx_lock(&smq_mtx);
+    erts_mtx_lock(&smq_mtx);
 
     msg = TUPLE5(hp, am_profile, p->common.id, status, count,
 		 NIL /* Will be overwritten by timestamp */);
@@ -1922,7 +1922,7 @@ profile_runnable_port(Port *p, Eterm status) {
     hp[-1] = write_ts(erts_system_profile_ts_type, hp, bp, NULL);
 
     enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, p->common.id, NIL, msg, bp);
-    erts_smp_mtx_unlock(&smq_mtx);
+    erts_mtx_unlock(&smq_mtx);
 }
 
 /* Process profiling */
@@ -1966,7 +1966,7 @@ profile_runnable_proc(Process *p, Eterm status){
 
     erts_thr_progress_unmanaged_continue(dhndl);
 	
-    erts_smp_mtx_lock(&smq_mtx);
+    erts_mtx_lock(&smq_mtx);
 
     msg = TUPLE5(hp, am_profile, p->common.id, status, where,
 		 NIL /* Will be overwritten by timestamp */);
@@ -1976,7 +1976,7 @@ profile_runnable_proc(Process *p, Eterm status){
     hp[-1] = write_ts(erts_system_profile_ts_type, hp, bp, NULL);
 
     enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, p->common.id, NIL, msg, bp);
-    erts_smp_mtx_unlock(&smq_mtx);
+    erts_mtx_unlock(&smq_mtx);
 }
 /* End system_profile tracing */
 
@@ -2027,7 +2027,7 @@ enqueue_sys_msg_unlocked(enum ErtsSysMsgType type,
 	sys_message_queue = smqp;
     }
     sys_message_queue_end = smqp;
-    erts_smp_cnd_signal(&smq_cnd);
+    erts_cnd_signal(&smq_cnd);
 }
 
 static void
@@ -2037,9 +2037,9 @@ enqueue_sys_msg(enum ErtsSysMsgType type,
 		Eterm msg,
 		ErlHeapFragment *bp)
 {
-    erts_smp_mtx_lock(&smq_mtx);
+    erts_mtx_lock(&smq_mtx);
     enqueue_sys_msg_unlocked(type, from, to, msg, bp);
-    erts_smp_mtx_unlock(&smq_mtx);
+    erts_mtx_unlock(&smq_mtx);
 }
 
 void
@@ -2091,10 +2091,10 @@ sys_msg_disp_failure(ErtsSysMsgQ *smqp, Eterm receiver)
 	    && !erts_system_monitor_flags.busy_port
 	    && !erts_system_monitor_flags.busy_dist_port)
 	    break; /* Everything is disabled */
-	erts_smp_thr_progress_block();
+	erts_thr_progress_block();
 	if (system_monitor == receiver || receiver == NIL)
 	    erts_system_monitor_clear(NULL);
-	erts_smp_thr_progress_unblock();
+	erts_thr_progress_unblock();
 	break;
 	 case SYS_MSG_TYPE_SYSPROF:
 	if (receiver == NIL
@@ -2104,11 +2104,11 @@ sys_msg_disp_failure(ErtsSysMsgQ *smqp, Eterm receiver)
 	    && !erts_system_profile_flags.scheduler)
 		 break;
 	/* Block system to clear flags */
-	erts_smp_thr_progress_block();
+	erts_thr_progress_block();
 	if (system_profile == receiver || receiver == NIL) { 
 		erts_system_profile_clear(NULL);
 	}
-	erts_smp_thr_progress_unblock();
+	erts_thr_progress_unblock();
 	break;
     case SYS_MSG_TYPE_ERRLGR: {
 	char *no_elgger = "(no error logger present)";
@@ -2153,38 +2153,38 @@ static void
 sys_msg_dispatcher_wakeup(void *vwait_p)
 {
     int *wait_p = (int *) vwait_p;
-    erts_smp_mtx_lock(&smq_mtx);
+    erts_mtx_lock(&smq_mtx);
     *wait_p = 0;
-    erts_smp_cnd_signal(&smq_cnd);
-    erts_smp_mtx_unlock(&smq_mtx);
+    erts_cnd_signal(&smq_cnd);
+    erts_mtx_unlock(&smq_mtx);
 }
 
 static void
 sys_msg_dispatcher_prep_wait(void *vwait_p)
 {
     int *wait_p = (int *) vwait_p;
-    erts_smp_mtx_lock(&smq_mtx);
+    erts_mtx_lock(&smq_mtx);
     *wait_p = 1;
-    erts_smp_mtx_unlock(&smq_mtx);
+    erts_mtx_unlock(&smq_mtx);
 }
 
 static void
 sys_msg_dispatcher_fin_wait(void *vwait_p)
 {
     int *wait_p = (int *) vwait_p;
-    erts_smp_mtx_lock(&smq_mtx);
+    erts_mtx_lock(&smq_mtx);
     *wait_p = 0;
-    erts_smp_mtx_unlock(&smq_mtx);
+    erts_mtx_unlock(&smq_mtx);
 }
 
 static void
 sys_msg_dispatcher_wait(void *vwait_p)
 {
     int *wait_p = (int *) vwait_p;
-    erts_smp_mtx_lock(&smq_mtx);
+    erts_mtx_lock(&smq_mtx);
     while (*wait_p)
-	erts_smp_cnd_wait(&smq_cnd, &smq_mtx);
-    erts_smp_mtx_unlock(&smq_mtx);
+	erts_cnd_wait(&smq_cnd, &smq_mtx);
+    erts_mtx_unlock(&smq_mtx);
 }
 
 static void *
@@ -2210,9 +2210,9 @@ sys_msg_dispatcher_func(void *unused)
 	int end_wait = 0;
 	ErtsSysMsgQ *smqp;
 
-	ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
+	ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());
 
-	erts_smp_mtx_lock(&smq_mtx);
+	erts_mtx_lock(&smq_mtx);
 
 	/* Free previously used queue ... */
 	while (local_sys_message_queue) {
@@ -2223,21 +2223,21 @@ sys_msg_dispatcher_func(void *unused)
 
 	/* Fetch current trace message queue ... */
 	if (!sys_message_queue) {
-	    erts_smp_mtx_unlock(&smq_mtx);
+	    erts_mtx_unlock(&smq_mtx);
 	    end_wait = 1;
 	    erts_thr_progress_active(NULL, 0);
 	    erts_thr_progress_prepare_wait(NULL);
-	    erts_smp_mtx_lock(&smq_mtx);
+	    erts_mtx_lock(&smq_mtx);
 	}
 
 	while (!sys_message_queue)
-	    erts_smp_cnd_wait(&smq_cnd, &smq_mtx);
+	    erts_cnd_wait(&smq_cnd, &smq_mtx);
 
 	local_sys_message_queue = sys_message_queue;
 	sys_message_queue = NULL;
 	sys_message_queue_end = NULL;
 
-	erts_smp_mtx_unlock(&smq_mtx);
+	erts_mtx_unlock(&smq_mtx);
 
 	if (end_wait) {
 	    erts_thr_progress_finalize_wait(NULL);
@@ -2311,7 +2311,7 @@ sys_msg_dispatcher_func(void *unused)
 #ifdef DEBUG_PRINTOUTS
 		    erts_fprintf(stderr, "delivered\n");
 #endif
-		    erts_smp_proc_unlock(proc, proc_locks);
+		    erts_proc_unlock(proc, proc_locks);
 		}
 	    }
 	    else if (receiver == am_error_logger) {
@@ -2349,7 +2349,7 @@ sys_msg_dispatcher_func(void *unused)
 		sys_msg_disp_failure(smqp, receiver);
 	    drop_sys_msg:
 		if (proc)
-		    erts_smp_proc_unlock(proc, proc_locks);
+		    erts_proc_unlock(proc, proc_locks);
 		if (smqp->bp)
 		    free_message_buffer(smqp->bp);
 #ifdef DEBUG_PRINTOUTS
@@ -2369,7 +2369,7 @@ erts_foreach_sys_msg_in_q(void (*func)(Eterm,
 				       ErlHeapFragment *))
 {
     ErtsSysMsgQ *sm;
-    erts_smp_mtx_lock(&smq_mtx);
+    erts_mtx_lock(&smq_mtx);
     for (sm = sys_message_queue; sm; sm = sm->next) {
 	Eterm to;
 	switch (sm->type) {
@@ -2388,23 +2388,23 @@ erts_foreach_sys_msg_in_q(void (*func)(Eterm,
 	}
 	(*func)(sm->from, to, sm->msg, sm->bp);
     }
-    erts_smp_mtx_unlock(&smq_mtx);
+    erts_mtx_unlock(&smq_mtx);
 }
 
 
 static void
 init_sys_msg_dispatcher(void)
 {
-    erts_smp_thr_opts_t thr_opts = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+    erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
     thr_opts.detached = 1;
     thr_opts.name = "sys_msg_dispatcher";
     init_smq_element_alloc();
     sys_message_queue = NULL;
     sys_message_queue_end = NULL;
-    erts_smp_cnd_init(&smq_cnd);
-    erts_smp_mtx_init(&smq_mtx, "sys_msg_q", NIL,
+    erts_cnd_init(&smq_cnd);
+    erts_mtx_init(&smq_mtx, "sys_msg_q", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
-    erts_smp_thr_create(&sys_msg_dispatcher_tid,
+    erts_thr_create(&sys_msg_dispatcher_tid,
 			sys_msg_dispatcher_func,
 			NULL,
 			&thr_opts);
@@ -2505,7 +2505,7 @@ static void init_tracer_template(ErtsTracerNif *tnif) {
 }
 
 static Hash *tracer_hash = NULL;
-static erts_smp_rwmtx_t tracer_mtx;
+static erts_rwmtx_t tracer_mtx;
 
 static ErtsTracerNif *
 load_tracer_nif(const ErtsTracer tracer)
@@ -2545,9 +2545,9 @@ load_tracer_nif(const ErtsTracer tracer)
         return NULL;
     }
 
-    erts_smp_rwmtx_rwlock(&tracer_mtx);
+    erts_rwmtx_rwlock(&tracer_mtx);
     tnif = hash_put(tracer_hash, &tnif_tmpl);
-    erts_smp_rwmtx_rwunlock(&tracer_mtx);
+    erts_rwmtx_rwunlock(&tracer_mtx);
 
     return tnif;
 }
@@ -2558,14 +2558,14 @@ lookup_tracer_nif(const ErtsTracer tracer)
     ErtsTracerNif tnif_tmpl;
     ErtsTracerNif *tnif;
     tnif_tmpl.module = ERTS_TRACER_MODULE(tracer);
-    erts_smp_rwmtx_rlock(&tracer_mtx);
+    erts_rwmtx_rlock(&tracer_mtx);
     if ((tnif = hash_get(tracer_hash, &tnif_tmpl)) == NULL) {
-        erts_smp_rwmtx_runlock(&tracer_mtx);
+        erts_rwmtx_runlock(&tracer_mtx);
         tnif = load_tracer_nif(tracer);
         ASSERT(!tnif || tnif->nif_mod);
         return tnif;
     }
-    erts_smp_rwmtx_runlock(&tracer_mtx);
+    erts_rwmtx_runlock(&tracer_mtx);
     ASSERT(tnif->nif_mod);
     return tnif;
 }
@@ -2710,10 +2710,10 @@ send_to_tracer_nif(Process *c_p, ErtsPTabElementCommon *t_p,
     }
     if (is_internal_pid(t_p->id)) {
         /* We have to have at least one lock */
-        ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks((Process*)t_p) & ERTS_PROC_LOCKS_ALL);
+        ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks((Process*)t_p) & ERTS_PROC_LOCKS_ALL);
     } else {
         ASSERT(is_internal_port(t_p->id));
-        ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked((Port*)t_p));
+        ERTS_LC_ASSERT(erts_lc_is_port_locked((Port*)t_p));
     }
 #endif
 
@@ -2758,15 +2758,15 @@ is_tracer_enabled(Process* c_p, ErtsProcLocks c_p_locks,
 
 #if defined(ERTS_ENABLE_LOCK_CHECK)
     if (c_p)
-        ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) == c_p_locks
+        ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) == c_p_locks
                            || erts_thr_progress_is_blocking());
     if (is_internal_pid(t_p->id)) {
         /* We have to have at least one lock */
-        ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks((Process*)t_p) & ERTS_PROC_LOCKS_ALL
+        ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks((Process*)t_p) & ERTS_PROC_LOCKS_ALL
                            || erts_thr_progress_is_blocking());
     } else {
         ASSERT(is_internal_port(t_p->id));
-        ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked((Port*)t_p)
+        ERTS_LC_ASSERT(erts_lc_is_port_locked((Port*)t_p)
                            || erts_thr_progress_is_blocking());
     }
 #endif
@@ -2788,12 +2788,12 @@ is_tracer_enabled(Process* c_p, ErtsProcLocks c_p_locks,
     if (is_internal_port(t_p->id) || (c_p && c_p->common.id == t_p->id)) {
         ErtsProcLocks c_p_xlocks = 0;
         if (is_internal_pid(t_p->id)) {
-            ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) & ERTS_PROC_LOCK_MAIN);
+            ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) & ERTS_PROC_LOCK_MAIN);
             if (c_p_locks != ERTS_PROC_LOCKS_ALL) {
                 c_p_xlocks = ~c_p_locks & ERTS_PROC_LOCKS_ALL;
-                if (erts_smp_proc_trylock(c_p, c_p_xlocks) == EBUSY) {
-                    erts_smp_proc_unlock(c_p, c_p_locks & ~ERTS_PROC_LOCK_MAIN);
-                    erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+                if (erts_proc_trylock(c_p, c_p_xlocks) == EBUSY) {
+                    erts_proc_unlock(c_p, c_p_locks & ~ERTS_PROC_LOCK_MAIN);
+                    erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
                 }
             }
         }
@@ -2801,7 +2801,7 @@ is_tracer_enabled(Process* c_p, ErtsProcLocks c_p_locks,
         t_p->trace_flags &= ~TRACEE_FLAGS;
 
         if (c_p_xlocks)
-            erts_smp_proc_unlock(c_p, c_p_xlocks);
+            erts_proc_unlock(c_p, c_p_xlocks);
     }
 
     return 0;
@@ -2959,11 +2959,11 @@ erts_tracer_update(ErtsTracer *tracer, const ErtsTracer new_tracer)
 
 static void init_tracer_nif()
 {
-    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
-    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
-    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
+    erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
+    rwmtx_opt.type = ERTS_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
+    rwmtx_opt.lived = ERTS_RWMTX_LONG_LIVED;
 
-    erts_smp_rwmtx_init_opt(&tracer_mtx, &rwmtx_opt, "tracer_mtx", NIL,
+    erts_rwmtx_init_opt(&tracer_mtx, &rwmtx_opt, "tracer_mtx", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
 
     erts_tracer_nif_clear();
@@ -2973,7 +2973,7 @@ static void init_tracer_nif()
 int erts_tracer_nif_clear()
 {
 
-    erts_smp_rwmtx_rlock(&tracer_mtx);
+    erts_rwmtx_rlock(&tracer_mtx);
     if (!tracer_hash || tracer_hash->nobjs) {
 
         HashFunctions hf;
@@ -2985,19 +2985,19 @@ int erts_tracer_nif_clear()
         hf.meta_free = (HMFREE_FUN) erts_free;
         hf.meta_print = (HMPRINT_FUN) erts_print;
 
-        erts_smp_rwmtx_runlock(&tracer_mtx);
-        erts_smp_rwmtx_rwlock(&tracer_mtx);
+        erts_rwmtx_runlock(&tracer_mtx);
+        erts_rwmtx_rwlock(&tracer_mtx);
 
         if (tracer_hash)
             hash_delete(tracer_hash);
 
         tracer_hash = hash_new(ERTS_ALC_T_TRACER_NIF, "tracer_hash", 10, hf);
 
-        erts_smp_rwmtx_rwunlock(&tracer_mtx);
+        erts_rwmtx_rwunlock(&tracer_mtx);
         return 1;
     }
 
-    erts_smp_rwmtx_runlock(&tracer_mtx);
+    erts_rwmtx_runlock(&tracer_mtx);
     return 0;
 }
 

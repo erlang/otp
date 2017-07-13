@@ -36,16 +36,16 @@ typedef struct ErtsHLTimerService_ ErtsHLTimerService;
 #define ERTS_PTMR_TIMEDOUT (ERTS_PTMR_NONE + ((erts_aint_t) 1))
 
 #define ERTS_PTMR_INIT(P) \
-    erts_smp_atomic_init_nob(&(P)->common.timer, ERTS_PTMR_NONE)
+    erts_atomic_init_nob(&(P)->common.timer, ERTS_PTMR_NONE)
 #define ERTS_PTMR_IS_SET(P) \
-    (ERTS_PTMR_NONE != erts_smp_atomic_read_nob(&(P)->common.timer))
+    (ERTS_PTMR_NONE != erts_atomic_read_nob(&(P)->common.timer))
 #define ERTS_PTMR_IS_TIMED_OUT(P) \
-    (ERTS_PTMR_TIMEDOUT == erts_smp_atomic_read_nob(&(P)->common.timer))
+    (ERTS_PTMR_TIMEDOUT == erts_atomic_read_nob(&(P)->common.timer))
 
 #define ERTS_PTMR_CLEAR(P)					\
     do {							\
 	ASSERT(ERTS_PTMR_IS_TIMED_OUT((P)));			\
-	erts_smp_atomic_set_nob(&(P)->common.timer,		\
+	erts_atomic_set_nob(&(P)->common.timer,		\
 				ERTS_PTMR_NONE);		\
     } while (0)
 

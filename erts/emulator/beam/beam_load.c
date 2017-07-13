@@ -794,8 +794,8 @@ erts_finish_loading(Binary* magic, Process* c_p,
      * table which is not protected by any locks.
      */
 
-    ERTS_SMP_LC_ASSERT(erts_initialized == 0 || erts_has_code_write_permission() ||
-		       erts_smp_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(erts_initialized == 0 || erts_has_code_write_permission() ||
+		       erts_thr_progress_is_blocking());
     /*
      * Make current code for the module old and insert the new code
      * as current.  This will fail if there already exists old code
@@ -830,7 +830,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
 		    continue;
 		} else if (ep->beam[0] ==
 			   (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
-		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+		    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 		    ASSERT(mod_tab_p->curr.num_traced_exports > 0);
 		    erts_clear_export_break(mod_tab_p, &ep->info);
 		    ep->addressv[code_ix] = (BeamInstr *) ep->beam[1];
@@ -4934,7 +4934,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 		/*
 		 * We are hiding a pointer into older code.
 		 */
-		erts_smp_refc_dec(&fe->refc, 1);
+		erts_refc_dec(&fe->refc, 1);
 	    }
 	    fe->address = code_ptr;
 #ifdef HIPE
@@ -6367,7 +6367,7 @@ patch_funentries(Eterm Patchlist)
     fe = erts_get_fun_entry(Mod, uniq, index);
     fe->native_address = (Uint *)native_address;
 
-    erts_smp_refc_dec(&fe->refc, 1);
+    erts_refc_dec(&fe->refc, 1);
 
     if (!patch(Addresses, (Uint) fe))
       return 0;

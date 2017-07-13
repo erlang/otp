@@ -37,14 +37,14 @@
 #include "hipe_bif0.h"	/* hipe_mfa_info_table_init() */
 
 #if defined(ERTS_ENABLE_LOCK_CHECK)
-#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
+#    define ERTS_REQ_PROC_MAIN_LOCK(P) \
         if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,	\
 					   __FILE__, __LINE__)
-#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
+#    define ERTS_UNREQ_PROC_MAIN_LOCK(P) \
         if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
 #else
-#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)
-#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)
+#    define ERTS_REQ_PROC_MAIN_LOCK(P)
+#    define ERTS_UNREQ_PROC_MAIN_LOCK(P)
 #endif
 
 
@@ -394,7 +394,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      goto do_schedule;
 	  }
 
-	  if (!(erts_smp_atomic32_read_acqb(&p->state) & ERTS_PSFLG_ACTIVE)) {
+	  if (!(erts_atomic32_read_acqb(&p->state) & ERTS_PSFLG_ACTIVE)) {
 	      for (i = 0; i < p->arity; ++i)
 		  p->arg_reg[i] = reg[i]; 	      
 	      goto do_schedule;
@@ -495,12 +495,12 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  if (p->hipe_smp.have_receive_locks)
 	      p->hipe_smp.have_receive_locks = 0;
 	  else
-	      erts_smp_proc_lock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	      erts_proc_lock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	  p->i = hipe_beam_pc_resume;
 	  p->arity = 0;
-	  erts_smp_atomic32_read_band_relb(&p->state,
+	  erts_atomic32_read_band_relb(&p->state,
 					   ~ERTS_PSFLG_ACTIVE);
-	  erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	  erts_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
       do_schedule:
 	  {
 	      struct saved_calls *scb;
@@ -511,16 +511,16 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 
               /* The process may have died while it was executing,
                  if so we return out from native code to the interpreter */
-              if (erts_smp_atomic32_read_nob(&p->state) & ERTS_PSFLG_EXITING)
+              if (erts_atomic32_read_nob(&p->state) & ERTS_PSFLG_EXITING)
                   p->i = beam_exit;
 #ifdef DEBUG
 	      ASSERT(p->debug_reds_in == reds_in);
 #endif
 	      p->flags &= ~F_HIPE_MODE;
 
-	      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(p);
+	      ERTS_UNREQ_PROC_MAIN_LOCK(p);
 	      p = erts_schedule(NULL, p, reds_in - p->fcalls);
-	      ERTS_SMP_REQ_PROC_MAIN_LOCK(p);
+	      ERTS_REQ_PROC_MAIN_LOCK(p);
 	      ASSERT(!(p->flags & F_HIPE_MODE));
 	      p->hipe_smp.have_receive_locks = 0;
 	      reg = p->scheduler_data->x_reg_array;

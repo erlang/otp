@@ -113,7 +113,7 @@ erts_nif_export_schedule(Process *c_p, Process *dirty_shadow_proc,
     NifExport* nep;
     int i;
 
-    ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p)
+    ERTS_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p)
 		       & ERTS_PROC_LOCK_MAIN);
 
     if (dirty_shadow_proc) {

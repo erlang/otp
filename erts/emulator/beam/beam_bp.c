@@ -47,14 +47,14 @@
 #define Free(P)			erts_free(ERTS_ALC_T_BPD, (P))
 
 #if defined(ERTS_ENABLE_LOCK_CHECK)
-#  define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
+#  define ERTS_REQ_PROC_MAIN_LOCK(P) \
       if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,\
 					 __FILE__, __LINE__)
-#  define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
+#  define ERTS_UNREQ_PROC_MAIN_LOCK(P) \
       if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
 #else
-#  define ERTS_SMP_REQ_PROC_MAIN_LOCK(P)
-#  define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P)
+#  define ERTS_REQ_PROC_MAIN_LOCK(P)
+#  define ERTS_UNREQ_PROC_MAIN_LOCK(P)
 #endif
 
 #define ERTS_BPF_LOCAL_TRACE       0x01
@@ -73,10 +73,10 @@ extern BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
 extern BeamInstr beam_exception_trace[1];   /* OpCode(i_exception_trace) */
 extern BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 
-erts_smp_atomic32_t erts_active_bp_index;
-erts_smp_atomic32_t erts_staging_bp_index;
+erts_atomic32_t erts_active_bp_index;
+erts_atomic32_t erts_staging_bp_index;
 #ifdef ERTS_DIRTY_SCHEDULERS
-erts_smp_mtx_t erts_dirty_bp_ix_mtx;
+erts_mtx_t erts_dirty_bp_ix_mtx;
 #endif
 
 /*
@@ -96,7 +96,7 @@ acquire_bp_sched_ix(Process *c_p)
     ASSERT(esdp);
 #ifdef ERTS_DIRTY_SCHEDULERS
     if (ERTS_SCHEDULER_IS_DIRTY(esdp)) {
-	erts_smp_mtx_lock(&erts_dirty_bp_ix_mtx);
+	erts_mtx_lock(&erts_dirty_bp_ix_mtx);
         return (Uint32) erts_no_schedulers;
     }
 #endif
@@ -108,7 +108,7 @@ release_bp_sched_ix(Uint32 ix)
 {
 #ifdef ERTS_DIRTY_SCHEDULERS
     if (ix == (Uint32) erts_no_schedulers)
-        erts_smp_mtx_unlock(&erts_dirty_bp_ix_mtx);
+        erts_mtx_unlock(&erts_dirty_bp_ix_mtx);
 #endif
 }
 
@@ -162,10 +162,10 @@ static void bp_hash_delete(bp_time_hash_t *hash);
 
 void 
 erts_bp_init(void) {
-    erts_smp_atomic32_init_nob(&erts_active_bp_index, 0);
-    erts_smp_atomic32_init_nob(&erts_staging_bp_index, 1);
+    erts_atomic32_init_nob(&erts_active_bp_index, 0);
+    erts_atomic32_init_nob(&erts_staging_bp_index, 1);
 #ifdef ERTS_DIRTY_SCHEDULERS
-    erts_smp_mtx_init(&erts_dirty_bp_ix_mtx, "dirty_break_point_index", NIL,
+    erts_mtx_init(&erts_dirty_bp_ix_mtx, "dirty_break_point_index", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
 #endif
 }
@@ -306,7 +306,7 @@ erts_consolidate_bp_data(BpFunctions* f, int local)
     Uint i;
     Uint n = f->matched;
 
-    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_write_permission());
 
     for (i = 0; i < n; i++) {
 	consolidate_bp_data(fs[i].mod, fs[i].ci, local);
@@ -318,7 +318,7 @@ erts_consolidate_bif_bp_data(void)
 {
     int i;
 
-    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_write_permission());
     for (i = 0; i < BIF_SIZE; i++) {
 	Export *ep = bif_export[i];
 	consolidate_bp_data(0, &ep->info, 0);
@@ -393,17 +393,17 @@ consolidate_bp_data(Module* modp, ErtsCodeInfo *ci, int local)
     }
     if (flags & ERTS_BPF_META_TRACE) {
 	dst->meta_tracer = src->meta_tracer;
-	erts_smp_refc_inc(&dst->meta_tracer->refc, 1);
+	erts_refc_inc(&dst->meta_tracer->refc, 1);
 	dst->meta_ms = src->meta_ms;
 	MatchSetRef(dst->meta_ms);
     }
     if (flags & ERTS_BPF_COUNT) {
 	dst->count = src->count;
-	erts_smp_refc_inc(&dst->count->refc, 1);
+	erts_refc_inc(&dst->count->refc, 1);
     }
     if (flags & ERTS_BPF_TIME_TRACE) {
 	dst->time = src->time;
-	erts_smp_refc_inc(&dst->time->refc, 1);
+	erts_refc_inc(&dst->time->refc, 1);
 	ASSERT(dst->time->hash);
     }
 }
@@ -414,8 +414,8 @@ erts_commit_staged_bp(void)
     ErtsBpIndex staging = erts_staging_bp_ix();
     ErtsBpIndex active = erts_active_bp_ix();
 
-    erts_smp_atomic32_set_nob(&erts_active_bp_index, staging);
-    erts_smp_atomic32_set_nob(&erts_staging_bp_index, active);
+    erts_atomic32_set_nob(&erts_active_bp_index, staging);
+    erts_atomic32_set_nob(&erts_staging_bp_index, active);
 }
 
 void
@@ -575,7 +575,7 @@ erts_clear_mtrace_bif(ErtsCodeInfo *ci)
 void
 erts_clear_debug_break(BpFunctions* f)
 {
-    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
     clear_break(f, ERTS_BPF_DEBUG);
 }
 
@@ -603,7 +603,7 @@ erts_clear_module_break(Module *modp) {
     Uint n;
     Uint i;
 
-    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
     ASSERT(modp);
     code_hdr = modp->curr.code_hdr;
     if (!code_hdr) {
@@ -633,7 +633,7 @@ erts_clear_module_break(Module *modp) {
 void
 erts_clear_export_break(Module* modp, ErtsCodeInfo *ci)
 {
-    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 
     clear_function_break(ci, ERTS_BPF_ALL);
     erts_commit_staged_bp();
@@ -679,12 +679,12 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
     if (bp_flags & ERTS_BPF_META_TRACE) {
 	ErtsTracer old_tracer, new_tracer;
 
-	old_tracer = erts_smp_atomic_read_nob(&bp->meta_tracer->tracer);
+	old_tracer = erts_atomic_read_nob(&bp->meta_tracer->tracer);
 
 	new_tracer = do_call_trace(c_p, info, reg, 1, bp->meta_ms, old_tracer);
 
 	if (!ERTS_TRACER_COMPARE(new_tracer, old_tracer)) {
-            if (old_tracer == erts_smp_atomic_cmpxchg_acqb(
+            if (old_tracer == erts_atomic_cmpxchg_acqb(
                     &bp->meta_tracer->tracer,
                     (erts_aint_t)new_tracer,
                     (erts_aint_t)old_tracer)) {
@@ -696,7 +696,7 @@ erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
     }
 
     if (bp_flags & ERTS_BPF_COUNT_ACTIVE) {
-	erts_smp_atomic_inc_nob(&bp->count->acount);
+	erts_atomic_inc_nob(&bp->count->acount);
     }
 
     if (bp_flags & ERTS_BPF_TIME_TRACE_ACTIVE) {
@@ -753,7 +753,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
     GenericBpData* bp = NULL;
     Uint bp_flags = 0;
 
-    ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
+    ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
     g = ep->info.u.gen_bp;
     if (g) {
@@ -777,7 +777,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
     if (bp_flags & ERTS_BPF_META_TRACE) {
 	ErtsTracer old_tracer;
 
-        meta_tracer = erts_smp_atomic_read_nob(&bp->meta_tracer->tracer);
+        meta_tracer = erts_atomic_read_nob(&bp->meta_tracer->tracer);
         old_tracer = meta_tracer;
 	flags_meta = erts_call_trace(p, &ep->info, bp->meta_ms, args,
 				     0, &meta_tracer);
@@ -785,7 +785,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 	if (!ERTS_TRACER_COMPARE(old_tracer, meta_tracer)) {
             ErtsTracer new_tracer = erts_tracer_nil;
             erts_tracer_update(&new_tracer, meta_tracer);
-	    if (old_tracer == erts_smp_atomic_cmpxchg_acqb(
+	    if (old_tracer == erts_atomic_cmpxchg_acqb(
                     &bp->meta_tracer->tracer,
                     (erts_aint_t)new_tracer,
                     (erts_aint_t)old_tracer)) {
@@ -912,9 +912,9 @@ erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
 		}
 	    }
 	    if ((flags_meta|flags) & MATCH_SET_EXCEPTION_TRACE) {
-		erts_smp_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
+		erts_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
 		ERTS_TRACE_FLAGS(p) |= F_EXCEPTION_TRACE;
-		erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
+		erts_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
 	    }
 	}
     } else {
@@ -937,7 +937,7 @@ erts_bif_trace_epilogue(Process *p, Eterm result, int applying,
 	    }
 	}
     }
-    ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
+    ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
     return result;
 }
 
@@ -982,9 +982,9 @@ do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
 	c_p->cp = (BeamInstr *) cp_val(*cpp);
 	ASSERT(is_CP(*cpp));
     }
-    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
     flags = erts_call_trace(c_p, info, ms, reg, local, &tracer);
-    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+    ERTS_REQ_PROC_MAIN_LOCK(c_p);
     if (cpp) {
 	c_p->cp = cp_save;
     }
@@ -1024,9 +1024,9 @@ do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
 				  the funcinfo is above i. */
 	c_p->cp = (flags & MATCH_SET_EXCEPTION_TRACE) ?
 	    beam_exception_trace : beam_return_trace;
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+	erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 	ERTS_TRACE_FLAGS(c_p) |= F_EXCEPTION_TRACE;
-	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+	erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
     } else
         c_p->stop = E;
     return tracer;
@@ -1043,7 +1043,7 @@ erts_trace_time_call(Process* c_p, ErtsCodeInfo *info, BpDataTime* bdt)
     Uint32 six = acquire_bp_sched_ix(c_p);
 
     ASSERT(c_p);
-    ASSERT(erts_smp_atomic32_read_acqb(&c_p->state) & (ERTS_PSFLG_RUNNING
+    ASSERT(erts_atomic32_read_acqb(&c_p->state) & (ERTS_PSFLG_RUNNING
 						       | ERTS_PSFLG_DIRTY_RUNNING));
 
     /* get previous timestamp and breakpoint
@@ -1124,7 +1124,7 @@ erts_trace_time_return(Process *p, ErtsCodeInfo *ci)
     Uint32 six = acquire_bp_sched_ix(p);
 
     ASSERT(p);
-    ASSERT(erts_smp_atomic32_read_acqb(&p->state) & (ERTS_PSFLG_RUNNING
+    ASSERT(erts_atomic32_read_acqb(&p->state) & (ERTS_PSFLG_RUNNING
 						     | ERTS_PSFLG_DIRTY_RUNNING));
 
     /* get previous timestamp and breakpoint
@@ -1206,7 +1206,7 @@ erts_is_mtrace_break(ErtsCodeInfo *ci, Binary **match_spec_ret,
 	    *match_spec_ret = bp->meta_ms;
 	}
 	if (tracer_ret) {
-            *tracer_ret = erts_smp_atomic_read_nob(&bp->meta_tracer->tracer);
+            *tracer_ret = erts_atomic_read_nob(&bp->meta_tracer->tracer);
 	}
 	return 1;
     }
@@ -1220,7 +1220,7 @@ erts_is_count_break(ErtsCodeInfo *ci, Uint *count_ret)
     
     if (bp) {
 	if (count_ret) {
-	    *count_ret = (Uint) erts_smp_atomic_read_nob(&bp->count->acount);
+	    *count_ret = (Uint) erts_atomic_read_nob(&bp->count->acount);
 	}
 	return 1;
     }
@@ -1500,7 +1500,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
     Uint common;
     ErtsBpIndex ix = erts_staging_bp_ix();
 
-    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_write_permission());
     g = ci->u.gen_bp;
     if (g == 0) {
 	int i;
@@ -1532,7 +1532,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 	    bp->flags &= ~ERTS_BPF_COUNT_ACTIVE;
 	} else {
 	    bp->flags |= ERTS_BPF_COUNT_ACTIVE;
-	    erts_smp_atomic_set_nob(&bp->count->acount, 0);
+	    erts_atomic_set_nob(&bp->count->acount, 0);
 	}
 	ASSERT((bp->flags & ~ERTS_BPF_ALL) == 0);
 	return;
@@ -1566,17 +1566,17 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 	MatchSetRef(match_spec);
 	bp->meta_ms = match_spec;
 	bmt = Alloc(sizeof(BpMetaTracer));
-	erts_smp_refc_init(&bmt->refc, 1);
+	erts_refc_init(&bmt->refc, 1);
         erts_tracer_update(&meta_tracer, tracer); /* copy tracer */
-	erts_smp_atomic_init_nob(&bmt->tracer, (erts_aint_t)meta_tracer);
+	erts_atomic_init_nob(&bmt->tracer, (erts_aint_t)meta_tracer);
 	bp->meta_tracer = bmt;
     } else if (break_flags & ERTS_BPF_COUNT) {
 	BpCount* bcp;
 
 	ASSERT((bp->flags & ERTS_BPF_COUNT) == 0);
 	bcp = Alloc(sizeof(BpCount));
-	erts_smp_refc_init(&bcp->refc, 1);
-	erts_smp_atomic_init_nob(&bcp->acount, 0);
+	erts_refc_init(&bcp->refc, 1);
+	erts_atomic_init_nob(&bcp->acount, 0);
 	bp->count = bcp;
     } else if (break_flags & ERTS_BPF_TIME_TRACE) {
 	BpDataTime* bdt;
@@ -1584,7 +1584,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 
 	ASSERT((bp->flags & ERTS_BPF_TIME_TRACE) == 0);
 	bdt = Alloc(sizeof(BpDataTime));
-	erts_smp_refc_init(&bdt->refc, 1);
+	erts_refc_init(&bdt->refc, 1);
 #ifdef ERTS_DIRTY_SCHEDULERS
 	bdt->n = erts_no_schedulers + 1;
 #else
@@ -1621,7 +1621,7 @@ clear_function_break(ErtsCodeInfo *ci, Uint break_flags)
     Uint common;
     ErtsBpIndex ix = erts_staging_bp_ix();
 
-    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
+    ERTS_LC_ASSERT(erts_has_code_write_permission());
 
     if ((g = ci->u.gen_bp) == NULL) {
 	return 1;
@@ -1654,8 +1654,8 @@ clear_function_break(ErtsCodeInfo *ci, Uint break_flags)
 static void
 bp_meta_unref(BpMetaTracer* bmt)
 {
-    if (erts_smp_refc_dectest(&bmt->refc, 0) <= 0) {
-        ErtsTracer trc = erts_smp_atomic_read_nob(&bmt->tracer);
+    if (erts_refc_dectest(&bmt->refc, 0) <= 0) {
+        ErtsTracer trc = erts_atomic_read_nob(&bmt->tracer);
         ERTS_TRACER_CLEAR(&trc);
 	Free(bmt);
     }
@@ -1664,7 +1664,7 @@ bp_meta_unref(BpMetaTracer* bmt)
 static void
 bp_count_unref(BpCount* bcp)
 {
-    if (erts_smp_refc_dectest(&bcp->refc, 0) <= 0) {
+    if (erts_refc_dectest(&bcp->refc, 0) <= 0) {
 	Free(bcp);
     }
 }
@@ -1672,7 +1672,7 @@ bp_count_unref(BpCount* bcp)
 static void
 bp_time_unref(BpDataTime* bdt)
 {
-    if (erts_smp_refc_dectest(&bdt->refc, 0) <= 0) {
+    if (erts_refc_dectest(&bdt->refc, 0) <= 0) {
 	Uint i = 0;
 	Uint j = 0;
 	Process *h_p = NULL;
@@ -1696,7 +1696,7 @@ bp_time_unref(BpDataTime* bdt)
 			    if (pbt) {
 				Free(pbt);
 			    }
-			    erts_smp_proc_unlock(h_p, ERTS_PROC_LOCK_MAIN);
+			    erts_proc_unlock(h_p, ERTS_PROC_LOCK_MAIN);
 			}
 		    }
 		}

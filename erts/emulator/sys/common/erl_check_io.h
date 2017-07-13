@@ -76,11 +76,11 @@ void erts_lcnt_update_cio_locks(int enable);
 
 #endif
 
-extern erts_smp_atomic_t erts_check_io_time;
+extern erts_atomic_t erts_check_io_time;
 
 typedef struct {
     ErtsPortTaskHandle task;
-    erts_smp_atomic_t executed_time;
+    erts_atomic_t executed_time;
 } ErtsIoTask;
 
 ERTS_GLB_INLINE void erts_io_notify_port_task_executed(ErtsPortTaskHandle *pthp);
@@ -91,8 +91,8 @@ ERTS_GLB_INLINE void
 erts_io_notify_port_task_executed(ErtsPortTaskHandle *pthp)
 {
     ErtsIoTask *itp = (ErtsIoTask *) (((char *) pthp) - offsetof(ErtsIoTask, task));
-    erts_aint_t ci_time = erts_smp_atomic_read_acqb(&erts_check_io_time);
-    erts_smp_atomic_set_relb(&itp->executed_time, ci_time);
+    erts_aint_t ci_time = erts_atomic_read_acqb(&erts_check_io_time);
+    erts_atomic_set_relb(&itp->executed_time, ci_time);
 }
 
 #endif
