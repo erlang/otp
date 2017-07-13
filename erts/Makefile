@@ -34,7 +34,7 @@ ERTSDIRS += start_scripts
 endif
 
 .PHONY: all
-all: $(FLAVORS)
+all: smp
 
 .PHONY: docs
 docs:
@@ -44,7 +44,7 @@ docs:
 debug opt lcnt clean:
 	$(V_at)for d in emulator $(ERTSDIRS); do \
 		if test -d $$d; then \
-			( cd $$d && $(MAKE) $@ FLAVOR=$(FLAVOR) ) || exit $$? ; \
+			( cd $$d && $(MAKE) $@ ) || exit $$?; \
 		fi ; \
 	done
 	(cd preloaded/src && $(MAKE) ../ebin/erts.app)
@@ -54,10 +54,10 @@ debug opt lcnt clean:
 # - don't use them in scripts or assume they will always stay like this!
 #
 
-.PHONY: $(FLAVORS)
-$(FLAVORS):
+.PHONY: smp
+smp:
 	$(V_at)for type in $(TYPES); do \
-		( $(MAKE) $$type FLAVOR=$@ ); \
+		( $(MAKE) $$type ) || exit $$?; \
 	done
 
 # Make erl script and erlc in $(ERL_TOP)/bin which runs the compiled version
@@ -129,10 +129,8 @@ makefiles:
 
 .PHONY: release
 release:
-	$(V_at)for f in $(FLAVORS); do \
-		for t in $(TYPES); do \
-		  ( cd emulator && $(MAKE) release FLAVOR=$$f TYPE=$$t ) \
-		done \
+	for t in $(TYPES); do \
+	  ( cd emulator && $(MAKE) release TYPE=$$t ) || exit $$?; \
 	done
 	$(V_at)for d in $(ERTSDIRS) $(XINSTDIRS); do \
 		if test -d $$d; then \
