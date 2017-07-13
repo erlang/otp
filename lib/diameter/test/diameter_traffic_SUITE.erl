@@ -459,7 +459,8 @@ start_services(Config) ->
         = group(Config),
     ok = diameter:start_service(SN, [{decode_format, SD}
                                      | ?SERVICE(SN, Grp)]),
-    ok = diameter:start_service(CN, [{sequence, ?CLIENT_MASK}
+    ok = diameter:start_service(CN, [{sequence, ?CLIENT_MASK},
+                                     {strict_arities, decode}
                                      | ?SERVICE(CN, Grp)]).
 
 add_transports(Config) ->
@@ -700,14 +701,14 @@ send_unexpected_mandatory_decode(Config) ->
 
 %% Try to two Auth-Application-Id in ASR expect 5009.
 send_too_many(Config) ->
-    Req = ['ASR'],
+    Req = ['ASR', {'Auth-Application-Id', [?APP_ID, 44]}],
 
     ['ASA' | #{'Session-Id' := _,
                'Result-Code' := ?TOO_MANY,
                'Failed-AVP' := Avps}]
         = call(Config, Req),
     [[#diameter_avp{name = 'Auth-Application-Id',
-                    value = 42}]]
+                    value = 44}]]
         = failed_avps(Avps, Config).
 
 %% Send an containing a faulty Grouped AVP (empty Proxy-Host in
@@ -883,7 +884,7 @@ send_detach(Config) ->
 
 %% Send a request which can't be encoded and expect {error, encode}.
 send_encode_error(Config) ->
-    {error, encode} = call(Config, ['STR']).  %% No Termination-Cause
+    {error, encode} = call(Config, ['STR', {'Termination-Cause', huh}]).
 
 %% Send with filtering and expect success.
 send_destination_1(Config) ->
@@ -904,14 +905,14 @@ send_destination_2(Config) ->
 %% unknown host or realm.
 send_destination_3(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
-                  {'Destination-Realm', "unknown.org"}],
+                  {'Destination-Realm', <<"unknown.org">>}],
     {error, no_connection}
         = call(Config, Req, [{filter, {all, [host, realm]}}]).
 send_destination_4(Config) ->
     #group{server_service = SN}
         = group(Config),
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
-                  {'Destination-Host', [?HOST(SN, "unknown.org")]}],
+                  {'Destination-Host', [?HOST(SN, ["unknown.org"])]}],
     {error, no_connection}
         = call(Config, Req, [{filter, {all, [host, realm]}}]).
 
@@ -919,7 +920,7 @@ send_destination_4(Config) ->
 %% an unknown host or realm.
 send_destination_5(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
-                  {'Destination-Realm', "unknown.org"}],
+                  {'Destination-Realm', [<<"unknown.org">>]}],
     ?answer_message(?REALM_NOT_SERVED)
         = call(Config, Req).
 send_destination_6(Config) ->
@@ -1270,25 +1271,6 @@ prepare(Pkt, Caps, N, #group{client_dict = Dict0} = Group)
     E#diameter_packet{bin = <<H/binary, (Len+9):24, T/binary>>};
 
 prepare(Pkt, Caps, N, #group{client_dict = Dict0} = Group)
-  when N == send_too_many ->
-    Req = prepare(Pkt, Caps, Group),
-
-    #diameter_packet{header = #diameter_header{length = L},
-                     bin = B}
-        = E
-        = diameter_codec:encode(Dict0,
-                                Pkt#diameter_packet{msg = Req}),
-    M = L - 4 - 12,
-    <<1, L:24,
-      T:M/binary,
-      A:8/binary, D:4/binary>>
-        = B,
-    E#diameter_packet{bin = <<1, (L+12):24,
-                              T/binary,
-                              A/binary, D/binary,
-                              A/binary, 42:32>>};
-
-prepare(Pkt, Caps, N, #group{client_dict = Dict0} = Group)
   when N == send_long_avp_length;
        N == send_short_avp_length;
        N == send_zero_avp_length ->
@@ -1419,10 +1401,10 @@ set(N, #diameter_packet{msg = Req}, Caps, Group)
                    origin_realm = {OR, DR}}
         = Caps,
 
-    set(Group, Req, [{'Session-Id', diameter:session_id(OH)},
-                     {'Origin-Host',  OH},
-                     {'Origin-Realm', OR},
-                     {'Destination-Realm', DR}]);
+    set(Group, Req, [{'Session-Id', [diameter:session_id(OH)]},
+                     {'Origin-Host',  [OH]},
+                     {'Origin-Realm', [OR]},
+                     {'Destination-Realm', [DR]}]);
 
 set(N, #diameter_packet{msg = Req}, Caps, Group)
   when N == {record, diameter_base_ASR};
@@ -1432,11 +1414,11 @@ set(N, #diameter_packet{msg = Req}, Caps, Group)
     #diameter_caps{origin_host  = {OH, DH},
                    origin_realm = {OR, DR}}
         = Caps,
-    set(Group, Req, [{'Session-Id', diameter:session_id(OH)},
-                     {'Origin-Host',  OH},
-                     {'Origin-Realm', OR},
-                     {'Destination-Host',  DH},
-                     {'Destination-Realm', DR},
+    set(Group, Req, [{'Session-Id', [diameter:session_id(OH)]},
+                     {'Origin-Host',  [OH]},
+                     {'Origin-Realm', [OR]},
+                     {'Destination-Host',  [DH]},
+                     {'Destination-Realm', [DR]},
                      {'Auth-Application-Id', ?APP_ID}]);
 
 set(N, #diameter_packet{msg = Req}, Caps, Group)
@@ -1447,10 +1429,10 @@ set(N, #diameter_packet{msg = Req}, Caps, Group)
     #diameter_caps{origin_host  = {OH, _},
                    origin_realm = {OR, DR}}
         = Caps,
-    set(Group, Req, [{'Session-Id', diameter:session_id(OH)},
-                     {'Origin-Host',  OH},
-                     {'Origin-Realm', OR},
-                     {'Destination-Realm', DR},
+    set(Group, Req, [{'Session-Id', [diameter:session_id(OH)]},
+                     {'Origin-Host',  [OH]},
+                     {'Origin-Realm', [OR]},
+                     {'Destination-Realm', [DR]},
                      {'Auth-Application-Id', ?APP_ID}]);
 
 set(N, #diameter_packet{msg = Req}, Caps, Group)
@@ -1461,11 +1443,11 @@ set(N, #diameter_packet{msg = Req}, Caps, Group)
     #diameter_caps{origin_host  = {OH, DH},
                    origin_realm = {OR, DR}}
         = Caps,
-    set(Group, Req, [{'Session-Id', diameter:session_id(OH)},
-                     {'Origin-Host',  OH},
-                     {'Origin-Realm', OR},
-                     {'Destination-Host',  DH},
-                     {'Destination-Realm', DR},
+    set(Group, Req, [{'Session-Id', [diameter:session_id(OH)]},
+                     {'Origin-Host',  [OH]},
+                     {'Origin-Realm', [OR]},
+                     {'Destination-Host',  [DH]},
+                     {'Destination-Realm', [DR]},
                      {'Auth-Application-Id', ?APP_ID}]).
 
 %% name/1
