@@ -691,3 +691,11 @@ bif erts_internal:maps_to_list/2
 #
 
 bif erlang:iolist_to_iovec/1
+
+#
+# New in 21.0
+#
+
+bif erlang:new_connection_id/1
+bif erlang:abort_connection_id/2
+

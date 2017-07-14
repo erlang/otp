@@ -117,7 +117,7 @@ typedef struct {
 #define ERTS_DIST_EXT_ATOM_TRANS_TAB ((Uint32) 0x2)
 #define ERTS_DIST_EXT_BTT_SAFE       ((Uint32) 0x4)
 
-#define ERTS_DIST_CON_ID_MASK    ((Uint32) 0x00ffffff)
+#define ERTS_DIST_CON_ID_MASK ((Uint32) 0x00ffffff) /* also in net_kernel.erl */
 
 typedef struct {
     DistEntry *dep;

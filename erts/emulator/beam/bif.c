@@ -227,17 +227,40 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 		goto res_no_proc;
 	    }
 
-	    code = erts_dsig_prepare(&dsd, dep, BIF_P, ERTS_DSP_RLOCK, 0);
+	    code = erts_dsig_prepare(&dsd, &dep, BIF_P,
+				     (ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK),
+				     ERTS_DSP_RLOCK, 0, 1);
 	    switch (code) {
 	    case ERTS_DSIG_PREP_NOT_ALIVE:
-		/* Let the dlink trap handle it */
-	    case ERTS_DSIG_PREP_NOT_CONNECTED:
-		erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
-		BIF_TRAP1(dlink_trap, BIF_P, BIF_ARG_1);
+	    case ERTS_DSIG_PREP_NOT_CONNECTED: {
+		ErtsProcLocks locks = ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK;
+		erts_aint32_t state;
+		erts_proc_lock(BIF_P, (ERTS_PROC_LOCKS_ALL & ~locks));
+		locks = ERTS_PROC_LOCKS_ALL;
+		erts_send_exit_signal(BIF_P, BIF_ARG_1, BIF_P, &locks,
+				      am_noconnection, NIL, NULL, 0);
+		erts_proc_unlock(BIF_P, locks & ERTS_PROC_LOCKS_ALL_MINOR);
 
+		/*
+		 * Copy-paste from old dist_exit_3, not sure if we really
+		 * need erts_handle_pending_exit when exit_2 does not.
+		 */
+		state = erts_atomic32_read_acqb(&BIF_P->state);
+		if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
+#ifdef ERTS_SMP
+		    if (state & ERTS_PSFLG_PENDING_EXIT)
+			erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
+#endif
+		    ERTS_BIF_EXITED(BIF_P);
+		}
+		BIF_RET(am_true);
+	    }
+            case ERTS_DSIG_PREP_PENDING:
 	    case ERTS_DSIG_PREP_CONNECTED:
-		/* We are connected. Setup link and send link signal */
-
+                /*
+                 * We have (pending) connection.
+                 * Setup link and enqueue link signal.
+                 */
 		erts_de_links_lock(dep);
 
 		erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, BIF_ARG_1);
@@ -256,8 +279,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 		    ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
 		BIF_RET(am_true);
 	    default:
-		ASSERT(! "Invalid dsig prepare result");
-		BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
+		ERTS_ASSERT(! "Invalid dsig prepare result");
 	    }
 	}
     }
@@ -292,7 +314,8 @@ remote_demonitor(Process *c_p, DistEntry *dep, Eterm ref, Eterm to)
     ERTS_LC_ASSERT((ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK)
 		       == erts_proc_lc_my_proc_locks(c_p));
 
-    code = erts_dsig_prepare(&dsd, dep, c_p, ERTS_DSP_RLOCK, 0);
+    code = erts_dsig_prepare(&dsd, &dep, c_p, ERTS_PROC_LOCK_MAIN,
+			     ERTS_DSP_RLOCK, 0, 0);
     switch (code) {
     case ERTS_DSIG_PREP_NOT_ALIVE:
     case ERTS_DSIG_PREP_NOT_CONNECTED:
@@ -313,6 +336,7 @@ remote_demonitor(Process *c_p, DistEntry *dep, Eterm ref, Eterm to)
         res = am_true;
 	break;
 
+    case ERTS_DSIG_PREP_PENDING:
     case ERTS_DSIG_PREP_CONNECTED:
 
 	erts_de_links_lock(dep);
@@ -347,8 +371,7 @@ remote_demonitor(Process *c_p, DistEntry *dep, Eterm ref, Eterm to)
 	}
 	break;
     default:
-	ASSERT(! "Invalid dsig prepare result");
-        return am_internal_error;
+	ERTS_ASSERT(! "Invalid dsig prepare result");
     }
 
 
@@ -768,10 +791,18 @@ remote_monitor(Process *p, Eterm bifarg1, Eterm bifarg2,
     int code;
 
     erts_proc_lock(p, ERTS_PROC_LOCK_LINK);
-    code = erts_dsig_prepare(&dsd, dep, p, ERTS_DSP_RLOCK, 0);
+    code = erts_dsig_prepare(&dsd, &dep,
+			     p, (ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK),
+			     ERTS_DSP_RLOCK, 0, 0);
     switch (code) {
+    case ERTS_DSIG_PREP_PENDING:
+	/*
+	 * Must wait for connection to know if node supports monitor.
+	 * Damn these synchronous errors.
+	 */
+	erts_smp_de_runlock(dep);
+	/* fall through */
     case ERTS_DSIG_PREP_NOT_ALIVE:
-	/* Let the dmonitor_p trap handle it */
     case ERTS_DSIG_PREP_NOT_CONNECTED:
 	erts_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 	ERTS_BIF_PREP_TRAP2(ret, dmonitor_p_trap, p, bifarg1, bifarg2);
@@ -818,9 +849,7 @@ remote_monitor(Process *p, Eterm bifarg1, Eterm bifarg2,
 	}
 	break;
     default:
-	ASSERT(! "Invalid dsig prepare result");
-	ERTS_BIF_PREP_ERROR(ret, p, EXC_INTERNAL_ERROR);
-	break;
+	ERTS_ASSERT(! "Invalid dsig prepare result");
     }
 
     BIF_RET(ret);
@@ -1158,7 +1187,8 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 	    BIF_RET(am_true);
 	}
 
-	code = erts_dsig_prepare(&dsd, dep, BIF_P, ERTS_DSP_NO_LOCK, 0);
+	code = erts_dsig_prepare(&dsd, &dep, BIF_P, ERTS_PROC_LOCK_MAIN,
+				 ERTS_DSP_NO_LOCK, 0, 0);
 	switch (code) {
 	case ERTS_DSIG_PREP_NOT_ALIVE:
 	case ERTS_DSIG_PREP_NOT_CONNECTED:
@@ -1173,6 +1203,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 	    BIF_TRAP1(dunlink_trap, BIF_P, BIF_ARG_1);
 #endif
 
+	case ERTS_DSIG_PREP_PENDING:
 	case ERTS_DSIG_PREP_CONNECTED:
 	    erts_remove_dist_link(&dld, BIF_P->common.id, BIF_ARG_1, dep);
 	    code = erts_dsig_send_unlink(&dsd, BIF_P->common.id, BIF_ARG_1);
@@ -1545,22 +1576,24 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
 	 DistEntry *dep;
 
 	 dep = external_pid_dist_entry(BIF_ARG_1);
+	 ERTS_ASSERT(dep);
 	 if(dep == erts_this_dist_entry)
 	     BIF_RET(am_true);
 
-	 code = erts_dsig_prepare(&dsd, dep, BIF_P, ERTS_DSP_NO_LOCK, 0);
+	 code = erts_dsig_prepare(&dsd, &dep, BIF_P, ERTS_PROC_LOCK_MAIN,
+				  ERTS_DSP_NO_LOCK, 0, 1);
 	 switch (code) {
 	 case ERTS_DSIG_PREP_NOT_ALIVE:
 	 case ERTS_DSIG_PREP_NOT_CONNECTED:
-	     BIF_TRAP2(dexit_trap, BIF_P, BIF_ARG_1, BIF_ARG_2);
+	     BIF_RET(am_true);
+	 case ERTS_DSIG_PREP_PENDING:
 	 case ERTS_DSIG_PREP_CONNECTED:
 	     code = erts_dsig_send_exit2(&dsd, BIF_P->common.id, BIF_ARG_1, BIF_ARG_2);
 	     if (code == ERTS_DSIG_SEND_YIELD)
 		 ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
 	     BIF_RET(am_true);
 	 default:
-	     ASSERT(! "Invalid dsig prepare result");
-	     BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
+	     ERTS_ASSERT(! "Invalid dsig prepare result");
 	 }
      }
      else if (is_not_internal_pid(BIF_ARG_1)) {
@@ -1964,7 +1997,7 @@ ebif_bang_2(BIF_ALIST_2)
  * Send a message to Process, Port or Registered Process.
  * Returns non-negative reduction bump or negative result code.
  */
-#define SEND_TRAP		(-1)
+#define SEND_NOCONNECT		(-1)
 #define SEND_YIELD		(-2)
 #define SEND_YIELD_RETURN	(-3)
 #define SEND_BADARG		(-4)
@@ -1980,20 +2013,22 @@ static Sint remote_send(Process *p, DistEntry *dep,
 {
     Sint res;
     int code;
-
     ASSERT(is_atom(to) || is_external_pid(to));
 
     ctx->dep = dep;
-    code = erts_dsig_prepare(&ctx->dsd, dep, p, ERTS_DSP_NO_LOCK, !ctx->suspend);
+    code = erts_dsig_prepare(&ctx->dsd, &dep, p, ERTS_PROC_LOCK_MAIN,
+			     ERTS_DSP_NO_LOCK,
+			     !ctx->suspend, ctx->connect);
     switch (code) {
     case ERTS_DSIG_PREP_NOT_ALIVE:
     case ERTS_DSIG_PREP_NOT_CONNECTED:
-	res = SEND_TRAP;
+	res = SEND_NOCONNECT;
 	break;
     case ERTS_DSIG_PREP_WOULD_SUSPEND:
 	ASSERT(!ctx->suspend);
 	res = SEND_YIELD;
 	break;
+    case ERTS_DSIG_PREP_PENDING:
     case ERTS_DSIG_PREP_CONNECTED: {
 
 	if (is_atom(to))
@@ -2205,12 +2240,14 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
 	    }
 	    return 0;
 	}
+	ctx->dsd.node = tp[2];
 
 	ret = remote_send(p, dep, tp[1], to, msg, ctx);
 	if (ret == SEND_YIELD_CONTINUE) {
-            if (dep)
+            if (dep) {
                 erts_ref_dist_entry(dep);
-	    ctx->dep_to_deref = dep;
+		ctx->deref_dep = 1;
+	    }
 	}
 	return ret;
     } else {
@@ -2251,7 +2288,6 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
     Eterm msg = BIF_ARG_2;
     Eterm opts = BIF_ARG_3;
 
-    int connect = !0;
     Eterm l = opts;
     Sint result;
 
@@ -2262,14 +2298,15 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
     UseTmpHeap(sizeof(ErtsSendContext)/sizeof(Eterm), BIF_P);
 
     ctx->suspend = !0;
-    ctx->dep_to_deref = NULL;
+    ctx->connect = !0;
+    ctx->deref_dep = 0;
     ctx->return_term = am_ok;
     ctx->dss.reds = (Sint) (ERTS_BIF_REDS_LEFT(p) * TERM_TO_BINARY_LOOP_FACTOR);
     ctx->dss.phase = ERTS_DSIG_SEND_PHASE_INIT;
 
     while (is_list(l)) {
 	if (CAR(list_val(l)) == am_noconnect) {
-	    connect = 0;
+	    ctx->connect = 0;
 	} else if (CAR(list_val(l)) == am_nosuspend) {
 	    ctx->suspend = 0;
 	} else {
@@ -2306,9 +2343,9 @@ BIF_RETTYPE send_3(BIF_ALIST_3)
 	    goto yield_return;
 	ERTS_BIF_PREP_RET(retval, am_ok);
 	break;
-    case SEND_TRAP:
-	if (connect) {
-	    ERTS_BIF_PREP_TRAP3(retval, dsend3_trap, p, to, msg, opts);
+    case SEND_NOCONNECT:
+	if (ctx->connect) {
+	    ERTS_BIF_PREP_RET(retval, am_ok);
 	} else {
 	    ERTS_BIF_PREP_RET(retval, am_noconnect);
 	}
@@ -2412,7 +2449,8 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
     ref = NIL;
 #endif
     ctx->suspend = !0;
-    ctx->dep_to_deref = NULL;
+    ctx->connect = !0;
+    ctx->deref_dep = 0;
     ctx->return_term = msg;
     ctx->dss.reds = (Sint) (ERTS_BIF_REDS_LEFT(p) * TERM_TO_BINARY_LOOP_FACTOR);
     ctx->dss.phase = ERTS_DSIG_SEND_PHASE_INIT;
@@ -2436,8 +2474,8 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg)
 	    goto yield_return;
 	ERTS_BIF_PREP_RET(retval, msg);
 	break;
-    case SEND_TRAP:
-	ERTS_BIF_PREP_TRAP2(retval, dsend2_trap, p, to, msg);
+    case SEND_NOCONNECT:
+	ERTS_BIF_PREP_RET(retval, msg);
 	break;
     case SEND_YIELD:
 	ERTS_BIF_PREP_YIELD2(retval, bif_export[BIF_send_2], p, to, msg);
@@ -4387,20 +4425,21 @@ BIF_RETTYPE group_leader_2(BIF_ALIST_2)
 	if(dep == erts_this_dist_entry)
 	    BIF_ERROR(BIF_P, BADARG);
 
-	code = erts_dsig_prepare(&dsd, dep, BIF_P, ERTS_DSP_NO_LOCK, 0);
+	code = erts_dsig_prepare(&dsd, &dep, BIF_P, ERTS_PROC_LOCK_MAIN,
+				 ERTS_DSP_NO_LOCK, 0, 0);
 	switch (code) {
 	case ERTS_DSIG_PREP_NOT_ALIVE:
 	    BIF_RET(am_true);
 	case ERTS_DSIG_PREP_NOT_CONNECTED:
 	    BIF_TRAP2(dgroup_leader_trap, BIF_P, BIF_ARG_1, BIF_ARG_2);
+	case ERTS_DSIG_PREP_PENDING:
 	case ERTS_DSIG_PREP_CONNECTED:
 	    code = erts_dsig_send_group_leader(&dsd, BIF_ARG_1, BIF_ARG_2);
 	    if (code == ERTS_DSIG_SEND_YIELD)
 		ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
 	    BIF_RET(am_true);
 	default:
-	    ASSERT(! "Invalid dsig prepare result");
-	    BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
+	    ERTS_ASSERT(! "Invalid dsig prepare result");
 	}
     }
     else if (is_internal_pid(BIF_ARG_2)) {

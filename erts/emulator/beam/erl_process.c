@@ -12659,9 +12659,11 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		erts_de_links_unlock(dep);
 		if (rmon) {
 		    ErtsDSigData dsd;
-		    int code = erts_dsig_prepare(&dsd, dep, NULL,
-						 ERTS_DSP_NO_LOCK, 0);
-		    if (code == ERTS_DSIG_PREP_CONNECTED) {
+		    int code = erts_dsig_prepare(&dsd, &dep, NULL, 0,
+						 ERTS_DSP_NO_LOCK, 0, 0);
+		    if (code == ERTS_DSIG_PREP_CONNECTED ||
+                        code == ERTS_DSIG_PREP_PENDING) {
+
 			code = erts_dsig_send_demonitor(&dsd,
 							rmon->u.pid,
 							mon->name,
@@ -12705,9 +12707,11 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		    erts_de_links_unlock(dep);
 		    if (rmon) {
 			ErtsDSigData dsd;
-			int code = erts_dsig_prepare(&dsd, dep, NULL,
-						     ERTS_DSP_NO_LOCK, 0);
-			if (code == ERTS_DSIG_PREP_CONNECTED) {
+			int code = erts_dsig_prepare(&dsd, &dep, NULL, 0,
+						     ERTS_DSP_NO_LOCK, 0, 0);
+			if (code == ERTS_DSIG_PREP_CONNECTED ||
+                            code == ERTS_DSIG_PREP_PENDING) {
+
 			    code = erts_dsig_send_demonitor(&dsd,
 							    rmon->u.pid,
 							    mon->u.pid,
@@ -12764,8 +12768,8 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		erts_de_links_unlock(dep);
 		if (rmon) {
 		    ErtsDSigData dsd;
-		    int code = erts_dsig_prepare(&dsd, dep, NULL,
-						 ERTS_DSP_NO_LOCK, 0);
+		    int code = erts_dsig_prepare(&dsd, &dep, NULL, 0,
+						 ERTS_DSP_NO_LOCK, 0, 0);
 		    if (code == ERTS_DSIG_PREP_CONNECTED) {
 			code = erts_dsig_send_m_exit(&dsd,
 						     mon->u.pid,
@@ -12887,14 +12891,18 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
 		int code;
 		ErtsDistLinkData dld;
 		erts_remove_dist_link(&dld, p->common.id, item, dep);
-		erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-		code = erts_dsig_prepare(&dsd, dep, p, ERTS_DSP_NO_LOCK, 0);
-		if (code == ERTS_DSIG_PREP_CONNECTED) {
-		    code = erts_dsig_send_exit_tt(&dsd, p->common.id, item,
-						  reason, SEQ_TRACE_TOKEN(p));
-		    ASSERT(code == ERTS_DSIG_SEND_OK);
-		}
-		erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
+                if (dld.d_lnk) {
+                    erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+                    code = erts_dsig_prepare(&dsd, &dep, p, 0, ERTS_DSP_NO_LOCK, 0, 0);
+                    if (code == ERTS_DSIG_PREP_CONNECTED ||
+                        code == ERTS_DSIG_PREP_PENDING) {
+
+                        code = erts_dsig_send_exit_tt(&dsd, p->common.id, item,
+                                                      reason, SEQ_TRACE_TOKEN(p));
+                        ASSERT(code == ERTS_DSIG_SEND_OK);
+                    }
+                    erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
+                }
 		erts_destroy_dist_link(&dld);
 	    }
 	}

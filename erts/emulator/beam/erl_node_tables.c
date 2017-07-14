@@ -597,6 +597,8 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
 void
 erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
 {
+    erts_aint32_t set_qflgs;
+
     ERTS_LC_ASSERT(erts_lc_is_de_rwlocked(dep));
     erts_rwmtx_rwlock(&erts_dist_table_rwmtx);
 
@@ -619,22 +621,26 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
     ASSERT(erts_no_of_not_connected_dist_entries > 0);
     erts_no_of_not_connected_dist_entries--;
 
+    if (dep->status & ERTS_DE_SFLG_PENDING) {
+	dep->status &= ~ERTS_DE_SFLG_PENDING;
+    } else {
+	dep->connection_id++;
+	dep->connection_id &= ERTS_DIST_CON_ID_MASK;
+    }
     dep->status |= ERTS_DE_SFLG_CONNECTED;
-    dep->flags = flags;
+    dep->flags = flags & ~DFLAG_PENDING_CONNECTION;
     dep->cid = cid;
     erts_atomic_set_nob(&dep->input_handler,
                             (erts_aint_t) cid);
 
-    dep->connection_id++;
-    dep->connection_id &= ERTS_DIST_EXT_CON_ID_MASK;
     dep->prev = NULL;
 
     erts_atomic64_set_nob(&dep->in, 0);
     erts_atomic64_set_nob(&dep->out, 0);
-    erts_atomic32_set_nob(&dep->qflgs,
-                          (is_internal_port(cid)
-                           ? ERTS_DE_QFLG_PORT_CTRL
-                           : ERTS_DE_QFLG_PROC_CTRL));
+    set_qflgs = (is_internal_port(cid) ?
+                 ERTS_DE_QFLG_PORT_CTRL : ERTS_DE_QFLG_PROC_CTRL);
+    erts_atomic32_read_bor_nob(&dep->qflgs, set_qflgs);
+
     if(flags & DFLAG_PUBLISHED) {
 	dep->next = erts_visible_dist_entries;
 	if(erts_visible_dist_entries) {

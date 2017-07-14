@@ -45,6 +45,13 @@
 #define DFLAG_MAP_TAG             0x20000
 #define DFLAG_BIG_CREATION        0x40000
 #define DFLAG_SEND_SENDER         0x80000
+#define DFLAG_PENDING_CONNECTION  0x100000
+
+/* Mandatory flags for distribution (sync with dist_util.erl) */
+#define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
+                              | DFLAG_EXTENDED_PIDS_PORTS       \
+			      | DFLAG_UTF8_ATOMS                \
+			      | DFLAG_NEW_FUN_TAGS)
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
 #define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\
@@ -98,6 +105,7 @@ typedef enum {
 typedef struct {
     Process *proc;
     DistEntry *dep;
+    Eterm node;   /* used if dep == NULL */
     Eterm cid;
     Eterm connection_id;
     int no_suspend;
@@ -117,14 +125,10 @@ extern int erts_is_alive;
 
 /*
  * erts_dsig_prepare() prepares a send of a distributed signal.
- * One of the values defined below are returned. If the returned
- * value is another than ERTS_DSIG_PREP_CONNECTED, the
- * distributed signal cannot be sent before appropriate actions
- * have been taken. Appropriate actions would typically be setting
- * up the connection.
+ * One of the values defined below are returned.
  */
 
-/* Connected; signal can be sent. */
+/* Connected; signals can be enqueued and sent. */
 #define ERTS_DSIG_PREP_CONNECTED	0
 /* Not connected; connection needs to be set up. */
 #define ERTS_DSIG_PREP_NOT_CONNECTED	1
@@ -132,11 +136,15 @@ extern int erts_is_alive;
 #define ERTS_DSIG_PREP_WOULD_SUSPEND	2
 /* System not alive (distributed) */
 #define ERTS_DSIG_PREP_NOT_ALIVE	3
+/* Pending connection; signals can be enqueued */
+#define ERTS_DSIG_PREP_PENDING	        4
 
 ERTS_GLB_INLINE int erts_dsig_prepare(ErtsDSigData *,
-				      DistEntry *,
+				      DistEntry **,
 				      Process *,
+                                      ErtsProcLocks,
 				      ErtsDSigPrepLock,
+				      int,
 				      int);
 
 ERTS_GLB_INLINE
@@ -146,29 +154,100 @@ void erts_schedule_dist_command(Port *, DistEntry *);
 
 ERTS_GLB_INLINE int 
 erts_dsig_prepare(ErtsDSigData *dsdp,
-		  DistEntry *dep,
+		  DistEntry **depp,
 		  Process *proc,
+                  ErtsProcLocks proc_locks,
 		  ErtsDSigPrepLock dspl,
-		  int no_suspend)
+		  int no_suspend,
+		  int connect)
 {
-    int failure;
+    DistEntry* dep = *depp;
+    int res;
+
     if (!erts_is_alive)
 	return ERTS_DSIG_PREP_NOT_ALIVE;
-    if (!dep)
-	return ERTS_DSIG_PREP_NOT_CONNECTED;
+    if (!dep) {
+	if (!connect)
+	    return ERTS_DSIG_PREP_NOT_CONNECTED;
+
+	dep = erts_find_or_insert_dist_entry(dsdp->node);
+	ASSERT(dep != erts_this_dist_entry);  /* SVERK: What to do? */
+    }
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    if (connect) {
+        erts_proc_lc_might_unlock(proc, proc_locks);
+    }
+#endif
+
+retry:
     if (dspl == ERTS_DSP_RWLOCK)
 	erts_de_rwlock(dep);
     else
 	erts_de_rlock(dep);
-    if (ERTS_DE_IS_NOT_CONNECTED(dep)) {
-	failure = ERTS_DSIG_PREP_NOT_CONNECTED;
+
+    if (ERTS_DE_IS_CONNECTED(dep)) {
+	res = ERTS_DSIG_PREP_CONNECTED;
+    }
+    else if (dep->status & ERTS_DE_SFLG_PENDING) {
+	res = ERTS_DSIG_PREP_PENDING;
+    }
+    else if (dep->status & ERTS_DE_SFLG_EXITING) {
+	/* SVERK is this ok, or should we trigger another connection setup */
+	res = ERTS_DSIG_PREP_NOT_CONNECTED;
 	goto fail;
     }
+    else if (connect) {
+        ASSERT(dep->status == 0);
+	if (dspl != ERTS_DSP_RWLOCK) {
+	    erts_de_runlock(dep);
+	    erts_de_rwlock(dep);
+	}
+	if (dep->status == 0) {
+	    Process* net_kernel;
+	    ErtsProcLocks nk_locks = ERTS_PROC_LOCK_MSGQ;
+	    Eterm *hp;
+	    ErlOffHeap *ohp;
+	    ErtsMessage *mp;
+	    Eterm msg, conn_id;
+
+	    dep->status = ERTS_DE_SFLG_PENDING;
+	    dep->flags = DFLAG_DIST_MANDATORY | DFLAG_PENDING_CONNECTION;
+	    dep->connection_id++;
+	    dep->connection_id &= ERTS_DIST_CON_ID_MASK;
+            conn_id = make_small(dep->connection_id);
+	    erts_de_rwunlock(dep);
+
+	    net_kernel = erts_whereis_process(proc, proc_locks,
+					      am_net_kernel, nk_locks, 0);
+	    if (!net_kernel) {
+		if (!*depp) {
+		    erts_deref_dist_entry(dep);
+		}
+		return ERTS_DSIG_PREP_NOT_ALIVE;
+	    }
+
+	    /* Send {auto_connect, Node, ConnId} to net_kernel */
+	    mp = erts_alloc_message_heap(net_kernel, &nk_locks, 4, &hp, &ohp);
+	    msg = TUPLE3(hp, am_auto_connect, dep->sysname, conn_id);
+	    erts_queue_message(net_kernel, nk_locks, mp, msg, proc->common.id);
+	    erts_proc_unlock(net_kernel, nk_locks);
+	}
+	else
+	    erts_de_rwunlock(dep);
+	goto retry;
+    }
+    else {
+        ASSERT(dep->status == 0);
+	res = ERTS_DSIG_PREP_NOT_CONNECTED;
+	goto fail;
+    }
+
     if (no_suspend) {
-        if (erts_atomic32_read_acqb(&dep->qflgs) & ERTS_DE_QFLG_BUSY) {
-	    failure = ERTS_DSIG_PREP_WOULD_SUSPEND;
+	if (erts_atomic32_read_acqb(&dep->qflgs) & ERTS_DE_QFLG_BUSY) {
+	    res = ERTS_DSIG_PREP_WOULD_SUSPEND;
 	    goto fail;
-        }
+	}
     }
     dsdp->proc = proc;
     dsdp->dep = dep;
@@ -177,15 +256,15 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
     dsdp->no_suspend = no_suspend;
     if (dspl == ERTS_DSP_NO_LOCK)
 	erts_de_runlock(dep);
-    return ERTS_DSIG_PREP_CONNECTED;
+    *depp = dep;
+    return res;
 
  fail:
     if (dspl == ERTS_DSP_RWLOCK)
 	erts_de_rwunlock(dep);
     else
 	erts_de_runlock(dep);
-    return failure;
-
+    return res;
 }
 
 ERTS_GLB_INLINE
@@ -346,11 +425,12 @@ struct erts_dsig_send_context {
 
 typedef struct {
     int suspend;
+    int connect;
 
     Eterm ctl_heap[6];
     ErtsDSigData dsd;
-    DistEntry* dep_to_deref;
     DistEntry *dep;
+    int deref_dep;
     struct erts_dsig_send_context dss;
 
     Eterm return_term;

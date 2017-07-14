@@ -57,8 +57,9 @@
  
 #define ERST_INTERNAL_CHANNEL_NO 0
 
-#define ERTS_DE_SFLG_CONNECTED			(((Uint32) 1) <<  0)
-#define ERTS_DE_SFLG_EXITING			(((Uint32) 1) <<  1)
+#define ERTS_DE_SFLG_PENDING			(((Uint32) 1) <<  0)
+#define ERTS_DE_SFLG_CONNECTED			(((Uint32) 1) <<  1)
+#define ERTS_DE_SFLG_EXITING			(((Uint32) 1) <<  2)
 
 #define ERTS_DE_QFLG_BUSY			(((erts_aint32_t) 1) <<  0)
 #define ERTS_DE_QFLG_EXIT			(((erts_aint32_t) 1) <<  1)
@@ -105,8 +106,6 @@ struct ErtsProcList_;
  *   Lock mutexes with lower numbers before mutexes with higher numbers and
  *   unlock mutexes with higher numbers before mutexes with higher numbers.
  */
-
-struct erl_link;
 
 typedef struct dist_entry_ {
     HashBucket hash_bucket;     /* Hash bucket */

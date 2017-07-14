@@ -349,6 +349,8 @@ byte *erts_encode_ext_dist_header_setup(byte *ctl_ext, ErtsAtomCacheMap *acmp)
     }
 }
 
+#define PASS_THROUGH 'p'        /* This code should go */
+
 byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint32 dflags)
 {
     byte *ip;
@@ -358,9 +360,33 @@ byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint
     int long_atoms;
     register byte *ep = ext;
     ASSERT(dflags & DFLAG_UTF8_ATOMS);
-    ASSERT(ep[0] == VERSION_MAGIC);
-    if (ep[1] != DIST_HEADER)
-	return ext;
+
+    if (ep[0] != VERSION_MAGIC) {
+        ASSERT(ep[0] == SMALL_TUPLE_EXT || ep[0] == LARGE_TUPLE_EXT);
+        if (dflags & DFLAG_DIST_HDR_ATOM_CACHE) {
+            /*
+             * Encoded without atom cache (toward pending connection)
+             * but receiver wants dist header. Let's prepend an empty one.
+             */
+            *--ep = 0; /* NumberOfAtomCacheRefs */
+            *--ep = DIST_HEADER;
+            *--ep = VERSION_MAGIC;
+        }
+        else {
+            /* Node without atom cache, 'pass through' needed */
+
+            ASSERT(!"SVERK: Must insert VERSION_MAGIC's");
+            *--ep = PASS_THROUGH;
+        }
+        return ep;
+    }
+    else if (ep[1] != DIST_HEADER) {
+        ASSERT(ep[1] == SMALL_TUPLE_EXT || ep[1] == LARGE_TUPLE_EXT);
+        ASSERT(!(dflags & DFLAG_DIST_HDR_ATOM_CACHE));
+        /* Node without atom cache, 'pass through' needed */
+        *--ep = PASS_THROUGH;
+        return ep;
+    }
 
     dist_hdr_flags = ep[2];
     long_atoms = ERTS_DIST_HDR_LONG_ATOMS_FLG & ((int) dist_hdr_flags);
@@ -511,7 +537,7 @@ int erts_encode_dist_ext_size_int(Eterm term, struct erts_dsig_send_context* ctx
 	return -1;
     } else {
 #ifndef ERTS_DEBUG_USE_DIST_SEP
-	if (!(ctx->flags & DFLAG_DIST_HDR_ATOM_CACHE))
+	if (!(ctx->flags & (DFLAG_DIST_HDR_ATOM_CACHE | DFLAG_PENDING_CONNECTION)))
 #endif
 	    sz++ /* VERSION_MAGIC */;
 
@@ -543,7 +569,7 @@ int erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap 
 {
     if (!ctx || !ctx->wstack.wstart) {
     #ifndef ERTS_DEBUG_USE_DIST_SEP
-	if (!(flags & DFLAG_DIST_HDR_ATOM_CACHE))
+	if (!(flags & (DFLAG_DIST_HDR_ATOM_CACHE | DFLAG_PENDING_CONNECTION)))
     #endif
 	    *(*ext)++ = VERSION_MAGIC;
     }
@@ -644,12 +670,11 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 
     erts_de_rlock(dep);
 
-    if ((dep->status & (ERTS_DE_SFLG_EXITING|ERTS_DE_SFLG_CONNECTED))
-        != ERTS_DE_SFLG_CONNECTED) {
+    if (dep->status != ERTS_DE_SFLG_CONNECTED &&
+	dep->status != ERTS_DE_SFLG_PENDING) {
         erts_de_runlock(dep);
         return ERTS_PREP_DIST_EXT_CLOSED;
     }
-
     if (dep->flags & DFLAG_DIST_HDR_ATOM_CACHE)
         edep->flags |= ERTS_DIST_EXT_DFLAG_HDR;
 

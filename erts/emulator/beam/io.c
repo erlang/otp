@@ -3829,11 +3829,12 @@ static void sweep_one_link(ErtsLink *lnk, void *vpsc)
 	    ErtsDistLinkData dld;
 	    ErtsDSigData dsd;
 	    int code;
-	    code = erts_dsig_prepare(&dsd, dep, NULL, ERTS_DSP_NO_LOCK, 0);
+	    code = erts_dsig_prepare(&dsd, &dep, NULL, 0, ERTS_DSP_NO_LOCK, 0, 0);
 	    switch (code) {
 	    case ERTS_DSIG_PREP_NOT_ALIVE:
 	    case ERTS_DSIG_PREP_NOT_CONNECTED:
 		break;
+	    case ERTS_DSIG_PREP_PENDING:
 	    case ERTS_DSIG_PREP_CONNECTED:
 		erts_remove_dist_link(&dld, port_id, lnk->pid, dep);
 		erts_destroy_dist_link(&dld);

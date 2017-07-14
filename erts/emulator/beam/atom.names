@@ -108,6 +108,7 @@ atom asynchronous
 atom atom
 atom atom_used
 atom attributes
+atom auto_connect
 atom await_microstate_accounting_modifications
 atom await_port_send_result
 atom await_proc_exit
