@@ -220,23 +220,10 @@ erts_destroy_atom_cache_map(ErtsAtomCacheMap *acmp)
 static ERTS_INLINE void
 insert_acache_map(ErtsAtomCacheMap *acmp, Eterm atom, Uint32 dflags)
 {
-    /*
-     * If the receiver do not understand utf8 atoms
-     * and this atom cannot be represented in latin1,
-     * we are not allowed to cache it.
-     *
-     * In this case all atoms are assumed to have
-     * latin1 encoding in the cache. By refusing it
-     * in the cache we will instead encode it using
-     * ATOM_UTF8_EXT/SMALL_ATOM_UTF8_EXT which the
-     * receiver do not recognize and tear down the
-     * connection.
-     */
-    if (acmp && acmp->sz < ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES
-	&& ((dflags & DFLAG_UTF8_ATOMS)
-	    || atom_tab(atom_val(atom))->latin1_chars >= 0)) {
+    if (acmp && acmp->sz < ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES) {
 	int ix;
 	ASSERT(acmp->hdr_sz < 0);
+        ASSERT(dflags & DFLAG_UTF8_ATOMS);
 	ix = atom2cix(atom);
 	if (acmp->cache[ix].iix < 0) {
 	    acmp->cache[ix].iix = acmp->sz;
@@ -256,9 +243,7 @@ get_iix_acache_map(ErtsAtomCacheMap *acmp, Eterm atom, Uint32 dflags)
 	ASSERT(is_atom(atom));
 	ix = atom2cix(atom);
 	if (acmp->cache[ix].iix < 0) {
-	    ASSERT(acmp->sz == ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES
-		   || (!(dflags & DFLAG_UTF8_ATOMS)
-		       && atom_tab(atom_val(atom))->latin1_chars < 0));
+	    ASSERT(acmp->sz == ERTS_MAX_INTERNAL_ATOM_CACHE_ENTRIES);
 	    return -1;
 	}
 	else {
@@ -272,7 +257,6 @@ void
 erts_finalize_atom_cache_map(ErtsAtomCacheMap *acmp, Uint32 dflags)
 {
     if (acmp) {
-	int utf8_atoms = (int) (dflags & DFLAG_UTF8_ATOMS);
 	int long_atoms = 0; /* !0 if one or more atoms are longer than 255. */
 	int i;
 	int sz;
@@ -283,6 +267,7 @@ erts_finalize_atom_cache_map(ErtsAtomCacheMap *acmp, Uint32 dflags)
 	    + 1 /* number of internal cache entries */
 	    ;
 	int min_sz;
+        ASSERT(dflags & DFLAG_UTF8_ATOMS);
 	ASSERT(acmp->hdr_sz < 0);
 	/* Make sure cache update instructions fit */
 	min_sz = fix_sz+(2+4)*acmp->sz;
@@ -294,7 +279,7 @@ erts_finalize_atom_cache_map(ErtsAtomCacheMap *acmp, Uint32 dflags)
 	    atom = acmp->cache[acmp->cix[i]].atom;
 	    ASSERT(is_atom(atom));
 	    a = atom_tab(atom_val(atom));
-	    len = (int) (utf8_atoms ? a->len : a->latin1_chars);
+	    len = (int) a->len;
 	    ASSERT(len >= 0);
 	    if (!long_atoms && len > 255)
 		long_atoms = 1;
@@ -371,8 +356,8 @@ byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint
     int ci, sz;
     byte dist_hdr_flags;
     int long_atoms;
-    int utf8_atoms = (int) (dflags & DFLAG_UTF8_ATOMS);
     register byte *ep = ext;
+    ASSERT(dflags & DFLAG_UTF8_ATOMS);
     ASSERT(ep[0] == VERSION_MAGIC);
     if (ep[1] != DIST_HEADER)
 	return ext;
@@ -445,17 +430,9 @@ byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint
 		Atom *a;
 		cache->out_arr[cix] = atom;
 		a = atom_tab(atom_val(atom));
-		if (utf8_atoms) {
-		    sz = a->len;
-		    ep -= sz;
-		    sys_memcpy((void *) ep, (void *) a->name, sz);
-		}
-		else {
-		    ASSERT(0 <= a->latin1_chars && a->latin1_chars <= MAX_ATOM_CHARACTERS);
-		    ep -= a->latin1_chars;
-		    sz = erts_utf8_to_latin1(ep, a->name, a->len);
-		    ASSERT(a->latin1_chars == sz);
-		}
+                sz = a->len;
+                ep -= sz;
+                sys_memcpy((void *) ep, (void *) a->name, sz);
 		if (long_atoms) {
 		    ep -= 2;
 		    put_int16(sz, ep);
@@ -641,7 +618,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 #endif
 
     register byte *ep = ext;
-    int utf8_atoms = (int) (dep->flags & DFLAG_UTF8_ATOMS);
+    ASSERT(dep->flags & DFLAG_UTF8_ATOMS);
 
     edep->heap_size = -1;
     edep->ext_endp = ext+size;
@@ -804,9 +781,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 		    CHKSIZE(len);
 		    atom = erts_atom_put((byte *) ep,
 					 len,
-					 (utf8_atoms
-					  ? ERTS_ATOM_ENC_UTF8
-					  : ERTS_ATOM_ENC_LATIN1),
+                                         ERTS_ATOM_ENC_UTF8,
 					 0);
 		    if (is_non_value(atom))
 			ERTS_EXT_HDR_FAIL;
@@ -2135,7 +2110,7 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint32 dflags)
 {
     int iix;
     int len;
-    int utf8_atoms = (int) (dflags & DFLAG_UTF8_ATOMS);
+    const int utf8_atoms = (int) (dflags & DFLAG_UTF8_ATOMS);
 
     ASSERT(is_atom(atom));
 
