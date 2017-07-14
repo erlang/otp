@@ -133,11 +133,6 @@ typedef struct {
     ErtsAtomTranslationTable attab;
 } ErtsDistExternal;
 
-typedef struct {
-    int have_header;
-    int cache_entries;
-} ErtsDistHeaderPeek;
-
 #define ERTS_DIST_EXT_SIZE(EDEP) \
   (sizeof(ErtsDistExternal) \
    - (((EDEP)->flags & ERTS_DIST_EXT_ATOM_TRANS_TAB) \
@@ -177,9 +172,6 @@ Uint erts_encode_ext_size_ets(Eterm);
 void erts_encode_ext(Eterm, byte **);
 byte* erts_encode_ext_ets(Eterm, byte *, struct erl_off_heap_header** ext_off_heap);
 
-#ifdef ERTS_WANT_EXTERNAL_TAGS
-ERTS_GLB_INLINE void erts_peek_dist_header(ErtsDistHeaderPeek *, byte *, Uint);
-#endif
 ERTS_GLB_INLINE void erts_free_dist_ext_copy(ErtsDistExternal *);
 ERTS_GLB_INLINE void *erts_dist_ext_trailer(ErtsDistExternal *);
 ErtsDistExternal *erts_make_dist_ext_copy(ErtsDistExternal *, Uint);
@@ -210,20 +202,6 @@ int erts_debug_atom_to_out_cache_index(Eterm);
 
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
-#ifdef ERTS_WANT_EXTERNAL_TAGS
-ERTS_GLB_INLINE void
-erts_peek_dist_header(ErtsDistHeaderPeek *dhpp, byte *ext, Uint sz)
-{
-    if (ext[0] == VERSION_MAGIC
-	|| ext[1] != DIST_HEADER
-	|| sz < (1+1+1))
-	dhpp->have_header = 0;
-    else {
-	dhpp->have_header = 1;
-	dhpp->cache_entries = (int) get_int8(&ext[2]);
-    }
-}
-#endif
 
 ERTS_GLB_INLINE void
 erts_free_dist_ext_copy(ErtsDistExternal *edep)
