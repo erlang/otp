@@ -408,7 +408,7 @@
 	    <c>{self, once}</c>, the first message has an extra
 	    element, that is, <c>{http, {RequestId, stream_start, Headers, Pid}}</c>.
 	    This is the process id to be used as an argument to
-	    <c>http:stream_next/1</c> to trigger the next message to be sent to
+	    <c>httpc:stream_next/1</c> to trigger the next message to be sent to
 	    the calling process.</p>
 	    <p>Notice that chunked encoding can add
 	    headers so that there are more headers in the <c>stream_end</c>
