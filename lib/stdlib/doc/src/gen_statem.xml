@@ -1851,7 +1851,7 @@ handle_event(_, _, State, Data) ->
 	</p>
         <note>
 	  <p>
-	    Note that if the <c>gen_statem</c> is started trough
+	    Note that if the <c>gen_statem</c> is started through
 	    <seealso marker="proc_lib"><c>proc_lib</c></seealso>
 	    and
 	    <seealso marker="#enter_loop/4"><c>enter_loop/4-6</c></seealso>,
