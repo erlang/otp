@@ -1371,7 +1371,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
     start_time = 0;
 #ifdef DEBUG
-    pid = c_p->common.id; /* Save for debugging purpouses */
+    pid = c_p->common.id; /* Save for debugging purposes */
 #endif
     ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
     PROCESS_MAIN_CHK_LOCKS(c_p);
