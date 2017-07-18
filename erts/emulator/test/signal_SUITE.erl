@@ -139,71 +139,66 @@ pending_exit_gc(Config) when is_list(Config) ->
     pending_exit_test(self(), gc).
 
 pending_exit_test(From, Type) ->
-    case catch erlang:system_info(smp_support) of
-        true ->
-            OTE = process_flag(trap_exit, true),
-            Ref = make_ref(),
-            Master = self(),
-            ExitBySignal = case Type of
-                               gc ->
-                                   lists:duplicate(10000,
-                                                   exit_by_signal);
-                               _ ->
-                                   exit_by_signal
-                           end,
-            Pid = spawn_link(
-                    fun () ->
-                            receive go -> ok end,
-                            false = have_pending_exit(),
-                            exit = fake_exit(From,
-                                             self(),
-                                             ExitBySignal),
-                            true = have_pending_exit(),
-                            Master ! {self(), Ref, Type},
-                            case Type of
-                                gc ->
-                                    force_gc(),
-                                    erlang:yield();
-                                unlink ->
-                                    unlink(From);
-                                trap_exit ->
-                                    process_flag(trap_exit, true);
-                                'receive' ->
-                                    receive _ -> ok
-                                    after 0 -> ok
-                                    end;
-                                exit ->
-                                    ok
-                            end,
-                            exit(exit_by_myself)
-                    end),
-            Mon = erlang:monitor(process, Pid),
-            Pid ! go,
-            Reason = receive
-                         {'DOWN', Mon, process, Pid, R} ->
-                             receive
-                                 {Pid, Ref, Type} ->
-                                     ok
-                             after 0 ->
-                                       ct:fail(premature_exit)
-                             end,
-                             case Type of
-                                 exit ->
-                                     exit_by_myself = R;
-                                 _ ->
-                                     ExitBySignal = R
-                             end
+    OTE = process_flag(trap_exit, true),
+    Ref = make_ref(),
+    Master = self(),
+    ExitBySignal = case Type of
+                       gc ->
+                           lists:duplicate(10000,
+                                           exit_by_signal);
+                       _ ->
+                           exit_by_signal
+                   end,
+    Pid = spawn_link(
+            fun () ->
+                    receive go -> ok end,
+                    false = have_pending_exit(),
+                    exit = fake_exit(From,
+                                     self(),
+                                     ExitBySignal),
+                    true = have_pending_exit(),
+                    Master ! {self(), Ref, Type},
+                    case Type of
+                        gc ->
+                            force_gc(),
+                            erlang:yield();
+                        unlink ->
+                            unlink(From);
+                        trap_exit ->
+                            process_flag(trap_exit, true);
+                        'receive' ->
+                            receive _ -> ok
+                            after 0 -> ok
+                            end;
+                        exit ->
+                            ok
+                    end,
+                    exit(exit_by_myself)
+            end),
+    Mon = erlang:monitor(process, Pid),
+    Pid ! go,
+    Reason = receive
+                 {'DOWN', Mon, process, Pid, R} ->
+                     receive
+                         {Pid, Ref, Type} ->
+                             ok
+                     after 0 ->
+                             ct:fail(premature_exit)
                      end,
-            receive
-                {'EXIT', Pid, R2} ->
-                    Reason = R2
-            end,
-            process_flag(trap_exit, OTE),
-            ok,
-            {comment, "Test only valid with current SMP emulator."};
-        _ ->
-            {skipped, "SMP support not enabled. Test only valid with current SMP emulator."}
-    end.
+                     case Type of
+                         exit ->
+                             exit_by_myself = R;
+                         _ ->
+                             ExitBySignal = R
+                     end
+             end,
+    receive
+        {'EXIT', Pid, R2} ->
+            Reason = R2
+    end,
+    process_flag(trap_exit, OTE),
+    ok,
+    {comment, "Test only valid with current SMP emulator."}.
 
 
 

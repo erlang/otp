@@ -41,7 +41,7 @@ typedef struct {
 typedef struct bp_data_time {     /* Call time */
     Uint n;
     bp_time_hash_t *hash;
-    erts_smp_refc_t refc;
+    erts_refc_t refc;
 } BpDataTime;
 
 typedef struct {
@@ -50,13 +50,13 @@ typedef struct {
 } process_breakpoint_time_t; /* used within psd */
 
 typedef struct {
-    erts_smp_atomic_t acount;
-    erts_smp_refc_t refc;
+    erts_atomic_t acount;
+    erts_refc_t refc;
 } BpCount;
 
 typedef struct {
-    erts_smp_atomic_t tracer;
-    erts_smp_refc_t refc;
+    erts_atomic_t tracer;
+    erts_refc_t refc;
 } BpMetaTracer;
 
 typedef struct generic_bp_data {
@@ -80,7 +80,7 @@ typedef struct generic_bp {
 #define ERTS_BP_CALL_TIME_SCHEDULE_EXITING (2)
 
 #ifdef ERTS_DIRTY_SCHEDULERS
-extern erts_smp_mtx_t erts_dirty_bp_ix_mtx;
+extern erts_mtx_t erts_dirty_bp_ix_mtx;
 #endif
 
 enum erts_break_op{
@@ -173,17 +173,17 @@ ErtsCodeInfo *erts_find_local_func(ErtsCodeMFA *mfa);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-extern erts_smp_atomic32_t erts_active_bp_index;
-extern erts_smp_atomic32_t erts_staging_bp_index;
+extern erts_atomic32_t erts_active_bp_index;
+extern erts_atomic32_t erts_staging_bp_index;
 
 ERTS_GLB_INLINE ErtsBpIndex erts_active_bp_ix(void)
 {
-    return erts_smp_atomic32_read_nob(&erts_active_bp_index);
+    return erts_atomic32_read_nob(&erts_active_bp_index);
 }
 
 ERTS_GLB_INLINE ErtsBpIndex erts_staging_bp_ix(void)
 {
-    return erts_smp_atomic32_read_nob(&erts_staging_bp_index);
+    return erts_atomic32_read_nob(&erts_staging_bp_index);
 }
 #endif
 

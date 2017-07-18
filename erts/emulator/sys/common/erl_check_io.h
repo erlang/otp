@@ -44,10 +44,6 @@ Eterm erts_check_io_info_kp(void *);
 Eterm erts_check_io_info_nkp(void *);
 int erts_check_io_max_files_kp(void);
 int erts_check_io_max_files_nkp(void);
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-void erts_check_io_async_sig_interrupt_kp(void);
-void erts_check_io_async_sig_interrupt_nkp(void);
-#endif
 void erts_check_io_interrupt_kp(int);
 void erts_check_io_interrupt_nkp(int);
 void erts_check_io_interrupt_timed_kp(int, ErtsMonotonicTime);
@@ -69,9 +65,6 @@ void erts_lcnt_update_cio_locks_nkp(int enable);
 Uint erts_check_io_size(void);
 Eterm erts_check_io_info(void *);
 int erts_check_io_max_files(void);
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-void erts_check_io_async_sig_interrupt(void);
-#endif
 void erts_check_io_interrupt(int);
 void erts_check_io_interrupt_timed(int, ErtsMonotonicTime);
 void erts_check_io(int);
@@ -83,11 +76,11 @@ void erts_lcnt_update_cio_locks(int enable);
 
 #endif
 
-extern erts_smp_atomic_t erts_check_io_time;
+extern erts_atomic_t erts_check_io_time;
 
 typedef struct {
     ErtsPortTaskHandle task;
-    erts_smp_atomic_t executed_time;
+    erts_atomic_t executed_time;
 } ErtsIoTask;
 
 ERTS_GLB_INLINE void erts_io_notify_port_task_executed(ErtsPortTaskHandle *pthp);
@@ -98,8 +91,8 @@ ERTS_GLB_INLINE void
 erts_io_notify_port_task_executed(ErtsPortTaskHandle *pthp)
 {
     ErtsIoTask *itp = (ErtsIoTask *) (((char *) pthp) - offsetof(ErtsIoTask, task));
-    erts_aint_t ci_time = erts_smp_atomic_read_acqb(&erts_check_io_time);
-    erts_smp_atomic_set_relb(&itp->executed_time, ci_time);
+    erts_aint_t ci_time = erts_atomic_read_acqb(&erts_check_io_time);
+    erts_atomic_set_relb(&itp->executed_time, ci_time);
 }
 
 #endif

@@ -610,9 +610,7 @@ msacc(Config) ->
                         (aux, 0) ->
                              %% aux will be zero if we do not have smp support
                              %% or no async threads
-                             case erlang:system_info(smp_support) orelse
-                                  erlang:system_info(thread_pool_size) > 0
-                             of
+                             case erlang:system_info(thread_pool_size) > 0 of
                                  false ->
                                      ok;
                                  true ->

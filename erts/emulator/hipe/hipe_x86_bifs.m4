@@ -31,7 +31,7 @@ include(`hipe/hipe_x86_asm.m4')
 #define TEST_GOT_EXN	cmpl	$THE_NON_VALUE,%eax
 #endif'
 
-`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+`#if defined(ERTS_ENABLE_LOCK_CHECK)
 #  define CALL_BIF(F)	movl $CSYM(nbif_impl_##F), P_BIF_CALLEE(P); call CSYM(hipe_debug_bif_wrapper) 
 #else
 #  define CALL_BIF(F)	call	CSYM(nbif_impl_##F)

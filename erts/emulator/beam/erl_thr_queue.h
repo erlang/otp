@@ -78,11 +78,7 @@ typedef struct ErtsThrQElement_t_ ErtsThrQElement_t;
 typedef struct ErtsThrQElement_t ErtsThrQPrepEnQ_t;
 
 struct ErtsThrQElement_t_ {
-#ifdef USE_THREADS
     erts_atomic_t next;
-#else
-    ErtsThrQElement_t *next;
-#endif
     union {
 	erts_atomic_t atmc;
 	void *ptr;
@@ -100,7 +96,6 @@ typedef enum {
     ERTS_THR_Q_DIRTY,
 } ErtsThrQCleanState_t;
 
-#ifdef USE_THREADS
 
 typedef struct {
     ErtsThrQElement_t marker;
@@ -108,9 +103,7 @@ typedef struct {
     erts_atomic_t um_refc[2];
     erts_atomic32_t um_refc_ix;
     ErtsThrQLive_t live;
-#ifdef ERTS_SMP
     erts_atomic32_t thr_prgr_clean_scheduled;
-#endif
     void *arg;
     void (*notify)(void *);
 } ErtsThrQTail_t;
@@ -141,10 +134,8 @@ struct ErtsThrQ_t_ {
 	    ErtsThrQElement_t *end;
 	} deq_fini;
 	struct {
-#ifdef ERTS_SMP
 	    ErtsThrPrgrVal thr_progress;
 	    int thr_progress_reached;
-#endif
 	    int um_refc_ix;
 	    ErtsThrQElement_t *unref_end;
 	} next;
@@ -159,18 +150,6 @@ struct ErtsThrQ_t_ {
     } q;
 };
 
-#else /* !USE_THREADS */
-
-struct ErtsThrQ_t_ {
-    ErtsThrQInit_t init;
-    ErtsThrQElement_t *first;
-    ErtsThrQElement_t *last;
-    struct {
-	void *blk;
-    } q;
-};
-
-#endif
 
 void erts_thr_q_init(void);
 void erts_thr_q_initialize(ErtsThrQ_t *, ErtsThrQInit_t *);
@@ -194,19 +173,15 @@ void erts_thr_q_finalize_dequeue_state_init(ErtsThrQFinDeQ_t *);
 int erts_thr_q_length_dirty(ErtsThrQ_t *);
 #endif
 
-#ifdef ERTS_SMP
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_q_need_thr_progress(ErtsThrQ_t *q);
-#endif
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-#ifdef ERTS_SMP
 ERTS_GLB_INLINE ErtsThrPrgrVal
 erts_thr_q_need_thr_progress(ErtsThrQ_t *q)
 {
     return q->head.next.thr_progress;
 }
-#endif
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 

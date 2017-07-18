@@ -51,11 +51,7 @@ init_per_suite(Config) ->
 	case erlang:system_info(debug_compiled) of
 	    false -> "";
 	    true -> ".debug"
-	end ++
-	case erlang:system_info(smp_support) of
-	    false -> "";
-	    true -> ".smp"
-	end,
+	end ++ ".smp",
     [{emu_name,N}|Config].
 
 end_per_suite(_Config) ->

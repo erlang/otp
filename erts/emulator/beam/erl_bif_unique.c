@@ -136,7 +136,7 @@ Eterm erts_make_ref(Process *c_p)
     Eterm* hp;
     Uint32 ref[ERTS_REF_NUMBERS];
 
-    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
 
     hp = HAlloc(c_p, ERTS_REF_THING_SIZE);
 
@@ -803,7 +803,7 @@ BIF_RETTYPE make_ref_0(BIF_ALIST_0)
     BIF_RETTYPE res;
     Eterm* hp;
 
-    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(BIF_P));
+    ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(BIF_P));
 
     hp = HAlloc(BIF_P, ERTS_REF_THING_SIZE);
 

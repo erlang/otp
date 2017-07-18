@@ -23,14 +23,9 @@
  * additions required for Windows NT.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
+#include "etc_common.h"
 
-#include "sys.h"
 #include "erl_driver.h"
-#include <stdlib.h>
-#include <stdarg.h>
 #include "erl_misc_utils.h"
 
 #ifdef __WIN32__
@@ -194,9 +189,7 @@ void error(char* format, ...);
  * Local functions.
  */
 
-#if !defined(ERTS_HAVE_SMP_EMU) || !defined(ERTS_HAVE_PLAIN_EMU)
 static void usage_notsup(const char *switchname, const char *alt);
-#endif
 static char **build_args_from_env(char *env_var);
 static char **build_args_from_string(char *env_var);
 static void initial_argv_massage(int *argc, char ***argv);
@@ -468,9 +461,7 @@ int main(int argc, char **argv)
      */
     cpuinfo = erts_cpu_info_create();
     /* '-smp auto' is default */ 
-#ifdef ERTS_HAVE_SMP_EMU
     start_smp_emu = 1;
-#endif
 
 #if defined(__WIN32__) && defined(WIN32_ALWAYS_DEBUG)
     emu_type = "debug";
@@ -502,23 +493,13 @@ int main(int argc, char **argv)
 		    i++;
 		smp_enable:
                     ;
-#if !defined(ERTS_HAVE_SMP_EMU)
-		    usage_notsup("-smp enable", "");
-#endif
 		} else if (strcmp(argv[i+1], "disable") == 0) {
 		    i++;
 		smp_disable:
-#ifdef ERTS_HAVE_PLAIN_EMU
-                    start_smp_emu = 0;
-#else
                     usage_notsup("-smp disable", " Use \"+S 1\" instead.");
-#endif
 		} else {
 		smp:
                     ;
-#if !defined(ERTS_HAVE_SMP_EMU)
-		    usage_notsup("-smp", "");
-#endif
 		}
 	    } else if (strcmp(argv[i], "-smpenable") == 0) {
 		goto smp_enable;
@@ -886,8 +867,8 @@ int main(int argc, char **argv)
 		  case 'c':
 		      argv[i][0] = '-';
 		      if (argv[i][2] == '\0' && i+1 < argc) {
-			  if (sys_strcmp(argv[i+1], "true") == 0
-			      || sys_strcmp(argv[i+1], "false") == 0) {
+			  if (strcmp(argv[i+1], "true") == 0
+			      || strcmp(argv[i+1], "false") == 0) {
 			      add_Eargs(argv[i]);
 			      add_Eargs(argv[i+1]);
 			      i++;
@@ -1160,12 +1141,7 @@ usage_aux(void)
 	  "[-start_erl [datafile]] "
 #endif
 	  "[-smp [auto"
-#ifdef ERTS_HAVE_SMP_EMU
 	  "|enable"
-#endif
-#ifdef ERTS_HAVE_PLAIN_EMU
-	  "|disable"
-#endif
 	  "]"
 	  "] "
 	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] [-start_epmd BOOLEAN] "
@@ -1188,14 +1164,12 @@ usage(const char *switchname)
     usage_aux();
 }
 
-#if !defined(ERTS_HAVE_SMP_EMU) || !defined(ERTS_HAVE_PLAIN_EMU)
 static void
 usage_notsup(const char *switchname, const char *alt)
 {
     fprintf(stderr, "Argument \'%s\' not supported.%s\n", switchname, alt);
     usage_aux();
 }
-#endif
 
 static void
 usage_format(char *format, ...)
@@ -2195,18 +2169,18 @@ static WCHAR *utf8_to_utf16(unsigned char *bytes)
     res = target = emalloc((num + 1) * sizeof(WCHAR));
     while (*bytes) {
 	if (((*bytes) & ((unsigned char) 0x80)) == 0) {
-	    unipoint = (Uint) *bytes;
+	    unipoint = (unsigned int) *bytes;
 	    ++bytes;
 	} else if (((*bytes) & ((unsigned char) 0xE0)) == 0xC0) {
 	    unipoint = 
-		(((Uint) ((*bytes) & ((unsigned char) 0x1F))) << 6) |
-		((Uint) (bytes[1] & ((unsigned char) 0x3F))); 	
+		(((unsigned int) ((*bytes) & ((unsigned char) 0x1F))) << 6) |
+		((unsigned int) (bytes[1] & ((unsigned char) 0x3F)));
 	    bytes += 2;
 	} else if (((*bytes) & ((unsigned char) 0xF0)) == 0xE0) {
 	    unipoint = 
-		(((Uint) ((*bytes) & ((unsigned char) 0xF))) << 12) |
-		(((Uint) (bytes[1] & ((unsigned char) 0x3F))) << 6) |
-		((Uint) (bytes[2] & ((unsigned char) 0x3F)));
+		(((unsigned int) ((*bytes) & ((unsigned char) 0xF))) << 12) |
+		(((unsigned int) (bytes[1] & ((unsigned char) 0x3F))) << 6) |
+		((unsigned int) (bytes[2] & ((unsigned char) 0x3F)));
 	    if (unipoint > 0xFFFF) {
 		 unipoint = (unsigned int) '?';
 	    }
@@ -2225,7 +2199,7 @@ static WCHAR *utf8_to_utf16(unsigned char *bytes)
 
 static int put_utf8(WCHAR ch, unsigned char *target, int sz, int *pos)
 {
-    Uint x = (Uint) ch;
+    unsigned int x = (unsigned int) ch;
     if (x < 0x80) {
     if (*pos >= sz) {
 	return -1;

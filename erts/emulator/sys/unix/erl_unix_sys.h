@@ -128,10 +128,6 @@
 /* File descriptors are numbers anc consecutively allocated on Unix */
 #define  ERTS_SYS_CONTINOUS_FD_NUMBERS
 
-#ifndef ERTS_SMP
-#  undef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-#  define ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-#endif
 
 typedef void *GETENV_STATE;
 
@@ -354,9 +350,7 @@ extern void erts_sys_unix_later_init(void);
 #ifdef NO_FPE_SIGNALS
 
 #define erts_get_current_fp_exception() NULL
-#ifdef ERTS_SMP
 #define erts_thread_init_fp_exception() do{}while(0)
-#endif
 #  define __ERTS_FP_CHECK_INIT(fpexnp) do {} while (0)
 #  define __ERTS_FP_ERROR(fpexnp, f, Action) if (!isfinite(f)) { Action; } else {}
 #  define __ERTS_FP_ERROR_THOROUGH(fpexnp, f, Action) __ERTS_FP_ERROR(fpexnp, f, Action)
@@ -369,9 +363,7 @@ extern void erts_sys_unix_later_init(void);
 #else /* !NO_FPE_SIGNALS */
 
 extern volatile unsigned long *erts_get_current_fp_exception(void);
-#ifdef ERTS_SMP
 extern void erts_thread_init_fp_exception(void);
-#endif
 #  if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__)
 #    define erts_fwait(fpexnp,f) \
 	__asm__ __volatile__("fwait" : "=m"(*(fpexnp)) : "m"(f))
@@ -438,10 +430,8 @@ void erts_sys_unblock_fpe(int);
 
 
 /* Threads */
-#ifdef USE_THREADS
 extern int init_async(int);
 extern int exit_async(void);
-#endif
 
 #define ERTS_EXIT_AFTER_DUMP _exit
 

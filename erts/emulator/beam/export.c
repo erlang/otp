@@ -41,14 +41,12 @@
 
 static IndexTable export_tables[ERTS_NUM_CODE_IX];  /* Active not locked */
 
-static erts_smp_atomic_t total_entries_bytes;
-
-#include "erl_smp.h"
+static erts_atomic_t total_entries_bytes;
 
 /* This lock protects the staging export table from concurrent access
  * AND it protects the staging table from becoming active.
  */
-erts_smp_mtx_t export_staging_lock;
+erts_mtx_t export_staging_lock;
 
 extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_call_traced_function;
@@ -85,17 +83,13 @@ static struct export_blob* entry_to_blob(struct export_entry* ee)
 void
 export_info(fmtfn_t to, void *to_arg)
 {
-#ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	export_staging_lock();
-#endif
     index_info(to, to_arg, &export_tables[erts_active_code_ix()]);
     hash_info(to, to_arg, &export_tables[erts_staging_code_ix()].htable);
-#ifdef ERTS_SMP
     if (lock)
 	export_staging_unlock();
-#endif
 }
 
 
@@ -129,7 +123,7 @@ export_alloc(struct export_entry* tmpl_e)
 	Export* obj;
 
 	blob = (struct export_blob*) erts_alloc(ERTS_ALC_T_EXPORT, sizeof(*blob));
-	erts_smp_atomic_add_nob(&total_entries_bytes, sizeof(*blob));
+	erts_atomic_add_nob(&total_entries_bytes, sizeof(*blob));
 	obj = &blob->exp;
 	obj->info.op =  0;
 	obj->info.u.gen_bp = NULL;
@@ -173,7 +167,7 @@ export_free(struct export_entry* obj)
     }
     DBG_TRACE_MFA_P(&blob->exp.info.mfa, "export blob deallocation at %p", &blob->exp);
     erts_free(ERTS_ALC_T_EXPORT, blob);
-    erts_smp_atomic_add_nob(&total_entries_bytes, -sizeof(*blob));
+    erts_atomic_add_nob(&total_entries_bytes, -sizeof(*blob));
 }
 
 void
@@ -182,9 +176,9 @@ init_export_table(void)
     HashFunctions f;
     int i;
 
-    erts_smp_mtx_init(&export_staging_lock, "export_tab", NIL,
+    erts_mtx_init(&export_staging_lock, "export_tab", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
-    erts_smp_atomic_init_nob(&total_entries_bytes, 0);
+    erts_atomic_init_nob(&total_entries_bytes, 0);
 
     f.hash = (H_FUN) export_hash;
     f.cmp  = (HCMP_FUN) export_cmp;
@@ -373,7 +367,7 @@ int export_table_sz(void)
 }
 int export_entries_sz(void)
 {
-    return erts_smp_atomic_read_nob(&total_entries_bytes);
+    return erts_atomic_read_nob(&total_entries_bytes);
 }
 Export *export_get(Export *e)
 {

@@ -22,15 +22,11 @@
 #define ERL_UTILS_H__
 
 #include "sys.h"
-#include "erl_smp.h"
 #include "erl_printf.h"
 
 struct process;
 
 typedef struct {
-#ifdef DEBUG
-    int smp_api;
-#endif
     union {
 	Uint64 not_atomic;
 	erts_atomic64_t atomic;
@@ -38,70 +34,25 @@ typedef struct {
 } erts_interval_t;
 
 void erts_interval_init(erts_interval_t *);
-void erts_smp_interval_init(erts_interval_t *);
 Uint64 erts_step_interval_nob(erts_interval_t *);
 Uint64 erts_step_interval_relb(erts_interval_t *);
-Uint64 erts_smp_step_interval_nob(erts_interval_t *);
-Uint64 erts_smp_step_interval_relb(erts_interval_t *);
 Uint64 erts_ensure_later_interval_nob(erts_interval_t *, Uint64);
 Uint64 erts_ensure_later_interval_acqb(erts_interval_t *, Uint64);
-Uint64 erts_smp_ensure_later_interval_nob(erts_interval_t *, Uint64);
-Uint64 erts_smp_ensure_later_interval_acqb(erts_interval_t *, Uint64);
-ERTS_GLB_INLINE Uint64 erts_current_interval_nob__(erts_interval_t *);
-ERTS_GLB_INLINE Uint64 erts_current_interval_acqb__(erts_interval_t *);
 ERTS_GLB_INLINE Uint64 erts_current_interval_nob(erts_interval_t *);
 ERTS_GLB_INLINE Uint64 erts_current_interval_acqb(erts_interval_t *);
-ERTS_GLB_INLINE Uint64 erts_smp_current_interval_nob(erts_interval_t *);
-ERTS_GLB_INLINE Uint64 erts_smp_current_interval_acqb(erts_interval_t *);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE Uint64
-erts_current_interval_nob__(erts_interval_t *icp)
+erts_current_interval_nob(erts_interval_t *icp)
 {
     return (Uint64) erts_atomic64_read_nob(&icp->counter.atomic);
 }
 
 ERTS_GLB_INLINE Uint64
-erts_current_interval_acqb__(erts_interval_t *icp)
-{
-    return (Uint64) erts_atomic64_read_acqb(&icp->counter.atomic);
-}
-
-ERTS_GLB_INLINE Uint64
-erts_current_interval_nob(erts_interval_t *icp)
-{
-    ASSERT(!icp->smp_api);
-    return erts_current_interval_nob__(icp);
-}
-
-ERTS_GLB_INLINE Uint64
 erts_current_interval_acqb(erts_interval_t *icp)
 {
-    ASSERT(!icp->smp_api);
-    return erts_current_interval_acqb__(icp);
-}
-
-ERTS_GLB_INLINE Uint64
-erts_smp_current_interval_nob(erts_interval_t *icp)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return erts_current_interval_nob__(icp);
-#else
-    return icp->counter.not_atomic;
-#endif
-}
-
-ERTS_GLB_INLINE Uint64
-erts_smp_current_interval_acqb(erts_interval_t *icp)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return erts_current_interval_acqb__(icp);
-#else
-    return icp->counter.not_atomic;
-#endif
+    return (Uint64) erts_atomic64_read_acqb(&icp->counter.atomic);
 }
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */

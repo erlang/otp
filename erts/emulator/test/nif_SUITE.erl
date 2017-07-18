@@ -1721,14 +1721,9 @@ send2(Config) when is_list(Config) ->
 
 %% Send msg from user thread
 send_threaded(Config) when is_list(Config) ->
-    case erlang:system_info(smp_support) of
-	true ->
-	    send2_do1(fun(ME,To) -> send_blob_thread_dbg(ME,To,join) end),
-	    send2_do1(fun(ME,To) -> send_blob_thread_and_join(ME,To) end),
-	    ok;
-	false ->
-	    {skipped,"No threaded send on non-SMP"}
-    end.
+    send2_do1(fun(ME,To) -> send_blob_thread_dbg(ME,To,join) end),
+    send2_do1(fun(ME,To) -> send_blob_thread_and_join(ME,To) end),
+    ok.
 
 
 send2_do1(SendBlobF) ->

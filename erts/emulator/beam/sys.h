@@ -34,9 +34,6 @@
   (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12) | __GNUC_PATCHLEVEL__) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
 #endif
 
-#if defined(ERTS_DIRTY_SCHEDULERS) && !defined(ERTS_SMP)
-# error "Dirty schedulers not supported without smp support"
-#endif
 
 #ifdef ERTS_INLINE
 #  ifndef ERTS_CAN_INLINE
@@ -219,12 +216,6 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 #  define ASSERT(e) ERTS_ASSERT(e)
 #else
 #  define ASSERT(e) ((void) 1)
-#endif
-
-#ifdef ERTS_SMP
-#  define ERTS_SMP_ASSERT(e) ASSERT(e)
-#else
-#  define ERTS_SMP_ASSERT(e) ((void)1)
 #endif
 
 /* ERTS_UNDEF can be used to silence false warnings about
@@ -470,41 +461,25 @@ typedef union {
 
 #include "erl_lock_check.h"
 
-/* needed by erl_smp.h */
+/* needed by erl_threads.h */
 int erts_send_warning_to_logger_str_nogl(char *);
 
-#include "erl_smp.h"
+#include "erl_threads.h"
 
 #ifdef ERTS_WANT_BREAK_HANDLING
-#  ifdef ERTS_SMP
-extern erts_smp_atomic32_t erts_break_requested;
+extern erts_atomic32_t erts_break_requested;
 #    define ERTS_BREAK_REQUESTED \
-  ((int) erts_smp_atomic32_read_nob(&erts_break_requested))
-#  else
-extern volatile int erts_break_requested;
-#    define ERTS_BREAK_REQUESTED erts_break_requested
-#  endif
+  ((int) erts_atomic32_read_nob(&erts_break_requested))
 void erts_do_break_handling(void);
 #endif
 
-#if !defined(ERTS_SMP) && !defined(__WIN32__)
-extern volatile Uint erts_signal_state;
-#define ERTS_SIGNAL_STATE erts_signal_state
-void erts_handle_signal_state(void);
-#endif
 
-#ifdef ERTS_SMP
-extern erts_smp_atomic32_t erts_writing_erl_crash_dump;
+extern erts_atomic32_t erts_writing_erl_crash_dump;
 extern erts_tsd_key_t erts_is_crash_dumping_key;
 #define ERTS_SOMEONE_IS_CRASH_DUMPING \
-  ((int) erts_smp_atomic32_read_mb(&erts_writing_erl_crash_dump))
+  ((int) erts_atomic32_read_mb(&erts_writing_erl_crash_dump))
 #define ERTS_IS_CRASH_DUMPING \
   ((int) (SWord) erts_tsd_get(erts_is_crash_dumping_key))
-#else
-extern volatile int erts_writing_erl_crash_dump;
-#define ERTS_SOMEONE_IS_CRASH_DUMPING erts_writing_erl_crash_dump
-#define ERTS_IS_CRASH_DUMPING erts_writing_erl_crash_dump
-#endif
 
 /* Deal with memcpy() vs bcopy() etc. We want to use the mem*() functions,
    but be able to fall back on bcopy() etc on systems that don't have
@@ -643,7 +618,7 @@ int erts_send_info_to_logger_nogl(erts_dsprintf_buf_t *);
 int erts_send_warning_to_logger_nogl(erts_dsprintf_buf_t *);
 int erts_send_error_to_logger_nogl(erts_dsprintf_buf_t *);
 int erts_send_info_to_logger_str_nogl(char *);
-/* needed by erl_smp.h (declared above)
+/* needed by erl_threads.h (declared above)
    int erts_send_warning_to_logger_str_nogl(char *); */
 int erts_send_error_to_logger_str_nogl(char *);
 
@@ -765,10 +740,8 @@ extern char *erts_sys_ddll_error(int code);
  * System interfaces for startup.
  */
 void erts_sys_schedule_interrupt(int set);
-#ifdef ERTS_SMP
 void erts_sys_schedule_interrupt_timed(int, ErtsMonotonicTime);
 void erts_sys_main_thread(void);
-#endif
 
 extern int erts_sys_prepare_crash_dump(int secs);
 extern void erts_sys_pre_init(void);
@@ -859,12 +832,10 @@ int erts_sys_unsetenv(char *key);
 char *erts_read_env(char *key);
 void erts_free_read_env(void *value);
 
-#if defined(ERTS_SMP)
 #if defined(ERTS_THR_HAVE_SIG_FUNCS) && !defined(ETHR_UNUSABLE_SIGUSRX)
 extern void sys_thr_resume(erts_tid_t tid);
 extern void sys_thr_suspend(erts_tid_t tid);
 #define ERTS_SYS_SUSPEND_SIGNAL SIGUSR2
-#endif
 #endif
 
 /* utils.c */
@@ -1028,140 +999,6 @@ erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
-
-typedef erts_smp_atomic_t erts_smp_refc_t;
-
-ERTS_GLB_INLINE void erts_smp_refc_init(erts_smp_refc_t *refcp, erts_aint_t val);
-ERTS_GLB_INLINE void erts_smp_refc_inc(erts_smp_refc_t *refcp, erts_aint_t min_val);
-ERTS_GLB_INLINE erts_aint_t erts_smp_refc_inc_unless(erts_smp_refc_t *refcp,
-                                                     erts_aint_t unless_val,
-                                                     erts_aint_t min_val);
-ERTS_GLB_INLINE erts_aint_t erts_smp_refc_inctest(erts_smp_refc_t *refcp,
-                                                  erts_aint_t min_val);
-ERTS_GLB_INLINE void erts_smp_refc_dec(erts_smp_refc_t *refcp, erts_aint_t min_val);
-ERTS_GLB_INLINE erts_aint_t erts_smp_refc_dectest(erts_smp_refc_t *refcp,
-                                                  erts_aint_t min_val);
-ERTS_GLB_INLINE void erts_smp_refc_add(erts_smp_refc_t *refcp, erts_aint_t diff,
-                                       erts_aint_t min_val);
-ERTS_GLB_INLINE erts_aint_t erts_smp_refc_read(erts_smp_refc_t *refcp,
-                                               erts_aint_t min_val);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE void
-erts_smp_refc_init(erts_smp_refc_t *refcp, erts_aint_t val)
-{
-    erts_smp_atomic_init_nob((erts_smp_atomic_t *) refcp, val);
-}
-
-ERTS_GLB_INLINE void
-erts_smp_refc_inc(erts_smp_refc_t *refcp, erts_aint_t min_val)
-{
-#ifdef ERTS_REFC_DEBUG
-    erts_aint_t val = erts_smp_atomic_inc_read_nob((erts_smp_atomic_t *) refcp);
-    if (val < min_val)
-	erts_exit(ERTS_ABORT_EXIT,
-		 "erts_smp_refc_inc(): Bad refc found (refc=%ld < %ld)!\n",
-		 val, min_val);
-#else
-    erts_smp_atomic_inc_nob((erts_smp_atomic_t *) refcp);
-#endif
-}
-
-ERTS_GLB_INLINE erts_aint_t
-erts_smp_refc_inc_unless(erts_smp_refc_t *refcp,
-                         erts_aint_t unless_val,
-                         erts_aint_t min_val)
-{
-    erts_aint_t val = erts_smp_atomic_read_nob((erts_smp_atomic_t *) refcp);
-    while (1) {
-        erts_aint_t exp, new;
-#ifdef ERTS_REFC_DEBUG
-        if (val < 0)
-            erts_exit(ERTS_ABORT_EXIT,
-                      "erts_smp_refc_inc_unless(): Bad refc found (refc=%ld < %ld)!\n",
-                      val, min_val);
-#endif
-        if (val == unless_val)
-            return val;
-        new = val + 1;
-        exp = val;
-        val = erts_smp_atomic_cmpxchg_nob((erts_smp_atomic_t *) refcp, new, exp);
-        if (val == exp)
-            return new;
-    }
-}
-
-
-ERTS_GLB_INLINE erts_aint_t
-erts_smp_refc_inctest(erts_smp_refc_t *refcp, erts_aint_t min_val)
-{
-    erts_aint_t val = erts_smp_atomic_inc_read_nob((erts_smp_atomic_t *) refcp);
-#ifdef ERTS_REFC_DEBUG
-    if (val < min_val)
-	erts_exit(ERTS_ABORT_EXIT,
-		 "erts_smp_refc_inctest(): Bad refc found (refc=%ld < %ld)!\n",
-		 val, min_val);
-#endif
-    return val;
-}
-
-ERTS_GLB_INLINE void
-erts_smp_refc_dec(erts_smp_refc_t *refcp, erts_aint_t min_val)
-{
-#ifdef ERTS_REFC_DEBUG
-    erts_aint_t val = erts_smp_atomic_dec_read_nob((erts_smp_atomic_t *) refcp);
-    if (val < min_val)
-	erts_exit(ERTS_ABORT_EXIT,
-		 "erts_smp_refc_dec(): Bad refc found (refc=%ld < %ld)!\n",
-		 val, min_val);
-#else
-    erts_smp_atomic_dec_nob((erts_smp_atomic_t *) refcp);
-#endif
-}
-
-ERTS_GLB_INLINE erts_aint_t
-erts_smp_refc_dectest(erts_smp_refc_t *refcp, erts_aint_t min_val)
-{
-    erts_aint_t val = erts_smp_atomic_dec_read_nob((erts_smp_atomic_t *) refcp);
-#ifdef ERTS_REFC_DEBUG
-    if (val < min_val)
-	erts_exit(ERTS_ABORT_EXIT,
-		 "erts_smp_refc_dectest(): Bad refc found (refc=%ld < %ld)!\n",
-		 val, min_val);
-#endif
-    return val;
-}
-
-ERTS_GLB_INLINE void
-erts_smp_refc_add(erts_smp_refc_t *refcp, erts_aint_t diff, erts_aint_t min_val)
-{
-#ifdef ERTS_REFC_DEBUG
-    erts_aint_t val = erts_smp_atomic_add_read_nob((erts_smp_atomic_t *) refcp, diff);
-    if (val < min_val)
-	erts_exit(ERTS_ABORT_EXIT,
-		 "erts_smp_refc_add(%ld): Bad refc found (refc=%ld < %ld)!\n",
-		 diff, val, min_val);
-#else
-    erts_smp_atomic_add_nob((erts_smp_atomic_t *) refcp, diff);
-#endif
-}
-
-ERTS_GLB_INLINE erts_aint_t
-erts_smp_refc_read(erts_smp_refc_t *refcp, erts_aint_t min_val)
-{
-    erts_aint_t val = erts_smp_atomic_read_nob((erts_smp_atomic_t *) refcp);
-#ifdef ERTS_REFC_DEBUG
-    if (val < min_val)
-	erts_exit(ERTS_ABORT_EXIT,
-		 "erts_smp_refc_read(): Bad refc found (refc=%ld < %ld)!\n",
-		 val, min_val);
-#endif
-    return val;
-}
-
-#endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
-
 
 #ifdef ERTS_ENABLE_KERNEL_POLL
 extern int erts_use_kernel_poll;

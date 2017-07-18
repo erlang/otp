@@ -204,11 +204,7 @@ make_command(Vars, Spec, State) ->
 		      _ ->
 			  ok
 		  end,
-		  "cerl -valgrind" ++
-		      case erlang:system_info(smp_support) of
-			  true -> " -smp";
-			  false -> ""
-		      end
+		  "cerl -valgrind"
 	  end,
     Naming =
 	case ts_lib:var(longnames, Vars) of

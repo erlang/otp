@@ -33,18 +33,6 @@
 
 #include "sys.h"
 
-#ifndef ERTS_SMP
-
-#define erts_smp_thr_progress_block() ((void) 0)
-#define erts_smp_thr_progress_unblock() ((void) 0)
-#define erts_smp_thr_progress_is_blocking() 1
-
-#else /* ERTS_SMP */
-
-#define erts_smp_thr_progress_block erts_thr_progress_block
-#define erts_smp_thr_progress_unblock erts_thr_progress_unblock
-#define erts_smp_thr_progress_is_blocking erts_thr_progress_is_blocking
-
 void erts_thr_progress_block(void);
 void erts_thr_progress_unblock(void);
 int erts_thr_progress_is_blocking(void);
@@ -87,13 +75,10 @@ typedef struct {
 int erts_thr_progress_fatal_error_block(ErtsThrPrgrData *tmp_tpd_bufp);
 void erts_thr_progress_fatal_error_wait(SWord timeout);
 
-#endif /* ERTS_SMP */
 
 typedef struct ErtsThrPrgrLaterOp_ ErtsThrPrgrLaterOp;
 struct ErtsThrPrgrLaterOp_ {
-#ifdef ERTS_SMP
     ErtsThrPrgrVal later;
-#endif
     void (*func)(void *);
     void *data;
     ErtsThrPrgrLaterOp *next;
@@ -107,7 +92,6 @@ struct ErtsThrPrgrLaterOp_ {
 #include "erl_threads.h"
 #include "erl_process.h"
 
-#ifdef ERTS_SMP
 
 /* ERTS_THR_PRGR_VAL_FIRST should only be used when initializing... */
 #define ERTS_THR_PRGR_VAL_FIRST ((ErtsThrPrgrVal) 0)
@@ -324,6 +308,5 @@ erts_thr_progress_has_reached(ErtsThrPrgrVal val)
 
 #endif
 
-#endif /* ERTS_SMP */
 
 #endif

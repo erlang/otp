@@ -64,30 +64,19 @@
 
 static byte get_bit(byte b, size_t a_offs); 
 
-#if defined(ERTS_SMP)
 /* the state resides in the current process' scheduler data */
-#elif defined(ERL_BITS_REENTRANT)
-/* reentrant API but with a hidden single global state, for testing only */
-struct erl_bits_state ErlBitsState_;
-#else
-/* non-reentrant API with a single global state */
-struct erl_bits_state ErlBitsState;
-#endif
 
 #define byte_buf	(ErlBitsState.byte_buf_)
 #define byte_buf_len	(ErlBitsState.byte_buf_len_)
 
-static erts_smp_atomic_t bits_bufs_size;
+static erts_atomic_t bits_bufs_size;
 
 Uint
 erts_bits_bufs_size(void)
 {
-    return (Uint) erts_smp_atomic_read_nob(&bits_bufs_size);
+    return (Uint) erts_atomic_read_nob(&bits_bufs_size);
 }
 
-#if !defined(ERTS_SMP)
-static
-#endif
 void
 erts_bits_init_state(ERL_BITS_PROTO_0)
 {
@@ -97,13 +86,11 @@ erts_bits_init_state(ERL_BITS_PROTO_0)
     erts_bin_offset = 0;
 }
 
-#if defined(ERTS_SMP)
 void
 erts_bits_destroy_state(ERL_BITS_PROTO_0)
 {
     erts_free(ERTS_ALC_T_BITS_BUF, byte_buf);
 }
-#endif
 
 void
 erts_init_bits(void)
@@ -113,13 +100,8 @@ erts_init_bits(void)
     ERTS_CT_ASSERT(offsetof(ErtsBinary,driver.binary.orig_bytes)
                 == offsetof(Binary,orig_bytes));
 
-    erts_smp_atomic_init_nob(&bits_bufs_size, 0);
-#if defined(ERTS_SMP)
+    erts_atomic_init_nob(&bits_bufs_size, 0);
     /* erl_process.c calls erts_bits_init_state() on all state instances */
-#else
-    ERL_BITS_DECLARE_STATEP;
-    erts_bits_init_state(ERL_BITS_ARGS_0);
-#endif
 }
 
 /*****************************************************************
@@ -753,7 +735,7 @@ static void
 ERTS_INLINE need_byte_buf(ERL_BITS_PROTO_1(int need))
 {
     if (byte_buf_len < need) {
-	erts_smp_atomic_add_nob(&bits_bufs_size, need - byte_buf_len);
+	erts_atomic_add_nob(&bits_bufs_size, need - byte_buf_len);
 	byte_buf_len = need;
 	byte_buf = erts_realloc(ERTS_ALC_T_BITS_BUF, byte_buf, byte_buf_len);
     }

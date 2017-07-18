@@ -107,11 +107,7 @@ void hipe_emasculate_binary(Eterm);
 /*
  * Stuff that is different in SMP and non-SMP.
  */
-#ifdef ERTS_SMP
 int hipe_bs_put_big_integer(Process*, Eterm, Uint, byte*, unsigned, unsigned);
-#else
-int hipe_bs_put_big_integer(Eterm, Uint, byte*, unsigned, unsigned);
-#endif
 
 AEXTERN(Eterm,nbif_check_get_msg,(Process*));
 Eterm hipe_check_get_msg(Process*);
@@ -122,12 +118,10 @@ BIF_RETTYPE hipe_bifs_debug_native_called_2(BIF_ALIST_2);
 /*
  * SMP-specific stuff
  */
-#ifdef ERTS_SMP
 AEXTERN(void,nbif_atomic_inc,(void));
 AEXTERN(void,nbif_clear_timeout,(Process*));
 void hipe_atomic_inc(int*);
 void hipe_clear_timeout(Process*);
-#endif
 
 #define BIF_LIST(M,F,A,B,C,I)	AEXTERN(Eterm,nbif_##C,(void));
 #include "erl_bif_list.h"

@@ -56,7 +56,7 @@ ERTS_INCL = -I$(ERL_TOP)/erts/include \
 
 CC        = @CC@
 WFLAGS    = @WFLAGS@
-CFLAGS    = @CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSDIR) -I$(EMUDIR) \
+CFLAGS    = @CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSOSDIR) -I$(EMUDIR) -I. \
             -I$(COMSYSDIR) $(ERTS_INCL) -DOTP_SYSTEM_VERSION=\"$(SYSTEM_VSN)\"
 LD        = @LD@
 LIBS      = @LIBS@
@@ -69,9 +69,9 @@ endif
 
 ifeq ($(TARGET),win32)
 ifeq ($(TYPE),debug)
-CFLAGS = $(subst -O2,-g,@CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSDIR) \
-            -I$(EMUDIR) -I$(COMSYSDIR) $(ERTS_INCL) \
-            -DOTP_SYSTEM_VERSION=\"$(SYSTEM_VSN)\")
+CFLAGS = $(subst -O2,-g,@CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSOSDIR) \
+	-I$(EMUDIR) -I$(COMSYSDIR) $(ERTS_INCL) \
+	-DOTP_SYSTEM_VERSION=\"$(SYSTEM_VSN)\")
 LDFLAGS += -g
 endif
 endif
@@ -81,7 +81,8 @@ OBJDIR    = $(ERL_TOP)/erts/obj$(TYPEMARKER)/$(TARGET)
 EMUDIR    = $(ERL_TOP)/erts/emulator/beam
 COMSYSDIR = $(ERL_TOP)/erts/emulator/sys/common
 EMUOSDIR  = $(ERL_TOP)/erts/emulator/@ERLANG_OSTYPE@
-SYSDIR    = $(ERL_TOP)/erts/emulator/sys/@ERLANG_OSTYPE@
+SYSDIR    = $(ERL_TOP)/erts/emulator/sys/common
+SYSOSDIR  = $(ERL_TOP)/erts/emulator/sys/@ERLANG_OSTYPE@
 DRVDIR    = $(ERL_TOP)/erts/emulator/drivers/@ERLANG_OSTYPE@
 UXETC     = ../unix
 WINETC	  = ../win32

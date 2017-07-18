@@ -53,15 +53,6 @@
 #
 # IMPORTANT! Only use 7-bit ascii text in this file!
 
-+if smp
-+disable threads_no_smp
-+else
-+if threads
-+enable threads_no_smp
-+else
-+disable threads_no_smp
-+endif
-+endif
 
 # --- Allocator declarations -------------------------------------------------
 #
@@ -77,8 +68,6 @@
 
 allocator	SYSTEM		true		sys_alloc
 
-+if smp
-
 allocator	TEMPORARY	true		temp_alloc
 allocator	SHORT_LIVED	true		sl_alloc
 allocator	STANDARD	true		std_alloc
@@ -89,22 +78,6 @@ allocator	FIXED_SIZE	true		fix_alloc
 allocator	LITERAL 	true		literal_alloc
 +if exec_alloc
 allocator	EXEC     	true	        exec_alloc
-+endif
-
-+else # Non smp build
-
-allocator	TEMPORARY	false		temp_alloc
-allocator	SHORT_LIVED	false		sl_alloc
-allocator	STANDARD	false		std_alloc
-allocator	LONG_LIVED	false		ll_alloc
-allocator	EHEAP		false		eheap_alloc
-allocator	ETS		false		ets_alloc
-allocator	FIXED_SIZE	false		fix_alloc
-allocator	LITERAL 	false		literal_alloc
-+if exec_alloc
-allocator	EXEC     	false	        exec_alloc
-+endif
-
 +endif
 
 allocator	BINARY		true		binary_alloc
@@ -286,31 +259,16 @@ type	MREF_TAB_BKTS	STANDARD	SYSTEM		magic_ref_table_buckets
 type	MREF_TAB	LONG_LIVED	SYSTEM		magic_ref_table
 type	MINDIRECTION	FIXED_SIZE	SYSTEM		magic_indirection
 
-+if threads_no_smp
-# Need thread safe allocs, but std_alloc and fix_alloc are not;
-# use driver_alloc which is...
-type	THR_Q_EL	DRIVER 	   	SYSTEM		thr_q_element
-type	THR_Q_EL_SL	DRIVER		SYSTEM		sl_thr_q_element
-type	MISC_AUX_WORK	DRIVER		SYSTEM		misc_aux_work
-+else
 type	THR_Q_EL	STANDARD   	SYSTEM		thr_q_element
 type	THR_Q_EL_SL	FIXED_SIZE	SYSTEM		sl_thr_q_element
 type	MISC_AUX_WORK	SHORT_LIVED	SYSTEM		misc_aux_work
-+endif
 type	THR_Q		STANDARD	SYSTEM		thr_queue
 type	THR_Q_SL	SHORT_LIVED	SYSTEM		short_lived_thr_queue
 type	THR_Q_LL	LONG_LIVED	SYSTEM		long_lived_thr_queue
 
-+if smp
 type	ASYNC		SHORT_LIVED	SYSTEM		async
 type	ZLIB		STANDARD	SYSTEM		zlib
-+else
-# sl/std_alloc is not thread safe in non smp build; therefore, we use driver_alloc
-type	ZLIB		DRIVER   	SYSTEM		zlib
-type	ASYNC		DRIVER		SYSTEM		async
-+endif
 
-+if smp
 type	PORT_LOCK	STANDARD	SYSTEM		port_lock
 type	DRIVER_LOCK	STANDARD	SYSTEM		driver_lock
 type	XPORTS_LIST	SHORT_LIVED	SYSTEM		extra_port_list
@@ -320,33 +278,19 @@ type	THR_PRGR_IDATA	LONG_LIVED	SYSTEM		thr_prgr_internal_data
 type	THR_PRGR_DATA	LONG_LIVED	SYSTEM		thr_prgr_data
 type	T_THR_PRGR_DATA	SHORT_LIVED	SYSTEM		temp_thr_prgr_data
 type	RELEASE_LAREA	SHORT_LIVED	SYSTEM		release_literal_area
-+endif
 
 #
 # Types used for special emulators
 #
 
-+if threads
-
 type	ETHR_STD	STANDARD	SYSTEM		ethread_standard
 type	ETHR_SL		SHORT_LIVED	SYSTEM		ethread_short_lived
 type	ETHR_LL		LONG_LIVED	SYSTEM		ethread_long_lived
 
-+endif
-
-+if shared_heap
-
-type	STACK		STANDARD	PROCESSES	stack
-type	ACTIVE_PROCS	STANDARD	PROCESSES	active_procs
-
-+endif
-
-+if smp
 type	SYS_MSG_Q	SHORT_LIVED	PROCESSES	system_messages_queue
 type	FP_EXCEPTION	LONG_LIVED	SYSTEM		fp_exception
 type	LL_MPATHS	LONG_LIVED	SYSTEM		ll_migration_paths
 type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
-+endif
 
 +if hipe
 
@@ -359,8 +303,6 @@ type	HIPE_EXEC	EXEC            CODE		hipe_code
 +endif
 
 +endif
-
-
 
 +if heap_frag_elim_test
 
@@ -431,11 +373,7 @@ type	PUTENV_STR	SYSTEM		SYSTEM		putenv_string
 type	PRT_REP_EXIT	STANDARD	SYSTEM		port_report_exit
 type	SYS_BLOCKING	STANDARD	SYSTEM		sys_blocking
 
-+if smp
 type	SYS_WRITE_BUF	TEMPORARY	SYSTEM		sys_write_buf
-+else
-type	SYS_WRITE_BUF	BINARY		SYSTEM		sys_write_buf
-+endif
 
 +endif
 

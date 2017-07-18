@@ -885,29 +885,23 @@ split_bin(Last,Acc) ->
 
 %% Check concurrent access to zlib driver.
 smp(Config) ->
-    case erlang:system_info(smp_support) of
-	true ->
-	    NumOfProcs = lists:min([8,erlang:system_info(schedulers)]),
-	    io:format("smp starting ~p workers\n",[NumOfProcs]),
+    NumOfProcs = lists:min([8,erlang:system_info(schedulers)]),
+    io:format("smp starting ~p workers\n",[NumOfProcs]),
 
-	    %% Tests to run in parallel.
-	    Funcs = [zip_usage, gz_usage, compress_usage, dictionary_usage,
-		     crc, adler],
+    %% Tests to run in parallel.
+    Funcs = [zip_usage, gz_usage, compress_usage, dictionary_usage,
+             crc, adler],
 
-	    %% We get all function arguments here to avoid repeated parallel
-	    %% file read access.
-	    FnAList = lists:map(fun(F) -> {F,?MODULE:F({get_arg,Config})}
-				end, Funcs),	    
+    %% We get all function arguments here to avoid repeated parallel
+    %% file read access.
+    FnAList = lists:map(fun(F) -> {F,?MODULE:F({get_arg,Config})}
+                        end, Funcs),
 
-	    Pids = [spawn_link(?MODULE, worker, [rand:uniform(9999),
-						 list_to_tuple(FnAList),
-						 self()])
-		    || _ <- lists:seq(1,NumOfProcs)],
-	    wait_pids(Pids);
-
-	false ->
-	    {skipped,"No smp support"}
-    end.
+    Pids = [spawn_link(?MODULE, worker, [rand:uniform(9999),
+                                         list_to_tuple(FnAList),
+                                         self()])
+            || _ <- lists:seq(1,NumOfProcs)],
+    wait_pids(Pids).
 
 
 worker(Seed, FnATpl, Parent) ->

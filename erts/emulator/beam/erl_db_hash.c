@@ -109,22 +109,18 @@
 #define NSEG_2   256 /* Size of second segment table */
 #define NSEG_INC 128 /* Number of segments to grow after that */
 
-#ifdef ERTS_SMP
 #  define DB_USING_FINE_LOCKING(TB) (((TB))->common.type & DB_FINE_LOCKED)
-#else
-#  define DB_USING_FINE_LOCKING(TB) 0
-#endif
 
 #ifdef ETHR_ORDERED_READ_DEPEND
-#define SEGTAB(tb) ((struct segment**) erts_smp_atomic_read_nob(&(tb)->segtab))
+#define SEGTAB(tb) ((struct segment**) erts_atomic_read_nob(&(tb)->segtab))
 #else
 #define SEGTAB(tb)							\
     (DB_USING_FINE_LOCKING(tb)						\
-     ? ((struct segment**) erts_smp_atomic_read_ddrb(&(tb)->segtab))	\
-     : ((struct segment**) erts_smp_atomic_read_nob(&(tb)->segtab)))
+     ? ((struct segment**) erts_atomic_read_ddrb(&(tb)->segtab))	\
+     : ((struct segment**) erts_atomic_read_nob(&(tb)->segtab)))
 #endif
-#define NACTIVE(tb) ((int)erts_smp_atomic_read_nob(&(tb)->nactive))
-#define NITEMS(tb) ((int)erts_smp_atomic_read_nob(&(tb)->common.nitems))
+#define NACTIVE(tb) ((int)erts_atomic_read_nob(&(tb)->nactive))
+#define NITEMS(tb) ((int)erts_atomic_read_nob(&(tb)->common.nitems))
 
 #define SLOT_IX_TO_SEG_IX(i) (((i)+(EXT_SEGSZ-FIRST_SEGSZ)) >> EXT_SEGSZ_EXP)
 
@@ -142,12 +138,12 @@
 static ERTS_INLINE Uint hash_to_ix(DbTableHash* tb, HashValue hval)
 {
     Uint mask = (DB_USING_FINE_LOCKING(tb)
-		 ? erts_smp_atomic_read_acqb(&tb->szm)
-		 : erts_smp_atomic_read_nob(&tb->szm));
+		 ? erts_atomic_read_acqb(&tb->szm)
+		 : erts_atomic_read_nob(&tb->szm));
     Uint ix = hval & mask; 
-    if (ix >= erts_smp_atomic_read_nob(&tb->nactive)) {
+    if (ix >= erts_atomic_read_nob(&tb->nactive)) {
 	ix &= mask>>1;
-	ASSERT(ix < erts_smp_atomic_read_nob(&tb->nactive));
+	ASSERT(ix < erts_atomic_read_nob(&tb->nactive));
     }
     return ix;
 }
@@ -166,7 +162,7 @@ static ERTS_INLINE int add_fixed_deletion(DbTableHash* tb, int ix,
 							 sizeof(FixedDeletion));
     ERTS_ETS_MISC_MEM_ADD(sizeof(FixedDeletion));
     fixd->slot = ix;
-    was_next = erts_smp_atomic_read_acqb(&tb->fixdel);
+    was_next = erts_atomic_read_acqb(&tb->fixdel);
     do { /* Lockless atomic insertion in linked list: */
         if (NFIXED(tb) <= fixated_by_me) {
             erts_db_free(ERTS_ALC_T_DB_FIX_DEL, (DbTable*)tb,
@@ -175,7 +171,7 @@ static ERTS_INLINE int add_fixed_deletion(DbTableHash* tb, int ix,
         }
         exp_next = was_next;
 	fixd->next = (FixedDeletion*) exp_next;
-	was_next = erts_smp_atomic_cmpxchg_mb(&tb->fixdel,
+	was_next = erts_atomic_cmpxchg_mb(&tb->fixdel,
                                               (erts_aint_t) fixd,
                                               exp_next);
     }while (was_next != exp_next);
@@ -191,62 +187,55 @@ static ERTS_INLINE int add_fixed_deletion(DbTableHash* tb, int ix,
     ((is_atom(term) ? (atom_tab(atom_val(term))->slot.bucket.hvalue) : \
       make_internal_hash(term, 0)) % MAX_HASH)
 
-#ifdef ERTS_SMP
 #  define DB_HASH_LOCK_MASK (DB_HASH_LOCK_CNT-1)
 #  define GET_LOCK(tb,hval) (&(tb)->locks->lck_vec[(hval) & DB_HASH_LOCK_MASK].lck)
 #  define GET_LOCK_MAYBE(tb,hval) ((tb)->common.is_thread_safe ? NULL : GET_LOCK(tb,hval))
 
 /* Fine grained read lock */
-static ERTS_INLINE erts_smp_rwmtx_t* RLOCK_HASH(DbTableHash* tb, HashValue hval)
+static ERTS_INLINE erts_rwmtx_t* RLOCK_HASH(DbTableHash* tb, HashValue hval)
 {
     if (tb->common.is_thread_safe) {
 	return NULL;
     } else {
-	erts_smp_rwmtx_t* lck = GET_LOCK(tb,hval);
+	erts_rwmtx_t* lck = GET_LOCK(tb,hval);
 	ASSERT(tb->common.type & DB_FINE_LOCKED);
-	erts_smp_rwmtx_rlock(lck);
+	erts_rwmtx_rlock(lck);
 	return lck;
     }
 }
 /* Fine grained write lock */
-static ERTS_INLINE erts_smp_rwmtx_t* WLOCK_HASH(DbTableHash* tb, HashValue hval)
+static ERTS_INLINE erts_rwmtx_t* WLOCK_HASH(DbTableHash* tb, HashValue hval)
 {
     if (tb->common.is_thread_safe) {
 	return NULL;
     } else {
-	erts_smp_rwmtx_t* lck = GET_LOCK(tb,hval);
+	erts_rwmtx_t* lck = GET_LOCK(tb,hval);
 	ASSERT(tb->common.type & DB_FINE_LOCKED);
-	erts_smp_rwmtx_rwlock(lck);
+	erts_rwmtx_rwlock(lck);
 	return lck;
     }
 }
 
-static ERTS_INLINE void RUNLOCK_HASH(erts_smp_rwmtx_t* lck)
+static ERTS_INLINE void RUNLOCK_HASH(erts_rwmtx_t* lck)
 {
     if (lck != NULL) {
-	erts_smp_rwmtx_runlock(lck);
+	erts_rwmtx_runlock(lck);
     }
 }
 
-static ERTS_INLINE void WUNLOCK_HASH(erts_smp_rwmtx_t* lck)
+static ERTS_INLINE void WUNLOCK_HASH(erts_rwmtx_t* lck)
 {
     if (lck != NULL) {
-	erts_smp_rwmtx_rwunlock(lck);
+	erts_rwmtx_rwunlock(lck);
     }
 }
-#else /* ERTS_SMP */
-# define RLOCK_HASH(tb,hval) NULL 
-# define WLOCK_HASH(tb,hval) NULL
-# define RUNLOCK_HASH(lck) ((void)lck) 
-# define WUNLOCK_HASH(lck) ((void)lck)
-#endif /* ERTS_SMP */
 
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #  define IFN_EXCL(tb,cmd) (((tb)->common.is_thread_safe) || (cmd))
-#  define IS_HASH_RLOCKED(tb,hval) IFN_EXCL(tb,erts_smp_lc_rwmtx_is_rlocked(GET_LOCK(tb,hval)))
-#  define IS_HASH_WLOCKED(tb,lck) IFN_EXCL(tb,erts_smp_lc_rwmtx_is_rwlocked(lck))
-#  define IS_TAB_WLOCKED(tb) erts_smp_lc_rwmtx_is_rwlocked(&(tb)->common.rwlock)
+#  define IS_HASH_RLOCKED(tb,hval) IFN_EXCL(tb,erts_lc_rwmtx_is_rlocked(GET_LOCK(tb,hval)))
+#  define IS_HASH_WLOCKED(tb,lck) IFN_EXCL(tb,erts_lc_rwmtx_is_rwlocked(lck))
+#  define IS_TAB_WLOCKED(tb) erts_lc_rwmtx_is_rwlocked(&(tb)->common.rwlock)
 #else
 #  define IS_HASH_RLOCKED(tb,hval) (1)
 #  define IS_HASH_WLOCKED(tb,hval) (1)
@@ -259,33 +248,25 @@ static ERTS_INLINE void WUNLOCK_HASH(erts_smp_rwmtx_t* lck)
 ** Slot READ locks updated accordingly, unlocked if EOT.
 */
 static ERTS_INLINE Sint next_slot(DbTableHash* tb, Uint ix,
-				  erts_smp_rwmtx_t** lck_ptr)
+				  erts_rwmtx_t** lck_ptr)
 {
-#ifdef ERTS_SMP
     ix += DB_HASH_LOCK_CNT;
     if (ix < NACTIVE(tb)) return ix;
     RUNLOCK_HASH(*lck_ptr);
     ix = (ix + 1) & DB_HASH_LOCK_MASK;
     if (ix != 0) *lck_ptr = RLOCK_HASH(tb,ix);
     return ix;
-#else
-    return (++ix < NACTIVE(tb)) ? ix : 0;
-#endif
 }
 /* Same as next_slot but with WRITE locking */
 static ERTS_INLINE Sint next_slot_w(DbTableHash* tb, Uint ix,
-				    erts_smp_rwmtx_t** lck_ptr)
+				    erts_rwmtx_t** lck_ptr)
 {
-#ifdef ERTS_SMP
     ix += DB_HASH_LOCK_CNT;
     if (ix < NACTIVE(tb)) return ix;
     WUNLOCK_HASH(*lck_ptr);
     ix = (ix + 1) & DB_HASH_LOCK_MASK;
     if (ix != 0) *lck_ptr = WLOCK_HASH(tb,ix);
     return ix;
-#else
-    return next_slot(tb,ix,lck_ptr);
-#endif
 }
 
 #ifndef MIN
@@ -334,9 +315,7 @@ struct segment {
 
 /* An extended segment table */
 struct ext_segtab {
-#ifdef ERTS_SMP
     ErtsThrPrgrLaterOp lop;
-#endif
     struct segment** prev_segtab;  /* Used when table is shrinking */
     int prev_nsegs;                /* Size of prev_segtab */
     int nsegs;                     /* Size of this segtab */
@@ -350,9 +329,9 @@ static ERTS_INLINE void SET_SEGTAB(DbTableHash* tb,
 				   struct segment** segtab)
 {
     if (DB_USING_FINE_LOCKING(tb))
-	erts_smp_atomic_set_wb(&tb->segtab, (erts_aint_t) segtab);
+	erts_atomic_set_wb(&tb->segtab, (erts_aint_t) segtab);
     else
-	erts_smp_atomic_set_nob(&tb->segtab, (erts_aint_t) segtab);
+	erts_atomic_set_nob(&tb->segtab, (erts_aint_t) segtab);
 }
 
 /* Used by select_replace on analyze_pattern */
@@ -364,7 +343,7 @@ typedef int (*extra_match_validator_t)(int keypos, Eterm match, Eterm guard, Ete
 static struct ext_segtab* alloc_ext_segtab(DbTableHash* tb, unsigned seg_ix);
 static void alloc_seg(DbTableHash *tb);
 static int free_seg(DbTableHash *tb, int free_records);
-static HashDbTerm* next(DbTableHash *tb, Uint *iptr, erts_smp_rwmtx_t** lck_ptr,
+static HashDbTerm* next(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr,
 			HashDbTerm *list);
 static HashDbTerm* search_list(DbTableHash* tb, Eterm key, 
 			       HashValue hval, HashDbTerm *list);
@@ -562,7 +541,7 @@ static void restore_fixdel(DbTableHash* tb, FixedDeletion* fixdel)
 {
     /*int tries = 0;*/
     DEBUG_WAIT();
-    if (erts_smp_atomic_cmpxchg_relb(&tb->fixdel,
+    if (erts_atomic_cmpxchg_relb(&tb->fixdel,
 				     (erts_aint_t) fixdel,
 				     (erts_aint_t) NULL) != (erts_aint_t) NULL) {
 	/* Oboy, must join lists */    
@@ -571,13 +550,13 @@ static void restore_fixdel(DbTableHash* tb, FixedDeletion* fixdel)
 	erts_aint_t exp_tail;
 
 	while (last->next != NULL) last = last->next;
-	was_tail = erts_smp_atomic_read_acqb(&tb->fixdel);
+	was_tail = erts_atomic_read_acqb(&tb->fixdel);
 	do { /* Lockless atomic list insertion */
 	    exp_tail = was_tail;
 	    last->next = (FixedDeletion*) exp_tail;
 	    /*++tries;*/
 	    DEBUG_WAIT();
-	    was_tail = erts_smp_atomic_cmpxchg_relb(&tb->fixdel,
+	    was_tail = erts_atomic_cmpxchg_relb(&tb->fixdel,
 						    (erts_aint_t) fixdel,
 						    exp_tail);
 	}while (was_tail != exp_tail);
@@ -593,18 +572,18 @@ SWord db_unfix_table_hash(DbTableHash *tb)
     FixedDeletion* fixdel;
     SWord work = 0;
 
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_rwmtx_is_rwlocked(&tb->common.rwlock)
-		       || (erts_smp_lc_rwmtx_is_rlocked(&tb->common.rwlock)
+    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&tb->common.rwlock)
+		       || (erts_lc_rwmtx_is_rlocked(&tb->common.rwlock)
 			   && !tb->common.is_thread_safe));
 restart:
-    fixdel = (FixedDeletion*) erts_smp_atomic_xchg_mb(&tb->fixdel,
+    fixdel = (FixedDeletion*) erts_atomic_xchg_mb(&tb->fixdel,
                                                       (erts_aint_t) NULL);
     while (fixdel != NULL) {
 	FixedDeletion *fx = fixdel;
 	int ix = fx->slot;
 	HashDbTerm **bp;
 	HashDbTerm *b;
-	erts_smp_rwmtx_t* lck = WLOCK_HASH(tb,ix);
+	erts_rwmtx_t* lck = WLOCK_HASH(tb,ix);
 
 	if (IS_FIXED(tb)) { /* interrupted by fixer */
 	    WUNLOCK_HASH(lck);
@@ -650,10 +629,10 @@ int db_create_hash(Process *p, DbTable *tbl)
 {
     DbTableHash *tb = &tbl->hash;
 
-    erts_smp_atomic_init_nob(&tb->szm, FIRST_SEGSZ_MASK);
-    erts_smp_atomic_init_nob(&tb->nactive, FIRST_SEGSZ);
-    erts_smp_atomic_init_nob(&tb->fixdel, (erts_aint_t)NULL);
-    erts_smp_atomic_init_nob(&tb->segtab, (erts_aint_t)NULL);
+    erts_atomic_init_nob(&tb->szm, FIRST_SEGSZ_MASK);
+    erts_atomic_init_nob(&tb->nactive, FIRST_SEGSZ);
+    erts_atomic_init_nob(&tb->fixdel, (erts_aint_t)NULL);
+    erts_atomic_init_nob(&tb->segtab, (erts_aint_t)NULL);
     SET_SEGTAB(tb, tb->first_segtab);
     tb->nsegs = NSEG_1;
     tb->nslots = FIRST_SEGSZ;
@@ -662,32 +641,30 @@ int db_create_hash(Process *p, DbTable *tbl)
                                                           SIZEOF_SEGMENT(FIRST_SEGSZ));
     sys_memset(tb->first_segtab[0], 0, SIZEOF_SEGMENT(FIRST_SEGSZ));
 
-#ifdef ERTS_SMP
-    erts_smp_atomic_init_nob(&tb->is_resizing, 0);
+    erts_atomic_init_nob(&tb->is_resizing, 0);
     if (tb->common.type & DB_FINE_LOCKED) {
-	erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
+	erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
 	int i;
 	if (tb->common.type & DB_FREQ_READ)
-	    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
+	    rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
 	if (erts_ets_rwmtx_spin_count >= 0)
 	    rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
 	tb->locks = (DbTableHashFineLocks*) erts_db_alloc_fnf(ERTS_ALC_T_DB_SEG, /* Other type maybe? */ 
 							      (DbTable *) tb,
 							      sizeof(DbTableHashFineLocks));	    	    
 	for (i=0; i<DB_HASH_LOCK_CNT; ++i) {
-            erts_smp_rwmtx_init_opt(&tb->locks->lck_vec[i].lck, &rwmtx_opt,
+            erts_rwmtx_init_opt(&tb->locks->lck_vec[i].lck, &rwmtx_opt,
                 "db_hash_slot", tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
 	}
 	/* This important property is needed to guarantee the two buckets
     	 * involved in a grow/shrink operation it protected by the same lock:
 	 */
-	ASSERT(erts_smp_atomic_read_nob(&tb->nactive) % DB_HASH_LOCK_CNT == 0);
+	ASSERT(erts_atomic_read_nob(&tb->nactive) % DB_HASH_LOCK_CNT == 0);
     }
     else { /* coarse locking */
 	tb->locks = NULL;
     }
     ERTS_THR_MEMORY_BARRIER;
-#endif /* ERST_SMP */
     return DB_ERROR_NONE;
 }
 
@@ -695,7 +672,7 @@ static int db_first_hash(Process *p, DbTable *tbl, Eterm *ret)
 {
     DbTableHash *tb = &tbl->hash;
     Uint ix = 0;
-    erts_smp_rwmtx_t* lck = RLOCK_HASH(tb,ix);
+    erts_rwmtx_t* lck = RLOCK_HASH(tb,ix);
     HashDbTerm* list;
 
     for (;;) {
@@ -728,7 +705,7 @@ static int db_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     HashValue hval;
     Uint ix;
     HashDbTerm* b;
-    erts_smp_rwmtx_t* lck;
+    erts_rwmtx_t* lck;
 
     hval = MAKE_HASH(key);
     lck = RLOCK_HASH(tb,hval);
@@ -775,7 +752,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
     HashDbTerm** bp;
     HashDbTerm* b;
     HashDbTerm* q;
-    erts_smp_rwmtx_t* lck;
+    erts_rwmtx_t* lck;
     int nitems;
     int ret = DB_ERROR_NONE;
 
@@ -801,7 +778,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
     if (tb->common.status & DB_SET) {
 	HashDbTerm* bnext = b->next;
 	if (b->hvalue == INVALID_HASH) {
-	    erts_smp_atomic_inc_nob(&tb->common.nitems);
+	    erts_atomic_inc_nob(&tb->common.nitems);
 	}
 	else if (key_clash_fail) {
 	    ret = DB_ERROR_BADKEY;
@@ -829,7 +806,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail)
 	do {
 	    if (db_eq(&tb->common,obj,&q->dbterm)) {
 		if (q->hvalue == INVALID_HASH) {
-		    erts_smp_atomic_inc_nob(&tb->common.nitems);
+		    erts_atomic_inc_nob(&tb->common.nitems);
 		    q->hvalue = hval;
 		    if (q != b) { /* must move to preserve key insertion order */
 			*qp = q->next;
@@ -850,7 +827,7 @@ Lnew:
     q->hvalue = hval;
     q->next = b;
     *bp = q;
-    nitems = erts_smp_atomic_inc_read_nob(&tb->common.nitems);
+    nitems = erts_atomic_inc_read_nob(&tb->common.nitems);
     WUNLOCK_HASH(lck);
     {
 	int nactive = NACTIVE(tb);       
@@ -894,7 +871,7 @@ int db_get_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     HashValue hval;
     int ix;
     HashDbTerm* b;
-    erts_smp_rwmtx_t* lck;
+    erts_rwmtx_t* lck;
 
     hval = MAKE_HASH(key);
     lck = RLOCK_HASH(tb,hval);
@@ -920,7 +897,7 @@ static int db_member_hash(DbTable *tbl, Eterm key, Eterm *ret)
     HashValue hval;
     int ix;
     HashDbTerm* b1;
-    erts_smp_rwmtx_t* lck;
+    erts_rwmtx_t* lck;
 
     hval = MAKE_HASH(key);
     ix = hash_to_ix(tb, hval);
@@ -949,7 +926,7 @@ static int db_get_element_hash(Process *p, DbTable *tbl,
     HashValue hval;
     int ix;
     HashDbTerm* b1;
-    erts_smp_rwmtx_t* lck;
+    erts_rwmtx_t* lck;
     int retval;
     
     hval = MAKE_HASH(key);
@@ -1014,7 +991,7 @@ int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret)
     int ix;
     HashDbTerm** bp;
     HashDbTerm* b;
-    erts_smp_rwmtx_t* lck;
+    erts_rwmtx_t* lck;
     int nitems_diff = 0;
 
     hval = MAKE_HASH(key);
@@ -1046,7 +1023,7 @@ int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret)
     }
     WUNLOCK_HASH(lck);
     if (nitems_diff) {
-	erts_smp_atomic_add_nob(&tb->common.nitems, nitems_diff);
+	erts_atomic_add_nob(&tb->common.nitems, nitems_diff);
 	try_shrink(tb);
     }
     *ret = am_true;
@@ -1063,7 +1040,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
     int ix;
     HashDbTerm** bp;
     HashDbTerm* b;
-    erts_smp_rwmtx_t* lck;
+    erts_rwmtx_t* lck;
     int nitems_diff = 0;
     int nkeys = 0;
     Eterm key;
@@ -1104,7 +1081,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
     }
     WUNLOCK_HASH(lck);
     if (nitems_diff) {
-	erts_smp_atomic_add_nob(&tb->common.nitems, nitems_diff);
+	erts_atomic_add_nob(&tb->common.nitems, nitems_diff);
 	try_shrink(tb);
     }
     *ret = am_true;
@@ -1115,7 +1092,7 @@ static int db_erase_object_hash(DbTable *tbl, Eterm object, Eterm *ret)
 static int db_slot_hash(Process *p, DbTable *tbl, Eterm slot_term, Eterm *ret)
 {
     DbTableHash *tb = &tbl->hash;
-    erts_smp_rwmtx_t* lck;
+    erts_rwmtx_t* lck;
     Sint slot;
     int retval;
     int nactive;
@@ -1230,18 +1207,13 @@ static int match_traverse(Process* p, DbTableHash* tb,
     unsigned current_list_pos = 0; /* Prefound buckets list index */
     Eterm match_res;
     Sint got = 0;                  /* Matched terms counter */
-    erts_smp_rwmtx_t* lck;         /* Slot lock */
+    erts_rwmtx_t* lck;         /* Slot lock */
     int ret_value;
-#ifdef ERTS_SMP
-    erts_smp_rwmtx_t* (*lock_hash_function)(DbTableHash*, HashValue)
+    erts_rwmtx_t* (*lock_hash_function)(DbTableHash*, HashValue)
         = (lock_for_write ? WLOCK_HASH : RLOCK_HASH);
-    void (*unlock_hash_function)(erts_smp_rwmtx_t*)
+    void (*unlock_hash_function)(erts_rwmtx_t*)
         = (lock_for_write ? WUNLOCK_HASH : RUNLOCK_HASH);
-#else
-    #define lock_hash_function(tb, hval) NULL
-    #define unlock_hash_function(lck) ((void)lck)
-#endif
-    Sint (*next_slot_function)(DbTableHash*, Uint, erts_smp_rwmtx_t**)
+    Sint (*next_slot_function)(DbTableHash*, Uint, erts_rwmtx_t**)
         = (lock_for_write ? next_slot_w : next_slot);
 
     if ((ret_value = analyze_pattern(tb, pattern, extra_match_validator, &mpi))
@@ -1359,10 +1331,6 @@ done:
     }
     return ret_value;
 
-#ifndef SMP
-#undef lock_hash_function
-#undef unlock_hash_function
-#endif
 }
 
 /*
@@ -1389,18 +1357,13 @@ static int match_traverse_continue(Process* p, DbTableHash* tb,
                                        */
     HashDbTerm* saved_current; /* Helper to avoid double skip on match */
     Eterm match_res;
-    erts_smp_rwmtx_t* lck;
+    erts_rwmtx_t* lck;
     int ret_value;
-#ifdef ERTS_SMP
-    erts_smp_rwmtx_t* (*lock_hash_function)(DbTableHash*, HashValue)
+    erts_rwmtx_t* (*lock_hash_function)(DbTableHash*, HashValue)
         = (lock_for_write ? WLOCK_HASH : RLOCK_HASH);
-    void (*unlock_hash_function)(erts_smp_rwmtx_t*)
+    void (*unlock_hash_function)(erts_rwmtx_t*)
         = (lock_for_write ? WUNLOCK_HASH : RUNLOCK_HASH);
-#else
-    #define lock_hash_function(tb, hval) NULL
-    #define unlock_hash_function(lck) ((void)lck)
-#endif
-    Sint (*next_slot_function)(DbTableHash* tb, Uint ix, erts_smp_rwmtx_t** lck_ptr)
+    Sint (*next_slot_function)(DbTableHash* tb, Uint ix, erts_rwmtx_t** lck_ptr)
         = (lock_for_write ? next_slot_w : next_slot);
 
     if (got < 0) {
@@ -1475,10 +1438,6 @@ done:
      */
     return ret_value;
 
-#ifndef SMP
-#undef lock_hash_function
-#undef unlock_hash_function
-#endif
 }
 
 
@@ -2011,7 +1970,7 @@ static int mtraversal_select_delete_on_match_res(void* context_ptr, Sint slot_ix
         *current_ptr = (*current_ptr)->next; // replace pointer to term using next
         free_term(sd_context_ptr->tb, del);
     }
-    erts_smp_atomic_dec_nob(&sd_context_ptr->tb->common.nitems);
+    erts_atomic_dec_nob(&sd_context_ptr->tb->common.nitems);
 
     return 1;
 }
@@ -2051,11 +2010,7 @@ static int db_select_delete_hash(Process *p, DbTable *tbl, Eterm tid, Eterm patt
     sd_context.tid = tid;
     sd_context.hp = NULL;
     sd_context.prev_continuation_tptr = NULL;
-#ifdef ERTS_SMP
     sd_context.fixated_by_me = sd_context.tb->common.is_thread_safe ? 0 : 1; /* TODO: something nicer */
-#else
-    sd_context.fixated_by_me = 0;
-#endif
     sd_context.last_pseudo_delete = (Uint) -1;
 
     return match_traverse(
@@ -2254,7 +2209,7 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     DbTableHash *tb = &tbl->hash;
     HashDbTerm **bp, *b;
     HashValue hval = MAKE_HASH(key);
-    erts_smp_rwmtx_t *lck = WLOCK_HASH(tb, hval);
+    erts_rwmtx_t *lck = WLOCK_HASH(tb, hval);
     int ix = hash_to_ix(tb, hval);
     int nitems_diff = 0;
 
@@ -2283,7 +2238,7 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     }
     WUNLOCK_HASH(lck);
     if (nitems_diff) {
-        erts_smp_atomic_add_nob(&tb->common.nitems, nitems_diff);
+        erts_atomic_add_nob(&tb->common.nitems, nitems_diff);
         try_shrink(tb);
     }
     return DB_ERROR_NONE;
@@ -2305,7 +2260,7 @@ int db_mark_all_deleted_hash(DbTable *tbl)
     HashDbTerm* list;
     int i;
 
-    ERTS_SMP_LC_ASSERT(IS_TAB_WLOCKED(tb));
+    ERTS_LC_ASSERT(IS_TAB_WLOCKED(tb));
 
     for (i = 0; i < NACTIVE(tb); i++) {
 	if ((list = BUCKET(tb,i)) != NULL) {
@@ -2316,7 +2271,7 @@ int db_mark_all_deleted_hash(DbTable *tbl)
 	    }while(list != NULL);
 	}
     }
-    erts_smp_atomic_set_nob(&tb->common.nitems, 0);    
+    erts_atomic_set_nob(&tb->common.nitems, 0);
     return DB_ERROR_NONE;
 }
 
@@ -2330,7 +2285,6 @@ static void db_print_hash(fmtfn_t to, void *to_arg, int show, DbTable *tbl)
 
     erts_print(to, to_arg, "Buckets: %d\n", NACTIVE(tb));
 
-#ifdef ERTS_SMP
     i = tbl->common.is_thread_safe;
     /* If crash dumping we set table to thread safe in order to
        avoid taking any locks */
@@ -2340,9 +2294,6 @@ static void db_print_hash(fmtfn_t to, void *to_arg, int show, DbTable *tbl)
     db_calc_stats_hash(&tbl->hash, &stats);
 
     tbl->common.is_thread_safe = i;
-#else
-    db_calc_stats_hash(&tbl->hash, &stats);
-#endif
 
     erts_print(to, to_arg, "Chain Length Avg: %f\n", stats.avg_chain_len);
     erts_print(to, to_arg, "Chain Length Max: %d\n", stats.max_chain_len);
@@ -2394,8 +2345,8 @@ static int db_free_table_hash(DbTable *tbl)
 static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
 {
     DbTableHash *tb = &tbl->hash;
-    FixedDeletion* fixdel = (FixedDeletion*) erts_smp_atomic_read_acqb(&tb->fixdel);
-    ERTS_SMP_LC_ASSERT(IS_TAB_WLOCKED(tb) || (tb->common.status & DB_DELETE));
+    FixedDeletion* fixdel = (FixedDeletion*) erts_atomic_read_acqb(&tb->fixdel);
+    ERTS_LC_ASSERT(IS_TAB_WLOCKED(tb) || (tb->common.status & DB_DELETE));
 
     while (fixdel != NULL) {
 	FixedDeletion *fx = fixdel;
@@ -2407,11 +2358,11 @@ static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
 		     sizeof(FixedDeletion));
 	ERTS_ETS_MISC_MEM_ADD(-sizeof(FixedDeletion));
 	if (--reds < 0) {
-	    erts_smp_atomic_set_relb(&tb->fixdel, (erts_aint_t)fixdel);
+	    erts_atomic_set_relb(&tb->fixdel, (erts_aint_t)fixdel);
 	    return reds;		/* Not done */
 	}
     }
-    erts_smp_atomic_set_relb(&tb->fixdel, (erts_aint_t)NULL);
+    erts_atomic_set_relb(&tb->fixdel, (erts_aint_t)NULL);
 
     while(tb->nslots != 0) {
 	reds -= EXT_SEGSZ/64 + free_seg(tb, 1);
@@ -2423,7 +2374,6 @@ static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
 	    return reds;	/* Not done */
 	}
     }
-#ifdef ERTS_SMP
     if (tb->locks != NULL) {
 	int i;
 	for (i=0; i<DB_HASH_LOCK_CNT; ++i) {
@@ -2433,8 +2383,7 @@ static SWord db_free_table_continue_hash(DbTable *tbl, SWord reds)
 		     (void*)tb->locks, sizeof(DbTableHashFineLocks));
 	tb->locks = NULL;
     }
-#endif    
-    ASSERT(erts_smp_atomic_read_nob(&tb->common.memory_size) == sizeof(DbTable));
+    ASSERT(erts_atomic_read_nob(&tb->common.memory_size) == sizeof(DbTable));
     return reds;			/* Done */
 }
 
@@ -2533,7 +2482,7 @@ static int analyze_pattern(DbTableHash *tb, Eterm pattern,
 		if (!db_has_variable(key)) {   /* Bound key */
 		    int ix, search_slot;
 		    HashDbTerm** bp;
-		    erts_smp_rwmtx_t* lck;
+		    erts_rwmtx_t* lck;
 		    hval = MAKE_HASH(key);
 		    lck = RLOCK_HASH(tb,hval);
 		    ix = hash_to_ix(tb, hval);
@@ -2637,14 +2586,12 @@ static void alloc_seg(DbTableHash *tb)
     tb->nslots += EXT_SEGSZ;
 }
 
-#ifdef ERTS_SMP
 static void dealloc_ext_segtab(void* lop_data)
 {
     struct ext_segtab* est = (struct ext_segtab*) lop_data;
 
     erts_free(ERTS_ALC_T_DB_SEG, est);
 }
-#endif
 
 /* Shrink table by freeing the top segment
 ** free_records: 1=free any records in segment, 0=assume segment is empty 
@@ -2683,7 +2630,6 @@ static int free_seg(DbTableHash *tb, int free_records)
             SET_SEGTAB(tb, est->prev_segtab);
             tb->nsegs = est->prev_nsegs;
 
-#ifdef ERTS_SMP
             if (!tb->common.is_thread_safe) {
                 /*
                  * Table is doing a graceful shrink operation and we must avoid
@@ -2701,7 +2647,6 @@ static int free_seg(DbTableHash *tb, int free_records)
                                                         sz);
             }
             else
-#endif
                 erts_db_free(ERTS_ALC_T_DB_SEG, (DbTable*)tb, est,
                              SIZEOF_EXT_SEGTAB(est->nsegs));
         }
@@ -2762,22 +2707,18 @@ static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
 static ERTS_INLINE int
 begin_resizing(DbTableHash* tb)
 {
-#ifdef ERTS_SMP
     if (DB_USING_FINE_LOCKING(tb))
 	return !erts_atomic_xchg_acqb(&tb->is_resizing, 1);
     else
         ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&tb->common.rwlock));
-#endif
     return 1;
 }
 
 static ERTS_INLINE void
 done_resizing(DbTableHash* tb)
 {
-#ifdef ERTS_SMP
     if (DB_USING_FINE_LOCKING(tb))
 	erts_atomic_set_relb(&tb->is_resizing, 0);
-#endif
 }
 
 /* Grow table with one or more new buckets.
@@ -2788,7 +2729,7 @@ static void grow(DbTableHash* tb, int nitems)
     HashDbTerm** pnext;
     HashDbTerm** to_pnext;
     HashDbTerm* p;
-    erts_smp_rwmtx_t* lck;
+    erts_rwmtx_t* lck;
     int nactive;
     int from_ix, to_ix;
     int szm;
@@ -2810,7 +2751,7 @@ static void grow(DbTableHash* tb, int nitems)
         }
         ASSERT(nactive < tb->nslots);
 
-        szm = erts_smp_atomic_read_nob(&tb->szm);
+        szm = erts_atomic_read_nob(&tb->szm);
         if (nactive <= szm) {
             from_ix = nactive & (szm >> 1);
         } else {
@@ -2821,7 +2762,7 @@ static void grow(DbTableHash* tb, int nitems)
         to_ix = nactive;
 
         lck = WLOCK_HASH(tb, from_ix);
-        ERTS_SMP_ASSERT(lck == GET_LOCK_MAYBE(tb,to_ix));
+        ERTS_ASSERT(lck == GET_LOCK_MAYBE(tb,to_ix));
         /* Now a final double check (with the from_ix lock held)
          * that we did not get raced by a table fixer.
          */
@@ -2829,12 +2770,12 @@ static void grow(DbTableHash* tb, int nitems)
             WUNLOCK_HASH(lck);
             goto abort;
         }
-        erts_smp_atomic_set_nob(&tb->nactive, ++nactive);
+        erts_atomic_set_nob(&tb->nactive, ++nactive);
         if (from_ix == 0) {
             if (DB_USING_FINE_LOCKING(tb))
-                erts_smp_atomic_set_relb(&tb->szm, szm);
+                erts_atomic_set_relb(&tb->szm, szm);
             else
-                erts_smp_atomic_set_nob(&tb->szm, szm);
+                erts_atomic_set_nob(&tb->szm, szm);
         }
         done_resizing(tb);
 
@@ -2882,7 +2823,7 @@ static void shrink(DbTableHash* tb, int nitems)
     HashDbTerm** src_bp;
     HashDbTerm** dst_bp;
     HashDbTerm** bp;
-    erts_smp_rwmtx_t* lck;
+    erts_rwmtx_t* lck;
     int src_ix, dst_ix, low_szm;
     int nactive;
     int loop_limit = 5;
@@ -2895,13 +2836,13 @@ static void shrink(DbTableHash* tb, int nitems)
             goto abort; /* already done (race) */
         }
         src_ix = nactive - 1;
-        low_szm = erts_smp_atomic_read_nob(&tb->szm) >> 1;
+        low_szm = erts_atomic_read_nob(&tb->szm) >> 1;
         dst_ix = src_ix & low_szm;
 
         ASSERT(dst_ix < src_ix);
         ASSERT(nactive > FIRST_SEGSZ);
         lck = WLOCK_HASH(tb, dst_ix);
-        ERTS_SMP_ASSERT(lck == GET_LOCK_MAYBE(tb,src_ix));
+        ERTS_ASSERT(lck == GET_LOCK_MAYBE(tb,src_ix));
         /* Double check for racing table fixers */
         if (IS_FIXED(tb)) {
             WUNLOCK_HASH(lck);
@@ -2930,9 +2871,9 @@ static void shrink(DbTableHash* tb, int nitems)
         *src_bp = NULL;
 
         nactive = src_ix;
-        erts_smp_atomic_set_nob(&tb->nactive, nactive);
+        erts_atomic_set_nob(&tb->nactive, nactive);
         if (dst_ix == 0) {
-            erts_smp_atomic_set_relb(&tb->szm, low_szm);
+            erts_atomic_set_relb(&tb->szm, low_szm);
         }
         WUNLOCK_HASH(lck);
 
@@ -2967,12 +2908,12 @@ static HashDbTerm* search_list(DbTableHash* tb, Eterm key,
 /* It return the next live object in a table, NULL if no more */
 /* In-bucket: RLOCKED */
 /* Out-bucket: RLOCKED unless NULL */
-static HashDbTerm* next(DbTableHash *tb, Uint *iptr, erts_smp_rwmtx_t** lck_ptr,
+static HashDbTerm* next(DbTableHash *tb, Uint *iptr, erts_rwmtx_t** lck_ptr,
 			HashDbTerm *list)
 {
     int i;
 
-    ERTS_SMP_LC_ASSERT(IS_HASH_RLOCKED(tb,*iptr));
+    ERTS_LC_ASSERT(IS_HASH_RLOCKED(tb,*iptr));
 
     for (list = list->next; list != NULL; list = list->next) {
 	if (list->hvalue != INVALID_HASH)
@@ -3002,7 +2943,7 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
     DbTableHash *tb = &tbl->hash;
     HashValue hval;
     HashDbTerm **bp, *b;
-    erts_smp_rwmtx_t* lck;
+    erts_rwmtx_t* lck;
     int flags = 0;
 
     ASSERT(tb->common.status & DB_SET);
@@ -3058,7 +2999,7 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
             q->next = next;
             q->hvalue = hval;
             *bp = b = q;
-            erts_smp_atomic_inc_nob(&tb->common.nitems);
+            erts_atomic_inc_nob(&tb->common.nitems);
         }
 
         HRelease(p, hend, htop);
@@ -3084,10 +3025,10 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
     DbTableHash *tb = &tbl->hash;
     HashDbTerm **bp = (HashDbTerm **) handle->bp;
     HashDbTerm *b = *bp;
-    erts_smp_rwmtx_t* lck = (erts_smp_rwmtx_t*) handle->lck;
+    erts_rwmtx_t* lck = (erts_rwmtx_t*) handle->lck;
     HashDbTerm* free_me = NULL;
 
-    ERTS_SMP_LC_ASSERT(IS_HASH_WLOCKED(tb, lck));  /* locked by db_lookup_dbterm_hash */
+    ERTS_LC_ASSERT(IS_HASH_WLOCKED(tb, lck));  /* locked by db_lookup_dbterm_hash */
 
     ASSERT((&b->dbterm == handle->dbterm) == !(tb->common.compress && handle->flags & DB_MUST_RESIZE));
 
@@ -3101,7 +3042,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
         }
 
         WUNLOCK_HASH(lck);
-        erts_smp_atomic_dec_nob(&tb->common.nitems);
+        erts_atomic_dec_nob(&tb->common.nitems);
         try_shrink(tb);
     } else {
         if (handle->flags & DB_MUST_RESIZE) {
@@ -3110,7 +3051,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
         }
         if (handle->flags & DB_INC_TRY_GROW) {
             int nactive;
-            int nitems = erts_smp_atomic_inc_read_nob(&tb->common.nitems);
+            int nitems = erts_atomic_inc_read_nob(&tb->common.nitems);
             WUNLOCK_HASH(lck);
             nactive = NACTIVE(tb);
 
@@ -3138,7 +3079,7 @@ static int db_delete_all_objects_hash(Process* p, DbTable* tbl)
     } else {
 	db_free_table_hash(tbl);
 	db_create_hash(p, tbl);
-	erts_smp_atomic_set_nob(&tbl->hash.common.nitems, 0);
+	erts_atomic_set_nob(&tbl->hash.common.nitems, 0);
     }
     return 0;
 }
@@ -3168,7 +3109,7 @@ void db_foreach_offheap_hash(DbTable *tbl,
 void db_calc_stats_hash(DbTableHash* tb, DbHashStats* stats)
 {
     HashDbTerm* b;
-    erts_smp_rwmtx_t* lck;
+    erts_rwmtx_t* lck;
     int sum = 0;
     int sq_sum = 0;
     int kept_items = 0;

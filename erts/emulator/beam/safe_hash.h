@@ -73,11 +73,11 @@ typedef struct
     int size_mask;	      /* (RW) Number of slots - 1 */
     SafeHashBucket** tab;     /* (RW) Vector of bucket pointers (objects) */
     int grow_limit;           /* (RW) Threshold for growing table */
-    erts_smp_atomic_t nitems;       /* (A) Number of items in table */
-    erts_smp_atomic_t is_rehashing; /* (A) Table rehashing in progress */
+    erts_atomic_t nitems;       /* (A) Number of items in table */
+    erts_atomic_t is_rehashing; /* (A) Table rehashing in progress */
 
     union {
-	erts_smp_mtx_t mtx;
+	erts_mtx_t mtx;
 	byte __cache_line__[64];
     }lock_vec[SAFE_HASH_LOCK_CNT];
 

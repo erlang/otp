@@ -180,7 +180,7 @@ typedef struct {
     Eterm ref;
     Eterm ref_heap[ERTS_REF_THING_SIZE];
     Uint req_sched;
-    erts_smp_atomic32_t refc;
+    erts_atomic32_t refc;
 } ErtsGCInfoReq;
 
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -274,7 +274,7 @@ erts_init_gc(void)
     }
 
 #ifdef ERTS_DIRTY_SCHEDULERS
-    erts_smp_mtx_init(&dirty_gc.mtx, "dirty_gc_info", NIL,
+    erts_mtx_init(&dirty_gc.mtx, "dirty_gc_info", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     init_gc_info(&dirty_gc.info);
 #endif
@@ -672,7 +672,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 
     ASSERT(CONTEXT_REDS - ERTS_REDS_LEFT(p, fcalls) >= esdp->virtual_reds);
 
-    state = erts_smp_atomic32_read_nob(&p->state);
+    state = erts_atomic32_read_nob(&p->state);
 
     if ((p->flags & (F_DISABLE_GC|F_DELAY_GC)) || state & ERTS_PSFLG_EXITING) {
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -698,7 +698,7 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 
     ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_GC);
 
-    erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
+    erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     if (erts_system_monitor_long_gc != 0)
 	start_time = erts_get_monotonic_time(esdp);
 
@@ -779,17 +779,17 @@ do_major_collection:
         ErtsProcLocks locks = ERTS_PROC_LOCKS_ALL;
         int res;
 
-        erts_smp_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
+        erts_proc_lock(p, ERTS_PROC_LOCKS_ALL_MINOR);
         erts_send_exit_signal(p, p->common.id, p, &locks,
                               am_kill, NIL, NULL, 0);
-        erts_smp_proc_unlock(p, locks & ERTS_PROC_LOCKS_ALL_MINOR);
+        erts_proc_unlock(p, locks & ERTS_PROC_LOCKS_ALL_MINOR);
 
 #ifdef ERTS_DIRTY_SCHEDULERS
     delay_gc_after_start:
 #endif
         /* erts_send_exit_signal looks for ERTS_PSFLG_GC, so
            we have to remove it after the signal is sent */
-        erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+        erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
         /* We have to make sure that we have space for need on the heap */
         res = delay_garbage_collection(p, live_hf_end, need, fcalls);
@@ -797,7 +797,7 @@ do_major_collection:
         return res;
     }
 
-    erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+    erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
     if (IS_TRACED_FL(p, F_TRACE_GC)) {
         trace_gc(p, gc_trace_end_tag, reclaimed_now, THE_NON_VALUE);
@@ -924,7 +924,7 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
     /*
      * Preliminaries.
      */
-    erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
+    erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     ErtsGcQuickSanityCheck(p);
     ASSERT(p->stop == p->hend);	/* Stack must be empty. */
 
@@ -1015,7 +1015,7 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
 
     p->flags |= F_HIBERNATED;
 
-    erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+    erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
     reds = gc_cost(actual_size, actual_size);
     return reds;
@@ -1137,7 +1137,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     /*
      * Set GC state.
      */
-    erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
+    erts_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
 
     /*
      * Just did a major collection (which has discarded the old heap),
@@ -1284,7 +1284,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     /*
      * Restore status.
      */
-    erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+    erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 
     reds += (Sint64) gc_cost((p->htop - p->heap) + byte_lit_size/sizeof(Uint), 0);
 
@@ -2914,7 +2914,7 @@ sweep_off_heap(Process *p, int fullsweep)
 	    case FUN_SUBTAG:
 		{
 		    ErlFunEntry* fe = ((ErlFunThing*)ptr)->fe;
-		    if (erts_smp_refc_dectest(&fe->refc, 0) == 0) {
+		    if (erts_refc_dectest(&fe->refc, 0) == 0) {
 			erts_erase_fun_entry(fe);
 		    }
 		    break;
@@ -3274,11 +3274,11 @@ reply_gc_info(void *vgcirp)
 	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
  
     if (rp_locks)
-	erts_smp_proc_unlock(rp, rp_locks);
+	erts_proc_unlock(rp, rp_locks);
 
     erts_proc_dec_refc(rp);
 
-    if (erts_smp_atomic32_dec_read_nob(&gcirp->refc) == 0)
+    if (erts_atomic32_dec_read_nob(&gcirp->refc) == 0)
 	gcireq_free(vgcirp);
 }
 
@@ -3330,18 +3330,16 @@ erts_gc_info_request(Process *c_p)
     gcirp->proc = c_p;
     gcirp->ref = STORE_NC(&hp, NULL, ref);
     gcirp->req_sched = esdp->no;
-    erts_smp_atomic32_init_nob(&gcirp->refc,
+    erts_atomic32_init_nob(&gcirp->refc,
 			       (erts_aint32_t) erts_no_schedulers);
 
     erts_proc_add_refc(c_p, (Sint) erts_no_schedulers);
 
-#ifdef ERTS_SMP
     if (erts_no_schedulers > 1)
 	erts_schedule_multi_misc_aux_work(1,
 					  erts_no_schedulers,
 					  reply_gc_info,
 					  (void *) gcirp);
-#endif
 
     reply_gc_info((void *) gcirp);
 
@@ -3628,12 +3626,12 @@ erts_check_off_heap2(Process *p, Eterm *htop)
 	    refc = erts_refc_read(&u.pb->val->intern.refc, 1);
 	    break;
 	case FUN_SUBTAG:
-	    refc = erts_smp_refc_read(&u.fun->fe->refc, 1);
+	    refc = erts_refc_read(&u.fun->fe->refc, 1);
 	    break;
 	case EXTERNAL_PID_SUBTAG:
 	case EXTERNAL_PORT_SUBTAG:
 	case EXTERNAL_REF_SUBTAG:
-	    refc = erts_smp_refc_read(&u.ext->node->refc, 1);
+	    refc = erts_refc_read(&u.ext->node->refc, 1);
 	    break;
 	case REF_SUBTAG:
 	    ASSERT(is_magic_ref_thing(u.hdr));

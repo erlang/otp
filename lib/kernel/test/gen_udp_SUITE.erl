@@ -295,21 +295,9 @@ bad_address(Config) when is_list(Config) ->
 %% are received per in/out scheduling, which should be
 %% the same as the read_packets parameter.
 %% 
-%% What happens on the SMP emulator remains to be seen...
-%%
 
 %% OTP-6249 UDP option for number of packet reads.
 read_packets(Config) when is_list(Config) ->
-    case erlang:system_info(smp_support) of
-	false ->
-	    read_packets_1();
-	true ->
-	    %% We would need some new sort of tracing to test this
-	    %% option reliably in an SMP emulator.
-	    {skip,"SMP emulator"}
-    end.
-
-read_packets_1() ->
     N1 = 5,
     N2 = 7,
     {ok,R} = gen_udp:open(0, [{read_packets,N1}]),

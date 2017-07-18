@@ -27,9 +27,7 @@
 #include "erl_thr_progress.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #include "erl_alloc_util.h"
-#ifdef USE_THREADS
 #include "erl_threads.h"
-#endif
 #include "erl_mmap.h"
 
 #ifdef DEBUG
@@ -154,12 +152,10 @@ void erts_allctr_wrapper_pre_lock(void);
 void erts_allctr_wrapper_pre_unlock(void);
 
 void erts_alloc_register_scheduler(void *vesdp);
-#ifdef ERTS_SMP
 void erts_alloc_scheduler_handle_delayed_dealloc(void *vesdp,
 						 int *need_thr_progress,
 						 ErtsThrPrgrVal *thr_prgr_p,
 						 int *more_work);
-#endif
 erts_aint32_t erts_alloc_fix_alloc_shrink(int ix, erts_aint32_t flgs);
 
 __decl_noreturn void erts_alloc_enomem(ErtsAlcType_t,Uint)		
@@ -338,37 +334,10 @@ erts_alloc_get_verify_unused_temp_alloc(Allctr_t **allctr);
   (((((SZ) - 1) / ERTS_CACHE_LINE_SIZE) + 1) * ERTS_CACHE_LINE_SIZE)
 
 #define ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
-ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT,				\
-		      (void) 0, (void) 0, (void) 0)
-
-#define ERTS_SMP_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
-static erts_smp_spinlock_t NAME##_lck;					\
-ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT,				\
-		      erts_smp_spinlock_init(&NAME##_lck, #NAME "_alloc_lock", NIL, \
-		          ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR),\
-		      erts_smp_spin_lock(&NAME##_lck),			\
-		      erts_smp_spin_unlock(&NAME##_lck))
-
-#ifdef ERTS_SMP
+    ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, (void) 0, (void) 0, (void) 0)
 
 #define ERTS_TS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
-ERTS_SMP_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)
-
-#else /* !ERTS_SMP */
-
-#define ERTS_TS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)			\
-static erts_mtx_t NAME##_lck;						\
-ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT,				\
-		      erts_mtx_init(NAME##_lck, #NAME "_alloc_lock", NIL, \
-		          ERTS_LOCK_FLAGS_CATEGORY_ALLOCATOR),\
-		      erts_mtx_lock(&NAME##_lck),			\
-		      erts_mtx_unlock(&NAME##_lck))
-
-
-#endif
-
-#define ERTS_PALLOC_IMPL(NAME, TYPE, PASZ)				\
-ERTS_PRE_ALLOC_IMPL(NAME, TYPE, PASZ, (void) 0, (void) 0, (void) 0)
+ERTS_QUALLOC_IMPL(NAME, TYPE, PASZ, ALCT)
 
 #define ERTS_TS_PALLOC_IMPL(NAME, TYPE, PASZ)				\
 static erts_spinlock_t NAME##_lck;					\
@@ -378,17 +347,10 @@ ERTS_PRE_ALLOC_IMPL(NAME, TYPE, PASZ,					\
 		    erts_spin_lock(&NAME##_lck),			\
 		    erts_spin_unlock(&NAME##_lck))
 
-#ifdef ERTS_SMP
 
-#define ERTS_SMP_PALLOC_IMPL(NAME, TYPE, PASZ)				\
+#define ERTS_PALLOC_IMPL(NAME, TYPE, PASZ)				\
   ERTS_TS_PALLOC_IMPL(NAME, TYPE, PASZ)
 
-#else /* !ERTS_SMP */
-
-#define ERTS_SMP_PALLOC_IMPL(NAME, TYPE, PASZ)				\
-  ERTS_PALLOC_IMPL(NAME, TYPE, PASZ)
-
-#endif
 
 #define ERTS_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT, ILCK, LCK, ULCK)	\
 ERTS_PRE_ALLOC_IMPL(NAME##_pre, TYPE, PASZ, ILCK, LCK, ULCK)		\
@@ -412,21 +374,11 @@ NAME##_free(TYPE *p)							\
 	erts_free(ALCT, (void *) p);					\
 }
 
-#ifdef ERTS_SMP
 #define ERTS_SCHED_PREF_PALLOC_IMPL(NAME, TYPE, PASZ)			\
   ERTS_SCHED_PREF_PRE_ALLOC_IMPL(NAME, TYPE, PASZ)
-#else
-#define ERTS_SCHED_PREF_PALLOC_IMPL(NAME, TYPE, PASZ)			\
-  ERTS_PRE_ALLOC_IMPL(NAME, TYPE, PASZ, (void) 0, (void) 0, (void) 0)
-#endif
 
-#ifdef ERTS_SMP
 #define ERTS_SCHED_PREF_AUX(NAME, TYPE, PASZ)				\
 ERTS_SCHED_PREF_PRE_ALLOC_IMPL(NAME##_pre, TYPE, PASZ)
-#else
-#define ERTS_SCHED_PREF_AUX(NAME, TYPE, PASZ)				\
-ERTS_PRE_ALLOC_IMPL(NAME##_pre, TYPE, PASZ, (void) 0, (void) 0, (void) 0)
-#endif
 
 #define ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT)	\
 ERTS_SCHED_PREF_AUX(NAME, TYPE, PASZ)					\

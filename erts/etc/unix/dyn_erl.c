@@ -22,13 +22,7 @@
  * This is a C version of the erl Bourne shell script
  */
 
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
-
-#include "sys.h"
-#include <stdlib.h>
-#include <stdarg.h>
+#include "etc_common.h"
 
 #define BOOL int
 #define TRUE 1

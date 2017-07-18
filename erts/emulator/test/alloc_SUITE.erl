@@ -65,12 +65,7 @@ mseg_clear_cache(Cfg) -> drv_case(Cfg).
 cpool(Cfg) -> drv_case(Cfg).
 
 migration(Cfg) ->
-    case erlang:system_info(smp_support) of
-	true ->
-	    drv_case(Cfg, concurrent, "+MZe true");
-	false ->
-	    {skipped, "No smp"}
-    end.
+    drv_case(Cfg, concurrent, "+MZe true").
 
 erts_mmap(Config) when is_list(Config) ->
     case {os:type(), mmsc_flags()} of

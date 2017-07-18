@@ -291,7 +291,7 @@ typedef union {
      * atomics are used they might
      * differ in size.
      */
-    erts_smp_atomic_t smp_atomic_word;
+    erts_atomic_t smp_atomic_word;
     erts_atomic_t atomic_word;
 } ErtsMagicIndirectionWord;
 
@@ -326,7 +326,7 @@ ERTS_GLB_INLINE Binary *erts_create_magic_binary_x(Uint size,
 ERTS_GLB_INLINE Binary *erts_create_magic_binary(Uint size,
 						 int (*destructor)(Binary *));
 ERTS_GLB_INLINE Binary *erts_create_magic_indirection(int (*destructor)(Binary *));
-ERTS_GLB_INLINE erts_smp_atomic_t *erts_smp_binary_to_magic_indirection(Binary *bp);
+ERTS_GLB_INLINE erts_atomic_t *erts_binary_to_magic_indirection(Binary *bp);
 ERTS_GLB_INLINE erts_atomic_t *erts_binary_to_magic_indirection(Binary *bp);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -519,16 +519,6 @@ erts_create_magic_indirection(int (*destructor)(Binary *))
                                              but word aligned */
 }
 
-ERTS_GLB_INLINE erts_smp_atomic_t *
-erts_smp_binary_to_magic_indirection(Binary *bp)
-{
-    ErtsMagicIndirectionWord *mip;
-    ASSERT(bp->intern.flags & BIN_FLAG_MAGIC);
-    ASSERT(ERTS_MAGIC_BIN_ATYPE(bp) == ERTS_ALC_T_MINDIRECTION);
-    mip = ERTS_MAGIC_BIN_UNALIGNED_DATA(bp);
-    return &mip->smp_atomic_word;
-}
-
 ERTS_GLB_INLINE erts_atomic_t *
 erts_binary_to_magic_indirection(Binary *bp)
 {
@@ -536,7 +526,7 @@ erts_binary_to_magic_indirection(Binary *bp)
     ASSERT(bp->intern.flags & BIN_FLAG_MAGIC);
     ASSERT(ERTS_MAGIC_BIN_ATYPE(bp) == ERTS_ALC_T_MINDIRECTION);
     mip = ERTS_MAGIC_BIN_UNALIGNED_DATA(bp);
-    return &mip->atomic_word;
+    return &mip->smp_atomic_word;
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */

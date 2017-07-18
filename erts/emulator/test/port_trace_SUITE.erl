@@ -78,13 +78,6 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_testcase(driver_remote_send_term, Config) ->
-    case erlang:system_info(smp_support) of
-        false ->
-            {skip,"Only supported on smp systems"};
-        true ->
-            init_per_testcase(driver_remote_send_term_smp, Config)
-    end;
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     erlang:trace(all, false, [all]),
     os:unsetenv("OUTPUTV"),

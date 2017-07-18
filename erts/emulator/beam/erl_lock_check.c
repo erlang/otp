@@ -75,12 +75,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
      *						 if only one lock use
      *						 the lock name)"
      */
-#ifdef ERTS_SMP
     {	"driver_lock",				"driver_name"		},
     {	"port_lock",				"port_id"		},
-#endif
     {	"port_data_lock",			"address"		},
-#ifdef ERTS_SMP
     {	"bif_timers",				NULL			},
     {	"reg_tab",				NULL			},
     {	"proc_main",				"pid"			},
@@ -89,9 +86,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"hipe_mfait_lock",			NULL			},
 #endif
     {	"nodes_monitors",			NULL			},
-#ifdef ERTS_SMP
     {	"resource_monitors",			"address"	        },
-#endif
     {   "driver_list",                          NULL                    },
     {	"proc_link",				"pid"			},
     {	"proc_msgq",				"pid"			},
@@ -114,7 +109,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"fun_tab",				NULL			},
     {	"environ",				NULL			},
     {	"release_literal_areas",		NULL			},
-#endif
     {	"efile_drv",				"address"		},
     {	"drv_ev_state_grow",			NULL,   		},
     {	"drv_ev_state",				"address"		},
@@ -144,7 +138,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"async_enq_mtx",			NULL			},
     {   "msacc_list_mutex",                     NULL                    },
     {   "msacc_unmanaged_mutex",                NULL                    },
-#ifdef ERTS_SMP
     {	"atom_tab",				NULL			},
     {	"misc_op_list_pre_alloc_lock",		"address"		},
     {	"message_pre_alloc_lock",		"address"		},
@@ -155,17 +148,13 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"sys_msg_q", 				NULL			},
     {	"tracer_mtx", 				NULL			},
     {   "port_table",                           NULL                    },
-#endif
     {	"magic_ref_table",			"address"		},
     {	"mtrace_op",				NULL			},
     {	"instr_x",				NULL			},
     {	"instr",				NULL			},
-#ifdef ERTS_SMP
     {	"pollsets_lock",			NULL			},
-#endif
     {	"alcu_allocator",			"index"			},
     {	"mseg",					NULL			},
-#ifdef ERTS_SMP
     {	"port_task_pre_alloc_lock",		"address"		},
     {	"proclist_pre_alloc_lock",		"address"		},
     {	"xports_list_pre_alloc_lock",		"address"		},
@@ -178,7 +167,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"pix_lock",				"address"		},
     {	"run_queues_lists",			NULL			},
     {	"sched_stat",				NULL			},
-#endif
     {	"async_init_mtx",			NULL			},
 #ifdef __WIN32__
 #ifdef DEBUG
@@ -189,9 +177,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "efile_drv dtrace mutex",               NULL                    },
 #endif
     {	"mtrace_buf",				NULL			},
-#ifdef ERTS_SMP
     {	"os_monotonic_time",			NULL			},
-#endif
     {	"erts_alloc_hard_debug",		NULL			},
     {	"hard_dbg_mseg",		        NULL	                },
     {	"erts_mmap",				NULL			}

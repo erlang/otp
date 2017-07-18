@@ -86,11 +86,9 @@ typedef struct {
     Sint patches;		/* Index (into code buffer) to first location
 				 * which must be patched with the value of this label.
 				 */
-#ifdef ERTS_SMP
     Uint looprec_targeted;	/* Non-zero if this label is the target of a loop_rec
 				 * instruction.
 				 */
-#endif
 } Label;
 
 /*
@@ -796,8 +794,8 @@ erts_finish_loading(Binary* magic, Process* c_p,
      * table which is not protected by any locks.
      */
 
-    ERTS_SMP_LC_ASSERT(erts_initialized == 0 || erts_has_code_write_permission() ||
-		       erts_smp_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(erts_initialized == 0 || erts_has_code_write_permission() ||
+		       erts_thr_progress_is_blocking());
     /*
      * Make current code for the module old and insert the new code
      * as current.  This will fail if there already exists old code
@@ -832,7 +830,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
 		    continue;
 		} else if (ep->beam[0] ==
 			   (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
-		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+		    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 		    ASSERT(mod_tab_p->curr.num_traced_exports > 0);
 		    erts_clear_export_break(mod_tab_p, &ep->info);
 		    ep->addressv[code_ix] = (BeamInstr *) ep->beam[1];
@@ -1875,9 +1873,7 @@ read_code_header(LoaderState* stp)
     for (i = 0; i < stp->num_labels; i++) {
 	stp->labels[i].value = 0;
 	stp->labels[i].patches = -1;
-#ifdef ERTS_SMP
 	stp->labels[i].looprec_targeted = 0;
-#endif
     }
 
     stp->catches = 0;
@@ -3389,11 +3385,7 @@ negation_is_small(LoaderState* stp, GenOpArg Int)
 static int
 smp(LoaderState* stp)
 {
-#ifdef ERTS_SMP
     return 1;
-#else
-    return 0;
-#endif
 }
 
 /*
@@ -3402,10 +3394,8 @@ smp(LoaderState* stp)
 static int
 smp_mark_target_label(LoaderState* stp, GenOpArg L)
 {
-#ifdef ERTS_SMP
     ASSERT(L.type == TAG_f);
     stp->labels[L.val].looprec_targeted = 1;
-#endif
     return 1;
 }
 
@@ -3416,12 +3406,8 @@ smp_mark_target_label(LoaderState* stp, GenOpArg L)
 static int
 smp_already_locked(LoaderState* stp, GenOpArg L)
 {
-#ifdef ERTS_SMP
     ASSERT(L.type == TAG_u);
     return stp->labels[L.val].looprec_targeted;
-#else
-    return 0;
-#endif
 }
 
 /*
@@ -4948,7 +4934,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
 		/*
 		 * We are hiding a pointer into older code.
 		 */
-		erts_smp_refc_dec(&fe->refc, 1);
+		erts_refc_dec(&fe->refc, 1);
 	    }
 	    fe->address = code_ptr;
 #ifdef HIPE
@@ -6381,7 +6367,7 @@ patch_funentries(Eterm Patchlist)
     fe = erts_get_fun_entry(Mod, uniq, index);
     fe->native_address = (Uint *)native_address;
 
-    erts_smp_refc_dec(&fe->refc, 1);
+    erts_refc_dec(&fe->refc, 1);
 
     if (!patch(Addresses, (Uint) fe))
       return 0;

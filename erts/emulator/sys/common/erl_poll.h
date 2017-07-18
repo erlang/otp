@@ -227,9 +227,6 @@ typedef struct {
 #endif
 } ErtsPollInfo;
 
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-void		ERTS_POLL_EXPORT(erts_poll_async_sig_interrupt)(ErtsPollSet);
-#endif
 void		ERTS_POLL_EXPORT(erts_poll_interrupt)(ErtsPollSet,
 						      int);
 void		ERTS_POLL_EXPORT(erts_poll_interrupt_timed)(ErtsPollSet,

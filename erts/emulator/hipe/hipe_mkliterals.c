@@ -441,9 +441,7 @@ static const struct rts_param rts_params[] = {
     { 11, "ERL_FUN_SIZE", 1, ERL_FUN_SIZE },
 
     { 12, "P_SCHED_DATA",
-#ifdef ERTS_SMP
       1, offsetof(struct process, scheduler_data)
-#endif
     },
     { 14, "P_FP_EXCEPTION",
 #if !defined(NO_FPE_SIGNALS) || defined(HIPE)
@@ -453,11 +451,7 @@ static const struct rts_param rts_params[] = {
     /* This flag is always defined, but its value is configuration-dependent. */
     { 15, "ERTS_IS_SMP",
       1,
-#if defined(ERTS_SMP)
       1
-#else
-      0
-#endif
     },
     /* This flag is always defined, but its value is configuration-dependent. */
     { 16, "ERTS_NO_FPE_SIGNALS",
@@ -513,7 +507,7 @@ static const struct rts_param rts_params[] = {
 #endif
     },
     { 48, "P_BIF_CALLEE",
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 	1, offsetof(struct process, hipe.bif_callee)
 #endif
     },

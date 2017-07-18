@@ -87,32 +87,10 @@
 
 #define ERTS_THR_Q_MAX_FINI_DEQ_OPS 50
 
-#ifdef ERTS_SMP
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(sl_element,
 				 ErtsThrQElement_t,
 				 1000,
 				 ERTS_ALC_T_THR_Q_EL_SL)
-#else
-
-static void
-init_sl_element_alloc(void)
-{
-}
-
-static ErtsThrQElement_t *
-sl_element_alloc(void)
-{
-    return erts_alloc(ERTS_ALC_T_THR_Q_EL_SL,
-		      sizeof(ErtsThrQElement_t));
-}
-
-static void
-sl_element_free(ErtsThrQElement_t *p)
-{
-    erts_free(ERTS_ALC_T_THR_Q_EL_SL, p);
-}
-
-#endif
 
 #define ErtsThrQDirtyReadEl(A) \
     ((ErtsThrQElement_t *) erts_atomic_read_dirty((A)))
@@ -135,14 +113,6 @@ static void noop_callback(void *arg) { }
 void
 erts_thr_q_initialize(ErtsThrQ_t *q, ErtsThrQInit_t *qi)
 {
-#ifndef USE_THREADS
-    q->init = *qi;
-    if (!q->init.notify)
-	q->init.notify = noop_callback;
-    q->first = NULL;
-    q->last = NULL;
-    q->q.blk = NULL;
-#else
     erts_atomic_init_nob(&q->tail.data.marker.next, ERTS_AINT_NULL);
     q->tail.data.marker.data.ptr = NULL;
     erts_atomic_init_nob(&q->tail.data.last,
@@ -164,10 +134,8 @@ erts_thr_q_initialize(ErtsThrQ_t *q, ErtsThrQInit_t *qi)
     q->head.deq_fini.automatic = qi->auto_finalize_dequeue;
     q->head.deq_fini.start = NULL;
     q->head.deq_fini.end = NULL;
-#ifdef ERTS_SMP
     q->head.next.thr_progress = erts_thr_progress_current();
     q->head.next.thr_progress_reached = 1;
-#endif
     q->head.next.um_refc_ix = 1;
     q->head.next.unref_end = &q->tail.data.marker;
     q->head.used_marker = 1;
@@ -176,15 +144,12 @@ erts_thr_q_initialize(ErtsThrQ_t *q, ErtsThrQInit_t *qi)
     q->q.finalizing = 0;
     q->q.live = qi->live.queue;
     q->q.blk = NULL;
-#endif
 }
 
 ErtsThrQCleanState_t
 erts_thr_q_finalize(ErtsThrQ_t *q)
 {
-#ifdef USE_THREADS
     q->q.finalizing = 1;
-#endif
     while (erts_thr_q_dequeue(q));
     return erts_thr_q_clean(q);
 }
@@ -229,7 +194,6 @@ erts_thr_q_destroy(ErtsThrQ_t *q)
     return erts_thr_q_finalize(q);
 }
 
-#ifdef USE_THREADS
 
 static void
 destroy(ErtsThrQ_t *q)
@@ -249,7 +213,6 @@ destroy(ErtsThrQ_t *q)
     erts_free(atype, q->q.blk);
 }
 
-#endif
 
 static ERTS_INLINE ErtsThrQElement_t *
 element_live_alloc(ErtsThrQLive_t live)
@@ -267,11 +230,7 @@ static ERTS_INLINE ErtsThrQElement_t *
 element_alloc(ErtsThrQ_t *q)
 {
     ErtsThrQLive_t live;
-#ifdef USE_THREADS
     live = q->tail.data.live;
-#else
-    live = q->init.live.objects;
-#endif
     return element_live_alloc(live);
 }
 
@@ -291,15 +250,10 @@ static ERTS_INLINE void
 element_free(ErtsThrQ_t *q, ErtsThrQElement_t *el)
 {
     ErtsThrQLive_t live;
-#ifdef USE_THREADS
     live = q->head.live;
-#else
-    live = q->init.live.objects;
-#endif
     element_live_free(live, el);
 }
 
-#ifdef USE_THREADS
 
 static ERTS_INLINE ErtsThrQElement_t *
 enqueue_managed(ErtsThrQ_t *q, ErtsThrQElement_t *this)
@@ -423,11 +377,9 @@ clean(ErtsThrQ_t *q, int max_ops, int do_notify)
 	return ERTS_THR_Q_CLEAN;
     }
 
-#ifdef ERTS_SMP
     if (q->head.next.thr_progress_reached
 	|| erts_thr_progress_has_reached(q->head.next.thr_progress)) {
 	q->head.next.thr_progress_reached = 1;
-#endif
 	um_refc_ix = q->head.next.um_refc_ix;
 	if (erts_atomic_read_acqb(&q->tail.data.um_refc[um_refc_ix]) == 0) {
 	    /* Move unreferenced end pointer forward... */
@@ -439,23 +391,17 @@ clean(ErtsThrQ_t *q, int max_ops, int do_notify)
 		ilast = (erts_aint_t) enqueue_marker(q, NULL);
 
 	    if (q->head.unref_end == (ErtsThrQElement_t *) ilast)
-		ERTS_SMP_MEMORY_BARRIER;
+		ERTS_THR_MEMORY_BARRIER;
 	    else {
 		q->head.next.unref_end = (ErtsThrQElement_t *) ilast;
-#ifdef ERTS_SMP
 		q->head.next.thr_progress = erts_thr_progress_later(NULL);
-#endif
 		erts_atomic32_set_relb(&q->tail.data.um_refc_ix,
 				       um_refc_ix);
 		q->head.next.um_refc_ix = um_refc_ix == 0 ? 1 : 0;
-#ifdef ERTS_SMP
 		q->head.next.thr_progress_reached = 0;
-#endif
 	    }
 	}
-#ifdef ERTS_SMP
     }
-#endif
 
     head = ErtsThrQDirtyReadEl(&q->head.head);
     if (q->head.first == head) {
@@ -489,9 +435,7 @@ clean(ErtsThrQ_t *q, int max_ops, int do_notify)
 
 check_thr_progress:
 
-#ifdef ERTS_SMP
     if (q->head.next.thr_progress_reached)
-#endif
     {
 	int um_refc_ix = q->head.next.um_refc_ix;
 	if (erts_atomic_read_acqb(&q->tail.data.um_refc[um_refc_ix]) == 0) {
@@ -505,24 +449,16 @@ check_thr_progress:
     return ERTS_THR_Q_NEED_THR_PRGR;
 }
 
-#endif
 
 ErtsThrQCleanState_t
 erts_thr_q_clean(ErtsThrQ_t *q)
 {
-#ifdef USE_THREADS
     return clean(q, ERTS_THR_Q_MAX_SCHED_CLEAN_OPS, 0);
-#else
-    return ERTS_THR_Q_CLEAN;
-#endif
 }
 
 ErtsThrQCleanState_t
 erts_thr_q_inspect(ErtsThrQ_t *q, int ensure_empty)
 {
-#ifndef USE_THREADS
-    return ERTS_THR_Q_CLEAN;
-#else
     ErtsThrQElement_t *head = ErtsThrQDirtyReadEl(&q->head.head);
     if (ensure_empty) {
 	erts_aint_t inext;
@@ -553,39 +489,21 @@ erts_thr_q_inspect(ErtsThrQ_t *q, int ensure_empty)
     if (q->head.first != q->head.unref_end)
 	return ERTS_THR_Q_DIRTY;
 
-#ifdef ERTS_SMP
     if (q->head.next.thr_progress_reached)
-#endif
     {
 	int um_refc_ix = q->head.next.um_refc_ix;
 	if (erts_atomic_read_acqb(&q->tail.data.um_refc[um_refc_ix]) == 0)
 	    return ERTS_THR_Q_DIRTY;
     }
     return ERTS_THR_Q_NEED_THR_PRGR;
-#endif
 }
 
 static void
 enqueue(ErtsThrQ_t *q, void *data, ErtsThrQElement_t *this)
 {
-#ifndef USE_THREADS
-    ASSERT(data);
-
-    this->next = NULL;
-    this->data.ptr = data;
-
-    if (q->last)
-	q->last->next = this;
-    else {
-	q->first = q->last = this;
-	q->init.notify(q->init.arg);
-    }
-#else
     int notify;
     int um_refc_ix = 0;
-#ifdef ERTS_SMP
     int unmanaged_thread;
-#endif
 
 #if ERTS_THR_Q_DBG_CHK_DATA
     if (!data)
@@ -596,10 +514,8 @@ enqueue(ErtsThrQ_t *q, void *data, ErtsThrQElement_t *this)
 
     this->data.ptr = data;
 
-#ifdef ERTS_SMP
     unmanaged_thread = !erts_thr_progress_is_managed_thread();
     if (unmanaged_thread)
-#endif
     {
 	um_refc_ix = erts_atomic32_read_acqb(&q->tail.data.um_refc_ix);
 	while (1) {
@@ -616,9 +532,7 @@ enqueue(ErtsThrQ_t *q, void *data, ErtsThrQElement_t *this)
     notify = this == enqueue_managed(q, this);
 	
 
-#ifdef ERTS_SMP
     if (unmanaged_thread)
-#endif
     {
 	if (notify)
 	    erts_atomic_dec_relb(&q->tail.data.um_refc[um_refc_ix]);
@@ -627,7 +541,6 @@ enqueue(ErtsThrQ_t *q, void *data, ErtsThrQElement_t *this)
     }
     if (notify)
 	q->tail.data.notify(q->tail.data.arg);
-#endif
 }
 
 void
@@ -645,9 +558,6 @@ erts_thr_q_prepare_enqueue(ErtsThrQ_t *q)
 int
 erts_thr_q_get_finalize_dequeue_data(ErtsThrQ_t *q, ErtsThrQFinDeQ_t *fdp)
 {
-#ifndef USE_THREADS
-    return 0;
-#else
 #ifdef DEBUG
     if (!q->head.deq_fini.start) {
 	ASSERT(!q->head.deq_fini.end);
@@ -670,14 +580,12 @@ erts_thr_q_get_finalize_dequeue_data(ErtsThrQ_t *q, ErtsThrQFinDeQ_t *fdp)
     q->head.deq_fini.start = NULL;
     q->head.deq_fini.end = NULL;
     return fdp->start != NULL;
-#endif
 }
 
 void
 erts_thr_q_append_finalize_dequeue_data(ErtsThrQFinDeQ_t *fdp0,
 					ErtsThrQFinDeQ_t *fdp1)
 {
-#ifdef USE_THREADS
     if (fdp1->start) {
 	if (fdp0->end)
 	    ErtsThrQDirtySetEl(&fdp0->end->next, fdp1->start);
@@ -685,13 +593,11 @@ erts_thr_q_append_finalize_dequeue_data(ErtsThrQFinDeQ_t *fdp0,
 	    fdp0->start = fdp1->start;
 	fdp0->end = fdp1->end;
     }
-#endif
 }
 
 
 int erts_thr_q_finalize_dequeue(ErtsThrQFinDeQ_t *state)
 {
-#ifdef USE_THREADS
     ErtsThrQElement_t *start = state->start;
     if (start) {
 	ErtsThrQLive_t live;
@@ -710,17 +616,14 @@ int erts_thr_q_finalize_dequeue(ErtsThrQFinDeQ_t *state)
 	    return 1; /* More to do */
 	state->end = NULL;
     }
-#endif
     return 0;
 }
 
 void
 erts_thr_q_finalize_dequeue_state_init(ErtsThrQFinDeQ_t *state)
 {
-#ifdef USE_THREADS
     state->start = NULL;
     state->end = NULL;
-#endif
 }
 
 
@@ -734,22 +637,6 @@ erts_thr_q_enqueue_prepared(ErtsThrQ_t *q, void *data, ErtsThrQPrepEnQ_t *prep)
 void *
 erts_thr_q_dequeue(ErtsThrQ_t *q)
 {
-#ifndef USE_THREADS
-    void *res;
-    ErtsThrQElement_t *tmp;
-
-    if (!q->first)
-	return NULL;
-    tmp = q->first;
-    res = tmp->data.ptr;
-    q->first = tmp->next;
-    if (!q->first)
-	q->last = NULL;
-
-    element_free(q, tmp);
-
-    return res;
-#else
     ErtsThrQElement_t *head;
     erts_aint_t inext;
     void *res;
@@ -778,7 +665,6 @@ erts_thr_q_dequeue(ErtsThrQ_t *q)
 	   ? ERTS_THR_Q_MAX_DEQUEUE_CLEAN_OPS
 	   : ERTS_THR_Q_MAX_SCHED_CLEAN_OPS), 1);
     return res;
-#endif
 }
 
 #ifdef USE_LTTNG_VM_TRACEPOINTS
@@ -786,14 +672,6 @@ int
 erts_thr_q_length_dirty(ErtsThrQ_t *q)
 {
     int n = 0;
-#ifndef USE_THREADS
-    void *res;
-    ErtsThrQElement_t *tmp;
-
-    for (tmp = q->first; tmp != NULL; tmp = tmp->next) {
-        n++;
-    }
-#else
     ErtsThrQElement_t *e;
     erts_aint_t inext;
 
@@ -808,7 +686,6 @@ erts_thr_q_length_dirty(ErtsThrQ_t *q)
         }
         inext = erts_atomic_read_acqb(&e->next);
     }
-#endif
     return n;
 }
 #endif

@@ -311,10 +311,8 @@ typedef long ssize_t;
 #endif
 
 /* Threads */
-#ifdef USE_THREADS
 int init_async(int);
 int exit_async(void);
-#endif
 
 #define ERTS_HAVE_TRY_CATCH 1
 

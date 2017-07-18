@@ -1144,8 +1144,6 @@ check_si_res(["thread", "false"]) ->
     false = erlang:system_info(threads);
 check_si_res(["smp", "true"]) ->
     true = erlang:system_info(smp_support);
-check_si_res(["smp", "false"]) ->
-    false = erlang:system_info(smp_support);
 
 %% Data added in second version of driver_system_info() (driver version 1.1)
 check_si_res(["async_thrs", Value]) ->
@@ -1944,44 +1942,39 @@ thr_msg_blast_receiver_proc(Port, Max, Parent, Done) ->
     end.
 
 thr_msg_blast(Config) when is_list(Config) ->
-    case erlang:system_info(smp_support) of
-        false ->
-            {skipped, "Non-SMP emulator; nothing to test..."};
-        true ->
-            Path = proplists:get_value(data_dir, Config),
-            erl_ddll:start(),
-            ok = load_driver(Path, thr_msg_blast_drv),
-            MemBefore = driver_alloc_size(),
-            Start = os:timestamp(),
-            Port = open_port({spawn, thr_msg_blast_drv}, []),
-            true = is_port(Port),
-            Done = make_ref(),
-            Me = self(),
-            spawn(fun () ->
-                          thr_msg_blast_receiver_proc(Port, 1, Me, Done)
-                  end),
-            receive
-                Done -> ok
-            end,
-            ok = thr_msg_blast_receiver(Port, 0, 32*10000),
-            port_close(Port),
-            End = os:timestamp(),
-            receive
-                Garbage ->
-                    ct:fail({received_garbage, Port, Garbage})
-            after 2000 ->
-                      ok
-            end,
-            MemAfter = driver_alloc_size(),
-            io:format("MemBefore=~p, MemAfter=~p~n",
-                      [MemBefore, MemAfter]),
-            ThrMsgBlastTime = timer:now_diff(End,Start)/1000000,
-            io:format("ThrMsgBlastTime=~p~n", [ThrMsgBlastTime]),
-            MemBefore = MemAfter,
-            Res = {thr_msg_blast_time, ThrMsgBlastTime},
-            erlang:display(Res),
-            Res
-    end.
+    Path = proplists:get_value(data_dir, Config),
+    erl_ddll:start(),
+    ok = load_driver(Path, thr_msg_blast_drv),
+    MemBefore = driver_alloc_size(),
+    Start = os:timestamp(),
+    Port = open_port({spawn, thr_msg_blast_drv}, []),
+    true = is_port(Port),
+    Done = make_ref(),
+    Me = self(),
+    spawn(fun () ->
+                  thr_msg_blast_receiver_proc(Port, 1, Me, Done)
+          end),
+    receive
+        Done -> ok
+    end,
+    ok = thr_msg_blast_receiver(Port, 0, 32*10000),
+    port_close(Port),
+    End = os:timestamp(),
+    receive
+        Garbage ->
+            ct:fail({received_garbage, Port, Garbage})
+    after 2000 ->
+            ok
+    end,
+    MemAfter = driver_alloc_size(),
+    io:format("MemBefore=~p, MemAfter=~p~n",
+              [MemBefore, MemAfter]),
+    ThrMsgBlastTime = timer:now_diff(End,Start)/1000000,
+    io:format("ThrMsgBlastTime=~p~n", [ThrMsgBlastTime]),
+    MemBefore = MemAfter,
+    Res = {thr_msg_blast_time, ThrMsgBlastTime},
+    erlang:display(Res),
+    Res.
 
 -define(IN_RANGE(LoW_, VaLuE_, HiGh_),
         case in_range(LoW_, VaLuE_, HiGh_) of
@@ -2488,14 +2481,6 @@ wait_deallocations() ->
     end.
 
 driver_alloc_size() ->
-    case erlang:system_info(smp_support) of
-        true ->
-            ok;
-        false ->
-            %% driver_alloc also used by elements in lock-free queues,
-            %% give these some time to be deallocated...
-            receive after 100 -> ok end
-    end,
     wait_deallocations(),
     case erlang:system_info({allocator_sizes, driver_alloc}) of
         false ->

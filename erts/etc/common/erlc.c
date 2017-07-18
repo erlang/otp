@@ -20,19 +20,7 @@
 /*
  * Purpose: Common compiler front-end.
  */
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
-
-#include "sys.h"
-#ifdef __WIN32__
-#include <winbase.h>
-/* FIXE ME config_win32.h? */
-#define HAVE_STRERROR 1
-#define snprintf _snprintf
-#endif
-
-#include <ctype.h>
+#include "etc_common.h"
 
 #define NO 0
 #define YES 1

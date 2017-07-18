@@ -25,7 +25,7 @@ include(`hipe/hipe_ppc_asm.m4')
 #`include' "config.h"
 #`include' "hipe_literals.h"
 
-`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+`#if defined(ERTS_ENABLE_LOCK_CHECK)
 #  define CALL_BIF(F)	STORE_IA(CSYM(nbif_impl_##F), P_BIF_CALLEE(P), r29); bl CSYM(hipe_debug_bif_wrapper) 
 #else
 #  define CALL_BIF(F)	bl	CSYM(nbif_impl_##F)

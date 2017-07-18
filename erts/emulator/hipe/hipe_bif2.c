@@ -45,7 +45,7 @@ static void proc_unlock(Process* c_p, Process* rp)
 	locks &= ~ERTS_PROC_LOCK_MAIN;
     }
     if (rp && locks) {
-	erts_smp_proc_unlock(rp, locks);
+	erts_proc_unlock(rp, locks);
     }
 }
 
@@ -153,14 +153,14 @@ BIF_RETTYPE hipe_bifs_modeswitch_debug_off_0(BIF_ALIST_0)
     BIF_RET(am_true);
 }
 
-#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_CHECK)
 
 BIF_RETTYPE hipe_debug_bif_wrapper(NBIF_ALIST_1);
 
-#    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
+#    define ERTS_REQ_PROC_MAIN_LOCK(P) \
        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,\
 					  __FILE__, __LINE__)
-#    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
+#    define ERTS_UNREQ_PROC_MAIN_LOCK(P) \
         if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
 
 BIF_RETTYPE hipe_debug_bif_wrapper(NBIF_ALIST_1)
@@ -168,13 +168,13 @@ BIF_RETTYPE hipe_debug_bif_wrapper(NBIF_ALIST_1)
     typedef BIF_RETTYPE nBif(NBIF_ALIST_1);
     nBif* fp = (nBif*) (BIF_P->hipe.bif_callee);
     BIF_RETTYPE res;
-    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(BIF_P);
+    ERTS_UNREQ_PROC_MAIN_LOCK(BIF_P);
     res = (*fp)(NBIF_CALL_ARGS);
-    ERTS_SMP_REQ_PROC_MAIN_LOCK(BIF_P);
+    ERTS_REQ_PROC_MAIN_LOCK(BIF_P);
     return res;
 }
 
-#endif /* ERTS_ENABLE_LOCK_CHECK && ERTS_SMP */
+#endif /* ERTS_ENABLE_LOCK_CHECK*/
 
 
 BIF_RETTYPE hipe_bifs_debug_native_called_2(BIF_ALIST_2)

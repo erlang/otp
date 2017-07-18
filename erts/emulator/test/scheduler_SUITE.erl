@@ -1083,7 +1083,6 @@ sbt_test(Config, CpuTCmd, ClBt, Bt, LP) ->
     ok.
 
 scheduler_threads(Config) when is_list(Config) ->
-    SmpSupport = erlang:system_info(smp_support),
     {Sched, SchedOnln, _} = get_sstate(Config, ""),
     %% Configure half the number of both the scheduler threads and
     %% the scheduler threads online.
@@ -1095,10 +1094,7 @@ scheduler_threads(Config) when is_list(Config) ->
     %% setting using +SP to 50% scheduler threads and 25% scheduler
     %% threads online. The result should be 2x scheduler threads and
     %% 1x scheduler threads online.
-    TwiceSched = case SmpSupport of
-                     false -> 1;
-                     true -> Sched*2
-                 end,
+    TwiceSched = Sched*2,
     FourSched = integer_to_list(Sched*4),
     FourSchedOnln = integer_to_list(SchedOnln*4),
     CombinedCmd1 = "+S "++FourSched++":"++FourSchedOnln++" +SP50:25",
@@ -1121,8 +1117,8 @@ scheduler_threads(Config) when is_list(Config) ->
 	    ResetCmd = "+S "++FourSched++":"++FourSchedOnln++" +S 0:0",
 	    {LProc, LProcAvail, _} = get_sstate(Config, ResetCmd),
 	    %% Test negative +S settings, but only for SMP-enabled emulators
-	    case {SmpSupport, LProc > 1, LProcAvail > 1} of
-		{true, true, true} ->
+	    case {LProc > 1, LProcAvail > 1} of
+		{true, true} ->
 		    SchedMinus1 = LProc-1,
 		    SchedOnlnMinus1 = LProcAvail-1,
 		    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1"),
@@ -1157,9 +1153,6 @@ dirty_scheduler_threads_test(Config) ->
     ok.
 
 dirty_schedulers_online_test() ->
-    dirty_schedulers_online_test(erlang:system_info(smp_support)).
-dirty_schedulers_online_test(false) -> ok;
-dirty_schedulers_online_test(true) ->
     dirty_schedulers_online_smp_test(erlang:system_info(schedulers_online)).
 dirty_schedulers_online_smp_test(SchedOnln) when SchedOnln < 4 -> ok;
 dirty_schedulers_online_smp_test(SchedOnln) ->

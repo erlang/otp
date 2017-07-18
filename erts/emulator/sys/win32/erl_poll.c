@@ -286,41 +286,26 @@ struct ErtsPollSet_ {
     CRITICAL_SECTION standby_crit;     /* CS to guard the counter */
     HANDLE standby_wait_event;         /* Event signalled when counte == 0 */
     erts_atomic32_t wakeup_state;
-#ifdef ERTS_SMP
-    erts_smp_mtx_t mtx;
-#endif
+    erts_mtx_t mtx;
     erts_atomic64_t timeout_time;
 };
 
-#ifdef ERTS_SMP
 
 #define ERTS_POLLSET_LOCK(PS) \
-  erts_smp_mtx_lock(&(PS)->mtx)
+  erts_mtx_lock(&(PS)->mtx)
 #define ERTS_POLLSET_UNLOCK(PS) \
-  erts_smp_mtx_unlock(&(PS)->mtx)
+  erts_mtx_unlock(&(PS)->mtx)
 
-#else
-
-#define ERTS_POLLSET_LOCK(PS)
-#define ERTS_POLLSET_UNLOCK(PS)
-
-#endif
 
 /*
  * Communication with sys_interrupt
  */
 
-#ifdef ERTS_SMP
-extern erts_smp_atomic32_t erts_break_requested;
+extern erts_atomic32_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
+  erts_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
-#else
-extern volatile int erts_break_requested;
-#define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
-#define ERTS_UNSET_BREAK_REQUESTED (erts_break_requested = 0)
-#endif
+  erts_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
 
 static erts_mtx_t break_waiter_lock;
 static HANDLE break_happened_event;
@@ -1193,14 +1178,10 @@ int erts_poll_wait(ErtsPollSet ps,
 
 	HARDDEBUGF(("Start waiting %d [%d]",num_h, (int) timeout));
 	ERTS_POLLSET_UNLOCK(ps);
-#ifdef ERTS_SMP
 	erts_thr_progress_prepare_wait(NULL);
-#endif
         ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_SLEEP);
 	WaitForMultipleObjects(num_h, harr, FALSE, timeout);
-#ifdef ERTS_SMP
 	erts_thr_progress_finalize_wait(NULL);
-#endif
         ERTS_MSACC_POP_STATE_M();
 	ERTS_POLLSET_LOCK(ps);
 	HARDDEBUGF(("Stop waiting %d [%d]",num_h, (int) timeout));
@@ -1359,9 +1340,7 @@ ErtsPollSet erts_poll_create_pollset(void)
     ps->restore_events = 0;
 
     erts_atomic32_init_nob(&ps->wakeup_state, ERTS_POLL_NOT_WOKEN);
-#ifdef ERTS_SMP
-    erts_smp_mtx_init(&ps->mtx, "pollset", NIL, ERTS_LOCK_FLAGS_CATEGORY_IO);
-#endif
+    erts_mtx_init(&ps->mtx, "pollset", NIL, ERTS_LOCK_FLAGS_CATEGORY_IO);
     init_timeout_time(ps);
 
     HARDTRACEF(("Out erts_poll_create_pollset"));
@@ -1391,9 +1370,7 @@ void erts_poll_destroy_pollset(ErtsPollSet ps)
     CloseHandle(ps->event_io_ready);
     CloseHandle(ps->standby_wait_event);
     ERTS_POLLSET_UNLOCK(ps);
-#ifdef ERTS_SMP
-    erts_smp_mtx_destroy(&ps->mtx);
-#endif
+    erts_mtx_destroy(&ps->mtx);
     SEL_FREE(ERTS_ALC_T_POLLSET, (void *) ps);
     HARDTRACEF(("Out erts_poll_destroy_pollset"));
 }

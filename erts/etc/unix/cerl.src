@@ -139,29 +139,6 @@ while [ $# -gt 0 ]; do
 	    shift
 	    unset DISPLAY
 	    ;;
-	"-smp")
-	    shift
-	    if [ $# -le 0 ]; then
-		eeargs_add -smp
-	    else
-		case $1 in
-		    disable)
-			shift
-			eeargs_add -smpdisable
-			;;
-		    enable)
-			shift
-			eeargs_add -smp
-			;;
-		    *)
-			eeargs_add -smp
-		esac
-	    fi
-	    ;;
-	"-smpdisable")
-	    shift
-	    eeargs_add -smpdisable
-	    ;;
 	"-lcnt")
 	    shift
 	    cargs="$cargs -lcnt"

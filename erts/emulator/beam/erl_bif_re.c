@@ -66,11 +66,7 @@ static void erts_erts_pcre_stack_free(void *ptr) {
 
 #define ERTS_PCRE_STACK_MARGIN (10*1024)
 
-#ifdef ERTS_SMP
 #  define ERTS_STACK_LIMIT ((char *) ethr_get_stacklimit())
-#else
-#  define ERTS_STACK_LIMIT ((char *) erts_scheduler_stack_limit)
-#endif
 
 static int
 stack_guard_downwards(void)

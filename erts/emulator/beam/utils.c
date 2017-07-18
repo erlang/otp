@@ -43,7 +43,6 @@
 #include "erl_printf.h"
 #include "erl_threads.h"
 #include "erl_lock_count.h"
-#include "erl_smp.h"
 #include "erl_time.h"
 #include "erl_thr_progress.h"
 #include "erl_thr_queue.h"
@@ -1931,27 +1930,6 @@ do_allocate_logger_message(Eterm gleader, Eterm **hp, ErlOffHeap **ohp,
     gl_sz = IS_CONST(gleader) ? 0 : size_object(gleader);
     sz = sz + gl_sz;
 
-#ifndef ERTS_SMP
-#ifdef USE_THREADS
-    if (!erts_get_scheduler_data()) /* Must be scheduler thread */
-	*p = NULL;
-    else
-#endif
-    {
-	*p = erts_whereis_process(NULL, 0, am_error_logger, 0, 0);
-	if (*p) {
-	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&(*p)->state);
-	    if (state & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS))
-		*p = NULL;
-	}
-    }
-
-    if (!*p) {
-	return NIL;
-    }
-
-    /* So we have an error logger, lets build the message */
-#endif
     *bp = new_message_buffer(sz);
     *ohp = &(*bp)->off_heap;
     *hp = (*bp)->mem;
@@ -1969,20 +1947,12 @@ static void do_send_logger_message(Eterm *hp, ErlOffHeap *ohp, ErlHeapFragment *
 #ifdef HARDDEBUG
     erts_fprintf(stderr, "%T\n", message);
 #endif
-#ifdef ERTS_SMP
     {
 	Eterm from = erts_get_current_pid();
 	if (is_not_internal_pid(from))
 	    from = NIL;
 	erts_queue_error_logger_message(from, message, bp);
     }
-#else
-    {
-	ErtsMessage *mp = erts_alloc_message(0, NULL);
-	mp->data.heap_frag = bp;
-	erts_queue_message(p, 0, mp, message, am_system);
-    }
-#endif
 }
 
 /* error_logger !
@@ -3556,7 +3526,7 @@ store_external_or_ref_(Uint **hpp, ErlOffHeap* oh, Eterm ns)
     if (is_external_header(*from_hp)) {
 	ExternalThing *etp = (ExternalThing *) from_hp;
 	ASSERT(is_external(ns));
-	erts_smp_refc_inc(&etp->node->refc, 2);
+	erts_refc_inc(&etp->node->refc, 2);
     }
     else if (is_ordinary_ref_thing(from_hp))
 	return make_internal_ref(to_hp);
@@ -4657,22 +4627,6 @@ void
 erts_interval_init(erts_interval_t *icp)
 {
     erts_atomic64_init_nob(&icp->counter.atomic, 0);
-#ifdef DEBUG
-    icp->smp_api = 0;
-#endif
-}
-
-void
-erts_smp_interval_init(erts_interval_t *icp)
-{
-#ifdef ERTS_SMP
-    erts_interval_init(icp);
-#else
-    icp->counter.not_atomic = 0;
-#endif
-#ifdef DEBUG
-    icp->smp_api = 1;
-#endif
 }
 
 static ERTS_INLINE Uint64
@@ -4712,79 +4666,25 @@ ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
 Uint64
 erts_step_interval_nob(erts_interval_t *icp)
 {
-    ASSERT(!icp->smp_api);
     return step_interval_nob(icp);
 }
 
 Uint64
 erts_step_interval_relb(erts_interval_t *icp)
 {
-    ASSERT(!icp->smp_api);
     return step_interval_relb(icp);
-}
-
-Uint64
-erts_smp_step_interval_nob(erts_interval_t *icp)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return step_interval_nob(icp);
-#else
-    return ++icp->counter.not_atomic;
-#endif
-}
-
-Uint64
-erts_smp_step_interval_relb(erts_interval_t *icp)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return step_interval_relb(icp);
-#else
-    return ++icp->counter.not_atomic;
-#endif
 }
 
 Uint64
 erts_ensure_later_interval_nob(erts_interval_t *icp, Uint64 ic)
 {
-    ASSERT(!icp->smp_api);
     return ensure_later_interval_nob(icp, ic);
 }
 
 Uint64
 erts_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
 {
-    ASSERT(!icp->smp_api);
     return ensure_later_interval_acqb(icp, ic);
-}
-
-Uint64
-erts_smp_ensure_later_interval_nob(erts_interval_t *icp, Uint64 ic)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return ensure_later_interval_nob(icp, ic);
-#else
-    if (icp->counter.not_atomic > ic)
-	return icp->counter.not_atomic;
-    else
-	return ++icp->counter.not_atomic;
-#endif
-}
-
-Uint64
-erts_smp_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return ensure_later_interval_acqb(icp, ic);
-#else
-    if (icp->counter.not_atomic > ic)
-	return icp->counter.not_atomic;
-    else
-	return ++icp->counter.not_atomic;
-#endif
 }
 
 /*

@@ -32,7 +32,6 @@
 #  include "config.h"
 #endif
 
-#ifdef ERTS_SMP
 
 #include "erl_process.h"
 #include "erl_thr_progress.h"
@@ -325,4 +324,3 @@ erts_sspa_process_remote_frees(erts_sspa_chunk_header_t *chdr,
     return res;
 }
 
-#endif /* ERTS_SMP */

@@ -56,9 +56,9 @@
  *     Note that wait flags may be read without the pix lock, but
  *   it is important that wait flags only are modified when the pix
  *   lock is held.
- *     This implementation assumes that erts_smp_atomic_or_retold()
+ *     This implementation assumes that erts_atomic_or_retold()
  *   provides necessary memorybarriers for a lock operation, and that
- *   erts_smp_atomic_and_retold() provides necessary memorybarriers
+ *   erts_atomic_and_retold() provides necessary memorybarriers
  *   for an unlock operation.
  */
 
@@ -69,7 +69,6 @@
 #include "erl_process.h"
 #include "erl_thr_progress.h"
 
-#ifdef ERTS_SMP
 
 #if ERTS_PROC_LOCK_OWN_IMPL
 
@@ -464,7 +463,7 @@ wait_for_locks(Process *p,
 }
 
 /*
- * erts_proc_lock_failed() is called when erts_smp_proc_lock()
+ * erts_proc_lock_failed() is called when erts_proc_lock()
  * wasn't able to lock all locks. We may need to transfer locks
  * to waiters and wait for our turn on locks.
  *
@@ -543,7 +542,7 @@ erts_proc_lock_failed(Process *p,
 }
 
 /*
- * erts_proc_unlock_failed() is called when erts_smp_proc_unlock()
+ * erts_proc_unlock_failed() is called when erts_proc_unlock()
  * wasn't able to unlock all locks. We may need to transfer locks
  * to waiters.
  */
@@ -709,7 +708,7 @@ proc_safelock(int is_managed,
 		refc1 = 1;
 		erts_proc_inc_refc(p1);
 	    }
-	    erts_smp_proc_unlock(p1, unlock_locks);
+	    erts_proc_unlock(p1, unlock_locks);
 	}
 	unlock_locks = unlock_mask & have_locks2;
 	if (unlock_locks) {
@@ -719,7 +718,7 @@ proc_safelock(int is_managed,
 		refc2 = 1;
 		erts_proc_inc_refc(p2);
 	    }
-	    erts_smp_proc_unlock(p2, unlock_locks);
+	    erts_proc_unlock(p2, unlock_locks);
 	}
     }
 
@@ -750,7 +749,7 @@ proc_safelock(int is_managed,
 	    if (need_locks2 & lock)
 		lock_no--;
 	    locks = need_locks1 & lock_mask;
-	    erts_smp_proc_lock(p1, locks);
+	    erts_proc_lock(p1, locks);
 	    have_locks1 |= locks;
 	    need_locks1 &= ~locks;
 	}
@@ -761,7 +760,7 @@ proc_safelock(int is_managed,
 		lock = (1 << ++lock_no);
 	    }
 	    locks = need_locks2 & lock_mask;
-	    erts_smp_proc_lock(p2, locks);
+	    erts_proc_lock(p2, locks);
 	    have_locks2 |= locks;
 	    need_locks2 &= ~locks;
 	}
@@ -898,7 +897,7 @@ erts_pid2proc_opt(Process *c_p,
 #endif /* ERTS_PROC_LOCK_OWN_IMPL */
 	    {
 		/* Try a quick trylock to grab all the locks we need. */
-		busy = (int) erts_smp_proc_raw_trylock__(proc, need_locks);
+		busy = (int) erts_proc_raw_trylock__(proc, need_locks);
 
 #if ERTS_PROC_LOCK_OWN_IMPL && defined(ERTS_ENABLE_LOCK_CHECK)
 		erts_proc_lc_trylock(proc, need_locks, !busy, __FILE__,__LINE__);
@@ -976,7 +975,7 @@ erts_pid2proc_opt(Process *c_p,
 	    : (proc
 	       != (Process *) erts_ptab_pix2intptr_nob(&erts_proc, pix)))) {
 
-	erts_smp_proc_unlock(proc, need_locks);
+	erts_proc_unlock(proc, need_locks);
 
 	if (flags & ERTS_P2P_FLG_INC_REFC)
 	    dec_refc_proc = proc;
@@ -1002,11 +1001,9 @@ static ERTS_INLINE
 Process *proc_lookup_inc_refc(Eterm pid, int allow_exit)
 {
     Process *proc;
-#ifdef ERTS_SMP
     ErtsThrPrgrDelayHandle dhndl;
 
     dhndl = erts_thr_progress_unmanaged_delay();
-#endif
 
     proc = erts_proc_lookup_raw(pid);
     if (proc) {
@@ -1016,9 +1013,7 @@ Process *proc_lookup_inc_refc(Eterm pid, int allow_exit)
             erts_proc_inc_refc(proc);
     }
 
-#ifdef ERTS_SMP
     erts_thr_progress_unmanaged_continue(dhndl);
-#endif
 
     return proc;
 }
@@ -1042,7 +1037,7 @@ erts_proc_lock_init(Process *p)
 #if ERTS_PROC_LOCK_OWN_IMPL
     /* We always start with all locks locked */
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
-    erts_smp_atomic32_init_nob(&p->lock.flags,
+    erts_atomic32_init_nob(&p->lock.flags,
 			       (erts_aint32_t) ERTS_PROC_LOCKS_ALL);
 #else
     p->lock.flags = ERTS_PROC_LOCKS_ALL;
@@ -1093,7 +1088,7 @@ erts_proc_lock_init(Process *p)
 #endif
 #ifdef ERTS_PROC_LOCK_DEBUG
     for (i = 0; i <= ERTS_PROC_LOCK_MAX_BIT; i++)
-	erts_smp_atomic32_init_nob(&p->lock.locked[i], (erts_aint32_t) 1);
+	erts_atomic32_init_nob(&p->lock.locked[i], (erts_aint32_t) 1);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_proc_lock_init(p);
@@ -1113,7 +1108,7 @@ erts_proc_lock_fin(Process *p)
     erts_mtx_destroy(&p->lock.status);
     erts_mtx_destroy(&p->lock.trace);
 #endif
-#if defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_COUNT)
     erts_lcnt_proc_lock_destroy(p);
 #endif
 }
@@ -1785,4 +1780,3 @@ check_queue(erts_proc_lock_t *lck)
 }
 #endif
 
-#endif /* ERTS_SMP */

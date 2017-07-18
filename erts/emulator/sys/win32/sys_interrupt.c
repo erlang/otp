@@ -35,17 +35,11 @@
 #  define WIN_SYS_INLINE __forceinline
 #endif
 
-#ifdef ERTS_SMP
-erts_smp_atomic32_t erts_break_requested;
+erts_atomic32_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
+  erts_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
-#else
-volatile int erts_break_requested = 0;
-#define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
-#define ERTS_UNSET_BREAK_REQUESTED (erts_break_requested = 0)
-#endif
+  erts_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
 
 extern int nohup;
 HANDLE erts_sys_break_event = NULL;
@@ -57,14 +51,14 @@ void erts_do_break_handling(void)
      * therefore, make sure that all threads but this one are blocked before
      * proceeding!
      */
-    erts_smp_thr_progress_block();
+    erts_thr_progress_block();
     /* call the break handling function, reset the flag */
     do_break();
 
     ResetEvent(erts_sys_break_event);
     ERTS_UNSET_BREAK_REQUESTED;
 
-    erts_smp_thr_progress_unblock();
+    erts_thr_progress_unblock();
 }
 
 

@@ -50,7 +50,7 @@
 
 static struct {
     Eterm module;
-    erts_smp_mtx_t mtx;
+    erts_mtx_t mtx;
     Export *pending_purge_lambda;
     Eterm *sprocs;
     Eterm def_sprocs[10];
@@ -68,9 +68,9 @@ Process *erts_code_purger = NULL;
 #ifdef ERTS_DIRTY_SCHEDULERS
 Process *erts_dirty_process_code_checker;
 #endif
-erts_smp_atomic_t erts_copy_literal_area__;
+erts_atomic_t erts_copy_literal_area__;
 #define ERTS_SET_COPY_LITERAL_AREA(LA)			\
-    erts_smp_atomic_set_nob(&erts_copy_literal_area__,	\
+    erts_atomic_set_nob(&erts_copy_literal_area__,	\
 			    (erts_aint_t) (LA))
 Process *erts_literal_area_collector = NULL;
 
@@ -81,7 +81,7 @@ struct ErtsLiteralAreaRef_ {
 };
 
 struct {
-    erts_smp_mtx_t mtx;
+    erts_mtx_t mtx;
     ErtsLiteralAreaRef *first;
     ErtsLiteralAreaRef *last;
 } release_literal_areas;
@@ -97,7 +97,7 @@ init_purge_state(void)
 {
     purge_state.module = THE_NON_VALUE;
 
-    erts_smp_mtx_init(&purge_state.mtx, "purge_state", NIL,
+    erts_mtx_init(&purge_state.mtx, "purge_state", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     purge_state.pending_purge_lambda =
@@ -119,12 +119,12 @@ init_purge_state(void)
 void
 erts_beam_bif_load_init(void)
 {
-    erts_smp_mtx_init(&release_literal_areas.mtx, "release_literal_areas", NIL,
+    erts_mtx_init(&release_literal_areas.mtx, "release_literal_areas", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     release_literal_areas.first = NULL;
     release_literal_areas.last = NULL;
-    erts_smp_atomic_init_nob(&erts_copy_literal_area__,
+    erts_atomic_init_nob(&erts_copy_literal_area__,
 			     (erts_aint_t) NULL);
 
     init_purge_state();
@@ -172,8 +172,8 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 			BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
+    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_thr_progress_block();
 
     modp = erts_get_module(mod, erts_active_code_ix());
 
@@ -197,8 +197,8 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     else {
 	erts_abort_staging_code_ix();
     }
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_thr_progress_unblock();
+    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_release_code_write_permission();
     return res;
 #endif
@@ -265,7 +265,6 @@ struct m {
 };
 
 static Eterm staging_epilogue(Process* c_p, int, Eterm res, int, struct m*, int, int);
-#ifdef ERTS_SMP
 static void smp_code_ix_commiter(void*);
 
 static struct /* Protected by code_write_permission */
@@ -273,7 +272,6 @@ static struct /* Protected by code_write_permission */
     Process* stager;
     ErtsThrPrgrLaterOp lop;
 } committer_state;
-#endif
 
 static Eterm
 exception_list(Process* p, Eterm tag, struct m* mp, Sint exceptions)
@@ -401,8 +399,8 @@ finish_loading_1(BIF_ALIST_1)
 	    erts_is_default_trace_enabled() ||
 	    IF_HIPE(hipe_need_blocking(p[i].modp))) {
 	    /* tracing or hipe need thread blocking */
-	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	    erts_smp_thr_progress_block();
+	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	    erts_thr_progress_block();
 	    is_blocking = 1;
 	    break;
 	}
@@ -465,9 +463,7 @@ static Eterm
 staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 		 struct m* mods, int nmods, int free_mods)
 {    
-#ifdef ERTS_SMP
     if (is_blocking || !commit)
-#endif
     {
 	if (commit) {
 	    int i;
@@ -490,13 +486,12 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	    erts_free(ERTS_ALC_T_LOADER_TMP, mods);
 	}
 	if (is_blocking) {
-	    erts_smp_thr_progress_unblock();
-	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+	    erts_thr_progress_unblock();
+	    erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 	}
 	erts_release_code_write_permission();
 	return res;
     }
-#ifdef ERTS_SMP
     else {
 	ASSERT(is_value(res));
 
@@ -521,11 +516,9 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	 */
 	ERTS_BIF_YIELD_RETURN(c_p, res);
     }
-#endif
 }
 
 
-#ifdef ERTS_SMP
 static void smp_code_ix_commiter(void* null)
 {
     Process* p = committer_state.stager;
@@ -535,14 +528,13 @@ static void smp_code_ix_commiter(void* null)
     committer_state.stager = NULL;
 #endif
     erts_release_code_write_permission();
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     if (!ERTS_PROC_IS_EXITING(p)) {
 	erts_resume(p, ERTS_PROC_LOCK_STATUS);
     }
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     erts_proc_dec_refc(p);
 }
-#endif /* ERTS_SMP */
 
 
 
@@ -639,7 +631,7 @@ BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
     res = erts_check_process_code(rp, BIF_ARG_2, &reds, BIF_P->fcalls);
 
     if (BIF_P != rp)
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+	erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
 
     ASSERT(is_value(res));
 
@@ -682,8 +674,8 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 		modp->curr.num_traced_exports > 0 ||
 		IF_HIPE(hipe_need_blocking(modp))) {
 		/* tracing or hipe need to go single threaded */
-		erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		erts_smp_thr_progress_block();
+		erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		erts_thr_progress_block();
 		is_blocking = 1;
 		if (modp->curr.num_breakpoints) {
 		    erts_clear_module_break(modp);
@@ -787,16 +779,16 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 
     /* ToDo: Use code_ix staging instead of thread blocking */
 
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
+    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_thr_progress_block();
 
     code_ix = erts_active_code_ix();
     modp = erts_get_module(BIF_ARG_1, code_ix);
 
     if (!modp || !modp->on_load || !modp->on_load->code_hdr) {
     error:
-	erts_smp_thr_progress_unblock();
-        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	erts_thr_progress_unblock();
+        erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	erts_release_code_write_permission();
 	BIF_ERROR(BIF_P, BADARG);
     }
@@ -867,8 +859,8 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	    ep->beam[1] = 0;
 	}
     }
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_thr_progress_unblock();
+    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_release_code_write_permission();
     BIF_RET(am_true);
 }
@@ -929,9 +921,9 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
      * any other heap than the message it self.
      */
 
-    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
-    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
-    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
+    erts_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ);
+    ERTS_MSGQ_MV_INQ2PRIVQ(c_p);
+    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 
     for (msgp = c_p->msg.first; msgp; msgp = msgp->next) {
 	ErlHeapFragment *hf;
@@ -1312,7 +1304,6 @@ hfrag_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
     }
 }
 
-#ifdef ERTS_SMP
 
 ErtsThrPrgrLaterOp later_literal_area_switch;
 
@@ -1334,13 +1325,12 @@ static void
 complete_literal_area_switch(void *literal_area)
 {
     Process *p = erts_literal_area_collector;
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     erts_resume(p, ERTS_PROC_LOCK_STATUS);
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     if (literal_area)
 	erts_release_literal_area((ErtsLiteralArea *) literal_area);
 }
-#endif
 
 BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
 {
@@ -1350,7 +1340,7 @@ BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
     if (BIF_P != erts_literal_area_collector)
 	BIF_ERROR(BIF_P, EXC_NOTSUP);
 
-    erts_smp_mtx_lock(&release_literal_areas.mtx);
+    erts_mtx_lock(&release_literal_areas.mtx);
 
     la_ref = release_literal_areas.first;
     if (la_ref) {
@@ -1359,14 +1349,13 @@ BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
 	    release_literal_areas.last = NULL;
     }
 
-    erts_smp_mtx_unlock(&release_literal_areas.mtx);
+    erts_mtx_unlock(&release_literal_areas.mtx);
 
     unused_la = ERTS_COPY_LITERAL_AREA();
 
     if (!la_ref) {
 	ERTS_SET_COPY_LITERAL_AREA(NULL);
 	if (unused_la) {
-#ifdef ERTS_SMP
 	    ErtsLaterReleasLiteralArea *lrlap;
 	    lrlap = erts_alloc(ERTS_ALC_T_RELEASE_LAREA,
 			       sizeof(ErtsLaterReleasLiteralArea));
@@ -1380,9 +1369,6 @@ BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
 		 + ((unused_la->end
 		     - &unused_la->start[0])
 		    - 1)*(sizeof(Eterm))));
-#else
-	    erts_release_literal_area(unused_la);
-#endif
 	}
 	BIF_RET(am_false);
     }
@@ -1391,16 +1377,11 @@ BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
 
     erts_free(ERTS_ALC_T_LITERAL_REF, la_ref);
 
-#ifdef ERTS_SMP
     erts_schedule_thr_prgr_later_op(complete_literal_area_switch,
 				    unused_la,
 				    &later_literal_area_switch);
     erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
     ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
-#else
-    erts_release_literal_area(unused_la);
-    BIF_RET(am_true);
-#endif
 
 }
 
@@ -1426,7 +1407,7 @@ erts_purge_state_add_fun(ErlFunEntry *fe)
 Export *
 erts_suspend_process_on_pending_purge_lambda(Process *c_p, ErlFunEntry* fe)
 {
-    erts_smp_mtx_lock(&purge_state.mtx);
+    erts_mtx_lock(&purge_state.mtx);
     if (purge_state.module == fe->module) {
 	/*
 	 * The process c_p is about to call a fun in the code
@@ -1452,7 +1433,7 @@ erts_suspend_process_on_pending_purge_lambda(Process *c_p, ErlFunEntry* fe)
 	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
 	ERTS_VBUMP_ALL_REDS(c_p);
     }
-    erts_smp_mtx_unlock(&purge_state.mtx);
+    erts_mtx_unlock(&purge_state.mtx);
     return purge_state.pending_purge_lambda;
 }
 
@@ -1462,9 +1443,9 @@ finalize_purge_operation(Process *c_p, int succeded)
     Uint ix;
 
     if (c_p)
-	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+	erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 
-    erts_smp_mtx_lock(&purge_state.mtx);
+    erts_mtx_lock(&purge_state.mtx);
 
     ASSERT(purge_state.module != THE_NON_VALUE);
 
@@ -1480,14 +1461,14 @@ finalize_purge_operation(Process *c_p, int succeded)
 				    ERTS_PROC_LOCK_STATUS);
 	if (rp) {
 	    erts_resume(rp, ERTS_PROC_LOCK_STATUS);
-	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
+	    erts_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
 	}
     }
 
-    erts_smp_mtx_unlock(&purge_state.mtx);
+    erts_mtx_unlock(&purge_state.mtx);
 
     if (c_p)
-	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+	erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
     if (purge_state.sprocs != &purge_state.def_sprocs[0]) {
 	erts_free(ERTS_ALC_T_PURGE_DATA, purge_state.sprocs);
@@ -1506,7 +1487,6 @@ finalize_purge_operation(Process *c_p, int succeded)
     purge_state.fe_ix = 0;
 }
 
-#ifdef ERTS_SMP
 
 static ErtsThrPrgrLaterOp purger_lop_data;
 
@@ -1514,9 +1494,9 @@ static void
 resume_purger(void *unused)
 {
     Process *p = erts_code_purger;
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     erts_resume(p, ERTS_PROC_LOCK_STATUS);
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 }
 
 static void
@@ -1529,7 +1509,6 @@ finalize_purge_abort(void *unused)
     resume_purger(NULL);
 }
 
-#endif /* ERTS_SMP */
 
 BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 {
@@ -1588,9 +1567,9 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    else {
 		BeamInstr* code;
 		BeamInstr* end;
-		erts_smp_mtx_lock(&purge_state.mtx);
+		erts_mtx_lock(&purge_state.mtx);
 		purge_state.module = BIF_ARG_1;
-		erts_smp_mtx_unlock(&purge_state.mtx);
+		erts_mtx_unlock(&purge_state.mtx);
 		res = am_true;
 		code = (BeamInstr*) modp->old.code_hdr;
 		end = (BeamInstr *)((char *)code + modp->old.code_length);
@@ -1604,9 +1583,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    }
 	}
 	
-#ifndef ERTS_SMP
-	BIF_RET(res);
-#else
 	if (res != am_true)
 	    BIF_RET(res);
 	else {
@@ -1625,7 +1601,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
 	    ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
 	}
-#endif
     }
 
     case am_abort: {
@@ -1639,11 +1614,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 
 	erts_fun_purge_abort_prepare(purge_state.funs, purge_state.fe_ix);
 
-#ifndef ERTS_SMP
-	erts_fun_purge_abort_finalize(purge_state.funs, purge_state.fe_ix);
-	finalize_purge_operation(BIF_P, 0);
-	BIF_RET(am_false);
-#else
 	/*
 	 * We need to restore the code addresses of the funs in
 	 * two stages in order to ensure that we do not get any
@@ -1659,7 +1629,6 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 					&purger_lop_data);
 	erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
 	ERTS_BIF_YIELD_RETURN(BIF_P, am_false);
-#endif
     }
 
     case am_complete: {
@@ -1711,8 +1680,8 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		    || IF_HIPE(hipe_purge_need_blocking(modp))) {
 		    /* ToDo: Do unload nif without blocking */
 		    erts_rwunlock_old_code(code_ix);
-		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		    erts_smp_thr_progress_block();
+		    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		    erts_thr_progress_block();
 		    is_blocking = 1;
 		    erts_rwlock_old_code(code_ix);
 		    if (modp->old.nif) {
@@ -1750,8 +1719,8 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 	    erts_rwunlock_old_code(code_ix);
 	}
 	if (is_blocking) {
-	    erts_smp_thr_progress_unblock();
-	    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	    erts_thr_progress_unblock();
+	    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	}
 
 	erts_release_code_write_permission();
@@ -1764,7 +1733,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 			     sizeof(ErtsLiteralAreaRef));
 	    ref->literal_area = literals;
 	    ref->next = NULL;
-	    erts_smp_mtx_lock(&release_literal_areas.mtx);
+	    erts_mtx_lock(&release_literal_areas.mtx);
 	    if (release_literal_areas.last) {
 		release_literal_areas.last->next = ref;
 		release_literal_areas.last = ref;
@@ -1773,7 +1742,7 @@ BIF_RETTYPE erts_internal_purge_module_2(BIF_ALIST_2)
 		release_literal_areas.first = ref;
 		release_literal_areas.last = ref;
 	    }
-	    erts_smp_mtx_unlock(&release_literal_areas.mtx);
+	    erts_mtx_unlock(&release_literal_areas.mtx);
 	    erts_queue_message(erts_literal_area_collector,
 			       0,
 			       erts_alloc_message(0, NULL),
@@ -1810,7 +1779,7 @@ delete_code(Module* modp)
 		}
 		else if (ep->beam[0] ==
 			 (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
-		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+		    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 		    ASSERT(modp->curr.num_traced_exports > 0);
 		    DBG_TRACE_MFA_P(&ep->info.mfa,
 				  "export trace cleared, code_ix=%d", code_ix);

@@ -85,7 +85,7 @@ struct enif_resource_type_t
 
 typedef struct
 {
-    erts_smp_mtx_t lock;
+    erts_mtx_t lock;
     ErtsMonitor* root;
     int pending_failed_fire;
     int is_dying;
@@ -183,9 +183,9 @@ typedef struct {
     void         *handle;             /* Handle for DLL or SO (for dyn. drivers). */
     DE_ProcEntry *procs;              /* List of pids that have loaded this driver,
 				         or that wait for it to change state */
-    erts_smp_refc_t  refc;                /* Number of ports/processes having
+    erts_refc_t  refc;                /* Number of ports/processes having
 					 references to the driver */
-    erts_smp_atomic32_t port_count;   /* Number of ports using the driver */
+    erts_atomic32_t port_count;   /* Number of ports using the driver */
     Uint         flags;               /* ERL_DE_FL_KILL_PORTS */
     int          status;              /* ERL_DE_xxx */
     char         *full_path;          /* Full path of the driver */
@@ -209,9 +209,7 @@ struct erts_driver_t_ {
     } version;
     int flags;
     DE_Handle *handle;
-#ifdef ERTS_SMP
-    erts_smp_mtx_t *lock;
-#endif
+    erts_mtx_t *lock;
     ErlDrvEntry *entry;
     ErlDrvData (*start)(ErlDrvPort port, char *command, SysDriverOpts* opts);
     void (*stop)(ErlDrvData drv_data);
@@ -238,7 +236,7 @@ struct erts_driver_t_ {
 };
 
 extern erts_driver_t *driver_list;
-extern erts_smp_rwmtx_t erts_driver_list_lock;
+extern erts_rwmtx_t erts_driver_list_lock;
 
 extern void erts_ddll_init(void);
 extern void erts_ddll_lock_driver(DE_Handle *dh, char *name);
@@ -299,7 +297,7 @@ extern Eterm node_cookie;
 extern Uint display_items;	/* no of items to display in traces etc */
 
 extern int erts_backtrace_depth;
-extern erts_smp_atomic32_t erts_max_gen_gcs;
+extern erts_atomic32_t erts_max_gen_gcs;
 
 extern int bif_reductions;      /* reductions + fcalls (when doing call_bif) */
 extern int stackdump_on_exit;
@@ -909,9 +907,9 @@ typedef struct ErtsLiteralArea_ {
 #define ERTS_LITERAL_AREA_ALLOC_SIZE(N) \
     (sizeof(ErtsLiteralArea) + sizeof(Eterm)*((N) - 1))
 
-extern erts_smp_atomic_t erts_copy_literal_area__;
+extern erts_atomic_t erts_copy_literal_area__;
 #define ERTS_COPY_LITERAL_AREA()					\
-    ((ErtsLiteralArea *) erts_smp_atomic_read_nob(&erts_copy_literal_area__))
+    ((ErtsLiteralArea *) erts_atomic_read_nob(&erts_copy_literal_area__))
 extern Process *erts_literal_area_collector;
 #ifdef ERTS_DIRTY_SCHEDULERS
 extern Process *erts_dirty_process_code_checker;
@@ -1127,18 +1125,12 @@ extern ErtsModifiedTimings erts_modified_timings[];
 extern int erts_no_line_info;
 extern Eterm erts_error_logger_warnings;
 extern int erts_initialized;
-#if defined(USE_THREADS) && !defined(ERTS_SMP)
-extern erts_tid_t erts_main_thread;
-#endif
 extern int erts_compat_rel;
 extern int erts_use_sender_punish;
 void erl_start(int, char**);
 void erts_usage(void);
 Eterm erts_preloaded(Process* p);
 
-#ifndef ERTS_SMP
-extern void *erts_scheduler_stack_limit;
-#endif
 
 /* erl_md5.c */
 
@@ -1182,7 +1174,7 @@ void erts_emergency_close_ports(void);
 void erts_ref_to_driver_monitor(Eterm ref, ErlDrvMonitor *mon);
 Eterm erts_driver_monitor_to_ref(Eterm* hp, const ErlDrvMonitor *mon);
 
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
+#if defined(ERTS_ENABLE_LOCK_COUNT)
 void erts_lcnt_update_driver_locks(int enable);
 void erts_lcnt_update_port_locks(int enable);
 #endif

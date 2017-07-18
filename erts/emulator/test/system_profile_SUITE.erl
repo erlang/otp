@@ -146,9 +146,8 @@ do_runnable_ports({TsType, TsTypeFlag}, Config) ->
 
 %% Tests system_profiling with scheduler.
 scheduler(Config) when is_list(Config) ->
-    case {erlang:system_info(smp_support), erlang:system_info(schedulers_online)} of
-	{false,_} -> {skipped, "No need for scheduler test when smp support is disabled."};
-	{_,    1} -> {skipped, "No need for scheduler test when only one scheduler online."};
+    case erlang:system_info(schedulers_online) of
+	1 -> {skipped, "No need for scheduler test when only one scheduler online."};
 	_ ->
 	    Nodes = 10,
 	    lists:foreach(fun (TsType) ->

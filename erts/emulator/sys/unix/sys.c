@@ -58,14 +58,12 @@
 #define __DARWIN__ 1
 #endif
 
-#ifdef USE_THREADS
 #include "erl_threads.h"
-#endif
 
 #include "erl_mseg.h"
 
 extern char **environ;
-erts_smp_rwmtx_t environ_rwmtx;
+erts_rwmtx_t environ_rwmtx;
 
 #define MAX_VSIZE 16		/* Max number of entries allowed in an I/O
 				 * vector sock_sendv().
@@ -94,19 +92,12 @@ extern void erts_sys_init_float(void);
 static int debug_log = 0;
 #endif
 
-#ifdef ERTS_SMP
-static erts_smp_atomic32_t have_prepared_crash_dump;
+static erts_atomic32_t have_prepared_crash_dump;
 #define ERTS_PREPARED_CRASH_DUMP \
-  ((int) erts_smp_atomic32_xchg_nob(&have_prepared_crash_dump, 1))
-#else
-static volatile int have_prepared_crash_dump;
-#define ERTS_PREPARED_CRASH_DUMP \
-  (have_prepared_crash_dump++)
-#endif
+  ((int) erts_atomic32_xchg_nob(&have_prepared_crash_dump, 1))
 
-erts_smp_atomic_t sys_misc_mem_sz;
+erts_atomic_t sys_misc_mem_sz;
 
-#if defined(ERTS_SMP)
 static void smp_sig_notify(int signum);
 static int sig_notify_fds[2] = {-1, -1};
 
@@ -114,7 +105,6 @@ static int sig_notify_fds[2] = {-1, -1};
 static int sig_suspend_fds[2] = {-1, -1};
 #endif
 
-#endif
 
 jmp_buf erts_sys_sigsegv_jmp;
 
@@ -128,38 +118,12 @@ static int max_files = -1;
 /* 
  * a few variables used by the break handler 
  */
-#ifdef ERTS_SMP
-erts_smp_atomic32_t erts_break_requested;
+erts_atomic32_t erts_break_requested;
 #define ERTS_SET_BREAK_REQUESTED \
-  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
+  erts_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 1)
 #define ERTS_UNSET_BREAK_REQUESTED \
-  erts_smp_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
-#else
-volatile int erts_break_requested = 0;
-#define ERTS_SET_BREAK_REQUESTED (erts_break_requested = 1)
-#define ERTS_UNSET_BREAK_REQUESTED (erts_break_requested = 0)
-#endif
+  erts_atomic32_set_nob(&erts_break_requested, (erts_aint32_t) 0)
 
-#ifndef ERTS_SMP
-static Eterm signalstate_sigterm[] = {
-    am_sigint,   /* 0 */
-    am_sighup,   /* 1 */
-    am_sigquit,  /* 2 */
-    am_sigabrt,  /* 3 */
-    am_sigalrm,  /* 4 */
-    am_sigterm,  /* 5 */
-    am_sigusr1,  /* 6 */
-    am_sigusr2,  /* 7 */
-    am_sigchld,  /* 8 */
-    am_sigstop,  /* 9 */
-    am_sigtstp   /* 10 */
-};
-
-volatile Uint erts_signal_state = 0;
-#define ERTS_SET_SIGNAL_STATE(S) (erts_signal_state |= signum_to_signalstate(S))
-#define ERTS_CLEAR_SIGNAL_STATE (erts_signal_state = 0)
-static ERTS_INLINE Uint signum_to_signalstate(int signum);
-#endif
 
 /* set early so the break handler has access to initial mode */
 static struct termios initial_tty_mode;
@@ -223,9 +187,6 @@ init_check_io(void)
 	io_func.select			= driver_select_kp;
         io_func.enif_select		= enif_select_kp;
 	io_func.event			= driver_event_kp;
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-	io_func.check_io_as_interrupt	= erts_check_io_async_sig_interrupt_kp;
-#endif
 	io_func.check_io_interrupt	= erts_check_io_interrupt_kp;
 	io_func.check_io_interrupt_tmd	= erts_check_io_interrupt_timed_kp;
 	io_func.check_io		= erts_check_io_kp;
@@ -239,9 +200,6 @@ init_check_io(void)
 	io_func.select			= driver_select_nkp;
         io_func.enif_select		= enif_select_nkp;
 	io_func.event			= driver_event_nkp;
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-	io_func.check_io_as_interrupt	= erts_check_io_async_sig_interrupt_nkp;
-#endif
 	io_func.check_io_interrupt	= erts_check_io_interrupt_nkp;
 	io_func.check_io_interrupt_tmd	= erts_check_io_interrupt_timed_nkp;
 	io_func.check_io		= erts_check_io_nkp;
@@ -253,11 +211,7 @@ init_check_io(void)
     }
 }
 
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-#define ERTS_CHK_IO_AS_INTR()	(*io_func.check_io_as_interrupt)()
-#else
 #define ERTS_CHK_IO_AS_INTR()	(*io_func.check_io_interrupt)(1)
-#endif
 #define ERTS_CHK_IO_INTR	(*io_func.check_io_interrupt)
 #define ERTS_CHK_IO_INTR_TMD	(*io_func.check_io_interrupt_tmd)
 #define ERTS_CHK_IO		(*io_func.check_io)
@@ -272,11 +226,7 @@ init_check_io(void)
     max_files = erts_check_io_max_files();
 }
 
-#ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-#define ERTS_CHK_IO_AS_INTR()	erts_check_io_async_sig_interrupt()
-#else
 #define ERTS_CHK_IO_AS_INTR()	erts_check_io_interrupt(1)
-#endif
 #define ERTS_CHK_IO_INTR	erts_check_io_interrupt
 #define ERTS_CHK_IO_INTR_TMD	erts_check_io_interrupt_timed
 #define ERTS_CHK_IO		erts_check_io
@@ -290,13 +240,11 @@ erts_sys_schedule_interrupt(int set)
     ERTS_CHK_IO_INTR(set);
 }
 
-#ifdef ERTS_SMP
 void
 erts_sys_schedule_interrupt_timed(int set, ErtsMonotonicTime timeout_time)
 {
     ERTS_CHK_IO_INTR_TMD(set, timeout_time);
 }
-#endif
 
 UWord
 erts_sys_get_page_size(void)
@@ -314,7 +262,7 @@ Uint
 erts_sys_misc_mem_sz(void)
 {
     Uint res = ERTS_CHK_IO_SZ();
-    res += erts_smp_atomic_read_mb(&sys_misc_mem_sz);
+    res += erts_atomic_read_mb(&sys_misc_mem_sz);
     return res;
 }
 
@@ -339,7 +287,6 @@ MALLOC_USE_HASH(1);
 #endif
 #endif
 
-#ifdef USE_THREADS
 
 #ifdef ERTS_THR_HAVE_SIG_FUNCS
 
@@ -418,19 +365,15 @@ thr_create_prepare_child(void *vtcdp)
     erts_sched_bind_atthrcreate_child(tcdp->sched_bind_data);
 }
 
-#endif /* #ifdef USE_THREADS */
 
 void
 erts_sys_pre_init(void)
 {
-#ifdef USE_THREADS
     erts_thr_init_data_t eid = ERTS_THR_INIT_DATA_DEF_INITER;
-#endif
 
     erts_printf_add_cr_to_stdout = 1;
     erts_printf_add_cr_to_stderr = 1;
 
-#ifdef USE_THREADS
 
     eid.thread_create_child_func = thr_create_prepare_child;
     /* Before creation in parent */
@@ -452,23 +395,15 @@ erts_sys_pre_init(void)
     erts_lc_init();
 #endif
 
-#endif /* USE_THREADS */
 
     erts_init_sys_time_sup();
 
-#ifdef USE_THREADS
 
-#ifdef ERTS_SMP
-    erts_smp_atomic32_init_nob(&erts_break_requested, 0);
-    erts_smp_atomic32_init_nob(&have_prepared_crash_dump, 0);
-#else
-    erts_break_requested = 0;
-    have_prepared_crash_dump = 0;
-#endif
+    erts_atomic32_init_nob(&erts_break_requested, 0);
+    erts_atomic32_init_nob(&have_prepared_crash_dump, 0);
 
-#endif /* USE_THREADS */
 
-    erts_smp_atomic_init_nob(&sys_misc_mem_sz, 0);
+    erts_atomic_init_nob(&sys_misc_mem_sz, 0);
 
     {
       /*
@@ -531,10 +466,8 @@ SIGFUNC sys_signal(int sig, SIGFUNC func)
     return(oact.sa_handler);
 }
 
-#ifdef USE_THREADS
 #undef  sigprocmask
 #define sigprocmask erts_thr_sigmask
-#endif
 
 void sys_sigblock(int sig)
 {
@@ -672,7 +605,7 @@ static void signal_notify_requested(Eterm type) {
         erts_queue_message(p, locks, msgp, msg, am_system);
 
         if (locks)
-            erts_smp_proc_unlock(p, locks);
+            erts_proc_unlock(p, locks);
         erts_proc_dec_refc(p);
     }
 }
@@ -697,11 +630,7 @@ break_requested(void)
 
 static RETSIGTYPE request_break(int signum)
 {
-#ifdef ERTS_SMP
     smp_sig_notify(signum);
-#else
-    break_requested();
-#endif
 }
 
 #ifdef ETHR_UNUSABLE_SIGUSRX
@@ -810,35 +739,10 @@ signum_to_signalterm(int signum)
     }
 }
 
-#ifndef ERTS_SMP
-static ERTS_INLINE Uint
-signum_to_signalstate(int signum)
-{
-    switch (signum) {
-    case SIGINT:  return (1 <<  0);
-    case SIGHUP:  return (1 <<  1);
-    case SIGQUIT: return (1 <<  2);
-    case SIGABRT: return (1 <<  3);
-    case SIGALRM: return (1 <<  4);
-    case SIGTERM: return (1 <<  5);
-    case SIGUSR1: return (1 <<  6);
-    case SIGUSR2: return (1 <<  7);
-    case SIGCHLD: return (1 <<  8);
-    case SIGSTOP: return (1 <<  9);
-    case SIGTSTP: return (1 << 10);
-    default:      return 0;
-    }
-}
-#endif
 
 static RETSIGTYPE generic_signal_handler(int signum)
 {
-#ifdef ERTS_SMP
     smp_sig_notify(signum);
-#else
-    ERTS_SET_SIGNAL_STATE(signum);
-    ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
-#endif
 }
 
 int erts_set_signal(Eterm signal, Eterm type) {
@@ -965,7 +869,7 @@ void os_version(int *pMajor, int *pMinor, int *pBuild) {
 
 void init_getenv_state(GETENV_STATE *state)
 {
-   erts_smp_rwmtx_rlock(&environ_rwmtx);
+   erts_rwmtx_rlock(&environ_rwmtx);
    *state = NULL;
 }
 
@@ -974,7 +878,7 @@ char *getenv_string(GETENV_STATE *state0)
    char **state = (char **) *state0;
    char *cp;
 
-   ERTS_SMP_LC_ASSERT(erts_smp_lc_rwmtx_is_rlocked(&environ_rwmtx));
+   ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(&environ_rwmtx));
 
    if (state == NULL)
       state = environ;
@@ -988,7 +892,7 @@ char *getenv_string(GETENV_STATE *state0)
 void fini_getenv_state(GETENV_STATE *state)
 {
    *state = NULL;
-   erts_smp_rwmtx_runlock(&environ_rwmtx);
+   erts_rwmtx_runlock(&environ_rwmtx);
 }
 
 void erts_do_break_handling(void)
@@ -1001,7 +905,7 @@ void erts_do_break_handling(void)
      * therefore, make sure that all threads but this one are blocked before
      * proceeding!
      */
-    erts_smp_thr_progress_block();
+    erts_thr_progress_block();
 
     /* during break we revert to initial settings */
     /* this is done differently for oldshell */
@@ -1029,25 +933,9 @@ void erts_do_break_handling(void)
       tcsetattr(0,TCSANOW,&temp_mode);
     }
 
-    erts_smp_thr_progress_unblock();
+    erts_thr_progress_unblock();
 }
 
-#ifdef ERTS_SIGNAL_STATE
-void erts_handle_signal_state(void) {
-    Uint signal_state = ERTS_SIGNAL_STATE;
-    Uint i = 0;
-
-    ERTS_CLEAR_SIGNAL_STATE;
-
-    while (signal_state) {
-        if (signal_state & 0x1) {
-            signal_notify_requested(signalstate_sigterm[i]);
-        }
-        i++;
-        signal_state = signal_state >> 1;
-    }
-}
-#endif
 
 /* Fills in the systems representation of the jam/beam process identifier.
 ** The Pid is put in STRING representation in the supplied buffer,
@@ -1075,14 +963,14 @@ erts_sys_putenv(char *key, char *value)
     env = erts_alloc(ERTS_ALC_T_TMP, need);
 #else
     env = erts_alloc(ERTS_ALC_T_PUTENV_STR, need);
-    erts_smp_atomic_add_nob(&sys_misc_mem_sz, need);
+    erts_atomic_add_nob(&sys_misc_mem_sz, need);
 #endif
     strcpy(env,key);
     strcat(env,"=");
     strcat(env,value);
-    erts_smp_rwmtx_rwlock(&environ_rwmtx);
+    erts_rwmtx_rwlock(&environ_rwmtx);
     res = putenv(env);
-    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
+    erts_rwmtx_rwunlock(&environ_rwmtx);
 #ifdef HAVE_COPYING_PUTENV
     erts_free(ERTS_ALC_T_TMP, env);
 #endif
@@ -1129,9 +1017,9 @@ int
 erts_sys_getenv(char *key, char *value, size_t *size)
 {
     int res;
-    erts_smp_rwmtx_rlock(&environ_rwmtx);
+    erts_rwmtx_rlock(&environ_rwmtx);
     res = erts_sys_getenv__(key, value, size);
-    erts_smp_rwmtx_runlock(&environ_rwmtx);
+    erts_rwmtx_runlock(&environ_rwmtx);
     return res;
 }
 
@@ -1139,9 +1027,9 @@ int
 erts_sys_unsetenv(char *key)
 {
     int res;
-    erts_smp_rwmtx_rwlock(&environ_rwmtx);
+    erts_rwmtx_rwlock(&environ_rwmtx);
     res = unsetenv(key);
-    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
+    erts_rwmtx_rwunlock(&environ_rwmtx);
     return res;
 }
 
@@ -1282,16 +1170,6 @@ erl_assert_error(const char* expr, const char* func, const char* file, int line)
     fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
             file, line, func, expr);
     fflush(stderr);
-#if !defined(ERTS_SMP) && 0
-    /* Writing a crashdump from a failed assertion when smp support
-     * is enabled almost a guaranteed deadlocking, don't even bother.
-     *
-     * It could maybe be useful (but I'm not convinced) to write the
-     * crashdump if smp support is disabled...
-     */
-    if (erts_initialized)
-	erl_crash_dump(file, line, "Assertion failed: %s\n", expr);
-#endif
     abort();
 }
 
@@ -1322,13 +1200,12 @@ void
 erl_sys_schedule(int runnable)
 {
     ERTS_CHK_IO(!runnable);
-    ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
+    ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());
 }
 
 
-#ifdef ERTS_SMP
 
-static erts_smp_tid_t sig_dispatcher_tid;
+static erts_tid_t sig_dispatcher_tid;
 
 static void
 smp_sig_notify(int signum)
@@ -1402,7 +1279,7 @@ signal_dispatcher_thread_func(void *unused)
                 }
                 signal_notify_requested(signal);
         }
-        ERTS_SMP_LC_ASSERT(!erts_thr_progress_is_blocking());
+        ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());
     }
     return NULL;
 }
@@ -1410,7 +1287,7 @@ signal_dispatcher_thread_func(void *unused)
 static void
 init_smp_sig_notify(void)
 {
-    erts_smp_thr_opts_t thr_opts = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+    erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
     thr_opts.detached = 1;
     thr_opts.name = "sys_sig_dispatcher";
 
@@ -1422,7 +1299,7 @@ init_smp_sig_notify(void)
     }
 
     /* Start signal handler thread */
-    erts_smp_thr_create(&sig_dispatcher_tid,
+    erts_thr_create(&sig_dispatcher_tid,
 			signal_dispatcher_thread_func,
 			NULL,
 			&thr_opts);
@@ -1515,7 +1392,6 @@ erts_sys_main_thread(void)
     }
 }
 
-#endif /* ERTS_SMP */
 
 #ifdef ERTS_ENABLE_KERNEL_POLL /* get_value() is currently only used when
 				  kernel-poll is enabled */
@@ -1549,7 +1425,7 @@ erl_sys_args(int* argc, char** argv)
 {
     int i, j;
 
-    erts_smp_rwmtx_init(&environ_rwmtx, "environ", NIL,
+    erts_rwmtx_init(&environ_rwmtx, "environ", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
     i = 1;
@@ -1602,10 +1478,8 @@ erl_sys_args(int* argc, char** argv)
 
     init_check_io();
 
-#ifdef ERTS_SMP
     init_smp_sig_notify();
     init_smp_sig_suspend();
-#endif
 
     /* Handled arguments have been marked with NULL. Slide arguments
        not handled towards the beginning of argv. */

@@ -170,7 +170,7 @@ static Eterm
 set_match_trace(Process *tracee_p, Eterm fail_term, ErtsTracer tracer,
 		Uint d_flags, Uint e_flags) {
 
-    ERTS_SMP_LC_ASSERT(
+    ERTS_LC_ASSERT(
         ERTS_PROC_LOCKS_ALL == erts_proc_lc_my_proc_locks(tracee_p)
         || erts_thr_progress_is_blocking());
 
@@ -361,11 +361,7 @@ typedef struct {
 } ErtsMatchPseudoProcess;
 
 
-#ifdef ERTS_SMP
-static erts_smp_tsd_key_t match_pseudo_process_key;
-#else
-static ErtsMatchPseudoProcess *match_pseudo_process;
-#endif
+static erts_tsd_key_t match_pseudo_process_key;
 
 static ERTS_INLINE void
 cleanup_match_pseudo_process(ErtsMatchPseudoProcess *mpsp, int keep_heap)
@@ -414,32 +410,27 @@ static ERTS_INLINE ErtsMatchPseudoProcess *
 get_match_pseudo_process(Process *c_p, Uint heap_size)
 {
     ErtsMatchPseudoProcess *mpsp;
-#ifdef ERTS_SMP
     ErtsSchedulerData *esdp;
 
     esdp = c_p ? c_p->scheduler_data : erts_get_scheduler_data();
 
     mpsp = esdp ? esdp->match_pseudo_process :
-        (ErtsMatchPseudoProcess*) erts_smp_tsd_get(match_pseudo_process_key);
+        (ErtsMatchPseudoProcess*) erts_tsd_get(match_pseudo_process_key);
 
     if (mpsp) {
-        ASSERT(mpsp == erts_smp_tsd_get(match_pseudo_process_key));
+        ASSERT(mpsp == erts_tsd_get(match_pseudo_process_key));
         ASSERT(mpsp->process.scheduler_data == esdp);
 	cleanup_match_pseudo_process(mpsp, 0);
     }
     else {
-	ASSERT(erts_smp_tsd_get(match_pseudo_process_key) == NULL);
+	ASSERT(erts_tsd_get(match_pseudo_process_key) == NULL);
 	mpsp = create_match_pseudo_process();
         if (esdp) {
             esdp->match_pseudo_process = (void *) mpsp;
         }
         mpsp->process.scheduler_data = esdp;
-	erts_smp_tsd_set(match_pseudo_process_key, (void *) mpsp);
+	erts_tsd_set(match_pseudo_process_key, (void *) mpsp);
     }
-#else
-    mpsp = match_pseudo_process;
-    cleanup_match_pseudo_process(mpsp, 0);
-#endif
     if (heap_size > ERTS_DEFAULT_MS_HEAP_SIZE*sizeof(Eterm)) {
 	mpsp->u.heap = (Eterm*) erts_alloc(ERTS_ALC_T_DB_MS_RUN_HEAP, heap_size);
     }
@@ -449,31 +440,25 @@ get_match_pseudo_process(Process *c_p, Uint heap_size)
     return mpsp;
 }
 
-#ifdef ERTS_SMP
 static void
 destroy_match_pseudo_process(void)
 {
     ErtsMatchPseudoProcess *mpsp;
-    mpsp = (ErtsMatchPseudoProcess *)erts_smp_tsd_get(match_pseudo_process_key);
+    mpsp = (ErtsMatchPseudoProcess *)erts_tsd_get(match_pseudo_process_key);
     if (mpsp) {
 	cleanup_match_pseudo_process(mpsp, 0);
 	erts_free(ERTS_ALC_T_DB_MS_PSDO_PROC, (void *) mpsp);
-	erts_smp_tsd_set(match_pseudo_process_key, (void *) NULL);
+	erts_tsd_set(match_pseudo_process_key, (void *) NULL);
     }
 }
-#endif
 
 static
 void
 match_pseudo_process_init(void)
 {
-#ifdef ERTS_SMP
-    erts_smp_tsd_key_create(&match_pseudo_process_key,
+    erts_tsd_key_create(&match_pseudo_process_key,
 			    "erts_match_pseudo_process_key");
-    erts_smp_install_exit_handler(destroy_match_pseudo_process);
-#else
-    match_pseudo_process = create_match_pseudo_process();
-#endif
+    erts_thr_install_exit_handler(destroy_match_pseudo_process);
 }
 
 void
@@ -484,7 +469,7 @@ erts_match_set_release_result(Process* c_p)
 
 /* The trace control word. */
 
-static erts_smp_atomic32_t trace_control_word;
+static erts_atomic32_t trace_control_word;
 
 /* This needs to be here, before the bif table... */
 
@@ -923,7 +908,7 @@ static void db_free_tmp_uncompressed(DbTerm* obj);
 */
 BIF_RETTYPE db_get_trace_control_word(Process *p)
 {
-    Uint32 tcw = (Uint32) erts_smp_atomic32_read_acqb(&trace_control_word);
+    Uint32 tcw = (Uint32) erts_atomic32_read_acqb(&trace_control_word);
     BIF_RET(erts_make_integer((Uint) tcw, p));
 }
 
@@ -941,7 +926,7 @@ BIF_RETTYPE db_set_trace_control_word(Process *p, Eterm new)
     if (val != ((Uint32)val))
 	BIF_ERROR(p, BADARG);
 
-    old_tcw = (Uint32) erts_smp_atomic32_xchg_relb(&trace_control_word,
+    old_tcw = (Uint32) erts_atomic32_xchg_relb(&trace_control_word,
 						   (erts_aint32_t) val);
     BIF_RET(erts_make_integer((Uint) old_tcw, p));
 }
@@ -1466,7 +1451,7 @@ void db_initialize_util(void){
 	  sizeof(DMCGuardBif), 
 	  (int (*)(const void *, const void *)) &cmp_guard_bif);
     match_pseudo_process_init();
-    erts_smp_atomic32_init_nob(&trace_control_word, 0);
+    erts_atomic32_init_nob(&trace_control_word, 0);
 }
 
 
@@ -2528,9 +2513,9 @@ restart:
         case matchEnableTrace:
             ASSERT(c_p == self);
 	    if ( (n = erts_trace_flag2bit(esp[-1]))) {
-                erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+                erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		set_tracee_flags(c_p, ERTS_TRACER(c_p), 0, n);
-                erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+                erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		esp[-1] = am_true;
 	    } else {
 		esp[-1] = FAIL_TERM;
@@ -2545,9 +2530,9 @@ restart:
 		    /* Always take over the tracer of the current process */
 		    set_tracee_flags(tmpp, ERTS_TRACER(c_p), 0, n);
                     if (tmpp == c_p)
-                        erts_smp_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL_MINOR);
+                        erts_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL_MINOR);
                     else
-                        erts_smp_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL);
+                        erts_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL);
                     esp[-1] = am_true;
 		}
 	    }
@@ -2555,9 +2540,9 @@ restart:
         case matchDisableTrace:
             ASSERT(c_p == self);
 	    if ( (n = erts_trace_flag2bit(esp[-1]))) {
-                erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+                erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		set_tracee_flags(c_p, ERTS_TRACER(c_p), n, 0);
-                erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+                erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		esp[-1] = am_true;
 	    } else {
 		esp[-1] = FAIL_TERM;
@@ -2572,9 +2557,9 @@ restart:
 		    /* Always take over the tracer of the current process */
 		    set_tracee_flags(tmpp, ERTS_TRACER(c_p), n, 0);
                     if (tmpp == c_p)
-                        erts_smp_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL_MINOR);
+                        erts_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL_MINOR);
                     else
-                        erts_smp_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL);
+                        erts_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL);
                     esp[-1] = am_true;
 		}
 	    }
@@ -2598,14 +2583,14 @@ restart:
 	    if (in_flags & ERTS_PAM_IGNORE_TRACE_SILENT)
 	      break;
 	    if (*esp == am_true) {
-		erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+		erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		ERTS_TRACE_FLAGS(c_p) |= F_TRACE_SILENT;
-		erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+		erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 	    }
 	    else if (*esp == am_false) {
-		erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+		erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		ERTS_TRACE_FLAGS(c_p) &= ~F_TRACE_SILENT;
-		erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+		erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 	    }
 	    break;
         case matchTrace2:
@@ -2634,10 +2619,10 @@ restart:
                     ERTS_TRACER_CLEAR(&tracer);
 		    break;
 		}
-		erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+		erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		(--esp)[-1] = set_match_trace(c_p, FAIL_TERM, tracer,
 					      d_flags, e_flags);
-		erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+		erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
                 ERTS_TRACER_CLEAR(&tracer);
 	    }
 	    break;
@@ -2667,13 +2652,13 @@ restart:
 		if (tmpp == c_p) {
 		    (--esp)[-1] = set_match_trace(c_p, FAIL_TERM, tracer,
 						  d_flags, e_flags);
-		    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+		    erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 		} else {
-		    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+		    erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 		    (--esp)[-1] = set_match_trace(tmpp, FAIL_TERM, tracer,
 						  d_flags, e_flags);
-		    erts_smp_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL);
-		    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+		    erts_proc_unlock(tmpp, ERTS_PROC_LOCKS_ALL);
+		    erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 		}
                 ERTS_TRACER_CLEAR(&tracer);
 	    }
@@ -3277,7 +3262,7 @@ void db_cleanup_offheap_comp(DbTerm* obj)
 	    break;
 	case FUN_SUBTAG:
 	    ASSERT(u.pb != &tmp);
-	    if (erts_smp_refc_dectest(&u.fun->fe->refc, 0) == 0) {
+	    if (erts_refc_dectest(&u.fun->fe->refc, 0) == 0) {
 		erts_erase_fun_entry(u.fun->fe);
 	    }
 	    break;

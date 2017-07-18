@@ -408,17 +408,13 @@ off_heap_msgq() ->
     end.
 
 schedulers() ->
-    case catch erlang:system_info(smp_support) of
-	true ->
-	    case {erlang:system_info(schedulers),
-		  erlang:system_info(schedulers_online)} of
-		{S,S} ->
-		    "/S"++integer_to_list(S);
-		{S,O} ->
-		    "/S"++integer_to_list(S) ++ ":" ++
-			integer_to_list(O)
-	    end;
-	_ -> ""
+    case {erlang:system_info(schedulers),
+          erlang:system_info(schedulers_online)} of
+        {S,S} ->
+            "/S"++integer_to_list(S);
+        {S,O} ->
+            "/S"++integer_to_list(S) ++ ":" ++
+                integer_to_list(O)
     end.
 
 bind_type() ->

@@ -20,16 +20,8 @@
 /*
  * Purpose: escript front-end.
  */
-#ifdef HAVE_CONFIG_H
-#  include "config.h"
-#endif
 
-#include "sys.h"
-#ifdef __WIN32__
-#include <winbase.h>
-#endif
-
-#include <ctype.h>
+#include "etc_common.h"
 
 static int debug = 0;		/* Bit flags for debug printouts. */
 

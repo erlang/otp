@@ -174,7 +174,6 @@ typedef struct {
     ErtsMessage** saved_last;	/* saved last pointer */
 } ErlMessageQueue;
 
-#ifdef ERTS_SMP
 
 typedef struct {
     ErtsMessage* first;
@@ -190,7 +189,6 @@ typedef struct erl_trace_message_queue__ {
     Sint len;            /* queue length */
 } ErlTraceMessageQueue;
 
-#endif
 
 /* Get "current" message */
 #define PEEK_MESSAGE(p)  (*(p)->msg.save)
@@ -207,7 +205,6 @@ typedef struct erl_trace_message_queue__ {
         (p)->where.len += (num_msgs);                                   \
     } while(0)
 
-#ifdef ERTS_SMP
 
 /* Add message last in private message queue */
 #define LINK_MESSAGE_PRIVQ(p, first_msg, last_msg, len)                 \
@@ -219,7 +216,7 @@ typedef struct erl_trace_message_queue__ {
 #define LINK_MESSAGE(p, first_msg, last_msg, len)       \
     LINK_MESSAGE_IMPL(p, first_msg, last_msg, len, msg_inq)
 
-#define ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p)                   \
+#define ERTS_MSGQ_MV_INQ2PRIVQ(p)                   \
     do {                                                \
         if (p->msg_inq.first) {                         \
             *p->msg.last = p->msg_inq.first;            \
@@ -231,17 +228,6 @@ typedef struct erl_trace_message_queue__ {
         }                                               \
     } while (0)
 
-#else
-
-#define ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p)
-
-/* Add message last_msg in message queue */
-#define LINK_MESSAGE(p, first_msg, last_msg, len)                       \
-    do {                                                                \
-        LINK_MESSAGE_IMPL(p, first_msg, last_msg, len, msg);            \
-    } while(0)
-
-#endif
 
 /* Unlink current message */
 #define UNLINK_MESSAGE(p,msgp) do { \

@@ -44,7 +44,7 @@
 #include "erl_binary.h"
 
 
-erts_smp_atomic_t erts_ets_misc_mem_size;
+erts_atomic_t erts_ets_misc_mem_size;
 
 /*
 ** Utility macros
@@ -61,15 +61,9 @@ enum DbIterSafety {
     ITER_SAFE_LOCKED, /* Safe while table is locked, not between trap calls */
     ITER_SAFE         /* No need to fixate at all */
 };
-#ifdef ERTS_SMP
 #  define ITERATION_SAFETY(Proc,Tab) \
     ((IS_TREE_TABLE((Tab)->common.status) || ONLY_WRITER(Proc,Tab)) ? ITER_SAFE \
      : (((Tab)->common.status & DB_FINE_LOCKED) ? ITER_UNSAFE : ITER_SAFE_LOCKED))
-#else
-#  define ITERATION_SAFETY(Proc,Tab) \
-    ((IS_TREE_TABLE((Tab)->common.status) || ONLY_WRITER(Proc,Tab)) \
-     ? ITER_SAFE : ITER_SAFE_LOCKED)
-#endif
 
 #define DID_TRAP(P,Ret) (!is_value(Ret) && ((P)->freason == TRAP))
 
@@ -195,7 +189,7 @@ static void delete_sched_table(Process *c_p, DbTable *tb);
 
 static void table_dec_refc(DbTable *tb, erts_aint_t min_val)
 {
-    if (erts_smp_refc_dectest(&tb->common.refc, min_val) == 0)
+    if (erts_refc_dectest(&tb->common.refc, min_val) == 0)
 	schedule_free_dbtable(tb);
 }
 
@@ -209,21 +203,21 @@ static ERTS_INLINE void
 make_btid(DbTable *tb)
 {
     Binary *btid = erts_create_magic_indirection(db_table_tid_destructor);
-    erts_smp_atomic_t *tbref = erts_smp_binary_to_magic_indirection(btid);
-    erts_smp_atomic_init_nob(tbref, (erts_aint_t) tb);
+    erts_atomic_t *tbref = erts_binary_to_magic_indirection(btid);
+    erts_atomic_init_nob(tbref, (erts_aint_t) tb);
     tb->common.btid = btid;
     /*
      * Table and magic indirection refer eachother,
      * and table is refered once by being alive...
      */
-    erts_smp_refc_init(&tb->common.refc, 2);
+    erts_refc_init(&tb->common.refc, 2);
     erts_refc_inc(&btid->intern.refc, 1);
 }
 
 static ERTS_INLINE DbTable* btid2tab(Binary* btid)
 {
-    erts_smp_atomic_t *tbref = erts_smp_binary_to_magic_indirection(btid);
-    return (DbTable *) erts_smp_atomic_read_nob(tbref);
+    erts_atomic_t *tbref = erts_binary_to_magic_indirection(btid);
+    return (DbTable *) erts_atomic_read_nob(tbref);
 }
 
 static DbTable *
@@ -231,7 +225,7 @@ tid2tab(Eterm tid)
 {
     DbTable *tb;
     Binary *btid;
-    erts_smp_atomic_t *tbref;
+    erts_atomic_t *tbref;
     if (!is_internal_magic_ref(tid))
         return NULL;
 
@@ -239,8 +233,8 @@ tid2tab(Eterm tid)
     if (ERTS_MAGIC_BIN_DESTRUCTOR(btid) != db_table_tid_destructor)
         return NULL;
 
-    tbref = erts_smp_binary_to_magic_indirection(btid);
-    tb = (DbTable *) erts_smp_atomic_read_nob(tbref);
+    tbref = erts_binary_to_magic_indirection(btid);
+    tb = (DbTable *) erts_atomic_read_nob(tbref);
 
     ASSERT(!tb || tb->common.btid == btid);
 
@@ -250,11 +244,11 @@ tid2tab(Eterm tid)
 static ERTS_INLINE int
 is_table_alive(DbTable *tb)
 {
-    erts_smp_atomic_t *tbref;
+    erts_atomic_t *tbref;
     DbTable *rtb;
 
-    tbref = erts_smp_binary_to_magic_indirection(tb->common.btid);
-    rtb = (DbTable *) erts_smp_atomic_read_nob(tbref);
+    tbref = erts_binary_to_magic_indirection(tb->common.btid);
+    rtb = (DbTable *) erts_atomic_read_nob(tbref);
 
     ASSERT(!rtb || rtb == tb);
 
@@ -264,11 +258,7 @@ is_table_alive(DbTable *tb)
 static ERTS_INLINE int
 is_table_named(DbTable *tb)
 {
-#ifdef ERTS_SMP
     return tb->common.type & DB_NAMED_TABLE;
-#else
-    return tb->common.status & DB_NAMED_TABLE;
-#endif
 }
 
 
@@ -277,8 +267,8 @@ tid_clear(Process *c_p, DbTable *tb)
 {
     DbTable *rtb;
     Binary *btid = tb->common.btid;
-    erts_smp_atomic_t *tbref = erts_smp_binary_to_magic_indirection(btid);
-    rtb = (DbTable *) erts_smp_atomic_xchg_nob(tbref, (erts_aint_t) NULL);
+    erts_atomic_t *tbref = erts_binary_to_magic_indirection(btid);
+    rtb = (DbTable *) erts_atomic_xchg_nob(tbref, (erts_aint_t) NULL);
     ASSERT(!rtb || tb == rtb);
     if (rtb) {
         table_dec_refc(tb, 1);
@@ -297,13 +287,11 @@ make_tid(Process *c_p, DbTable *tb)
 /* 
 ** The meta hash table of all NAMED ets tables
 */
-#ifdef ERTS_SMP
 #  define META_NAME_TAB_LOCK_CNT 16
 union {
-    erts_smp_rwmtx_t lck;
+    erts_rwmtx_t lck;
     byte _cache_line_alignment[64];
 }meta_name_tab_rwlocks[META_NAME_TAB_LOCK_CNT];
-#endif
 static struct meta_name_tab_entry {
     union {
 	Eterm name_atom;
@@ -319,13 +307,11 @@ static unsigned meta_name_tab_mask;
 
 static ERTS_INLINE
 struct meta_name_tab_entry* meta_name_tab_bucket(Eterm name, 
-						 erts_smp_rwmtx_t** lockp)
+						 erts_rwmtx_t** lockp)
 {
     unsigned bix = atom_val(name) & meta_name_tab_mask;
     struct meta_name_tab_entry* bucket = &meta_name_tab[bix];
-#ifdef ERTS_SMP
     *lockp = &meta_name_tab_rwlocks[bix % META_NAME_TAB_LOCK_CNT].lck;
-#endif
     return bucket;
 }    
 
@@ -390,16 +376,14 @@ free_dbtable(void *vtb)
 {
     DbTable *tb = (DbTable *) vtb;
 #ifdef HARDDEBUG
-	if (erts_smp_atomic_read_nob(&tb->common.memory_size) != sizeof(DbTable)) {
+	if (erts_atomic_read_nob(&tb->common.memory_size) != sizeof(DbTable)) {
 	    erts_fprintf(stderr, "ets: free_dbtable memory remain=%ld fix=%x\n",
-			 erts_smp_atomic_read_nob(&tb->common.memory_size)-sizeof(DbTable),
+			 erts_atomic_read_nob(&tb->common.memory_size)-sizeof(DbTable),
 			 tb->common.fixations);
 	}
 #endif
-#ifdef ERTS_SMP
-	erts_smp_rwmtx_destroy(&tb->common.rwlock);
-	erts_smp_mtx_destroy(&tb->common.fixlock);
-#endif
+	erts_rwmtx_destroy(&tb->common.rwlock);
+	erts_mtx_destroy(&tb->common.fixlock);
 	ASSERT(is_immed(tb->common.heir_data));
 
         if (tb->common.btid)
@@ -419,8 +403,8 @@ static void schedule_free_dbtable(DbTable* tb)
      *  	     Caller is *not* allowed to access the specialized part
      *  	     (hash or tree) of *tb after this function has returned.
      */
-    ASSERT(erts_smp_refc_read(&tb->common.refc, 0) == 0);
-    ASSERT(erts_smp_refc_read(&tb->common.fix_count, 0) == 0);
+    ASSERT(erts_refc_read(&tb->common.refc, 0) == 0);
+    ASSERT(erts_refc_read(&tb->common.fix_count, 0) == 0);
     erts_schedule_thr_prgr_later_cleanup_op(free_dbtable,
 					    (void *) tb,
 					    &tb->release.data,
@@ -435,7 +419,7 @@ save_sched_table(Process *c_p, DbTable *tb)
 
     ASSERT(esdp);
     esdp->ets_tables.count++;
-    erts_smp_refc_inc(&tb->common.refc, 1);
+    erts_refc_inc(&tb->common.refc, 1);
 
     first = esdp->ets_tables.clist;
     if (!first) {
@@ -525,11 +509,11 @@ save_owned_table(Process *c_p, DbTable *tb)
 {
     DbTable *first;
 
-    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_lock(c_p, ERTS_PROC_LOCK_STATUS);
 
     first = (DbTable*) erts_psd_get(c_p, ERTS_PSD_ETS_OWNED_TABLES);
 
-    erts_smp_refc_inc(&tb->common.refc, 1);
+    erts_refc_inc(&tb->common.refc, 1);
 
     if (!first) {
         tb->common.owned.next = tb->common.owned.prev = tb;
@@ -541,13 +525,13 @@ save_owned_table(Process *c_p, DbTable *tb)
         tb->common.owned.prev->common.owned.next = tb;
         first->common.owned.prev = tb;
     }
-    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
 }
 
 static ERTS_INLINE void
 delete_owned_table(Process *p, DbTable *tb)
 {
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     if (tb->common.owned.next == tb) {
         DbTable* old;
         ASSERT(tb->common.owned.prev == tb);
@@ -570,38 +554,33 @@ delete_owned_table(Process *p, DbTable *tb)
         if (tb == first)
             erts_psd_set(p, ERTS_PSD_ETS_OWNED_TABLES, tb->common.owned.next);
     }
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 
     table_dec_refc(tb, 1);
 }
 
 static ERTS_INLINE void db_init_lock(DbTable* tb, int use_frequent_read_lock)
 {
-#ifdef ERTS_SMP
-    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
+    erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
     if (use_frequent_read_lock)
-	rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
+	rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
     if (erts_ets_rwmtx_spin_count >= 0)
 	rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
-#endif
-#ifdef ERTS_SMP
-    erts_smp_rwmtx_init_opt(&tb->common.rwlock, &rwmtx_opt, "db_tab",
+    erts_rwmtx_init_opt(&tb->common.rwlock, &rwmtx_opt, "db_tab",
         tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
-    erts_smp_mtx_init(&tb->common.fixlock, "db_tab_fix",
+    erts_mtx_init(&tb->common.fixlock, "db_tab_fix",
         tb->common.the_name, ERTS_LOCK_FLAGS_CATEGORY_DB);
     tb->common.is_thread_safe = !(tb->common.status & DB_FINE_LOCKED);
-#endif
 }
 
 static ERTS_INLINE void db_lock(DbTable* tb, db_lock_kind_t kind)
 {
-#ifdef ERTS_SMP
     if (tb->common.type & DB_FINE_LOCKED) {
 	if (kind == LCK_WRITE) {	   
-	    erts_smp_rwmtx_rwlock(&tb->common.rwlock);
+	    erts_rwmtx_rwlock(&tb->common.rwlock);
 	    tb->common.is_thread_safe = 1;
 	} else {	
-	    erts_smp_rwmtx_rlock(&tb->common.rwlock);
+	    erts_rwmtx_rlock(&tb->common.rwlock);
 	    ASSERT(!tb->common.is_thread_safe);
 	}
     }
@@ -610,14 +589,13 @@ static ERTS_INLINE void db_lock(DbTable* tb, db_lock_kind_t kind)
 	switch (kind) {
 	case LCK_WRITE:
 	case LCK_WRITE_REC:
-	    erts_smp_rwmtx_rwlock(&tb->common.rwlock);
+	    erts_rwmtx_rwlock(&tb->common.rwlock);
 	    break;
 	default:
-	    erts_smp_rwmtx_rlock(&tb->common.rwlock);
+	    erts_rwmtx_rlock(&tb->common.rwlock);
 	}
 	ASSERT(tb->common.is_thread_safe);
     }
-#endif
 }
 
 static ERTS_INLINE void db_unlock(DbTable* tb, db_lock_kind_t kind)
@@ -627,16 +605,15 @@ static ERTS_INLINE void db_unlock(DbTable* tb, db_lock_kind_t kind)
      * DbTable structure. That is, ONLY the SMP case is allowed
      * to follow the tb pointer!
      */
-#ifdef ERTS_SMP
     if (tb->common.type & DB_FINE_LOCKED) {
 	if (kind == LCK_WRITE) {
 	    ASSERT(tb->common.is_thread_safe);
 	    tb->common.is_thread_safe = 0;
-	    erts_smp_rwmtx_rwunlock(&tb->common.rwlock);
+	    erts_rwmtx_rwunlock(&tb->common.rwlock);
 	}
 	else {
 	    ASSERT(!tb->common.is_thread_safe);
-	    erts_smp_rwmtx_runlock(&tb->common.rwlock);
+	    erts_rwmtx_runlock(&tb->common.rwlock);
 	}
     }
     else {
@@ -644,13 +621,12 @@ static ERTS_INLINE void db_unlock(DbTable* tb, db_lock_kind_t kind)
 	switch (kind) {
 	case LCK_WRITE:
 	case LCK_WRITE_REC:
-	    erts_smp_rwmtx_rwunlock(&tb->common.rwlock);
+	    erts_rwmtx_rwunlock(&tb->common.rwlock);
 	    break;
 	default:
-	    erts_smp_rwmtx_runlock(&tb->common.rwlock);
+	    erts_rwmtx_runlock(&tb->common.rwlock);
 	}
     }
-#endif
 }
 
 static ERTS_INLINE
@@ -661,7 +637,7 @@ DbTable* db_get_table_aux(Process *p,
 			  int meta_already_locked)
 {
     DbTable *tb;
-    erts_smp_rwmtx_t *mtl = NULL;
+    erts_rwmtx_t *mtl = NULL;
 
     /*
      * IMPORTANT: Only scheduler threads are allowed
@@ -673,9 +649,9 @@ DbTable* db_get_table_aux(Process *p,
     if (is_atom(id)) {
 	struct meta_name_tab_entry* bucket = meta_name_tab_bucket(id,&mtl);
 	if (!meta_already_locked)
-	    erts_smp_rwmtx_rlock(mtl);
+	    erts_rwmtx_rlock(mtl);
 	else{
-	    ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rlocked(mtl)
+	    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(mtl)
 			       || erts_lc_rwmtx_is_rwlocked(mtl));
 	    mtl = NULL;
 	}
@@ -709,7 +685,7 @@ DbTable* db_get_table_aux(Process *p,
 	}
     }
     if (mtl)
-	erts_smp_rwmtx_runlock(mtl);
+	erts_rwmtx_runlock(mtl);
     return tb;
 }
 
@@ -725,12 +701,12 @@ DbTable* db_get_table(Process *p,
 static int insert_named_tab(Eterm name_atom, DbTable* tb, int have_lock)
 {
     int ret = 0;
-    erts_smp_rwmtx_t* rwlock;
+    erts_rwmtx_t* rwlock;
     struct meta_name_tab_entry* new_entry;
     struct meta_name_tab_entry* bucket = meta_name_tab_bucket(name_atom,
 							      &rwlock);
     if (!have_lock)
-	erts_smp_rwmtx_rwlock(rwlock);
+	erts_rwmtx_rwlock(rwlock);
 
     if (bucket->pu.tb == NULL) { /* empty */
 	new_entry = bucket;
@@ -778,27 +754,25 @@ static int insert_named_tab(Eterm name_atom, DbTable* tb, int have_lock)
 
 done:
     if (!have_lock)
-	erts_smp_rwmtx_rwunlock(rwlock);
+	erts_rwmtx_rwunlock(rwlock);
     return ret;
 }
 
 static int remove_named_tab(DbTable *tb, int have_lock)
 {
     int ret = 0;
-    erts_smp_rwmtx_t* rwlock;
+    erts_rwmtx_t* rwlock;
     Eterm name_atom = tb->common.the_name;
     struct meta_name_tab_entry* bucket = meta_name_tab_bucket(name_atom,
 							      &rwlock);
     ASSERT(is_table_named(tb));
-#ifdef ERTS_SMP
-    if (!have_lock && erts_smp_rwmtx_tryrwlock(rwlock) == EBUSY) {
+    if (!have_lock && erts_rwmtx_tryrwlock(rwlock) == EBUSY) {
 	db_unlock(tb, LCK_WRITE);
-	erts_smp_rwmtx_rwlock(rwlock);
+	erts_rwmtx_rwlock(rwlock);
 	db_lock(tb, LCK_WRITE);
     }
-#endif
 
-    ERTS_SMP_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(rwlock));
+    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(rwlock));
 
     if (bucket->pu.tb == NULL) {
 	goto done;
@@ -851,7 +825,7 @@ static int remove_named_tab(DbTable *tb, int have_lock)
 
 done:
     if (!have_lock)
-	erts_smp_rwmtx_rwunlock(rwlock);
+	erts_rwmtx_rwunlock(rwlock);
     return ret;
 }
 
@@ -860,11 +834,11 @@ done:
 */
 static ERTS_INLINE void local_fix_table(DbTable* tb)
 {
-    erts_smp_refc_inc(&tb->common.fix_count, 1);
+    erts_refc_inc(&tb->common.fix_count, 1);
 }	    
 static ERTS_INLINE void local_unfix_table(DbTable* tb)
 {	
-    if (erts_smp_refc_dectest(&tb->common.fix_count, 0) == 0) {
+    if (erts_refc_dectest(&tb->common.fix_count, 0) == 0) {
 	ASSERT(IS_HASH_TABLE(tb->common.status));
 	db_unfix_table_hash(&(tb->hash));
     }
@@ -1505,7 +1479,7 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
     DbTable* tb;
     Eterm ret;
     Eterm old_name;
-    erts_smp_rwmtx_t *lck1, *lck2;
+    erts_rwmtx_t *lck1, *lck2;
 
 #ifdef HARDDEBUG
     erts_fprintf(stderr,
@@ -1528,7 +1502,7 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
 	if (lck1 == lck2)
 	    lck2 = NULL;
 	else if (lck1 > lck2) {
-	    erts_smp_rwmtx_t *tmp = lck1;
+	    erts_rwmtx_t *tmp = lck1;
 	    lck1 = lck2;
 	    lck2 = tmp;
 	}
@@ -1546,9 +1520,9 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
         }
     }
 
-    erts_smp_rwmtx_rwlock(lck1);
+    erts_rwmtx_rwlock(lck1);
     if (lck2)
-	erts_smp_rwmtx_rwlock(lck2);
+	erts_rwmtx_rwlock(lck2);
 
     tb = db_get_table_aux(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE, 1);
     if (!tb)
@@ -1568,16 +1542,16 @@ BIF_RETTYPE ets_rename_2(BIF_ALIST_2)
     tb->common.the_name = BIF_ARG_2;
 
     db_unlock(tb, LCK_WRITE);
-    erts_smp_rwmtx_rwunlock(lck1);
+    erts_rwmtx_rwunlock(lck1);
     if (lck2)
-	erts_smp_rwmtx_rwunlock(lck2);
+	erts_rwmtx_rwunlock(lck2);
     BIF_RET(ret);
  badarg:
     if (tb)
 	db_unlock(tb, LCK_WRITE);
-    erts_smp_rwmtx_rwunlock(lck1);
+    erts_rwmtx_rwunlock(lck1);
     if (lck2)
-	erts_smp_rwmtx_rwunlock(lck2);
+	erts_rwmtx_rwunlock(lck2);
     BIF_ERROR(BIF_P, BADARG);    
 }
 
@@ -1598,9 +1572,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     Uint32 status;
     Sint keypos;
     int is_named, is_compressed;
-#ifdef ERTS_SMP
     int is_fine_locked, frequent_read;
-#endif
 #ifdef DEBUG
     int cret;
 #endif
@@ -1616,10 +1588,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     status = DB_SET | DB_PROTECTED;
     keypos = 1;
     is_named = 0;
-#ifdef ERTS_SMP
     is_fine_locked = 0;
     frequent_read = 0;
-#endif
     heir = am_none;
     heir_data = (UWord) am_undefined;
     is_compressed = erts_ets_always_compress;
@@ -1647,30 +1617,18 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		    keypos = signed_val(tp[2]);
 		}		
 		else if (tp[1] == am_write_concurrency) {
-#ifdef ERTS_SMP
 		    if (tp[2] == am_true) {
 			is_fine_locked = 1;
 		    } else if (tp[2] == am_false) {
 			is_fine_locked = 0;
 		    } else break;
-#else
-		    if ((tp[2] != am_true) &&  (tp[2] != am_false)) {
-			break;
-		    }
-#endif
 		}
 		else if (tp[1] == am_read_concurrency) {
-#ifdef ERTS_SMP
 		    if (tp[2] == am_true) {
 			frequent_read = 1;
 		    } else if (tp[2] == am_false) {
 			frequent_read = 0;
 		    } else break;
-#else
-		    if ((tp[2] != am_true) &&  (tp[2] != am_false)) {
-			break;
-		    }
-#endif
 		    
 		}
 		else if (tp[1] == am_heir && tp[2] == am_none) {
@@ -1712,11 +1670,9 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     }
     if (IS_HASH_TABLE(status)) {
 	meth = &db_hash;
-#ifdef ERTS_SMP
 	if (is_fine_locked && !(status & DB_PRIVATE)) {
 	    status |= DB_FINE_LOCKED;
 	}
-#endif
     }
     else if (IS_TREE_TABLE(status)) {
 	meth = &db_tree;
@@ -1725,10 +1681,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-#ifdef ERTS_SMP
     if (frequent_read && !(status & DB_PRIVATE))
 	status |= DB_FREQ_READ;
-#endif
 
     /* we create table outside any table lock
      * and take the unusal cost of destroy table if it
@@ -1737,27 +1691,25 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     {
         DbTable init_tb;
 
-	erts_smp_atomic_init_nob(&init_tb.common.memory_size, 0);
+	erts_atomic_init_nob(&init_tb.common.memory_size, 0);
 	tb = (DbTable*) erts_db_alloc(ERTS_ALC_T_DB_TABLE,
 				      &init_tb, sizeof(DbTable));
-	erts_smp_atomic_init_nob(&tb->common.memory_size,
-				 erts_smp_atomic_read_nob(&init_tb.common.memory_size));
+	erts_atomic_init_nob(&tb->common.memory_size,
+				 erts_atomic_read_nob(&init_tb.common.memory_size));
     }
 
     tb->common.meth = meth;
     tb->common.the_name = BIF_ARG_1;
     tb->common.status = status;    
-#ifdef ERTS_SMP
     tb->common.type = status & ERTS_ETS_TABLE_TYPES;
     /* Note, 'type' is *read only* from now on... */
-#endif
-    erts_smp_refc_init(&tb->common.fix_count, 0);
+    erts_refc_init(&tb->common.fix_count, 0);
     db_init_lock(tb, status & (DB_FINE_LOCKED|DB_FREQ_READ));
     tb->common.keypos = keypos;
     tb->common.owner = BIF_P->common.id;
     set_heir(BIF_P, tb, heir, heir_data);
 
-    erts_smp_atomic_init_nob(&tb->common.nitems, 0);
+    erts_atomic_init_nob(&tb->common.nitems, 0);
 
     tb->common.fixing_procs = NULL;
     tb->common.compress = is_compressed;
@@ -1940,7 +1892,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
          * Process 'rp' might be exiting, but our table lock prevents it
          * from terminating as it cannot complete erts_db_process_exiting().
          */
-        ASSERT(!(ERTS_PSFLG_FREE & erts_smp_atomic32_read_nob(&rp->state)));
+        ASSERT(!(ERTS_PSFLG_FREE & erts_atomic32_read_nob(&rp->state)));
 
         delete_owned_table(rp, tb);
         BIF_P->flags |= F_USING_DB;
@@ -2015,12 +1967,12 @@ BIF_RETTYPE ets_give_away_3(BIF_ALIST_3)
     db_unlock(tb,LCK_WRITE);
     send_ets_transfer_message(BIF_P, to_proc, &to_locks,
                               tb, BIF_ARG_3);
-    erts_smp_proc_unlock(to_proc, to_locks);
+    erts_proc_unlock(to_proc, to_locks);
     UnUseTmpHeap(5,BIF_P);
     BIF_RET(am_true);
 
 badarg:
-    if (to_proc != NULL && to_proc != BIF_P) erts_smp_proc_unlock(to_proc, to_locks);
+    if (to_proc != NULL && to_proc != BIF_P) erts_proc_unlock(to_proc, to_locks);
     if (tb != NULL) db_unlock(tb, LCK_WRITE);
     BIF_ERROR(BIF_P, BADARG);
 }
@@ -2244,7 +2196,7 @@ BIF_RETTYPE ets_select_delete_2(BIF_ALIST_2)
 	if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE)) == NULL) {
 	    BIF_ERROR(BIF_P, BADARG);
 	}
-	nitems = erts_smp_atomic_read_nob(&tb->common.nitems);
+	nitems = erts_atomic_read_nob(&tb->common.nitems);
 	tb->common.meth->db_delete_all_objects(BIF_P, tb);
 	db_unlock(tb, LCK_WRITE);
 	BIF_RET(erts_make_integer(nitems,BIF_P));
@@ -2295,7 +2247,7 @@ BIF_RETTYPE ets_select_delete_2(BIF_ALIST_2)
  */
 
 struct ErtsEtsAllReq_ {
-    erts_smp_atomic32_t refc;
+    erts_atomic32_t refc;
     Process *proc;
     ErtsOIRefStorage ref;
     ErtsEtsAllReqList list[1]; /* one per scheduler */
@@ -2428,7 +2380,7 @@ ets_all_reply(ErtsSchedulerData *esdp, ErtsEtsAllReq **reqpp,
 
     erts_proc_dec_refc(reqp->proc);
 
-    if (erts_smp_atomic32_dec_read_nob(&reqp->refc) == 0)
+    if (erts_atomic32_dec_read_nob(&reqp->refc) == 0)
         erts_free(ERTS_ALC_T_ETS_ALL_REQ, reqp);
 
     *reqpp = NULL;
@@ -2516,19 +2468,17 @@ BIF_RETTYPE ets_internal_request_all_0(BIF_ALIST_0)
     Eterm ref = erts_make_ref(BIF_P);
     ErtsEtsAllReq *req = erts_alloc(ERTS_ALC_T_ETS_ALL_REQ,
                                     ERTS_ETS_ALL_REQ_SIZE);
-    erts_smp_atomic32_init_nob(&req->refc,
+    erts_atomic32_init_nob(&req->refc,
 			       (erts_aint32_t) erts_no_schedulers);
     erts_oiref_storage_save(&req->ref, ref);
     req->proc = BIF_P;
     erts_proc_add_refc(BIF_P, (Sint) erts_no_schedulers);
 
-#ifdef ERTS_SMP
     if (erts_no_schedulers > 1)
 	erts_schedule_multi_misc_aux_work(1,
 					  erts_no_schedulers,
                                           handle_ets_all_request,
 					  (void *) req);
-#endif
 
     handle_ets_all_request((void *) req);
     BIF_RET(ref);
@@ -3212,7 +3162,7 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
 	if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_INFO, LCK_READ)) == NULL
 	    || tb->common.owner != owner) {
 	    if (BIF_P != rp)
-		erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
+		erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);
 	    if (is_atom(BIF_ARG_1) || is_small(BIF_ARG_1)) {
 		BIF_RET(am_undefined);
 	    }
@@ -3226,7 +3176,7 @@ BIF_RETTYPE ets_info_1(BIF_ALIST_1)
     db_unlock(tb, LCK_READ);
 
     /*if (rp != NULL && rp != BIF_P)
-	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);*/
+	erts_proc_unlock(rp, ERTS_PROC_LOCK_MAIN);*/
 
     hp = HAlloc(BIF_P, 5*sizeof(fields)/sizeof(Eterm));
     res = NIL;
@@ -3345,11 +3295,10 @@ void init_db(ErtsDbSpinCount db_spin_count)
     unsigned bits;
     size_t size;
 
-#ifdef ERTS_SMP
     int max_spin_count = (1 << 15) - 1; /* internal limit */
-    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
-    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
-    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
+    erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
+    rwmtx_opt.type = ERTS_RWMTX_TYPE_FREQUENT_READ;
+    rwmtx_opt.lived = ERTS_RWMTX_LONG_LIVED;
 
     switch (db_spin_count) {
     case ERTS_DB_SPNCNT_NONE:
@@ -3389,13 +3338,12 @@ void init_db(ErtsDbSpinCount db_spin_count)
 	rwmtx_opt.main_spincount = erts_ets_rwmtx_spin_count;
 
     for (i=0; i<META_NAME_TAB_LOCK_CNT; i++) {
-        erts_smp_rwmtx_init_opt(&meta_name_tab_rwlocks[i].lck, &rwmtx_opt,
+        erts_rwmtx_init_opt(&meta_name_tab_rwlocks[i].lck, &rwmtx_opt,
             "meta_name_tab", make_small(i),
             ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DB);
     }
-#endif
 
-    erts_smp_atomic_init_nob(&erts_ets_misc_mem_size, 0);
+    erts_atomic_init_nob(&erts_ets_misc_mem_size, 0);
     db_initialize_util();
 
     if (user_requested_db_max_tabs < DB_DEF_MAX_TABS)
@@ -3496,14 +3444,14 @@ retry:
     
 	if (tb->common.owner != p->common.id) {
 	    if (to_proc != NULL ) {
-		erts_smp_proc_unlock(to_proc, to_locks);
+		erts_proc_unlock(to_proc, to_locks);
 	    }
 	    db_unlock(tb,LCK_WRITE);
 	    return !0; /* ok, someone already gave my table away */
 	}
 	if (tb->common.heir != to_pid) {  /* someone changed the heir */ 
 	    if (to_proc != NULL ) {
-		erts_smp_proc_unlock(to_proc, to_locks);
+		erts_proc_unlock(to_proc, to_locks);
 	    }
 	    if (to_pid == p->common.id || to_pid == am_none) {
 		return 0; /* no real heir, table still mine */
@@ -3516,7 +3464,7 @@ retry:
     }
     if (to_proc->common.u.alive.started_interval
 	!= tb->common.heir_started_interval) {
-	erts_smp_proc_unlock(to_proc, to_locks);
+	erts_proc_unlock(to_proc, to_locks);
 	return 0; /* heir dead and pid reused, table still mine */
     }
     
@@ -3533,7 +3481,7 @@ retry:
 	heir_data = tpv[1];
     }
     send_ets_transfer_message(p, to_proc, &to_locks, tb, heir_data);
-    erts_smp_proc_unlock(to_proc, to_locks);
+    erts_proc_unlock(to_proc, to_locks);
     return !0;
 }
 
@@ -3584,21 +3532,17 @@ static SWord proc_cleanup_fixed_table(Process* p, DbFixation* fix)
 	db_lock(tb, LCK_WRITE_REC);
 	if (!(tb->common.status & DB_DELETE)) {
 	    erts_aint_t diff;
-    #ifdef ERTS_SMP
-	    erts_smp_mtx_lock(&tb->common.fixlock);
-    #endif
+	    erts_mtx_lock(&tb->common.fixlock);
 
 	    ASSERT(fixing_procs_rbt_lookup(tb->common.fixing_procs, p));
 
 	    diff = -((erts_aint_t) fix->counter);
-	    erts_smp_refc_add(&tb->common.fix_count,diff,0);
+	    erts_refc_add(&tb->common.fix_count,diff,0);
 	    fix->counter = 0;
 
 	    fixing_procs_rbt_delete(&tb->common.fixing_procs, fix);
 
-    #ifdef ERTS_SMP
-	    erts_smp_mtx_unlock(&tb->common.fixlock);
-    #endif
+	    erts_mtx_unlock(&tb->common.fixlock);
 	    if (!IS_FIXED(tb) && IS_HASH_TABLE(tb->common.status)) {
 		work += db_unfix_table_hash(&(tb->hash));
 	    }
@@ -3661,9 +3605,9 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 	switch (state->op) {
         case GET_OWNED_TABLE: {
             DbTable* tb;
-            erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_STATUS);
+            erts_proc_lock(c_p, ERTS_PROC_LOCK_STATUS);
             tb = (DbTable*) erts_psd_get(c_p, ERTS_PSD_ETS_OWNED_TABLES);
-            erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
+            erts_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
 
             if (!tb) {
                 /* Done with owned tables; now fixations */
@@ -3754,10 +3698,8 @@ static void fix_table_locked(Process* p, DbTable* tb)
 {
     DbFixation *fix;
 
-#ifdef ERTS_SMP
-    erts_smp_mtx_lock(&tb->common.fixlock);
-#endif
-    erts_smp_refc_inc(&tb->common.fix_count,1);
+    erts_mtx_lock(&tb->common.fixlock);
+    erts_refc_inc(&tb->common.fix_count,1);
     fix = tb->common.fixing_procs;
     if (fix == NULL) {
 	tb->common.time.monotonic
@@ -3770,9 +3712,7 @@ static void fix_table_locked(Process* p, DbTable* tb)
 	    ASSERT(fixed_tabs_find(NULL, fix));
 	    ++(fix->counter);
 
-#ifdef ERTS_SMP
-	    erts_smp_mtx_unlock(&tb->common.fixlock);
-#endif
+	    erts_mtx_unlock(&tb->common.fixlock);
 	    return;
 	}
     }
@@ -3785,9 +3725,7 @@ static void fix_table_locked(Process* p, DbTable* tb)
     fix->counter = 1;
     fixing_procs_rbt_insert(&tb->common.fixing_procs, fix);
 
-#ifdef ERTS_SMP
-    erts_smp_mtx_unlock(&tb->common.fixlock);
-#endif
+    erts_mtx_unlock(&tb->common.fixlock);
     p->flags |= F_USING_DB;
 
     fixed_tabs_insert(p, fix);
@@ -3800,20 +3738,16 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
 {
     DbFixation* fix;
 
-#ifdef ERTS_SMP
-    erts_smp_mtx_lock(&tb->common.fixlock);
-#endif
+    erts_mtx_lock(&tb->common.fixlock);
     fix = fixing_procs_rbt_lookup(tb->common.fixing_procs, p);
 
     if (fix) {
-	erts_smp_refc_dec(&tb->common.fix_count,0);
+	erts_refc_dec(&tb->common.fix_count,0);
 	--(fix->counter);
 	ASSERT(fix->counter >= 0);
 	if (fix->counter == 0) {
 	    fixing_procs_rbt_delete(&tb->common.fixing_procs, fix);
-#ifdef ERTS_SMP
-	    erts_smp_mtx_unlock(&tb->common.fixlock);
-#endif
+	    erts_mtx_unlock(&tb->common.fixlock);
 	    fixed_tabs_delete(p, fix);
 
 	    erts_refc_dec(&fix->tabs.btid->intern.refc, 1);
@@ -3824,22 +3758,18 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
 	    goto unlocked;
 	}
     }
-#ifdef ERTS_SMP
-    erts_smp_mtx_unlock(&tb->common.fixlock);
-#endif
+    erts_mtx_unlock(&tb->common.fixlock);
 unlocked:
 
     if (!IS_FIXED(tb) && IS_HASH_TABLE(tb->common.status)
-	&& erts_smp_atomic_read_nob(&tb->hash.fixdel) != (erts_aint_t)NULL) {
-#ifdef ERTS_SMP
+	&& erts_atomic_read_nob(&tb->hash.fixdel) != (erts_aint_t)NULL) {
 	if (*kind_p == LCK_READ && tb->common.is_thread_safe) {
 	    /* Must have write lock while purging pseudo-deleted (OTP-8166) */
-	    erts_smp_rwmtx_runlock(&tb->common.rwlock);
-	    erts_smp_rwmtx_rwlock(&tb->common.rwlock);
+	    erts_rwmtx_runlock(&tb->common.rwlock);
+	    erts_rwmtx_rwlock(&tb->common.rwlock);
 	    *kind_p = LCK_WRITE;
 	    if (tb->common.status & DB_DELETE) return;
 	}
-#endif
 	db_unfix_table_hash(&(tb->hash));
     }
 }
@@ -3864,9 +3794,8 @@ static void free_fixations_op(DbFixation* fix, void* vctx)
     ASSERT(ctx->tb->common.status & DB_DELETE);
 
     diff = -((erts_aint_t) fix->counter);
-    erts_smp_refc_add(&ctx->tb->common.fix_count, diff, 0);
+    erts_refc_add(&ctx->tb->common.fix_count, diff, 0);
 
-#ifdef ERTS_SMP
     if (fix->procs.p != ctx->p) { /* Fixated by other process */
         fix->counter = 0;
 
@@ -3882,7 +3811,6 @@ static void free_fixations_op(DbFixation* fix, void* vctx)
          */
     }
     else
-#endif
     {
         fixed_tabs_delete(fix->procs.p, fix);
 
@@ -3895,7 +3823,6 @@ static void free_fixations_op(DbFixation* fix, void* vctx)
     ctx->cnt++;
 }
 
-#ifdef ERTS_SMP
 int erts_db_execute_free_fixation(Process* p, DbFixation* fix)
 {
     ASSERT(fix->counter == 0);
@@ -3907,13 +3834,12 @@ int erts_db_execute_free_fixation(Process* p, DbFixation* fix)
     ERTS_ETS_MISC_MEM_ADD(-sizeof(DbFixation));
     return 1;
 }
-#endif
 
 static SWord free_fixations_locked(Process* p, DbTable *tb)
 {
     struct free_fixations_ctx ctx;
 
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_rwmtx_is_rwlocked(&tb->common.rwlock));
+    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&tb->common.rwlock));
 
     ctx.p = p;
     ctx.tb = tb;
@@ -4056,7 +3982,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
     int use_monotonic;
 
     if (What == am_size) {
-	ret = make_small(erts_smp_atomic_read_nob(&tb->common.nitems));
+	ret = make_small(erts_atomic_read_nob(&tb->common.nitems));
     } else if (What == am_type) {
 	if (tb->common.status & DB_SET)  {
 	    ret = am_set;
@@ -4069,7 +3995,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    ret = am_bag;
 	}
     } else if (What == am_memory) {
-	Uint words = (Uint) ((erts_smp_atomic_read_nob(&tb->common.memory_size)
+	Uint words = (Uint) ((erts_atomic_read_nob(&tb->common.memory_size)
 			      + sizeof(Uint)
 			      - 1)
 			     / sizeof(Uint));
@@ -4115,9 +4041,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 		= ERTS_IS_ATOM_STR("safe_fixed_monotonic_time",
 				   What))
 	       || ERTS_IS_ATOM_STR("safe_fixed", What)) {
-#ifdef ERTS_SMP
-	erts_smp_mtx_lock(&tb->common.fixlock);
-#endif
+	erts_mtx_lock(&tb->common.fixlock);
 	if (IS_FIXED(tb)) {
 	    Uint need;
 	    Eterm *hp;
@@ -4159,9 +4083,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	} else {
 	    ret = am_false;
 	}
-#ifdef ERTS_SMP
-	erts_smp_mtx_unlock(&tb->common.fixlock);
-#endif
+	erts_mtx_unlock(&tb->common.fixlock);
     } else if (What == am_atom_put("stats",5)) {
 	if (IS_HASH_TABLE(tb->common.status)) {
 	    FloatDef f;
@@ -4185,7 +4107,7 @@ static Eterm table_info(Process* p, DbTable* tb, Eterm What)
 	    std_dev_exp = make_float(hp);
 	    PUT_DOUBLE(f, hp);
 	    hp += FLOAT_SIZE_OBJECT;
-	    ret = TUPLE7(hp, make_small(erts_smp_atomic_read_nob(&tb->hash.nactive)),
+	    ret = TUPLE7(hp, make_small(erts_atomic_read_nob(&tb->hash.nactive)),
 			 avg, std_dev_real, std_dev_exp,
 			 make_small(stats.min_chain_len),
 			 make_small(stats.max_chain_len),
@@ -4217,9 +4139,9 @@ static void print_table(fmtfn_t to, void *to_arg, int show,  DbTable* tb)
 
     tb->common.meth->db_print(to, to_arg, show, tb);
 
-    erts_print(to, to_arg, "Objects: %d\n", (int)erts_smp_atomic_read_nob(&tb->common.nitems));
+    erts_print(to, to_arg, "Objects: %d\n", (int)erts_atomic_read_nob(&tb->common.nitems));
     erts_print(to, to_arg, "Words: %bpu\n",
-	       (Uint) ((erts_smp_atomic_read_nob(&tb->common.memory_size)
+	       (Uint) ((erts_atomic_read_nob(&tb->common.memory_size)
 			+ sizeof(Uint)
 			- 1)
 		       / sizeof(Uint)));
@@ -4259,9 +4181,9 @@ void db_info(fmtfn_t to, void *to_arg, int show)    /* Called by break handler *
 Uint
 erts_get_ets_misc_mem_size(void)
 {
-    ERTS_SMP_MEMORY_BARRIER;
+    ERTS_THR_MEMORY_BARRIER;
     /* Memory not allocated in ets_alloc */
-    return (Uint) erts_smp_atomic_read_nob(&erts_ets_misc_mem_size);
+    return (Uint) erts_atomic_read_nob(&erts_ets_misc_mem_size);
 }
 
 /* SMP Note: May only be used when system is locked */
@@ -4270,7 +4192,7 @@ erts_db_foreach_table(void (*func)(DbTable *, void *), void *arg)
 {
     int ix;
 
-    ASSERT(erts_smp_thr_progress_is_blocking());
+    ASSERT(erts_thr_progress_is_blocking());
 
     for (ix = 0; ix < erts_no_schedulers; ix++) {
         ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);

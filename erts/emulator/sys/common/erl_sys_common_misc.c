@@ -51,7 +51,7 @@
  * (often) exist two versions of erl_check_io (kernel-poll and
  * non-kernel-poll), and we dont want two versions of this variable.
  */
-erts_smp_atomic_t erts_check_io_time;
+erts_atomic_t erts_check_io_time;
 
 /* Written once and only once */
 

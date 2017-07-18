@@ -109,8 +109,8 @@ process_killer(void)
 		    ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
 		    erts_aint32_t state;
 		    erts_proc_inc_refc(rp);
-		    erts_smp_proc_lock(rp, rp_locks);
-		    state = erts_smp_atomic32_read_acqb(&rp->state);
+		    erts_proc_lock(rp, rp_locks);
+		    state = erts_atomic32_read_acqb(&rp->state);
 		    if (state & (ERTS_PSFLG_FREE
 				 | ERTS_PSFLG_EXITING
 				 | ERTS_PSFLG_ACTIVE
@@ -132,7 +132,7 @@ process_killer(void)
 						     NULL,
 						     0);
 		    }
-		    erts_smp_proc_unlock(rp, rp_locks);
+		    erts_proc_unlock(rp, rp_locks);
 		    erts_proc_dec_refc(rp);
 		}
 		case 'n': br = 1; break;
@@ -219,7 +219,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
     /* Display the state */
     erts_print(to, to_arg, "State: ");
 
-    state = erts_smp_atomic32_read_acqb(&p->state);
+    state = erts_atomic32_read_acqb(&p->state);
     erts_dump_process_state(to, to_arg, state);
     if (state & ERTS_PSFLG_GC) {
         garbing = 1;
@@ -258,7 +258,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
     erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
     approx_started = (time_t) p->approx_started;
     erts_print(to, to_arg, "Started: %s", ctime(&approx_started));
-    ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
+    ERTS_MSGQ_MV_INQ2PRIVQ(p);
     erts_print(to, to_arg, "Message queue length: %d\n", p->msg.len);
 
     /* display the message queue only if there is anything in it */
@@ -344,9 +344,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
 	erts_program_counter_info(to, to_arg, p);
     } else {
 	erts_print(to, to_arg, "Stack dump:\n");
-#ifdef ERTS_SMP
 	if (!garbing)
-#endif
 	    erts_stack_dump(to, to_arg, p);
     }
 
@@ -358,11 +356,9 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
 static void
 print_garb_info(fmtfn_t to, void *to_arg, Process* p)
 {
-#ifdef ERTS_SMP
     /* ERTS_SMP: A scheduler is probably concurrently doing gc... */
     if (!ERTS_IS_CRASH_DUMPING)
       return;
-#endif
     erts_print(to, to_arg, "New heap start: %bpX\n", p->heap);
     erts_print(to, to_arg, "New heap top: %bpX\n", p->htop);
     erts_print(to, to_arg, "Stack top: %bpX\n", p->stop);
@@ -512,7 +508,7 @@ do_break(void)
     erts_free_read_env(mode);
 #endif /* __WIN32__ */
 
-    ASSERT(erts_smp_thr_progress_is_blocking());
+    ASSERT(erts_thr_progress_is_blocking());
 
     erts_printf("\n"
 		"BREAK: (a)bort (c)ontinue (p)roc info (i)nfo (l)oaded\n"
@@ -698,9 +694,7 @@ static int crash_dump_limited_writer(void* vfdp, char* buf, size_t len)
 void
 erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 {
-#ifdef ERTS_SMP
     ErtsThrPrgrData tpd_buf; /* in case we aren't a managed thread... */
-#endif
     int fd;
     size_t envsz;
     time_t now;
@@ -717,7 +711,6 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     if (ERTS_SOMEONE_IS_CRASH_DUMPING)
 	return;
 
-#ifdef ERTS_SMP
     /* Order all managed threads to block, this has to be done
        first to guarantee that this is the only thread to generate
        crash dump. */
@@ -741,12 +734,9 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 #endif
 
     /* Allow us to pass certain places without locking... */
-    erts_smp_atomic32_set_mb(&erts_writing_erl_crash_dump, 1);
-    erts_smp_tsd_set(erts_is_crash_dumping_key, (void *) 1);
+    erts_atomic32_set_mb(&erts_writing_erl_crash_dump, 1);
+    erts_tsd_set(erts_is_crash_dumping_key, (void *) 1);
 
-#else /* !ERTS_SMP */
-    erts_writing_erl_crash_dump = 1;
-#endif /* ERTS_SMP */
 
     envsz = sizeof(env);
     /* ERL_CRASH_DUMP_SECONDS not set
@@ -841,7 +831,6 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     erts_print_nif_taints(to, to_arg);
     erts_cbprintf(to, to_arg, "Atoms: %d\n", atom_table_size());
 
-#ifdef USE_THREADS
     /* We want to note which thread it was that called erts_exit */
     if (erts_get_scheduler_data()) {
         erts_cbprintf(to, to_arg, "Calling Thread: scheduler:%d\n",
@@ -852,9 +841,6 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
         else
             erts_cbprintf(to, to_arg, "Calling Thread: %p\n", erts_thr_self());
     }
-#else
-    erts_cbprintf(to, to_arg, "Calling Thread: scheduler:1\n");
-#endif
 
 #if defined(ERTS_HAVE_TRY_CATCH)
 
@@ -873,7 +859,6 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     }
 #endif
 
-#ifdef ERTS_SMP
 
 #ifdef ERTS_SYS_SUSPEND_SIGNAL
 
@@ -895,7 +880,6 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
      */
     erts_thr_progress_fatal_error_wait(60000);
     /* Either worked or not... */
-#endif
 
 #ifndef ERTS_HAVE_TRY_CATCH
     /* This is safe to call here, as all schedulers are blocked */

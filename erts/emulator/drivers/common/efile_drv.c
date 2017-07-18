@@ -167,7 +167,6 @@ dt_private *get_dt_private(int);
 #endif
 
 
-#ifdef USE_THREADS
 #define THRDS_AVAILABLE (sys_info.async_threads > 0)
 #ifdef HARDDEBUG /* HARDDEBUG in io.c is expected too */
 #define TRACE_DRIVER fprintf(stderr, "Efile: ")
@@ -177,12 +176,6 @@ dt_private *get_dt_private(int);
 #define MUTEX_INIT(m, p) do { IF_THRDS { TRACE_DRIVER; (m = driver_pdl_create(p)); } } while (0)
 #define MUTEX_LOCK(m)    do { IF_THRDS { TRACE_DRIVER; driver_pdl_lock(m);   } } while (0)
 #define MUTEX_UNLOCK(m)  do { IF_THRDS { TRACE_DRIVER; driver_pdl_unlock(m); } } while (0)
-#else
-#define THRDS_AVAILABLE (0)
-#define MUTEX_INIT(m, p)
-#define MUTEX_LOCK(m)
-#define MUTEX_UNLOCK(m)
-#endif
 #define IF_THRDS if (THRDS_AVAILABLE)
 
 
@@ -2715,7 +2708,6 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	}
 
     case FILE_READDIR: 
-#ifdef USE_THREADS
 	if (sys_info.async_threads > 0)
 	{
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + 
@@ -2736,7 +2728,6 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    goto done;
 	}
 	else   
-#endif
 	{
 	    size_t resbufsize;
 	    size_t n = 0, total = 0;

@@ -28,7 +28,7 @@ include(`hipe/hipe_sparc_asm.m4')
 	.section ".text"
 	.align	4
 
-`#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+`#if defined(ERTS_ENABLE_LOCK_CHECK)
 #  define CALL_BIF(F)	set nbif_impl_##F, %o7; st %o7, [%o0+P_BIF_CALLEE]; call hipe_debug_bif_wrapper 
 #else
 #  define CALL_BIF(F)	call	nbif_impl_##F
