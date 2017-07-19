@@ -1930,6 +1930,14 @@ ERTS_POLL_EXPORT(erts_poll_info)(ErtsPollSet *ps, ErtsPollInfo *pip)
 #endif
         ;
 
+    pip->batch_updates =
+#if ERTS_POLL_USE_DEVPOLL
+        1
+#else
+        0
+#endif
+        ;
+
     pip->max_fds = max_fds;
 
     ERTS_POLLSET_UNLOCK(ps);

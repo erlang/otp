@@ -43,6 +43,7 @@
          outputv_errors/1,
          driver_unloaded/1,
          io_ready_exit/1,
+         use_fallback_pollset/0,
          use_fallback_pollset/1,
          bad_fd_in_pollset/1,
          fd_change/1,
@@ -118,17 +119,26 @@
 -define(heap_binary_size, 64).
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    case catch erts_debug:get_internal_state(available_internal_state) of
-        true -> ok;
-        _ -> erts_debug:set_internal_state(available_internal_state, true)
-    end,
+    CIOD = rpc(Config,
+               fun() ->
+                       case catch erts_debug:get_internal_state(available_internal_state) of
+                           true -> ok;
+                           _ -> erts_debug:set_internal_state(available_internal_state, true)
+                       end,
+                       erts_debug:get_internal_state(check_io_debug)
+               end),
     erlang:display({init_per_testcase, Case}),
-    0 = element(1, erts_debug:get_internal_state(check_io_debug)),
+    0 = element(1, CIOD),
     [{testcase, Case}|Config].
 
-end_per_testcase(Case, _Config) ->
+end_per_testcase(Case, Config) ->
     erlang:display({end_per_testcase, Case}),
-    0 = element(1, erts_debug:get_internal_state(check_io_debug)),
+    CIOD = rpc(Config,
+               fun() ->
+                       get_stable_check_io_info(),
+                       erts_debug:get_internal_state(check_io_debug)
+               end),
+    0 = element(1, CIOD),
     ok.
 
 suite() ->
@@ -136,10 +146,13 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() -> %% Keep a_test first and z_test last...
-    [a_test, outputv_errors, outputv_echo, queue_echo, %{group, timer},
-     driver_unloaded, io_ready_exit, use_fallback_pollset,
-     bad_fd_in_pollset, fd_change,
-     steal_control, otp_6602, driver_system_info_base_ver,
+    [a_test, outputv_errors, outputv_echo, queue_echo,
+     {group, timer},
+     driver_unloaded, io_ready_exit, otp_6602,
+     {group, polling},
+     {group, poll_thread},
+     {group, poll_set},
+     driver_system_info_base_ver,
      driver_system_info_prev_ver,
      driver_system_info_current_ver, driver_monitor,
      {group, ioq_exit}, zero_extended_marker_garb_drv,
@@ -147,7 +160,6 @@ all() -> %% Keep a_test first and z_test last...
      larger_minor_vsn_drv, smaller_major_vsn_drv,
      smaller_minor_vsn_drv, peek_non_existing_queue,
      otp_6879, caller, many_events, missing_callbacks,
-     smp_select, driver_select_use,
      thread_mseg_alloc_cache_clean,
      otp_9302,
      thr_free_drv,
@@ -160,6 +172,13 @@ groups() ->
     [{timer, [],
       [timer_measure, timer_cancel, timer_delay,
        timer_change]},
+     {poll_thread, [], [{group, polling}]},
+     {poll_set, [], [{group, polling}]},
+     {polling, [],
+      [a_test, use_fallback_pollset,
+       bad_fd_in_pollset, fd_change,
+       steal_control, smp_select,
+       driver_select_use, z_test]},
      {ioq_exit, [],
       [ioq_exit_ready_input, ioq_exit_ready_output,
        ioq_exit_timeout, ioq_exit_ready_async,
@@ -172,10 +191,28 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false).
 
+init_per_group(poll_thread, Config) ->
+    [{node_args, "+IOt 2"} | Config];
+init_per_group(poll_set, Config) ->
+    [{node_args, "+IOt 2 +IOp 2"} | Config];
+init_per_group(polling, Config) ->
+    case proplists:get_value(node_args, Config) of
+        undefined ->
+            Config;
+        Args ->
+            {ok, Node} = start_node(polling, Args),
+            [{node, Node} | Config]
+    end;
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
+    case proplists:get_value(node, Config) of
+        undefined ->
+            ok;
+        Node ->
+            stop_node(Node)
+    end,
     Config.
 
 %% Test sending bad types to port with an outputv-capable driver.
@@ -783,7 +820,13 @@ io_ready_exit(Config) when is_list(Config) ->
 -define(CHKIO_SMP_SELECT, 7).
 -define(CHKIO_DRV_USE, 8).
 
+use_fallback_pollset() ->
+    [{timetrap, {minutes, 2}}].
+
 use_fallback_pollset(Config) when is_list(Config) ->
+    rpc(Config, fun() -> use_fallback_pollset_t(Config) end).
+
+use_fallback_pollset_t(Config) when is_list(Config) ->
     FlbkFun = fun () ->
                       {Flbk, _} = get_fallback(erlang:system_info(check_io)),
                       case lists:keysearch(total_poll_set_size, 1, Flbk) of
@@ -809,6 +852,7 @@ use_fallback_pollset(Config) when is_list(Config) ->
           Skip ->
               {fun () -> ok end, Skip, ok}
       end,
+    io:format("Node = ~p~n",[node()]),
     case chkio_test_fini(chkio_test(Handel,
                                     ?CHKIO_USE_FALLBACK_POLLSET,
                                     fun () ->
@@ -820,22 +864,31 @@ use_fallback_pollset(Config) when is_list(Config) ->
     end.
 
 bad_fd_in_pollset(Config) when is_list(Config) ->
-    chkio_test_fini(chkio_test(chkio_test_init(Config),
-                               ?CHKIO_BAD_FD_IN_POLLSET,
-                               fun () -> sleep(1000) end)).
+    rpc(Config,
+        fun() ->
+                chkio_test_fini(chkio_test(chkio_test_init(Config),
+                                           ?CHKIO_BAD_FD_IN_POLLSET,
+                                           fun () -> sleep(1000) end))
+        end).
 
 fd_change(Config) when is_list(Config) ->
-    chkio_test_fini(chkio_test(chkio_test_init(Config),
-                               ?CHKIO_FD_CHANGE,
-                               fun () -> sleep(1000) end)).
+    rpc(Config,
+        fun() ->
+                chkio_test_fini(chkio_test(chkio_test_init(Config),
+                                           ?CHKIO_FD_CHANGE,
+                                           fun () -> sleep(1000) end))
+        end).
 
 steal_control(Config) when is_list(Config) ->
-    chkio_test_fini(case chkio_test_init(Config) of
-                        {erts_poll_info, _} = Hndl ->
-                            steal_control_test(Hndl);
-                        Skip ->
-                            Skip
-                    end).
+    rpc(Config,
+        fun() ->
+                chkio_test_fini(case chkio_test_init(Config) of
+                                    {erts_poll_info, _} = Hndl ->
+                                        steal_control_test(Hndl);
+                                    Skip ->
+                                        Skip
+                                end)
+        end).
 
 steal_control_test(Hndl = {erts_poll_info, Before}) ->
     Port = open_chkio_port(),
@@ -877,7 +930,7 @@ chkio_test_init(Config) when is_list(Config) ->
     ChkIo = get_stable_check_io_info(),
     case catch lists:keysearch(name, 1, ChkIo) of
         {value, {name, erts_poll}} ->
-            io:format("Before test: ~p~n", [ChkIo]),
+            ct:log("Before test: ~p~n", [ChkIo]),
             Path = proplists:get_value(data_dir, Config),
             erl_ddll:start(),
             ok = load_driver(Path, 'chkio_drv'),
@@ -940,6 +993,7 @@ chkio_test({erts_poll_info, Before},
             Fun(),
             During = get_check_io_total(erlang:system_info(check_io)),
             erlang:display(During),
+
             0 = element(1, erts_debug:get_internal_state(check_io_debug)),
             io:format("During test: ~p~n", [During]),
             chk_chkio_port(Port),
@@ -991,25 +1045,25 @@ verify_chkio_state(Before, After) ->
     ok.
 
 get_stable_check_io_info() ->
+    get_stable_check_io_info(10).
+get_stable_check_io_info(0) ->
+    get_check_io_total(erlang:system_info(check_io));
+get_stable_check_io_info(N) ->
     ChkIo = get_check_io_total(erlang:system_info(check_io)),
-    PendUpdNo = case lists:keyfind(pending_updates, 1, ChkIo) of
-                    {pending_updates, Value} ->
-                        Value;
-                    false ->
-                        0
-                end,
-    {active_fds, ActFds} = lists:keyfind(active_fds, 1, ChkIo),
+    PendUpdNo = proplists:get_value(pending_updates, ChkIo, 0),
+    ActFds = proplists:get_value(active_fds, ChkIo),
     case {PendUpdNo, ActFds} of
         {0, 0} ->
             ChkIo;
         _ ->
-            receive after 10 -> ok end,
-            get_stable_check_io_info()
+            receive after 100 -> ok end,
+            get_stable_check_io_info(N-1)
     end.
 
 %% Merge return from erlang:system_info(check_io)
 %% as if it was one big pollset.
 get_check_io_total(ChkIo) ->
+    ct:log("ChkIo = ~p~n",[ChkIo]),
     {Fallback, Rest} = get_fallback(ChkIo),
     add_fallback_infos(Fallback,
       lists:foldl(fun(Pollset, Acc) ->
@@ -1064,7 +1118,8 @@ tag_type(pending_updates) -> sum;
 tag_type(batch_updates) -> const;
 tag_type(concurrent_updates) -> const;
 tag_type(max_fds) -> const;
-tag_type(active_fds) -> sum.
+tag_type(active_fds) -> sum;
+tag_type(poll_threads) -> sum.
 
 
 %% Missed port lock when stealing control of fd from a
@@ -1683,7 +1738,7 @@ missing_callbacks(Config) when is_list(Config) ->
 smp_select(Config) when is_list(Config) -> 
     case os:type() of
         {win32,_} -> {skipped, "Test not implemented for this OS"};
-        _ -> smp_select0(Config)
+        _ -> rpc(Config, fun() -> smp_select0(Config) end)
     end.
 
 smp_select0(Config) ->
@@ -1739,7 +1794,7 @@ smp_select_wait(Pids, TimeoutMsg) ->
 driver_select_use(Config) when is_list(Config) -> 
     case os:type() of
         {win32,_} -> {skipped, "Test not implemented for this OS"};
-        _ -> driver_select_use0(Config)
+        _ -> rpc(Config, fun() -> driver_select_use0(Config) end)
     end.
 
 driver_select_use0(Config) ->
@@ -2306,10 +2361,10 @@ count_proc_sched(Ps, PNs) ->
     end.
 
 a_test(Config) when is_list(Config) ->
-    check_io_debug().
+    rpc(Config, fun check_io_debug/0).
 
 z_test(Config) when is_list(Config) ->
-    check_io_debug().
+    rpc(Config, fun check_io_debug/0).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 		Utilities
@@ -2501,15 +2556,19 @@ sleep(Ms) when is_integer(Ms), Ms >= 0 ->
 
 
 start_node(Config) when is_list(Config) ->
+    start_node(proplists:get_value(testcase, Config));
+start_node(Name) ->
+    start_node(Name, "").
+start_node(NodeName, Args) ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = list_to_atom(atom_to_list(?MODULE)
                         ++ "-"
-                        ++ atom_to_list(proplists:get_value(testcase, Config))
+                        ++ atom_to_list(NodeName)
                         ++ "-"
                         ++ integer_to_list(erlang:system_time(second))
                         ++ "-"
                         ++ integer_to_list(erlang:unique_integer([positive]))),
-    test_server:start_node(Name, slave, [{args, "-pa "++Pa}]).
+    test_server:start_node(Name, slave, [{args, Args ++ " -pa "++Pa}]).
 
 stop_node(Node) ->
     test_server:stop_node(Node).
@@ -2541,4 +2600,36 @@ driver_alloc_size() ->
                       {value,{_,Sz,_,_}} = lists:keysearch(blocks_size, 1, L),
                       Sz0+Sz
               end, 0, CS)
+    end.
+
+rpc(Config, Fun) ->
+    case proplists:get_value(node, Config) of
+        undefined ->
+            Fun();
+        Node ->
+            Self = self(),
+            Ref = make_ref(),
+            Pid = spawn(Node,
+                        fun() ->
+                                Result
+                                    = try Fun() of
+                                          Res -> Res
+                                      catch E:R ->
+                                              {'EXIT',E,R,erlang:get_stacktrace()}
+                                      end,
+                                Self ! {Ref, Result}
+                        end),
+            MRef = monitor(process, Pid),
+            receive
+                {'DOWN', MRef, _Type, _Object, Info} ->
+                    erlang:error({died, Pid, Info});
+                {Ref, {'EXIT',E,R,ST}} ->
+                    erlang:demonitor(MRef, [flush]),
+                    erlang:raise(E,R,ST);
+                {Ref, Ret} ->
+                    erlang:demonitor(MRef, [flush]),
+                    Ret;
+                Other ->
+                    ct:fail(Other)
+            end
     end.
