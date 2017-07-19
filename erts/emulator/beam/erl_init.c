@@ -1748,22 +1748,9 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 	    }
-	    else if (has_prefix("ecio", sub_param)) {
-		arg = get_arg(sub_param+4, argv[i+1], &i);
-#ifndef __OSE__
-		if (sys_strcmp("true", arg) == 0)
-		    erts_eager_check_io = 1;
-		else
-#endif
-		if (sys_strcmp("false", arg) == 0)
-		    erts_eager_check_io = 0;
-		else {
-		    erts_fprintf(stderr,
-				 "bad schedule eager check I/O value '%s'\n",
-				 arg);
-		    erts_usage();
-		}
-	    }
+            else if (has_prefix("ecio", sub_param)) {
+                /* ignore argument, eager check io no longer used */
+            }
 	    else if (has_prefix("pp", sub_param)) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
 		if (sys_strcmp(arg, "true") == 0)

@@ -1296,25 +1296,6 @@
               <seealso marker="erlang#system_info_cpu_topology">
               <c>erlang:system_info(cpu_topology)</c></seealso>.</p>
           </item>
-          <tag><marker id="+secio"/><c>+secio true|false</c></tag>
-          <item>
-            <p>Enables or disables eager check I/O scheduling. Defaults
-              to <c>true</c>. The default was changed from <c>false</c>
-              as from ERTS 7.0. The behavior before this
-              flag was introduced corresponds to <c>+secio false</c>.</p>
-            <p>The flag effects when schedulers will check for I/O
-              operations possible to execute, and when such I/O operations
-              will execute. As the parameter name implies,
-              schedulers are more eager to check for I/O when
-              <c>true</c> is passed. This, however, also implies that
-              execution of outstanding I/O operation is not
-              prioritized to the same extent as when <c>false</c> is
-              passed.</p>
-            <p><seealso marker="erlang#system_info_eager_check_io">
-              <c>erlang:system_info(eager_check_io)</c></seealso>
-              returns the value of this parameter used when starting
-              the virtual machine.</p>
-          </item>
           <tag><marker id="+sfwi"/><c>+sfwi Interval</c></tag>
           <item>
             <p>Sets scheduler-forced wakeup interval. All run queues are

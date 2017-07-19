@@ -2843,7 +2843,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(am_disabled);
     }
     else if (ERTS_IS_ATOM_STR("eager_check_io",BIF_ARG_1)) {
-	BIF_RET(erts_eager_check_io ? am_true : am_false);
+	BIF_RET(am_true);
     }
     else if (ERTS_IS_ATOM_STR("literal_test",BIF_ARG_1)) {
 #ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE

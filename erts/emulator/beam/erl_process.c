@@ -174,7 +174,6 @@ extern BeamInstr beam_exit[];
 extern BeamInstr beam_continue_exit[];
 
 int ERTS_WRITE_UNLIKELY(erts_default_spo_flags) = SPO_ON_HEAP_MSGQ;
-int ERTS_WRITE_UNLIKELY(erts_eager_check_io) = 1;
 int ERTS_WRITE_UNLIKELY(erts_sched_compact_load);
 int ERTS_WRITE_UNLIKELY(erts_sched_balance_util) = 0;
 Uint ERTS_WRITE_UNLIKELY(erts_no_schedulers);
