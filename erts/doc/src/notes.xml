@@ -3493,8 +3493,7 @@
 	    <p>The previously introduced "eager check I/O" feature is
 	    now enabled by default.</p>
 	    <p>Eager check I/O can be disabled using the <c>erl</c>
-	    command line argument: <seealso
-	    marker="erl#+secio"><c>+secio false</c></seealso></p>
+	    command line argument: <c>+secio false</c></p>
 	    <p>Characteristics impact compared to previous
 	    default:</p> <list> <item>Lower latency and smoother
 	    management of externally triggered I/O operations.</item>
@@ -4275,8 +4274,7 @@
 	    prioritized to the same extent as when eager check I/O is
 	    disabled.</p>
 	    <p>Eager check I/O can be enabled using the <c>erl</c>
-	    command line argument: <seealso
-	    marker="erl#+secio"><c>+secio true</c></seealso></p>
+	    command line argument: <c>+secio true</c></p>
 	    <p>Characteristics impact when enabled:</p> <list>
 	    <item>Lower latency and smoother management of externally
 	    triggered I/O operations.</item> <item>A slightly reduced
