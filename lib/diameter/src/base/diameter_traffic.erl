@@ -220,13 +220,13 @@ incr_rc(Dir, Pkt, TPid, Dict0) ->
    -> pid()     %% request handler
     | boolean() %% answer, known request or not
     | discard   %% request discarded by MFA
- when Route :: {Handler, RequestRef, Seqs}
+ when Route :: {Handler, RequestRef, TPid}
              | Ack,
       RecvData :: {[SpawnOpt], #recvdata{}},
       SpawnOpt :: term(),
       Handler :: pid(),
       RequestRef :: reference(),
-      Seqs :: {0..16#FFFFFFFF, 0..16#FFFFFFFF},
+      TPid :: pid(),
       Ack :: boolean().
 
 receive_message(TPid, Route, Pkt, Dict0, RecvData) ->
