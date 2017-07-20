@@ -4048,14 +4048,14 @@ printf("\r\n");
        RSA *rsa = EVP_PKEY_get1_RSA(pkey);
        enif_alloc_binary(RSA_size(rsa), &sig_bin);
        len = EVP_MD_size(md);
-       ERL_VALGRIND_ASSERT_MEM_DEFINED(digest_bin.data, len);
+       ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, len);
        i = RSA_sign(md->type, tbs, len, sig_bin.data, &siglen, rsa);
        RSA_free(rsa);
     } else if (argv[0] == atom_dss) {
        DSA *dsa = EVP_PKEY_get1_DSA(pkey);
        enif_alloc_binary(DSA_size(dsa), &sig_bin);
        len = EVP_MD_size(md);
-       ERL_VALGRIND_ASSERT_MEM_DEFINED(digest_bin.data, len);
+       ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, len);
        i = DSA_sign(md->type, tbs, len, sig_bin.data, &siglen, dsa);
        DSA_free(dsa);
     } else if (argv[0] == atom_ecdsa) {
@@ -4063,7 +4063,7 @@ printf("\r\n");
        EC_KEY *ec = EVP_PKEY_get1_EC_KEY(pkey);
        enif_alloc_binary(ECDSA_size(ec), &sig_bin);
        len = EVP_MD_size(md);
-       ERL_VALGRIND_ASSERT_MEM_DEFINED(digest_bin.data, len);
+       ERL_VALGRIND_ASSERT_MEM_DEFINED(tbs, len);
        i = ECDSA_sign(md->type, tbs, len, sig_bin.data, &siglen, ec);
        EC_KEY_free(ec);
 #else
