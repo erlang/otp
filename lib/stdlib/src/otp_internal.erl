@@ -112,7 +112,7 @@ obsolete_1(crypto, rand_uniform, 2) ->
 %% *** CRYPTO added in OTP 19 ***
 
 obsolete_1(crypto, rand_bytes, 1) ->
-    {deprecated, {crypto, strong_rand_bytes, 1}};
+    {removed, {crypto, strong_rand_bytes, 1}, "20.0"};
 
 %% *** CRYPTO added in R16B01 ***
 
