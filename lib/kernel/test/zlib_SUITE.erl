@@ -21,6 +21,7 @@
 -module(zlib_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/include/ct_event.hrl").
 
 -compile(export_all).
 
@@ -43,7 +44,7 @@
 		end
 	end()).
 
--define(BARG, {'EXIT',{badarg,[{zlib,_,_,_}|_]}}).
+-define(BARG, {'EXIT',{badarg,[{_,_,_,_}|_]}}).
 -define(DATA_ERROR, {'EXIT',{data_error,[{zlib,_,_,_}|_]}}).
 
 init_per_testcase(_Func, Config) ->
@@ -74,7 +75,8 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [{group, api}, {group, examples}, {group, func}, smp,
+    [{group, api}, {group, examples}, {group, func},
+     {group, bench}, smp,
      otp_9981,
      otp_7359].
 
@@ -84,14 +86,19 @@ groups() ->
        api_deflateSetDictionary, api_deflateReset,
        api_deflateParams, api_deflate, api_deflateEnd,
        api_inflateInit, api_inflateSetDictionary, api_inflateGetDictionary,
-       api_inflateSync, api_inflateReset, api_inflate, api_inflateChunk,
-       api_inflateEnd, api_setBufsz, api_getBufsz, api_crc32,
-       api_adler32, api_getQSize, api_un_compress, api_un_zip,
+       api_inflateReset, api_inflate2, api_inflate3, api_inflateChunk,
+       api_safeInflate, api_inflateEnd, api_crc32,
+       api_adler32, api_un_compress, api_un_zip,
        api_g_un_zip]},
      {examples, [], [intro]},
      {func, [],
       [zip_usage, gz_usage, gz_usage2, compress_usage,
-       dictionary_usage, large_deflate, crc, adler]}].
+       dictionary_usage, large_deflate, crc, adler,
+       only_allow_owner, sub_heap_binaries]},
+     {bench,
+      [inflate_bench_zeroed, inflate_bench_rand,
+       deflate_bench_zeroed, deflate_bench_rand,
+       chunk_bench_zeroed, chunk_bench_rand]}].
 
 init_per_suite(Config) ->
     Config.
@@ -244,7 +251,7 @@ api_deflateEnd(Config) when is_list(Config) ->
     Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1, default)),
     ?m(ok, zlib:deflateEnd(Z1)),
-    ?m({'EXIT', {einval,_}}, zlib:deflateEnd(Z1)), %% ??
+    ?m(?BARG, zlib:deflateEnd(Z1)),
     ?m(?BARG, zlib:deflateEnd(gurka)),
     ?m(ok, zlib:deflateInit(Z1, default)),
     ?m(B when is_list(B), zlib:deflate(Z1, <<"Kilroy was here">>)),
@@ -261,7 +268,7 @@ api_inflateInit(Config) when is_list(Config) ->
     Z1 = zlib:open(),
     ?m(?BARG, zlib:inflateInit(gurka)),
     ?m(ok, zlib:inflateInit(Z1)),
-    ?m({'EXIT',{einval,_}}, zlib:inflateInit(Z1, 15)), %% ??
+    ?m(?BARG, zlib:inflateInit(Z1, 15)),
     lists:foreach(fun(Wbits) ->
 			  Z11 = zlib:open(),
 			  ?m(ok, zlib:inflateInit(Z11,Wbits)),
@@ -291,12 +298,13 @@ api_inflateSetDictionary(Config) when is_list(Config) ->
 %% Test inflateGetDictionary.
 api_inflateGetDictionary(Config) when is_list(Config) ->
     Z1 = zlib:open(),
+    zlib:inflateInit(Z1),
     IsOperationSupported =
         case catch zlib:inflateGetDictionary(Z1) of
-            {'EXIT',{einval,_}} -> true;
-            {'EXIT',{enotsup,_}} -> false
+            ?BARG -> false;
+            _ -> true
         end,
-    _ = zlib:close(Z1),
+    zlib:close(Z1),
     api_inflateGetDictionary_if_supported(IsOperationSupported).
 
 api_inflateGetDictionary_if_supported(false) ->
@@ -306,45 +314,42 @@ api_inflateGetDictionary_if_supported(true) ->
     Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1)),
     Dict = <<"foobar barfoo foo bar far boo">>,
-    ?m(_, zlib:deflateSetDictionary(Z1, Dict)),
+    Checksum = zlib:deflateSetDictionary(Z1, Dict),
     Payload = <<"foobarbarbar">>,
     Compressed = zlib:deflate(Z1, Payload, finish),
     ?m(ok, zlib:close(Z1)),
 
-    % Decompress and test dictionary extraction
+    % Decompress and test dictionary extraction with inflate/2
     Z2 = zlib:open(),
     ?m(ok, zlib:inflateInit(Z2)),
     ?m(<<>>, iolist_to_binary(zlib:inflateGetDictionary(Z2))),
     ?m({'EXIT',{stream_error,_}}, zlib:inflateSetDictionary(Z2, Dict)),
-    ?m({'EXIT',{{need_dictionary,_},_}}, zlib:inflate(Z2, Compressed)),
+    ?m({'EXIT',{{need_dictionary,Checksum},_}}, zlib:inflate(Z2, Compressed)),
     ?m(ok, zlib:inflateSetDictionary(Z2, Dict)),
     ?m(Dict, iolist_to_binary(zlib:inflateGetDictionary(Z2))),
-    ?m(Payload, iolist_to_binary(zlib:inflate(Z2, Compressed))),
+    Payload = iolist_to_binary(zlib:inflate(Z2, [])),
     ?m(ok, zlib:close(Z2)),
     ?m(?BARG, zlib:inflateSetDictionary(Z2, Dict)),
+
+    %% ... And do the same for inflate/3
+    Z3 = zlib:open(),
+    ?m(ok, zlib:inflateInit(Z3)),
+    ?m(<<>>, iolist_to_binary(zlib:inflateGetDictionary(Z3))),
+    ?m({'EXIT',{stream_error,_}}, zlib:inflateSetDictionary(Z3, Dict)),
+
+    {need_dictionary, Checksum, _Output = []} =
+        zlib:inflate(Z3, Compressed, [{exception_on_need_dict, false}]),
+
+    ?m(ok, zlib:inflateSetDictionary(Z3, Dict)),
+    ?m(Dict, iolist_to_binary(zlib:inflateGetDictionary(Z3))),
+
+    Payload = iolist_to_binary(
+        zlib:inflate(Z3, [], [{exception_on_need_dict, false}])),
+
+    ?m(ok, zlib:close(Z3)),
+    ?m(?BARG, zlib:inflateSetDictionary(Z3, Dict)),
+
     ok.
-
-%% Test inflateSync.
-api_inflateSync(Config) when is_list(Config) ->
-    {skip,"inflateSync/1 sucks"}.
-%%     Z1 = zlib:open(),
-%%     ?m(ok, zlib:deflateInit(Z1)),
-%%     B1list0 = zlib:deflate(Z1, "gurkan gurra ger galna tunnor", full),
-%%     B2 = zlib:deflate(Z1, "grodan boll", finish),
-%%     io:format("~p\n", [B1list0]),
-%%     io:format("~p\n", [B2]),
-%%     ?m(ok, zlib:deflateEnd(Z1)),
-%%     B1 = clobber(14, list_to_binary(B1list0)),
-%%     Compressed = list_to_binary([B1,B2]),
-%%     io:format("~p\n", [Compressed]),
-
-%%     ?m(ok, zlib:inflateInit(Z1)),
-%%     ?m(?BARG, zlib:inflateSync(gurka)),
-%%     ?m({'EXIT',{data_error,_}}, zlib:inflate(Z1, Compressed)),
-%%     ?m(ok, zlib:inflateSync(Z1)),
-%%     Ubs = zlib:inflate(Z1, []),
-%%     <<"grodan boll">> = list_to_binary(Ubs),
-%%     ?m(ok, zlib:close(Z1)).
 
 clobber(N, Bin) when is_binary(Bin) ->
     T = list_to_tuple(binary_to_list(Bin)),
@@ -362,8 +367,8 @@ api_inflateReset(Config) when is_list(Config) ->
     ?m(ok, zlib:inflateReset(Z1)),
     ?m(ok, zlib:close(Z1)).
 
-%% Test inflate.
-api_inflate(Config) when is_list(Config) ->
+%% Test inflate/2
+api_inflate2(Config) when is_list(Config) ->
     Data = [<<1,2,2,3,3,3,4,4,4,4>>],
     Compressed = zlib:compress(Data),
     Z1 = zlib:open(),
@@ -375,10 +380,30 @@ api_inflate(Config) when is_list(Config) ->
     ?m(Data, zlib:inflate(Z1, Compressed)),
     ?m(?BARG, zlib:inflate(gurka, Compressed)),
     ?m(?BARG, zlib:inflate(Z1, 4384)),
-    ?m(?BARG, zlib:inflate(Z1, [atom_list])),    
+    ?m(?BARG, zlib:inflate(Z1, [atom_list])),
     ?m(ok, zlib:inflateEnd(Z1)),
     ?m(ok, zlib:inflateInit(Z1)),
     ?m({'EXIT',{data_error,_}}, zlib:inflate(Z1, <<2,1,2,1,2>>)), 
+    ?m(ok, zlib:close(Z1)).
+
+%% Test inflate/3; same as inflate/2 but with the default options inverted.
+api_inflate3(Config) when is_list(Config) ->
+    Data = [<<1,2,2,3,3,3,4,4,4,4>>],
+    Options = [{exception_on_need_dict, false}],
+    Compressed = zlib:compress(Data),
+    Z1 = zlib:open(),
+    ?m(ok, zlib:inflateInit(Z1)),
+    ?m([], zlib:inflate(Z1, <<>>, Options)),
+    ?m(Data, zlib:inflate(Z1, Compressed)),
+    ?m(ok, zlib:inflateEnd(Z1)),
+    ?m(ok, zlib:inflateInit(Z1)),
+    ?m(Data, zlib:inflate(Z1, Compressed, Options)),
+    ?m(?BARG, zlib:inflate(gurka, Compressed, Options)),
+    ?m(?BARG, zlib:inflate(Z1, 4384, Options)),
+    ?m(?BARG, zlib:inflate(Z1, [atom_list], Options)),
+    ?m(ok, zlib:inflateEnd(Z1)),
+    ?m(ok, zlib:inflateInit(Z1)),
+    ?m({'EXIT',{data_error,_}}, zlib:inflate(Z1, <<2,1,2,1,2>>, Options)),
     ?m(ok, zlib:close(Z1)).
 
 %% Test inflateChunk.
@@ -388,69 +413,105 @@ api_inflateChunk(Config) when is_list(Config) ->
     Part1 = binary:part(Data, 0, ChunkSize),
     Part2 = binary:part(Data, ChunkSize, ChunkSize),
     Part3 = binary:part(Data, ChunkSize * 2, ChunkSize),
+
     Compressed = zlib:compress(Data),
     Z1 = zlib:open(),
+
     zlib:setBufSize(Z1, ChunkSize),
-    ?m(ok, zlib:inflateInit(Z1)),
-    ?m([], zlib:inflateChunk(Z1, <<>>)),
-    ?m({more, Part1}, zlib:inflateChunk(Z1, Compressed)),
-    ?m({more, Part2}, zlib:inflateChunk(Z1)),
-    ?m(Part3, zlib:inflateChunk(Z1)),
-    ?m(ok, zlib:inflateEnd(Z1)),
 
     ?m(ok, zlib:inflateInit(Z1)),
-    ?m({more, Part1}, zlib:inflateChunk(Z1, Compressed)),
+
+    0 = iolist_size(zlib:inflateChunk(Z1, <<>>)),
+
+    {more, Part1AsIOList} = zlib:inflateChunk(Z1, Compressed),
+    {more, Part2AsIOList} = zlib:inflateChunk(Z1),
+    {more, Part3AsIOList} = zlib:inflateChunk(Z1),
+    [] = zlib:inflateChunk(Z1),
+
+    ?m(Part1, iolist_to_binary(Part1AsIOList)),
+    ?m(Part2, iolist_to_binary(Part2AsIOList)),
+    ?m(Part3, iolist_to_binary(Part3AsIOList)),
+
+    ?m(ok, zlib:inflateEnd(Z1)),
+    ?m(ok, zlib:inflateInit(Z1)),
+
+    ?m({more, Part1AsIOList}, zlib:inflateChunk(Z1, Compressed)),
 
     ?m(ok, zlib:inflateReset(Z1)),
 
-    zlib:setBufSize(Z1, size(Data)),
-    ?m(Data, zlib:inflateChunk(Z1, Compressed)),
-    ?m(ok, zlib:inflateEnd(Z1)),
+    zlib:setBufSize(Z1, byte_size(Data) + 1),
 
+    DataAsIOList = zlib:inflateChunk(Z1, Compressed),
+    ?m(Data, iolist_to_binary(DataAsIOList)),
+
+    ?m(ok, zlib:inflateEnd(Z1)),
     ?m(ok, zlib:inflateInit(Z1)),
+
     ?m(?BARG, zlib:inflateChunk(gurka, Compressed)),
     ?m(?BARG, zlib:inflateChunk(Z1, 4384)),
+
+    ?m({'EXIT',{data_error,_}}, zlib:inflateEnd(Z1)),
+
+    ?m(ok, zlib:close(Z1)).
+
+%% Test safeInflate as a mirror of inflateChunk, but ignore the stuff about
+%% exact chunk sizes.
+api_safeInflate(Config) when is_list(Config) ->
+    Data = << <<(I rem 150)>> || I <- lists:seq(1, 20 bsl 10) >>,
+    Compressed = zlib:compress(Data),
+    Z1 = zlib:open(),
+
+    ?m(ok, zlib:inflateInit(Z1)),
+
+    SafeInflateLoop =
+        fun
+            Loop({continue, Chunk}, Output) ->
+                Loop(zlib:safeInflate(Z1, []), [Output, Chunk]);
+            Loop({finished, Chunk}, Output) ->
+                [Output, Chunk]
+        end,
+
+    Decompressed = SafeInflateLoop(zlib:safeInflate(Z1, Compressed), []),
+    Data = iolist_to_binary(Decompressed),
+
+    ?m(ok, zlib:inflateEnd(Z1)),
+    ?m(ok, zlib:inflateInit(Z1)),
+
+    {continue, Partial} = zlib:safeInflate(Z1, Compressed),
+    PBin = iolist_to_binary(Partial),
+    PSize = byte_size(PBin),
+    <<PBin:PSize/binary, Rest/binary>> = Data,
+
+    ?m(ok, zlib:inflateReset(Z1)),
+
+    {continue, Partial} = zlib:safeInflate(Z1, Compressed),
+    PBin = iolist_to_binary(Partial),
+    PSize = byte_size(PBin),
+    <<PBin:PSize/binary, Rest/binary>> = Data,
+
+    ?m(ok, zlib:inflateReset(Z1)),
+
+    SafeInflateLoop(zlib:safeInflate(Z1, Compressed), []),
+
+    ?m({'EXIT',{data_error,_}}, zlib:safeInflate(Z1, Compressed)),
+
+    ?m(ok, zlib:inflateReset(Z1)),
+    ?m(?BARG, zlib:safeInflate(gurka, Compressed)),
+    ?m(?BARG, zlib:safeInflate(Z1, 4384)),
     ?m({'EXIT',{data_error,_}}, zlib:inflateEnd(Z1)),
     ?m(ok, zlib:close(Z1)).
 
 %% Test inflateEnd.
 api_inflateEnd(Config) when is_list(Config) ->
     Z1 = zlib:open(),
-    ?m({'EXIT',{einval,_}}, zlib:inflateEnd(Z1)), 
+    ?m(?BARG, zlib:inflateEnd(Z1)), 
     ?m(ok, zlib:inflateInit(Z1)),
     ?m(?BARG, zlib:inflateEnd(gurka)),
     ?m({'EXIT',{data_error,_}}, zlib:inflateEnd(Z1)),
-    ?m({'EXIT',{einval,_}}, zlib:inflateEnd(Z1)), 
+    ?m(?BARG, zlib:inflateEnd(Z1)), 
     ?m(ok, zlib:inflateInit(Z1)),
     ?m(B when is_list(B), zlib:inflate(Z1, zlib:compress("abc"))),
     ?m(ok, zlib:inflateEnd(Z1)),
-    ?m(ok, zlib:close(Z1)).
-
-%% Test getBufsz.
-api_getBufsz(Config) when is_list(Config) ->
-    Z1 = zlib:open(),
-    ?m(Val when is_integer(Val), zlib:getBufSize(Z1)),
-    ?m(?BARG, zlib:getBufSize(gurka)),
-    ?m(ok, zlib:close(Z1)).
-
-%% Test setBufsz.
-api_setBufsz(Config) when is_list(Config) ->
-    Z1 = zlib:open(),
-    ?m(?BARG, zlib:setBufSize(Z1, gurka)),
-    ?m(?BARG, zlib:setBufSize(gurka, 1232330)),
-    Sz = ?m( Val when is_integer(Val), zlib:getBufSize(Z1)),
-    ?m(ok, zlib:setBufSize(Z1, Sz*2)),
-    DSz = Sz*2,
-    ?m(DSz, zlib:getBufSize(Z1)),
-    ?m(ok, zlib:close(Z1)).
-
-%%% Debug function ??
-%% Test getQSize.
-api_getQSize(Config) when is_list(Config) ->
-    Z1 = zlib:open(),
-    Q = ?m(Val when is_integer(Val), zlib:getQSize(Z1)),
-    io:format("QSize ~p ~n", [Q]),
-    ?m(?BARG, zlib:getQSize(gurka)),
     ?m(ok, zlib:close(Z1)).
 
 %% Test crc32.
@@ -594,24 +655,9 @@ intro(Config) when is_list(Config) ->
 large_deflate(Config) when is_list(Config) ->
     large_deflate_do().
 large_deflate_do() ->
-    Z = zlib:open(),
-    Plain = rand_bytes(zlib:getBufSize(Z)*5),
-    ok = zlib:deflateInit(Z),
-    _ZlibHeader = zlib:deflate(Z, [], full),
-    Deflated = zlib:deflate(Z, Plain, full),
-    ?m(ok, zlib:close(Z)),
-    ?m(Plain, zlib:unzip(list_to_binary([Deflated, 3, 0]))).
-
-rand_bytes(Sz) ->
-    L = <<8,2,3,6,1,2,3,2,3,4,8,7,3,7,2,3,4,7,5,8,9,3>>,
-    rand_bytes(erlang:md5(L),Sz).
-
-rand_bytes(Bin, Sz) when byte_size(Bin) >= Sz ->
-    <<Res:Sz/binary, _/binary>> = Bin,
-    Res;
-rand_bytes(Bin, Sz) ->
-    rand_bytes(<<(erlang:md5(Bin))/binary, Bin/binary>>, Sz).
-
+    Plain = gen_determ_rand_bytes(64 bsl 10),
+    Deflated = zlib:zip(Plain),
+    ?m(Plain, zlib:unzip(Deflated)).
 
 %% Test a standard compressed zip file.
 zip_usage(Config) when is_list(Config) ->
@@ -869,10 +915,14 @@ dictionary_usage({run}) ->
     %% Now uncompress.
     Z2 = zlib:open(),
     ?m(ok, zlib:inflateInit(Z2)),
+
     {'EXIT',{{need_dictionary,DictID},_}} = (catch zlib:inflate(Z2, Compressed)),
+
     ?m(ok, zlib:inflateSetDictionary(Z2, Dict)),
     ?m(ok, zlib:inflateSetDictionary(Z2, binary_to_list(Dict))),
+
     Uncompressed = ?m(B when is_list(B), zlib:inflate(Z2, [])),
+
     ?m(ok, zlib:inflateEnd(Z2)),
     ?m(ok, zlib:close(Z2)),    
     ?m(Data, list_to_binary(Uncompressed)).
@@ -882,6 +932,35 @@ split_bin(<<Part:1997/binary,Rest/binary>>, Acc) ->
 split_bin(Last,Acc) ->
     lists:reverse([Last|Acc]).
 
+only_allow_owner(Config) when is_list(Config) ->
+    Z = zlib:open(),
+
+    ?m(ok, zlib:inflateInit(Z)),
+    ?m(ok, zlib:inflateReset(Z)),
+
+    {Pid, Ref} = spawn_monitor(
+        fun() ->
+            ?m(?BARG, zlib:inflateReset(Z))
+        end),
+
+    receive
+        {'DOWN', Ref, process, Pid, _Reason} ->
+            ok
+    after 200 ->
+        ?error("Spawned worker timed out.", [])
+    end,
+
+    ?m(ok, zlib:inflateReset(Z)).
+
+sub_heap_binaries(Config) when is_list(Config) ->
+    Compressed = zlib:compress(<<"gurka">>),
+    ConfLen = erlang:length(Config),
+
+    HeapBin = <<ConfLen:8/integer, Compressed/binary>>,
+    <<_:8/integer, SubHeapBin/binary>> = HeapBin,
+
+    ?m(<<"gurka">>, zlib:uncompress(SubHeapBin)),
+    ok.
 
 %% Check concurrent access to zlib driver.
 smp(Config) ->
@@ -999,7 +1078,78 @@ otp_9981(Config) when is_list(Config) ->
     Ports = lists:sort(erlang:ports()),
     ok.
 
+-define(BENCH_SIZE, (16 bsl 20)).
 
+-define(DECOMPRESS_BENCH(Name, What, Data),
+        Name(Config) when is_list(Config) ->
+        Uncompressed = Data,
+        Compressed = zlib:compress(Uncompressed),
+        What(Compressed, byte_size(Uncompressed))).
+
+-define(COMPRESS_BENCH(Name, What, Data),
+        Name(Config) when is_list(Config) ->
+        Compressed = Data,
+        What(Compressed, byte_size(Compressed))).
+
+?DECOMPRESS_BENCH(inflate_bench_zeroed, throughput_bench_inflate,
+    <<0:(8 * ?BENCH_SIZE)>>).
+?DECOMPRESS_BENCH(inflate_bench_rand, throughput_bench_inflate,
+    gen_determ_rand_bytes(?BENCH_SIZE)).
+
+?DECOMPRESS_BENCH(chunk_bench_zeroed, throughput_bench_chunk,
+    <<0:(8 * ?BENCH_SIZE)>>).
+?DECOMPRESS_BENCH(chunk_bench_rand, throughput_bench_chunk,
+    gen_determ_rand_bytes(?BENCH_SIZE)).
+
+?COMPRESS_BENCH(deflate_bench_zeroed, throughput_bench_deflate,
+    <<0:(8 * ?BENCH_SIZE)>>).
+?COMPRESS_BENCH(deflate_bench_rand, throughput_bench_deflate,
+    gen_determ_rand_bytes(?BENCH_SIZE)).
+
+throughput_bench_inflate(Compressed, Size) ->
+    Z = zlib:open(),
+    zlib:inflateInit(Z),
+
+    submit_throughput_results(Size,
+        fun() ->
+            zlib:inflate(Z, Compressed)
+        end).
+
+throughput_bench_deflate(Uncompressed, Size) ->
+    Z = zlib:open(),
+    zlib:deflateInit(Z),
+
+    submit_throughput_results(Size,
+        fun() ->
+            zlib:deflate(Z, Uncompressed, finish)
+        end).
+
+throughput_bench_chunk(Compressed, Size) ->
+    Z = zlib:open(),
+    zlib:inflateInit(Z),
+
+    ChunkLoop =
+        fun
+            Loop({more, _}) -> Loop(zlib:inflateChunk(Z));
+            Loop(_) -> ok
+        end,
+
+    submit_throughput_results(Size,
+        fun() ->
+            ChunkLoop(zlib:inflateChunk(Z, Compressed))
+        end).
+
+submit_throughput_results(Size, Fun) ->
+    TimeTaken = measure_perf_counter(Fun, millisecond),
+
+    KBPS = trunc((Size bsr 10) / (TimeTaken / 1000)),
+    ct_event:notify(#event{ name = benchmark_data, data = [{value,KBPS}] }),
+    {comment, io_lib:format("~p ms, ~p KBPS", [TimeTaken, KBPS])}.
+
+measure_perf_counter(Fun, Unit) ->
+    Start = os:perf_counter(Unit),
+    Fun(),
+    os:perf_counter(Unit) - Start.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Helps with testing directly %%%%%%%%%%%%%
@@ -1039,3 +1189,12 @@ expand([H|T], Acc)  ->
     end;
 expand([], Acc) -> Acc.
 
+%% Generates a bunch of statistically random bytes using the size as seed.
+gen_determ_rand_bytes(Size) ->
+    gen_determ_rand_bytes(Size, erlang:md5_init(), <<>>).
+gen_determ_rand_bytes(Size, _Context, Acc) when Size =< 0 ->
+    Acc;
+gen_determ_rand_bytes(Size, Context0, Acc) when Size > 0 ->
+    Context = erlang:md5_update(Context0, <<Size/integer>>),
+    Checksum = erlang:md5_final(Context),
+    gen_determ_rand_bytes(Size - 16, Context, <<Acc/binary, Checksum/binary>>).

@@ -200,6 +200,8 @@ boot(BootArgs) ->
     register(init, self()),
     process_flag(trap_exit, true),
 
+    %% Load the zlib nif
+    zlib:on_load(),
     %% Load the tracer nif
     erl_tracer:on_load(),
 
