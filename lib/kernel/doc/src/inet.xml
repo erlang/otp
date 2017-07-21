@@ -222,11 +222,18 @@ fe80::204:acff:fe17:bf38
       <name name="get_rc" arity="0"/>
       <fsummary>Return a list of IP configuration parameters.</fsummary>
       <desc>
-        <p>Returns the state of the <c>Inet</c> configuration database in
+        <p>
+	  Returns the state of the <c>Inet</c> configuration database in
           form of a list of recorded configuration parameters. For more
           information, see <seealso marker="erts:inet_cfg">ERTS User's Guide:
           Inet Configuration</seealso>.
-          Only parameters with other than default values are returned.</p>
+	</p>
+        <p>
+	  Only actual parameters with other than default values
+	  are returned, for example not directives that specify
+	  other sources for configuration parameters nor
+	  directives that clear parameters.
+	</p>
       </desc>
     </func>
 

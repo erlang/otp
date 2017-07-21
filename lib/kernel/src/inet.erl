@@ -151,7 +151,8 @@
 
 %%% ---------------------------------
 
--spec get_rc() -> [{Par :: any(), Val :: any()}].
+-spec get_rc() -> [{Par :: atom(), Val :: any()} |
+                   {Par :: atom(), Val1 :: any(), Val2 :: any()}].
 
 get_rc() ->
     inet_db:get_rc().
