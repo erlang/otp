@@ -542,6 +542,15 @@ certify(internal, #server_key_exchange{exchange_keys = Keys},
 	    end
     end;
 
+certify(internal, #certificate_request{},
+	#state{role = client, negotiated_version = Version,
+               key_algorithm = Alg} = State, _)
+  when Alg == dh_anon; Alg == ecdh_anon;
+       Alg == psk; Alg == dhe_psk; Alg == rsa_psk;
+       Alg == srp_dss; Alg == srp_rsa; Alg == srp_anon ->
+    handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE),
+                     Version, certify, State);
+
 certify(internal, #certificate_request{} = CertRequest,
 	#state{session = #session{own_certificate = Cert},
 	       role = client,
@@ -1671,6 +1680,12 @@ rsa_psk_key_exchange(Version, PskIdentity, PremasterSecret,
 				PublicKeyInfo});
 rsa_psk_key_exchange(_, _, _, _) ->
     throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, pub_key_is_not_rsa)).
+
+request_client_cert(#state{key_algorithm = Alg} = State, _)
+  when Alg == dh_anon; Alg == ecdh_anon;
+       Alg == psk; Alg == dhe_psk; Alg == rsa_psk;
+       Alg == srp_dss; Alg == srp_rsa; Alg == srp_anon ->
+    State;
 
 request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer, 
 						      signature_algs = SupportedHashSigns},
