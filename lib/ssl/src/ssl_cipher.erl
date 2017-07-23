@@ -373,6 +373,7 @@ psk_suites({3, N}) ->
 psk_suites(N)
   when N >= 3 ->
     [
+     ?TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384,
      ?TLS_DHE_PSK_WITH_AES_256_GCM_SHA384,
      ?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384,
      ?TLS_PSK_WITH_AES_256_GCM_SHA384,
@@ -380,6 +381,7 @@ psk_suites(N)
      ?TLS_DHE_PSK_WITH_AES_256_CBC_SHA384,
      ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384,
      ?TLS_PSK_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256,
      ?TLS_DHE_PSK_WITH_AES_128_GCM_SHA256,
      ?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256,
      ?TLS_PSK_WITH_AES_128_GCM_SHA256,
@@ -638,6 +640,16 @@ suite_definition(?TLS_ECDHE_PSK_WITH_NULL_SHA256) ->
 suite_definition(?TLS_ECDHE_PSK_WITH_NULL_SHA384) ->
     {ecdhe_psk, null, sha384, default_prf};
 
+%%% ECDHE_PSK with AES-GCM and AES-CCM Cipher Suites, draft-ietf-tls-ecdhe-psk-aead-05
+
+suite_definition(?TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256) ->
+    {ecdhe_psk, aes_128_gcm, null, sha256};
+suite_definition(?TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384) ->
+    {ecdhe_psk, aes_256_gcm, null, sha384};
+%% suite_definition(?TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256) ->
+%%    {ecdhe_psk, aes_128_ccm, null, sha256};
+%% suite_definition(?TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256) ->
+%%    {ecdhe_psk, aes_256_ccm, null, sha256};
 
 %%% SRP Cipher Suites RFC 5054
 
@@ -968,6 +980,17 @@ suite({ecdhe_psk, null, sha256}) ->
     ?TLS_ECDHE_PSK_WITH_NULL_SHA256;
 suite({ecdhe_psk, null, sha384}) ->
     ?TLS_ECDHE_PSK_WITH_NULL_SHA384;
+
+%%% ECDHE_PSK with AES-GCM and AES-CCM Cipher Suites, draft-ietf-tls-ecdhe-psk-aead-05
+
+suite({ecdhe_psk, aes_128_gcm, null, sha256}) ->
+    ?TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256;
+suite({ecdhe_psk, aes_256_gcm, null, sha384}) ->
+    ?TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384;
+%% suite({ecdhe_psk, aes_128_ccm, null, sha256}) ->
+%%     ?TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256;
+%% suite({ecdhe_psk, aes_256_ccm, null, sha256}) ->
+%%     ?TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256;
 
 %%% SRP Cipher Suites RFC 5054
 
