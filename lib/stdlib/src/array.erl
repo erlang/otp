@@ -1603,7 +1603,7 @@ foldl_2(I, E, A, Ix, F, D, N, R, S) ->
 	    Ix + S, F, D, N, R, S).
 
 -spec foldl_3(pos_integer(), _, A, array_indx(),
-	      fun((array_indx, _, A) -> B), integer()) -> B.
+	      fun((array_indx(), _, A) -> B), integer()) -> B.
 
 foldl_3(I, E, A, Ix, F, N) when I =< N ->
     foldl_3(I+1, E, F(Ix, element(I, E), A), Ix+1, F, N);
