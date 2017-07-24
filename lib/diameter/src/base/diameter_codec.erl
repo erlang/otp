@@ -110,7 +110,7 @@ encode(Mod, Opts, Msg) ->
 
 enc(_, Opts, #diameter_packet{msg = [#diameter_header{} = Hdr | As]}
              = Pkt) ->
-    try encode_avps(reorder(As), Opts) of
+    try encode_avps(As, Opts) of
         Avps ->
             Bin = list_to_binary(Avps),
             Len = 20 + size(Bin),
@@ -206,50 +206,11 @@ values(Avps) ->
 
 %% Message as a list of #diameter_avp{} ...
 encode_avps(_, _, [#diameter_avp{} | _] = Avps, Opts) ->
-    encode_avps(reorder(Avps), Opts);
+    encode_avps(Avps, Opts);
 
 %% ... or as a tuple list or record.
 encode_avps(Mod, MsgName, Values, Opts) ->
     Mod:encode_avps(MsgName, Values, Opts).
-
-%% reorder/1
-%%
-%% Reorder AVPs for the relay case using the index field of
-%% diameter_avp records. Decode populates this field in collect_avps
-%% and presents AVPs in reverse order. A relay then sends the reversed
-%% list with a Route-Record AVP prepended. The goal here is just to do
-%% lists:reverse/1 in Grouped AVPs and the outer list, but only in the
-%% case there are indexed AVPs at all, so as not to reverse lists that
-%% have been explicilty sent (unindexed, in the desired order) as a
-%% diameter_avp list. The effect is the same as lists:keysort/2, but
-%% only on the cases we expect, not a general sort.
-
-reorder(Avps) ->
-    case reorder(Avps, []) of
-        false ->
-            Avps;
-        Sorted ->
-            Sorted
-    end.
-
-%% reorder/3
-
-%% In case someone has reversed the list already. (Not likely.)
-reorder([#diameter_avp{index = 0} | _] = Avps, Acc) ->
-    Avps ++ Acc;
-
-%% Assume indexed AVPs are in reverse order.
-reorder([#diameter_avp{index = N} = A | Avps], Acc)
-  when is_integer(N) ->
-    lists:reverse(Avps, [A | Acc]);
-
-%% An unindexed AVP.
-reorder([H | T], Acc) ->
-    reorder(T, [H | Acc]);
-
-%% No indexed members.
-reorder([], _) ->
-    false.
 
 %% encode_avps/2
 
@@ -327,13 +288,7 @@ decode(Mod, AppMod, Opts, Pkt) ->
 %% Relay application: just extract the avp's without any decoding of
 %% their data since we don't know the application in question.
 decode(?APP_ID_RELAY, _, _, _, #diameter_packet{} = Pkt) ->
-    case collect_avps(Pkt) of
-        {E, As} ->
-            Pkt#diameter_packet{avps = As,
-                                errors = [E]};
-        As ->
-            Pkt#diameter_packet{avps = As}
-    end;
+    collect_avps(Pkt);
 
 %% Otherwise decode using the dictionary.
 decode(_, Mod, AppMod, Opts, #diameter_packet{header = Hdr} = Pkt) ->
@@ -342,35 +297,31 @@ decode(_, Mod, AppMod, Opts, #diameter_packet{header = Hdr} = Pkt) ->
                      is_error = IsError}
         = Hdr,
 
-    MsgName = if IsError andalso not IsRequest ->
+    MsgName = if IsError, not IsRequest ->
                       'answer-message';
                  true ->
                       Mod:msg_name(CmdCode, IsRequest)
               end,
 
-    decode_avps(MsgName, Mod, AppMod, Opts, Pkt, collect_avps(Pkt));
+    decode_avps(MsgName, Mod, AppMod, Opts, Pkt);
 
 decode(Id, Mod, AppMod, Opts, Bin)
   when is_binary(Bin) ->
     decode(Id, Mod, AppMod, Opts, #diameter_packet{header = decode_header(Bin),
                                                    bin = Bin}).
 
-%% decode_avps/6
+%% decode_avps/5
 
-decode_avps(MsgName, Mod, AppMod, Opts, Pkt, {E, Avps}) ->
-    ?LOG(invalid_avp_length, Pkt#diameter_packet.header),
-    #diameter_packet{errors = Failed}
-        = P
-        = decode_avps(MsgName, Mod, AppMod, Opts, Pkt, Avps),
-    P#diameter_packet{errors = [E | Failed]};
-
-decode_avps('', _, _, _, Pkt, Avps) ->  %% unknown message ...
-    ?LOG(unknown_message, Pkt#diameter_packet.header),
-    Pkt#diameter_packet{avps = lists:reverse(Avps),
-                        errors = [3001]};   %% DIAMETER_COMMAND_UNSUPPORTED
+decode_avps('', _, _, _, #diameter_packet{header = H,  %% unknown message
+                                          bin = Bin}
+                         = Pkt) ->
+    ?LOG(unknown_message, H),
+    Pkt#diameter_packet{avps = collect_avps(Bin),
+                        errors = [3001]}; %% DIAMETER_COMMAND_UNSUPPORTED
 %% msg = undefined identifies this case.
 
-decode_avps(MsgName, Mod, AppMod, Opts, Pkt, Avps) ->  %% ... or not
+decode_avps(MsgName, Mod, AppMod, Opts, #diameter_packet{bin = Bin} = Pkt) ->
+    <<_:20/binary, Avps/binary>> = Bin,
     {Rec, As, Errors} = Mod:decode_avps(MsgName,
                                         Avps,
                                         Opts#{dictionary => AppMod,
@@ -379,6 +330,8 @@ decode_avps(MsgName, Mod, AppMod, Opts, Pkt, Avps) ->  %% ... or not
     Pkt#diameter_packet{msg = reformat(MsgName, Rec, Opts),
                         errors = Errors,
                         avps = As}.
+
+%% reformat/3
 
 reformat(MsgName, Avps, #{decode_format := T})
   when T == map;
@@ -524,24 +477,21 @@ msg_id(<<_:32, Rbit:1, _:7, CmdCode:24, ApplId:32, _/binary>>) ->
 %%% # collect_avps/1
 %%% ---------------------------------------------------------------------------
 
-%% Note that the returned list of AVP's is reversed relative to their
-%% order in the binary. Note also that grouped avp's aren't unraveled,
-%% only those at the top level.
+%% This is only used for the relay decode. Note that grouped avp's
+%% aren't unraveled, only those at the top level.
 
--spec collect_avps(#diameter_packet{} | binary())
-   -> [Avp]
-    | {Error, [Avp]}
- when Avp   :: #diameter_avp{},
-      Error :: {5014, #diameter_avp{}}.
+-spec collect_avps(#diameter_packet{})
+   -> #diameter_packet{};
+                  (binary())
+   -> [#diameter_avp{}].
 
-collect_avps(#diameter_packet{bin = <<_:20/binary, Avps/binary>>}) ->
-    collect_avps(Avps, 0, []);
+collect_avps(#diameter_packet{bin = Bin} = Pkt) ->
+    Pkt#diameter_packet{avps = collect_avps(Bin)};
 
-collect_avps(Bin)
-  when is_binary(Bin) ->
-    collect_avps(Bin, 0, []).
+collect_avps(<<_:20/binary, Avps/binary>>) ->
+    collect(Avps, 0).
 
-%% collect_avps/3
+%% collect/2
 
 %%     0                   1                   2                   3
 %%     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -555,65 +505,44 @@ collect_avps(Bin)
 %%    |    Data ...
 %%    +-+-+-+-+-+-+-+-+
 
-collect_avps(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
-             N,
-             Acc) ->
-    collect_avps(Code,
-                 if 1 == V -> I; 0 == V -> undefined end,
-                 1 == M,
-                 1 == P,
-                 Len - 8 - V*4,  %% Might be negative, which ensures
-                 ?PAD(Len),      %%   failure of the Data match below.
-                 Rest,
-                 N,
-                 Acc);
+collect(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>, N)->
+    Vid = if 1 == V -> I; 0 == V -> undefined end,
+    DataLen = Len - 8 - V*4,  %% Might be negative, which ensures
+    Pad = ?PAD(Len),          %%   failure of the match below.
+    MB = 1 == M,
+    PB = 1 == P,
 
-collect_avps(<<>>, _, Acc) ->
-    Acc;
+    case Rest of
+        <<Data:DataLen/binary, _:Pad/binary, T/binary>> ->
+            Avp = #diameter_avp{code = Code,
+                                vendor_id = Vid,
+                                is_mandatory = MB,
+                                need_encryption = PB,
+                                data = Data,
+                                index = N},
+            [Avp | collect(T, N+1)];
+        _ ->
+            %% Length in header points past the end of the message, or
+            %% doesn't span the header. Note that an length error can
+            %% only occur in the trailing AVP of a message or Grouped
+            %% AVP, since a faulty AVP Length is otherwise
+            %% indistinguishable from a correct one here, as we don't
+            %% know the types of the AVPs being extracted.
+            [#diameter_avp{code = Code,
+                           vendor_id = Vid,
+                           is_mandatory = MB,
+                           need_encryption = PB,
+                           data = {5014, Rest},
+                           index = N}]
+    end;
+
+collect(<<>>, _) ->
+    [];
 
 %% Header is truncated. pack_avp/1 will pad this at encode if sent in
 %% a Failed-AVP.
-collect_avps(Bin, _, Acc) ->
-    {{5014, #diameter_avp{data = Bin}}, Acc}.
-
-%% collect_avps/9
-
-%% Duplicate the diameter_avp creation in each branch below to avoid
-%% modifying the record, which profiling has shown to be a relatively
-%% costly part of building the list.
-
-collect_avps(Code, VendorId, M, P, Len, Pad, Rest, N, Acc) ->
-    case Rest of
-        <<Data:Len/binary, _:Pad/binary, T/binary>> ->
-            Avp = #diameter_avp{code = Code,
-                                vendor_id = VendorId,
-                                is_mandatory = M,
-                                need_encryption = P,
-                                data = Data,
-                                index = N},
-            collect_avps(T, N+1, [Avp | Acc]);
-        _ ->
-            %% Length in header points past the end of the message, or
-            %% doesn't span the header. As stated in the 6733 text
-            %% above, it's sufficient to return a zero-filled minimal
-            %% payload if this is a request. Do this (in cases that we
-            %% know the type) by inducing a decode failure and letting
-            %% the dictionary's decode (in diameter_gen) deal with it.
-            %%
-            %% Note that the extra bit can only occur in the trailing
-            %% AVP of a message or Grouped AVP, since a faulty AVP
-            %% Length is otherwise indistinguishable from a correct
-            %% one here, as we don't know the types of the AVPs being
-            %% extracted.
-            Avp = #diameter_avp{code = Code,
-                                vendor_id = VendorId,
-                                is_mandatory = M,
-                                need_encryption = P,
-                                data = {5014, Rest},
-                                index = N},
-            [Avp | Acc]
-    end.
-
+collect(Bin, _) ->
+    [#diameter_avp{data = {5014, Bin}}].
 
 %% 3588:
 %%

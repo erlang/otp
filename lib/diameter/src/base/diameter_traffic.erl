@@ -327,9 +327,7 @@ recv_request(Ack,
             %%      A request was sent for an application that is not
             %%      supported.
             RC = 3007,
-            Es = Pkt#diameter_packet.errors,
-            DecPkt = Pkt#diameter_packet{avps = collect_avps(Pkt),
-                                         errors = [RC | Es]},
+            DecPkt = diameter_codec:collect_avps(Pkt),
             send_answer(answer_message(RC, Dict0, Caps, DecPkt),
                         TPid,
                         Dict0,
@@ -344,14 +342,6 @@ recv_request(Ack,
 
 decode(Id, Dict, #recvdata{codec = Opts}, Pkt) ->
     errors(Id, diameter_codec:decode(Id, Dict, Opts, Pkt)).
-
-collect_avps(Pkt) ->
-    case diameter_codec:collect_avps(Pkt) of
-        {_Error, Avps} ->
-            Avps;
-        Avps ->
-            Avps
-    end.
 
 %% send_A/7
 
