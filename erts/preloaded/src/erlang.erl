@@ -31,7 +31,8 @@
 -export([localtime_to_universaltime/1]).
 -export([suspend_process/1]).
 -export([min/2, max/2]).
--export([dlink/1, dunlink/1, dsend/2, dsend/3, dgroup_leader/2,
+-export([dlink/1, dunlink/1]).
+-export([dgroup_leader/2,
 	 dexit/2, dmonitor_node/3, dmonitor_p/2]).
 -export([delay_trap/2]).
 -export([set_cookie/2, get_cookie/0]).
@@ -3331,39 +3332,6 @@ dexit(Pid, Reason) ->
 	false -> true
     end.
 
-dsend(Pid, Msg) when erlang:is_pid(Pid) ->
-    case net_kernel:connect(erlang:node(Pid)) of
-	true -> erlang:send(Pid, Msg);
-	false -> Msg
-    end;
-dsend(Port, Msg) when erlang:is_port(Port) ->
-    case net_kernel:connect(erlang:node(Port)) of
-	true -> erlang:send(Port, Msg);
-	false -> Msg
-    end;
-dsend({Name, Node}, Msg) ->
-    case net_kernel:connect(Node) of
-	true -> erlang:send({Name,Node}, Msg);
-	false -> Msg;
-	ignored -> Msg				% Not distributed.
-    end.
-
-dsend(Pid, Msg, Opts) when erlang:is_pid(Pid) ->
-    case net_kernel:connect(erlang:node(Pid)) of
-	true -> erlang:send(Pid, Msg, Opts);
-	false -> ok
-    end;
-dsend(Port, Msg, Opts) when erlang:is_port(Port) ->
-    case net_kernel:connect(erlang:node(Port)) of
-	true -> erlang:send(Port, Msg, Opts);
-	false -> ok
-    end;
-dsend({Name, Node}, Msg, Opts) ->
-    case net_kernel:connect(Node) of
-	true -> erlang:send({Name,Node}, Msg, Opts);
-	false -> ok;
-	ignored -> ok				% Not distributed.
-    end.
 
 -spec erlang:dmonitor_p('process', pid() | {atom(),atom()}) -> reference().
 dmonitor_p(process, ProcSpec) ->

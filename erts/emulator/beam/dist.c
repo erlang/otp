@@ -108,9 +108,6 @@ int erts_dist_buf_busy_limit;
 
 
 /* distribution trap functions */
-Export* dsend2_trap = NULL;
-Export* dsend3_trap = NULL;
-/*Export* dsend_nosuspend_trap = NULL;*/
 Export* dlink_trap = NULL;
 Export* dunlink_trap = NULL;
 Export* dmonitor_node_trap = NULL;
@@ -636,9 +633,6 @@ void init_dist(void)
     erts_atomic_init_nob(&no_caches, 0);
 
     /* Lookup/Install all references to trap functions */
-    dsend2_trap = trap_function(am_dsend,2);
-    dsend3_trap = trap_function(am_dsend,3);
-    /*    dsend_nosuspend_trap = trap_function(am_dsend_nosuspend,2);*/
     dlink_trap = trap_function(am_dlink,1);
     dunlink_trap = trap_function(am_dunlink,1);
     dmonitor_node_trap = trap_function(am_dmonitor_node,3);
@@ -3148,10 +3142,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
 	goto error;
 
     /* Check that all trap functions are defined !! */
-    if (dsend2_trap->addressv[0] == NULL ||
-	dsend3_trap->addressv[0] == NULL ||
-	/*	dsend_nosuspend_trap->address == NULL ||*/
-	dlink_trap->addressv[0] == NULL ||
+    if (dlink_trap->addressv[0] == NULL ||
 	dunlink_trap->addressv[0] == NULL ||
 	dmonitor_node_trap->addressv[0] == NULL ||
 	dgroup_leader_trap->addressv[0] == NULL ||

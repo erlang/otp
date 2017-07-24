@@ -86,8 +86,6 @@
 #define DOP_SEND_SENDER_TT      23
 
 /* distribution trap functions */
-extern Export* dsend2_trap;
-extern Export* dsend3_trap;
 extern Export* dlink_trap;
 extern Export* dunlink_trap;
 extern Export* dmonitor_node_trap;
