@@ -146,8 +146,8 @@ socket_control(Connection, Socket, Pid, Transport) ->
 -spec socket_control(tls_connection | dtls_connection, port(), pid(), atom(), pid()| undefined) -> 
     {ok, #sslsocket{}} | {error, reason()}.  
 %%--------------------------------------------------------------------	    
-socket_control(Connection, Socket, Pid, Transport, udp_listner) ->
-    %% dtls listner process must have the socket control
+socket_control(Connection, Socket, Pid, Transport, udp_listener) ->
+    %% dtls listener process must have the socket control
     {ok, Connection:socket(Pid, Transport, Socket, Connection, undefined)};
 
 socket_control(tls_connection = Connection, Socket, Pid, Transport, ListenTracker) ->

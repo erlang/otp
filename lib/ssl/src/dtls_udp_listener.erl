@@ -35,7 +35,7 @@
 
 -record(state, 
 	{port, 
-	 listner,
+	 listener,
 	 dtls_options,
 	 emulated_options,
 	 dtls_msq_queues = kv_new(),
@@ -81,7 +81,7 @@ init([Port, EmOpts, InetOptions, DTLSOptions]) ->
 		    first = true,
 		    dtls_options = DTLSOptions,
 		    emulated_options = EmOpts,
-		    listner = Socket,
+		    listener = Socket,
                     close = false}}
     catch _:_ ->
 	    {error, closed}
@@ -91,7 +91,7 @@ handle_call({accept, _}, _, #state{close = true} = State) ->
 
 handle_call({accept, Accepter}, From, #state{first = true,
 					     accepters = Accepters,
-					     listner = Socket} = State0) ->
+					     listener = Socket} = State0) ->
     next_datagram(Socket),
     State = State0#state{first = false,
 			 accepters = queue:in({Accepter, From}, Accepters)}, 		 
@@ -100,7 +100,7 @@ handle_call({accept, Accepter}, From, #state{first = true,
 handle_call({accept, Accepter}, From, #state{accepters = Accepters} = State0) ->
     State = State0#state{accepters = queue:in({Accepter, From}, Accepters)}, 		 
     {noreply, State};
-handle_call(sockname, _, #state{listner = Socket} = State) ->
+handle_call(sockname, _, #state{listener = Socket} = State) ->
     Reply = inet:sockname(Socket),
     {reply, Reply, State};
 handle_call(close, _, #state{dtls_processes = Processes,
@@ -114,7 +114,7 @@ handle_call(close, _, #state{dtls_processes = Processes,
                           end, queue:to_list(Accepters)),
             {reply, ok,  State#state{close = true, accepters = queue:new()}}
     end;
-handle_call({get_sock_opts, {SocketOptNames, EmOptNames}}, _, #state{listner = Socket,
+handle_call({get_sock_opts, {SocketOptNames, EmOptNames}}, _, #state{listener = Socket,
                                                                emulated_options = EmOpts} = State) ->
     case get_socket_opts(Socket, SocketOptNames) of
         {ok, Opts} ->
@@ -125,7 +125,7 @@ handle_call({get_sock_opts, {SocketOptNames, EmOptNames}}, _, #state{listner = S
 handle_call(get_all_opts, _, #state{dtls_options = DTLSOptions,
                                     emulated_options = EmOpts} = State) ->
     {reply, {ok, EmOpts, DTLSOptions}, State};
-handle_call({set_sock_opts, {SocketOpts, NewEmOpts}}, _, #state{listner = Socket, emulated_options = EmOpts0} = State) ->
+handle_call({set_sock_opts, {SocketOpts, NewEmOpts}}, _, #state{listener = Socket, emulated_options = EmOpts0} = State) ->
     set_socket_opts(Socket, SocketOpts),
     EmOpts = do_set_emulated_opts(NewEmOpts, EmOpts0),
     {reply, ok, State#state{emulated_options = EmOpts}}.
@@ -134,7 +134,7 @@ handle_cast({active_once, Client, Pid}, State0) ->
     State = handle_active_once(Client, Pid, State0),
     {noreply, State}.
 
-handle_info({udp, Socket, IP, InPortNo, _} = Msg, #state{listner = Socket} = State0) ->
+handle_info({udp, Socket, IP, InPortNo, _} = Msg, #state{listener = Socket} = State0) ->
     State = handle_datagram({IP, InPortNo}, Msg, State0),
     next_datagram(Socket),
     {noreply, State};
@@ -142,11 +142,11 @@ handle_info({udp, Socket, IP, InPortNo, _} = Msg, #state{listner = Socket} = Sta
 %% UDP socket does not have a connection and should not receive an econnreset
 %% This does however happens on on some windows versions. Just ignoring it
 %% appears to make things work as expected! 
-handle_info({udp_error, Socket, econnreset = Error}, #state{listner = Socket} = State) ->
+handle_info({udp_error, Socket, econnreset = Error}, #state{listener = Socket} = State) ->
     Report = io_lib:format("Ignore SSL UDP Listener: Socket error: ~p ~n", [Error]),
     error_logger:info_report(Report),
     {noreply, State};
-handle_info({udp_error, Socket, Error}, #state{listner = Socket} = State) ->
+handle_info({udp_error, Socket, Error}, #state{listener = Socket} = State) ->
     Report = io_lib:format("SSL UDP Listener shutdown: Socket error: ~p ~n", [Error]),
     error_logger:info_report(Report),
     {noreply, State#state{close=true}};
@@ -225,10 +225,10 @@ setup_new_connection(User, From, Client, Msg, #state{dtls_processes = Processes,
 						     dtls_msq_queues = MsgQueues,
 						     dtls_options = DTLSOpts,
 						     port = Port,
-						     listner = Socket,
+						     listener = Socket,
 						     emulated_options = EmOpts} = State) ->
     ConnArgs = [server, "localhost", Port, {self(), {Client, Socket}},
-		{DTLSOpts, EmOpts, udp_listner}, User, dtls_socket:default_cb_info()],
+		{DTLSOpts, EmOpts, udp_listener}, User, dtls_socket:default_cb_info()],
     case dtls_connection_sup:start_child(ConnArgs) of
 	{ok, Pid} ->
 	    erlang:monitor(process, Pid),
