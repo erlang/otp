@@ -21,10 +21,10 @@
 #ifndef ERTS_LOCK_FLAGS_H__
 #define ERTS_LOCK_FLAGS_H__
 
-#define ERTS_LOCK_OPTION_READ  (1 << 1)
-#define ERTS_LOCK_OPTION_WRITE (1 << 2)
+#define ERTS_LOCK_OPTIONS_READ  (1 << 1)
+#define ERTS_LOCK_OPTIONS_WRITE (1 << 2)
 
-#define ERTS_LOCK_OPTION_RDWR (ERTS_LOCK_OPTION_READ | ERTS_LOCK_OPTION_WRITE)
+#define ERTS_LOCK_OPTIONS_RDWR (ERTS_LOCK_OPTIONS_READ | ERTS_LOCK_OPTIONS_WRITE)
 
 /* Property/category are bitfields to simplify their use in masks. */
 #define ERTS_LOCK_FLAGS_MASK_CATEGORY (0xFFC0)
@@ -67,8 +67,12 @@
 /* -- -- */
 
 typedef unsigned short erts_lock_flags_t;
+typedef unsigned short erts_lock_options_t;
 
 /* @brief Gets the type name of the lock, honoring the RW flag if supplied. */
 const char *erts_lock_flags_get_type_name(erts_lock_flags_t flags);
+
+/* @brief Gets a short-form description of the given lock options. (rw/r/w) */
+const char *erts_lock_options_get_short_desc(erts_lock_options_t options);
 
 #endif /* ERTS_LOCK_FLAGS_H__ */
