@@ -868,26 +868,27 @@ static Eterm call_whereis(ErlNifEnv *env, Eterm name)
     Process *c_p;
     Eterm res;
     int scheduler;
-    int unlock;
 
     execution_state(env, &c_p, &scheduler);
     ASSERT((c_p && scheduler) || (!c_p && !scheduler));
 
-    unlock = 0;
     if (scheduler < 0) {
         /* dirty scheduler */
         if (ERTS_PROC_IS_EXITING(c_p))
             return 0;
 
-        if (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC) {
-            erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
-            unlock = 1;
-        }
+        if (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC)
+            c_p = NULL; /* as we don't have main lock */
+    }
+
+
+    if (c_p) {
+         /* main lock may be released below and c_p->htop updated by others */
+        flush_env(env);
     }
     res = erts_whereis_name_to_id(c_p, name);
-
-    if (unlock)
-        erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+    if (c_p)
+        cache_env(env);
 
     return res;
 }
