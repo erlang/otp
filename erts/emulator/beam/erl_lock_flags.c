@@ -44,3 +44,16 @@ const char *erts_lock_flags_get_type_name(erts_lock_flags_t flags) {
             return "garbage";
     }
 }
+
+const char *erts_lock_options_get_short_desc(erts_lock_options_t options) {
+    switch(options) {
+        case ERTS_LOCK_OPTIONS_RDWR:
+            return "rw";
+        case ERTS_LOCK_OPTIONS_READ:
+            return "r";
+        case ERTS_LOCK_OPTIONS_WRITE:
+            return "w";
+        default:
+            return "none";
+    }
+}

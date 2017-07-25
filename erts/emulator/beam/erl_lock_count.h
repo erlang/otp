@@ -172,7 +172,7 @@ void erts_lcnt_lock(erts_lcnt_ref_t *ref);
 /** @copydoc erts_lcnt_lock
  * @param option Notes whether the lock is a read or write lock. */
 ERTS_GLB_FORCE_INLINE
-void erts_lcnt_lock_opt(erts_lcnt_ref_t *ref, Uint16 option);
+void erts_lcnt_lock_opt(erts_lcnt_ref_t *ref, erts_lock_options_t option);
 
 /** @brief Records that a lock has been acquired. */
 ERTS_GLB_FORCE_INLINE
@@ -191,7 +191,7 @@ void erts_lcnt_unlock(erts_lcnt_ref_t *ref);
 /** @copydoc erts_lcnt_unlock_opt
  * @param option Whether the lock is a read or write lock. */
 ERTS_GLB_FORCE_INLINE
-void erts_lcnt_unlock_opt(erts_lcnt_ref_t *ref, Uint16 option);
+void erts_lcnt_unlock_opt(erts_lcnt_ref_t *ref, erts_lock_options_t option);
 
 /** @brief Rectifies the case where a lock wasn't actually a lock operation.
  *
@@ -207,7 +207,7 @@ void erts_lcnt_trylock(erts_lcnt_ref_t *ref, int result);
 /** @copydoc erts_lcnt_trylock
  * @param option Whether the lock is a read or write lock. */
 ERTS_GLB_FORCE_INLINE
-void erts_lcnt_trylock_opt(erts_lcnt_ref_t *ref, int result, Uint16 option);
+void erts_lcnt_trylock_opt(erts_lcnt_ref_t *ref, int result, erts_lock_options_t option);
 
 /* Indexed variants of the standard lock operations, for use when a single
  * reference contains many counters (eg. process locks).
@@ -220,7 +220,7 @@ void erts_lcnt_trylock_opt(erts_lcnt_ref_t *ref, int result, Uint16 option);
 ERTS_GLB_INLINE
 void erts_lcnt_lock_idx(erts_lcnt_lock_info_carrier_t *carrier, int index);
 ERTS_GLB_INLINE
-void erts_lcnt_lock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, Uint16 option);
+void erts_lcnt_lock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, erts_lock_options_t option);
 
 ERTS_GLB_INLINE
 void erts_lcnt_lock_post_idx(erts_lcnt_lock_info_carrier_t *carrier, int index);
@@ -233,12 +233,12 @@ void erts_lcnt_lock_unacquire_idx(erts_lcnt_lock_info_carrier_t *carrier, int in
 ERTS_GLB_INLINE
 void erts_lcnt_unlock_idx(erts_lcnt_lock_info_carrier_t *carrier, int index);
 ERTS_GLB_INLINE
-void erts_lcnt_unlock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, Uint16 option);
+void erts_lcnt_unlock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, erts_lock_options_t option);
 
 ERTS_GLB_INLINE
 void erts_lcnt_trylock_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, int result);
 ERTS_GLB_INLINE
-void erts_lcnt_trylock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, int result, Uint16 option);
+void erts_lcnt_trylock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, int result, erts_lock_options_t option);
 
 /* -- Reference operations ------------------------------------------------- */
 
@@ -646,7 +646,7 @@ void erts_lcnt_lock(erts_lcnt_ref_t *ref) {
 }
 
 ERTS_GLB_FORCE_INLINE
-void erts_lcnt_lock_opt(erts_lcnt_ref_t *ref, Uint16 option) {
+void erts_lcnt_lock_opt(erts_lcnt_ref_t *ref, erts_lock_options_t option) {
     erts_lcnt_lock_info_carrier_t *carrier;
     int handle;
 
@@ -706,7 +706,7 @@ void erts_lcnt_unlock(erts_lcnt_ref_t *ref) {
 }
 
 ERTS_GLB_FORCE_INLINE
-void erts_lcnt_unlock_opt(erts_lcnt_ref_t *ref, Uint16 option) {
+void erts_lcnt_unlock_opt(erts_lcnt_ref_t *ref, erts_lock_options_t option) {
     erts_lcnt_lock_info_carrier_t *carrier;
     int handle;
 
@@ -730,7 +730,7 @@ void erts_lcnt_trylock(erts_lcnt_ref_t *ref, int result) {
 }
 
 ERTS_GLB_FORCE_INLINE
-void erts_lcnt_trylock_opt(erts_lcnt_ref_t *ref, int result, Uint16 option) {
+void erts_lcnt_trylock_opt(erts_lcnt_ref_t *ref, int result, erts_lock_options_t option) {
     erts_lcnt_lock_info_carrier_t *carrier;
     int handle;
 
@@ -743,20 +743,20 @@ void erts_lcnt_trylock_opt(erts_lcnt_ref_t *ref, int result, Uint16 option) {
 
 ERTS_GLB_INLINE
 void erts_lcnt_lock_idx(erts_lcnt_lock_info_carrier_t *carrier, int index) {
-    erts_lcnt_lock_opt_idx(carrier, index, ERTS_LOCK_OPTION_WRITE);
+    erts_lcnt_lock_opt_idx(carrier, index, ERTS_LOCK_OPTIONS_WRITE);
 }
 
 ERTS_GLB_INLINE
-void erts_lcnt_lock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, Uint16 option) {
+void erts_lcnt_lock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, erts_lock_options_t option) {
     erts_lcnt_lock_info_t *info = &carrier->entries[index];
 
     lcnt_thread_data_t__ *eltd = lcnt_get_thread_data__();
 
     ASSERT(index < carrier->entry_count);
 
-    ASSERT((option & ERTS_LOCK_OPTION_READ) || (option & ERTS_LOCK_OPTION_WRITE));
+    ASSERT((option & ERTS_LOCK_OPTIONS_READ) || (option & ERTS_LOCK_OPTIONS_WRITE));
 
-    if(option & ERTS_LOCK_OPTION_WRITE) {
+    if(option & ERTS_LOCK_OPTIONS_WRITE) {
         ethr_sint_t w_state, r_state;
 
         w_state = ethr_atomic_inc_read(&info->w_state) - 1;
@@ -771,7 +771,7 @@ void erts_lcnt_lock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, U
         eltd->lock_in_conflict = (w_state > 0);
     }
 
-    if(option & ERTS_LOCK_OPTION_READ) {
+    if(option & ERTS_LOCK_OPTIONS_READ) {
         ASSERT(info->flags & ERTS_LOCK_FLAGS_PROPERTY_READ_WRITE);
         ethr_atomic_inc(&info->r_state);
     }
@@ -825,22 +825,22 @@ ERTS_GLB_INLINE
 void erts_lcnt_unlock_idx(erts_lcnt_lock_info_carrier_t *carrier, int index) {
     ASSERT(index < carrier->entry_count);
 
-    erts_lcnt_unlock_opt_idx(carrier, index, ERTS_LOCK_OPTION_WRITE);
+    erts_lcnt_unlock_opt_idx(carrier, index, ERTS_LOCK_OPTIONS_WRITE);
 }
 
 ERTS_GLB_INLINE
-void erts_lcnt_unlock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, Uint16 option) {
+void erts_lcnt_unlock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, erts_lock_options_t option) {
     erts_lcnt_lock_info_t *info = &carrier->entries[index];
 
     ASSERT(index < carrier->entry_count);
 
-    ASSERT((option & ERTS_LOCK_OPTION_READ) || (option & ERTS_LOCK_OPTION_WRITE));
+    ASSERT((option & ERTS_LOCK_OPTIONS_READ) || (option & ERTS_LOCK_OPTIONS_WRITE));
 
-    if(option & ERTS_LOCK_OPTION_WRITE) {
+    if(option & ERTS_LOCK_OPTIONS_WRITE) {
         lcnt_dec_lock_state__(&info->w_state);
     }
 
-    if(option & ERTS_LOCK_OPTION_READ) {
+    if(option & ERTS_LOCK_OPTIONS_READ) {
         ASSERT(info->flags & ERTS_LOCK_FLAGS_PROPERTY_READ_WRITE);
         lcnt_dec_lock_state__(&info->r_state);
     }
@@ -859,23 +859,23 @@ ERTS_GLB_INLINE
 void erts_lcnt_trylock_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, int result) {
     ASSERT(index < carrier->entry_count);
 
-    erts_lcnt_trylock_opt_idx(carrier, index, result, ERTS_LOCK_OPTION_WRITE);
+    erts_lcnt_trylock_opt_idx(carrier, index, result, ERTS_LOCK_OPTIONS_WRITE);
 }
 
 ERTS_GLB_INLINE
-void erts_lcnt_trylock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, int result, Uint16 option) {
+void erts_lcnt_trylock_opt_idx(erts_lcnt_lock_info_carrier_t *carrier, int index, int result, erts_lock_options_t option) {
     erts_lcnt_lock_info_t *info = &carrier->entries[index];
 
     ASSERT(index < carrier->entry_count);
 
-    ASSERT((option & ERTS_LOCK_OPTION_READ) || (option & ERTS_LOCK_OPTION_WRITE));
+    ASSERT((option & ERTS_LOCK_OPTIONS_READ) || (option & ERTS_LOCK_OPTIONS_WRITE));
 
     if(result != EBUSY) {
-        if(option & ERTS_LOCK_OPTION_WRITE) {
+        if(option & ERTS_LOCK_OPTIONS_WRITE) {
             ethr_atomic_inc(&info->w_state);
         }
 
-        if(option & ERTS_LOCK_OPTION_READ) {
+        if(option & ERTS_LOCK_OPTIONS_READ) {
             ASSERT(info->flags & ERTS_LOCK_FLAGS_PROPERTY_READ_WRITE);
             ethr_atomic_inc(&info->r_state);
         }
