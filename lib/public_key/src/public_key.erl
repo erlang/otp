@@ -419,7 +419,7 @@ generate_key({rsa, ModulusSize, PublicExponent}) ->
         {[E, N], [E, N, D, P, Q, D_mod_P_1, D_mod_Q_1, InvQ_mod_P]} ->
             Nint = crypto:bytes_to_integer(N),
             Eint = crypto:bytes_to_integer(E),
-            #'RSAPrivateKey'{version = 0, % Two-factor (I guess since otherPrimeInfos is not given)
+            #'RSAPrivateKey'{version = 'two-prime', % Two-factor (I guess since otherPrimeInfos is not given)
                              modulus = Nint,
                              publicExponent = Eint,
                              privateExponent = crypto:bytes_to_integer(D),
@@ -437,7 +437,7 @@ generate_key({rsa, ModulusSize, PublicExponent}) ->
                                %   1976.
             Nint = crypto:bytes_to_integer(N),
             Eint = crypto:bytes_to_integer(E),
-            #'RSAPrivateKey'{version = 0, % Two-factor (I guess since otherPrimeInfos is not given)
+            #'RSAPrivateKey'{version = 'two-prime', % Two-factor (I guess since otherPrimeInfos is not given)
                               modulus = Nint,
                               publicExponent = Eint,
                               privateExponent = crypto:bytes_to_integer(D),
