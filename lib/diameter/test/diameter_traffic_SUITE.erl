@@ -467,7 +467,7 @@ add_transports(Config) ->
     LRef = ?util:listen(SN,
                         [T,
                          {sender, SS},
-                         {message_cb, ST andalso {?MODULE, message, [4]}}
+                         {message_cb, ST andalso {?MODULE, message, [0]}}
                          | [{packet, hd(?util:scramble([false, raw]))}
                             || T == sctp andalso CS]],
                         [{capabilities_cb, fun capx/2},
@@ -1614,8 +1614,8 @@ message(Dir, #diameter_packet{bin = Bin}, N) ->
     message(Dir, Bin, N);
 
 %% incoming request
-message(recv, <<_:32, 1, _/bits>> = Bin, N) ->
-    [Bin, 1 < N, fun ?MODULE:message/3, N-1];
+message(recv, <<_:32, 1:1, _/bits>> = Bin, N) ->
+    [Bin, N < 16, fun ?MODULE:message/3, N+1];
 
 %% incoming answer
 message(recv, Bin, _) ->
@@ -1626,12 +1626,12 @@ message(send, Bin, _) ->
     [Bin];
 
 %% sent request
-message(ack, <<_:32, 1, _/bits>>, _) ->
+message(ack, <<_:32, 1:1, _/bits>>, _) ->
     [];
 
 %% sent answer or discarded request
 message(ack, _, N) ->
-    [0 =< N, fun ?MODULE:message/3, N+1].
+    [N =< 16, fun ?MODULE:message/3, N-1].
 
 %% ------------------------------------------------------------------------
 
