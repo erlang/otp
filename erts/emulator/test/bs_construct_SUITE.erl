@@ -911,5 +911,31 @@ append_unit_8(Bin) ->
 append_unit_16(Bin) ->
     <<Bin/binary-unit:16,0:1>>.
 
-    
+bs_add_overflow(Config) ->
+    case erlang:system_info(wordsize) of
+        8 ->
+            {skip, "64-bit architecture"};
+        4 ->
+            {'EXIT', {system_limit, _}} = (catch bs_add_overflow_signed()),
+            {'EXIT', {system_limit, _}} = (catch bs_add_overflow_unsigned()),
+            ok
+    end.
+
+bs_add_overflow_signed() ->
+    %% Produce a large result of bs_add that, if cast to signed int, would
+    %% overflow into a negative number that fits a smallnum.
+    Large = <<0:((1 bsl 30)-1)>>,
+    <<Large/bits, Large/bits, Large/bits, Large/bits,
+      Large/bits, Large/bits, Large/bits, Large/bits,
+      Large/bits>>.
+
+bs_add_overflow_unsigned() ->
+    %% Produce a large result of bs_add that goes beyond the limit of an
+    %% unsigned word. This used to succeed but produced an incorrect result
+    %% where B =:= C!
+    A = <<0:((1 bsl 32)-8)>>,
+    B = <<2, 3>>,
+    C = <<A/binary,1,B/binary>>,
+    true = byte_size(B) < byte_size(C).
+
 id(I) -> I.
