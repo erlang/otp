@@ -2,6 +2,11 @@ ImportsFrom2 DEFINITIONS AUTOMATIC TAGS ::=
 BEGIN
 IMPORTS Int FROM ImportsFrom3;
 
+Quoted-Seq ::= SEQUENCE {
+  x	   INTEGER(0..17),
+  y	   INTEGER(0..666)
+}
+
 LocalDef ::= OCTET STRING
 
 END
