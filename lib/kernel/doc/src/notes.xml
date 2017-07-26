@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 5.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The documentation for the 'quiet' option in
+	    disk_log:open/1 had an incorrect default value.</p>
+          <p>
+	    Own Id: OTP-14498</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 5.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
