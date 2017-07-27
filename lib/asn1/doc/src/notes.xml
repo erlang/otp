@@ -32,6 +32,23 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed compilation error of generated code caused by a
+	    missing quotation of function names as part of an
+	    external call for encoding.</p>
+          <p>
+	    Own Id: OTP-14519 Aux Id: ERIERL-49 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
