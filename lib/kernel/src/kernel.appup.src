@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 {"%VSN%",
  %% Up from - max one major revision back
- [{<<"5\\.[0-2](\\.[0-9]+)*">>,[restart_new_emulator]}], % OTP-19.*
+ [{<<"5\\.[0-3](\\.[0-9]+)*">>,[restart_new_emulator]}], % OTP-19.*, OTP-20.0
  %% Down to - max one major revision back
- [{<<"5\\.[0-2](\\.[0-9]+)*">>,[restart_new_emulator]}]  % OTP-19.*
+ [{<<"5\\.[0-3](\\.[0-9]+)*">>,[restart_new_emulator]}]  % OTP-19.*, OTP-20.0
 }.
