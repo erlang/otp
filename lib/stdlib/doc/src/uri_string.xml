@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2017</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    </legalnotice>
+
+    <title>maps</title>
+    <prepared>Péter Dimitrov</prepared>
+    <docno>1</docno>
+    <date>2017-08-23</date>
+    <rev>A</rev>
+  </header>
+  <module>uri_string</module>
+  <modulesummary>RFC 3986 compliant URI processing functions.</modulesummary>
+  <description>
+    <p>This module contains functions for parsing and handling RFC 3986 compliant URIs.</p>
+    <p>A URI is an identifier consisting of a sequence of characters   matching the syntax
+    rule named <em>URI</em> in <em>RFC 3986</em>.</p>
+    <p>  The generic URI syntax consists of a hierarchical sequence of components referred
+    to as the scheme, authority, path, query, and fragment:<pre>
+    URI         = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
+    hier-part   = "//" authority path-abempty
+                   / path-absolute
+                   / path-rootless
+                   / path-empty
+    scheme      = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+    authority   = [ userinfo "@" ] host [ ":" port ]
+    userinfo    = *( unreserved / pct-encoded / sub-delims / ":" )
+
+    reserved    = gen-delims / sub-delims
+    gen-delims  = ":" / "/" / "?" / "#" / "[" / "]" / "@"
+    sub-delims  = "!" / "$" / "&amp;" / "'" / "(" / ")"
+                / "*" / "+" / "," / ";" / "="
+
+    unreserved  = ALPHA / DIGIT / "-" / "." / "_" / "~"
+    </pre><br></br>
+    </p>
+    <p>The interpretation of a URI depends only on the characters used and not on how those
+    characters are represented in a network protocol.</p>
+    <p>The functions implemented by this module covers the following use cases:
+    <list type="bulleted">
+      <item>Parsing URIs<br></br>
+      <c>parse/1</c></item>
+      <item>Recomposing URIs<br></br>
+      <c>recompose/2</c></item>
+      <item>Resolving URI references<br></br>
+      <c>resolve_uri_reference/3</c></item>
+      <item>Creating URI references<br></br>
+      <c>create_uri_reference/3</c></item>
+      <item>Normalizing URIs<br></br>
+      <c>normalize/1</c></item>
+      <item>Transcoding URIs<br></br>
+      <c>transcode/2</c></item>
+      <item>Working with urlencoded query strings<br></br>
+      <c>compose_query/1, dissect_query/1</c></item>
+    </list>
+    </p>
+    <p>There are four different encodings present during the handling of URIs:
+    <list type="bulleted">
+      <item>Inbound binary encoding in binaries</item>
+      <item>Inbound percent-encoding in lists and binaries</item>
+      <item>Outbound binary encoding in binaries</item>
+      <item>Outbound percent-encoding in lists and binaries</item>
+    </list>
+    </p>
+    <p>Unless otherwise specified the return value type and encoding are the same as the input
+    type and encoding. That is, binary input returns binary output, list input returns a list
+    output but mixed input returns list output. Input and output encodings are the same except
+    for <c>transcode/2</c>.</p>
+    <p>All of the functions but <c>transcode/2</c> expects input as unicode codepoints in
+    lists, UTF-8 encoding in binaries and UTF-8 encoding in percent-encoded URI parts.
+    <c>transcode/2</c> provides the means to convert between the supported URI encodings.</p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="bytelist"/>
+      <desc>
+        <p>Maybe improper list of bytes (0..255).</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="uri_map"/>
+      <desc>
+        <p>URI map holding the main components of a URI.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="uri_string"/>
+      <desc>
+        <p>List of unicode codepoints, UTF-8 encoded binary, or a mix of the two,
+        representing an RFC 3986 compliant URI (<em>percent-encoded form</em>).
+        A URI is a sequence of characters from a very limited set: the letters of
+        the basic Latin alphabet, digits, and a few special characters.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+
+    <func>
+      <name name="compose_query" arity="1"/>
+      <fsummary>Compose urlencoded query string.</fsummary>
+      <desc>
+        <p>Composes an urlencoded <c><anno>QueryString</anno></c> based on a
+	<c><anno>QueryList</anno></c>, a list of unescaped key-value pairs.
+	Media type <c>application/x-www-form-urlencoded</c> is defined in section
+	8.2.1 of <c>RFC 1866</c> (HTML 2.0).
+	</p>
+	<p>If an argument is invalid, a <c>badarg</c> exception is raised.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:compose_query(...).</input>
+</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="create_uri_reference" arity="2"/>
+      <fsummary>Create references.</fsummary>
+      <desc>
+        <p>Creates an RFC 3986 compliant <c><anno>RelativeDestURI</anno></c>,
+	based <c><anno>AbsoluteSourceURI</anno></c> and <c><anno>AbsoluteSourceURI</anno></c>
+	</p>
+	<p>If an argument is invalid, a <c>badarg</c> exception is raised.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:create_uri_reference(...,...).</input>
+</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="dissect_query" arity="1"/>
+      <fsummary>Dissect query string.</fsummary>
+      <desc>
+        <p>Dissects an urlencoded <c><anno>QueryString</anno></c> and returns a
+	<c><anno>QueryList</anno></c>, a list of unescaped key-value pairs.
+	Media type <c>application/x-www-form-urlencoded</c> is defined in section
+	8.2.1 of <c>RFC 1866</c> (HTML 2.0).
+	</p>
+	<p>If an argument is invalid, a <c>badarg</c> exception is raised.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:dissect_query(...).</input>
+</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="normalize" arity="1"/>
+      <fsummary>Normalize URI.</fsummary>
+      <desc>
+        <p>Normalizes an RFC 3986 compliant <c><anno>URIString</anno></c> and returns
+	a <c><anno>NormalizedURI</anno></c>. The algorithm used to shorten the input
+	URI is called Syntax-Based Normalization and described at
+	<c>Section 6.2.2 of RFC 3986</c>.
+	</p>
+	<p>If an argument is invalid, a <c>badarg</c> exception is raised.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:normalize("http://example.org/one/two/../../one").</input>
+"http://example.org/one"
+</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="parse" arity="1"/>
+      <fsummary>Parse URI into a map.</fsummary>
+      <desc>
+        <p>Returns a <c>URIMap</c>, that is a <em>uri_map()</em> with the parsed components
+	of the <c><anno>URIString</anno></c>.</p>
+        <p>If parsing fails, a <c>parse_error</c> exception is raised.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:parse("foo://user@example.com:8042/over/there?name=ferret#nose").</input>
+#{fragment => "nose",host => "example.com",
+  path => "/over/there",port => 8042,query => "name=ferret",
+  scheme => foo,userinfo => "user"}
+2> </pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="recompose" arity="1"/>
+      <fsummary>Recompose URI.</fsummary>
+      <desc>
+        <p>Returns an RFC 3986 compliant <c><anno>URIString</anno></c> (percent-encoded).</p>
+	<p>If the <c><anno>URIMap</anno></c> is invalid, a <c>badarg</c> exception is raised.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>URIMap = #{fragment => "nose", host => "example.com", path => "/over/there",</input>
+port => 8042, query => "name=ferret", scheme => foo, userinfo => "user"}.
+#{fragment => "top",host => "example.com",
+  path => "/over/there",port => 8042,query => "?name=ferret",
+  scheme => foo,userinfo => "user"}
+
+2> <input>uri_string:recompose(URIMap, []).</input>
+"foo://example.com:8042/over/there?name=ferret#nose"</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="resolve_uri_reference" arity="2"/>
+      <fsummary>Resolve URI reference.</fsummary>
+      <desc>
+        <p>Resolves an RFC 3986 compliant <c><anno>RelativeURI</anno></c>,
+	based <c><anno>AbsoluteBaseURI</anno></c> and returns a new absolute URI
+	(<c><anno>AbsoluteDestURI</anno></c>).</p>
+	<p>If an argument is invalid, a <c>badarg</c> exception is raised.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:resolve_uri_reference(...,...).</input>
+</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="transcode" arity="2"/>
+      <fsummary>Transcode URI.</fsummary>
+      <desc>
+        <p>Transcodes an RFC 3986 compliant <c><anno>URIString</anno></c>,
+	where <c><anno>Options</anno></c> is a list of tagged tuples, specifying the inbound
+	(<c>in_encoding</c>) and outbound (<c>out_encoding</c>) encodings.</p>
+	<p>If an argument is invalid, a <c>badarg</c> exception is raised.</p>
+        <p><em>Example:</em></p>
+        <pre>
+1> <input>uri_string:transcode(&lt;&lt;"foo://f%20oo"&gt;&gt;, [{in_encoding, utf8},</input>
+{out_encoding, utf16}]).
+&lt;&lt;0,102,0,111,0,111,0,58,0,47,0,47,0,102,0,37,0,48,0,48,0,37,0,50,0,48,0,
+  111,0,111&gt;&gt;
+</pre>
+      </desc>
+    </func>
+
+  </funcs>
+</erlref>

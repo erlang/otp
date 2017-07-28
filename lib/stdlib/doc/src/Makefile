@@ -98,6 +98,7 @@ XML_REF3_FILES = \
 	sys.xml \
 	timer.xml \
 	unicode.xml \
+	uri_string.xml \
 	win32reg.xml \
 	zip.xml
 

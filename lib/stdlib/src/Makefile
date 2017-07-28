@@ -121,6 +121,7 @@ MODULES= \
 	timer \
 	unicode \
 	unicode_util \
+	uri_string \
 	win32reg \
 	zip
 
