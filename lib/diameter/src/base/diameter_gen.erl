@@ -230,7 +230,7 @@ enc(AvpName, Value, Opts, Mod) ->
 decode_avps(Name, Bin, #{module := Mod, decode_format := Fmt} = Opts) ->
     Strict = mget(strict_arities, Opts, decode),
     [AM, Avps, Failed | Rec]
-        = decode(Bin, Name, Mod, Fmt, Strict, Opts, 0, #{}),
+        = decode(Bin, Name, Mod, Fmt, Strict, Opts, #{}),
     %% AM counts the number of top-level AVPs, which missing/5 then
     %% uses when appending 5005 errors.
     {reformat(Name, Rec, Strict, Mod, Fmt),
@@ -241,7 +241,7 @@ decode_avps(Name, Bin, #{module := Mod, decode_format := Fmt} = Opts) ->
 %% encountered. Failed-AVP should typically contain the first
 %% error encountered.
 
-%% decode/8
+%% decode/7
 
 decode(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
        Name,
@@ -249,7 +249,6 @@ decode(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
        Fmt,
        Strict,
        Opts0,
-       Idx,
        AM0) ->
     Vid = if 1 == V -> I; true -> undefined end,
     MB = 1 == M,
@@ -258,12 +257,16 @@ decode(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
     DataLen = Len - 8 - 4*V, %% possibly negative, causing case match to fail
     Pad = (4 - (Len rem 4)) rem 4,
 
+    Opts = setopts(NameT, Name, MB, Opts0),
+    %% Not AvpName or else a failed Failed-AVP
+    %% decode is packed into 'AVP'.
+
+    AvpName = field(NameT),
+    Arity = avp_arity(Name, AvpName, Mod, Opts, MB),
+    {Idx, AM} = incr(AvpName, Arity, Strict, AM0),              %% count
+
     case Rest of
         <<Data:DataLen/binary, _:Pad/binary, T/binary>> ->
-            Opts = setopts(NameT, Name, MB, Opts0),
-            %% Not AvpName or else a failed Failed-AVP
-            %% decode is packed into 'AVP'.
-
             Avp = #diameter_avp{code = Code,
                                 vendor_id = Vid,
                                 is_mandatory = MB,
@@ -272,15 +275,9 @@ decode(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
                                 name = name(NameT),
                                 type = type(NameT),
                                 index = Idx},
-
-            Dec = decode(Data, Name, NameT, Mod, Opts, Avp),       %% decode
-
-            AvpName = field(NameT),
-            Arity = avp_arity(Name, AvpName, Mod, Opts, Avp),
-            AM = incr(AvpName, Arity, Strict, AM0),                %% count
-
-            Acc = decode(T, Name, Mod, Fmt, Strict, Opts, Idx+1, AM),%% recurse
-            acc(Acc, Dec, Name, AvpName, Arity, Strict, Mod, Opts, AM0);
+            Dec = decode(Data, Name, NameT, Mod, Opts, Avp),    %% decode
+            Acc = decode(T, Name, Mod, Fmt, Strict, Opts, AM),  %% recurse
+            acc(Acc, Dec, Name, AvpName, Arity, Strict, Mod, Opts);
         _ ->
             Avp = #diameter_avp{code = Code,
                                 vendor_id = Vid,
@@ -290,15 +287,14 @@ decode(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
                                 name = name(NameT),
                                 type = type(NameT),
                                 index = Idx},
-            [AM0, [Avp], [{5014, Avp}] | newrec(Fmt, Mod, Name, Strict)]
+            [AM, [Avp], [{5014, Avp}] | newrec(Fmt, Mod, Name, Strict)]
     end;
 
-decode(<<>>, Name, Mod, Fmt, Strict, _, _, AM) ->
+decode(<<>>, Name, Mod, Fmt, Strict, _, AM) ->
     [AM, [], [] | newrec(Fmt, Mod, Name, Strict)];
 
-decode(Bin, Name, Mod, Fmt, Strict, _, Idx, AM) ->
-    Avp = #diameter_avp{data = Bin,
-                        index = Idx},
+decode(Bin, Name, Mod, Fmt, Strict, _, AM) ->
+    Avp = #diameter_avp{data = Bin},
     [AM, [Avp], [{5014, Avp}] | newrec(Fmt, Mod, Name, Strict)].
 
 %% Data is a truncated header if command_code = undefined, otherwise
@@ -321,15 +317,15 @@ incr(F, A, SA, AM)
        A == ?ANY;
        A == 0;
        SA /= decode ->
-    AM;
+    {undefined, AM};
 
 incr(AvpName, _, _, AM) ->
-    maps:update_with(AvpName, fun incr/1, 1, AM).
-
-%% incr/1
-
-incr(N) ->
-    N + 1.
+    case AM of
+        #{AvpName := N} ->
+            {N, AM#{AvpName => N+1}};
+        _ ->
+            {0, AM#{AvpName => 1}}
+    end.
 
 %% mget/3
 %%
@@ -551,57 +547,57 @@ set_failed('Failed-AVP', #{failed_avp := false} = Opts) ->
 set_failed(_, Opts) ->
     Opts.
 
-%% acc/9
+%% acc/8
 
-acc([AM | Acc], As, Name, AvpName, Arity, Strict, Mod, Opts, AM0) ->
-    [AM | acc1(Acc, As, Name, AvpName, Arity, Strict, Mod, Opts, AM0)].
+acc([AM | Acc], As, Name, AvpName, Arity, Strict, Mod, Opts) ->
+    [AM | acc1(Acc, As, Name, AvpName, Arity, Strict, Mod, Opts)].
 
-%% acc1/9
+%% acc1/8
 
 %% Faulty AVP, not grouped.
-acc1(Acc, {_RC, Avp} = E, _, _, _, _, _, _, _) ->
+acc1(Acc, {_RC, Avp} = E, _, _, _, _, _, _) ->
     [Avps, Failed | Rec] = Acc,
     [[Avp | Avps], [E | Failed] | Rec];
 
 %% Faulty component in grouped AVP.
-acc1(Acc, {RC, As, Avp}, _, _, _, _, _, _, _) ->
+acc1(Acc, {RC, As, Avp}, _, _, _, _, _, _) ->
     [Avps, Failed | Rec] = Acc,
     [[As | Avps], [{RC, Avp} | Failed] | Rec];
 
 %% Grouped AVP ...
-acc1([Avps | Acc], [Avp|_] = As, Name, AvpName, Arity, Strict, Mod, Opts, AM)->
-    [[As|Avps] | acc2(Acc, Avp, Name, AvpName, Arity, Strict, Mod, Opts, AM)];
+acc1([Avps | Acc], [Avp|_] = As, Name, AvpName, Arity, Strict, Mod, Opts) ->
+    [[As|Avps] | acc2(Acc, Avp, Name, AvpName, Arity, Strict, Mod, Opts)];
 
 %% ... or not.
-acc1([Avps | Acc], Avp, Name, AvpName, Arity, Strict, Mod, Opts, AM) ->
-    [[Avp|Avps] | acc2(Acc, Avp, Name, AvpName, Arity, Strict, Mod, Opts, AM)].
+acc1([Avps | Acc], Avp, Name, AvpName, Arity, Strict, Mod, Opts) ->
+    [[Avp|Avps] | acc2(Acc, Avp, Name, AvpName, Arity, Strict, Mod, Opts)].
 
-%% acc2/9
+%% acc2/8
 
 %% No errors, but nowhere to pack.
-acc2(Acc, Avp, _, 'AVP', 0, _, _, _, _) ->
+acc2(Acc, Avp, _, 'AVP', 0, _, _, _) ->
     [Failed | Rec] = Acc,
     [[{rc(Avp), Avp} | Failed] | Rec];
 
 %% No AVP of this name: try to pack as 'AVP'.
-acc2(Acc, Avp, Name, _, 0, Strict, Mod, Opts, AM) ->
-    Arity = pack_arity(Name, Opts, Mod, Avp),
-    acc2(Acc, Avp, Name, 'AVP', Arity, Strict, Mod, Opts, AM);
+acc2(Acc, Avp, Name, AvpName, 0, Strict, Mod, Opts) ->
+    M = Avp#diameter_avp.is_mandatory,
+    Arity = pack_arity(Name, AvpName, Opts, Mod, M),
+    acc2(Acc, Avp, Name, 'AVP', Arity, Strict, Mod, Opts);
 
 %% Relaxed arities.
-acc2(Acc, Avp, _, AvpName, Arity, Strict, Mod, _, _)
+acc2(Acc, Avp, _, AvpName, Arity, Strict, Mod, _)
   when Strict /= decode ->
     pack(Arity, AvpName, Avp, Mod, Acc);
 
 %% No maximum arity.
-acc2(Acc, Avp, _, AvpName, {_,'*'} = Arity, _, Mod, _, _) ->
+acc2(Acc, Avp, _, AvpName, {_,'*'} = Arity, _, Mod, _) ->
     pack(Arity, AvpName, Avp, Mod, Acc);
 
 %% Or check.
-acc2(Acc, Avp, _, AvpName, Arity, _, Mod, _, AM) ->
-    Count = maps:get(AvpName, AM, 0),
+acc2(Acc, Avp, _, AvpName, Arity, _, Mod, _) ->
     Mx = max_arity(Arity),
-    if Mx =< Count ->
+    if Mx =< Avp#diameter_avp.index ->
             [Failed | Rec] = Acc,
             [[{5009, Avp} | Failed] | Rec];
        true ->
@@ -641,13 +637,13 @@ rc(#diameter_avp{is_mandatory = M}) ->
 %%      Failed-AVP AVP MUST be included and contain a copy of the
 %%      offending AVP.
 
-%% pack_arity/4
+%% pack_arity/5
 
 %% Give Failed-AVP special treatment since (1) it'll contain any
 %% unrecognized mandatory AVP's and (2) the RFC 3588 grammar failed to
 %% allow for Failed-AVP in an answer-message.
 
-pack_arity(Name, _, Mod, #diameter_avp{is_mandatory = M, name = AvpName})
+pack_arity(Name, AvpName, _, Mod, M)
   when Name == 'Failed-AVP';
        Name == 'answer-message', AvpName == 'Failed-AVP';
        not M ->
@@ -658,18 +654,18 @@ pack_arity(Name, _, Mod, #diameter_avp{is_mandatory = M, name = AvpName})
 %% possible, and failing because a mandatory AVP couldn't be
 %% packed into a dedicated field defeats that point.
 
-pack_arity(Name, #{strict_mbit := Strict, failed_avp := Failed}, Mod, _)
+pack_arity(Name, _, #{strict_mbit := Strict, failed_avp := Failed}, Mod, _)
   when not Strict;
        Failed ->
     Mod:avp_arity(Name, 'AVP');
 
-pack_arity(_, _, _, _) ->
+pack_arity(_, _, _, _, _) ->
     0.
 
 %% avp_arity/5
 
-avp_arity(Name, 'AVP', Mod, Opts, Avp) ->
-    pack_arity(Name, Opts, Mod, Avp);
+avp_arity(Name, 'AVP' = AvpName, Mod, Opts, M) ->
+    pack_arity(Name, AvpName, Opts, Mod, M);
 
 avp_arity(Name, AvpName, Mod, _, _) ->
     Mod:avp_arity(Name, AvpName).

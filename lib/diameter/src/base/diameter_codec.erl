@@ -489,9 +489,9 @@ collect_avps(#diameter_packet{bin = Bin} = Pkt) ->
     Pkt#diameter_packet{avps = collect_avps(Bin)};
 
 collect_avps(<<_:20/binary, Avps/binary>>) ->
-    collect(Avps, 0).
+    collect(Avps).
 
-%% collect/2
+%% collect/1
 
 %%     0                   1                   2                   3
 %%     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -505,7 +505,7 @@ collect_avps(<<_:20/binary, Avps/binary>>) ->
 %%    |    Data ...
 %%    +-+-+-+-+-+-+-+-+
 
-collect(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>, N)->
+collect(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>) ->
     Vid = if 1 == V -> I; 0 == V -> undefined end,
     DataLen = Len - 8 - V*4,  %% Might be negative, which ensures
     Pad = ?PAD(Len),          %%   failure of the match below.
@@ -518,9 +518,8 @@ collect(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>, N)->
                                 vendor_id = Vid,
                                 is_mandatory = MB,
                                 need_encryption = PB,
-                                data = Data,
-                                index = N},
-            [Avp | collect(T, N+1)];
+                                data = Data},
+            [Avp | collect(T)];
         _ ->
             %% Length in header points past the end of the message, or
             %% doesn't span the header. Note that an length error can
@@ -532,16 +531,15 @@ collect(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>, N)->
                            vendor_id = Vid,
                            is_mandatory = MB,
                            need_encryption = PB,
-                           data = {5014, Rest},
-                           index = N}]
+                           data = {5014, Rest}}]
     end;
 
-collect(<<>>, _) ->
+collect(<<>>) ->
     [];
 
 %% Header is truncated. pack_avp/1 will pad this at encode if sent in
 %% a Failed-AVP.
-collect(Bin, _) ->
+collect(Bin) ->
     [#diameter_avp{data = {5014, Bin}}].
 
 %% 3588:
