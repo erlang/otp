@@ -506,20 +506,33 @@ collect_avps(<<_:20/binary, Avps/binary>>) ->
 %%    +-+-+-+-+-+-+-+-+
 
 collect(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>) ->
-    Vid = if 1 == V -> I; 0 == V -> undefined end,
-    DataLen = Len - 8 - V*4,  %% Might be negative, which ensures
-    Pad = ?PAD(Len),          %%   failure of the match below.
-    MB = 1 == M,
-    PB = 1 == P,
+    collect(Rest,
+            Code,
+            if 1 == V -> I; 0 == V -> undefined end,
+            Len - 8 - V*4,  %% Might be negative, which ensures
+            ?PAD(Len),      %%   failure of the match below.
+            1 == M,
+            1 == P);
 
-    case Rest of
-        <<Data:DataLen/binary, _:Pad/binary, T/binary>> ->
+collect(<<>>) ->
+    [];
+
+%% Header is truncated. pack_avp/1 will pad this at encode if sent in
+%% a Failed-AVP.
+collect(Bin) ->
+    [#diameter_avp{data = {5014, Bin}}].
+
+%% collect/7
+
+collect(Bin, Code, Vid, DataLen, Pad, M, P) ->
+    case Bin of
+        <<Data:DataLen/binary, _:Pad/binary, Rest/binary>> ->
             Avp = #diameter_avp{code = Code,
                                 vendor_id = Vid,
-                                is_mandatory = MB,
-                                need_encryption = PB,
+                                is_mandatory = M,
+                                need_encryption = P,
                                 data = Data},
-            [Avp | collect(T)];
+            [Avp | collect(Rest)];
         _ ->
             %% Length in header points past the end of the message, or
             %% doesn't span the header. Note that an length error can
@@ -529,18 +542,10 @@ collect(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>) ->
             %% know the types of the AVPs being extracted.
             [#diameter_avp{code = Code,
                            vendor_id = Vid,
-                           is_mandatory = MB,
-                           need_encryption = PB,
-                           data = {5014, Rest}}]
-    end;
-
-collect(<<>>) ->
-    [];
-
-%% Header is truncated. pack_avp/1 will pad this at encode if sent in
-%% a Failed-AVP.
-collect(Bin) ->
-    [#diameter_avp{data = {5014, Bin}}].
+                           is_mandatory = M,
+                           need_encryption = P,
+                           data = {5014, Bin}}]
+    end.
 
 %% 3588:
 %%
