@@ -26,6 +26,14 @@
 
 -module(diameter_gen).
 
+-compile({inline, [incr/8,
+                   incr/4,
+                   field/1,
+                   setopts/4,
+                   avp_arity/5,
+                   set_failed/2,
+                   set_strict/3]}).
+
 -export([encode_avps/3,
          decode_avps/3,
          grouped_avp/4,
@@ -248,47 +256,21 @@ decode(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
        Mod,
        Fmt,
        Strict,
-       Opts0,
-       AM0) ->
-    Vid = if 1 == V -> I; true -> undefined end,
-    MB = 1 == M,
-    PB = 1 == P,
-    NameT = Mod:avp_name(Code, Vid), %% {AvpName, Type} | 'AVP'
-    DataLen = Len - 8 - 4*V, %% possibly negative, causing case match to fail
-    Pad = (4 - (Len rem 4)) rem 4,
-
-    Opts = setopts(NameT, Name, MB, Opts0),
-    %% Not AvpName or else a failed Failed-AVP
-    %% decode is packed into 'AVP'.
-
-    AvpName = field(NameT),
-    Arity = avp_arity(Name, AvpName, Mod, Opts, MB),
-    {Idx, AM} = incr(AvpName, Arity, Strict, AM0),              %% count
-
-    case Rest of
-        <<Data:DataLen/binary, _:Pad/binary, T/binary>> ->
-            Avp = #diameter_avp{code = Code,
-                                vendor_id = Vid,
-                                is_mandatory = MB,
-                                need_encryption = PB,
-                                data = Data,
-                                name = name(NameT),
-                                type = type(NameT),
-                                index = Idx},
-            Dec = decode(Data, Name, NameT, Mod, Opts, Avp),    %% decode
-            Acc = decode(T, Name, Mod, Fmt, Strict, Opts, AM),  %% recurse
-            acc(Acc, Dec, Name, AvpName, Arity, Strict, Mod, Opts);
-        _ ->
-            Avp = #diameter_avp{code = Code,
-                                vendor_id = Vid,
-                                is_mandatory = MB,
-                                need_encryption = PB,
-                                data = Rest,
-                                name = name(NameT),
-                                type = type(NameT),
-                                index = Idx},
-            [AM, [Avp], [{5014, Avp}] | newrec(Fmt, Mod, Name, Strict)]
-    end;
+       Opts,
+       AM) ->
+    decode(Rest,
+           Code,
+           if 1 == V -> I; true -> undefined end,
+           Len - 8 - 4*V, %% possibly negative, causing case match to fail
+           (4 - (Len rem 4)) rem 4,
+           1 == M,
+           1 == P,
+           Name,
+           Mod,
+           Fmt,
+           Strict,
+           Opts,
+           AM);
 
 decode(<<>>, Name, Mod, Fmt, Strict, _, AM) ->
     [AM, [], [] | newrec(Fmt, Mod, Name, Strict)];
@@ -296,6 +278,54 @@ decode(<<>>, Name, Mod, Fmt, Strict, _, AM) ->
 decode(Bin, Name, Mod, Fmt, Strict, _, AM) ->
     Avp = #diameter_avp{data = Bin},
     [AM, [Avp], [{5014, Avp}] | newrec(Fmt, Mod, Name, Strict)].
+
+%% decode/13
+
+decode(Bin, Code, Vid, DataLen, Pad, M, P, Name, Mod, Fmt, Strict, Opts0, AM0) ->
+    case Bin of
+        <<Data:DataLen/binary, _:Pad/binary, T/binary>> ->
+            {NameT, AvpName, Arity, {Idx, AM}}
+                = incr(Name, Code, Vid, M, Mod, Strict, Opts0, AM0),
+
+            Opts = setopts(NameT, Name, M, Opts0),
+            %% Not AvpName or else a failed Failed-AVP
+            %% decode is packed into 'AVP'.
+
+            Avp = #diameter_avp{code = Code,
+                                vendor_id = Vid,
+                                is_mandatory = M,
+                                need_encryption = P,
+                                data = Data,
+                                name = name(NameT),
+                                type = type(NameT),
+                                index = Idx},
+
+            Dec = decode(Data, Name, NameT, Mod, Opts, Avp),    %% decode
+            Acc = decode(T, Name, Mod, Fmt, Strict, Opts, AM),  %% recurse
+            acc(Acc, Dec, Name, AvpName, Arity, Strict, Mod, Opts);
+        _ ->
+            {NameT, _AvpName, _Arity, {Idx, AM}}
+                = incr(Name, Code, Vid, M, Mod, Strict, Opts0, AM0),
+
+            Avp = #diameter_avp{code = Code,
+                                vendor_id = Vid,
+                                is_mandatory = M,
+                                need_encryption = P,
+                                data = Bin,
+                                name = name(NameT),
+                                type = type(NameT),
+                                index = Idx},
+
+            [AM, [Avp], [{5014, Avp}] | newrec(Fmt, Mod, Name, Strict)]
+    end.
+
+%% incr/8
+
+incr(Name, Code, Vid, M, Mod, Strict, Opts, AM0) ->
+    NameT = Mod:avp_name(Code, Vid), %% {AvpName, Type} | 'AVP'
+    AvpName = field(NameT),
+    Arity = avp_arity(Name, AvpName, Mod, Opts, M),
+    {NameT, AvpName, Arity, incr(AvpName, Arity, Strict, AM0)}.
 
 %% Data is a truncated header if command_code = undefined, otherwise
 %% payload bytes. The former is padded to the length of a header if
