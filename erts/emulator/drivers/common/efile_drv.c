@@ -1261,6 +1261,50 @@ static void free_read_line(void *data)
     EF_FREE(d);
 }
 
+void read_file_zero_size(struct t_data* d);
+#define ZERO_FILE_CHUNK (64 * 1024)
+
+/* [ERL-327] Some special files like /proc/... have reported size 0 */
+void read_file_zero_size(struct t_data* d) {
+    size_t total_read_size = 0;
+    size_t allocated_size = ZERO_FILE_CHUNK; /* allocd in invoke_read_file */
+    for (;;) {
+        size_t read_result;
+
+        /* Read until we hit EOF (read less than FILE_SEGMENT_READ) */
+        d->result_ok = efile_read(&d->errInfo,
+                                  EFILE_MODE_READ,
+                                  (int) d->fd,
+                                  (d->c.read_file.binp->orig_bytes +
+                                   total_read_size),
+                                  ZERO_FILE_CHUNK,
+                                  &read_result);
+        if (!d->result_ok) {
+            break;
+        }
+
+        total_read_size += read_result;
+        d->c.read_file.offset += read_result;
+        if (read_result < ZERO_FILE_CHUNK) {
+            break;
+        }
+
+        /* Grow before the next read call */
+        allocated_size = total_read_size + ZERO_FILE_CHUNK;
+        d->c.read_file.binp = driver_realloc_binary(d->c.read_file.binp,
+                                                    allocated_size);
+    }
+
+    /* Finalize the memory usage. Hopefully it was read fully on the first
+     * go, so the binary allocation overhead becomes:
+     * alloc ZERO_FILE_CHUNK (64kb) -> realloc real_size */
+    if (allocated_size != total_read_size) {
+        d->c.read_file.binp = driver_realloc_binary(d->c.read_file.binp,
+                                                    total_read_size);
+    }
+    d->again = 0;
+}
+
 static void invoke_read_file(void *data)
 {
     struct t_data *d = (struct t_data *) data;
@@ -1279,9 +1323,15 @@ static void invoke_read_file(void *data)
 	}
 	d->fd = fd;
 	d->c.read_file.size = (int) size;
-	if (size < 0 || size != d->c.read_file.size ||
-	    ! (d->c.read_file.binp = 
-	       driver_alloc_binary(d->c.read_file.size))) {
+
+        /* For zero sized files allocate a reasonable chunk to attempt reading
+         * anyway. Note: This will eat ZERO_FILE_CHUNK bytes for any 0 file
+         * and free them immediately after (if the file was empty). */
+        ERTS_ASSERT(size >= 0);
+        d->c.read_file.binp = driver_alloc_binary(size != 0 ? (size_t)size
+                                                            : ZERO_FILE_CHUNK);
+
+	if (size < 0 || size != d->c.read_file.size || !d->c.read_file.binp) {
 	    d->result_ok = 0;
 	    d->errInfo.posix_errno = ENOMEM;
 	    goto close;
@@ -1290,6 +1340,11 @@ static void invoke_read_file(void *data)
     }
     /* Invariant: d->c.read_file.size >= d->c.read_file.offset */
     
+    if (d->c.read_file.size == 0) {
+        read_file_zero_size(d);
+        goto close;
+    }
+
     read_size = (size_t) (d->c.read_file.size - d->c.read_file.offset);
     if (! read_size) goto close;
     chop = d->again && read_size >= FILE_SEGMENT_READ*2;

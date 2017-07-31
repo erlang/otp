@@ -19,16 +19,20 @@
 
 -module(efile_SUITE).
 -export([all/0, suite/0]).
--export([iter_max_files/1, async_dist/1]).
+-export([async_dist/1,
+         iter_max_files/1,
+         proc_zero_sized_files/1
+        ]).
 
 -export([do_iter_max_files/2, do_async_dist/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [iter_max_files, async_dist].
+    [iter_max_files, async_dist, proc_zero_sized_files].
 
 do_async_dist(Dir) ->
     X = 100,
@@ -162,3 +166,44 @@ open_files(Name) ->
             %		  io:format("Error reason: ~p", [_Reason]),
             []
     end.
+
+%% @doc If /proc filesystem exists (no way to know if it is real proc or just
+%% a /proc directory), let's read some zero sized files 500 times each, while
+%% ensuring that response isn't empty << >>
+proc_zero_sized_files(Config) when is_list(Config) ->
+    {Type, Flavor} = os:type(),
+    %% Some files which exist on Linux but might be missing on other systems
+    Inputs = ["/proc/cpuinfo",
+              "/proc/meminfo",
+              "/proc/partitions",
+              "/proc/swaps",
+              "/proc/version",
+              "/proc/uptime",
+              %% curproc is present on freebsd
+              "/proc/curproc/cmdline"],
+    case filelib:is_dir("/proc") of
+        false -> {skip, "/proc not found"}; % skip the test if no /proc
+        _ when Type =:= unix andalso Flavor =:= sunos ->
+            %% SunOS has a /proc, but no zero sized special files
+            {skip, "sunos does not have any zero sized special files"};
+        true ->
+            %% Take away files which do not exist in proc
+            Inputs1 = lists:filter(fun filelib:is_file/1, Inputs),
+
+            %% Fail if none of mentioned files exist in /proc, did we just get
+            %% a normal /proc directory without any special files?
+            ?assertNotEqual([], Inputs1),
+
+            %% For 6 inputs and 500 attempts each this do run anywhere
+            %% between 500 and 3000 function calls.
+            lists:foreach(
+                fun(Filename) -> do_proc_zero_sized(Filename, 500) end,
+                Inputs1)
+    end.
+
+%% @doc Test one file N times to also trigger possible leaking fds and memory
+do_proc_zero_sized(_Filename, 0) -> ok;
+do_proc_zero_sized(Filename, N) ->
+    Data = file:read_file(Filename),
+    ?assertNotEqual(<<>>, Data),
+    do_proc_zero_sized(Filename, N-1).
