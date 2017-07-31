@@ -1261,26 +1261,61 @@ static void free_read_line(void *data)
     EF_FREE(d);
 }
 
+void read_file_zero_size(struct t_data* d);
+
+/* [ERL-327] Some special files like /proc/... have reported size 0 */
+void read_file_zero_size(struct t_data* d) {
+    size_t actual_size = 0;
+    while (1) {
+        ssize_t read_result;
+        char* datap = 0;
+
+        /* Realloc output binary to be a bit (256k) larger than the data
+         * already in it. This will be the chunk size (FILE_SEGMENT_READ) */
+        d->c.read_file.binp = driver_realloc_binary(
+          d->c.read_file.binp, actual_size + FILE_SEGMENT_READ);
+
+        datap = d->c.read_file.binp->orig_bytes + actual_size;
+
+        /* Read until we hit EOF (read less than requested) */
+        read_result = read((int) d->fd, datap, FILE_SEGMENT_READ);
+
+        actual_size += read_result;
+        d->c.read_file.offset += read_result;
+        if (read_result < FILE_SEGMENT_READ) {
+            break;
+        }
+    } /* while 1 */
+
+    /* Finalize the memory usage. Hopefully it was read fully on the first
+     * go, so the binary allocation overhead becomes:
+     * alloc 0 -> realloc 256k -> realloc real_size */
+    d->c.read_file.binp = driver_realloc_binary(d->c.read_file.binp,
+                                                actual_size);
+    d->result_ok = 1;
+    d->again = 0;
+}
+
 static void invoke_read_file(void *data)
 {
     struct t_data *d = (struct t_data *) data;
     size_t read_size;
     int chop;
     DTRACE_INVOKE_SETUP(FILE_READ_FILE);
-    
+
     if (! d->c.read_file.binp) { /* First invocation only */
 	int fd;
 	Sint64 size;
-	
-	if (! (d->result_ok = 
-	       efile_openfile(&d->errInfo, d->b, 
+
+	if (! (d->result_ok =
+	       efile_openfile(&d->errInfo, d->b,
 			      EFILE_MODE_READ, &fd, &size))) {
 	    goto done;
 	}
 	d->fd = fd;
 	d->c.read_file.size = (int) size;
 	if (size < 0 || size != d->c.read_file.size ||
-	    ! (d->c.read_file.binp = 
+	    ! (d->c.read_file.binp =
 	       driver_alloc_binary(d->c.read_file.size))) {
 	    d->result_ok = 0;
 	    d->errInfo.posix_errno = ENOMEM;
@@ -1289,17 +1324,22 @@ static void invoke_read_file(void *data)
 	d->c.read_file.offset = 0;
     }
     /* Invariant: d->c.read_file.size >= d->c.read_file.offset */
-    
+
+    if (! d->c.read_file.size) {
+        read_file_zero_size(d);
+        goto chop_done;
+    }
+
     read_size = (size_t) (d->c.read_file.size - d->c.read_file.offset);
     if (! read_size) goto close;
     chop = d->again && read_size >= FILE_SEGMENT_READ*2;
     if (chop) read_size = FILE_SEGMENT_READ;
-    d->result_ok = 
-	efile_read(&d->errInfo, 
-		   EFILE_MODE_READ, 
-		   (int) d->fd, 
+    d->result_ok =
+	efile_read(&d->errInfo,
+		   EFILE_MODE_READ,
+		   (int) d->fd,
 		   d->c.read_file.binp->orig_bytes + d->c.read_file.offset,
-		   read_size, 
+		   read_size,
 		   &read_size);
     if (d->result_ok) {
 	d->c.read_file.offset += read_size;
