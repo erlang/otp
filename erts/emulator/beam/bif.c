@@ -2035,6 +2035,7 @@ static Sint remote_send(Process *p, DistEntry *dep,
 
     ASSERT(is_atom(to) || is_external_pid(to));
 
+    ctx->dep = dep;
     code = erts_dsig_prepare(&ctx->dsd, dep, p, ERTS_DSP_NO_LOCK, !ctx->suspend);
     switch (code) {
     case ERTS_DSIG_PREP_NOT_ALIVE:

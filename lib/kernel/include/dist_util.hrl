@@ -82,6 +82,9 @@
 
           %% New in kernel-6.0 (OTP 21.0)
           f_handshake_complete, %% Notify handshake complete
+          add_flags,         %% dflags to add
+          reject_flags,      %% dflags not to use (not all can be rejected)
+          require_flags     %% dflags that are required
 }).
 	  
 

@@ -953,11 +953,30 @@ erts_dsig_send_msg(Eterm remote, Eterm message, ErtsSendContext* ctx)
     }
 #endif
 
-    if (token != NIL)
-	ctl = TUPLE4(&ctx->ctl_heap[0],
-		     make_small(DOP_SEND_TT), am_Empty, remote, token);
-    else
-	ctl = TUPLE3(&ctx->ctl_heap[0], make_small(DOP_SEND), am_Empty, remote);
+    if (token != NIL) {
+        Eterm el1, el2;
+        if (ctx->dep->flags & DFLAG_SEND_SENDER) {
+            el1 = make_small(DOP_SEND_SENDER_TT);
+            el2 = sender->common.id;
+        }
+        else {
+            el1 = make_small(DOP_SEND_TT);
+            el2 = am_Empty;
+        }
+	ctl = TUPLE4(&ctx->ctl_heap[0], el1, el2, remote, token);
+    }
+    else {
+        Eterm el1, el2;
+        if (ctx->dep->flags & DFLAG_SEND_SENDER) {
+            el1 = make_small(DOP_SEND_SENDER);
+            el2 = sender->common.id;
+        }
+        else {
+            el1 = make_small(DOP_SEND);
+            el2 = am_Empty;
+        }
+	ctl = TUPLE3(&ctx->ctl_heap[0], el1, el2, remote);
+    }
     DTRACE6(message_send, sender_name, receiver_name,
             msize, tok_label, tok_lastcnt, tok_serial);
     DTRACE7(message_send_remote, sender_name, node_name, receiver_name,
@@ -1292,6 +1311,7 @@ int erts_net_message(Port *prt,
     }
 
     token_size = 0;
+    token = NIL;
 
     switch (type = unsigned_val(tuple[1])) {
     case DOP_LINK:
@@ -1521,38 +1541,52 @@ int erts_net_message(Port *prt,
 	}
 	break;
 
+    case DOP_SEND_SENDER_TT: {
+        Uint xsize;
     case DOP_SEND_TT:
+
 	if (tuple_arity != 4) {
 	    goto invalid_message;
 	}
-	
-	token_size = size_object(tuple[4]);
-	/* Fall through ... */
+
+	token = tuple[4];
+	token_size = size_object(token);
+        xsize = ERTS_HEAP_FRAG_SIZE(token_size);
+        goto send_common;
+
+    case DOP_SEND_SENDER:
     case DOP_SEND:
+
+        token = NIL;
+        xsize = 0;
+	if (tuple_arity != 3)
+	    goto invalid_message;
+
+    send_common:
+
 	/*
-	 * There is intentionally no testing of the cookie (it is always '')
-	 * from R9B and onwards.
+         * If DOP_SEND_SENDER or DOP_SEND_SENDER_TT element 2 contains
+         * the sender pid (i.e. DFLAG_SEND_SENDER is set); otherwise,
+         * the atom '' (empty cookie).
 	 */
+        ASSERT((type == DOP_SEND_SENDER || type == DOP_SEND_SENDER_TT)
+               ? (is_pid(tuple[2]) && (dep->flags & DFLAG_SEND_SENDER))
+               : tuple[2] == am_Empty);
+
 #ifdef ERTS_DIST_MSG_DBG
 	dist_msg_dbg(&ede, "MSG", buf, orig_len);
 #endif
-	if (type != DOP_SEND_TT && tuple_arity != 3) {
-	    goto invalid_message;
-	}
 	to = tuple[3];
 	if (is_not_pid(to)) {
 	    goto invalid_message;
 	}
 	rp = erts_proc_lookup(to);
 	if (rp) {
-	    Uint xsize = type == DOP_SEND ? 0 : ERTS_HEAP_FRAG_SIZE(token_size);
 	    ErtsProcLocks locks = 0;
 	    ErtsDistExternal *ede_copy;
 
 	    ede_copy = erts_make_dist_ext_copy(&ede, xsize);
-	    if (type == DOP_SEND) {
-		token = NIL;
-	    } else {
+	    if (is_not_nil(token)) {
 		ErlHeapFragment *heap_frag;
 		ErlOffHeap *ohp;
 		ASSERT(xsize);
@@ -1560,15 +1594,15 @@ int erts_net_message(Port *prt,
 		ERTS_INIT_HEAP_FRAG(heap_frag, token_size, token_size);
 		hp = heap_frag->mem;
 		ohp = &heap_frag->off_heap;
-		token = tuple[4];
 		token = copy_struct(token, token_size, &hp, ohp);
 	    }
 
-	    erts_queue_dist_message(rp, locks, ede_copy, token, tuple[2]);
+	    erts_queue_dist_message(rp, locks, ede_copy, token, am_Empty);
 	    if (locks)
 		erts_smp_proc_unlock(rp, locks);
 	}
 	break;
+    }
 
     case DOP_MONITOR_P_EXIT: {
 	/* We are monitoring a process on the remote node which dies, we get

@@ -1236,12 +1236,6 @@ end</code>
 	  <seealso marker="erlang#dist_ctrl_get_data_notification/1"><c>erlang:dist_ctrl_get_data_notification(DHandle)</c></seealso>.
 	</p>
 	<note><p>
-	  The data retreived from this function needs to be delivered
-	  as is to the node on the other end in the exact same order,
-	  with no loss of data what so ever, as retrived from this
-	  function.
-	</p></note>
-	<note><p>
 	  Only the process registered as distribution
 	  controller for the distribution channel identified by
 	  <c><anno>DHandle</anno></c> is allowed to call this
@@ -1253,7 +1247,7 @@ end</code>
 	  controllers. <c><anno>DHandle</anno></c> is retrived
 	  via the callback
 	  <seealso marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seealso>.
-	  More information about this can be found in the documentation of
+	  More information can be found in the documentation of
 	  <seealso marker="erts:alt_dist#distribution_module">ERTS
 	  User's Guide ➜ How to implement an Alternative Carrier
 	  for the Erlang Distribution ➜ Distribution Module</seealso>.
@@ -1289,7 +1283,7 @@ end</code>
 	  controllers. <c><anno>DHandle</anno></c> is retrived
 	  via the callback
 	  <seealso marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seealso>.
-	  More information about this can be found in the documentation of
+	  More information can be found in the documentation of
 	  <seealso marker="erts:alt_dist#distribution_module">ERTS
 	  User's Guide ➜ How to implement an Alternative Carrier
 	  for the Erlang Distribution ➜ Distribution Module</seealso>.
@@ -1322,7 +1316,7 @@ end</code>
 	  controllers. <c><anno>DHandle</anno></c> is retrived
 	  via the callback
 	  <seealso marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seealso>.
-	  More information about this can be found in the documentation of
+	  More information can be found in the documentation of
 	  <seealso marker="erts:alt_dist#distribution_module">ERTS
 	  User's Guide ➜ How to implement an Alternative Carrier
 	  for the Erlang Distribution ➜ Distribution Module</seealso>.
@@ -1338,11 +1332,6 @@ end</code>
 	  Deliver distribution channel data from a remote node to the
 	  local node.
 	</p>
-	<note><p>
-	  The data passed to the VM using this function needs to be
-	  passed in the exact same order, and with no loss of data
-	  what so ever, as sent from the node on the other end.
-	</p></note>
 	<note><p>
 	  Only the process registered as distribution
 	  controller for the distribution channel identified by
@@ -1360,7 +1349,7 @@ end</code>
 	  controllers. <c><anno>DHandle</anno></c> is retrived
 	  via the callback
 	  <seealso marker="erts:alt_dist#hs_data_f_handshake_complete"><c>f_handshake_complete</c></seealso>.
-	  More information about this can be found in the documentation of
+	  More information can be found in the documentation of
 	  <seealso marker="erts:alt_dist#distribution_module">ERTS
 	  User's Guide ➜ How to implement an Alternative Carrier
 	  for the Erlang Distribution ➜ Distribution Module</seealso>.

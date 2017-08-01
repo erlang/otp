@@ -829,7 +829,31 @@ DiB == gen_digest(ChA, ICA)?
         <item>
           <p>The node understand UTF-8 encoded atoms.</p>
         </item>
+        <tag><c>-define(DFLAG_MAP_TAG, 16#20000).</c></tag>
+        <item>
+          <p>The node understand the map tag.</p>
+        </item>
+        <tag><c>-define(DFLAG_BIG_CREATION, 16#40000).</c></tag>
+        <item>
+          <p>The node understand big node creation.</p>
+        </item>
+        <tag><c>-define(DFLAG_SEND_SENDER, 16#80000).</c></tag>
+        <item>
+          <p>
+	    Use the <c>SEND_SENDER</c>
+	    <seealso marker="#control_message">control message</seealso>
+	    instead of the <c>SEND</c> control message and use the
+	    <c>SEND_SENDER_TT</c> control message instead
+	    of the <c>SEND_TT</c> control message.
+	  </p>
+        </item>
       </taglist>
+      <p>
+	There are also a collection of <c>DFLAG</c>s bitwise or:ed
+	together in the <c>DFLAGS_STRICT_ORDER_DELIVERY</c> macro.
+	These flags corresponds to features that require strict
+	ordering of data over distribution channels.
+      </p>
     </section>
   </section>
 
@@ -922,6 +946,7 @@ DiB == gen_digest(ChA, ICA)?
       </item>
     </taglist>
 
+    <marker id="control_message"/>
     <p>The <c>ControlMessage</c> is a tuple, where the first element indicates
       which distributed operation it encodes:</p>
 
@@ -1028,4 +1053,49 @@ DiB == gen_digest(ChA, ICA)?
       </item>
     </taglist>
   </section>
+
+  <section>
+    <title>New Ctrlmessages for Erlang/OTP 21</title>
+    <taglist>
+      <tag><c>SEND_SENDER</c></tag>
+      <item>
+        <p><c>{22, FromPid, ToPid}</c></p>
+        <p>Followed by <c>Message</c>.</p>
+	<p>
+	  This control messages replace the <c>SEND</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_SEND_SENDER</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+	<note><p>
+	  Messages encoded before the connection has
+	  been set up may still use the <c>SEND</c> control
+	  message. However, once a <c>SEND_SENDER</c> or <c>SEND_SENDER_TT</c>
+	  control message has been sent, no more <c>SEND</c>
+	  control messages will be sent in the same direction
+	  on the connection.
+	</p></note>
+      </item>
+      <tag><c>SEND_SENDER_TT</c></tag>
+      <item>
+        <p><c>{23, FromPid, ToPid, TraceToken}</c></p>
+        <p>Followed by <c>Message</c>.</p>
+	<p>
+	  This control messages replace the <c>SEND_TT</c> control
+	  message and will be sent when the distribution flag
+	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_SEND_SENDER</c></seealso>
+	  has been negotiated in the connection setup handshake.
+	</p>
+	<note><p>
+	  Messages encoded before the connection has
+	  been set up may still use the <c>SEND_TT</c> control
+	  message. However, once a <c>SEND_SENDER</c> or <c>SEND_SENDER_TT</c>
+	  control message has been sent, no more <c>SEND_TT</c>
+	  control messages will be sent in the same direction
+	  on the connection.
+	</p></note>
+      </item>
+    </taglist>
+  </section>
+
 </chapter>

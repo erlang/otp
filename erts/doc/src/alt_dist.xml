@@ -760,8 +760,77 @@
 	  </p>
 	  <p>Only used during handshake phase.</p>
 	</item>
+	
+	<tag><marker id="hs_data_add_flags"/><c>add_flags</c></tag>
+	<item>
+	  <p>
+	    <seealso marker="erl_dist_protocol#dflags">Distribution flags</seealso>
+	    to add to the connection. Currently all (non obsolete) flags will
+	    automatically be enabled.
+	  </p>
+	  <p>
+	    This flag field is optional.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_reject_flags"/><c>reject_flags</c></tag>
+	<item>
+	  <p>
+	    <seealso marker="erl_dist_protocol#dflags">Distribution flags</seealso>
+	    to reject. Currently the following distribution flags can be rejected:
+	  </p>
+	  <taglist>
+	    <tag><c>DFLAG_DIST_HDR_ATOM_CACHE</c></tag>
+	    <item>Do not use atom cache over this connection.</item>
+	    <tag><c>DFLAGS_STRICT_ORDER_DELIVERY</c></tag>
+	    <item>Do not use any features that require strict
+	    order delivery.</item>
+	  </taglist>
+	  <p>
+	    This flag field is optional.
+	  </p>
+	</item>
+
+	<tag><marker id="hs_data_require_flags"/><c>require_flags</c></tag>
+	<item>
+	  <p>
+	    Require these <seealso marker="erl_dist_protocol#dflags">distribution
+	    flags</seealso> to be used. The connection will be aborted during the
+	    handshake if the other end does not use them.
+	  </p>
+	  <p>
+	    This flag field is optional.
+	  </p>
+	</item>
 
       </taglist>
+    </section>
+
+    <section>
+      <marker id="distribution_data_delivery"/>
+      <title>Distribution Data Delivery</title>
+      <p>
+	When using the default configuration, the data to pass
+	over a connection needs to be delivered as is
+	to the node on the receiving end in the <em>exact same
+	order</em>, with no loss of data what so ever, as sent
+	from the sending node.
+      </p>
+      <p>
+	The data delivery order can be relaxed by disabling
+	features that require strict ordering. This is done by
+	passing the <c>?DFLAGS_STRICT_ORDER_DELIVERY</c>
+	<seealso marker="erl_dist_protocol#dflags">distribution
+	flags</seealso> in the
+	<seealso marker="alt_dist#hs_data_reject_flags"><c>reject_flags</c></seealso>
+	field of the <seealso marker="#hs_data_record"><c>#hs_data{}</c></seealso>
+	record used when setting up the connection. When relaxed
+	ordering is used, only the order of signals with the same
+	sender/receiver pair has to be preserved.
+	However, note that disabling the features that require
+	strict ordering may have a negative impact on performance,
+	throughput, and/or latency. 
+      </p>
     </section>
 
     <section>

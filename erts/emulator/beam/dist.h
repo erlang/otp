@@ -44,6 +44,7 @@
 #define DFLAG_UTF8_ATOMS          0x10000
 #define DFLAG_MAP_TAG             0x20000
 #define DFLAG_BIG_CREATION        0x40000
+#define DFLAG_SEND_SENDER         0x80000
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
 #define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\
@@ -73,6 +74,9 @@
 #define DOP_MONITOR_P		19
 #define DOP_DEMONITOR_P		20
 #define DOP_MONITOR_P_EXIT	21
+
+#define DOP_SEND_SENDER         22
+#define DOP_SEND_SENDER_TT      23
 
 /* distribution trap functions */
 extern Export* dsend2_trap;
@@ -346,6 +350,7 @@ typedef struct {
     Eterm ctl_heap[6];
     ErtsDSigData dsd;
     DistEntry* dep_to_deref;
+    DistEntry *dep;
     struct erts_dsig_send_context dss;
 
     Eterm return_term;
