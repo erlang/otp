@@ -1311,13 +1311,13 @@ static void invoke_read_file(void *data)
     size_t read_size;
     int chop;
     DTRACE_INVOKE_SETUP(FILE_READ_FILE);
-
+    
     if (! d->c.read_file.binp) { /* First invocation only */
 	int fd;
 	Sint64 size;
-
-	if (! (d->result_ok =
-	       efile_openfile(&d->errInfo, d->b,
+	
+	if (! (d->result_ok = 
+	       efile_openfile(&d->errInfo, d->b, 
 			      EFILE_MODE_READ, &fd, &size))) {
 	    goto done;
 	}
@@ -1339,7 +1339,7 @@ static void invoke_read_file(void *data)
 	d->c.read_file.offset = 0;
     }
     /* Invariant: d->c.read_file.size >= d->c.read_file.offset */
-
+    
     if (! d->c.read_file.size) {
         read_file_zero_size(d);
         goto chop_done;
@@ -1349,12 +1349,12 @@ static void invoke_read_file(void *data)
     if (! read_size) goto close;
     chop = d->again && read_size >= FILE_SEGMENT_READ*2;
     if (chop) read_size = FILE_SEGMENT_READ;
-    d->result_ok =
-	efile_read(&d->errInfo,
-		   EFILE_MODE_READ,
-		   (int) d->fd,
+    d->result_ok = 
+	efile_read(&d->errInfo, 
+		   EFILE_MODE_READ, 
+		   (int) d->fd, 
 		   d->c.read_file.binp->orig_bytes + d->c.read_file.offset,
-		   read_size,
+		   read_size, 
 		   &read_size);
     if (d->result_ok) {
 	d->c.read_file.offset += read_size;
