@@ -317,7 +317,8 @@ init_per_group(Name, Config)
   when Name == shuffle;
        Name == parallel ->
     start_services(Config),
-    add_transports(Config);
+    add_transports(Config),
+    Config;
 
 init_per_group(sctp = Name, Config) ->
     {_, Sctp} = lists:keyfind(Name, 1, Config),
