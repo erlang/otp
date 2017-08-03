@@ -60,8 +60,9 @@
     | no_return().
 
 encode_avps(Name, Vals, #{module := Mod} = Opts) ->
+    Strict = mget(strict_arities, Opts, encode),
     try
-        encode(Name, Vals, Opts, Mod)
+        encode(Name, Vals, Opts, Strict, Mod)
     catch
         throw: {?MODULE, Reason} ->
             diameter_lib:log({encode, error},
@@ -78,87 +79,88 @@ encode_avps(Name, Vals, #{module := Mod} = Opts) ->
             erlang:error({encode_failure, Reason, Name, Stack})
     end.
 
-%% encode/4
-
-encode(Name, Vals, #{ordered_encode := false} = Opts, Mod)
-  when is_list(Vals) ->
-    lists:map(fun({F,V}) -> encode(Name, F, V, Opts, Mod) end, Vals);
-
-encode(Name, Vals, Opts, Mod)
-  when is_list(Vals) ->
-    encode(Name, Mod:'#set-'(Vals, newrec(Mod, Name)), Opts, Mod);
-
-encode(Name, Map, Opts, Mod)
-  when is_map(Map) ->
-    [enc(Name, F, A, V, Opts, Mod) || {F,A} <- Mod:avp_arity(Name),
-                                      V <- [mget(F, Map, undefined)]];
-
-encode(Name, Rec, Opts, Mod) ->
-    [encode(Name, F, V, Opts, Mod) || {F,V} <- Mod:'#get-'(Rec)].
-
 %% encode/5
 
-encode(Name, AvpName, Values, #{strict_arities := T} = Opts, Mod)
-  when T /= encode ->
-    enc(Name, AvpName, ?ANY, Values, Opts, Mod);
+encode(Name, Vals, Opts, Strict, Mod)
+  when is_list(Vals) ->
+    case Opts of
+        #{ordered_encode := false} ->
+            lists:map(fun({F,V}) -> encode(Name, F, V, Opts, Strict, Mod) end,
+                      Vals);
+        _ ->
+            Rec = Mod:'#set-'(Vals, newrec(Mod, Name)),
+            encode(Name, Rec, Opts, Strict, Mod)
+    end;
 
-encode(Name, AvpName, Values, Opts, Mod) ->
-    enc(Name, AvpName, Mod:avp_arity(Name, AvpName), Values, Opts, Mod).
+encode(Name, Map, Opts, Strict, Mod)
+  when is_map(Map) ->
+    [enc(Name, F, A, V, Opts, Strict, Mod) || {F,A} <- Mod:avp_arity(Name),
+                                              V <- [mget(F, Map, undefined)]];
 
-%% enc/6
+encode(Name, Rec, Opts, Strict, Mod) ->
+    [encode(Name, F, V, Opts, Strict, Mod) || {F,V} <- Mod:'#get-'(Rec)].
 
-enc(Name, AvpName, Arity, Values, #{strict_arities := T} = Opts, Mod)
-  when T /= encode, Arity /= ?ANY ->
-    enc(Name, AvpName, ?ANY, Values, Opts, Mod);
+%% encode/6
 
-enc(_, AvpName, 1, undefined, _, _) ->
+encode(Name, AvpName, Values, Opts, Strict, Mod)
+  when Strict /= encode ->
+    enc(Name, AvpName, ?ANY, Values, Opts, Strict, Mod);
+
+encode(Name, AvpName, Values, Opts, Strict, Mod) ->
+    Arity = Mod:avp_arity(Name, AvpName),
+    enc(Name, AvpName, Arity, Values, Opts, Strict, Mod).
+
+%% enc/7
+
+enc(Name, AvpName, Arity, Values, Opts, Strict, Mod)
+  when Strict /= encode, Arity /= ?ANY ->
+    enc(Name, AvpName, ?ANY, Values, Opts, Strict, Mod);
+
+enc(_, AvpName, 1, undefined, _, _, _) ->
     ?THROW([mandatory_avp_missing, AvpName]);
 
-enc(Name, AvpName, 1, Value, Opts, Mod) ->
+enc(Name, AvpName, 1, Value, Opts, _, Mod) ->
     H = avp_header(AvpName, Mod),
     enc1(Name, AvpName, H, Value, Opts, Mod);
 
-enc(_, _, {0,_}, [], _, _) ->
+enc(_, _, {0,_}, [], _, _, _) ->
     [];
 
-enc(_, _, _, undefined, _, _) ->
+enc(_, _, _, undefined, _, _, _) ->
     [];
 
 %% Be forgiving when a list of values is expected. If the value itself
 %% is a list then the user has to wrap it to avoid each member from
 %% being interpreted as an individual AVP value.
-enc(Name, AvpName, Arity, V, Opts, Mod)
+enc(Name, AvpName, Arity, V, Opts, Strict, Mod)
   when not is_list(V) ->
-    enc(Name, AvpName, Arity, [V], Opts, Mod);
+    enc(Name, AvpName, Arity, [V], Opts, Strict, Mod);
 
-enc(Name, AvpName, {Min, Max}, Values, Opts, Mod) ->
+enc(Name, AvpName, {Min, Max}, Values, Opts, Strict, Mod) ->
     H = avp_header(AvpName, Mod),
-    enc(Name, AvpName, H, Min, 0, Max, Values, Opts, Mod).
+    enc(Name, AvpName, H, Min, 0, Max, Values, Opts, Strict, Mod).
 
-%% enc/9
+%% enc/10
 
-enc(Name, AvpName, H, Min, N, '*', Vs, Opts, Mod)
-  when Min =< N ->
+enc(Name, AvpName, H, Min, N, Max, Vs, Opts, Strict, Mod)
+  when Strict /= encode;
+       Max == '*', Min =< N ->
     [enc1(Name, AvpName, H, V, Opts, Mod) || V <- Vs];
 
-enc(Name, AvpName, H, _, _, _, Vs, #{strict_arities := T} = Opts, Mod)
-  when T /= encode ->
-    [enc1(Name, AvpName, H, V, Opts, Mod) || V <- Vs];
-
-enc(_, AvpName, _, Min, N, _, [], _, _)
+enc(_, AvpName, _, Min, N, _, [], _, _, _)
   when N < Min ->
     ?THROW([repeated_avp_insufficient_arity, AvpName, Min, N]);
 
-enc(_, _, _, _, _, _, [], _, _) ->
+enc(_, _, _, _, _, _, [], _, _, _) ->
     [];
 
-enc(_, AvpName, _, _, N, Max, _, _, _)
+enc(_, AvpName, _, _, N, Max, _, _, _, _)
   when Max =< N ->
     ?THROW([repeated_avp_excessive_arity, AvpName, Max]);
 
-enc(Name, AvpName, H, Min, N, Max, [V|Vs], Opts, Mod) ->
+enc(Name, AvpName, H, Min, N, Max, [V|Vs], Opts, Strict, Mod) ->
     [enc1(Name, AvpName, H, V, Opts, Mod)
-     | enc(Name, AvpName, H, Min, N+1, Max, Vs, Opts, Mod)].
+     | enc(Name, AvpName, H, Min, N+1, Max, Vs, Opts, Strict, Mod)].
 
 %% avp_header/2
 
