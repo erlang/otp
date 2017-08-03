@@ -318,7 +318,7 @@ init_per_group(Name, Config)
        Name == parallel ->
     start_services(Config),
     add_transports(Config),
-    Config;
+    [{sleep, Name == parallel} | Config];
 
 init_per_group(sctp = Name, Config) ->
     {_, Sctp} = lists:keyfind(Name, 1, Config),
@@ -380,6 +380,8 @@ init_per_testcase(Name, Config) ->
         _ when not Run ->
             {skip, random};
         _ ->
+            proplists:get_value(sleep, Config, false)
+                andalso timer:sleep(rand:uniform(200)),
             [{testcase, Name} | Config]
     end.
 
