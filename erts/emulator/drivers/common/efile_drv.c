@@ -1328,8 +1328,8 @@ static void invoke_read_file(void *data)
          * anyway. Note: This will eat ZERO_FILE_CHUNK bytes for any 0 file
          * and free them immediately after (if the file was empty). */
         ERTS_ASSERT(size >= 0);
-        d->c.read_file.binp = driver_alloc_binary(size ? (size_t)size
-                                                       : ZERO_FILE_CHUNK);
+        d->c.read_file.binp = driver_alloc_binary(size != 0 ? (size_t)size
+                                                            : ZERO_FILE_CHUNK);
 
 	if (size < 0 || size != d->c.read_file.size || !d->c.read_file.binp) {
 	    d->result_ok = 0;
@@ -1340,7 +1340,7 @@ static void invoke_read_file(void *data)
     }
     /* Invariant: d->c.read_file.size >= d->c.read_file.offset */
     
-    if (! d->c.read_file.size) {
+    if (d->c.read_file.size != 0) {
         read_file_zero_size(d);
         goto chop_done;
     }
