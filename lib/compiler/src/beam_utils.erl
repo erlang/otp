@@ -779,36 +779,46 @@ live_opt([{recv_mark,_}=I|Is], Regs, D, Acc) ->
 
 live_opt([], _, _, Acc) -> Acc.
 
-live_opt_block([{set,Ds,Ss,Op}=I0|Is], Regs0, D, Acc) ->
+live_opt_block([{set,Ds,Ss,Op0}|Is], Regs0, D, Acc) ->
     Regs1 = x_live(Ss, x_dead(Ds, Regs0)),
-    {I,Regs} = case Op of
-		   {alloc,Live0,Alloc} ->
-		       %% The life-time analysis used by the code generator
-		       %% is sometimes too conservative, so it may be
-		       %% possible to lower the number of live registers
-		       %% based on the exact liveness information.
-		       %% The main benefit is that more optimizations that
-		       %% depend on liveness information (such as the
-		       %% beam_bool and beam_dead passes) may be applied.
-		       Live = live_regs(Regs1),
-		       true = Live =< Live0,	%Assertion.
-		       I1 = {set,Ds,Ss,{alloc,Live,Alloc}},
-		       {I1,live_call(Live)};
-		   _ ->
-		       {I0,Regs1}
-	       end,
+    {Op, Regs} = live_opt_block_op(Op0, Regs1, D),
+    I = {set, Ds, Ss, Op},
+
     case Ds of
-	[{x,X}] ->
-	    case (not is_live(X, Regs0)) andalso Op =:= move of
-		true ->
-		    live_opt_block(Is, Regs0, D, Acc);
-		false ->
-		    live_opt_block(Is, Regs, D, [I|Acc])
-	    end;
-	_ ->
-	    live_opt_block(Is, Regs, D, [I|Acc])
+        [{x,X}] ->
+            case (not is_live(X, Regs0)) andalso Op =:= move of
+                true ->
+                    live_opt_block(Is, Regs0, D, Acc);
+                false ->
+                    live_opt_block(Is, Regs, D, [I|Acc])
+            end;
+        _ ->
+            live_opt_block(Is, Regs, D, [I|Acc])
     end;
+
 live_opt_block([], Regs, _, Acc) -> {Acc,Regs}.
+
+live_opt_block_op({alloc,Live0,AllocOp}, Regs0, D) ->
+    Regs =
+        case AllocOp of
+            {Kind, _N, Fail} when Kind =:= gc_bif; Kind =:= put_map ->
+                live_join_label(Fail, D, Regs0);
+            _ ->
+                Regs0
+        end,
+
+    %% The life-time analysis used by the code generator is sometimes too
+    %% conservative, so it may be possible to lower the number of live
+    %% registers based on the exact liveness information. The main benefit is
+    %% that more optimizations that depend on liveness information (such as the
+    %% beam_bool and beam_dead passes) may be applied.
+    Live = live_regs(Regs),
+    true = Live =< Live0,
+    {{alloc,Live,AllocOp}, live_call(Live)};
+live_opt_block_op({bif,_N,Fail} = Op, Regs, D) ->
+    {Op, live_join_label(Fail, D, Regs)};
+live_opt_block_op(Op, Regs, _D) ->
+    {Op, Regs}.
 
 live_join_labels([{f,L}|T], D, Regs0) when L =/= 0 ->
     Regs = gb_trees:get(L, D) bor Regs0,
