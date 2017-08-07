@@ -598,11 +598,12 @@ t(T,S) ->
 
 %% Incoming packets.
 transition({P, Sock, Bin}, #transport{socket = Sock,
-                                      ssl = B}
+                                      ssl = B,
+                                      frag = Frag}
                            = S)
   when P == ssl, true == B;
        P == tcp ->
-    recv(Bin, S#transport{active = false});
+    recv(acc(Frag, Bin), S#transport{active = false});
 
 %% Capabilties exchange has decided on whether or not to run over TLS.
 transition({diameter, {tls, Ref, Type, B}}, #transport{parent = Pid}
@@ -719,14 +720,13 @@ tls(accept, Sock, Opts) ->
 %% using Nagle.
 
 %% Receive packets until a full message is received,
-recv(Bin, #transport{frag = Head} = S) ->
-    case acc(Head, Bin) of
-        {Msg, B} ->         %% have a complete message ...
-            message(recv, Msg, S#transport{frag = B});
-        Frag ->              %% read more on the socket
-            start_fragment_timer(setopts(S#transport{frag = Frag,
-                                                     flush = false}))
-    end.
+
+recv({Msg, Rest}, S) ->  %% have a complete message ...
+    recv(acc(Rest), message(recv, Msg, S));
+
+recv(Frag, S) ->         %% or not
+    start_fragment_timer(setopts(S#transport{frag = Frag,
+                                             flush = false})).
 
 %% acc/2
 
@@ -962,7 +962,7 @@ message(ack, _, #transport{message_cb = false} = S) ->
     S;
 
 message(Dir, Msg, #transport{message_cb = CB} = S) ->
-    recv(<<>>, actions(cb(CB, Dir, Msg), Dir, S)).
+    setopts(actions(cb(CB, Dir, Msg), Dir, S)).
 
 %% actions/3
 
