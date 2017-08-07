@@ -603,7 +603,7 @@ transition({P, Sock, Bin}, #transport{socket = Sock,
                            = S)
   when P == ssl, true == B;
        P == tcp ->
-    recv(acc(Frag, Bin), S#transport{active = false});
+    recv(acc(Frag, Bin), S);
 
 %% Capabilties exchange has decided on whether or not to run over TLS.
 transition({diameter, {tls, Ref, Type, B}}, #transport{parent = Pid}
@@ -724,9 +724,14 @@ tls(accept, Sock, Opts) ->
 recv({Msg, Rest}, S) ->  %% have a complete message ...
     recv(acc(Rest), message(recv, Msg, S));
 
-recv(Frag, S) ->         %% or not
-    start_fragment_timer(setopts(S#transport{frag = Frag,
-                                             flush = false})).
+recv(Frag, #transport{recv = B,
+                      socket = Sock,
+                      module = M}
+           = S) ->       %% or not
+    B andalso setopts(M, Sock),
+    start_fragment_timer(S#transport{frag = Frag,
+                                     flush = false,
+                                     active = B}).
 
 %% acc/2
 
@@ -885,13 +890,19 @@ setopts(#transport{socket = Sock,
                    module = M}
         = S)
   when B, not A ->
-    case setopts(M, Sock, [{active, once}]) of
-        ok -> S#transport{active = true};
-        X  -> x({setopts, Sock, M, X})  %% possibly on peer disconnect
-    end;
+    setopts(M, Sock),
+    S#transport{active = true};
 
 setopts(S) ->
     S.
+
+%% setopts/2
+
+setopts(M, Sock) ->
+    case setopts(M, Sock, [{active, once}]) of
+        ok -> ok;
+        X  -> x({setopts, Sock, M, X})  %% possibly on peer disconnect
+    end.
 
 %% portnr/2
 
