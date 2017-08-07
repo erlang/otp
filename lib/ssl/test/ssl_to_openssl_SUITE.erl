@@ -1356,11 +1356,7 @@ erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, 
 			 openssl_client_args(ssl_test_lib:supports_ssl_tls_version(sslv2), Hostname, Port, SNIHostname)
 		 end,       
     ClientPort = ssl_test_lib:portable_open_port(Exe, ClientArgs),  
-    
-    %% Client check needs to be done befor server check,
-    %% or server check might consume client messages
-    ExpectedClientOutput = ["OK", "/CN=" ++ ExpectedCN ++ "/"],
-    client_check_result(ClientPort, ExpectedClientOutput),
+  
     ssl_test_lib:check_result(Server, ExpectedSNIHostname),
     ssl_test_lib:close_port(ClientPort),
     ssl_test_lib:close(Server),
@@ -1387,10 +1383,6 @@ erlang_server_openssl_client_sni_test_sni_fun(Config, SNIHostname, ExpectedSNIHo
 
     ClientPort = ssl_test_lib:portable_open_port(Exe, ClientArgs), 
     
-    %% Client check needs to be done befor server check,
-    %% or server check might consume client messages
-    ExpectedClientOutput = ["OK", "/CN=" ++ ExpectedCN ++ "/"],
-    client_check_result(ClientPort, ExpectedClientOutput),
     ssl_test_lib:check_result(Server, ExpectedSNIHostname),
     ssl_test_lib:close_port(ClientPort),
     ssl_test_lib:close(Server).
