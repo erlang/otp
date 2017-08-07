@@ -87,8 +87,7 @@
          module :: module() | undefined}).
 
 -type length() :: 0..16#FFFFFF. %% message length from Diameter header
--type size()   :: non_neg_integer().  %% accumulated binary size
--type frag()   :: {length(), size(), binary(), list(binary())}
+-type frag()   :: maybe_improper_list(length(), binary())
                 | binary().
 
 -type connect_option() :: {raddr, inet:ip_address()}
@@ -721,7 +720,7 @@ tls(accept, Sock, Opts) ->
 
 %% Receive packets until a full message is received,
 recv(Bin, #transport{frag = Head} = S) ->
-    case rcv(Head, Bin) of
+    case acc(Head, Bin) of
         {Msg, B} ->         %% have a complete message ...
             message(recv, Msg, S#transport{frag = B});
         Frag ->              %% read more on the socket
@@ -729,77 +728,52 @@ recv(Bin, #transport{frag = Head} = S) ->
                                                      flush = false}))
     end.
 
-%% rcv/2
+%% acc/2
 
-%% No previous fragment.
-rcv(<<>>, Bin) ->
-    rcv(Bin);
+%% Know how many bytes to extract.
+acc([Len | Acc], Bin) ->
+    acc1(Len, <<Acc/binary, Bin/binary>>);
 
-%% Not even the first four bytes of the header.
-rcv(Head, Bin)
-  when is_binary(Head) ->
-    rcv(<<Head/binary, Bin/binary>>);
+%% Or not.
+acc(Head, Bin) ->
+    acc(<<Head/binary, Bin/binary>>).
 
-%% Or enough to know how many bytes to extract.
-rcv({Len, N, Head, Acc}, Bin) ->
-    rcv(Len, N + size(Bin), Head, [Bin | Acc]).
-
-%% rcv/4
+%% acc1/3
 
 %% Extract a message for which we have all bytes.
-rcv(Len, N, Head, Acc)
-  when Len =< N ->
-    recv1(Len, bin(Head, Acc));
+acc1(Len, Bin)
+  when Len =< byte_size(Bin) ->
+    <<Msg:Len/binary, Rest/binary>> = Bin,
+    {Msg, Rest};
 
 %% Wait for more packets.
-rcv(Len, N, Head, Acc) ->
-    {Len, N, Head, Acc}.
+acc1(Len, Bin) ->
+    [Len | Bin].
 
-%% rcv/1
-
-%% Nothing left.
-rcv(<<>> = Bin) ->
-    Bin;
+%% acc/1
 
 %% The Message Length isn't even sufficient for a header. Chances are
 %% things will go south from here but if we're lucky then the bytes we
 %% have extend to an intended message boundary and we can recover by
 %% simply receiving them. Make it so.
-rcv(<<_:1/binary, Len:24, _/binary>> = Bin)
+acc(<<_:1/binary, Len:24, _/binary>> = Bin)
   when Len < 20 ->
     {Bin, <<>>};
 
-%% Enough bytes to extract a message.
-rcv(<<_:1/binary, Len:24, _/binary>> = Bin)
-  when Len =< size(Bin) ->
-    recv1(Len, Bin);
-
-%% Or not: wait for more packets.
-rcv(<<_:1/binary, Len:24, _/binary>> = Head) ->
-    {Len, size(Head), Head, []};
+%% Know the message length.
+acc(<<_:1/binary, Len:24, _/binary>> = Bin) ->
+    acc1(Len, Bin);
 
 %% Not even 4 bytes yet.
-rcv(Head) ->
-    Head.
-
-%% recv1/2
-
-recv1(Len, Bin) ->
-    <<Msg:Len/binary, Rest/binary>> = Bin,
-    {Msg, Rest}.
-
-%% bin/2
-
-bin(Head, Acc) ->
-    list_to_binary([Head | lists:reverse(Acc)]).
+acc(Bin) ->
+    Bin.
 
 %% bin/1
 
-bin({_, _, Head, Acc}) ->
-    bin(Head, Acc);
+bin([_ | Bin]) ->
+    Bin;
 
-bin(Bin)
-  when is_binary(Bin) ->
+bin(Bin) ->
     Bin.
 
 %% flush/1
