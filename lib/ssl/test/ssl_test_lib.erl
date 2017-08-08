@@ -628,23 +628,6 @@ make_ecdh_rsa_cert(Config) ->
 	    Config
     end.
 
-make_mix_cert(Config) ->
-    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, dsa,
-									rsa, "mix", []),
-    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, dsa,
-									rsa, "mix", []),
-    [{server_mix_opts, [{ssl_imp, new},{reuseaddr, true},
-				 {cacertfile, ServerCaCertFile},
-				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
-     {server_mix_verify_opts, [{ssl_imp, new},{reuseaddr, true},
-			       {cacertfile, ClientCaCertFile},
-			       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
-			       {verify, verify_peer}]},
-     {client_mix_opts, [{ssl_imp, new},
-			{cacertfile, ClientCaCertFile},
-			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
-     | Config].
-
 make_cert_files(RoleStr, Config, Alg1, Alg2, Prefix, Opts) ->
     Alg1Str = atom_to_list(Alg1),
     Alg2Str = atom_to_list(Alg2),

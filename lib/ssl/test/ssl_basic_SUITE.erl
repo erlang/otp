@@ -3031,37 +3031,6 @@ der_input_opts(Opts) ->
     {Cert, {Asn1Type, Key}, CaCerts, DHParams}.
 
 %%--------------------------------------------------------------------
-%% different_ca_peer_sign() ->
-%%     ["Check that a CA can have a different signature algorithm than the peer cert."];
-
-%% different_ca_peer_sign(Config) when is_list(Config) ->
-%%     ClientOpts =  ssl_test_lib:ssl_options(client_mix_opts, Config),
-%%     ServerOpts =  ssl_test_lib:ssl_options(server_mix_verify_opts, Config),
-
-%%     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-%%     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-%% 					{from, self()},
-%% 			   {mfa, {ssl_test_lib, send_recv_result_active_once, []}},
-%% 			   {options, [{active, once},
-%% 				      {verify, verify_peer} | ServerOpts]}]),
-%%     Port  = ssl_test_lib:inet_port(Server),
-
-%%     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-%% 					{host, Hostname},
-%% 					{from, self()},
-%% 					{mfa, {ssl_test_lib,
-%% 					       send_recv_result_active_once,
-%% 					       []}},
-%% 					{options, [{active, once},
-%% 						   {verify, verify_peer}
-%% 						   | ClientOpts]}]),
-
-%%     ssl_test_lib:check_result(Server, ok, Client, ok),
-%%     ssl_test_lib:close(Server),
-%%     ssl_test_lib:close(Client).
-
-
-%%--------------------------------------------------------------------
 no_reuses_session_server_restart_new_cert() ->
     [{doc,"Check that a session is not reused if the server is restarted with a new cert."}].
 no_reuses_session_server_restart_new_cert(Config) when is_list(Config) ->
