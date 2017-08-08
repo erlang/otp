@@ -321,7 +321,7 @@ decode_avps('', _, _, _, #diameter_packet{header = H,  %% unknown message
 %% msg = undefined identifies this case.
 
 decode_avps(MsgName, Mod, AppMod, Opts, #diameter_packet{bin = Bin} = Pkt) ->
-    <<_:20/binary, Avps/binary>> = Bin,
+    {_, Avps} = split_binary(Bin, 20),
     {Rec, As, Errors} = Mod:decode_avps(MsgName,
                                         Avps,
                                         Opts#{dictionary => AppMod,
