@@ -98,11 +98,11 @@ obsolete_1(gen_fsm, sync_send_all_state_event, 3) ->
     {deprecated, {gen_statem, call, 3}};
 
 obsolete_1(gen_fsm, start_timer, 2) ->
-    {deprecated, {erlang, start_timer, 2}};
+    {deprecated, {erlang, start_timer, 3}};
 obsolete_1(gen_fsm, cancel_timer, 1) ->
     {deprecated, {erlang, cancel_timer, 1}};
 obsolete_1(gen_fsm, send_event_after, 2) ->
-    {deprecated, {erlang, send_after, 2}};
+    {deprecated, {erlang, send_after, 3}};
 
 %% *** CRYPTO added in OTP 20 ***
 
