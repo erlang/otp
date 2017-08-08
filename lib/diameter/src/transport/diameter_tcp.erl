@@ -748,8 +748,7 @@ acc(Head, Bin) ->
 %% Extract a message for which we have all bytes.
 acc1(Len, Bin)
   when Len =< byte_size(Bin) ->
-    <<Msg:Len/binary, Rest/binary>> = Bin,
-    {Msg, Rest};
+    split_binary(Bin, Len);
 
 %% Wait for more packets.
 acc1(Len, Bin) ->
@@ -757,17 +756,30 @@ acc1(Len, Bin) ->
 
 %% acc/1
 
-%% The Message Length isn't even sufficient for a header. Chances are
-%% things will go south from here but if we're lucky then the bytes we
-%% have extend to an intended message boundary and we can recover by
-%% simply receiving them. Make it so.
-acc(<<_:1/binary, Len:24, _/binary>> = Bin)
-  when Len < 20 ->
-    {Bin, <<>>};
+%% Don't match on Bin since this results in it being copied at the
+%% next append according to the Efficiency Guide. This is also the
+%% reason that the Len is extracted and maintained when accumulating
+%% messages. The simplest implementation is just to accumulate a
+%% binary and match <<_, Len:24, _/binary>> each time the length is
+%% required, but the performance of this decays quadratically with the
+%% message length, since the binary is then copied with each append of
+%% additional bytes from gen_tcp.
 
-%% Know the message length.
-acc(<<_:1/binary, Len:24, _/binary>> = Bin) ->
-    acc1(Len, Bin);
+acc(Bin)
+  when 3 < byte_size(Bin) ->
+    {Head, _} = split_binary(Bin, 4),
+    [_,A,B,C] = binary_to_list(Head),
+    Len = (A bsl 16) bor (B bsl 8) bor C,
+    if Len < 20 ->
+            %% Message length isn't sufficient for a Diameter Header.
+            %% Chances are things will go south from here but if we're
+            %% lucky then the bytes we have extend to an intended
+            %% message boundary and we can recover by simply receiving
+            %% them. Make it so.
+            {Bin, <<>>};
+       true ->
+            acc1(Len, Bin)
+    end;
 
 %% Not even 4 bytes yet.
 acc(Bin) ->
