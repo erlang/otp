@@ -63,9 +63,9 @@ obsolete_1(gen_fsm, start, 4) ->
     {deprecated, {gen_statem, start, 4}};
 
 obsolete_1(gen_fsm, start_link, 3) ->
-    {deprecated, {gen_statem, start, 3}};
+    {deprecated, {gen_statem, start_link, 3}};
 obsolete_1(gen_fsm, start_link, 4) ->
-    {deprecated, {gen_statem, start, 4}};
+    {deprecated, {gen_statem, start_link, 4}};
 
 obsolete_1(gen_fsm, stop, 1) ->
     {deprecated, {gen_statem, stop, 1}};
@@ -83,9 +83,9 @@ obsolete_1(gen_fsm, reply, 2) ->
     {deprecated, {gen_statem, reply, 2}};
 
 obsolete_1(gen_fsm, send_event, 2) ->
-    {deprecated, {gen_statem, cast, 1}};
+    {deprecated, {gen_statem, cast, 2}};
 obsolete_1(gen_fsm, send_all_state_event, 2) ->
-    {deprecated, {gen_statem, cast, 1}};
+    {deprecated, {gen_statem, cast, 2}};
 
 obsolete_1(gen_fsm, sync_send_event, 2) ->
     {deprecated, {gen_statem, call, 2}};
