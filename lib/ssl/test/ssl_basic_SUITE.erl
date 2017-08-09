@@ -2315,20 +2315,16 @@ tls_shutdown_error(Config) when is_list(Config) ->
 ciphers_rsa_signed_certs() ->
     [{doc,"Test all rsa ssl cipher suites in highest support ssl/tls version"}].
        
-ciphers_rsa_signed_certs(Config) when is_list(Config) ->
-    Version = ssl_test_lib:protocol_version(Config),
+ciphers_rsa_signed_certs(Config) when is_list(Config) ->  
     Ciphers = ssl_test_lib:rsa_suites(crypto),
-    ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
-    run_suites(Ciphers, Version, Config, rsa).
+    run_suites(Ciphers, Config, rsa).
 %%-------------------------------------------------------------------
 ciphers_rsa_signed_certs_openssl_names() ->
     [{doc,"Test all rsa ssl cipher suites in highest support ssl/tls version"}].
        
 ciphers_rsa_signed_certs_openssl_names(Config) when is_list(Config) ->
-    Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:openssl_rsa_suites(crypto),  
-    ct:log("tls1 openssl cipher suites ~p~n", [Ciphers]),
-    run_suites(Ciphers, Version, Config, rsa).
+    Ciphers = ssl_test_lib:openssl_rsa_suites(),  
+    run_suites(Ciphers, Config, rsa).
 
 %%-------------------------------------------------------------------
 ciphers_dsa_signed_certs() ->
@@ -2336,120 +2332,104 @@ ciphers_dsa_signed_certs() ->
        
 ciphers_dsa_signed_certs(Config) when is_list(Config) ->
     NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_test_lib:dsa_suites(NVersion),
-    ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
-    run_suites(Ciphers, Version, Config, dsa).
+    run_suites(Ciphers, Config, dsa).
 %%-------------------------------------------------------------------
 ciphers_dsa_signed_certs_openssl_names() ->
     [{doc,"Test all dsa ssl cipher suites in highest support ssl/tls version"}].
        
 ciphers_dsa_signed_certs_openssl_names(Config) when is_list(Config) ->
-    Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_test_lib:openssl_dsa_suites(),
-    ct:log("tls1 openssl cipher suites ~p~n", [Ciphers]),
-    run_suites(Ciphers, Version, Config, dsa).
+    run_suites(Ciphers, Config, dsa).
 %%-------------------------------------------------------------------
 anonymous_cipher_suites()->
     [{doc,"Test the anonymous ciphersuites"}].
 anonymous_cipher_suites(Config) when is_list(Config) ->
-    Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:anonymous_suites(Version),
-    run_suites(Ciphers, Version, Config, anonymous).
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
+    Ciphers = ssl_test_lib:anonymous_suites(NVersion),
+    run_suites(Ciphers, Config, anonymous).
 %%-------------------------------------------------------------------
 psk_cipher_suites() ->
     [{doc, "Test the PSK ciphersuites WITHOUT server supplied identity hint"}].
 psk_cipher_suites(Config) when is_list(Config) ->
-    NVersion = tls_record:highest_protocol_version([]),
-    Version = ssl_test_lib:protocol_version(Config),
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
     Ciphers = ssl_test_lib:psk_suites(NVersion),
-    run_suites(Ciphers, Version, Config, psk).
+    run_suites(Ciphers, Config, psk).
 %%-------------------------------------------------------------------
 psk_with_hint_cipher_suites()->
     [{doc, "Test the PSK ciphersuites WITH server supplied identity hint"}].
 psk_with_hint_cipher_suites(Config) when is_list(Config) ->
-    NVersion = tls_record:highest_protocol_version([]),
-    Version = ssl_test_lib:protocol_version(Config),
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
     Ciphers = ssl_test_lib:psk_suites(NVersion),
-    run_suites(Ciphers, Version, Config, psk_with_hint).
+    run_suites(Ciphers, Config, psk_with_hint).
 %%-------------------------------------------------------------------
 psk_anon_cipher_suites() ->
     [{doc, "Test the anonymous PSK ciphersuites WITHOUT server supplied identity hint"}].
 psk_anon_cipher_suites(Config) when is_list(Config) ->
-    NVersion = tls_record:highest_protocol_version([]),
-    Version = ssl_test_lib:protocol_version(Config),
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
     Ciphers = ssl_test_lib:psk_anon_suites(NVersion),
-    run_suites(Ciphers, Version, Config, psk_anon).
+    run_suites(Ciphers, Config, psk_anon).
 %%-------------------------------------------------------------------
 psk_anon_with_hint_cipher_suites()->
     [{doc, "Test the anonymous PSK ciphersuites WITH server supplied identity hint"}].
 psk_anon_with_hint_cipher_suites(Config) when is_list(Config) ->
-    NVersion = tls_record:highest_protocol_version([]),
-    Version = ssl_test_lib:protocol_version(Config),
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
     Ciphers = ssl_test_lib:psk_anon_suites(NVersion),
-    run_suites(Ciphers, Version, Config, psk_anon_with_hint).
+    run_suites(Ciphers, Config, psk_anon_with_hint).
 %%-------------------------------------------------------------------
 srp_cipher_suites()->
     [{doc, "Test the SRP ciphersuites"}].
 srp_cipher_suites(Config) when is_list(Config) ->
-    Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_test_lib:srp_suites(),
-    run_suites(Ciphers, Version, Config, srp).
+    run_suites(Ciphers, Config, srp).
 %%-------------------------------------------------------------------
 srp_anon_cipher_suites()->
     [{doc, "Test the anonymous SRP ciphersuites"}].
 srp_anon_cipher_suites(Config) when is_list(Config) ->
-    Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_test_lib:srp_anon_suites(),
-    run_suites(Ciphers, Version, Config, srp_anon).
+    run_suites(Ciphers, Config, srp_anon).
 %%-------------------------------------------------------------------
 srp_dsa_cipher_suites()->
     [{doc, "Test the SRP DSA ciphersuites"}].
 srp_dsa_cipher_suites(Config) when is_list(Config) ->
-    Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_test_lib:srp_dss_suites(),
-    run_suites(Ciphers, Version, Config, srp_dsa).
+    run_suites(Ciphers, Config, srp_dsa).
 %%-------------------------------------------------------------------
 rc4_rsa_cipher_suites()->
     [{doc, "Test the RC4 ciphersuites"}].
 rc4_rsa_cipher_suites(Config) when is_list(Config) ->
-    NVersion = tls_record:highest_protocol_version([]),
-    Version = tls_record:protocol_version(NVersion),
-    Ciphers = ssl_test_lib:rc4_suites(NVersion),
-    run_suites(Ciphers, Version, Config, rc4_rsa).
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
+    Ciphers = [S || {rsa,_,_} = S <- ssl_test_lib:rc4_suites(NVersion)],
+    run_suites(Ciphers, Config, rc4_rsa).
 %-------------------------------------------------------------------
 rc4_ecdh_rsa_cipher_suites()->
     [{doc, "Test the RC4 ciphersuites"}].
 rc4_ecdh_rsa_cipher_suites(Config) when is_list(Config) ->
-    NVersion = tls_record:highest_protocol_version([]),
-    Version = tls_record:protocol_version(NVersion),
-    Ciphers = ssl_test_lib:rc4_suites(NVersion),
-    run_suites(Ciphers, Version, Config, rc4_ecdh_rsa).
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
+    Ciphers = [S || {ecdh_rsa,_,_} = S <- ssl_test_lib:rc4_suites(NVersion)],
+    run_suites(Ciphers, Config, rc4_ecdh_rsa).
 
 %%-------------------------------------------------------------------
 rc4_ecdsa_cipher_suites()->
     [{doc, "Test the RC4 ciphersuites"}].
 rc4_ecdsa_cipher_suites(Config) when is_list(Config) ->
     NVersion = tls_record:highest_protocol_version([]),
-    Version = tls_record:protocol_version(NVersion),
-    Ciphers = ssl_test_lib:rc4_suites(NVersion),
-    run_suites(Ciphers, Version, Config, rc4_ecdsa).
+    Ciphers = [S || {ecdhe_ecdsa,_,_} = S <- ssl_test_lib:rc4_suites(NVersion)],
+    run_suites(Ciphers, Config, rc4_ecdsa).
 
 %%-------------------------------------------------------------------
 des_rsa_cipher_suites()->
     [{doc, "Test the des_rsa ciphersuites"}].
 des_rsa_cipher_suites(Config) when is_list(Config) ->
-    Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_test_lib:des_suites(Config),
-    run_suites(Ciphers, Version, Config, des_rsa).
+    run_suites(Ciphers, Config, des_rsa).
 %-------------------------------------------------------------------
 des_ecdh_rsa_cipher_suites()->
     [{doc, "Test ECDH rsa signed ciphersuites"}].
 des_ecdh_rsa_cipher_suites(Config) when is_list(Config) ->
     NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_test_lib:des_suites(NVersion),
-    run_suites(Ciphers, Version, Config, des_dhe_rsa).
+    run_suites(Ciphers, Config, des_dhe_rsa).
 
 %%--------------------------------------------------------------------
 default_reject_anonymous()->
@@ -2483,38 +2463,30 @@ ciphers_ecdsa_signed_certs() ->
 
 ciphers_ecdsa_signed_certs(Config) when is_list(Config) ->
     NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_test_lib:ecdsa_suites(NVersion),
-    ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
-    run_suites(Ciphers, Version, Config, ecdsa).
+    run_suites(Ciphers, Config, ecdsa).
 %%--------------------------------------------------------------------
 ciphers_ecdsa_signed_certs_openssl_names() ->
     [{doc, "Test all ecdsa ssl cipher suites in highest support ssl/tls version"}].
 
 ciphers_ecdsa_signed_certs_openssl_names(Config) when is_list(Config) ->
-    Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_test_lib:openssl_ecdsa_suites(),
-    ct:log("tls1 openssl cipher suites ~p~n", [Ciphers]),
-    run_suites(Ciphers, Version, Config, ecdsa).
+    run_suites(Ciphers, Config, ecdsa).
 %%--------------------------------------------------------------------
 ciphers_ecdh_rsa_signed_certs() ->
     [{doc, "Test all ecdh_rsa ssl cipher suites in highest support ssl/tls version"}].
 
 ciphers_ecdh_rsa_signed_certs(Config) when is_list(Config) ->
     NVersion = ssl_test_lib:protocol_version(Config, tuple),
-    Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_test_lib:ecdh_rsa_suites(NVersion),
-    ct:log("~p erlang cipher suites ~p~n", [Version, Ciphers]),
-    run_suites(Ciphers, Version, Config, ecdh_rsa).
+    run_suites(Ciphers, Config, ecdh_rsa).
 %%--------------------------------------------------------------------
 ciphers_ecdh_rsa_signed_certs_openssl_names() ->
     [{doc, "Test all ecdh_rsa ssl cipher suites in highest support ssl/tls version"}].
 
 ciphers_ecdh_rsa_signed_certs_openssl_names(Config) when is_list(Config) ->
-    Version = ssl_test_lib:protocol_version(Config),
     Ciphers = ssl_test_lib:openssl_ecdh_rsa_suites(),
-    ct:log("tls1 openssl cipher suites ~p~n", [Ciphers]),
-    run_suites(Ciphers, Version, Config, ecdh_rsa).
+    run_suites(Ciphers, Config, ecdh_rsa).
 %%--------------------------------------------------------------------
 reuse_session() ->
     [{doc,"Test reuse of sessions (short handshake)"}].
@@ -3098,14 +3070,14 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     DsaServerOpts = ssl_test_lib:ssl_options(server_dsa_opts, Config),
     PrivDir =  proplists:get_value(priv_dir, Config),
 
-    NewServerOpts = new_config(PrivDir, ServerOpts),
+    NewServerOpts0 = new_config(PrivDir, ServerOpts),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
 		      {mfa, {ssl_test_lib, session_info_result, []}},
-				   {options, NewServerOpts}]),
+				   {options, NewServerOpts0}]),
     Port = ssl_test_lib:inet_port(Server),
     Client0 =
 	ssl_test_lib:start_client([{node, ClientNode},
@@ -3783,8 +3755,10 @@ no_rizzo_rc4() ->
 no_rizzo_rc4(Config) when is_list(Config) ->
     Prop = proplists:get_value(tc_group_properties, Config),
     Version = proplists:get_value(name, Prop),
-    Ciphers  =  [ssl_cipher:erl_suite_definition(Suite) || 
-		    Suite  <- ssl_test_lib:rc4_suites(tls_record:protocol_version(Version))],
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
+    %% Test uses RSA certs
+    Ciphers  = ssl_test_lib:rc4_suites(NVersion) -- [{ecdhe_ecdsa,rc4_128,sha},
+                                                     {ecdh_ecdsa,rc4_128,sha}],
     run_send_recv_rizzo(Ciphers, Config, Version,
 			{?MODULE, send_recv_result_active_no_rizzo, []}).
 
@@ -3794,7 +3768,8 @@ rizzo_one_n_minus_one() ->
 rizzo_one_n_minus_one(Config) when is_list(Config) ->
     Prop = proplists:get_value(tc_group_properties, Config),
     Version = proplists:get_value(name, Prop),
-    AllSuites = ssl_test_lib:available_suites(tls_record:protocol_version(Version)),
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
+    AllSuites = ssl_test_lib:available_suites(NVersion),
     Ciphers  = [X || X ={_,Y,_} <- AllSuites, Y  =/= rc4_128],
     run_send_recv_rizzo(Ciphers, Config, Version,
 			 {?MODULE, send_recv_result_active_rizzo, []}).
@@ -3805,7 +3780,8 @@ rizzo_zero_n() ->
 rizzo_zero_n(Config) when is_list(Config) ->
     Prop = proplists:get_value(tc_group_properties, Config),
     Version = proplists:get_value(name, Prop),
-    AllSuites = ssl_test_lib:available_suites(tls_record:protocol_version(Version)),
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
+    AllSuites = ssl_test_lib:available_suites(NVersion),
     Ciphers  = [X || X ={_,Y,_} <- AllSuites, Y  =/= rc4_128],
     run_send_recv_rizzo(Ciphers, Config, Version,
 			 {?MODULE, send_recv_result_active_no_rizzo, []}).
@@ -4607,7 +4583,10 @@ client_server_opts({KeyAlgo,_,_}, Config) when KeyAlgo == ecdh_rsa ->
     {ssl_test_lib:ssl_options(client_opts, Config),
      ssl_test_lib:ssl_options(server_ecdh_rsa_opts, Config)}.
 
-run_suites(Ciphers, Version, Config, Type) ->
+run_suites(Ciphers, Config, Type) ->
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
+    Version = ssl_test_lib:protocol_version(Config),
+    ct:log("Running cipher suites ~p~n", [Ciphers]),
     {ClientOpts, ServerOpts} =
 	case Type of
 	    rsa ->
@@ -4619,23 +4598,24 @@ run_suites(Ciphers, Version, Config, Type) ->
 	    anonymous ->
 		%% No certs in opts!
 		{ssl_test_lib:ssl_options(client_verification_opts, Config),
-		 [{reuseaddr, true}, {ciphers, ssl_test_lib:anonymous_suites(Version)}]};
+		 [{reuseaddr, true}, {ciphers, ssl_test_lib:anonymous_suites(NVersion)} |
+                  ssl_test_lib:ssl_options([], Config)]};
 	    psk ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
-                 [{ciphers, ssl_test_lib:psk_suites(Version)} | 
+                 [{ciphers, ssl_test_lib:psk_suites(NVersion)} | 
                   ssl_test_lib:ssl_options(server_psk, Config)]};
 	    psk_with_hint ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
-		 [{ciphers, ssl_test_lib:psk_suites(Version)} |
+		 [{ciphers, ssl_test_lib:psk_suites(NVersion)} |
                   ssl_test_lib:ssl_options(server_psk_hint, Config)
                  ]};
 	    psk_anon ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
-                 [{ciphers, ssl_test_lib:psk_anon_suites(Version)} |
+                 [{ciphers, ssl_test_lib:psk_anon_suites(NVersion)} |
                   ssl_test_lib:ssl_options(server_psk_anon, Config)]};
 	    psk_anon_with_hint ->
 		{ssl_test_lib:ssl_options(client_psk, Config),
-                 [{ciphers, ssl_test_lib:psk_anon_suites(Version)} |
+                 [{ciphers, ssl_test_lib:psk_anon_suites(NVersion)} |
 		 ssl_test_lib:ssl_options(server_psk_anon_hint, Config)]};
 	    srp ->
 		{ssl_test_lib:ssl_options(client_srp, Config),

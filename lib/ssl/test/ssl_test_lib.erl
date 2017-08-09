@@ -937,16 +937,10 @@ ecdh_rsa_suites(Version) ->
 		 end,
 		 available_suites(Version)).
 
-openssl_rsa_suites(CounterPart) ->
+openssl_rsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
-    Names = case is_sane_ecc(CounterPart) of
-		true ->
-		    "DSS | ECDSA";
-		false ->
-		    "DSS | ECDHE | ECDH"
-		end,
-    lists:filter(fun(Str) -> string_regex_filter(Str, Names)
-		 end, Ciphers).
+    lists:filter(fun(Str) -> string_regex_filter(Str, "RSA")
+		 end, Ciphers) -- openssl_ecdh_rsa_suites().
 
 openssl_dsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
@@ -980,11 +974,11 @@ string_regex_filter(_Str, _Search) ->
     false.
 
 anonymous_suites(Version) ->
-    Suites = ssl_cipher:anonymous_suites(Version),
+    Suites = [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:anonymous_suites(Version)],
     ssl_cipher:filter_suites(Suites).
 
 psk_suites(Version) ->
-    Suites = ssl_cipher:psk_suites(Version),
+    Suites = [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:psk_suites(Version)],
     ssl_cipher:filter_suites(Suites).
 
 psk_anon_suites(Version) ->
@@ -1016,7 +1010,7 @@ srp_dss_suites() ->
     ssl_cipher:filter_suites(Suites).
 
 rc4_suites(Version) ->
-    Suites = ssl_cipher:rc4_suites(Version),
+    Suites = [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:rc4_suites(Version)],
     ssl_cipher:filter_suites(Suites).
 
 des_suites(Version) ->
@@ -1321,6 +1315,12 @@ version_flag('dtlsv1.2') ->
 version_flag('dtlsv1') ->
     "-dtls1".
 
+filter_suites([Cipher | _] = Ciphers, AtomVersion) when is_list(Cipher)->
+    filter_suites([ssl_cipher:openssl_suite(S) || S <- Ciphers], 
+                  AtomVersion);
+filter_suites([Cipher | _] = Ciphers, AtomVersion) when is_binary(Cipher)->
+    filter_suites([ssl_cipher:erl_suite_definition(S) || S <- Ciphers], 
+                  AtomVersion);
 filter_suites(Ciphers0, AtomVersion) ->
     Version = tls_version(AtomVersion),
     Supported0 = ssl_cipher:suites(Version)
