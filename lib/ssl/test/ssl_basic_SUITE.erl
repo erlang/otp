@@ -3126,13 +3126,13 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
 
     ssl:clear_pem_cache(),
 
-    NewServerOpts = new_config(PrivDir, DsaServerOpts),
+    NewServerOpts1 = new_config(PrivDir, DsaServerOpts),
 
     Server1 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, Port},
 				   {from, self()},
 		      {mfa, {ssl_test_lib, no_result, []}},
-				   {options, NewServerOpts}]),
+				   {options, NewServerOpts1}]),
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode},
 		      {port, Port}, {host, Hostname},
