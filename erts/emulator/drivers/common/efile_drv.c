@@ -1340,9 +1340,9 @@ static void invoke_read_file(void *data)
     }
     /* Invariant: d->c.read_file.size >= d->c.read_file.offset */
     
-    if (d->c.read_file.size != 0) {
+    if (d->c.read_file.size == 0) {
         read_file_zero_size(d);
-        goto chop_done;
+        goto close;
     }
 
     read_size = (size_t) (d->c.read_file.size - d->c.read_file.offset);
