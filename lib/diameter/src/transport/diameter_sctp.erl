@@ -112,7 +112,7 @@
         {transport :: pid(),
          ack = false :: boolean(),
          socket :: gen_sctp:sctp_socket(),
-         assoc_id :: gen_sctp:assoc_id()}).  %% next output stream
+         assoc_id :: gen_sctp:assoc_id()}).
 
 %% Listener process state.
 -record(listener,
@@ -565,7 +565,7 @@ transition(Msg, S)
 
 %% Deferred actions from a message_cb.
 transition({actions, Dir, Acts}, S) ->
-    actions(Acts, Dir, S);
+    setopts(ok, actions(Acts, Dir, S));
 
 %% Request to close the transport connection.
 transition({diameter, {close, Pid}}, #transport{parent = Pid}) ->

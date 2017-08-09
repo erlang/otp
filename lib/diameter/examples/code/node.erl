@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@
          listen/2,
          connect/2,
          stop/1]).
+
+-export([message/3]).
 
 -type protocol()
    :: tcp | sctp.
@@ -128,6 +130,8 @@ stop(Name) ->
 server_opts({T, Addr, Port}) ->
     [{transport_module, tmod(T)},
      {transport_config, [{reuseaddr, true},
+                         {sender, true},
+                         {message_cb, [fun ?MODULE:message/3, 0]},
                          {ip, addr(Addr)},
                          {port, Port}]}];
 
@@ -173,3 +177,26 @@ addr(loopback) ->
     {127,0,0,1};
 addr(A) ->
     A.
+
+%% ---------------------------------------------------------------------------
+
+%% message/3
+%%
+%% Simple message callback that limits the number of concurrent
+%% requests on the peer connection in question.
+
+%% Incoming request.
+message(recv, <<_:32, 1:1, _/bits>> = Bin, N) ->
+    [Bin, N < 32, fun ?MODULE:message/3, N+1];
+
+%% Outgoing request.
+message(ack, <<_:32, 1:1, _/bits>>, _) ->
+    [];
+
+%% Incoming answer or request discarded.
+message(ack, _, N) ->
+    [N =< 32, fun ?MODULE:message/3, N-1];
+
+%% Outgoing message or incoming answer.
+message(_, Bin, _) ->
+    [Bin].

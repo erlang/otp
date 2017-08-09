@@ -514,6 +514,13 @@ transition({tc_timeout, T}, S) ->
     tc_timeout(T, S),
     ok;
 
+transition({nodeup, Node, _}, S) ->
+    nodeup(Node, S),
+    ok;
+
+transition({nodedown, _Node, _}, _) ->
+    ok;
+
 transition(Req, S) ->
     unexpected(handle_info, [Req], S),
     ok.
@@ -709,6 +716,8 @@ mref(P) ->
 
 init_shared(#state{options = #{use_shared_peers := T},
                    service_name = Svc}) ->
+    T == false orelse net_kernel:monitor_nodes(true, [{node_type, visible},
+                                                      nodedown_reason]),
     notify(T, Svc, {service, self()}).
 
 init_mod(#diameter_app{alias = Alias,
@@ -727,6 +736,11 @@ notify(Share, SvcName, T) ->
     [] /= Nodes andalso diameter_peer:notify(Nodes, SvcName, T).
 %% Test for the empty list for upgrade reasons: there's no
 %% diameter_peer:notify/3 in old code.
+
+nodeup(Node, #state{options = #{share_peers := SP},
+                    service_name = SvcName}) ->
+    lists:member(Node, remotes(SP))
+        andalso diameter_peer:notify([Node], SvcName, {service, self()}).
 
 remotes(false) ->
     [];
@@ -1400,9 +1414,15 @@ is_remote(Pid, T) ->
 %% # remote_peer_up/4
 %% ---------------------------------------------------------------------------
 
-remote_peer_up(TPid, Aliases, Caps, #state{options = #{use_shared_peers := T}}
+remote_peer_up(TPid, Aliases, Caps, #state{options = #{use_shared_peers := T},
+                                           remote = {PeerT, _, _}}
                                     = S) ->
-    is_remote(TPid, T) andalso rpu(TPid, Aliases, Caps, S).
+    is_remote(TPid, T)
+        andalso not ets:member(PeerT, TPid)
+        andalso rpu(TPid, Aliases, Caps, S).
+
+%% Notification can be duplicate since remote nodes push and the local
+%% node pulls.
 
 rpu(TPid, Aliases, Caps, #state{service = Svc, remote = RT}) ->
     #diameter_service{applications = Apps} = Svc,
@@ -1412,6 +1432,7 @@ rpu(TPid, Aliases, Caps, #state{service = Svc, remote = RT}) ->
 
 rpu(_, [] = No, _, _) ->
     No;
+
 rpu(TPid, Aliases, Caps, {PeerT, _, _} = RT) ->
     monitor(process, TPid),
     ets:insert(PeerT, #peer{pid = TPid,
