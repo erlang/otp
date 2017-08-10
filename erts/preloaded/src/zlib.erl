@@ -634,34 +634,34 @@ arg_flush(none)   -> ?Z_NO_FLUSH;
 arg_flush(sync)   -> ?Z_SYNC_FLUSH;
 arg_flush(full)   -> ?Z_FULL_FLUSH;
 arg_flush(finish) -> ?Z_FINISH;
-arg_flush(_) -> erlang:error(badarg).
+arg_flush(_) -> erlang:error(bad_flush_mode).
 
 arg_level(none)             -> ?Z_NO_COMPRESSION;
 arg_level(best_speed)       -> ?Z_BEST_SPEED;
 arg_level(best_compression) -> ?Z_BEST_COMPRESSION;
 arg_level(default)          -> ?Z_DEFAULT_COMPRESSION;
 arg_level(Level) when is_integer(Level), Level >= 0, Level =< 9 -> Level;
-arg_level(_) -> erlang:error(badarg).
+arg_level(_) -> erlang:error(bad_compression_level).
 
 arg_strategy(filtered) ->     ?Z_FILTERED;
 arg_strategy(huffman_only) -> ?Z_HUFFMAN_ONLY;
 arg_strategy(rle) -> ?Z_RLE;
 arg_strategy(default) ->      ?Z_DEFAULT_STRATEGY;
-arg_strategy(_) -> erlang:error(badarg).
+arg_strategy(_) -> erlang:error(bad_compression_strategy).
 
 arg_method(deflated) -> ?Z_DEFLATED;
-arg_method(_) -> erlang:error(badarg).
+arg_method(_) -> erlang:error(bad_compression_method).
 
 -spec arg_bitsz(zwindowbits()) -> zwindowbits().
 arg_bitsz(Bits) when is_integer(Bits) andalso
                      ((8 =< Bits andalso Bits < 48) orelse
                       (-15 =< Bits andalso Bits =< -8)) ->
     Bits;
-arg_bitsz(_) -> erlang:error(badarg).
+arg_bitsz(_) -> erlang:error(bad_windowbits).
 
 -spec arg_mem(zmemlevel()) -> zmemlevel().
 arg_mem(Level) when is_integer(Level), 1 =< Level, Level =< 9 -> Level;
-arg_mem(_) -> erlang:error(badarg).
+arg_mem(_) -> erlang:error(bad_memlevel).
 
 -spec enqueue_input(Z, IOData) -> ok when
       Z :: zstream(),
@@ -669,6 +669,8 @@ arg_mem(_) -> erlang:error(badarg).
 enqueue_input(Z, IOData) ->
     enqueue_input_1(Z, erlang:iolist_to_iovec(IOData)).
 
+enqueue_input_1(_Z, []) ->
+    ok;
 enqueue_input_1(Z, IOVec) ->
     case enqueue_nif(Z, IOVec) of
         {continue, Remainder} -> enqueue_input_1(Z, Remainder);

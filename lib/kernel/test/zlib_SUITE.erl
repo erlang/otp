@@ -44,8 +44,7 @@
 		end
 	end()).
 
--define(BARG, {'EXIT',{badarg,[{_,_,_,_}|_]}}).
--define(DATA_ERROR, {'EXIT',{data_error,[{zlib,_,_,_}|_]}}).
+-define(EXIT(Reason), {'EXIT',{Reason,[{_,_,_,_}|_]}}).
 
 init_per_testcase(_Func, Config) ->
     Config.
@@ -120,7 +119,7 @@ api_open_close(Config) when is_list(Config) ->
     Fd2 = zlib:open(),
     ?m(false,Fd1 == Fd2),
     ?m(ok,zlib:close(Fd1)),
-    ?m(?BARG, zlib:close(Fd1)),
+    ?m(?EXIT(not_initialized), zlib:close(Fd1)),
     ?m(ok,zlib:close(Fd2)),
 
     %% Make sure that we don't get any EXIT messages if trap_exit is enabled.
@@ -135,9 +134,11 @@ api_open_close(Config) when is_list(Config) ->
 %% Test deflateInit/2 and /6.
 api_deflateInit(Config) when is_list(Config) ->
     Z1 = zlib:open(),
-    ?m(?BARG, zlib:deflateInit(gurka, none)),
-    ?m(?BARG, zlib:deflateInit(gurka, gurka)),
-    ?m(?BARG, zlib:deflateInit(Z1, gurka)),
+
+    ?m(?EXIT(badarg), zlib:deflateInit(gurka, none)),
+
+    ?m(?EXIT(bad_compression_level), zlib:deflateInit(gurka, gurka)),
+    ?m(?EXIT(bad_compression_level), zlib:deflateInit(Z1, gurka)),
     Levels = [none, default, best_speed, best_compression] ++ lists:seq(0,9),
     lists:foreach(fun(Level) ->
 			  Z = zlib:open(),
@@ -145,20 +146,30 @@ api_deflateInit(Config) when is_list(Config) ->
 			  ?m(ok,zlib:close(Z))
 		  end, Levels),
     %% /6
-    ?m(?BARG, zlib:deflateInit(Z1,gurka,deflated,-15,8,default)),
+    ?m(?EXIT(bad_compression_level),
+        zlib:deflateInit(Z1,gurka,deflated,-15,8,default)),
 
-    ?m(?BARG, zlib:deflateInit(Z1,default,undefined,-15,8,default)),
+    ?m(?EXIT(bad_compression_method),
+        zlib:deflateInit(Z1,default,undefined,-15,8,default)),
 
-    ?m(?BARG, zlib:deflateInit(Z1,default,deflated,48,8,default)),
-    ?m(?BARG, zlib:deflateInit(Z1,default,deflated,-20,8,default)),
-    ?m(?BARG, zlib:deflateInit(Z1,default,deflated,-7,8,default)),
-    ?m(?BARG, zlib:deflateInit(Z1,default,deflated,7,8,default)),
+    ?m(?EXIT(bad_compression_strategy),
+        zlib:deflateInit(Z1,default,deflated,-15,8,0)),
+    ?m(?EXIT(bad_compression_strategy),
+        zlib:deflateInit(Z1,default,deflated,-15,8,undefined)),
 
-    ?m(?BARG, zlib:deflateInit(Z1,default,deflated,-15,0,default)),
-    ?m(?BARG, zlib:deflateInit(Z1,default,deflated,-15,10,default)),    
+    ?m(?EXIT(bad_windowbits),
+        zlib:deflateInit(Z1,default,deflated,48,8,default)),
+    ?m(?EXIT(bad_windowbits),
+        zlib:deflateInit(Z1,default,deflated,-20,8,default)),
+    ?m(?EXIT(bad_windowbits),
+        zlib:deflateInit(Z1,default,deflated,-7,8,default)),
+    ?m(?EXIT(bad_windowbits),
+        zlib:deflateInit(Z1,default,deflated,7,8,default)),
 
-    ?m(?BARG, zlib:deflateInit(Z1,default,deflated,-15,8,0)),
-    ?m(?BARG, zlib:deflateInit(Z1,default,deflated,-15,8,undefined)),
+    ?m(?EXIT(bad_memlevel),
+        zlib:deflateInit(Z1,default,deflated,-15,0,default)),
+    ?m(?EXIT(bad_memlevel),
+        zlib:deflateInit(Z1,default,deflated,-15,10,default)),
 
     lists:foreach(fun(Level) ->
 			  Z = zlib:open(),
@@ -190,7 +201,11 @@ api_deflateInit(Config) when is_list(Config) ->
 			  ?m(ok,zlib:close(Z))
 		  end, Strategies),
     ?m(ok, zlib:deflateInit(Z1,default,deflated,-15,8,default)),
-    ?m({'EXIT',_}, zlib:deflateInit(Z1,none,deflated,-15,8,default)), %% ?? 
+
+    %% Let it crash for any reason; we don't care about the order in which the
+    %% parameters are checked.
+    ?m(?EXIT(_), zlib:deflateInit(Z1,none,deflated,-15,8,default)),
+
     ?m(ok, zlib:close(Z1)).
 
 %% Test deflateSetDictionary.
@@ -199,10 +214,10 @@ api_deflateSetDictionary(Config) when is_list(Config) ->
     ?m(ok, zlib:deflateInit(Z1, default)),
     ?m(Id when is_integer(Id), zlib:deflateSetDictionary(Z1, <<1,1,2,3,4,5,1>>)),
     ?m(Id when is_integer(Id), zlib:deflateSetDictionary(Z1, [1,1,2,3,4,5,1])),
-    ?m(?BARG, zlib:deflateSetDictionary(Z1, gurka)),
-    ?m(?BARG, zlib:deflateSetDictionary(Z1, 128)),
+    ?m(?EXIT(badarg), zlib:deflateSetDictionary(Z1, gurka)),
+    ?m(?EXIT(badarg), zlib:deflateSetDictionary(Z1, 128)),
     ?m(_, zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, none)),
-    ?m({'EXIT',{stream_error,_}},zlib:deflateSetDictionary(Z1,<<1,1,2,3,4,5,1>>)),
+    ?m(?EXIT(stream_error), zlib:deflateSetDictionary(Z1,<<1,1,2,3,4,5,1>>)),
     ?m(ok, zlib:close(Z1)).
 
 %% Test deflateReset.
@@ -238,11 +253,13 @@ api_deflate(Config) when is_list(Config) ->
     ?m(B when is_list(B), zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, full)),
     ?m(B when is_list(B), zlib:deflate(Z1, <<>>, finish)),
 
-    ?m(?BARG, zlib:deflate(gurka, <<1,1,1,1,1,1,1,1,1>>, full)),
-    ?m(?BARG, zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, asdj)),
-    ?m(?BARG, zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, 198)),
+    ?m(?EXIT(badarg), zlib:deflate(gurka, <<1,1,1,1,1,1,1,1,1>>, full)),
+
+    ?m(?EXIT(bad_flush_mode), zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, asdj)),
+    ?m(?EXIT(bad_flush_mode), zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, 198)),
+
     %% Causes problems ERROR REPORT
-    ?m(?BARG, zlib:deflate(Z1, [asdj,asd], none)),
+    ?m(?EXIT(badarg), zlib:deflate(Z1, [asdj,asd], none)),
 
     ?m(ok, zlib:close(Z1)).
 
@@ -251,11 +268,11 @@ api_deflateEnd(Config) when is_list(Config) ->
     Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1, default)),
     ?m(ok, zlib:deflateEnd(Z1)),
-    ?m(?BARG, zlib:deflateEnd(Z1)),
-    ?m(?BARG, zlib:deflateEnd(gurka)),
+    ?m(?EXIT(not_initialized), zlib:deflateEnd(Z1)),
+    ?m(?EXIT(badarg), zlib:deflateEnd(gurka)),
     ?m(ok, zlib:deflateInit(Z1, default)),
     ?m(B when is_list(B), zlib:deflate(Z1, <<"Kilroy was here">>)),
-    ?m({'EXIT', {data_error,_}}, zlib:deflateEnd(Z1)),
+    ?m(?EXIT(data_error), zlib:deflateEnd(Z1)),
     ?m(ok, zlib:deflateInit(Z1, default)),
     ?m(B when is_list(B), zlib:deflate(Z1, <<"Kilroy was here">>)),
     ?m(B when is_list(B), zlib:deflate(Z1, <<"Kilroy was here">>, finish)),
@@ -266,9 +283,9 @@ api_deflateEnd(Config) when is_list(Config) ->
 %% Test inflateInit /1 and /2.
 api_inflateInit(Config) when is_list(Config) ->
     Z1 = zlib:open(),
-    ?m(?BARG, zlib:inflateInit(gurka)),
+    ?m(?EXIT(badarg), zlib:inflateInit(gurka)),
     ?m(ok, zlib:inflateInit(Z1)),
-    ?m(?BARG, zlib:inflateInit(Z1, 15)),
+    ?m(?EXIT(already_initialized), zlib:inflateInit(Z1, 15)),
     lists:foreach(fun(Wbits) ->
 			  Z11 = zlib:open(),
 			  ?m(ok, zlib:inflateInit(Z11,Wbits)),
@@ -277,22 +294,22 @@ api_inflateInit(Config) when is_list(Config) ->
 			  ?m(ok,zlib:close(Z11)),
 			  ?m(ok,zlib:close(Z12))
 		  end, lists:seq(8,15)),
-    ?m(?BARG, zlib:inflateInit(gurka, -15)),
-    ?m(?BARG, zlib:inflateInit(Z1, 7)),
-    ?m(?BARG, zlib:inflateInit(Z1, -7)),
-    ?m(?BARG, zlib:inflateInit(Z1, 48)),
-    ?m(?BARG, zlib:inflateInit(Z1, -16)),
+    ?m(?EXIT(badarg), zlib:inflateInit(gurka, -15)),
+    ?m(?EXIT(already_initialized), zlib:inflateInit(Z1, 7)),
+    ?m(?EXIT(already_initialized), zlib:inflateInit(Z1, -7)),
+    ?m(?EXIT(already_initialized), zlib:inflateInit(Z1, 48)),
+    ?m(?EXIT(already_initialized), zlib:inflateInit(Z1, -16)),
     ?m(ok, zlib:close(Z1)).
 
 %% Test inflateSetDictionary.
 api_inflateSetDictionary(Config) when is_list(Config) ->
     Z1 = zlib:open(),
     ?m(ok, zlib:inflateInit(Z1)),
-    ?m(?BARG, zlib:inflateSetDictionary(gurka,<<1,1,1,1,1>>)),
-    ?m(?BARG, zlib:inflateSetDictionary(Z1,102)),
-    ?m(?BARG, zlib:inflateSetDictionary(Z1,gurka)),
+    ?m(?EXIT(badarg), zlib:inflateSetDictionary(gurka,<<1,1,1,1,1>>)),
+    ?m(?EXIT(badarg), zlib:inflateSetDictionary(Z1,102)),
+    ?m(?EXIT(badarg), zlib:inflateSetDictionary(Z1,gurka)),
     Dict = <<1,1,1,1,1>>,
-    ?m({'EXIT',{stream_error,_}}, zlib:inflateSetDictionary(Z1,Dict)),
+    ?m(?EXIT(stream_error), zlib:inflateSetDictionary(Z1,Dict)),
     ?m(ok, zlib:close(Z1)).
 
 %% Test inflateGetDictionary.
@@ -301,7 +318,7 @@ api_inflateGetDictionary(Config) when is_list(Config) ->
     zlib:inflateInit(Z1),
     IsOperationSupported =
         case catch zlib:inflateGetDictionary(Z1) of
-            ?BARG -> false;
+            ?EXIT(not_supported) -> false;
             _ -> true
         end,
     zlib:close(Z1),
@@ -323,19 +340,19 @@ api_inflateGetDictionary_if_supported(true) ->
     Z2 = zlib:open(),
     ?m(ok, zlib:inflateInit(Z2)),
     ?m(<<>>, iolist_to_binary(zlib:inflateGetDictionary(Z2))),
-    ?m({'EXIT',{stream_error,_}}, zlib:inflateSetDictionary(Z2, Dict)),
-    ?m({'EXIT',{{need_dictionary,Checksum},_}}, zlib:inflate(Z2, Compressed)),
+    ?m(?EXIT(stream_error), zlib:inflateSetDictionary(Z2, Dict)),
+    ?m(?EXIT({need_dictionary,Checksum}), zlib:inflate(Z2, Compressed)),
     ?m(ok, zlib:inflateSetDictionary(Z2, Dict)),
     ?m(Dict, iolist_to_binary(zlib:inflateGetDictionary(Z2))),
     Payload = iolist_to_binary(zlib:inflate(Z2, [])),
     ?m(ok, zlib:close(Z2)),
-    ?m(?BARG, zlib:inflateSetDictionary(Z2, Dict)),
+    ?m(?EXIT(not_initialized), zlib:inflateSetDictionary(Z2, Dict)),
 
     %% ... And do the same for inflate/3
     Z3 = zlib:open(),
     ?m(ok, zlib:inflateInit(Z3)),
     ?m(<<>>, iolist_to_binary(zlib:inflateGetDictionary(Z3))),
-    ?m({'EXIT',{stream_error,_}}, zlib:inflateSetDictionary(Z3, Dict)),
+    ?m(?EXIT(stream_error), zlib:inflateSetDictionary(Z3, Dict)),
 
     {need_dictionary, Checksum, _Output = []} =
         zlib:inflate(Z3, Compressed, [{exception_on_need_dict, false}]),
@@ -347,7 +364,7 @@ api_inflateGetDictionary_if_supported(true) ->
         zlib:inflate(Z3, [], [{exception_on_need_dict, false}])),
 
     ?m(ok, zlib:close(Z3)),
-    ?m(?BARG, zlib:inflateSetDictionary(Z3, Dict)),
+    ?m(?EXIT(not_initialized), zlib:inflateSetDictionary(Z3, Dict)),
 
     ok.
 
@@ -363,7 +380,7 @@ clobber(N, Bin) when is_binary(Bin) ->
 api_inflateReset(Config) when is_list(Config) ->
     Z1 = zlib:open(),
     ?m(ok, zlib:inflateInit(Z1)),
-    ?m(?BARG, zlib:inflateReset(gurka)),
+    ?m(?EXIT(badarg), zlib:inflateReset(gurka)),
     ?m(ok, zlib:inflateReset(Z1)),
     ?m(ok, zlib:close(Z1)).
 
@@ -378,12 +395,12 @@ api_inflate2(Config) when is_list(Config) ->
     ?m(ok, zlib:inflateEnd(Z1)),
     ?m(ok, zlib:inflateInit(Z1)),
     ?m(Data, zlib:inflate(Z1, Compressed)),
-    ?m(?BARG, zlib:inflate(gurka, Compressed)),
-    ?m(?BARG, zlib:inflate(Z1, 4384)),
-    ?m(?BARG, zlib:inflate(Z1, [atom_list])),
+    ?m(?EXIT(badarg), zlib:inflate(gurka, Compressed)),
+    ?m(?EXIT(badarg), zlib:inflate(Z1, 4384)),
+    ?m(?EXIT(badarg), zlib:inflate(Z1, [atom_list])),
     ?m(ok, zlib:inflateEnd(Z1)),
     ?m(ok, zlib:inflateInit(Z1)),
-    ?m({'EXIT',{data_error,_}}, zlib:inflate(Z1, <<2,1,2,1,2>>)), 
+    ?m(?EXIT(data_error), zlib:inflate(Z1, <<2,1,2,1,2>>)),
     ?m(ok, zlib:close(Z1)).
 
 %% Test inflate/3; same as inflate/2 but with the default options inverted.
@@ -398,12 +415,12 @@ api_inflate3(Config) when is_list(Config) ->
     ?m(ok, zlib:inflateEnd(Z1)),
     ?m(ok, zlib:inflateInit(Z1)),
     ?m(Data, zlib:inflate(Z1, Compressed, Options)),
-    ?m(?BARG, zlib:inflate(gurka, Compressed, Options)),
-    ?m(?BARG, zlib:inflate(Z1, 4384, Options)),
-    ?m(?BARG, zlib:inflate(Z1, [atom_list], Options)),
+    ?m(?EXIT(badarg), zlib:inflate(gurka, Compressed, Options)),
+    ?m(?EXIT(badarg), zlib:inflate(Z1, 4384, Options)),
+    ?m(?EXIT(badarg), zlib:inflate(Z1, [atom_list], Options)),
     ?m(ok, zlib:inflateEnd(Z1)),
     ?m(ok, zlib:inflateInit(Z1)),
-    ?m({'EXIT',{data_error,_}}, zlib:inflate(Z1, <<2,1,2,1,2>>, Options)),
+    ?m(?EXIT(data_error), zlib:inflate(Z1, <<2,1,2,1,2>>, Options)),
     ?m(ok, zlib:close(Z1)).
 
 %% Test inflateChunk.
@@ -447,10 +464,10 @@ api_inflateChunk(Config) when is_list(Config) ->
     ?m(ok, zlib:inflateEnd(Z1)),
     ?m(ok, zlib:inflateInit(Z1)),
 
-    ?m(?BARG, zlib:inflateChunk(gurka, Compressed)),
-    ?m(?BARG, zlib:inflateChunk(Z1, 4384)),
+    ?m(?EXIT(badarg), zlib:inflateChunk(gurka, Compressed)),
+    ?m(?EXIT(badarg), zlib:inflateChunk(Z1, 4384)),
 
-    ?m({'EXIT',{data_error,_}}, zlib:inflateEnd(Z1)),
+    ?m(?EXIT(data_error), zlib:inflateEnd(Z1)),
 
     ?m(ok, zlib:close(Z1)).
 
@@ -493,22 +510,22 @@ api_safeInflate(Config) when is_list(Config) ->
 
     SafeInflateLoop(zlib:safeInflate(Z1, Compressed), []),
 
-    ?m({'EXIT',{data_error,_}}, zlib:safeInflate(Z1, Compressed)),
+    ?m(?EXIT(data_error), zlib:safeInflate(Z1, Compressed)),
 
     ?m(ok, zlib:inflateReset(Z1)),
-    ?m(?BARG, zlib:safeInflate(gurka, Compressed)),
-    ?m(?BARG, zlib:safeInflate(Z1, 4384)),
-    ?m({'EXIT',{data_error,_}}, zlib:inflateEnd(Z1)),
+    ?m(?EXIT(badarg), zlib:safeInflate(gurka, Compressed)),
+    ?m(?EXIT(badarg), zlib:safeInflate(Z1, 4384)),
+    ?m(?EXIT(data_error), zlib:inflateEnd(Z1)),
     ?m(ok, zlib:close(Z1)).
 
 %% Test inflateEnd.
 api_inflateEnd(Config) when is_list(Config) ->
     Z1 = zlib:open(),
-    ?m(?BARG, zlib:inflateEnd(Z1)), 
+    ?m(?EXIT(not_initialized), zlib:inflateEnd(Z1)),
     ?m(ok, zlib:inflateInit(Z1)),
-    ?m(?BARG, zlib:inflateEnd(gurka)),
-    ?m({'EXIT',{data_error,_}}, zlib:inflateEnd(Z1)),
-    ?m(?BARG, zlib:inflateEnd(Z1)), 
+    ?m(?EXIT(badarg), zlib:inflateEnd(gurka)),
+    ?m(?EXIT(data_error), zlib:inflateEnd(Z1)),
+    ?m(?EXIT(not_initialized), zlib:inflateEnd(Z1)),
     ?m(ok, zlib:inflateInit(Z1)),
     ?m(B when is_list(B), zlib:inflate(Z1, zlib:compress("abc"))),
     ?m(ok, zlib:inflateEnd(Z1)),
@@ -528,15 +545,15 @@ api_crc32(Config) when is_list(Config) ->
     ?m(CRC2 when is_integer(CRC2), zlib:crc32(Z1,Compressed)),
     CRC2 = ?m(CRC2 when is_integer(CRC2), zlib:crc32(Z1,0,Compressed)),
     ?m(CRC3 when CRC2 /= CRC3, zlib:crc32(Z1,234,Compressed)),
-    ?m(?BARG, zlib:crc32(gurka)),
-    ?m(?BARG, zlib:crc32(Z1, not_a_binary)),
-    ?m(?BARG, zlib:crc32(gurka, <<1,1,2,4,4>>)),
-    ?m(?BARG, zlib:crc32(Z1, 2298929, not_a_binary)),
-    ?m(?BARG, zlib:crc32(Z1, not_an_int, <<123,123,123,35,231>>)),
-    ?m(?BARG, zlib:crc32_combine(Z1, not_an_int, 123123, 123)),
-    ?m(?BARG, zlib:crc32_combine(Z1, noint, 123123, 123)),
-    ?m(?BARG, zlib:crc32_combine(Z1, 123123, noint, 123)),
-    ?m(?BARG, zlib:crc32_combine(Z1, 123123, 123, noint)),
+    ?m(?EXIT(badarg), zlib:crc32(gurka)),
+    ?m(?EXIT(badarg), zlib:crc32(Z1, not_a_binary)),
+    ?m(?EXIT(badarg), zlib:crc32(gurka, <<1,1,2,4,4>>)),
+    ?m(?EXIT(badarg), zlib:crc32(Z1, 2298929, not_a_binary)),
+    ?m(?EXIT(badarg), zlib:crc32(Z1, not_an_int, <<123,123,123,35,231>>)),
+    ?m(?EXIT(badarg), zlib:crc32_combine(Z1, not_an_int, 123123, 123)),
+    ?m(?EXIT(badarg), zlib:crc32_combine(Z1, noint, 123123, 123)),
+    ?m(?EXIT(badarg), zlib:crc32_combine(Z1, 123123, noint, 123)),
+    ?m(?EXIT(badarg), zlib:crc32_combine(Z1, 123123, 123, noint)),
     ?m(ok, zlib:deflateEnd(Z1)),
     ?m(ok, zlib:close(Z1)).    
 
@@ -553,41 +570,41 @@ api_adler32(Config) when is_list(Config) ->
     ADLER2 = ?m(ADLER2 when is_integer(ADLER2), zlib:adler32(Z1,Compressed)),
     ?m(ADLER2 when is_integer(ADLER2), zlib:adler32(Z1,1,Compressed)),
     ?m(ADLER3 when ADLER2 /= ADLER3, zlib:adler32(Z1,234,Compressed)),
-    ?m(?BARG, zlib:adler32(Z1, not_a_binary)),
-    ?m(?BARG, zlib:adler32(gurka, <<1,1,2,4,4>>)),
-    ?m(?BARG, zlib:adler32(Z1, 2298929, not_a_binary)),
-    ?m(?BARG, zlib:adler32(Z1, not_an_int, <<123,123,123,35,231>>)),
-    ?m(?BARG, zlib:adler32_combine(Z1, noint, 123123, 123)),
-    ?m(?BARG, zlib:adler32_combine(Z1, 123123, noint, 123)),
-    ?m(?BARG, zlib:adler32_combine(Z1, 123123, 123, noint)),
+    ?m(?EXIT(badarg), zlib:adler32(Z1, not_a_binary)),
+    ?m(?EXIT(badarg), zlib:adler32(gurka, <<1,1,2,4,4>>)),
+    ?m(?EXIT(badarg), zlib:adler32(Z1, 2298929, not_a_binary)),
+    ?m(?EXIT(badarg), zlib:adler32(Z1, not_an_int, <<123,123,123,35,231>>)),
+    ?m(?EXIT(badarg), zlib:adler32_combine(Z1, noint, 123123, 123)),
+    ?m(?EXIT(badarg), zlib:adler32_combine(Z1, 123123, noint, 123)),
+    ?m(?EXIT(badarg), zlib:adler32_combine(Z1, 123123, 123, noint)),
     ?m(ok, zlib:deflateEnd(Z1)),
     ?m(ok, zlib:close(Z1)).    
 
 %% Test compress.
 api_un_compress(Config) when is_list(Config) ->
-    ?m(?BARG,zlib:compress(not_a_binary)),
+    ?m(?EXIT(badarg),zlib:compress(not_a_binary)),
     Bin = <<1,11,1,23,45>>,
     Comp = zlib:compress(Bin),
-    ?m(?BARG,zlib:uncompress(not_a_binary)),
-    ?m({'EXIT',{data_error,_}}, zlib:uncompress(<<171,171,171,171,171>>)),
-    ?m({'EXIT',{data_error,_}}, zlib:uncompress(<<>>)),
-    ?m({'EXIT',{data_error,_}}, zlib:uncompress(<<120>>)),
-    ?m({'EXIT',{data_error,_}}, zlib:uncompress(<<120,156>>)),
-    ?m({'EXIT',{data_error,_}}, zlib:uncompress(<<120,156,3>>)),
-    ?m({'EXIT',{data_error,_}}, zlib:uncompress(<<120,156,3,0>>)),
-    ?m({'EXIT',{data_error,_}}, zlib:uncompress(<<0,156,3,0,0,0,0,1>>)),
+    ?m(?EXIT(badarg),zlib:uncompress(not_a_binary)),
+    ?m(?EXIT(data_error), zlib:uncompress(<<171,171,171,171,171>>)),
+    ?m(?EXIT(data_error), zlib:uncompress(<<>>)),
+    ?m(?EXIT(data_error), zlib:uncompress(<<120>>)),
+    ?m(?EXIT(data_error), zlib:uncompress(<<120,156>>)),
+    ?m(?EXIT(data_error), zlib:uncompress(<<120,156,3>>)),
+    ?m(?EXIT(data_error), zlib:uncompress(<<120,156,3,0>>)),
+    ?m(?EXIT(data_error), zlib:uncompress(<<0,156,3,0,0,0,0,1>>)),
     ?m(Bin, zlib:uncompress(binary_to_list(Comp))),
     ?m(Bin, zlib:uncompress(Comp)).
 
 %% Test zip.
 api_un_zip(Config) when is_list(Config) ->
-    ?m(?BARG,zlib:zip(not_a_binary)),
+    ?m(?EXIT(badarg),zlib:zip(not_a_binary)),
     Bin = <<1,11,1,23,45>>,
     Comp = zlib:zip(Bin),
     ?m(Comp, zlib:zip(binary_to_list(Bin))),
-    ?m(?BARG,zlib:unzip(not_a_binary)),
-    ?m({'EXIT',{data_error,_}}, zlib:unzip(<<171,171,171,171,171>>)),
-    ?m({'EXIT',{data_error,_}}, zlib:unzip(<<>>)),
+    ?m(?EXIT(badarg),zlib:unzip(not_a_binary)),
+    ?m(?EXIT(data_error), zlib:unzip(<<171,171,171,171,171>>)),
+    ?m(?EXIT(data_error), zlib:unzip(<<>>)),
     ?m(Bin, zlib:unzip(Comp)),
     ?m(Bin, zlib:unzip(binary_to_list(Comp))),
 
@@ -598,21 +615,21 @@ api_un_zip(Config) when is_list(Config) ->
 
 %% Test gunzip.
 api_g_un_zip(Config) when is_list(Config) ->
-    ?m(?BARG,zlib:gzip(not_a_binary)),
+    ?m(?EXIT(badarg),zlib:gzip(not_a_binary)),
     Bin = <<1,11,1,23,45>>,
     Comp = zlib:gzip(Bin),
     ?m(Comp, zlib:gzip(binary_to_list(Bin))),
-    ?m(?BARG, zlib:gunzip(not_a_binary)),
-    ?m(?DATA_ERROR, zlib:gunzip(<<171,171,171,171,171>>)),
-    ?m(?DATA_ERROR, zlib:gunzip(<<>>)),
+    ?m(?EXIT(badarg), zlib:gunzip(not_a_binary)),
+    ?m(?EXIT(data_error), zlib:gunzip(<<171,171,171,171,171>>)),
+    ?m(?EXIT(data_error), zlib:gunzip(<<>>)),
     ?m(Bin, zlib:gunzip(Comp)),
     ?m(Bin, zlib:gunzip(binary_to_list(Comp))),
 
     %% Bad CRC; bad length.
     BadCrc = bad_crc_data(),
-    ?m({'EXIT',{data_error,_}},(catch zlib:gunzip(BadCrc))),
+    ?m(?EXIT(data_error),(catch zlib:gunzip(BadCrc))),
     BadLen = bad_len_data(),
-    ?m({'EXIT',{data_error,_}},(catch zlib:gunzip(BadLen))),
+    ?m(?EXIT(data_error),(catch zlib:gunzip(BadLen))),
     ok.
 
 bad_crc_data() ->
@@ -916,7 +933,7 @@ dictionary_usage({run}) ->
     Z2 = zlib:open(),
     ?m(ok, zlib:inflateInit(Z2)),
 
-    {'EXIT',{{need_dictionary,DictID},_}} = (catch zlib:inflate(Z2, Compressed)),
+    ?EXIT({need_dictionary, DictID}) = (catch zlib:inflate(Z2, Compressed)),
 
     ?m(ok, zlib:inflateSetDictionary(Z2, Dict)),
     ?m(ok, zlib:inflateSetDictionary(Z2, binary_to_list(Dict))),
@@ -940,7 +957,7 @@ only_allow_owner(Config) when is_list(Config) ->
 
     {Pid, Ref} = spawn_monitor(
         fun() ->
-            ?m(?BARG, zlib:inflateReset(Z))
+            ?m(?EXIT(not_on_controlling_process), zlib:inflateReset(Z))
         end),
 
     receive

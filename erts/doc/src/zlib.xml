@@ -65,13 +65,17 @@ list_to_binary([Compressed|Last])</pre>
       <tag><c>badarg</c></tag>
       <item>Bad argument.
       </item>
+      <tag><c>not_initialized</c></tag>
+      <item>The stream hasn't been initialized, eg. if
+      <seealso marker="#inflateInit/1"><c>inflateInit/1</c></seealso> wasn't
+      called prior to a call to
+      <seealso marker="#inflate/2"><c>inflate/2</c></seealso>.
+      </item>
       <tag><c>data_error</c></tag>
       <item>The data contains errors.
       </item>
       <tag><c>stream_error</c></tag>
       <item>Inconsistent stream state.</item>
-      <tag><c>einval</c></tag>
-      <item>Bad value or wrong function called.</item>
       <tag><c>{need_dictionary,Adler32}</c></tag>
       <item>See <seealso marker="#inflate/2"><c>inflate/2</c></seealso>.
       </item>

@@ -48,13 +48,22 @@ static void unload(ErlNifEnv *env, void* priv_data);
 
 static ErlNifResourceType *rtype_zlib;
 
+static ERL_NIF_TERM am_not_on_controlling_process;
+
+static ERL_NIF_TERM am_not_initialized;
+static ERL_NIF_TERM am_already_initialized;
+
 static ERL_NIF_TERM am_ok;
 static ERL_NIF_TERM am_error;
+
 static ERL_NIF_TERM am_continue;
 static ERL_NIF_TERM am_finished;
-static ERL_NIF_TERM am_empty;
+
 static ERL_NIF_TERM am_not_supported;
 static ERL_NIF_TERM am_need_dictionary;
+
+static ERL_NIF_TERM am_empty;
+
 static ERL_NIF_TERM am_stream_end;
 static ERL_NIF_TERM am_stream_error;
 static ERL_NIF_TERM am_data_error;
@@ -173,13 +182,23 @@ static void gc_zlib(ErlNifEnv *env, void* data);
 
 static int load(ErlNifEnv *env, void** priv_data, ERL_NIF_TERM load_info)
 {
+    am_not_on_controlling_process =
+        enif_make_atom(env, "not_on_controlling_process");
+
+    am_not_initialized = enif_make_atom(env, "not_initialized");
+    am_already_initialized = enif_make_atom(env, "already_initialized");
+
     am_ok = enif_make_atom(env, "ok");
     am_error = enif_make_atom(env, "error");
-    am_empty = enif_make_atom(env, "empty");
+
     am_continue = enif_make_atom(env, "continue");
     am_finished = enif_make_atom(env, "finished");
-    am_need_dictionary = enif_make_atom(env, "need_dictionary");
+
     am_not_supported = enif_make_atom(env, "not_supported");
+    am_need_dictionary = enif_make_atom(env, "need_dictionary");
+
+    am_empty = enif_make_atom(env, "empty");
+
     am_stream_end = enif_make_atom(env, "stream_end");
     am_stream_error = enif_make_atom(env, "stream_error");
     am_data_error = enif_make_atom(env, "data_error");
@@ -235,14 +254,11 @@ static ERL_NIF_TERM zlib_return(ErlNifEnv *env, int code) {
         break;
     case Z_ERRNO:
         reason = enif_make_int(env, errno);
-        //enif_make_tuple2(env, enif_make_int(env, err), reason);
         break;
     case Z_STREAM_ERROR:
-        //reason = am_stream_error;
         reason = enif_raise_exception(env, am_stream_error);
         break;
     case Z_DATA_ERROR:
-        //reason = am_data_error;
         reason = enif_raise_exception(env, am_data_error);
         break;
     case Z_MEM_ERROR:
@@ -281,6 +297,19 @@ static void gc_zlib(ErlNifEnv *env, void* data) {
     }
 }
 
+static int get_zlib_data(ErlNifEnv *env, ERL_NIF_TERM opaque, zlib_data_t **d) {
+    return enif_get_resource(env, opaque, rtype_zlib, (void **)d);
+}
+
+static int zlib_process_check(ErlNifEnv *env, zlib_data_t *d) {
+    ErlNifPid current_process;
+
+    enif_self(env, &current_process);
+
+    return enif_is_identical(enif_make_pid(env, &current_process),
+        enif_make_pid(env, &d->controlling_process));
+}
+
 static void zlib_reset_input(zlib_data_t *d) {
     enif_ioq_destroy(d->input_queue);
     d->input_queue = enif_ioq_create(ERL_NIF_IOQ_NORMAL);
@@ -290,19 +319,6 @@ static void zlib_reset_input(zlib_data_t *d) {
         d->stash_env = NULL;
         d->stash_term = NIL;
     }
-}
-
-static int get_zlib_data(ErlNifEnv* env, ERL_NIF_TERM opaque, zlib_data_t **d) {
-    ErlNifPid current_process;
-
-    if(!enif_get_resource(env, opaque, rtype_zlib, (void **)d)) {
-        return 0;
-    }
-
-    enif_self(env, &current_process);
-
-    return enif_is_identical(enif_make_pid(env, &current_process),
-        enif_make_pid(env, &(*d)->controlling_process));
 }
 
 static int zlib_flush_queue(int (*codec)(z_stream*, int), ErlNifEnv *env,
@@ -438,6 +454,8 @@ static ERL_NIF_TERM zlib_getStash(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 
     if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
     }
 
     if(d->stash_env == NULL) {
@@ -452,10 +470,10 @@ static ERL_NIF_TERM zlib_clearStash(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 
     if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->stash_env == NULL) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->stash_env == NULL) {
+        return enif_raise_exception(env, am_error);
     }
 
     enif_free_env(d->stash_env);
@@ -470,10 +488,10 @@ static ERL_NIF_TERM zlib_setStash(ErlNifEnv *env, int argc, const ERL_NIF_TERM a
 
     if(argc != 2 || !get_zlib_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->stash_env != NULL) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->stash_env != NULL) {
+        return enif_raise_exception(env, am_error);
     }
 
     d->stash_env = enif_alloc_env();
@@ -526,10 +544,10 @@ static ERL_NIF_TERM zlib_close(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
     /* strictly speaking not needed since the gc will handle this */
     if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state == ST_CLOSED) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state == ST_CLOSED) {
+        return enif_raise_exception(env, am_not_initialized);
     }
 
     gc_zlib(env, d);
@@ -546,10 +564,10 @@ static ERL_NIF_TERM zlib_deflateInit(ErlNifEnv *env, int argc, const ERL_NIF_TER
     if(argc != 2 || !get_zlib_data(env, argv[0], &d) ||
                     !enif_get_int(env, argv[1], &level)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_NONE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_NONE) {
+        return enif_raise_exception(env, am_already_initialized);
     }
 
     res = deflateInit(&d->s, level);
@@ -586,10 +604,10 @@ static ERL_NIF_TERM zlib_deflateInit2(ErlNifEnv *env, int argc, const ERL_NIF_TE
                  || !enif_get_int(env, argv[4], &memLevel)
                  || !enif_get_int(env, argv[5], &strategy)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_NONE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_NONE) {
+        return enif_raise_exception(env, am_already_initialized);
     }
 
     res = deflateInit2(&d->s, level, method, windowBits, memLevel, strategy);
@@ -618,10 +636,10 @@ static ERL_NIF_TERM zlib_deflateSetDictionary(ErlNifEnv *env, int argc, const ER
     if(argc != 2 || !get_zlib_data(env, argv[0], &d)
                  || !enif_inspect_iolist_as_binary(env, argv[1], &bin)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_DEFLATE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_DEFLATE) {
+        return enif_raise_exception(env, am_not_initialized);
     }
 
     if((res = deflateSetDictionary(&d->s, bin.data, bin.size)) == Z_OK) {
@@ -645,10 +663,10 @@ static ERL_NIF_TERM zlib_deflateReset(ErlNifEnv *env, int argc, const ERL_NIF_TE
 
     if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_DEFLATE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_DEFLATE) {
+        return enif_raise_exception(env, am_not_initialized);
     }
 
     res = deflateReset(&d->s);
@@ -667,10 +685,10 @@ static ERL_NIF_TERM zlib_deflateEnd(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 
     if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_DEFLATE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_DEFLATE) {
+        return enif_raise_exception(env, am_not_initialized);
     }
 
     res = deflateEnd(&d->s);
@@ -693,10 +711,10 @@ static ERL_NIF_TERM zlib_deflateParams(ErlNifEnv *env, int argc, const ERL_NIF_T
                  || !enif_get_int(env, argv[1], &level)
                  || !enif_get_int(env, argv[2], &strategy)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_DEFLATE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_DEFLATE) {
+        return enif_raise_exception(env, am_not_initialized);
     }
 
     /* deflateParams will flush everything currently in the stream, corrupting
@@ -718,10 +736,10 @@ static ERL_NIF_TERM zlib_deflate(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
                  || !enif_get_int(env, argv[2], &output_chunk_size)
                  || !enif_get_int(env, argv[3], &flush)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_DEFLATE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_DEFLATE) {
+        return enif_raise_exception(env, am_not_initialized);
     }
 
     return zlib_codec(&deflate, env, d, input_chunk_size, output_chunk_size, flush);
@@ -735,10 +753,10 @@ static ERL_NIF_TERM zlib_inflateInit(ErlNifEnv *env, int argc, const ERL_NIF_TER
 
     if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_NONE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_NONE) {
+        return enif_raise_exception(env, am_already_initialized);
     }
 
     res = inflateInit(&d->s);
@@ -765,10 +783,10 @@ static ERL_NIF_TERM zlib_inflateInit2(ErlNifEnv *env, int argc, const ERL_NIF_TE
     if(argc != 2 || !get_zlib_data(env, argv[0], &d)
                  || !enif_get_int(env, argv[1], &windowBits)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_NONE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_NONE) {
+        return enif_raise_exception(env, am_already_initialized);
     }
 
     res = inflateInit2(&d->s, windowBits);
@@ -797,10 +815,10 @@ static ERL_NIF_TERM zlib_inflateSetDictionary(ErlNifEnv *env, int argc, const ER
     if(argc != 2 || !get_zlib_data(env, argv[0], &d)
                  || !enif_inspect_iolist_as_binary(env, argv[1], &bin)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_INFLATE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_INFLATE) {
+        return enif_raise_exception(env, am_not_initialized);
     }
 
     res = inflateSetDictionary(&d->s, bin.data, bin.size);
@@ -827,44 +845,40 @@ static int zlib_supports_inflateGetDictionary(void) {
 
     return supportsGetDictionary;
 }
+#endif
 
 static ERL_NIF_TERM zlib_inflateGetDictionary(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     zlib_data_t *d;
-    ErlNifBinary obin;
-    uInt len;
-    int res;
 
     if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_INFLATE) {
+        return enif_raise_exception(env, am_not_initialized);
     }
 
-    if(d->state != ST_INFLATE) {
-        return enif_make_badarg(env);
+#ifdef HAVE_ZLIB_INFLATEGETDICTIONARY
+    if(zlib_supports_inflateGetDictionary()) {
+        ErlNifBinary obin;
+        uInt len;
+        int res;
+
+        enif_alloc_binary(INFL_DICT_SZ, &obin);
+        len = 0;
+
+        if((res = inflateGetDictionary(&d->s, obin.data, &len)) < 0) {
+            enif_release_binary(&obin);
+            return zlib_return(env, res);
+        }
+
+        enif_realloc_binary(&obin, (size_t)len);
+        return enif_make_binary(env, &obin);
     }
-
-    if(!zlib_supports_inflateGetDictionary()) {
-        return enif_make_badarg(env);
-    }
-
-    enif_alloc_binary(INFL_DICT_SZ, &obin);
-
-    len = 0;
-    if((res = inflateGetDictionary(&d->s, obin.data, &len)) < 0) {
-        enif_release_binary(&obin);
-        return zlib_return(env, res);
-    }
-
-    enif_realloc_binary(&obin, (size_t)len);
-    return enif_make_binary(env, &obin);
-}
-
-#else /* !HAVE_ZLIB_INFLATEGETDICTIONARY */
-
-static ERL_NIF_TERM zlib_inflateGetDictionary(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    return enif_make_badarg(env);
-}
-
 #endif
+
+    return enif_raise_exception(env, am_not_supported);
+}
 
 static ERL_NIF_TERM zlib_inflateReset(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     zlib_data_t *d;
@@ -872,10 +886,10 @@ static ERL_NIF_TERM zlib_inflateReset(ErlNifEnv *env, int argc, const ERL_NIF_TE
 
     if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_INFLATE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_INFLATE) {
+        return enif_raise_exception(env, am_not_initialized);
     }
 
     res = inflateReset(&d->s);
@@ -894,10 +908,10 @@ static ERL_NIF_TERM zlib_inflateEnd(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 
     if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_INFLATE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_INFLATE) {
+        return enif_raise_exception(env, am_not_initialized);
     }
 
     res = inflateEnd(&d->s);
@@ -922,10 +936,10 @@ static ERL_NIF_TERM zlib_inflate(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
                  || !enif_get_int(env, argv[2], &output_chunk_size)
                  || !enif_get_int(env, argv[3], &flush)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_INFLATE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_INFLATE) {
+        return enif_raise_exception(env, am_not_initialized);
     }
 
     return zlib_codec(&inflate, env, d, input_chunk_size, output_chunk_size, flush);
@@ -936,6 +950,8 @@ static ERL_NIF_TERM zlib_crc32(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
 
     if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
     }
 
     if(d->state == ST_DEFLATE) {
@@ -944,7 +960,7 @@ static ERL_NIF_TERM zlib_crc32(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
         return enif_make_ulong(env, d->output_crc);
     }
 
-    return enif_make_badarg(env);
+    return enif_raise_exception(env, am_not_initialized);
 }
 
 static ERL_NIF_TERM zlib_getBufSize(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
@@ -952,6 +968,8 @@ static ERL_NIF_TERM zlib_getBufSize(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 
     if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
     }
 
     return enif_make_int(env, d->inflateChunk_buffer_size);
@@ -960,8 +978,13 @@ static ERL_NIF_TERM zlib_getBufSize(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 static ERL_NIF_TERM zlib_setBufSize(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     zlib_data_t *d;
 
-    if(argc != 2 || !get_zlib_data(env, argv[0], &d)
-                 || !enif_get_int(env, argv[1], &d->inflateChunk_buffer_size)) {
+    if(argc != 2 || !get_zlib_data(env, argv[0], &d)) {
+        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    }
+
+    if(!enif_get_int(env, argv[1], &d->inflateChunk_buffer_size)) {
         return enif_make_badarg(env);
     }
 
@@ -976,17 +999,15 @@ static ERL_NIF_TERM zlib_enqueue_input(ErlNifEnv *env, int argc, const ERL_NIF_T
 
     if(argc != 2 || !get_zlib_data(env, argv[0], &d)) {
         return enif_make_badarg(env);
-    }
-
-    if(d->state != ST_DEFLATE && d->state != ST_INFLATE) {
-        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    } else if(d->state != ST_DEFLATE && d->state != ST_INFLATE) {
+        return enif_raise_exception(env, am_not_initialized);
     }
 
     if(!enif_inspect_iovec(env, 256, argv[1], &tail, &iovec)) {
         return enif_make_badarg(env);
-    }
-
-    if(!enif_ioq_enqv(d->input_queue, iovec, 0)) {
+    } else if(!enif_ioq_enqv(d->input_queue, iovec, 0)) {
         return enif_make_badarg(env);
     }
 
