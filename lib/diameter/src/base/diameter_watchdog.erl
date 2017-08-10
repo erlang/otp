@@ -154,7 +154,7 @@ i({Ack, T, Pid, {Opts,
               receive_data = RecvData,
               dictionary = Dict0,
               config =
-                  maps:without(CodecKeys,
+                  maps:without([traffic_counters | CodecKeys],
                                config(SvcOpts#{restrict => restrict(Nodes),
                                                suspect => 1,
                                                okay => 3},

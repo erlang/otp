@@ -1053,6 +1053,26 @@ The default value is for backwards compatibility.</p>
 
 </item>
 
+<tag>
+<marker id="traffic_counters"/><c>{traffic_counters, boolean()}</c></tag>
+<item>
+<p>
+Whether or not to count application-specific messages; those for which
+&man_app; callbacks take place.
+If false then only messages handled by diameter itself are counted:
+CER/CEA, DWR/DWA, DPR/DPA.</p>
+
+<p>
+Defaults to <c>true</c>.</p>
+
+<note>
+<p>
+Disabling counters is a performance improvement, but means that the
+omitted counters are not returned by &service_info;.</p>
+</note>
+
+</item>
+
 <tag><c>{use_shared_peers, boolean() | [node()] | evaluable()}</c></tag>
 <item>
 <p>

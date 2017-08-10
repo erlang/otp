@@ -353,6 +353,7 @@ call(SvcName, App, Message) ->
     | {sequence, sequence() | evaluable()}
     | {share_peers, remotes()}
     | {decode_format, decode_format()}
+    | {traffic_counters, boolean()}
     | {string_decode, boolean()}
     | {strict_arities, true | strict_arities()}
     | {strict_mbit, boolean()}
