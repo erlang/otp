@@ -186,7 +186,7 @@ incr_error(Dir, Id, TPid) ->
 %% ---------------------------------------------------------------------------
 
 -spec incr_rc(send|recv, Pkt, TPid, DictT)
-   -> {Counter, non_neg_integer()}
+   -> Counter
     | Reason
  when Pkt :: #diameter_packet{},
       TPid :: pid(),
