@@ -28,7 +28,8 @@
 	 map_core_test/1,eval_case/1,bad_boolean_guard/1,
 	 bs_shadowed_size_var/1,
 	 cover_v3_kernel_1/1,cover_v3_kernel_2/1,cover_v3_kernel_3/1,
-	 cover_v3_kernel_4/1,cover_v3_kernel_5/1]).
+	 cover_v3_kernel_4/1,cover_v3_kernel_5/1,
+         non_variable_apply/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -56,7 +57,8 @@ groups() ->
        map_core_test,eval_case,bad_boolean_guard,
        bs_shadowed_size_var,
        cover_v3_kernel_1,cover_v3_kernel_2,cover_v3_kernel_3,
-       cover_v3_kernel_4,cover_v3_kernel_5
+       cover_v3_kernel_4,cover_v3_kernel_5,
+       non_variable_apply
       ]}].
 
 
@@ -90,7 +92,7 @@ end_per_group(_GroupName, Config) ->
 ?comp(cover_v3_kernel_3).
 ?comp(cover_v3_kernel_4).
 ?comp(cover_v3_kernel_5).
-
+?comp(non_variable_apply).
 
 try_it(Mod, Conf) ->
     Src = filename:join(proplists:get_value(data_dir, Conf),
