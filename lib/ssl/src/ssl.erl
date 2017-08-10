@@ -569,7 +569,7 @@ renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
 
 %%--------------------------------------------------------------------
 -spec prf(#sslsocket{}, binary() | 'master_secret', binary(),
-	  binary() | prf_random(), non_neg_integer()) ->
+	  [binary() | prf_random()], non_neg_integer()) ->
 		 {ok, binary()} | {error, reason()}.
 %%
 %% Description: use a ssl sessions TLS PRF to generate key material
