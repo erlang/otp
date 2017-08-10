@@ -460,11 +460,16 @@ start_services(Config) ->
            server_decoding = SD}
         = Grp
         = group(Config),
-    ok = diameter:start_service(SN, [{decode_format, SD}
+    ok = diameter:start_service(SN, [{traffic_counters, bool()},
+                                     {decode_format, SD}
                                      | ?SERVICE(SN, Grp)]),
-    ok = diameter:start_service(CN, [{sequence, ?CLIENT_MASK},
+    ok = diameter:start_service(CN, [{traffic_counters, bool()},
+                                     {sequence, ?CLIENT_MASK},
                                      {strict_arities, decode}
                                      | ?SERVICE(CN, Grp)]).
+
+bool() ->
+    0.5 =< rand:uniform().
 
 add_transports(Config) ->
     #group{transport = T,
