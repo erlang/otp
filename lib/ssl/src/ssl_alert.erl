@@ -103,8 +103,8 @@ description_txt(?UNEXPECTED_MESSAGE) ->
     "Unexpected Message";
 description_txt(?BAD_RECORD_MAC) ->
     "Bad Record MAC";
-description_txt(?DECRYPTION_FAILED) ->
-    "Decryption Failed";
+description_txt(?DECRYPTION_FAILED_RESERVED) ->
+    "Decryption Failed Reserved";
 description_txt(?RECORD_OVERFLOW) ->
     "Record Overflow";
 description_txt(?DECOMPRESSION_FAILURE) ->
