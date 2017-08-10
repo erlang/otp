@@ -1,0 +1,80 @@
+module 'non_variable_apply' ['module_info'/0,
+			     'module_info'/1,
+			     'non_variable_apply'/0]
+    attributes []
+
+'non_variable_apply'/0 =
+    %% Line 4
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <OkFun> =
+		  fun (_@c0) ->
+		      %% Line 5
+		      case _@c0 of
+			<'ok'> when 'true' ->
+			    'ok'
+			( <_@c1> when 'true' ->
+			      ( primop 'match_fail'
+				    ({'function_clause',_@c1})
+				-| [{'function_name',{'-non_variable_apply/0-fun-0-',1}}] )
+			  -| ['compiler_generated'] )
+		      end
+	      in  let <F> =
+		      fun (_@c5,_@c4) ->
+			  %% Line 6
+			  case <_@c5,_@c4> of
+			    <F,X> when 'true' ->
+			        apply apply 'id'/1 (F) (X)
+			    ( <_@c7,_@c6> when 'true' ->
+				  ( primop 'match_fail'
+					({'function_clause',_@c7,_@c6})
+				    -| [{'function_name',{'-non_variable_apply/0-fun-1-',2}}] )
+			      -| ['compiler_generated'] )
+			  end
+		  in  %% Line 9
+		      apply F
+			  (OkFun, 'ok')
+	  ( <> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause'})
+		  -| [{'function_name',{'non_variable_apply',0}}] )
+	    -| ['compiler_generated'] )
+	end
+'id'/1 =
+    %% Line 11
+    fun (_@c0) ->
+	case _@c0 of
+	  <I> when 'true' ->
+	      I
+	  ( <_@c1> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_@c1})
+		  -| [{'function_name',{'id',1}}] )
+	    -| ['compiler_generated'] )
+	end
+'module_info'/0 =
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      call 'erlang':'get_module_info'
+		  ('non_variable_apply')
+	  ( <> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause'})
+		  -| [{'function_name',{'module_info',0}}] )
+	    -| ['compiler_generated'] )
+	end
+'module_info'/1 =
+    fun (_@c0) ->
+	case _@c0 of
+	  <X> when 'true' ->
+	      call 'erlang':'get_module_info'
+		  ('non_variable_apply', X)
+	  ( <_@c1> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_@c1})
+		  -| [{'function_name',{'module_info',1}}] )
+	    -| ['compiler_generated'] )
+	end
+end

@@ -395,10 +395,10 @@ expr(#c_receive{clauses=Cs0,timeout=T0,action=A0}=Recv, Ctxt, Sub) ->
 expr(#c_apply{anno=Anno,op=Op0,args=As0}=App, _, Sub) ->
     Op1 = expr(Op0, value, Sub),
     As1 = expr_list(As0, value, Sub),
-    case Op1 of
-	#c_var{} ->
+    case cerl:is_data(Op1) of
+        false ->
 	    App#c_apply{op=Op1,args=As1};
-	_ ->
+	true ->
 	    add_warning(App, invalid_call),
 	    Err = #c_call{anno=Anno,
 			  module=#c_literal{val=erlang},
