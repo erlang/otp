@@ -121,6 +121,9 @@
 
 %% ===========================================================================
 
+%% Fraction of shuffle/parallel groups to randomly skip.
+-define(SKIP, 0.25).
+
 %% Positive number of testcases from which to select (randomly) from
 %% tc(), the list of testcases to run, or [] to run all. The random
 %% selection is to limit the time it takes for the suite to run.
@@ -316,9 +319,14 @@ end_per_suite(_Config) ->
 init_per_group(Name, Config)
   when Name == shuffle;
        Name == parallel ->
-    start_services(Config),
-    add_transports(Config),
-    [{sleep, Name == parallel} | Config];
+    case rand:uniform() < ?SKIP of
+        true ->
+            {skip, random};
+        false ->
+            start_services(Config),
+            add_transports(Config),
+            [{sleep, Name == parallel} | Config]
+    end;
 
 init_per_group(sctp = Name, Config) ->
     {_, Sctp} = lists:keyfind(Name, 1, Config),
