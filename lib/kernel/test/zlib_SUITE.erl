@@ -23,51 +23,46 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
--compile(export_all).
+-export([suite/0, all/0, groups/0]).
 
--define(error(Format,Args),
-	put(test_server_loc,{?MODULE,?LINE}),
-	error(Format,Args,?MODULE,?LINE)).
+%% API group
+-export([api_open_close/1]).
+-export([api_deflateInit/1, api_deflateSetDictionary/1, api_deflateReset/1,
+         api_deflateParams/1, api_deflate/1, api_deflateEnd/1]).
+-export([api_inflateInit/1, api_inflateReset/1, api_inflate2/1, api_inflate3/1,
+         api_inflateChunk/1, api_safeInflate/1, api_inflateEnd/1]).
+-export([api_inflateSetDictionary/1, api_inflateGetDictionary/1]).
+-export([api_crc32/1, api_adler32/1]).
+-export([api_un_compress/1, api_un_zip/1, api_g_un_zip/1]).
 
-%% Learn erts team how to really write tests ;-)
--define(m(ExpectedRes,Expr),
-	fun() ->
-		ACtual1 = (catch (Expr)),
-		try case ACtual1 of
-			ExpectedRes  -> ACtual1
-		    end
-		catch 
-		    error:{case_clause,ACtuAl} ->			
-			?error("Not Matching Actual result was:~n ~p ~n",
-			       [ACtuAl]),
-			ACtuAl
-		end
-	end()).
+%% Examples group
+-export([intro/1]).
+
+%% Usage group
+-export([zip_usage/1, gz_usage/1, gz_usage2/1, compress_usage/1,
+         dictionary_usage/1, large_deflate/1, crc/1, adler/1,
+         only_allow_owner/1, sub_heap_binaries/1]).
+
+%% Bench group
+-export([inflate_bench_zeroed/1, inflate_bench_rand/1,
+       deflate_bench_zeroed/1, deflate_bench_rand/1,
+       chunk_bench_zeroed/1, chunk_bench_rand/1]).
+
+%% Others
+-export([smp/1, otp_9981/1, otp_7359/1]).
+
+-define(m(Guard, Expression),
+    fun() ->
+        Actual = (catch (Expression)),
+        case Actual of
+            Guard -> Actual;
+            _Other ->
+                ct:fail("Failed to match ~p, actual result was ~p",
+                    [??Guard, Actual])
+        end
+    end()).
 
 -define(EXIT(Reason), {'EXIT',{Reason,[{_,_,_,_}|_]}}).
-
-init_per_testcase(_Func, Config) ->
-    Config.
-
-end_per_testcase(_Func, _Config) ->
-    ok.
-
-error(Format, Args, File, Line) ->
-    io:format("~p:~p: ERROR: " ++ Format, [File,Line|Args]),
-    group_leader() ! {failed, File, Line}.
-
-%% Hopefully I don't need this to get it to work with the testserver..
-%%     Fail = #'REASON'{file = filename:basename(File),
-%% 		     line = Line,
-%% 		     desc = Args},
-%%     case global:whereis_name(mnesia_test_case_sup) of
-%% 	undefined -> 
-%% 	    ignore;
-%% 	Pid -> 
-%% 	    Pid ! Fail
-%% 	    %% 	    global:send(mnesia_test_case_sup, Fail),
-%%     end,
-%%     log("<>ERROR<>~n" ++ Format, Args, File, Line).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -98,20 +93,6 @@ groups() ->
       [inflate_bench_zeroed, inflate_bench_rand,
        deflate_bench_zeroed, deflate_bench_rand,
        chunk_bench_zeroed, chunk_bench_rand]}].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
 
 %% Test open/0 and close/1.
 api_open_close(Config) when is_list(Config) ->
@@ -216,7 +197,7 @@ api_deflateSetDictionary(Config) when is_list(Config) ->
     ?m(Id when is_integer(Id), zlib:deflateSetDictionary(Z1, [1,1,2,3,4,5,1])),
     ?m(?EXIT(badarg), zlib:deflateSetDictionary(Z1, gurka)),
     ?m(?EXIT(badarg), zlib:deflateSetDictionary(Z1, 128)),
-    ?m(_, zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, none)),
+    ?m(L when is_list(L), zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, none)),
     ?m(?EXIT(stream_error), zlib:deflateSetDictionary(Z1,<<1,1,2,3,4,5,1>>)),
     ?m(ok, zlib:close(Z1)).
 
@@ -224,7 +205,7 @@ api_deflateSetDictionary(Config) when is_list(Config) ->
 api_deflateReset(Config) when is_list(Config) ->
     Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1, default)),
-    ?m(_, zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, none)),
+    ?m(L when is_list(L), zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, none)),
     ?m(ok, zlib:deflateReset(Z1)),
     ?m(ok, zlib:deflateReset(Z1)),
     %% FIXME how do I make this go wrong??
@@ -234,9 +215,9 @@ api_deflateReset(Config) when is_list(Config) ->
 api_deflateParams(Config) when is_list(Config) ->
     Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1, default)),
-    ?m(_, zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, none)),
+    ?m(L when is_list(L), zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, none)),
     ?m(ok, zlib:deflateParams(Z1, best_compression, huffman_only)),
-    ?m(_, zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, sync)),
+    ?m(L when is_list(L), zlib:deflate(Z1, <<1,1,1,1,1,1,1,1,1>>, sync)),
     ?m(ok, zlib:close(Z1)).
 
 %% Test deflate.
@@ -367,14 +348,6 @@ api_inflateGetDictionary_if_supported(true) ->
     ?m(?EXIT(not_initialized), zlib:inflateSetDictionary(Z3, Dict)),
 
     ok.
-
-clobber(N, Bin) when is_binary(Bin) ->
-    T = list_to_tuple(binary_to_list(Bin)),
-    Byte = case element(N, T) of
-	       255 -> 254;
-	       B -> B+1
-	   end,
-    list_to_binary(tuple_to_list(setelement(N, T, Byte))).
 
 %% Test inflateReset.
 api_inflateReset(Config) when is_list(Config) ->
@@ -536,8 +509,8 @@ api_crc32(Config) when is_list(Config) ->
     Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1,best_speed,deflated,-15,8,default)),
     Bin = <<1,1,1,1,1,1,1,1,1>>,
-    Compressed1 = ?m(_, zlib:deflate(Z1, Bin, none)),
-    Compressed2 = ?m(_, zlib:deflate(Z1, <<>>, finish)),
+    Compressed1 = ?m(L when is_list(L), zlib:deflate(Z1, Bin, none)),
+    Compressed2 = ?m(L when is_list(L), zlib:deflate(Z1, <<>>, finish)),
     Compressed = list_to_binary(Compressed1 ++ Compressed2),
     CRC1 = ?m( CRC1 when is_integer(CRC1), zlib:crc32(Z1)),
     ?m(CRC1 when is_integer(CRC1), zlib:crc32(Z1,Bin)),
@@ -562,8 +535,8 @@ api_adler32(Config) when is_list(Config) ->
     Z1 = zlib:open(),
     ?m(ok, zlib:deflateInit(Z1,best_speed,deflated,-15,8,default)),
     Bin = <<1,1,1,1,1,1,1,1,1>>,
-    Compressed1 = ?m(_, zlib:deflate(Z1, Bin, none)),
-    Compressed2 = ?m(_, zlib:deflate(Z1, <<>>, finish)),
+    Compressed1 = ?m(L when is_list(L), zlib:deflate(Z1, Bin, none)),
+    Compressed2 = ?m(L when is_list(L), zlib:deflate(Z1, <<>>, finish)),
     Compressed = list_to_binary(Compressed1 ++ Compressed2),
     ?m(ADLER1 when is_integer(ADLER1), zlib:adler32(Z1,Bin)),
     ?m(ADLER1 when is_integer(ADLER1), zlib:adler32(Z1,binary_to_list(Bin))),
@@ -609,7 +582,48 @@ api_un_zip(Config) when is_list(Config) ->
     ?m(Bin, zlib:unzip(binary_to_list(Comp))),
 
     %% OTP-6396
-    B = <<131,104,19,100,0,13,99,95,99,105,100,95,99,115,103,115,110,95,50,97,1,107,0,4,208,161,246,29,107,0,3,237,166,224,107,0,6,66,240,153,0,2,10,1,0,8,97,116,116,97,99,104,101,100,104,2,100,0,22,117,112,100,97,116,101,95,112,100,112,95,99,111,110,116,101,120,116,95,114,101,113,107,0,114,69,3,12,1,11,97,31,113,150,64,104,132,61,64,104,12,3,197,31,113,150,64,104,132,61,64,104,12,1,11,97,31,115,150,64,104,116,73,64,104,0,0,0,0,0,0,65,149,16,61,65,149,16,61,1,241,33,4,5,0,33,4,4,10,6,10,181,4,10,6,10,181,38,15,99,111,109,109,97,110,100,1,114,45,97,112,110,45,49,3,99,111,109,5,109,110,99,57,57,6,109,99,99,50,52,48,4,103,112,114,115,8,0,104,2,104,2,100,0,8,97,99,116,105,118,97,116,101,104,23,100,0,11,112,100,112,95,99,111,110,116,1,120,116,100,0,7,112,114,105,109,97,114,121,97,1,100,0,9,117,110,100,101,102,105,110,101,100,97,1,97,4,97,4,97,7,100,0,9,117,110,100,101,102,105,110,101,100,100,0,9,117,110,100,101,102,105,110,10100,100,0,9,117,110,100,101,102,105,110,101,100,100,0,5,102,97,108,115,101,100,0,9,117,110,100,101,102,105,110,101,100,100,0,9,117,110,100,101,102,105,110,101,100,100,0,9,117,110,100,101,102,105,1,101,100,97,0,100,0,9,117,110,100,101,102,105,110,101,100,107,0,4,16,0,1,144,107,0,4,61,139,186,181,107,0,4,10,8,201,49,100,0,9,117,110,100,101,102,105,110,101,100,100,0,9,117,110,100,101,102,105,0,101,100,100,0,9,117,110,100,101,102,105,110,101,100,104,2,104,3,98,0,0,7,214,97,11,97,20,104,3,97,17,97,16,97,21,106,108,0,0,0,3,104,2,97,1,104,2,104,3,98,0,0,7,214,97,11,97,20,104,3,97,17,97,167,20,104,2,97,4,104,2,104,3,98,0,0,7,214,97,11,97,20,104,3,97,17,97,16,97,21,104,2,97,10,104,2,104,3,98,0,0,7,214,97,11,97,20,104,3,97,17,97,16,97,26,106,100,0,5,118,101,114,57,57,100,0,9,117,110,0,101,102,105,110,101,100,107,0,2,0,244,107,0,4,10,6,102,195,107,0,4,10,6,102,195,100,0,9,117,110,100,101,102,105,110,101,100,100,0,9,117,110,100,101,102,105,110,101,100,107,0,125,248,143,0,203,25115,157,116,65,185,65,172,55,87,164,88,225,50,203,251,115,157,116,65,185,65,172,55,87,164,88,225,50,0,0,82,153,50,0,200,98,87,148,237,193,185,65,149,167,69,144,14,16,153,50,3,81,70,94,13,109,193,1,120,5,181,113,198,118,50,3,81,70,94,13,109,193,185,120,5,181,113,198,118,153,3,81,70,94,13,109,193,185,120,5,181,113,198,118,153,50,16,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,113,92,2,119,128,0,0,108,0,0,1,107,0,114,69,3,12,1,11,97,31,113,150,64,104,132,61,64,104,12,3,11,97,31,113,150,64,104,132,61,64,104,12,1,11,97,31,115,150,64,104,116,73,64,104,0,0,0,0,0,0,65,149,16,61,65,149,16,61,1,241,33,4,0,33,4,4,10,6,10,181,4,10,6,10,181,38,15,99,111,109,109,97,110,100,101,114,45,97,112,110,45,49,3,99,111,109,5,109,110,99,57,57,6,109,99,99,50,52,48,4,103,112,114,115,8,0,106>>,
+    B =
+        <<131,104,19,100,0,13,99,95,99,105,100,95,99,115,103,115,110,95,50,97,
+          1,107,0,4,208,161,246,29,107,0,3,237,166,224,107,0,6,66,240,153,0,2,
+          10,1,0,8,97,116,116,97,99,104,101,100,104,2,100,0,22,117,112,100,97,
+          116,101,95,112,100,112,95,99,111,110,116,101,120,116,95,114,101,113,
+          107,0,114,69,3,12,1,11,97,31,113,150,64,104,132,61,64,104,12,3,197,
+          31,113,150,64,104,132,61,64,104,12,1,11,97,31,115,150,64,104,116,73,
+          64,104,0,0,0,0,0,0,65,149,16,61,65,149,16,61,1,241,33,4,5,0,33,4,4,10
+          ,6,10,181,4,10,6,10,181,38,15,99,111,109,109,97,110,100,1,114,45,97,
+          112,110,45,49,3,99,111,109,5,109,110,99,57,57,6,109,99,99,50,52,48,4,
+          103,112,114,115,8,0,104,2,104,2,100,0,8,97,99,116,105,118,97,116,101,
+          104,23,100,0,11,112,100,112,95,99,111,110,116,1,120,116,100,0,7,112,
+          114,105,109,97,114,121,97,1,100,0,9,117,110,100,101,102,105,110,101,
+          100,97,1,97,4,97,4,97,7,100,0,9,117,110,100,101,102,105,110,101,100,
+          100,0,9,117,110,100,101,102,105,110,10100,100,0,9,117,110,100,101,
+          102,105,110,101,100,100,0,5,102,97,108,115,101,100,0,9,117,110,100,
+          101,102,105,110,101,100,100,0,9,117,110,100,101,102,105,110,101,100,
+          100,0,9,117,110,100,101,102,105,1,101,100,97,0,100,0,9,117,110,100,
+          101,102,105,110,101,100,107,0,4,16,0,1,144,107,0,4,61,139,186,181,
+          107,0,4,10,8,201,49,100,0,9,117,110,100,101,102,105,110,101,100,100,
+          0,9,117,110,100,101,102,105,0,101,100,100,0,9,117,110,100,101,102,
+          105,110,101,100,104,2,104,3,98,0,0,7,214,97,11,97,20,104,3,97,17,97,
+          16,97,21,106,108,0,0,0,3,104,2,97,1,104,2,104,3,98,0,0,7,214,97,11,
+          97,20,104,3,97,17,97,167,20,104,2,97,4,104,2,104,3,98,0,0,7,214,97,
+          11,97,20,104,3,97,17,97,16,97,21,104,2,97,10,104,2,104,3,98,0,0,7,
+          214,97,11,97,20,104,3,97,17,97,16,97,26,106,100,0,5,118,101,114,57,
+          57,100,0,9,117,110,0,101,102,105,110,101,100,107,0,2,0,244,107,0,4,
+          10,6,102,195,107,0,4,10,6,102,195,100,0,9,117,110,100,101,102,105,
+          110,101,100,100,0,9,117,110,100,101,102,105,110,101,100,107,0,125,
+          248,143,0,203,25115,157,116,65,185,65,172,55,87,164,88,225,50,203,
+          251,115,157,116,65,185,65,172,55,87,164,88,225,50,0,0,82,153,50,0,
+          200,98,87,148,237,193,185,65,149,167,69,144,14,16,153,50,3,81,70,94,
+          13,109,193,1,120,5,181,113,198,118,50,3,81,70,94,13,109,193,185,120,
+          5,181,113,198,118,153,3,81,70,94,13,109,193,185,120,5,181,113,198,
+          118,153,50,16,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,113,92,2,119,128,0,0,
+          108,0,0,1,107,0,114,69,3,12,1,11,97,31,113,150,64,104,132,61,64,104,
+          12,3,11,97,31,113,150,64,104,132,61,64,104,12,1,11,97,31,115,150,64,
+          104,116,73,64,104,0,0,0,0,0,0,65,149,16,61,65,149,16,61,1,241,33,4,0,
+          33,4,4,10,6,10,181,4,10,6,10,181,38,15,99,111,109,109,97,110,100,101,
+          114,45,97,112,110,45,49,3,99,111,109,5,109,110,99,57,57,6,109,99,99,
+          50,52,48,4,103,112,114,115,8,0,106>>,
+
     Z = zlib:zip(B),
     ?m(B, zlib:unzip(Z)).
 
@@ -680,7 +694,7 @@ large_deflate_do() ->
 zip_usage(Config) when is_list(Config) ->
     zip_usage(zip_usage({get_arg,Config}));
 zip_usage({get_arg,Config}) ->
-    Out = conf(data_dir,Config),
+    Out = get_data_dir(Config),
     {ok,ZIP} = file:read_file(filename:join(Out,"zipdoc.zip")),
     {ok,ORIG} = file:read_file(filename:join(Out,"zipdoc")),
     {run,ZIP,ORIG};
@@ -751,7 +765,7 @@ zip_usage({run,ZIP,ORIG}) ->
 gz_usage(Config) when is_list(Config) ->
     gz_usage(gz_usage({get_arg,Config}));
 gz_usage({get_arg,Config}) ->
-    Out = conf(data_dir,Config),
+    Out = get_data_dir(Config),
     {ok,GZIP} = file:read_file(filename:join(Out,"zipdoc.1.gz")),
     {ok,ORIG} = file:read_file(filename:join(Out,"zipdoc")),
     {ok,GZIP2} = file:read_file(filename:join(Out,"zipdoc.txt.gz")),
@@ -772,7 +786,7 @@ gz_usage2(Config) ->
     case os:find_executable("gzip") of
 	Name when is_list(Name) ->
 	    Z = zlib:open(),
-	    Out = conf(data_dir,Config),
+	    Out = get_data_dir(Config),
 	    {ok,ORIG} = file:read_file(filename:join(Out,"zipdoc")),
 	    Compressed = zlib:gzip(ORIG),
 	    GzOutFile = filename:join(Out,"out.gz"),
@@ -800,7 +814,7 @@ gz_usage2(Config) ->
 compress_usage(Config) when is_list(Config) ->
     compress_usage(compress_usage({get_arg,Config}));
 compress_usage({get_arg,Config}) ->
-    Out = conf(data_dir,Config),
+    Out = get_data_dir(Config),
     {ok,C1} = file:read_file(filename:join(Out,"png-compressed.zlib")),
     {run,C1};
 compress_usage({run,C1}) ->
@@ -855,7 +869,7 @@ compress_usage({run,C1}) ->
 crc(Config) when is_list(Config) ->
     crc(crc({get_arg,Config}));
 crc({get_arg,Config}) ->
-    Out = conf(data_dir,Config),
+    Out = get_data_dir(Config),
     {ok,C1} = file:read_file(filename:join(Out,"zipdoc")),
     {run,C1};
 crc({run,C1}) ->
@@ -884,7 +898,7 @@ crc({run,C1}) ->
 adler(Config) when is_list(Config) ->
     adler(adler({get_arg,Config}));
 adler({get_arg,Config}) ->
-    Out = conf(data_dir,Config),
+    Out = get_data_dir(Config),
     File1 = filename:join(Out,"zipdoc"),
     {ok,C1} = file:read_file(File1),
     {run,C1};
@@ -933,7 +947,7 @@ dictionary_usage({run}) ->
     Z2 = zlib:open(),
     ?m(ok, zlib:inflateInit(Z2)),
 
-    ?EXIT({need_dictionary, DictID}) = (catch zlib:inflate(Z2, Compressed)),
+    ?m(?EXIT({need_dictionary, DictID}), zlib:inflate(Z2, Compressed)),
 
     ?m(ok, zlib:inflateSetDictionary(Z2, Dict)),
     ?m(ok, zlib:inflateSetDictionary(Z2, binary_to_list(Dict))),
@@ -964,7 +978,7 @@ only_allow_owner(Config) when is_list(Config) ->
         {'DOWN', Ref, process, Pid, _Reason} ->
             ok
     after 200 ->
-        ?error("Spawned worker timed out.", [])
+        ct:fail("Spawned worker timed out.")
     end,
 
     ?m(ok, zlib:inflateReset(Z)).
@@ -982,29 +996,31 @@ sub_heap_binaries(Config) when is_list(Config) ->
 %% Check concurrent access to zlib driver.
 smp(Config) ->
     case erlang:system_info(smp_support) of
-	true ->
-	    NumOfProcs = lists:min([8,erlang:system_info(schedulers)]),
-	    io:format("smp starting ~p workers\n",[NumOfProcs]),
+        true ->
+            NumOfProcs = lists:min([8,erlang:system_info(schedulers)]),
+            io:format("smp starting ~p workers\n",[NumOfProcs]),
 
-	    %% Tests to run in parallel.
-	    Funcs = [zip_usage, gz_usage, compress_usage, dictionary_usage,
-		     crc, adler],
+            %% Tests to run in parallel.
+            Funcs =
+                [zip_usage, gz_usage, compress_usage, dictionary_usage,
+                 crc, adler],
 
-	    %% We get all function arguments here to avoid repeated parallel
-	    %% file read access.
-	    FnAList = lists:map(fun(F) -> {F,?MODULE:F({get_arg,Config})}
-				end, Funcs),	    
+            %% We get all function arguments here to avoid repeated parallel
+            %% file read access.
+            UsageArgs =
+                list_to_tuple([{F, ?MODULE:F({get_arg,Config})} || F <- Funcs]),
+            Parent = self(),
 
-	    Pids = [spawn_link(?MODULE, worker, [rand:uniform(9999),
-						 list_to_tuple(FnAList),
-						 self()])
-		    || _ <- lists:seq(1,NumOfProcs)],
-	    wait_pids(Pids);
+            WorkerFun =
+                fun() ->
+                    worker(rand:uniform(9999), UsageArgs, Parent)
+                end,
 
-	false ->
-	    {skipped,"No smp support"}
+            Pids = [spawn_link(WorkerFun) || _ <- lists:seq(1, NumOfProcs)],
+            wait_pids(Pids);
+        false ->
+            {skipped,"No smp support"}
     end.
-
 
 worker(Seed, FnATpl, Parent) ->
     io:format("smp worker ~p, seed=~p~n",[self(),Seed]),
@@ -1171,40 +1187,15 @@ measure_perf_counter(Fun, Unit) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Helps with testing directly %%%%%%%%%%%%%
 
-conf(What,Config) ->
-    try proplists:get_value(What,Config) of
-	undefined ->
-	    "./zlib_SUITE_data";
-	Dir ->
-	    Dir
+get_data_dir(Config) ->
+    try proplists:get_value(data_dir,Config) of
+        undefined ->
+            "./zlib_SUITE_data";
+        Dir ->
+            Dir
     catch
-	_:_ -> "./zlib_SUITE_data"
+        _:_ -> "./zlib_SUITE_data"
     end.
-
-t() -> t([all]).
-
-t(What) when not is_list(What) ->
-    t([What]);
-t(What) ->
-    lists:foreach(fun(T) ->
-			  try ?MODULE:T([])
-			  catch _E:_R ->
-				  Line = get(test_server_loc),
-				  io:format("Failed ~p:~p ~p ~p ~p~n", 
-					    [T,Line,_E,_R, erlang:get_stacktrace()])
-			  end
-		  end, expand(What)).
-
-expand(All) ->
-    lists:reverse(expand(All,[])).
-expand([H|T], Acc)  -> 
-    case ?MODULE:H(suite) of
-	[] -> expand(T,[H|Acc]);
-	Cs -> 
-	    R = expand(Cs, Acc),
-	    expand(T, R)
-    end;
-expand([], Acc) -> Acc.
 
 %% Generates a bunch of statistically random bytes using the size as seed.
 gen_determ_rand_bytes(Size) ->
