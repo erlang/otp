@@ -339,6 +339,13 @@ system_limit(Config) when is_list(Config) ->
     {'EXIT',{system_limit,_}} = (catch apply(erlang, id('bsl'), [Maxbig,2])),
     {'EXIT',{system_limit,_}} = (catch id(1) bsl (1 bsl 45)),
     {'EXIT',{system_limit,_}} = (catch id(1) bsl (1 bsl 69)),
+
+    %% There should be no system_limit exception when shifting a zero.
+    0 = id(0) bsl (1 bsl 128),
+    0 = id(0) bsr -(1 bsl 128),
+    Erlang = id(erlang),
+    0 = Erlang:'bsl'(id(0), 1 bsl 128),
+    0 = Erlang:'bsr'(id(0), -(1 bsl 128)),
     ok.
 
 maxbig() ->

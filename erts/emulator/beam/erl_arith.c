@@ -276,8 +276,12 @@ shift(Process* p, Eterm arg1, Eterm arg2, int right)
 		goto do_bsl;
 	    } else if (is_small(arg1) || is_big(arg1)) {
 		/*
-		 * N bsl PositiveBigNum is too large to represent.
+		 * N bsl PositiveBigNum is too large to represent,
+                 * unless N is 0.
 		 */
+                if (arg1 == make_small(0)) {
+                    BIF_RET(arg1);
+                }
 		BIF_ERROR(p, SYSTEM_LIMIT);
 	    }
 	     /* Fall through if the left argument is not an integer. */
