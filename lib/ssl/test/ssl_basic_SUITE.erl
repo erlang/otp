@@ -370,6 +370,11 @@ init_per_testcase(TestCase, Config) when TestCase == psk_cipher_suites;
 					 TestCase == anonymous_cipher_suites;
 					 TestCase == psk_anon_cipher_suites;
 					 TestCase == psk_anon_with_hint_cipher_suites;
+                                         TestCase == srp_cipher_suites,
+                                         TestCase == srp_anon_cipher_suites,
+                                         TestCase == srp_dsa_cipher_suites,
+                                         TestCase == des_rsa_cipher_suites,
+                                         TestCase == des_ecdh_rsa_cipher_suites,
 					 TestCase == versions_option,
 					 TestCase == tls_tcp_connect_big ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
