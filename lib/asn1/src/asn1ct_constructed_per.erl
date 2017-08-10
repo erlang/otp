@@ -985,9 +985,11 @@ gen_enc_components_call1(Gen, TopType, [C|Rest], DynamicEnc, Ext) ->
 		   Imm1;
 	       'OPTIONAL' ->
 		   enc_absent(Gen, Element, [asn1_NOVALUE], Imm1);
-	       {'DEFAULT',Def} ->
+	       {'DEFAULT',Def} when Ext =:= noext ->
 		   DefValues = def_values(Type, Def),
-		   enc_absent(Gen, Element, DefValues, Imm1)
+		   enc_absent(Gen, Element, DefValues, Imm1);
+               {'DEFAULT',_} ->
+		   enc_absent(Gen, Element, [asn1_DEFAULT], Imm1)
 	   end,
     Imm = case Imm2 of
 	      [] -> [];
