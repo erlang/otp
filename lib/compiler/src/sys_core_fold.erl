@@ -94,9 +94,10 @@
 -endif.
 
 %% Variable value info.
--record(sub, {v=[],                                 %Variable substitutions
+-record(sub, {v=#{} :: map(),                       %Variable substitutions
               s=cerl_sets:new() :: cerl_sets:set(), %Variables in scope
               t=#{} :: map(),                       %Types
+              c=-1 :: neg_integer(),		    %Negative var counter
               in_guard=false}).                     %In guard or not.
 
 -type type_info() :: cerl:cerl() | 'bool' | 'integer'.
@@ -1405,7 +1406,7 @@ is_subst(_) -> false.
 %%
 %%  We use the variable name as key so as not have problems with
 %%  annotations.  When adding a new substitute we fold substitute
-%%  chains so we never have to search more than once.  Use orddict so
+%%  chains so we never have to search more than once.  Use map so
 %%  we know the format.
 %%
 %%  In addition to the list of substitutions, we also keep track of
@@ -1416,15 +1417,15 @@ is_subst(_) -> false.
 %%  to force renaming if variables in the scope occurs as pattern
 %%  variables.
 
-sub_new() -> #sub{v=orddict:new(),s=cerl_sets:new(),t=#{}}.
+sub_new() -> #sub{v=#{},s=cerl_sets:new(),t=#{}}.
 
 sub_new(#sub{}=Sub) ->
-    Sub#sub{v=orddict:new(),t=#{}}.
+    Sub#sub{}.
 
 sub_get_var(#c_var{name=V}=Var, #sub{v=S}) ->
-    case orddict:find(V, S) of
-	{ok,Val} -> Val;
-	error -> Var
+    case S of
+	#{V := Val} -> Val;
+	_ -> Var
     end.
 
 sub_set_var(#c_var{name=V}, Val, Sub) ->
@@ -1433,7 +1434,7 @@ sub_set_var(#c_var{name=V}, Val, Sub) ->
 sub_set_name(V, Val, #sub{v=S,s=Scope,t=Tdb0}=Sub) ->
     Tdb1 = kill_types(V, Tdb0),
     Tdb = copy_type(V, Val, Tdb1),
-    Sub#sub{v=orddict:store(V, Val, S),s=cerl_sets:add_element(V, Scope),t=Tdb}.
+    Sub#sub{v=maps:put(V, Val, S),s=cerl_sets:add_element(V, Scope),t=Tdb}.
 
 sub_del_var(#c_var{name=V}, #sub{v=S,s=Scope,t=Tdb}=Sub) ->
     %% Profiling shows that for programs with many record operations,
@@ -1444,12 +1445,12 @@ sub_del_var(#c_var{name=V}, #sub{v=S,s=Scope,t=Tdb}=Sub) ->
 	false ->
 	    Sub#sub{s=cerl_sets:add_element(V, Scope)};
 	true ->
-	    Sub#sub{v=orddict:erase(V, S),t=kill_types(V, Tdb)}
+	    Sub#sub{v=maps:remove(V, S),t=kill_types(V, Tdb)}
     end.
 
 sub_subst_var(#c_var{name=V}, Val, #sub{v=S0}) ->
     %% Fold chained substitutions.
-    [{V,Val}] ++ [ {K,Val} || {K,#c_var{name=V1}} <- S0, V1 =:= V].
+    [{V,Val}] ++ [ {K,Val} || {K,#c_var{name=V1}} <- maps:to_list(S0), V1 =:= V].
 
 sub_add_scope(Vs, #sub{s=Scope0}=Sub) ->
     Scope = foldl(fun(V, S) when is_integer(V); is_atom(V) ->
@@ -1457,27 +1458,21 @@ sub_add_scope(Vs, #sub{s=Scope0}=Sub) ->
 		  end, Scope0, Vs),
     Sub#sub{s=Scope}.
 
-sub_subst_scope(#sub{v=S0,s=Scope}=Sub) ->
-    Initial = case S0 of
-                  [{NegInt,_}|_] when is_integer(NegInt), NegInt < 0 ->
-                      NegInt - 1;
-                  _ ->
-                      -1
-              end,
-    S = sub_subst_scope_1(cerl_sets:to_list(Scope), Initial, S0),
-    Sub#sub{v=orddict:from_list(S)}.
+sub_subst_scope(#sub{v=V0,s=Scope,c=C0}=Sub) ->
+    {C,V} = sub_subst_scope_1(cerl_sets:to_list(Scope), C0, V0),
+    Sub#sub{v=V,c=C}.
 
-%% The keys in an orddict must be unique. Make them so!
+%% The keys in an maps must be unique. Make them so!
 sub_subst_scope_1([H|T], Key, Acc) ->
-    sub_subst_scope_1(T, Key-1, [{Key,#c_var{name=H}}|Acc]);
-sub_subst_scope_1([], _, Acc) -> Acc.
+    sub_subst_scope_1(T, Key-1, maps:put(Key, #c_var{name=H}, Acc));
+sub_subst_scope_1([], Key, Acc) -> {Key,Acc}.
 
 sub_is_val(#c_var{name=V}, #sub{v=S,s=Scope}) ->
     %% When the bottleneck in sub_del_var/2 was eliminated, this
     %% became the new bottleneck. Since the scope contains all
     %% live variables, a variable V can only be the target for
     %% a substitution if it is in the scope.
-    cerl_sets:is_element(V, Scope) andalso v_is_value(V, S).
+    cerl_sets:is_element(V, Scope) andalso v_is_value(V, maps:to_list(S)).
 
 v_is_value(Var, [{_,#c_var{name=Var}}|_]) -> true;
 v_is_value(Var, [_|T]) -> v_is_value(Var, T);
