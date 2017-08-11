@@ -363,16 +363,20 @@ create_disk_log(Filename, MaxBytes, MaxFiles, ConfigList) ->
 %%----------------------------------------------------------------------
 
 open(Filename, MaxBytes, MaxFiles, internal) ->
-    Opts = [{format, internal}, {repair, truncate}],
-    open1(Filename, MaxBytes, MaxFiles, Opts);
+    Opt0 = {format, internal},
+    Opts1 = [Opt0, {repair, true}],
+    Opts2 = [Opt0, {repair, truncate}],
+    open1(Filename, MaxBytes, MaxFiles, Opts1, Opts2);
 open(Filename, MaxBytes, MaxFiles, _) ->
     Opts = [{format, external}],
-    open1(Filename, MaxBytes, MaxFiles, Opts).
+    open1(Filename, MaxBytes, MaxFiles, Opts, Opts).
 
-open1(Filename, MaxBytes, MaxFiles, Opts0) ->
-    Opts1 = [{name, Filename}, {file, Filename}, {type, wrap}] ++ Opts0,
-    case open2(Opts1, {MaxBytes, MaxFiles}) of
+open1(Filename, MaxBytes, MaxFiles, Opts1, Opts2) ->
+    Opts0 = [{name, Filename}, {file, Filename}, {type, wrap}],
+    case open2(Opts0 ++ Opts1, Opts0 ++ Opts2, {MaxBytes, MaxFiles}) of
         {ok, LogDB} ->
+            {ok, LogDB};
+        {repaired, LogDB, {recovered, _}, {badbytes, _}} ->
             {ok, LogDB};
         {error, Reason} ->
             {error, 
@@ -382,11 +386,16 @@ open1(Filename, MaxBytes, MaxFiles, Opts0) ->
             {error, ?NICE("Can't create "++Filename)}
     end.
 
-open2(Opts, Size) ->
-    case disk_log:open(Opts) of
+open2(Opts1, Opts2, Size) ->
+    case disk_log:open(Opts1) of
         {error, {badarg, size}} ->
             %% File did not exist, add the size option and try again
-            disk_log:open([{size, Size} | Opts]);
+            disk_log:open([{size, Size} | Opts1]);
+        {error, {Reason, _}} when
+                Reason == not_a_log_file;
+                Reason == invalid_index_file ->
+            %% File was corrupt, add the truncate option and try again
+            disk_log:open([{size, Size} | Opts2]);
         Else ->
             Else
     end.
