@@ -384,10 +384,6 @@ cert_options(Config) ->
 			      "badkey.pem"]),
     PskSharedSecret = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
 
-    SNIServerACertFile = filename:join([proplists:get_value(priv_dir, Config), "a.server", "cert.pem"]),
-    SNIServerAKeyFile = filename:join([proplists:get_value(priv_dir, Config), "a.server", "key.pem"]),
-    SNIServerBCertFile = filename:join([proplists:get_value(priv_dir, Config), "b.server", "cert.pem"]),
-    SNIServerBKeyFile = filename:join([proplists:get_value(priv_dir, Config), "b.server", "key.pem"]),
     [{client_opts, [{cacertfile, ClientCaCertFile}, 
 		    {certfile, ClientCertFile},  
 		    {keyfile, ClientKeyFile}]}, 
@@ -445,46 +441,34 @@ cert_options(Config) ->
      {server_bad_cert, [{ssl_imp, new},{cacertfile, ServerCaCertFile},
 			{certfile, BadCertFile}, {keyfile, ServerKeyFile}]},
      {server_bad_key, [{ssl_imp, new},{cacertfile, ServerCaCertFile},
-		       {certfile, ServerCertFile}, {keyfile, BadKeyFile}]},
-     {sni_server_opts, [{sni_hosts, [
-                                     {"a.server", [
-                                                   {certfile, SNIServerACertFile},
-                                                   {keyfile, SNIServerAKeyFile}
-                                                  ]},
-                                     {"b.server", [
-                                                   {certfile, SNIServerBCertFile},
-                                                   {keyfile, SNIServerBKeyFile}
-                                                  ]}
-                                    ]}]}
+		       {certfile, ServerCertFile}, {keyfile, BadKeyFile}]}
      | Config].
 
 
-make_dsa_cert(Config) ->
-    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = 
-	make_cert_files("server", Config, dsa, dsa, "", []),
-    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = 
-	make_cert_files("client", Config, dsa, dsa, "", []),
-    [{server_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
-				 {cacertfile, ServerCaCertFile},
-				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
-     {server_dsa_verify_opts, [{ssl_imp, new},{reuseaddr, true}, 
-			       {cacertfile, ClientCaCertFile},
-			       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
-			       {verify, verify_peer}]},
-     {client_dsa_opts, [{ssl_imp, new},
-			{cacertfile, ClientCaCertFile},
-			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]},
-     {server_srp_dsa, [{ssl_imp, new},{reuseaddr, true}, 
-		       {cacertfile, ServerCaCertFile},
-		       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
-		       {user_lookup_fun, {fun user_lookup/3, undefined}},
-		       {ciphers, srp_dss_suites()}]},
-     {client_srp_dsa, [{ssl_imp, new},
-		       {srp_identity, {"Test-User", "secret"}},
-		       {cacertfile, ClientCaCertFile},
-		       {certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
-     | Config].
-
+make_dsa_cert(Config) ->  
+    CryptoSupport = crypto:supports(),
+    case proplists:get_bool(dss, proplists:get_value(public_keys, CryptoSupport)) of
+        true ->
+            ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), "dsa"]),
+            ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), "dsa"]),
+            KeyGenSpec = key_gen_info(dsa, dsa),
+            
+            GenCertData = x509_test:gen_test_certs([{digest, sha} | KeyGenSpec]),
+            [{server_config, ServerConf}, 
+             {client_config, ClientConf}] = 
+                x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),
+            
+          [{server_dsa_opts, ServerConf},
+           {server_dsa_verify_opts, [{verify, verify_peer} | ServerConf]},
+           {client_dsa_opts, ClientConf},
+           {server_srp_dsa, [{user_lookup_fun, {fun user_lookup/3, undefined}},
+                             {ciphers, srp_dss_suites()} | ServerConf]},
+           {client_srp_dsa, [{srp_identity, {"Test-User", "secret"}}
+                             | ClientConf]}
+           | Config];
+      false ->
+          Config
+  end.
 make_rsa_cert_chains(ChainConf, Config, Suffix) ->
    CryptoSupport = crypto:supports(),
     KeyGenSpec = key_gen_info(rsa, rsa),
@@ -541,6 +525,11 @@ key_gen_spec(Role, rsa) ->
     [{list_to_atom(Role ++ "_key_gen"),  hardcode_rsa_key(1)},
      {list_to_atom(Role ++ "_key_gen_chain"),  [hardcode_rsa_key(2),
                                                 hardcode_rsa_key(3)]}
+    ];
+key_gen_spec(Role, dsa) ->
+    [{list_to_atom(Role ++ "_key_gen"),  hardcode_dsa_key(1)},
+     {list_to_atom(Role ++ "_key_gen_chain"),  [hardcode_dsa_key(2),
+                                                hardcode_dsa_key(3)]}
     ].
 make_ecdsa_cert(Config) ->
     CryptoSupport = crypto:supports(),
@@ -637,41 +626,6 @@ make_ecdh_rsa_cert(Config) ->
 	_ ->
 	    Config
     end.
-
-make_mix_cert(Config) ->
-    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_cert_files("server", Config, dsa,
-									rsa, "mix", []),
-    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_cert_files("client", Config, dsa,
-									rsa, "mix", []),
-    [{server_mix_opts, [{ssl_imp, new},{reuseaddr, true},
-				 {cacertfile, ServerCaCertFile},
-				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
-     {server_mix_verify_opts, [{ssl_imp, new},{reuseaddr, true},
-			       {cacertfile, ClientCaCertFile},
-			       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
-			       {verify, verify_peer}]},
-     {client_mix_opts, [{ssl_imp, new},
-			{cacertfile, ClientCaCertFile},
-			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
-     | Config].
-
-make_cert_files(RoleStr, Config, Alg1, Alg2, Prefix, Opts) ->
-    Alg1Str = atom_to_list(Alg1),
-    Alg2Str = atom_to_list(Alg2),
-    CaInfo = {CaCert, _} = erl_make_certs:make_cert([{key, Alg1}| Opts]),
-    {Cert, CertKey} = erl_make_certs:make_cert([{key, Alg2}, {issuer, CaInfo} | Opts]),
-    CaCertFile = filename:join([proplists:get_value(priv_dir, Config), 
-				RoleStr, Prefix ++ Alg1Str ++ "_cacerts.pem"]),
-    CertFile = filename:join([proplists:get_value(priv_dir, Config), 
-			      RoleStr, Prefix ++ Alg2Str ++ "_cert.pem"]),
-    KeyFile = filename:join([proplists:get_value(priv_dir, Config), 
-				   RoleStr, Prefix ++ Alg2Str ++ "_key.pem"]),
-    
-    der_to_pem(CaCertFile, [{'Certificate', CaCert, not_encrypted}]),
-    der_to_pem(CertFile, [{'Certificate', Cert, not_encrypted}]),
-    der_to_pem(KeyFile, [CertKey]),
-    {CaCertFile, CertFile, KeyFile}.
-
 
 start_upgrade_server(Args) ->
     Result = spawn_link(?MODULE, run_upgrade_server, [Args]),
@@ -983,16 +937,10 @@ ecdh_rsa_suites(Version) ->
 		 end,
 		 available_suites(Version)).
 
-openssl_rsa_suites(CounterPart) ->
+openssl_rsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
-    Names = case is_sane_ecc(CounterPart) of
-		true ->
-		    "DSS | ECDSA";
-		false ->
-		    "DSS | ECDHE | ECDH"
-		end,
-    lists:filter(fun(Str) -> string_regex_filter(Str, Names)
-		 end, Ciphers).
+    lists:filter(fun(Str) -> string_regex_filter(Str, "RSA")
+		 end, Ciphers) -- openssl_ecdh_rsa_suites().
 
 openssl_dsa_suites() ->
     Ciphers = ssl:cipher_suites(openssl),
@@ -1026,11 +974,11 @@ string_regex_filter(_Str, _Search) ->
     false.
 
 anonymous_suites(Version) ->
-    Suites = ssl_cipher:anonymous_suites(Version),
+    Suites = [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:anonymous_suites(Version)],
     ssl_cipher:filter_suites(Suites).
 
 psk_suites(Version) ->
-    Suites = ssl_cipher:psk_suites(Version),
+    Suites = [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:psk_suites(Version)],
     ssl_cipher:filter_suites(Suites).
 
 psk_anon_suites(Version) ->
@@ -1062,7 +1010,7 @@ srp_dss_suites() ->
     ssl_cipher:filter_suites(Suites).
 
 rc4_suites(Version) ->
-    Suites = ssl_cipher:rc4_suites(Version),
+    Suites = [ssl_cipher:erl_suite_definition(S) || S <- ssl_cipher:rc4_suites(Version)],
     ssl_cipher:filter_suites(Suites).
 
 des_suites(Version) ->
@@ -1367,6 +1315,12 @@ version_flag('dtlsv1.2') ->
 version_flag('dtlsv1') ->
     "-dtls1".
 
+filter_suites([Cipher | _] = Ciphers, AtomVersion) when is_list(Cipher)->
+    filter_suites([ssl_cipher:openssl_suite(S) || S <- Ciphers], 
+                  AtomVersion);
+filter_suites([Cipher | _] = Ciphers, AtomVersion) when is_binary(Cipher)->
+    filter_suites([ssl_cipher:erl_suite_definition(S) || S <- Ciphers], 
+                  AtomVersion);
 filter_suites(Ciphers0, AtomVersion) ->
     Version = tls_version(AtomVersion),
     Supported0 = ssl_cipher:suites(Version)
@@ -1611,6 +1565,27 @@ hardcode_rsa_key(6) ->
                  81173034184183681160439870161505779100040258708276674532866007896310418779840630960490793104541748007902477778658270784073595697910785917474138815202903114440800310078464142273778315781957021015333260021813037604142367434117205299831740956310682461174553260184078272196958146289378701001596552915990080834227,
                  asn1_NOVALUE}.
 
+hardcode_dsa_key(1) -> 
+    {'DSAPrivateKey',0,
+     99438313664986922963487511141216248076486724382260996073922424025828494981416579966171753999204426907349400798052572573634137057487829150578821328280864500098312146772602202702021153757550650696224643730869835650674962433068943942837519621267815961566259265204876799778977478160416743037274938277357237615491,
+     1454908511695148818053325447108751926908854531909,
+     20302424198893709525243209250470907105157816851043773596964076323184805650258390738340248469444700378962907756890306095615785481696522324901068493502141775433048117442554163252381401915027666416630898618301033737438756165023568220631119672502120011809327566543827706483229480417066316015458225612363927682579,
+     48598545580251057979126570873881530215432219542526130654707948736559463436274835406081281466091739849794036308281564299754438126857606949027748889019480936572605967021944405048011118039171039273602705998112739400664375208228641666852589396502386172780433510070337359132965412405544709871654840859752776060358,
+     1457508827177594730669011716588605181448418352823};
+hardcode_dsa_key(2) -> 
+    {'DSAPrivateKey',0,
+     145447354557382582722944332987784622105075065624518040072393858097520305927329240484963764783346271194321683798321743658303478090647837211867389721684646254999291098347011037298359107547264573476540026676832159205689428125157386525591130716464335426605521884822982379206842523670736739023467072341958074788151,
+     742801637799670234315651916144768554943688916729,
+     79727684678125120155622004643594683941478642656111969487719464672433839064387954070113655822700268007902716505761008423792735229036965034283173483862273639257533568978482104785033927768441235063983341565088899599358397638308472931049309161811156189887217888328371767967629005149630676763492409067382020352505,
+     35853727034965131665219275925554159789667905059030049940938124723126925435403746979702929280654735557166864135215989313820464108440192507913554896358611966877432546584986661291483639036057475682547385322659469460385785257933737832719745145778223672383438466035853830832837226950912832515496378486927322864228,
+     801315110178350279541885862867982846569980443911};
+hardcode_dsa_key(3) -> 
+    {'DSAPrivateKey',0,
+     99438313664986922963487511141216248076486724382260996073922424025828494981416579966171753999204426907349400798052572573634137057487829150578821328280864500098312146772602202702021153757550650696224643730869835650674962433068943942837519621267815961566259265204876799778977478160416743037274938277357237615491,
+     1454908511695148818053325447108751926908854531909,
+     20302424198893709525243209250470907105157816851043773596964076323184805650258390738340248469444700378962907756890306095615785481696522324901068493502141775433048117442554163252381401915027666416630898618301033737438756165023568220631119672502120011809327566543827706483229480417066316015458225612363927682579,
+     48598545580251057979126570873881530215432219542526130654707948736559463436274835406081281466091739849794036308281564299754438126857606949027748889019480936572605967021944405048011118039171039273602705998112739400664375208228641666852589396502386172780433510070337359132965412405544709871654840859752776060358,
+     1457508827177594730669011716588605181448418352823}.
 
 dtls_hello() ->
     [1,

@@ -335,7 +335,9 @@ all_suites(Version) ->
 
 anonymous_suites({3, N}) ->
     anonymous_suites(N);
-
+anonymous_suites({254, _} = Version) ->
+    anonymous_suites(dtls_v1:corresponding_tls_version(Version))
+        -- [?TLS_DH_anon_WITH_RC4_128_MD5];
 anonymous_suites(N)
   when N >= 3 ->
     [?TLS_DH_anon_WITH_AES_128_GCM_SHA256,

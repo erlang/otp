@@ -142,12 +142,11 @@ init_per_suite(Config0) ->
 	    catch crypto:stop(),
 	    try crypto:start() of
 		ok ->
-		    ssl_test_lib:clean_start(),
-		    {ok,  _} = make_certs:all(proplists:get_value(data_dir, Config0),
-					      proplists:get_value(priv_dir, Config0)),
-		    Config1 = ssl_test_lib:make_dsa_cert(Config0),
-		    Config = ssl_test_lib:cert_options(Config1),
-		    ssl_test_lib:cipher_restriction(Config)
+                    ssl_test_lib:clean_start(),
+                  
+                    Config1 = ssl_test_lib:make_rsa_cert(Config0),
+                    Config2 = ssl_test_lib:make_dsa_cert(Config1),
+                    ssl_test_lib:cipher_restriction(Config2)
 		catch _:_  ->
 		    {skip, "Crypto did not start"}
 	    end
@@ -270,13 +269,24 @@ special_init(TestCase, Config)
 	    check_openssl_npn_support(Config)
     end;
 
-special_init(TestCase, Config)
+special_init(TestCase, Config0)
   when TestCase == erlang_server_openssl_client_sni_match;
        TestCase == erlang_server_openssl_client_sni_no_match;
        TestCase == erlang_server_openssl_client_sni_no_header;
        TestCase == erlang_server_openssl_client_sni_match_fun;
        TestCase == erlang_server_openssl_client_sni_no_match_fun;
        TestCase == erlang_server_openssl_client_sni_no_header_fun ->
+    RsaOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config0),
+    Config = [{sni_server_opts, [{sni_hosts,
+                                  [{"a.server", [
+                                                 {certfile, proplists:get_value(certfile, RsaOpts)},
+                                                 {keyfile,  proplists:get_value(keyfile, RsaOpts)}
+                                                ]},
+                                   {"b.server", [
+                                                 {certfile, proplists:get_value(certfile, RsaOpts)},
+                                                 {keyfile, proplists:get_value(keyfile, RsaOpts)}
+                                                ]}
+                                  ]}]} | Config0], 
     check_openssl_sni_support(Config);
 
 special_init(_, Config) ->
@@ -295,8 +305,8 @@ basic_erlang_client_openssl_server() ->
     [{doc,"Test erlang client with openssl server"}].
 basic_erlang_client_openssl_server(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -335,7 +345,7 @@ basic_erlang_server_openssl_client() ->
     [{doc,"Test erlang server with openssl client"}].
 basic_erlang_server_openssl_client(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     V2Compat = proplists:get_value(v2_hello_compatible, Config), 
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -369,8 +379,8 @@ erlang_client_openssl_server() ->
     [{doc,"Test erlang client with openssl server"}].
 erlang_client_openssl_server(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -409,7 +419,7 @@ erlang_server_openssl_client() ->
     [{doc,"Test erlang server with openssl client"}].
 erlang_server_openssl_client(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -442,7 +452,7 @@ erlang_client_openssl_server_dsa_cert() ->
 erlang_client_openssl_server_dsa_cert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ClientOpts = ssl_test_lib:ssl_options(client_dsa_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_dsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_dsa_verify_opts, Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
   
@@ -524,7 +534,7 @@ erlang_server_openssl_client_reuse_session() ->
      "same session id, to test reusing of sessions."}].
 erlang_server_openssl_client_reuse_session(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -562,8 +572,8 @@ erlang_client_openssl_server_renegotiate() ->
     [{doc,"Test erlang client when openssl server issuses a renegotiate"}].
 erlang_client_openssl_server_renegotiate(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -612,8 +622,8 @@ erlang_client_openssl_server_nowrap_seqnum() ->
      " to lower treashold substantially."}].
 erlang_client_openssl_server_nowrap_seqnum(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -655,7 +665,7 @@ erlang_server_openssl_client_nowrap_seqnum() ->
      " to lower treashold substantially."}].
 erlang_server_openssl_client_nowrap_seqnum(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -694,8 +704,8 @@ erlang_client_openssl_server_no_server_ca_cert() ->
      "implicitly tested eleswhere."}].
 erlang_client_openssl_server_no_server_ca_cert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -735,8 +745,8 @@ erlang_client_openssl_server_client_cert() ->
     [{doc,"Test erlang client with openssl server when client sends cert"}].
 erlang_client_openssl_server_client_cert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -778,8 +788,8 @@ erlang_server_openssl_client_client_cert() ->
     [{doc,"Test erlang server with openssl client when client sends cert"}].
 erlang_server_openssl_client_client_cert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -819,8 +829,8 @@ erlang_server_erlang_client_client_cert() ->
     [{doc,"Test erlang server with erlang client when client sends cert"}].
 erlang_server_erlang_client_client_cert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = proplists:get_value(server_verification_opts, Config),  
-    ClientOpts = proplists:get_value(client_verification_opts, Config),  
+    ServerOpts = proplists:get_value(server_rsa_verify_opts, Config),  
+    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),  
     Version = ssl_test_lib:protocol_version(Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -873,8 +883,8 @@ erlang_client_bad_openssl_server() ->
     [{doc,"Test what happens if openssl server sends garbage to erlang ssl client"}].
 erlang_client_bad_openssl_server(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_verification_opts, Config),
-    ClientOpts = ssl_test_lib:ssl_options(client_verification_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -928,8 +938,8 @@ expired_session() ->
       "better code coverage of the ssl_manager module"}].
 expired_session(Config) when is_list(Config) -> 
     process_flag(trap_exit, true),
-    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
     Port = ssl_test_lib:inet_port(node()),
@@ -982,7 +992,7 @@ ssl2_erlang_server_openssl_client() ->
 
 ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -1007,10 +1017,10 @@ ssl2_erlang_server_openssl_client_comp() ->
 
 ssl2_erlang_server_openssl_client_comp(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     V2Compat = proplists:get_value(v2_hello_compatible, Config), 
 
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
@@ -1250,22 +1260,22 @@ erlang_server_openssl_client_npn_only_client(Config) when is_list(Config) ->
     ok.
 %--------------------------------------------------------------------------
 erlang_server_openssl_client_sni_no_header(Config) when is_list(Config) ->
-    erlang_server_openssl_client_sni_test(Config, undefined, undefined, "server").
+    erlang_server_openssl_client_sni_test(Config, undefined, undefined, "server Peer cert").
 
 erlang_server_openssl_client_sni_no_header_fun(Config) when is_list(Config) ->
-    erlang_server_openssl_client_sni_test_sni_fun(Config, undefined, undefined, "server").
+    erlang_server_openssl_client_sni_test_sni_fun(Config, undefined, undefined, "server Peer cert").
 
-erlang_server_openssl_client_sni_match(Config) when is_list(Config) ->
-    erlang_server_openssl_client_sni_test(Config, "a.server", "a.server", "a.server").
+erlang_server_openssl_client_sni_match(Config) when is_list(Config) ->  
+    erlang_server_openssl_client_sni_test(Config, "a.server", "a.server", "server Peer cert").
 
 erlang_server_openssl_client_sni_match_fun(Config) when is_list(Config) ->
-    erlang_server_openssl_client_sni_test_sni_fun(Config, "a.server", "a.server", "a.server").
+    erlang_server_openssl_client_sni_test_sni_fun(Config, "a.server", "a.server", "server Peer cert").
 
 erlang_server_openssl_client_sni_no_match(Config) when is_list(Config) ->
-    erlang_server_openssl_client_sni_test(Config, "c.server", undefined, "server").
+    erlang_server_openssl_client_sni_test(Config, "c.server", undefined, "server Peer cert").
 
 erlang_server_openssl_client_sni_no_match_fun(Config) when is_list(Config) ->
-    erlang_server_openssl_client_sni_test_sni_fun(Config, "c.server", undefined, "server").
+    erlang_server_openssl_client_sni_test_sni_fun(Config, "c.server", undefined, "server Peer cert").
 
 
 %%--------------------------------------------------------------------
@@ -1275,11 +1285,11 @@ run_suites(Ciphers, Version, Config, Type) ->
     {ClientOpts, ServerOpts} =
 	case Type of
 	    rsa ->
-		{ssl_test_lib:ssl_options(client_opts, Config),
-		 ssl_test_lib:ssl_options(server_opts, Config)};
+		{ssl_test_lib:ssl_options(client_rsa_opts, Config),
+		 ssl_test_lib:ssl_options(server_rsa_opts, Config)};
 	    dsa ->
-		{ssl_test_lib:ssl_options(client_opts, Config),
-		 ssl_test_lib:ssl_options(server_dsa_opts, Config)}
+		{ssl_test_lib:ssl_options(client_dsa_opts, Config),
+		 ssl_test_lib:ssl_options(server_dsa_verify_opts, Config)}
 	end,
 
     Result =  lists:map(fun(Cipher) ->
@@ -1332,7 +1342,7 @@ send_and_hostname(SSLSocket) ->
 
 erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
     ct:log("Start running handshake, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p", [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
-    ServerOptions = proplists:get_value(sni_server_opts, Config) ++ proplists:get_value(server_opts, Config),
+    ServerOptions = proplists:get_value(sni_server_opts, Config) ++ proplists:get_value(server_rsa_opts, Config),
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()}, {mfa, {?MODULE, send_and_hostname, []}},
@@ -1346,11 +1356,7 @@ erlang_server_openssl_client_sni_test(Config, SNIHostname, ExpectedSNIHostname, 
 			 openssl_client_args(ssl_test_lib:supports_ssl_tls_version(sslv2), Hostname, Port, SNIHostname)
 		 end,       
     ClientPort = ssl_test_lib:portable_open_port(Exe, ClientArgs),  
-    
-    %% Client check needs to be done befor server check,
-    %% or server check might consume client messages
-    ExpectedClientOutput = ["OK", "/CN=" ++ ExpectedCN ++ "/"],
-    client_check_result(ClientPort, ExpectedClientOutput),
+  
     ssl_test_lib:check_result(Server, ExpectedSNIHostname),
     ssl_test_lib:close_port(ClientPort),
     ssl_test_lib:close(Server),
@@ -1361,7 +1367,7 @@ erlang_server_openssl_client_sni_test_sni_fun(Config, SNIHostname, ExpectedSNIHo
     ct:log("Start running handshake for sni_fun, Config: ~p, SNIHostname: ~p, ExpectedSNIHostname: ~p, ExpectedCN: ~p", [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
     [{sni_hosts, ServerSNIConf}] = proplists:get_value(sni_server_opts, Config),
     SNIFun = fun(Domain) -> proplists:get_value(Domain, ServerSNIConf, undefined) end,
-    ServerOptions = proplists:get_value(server_opts, Config) ++ [{sni_fun, SNIFun}],
+    ServerOptions = proplists:get_value(server_rsa_opts, Config) ++ [{sni_fun, SNIFun}],
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                         {from, self()}, {mfa, {?MODULE, send_and_hostname, []}},
@@ -1377,10 +1383,6 @@ erlang_server_openssl_client_sni_test_sni_fun(Config, SNIHostname, ExpectedSNIHo
 
     ClientPort = ssl_test_lib:portable_open_port(Exe, ClientArgs), 
     
-    %% Client check needs to be done befor server check,
-    %% or server check might consume client messages
-    ExpectedClientOutput = ["OK", "/CN=" ++ ExpectedCN ++ "/"],
-    client_check_result(ClientPort, ExpectedClientOutput),
     ssl_test_lib:check_result(Server, ExpectedSNIHostname),
     ssl_test_lib:close_port(ClientPort),
     ssl_test_lib:close(Server).
@@ -1444,8 +1446,8 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
 
 start_erlang_client_and_openssl_server_with_opts(Config, ErlangClientOpts, OpensslServerOpts, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
-    ClientOpts0 = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ClientOpts = ErlangClientOpts ++ ClientOpts0,
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
@@ -1490,8 +1492,8 @@ start_erlang_client_and_openssl_server_with_opts(Config, ErlangClientOpts, Opens
 
 start_erlang_client_and_openssl_server_for_alpn_negotiation(Config, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts = proplists:get_value(server_opts, Config),
-    ClientOpts0 = proplists:get_value(client_opts, Config),
+    ServerOpts = proplists:get_value(server_rsa_opts, Config),
+    ClientOpts0 = proplists:get_value(client_rsa_opts, Config),
     ClientOpts = [{alpn_advertised_protocols, [<<"spdy/2">>]} | ClientOpts0],
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
@@ -1526,7 +1528,7 @@ start_erlang_client_and_openssl_server_for_alpn_negotiation(Config, Data, Callba
 
 start_erlang_server_and_openssl_client_for_alpn_negotiation(Config, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts0 = proplists:get_value(server_opts, Config),
+    ServerOpts0 = proplists:get_value(server_rsa_opts, Config),
     ServerOpts = [{alpn_preferred_protocols, [<<"spdy/2">>]} | ServerOpts0],
 
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
@@ -1555,8 +1557,8 @@ start_erlang_server_and_openssl_client_for_alpn_negotiation(Config, Data, Callba
 
 start_erlang_client_and_openssl_server_for_alpn_npn_negotiation(Config, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts = proplists:get_value(server_opts, Config),
-    ClientOpts0 = proplists:get_value(client_opts, Config),
+    ServerOpts = proplists:get_value(server_rsa_opts, Config),
+    ClientOpts0 = proplists:get_value(client_rsa_opts, Config),
     ClientOpts = [{alpn_advertised_protocols, [<<"spdy/2">>]},
         {client_preferred_next_protocols, {client, [<<"spdy/3">>, <<"http/1.1">>]}} | ClientOpts0],
 
@@ -1595,7 +1597,7 @@ start_erlang_client_and_openssl_server_for_alpn_npn_negotiation(Config, Data, Ca
 
 start_erlang_server_and_openssl_client_for_alpn_npn_negotiation(Config, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts0 = proplists:get_value(server_opts, Config),
+    ServerOpts0 = proplists:get_value(server_rsa_opts, Config),
     ServerOpts = [{alpn_preferred_protocols, [<<"spdy/2">>]},
         {next_protocols_advertised, [<<"spdy/3">>, <<"http/1.1">>]} | ServerOpts0],
 
@@ -1622,8 +1624,8 @@ start_erlang_server_and_openssl_client_for_alpn_npn_negotiation(Config, Data, Ca
 
 start_erlang_client_and_openssl_server_for_npn_negotiation(Config, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
-    ClientOpts0 = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ClientOpts = [{client_preferred_next_protocols, {client, [<<"spdy/2">>], <<"http/1.1">>}} | ClientOpts0],
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
@@ -1660,7 +1662,7 @@ start_erlang_client_and_openssl_server_for_npn_negotiation(Config, Data, Callbac
 
 start_erlang_server_and_openssl_client_for_npn_negotiation(Config, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ServerOpts = [{next_protocols_advertised, [<<"spdy/2">>]}, ServerOpts0],
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -1690,7 +1692,7 @@ start_erlang_server_and_openssl_client_for_npn_negotiation(Config, Data, Callbac
 
 start_erlang_server_and_openssl_client_with_opts(Config, ErlangServerOpts, OpenSSLClientOpts, Data, Callback) ->
     process_flag(trap_exit, true),
-    ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ServerOpts = ErlangServerOpts ++  ServerOpts0,
 
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
