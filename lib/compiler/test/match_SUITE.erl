@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 pmatch/1,mixed/1,aliases/1,non_matching_aliases/1,
 	 match_in_call/1,untuplify/1,shortcut_boolean/1,letify_guard/1,
-	 selectify/1,underscore/1,match_map/1,map_vars_used/1,
+	 selectify/1,deselectify/1,underscore/1,match_map/1,map_vars_used/1,
 	 coverage/1,grab_bag/1,literal_binary/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
@@ -38,7 +38,7 @@ groups() ->
     [{p,[parallel],
       [pmatch,mixed,aliases,non_matching_aliases,
        match_in_call,untuplify,
-       shortcut_boolean,letify_guard,selectify,
+       shortcut_boolean,letify_guard,selectify,deselectify,
        underscore,match_map,map_vars_used,coverage,
        grab_bag,literal_binary]}].
 
@@ -465,6 +465,66 @@ sel_same_value2(V) when V =:= 42; V =:= 43 ->
     integer43;
 sel_same_value2(_) ->
     error.
+
+%% Test deconstruction of select_val instructions in beam_peep into
+%% regular tests with just one possible value left. Hitting proper cases
+%% in beam_peep relies on unification of labels by beam_jump.
+
+deselectify(Config) when is_list(Config) ->
+    one_or_other = desel_tuple_arity({1}),
+    two = desel_tuple_arity({1,1}),
+    one_or_other = desel_tuple_arity({1,1,1}),
+
+    one_or_other = dsel_integer(1),
+    two = dsel_integer(2),
+    one_or_other = dsel_integer(3),
+
+    one_or_other = dsel_integer_typecheck(1),
+    two = dsel_integer_typecheck(2),
+    one_or_other = dsel_integer_typecheck(3),
+
+    one_or_other = dsel_atom(one),
+    two = dsel_atom(two),
+    one_or_other = dsel_atom(three),
+
+    one_or_other = dsel_atom_typecheck(one),
+    two = dsel_atom_typecheck(two),
+    one_or_other = dsel_atom_typecheck(three).
+
+desel_tuple_arity(Tuple) when is_tuple(Tuple) ->
+    case Tuple of
+        {_} -> one_or_other;
+        {_,_} -> two;
+        _ -> one_or_other
+    end.
+
+dsel_integer(Val) ->
+    case Val of
+        1 -> one_or_other;
+        2 -> two;
+        _ -> one_or_other
+    end.
+
+dsel_integer_typecheck(Val) when is_integer(Val) ->
+    case Val of
+        1 -> one_or_other;
+        2 -> two;
+        _ -> one_or_other
+    end.
+
+dsel_atom(Val) ->
+    case Val of
+        one -> one_or_other;
+        two -> two;
+        _ -> one_or_other
+    end.
+
+dsel_atom_typecheck(Val) when is_atom(Val) ->
+    case Val of
+        one -> one_or_other;
+        two -> two;
+        _ -> one_or_other
+    end.
 
 underscore(Config) when is_list(Config) ->
     case Config of
