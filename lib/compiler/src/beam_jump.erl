@@ -291,13 +291,14 @@ extract_seq_1(_, _) -> no.
 	{
 	  entry :: beam_asm:label(), %Entry label (must not be moved).
 	  mlbl :: #{beam_asm:label() := [beam_asm:label()]}, %Moved labels.
-	  labels :: cerl_sets:set()         %Set of referenced labels.
+	  labels :: cerl_sets:set(),         %Set of referenced labels.
+          index :: beam_utils:code_index() | {lazy,[beam_utils:instruction()]} %Index build lazily only if needed
 	}).
 
 opt(Is0, CLabel) ->
     find_fixpoint(fun(Is) ->
 			  Lbls = initial_labels(Is),
-			  St = #st{entry=CLabel,mlbl=#{},labels=Lbls},
+			  St = #st{entry=CLabel,mlbl=#{},labels=Lbls,index={lazy,Is}},
 			  opt(Is, [], St)
 		  end, Is0).
 
@@ -307,7 +308,7 @@ find_fixpoint(OptFun, Is0) ->
 	Is -> find_fixpoint(OptFun, Is)
     end.
 
-opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc, St) ->
+opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc0, St0) ->
     %% We have
     %%    Test Label Ops
     %%    jump Label
@@ -316,10 +317,23 @@ opt([{test,_,{f,L}=Lbl,_}=I|[{jump,{f,L}}|_]=Is], Acc, St) ->
     case beam_utils:is_pure_test(I) of
 	false ->
 	    %% Test is not pure; we must keep it.
-	    opt(Is, [I|Acc], label_used(Lbl, St));
+	    opt(Is, [I|Acc0], label_used(Lbl, St0));
 	true ->
 	    %% The test is pure and its failure label is the same
 	    %% as in the jump that follows -- thus it is not needed.
+            %% Check if any of the previous instructions could also be eliminated.
+            {Acc,St} = opt_useless_loads(Acc0, L, St0),
+	    opt(Is, Acc, St)
+    end;
+opt([{test,_,{f,L}=Lbl,_}=I|[{label,L}|_]=Is], Acc0, St0) ->
+    %% Similar to the above, except we have a fall-through rather than jump
+    %%    Test Label Ops
+    %%    label Label
+    case beam_utils:is_pure_test(I) of
+	false ->
+	    opt(Is, [I|Acc0], label_used(Lbl, St0));
+	true ->
+            {Acc,St} = opt_useless_loads(Acc0, L, St0),
 	    opt(Is, Acc, St)
     end;
 opt([{test,Test0,{f,L}=Lbl,Ops}=I|[{jump,To}|Is]=Is0], Acc, St) ->
@@ -397,6 +411,46 @@ insert_fc_labels([{label,L}=I|Is0], Mlbl) ->
 	    [I|insert_fc_labels(Is, maps:remove(L, Mlbl))]
     end;
 insert_fc_labels([_|_]=Is, _) -> Is.
+
+%% After eliminating a test, it might happen, that a register was only used
+%% in this test. Let's check if that was the case and if it was so, we can
+%% eliminate the load into the register completely.
+opt_useless_loads([{block,_}|_]=Is, L, #st{index={lazy,FIs}}=St) ->
+    opt_useless_loads(Is, L, St#st{index=beam_utils:index_labels(FIs)});
+opt_useless_loads([{block,Block0}|Is], L, #st{index=Index}=St) ->
+    case opt_useless_block_loads(Block0, L, Index) of
+        [] ->
+            opt_useless_loads(Is, L, St);
+        [_|_]=Block ->
+            {[{block,Block}|Is],St}
+    end;
+%% After eliminating the test and useless blocks, it might happen,
+%% that the previous test could also be eliminated.
+%% It might be that the label was already marked as used, even if ultimately,
+%% it never will be - we can't do much about it at that point, though
+opt_useless_loads([{test,_,{f,L},_}=I|Is], L, St) ->
+    case beam_utils:is_pure_test(I) of
+        false ->
+            {[I|Is],St};
+        true ->
+            opt_useless_loads(Is, L, St)
+    end;
+opt_useless_loads(Is, _L, St) ->
+    {Is,St}.
+
+opt_useless_block_loads([{set,[Dst],_,_}=I|Is], L, Index) ->
+    BlockJump = [{block,Is},{jump,{f,L}}],
+    case beam_utils:is_killed(Dst, BlockJump, Index) of
+        true ->
+            %% The register is killed and not used, we can remove the load
+            opt_useless_block_loads(Is, L, Index);
+        false ->
+            [I|opt_useless_block_loads(Is, L, Index)]
+    end;
+opt_useless_block_loads([I|Is], L, Index) ->
+    [I|opt_useless_block_loads(Is, L, Index)];
+opt_useless_block_loads([], _L, _Index) ->
+    [].
 
 maps_append_list(K,Vs,M) ->
     case M of
