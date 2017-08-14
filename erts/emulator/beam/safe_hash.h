@@ -95,7 +95,7 @@ void* safe_hash_get(SafeHash*, void*);
 void* safe_hash_put(SafeHash*, void*);
 void* safe_hash_erase(SafeHash*, void*);
 
-void  safe_hash_for_each(SafeHash*, void (*func)(void *, void *), void *);
+void  safe_hash_for_each(SafeHash*, void (*func)(void *, void *, void *), void *, void *);
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 void erts_lcnt_enable_hash_lock_count(SafeHash*, erts_lock_flags_t, int);

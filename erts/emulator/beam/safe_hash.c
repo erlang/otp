@@ -260,16 +260,17 @@ void* safe_hash_erase(SafeHash* h, void* tmpl)
 }
 
 /*
-** Call 'func(obj,func_arg2)' for all objects in table. NOT SAFE!!!
+** Call 'func(obj,func_arg2,func_arg3)' for all objects in table. NOT SAFE!!!
 */
-void safe_hash_for_each(SafeHash* h, void (*func)(void *, void *), void *func_arg2)
+void safe_hash_for_each(SafeHash* h, void (*func)(void *, void *, void *),
+                        void *func_arg2, void *func_arg3)
 {
     int i;
 
     for (i = 0; i <= h->size_mask; i++) {
 	SafeHashBucket* b = h->tab[i];
 	while (b != NULL) {
-	    (*func)((void *) b, func_arg2);
+	    (*func)((void *) b, func_arg2, func_arg3);
 	    b = b->next;
 	}
     }

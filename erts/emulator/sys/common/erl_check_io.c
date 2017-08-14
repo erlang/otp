@@ -2246,47 +2246,47 @@ erts_check_io_info(void *proc)
 }
 
 static ERTS_INLINE ErtsPollEvents
-print_events(ErtsPollEvents ev)
+print_events(erts_dsprintf_buf_t *dsbufp, ErtsPollEvents ev)
 {
     int first = 1;
     if(ev == ERTS_POLL_EV_NONE) {
-        erts_printf("N/A");
+        erts_dsprintf(dsbufp, "N/A");
         return 0;
     }
     if(ev & ERTS_POLL_EV_IN) {
 	ev &= ~ERTS_POLL_EV_IN;
-	erts_printf("%s%s", first ? "" : "|", "IN");
+	erts_dsprintf(dsbufp, "%s%s", first ? "" : "|", "IN");
 	first = 0;
     }
     if(ev & ERTS_POLL_EV_OUT) {
 	ev &= ~ERTS_POLL_EV_OUT;
-	erts_printf("%s%s", first ? "" : "|", "OUT");
+	erts_dsprintf(dsbufp, "%s%s", first ? "" : "|", "OUT");
 	first = 0;
     }
     /* The following should not appear... */
     if(ev & ERTS_POLL_EV_NVAL) {
-	erts_printf("%s%s", first ? "" : "|", "NVAL");
+	erts_dsprintf(dsbufp, "%s%s", first ? "" : "|", "NVAL");
 	first = 0;
     }
     if(ev & ERTS_POLL_EV_ERR) {
-	erts_printf("%s%s", first ? "" : "|", "ERR");
+	erts_dsprintf(dsbufp, "%s%s", first ? "" : "|", "ERR");
 	first = 0;
     }
     if (ev)
-	erts_printf("%s0x%b32x", first ? "" : "|", (Uint32) ev);
+	erts_dsprintf(dsbufp, "%s0x%b32x", first ? "" : "|", (Uint32) ev);
     return ev;
 }
 
 static ERTS_INLINE void
-print_flags(EventStateFlags f)
+print_flags(erts_dsprintf_buf_t *dsbufp, EventStateFlags f)
 {
     const char* delim = "";
     if(f & ERTS_EV_FLAG_USED) {
-	erts_printf("%s","USED");
+	erts_dsprintf(dsbufp, "%s","USED");
 	delim = "|";
     }
     if(f & ERTS_EV_FLAG_FALLBACK) {
-	erts_printf("%s%s", delim, "FLBK");
+	erts_dsprintf(dsbufp, "%s%s", delim, "FLBK");
         delim = "|";
     }
 }
@@ -2330,133 +2330,133 @@ typedef struct {
 #endif
 } IterDebugCounters;
 
-static int erts_debug_print_checkio_state(ErtsDrvEventState *state,
+static int erts_debug_print_checkio_state(erts_dsprintf_buf_t *dsbufp,
+                                          ErtsDrvEventState *state,
                                           ErtsPollEvents ep_events,
                                           int internal)
 {
 #if defined(HAVE_FSTAT) && !defined(NO_FSTAT_ON_SYS_FD_TYPE)
     struct stat stat_buf;
 #endif
-
     ErtsSysFdType fd = state->fd;
     ErtsPollEvents cio_events = state->events;
     int err = 0;
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     ErtsPollEvents aio_events = state->active_events;
 #endif
-    erts_printf("pollset=%d fd=%d ",
+    erts_dsprintf(dsbufp, "pollset=%d fd=%d ",
                 state->flags & ERTS_EV_FLAG_FALLBACK ? -1 : get_pollset_id(fd), (int) fd);
 
 #if defined(HAVE_FSTAT) && !defined(NO_FSTAT_ON_SYS_FD_TYPE)
     if (fstat((int) fd, &stat_buf) < 0)
-        erts_printf("type=unknown ");
+        erts_dsprintf(dsbufp, "type=unknown ");
     else {
-        erts_printf("type=");
+        erts_dsprintf(dsbufp, "type=");
 #ifdef S_ISSOCK
         if (S_ISSOCK(stat_buf.st_mode))
-            erts_printf("sock ");
+            erts_dsprintf(dsbufp, "sock ");
         else
 #endif
 #ifdef S_ISFIFO
 	    if (S_ISFIFO(stat_buf.st_mode))
-		erts_printf("fifo ");
+		erts_dsprintf(dsbufp, "fifo ");
 	    else
 #endif
 #ifdef S_ISCHR
                 if (S_ISCHR(stat_buf.st_mode))
-                    erts_printf("chr ");
+                    erts_dsprintf(dsbufp, "chr ");
                 else
 #endif
 #ifdef S_ISDIR
                     if (S_ISDIR(stat_buf.st_mode))
-                        erts_printf("dir ");
+                        erts_dsprintf(dsbufp, "dir ");
                     else
 #endif
 #ifdef S_ISBLK
                         if (S_ISBLK(stat_buf.st_mode))
-                            erts_printf("blk ");
+                            erts_dsprintf(dsbufp, "blk ");
                         else
 #endif
 #ifdef S_ISREG
                             if (S_ISREG(stat_buf.st_mode))
-                                erts_printf("reg ");
+                                erts_dsprintf(dsbufp, "reg ");
                             else
 #endif
 #ifdef S_ISLNK
                                 if (S_ISLNK(stat_buf.st_mode))
-                                    erts_printf("lnk ");
+                                    erts_dsprintf(dsbufp, "lnk ");
                                 else
 #endif
 #ifdef S_ISDOOR
                                     if (S_ISDOOR(stat_buf.st_mode))
-                                        erts_printf("door ");
+                                        erts_dsprintf(dsbufp, "door ");
                                     else
 #endif
 #ifdef S_ISWHT
                                         if (S_ISWHT(stat_buf.st_mode))
-                                            erts_printf("wht ");
+                                            erts_dsprintf(dsbufp, "wht ");
                                         else
 #endif
 #ifdef S_ISXATTR
                                             if (S_ISXATTR(stat_buf.st_mode))
-                                                erts_printf("xattr ");
+                                                erts_dsprintf(dsbufp, "xattr ");
                                             else
 #endif
-                                                erts_printf("unknown ");
+                                                erts_dsprintf(dsbufp, "unknown ");
     }
 #else
-    erts_printf("type=unknown ");
+    erts_dsprintf(dsbufp, "type=unknown ");
 #endif
 
     if (state->type == ERTS_EV_TYPE_DRV_SEL) {
-        erts_printf("driver_select ");
+        erts_dsprintf(dsbufp, "driver_select ");
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
         if (internal) {
-            erts_printf("internal ");
+            erts_dsprintf(dsbufp, "internal ");
             err = 1;
         }
         if (aio_events == cio_events) {
             if (cio_events == ep_events) {
-                erts_printf("ev=");
-                if (print_events(cio_events) != 0)
+                erts_dsprintf(dsbufp, "ev=");
+                if (print_events(dsbufp, cio_events) != 0)
                     err = 1;
             }
             else {
                 ErtsPollEvents ev = cio_events;
                 if (ev != ep_events && ep_events != ERTS_POLL_EV_NONE)
                     err = 1;
-                erts_printf("cio_ev=");
-                print_events(cio_events);
-                erts_printf(" ep_ev=");
-                print_events(ep_events);
+                erts_dsprintf(dsbufp, "cio_ev=");
+                print_events(dsbufp, cio_events);
+                erts_dsprintf(dsbufp, " ep_ev=");
+                print_events(dsbufp, ep_events);
             }
         } else {
-            erts_printf("cio_ev=");
-            print_events(cio_events);
-            erts_printf(" aio_ev=");
-            print_events(aio_events);
+            erts_dsprintf(dsbufp, "cio_ev=");
+            print_events(dsbufp, cio_events);
+            erts_dsprintf(dsbufp, " aio_ev=");
+            print_events(dsbufp, aio_events);
             if ((aio_events != ep_events && ep_events != ERTS_POLL_EV_NONE) ||
                 (aio_events != 0 && ep_events == ERTS_POLL_EV_NONE)) {
-                erts_printf(" ep_ev=");
-                print_events(ep_events);
+                erts_dsprintf(dsbufp, " ep_ev=");
+                print_events(dsbufp, ep_events);
                 err = 1;
             }
         }
 #else
-        if (print_events(cio_events) != 0)
+        if (print_events(dsbufp, cio_events) != 0)
             err = 1;
 #endif
-        erts_printf(" ");
+        erts_dsprintf(dsbufp, " ");
         if (cio_events & ERTS_POLL_EV_IN) {
             Eterm id = state->driver.select->inport;
             if (is_nil(id)) {
-                erts_printf("inport=none inname=none indrv=none ");
+                erts_dsprintf(dsbufp, "inport=none inname=none indrv=none ");
                 err = 1;
             }
             else {
                 ErtsPortNames *pnp = erts_get_port_names(id, ERTS_INVALID_ERL_DRV_PORT);
-                erts_printf(" inport=%T inname=%s indrv=%s ",
+                erts_dsprintf(dsbufp, " inport=%T inname=%s indrv=%s ",
                             id,
                             pnp->name ? pnp->name : "unknown",
                             (pnp->driver_name
@@ -2468,12 +2468,12 @@ static int erts_debug_print_checkio_state(ErtsDrvEventState *state,
         if (cio_events & ERTS_POLL_EV_OUT) {
             Eterm id = state->driver.select->outport;
             if (is_nil(id)) {
-                erts_printf("outport=none outname=none outdrv=none ");
+                erts_dsprintf(dsbufp, "outport=none outname=none outdrv=none ");
                 err = 1;
             }
             else {
                 ErtsPortNames *pnp = erts_get_port_names(id, ERTS_INVALID_ERL_DRV_PORT);
-                erts_printf(" outport=%T outname=%s outdrv=%s ",
+                erts_dsprintf(dsbufp, " outport=%T outname=%s outdrv=%s ",
                             id,
                             pnp->name ? pnp->name : "unknown",
                             (pnp->driver_name
@@ -2485,75 +2485,76 @@ static int erts_debug_print_checkio_state(ErtsDrvEventState *state,
     }
     else if (state->type == ERTS_EV_TYPE_NIF) {
         ErtsResource* r;
-        erts_printf("enif_select ");
+        erts_dsprintf(dsbufp, "enif_select ");
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
         if (internal) {
-            erts_printf("internal ");
+            erts_dsprintf(dsbufp, "internal ");
             err = 1;
         }
 
         if (cio_events == ep_events) {
-            erts_printf("ev=");
-            if (print_events(cio_events) != 0)
+            erts_dsprintf(dsbufp, "ev=");
+            if (print_events(dsbufp, cio_events) != 0)
                 err = 1;
         }
         else {
             err = 1;
-            erts_printf("cio_ev=");
-            print_events(cio_events);
-            erts_printf(" ep_ev=");
-            print_events(ep_events);
+            erts_dsprintf(dsbufp, "cio_ev=");
+            print_events(dsbufp, cio_events);
+            erts_dsprintf(dsbufp, " ep_ev=");
+            print_events(dsbufp, ep_events);
         }
 #else
-        if (print_events(cio_events) != 0)
+        if (print_events(dsbufp, cio_events) != 0)
             err = 1;
 #endif
-        erts_printf(" inpid=%T", state->driver.nif->in.pid);
-        erts_printf(" outpid=%T", state->driver.nif->out.pid);
+        erts_dsprintf(dsbufp, " inpid=%T", state->driver.nif->in.pid);
+        erts_dsprintf(dsbufp, " outpid=%T", state->driver.nif->out.pid);
         r = state->driver.stop.resource;
-        erts_printf(" resource=%p(%T:%T)", r, r->type->module, r->type->name);
+        erts_dsprintf(dsbufp, " resource=%p(%T:%T)", r, r->type->module, r->type->name);
     }
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     else if (internal) {
-        erts_printf("internal ");
+        erts_dsprintf(dsbufp, "internal ");
         if (cio_events) {
             err = 1;
-            erts_printf("cio_ev=");
-            print_events(cio_events);
+            erts_dsprintf(dsbufp, "cio_ev=");
+            print_events(dsbufp, cio_events);
         }
         if (ep_events) {
-            erts_printf("ep_ev=");
-            print_events(ep_events);
+            erts_dsprintf(dsbufp, "ep_ev=");
+            print_events(dsbufp, ep_events);
         }
     }
 #endif
     else {
         err = 1;
-        erts_printf("control_type=%d ", (int)state->type);
+        erts_dsprintf(dsbufp, "control_type=%d ", (int)state->type);
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
         if (cio_events == ep_events) {
-            erts_printf("ev=");
-            print_events(cio_events);
+            erts_dsprintf(dsbufp, "ev=");
+            print_events(dsbufp, cio_events);
         }
         else {
-            erts_printf("cio_ev="); print_events(cio_events);
-            erts_printf(" ep_ev="); print_events(ep_events);
+            erts_dsprintf(dsbufp, "cio_ev="); print_events(dsbufp, cio_events);
+            erts_dsprintf(dsbufp, " ep_ev="); print_events(dsbufp, ep_events);
         }
 #else
-        erts_printf("ev=0x%b32x", (Uint32) cio_events);
+        erts_dsprintf(dsbufp, "ev=0x%b32x", (Uint32) cio_events);
 #endif
     }
 
-    erts_printf(" flags="); print_flags(state->flags);
+    erts_dsprintf(dsbufp, " flags="); print_flags(dsbufp, state->flags);
     if (err) {
-        erts_printf(" ERROR");
+        erts_dsprintf(dsbufp, " ERROR");
     }
-    erts_printf("\r\n");
+    erts_dsprintf(dsbufp, "\r\n");
     return err;
 }
 
-static void doit_erts_check_io_debug(void *vstate, void *vcounters)
+static void doit_erts_check_io_debug(void *vstate, void *vcounters,
+                                     erts_dsprintf_buf_t *dsbufp)
 {
     ErtsDrvEventState *state = (ErtsDrvEventState *) vstate;
     IterDebugCounters *counters = (IterDebugCounters *) vcounters;
@@ -2587,7 +2588,7 @@ static void doit_erts_check_io_debug(void *vstate, void *vcounters)
     if (state->events) {
 	counters->used_fds++;
 #endif
-	if (erts_debug_print_checkio_state(state, ep_events, internal)) {
+	if (erts_debug_print_checkio_state(dsbufp, state, ep_events, internal)) {
 	    counters->num_errors++;
 	}
     }
@@ -2597,6 +2598,7 @@ static void doit_erts_check_io_debug(void *vstate, void *vcounters)
 int
 erts_check_io_debug(ErtsCheckIoDebugInfo *ciodip)
 {
+    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     int fd, len, i;
 #endif
@@ -2627,15 +2629,15 @@ erts_check_io_debug(ErtsCheckIoDebugInfo *ciodip)
     len = erts_atomic_read_nob(&drv_ev_state.len);
 
 #if ERTS_POLL_USE_FALLBACK
-    erts_printf("--- fds in flbk pollset ---------------------------------\n");
+    erts_dsprintf(dsbufp, "--- fds in flbk pollset ---------------------------------\n");
     erts_poll_get_selected_events_flbk(get_fallback(), counters.epep,
                                        drv_ev_state.max_fds);
     for (fd = 0; fd < len; fd++) {
         if (drv_ev_state.v[fd].flags & ERTS_EV_FLAG_FALLBACK)
-            doit_erts_check_io_debug(&drv_ev_state.v[fd], &counters);
+            doit_erts_check_io_debug(&drv_ev_state.v[fd], &counters, dsbufp);
     }
 #endif
-    erts_printf("--- fds in pollset --------------------------------------\n");
+    erts_dsprintf(dsbufp, "--- fds in pollset --------------------------------------\n");
 
     for (i = 0; i < erts_no_pollsets; i++) {
         erts_poll_get_selected_events(pollsetv[i],
@@ -2644,16 +2646,16 @@ erts_check_io_debug(ErtsCheckIoDebugInfo *ciodip)
         for (fd = 0; fd < len; fd++) {
             if (!(drv_ev_state.v[fd].flags & ERTS_EV_FLAG_FALLBACK)
                 && get_pollset_id(fd) == i)
-            doit_erts_check_io_debug(&drv_ev_state.v[fd], &counters);
+                doit_erts_check_io_debug(&drv_ev_state.v[fd], &counters, dsbufp);
         }
     }
     for (fd = len ; fd < drv_ev_state.max_fds; fd++) {
         null_des.fd = fd;
-        doit_erts_check_io_debug(&null_des, &counters);
+        doit_erts_check_io_debug(&null_des, &counters, dsbufp);
     }
 #else
     safe_hash_for_each(&drv_ev_state.tab, &doit_erts_check_io_debug,
-                       &counters);
+                       &counters, dsbufp);
 #endif
 
     if (ciodip)
@@ -2665,15 +2667,15 @@ erts_check_io_debug(ErtsCheckIoDebugInfo *ciodip)
         ciodip->no_enif_select_structs = counters.no_enif_select_structs;
     }
 
-    erts_printf("\n");
-    erts_printf("used fds=%d\n", counters.used_fds);
-    erts_printf("Number of driver_select() structures=%d\n", counters.no_driver_select_structs);
-    erts_printf("Number of enif_select() structures=%d\n", counters.no_enif_select_structs);
+    erts_dsprintf(dsbufp, "\n");
+    erts_dsprintf(dsbufp, "used fds=%d\n", counters.used_fds);
+    erts_dsprintf(dsbufp, "Number of driver_select() structures=%d\n", counters.no_driver_select_structs);
+    erts_dsprintf(dsbufp, "Number of enif_select() structures=%d\n", counters.no_enif_select_structs);
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-    erts_printf("internal fds=%d\n", counters.internal_fds);
+    erts_dsprintf(dsbufp, "internal fds=%d\n", counters.internal_fds);
 #endif
-    erts_printf("---------------------------------------------------------\n");
-    fflush(stdout);
+    erts_dsprintf(dsbufp, "---------------------------------------------------------\n");
+    erts_send_error_to_logger_nogl(dsbufp);
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     erts_free(ERTS_ALC_T_TMP, (void *) counters.epep);
 #endif
