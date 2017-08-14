@@ -83,8 +83,9 @@ ErlDrvBinary* erts_gzinflate_buffer(char*, int);
 
 typedef struct {
     Uint value;			/* Value of label (NULL if not known yet). */
-    Sint patches;		/* Index (into code buffer) to first location
-				 * which must be patched with the value of this label.
+    Sint patches;		/* Index (into code buffer) to first
+				 * location which must be patched with
+				 * the value of this label.
 				 */
     Uint looprec_targeted;	/* Non-zero if this label is the target of a loop_rec
 				 * instruction.
@@ -2871,15 +2872,15 @@ gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
     if (Index.type == TAG_i && Index.val > 0 &&
 	(Tuple.type == TAG_x || Tuple.type == TAG_y)) {
 	op->op = genop_i_fast_element_4;
-	op->a[0] = Fail;
-	op->a[1] = Tuple;
+	op->a[0] = Tuple;
+	op->a[1] = Fail;
 	op->a[2].type = TAG_u;
 	op->a[2].val = Index.val;
 	op->a[3] = Dst;
     } else {
 	op->op = genop_i_element_4;
-	op->a[0] = Fail;
-	op->a[1] = Tuple;
+	op->a[0] = Tuple;
+	op->a[1] = Fail;
 	op->a[2] = Index;
 	op->a[3] = Dst;
     }
@@ -2959,13 +2960,14 @@ gen_get_integer2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	    op->a[0] = Ms;
 	    op->a[1] = Fail;
 	    op->a[2] = Dst;
+#ifdef ARCH_64
 	} else if (bits == 32 && (Flags.val & BSF_LITTLE) == 0) {
-	    op->op = genop_i_bs_get_integer_32_4;
-	    op->arity = 4;
+	    op->op = genop_i_bs_get_integer_32_3;
+	    op->arity = 3;
 	    op->a[0] = Ms;
 	    op->a[1] = Fail;
-	    op->a[2] = Live;
-	    op->a[3] = Dst;
+	    op->a[2] = Dst;
+#endif
 	} else {
 	generic:
 	    if (bits < SMALL_BITS) {
@@ -3097,16 +3099,6 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
     }
     op->next = NULL;
     return op;
-}
-
-/*
- * Predicate to test whether a heap binary should be generated.
- */
-
-static int
-should_gen_heap_bin(LoaderState* stp, GenOpArg Src)
-{
-    return Src.val <= ERL_ONHEAP_BIN_LIMIT;
 }
 
 /*
@@ -3381,13 +3373,6 @@ negation_is_small(LoaderState* stp, GenOpArg Int)
            IS_SSMALL(-((Sint)Int.val));
 }
 
-
-static int
-smp(LoaderState* stp)
-{
-    return 1;
-}
-
 /*
  * Mark this label.
  */
@@ -3421,11 +3406,11 @@ gen_literal_timeout(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
     Sint timeout;
 
     NEW_GENOP(stp, op);
-    op->op = genop_i_wait_timeout_2;
+    op->op = genop_wait_timeout_unlocked_2;
     op->next = NULL;
     op->arity = 2;
-    op->a[0] = Fail;
-    op->a[1].type = TAG_u;
+    op->a[0].type = TAG_u;
+    op->a[1] = Fail;
     
     if (Time.type == TAG_i && (timeout = Time.val) >= 0 &&
 #if defined(ARCH_64)
@@ -3434,7 +3419,7 @@ gen_literal_timeout(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
 	1
 #endif
 	) {
-	op->a[1].val = timeout;
+	op->a[0].val = timeout;
 #if !defined(ARCH_64)
     } else if (Time.type == TAG_q) {
 	Eterm big;
@@ -3448,7 +3433,7 @@ gen_literal_timeout(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
 	} else {
 	    Uint u;
 	    (void) term_to_Uint(big, &u);
-	    op->a[1].val = (BeamInstr) u;
+	    op->a[0].val = (BeamInstr) u;
 	}
 #endif
     } else {
@@ -3468,7 +3453,7 @@ gen_literal_timeout_locked(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
     Sint timeout;
 
     NEW_GENOP(stp, op);
-    op->op = genop_i_wait_timeout_locked_2;
+    op->op = genop_wait_timeout_locked_2;
     op->next = NULL;
     op->arity = 2;
     op->a[0] = Fail;

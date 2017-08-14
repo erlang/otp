@@ -1,0 +1,196 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2017. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+i_select_val_bins := select_val_bins.fetch.select;
+
+select_val_bins.head() {
+    Eterm select_val;
+}
+
+select_val_bins.fetch(Src) {
+    select_val = $Src;
+}
+
+select_val_bins.select(Fail, NumElements) {
+    struct Pairs {
+        BeamInstr val;
+        BeamInstr* addr;
+    };
+    struct Pairs* low;
+    struct Pairs* high;
+    struct Pairs* mid;
+    int bdiff; /* int not long because the arrays aren't that large */
+
+    low = (struct Pairs *) (&$NumElements + 1);
+    high = low + $NumElements;
+
+    /* The pointer subtraction (high-low) below must produce
+     * a signed result, because high could be < low. That
+     * requires the compiler to insert quite a bit of code.
+     *
+     * However, high will be > low so the result will be
+     * positive. We can use that knowledge to optimise the
+     * entire sequence, from the initial comparison to the
+     * computation of mid.
+     *
+     * -- Mikael Pettersson, Acumem AB
+     *
+     * Original loop control code:
+     *
+     * while (low < high) {
+     *    mid = low + (high-low) / 2;
+     *
+     */
+    while ((bdiff = (int)((char*)high - (char*)low)) > 0) {
+        unsigned int boffset = ((unsigned int)bdiff >> 1) & ~(sizeof(struct Pairs)-1);
+
+        mid = (struct Pairs*)((char*)low + boffset);
+        if (select_val < mid->val) {
+            high = mid;
+        } else if (select_val > mid->val) {
+            low = mid + 1;
+        } else {
+            $NEXT(mid->addr);
+        }
+    }
+    $NEXT($Fail);
+}
+
+i_select_tuple_arity2 := select_val2.src.ta_fail.execute;
+i_select_val2 := select_val2.src.fail.execute;
+
+select_val2.head() {
+    Eterm select_val2;
+    BeamInstr* select_fail;
+}
+
+select_val2.src(Src) {
+    select_val2 = $Src;
+}
+
+select_val2.ta_fail(Fail) {
+    select_fail = &$Fail;
+    if (is_not_tuple(select_val2)) {
+        $FAIL(*select_fail);
+    }
+    select_val2 = *tuple_val(select_val2);
+}
+
+select_val2.fail(Fail) {
+    select_fail = &$Fail;
+}
+
+select_val2.execute(T1, T2, D1, D2) {
+    if (select_val2 == $T1) {
+        $JUMP($D1);
+    } else if (select_val2 == $T2) {
+        $JUMP($D2);
+    } else {
+        $FAIL(*select_fail);
+    }
+}
+
+i_select_tuple_arity := select_val_lin.fetch.ta_fail.execute;
+i_select_val_lins := select_val_lin.fetch.fail.execute;
+
+select_val_lin.head() {
+    Eterm select_val;
+    BeamInstr* select_fail;
+}
+
+select_val_lin.fetch(Src) {
+    select_val = $Src;
+}
+
+select_val_lin.ta_fail(Fail) {
+    select_fail = &$Fail;
+    if (is_tuple(select_val)) {
+        select_val = *tuple_val(select_val);
+    } else {
+        $JUMP(*select_fail);
+    }
+}
+
+select_val_lin.fail(Fail) {
+    select_fail = &$Fail;
+}
+
+select_val_lin.execute(N) {
+    BeamInstr* vs = $NEXT_INSTRUCTION;
+    int ix = 0;
+
+    for (;;) {
+        if (vs[ix+0] >= select_val) {
+            ix += 0;
+            break;
+        }
+        if (vs[ix+1] >= select_val) {
+            ix += 1;
+            break;
+        }
+        ix += 2;
+    }
+
+    if (vs[ix] == select_val) {
+        I = $NEXT_INSTRUCTION + $N + ix;
+        $JUMP(*I);
+    } else {
+        $JUMP(*select_fail);
+    }
+}
+
+JUMP_ON_VAL(Fail, Index, N, Base) {
+    if (is_small($Index)) {
+        $Index = (Uint) (signed_val($Index) - $Base);
+        if ($Index < $N) {
+            $JUMP((($NEXT_INSTRUCTION)[$Index]));
+        }
+    }
+    $FAIL($Fail);
+}
+
+i_jump_on_val_zero := jump_on_val_zero.fetch.execute;
+
+jump_on_val_zero.head() {
+    Eterm index;
+}
+
+jump_on_val_zero.fetch(Src) {
+    index = $Src;
+}
+
+jump_on_val_zero.execute(Fail, N) {
+    $JUMP_ON_VAL($Fail, index, $N, 0);
+}
+
+i_jump_on_val := jump_on_val.fetch.execute;
+
+jump_on_val.head() {
+    Eterm index;
+}
+
+jump_on_val.fetch(Src) {
+    index = $Src;
+}
+
+jump_on_val.execute(Fail, N, Base) {
+    $JUMP_ON_VAL($Fail, index, $N, $Base);
+}

@@ -1,0 +1,139 @@
+// -*- c -*-
+//
+// %CopyrightBegin%
+//
+// Copyright Ericsson AB 2017. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+// %CopyrightEnd%
+//
+
+//
+// Use if there is a garbage collection before storing to a
+// general destination (either X or Y register).
+//
+
+REFRESH_GEN_DEST() {
+    dst_ptr = REG_TARGET_PTR(dst);
+}
+
+FAIL(Fail) {
+    //| -no_prefetch
+    SET_I((BeamInstr *) $Fail);
+    Goto(*I);
+}
+
+JUMP(Fail) {
+    //| -no_next
+    SET_I((BeamInstr *) $Fail);
+    Goto(*I);
+}
+
+GC_TEST(Ns, Nh, Live) {
+    Uint need = $Nh + $Ns;
+    if (E - HTOP < need) {
+       SWAPOUT;
+       PROCESS_MAIN_CHK_LOCKS(c_p);
+       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, $Live, FCALLS);
+       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+       PROCESS_MAIN_CHK_LOCKS(c_p);
+       SWAPIN;
+    }
+    HEAP_SPACE_VERIFIED($Nh);
+}
+
+GC_TEST_PRESERVE(NeedHeap, Live, PreserveTerm) {
+    Uint need = $NeedHeap;
+    if (E - HTOP < need) {
+       SWAPOUT;
+       reg[$Live] = $PreserveTerm;
+       PROCESS_MAIN_CHK_LOCKS(c_p);
+       FCALLS -= erts_garbage_collect_nobump(c_p, need, reg, $Live+1, FCALLS);
+       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+       PROCESS_MAIN_CHK_LOCKS(c_p);
+       $PreserveTerm = reg[$Live];
+       SWAPIN;
+    }
+    HEAP_SPACE_VERIFIED($Nh);
+}
+
+
+// Make sure that there are NeedStack + NeedHeap + 1 words available
+// on the combined heap/stack segment, then allocates NeedHeap + 1
+// words on the stack and saves CP.
+AH(NeedStack, NeedHeap, Live) {
+    unsigned needed = $NeedStack + 1;
+    $GC_TEST(needed, $NeedHeap, $Live);
+    E -= needed;
+    *E = make_cp(c_p->cp);
+    c_p->cp = 0;
+}
+
+NEXT0() {
+    //| -no_next
+    SET_I((BeamInstr *) $NEXT_INSTRUCTION);
+    Goto(*I);
+}
+
+NEXT(Addr) {
+    //| -no_next
+    SET_I((BeamInstr *) $Addr);
+    Goto(*I);
+}
+
+FAIL_HEAD_OR_BODY(Fail) {
+    //| -no_prefetch
+    if ($Fail) {
+        $FAIL($Fail);
+    }
+    goto find_func_info;
+}
+
+BADARG(Fail) {
+    c_p->freason = BADARG;
+    $FAIL_HEAD_OR_BODY($Fail);
+}
+
+BADARITH0() {
+    c_p->freason = BADARITH;
+    goto find_func_info;
+}
+
+SYSTEM_LIMIT(Fail) {
+    c_p->freason = SYSTEM_LIMIT;
+    $FAIL_HEAD_OR_BODY($Fail);
+}
+
+BIF_ERROR_ARITY_1(Fail, BIF, Op1) {
+    //| -no_prefetch
+    if ($Fail) {
+        $FAIL($Fail);
+    }
+    reg[0] = $Op1;
+    SWAPOUT;
+    I = handle_error(c_p, I, reg, &bif_export[$BIF]->info.mfa);
+    goto post_error_handling;
+}
+
+BIF_ERROR_ARITY_2(Fail, BIF, Op1, Op2) {
+    //| -no_prefetch
+    if ($Fail) {
+        $FAIL($Fail);
+    }
+    reg[0] = $Op1;
+    reg[1] = $Op2;
+    SWAPOUT;
+    I = handle_error(c_p, I, reg, &bif_export[$BIF]->info.mfa);
+    goto post_error_handling;
+}
