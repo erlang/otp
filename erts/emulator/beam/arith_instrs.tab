@@ -236,6 +236,7 @@ shift.setup_bsr(Src1, Src2) {
     Op1 = $Src1;
     Op2 = $Src2;
     BIF = BIF_bsr_2;
+    shift_left_count = 0;
     if (is_small(Op2)) {
         shift_left_count = -signed_val(Op2);
     } else if (is_big(Op2)) {
@@ -245,8 +246,6 @@ shift.setup_bsr(Src1, Src2) {
          */
         shift_left_count = make_small(bignum_header_is_neg(*big_val(Op2)) ?
                                       MAX_SMALL : MIN_SMALL);
-    } else {
-        shift_left_count = 0;
     }
 }
 
@@ -254,6 +253,7 @@ shift.setup_bsl(Src1, Src2) {
     Op1 = $Src1;
     Op2 = $Src2;
     BIF = BIF_bsl_2;
+    shift_left_count = 0;
     if (is_small(Op2)) {
         shift_left_count = signed_val(Op2);
     } else if (is_big(Op2)) {
@@ -271,8 +271,6 @@ shift.setup_bsl(Src1, Src2) {
              */
             shift_left_count = MAX_SMALL;
         }
-    } else {
-        shift_left_count = 0;
     }
 }
 
