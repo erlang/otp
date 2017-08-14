@@ -28,7 +28,7 @@
  * Author: 	Rickard Green
  */
 
-#if !defined(ERL_THR_PROGRESS_H__TSD_TYPE__)
+#ifndef ERL_THR_PROGRESS_H__TSD_TYPE__
 #define ERL_THR_PROGRESS_H__TSD_TYPE__
 
 #include "sys.h"
