@@ -1050,7 +1050,7 @@ attr_to_info(A) when is_record(A, ssh_xfer_attr) ->
     #file_info{
       size   = A#ssh_xfer_attr.size,
       type   = A#ssh_xfer_attr.type,
-      access = read_write, %% FIXME: read/write/read_write/none
+      access = file_mode_to_owner_access(A#ssh_xfer_attr.permissions),
       atime  = unix_to_datetime(A#ssh_xfer_attr.atime),
       mtime  = unix_to_datetime(A#ssh_xfer_attr.mtime),
       ctime  = unix_to_datetime(A#ssh_xfer_attr.createtime),
@@ -1062,6 +1062,28 @@ attr_to_info(A) when is_record(A, ssh_xfer_attr) ->
       uid    = A#ssh_xfer_attr.owner,
       gid    = A#ssh_xfer_attr.group}.
 
+file_mode_to_owner_access(FileMode)
+  when is_integer(FileMode) ->
+    %% The file mode contains the access permissions.
+    %% The read and write access permission of file owner
+    %% are located in 8th and 7th bit of file mode respectively.
+
+    ReadPermission = ((FileMode bsr 8) band 1),
+    WritePermission =  ((FileMode bsr 7) band 1),
+    case {ReadPermission, WritePermission} of
+        {1, 1} ->
+            read_write;
+        {1, 0} ->
+            read;
+        {0, 1} ->
+            write;
+        {0, 0} ->
+            none;
+        _ ->
+            undefined
+    end;
+file_mode_to_owner_access(_) ->
+    undefined.
 
 unix_to_datetime(undefined) ->
     undefined;

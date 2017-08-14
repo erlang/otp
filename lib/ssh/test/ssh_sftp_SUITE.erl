@@ -92,7 +92,7 @@ groups() ->
      {write_read_tests, [], [open_close_file, open_close_dir, read_file, read_dir,
 			     write_file, write_file_iolist, write_big_file, sftp_read_big_file,
 			     rename_file, mk_rm_dir, remove_file, links,
-			     retrieve_attributes, set_attributes, async_read,
+			     retrieve_attributes, set_attributes, file_owner_access, async_read,
 			     async_write, position, pos_read, pos_write,
 			     start_channel_sock
 			    ]}
@@ -521,7 +521,36 @@ set_attributes(Config) when is_list(Config) ->
     ok = file:write_file(FileName, "hello again").
 
 %%--------------------------------------------------------------------
+file_owner_access() ->
+    [{doc,"Test file user access validity"}].
+file_owner_access(Config) when is_list(Config) ->
+    case os:type() of
+        {win32, _} ->
+            {skip, "Not a relevant test on Windows"};
+        _ ->
+            FileName = proplists:get_value(filename, Config),
+            {Sftp, _} = proplists:get_value(sftp, Config),
 
+            {ok, #file_info{mode = InitialMode}} = ssh_sftp:read_file_info(Sftp, FileName),
+
+            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#000}),
+            {ok, #file_info{access = none}} = ssh_sftp:read_file_info(Sftp, FileName),
+
+            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#400}),
+            {ok, #file_info{access = read}} = ssh_sftp:read_file_info(Sftp, FileName),
+
+            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#200}),
+            {ok, #file_info{access = write}} = ssh_sftp:read_file_info(Sftp, FileName),
+
+            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#600}),
+            {ok, #file_info{access = read_write}} = ssh_sftp:read_file_info(Sftp, FileName),
+
+            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=InitialMode}),
+
+            ok
+    end.
+
+%%--------------------------------------------------------------------
 async_read() ->
     [{doc,"Test API aread/3"}].
 async_read(Config) when is_list(Config) ->
