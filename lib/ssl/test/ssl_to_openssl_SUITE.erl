@@ -85,19 +85,19 @@ all_versions_tests() ->
     ].
 dtls_all_versions_tests() ->
     [
-     %%erlang_client_openssl_server,
+     erlang_client_openssl_server,
      erlang_server_openssl_client,
-     %%erlang_client_openssl_server_dsa_cert,
+     erlang_client_openssl_server_dsa_cert,
      erlang_server_openssl_client_dsa_cert,
-     erlang_server_openssl_client_reuse_session
+     erlang_server_openssl_client_reuse_session,
      %%erlang_client_openssl_server_renegotiate,
      %%erlang_client_openssl_server_nowrap_seqnum,
      %%erlang_server_openssl_client_nowrap_seqnum,
-     %%erlang_client_openssl_server_no_server_ca_cert,
-     %%erlang_client_openssl_server_client_cert,
-     %%erlang_server_openssl_client_client_cert
-     %%ciphers_rsa_signed_certs,
-     %%ciphers_dsa_signed_certs,
+     erlang_client_openssl_server_no_server_ca_cert,
+     erlang_client_openssl_server_client_cert,
+     erlang_server_openssl_client_client_cert,
+     ciphers_rsa_signed_certs,
+     ciphers_dsa_signed_certs
      %%erlang_client_bad_openssl_server,
      %%expired_session
     ].
@@ -875,7 +875,8 @@ ciphers_dsa_signed_certs() ->
     [{doc,"Test cipher suites that uses dsa certs"}].
 ciphers_dsa_signed_certs(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:dsa_suites(tls_record:protocol_version(Version)),
+    NVersion = ssl_test_lib:protocol_version(Config, tuple),
+    Ciphers = ssl_test_lib:dsa_suites(NVersion),
     run_suites(Ciphers, Version, Config, dsa).
 
 %%--------------------------------------------------------------------

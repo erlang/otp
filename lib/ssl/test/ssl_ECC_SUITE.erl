@@ -36,7 +36,9 @@ all() ->
     [
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
-     {group, 'tlsv1'}
+     {group, 'tlsv1'},
+     {group, 'dtlsv1.2'},
+     {group, 'dtlsv1'}
     ].
 
 groups() ->
@@ -44,6 +46,8 @@ groups() ->
      {'tlsv1.2', [], all_versions_groups()},
      {'tlsv1.1', [], all_versions_groups()},
      {'tlsv1', [], all_versions_groups()},
+     {'dtlsv1.2', [], all_versions_groups()},
+     {'dtlsv1', [], all_versions_groups()},
      {'erlang_server', [], openssl_key_cert_combinations()},
      %%{'erlang_client', [], openssl_key_cert_combinations()},
      {'erlang', [], key_cert_combinations() ++ misc() 
@@ -197,7 +201,7 @@ common_init_per_group(GroupName, Config) ->
     end.
 
 end_per_group(_GroupName, Config) ->
-    Config.
+   proplists:delete(tls_version, Config).
 
 %%--------------------------------------------------------------------
 
