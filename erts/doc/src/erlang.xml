@@ -4284,7 +4284,6 @@ RealSystem = system + MissedSystem</code>
       <desc>
         <p><c><anno>Locking</anno></c> is one of the following:</p>
         <list type="bulleted">
-          <item><c>false</c> (emulator without SMP support)</item>
           <item><c>port_level</c> (port-specific locking)</item>
           <item><c>driver_level</c> (driver-specific locking)</item>
         </list>
@@ -4688,8 +4687,8 @@ RealSystem = system + MissedSystem</code>
           selected for execution. Notice however that this does
           <em>not</em> mean that no processes on priority <c>low</c>
           or <c>normal</c> can run when processes
-          are running on priority <c>high</c>. On the runtime
-          system with SMP support, more processes can be running
+          are running on priority <c>high</c>. When using multiple
+          schedulers, more processes can be running
           in parallel than processes on priority <c>high</c>. That is,
           a <c>low</c> and a <c>high</c> priority process can
           execute at the same time.</p>
@@ -4704,10 +4703,8 @@ RealSystem = system + MissedSystem</code>
           execution.</p>
         <note>
           <p>Do not depend on the scheduling
-          to remain exactly as it is today. Scheduling, at least on
-          the runtime system with SMP support, is likely to be
-          changed in a future release to use available
-          processor cores better.</p>
+          to remain exactly as it is today. Scheduling is likely to be
+          changed in a future release to use available processor cores better.</p>
         </note>
         <p>There is <em>no</em> automatic mechanism for
           avoiding priority inversion, such as priority inheritance
@@ -6219,8 +6216,7 @@ true</pre>
           <p><c>statistics(exact_reductions)</c> is
             a more expensive operation than
             <seealso marker="#statistics_reductions">
-            statistics(reductions)</seealso>,
-            especially on an Erlang machine with SMP support.</p>
+            statistics(reductions)</seealso>.</p>
         </note>
       </desc>
     </func>
@@ -6604,8 +6600,8 @@ ok
 	than available logical processors, this value may
 	be greater than <c>1.0</c>.</p>
 	<p>As of ERTS version 9.0, the Erlang runtime system
-	with SMP support will as default have more schedulers
-	than logical processors. This due to the dirty schedulers.</p>
+        will as default have more schedulers than logical processors.
+        This due to the dirty schedulers.</p>
         <note>
           <p><c>scheduler_wall_time</c> is by default disabled. To
             enable it, use
@@ -7975,9 +7971,7 @@ ok
             <taglist>
               <tag><c>disabled</c></tag>
               <item>
-                <p>The emulator has only one scheduler thread. The
-                  emulator does not have SMP support, or have been
-                  started with only one scheduler thread.</p>
+                <p>The emulator has been started with only one scheduler thread.</p>
               </item>
               <tag><c>blocked</c></tag>
               <item>
@@ -8340,8 +8334,7 @@ ok
           </item>
           <tag><c>smp_support</c></tag>
           <item>
-            <p>Returns <c>true</c> if the emulator has been compiled
-              with SMP support, otherwise <c>false</c> is returned.</p>
+            <p>Returns <c>true</c>.</p>
           </item>
           <tag><marker id="system_info_start_time"/><c>start_time</c></tag>
           <item>
@@ -8364,8 +8357,7 @@ ok
           </item>
           <tag><c>threads</c></tag>
           <item>
-            <p>Returns <c>true</c> if the emulator has been compiled
-              with thread support, otherwise <c>false</c> is returned.</p>
+            <p>Returns <c>true</c>.</p>
           </item>
           <tag><c>thread_pool_size</c></tag>
           <item>
@@ -10484,9 +10476,9 @@ true</pre>
           <c>receive after 1 -> ok end</c>, except that <c>yield()</c>
           is faster.</p>
         <warning>
-          <p>There is seldom or never any need to use this BIF,
-            especially in the SMP emulator, as other processes have a
-            chance to run in another scheduler thread anyway.
+          <p>There is seldom or never any need to use this BIF
+            as other processes have a chance to run in another scheduler
+            thread anyway.
             Using this BIF without a thorough grasp of how the scheduler
             works can cause performance degradation.</p>
         </warning>

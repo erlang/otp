@@ -538,20 +538,6 @@
         <p>Note that a distributed node will fail to start if epmd is
           not running.</p>
       </item>
-      <tag><marker id="smp"/><c><![CDATA[-smp [enable|auto|disable]]]></c></tag>
-      <item>
-        <p><c>-smp enable</c> and <c>-smp</c> start the Erlang runtime
-	  system with SMP support enabled. This can fail if no runtime
-	  system with SMP support is available. <c>-smp auto</c> starts
-	  the Erlang runtime system with SMP support enabled if it is
-	  available and more than one logical processor is detected.
-	  <c>-smp disable</c> starts a runtime system without SMP support.
-           The runtime system without SMP support is deprecated and will
-           be removed in a future major release.</p>
-        <note>
-          <p>See also flag<seealso marker="#+S"><c>+S</c></seealso>.</p>
-        </note>
-      </item>
       <tag><c><![CDATA[-version]]></c> (emulator flag)</tag>
       <item>
         <p>Makes the emulator print its version number. The same
@@ -902,7 +888,7 @@
         <c><![CDATA[+S Schedulers:SchedulerOnline]]></c></tag>
       <item>
         <p>Sets the number of scheduler threads to create and scheduler threads
-          to set online when SMP support has been enabled. The maximum for both
+          to set online. The maximum for both
           values is 1024. If the Erlang runtime system is able to determine the
           number of logical processors configured and logical processors
           available, <c>Schedulers</c> defaults to logical processors
@@ -920,8 +906,6 @@
         <p>Specifying value <c>0</c> for <c>Schedulers</c> or
           <c>SchedulersOnline</c> resets the number of scheduler threads or
           scheduler threads online, respectively, to its default value.</p>
-        <p>This option is ignored if the emulator does not have SMP support
-          enabled (see flag <seealso marker="#smp"><c>-smp</c></seealso>).</p>
       </item>
       <tag><marker id="+SP"/><c><![CDATA[+SP
         SchedulersPercentage:SchedulersOnlinePercentage]]></c></tag>
@@ -929,8 +913,8 @@
         <p>Similar to <seealso marker="#+S"><c>+S</c></seealso> but uses
           percentages to set the number of scheduler threads to create, based
           on logical processors configured, and scheduler threads to set online,
-          based on logical processors available, when SMP support has been
-          enabled. Specified values must be &gt; 0. For example,
+          based on logical processors available.
+          Specified values must be &gt; 0. For example,
           <c>+SP 50:25</c> sets the number of scheduler threads to 50% of the
           logical processors configured, and the number of scheduler threads
           online to 25% of the logical processors available.
@@ -945,15 +929,13 @@
           and 8 logical cores available, the combination of the options
           <c>+S 4:4 +SP 50:25</c> (in either order) results in 2 scheduler
           threads (50% of 4) and 1 scheduler thread online (25% of 4).</p>
-        <p>This option is ignored if the emulator does not have SMP support
-          enabled (see flag <seealso marker="#smp"><c>-smp</c></seealso>).</p>
       </item>
       <tag><marker id="+SDcpu"/><c><![CDATA[+SDcpu
         DirtyCPUSchedulers:DirtyCPUSchedulersOnline]]></c></tag>
       <item>
         <p>Sets the number of dirty CPU scheduler threads to create and dirty
-          CPU scheduler threads to set online when threading support has been
-          enabled. The maximum for both values is 1024, and each value is
+          CPU scheduler threads to set online.
+          The maximum for both values is 1024, and each value is
           further limited by the settings for normal schedulers:</p>
         <list type="bulleted">
           <item>The number of dirty CPU scheduler threads created cannot exceed
@@ -977,16 +959,14 @@
 	  executing on ordinary schedulers. If the amount of dirty CPU
 	  schedulers was allowed to be unlimited, dirty CPU bound jobs would
 	  potentially starve normal jobs.</p>
-        <p>This option is ignored if the emulator does not have threading
-          support enabled.</p>
       </item>
       <tag><marker id="+SDPcpu"/><c><![CDATA[+SDPcpu
         DirtyCPUSchedulersPercentage:DirtyCPUSchedulersOnlinePercentage]]></c></tag>
       <item>
         <p>Similar to <seealso marker="#+SDcpu"><c>+SDcpu</c></seealso> but
           uses percentages to set the number of dirty CPU scheduler threads to
-          create and the number of dirty CPU scheduler threads to set online
-          when threading support has been enabled. Specified values must be
+          create and the number of dirty CPU scheduler threads to set online.
+          Specified values must be
           &gt; 0. For example, <c>+SDPcpu 50:25</c> sets the number of dirty
           CPU scheduler threads to 50% of the logical processors configured
           and the number of dirty CPU scheduler threads online to 25% of the
@@ -1003,13 +983,11 @@
           the combination of the options <c>+SDcpu 4:4 +SDPcpu 50:25</c> (in
           either order) results in 2 dirty CPU scheduler threads (50% of 4) and
           1 dirty CPU scheduler thread online (25% of 4).</p>
-        <p>This option is ignored if the emulator does not have threading
-          support enabled.</p>
       </item>
       <tag><marker id="+SDio"/><c><![CDATA[+SDio DirtyIOSchedulers]]></c></tag>
       <item>
-        <p>Sets the number of dirty I/O scheduler threads to create when
-          threading support has been enabled. Valid range is 0-1024. By
+        <p>Sets the number of dirty I/O scheduler threads to create.
+          Valid range is 0-1024. By
           default, the number of dirty I/O scheduler threads created is 10,
           same as the default number of threads in the <seealso
           marker="#async_thread_pool_size">async thread pool</seealso>.</p>
@@ -1019,8 +997,6 @@
 	  expected to execute on dirty I/O schedulers. If the user should schedule CPU
 	  bound jobs on dirty I/O schedulers, these jobs might starve ordinary
 	  jobs executing on ordinary schedulers.</p>
-        <p>This option is ignored if the emulator does not have threading
-          support enabled.</p>
       </item>
       <tag><c><![CDATA[+sFlag Value]]></c></tag>
       <item>
