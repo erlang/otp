@@ -195,7 +195,7 @@ init_per_testcase(expired_session, Config) ->
 
 init_per_testcase(TestCase, Config) when TestCase == ciphers_rsa_signed_certs;
 					 TestCase == ciphers_dsa_signed_certs ->
-    ct:timetrap({seconds, 45}),
+    ct:timetrap({seconds, 60}),
     special_init(TestCase, Config);
 
 init_per_testcase(TestCase, Config) ->
