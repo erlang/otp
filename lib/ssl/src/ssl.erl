@@ -713,6 +713,13 @@ handle_options(Opts0, Role, Host) ->
 
     Protocol = handle_option(protocol, Opts, tls),
 
+    case Versions of
+        [{3, 0}] ->
+            reject_alpn_next_prot_options(Opts);
+        _ ->
+            ok
+    end,
+   
     SSLOptions = #ssl_options{
 		    versions   = Versions,
 		    verify     = validate_option(verify, Verify),
@@ -956,55 +963,32 @@ validate_option(hibernate_after, Value) when is_integer(Value), Value >= 0 ->
 
 validate_option(erl_dist,Value) when is_boolean(Value) ->
     Value;
-validate_option(Opt, Value)
-  when Opt =:= alpn_advertised_protocols orelse Opt =:= alpn_preferred_protocols,
-       is_list(Value) ->
-    case tls_record:highest_protocol_version([]) of
-	{3,0} ->
-	    throw({error, {options, {not_supported_in_sslv3, {Opt, Value}}}});
-	_ ->
-	    validate_binary_list(Opt, Value),
-	    Value
-    end;
+validate_option(Opt, Value) when Opt =:= alpn_advertised_protocols orelse Opt =:= alpn_preferred_protocols,
+                                 is_list(Value) ->
+    validate_binary_list(Opt, Value),
+    Value;
 validate_option(Opt, Value)
   when Opt =:= alpn_advertised_protocols orelse Opt =:= alpn_preferred_protocols,
        Value =:= undefined ->
     undefined;
-validate_option(client_preferred_next_protocols = Opt, {Precedence, PreferredProtocols} = Value)
+validate_option(client_preferred_next_protocols, {Precedence, PreferredProtocols})
   when is_list(PreferredProtocols) ->
-    case tls_record:highest_protocol_version([]) of
-	{3,0} ->
-	    throw({error, {options, {not_supported_in_sslv3, {Opt, Value}}}});
-	_ ->
-	    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
-	    validate_npn_ordering(Precedence),
-	    {Precedence, PreferredProtocols, ?NO_PROTOCOL}
-    end;
-validate_option(client_preferred_next_protocols = Opt, {Precedence, PreferredProtocols, Default} = Value)
-      when is_list(PreferredProtocols), is_binary(Default),
-           byte_size(Default) > 0, byte_size(Default) < 256 ->
-    case tls_record:highest_protocol_version([]) of
-	{3,0} ->
-	    throw({error, {options, {not_supported_in_sslv3, {Opt, Value}}}});
-	_ ->
-	    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
-	    validate_npn_ordering(Precedence),
-	    Value
-    end;
-
+    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
+    validate_npn_ordering(Precedence),
+    {Precedence, PreferredProtocols, ?NO_PROTOCOL};
+validate_option(client_preferred_next_protocols, {Precedence, PreferredProtocols, Default} = Value)
+  when is_list(PreferredProtocols), is_binary(Default),
+       byte_size(Default) > 0, byte_size(Default) < 256 ->
+    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
+    validate_npn_ordering(Precedence),
+    Value;
 validate_option(client_preferred_next_protocols, undefined) ->
     undefined;
 validate_option(log_alert, Value) when is_boolean(Value) ->
     Value;
-validate_option(next_protocols_advertised = Opt, Value) when is_list(Value) ->
-    case tls_record:highest_protocol_version([]) of
-	{3,0} ->
-	    throw({error, {options, {not_supported_in_sslv3, {Opt, Value}}}});
-	_ ->
-	    validate_binary_list(next_protocols_advertised, Value),
-	    Value
-    end;
-
+validate_option(next_protocols_advertised, Value) when is_list(Value) ->
+    validate_binary_list(next_protocols_advertised, Value),
+    Value;
 validate_option(next_protocols_advertised, undefined) ->
     undefined;
 validate_option(server_name_indication = Opt, Value) when is_list(Value) ->
@@ -1483,3 +1467,22 @@ server_name_indication_default(Host) when is_list(Host) ->
     Host;
 server_name_indication_default(_) ->
     undefined.
+
+
+reject_alpn_next_prot_options(Opts) ->
+    AlpnNextOpts = [alpn_advertised_protocols,
+                    alpn_preferred_protocols,
+                    next_protocols_advertised,
+                    next_protocol_selector,
+                    client_preferred_next_protocols],
+    reject_alpn_next_prot_options(AlpnNextOpts, Opts).
+
+reject_alpn_next_prot_options([], _) ->
+    ok;
+reject_alpn_next_prot_options([Opt| AlpnNextOpts], Opts) ->
+    case lists:keyfind(Opt, 1, Opts) of
+        {Opt, Value} ->
+            throw({error, {options, {not_supported_in_sslv3, {Opt, Value}}}});
+        false ->
+            reject_alpn_next_prot_options(AlpnNextOpts, Opts)
+    end.
