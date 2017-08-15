@@ -32,7 +32,7 @@
 -export([suspend_process/1]).
 -export([min/2, max/2]).
 -export([dgroup_leader/2,
-	 dexit/2, dmonitor_node/3, dmonitor_p/2]).
+	 dmonitor_node/3, dmonitor_p/2]).
 -export([delay_trap/2]).
 -export([set_cookie/2, get_cookie/0]).
 -export([nodes/0]).
@@ -3300,12 +3300,6 @@ dgroup_leader(Leader, Pid) ->
     case net_kernel:connect(erlang:node(Pid)) of
 	true -> erlang:group_leader(Leader, Pid);
 	false -> true  %% bad arg ?
-    end.
-
-dexit(Pid, Reason) -> 
-    case net_kernel:connect(erlang:node(Pid)) of
-	true -> erlang:exit(Pid, Reason);
-	false -> true
     end.
 
 

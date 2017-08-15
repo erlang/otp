@@ -88,7 +88,6 @@
 /* distribution trap functions */
 extern Export* dmonitor_node_trap;
 extern Export* dgroup_leader_trap;
-extern Export* dexit_trap;
 extern Export* dmonitor_p_trap;
 
 typedef enum {

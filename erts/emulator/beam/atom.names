@@ -199,7 +199,6 @@ atom debug_flags
 atom decimals
 atom default
 atom delay_trap
-atom dexit
 atom depth
 atom dgroup_leader
 atom dictionary

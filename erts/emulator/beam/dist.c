@@ -110,7 +110,6 @@ int erts_dist_buf_busy_limit;
 /* distribution trap functions */
 Export* dmonitor_node_trap = NULL;
 Export* dgroup_leader_trap = NULL;
-Export* dexit_trap = NULL;
 Export* dmonitor_p_trap = NULL;
 
 /* local variables */
@@ -633,7 +632,6 @@ void init_dist(void)
     /* Lookup/Install all references to trap functions */
     dmonitor_node_trap = trap_function(am_dmonitor_node,3);
     dgroup_leader_trap = trap_function(am_dgroup_leader,2);
-    dexit_trap = trap_function(am_dexit, 2);
     dmonitor_p_trap = trap_function(am_dmonitor_p, 2);
     dist_ctrl_put_data_trap = erts_export_put(am_erts_internal,
                                               am_dist_ctrl_put_data,
@@ -3108,9 +3106,6 @@ int distribution_info(fmtfn_t to, void *arg)	/* Called by break handler */
  ** loads functions pointer to trap_functions from module erlang.
  **    erlang:dmonitor_node/3
  **    erlang:dgroup_leader/2
- **    erlang:dexit/2
- **  -- are these needed ?
- **    dexit/1
  ***********************************************************************/
 
 BIF_RETTYPE setnode_2(BIF_ALIST_2)
@@ -3136,8 +3131,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     /* Check that all trap functions are defined !! */
     if (dmonitor_node_trap->addressv[0] == NULL ||
 	dgroup_leader_trap->addressv[0] == NULL ||
-	dmonitor_p_trap->addressv[0] == NULL ||
-	dexit_trap->addressv[0] == NULL) {
+	dmonitor_p_trap->addressv[0] == NULL) {
 	goto error;
     }
 
