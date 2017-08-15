@@ -1181,16 +1181,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 	switch (code) {
 	case ERTS_DSIG_PREP_NOT_ALIVE:
 	case ERTS_DSIG_PREP_NOT_CONNECTED:
-#if 1
 	    BIF_RET(am_true);
-#else
-	    /*
-	     * This is how we used to do it, but the link is obviously not
-	     * active, so I see no point in setting up a connection.
-	     * /Rickard
-	     */
-	    BIF_TRAP1(dunlink_trap, BIF_P, BIF_ARG_1);
-#endif
 
 	case ERTS_DSIG_PREP_PENDING:
 	case ERTS_DSIG_PREP_CONNECTED:

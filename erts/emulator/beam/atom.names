@@ -222,7 +222,6 @@ atom dist_ctrl_put_data
 atom dist_data
 atom Div='/'
 atom div
-atom dlink
 atom dmonitor_node
 atom dmonitor_p
 atom DollarDollar='$$'
@@ -232,7 +231,6 @@ atom dotall
 atom driver
 atom driver_options
 atom dsend_continue_trap
-atom dunlink
 atom duplicate_bag
 atom duplicated
 atom dupnames

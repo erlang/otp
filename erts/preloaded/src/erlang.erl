@@ -31,7 +31,6 @@
 -export([localtime_to_universaltime/1]).
 -export([suspend_process/1]).
 -export([min/2, max/2]).
--export([dlink/1, dunlink/1]).
 -export([dgroup_leader/2,
 	 dexit/2, dmonitor_node/3, dmonitor_p/2]).
 -export([delay_trap/2]).
@@ -125,7 +124,7 @@
 -export([crc32/2, crc32_combine/3, date/0, decode_packet/3]).
 -export([delete_element/2]).
 -export([delete_module/1, demonitor/1, demonitor/2, display/1]).
--export([display_nl/0, display_string/1, dist_exit/3, erase/0, erase/1]).
+-export([display_nl/0, display_string/1, erase/0, erase/1]).
 -export([error/1, error/2, exit/1, exit/2, external_size/1]).
 -export([external_size/2, finish_after_on_load/2, finish_loading/1, float/1]).
 -export([float_to_binary/1, float_to_binary/2,
@@ -705,14 +704,6 @@ display_nl() ->
 -spec erlang:display_string(P1) -> true when
       P1 :: string().
 display_string(_P1) ->
-    erlang:nif_error(undefined).
-
-%% dist_exit/3
--spec erlang:dist_exit(P1, P2, P3) -> true when
-      P1 :: pid(),
-      P2 :: kill | noconnection | normal,
-      P3 :: pid() | port().
-dist_exit(_P1, _P2, _P3) ->
     erlang:nif_error(undefined).
 
 %% dt_append_vm_tag_data/1
@@ -3289,21 +3280,6 @@ dist_get_stat(_DHandle) ->
 %% functions are called in order to set up the connection and then
 %% reactivate the command.
 %%
-
--spec erlang:dlink(pid() | port()) -> 'true'.
-dlink(Pid) ->
-    case net_kernel:connect(erlang:node(Pid)) of
-	true -> erlang:link(Pid);
-	false -> erlang:dist_exit(erlang:self(), noconnection, Pid), true
-    end.
-
-%% Can this ever happen?
--spec erlang:dunlink(identifier()) -> 'true'.
-dunlink(Pid) ->
-    case net_kernel:connect(erlang:node(Pid)) of
-	true -> erlang:unlink(Pid);
-	false -> true
-    end.
 
 dmonitor_node(Node, _Flag, []) ->
     %% Only called when auto-connect attempt failed early in VM

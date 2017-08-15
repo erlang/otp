@@ -108,8 +108,6 @@ int erts_dist_buf_busy_limit;
 
 
 /* distribution trap functions */
-Export* dlink_trap = NULL;
-Export* dunlink_trap = NULL;
 Export* dmonitor_node_trap = NULL;
 Export* dgroup_leader_trap = NULL;
 Export* dexit_trap = NULL;
@@ -633,8 +631,6 @@ void init_dist(void)
     erts_atomic_init_nob(&no_caches, 0);
 
     /* Lookup/Install all references to trap functions */
-    dlink_trap = trap_function(am_dlink,1);
-    dunlink_trap = trap_function(am_dunlink,1);
     dmonitor_node_trap = trap_function(am_dmonitor_node,3);
     dgroup_leader_trap = trap_function(am_dgroup_leader,2);
     dexit_trap = trap_function(am_dexit, 2);
@@ -3100,7 +3096,6 @@ int distribution_info(fmtfn_t to, void *arg)	/* Called by break handler */
 	    monitor_node  -- turn on/off node monitoring
 
             node controller only:
-            dist_exit/3       -- send exit signals from remote to local process
             dist_link/2       -- link a remote process to a local
             dist_unlink/2     -- unlink a remote from a local
 ****************************************************************************/
@@ -3111,9 +3106,6 @@ int distribution_info(fmtfn_t to, void *arg)	/* Called by break handler */
  ** Set the node name of current node fail if node already is set.
  ** setnode(name@host, Creation)
  ** loads functions pointer to trap_functions from module erlang.
- **    erlang:dsend/2
- **    erlang:dlink/1
- **    erlang:dunlink/1
  **    erlang:dmonitor_node/3
  **    erlang:dgroup_leader/2
  **    erlang:dexit/2
@@ -3142,9 +3134,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
 	goto error;
 
     /* Check that all trap functions are defined !! */
-    if (dlink_trap->addressv[0] == NULL ||
-	dunlink_trap->addressv[0] == NULL ||
-	dmonitor_node_trap->addressv[0] == NULL ||
+    if (dmonitor_node_trap->addressv[0] == NULL ||
 	dgroup_leader_trap->addressv[0] == NULL ||
 	dmonitor_p_trap->addressv[0] == NULL ||
 	dexit_trap->addressv[0] == NULL) {
@@ -3557,81 +3547,6 @@ BIF_RETTYPE abort_connection_id_2(BIF_ALIST_2)
     erts_de_rwunlock(dep);
 
     BIF_RET(am_false);
-}
-
-
-/**********************************************************************/
-/* dist_exit(Local, Term, Remote) -> Bool */
-
-BIF_RETTYPE dist_exit_3(BIF_ALIST_3)
-{
-    Eterm local;
-    Eterm remote;
-    DistEntry *rdep;
-
-    local = BIF_ARG_1;
-    remote = BIF_ARG_3;
-
-    /* Check that remote is a remote process */
-    if (is_not_external_pid(remote))
-	goto error;
-
-    rdep = external_dist_entry(remote);
-    
-    if(rdep == erts_this_dist_entry)
-	goto error;
-
-    /* Check that local is local */
-    if (is_internal_pid(local)) {
-	Process *lp;
-	ErtsProcLocks lp_locks;
-	if (BIF_P->common.id == local) {
-	    lp_locks = ERTS_PROC_LOCKS_ALL;
-	    lp = BIF_P;
-	    erts_proc_lock(BIF_P, ERTS_PROC_LOCKS_ALL_MINOR);
-	}
-	else {
-	    lp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
-	    lp = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN,
-			       local, lp_locks);
-	    if (!lp) {
-		BIF_RET(am_true); /* ignore */
-	    }
-	}
-	
-	(void) erts_send_exit_signal(BIF_P,
-				     remote,
-				     lp,
-				     &lp_locks,
-				     BIF_ARG_2,
-				     NIL,
-				     NULL,
-				     0);
-	if (lp == BIF_P)
-	    lp_locks &= ~ERTS_PROC_LOCK_MAIN;
-	erts_proc_unlock(lp, lp_locks);
-	if (lp == BIF_P) {
-	    erts_aint32_t state = erts_atomic32_read_acqb(&BIF_P->state);
-	    /*
-	     * We may have exited current process and may have to take action.
-	     */
-	    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
-		if (state & ERTS_PSFLG_PENDING_EXIT)
-		    erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
-		ERTS_BIF_EXITED(BIF_P);
-	    }
-	}
-    }
-    else if (is_external_pid(local)
-	     && external_dist_entry(local) == erts_this_dist_entry) {
-	BIF_RET(am_true); /* ignore */
-    }
-    else
-	goto error;
-    BIF_RET(am_true);
-
- error:
-    BIF_ERROR(BIF_P, BADARG);
 }
 
 /**********************************************************************/
