@@ -26,7 +26,7 @@
 	 empty_label_index/0,index_label/3,index_labels/1,
 	 code_at/2,bif_to_test/3,is_pure_test/1,
 	 live_opt/1,delete_live_annos/1,combine_heap_needs/2,
-	 split_even/1]).
+	 join_even/2,split_even/1]).
 
 -export_type([code_index/0,module_code/0,instruction/0]).
 
@@ -272,6 +272,13 @@ combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
 
 split_even(Rs) -> split_even(Rs, [], []).
 
+%% join_even/1
+%% {[1,3,5],[2,4,6]} -> [1,2,3,4,5,6]
+
+-spec join_even(list(), list()) -> list().
+
+join_even([], []) -> [];
+join_even([S|Ss], [D|Ds]) -> [S,D|join_even(Ss, Ds)].
 
 %%%
 %%% Local functions.
@@ -804,6 +811,8 @@ live_opt_block([{set,Ds,Ss,Op}=I0|Is], Regs0, D, Acc) ->
 		       true = Live =< Live0,	%Assertion.
 		       I1 = {set,Ds,Ss,{alloc,Live,Alloc}},
 		       {I1,live_call(Live)};
+                   {get_map_elements,Fail} ->
+                       {I0, live_join_label(Fail, D, Regs1)};
 		   _ ->
 		       {I0,Regs1}
 	       end,

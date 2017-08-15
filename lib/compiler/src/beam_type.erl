@@ -481,6 +481,9 @@ update({set,[D],[S1,S2],{alloc,_,{gc_bif,Op,{f,0}}}}, Ts0) ->
 	unknown ->
 	    tdb_update([{D,kill}], Ts0)
     end;
+update({set,Dst,_Src,{get_map_elements,_}}, Ts0) ->
+    Kills = [{D,kill} || D <- Dst],
+    tdb_update(Kills, Ts0);
 update({set,[],_Src,_Op}, Ts0) -> Ts0;
 update({set,[D],_Src,_Op}, Ts0) ->
     tdb_update([{D,kill}], Ts0);
@@ -496,10 +499,6 @@ update({test,test_arity,_Fail,[Src,Arity]}, Ts0) ->
     tdb_update([{Src,{tuple,Arity,[]}}], Ts0);
 update({test,is_map,_Fail,[Src]}, Ts0) ->
     tdb_update([{Src,map}], Ts0);
-update({get_map_elements,_,Src,{list,Elems0}}, Ts0) ->
-    {_Ss,Ds} = beam_utils:split_even(Elems0),
-    Elems = [{Dst,kill} || Dst <- Ds],
-    tdb_update([{Src,map}|Elems], Ts0);
 update({test,is_nonempty_list,_Fail,[Src]}, Ts0) ->
     tdb_update([{Src,nonempty_list}], Ts0);
 update({test,is_eq_exact,_,[Reg,{atom,_}=Atom]}, Ts) ->
