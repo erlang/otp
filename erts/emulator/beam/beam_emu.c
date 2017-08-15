@@ -2849,19 +2849,14 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     Eterm new_key;
     Eterm* kp;
 
-    new_p = &Arg(5);
-    num_updates = Arg(4) / 2;
+    new_p = &Arg(4);
+    num_updates = Arg(3) / 2;
 
     if (is_not_flatmap(map)) {
 	Uint32 hx;
 	Eterm val;
 
-	/* apparently the compiler does not emit is_map instructions,
-	 * bad compiler */
-
-	if (is_not_hashmap(map))
-	    return THE_NON_VALUE;
-
+	ASSERT(is_hashmap(map));
 	res = map;
 	E = p->stop;
 	while(num_updates--) {
@@ -2885,7 +2880,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      */
 
     if (num_old == 0) {
-	return new_map(p, reg, I+1);
+	return new_map(p, reg, I);
     }
 
     /*
@@ -2895,7 +2890,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     need = 2*(num_old+num_updates) + 1 + MAP_HEADER_FLATMAP_SZ;
     if (HeapWordsLeft(p) < need) {
-	Uint live = Arg(3);
+	Uint live = Arg(2);
 	reg[live] = map;
 	erts_garbage_collect(p, need, reg, live+1);
 	map      = reg[live];

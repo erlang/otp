@@ -697,7 +697,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_i_put_tuple_xI:
     case op_i_put_tuple_yI:
     case op_new_map_dII:
-    case op_update_map_assoc_jsdII:
+    case op_update_map_assoc_sdII:
     case op_update_map_exact_jsdII:
 	{
 	    int n = unpacked[-1];

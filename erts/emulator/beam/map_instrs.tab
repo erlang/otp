@@ -19,10 +19,12 @@
 // %CopyrightEnd%
 //
 
-BADMAP(Fail, Map) {
-    c_p->freason = BADMAP;
-    c_p->fvalue = $Map;
-    $FAIL_HEAD_OR_BODY($Fail);
+ensure_map(Map) {
+    if (is_not_map($Map)) {
+        c_p->freason = BADMAP;
+        c_p->fvalue = $Map;
+        $FAIL_BODY();
+    }
 }
 
 new_map(Dst, Live, N) {
@@ -123,7 +125,7 @@ i_get_map_elements(Fail, Src, N) {
     }
 }
 
-update_map_assoc(Fail, Src, Dst, Live, N) {
+update_map_assoc(Src, Dst, Live, N) {
     Eterm res;
     Eterm map;
 
@@ -131,17 +133,10 @@ update_map_assoc(Fail, Src, Dst, Live, N) {
     HEAVY_SWAPOUT;
     res = update_map_assoc(c_p, reg, map, I);
     HEAVY_SWAPIN;
-    if (is_value(res)) {
-        $REFRESH_GEN_DEST();
-        $Dst = res;
-        $NEXT($NEXT_INSTRUCTION+$N);
-    } else {
-        /*
-         * This can only happen if the code was compiled
-         * with the compiler in OTP 17.
-         */
-        $BADMAP($Fail, map);
-    }
+    ASSERT(is_value(res));
+    $REFRESH_GEN_DEST();
+    $Dst = res;
+    $NEXT($NEXT_INSTRUCTION+$N);
 }
 
 update_map_exact(Fail, Src, Dst, Live, N) {
