@@ -103,7 +103,8 @@
 -type yes_no_maybe() :: 'yes' | 'no' | 'maybe'.
 -type sub() :: #sub{}.
 
--define(OPT_ATOMS_TAB, sys_core_fold_opt_atoms).
+%% Process dictionary key for collection of optimized away atoms
+-define(OPT_ATOMS_PD_KEY, 'sys_core_fold:optimized_away_atoms').
 
 -spec module(cerl:c_module(), [compile:option()]) ->
 	{'ok', cerl:c_module(), [_]}.
@@ -117,19 +118,19 @@ module(#c_module{defs=Ds0}=Mod, Opts) ->
     init_warnings(),
 
     %% Collect atoms which are optimized away
-    _Tid = ets:new(?OPT_ATOMS_TAB, [named_table, protected]),
+    erlang:put(?OPT_ATOMS_PD_KEY, cerl_sets:new()),
 
     Ds1 = [function_1(D) || D <- Ds0],
     erase(no_inline_list_funcs),
 
-    KFun = fun({K, _}) -> K end, % to take only key from pairs
-
     %% Get all keys from ETS table, and append a new attribute
-    %% -optimized_away_atoms([a, b, ...])
-    OptAtoms = ordsets:from_list(lists:map(KFun, ets:tab2list(?OPT_ATOMS_TAB))),
-    ets:delete(?OPT_ATOMS_TAB),
-    OptAttribute = [{#c_literal{val =optimized_away_atoms},
-                     #c_literal{val=OptAtoms}}],
+    %% -<<"optimized_away_atoms">>([a, b, ...])
+    OptAtoms = cerl_sets:to_list(erlang:get(?OPT_ATOMS_PD_KEY)),
+
+    %% Module attribute name for optimized away atoms, as binary to avoid conflict
+    %% with other user-defined module attributes
+    OptAttribute = [{#c_literal{val = <<"optimized_away_atoms">>},
+                     #c_literal{val = OptAtoms}}],
     OptAttrs = Mod#c_module.attrs ++ OptAttribute,
 
     {ok, Mod#c_module{defs = Ds1, attrs=OptAttrs}, get_warnings()}.
@@ -139,7 +140,8 @@ module(#c_module{defs=Ds0}=Mod, Opts) ->
 %% code anymore.
 optimized_away_atoms([]) -> ok;
 optimized_away_atoms([#c_literal{val=A} | Tail]) when is_atom(A) ->
-    ets:insert(?OPT_ATOMS_TAB, {A, undefined}),
+    Set0 = erlang:get(?OPT_ATOMS_PD_KEY),
+    erlang:put(?OPT_ATOMS_PD_KEY, cerl_sets:add_element(A, Set0)),
     optimized_away_atoms(Tail);
 optimized_away_atoms([_ | Tail]) ->
     optimized_away_atoms(Tail).
@@ -224,7 +226,7 @@ opt_guard_try(#c_seq{arg=Arg,body=Body0}=Seq) ->
 		    %% a guard and that we must keep the call).
 		    Seq#c_seq{body=Body};
 		true ->
-		    optimized_away_atoms([Mod, Name] ++ Args),
+		    optimized_away_atoms([Mod, Name | Args]),
 		    %% The BIF has no side effects, so it can
 		    %% be safely removed.
 		    Body
@@ -815,7 +817,7 @@ fold_call_1(Call, Mod, Name, Args, Sub) ->
     case erl_bifs:is_pure(Mod, Name, NumArgs) of
 	false -> Call;				%Not pure - keep call.
 	true ->
-	    optimized_away_atoms([Mod, Name] ++ Args),
+	    optimized_away_atoms([Mod, Name | Args]),
 	    fold_call_2(Call, Mod, Name, Args, Sub)
     end.
 

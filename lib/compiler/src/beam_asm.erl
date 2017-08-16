@@ -71,7 +71,7 @@ assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, SourceFile, Opts, Compile
 
     %% Populate atom dict with atoms that were optimized away during Core Fold
     %% Atoms may possibly exist in atom Dict, but we attempt to add them anyway
-    OptAtoms = proplists:get_value(optimized_away_atoms, Attr0, []),
+    OptAtoms = proplists:get_value(<<"optimized_away_atoms">>, Attr0, []),
     Dict3 = lists:foldl(
         fun(A, D0) ->
             {_, D1} = beam_dict:atom(A, D0),
