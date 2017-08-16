@@ -26,7 +26,8 @@
 	 unused_multiple_values_error/1,unused_multiple_values/1,
 	 multiple_aliases/1,redundant_boolean_clauses/1,
 	 mixed_matching_clauses/1,unnecessary_building/1,
-	 no_no_file/1,configuration/1,supplies/1]).
+	 no_no_file/1,configuration/1,supplies/1,
+         redundant_stack_frame/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -45,7 +46,8 @@ groups() ->
        unused_multiple_values_error,unused_multiple_values,
        multiple_aliases,redundant_boolean_clauses,
        mixed_matching_clauses,unnecessary_building,
-       no_no_file,configuration,supplies]}].
+       no_no_file,configuration,supplies,
+       redundant_stack_frame]}].
 
 
 init_per_suite(Config) ->
@@ -526,5 +528,27 @@ supplies(_Config) ->
     end.
 
 do_supplies(#{1 := Value}) when byte_size(Value), byte_size(kg) -> working.
+
+redundant_stack_frame(_Config) ->
+    {1,2} = do_redundant_stack_frame(#{x=>1,y=>2}),
+    {'EXIT',{{badkey,_,x},_}} = (catch do_redundant_stack_frame(#{y=>2})),
+    {'EXIT',{{badkey,_,y},_}} = (catch do_redundant_stack_frame(#{x=>1})),
+    ok.
+
+do_redundant_stack_frame(Map) ->
+    %% There should not be a stack frame for this function.
+    X = case Map of
+            #{x := X0} ->
+                X0;
+            #{} ->
+                erlang:error({badkey, Map, x})
+        end,
+    Y = case Map of
+            #{y := Y0} ->
+                Y0;
+            #{} ->
+                erlang:error({badkey, Map, y})
+        end,
+    {X, Y}.
 
 id(I) -> I.

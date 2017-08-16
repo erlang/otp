@@ -2422,16 +2422,10 @@ move_let_into_expr(#c_let{vars=InnerVs0,body=InnerBody0}=Inner,
     Outer#c_let{vars=OuterVs,arg=Arg,
 		body=Inner#c_let{vars=InnerVs,arg=OuterBody,body=InnerBody}};
 move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
-		   #c_case{arg=Cexpr0,clauses=[Ca0,Cb0|Cs]}=Case, Sub0) ->
-    %% Test if there are no more clauses than Ca0 and Cb0, or if
-    %% Cb0 is guaranteed to match.
-    TwoClauses = Cs =:= [] orelse
-	case Cb0 of
-	    #c_clause{pats=[#c_var{}],guard=#c_literal{val=true}} -> true;
-	    _ -> false
-	end,
-    case {TwoClauses,is_failing_clause(Ca0),is_failing_clause(Cb0)} of
-	{true,false,true} ->
+		   #c_case{arg=Cexpr0,clauses=[Ca0|Cs0]}=Case, Sub0) ->
+    case not is_failing_clause(Ca0) andalso
+        are_all_failing_clauses(Cs0) of
+	true ->
 	    %% let <Lvars> = case <Case-expr> of
 	    %%                  <Cpats> -> <Clause-body>;
 	    %%                  <OtherCpats> -> erlang:error(...)
@@ -2467,8 +2461,8 @@ move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
 				  body=Lbody},
 
 		    Ca = Ca0#c_clause{pats=CaPats,guard=G,body=B},
-		    Cb = clause(Cb0, Cexpr, value, Sub0),
-		    Case#c_case{arg=Cexpr,clauses=[Ca,Cb]}
+		    Cs = [clause(C, Cexpr, value, Sub0) || C <- Cs0],
+		    Case#c_case{arg=Cexpr,clauses=[Ca|Cs]}
 	    catch
 		nomatch ->
 		    %% This is not a defeat. The code will eventually
@@ -2476,7 +2470,7 @@ move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
 		    %% optimizations done in this module.
 		    impossible
 	    end;
-	{_,_,_} -> impossible
+	false -> impossible
     end;
 move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
 		   #c_seq{arg=Sarg0,body=Sbody0}=Seq, Sub0) ->
@@ -2498,6 +2492,9 @@ move_let_into_expr(#c_let{vars=Lvs0,body=Lbody0}=Let,
     Seq#c_seq{arg=Sarg,body=Let#c_let{vars=Lvs,arg=core_lib:make_values(Sbody),
 				      body=Lbody}};
 move_let_into_expr(_Let, _Expr, _Sub) -> impossible.
+
+are_all_failing_clauses(Cs) ->
+    all(fun is_failing_clause/1, Cs).
 
 is_failing_clause(#c_clause{body=B}) ->
     will_fail(B).
