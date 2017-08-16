@@ -48,7 +48,7 @@ start_link(Notebook, Parent, Config) ->
 
 init([Notebook, Parent, Config]) ->
     SysInfo = observer_backend:sys_info(),
-    {Sys, Mem, Cpu, Stats} = info_fields(),
+    {Sys, Mem, Cpu, Stats, Limits} = info_fields(),
     Panel = wxPanel:new(Notebook),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     HSizer0 = wxBoxSizer:new(?wxHORIZONTAL),
@@ -63,17 +63,26 @@ init([Notebook, Parent, Config]) ->
     wxSizer:add(HSizer1, FPanel2, [{flag, ?wxEXPAND}, {proportion, 1}]),
     wxSizer:add(HSizer1, FPanel3, [{flag, ?wxEXPAND}, {proportion, 1}]),
 
+    HSizer2 = wxBoxSizer:new(?wxHORIZONTAL),
+    {FPanel4, _FSizer4, Fields4} = observer_lib:display_info(Panel, observer_lib:fill_info(Limits, SysInfo)),
+    wxSizer:add(HSizer2, FPanel4, [{flag, ?wxEXPAND}, {proportion, 1}]),
+
+
     BorderFlags = ?wxLEFT bor ?wxRIGHT,
     wxSizer:add(Sizer, HSizer0, [{flag, ?wxEXPAND bor BorderFlags bor ?wxTOP},
 				 {proportion, 0}, {border, 5}]),
     wxSizer:add(Sizer, HSizer1, [{flag, ?wxEXPAND bor BorderFlags bor ?wxBOTTOM},
 				 {proportion, 0}, {border, 5}]),
+    wxSizer:add(Sizer, HSizer2, [{flag, ?wxEXPAND bor BorderFlags bor ?wxBOTTOM},
+                                 {proportion, 0}, {border, 5}]),
+
     wxPanel:setSizer(Panel, Sizer),
     Timer = observer_lib:start_timer(Config, 10),
     {Panel, #sys_wx_state{parent=Parent,
 			  parent_notebook=Notebook,
 			  panel=Panel, sizer=Sizer,
-			  timer=Timer, fields=Fields0 ++ Fields1++Fields2++Fields3}}.
+			  timer=Timer, fields=Fields0 ++ Fields1++Fields2++Fields3++Fields4}}.
+
 
 create_sys_menu(Parent) ->
     View = {"View", [#create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl-R"},
@@ -83,13 +92,39 @@ create_sys_menu(Parent) ->
 update_syspage(#sys_wx_state{node = undefined}) -> ignore;
 update_syspage(#sys_wx_state{node = Node, fields=Fields, sizer=Sizer}) ->
     SysInfo = observer_wx:try_rpc(Node, observer_backend, sys_info, []),
-    {Sys, Mem, Cpu, Stats} = info_fields(),
+    {Sys, Mem, Cpu, Stats, Limits} = info_fields(),
     observer_lib:update_info(Fields,
 			     observer_lib:fill_info(Sys, SysInfo) ++
 				 observer_lib:fill_info(Mem, SysInfo) ++
 				 observer_lib:fill_info(Cpu, SysInfo) ++
-				 observer_lib:fill_info(Stats, SysInfo)),
+				 observer_lib:fill_info(Stats, SysInfo)++
+				 observer_lib:fill_info(Limits, SysInfo)),
+
     wxSizer:layout(Sizer).
+
+
+maybe_convert(undefined) -> "Not available";
+maybe_convert(V) -> observer_lib:to_str(V).
+
+get_dist_buf_busy_limit_info() ->
+    fun(Data) ->
+            maybe_convert(proplists:get_value(dist_buf_busy_limit, Data))
+    end.
+
+get_limit_count_info(Count, Limit) ->
+    fun(Data) ->
+            C = proplists:get_value(Count, Data),
+            L = proplists:get_value(Limit, Data),
+            lists:flatten(
+              io_lib:format("~s / ~s ~s",
+                            [maybe_convert(C), maybe_convert(L),
+                             if
+                                 C =:= undefined -> "";
+                                 L =:= undefined -> "";
+                                 true -> io_lib:format("(~s % used)",[observer_lib:to_str({trunc, (C / L) *100})])
+                             end]))
+    end.
+
 
 info_fields() ->
     Sys = [{"System and Architecture",
@@ -122,14 +157,20 @@ info_fields() ->
 	    ]}],
     Stats = [{"Statistics", right,
 	      [{"Up time", {time_ms, uptime}},
-	       {"Max Processes", process_limit},
-	       {"Processes", process_count},
 	       {"Run Queue", run_queue},
 	       {"IO Input",  {bytes, io_input}},
 	       {"IO Output", {bytes, io_output}}
 	      ]}
 	    ],
-    {Sys, Mem, Cpu, Stats}.
+    Limits = [{"System statistics / limit",
+               [{"Atoms", get_limit_count_info(atom_count, atom_limit)},
+                {"Processes", get_limit_count_info(process_count, process_limit)},
+                {"Ports", get_limit_count_info(port_count, port_limit)},
+                {"ETS", get_limit_count_info(ets_count, ets_limit)},
+                {"Distribution buffer busy limit", get_dist_buf_busy_limit_info()}
+               ]}],
+    {Sys, Mem, Cpu, Stats, Limits}.
+
 
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

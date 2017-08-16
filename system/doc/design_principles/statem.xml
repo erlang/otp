@@ -411,14 +411,6 @@ StateName(EventType, EventContent, Data) ->
     <marker id="Example" />
     <title>Example</title>
     <p>
-      This example starts off as equivalent to the example in section
-      <seealso marker="fsm"><c>gen_fsm</c>&nbsp;Behavior</seealso>.
-      In later sections, additions and tweaks are made
-      using features in <c>gen_statem</c> that <c>gen_fsm</c> does not have.
-      The end of this chapter provides the example again
-      with all the added features.
-    </p>
-    <p>
       A door with a code lock can be seen as a state machine.
       Initially, the door is locked. When someone presses a button,
       an event is generated.
