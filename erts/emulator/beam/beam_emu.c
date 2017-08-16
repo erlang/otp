@@ -154,9 +154,6 @@ do {                                     \
  */
 
 #define REG_TARGET_PTR(Target) (((Target) & 1) ? &yb(Target-1) : &xb(Target))
-#define REG_TARGET(Target) (*REG_TARGET_PTR(Target))
-
-#define ISCATCHEND(instr) ((Eterm *) *(instr) == OpCode(catch_end_y))
 
 /*
  * Special Beam instructions.
@@ -318,10 +315,6 @@ void** beam_ops;
 #endif
 
 #define Arg(N)       I[(N)+1]
-#define Next(N)                \
-    I += (N) + 1;              \
-    ASSERT(VALID_INSTR(*I));   \
-    Goto(*I)
 
 #define GetR(pos, tr)				\
    do {						\
