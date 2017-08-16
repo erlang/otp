@@ -1299,23 +1299,52 @@ apply I
 apply_last I P
 
 #
-# Map instructions in R17.
+# Handle compatibility with OTP 17 here.
 #
 
-sorted_put_map_assoc/5
-put_map_assoc F Map Dst Live Size Rest=* | map_key_sort(Size, Rest) => \
-  sorted_put_map_assoc F Map Dst Live Size Rest
+i_put_map_assoc/4
+
+# We KNOW that in OTP 20 (actually OTP 18 and higher), a put_map_assoc instruction
+# is always preceded by an is_map test. That means that put_map_assoc can never
+# fail and does not need any failure label.
+
+put_map_assoc Fail Map Dst Live Size Rest=* | compiled_with_otp_20_or_higher() => \
+	      i_put_map_assoc Map Dst Live Size Rest
+
+# Translate the put_map_assoc instruction if the module was compiled by a compiler
+# before 20. This is only necessary if the OTP 17 compiler was used, but we
+# have no safe and relatively easy way to know whether OTP 18/19 was used.
+
+put_map_assoc Fail=p Map Dst Live Size Rest=* => \
+	      ensure_map Map | i_put_map_assoc Map Dst Live Size Rest
+put_map_assoc Fail=f Map Dst Live Size Rest=* => \
+	      is_map Fail Map | i_put_map_assoc Map Dst Live Size Rest
+
+ensure_map Lit=q | literal_is_map(Lit) =>
+ensure_map Src=cqy => move Src x | ensure_map x
+
+%cold
+ensure_map x
+%hot
+
+#
+# Map instructions. First introduced in R17.
+#
+
+sorted_put_map_assoc/4
+i_put_map_assoc Map Dst Live Size Rest=* | map_key_sort(Size, Rest) => \
+  sorted_put_map_assoc Map Dst Live Size Rest
 
 sorted_put_map_exact/5
 put_map_exact F Map Dst Live Size Rest=* | map_key_sort(Size, Rest) => \
   sorted_put_map_exact F Map Dst Live Size Rest
 
-sorted_put_map_assoc j Map Dst Live Size Rest=* | is_empty_map(Map) => \
+sorted_put_map_assoc Map Dst Live Size Rest=* | is_empty_map(Map) => \
    new_map Dst Live Size Rest
-sorted_put_map_assoc F Src=s Dst Live Size Rest=* => \
-	       update_map_assoc F Src Dst Live Size Rest
-sorted_put_map_assoc F Src Dst Live Size Rest=* => \
-	       move Src x | update_map_assoc F x Dst Live Size Rest
+sorted_put_map_assoc Src=s Dst Live Size Rest=* => \
+	       update_map_assoc Src Dst Live Size Rest
+sorted_put_map_assoc Src Dst Live Size Rest=* => \
+	       move Src x | update_map_assoc x Dst Live Size Rest
 
 sorted_put_map_exact F Src=s Dst Live Size Rest=* => \
 	      update_map_exact F Src Dst Live Size Rest
@@ -1327,7 +1356,7 @@ new_map Dst Live Size Rest=* | is_small_map_literal_keys(Size, Rest) => \
 
 new_map d I I
 i_new_small_map_lit d I q
-update_map_assoc j s d I I
+update_map_assoc s d I I
 update_map_exact j s d I I
 
 is_map Fail Lit=q | literal_is_map(Lit) =>

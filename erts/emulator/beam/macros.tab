@@ -92,6 +92,11 @@ NEXT(Addr) {
     Goto(*I);
 }
 
+FAIL_BODY() {
+    //| -no_prefetch
+    goto find_func_info;
+}
+
 FAIL_HEAD_OR_BODY(Fail) {
     //| -no_prefetch
     if ($Fail) {

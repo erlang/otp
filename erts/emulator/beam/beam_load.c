@@ -306,6 +306,7 @@ typedef struct LoaderState {
     int on_load;		/* Index in the code for the on_load function
 				 * (or 0 if there is no on_load function)
 				 */
+    int otp_20_or_higher;       /* Compiled with OTP 20 or higher */
 
     /*
      * Atom table.
@@ -738,6 +739,13 @@ erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
 	    goto load_error;
 	}
     }
+
+    /*
+     * Find out whether the code was compiled with OTP 20
+     * or higher.
+     */
+
+    stp->otp_20_or_higher = stp->chunks[UTF8_ATOM_CHUNK].size > 0;
 
     /*
      * Load the code chunk.
@@ -2730,6 +2738,12 @@ load_code(LoaderState* stp)
 #endif
 
 #define never(St) 0
+
+static int
+compiled_with_otp_20_or_higher(LoaderState* stp)
+{
+    return stp->otp_20_or_higher;
+}
 
 /*
  * Predicate that tests whether a jump table can be used.
