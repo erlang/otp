@@ -297,6 +297,8 @@ to_str(No) when is_integer(No) ->
     integer_to_list(No);
 to_str(Float) when is_float(Float) ->
     io_lib:format("~.3f", [Float]);
+to_str({trunc, Float}) when is_float(Float) ->
+    float_to_list(Float, [{decimals,0}]);
 to_str(Term) ->
     io_lib:format("~w", [Term]).
 
