@@ -627,12 +627,14 @@ static void pass_on(pid_t childpid)
 	    status("Pty master read; ");
 #endif
 	    if ((len = sf_read(mfd, buf, BUFSIZ)) <= 0) {
+		int saved_errno = errno;
 		sf_close(rfd);
 		if(wfd) sf_close(wfd);
 		sf_close(mfd);
 		unlink(fifo1);
 		unlink(fifo2);
 		if (len < 0) {
+		    errno = saved_errno;
 		    if(errno == EIO)
 			ERROR0(LOG_ERR,"Erlang closed the connection.");
 		    else
@@ -1342,13 +1344,15 @@ static int sf_open(const char *path, int type, mode_t mode) {
 
     return fd;
 }
+
 static int sf_close(int fd) {
     int res = 0;
 
-    do { res = close(fd); } while(fd < 0 && errno == EINTR);
+    do { res = close(fd); } while(res < 0 && errno == EINTR);
 
     return res;
 }
+
 /* Extract any control sequences that are ment only for run_erl
  * and should not be forwarded to the pty.
  */
