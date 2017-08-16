@@ -588,6 +588,10 @@ int erts_flush_trace_messages(Process *c_p, ErtsProcLocks c_p_locks)
     ErlTraceMessageQueue *msgq, **last_msgq;
     int reds = 0;
 
+    /* Only one thread at a time is allowed to flush trace messages,
+       so we require the main lock to be held when doing the flush */
+    ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
+
     erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_TRACE);
 
     msgq = c_p->trace_msg_q;
