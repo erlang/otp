@@ -229,13 +229,11 @@ shift.head() {
     Sint ires;
     Eterm* bigp;
     Eterm tmp_big[2];
-    Uint BIF;
 }
 
 shift.setup_bsr(Src1, Src2) {
     Op1 = $Src1;
     Op2 = $Src2;
-    BIF = BIF_bsr_2;
     shift_left_count = 0;
     if (is_small(Op2)) {
         shift_left_count = -signed_val(Op2);
@@ -252,7 +250,6 @@ shift.setup_bsr(Src1, Src2) {
 shift.setup_bsl(Src1, Src2) {
     Op1 = $Src1;
     Op2 = $Src2;
-    BIF = BIF_bsl_2;
     shift_left_count = 0;
     if (is_small(Op2)) {
         shift_left_count = signed_val(Op2);
@@ -279,8 +276,7 @@ shift.execute(Fail, Live, Dst) {
         ires = signed_val(Op1);
         if (shift_left_count == 0 || ires == 0) {
             if (is_not_integer(Op2)) {
-                c_p->freason = BADARITH;
-                $BIF_ERROR_ARITY_2($Fail, BIF, Op1, Op2);
+                goto shift_error;
             }
             if (ires == 0) {
                 $Dst = Op1;
@@ -309,8 +305,7 @@ shift.execute(Fail, Live, Dst) {
     } else if (is_big(Op1)) {
         if (shift_left_count == 0) {
             if (is_not_integer(Op2)) {
-                c_p->freason = BADARITH;
-                $BIF_ERROR_ARITY_2($Fail, BIF, Op1, Op2);
+                goto shift_error;
             }
             $Dst = Op1;
             $NEXT0();
@@ -367,8 +362,22 @@ shift.execute(Fail, Live, Dst) {
     /*
      * One or more non-integer arguments.
      */
+ shift_error:
     c_p->freason = BADARITH;
-    $BIF_ERROR_ARITY_2($Fail, BIF, Op1, Op2);
+    if ($Fail) {
+        $FAIL($Fail);
+    } else {
+        reg[0] = Op1;
+        reg[1] = Op2;
+        SWAPOUT;
+        if (I[0] == (BeamInstr) OpCode(i_bsl_ssjId)) {
+            I = handle_error(c_p, I, reg, &bif_export[BIF_bsl_2]->info.mfa);
+        } else {
+            ASSERT(I[0] == (BeamInstr) OpCode(i_bsr_ssjId));
+            I = handle_error(c_p, I, reg, &bif_export[BIF_bsr_2]->info.mfa);
+        }
+        goto post_error_handling;
+    }
 }
 
 i_int_bnot(Fail, Src, Live, Dst) {
