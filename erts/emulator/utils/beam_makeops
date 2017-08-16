@@ -200,8 +200,6 @@ sub define_type_bit {
     define_type_bit('A', $type_bit{'u'});
     define_type_bit('L', $type_bit{'u'});
     define_type_bit('b', $type_bit{'u'});
-    define_type_bit('N', $type_bit{'u'});
-    define_type_bit('U', $type_bit{'u'});
     define_type_bit('e', $type_bit{'u'});
     define_type_bit('P', $type_bit{'u'});
     define_type_bit('Q', $type_bit{'u'});
