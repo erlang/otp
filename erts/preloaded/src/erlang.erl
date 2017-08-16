@@ -3304,12 +3304,10 @@ dunlink(Pid) ->
 	false -> true
     end.
 
-dmonitor_node(Node, Flag, []) ->
-    case net_kernel:connect(Node) of
-	true -> erlang:monitor_node(Node, Flag, []);
-	false -> erlang:self() ! {nodedown, Node}, true
-    end;
-
+dmonitor_node(Node, _Flag, []) ->
+    %% Only called when auto-connect attempt failed early in VM
+    erlang:self() ! {nodedown, Node},
+    true;
 dmonitor_node(Node, Flag, Opts) ->
     case lists:member(allow_passive_connect, Opts) of
 	true ->

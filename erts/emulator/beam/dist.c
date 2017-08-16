@@ -3789,11 +3789,17 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
     DistEntry *dep;
     ErtsLink *lnk;
     Eterm l;
+    int async_connect = 1;
 
     for (l = Options; l != NIL && is_list(l); l = CDR(list_val(l))) {
 	Eterm t = CAR(list_val(l));
-	/* allow_passive_connect the only available option right now */
-	if (t != am_allow_passive_connect) {
+	if (t == am_allow_passive_connect) {
+	    /*
+	     * Handle this horrible feature by falling back on old synchronous
+	     * auto-connect (if needed)
+	     */
+	    async_connect = 0;
+	} else {
 	    BIF_ERROR(p, BADARG);
 	}
     }
@@ -3807,47 +3813,85 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
 	 && (Node != erts_this_node->sysname))) {
 	BIF_ERROR(p, BADARG);
     }
-    dep = erts_sysname_to_connected_dist_entry(Node);
-    if (!dep) {
-    do_trap:
-	BIF_TRAP3(dmonitor_node_trap, p, Node, Bool, Options);
-    }
-    if (dep == erts_this_dist_entry)
-	goto done;
-
-    erts_proc_lock(p, ERTS_PROC_LOCK_LINK);
-    erts_de_rlock(dep);
-    if (ERTS_DE_IS_NOT_CONNECTED(dep)) {
-	erts_proc_unlock(p, ERTS_PROC_LOCK_LINK);
-	erts_de_runlock(dep);
-	goto do_trap;
-    }
-    erts_de_links_lock(dep);
-    erts_de_runlock(dep);
 
     if (Bool == am_true) {
-	ASSERT(dep->cid != NIL);
-	lnk = erts_add_or_lookup_link(&(dep->node_links), LINK_NODE, 
-				      p->common.id);
-	++ERTS_LINK_REFC(lnk);
-	lnk = erts_add_or_lookup_link(&ERTS_P_LINKS(p), LINK_NODE, Node);
-	++ERTS_LINK_REFC(lnk);
+        ErtsDSigData dsd;
+        dsd.node = Node;
+        dep = erts_find_or_insert_dist_entry(Node);
+        if (dep == erts_this_dist_entry)
+            goto done;
+
+        erts_proc_lock(p, ERTS_PROC_LOCK_LINK);
+
+        switch (erts_dsig_prepare(&dsd, &dep, p,
+                                  (ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK),
+                                  ERTS_DSP_RLOCK, 0, async_connect)) {
+        case ERTS_DSIG_PREP_NOT_ALIVE:
+	case ERTS_DSIG_PREP_NOT_CONNECTED:
+	    /* Trap to either send 'nodedown' or do passive connection attempt */
+	trap:
+            erts_proc_unlock(p, ERTS_PROC_LOCK_LINK);
+	    erts_deref_dist_entry(dep);
+            BIF_TRAP3(dmonitor_node_trap, p, Node, Bool, Options);
+	case ERTS_DSIG_PREP_PENDING:
+	    if (!async_connect) {
+		/*
+		 * Pending connection may fail, so we must trap
+		 * to ensure passive connection attempt
+		 */
+		erts_de_runlock(dep);
+		goto trap;
+	    }
+	    /*fall through*/
+        case ERTS_DSIG_PREP_CONNECTED:
+            erts_de_links_lock(dep);
+            erts_de_runlock(dep);
+            lnk = erts_add_or_lookup_link(&(dep->node_links), LINK_NODE,
+                                          p->common.id);
+            ++ERTS_LINK_REFC(lnk);
+            lnk = erts_add_or_lookup_link(&ERTS_P_LINKS(p), LINK_NODE, Node);
+            ++ERTS_LINK_REFC(lnk);
+            break;
+        default:
+            ERTS_ASSERT(! "Invalid dsig prepare result");
+        }
     }
-    else  {
-	lnk = erts_lookup_link(dep->node_links, p->common.id);
-	if (lnk != NULL) {
-	    if ((--ERTS_LINK_REFC(lnk)) == 0) {
-		erts_destroy_link(erts_remove_link(&(dep->node_links), 
-						   p->common.id));
-	    }
-	}
-	lnk = erts_lookup_link(ERTS_P_LINKS(p), Node);
-	if (lnk != NULL) {
-	    if ((--ERTS_LINK_REFC(lnk)) == 0) {
-		erts_destroy_link(erts_remove_link(&ERTS_P_LINKS(p),
-						   Node));
-	    }
-	}
+    else { /* Bool == false */
+        dep = erts_sysname_to_connected_dist_entry(Node);
+        if (!dep) {
+	    /*
+	     * Before OTP-21 this case triggered auto-connect
+	     * and a 'nodedown' message if that failed.
+	     * Now it's a simple no-op which feels more reasonable.
+	     */
+            BIF_RET(am_true);
+        }
+        if (dep == erts_this_dist_entry)
+            goto done;
+
+        erts_proc_lock(p, ERTS_PROC_LOCK_LINK);
+        erts_de_rlock(dep);
+        if (!(dep->status & (ERTS_DE_SFLG_PENDING | ERTS_DE_SFLG_CONNECTED))) {
+            erts_proc_unlock(p, ERTS_PROC_LOCK_LINK);
+            erts_de_runlock(dep);
+            goto done;
+        }
+        erts_de_links_lock(dep);
+        erts_de_runlock(dep);
+        lnk = erts_lookup_link(dep->node_links, p->common.id);
+        if (lnk != NULL) {
+            if ((--ERTS_LINK_REFC(lnk)) == 0) {
+                erts_destroy_link(erts_remove_link(&(dep->node_links),
+                                                   p->common.id));
+            }
+        }
+        lnk = erts_lookup_link(ERTS_P_LINKS(p), Node);
+        if (lnk != NULL) {
+            if ((--ERTS_LINK_REFC(lnk)) == 0) {
+                erts_destroy_link(erts_remove_link(&ERTS_P_LINKS(p),
+                                                   Node));
+            }
+        }
     }
 
     erts_de_links_unlock(dep);

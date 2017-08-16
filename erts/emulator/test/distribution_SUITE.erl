@@ -41,7 +41,7 @@
          local_send_small/1, local_send_big/1,
          local_send_legal/1, link_to_busy/1, exit_to_busy/1,
          lost_exit/1, link_to_dead/1, link_to_dead_new_node/1,
-         applied_monitor_node/1, ref_port_roundtrip/1, nil_roundtrip/1,
+         ref_port_roundtrip/1, nil_roundtrip/1,
          trap_bif_1/1, trap_bif_2/1, trap_bif_3/1,
          stop_dist/1,
          dist_auto_connect_never/1, dist_auto_connect_once/1,
@@ -75,7 +75,7 @@ suite() ->
 all() ->
     [ping, {group, bulk_send}, {group, local_send},
      link_to_busy, exit_to_busy, lost_exit, link_to_dead,
-     link_to_dead_new_node, applied_monitor_node,
+     link_to_dead_new_node,
      ref_port_roundtrip, nil_roundtrip, stop_dist,
      {group, trap_bif}, {group, dist_auto_connect},
      dist_parallel_send, atom_roundtrip, unicode_atom_roundtrip,
@@ -638,26 +638,6 @@ link_to_dead_new_node(Config) when is_list(Config) ->
               ok
     end,
     ok.
-
-%% Test that monitor_node/2 works when applied.
-applied_monitor_node(Config) when is_list(Config) ->
-    NonExisting = list_to_atom("__non_existing__@" ++ hostname()),
-
-    %% Tail-recursive call to apply (since the node is non-existing,
-    %% there will be a trap).
-
-    true = tail_apply(erlang, monitor_node, [NonExisting, true]),
-    [{nodedown, NonExisting}] = test_server:messages_get(),
-
-    %% Ordinary call (with trap).
-
-    true = apply(erlang, monitor_node, [NonExisting, true]),
-    [{nodedown, NonExisting}] = test_server:messages_get(),
-
-    ok.
-
-tail_apply(M, F, A) ->
-    apply(M, F, A).
 
 %% Test that sending a port or reference to another node and back again
 %% doesn't correct them in any way.
