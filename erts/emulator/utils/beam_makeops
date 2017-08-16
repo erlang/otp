@@ -228,6 +228,12 @@ $match_engine_ops{'TOP_fail'} = 1;
 	sanity("tag '$tag': primitive tags must be named with lowercase letters")
 	    unless $tag =~ /^[a-z]$/;
     }
+
+    foreach my $tag (keys %arg_size) {
+        defined $type_bit{$tag} or
+            sanity("the tag '$tag' has a size in %arg_size, " .
+                   "but has no defined bit pattern");
+    }
 }
 
 #
