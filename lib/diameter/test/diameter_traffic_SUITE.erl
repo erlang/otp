@@ -325,7 +325,7 @@ init_per_group(Name, Config)
         false ->
             start_services(Config),
             add_transports(Config),
-            [{sleep, Name == parallel} | Config]
+            replace({sleep, Name == parallel}, Config)
     end;
 
 init_per_group(sctp = Name, Config) ->
@@ -352,7 +352,7 @@ init_per_group(Name, Config) ->
                        server_decoding = D,
                        server_sender = SS,
                        server_throttle = ST},
-            [{group, G}, {runlist, select()} | Config];
+            replace([{group, G}, {runlist, select()}], Config);
         _ ->
             Config
     end.
@@ -395,6 +395,15 @@ init_per_testcase(Name, Config) ->
 
 end_per_testcase(_, _) ->
     ok.
+
+%% replace/2
+
+replace(Pairs, Config)
+  when is_list(Pairs) ->
+    lists:foldl(fun replace/2, Config, Pairs);
+
+replace({Key, _} = T, Config) ->
+    [T | lists:keydelete(Key, 1, Config)].
 
 %% --------------------
 
