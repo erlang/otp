@@ -74,8 +74,12 @@ which_peercert(#mod{socket_type = {Type, _}, socket = Socket}) when Type == essl
 which_peercert(_) -> %% Not an ssl connection
     undefined.
 
+
 which_resolve(#mod{init_data = #init_data{resolve = Resolve}}) ->
     Resolve.
+
+which_name(#mod{config_db = ConfigDB}) ->
+    httpd_util:lookup(ConfigDB, server_name).
 
 which_method(#mod{method = Method}) ->
     Method.
@@ -85,7 +89,8 @@ which_request_uri(#mod{request_uri = RUri}) ->
 
 create_basic_elements(esi, ModData) ->
     [{server_software,   which_server(ModData)},
-     {server_name,       which_resolve(ModData)},
+     {server_name,       which_name(ModData)},
+     {host_name,         which_resolve(ModData)},
      {gateway_interface, ?GATEWAY_INTERFACE},
      {server_protocol,   ?SERVER_PROTOCOL},
      {server_port,       which_port(ModData)},
@@ -96,7 +101,8 @@ create_basic_elements(esi, ModData) ->
 
 create_basic_elements(cgi, ModData) ->
     [{"SERVER_SOFTWARE",   which_server(ModData)},
-     {"SERVER_NAME",       which_resolve(ModData)},
+     {"SERVER_NAME",       which_name(ModData)},
+     {"HOST_NAME",         which_resolve(ModData)},
      {"GATEWAY_INTERFACE", ?GATEWAY_INTERFACE},
      {"SERVER_PROTOCOL",   ?SERVER_PROTOCOL},
      {"SERVER_PORT",       integer_to_list(which_port(ModData))},
