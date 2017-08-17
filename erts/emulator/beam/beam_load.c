@@ -2388,11 +2388,29 @@ load_code(LoaderState* stp)
 		    break;
 		}
 		break;
-	    case 'I':	/* Untagged integer (or pointer). */
-		VerifyTag(stp, tag, TAG_u);
-		code[ci++] = tmp_op->a[arg].val;
-		break;
-	    case 't':	/* Small untagged integer -- can be packed. */
+	    case 't':	/* Small untagged integer (16 bits) -- can be packed. */
+	    case 'I':	/* Untagged integer (32 bits) -- can be packed.  */
+	    case 'W':	/* Untagged integer or pointer (machine word). */
+#ifdef DEBUG
+                switch (*sign) {
+                case 't':
+                    if (tmp_op->a[arg].val >> 16 != 0) {
+                        load_printf(__LINE__, stp, "value %lu of type 't' does not fit in 16 bits",
+                                    tmp_op->a[arg].val);
+                        ASSERT(0);
+                    }
+                    break;
+#ifdef ARCH_64
+                case 'I':
+                    if (tmp_op->a[arg].val >> 32 != 0) {
+                        load_printf(__LINE__, stp, "value %lu of type 'I' does not fit in 32 bits",
+                                    tmp_op->a[arg].val);
+                        ASSERT(0);
+                    }
+                    break;
+#endif
+                }
+#endif
 		VerifyTag(stp, tag, TAG_u);
 		code[ci++] = tmp_op->a[arg].val;
 		break;
@@ -2627,8 +2645,8 @@ load_code(LoaderState* stp)
 	    /* Remember offset for the on_load function. */
 	    stp->on_load = ci;
 	    break;
-	case op_bs_put_string_II:
-	case op_i_bs_match_string_xfII:
+	case op_bs_put_string_WW:
+	case op_i_bs_match_string_xfWW:
 	    new_string_patch(stp, ci-1);
 	    break;
 
@@ -2884,6 +2902,7 @@ gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
     op->next = NULL;
 
     if (Index.type == TAG_i && Index.val > 0 &&
+        Index.val <= ERTS_MAX_TUPLE_SIZE &&
 	(Tuple.type == TAG_x || Tuple.type == TAG_y)) {
 	op->op = genop_i_fast_element_4;
 	op->a[0] = Tuple;

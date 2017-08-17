@@ -149,8 +149,9 @@ my %arg_size = ('r' => 0,	# x(0) - x register zero
 		'j' => 1,	# either 'f' or 'p'
 		'e' => 1,	# pointer to export entry
 		'L' => 0,	# label
-		'I' => 1,	# untagged integer
-		't' => 1,	# untagged integer -- can be packed
+		't' => 1,	# untagged integer (12 bits) -- can be packed
+		'I' => 1,	# untagged integer (32 bits) -- can be packed
+                'W' => 1,       # untagged integer/pointer (one word)
 		'b' => 1,	# pointer to bif
 		'A' => 1,	# arity value
 		'P' => 1,	# byte offset into tuple or stack
@@ -195,8 +196,9 @@ sub define_type_bit {
     define_type_bit('j', $type_bit{'f'} | $type_bit{'p'});
 
     # Aliases (for matching purposes).
-    define_type_bit('I', $type_bit{'u'});
     define_type_bit('t', $type_bit{'u'});
+    define_type_bit('I', $type_bit{'u'});
+    define_type_bit('W', $type_bit{'u'});
     define_type_bit('A', $type_bit{'u'});
     define_type_bit('L', $type_bit{'u'});
     define_type_bit('b', $type_bit{'u'});

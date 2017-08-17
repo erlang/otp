@@ -522,12 +522,13 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	    ap++;
 	    break;
-	case 'I':		/* Untagged integer. */
-	case 't':
+	case 't':               /* Untagged integers */
+	case 'I':
+        case 'W':
 	    switch (op) {
-	    case op_i_gc_bif1_jIsId:
-	    case op_i_gc_bif2_jIIssd:
-	    case op_i_gc_bif3_jIIssd:
+	    case op_i_gc_bif1_jWsId:
+	    case op_i_gc_bif2_jWIssd:
+	    case op_i_gc_bif3_jWIssd:
 		{
 		    const ErtsGcBif* p;
 		    BifFunction gcf = (BifFunction) *ap;
@@ -672,8 +673,8 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             }
         }
         break;
-    case op_i_jump_on_val_xfII:
-    case op_i_jump_on_val_yfII:
+    case op_i_jump_on_val_xfIW:
+    case op_i_jump_on_val_yfIW:
 	{
 	    int n;
 	    for (n = ap[-2]; n > 0; n--) {
