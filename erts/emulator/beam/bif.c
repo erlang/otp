@@ -4422,16 +4422,16 @@ BIF_RETTYPE group_leader_2(BIF_ALIST_2)
 	int code;
 	ErtsDSigData dsd;
 	dep = external_pid_dist_entry(BIF_ARG_2);
+	ERTS_ASSERT(dep);
 	if(dep == erts_this_dist_entry)
 	    BIF_ERROR(BIF_P, BADARG);
 
 	code = erts_dsig_prepare(&dsd, &dep, BIF_P, ERTS_PROC_LOCK_MAIN,
-				 ERTS_DSP_NO_LOCK, 0, 0);
+				 ERTS_DSP_NO_LOCK, 0, 1);
 	switch (code) {
 	case ERTS_DSIG_PREP_NOT_ALIVE:
-	    BIF_RET(am_true);
 	case ERTS_DSIG_PREP_NOT_CONNECTED:
-	    BIF_TRAP2(dgroup_leader_trap, BIF_P, BIF_ARG_1, BIF_ARG_2);
+	    BIF_RET(am_true);
 	case ERTS_DSIG_PREP_PENDING:
 	case ERTS_DSIG_PREP_CONNECTED:
 	    code = erts_dsig_send_group_leader(&dsd, BIF_ARG_1, BIF_ARG_2);

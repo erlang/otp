@@ -35,8 +35,12 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+%-define(Line, erlang:display({line,?LINE}),).
+-define(Line,).
+
 -export([all/0, suite/0, groups/0,
          ping/1, bulk_send_small/1,
+         group_leader/1,
          bulk_send_big/1, bulk_send_bigbig/1,
          local_send_small/1, local_send_big/1,
          local_send_legal/1, link_to_busy/1, exit_to_busy/1,
@@ -61,6 +65,7 @@
 
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
+         group_leader_1/1,
          roundtrip/1, bounce/1, do_dist_auto_connect/1, inet_rpc_server/1,
          dist_parallel_sender/3, dist_parallel_receiver/0,
          dist_evil_parallel_receiver/0]).
@@ -74,6 +79,7 @@ suite() ->
 
 all() ->
     [ping, {group, bulk_send}, {group, local_send},
+     group_leader,
      link_to_busy, exit_to_busy, lost_exit, link_to_dead,
      link_to_dead_new_node,
      ref_port_roundtrip, nil_roundtrip, stop_dist,
@@ -123,6 +129,50 @@ ping(Config) when is_list(Config) ->
     test_server:do_times(Times, fun() -> pong = net_adm:ping(Node) end),
 
     ok.
+
+%% Test erlang:group_leader(_, ExternalPid), i.e. DOP_GROUP_LEADER
+group_leader(Config) when is_list(Config) ->
+    ?Line Sock = start_relay_node(group_leader_1, []),
+    ?Line Sock2 = start_relay_node(group_leader_2, []),
+    try
+        ?Line Node2 = inet_rpc_nodename(Sock2),
+        ?Line {ok, ok} = do_inet_rpc(Sock, ?MODULE, group_leader_1, [Node2])
+    after
+        ?Line stop_relay_node(Sock),
+        ?Line stop_relay_node(Sock2)
+    end,
+    ok.
+
+group_leader_1(Node2) ->
+    ?Line ExtPid = spawn(Node2, fun F() ->
+                                        receive {From, group_leader} ->
+                                                From ! {self(), group_leader, group_leader()}
+                                        end,
+                                        F()
+                                end),
+    ?Line GL1 = self(),
+    ?Line group_leader(GL1, ExtPid),
+    ?Line ExtPid ! {self(), group_leader},
+    ?Line {ExtPid, group_leader, GL1} = receive_one(),
+
+    %% Kill connection and repeat test when group_leader/2 triggers auto-connect
+    ?Line net_kernel:monitor_nodes(true),
+    ?Line net_kernel:disconnect(Node2),
+    ?Line {nodedown, Node2} = receive_one(),
+    ?Line GL2 = spawn(fun() -> dummy end),
+    ?Line group_leader(GL2, ExtPid),
+    ?Line {nodeup, Node2} = receive_one(),
+    ?Line ExtPid ! {self(), group_leader},
+    ?Line {ExtPid, group_leader, GL2} = receive_one(),
+    ok.
+
+receive_one() ->
+    receive M -> M after 1000 -> timeout end.
+
+
+
+
+
 
 bulk_send_small(Config) when is_list(Config) ->
     bulk_send(64, 32).
