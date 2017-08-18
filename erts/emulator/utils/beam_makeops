@@ -578,7 +578,7 @@ sub emulator_output {
 	    # for the emulator.
 	    #
 	    my($size, $code, $pack) =
-                basic_generator($name, $hot, '', 0, undef, @args);
+                basic_generator($name, 1, '', 0, undef, @args);
 
 	    #
 	    # Save the generated $code for later.
