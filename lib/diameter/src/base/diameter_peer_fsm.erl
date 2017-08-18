@@ -130,6 +130,7 @@
                        %% diameter:call/4.
          codec :: #{decode_format := record,
                     string_decode := boolean(),
+                    strict_arities => diameter:strict_arities(),
                     strict_mbit := boolean(),
                     rfc := 3588 | 6733,
                     ordered_encode := false},

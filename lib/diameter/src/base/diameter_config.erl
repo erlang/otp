@@ -712,6 +712,7 @@ make_config(SvcName, Opts) ->
                          {?NOMASK, sequence},
                          {nodes, restrict_connections},
                          {16#FFFFFF, incoming_maxlen},
+                         {true, strict_arities},
                          {true, strict_mbit},
                          {record, decode_format},
                          {true, string_decode},
@@ -756,6 +757,7 @@ opt(K, false = B)
        K == use_shared_peers;
        K == monitor;
        K == restrict_connections;
+       K == strict_arities;
        K == strict_mbit;
        K == decode_format;
        K == string_decode ->
@@ -764,6 +766,7 @@ opt(K, false = B)
 opt(K, true = B)
   when K == share_peers;
        K == use_shared_peers;
+       K == strict_arities;
        K == strict_mbit;
        K == string_decode ->
     B;
@@ -773,6 +776,11 @@ opt(decode_format, T)
        T == list;
        T == map;
        T == record_from_map ->
+    T;
+
+opt(strict_arities, T)
+  when T == encode;
+       T == decode ->
     T;
 
 opt(restrict_connections, T)

@@ -74,6 +74,7 @@
                      okay := non_neg_integer()},   %% REOPEN -> OKAY
          codec :: #{decode_format := false,
                     string_decode := false,
+                    strict_arities => diameter:strict_arities(),
                     strict_mbit := boolean(),
                     failed_avp := false,
                     rfc := 3588 | 6733,
@@ -138,6 +139,7 @@ i({Ack, T, Pid, {Opts,
     Nodes = restrict_nodes(Restrict),
     CodecKeys = [decode_format,
                  string_decode,
+                 strict_arities,
                  strict_mbit,
                  incoming_maxlen,
                  spawn_opt,
@@ -157,9 +159,10 @@ i({Ack, T, Pid, {Opts,
                                                suspect => 1,
                                                okay => 3},
                                       Opts)),
-              codec = maps:with(CodecKeys, SvcOpts#{decode_format := false,
-                                                    string_decode := false,
-                                                    ordered_encode => false})}.
+              codec = maps:with(CodecKeys -- [strict_arities],
+                                SvcOpts#{decode_format := false,
+                                         string_decode := false,
+                                         ordered_encode => false})}.
 
 wait(Ref, Pid) ->
     receive
