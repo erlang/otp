@@ -113,6 +113,7 @@
                       restrict_connections := diameter:restriction(),
                       incoming_maxlen := diameter:message_length(),
                       strict_mbit := boolean(),
+                      decode_format := diameter:decode_format(),
                       string_decode := boolean(),
                       spawn_opt := list() | {module(), atom(), list()}}}).
 

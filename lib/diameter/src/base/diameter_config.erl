@@ -713,6 +713,7 @@ make_config(SvcName, Opts) ->
                          {nodes, restrict_connections},
                          {16#FFFFFF, incoming_maxlen},
                          {true, strict_mbit},
+                         {record, decode_format},
                          {true, string_decode},
                          {[], spawn_opt}]),
 
@@ -756,6 +757,7 @@ opt(K, false = B)
        K == monitor;
        K == restrict_connections;
        K == strict_mbit;
+       K == decode_format;
        K == string_decode ->
     B;
 
@@ -765,6 +767,13 @@ opt(K, true = B)
        K == strict_mbit;
        K == string_decode ->
     B;
+
+opt(decode_format, T)
+  when T == record;
+       T == list;
+       T == map;
+       T == record_from_map ->
+    T;
 
 opt(restrict_connections, T)
   when T == node;

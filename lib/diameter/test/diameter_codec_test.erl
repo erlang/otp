@@ -219,7 +219,8 @@ opts(Mod) ->
               dictionary => Mod}.
 
 opts() ->
-    #{string_decode => true,
+    #{decode_format => record,
+      string_decode => true,
       strict_mbit => true,
       rfc => 6733,
       failed_avp => false}.

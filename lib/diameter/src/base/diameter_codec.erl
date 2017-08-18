@@ -29,7 +29,7 @@
          msg_name/2,
          msg_id/1]).
 
-%% Towards generated encoders (from diameter_gen.hrl).
+%% towards diameter_gen
 -export([pack_data/2,
          pack_avp/2]).
 
@@ -287,7 +287,8 @@ rec2msg(Mod, Rec) ->
 %% longer *the* decode.
 
 decode(Mod, Pkt) ->
-    Opts = #{string_decode => true,
+    Opts = #{decode_format => record,
+             string_decode => true,
              strict_mbit => true,
              rfc => 6733},
     decode(Mod, Opts, Pkt).
@@ -375,9 +376,17 @@ decode_avps(MsgName, Mod, AppMod, Opts, Pkt, Avps) ->  %% ... or not
                                         Opts#{dictionary => AppMod,
                                               failed_avp => false}),
     ?LOGC([] /= Errors, decode_errors, Pkt#diameter_packet.header),
-    Pkt#diameter_packet{msg = Rec,
+    Pkt#diameter_packet{msg = reformat(MsgName, Rec, Opts),
                         errors = Errors,
                         avps = As}.
+
+reformat(MsgName, Avps, #{decode_format := T})
+  when T == map;
+       T == list ->
+    [MsgName | Avps];
+
+reformat(_, Msg, _) ->
+    Msg.
 
 %%% ---------------------------------------------------------------------------
 %%% # decode_header/1
