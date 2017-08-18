@@ -399,12 +399,13 @@ static BeamInstr* apply_fun(Process* p, Eterm fun,
 			    Eterm args, Eterm* reg) NOINLINE;
 static Eterm new_fun(Process* p, Eterm* reg,
 		     ErlFunEntry* fe, int num_free) NOINLINE;
-static Eterm new_map(Process* p, Eterm* reg, BeamInstr* I) NOINLINE;
-static Eterm new_small_map_lit(Process* p, Eterm* reg, Uint* n_exp, BeamInstr* I) NOINLINE;
-static Eterm update_map_assoc(Process* p, Eterm* reg,
-			      Eterm map, BeamInstr* I) NOINLINE;
-static Eterm update_map_exact(Process* p, Eterm* reg,
-			      Eterm map, BeamInstr* I) NOINLINE;
+static Eterm new_map(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* ptr) NOINLINE;
+static Eterm new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal,
+                               Uint live, BeamInstr* ptr) NOINLINE;
+static Eterm update_map_assoc(Process* p, Eterm* reg, Uint live,
+                              Uint n, BeamInstr* new_p) NOINLINE;
+static Eterm update_map_exact(Process* p, Eterm* reg, Uint live,
+                              Uint n, Eterm* new_p) NOINLINE;
 static Eterm get_map_element(Eterm map, Eterm key);
 static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx);
 
@@ -2727,24 +2728,20 @@ do {						\
 
 
 static Eterm
-new_map(Process* p, Eterm* reg, BeamInstr* I)
+new_map(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* ptr)
 {
-    Uint n = Arg(3);
     Uint i;
     Uint need = n + 1 /* hdr */ + 1 /*size*/ + 1 /* ptr */ + 1 /* arity */;
     Eterm keys;
     Eterm *mhp,*thp;
     Eterm *E;
-    BeamInstr *ptr;
     flatmap_t *mp;
     ErtsHeapFactory factory;
-
-    ptr = &Arg(4);
 
     if (n > 2*MAP_SMALL_MAP_LIMIT) {
         Eterm res;
 	if (HeapWordsLeft(p) < n) {
-	    erts_garbage_collect(p, n, reg, Arg(2));
+	    erts_garbage_collect(p, n, reg, live);
 	}
 
 	mhp = p->htop;
@@ -2765,7 +2762,7 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
     }
 
     if (HeapWordsLeft(p) < need) {
-	erts_garbage_collect(p, need, reg, Arg(2));
+	erts_garbage_collect(p, need, reg, live);
     }
 
     thp    = p->htop;
@@ -2788,24 +2785,20 @@ new_map(Process* p, Eterm* reg, BeamInstr* I)
 }
 
 static Eterm
-new_small_map_lit(Process* p, Eterm* reg, Uint* n_exp, BeamInstr* I)
+new_small_map_lit(Process* p, Eterm* reg, Eterm keys_literal, Uint live, BeamInstr* ptr)
 {
-    Eterm* keys = tuple_val(Arg(3));
+    Eterm* keys = tuple_val(keys_literal);
     Uint n = arityval(*keys);
     Uint need = n + 1 /* hdr */ + 1 /*size*/ + 1 /* ptr */ + 1 /* arity */;
     Uint i;
-    BeamInstr *ptr;
     flatmap_t *mp;
     Eterm *mhp;
     Eterm *E;
 
-    *n_exp = n;
-    ptr = &Arg(4);
-
     ASSERT(n <= MAP_SMALL_MAP_LIMIT);
 
     if (HeapWordsLeft(p) < need) {
-        erts_garbage_collect(p, need, reg, Arg(2));
+        erts_garbage_collect(p, need, reg, live);
     }
 
     mhp = p->htop;
@@ -2814,7 +2807,7 @@ new_small_map_lit(Process* p, Eterm* reg, Uint* n_exp, BeamInstr* I)
     mp = (flatmap_t *)mhp; mhp += MAP_HEADER_FLATMAP_SZ;
     mp->thing_word = MAP_HEADER_FLATMAP;
     mp->size = n;
-    mp->keys = Arg(3);
+    mp->keys = keys_literal;
 
     for (i = 0; i < n; i++) {
         GET_TERM(*ptr++, *mhp++);
@@ -2826,9 +2819,8 @@ new_small_map_lit(Process* p, Eterm* reg, Uint* n_exp, BeamInstr* I)
 }
 
 static Eterm
-update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
+update_map_assoc(Process* p, Eterm* reg, Uint live, Uint n, BeamInstr* new_p)
 {
-    Uint n;
     Uint num_old;
     Uint num_updates;
     Uint need;
@@ -2838,12 +2830,12 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     Eterm* E;
     Eterm* old_keys;
     Eterm* old_vals;
-    BeamInstr* new_p;
     Eterm new_key;
     Eterm* kp;
+    Eterm map;
 
-    new_p = &Arg(4);
-    num_updates = Arg(3) / 2;
+    num_updates = n / 2;
+    map = reg[live];
 
     if (is_not_flatmap(map)) {
 	Uint32 hx;
@@ -2873,7 +2865,7 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
      */
 
     if (num_old == 0) {
-	return new_map(p, reg, I);
+	return new_map(p, reg, live, n, new_p);
     }
 
     /*
@@ -2883,8 +2875,6 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     need = 2*(num_old+num_updates) + 1 + MAP_HEADER_FLATMAP_SZ;
     if (HeapWordsLeft(p) < need) {
-	Uint live = Arg(2);
-	reg[live] = map;
 	erts_garbage_collect(p, need, reg, live+1);
 	map      = reg[live];
 	old_mp   = (flatmap_t *)flatmap_val(map);
@@ -3031,9 +3021,8 @@ update_map_assoc(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
  */
 
 static Eterm
-update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
+update_map_exact(Process* p, Eterm* reg, Uint live, Uint n, Eterm* new_p)
 {
-    Uint n;
     Uint i;
     Uint num_old;
     Uint need;
@@ -3043,12 +3032,12 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
     Eterm* E;
     Eterm* old_keys;
     Eterm* old_vals;
-    BeamInstr* new_p;
     Eterm new_key;
+    Eterm map;
 
-    new_p = &Arg(5);
-    n = Arg(4) / 2;		/* Number of values to be updated */
+    n /= 2;		/* Number of values to be updated */
     ASSERT(n > 0);
+    map = reg[live];
 
     if (is_not_flatmap(map)) {
 	Uint32 hx;
@@ -3102,8 +3091,6 @@ update_map_exact(Process* p, Eterm* reg, Eterm map, BeamInstr* I)
 
     need = num_old + MAP_HEADER_FLATMAP_SZ;
     if (HeapWordsLeft(p) < need) {
-	Uint live = Arg(3);
-	reg[live] = map;
 	erts_garbage_collect(p, need, reg, live+1);
 	map      = reg[live];
 	old_mp   = (flatmap_t *)flatmap_val(map);

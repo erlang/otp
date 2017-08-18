@@ -1357,10 +1357,10 @@ sorted_put_map_exact F Src Dst Live Size Rest=* => \
 new_map Dst Live Size Rest=* | is_small_map_literal_keys(Size, Rest) => \
    gen_new_small_map_lit(Dst, Live, Size, Rest)
 
-new_map d I I
-i_new_small_map_lit d I q
-update_map_assoc s d I I
-update_map_exact j s d I I
+new_map d t I
+i_new_small_map_lit d t q
+update_map_assoc s d t I
+update_map_exact j s d t I
 
 is_map Fail Lit=q | literal_is_map(Lit) =>
 is_map Fail cq => jump Fail

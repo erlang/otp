@@ -697,9 +697,9 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	break;
     case op_i_put_tuple_xI:
     case op_i_put_tuple_yI:
-    case op_new_map_dII:
-    case op_update_map_assoc_sdII:
-    case op_update_map_exact_jsdII:
+    case op_new_map_dtI:
+    case op_update_map_assoc_sdtI:
+    case op_update_map_exact_jsdtI:
 	{
 	    int n = unpacked[-1];
 
@@ -719,7 +719,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_new_small_map_lit_dIq:
+    case op_i_new_small_map_lit_dtq:
         {
             Eterm *tp = tuple_val(unpacked[-1]);
             int n = arityval(*tp);
