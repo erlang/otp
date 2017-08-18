@@ -112,7 +112,10 @@
                       use_shared_peers := diameter:remotes(),%% use from
                       restrict_connections := diameter:restriction(),
                       incoming_maxlen := diameter:message_length(),
+                      strict_arities => diameter:strict_arities(),
                       strict_mbit := boolean(),
+                      decode_format := diameter:decode_format(),
+                      traffic_counters := boolean(),
                       string_decode := boolean(),
                       spawn_opt := list() | {module(), atom(), list()}}}).
 
@@ -707,7 +710,7 @@ init_peers() ->
                                %%  TPid}
 
 service_options(Opts) ->
-    maps:from_list(Opts).
+    maps:from_list(lists:delete({strict_arities, true}, Opts)).
 
 mref(false = No) ->
     No;

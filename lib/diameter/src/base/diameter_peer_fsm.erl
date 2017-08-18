@@ -128,7 +128,9 @@
                        %% outgoing DPR; boolean says whether or not
                        %% the request was sent explicitly with
                        %% diameter:call/4.
-         codec :: #{string_decode := boolean(),
+         codec :: #{decode_format := record,
+                    string_decode := boolean(),
+                    strict_arities => diameter:strict_arities(),
                     strict_mbit := boolean(),
                     rfc := 3588 | 6733,
                     ordered_encode := false},
@@ -253,11 +255,13 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
            length_errors = LengthErr,
            strict = Strictness,
            incoming_maxlen = Maxlen,
-           codec = maps:with([string_decode,
+           codec = maps:with([decode_format,
+                              string_decode,
                               strict_mbit,
                               rfc,
                               ordered_encode],
-                             SvcOpts#{ordered_encode => false})}.
+                             SvcOpts#{ordered_encode => false,
+                                      decode_format => record})}.
 %% The transport returns its local ip addresses so that different
 %% transports on the same service can use different local addresses.
 %% The local addresses are put into Host-IP-Address avps here when
@@ -655,10 +659,6 @@ encode(Rec, Opts, Dict) ->
 
 %% incoming/2
 
-incoming({recv = T, Name, Pkt}, #state{parent = Pid, ack = Ack} = S) ->
-    Pid ! {T, self(), get_route(Ack, Name, Pkt), Name, Pkt},
-    rcv(Name, Pkt, S);
-
 incoming(#diameter_header{is_request = R}, #state{transport = TPid,
                                                   ack = Ack}) ->
     R andalso Ack andalso send(TPid, false),
@@ -676,98 +676,97 @@ incoming(T, _) ->
 
 %% recv/2
 
-recv(#diameter_packet{header = #diameter_header{} = Hdr}
-     = Pkt,
-     #state{dictionary = Dict0}
-     = S) ->
-    recv1(diameter_codec:msg_name(Dict0, Hdr), Pkt, S);
-
-recv(#diameter_packet{header = undefined,
-                      bin = Bin}
-     = Pkt,
-     S) ->
-    recv(diameter_codec:decode_header(Bin), Pkt, S);
+recv(#diameter_packet{bin = Bin} = Pkt, S) ->
+    recv(Bin, Pkt, S);
 
 recv(Bin, S) ->
-    recv(#diameter_packet{bin = Bin}, S).
+    recv(Bin, Bin, S).
 
-%% recv1/3
+%% recv/3
 
-recv1(_,
-      #diameter_packet{header = H, bin = Bin},
-      #state{incoming_maxlen = M})
+recv(Bin, Msg, S) ->
+    recv(diameter_codec:decode_header(Bin), Bin, Msg, S).
+
+%% recv/4
+
+recv(false, Bin, _, #state{length_errors = E}) ->
+    invalid(E, truncated_header, Bin),
+    Bin;
+
+recv(#diameter_header{length = Len} = H, Bin, Msg, #state{length_errors = E,
+                                                          incoming_maxlen = M,
+                                                          dictionary = Dict0}
+                                                   = S)
+  when E == handle;
+       0 == Len rem 4, bit_size(Bin) == 8*Len, size(Bin) =< M ->
+    recv1(diameter_codec:msg_name(Dict0, H), H, Msg, S);
+
+recv(H, Bin, _, #state{incoming_maxlen = M})
   when M < size(Bin) ->
     invalid(false, incoming_maxlen_exceeded, {size(Bin), H}),
     H;
 
+recv(H, Bin, _, #state{length_errors = E}) ->
+    T = {size(Bin), bit_size(Bin) rem 8, H},
+    invalid(E, message_length_mismatch, T),
+    H.
+
+%% recv1/4
+
 %% Ignore anything but an expected CER/CEA if so configured. This is
 %% non-standard behaviour.
-recv1(Name, #diameter_packet{header = H}, #state{state = {'Wait-CEA', _, _},
-                                                 strict = false})
+recv1(Name, H, _, #state{state = {'Wait-CEA', _, _},
+                         strict = false})
   when Name /= 'CEA' ->
     H;
-recv1(Name, #diameter_packet{header = H}, #state{state = recv_CER,
-                                                 strict = false})
+recv1(Name, H, _, #state{state = recv_CER,
+                         strict = false})
   when Name /= 'CER' ->
     H;
 
 %% Incoming request after outgoing DPR: discard. Don't discard DPR, so
 %% both ends don't do so when sending simultaneously.
-recv1(Name,
-      #diameter_packet{header = #diameter_header{is_request = true} = H},
-      #state{dpr = {_,_,_}})
+recv1(Name, #diameter_header{is_request = true} = H, _, #state{dpr = {_,_,_}})
   when Name /= 'DPR' ->
     invalid(false, recv_after_outgoing_dpr, H),
     H;
 
 %% Incoming request after incoming DPR: discard.
-recv1(_,
-      #diameter_packet{header = #diameter_header{is_request = true} = H},
-      #state{dpr = true}) ->
+recv1(_, #diameter_header{is_request = true} = H, _, #state{dpr = true}) ->
     invalid(false, recv_after_incoming_dpr, H),
     H;
 
 %% DPA with identifier mismatch, or in response to a DPR initiated by
 %% the service.
-recv1('DPA' = N,
-      #diameter_packet{header = #diameter_header{hop_by_hop_id = Hid,
-                                                 end_to_end_id = Eid}}
-      = Pkt,
-      #state{dpr = {X,H,E}}
+recv1('DPA' = Name,
+      #diameter_header{hop_by_hop_id = Hid, end_to_end_id = Eid}
+      = H,
+      Msg,
+      #state{dpr = {X,HI,EI}}
       = S)
-  when H /= Hid;
-       E /= Eid;
+  when HI /= Hid;
+       EI /= Eid;
        not X ->
-    rcv(N, Pkt, S);
+    Pkt = pkt(H, Msg),
+    handle(Name, Pkt, S);
 
-%% Any other message with a header and no length errors: send to the
-%% parent.
-recv1(Name, Pkt, #state{}) ->
-    {recv, Name, Pkt}.
+%% Any other message with a header and no length errors.
+recv1(Name, H, Msg, #state{parent = Pid, ack = Ack} = S) ->
+    Pkt = pkt(H, Msg),
+    Pid ! {recv, self(), get_route(Ack, Name, Pkt), Name, Pkt},
+    handle(Name, Pkt, S).
 
-%% recv/3
+%% pkt/2
 
-recv(#diameter_header{length = Len}
-     = H,
-     #diameter_packet{bin = Bin}
-     = Pkt,
-     #state{length_errors = E}
-     = S)
-  when E == handle;
-       0 == Len rem 4, bit_size(Bin) == 8*Len ->
-    recv(Pkt#diameter_packet{header = H}, S);
+pkt(H, Bin)
+  when is_binary(Bin) ->
+    #diameter_packet{header = H,
+                     bin = Bin};
 
-recv(#diameter_header{}
-     = H,
-     #diameter_packet{bin = Bin},
-     #state{length_errors = E}) ->
-    T = {size(Bin), bit_size(Bin) rem 8, H},
-    invalid(E, message_length_mismatch, T),
-    Bin;
+pkt(H, Pkt) ->
+    Pkt#diameter_packet{header = H}.
 
-recv(false, #diameter_packet{bin = Bin}, #state{length_errors = E}) ->
-    invalid(E, truncated_header, Bin),
-    Bin.
+%% invalid/3
 
 %% Note that counters here only count discarded messages.
 invalid(E, Reason, T) ->
@@ -776,39 +775,39 @@ invalid(E, Reason, T) ->
     ?LOG(Reason, T),
     ok.
 
-%% rcv/3
+%% handle/3
 
 %% Incoming CEA.
-rcv('CEA' = N,
-    #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
-                                               hop_by_hop_id = Hid}}
-    = Pkt,
-    #state{state = {'Wait-CEA', Hid, Eid}}
-    = S) ->
+handle('CEA' = N,
+       #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
+                                                  hop_by_hop_id = Hid}}
+       = Pkt,
+       #state{state = {'Wait-CEA', Hid, Eid}}
+       = S) ->
     ?LOG(recv, N),
     handle_CEA(Pkt, S);
 
 %% Incoming CER
-rcv('CER' = N, Pkt, #state{state = recv_CER} = S) ->
+handle('CER' = N, Pkt, #state{state = recv_CER} = S) ->
     handle_request(N, Pkt, S);
 
 %% Anything but CER/CEA in a non-Open state is an error, as is
 %% CER/CEA in anything but recv_CER/Wait-CEA.
-rcv(Name, _, #state{state = PS})
+handle(Name, _, #state{state = PS})
   when PS /= 'Open';
        Name == 'CER';
        Name == 'CEA' ->
     {stop, {Name, PS}};
 
-rcv('DPR' = N, Pkt, S) ->
+handle('DPR' = N, Pkt, S) ->
     handle_request(N, Pkt, S);
 
 %% DPA in response to DPR, with the expected identifiers.
-rcv('DPA' = N,
-    #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
-                                               hop_by_hop_id = Hid}
-                            = H}
-    = Pkt,
+handle('DPA' = N,
+       #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
+                                                  hop_by_hop_id = Hid}
+                               = H}
+       = Pkt,
     #state{dictionary = Dict0,
            transport = TPid,
            dpr = {X, Hid, Eid},
@@ -827,13 +826,13 @@ rcv('DPA' = N,
 %% Ignore an unsolicited DPA in particular. Note that dpa_timeout
 %% deals with the case in which the peer sends the wrong identifiers
 %% in DPA.
-rcv('DPA' = N, #diameter_packet{header = H}, _) ->
+handle('DPA' = N, #diameter_packet{header = H}, _) ->
     ?LOG(ignored, N),
     %% Note that these aren't counted in the normal recv counter.
     diameter_stats:incr({diameter_codec:msg_id(H), recv, ignored}),
     ok;
 
-rcv(_, _, _) ->
+handle(_, _, _) ->
     ok.
 
 %% incr/3

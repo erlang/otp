@@ -32,7 +32,8 @@
          foldl/3,
          scramble/1,
          unique_string/0,
-         have_sctp/0]).
+         have_sctp/0,
+         eprof/1]).
 
 %% diameter-specific
 -export([lport/2,
@@ -48,6 +49,16 @@
 
 -define(L, atom_to_list).
 
+%% ---------------------------------------------------------------------------
+
+eprof(start) ->
+    eprof:start(),
+    eprof:start_profiling([self()]);
+
+eprof(stop) ->
+    eprof:stop_profiling(),
+    eprof:analyze(),
+    eprof:stop().
 
 %% ---------------------------------------------------------------------------
 %% name/2

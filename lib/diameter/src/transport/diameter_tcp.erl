@@ -87,8 +87,7 @@
          module :: module() | undefined}).
 
 -type length() :: 0..16#FFFFFF. %% message length from Diameter header
--type size()   :: non_neg_integer().  %% accumulated binary size
--type frag()   :: {length(), size(), binary(), list(binary())}
+-type frag()   :: maybe_improper_list(length(), binary())
                 | binary().
 
 -type connect_option() :: {raddr, inet:ip_address()}
@@ -599,11 +598,12 @@ t(T,S) ->
 
 %% Incoming packets.
 transition({P, Sock, Bin}, #transport{socket = Sock,
-                                      ssl = B}
+                                      ssl = B,
+                                      frag = Frag}
                            = S)
   when P == ssl, true == B;
        P == tcp ->
-    recv(Bin, S#transport{active = false});
+    recv(acc(Frag, Bin), S);
 
 %% Capabilties exchange has decided on whether or not to run over TLS.
 transition({diameter, {tls, Ref, Type, B}}, #transport{parent = Pid}
@@ -720,86 +720,77 @@ tls(accept, Sock, Opts) ->
 %% using Nagle.
 
 %% Receive packets until a full message is received,
-recv(Bin, #transport{frag = Head} = S) ->
-    case rcv(Head, Bin) of
-        {Msg, B} ->         %% have a complete message ...
-            message(recv, Msg, S#transport{frag = B});
-        Frag ->              %% read more on the socket
-            start_fragment_timer(setopts(S#transport{frag = Frag,
-                                                     flush = false}))
-    end.
 
-%% rcv/2
+recv({Msg, Rest}, S) ->  %% have a complete message ...
+    recv(acc(Rest), message(recv, Msg, S));
 
-%% No previous fragment.
-rcv(<<>>, Bin) ->
-    rcv(Bin);
+recv(Frag, #transport{recv = B,
+                      socket = Sock,
+                      module = M}
+           = S) ->       %% or not
+    B andalso setopts(M, Sock),
+    start_fragment_timer(S#transport{frag = Frag,
+                                     flush = false,
+                                     active = B}).
 
-%% Not even the first four bytes of the header.
-rcv(Head, Bin)
-  when is_binary(Head) ->
-    rcv(<<Head/binary, Bin/binary>>);
+%% acc/2
 
-%% Or enough to know how many bytes to extract.
-rcv({Len, N, Head, Acc}, Bin) ->
-    rcv(Len, N + size(Bin), Head, [Bin | Acc]).
+%% Know how many bytes to extract.
+acc([Len | Acc], Bin) ->
+    acc1(Len, <<Acc/binary, Bin/binary>>);
 
-%% rcv/4
+%% Or not.
+acc(Head, Bin) ->
+    acc(<<Head/binary, Bin/binary>>).
+
+%% acc1/3
 
 %% Extract a message for which we have all bytes.
-rcv(Len, N, Head, Acc)
-  when Len =< N ->
-    recv1(Len, bin(Head, Acc));
+acc1(Len, Bin)
+  when Len =< byte_size(Bin) ->
+    split_binary(Bin, Len);
 
 %% Wait for more packets.
-rcv(Len, N, Head, Acc) ->
-    {Len, N, Head, Acc}.
+acc1(Len, Bin) ->
+    [Len | Bin].
 
-%% rcv/1
+%% acc/1
 
-%% Nothing left.
-rcv(<<>> = Bin) ->
-    Bin;
+%% Don't match on Bin since this results in it being copied at the
+%% next append according to the Efficiency Guide. This is also the
+%% reason that the Len is extracted and maintained when accumulating
+%% messages. The simplest implementation is just to accumulate a
+%% binary and match <<_, Len:24, _/binary>> each time the length is
+%% required, but the performance of this decays quadratically with the
+%% message length, since the binary is then copied with each append of
+%% additional bytes from gen_tcp.
 
-%% The Message Length isn't even sufficient for a header. Chances are
-%% things will go south from here but if we're lucky then the bytes we
-%% have extend to an intended message boundary and we can recover by
-%% simply receiving them. Make it so.
-rcv(<<_:1/binary, Len:24, _/binary>> = Bin)
-  when Len < 20 ->
-    {Bin, <<>>};
-
-%% Enough bytes to extract a message.
-rcv(<<_:1/binary, Len:24, _/binary>> = Bin)
-  when Len =< size(Bin) ->
-    recv1(Len, Bin);
-
-%% Or not: wait for more packets.
-rcv(<<_:1/binary, Len:24, _/binary>> = Head) ->
-    {Len, size(Head), Head, []};
+acc(Bin)
+  when 3 < byte_size(Bin) ->
+    {Head, _} = split_binary(Bin, 4),
+    [_,A,B,C] = binary_to_list(Head),
+    Len = (A bsl 16) bor (B bsl 8) bor C,
+    if Len < 20 ->
+            %% Message length isn't sufficient for a Diameter Header.
+            %% Chances are things will go south from here but if we're
+            %% lucky then the bytes we have extend to an intended
+            %% message boundary and we can recover by simply receiving
+            %% them. Make it so.
+            {Bin, <<>>};
+       true ->
+            acc1(Len, Bin)
+    end;
 
 %% Not even 4 bytes yet.
-rcv(Head) ->
-    Head.
-
-%% recv1/2
-
-recv1(Len, Bin) ->
-    <<Msg:Len/binary, Rest/binary>> = Bin,
-    {Msg, Rest}.
-
-%% bin/2
-
-bin(Head, Acc) ->
-    list_to_binary([Head | lists:reverse(Acc)]).
+acc(Bin) ->
+    Bin.
 
 %% bin/1
 
-bin({_, _, Head, Acc}) ->
-    bin(Head, Acc);
+bin([_ | Bin]) ->
+    Bin;
 
-bin(Bin)
-  when is_binary(Bin) ->
+bin(Bin) ->
     Bin.
 
 %% flush/1
@@ -911,13 +902,19 @@ setopts(#transport{socket = Sock,
                    module = M}
         = S)
   when B, not A ->
-    case setopts(M, Sock, [{active, once}]) of
-        ok -> S#transport{active = true};
-        X  -> x({setopts, Sock, M, X})  %% possibly on peer disconnect
-    end;
+    setopts(M, Sock),
+    S#transport{active = true};
 
 setopts(S) ->
     S.
+
+%% setopts/2
+
+setopts(M, Sock) ->
+    case setopts(M, Sock, [{active, once}]) of
+        ok -> ok;
+        X  -> x({setopts, Sock, M, X})  %% possibly on peer disconnect
+    end.
 
 %% portnr/2
 
@@ -988,7 +985,7 @@ message(ack, _, #transport{message_cb = false} = S) ->
     S;
 
 message(Dir, Msg, #transport{message_cb = CB} = S) ->
-    recv(<<>>, actions(cb(CB, Dir, Msg), Dir, S)).
+    setopts(actions(cb(CB, Dir, Msg), Dir, S)).
 
 %% actions/3
 

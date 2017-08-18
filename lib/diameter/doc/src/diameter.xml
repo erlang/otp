@@ -798,6 +798,35 @@ be matched by corresponding &capability; configuration, of
 </item>
 
 <tag>
+<marker id="decode_format"/>
+<c>{decode_format, record | list | map | false}</c></tag>
+<item>
+<p>
+The format of decoded messages and grouped AVPs in the <c>msg</c> field
+of diameter_packet records and <c>value</c> field of diameter_avp
+records respectively.
+If <c>record</c> then a record whose definition is generated from the
+dictionary file in question.
+If <c>list</c> or <c>map</c> then a <c>[Name | Avps]</c> pair where
+<c>Avps</c> is either a list of AVP name/values pairs or a map keyed on
+AVP names respectively.
+If <c>false</c> then the representation is omitted and <c>msg</c> and
+<c>value</c> fields are set to <c>false</c>.
+See also &codec_message;.</p>
+
+<p>
+Defaults to <c>record</c>.</p>
+
+<note>
+<p>
+AVPs are decoded into a list of diameter_avp records in <c>avps</c>
+field of diameter_packet records independently of
+<c>decode_format</c>.</p>
+</note>
+
+</item>
+
+<tag>
 <marker id="incoming_maxlen"/><c>{incoming_maxlen, 0..16777215}</c></tag>
 <item>
 <p>
@@ -927,6 +956,37 @@ Defaults to the empty list.</p>
 </item>
 
 <tag>
+<marker id="strict_arities"/><c>{strict_arities, boolean()
+                                               | encode
+                                               | decode}</c></tag>
+<item>
+<p>
+Whether or not to require that the number of AVPs in a message or
+grouped AVP agree with those specified in the dictionary in question.
+If <c>true</c> then mismatches in an outgoing messages cause message
+encoding to fail, while mismatches in an incoming message are reported
+as 5005/5009 errors in the errors field of the diameter_packet record
+passed to &app_handle_request; or &app_handle_answer; callbacks.
+If <c>false</c> then neither error is enforced/detected.
+If <c>encode</c> or <c>decode</c> then errors are only
+enforced/detected on outgoing or incoming messages respectively.</p>
+
+<p>
+Defaults to <c>true</c>.</p>
+
+<note>
+<p>
+Disabling arity checks affects the form of messages at encode/decode.
+In particular, decoded AVPs are represented as lists of values,
+regardless of the AVP's arity (ie. expected number in the message/AVP
+grammar in question), and values are expected to be supplied as lists
+at encode.
+This differs from the historic decode behaviour of representing AVPs
+of arity 1 as bare values, not wrapped in a list.</p>
+</note>
+</item>
+
+<tag>
 <marker id="strict_mbit"/><c>{strict_mbit, boolean()}</c></tag>
 <item>
 <p>
@@ -990,6 +1050,26 @@ of memory to be consumed when decoded Diameter messages are passed
 between processes.
 The default value is for backwards compatibility.</p>
 </warning>
+
+</item>
+
+<tag>
+<marker id="traffic_counters"/><c>{traffic_counters, boolean()}</c></tag>
+<item>
+<p>
+Whether or not to count application-specific messages; those for which
+&man_app; callbacks take place.
+If false then only messages handled by diameter itself are counted:
+CER/CEA, DWR/DWA, DPR/DPA.</p>
+
+<p>
+Defaults to <c>true</c>.</p>
+
+<note>
+<p>
+Disabling counters is a performance improvement, but means that the
+omitted counters are not returned by &service_info;.</p>
+</note>
 
 </item>
 

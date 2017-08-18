@@ -110,9 +110,9 @@
 %% parse_transform/2
 
 parse_transform(Forms, _Options) ->
-    Rs = [R || {attribute, _, record, R} <- Forms],
-    Es = lists:append([E || {attribute, _, export_records, E} <- Forms]),
     {H,T} = lists:splitwith(fun is_head/1, Forms),
+    Rs = [R || {attribute, _, record, R} <- H],
+    Es = lists:append([E || {attribute, _, export_records, E} <- H]),
     H ++ [a_export(Es) | f_accessors(Es, Rs)] ++ T.
 
 is_head(T) ->

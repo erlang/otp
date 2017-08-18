@@ -292,6 +292,7 @@ recode(Msg, Dict) ->
 
 opts(Mod) ->
     #{dictionary => Mod,
+      decode_format => record,
       string_decode => false,
       strict_mbit => true,
       rfc => 6733,

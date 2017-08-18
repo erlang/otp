@@ -21,15 +21,14 @@
 -module(diameter_codegen).
 
 %%
-%% This module generates erl/hrl files for encode/decode modules
-%% from the orddict parsed from a dictionary file (.dia) by
-%% diameter_dict_util. The generated code is simple (one-liners),
-%% the generated functions being called by code included iin the
-%% generated modules from diameter_gen.hrl. The orddict itself is
-%% returned by dict/0 in the generated module and diameter_dict_util
-%% calls this function when importing dictionaries as a consequence
-%% of @inherits sections. That is, @inherits introduces a dependency
-%% on the beam file of another dictionary.
+%% This module generates erl/hrl files for encode/decode modules from
+%% the orddict parsed from a dictionary file by diameter_dict_util.
+%% The generated code is simple (one-liners), and is called from
+%% diameter_gen. The orddict itself is returned by dict/0 in the
+%% generated module and diameter_dict_util calls this function when
+%% importing dictionaries as a consequence of @inherits sections. That
+%% is, @inherits introduces a dependency on the beam file of another
+%% dictionary.
 %%
 
 -export([from_dict/4,
