@@ -200,7 +200,6 @@ atom decimals
 atom default
 atom delay_trap
 atom depth
-atom dgroup_leader
 atom dictionary
 atom dirty_bif_exception
 atom dirty_bif_result

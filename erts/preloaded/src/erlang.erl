@@ -31,8 +31,7 @@
 -export([localtime_to_universaltime/1]).
 -export([suspend_process/1]).
 -export([min/2, max/2]).
--export([dgroup_leader/2,
-	 dmonitor_node/3, dmonitor_p/2]).
+-export([dmonitor_node/3, dmonitor_p/2]).
 -export([delay_trap/2]).
 -export([set_cookie/2, get_cookie/0]).
 -export([nodes/0]).
@@ -3295,13 +3294,6 @@ dmonitor_node(Node, Flag, Opts) ->
 	_ ->
 	    dmonitor_node(Node,Flag,[])
     end.
-
-dgroup_leader(Leader, Pid) ->
-    case net_kernel:connect(erlang:node(Pid)) of
-	true -> erlang:group_leader(Leader, Pid);
-	false -> true  %% bad arg ?
-    end.
-
 
 -spec erlang:dmonitor_p('process', pid() | {atom(),atom()}) -> reference().
 dmonitor_p(process, ProcSpec) ->
