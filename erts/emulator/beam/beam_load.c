@@ -2495,16 +2495,32 @@ load_code(LoaderState* stp)
 	 * The packing engine.
 	 */
 	if (opc[stp->specific_op].pack[0]) {
-	    char* prog;		/* Program for packing engine. */
-	    BeamInstr stack[8];	/* Stack. */
-	    BeamInstr* sp = stack;	/* Points to next free position. */
-	    BeamInstr packed = 0;	/* Accumulator for packed operations. */
+	    char* prog;            /* Program for packing engine. */
+	    struct pack_stack {
+                BeamInstr instr;
+                LiteralPatch* patch;
+            } stack[8];            /* Stack. */
+	    struct pack_stack* sp = stack; /* Points to next free position. */
+	    BeamInstr packed = 0; /* Accumulator for packed operations. */
 
 	    for (prog = opc[stp->specific_op].pack; *prog; prog++) {
 		switch (*prog) {
 		case 'g':	/* Get instruction; push on stack. */
-		    *sp++ = code[--ci];
-		    break;
+                    {
+                        LiteralPatch* lp;
+
+                        ci--;
+                        sp->instr = code[ci];
+                        sp->patch = 0;
+                        for (lp = stp->literal_patches; lp && lp->pos > ci-MAX_OPARGS; lp = lp->next) {
+                            if (lp->pos == ci) {
+                                sp->patch = lp;
+                                break;
+                            }
+                        }
+                        sp++;
+                    }
+                    break;
 		case 'i':	/* Initialize packing accumulator. */
 		    packed = code[--ci];
 		    break;
@@ -2520,10 +2536,17 @@ load_code(LoaderState* stp)
 		    break;
 #endif
 		case 'p':	/* Put instruction (from stack). */
-		    code[ci++] = *--sp;
+                    --sp;
+                    code[ci] = sp->instr;
+                    if (sp->patch) {
+                        sp->patch->pos = ci;
+                    }
+                    ci++;
 		    break;
 		case 'P':	/* Put packed operands. */
-		    *sp++ = packed;
+                    sp->instr = packed;
+                    sp->patch = 0;
+                    sp++;
 		    packed = 0;
 		    break;
 		default:

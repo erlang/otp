@@ -1475,18 +1475,6 @@ sub do_pack {
         if (defined $bits_needed{$arg}) {
 	    $packable_args++;
             push @bits_needed, $bits_needed{$arg};
-	} elsif ($arg =~ /^[scq]/ and $packable_args > 0) {
-	    # When packing, this operand will be picked up from the
-	    # code array, put onto the packing stack, and later put
-	    # back into a different location in the code. The problem
-	    # is that if this operand is a literal, the original
-	    # location in the code would have been remembered in a
-	    # literal patch.  For packing to work, we would have to
-	    # adjust the position in the literal patch. For the
-	    # moment, adding additional instructions to the packing
-	    # engine to handle this does not seem worth it, so we will
-	    # just turn off packing.
-	    return ('', '', @args);
 	} else {
 	    push @bits_needed, 0;
 	}
