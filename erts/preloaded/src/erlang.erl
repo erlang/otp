@@ -3367,23 +3367,10 @@ dsend({Name, Node}, Msg, Opts) ->
 
 -spec erlang:dmonitor_p('process', pid() | {atom(),atom()}) -> reference().
 dmonitor_p(process, ProcSpec) ->
-    %% ProcSpec = pid() | {atom(),atom()}
-    %% ProcSpec CANNOT be an atom because a locally registered process
-    %% is never handled here.
-    Node = case ProcSpec of
-	       {S,N} when erlang:is_atom(S),
-                          erlang:is_atom(N),
-                          N =/= erlang:node() -> N;
-	       _ when erlang:is_pid(ProcSpec) -> erlang:node(ProcSpec)
-	   end,
-    case net_kernel:connect(Node) of
-	true ->
-	    erlang:monitor(process, ProcSpec);
-	false ->
-	    Ref = erlang:make_ref(),
-	    erlang:self() ! {'DOWN', Ref, process, ProcSpec, noconnection},
-	    Ref
-    end.
+    %% Only called when auto-connect attempt failed early in VM
+    Ref = erlang:make_ref(),
+    erlang:self() ! {'DOWN', Ref, process, ProcSpec, noconnection},
+    Ref.
 
 %%
 %% Trap function used when modified timing has been enabled.

@@ -790,31 +790,20 @@ remote_monitor(Process *p, Eterm bifarg1, Eterm bifarg2,
     BIF_RETTYPE ret;
     int code;
 
+    ASSERT(dep);
     erts_proc_lock(p, ERTS_PROC_LOCK_LINK);
     code = erts_dsig_prepare(&dsd, &dep,
 			     p, (ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK),
-			     ERTS_DSP_RLOCK, 0, 0);
+			     ERTS_DSP_RLOCK, 0, 1);
     switch (code) {
-    case ERTS_DSIG_PREP_PENDING:
-	/*
-	 * Must wait for connection to know if node supports monitor.
-	 * Damn these synchronous errors.
-	 */
-	erts_smp_de_runlock(dep);
-	/* fall through */
     case ERTS_DSIG_PREP_NOT_ALIVE:
     case ERTS_DSIG_PREP_NOT_CONNECTED:
 	erts_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 	ERTS_BIF_PREP_TRAP2(ret, dmonitor_p_trap, p, bifarg1, bifarg2);
 	break;
+    case ERTS_DSIG_PREP_PENDING:
     case ERTS_DSIG_PREP_CONNECTED:
-	if (!(dep->flags & DFLAG_DIST_MONITOR)
-	    || (byname && !(dep->flags & DFLAG_DIST_MONITOR_NAME))) {
-	    erts_de_runlock(dep);
-	    erts_proc_unlock(p, ERTS_PROC_LOCK_LINK);
-	    ERTS_BIF_PREP_ERROR(ret, p, BADARG);
-	}
-	else {
+	{
 	    Eterm p_trgt, p_name, d_name, mon_ref;
 
 	    mon_ref = erts_make_ref(p);
@@ -917,17 +906,17 @@ local_port:
 	if (!erts_is_alive && remote_node != am_Noname) {
             goto badarg; /* Remote monitor from (this) undistributed node */
 	}
-	dep = erts_sysname_to_connected_dist_entry(remote_node);
+	dep = erts_find_or_insert_dist_entry(remote_node);
 	if (dep == erts_this_dist_entry) {
             ret = local_name_monitor(BIF_P, BIF_ARG_1, name);
 	} else {
 	    ret = remote_monitor(BIF_P, BIF_ARG_1, BIF_ARG_2, dep, name, 1);
 	}
+	erts_deref_dist_entry(dep);
     } else {
 badarg:
 	ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
     }
-
     return ret;
 }
 
