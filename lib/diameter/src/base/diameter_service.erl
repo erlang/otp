@@ -115,6 +115,7 @@
                       strict_arities => diameter:strict_arities(),
                       strict_mbit := boolean(),
                       decode_format := diameter:decode_format(),
+                      traffic_counters := boolean(),
                       string_decode := boolean(),
                       spawn_opt := list() | {module(), atom(), list()}}}).
 

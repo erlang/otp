@@ -123,6 +123,9 @@
 
 %% ===========================================================================
 
+%% Fraction of shuffle/parallel groups to randomly skip.
+-define(SKIP, 0.25).
+
 %% Positive number of testcases from which to select (randomly) from
 %% tc(), the list of testcases to run, or [] to run all. The random
 %% selection is to limit the time it takes for the suite to run.
@@ -327,8 +330,14 @@ init_per_group(_) ->
 init_per_group(Name, Config)
   when Name == shuffle;
        Name == parallel ->
-    start_services(Config),
-    add_transports(Config);
+    case rand:uniform() < ?SKIP of
+        true ->
+            {skip, random};
+        false ->
+            start_services(Config),
+            add_transports(Config),
+            replace({sleep, Name == parallel}, Config)
+    end;
 
 init_per_group(sctp = Name, Config) ->
     {_, Sctp} = lists:keyfind(Name, 1, Config),
@@ -354,7 +363,7 @@ init_per_group(Name, Config) ->
                        server_decoding = D,
                        server_sender = SS,
                        server_throttle = ST},
-            [{group, G}, {runlist, select(T)} | Config];
+            replace([{group, G}, {runlist, select(T)}], Config);
         _ ->
             Config
     end.
@@ -391,11 +400,22 @@ init_per_testcase(Name, Config) ->
         _ when not Run ->
             {skip, random};
         _ ->
+            proplists:get_value(sleep, Config, false)
+                andalso timer:sleep(rand:uniform(200)),
             [{testcase, Name} | Config]
     end.
 
 end_per_testcase(_, _) ->
     ok.
+
+%% replace/2
+
+replace(Pairs, Config)
+  when is_list(Pairs) ->
+    lists:foldl(fun replace/2, Config, Pairs);
+
+replace({Key, _} = T, Config) ->
+    [T | lists:keydelete(Key, 1, Config)].
 
 %% --------------------
 
@@ -469,11 +489,16 @@ start_services(Config) ->
            server_decoding = SD}
         = Grp
         = group(Config),
-    ok = diameter:start_service(SN, [{decode_format, SD}
+    ok = diameter:start_service(SN, [{traffic_counters, bool()},
+                                     {decode_format, SD}
                                      | ?SERVICE(SN, Grp)]),
-    ok = diameter:start_service(CN, [{sequence, ?CLIENT_MASK},
+    ok = diameter:start_service(CN, [{traffic_counters, bool()},
+                                     {sequence, ?CLIENT_MASK},
                                      {strict_arities, decode}
                                      | ?SERVICE(CN, Grp)]).
+
+bool() ->
+    0.5 =< rand:uniform().
 
 add_transports(Config) ->
     #group{transport = T,

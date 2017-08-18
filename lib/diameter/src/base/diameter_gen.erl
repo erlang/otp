@@ -26,6 +26,14 @@
 
 -module(diameter_gen).
 
+-compile({inline, [incr/8,
+                   incr/4,
+                   field/1,
+                   setopts/4,
+                   avp_arity/5,
+                   set_failed/2,
+                   set_strict/3]}).
+
 -export([encode_avps/3,
          decode_avps/3,
          grouped_avp/4,
@@ -60,8 +68,9 @@
     | no_return().
 
 encode_avps(Name, Vals, #{module := Mod} = Opts) ->
+    Strict = mget(strict_arities, Opts, encode),
     try
-        encode(Name, Vals, Opts, Mod)
+        encode(Name, Vals, Opts, Strict, Mod)
     catch
         throw: {?MODULE, Reason} ->
             diameter_lib:log({encode, error},
@@ -78,87 +87,88 @@ encode_avps(Name, Vals, #{module := Mod} = Opts) ->
             erlang:error({encode_failure, Reason, Name, Stack})
     end.
 
-%% encode/4
-
-encode(Name, Vals, #{ordered_encode := false} = Opts, Mod)
-  when is_list(Vals) ->
-    lists:map(fun({F,V}) -> encode(Name, F, V, Opts, Mod) end, Vals);
-
-encode(Name, Vals, Opts, Mod)
-  when is_list(Vals) ->
-    encode(Name, Mod:'#set-'(Vals, newrec(Mod, Name)), Opts, Mod);
-
-encode(Name, Map, Opts, Mod)
-  when is_map(Map) ->
-    [enc(Name, F, A, V, Opts, Mod) || {F,A} <- Mod:avp_arity(Name),
-                                      V <- [maps:get(F, Map, undefined)]];
-
-encode(Name, Rec, Opts, Mod) ->
-    [encode(Name, F, V, Opts, Mod) || {F,V} <- Mod:'#get-'(Rec)].
-
 %% encode/5
 
-encode(Name, AvpName, Values, #{strict_arities := T} = Opts, Mod)
-  when T /= encode ->
-    enc(Name, AvpName, ?ANY, Values, Opts, Mod);
+encode(Name, Vals, Opts, Strict, Mod)
+  when is_list(Vals) ->
+    case Opts of
+        #{ordered_encode := false} ->
+            lists:map(fun({F,V}) -> encode(Name, F, V, Opts, Strict, Mod) end,
+                      Vals);
+        _ ->
+            Rec = Mod:'#set-'(Vals, newrec(Mod, Name)),
+            encode(Name, Rec, Opts, Strict, Mod)
+    end;
 
-encode(Name, AvpName, Values, Opts, Mod) ->
-    enc(Name, AvpName, Mod:avp_arity(Name, AvpName), Values, Opts, Mod).
+encode(Name, Map, Opts, Strict, Mod)
+  when is_map(Map) ->
+    [enc(Name, F, A, V, Opts, Strict, Mod) || {F,A} <- Mod:avp_arity(Name),
+                                              V <- [mget(F, Map, undefined)]];
 
-%% enc/6
+encode(Name, Rec, Opts, Strict, Mod) ->
+    [encode(Name, F, V, Opts, Strict, Mod) || {F,V} <- Mod:'#get-'(Rec)].
 
-enc(Name, AvpName, Arity, Values, #{strict_arities := T} = Opts, Mod)
-  when T /= encode, Arity /= ?ANY ->
-    enc(Name, AvpName, ?ANY, Values, Opts, Mod);
+%% encode/6
 
-enc(_, AvpName, 1, undefined, _, _) ->
+encode(Name, AvpName, Values, Opts, Strict, Mod)
+  when Strict /= encode ->
+    enc(Name, AvpName, ?ANY, Values, Opts, Strict, Mod);
+
+encode(Name, AvpName, Values, Opts, Strict, Mod) ->
+    Arity = Mod:avp_arity(Name, AvpName),
+    enc(Name, AvpName, Arity, Values, Opts, Strict, Mod).
+
+%% enc/7
+
+enc(Name, AvpName, Arity, Values, Opts, Strict, Mod)
+  when Strict /= encode, Arity /= ?ANY ->
+    enc(Name, AvpName, ?ANY, Values, Opts, Strict, Mod);
+
+enc(_, AvpName, 1, undefined, _, _, _) ->
     ?THROW([mandatory_avp_missing, AvpName]);
 
-enc(Name, AvpName, 1, Value, Opts, Mod) ->
+enc(Name, AvpName, 1, Value, Opts, _, Mod) ->
     H = avp_header(AvpName, Mod),
     enc1(Name, AvpName, H, Value, Opts, Mod);
 
-enc(_, _, {0,_}, [], _, _) ->
+enc(_, _, {0,_}, [], _, _, _) ->
     [];
 
-enc(_, _, _, undefined, _, _) ->
+enc(_, _, _, undefined, _, _, _) ->
     [];
 
 %% Be forgiving when a list of values is expected. If the value itself
 %% is a list then the user has to wrap it to avoid each member from
 %% being interpreted as an individual AVP value.
-enc(Name, AvpName, Arity, V, Opts, Mod)
+enc(Name, AvpName, Arity, V, Opts, Strict, Mod)
   when not is_list(V) ->
-    enc(Name, AvpName, Arity, [V], Opts, Mod);
+    enc(Name, AvpName, Arity, [V], Opts, Strict, Mod);
 
-enc(Name, AvpName, {Min, Max}, Values, Opts, Mod) ->
+enc(Name, AvpName, {Min, Max}, Values, Opts, Strict, Mod) ->
     H = avp_header(AvpName, Mod),
-    enc(Name, AvpName, H, Min, 0, Max, Values, Opts, Mod).
+    enc(Name, AvpName, H, Min, 0, Max, Values, Opts, Strict, Mod).
 
-%% enc/9
+%% enc/10
 
-enc(Name, AvpName, H, Min, N, '*', Vs, Opts, Mod)
-  when Min =< N ->
+enc(Name, AvpName, H, Min, N, Max, Vs, Opts, Strict, Mod)
+  when Strict /= encode;
+       Max == '*', Min =< N ->
     [enc1(Name, AvpName, H, V, Opts, Mod) || V <- Vs];
 
-enc(Name, AvpName, H, _, _, _, Vs, #{strict_arities := T} = Opts, Mod)
-  when T /= encode ->
-    [enc1(Name, AvpName, H, V, Opts, Mod) || V <- Vs];
-
-enc(_, AvpName, _, Min, N, _, [], _, _)
+enc(_, AvpName, _, Min, N, _, [], _, _, _)
   when N < Min ->
     ?THROW([repeated_avp_insufficient_arity, AvpName, Min, N]);
 
-enc(_, _, _, _, _, _, [], _, _) ->
+enc(_, _, _, _, _, _, [], _, _, _) ->
     [];
 
-enc(_, AvpName, _, _, N, Max, _, _, _)
+enc(_, AvpName, _, _, N, Max, _, _, _, _)
   when Max =< N ->
     ?THROW([repeated_avp_excessive_arity, AvpName, Max]);
 
-enc(Name, AvpName, H, Min, N, Max, [V|Vs], Opts, Mod) ->
+enc(Name, AvpName, H, Min, N, Max, [V|Vs], Opts, Strict, Mod) ->
     [enc1(Name, AvpName, H, V, Opts, Mod)
-     | enc(Name, AvpName, H, Min, N+1, Max, Vs, Opts, Mod)].
+     | enc(Name, AvpName, H, Min, N+1, Max, Vs, Opts, Strict, Mod)].
 
 %% avp_header/2
 
@@ -221,38 +231,169 @@ enc(AvpName, Value, Opts, Mod) ->
 %% # decode_avps/3
 %% ---------------------------------------------------------------------------
 
--spec decode_avps(parent_name(), [#diameter_avp{}], map())
+-spec decode_avps(parent_name(), binary(), map())
    -> {parent_record(), [avp()], Failed}
  when Failed :: [{5000..5999, #diameter_avp{}}].
 
-decode_avps(Name, Recs, #{module := Mod, decode_format := Fmt} = Opts) ->
-    {Avps, {Rec, AM, Failed}}
-        = mapfoldl(fun(T,A) -> decode(Name, Opts, Mod, T, A) end,
-                   {newrec(Fmt, Mod, Name, Opts), #{}, []},
-                   Recs),
-    %% AM counts the number of top-level AVPs, which arities/5 then
-    %% uses when adding 500[59] errors.
-    Arities = Mod:avp_arity(Name),
-    {reformat(Name, Rec, Arities, Mod, Opts, Fmt),
+decode_avps(Name, Bin, #{module := Mod, decode_format := Fmt} = Opts) ->
+    Strict = mget(strict_arities, Opts, decode),
+    [AM, Avps, Failed | Rec]
+        = decode(Bin, Name, Mod, Fmt, Strict, Opts, #{}),
+    %% AM counts the number of top-level AVPs, which missing/5 then
+    %% uses when appending 5005 errors.
+    {reformat(Name, Rec, Strict, Mod, Fmt),
      Avps,
-     Failed ++ arities(Arities, Opts, Mod, AM, Avps)}.
+     Failed ++ missing(Name, Strict, Mod, Opts, AM)}.
 
 %% Append arity errors so that errors are reported in the order
 %% encountered. Failed-AVP should typically contain the first
 %% error encountered.
 
-%% mapfoldl/3
+%% decode/7
+
+decode(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
+       Name,
+       Mod,
+       Fmt,
+       Strict,
+       Opts,
+       AM) ->
+    decode(Rest,
+           Code,
+           if 1 == V -> I; true -> undefined end,
+           Len - 8 - 4*V, %% possibly negative, causing case match to fail
+           (4 - (Len rem 4)) rem 4,
+           1 == M,
+           1 == P,
+           Name,
+           Mod,
+           Fmt,
+           Strict,
+           Opts,
+           AM);
+
+decode(<<>>, Name, Mod, Fmt, Strict, _, AM) ->
+    [AM, [], [] | newrec(Fmt, Mod, Name, Strict)];
+
+decode(Bin, Name, Mod, Fmt, Strict, _, AM) ->
+    Avp = #diameter_avp{data = Bin},
+    [AM, [Avp], [{5014, Avp}] | newrec(Fmt, Mod, Name, Strict)].
+
+%% decode/13
+
+decode(Bin, Code, Vid, DataLen, Pad, M, P, Name, Mod, Fmt, Strict, Opts0, AM0) ->
+    case Bin of
+        <<Data:DataLen/binary, _:Pad/binary, T/binary>> ->
+            {NameT, AvpName, Arity, {Idx, AM}}
+                = incr(Name, Code, Vid, M, Mod, Strict, Opts0, AM0),
+
+            Opts = setopts(NameT, Name, M, Opts0),
+            %% Not AvpName or else a failed Failed-AVP
+            %% decode is packed into 'AVP'.
+
+            Avp = #diameter_avp{code = Code,
+                                vendor_id = Vid,
+                                is_mandatory = M,
+                                need_encryption = P,
+                                data = Data,
+                                name = name(NameT),
+                                type = type(NameT),
+                                index = Idx},
+
+            Dec = decode(Data, Name, NameT, Mod, Opts, Avp),    %% decode
+            Acc = decode(T, Name, Mod, Fmt, Strict, Opts, AM),  %% recurse
+            acc(Acc, Dec, Name, AvpName, Arity, Strict, Mod, Opts);
+        _ ->
+            {NameT, _AvpName, _Arity, {Idx, AM}}
+                = incr(Name, Code, Vid, M, Mod, Strict, Opts0, AM0),
+
+            Avp = #diameter_avp{code = Code,
+                                vendor_id = Vid,
+                                is_mandatory = M,
+                                need_encryption = P,
+                                data = Bin,
+                                name = name(NameT),
+                                type = type(NameT),
+                                index = Idx},
+
+            [AM, [Avp], [{5014, Avp}] | newrec(Fmt, Mod, Name, Strict)]
+    end.
+
+%% incr/8
+
+incr(Name, Code, Vid, M, Mod, Strict, Opts, AM0) ->
+    NameT = Mod:avp_name(Code, Vid), %% {AvpName, Type} | 'AVP'
+    AvpName = field(NameT),
+    Arity = avp_arity(Name, AvpName, Mod, Opts, M),
+    {NameT, AvpName, Arity, incr(AvpName, Arity, Strict, AM0)}.
+
+%% Data is a truncated header if command_code = undefined, otherwise
+%% payload bytes. The former is padded to the length of a header if
+%% the AVP reaches an outgoing encode.
 %%
-%% Like lists:mapfoldl/3, but don't reverse the list.
+%% RFC 6733 says that an AVP returned with 5014 can contain a minimal
+%% payload for the AVP's type, but don't always know the type.
 
-mapfoldl(F, Acc, List) ->
-    mapfoldl(F, Acc, List, []).
+setopts('AVP', _, _, Opts) ->
+    Opts;
 
-mapfoldl(F, Acc0, [T|Rest], List) ->
-    {B, Acc} = F(T, Acc0),
-    mapfoldl(F, Acc, Rest, [B|List]);
-mapfoldl(_, Acc, [], List) ->
-    {List, Acc}.
+setopts({_, Type}, Name, M, Opts) ->
+    set_failed(Name, set_strict(Type, M, Opts)).
+
+%% incr/4
+
+incr(F, A, SA, AM)
+  when F == 'AVP';
+       A == ?ANY;
+       A == 0;
+       SA /= decode ->
+    {undefined, AM};
+
+incr(AvpName, _, _, AM) ->
+    case AM of
+        #{AvpName := N} ->
+            {N, AM#{AvpName => N+1}};
+        _ ->
+            {0, AM#{AvpName => 1}}
+    end.
+
+%% mget/3
+%%
+%% Measurably faster than maps:get/3.
+
+mget(Key, Map, Def) ->
+    case Map of
+        #{Key := V} ->
+            V;
+        _ ->
+            Def
+    end.
+
+%% name/1
+
+name({Name, _}) ->
+    Name;
+name(_) ->
+    undefined.
+
+%% type/1
+
+type({_, Type}) ->
+    Type;
+type(_) ->
+    undefined.
+
+%% missing/5
+
+missing(Name, decode, Mod, Opts, AM) ->
+    [{5005, empty_avp(N, Opts, Mod)} || {N,A} <- Mod:avp_arity(Name),
+                                        N /= 'AVP',
+                                        Mn <- [min_arity(A)],
+                                        0 < Mn,
+                                        mget(N, AM, 0) < Mn];
+
+missing(_, _, _, _, _) ->
+    [].
 
 %% 3588/6733:
 %%
@@ -263,73 +404,13 @@ mapfoldl(_, Acc, [], List) ->
 %%      AVP MUST contain an example of the missing AVP complete with the
 %%      Vendor-Id if applicable.  The value field of the missing AVP
 %%      should be of correct minimum length and contain zeros.
-%%
-%%   DIAMETER_AVP_OCCURS_TOO_MANY_TIMES 5009
-%%      A message was received that included an AVP that appeared more
-%%      often than permitted in the message definition.  The Failed-AVP
-%%      AVP MUST be included and contain a copy of the first instance of
-%%      the offending AVP that exceeded the maximum number of occurrences
 
-%% arities/5
+%% min_arity/1
 
-arities(_, #{strict_arities := T}, _, _, _)
-  when T /= decode ->
-    [];
-
-arities(Arities, Opts, Mod, AM, Avps) ->
-    [Count, Map | More]
-        = lists:foldl(fun({N,T}, A) -> more(N, T, Opts, Mod, AM, A) end,
-                      [0, #{}],
-                      Arities),
-    less(Count, Map, Avps) ++ lists:reverse(More).
-
-%% more/6
-
-more(_Name, ?ANY, _Opts, _Mod, _AM, Acc) ->
-    Acc;
-
-more(Name, {Mn, Mx}, Opts, Mod, AM, Acc) ->
-    more(Name, Mn, Mx, Opts, Mod, AM, Acc);
-
-more(Name, 1, Opts, Mod, AM, Acc) ->
-    more(Name, 1, 1, Opts, Mod, AM, Acc).
-
-%% more/7
-
-more(Name, Mn, Mx, Opts, Mod, AM, Acc) ->
-    macc(Name, Mn, maps:get(Name, AM, 0), Mx, Opts, Mod, Acc).
-
-%% macc/7
-
-macc(Name, Mn, N, _, Opts, Mod, [M, Map | T])
-  when N < Mn ->
-    [M, Map, {5005, empty_avp(Name, Opts, Mod)} | T];
-
-macc(Name, _, N, Mx, _Opts, _Mod, [M, Map | T])
-  when Mx < N ->
-    K = N - Mx,
-    [M + K, maps:put(Name, K, Map) | T];
-
-macc(_Name, _, _, _, _Opts, _Mod, Acc) ->
-    Acc.
-
-%% less/3
-
-less(0, _, _) ->
-    [];
-
-less(N, Map, [#diameter_avp{name = undefined} | Avps]) ->
-    less(N, Map, Avps);
-
-less(N, Map, [#diameter_avp{name = Name} = Avp | Avps]) ->
-    case Map of
-        #{Name := 0} ->
-            [{5009, Avp} | less(N-1, Map, Avps)];
-        #{Name := M} ->
-            less(N, maps:put(Name, M-1, Map), Avps);
-        _ ->
-            less(N, Map, Avps)
-    end.
+min_arity(1) ->
+    1;
+min_arity({Mn,_}) ->
+    Mn.
 
 %% empty_avp/3
 
@@ -356,55 +437,18 @@ empty_avp(Name, Opts, Mod) ->
 %%   specific errors that can be described by this AVP are described in
 %%   the following section.
 
-%% decode/5
-
-decode(Name, Opts, Mod, Avp, Acc) ->
-    #diameter_avp{code = Code, vendor_id = Vid}
-        = Avp,
-    N = Mod:avp_name(Code, Vid),
-    case Opts of
-        #{strict_arities := T} when T /= decode ->
-            decode(Name, Opts, Mod, N, ?ANY, Avp, Acc);
-        _ ->
-            {Rec, AM, Failed} = Acc,
-            F = field(N),
-            A = Mod:avp_arity(Name, F),
-            decode(Name, Opts, Mod, N, A, Avp, {Rec,
-                                                incr(field(F, A), AM),
-                                                Failed})
-    end.
-
 %% field/1
 
 field({AvpName, _}) ->
     AvpName;
-
 field(_) ->
     'AVP'.
 
-%% field/2
-
-field(_, 0) ->
-    'AVP';
-
-field(F, _) ->
-    F.
-
-%% incr/2
-
-incr(Key, Map) ->
-    maps:update_with(Key, fun incr/1, 1, Map).
-
-%% incr/1
-
-incr(N) ->
-    N + 1.
-
-%% decode/7
+%% decode/6
 
 %% AVP not in dictionary.
-decode(Name, Opts, Mod, 'AVP', Arity, Avp, Acc) ->
-    decode_AVP(Name, Arity, Avp, Opts, Mod, Acc);
+decode(_Data, _Name, 'AVP', _Mod, _Opts, Avp) ->
+    Avp;
 
 %% 6733, 4.4:
 %%
@@ -453,20 +497,9 @@ decode(Name, Opts, Mod, 'AVP', Arity, Avp, Acc) ->
 %% defined the RFC's "unrecognized", which is slightly stronger than
 %% "not defined".)
 
-decode(Name, Opts0, Mod, {AvpName, Type}, Arity, Avp, Acc) ->
-    #diameter_avp{data = Data, is_mandatory = M}
-        = Avp,
-
-    %% Whether or not to ignore an M-bit on an encapsulated AVP, or on
-    %% all AVPs with the service_opt() strict_mbit.
-    Opts1 = set_strict(Type, M, Opts0),
-
-    %% Whether or not we're decoding within Failed-AVP and should
-    %% ignore decode errors.
+decode(Data, Name, {AvpName, Type}, Mod, Opts, Avp) ->
     #{dictionary := AppMod, failed_avp := Failed}
-        = Opts
-        = set_failed(Name, Opts1), %% Not AvpName or else a failed Failed-AVP
-                                   %% decode is packed into 'AVP'.
+        = Opts,
 
     %% Reset the dictionary for best-effort decode of Failed-AVP.
     DecMod = if Failed -> AppMod;
@@ -479,38 +512,41 @@ decode(Name, Opts0, Mod, {AvpName, Type}, Arity, Avp, Acc) ->
 
     try avp_decode(Data, AvpName, Opts, DecMod, Mod) of
         {Rec, As} when Type == 'Grouped' ->
-            A = Avp#diameter_avp{name = AvpName,
-                                 value = Rec,
-                                 type = Type},
-            {[A|As], pack_avp(Name, Arity, A, Opts, Mod, Acc)};
-
+            A = Avp#diameter_avp{value = Rec},
+            [A | As];
         V when Type /= 'Grouped' ->
-            A = Avp#diameter_avp{name = AvpName,
-                                 value = V,
-                                 type = Type},
-            {A, pack_avp(Name, Arity, A, Opts, Mod, Acc)}
+            Avp#diameter_avp{value = V}
     catch
-        throw: {?MODULE, {grouped, Error, ComponentAvps}} ->
-            decode_error(Name,
-                         Error,
-                         ComponentAvps,
-                         Opts,
-                         Mod,
-                         Avp#diameter_avp{name = AvpName,
-                                          data = trim(Avp#diameter_avp.data),
-                                          type = Type},
-                         Acc);
-
+        throw: {?MODULE, T} ->
+            decode_error(Failed, T, Avp);
         error: Reason ->
-            decode_error(Name,
-                         Reason,
-                         Opts,
-                         Mod,
-                         Avp#diameter_avp{name = AvpName,
-                                          data = trim(Avp#diameter_avp.data),
-                                          type = Type},
-                         Acc)
+            decode_error(Failed, Reason, Name, Mod, Opts, Avp)
     end.
+
+%% decode_error/3
+%%
+%% Error when decoding a grouped AVP.
+
+decode_error(true, {Rec, _, _}, Avp) ->
+    Avp#diameter_avp{value = Rec};
+
+decode_error(false, {_, ComponentAvps, [{RC,A} | _]}, Avp) ->
+    {RC, [Avp | ComponentAvps], Avp#diameter_avp{data = [A]}}.
+
+%% decode_error/6
+%%
+%% Error when decoding a non-grouped AVP.
+
+decode_error(true, _, _, _, _, Avp) ->
+    Avp;
+
+decode_error(false, Reason, Name, Mod, Opts, Avp) ->
+    Stack = diameter_lib:get_stacktrace(),
+    diameter_lib:log(decode_error,
+                     ?MODULE,
+                     ?LINE,
+                     {Reason, Name, Avp#diameter_avp.name, Mod, Stack}),
+    rc(Reason, Avp, Opts, Mod).
 
 %% avp_decode/5
 
@@ -520,62 +556,11 @@ avp_decode(Data, AvpName, Opts, Mod, Mod) ->
 avp_decode(Data, AvpName, Opts, Mod, _) ->
     Mod:avp(decode, Data, AvpName, Opts, Mod).
 
-%% trim/1
-%%
-%% Remove any extra bit that was added in diameter_codec to induce a
-%% 5014 error.
-
-trim(#diameter_avp{data = Data} = Avp) ->
-    Avp#diameter_avp{data = trim(Data)};
-
-trim({5014, Bin}) ->
-    Bin;
-
-trim(Avps)
-  when is_list(Avps) ->
-    lists:map(fun trim/1, Avps);
-
-trim(Avp) ->
-    Avp.
-
-%% decode_error/7
-
-decode_error(Name, [_|Rec], _, #{failed_avp := true} = Opts, Mod, Avp, Acc) ->
-    decode_AVP(Name, Avp#diameter_avp{value = Rec}, Opts, Mod, Acc);
-
-decode_error(Name, _, _, #{failed_avp := true} = Opts, Mod, Avp, Acc) ->
-    decode_AVP(Name, Avp, Opts, Mod, Acc);
-
-decode_error(_, [Error | _], ComponentAvps, _, _, Avp, Acc) ->
-    decode_error(Error, Avp, Acc, ComponentAvps);
-
-decode_error(_, Error, ComponentAvps, _, _, Avp, Acc) ->
-    decode_error(Error, Avp, Acc, ComponentAvps).
-
-%% decode_error/6
-
-decode_error(Name, _Reason, #{failed_avp := true} = Opts, Mod, Avp, Acc) ->
-    decode_AVP(Name, Avp, Opts, Mod, Acc);
-
-decode_error(Name, Reason, Opts, Mod, Avp, {Rec, AM, Failed}) ->
-    Stack = diameter_lib:get_stacktrace(),
-    AvpName = Avp#diameter_avp.name,
-    diameter_lib:log(decode_error,
-                     ?MODULE,
-                     ?LINE,
-                     {Reason, Name, AvpName, Mod, Stack}),
-    {Avp, {Rec, AM, [rc(Reason, Avp, Opts, Mod) | Failed]}}.
-
-%% decode_error/4
-
-decode_error({RC, ErrorData}, Avp, {Rec, AM, Failed}, ComponentAvps) ->
-    E = Avp#diameter_avp{data = [ErrorData]},
-    {[Avp | trim(ComponentAvps)], {Rec, AM, [{RC, E} | Failed]}}.
-
 %% set_strict/3
-
+%%
 %% Set false as soon as we see a Grouped AVP that doesn't set the
 %% M-bit, to ignore the M-bit on an encapsulated AVP.
+
 set_strict('Grouped', false = M, #{strict_mbit := true} = Opts) ->
     Opts#{strict_mbit := M};
 set_strict(_, _, Opts) ->
@@ -592,86 +577,82 @@ set_failed('Failed-AVP', #{failed_avp := false} = Opts) ->
 set_failed(_, Opts) ->
     Opts.
 
-%% decode_AVP/5
-%%
-%% Don't know this AVP: see if it can be packed in an 'AVP' field
-%% undecoded. Note that the type field is 'undefined' in this case.
+%% acc/8
 
-decode_AVP(Name, Avp, #{strict_arities := T} = Opts, Mod, Acc)
-  when T /= decode ->
-    decode_AVP(Name, ?ANY, Avp, Opts, Mod, Acc);
+acc([AM | Acc], As, Name, AvpName, Arity, Strict, Mod, Opts) ->
+    [AM | acc1(Acc, As, Name, AvpName, Arity, Strict, Mod, Opts)].
 
-decode_AVP(Name, Avp, Opts, Mod, Acc) ->
-    decode_AVP(Name, Mod:avp_arity(Name, 'AVP'), Avp, Opts, Mod, Acc).
+%% acc1/8
 
-%% decode_AVP/6
+%% Faulty AVP, not grouped.
+acc1(Acc, {_RC, Avp} = E, _, _, _, _, _, _) ->
+    [Avps, Failed | Rec] = Acc,
+    [[Avp | Avps], [E | Failed] | Rec];
 
-decode_AVP(Name, Arity, Avp, Opts, Mod, Acc) ->
-    {trim(Avp), pack_AVP(Name, Arity, Avp, Opts, Mod, Acc)}.
+%% Faulty component in grouped AVP.
+acc1(Acc, {RC, As, Avp}, _, _, _, _, _, _) ->
+    [Avps, Failed | Rec] = Acc,
+    [[As | Avps], [{RC, Avp} | Failed] | Rec];
 
-%% rc/2
+%% Grouped AVP ...
+acc1([Avps | Acc], [Avp|_] = As, Name, AvpName, Arity, Strict, Mod, Opts) ->
+    [[As|Avps] | acc2(Acc, Avp, Name, AvpName, Arity, Strict, Mod, Opts)];
 
-%% diameter_types will raise an error of this form to communicate
-%% DIAMETER_INVALID_AVP_LENGTH (5014). A module specified to a
-%% @custom_types tag in a dictionary file can also raise an error of
-%% this form.
-rc({'DIAMETER', 5014 = RC, _}, #diameter_avp{name = AvpName} = A, Opts, Mod) ->
-    {RC, A#diameter_avp{data = Mod:empty_value(AvpName, Opts)}};
+%% ... or not.
+acc1([Avps | Acc], Avp, Name, AvpName, Arity, Strict, Mod, Opts) ->
+    [[Avp|Avps] | acc2(Acc, Avp, Name, AvpName, Arity, Strict, Mod, Opts)].
 
-%% 3588:
-%%
-%%   DIAMETER_INVALID_AVP_VALUE         5004
-%%      The request contained an AVP with an invalid value in its data
-%%      portion.  A Diameter message indicating this error MUST include
-%%      the offending AVPs within a Failed-AVP AVP.
-rc(_, Avp, _, _) ->
-    {5004, Avp}.
+%% acc2/8
 
-%% pack_avp/6
+%% No errors, but nowhere to pack.
+acc2(Acc, Avp, _, 'AVP', 0, _, _, _) ->
+    [Failed | Rec] = Acc,
+    [[{rc(Avp), Avp} | Failed] | Rec];
 
-pack_avp(Name, 0, Avp, Opts, Mod, Acc) ->
-    pack_AVP(Name, Avp, Opts, Mod, Acc);
+%% No AVP of this name: try to pack as 'AVP'.
+acc2(Acc, Avp, Name, AvpName, 0, Strict, Mod, Opts) ->
+    M = Avp#diameter_avp.is_mandatory,
+    Arity = pack_arity(Name, AvpName, Opts, Mod, M),
+    acc2(Acc, Avp, Name, 'AVP', Arity, Strict, Mod, Opts);
 
-pack_avp(_, Arity, #diameter_avp{name = AvpName} = Avp, _Opts, Mod, Acc) ->
-    pack(Arity, AvpName, Avp, Mod, Acc).
+%% Relaxed arities.
+acc2(Acc, Avp, _, AvpName, Arity, Strict, Mod, _)
+  when Strict /= decode ->
+    pack(Arity, AvpName, Avp, Mod, Acc);
 
-%% pack_AVP/5
+%% No maximum arity.
+acc2(Acc, Avp, _, AvpName, {_,'*'} = Arity, _, Mod, _) ->
+    pack(Arity, AvpName, Avp, Mod, Acc);
 
-pack_AVP(Name, Avp, #{strict_arities := T} = Opts, Mod, Acc)
-  when T /= decode ->
-    pack_AVP(Name, ?ANY, Avp, Opts, Mod, Acc);
-
-pack_AVP(Name, Avp, Opts, Mod, Acc) ->
-    pack_AVP(Name, Mod:avp_arity(Name, 'AVP'), Avp, Opts, Mod, Acc).
-
-%% pack_AVP/6
-
-%% Length failure was induced because of a header/payload length
-%% mismatch. The AVP Length is reset to match the received data if
-%% this AVP is encoded in an answer message, since the length is
-%% computed.
-%%
-%% Data is a truncated header if command_code = undefined, otherwise
-%% payload bytes. The former is padded to the length of a header if
-%% the AVP reaches an outgoing encode in diameter_codec.
-%%
-%% RFC 6733 says that an AVP returned with 5014 can contain a minimal
-%% payload for the AVP's type, but in this case we don't know the
-%% type.
-
-pack_AVP(_, _, #diameter_avp{data = {5014 = RC, Data}} = Avp, _, _, Acc) ->
-    {Rec, AM, Failed} = Acc,
-    {Rec, AM, [{RC, Avp#diameter_avp{data = Data}} | Failed]};
-
-pack_AVP(Name, Arity, Avp, Opts, Mod, Acc) ->
-    case pack_AVP(Name, Opts, Arity, Avp) of
-        false ->
-            M = Avp#diameter_avp.is_mandatory,
-            {Rec, AM, Failed} = Acc,
-            {Rec, AM, [{if M -> 5001; true -> 5008 end, Avp} | Failed]};
-        true ->
-            pack(Arity, 'AVP', Avp, Mod, Acc)
+%% Or check.
+acc2(Acc, Avp, _, AvpName, Arity, _, Mod, _) ->
+    Mx = max_arity(Arity),
+    if Mx =< Avp#diameter_avp.index ->
+            [Failed | Rec] = Acc,
+            [[{5009, Avp} | Failed] | Rec];
+       true ->
+            pack(Arity, AvpName, Avp, Mod, Acc)
     end.
+
+%% 3588/6733:
+%%
+%%   DIAMETER_AVP_OCCURS_TOO_MANY_TIMES 5009
+%%      A message was received that included an AVP that appeared more
+%%      often than permitted in the message definition.  The Failed-AVP
+%%      AVP MUST be included and contain a copy of the first instance of
+%%      the offending AVP that exceeded the maximum number of occurrences
+
+%% max_arity/1
+
+max_arity(1) ->
+    1;
+max_arity({_,Mx}) ->
+    Mx.
+
+%% rc/1
+
+rc(#diameter_avp{is_mandatory = M}) ->
+    if M -> 5001; true -> 5008 end.
 
 %% 3588:
 %%
@@ -686,42 +667,59 @@ pack_AVP(Name, Arity, Avp, Opts, Mod, Acc) ->
 %%      Failed-AVP AVP MUST be included and contain a copy of the
 %%      offending AVP.
 
-%% pack_AVP/4
+%% pack_arity/5
 
 %% Give Failed-AVP special treatment since (1) it'll contain any
 %% unrecognized mandatory AVP's and (2) the RFC 3588 grammar failed to
 %% allow for Failed-AVP in an answer-message.
 
-pack_AVP(_, #{strict_arities := T}, _, _)
-  when T /= decode ->
-    true;
+pack_arity(Name, AvpName, _, Mod, M)
+  when Name == 'Failed-AVP';
+       Name == 'answer-message', AvpName == 'Failed-AVP';
+       not M ->
+    Mod:avp_arity(Name, 'AVP');
+%% Not testing just Name /= 'Failed-AVP' means we're changing the
+%% packing of AVPs nested within Failed-AVP, but the point of
+%% ignoring errors within Failed-AVP is to decode as much as
+%% possible, and failing because a mandatory AVP couldn't be
+%% packed into a dedicated field defeats that point.
 
-pack_AVP(_, _, 0, _) ->
-    false;
+pack_arity(Name, _, #{strict_mbit := Strict, failed_avp := Failed}, Mod, _)
+  when not Strict;
+       Failed ->
+    Mod:avp_arity(Name, 'AVP');
 
-pack_AVP(Name,
-         #{strict_mbit := Strict,
-           failed_avp := Failed},
-         _,
-         #diameter_avp{is_mandatory = M,
-                       name = AvpName}) ->
+pack_arity(_, _, _, _, _) ->
+    0.
 
-    %% Not testing just Name /= 'Failed-AVP' means we're changing the
-    %% packing of AVPs nested within Failed-AVP, but the point of
-    %% ignoring errors within Failed-AVP is to decode as much as
-    %% possible, and failing because a mandatory AVP couldn't be
-    %% packed into a dedicated field defeats that point.
+%% avp_arity/5
 
-    Failed == true
-        orelse Name == 'Failed-AVP'
-        orelse (Name == 'answer-message' andalso AvpName == 'Failed-AVP')
-        orelse not M
-        orelse not Strict.
+avp_arity(Name, 'AVP' = AvpName, Mod, Opts, M) ->
+    pack_arity(Name, AvpName, Opts, Mod, M);
+
+avp_arity(Name, AvpName, Mod, _, _) ->
+    Mod:avp_arity(Name, AvpName).
+
+%% rc/4
+
+%% Length error communicated from diameter_types or a
+%% @custom_types/@codecs module.
+rc({'DIAMETER', 5014 = RC, _}, #diameter_avp{name = AvpName} = A, Opts, Mod) ->
+    {RC, A#diameter_avp{data = Mod:empty_value(AvpName, Opts)}};
+
+%% 3588:
+%%
+%%   DIAMETER_INVALID_AVP_VALUE         5004
+%%      The request contained an AVP with an invalid value in its data
+%%      portion.  A Diameter message indicating this error MUST include
+%%      the offending AVPs within a Failed-AVP AVP.
+rc(_, Avp, _, _) ->
+    {5004, Avp}.
 
 %% pack/5
 
-pack(Arity, F, Avp, Mod, {Rec, AM, Failed}) ->
-    {set(Arity, F, value(F, Avp), Mod, Rec), AM, Failed}.
+pack(Arity, F, Avp, Mod, [Failed | Rec]) ->
+    [Failed | set(Arity, F, value(F, Avp), Mod, Rec)].
 
 %% set/5
 
@@ -730,7 +728,7 @@ set(_, _, _, _, false = No) ->
 
 set(1, F, Value, _, Map)
   when is_map(Map) ->
-    maps:put(F, Value, Map);
+    Map#{F => Value};
 
 set(_, F, V, _, Map)
   when is_map(Map) ->
@@ -755,35 +753,27 @@ value(_, #diameter_avp{value = V}) ->
 %% # grouped_avp/3
 %% ---------------------------------------------------------------------------
 
--spec grouped_avp(decode, avp_name(), binary() | {5014, binary()}, term())
+%% Note that Grouped is the only AVP type that doesn't just return a
+%% decoded value, also returning the list of component diameter_avp
+%% records.
+
+-spec grouped_avp(decode, avp_name(), binary(), term())
    -> {avp_record(), [avp()]};
                  (encode, avp_name(), avp_record() | avp_values(), term())
    -> iolist()
     | no_return().
 
-%% Length error induced by diameter_codec:collect_avps/1: the AVP
-%% length in the header was too short (insufficient for the extracted
-%% header) or too long (past the end of the message). An empty payload
-%% is sufficient according to the RFC text for 5014.
-grouped_avp(decode, _Name, {5014 = RC, _Bin}, _) ->
-    ?THROW({grouped, {RC, []}, []});
-
-grouped_avp(decode, Name, Data, Opts) ->
-    grouped_decode(Name, diameter_codec:collect_avps(Data), Opts);
+%% An error in decoding a component AVP throws the first faulty
+%% component, which a catch wraps in the Grouped AVP in question. A
+%% partially decoded record is only used when ignoring errors in
+%% Failed-AVP.
+grouped_avp(decode, Name, Bin, Opts) ->
+    {Rec, Avps, Es} = T = decode_avps(Name, Bin, Opts),
+    [] == Es orelse ?THROW(T),
+    {Rec, Avps};
 
 grouped_avp(encode, Name, Data, Opts) ->
     encode_avps(Name, Data, Opts).
-
-%% grouped_decode/2
-%%
-%% Note that Grouped is the only AVP type that doesn't just return a
-%% decoded value, also returning the list of component diameter_avp
-%% records.
-
-%% Length error in trailing component AVP.
-grouped_decode(_Name, {Error, Acc}, _) ->
-    {5014, Avp} = Error,
-    ?THROW({grouped, Error, [Avp | Acc]});
 
 %% 7.5.  Failed-AVP AVP
 
@@ -794,15 +784,6 @@ grouped_decode(_Name, {Error, Acc}, _) ->
 %%    In this case, the Failed-AVP MAY contain the grouped AVP hierarchy up
 %%    to the single offending AVP.  This enables the recipient to detect
 %%    the location of the offending AVP when embedded in a group.
-
-%% An error in decoding a component AVP throws the first faulty
-%% component, which the catch in d/3 wraps in the Grouped AVP in
-%% question. A partially decoded record is only used when ignoring
-%% errors in Failed-AVP.
-grouped_decode(Name, ComponentAvps, Opts) ->
-    {Rec, Avps, Es} = decode_avps(Name, ComponentAvps, Opts),
-    [] == Es orelse ?THROW({grouped, [{_,_} = hd(Es) | Rec], Avps}),
-    {Rec, Avps}.
 
 %% ---------------------------------------------------------------------------
 %% # empty_group/2
@@ -840,7 +821,7 @@ empty(Name, #{module := Mod} = Opts) ->
 newrec(false = No, _, _, _) ->
     No;
 
-newrec(record, Mod, Name, #{strict_arities := T})
+newrec(record, Mod, Name, T)
   when T /= decode ->
     RecName = Mod:name2rec(Name),
     Sz = Mod:'#info-'(RecName, size),
@@ -859,16 +840,15 @@ newrec(Mod, Name) ->
 
 %% reformat/5
 
-reformat(_, Map, Arities, _Mod, _Opts, list) ->
-    [{F,V} || {F,_} <- Arities, #{F := V} <- [Map]];
+reformat(Name, Map, _Strict, Mod, list) ->
+    [{F,V} || {F,_} <- Mod:avp_arity(Name), #{F := V} <- [Map]];
 
-reformat(Name, Map, Arities, Mod, Opts, record_from_map) ->
-    SA = maps:get(strict_arities, Opts, decode),
+reformat(Name, Map, Strict, Mod, record_from_map) ->
     RecName = Mod:name2rec(Name),
-    list_to_tuple([RecName | [maps:get(F, Map, def(A, SA))
-                              || {F,A} <- Arities]]);
+    list_to_tuple([RecName | [mget(F, Map, def(A, Strict))
+                              || {F,A} <- Mod:avp_arity(Name)]]);
 
-reformat(_, Rec, _, _, _, _) ->
+reformat(_, Rec, _, _, _) ->
     Rec.
 
 %% def/2

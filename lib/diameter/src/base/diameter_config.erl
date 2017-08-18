@@ -715,6 +715,7 @@ make_config(SvcName, Opts) ->
                          {true, strict_arities},
                          {true, strict_mbit},
                          {record, decode_format},
+                         {true, traffic_counters},
                          {true, string_decode},
                          {[], spawn_opt}]),
 
@@ -760,6 +761,7 @@ opt(K, false = B)
        K == strict_arities;
        K == strict_mbit;
        K == decode_format;
+       K == traffic_counters;
        K == string_decode ->
     B;
 
@@ -768,6 +770,7 @@ opt(K, true = B)
        K == use_shared_peers;
        K == strict_arities;
        K == strict_mbit;
+       K == traffic_counters;
        K == string_decode ->
     B;
 

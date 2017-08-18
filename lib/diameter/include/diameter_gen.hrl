@@ -26,13 +26,13 @@
 
 %% encode_avps/3
 
-encode_avps(Name, Vals, Opts) ->
-    diameter_gen:encode_avps(Name, Vals, Opts#{module => ?MODULE}).
+encode_avps(Name, Avps, Opts) ->
+    diameter_gen:encode_avps(Name, Avps, Opts#{module => ?MODULE}).
 
 %% decode_avps/2
 
-decode_avps(Name, Recs, Opts) ->
-    diameter_gen:decode_avps(Name, Recs, Opts#{module => ?MODULE}).
+decode_avps(Name, Avps, Opts) ->
+    diameter_gen:decode_avps(Name, Avps, Opts#{module => ?MODULE}).
 
 %% avp/5
 
