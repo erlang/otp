@@ -705,7 +705,7 @@ sub emulator_output {
 	print "#if !defined(ARCH_64)\n";
 	print qq[  #error "64-bit architecture assumed, but ARCH_64 not defined"\n];
 	print "#endif\n";
-	print "#define BEAM_WIDE_MASK 0xFFFFUL\n";
+	print "#define BEAM_WIDE_MASK 0xFFFFFFFFUL\n";
 	print "#define BEAM_LOOSE_MASK 0xFFFFUL\n";
 	print "#define BEAM_TIGHT_MASK 0xFFFFUL\n";
 	print "#define BEAM_WIDE_SHIFT 32\n";
