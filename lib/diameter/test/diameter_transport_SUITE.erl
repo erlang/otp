@@ -349,35 +349,40 @@ rand_bytes(N) ->
 %% start_connect/3
 
 start_connect(Prot, PortNr, Ref) ->
-    {ok, TPid, [?ADDR]} = start_connect(Prot,
-                                        {connect, Ref},
-                                        ?SVC([]),
-                                        [{raddr, ?ADDR},
-                                         {rport, PortNr},
-                                         {ip, ?ADDR},
-                                         {port, 0}]),
-    ?RECV(?TMSG({TPid, connected, _})),
+    {ok, TPid} = start_connect(Prot,
+                               {connect, Ref},
+                               ?SVC([]),
+                               [{raddr, ?ADDR},
+                                {rport, PortNr},
+                                {ip, ?ADDR},
+                                {port, 0}]),
+    connected(Prot, TPid),
     TPid.
 
+connected(sctp, TPid) ->
+    ?RECV(?TMSG({TPid, connected, _}));
+connected(tcp, TPid) ->
+    ?RECV(?TMSG({TPid, connected, _, [?ADDR]})).
+
 start_connect(sctp, T, Svc, Opts) ->
-    diameter_sctp:start(T, Svc, [{sctp_initmsg, ?SCTP_INIT} | Opts]);
+    {ok, TPid, [?ADDR]}
+        = diameter_sctp:start(T, Svc, [{sctp_initmsg, ?SCTP_INIT} | Opts]),
+    {ok, TPid};
 start_connect(tcp, T, Svc, Opts) ->
     diameter_tcp:start(T, Svc, Opts).
 
 %% start_accept/2
 
 start_accept(Prot, Ref) ->
-    {Mod, Opts} = tmod(Prot),
-    {ok, TPid, [?ADDR]} = Mod:start({accept, Ref},
-                                    ?SVC([?ADDR]),
-                                    [{port, 0} | Opts]),
+    {ok, TPid, [?ADDR]}
+        = start_accept(Prot, {accept, Ref}, ?SVC([?ADDR]), [{port, 0}]),
     ?RECV(?TMSG({TPid, connected})),
     TPid.
 
-tmod(sctp) ->
-    {diameter_sctp, [{sctp_initmsg, ?SCTP_INIT}]};
-tmod(tcp) ->
-    {diameter_tcp, []}.
+start_accept(sctp, T, Svc, Opts) ->
+    diameter_sctp:start(T, Svc, [{sctp_initmsg, ?SCTP_INIT} | Opts]);
+start_accept(tcp, T, Svc, Opts) ->
+    diameter_tcp:start(T, Svc, Opts).
 
 %% ===========================================================================
 
