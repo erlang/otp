@@ -3704,6 +3704,52 @@ erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written)
     return res;
 }
 
+Sint
+erts_unicode_list_to_buf_len(Eterm list)
+{
+    Eterm* listptr;
+    Sint sz = 0;
+
+    if (is_nil(list)) {
+	return 0;
+    }
+    if (is_not_list(list)) {
+	return -1;
+    }
+    listptr = list_val(list);
+
+    while (1) {
+	Sint val;
+
+	if (is_not_small(CAR(listptr))) {
+	    return -1;
+	}
+	val = signed_val(CAR(listptr));
+	if (0 <= val && val < 0x80) {
+	    sz++;
+	} else if (val < 0x800) {
+	    sz += 2;
+	} else if (val < 0x10000UL) {
+	    if (0xD800 <= val && val <= 0xDFFF) {
+		return -1;
+	    }
+	    sz += 3;
+	} else if (val < 0x110000) {
+	    sz += 4;
+	} else {
+	    return -1;
+	}
+	list = CDR(listptr);
+	if (is_nil(list)) {
+	    return sz;
+	}
+	if (is_not_list(list)) {
+	    return -1;
+	}
+	listptr = list_val(list);
+    }
+}
+
 /*
 ** Convert an integer to a byte list
 ** return pointer to converted stuff (need not to be at start of buf!)
