@@ -3420,7 +3420,7 @@ gen_literal_timeout(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
     Sint timeout;
 
     NEW_GENOP(stp, op);
-    op->op = genop_wait_timeout_unlocked_2;
+    op->op = genop_wait_timeout_unlocked_int_2;
     op->next = NULL;
     op->arity = 2;
     op->a[0].type = TAG_u;
@@ -3467,12 +3467,12 @@ gen_literal_timeout_locked(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
     Sint timeout;
 
     NEW_GENOP(stp, op);
-    op->op = genop_wait_timeout_locked_2;
+    op->op = genop_wait_timeout_locked_int_2;
     op->next = NULL;
     op->arity = 2;
-    op->a[0] = Fail;
-    op->a[1].type = TAG_u;
-    
+    op->a[0].type = TAG_u;
+    op->a[1] = Fail;
+
     if (Time.type == TAG_i && (timeout = Time.val) >= 0 &&
 #if defined(ARCH_64)
 	(timeout >> 32) == 0
@@ -3480,7 +3480,7 @@ gen_literal_timeout_locked(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
 	1
 #endif
 	) {
-	op->a[1].val = timeout;
+	op->a[0].val = timeout;
 #if !defined(ARCH_64)
     } else if (Time.type == TAG_q) {
 	Eterm big;
@@ -3494,7 +3494,7 @@ gen_literal_timeout_locked(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
 	} else {
 	    Uint u;
 	    (void) term_to_Uint(big, &u);
-	    op->a[1].val = (BeamInstr) u;
+	    op->a[0].val = (BeamInstr) u;
 	}
 #endif
     } else {

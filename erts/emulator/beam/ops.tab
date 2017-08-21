@@ -382,8 +382,8 @@ label L | wait_timeout Fail Src | smp_already_locked(L) => \
     label L | wait_timeout_locked Src Fail
 wait_timeout Fail Src => wait_timeout_unlocked Src Fail
 
-wait_timeout_unlocked Fail Src=aiq => gen_literal_timeout(Fail, Src)
-wait_timeout_locked Fail Src=aiq => gen_literal_timeout_locked(Fail, Src)
+wait_timeout_unlocked Src=aiq Fail => gen_literal_timeout(Fail, Src)
+wait_timeout_locked Src=aiq Fail => gen_literal_timeout_locked(Fail, Src)
 
 label L | wait Fail | smp_already_locked(L) => label L | wait_locked Fail
 wait Fail => wait_unlocked Fail
@@ -398,6 +398,7 @@ loop_rec_end f
 wait_locked f
 wait_unlocked f
 
+# Note that a timeout value must fit in 32 bits.
 wait_timeout_unlocked_int I f
 wait_timeout_unlocked s f
 wait_timeout_locked_int I f
