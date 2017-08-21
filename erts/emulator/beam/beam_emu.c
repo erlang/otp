@@ -153,7 +153,7 @@ do {                                     \
  * Register target (X or Y register).
  */
 
-#define REG_TARGET_PTR(Target) (((Target) & 1) ? &yb(Target-1) : &xb(Target))
+#define REG_TARGET_PTR(Target) (((Target) & 1) ? &yb((Target)-1) : &xb(Target))
 
 /*
  * Special Beam instructions.
@@ -242,6 +242,7 @@ void** beam_ops;
 #define tb(N) (N)
 #define xb(N) (*(Eterm *) (((unsigned char *)reg) + (N)))
 #define yb(N) (*(Eterm *) (((unsigned char *)E) + (N)))
+#define Sb(N) (*REG_TARGET_PTR(N))
 #define lb(N) (*(double *) (((unsigned char *)&(freg[0].fd)) + (N)))
 #define Qb(N) (N)
 #define Ib(N) (N)

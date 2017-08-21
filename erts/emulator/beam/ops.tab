@@ -192,7 +192,7 @@ try_case_end s
 
 # Destructive set tuple element
 
-set_tuple_element s d P
+set_tuple_element s S P
 
 # Get tuple element
 
@@ -1272,9 +1272,9 @@ fmove Arg=l Dst=d => fstore Arg Dst
 fmove Arg=dq Dst=l => fload Arg Dst
 
 fstore l d
-fload dq l
+fload Sq l
 
-fconv d l
+fconv S l
 
 i_fadd l l l
 i_fsub l l l

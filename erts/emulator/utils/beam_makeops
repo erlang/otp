@@ -139,6 +139,7 @@ my %arg_size = ('r' => 0,	# x(0) - x register zero
 		'n' => 0,	# NIL (implicit)
 		'c' => 1,	# tagged constant (integer, atom, nil)
 		's' => 1,	# tagged source; any of the above
+                'S' => 1,       # tagged source register (x or y)
 		'd' => 1,	# tagged destination register (r, x, y)
 		'f' => 1,	# failure label
 		'j' => 1,	# either 'f' or 'p'
@@ -188,6 +189,7 @@ sub define_type_bit {
     define_type_bit('s', $type_bit{'d'} | $type_bit{'i'} |
 		    $type_bit{'a'} | $type_bit{'n'} |
 		    $type_bit{'q'});
+    define_type_bit('S', $type_bit{'d'});
     define_type_bit('j', $type_bit{'f'} | $type_bit{'p'});
 
     # Aliases (for matching purposes).
@@ -1258,7 +1260,7 @@ sub basic_generator {
                 push(@f, "r(0)");
                 last SWITCH;
             };
-	    /[lxy]/ and do {
+	    /[lxyS]/ and do {
                 push(@f, $_ . "b(Arg($arg_offset))");
                 last SWITCH;
             };
@@ -1462,6 +1464,7 @@ sub do_pack {
                        'y' => 10,
                        'Q' => 10,
                        'l' => 10,
+                       'S' => 16,
                        'd' => 16,
                        't' => 16);
     if ($wordsize == 64) {

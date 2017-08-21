@@ -2374,7 +2374,8 @@ load_code(LoaderState* stp)
 		    break;
 		}
 		break;
-	    case 'd':	/* Destination (x(0), x(N), y(N) */
+	    case 'd':	/* Destination (x(N), y(N) */
+            case 'S':   /* Source (x(N), y(N)) */
 		switch (tag) {
 		case TAG_x:
 		    code[ci++] = tmp_op->a[arg].val * sizeof(Eterm);
