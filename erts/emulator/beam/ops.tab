@@ -108,7 +108,7 @@ allocate_zero t t
 allocate_heap_zero t I t
 
 trim N Remaining => i_trim N
-i_trim I
+i_trim t
 
 test_heap I t
 
@@ -590,7 +590,7 @@ is_integer Fail Literal=q => move Literal x | is_integer Fail x
 
 is_integer Fail=f S=x | allocate Need Regs => is_integer_allocate Fail S Need Regs
 
-is_integer_allocate f x I I
+is_integer_allocate f x t t
 
 is_integer f xy
 
@@ -609,7 +609,7 @@ is_nonempty_list F=f x==0 | test_heap I1 I2 => is_nonempty_list_test_heap F I1 I
 is_nonempty_list Fail=f S=x | get_list S D1=x D2=x => \
   is_nonempty_list_get_list Fail S D1 D2
 
-is_nonempty_list_allocate f rx I t
+is_nonempty_list_allocate f rx t t
 is_nonempty_list_test_heap f I t
 is_nonempty_list_get_list f rx x x
 is_nonempty_list f xy
@@ -685,7 +685,7 @@ is_function2 f s s
 allocate Need Regs | init Y => allocate_init Need Regs Y
 init Y1 | init Y2 => init2 Y1 Y2
 
-allocate_init t I y
+allocate_init t t y
 
 #################################################################
 # External function and bif calls.
@@ -1006,15 +1006,15 @@ call_last Ar Func D => i_call_last Func D
 call_only Ar Func   => i_call_only Func
 
 i_call f
-i_call_last f P
+i_call_last f Q
 i_call_only f
 
 i_call_ext e
-i_call_ext_last e P
+i_call_ext_last e Q
 i_call_ext_only e
 
 i_move_call_ext c e
-i_move_call_ext_last e P c
+i_move_call_ext_last e Q c
 i_move_call_ext_only e c
 
 # Fun calls.
@@ -1022,8 +1022,8 @@ i_move_call_ext_only e c
 call_fun Arity | deallocate D | return => i_call_fun_last Arity D
 call_fun Arity => i_call_fun Arity
 
-i_call_fun I
-i_call_fun_last I P
+i_call_fun t
+i_call_fun_last t Q
 
 make_fun2 OldIndex=u => gen_make_fun2(OldIndex)
 
@@ -1152,9 +1152,9 @@ bs_init2 Fail Sz Words=u==0 Regs Flags Dst => \
 bs_init2 Fail Sz Words Regs Flags Dst => \
   i_bs_init_fail_heap Sz Words Fail Regs Dst
 
-i_bs_init_fail xy j I x
+i_bs_init_fail xy j t x
 
-i_bs_init_fail_heap s I j I x
+i_bs_init_fail_heap s I j t x
 
 i_bs_init W t x
 
@@ -1171,16 +1171,16 @@ bs_init_bits Fail Sz Words=u==0 Regs Flags Dst => \
 bs_init_bits Fail Sz Words Regs Flags Dst => \
   i_bs_init_bits_fail_heap Sz Words Fail Regs Dst
 
-i_bs_init_bits_fail xy j I x
+i_bs_init_bits_fail xy j t x
 
-i_bs_init_bits_fail_heap s I j I x
+i_bs_init_bits_fail_heap s I j t x
 
 i_bs_init_bits W t x
 i_bs_init_bits_heap W I t x
 
 bs_add Fail S1=i==0 S2 Unit=u==1 D => move S2 D
 
-bs_add j s s I x
+bs_add j s s t x
 
 bs_append Fail Size Extra Live Unit Bin Flags Dst => \
   move Bin x | i_bs_append Fail Extra Live Unit Size Dst
@@ -1190,8 +1190,8 @@ bs_private_append Fail Size Unit Bin Flags Dst => \
 
 bs_init_writable
 
-i_bs_append j I I I s x
-i_bs_private_append j I s s x
+i_bs_append j I t t s x
+i_bs_private_append j t s s x
 
 #
 # Storing integers into binaries.
@@ -1200,7 +1200,7 @@ i_bs_private_append j I s s x
 bs_put_integer Fail=j Sz=sq Unit=u Flags=u Src=s => \
 			gen_put_integer(Fail, Sz, Unit, Flags, Src)
 
-i_new_bs_put_integer j s I s
+i_new_bs_put_integer j s t s
 i_new_bs_put_integer_imm j W t s
 
 #
@@ -1219,7 +1219,7 @@ bs_put_utf8 Fail u Src=s => i_bs_put_utf8 Fail Src
 
 i_bs_put_utf8 j s
 
-bs_put_utf16 j I s
+bs_put_utf16 j t s
 
 bs_put_utf32 Fail=j Flags=u Src=s => \
    i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src
@@ -1234,8 +1234,8 @@ bs_put_float Fail Sz=q Unit Flags Val => badarg Fail
 bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s => \
 			gen_put_float(Fail, Sz, Unit, Flags, Src)
 
-i_new_bs_put_float j s I s
-i_new_bs_put_float_imm j W I s
+i_new_bs_put_float j s t s
+i_new_bs_put_float_imm j W t s
 
 #
 # Storing binaries into binaries.
@@ -1244,9 +1244,9 @@ i_new_bs_put_float_imm j W I s
 bs_put_binary Fail=j Sz=s Unit=u Flags=u Src=s => \
 			gen_put_binary(Fail, Sz, Unit, Flags, Src)
 
-i_new_bs_put_binary j s I s
+i_new_bs_put_binary j s t s
 i_new_bs_put_binary_imm j W s
-i_new_bs_put_binary_all j s I
+i_new_bs_put_binary_all j s t
 
 #
 # Warning: The i_bs_put_string and i_new_bs_put_string instructions
@@ -1298,8 +1298,8 @@ fclearerror
 # New apply instructions in R10B.
 #
 
-apply I
-apply_last I P
+apply t
+apply_last t Q
 
 #
 # Handle compatibility with OTP 17 here.
@@ -1454,30 +1454,30 @@ gc_bif1 Fail I u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src I Dst
 
 i_increment rxy W t d
 
-i_plus x xy j I d
-i_plus s s  j I d
+i_plus x xy j t d
+i_plus s s  j t d
 
-i_minus x x j I d
-i_minus s s j I d
+i_minus x x j t d
+i_minus s s j t d
 
-i_times j I s s d
+i_times j t s s d
 
-i_m_div j I s s d
-i_int_div j I s s d
+i_m_div j t s s d
+i_int_div j t s s d
 
-i_rem x x j I d
-i_rem s s j I d
+i_rem x x j t d
+i_rem s s j t d
 
-i_bsl s s j I d
-i_bsr s s j I d
+i_bsl s s j t d
+i_bsr s s j t d
 
-i_band x c j I d
-i_band s s j I d
+i_band x c j t d
+i_band s s j t d
 
 i_bor j I s s d
 i_bxor j I s s d
 
-i_int_bnot j s I d
+i_int_bnot j s t d
 
 #
 # Old guard BIFs that creates heap fragments are no longer allowed.
@@ -1501,9 +1501,9 @@ gc_bif2 Fail I Bif S1 S2 Dst => \
 gc_bif3 Fail I Bif S1 S2 S3 Dst => \
 	gen_guard_bif3(Fail, I, Bif, S1, S2, S3, Dst)
 
-i_gc_bif1 j W s I d
+i_gc_bif1 j W s t d
 
-i_gc_bif2 j W I s s d
+i_gc_bif2 j W t s s d
 
 ii_gc_bif3/7
 
@@ -1512,7 +1512,7 @@ ii_gc_bif3/7
 ii_gc_bif3 Fail Bif Live S1 S2 S3 Dst => \
   move S1 x | i_gc_bif3 Fail Bif Live S2 S3 Dst
 
-i_gc_bif3 j W I s s d
+i_gc_bif3 j W t s s d
 
 #
 # The following instruction is specially handled in beam_load.c

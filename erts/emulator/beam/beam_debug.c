@@ -526,9 +526,9 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'I':
         case 'W':
 	    switch (op) {
-	    case op_i_gc_bif1_jWsId:
-	    case op_i_gc_bif2_jWIssd:
-	    case op_i_gc_bif3_jWIssd:
+	    case op_i_gc_bif1_jWstd:
+	    case op_i_gc_bif2_jWtssd:
+	    case op_i_gc_bif3_jWtssd:
 		{
 		    const ErtsGcBif* p;
 		    BifFunction gcf = (BifFunction) *ap;

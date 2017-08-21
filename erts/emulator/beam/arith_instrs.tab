@@ -370,10 +370,10 @@ shift.execute(Fail, Live, Dst) {
         reg[0] = Op1;
         reg[1] = Op2;
         SWAPOUT;
-        if (I[0] == (BeamInstr) OpCode(i_bsl_ssjId)) {
+        if (I[0] == (BeamInstr) OpCode(i_bsl_ssjtd)) {
             I = handle_error(c_p, I, reg, &bif_export[BIF_bsl_2]->info.mfa);
         } else {
-            ASSERT(I[0] == (BeamInstr) OpCode(i_bsr_ssjId));
+            ASSERT(I[0] == (BeamInstr) OpCode(i_bsr_ssjtd));
             I = handle_error(c_p, I, reg, &bif_export[BIF_bsr_2]->info.mfa);
         }
         goto post_error_handling;
