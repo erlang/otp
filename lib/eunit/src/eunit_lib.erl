@@ -385,15 +385,14 @@ fun_parent(F) ->
 	    {M, N, A};
 	{type, local} ->
 	    [$-|S] = atom_to_list(N),
-	    C1 = string:chr(S, $/),
-	    C2 = string:chr(S, $-),
-	    {M, list_to_atom(string:sub_string(S, 1, C1 - 1)),
-	     list_to_integer(string:sub_string(S, C1 + 1, C2 - 1))}
+            [Func, Rest] = string:split(S, "/"),
+            [FuncArg,_] = string:split(Rest, "-"),
+	    {M, list_to_atom(Func), list_to_integer(FuncArg)}
     end.
 
 -ifdef(TEST).
 fun_parent_test() ->
-    {?MODULE,fun_parent_test,0} = fun_parent(fun () -> ok end).
+    {?MODULE,fun_parent_test,0} = fun_parent(fun (A) -> {ok,A} end).
 -endif.
 
 %% ---------------------------------------------------------------------
