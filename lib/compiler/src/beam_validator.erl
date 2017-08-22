@@ -928,9 +928,9 @@ verify_call_match_context(Lbl, Ctx, #vst{ft=Ft}) ->
 	    error({unsuitable_bs_start_match2,I})
     end.
 
-allocate(Zero, Stk, Heap, Live, #vst{current=#st{numy=none}=St}=Vst0) ->
+allocate(Zero, Stk, Heap, Live, #vst{current=#st{numy=none}}=Vst0) ->
     verify_live(Live, Vst0),
-    Vst = prune_x_regs(Live, Vst0),
+    Vst = #vst{current=St} = prune_x_regs(Live, Vst0),
     Ys = init_regs(Stk, case Zero of 
 			    true -> initialized;
 			    false -> uninitialized
