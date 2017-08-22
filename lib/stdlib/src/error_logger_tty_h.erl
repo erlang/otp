@@ -39,13 +39,16 @@
 	{user,
 	 prev_handler,
 	 io_mod=io,
-	 depth=unlimited}).
+	 depth=unlimited,
+         modifier=""}).
 
 %% This one is used when we takeover from the simple error_logger.
 init({[], {error_logger, Buf}}) ->
     User = set_group_leader(),
     Depth = error_logger:get_format_depth(),
-    State = #st{user=User,prev_handler=error_logger,depth=Depth},
+    Modifier = modifier(),
+    State = #st{user=User,prev_handler=error_logger,
+                depth=Depth,modifier=Modifier},
     write_events(State, Buf),
     {ok, State};
 %% This one is used if someone took over from us, and now wants to
@@ -57,7 +60,8 @@ init({[], {error_logger_tty_h, PrevHandler}}) ->
 init([]) ->
     User = set_group_leader(),
     Depth = error_logger:get_format_depth(),
-    {ok, #st{user=User,prev_handler=[],depth=Depth}}.
+    Modifier = modifier(),
+    {ok, #st{user=User,prev_handler=[],depth=Depth,modifier=Modifier}}.
 
 handle_event({_Type, GL, _Msg}, State) when node(GL) =/= node() ->
     {ok, State};
@@ -91,8 +95,9 @@ code_change(_OldVsn, State, _Extra) ->
 write_event(Event, IoMod) ->
     do_write_event(#st{io_mod=IoMod}, Event).
 
-write_event(Event, IoMod, Depth) ->
-    do_write_event(#st{io_mod=IoMod,depth=Depth}, Event).
+write_event(Event, IoMod, {Depth, Enc}) ->
+    Modifier = modifier(Enc),
+    do_write_event(#st{io_mod=IoMod,depth=Depth,modifier=Modifier}, Event).
 
 
 %%% ------------------------------------------------------
@@ -120,12 +125,12 @@ write_events(State, [Ev|Es]) ->
 write_events(_State, []) ->
     ok.
 
-do_write_event(State, {Time, Event}) ->
-    case parse_event(Event) of
+do_write_event(#st{modifier=M}=State, {Time, Event}) ->
+    case parse_event(Event,M) of
 	ignore ->
 	    ok;
 	{Title,Pid,FormatList} ->
-	    Header = header(Time, Title),
+	    Header = header(Time, Title, M),
 	    Body = format_body(State, FormatList),
 	    AtNode = if
 			 node(Pid) =/= node() ->
@@ -144,13 +149,13 @@ do_write_event(State, {Time, Event}) ->
 do_write_event(_, _) ->
     ok.
 
-format_body(State, [{Format,Args}|T]) ->
+format_body(#st{modifier=M}=State, [{Format,Args}|T]) ->
     S = try format(State, Format, Args) of
 	    S0 ->
 		S0
 	catch
 	    _:_ ->
-		format(State, "ERROR: ~p - ~p\n", [Format,Args])
+		format(State, "ERROR: ~"++M++"p - ~"++M++"p\n", [Format,Args])
 	end,
     [S|format_body(State, T)];
 format_body(_State, []) ->
@@ -174,62 +179,41 @@ limit_format([H|T], Depth) ->
 limit_format([], _) ->
     [].
 
-parse_event({error, _GL, {Pid, Format, Args}}) ->
+parse_event({error, _GL, {Pid, Format, Args}},_) ->
     {"ERROR REPORT",Pid,[{Format,Args}]};
-parse_event({info_msg, _GL, {Pid, Format, Args}}) ->
+parse_event({info_msg, _GL, {Pid, Format, Args}},_) ->
     {"INFO REPORT",Pid,[{Format, Args}]};
-parse_event({warning_msg, _GL, {Pid, Format, Args}}) ->
+parse_event({warning_msg, _GL, {Pid, Format, Args}},_) ->
     {"WARNING REPORT",Pid,[{Format,Args}]};
-parse_event({error_report, _GL, {Pid, std_error, Args}}) ->
-    {"ERROR REPORT",Pid,format_term(Args)};
-parse_event({info_report, _GL, {Pid, std_info, Args}}) ->
-    {"INFO REPORT",Pid,format_term(Args)};
-parse_event({warning_report, _GL, {Pid, std_warning, Args}}) ->
-    {"WARNING REPORT",Pid,format_term(Args)};
-parse_event(_) -> ignore.
+parse_event({error_report, _GL, {Pid, std_error, Args}},M) ->
+    {"ERROR REPORT",Pid,format_term(Args,M)};
+parse_event({info_report, _GL, {Pid, std_info, Args}},M) ->
+    {"INFO REPORT",Pid,format_term(Args,M)};
+parse_event({warning_report, _GL, {Pid, std_warning, Args}},M) ->
+    {"WARNING REPORT",Pid,format_term(Args,M)};
+parse_event(_,_) -> ignore.
 
-format_term(Term) when is_list(Term) ->
-    case string_p(Term) of
+format_term(Term,M) when is_list(Term) ->
+    case string_p(lists:flatten(Term)) of
 	true ->
-	    [{"~s\n",[Term]}];
+	    [{"~"++M++"s\n",[Term]}];
 	false ->
-	    format_term_list(Term)
+	    format_term_list(Term,M)
     end;
-format_term(Term) ->
-    [{"~p\n",[Term]}].
+format_term(Term,M) ->
+    [{"~"++M++"p\n",[Term]}].
 
-format_term_list([{Tag,Data}|T]) ->
-    [{"    ~p: ~p\n",[Tag,Data]}|format_term_list(T)];
-format_term_list([Data|T]) ->
-    [{"    ~p\n",[Data]}|format_term_list(T)];
-format_term_list([]) ->
-    [];
-format_term_list(_) ->
-    %% Continue to allow non-proper lists for now.
-    %% FIXME: Remove this clause in OTP 19.
+format_term_list([{Tag,Data}|T],M) ->
+    [{"    ~"++M++"p: ~"++M++"p\n",[Tag,Data]}|format_term_list(T,M)];
+format_term_list([Data|T],M) ->
+    [{"    ~"++M++"p\n",[Data]}|format_term_list(T,M)];
+format_term_list([],_) ->
     [].
 
 string_p([]) ->
     false;
-string_p(Term) ->
-    string_p1(Term).
-
-string_p1([H|T]) when is_integer(H), H >= $\s, H < 255 ->
-    string_p1(T);
-string_p1([$\n|T]) -> string_p1(T);
-string_p1([$\r|T]) -> string_p1(T);
-string_p1([$\t|T]) -> string_p1(T);
-string_p1([$\v|T]) -> string_p1(T);
-string_p1([$\b|T]) -> string_p1(T);
-string_p1([$\f|T]) -> string_p1(T);
-string_p1([$\e|T]) -> string_p1(T);
-string_p1([H|T]) when is_list(H) ->
-    case string_p1(H) of
-	true -> string_p1(T);
-	_    -> false
-    end;
-string_p1([]) -> true;
-string_p1(_) ->  false.
+string_p(FlatList) ->
+    io_lib:printable_list(FlatList).
 
 get_utc_config() ->
     %% SASL utc_log configuration overrides stdlib config
@@ -243,16 +227,16 @@ get_utc_config() ->
             end
     end.
 
-header(Time, Title) ->
+header(Time, Title, M) ->
     case get_utc_config() of
         true ->
-            header(Time, Title, "UTC ");
+            header(Time, Title, "UTC ", M);
         _ ->
-            header(calendar:universal_time_to_local_time(Time), Title, "")
+            header(calendar:universal_time_to_local_time(Time), Title, "", M)
     end.
 
-header({{Y,Mo,D},{H,Mi,S}}, Title, UTC) ->
-    io_lib:format("~n=~s==== ~p-~s-~p::~s:~s:~s ~s===~n",
+header({{Y,Mo,D},{H,Mi,S}}, Title, UTC, M) ->
+    io_lib:format("~n=~"++M++"s==== ~p-~s-~p::~s:~s:~s ~s===~n",
                  [Title,D,month(Mo),Y,t(H),t(Mi),t(S),UTC]).
 
 t(X) when is_integer(X) ->
@@ -274,3 +258,13 @@ month(9) -> "Sep";
 month(10) -> "Oct";
 month(11) -> "Nov";
 month(12) -> "Dec".
+
+modifier() ->
+    modifier(encoding()).
+modifier(latin1) ->
+    "";
+modifier(_) ->
+    "t".
+
+encoding() ->
+    proplists:get_value(encoding,io:getopts(),latin1).
