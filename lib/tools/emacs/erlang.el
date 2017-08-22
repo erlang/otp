@@ -3642,8 +3642,10 @@ The return value is a string of the form \"foo/1\"."
         (error nil)))))
 
 
-;; Keeping erlang-get-function-under-point for backward compatibility.
-;; It is used by erldoc.el and maybe other code out there.
+;; erlang-get-function-under-point is replaced by
+;; erlang-get-identifier-at-point as far as internal erlang.el usage
+;; is concerned.  But it is kept for backward compatibility.  It is
+;; used by erldoc.el and maybe other code out there.
 (defun erlang-get-function-under-point ()
   "Return the module and function under the point, or nil.
 
@@ -4881,7 +4883,12 @@ considered first when it is time to jump to the definition.")
       '(progn
          (cl-defmethod xref-backend-identifier-at-point
              ((_backend (eql erlang-etags)))
-           (erlang-id-to-string (erlang-get-identifier-at-point)))
+           (if (eq this-command 'xref-find-references)
+               (if (use-region-p)
+                   (buffer-substring-no-properties (region-beginning)
+                                                   (region-end))
+                 (thing-at-point 'symbol))
+             (erlang-id-to-string (erlang-get-identifier-at-point))))
 
          (cl-defmethod xref-backend-definitions
              ((_backend (eql erlang-etags)) identifier)
