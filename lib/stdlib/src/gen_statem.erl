@@ -791,34 +791,34 @@ format_status(
 
 print_event(Dev, {in,Event}, {Name,State}) ->
     io:format(
-      Dev, "*DBG* ~p receive ~s in state ~p~n",
+      Dev, "*DBG* ~tp receive ~ts in state ~tp~n",
       [Name,event_string(Event),State]);
 print_event(Dev, {out,Reply,{To,_Tag}}, {Name,State}) ->
     io:format(
-      Dev, "*DBG* ~p send ~p to ~p from state ~p~n",
+      Dev, "*DBG* ~tp send ~tp to ~p from state ~tp~n",
       [Name,Reply,To,State]);
 print_event(Dev, {terminate,Reason}, {Name,State}) ->
     io:format(
-      Dev, "*DBG* ~p terminate ~p in state ~p~n",
+      Dev, "*DBG* ~tp terminate ~tp in state ~tp~n",
       [Name,Reason,State]);
 print_event(Dev, {Tag,Event,NextState}, {Name,State}) ->
     StateString =
 	case NextState of
 	    State ->
-		io_lib:format("~p", [State]);
+		io_lib:format("~tp", [State]);
 	    _ ->
-		io_lib:format("~p => ~p", [State,NextState])
+		io_lib:format("~tp => ~tp", [State,NextState])
 	end,
     io:format(
-      Dev, "*DBG* ~p ~w ~s in state ~s~n",
+      Dev, "*DBG* ~tp ~tw ~ts in state ~ts~n",
       [Name,Tag,event_string(Event),StateString]).
 
 event_string(Event) ->
     case Event of
 	{{call,{Pid,_Tag}},Request} ->
-	    io_lib:format("call ~p from ~w", [Request,Pid]);
+	    io_lib:format("call ~tp from ~w", [Request,Pid]);
 	{EventType,EventContent} ->
-	    io_lib:format("~w ~p", [EventType,EventContent])
+	    io_lib:format("~tw ~tp", [EventType,EventContent])
     end.
 
 sys_debug(Debug, #{name := Name}, State, Entry) ->
