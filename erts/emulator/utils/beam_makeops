@@ -278,11 +278,6 @@ my $c_code_block;
 my $c_code_loc;
 my @c_args;
 
-sub save_c_code {
-    my($name,$block,$loc,@args) = @_;
-
-}
-
 while (<>) {
     my($op_num);
     if ($in_c_code) {
