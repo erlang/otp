@@ -375,30 +375,38 @@ psk_suites({3, N}) ->
 psk_suites(N)
   when N >= 3 ->
     [
+     ?TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384,
      ?TLS_DHE_PSK_WITH_AES_256_GCM_SHA384,
      ?TLS_RSA_PSK_WITH_AES_256_GCM_SHA384,
      ?TLS_PSK_WITH_AES_256_GCM_SHA384,
+     ?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA384,
      ?TLS_DHE_PSK_WITH_AES_256_CBC_SHA384,
      ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA384,
      ?TLS_PSK_WITH_AES_256_CBC_SHA384,
+     ?TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256,
      ?TLS_DHE_PSK_WITH_AES_128_GCM_SHA256,
      ?TLS_RSA_PSK_WITH_AES_128_GCM_SHA256,
      ?TLS_PSK_WITH_AES_128_GCM_SHA256,
+     ?TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256,
      ?TLS_DHE_PSK_WITH_AES_128_CBC_SHA256,
      ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA256,
      ?TLS_PSK_WITH_AES_128_CBC_SHA256
     ] ++ psk_suites(0);
 
 psk_suites(_) ->
-	[?TLS_DHE_PSK_WITH_AES_256_CBC_SHA,
+	[?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA,
+	 ?TLS_DHE_PSK_WITH_AES_256_CBC_SHA,
 	 ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA,
 	 ?TLS_PSK_WITH_AES_256_CBC_SHA,
+	 ?TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA,
 	 ?TLS_DHE_PSK_WITH_AES_128_CBC_SHA,
 	 ?TLS_RSA_PSK_WITH_AES_128_CBC_SHA,
 	 ?TLS_PSK_WITH_AES_128_CBC_SHA,
+	 ?TLS_ECDHE_PSK_WITH_3DES_EDE_CBC_SHA,
 	 ?TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA,
 	 ?TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA,
 	 ?TLS_PSK_WITH_3DES_EDE_CBC_SHA,
+	 ?TLS_ECDHE_PSK_WITH_RC4_128_SHA,
 	 ?TLS_DHE_PSK_WITH_RC4_128_SHA,
 	 ?TLS_RSA_PSK_WITH_RC4_128_SHA,
 	 ?TLS_PSK_WITH_RC4_128_SHA].
@@ -565,6 +573,15 @@ suite_definition(?TLS_RSA_PSK_WITH_AES_128_CBC_SHA) ->
 suite_definition(?TLS_RSA_PSK_WITH_AES_256_CBC_SHA) ->
     {rsa_psk, aes_256_cbc, sha, default_prf};
 
+%%% PSK NULL Cipher Suites RFC 4785
+
+suite_definition(?TLS_PSK_WITH_NULL_SHA) ->
+    {psk, null, sha, default_prf};
+suite_definition(?TLS_DHE_PSK_WITH_NULL_SHA) ->
+    {dhe_psk, null, sha, default_prf};
+suite_definition(?TLS_RSA_PSK_WITH_NULL_SHA) ->
+    {rsa_psk, null, sha, default_prf};
+
 %%% TLS 1.2 PSK Cipher Suites RFC 5487
 
 suite_definition(?TLS_PSK_WITH_AES_128_GCM_SHA256) ->
@@ -605,6 +622,36 @@ suite_definition(?TLS_RSA_PSK_WITH_NULL_SHA256) ->
     {rsa_psk, null, sha256, default_prf};
 suite_definition(?TLS_RSA_PSK_WITH_NULL_SHA384) ->
     {rsa_psk, null, sha384, default_prf};
+
+%%% ECDHE PSK Cipher Suites RFC 5489
+
+suite_definition(?TLS_ECDHE_PSK_WITH_RC4_128_SHA) ->
+    {ecdhe_psk, rc4_128, sha, default_prf};
+suite_definition(?TLS_ECDHE_PSK_WITH_3DES_EDE_CBC_SHA) ->
+    {ecdhe_psk, '3des_ede_cbc', sha, default_prf};
+suite_definition(?TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA) ->
+    {ecdhe_psk, aes_128_cbc, sha, default_prf};
+suite_definition(?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA) ->
+    {ecdhe_psk, aes_256_cbc, sha, default_prf};
+suite_definition(?TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256) ->
+    {ecdhe_psk, aes_128_cbc, sha256, default_prf};
+suite_definition(?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA384) ->
+    {ecdhe_psk, aes_256_cbc, sha384, default_prf};
+suite_definition(?TLS_ECDHE_PSK_WITH_NULL_SHA256) ->
+    {ecdhe_psk, null, sha256, default_prf};
+suite_definition(?TLS_ECDHE_PSK_WITH_NULL_SHA384) ->
+    {ecdhe_psk, null, sha384, default_prf};
+
+%%% ECDHE_PSK with AES-GCM and AES-CCM Cipher Suites, draft-ietf-tls-ecdhe-psk-aead-05
+
+suite_definition(?TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256) ->
+    {ecdhe_psk, aes_128_gcm, null, sha256};
+suite_definition(?TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384) ->
+    {ecdhe_psk, aes_256_gcm, null, sha384};
+%% suite_definition(?TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256) ->
+%%    {ecdhe_psk, aes_128_ccm, null, sha256};
+%% suite_definition(?TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256) ->
+%%    {ecdhe_psk, aes_256_ccm, null, sha256};
 
 %%% SRP Cipher Suites RFC 5054
 
@@ -867,6 +914,15 @@ suite({rsa_psk, aes_128_cbc,sha}) ->
 suite({rsa_psk, aes_256_cbc,sha}) ->
     ?TLS_RSA_PSK_WITH_AES_256_CBC_SHA;
 
+%%% PSK NULL Cipher Suites RFC 4785
+
+suite({psk, null, sha}) ->
+    ?TLS_PSK_WITH_NULL_SHA;
+suite({dhe_psk, null, sha}) ->
+    ?TLS_DHE_PSK_WITH_NULL_SHA;
+suite({rsa_psk, null, sha}) ->
+    ?TLS_RSA_PSK_WITH_NULL_SHA;
+
 %%% TLS 1.2 PSK Cipher Suites RFC 5487
 
 suite({psk, aes_128_gcm, null, sha256}) ->
@@ -907,6 +963,36 @@ suite({rsa_psk, null, sha256}) ->
     ?TLS_RSA_PSK_WITH_NULL_SHA256;
 suite({rsa_psk, null, sha384}) ->
     ?TLS_RSA_PSK_WITH_NULL_SHA384;
+
+%%% ECDHE PSK Cipher Suites RFC 5489
+
+suite({ecdhe_psk, rc4_128,sha}) ->
+    ?TLS_ECDHE_PSK_WITH_RC4_128_SHA;
+suite({ecdhe_psk, '3des_ede_cbc',sha}) ->
+    ?TLS_ECDHE_PSK_WITH_3DES_EDE_CBC_SHA;
+suite({ecdhe_psk, aes_128_cbc,sha}) ->
+    ?TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA;
+suite({ecdhe_psk, aes_256_cbc,sha}) ->
+    ?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA;
+suite({ecdhe_psk, aes_128_cbc, sha256}) ->
+    ?TLS_ECDHE_PSK_WITH_AES_128_CBC_SHA256;
+suite({ecdhe_psk, aes_256_cbc, sha384}) ->
+    ?TLS_ECDHE_PSK_WITH_AES_256_CBC_SHA384;
+suite({ecdhe_psk, null, sha256}) ->
+    ?TLS_ECDHE_PSK_WITH_NULL_SHA256;
+suite({ecdhe_psk, null, sha384}) ->
+    ?TLS_ECDHE_PSK_WITH_NULL_SHA384;
+
+%%% ECDHE_PSK with AES-GCM and AES-CCM Cipher Suites, draft-ietf-tls-ecdhe-psk-aead-05
+
+suite({ecdhe_psk, aes_128_gcm, null, sha256}) ->
+    ?TLS_ECDHE_PSK_WITH_AES_128_GCM_SHA256;
+suite({ecdhe_psk, aes_256_gcm, null, sha384}) ->
+    ?TLS_ECDHE_PSK_WITH_AES_256_GCM_SHA384;
+%% suite({ecdhe_psk, aes_128_ccm, null, sha256}) ->
+%%     ?TLS_ECDHE_PSK_WITH_AES_128_CCM_8_SHA256;
+%% suite({ecdhe_psk, aes_256_ccm, null, sha256}) ->
+%%     ?TLS_ECDHE_PSK_WITH_AES_128_CCM_SHA256;
 
 %%% SRP Cipher Suites RFC 5054
 
@@ -1467,7 +1553,8 @@ is_acceptable_keyexchange(dhe_dss, Algos) ->
 is_acceptable_keyexchange(dhe_rsa, Algos) ->
     proplists:get_bool(dh, Algos) andalso
         proplists:get_bool(rsa, Algos);
-is_acceptable_keyexchange(ecdh_anon, Algos) ->
+is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == ecdh_anon;
+                                                   KeyExchange == ecdhe_psk ->
     proplists:get_bool(ecdh, Algos);
 is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == ecdh_ecdsa;
                                                    KeyExchange == ecdhe_ecdsa ->

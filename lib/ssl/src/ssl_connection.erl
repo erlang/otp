@@ -517,7 +517,7 @@ certify(internal, #server_key_exchange{exchange_keys = Keys},
   when Alg == dhe_dss; Alg == dhe_rsa;
        Alg == ecdhe_rsa; Alg == ecdhe_ecdsa;
        Alg == dh_anon; Alg == ecdh_anon;
-       Alg == psk; Alg == dhe_psk; Alg == rsa_psk;
+       Alg == psk; Alg == dhe_psk; Alg == ecdhe_psk; Alg == rsa_psk;
        Alg == srp_dss; Alg == srp_rsa; Alg == srp_anon ->
 
     Params = ssl_handshake:decode_server_key(Keys, Alg, ssl:tls_version(Version)),
@@ -541,6 +541,15 @@ certify(internal, #server_key_exchange{exchange_keys = Keys},
 						Version, certify, State)
 	    end
     end;
+
+certify(internal, #certificate_request{},
+	#state{role = client, negotiated_version = Version,
+               key_algorithm = Alg} = State, _)
+  when Alg == dh_anon; Alg == ecdh_anon;
+       Alg == psk; Alg == dhe_psk; Alg == ecdhe_psk; Alg == rsa_psk;
+       Alg == srp_dss; Alg == srp_rsa; Alg == srp_anon ->
+    handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE),
+                     Version, certify, State);
 
 certify(internal, #certificate_request{} = CertRequest,
 	#state{session = #session{own_certificate = Cert},
@@ -1394,6 +1403,16 @@ certify_client_key_exchange(#client_dhe_psk_identity{} = ClientKey,
     PremasterSecret = 
 	ssl_handshake:premaster_secret(ClientKey, ServerDhPrivateKey, Params, PSKLookup),
     calculate_master_secret(PremasterSecret, State0, Connection, certify, cipher);
+
+certify_client_key_exchange(#client_ecdhe_psk_identity{} = ClientKey,
+			    #state{diffie_hellman_keys = ServerEcDhPrivateKey,
+				   ssl_options =
+				       #ssl_options{user_lookup_fun = PSKLookup}} = State,
+			    Connection) ->
+    PremasterSecret =
+	ssl_handshake:premaster_secret(ClientKey, ServerEcDhPrivateKey, PSKLookup),
+    calculate_master_secret(PremasterSecret, State, Connection, certify, cipher);
+
 certify_client_key_exchange(#client_rsa_psk_identity{} = ClientKey,
 			    #state{private_key = Key,
 				   ssl_options = 
@@ -1413,6 +1432,7 @@ certify_server(#state{key_algorithm = Algo} = State, _) when Algo == dh_anon;
 							     Algo == ecdh_anon; 
 							     Algo == psk; 
 							     Algo == dhe_psk; 
+							     Algo == ecdhe_psk; 
 							     Algo == srp_anon  ->
     State;
 
@@ -1519,6 +1539,28 @@ key_exchange(#state{role = server, key_algorithm = dhe_psk,
     State = Connection:queue_handshake(Msg, State0),
     State#state{diffie_hellman_keys = DHKeys};
 
+key_exchange(#state{role = server, key_algorithm = ecdhe_psk,
+		    ssl_options = #ssl_options{psk_identity = PskIdentityHint},
+		    hashsign_algorithm = HashSignAlgo,
+		    private_key = PrivateKey,
+                    session = #session{ecc = ECCCurve},
+		    connection_states = ConnectionStates0,
+		    negotiated_version = Version
+		   } = State0, Connection) ->
+    ECDHKeys = public_key:generate_key(ECCCurve),
+    #{security_parameters := SecParams} =
+	ssl_record:pending_connection_state(ConnectionStates0, read),
+    #security_parameters{client_random = ClientRandom,
+			 server_random = ServerRandom} = SecParams,
+    Msg =  ssl_handshake:key_exchange(server, ssl:tls_version(Version),
+				      {ecdhe_psk,
+				       PskIdentityHint, ECDHKeys,
+				       HashSignAlgo, ClientRandom,
+				       ServerRandom,
+				       PrivateKey}),
+    State = Connection:queue_handshake(Msg, State0),
+    State#state{diffie_hellman_keys = ECDHKeys};
+
 key_exchange(#state{role = server, key_algorithm = rsa_psk,
 		    ssl_options = #ssl_options{psk_identity = undefined}} = State, _) ->
     State;
@@ -1617,6 +1659,17 @@ key_exchange(#state{role = client,
 				      {dhe_psk, 
 				       SslOpts#ssl_options.psk_identity, DhPubKey}),
     Connection:queue_handshake(Msg, State0);
+
+key_exchange(#state{role = client,
+		    ssl_options = SslOpts,
+		    key_algorithm = ecdhe_psk,
+		    negotiated_version = Version,
+		    diffie_hellman_keys = ECDHKeys} = State0, Connection) ->
+    Msg =  ssl_handshake:key_exchange(client, ssl:tls_version(Version),
+				      {ecdhe_psk,
+				       SslOpts#ssl_options.psk_identity, ECDHKeys}),
+    Connection:queue_handshake(Msg, State0);
+
 key_exchange(#state{role = client,
 		    ssl_options = SslOpts,
 		    key_algorithm = rsa_psk,
@@ -1671,6 +1724,12 @@ rsa_psk_key_exchange(Version, PskIdentity, PremasterSecret,
 				PublicKeyInfo});
 rsa_psk_key_exchange(_, _, _, _) ->
     throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, pub_key_is_not_rsa)).
+
+request_client_cert(#state{key_algorithm = Alg} = State, _)
+  when Alg == dh_anon; Alg == ecdh_anon;
+       Alg == psk; Alg == dhe_psk; Alg == ecdhe_psk; Alg == rsa_psk;
+       Alg == srp_dss; Alg == srp_rsa; Alg == srp_anon ->
+    State;
 
 request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer, 
 						      signature_algs = SupportedHashSigns},
@@ -1793,6 +1852,18 @@ calculate_secret(#server_dhe_psk_params{
     calculate_master_secret(PremasterSecret, State#state{diffie_hellman_keys = Keys},
 			    Connection, certify, certify);
 
+calculate_secret(#server_ecdhe_psk_params{
+                    dh_params = #server_ecdh_params{curve = ECCurve}} = ServerKey,
+                 #state{ssl_options = #ssl_options{user_lookup_fun = PSKLookup}} = 
+		     State=#state{session=Session}, Connection) ->
+    ECDHKeys = public_key:generate_key(ECCurve),
+
+    PremasterSecret = ssl_handshake:premaster_secret(ServerKey, ECDHKeys, PSKLookup),
+    calculate_master_secret(PremasterSecret,
+			    State#state{diffie_hellman_keys = ECDHKeys,
+					session = Session#session{ecc = ECCurve}},
+			    Connection, certify, certify);
+
 calculate_secret(#server_srp_params{srp_n = Prime, srp_g = Generator} = ServerKey,
 		 #state{ssl_options = #ssl_options{srp_identity = SRPId}} = State, 
 		 Connection) ->
@@ -1877,6 +1948,7 @@ is_anonymous(Algo) when Algo == dh_anon;
 			Algo == ecdh_anon;
 			Algo == psk;
 			Algo == dhe_psk;
+			Algo == ecdhe_psk;
 			Algo == rsa_psk;
 			Algo == srp_anon ->
     true;

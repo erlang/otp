@@ -1474,9 +1474,13 @@ is_psk_anon_suite({psk, _,_}) ->
     true;
 is_psk_anon_suite({dhe_psk,_,_}) ->
     true;
+is_psk_anon_suite({ecdhe_psk,_,_}) ->
+    true;
 is_psk_anon_suite({psk, _,_,_}) ->
     true;
 is_psk_anon_suite({dhe_psk, _,_,_}) ->
+    true;
+is_psk_anon_suite({ecdhe_psk, _,_,_}) ->
     true;
 is_psk_anon_suite(_) ->
     false.
