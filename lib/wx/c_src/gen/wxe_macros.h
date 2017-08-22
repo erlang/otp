@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1540,10 +1540,10 @@
 #define wxStaticBox_destroy 1637
 #define wxStaticLine_new_2 1639
 #define wxStaticLine_new_0 1640
-#define wxStaticLine_Create 1641
-#define wxStaticLine_IsVertical 1642
-#define wxStaticLine_GetDefaultSize 1643
-#define wxStaticLine_destroy 1644
+#define wxStaticLine_destruct 1641
+#define wxStaticLine_Create 1642
+#define wxStaticLine_IsVertical 1643
+#define wxStaticLine_GetDefaultSize 1644
 #define wxListBox_new_3 1647
 #define wxListBox_new_0 1648
 #define wxListBox_destruct 1650

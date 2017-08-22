@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -6177,7 +6177,6 @@ case wxGraphicsContext_CreateBrush: { // wxGraphicsContext::CreateBrush
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
-#if !wxCHECK_VERSION(2,9,0)
 case wxGraphicsContext_CreateRadialGradientBrush: { // wxGraphicsContext::CreateRadialGradientBrush
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
@@ -6201,8 +6200,6 @@ case wxGraphicsContext_CreateRadialGradientBrush: { // wxGraphicsContext::Create
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
-#endif
-#if !wxCHECK_VERSION(2,9,0)
 case wxGraphicsContext_CreateLinearGradientBrush: { // wxGraphicsContext::CreateLinearGradientBrush
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
@@ -6225,7 +6222,6 @@ case wxGraphicsContext_CreateLinearGradientBrush: { // wxGraphicsContext::Create
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
-#endif
 case wxGraphicsContext_CreateFont: { // wxGraphicsContext::CreateFont
  wxColour col= *wxBLACK;
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;

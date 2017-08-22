@@ -485,10 +485,6 @@ obsolete_1(wxPaintDC, new, 0) ->
     {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
 obsolete_1(wxWindowDC, new, 0) ->
     {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
-obsolete_1(wxGraphicsContext, createLinearGradientBrush, 7) ->
-    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
-obsolete_1(wxGraphicsContext, createRadialGradientBrush, 8) ->
-    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
 obsolete_1(wxGraphicsRenderer, createLinearGradientBrush, 7) ->
     {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
 obsolete_1(wxGraphicsRenderer, createRadialGradientBrush, 8) ->
