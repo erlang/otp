@@ -287,7 +287,7 @@ create_relfile(Node,CreateDir,RelName0,RelVsn) ->
 			 true ->
 			     case filename:split(Path) -- SplitLibDir of
 				 [AppVsn,"ebin"] ->
-				     case string:tokens(AppVsn,"-") of
+				     case string:lexemes(AppVsn,"-") of
 					 [AppStr,Vsn] ->
 					     App = list_to_atom(AppStr),
 					     case lists:member(App,Exclude) of

@@ -59,7 +59,7 @@ otp_8209(Config) when is_list(Config) ->
     {ok,[[PName]]} = init:get_argument(progname),
     SNameS = "erlexec_test_01",
     SName = list_to_atom(SNameS++"@"++
-			 hd(tl(string:tokens(atom_to_list(node()),"@")))),
+			 hd(tl(string:lexemes(atom_to_list(node()),"@")))),
     Cmd = PName ++ " dummy_param -sname "++SNameS++" -setcookie "++
 	atom_to_list(erlang:get_cookie()),
     open_port({spawn,Cmd},[]),
@@ -75,7 +75,7 @@ cleanup_node(SNameS,0) ->
     {error, {would_not_die,list_to_atom(SNameS)}};
 cleanup_node(SNameS,N) ->
     SName = list_to_atom(SNameS++"@"++
-			 hd(tl(string:tokens(atom_to_list(node()),"@")))),
+			 hd(tl(string:lexemes(atom_to_list(node()),"@")))),
     case rpc:call(SName,init,stop,[]) of
 	{badrpc,_} ->
 	    ok;
@@ -322,7 +322,7 @@ zdbbl_dist_buf_busy_limit(Config) when is_list(Config) ->
     {ok,[[PName]]} = init:get_argument(progname),
     SNameS = "erlexec_test_02",
     SName = list_to_atom(SNameS++"@"++
-                         hd(tl(string:tokens(atom_to_list(node()),"@")))),
+                         hd(tl(string:lexemes(atom_to_list(node()),"@")))),
     Cmd = PName ++ " -sname "++SNameS++" -setcookie "++
         atom_to_list(erlang:get_cookie()) ++
 	" +zdbbl " ++ integer_to_list(LimKB),
@@ -400,7 +400,7 @@ emu_args(CmdLineArgs) ->
     {ok,[[Erl]]} = init:get_argument(progname),
     EmuCL = os:cmd(Erl ++ " -emu_args_exit " ++ CmdLineArgs),
     io:format("EmuCL = ~ts", [EmuCL]),
-    split_emu_clt(string:tokens(EmuCL, [$ ,$\t,$\n,$\r])).
+    split_emu_clt(string:lexemes(EmuCL, [$ ,$\t,$\n,$\r])).
 
 split_emu_clt(EmuCLT) ->
     split_emu_clt(EmuCLT, [], [], [], emu).
