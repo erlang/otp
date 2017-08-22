@@ -102,9 +102,11 @@
   if ((ptr) == (endp)) {					\
      ;								\
   } else if (HEAP_START(p) <= (ptr) && (ptr) < HEAP_TOP(p)) {	\
+     ASSERT(HEAP_TOP(p) == (endp));                             \
      HEAP_TOP(p) = (ptr);					\
   } else {							\
-     erts_heap_frag_shrink(p, ptr);					\
+     ASSERT(MBUF(p)->mem + MBUF(p)->used_size == (endp));       \
+     erts_heap_frag_shrink(p, ptr);                             \
   }
 
 #define HeapWordsLeft(p) (HEAP_LIMIT(p) - HEAP_TOP(p))
