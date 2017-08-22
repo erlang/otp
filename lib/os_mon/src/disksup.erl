@@ -285,7 +285,7 @@ check_disk_space({unix, sunos4}, Port, Threshold) ->
     Result = my_cmd("df", Port),
     check_disks_solaris(skip_to_eol(Result), Threshold);
 check_disk_space({unix, darwin}, Port, Threshold) ->
-    Result = my_cmd("/bin/df -i -k -t ufs,hfs", Port),
+    Result = my_cmd("/bin/df -i -k -t ufs,hfs,apfs", Port),
     check_disks_susv3(skip_to_eol(Result), Threshold).
 
 % This code works for Linux and FreeBSD as well
