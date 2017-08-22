@@ -3,12 +3,13 @@ API GENERATION:
     Users of wxErlang should not normally need to regenerate the generated code,
     as it is checked in by wxErlang developers, when changes are made.
 
-    Code checked in is currently generated from wxwidgets 2.8.10.
+    Code checked in is currently generated from wxwidgets 2.8.12.
 
 REQUIREMENTS:
     The code generation requires doxygen (1.4.6) which is
     used to parse wxWidgets c++ headers and generate xml files (in
     wx_xml/).
+    2017-08-16 doxygen 1.8.11 is working with WXGTK_DIR=/ldisk/src/wxWidgets-2.8.12/include
 
     2012-02-09 doxygen 1.7.4 is working fine
 

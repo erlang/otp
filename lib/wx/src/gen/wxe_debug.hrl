@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1491,10 +1491,10 @@ wxdebug_table() ->
  {1637, {wxStaticBox, 'Destroy', undefined}},
  {1639, {wxStaticLine, new_2, 2}},
  {1640, {wxStaticLine, new_0, 0}},
- {1641, {wxStaticLine, create, 2}},
- {1642, {wxStaticLine, isVertical, 0}},
- {1643, {wxStaticLine, getDefaultSize, 0}},
- {1644, {wxStaticLine, 'Destroy', undefined}},
+ {1641, {wxStaticLine, destruct, 0}},
+ {1642, {wxStaticLine, create, 2}},
+ {1643, {wxStaticLine, isVertical, 0}},
+ {1644, {wxStaticLine, getDefaultSize, 0}},
  {1647, {wxListBox, new_3, 3}},
  {1648, {wxListBox, new_0, 0}},
  {1650, {wxListBox, destruct, 0}},

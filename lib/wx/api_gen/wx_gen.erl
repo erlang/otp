@@ -501,10 +501,11 @@ parse_member2(_, _,M0) ->
     M0.
 
 add_param(InParam, Opts, M0) ->
-    Param0 = case InParam#param.name of
-		 undefined -> InParam#param{name="val"};
+    Param0 = case {InParam#param.name, InParam#param.type} of
+                 {undefined, void} -> InParam#param{where=nowhere};
+		 {undefined,_} -> InParam#param{name="val"};
 		 _ -> InParam
-	     end,  
+	     end,
     Param = case Param0#param.type of
 		#type{base={comp,_,_Comp}} ->   Param0;
 		#type{base={class,_Class}} -> Param0;
