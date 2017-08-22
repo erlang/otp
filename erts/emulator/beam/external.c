@@ -2878,55 +2878,24 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 		ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
 		int ei;
 
-		if ((dflags & DFLAG_NEW_FUN_TAGS) != 0) {
-		    *ep++ = NEW_FUN_EXT;
-		    WSTACK_PUSH2(s, ENC_PATCH_FUN_SIZE,
-				 (UWord) ep); /* Position for patching in size */
-		    ep += 4;
-		    *ep = funp->arity;
-		    ep += 1;
-		    sys_memcpy(ep, funp->fe->uniq, 16);
-		    ep += 16;
-		    put_int32(funp->fe->index, ep);
-		    ep += 4;
-		    put_int32(funp->num_free, ep);
-		    ep += 4;
-		    ep = enc_atom(acmp, funp->fe->module, ep, dflags);
-		    ep = enc_term(acmp, make_small(funp->fe->old_index), ep, dflags, off_heap);
-		    ep = enc_term(acmp, make_small(funp->fe->old_uniq), ep, dflags, off_heap);
-		    ep = enc_pid(acmp, funp->creator, ep, dflags);
-		} else {
-		    /*
-		     * Communicating with an obsolete erl_interface or
-		     * jinterface node. Convert the fun to a tuple to
-		     * avoid crasching.
-		     */
-		
-		    /* Tag, arity */
-		    *ep++ = SMALL_TUPLE_EXT;
-		    put_int8(5, ep);
-		    ep += 1;
-		
-		    /* 'fun' */
-		    ep = enc_atom(acmp, am_fun, ep, dflags);
-		
-		    /* Module name */
-		    ep = enc_atom(acmp, funp->fe->module, ep, dflags);
-		
-		    /* Index, Uniq */
-		    *ep++ = INTEGER_EXT;
-		    put_int32(funp->fe->old_index, ep);
-		    ep += 4;
-		    *ep++ = INTEGER_EXT;
-		    put_int32(funp->fe->old_uniq, ep);
-		    ep += 4;
-		
-		    /* Environment sub-tuple arity */
-		    ASSERT(funp->num_free < MAX_ARG);
-		    *ep++ = SMALL_TUPLE_EXT;
-		    put_int8(funp->num_free, ep);
-		    ep += 1;
-		}
+		ASSERT(dflags & DFLAG_NEW_FUN_TAGS);
+                *ep++ = NEW_FUN_EXT;
+                WSTACK_PUSH2(s, ENC_PATCH_FUN_SIZE,
+                             (UWord) ep); /* Position for patching in size */
+                ep += 4;
+                *ep = funp->arity;
+                ep += 1;
+                sys_memcpy(ep, funp->fe->uniq, 16);
+                ep += 16;
+                put_int32(funp->fe->index, ep);
+                ep += 4;
+                put_int32(funp->num_free, ep);
+                ep += 4;
+                ep = enc_atom(acmp, funp->fe->module, ep, dflags);
+                ep = enc_term(acmp, make_small(funp->fe->old_index), ep, dflags, off_heap);
+                ep = enc_term(acmp, make_small(funp->fe->old_uniq), ep, dflags, off_heap);
+                ep = enc_pid(acmp, funp->creator, ep, dflags);
+
 		for (ei = funp->num_free-1; ei > 0; ei--) {
 		    WSTACK_PUSH2(s, ENC_TERM, (UWord) funp->env[ei]);
 		}
@@ -4281,24 +4250,12 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
 	    {
 		ErlFunThing* funp = (ErlFunThing *) fun_val(obj);
 		
-		if ((dflags & DFLAG_NEW_FUN_TAGS) != 0) {
-		    result += 20+1+1+4;	/* New ID + Tag */
-		    result += 4; /* Length field (number of free variables */
-		    result += encode_size_struct2(acmp, funp->creator, dflags);
-		    result += encode_size_struct2(acmp, funp->fe->module, dflags);
-		    result += 2 * (1+4);	/* Index, Uniq */
-		} else {
-		    /*
-		     * Size when fun is mapped to a tuple.
-		     */
-		    result += 1 + 1; /* Tuple tag, arity */
-		    result += 1 + 1 + 2 +
-			atom_tab(atom_val(am_fun))->len; /* 'fun' */
-		    result += 1 + 1 + 2 +
-			atom_tab(atom_val(funp->fe->module))->len; /* Module name */
-		    result += 2 * (1 + 4); /* Index + Uniq */
-		    result += 1 + (funp->num_free < 0x100 ? 1 : 4);
-		}
+                ASSERT(dflags & DFLAG_NEW_FUN_TAGS);
+                result += 20+1+1+4;	/* New ID + Tag */
+                result += 4; /* Length field (number of free variables */
+                result += encode_size_struct2(acmp, funp->creator, dflags);
+                result += encode_size_struct2(acmp, funp->fe->module, dflags);
+                result += 2 * (1+4);	/* Index, Uniq */
 		if (funp->num_free > 1) {
 		    WSTACK_PUSH2(s, (UWord) (funp->env + 1),
 				    (UWord) TERM_ARRAY_OP(funp->num_free-1));
