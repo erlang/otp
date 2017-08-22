@@ -394,7 +394,7 @@ call(SvcName, App, Message) ->
     | {capabilities, [capability()]}
     | {capabilities_cb, evaluable()}
     | {capx_timeout, 'Unsigned32'()}
-    | {capx_strictness, boolean()}
+    | {strict_capx, boolean()}
     | {disconnect_cb, evaluable()}
     | {dpr_timeout, 'Unsigned32'()}
     | {dpa_timeout, 'Unsigned32'()}
