@@ -24,7 +24,7 @@
 -include_lib("kernel/include/file.hrl").
 
 -export([all/0, suite/0,
-	 display/1, display_huge/0,
+	 display/1, display_huge/0, display_string/1,
 	 erl_bif_types/1,guard_bifs_in_erl_bif_types/1,
 	 shadow_comments/1,list_to_utf8_atom/1,
 	 specs/1,improper_bif_stubs/1,auto_imports/1,
@@ -43,7 +43,7 @@ all() ->
     [erl_bif_types, guard_bifs_in_erl_bif_types, shadow_comments,
      specs, improper_bif_stubs, auto_imports,
      t_list_to_existing_atom, os_env, otp_7526,
-     display, list_to_utf8_atom,
+     display, display_string, list_to_utf8_atom,
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
      erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
      error_stacktrace, error_stacktrace_during_call_trace].
@@ -67,6 +67,28 @@ deeep(N,Acc) ->
 
 deeep(N) ->
     deeep(N,[hello]).
+
+display_string(Config) when is_list(Config) ->
+    true = erlang:display_string("hej"),
+    true = erlang:display_string(""),
+    true = erlang:display_string("hopp"),
+    true = erlang:display_string("\n"),
+    true = erlang:display_string(lists:seq(1100,1200)),
+    {error,badarg} = try
+                         erlang:display_string(atom),
+                         ok
+                     catch
+                         T0:E0 ->
+                             {T0, E0}
+                     end,
+    {error,badarg} = try
+                         erlang:display_string(make_ref()),
+                         ok
+                     catch
+                         T1:E1 ->
+                             {T1, E1}
+                     end,
+    ok.
 
 erl_bif_types(Config) when is_list(Config) ->
     ensure_erl_bif_types_compiled(),

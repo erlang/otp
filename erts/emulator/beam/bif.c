@@ -3944,15 +3944,18 @@ BIF_RETTYPE display_string_1(BIF_ALIST_1)
 {
     Process* p = BIF_P;
     Eterm string = BIF_ARG_1;
-    Sint len = is_string(string);
-    char *str;
+    Sint len = erts_unicode_list_to_buf_len(string);
+    Sint written;
+    byte *str;
+    int res;
 
-    if (len <= 0) {
+    if (len < 0) {
 	BIF_ERROR(p, BADARG);
     }
-    str = (char *) erts_alloc(ERTS_ALC_T_TMP, sizeof(char)*(len + 1));
-    if (intlist_to_buf(string, str, len) != len)
-	erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error\n", __FILE__, __LINE__);
+    str = (byte *) erts_alloc(ERTS_ALC_T_TMP, sizeof(char)*(len + 1));
+    res = erts_unicode_list_to_buf(string, str, len, &written);
+    if (res != 0 || written != len)
+	erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error (%d)\n", __FILE__, __LINE__, res);
     str[len] = '\0';
     erts_fprintf(stderr, "%s", str);
     erts_free(ERTS_ALC_T_TMP, (void *) str);
