@@ -943,18 +943,6 @@ of a single Diameter node across multiple Erlang nodes.</p>
 </note>
 </item>
 
-<tag><c>{spawn_opt, [term()]}</c></tag>
-<item>
-<p>
-Options list passed to &spawn_opt; when spawning a process for an
-incoming Diameter request, unless the transport in question
-specifies another value.
-Options <c>monitor</c> and <c>link</c> are ignored.</p>
-
-<p>
-Defaults to the empty list.</p>
-</item>
-
 <tag>
 <marker id="strict_arities"/><c>{strict_arities, boolean()
                                                | encode
@@ -1106,6 +1094,15 @@ It may be preferable to make use of the &service_opt;
 <c>restrict_connections</c> and maintain a dedicated connection on
 each node from which requests are sent.</p>
 </warning>
+</item>
+
+<tag><c>&transport_opt;</c></tag>
+<item>
+<p>
+Any transport option except <c>applications</c> or
+<c>capabilities</c>.
+Used as defaults for transport configuration, values passed to
+&add_transport; overriding values configured on the service.</p>
 </item>
 
 </taglist>
@@ -1406,7 +1403,7 @@ incoming Diameter request.
 Options <c>monitor</c> and <c>link</c> are ignored.</p>
 
 <p>
-Defaults to the list configured on the service if not specified.</p>
+Defaults to the empty list.</p>
 </item>
 
 <tag>

@@ -348,6 +348,22 @@ call(SvcName, App, Message) ->
     | encode
     | decode.
 
+%% Options common to both start_service/2 and add_transport/2.
+
+-type common_opt()
+   :: {pool_size, pos_integer()}
+    | {capabilities_cb, eval()}
+    | {capx_timeout, 'Unsigned32'()}
+    | {strict_capx, boolean()}
+    | {disconnect_cb, eval()}
+    | {dpr_timeout, 'Unsigned32'()}
+    | {dpa_timeout, 'Unsigned32'()}
+    | {length_errors, exit | handle | discard}
+    | {connect_timer, 'Unsigned32'()}
+    | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
+    | {watchdog_config, [{okay|suspect, non_neg_integer()}]}
+    | {spawn_opt, list()}.
+
 %% Options passed to start_service/2
 
 -type service_opt()
@@ -363,7 +379,7 @@ call(SvcName, App, Message) ->
     | {strict_mbit, boolean()}
     | {incoming_maxlen, message_length()}
     | {use_shared_peers, remotes()}
-    | {spawn_opt, list()}.
+    | common_opt().
 
 -type application_opt()
    :: {alias, app_alias()}
@@ -393,20 +409,9 @@ call(SvcName, App, Message) ->
    :: {transport_module, atom()}
     | {transport_config, any()}
     | {transport_config, any(), 'Unsigned32'() | infinity}
-    | {pool_size, pos_integer()}
     | {applications, [app_alias()]}
     | {capabilities, [capability()]}
-    | {capabilities_cb, eval()}
-    | {capx_timeout, 'Unsigned32'()}
-    | {strict_capx, boolean()}
-    | {disconnect_cb, eval()}
-    | {dpr_timeout, 'Unsigned32'()}
-    | {dpa_timeout, 'Unsigned32'()}
-    | {length_errors, exit | handle | discard}
-    | {connect_timer, 'Unsigned32'()}
-    | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
-    | {watchdog_config, [{okay|suspect, non_neg_integer()}]}
-    | {spawn_opt, list()}
+    | common_opt()
     | {private, any()}.
 
 %% Predicate passed to remove_transport/2
