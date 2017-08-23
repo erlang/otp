@@ -1244,7 +1244,7 @@ sub basic_generator {
                 last SWITCH;
             };
 	    /[lxyS]/ and do {
-                push(@f, $_ . "b(Arg($arg_offset))");
+                push(@f, $_ . "b(" . arg_offset($arg_offset) . ")");
                 last SWITCH;
             };
 	    /n/ and do {
@@ -1261,13 +1261,13 @@ sub basic_generator {
                 last SWITCH;
             };
 	    /d/ and do {
-                $var_decls .= "Eterm dst = Arg($arg_offset);\n" .
+                $var_decls .= "Eterm dst = " . arg_offset($arg_offset) . ";\n" .
                     "Eterm* dst_ptr = REG_TARGET_PTR(dst);\n";
                 push(@f, "*dst_ptr");
                 last SWITCH;
             };
             defined $arg_size{$_} and do {
-                push(@f, "Arg($arg_offset)");
+                push @f, arg_offset($arg_offset);
                 last SWITCH;
             };
 
@@ -1347,6 +1347,11 @@ sub basic_generator {
                     "$var_decls$body",
                     "}", "");
     ($size+1, $code, $pack_spec);
+}
+
+sub arg_offset {
+    my $offset = shift;
+    "I[" . ($offset+1) . "]";
 }
 
 sub expand_all {
@@ -1595,7 +1600,8 @@ sub do_pack {
                 $did_some_packing = 1;
 
                 if ($ap == 0) {
-                    $pack_prefix .= "Eterm $packed_var = Arg($size);\n";
+                    $pack_prefix .= "Eterm $packed_var = " .
+                        arg_offset($size) . ";\n";
                     $up .= "p";
                     $down = "P$down";
                     $this_size = 1;
