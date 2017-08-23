@@ -770,7 +770,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 #endif
 
 #include "beam_hot.h"
-#include "beam_instrs.h"
 
 #ifdef DEBUG
     /*

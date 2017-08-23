@@ -92,10 +92,9 @@ my %c_code_used;                # Used or not.
 
 # Definitions for instructions combined from micro instructions.
 my %combined_instrs;
-my %combined_code;           # Combined micro instructions.
 
-my %hot_code;
-my %cold_code;
+my @generated_code;             # Generated code.
+my %sort_order;
 
 my @unnumbered_generic;
 my %unnumbered;
@@ -384,7 +383,7 @@ while (<>) {
     # micro instructions.
     #
     if (/^(\w+)\s*:=\s*([\w.]+)\s*;\s*$/) {
-        $combined_instrs{$1} = ["$ARGV($.)","beam_instrs.h",$2];
+        $combined_instrs{$1} = ["$ARGV($.)",$2];
         next;
     }
 
@@ -586,11 +585,8 @@ sub emulator_output {
 	    # Save the generated $code for later.
 	    #
 	    if (defined $code) {
-		if ($hot) {
-		    push(@{$hot_code{$code}}, $instr);
-		} else {
-		    push(@{$cold_code{$code}}, $instr);
-		}
+                $code = "OpCase($instr):\n$code";
+                push @generated_code, [$hot,$code,($instr)];
 	    }
 
 	    #
@@ -805,19 +801,12 @@ sub emulator_output {
     $name = "$outdir/beam_hot.h";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
     comment('C');
-    print_code(\%hot_code);
+    print_code(1);
 
     $name = "$outdir/beam_cold.h";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
     comment('C');
-    print_code(\%cold_code);
-
-    foreach my $key (keys %combined_code) {
-        my $name = "$outdir/$key";
-        open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
-        comment('C');
-        print_indented_code(@{$combined_code{$key}});
-    }
+    print_code(0);
 }
 
 sub init_item {
@@ -845,19 +834,14 @@ sub q {
 }
 
 sub print_code {
-    my($ref) = @_;
-    my(%sorted);
-    my($key, $label);		# Loop variables.
+    my($include_hot) = @_;
+    my %sorted;
 
-    foreach $key (keys %$ref) {
-	my($sort_key);
-	my($code) = '';
-	foreach $label (@{$ref->{$key}}) {
-	    $code .= "OpCase($label):\n";
-	    $sort_key = $label;
-	}
-        $code .= "$key\n";
-	$sorted{$sort_key} = $code;
+    foreach my $ref (@generated_code) {
+        my($hot,$code,@labels) = @$ref;
+        next unless $hot == $include_hot;
+        my($sort_key) = @labels; # Use the first label as sort key.
+        $sorted{$sort_key} = $code;
     }
 
     foreach (sort keys %sorted) {
@@ -1034,12 +1018,11 @@ sub comment {
 #
 sub combine_micro_instructions {
     my %groups;
-    my %group_file;
 
     # Sanity check, normalize micro instructions.
     foreach my $instr (keys %combined_instrs) {
         my $ref = $combined_instrs{$instr};
-        my($def_loc,$outfile,$def) = @$ref;
+        my($def_loc,$def) = @$ref;
         my($group,@subs) = split /[.]/, $def;
         my $arity = 0;
         @subs = map { "$group.$_" } @subs;
@@ -1052,14 +1035,12 @@ sub combine_micro_instructions {
             $arity += scalar(@c_args);
         }
         push @{$groups{$group}}, [$instr,$arity,@subs];
-        $group_file{$group} = $outfile;
     }
 
     # Now generate code for each group.
     foreach my $group (sort keys %groups) {
-        my $code = combine_instruction_group($group, @{$groups{$group}});
-        my $outfile = $group_file{$group};
-        push @{$combined_code{$outfile}}, $code;
+        my($code,@labels) = combine_instruction_group($group, @{$groups{$group}});
+        push @generated_code, [1,$code,@labels];
     }
 }
 
@@ -1151,6 +1132,7 @@ sub combine_instruction_group {
 
     # Now generate the code for the entire group.
     my $offset = 0;
+    my @opcase_labels;
     for(my $i = 0; $i < @slots; $i++) {
         my $key = $slots[$i];
 
@@ -1174,6 +1156,7 @@ sub combine_instruction_group {
 
             if ($opcase ne '') {
                 $gcode .= "OpCase($opcase):\n";
+                push @opcase_labels, $opcase;
             }
             if ($num_references{$label}) {
                 $gcode .= "$label:\n";
@@ -1199,7 +1182,7 @@ sub combine_instruction_group {
         $offset = $order_to_offset{$slots[$i+1]} if $i < $#slots;
     }
 
-    "{\n$gcode\n}\n\n";
+    ("{\n$gcode\n}\n\n",@opcase_labels);
 }
 
 sub micro_label {
