@@ -1094,15 +1094,13 @@ static int insert_buf(byte *s, int n)
 		lbuf[lpos++] = (CONTROL_TAG | ((Uint32) ch));
 		ch = 0;
 	    } while (lpos % 8);
-	} else if (ch == '\e' || ch == '\n' || ch == '\r') {
+	} else if (ch == '\e') {
+	    lbuf[lpos++] = (CONTROL_TAG | ((Uint32) ch));
+	} else if (ch == '\n' || ch == '\r') {
 	    write_buf(lbuf + buffpos, lpos - buffpos);
-            if (ch == '\e') {
-                outc('\e');
-            } else {
                 outc('\r');
                 if (ch == '\n')
                     outc('\n');
-            }
 	    if (llen > lpos) {
 		memcpy(lbuf, lbuf + lpos, llen - lpos);
 	    }
@@ -1150,14 +1148,17 @@ static int write_buf(Uint32 *s, int n)
 	    }
 	    --n;
 	    ++s;
-	}
-	else if (*s == (CONTROL_TAG | ((Uint32) '\t'))) {
+	} else if (*s == (CONTROL_TAG | ((Uint32) '\t'))) {
 	    outc(lastput = ' ');
 	    --n; s++;
 	    while (n > 0 && *s == CONTROL_TAG) {
 		outc(lastput = ' ');
 		--n; s++;
 	    }
+	} else if (*s == (CONTROL_TAG | ((Uint32) '\e'))) {
+	    outc('\e');
+	    --n;
+	    ++s;
 	} else if (*s & CONTROL_TAG) {
 	    outc('^');
 	    outc(lastput = ((byte) ((*s == 0177) ? '?' : *s | 0x40)));
