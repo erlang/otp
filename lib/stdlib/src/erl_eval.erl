@@ -661,6 +661,8 @@ do_apply(Func, As, Bs0, Ef, RBs) ->
             ret_expr(F(Func, As), Bs0, RBs)
     end.
 
+do_apply(erlang, get_stacktrace, [], Bs0, _, RBs) ->
+    ret_expr(get('$stacktrace'), Bs0, RBs);
 do_apply(Mod, Func, As, Bs0, Ef, RBs) ->
     case Ef of
         none when RBs =:= value ->
@@ -916,6 +918,7 @@ try_clauses(B, Cases, Catches, AB, Bs, Lf, Ef, RBs) ->
 	    %% Rethrow
 	    erlang:raise(Class, Reason, stacktrace());
 	Class:Reason ->
+	    put('$stacktrace', erlang:get_stacktrace()),
 %%% 	    %% Set stacktrace
 %%% 	    try erlang:raise(Class, Reason, stacktrace())
 %%% 	    catch _:_ -> ok 
