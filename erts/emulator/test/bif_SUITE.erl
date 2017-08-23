@@ -691,6 +691,9 @@ erlang_halt(Config) when is_list(Config) ->
     {badrpc,nodedown} = rpc:call(N3, erlang, halt, [0,[]]),
     {ok,N4} = slave:start(H, halt_node4),
     {badrpc,nodedown} = rpc:call(N4, erlang, halt, [lists:duplicate(300,$x)]),
+    %% Test unicode slogan
+    {ok,N4} = slave:start(H, halt_node4),
+    {badrpc,nodedown} = rpc:call(N4, erlang, halt, [[339,338,254,230,198,295,167,223,32,12507,12531,12480]]),
 
     % This test triggers a segfault when dumping a crash dump
     % to make sure that we can handle it properly.

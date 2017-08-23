@@ -3018,17 +3018,17 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 {
     Eterm res;
     byte *buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_SZ_LIMIT);
-    Sint i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
-
+    Sint written;
+    int i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS,
+                                     &written);
     if (i < 0) {
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
-	i = erts_list_length(BIF_ARG_1);
-	if (i > MAX_ATOM_CHARACTERS) {
+	if (i == -2) {
 	    BIF_ERROR(BIF_P, SYSTEM_LIMIT);
 	}
 	BIF_ERROR(BIF_P, BADARG);
     }
-    res = erts_atom_put(buf, i, ERTS_ATOM_ENC_UTF8, 1);
+    res = erts_atom_put(buf, written, ERTS_ATOM_ENC_UTF8, 1);
     ASSERT(is_atom(res));
     erts_free(ERTS_ALC_T_TMP, (void *) buf);
     BIF_RET(res);
@@ -3039,8 +3039,9 @@ BIF_RETTYPE list_to_atom_1(BIF_ALIST_1)
 BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
 {
     byte *buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, MAX_ATOM_SZ_LIMIT);
-    Sint i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS);
-
+    Sint written;
+    int i = erts_unicode_list_to_buf(BIF_ARG_1, buf, MAX_ATOM_CHARACTERS,
+                                     &written);
     if (i < 0) {
     error:
 	erts_free(ERTS_ALC_T_TMP, (void *) buf);
@@ -3048,7 +3049,7 @@ BIF_RETTYPE list_to_existing_atom_1(BIF_ALIST_1)
     } else {
 	Eterm a;
 	
-	if (erts_atom_get((char *) buf, i, &a, ERTS_ATOM_ENC_UTF8)) {
+	if (erts_atom_get((char *) buf, written, &a, ERTS_ATOM_ENC_UTF8)) {
 	    erts_free(ERTS_ALC_T_TMP, (void *) buf);
 	    BIF_RET(a);
 	} else {
@@ -3967,9 +3968,6 @@ BIF_RETTYPE display_nl_0(BIF_ALIST_0)
 /**********************************************************************/
 
 
-#define HALT_MSG_SIZE	200
-static char halt_msg[HALT_MSG_SIZE+1];
-
 /* stop the system with exit code and flags */
 BIF_RETTYPE halt_2(BIF_ALIST_2)
 {
@@ -4019,16 +4017,17 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	erts_exit(ERTS_ABORT_EXIT, "");
     }
-    else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
-	Sint i;
+    else if (is_list(BIF_ARG_1) || BIF_ARG_1 == NIL) {
+#       define HALT_MSG_SIZE 200
+        static byte halt_msg[4*HALT_MSG_SIZE+1];
+        Sint written;
 
-        if ((i = intlist_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE)) == -1) {
+        if (erts_unicode_list_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE,
+                                     &written) == -1 ) {
             goto error;
         }
-        if (i == -2) /* truncated string */
-            i = HALT_MSG_SIZE;
-        ASSERT(i >= 0 && i <= HALT_MSG_SIZE);
-	halt_msg[i] = '\0';
+        ASSERT(written >= 0 && written < sizeof(halt_msg));
+	halt_msg[written] = '\0';
 	VERBOSE(DEBUG_SYSTEM,
 		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);

@@ -1943,23 +1943,26 @@ os_prompt%</pre>
           <item>The runtime system exits with integer value
             <c><anno>Status</anno></c>
             as status code to the calling environment (OS).
+	    <note>
+	      <p>On many platforms, the OS supports only status
+	      codes 0-255. A too large status code is truncated by clearing
+	      the high bits.</p>
+	    </note>
           </item>
           <tag>string()</tag>
           <item>An Erlang crash dump is produced with <c><anno>Status</anno></c>
             as slogan. Then the runtime system exits with status code <c>1</c>.
-            Note that only code points in the range 0-255 may be used
-	    and the string will be truncated if longer than 200 characters.
+	    The string will be truncated if longer than 200 characters.
+	    <note>
+	      <p>Before ERTS 9.1 (OTP-20.1) only code points in the range 0-255
+	         was accepted in the string. Now any unicode string is valid.</p>
+	    </note>
           </item>
           <tag><c>abort</c></tag>
           <item>The runtime system aborts producing a core dump, if that is
             enabled in the OS.
           </item>
         </taglist>
-        <note>
-          <p>On many platforms, the OS supports only status
-            codes 0-255. A too large status code is truncated by clearing
-            the high bits.</p>
-        </note>
         <p>For integer <c><anno>Status</anno></c>, the Erlang runtime system
           closes all ports and allows async threads to finish their
           operations before exiting. To exit without such flushing, use

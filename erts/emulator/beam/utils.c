@@ -3635,30 +3635,40 @@ intlist_to_buf(Eterm list, char *buf, Sint len)
     return -2;			/* not enough space */
 }
 
-/* Fill buf with the contents of the unicode list.
- * Return the number of bytes in the buffer,
- * or -1 for type error,
- * or -2 for not enough buffer space (buffer contains truncated result).
+/** @brief Fill buf with the UTF8 contents of the unicode list
+ * @param len Max number of characters to write.
+ * @param written NULL or bytes written.
+ * @return 0 ok,
+ *        -1 type error,
+ *        -2 list too long, only \c len characters written
  */
-Sint
-erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len)
+int
+erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len, Sint* written)
 {
     Eterm* listptr;
     Sint sz = 0;
+    Sint val;
+    int res;
 
-    if (is_nil(list)) {
-	return 0;
-    }
-    if (is_not_list(list)) {
-	return -1;
-    }
-    listptr = list_val(list);
+    while (1) {
+        if (is_nil(list)) {
+            res = 0;
+            break;
+        }
+        if (is_not_list(list)) {
+            res = -1;
+            break;
+        }
+        listptr = list_val(list);
 
-    while (len-- > 0) {
-	Sint val;
+        if (len-- <= 0) {
+            res = -2;
+            break;
+        }
 
 	if (is_not_small(CAR(listptr))) {
-	    return -1;
+	    res = -1;
+            break;
 	}
 	val = signed_val(CAR(listptr));
 	if (0 <= val && val < 0x80) {
@@ -3670,7 +3680,8 @@ erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len)
 	    sz += 2;
 	} else if (val < 0x10000UL) {
 	    if (0xD800 <= val && val <= 0xDFFF) {
-		return -1;
+		res = -1;
+                break;
 	    }
 	    buf[sz+0] = 0xE0 | (val >> 12);
 	    buf[sz+1] = 0x80 | ((val >> 6) & 0x3F);
@@ -3683,18 +3694,15 @@ erts_unicode_list_to_buf(Eterm list, byte *buf, Sint len)
 	    buf[sz+3] = 0x80 | (val & 0x3F);
 	    sz += 4;
 	} else {
-	    return -1;
+            res = -1;
+            break;
 	}
 	list = CDR(listptr);
-	if (is_nil(list)) {
-	    return sz;
-	}
-	if (is_not_list(list)) {
-	    return -1;
-	}
-	listptr = list_val(list);
     }
-    return -2;			/* not enough space */
+
+    if (written)
+        *written = sz;
+    return res;
 }
 
 /*
