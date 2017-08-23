@@ -147,6 +147,7 @@ groups() ->
        testImport,
        testDER,
        testDEFAULT,
+       testExtensionDefault,
        testMvrasn6,
        testContextSwitchingTypes,
        testOpenTypeImplicitTag,
@@ -443,6 +444,12 @@ testDEFAULT(Config, Rule, Opts) ->
 			      [legacy_erlang_types,Rule|Opts]),
     testDef:main(Rule),
     testSeqSetDefaultVal:main(Rule, Opts).
+
+testExtensionDefault(Config) ->
+    test(Config, fun testExtensionDefault/3).
+testExtensionDefault(Config, Rule, Opts) ->
+    asn1_test_lib:compile_all(["ExtensionDefault"], Config, [Rule|Opts]),
+    testExtensionDefault:main(Rule).
 
 testMaps(Config) ->
     test(Config, fun testMaps/3,

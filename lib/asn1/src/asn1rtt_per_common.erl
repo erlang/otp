@@ -542,6 +542,7 @@ extension_bitmap(_Val, Pos, Limit, Acc) when Pos >= Limit ->
 extension_bitmap(Val, Pos, Limit, Acc) ->
     Bit = case element(Pos, Val) of
 	      asn1_NOVALUE -> 0;
+	      asn1_DEFAULT -> 0;
 	      _ -> 1
 	  end,
     extension_bitmap(Val, Pos+1, Limit, (Acc bsl 1) bor Bit).
