@@ -4020,7 +4020,7 @@ BIF_RETTYPE halt_2(BIF_ALIST_2)
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	erts_exit(ERTS_ABORT_EXIT, "");
     }
-    else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
+    else if (is_list(BIF_ARG_1) || BIF_ARG_1 == NIL) {
 #       define HALT_MSG_SIZE 200
         static byte halt_msg[4*HALT_MSG_SIZE+1];
         Sint written;
