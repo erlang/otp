@@ -89,6 +89,7 @@
          caller     :: pid() | undefined,   %% calling process
          handler    :: pid(),               %% request process
          peer       :: undefined | {pid(), #diameter_caps{}},
+         caps       :: undefined,           %% no longer used
          packet     :: #diameter_packet{} | undefined}). %% of request
 
 %% ---------------------------------------------------------------------------
