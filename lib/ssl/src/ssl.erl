@@ -816,7 +816,7 @@ handle_options(Opts0, Role, Host) ->
     ConnetionCb = connection_cb(Opts),
 
     {ok, #config{ssl = SSLOptions, emulated = Emulated, inet_ssl = Sock,
-		 inet_user = SockOpts, transport_info = CbInfo, connection_cb = ConnetionCb
+		 inet_user = Sock, transport_info = CbInfo, connection_cb = ConnetionCb
 		}}.
 
 
