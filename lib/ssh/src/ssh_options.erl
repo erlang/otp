@@ -236,7 +236,10 @@ save({Key,Value}, Defs, OptMap) when is_map(OptMap) ->
         %% by the check fun will give an error exception:
         error:{check,{BadValue,Extra}} ->
             error({eoptions, {Key,BadValue}, Extra})
-    end.
+    end;
+save(Opt, _Defs, OptMap) when is_map(OptMap) ->
+    OptMap#{socket_options := [Opt | maps:get(socket_options,OptMap)]}.
+
 
 %%%================================================================
 %%%
