@@ -14107,9 +14107,7 @@ erts_continue_exit_process(Process *p)
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
-#ifdef ERTS_SMP
     erts_flush_trace_messages(p, ERTS_PROC_LOCK_MAIN);
-#endif
 
     ERTS_TRACER_CLEAR(&ERTS_TRACER(p));
 
