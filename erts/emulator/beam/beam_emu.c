@@ -439,6 +439,12 @@ init_emulator(void)
 #  define REG_stop asm("%l3")
 #  define REG_I asm("%l4")
 #  define REG_fcalls asm("%l5")
+#elif defined(__GNUC__) && defined(__amd64__) && !defined(DEBUG)
+#  define REG_xregs asm("%r12")
+#  define REG_htop
+#  define REG_stop asm("%r13")
+#  define REG_I asm("%rbx")
+#  define REG_fcalls asm("%r14")
 #else
 #  define REG_xregs
 #  define REG_htop
