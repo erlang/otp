@@ -826,19 +826,6 @@ field of diameter_packet records independently of
 
 </item>
 
-<tag>
-<marker id="incoming_maxlen"/><c>{incoming_maxlen, 0..16777215}</c></tag>
-<item>
-<p>
-Bound on the expected size of incoming Diameter messages.
-Messages larger than the specified number of bytes are discarded.</p>
-
-<p>
-Defaults to <c>16777215</c>, the maximum value of the 24-bit Message
-Length field in a Diameter Header.</p>
-
-</item>
-
 <tag><c>{restrict_connections, false
                              | node
                              | nodes
@@ -972,49 +959,6 @@ at encode.
 This differs from the historic decode behaviour of representing AVPs
 of arity 1 as bare values, not wrapped in a list.</p>
 </note>
-</item>
-
-<tag>
-<marker id="strict_mbit"/><c>{strict_mbit, boolean()}</c></tag>
-<item>
-<p>
-Whether or not to regard an AVP setting the M-bit as erroneous when
-the command grammar in question does not explicitly allow the AVP.
-If <c>true</c> then such AVPs are regarded as 5001 errors,
-DIAMETER_AVP_UNSUPPORTED.
-If <c>false</c> then the M-bit is ignored and policing
-it becomes the receiver's responsibility.</p>
-
-<p>
-Defaults to <c>true</c>.</p>
-
-<warning>
-<p>
-RFC 6733 is unclear about the semantics of the M-bit.
-One the one hand, the CCF specification in section 3.2 documents AVP
-in a command grammar as meaning <em>any</em> arbitrary AVP; on the
-other hand, 1.3.4 states that AVPs setting the M-bit cannot be added
-to an existing command: the modified command must instead be
-placed in a new Diameter application.</p>
-<p>
-The reason for the latter is presumably interoperability:
-allowing arbitrary AVPs setting the M-bit in a command makes its
-interpretation implementation-dependent, since there's no
-guarantee that all implementations will understand the same set of
-arbitrary AVPs in the context of a given command.
-However, interpreting <c>AVP</c> in a command grammar as any
-AVP, regardless of M-bit, renders 1.3.4 meaningless, since the receiver
-can simply ignore any AVP it thinks isn't relevant, regardless of the
-sender's intent.</p>
-<p>
-Beware of confusing mandatory in the sense of the M-bit with mandatory
-in the sense of the command grammar.
-The former is a semantic requirement: that the receiver understand the
-semantics of the AVP in the context in question.
-The latter is a syntactic requirement: whether or not the AVP must
-occur in the message in question.</p>
-</warning>
-
 </item>
 
 <tag>
@@ -1346,6 +1290,19 @@ Defaults to 5000.</p>
 </item>
 
 <tag>
+<marker id="incoming_maxlen"/><c>{incoming_maxlen, 0..16777215}</c></tag>
+<item>
+<p>
+Bound on the expected size of incoming Diameter messages.
+Messages larger than the specified number of bytes are discarded.</p>
+
+<p>
+Defaults to <c>16777215</c>, the maximum value of the 24-bit Message
+Length field in a Diameter Header.</p>
+
+</item>
+
+<tag>
 <marker id="length_errors"/><c>{length_errors, exit|handle|discard}</c></tag>
 <item>
 <p>
@@ -1418,6 +1375,49 @@ If false then unexpected messages are discarded.</p>
 Defaults to true.
 Changing this results in non-standard behaviour, but can be useful in
 case peers are known to be behave badly.</p>
+</item>
+
+<tag>
+<marker id="strict_mbit"/><c>{strict_mbit, boolean()}</c></tag>
+<item>
+<p>
+Whether or not to regard an AVP setting the M-bit as erroneous when
+the command grammar in question does not explicitly allow the AVP.
+If <c>true</c> then such AVPs are regarded as 5001 errors,
+DIAMETER_AVP_UNSUPPORTED.
+If <c>false</c> then the M-bit is ignored and policing
+it becomes the receiver's responsibility.</p>
+
+<p>
+Defaults to <c>true</c>.</p>
+
+<warning>
+<p>
+RFC 6733 is unclear about the semantics of the M-bit.
+One the one hand, the CCF specification in section 3.2 documents AVP
+in a command grammar as meaning <em>any</em> arbitrary AVP; on the
+other hand, 1.3.4 states that AVPs setting the M-bit cannot be added
+to an existing command: the modified command must instead be
+placed in a new Diameter application.</p>
+<p>
+The reason for the latter is presumably interoperability:
+allowing arbitrary AVPs setting the M-bit in a command makes its
+interpretation implementation-dependent, since there's no
+guarantee that all implementations will understand the same set of
+arbitrary AVPs in the context of a given command.
+However, interpreting <c>AVP</c> in a command grammar as any
+AVP, regardless of M-bit, renders 1.3.4 meaningless, since the receiver
+can simply ignore any AVP it thinks isn't relevant, regardless of the
+sender's intent.</p>
+<p>
+Beware of confusing mandatory in the sense of the M-bit with mandatory
+in the sense of the command grammar.
+The former is a semantic requirement: that the receiver understand the
+semantics of the AVP in the context in question.
+The latter is a syntactic requirement: whether or not the AVP must
+occur in the message in question.</p>
+</warning>
+
 </item>
 
 <tag>

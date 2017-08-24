@@ -355,9 +355,11 @@ call(SvcName, App, Message) ->
     | {capabilities_cb, eval()}
     | {capx_timeout, 'Unsigned32'()}
     | {strict_capx, boolean()}
+    | {strict_mbit, boolean()}
     | {disconnect_cb, eval()}
     | {dpr_timeout, 'Unsigned32'()}
     | {dpa_timeout, 'Unsigned32'()}
+    | {incoming_maxlen, message_length()}
     | {length_errors, exit | handle | discard}
     | {connect_timer, 'Unsigned32'()}
     | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
@@ -376,8 +378,6 @@ call(SvcName, App, Message) ->
     | {traffic_counters, boolean()}
     | {string_decode, boolean()}
     | {strict_arities, true | strict_arities()}
-    | {strict_mbit, boolean()}
-    | {incoming_maxlen, message_length()}
     | {use_shared_peers, remotes()}
     | common_opt().
 

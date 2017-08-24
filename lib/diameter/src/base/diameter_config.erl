@@ -575,13 +575,11 @@ setopt(K, T) ->
 
 %% opt/2
 
-opt(service, {incoming_maxlen, N})
-  when 0 =< N, N < 1 bsl 24 ->
-    true;
+opt(_, {incoming_maxlen, N}) ->
+    is_integer(N) andalso 0 =< N andalso N < 1 bsl 24;
 
 opt(service, {K, B})
-  when K == strict_mbit;
-       K == string_decode;
+  when K == string_decode;
        K == traffic_counters ->
     is_boolean(B);
 
@@ -680,7 +678,9 @@ opt(_, {K, Tmo})
 
 opt(_, {capx_strictness, B}) ->
     is_boolean(B) andalso {value, {strict_capx, B}};
-opt(_, {strict_capx, B}) ->
+opt(_, {K, B})
+  when K == strict_capx;
+       K == strict_mbit ->
     is_boolean(B);
 
 opt(_, {length_errors, T}) ->
