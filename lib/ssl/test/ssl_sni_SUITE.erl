@@ -30,12 +30,32 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-all() -> [no_sni_header, 
-	  sni_match, 
-	  sni_no_match,
-	  no_sni_header_fun, 
-	  sni_match_fun, 
-	  sni_no_match_fun].
+all() ->
+    [{group, 'tlsv1.2'},
+     {group, 'tlsv1.1'},
+     {group, 'tlsv1'},
+     {group, 'sslv3'},
+     {group, 'dtlsv1.2'},
+     {group, 'dtlsv1'}
+    ].
+
+groups() ->
+    [
+     {'tlsv1.2', [], sni_tests()},
+     {'tlsv1.1', [], sni_tests()},
+     {'tlsv1', [], sni_tests()},
+     {'sslv3', [], sni_tests()},
+     {'dtlsv1.2', [], sni_tests()},
+     {'dtlsv1', [], sni_tests()}
+    ].
+
+sni_tests() ->
+    [no_sni_header, 
+     sni_match, 
+     sni_no_match,
+     no_sni_header_fun, 
+     sni_match_fun, 
+     sni_no_match_fun].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -154,9 +174,9 @@ run_sni_fun_handshake(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
     ClientOptions = 
     case SNIHostname of
         undefined ->
-            proplists:get_value(client_rsa_opts, Config);
+            ssl_test_lib:ssl_options(client_rsa_opts, Config);
         _ ->
-            [{server_name_indication, SNIHostname}] ++ proplists:get_value(client_rsa_opts, Config)
+            [{server_name_indication, SNIHostname}] ++ ssl_test_lib:ssl_options(client_rsa_opts, Config)
     end,
     ct:log("Options: ~p", [[ServerOptions, ClientOptions]]),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -176,13 +196,13 @@ run_handshake(Config, SNIHostname, ExpectedSNIHostname, ExpectedCN) ->
     ct:log("Start running handshake, Config: ~p, SNIHostname: ~p, "
 	   "ExpectedSNIHostname: ~p, ExpectedCN: ~p", 
 	   [Config, SNIHostname, ExpectedSNIHostname, ExpectedCN]),
-    ServerOptions = proplists:get_value(sni_server_opts, Config) ++  ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ServerOptions = proplists:get_value(sni_server_opts, Config) ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ClientOptions = 
         case SNIHostname of
             undefined ->
-                proplists:get_value(client_rsa_opts, Config);
+                ssl_test_lib:ssl_options(client_rsa_opts, Config);
             _ ->
-                [{server_name_indication, SNIHostname}] ++ proplists:get_value(client_rsa_opts, Config)
+                [{server_name_indication, SNIHostname}] ++ ssl_test_lib:ssl_options(client_rsa_opts, Config)
         end,
     ct:log("Options: ~p", [[ServerOptions, ClientOptions]]),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),

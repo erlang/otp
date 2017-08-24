@@ -53,8 +53,7 @@ all() ->
      {group, options_tls},
      {group, session},
      {group, 'dtlsv1.2'},
-     %%     {group, 'dtlsv1'}, Breaks dtls in cert_verify_SUITE enable later when 
-     %% problem is identified and fixed
+     {group, 'dtlsv1'}, 
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
@@ -277,6 +276,13 @@ end_per_suite(_Config) ->
     application:stop(crypto).
 
 %%--------------------------------------------------------------------
+init_per_group(GroupName, Config) when GroupName == basic;
+                                       GroupName == basic_tls;
+                                       GroupName == options;
+                                       GroupName == options_tls;
+                                       GroupName == session ->
+    ssl_test_lib:init_tls_version_default(Config);
+
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) andalso ssl_test_lib:sufficient_crypto_support(GroupName) of
 	true ->

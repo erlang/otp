@@ -1115,6 +1115,10 @@ init_tls_version(Version, Config) ->
     NewConfig = proplists:delete(protocol_opts, proplists:delete(protocol, Config)),
     [{protocol, tls} | NewConfig].
 
+init_tls_version_default(Config) ->
+    %% Remove non default options that may be left from other test groups 
+    proplists:delete(protocol_opts, proplists:delete(protocol, Config)).
+    
 sufficient_crypto_support(Version)
   when Version == 'tlsv1.2'; Version == 'dtlsv1.2' ->
     CryptoSupport = crypto:supports(),
@@ -1224,7 +1228,7 @@ is_fips(_) ->
     false.
 
 cipher_restriction(Config0) ->
-    Version = tls_record:protocol_version(protocol_version(Config0)),
+    Version = protocol_version(Config0, tuple),
     case is_sane_ecc(openssl) of
 	false ->
 	    Opts = proplists:get_value(server_opts, Config0),
@@ -1455,6 +1459,7 @@ ct_log_supported_protocol_versions(Config) ->
 
 clean_env() ->
     application:unset_env(ssl, protocol_version),
+    application:unset_env(ssl, dtls_protocol_version),
     application:unset_env(ssl, session_lifetime),
     application:unset_env(ssl, session_cb),
     application:unset_env(ssl, session_cb_init_args),
