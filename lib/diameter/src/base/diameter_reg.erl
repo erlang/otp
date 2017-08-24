@@ -339,7 +339,7 @@ insert(true, Rec) ->
 add(true, {_Key, Pid} = Rec, S) ->
     NS = add_monitor(Pid, S),
     {Recvs, RD} = add(Rec, NS),
-    {Recvs, S#state{receivers = RD}};
+    {Recvs, NS#state{receivers = RD}};
 
 add(false = No, _, S) ->
     {No, S}.
