@@ -31,22 +31,24 @@ new_map(Dst, Live, N) {
     Eterm res;
 
     HEAVY_SWAPOUT;
-    res = new_map(c_p, reg, I-1);
+    res = new_map(c_p, reg, $Live, $N, $NEXT_INSTRUCTION);
     HEAVY_SWAPIN;
     $REFRESH_GEN_DEST();
     $Dst = res;
     $NEXT($NEXT_INSTRUCTION+$N);
 }
 
-i_new_small_map_lit(Dst, Live, Literal) {
+i_new_small_map_lit(Dst, Live, Keys) {
     Eterm res;
     Uint n;
+    Eterm keys = $Keys;
 
     HEAVY_SWAPOUT;
-    res = new_small_map_lit(c_p, reg, &n, I-1);
+    res = new_small_map_lit(c_p, reg, keys, $Live, $NEXT_INSTRUCTION);
     HEAVY_SWAPIN;
     $REFRESH_GEN_DEST();
     $Dst = res;
+    n = arityval(*tuple_val(keys));
     $NEXT($NEXT_INSTRUCTION+n);
 }
 
@@ -127,11 +129,11 @@ i_get_map_elements(Fail, Src, N) {
 
 update_map_assoc(Src, Dst, Live, N) {
     Eterm res;
-    Eterm map;
+    Uint live = $Live;
 
-    map = $Src;
+    reg[live] = $Src;
     HEAVY_SWAPOUT;
-    res = update_map_assoc(c_p, reg, map, I);
+    res = update_map_assoc(c_p, reg, live, $N, $NEXT_INSTRUCTION);
     HEAVY_SWAPIN;
     ASSERT(is_value(res));
     $REFRESH_GEN_DEST();
@@ -141,11 +143,11 @@ update_map_assoc(Src, Dst, Live, N) {
 
 update_map_exact(Fail, Src, Dst, Live, N) {
     Eterm res;
-    Eterm map;
+    Uint live = $Live;
 
-    map = $Src;
+    reg[live] = $Src;
     HEAVY_SWAPOUT;
-    res = update_map_exact(c_p, reg, map, I);
+    res = update_map_exact(c_p, reg, live, $N, $NEXT_INSTRUCTION);
     HEAVY_SWAPIN;
     if (is_value(res)) {
         $REFRESH_GEN_DEST();

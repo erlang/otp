@@ -814,6 +814,7 @@ is_ge(Fail, X, Y) {
 
 badarg(Fail) {
     $BADARG($Fail);
+    //| -no_next;
 }
 
 badmatch(Src) {

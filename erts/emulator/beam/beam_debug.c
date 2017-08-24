@@ -522,12 +522,13 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	    ap++;
 	    break;
-	case 'I':		/* Untagged integer. */
-	case 't':
+	case 't':               /* Untagged integers */
+	case 'I':
+        case 'W':
 	    switch (op) {
-	    case op_i_gc_bif1_jIsId:
-	    case op_i_gc_bif2_jIIssd:
-	    case op_i_gc_bif3_jIIssd:
+	    case op_i_gc_bif1_jWstd:
+	    case op_i_gc_bif2_jWtssd:
+	    case op_i_gc_bif3_jWtssd:
 		{
 		    const ErtsGcBif* p;
 		    BifFunction gcf = (BifFunction) *ap;
@@ -672,8 +673,8 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             }
         }
         break;
-    case op_i_jump_on_val_xfII:
-    case op_i_jump_on_val_yfII:
+    case op_i_jump_on_val_xfIW:
+    case op_i_jump_on_val_yfIW:
 	{
 	    int n;
 	    for (n = ap[-2]; n > 0; n--) {
@@ -696,9 +697,9 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	break;
     case op_i_put_tuple_xI:
     case op_i_put_tuple_yI:
-    case op_new_map_dII:
-    case op_update_map_assoc_sdII:
-    case op_update_map_exact_jsdII:
+    case op_new_map_dtI:
+    case op_update_map_assoc_sdtI:
+    case op_update_map_exact_jsdtI:
 	{
 	    int n = unpacked[-1];
 
@@ -718,7 +719,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_new_small_map_lit_dIq:
+    case op_i_new_small_map_lit_dtq:
         {
             Eterm *tp = tuple_val(unpacked[-1]);
             int n = arityval(*tp);

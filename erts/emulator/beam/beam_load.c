@@ -2374,7 +2374,8 @@ load_code(LoaderState* stp)
 		    break;
 		}
 		break;
-	    case 'd':	/* Destination (x(0), x(N), y(N) */
+	    case 'd':	/* Destination (x(N), y(N) */
+            case 'S':   /* Source (x(N), y(N)) */
 		switch (tag) {
 		case TAG_x:
 		    code[ci++] = tmp_op->a[arg].val * sizeof(Eterm);
@@ -2388,11 +2389,29 @@ load_code(LoaderState* stp)
 		    break;
 		}
 		break;
-	    case 'I':	/* Untagged integer (or pointer). */
-		VerifyTag(stp, tag, TAG_u);
-		code[ci++] = tmp_op->a[arg].val;
-		break;
-	    case 't':	/* Small untagged integer -- can be packed. */
+	    case 't':	/* Small untagged integer (16 bits) -- can be packed. */
+	    case 'I':	/* Untagged integer (32 bits) -- can be packed.  */
+	    case 'W':	/* Untagged integer or pointer (machine word). */
+#ifdef DEBUG
+                switch (*sign) {
+                case 't':
+                    if (tmp_op->a[arg].val >> 16 != 0) {
+                        load_printf(__LINE__, stp, "value %lu of type 't' does not fit in 16 bits",
+                                    tmp_op->a[arg].val);
+                        ASSERT(0);
+                    }
+                    break;
+#ifdef ARCH_64
+                case 'I':
+                    if (tmp_op->a[arg].val >> 32 != 0) {
+                        load_printf(__LINE__, stp, "value %lu of type 'I' does not fit in 32 bits",
+                                    tmp_op->a[arg].val);
+                        ASSERT(0);
+                    }
+                    break;
+#endif
+                }
+#endif
 		VerifyTag(stp, tag, TAG_u);
 		code[ci++] = tmp_op->a[arg].val;
 		break;
@@ -2477,16 +2496,32 @@ load_code(LoaderState* stp)
 	 * The packing engine.
 	 */
 	if (opc[stp->specific_op].pack[0]) {
-	    char* prog;		/* Program for packing engine. */
-	    BeamInstr stack[8];	/* Stack. */
-	    BeamInstr* sp = stack;	/* Points to next free position. */
-	    BeamInstr packed = 0;	/* Accumulator for packed operations. */
+	    char* prog;            /* Program for packing engine. */
+	    struct pack_stack {
+                BeamInstr instr;
+                LiteralPatch* patch;
+            } stack[8];            /* Stack. */
+	    struct pack_stack* sp = stack; /* Points to next free position. */
+	    BeamInstr packed = 0; /* Accumulator for packed operations. */
 
 	    for (prog = opc[stp->specific_op].pack; *prog; prog++) {
 		switch (*prog) {
 		case 'g':	/* Get instruction; push on stack. */
-		    *sp++ = code[--ci];
-		    break;
+                    {
+                        LiteralPatch* lp;
+
+                        ci--;
+                        sp->instr = code[ci];
+                        sp->patch = 0;
+                        for (lp = stp->literal_patches; lp && lp->pos > ci-MAX_OPARGS; lp = lp->next) {
+                            if (lp->pos == ci) {
+                                sp->patch = lp;
+                                break;
+                            }
+                        }
+                        sp++;
+                    }
+                    break;
 		case 'i':	/* Initialize packing accumulator. */
 		    packed = code[--ci];
 		    break;
@@ -2502,10 +2537,17 @@ load_code(LoaderState* stp)
 		    break;
 #endif
 		case 'p':	/* Put instruction (from stack). */
-		    code[ci++] = *--sp;
+                    --sp;
+                    code[ci] = sp->instr;
+                    if (sp->patch) {
+                        sp->patch->pos = ci;
+                    }
+                    ci++;
 		    break;
 		case 'P':	/* Put packed operands. */
-		    *sp++ = packed;
+                    sp->instr = packed;
+                    sp->patch = 0;
+                    sp++;
 		    packed = 0;
 		    break;
 		default:
@@ -2627,8 +2669,8 @@ load_code(LoaderState* stp)
 	    /* Remember offset for the on_load function. */
 	    stp->on_load = ci;
 	    break;
-	case op_bs_put_string_II:
-	case op_i_bs_match_string_xfII:
+	case op_bs_put_string_WW:
+	case op_i_bs_match_string_xfWW:
 	    new_string_patch(stp, ci-1);
 	    break;
 
@@ -2884,6 +2926,7 @@ gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
     op->next = NULL;
 
     if (Index.type == TAG_i && Index.val > 0 &&
+        Index.val <= ERTS_MAX_TUPLE_SIZE &&
 	(Tuple.type == TAG_x || Tuple.type == TAG_y)) {
 	op->op = genop_i_fast_element_4;
 	op->a[0] = Tuple;
@@ -3420,7 +3463,7 @@ gen_literal_timeout(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
     Sint timeout;
 
     NEW_GENOP(stp, op);
-    op->op = genop_wait_timeout_unlocked_2;
+    op->op = genop_wait_timeout_unlocked_int_2;
     op->next = NULL;
     op->arity = 2;
     op->a[0].type = TAG_u;
@@ -3467,12 +3510,12 @@ gen_literal_timeout_locked(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
     Sint timeout;
 
     NEW_GENOP(stp, op);
-    op->op = genop_wait_timeout_locked_2;
+    op->op = genop_wait_timeout_locked_int_2;
     op->next = NULL;
     op->arity = 2;
-    op->a[0] = Fail;
-    op->a[1].type = TAG_u;
-    
+    op->a[0].type = TAG_u;
+    op->a[1] = Fail;
+
     if (Time.type == TAG_i && (timeout = Time.val) >= 0 &&
 #if defined(ARCH_64)
 	(timeout >> 32) == 0
@@ -3480,7 +3523,7 @@ gen_literal_timeout_locked(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
 	1
 #endif
 	) {
-	op->a[1].val = timeout;
+	op->a[0].val = timeout;
 #if !defined(ARCH_64)
     } else if (Time.type == TAG_q) {
 	Eterm big;
@@ -3494,7 +3537,7 @@ gen_literal_timeout_locked(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
 	} else {
 	    Uint u;
 	    (void) term_to_Uint(big, &u);
-	    op->a[1].val = (BeamInstr) u;
+	    op->a[0].val = (BeamInstr) u;
 	}
 #endif
     } else {

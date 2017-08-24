@@ -546,7 +546,6 @@ endif
 
 $(TTF_DIR)/beam_cold.h \
 $(TTF_DIR)/beam_hot.h \
-$(TTF_DIR)/beam_instrs.h \
 $(TTF_DIR)/beam_opcodes.c \
 $(TTF_DIR)/beam_opcodes.h \
 $(TTF_DIR)/beam_pred_funcs.h \

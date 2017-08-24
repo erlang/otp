@@ -134,6 +134,13 @@ t_element(Config) when is_list(Config) ->
     {'EXIT', {badarg, _}} = (catch element(1, id(42))),
     {'EXIT', {badarg, _}} = (catch element(id(1.5), id({a,b}))),
 
+    %% Make sure that the loader does not reject the module when
+    %% huge literal index values are used.
+    {'EXIT', {badarg, _}} = (catch element((1 bsl 24)-1, id({a,b,c}))),
+    {'EXIT', {badarg, _}} = (catch element(1 bsl 24, id({a,b,c}))),
+    {'EXIT', {badarg, _}} = (catch element(1 bsl 32, id({a,b,c}))),
+    {'EXIT', {badarg, _}} = (catch element(1 bsl 64, id({a,b,c}))),
+
     ok.
 
 get_elements([Element|Rest], Tuple, Pos) ->
