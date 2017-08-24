@@ -59,7 +59,8 @@ ei_accept(Config) when is_list(Config) ->
 
     spawn(F),
     Port = 6543,
-    {ok, Fd, _Node} = ei_accept(P, Port),
+    {ok, ListenFd} = ei_publish(P, Port),
+    {ok, Fd, _Node} = ei_accept(P, ListenFd),
     TermReceived= ei_receive(P, Fd),
     io:format("Sent ~p received ~p ~n", [TermToSend, TermReceived]),
     TermToSend= TermReceived,
@@ -137,8 +138,15 @@ ei_connect_init(P, Num, Cookie, Creation) ->
         {term,Int} when is_integer(Int) -> Int
     end.
 
-ei_accept(P, PortNo) ->
-    send_command(P, ei_accept, [PortNo]),
+ei_publish(P, PortNo) ->
+    send_command(P, ei_publish, [PortNo]),
+    case get_term(P) of
+        {term,{ListenFd, EpmdFd, _}} when ListenFd >= 0, EpmdFd >= 0 -> {ok, ListenFd};
+        {term,{_, _, Errno}} -> {error,Errno}
+    end.
+
+ei_accept(P, ListenFd) ->
+    send_command(P, ei_accept, [ListenFd]),
     case get_term(P) of
         {term,{Fd, _, Node}} when Fd >= 0 -> {ok, Fd, Node};
         {term,{_Fd, Errno, _Node}} -> {error,Errno}
