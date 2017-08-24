@@ -772,6 +772,7 @@ tab_is_disj(K1, T1, T2) ->
   end.
 
 merge_tables(T1, T2) ->
+  ets:safe_fixtable(T1, true),
   tab_merge(ets:first(T1), T1, T2).
 
 tab_merge('$end_of_table', T1, T2) ->
