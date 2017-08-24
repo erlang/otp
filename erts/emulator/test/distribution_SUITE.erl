@@ -41,6 +41,7 @@
 -export([all/0, suite/0, groups/0,
          ping/1, bulk_send_small/1,
          group_leader/1,
+         optimistic_dflags/1,
          bulk_send_big/1, bulk_send_bigbig/1,
          local_send_small/1, local_send_big/1,
          local_send_legal/1, link_to_busy/1, exit_to_busy/1,
@@ -66,6 +67,7 @@
 %% Internal exports.
 -export([sender/3, receiver2/2, dummy_waiter/0, dead_process/0,
          group_leader_1/1,
+         optimistic_dflags_echo/0, optimistic_dflags_sender/1,
          roundtrip/1, bounce/1, do_dist_auto_connect/1, inet_rpc_server/1,
          dist_parallel_sender/3, dist_parallel_receiver/0,
          dist_evil_parallel_receiver/0]).
@@ -80,6 +82,7 @@ suite() ->
 all() ->
     [ping, {group, bulk_send}, {group, local_send},
      group_leader,
+     optimistic_dflags,
      link_to_busy, exit_to_busy, lost_exit, link_to_dead,
      link_to_dead_new_node,
      ref_port_roundtrip, nil_roundtrip, stop_dist,
@@ -166,12 +169,58 @@ group_leader_1(Node2) ->
     ?Line {ExtPid, group_leader, GL2} = receive_one(),
     ok.
 
+%% Test optimistic distribution flags toward pending connections (DFLAG_DIST_HOPEFULLY)
+optimistic_dflags(Config) when is_list(Config) ->
+    ?Line Sender = start_relay_node(optimistic_dflags_sender, []),
+    ?Line Echo = start_relay_node(optimistic_dflags_echo, []),
+    try
+        ?Line {ok, ok} = do_inet_rpc(Echo, ?MODULE, optimistic_dflags_echo, []),
+
+        ?Line EchoNode = inet_rpc_nodename(Echo),
+        ?Line {ok, ok} = do_inet_rpc(Sender, ?MODULE, optimistic_dflags_sender, [EchoNode])
+    after
+        ?Line stop_relay_node(Sender),
+        ?Line stop_relay_node(Echo)
+    end,
+    ok.
+
+optimistic_dflags_echo() ->
+    P = spawn(fun F() ->
+                      receive {From, Term} ->
+                              From ! {self(), Term}
+                      end,
+                      F()
+              end),
+    register(optimistic_dflags_echo, P),
+    optimistic_dflags_echo ! {self(), hello},
+    {P, hello} = receive_one(),
+    ok.
+
+optimistic_dflags_sender(EchoNode) ->
+    ?Line net_kernel:monitor_nodes(true),
+
+    optimistic_dflags_do(EchoNode, <<1:1>>),
+    optimistic_dflags_do(EchoNode, fun lists:map/2),
+    ok.
+
+optimistic_dflags_do(EchoNode, Term) ->
+    ?Line {optimistic_dflags_echo, EchoNode} ! {self(), Term},
+    ?Line {nodeup, EchoNode} = receive_one(),
+    ?Line {EchoPid, Term} = receive_one(),
+    %% repeat with pid destination
+    ?Line net_kernel:disconnect(EchoNode),
+    ?Line {nodedown, EchoNode} = receive_one(),
+    ?Line EchoPid ! {self(), Term},
+    ?Line {nodeup, EchoNode} = receive_one(),
+    ?Line {EchoPid, Term} = receive_one(),
+
+    ?Line net_kernel:disconnect(EchoNode),
+    ?Line {nodedown, EchoNode} = receive_one(),
+    ok.
+
+
 receive_one() ->
     receive M -> M after 1000 -> timeout end.
-
-
-
-
 
 
 bulk_send_small(Config) when is_list(Config) ->

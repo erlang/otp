@@ -45,13 +45,18 @@
 #define DFLAG_MAP_TAG             0x20000
 #define DFLAG_BIG_CREATION        0x40000
 #define DFLAG_SEND_SENDER         0x80000
-#define DFLAG_PENDING_CONNECTION  0x100000
+#define DFLAG_NO_MAGIC            0x100000
 
 /* Mandatory flags for distribution (sync with dist_util.erl) */
 #define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
                               | DFLAG_EXTENDED_PIDS_PORTS       \
 			      | DFLAG_UTF8_ATOMS                \
 			      | DFLAG_NEW_FUN_TAGS)
+
+/* Additional optimistic flags when encoding toward pending connection */
+#define DFLAG_DIST_HOPEFULLY (DFLAG_NO_MAGIC                    \
+                              | DFLAG_EXPORT_PTR_TAG            \
+                              | DFLAG_BIT_BINARIES)
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
 #define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\
@@ -206,7 +211,7 @@ retry:
 	    Eterm msg, conn_id;
 
 	    dep->status = ERTS_DE_SFLG_PENDING;
-	    dep->flags = DFLAG_DIST_MANDATORY | DFLAG_PENDING_CONNECTION;
+	    dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY);
 	    dep->connection_id++;
 	    dep->connection_id &= ERTS_DIST_CON_ID_MASK;
             conn_id = make_small(dep->connection_id);

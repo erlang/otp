@@ -561,7 +561,7 @@ int erts_encode_dist_ext_size_int(Eterm term, struct erts_dsig_send_context* ctx
 	return -1;
     } else {
 #ifndef ERTS_DEBUG_USE_DIST_SEP
-	if (!(ctx->flags & (DFLAG_DIST_HDR_ATOM_CACHE | DFLAG_PENDING_CONNECTION)))
+	if (!(ctx->flags & (DFLAG_DIST_HDR_ATOM_CACHE | DFLAG_NO_MAGIC)))
 #endif
 	    sz++ /* VERSION_MAGIC */;
 
@@ -593,7 +593,7 @@ int erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap 
 {
     if (!ctx || !ctx->wstack.wstart) {
     #ifndef ERTS_DEBUG_USE_DIST_SEP
-	if (!(flags & (DFLAG_DIST_HDR_ATOM_CACHE | DFLAG_PENDING_CONNECTION)))
+	if (!(flags & (DFLAG_DIST_HDR_ATOM_CACHE | DFLAG_NO_MAGIC)))
     #endif
 	    *(*ext)++ = VERSION_MAGIC;
     }

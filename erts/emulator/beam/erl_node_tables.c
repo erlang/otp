@@ -628,7 +628,7 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
 	dep->connection_id &= ERTS_DIST_CON_ID_MASK;
     }
     dep->status |= ERTS_DE_SFLG_CONNECTED;
-    dep->flags = flags & ~DFLAG_PENDING_CONNECTION;
+    dep->flags = flags & ~DFLAG_NO_MAGIC;
     dep->cid = cid;
     erts_atomic_set_nob(&dep->input_handler,
                             (erts_aint_t) cid);

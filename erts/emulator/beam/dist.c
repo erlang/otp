@@ -3443,7 +3443,7 @@ BIF_RETTYPE new_connection_id_1(BIF_ALIST_1)
 	conn_id = dep->connection_id;
     else if (dep->status == 0) {
 	dep->status = ERTS_DE_SFLG_PENDING;
-	dep->flags = DFLAG_DIST_MANDATORY | DFLAG_PENDING_CONNECTION;
+	dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY);
 	dep->connection_id++;
 	dep->connection_id &= ERTS_DIST_CON_ID_MASK;
 	conn_id = dep->connection_id;
