@@ -2726,6 +2726,21 @@ AC_DEFUN([LM_TRY_ENABLE_CFLAG], [
     fi
 ])
 
+AC_DEFUN([LM_CHECK_ENABLE_CFLAG], [
+    AC_MSG_CHECKING([whether $CC accepts $1...])
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="$1 $CFLAGS";
+    AC_TRY_COMPILE([],[return 0;],can_enable_flag=true,can_enable_flag=false)
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"; then
+        AS_VAR_SET($2, true)
+        AC_MSG_RESULT([yes])
+    else
+        AS_VAR_SET($2, false)
+        AC_MSG_RESULT([no])
+    fi
+])
+
 dnl ERL_TRY_LINK_JAVA(CLASSES, FUNCTION-BODY
 dnl                   [ACTION_IF_FOUND [, ACTION-IF-NOT-FOUND]])
 dnl Freely inspired by AC_TRY_LINK. (Maybe better to create a 

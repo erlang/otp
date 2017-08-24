@@ -47,7 +47,9 @@ CROSS_COMPILING = @CROSS_COMPILING@
 # ----------------------------------------------------
 DEFAULT_TARGETS =  opt debug release release_docs clean docs
 
-TYPES=@TYPES@
+TYPES = @TYPES@
+
+USE_PGO = @USE_PGO@
 
 # Slash separated list of return values from $(origin VAR)
 # that are untrusted - set default in this file instead.
@@ -60,8 +62,8 @@ DUBIOUS_ORIGINS = /undefined/environment/
 #	HiPE
 # ----------------------------------------------------
 
-HIPE_ENABLED=@HIPE_ENABLED@
-NATIVE_LIBS_ENABLED=@NATIVE_LIBS_ENABLED@
+HIPE_ENABLED = @HIPE_ENABLED@
+NATIVE_LIBS_ENABLED = @NATIVE_LIBS_ENABLED@
 
 # ----------------------------------------------------
 #	Command macros
@@ -83,6 +85,7 @@ LD = @LD@
 RANLIB = @RANLIB@
 AR = @AR@
 PERL = @PERL@
+LLVM_PROFDATA = @LLVM_PROFDATA@
 
 BITS64 = @BITS64@
 
