@@ -58,11 +58,13 @@
 	 pkix_match_dist_point/2,
 	 pkix_crl_verify/2,
 	 pkix_crl_issuer/1,
-	 short_name_hash/1
+	 short_name_hash/1,
+         pkix_test_data/1
 	]).
 
 -export_type([public_key/0, private_key/0, pem_entry/0,
-	      pki_asn1_type/0, asn1_type/0, ssh_file/0, der_encoded/0]).
+	      pki_asn1_type/0, asn1_type/0, ssh_file/0, der_encoded/0,
+              key_params/0, digest_type/0]).
 
 -type public_key()           ::  rsa_public_key() | dsa_public_key() | ec_public_key().
 -type private_key()          ::  rsa_private_key() | dsa_private_key() | ec_private_key().
@@ -75,6 +77,8 @@
 -type ecpk_parameters_api() :: ecpk_parameters() | #'ECParameters'{} | {namedCurve, Name::atom()}.
 -type ec_public_key()        :: {#'ECPoint'{}, ecpk_parameters_api()}.
 -type ec_private_key()       :: #'ECPrivateKey'{}.
+-type key_params()           :: #'DHParameter'{} | {namedCurve, oid()} | #'ECParameters'{} | 
+                                {rsa, Size::integer(), PubExp::integer()}. 
 -type der_encoded()          :: binary().
 -type pki_asn1_type()        ::  'Certificate' | 'RSAPrivateKey' | 'RSAPublicKey'
 			       | 'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter'
@@ -102,6 +106,7 @@
 -type crl_reason()           ::  unspecified | keyCompromise | cACompromise | affiliationChanged | superseded
 			       | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise.
 -type oid()                  :: tuple().
+-type chain_type()           :: server_chain | client_chain.
 
 -define(UINT32(X), X:32/unsigned-big-integer).
 -define(DER_NULL, <<5, 0>>).
@@ -1026,6 +1031,22 @@ short_name_hash({rdnSequence, _Attributes} = Name) ->
     HashThis = encode_name_for_short_hash(Name),
     <<HashValue:32/little, _/binary>> = crypto:hash(sha, HashThis),
     string:to_lower(string:right(integer_to_list(HashValue, 16), 8, $0)).
+
+
+%%--------------------------------------------------------------------
+-spec pkix_test_data(#{chain_type() := pubkey_cert:chain_opts()}) ->
+                            pubkey_cert:test_config().
+
+%% Description: Generates OpenSSL-style hash of a name.
+%%--------------------------------------------------------------------
+
+pkix_test_data(#{client_chain := ClientChain0,
+                 server_chain := ServerChain0}) ->
+    Default = #{intermediates => []},
+    ClientChain = maps:merge(Default, ClientChain0),
+    ServerChain = maps:merge(Default, ServerChain0),
+    pubkey_cert:gen_test_certs(#{client_chain => ClientChain,
+                                 server_chain => ServerChain}).
 
 %%--------------------------------------------------------------------
 %%% Internal functions

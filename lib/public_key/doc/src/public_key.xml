@@ -119,6 +119,10 @@
       <tag><c>ec_private_key() =</c></tag>
       <item><p><c>#'ECPrivateKey'{}</c></p></item>
 
+      <tag><c>key_params() =</c></tag>
+      <item><p> #'DHParameter'{} |  {namedCurve, oid()} |  #'ECParameters'{} 
+      | {rsa, Size::integer(), PubExp::integer()} </p></item>      
+
       <tag><c>public_crypt_options() =</c></tag>
       <item><p><c>[{rsa_pad, rsa_padding()}]</c></p></item>
 
@@ -347,8 +351,7 @@
     <name>generate_key(Params) -> {Public::binary(), Private::binary()}  | #'ECPrivateKey'{} | #'RSAPrivateKey'{}</name>
     <fsummary>Generates a new keypair.</fsummary>
     <type>
-      <v>Params = #'DHParameter'{} |  {namedCurve, oid()} |  #'ECParameters'{} 
-      | {rsa, Size::integer(), PubExp::integer} </v>
+      <v>Params = key_params()</v>
     </type>
   <desc>
     <p>Generates a new keypair. Note that except for Diffie-Hellman
@@ -769,6 +772,85 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     </desc>
   </func>
 
+  <func>
+    <name>pkix_test_data(Options) -> Config </name>
+    <fsummary>Creates certificate test data.</fsummary>
+    <type>
+      <v>Options = #{chain_type() := chain_opts()} </v>
+      <d>Options for ROOT, Intermediate and Peer certs</d>
+      
+      <v>chain_type() = server_chain | client_chain </v>
+
+      <v>chain_opts() = #{chain_end() := [cert_opt()],
+          intermediates => [[cert_opt()]]}</v>
+      <d>A valid chain must have at least a ROOT and a peer cert</d>
+
+      <v>chain_end() = root | peer </v>
+
+      <v>cert_opt() = {Key, Value}</v>
+      <d>For available options see <seealso marker="#cert_opt"> cert_opt()</seealso> below.</d>
+
+      <v>Config = #{server_config := [conf_opt()],
+      client_config := [conf_opt()]}</v>
+
+      <v>conf_opt() = {cert, der_encoded()} | {key, der_encoded()} |{cacerts, [der_encoded()]}</v>
+      <d>This is a subset of the type <seealso marker="ssl#type-ssloption"> ssl:ssl_option()</seealso> </d>
+    </type>
+    
+    <desc>
+      <p>Creates certificate test data to facilitate automated testing
+      of applications using X509-certificates often through
+      SSL/TLS. The test data can be used when you have control
+      over both the client and the server in a test scenario.
+      </p>
+      
+      <p> The <marker id="cert_opt"/> cert_opt() type consists of the following options: </p>
+      <taglist>
+	<tag> {digest, digest_type()}</tag>
+	<item><p>Hash algorithm to be used for
+	signing the certificate together with the key option. Defaults to sha that is sha1.
+	</p></item>
+	<tag> {key, key_params() | private_key()}</tag>
+	<item><p>Parameters to be used to call public_key:generate_key/1, to generate a key, or an existing
+	key. Defaults to generating an ECDSA key. Note this could fail if Erlang/OTP is compiled with a very old
+	cryptolib.</p></item>
+	<tag> {validity, {From::erlang:timestamp(), To::erlang:timestamp()}} </tag>
+	<item><p>The validity period of the certificate.</p></item>
+	<tag> {extensions, [#'Extension'{}]}</tag>
+	<item><p> Extensions to include in the certificate.</p>
+	      
+	  <p>Default extensions included in CA certificates if not
+	  otherwise specified are: </p>
+	  <code>[#'Extension'{extnID = ?'id-ce-keyUsage',
+              extnValue = [keyCertSign, cRLSign],
+              critical = false},
+#'Extension'{extnID = ?'id-ce-basicConstraints',
+             extnValue = #'BasicConstraints'{cA = true},
+             critical = true}]
+	  </code>
+
+	  <p>Default extensions included in the server peer cert if not
+	  otherwise specified are: </p>
+	  <code>[#'Extension'{extnID = ?'id-ce-keyUsage',
+              extnValue = [digitalSignature, keyAgreement],
+              critical = false},
+#'Extension'{extnID = ?'id-ce-subjectAltName',
+             extnValue = [{dNSName, Hostname}],
+             critical = false}]
+	  </code>
+	  <p>Hostname is the result of calling net_adm:localhost() in the Erlang node
+	  where this funcion is called.
+	  </p></item>
+
+	</taglist>
+	  
+	<note><p>
+	Note that the generated certificates and keys does not provide a formally correct PKIX-trust-chain 
+	and they can not be used to achieve real security. This function is provided for testing purposes only.
+</p></note>
+    </desc>
+  </func>
+  
   <func>  
     <name>pkix_verify(Cert, Key) -> boolean()</name>
     <fsummary>Verifies PKIX x.509 certificate signature.</fsummary>
