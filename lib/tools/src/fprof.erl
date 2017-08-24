@@ -2636,21 +2636,31 @@ funcstat_pd(Pid, Func1, Func0, Clocks) ->
 	    #funcstat{callers_sum = CallersSum,
 		      callers = Callers} = FuncstatCallers ->
 		FuncstatCallers#funcstat{
-		  callers_sum = clocks_sum(CallersSum, Clocks, Func0),
-		  callers = [Clocks#clocks{id = Func1} | Callers]}
-	end),
+                  callers_sum = clocks_sum(CallersSum, Clocks, Func0),
+                  callers = insert_call(Clocks, Func1, Callers)}
+        end),
     put({Pid, Func1},
         case get({Pid, Func1}) of
             undefined ->
-                #funcstat{callers_sum = #clocks{id = Func1}, 
+                #funcstat{callers_sum = #clocks{id = Func1},
                           called_sum = Clocks#clocks{id = Func1},
                           called = [Clocks#clocks{id = Func0}]};
             #funcstat{called_sum = CalledSum,
                       called = Called} = FuncstatCalled ->
                 FuncstatCalled#funcstat{
                   called_sum = clocks_sum(CalledSum, Clocks, Func1),
-                  called = [Clocks#clocks{id = Func0} | Called]}
+                  called = insert_call(Clocks, Func0, Called)}
         end).
+
+insert_call(Clocks, Func, ClocksList) ->
+    insert_call(Clocks, Func, ClocksList, []).
+
+insert_call(Clocks, Func, [#clocks{id = Func} = C | T], Acc) ->
+    [clocks_sum(C, Clocks, Func) | T ++ Acc];
+insert_call(Clocks, Func, [H | T], Acc) ->
+    insert_call(Clocks, Func, T, [H | Acc]);
+insert_call(Clocks, Func, [], Acc) ->
+    [Clocks#clocks{id = Func} | Acc].
 
 
 
