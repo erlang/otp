@@ -44,34 +44,31 @@ ei_accept(Config) when is_list(Config) ->
     io:format("Myname ~p ~n",  [Myname]),
     EINode = list_to_atom("c42@"++Myname),
     io:format("EINode ~p ~n",  [EINode]),
-    Self = self(),
-    TermToSend= {call, Self, "Test"},
-    F= fun() ->
-               case waitfornode("c42",20) of
-                   true ->
-                       {any, EINode} ! TermToSend,
-                       Self ! sent_ok;
-                   false ->
-                       Self ! never_published
-               end,
-               ok
-       end,
 
-    spawn(F),
+    %% We take this opportunity to also test export-funs and bit-strings
+    %% with (ugly) tuple fallbacks.
+    %% Test both toward pending connection and established connection.
+    RealTerms = [<<1:1>>,     fun lists:map/2],
+    Fallbacks = [{<<128>>,1}, {lists,map}],
+
+    Self = self(),
+    Funny = fun() -> hello end,
+    TermToSend = {call, Self, "Test", Funny, RealTerms},
+    TermToGet  = {call, Self, "Test", Funny, Fallbacks},
     Port = 6543,
     {ok, ListenFd} = ei_publish(P, Port),
+    {any, EINode} ! TermToSend,
     {ok, Fd, _Node} = ei_accept(P, ListenFd),
-    TermReceived= ei_receive(P, Fd),
-    io:format("Sent ~p received ~p ~n", [TermToSend, TermReceived]),
-    TermToSend= TermReceived,
-    receive
-        sent_ok ->
-            ok;
-        Unknown ->
-            io:format("~p ~n", [Unknown])
-    after 1000 ->
-              io:format("timeout ~n")
-    end,
+    Got1 = ei_receive(P, Fd),
+
+    %% Send again, now without auto-connect
+    {any, EINode} ! TermToSend,
+    Got2 = ei_receive(P, Fd),
+
+    io:format("Sent ~p~nExp. ~p~nGot1 ~p~nGot2 ~p~n", [TermToSend, TermToGet, Got1, Got2]),
+    TermToGet = Got1,
+    TermToGet = Got2,
+
     runner:finish(P),
     ok.
 
