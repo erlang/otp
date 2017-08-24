@@ -46,7 +46,8 @@
 -export([start/0,
          stop/0]).
 
--export_type([evaluable/0,
+-export_type([eval/0,
+              evaluable/0,  %% deprecated
               decode_format/0,
               strict_arities/0,
               restriction/0,
@@ -301,7 +302,7 @@ call(SvcName, App, Message) ->
     | realm
     | {host,  any|'DiameterIdentity'()}
     | {realm, any|'DiameterIdentity'()}
-    | {eval, evaluable()}
+    | {eval, eval()}
     | {neg, peer_filter()}
     | {all, [peer_filter()]}
     | {any, [peer_filter()]}.
@@ -309,10 +310,13 @@ call(SvcName, App, Message) ->
 -opaque peer_ref()
    :: pid().
 
--type evaluable()
+-type eval()
    :: {module(), atom(), list()}
     | fun()
-    | maybe_improper_list(evaluable(), list()).
+    | maybe_improper_list(eval(), list()).
+
+-type evaluable()
+   :: eval().
 
 -type sequence()
    :: {'Unsigned32'(), 0..32}.
@@ -322,12 +326,12 @@ call(SvcName, App, Message) ->
     | node
     | nodes
     | [node()]
-    | evaluable().
+    | eval().
 
 -type remotes()
    :: boolean()
     | [node()]
-    | evaluable().
+    | eval().
 
 -type message_length()
    :: 0..16#FFFFFF.
@@ -350,7 +354,7 @@ call(SvcName, App, Message) ->
    :: capability()
     | {application, [application_opt()]}
     | {restrict_connections, restriction()}
-    | {sequence, sequence() | evaluable()}
+    | {sequence, sequence() | eval()}
     | {share_peers, remotes()}
     | {decode_format, decode_format()}
     | {traffic_counters, boolean()}
@@ -392,10 +396,10 @@ call(SvcName, App, Message) ->
     | {pool_size, pos_integer()}
     | {applications, [app_alias()]}
     | {capabilities, [capability()]}
-    | {capabilities_cb, evaluable()}
+    | {capabilities_cb, eval()}
     | {capx_timeout, 'Unsigned32'()}
     | {strict_capx, boolean()}
-    | {disconnect_cb, evaluable()}
+    | {disconnect_cb, eval()}
     | {dpr_timeout, 'Unsigned32'()}
     | {dpa_timeout, 'Unsigned32'()}
     | {length_errors, exit | handle | discard}
