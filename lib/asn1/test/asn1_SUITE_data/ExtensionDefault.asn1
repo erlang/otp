@@ -1,0 +1,12 @@
+ExtensionDefault DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+Message ::= SEQUENCE {
+    id INTEGER (0..5),
+    ...,
+    priority Priority DEFAULT low
+}
+Priority ::= ENUMERATED { low(0), high(1), ... }
+
+END
