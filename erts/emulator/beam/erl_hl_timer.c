@@ -1273,14 +1273,15 @@ bif_timer_timeout(ErtsHLTimerService *srv,
             ERTS_HLT_ASSERT(proc);
         }
         if (proc) {
+            int dec_refc = 0;
+            ErtsMessage *mp = erts_alloc_message(0, NULL);
+            mp->data.heap_frag = tmr->btm.bp;
+            tmr->btm.bp = NULL;
+            erts_queue_message(proc, 0, mp, tmr->btm.message,
+                               am_clock_service);
+            erts_smp_proc_lock(proc, ERTS_PROC_LOCK_BTM);
+            /* If the process is exiting do not disturb the cleanup... */
             if (!ERTS_PROC_IS_EXITING(proc)) {
-                int dec_refc = 0;
-                ErtsMessage *mp = erts_alloc_message(0, NULL);
-                mp->data.heap_frag = tmr->btm.bp;
-                tmr->btm.bp = NULL;
-                erts_queue_message(proc, 0, mp, tmr->btm.message,
-                                   am_clock_service);
-                erts_smp_proc_lock(proc, ERTS_PROC_LOCK_BTM);
 #ifdef ERTS_MAGIC_REF_BIF_TIMERS
                 if (tmr->btm.proc_list.next) {
                     proc_btm_list_delete(&proc->bif_timers, tmr);
@@ -1293,10 +1294,10 @@ bif_timer_timeout(ErtsHLTimerService *srv,
                     dec_refc = 1;
                 }
 #endif
-                erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_BTM);
-                if (dec_refc)
-                    timer_pre_dec_refc((ErtsTimer *) tmr);
             }
+            erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_BTM);
+            if (dec_refc)
+                timer_pre_dec_refc((ErtsTimer *) tmr);
         }
         if (tmr->btm.bp)
             free_message_buffer(tmr->btm.bp);
