@@ -682,10 +682,11 @@ cipher(internal, #certificate_verify{signature = Signature,
 	      tls_handshake_history = Handshake
 	     } = State0, Connection) ->
     
+    TLSVersion = ssl:tls_version(Version),
     %% Use negotiated value if TLS-1.2 otherwhise return default
-    HashSign = negotiated_hashsign(CertHashSign, KexAlg, PublicKeyInfo, Version),
+    HashSign = negotiated_hashsign(CertHashSign, KexAlg, PublicKeyInfo, TLSVersion),
     case ssl_handshake:certificate_verify(Signature, PublicKeyInfo,
-					  ssl:tls_version(Version), HashSign, MasterSecret, Handshake) of
+					  TLSVersion, HashSign, MasterSecret, Handshake) of
 	valid ->
 	    {Record, State} = Connection:next_record(State0),
 	    Connection:next_event(cipher, Record,

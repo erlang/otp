@@ -137,7 +137,7 @@ internal_inet_values() ->
     [{active, false}, {mode,binary}].
 
 default_inet_values() ->
-    [{active, true}, {mode, list}].
+    [{active, true}, {mode, list}, {packet, 0}, {packet_size, 0}].
 
 default_cb_info() ->
     {gen_udp, udp, udp_closed, udp_error}.
@@ -149,8 +149,12 @@ get_emulated_opts(EmOpts, EmOptNames) ->
 
 emulated_socket_options(InetValues, #socket_options{
 				       mode   = Mode,
+                                       packet = Packet,
+                                       packet_size = PacketSize,
 				       active = Active}) ->
     #socket_options{
        mode   = proplists:get_value(mode, InetValues, Mode),
+       packet = proplists:get_value(packet, InetValues, Packet),
+       packet_size = proplists:get_value(packet_size, InetValues, PacketSize),
        active = proplists:get_value(active, InetValues, Active)
       }.

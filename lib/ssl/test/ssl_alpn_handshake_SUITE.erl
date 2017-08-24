@@ -35,14 +35,19 @@ all() ->
     [{group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'}].
+     {group, 'sslv3'},
+     {group, 'dtlsv1.2'},
+     {group, 'dtlsv1'}
+    ].
 
 groups() ->
     [
      {'tlsv1.2', [], alpn_tests()},
      {'tlsv1.1', [], alpn_tests()},
      {'tlsv1', [], alpn_tests()},
-     {'sslv3', [], alpn_not_supported()}
+     {'sslv3', [], alpn_not_supported()},
+     {'dtlsv1.2', [], alpn_tests() -- [client_renegotiate]},
+     {'dtlsv1', [], alpn_tests() -- [client_renegotiate]}
     ].
 
 alpn_tests() ->
@@ -67,13 +72,12 @@ alpn_not_supported() ->
      alpn_not_supported_server
     ].
 
-init_per_suite(Config) ->
+init_per_suite(Config0) ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
 	    ssl_test_lib:clean_start(),
-	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config),
-				     proplists:get_value(priv_dir, Config)),
+	    Config = ssl_test_lib:make_rsa_cert(Config0),
 	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
@@ -90,8 +94,7 @@ init_per_group(GroupName, Config) ->
 	true ->
 	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
 		true ->
-		    ssl_test_lib:init_tls_version(GroupName, Config),
-		    Config;
+		    ssl_test_lib:init_tls_version(GroupName, Config);
 		false ->
 		    {skip, "Missing crypto support"}
 	    end;
@@ -116,26 +119,29 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 
 empty_protocols_are_not_allowed(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {error, {options, {alpn_preferred_protocols, {invalid_protocol, <<>>}}}}
 	= (catch ssl:listen(9443,
-			    [{alpn_preferred_protocols, [<<"foo/1">>, <<"">>]}])),
+			    [{alpn_preferred_protocols, [<<"foo/1">>, <<"">>]}| ServerOpts])),
     {error, {options, {alpn_advertised_protocols, {invalid_protocol, <<>>}}}}
 	= (catch ssl:connect({127,0,0,1}, 9443,
-			     [{alpn_advertised_protocols, [<<"foo/1">>, <<"">>]}])).
+			     [{alpn_advertised_protocols, [<<"foo/1">>, <<"">>]} | ServerOpts])).
 
 %--------------------------------------------------------------------------------
 
 protocols_must_be_a_binary_list(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     Option1 = {alpn_preferred_protocols, hello},
-    {error, {options, Option1}} = (catch ssl:listen(9443, [Option1])),
+    {error, {options, Option1}} = (catch ssl:listen(9443, [Option1 | ServerOpts])),
     Option2 = {alpn_preferred_protocols, [<<"foo/1">>, hello]},
     {error, {options, {alpn_preferred_protocols, {invalid_protocol, hello}}}}
-        = (catch ssl:listen(9443, [Option2])),
+        = (catch ssl:listen(9443, [Option2 | ServerOpts])),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     Option3 = {alpn_advertised_protocols, hello},
-    {error, {options, Option3}} = (catch ssl:connect({127,0,0,1}, 9443, [Option3])),
+    {error, {options, Option3}} = (catch ssl:connect({127,0,0,1}, 9443, [Option3 | ClientOpts])),
     Option4 = {alpn_advertised_protocols, [<<"foo/1">>, hello]},
     {error, {options, {alpn_advertised_protocols, {invalid_protocol, hello}}}}
-        = (catch ssl:connect({127,0,0,1}, 9443, [Option4])).
+        = (catch ssl:connect({127,0,0,1}, 9443, [Option4 | ClientOpts])).
 
 %--------------------------------------------------------------------------------
 
@@ -226,9 +232,9 @@ client_alpn_and_server_alpn_npn(Config) when is_list(Config) ->
 client_renegotiate(Config) when is_list(Config) ->
     Data = "hello world",
     
-    ClientOpts0 = proplists:get_value(client_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ClientOpts = [{alpn_advertised_protocols, [<<"http/1.0">>]}] ++ ClientOpts0,
-    ServerOpts0 = proplists:get_value(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ServerOpts = [{alpn_preferred_protocols, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}] ++  ServerOpts0,
     ExpectedProtocol = {ok, <<"http/1.0">>},
 
@@ -250,9 +256,9 @@ client_renegotiate(Config) when is_list(Config) ->
 %--------------------------------------------------------------------------------
 
 session_reused(Config) when  is_list(Config)->
-    ClientOpts0 = proplists:get_value(client_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ClientOpts = [{alpn_advertised_protocols, [<<"http/1.0">>]}] ++ ClientOpts0,
-    ServerOpts0 = proplists:get_value(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ServerOpts = [{alpn_preferred_protocols, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}] ++  ServerOpts0,
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -299,7 +305,7 @@ session_reused(Config) when  is_list(Config)->
 %--------------------------------------------------------------------------------
 
 alpn_not_supported_client(Config) when is_list(Config) ->
-    ClientOpts0 = proplists:get_value(client_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     PrefProtocols = {client_preferred_next_protocols,
 		     {client, [<<"http/1.0">>], <<"http/1.1">>}},
     ClientOpts = [PrefProtocols] ++ ClientOpts0,
@@ -315,7 +321,7 @@ alpn_not_supported_client(Config) when is_list(Config) ->
 %--------------------------------------------------------------------------------
 
 alpn_not_supported_server(Config) when is_list(Config)->
-    ServerOpts0 = proplists:get_value(server_opts, Config),
+    ServerOpts0 =  ssl_test_lib:ssl_options(server_rsa_opts, Config),
     AdvProtocols = {next_protocols_advertised, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]},
     ServerOpts = [AdvProtocols] ++  ServerOpts0,
   
@@ -326,8 +332,8 @@ alpn_not_supported_server(Config) when is_list(Config)->
 %%--------------------------------------------------------------------
 
 run_failing_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedResult) ->
-    ClientOpts = ClientExtraOpts ++ proplists:get_value(client_opts, Config),
-    ServerOpts = ServerExtraOpts ++ proplists:get_value(server_opts, Config),
+    ClientOpts = ClientExtraOpts ++ ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ServerExtraOpts ++ ssl_test_lib:ssl_options(server_rsa_opts, Config),
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -346,9 +352,9 @@ run_failing_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedResult) 
 run_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtocol) ->
     Data = "hello world",
 
-    ClientOpts0 = proplists:get_value(client_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
     ClientOpts = ClientExtraOpts ++ ClientOpts0,
-    ServerOpts0 = proplists:get_value(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     ServerOpts = ServerExtraOpts ++  ServerOpts0,
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
