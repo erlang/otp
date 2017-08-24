@@ -276,7 +276,9 @@ init({call, _} = Type, Event, #state{role = server, transport_cb = gen_udp} = St
     Result = ssl_connection:init(Type, Event, 
                                  State#state{flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT},
                                              protocol_specific = #{current_cookie_secret => dtls_v1:cookie_secret(), 
-                                                                   previous_cookie_secret => <<>>}},
+                                                                   previous_cookie_secret => <<>>,
+                                                                   ignored_alerts => 0,
+                                                                   max_ignored_alerts => 10}},
                                  ?MODULE),
     erlang:send_after(dtls_v1:cookie_timeout(), self(), new_cookie_secret),
     Result;
@@ -374,7 +376,7 @@ hello(internal, #server_hello{} = Hello,
 	     ssl_options = SslOptions} = State) ->
     case dtls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
-	    ssl_connection:handle_own_alert(Alert, ReqVersion, hello, State);
+	    handle_own_alert(Alert, ReqVersion, hello, State);
 	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
 	    ssl_connection:handle_session(Hello, 
 					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State)
@@ -546,7 +548,7 @@ handle_call(Event, From, StateName, State) ->
 
 handle_common_event(internal, #alert{} = Alert, StateName, 
 		    #state{negotiated_version = Version} = State) ->
-    ssl_connection:handle_own_alert(Alert, Version, StateName, State);
+    handle_own_alert(Alert, Version, StateName, State);
 %%% DTLS record protocol level handshake messages 
 handle_common_event(internal, #ssl_tls{type = ?HANDSHAKE,
 				       fragment = Data}, 
@@ -565,7 +567,7 @@ handle_common_event(internal, #ssl_tls{type = ?HANDSHAKE,
                  State#state{unprocessed_handshake_events = unprocessed_events(Events)}, Events}
 	end
     catch throw:#alert{} = Alert ->
-	    ssl_connection:handle_own_alert(Alert, Version, StateName, State0)
+	    handle_own_alert(Alert, Version, StateName, State0)
     end;
 %%% DTLS record protocol level application data messages 
 handle_common_event(internal, #ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State) ->
@@ -580,7 +582,7 @@ handle_common_event(internal, #ssl_tls{type = ?ALERT, fragment = EncAlerts}, Sta
 	Alerts = [_|_] ->
 	    handle_alerts(Alerts,  {next_state, StateName, State});
 	#alert{} = Alert ->
-	    ssl_connection:handle_own_alert(Alert, Version, StateName, State)
+	    handle_own_alert(Alert, Version, StateName, State)
     end;
 %% Ignore unknown TLS record level protocol messages
 handle_common_event(internal, #ssl_tls{type = _Unknown}, StateName, State) ->
@@ -632,7 +634,7 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello,
     case dtls_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
 					       ConnectionStates0, Cert, KeyExAlg}, Renegotiation) of
 	#alert{} = Alert ->
-	    ssl_connection:handle_own_alert(Alert, ClientVersion, hello, State0);
+	    handle_own_alert(Alert, ClientVersion, hello, State0);
 	{Version, {Type, Session},
 	 ConnectionStates, Protocol0, ServerHelloExt, HashSign} ->
 	    Protocol = case Protocol0 of
@@ -967,3 +969,54 @@ unprocessed_events(Events) ->
     %% process more TLS-records received on the socket. 
     erlang:length(Events)-1.
 
+handle_own_alert(Alert, Version, StateName, #state{transport_cb = gen_udp,
+                                                   role = Role,
+                                                   ssl_options = Options} = State0) ->
+    case ignore_alert(Alert, State0) of
+        {true, State} ->
+            log_ignore_alert(Options#ssl_options.log_alert, StateName, Alert, Role),
+            {next_state, StateName, State};
+        {false, State} ->
+            ssl_connection:handle_own_alert(Alert, Version, StateName, State)
+    end;
+handle_own_alert(Alert, Version, StateName, State) ->
+    ssl_connection:handle_own_alert(Alert, Version, StateName, State).
+
+
+ignore_alert(#alert{level = ?FATAL}, #state{protocol_specific = #{ignored_alerts := N,
+                                                  max_ignored_alerts := N}} = State) ->
+    {false, State};
+ignore_alert(#alert{level = ?FATAL} = Alert, 
+             #state{protocol_specific = #{ignored_alerts := N} = PS} = State) ->
+    case is_ignore_alert(Alert) of
+        true ->
+            {true, State#state{protocol_specific = PS#{ignored_alerts => N+1}}};
+        false ->
+            {false, State}
+    end;      
+ignore_alert(_, State) ->
+    {false, State}.
+
+%% RFC 6347 4.1.2.7.  Handling Invalid Records
+%% recommends to silently ignore invalid DTLS records when
+%% upd is the transport. Note we do not support compression so no need
+%% include ?DECOMPRESSION_FAILURE
+is_ignore_alert(#alert{description = ?BAD_RECORD_MAC}) ->
+    true;
+is_ignore_alert(#alert{description = ?RECORD_OVERFLOW}) ->
+    true;
+is_ignore_alert(#alert{description = ?DECODE_ERROR}) ->
+    true;
+is_ignore_alert(#alert{description = ?DECRYPT_ERROR}) ->
+    true;
+is_ignore_alert(#alert{description = ?ILLEGAL_PARAMETER}) ->
+     true;
+is_ignore_alert(_) ->
+    false.
+
+log_ignore_alert(true, StateName, Alert, Role) ->
+    Txt = ssl_alert:alert_txt(Alert),
+    error_logger:format("DTLS over UDP ~p: In state ~p ignored to send ALERT ~s as DoS-attack mitigation \n", 
+                        [Role, StateName, Txt]);
+log_ignore_alert(false, _, _,_) ->
+    ok.
