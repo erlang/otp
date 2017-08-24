@@ -96,14 +96,14 @@ typedef enum {
 
 #define ERTS_BIF_TIMER_SHORT_TIME 5000
 
-/* Bit 0 to 9 contains scheduler id (see mask below) */
-#define ERTS_TMR_ROFLG_HLT		(((Uint32) 1) << 10)
-#define ERTS_TMR_ROFLG_BIF_TMR		(((Uint32) 1) << 11)
-#define ERTS_TMR_ROFLG_PRE_ALC		(((Uint32) 1) << 12)
-#define ERTS_TMR_ROFLG_REG_NAME		(((Uint32) 1) << 13)
-#define ERTS_TMR_ROFLG_PROC		(((Uint32) 1) << 14)
-#define ERTS_TMR_ROFLG_PORT		(((Uint32) 1) << 15)
-#define ERTS_TMR_ROFLG_CALLBACK		(((Uint32) 1) << 16)
+/* Bit 0 to 10 contains scheduler id (see mask below) */
+#define ERTS_TMR_ROFLG_HLT		(((Uint32) 1) << 11)
+#define ERTS_TMR_ROFLG_BIF_TMR		(((Uint32) 1) << 12)
+#define ERTS_TMR_ROFLG_PRE_ALC		(((Uint32) 1) << 13)
+#define ERTS_TMR_ROFLG_REG_NAME		(((Uint32) 1) << 14)
+#define ERTS_TMR_ROFLG_PROC		(((Uint32) 1) << 15)
+#define ERTS_TMR_ROFLG_PORT		(((Uint32) 1) << 16)
+#define ERTS_TMR_ROFLG_CALLBACK		(((Uint32) 1) << 17)
 
 #define ERTS_TMR_ROFLG_SID_MASK	\
     (ERTS_TMR_ROFLG_HLT - (Uint32) 1)
