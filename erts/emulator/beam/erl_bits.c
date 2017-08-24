@@ -1303,7 +1303,14 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	    goto badarg;
 	}
     }
+
+    if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
+        c_p->freason = SYSTEM_LIMIT;
+        return THE_NON_VALUE;
+    }
+
     used_size_in_bits = erts_bin_offset + build_size_in_bits;
+
     sb->is_writable = 0;	/* Make sure that no one else can write. */
     pb->size = NBYTES(used_size_in_bits);
     pb->flags |= PB_ACTIVE_WRITER;
@@ -1377,9 +1384,21 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 		goto badarg;
 	    }
 	}
-	used_size_in_bits = erts_bin_offset + build_size_in_bits;
-	used_size_in_bytes = NBYTES(used_size_in_bits);
-	bin_size = 2*used_size_in_bytes;
+
+        if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
+            c_p->freason = SYSTEM_LIMIT;
+            return THE_NON_VALUE;
+        }
+
+        used_size_in_bits = erts_bin_offset + build_size_in_bits;
+        used_size_in_bytes = NBYTES(used_size_in_bits);
+
+        if(used_size_in_bits < (ERTS_UINT_MAX / 2)) {
+            bin_size = 2 * used_size_in_bytes;
+        } else {
+            bin_size = NBYTES(ERTS_UINT_MAX);
+        }
+
 	bin_size = (bin_size < 256) ? 256 : bin_size;
 
 	/*
@@ -1469,6 +1488,12 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
      * Calculate new size in bytes.
      */
     erts_bin_offset = 8*sb->size + sb->bitsize;
+
+    if((ERTS_UINT_MAX - build_size_in_bits) < erts_bin_offset) {
+        p->freason = SYSTEM_LIMIT;
+        return THE_NON_VALUE;
+    }
+
     pos_in_bits_after_build = erts_bin_offset + build_size_in_bits;
     pb->size = (pos_in_bits_after_build+7) >> 3;
     pb->flags |= PB_ACTIVE_WRITER;
