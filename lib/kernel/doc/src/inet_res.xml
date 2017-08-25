@@ -130,7 +130,7 @@ dns_header() = DnsHeader
     inet_dns:header(DnsHeader) ->
         [ {id, integer()}
         | {qr, boolean()}
-        | {opcode, 'query' | iquery | status | integer()}
+        | {opcode, query | iquery | status | integer()}
         | {aa, boolean()}
         | {tc, boolean()}
         | {rd, boolean()}

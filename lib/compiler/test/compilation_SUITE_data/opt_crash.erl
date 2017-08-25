@@ -33,7 +33,7 @@ test() ->
                {userinfo,nil},
                fun() -> nil end},
             nil},
-         {'query',nil}}},
+         {query,nil}}},
 
    {absoluteURI,
       {scheme,_},
@@ -43,7 +43,7 @@ test() ->
                {userinfo,nil},
                HostportBefore},
             nil},
-         {'query',nil}}} = URI_Before,
+         {query,nil}}} = URI_Before,
 
    %% ... some funky code ommitted, not relevant ...
 
@@ -55,7 +55,7 @@ test() ->
                {userinfo,nil},
                HostportAfter},
             nil},
-         {'query',nil}}} = URI_Before,
+         {query,nil}}} = URI_Before,
    %% NOTE: I intended to write URI_After instead of URI_Before
    %% but the accident revealed that when you add the line below,
    %% it causes internal error in v3_codegen on compilation
