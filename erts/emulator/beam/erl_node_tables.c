@@ -204,6 +204,7 @@ dist_table_alloc(void *dep_tmpl)
     erts_port_task_handle_init(&dep->dist_cmd);
     dep->send				= NULL;
     dep->cache				= NULL;
+    dep->transcode_ctx                  = NULL;
 
     /* Link in */
 

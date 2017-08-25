@@ -154,7 +154,7 @@ void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint32);
 
 Uint erts_encode_ext_dist_header_size(ErtsAtomCacheMap *);
 byte *erts_encode_ext_dist_header_setup(byte *, ErtsAtomCacheMap *);
-void erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf*, ErtsAtomCache *, Uint32);
+Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf*, DistEntry *, Uint32 dflags, Sint reds);
 struct erts_dsig_send_context;
 int erts_encode_dist_ext_size(Eterm, Uint32, ErtsAtomCacheMap*, Uint* szp);
 int erts_encode_dist_ext_size_int(Eterm term, struct erts_dsig_send_context* ctx, Uint* szp);
@@ -195,7 +195,7 @@ void erts_binary2term_abort(ErtsBinary2TermState *);
 Eterm erts_binary2term_create(ErtsBinary2TermState *, ErtsHeapFactory*);
 int erts_debug_max_atom_out_cache_index(void);
 int erts_debug_atom_to_out_cache_index(Eterm);
-
+void transcode_free_ctx(DistEntry* dep);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

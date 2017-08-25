@@ -83,6 +83,7 @@ typedef struct ErtsDistOutputBuf_ ErtsDistOutputBuf;
 struct ErtsDistOutputBuf_ {
 #ifdef DEBUG
     Uint dbg_pattern;
+    byte *alloc_endp;
 #endif
     ErtsDistOutputBuf *next;
     byte *extp;
@@ -156,6 +157,8 @@ typedef struct dist_entry_ {
     struct cache* cache;	/* The atom cache */
 
     ErtsThrPrgrLaterOp later_op;
+
+    struct transcode_context* transcode_ctx;
 } DistEntry;
 
 typedef struct erl_node_ {

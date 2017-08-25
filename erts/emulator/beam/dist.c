@@ -648,6 +648,7 @@ alloc_dist_obuf(Uint size)
     obuf = (ErtsDistOutputBuf *) &bin->orig_bytes[0];
 #ifdef DEBUG
     obuf->dbg_pattern = ERTS_DIST_OUTPUT_BUF_DBG_PATTERN;
+    obuf->alloc_endp = obuf->data + size;
     ASSERT(bin == ErtsDistOutputBuf2Binary(obuf));
 #endif
     return obuf;
@@ -692,6 +693,7 @@ static ErtsDistOutputBuf* clear_de_out_queues(DistEntry* dep)
     dep->tmp_out_queue.last = NULL;
     dep->finalized_out_queue.first = NULL;
     dep->finalized_out_queue.last = NULL;
+
     return obuf;
 }
 
@@ -755,6 +757,8 @@ static void clear_dist_entry(DistEntry *dep)
     delete_cache(cache);
 
     free_de_out_queues(dep, obuf);
+    if (dep->transcode_ctx)
+        transcode_free_ctx(dep);
 }
 
 int erts_dsend_context_dtor(Binary* ctx_bin)
@@ -2208,7 +2212,6 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
 #endif
 
 #define ERTS_PORT_REDS_DIST_CMD_START 5
-#define ERTS_PORT_REDS_DIST_CMD_FINALIZE 3
 #define ERTS_PORT_REDS_DIST_CMD_EXIT 200
 #define ERTS_PORT_REDS_DIST_CMD_RESUMED 5
 #define ERTS_PORT_REDS_DIST_CMD_DATA(SZ) \
@@ -2217,9 +2220,9 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
    : ((((Sint) (SZ)) >> 10) & ((Sint) ERTS_PORT_REDS_MASK__)))
 
 int
-erts_dist_command(Port *prt, int reds_limit)
+erts_dist_command(Port *prt, int initial_reds)
 {
-    Sint reds = ERTS_PORT_REDS_DIST_CMD_START;
+    Sint reds = initial_reds - ERTS_PORT_REDS_DIST_CMD_START;
     Uint32 status;
     Uint32 flags;
     Sint qsize, obufsize = 0;
@@ -2241,8 +2244,11 @@ erts_dist_command(Port *prt, int reds_limit)
 
     if (status & ERTS_DE_SFLG_EXITING) {
 	erts_deliver_port_exit(prt, prt->common.id, am_killed, 0, 1);
-	return reds + ERTS_PORT_REDS_DIST_CMD_EXIT;
+        reds -= ERTS_PORT_REDS_DIST_CMD_EXIT;
+	return initial_reds - reds;
     }
+
+    ASSERT(!(status & ERTS_DE_SFLG_PENDING));
 
     ASSERT(send);
 
@@ -2268,7 +2274,7 @@ erts_dist_command(Port *prt, int reds_limit)
 
     sched_flags = erts_atomic32_read_nob(&prt->sched.flags);
 
-    if (reds > reds_limit)
+    if (reds < 0)
 	goto preempted;
 
     if (!(sched_flags & ERTS_PTS_FLG_BUSY_PORT) && foq.first) {
@@ -2283,13 +2289,13 @@ erts_dist_command(Port *prt, int reds_limit)
             erts_fprintf(stderr, ">> ");
             bw(foq.first->extp, size);
 #endif
-            reds += ERTS_PORT_REDS_DIST_CMD_DATA(size);
-            fob = foq.first;
-            obufsize += size_obuf(fob);
-            foq.first = foq.first->next;
-            free_dist_obuf(fob);
+	    reds -= ERTS_PORT_REDS_DIST_CMD_DATA(size);
+	    fob = foq.first;
+	    obufsize += size_obuf(fob);
+	    foq.first = foq.first->next;
+	    free_dist_obuf(fob);
 	    sched_flags = erts_atomic32_read_nob(&prt->sched.flags);
-	    preempt = reds > reds_limit || (sched_flags & ERTS_PTS_FLG_EXIT);
+	    preempt = reds < 0 || (sched_flags & ERTS_PTS_FLG_EXIT);
 	    if (sched_flags & ERTS_PTS_FLG_BUSY_PORT)
 		break;
 	} while (foq.first && !preempt);
@@ -2302,44 +2308,42 @@ erts_dist_command(Port *prt, int reds_limit)
     if (sched_flags & ERTS_PTS_FLG_BUSY_PORT) {
 	if (oq.first) {
 	    ErtsDistOutputBuf *ob;
-	    int preempt;
+            ErtsDistOutputBuf *last_finalized = NULL;
 	finalize_only:
-	    preempt = 0;
 	    ob = oq.first;
 	    ASSERT(ob);
 	    do {
-		erts_encode_ext_dist_header_finalize(ob, dep->cache, flags);
-		ASSERT(&ob->data[0] <= ob->extp && ob->extp < ob->ext_endp);
-		reds += ERTS_PORT_REDS_DIST_CMD_FINALIZE;
-		preempt = reds > reds_limit;
-		if (preempt)
-		    break;
-		ob = ob->next;
+		reds = erts_encode_ext_dist_header_finalize(ob, dep, flags, reds);
+                if (reds >= 0) {
+                    last_finalized  = ob;
+                    ob = ob->next;
+                }
 	    } while (ob);
-	    /*
-	     * At least one buffer was finalized; if we got preempted,
-	     * ob points to the last buffer that we finalized.
-	     */
-	    if (foq.last)
-		foq.last->next = oq.first;
-	    else
-		foq.first = oq.first;
-	    if (!preempt) {
-		/* All buffers finalized */
-		foq.last = oq.last;
-		oq.first = oq.last = NULL;
-	    }
-	    else {
-		/* Not all buffers finalized; split oq. */
-		foq.last = ob;
-		oq.first = ob->next;
-		if (oq.first)
-		    ob->next = NULL;
-		else
-		    oq.last = NULL;
-	    }
-	    if (preempt)
-		goto preempted;
+            if (last_finalized) {
+                /*
+                 * At least one buffer was finalized; if we got preempted,
+                 * ob points to the next buffer to continue finalize.
+                 */
+                if (foq.last)
+                    foq.last->next = oq.first;
+                else
+                    foq.first = oq.first;
+                foq.last = last_finalized;
+                if (!ob) {
+                    /* All buffers finalized */
+                    ASSERT(foq.last == oq.last);
+                    ASSERT(foq.last->next == NULL);
+                    oq.first = oq.last = NULL;
+                }
+                else {
+                    /* Not all buffers finalized; split oq. */
+                    ASSERT(foq.last->next == ob);
+                    foq.last->next = NULL;
+                    oq.first = ob;
+                }
+            }
+            if (reds <= 0)
+                goto preempted;
 	}
     }
     else {
@@ -2348,8 +2352,11 @@ erts_dist_command(Port *prt, int reds_limit)
 	while (oq.first && !preempt) {
 	    ErtsDistOutputBuf *fob;
 	    Uint size;
-            erts_encode_ext_dist_header_finalize(oq.first, dep->cache, flags);
-	    reds += ERTS_PORT_REDS_DIST_CMD_FINALIZE;
+            reds = erts_encode_ext_dist_header_finalize(oq.first, dep, flags, reds);
+            if (reds < 0) {
+                preempt = 1;
+                break;
+            }
 	    ASSERT(&oq.first->data[0] <= oq.first->extp
 		   && oq.first->extp < oq.first->ext_endp);
 	    size = (*send)(prt, oq.first);
@@ -2359,13 +2366,13 @@ erts_dist_command(Port *prt, int reds_limit)
             erts_fprintf(stderr, ">> ");
             bw(oq.first->extp, size);
 #endif
-            reds += ERTS_PORT_REDS_DIST_CMD_DATA(size);
-            fob = oq.first;
-            obufsize += size_obuf(fob);
-            oq.first = oq.first->next;
-            free_dist_obuf(fob);
+	    reds -= ERTS_PORT_REDS_DIST_CMD_DATA(size);
+	    fob = oq.first;
+	    obufsize += size_obuf(fob);
+	    oq.first = oq.first->next;
+	    free_dist_obuf(fob);
 	    sched_flags = erts_atomic32_read_nob(&prt->sched.flags);
-	    preempt = reds > reds_limit || (sched_flags & ERTS_PTS_FLG_EXIT);
+	    preempt = reds <= 0 || (sched_flags & ERTS_PTS_FLG_EXIT);
 	    if ((sched_flags & ERTS_PTS_FLG_BUSY_PORT) && oq.first && !preempt)
 		goto finalize_only;
 	}
@@ -2405,7 +2412,7 @@ erts_dist_command(Port *prt, int reds_limit)
 	    erts_mtx_unlock(&dep->qlock);
 
 	    resumed = erts_resume_processes(suspendees);
-	    reds += resumed*ERTS_PORT_REDS_DIST_CMD_RESUMED;
+	    reds -= resumed*ERTS_PORT_REDS_DIST_CMD_RESUMED;
 	}
 	else
 	    erts_mtx_unlock(&dep->qlock);
@@ -2428,8 +2435,7 @@ erts_dist_command(Port *prt, int reds_limit)
 	erts_mtx_unlock(&dep->qlock);
     }
 
-    ASSERT(foq.first || !foq.last);
-    ASSERT(!foq.first || foq.last);
+    ASSERT(!!foq.first == !!foq.last);
     ASSERT(!dep->finalized_out_queue.first);
     ASSERT(!dep->finalized_out_queue.last);
 
@@ -2439,10 +2445,10 @@ erts_dist_command(Port *prt, int reds_limit)
     }
 
      /* Avoid wrapping reduction counter... */
-    if (reds > INT_MAX/2)
-	reds = INT_MAX/2;
+    if (reds < INT_MIN/2)
+	reds = INT_MIN/2;
 
-    return reds;
+    return initial_reds - reds;
 
  preempted:
     /*
@@ -2450,8 +2456,7 @@ erts_dist_command(Port *prt, int reds_limit)
      * since last call to driver.
      */
 
-    ASSERT(oq.first || !oq.last);
-    ASSERT(!oq.first || oq.last);
+    ASSERT(!!oq.first == !!oq.last);
 
     if (sched_flags & ERTS_PTS_FLG_EXIT) {
 	/*
@@ -2475,14 +2480,11 @@ erts_dist_command(Port *prt, int reds_limit)
 
 	foq.first = NULL;
 	foq.last = NULL;
-
-/* SVERK Hmmm....
 #ifdef DEBUG
 	erts_mtx_lock(&dep->qlock);
 	ASSERT(erts_atomic_read_nob(&dep->qsize) == obufsize);
 	erts_mtx_unlock(&dep->qlock);
 #endif
-*/
     }
     else {
 	if (oq.first) {
@@ -2772,7 +2774,8 @@ BIF_RETTYPE
 dist_ctrl_get_data_1(BIF_ALIST_1)
 {
     DistEntry *dep = ERTS_PROC_GET_DIST_ENTRY(BIF_P);
-    int reds = 1;
+    const Sint initial_reds = ERTS_BIF_REDS_LEFT(BIF_P);
+    Sint reds = initial_reds;
     ErtsDistOutputBuf *obuf;
     Eterm *hp;
     ProcBin *pb;
@@ -2803,6 +2806,7 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
     {
         if (!dep->tmp_out_queue.first) {
             ASSERT(!dep->tmp_out_queue.last);
+            ASSERT(!dep->transcode_ctx);
             qsize = erts_atomic_read_acqb(&dep->qsize);
             if (qsize > 0) {
                 erts_mtx_lock(&dep->qlock);
@@ -2820,21 +2824,18 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
             erts_de_runlock(dep);
             BIF_RET(am_none);
         }
-        else {
-            obuf = dep->tmp_out_queue.first;
-            dep->tmp_out_queue.first = obuf->next;
-            if (!obuf->next)
-                dep->tmp_out_queue.last = NULL;
+
+        obuf = dep->tmp_out_queue.first;
+        reds = erts_encode_ext_dist_header_finalize(obuf, dep, dep->flags, reds);
+        if (reds < 0) {
+            erts_de_runlock(dep);
+            ERTS_BIF_YIELD1(bif_export[BIF_dist_ctrl_get_data_1],
+                            BIF_P, BIF_ARG_1);
         }
 
-        obuf->extp = erts_encode_ext_dist_header_finalize(obuf->extp,
-                                                          dep->cache,
-                                                          dep->flags);
-        reds += ERTS_PORT_REDS_DIST_CMD_FINALIZE;
-        if (!(dep->flags & DFLAG_DIST_HDR_ATOM_CACHE))
-            *--obuf->extp = PASS_THROUGH; /* 'pass through' needed */
-        ASSERT(&obuf->data[0] <= obuf->extp
-               && obuf->extp < obuf->ext_endp);
+        dep->tmp_out_queue.first = obuf->next;
+        if (!obuf->next)
+            dep->tmp_out_queue.last = NULL;
     }
 
     erts_atomic64_inc_nob(&dep->out);
@@ -2862,11 +2863,11 @@ dist_ctrl_get_data_1(BIF_ALIST_1)
         erts_mtx_unlock(&dep->qlock);
         if (resume_procs) {
             int resumed = erts_resume_processes(resume_procs);
-            reds += resumed*ERTS_PORT_REDS_DIST_CMD_RESUMED;
+            reds -= resumed*ERTS_PORT_REDS_DIST_CMD_RESUMED;
         }
     }
 
-    BIF_RET2(make_binary(pb), reds);
+    BIF_RET2(make_binary(pb), (initial_reds - reds));
 }
 
 void
