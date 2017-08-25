@@ -159,7 +159,7 @@ i_move_call_ext_last(Dest, StackOffset, Src) {
 APPLY(I, Deallocate) {
     //| -no_next
     HEAVY_SWAPOUT;
-    next = apply(c_p, r(0), x(1), x(2), reg, $I, $Deallocate);
+    next = apply(c_p, reg, $I, $Deallocate);
     HEAVY_SWAPIN;
 }
 
