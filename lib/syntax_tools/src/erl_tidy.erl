@@ -193,7 +193,7 @@ dir_3(Name, Dir, Regexp, Env) ->
     dir_1(Dir1, Regexp, Env).
 
 dir_4(File, Regexp, Env) ->
-    case re:run(File, Regexp) of
+    case re:run(File, Regexp, [unicode]) of
         {match, _} ->
             Opts = [{outfile, File}, {dir, ""} | Env#dir.options],
             case catch file(File, Opts) of
