@@ -692,7 +692,7 @@ find_rel_suse_2(Rel, RootWc) ->
     case file:list_dir(RelDir) of
 	{ok,Dirs} ->
 	    case lists:filter(fun(Dir) ->
-				      case re:run(Dir, Pat) of
+				      case re:run(Dir, Pat, [unicode]) of
 					  nomatch -> false;
 					  _       -> true
 				      end
