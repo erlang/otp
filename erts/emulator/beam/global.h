@@ -1386,7 +1386,7 @@ Uint erts_current_reductions(Process* current, Process *p);
 
 int erts_print_system_version(fmtfn_t to, void *arg, Process *c_p);
 
-int erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg);
+int erts_hibernate(Process* c_p, Eterm* reg);
 
 ERTS_GLB_FORCE_INLINE int erts_is_literal(Eterm tptr, Eterm *ptr);
 

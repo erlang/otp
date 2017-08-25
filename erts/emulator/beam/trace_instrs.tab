@@ -102,7 +102,7 @@ i_yield() {
 
 i_hibernate() {
     HEAVY_SWAPOUT;
-    if (erts_hibernate(c_p, r(0), x(1), x(2), reg)) {
+    if (erts_hibernate(c_p, reg)) {
         FCALLS = c_p->fcalls;
         c_p->flags &= ~F_HIBERNATE_SCHED;
         goto do_schedule;

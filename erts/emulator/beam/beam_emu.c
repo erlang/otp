@@ -2328,10 +2328,13 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
 }
 
 int
-erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg)
+erts_hibernate(Process* c_p, Eterm* reg)
 {
     int arity;
     Eterm tmp;
+    Eterm module = reg[0];
+    Eterm function = reg[1];
+    Eterm args = reg[2];
 
     if (is_not_atom(module) || is_not_atom(function)) {
 	/*
