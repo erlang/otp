@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 3.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug where merging PLT:s could lose info. The
+	    bug was introduced in Erlang/OTP 20.0. </p>
+          <p>
+	    Own Id: OTP-14558 Aux Id: ERIERL-53 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
