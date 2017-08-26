@@ -1291,6 +1291,10 @@ rel_ops(Config) when is_list(Config) ->
     true = any_atom /= id(42),
     true = [] /= id(42),
 
+    %% Coverage of beam_utils:bif_to_test/3
+    Empty = id([]),
+    ?T(==, [], Empty),
+
     ok.
 
 -undef(TestOp).
