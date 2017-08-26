@@ -5008,9 +5008,10 @@ considered first when it is time to jump to the definition.")
   (and (fboundp 'xref-make)
        (fboundp 'xref-make-file-location)
        (let* ((first-time t)
+              (cbuf (current-buffer))
               xrefs matching-files)
          (save-excursion
-           (while (visit-tags-table-buffer (not first-time))
+           (while (erlang-visit-tags-table-buffer (not first-time) cbuf)
              (setq first-time nil)
              (let ((files (tags-table-files)))
                (while files
@@ -5026,6 +5027,10 @@ considered first when it is time to jump to the definition.")
                  (setq files (cdr files))))))
          (nreverse xrefs))))
 
+(defun erlang-visit-tags-table-buffer (cont cbuf)
+  (if (< emacs-major-version 26)
+      (visit-tags-table-buffer cont)
+    (visit-tags-table-buffer cont cbuf)))
 
 (defun erlang-xref-find-definitions-module-tag (module
                                                 tag
