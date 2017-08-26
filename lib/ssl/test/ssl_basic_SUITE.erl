@@ -276,6 +276,12 @@ end_per_suite(_Config) ->
     application:stop(crypto).
 
 %%--------------------------------------------------------------------
+
+init_per_group(GroupName, Config) when GroupName == basic_tls;
+                                       GroupName == options_tls;
+                                       GroupName == basic;
+                                       GroupName == options ->
+    ssl_test_lib:clean_tls_version(Config);                          
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) andalso ssl_test_lib:sufficient_crypto_support(GroupName) of
 	true ->
