@@ -95,8 +95,13 @@ init_per_group(GroupName, Config) ->
 	    Config
     end.
 
-end_per_group(_GroupName, Config) ->
-    Config.
+end_per_group(GroupName, Config) ->
+    case ssl_test_lib:is_tls_version(GroupName) of
+        true ->
+            ssl_test_lib:clean_tls_version(Config);
+        false ->
+            Config
+    end.
 
 init_per_testcase(TestCase, Config) when TestCase == server_echos_passive_huge;
 					 TestCase == server_echos_active_once_huge;

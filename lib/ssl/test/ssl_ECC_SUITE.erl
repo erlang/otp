@@ -200,8 +200,14 @@ common_init_per_group(GroupName, Config) ->
 	   openssl_check(GroupName, Config)
     end.
 
-end_per_group(_GroupName, Config) ->
-   proplists:delete(tls_version, Config).
+end_per_group(GroupName, Config0) ->
+  case ssl_test_lib:is_tls_version(GroupName) of
+      true ->
+          Config = ssl_test_lib:clean_tls_version(Config0),
+          proplists:delete(tls_version, Config);
+      false ->
+          Config0
+  end.
 
 %%--------------------------------------------------------------------
 
