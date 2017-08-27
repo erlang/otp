@@ -1811,22 +1811,41 @@ cg_gen_binsize([], _, _, _, _, Acc) -> Acc.
 %% cg_bin_opt(Code0) -> Code
 %%  Optimize the size calculations for binary construction.
 
-cg_bin_opt([{move,Size,D},{bs_append,Fail,D,Extra,Regs,U,Bin,Flags,D}|Is]) ->
-    cg_bin_opt([{bs_append,Fail,Size,Extra,Regs,U,Bin,Flags,D}|Is]);
-cg_bin_opt([{move,Size,D},{bs_private_append,Fail,D,U,Bin,Flags,D}|Is]) ->
-    cg_bin_opt([{bs_private_append,Fail,Size,U,Bin,Flags,D}|Is]);
-cg_bin_opt([{move,{integer,0},D},{bs_add,_,[D,{integer,_}=S,1],Dst}|Is]) ->
-    cg_bin_opt([{move,S,Dst}|Is]);
-cg_bin_opt([{move,{integer,0},D},{bs_add,Fail,[D,S,U],Dst}|Is]) ->
-    cg_bin_opt([{bs_add,Fail,[{integer,0},S,U],Dst}|Is]);
-cg_bin_opt([{move,{integer,Bytes},D},{Op,Fail,D,Extra,Regs,Flags,D}|Is])
+cg_bin_opt([{move,S1,{x,X}=D},{gc_bif,Op,Fail,Live0,As,Dst}|Is]) ->
+    Live = if
+               X + 1 =:= Live0 -> X;
+               true -> Live0
+           end,
+    [{gc_bif,Op,Fail,Live,As,D}|cg_bin_opt([{move,S1,Dst}|Is])];
+cg_bin_opt([{move,_,_}=I1,{Op,_,_,_}=I2|Is])
+  when Op =:= bs_utf8_size orelse Op =:= bs_utf16_size ->
+    [I2|cg_bin_opt([I1|Is])];
+cg_bin_opt([{bs_add,_,[{integer,0},Src,1],Dst}|Is]) ->
+    cg_bin_opt_1([{move,Src,Dst}|Is]);
+cg_bin_opt([{bs_add,_,[Src,{integer,0},_],Dst}|Is]) ->
+    cg_bin_opt_1([{move,Src,Dst}|Is]);
+cg_bin_opt(Is) ->
+    cg_bin_opt_1(Is).
+
+cg_bin_opt_1([{move,Size,D},{bs_append,Fail,D,Extra,Regs,U,Bin,Flags,D}|Is]) ->
+    [{bs_append,Fail,Size,Extra,Regs,U,Bin,Flags,D}|cg_bin_opt(Is)];
+cg_bin_opt_1([{move,Size,D},{bs_private_append,Fail,D,U,Bin,Flags,D}|Is]) ->
+    [{bs_private_append,Fail,Size,U,Bin,Flags,D}|cg_bin_opt(Is)];
+cg_bin_opt_1([{move,Size,D},{Op,Fail,D,Extra,Regs,Flags,D}|Is])
   when Op =:= bs_init2; Op =:= bs_init_bits ->
-    cg_bin_opt([{Op,Fail,Bytes,Extra,Regs,Flags,D}|Is]);
-cg_bin_opt([{move,Src1,Dst},{bs_add,Fail,[Dst,Src2,U],Dst}|Is]) ->
-    cg_bin_opt([{bs_add,Fail,[Src1,Src2,U],Dst}|Is]);
-cg_bin_opt([I|Is]) ->
+    Bytes = case Size of
+                {integer,Int} -> Int;
+                _ -> Size
+            end,
+    [{Op,Fail,Bytes,Extra,Regs,Flags,D}|cg_bin_opt(Is)];
+cg_bin_opt_1([{move,S1,D},{bs_add,Fail,[D,S2,U],Dst}|Is]) ->
+    cg_bin_opt([{bs_add,Fail,[S1,S2,U],Dst}|Is]);
+cg_bin_opt_1([{move,S1,D},{bs_add,Fail,[S2,D,U],Dst}|Is]) ->
+    cg_bin_opt([{bs_add,Fail,[S2,S1,U],Dst}|Is]);
+cg_bin_opt_1([I|Is]) ->
     [I|cg_bin_opt(Is)];
-cg_bin_opt([]) -> [].
+cg_bin_opt_1([]) ->
+    [].
 
 cg_bin_put({bin_seg,[],S0,U,T,Fs,[E0,Next]}, Fail, Bef) ->
     S1 = cg_reg_arg(S0, Bef),
