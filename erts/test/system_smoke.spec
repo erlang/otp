@@ -1,4 +1,3 @@
-{suites,"../system_test",[ethread_SUITE]}.
 {cases,"../system_test",otp_SUITE,
  [undefined_functions,
   deprecated_not_in_obsolete,
