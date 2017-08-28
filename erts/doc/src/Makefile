@@ -173,6 +173,8 @@ release_docs_spec: docs
 		"$(RELSYSDIR)/doc/html"
 	$(INSTALL_DATA) $(ERL_TOP)/erts/example/time_compat.erl \
 		"$(RELSYSDIR)/doc/html"
+	$(INSTALL_DATA) $(ERL_TOP)/lib/kernel/examples/gen_tcp_dist/src/gen_tcp_dist.erl \
+		"$(RELSYSDIR)/doc/html"
 	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
 	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"

@@ -74,6 +74,48 @@
 	       ticked = 0
 	       }).
 
+dflag2str(?DFLAG_PUBLISHED) ->
+    "PUBLISHED";
+dflag2str(?DFLAG_ATOM_CACHE) ->
+    "ATOM_CACHE";
+dflag2str(?DFLAG_EXTENDED_REFERENCES) ->
+    "EXTENDED_REFERENCES";
+dflag2str(?DFLAG_DIST_MONITOR) ->
+    "DIST_MONITOR";
+dflag2str(?DFLAG_FUN_TAGS) ->
+    "FUN_TAGS";
+dflag2str(?DFLAG_DIST_MONITOR_NAME) ->
+    "DIST_MONITOR_NAME";
+dflag2str(?DFLAG_HIDDEN_ATOM_CACHE) ->
+    "HIDDEN_ATOM_CACHE";
+dflag2str(?DFLAG_NEW_FUN_TAGS) ->
+    "NEW_FUN_TAGS";
+dflag2str(?DFLAG_EXTENDED_PIDS_PORTS) ->
+    "EXTENDED_PIDS_PORTS";
+dflag2str(?DFLAG_EXPORT_PTR_TAG) ->
+    "EXPORT_PTR_TAG";
+dflag2str(?DFLAG_BIT_BINARIES) ->
+    "BIT_BINARIES";
+dflag2str(?DFLAG_NEW_FLOATS) ->
+    "NEW_FLOATS";
+dflag2str(?DFLAG_UNICODE_IO) ->
+    "UNICODE_IO";
+dflag2str(?DFLAG_DIST_HDR_ATOM_CACHE) ->
+    "DIST_HDR_ATOM_CACHE";
+dflag2str(?DFLAG_SMALL_ATOM_TAGS) ->
+    "SMALL_ATOM_TAGS";
+dflag2str(?DFLAG_UTF8_ATOMS) ->
+    "UTF8_ATOMS";
+dflag2str(?DFLAG_MAP_TAG) ->
+    "MAP_TAG";
+dflag2str(?DFLAG_BIG_CREATION) ->
+    "BIG_CREATION";
+dflag2str(?DFLAG_SEND_SENDER) ->
+    "SEND_SENDER";
+dflag2str(_) ->
+    "UNKNOWN".
+
+
 remove_flag(Flag, Flags) ->
     case Flags band Flag of
 	0 ->
@@ -82,13 +124,13 @@ remove_flag(Flag, Flags) ->
 	    Flags - Flag
     end.
 
-adjust_flags(ThisFlags, OtherFlags) ->
+adjust_flags(ThisFlags, OtherFlags, RejectFlags) ->
     case (?DFLAG_PUBLISHED band ThisFlags) band OtherFlags of
 	0 ->
 	    {remove_flag(?DFLAG_PUBLISHED, ThisFlags),
 	     remove_flag(?DFLAG_PUBLISHED, OtherFlags)};
 	_ ->
-	    {ThisFlags, OtherFlags}
+	    {ThisFlags, OtherFlags band (bnot RejectFlags)}
     end.
 
 publish_flag(hidden, _) ->
@@ -101,36 +143,71 @@ publish_flag(_, OtherNode) ->
 	    0
     end.
 
-make_this_flags(RequestType, OtherNode) ->
-    publish_flag(RequestType, OtherNode) bor
-	%% The parenthesis below makes the compiler generate better code.
-	(?DFLAG_EXPORT_PTR_TAG bor
-	 ?DFLAG_EXTENDED_PIDS_PORTS bor
-	 ?DFLAG_EXTENDED_REFERENCES bor
-	 ?DFLAG_DIST_MONITOR bor
-	 ?DFLAG_FUN_TAGS bor
-	 ?DFLAG_DIST_MONITOR_NAME bor
-	 ?DFLAG_HIDDEN_ATOM_CACHE bor
-	 ?DFLAG_NEW_FUN_TAGS bor
-	 ?DFLAG_BIT_BINARIES bor
-	 ?DFLAG_NEW_FLOATS bor
-	 ?DFLAG_UNICODE_IO bor
-	 ?DFLAG_DIST_HDR_ATOM_CACHE bor
-	 ?DFLAG_SMALL_ATOM_TAGS bor
-	 ?DFLAG_UTF8_ATOMS bor
-	 ?DFLAG_MAP_TAG bor
-	 ?DFLAG_BIG_CREATION).
+-define(DFLAGS_REMOVABLE,
+        (?DFLAG_DIST_HDR_ATOM_CACHE
+             bor ?DFLAG_HIDDEN_ATOM_CACHE
+             bor ?DFLAG_ATOM_CACHE)).
 
-handshake_other_started(#hs_data{request_type=ReqType}=HSData0) ->
+-define(DFLAGS_ADDABLE,
+        (?DFLAGS_ALL
+             band (bnot (?DFLAG_PUBLISHED
+                             bor ?DFLAG_HIDDEN_ATOM_CACHE
+                             bor ?DFLAG_ATOM_CACHE)))).
+
+-define(DFLAGS_THIS_DEFAULT,
+        (?DFLAG_EXPORT_PTR_TAG
+             bor ?DFLAG_EXTENDED_PIDS_PORTS
+             bor ?DFLAG_EXTENDED_REFERENCES
+             bor ?DFLAG_DIST_MONITOR
+             bor ?DFLAG_FUN_TAGS
+             bor ?DFLAG_DIST_MONITOR_NAME
+             bor ?DFLAG_NEW_FUN_TAGS
+             bor ?DFLAG_BIT_BINARIES
+             bor ?DFLAG_NEW_FLOATS
+             bor ?DFLAG_UNICODE_IO
+             bor ?DFLAG_DIST_HDR_ATOM_CACHE
+             bor ?DFLAG_SMALL_ATOM_TAGS
+             bor ?DFLAG_UTF8_ATOMS
+             bor ?DFLAG_MAP_TAG
+             bor ?DFLAG_BIG_CREATION
+             bor ?DFLAG_SEND_SENDER)).
+
+make_this_flags(RequestType, AddFlags, RemoveFlags, OtherNode) ->
+    case RemoveFlags band (bnot ?DFLAGS_REMOVABLE) of
+        0 -> ok;
+        Rerror -> exit({"Rejecting non rejectable flags", Rerror})
+    end,
+    case AddFlags band (bnot ?DFLAGS_ADDABLE) of
+        0 -> ok;
+        Aerror -> exit({"Adding non addable flags", Aerror})
+    end,
+    Flgs0 = ?DFLAGS_THIS_DEFAULT,
+    Flgs1 = Flgs0 bor publish_flag(RequestType, OtherNode),
+    Flgs2 = Flgs1 bor AddFlags,
+    Flgs3 = Flgs2 band (bnot (?DFLAG_HIDDEN_ATOM_CACHE
+                                  bor ?DFLAG_ATOM_CACHE)),
+    Flgs3 band (bnot RemoveFlags).
+
+handshake_other_started(#hs_data{request_type=ReqType,
+                                 add_flags=AddFlgs0,
+                                 reject_flags=RejFlgs0,
+                                 require_flags=ReqFlgs0}=HSData0) ->
+    AddFlgs = convert_flags(AddFlgs0),
+    RejFlgs = convert_flags(RejFlgs0),
+    ReqFlgs = convert_flags(ReqFlgs0),
     {PreOtherFlags,Node,Version} = recv_name(HSData0),
-    PreThisFlags = make_this_flags(ReqType, Node),
+    PreThisFlags = make_this_flags(ReqType, AddFlgs, RejFlgs, Node),
     {ThisFlags, OtherFlags} = adjust_flags(PreThisFlags,
-					   PreOtherFlags),
+					   PreOtherFlags,
+                                           RejFlgs),
     HSData = HSData0#hs_data{this_flags=ThisFlags,
 			     other_flags=OtherFlags,
 			     other_version=Version,
 			     other_node=Node,
-			     other_started=true},
+			     other_started=true,
+                             add_flags=AddFlgs,
+                             reject_flags=RejFlgs,
+                             require_flags=ReqFlgs},
     check_dflags(HSData),
     is_allowed(HSData),
     ?debug({"MD5 connection from ~p (V~p)~n",
@@ -165,23 +242,18 @@ is_allowed(#hs_data{other_node = Node,
     end.
 
 %%
-%% Check that both nodes can handle the same types of extended
-%% node containers. If they can not, abort the connection.
+%% Check mandatory flags...
 %%
 check_dflags(#hs_data{other_node = Node,
                       other_flags = OtherFlags,
-                      other_started = OtherStarted} = HSData) ->
-
-    Mandatory = [{?DFLAG_EXTENDED_REFERENCES, "EXTENDED_REFERENCES"},
-                 {?DFLAG_EXTENDED_PIDS_PORTS, "EXTENDED_PIDS_PORTS"},
-                 {?DFLAG_UTF8_ATOMS, "UTF8_ATOMS"}],
-    Missing = lists:filtermap(fun({Bit, Str}) ->
-                                      case Bit band OtherFlags of
-                                          Bit -> false;
-                                          0 -> {true, Str}
-                                      end
-                              end,
-                              Mandatory),
+                      other_started = OtherStarted,
+                      require_flags = RequiredFlags} = HSData) ->
+    Mandatory = ((?DFLAG_EXTENDED_REFERENCES
+                      bor ?DFLAG_EXTENDED_PIDS_PORTS
+                      bor ?DFLAG_UTF8_ATOMS)
+                     bor RequiredFlags),
+    Missing = check_mandatory(0, ?DFLAGS_ALL, Mandatory,
+                              OtherFlags, []),
     case Missing of
         [] ->
             ok;
@@ -201,6 +273,22 @@ check_dflags(#hs_data{other_node = Node,
 	    ?shutdown2(Node, {check_dflags_failed, Missing})
     end.
 
+check_mandatory(_Bit, 0, _Mandatory, _OtherFlags, Missing) ->
+    Missing;
+check_mandatory(Bit, Left, Mandatory, OtherFlags, Missing) ->
+    DFlag = (1 bsl Bit),
+    NewLeft = Left band (bnot DFlag),
+    NewMissing = case {DFlag band Mandatory,
+                       DFlag band OtherFlags} of
+                     {DFlag, 0} ->
+                         %% Mandatory and missing...
+                         [dflag2str(DFlag) | Missing];
+                     _ ->
+                         %% Not mandatory or present...
+                         Missing
+                 end,
+    check_mandatory(Bit+1, NewLeft, Mandatory, OtherFlags, NewMissing).
+                    
 
 %% No nodedown will be sent if we fail before this process has
 %% succeeded to mark the node as pending.
@@ -314,13 +402,24 @@ flush_down() ->
     end.
 
 handshake_we_started(#hs_data{request_type=ReqType,
-			      other_node=Node}=PreHSData) ->
-    PreThisFlags = make_this_flags(ReqType, Node),
-    HSData = PreHSData#hs_data{this_flags=PreThisFlags},
+			      other_node=Node,
+                              add_flags=AddFlgs0,
+                              reject_flags=RejFlgs0,
+                              require_flags=ReqFlgs0}=PreHSData) ->
+    AddFlgs = convert_flags(AddFlgs0),
+    RejFlgs = convert_flags(RejFlgs0),
+    ReqFlgs = convert_flags(ReqFlgs0),
+    PreThisFlags = make_this_flags(ReqType, AddFlgs, RejFlgs, Node),
+    HSData = PreHSData#hs_data{this_flags = PreThisFlags,
+                               add_flags = AddFlgs,
+                               reject_flags = RejFlgs,
+                               require_flags = ReqFlgs},
     send_name(HSData),
     recv_status(HSData),
     {PreOtherFlags,ChallengeA} = recv_challenge(HSData),
-    {ThisFlags,OtherFlags} = adjust_flags(PreThisFlags, PreOtherFlags),
+    {ThisFlags,OtherFlags} = adjust_flags(PreThisFlags,
+                                          PreOtherFlags,
+                                          RejFlgs),
     NewHSData = HSData#hs_data{this_flags = ThisFlags,
 			       other_flags = OtherFlags, 
 			       other_started = false}, 
@@ -336,15 +435,16 @@ handshake_we_started(#hs_data{request_type=ReqType,
 handshake_we_started(OldHsData) when element(1,OldHsData) =:= hs_data ->
     handshake_we_started(convert_old_hsdata(OldHsData)).
 
-convert_old_hsdata({hs_data, KP, ON, TN, S, T, TF, A, OV, OF, OS, FS, FR,
-		    FS_PRE, FS_POST, FG, FA, MFT, MFG, RT}) ->
-    #hs_data{
-       kernel_pid = KP, other_node = ON, this_node = TN, socket = S, timer = T,
-       this_flags = TF, allowed = A, other_version = OV, other_flags = OF,
-       other_started = OS, f_send = FS, f_recv = FR, f_setopts_pre_nodeup = FS_PRE,
-       f_setopts_post_nodeup = FS_POST, f_getll = FG, f_address = FA,
-       mf_tick = MFT, mf_getstat = MFG, request_type = RT}.
+convert_old_hsdata(OldHsData) ->
+    OHSDL = tuple_to_list(OldHsData),
+    NoMissing = tuple_size(#hs_data{}) - tuple_size(OldHsData),
+    true = NoMissing > 0,
+    list_to_tuple(OHSDL ++ lists:duplicate(NoMissing, undefined)).
 
+convert_flags(Flags) when is_integer(Flags) ->
+    Flags;
+convert_flags(_Undefined) ->
+    0.
 
 %% --------------------------------------------------------------
 %% The connection has been established.
@@ -359,15 +459,20 @@ connection(#hs_data{other_node = Node,
     PType = publish_type(HSData#hs_data.other_flags), 
     case FPreNodeup(Socket) of
 	ok -> 
-	    do_setnode(HSData), % Succeeds or exits the process.
+	    DHandle = do_setnode(HSData), % Succeeds or exits the process.
 	    Address = FAddress(Socket,Node),
 	    mark_nodeup(HSData,Address),
 	    case FPostNodeup(Socket) of
 		ok ->
+                    case HSData#hs_data.f_handshake_complete of
+                        undefined -> ok;
+                        HsComplete -> HsComplete(Socket, Node, DHandle)
+                    end,
 		    con_loop({HSData#hs_data.kernel_pid,
 			      Node,
 			      Socket,
 			      PType,
+                              DHandle,
 			      HSData#hs_data.mf_tick,
 			      HSData#hs_data.mf_getstat,
 			      HSData#hs_data.mf_setopts,
@@ -425,18 +530,16 @@ do_setnode(#hs_data{other_node = Node, socket = Socket,
 		   [Node, Port, {publish_type(Flags), 
 				 '(', Flags, ')', 
 				 Version}]),
-	    case (catch 
-		  erlang:setnode(Node, Port, 
-				 {Flags, Version, '', ''})) of
-		{'EXIT', {system_limit, _}} ->
+            try
+                erlang:setnode(Node, Port, {Flags, Version, '', ''})
+            catch
+                error:system_limit ->
 		    error_msg("** Distribution system limit reached, "
 			      "no table space left for node ~w ** ~n",
 			      [Node]),
 		    ?shutdown(Node);
-		{'EXIT', Other} ->
-		    exit(Other);
-		_Else ->
-		    ok
+                error:Other ->
+                    exit({Other, erlang:get_stacktrace()})
 	    end;
 	_ ->
 	    error_msg("** Distribution connection error, "
@@ -468,7 +571,13 @@ mark_nodeup(#hs_data{kernel_pid = Kernel,
 	    ?shutdown(Node)
     end.
 
-con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat, MFSetOpts, MFGetOpts}=ConData,
+getstat(DHandle, _Socket, undefined) ->
+    erlang:dist_get_stat(DHandle);
+getstat(_DHandle, Socket, MFGetstat) ->
+    MFGetstat(Socket).
+
+con_loop({Kernel, Node, Socket, Type, DHandle, MFTick, MFGetstat,
+          MFSetOpts, MFGetOpts}=ConData,
 	 Tick) ->
     receive
 	{tcp_closed, Socket} ->
@@ -476,7 +585,7 @@ con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat, MFSetOpts, MFGetOpts}=C
 	{Kernel, disconnect} ->
 	    ?shutdown2(Node, disconnected);
 	{Kernel, aux_tick} ->
-	    case MFGetstat(Socket) of
+	    case getstat(DHandle, Socket, MFGetstat) of
 		{ok, _, _, PendWrite} ->
 		    send_tick(Socket, PendWrite, MFTick);
 		_ ->
@@ -484,7 +593,7 @@ con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat, MFSetOpts, MFGetOpts}=C
 	    end,
 	    con_loop(ConData, Tick);
 	{Kernel, tick} ->
-	    case send_tick(Socket, Tick, Type, 
+	    case send_tick(DHandle, Socket, Tick, Type, 
 			   MFTick, MFGetstat) of
 		{ok, NewTick} ->
 		    con_loop(ConData, NewTick);
@@ -497,7 +606,7 @@ con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat, MFSetOpts, MFGetOpts}=C
 		    ?shutdown2(Node, send_net_tick_failed)
 	    end;
 	{From, get_status} ->
-	    case MFGetstat(Socket) of
+	    case getstat(DHandle, Socket, MFGetstat) of
 		{ok, Read, Write, _} ->
 		    From ! {self(), get_status, {ok, Read, Write}},
 		    con_loop(ConData, Tick);
@@ -735,14 +844,14 @@ send_status(#hs_data{socket = Socket, other_node = Node,
 %% we haven't read anything as a hidden node only ticks when it receives 
 %% a TICK !! 
 	
-send_tick(Socket, Tick, Type, MFTick, MFGetstat) ->
+send_tick(DHandle, Socket, Tick, Type, MFTick, MFGetstat) ->
     #tick{tick = T0,
 	  read = Read,
 	  write = Write,
 	  ticked = Ticked} = Tick,
     T = T0 + 1,
     T1 = T rem 4,
-    case MFGetstat(Socket) of
+    case getstat(DHandle, Socket, MFGetstat) of
 	{ok, Read, _, _} when  Ticked =:= T ->
 	    {error, not_responding};
 	{ok, Read, W, Pend} when Type =:= hidden ->
@@ -771,11 +880,10 @@ send_tick(Socket, Tick, Type, MFTick, MFGetstat) ->
 	    Error
     end.
 
-send_tick(Socket, 0, MFTick) ->
-    MFTick(Socket);
-send_tick(_, _Pend, _) ->
-    %% Dont send tick if pending write.
-    ok.
+send_tick(_, Pend, _) when Pend /= false, Pend /= 0 ->
+    ok; %% Dont send tick if pending write.
+send_tick(Socket, _Pend, MFTick) ->
+    MFTick(Socket).
 
 %% ------------------------------------------------------------
 %% Connection setup timeout timer.

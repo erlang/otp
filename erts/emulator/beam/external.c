@@ -616,7 +616,7 @@ erts_make_dist_ext_copy(ErtsDistExternal *edep, Uint xsize)
     sys_memcpy((void *) ep, (void *) edep, dist_ext_sz);
     ep += dist_ext_sz;
     if (new_edep->dep)
-	erts_refc_inc(&new_edep->dep->refc, 1);
+        erts_ref_dist_entry(new_edep->dep);
     new_edep->extp = ep;
     new_edep->ext_endp = ep + ext_sz;
     new_edep->heap_size = -1;
@@ -629,7 +629,8 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 		      byte *ext,
 		      Uint size,
 		      DistEntry *dep,
-		      ErtsAtomCache *cache)
+		      ErtsAtomCache *cache,
+                      Uint32 *connection_id)
 {
 #undef ERTS_EXT_FAIL
 #undef ERTS_EXT_HDR_FAIL
@@ -650,32 +651,35 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
     if (size < 2)
 	ERTS_EXT_FAIL;
 
+    if (!dep)
+        ERTS_INTERNAL_ERROR("Invalid use");
+
     if (ep[0] != VERSION_MAGIC) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	if (dep)
-	    erts_dsprintf(dsbufp,
-			  "** Got message from incompatible erlang on "
-			  "channel %d\n",
-			  dist_entry_channel_no(dep));
-	else
-	    erts_dsprintf(dsbufp,
-			  "** Attempt to convert old incompatible "
-			  "binary %d\n",
-			  *ep);
+        erts_dsprintf(dsbufp,
+                      "** Got message from incompatible erlang on "
+                      "channel %d\n",
+                      dist_entry_channel_no(dep));
 	erts_send_error_to_logger_nogl(dsbufp);
 	ERTS_EXT_FAIL;
     }
 
     edep->flags = 0;
     edep->dep = dep;
-    if (dep) {
-	erts_de_rlock(dep);
-	if (dep->flags & DFLAG_DIST_HDR_ATOM_CACHE)
-	    edep->flags |= ERTS_DIST_EXT_DFLAG_HDR;
-	    
-	edep->flags |= (dep->connection_id & ERTS_DIST_EXT_CON_ID_MASK);
-	erts_de_runlock(dep);
+
+    erts_de_rlock(dep);
+
+    if ((dep->status & (ERTS_DE_SFLG_EXITING|ERTS_DE_SFLG_CONNECTED))
+        != ERTS_DE_SFLG_CONNECTED) {
+        erts_de_runlock(dep);
+        return ERTS_PREP_DIST_EXT_CLOSED;
     }
+
+    if (dep->flags & DFLAG_DIST_HDR_ATOM_CACHE)
+        edep->flags |= ERTS_DIST_EXT_DFLAG_HDR;
+
+    *connection_id = dep->connection_id;
+    edep->flags |= (dep->connection_id & ERTS_DIST_EXT_CON_ID_MASK);
 
     if (ep[1] != DIST_HEADER) {
 	if (edep->flags & ERTS_DIST_EXT_DFLAG_HDR)
@@ -835,14 +839,15 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 	ERTS_EXT_FAIL;
 #endif
 
-    return 0;
+    erts_de_runlock(dep);
+
+    return ERTS_PREP_DIST_EXT_SUCCESS;
 
 #undef CHKSIZE
 #undef ERTS_EXT_FAIL
 #undef ERTS_EXT_HDR_FAIL
 
- bad_hdr:
-    if (dep) {
+ bad_hdr: {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	erts_dsprintf(dsbufp,
 		      "%T got a corrupted distribution header from %T "
@@ -855,10 +860,11 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 	erts_dsprintf(dsbufp, ">>");
 	erts_send_warning_to_logger_nogl(dsbufp);
     }
- fail:
-    if (dep)
-	erts_kill_dist_connection(dep, dep->connection_id);
-    return -1;
+ fail: {
+	erts_de_runlock(dep);
+	erts_kill_dist_connection(dep, *connection_id);
+    }
+    return ERTS_PREP_DIST_EXT_FAILED;
 }
 
 static void

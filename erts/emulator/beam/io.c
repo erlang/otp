@@ -6682,6 +6682,7 @@ int driver_output_binary(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     else
 	erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) (hlen + len));
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
+        erts_atomic64_inc_nob(&prt->dist_entry->in);
 	return erts_net_message(prt,
 				prt->dist_entry,
 				(byte*) hbuf, hlen,
@@ -6722,6 +6723,7 @@ int driver_output2(ErlDrvPort ix, char* hbuf, ErlDrvSizeT hlen,
     else
 	erts_atomic64_add_nob(&bytes_in, (erts_aint64_t) (hlen + len));
     if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
+        erts_atomic64_inc_nob(&prt->dist_entry->in);
 	if (len == 0)
 	    return erts_net_message(prt,
 				    prt->dist_entry,

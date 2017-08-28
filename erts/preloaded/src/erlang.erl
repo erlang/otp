@@ -48,6 +48,12 @@
 	 await_sched_wall_time_modifications/2,
 	 gather_gc_info_result/1]).
 
+-export([dist_ctrl_input_handler/2,
+         dist_ctrl_put_data/2,
+         dist_ctrl_get_data/1,
+         dist_ctrl_get_data_notification/1,
+         dist_get_stat/1]).
+
 -deprecated([now/0]).
 
 %% Get rid of autoimports of spawn to avoid clashes with ourselves.
@@ -86,6 +92,10 @@
 -opaque prepared_code() :: reference().
 
 -export_type([prepared_code/0]).
+
+-opaque dist_handle() :: atom().
+
+-export_type([dist_handle/0]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Native code BIF stubs and their types
@@ -1641,7 +1651,7 @@ setnode(_P1, _P2) ->
     erlang:nif_error(undefined).
 
 %% setnode/3
--spec erlang:setnode(P1, P2, P3) -> true when
+-spec erlang:setnode(P1, P2, P3) -> dist_handle() when
       P1 :: atom(),
       P2 :: port(),
       P3 :: {term(), term(), term(), term()}.
@@ -3201,6 +3211,47 @@ port_set_data(_Port, _Data) ->
       Port :: port() | atom().
 
 port_get_data(_Port) ->
+    erlang:nif_error(undefined).
+
+%%
+%% Distribution channel management
+%%
+
+-spec erlang:dist_ctrl_input_handler(DHandle, InputHandler) -> 'ok' when
+      DHandle :: dist_handle(),
+      InputHandler :: pid().
+
+dist_ctrl_input_handler(_DHandle, _InputHandler) ->
+    erlang:nif_error(undefined).
+
+-spec erlang:dist_ctrl_put_data(DHandle, Data) -> 'ok' when
+      DHandle :: dist_handle(),
+      Data :: iodata().
+
+dist_ctrl_put_data(_DHandle, _Data) ->
+    erlang:nif_error(undefined).
+
+-spec erlang:dist_ctrl_get_data(DHandle) -> Data | 'none' when
+      DHandle :: dist_handle(),
+      Data :: iodata().
+
+dist_ctrl_get_data(_DHandle) ->
+    erlang:nif_error(undefined).
+
+-spec erlang:dist_ctrl_get_data_notification(DHandle) -> 'ok' when
+      DHandle :: dist_handle().
+
+dist_ctrl_get_data_notification(_DHandle) ->
+    erlang:nif_error(undefined).
+
+-spec erlang:dist_get_stat(DHandle) -> Res when
+      DHandle :: dist_handle(),
+      InputPackets :: non_neg_integer(),
+      OutputPackets :: non_neg_integer(),
+      PendingOutputPackets :: boolean(),
+      Res :: {'ok', InputPackets, OutputPackets, PendingOutputPackets}.
+
+dist_get_stat(_DHandle) ->
     erlang:nif_error(undefined).
 
 %%

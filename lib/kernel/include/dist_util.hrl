@@ -29,9 +29,9 @@
 -endif.
 
 -ifdef(dist_trace).
--define(trace(Fmt,Args), io:format("~p ~p:~s",[erlang:timestamp(),node(),lists:flatten(io_lib:format(Fmt, Args))])).
+-define(trace(Fmt,Args), io:format("~p ~p:~s",[erlang:convert_time_unit(erlang:monotonic_time()-erlang:system_info(start_time), native, microsecond),node(),lists:flatten(io_lib:format(Fmt, Args))])).
 % Use the one below for config-file (early boot) connection tracing
-%-define(trace(Fmt,Args), erlang:display([erlang:now(),node(),lists:flatten(io_lib:format(Fmt, Args))])).
+%-define(trace(Fmt,Args), erlang:display([erlang:convert_time_unit(erlang:monotonic_time()-erlang:system_info(start_time), native, microsecond),node(),lists:flatten(io_lib:format(Fmt, Args))])).
 -define(trace_factor,8).
 -else.
 -define(trace(Fmt,Args), ok).
@@ -78,7 +78,13 @@
 
 	  %% New in kernel-5.1 (OTP 19.1):
 	  mf_setopts,        %% netkernel:setopts on active connection
-	  mf_getopts         %% netkernel:getopts on active connection
+	  mf_getopts,         %% netkernel:getopts on active connection
+
+          %% New in kernel-6.0 (OTP 21.0)
+          f_handshake_complete, %% Notify handshake complete
+          add_flags,         %% dflags to add
+          reject_flags,      %% dflags not to use (not all can be rejected)
+          require_flags     %% dflags that are required
 }).
 	  
 

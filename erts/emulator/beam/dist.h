@@ -44,6 +44,7 @@
 #define DFLAG_UTF8_ATOMS          0x10000
 #define DFLAG_MAP_TAG             0x20000
 #define DFLAG_BIG_CREATION        0x40000
+#define DFLAG_SEND_SENDER         0x80000
 
 /* All flags that should be enabled when term_to_binary/1 is used. */
 #define TERM_TO_BINARY_DFLAGS (DFLAG_EXTENDED_REFERENCES	\
@@ -73,6 +74,9 @@
 #define DOP_MONITOR_P		19
 #define DOP_DEMONITOR_P		20
 #define DOP_MONITOR_P_EXIT	21
+
+#define DOP_SEND_SENDER         22
+#define DOP_SEND_SENDER_TT      23
 
 /* distribution trap functions */
 extern Export* dsend2_trap;
@@ -161,13 +165,10 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
 	goto fail;
     }
     if (no_suspend) {
-	failure = ERTS_DSIG_PREP_CONNECTED;
-	erts_mtx_lock(&dep->qlock);
-	if (dep->qflgs & ERTS_DE_QFLG_BUSY)
+        if (erts_atomic32_read_acqb(&dep->qflgs) & ERTS_DE_QFLG_BUSY) {
 	    failure = ERTS_DSIG_PREP_WOULD_SUSPEND;
-	erts_mtx_unlock(&dep->qlock);
-	if (failure == ERTS_DSIG_PREP_WOULD_SUSPEND)
 	    goto fail;
+        }
     }
     dsdp->proc = proc;
     dsdp->dep = dep;
@@ -349,6 +350,7 @@ typedef struct {
     Eterm ctl_heap[6];
     ErtsDSigData dsd;
     DistEntry* dep_to_deref;
+    DistEntry *dep;
     struct erts_dsig_send_context dss;
 
     Eterm return_term;
