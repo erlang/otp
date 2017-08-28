@@ -170,9 +170,10 @@ handle_options(Role, PropList0, Opts0) when is_map(Opts0),
               OptionDefinitions),
         %% Enter the user's values into the map; unknown keys are
         %% treated as socket options
-        lists:foldl(fun(KV, Vals) ->
-                            save(KV, OptionDefinitions, Vals)
-                    end, InitialMap, PropList1)
+        final_preferred_algorithms(
+          lists:foldl(fun(KV, Vals) ->
+                              save(KV, OptionDefinitions, Vals)
+                      end, InitialMap, PropList1))
     catch
         error:{eoptions, KV, undefined} -> 
             {error, {eoptions,KV}};
@@ -509,6 +510,15 @@ default(common) ->
              class => user_options
             },
 
+       %% NOTE: This option is supposed to be used only in this very module (?MODULE). There is
+       %% a final stage in handle_options that "merges" the preferred_algorithms option and this one.
+       %% The preferred_algorithms is the one to use in the rest of the ssh application!
+       {modify_algorithms, def} =>
+           #{default => undefined, % signals error if unsupported algo in preferred_algorithms :(
+             chk => fun check_modify_algorithms/1,
+             class => user_options
+            },
+
        {id_string, def} => 
            #{default => undefined, % FIXME: see ssh_transport:ssh_vsn/0
              chk => fun(random) -> 
@@ -820,82 +830,192 @@ valid_hash(L, Ss) when is_list(L) -> lists:all(fun(S) -> valid_hash(S,Ss) end, L
 valid_hash(X,  _) -> error_in_check(X, "Expect atom or list in fingerprint spec").
 
 %%%----------------------------------------------------------------
-check_preferred_algorithms(Algs) ->
-    [error_in_check(K,"Bad preferred_algorithms key")
-     || {K,_} <- Algs,
-        not lists:keymember(K,1,ssh:default_algorithms())],
+check_modify_algorithms(M) when is_list(M) ->
+    [error_in_check(Op_KVs, "Bad modify_algorithms")
+     || Op_KVs <- M,
+        not is_tuple(Op_KVs)
+            orelse (size(Op_KVs) =/= 2)
+            orelse (not lists:member(element(1,Op_KVs), [append,prepend,rm]))],
+    {true, [{Op,normalize_mod_algs(KVs,false)} || {Op,KVs} <- M]};
+check_modify_algorithms(_) ->
+    error_in_check(modify_algorithms, "Bad option value. List expected.").
 
-    try alg_duplicates(Algs, [], [])
-    of
-	[] ->
-	    {true,
-	     [case proplists:get_value(Key, Algs) of
-                  undefined ->
-                      {Key,DefAlgs};
-                  Vals ->
-                      handle_pref_alg(Key,Vals,SupAlgs)
-              end
-	      || {{Key,DefAlgs}, {Key,SupAlgs}} <- lists:zip(ssh:default_algorithms(),
-                                                             ssh_transport:supported_algorithms())
-             ]
-	    };
 
-	Dups ->
-	    error_in_check(Dups, "Duplicates")
-    catch
-	_:_ ->
-	    false
-    end.
 
-alg_duplicates([{K,V}|KVs], Ks, Dups0) ->
-    Dups =
-	case lists:member(K,Ks) of
-	    true ->  [K|Dups0];
-	    false -> Dups0
-	end,
-    case V--lists:usort(V) of
-	[] -> alg_duplicates(KVs, [K|Ks], Dups);
-	Ds -> alg_duplicates(KVs, [K|Ks], Dups++Ds)
+
+normalize_mod_algs(KVs, UseDefaultAlgs) ->
+    normalize_mod_algs(ssh_transport:algo_classes(), KVs, [], UseDefaultAlgs).
+
+normalize_mod_algs([K|Ks], KVs0, Acc, UseDefaultAlgs) ->
+    %% Pick the expected keys in order and check if they are in the user's list
+    {Vs1, KVs} =
+        case lists:keytake(K, 1, KVs0) of
+            {value, {K,Vs0}, KVs1} ->
+                {Vs0, KVs1};
+            false ->
+                {[], KVs0}
+        end,
+    Vs = normalize_mod_alg_list(K, Vs1, UseDefaultAlgs),
+    normalize_mod_algs(Ks, KVs, [{K,Vs} | Acc], UseDefaultAlgs);
+normalize_mod_algs([], [], Acc, _) ->
+    %% No values left in the key-value list after removing the expected entries
+    %% (thats good)
+    lists:reverse(Acc);
+normalize_mod_algs([], [{K,_}|_], _, _) ->
+    %% Some values left in the key-value list after removing the expected entries
+    %% (thats bad)
+    case ssh_transport:algo_class(K) of
+        true -> error_in_check(K, "Duplicate key");
+        false -> error_in_check(K, "Unknown key")
     end;
-alg_duplicates([], _Ks, Dups) ->
-    Dups.
+normalize_mod_algs([], [X|_], _, _) ->
+    error_in_check(X, "Bad list element").
 
-handle_pref_alg(Key,
-		Vs=[{client2server,C2Ss=[_|_]},{server2client,S2Cs=[_|_]}],
-		[{client2server,Sup_C2Ss},{server2client,Sup_S2Cs}]
-	       ) ->
-    chk_alg_vs(Key, C2Ss, Sup_C2Ss),
-    chk_alg_vs(Key, S2Cs, Sup_S2Cs),
-    {Key, Vs};
 
-handle_pref_alg(Key,
-		Vs=[{server2client,[_|_]},{client2server,[_|_]}],
-		Sup=[{client2server,_},{server2client,_}]
-	       ) ->
-    handle_pref_alg(Key, lists:reverse(Vs), Sup);
 
-handle_pref_alg(Key,
-		Vs=[V|_],
-		Sup=[{client2server,_},{server2client,_}]
-	       ) when is_atom(V) ->
-    handle_pref_alg(Key, [{client2server,Vs},{server2client,Vs}], Sup);
+%%% Handle the algorithms list
+normalize_mod_alg_list(K, Vs, UseDefaultAlgs) ->
+    normalize_mod_alg_list(K,
+                           ssh_transport:algo_two_spec_class(K),
+                           Vs,
+                           def_alg(K,UseDefaultAlgs)).
 
-handle_pref_alg(Key,
-		Vs=[V|_],
-		Sup=[S|_]
-	       ) when is_atom(V), is_atom(S) ->
-    chk_alg_vs(Key, Vs, Sup),
-    {Key, Vs};
 
-handle_pref_alg(Key, Vs, _) ->
-    error_in_check({Key,Vs}, "Badly formed list").
+normalize_mod_alg_list(_K, _, [], Default) ->
+    Default;
 
-chk_alg_vs(OptKey, Values, SupportedValues) ->
-    case (Values -- SupportedValues) of
-	[] -> Values;
-        [none] -> [none];                       % for testing only
-	Bad -> error_in_check({OptKey,Bad}, "Unsupported value(s) found")
+normalize_mod_alg_list(K, true, [{client2server,L1}], [_,{server2client,L2}]) -> 
+    [nml1(K,{client2server,L1}),
+     {server2client,L2}];
+
+normalize_mod_alg_list(K, true, [{server2client,L2}], [{client2server,L1},_]) -> 
+    [{client2server,L1},
+     nml1(K,{server2client,L2})];
+
+normalize_mod_alg_list(K, true, [{server2client,L2},{client2server,L1}], _) -> 
+    [nml1(K,{client2server,L1}),
+     nml1(K,{server2client,L2})];
+
+normalize_mod_alg_list(K, true, [{client2server,L1},{server2client,L2}], _) -> 
+    [nml1(K,{client2server,L1}),
+     nml1(K,{server2client,L2})];
+
+normalize_mod_alg_list(K, true, L0, _) ->
+    L = nml(K,L0), % Throws errors
+    [{client2server,L},
+     {server2client,L}];
+
+normalize_mod_alg_list(K, false, L, _) ->
+    nml(K,L).
+
+
+nml1(K, {T,V}) when T==client2server ; T==server2client ->
+    {T, nml({K,T}, V)}.
+
+nml(K, L) -> 
+    [error_in_check(K, "Bad value for this key") % This is a throw
+     || V <- L,  
+        not is_atom(V)
+    ],
+    case L -- lists:usort(L) of
+        [] -> ok;
+        Dups -> error_in_check({K,Dups}, "Duplicates") % This is a throw
+    end,
+    L.
+
+
+def_alg(K, false) ->
+    case ssh_transport:algo_two_spec_class(K) of
+        false -> [];
+        true ->  [{client2server,[]}, {server2client,[]}]
+    end;
+def_alg(K, true) ->
+    ssh_transport:default_algorithms(K).
+
+              
+
+check_preferred_algorithms(Algs) when is_list(Algs) ->
+    check_input_ok(Algs),
+    {true, normalize_mod_algs(Algs, true)};
+
+check_preferred_algorithms(Algs) when is_list(Algs) ->
+    check_preferred_algorithms({false,Algs});
+
+check_preferred_algorithms(_) ->
+    error_in_check(modify_algorithms, "Bad option value. List expected.").
+
+
+check_input_ok(Algs) ->
+    [error_in_check(KVs, "Bad preferred_algorithms")
+     || KVs <- Algs,
+        not is_tuple(KVs)
+            orelse (size(KVs) =/= 2)].
+
+%%%----------------------------------------------------------------
+final_preferred_algorithms(Options) ->
+    Result =
+        case ?GET_OPT(modify_algorithms, Options) of
+            undefined ->
+                rm_non_supported(true,
+                                 ?GET_OPT(preferred_algorithms, Options));
+            ModAlgs ->
+                rm_non_supported(false,
+                                 eval_ops(?GET_OPT(preferred_algorithms, Options),
+                                          ModAlgs))
+        end,
+    error_if_empty(Result), % Throws errors if any value list is empty
+    ?PUT_OPT({preferred_algorithms,Result}, Options).
+    
+eval_ops(PrefAlgs, ModAlgs) ->
+    lists:foldl(fun eval_op/2, PrefAlgs, ModAlgs).
+
+eval_op({Op,AlgKVs}, PrefAlgs) ->
+    eval_op(Op, AlgKVs, PrefAlgs, []).
+
+eval_op(Op, [{C,L1}|T1], [{C,L2}|T2], Acc) -> 
+    eval_op(Op, T1, T2, [{C,eval_op(Op,L1,L2,[])} | Acc]);
+
+eval_op(_,        [],   [], Acc) -> lists:reverse(Acc);
+eval_op(rm,      Opt, Pref,  []) when is_list(Opt), is_list(Pref) -> Pref -- Opt;
+eval_op(append,  Opt, Pref,  []) when is_list(Opt), is_list(Pref) -> (Pref--Opt) ++ Opt;
+eval_op(prepend, Opt, Pref,  []) when is_list(Opt), is_list(Pref) -> Opt ++ (Pref--Opt).
+
+
+rm_non_supported(UnsupIsErrorFlg, KVs) ->
+    [{K,rmns(K,Vs, UnsupIsErrorFlg)} || {K,Vs} <- KVs].
+
+rmns(K, Vs, UnsupIsErrorFlg) ->
+    case ssh_transport:algo_two_spec_class(K) of
+        false ->
+            rm_unsup(Vs, ssh_transport:supported_algorithms(K), UnsupIsErrorFlg, K);
+        true ->
+            [{C, rm_unsup(Vsx, Sup, UnsupIsErrorFlg, {K,C})} 
+             || {{C,Vsx},{C,Sup}} <- lists:zip(Vs,ssh_transport:supported_algorithms(K))
+            ]
     end.
+
+rm_unsup(A, B, Flg, ErrInf) ->
+    case A--B of
+        Unsup=[_|_] when Flg==true -> error({eoptions,
+                                             {preferred_algorithms,{ErrInf,Unsup}},
+                                             "Unsupported value(s) found"
+                                            });
+        Unsup -> A -- Unsup
+    end.
+
+            
+error_if_empty([{K,[]}|_]) ->
+    error({eoptions, K, "Empty resulting algorithm list"});
+error_if_empty([{K,[{client2server,[]}, {server2client,[]}]}]) ->
+    error({eoptions, K, "Empty resulting algorithm list"});
+error_if_empty([{K,[{client2server,[]}|_]} | _]) ->
+    error({eoptions, {K,client2server}, "Empty resulting algorithm list"});
+error_if_empty([{K,[_,{server2client,[]}|_]} | _]) ->
+    error({eoptions, {K,server2client}, "Empty resulting algorithm list"});
+error_if_empty([_|T]) ->
+    error_if_empty(T);
+error_if_empty([]) ->
+    ok.
 
 %%%----------------------------------------------------------------
 forbidden_option(K,V) ->
