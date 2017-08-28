@@ -105,6 +105,7 @@
          packet = true :: boolean()        %% legacy transport_data?
                         | raw,
          message_cb = false :: false | diameter:eval(),
+         unordered = false :: boolean() | 0 | 1,   %% send unordered?
          send = false :: pid() | boolean()}).      %% sending process
 
 %% Monitor process state.
@@ -677,7 +678,11 @@ send(#diameter_packet{transport_data = {outstream, SId}}
      = S) ->
     send(SId rem OS, Msg, S);
 
-%% ... or not: rotate through all streams.
+%% ... or not: send unordered on a lone stream ...
+send(Msg, #transport{unordered = true} = S) ->
+    send(0, Msg, S);
+
+%% ... or rotate through all.
 send(Msg, #transport{streams = {_, OS},
                      os = N}
           = S) ->
@@ -725,6 +730,7 @@ recv({_, #sctp_assoc_change{state = comm_up,
     %% Deal with different association id after peeloff on Solaris by
     %% taking the id from the first reception.
     up(S#transport{assoc_id = T == accept orelse Id,
+                   unordered = 1 == OS andalso 1,
                    streams = {IS, OS}});
 
 %% ... or not: try the next address.
@@ -749,7 +755,7 @@ recv({[#sctp_sndrcvinfo{assoc_id = Id}], _Bin}
 %% Inbound Diameter message.
 recv({[#sctp_sndrcvinfo{}], Bin} = Msg, S)
   when is_binary(Bin) ->
-    message(recv, Msg, S);
+    message(recv, Msg, recv(S));
 
 recv({_, #sctp_shutdown_event{}}, _) ->
     stop;
@@ -768,6 +774,26 @@ recv({_, #sctp_paddr_change{}}, _) ->
 
 recv({_, #sctp_pdapi_event{}}, _) ->
     ok.
+
+%% recv/1
+%%
+%% Start sending unordered on a lone outbound stream after the second
+%% reception, so that an outgoing CER/CEA will arrive at the peer
+%% before another request.
+
+recv(#transport{unordered = B} = S)
+  when is_boolean(B) ->
+    S;
+
+recv(#transport{unordered = 0, socket = Sock} = S) ->
+    ok = inet:setopts(Sock, [{sctp_default_send_param,
+                              #sctp_sndrcvinfo{flags = [unordered]}}]),
+    S#transport{unordered = true};
+
+recv(#transport{unordered = N} = S) ->
+    S#transport{unordered = N-1}.
+
+%% publish/4
 
 publish(T, Ref, Id, Sock) ->
     true = diameter_reg:add_new({?MODULE, T, {Ref, {Id, Sock}}}),
