@@ -12512,6 +12512,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->msg.first = NULL;
     p->msg.last = &p->msg.first;
     p->msg.save = &p->msg.first;
+    p->msg.saved_last = &p->msg.first;
     p->msg.len = 0;
 #ifdef ERTS_SMP
     p->msg_inq.first = NULL;
