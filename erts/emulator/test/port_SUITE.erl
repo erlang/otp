@@ -572,9 +572,10 @@ dropped_commands(Config, Outputv, Cmd) ->
     ok.
 
 dropped_commands_test(Cmd) ->
-    Port = erlang:open_port({spawn_driver, "echo_drv"}, [{parallelism, true}]),
     spawn_monitor(
       fun() ->
+              Port = erlang:open_port({spawn_driver, "echo_drv"},
+                                      [{parallelism, true}]),
               [spawn_link(fun() -> spin(Port, Cmd) end) || _ <- lists:seq(1,8)],
               timer:sleep(5),
               port_close(Port),
