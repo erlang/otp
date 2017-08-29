@@ -79,7 +79,7 @@
 -type option() :: {sender, boolean()}
                 | sender
                 | {packet, boolean() | raw}
-                | {message_cb, false | diameter:evaluable()}.
+                | {message_cb, false | diameter:eval()}.
 
 -type uint() :: non_neg_integer().
 
@@ -104,7 +104,7 @@
          os = 0   :: uint(),               %% next output stream
          packet = true :: boolean()        %% legacy transport_data?
                         | raw,
-         message_cb = false :: false | diameter:evaluable(),
+         message_cb = false :: false | diameter:eval(),
          send = false :: pid() | boolean()}).      %% sending process
 
 %% Monitor process state.
@@ -120,7 +120,7 @@
          socket    :: gen_sctp:sctp_socket(),
          service   :: pid(), %% service process
          pending = {0, queue:new()},
-         opts      :: [[match()] | boolean() | diameter:evaluable()]}).
+         opts      :: [[match()] | boolean() | diameter:eval()]}).
 %% Field pending implements two queues: the first of transport-to-be
 %% processes to which an association has been assigned but for which
 %% diameter hasn't yet spawned a transport process, a short-lived

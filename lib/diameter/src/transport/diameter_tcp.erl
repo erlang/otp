@@ -110,7 +110,7 @@
 -type option() :: {port, non_neg_integer()}
                 | {sender, boolean()}
                 | sender
-                | {message_cb, false | diameter:evaluable()}
+                | {message_cb, false | diameter:eval()}
                 | {fragment_timer, 0..16#FFFFFFFF}.
 
 %% Accepting/connecting transport process state.
@@ -125,7 +125,7 @@
          timeout :: infinity | 0..16#FFFFFFFF,  %% fragment timeout
          tref = false  :: false | reference(),  %% fragment timer reference
          flush = false :: boolean(),            %% flush fragment at timeout?
-         message_cb  :: false | diameter:evaluable(),
+         message_cb  :: false | diameter:eval(),
          send        :: pid() | false}).         %% sending process
 
 %% The usual transport using gen_tcp can be replaced by anything

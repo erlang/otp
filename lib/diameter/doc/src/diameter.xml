@@ -397,10 +397,10 @@ from the peer offers it.</p>
 Note that each tuple communicates one or more AVP values.
 It is an error to specify duplicate tuples.</p>
 
-<marker id="evaluable"/>
+<marker id="eval"/>
 </item>
 
-<tag><c>evaluable() = {M,F,A} | fun() | [evaluable() | A]</c></tag>
+<tag><c>eval() = {M,F,A} | fun() | [eval() | A]</c></tag>
 <item>
 <p>
 An expression that can be evaluated as a function in the following
@@ -418,7 +418,7 @@ eval(F) ->
 </pre>
 
 <p>
-Applying an <c>&evaluable;</c>
+Applying an <c>&eval;</c>
 <c>E</c> to an argument list <c>A</c>
 is meant in the sense of <c>eval([E|A])</c>.</p>
 
@@ -484,11 +484,11 @@ Matches only those peers whose Origin-Realm has the
 specified value, or all peers if the atom <c>any</c>.</p>
 </item>
 
-<tag><c>{eval, &evaluable;}</c></tag>
+<tag><c>{eval, &eval;}</c></tag>
 <item>
 <p>
 Matches only those peers for which the specified
-<c>&evaluable;</c> returns
+<c>&eval;</c> returns
 <c>true</c> when applied to the connection's <c>diameter_caps</c>
 record.
 Any other return value or exception is equivalent to <c>false</c>.</p>
@@ -650,7 +650,7 @@ Result = ResultCode | {capabilities_cb, CB, ResultCode|discard}
 Caps = #diameter_caps{}
 Pkt  = #diameter_packet{}
 ResultCode = integer()
-CB = &evaluable;
+CB = &eval;
 </pre>
 
 <p>
@@ -826,24 +826,11 @@ field of diameter_packet records independently of
 
 </item>
 
-<tag>
-<marker id="incoming_maxlen"/><c>{incoming_maxlen, 0..16777215}</c></tag>
-<item>
-<p>
-Bound on the expected size of incoming Diameter messages.
-Messages larger than the specified number of bytes are discarded.</p>
-
-<p>
-Defaults to <c>16777215</c>, the maximum value of the 24-bit Message
-Length field in a Diameter Header.</p>
-
-</item>
-
 <tag><c>{restrict_connections, false
                              | node
                              | nodes
                              | [node()]
-                             | evaluable()}</c></tag>
+                             | eval()}</c></tag>
 <item>
 <p>
 The degree to which the service allows multiple transport
@@ -854,7 +841,7 @@ at capabilities exchange.</p>
 If <c>[node()]</c> then a connection is rejected if another already
 exists on any of the specified nodes.
 Types <c>false</c>, <c>node</c>, <c>nodes</c> and
-&evaluable; are equivalent to
+&eval; are equivalent to
 <c>[]</c>, <c>[node()]</c>, <c>[node()|nodes()]</c> and the
 evaluated value respectively, evaluation of each expression taking
 place whenever a new connection is to be established.
@@ -869,7 +856,7 @@ by their own peer and watchdog state machines.</p>
 Defaults to <c>nodes</c>.</p>
 </item>
 
-<tag><c>{sequence, {H,N} | &evaluable;}</c></tag>
+<tag><c>{sequence, {H,N} | &eval;}</c></tag>
 <item>
 <p>
 A constant value <c>H</c> for the topmost <c>32-N</c> bits of
@@ -904,7 +891,7 @@ outgoing requests.</p>
 </warning>
 </item>
 
-<tag><c>{share_peers, boolean() | [node()] | evaluable()}</c></tag>
+<tag><c>{share_peers, boolean() | [node()] | eval()}</c></tag>
 <item>
 <p>
 Nodes to which peer connections established on the local
@@ -917,7 +904,7 @@ configured to use them: see <c>use_shared_peers</c> below.</p>
 If <c>false</c> then peers are not shared.
 If <c>[node()]</c> then peers are shared with the specified list of
 nodes.
-If <c>evaluable()</c> then peers are shared with the nodes returned
+If <c>eval()</c> then peers are shared with the nodes returned
 by the specified function, evaluated whenever a peer connection
 becomes available or a remote service requests information about local
 connections.
@@ -941,18 +928,6 @@ They should typically also configure identical &capabilities;, since
 by sharing peer connections they are distributing the implementation
 of a single Diameter node across multiple Erlang nodes.</p>
 </note>
-</item>
-
-<tag><c>{spawn_opt, [term()]}</c></tag>
-<item>
-<p>
-Options list passed to &spawn_opt; when spawning a process for an
-incoming Diameter request, unless the transport in question
-specifies another value.
-Options <c>monitor</c> and <c>link</c> are ignored.</p>
-
-<p>
-Defaults to the empty list.</p>
 </item>
 
 <tag>
@@ -985,49 +960,6 @@ at encode.
 This differs from the historic decode behaviour of representing AVPs
 of arity 1 as bare values, not wrapped in a list.</p>
 </note>
-</item>
-
-<tag>
-<marker id="strict_mbit"/><c>{strict_mbit, boolean()}</c></tag>
-<item>
-<p>
-Whether or not to regard an AVP setting the M-bit as erroneous when
-the command grammar in question does not explicitly allow the AVP.
-If <c>true</c> then such AVPs are regarded as 5001 errors,
-DIAMETER_AVP_UNSUPPORTED.
-If <c>false</c> then the M-bit is ignored and policing
-it becomes the receiver's responsibility.</p>
-
-<p>
-Defaults to <c>true</c>.</p>
-
-<warning>
-<p>
-RFC 6733 is unclear about the semantics of the M-bit.
-One the one hand, the CCF specification in section 3.2 documents AVP
-in a command grammar as meaning <em>any</em> arbitrary AVP; on the
-other hand, 1.3.4 states that AVPs setting the M-bit cannot be added
-to an existing command: the modified command must instead be
-placed in a new Diameter application.</p>
-<p>
-The reason for the latter is presumably interoperability:
-allowing arbitrary AVPs setting the M-bit in a command makes its
-interpretation implementation-dependent, since there's no
-guarantee that all implementations will understand the same set of
-arbitrary AVPs in the context of a given command.
-However, interpreting <c>AVP</c> in a command grammar as any
-AVP, regardless of M-bit, renders 1.3.4 meaningless, since the receiver
-can simply ignore any AVP it thinks isn't relevant, regardless of the
-sender's intent.</p>
-<p>
-Beware of confusing mandatory in the sense of the M-bit with mandatory
-in the sense of the command grammar.
-The former is a semantic requirement: that the receiver understand the
-semantics of the AVP in the context in question.
-The latter is a syntactic requirement: whether or not the AVP must
-occur in the message in question.</p>
-</warning>
-
 </item>
 
 <tag>
@@ -1074,7 +1006,7 @@ omitted counters are not returned by &service_info;.</p>
 
 </item>
 
-<tag><c>{use_shared_peers, boolean() | [node()] | evaluable()}</c></tag>
+<tag><c>{use_shared_peers, boolean() | [node()] | eval()}</c></tag>
 <item>
 <p>
 Nodes from which communicated peers are made available in
@@ -1084,7 +1016,7 @@ the remote candidates list of &app_pick_peer; callbacks.</p>
 If <c>false</c> then remote peers are not used.
 If <c>[node()]</c> then only peers from the specified list of nodes
 are used.
-If <c>evaluable()</c> then only peers returned by the specified
+If <c>eval()</c> then only peers returned by the specified
 function are used, evaluated whenever a remote service communicates
 information about an available peer connection.
 The value <c>true</c> is equivalent to <c>fun &nodes;</c>.
@@ -1107,6 +1039,15 @@ It may be preferable to make use of the &service_opt;
 <c>restrict_connections</c> and maintain a dedicated connection on
 each node from which requests are sent.</p>
 </warning>
+</item>
+
+<tag><c>&transport_opt;</c></tag>
+<item>
+<p>
+Any transport option except <c>applications</c> or
+<c>capabilities</c>.
+Used as defaults for transport configuration, values passed to
+&add_transport; overriding values configured on the service.</p>
 </item>
 
 </taglist>
@@ -1156,7 +1097,7 @@ TLS is desired over TCP as implemented by &man_tcp;.</p>
 </item>
 
 <tag>
-<marker id="capabilities_cb"/><c>{capabilities_cb, &evaluable;}</c></tag>
+<marker id="capabilities_cb"/><c>{capabilities_cb, &eval;}</c></tag>
 <item>
 <p>
 Callback invoked upon reception of CER/CEA during capabilities
@@ -1250,7 +1191,7 @@ transport.</p>
 </item>
 
 <tag>
-<marker id="disconnect_cb"/><c>{disconnect_cb, &evaluable;}</c></tag>
+<marker id="disconnect_cb"/><c>{disconnect_cb, &eval;}</c></tag>
 <item>
 <p>
 Callback invoked prior to terminating the transport process of a
@@ -1350,6 +1291,19 @@ Defaults to 5000.</p>
 </item>
 
 <tag>
+<marker id="incoming_maxlen"/><c>{incoming_maxlen, 0..16777215}</c></tag>
+<item>
+<p>
+Bound on the expected size of incoming Diameter messages.
+Messages larger than the specified number of bytes are discarded.</p>
+
+<p>
+Defaults to <c>16777215</c>, the maximum value of the 24-bit Message
+Length field in a Diameter Header.</p>
+
+</item>
+
+<tag>
 <marker id="length_errors"/><c>{length_errors, exit|handle|discard}</c></tag>
 <item>
 <p>
@@ -1407,7 +1361,7 @@ incoming Diameter request.
 Options <c>monitor</c> and <c>link</c> are ignored.</p>
 
 <p>
-Defaults to the list configured on the service if not specified.</p>
+Defaults to the empty list.</p>
 </item>
 
 <tag>
@@ -1422,6 +1376,49 @@ If false then unexpected messages are discarded.</p>
 Defaults to true.
 Changing this results in non-standard behaviour, but can be useful in
 case peers are known to be behave badly.</p>
+</item>
+
+<tag>
+<marker id="strict_mbit"/><c>{strict_mbit, boolean()}</c></tag>
+<item>
+<p>
+Whether or not to regard an AVP setting the M-bit as erroneous when
+the command grammar in question does not explicitly allow the AVP.
+If <c>true</c> then such AVPs are regarded as 5001 errors,
+DIAMETER_AVP_UNSUPPORTED.
+If <c>false</c> then the M-bit is ignored and policing
+it becomes the receiver's responsibility.</p>
+
+<p>
+Defaults to <c>true</c>.</p>
+
+<warning>
+<p>
+RFC 6733 is unclear about the semantics of the M-bit.
+One the one hand, the CCF specification in section 3.2 documents AVP
+in a command grammar as meaning <em>any</em> arbitrary AVP; on the
+other hand, 1.3.4 states that AVPs setting the M-bit cannot be added
+to an existing command: the modified command must instead be
+placed in a new Diameter application.</p>
+<p>
+The reason for the latter is presumably interoperability:
+allowing arbitrary AVPs setting the M-bit in a command makes its
+interpretation implementation-dependent, since there's no
+guarantee that all implementations will understand the same set of
+arbitrary AVPs in the context of a given command.
+However, interpreting <c>AVP</c> in a command grammar as any
+AVP, regardless of M-bit, renders 1.3.4 meaningless, since the receiver
+can simply ignore any AVP it thinks isn't relevant, regardless of the
+sender's intent.</p>
+<p>
+Beware of confusing mandatory in the sense of the M-bit with mandatory
+in the sense of the command grammar.
+The former is a semantic requirement: that the receiver understand the
+semantics of the AVP in the context in question.
+The latter is a syntactic requirement: whether or not the AVP must
+occur in the message in question.</p>
+</warning>
+
 </item>
 
 <tag>

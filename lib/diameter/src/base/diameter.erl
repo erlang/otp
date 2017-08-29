@@ -46,7 +46,8 @@
 -export([start/0,
          stop/0]).
 
--export_type([evaluable/0,
+-export_type([eval/0,
+              evaluable/0,  %% deprecated
               decode_format/0,
               strict_arities/0,
               restriction/0,
@@ -301,7 +302,7 @@ call(SvcName, App, Message) ->
     | realm
     | {host,  any|'DiameterIdentity'()}
     | {realm, any|'DiameterIdentity'()}
-    | {eval, evaluable()}
+    | {eval, eval()}
     | {neg, peer_filter()}
     | {all, [peer_filter()]}
     | {any, [peer_filter()]}.
@@ -309,10 +310,13 @@ call(SvcName, App, Message) ->
 -opaque peer_ref()
    :: pid().
 
--type evaluable()
+-type eval()
    :: {module(), atom(), list()}
     | fun()
-    | maybe_improper_list(evaluable(), list()).
+    | maybe_improper_list(eval(), list()).
+
+-type evaluable()
+   :: eval().
 
 -type sequence()
    :: {'Unsigned32'(), 0..32}.
@@ -322,12 +326,12 @@ call(SvcName, App, Message) ->
     | node
     | nodes
     | [node()]
-    | evaluable().
+    | eval().
 
 -type remotes()
    :: boolean()
     | [node()]
-    | evaluable().
+    | eval().
 
 -type message_length()
    :: 0..16#FFFFFF.
@@ -344,22 +348,38 @@ call(SvcName, App, Message) ->
     | encode
     | decode.
 
+%% Options common to both start_service/2 and add_transport/2.
+
+-type common_opt()
+   :: {pool_size, pos_integer()}
+    | {capabilities_cb, eval()}
+    | {capx_timeout, 'Unsigned32'()}
+    | {strict_capx, boolean()}
+    | {strict_mbit, boolean()}
+    | {disconnect_cb, eval()}
+    | {dpr_timeout, 'Unsigned32'()}
+    | {dpa_timeout, 'Unsigned32'()}
+    | {incoming_maxlen, message_length()}
+    | {length_errors, exit | handle | discard}
+    | {connect_timer, 'Unsigned32'()}
+    | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
+    | {watchdog_config, [{okay|suspect, non_neg_integer()}]}
+    | {spawn_opt, list()}.
+
 %% Options passed to start_service/2
 
 -type service_opt()
    :: capability()
     | {application, [application_opt()]}
     | {restrict_connections, restriction()}
-    | {sequence, sequence() | evaluable()}
+    | {sequence, sequence() | eval()}
     | {share_peers, remotes()}
     | {decode_format, decode_format()}
     | {traffic_counters, boolean()}
     | {string_decode, boolean()}
     | {strict_arities, true | strict_arities()}
-    | {strict_mbit, boolean()}
-    | {incoming_maxlen, message_length()}
     | {use_shared_peers, remotes()}
-    | {spawn_opt, list()}.
+    | common_opt().
 
 -type application_opt()
    :: {alias, app_alias()}
@@ -389,20 +409,9 @@ call(SvcName, App, Message) ->
    :: {transport_module, atom()}
     | {transport_config, any()}
     | {transport_config, any(), 'Unsigned32'() | infinity}
-    | {pool_size, pos_integer()}
     | {applications, [app_alias()]}
     | {capabilities, [capability()]}
-    | {capabilities_cb, evaluable()}
-    | {capx_timeout, 'Unsigned32'()}
-    | {strict_capx, boolean()}
-    | {disconnect_cb, evaluable()}
-    | {dpr_timeout, 'Unsigned32'()}
-    | {dpa_timeout, 'Unsigned32'()}
-    | {length_errors, exit | handle | discard}
-    | {connect_timer, 'Unsigned32'()}
-    | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
-    | {watchdog_config, [{okay|suspect, non_neg_integer()}]}
-    | {spawn_opt, list()}
+    | common_opt()
     | {private, any()}.
 
 %% Predicate passed to remove_transport/2
