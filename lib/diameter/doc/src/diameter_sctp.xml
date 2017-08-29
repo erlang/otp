@@ -16,7 +16,7 @@
 <header>
 <copyright>
 <year>2011</year>
-<year>2016</year>
+<year>2017</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -116,7 +116,6 @@ and port respectively.</p>
 Multiple <c>ip</c> options can be specified for a multihomed peer.
 If none are specified then the values of <c>Host-IP-Address</c>
 in the <c>diameter_service</c> record are used.
-(In particular, one of these must be specified.)
 Option <c>port</c> defaults to 3868 for a listening transport and 0 for a
 connecting transport.</p>
 
