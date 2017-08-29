@@ -79,7 +79,7 @@
 -type option() :: {sender, boolean()}
                 | sender
                 | {packet, boolean() | raw}
-                | {message_cb, false | diameter:evaluable()}.
+                | {message_cb, false | diameter:eval()}.
 
 -type uint() :: non_neg_integer().
 
@@ -104,7 +104,7 @@
          os = 0   :: uint(),               %% next output stream
          packet = true :: boolean()        %% legacy transport_data?
                         | raw,
-         message_cb = false :: false | diameter:evaluable(),
+         message_cb = false :: false | diameter:eval(),
          send = false :: pid() | boolean()}).      %% sending process
 
 %% Monitor process state.
@@ -120,7 +120,7 @@
          socket    :: gen_sctp:sctp_socket(),
          service   :: pid(), %% service process
          pending = {0, queue:new()},
-         opts      :: [[match()] | boolean() | diameter:evaluable()]}).
+         opts      :: [[match()] | boolean() | diameter:eval()]}).
 %% Field pending implements two queues: the first of transport-to-be
 %% processes to which an association has been assigned but for which
 %% diameter hasn't yet spawned a transport process, a short-lived
@@ -156,12 +156,7 @@ start(T, Svc, Opts)
         = Svc,
     diameter_sctp_sup:start(),  %% start supervisors on demand
     Addrs = Caps#diameter_caps.host_ip_address,
-    s(T, Addrs, Pid, lists:map(fun ip/1, Opts)).
-
-ip({ifaddr, A}) ->
-    {ip, A};
-ip(T) ->
-    T.
+    s(T, Addrs, Pid, Opts).
 
 %% A listener spawns transports either as a consequence of this call
 %% when there is not yet an association to assign it, or at comm_up on
@@ -354,22 +349,34 @@ l([], Ref, T) ->
 %% open/3
 
 open(Addrs, Opts, PortNr) ->
-    {LAs, Os} = addrs(Addrs, Opts),
-    {LAs, case gen_sctp:open(gen_opts(portnr(Os, PortNr))) of
-              {ok, Sock} ->
-                  Sock;
-              {error, Reason} ->
-                  x({open, Reason})
-          end}.
+    case gen_sctp:open(gen_opts(portnr(addrs(Addrs, Opts), PortNr))) of
+        {ok, Sock} ->
+            {addrs(Sock), Sock};
+        {error, Reason} ->
+            x({open, Reason})
+    end.
 
 addrs(Addrs, Opts) ->
-    case proplists:split(Opts, [ip]) of
-        {[[]], _} ->
-            {Addrs, Opts ++ [{ip, A} || A <- Addrs]};
-        {[As], Os} ->
-            LAs = [diameter_lib:ipaddr(A) || {ip, A} <- As],
-            {LAs, Os ++ [{ip, A} || A <- LAs]}
+    case lists:mapfoldl(fun ipaddr/2, false, Opts) of
+        {Os, true} ->
+            Os;
+        {_, false} ->
+            Opts ++ [{ip, A} || A <- Addrs]
     end.
+
+ipaddr({K,A}, _)
+  when K == ifaddr;
+       K == ip ->
+    {{ip, ipaddr(A)}, true};
+ipaddr(T, B) ->
+    {T, B}.
+
+ipaddr(A)
+  when A == loopback;
+       A == any ->
+    A;
+ipaddr(A) ->
+    diameter_lib:ipaddr(A).
 
 portnr(Opts, PortNr) ->
     case proplists:get_value(port, Opts) of
@@ -377,6 +384,14 @@ portnr(Opts, PortNr) ->
             [{port, PortNr} | Opts];
         _ ->
             Opts
+    end.
+
+addrs(Sock) ->
+    case inet:socknames(Sock) of
+        {ok, As} ->
+            [A || {A,_} <- As];
+        {error, Reason} ->
+            x({socknames, Reason})
     end.
 
 %% x/1

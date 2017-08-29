@@ -170,14 +170,11 @@ that will not be forthcoming, which will eventually cause the RFC 3539
 watchdog to take down the connection.</p>
 
 <p>
-If an <c>ip</c> option is not specified then the first element of a
-non-empty <c>Host-IP-Address</c> list in <c>Svc</c> provides the local
-IP address.
-If neither is specified then the default address selected by &gen_tcp;
-is used.
-In all cases, the selected address is either returned from
-&start; or passed in a <c>connected</c> message over the transport
-interface.</p>
+The first element of a non-empty <c>Host-IP-Address</c> list in
+<c>Svc</c> provides the local IP address if an <c>ip</c> option is not
+specified.
+The local address is either returned from&start; or passed in a
+<c>connected</c> message over the transport interface.</p>
 </desc>
 </func>
 

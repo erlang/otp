@@ -26,16 +26,16 @@
 %% as the Diameter application callback in question. The record has
 %% one field for each callback function as well as 'default' and
 %% 'extra' fields. A function-specific field can be set to a
-%% diameter:evaluable() in order to redirect the callback
+%% diameter:eval() in order to redirect the callback
 %% corresponding to that field, or to 'false' to request the default
 %% callback implemented in this module. If neither of these fields are
 %% set then the 'default' field determines the form of the callback: a
 %% module name results in the usual callback as if the module had been
-%% configured directly as the callback module, a diameter_evaluable()
+%% configured directly as the callback module, a diameter_eval()
 %% in a callback applied to the atom-valued callback name and argument
 %% list. For all callbacks not to this module, the 'extra' field is a
 %% list of additional arguments, following arguments supplied by
-%% diameter but preceding those of the diameter:evaluable() being
+%% diameter but preceding those of the diameter:eval() being
 %% applied.
 %%
 %% For example, the following config to diameter:start_service/2, in

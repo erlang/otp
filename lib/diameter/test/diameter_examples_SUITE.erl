@@ -344,7 +344,7 @@ top(Dir, LibDir) ->
 start({server, Prot}) ->
     ok = diameter:start(),
     ok = server:start(),
-    {ok, Ref} = server:listen(Prot),
+    {ok, Ref} = server:listen({Prot, any, 3868}),
     [_] = ?util:lport(Prot, Ref),
     ok;
 
@@ -352,7 +352,7 @@ start({client = Svc, Prot}) ->
     ok = diameter:start(),
     true = diameter:subscribe(Svc),
     ok = client:start(),
-    {ok, Ref} = client:connect(Prot),
+    {ok, Ref} = client:connect({Prot, loopback, loopback, 3868}),
     receive #diameter_event{info = {up, Ref, _, _, _}} -> ok end;
 
 start(Config) ->

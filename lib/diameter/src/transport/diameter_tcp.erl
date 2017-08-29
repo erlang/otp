@@ -110,7 +110,7 @@
 -type option() :: {port, non_neg_integer()}
                 | {sender, boolean()}
                 | sender
-                | {message_cb, false | diameter:evaluable()}
+                | {message_cb, false | diameter:eval()}
                 | {fragment_timer, 0..16#FFFFFFFF}.
 
 %% Accepting/connecting transport process state.
@@ -125,7 +125,7 @@
          timeout :: infinity | 0..16#FFFFFFFF,  %% fragment timeout
          tref = false  :: false | reference(),  %% fragment timer reference
          flush = false :: boolean(),            %% flush fragment at timeout?
-         message_cb  :: false | diameter:evaluable(),
+         message_cb  :: false | diameter:eval(),
          send        :: pid() | false}).         %% sending process
 
 %% The usual transport using gen_tcp can be replaced by anything
@@ -142,8 +142,7 @@
    -> {ok, pid(), [inet:ip_address()]}
  when Ref :: diameter:transport_ref();
            ({connect, Ref}, #diameter_service{}, [connect_option()])
-   -> {ok, pid(), [inet:ip_address()]}
-    | {ok, pid()}
+   -> {ok, pid()}
  when Ref :: diameter:transport_ref().
 
 start({T, Ref}, Svc, Opts) ->
@@ -258,21 +257,13 @@ i(#monitor{parent = Pid, transport = TPid} = S) ->
 
 i({listen, Ref, {Mod, Opts, Addrs}}) ->
     [_] = diameter_config:subscribe(Ref, transport), %% assert existence
-    {[LA, LP], Rest} = proplists:split(Opts, [ip, port]),
-    LAddrOpt = get_addr(LA, Addrs),
-    LPort = get_port(LP),
-    {ok, LSock} = Mod:listen(LPort, gen_opts(LAddrOpt, Rest)),
-    LAddr = laddr(LAddrOpt, Mod, LSock),
+    {[LP], Rest} = proplists:split(Opts, [port]),
+    {ok, LSock} = Mod:listen(get_port(LP), gen_opts(Addrs, Rest)),
+    {ok, {LAddr, _}} = sockname(Mod, LSock),
     true = diameter_reg:add_new({?MODULE, listener, {Ref, {LAddr, LSock}}}),
     proc_lib:init_ack({ok, self(), {LAddr, LSock}}),
     #listener{socket = LSock,
               module = Mod}.
-
-laddr([], Mod, Sock) ->
-    {ok, {Addr, _Port}} = sockname(Mod, Sock),
-    Addr;
-laddr([{ip, Addr}], _, _) ->
-    Addr.
 
 ssl_opts([]) ->
     false;
@@ -308,24 +299,16 @@ init(accept = T, Ref, Mod, Pid, Opts, Addrs, SvcPid) ->
     Sock;
 
 init(connect = T, Ref, Mod, Pid, Opts, Addrs, _SvcPid) ->
-    {[LA, RA, RP], Rest} = proplists:split(Opts, [ip, raddr, rport]),
-    LAddrOpt = get_addr(LA, Addrs),
+    {[RA, RP], Rest} = proplists:split(Opts, [raddr, rport]),
     RAddr = get_addr(RA),
     RPort = get_port(RP),
-    proc_lib:init_ack(init_rc(LAddrOpt)),
-    Sock = ok(connect(Mod, RAddr, RPort, gen_opts(LAddrOpt, Rest))),
+    proc_lib:init_ack({ok, self()}),
+    Sock = ok(connect(Mod, RAddr, RPort, gen_opts(Addrs, Rest))),
     publish(Mod, T, Ref, Sock),
-    up(Pid, {RAddr, RPort}, LAddrOpt, Mod, Sock),
+    up(Pid, {RAddr, RPort}, Mod, Sock),
     Sock.
 
-init_rc([{ip, Addr}]) ->
-    {ok, self(), [Addr]};
-init_rc([]) ->
-    {ok, self()}.
-
-up(Pid, Remote, [{ip, _Addr}], _, _) ->
-    diameter_peer:up(Pid, Remote);
-up(Pid, Remote, [], Mod, Sock) ->
+up(Pid, Remote, Mod, Sock) ->
     {Addr, _Port} = ok(sockname(Mod, Sock)),
     diameter_peer:up(Pid, Remote, [Addr]).
 
@@ -382,25 +365,41 @@ l([{{?MODULE, listener, {_, AS}}, LPid}], _, _) ->
 l([], Ref, T) ->
     diameter_tcp_sup:start_child({listen, Ref, T}).
 
+%% addrs/2
+%%
+%% Take the first address from the service if several are specified
+%% and not address is configured.
+
+addrs(Addrs, Opts) ->
+    case lists:mapfoldr(fun ipaddr/2, [], Opts) of
+        {Os, [_]} ->
+            Os;
+        {_, []} ->
+            Opts ++ [{ip, A} || [A|_] <- [Addrs]];
+        {_, As} ->
+            ?ERROR({invalid_addrs, As, Addrs})
+    end.
+
+ipaddr({K,A}, As)
+  when K == ifaddr;
+       K == ip ->
+    {{ip, ipaddr(A)}, [A | As]};
+ipaddr(T, B) ->
+    {T, B}.
+
+ipaddr(A)
+  when A == loopback;
+       A == any ->
+    A;
+ipaddr(A) ->
+    diameter_lib:ipaddr(A).
+
 %% get_addr/1
 
-get_addr(As) ->
-    diameter_lib:ipaddr(addr(As, [])).
-
-%% get_addr/2
-
-get_addr([], []) ->
-    [];
-get_addr(As, Def) ->
-    [{ip, diameter_lib:ipaddr(addr(As, Def))}].
-
-%% Take the first address from the service if several are unspecified.
-addr([], [Addr | _]) ->
-    Addr;
-addr([{_, Addr}], _) ->
-    Addr;
-addr(As, Addrs) ->
-    ?ERROR({invalid_addrs, As, Addrs}).
+get_addr([{_, Addr}]) ->
+    diameter_lib:ipaddr(Addr);
+get_addr(Addrs) ->
+    ?ERROR({invalid_addrs, Addrs}).
 
 %% get_port/1
 
@@ -413,10 +412,15 @@ get_port(Ps) ->
 
 %% gen_opts/2
 
-gen_opts(LAddrOpt, Opts) ->
+gen_opts(Addrs, Opts) ->
+    gen_opts(addrs(Addrs, Opts)).
+
+%% gen_opts/1
+
+gen_opts(Opts) ->
     {L,_} = proplists:split(Opts, [binary, packet, active]),
     [[],[],[]] == L orelse ?ERROR({reserved_options, Opts}),
-    [binary, {packet, 0}, {active, false}] ++ LAddrOpt ++ Opts.
+    [binary, {packet, 0}, {active, false} | Opts].
 
 %% ---------------------------------------------------------------------------
 %% # ports/1
