@@ -102,10 +102,10 @@
          streams  :: {uint(), uint()}      %% {InStream, OutStream} counts
                    | undefined,
          os = 0   :: uint(),               %% next output stream
+         rotate = 1 :: boolean() | 0 | 1,  %% rotate os?
          packet = true :: boolean()        %% legacy transport_data?
                         | raw,
          message_cb = false :: false | diameter:eval(),
-         unordered = 1 :: boolean() | 0 | 1,       %% send unordered?
          send = false :: pid() | boolean()}).      %% sending process
 
 %% Monitor process state.
@@ -678,14 +678,14 @@ send(#diameter_packet{transport_data = {outstream, SId}}
      = S) ->
     send(SId rem OS, Msg, S);
 
-%% ... or not: rotate when sending ordered ...
-send(Msg, #transport{unordered = false,
+%% ... or not: rotate when sending on multiple streams ...
+send(Msg, #transport{rotate = true,
                      streams = {_, OS},
                      os = N}
           = S) ->
     send(N, Msg, S#transport{os = (N + 1) rem OS});
 
-%% ... or send only on the first stream, possibly unordered.
+%% ... or send on the only stream available.
 send(Msg, S) ->
     send(0, Msg, S).
 
@@ -777,24 +777,20 @@ recv({_, #sctp_pdapi_event{}}, _) ->
 
 %% recv/1
 %%
-%% Start sending unordered on a lone outbound stream after the second
-%% reception, so that an outgoing CER/CEA will arrive at the peer
-%% before another request.
+%% Start sending unordered after the second reception, so that an
+%% outgoing CER/CEA will arrive at the peer before another request.
 
-recv(#transport{unordered = B} = S)
+recv(#transport{rotate = B} = S)
   when is_boolean(B) ->
     S;
 
-recv(#transport{unordered = 0, streams = {_, 1}, socket = Sock} = S) ->
+recv(#transport{rotate = 0, streams = {_,N}, socket = Sock} = S) ->
     ok = inet:setopts(Sock, [{sctp_default_send_param,
                               #sctp_sndrcvinfo{flags = [unordered]}}]),
-    S#transport{unordered = true};
+    S#transport{rotate = 1 < N};
 
-recv(#transport{unordered = 0} = S) ->
-    S#transport{unordered = false};
-
-recv(#transport{unordered = N} = S) ->
-    S#transport{unordered = N-1}.
+recv(#transport{rotate = N} = S) ->
+    S#transport{rotate = N-1}.
 
 %% publish/4
 
