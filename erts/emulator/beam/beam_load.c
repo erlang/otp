@@ -5372,12 +5372,15 @@ get_tag_and_value(LoaderState* stp, Uint len_code,
 {
     Uint count;
     Sint val;
-    byte default_buf[128];
-    byte* bigbuf = default_buf;
+    byte default_byte_buf[128];
+    byte* byte_buf = default_byte_buf;
+    Eterm default_big_buf[128/sizeof(Eterm)];
+    Eterm* big_buf = default_big_buf;
+    Eterm tmp_big;
     byte* s;
     int i;
     int neg = 0;
-    Uint arity;
+    Uint words_needed;
     Eterm* hp;
 
     /*
@@ -5454,8 +5457,11 @@ get_tag_and_value(LoaderState* stp, Uint len_code,
 	    *result = val;
 	    return TAG_i;
 	} else {
-	    *result = new_literal(stp, &hp, BIG_UINT_HEAP_SIZE);
-	    (void) small_to_big(val, hp);
+            tmp_big = small_to_big(val, big_buf);
+            if (!find_literal(stp, tmp_big, result)) {
+                *result = new_literal(stp, &hp, BIG_UINT_HEAP_SIZE);
+                sys_memcpy(hp, big_buf, BIG_UINT_HEAP_SIZE*sizeof(Eterm));
+            }
 	    return TAG_q;
 	}
     }
@@ -5465,8 +5471,8 @@ get_tag_and_value(LoaderState* stp, Uint len_code,
      * (including margin).
      */
 
-    if (count+8 > sizeof(default_buf)) {
-	bigbuf = erts_alloc(ERTS_ALC_T_LOADER_TMP, count+8);
+    if (count+8 > sizeof(default_byte_buf)) {
+	byte_buf = erts_alloc(ERTS_ALC_T_LOADER_TMP, count+8);
     }
 
     /*
@@ -5475,20 +5481,20 @@ get_tag_and_value(LoaderState* stp, Uint len_code,
 
     GetString(stp, s, count);
     for (i = 0; i < count; i++) {
-	bigbuf[count-i-1] = *s++;
+	byte_buf[count-i-1] = *s++;
     }
 
     /*
      * Check if the number is negative, and negate it if so.
      */
 
-    if ((bigbuf[count-1] & 0x80) != 0) {
+    if ((byte_buf[count-1] & 0x80) != 0) {
 	unsigned carry = 1;
 
 	neg = 1;
 	for (i = 0; i < count; i++) {
-	    bigbuf[i] = ~bigbuf[i] + carry;
-	    carry = (bigbuf[i] == 0 && carry == 1);
+	    byte_buf[i] = ~byte_buf[i] + carry;
+	    carry = (byte_buf[i] == 0 && carry == 1);
 	}
 	ASSERT(carry == 0);
     }
@@ -5497,33 +5503,52 @@ get_tag_and_value(LoaderState* stp, Uint len_code,
      * Align to word boundary.
      */
 
-    if (bigbuf[count-1] == 0) {
+    if (byte_buf[count-1] == 0) {
 	count--;
     }
-    if (bigbuf[count-1] == 0) {
+    if (byte_buf[count-1] == 0) {
 	LoadError0(stp, "bignum not normalized");
     }
     while (count % sizeof(Eterm) != 0) {
-	bigbuf[count++] = 0;
+	byte_buf[count++] = 0;
     }
 
     /*
-     * Allocate heap space for the bignum and copy it.
+     * Convert to a bignum.
      */
 
-    arity = count/sizeof(Eterm);
-    *result = new_literal(stp, &hp, arity+1);
-    if (is_nil(bytes_to_big(bigbuf, count, neg, hp)))
-	goto load_error;
+    words_needed = count/sizeof(Eterm) + 1;
+    if (words_needed*sizeof(Eterm) > sizeof(default_big_buf)) {
+        big_buf = erts_alloc(ERTS_ALC_T_LOADER_TMP, words_needed*sizeof(Eterm));
+    }
+    tmp_big = bytes_to_big(byte_buf, count, neg, big_buf);
+    if (is_nil(tmp_big)) {
+        goto load_error;
+    }
 
-    if (bigbuf != default_buf) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) bigbuf);
+    /*
+     * Create a literal if there is no previous literal with the same value.
+     */
+
+    if (!find_literal(stp, tmp_big, result)) {
+        *result = new_literal(stp, &hp, words_needed);
+        sys_memcpy(hp, big_buf, words_needed*sizeof(Eterm));
+    }
+
+    if (byte_buf != default_byte_buf) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) byte_buf);
+    }
+    if (big_buf != default_big_buf) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) big_buf);
     }
     return TAG_q;
 
  load_error:
-    if (bigbuf != default_buf) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) bigbuf);
+    if (byte_buf != default_byte_buf) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) byte_buf);
+    }
+    if (big_buf != default_big_buf) {
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) big_buf);
     }
     return -1;
 }
