@@ -387,6 +387,16 @@ select(T) ->
 
 %% --------------------
 
+%% Work around common_test accumulating Config improperly, causing
+%% testcases to get Config from groups and suites they're not in.
+init_per_testcase(N, Config)
+  when N == rfc4005;
+       N == start;
+       N == result_codes;
+       N == empty;
+       N == stop ->
+    Config;
+
 %% Skip testcases that can reasonably fail under SCTP.
 init_per_testcase(Name, Config) ->
     TCs = proplists:get_value(runlist, Config, []),
@@ -409,6 +419,9 @@ end_per_testcase(_, _) ->
     ok.
 
 %% replace/2
+%%
+%% Work around common_test running init functions inappropriately, and
+%% this accumulating more config than expected.
 
 replace(Pairs, Config)
   when is_list(Pairs) ->

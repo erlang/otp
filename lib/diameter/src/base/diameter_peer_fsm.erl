@@ -128,9 +128,8 @@
                        %% outgoing DPR; boolean says whether or not
                        %% the request was sent explicitly with
                        %% diameter:call/4.
-         codec :: #{decode_format := record,
+         codec :: #{decode_format := diameter:decode_format(),
                     string_decode := boolean(),
-                    strict_arities => diameter:strict_arities(),
                     strict_mbit := boolean(),
                     rfc := 3588 | 6733,
                     ordered_encode := false},
@@ -260,8 +259,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
                               strict_mbit,
                               rfc,
                               ordered_encode],
-                             SvcOpts#{ordered_encode => false,
-                                      decode_format => record})}.
+                             SvcOpts#{ordered_encode => false})}.
 %% The transport returns its local ip addresses so that different
 %% transports on the same service can use different local addresses.
 %% The local addresses are put into Host-IP-Address avps here when
@@ -818,7 +816,8 @@ handle('DPA' = N,
                  %% service: explicit DPR is counted in the same way
                  %% as other explicitly sent requests.
                  incr(recv, H, Dict0),
-                 incr_rc(recv, diameter_codec:decode(Dict0, Opts, Pkt), Dict0)
+                 {_, RecPkt} = decode(Dict0, Opts, Pkt),
+                 incr_rc(recv, RecPkt, Dict0)
              end,
     diameter_peer:close(TPid),
     {stop, N};
@@ -922,21 +921,30 @@ handle_request(Name,
                = S) ->
     ?LOG(recv, Name),
     incr(recv, H, Dict0),
-    send_answer(Name, diameter_codec:decode(Dict0, Opts, Pkt), S).
+    send_answer(Name, decode(Dict0, Opts, Pkt), S).
+
+%% decode/3
+%%
+%% Decode the message as record for diameter_capx, and in the
+%% configured format for events.
+
+decode(Dict0, Opts, Pkt) ->
+    {diameter_codec:decode(Dict0, Opts, Pkt),
+     diameter_codec:decode(Dict0, Opts#{decode_format := record}, Pkt)}.
 
 %% send_answer/3
 
-send_answer(Type, ReqPkt, #state{transport = TPid,
-                                 dictionary = Dict,
-                                 codec = Opts}
-                          = S) ->
-    incr_error(recv, ReqPkt, Dict),
+send_answer(Type, {DecPkt, RecPkt}, #state{transport = TPid,
+                                           dictionary = Dict,
+                                           codec = Opts}
+                                    = S) ->
+    incr_error(recv, RecPkt, Dict),
 
     #diameter_packet{header = H,
                      transport_data = TD}
-        = ReqPkt,
+        = RecPkt,
 
-    {Msg, PostF} = build_answer(Type, ReqPkt, S),
+    {Msg, PostF} = build_answer(Type, DecPkt, RecPkt, S),
 
     %% An answer message clears the R and T flags and retains the P
     %% flag. The E flag is set at encode.
@@ -964,15 +972,15 @@ eval([F|A], S) ->
 eval(T, _) ->
     close(T).
 
-%% build_answer/3
+%% build_answer/4
 
 build_answer('CER',
+             DecPkt,
              #diameter_packet{msg = CER,
                               header = #diameter_header{version
                                                         = ?DIAMETER_VERSION,
                                                         is_error = false},
-                              errors = []}
-             = Pkt,
+                              errors = []},
              #state{dictionary = Dict0}
              = S) ->
     {SupportedApps, RCaps, CEA} = recv_CER(CER, S),
@@ -990,25 +998,25 @@ build_answer('CER',
             orelse ?THROW(4003),  %% DIAMETER_ELECTION_LOST
         caps_cb(Caps)
     of
-        N -> {cea(CEA, N, Dict0), [fun open/5, Pkt,
+        N -> {cea(CEA, N, Dict0), [fun open/5, DecPkt,
                                                SupportedApps,
                                                Caps,
                                                {accept, inband_security(IS)}]}
     catch
         ?FAILURE(Reason) ->
-            rejected(Reason, {'CER', Reason, Caps, Pkt}, S)
+            rejected(Reason, {'CER', Reason, Caps, DecPkt}, S)
     end;
 
 %% The error checks below are similar to those in diameter_traffic for
 %% other messages. Should factor out the commonality.
 
 build_answer(Type,
+             DecPkt,
              #diameter_packet{header = H,
-                              errors = Es}
-             = Pkt,
+                              errors = Es},
              S) ->
     {RC, FailedAVP} = result_code(Type, H, Es),
-    {answer(Type, RC, FailedAVP, S), post(Type, RC, Pkt, S)}.
+    {answer(Type, RC, FailedAVP, S), post(Type, RC, DecPkt, S)}.
 
 inband_security([]) ->
     ?NO_INBAND_SECURITY;
@@ -1180,12 +1188,10 @@ handle_CEA(#diameter_packet{header = H}
            = S) ->
     incr(recv, H, Dict0),
 
-    #diameter_packet{}
-        = DPkt
-        = diameter_codec:decode(Dict0, Opts, Pkt),
+    {DecPkt, RecPkt} = decode(Dict0, Opts, Pkt),
 
-    RC = result_code(incr_rc(recv, DPkt, Dict0)),
-    {SApps, IS, RCaps} = recv_CEA(DPkt, S),
+    RC = result_code(incr_rc(recv, RecPkt, Dict0)),
+    {SApps, IS, RCaps} = recv_CEA(RecPkt, S),
 
     #diameter_caps{origin_host = {OH, DH}}
         = Caps
@@ -1208,9 +1214,9 @@ handle_CEA(#diameter_packet{header = H}
             orelse ?THROW(election_lost),
         caps_cb(Caps)
     of
-        _ -> open(DPkt, SApps, Caps, {connect, hd([_] = IS)}, S)
+        _ -> open(DecPkt, SApps, Caps, {connect, hd([_] = IS)}, S)
     catch
-        ?FAILURE(Reason) -> close({'CEA', Reason, Caps, DPkt})
+        ?FAILURE(Reason) -> close({'CEA', Reason, Caps, DecPkt})
     end.
 %% Check more than the result code since the peer could send success
 %% regardless. If not 2001 then a peer_up callback could do anything

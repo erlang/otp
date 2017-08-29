@@ -962,7 +962,8 @@ Defaults to the empty list.</p>
 <item>
 <p>
 Whether or not to require that the number of AVPs in a message or
-grouped AVP agree with those specified in the dictionary in question.
+grouped AVP agree with those specified in the dictionary in question
+when passing messages to &man_app; callbacks.
 If <c>true</c> then mismatches in an outgoing messages cause message
 encoding to fail, while mismatches in an incoming message are reported
 as 5005/5009 errors in the errors field of the diameter_packet record
