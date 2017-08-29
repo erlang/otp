@@ -5740,6 +5740,21 @@ for (;; ptr++)
       ptr = p - 1;    /* Character before the next significant one. */
       }
 
+    /* We also need to skip over (?# comments, which are not dependent on
+    extended mode. */
+
+    if (ptr[1] == CHAR_LEFT_PARENTHESIS && ptr[2] == CHAR_QUESTION_MARK &&
+        ptr[3] == CHAR_NUMBER_SIGN)
+      {
+      ptr += 4;
+      while (*ptr != CHAR_NULL && *ptr != CHAR_RIGHT_PARENTHESIS) ptr++;
+      if (*ptr == CHAR_NULL)
+        {
+        *errorcodeptr = ERR18;
+        goto FAILED;
+        }
+      }
+
     /* If the next character is '+', we have a possessive quantifier. This
     implies greediness, whatever the setting of the PCRE_UNGREEDY option.
     If the next character is '?' this is a minimizing repeat, by default,
@@ -8211,7 +8226,6 @@ for (;; ptr++)
 
       if (mclength == 1 || req_caseopt == 0)
         {
-        firstchar = mcbuffer[0] | req_caseopt;
         firstchar = mcbuffer[0];
         firstcharflags = req_caseopt;
 
