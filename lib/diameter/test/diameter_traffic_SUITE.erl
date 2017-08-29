@@ -112,6 +112,8 @@
 %% diameter_{tcp,sctp} callbacks
 -export([message/3]).
 
+-include_lib("kernel/include/inet_sctp.hrl").
+
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc3588.hrl").
 -include("diameter_gen_base_accounting.hrl").
@@ -486,7 +488,7 @@ add_transports(Config) ->
                          | server_apps()]
                         ++ [{spawn_opt, {erlang, spawn, []}} || CS]),
     Cs = [?util:connect(CN,
-                        [T, {sender, CS}],
+                        [T, {sender, CS} | client_opts(T)],
                         LRef,
                         [{id, Id}
                          | client_apps(R, [{'Origin-State-Id', origin(Id)}])])
@@ -495,6 +497,14 @@ add_transports(Config) ->
              R /= rfc4005 orelse have_nas(),
              Id <- [{D,E}]],
     ?util:write_priv(Config, "transport", [LRef | Cs]).
+
+client_opts(tcp) ->
+    [];
+client_opts(sctp) ->
+    [{sctp_initmsg, #sctp_initmsg{num_ostreams = N,
+                                  max_instreams = 5}}
+     || N <- [rand:uniform(8)],
+        N =< 6].
 
 server_apps() ->
     B = have_nas(),
