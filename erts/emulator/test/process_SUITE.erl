@@ -152,7 +152,7 @@ spawn_with_binaries(Config) when is_list(Config) ->
     TwoMeg = lists:duplicate(1024, L),
     Fun = fun() -> spawn(?MODULE, binary_owner, [list_to_binary(TwoMeg)]),
 			 receive after 1 -> ok end end,
-    Iter = case test_server:purify_is_running() of
+    Iter = case test_server:is_valgrind() of
 		     true -> 10;
 		     false -> 150
 		 end,

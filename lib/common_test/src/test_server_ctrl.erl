@@ -2163,7 +2163,7 @@ do_add_end_per_suite_and_skip(LastMod, LastRef, Mod, FwMod) ->
 %% Runs the specified tests, then displays/logs the summary.
 
 run_test_cases(TestSpec, Config, TimetrapData) ->
-    test_server:init_purify(),
+    test_server:init_valgrind(),
     case lists:member(no_src, get(test_server_logopts)) of
 	true ->
 	    ok;
