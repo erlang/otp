@@ -884,12 +884,19 @@ select_extract_bin([{var,Hd}], Size, Unit, binary, Flags, Vf,
 %%   calculcated by v3_life is too conservative to be useful for this purpose.)
 %%   'true' means that the code that follows will definitely not use the context
 %%   again (because it is a block, not guard or matching code); 'false' that we
-%%   are not sure (there is either a guard, or more matching, either which may
-%%   reference the context again).
+%%   are not sure (there could be more matching).
 
-is_context_unused(#l{ke=Ke}) -> is_context_unused(Ke);
-is_context_unused({block,_}) -> true;
-is_context_unused(_) -> false.
+is_context_unused(#l{ke=Ke}) ->
+    is_context_unused(Ke);
+is_context_unused({alt,_First,Then}) ->
+    %% {alt,First,Then} can be used for different purposes. If the Then part
+    %% is a block, it means that matching has finished and is used for a guard
+    %% to choose between the matched clauses.
+    is_context_unused(Then);
+is_context_unused({block,_}) ->
+    true;
+is_context_unused(_) ->
+    false.
 
 select_bin_end(#l{ke={val_clause,{bin_end,Ctx},B}},
 	       Ivar, Tf, Bef, St0) ->
