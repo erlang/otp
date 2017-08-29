@@ -591,6 +591,8 @@ opt({K, Tmo})
     ?IS_UINT32(Tmo);
 
 opt({capx_strictness, B}) ->
+    is_boolean(B) andalso {value, {strict_capx, B}};
+opt({strict_capx, B}) ->
     is_boolean(B);
 
 opt({length_errors, T}) ->

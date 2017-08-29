@@ -238,7 +238,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
                     proplists:get_value(dpa_timeout, Opts, ?DPA_TIMEOUT)}),
 
     Tmo = proplists:get_value(capx_timeout, Opts, ?CAPX_TIMEOUT),
-    Strictness = proplists:get_value(capx_strictness, Opts, true),
+    Strict = proplists:get_value(strict_capx, Opts, true),
     LengthErr = proplists:get_value(length_errors, Opts, exit),
 
     {TPid, Addrs} = start_transport(T, Rest, Svc),
@@ -252,7 +252,7 @@ i({Ack, WPid, {M, Ref} = T, Opts, {SvcOpts, Nodes, Dict0, Svc}}) ->
            mode = M,
            service = svc(Svc, Addrs),
            length_errors = LengthErr,
-           strict = Strictness,
+           strict = Strict,
            incoming_maxlen = Maxlen,
            codec = maps:with([decode_format,
                               string_decode,

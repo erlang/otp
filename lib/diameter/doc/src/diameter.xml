@@ -1411,6 +1411,20 @@ Defaults to the list configured on the service if not specified.</p>
 </item>
 
 <tag>
+<marker id="strict_capx"/><c>{strict_capx, boolean()]}</c></tag>
+<item>
+<p>
+Whether or not to enforce the RFC 6733 requirement that any message
+before capabilities exchange should close the peer connection.
+If false then unexpected messages are discarded.</p>
+
+<p>
+Defaults to true.
+Changing this results in non-standard behaviour, but can be useful in
+case peers are known to be behave badly.</p>
+</item>
+
+<tag>
 <marker id="transport_config"/><c>{transport_config, term()}</c></tag><item/>
 <tag><c>{transport_config, term(), &dict_Unsigned32; | infinity}</c></tag>
 <item>
