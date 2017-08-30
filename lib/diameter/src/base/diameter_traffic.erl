@@ -1031,15 +1031,15 @@ answer_message(RC,
                               origin_realm = {OR,_}},
                #diameter_packet{avps = Avps,
                                 errors = Es}) ->
-    {Code, _, Vid} = Dict0:avp_header('Session-Id'),
     ['answer-message', {'Origin-Host', OH},
                        {'Origin-Realm', OR},
-                       {'Result-Code', RC}]
-        ++ session_id(Code, Vid, Avps)
-        ++ failed_avp(RC, Es).
+                       {'Result-Code', RC}
+     | session_id(Dict0, Avps)
+       ++ failed_avp(RC, Es)
+       ++ proxy_info(Dict0, Avps)].
 
-session_id(Code, Vid, Avps)
-  when is_list(Avps) ->
+session_id(Dict0, Avps) ->
+    {Code, _, Vid} = Dict0:avp_header('Session-Id'),
     try
         #diameter_avp{data = Bin} = find_avp(Code, Vid, Avps),
         [{'Session-Id', [Bin]}]
@@ -1056,6 +1056,14 @@ failed_avp(RC, [_ | Es]) ->
     failed_avp(RC, Es);
 failed_avp(_, [] = No) ->
     No.
+
+proxy_info(Dict0, Avps) ->
+    {Code, _, Vid} = Dict0:avp_header('Proxy-Info'),
+    [{'AVP', [A#diameter_avp{value = undefined}
+              || [#diameter_avp{code = C, vendor_id = I} = A | _]
+                     <- Avps,
+                 C == Code,
+                 I == Vid]}].
 
 %% find_avp/3
 
