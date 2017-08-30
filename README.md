@@ -12,6 +12,15 @@ middle-ware to develop these systems. It includes its own distributed
 database, applications to interface towards other languages, debugging
 and release handling tools.
 
+ERTS and BEAM
+-------------
+**BEAM** is the name of the virtual machine where all Erlang code is executed.
+Every compiled Erlang file has the suffix .beam. The virtual machine
+is sometimes referred to as the emulator.
+
+**ERTS** is the Erlang Runtime System where the BEAM, kernel and
+standard libraries amongst others are included.
+
 More information can be found at [erlang.org] [1].
 
 Building and Installing
@@ -27,52 +36,46 @@ Here are the [instructions for submitting patches] [2].
 
 In short:
 
-*   We prefer to receive proposed updates via email on the
-    [`erlang-patches`] [3] mailing list rather than through a pull request.
-    Pull requests are not practical because we have a strict policy never to
-    merge any untested changes to the development branch (the only exception
-    being **obviously** correct changes, such as corrections of typos).
+*   Submit your patch by opening a new Pull Request.
 
-*   We merge all proposed updates to the `pu` (*proposed updates*) branch,
-    typically within one working day.
+*   Go to the JIRA issue tracker at [bugs.erlang.org] [7] to
+    see reported issues which you can contribute to.
+    Search for issues with the status *Contribution Needed*.
 
-*   At least once a day, the contents of the `pu` branch will be built on
-    several platforms (Linux, Solaris, Mac OS X, Windows, and so on) and
-    automatic test suites will be run. We will email you if any problems are
-    found.
 
-*   If a proposed change builds and passes the tests, it will be reviewed
-    by one or more members of the Erlang/OTP team at Ericsson. The reviewer
-    may suggest improvements that are needed before the change can be accepted
-    and merged.
+Bug Reports
+--------------------------
 
-*   Once or twice a week, a status email called ["What's cooking in Erlang/OTP"] [4]
-    will be sent to the [`erlang-patches`] [3] mailing list.
+Please look at the [instructions for submitting bugs reports] [6].
+
 
 Copyright and License
 ---------------------
 
 > %CopyrightBegin%
 >
-> Copyright Ericsson AB 2010-2012. All Rights Reserved.
+> Copyright Ericsson AB 2010-2014. All Rights Reserved.
 >
-> The contents of this file are subject to the Erlang Public License,
-> Version 1.1, (the "License"); you may not use this file except in
-> compliance with the License. You should have received a copy of the
-> Erlang Public License along with this software. If not, it can be
-> retrieved online at http://www.erlang.org/.
+> Licensed under the Apache License, Version 2.0 (the "License");
+> you may not use this file except in compliance with the License.
+> You may obtain a copy of the License at
 >
-> Software distributed under the License is distributed on an "AS IS"
-> basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-> the License for the specific language governing rights and limitations
-> under the License.
+>     http://www.apache.org/licenses/LICENSE-2.0
+>
+> Unless required by applicable law or agreed to in writing, software
+> distributed under the License is distributed on an "AS IS" BASIS,
+> WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+> See the License for the specific language governing permissions and
+> limitations under the License.
 >
 > %CopyrightEnd%
 
 
 
    [1]: http://www.erlang.org
-   [2]: http://wiki.github.com/erlang/otp/submitting-patches
+   [2]: http://wiki.github.com/erlang/otp/contribution-guidelines
    [3]: http://www.erlang.org/static/doc/mailinglist.html
    [4]: http://erlang.github.com/otp/
    [5]: HOWTO/INSTALL.md
+   [6]: https://github.com/erlang/otp/wiki/Bug-reports
+   [7]: http://bugs.erlang.org

@@ -5,9 +5,9 @@ OUTPUT_FILE=$1
 if command -v git 2>&1 >/dev/null &&
     test -d $ERL_TOP/.git -o -f $ERL_TOP/.git
 then
-    VSN=`git describe --match "OTP_R[0-9][0-9][A-B]*" HEAD`
+    VSN=`git describe --match "OTP-[0-9]*" HEAD`
     case "$VSN" in
-	OTP_R*-g*) 
+	OTP-*-g*) 
 	    VSN=`echo $VSN | sed -e 's/.*-g\\(.*\\)/\\1/g'` ;;
 	*)  VSN="na" ;;
     esac

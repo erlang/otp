@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -25,7 +26,6 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
 -include("odbc_test.hrl").
 
 %% Test server callback functions
@@ -109,8 +109,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     case odbc_test_lib:odbc_check() of
-	ok -> [start];
-	Other -> {skip, Other}
+	ok -> [app, appup, start, long_connection_line];
+	_Other -> [app, appup]
     end.
 
 groups() -> 
@@ -126,6 +126,14 @@ end_per_group(_GroupName, Config) ->
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------
+
+%% Test that the odbc app file is ok
+app(Config) when is_list(Config) ->
+    ok = ?t:app_test(odbc).
+
+%% Test that the odbc appup file is ok
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(odbc).
 
 start(doc) -> 
     ["Test start/stop of odbc"];
@@ -160,3 +168,14 @@ start_odbc(Type) ->
 	{error, odbc_not_started} ->
 	    test_server:fail(start_failed)
     end.
+
+
+long_connection_line(doc)->
+    ["Test a connection line longer than 127 characters"];
+long_connection_line(suite) -> [];
+long_connection_line(_Config)  ->
+    odbc:start(),
+    String133 = "unknown_odbc_parameter=01234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789",
+    {error, Reason} = odbc:connect(String133, []),
+    odbc:stop(),
+    ct:pal("Driver error reason: ~p",[Reason]).

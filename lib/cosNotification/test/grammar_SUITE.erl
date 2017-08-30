@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -24,8 +25,6 @@
 %%--------------------------------------------------------------------
 
 -module(grammar_SUITE).
-
-
 
 %%--------------- INCLUDES -----------------------------------
 -include_lib("orber/include/corba.hrl").
@@ -42,10 +41,10 @@
 
 -include("idl_output/notify_test.hrl").
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%--------------- DEFINES ------------------------------------
--define(default_timeout, ?t:minutes(20)).
+-define(default_timeout, test_server:minutes(20)).
 -define(match(ExpectedRes, Expr),
         fun() ->
 		AcTuAlReS = (catch (Expr)),
@@ -57,7 +56,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
  
@@ -99,18 +98,17 @@ cases() ->
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
-
 init_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -133,8 +131,6 @@ end_per_suite(Config) ->
 %%-----------------------------------------------------------------
 %%  simple types grammar tests
 %%-----------------------------------------------------------------
-simple_types_api(doc) -> ["CosNotification simple types grammar tests", ""];
-simple_types_api(suite) -> [];
 simple_types_api(_Config) ->
     %% Will always be true, no matter what kind of event we receive.
     {ok,T1}  = ?match({ok, _}, create_filter("2==2 and 3<4")),
@@ -207,8 +203,6 @@ simple_types_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  enum grammar tests
 %%-----------------------------------------------------------------
-enum_api(doc) -> ["CosNotification enum grammar tests", ""];
-enum_api(suite) -> [];
 enum_api(_Config) ->
     %% Accept events whose 'in' enum is set to the value 'HOUSE' or 'CAR'. 
     {ok,T1} = ?match({ok, _}, create_filter("$.\\in == HOUSE or $.\\in == CAR")),
@@ -220,13 +214,11 @@ enum_api(_Config) ->
 				      any:create({tk_enum, "IFRId", "in", ["HOUSE", "CAR"]},
 						 'GARAGE')))),
     ok.
-    
+  
 
 %%-----------------------------------------------------------------
 %%  Union grammar tests
 %%-----------------------------------------------------------------
-union_api(doc) -> ["CosNotification union grammar tests", ""];
-union_api(suite) -> [];
 union_api(_Config) ->
     {ok,T1} = ?match({ok, _}, create_filter("exist $.uni1._d and $.uni1._d == 1 and $.uni1.(1) == 10")),
     {ok,T2} = ?match({ok, _}, create_filter("default $.uni1._d and $.uni1.() == 10")),
@@ -540,8 +532,6 @@ union_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  Variables grammar tests
 %%-----------------------------------------------------------------
-variable_api(doc) -> ["CosNotification variables grammar tests", ""];
-variable_api(suite) -> [];
 variable_api(_Config) ->
     %% Accept all "CommunicationsAlarm" events 
     {ok,T0} = ?match({ok, _}, create_filter("$type_name == 'CommunicationsAlarm'")),
@@ -872,8 +862,6 @@ variable_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  Misc grammar tests
 %%-----------------------------------------------------------------
-positional_api(doc) -> ["CosNotification positional notation grammar tests", ""];
-positional_api(suite) -> [];
 positional_api(_Config) ->
     {ok,T1} = ?match({ok, _}, create_filter("$.3 < 80 or $.1(midterm) > $.1(final) or $.2[3] < 10")),
 
@@ -928,8 +916,6 @@ positional_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  Components grammar tests
 %%-----------------------------------------------------------------
-components_api(doc) -> ["CosNotification components grammar tests", ""];
-components_api(suite) -> [];
 components_api(_Config) ->
     {ok,T1}  = ?match({ok, _}, create_filter("$ == 2")),
     ?match(true, eval(T1, ?not_CreateSE("DomainName","TypeName","EventName",

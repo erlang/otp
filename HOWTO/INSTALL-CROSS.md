@@ -4,14 +4,7 @@ Cross Compiling Erlang/OTP
 Introduction
 ------------
 
-This document describes how to cross compile Erlang/OTP-%OTP-REL%. Note that
-the support for cross compiling Erlang/OTP should be considered as
-experimental. As far as we know, the %OTP-REL% release should cross compile
-fine, but since we currently have a very limited set of cross compilation
-environments to test with we cannot be sure. The cross compilation support
-will remain in an experimental state until we get a lot more cross compilation
-environments to test with.
-
+This document describes how to cross compile Erlang/OTP-%OTP-REL%. 
 You are advised to read the whole document before attempting to cross
 compile Erlang/OTP. However, before reading this document, you should read
 the [$ERL_TOP/HOWTO/INSTALL.md][] document which describes building and installing
@@ -109,14 +102,6 @@ built, or an Erlang/OTP system of the same release as the one being built
 has to be provided in the `$PATH`. The Erlang/OTP for the target system will
 be built using this Erlang system, together with the cross compilation tools
 provided.
-
-If you want to build the documentation out of the same source tree as you are
-cross compiling in, you currently need a full Erlang/OTP system of the same
-release as the one being built for the build machine. If this is the case,
-build and install one for the build machine (or use one already built) and add
-it to the `$PATH` before cross building, and building the documentation. See
-the [How to Build the Documentation][] section in the [$ERL_TOP/HOWTO/INSTALL.md][]
-document for information on how to build the documentation.
 
 If you want to build using a compatible Erlang/OTP system in the `$PATH`,
 jump to (3).
@@ -291,8 +276,17 @@ and then do the cross build of the system.
 `otp_build release -a` will do the same as (5), and you will after this have
 to do a manual install either by doing (6), or (7).
 
+Building and Installing the Documentation
+-----------------------------------------
+
+After the system has been cross built you can build and install the
+documentation the same way as after a native build of the system. See the
+[How to Build the Documentation][] section in the [$ERL_TOP/HOWTO/INSTALL.md][]
+document for information on how to build the documentation.
+
 Testing the cross compiled system
 ---------------------------------
+
 Some of the tests that come with erlang use native code to test. This means
 that when cross compiling erlang you also have to cross compile test suites
 in order to run tests on the target host. To do this you first have to release
@@ -522,39 +516,37 @@ When a variable has been set, no warning will be issued.
 *   `erl_xcomp_reliable_fpe` - `yes|no`. Defaults to `no`. If `yes`, the target
     system must have reliable floating point exceptions.
 
+*   `erl_xcomp_posix_memalign` - `yes|no`. Defaults to `yes` if `posix_memalign`
+    system call exists; otherwise `no`. If `yes`, the target system must have a
+    `posix_memalign` implementation that accepts larger than page size
+    alignment.
+
 Copyright and License
 ---------------------
 
 %CopyrightBegin%
 
-Copyright Ericsson AB 2009-2013. All Rights Reserved.
+Copyright Ericsson AB 2009-2014. All Rights Reserved.
 
-The contents of this file are subject to the Erlang Public License,
-Version 1.1, (the "License"); you may not use this file except in
-compliance with the License. You should have received a copy of the
-Erlang Public License along with this software. If not, it can be
-retrieved online at http://www.erlang.org/.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
 
-Software distributed under the License is distributed on an "AS IS"
-basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-the License for the specific language governing rights and limitations
-under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 %CopyrightEnd%
-
-Modifying This Document
------------------------
-
-Before modifying this document you need to have a look at the
-[$ERL_TOP/HOWTO/MARKDOWN.md][] document.
 
 
 
    [$ERL_TOP/HOWTO/INSTALL.md]: INSTALL.md
-   [Building in Git]: INSTALL.md#How-to-Build-and-Install-ErlangOTP_Building-in-Git
-   [How to Build the Documentation]: INSTALL.md#The-ErlangOTP-Documentation_How-to-Build-the-Documentation
+   [Building in Git]: INSTALL.md#How-to-Build-and-Install-ErlangOTP
+   [How to Build the Documentation]: INSTALL.md#How-to-Build-and-Install-ErlangOTP_How-to-Build-the-Documentation
    [cross configuration variables]: #Currently-Used-Configuration-Variables
    [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
-   [$ERL_TOP/HOWTO/MARKDOWN.md]: MARKDOWN.md
-
    [?TOC]: true

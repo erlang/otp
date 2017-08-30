@@ -1,18 +1,19 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -117,12 +118,12 @@ break(_Config) ->
 
 start_stop(Config) ->
     ok = ct_snmp:start(Config,snmp1,snmp_app1),
-    timer:sleep(1000),
+    ct:sleep(1000),
     {snmp,_,_} = lists:keyfind(snmp,1,application:which_applications()),
     [_|_] = filelib:wildcard("*/*.conf",?config(priv_dir,Config)),
 
     ok = ct_snmp:stop(Config),
-    timer:sleep(1000),
+    ct:sleep(1000),
     false = lists:keyfind(snmp,1,application:which_applications()),
     [] = filelib:wildcard("*/*.conf",?config(priv_dir,Config)),
     ok.
@@ -288,6 +289,9 @@ override_usm(Config) ->
     %% Check that usm.conf is overwritten
     {ok,MyUsm} = snmpa_conf:read_usm_config(DataDir),
     {ok,UsedUsm} = snmpa_conf:read_usm_config(ConfDir),
+    ct:pal(
+      "MyUsm = ~p~nUsedUsm = ~p",
+      [MyUsm, UsedUsm]),
     true = (MyUsm == UsedUsm),
 
     %% Check that the usm user is actually configured...
@@ -304,6 +308,9 @@ override_standard(Config) ->
     %% Check that standard.conf is overwritten
     {ok,MyStandard} = snmpa_conf:read_standard_config(DataDir),
     {ok,UsedStandard} = snmpa_conf:read_standard_config(ConfDir),
+    ct:pal(
+      "MyStandard = ~p~nUsedStandard = ~p",
+      [MyStandard, UsedStandard]),
     true = (MyStandard == UsedStandard),
 
     %% Check that the values from standard.conf is actually configured...
@@ -319,6 +326,9 @@ override_context(Config) ->
     %% Check that context.conf is overwritten
     {ok,MyContext} = snmpa_conf:read_context_config(DataDir),
     {ok,UsedContext} = snmpa_conf:read_context_config(ConfDir),
+    ct:pal(
+      "MyContext = ~p~nUsedContext = ~p",
+      [MyContext, UsedContext]),
     true = (MyContext == UsedContext),
     ok.
 
@@ -330,6 +340,9 @@ override_community(Config) ->
     %% Check that community.conf is overwritten
     {ok,MyCommunity} = snmpa_conf:read_community_config(DataDir),
     {ok,UsedCommunity} = snmpa_conf:read_community_config(ConfDir),
+    ct:pal(
+      "MyCommunity = ~p~nUsedCommunity = ~p",
+      [MyCommunity, UsedCommunity]),
     true = (MyCommunity == UsedCommunity),
     ok.
 
@@ -341,6 +354,9 @@ override_notify(Config) ->
     %% Check that notify.conf is overwritten
     {ok,MyNotify} = snmpa_conf:read_notify_config(DataDir),
     {ok,UsedNotify} = snmpa_conf:read_notify_config(ConfDir),
+    ct:pal(
+      "MyNotify = ~p~nUsedNotify = ~p",
+      [MyNotify, UsedNotify]),
     true = (MyNotify == UsedNotify),
     ok.
 
@@ -352,6 +368,9 @@ override_target_addr(Config) ->
     %% Check that target_addr.conf is overwritten
     {ok,MyTargetAddr} = snmpa_conf:read_target_addr_config(DataDir),
     {ok,UsedTargetAddr} = snmpa_conf:read_target_addr_config(ConfDir),
+    ct:pal(
+      "MyTargetAddr = ~p~nUsedTargetAddr = ~p",
+      [MyTargetAddr, UsedTargetAddr]),
     true = (MyTargetAddr == UsedTargetAddr),
     ok.
 
@@ -363,6 +382,9 @@ override_target_params(Config) ->
     %% Check that target_params.conf is overwritten
     {ok,MyTargetParams} = snmpa_conf:read_target_params_config(DataDir),
     {ok,UsedTargetParams} = snmpa_conf:read_target_params_config(ConfDir),
+    ct:pal(
+      "MyTargetParams = ~p~nUsedTargetParams = ~p",
+      [MyTargetParams, UsedTargetParams]),
     true = (MyTargetParams == UsedTargetParams),
     ok.
 
@@ -374,6 +396,9 @@ override_vacm(Config) ->
     %% Check that vacm.conf is overwritten
     {ok,MyVacm} = snmpa_conf:read_vacm_config(DataDir),
     {ok,UsedVacm} = snmpa_conf:read_vacm_config(ConfDir),
+    ct:pal(
+      "MyVacm = ~p~nUsedVacm = ~p",
+      [MyVacm, UsedVacm]),
     true = (MyVacm == UsedVacm),
     ok.
 

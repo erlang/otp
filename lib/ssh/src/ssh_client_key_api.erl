@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -22,14 +23,26 @@
 -include_lib("public_key/include/public_key.hrl").
 -include("ssh.hrl").
 
--callback is_host_key(PublicKey :: #'RSAPublicKey'{}| {integer(),  #'Dss-Parms'{}}| term() , Host :: string(),
-		      Algorithm :: 'ssh-rsa'| 'ssh-dss'| atom(), ConnectOptions :: proplists:proplist()) ->
+-export_type([algorithm/0]).
+
+-type algorithm()  :: 'ssh-rsa'
+		    | 'ssh-dss'
+		    | 'ecdsa-sha2-nistp256'
+		    | 'ecdsa-sha2-nistp384'
+		    | 'ecdsa-sha2-nistp521'
+		    .
+
+-callback is_host_key(PublicKey      :: public_key:public_key(),
+		      Host           :: string(),
+		      Algorithm      :: algorithm(),
+		      ConnectOptions :: proplists:proplist()) ->
     boolean().
 
--callback user_key(Algorithm ::  'ssh-rsa'| 'ssh-dss'| atom(), ConnectOptions :: proplists:proplist()) ->
-    {ok,  PrivateKey :: #'RSAPrivateKey'{}| #'DSAPrivateKey'{} |  term()} | {error, string()}.
+-callback user_key(Algorithm      :: algorithm(),
+		   ConnectOptions :: proplists:proplist()) ->
+    {ok,  PrivateKey::public_key:private_key()} | {error, term()}.
 
 
--callback add_host_key(Host :: string(), PublicKey ::  #'RSAPublicKey'{}| {integer(),  #'Dss-Parms'{}}| term(),
-		       Options :: list()) ->
+-callback add_host_key(Host :: string(), PublicKey :: public_key:public_key(),
+		       Options :: proplists:proplist()) ->
     ok | {error, Error::term()}.

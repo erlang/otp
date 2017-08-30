@@ -1,0 +1,5 @@
+
+is_map_guard.erl:13: Function t2/0 has no local return
+is_map_guard.erl:15: The call is_map_guard:explicit('still_not_map') will never return since it differs in the 1st argument from the success typing arguments: (map())
+is_map_guard.erl:6: Function t1/0 has no local return
+is_map_guard.erl:8: The call is_map_guard:implicit('not_a_map') will never return since it differs in the 1st argument from the success typing arguments: (map())

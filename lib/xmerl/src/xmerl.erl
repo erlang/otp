@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -40,6 +41,7 @@
 	 callbacks/1]).
 
 -include("xmerl.hrl").
+-include("xmerl_internal.hrl").
 
 
 %% @spec export(Content, Callback) -> ExportedFormat
@@ -273,7 +275,7 @@ tagdef(Tag,Pos,Parents,Args,CBs) ->
 
 callbacks(Module) ->
     Result = check_inheritance(Module, []),
-%%%     io:format("callbacks = ~p~n", [lists:reverse(Result)]),
+%%%     ?dbg("callbacks = ~p~n", [lists:reverse(Result)]),
     lists:reverse(Result).
 
 callbacks([M|Mods], Visited) ->
@@ -288,7 +290,7 @@ callbacks([], Visited) ->
     Visited.
 
 check_inheritance(M, Visited) ->
-%%%     io:format("calling ~p:'#xml-inheritance#'()~n", [M]),
+%%%     ?dbg("calling ~p:'#xml-inheritance#'()~n", [M]),
     case M:'#xml-inheritance#'() of
 	[] ->
 	    [M|Visited];
@@ -303,18 +305,17 @@ apply_tag_cb(Ms, F, Args) ->
     apply_cb(Ms, F, '#element#', Args).
 
 apply_cb(Ms, F, Df, Args) ->
-    apply_cb(Ms, F, Df, Args, Ms).
+    apply_cb(Ms, F, Df, Args, length(Args)).
 
-apply_cb([M|Ms], F, Df, Args, Ms0) ->
-    case catch apply(M, F, Args) of
-	{'EXIT', {undef,[{M,F,_,_}|_]}} ->
-	    apply_cb(Ms, F, Df, Args, Ms0);
-	{'EXIT', Reason} ->
-	    exit(Reason);
-	Res ->
-	    Res
+apply_cb(Ms, F, Df, Args, A) ->
+    apply_cb(Ms, F, Df, Args, A, Ms).
+
+apply_cb([M|Ms], F, Df, Args, A, Ms0) ->
+    case erlang:function_exported(M, F, A) of
+        true -> apply(M, F, Args);
+        false -> apply_cb(Ms, F, Df, Args, A, Ms0)
     end;
-apply_cb([], Df, Df, Args, _Ms0) ->
+apply_cb([], Df, Df, Args, _A, _Ms0) ->
     exit({unknown_tag, {Df, Args}});
-apply_cb([], F, Df, Args, Ms0) ->
-    apply_cb(Ms0, Df, Df, [F|Args]).
+apply_cb([], F, Df, Args, A, Ms0) ->
+    apply_cb(Ms0, Df, Df, [F|Args], A+1).

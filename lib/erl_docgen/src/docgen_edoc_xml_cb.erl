@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -351,8 +352,8 @@ otp_xmlify_e(#xmlElement{name=code} = E) ->    % 4)
     end;
 otp_xmlify_e(#xmlElement{name=Tag} = E)        % 5a
   when Tag==h1; Tag==h2; Tag==h3; Tag==h4; Tag==h5 ->
-    Content = text_and_a_name_only(E#xmlElement.content),
-    [E#xmlElement{name=b, content=Content}];
+     {Name, Text} = text_and_a_name_only(E#xmlElement.content),
+     [Name, E#xmlElement{name=b, content=Text}];
 otp_xmlify_e(#xmlElement{name=Tag} = E)        % 5b-c)
   when Tag==center;
        Tag==font ->
@@ -1014,6 +1015,8 @@ t_type([#xmlElement{name = nil}]) ->
     t_nil();
 t_type([#xmlElement{name = list, content = Es}]) ->
     t_list(Es);
+t_type([#xmlElement{name = nonempty_list, content = Es}]) ->
+    t_nonempty_list(Es);
 t_type([#xmlElement{name = tuple, content = Es}]) ->
     t_tuple(Es);
 t_type([#xmlElement{name = 'fun', content = Es}]) ->
@@ -1023,7 +1026,11 @@ t_type([#xmlElement{name = abstype, content = Es}]) ->
 t_type([#xmlElement{name = union, content = Es}]) ->
     t_union(Es);
 t_type([#xmlElement{name = record, content = Es}]) ->
-    t_record(Es).
+    t_record(Es);
+t_type([#xmlElement{name = map, content = Es}]) ->
+    t_map(Es);
+t_type([#xmlElement{name = map_field, content = Es}]) ->
+    t_map_field(Es).
 
 t_var(E) ->
     [get_attrval(name, E)].
@@ -1046,6 +1053,9 @@ t_nil() ->
 t_list(Es) ->
     ["["] ++ t_utype(get_elem(type, Es)) ++ ["]"].
 
+t_nonempty_list(Es) ->
+    ["["] ++ t_utype(get_elem(type, Es)) ++ [", ...]"].
+
 t_tuple(Es) ->
     ["{"] ++ seq(fun t_utype_elem/1, Es, ["}"]).
 
@@ -1057,6 +1067,12 @@ t_record([E|Es]) ->
     ["#", get_attrval(value, E), "{"++ seq(fun t_field/1, Es) ++"}"].
 t_field(#xmlElement{name=field, content=[Atom,Type]}) ->
     [get_attrval(value, Atom), "="] ++ t_utype_elem(Type).
+
+t_map(Es) ->
+    ["#{"] ++ seq(fun t_utype_elem/1, Es, ["}"]).
+
+t_map_field([K,V]) ->
+    [t_utype_elem(K) ++ " => " ++ t_utype_elem(V)].
 
 t_abstype(Es) ->
     case split_at_colon(t_name(get_elem(erlangName, Es)),[]) of
@@ -1174,17 +1190,13 @@ get_text(#xmlElement{content=[#xmlText{value=Text}]}) ->
 get_text(#xmlElement{content=[E]}) ->
     get_text(E).
 
-%% text_and_name_only(Es) -> Ts
-text_and_a_name_only([#xmlElement{
-		       name = a, 
-		       attributes = [#xmlAttribute{name=name}]} = Name|Es]) ->
-    [Name|text_and_a_name_only(Es)];
-text_and_a_name_only([#xmlElement{content = Content}|Es]) ->
-    text_and_a_name_only(Content) ++ text_and_a_name_only(Es);
-text_and_a_name_only([#xmlText{} = E |Es]) ->
-    [E | text_and_a_name_only(Es)];
-text_and_a_name_only([]) ->
-    [].
+%% text_and_name_only(Es) -> {N, Ts}
+text_and_a_name_only(Es) ->
+    [Name|_] = [Name ||
+                   #xmlElement{
+                      name = a,
+                      attributes = [#xmlAttribute{name=name}]}=Name <- Es],
+    {Name#xmlElement{content = []}, text_only(Es)}.
 
 %% text_only(Es) -> Ts
 %% Takes a list of xmlElement and xmlText and return a lists of xmlText.

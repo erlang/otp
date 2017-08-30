@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
   <!ENTITY spawn_opt
   '<seealso marker="erts:erlang#spawn_opt-2">erlang:spawn_opt/2</seealso>'>
@@ -20,20 +20,22 @@
 <header>
 
 <copyright>
-<year>2011</year><year>2013</year>
+<year>2011</year>
+<year>2016</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
-The contents of this file are subject to the Erlang Public License,
-Version 1.1, (the "License"); you may not use this file except in
-compliance with the License. You should have received a copy of the
-Erlang Public License along with this software. If not, it can be
-retrieved online at http://www.erlang.org/.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
 
-Software distributed under the License is distributed on an "AS IS"
-basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-the License for the specific language governing rights and limitations
-under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 </legalnotice>
 
@@ -110,7 +112,7 @@ Defined in &dict_data_types;.</p>
 <tag><c>application_alias() = term()</c></tag>
 <item>
 <p>
-A name identifying a Diameter application in
+Name identifying a Diameter application in
 service configuration.
 Passed to &call; when sending requests
 defined by the application.</p>
@@ -128,9 +130,9 @@ ExtraArgs = list()
 </pre>
 
 <p>
-A module implementing the callback interface defined in &man_app;,
+Module implementing the callback interface defined in &man_app;,
 along with any
-extra arguments to be appended to those documented for the interface.
+extra arguments to be appended to those documented.
 Note that extra arguments specific to an outgoing request can be
 specified to &call;, in which case
 those are are appended to any module-specific extra arguments.</p>
@@ -138,7 +140,7 @@ those are are appended to any module-specific extra arguments.</p>
 <p>
 Specifying a <c>#diameter_callback{}</c> record allows individual
 functions to be configured in place of the usual &man_app; callbacks.
-See that module for details.</p>
+See <c>diameter_callback.erl</c> for details.</p>
 
 <marker id="application_opt"/>
 </item>
@@ -155,7 +157,7 @@ Has one the following types.</p>
 <tag><c>{alias, &application_alias;}</c></tag>
 <item>
 <p>
-An unique identifier for the application in the scope of the
+Unique identifier for the application in the scope of the
 service.
 Defaults to the value of the <c>dictionary</c> option if
 unspecified.</p>
@@ -164,16 +166,16 @@ unspecified.</p>
 <tag><c>{dictionary, atom()}</c></tag>
 <item>
 <p>
-The name of an encode/decode module for the Diameter
+Name of an encode/decode module for the Diameter
 messages defined by the application.
-These modules are generated from a specification file whose format is
-documented in &man_dict;.</p>
+These modules are generated from files whose format is documented in
+&man_dict;.</p>
 </item>
 
 <tag><c>{module, &application_module;}</c></tag>
 <item>
 <p>
-The callback module with which messages of the Diameter application are
+Callback module in which messages of the Diameter application are
 handled.
 See &man_app; for the required interface and semantics.</p>
 </item>
@@ -181,7 +183,7 @@ See &man_app; for the required interface and semantics.</p>
 <tag><c>{state, term()}</c></tag>
 <item>
 <p>
-The initial callback state.
+Initial callback state.
 The prevailing state is passed to some
 &man_app;
 callbacks, which can then return a new state.
@@ -191,25 +193,24 @@ Defaults to the value of the <c>alias</c> option if unspecified.</p>
 <tag><c>{call_mutates_state, true|false}</c></tag>
 <item>
 <p>
-Specifies whether or not the &app_pick_peer;
+Whether or not the &app_pick_peer;
 application callback can modify the application state.
 Defaults to <c>false</c> if unspecified.</p>
 
-<note>
+<warning>
 <p>
-&app_pick_peer; callbacks
-are serialized when these are allowed to modify state, which is a
-potential performance bottleneck.
+&app_pick_peer; callbacks are serialized when this option is <c>true</c>,
+which is a potential performance bottleneck.
 A simple Diameter client may suffer no ill effects from using mutable
 state but a server or agent that responds to incoming request should
 probably avoid it.</p>
-</note>
+</warning>
 </item>
 
 <tag><c>{answer_errors, callback|report|discard}</c></tag>
 <item>
 <p>
-Determines the manner in which incoming answer messages containing
+Manner in which incoming answer messages containing
 decode errors are handled.</p>
 
 <p>
@@ -227,14 +228,14 @@ question is as if a callback had taken place and returned
 <c>{error, failure}</c>.</p>
 
 <p>
-Defaults to <c>report</c> if unspecified.</p>
+Defaults to <c>discard</c> if unspecified.</p>
 </item>
 
 <tag><c>{request_errors, answer_3xxx|answer|callback}</c></tag>
 <item>
 <p>
-Determines the manner in which incoming requests are handled when an
-error other than 3007, DIAMETER_APPLICATION_UNSUPPORTED (which cannot
+Manner in which incoming requests are handled when an
+error other than 3007 (DIAMETER_APPLICATION_UNSUPPORTED, which cannot
 be associated with an application callback module), is detected.</p>
 
 <p>
@@ -244,7 +245,8 @@ If <c>answer</c> then even 5xxx errors are answered without a
 callback unless the connection in question has configured the RFC 3588
 common dictionary as noted below.
 If <c>callback</c> then a &app_handle_request; callback always takes
-place and the return value determines the answer sent to the peer.</p>
+place and its return value determines the answer sent to the peer, if
+any.</p>
 
 <p>
 Defaults to <c>answer_3xxx</c> if unspecified.</p>
@@ -252,13 +254,14 @@ Defaults to <c>answer_3xxx</c> if unspecified.</p>
 <note>
 <p>
 Answers sent by diameter set the E-bit in the Diameter Header.
-Since RFC 3588 allowed only 3xxx result codes in an
+Since RFC 3588 allows only 3xxx result codes in an
 <c>answer-message</c>, <c>answer</c> has the same semantics as
-<c>answer_3xxx</c> if the peer connection in question has configured
-the RFC 3588 common dictionary, <c>diameter_gen_base_rfc3588</c>.
-RFC 6733 allows both 3xxx and 5xxx result codes in an
-<c>answer-message</c> so a connection configured with the RFC 6733
-common dictionary, <c>diameter_gen_base_rfc6733</c>, does
+<c>answer_3xxx</c> when the transport in question has
+been configured with <c>diameter_gen_base_rfc3588</c> as its common
+dictionary.
+Since RFC 6733 allows both 3xxx and 5xxx result codes in an
+<c>answer-message</c>, a transport with
+<c>diameter_gen_base_rfc6733</c> as its common dictionary does
 distinguish between <c>answer_3xxx</c> and <c>answer</c>.</p>
 </note>
 </item>
@@ -291,9 +294,8 @@ Multiple options append to the argument list.</p>
 <tag><c>{filter, &peer_filter;}</c></tag>
 <item>
 <p>
-A filter to apply to the list of available peers before passing them to
-the &app_pick_peer;
-callback for the application in question.
+Filter to apply to the list of available peers before passing it to
+the &app_pick_peer; callback for the application in question.
 Multiple options are equivalent a single <c>all</c> filter on the
 corresponding list of filters.
 Defaults to <c>none</c>.</p>
@@ -302,7 +304,7 @@ Defaults to <c>none</c>.</p>
 <tag><c>{timeout, &dict_Unsigned32;}</c></tag>
 <item>
 <p>
-The number of milliseconds after which the request should
+Number of milliseconds after which the request should
 timeout.
 Defaults to 5000.</p>
 </item>
@@ -310,9 +312,9 @@ Defaults to 5000.</p>
 <tag><c>detach</c></tag>
 <item>
 <p>
-Causes &call; to return <c>ok</c> as
+Cause &call; to return <c>ok</c> as
 soon as the request in
-question has been encoded instead of waiting for and returning
+question has been encoded, instead of waiting for and returning
 the result from a subsequent &app_handle_answer; or
 &app_handle_error; callback.</p>
 </item>
@@ -331,8 +333,8 @@ An invalid option will cause &call; to fail.</p>
 <p>
 AVP values sent in outgoing CER or CEA messages during capabilities
 exchange.
-Can be configured both on a service and a transport, values specified
-on the latter taking precedence over any specified on the former.
+Can be configured both on a service and a transport, values
+on the latter taking precedence.
 Has one of the following types.</p>
 
 <taglist>
@@ -355,10 +357,10 @@ question communicates an address list as described in
 <tag><c>{'Origin-State-Id', &dict_Unsigned32;}</c></tag>
 <item>
 <p>
-Origin-State-Id is optional but will be included in outgoing messages
-sent by diameter itself: CER/CEA, DWR/DWA and DPR/DPA.
+Origin-State-Id is optional but, if configured, will be included in
+outgoing CER/CEA and DWR/DWA messages.
 Setting a value of <c>0</c> (zero) is equivalent to not setting a
-value as documented in &the_rfc;.
+value, as documented in &the_rfc;.
 The function &origin_state_id;
 can be used as to retrieve a value that is computed when the diameter
 application is started.</p>
@@ -370,8 +372,8 @@ application is started.</p>
 <item>
 <p>
 Inband-Security-Id defaults to the empty list, which is equivalent to a
-list containing only 0 (= NO_INBAND_SECURITY).
-If 1 (= TLS) is specified then TLS is selected if the CER/CEA received
+list containing only 0 (NO_INBAND_SECURITY).
+If 1 (TLS) is specified then TLS is selected if the CER/CEA received
 from the peer offers it.</p>
 </item>
 
@@ -426,7 +428,7 @@ configuration passed to &start_service; or &add_transport;.</p>
 <tag><c>peer_filter() = term()</c></tag>
 <item>
 <p>
-A filter passed to &call; in order to select candidate peers for a
+Filter passed to &call; in order to select candidate peers for a
 &app_pick_peer; callback.
 Has one of the following types.</p>
 
@@ -437,38 +439,38 @@ Has one of the following types.</p>
 <p>
 Matches any peer.
 This is a convenience that provides a filter equivalent to no
-filter at all.</p>
+filter.</p>
 </item>
 
 <tag><c>host</c></tag>
 <item>
 <p>
-Matches only those peers whose <c>Origin-Host</c> has the same value
-as <c>Destination-Host</c> in the outgoing request in question,
+Matches only those peers whose Origin-Host has the same value
+as Destination-Host in the outgoing request in question,
 or any peer if the request does not contain
-a <c>Destination-Host</c> AVP.</p>
+a Destination-Host AVP.</p>
 </item>
 
 <tag><c>realm</c></tag>
 <item>
 <p>
-Matches only those peers whose <c>Origin-Realm</c> has the same value
-as <c>Destination-Realm</c> in the outgoing request in question,
+Matches only those peers whose Origin-Realm has the same value
+as Destination-Realm in the outgoing request in question,
 or any peer if the request does not contain
-a <c>Destination-Realm</c> AVP.</p>
+a Destination-Realm AVP.</p>
 </item>
 
 <tag><c>{host, any|&dict_DiameterIdentity;}</c></tag>
 <item>
 <p>
-Matches only those peers whose <c>Origin-Host</c> has the
+Matches only those peers whose Origin-Host has the
 specified value, or all peers if the atom <c>any</c>.</p>
 </item>
 
-<tag><c>{realm, any|&dict_DiameterIdentity;</c></tag>
+<tag><c>{realm, any|&dict_DiameterIdentity;}</c></tag>
 <item>
 <p>
-Matches only those peers whose <c>Origin-Realm</c> has the
+Matches only those peers whose Origin-Realm has the
 specified value, or all peers if the atom <c>any</c>.</p>
 </item>
 
@@ -477,7 +479,8 @@ specified value, or all peers if the atom <c>any</c>.</p>
 <p>
 Matches only those peers for which the specified
 <c>&evaluable;</c> returns
-<c>true</c> on the connection's <c>diameter_caps</c> record.
+<c>true</c> when applied to the connection's <c>diameter_caps</c>
+record.
 Any other return value or exception is equivalent to <c>false</c>.</p>
 </item>
 
@@ -497,7 +500,23 @@ Matches only those peers matched by each filter in the specified list.</p>
 <item>
 <p>
 Matches only those peers matched by at least one filter in the
-specified list.</p>
+specified list.
+The resulting list will be in match order, peers matching the
+first filter of the list sorting before those matched by the second,
+and so on.</p>
+</item>
+
+<tag><c>{first, [&peer_filter;]}</c></tag>
+<item>
+<p>
+Like <c>any</c>, but stops at the first filter for which there are
+matches, which can be much more efficient when there are many peers.
+For example, the following filter causes only peers best matching
+both the host and realm filters to be presented.</p>
+
+<pre>
+{first, [{all, [host, realm]}, realm]}
+</pre>
 </item>
 
 </taglist>
@@ -508,10 +527,10 @@ that matches no peer.</p>
 
 <note>
 <p>
-The <c>host</c> and <c>realm</c> filters examine the
-outgoing request as passed to &call;,
-assuming that this is a record- or list-valued <c>&codec_message;</c>,
-and that the message contains at most one of each AVP.
+The <c>host</c> and <c>realm</c> filters cause the Destination-Host
+and Destination-Realm AVPs to be extracted from the
+outgoing request, assuming it to be a record- or list-valued
+<c>&codec_message;</c>, and assuming at most one of each AVP.
 If this is not the case then the <c>{host|realm, &dict_DiameterIdentity;}</c>
 filters must be used to achieve the desired result.
 An empty <c>&dict_DiameterIdentity;</c>
@@ -555,7 +574,7 @@ Can have one of the following types.</p>
 <p>
 The service is being started or stopped.
 No event precedes a <c>start</c> event.
-No event follows a <c>stop</c> event and this event
+No event follows a <c>stop</c> event, and this event
 implies the termination of all transport processes.</p>
 </item>
 
@@ -575,16 +594,15 @@ The RFC 3539 watchdog state machine has
 transitioned into (<c>up</c>) or out of (<c>down</c>) the OKAY
 state.
 If a <c>#diameter_packet{}</c> is present in an <c>up</c> event
-then there has been a capabilties exchange on a newly established
-transport connection and the record contains the received CER or CEA.
-Otherwise a connection has reestablished without the loss or
-connectivity.</p>
+then there has been a capabilities exchange on a newly established
+transport connection and the record contains the received CER or
+CEA.</p>
 
 <p>
 Note that a single <c>up</c> or <c>down</c> event for a given peer
 corresponds to multiple &app_peer_up; or &app_peer_down;
 callbacks, one for each of the Diameter applications negotiated during
-capablilities exchange.
+capabilities exchange.
 That is, the event communicates connectivity with the
 peer as a whole while the callbacks communicate connectivity with
 respect to individual Diameter applications.</p>
@@ -599,7 +617,7 @@ Opts = [&transport_opt;]
 
 <p>
 A connecting transport is attempting to establish/reestablish a
-transport connection with a peer following &reconnect_timer; or
+transport connection with a peer following &connect_timer; or
 &watchdog_timer; expiry.</p>
 </item>
 
@@ -627,10 +645,10 @@ CB = &evaluable;
 </pre>
 
 <p>
-An incoming CER has been answered with the indicated result code or
+An incoming CER has been answered with the indicated result code, or
 discarded.
-<c>Caps</c> contains pairs of values for the local node and remote
-peer.
+<c>Caps</c> contains pairs of values, for the local node and remote
+peer respectively.
 <c>Pkt</c> contains the CER in question.
 In the case of rejection by a capabilities callback, the tuple
 contains the rejecting callback.</p>
@@ -647,7 +665,7 @@ Pkt  = #diameter_packet{}
 <p>
 An incoming CER contained errors and has been answered with the
 indicated result code.
-<c>Caps</c> contains only values for the local node.
+<c>Caps</c> contains values for the local node only.
 <c>Pkt</c> contains the CER in question.</p>
 </item>
 
@@ -661,7 +679,7 @@ connection establishment.</p>
 <tag><c>{'CEA', Result, Caps, Pkt}</c></tag>
 <item>
 <pre>
-Result = integer() | atom() | {capabilities_cb, CB, ResultCode|discard}
+Result = ResultCode | atom() | {capabilities_cb, CB, ResultCode|discard}
 Caps = #diameter_caps{}
 Pkt  = #diameter_packet{}
 ResultCode = integer()
@@ -729,7 +747,7 @@ info fields of forms other than the above.</p>
 <tag><c>service_name() = term()</c></tag>
 <item>
 <p>
-The name of a service as passed to &start_service; and with which the
+Name of a service as passed to &start_service; and with which the
 service is identified.
 There can be at most one service with a given name on a given node.
 Note that &make_ref;
@@ -741,7 +759,7 @@ can be used to generate a service name that is somewhat unique.</p>
 <tag><c>service_opt()</c></tag>
 <item>
 <p>
-An option passed to &start_service;.
+Option passed to &start_service;.
 Can be any <c>&capability;</c> as well as the following.</p>
 
 <taglist>
@@ -749,12 +767,12 @@ Can be any <c>&capability;</c> as well as the following.</p>
 <tag><c>{application, [&application_opt;]}</c></tag>
 <item>
 <p>
-Defines a Diameter application supported by the service.</p>
+A Diameter application supported by the service.</p>
 
 <p>
 A service must configure one tuple for each Diameter
 application it intends to support.
-For an outgoing Diameter request, the relevant <c>&application_alias;</c> is
+For an outgoing request, the relevant <c>&application_alias;</c> is
 passed to &call;, while for an
 incoming request the application identifier in the message
 header determines the application, the identifier being specified in
@@ -765,8 +783,21 @@ the application's &dictionary; file.</p>
 The capabilities advertised by a node must match its configured
 applications. In particular, <c>application</c> configuration must
 be matched by corresponding &capability; configuration, of
-Application-Id AVP's in particular.</p>
+*-Application-Id AVPs in particular.</p>
 </warning>
+
+</item>
+
+<marker id="incoming_maxlen"/>
+<tag><c>{incoming_maxlen, 0..16777215}</c></tag>
+<item>
+<p>
+Bound on the expected size of incoming Diameter messages.
+Messages larger than the specified number of bytes are discarded.</p>
+
+<p>
+Defaults to <c>16777215</c>, the maximum value of the 24-bit Message
+Length field in a Diameter Header.</p>
 
 </item>
 
@@ -777,11 +808,12 @@ Application-Id AVP's in particular.</p>
                              | evaluable()}</c></tag>
 <item>
 <p>
-Specifies the degree to which the service allows multiple transport
-connections to the same peer.</p>
+The degree to which the service allows multiple transport
+connections to the same peer, as identified by its Origin-Host
+at capabilities exchange.</p>
 
 <p>
-If type <c>[node()]</c> then a connection is rejected if another already
+If <c>[node()]</c> then a connection is rejected if another already
 exists on any of the specified nodes.
 Types <c>false</c>, <c>node</c>, <c>nodes</c> and
 &evaluable; are equivalent to
@@ -802,9 +834,9 @@ Defaults to <c>nodes</c>.</p>
 <tag><c>{sequence, {H,N} | &evaluable;}</c></tag>
 <item>
 <p>
-Specifies a constant value <c>H</c> for the topmost <c>32-N</c> bits of
-of 32-bit End-to-End and Hop-by-Hop identifiers generated
-by the service, either explicity or as a return value of a function
+A constant value <c>H</c> for the topmost <c>32-N</c> bits of
+of 32-bit End-to-End and Hop-by-Hop Identifiers generated
+by the service, either explicitly or as a return value of a function
 to be evaluated at &start_service;.
 In particular, an identifier <c>Id</c> is mapped to a new identifier
 as follows.</p>
@@ -812,11 +844,11 @@ as follows.</p>
 (H bsl N) bor (Id band ((1 bsl N) - 1))
 </pre>
 <p>
-Note that &the_rfc; requires that End-to-End identifiers remain unique
+Note that &the_rfc; requires that End-to-End Identifiers remain unique
 for a period of at least 4 minutes and that this and the call rate
-places a lower bound on the appropriate values of <c>N</c>:
-at a rate of <c>R</c> requests per second an <c>N</c>-bit counter
-traverses all of its values in <c>(1 bsl N) div (R*60)</c> minutes so
+places a lower bound on appropriate values of <c>N</c>:
+at a rate of <c>R</c> requests per second, an <c>N</c>-bit counter
+traverses all of its values in <c>(1 bsl N) div (R*60)</c> minutes, so
 the bound is <c>4*R*60 =&lt; 1 bsl N</c>.</p>
 
 <p><c>N</c> must lie in the range <c>0..32</c> and <c>H</c> must be a
@@ -829,7 +861,7 @@ Defaults to <c>{0,32}</c>.</p>
 <p>
 Multiple Erlang nodes implementing the same Diameter node should
 be configured with different sequence masks to ensure that each node
-uses a unique range of End-to-End and Hop-by-Hop identifiers for
+uses a unique range of End-to-End and Hop-by-Hop Identifiers for
 outgoing requests.</p>
 </warning>
 </item>
@@ -837,7 +869,7 @@ outgoing requests.</p>
 <tag><c>{share_peers, boolean() | [node()] | evaluable()}</c></tag>
 <item>
 <p>
-Specifies nodes to which peer connections established on the local
+Nodes to which peer connections established on the local
 Erlang node are communicated.
 Shared peers become available in the remote candidates list passed to
 &app_pick_peer; callbacks on remote nodes whose services are
@@ -852,7 +884,7 @@ by the specified function, evaluated whenever a peer connection
 becomes available or a remote service requests information about local
 connections.
 The value <c>true</c> is equivalent to <c>fun &nodes;</c>.
-The value <c>node()</c> in a node list is ignored, so a collection of
+The value <c>node()</c> in a list is ignored, so a collection of
 services can all be configured to share with the same list of
 nodes.</p>
 
@@ -876,7 +908,7 @@ of a single Diameter node across multiple Erlang nodes.</p>
 <tag><c>{spawn_opt, [term()]}</c></tag>
 <item>
 <p>
-An options list passed to &spawn_opt; when spawning a process for an
+Options list passed to &spawn_opt; when spawning a process for an
 incoming Diameter request, unless the transport in question
 specifies another value.
 Options <c>monitor</c> and <c>link</c> are ignored.</p>
@@ -885,10 +917,77 @@ Options <c>monitor</c> and <c>link</c> are ignored.</p>
 Defaults to the empty list.</p>
 </item>
 
+<marker id="strict_mbit"/>
+<tag><c>{strict_mbit, boolean()}</c></tag>
+<item>
+<p>
+Whether or not to regard an AVP setting the M-bit as erroneous when
+the command grammar in question does not explicitly allow the AVP.
+If <c>true</c> then such AVPs are regarded as 5001 errors,
+DIAMETER_AVP_UNSUPPORTED.
+If <c>false</c> then the M-bit is ignored and policing
+it becomes the receiver's responsibility.</p>
+
+<p>
+Defaults to <c>true</c>.</p>
+
+<warning>
+<p>
+RFC 6733 is unclear about the semantics of the M-bit.
+One the one hand, the CCF specification in section 3.2 documents AVP
+in a command grammar as meaning <b>any</b> arbitrary AVP; on the
+other hand, 1.3.4 states that AVPs setting the M-bit cannot be added
+to an existing command: the modified command must instead be
+placed in a new Diameter application.</p>
+<p>
+The reason for the latter is presumably interoperability:
+allowing arbitrary AVPs setting the M-bit in a command makes its
+interpretation implementation-dependent, since there's no
+guarantee that all implementations will understand the same set of
+arbitrary AVPs in the context of a given command.
+However, interpreting <c>AVP</c> in a command grammar as <b>any</b>
+AVP, regardless of M-bit, renders 1.3.4 meaningless, since the receiver
+can simply ignore any AVP it thinks isn't relevant, regardless of the
+sender's intent.</p>
+<p>
+Beware of confusing mandatory in the sense of the M-bit with mandatory
+in the sense of the command grammar.
+The former is a semantic requirement: that the receiver understand the
+semantics of the AVP in the context in question.
+The latter is a syntactic requirement: whether or not the AVP must
+occur in the message in question.</p>
+</warning>
+
+</item>
+
+<marker id="string_decode"/>
+<tag><c>{string_decode, boolean()}</c></tag>
+<item>
+<p>
+Whether or not to decode AVPs of type &dict_OctetString; and its
+derived types &dict_DiameterIdentity;, &dict_DiameterURI;,
+&dict_IPFilterRule;, &dict_QoSFilterRule;, and &dict_UTF8String;.
+If <c>true</c> then AVPs of these types are decoded to string().
+If <c>false</c> then values are retained as binary().</p>
+
+<p>
+Defaults to <c>true</c>.</p>
+
+<warning>
+<p>
+This option should be set to <c>false</c>
+since a sufficiently malicious peer can otherwise cause large amounts
+of memory to be consumed when decoded Diameter messages are passed
+between processes.
+The default value is for backwards compatibility.</p>
+</warning>
+
+</item>
+
 <tag><c>{use_shared_peers, boolean() | [node()] | evaluable()}</c></tag>
 <item>
 <p>
-Specifies nodes from which communicated peers are made available in
+Nodes from which communicated peers are made available in
 the remote candidates list of &app_pick_peer; callbacks.</p>
 
 <p>
@@ -899,7 +998,7 @@ If <c>evaluable()</c> then only peers returned by the specified
 function are used, evaluated whenever a remote service communicates
 information about an available peer connection.
 The value <c>true</c> is equivalent to <c>fun &nodes;</c>.
-The value <c>node()</c> in a node list is ignored.</p>
+The value <c>node()</c> in a list is ignored.</p>
 
 <p>
 Defaults to <c>false</c>.</p>
@@ -928,7 +1027,7 @@ each node from which requests are sent.</p>
 <tag><c>transport_opt()</c></tag>
 <item>
 <p>
-An option passed to &add_transport;.
+Option passed to &add_transport;.
 Has one of the following types.</p>
 
 <taglist>
@@ -936,8 +1035,7 @@ Has one of the following types.</p>
 <tag><c>{applications, [&application_alias;]}</c></tag>
 <item>
 <p>
-The list of Diameter applications to which the transport should be
-restricted.
+Diameter applications to which the transport should be restricted.
 Defaults to all applications configured on the service in question.
 Applications not configured on the service in question are ignored.</p>
 
@@ -946,7 +1044,7 @@ Applications not configured on the service in question are ignored.</p>
 The capabilities advertised by a node must match its configured
 applications.
 In particular, setting <c>applications</c> on a transport typically
-implies having to set matching Application-Id AVP's in a
+implies having to set matching *-Application-Id AVPs in a
 &capabilities; tuple.</p>
 </warning>
 
@@ -956,7 +1054,7 @@ implies having to set matching Application-Id AVP's in a
 <tag><c>{capabilities, [&capability;]}</c></tag>
 <item>
 <p>
-AVP's used to construct outgoing CER/CEA messages.
+AVPs used to construct outgoing CER/CEA messages.
 Values take precedence over any specified on the service in
 question.</p>
 
@@ -970,7 +1068,7 @@ TLS is desired over TCP as implemented by &man_tcp;.</p>
 <tag><c>{capabilities_cb, &evaluable;}</c></tag>
 <item>
 <p>
-A callback invoked upon reception of CER/CEA during capabilities
+Callback invoked upon reception of CER/CEA during capabilities
 exchange in order to ask whether or not the connection should
 be accepted.
 Applied to the <c>&transport_ref;</c> and
@@ -1018,15 +1116,46 @@ case the corresponding callbacks are applied until either all return
 <tag><c>{capx_timeout, &dict_Unsigned32;}</c></tag>
 <item>
 <p>
-The number of milliseconds after which a transport process having an
+Number of milliseconds after which a transport process having an
 established transport connection will be terminated if the expected
 capabilities exchange message (CER or CEA) is not received from the peer.
-For a connecting transport, the timing of reconnection attempts is
-governed by &watchdog_timer; or &reconnect_timer; expiry.
+For a connecting transport, the timing of connection attempts is
+governed by &connect_timer; or &watchdog_timer; expiry.
 For a listening transport, the peer determines the timing.</p>
 
 <p>
 Defaults to 10000.</p>
+</item>
+
+<marker id="connect_timer"/>
+<tag><c>{connect_timer, Tc}</c></tag>
+<item>
+<pre>
+Tc = &dict_Unsigned32;
+</pre>
+
+<p>
+For a connecting transport, the &the_rfc; Tc timer, in milliseconds.
+This timer determines the frequency with which a transport
+attempts to establish an initial connection with its peer
+following transport configuration.
+Once an initial connection has been
+established, &watchdog_timer; determines the frequency of
+reconnection attempts, as required by RFC 3539.</p>
+
+<p>
+For a listening transport, the timer specifies the time after which a
+previously connected peer will be forgotten: a connection after this time is
+regarded as an initial connection rather than reestablishment,
+causing the RFC 3539 state machine to pass to state OKAY rather than
+REOPEN.
+Note that these semantics are not governed by the RFC and
+that a listening transport's &connect_timer; should be greater
+than its peer's Tw plus jitter.</p>
+
+<p>
+Defaults to 30000 for a connecting transport and 60000 for a listening
+transport.</p>
 </item>
 
 <marker id="disconnect_cb"/>
@@ -1034,16 +1163,14 @@ Defaults to 10000.</p>
 
 <item>
 <p>
-A callback invoked prior to terminating the transport process of a
+Callback invoked prior to terminating the transport process of a
 transport connection having watchdog state <c>OKAY</c>.
-Applied to <c>Reason=transport|service|application</c> and the
-<c>&transport_ref;</c> and
-<c>&app_peer;</c>
-in question, <c>Reason</c> indicating whether the diameter
-application is being stopped, the service in question is being stopped
-at &stop_service; or
-the transport in question is being removed at &remove_transport;,
-respectively.</p>
+Applied to <c>application|service|transport</c> and the
+<c>&transport_ref;</c> and <c>&app_peer;</c> in question:
+<c>application</c> indicates that the diameter application is
+being stopped, <c>service</c> that the service in question is being
+stopped by &stop_service;, and <c>transport</c> that the transport in
+question is being removed by &remove_transport;.</p>
 
 <p>
 The return value can have one of the following types.</p>
@@ -1052,7 +1179,7 @@ The return value can have one of the following types.</p>
 <tag><c>{dpr, [option()]}</c></tag>
 <item>
 <p>
-Causes Disconnect-Peer-Request to be sent to the peer, the transport
+Send Disconnect-Peer-Request to the peer, the transport
 process being terminated following reception of
 Disconnect-Peer-Answer or timeout.
 An <c>option()</c> can be one of the following.</p>
@@ -1061,7 +1188,7 @@ An <c>option()</c> can be one of the following.</p>
 <tag><c>{cause, 0|rebooting|1|busy|2|goaway}</c></tag>
 <item>
 <p>
-The Disconnect-Cause to send, <c>REBOOTING</c>, <c>BUSY</c> and
+Disconnect-Cause to send, <c>REBOOTING</c>, <c>BUSY</c> and
 <c>DO_NOT_WANT_TO_TALK_TO_YOU</c> respectively.
 Defaults to <c>rebooting</c> for <c>Reason=service|application</c> and
 <c>goaway</c> for <c>Reason=transport</c>.</p>
@@ -1070,9 +1197,9 @@ Defaults to <c>rebooting</c> for <c>Reason=service|application</c> and
 <tag><c>{timeout, &dict_Unsigned32;}</c></tag>
 <item>
 <p>
-The number of milliseconds after which the transport process is
+Number of milliseconds after which the transport process is
 terminated if DPA has not been received.
-Defaults to 1000.</p>
+Defaults to the value of &dpa_timeout;.</p>
 </item>
 </taglist>
 </item>
@@ -1086,7 +1213,7 @@ Equivalent to <c>{dpr, []}</c>.</p>
 <tag><c>close</c></tag>
 <item>
 <p>
-Causes the transport process to be terminated without
+Terminate the transport process without
 Disconnect-Peer-Request being sent to the peer.</p>
 </item>
 
@@ -1109,11 +1236,34 @@ configured them.</p>
 Defaults to a single callback returning <c>dpr</c>.</p>
 </item>
 
+<marker id="dpa_timeout"/>
+<tag><c>{dpa_timeout, &dict_Unsigned32;}</c></tag>
+<item>
+<p>
+Number of milliseconds after which a transport connection is
+terminated following an outgoing DPR if DPA is not received.</p>
+
+<p>
+Defaults to 1000.</p>
+</item>
+
+<marker id="dpr_timeout"/>
+<tag><c>{dpr_timeout, &dict_Unsigned32;}</c></tag>
+<item>
+<p>
+Number of milliseconds after which a transport connection is
+terminated following an incoming DPR if the peer does not close the
+connection.</p>
+
+<p>
+Defaults to 5000.</p>
+</item>
+
 <marker id="length_errors"/>
 <tag><c>{length_errors, exit|handle|discard}</c></tag>
 <item>
 <p>
-Specifies how to deal with errors in the Message Length field of the
+How to deal with errors in the Message Length field of the
 Diameter Header in an incoming message.
 An error in this context is that the length is not at least 20 bytes
 (the length of a Header), is not a multiple of 4 (a valid length) or
@@ -1121,9 +1271,7 @@ is not the length of the message in question, as received over the
 transport interface documented in &man_transport;.</p>
 
 <p>
-If <c>exit</c> then a warning report is emitted and the parent of the
-transport process in question exits, which causes the transport
-process itself to exit as described in &man_transport;.
+If <c>exit</c> then the transport process in question exits.
 If <c>handle</c> then the message is processed as usual, a resulting
 &app_handle_request; or &app_handle_answer; callback (if one takes
 place) indicating the <c>5015</c> error (DIAMETER_INVALID_MESSAGE_LENGTH).
@@ -1145,41 +1293,26 @@ See &man_tcp; for the behaviour of that module.</p>
 </note>
 </item>
 
-<marker id="reconnect_timer"/>
-<tag><c>{reconnect_timer, Tc}</c></tag>
+<tag><c>{pool_size, pos_integer()}</c></tag>
 <item>
-<pre>
-Tc = &dict_Unsigned32;
-</pre>
-
 <p>
-For a connecting transport, the &the_rfc; Tc timer, in milliseconds.
-Note that this timer determines the frequency with which a transport
-will attempt to establish a connection with its peer only <em>before</em>
-an initial connection is established: once there is an initial
-connection it's &watchdog_timer; that determines the
-frequency of reconnection attempts, as required by RFC 3539.</p>
+Number of transport processes to start.
+For a listening transport, determines the size of the pool of
+accepting transport processes, a larger number being desirable for
+processing multiple concurrent peer connection attempts.
+For a connecting transport, determines the number of connections to
+the peer in question that will be attempted to be establshed:
+the &service_opt;: <c>restrict_connections</c> should also be
+configured on the service in question to allow multiple connections to
+the same peer.</p>
 
-<p>
-For a listening transport, the timer specifies the time after which a
-previously connected peer will be forgotten: a connection after this time is
-regarded as an initial connection rather than a reestablishment,
-causing the RFC 3539 state machine to pass to state OKAY rather than
-REOPEN.
-Note that these semantics are not governed by the RFC and
-that a listening transport's &reconnect_timer; should be greater
-than its peer's Tw plus jitter.</p>
-
-<p>
-Defaults to 30000 for a connecting transport and 60000 for a listening
-transport.</p>
 </item>
 
 <marker id="spawn_opt"/>
 <tag><c>{spawn_opt, [term()]}</c></tag>
 <item>
 <p>
-An options list passed to &spawn_opt; when spawning a process for an
+Options passed to &spawn_opt; when spawning a process for an
 incoming Diameter request.
 Options <c>monitor</c> and <c>link</c> are ignored.</p>
 
@@ -1192,7 +1325,7 @@ Defaults to the list configured on the service if not specified.</p>
 <tag><c>{transport_config, term(), &dict_Unsigned32; | infinity}</c></tag>
 <item>
 <p>
-A term passed as the third argument to the &transport_start; function of
+Term passed as the third argument to the &transport_start; function of
 the relevant &transport_module; in order to
 start a transport process.
 Defaults to the empty list if unspecified.</p>
@@ -1220,7 +1353,7 @@ To listen on both SCTP and TCP, define one transport for each.</p>
 <tag><c>{transport_module, atom()}</c></tag>
 <item>
 <p>
-A module implementing a transport process as defined in &man_transport;.
+Module implementing a transport process as defined in &man_transport;.
 Defaults to <c>diameter_tcp</c> if unspecified.</p>
 
 <p>
@@ -1240,7 +1373,7 @@ corresponding timeout (see below) or all fail.</p>
 <tag><c>{watchdog_config, [{okay|suspect, non_neg_integer()}]}</c></tag>
 <item>
 <p>
-Specifies configuration that alters the behaviour of the watchdog
+Configuration that alters the behaviour of the watchdog
 state machine.
 On key <c>okay</c>, the non-negative number of answered DWR
 messages before transitioning from REOPEN to OKAY.
@@ -1295,7 +1428,7 @@ in predicate functions passed to &remove_transport;.</p>
 <tag><c>transport_ref() = reference()</c></tag>
 <item>
 <p>
-An reference returned by &add_transport; that
+Reference returned by &add_transport; that
 identifies the configuration.</p>
 </item>
 
@@ -1631,11 +1764,13 @@ An example return value with for a client service with Origin-Host
                       {send_pend,0}]}]},
   {statistics,[{{{0,258,0},recv},3},
                {{{0,258,1},send},3},
+               {{{0,258,0},recv,{'Result-Code',2001}},3},
                {{{0,257,0},recv},1},
                {{{0,257,1},send},1},
-               {{{0,258,0},recv,{'Result-Code',2001}},3},
+               {{{0,257,0},recv,{'Result-Code',2001}},1},
                {{{0,280,1},recv},2},
-               {{{0,280,0},send},2}]}]]
+               {{{0,280,0},send},2},
+               {{{0,280,0},send,{'Result-Code',2001}},2}]}]]
 </pre>
 
 <p>
@@ -1661,7 +1796,7 @@ R_Flag}</c>.</p>
 Note that <c>watchdog</c>, <c>peer</c>, <c>apps</c>, <c>caps</c>
 and <c>port</c> entries depend on connectivity
 with the peer and may not be present.
-Note also that the <c>statistics</c> entry presents values acuumulated
+Note also that the <c>statistics</c> entry presents values accumulated
 during the lifetime of the transport configuration.</p>
 
 <p>
@@ -1711,18 +1846,30 @@ connection might look as follows.</p>
            [{watchdog,{&lt;0.72.0>,{1346,171491,998404},initial}}]]},
   {statistics,[{{{0,280,0},recv},7},
                {{{0,280,1},send},7},
-               {{{0,258,0},send,{'Result-Code',2001}},3},
+               {{{0,280,0},recv,{'Result-Code',2001}},7},
                {{{0,258,1},recv},3},
                {{{0,258,0},send},3},
+               {{{0,258,0},send,{'Result-Code',2001}},3},
                {{{0,280,1},recv},5},
                {{{0,280,0},send},5},
+               {{{0,280,0},send,{'Result-Code',2001}},5},
                {{{0,257,1},recv},1},
-               {{{0,257,0},send},1}]}]]
+               {{{0,257,0},send},1},
+               {{{0,257,0},send,{'Result-Code',2001}},1}]}]]
 </pre>
 
 <p>
 The information presented here is as in the <c>connect</c> case except
 that the client connections are grouped under an <c>accept</c> tuple.</p>
+
+<p>
+Whether or not the &transport_opt; <c>pool_size</c> has been
+configured affects the format
+of the listing in the case of a connecting transport, since a value
+greater than 1 implies multiple transport processes for the same
+<c>&transport_ref;</c>, as in the listening case.
+The format in this case is similar to the listening case, with a
+<c>pool</c> tuple in place of an <c>accept</c> tuple.</p>
 
 </item>
 
@@ -1776,13 +1923,16 @@ A return value for the server above might look as follows.</p>
                       {send_pend,0}]}]},
   {statistics,[{{{0,280,0},recv},62},
                {{{0,280,1},send},62},
-               {{{0,258,0},send,{'Result-Code',2001}},3},
+               {{{0,280,0},recv,{'Result-Code',2001}},62},
                {{{0,258,1},recv},3},
                {{{0,258,0},send},3},
+               {{{0,258,0},send,{'Result-Code',2001}},3},
                {{{0,280,1},recv},66},
                {{{0,280,0},send},66},
+               {{{0,280,0},send,{'Result-Code',2001}},66},
                {{{0,257,1},recv},1},
-               {{{0,257,0},send},1}]}]]
+               {{{0,257,0},send},1},
+               {{{0,257,0},send,{'Result-Code',2001}},1}]}]]
 </pre>
 
 <p>

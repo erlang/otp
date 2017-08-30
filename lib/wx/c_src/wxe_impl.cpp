@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -30,16 +31,12 @@
 // Ok ugly but needed for wxBufferedDC crash workaround
 #define private public
 #include <wx/dcbuffer.h>
-
-#if defined(__WXMSW__)
-    #include <wx/msw/private.h> // for wxSetInstance
-#endif
-
 #undef private
 
 #include "wxe_impl.h"
 #include "wxe_events.h"
 #include "wxe_return.h"
+#include "wxe_gl.h"
 
 IMPLEMENT_APP_NO_MAIN(WxeApp)
 
@@ -47,120 +44,21 @@ DECLARE_APP(WxeApp)
 
 DEFINE_EVENT_TYPE(wxeEVT_META_COMMAND)
 
-#define WXE_NOT_INITIATED 0
-#define WXE_INITIATED     1
-#define WXE_EXITED        2
-#define WXE_ERROR        -1
-
 #define WXE_NORMAL      0
 #define WXE_CALLBACK    1
 #define WXE_STORED      2
 
-ErlDrvTid wxe_thread;
+// Globals initiated in wxe_init.cpp
+extern ErlDrvMutex *wxe_status_m;
+extern ErlDrvCond  *wxe_status_c;
+extern ErlDrvMutex * wxe_batch_locker_m;
+extern ErlDrvCond  * wxe_batch_locker_c;
+extern ErlDrvTermData  init_caller;
+extern int wxe_status;
 
-ErlDrvMutex *wxe_status_m;
-ErlDrvCond  *wxe_status_c;
+wxeFifo * wxe_queue = NULL;
 
-ErlDrvMutex * wxe_batch_locker_m;
-ErlDrvCond  * wxe_batch_locker_c;
-
-static int wxe_status = WXE_NOT_INITIATED;
-
-wxList * wxe_batch = NULL;
-wxList * wxe_batch_cb_saved = NULL;
-
-ErlDrvTermData  wxe_batch_caller = 0;
-ErlDrvTermData  init_caller = 0;
-
-// extern opengl
-void gl_dispatch(int op, char *bp, ErlDrvTermData caller, WXEBinRef *bins[]);
-
-
-// Until fixed in emulator
-#ifndef _WIN32
-extern "C" {
-extern void erts_thread_disable_fpe(void);
-}
-#endif
-
-#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
-#define __DARWIN__ 1
-#endif
-
-#ifdef __DARWIN__
-extern "C" {
-  int erl_drv_stolen_main_thread_join(ErlDrvTid tid, void **respp);
-  int erl_drv_steal_main_thread(char *name,
-				ErlDrvTid *dtid,
-				void* (*func)(void*),
-				void* arg,
-				ErlDrvThreadOpts *opts);
-}
-#endif
-
-void *wxe_main_loop(void * );
-
-/* ************************************************************
- *  START AND STOP of driver thread
- * ************************************************************/
-
-int load_native_gui()
-{
-  return 1;
-}
-
-int start_native_gui(wxe_data *sd)
-{
-  int res;
-  wxe_status_m = erl_drv_mutex_create((char *) "wxe_status_m");
-  wxe_status_c = erl_drv_cond_create((char *)"wxe_status_c");
-
-  wxe_batch_locker_m = erl_drv_mutex_create((char *)"wxe_batch_locker_m");
-  wxe_batch_locker_c = erl_drv_cond_create((char *)"wxe_batch_locker_c");
-  init_caller = driver_connected(sd->port_handle);
-
-#ifdef __DARWIN__
-  res = erl_drv_steal_main_thread((char *)"wxwidgets",
-				  &wxe_thread,wxe_main_loop,(void *) sd->pdl,NULL);
-#else
-  res = erl_drv_thread_create((char *)"wxwidgets",
-			      &wxe_thread,wxe_main_loop,(void *) sd->pdl,NULL);
-#endif
-  if(res == 0) {
-    erl_drv_mutex_lock(wxe_status_m);
-    for(;wxe_status == WXE_NOT_INITIATED;) {
-      erl_drv_cond_wait(wxe_status_c, wxe_status_m);
-    }
-    erl_drv_mutex_unlock(wxe_status_m);
-    return wxe_status;
-  } else {
-    wxString msg;
-    msg.Printf(wxT("Erlang failed to create wxe-thread %d\r\n"), res);
-    send_msg("error", &msg);
-    return -1;
-  }
-}
-
-void stop_native_gui(wxe_data *sd)
-{
-  if(wxe_status == WXE_INITIATED) {
-    meta_command(WXE_SHUTDOWN, sd);
-  }
-#ifdef __DARWIN__
-  erl_drv_stolen_main_thread_join(wxe_thread, NULL);
-#else
-  erl_drv_thread_join(wxe_thread, NULL);
-#endif
-  erl_drv_mutex_destroy(wxe_status_m);
-  erl_drv_cond_destroy(wxe_status_c);
-  erl_drv_mutex_destroy(wxe_batch_locker_m);
-  erl_drv_cond_destroy(wxe_batch_locker_c);
-}
-
-void unload_native_gui()
-{
-
-}
+unsigned int wxe_needs_signal = 0;  // inside batch if larger than 0
 
 /* ************************************************************
  *  Commands from erlang
@@ -169,152 +67,89 @@ void unload_native_gui()
 
 void push_command(int op,char * buf,int len, wxe_data *sd)
 {
-  // fprintf(stderr, "Op %d %d\r\n", op, (int) driver_caller(sd->port_handle)),fflush(stderr);
-  wxeCommand *Cmd = new wxeCommand(op, buf, len, sd);
+  /* fprintf(stderr, "Op %d %d [%ld] %d\r\n", op, (int) driver_caller(sd->port_handle),
+     wxe_batch->size(), wxe_batch_caller),fflush(stderr); */
   erl_drv_mutex_lock(wxe_batch_locker_m);
-  wxe_batch->Append(Cmd);
+  wxe_queue->Add(op, buf, len, sd);
 
-  if(wxe_batch_caller > 0) {
+  if(wxe_needs_signal) {
     // wx-thread is waiting on batch end in cond_wait
     erl_drv_cond_signal(wxe_batch_locker_c);
+    erl_drv_mutex_unlock(wxe_batch_locker_m);
   } else {
     // wx-thread is waiting gui-events
-    if(op == WXE_BATCH_BEGIN) {
-      wxe_batch_caller = 1;
-    }
-    erl_drv_cond_signal(wxe_batch_locker_c);
+    erl_drv_mutex_unlock(wxe_batch_locker_m);
     wxWakeUpIdle();
   }
-  erl_drv_mutex_unlock(wxe_batch_locker_m);
 }
 
 void meta_command(int what, wxe_data *sd) {
-  if(what == PING_PORT) {
+  if(what == PING_PORT && wxe_status == WXE_INITIATED) {
     erl_drv_mutex_lock(wxe_batch_locker_m);
-    if(wxe_batch_caller > 0) {
-      wxeCommand *Cmd = new wxeCommand(WXE_DEBUG_PING, NULL, 0, sd);
-      wxe_batch->Append(Cmd);
+    if(wxe_needs_signal) {
+      wxe_queue->Add(WXE_DEBUG_PING, NULL, 0, sd);
       erl_drv_cond_signal(wxe_batch_locker_c);
-    } else {
-      wxWakeUpIdle();
     }
+    wxWakeUpIdle();
     erl_drv_mutex_unlock(wxe_batch_locker_m);
   } else {
-    if(sd) {
+    if(sd && wxe_status == WXE_INITIATED) {
       wxeMetaCommand Cmd(sd, what);
       wxTheApp->AddPendingEvent(Cmd);
+      if(what == DELETE_PORT) {
+	driver_free(sd->bin);
+	free(sd);
+      }
     }
   }
+}
+
+void send_msg(const char * type, const wxString * msg) {
+  wxeReturn rt = wxeReturn(WXE_DRV_PORT, init_caller);
+  rt.addAtom((char *) "wxe_driver");
+  rt.addAtom((char *) type);
+  rt.add(msg);
+  rt.addTupleCount(3);
+  rt.send();
 }
 
 /* ************************************************************
- *  wxWidgets Thread
+ *  Init WxeApp the application emulator
  * ************************************************************/
 
-void *wxe_main_loop(void *vpdl)
-{
-  int result;
-  int  argc = 1;
-  char * temp = (char *) "Erlang";
-  char * argv[] = {temp,NULL};
-  ErlDrvPDL pdl = (ErlDrvPDL) vpdl;
-
-  driver_pdl_inc_refc(pdl);
-
-  // ErlDrvSysInfo einfo;
-  // driver_system_info(&einfo, sizeof(ErlDrvSysInfo));
-  // Disable floating point execption if they are on.
-  // This should be done in emulator but it's not in yet.
-#ifndef _WIN32
-  erts_thread_disable_fpe();
-#else 
-  // Setup that wxWidgets should look for cursors and icons in 
-  // this dll and not in werl.exe (which is the default)
-  HMODULE WXEHandle = GetModuleHandle(_T("wxe_driver"));
-  wxSetInstance((HINSTANCE) WXEHandle);
-#endif
-
-  result = wxEntry(argc, argv);
-  // fprintf(stderr, "WXWidgets quits main loop %d \r\n", result);
-  if(result >= 0 && wxe_status == WXE_INITIATED) {
-    /* We are done try to make a clean exit */
-    wxe_status = WXE_EXITED;
-    driver_pdl_dec_refc(pdl);
-#ifndef __DARWIN__
-    erl_drv_thread_exit(NULL);
-#endif
-    return NULL;
-  } else {
-    erl_drv_mutex_lock(wxe_status_m);
-    wxe_status = WXE_ERROR;
-    erl_drv_cond_signal(wxe_status_c);
-    erl_drv_mutex_unlock(wxe_status_m);
-    driver_pdl_dec_refc(pdl);
-    return NULL;
-  }
-}
-
-wxFrame * dummy_window;
-
-void create_dummy_window() {
-  dummy_window = new wxFrame(NULL,-1, wxT("wx driver"),
-			     wxPoint(0,0), wxSize(5,5),
-			     wxFRAME_NO_TASKBAR);
-
-  wxMenuBar * menubar = new wxMenuBar();
-  dummy_window->SetMenuBar(menubar);
-  // wx-2.9 Don't delete the app menubar correctly
-  dummy_window->Connect(wxID_ANY, wxEVT_CLOSE_WINDOW,
-			(wxObjectEventFunction) (wxEventFunction) &WxeApp::dummy_close);
-  dummy_window->Connect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED,
-			(wxObjectEventFunction) (wxEventFunction) &WxeApp::dummy_close);
-  dummy_window->Show(true);
-  // dummy_window->Show(false);
-}
-
-// wxMac really wants a top level window which command-q quits if there are no
-// windows open, and this will kill the thread, so restart the dummy_window each
-// time a we receive a close.
-void WxeApp::dummy_close(wxEvent& Ev) {
-  if(Ev.GetEventType() == wxEVT_CLOSE_WINDOW) {
-    create_dummy_window();
-  }
-}
-
-
-// Init wx-widgets thread
 bool WxeApp::OnInit()
 {
-  wxe_ps_init();
 
   global_me = new wxeMemEnv();
-  wxe_batch = new wxList;
-  wxe_batch_cb_saved = new wxList;
+  wxe_queue = new wxeFifo(2000);
   cb_buff = NULL;
+  recurse_level = 0;
+  delayed_delete = new wxeFifo(100);
+  delayed_cleanup  = new wxList;
 
-  // wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED); Hmm printpreview doesn't work in 2.9 with this
+  wxe_ps_init2();
+  // wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED); // Hmm printpreview doesn't work in 2.9 with this
 
-  this->Connect(wxID_ANY, wxEVT_IDLE,
-		(wxObjectEventFunction) (wxEventFunction) &WxeApp::idle);
-  this->Connect(CREATE_PORT, wxeEVT_META_COMMAND,
-		(wxObjectEventFunction) (wxEventFunction) &WxeApp::newMemEnv);
-  this->Connect(DELETE_PORT, wxeEVT_META_COMMAND,
-		(wxObjectEventFunction) (wxEventFunction) &WxeApp::destroyMemEnv);
-  this->Connect(WXE_SHUTDOWN, wxeEVT_META_COMMAND,
-		(wxObjectEventFunction) (wxEventFunction) &WxeApp::shutdown);
+  Connect(wxID_ANY, wxEVT_IDLE,	(wxObjectEventFunction) (wxEventFunction) &WxeApp::idle);
+  Connect(CREATE_PORT, wxeEVT_META_COMMAND,(wxObjectEventFunction) (wxEventFunction) &WxeApp::newMemEnv);
+  Connect(DELETE_PORT, wxeEVT_META_COMMAND,(wxObjectEventFunction) (wxEventFunction) &WxeApp::destroyMemEnv);
+  Connect(WXE_SHUTDOWN, wxeEVT_META_COMMAND,(wxObjectEventFunction) (wxEventFunction) &WxeApp::shutdown);
 
 //   fprintf(stderr, "Size void* %d: long %d long long %d int64 %d \r\n",
 // 	  sizeof(void *), sizeof(long), sizeof(long long), sizeof(wxInt64));
   initEventTable();
   wxInitAllImageHandlers();
 
-  /* Create a dummy window so wxWidgets don't automagicly quits the main loop
-     after the last window */
-#ifdef __DARWIN__
-  create_dummy_window();
-#else
-  SetExitOnFrameDelete(false);
+#ifdef  _MACOSX
+  /* Create a default MenuBar so that we can intercept the quit command */
+  wxMenuBar *macMB = new wxMenuBar;
+  wxMenuBar::MacSetCommonMenuBar(macMB);
+  macMB->MacInstallMenuBar();
+  macMB->Connect(wxID_ANY, wxEVT_COMMAND_MENU_SELECTED,
+		 (wxObjectEventFunction) (wxEventFunction) &WxeApp::dummy_close);
 #endif
+
+  SetExitOnFrameDelete(false);
 
   init_nonconsts(global_me, init_caller);
   erl_drv_mutex_lock(wxe_status_m);
@@ -324,20 +159,48 @@ bool WxeApp::OnInit()
   return TRUE;
 }
 
-void WxeApp::shutdown(wxeMetaCommand& Ecmd) {
-#ifdef __DARWIN__
-  delete dummy_window;
+
+#ifdef  _MACOSX
+void WxeApp::MacOpenFile(const wxString &filename) {
+  send_msg("open_file", &filename);
+}
 #endif
+
+void WxeApp::shutdown(wxeMetaCommand& Ecmd) {
+  wxe_status = WXE_EXITING;
   ExitMainLoop();
+  delete wxe_queue;
 }
 
-void send_msg(const char * type, wxString * msg) {
-  wxeReturn rt = wxeReturn(WXE_DRV_PORT, init_caller);
-  rt.addAtom((char *) "wxe_driver");
-  rt.addAtom((char *) type);
-  rt.add(msg);
-  rt.addTupleCount(3);
-  rt.send();
+void WxeApp::dummy_close(wxEvent& Ev) {
+  // fprintf(stderr, "Dummy Close invoked\r\n");
+  // wxMac really wants a top level window which command-q quits if there are no
+  // windows open, and this will kill the erlang, override default handling
+}
+
+void WxeApp::OnAssertFailure(const wxChar *file, int line, const wxChar *cfunc,
+			    const wxChar *cond, const wxChar *cmsgUser) {
+  wxString msg;
+  wxString func(cfunc);
+  wxString msgUser(cmsgUser);
+
+  msg.Printf(wxT("wxWidgets Assert failure: %s(%d): \"%s\""),
+	     file, line, cond);
+  if ( !func.empty() ) {
+    msg << wxT(" in ") << func << wxT("()");
+  }
+  // and the message itself
+  if ( !msgUser.empty() ) {
+    msg << wxT(" : ") << msgUser;
+  }
+
+  send_msg("error", &msg);
+}
+
+// Called by wx thread
+void WxeApp::idle(wxIdleEvent& event) {
+  event.Skip(true);
+  dispatch_cmds();
 }
 
 /* ************************************************************
@@ -354,174 +217,169 @@ void handle_event_callback(ErlDrvPort port, ErlDrvTermData process)
 {
   WxeApp * app = (WxeApp *) wxTheApp;
   ErlDrvMonitor monitor;
-  driver_monitor_process(port, process, &monitor);
-  // Should we be able to handle commands when recursing? probably
-  erl_drv_mutex_lock(wxe_batch_locker_m);
-  //fprintf(stderr, "\r\nCB EV Start %lu \r\n", process);fflush(stderr);
-  app->dispatch_cb(wxe_batch, wxe_batch_cb_saved, process);
-  //fprintf(stderr, "CB EV done %lu \r\n", process);fflush(stderr);
-  wxe_batch_caller = 0;
-  erl_drv_mutex_unlock(wxe_batch_locker_m);
-  driver_demonitor_process(port, &monitor);
+
+  if(wxe_status != WXE_INITIATED)
+    return;
+
+  // Is thread safe if pdl have been incremented
+  if(driver_monitor_process(port, process, &monitor) == 0) {
+    // Should we be able to handle commands when recursing? probably
+    // fprintf(stderr, "\r\nCB EV Start %lu \r\n", process);fflush(stderr);
+    app->recurse_level++;
+    app->dispatch_cb(wxe_queue, process);
+    app->recurse_level--;
+    // fprintf(stderr, "CB EV done %lu \r\n", process);fflush(stderr);
+    driver_demonitor_process(port, &monitor);
+  }
 }
 
-// Called by wx thread
-void WxeApp::idle(wxIdleEvent& event) {
-  dispatch_cmds();
+void WxeApp::dispatch_cmds()
+{
+  if(wxe_status != WXE_INITIATED)
+    return;
+  recurse_level++;
+  // fprintf(stderr, "\r\ndispatch_normal %d\r\n", recurse_level);fflush(stderr);
+  wxe_queue->cb_start = 0;
+  dispatch(wxe_queue);
+  // fprintf(stderr, "\r\ndispatch_done %d\r\n", recurse_level);fflush(stderr);
+  recurse_level--;
+
+  // Cleanup old memenv's and deleted objects
+  if(recurse_level == 0) {
+    wxeCommand *curr;
+    while((curr = delayed_delete->Get()) != NULL) {
+      wxe_dispatch(*curr);
+      curr->Delete();
+    }
+    delayed_delete->Cleanup();
+    if(delayed_cleanup->size() > 0)
+      for( wxList::compatibility_iterator node = delayed_cleanup->GetFirst();
+	   node;
+	   node = delayed_cleanup->GetFirst()) {
+	wxeMetaCommand *event = (wxeMetaCommand *)node->GetData();
+	delayed_cleanup->Erase(node);
+	destroyMemEnv(*event);
+	delete event;
+      }
+  }
 }
 
-void WxeApp::dispatch_cmds() {
-  erl_drv_mutex_lock(wxe_batch_locker_m);
-  int level = dispatch(wxe_batch_cb_saved, 0, WXE_STORED);
-  dispatch(wxe_batch, level, WXE_NORMAL);
-  wxe_batch_caller = 0;
-  erl_drv_mutex_unlock(wxe_batch_locker_m);
-}
-
-// Should have  erl_drv_mutex_lock(wxe_batch_locker_m);
-// when entering this function and it should be released
-// afterwards
-int WxeApp::dispatch(wxList * batch, int blevel, int list_type)
+int WxeApp::dispatch(wxeFifo * batch)
 {
   int ping = 0;
-  // erl_drv_mutex_lock(wxe_batch_locker_m);  must be locked already
-  while(true)
-    {
-      if (batch->size() > 0) {
-	for( wxList::compatibility_iterator node = batch->GetFirst();
-	     node;
-	     node = batch->GetFirst())
-	  {
-	    wxeCommand *event = (wxeCommand *)node->GetData();
-	    batch->Erase(node);
-	    switch(event->op) {
-	    case WXE_BATCH_END:
-	      {--blevel; }
-	      break;
-	    case WXE_BATCH_BEGIN:
-	      {blevel++; }
-	      break;
-	    case WXE_DEBUG_PING:
-	      // When in debugger we don't want to hang waiting for a BATCH_END
-	      // that never comes, because a breakpoint have hit.
-	      ping++;
-	      if(ping > 2)
-		blevel = 0;
-	      break;
-	    case WXE_CB_RETURN:
-	      // erl_drv_mutex_unlock(wxe_batch_locker_m); should be called after
-	      // whatever cleaning is necessary
-	      if(event->len > 0) {
-		cb_buff = (char *) driver_alloc(event->len);
-		memcpy(cb_buff, event->buffer, event->len);
-	      }
-	      return blevel;
-	    default:
-	      erl_drv_mutex_unlock(wxe_batch_locker_m);
-	      if(event->op < OPENGL_START) {
-		// fprintf(stderr, "  c %d (%d) \r\n", event->op, blevel);
-		wxe_dispatch(*event);
-	      } else {
-		gl_dispatch(event->op,event->buffer,event->caller,event->bin);
-	      }
-	      erl_drv_mutex_lock(wxe_batch_locker_m);
-	      break;
-	    }
-	    delete event;
-	  }
-      } else {
-	if((list_type == WXE_STORED) || (blevel <= 0 && list_type == WXE_NORMAL)) {
-	  // erl_drv_mutex_unlock(wxe_batch_locker_m); should be called after
-	  // whatever cleaning is necessary
-	  return blevel;
+  int blevel = 0;
+  wxeCommand *event;
+  erl_drv_mutex_lock(wxe_batch_locker_m);
+  while(true) {
+    while((event = batch->Get()) != NULL) {
+      erl_drv_mutex_unlock(wxe_batch_locker_m);
+      switch(event->op) {
+      case WXE_BATCH_END:
+	{--blevel; }
+	break;
+      case WXE_BATCH_BEGIN:
+	{blevel++; }
+	break;
+      case WXE_DEBUG_PING:
+	// When in debugger we don't want to hang waiting for a BATCH_END
+	// that never comes, because a breakpoint have hit.
+	ping++;
+	if(ping > 2)
+	  blevel = 0;
+	break;
+      case WXE_CB_RETURN:
+	if(event->len > 0) {
+	  cb_buff = (char *) driver_alloc(event->len);
+	  memcpy(cb_buff, event->buffer, event->len);
 	}
-	// sleep until something happens
-	//fprintf(stderr, "%s:%d sleep %d %d %d %d \r\n", __FILE__, __LINE__, batch->size(), callback_returned, blevel, is_callback);fflush(stderr);
-	wxe_batch_caller++;
-	while(batch->size() == 0) {
-	  erl_drv_cond_wait(wxe_batch_locker_c, wxe_batch_locker_m);
+	event->Delete();
+	return blevel;
+      default:
+	if(event->op < OPENGL_START) {
+	  // fprintf(stderr, "  c %d (%d) \r\n", event->op, blevel);
+	  wxe_dispatch(*event);
+	} else {
+	  gl_dispatch(event->op,event->buffer,event->caller,event->bin);
 	}
+	break;
       }
+      event->Delete();
+      erl_drv_mutex_lock(wxe_batch_locker_m);
+      batch->Cleanup();
     }
+    if(blevel <= 0) {
+      erl_drv_mutex_unlock(wxe_batch_locker_m);
+      return blevel;
+    }
+    // sleep until something happens
+    //fprintf(stderr, "%s:%d sleep %d %d\r\n", __FILE__, __LINE__, batch->m_n, blevel);fflush(stderr);
+    wxe_needs_signal = 1;
+    while(batch->m_n == 0) {
+      erl_drv_cond_wait(wxe_batch_locker_c, wxe_batch_locker_m);
+    }
+    wxe_needs_signal = 0;
+  }
 }
 
-void WxeApp::dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process) {
-  int callback_returned = 0;
+void WxeApp::dispatch_cb(wxeFifo * batch, ErlDrvTermData process) {
+  wxeCommand *event;
+  unsigned int peek;
+  erl_drv_mutex_lock(wxe_batch_locker_m);
+  peek = batch->Cleanup(batch->cb_start);
   while(true) {
-    if (batch->size() > 0) {
-      for( wxList::compatibility_iterator node = batch->GetFirst();
-	   node;
-	   node = batch->GetFirst())
-	{
-	  wxeCommand *event = (wxeCommand *)node->GetData();
-	  wxeMemEnv *memenv = getMemEnv(event->port);
-	  batch->Erase(node);
-	  // fprintf(stderr, "  Ev %d %lu\r\n", event->op, event->caller);
-	  if(event->caller == process ||  // Callbacks from CB process only
-	     event->op == WXE_CB_START || // Event callback start change process
-	     // Allow connect_cb during CB i.e. msg from wxe_server.
-	     (memenv && event->caller == memenv->owner))
-	    {
-	      switch(event->op) {
-	      case WXE_BATCH_END:
-	      case WXE_BATCH_BEGIN:
-	      case WXE_DEBUG_PING:
-		break;
-	      case WXE_CB_RETURN:
-		if(event->len > 0) {
-		  cb_buff = (char *) driver_alloc(event->len);
-		  memcpy(cb_buff, event->buffer, event->len);
-		}
-		callback_returned = 1;
-		return;
-	      case WXE_CB_START:
-		// CB start from now accept message from CB process only
-		process = event->caller;
-		break;
-	      default:
-		erl_drv_mutex_unlock(wxe_batch_locker_m);
-		size_t start=temp->GetCount();
-		if(event->op < OPENGL_START) {
-		  // fprintf(stderr, "  cb %d \r\n", event->op);
-		  wxe_dispatch(*event);
-		} else {
-		  gl_dispatch(event->op,event->buffer,event->caller,event->bin);
-		}
-		erl_drv_mutex_lock(wxe_batch_locker_m);
-		if(temp->GetCount() > start) {
-		  // We have recursed dispatch_cb and messages for this
-		  // callback may be saved on temp list move them
-		  // to orig list
-		  for(wxList::compatibility_iterator node = temp->Item(start);
-		      node;
-		      node = node->GetNext()) {
-		    wxeCommand *ev = (wxeCommand *)node->GetData();
-		    if(ev->caller == process) {
-		      batch->Append(ev);
-		      temp->Erase(node);
-		    }
-		  }
-		}
-		if(callback_returned)
-		  return;
-		break;
-	      }
-	      delete event;
-	    } else {
-	    // fprintf(stderr, "  save %d \r\n", event->op);
-	    temp->Append(event);
+    while((event = batch->Peek(&peek)) != NULL) {
+      wxeMemEnv *memenv = getMemEnv(event->port);
+      // fprintf(stderr, "  Ev %d %lu\r\n", event->op, event->caller);
+      if(event->caller == process ||  // Callbacks from CB process only
+	 event->op == WXE_CB_START || // Event callback start change process
+	 event->op == WXE_CB_DIED ||  // Event callback process died
+	 // Allow connect_cb during CB i.e. msg from wxe_server.
+	 (memenv && event->caller == memenv->owner)) {
+	erl_drv_mutex_unlock(wxe_batch_locker_m);
+	switch(event->op) {
+	case WXE_BATCH_END:
+	case WXE_BATCH_BEGIN:
+	case WXE_DEBUG_PING:
+	  break;
+	case WXE_CB_RETURN:
+	  if(event->len > 0) {
+	    cb_buff = (char *) driver_alloc(event->len);
+	    memcpy(cb_buff, event->buffer, event->len);
+	  }  // continue
+	case WXE_CB_DIED:
+	  batch->cb_start = 0;
+	  event->Delete();
+	  erl_drv_mutex_lock(wxe_batch_locker_m);
+	  batch->Strip();
+	  erl_drv_mutex_unlock(wxe_batch_locker_m);
+	  return;
+	case WXE_CB_START:
+	  // CB start from now accept message from CB process only
+	  process = event->caller;
+	  break;
+	default:
+	  batch->cb_start = peek; // In case of recursive callbacks
+	  if(event->op < OPENGL_START) {
+	    wxe_dispatch(*event);
+	  } else {
+	    gl_dispatch(event->op,event->buffer,event->caller,event->bin);
 	  }
+	  break;
 	}
-    } else {
-      if(callback_returned) {
-	return;
-      }
-      // sleep until something happens
-      //fprintf(stderr, "%s:%d sleep %d %d %d %d \r\n", __FILE__, __LINE__, batch->size(), callback_returned, blevel, is_callback);fflush(stderr);
-      while(batch->size() == 0) {
-	erl_drv_cond_wait(wxe_batch_locker_c, wxe_batch_locker_m);
+	event->Delete();
+	erl_drv_mutex_lock(wxe_batch_locker_m);
+	peek = batch->Cleanup(peek);
       }
     }
+    // sleep until something happens
+    // fprintf(stderr, "%s:%d sleep %d %d\r\n", __FILE__, __LINE__,
+    // 	    peek, batch->m_n);fflush(stderr);
+    wxe_needs_signal = 1;
+    while(peek >= batch->m_n) {
+      erl_drv_cond_wait(wxe_batch_locker_c, wxe_batch_locker_m);
+      peek = batch->Cleanup(peek);
+    }
+    wxe_needs_signal = 0;
   }
 }
 
@@ -543,11 +401,19 @@ void WxeApp::newMemEnv(wxeMetaCommand& Ecmd) {
   erl_drv_send_term(WXE_DRV_PORT,Ecmd.caller,rt,2);
 }
 
-void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd) {
+void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd)
+{
   // Clear incoming cmd queue first
   // dispatch_cmds();
   wxWindow *parent = NULL;
   wxeMemEnv * memenv = refmap[Ecmd.port];
+
+  if(!memenv) {
+    wxString msg;
+    msg.Printf(wxT("MemEnv already deleted"));
+    send_msg("debug", &msg);
+    return;
+  }
 
   if(wxe_debug) {
     wxString msg;
@@ -562,25 +428,32 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd) {
       ptrMap::iterator it = ptr2ref.find(ptr);
       if(it != ptr2ref.end()) {
 	wxeRefData *refd = it->second;
-	if(refd->alloc_in_erl) {
-	  if(refd->type == 2) {
-	    wxDialog *win = (wxDialog *) ptr;
-	    if(win->IsModal()) {
-	      win->EndModal(-1);
+	if(refd->alloc_in_erl && refd->type == 2) {
+	  wxDialog *win = (wxDialog *) ptr;
+	  if(win->IsModal()) {
+	    win->EndModal(-1);
+	  }
+	  parent = win->GetParent();
+	  if(parent) {
+	    ptrMap::iterator parentRef = ptr2ref.find(parent);
+	    if(parentRef == ptr2ref.end()) {
+	      // The parent is already dead delete the parent ref
+	      win->SetParent(NULL);
 	    }
-	    parent = win->GetParent();
-	    if(parent) {
-	      ptrMap::iterator parentRef = ptr2ref.find(parent);
-	      if(parentRef == ptr2ref.end()) {
-		// The parent is already dead delete the parent ref
-		win->SetParent(NULL);
-	      }
-	    }
+	  }
+	  if(recurse_level > 0) {
+	    // Delay delete until we are out of dispatch*
+	  } else {
 	    delete win;
 	  }
 	}
       }
     }
+  }
+
+  if(recurse_level > 0) {
+    delayed_cleanup->Append(Ecmd.Clone());
+    return;
   }
   // First pass, delete all top parents/windows of all linked objects
   //   fprintf(stderr, "close port %x\r\n", Ecmd.port);fflush(stderr);
@@ -617,20 +490,20 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd) {
       if(it != ptr2ref.end()) {
 	wxeRefData *refd = it->second;
 	if(refd->alloc_in_erl) {
-	  int type = refd->type;
-	  if((refd->type == 1) && ((wxObject *)ptr)->IsKindOf(CLASSINFO(wxBufferedDC))) {
+	  if((refd->type == 8) && ((wxObject *)ptr)->IsKindOf(CLASSINFO(wxBufferedDC))) {
 	    ((wxBufferedDC *)ptr)->m_dc = NULL; // Workaround
 	  }
 	  wxString msg;
-	  if((refd->type == 0)) { // Maybe also class 1
+	  bool cleanup_ref=true;
+	  if(refd->type == 0) { // Maybe also class 1
 	    wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
 	    msg.Printf(wxT("Memory leak: {wx_ref, %d, %s}"),
 		       refd->ref, cinfo->GetClassName());
 	    send_msg("error", &msg);
-	  } else {
-	    delete_object(ptr, refd);
+	  } else if(refd->type != 4) {
+	    cleanup_ref = delete_object(ptr, refd);
 	  }
-	  if(type == 0 || type > 2) {
+	  if(cleanup_ref) {
 	    // Delete refs for leaks and non overridden allocs
 	    delete refd;
 	    ptr2ref.erase(it);
@@ -656,6 +529,17 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd) {
   refmap.erase((ErlDrvTermData) Ecmd.port);
 }
 
+
+wxeRefData * WxeApp::getRefData(void *ptr) {
+  ptrMap::iterator it = ptr2ref.find(ptr);
+  if(it != ptr2ref.end()) {
+    wxeRefData *refd = it->second;
+    return refd;
+  }
+  return NULL;
+}
+
+
 wxeMemEnv * WxeApp::getMemEnv(ErlDrvTermData port) {
   return refmap[port];
 }
@@ -678,7 +562,12 @@ int WxeApp::newPtr(void * ptr, int type, wxeMemEnv *memenv) {
 
   if(wxe_debug) {
     wxString msg;
-    msg.Printf(wxT("Creating {wx_ref, %d, unknown} at %p "), ref, ptr);
+    const wxChar *class_info = wxT("unknown");
+    if(type < 10) {
+      wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
+      class_info = cinfo->GetClassName();
+    }
+    msg.Printf(wxT("Creating {wx_ref, %d, %s} at %p "), ref, class_info, ptr);
     send_msg("debug", &msg);
   }
 
@@ -730,15 +619,9 @@ void WxeApp::clearPtr(void * ptr) {
     refd->memenv->ref2ptr[ref] = NULL;
     free.Append(ref);
 
-    if(wxe_debug) {
-      wxString msg;
-      msg.Printf(wxT("Deleting {wx_ref, %d, unknown} at %p "), ref, ptr);
-      send_msg("debug", &msg);
-    }
-
     if(((int) refd->pid) != -1) {
       // Send terminate pid to owner
-      wxeReturn rt = wxeReturn(WXE_DRV_PORT,refd->memenv->owner, false);
+      wxeReturn rt = wxeReturn(WXE_DRV_PORT,refd->pid, false);
       rt.addAtom("_wxe_destroy_");
       rt.add(ERL_DRV_PID, refd->pid);
       rt.addTupleCount(2);
@@ -805,148 +688,4 @@ void WxeApp::registerPid(char * bp, ErlDrvTermData pid, wxeMemEnv * memenv) {
     }
   };
   throw wxe_badarg(index);
-}
-
-
-/* ************************************************************
- *  Misc utility classes
- * ************************************************************/
-
-/* ****************************************************************************
- * Memory handling
- * ****************************************************************************/
-
-wxeMemEnv::wxeMemEnv() {
-  ref2ptr = (void **) driver_alloc(128*sizeof(void *));
-  ref2ptr[0] = NULL;
-  next = 1;
-  max = 128;
-}
-
-wxeMemEnv::~wxeMemEnv() {
-  driver_free(ref2ptr);
-}
-
-/* ****************************************************************************
- * Erlang Commands (don't need to be derived of wxEvent anymore should
- * be re-written to own class struct)
- * ****************************************************************************/
-
-wxeCommand::wxeCommand(int fc,char * cbuf,int buflen, wxe_data *sd)
-  : wxObject()
-{
-  WXEBinRef *temp, *start, *prev;
-  int n = 0;
-  caller = driver_caller(sd->port_handle);
-  port   = sd->port;
-  op = fc;
-  len = buflen;
-  bin[0] = NULL;
-  bin[1] = NULL;
-  bin[2] = NULL;
-
-  if(cbuf) {
-    buffer = (char *) driver_alloc(len);
-    memcpy((void *) buffer, (void *) cbuf, len);;
-
-    temp = sd->bin;
-
-    prev  = NULL;
-    start = temp;
-
-    while(temp) {
-      if(caller == temp->from) {
-	bin[n++] = temp;
-	if(prev) {
-	  prev->next = temp->next;
-	} else {
-	  start = temp->next;
-	}
-	temp = temp->next;
-      } else {
-	prev = temp;
-	temp = temp->next;
-      }
-    }
-    sd->bin = start;
-  } else {   // No-op only PING currently
-    buffer = NULL;
-  }
-}
-
-wxeCommand::~wxeCommand() {
-  int n = 0;
-  if(buffer) {
-    while(bin[n]) {
-      if(bin[n]->bin)
-	driver_free_binary(bin[n]->bin);
-      driver_free(bin[n++]);
-    }
-    driver_free(buffer);
-  }
-}
-
-/* ****************************************************************************
- * TreeItemData
- * ****************************************************************************/
-
-wxETreeItemData::wxETreeItemData(int sz, char * data) {
-  size = sz;
-  bin = (char *) driver_alloc(sz);
-  memcpy(bin, data, sz);
-}
-
-wxETreeItemData::~wxETreeItemData()
-{
-  driver_free(bin);
-}
-
-/* ****************************************************************************
- * CallbackData *
- * ****************************************************************************/
-
-wxeCallbackData::wxeCallbackData(ErlDrvTermData caller,void * req, char *req_type,
-				 int funcb, int skip_ev, wxeErlTerm * userData)
-  : wxObject()
-{
-  listener = caller;
-  obj = req;
-  fun_id = funcb;
-  strcpy(class_name, req_type);
-  skip = skip_ev;
-  user_data = userData;
-}
-
-wxeCallbackData::~wxeCallbackData() {
-  // fprintf(stderr, "CBD Deleteing %x %s\r\n", (unsigned int) this, class_name); fflush(stderr);
-  if(user_data) {
-    delete user_data;
-  }
-}
-
-/* ****************************************************************************
- * wxListCtrlCompare wrapper
- * ****************************************************************************/
-
-int wxCALLBACK wxEListCtrlCompare(long item1, long item2, long callbackInfoPtr)
-{
-  callbackInfo * cb = (callbackInfo *)callbackInfoPtr;
-  wxeMemEnv * memenv =  ((WxeApp *) wxTheApp)->getMemEnv(cb->port);
-  wxeReturn rt = wxeReturn(WXE_DRV_PORT, memenv->owner, false);
-  rt.addInt(cb->callbackID);
-  rt.addInt(item1);
-  rt.addInt(item2);
-  rt.endList(2);
-  rt.addAtom("_wx_invoke_cb_");
-  rt.addTupleCount(3);
-  rt.send();
-  handle_event_callback(WXE_DRV_PORT_HANDLE, memenv->owner);
-
-  if(((WxeApp *) wxTheApp)->cb_buff) {
-    int res = * (int*) ((WxeApp *) wxTheApp)->cb_buff;
-    driver_free(((WxeApp *) wxTheApp)->cb_buff);
-    ((WxeApp *) wxTheApp)->cb_buff = NULL;
-    return res;
-  }
-  return 0;
 }

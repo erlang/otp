@@ -1,0 +1,66 @@
+module 'bs_shadowed_size_var'
+   ['filter_essentials'/1,
+    'bs_shadowed_size_var'/0]
+    attributes []
+
+%% bs_shadowed_size_var() ->
+%%    [42|<<"abcde">>] = Mod:filter_essentials([<<42:32>>|<<5:32,"abcde">>]),
+%%    ok.
+
+'bs_shadowed_size_var'/0 =
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      case apply 'filter_essentials'/1
+		       ([#{#<0>(8,1,'integer',['unsigned'|['big']]),
+			   #<0>(8,1,'integer',['unsigned'|['big']]),
+			   #<0>(8,1,'integer',['unsigned'|['big']]),
+			   #<42>(8,1,'integer',['unsigned'|['big']])}#|#{#<0>(8,1,'integer',['unsigned'|['big']]),
+									 #<0>(8,1,'integer',['unsigned'|['big']]),
+									 #<0>(8,1,'integer',['unsigned'|['big']]),
+									 #<5>(8,1,'integer',['unsigned'|['big']]),
+									 #<97>(8,1,'integer',['unsigned'|['big']]),
+									 #<98>(8,1,'integer',['unsigned'|['big']]),
+									 #<99>(8,1,'integer',['unsigned'|['big']]),
+									 #<100>(8,1,'integer',['unsigned'|['big']]),
+									 #<101>(8,1,'integer',['unsigned'|['big']])}#]) of
+		<[42|#{#<97>(8,1,'integer',['unsigned'|['big']]),
+		       #<98>(8,1,'integer',['unsigned'|['big']]),
+		       #<99>(8,1,'integer',['unsigned'|['big']]),
+		       #<100>(8,1,'integer',['unsigned'|['big']]),
+		       #<101>(8,1,'integer',['unsigned'|['big']])}#]> when 'true' ->
+		    'ok'
+		( <_cor0> when 'true' ->
+		      primop 'match_fail'
+			  ({'badmatch',_cor0})
+		  -| ['compiler_generated'] )
+	      end
+	  ( <> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause'})
+		  -| [{'function_name',{'bs_shadowed_size_var',0}}] )
+	    -| ['compiler_generated'] )
+	end
+
+%% Reduced code from beam_asm inlined using the old inliner.
+
+'filter_essentials'/1 =
+    fun (_cor0) ->
+	case _cor0 of
+	  <[#{#<Sz>(32,1,'integer',['unsigned','big']) }#|T]> when 'true' ->
+	      let <_cor4> =
+                      case T of
+			%% Variable 'Sz' repeated here. Should work.
+			<#{#<Sz>(32,1,'integer',['unsigned','big']),
+			    #<Data>(Sz,8,'binary',['unsigned','big'])}#> when 'true' ->
+			    Data
+			<_cor5> when 'true' ->
+			    primop 'match_fail'
+				({'case_clause',{_cor5}})
+		      end
+	      in  [Sz|_cor4]
+	  <_cor5> when 'true' ->
+	      primop 'match_fail'
+		  ({'function_clause',_cor5})
+	end
+end

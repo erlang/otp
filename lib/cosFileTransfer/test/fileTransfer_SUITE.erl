@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -28,10 +29,10 @@
 %%--------------- INCLUDES -----------------------------------
 -include_lib("cosFileTransfer/src/cosFileTransferApp.hrl").
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%--------------- DEFINES ------------------------------------
--define(default_timeout, ?t:minutes(20)).
+-define(default_timeout, test_server:minutes(20)).
 -define(match(ExpectedRes, Expr),
         fun() ->
                AcTuAlReS = (catch (Expr)),
@@ -121,12 +122,12 @@ cases() ->
 %%-----------------------------------------------------------------
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -191,7 +192,6 @@ end_per_suite(Config) ->
 -define(FTP_PASS, "fileTransfer_SUITE@localhost").
 -define(TEST_DIR,["/", "incoming"]).
 
-
 -define(FTP_PORT, 21).
 -define(FTP_ACC,  "anonymous").
  
@@ -202,53 +202,48 @@ end_per_suite(Config) ->
 -define(TEST_FILE_DATA,   "If this file exists after a completed test an error occurred.").   
 -define(TEST_FILE_DATA2,  "1234567890123").
 
-
 %%-----------------------------------------------------------------
 %%  aoo-file test
 %%-----------------------------------------------------------------
-app_test(doc) -> [];
-app_test(suite) -> [];
 app_test(_Config) ->
-    ?line ok=?t:app_test(cosFileTransfer),
+    ok=?t:app_test(cosFileTransfer),
     ok.
 
 %%-----------------------------------------------------------------
 %%  FileIterator API tests 
 %%-----------------------------------------------------------------
-fileIterator_api(doc) -> ["CosFileTransfer FileIterator API tests.", ""];
-fileIterator_api(suite) -> [];
 fileIterator_api(Config) ->
     case ftp_host(Config) of
 	{skipped, SkippedReason} ->
 	    {skipped, SkippedReason};
 	Host ->
 	    
-	    ?line {ok, Node} = create_node("fileIterator_api", 4008, normal),
-	    ?line ?match(ok, remote_apply(Node, ?MODULE, install_data, 
+	    {ok, Node} = create_node("fileIterator_api", 4008, normal),
+	    ?match(ok, remote_apply(Node, ?MODULE, install_data, 
 					  [tcp, {{'NATIVE', 
 						  'cosFileTransferNATIVE_file'}, Host, 
 						 "fileIterator_api"}])),
 	    
             %% Create a Virtual File System.
-%%    ?line VFS = ?match({_,_,_,_,_,_},
+%%    VFS = ?match({_,_,_,_,_,_},
 %%		 cosFileTransferApp:create_VFS({'NATIVE', 
 %%						'cosFileTransferNATIVE_file'}, 
 %%					       [], Host, ?FTP_PORT)),
-	    ?line VFS = ?matchnopr({'IOP_IOR',"IDL:omg.org/CosFileTransfer/VirtualFileSystem:1.0",_}, 
+	    VFS = ?matchnopr({'IOP_IOR',"IDL:omg.org/CosFileTransfer/VirtualFileSystem:1.0",_}, 
 				   corba:string_to_object("corbaname::1.2@localhost:4008/NameService#fileIterator_api")),
 
             %% Start two File Transfer Sessions (Source and Target).
-	    ?line {FS, Dir} = ?matchnopr({{_,_,_},{_,_,_}},
+	    {FS, Dir} = ?matchnopr({{_,_,_},{_,_,_}},
 			'CosFileTransfer_VirtualFileSystem':login(VFS, 
 								  ?FTP_USER, 
 								  ?FTP_PASS, 
 								  ?FTP_ACC)),
 
             %% Do some basic test on one of the Directories attributes.
-	    ?line ?match([_H|_], 'CosFileTransfer_Directory':'_get_name'(Dir)),
-	    ?line ?match([_H|_], 'CosFileTransfer_Directory':'_get_complete_file_name'(Dir)),
-	    ?line ?match({'IOP_IOR',[],[]}, 'CosFileTransfer_Directory':'_get_parent'(Dir)),
-	    ?line ?matchnopr(FS, 'CosFileTransfer_Directory':'_get_associated_session'(Dir)),
+	    ?match([_H|_], 'CosFileTransfer_Directory':'_get_name'(Dir)),
+	    ?match([_H|_], 'CosFileTransfer_Directory':'_get_complete_file_name'(Dir)),
+	    ?match({'IOP_IOR',[],[]}, 'CosFileTransfer_Directory':'_get_parent'(Dir)),
+	    ?matchnopr(FS, 'CosFileTransfer_Directory':'_get_associated_session'(Dir)),
 	    {ok,[],FileIter} = ?match({ok,[],_}, 'CosFileTransfer_Directory':list(Dir, 0)),
             %% Usually the working directory for the test is not empty so no need for
             %% creating files of our own?!
@@ -258,23 +253,23 @@ fileIterator_api(Config) ->
 
 	    if
 		Children > 5 ->
-		    ?line ?matchnopr({true, _}, 'CosFileTransfer_FileIterator':next_one(FileIter)),
-		    ?line ?matchnopr({true, _}, 'CosFileTransfer_FileIterator':next_n(FileIter, 3)),
-		    ?line ?matchnopr({true, _}, 'CosFileTransfer_FileIterator':next_n(FileIter, 
+		    ?matchnopr({true, _}, 'CosFileTransfer_FileIterator':next_one(FileIter)),
+		    ?matchnopr({true, _}, 'CosFileTransfer_FileIterator':next_n(FileIter, 3)),
+		    ?matchnopr({true, _}, 'CosFileTransfer_FileIterator':next_n(FileIter, 
 										      Children)),
-		    ?line ?matchnopr({false, _}, 'CosFileTransfer_FileIterator':next_one(FileIter)),
-		    ?line ?match({false, []}, 'CosFileTransfer_FileIterator':next_n(FileIter, 1)),
+		    ?matchnopr({false, _}, 'CosFileTransfer_FileIterator':next_one(FileIter)),
+		    ?match({false, []}, 'CosFileTransfer_FileIterator':next_n(FileIter, 1)),
 		    ok;
 		true ->
 	    ok
 	    end,
-	    ?line ?match(ok, 'CosFileTransfer_FileIterator':destroy(FileIter)),
-	    ?line ?match(false, corba_object:non_existent(FS)),
-	    ?line ?match(ok, 'CosFileTransfer_FileTransferSession':logout(FS)),
+	    ?match(ok, 'CosFileTransfer_FileIterator':destroy(FileIter)),
+	    ?match(false, corba_object:non_existent(FS)),
+	    ?match(ok, 'CosFileTransfer_FileTransferSession':logout(FS)),
             %% To make sure Orber can remove it from mnesia.
 	    timer:sleep(1000),
-	    ?line ?match(true, corba_object:non_existent(FS)),
-	    ?line ?match(ok, remote_apply(Node, ?MODULE, uninstall_data, ["fileIterator_api"])),
+	    ?match(true, corba_object:non_existent(FS)),
+	    ?match(ok, remote_apply(Node, ?MODULE, uninstall_data, ["fileIterator_api"])),
 	    stop_orber_remote(Node, normal),
 	    ok
     end.
@@ -283,35 +278,26 @@ fileIterator_api(Config) ->
 %%-----------------------------------------------------------------
 %%  FileTransferSession API tests 
 %%-----------------------------------------------------------------
-fts_ftp_file_api(doc) -> ["CosFileTransfer FTP FileTransferSession API tests.", ""];
-fts_ftp_file_api(suite) -> [];
 fts_ftp_file_api(Config) ->
-    ?line {ok, Node} = create_node("ftp_file_api", 4004, normal),
+    {ok, Node} = create_node("ftp_file_api", 4004, normal),
     file_helper(Config, 'FTP', ?TEST_DIR, Node, 4004, "ftp_file_api", tcp).
 
-fts_ftp_file_ssl_api(doc) -> ["CosFileTransfer FTP FileTransferSession API tests.", ""];
-fts_ftp_file_ssl_api(suite) -> [];
 fts_ftp_file_ssl_api(Config) ->
-    ?line {ok, Node} = create_node("ftp_file_api_ssl", {4005, 1}, ssl),
+    {ok, Node} = create_node("ftp_file_api_ssl", {4005, 1}, ssl),
     file_helper(Config, 'FTP', ?TEST_DIR, Node, 4005, "ftp_file_api_ssl", ssl).
 
-fts_native_file_api(doc) -> ["CosFileTransfer NATIVE FileTransferSession API tests.", ""];
-fts_native_file_api(suite) -> [];
 fts_native_file_api(Config) ->
-    ?line {ok, Node} = create_node("native_file_api", 4006, normal),
+    {ok, Node} = create_node("native_file_api", 4006, normal),
     {ok, Pwd} = file:get_cwd(),
     file_helper(Config,{'NATIVE', 'cosFileTransferNATIVE_file'},filename:split(Pwd),
 		Node, 4006, "native_file_api", tcp).
 				 
-fts_native_file_ssl_api(doc) -> ["CosFileTransfer NATIVE FileTransferSession API tests.", ""];
-fts_native_file_ssl_api(suite) -> [];
 fts_native_file_ssl_api(Config) ->
-    ?line {ok, Node} = create_node("native_file_ssl_api", {4007, 1}, ssl),
+    {ok, Node} = create_node("native_file_ssl_api", {4007, 1}, ssl),
     {ok, Pwd} = file:get_cwd(),
     file_helper(Config,{'NATIVE', 'cosFileTransferNATIVE_file'},filename:split(Pwd),
 	Node, 4007, "native_file_ssl_api", ssl).
 				 
-
 
 file_helper(Config, WhichType, TEST_DIR, Node, Port, Name, Type) ->
     case ftp_host(Config) of
@@ -325,47 +311,47 @@ file_helper(Config, WhichType, TEST_DIR, Node, Port, Name, Type) ->
 	    io:format("<<<<<< CosFileTransfer Testing Configuration >>>>>>~n",[]),
 	    io:format("Source: ~p~nTarget: ~p~n", [TEST_SOURCE, TEST_TARGET]),
 	    
-	    ?line ?match(ok, remote_apply(Node, ?MODULE, install_data, 
+	    ?match(ok, remote_apply(Node, ?MODULE, install_data, 
 					  [Type, {WhichType, Host, Name}])),
 
-	    ?line VFST = ?match({'IOP_IOR',"IDL:omg.org/CosFileTransfer/VirtualFileSystem:1.0",_}, 
+	    VFST = ?match({'IOP_IOR',"IDL:omg.org/CosFileTransfer/VirtualFileSystem:1.0",_}, 
 				corba:string_to_object("corbaname::1.2@localhost:"++integer_to_list(Port)++"/NameService#"++Name)),
 
 
             %% Create a Virtual File System.
-	    ?line VFS = ?match({_,_,_,_,_,_},
+	    VFS = ?match({_,_,_,_,_,_},
 			       cosFileTransferApp:create_VFS(WhichType, [], Host, ?FTP_PORT, 
 							     [{protocol, Type}])),
             %% Start two File Transfer Sessions (Source and Target).
-	    ?line {FST, _DirT} = ?match({{_,_,_},{_,_,_}},
+	    {FST, _DirT} = ?match({{_,_,_},{_,_,_}},
 					'CosFileTransfer_VirtualFileSystem':login(VFST, 
 										  ?FTP_USER, 
 										  ?FTP_PASS, 
 										  ?FTP_ACC)),
-	    ?line {FSS, DirS} = ?match({{_,_,_,_,_,_},{_,_,_,_,_,_}},
+	    {FSS, DirS} = ?match({{_,_,_,_,_,_},{_,_,_,_,_,_}},
 				       'CosFileTransfer_VirtualFileSystem':login(VFS, 
 										 ?FTP_USER, 
 										 ?FTP_PASS, 
 										 ?FTP_ACC)),
 
             %% Do some basic test on one of the Directories attributes.
-	    ?line ?match([_H|_], 'CosFileTransfer_Directory':'_get_name'(DirS)),
-	    ?line ?match([_H|_], 'CosFileTransfer_Directory':'_get_complete_file_name'(DirS)),
-	    ?line ?match({'IOP_IOR',[],[]}, 'CosFileTransfer_Directory':'_get_parent'(DirS)),
-	    ?line ?match(FSS, 'CosFileTransfer_Directory':'_get_associated_session'(DirS)),
+	    ?match([_H|_], 'CosFileTransfer_Directory':'_get_name'(DirS)),
+	    ?match([_H|_], 'CosFileTransfer_Directory':'_get_complete_file_name'(DirS)),
+	    ?match({'IOP_IOR',[],[]}, 'CosFileTransfer_Directory':'_get_parent'(DirS)),
+	    ?match(FSS, 'CosFileTransfer_Directory':'_get_associated_session'(DirS)),
 
             %% Get a FileList before we create any new Files
-	    ?line #'CosFileTransfer_FileWrapper'{the_file = Dir} = 
+	    #'CosFileTransfer_FileWrapper'{the_file = Dir} = 
 		?match({'CosFileTransfer_FileWrapper', _, ndirectory},
 		       'CosFileTransfer_FileTransferSession':get_file(FSS, TEST_DIR)),
-	    ?line {ok,FileList, Iter1} = ?match({ok,_,_}, 'CosFileTransfer_Directory':list(Dir, 10)),
-	    ?line loop_files(FileList),
+	    {ok,FileList, Iter1} = ?match({ok,_,_}, 'CosFileTransfer_Directory':list(Dir, 10)),
+	    loop_files(FileList),
 
 	    case Iter1 of
 		{'IOP_IOR',[],[]} ->
 		    ok;
 		_->
-		    ?line ?match(ok, 'CosFileTransfer_FileIterator':destroy(Iter1))
+		    ?match(ok, 'CosFileTransfer_FileIterator':destroy(Iter1))
 	    end,
 	    
 	    #any{value=Count1} = ?match({any, _, _}, 'CosPropertyService_PropertySet':
@@ -373,17 +359,17 @@ file_helper(Config, WhichType, TEST_DIR, Node, Port, Name, Type) ->
 	    
             %% Now we want to transfer a file from source to target. First, we'll create
             %% a a file to work with.
-	    ?line create_file_on_source_node(WhichType, Config, Host, 
+	    create_file_on_source_node(WhichType, Config, Host, 
 					     filename:join(TEST_SOURCE), TEST_DIR, 
 					     ?TEST_FILE_DATA),
-	    ?line create_file_on_source_node(WhichType, Config, Host, 
+	    create_file_on_source_node(WhichType, Config, Host, 
 					     filename:join(TEST_SOURCE2), TEST_DIR, 
 					     ?TEST_FILE_DATA2),
 
-	    ?line #'CosFileTransfer_FileWrapper'{the_file = FileS} = 
+	    #'CosFileTransfer_FileWrapper'{the_file = FileS} = 
 		?matchnopr({'CosFileTransfer_FileWrapper', _, nfile},
 			   'CosFileTransfer_FileTransferSession':get_file(FSS, TEST_SOURCE)),
-	    ?line #'CosFileTransfer_FileWrapper'{the_file = FileS2} = 
+	    #'CosFileTransfer_FileWrapper'{the_file = FileS2} = 
 		?matchnopr({'CosFileTransfer_FileWrapper', _, nfile},
 			   'CosFileTransfer_FileTransferSession':get_file(FSS, TEST_SOURCE2)),
 	    
@@ -393,27 +379,27 @@ file_helper(Config, WhichType, TEST_DIR, Node, Port, Name, Type) ->
 	    ?match(true, (Count1+2 == Count2)),
 
             %% Create a target File
-	    ?line FileT = ?matchnopr({_,_,_}, 
+	    FileT = ?matchnopr({_,_,_}, 
 				     'CosFileTransfer_FileTransferSession':create_file(FST, TEST_TARGET)),
             %% Try to delete the non-existing file.
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_FileTransferSession':delete(FST, FileT)),
 
-	    ?line ?match(ok, 'CosFileTransfer_FileTransferSession':transfer(FSS, FileS, FileT)),
+	    ?match(ok, 'CosFileTransfer_FileTransferSession':transfer(FSS, FileS, FileT)),
     
             %% Remove this test when ftp supports append.
 	    case WhichType of
 		{'NATIVE', 'cosFileTransferNATIVE_file'} ->
-		    ?line ?match(ok, 'CosFileTransfer_FileTransferSession':append(FSS, FileS, FileT)),
-		    ?line ?match(ok, 'CosFileTransfer_FileTransferSession':insert(FSS, FileS2, FileT, 7));
+		    ?match(ok, 'CosFileTransfer_FileTransferSession':append(FSS, FileS, FileT)),
+		    ?match(ok, 'CosFileTransfer_FileTransferSession':insert(FSS, FileS2, FileT, 7));
 		_->
 		    ok
 	    end,
 	    
             %% Delete source and target files
-	    ?line ?match(ok, 'CosFileTransfer_FileTransferSession':delete(FSS, FileS)),
-	    ?line ?match(ok, 'CosFileTransfer_FileTransferSession':delete(FSS, FileS2)),
-	    ?line ?match(ok, 'CosFileTransfer_FileTransferSession':delete(FST, FileT)),
+	    ?match(ok, 'CosFileTransfer_FileTransferSession':delete(FSS, FileS)),
+	    ?match(ok, 'CosFileTransfer_FileTransferSession':delete(FSS, FileS2)),
+	    ?match(ok, 'CosFileTransfer_FileTransferSession':delete(FST, FileT)),
 
             %% Should be back where we started.
 	    timer:sleep(2000),
@@ -422,15 +408,15 @@ file_helper(Config, WhichType, TEST_DIR, Node, Port, Name, Type) ->
 	    ?match(true, (Count1 == Count3)),
 
 
-	    ?line ?match(false, corba_object:non_existent(FSS)),
-	    ?line ?match(false, corba_object:non_existent(FST)),
-	    ?line ?match(ok, 'CosFileTransfer_FileTransferSession':logout(FSS)),
-	    ?line ?match(ok, 'CosFileTransfer_FileTransferSession':logout(FST)),
+	    ?match(false, corba_object:non_existent(FSS)),
+	    ?match(false, corba_object:non_existent(FST)),
+	    ?match(ok, 'CosFileTransfer_FileTransferSession':logout(FSS)),
+	    ?match(ok, 'CosFileTransfer_FileTransferSession':logout(FST)),
             %% To make sure Orber can remove it from mnesia.
 	    timer:sleep(2000),
-	    ?line ?match(true, corba_object:non_existent(FSS)),
-	    ?line ?match(true, corba_object:non_existent(FST)),
-	    ?line ?match(ok, remote_apply(Node, ?MODULE, uninstall_data, [Name])),
+	    ?match(true, corba_object:non_existent(FSS)),
+	    ?match(true, corba_object:non_existent(FST)),
+	    ?match(ok, remote_apply(Node, ?MODULE, uninstall_data, [Name])),
 	    stop_orber_remote(Node, normal),
 	    ok
     end.
@@ -438,17 +424,12 @@ file_helper(Config, WhichType, TEST_DIR, Node, Port, Name, Type) ->
 %%-----------------------------------------------------------------
 %%  FileTransferSession API tests 
 %%-----------------------------------------------------------------
-fts_ftp_dir_api(doc) -> ["CosFileTransfer FTP FileTransferSession API tests.", ""];
-fts_ftp_dir_api(suite) -> [];
 fts_ftp_dir_api(Config) ->
-    ?line {ok, Node} = create_node("ftp_dir_api", 4009, normal),
+    {ok, Node} = create_node("ftp_dir_api", 4009, normal),
     dir_helper(Config, 'FTP', ?TEST_DIR, Node, 4009, "ftp_dir_api").
 
-
-fts_native_dir_api(doc) -> ["CosFileTransfer NATIVE FileTransferSession API tests.", ""];
-fts_native_dir_api(suite) -> [];
 fts_native_dir_api(Config) ->
-    ?line {ok, Node} = create_node("native_dir_api", 4010, normal),
+    {ok, Node} = create_node("native_dir_api", 4010, normal),
     {ok, Pwd} = file:get_cwd(),
     dir_helper(Config, {'NATIVE', 'cosFileTransferNATIVE_file'}, 
 	       filename:split(Pwd), Node, 4010, "native_dir_api").
@@ -464,235 +445,235 @@ dir_helper(Config, WhichType, TEST_DIR, Node, Port, Name) ->
 	    io:format("<<<<<< CosFileTransfer Testing Configuration >>>>>>~n",[]),
 	    io:format("Top Dir: ~p~nLevel2 Dir: ~p~n", [TEST_DIR_LEVEL1, TEST_DIR_LEVEL2]),
 	    
-	    ?line ?match(ok, remote_apply(Node, ?MODULE, install_data, 
+	    ?match(ok, remote_apply(Node, ?MODULE, install_data, 
 					  [tcp, {WhichType, Host, Name}])),
 	    
-	    ?line VFS = ?matchnopr({'IOP_IOR',"IDL:omg.org/CosFileTransfer/VirtualFileSystem:1.0",_}, 
+	    VFS = ?matchnopr({'IOP_IOR',"IDL:omg.org/CosFileTransfer/VirtualFileSystem:1.0",_}, 
 				   corba:string_to_object("corbaname::1.2@localhost:"++integer_to_list(Port)++"/NameService#"++Name)),
 	    
             %% Start two File Transfer Sessions (Source and Target).
-	    ?line {FS, DirS} = ?matchnopr({{'IOP_IOR',_,_}, _},
+	    {FS, DirS} = ?matchnopr({{'IOP_IOR',_,_}, _},
 					  'CosFileTransfer_VirtualFileSystem':login(VFS, 
 										    ?FTP_USER, 
 										    ?FTP_PASS, 
 										    ?FTP_ACC)),
 
             %% Do some basic test on one of the Directories attributes.
-	    ?line ?match([_H|_], 'CosFileTransfer_Directory':'_get_name'(DirS)),
-	    ?line ?match([_H|_], 'CosFileTransfer_Directory':'_get_complete_file_name'(DirS)),
-	    ?line ?match({'IOP_IOR',[],[]}, 'CosFileTransfer_Directory':'_get_parent'(DirS)),
-	    ?line ?matchnopr(FS, 'CosFileTransfer_Directory':'_get_associated_session'(DirS)),
+	    ?match([_H|_], 'CosFileTransfer_Directory':'_get_name'(DirS)),
+	    ?match([_H|_], 'CosFileTransfer_Directory':'_get_complete_file_name'(DirS)),
+	    ?match({'IOP_IOR',[],[]}, 'CosFileTransfer_Directory':'_get_parent'(DirS)),
+	    ?matchnopr(FS, 'CosFileTransfer_Directory':'_get_associated_session'(DirS)),
 
             %% Create a Root Directory. Currently we only need to create one but
             %% later on, when supporting other protocols than FTP it's not enough.
-	    ?line Dir1 =  'CosFileTransfer_FileTransferSession':create_directory(FS, 
+	    Dir1 =  'CosFileTransfer_FileTransferSession':create_directory(FS, 
 										 TEST_DIR_LEVEL1),
 	    io:format("<<<<<< CosFileTransfer Testing Properties >>>>>>~n",[]),
-	    ?line ?match({ok, [tk_long, tk_boolean]}, 
+	    ?match({ok, [tk_long, tk_boolean]}, 
 			 'CosFileTransfer_Directory':get_allowed_property_types(Dir1)),
-	    ?line ?match({ok, [_,_]}, 
+	    ?match({ok, [_,_]}, 
 			 'CosFileTransfer_Directory':get_allowed_properties(Dir1)),
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':define_property_with_mode(Dir1, 
 									       "num_children",
 									       #any{typecode=tk_long, value=0},
 									       fixed_readonly)),
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':define_property_with_mode(Dir1, 
 									       "wrong",
 									       #any{typecode=tk_long, value=0},
 									       fixed_readonly)),
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':define_property_with_mode(Dir1, 
 									       "num_children",
 									       #any{typecode=tk_short, value=0},
 									       fixed_readonly)),
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':define_property_with_mode(Dir1, 
 									       "num_children",
 									       #any{typecode=tk_long, value=0},
 									       fixed_normal)),
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':define_properties_with_modes(Dir1, 
 										  [#'CosPropertyService_PropertyDef'
 										   {property_name  = "num_children", 
 										    property_value = #any{typecode=tk_long, value=0}, 
 										    property_mode  = fixed_readonly}])),
-	    ?line ?match(fixed_readonly, 
+	    ?match(fixed_readonly, 
 			 'CosFileTransfer_Directory':get_property_mode(Dir1, "num_children")),
-	    ?line ?match({true,
+	    ?match({true,
 			  [#'CosPropertyService_PropertyMode'{property_name = "num_children", 
 							      property_mode = fixed_readonly}]}, 
 			 'CosFileTransfer_Directory':get_property_modes(Dir1, ["num_children"])),
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':set_property_mode(Dir1, "num_children", fixed_readonly)),
 	    
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':
 			 set_property_modes(Dir1, 
 					    [#'CosPropertyService_PropertyMode'
 					     {property_name = "num_children", 
 					      property_mode = fixed_readonly}])),
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':
 			 set_property_modes(Dir1, 
 					    [#'CosPropertyService_PropertyMode'
 					     {property_name = "wrong", 
 					      property_mode = fixed_readonly}])),
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':
 			 set_property_modes(Dir1, 
 					    [#'CosPropertyService_PropertyMode'
 					     {property_name = "num_children", 
 					      property_mode = fixed_normal}])),
-	    ?line ?match({'EXCEPTION', _},
+	    ?match({'EXCEPTION', _},
 			 'CosFileTransfer_Directory':define_property(Dir1, 
 								     "num_children",
 								     #any{typecode=tk_long, value=0})),
-	    ?line ?match({'EXCEPTION', _},
+	    ?match({'EXCEPTION', _},
 			 'CosFileTransfer_Directory':define_property(Dir1, 
 								     "wrong",
 								     #any{typecode=tk_long, value=0})),
-	    ?line ?match({'EXCEPTION', _},
+	    ?match({'EXCEPTION', _},
 			 'CosFileTransfer_Directory':define_property(Dir1, 
 								     "num_children",
 								     #any{typecode=tk_short, value=0})),
 	    
-	    ?line ?match({'EXCEPTION', _},
+	    ?match({'EXCEPTION', _},
 			 'CosFileTransfer_Directory':define_property(Dir1, 
 								     "num_children",
 								     #any{typecode=tk_long, value=0})),
 
-	    ?line ?match({'EXCEPTION', _},
+	    ?match({'EXCEPTION', _},
 			 'CosFileTransfer_Directory':
 			 define_properties(Dir1, 
 					   [#'CosPropertyService_Property'
 					    {property_name = "num_children", 
 					     property_value = #any{typecode=tk_long, 
 								   value=0}}])),
-	    ?line ?match({'EXCEPTION', _},
+	    ?match({'EXCEPTION', _},
 			 'CosFileTransfer_Directory':
 			 define_properties(Dir1, 
 					   [#'CosPropertyService_Property'
 					    {property_name = "wrong", 
 					     property_value = #any{typecode=tk_long, 
 								   value=0}}])),
-	    ?line ?match({'EXCEPTION', _},
+	    ?match({'EXCEPTION', _},
 			 'CosFileTransfer_Directory':
 			 define_properties(Dir1, 
 					   [#'CosPropertyService_Property'
 					    {property_name = "num_children", 
 					     property_value = #any{typecode=tk_short, 
 								   value=0}}])),
-	    ?line ?match(2, 'CosFileTransfer_Directory':get_number_of_properties(Dir1)),
+	    ?match(2, 'CosFileTransfer_Directory':get_number_of_properties(Dir1)),
 
-	    ?line ?match({ok, ["num_children", "is_directory"], {'IOP_IOR',[],[]}}, 
+	    ?match({ok, ["num_children", "is_directory"], {'IOP_IOR',[],[]}}, 
 			 'CosFileTransfer_Directory':get_all_property_names(Dir1, 2)),
-	    ?line ?match({ok, ["is_directory"], _}, 
+	    ?match({ok, ["is_directory"], _}, 
 			 'CosFileTransfer_Directory':get_all_property_names(Dir1, 1)),
 	    
-	    ?line ?match(#any{}, 
+	    ?match(#any{}, 
 			 'CosFileTransfer_Directory':get_property_value(Dir1, "num_children")),
-	    ?line ?match(#any{}, 
+	    ?match(#any{}, 
 			 'CosFileTransfer_Directory':get_property_value(Dir1, "is_directory")),
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':get_property_value(Dir1, "wrong")),
 	    
-	    ?line ?match({true, 
+	    ?match({true, 
 			  [#'CosPropertyService_Property'{property_name = "num_children"}]}, 
 			 'CosFileTransfer_Directory':get_properties(Dir1, ["num_children"])),
-	    ?line ?match({false, 
+	    ?match({false, 
 			  [#'CosPropertyService_Property'{property_name = "wrong"}]},
 			 'CosFileTransfer_Directory':get_properties(Dir1, ["wrong"])),
 	    
-	    ?line ?match({ok, [_],_}, 
+	    ?match({ok, [_],_}, 
 			 'CosFileTransfer_Directory':get_all_properties(Dir1, 1)),
-	    ?line ?match({ok, [_,_], {'IOP_IOR',[],[]}}, 
+	    ?match({ok, [_,_], {'IOP_IOR',[],[]}}, 
 			 'CosFileTransfer_Directory':get_all_properties(Dir1, 2)),
 	    
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':delete_property(Dir1, "num_children")),
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':delete_property(Dir1, "wrong")),
 	    
 	    
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':delete_properties(Dir1, ["num_children"])),
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_Directory':delete_properties(Dir1, ["wrong"])),
-	    ?line ?match(false, 'CosFileTransfer_Directory':delete_all_properties(Dir1)),
-	    ?line ?match(true, 
+	    ?match(false, 'CosFileTransfer_Directory':delete_all_properties(Dir1)),
+	    ?match(true, 
 			 'CosFileTransfer_Directory':is_property_defined(Dir1, "num_children")),
-	    ?line ?match(false, 
+	    ?match(false, 
 			 'CosFileTransfer_Directory':is_property_defined(Dir1, "wrong")),
 
             %% The Top Dir should be empty and ...
-	    ?line ?match({ok,[],_}, 'CosFileTransfer_Directory':list(Dir1, 1000)),
-	    ?line ?match( #any{value=0},
+	    ?match({ok,[],_}, 'CosFileTransfer_Directory':list(Dir1, 1000)),
+	    ?match( #any{value=0},
 			  'CosPropertyService_PropertySet':get_property_value(Dir1, "num_children")),
             %% Create a sub-directory.
-	    ?line Dir2 = 'CosFileTransfer_FileTransferSession':create_directory(FS, 
+	    Dir2 = 'CosFileTransfer_FileTransferSession':create_directory(FS, 
 										TEST_DIR_LEVEL2),
-	    ?line ?match( #any{value=1},
+	    ?match( #any{value=1},
 			  'CosPropertyService_PropertySet':get_property_value(Dir1, "num_children")),
 	    
-	    ?line ?match({ok, [_,_], {'IOP_IOR',[],[]}}, 
+	    ?match({ok, [_,_], {'IOP_IOR',[],[]}}, 
 			 'CosFileTransfer_Directory':get_all_properties(Dir1, 2)),
-	    ?line {_,_,Iterator1} = ?match({ok, [_], _}, 
+	    {_,_,Iterator1} = ?match({ok, [_], _}, 
 					   'CosFileTransfer_Directory':get_all_properties(Dir1, 1)),
-	    ?line ?match({false, [_]}, 
+	    ?match({false, [_]}, 
 			 'CosPropertyService_PropertiesIterator':next_n(Iterator1,4)),
 	    
-	    ?line {_,_,Iterator0} = ?match({ok, [], _}, 
+	    {_,_,Iterator0} = ?match({ok, [], _}, 
 					   'CosFileTransfer_Directory':get_all_properties(Dir1, 0)),
 	    
-	    ?line ?match({false, [_, {'CosPropertyService_Property',
+	    ?match({false, [_, {'CosPropertyService_Property',
 				      "num_children",{any,tk_long,1}}]},
 			 'CosPropertyService_PropertiesIterator':next_n(Iterator0,4)),
 	    
-	    ?line ?match({true, 
+	    ?match({true, 
 			  [#'CosPropertyService_Property'{property_name = "num_children"}]}, 
 			 'CosFileTransfer_Directory':get_properties(Dir1, ["num_children"])),
 	    
             %% The Top Directory is not emtpy any more and ...
-	    ?line {ok,[#'CosFileTransfer_FileWrapper'{the_file = DirRef}],_} = 
+	    {ok,[#'CosFileTransfer_FileWrapper'{the_file = DirRef}],_} = 
 		?matchnopr({ok,[{'CosFileTransfer_FileWrapper', _, ndirectory}],_}, 
 			   'CosFileTransfer_Directory':list(Dir1, 1000)),
             %% ... its name eq. to 'TEST_DIR_LEVEL2'
-	    ?line ?match(TEST_DIR_LEVEL2, 
+	    ?match(TEST_DIR_LEVEL2, 
 			 'CosFileTransfer_Directory':'_get_complete_file_name'(DirRef)),
 	    
-	    ?line #'CosFileTransfer_FileWrapper'{the_file = Dir3} = 
+	    #'CosFileTransfer_FileWrapper'{the_file = Dir3} = 
 		?matchnopr({'CosFileTransfer_FileWrapper', _, ndirectory},
 			   'CosFileTransfer_FileTransferSession':get_file(FS, TEST_DIR_LEVEL1)),
 	    
             %% Must get the same result for the 'get_file' operation.
-	    ?line {ok,[#'CosFileTransfer_FileWrapper'{the_file = DirRef2}],_} = 
+	    {ok,[#'CosFileTransfer_FileWrapper'{the_file = DirRef2}],_} = 
 		?matchnopr({ok,[{'CosFileTransfer_FileWrapper', _, ndirectory}],_}, 
 			   'CosFileTransfer_Directory':list(Dir3,1000)),
-	    ?line ?match(TEST_DIR_LEVEL2, 
+	    ?match(TEST_DIR_LEVEL2, 
 			 'CosFileTransfer_Directory':'_get_complete_file_name'(DirRef2)),
 	    
             %% Since the top directory isn't empty deleting it must fail.
-	    ?line ?match({'EXCEPTION', _}, 
+	    ?match({'EXCEPTION', _}, 
 			 'CosFileTransfer_FileTransferSession':delete(FS, Dir1)),
 	    
             %% Delete the sub-directory and ...
-	    ?line ?match(ok, 'CosFileTransfer_FileTransferSession':delete(FS, Dir2)),
+	    ?match(ok, 'CosFileTransfer_FileTransferSession':delete(FS, Dir2)),
             %% ... see if the top directory realyy is empty.
-	    ?line ?match({ok,[],_}, 'CosFileTransfer_Directory':list(Dir1, 1000)),
+	    ?match({ok,[],_}, 'CosFileTransfer_Directory':list(Dir1, 1000)),
 
-	    ?line ?match(ok, 'CosFileTransfer_FileTransferSession':delete(FS, Dir1)),
+	    ?match(ok, 'CosFileTransfer_FileTransferSession':delete(FS, Dir1)),
             %% Test if the top directory been removed as intended.
-	    ?line ?match({'EXCEPTION', {'CosFileTransfer_FileNotFoundException', _, _}},
+	    ?match({'EXCEPTION', {'CosFileTransfer_FileNotFoundException', _, _}},
 			 'CosFileTransfer_FileTransferSession':get_file(FS, TEST_DIR_LEVEL1)),
 
-	    ?line ?match(false, corba_object:non_existent(FS)),
-	    ?line ?match(ok, 'CosFileTransfer_FileTransferSession':logout(FS)),
+	    ?match(false, corba_object:non_existent(FS)),
+	    ?match(ok, 'CosFileTransfer_FileTransferSession':logout(FS)),
             %% To make sure Orber can remove it from mnesia.
 	    timer:sleep(1000),
-	    ?line ?match(true, corba_object:non_existent(FS)),
-	    ?line ?match(ok, remote_apply(Node, ?MODULE, uninstall_data, [Name])),
+	    ?match(true, corba_object:non_existent(FS)),
+	    ?match(ok, remote_apply(Node, ?MODULE, uninstall_data, [Name])),
 	    stop_orber_remote(Node, normal),
 	    ok
     end.
@@ -732,8 +713,9 @@ create_file_on_source_node({'NATIVE', _}, _Config, Host, FileName, Path, Data) -
     ?match(ok, file:write_file(FileName, list_to_binary(Data))).
     
 create_name(Type) ->
-    {MSec, Sec, USec} = erlang:now(),
-    lists:concat([Type,'_',MSec, '_', Sec, '_', USec]).
+    Time = erlang:system_time(),
+    Unique = erlang:unique_integer([positive]),
+    lists:concat([Type, '_', Time, '_', Unique]).
 
 
 
@@ -788,10 +770,10 @@ create_node(Name, Port, Retries, Type, Args, Options) ->
     [_, Host] = ?match([_,_],string:tokens(atom_to_list(node()), [$@])),
     case starter(Host, Name, Args) of
 	{ok, NewNode} ->
-            ?line ?match(pong, net_adm:ping(NewNode)),
+            ?match(pong, net_adm:ping(NewNode)),
             {ok, Cwd} = file:get_cwd(),
             Path = code:get_path(),
-            ?line ?match(ok, rpc:call(NewNode, file, set_cwd, [Cwd])),
+            ?match(ok, rpc:call(NewNode, file, set_cwd, [Cwd])),
             true = rpc:call(NewNode, code, set_path, [Path]),
 	    ?match(ok, start_orber_remote(NewNode, Type, Options, Port)),
             spawn_link(NewNode, ?MODULE, slave_sup, []),
@@ -937,7 +919,7 @@ install_data(Protocol, {WhichType, Host, Name}) ->
     io:format("<<<<<< Starting ~p/~p VFS at ~p/~p>>>>>>~n",
 	      [Protocol, WhichType, Host, Name]),
     %% Create a Virtual File System.
-    ?line VFS = ?match({_,_,_,_,_,_},
+    VFS = ?match({_,_,_,_,_,_},
 		       cosFileTransferApp:create_VFS(WhichType, [], Host, ?FTP_PORT, 
 						     [{protocol, Protocol}])),
     NS = corba:resolve_initial_references("NameService"),
@@ -946,9 +928,9 @@ install_data(Protocol, {WhichType, Host, Name}) ->
     'CosNaming_NamingContext':rebind(NS, N, VFS).
 
 uninstall_data(Name) ->
-    ?line VFS = ?match({_,_,_,_,_,_}, 
+    VFS = ?match({_,_,_,_,_,_}, 
 		       corba:string_to_object("corbaname:rir:/NameService#"++Name)),
-    ?line ?match(ok, corba:dispose(VFS)),
+    ?match(ok, corba:dispose(VFS)),
     ok.
     
 

@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -53,24 +54,24 @@ top_index() ->
 	    top_index(src, Value, filename:join(Value, "doc"), RelName)
     end.
 
-top_index([src, RootDir, DestDir, OtpRel])
-  when is_atom(RootDir), is_atom(DestDir), is_atom(OtpRel) ->
-    top_index(src, atom_to_list(RootDir), atom_to_list(DestDir), atom_to_list(OtpRel));
-top_index([rel, RootDir, DestDir, OtpRel])
-  when is_atom(RootDir), is_atom(DestDir), is_atom(OtpRel) ->
-    top_index(rel, atom_to_list(RootDir), atom_to_list(DestDir), atom_to_list(OtpRel));
+top_index([src, RootDir, DestDir, OtpBaseVsn])
+  when is_atom(RootDir), is_atom(DestDir), is_atom(OtpBaseVsn) ->
+    top_index(src, atom_to_list(RootDir), atom_to_list(DestDir), atom_to_list(OtpBaseVsn));
+top_index([rel, RootDir, DestDir, OtpBaseVsn])
+  when is_atom(RootDir), is_atom(DestDir), is_atom(OtpBaseVsn) ->
+    top_index(rel, atom_to_list(RootDir), atom_to_list(DestDir), atom_to_list(OtpBaseVsn));
 top_index(RootDir)  when is_atom(RootDir) -> 
     {_,RelName} = init:script_id(),
     top_index(rel, RootDir, filename:join(RootDir, "doc"), RelName).
 
 
 
-top_index(Source, RootDir, DestDir, OtpRel) ->
+top_index(Source, RootDir, DestDir, OtpBaseVsn) ->
     report("****\nRootDir: ~p", [RootDir]),
     report("****\nDestDir: ~p", [DestDir]),
-    report("****\nOtpRel: ~p", [OtpRel]),
+    report("****\nOtpBaseVsn: ~p", [OtpBaseVsn]),
 
-    put(otp_release, OtpRel),
+    put(otp_base_vsn, OtpBaseVsn),
 
     Templates = find_templates(["","templates",DestDir]),
     report("****\nTemplates: ~p", [Templates]),
@@ -80,9 +81,9 @@ top_index(Source, RootDir, DestDir, OtpRel) ->
     report("****\nGroups: ~p", [Groups]),
     process_templates(Templates, DestDir, Groups).
 
-top_index_silent(RootDir, DestDir, OtpRel) ->
+top_index_silent(RootDir, DestDir, OtpBaseVsn) ->
     put(silent,true),
-    Result = top_index(rel, RootDir, DestDir, OtpRel),
+    Result = top_index(rel, RootDir, DestDir, OtpBaseVsn),
     erase(silent),
     Result.
 
@@ -360,7 +361,7 @@ subst_template_1(Group, Stream, Info) ->
     case file:read(Stream, 100000) of
 	{ok, Template} ->
 	    Fun = fun(Match, _) -> {subst(Match, Info, Group),Info} end,
-	    gsub(Template, "#[A-Za-z0-9]+#", Fun, Info);
+	    gsub(Template, "#[A-Za-z_0-9]+#", Fun, Info);
 	{error, Reason} ->
 	    {error, Reason}
     end.
@@ -378,8 +379,8 @@ get_version(Info) ->
 	    ""
     end.
 		    
-subst("#release#", _Info, _Group) ->
-    get(otp_release);
+subst("#otp_base_vsn#", _Info, _Group) ->
+    get(otp_base_vsn);
 subst("#version#", Info, _Group) ->
     get_version(Info);
 subst("#copyright#", _Info, _Group) ->
@@ -655,7 +656,7 @@ sub_repl([[{St, L}] |Ss], Fun, Acc0, S, Pos) ->
         {string:substr(S, Pos+1, St-Pos) ++ Rep ++ Rs, NewAcc};
 sub_repl([], _Fun, Acc, S, Pos) -> {string:substr(S, Pos+1), Acc}.
 
-
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Error and warnings

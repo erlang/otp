@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -119,10 +120,13 @@ void erl_init_marshal(void)
     cmp_array[ERL_SMALL_ATOM_UTF8_EXT] = ERL_ATOM_CMP;
     cmp_array[ERL_REFERENCE_EXT]     = ERL_REF_CMP;
     cmp_array[ERL_NEW_REFERENCE_EXT] = ERL_REF_CMP;
+    cmp_array[ERL_NEWER_REFERENCE_EXT]=ERL_REF_CMP;
     cmp_array[ERL_FUN_EXT]           = ERL_FUN_CMP;
     cmp_array[ERL_NEW_FUN_EXT]       = ERL_FUN_CMP;
     cmp_array[ERL_PORT_EXT]          = ERL_PORT_CMP;
+    cmp_array[ERL_NEW_PORT_EXT]      = ERL_PORT_CMP;
     cmp_array[ERL_PID_EXT]           = ERL_PID_CMP;
+    cmp_array[ERL_NEW_PID_EXT]       = ERL_PID_CMP;
     cmp_array[ERL_SMALL_TUPLE_EXT]   = ERL_TUPLE_CMP;
     cmp_array[ERL_LARGE_TUPLE_EXT]   = ERL_TUPLE_CMP;
     cmp_array[ERL_NIL_EXT]           = ERL_NIL_CMP;
@@ -290,7 +294,7 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
 	    return 0;
 	}
 	/* SMALL_INTEGER */
-	if ((ul < 256) && (ul >= 0)) {
+	if (ul < 256) {
 	    *(*ext)++ = ERL_SMALL_INTEGER_EXT;
 	    *(*ext)++ = ul & 0xff;
 	    return 0;
@@ -303,8 +307,8 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
 	*(*ext)++ =  ul        & 0xff;
 	return 0;
 
-    case ERL_PID:
-	*(*ext)++ = ERL_PID_EXT;    
+    case ERL_PID: {
+        unsigned char* tagp = (*ext)++;
 	/* First poke in node as an atom */    
 	encode_atom(&ep->uval.pidval.node, ext);
 	/* And then fill in the integer fields */
@@ -318,16 +322,28 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
 	*(*ext)++ = (i >> 16) &0xff;
 	*(*ext)++ = (i >>  8) &0xff;
 	*(*ext)++ = i &0xff;
-	*(*ext)++ = ERL_PID_CREATION(ep);
+
+        i = ERL_PID_CREATION(ep);
+        if ((unsigned int)i <= 3) {
+            *tagp = ERL_PID_EXT;
+            *(*ext)++ = i;
+        } else {
+            *tagp = ERL_NEW_PID_EXT;
+            *(*ext)++ = (i >> 24) &0xff;
+            *(*ext)++ = (i >> 16) &0xff;
+            *(*ext)++ = (i >>  8) &0xff;
+            *(*ext)++ = i &0xff;
+        }
 	return 0;
+    }
     case ERL_REF: {
+            unsigned char* tagp = (*ext)++;
+
 	    int len, j;
 
 	    /* Always encode as an extended reference; all
 	       participating parties are now expected to be
 	       able to decode extended references. */
-
-	    *(*ext)++ = ERL_NEW_REFERENCE_EXT;
 
 	    i = strlen((char *)ERL_REF_NODE(ep));
 	    len = ERL_REF_LEN(ep);
@@ -336,7 +352,18 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
 
 	    encode_atom(&ep->uval.refval.node, ext);
 
-	    *(*ext)++ = ERL_REF_CREATION(ep);
+            i = ERL_REF_CREATION(ep);
+            if ((unsigned int)i <= 3) {
+                *tagp = ERL_NEW_REFERENCE_EXT;
+                *(*ext)++ = i;
+            } else {
+                *tagp = ERL_NEWER_REFERENCE_EXT;
+                *(*ext)++ = (i >> 24) &0xff;
+                *(*ext)++ = (i >> 16) &0xff;
+                *(*ext)++ = (i >>  8) &0xff;
+                *(*ext)++ = i &0xff;
+            }
+
 	    /* Then the integer fields */
 	    for (j = 0; j < ERL_REF_LEN(ep); j++) {
 		i = ERL_REF_NUMBERS(ep)[j];
@@ -347,8 +374,8 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
 	    }
 	}
 	return 0;
-    case ERL_PORT:
-	*(*ext)++ = ERL_PORT_EXT;
+    case ERL_PORT: {
+	unsigned char* tagp = (*ext)++;
 	/* First poke in node as an atom */
 	encode_atom(&ep->uval.portval.node, ext);
 	/* Then the integer fields */
@@ -357,8 +384,20 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
 	*(*ext)++ = (i >> 16) &0xff;
 	*(*ext)++ = (i >>  8) &0xff;
 	*(*ext)++ = i &0xff;
-	*(*ext)++ = ERL_PORT_CREATION(ep);
+
+        i = ERL_PORT_CREATION(ep);
+        if ((unsigned int)i <= 3) {
+            *tagp = ERL_PORT_EXT;
+            *(*ext)++ = i;
+        } else {
+            *tagp = ERL_NEW_PORT_EXT;
+            *(*ext)++ = (i >> 24) &0xff;
+            *(*ext)++ = (i >> 16) &0xff;
+            *(*ext)++ = (i >>  8) &0xff;
+            *(*ext)++ = i &0xff;
+        }
 	return 0;
+    }
     case ERL_EMPTY_LIST:
 	*(*ext)++ = ERL_NIL_EXT;
 	break;
@@ -697,12 +736,14 @@ static ETERM *erl_decode_it(unsigned char **ext)
     unsigned int u,sign;
     int i,j,arity;
     double ff;
+    unsigned char tag;
     
     /* Assume we are going to decode an integer */
     ep = erl_alloc_eterm(ERL_INTEGER);
     ERL_COUNT(ep) = 1;
 
-    switch (*(*ext)++) 
+    tag = *(*ext)++;
+    switch (tag)
     {
     case ERL_INTEGER_EXT:
 	i = (int) (**ext << 24) | ((*ext)[1] << 16) |
@@ -726,6 +767,13 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    ((*ext)[2]) << 8 |((*ext)[3]); 
 	*ext += 4;
     big_cont:
+
+#ifdef _MSC_VER
+#define MAX_TO_NEGATE 0x8000000000000000Ui64
+#else
+#define MAX_TO_NEGATE 0x8000000000000000ULL
+#endif
+
 	sign = *(*ext)++; 
 	if (arity > 8)             
 	    goto big_truncate;
@@ -762,23 +810,28 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    *ext += arity;
 	    return ep;
 	} else {
-	    /* Fits in a long long */
-	    int x;
-	    long long l = 0LL;
+            /* Fits in a signed long long */
+            int x;
+            unsigned long long l = 0LL;
+            long long sl;
 
-	    for(x = 0 ; x < arity ; x++) {
-		l |= ((long long)(*ext)[x]) << ((long long)(8*x));
-	    }
-	    if (sign) {
-		l = -l;
-		if (l > 0) goto big_truncate;
-	    }
+            for(x = 0 ; x < arity ; x++) {
+                l |= ((unsigned long long)(*ext)[x]) << ((unsigned long long)(8*x));
+            }
 
-	    ERL_TYPE(ep) = ERL_LONGLONG;
-	    ep->uval.llval.i = l;
-	    *ext += arity;
-	    return ep;
+            sl = (long long)l;
+
+            if (sign && l != MAX_TO_NEGATE) {
+                sl = -sl;
+                if (sl > 0) goto big_truncate;
+            }
+
+            ERL_TYPE(ep) = ERL_LONGLONG;
+            ep->uval.llval.i = sl;
+            *ext += arity;
+            return ep;
 	}
+#undef MAX_TO_NEGATE
     big_truncate: 
 	/* truncate to: (+/-) 1 */
 #ifdef DEBUG
@@ -800,9 +853,10 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	return ep;
       
     case ERL_PID_EXT:
+    case ERL_NEW_PID_EXT:
 	{
 	    unsigned int number, serial;
-	    unsigned char creation;
+	    unsigned int creation;
 
 	    ERL_TYPE(ep) = ERL_PID;
 	    if (read_atom(ext, &ep->uval.pidval.node) < 0) return NULL;
@@ -814,7 +868,13 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    serial = ((*ext)[0] << 24) | ((*ext)[1]) << 16 | 
 		((*ext)[2]) << 8 | ((*ext)[3]);	
 	    *ext += 4;
-	    creation =  *(*ext)++; 
+            if (tag == ERL_PID_EXT)
+                creation =  *(*ext)++;
+            else {
+                creation = ((*ext)[0] << 24) | ((*ext)[1]) << 16 |
+                    ((*ext)[2]) << 8 | ((*ext)[3]);
+                *ext += 4;
+            }
 	    erl_mk_pid_helper(ep, number, serial, creation);
 	    return ep;
 	}
@@ -835,11 +895,12 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    return ep;
 	}
 
-    case ERL_NEW_REFERENCE_EXT: 
+    case ERL_NEW_REFERENCE_EXT:
+    case ERL_NEWER_REFERENCE_EXT:
 	{
 	    size_t cnt, i;
 	    unsigned int n[3];
-	    unsigned char creation;
+	    unsigned int creation;
 
 	    ERL_TYPE(ep) = ERL_REF;
 	    cnt = ((*ext)[0] << 8) | (*ext)[1];
@@ -848,7 +909,13 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    if (read_atom(ext, &ep->uval.refval.node) < 0) return NULL;
 
 	    /* get the integers */
-	    creation =  *(*ext)++; 
+            if (tag == ERL_NEW_REFERENCE_EXT)
+                creation =  *(*ext)++;
+            else {
+                creation = ((*ext)[0] << 24) | ((*ext)[1]) << 16 |
+                    ((*ext)[2]) << 8 | ((*ext)[3]);
+                *ext += 4;
+            }
 	    for(i = 0; i < cnt; i++)
 	    {
 		n[i] = ((*ext)[0] << 24) | ((*ext)[1]) << 16 | 
@@ -860,9 +927,10 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	}
 
     case ERL_PORT_EXT:
+    case ERL_NEW_PORT_EXT:
 	{
 	    unsigned int number;
-	    unsigned char creation;
+	    unsigned int creation;
 
 	    ERL_TYPE(ep) = ERL_PORT;
 	    if (read_atom(ext, &ep->uval.portval.node) < 0) return NULL;
@@ -871,7 +939,13 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    number = ((*ext)[0] << 24) | ((*ext)[1]) << 16 | 
 		((*ext)[2]) << 8 | ((*ext)[3]);	
 	    *ext += 4;
-	    creation =  *(*ext)++; 
+            if (tag == ERL_PORT_EXT)
+                creation =  *(*ext)++;
+            else {
+                creation = (((*ext)[0] << 24) | ((*ext)[1]) << 16 |
+                            ((*ext)[2]) << 8  | ((*ext)[3]));
+                *ext += 4;
+            }
 	    erl_mk_port_helper(ep, number, creation);
 	    return ep;
 	}
@@ -1113,11 +1187,14 @@ unsigned char erl_ext_type(unsigned char *ext)
     case ERL_SMALL_ATOM_UTF8_EXT:
 	return ERL_ATOM;
     case ERL_PID_EXT:
+    case ERL_NEW_PID_EXT:
 	return ERL_PID;
     case ERL_PORT_EXT:
+    case ERL_NEW_PORT_EXT:
 	return ERL_PORT;
     case ERL_REFERENCE_EXT:
     case ERL_NEW_REFERENCE_EXT:
+    case ERL_NEWER_REFERENCE_EXT:
 	return ERL_REF;
     case ERL_NIL_EXT: 
 	return ERL_EMPTY_LIST;
@@ -1166,9 +1243,12 @@ int erl_ext_size(unsigned char *t)
     case ERL_SMALL_ATOM_EXT:
     case ERL_SMALL_ATOM_UTF8_EXT:
     case ERL_PID_EXT:
+    case ERL_NEW_PID_EXT:
     case ERL_PORT_EXT:
+    case ERL_NEW_PORT_EXT:
     case ERL_REFERENCE_EXT:
     case ERL_NEW_REFERENCE_EXT:
+    case ERL_NEWER_REFERENCE_EXT:
     case ERL_NIL_EXT: 
     case ERL_BINARY_EXT:
     case ERL_STRING_EXT:
@@ -1239,8 +1319,9 @@ static int jump(unsigned char **ext)
 {
     int j,k,i=0;
     int n;
+    const int tag = *(*ext)++;
     
-    switch (*(*ext)++) {
+    switch (tag) {
     case ERL_VERSION_MAGIC:
 	return jump(ext);
     case ERL_INTEGER_EXT:
@@ -1256,22 +1337,29 @@ static int jump(unsigned char **ext)
 	jump_atom(ext);
 	break;
     case ERL_PID_EXT:
-	/* eat first atom */
 	if (!jump_atom(ext)) return 0;
-	*ext += 9;		/* Two int's and the creation field */
+	*ext += 4 + 4 + 1;
 	break;
+    case ERL_NEW_PID_EXT:
+        if (!jump_atom(ext)) return 0;
+        *ext += 4 + 4 + 4;
+        break;
     case ERL_REFERENCE_EXT:
     case ERL_PORT_EXT:
-	/* first field is an atom */
 	if (!jump_atom(ext)) return 0;
-	*ext += 5;		/* One int and the creation field */
+	*ext += 4 + 1;
 	break;
+    case ERL_NEW_PORT_EXT:
+        if (!jump_atom(ext)) return 0;
+        *ext += 4 + 4;
+        break;
     case ERL_NEW_REFERENCE_EXT:
+    case ERL_NEWER_REFERENCE_EXT:
 	n = (**ext << 8) | (*ext)[1];
 	*ext += 2;
 	/* first field is an atom */
 	if (!jump_atom(ext)) return 0;
-	*ext += 4*n+1;
+	*ext += 4*n + (tag == ERL_NEW_REFERENCE_EXT ? 1 : 4);
 	break;
     case ERL_NIL_EXT:
 	/* We just passed it... */
@@ -1604,7 +1692,6 @@ static int cmp_exe2(unsigned char **e1, unsigned char **e2)
 {
   int min,  ret,i,j,k;
   double ff1, ff2;
-  unsigned char *tmp1, *tmp2;
   unsigned char tag1, tag2;
 
   if ( ((*e1)[0] == ERL_STRING_EXT) && ((*e2)[0] == ERL_LIST_EXT) ) {
@@ -1648,47 +1735,68 @@ static int cmp_exe2(unsigned char **e1, unsigned char **e2)
       *e1 += i;
       *e2 += j;
       return ret;
-    case ERL_PID_EXT: {
-      unsigned char *n1 = *e1;
-      unsigned char *n2 = *e2;
-      CMP_EXT_SKIP_ATOM(*e1); CMP_EXT_SKIP_ATOM(*e2);
-      *e1 += 9; *e2 += 9;
+    case ERL_PID_EXT:
+    case ERL_NEW_PID_EXT: {
+      erlang_pid pid1, pid2;
+      unsigned char* buf1 = *e1 - 1;
+      unsigned char* buf2 = *e2 - 1;
+      int ix1 = 0, ix2 = 0;
+
+      if (ei_decode_pid((char*)buf1, &ix1, &pid1) ||
+          ei_decode_pid((char*)buf2, &ix2, &pid2))
+          return CMP_EXT_ERROR_CODE;
+
+      *e1 = buf1 + ix1;
+      *e2 = buf2 + ix2;
 
       /* First compare serials ... */
-      tmp1 = *e1 - 5; tmp2 = *e2 - 5;
-      CMP_EXT_INT32_BE(tmp1, tmp2);
+      if      (pid1.serial < pid2.serial) return -1;
+      else if (pid1.serial > pid2.serial) return 1;
 
       /* ... then ids ... */
-      tmp1 -= 4; tmp2 -= 4;
-      CMP_EXT_INT32_BE(tmp1, tmp2);
+      if      (pid1.num < pid2.num) return -1;
+      else if (pid1.num > pid2.num) return 1;
 
       /* ... then node names ... */
-      ret = cmp_exe2(&n1, &n2);
-      if (ret != 0)
-	  return ret;
+      j = strcmp(pid1.node, pid2.node);
+      if      (j < 0) return -1;
+      else if (j > 0) return 1;
 
       /* ... and then finaly creations. */
-      tmp1 += 8; tmp2 += 8;
-      if (*tmp1 != *tmp2)
-	  return *tmp1 < *tmp2 ? -1 : 1;
+      if      (pid1.creation < pid2.creation) return -1;
+      else if (pid1.creation > pid2.creation) return 1;
+
       return 0;
     }
     case ERL_PORT_EXT:
-      /* First compare node names ... */
-      if (!IS_ERL_ATOM(**e1) || !IS_ERL_ATOM(**e2))
-	  return CMP_EXT_ERROR_CODE;
-      ret = cmp_exe2(e1, e2);
-      *e1 += 5; *e2 += 5;
-      if (ret != 0)
-	  return ret;
+    case ERL_NEW_PORT_EXT: {
+        erlang_port port1, port2;
+        unsigned char* buf1 = *e1 - 1;
+        unsigned char* buf2 = *e2 - 1;
+        int ix1 = 0, ix2 = 0;
+
+        if (ei_decode_port((char*)buf1, &ix1, &port1) ||
+            ei_decode_port((char*)buf2, &ix2, &port2))
+            return CMP_EXT_ERROR_CODE;
+
+        *e1 = buf1 + ix1;
+        *e2 = buf2 + ix2;
+
+        /* First compare node names ... */
+        j = strcmp(port1.node, port2.node);
+        if      (j < 0) return -1;
+        else if (j > 0) return 1;
+
       /* ... then creations ... */
-      tmp1 = *e1 - 1; tmp2 = *e2 - 1;
-      if (*tmp1 != *tmp2)
-	  return *tmp1 < *tmp2 ? -1 : 1;
+        if      (port1.creation < port2.creation) return -1;
+        else if (port1.creation > port2.creation) return 1;
+
       /* ... and then finaly ids. */
-      tmp1 -= 4; tmp2 -= 4;
-      CMP_EXT_INT32_BE(tmp1, tmp2);
-      return 0;
+        if      (port1.id < port2.id) return -1;
+        else if (port1.id > port2.id) return 1;
+
+        return 0;
+    }
     case ERL_NIL_EXT: return 0;
     case ERL_LIST_EXT:
       i = (**e1 << 24) | ((*e1)[1] << 16) |((*e1)[2] << 8) | (*e1)[3];

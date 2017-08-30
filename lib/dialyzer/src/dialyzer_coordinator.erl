@@ -2,18 +2,19 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -28,8 +29,8 @@
 %%% Export for dialyzer main process
 -export([parallel_job/4]).
 
-%%% Exports for all possible workers
--export([wait_activation/0, job_done/3]).
+%%% Export for all possible workers
+-export([job_done/3]).
 
 %%% Exports for the typesig and dataflow analysis workers
 -export([sccs_to_pids/2, request_activation/1]).
@@ -37,7 +38,7 @@
 %%% Exports for the compilation workers
 -export([get_next_label/2]).
 
--export_type([coordinator/0, mode/0, init_data/0, result/0]).
+-export_type([coordinator/0, mode/0, init_data/0, result/0, job/0]).
 
 %%--------------------------------------------------------------------
 
@@ -45,16 +46,18 @@
 -type regulator()  :: pid().
 -type scc_to_pid() :: ets:tid() | 'unused'.
 
--type coordinator() :: {collector(), regulator(), scc_to_pid()}. %%opaque
+-opaque coordinator() :: {collector(), regulator(), scc_to_pid()}.
 -type timing() :: dialyzer_timing:timing_server().
 
 -type scc()     :: [mfa_or_funlbl()].
 -type mode()    :: 'typesig' | 'dataflow' | 'compile' | 'warnings'.
 
--type compile_jobs()  :: [file:filename()].
--type typesig_jobs()  :: [scc()].
--type dataflow_jobs() :: [module()].
--type warnings_jobs() :: [module()].
+-type compile_job()  :: file:filename().
+-type typesig_job()  :: scc().
+-type dataflow_job() :: module().
+-type warnings_job() :: module().
+
+-type job() :: compile_job() | typesig_job() | dataflow_job() | warnings_job().
 
 -type compile_init_data()  :: dialyzer_analysis_callgraph:compile_init_data().
 -type typesig_init_data()  :: dialyzer_succ_typings:typesig_init_data().
@@ -72,9 +75,9 @@
 -type result() :: compile_result() | typesig_result() |
 		  dataflow_result() | warnings_result().
 
--type job() :: scc() | module() | file:filename().
--type job_result() :: dialyzer_analysis_callgraph:one_file_result() |
-		      typesig_result() | dataflow_result() | warnings_result().
+-type job_result() :: dialyzer_analysis_callgraph:one_file_mid_error() |
+                      dialyzer_analysis_callgraph:one_file_result_ok() |
+                      typesig_result() | dataflow_result() | warnings_result().
 
 -record(state, {mode           :: mode(),
 		active     = 0 :: integer(),
@@ -89,13 +92,13 @@
 
 %%--------------------------------------------------------------------
 
--spec parallel_job('compile', compile_jobs(), compile_init_data(), timing()) ->
+-spec parallel_job('compile', [compile_job()], compile_init_data(), timing()) ->
 		      {compile_result(), integer()};
-		  ('typesig', typesig_jobs(), typesig_init_data(), timing()) ->
+		  ('typesig', [typesig_job()], typesig_init_data(), timing()) ->
 		      typesig_result();
-		  ('dataflow', dataflow_jobs(), dataflow_init_data(),
+		  ('dataflow', [dataflow_job()], dataflow_init_data(),
 		   timing()) -> dataflow_result();
-		  ('warnings', warnings_jobs(), warnings_init_data(),
+		  ('warnings', [warnings_job()], warnings_init_data(),
 		   timing()) -> warnings_result().
 
 parallel_job(Mode, Jobs, InitData, Timing) ->
@@ -117,7 +120,7 @@ spawn_jobs(Mode, Jobs, InitData, Timing) ->
 	Pid = dialyzer_worker:launch(Mode, Job, InitData, Coordinator),
 	case TypesigOrDataflow of
 	  true  -> true = ets:insert(SCCtoPID, {Job, Pid}), ok;
-	  false -> request_activation(Regulator, Pid)
+	  false -> ok
 	end,
 	Count + 1
     end,
@@ -215,10 +218,6 @@ activate_pid(Pid) ->
 request_activation({_Collector, Regulator, _SCCtoPID}) ->
   Regulator ! {req, self()},
   wait_activation().
-
-request_activation(Regulator, Pid) ->
-  Regulator ! {req, Pid},
-  ok.
 
 spawn_regulator() ->
   InitTickets = dialyzer_utils:parallelism(),

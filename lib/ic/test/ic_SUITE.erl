@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -22,7 +23,7 @@
 %%%----------------------------------------------------------------------
 
 -module(ic_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
@@ -82,7 +83,7 @@
 
 %% Standard options to the ic compiler, NOTE unholy use of OutDir
 
--define(OUT(X), filename:join([?config(priv_dir, Config), gen, to_list(X)])).
+-define(OUT(X), filename:join([proplists:get_value(priv_dir, Config), gen, to_list(X)])).
 
 
 %% Top of cases
@@ -128,9 +129,6 @@ end_per_group(_GroupName, Config) ->
 	Config.
 
 
-
-app_test(doc) -> [];
-app_test(suite) -> [];
 app_test(_Config) ->
     ok=test_server:app_test(ic),
     ok.
@@ -140,89 +138,72 @@ app_test(_Config) ->
 %% Test of constant expressions.
 %%
 
-
-
-const_norm(doc) ->
-    ["Checks normal constant types and values"];
-const_norm(suite) -> [];
+%% Checks normal constant types and values
 const_norm(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(const_norm),
     File = filename:join(DataDir, c_norm),
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, const_norm_files()),
+    ok = ic:gen(File, stdopts(OutDir)),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, const_norm_files()),
     ok.
 
-const_bad_tk(doc) ->
-    ["Checks when the constant value doesn't match the declared type"];
-const_bad_tk(suite) -> [];
+%% Checks when the constant value doesn't match the declared type
 const_bad_tk(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, c_err1),
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(18, bad_tk_match, R),
     ok.    
 
-const_bad_type(doc) ->
-    ["Checks operands of ops are of correct type"];
-const_bad_type(suite) -> [];
+%% Checks operands of ops are of correct type
 const_bad_type(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, c_err2),
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(4, bad_type, R),
     ok.    
 
-const_bad_comb(doc) ->
-    ["Checks operands of ops are of conflicting types"];
-const_bad_comb(suite) -> [];
+%% Checks operands of ops are of conflicting types
 const_bad_comb(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, c_err3),
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(3, bad_type_combination, R),
     ok.    
 
 
-
-
-
-union_norm(doc) ->
-    ["Checks that normal union declarations works."];
-union_norm(suite) -> [];
+%% Checks that normal union declarations works.
 union_norm(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(union_norm),
     File = filename:join(DataDir, u_norm),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, union_norm_files()),
+    ok = ic:gen(File, stdopts(OutDir)),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, union_norm_files()),
     ok.
 
 
 %% Checks OTP-2007
-union_default(doc) ->
-    ["Checks that default cases are correct in type code."];
-union_default(suite) -> [];
+%% Checks that default cases are correct in type code.
 union_default(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(union_default),
     File = filename:join(DataDir, u_default),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, union_default_files(), [load]),
+    ok = ic:gen(File, stdopts(OutDir)),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, union_default_files(), [load]),
     TkList = i1:oe_get_interface(),
     check_label("op0", 0, TkList),
     check_label("op1", 1, TkList),
@@ -255,50 +236,41 @@ check_label(Id, N, List) ->
 	    test_server:fail({'no_such_op!', Id, List})
     end.
 
-union_type(doc) ->
-    ["Checks that errors are detected. Check that mismatch between case ",
-     "value and declared discriminator type is detected."];
-union_type(suite) -> [];
+%% Checks that errors are detected. Check that mismatch between case 
+%% value and declared discriminator type is detected.
 union_type(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, u_type),
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(28, bad_case_type, R),
     ok.    
 
 
-union_mult_err(doc) ->
-    ["Check that multiple declared declarators are caught.",
-     "Also check that if the discriminator is an enum, then the enum name",
-     "must not be used as a declarator in the union switch (declarator",
-     "as opposed to label)."];
-union_mult_err(suite) -> [];
+%% Check that multiple declared declarators are caught.
+%% Also check that if the discriminator is an enum, then the enum name
+%% must not be used as a declarator in the union switch (declarator
+%% as opposed to label).
 union_mult_err(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, u_mult),
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(8, multiply_defined, R),
     ok.    
 
-%% Checking mult cases. Now check that other errors are found in the
-%% correct order XXXX
-
-
-union_case_mult(doc) ->
-    ["Check that multiply defined case labels are found and reported."];
-union_case_mult(suite) -> [];
+%% Check that multiply defined case labels are found  in the
+%% correct order 
 union_case_mult(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, u_case_mult),
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(7, multiple_cases, R),
     ok.    
@@ -308,19 +280,15 @@ union_case_mult(Config) when is_list(Config) ->
 %%
 %% Enum cases
 %%
-
-
-enum_norm(doc) ->
-    ["Checks that normal enum declarations works."];
-enum_norm(suite) -> [];
+%%Checks that normal enum declarations works.
 enum_norm(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(enum_norm),
     File = filename:join(DataDir, enum),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, enum_norm_files()),
+    ok = ic:gen(File, stdopts(OutDir)),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, enum_norm_files()),
     ok.
 
 
@@ -328,27 +296,23 @@ enum_norm(Config) when is_list(Config) ->
 %%
 %% Struct cases
 %%
-
-
-struct_norm(doc) ->
-    ["Checks that normal struct declarations works."];
-struct_norm(suite) -> [];
+%% Checks that normal struct declarations works.
 struct_norm(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(struct_norm),
     File = filename:join(DataDir, struct),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, struct_norm_files()),
+    ok = ic:gen(File, stdopts(OutDir)),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, struct_norm_files()),
     Mod = ridiculous_name_to_avoid_clash_svenne,
     TestFile = filename:join(OutDir, Mod),
-    ?line ok = gen_struct_file(TestFile, Mod),
-    ?line ok = compile(OutDir, [Mod], [load]),
-%%    ?line {ok, Mod, []} = compile:file(TestFile, 
+    ok = gen_struct_file(TestFile, Mod),
+    ok = compile(OutDir, [Mod], [load]),
+%%    {ok, Mod, []} = compile:file(TestFile, 
 %%				       [{i, OutDir}, {outdir, OutDir},
 %%					return, load]),
-    ?line ok = Mod:test(),
+    ok = Mod:test(),
     ok.
 
 
@@ -358,36 +322,30 @@ struct_norm(Config) when is_list(Config) ->
 %%
 
 %% coss (add sometimes, takes 440 seconds!)
-
-typeid(doc) ->
-    ["Check that type id's are generated correctly"];
-typeid(suite) -> [];
+%% Check that type id's are generated correctly
 typeid(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(typeid),
     File = filename:join(DataDir, typeid),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, typeid_files(), [load]),
-    ?line "IDL:I1:1.0" = 'I1':'typeID'(),
-    ?line "IDL:M1/I1:1.0" = 'M1_I1':'typeID'(),
-    ?line "IDL:M2/M1/I1:1.0" = 'M2_M1_I1':'typeID'(),
-    ?line "IDL:M3/M2/M1/I1:1.0" = 'M3_M2_M1_I1':'typeID'(),
+    ok = ic:gen(File, stdopts(OutDir)),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, typeid_files(), [load]),
+    "IDL:I1:1.0" = 'I1':'typeID'(),
+    "IDL:M1/I1:1.0" = 'M1_I1':'typeID'(),
+    "IDL:M2/M1/I1:1.0" = 'M2_M1_I1':'typeID'(),
+    "IDL:M3/M2/M1/I1:1.0" = 'M3_M2_M1_I1':'typeID'(),
     ok.
 
 
 %%% This test case is removed because there's no way to test this from
 %%% an automated test suite.
-dir(doc) ->
-    ["Check that relative directories work, absolute is used in",
-     "all other cases in the suite."];
-%%% xxxxxx
-dir(suite) -> [];
+%% Check that relative directories work, absolute is used in
+%% all other cases in the suite.
 dir(Config) when is_list(Config) ->
-ok;
+    ok;
 dir(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
 
     %% Needs a unique directory (any better way?)
     OutDir = mk_unique("oe_the_dir"),
@@ -401,94 +359,82 @@ dir(Config) ->
     %% Generate a unique IDL file with a single constant
     gen_file(File, Const),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line ok = compile(OutDir, [load]),
-    ?line 19955 = Mod:Func(),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, [load]),
-    ?line 19955 = Mod:Func(),
+    ok = ic:gen(File, stdopts(OutDir)),
+    ok = compile(OutDir, [load]),
+    19955 = Mod:Func(),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, [load]),
+    19955 = Mod:Func(),
 
-    ?line ok = ic:gen(File),
-%%%    ?line ok = compile(".", [load]),
+    ok = ic:gen(File),
+%%%    ok = compile(".", [load]),
     ok.
 
-undef_id(doc) ->
-    ["Check that various undefied id's are detected correctly"];
-undef_id(suite) -> [];
+%% Check that various undefied id's are detected correctly
 undef_id(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, undef_id),
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(16, tk_not_found, R),
     ok.
 
-mult_ids(doc) ->
-    ["Check that multiply defined ids are caught."];
-mult_ids(suite) -> [];
+%% Check that multiply defined ids are caught.
 mult_ids(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, mult_ids),
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(22, multiply_defined, R),
     ok.
 
 
-nasty_names(doc) ->
-    ["Check that various nasty names can be generated.",
-     "Try to provoke name clashes and name conflicts with",
-     "Erlang and IDL"];
-nasty_names(suite) -> [];
+%% Check that various nasty names can be generated.
+%% Try to provoke name clashes and name conflicts with
+%% Erlang and IDL
 nasty_names(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(nasty_names),
     File = filename:join(DataDir, nasty),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, nasty_names_files(), [load]),
+    ok = ic:gen(File, stdopts(OutDir)),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, nasty_names_files(), [load]),
     ok.
 
-coss(doc) ->
-    ["Check that the Coss standard specification works."];
-coss(suite) -> [];
+%% Check that the Coss standard specification works.
 coss(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(coss),
     File = filename:join(DataDir, 'Coss'),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line {ok, [_W1]} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, []),
+    ok = ic:gen(File, stdopts(OutDir)),
+    {ok, [_W1]} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, []),
     ok.
 
-forward(doc) ->
-    ["Check that forward declaratios work."];
-forward(suite) -> [];
+%% Check that forward declaratios work.
 forward(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(forward),
     File = filename:join(DataDir, forward),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, forward_files(), [load]),
+    ok = ic:gen(File, stdopts(OutDir)),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, forward_files(), [load]),
     ok.
 
-include(doc) ->
-    ["Check that various undefied id's are detected correctly"];
-include(suite) -> [];
+%% Check that various undefied id's are detected correctly
 include(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, include),
-    ?line error = ic:gen(File,  stdopts(OutDir)++[{preproc_flags,"-I" ++ DataDir}]),
-    ?line {error, [], R} = 
+    error = ic:gen(File,  stdopts(OutDir)++[{preproc_flags,"-I" ++ DataDir}]),
+    {error, [], R} = 
 	ic:gen(File, stdopts(OutDir)++[{preproc_flags,"-I" ++ DataDir},silent2]),
     case lists:map(fun(D) ->
 			   filename:rootname(filename:basename(element(3, D)))
@@ -512,228 +458,198 @@ include(Config) when is_list(Config) ->
 %% Inhertit cases
 %%
 
-
-inherit_norm(doc) ->
-    ["Checks that normal inheritance works."];
-inherit_norm(suite) -> [];
+%% Checks that normal inheritance works.
 inherit_norm(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(inherit_norm),
     File = filename:join(DataDir, inherit),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line {ok, _Ws} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, inherit_norm_files(), [load]),
+    ok = ic:gen(File, stdopts(OutDir)),
+    {ok, _Ws} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, inherit_norm_files(), [load]),
     
     %% Now check constant values:
-    ?line 9 = m1_I1:c1(),
+    9 = m1_I1:c1(),
 
-    ?line 9 = m1_I2:c1(),
-    ?line 14 = m1_I2:c2(),
-    ?line 27 = m1_I2:c3(),
+    9 = m1_I2:c1(),
+    14 = m1_I2:c2(),
+    27 = m1_I2:c3(),
 
-    ?line 50 = m1_I3:c1(),
-    ?line 14 = m1_I3:c2(),
-    ?line 27 = m1_I3:c3(),
-    ?line 91 = m1_I3:c4(),
-    ?line 100 = m1_I3:c5(),
+    50 = m1_I3:c1(),
+    14 = m1_I3:c2(),
+    27 = m1_I3:c3(),
+    91 = m1_I3:c4(),
+    100 = m1_I3:c5(),
     ok.
 
-inherit_warn(doc) ->
-    ["Check that various inheritance shadowing is detected"];
-inherit_warn(suite) -> [];
+%% Check that various inheritance shadowing is detected
 inherit_warn(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, inherit_warn),
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line {ok, R} =
+    ok = ic:gen(File, stdopts(OutDir)),
+    {ok, R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(7, inherit_name_shadow, R),
     ok.
 
-inherit_err(doc) ->
-    ["Check that various inheritance errors is detected"];
-inherit_err(suite) -> [];
+%% Check that various inheritance errors is detected
 inherit_err(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, inherit_err),
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, _Ws, R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, _Ws, R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(21, inherit_name_collision, R),
     ok.
 
 
-
-oneway_norm(doc) ->
-    ["Checks that normal oneway operations works."];
-oneway_norm(suite) -> [];
+%% Checks that normal oneway operations works.
 oneway_norm(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(oneway_norm),
     File = filename:join(DataDir, one),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line ok = compile(OutDir, oneway_norm_files(), [load]),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, oneway_norm_files(), [load]),
+    ok = ic:gen(File, stdopts(OutDir)),
+    ok = compile(OutDir, oneway_norm_files(), [load]),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, oneway_norm_files(), [load]),
     ok.
 
-oneway_void(doc) ->
-    ["Check that non-void oneways are detected."];
-oneway_void(suite) -> [];
+%% Check that non-void oneways are detected.
 oneway_void(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, one_void),
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(2, bad_oneway_type, R),
     ok.
 
-oneway_raises(doc) ->
-    ["Check that oneways cannot raise exceptions."];
-oneway_raises(suite) -> [];
+%% Check that oneways cannot raise exceptions.
 oneway_raises(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, one_raises),
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(3, oneway_raises, R),
     ok.
 
-oneway_out(doc) ->
-    ["Check that illegal out parameters are detected"];
-oneway_out(suite) -> [];
+%% Check that illegal out parameters are detected
 oneway_out(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, one_out),
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(2, oneway_outparams, R),
     ok.
 
-oneway_followed(doc) ->
-    ["Checks that normal oneways, followed by other operations."];
-oneway_followed(suite) -> [];
+%% Checks that normal oneways, followed by other operations.
 oneway_followed(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(oneway_followed),
     File = filename:join(DataDir, one_followed),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line ok = compile(OutDir, oneway_followed_files(), [load]),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, oneway_followed_files(), [load]),
+    ok = ic:gen(File, stdopts(OutDir)),
+    ok = compile(OutDir, oneway_followed_files(), [load]),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, oneway_followed_files(), [load]),
     ok.
 
 
-attr_norm(doc) ->
-    ["Checks that normal attr operations works."];
-attr_norm(suite) -> [];
+%% Checks that normal attr operations works.
 attr_norm(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(attr_norm),
     File = filename:join(DataDir, attr),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line ok = compile(OutDir, attr_norm_files(), [load]),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, attr_norm_files(), [load]),
+    ok = ic:gen(File, stdopts(OutDir)),
+    ok = compile(OutDir, attr_norm_files(), [load]),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, attr_norm_files(), [load]),
     ok.
 
 
-type_norm(doc) ->
-    ["Checks all types are handled."];
-type_norm(suite) -> [];
+%% Checks all types are handled.
 type_norm(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(type_norm),
     File = filename:join(DataDir, type),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line ok = compile(OutDir, type_norm_files(), [load]),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, type_norm_files(), [load]),
+    ok = ic:gen(File, stdopts(OutDir)),
+    ok = compile(OutDir, type_norm_files(), [load]),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, type_norm_files(), [load]),
     ok.
 
-
-
-syntax1(suite) -> [];
 syntax1(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, syntax1),
 
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(1, parse_error, R),
     ok.
 
-syntax2(suite) -> [];
 syntax2(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, syntax2),
 
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(1, parse_error, R),
     ok.
 
-syntax3(suite) -> [];
 syntax3(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, syntax3),
 
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(1, parse_error, R),
     ok.
 
-syntax4(suite) -> [];
 syntax4(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, syntax4),
 
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(1, parse_error, R),
     ok.
 
-syntax5(suite) -> [];
 syntax5(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, syntax5),
 
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(1, parse_error, R),
     ok.
 
-syntax6(suite) -> [];
 syntax6(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(slask),
     File = filename:join(DataDir, syntax6),
     
-    ?line error = ic:gen(File, stdopts(OutDir)),
-    ?line {error, [], R} =
+    error = ic:gen(File, stdopts(OutDir)),
+    {error, [], R} =
 	ic:gen(File, stdopts(OutDir)++[silent2]),
     check_errors(1, parse_error, R),
     ok.
@@ -746,17 +662,15 @@ syntax6(Config) when is_list(Config) ->
 %% ( OTP-2102 )
 %%
 
-raises_reg(doc) ->
-    ["Check that exceptions are really registered to operations."];
-raises_reg(suite) -> [];
+%% Check that exceptions are really registered to operations.
 raises_reg(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(raises_reg_check),
     File = filename:join(DataDir, raises_reg),
     
-    ?line ok = ic:gen(File, stdopts(OutDir)),
-    ?line {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
-    ?line ok = compile(OutDir, raises_reg_files(), [load]),
+    ok = ic:gen(File, stdopts(OutDir)),
+    {ok, []} = ic:gen(File, stdopts(OutDir)++[silent2]),
+    ok = compile(OutDir, raises_reg_files(), [load]),
 
     set_up('oe_raises_reg'),
 
@@ -923,7 +837,7 @@ to_list(X) -> X.
 %% File must be an atom
 gen_struct_file(File, Mod) ->
     
-    ?line {ok, Fd} = file:open(to_list(File)++".erl", [write]),
+    {ok, Fd} = file:open(to_list(File)++".erl", [write]),
     io:format(Fd, "~n", []),
     io:format(Fd, "-module(~p).~n", [Mod]),
     io:format(Fd, "-export([test/0]).~n", []),

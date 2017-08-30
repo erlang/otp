@@ -3,19 +3,22 @@
 #
 # Copyright Ericsson AB 1997-2013. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
+
+include $(ERL_TOP)/make/otp_default_release_path.mk
 
 # ----------------------------------------------------
 # Targets for the new documentation support
@@ -42,6 +45,7 @@ $(HTMLDIR)/index.html: $(XML_FILES) $(SPECS_FILES)
           --stringparam gendate "$$date" \
           --stringparam appname "$(APPLICATION)" \
           --stringparam appver "$(VSN)" \
+	  --stringparam extra_front_page_info "$(DOC_EXTRA_FRONT_PAGE_INFO)" \
 	  --stringparam stylesheet "$(CSS_FILE)" \
 	  --stringparam winprefix "$(WINPREFIX)" \
 	  --stringparam logo "$(HTMLLOGO_FILE)" \
@@ -62,6 +66,7 @@ $(HTMLDIR)/users_guide.html: $(XML_FILES)
 		--stringparam gendate "$$date" \
 	        --stringparam appname "$(APPLICATION)" \
 	        --stringparam appver "$(VSN)" \
+	        --stringparam extra_front_page_info "$(DOC_EXTRA_FRONT_PAGE_INFO)" \
 		--stringparam stylesheet "$(CSS_FILE)" \
 		--stringparam winprefix "$(WINPREFIX)" \
 		--stringparam logo "$(HTMLLOGO_FILE)" \
@@ -78,6 +83,7 @@ $(HTMLDIR)/users_guide.html: $(XML_FILES)
          --stringparam gendate "$$date" \
          --stringparam appname "$(APPLICATION)" \
          --stringparam appver "$(VSN)" \
+	 --stringparam extra_front_page_info "$(DOC_EXTRA_FRONT_PAGE_INFO)" \
 	 --stringparam logo "$(PDFLOGO_FILE)" \
 	 --stringparam pdfcolor "$(PDFCOLOR)" \
          --xinclude $(TOP_SPECS_PARAM) \
@@ -107,7 +113,16 @@ $(HTMLDIR)/$(APPLICATION).eix: $(XML_FILES) $(SPECS_FILES)
 docs: $(HTMLDIR)/$(APPLICATION).eix
 
 xmllint: $(XML_FILES)
-	$(XMLLINT) --noout --valid --nodefdtd --loaddtd --path $(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities  $(XML_FILES)
+	@echo "Running xmllint"
+	@BookFiles=`awk -F\" '/xi:include/ {print $$2}' book.xml`; \
+	for i in $$BookFiles; do \
+		if [ $$i = "notes.xml" ]; then \
+			echo Checking $$i; \
+			xmllint --noout --valid --nodefdtd --loaddtd --path $(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities $$i; \
+		else\
+			awk -F\" '/xi:include/ {print "echo Checking " $$2 ;print "xmllint --noout --valid --nodefdtd --loaddtd --path $(DOCGEN)/priv/dtd:$(DOCGEN)/priv/dtd_html_entities:$(XMLLINT_SRCDIRS) " $$2}' $$i |sh; \
+		fi \
+	done
 
 # ----------------------------------------------------
 # Local documentation target for testing 
@@ -137,7 +152,7 @@ endif
 ifeq ($(TESTROOT),)
 
 release release_docs release_tests release_html:
-	$(MAKE) $(MFLAGS) RELEASE_PATH="$(ERL_TOP)/release/$(TARGET)" \
+	$(MAKE) $(MFLAGS) RELEASE_PATH=$(OTP_DEFAULT_RELEASE_PATH) \
 		$(TARGET_MAKEFILE)  $@_spec
 
 else

@@ -1,18 +1,19 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2013. All Rights Reserved.
+# Copyright Ericsson AB 1996-2016. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -45,8 +46,7 @@ bif erlang:apply/3
 bif erlang:atom_to_list/1
 bif erlang:binary_to_list/1
 bif erlang:binary_to_list/3
-bif erlang:binary_to_term/1	
-bif erlang:check_process_code/2
+bif erlang:binary_to_term/1
 bif erlang:crc32/1
 bif erlang:crc32/2
 bif erlang:crc32_combine/3
@@ -67,14 +67,11 @@ bif erlang:float_to_list/1
 bif erlang:float_to_list/2
 bif erlang:fun_info/2
 bif erlang:garbage_collect/0
-bif erlang:garbage_collect/1
 bif erlang:get/0
 bif erlang:get/1
 bif erlang:get_keys/1
 bif erlang:group_leader/0
 bif erlang:group_leader/2
-bif erlang:halt/0
-bif erlang:halt/1
 bif erlang:halt/2
 bif erlang:phash/2
 bif erlang:phash2/1
@@ -94,6 +91,8 @@ bif erlang:loaded/0
 bif erlang:localtime/0
 bif erlang:localtime_to_universaltime/2
 bif erlang:make_ref/0
+bif erlang:unique_integer/0
+bif erlang:unique_integer/1
 bif erlang:md5/1
 bif erlang:md5_init/0
 bif erlang:md5_update/2
@@ -106,8 +105,15 @@ ubif erlang:node/1
 ubif erlang:node/0
 bif erlang:nodes/1
 bif erlang:now/0
+bif erlang:monotonic_time/0
+bif erlang:monotonic_time/1
+bif erlang:system_time/0
+bif erlang:system_time/1
+bif erlang:time_offset/0
+bif erlang:time_offset/1
+bif erlang:timestamp/0
 
-bif erlang:open_port/2
+bif erts_internal:open_port/2
 
 bif erlang:pid_to_list/1
 bif erlang:ports/0
@@ -117,7 +123,6 @@ bif erlang:process_flag/3
 bif erlang:process_info/1
 bif erlang:process_info/2
 bif erlang:processes/0
-bif erlang:purge_module/1
 bif erlang:put/2
 bif erlang:register/2
 bif erlang:registered/0
@@ -155,14 +160,27 @@ bif erts_internal:port_control/3
 bif erts_internal:port_close/1
 bif erts_internal:port_connect/2
 
+bif erts_internal:request_system_task/3
+bif erts_internal:check_process_code/2
+
+bif erts_internal:map_to_tuple_keys/1
+bif erts_internal:term_type/1
+bif erts_internal:map_hashmap_children/1
+
+bif erts_internal:time_unit/0
+bif erts_internal:perf_counter_unit/0
+
+bif erts_internal:is_system_process/1
+
+bif erts_internal:system_check/1
+
 # inet_db support
 bif erlang:port_set_data/2
 bif erlang:port_get_data/1
 
 # Tracing & debugging.
-bif erlang:trace_pattern/2
-bif erlang:trace_pattern/3
-bif erlang:trace/3
+bif erts_internal:trace_pattern/3
+bif erts_internal:trace/3
 bif erlang:trace_info/2
 bif erlang:trace_delivered/1
 bif erlang:seq_trace/2
@@ -191,15 +209,20 @@ bif math:erf/1
 bif math:erfc/1
 bif math:exp/1
 bif math:log/1
+bif math:log2/1
 bif math:log10/1
 bif math:sqrt/1
 bif math:atan2/2
 bif math:pow/2
 
 bif erlang:start_timer/3
+bif erlang:start_timer/4
 bif erlang:send_after/3
+bif erlang:send_after/4
 bif erlang:cancel_timer/1
+bif erlang:cancel_timer/2
 bif erlang:read_timer/1
+bif erlang:read_timer/2
 
 bif erlang:make_tuple/2
 bif erlang:append_element/2
@@ -344,6 +367,9 @@ bif os:getenv/0
 bif os:getenv/1
 bif os:getpid/0
 bif os:timestamp/0
+bif os:system_time/0
+bif os:system_time/1
+bif os:perf_counter/0
 
 #
 # Bifs in the erl_ddll module (the module actually does not exist)
@@ -477,7 +503,7 @@ bif erlang:call_on_load_function/1
 bif erlang:finish_after_on_load/2
 
 #
-# New Bifs in R13B4
+# New Bifs in R13B04
 #
 bif erlang:binary_to_term/2
 
@@ -572,6 +598,59 @@ bif erlang:float_to_binary/2
 bif erlang:binary_to_float/1
 
 bif io:printable_range/0
+bif os:unsetenv/1
+
+#
+# New in 17.0
+#
+
+bif re:inspect/2
+
+ubif erlang:is_map/1
+ubif erlang:map_size/1
+bif maps:to_list/1
+bif maps:find/2
+bif maps:get/2
+bif maps:from_list/1
+bif maps:is_key/2
+bif maps:keys/1
+bif maps:merge/2
+bif maps:new/0
+bif maps:put/3
+bif maps:remove/2
+bif maps:update/3
+bif maps:values/1
+
+bif erts_internal:cmp_term/2
+
+bif ets:take/2
+
+#
+# New in 17.1
+#
+
+bif erlang:fun_info_mfa/1
+
+# New in 18.0
+#
+
+bif erlang:get_keys/0
+bif ets:update_counter/4
+bif erts_debug:map_info/1
+
+#
+# New in 19.0
+#
+
+bif erts_internal:copy_literals/2
+bif erts_internal:purge_module/1
+bif binary:split/2
+bif binary:split/3
+bif erts_debug:size_shared/1
+bif erts_debug:copy_shared/1
+bif erlang:has_prepared_code_on_load/1
+
+bif maps:take/2
 
 #
 # Obsolete

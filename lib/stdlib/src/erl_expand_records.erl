@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -32,59 +33,31 @@
                  vcount=0,            % Variable counter
                  imports=[],          % Imports
                  records=dict:new(),  % Record definitions
-		 trecords=sets:new(), % Typed records
-		 uses_types=false,    % Are there -spec or -type in the module
                  strict_ra=[],        % strict record accesses
                  checked_ra=[]        % successfully accessed records
                 }).
 
--spec(module(AbsForms, CompileOptions) -> AbsForms when
+-spec(module(AbsForms, CompileOptions) -> AbsForms2 when
       AbsForms :: [erl_parse:abstract_form()],
+      AbsForms2 :: [erl_parse:abstract_form()],
       CompileOptions :: [compile:option()]).
 
 %% Is is assumed that Fs is a valid list of forms. It should pass
 %% erl_lint without errors.
 module(Fs0, Opts0) ->
     Opts = compiler_options(Fs0) ++ Opts0,
-    TRecs = typed_records(Fs0),
-    UsesTypes = uses_types(Fs0),
-    St0 = #exprec{compile = Opts, trecords = TRecs, uses_types = UsesTypes},
+    St0 = #exprec{compile = Opts},
     {Fs,_St} = forms(Fs0, St0),
     Fs.
 
 compiler_options(Forms) ->
     lists:flatten([C || {attribute,_,compile,C} <- Forms]).
 
-typed_records(Fs) ->
-    typed_records(Fs, sets:new()).
-
-typed_records([{attribute,_L,type,{{record, Name},_Defs,[]}} | Fs], Trecs) ->
-    typed_records(Fs, sets:add_element(Name, Trecs));
-typed_records([_|Fs], Trecs) ->
-    typed_records(Fs, Trecs);
-typed_records([], Trecs) ->
-    Trecs.
-
-uses_types([{attribute,_L,spec,_}|_]) -> true;
-uses_types([{attribute,_L,type,_}|_]) -> true;
-uses_types([{attribute,_L,opaque,_}|_]) -> true;
-uses_types([_|Fs]) -> uses_types(Fs);
-uses_types([]) -> false.
-    
-forms([{attribute,L,record,{Name,Defs}} | Fs], St0) ->
+forms([{attribute,_,record,{Name,Defs}}=Attr | Fs], St0) ->
     NDefs = normalise_fields(Defs),
     St = St0#exprec{records=dict:store(Name, NDefs, St0#exprec.records)},
     {Fs1, St1} = forms(Fs, St),
-    %% Check if we need to keep the record information for usage in types.
-    case St#exprec.uses_types of
-	true ->
-	    case sets:is_element(Name, St#exprec.trecords) of
-		true -> {Fs1, St1};
-		false -> {[{attribute,L,type,{{record,Name},Defs,[]}}|Fs1], St1}
-	    end;
-	false ->
-	    {Fs1, St1}
-    end;
+    {[Attr | Fs1], St1};
 forms([{attribute,L,import,Is} | Fs0], St0) ->
     St1 = import(Is, St0),
     {Fs,St2} = forms(Fs0, St1),
@@ -132,15 +105,23 @@ pattern({cons,Line,H,T}, St0) ->
 pattern({tuple,Line,Ps}, St0) ->
     {TPs,St1} = pattern_list(Ps, St0),
     {{tuple,Line,TPs},St1};
+pattern({map,Line,Ps}, St0) ->
+    {TPs,St1} = pattern_list(Ps, St0),
+    {{map,Line,TPs},St1};
+pattern({map_field_exact,Line,K0,V0}, St0) ->
+    {K,St1} = expr(K0, St0),
+    {V,St2} = pattern(V0, St1),
+    {{map_field_exact,Line,K,V},St2};
 %%pattern({struct,Line,Tag,Ps}, St0) ->
 %%    {TPs,TPsvs,St1} = pattern_list(Ps, St0),
 %%    {{struct,Line,Tag,TPs},TPsvs,St1};
 pattern({record_index,Line,Name,Field}, St) ->
     {index_expr(Line, Field, Name, record_fields(Name, St)),St};
-pattern({record,Line,Name,Pfs}, St0) ->
+pattern({record,Line0,Name,Pfs}, St0) ->
     Fs = record_fields(Name, St0),
     {TMs,St1} = pattern_list(pattern_fields(Fs, Pfs), St0),
-    {{tuple,Line,[{atom,Line,Name} | TMs]},St1};
+    Line = mark_record(Line0, St1),
+    {{tuple,Line,[{atom,Line0,Name} | TMs]},St1};
 pattern({bin,Line,Es0}, St0) ->
     {Es1,St1} = pattern_bin(Es0, St0),
     {{bin,Line,Es1},St1};
@@ -233,7 +214,7 @@ record_test_in_guard(Line, Term, Name, St) ->
             expr({atom,Line,false}, St);
         false ->
             Fs = record_fields(Name, St),
-            NLine = neg_line(Line),
+            NLine = no_compiler_warning(Line),
             expr({call,NLine,{remote,NLine,{atom,NLine,erlang},{atom,NLine,is_record}},
                   [Term,{atom,Line,Name},{integer,Line,length(Fs)+1}]},
                  St)
@@ -259,7 +240,7 @@ record_test_in_body(Line, Expr, Name, St0) ->
     %% evaluate to a tuple properly.
     Fs = record_fields(Name, St0),
     {Var,St} = new_var(Line, St0),
-    NLine = neg_line(Line),
+    NLine = no_compiler_warning(Line),
     expr({block,Line,
           [{match,Line,Var,Expr},
            {call,NLine,{remote,NLine,{atom,NLine,erlang},
@@ -301,14 +282,30 @@ expr({bc,Line,E0,Qs0}, St0) ->
 expr({tuple,Line,Es0}, St0) ->
     {Es1,St1} = expr_list(Es0, St0),
     {{tuple,Line,Es1},St1};
+expr({map,Line,Es0}, St0) ->
+    {Es1,St1} = expr_list(Es0, St0),
+    {{map,Line,Es1},St1};
+expr({map,Line,Arg0,Es0}, St0) ->
+    {Arg1,St1} = expr(Arg0, St0),
+    {Es1,St2} = expr_list(Es0, St1),
+    {{map,Line,Arg1,Es1},St2};
+expr({map_field_assoc,Line,K0,V0}, St0) ->
+    {K,St1} = expr(K0, St0),
+    {V,St2} = expr(V0, St1),
+    {{map_field_assoc,Line,K,V},St2};
+expr({map_field_exact,Line,K0,V0}, St0) ->
+    {K,St1} = expr(K0, St0),
+    {V,St2} = expr(V0, St1),
+    {{map_field_exact,Line,K,V},St2};
 %%expr({struct,Line,Tag,Es0}, Vs, St0) ->
 %%    {Es1,Esvs,Esus,St1} = expr_list(Es0, Vs, St0),
 %%    {{struct,Line,Tag,Es1},Esvs,Esus,St1};
 expr({record_index,Line,Name,F}, St) ->
     I = index_expr(Line, F, Name, record_fields(Name, St)),
     expr(I, St);
-expr({record,Line,Name,Is}, St) ->
-    expr({tuple,Line,[{atom,Line,Name} | 
+expr({record,Line0,Name,Is}, St) ->
+    Line = mark_record(Line0, St),
+    expr({tuple,Line,[{atom,Line0,Name} |
                       record_inits(record_fields(Name, St), Is)]},
          St);
 expr({record_field,Line,R,Name,F}, St) ->
@@ -344,6 +341,9 @@ expr({'fun',_,{function,_M,_F,_A}}=Fun, St) ->
 expr({'fun',Line,{clauses,Cs0}}, St0) ->
     {Cs,St1} = clauses(Cs0, St0),
     {{'fun',Line,{clauses,Cs}},St1};
+expr({named_fun,Line,Name,Cs0}, St0) ->
+    {Cs,St1} = clauses(Cs0, St0),
+    {{named_fun,Line,Name,Cs},St1};
 expr({call,Line,{atom,_,is_record},[A,{atom,_,Name}]}, St) ->
     record_test(Line, A, Name, St);
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,is_record}},
@@ -355,21 +355,11 @@ expr({call,Line,{tuple,_,[{atom,_,erlang},{atom,_,is_record}]},
 expr({call,Line,{atom,_La,N}=Atom,As0}, St0) ->
     {As,St1} = expr_list(As0, St0),
     Ar = length(As),
-    case erl_internal:bif(N, Ar) of
-        true ->
-            {{call,Line,Atom,As},St1};
-        false ->
-            case imported(N, Ar, St1) of
-                {yes,_Mod} ->
-                    {{call,Line,Atom,As},St1};
-                no ->
-                    case {N,Ar} of
-                        {record_info,2} ->
-                            record_info_call(Line, As, St1);
-                        _ ->
-                            {{call,Line,Atom,As},St1}
-                    end
-            end
+    case {N,Ar} =:= {record_info,2} andalso not imported(N, Ar, St1) of
+	true ->
+	    record_info_call(Line, As, St1);
+	false ->
+	    {{call,Line,Atom,As},St1}
     end;
 expr({call,Line,{remote,Lr,M,F},As0}, St0) ->
     {[M1,F1 | As1],St1} = expr_list([M,F | As0], St0),
@@ -440,7 +430,7 @@ strict_record_access(E0, St0) ->
 conj([], _E) ->
     empty;
 conj([{{Name,_Rp},L,R,Sz} | AL], E) ->
-    NL = neg_line(L),
+    NL = no_compiler_warning(L),
     T1 = {op,NL,'orelse',
           {call,NL,
 	   {remote,NL,{atom,NL,erlang},{atom,NL,is_record}},
@@ -494,7 +484,6 @@ lc_tq(Line, [F0 | Qs0], St0) ->
     end;
 lc_tq(_Line, [], St0) ->
     {[],St0#exprec{checked_ra = []}}.
-
 
 %% normalise_fields([RecDef]) -> [Field].
 %%  Normalise the field definitions to always have a default value. If
@@ -556,9 +545,10 @@ strict_get_record_field(Line, R, {atom,_,F}=Index, Name, St0) ->
             Fs = record_fields(Name, St),
             I = index_expr(F, Fs, 2),
             P = record_pattern(2, I, Var, length(Fs)+1, Line, [{atom,Line,Name}]),
-            NLine = neg_line(Line),
+            NLine = no_compiler_warning(Line),
+            RLine = mark_record(NLine, St),
 	    E = {'case',NLine,R,
-		     [{clause,NLine,[{tuple,NLine,P}],[],[Var]},
+		     [{clause,NLine,[{tuple,RLine,P}],[],[Var]},
 		      {clause,NLine,[{var,NLine,'_'}],[],
 		       [{call,NLine,{remote,NLine,
 				    {atom,NLine,erlang},
@@ -570,7 +560,8 @@ strict_get_record_field(Line, R, {atom,_,F}=Index, Name, St0) ->
             I = index_expr(Line, Index, Name, Fs),
             {ExpR,St1}  = expr(R, St0),
             %% Just to make comparison simple:
-            ExpRp = erl_lint:modify_line(ExpR, fun(_L) -> 0 end),
+            A0 = erl_anno:new(0),
+            ExpRp = erl_parse:map_anno(fun(_A) -> A0 end, ExpR),
             RA = {{Name,ExpRp},Line,ExpR,length(Fs)+1},
             St2 = St1#exprec{strict_ra = [RA | St1#exprec.strict_ra]},
             {{call,Line,
@@ -671,10 +662,11 @@ record_update(R, Name, Fs, Us0, St0) ->
 
 record_match(R, Name, Lr, Fs, Us, St0) ->
     {Ps,News,St1} = record_upd_fs(Fs, Us, St0),
-    NLr = neg_line(Lr),
+    NLr = no_compiler_warning(Lr),
+    RLine = mark_record(Lr, St1),
     {{'case',Lr,R,
-      [{clause,Lr,[{tuple,Lr,[{atom,Lr,Name} | Ps]}],[],
-        [{tuple,Lr,[{atom,Lr,Name} | News]}]},
+      [{clause,Lr,[{tuple,RLine,[{atom,Lr,Name} | Ps]}],[],
+        [{tuple,RLine,[{atom,Lr,Name} | News]}]},
        {clause,NLr,[{var,NLr,'_'}],[],
         [call_error(NLr, {tuple,NLr,[{atom,NLr,badrecord},{atom,NLr,Name}]})]}
       ]},
@@ -702,7 +694,11 @@ record_setel(R, Name, Fs, Us0) ->
     Us = [T || {_,T} <- Us2],
     Lr = element(2, hd(Us)),
     Wildcards = duplicate(length(Fs), {var,Lr,'_'}),
-    NLr = neg_line(Lr),
+    NLr = no_compiler_warning(Lr),
+    %% Note: calling mark_record() here is not necessary since it is
+    %% targeted at Dialyzer which always calls the compiler with
+    %% 'strict_record_updates' meaning that record_setel() will never
+    %% be called.
     {'case',Lr,R,
      [{clause,Lr,[{tuple,Lr,[{atom,Lr,Name} | Wildcards]}],[],
        [foldr(fun ({I,Lf,Val}, Acc) ->
@@ -797,10 +793,7 @@ add_imports(Mod, [F | Fs], Is) ->
 add_imports(_, [], Is) -> Is.
 
 imported(F, A, St) ->
-    case orddict:find({F,A}, St#exprec.imports) of
-        {ok,Mod} -> {yes,Mod};
-        error -> no
-    end.
+    orddict:is_key({F,A}, St#exprec.imports).
 
 %%%
 %%% Replace is_record/3 in guards with matching if possible.
@@ -811,7 +804,7 @@ optimize_is_record(H0, G0, #exprec{compile=Opts}) ->
 	[] ->
 	    {H0,G0};
 	Rs0 ->
-	    case lists:member(no_is_record_optimization, Opts) of
+	    case lists:member(dialyzer, Opts) of % no_is_record_optimization
 		true ->
 		    {H0,G0};
 		false ->
@@ -934,5 +927,11 @@ opt_remove_2({call,Line,{atom,_,is_record},
     end;
 opt_remove_2(A, _) -> A.
 
-neg_line(L) ->
-    erl_parse:set_line(L, fun(Line) -> -abs(Line) end).
+no_compiler_warning(Anno) ->
+    erl_anno:set_generated(true, Anno).
+
+mark_record(Anno, St) ->
+    case lists:member(dialyzer, St#exprec.compile) of
+        true -> erl_anno:set_record(true, Anno);
+        false -> Anno
+    end.

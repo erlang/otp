@@ -16,6 +16,15 @@ SemiConstrained ::= INTEGER (100..MAX)
 NegSemiConstrained ::= INTEGER (-128..MAX)
 SemiConstrainedExt ::= INTEGER (42..MAX, ...)
 NegSemiConstrainedExt ::= INTEGER (-128..MAX, ...)
+SemiNamed ::= INTEGER {a(100), b(200)} (100..MAX)
+-- Extensions --
+LongLongExt ::= INTEGER (0..18446744073709551615, ..., -5000..-1)
+Range256to65536Ext ::= INTEGER (256..65536, ..., 1000000..9000000)
+
+-- Union of single values
+Sv1 ::= INTEGER (2|3|17)
+Sv2 ::= INTEGER (2|3|17, ...)
+Sv3 ::= INTEGER {a(2),b(3),z(17)} (2|3|17, ...)
 
 -- Other constraints
 FixedSize ::= OCTET STRING (SIZE(10)) 
@@ -57,9 +66,11 @@ Wednesday ::= Day(wednesday)
 
 
 Thing ::= INTEGER {fred (0),fred2 (1),fred3 (2)}
-
-
 AnotherThing ::= Thing (fred | fred2)
+
+OneMoreThing ::= INTEGER {wilma(0), fred(1), betty(3), barney(2)}
+OneMoreThing-1 ::= OneMoreThing (wilma | fred)
+OneMoreThing-2 ::= OneMoreThing (fred | barney)
 
 I ::= INTEGER (0|15..269) -- OTP-5457
 X1 ::= INTEGER (1..4 | 8 | 10 | 20) -- OTP-9946
@@ -70,7 +81,7 @@ maxNrOfCellPortionsPerCell-1 INTEGER ::= 35
 CellPortionID	::= INTEGER (0..maxNrOfCellPortionsPerCell-1,...)
 
 -- OTP-6763
-T ::=  IA5String (SIZE (1|2, ..., SIZE (1|2|3))) -- Dubuisson 268
+T ::=  IA5String (SIZE (1|2), ..., SIZE (1|2|3)) -- Dubuisson 268
 T2 ::= IA5String (SIZE (1|2, ..., 3)) -- equal with T
 
 -- OTP-8046
@@ -93,5 +104,87 @@ Document ::= OCTET STRING (ENCODED BY pdf)
 pdf OBJECT IDENTIFIER ::= {1,2,3,4,5}
 
 ShorterExt ::= IA5String (SIZE (5, ...))
+
+SeqOverlapping ::= SEQUENCE {
+    v Overlapping
+}
+
+SeqNonOverlapping ::= SEQUENCE {
+    v NonOverlapping
+}
+
+Overlapping ::= INTEGER (7280..7560 |
+7580..7680 |
+7910..8210 |
+8600..8940 |
+9250..9600 |
+14759..15109 |
+15250..15590 |
+18050..18800 |
+19300..19950 |
+21100..21700 |
+26200..26900 |
+18500..19900 |
+20100..20250 |
+21100..21700 |
+23000..24000 |
+24960..26900)
+
+-- The same intervals, but merged and sorted --
+NonOverlapping ::= INTEGER (7280..7560 |
+7580..7680 |
+7910..8210 |
+8600..8940 |
+9250..9600 |
+14759..15109 |
+15250..15590 |
+18050..19950 |
+20100..20250 |
+21100..21700 |
+23000..24000 |
+24960..26900)
+
+--
+-- Test INTEGER constraints from fields in objects.
+--
+
+INT-HOLDER ::= CLASS {
+  &id INTEGER UNIQUE,
+  &obj INT-HOLDER OPTIONAL
+} WITH SYNTAX {
+  ID &id
+  [OBJ &obj]
+}
+
+int-holder-1 INT-HOLDER ::= { ID 2 }
+int-holder-2 INT-HOLDER ::= { ID 4 OBJ int-holder-1 }
+
+IntObjectConstr ::= INTEGER (int-holder-2.&obj.&id..int-holder-2.&id)
+
+--
+-- INTEGER constraints defined using named INTEGERs.
+--
+
+ConstrainedNamedInt ::= INTEGER {v1(42)} (v1)
+constrainedNamedInt-1 INTEGER {v1(42)} (v1) ::= 42
+constrainedNamedInt-2 ConstrainedNamedInt ::= 100
+
+SeqWithNamedInt ::= SEQUENCE {
+   int INTEGER {v2(7)} (v2)
+}
+
+--
+-- Cover simpletable constraint checking code.
+--
+
+ContentInfo ::= SEQUENCE {
+  contentType ContentType
+}
+
+Contents TYPE-IDENTIFIER ::= {
+  {OCTET STRING IDENTIFIED BY {2 1 1 1 1 1 1}}
+}
+
+ContentType ::= TYPE-IDENTIFIER.&id({Contents})
 
 END

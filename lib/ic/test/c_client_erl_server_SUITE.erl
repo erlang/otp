@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -48,7 +49,7 @@
 %% Add/remove code path and watchdog before/after each test case.
 %%
 init_per_testcase(_Case, Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     code:add_patha(DataDir),
 
     %% Since other test suites use the module m_i, we have
@@ -60,9 +61,9 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, WatchDog}| Config].
 
 end_per_testcase(_Case, Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     code:del_path(DataDir),
-    WatchDog = ?config(watchdog, Config),
+    WatchDog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -94,173 +95,105 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-array1_test(doc) -> "";
-array1_test(suite) -> [];
 array1_test(Config) ->
     do_test(array1_test, Config). 
 
-array2_test(doc) -> "";
-array2_test(suite) -> [];
 array2_test(Config) ->
     do_test(array2_test, Config).
 
-bool_test(doc) -> "";
-bool_test(suite) -> [];
 bool_test(Config) ->
     do_test(bool_test, Config).
 
-char_test(doc) -> "";
-char_test(suite) -> [];
 char_test(Config) ->
     do_test(char_test, Config).
 
-double_test(doc) -> "";
-double_test(suite) -> [];
 double_test(Config) ->
     do_test(double_test, Config).
 
-enum_test(doc) -> "";
-enum_test(suite) -> [];
 enum_test(Config) ->
     do_test(enum_test, Config).
 
-inline_sequence_test(doc) -> "";
-inline_sequence_test(suite) -> [];
 inline_sequence_test(Config) ->
     do_test(inline_sequence_test, Config).
 
-long_long_test(doc) -> "";
-long_long_test(suite) -> [];
 long_long_test(Config) ->
     do_test(long_long_test, Config).
 
-long_test(doc) -> "";
-long_test(suite) -> [];
 long_test(Config) ->
     do_test(long_test, Config).
 
-octet_test(doc) -> "";
-octet_test(suite) -> [];
 octet_test(Config) ->
     do_test(octet_test, Config).
 
-pid_test(doc) -> "";
-pid_test(suite) -> [];
 pid_test(Config) ->
     do_test(pid_test, Config).
 
-port_test(doc) -> "";
-port_test(suite) -> [];
 port_test(Config) ->
     do_test(port_test, Config).
 
-ref_test(doc) -> "";
-ref_test(suite) -> [];
 ref_test(Config) ->
     do_test(ref_test, Config).
 
-seq1_test(doc) -> "";
-seq1_test(suite) -> [];
 seq1_test(Config) ->
     do_test(seq1_test, Config).
 
-seq2_test(doc) -> "";
-seq2_test(suite) -> [];
 seq2_test(Config) ->
     do_test(seq2_test, Config).
 
-seq3_test(doc) -> "";
-seq3_test(suite) -> [];
 seq3_test(Config) ->
     do_test(seq3_test, Config).
 
-seq4_test(doc) -> "";
-seq4_test(suite) -> [];
 seq4_test(Config) ->
     do_test(seq4_test, Config).
 
-seq5_test(doc) -> "";
-seq5_test(suite) -> [];
 seq5_test(Config) ->
     do_test(seq5_test, Config).
 
-string1_test(doc) -> "";
-string1_test(suite) -> [];
 string1_test(Config) ->
     do_test(string1_test, Config).
 
-string2_test(doc) -> "";
-string2_test(suite) -> [];
 string2_test(Config) ->
     do_test(string2_test, Config).
 
-string3_test(doc) -> "";
-string3_test(suite) -> [];
 string3_test(Config) ->
     do_test(string3_test, Config).
 
-string4_test(doc) -> "";
-string4_test(suite) -> [];
 string4_test(Config) ->
     do_test(string4_test, Config).
 
-struct2_test(doc) -> "";
-struct2_test(suite) -> [];
 struct2_test(Config) ->
     do_test(struct2_test, Config).
 
-struct_test(doc) -> "";
-struct_test(suite) -> [];
 struct_test(Config) ->
     do_test(struct_test, Config).
 
-term_sequence_test(doc) -> "";
-term_sequence_test(suite) -> [];
 term_sequence_test(Config) ->
     do_test(term_sequence_test, Config).
 
-term_struct_test(doc) -> "";
-term_struct_test(suite) -> [];
 term_struct_test(Config) ->
     do_test(term_struct_test, Config).
 
-term_test(doc) -> "";
-term_test(suite) -> [];
 term_test(Config) ->
     do_test(term_test, Config).
 
-typedef_test(doc) -> "";
-typedef_test(suite) -> [];
 typedef_test(Config) ->
     do_test(typedef_test, Config).
 
-unsigned_long_long_test(doc) -> "";
-unsigned_long_long_test(suite) -> [];
 unsigned_long_long_test(Config) ->
     do_test(unsigned_long_long_test, Config).
 
-unsigned_long_test(doc) -> "";
-unsigned_long_test(suite) -> [];
 unsigned_long_test(Config) ->
     do_test(unsigned_long_test, Config).
 
-unsigned_short_test(doc) -> "";
-unsigned_short_test(suite) -> [];
 unsigned_short_test(Config) ->
     do_test(unsigned_short_test, Config).
 
-void_test(doc) -> "";
-void_test(suite) -> [];
 void_test(Config) ->
     do_test(void_test, Config).
 
-wchar_test(doc) -> "";
-wchar_test(suite) -> [];
 wchar_test(Config) ->
     do_test(wchar_test, Config).
 
-wstring1_test(doc) -> "";
-wstring1_test(suite) -> [];
 wstring1_test(Config) ->
     do_test(wstring1_test, Config).
 
@@ -274,7 +207,7 @@ do_test(Case, Config) ->
     %% Start the server
     {ok, _Pid} = m_i:oe_create_link([], {local, ?ERLANG_SERVER_NAME}),
     Node = atom_to_list(node()),
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     %% io:format("~p: data directory: ~p~n", [?MODULE, DataDir]),
     Cookie = atom_to_list(erlang:get_cookie()),
     %% Start C-client node as a port program.  

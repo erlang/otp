@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -24,11 +25,14 @@
 	 deflate/2,deflate/3,deflateEnd/1,
 	 inflateInit/1,inflateInit/2,inflateSetDictionary/2,
 	 inflateSync/1,inflateReset/1,inflate/2,inflateEnd/1,
+	 inflateChunk/1, inflateChunk/2,
 	 setBufSize/2,getBufSize/1,
 	 crc32/1,crc32/2,crc32/3,adler32/2,adler32/3,getQSize/1,
 	 crc32_combine/4,adler32_combine/4,
 	 compress/1,uncompress/1,zip/1,unzip/1,
 	 gzip/1,gunzip/1]).
+
+-export_type([zstream/0, zlevel/0, zwindowbits/0, zmemlevel/0, zstrategy/0]).
 
 %% flush argument encoding
 -define(Z_NO_FLUSH,      0).
@@ -45,6 +49,7 @@
 %% compresssion strategy
 -define(Z_FILTERED,            1).
 -define(Z_HUFFMAN_ONLY,        2).
+-define(Z_RLE,                 3).
 -define(Z_DEFAULT_STRATEGY,    0).
 
 %% deflate compression method
@@ -97,6 +102,7 @@
 -define(INFLATE_RESET,   12).
 -define(INFLATE_END,     13).
 -define(INFLATE,         14).
+-define(INFLATE_CHUNK,   25).
 
 -define(CRC32_0,         15).
 -define(CRC32_1,         16).
@@ -121,9 +127,9 @@
 -type zlevel()      :: 'none' | 'default' | 'best_compression' | 'best_speed' 
                      | 0..9.
 -type zmethod()     :: 'deflated'.
--type zwindowbits() :: -15..-9 | 9..47.
+-type zwindowbits() :: -15..-8 | 8..47.
 -type zmemlevel()   :: 1..9.
--type zstrategy()   :: 'default' | 'filtered' | 'huffman_only'.
+-type zstrategy()   :: 'default' | 'filtered' | 'huffman_only' | 'rle'.
 
 %%------------------------------------------------------------------------
 
@@ -206,7 +212,7 @@ deflate(Z, Data) ->
 deflate(Z, Data, Flush) ->
     try port_command(Z, Data) of
 	true ->
-	    call(Z, ?DEFLATE, <<(arg_flush(Flush)):32>>),
+	    _ = call(Z, ?DEFLATE, <<(arg_flush(Flush)):32>>),
 	    collect(Z)
     catch 
 	error:_Err ->
@@ -252,12 +258,45 @@ inflateReset(Z) ->
 inflate(Z, Data) ->
     try port_command(Z, Data) of
 	true -> 
-	    call(Z, ?INFLATE, <<?Z_NO_FLUSH:32>>),
+	    _ = call(Z, ?INFLATE, <<?Z_NO_FLUSH:32>>),
 	    collect(Z)
     catch 
 	error:_Err ->
 	    flush(Z),
 	    erlang:error(badarg) 
+    end.
+
+-spec inflateChunk(Z, Data) -> Decompressed | {more, Decompressed} when
+      Z :: zstream(),
+      Data :: iodata(),
+      Decompressed :: iolist().
+inflateChunk(Z, Data) ->
+    try port_command(Z, Data) of
+	true ->
+        inflateChunk(Z)
+    catch
+	error:_Err ->
+	    flush(Z),
+	    erlang:error(badarg)
+    end.
+
+-spec inflateChunk(Z) -> Decompressed | {more, Decompressed} when
+      Z :: zstream(),
+      Decompressed :: iolist().
+inflateChunk(Z) ->
+    Status = call(Z, ?INFLATE_CHUNK, []),
+    Data = receive
+	{Z, {data, Bin}} ->
+	    Bin
+    after 0 ->
+	    []
+    end,
+
+    case Status of
+        Good when (Good == ok) orelse (Good == stream_end) ->
+            Data;
+        inflate_has_more ->
+            {more, Data}
     end.
 
 -spec inflateEnd(Z) -> 'ok' when
@@ -484,6 +523,7 @@ arg_level(_) -> erlang:error(badarg).
      
 arg_strategy(filtered) ->     ?Z_FILTERED;
 arg_strategy(huffman_only) -> ?Z_HUFFMAN_ONLY;
+arg_strategy(rle) -> ?Z_RLE;
 arg_strategy(default) ->      ?Z_DEFAULT_STRATEGY;
 arg_strategy(_) -> erlang:error(badarg).
 
@@ -492,8 +532,8 @@ arg_method(_) -> erlang:error(badarg).
 
 -spec arg_bitsz(zwindowbits()) -> zwindowbits().
 arg_bitsz(Bits) when is_integer(Bits) andalso
-		     ((8 < Bits andalso Bits < 48) orelse
-		      (-15 =< Bits andalso Bits < -8)) ->
+		     ((8 =< Bits andalso Bits < 48) orelse
+		      (-15 =< Bits andalso Bits =< -8)) ->
     Bits;
 arg_bitsz(_) -> erlang:error(badarg).
 
@@ -510,7 +550,9 @@ call(Z, Cmd, Arg) ->
 	[2,A,B,C,D] ->
 	    (A bsl 24)+(B bsl 16)+(C bsl 8)+D;
 	[3,A,B,C,D] ->
-	    erlang:error({need_dictionary,(A bsl 24)+(B bsl 16)+(C bsl 8)+D})
+	    erlang:error({need_dictionary,(A bsl 24)+(B bsl 16)+(C bsl 8)+D});
+	[4, _, _, _, _] ->
+	    inflate_has_more
     catch 
 	error:badarg -> %% Rethrow loses port_control from stacktrace.
 	    erlang:error(badarg)

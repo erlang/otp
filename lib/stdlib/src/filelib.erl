@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -41,6 +42,9 @@
 -type filename() :: file:name().
 -type dirname() :: filename().
 
+-type filename_all() :: file:name_all().
+-type dirname_all() :: filename_all().
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec wildcard(Wildcard) -> [file:filename()] when
@@ -62,29 +66,29 @@ wildcard(Pattern, Cwd, Mod)
     ?HANDLE_ERROR(do_wildcard(Pattern, Cwd, Mod)).
 
 -spec is_dir(Name) -> boolean() when
-      Name :: filename() | dirname().
+      Name :: filename_all() | dirname_all().
 is_dir(Dir) ->
     do_is_dir(Dir, file).
 
--spec is_dir(file:name(), atom()) -> boolean().
+-spec is_dir(file:name_all(), atom()) -> boolean().
 is_dir(Dir, Mod) when is_atom(Mod) ->
     do_is_dir(Dir, Mod).
 
 -spec is_file(Name) -> boolean() when
-      Name :: filename() | dirname().
+      Name :: filename_all() | dirname_all().
 is_file(File) ->
     do_is_file(File, file).
 
--spec is_file(file:name(), atom()) -> boolean().
+-spec is_file(file:name_all(), atom()) -> boolean().
 is_file(File, Mod) when is_atom(Mod) ->
     do_is_file(File, Mod).
 
 -spec is_regular(Name) -> boolean() when
-      Name :: filename().
+      Name :: filename_all().
 is_regular(File) ->
     do_is_regular(File, file).
     
--spec is_regular(file:name(), atom()) -> boolean().
+-spec is_regular(file:name_all(), atom()) -> boolean().
 is_regular(File, Mod) when is_atom(Mod) ->
     do_is_regular(File, Mod).
     
@@ -103,16 +107,16 @@ fold_files(Dir, RegExp, Recursive, Fun, Acc, Mod) when is_atom(Mod) ->
     do_fold_files(Dir, RegExp, Recursive, Fun, Acc, Mod).
 
 -spec last_modified(Name) -> file:date_time() | 0 when
-      Name :: filename() | dirname().
+      Name :: filename_all() | dirname_all().
 last_modified(File) ->
     do_last_modified(File, file).
 
--spec last_modified(file:name(), atom()) -> file:date_time() | 0.
+-spec last_modified(file:name_all(), atom()) -> file:date_time() | 0.
 last_modified(File, Mod) when is_atom(Mod) ->
     do_last_modified(File, Mod).
 
 -spec file_size(Filename) -> non_neg_integer() when
-      Filename :: filename().
+      Filename :: filename_all().
 file_size(File) ->
     do_file_size(File, file).
 
@@ -218,7 +222,7 @@ do_file_size(File, Mod) ->
 %% ensures that the directory name required to create D exists
 
 -spec ensure_dir(Name) -> 'ok' | {'error', Reason} when
-      Name :: filename() | dirname(),
+      Name :: filename_all() | dirname_all(),
       Reason :: file:posix().
 ensure_dir("/") ->
     ok;
@@ -231,7 +235,7 @@ ensure_dir(F) ->
 	    %% Protect against infinite loop
 	    {error,einval};
 	false ->
-	    ensure_dir(Dir),
+	    _ = ensure_dir(Dir),
 	    case file:make_dir(Dir) of
 		{error,eexist}=EExist ->
 		    case do_is_dir(Dir, file) of
@@ -245,7 +249,7 @@ ensure_dir(F) ->
 	    end
     end.
 
-
+
 %%%
 %%% Pattern matching using a compiled wildcard.
 %%%
@@ -262,7 +266,7 @@ do_wildcard(Pattern, Cwd, Mod) ->
     lists:sort(Files).
 
 do_wildcard_1({exists,File}, Mod) ->
-    case eval_read_file_info(File, Mod) of
+    case eval_read_link_info(File, Mod) of
 	{ok,_} -> [File];
 	_ -> []
     end;
@@ -357,7 +361,7 @@ do_alt([], _File) ->
 
 do_list_dir(Dir, Mod) ->     eval_list_dir(Dir, Mod).
 
-	    
+	    
 %%% Compiling a wildcard.
 
 %% Only for debugging.
@@ -368,7 +372,7 @@ compile_wildcard(Pattern, Cwd0) ->
     [Root|Rest] = filename:split(Pattern),
     case filename:pathtype(Root) of
 	relative ->
-	    Cwd = filename:join([Cwd0]),
+	    Cwd = prepare_base(Cwd0),
 	    compile_wildcard_2([Root|Rest], {cwd,Cwd});
 	_ ->
 	    compile_wildcard_2(Rest, {root,0,Root})
@@ -493,6 +497,16 @@ eval_read_file_info(File, erl_prim_loader) ->
     end;
 eval_read_file_info(File, Mod) ->
     Mod:read_file_info(File).
+
+eval_read_link_info(File, file) ->
+    file:read_link_info(File);
+eval_read_link_info(File, erl_prim_loader) ->
+    case erl_prim_loader:read_link_info(File) of
+        error -> {error, erl_prim_loader};
+        Res-> Res
+    end;
+eval_read_link_info(File, Mod) ->
+    Mod:read_link_info(File).
 
 eval_list_dir(Dir, file) ->
     file:list_dir(Dir);

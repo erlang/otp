@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -585,11 +586,9 @@ init([]) ->
 
 handle_call({unpack_release, ReleaseName}, _From, S)
   when S#state.masters == false ->
-    RelDir = S#state.rel_dir,
-    case catch do_unpack_release(S#state.root, RelDir,
+    case catch do_unpack_release(S#state.root, S#state.rel_dir,
 				 ReleaseName, S#state.releases) of
 	{ok, NewReleases, Vsn} -> 
-	    clean_release(RelDir, ReleaseName),
 	    {reply, {ok, Vsn}, S#state{releases = NewReleases}};
 	{error, Reason}   ->
 	    {reply, {error, Reason}, S}; 
@@ -739,7 +738,7 @@ mk_lib_name([]) -> [].
 handle_info(timeout, S) ->
     case soft_purge(S#state.unpurged) of
 	[] ->
-	    timer:cancel(S#state.timer),
+	    _ = timer:cancel(S#state.timer),
 	    {noreply, S#state{unpurged = [], timer = undefined}};
 	Unpurged ->
 	    {noreply, S#state{unpurged = Unpurged}}
@@ -850,15 +849,11 @@ do_unpack_release(Root, RelDir, ReleaseName, Releases) ->
     Dir = filename:join([RelDir, Vsn]),
     copy_file(RelFile, Dir, false),
 
-    {ok, NewReleases, Vsn}.
+    %% Clean release
+    _ = file:delete(Tar),
+    _ = file:delete(RelFile),
 
-%% Note that this function is not executed by a client
-%% release_handler.
-clean_release(RelDir, ReleaseName) ->
-    Tar = filename:join(RelDir, ReleaseName ++ ".tar.gz"),
-    Rel = filename:join(RelDir, ReleaseName ++ ".rel"),
-    file:delete(Tar),
-    file:delete(Rel).
+    {ok, NewReleases, Vsn}.
    
 check_rel(Root, RelFile, Masters) ->
     check_rel(Root, RelFile, [], Masters).
@@ -1108,7 +1103,7 @@ new_emulator_make_hybrid_boot(CurrentVsn,ToVsn,TmpVsn,BaseLibs,RelDir,Opts,Maste
     Args = [ToVsn,Opts],
     {ok,FromBoot} = read_file(FromBootFile,Masters),
     {ok,ToBoot} = read_file(ToBootFile,Masters),
-    {{_,_,KernelPath},{_,_,SaslPath},{_,_,StdlibPath}} = BaseLibs,
+    {{_,_,KernelPath},{_,_,StdlibPath},{_,_,SaslPath}} = BaseLibs,
     Paths = {filename:join(KernelPath,"ebin"),
 	     filename:join(StdlibPath,"ebin"),
 	     filename:join(SaslPath,"ebin")},
@@ -1184,7 +1179,8 @@ rename_tmp_service(EVsn,TmpVsn,NewVsn) ->
 	{error, _Error} ->
 	    ok;
 	_Data ->
-	    erlsrv:remove_service(ToName)
+	    {ok,_} = erlsrv:remove_service(ToName),
+	    ok
     end,
     rename_service(EVsn,FromName,ToName).
 
@@ -1237,13 +1233,12 @@ do_make_services_permanent(PermanentVsn,Vsn, PermanentEVsn, EVsn) ->
 	    UpdData = erlsrv:new_service(Name, Data, []),
 	    case erlsrv:store_service(EVsn,UpdData) of
 		ok ->
-		    erlsrv:disable_service(PermanentEVsn, PermName),
-		    erlsrv:enable_service(EVsn, Name),
-		    erlsrv:remove_service(PermName),
+		    {ok,_} = erlsrv:disable_service(PermanentEVsn, PermName),
+		    {ok,_} = erlsrv:enable_service(EVsn, Name),
+		    {ok,_} = erlsrv:remove_service(PermName),
 		    %%% Read comments about these above...
 		    os:putenv("ERLSRV_SERVICE_NAME", Name),
-		    heart:cycle(),
-		    ok;
+		    ok = heart:cycle();
 		Error4 ->
 		    throw(Error4)
 	    end
@@ -1288,7 +1283,7 @@ do_make_permanent(#state{releases = Releases,
 		_ ->
 		    ok
 	    end,
-	    init:make_permanent(filename:join(Dir, "start"), Sys),
+	    ok = init:make_permanent(filename:join(Dir, "start"), Sys),
 	    {ok, NewReleases, brutal_purge(Unpurged)};
 	{value, #release{status = permanent}} ->
 	    {ok, Releases, Unpurged};
@@ -1309,13 +1304,13 @@ do_back_service(OldVersion, CurrentVersion,OldEVsn,CurrentEVsn) ->
 		  Data ->
 		      erlsrv:new_service(OldName, Data, [])
 	      end,
-    case erlsrv:store_service(OldEVsn,UpdData) of
-	ok ->
-	    erlsrv:disable_service(CurrentEVsn,CurrentName),
-	    erlsrv:enable_service(OldEVsn,OldName);
-	Error2 ->
-	    throw(Error2)
-    end,
+    _ = case erlsrv:store_service(OldEVsn,UpdData) of
+	    ok ->
+		{ok,_} = erlsrv:disable_service(CurrentEVsn,CurrentName),
+		{ok,_} = erlsrv:enable_service(OldEVsn,OldName);
+	    Error2 ->
+		throw(Error2)
+	end,
     OldErlSrv = filename:nativename(erlsrv:erlsrv(OldEVsn)),
     CurrentErlSrv = filename:nativename(erlsrv:erlsrv(CurrentEVsn)),
     case heart:set_cmd(CurrentErlSrv ++ " remove " ++ CurrentName ++ 
@@ -1386,10 +1381,18 @@ set_permanent_files(RelDir, _EVsn, Vsn, Masters, _Static) ->
 
 
 do_remove_service(Vsn) ->
-    %%% Very unconditionally remove the service.
+    %% Very unconditionally remove the service.
+    %% Note that the service could already have been removed when
+    %% making another release permanent.
     ServiceName = hd(string:tokens(atom_to_list(node()),"@")) 
 	++ "_" ++ Vsn,
-    erlsrv:remove_service(ServiceName).
+    case erlsrv:get_service(ServiceName) of
+	{error, _Error} ->
+	    ok;
+	_Data ->
+	    {ok,_} = erlsrv:remove_service(ServiceName),
+	    ok
+    end.
 
 do_remove_release(Root, RelDir, Vsn, Releases) ->
     % Decide which libs should be removed
@@ -1603,8 +1606,7 @@ do_write_file(File, Str, FileOpts) ->
     case file:open(File, [write | FileOpts]) of
 	{ok, Fd} ->
 	    io:put_chars(Fd, Str),
-	    file:close(Fd),
-	    ok;
+	    ok = file:close(Fd);
 	{error, Reason} ->
 	    {error, {Reason, File}}
     end.
@@ -1651,9 +1653,9 @@ get_appls([], Res) ->
 
 
 mon_nodes(true) ->
-    net_kernel:monitor_nodes(true);
+    ok = net_kernel:monitor_nodes(true);
 mon_nodes(false) ->
-    net_kernel:monitor_nodes(false),
+    ok = net_kernel:monitor_nodes(false),
     flush().
 
 flush() ->
@@ -1691,7 +1693,7 @@ prepare_restart_nt(#release{erts_vsn = EVsn, vsn = Vsn},
 	{error, _} = Error2 ->
 	    throw(Error2);
 	_X ->
-	    erlsrv:disable_service(EVsn, FutureServiceName),
+	    {ok,_} = erlsrv:disable_service(EVsn, FutureServiceName),
 	    ErlSrv = filename:nativename(erlsrv:erlsrv(EVsn)),
 	    StartDisabled = ErlSrv ++ " start_disabled " ++ FutureServiceName,
 	    case heart:set_cmd(StartDisabled) of
@@ -1877,8 +1879,7 @@ do_write_release(Dir, RELEASES, NewReleases) ->
     case file:open(filename:join(Dir, RELEASES), [write]) of
 	{ok, Fd} ->
 	    ok = io:format(Fd, "~p.~n", [NewReleases]),
-	    file:close(Fd),
-	    ok;
+	    ok = file:close(Fd);
 	{error, Reason} ->
 	    {error, Reason}
     end.
@@ -2010,7 +2011,7 @@ do_rename_files([]) ->
 %% Remove a list of files. Ignore failure.
 %%-----------------------------------------------------------------
 do_remove_files([File|Files]) ->
-    file:delete(File),
+    _ = file:delete(File),
     do_remove_files(Files);
 do_remove_files([]) ->
     ok.
@@ -2030,7 +2031,8 @@ do_ensure_RELEASES(RelFile) ->
 %% Make a directory, ignore failures (captured later).
 %%-----------------------------------------------------------------
 make_dir(Dir, false) ->
-    file:make_dir(Dir);
+    _ = file:make_dir(Dir),
+    ok;
 make_dir(Dir, Masters) ->
     lists:foreach(fun(Master) -> rpc:call(Master, file, make_dir, [Dir]) end,
 		  Masters).
@@ -2062,12 +2064,12 @@ at_all_masters([], _, _, _) ->
 %% Ignore {M,F,A} return value.
 %%-----------------------------------------------------------------
 takewhile(Master, Masters, M, F, A) ->
-    lists:takewhile(fun(Ma) when Ma == Master ->
-			    false;
-		       (Ma) ->
-			    rpc:call(Ma, M, F, A),
-			    true
-		    end, Masters),
+    _ = lists:takewhile(fun(Ma) when Ma == Master ->
+				false;
+			   (Ma) ->
+				rpc:call(Ma, M, F, A),
+				true
+			end, Masters),
     ok.
 
 consult(File, false)   -> file:consult(File);
@@ -2205,23 +2207,23 @@ set_static_files(SrcDir, DestDir, Masters) ->
 write_ini_file(RootDir,EVsn,Masters) ->
    BinDir = filename:join([RootDir,"erts-"++EVsn,"bin"]),
    Str0 = io_lib:format("[erlang]~n"
-                        "Bindir=~s~n"
+                        "Bindir=~ts~n"
                         "Progname=erl~n"
-                        "Rootdir=~s~n",
+                        "Rootdir=~ts~n",
 		        [filename:nativename(BinDir),
 		         filename:nativename(RootDir)]),
-   Str = re:replace(Str0,"\\\\","\\\\\\\\",[{return,list},global]),
+   Str = re:replace(Str0,"\\\\","\\\\\\\\",[{return,list},global,unicode]),
    IniFile = filename:join(BinDir,"erl.ini"),
    do_write_ini_file(IniFile,Str,Masters).
 
 do_write_ini_file(File,Data,false) ->
-    case do_write_file(File, Data) of
+    case do_write_file(File, Data, [{encoding,utf8}]) of
 	ok    -> ok;
 	Error -> throw(Error)
     end;
 do_write_ini_file(File,Data,Masters) ->
     all_masters(Masters),
-    safe_write_file_m(File, Data, Masters).
+    safe_write_file_m(File, Data, [{encoding,utf8}], Masters).
 
 
 %%-----------------------------------------------------------------
@@ -2235,13 +2237,15 @@ do_write_ini_file(File,Data,Masters) ->
 %% (as long as possible), except for 4 which is allowed to fail.
 %%-----------------------------------------------------------------
 safe_write_file_m(File, Data, Masters) ->
+    safe_write_file_m(File, Data, [], Masters).
+safe_write_file_m(File, Data, FileOpts, Masters) ->
     Backup = File ++ ".backup",
     Change = File ++ ".change",
     case at_all_masters(Masters, ?MODULE, do_copy_files,
 			[File, [Backup]]) of
 	ok ->
 	    case at_all_masters(Masters, ?MODULE, do_write_file,
-				[Change, Data]) of
+				[Change, Data, FileOpts]) of
 		ok ->
 		    case at_all_masters(Masters, file, rename,
 					[Change, File]) of

@@ -18,6 +18,8 @@ Ext1 ::= ENUMERATED {
 	magenta(9)
 }
 
+SubExt1 ::= Ext1 ( blue | orange | black )
+
 Noext ::= ENUMERATED {
 	blue(0),
 	red(1),
@@ -50,6 +52,8 @@ SeqBig ::= SEQUENCE {
   e EnumExtBig,
   i INTEGER
 }
+
+EnumSkip ::= ENUMERATED {a(2), ..., b, c, d, e, f}
 
 END
 

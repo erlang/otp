@@ -27,7 +27,7 @@
 
 -module(edoc_layout).
 
--export([module/2, package/2, overview/2, type/1]).
+-export([module/2, overview/2, type/1]).
 
 -import(edoc_report, [report/2]).
 
@@ -180,7 +180,9 @@ layout_module(#xmlElement{name = module, content = Es}=E, Opts) ->
     FullDesc = get_content(fullDescription, Desc),
     Functions = [{function_name(E), E} || E <- get_content(functions, Es)],
     Types = [{type_name(E), E} || E <- get_content(typedecls, Es)],
-    SortedFs = lists:sort(Functions),
+    SortedFs = if Opts#opts.sort_functions -> lists:sort(Functions);
+                  true -> Functions
+               end,
     Body = (navigation("top")
             ++ [?NL, hr, ?NL, ?NL, {h1, Title}, ?NL]
 	    ++ doc_index(FullDesc, Functions, Types)
@@ -204,9 +206,7 @@ layout_module(#xmlElement{name = module, content = Es}=E, Opts) ->
 	       end
 	    ++ types(lists:sort(Types), Opts)
 	    ++ function_index(SortedFs, Opts#opts.index_columns)
-	    ++ if Opts#opts.sort_functions -> functions(SortedFs, Opts);
-		  true -> functions(Functions, Opts)
-	       end
+	    ++ functions(SortedFs, Opts)
 	    ++ [hr, ?NL]
 	    ++ navigation("bottom")
 	    ++ timestamp()),
@@ -520,7 +520,7 @@ format_spec(Name, Type, Defs, #opts{pretty_printer = erl_pp}=Opts) ->
         {R, ".\n"} = etypef(L, O),
         [{pre, R}]
     catch _:_ ->
-        %% Example: "@spec ... -> record(a)"
+        %% Should not happen.
         format_spec(Name, Type, Defs, Opts#opts{pretty_printer=''})
     end;
 format_spec(Sep, Type, Defs, _Opts) ->
@@ -535,7 +535,8 @@ t_clause(Name, Type) ->
 pp_clause(Pre, Type) ->
     Types = ot_utype([Type]),
     Atom = lists:duplicate(iolist_size(Pre), $a),
-    L1 = erl_pp:attribute({attribute,0,spec,{{list_to_atom(Atom),0},[Types]}}),
+    Attr = {attribute,0,spec,{{list_to_atom(Atom),0},[Types]}},
+    L1 = erl_pp:attribute(erl_parse:new_anno(Attr)),
     "-spec " ++ L2 = lists:flatten(L1),
     L3 = Pre ++ lists:nthtail(length(Atom), L2),
     re:replace(L3, "\n      ", "\n", [{return,list},global]).
@@ -555,7 +556,8 @@ format_type(Prefix, _Name, Type, Last, _Opts) ->
 
 pp_type(Prefix, Type) ->
     Atom = list_to_atom(lists:duplicate(iolist_size(Prefix), $a)),
-    L1 = erl_pp:attribute({attribute,0,type,{Atom,ot_utype(Type),[]}}),
+    Attr = {attribute,0,type,{Atom,ot_utype(Type),[]}},
+    L1 = erl_pp:attribute(erl_parse:new_anno(Attr)),
     {L2,N} = case lists:dropwhile(fun(C) -> C =/= $: end, lists:flatten(L1)) of
                  ":: " ++ L3 -> {L3,9}; % compensation for extra "()" and ":"
                  "::\n" ++ L3 -> {"\n"++L3,6}
@@ -701,6 +703,8 @@ deprecated(Es, S) ->
     end.
 
 behaviours(Es, Name) ->
+    CBs = get_content(callbacks, Es),
+    OCBs = get_content(optional_callbacks, Es),
     (case get_elem(behaviour, Es) of
 	 [] -> [];
 	 Es1 ->
@@ -709,13 +713,24 @@ behaviours(Es, Name) ->
 	      ?NL]
      end
      ++
-     case get_content(callbacks, Es) of
-	 [] -> [];
-	 Es1 ->
+     if CBs =:= [], OCBs =:= [] ->
+             [];
+	 true ->
+             Req = if CBs =:= [] ->
+                       [];
+                       true ->
+                           [br, " Required callback functions: "]
+                           ++ seq(fun callback/1, CBs, ["."])
+                   end,
+             Opt = if OCBs =:= [] ->
+                       [];
+                       true ->
+                           [br, " Optional callback functions: "]
+                           ++ seq(fun callback/1, OCBs, ["."])
+                   end,
 	     [{p, ([{b, ["This module defines the ", {tt, [Name]},
-			 " behaviour."]},
-		    br, " Required callback functions: "]
-		   ++ seq(fun callback/1, Es1, ["."]))},
+			 " behaviour."]}]
+                   ++ Req ++ Opt)},
 	      ?NL]
      end).
 
@@ -829,6 +844,8 @@ t_type([#xmlElement{name = list, content = Es}]) ->
     t_list(Es);
 t_type([#xmlElement{name = nonempty_list, content = Es}]) ->
     t_nonempty_list(Es);
+t_type([#xmlElement{name = map, content = Es}]) ->
+    t_map(Es);
 t_type([#xmlElement{name = tuple, content = Es}]) ->
     t_tuple(Es);
 t_type([#xmlElement{name = 'fun', content = Es}]) ->
@@ -876,6 +893,19 @@ t_tuple(Es) ->
 t_fun(Es) ->
     ["("] ++ seq(fun t_utype_elem/1, get_content(argtypes, Es),
 		 [") -> "] ++ t_utype(get_elem(type, Es))).
+
+t_map(Es) ->
+    Fs = get_elem(map_field, Es),
+    ["#{"] ++ seq(fun t_map_field/1, Fs, ["}"]).
+
+t_map_field(#xmlElement{content = [K,V]}=E) ->
+    KElem = t_utype_elem(K),
+    VElem = t_utype_elem(V),
+    AS = case get_attrval(assoc_type, E) of
+             "assoc" -> " => ";
+             "exact" -> " := "
+         end,
+    KElem ++ [AS] ++ VElem.
 
 t_record(E, Es) ->
     Name = ["#"] ++ t_type(get_elem(atom, Es)),
@@ -956,9 +986,6 @@ get_text(Name, Es) ->
 local_label(R) ->
     "#" ++ R.
 
-xhtml(Title, CSS, Body) ->
-    xhtml(Title, CSS, Body, "latin1").
-
 xhtml(Title, CSS, Body, Encoding) ->
     EncString = case Encoding of
                     "latin1" -> "ISO-8859-1";
@@ -987,27 +1014,6 @@ type(E, Ds) ->
     Opts = [],
     xmerl:export_simple_content(t_utype_elem(E) ++ local_defs(Ds, Opts),
 				?HTML_EXPORT).
-
-package(E=#xmlElement{name = package, content = Es}, Options) ->
-    Opts = init_opts(E, Options),
-    Name = get_text(packageName, Es),
-    Title = ["Package ", Name],
-    Desc = get_content(description, Es),
-%    ShortDesc = get_content(briefDescription, Desc),
-    FullDesc = get_content(fullDescription, Desc),
-    Body = ([?NL, {h1, [Title]}, ?NL]
-%	    ++ ShortDesc
-	    ++ copyright(Es)
-	    ++ deprecated(Es, "package")
-	    ++ version(Es)
-	    ++ since(Es)
-	    ++ authors(Es)
-	    ++ references(Es)
-	    ++ sees(Es)
-	    ++ todos(Es)
-	    ++ FullDesc),
-    XML = xhtml(Title, stylesheet(Opts), Body),
-    xmerl:export_simple(XML, ?HTML_EXPORT, []).
 
 overview(E=#xmlElement{name = overview, content = Es}, Options) ->
     Opts = init_opts(E, Options),
@@ -1072,6 +1078,8 @@ ot_type([#xmlElement{name = nonempty_list, content = Es}]) ->
     ot_nonempty_list(Es);
 ot_type([#xmlElement{name = tuple, content = Es}]) ->
     ot_tuple(Es);
+ot_type([#xmlElement{name = map, content = Es}]) ->
+    ot_map(Es);
 ot_type([#xmlElement{name = 'fun', content = Es}]) ->
     ot_fun(Es);
 ot_type([#xmlElement{name = record, content = Es}]) ->
@@ -1085,8 +1093,8 @@ ot_var(E) ->
     {var,0,list_to_atom(get_attrval(name, E))}.
 
 ot_atom(E) ->
-    {ok, [Atom], _} = erl_scan:string(get_attrval(value, E), 0),
-    Atom.
+    {ok, [{atom,A,Name}], _} = erl_scan:string(get_attrval(value, E), 0),
+    {atom,erl_anno:line(A),Name}.
 
 ot_integer(E) ->
     {integer,0,list_to_integer(get_attrval(value, E))}.
@@ -1127,6 +1135,16 @@ ot_nonempty_list(Es) ->
 
 ot_tuple(Es) ->
     {type,0,tuple,[ot_utype_elem(E) || E <- Es]}.
+
+ot_map(Es) ->
+    {type,0,map,[ot_map_field(E) || E <- get_elem(map_field,Es)]}.
+
+ot_map_field(#xmlElement{content=[K,V]}=E) ->
+    A = case get_attrval(assoc_type, E) of
+            "assoc" -> map_field_assoc;
+            "exact" -> map_field_exact
+        end,
+    {type,0,A,[ot_utype_elem(K), ot_utype_elem(V)]}.
 
 ot_fun(Es) ->
     Range = ot_utype(get_elem(type, Es)),

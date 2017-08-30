@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -23,7 +24,7 @@
 
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 main(_Erule) ->
     Val1 = {substrings,
@@ -40,8 +41,7 @@ main(_Erule) ->
 	      {any,"DK"},
 	      {final,"NO"}]}},
 
-    {ok,Bytes1} = 'TConstrChoice':encode('FilterItem', Val1),
-    {error,Reason} = asn1_wrapper:decode('TConstrChoice','FilterItem',Bytes1),
+    Reason = must_fail('TConstrChoice', 'FilterItem', Val1),
     io:format("Reason: ~p~n~n",[Reason]),
     {ok,Bytes2} = 'TConstrChoice':encode('FilterItem', Val2),
     {ok,Res} = 'TConstrChoice':decode('FilterItem', Bytes2),
@@ -70,10 +70,33 @@ main(_Erule) ->
 	       {'Deeper_a',12,
 		{'Deeper_a_s',{2,4},42}},
 	       {'Deeper_b',13,{'Type-object1',14,true}}}),
+
+    roundtrip('TConstr', 'Seq3',
+	      {'Seq3',
+	       {'Seq3_a',42,'TConstr':'id-object1'()},
+	       {'Seq3_b',
+		{'Type-object1',-777,true},
+		12345,
+		{'Seq3_b_bc',12345789,{'Type-object1',-999,true}}}}),
+    roundtrip('TConstr', 'Seq3-Opt',
+	      {'Seq3-Opt',
+	       {'Seq3-Opt_a',42,'TConstr':'id-object1'()},
+	       {'Seq3-Opt_b',
+		{'Type-object1',-777,true},
+		12345,
+		{'Seq3-Opt_b_bc',12345789,{'Type-object1',-999,true}}}}),
     ok.
 
 
 roundtrip(M, T, V) ->
-    {ok,E} = M:encode(T, V),
-    {ok,V} = M:decode(T, E),
-    ok.
+    asn1_test_lib:roundtrip(M, T, V).
+
+%% Either encoding or decoding must fail.
+must_fail(M, T, V) ->
+    case M:encode(T, V) of
+	{ok,E} ->
+	    {error,Reason} = M:decode(T, E),
+	    Reason;
+	{error,Reason} ->
+	    Reason
+    end.

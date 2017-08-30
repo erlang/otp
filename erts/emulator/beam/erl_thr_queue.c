@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -223,7 +224,7 @@ ErtsThrQCleanState_t
 erts_thr_q_destroy(ErtsThrQ_t *q)
 {
     if (!q->q.blk)
-	erl_exit(ERTS_ABORT_EXIT,
+	erts_exit(ERTS_ABORT_EXIT,
 		 "Trying to destroy not created thread queue\n");
     return erts_thr_q_finalize(q);
 }
@@ -588,7 +589,7 @@ enqueue(ErtsThrQ_t *q, void *data, ErtsThrQElement_t *this)
 
 #if ERTS_THR_Q_DBG_CHK_DATA
     if (!data)
-	erl_exit(ERTS_ABORT_EXIT, "Missing data in enqueue\n");
+	erts_exit(ERTS_ABORT_EXIT, "Missing data in enqueue\n");
 #endif
 
     ASSERT(!q->q.finalizing);
@@ -770,7 +771,7 @@ erts_thr_q_dequeue(ErtsThrQ_t *q)
 #if ERTS_THR_Q_DBG_CHK_DATA
     head->data.ptr = NULL;
     if (!res)
-	erl_exit(ERTS_ABORT_EXIT, "Missing data in dequeue\n");
+	erts_exit(ERTS_ABORT_EXIT, "Missing data in dequeue\n");
 #endif
     clean(q,
 	  (q->head.deq_fini.automatic
@@ -779,3 +780,35 @@ erts_thr_q_dequeue(ErtsThrQ_t *q)
     return res;
 #endif
 }
+
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+int
+erts_thr_q_length_dirty(ErtsThrQ_t *q)
+{
+    int n = 0;
+#ifndef USE_THREADS
+    void *res;
+    ErtsThrQElement_t *tmp;
+
+    for (tmp = q->first; tmp != NULL; tmp = tmp->next) {
+        n++;
+    }
+#else
+    ErtsThrQElement_t *e;
+    erts_aint_t inext;
+
+    e = ErtsThrQDirtyReadEl(&q->head.head);
+    inext = erts_atomic_read_acqb(&e->next);
+
+    while (inext != ERTS_AINT_NULL) {
+        e = (ErtsThrQElement_t *) inext;
+        if (e != &q->tail.data.marker) {
+            /* don't count marker */
+            n++;
+        }
+        inext = erts_atomic_read_acqb(&e->next);
+    }
+#endif
+    return n;
+}
+#endif

@@ -1,0 +1,27 @@
+RFC5639 {iso(1) identified-organization(3) teletrust(36) algorithm(3) signature-algorithm(3) ecSign(2) 8} DEFINITIONS EXPLICIT TAGS ::=
+
+BEGIN
+
+ecStdCurvesAndGeneration OBJECT IDENTIFIER::= {iso(1)
+      identified-organization(3) teletrust(36) algorithm(3) signature-algorithm(3) ecSign(2) 8}
+
+ellipticCurveRFC5639 OBJECT IDENTIFIER ::= {ecStdCurvesAndGeneration 1}
+
+versionOne OBJECT IDENTIFIER ::= {ellipticCurveRFC5639 1}
+
+brainpoolP160r1 OBJECT IDENTIFIER ::= {versionOne 1}
+brainpoolP160t1 OBJECT IDENTIFIER ::= {versionOne 2}
+brainpoolP192r1 OBJECT IDENTIFIER ::= {versionOne 3}
+brainpoolP192t1 OBJECT IDENTIFIER ::= {versionOne 4}
+brainpoolP224r1 OBJECT IDENTIFIER ::= {versionOne 5}
+brainpoolP224t1 OBJECT IDENTIFIER ::= {versionOne 6}
+brainpoolP256r1 OBJECT IDENTIFIER ::= {versionOne 7}
+brainpoolP256t1 OBJECT IDENTIFIER ::= {versionOne 8}
+brainpoolP320r1 OBJECT IDENTIFIER ::= {versionOne 9}
+brainpoolP320t1 OBJECT IDENTIFIER ::= {versionOne 10}
+brainpoolP384r1 OBJECT IDENTIFIER ::= {versionOne 11}
+brainpoolP384t1 OBJECT IDENTIFIER ::= {versionOne 12}
+brainpoolP512r1 OBJECT IDENTIFIER ::= {versionOne 13}
+brainpoolP512t1 OBJECT IDENTIFIER ::= {versionOne 14}
+
+END

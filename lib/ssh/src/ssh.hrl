@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -28,17 +29,25 @@
 
 -define(SSH_DEFAULT_PORT, 22).
 -define(SSH_MAX_PACKET_SIZE, (256*1024)).
--define(SSH_LENGHT_INDICATOR_SIZE, 4).
+-define(REKEY_TIMOUT, 3600000).
+-define(REKEY_DATA_TIMOUT, 60000).
+-define(DEFAULT_PROFILE, default).
+
+-define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
+-define(SUPPORTED_USER_KEYS, ['ssh-rsa','ssh-dss','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521']).
 
 -define(FALSE, 0).
 -define(TRUE,  1).
 %% basic binary constructors
--define(BOOLEAN(X),  X:8/unsigned-big-integer).
--define(BYTE(X),     X:8/unsigned-big-integer).
--define(UINT16(X),   X:16/unsigned-big-integer).
--define(UINT32(X),   X:32/unsigned-big-integer).
--define(UINT64(X),   X:64/unsigned-big-integer).
+-define(BOOLEAN(X),  (X):8/unsigned-big-integer).
+-define(BYTE(X),     (X):8/unsigned-big-integer).
+-define(UINT16(X),   (X):16/unsigned-big-integer).
+-define(UINT32(X),   (X):32/unsigned-big-integer).
+-define(UINT64(X),   (X):64/unsigned-big-integer).
 -define(STRING(X),   ?UINT32((size(X))), (X)/binary).
+
+-define(DEC_BIN(X,Len),   ?UINT32(Len), X:Len/binary ).
+-define(DEC_MPINT(I,Len), ?UINT32(Len), I:Len/big-signed-integer-unit:8 ).
 
 %% building macros
 -define(boolean(X),
@@ -52,6 +61,7 @@
 -define(uint32(X), << ?UINT32(X) >> ).
 -define(uint64(X), << ?UINT64(X) >> ).
 -define(string(X), << ?STRING(list_to_binary(X)) >> ).
+-define(string_utf8(X), << ?STRING(unicode:characters_to_binary(X)) >> ).
 -define(binary(X), << ?STRING(X) >>).
 
 -define(SSH_CIPHER_NONE, 0).
@@ -60,8 +70,6 @@
 
 -record(ssh,
 	{
-	  %%state,        %% what it's waiting for
-
 	  role,         %% client | server
 	  peer,         %% string version of peer address 
 
@@ -119,15 +127,19 @@
 	  recv_sequence = 0,
 	  keyex_key,
 	  keyex_info,
+	  random_length_padding = 255, % From RFC 4253 section 6.
 	  
 	  %% User auth
 	  user,
 	  service,
 	  userauth_quiet_mode,              %  boolean()
-	  userauth_supported_methods , %  
-	  userauth_methods,
+	  userauth_methods,                 %  list( string() )  eg ["keyboard-interactive", "password"]
+	  userauth_supported_methods,       %  string() eg "keyboard-interactive,password"
+	  kb_tries_left = 0,                %  integer(), num tries left for "keyboard-interactive"
 	  userauth_preference,
-	  available_host_keys
+	  available_host_keys,
+	  pwdfun_user_state,
+	  authenticated = false
 	 }).
 
 -record(alg,

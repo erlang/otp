@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -72,13 +73,47 @@ erts_debug_flat_size_1(BIF_ALIST_1)
     }
 }
 
+BIF_RETTYPE
+erts_debug_size_shared_1(BIF_ALIST_1)
+{
+    Process* p = BIF_P;
+    Eterm term = BIF_ARG_1;
+    Uint size = size_shared(term);
+
+    if (IS_USMALL(0, size)) {
+	BIF_RET(make_small(size));
+    } else {
+	Eterm* hp = HAlloc(p, BIG_UINT_HEAP_SIZE);
+	BIF_RET(uint_to_big(size, hp));
+    }
+}
+
+BIF_RETTYPE
+erts_debug_copy_shared_1(BIF_ALIST_1)
+{
+    Process* p = BIF_P;
+    Eterm term = BIF_ARG_1;
+    Uint size;
+    Eterm* hp;
+    Eterm copy;
+    erts_shcopy_t info;
+    INITIALIZE_SHCOPY(info);
+
+    size = copy_shared_calculate(term, &info);
+    if (size > 0) {
+      hp = HAlloc(p, size);
+    }
+    copy = copy_shared_perform(term, size, &info, &hp, &p->off_heap);
+    DESTROY_SHCOPY(info);
+    BIF_RET(copy);
+}
 
 BIF_RETTYPE
 erts_debug_breakpoint_2(BIF_ALIST_2)
 {
     Process* p = BIF_P;
     Eterm MFA = BIF_ARG_1;
-    Eterm bool = BIF_ARG_2;
+    Eterm boolean = BIF_ARG_2;
     Eterm* tp;
     Eterm mfa[3];
     int i;
@@ -86,7 +121,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     Eterm res;
     BpFunctions f;
 
-    if (bool != am_true && bool != am_false)
+    if (boolean != am_true && boolean != am_false)
 	goto error;
 
     if (is_not_tuple(MFA)) {
@@ -123,7 +158,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     erts_smp_thr_progress_block();
 
     erts_bp_match_functions(&f, mfa, specified);
-    if (bool == am_true) {
+    if (boolean == am_true) {
 	erts_set_debug_break(&f);
 	erts_install_breakpoints(&f);
 	erts_commit_staged_bp();
@@ -207,7 +242,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     Eterm bin;
     Eterm mfa;
     BeamInstr* funcinfo = NULL;	/* Initialized to eliminate warning. */
-    BeamInstr* code_base;
+    BeamCodeHeader* code_hdr;
     BeamInstr* code_ptr = NULL;	/* Initialized to eliminate warning. */
     BeamInstr instr;
     BeamInstr uaddr;
@@ -257,12 +292,12 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	     */
 	    code_ptr = ((BeamInstr *) ep->addressv[code_ix]) - 5;
 	    funcinfo = code_ptr+2;
-	} else if (modp == NULL || (code_base = modp->curr.code) == NULL) {
+	} else if (modp == NULL || (code_hdr = modp->curr.code_hdr) == NULL) {
 	    BIF_RET(am_undef);
 	} else {
-	    n = code_base[MI_NUM_FUNCTIONS];
+	    n = code_hdr->num_functions;
 	    for (i = 0; i < n; i++) {
-		code_ptr = (BeamInstr *) code_base[MI_FUNCTIONS+i];
+		code_ptr = code_hdr->functions[i];
 		if (code_ptr[3] == name && code_ptr[4] == arity) {
 		    funcinfo = code_ptr+2;
 		    break;
@@ -297,8 +332,8 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     (void) erts_bld_uword(NULL, &hsz, (BeamInstr) code_ptr);
     hp = HAlloc(p, hsz);
     addr = erts_bld_uword(&hp, NULL, (BeamInstr) code_ptr);
-    ASSERT(is_atom(funcinfo[0]));
-    ASSERT(is_atom(funcinfo[1]));
+    ASSERT(is_atom(funcinfo[0]) || funcinfo[0] == NIL);
+    ASSERT(is_atom(funcinfo[1]) || funcinfo[1] == NIL);
     mfa = TUPLE3(hp, (Eterm) funcinfo[0], (Eterm) funcinfo[1], make_small((Eterm) funcinfo[2]));
     hp += 4;
     return TUPLE3(hp, addr, bin, mfa);
@@ -396,7 +431,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 		packed >>= 10;
 		break;
 	    case '0':		/* Tight shift */
-		*ap++ = packed & (BEAM_TIGHT_MASK / sizeof(Eterm));
+		*ap++ = packed & BEAM_TIGHT_MASK;
 		packed >>= BEAM_TIGHT_SHIFT;
 		break;
 	    case '6':		/* Shift 16 steps */
@@ -431,39 +466,33 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     while (*sign) {
 	switch (*sign) {
 	case 'r':		/* x(0) */
-	    erts_print(to, to_arg, "x(0)");
+	    erts_print(to, to_arg, "r(0)");
 	    break;
 	case 'x':		/* x(N) */
-	    if (reg_index(ap[0]) == 0) {
-		erts_print(to, to_arg, "x[0]");
-	    } else {
-		erts_print(to, to_arg, "x(%d)", reg_index(ap[0]));
+	    {
+		Uint n = ap[0] / sizeof(Eterm);
+		erts_print(to, to_arg, "x(%d)", n);
+		ap++;
 	    }
-	    ap++;
 	    break;
 	case 'y':		/* y(N) */
-	    erts_print(to, to_arg, "y(%d)", reg_index(ap[0]) - CP_SIZE);
-	    ap++;
+	    {
+		Uint n = ap[0] / sizeof(Eterm) - CP_SIZE;
+		erts_print(to, to_arg, "y(%d)", n);
+		ap++;
+	    }
 	    break;
 	case 'n':		/* Nil */
 	    erts_print(to, to_arg, "[]");
 	    break;
 	case 's':		/* Any source (tagged constant or register) */
-	    tag = beam_reg_tag(*ap);
-	    if (tag == X_REG_DEF) {
-		if (reg_index(*ap) == 0) {
-		    erts_print(to, to_arg, "x[0]");
-		} else {
-		    erts_print(to, to_arg, "x(%d)", reg_index(*ap));
-		}
+	    tag = loader_tag(*ap);
+	    if (tag == LOADER_X_REG) {
+		erts_print(to, to_arg, "x(%d)", loader_x_reg_index(*ap));
 		ap++;
 		break;
-	    } else if (tag == Y_REG_DEF) {
-		erts_print(to, to_arg, "y(%d)", reg_index(*ap) - CP_SIZE);
-		ap++;
-		break;
-	    } else if (tag == R_REG_DEF) {
-		erts_print(to, to_arg, "x(0)");
+	    } else if (tag == LOADER_Y_REG) {
+		erts_print(to, to_arg, "y(%d)", loader_y_reg_index(*ap) - CP_SIZE);
 		ap++;
 		break;
 	    }
@@ -480,20 +509,12 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    ap++;
 	    break;
 	case 'd':		/* Destination (x(0), x(N), y(N)) */
-	    switch (beam_reg_tag(*ap)) {
-	    case X_REG_DEF:
-		if (reg_index(*ap) == 0) {
-		    erts_print(to, to_arg, "x[0]");
-		} else {
-		    erts_print(to, to_arg, "x(%d)", reg_index(*ap));
-		}
-		break;
-	    case Y_REG_DEF:
-		erts_print(to, to_arg, "y(%d)", reg_index(*ap) - CP_SIZE);
-		break;
-	    case R_REG_DEF:
-		erts_print(to, to_arg, "x(0)");
-		break;
+	    if (*ap & 1) {
+		erts_print(to, to_arg, "y(%d)",
+			   *ap / sizeof(Eterm) - CP_SIZE);
+	    } else {
+		erts_print(to, to_arg, "x(%d)",
+			   *ap / sizeof(Eterm));
 	    }
 	    ap++;
 	    break;
@@ -560,7 +581,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    ap++;
 	    break;
 	case 'l':		/* fr(N) */
-	    erts_print(to, to_arg, "fr(%d)", reg_index(ap[0]));
+	    erts_print(to, to_arg, "fr(%d)", loader_reg_index(ap[0]));
 	    ap++;
 	    break;
 	default:
@@ -579,9 +600,27 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
     unpacked = ap;
     ap = addr + size;
     switch (op) {
-    case op_i_select_val_rfI:
-    case op_i_select_val_xfI:
-    case op_i_select_val_yfI:
+    case op_i_select_val_lins_xfI:
+    case op_i_select_val_lins_yfI:
+	{
+	    int n = ap[-1];
+	    int ix = n;
+
+	    while (ix--) {
+		erts_print(to, to_arg, "%T ", (Eterm) ap[0]);
+		ap++;
+		size++;
+	    }
+	    ix = n;
+	    while (ix--) {
+		erts_print(to, to_arg, "f(" HEXF ") ", (Eterm) ap[0]);
+		ap++;
+		size++;
+	    }
+	}
+	break;
+    case op_i_select_val_bins_xfI:
+    case op_i_select_val_bins_yfI:
 	{
 	    int n = ap[-1];
 
@@ -593,22 +632,30 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_select_tuple_arity_rfI:
     case op_i_select_tuple_arity_xfI:
     case op_i_select_tuple_arity_yfI:
-	{
-	    int n = ap[-1];
+        {
+            int n = ap[-1];
+            int ix = n - 1; /* without sentinel */
 
-	    while (n > 0) {
-		Uint arity = arityval(ap[0]);
-		erts_print(to, to_arg, " {%d} f(" HEXF ")", arity, ap[1]);
-		ap += 2;
-		size += 2;
-		n--;
-	    }
-	}
-	break;
-    case op_i_jump_on_val_rfII:
+            while (ix--) {
+                Uint arity = arityval(ap[0]);
+                erts_print(to, to_arg, "{%d} ", arity, ap[1]);
+                ap++;
+                size++;
+            }
+            /* print sentinel */
+            erts_print(to, to_arg, "{%T} ", ap[0], ap[1]);
+            ap++;
+            size++;
+            ix = n;
+            while (ix--) {
+                erts_print(to, to_arg, "f(" HEXF ") ", ap[0]);
+                ap++;
+                size++;
+            }
+        }
+        break;
     case op_i_jump_on_val_xfII:
     case op_i_jump_on_val_yfII:
 	{
@@ -620,7 +667,6 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_jump_on_val_zero_rfI:
     case op_i_jump_on_val_zero_xfI:
     case op_i_jump_on_val_zero_yfI:
 	{
@@ -632,25 +678,47 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	}
 	break;
-    case op_i_put_tuple_rI:
     case op_i_put_tuple_xI:
     case op_i_put_tuple_yI:
+    case op_new_map_dII:
+    case op_update_map_assoc_jsdII:
+    case op_update_map_exact_jsdII:
 	{
 	    int n = unpacked[-1];
 
 	    while (n > 0) {
-		if (!is_header(ap[0])) {
+		switch (loader_tag(ap[0])) {
+		case LOADER_X_REG:
+		    erts_print(to, to_arg, " x(%d)", loader_x_reg_index(ap[0]));
+		    break;
+		case LOADER_Y_REG:
+		    erts_print(to, to_arg, " x(%d)", loader_y_reg_index(ap[0]));
+		    break;
+		default:
 		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
+		    break;
+		}
+		ap++, size++, n--;
+	    }
+	}
+	break;
+    case op_i_get_map_elements_fsI:
+	{
+	    int n = unpacked[-1];
+
+	    while (n > 0) {
+		if (n % 3 == 1) {
+		    erts_print(to, to_arg, " %X", ap[0]);
 		} else {
-		    switch ((ap[0] >> 2) & 0x03) {
-		    case R_REG_DEF:
-			erts_print(to, to_arg, " x(0)");
+		    switch (loader_tag(ap[0])) {
+		    case LOADER_X_REG:
+			erts_print(to, to_arg, " x(%d)", loader_x_reg_index(ap[0]));
 			break;
-		    case X_REG_DEF:
-			erts_print(to, to_arg, " x(%d)", ap[0] >> 4);
+		    case LOADER_Y_REG:
+			erts_print(to, to_arg, " y(%d)", loader_y_reg_index(ap[0]));
 			break;
-		    case Y_REG_DEF:
-			erts_print(to, to_arg, " y(%d)", ap[0] >> 4);
+		    default:
+			erts_print(to, to_arg, " %T", (Eterm) ap[0]);
 			break;
 		    }
 		}

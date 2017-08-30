@@ -78,6 +78,49 @@ signingTime ATTRIBUTE ::= {
 
 SigningTime ::= Time -- imported from ISO/IEC 9594-8
 
+-- begin added for VCE SCEP-support
+transactionID ATTRIBUTE ::= {
+        WITH SYNTAX PrintableString
+        ID id-transId
+}
+
+messageType ATTRIBUTE ::= {
+        WITH SYNTAX PrintableString
+        ID id-messageType
+}
+
+pkiStatus ATTRIBUTE ::= {
+        WITH SYNTAX PrintableString
+        ID id-pkiStatus
+}
+
+failInfo ATTRIBUTE ::= {
+        WITH SYNTAX PrintableString
+        ID id-failInfo
+}
+
+senderNonce ATTRIBUTE ::= {
+        WITH SYNTAX OCTET STRING
+        ID id-senderNonce
+}
+
+recipientNonce ATTRIBUTE ::= {
+        WITH SYNTAX OCTET STRING
+        ID id-recipientNonce
+}
+
+-- This is the authenticatedAttributes -member from SignerInfo
+-- added here to generate decode/encode functions for it which are
+-- needed to build the pkcs-7 used by SCEP, the resulting encoding are
+-- used to make a signed digest
+SignerInfoAuthenticatedAttributes ::= CHOICE {
+    aaSet         [0] IMPLICIT SET OF AttributePKCS-7 {{Authenticated}},
+    aaSequence    [2] EXPLICIT SEQUENCE OF AttributePKCS-7 {{Authenticated}}
+    -- Explicit because easier to compute digest on sequence of attributes and then reuse
+    -- encoded sequence in aaSequence.
+  }
+-- end added for VCE SCEP-support
+
 
 -- Also defined in X.509
 -- Redeclared here as a parameterized type
@@ -224,12 +267,9 @@ SignerInfo ::= SEQUENCE {
   issuerAndSerialNumber
                   IssuerAndSerialNumber,
   digestAlgorithm DigestAlgorithmIdentifier,
-  authenticatedAttributes CHOICE {
-    aaSet         [0] IMPLICIT SET OF AttributePKCS-7 {{Authenticated}},
-    aaSequence    [2] EXPLICIT SEQUENCE OF AttributePKCS-7 {{Authenticated}}
-    -- Explicit because easier to compute digest on sequence of attributes and then reuse
-    -- encoded sequence in aaSequence.
-  } OPTIONAL,
+  -- Added explicit type for authenticatedAttributes to be able to
+  -- encode/decode this type separately
+  authenticatedAttributes SignerInfoAuthenticatedAttributes OPTIONAL, 
   digestEncryptionAlgorithm
                   DigestEncryptionAlgorithmIdentifier,
   encryptedDigest EncryptedDigest,
@@ -247,7 +287,15 @@ SignerInfo ::= SEQUENCE {
 
 Authenticated ATTRIBUTE ::= {
   contentType |
-  messageDigest,
+  messageDigest |
+-- begin added for VCE SCEP-support
+  transactionID |
+  messageType |
+  pkiStatus |
+  failInfo |
+  senderNonce |
+  recipientNonce,
+-- end added for VCE SCEP-support
   ...,  -- add application-specific attributes here
   signingTime
 }
@@ -383,5 +431,19 @@ envelopedData           OBJECT IDENTIFIER ::= { pkcs-7 3 }
 signedAndEnvelopedData  OBJECT IDENTIFIER ::= { pkcs-7 4 }
 digestedData            OBJECT IDENTIFIER ::= { pkcs-7 5 }
 encryptedData           OBJECT IDENTIFIER ::= { pkcs-7 6 }
+
+-- begin added for VCE SCEP-support
+id-VeriSign        OBJECT IDENTIFIER ::= {2 16 us(840) 1  veriSign(113733)}
+id-pki             OBJECT IDENTIFIER ::= {id-VeriSign pki(1)}
+id-attributes      OBJECT IDENTIFIER ::= {id-pki attributes(9)}
+id-messageType     OBJECT IDENTIFIER ::= {id-attributes messageType(2)}
+id-pkiStatus       OBJECT IDENTIFIER ::= {id-attributes pkiStatus(3)}
+id-failInfo        OBJECT IDENTIFIER ::= {id-attributes failInfo(4)}
+id-senderNonce     OBJECT IDENTIFIER ::= {id-attributes senderNonce(5)}
+id-recipientNonce  OBJECT IDENTIFIER ::= {id-attributes recipientNonce(6)}
+id-transId         OBJECT IDENTIFIER ::= {id-attributes transId(7)}
+id-extensionReq    OBJECT IDENTIFIER ::= {id-attributes extensionReq(8)}
+-- end added for VCE SCEP-support
+
 
 END

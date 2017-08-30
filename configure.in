@@ -2,18 +2,19 @@ dnl Process this file with autoconf to produce a configure script.
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1998-2012. All Rights Reserved.
+dnl Copyright Ericsson AB 1998-2014. All Rights Reserved.
 dnl
-dnl The contents of this file are subject to the Erlang Public License,
-dnl Version 1.1, (the "License"); you may not use this file except in
-dnl compliance with the License. You should have received a copy of the
-dnl Erlang Public License along with this software. If not, it can be
-dnl retrieved online at http://www.erlang.org/.
+dnl Licensed under the Apache License, Version 2.0 (the "License");
+dnl you may not use this file except in compliance with the License.
+dnl You may obtain a copy of the License at
 dnl
-dnl Software distributed under the License is distributed on an "AS IS"
-dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-dnl the License for the specific language governing rights and limitations
-dnl under the License.
+dnl     http://www.apache.org/licenses/LICENSE-2.0
+dnl
+dnl Unless required by applicable law or agreed to in writing, software
+dnl distributed under the License is distributed on an "AS IS" BASIS,
+dnl WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+dnl See the License for the specific language governing permissions and
+dnl limitations under the License.
 dnl
 dnl %CopyrightEnd%
 
@@ -180,25 +181,32 @@ AC_PROG_LN_S
 AC_PROG_RANLIB
 
 #
-# Get erts version and otp release from erts/vsn.mk
+# Get erts version from erts/vsn.mk
 #
 AC_MSG_CHECKING([ERTS version])
 [ERTS_VSN=`sed -n "s/^VSN[	 ]*=[	 ]*\(.*\)/\1/p" < $ERL_TOP/erts/vsn.mk`]
 AC_MSG_RESULT([$ERTS_VSN])
 AC_SUBST(ERTS_VSN)
 
+#
+# Get OTP release and OTP version from $ERL_TOP/OTP_VERSION
+#
 AC_MSG_CHECKING([OTP release])
-[OTP_REL=`sed -n "s/^SYSTEM_VSN[	 ]*=[	 ]*\(.*\)/\1/p" < $ERL_TOP/erts/vsn.mk`]
+[OTP_REL=`cat $ERL_TOP/OTP_VERSION | sed "s|\([0-9]*\).*|\1|"`]
 AC_MSG_RESULT([$OTP_REL])
 AC_SUBST(OTP_REL)
+
+AC_MSG_CHECKING([OTP version])
+[OTP_VSN=`cat $ERL_TOP/OTP_VERSION`]
+AC_MSG_RESULT([$OTP_VSN])
+AC_SUBST(OTP_VSN)
 
 AC_ARG_ENABLE(threads,
 AS_HELP_STRING([--enable-threads], [enable async thread support])
 AS_HELP_STRING([--disable-threads], [disable async thread support]))
 
-AC_ARG_ENABLE(halfword-emulator,
-AS_HELP_STRING([--enable-halfword-emulator],
-               [enable halfword emulator (only for 64bit builds)]))
+AC_ARG_ENABLE(dirty-schedulers,
+AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]))
 
 AC_ARG_ENABLE(smp-support,
 AS_HELP_STRING([--enable-smp-support], [enable smp support])
@@ -226,8 +234,8 @@ AS_HELP_STRING([--enable-native-libs],
                [compile Erlang libraries to native code]))
 
 AC_ARG_WITH(dynamic-trace,
-AS_HELP_STRING([--with-dynamic-trace={dtrace|systemtap}],
-	       [specify use of dynamic trace framework, dtrace or systemtap])
+AS_HELP_STRING([--with-dynamic-trace={dtrace|lttng|systemtap}],
+	       [specify use of dynamic trace framework, dtrace, lttng or systemtap])
 AS_HELP_STRING([--without-dynamic-trace], 
                [don't enable any dynamic tracing (default)]))
 AC_ARG_ENABLE(vm-probes,
@@ -251,12 +259,28 @@ AS_HELP_STRING([--with-ssl=PATH], [specify location of OpenSSL include and lib])
 AS_HELP_STRING([--with-ssl], [use SSL (default)])
 AS_HELP_STRING([--without-ssl], [don't use SSL]))
 
+AC_ARG_WITH(ssl-incl,
+AS_HELP_STRING([--with-ssl-incl=PATH],
+               [location of OpenSSL include dir, if different than specified by --with-ssl=PATH]))
+
+AC_ARG_WITH(ssl-rpath,
+AS_HELP_STRING([--with-ssl-rpath=yes|no|PATHS],
+               [runtime library path for OpenSSL. Default is 'yes', which equates to a
+	       number of standard locations. If 'no', then no runtime
+	       library paths will be used. Anything else should be a
+	       comma separated list of paths.]))
+
 AC_ARG_ENABLE(dynamic-ssl-lib,
 AS_HELP_STRING([--disable-dynamic-ssl-lib],
                [disable using dynamic openssl libraries]))
 
-AC_ARG_ENABLE(shared-zlib,
-AS_HELP_STRING([--enable-shared-zlib], [enable using shared zlib library]))
+AC_ARG_ENABLE(builtin-zlib,
+AS_HELP_STRING([--enable-builtin-zlib],
+               [force use of our own built-in zlib]))
+
+AC_ARG_ENABLE(sharing-preserving,
+AS_HELP_STRING([--enable-sharing-preserving],
+               [enable copying of terms without destroying sharing]))
 
 dnl This functionality has been lost along the way... :(
 dnl It could perhaps be nice to reintroduce some day; therefore,
@@ -273,24 +297,6 @@ dnl     *)  erl_mandir='$(erlang_libdir)/man' ;;
 dnl   esac ], erl_mandir='$(erlang_libdir)/man')
 dnl AC_SUBST(erl_mandir)
 
-AC_ARG_ENABLE(darwin-universal,
-AS_HELP_STRING([--enable-darwin-universal],
-               [build universal binaries on darwin i386]),
-[ case "$enableval" in
-    no) enable_darwin_universal=no ;;
-    *)  enable_darwin_univeral=yes ;;
-  esac
-],enable_darwin_universal=no)
-
-
-AC_ARG_ENABLE(darwin-64bit,
-AS_HELP_STRING([--enable-darwin-64bit], [build 64bit binaries on darwin]),
-[ case "$enableval" in
-    no) enable_darwin_64bit=no ;;
-    *)  enable_darwin_64bit=yes ;;
-  esac
-],enable_darwin_64bit=no)
-
 AC_ARG_ENABLE(m64-build,
 AS_HELP_STRING([--enable-m64-build],
                [build 64bit binaries using the -m64 flag to (g)cc]),
@@ -305,12 +311,7 @@ AS_HELP_STRING([--enable-m32-build],
                [build 32bit binaries using the -m32 flag to (g)cc]),
 [ case "$enableval" in
     no) enable_m32_build=no ;;
-    *)
-	if test X${enable_darwin_64bit} = Xyes -o  X${enable_m64_build} = Xyes;
-	then
-		AC_MSG_ERROR([(--enable-darwin-64bit or --enable-m64-build) and --enable-m32-build are mutually exclusive]) ;
-	fi ;
-	enable_m32_build=yes ;;
+    *)	enable_m32_build=yes ;;
   esac
 ],enable_m32_build=no)
 
@@ -318,41 +319,11 @@ AC_ARG_WITH(libatomic_ops,
 	    AS_HELP_STRING([--with-libatomic_ops=PATH],
 			   [specify and prefer usage of libatomic_ops in the ethread library]))
 
-dnl OK, we might have darwin switches off different kinds, lets 
-dnl check it all before continuing.
-TMPSYS=`uname -s`-`uname -m`
-if test X${enable_darwin_universal} = Xyes; then
-	if test X${enable_darwin_64bit} = Xyes; then
-		AC_MSG_ERROR([--enable-darwin-universal and --enable-darwin-64bit mutually exclusive])
-	fi
-	enable_hipe=no
-	CFLAGS="-arch i386 -arch ppc $CFLAGS"
-	export CFLAGS
-	LDFLAGS="-arch i386 -arch ppc $LDFLAGS"
-	export LDFLAGS
-fi
-if test X${enable_darwin_64bit} = Xyes; then
-	case "$TMPSYS" in
-	    Darwin-i386|Darwin-x86_64)
-		;;
-	    Darwin*)
-		AC_MSG_ERROR([--enable-darwin-64bit only supported on x86 hosts])
-		;;
-	    *)
-		AC_MSG_ERROR([--enable-darwin-64bit only supported on Darwin])
-		;;
-	esac
-	enable_hipe=no
-	CFLAGS="-m64 $CFLAGS"
-	export CFLAGS
-	LDFLAGS="-m64 $LDFLAGS"
-	export LDFLAGS
-elif test X"$TMPSYS" '=' X"Darwin-i386"; then
-	CFLAGS="-m32 $CFLAGS"
-	export CFLAGS
-	LDFLAGS="-m32 $LDFLAGS"
-	export LDFLAGS
-fi
+m4_define(DEFAULT_SANITIZERS, [address,undefined])
+AC_ARG_ENABLE(sanitizers,
+    AS_HELP_STRING(
+        [--enable-sanitizers@<:@=comma-separated list of sanitizers@:>@],
+	    [Default=DEFAULT_SANITIZERS]))
 
 AC_ARG_ENABLE([silent-rules], [dnl
 AS_HELP_STRING(
@@ -363,9 +334,9 @@ AS_HELP_STRING(
   [verbose build output (undo: "make V=0")])dnl
 ])
 
-DEFAULT_VERBOSITY=1
-if test X${enable_silent_rules} = Xyes; then
-  DEFAULT_VERBOSITY=0
+DEFAULT_VERBOSITY=0
+if test X${enable_silent_rules} = Xno; then
+  DEFAULT_VERBOSITY=1
 fi
 AC_SUBST(DEFAULT_VERBOSITY)
 
@@ -390,6 +361,15 @@ if test X${enable_native_libs} = Xyes -a X${enable_hipe} != Xno; then
 fi
 AC_SUBST(NATIVE_LIBS_ENABLED)
 
+
+rm -f $ERL_TOP/lib/SKIP-APPLICATIONS
+for app in `cd lib && ls -d *`; do
+    var=`eval echo \\$with_$app`
+    if test X${var} = Xno; then
+       echo "$app" >> $ERL_TOP/lib/SKIP-APPLICATIONS
+     fi
+done
+
 export ERL_TOP
 AC_CONFIG_SUBDIRS(lib erts)
 
@@ -400,15 +380,22 @@ AC_OUTPUT
 
 pattern="lib/*/SKIP"
 files=`echo $pattern`
-if test "$files" != "$pattern"; then
+if test "$files" != "$pattern" || test -f $ERL_TOP/lib/SKIP-APPLICATIONS; then
   echo '*********************************************************************'
   echo '**********************  APPLICATIONS DISABLED  **********************'
   echo '*********************************************************************'
   echo
-  for skipfile in $files; do
-    app=`dirname $skipfile`; app=`basename $app`
-    printf "%-15s: " $app; cat $skipfile
-  done
+  if test "$files" != "$pattern"; then
+    for skipfile in $files; do
+      app=`dirname $skipfile`; app=`basename $app`
+      printf "%-15s: " $app; cat $skipfile
+    done
+  fi
+  if test -f $ERL_TOP/lib/SKIP-APPLICATIONS; then
+    for skipapp in `cat $ERL_TOP/lib/SKIP-APPLICATIONS`; do
+      printf "%-15s: User gave --without-%s option\n" $skipapp $skipapp
+    done
+  fi
   echo
   echo '*********************************************************************'
 fi
@@ -419,6 +406,7 @@ if test "$files" != "$pattern" || test -f erts/CONF_INFO; then
   echo '**********************  APPLICATIONS INFORMATION  *******************'
   echo '*********************************************************************'
   echo
+  test "$files" != "$pattern" || files=""
   test ! -f erts/CONF_INFO || files="$files erts/CONF_INFO"
   for infofile in $files; do
     app=`dirname $infofile`; app=`basename $app`

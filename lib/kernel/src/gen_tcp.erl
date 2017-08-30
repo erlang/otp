@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -30,7 +31,7 @@
 -include("file.hrl").
 
 -type option() ::
-        {active,          true | false | once} |
+        {active,          true | false | once | -32768..32767} |
         {buffer,          non_neg_integer()} |
         {delay_send,      boolean()} |
         {deliver,         port | term} |
@@ -58,6 +59,7 @@
         {reuseaddr,       boolean()} |
         {send_timeout,    non_neg_integer() | infinity} |
         {send_timeout_close, boolean()} |
+        {show_econnreset, boolean()} |
         {sndbuf,          non_neg_integer()} |
         {tos,             non_neg_integer()} |
 	{ipv6_v6only,     boolean()}.
@@ -89,21 +91,22 @@
         reuseaddr |
         send_timeout |
         send_timeout_close |
+        show_econnreset |
         sndbuf |
         tos |
 	ipv6_v6only.
 -type connect_option() ::
-        {ip, inet:ip_address()} |
+        {ip, inet:socket_address()} |
         {fd, Fd :: non_neg_integer()} |
-        {ifaddr, inet:ip_address()} |
+        {ifaddr, inet:socket_address()} |
         inet:address_family() |
         {port, inet:port_number()} |
         {tcp_module, module()} |
         option().
 -type listen_option() ::
-        {ip, inet:ip_address()} |
+        {ip, inet:socket_address()} |
         {fd, Fd :: non_neg_integer()} |
-        {ifaddr, inet:ip_address()} |
+        {ifaddr, inet:socket_address()} |
         inet:address_family() |
         {port, inet:port_number()} |
         {backlog, B :: non_neg_integer()} |
@@ -111,14 +114,15 @@
         option().
 -type socket() :: port().
 
--export_type([option/0, option_name/0, connect_option/0, listen_option/0]).
+-export_type([option/0, option_name/0, connect_option/0, listen_option/0,
+              socket/0]).
 
 %%
 %% Connect a socket
 %%
 
 -spec connect(Address, Port, Options) -> {ok, Socket} | {error, Reason} when
-      Address :: inet:ip_address() | inet:hostname(),
+      Address :: inet:socket_address() | inet:hostname(),
       Port :: inet:port_number(),
       Options :: [connect_option()],
       Socket :: socket(),
@@ -129,7 +133,7 @@ connect(Address, Port, Opts) ->
 
 -spec connect(Address, Port, Options, Timeout) ->
                      {ok, Socket} | {error, Reason} when
-      Address :: inet:ip_address() | inet:hostname(),
+      Address :: inet:socket_address() | inet:hostname(),
       Port :: inet:port_number(),
       Options :: [connect_option()],
       Timeout :: timeout(),
@@ -139,7 +143,7 @@ connect(Address, Port, Opts) ->
 connect(Address, Port, Opts, Time) ->
     Timer = inet:start_timer(Time),
     Res = (catch connect1(Address,Port,Opts,Timer)),
-    inet:stop_timer(Timer),
+    _ = inet:stop_timer(Timer),
     case Res of
 	{ok,S} -> {ok,S};
 	{error, einval} -> exit(badarg);
@@ -147,8 +151,8 @@ connect(Address, Port, Opts, Time) ->
 	Error -> Error
     end.
 
-connect1(Address,Port,Opts,Timer) ->
-    Mod = mod(Opts, Address),
+connect1(Address, Port, Opts0, Timer) ->
+    {Mod, Opts} = inet:tcp_module(Opts0, Address),
     case Mod:getaddrs(Address,Timer) of
 	{ok,IPs} ->
 	    case Mod:getserv(Port) of
@@ -181,8 +185,8 @@ try_connect([], _Port, _Opts, _Timer, _Mod, Err) ->
       ListenSocket :: socket(),
       Reason :: system_limit | inet:posix().
 
-listen(Port, Opts) ->
-    Mod = mod(Opts, undefined),
+listen(Port, Opts0) ->
+    {Mod, Opts} = inet:tcp_module(Opts0),
     case Mod:getserv(Port) of
 	{ok,TP} ->
 	    Mod:listen(TP, Opts);
@@ -331,32 +335,6 @@ controlling_process(S, NewOwner) ->
 %%
 %% Create a port/socket from a file descriptor 
 %%
-fdopen(Fd, Opts) ->
-    Mod = mod(Opts, undefined),
+fdopen(Fd, Opts0) ->
+    {Mod, Opts} = inet:tcp_module(Opts0),
     Mod:fdopen(Fd, Opts).
-
-%% Get the tcp_module, but IPv6 address overrides default IPv4
-mod(Address) ->
-    case inet_db:tcp_module() of
-	inet_tcp when tuple_size(Address) =:= 8 ->
-	    inet6_tcp;
-	Mod ->
-	    Mod
-    end.
-
-%% Get the tcp_module, but option tcp_module|inet|inet6 overrides
-mod([{tcp_module,Mod}|_], _Address) ->
-    Mod;
-mod([inet|_], _Address) ->
-    inet_tcp;
-mod([inet6|_], _Address) ->
-    inet6_tcp;
-mod([{ip, Address}|Opts], _) ->
-    mod(Opts, Address);
-mod([{ifaddr, Address}|Opts], _) ->
-    mod(Opts, Address);
-mod([_|Opts], Address) ->
-    mod(Opts, Address);
-mod([], Address) ->
-    mod(Address).
-

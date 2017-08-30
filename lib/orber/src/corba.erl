@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -311,19 +312,18 @@ resolve_initial_references_remote(_ObjectId, [], _Ctx) ->
     raise(#'BAD_PARAM'{completion_status=?COMPLETED_NO});
 resolve_initial_references_remote(ObjectId, [RemoteModifier| Rest], Ctx) 
   when is_list(RemoteModifier) ->
-    case lists:prefix("iiop://", RemoteModifier) of
-       true ->
-	    [_, Host, Port] = string:tokens(RemoteModifier, ":/"),
+    case parse_remote_modifier(RemoteModifier) of
+	{error, _} -> 
+	    resolve_initial_references_remote(ObjectId, Rest, Ctx);
+	{ok, Host, Port} ->
 	    IOR = iop_ior:create_external(orber:giop_version(), "", 
-				 Host, list_to_integer(Port), "INIT"),
+					  Host, list_to_integer(Port), "INIT"),
 	    %% We know it's an external referens. Hence, no need to check.
 	    {_, Key} = iop_ior:get_key(IOR),
 	    orber_iiop:request(Key, 'get', [ObjectId], 
 			       {{'tk_objref', 12, "object"},
 				[{'tk_string', 0}],
-				[]}, 'true', infinity, IOR, Ctx);
-       false ->
-	    resolve_initial_references_remote(ObjectId, Rest, Ctx)
+				[]}, 'true', infinity, IOR, Ctx)
     end.
 
 list_initial_services_remote(Address) ->
@@ -332,24 +332,44 @@ list_initial_services_remote(Address) ->
 list_initial_services_remote([], _Ctx) ->
     raise(#'BAD_PARAM'{completion_status=?COMPLETED_NO});
 list_initial_services_remote([RemoteModifier| Rest], Ctx) when is_list(RemoteModifier) ->
-    case lists:prefix("iiop://", RemoteModifier) of
-	true ->
-	    [_, Host, Port] = string:tokens(RemoteModifier, ":/"),
+    case parse_remote_modifier(RemoteModifier) of
+	{error, _} -> 
+	    resolve_initial_references_remote(Rest, Ctx);
+	{ok, Host, Port} ->
 	    IOR = iop_ior:create_external(orber:giop_version(), "", 
 					  Host, list_to_integer(Port), "INIT"),
 	    %% We know it's an external referens. Hence, no need to check.
 	    {_, Key} = iop_ior:get_key(IOR),
 	    orber_iiop:request(Key, 'list', [],
 			       {{'tk_sequence', {'tk_string',0},0},
-				[], []}, 'true', infinity, IOR, Ctx);
-	false -> 
-	    list_initial_services_remote(Rest, Ctx)
+				[], []}, 'true', infinity, IOR, Ctx)
     end;
 list_initial_services_remote(_, _) ->
     raise(#'BAD_PARAM'{completion_status=?COMPLETED_NO}).
 
 
+parse_remote_modifier("iiop://" ++ Rest) ->
+    parse_host_version(Rest);
+parse_remote_modifier(_RemoteModifier) ->
+    {error, not_supported}.
 
+parse_host_version("[" ++ Rest) ->
+    parse_ipv6(Rest, []);
+parse_host_version(Rest) ->
+    parse_ipv4_or_dnsname(Rest, []).
+
+
+parse_ipv4_or_dnsname([$: |Rest], Acc) ->
+    {ok, lists:reverse(Acc), Rest};
+parse_ipv4_or_dnsname([C |Rest], Acc) ->
+    parse_ipv4_or_dnsname(Rest, [C |Acc]).
+
+parse_ipv6("]:" ++ Rest, Acc) ->
+    {ok, lists:reverse(Acc), Rest};
+parse_ipv6([C |Rest], Acc) ->
+    parse_ipv6(Rest, [C |Acc]).
+
+    
 %%-----------------------------------------------------------------
 %% Objectreference convertions
 %%-----------------------------------------------------------------
@@ -1903,7 +1923,9 @@ mk_passive_objkey(Mod, Module, Flags) ->
     {Mod, 'passive', Module, term_to_binary(undefined), 0, Flags}.
 
 make_objkey() ->
-    term_to_binary({now(), node()}).
+    term_to_binary({{erlang:system_time(), 
+		     erlang:unique_integer()}, 
+		    node()}).
 
 objkey_to_string({_Mod, 'registered', 'orber_init', _UserDef, _OrberDef, _Flags}) ->
     "INIT";

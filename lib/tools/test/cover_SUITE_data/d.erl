@@ -6,7 +6,7 @@
 	 size/0]).
 -export([init/0]). % spawn
 
--record(person, {name, age, location, moved=false}).
+-record(person, {name, age :: integer(), location, moved=false :: boolean()}).
 
 %%%----------------------------------------------------------------------
 %%% User interface functions

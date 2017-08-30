@@ -50,6 +50,7 @@ itu-t-o OBJECT IDENTIFIER ::= {itu-t recommendation o}
 itu-t-p OBJECT IDENTIFIER ::= {itu-t recommendation p}
 itu-t-q OBJECT IDENTIFIER ::= {itu-t recommendation q}
 itu-t-r OBJECT IDENTIFIER ::= {itu-t recommendation r}
+itu-t-s OBJECT IDENTIFIER ::= {itu-t recommendation s}
 itu-t-t OBJECT IDENTIFIER ::= {itu-t recommendation t}
 itu-t-u OBJECT IDENTIFIER ::= {itu-t recommendation u}
 itu-t-v OBJECT IDENTIFIER ::= {itu-t recommendation v}

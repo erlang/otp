@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -283,7 +284,7 @@ handle_cast(init_sync, _S) ->
 	    KernelConfig ! dist_ac_took_control,
 
 	    %% we're really just interested in nodedowns.
-	    net_kernel:monitor_nodes(true),
+	    ok = net_kernel:monitor_nodes(true),
 	    
 	    {Known, NAppls, RStarted} = sync_dacs(Appls),
 
@@ -321,7 +322,7 @@ handle_call({takeover_application, AppName, RestartType}, From, S) ->
     case keysearch(AppName, #appl.name, Appls) of
 	{value, Appl} when element(1, Appl#appl.id) =:= distributed ->
 	    {distributed, Node} = Appl#appl.id,
-	    ac_takeover(req, AppName, Node, RestartType),
+	    _ = ac_takeover(req, AppName, Node, RestartType),
 	    NAppl = Appl#appl{id = takeover},
 	    NAppls = keyreplace(AppName, #appl.name, Appls, NAppl),
 	    TR = S#state.t_reqs,
@@ -341,10 +342,10 @@ handle_call({permit_application, AppName, Bool, LockId, StartInfo}, From, S) ->
 	    %% here, but we have to be backwards-compatible.
 	    case application_controller:get_loaded(AppName) of
 		{true, _} when not Bool ->
-		    ac_stop_it(AppName),
+		    _ = ac_stop_it(AppName),
 		    {reply, ok, S};
 		{true, _} when Bool ->
-		    ac_start_it(req, AppName),
+		    _ = ac_start_it(req, AppName),
 		    {reply, ok, S};
 		false ->
 		    {reply, {error, {not_loaded, AppName}}, S}
@@ -533,7 +534,7 @@ handle_info({dist_ac_app_started, Node, Name, Res}, S) ->
 			  %% Another node started appl. Update appl list.
 			  {distributed, Node}
 		  end,
-	    ac_started(req, Name, Node),
+	    _ = ac_started(req, Name, Node),
 	    NAppl = Appl#appl{id = NId},
 	    NAppls = keyreplace(Name, #appl.name, Appls, NAppl),
 	    TmpWeights = keydelete_all(Name, 1, S#state.tmp_weights),
@@ -622,7 +623,7 @@ handle_info({nodedown, Node}, S) ->
 			    true ->
 				{true, Appl#appl{id = {failover, Node}}};
 			    false -> 
-				ac_not_running(Appl#appl.name),
+				_ = ac_not_running(Appl#appl.name),
 				{true, Appl#appl{id = undefined}}
 			end;
 		   (_) ->
@@ -656,7 +657,8 @@ handle_info({dist_ac_app_loaded, Node, Name, HisNodes, Permission, HeKnowsMe},
 			    %% he's a new node connecting to us.
 			    Msg = {dist_ac_app_loaded, node(), Name,
 				   Nodes, dist_is_runnable(Appls, Name), true},
-			    {?DIST_AC, Node} ! Msg;
+			    {?DIST_AC, Node} ! Msg,
+                            ok;
 			true ->
 			    ok
 		    end,
@@ -811,29 +813,29 @@ start_appl(AppName, S, Type) ->
 start_distributed(Appl, Name, Nodes, PermittedNodes, S, Type) ->
     case find_start_node(Nodes, PermittedNodes, Name, S) of
 	{ok, Node} when Node =:= node() ->
-	    case Appl#appl.id of
-		{failover, FoNode} when Type =:= req ->
-		    ac_failover(Name, FoNode, undefined);
-		{distributed, Node2} when Type =:= req ->
-		    ac_takeover(req, Name, Node2, undefined);
-		_ when Type =:= reply ->
-		    case lists:keysearch(Name, 2, S#state.remote_started) of
-			{value, {Node3, _}} ->
-			    ac_takeover(reply, Name, Node3, undefined);
-			_ ->
-			    ac_start_it(Type, Name)
-		    end;
-		_ ->
-		    ac_start_it(Type, Name)
-	    end,
+	    _ = case Appl#appl.id of
+		    {failover, FoNode} when Type =:= req ->
+			ac_failover(Name, FoNode, undefined);
+		    {distributed, Node2} when Type =:= req ->
+			ac_takeover(req, Name, Node2, undefined);
+		    _ when Type =:= reply ->
+			case lists:keysearch(Name, 2, S#state.remote_started) of
+			    {value, {Node3, _}} ->
+				ac_takeover(reply, Name, Node3, undefined);
+			    _ ->
+				ac_start_it(Type, Name)
+			end;
+		    _ ->
+			ac_start_it(Type, Name)
+		end,
 	    {run_waiting, true};
 	{already_started, Node} ->
-	    ac_started(Type, Name, Node),
+	    _ = ac_started(Type, Name, Node),
 	    {{distributed, Node}, false};
 	{ok, Node} ->
 	    case keysearch(Name, #appl.name, S#state.appls) of
 		{value, #appl{id = {distributed, Node}}} ->
-		    ac_started(Type, Name, Node),
+		    _ = ac_started(Type, Name, Node),
 		    {{distributed, Node}, false};
 		_ ->
 		    wait_dist_start(Node, Appl, Name, Nodes,
@@ -842,7 +844,7 @@ start_distributed(Appl, Name, Nodes, PermittedNodes, S, Type) ->
 	not_started ->
 	    wait_dist_start2(Appl, Name, Nodes, PermittedNodes, S, Type);
 	no_permission ->
-	    ac_not_started(Type, Name),
+	    _ = ac_not_started(Type, Name),
 	    {undefined, false}
     end.
 
@@ -850,11 +852,11 @@ wait_dist_start(Node, Appl, Name, Nodes, PermittedNodes, S, Type) ->
     monitor_node(Node, true),
     receive
 	{dist_ac_app_started, Node, Name, ok} ->
-	    ac_started(Type, Name, Node),
+	    _ = ac_started(Type, Name, Node),
 	    monitor_node(Node, false),
 	    {{distributed, Node}, false};
 	{dist_ac_app_started, Node, Name, {error, R}} ->
-	    ac_error(Type, Name, {Node, R}),
+	    _ = ac_error(Type, Name, {Node, R}),
 	    monitor_node(Node, false),
 	    {Appl#appl.id, false};
 	{dist_ac_weight, Name, _Weigth, Node} ->
@@ -883,10 +885,10 @@ wait_dist_start(Node, Appl, Name, Nodes, PermittedNodes, S, Type) ->
 wait_dist_start2(Appl, Name, Nodes, PermittedNodes, S, Type) ->
     receive
 	{dist_ac_app_started, Node, Name, ok} ->
-	    ac_started(Type, Name, Node),
+	    _ = ac_started(Type, Name, Node),
 	    {{distributed, Node}, false};
 	{dist_ac_app_started, Node, Name, {error, R}} ->
-	    ac_error(Type, Name, {Node, R}),
+	    _ = ac_error(Type, Name, {Node, R}),
 	    {Appl#appl.id, false};
 	{nodedown, Node} ->
 	    %% A node went down, try to start the app again - there may not
@@ -974,7 +976,7 @@ permit(false, {value, _}, AppName, From, S, _LockId) ->
     case dist_get_runnable_nodes(S#state.appls, AppName) of
 	[] ->
 	    %% There is no runnable node; stop application
-	    ac_stop_it(AppName),
+	    _ = ac_stop_it(AppName),
 	    SReqs = [{AppName, From} | S#state.s_reqs],
 	    {noreply, S#state{s_reqs = SReqs}};
 	Nodes ->
@@ -1155,7 +1157,8 @@ send_nodes(Nodes, Msg) ->
 	    end, FlatNodes).
 
 send_after(Time, Msg) when is_integer(Time), Time >= 0 ->
-    spawn_link(?MODULE, send_timeout, [self(), Time, Msg]);
+    _Pid = spawn_link(?MODULE, send_timeout, [self(), Time, Msg]),
+    ok;
 send_after(_,_) -> % infinity
     ok.
 
@@ -1305,7 +1308,7 @@ check_waiting([{From, AppName, false, Nodes} | Reqs],
 	      S, Node, Appls, Res, SReqs) ->
     case lists:delete(Node, Nodes) of
 	[] ->
-	    ac_stop_it(AppName),
+	    _ = ac_stop_it(AppName),
 	    NSReqs = [{AppName, From} | SReqs],
 	    check_waiting(Reqs, Node, S, Appls, Res, NSReqs);
 	NNodes ->

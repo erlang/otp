@@ -17,7 +17,7 @@
 %% @copyright 2003 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @see edoc
-%% @end 
+%% @end
 %% =====================================================================
 
 %% @doc Interface for calling EDoc from Erlang startup options.
@@ -38,11 +38,13 @@
 
 -module(edoc_run).
 
--export([file/1, application/1, packages/1, files/1, toc/1]).
+-export([file/1, application/1, files/1, toc/1]).
 
 -compile({no_auto_import,[error/1]}).
 
 -import(edoc_report, [report/2, error/1]).
+
+-type args() :: [string()].
 
 
 %% @spec application([string()]) -> none()
@@ -58,6 +60,7 @@
 %% automatically terminated when the call has completed, signalling
 %% success or failure to the operating system.
 
+-spec application(args()) -> no_return().
 application(Args) ->
     F = fun () ->
 		case parse_args(Args) of
@@ -81,6 +84,7 @@ application(Args) ->
 %% automatically terminated when the call has completed, signalling
 %% success or failure to the operating system.
 
+-spec files(args()) -> no_return().
 files(Args) ->
     F = fun () ->
 		case parse_args(Args) of
@@ -92,29 +96,8 @@ files(Args) ->
 	end,
     run(F).
 
-%% @spec packages([string()]) -> none()
-%%
-%% @doc Calls {@link edoc:application/2} with the corresponding
-%% arguments. The strings in the list are parsed as Erlang constant
-%% terms. The list can be either `[Packages]' or `[Packages, Options]'.
-%% In the first case {@link edoc:application/1} is called instead.
-%%
-%% The function call never returns; instead, the emulator is
-%% automatically terminated when the call has completed, signalling
-%% success or failure to the operating system.
-
-packages(Args) ->
-    F = fun () ->
-		case parse_args(Args) of
-		    [Packages] -> edoc:packages(Packages);
-		    [Packages, Opts] -> edoc:packages(Packages, Opts);
-		    _ ->
-			invalid_args("edoc_run:packages/1", Args)
-		end
-	end,
-    run(F).
-
 %% @hidden   Not official yet
+-spec toc(args()) -> no_return().
 toc(Args) ->
     F = fun () ->
  		case parse_args(Args) of
@@ -131,8 +114,8 @@ toc(Args) ->
 %%
 %% @deprecated This is part of the old interface to EDoc and is mainly
 %% kept for backwards compatibility. The preferred way of generating
-%% documentation is through one of the functions {@link application/1},
-%% {@link packages/1} and {@link files/1}.
+%% documentation is through one of the functions {@link application/1}
+%% and {@link files/1}.
 %%
 %% @doc Calls {@link edoc:file/2} with the corresponding arguments. The
 %% strings in the list are parsed as Erlang constant terms. The list can
@@ -148,6 +131,7 @@ toc(Args) ->
 %% automatically terminated when the call has completed, signalling
 %% success or failure to the operating system.
 
+-spec file(args()) -> no_return().
 file(Args) ->
     F = fun () ->
 		case parse_args(Args) of
@@ -159,8 +143,7 @@ file(Args) ->
 	end,
     run(F).
 
--spec invalid_args(string(), list()) -> no_return().
-
+-spec invalid_args(string(), args()) -> no_return().
 invalid_args(Where, Args) ->
     report("invalid arguments to ~ts: ~w.", [Where, Args]),
     shutdown_error().
@@ -191,10 +174,12 @@ wait_init() ->
 %% When and if a function init:stop/1 becomes generally available, we
 %% can use that instead of delay-and-pray when there is an error.
 
+-spec shutdown_ok() -> no_return().
 shutdown_ok() ->
     %% shut down emulator nicely, signalling "normal termination"
     init:stop().
 
+-spec shutdown_error() -> no_return().
 shutdown_error() ->
     %% delay 1 second to allow I/O to finish
     receive after 1000 -> ok end,

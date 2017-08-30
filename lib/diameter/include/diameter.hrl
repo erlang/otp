@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -39,7 +40,7 @@
 %%
 -record(diameter_event,
         {service,   %% name
-         info}).    %% tuple()
+         info}).    %% term()
 
 %% diameter_packet records are passed through the encode/decode
 %% interface supplied by a dictionary module configured on a Diameter
@@ -58,8 +59,8 @@
 -record(diameter_header,
         {version,            %%  8-bit unsigned
          length,             %% 24-bit unsigned
-         cmd_code,           %%  8-bit unsigned
-         application_id,     %% 24-bit unsigned
+         cmd_code,           %% 24-bit unsigned
+         application_id,     %% 32-bit unsigned
          hop_by_hop_id,      %% 32-bit unsigned
          end_to_end_id,      %% 32-bit unsigned
          is_request,         %% boolean() R flag
@@ -126,7 +127,7 @@
          default,
          extra = []}).
 
-%% The diameter service and diameter_apps records are only passed
+%% The diameter service and diameter_app records are only passed
 %% through the transport interface when starting a transport process,
 %% although typically a transport implementation will (and probably
 %% should) only be interested host_ip_address.
@@ -143,6 +144,7 @@
          init_state, %% option 'state', initial callback state
          id,         %% 32-bit unsigned application identifier = Dict:id()
          mutable = false, %% boolean(), do traffic callbacks modify state?
-         options = [{answer_errors, report},      %% | callback | discard
+         options = [{answer_errors, discard},         %% | callback | report
                     {request_errors, answer_3xxx}]}). %% | callback | answer
+
 -endif. %% -ifdef(diameter_hrl).

@@ -3,6 +3,8 @@
 
 -opaque abc() :: 'a' | 'b' | 'c'.
 
+-spec atom_or_list(_) -> abc() | list().
+
 atom_or_list(1) -> a;
 atom_or_list(2) -> b;
 atom_or_list(3) -> c;

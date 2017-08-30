@@ -1,0 +1,2 @@
+
+scala_user.erl:5: Invalid type specification for function scala_user:is_list/2. The success typing is (maybe_improper_list() | tuple(),_) -> boolean()

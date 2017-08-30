@@ -11,9 +11,11 @@ init([child]) ->
             %% terminates immediately
             {ok, []};
         [{fail_start, true}] ->
-	    %% Restart frequency is MaxR=8, MaxT=10, so this will
-	    %% ensure that restart intensity is not reached -> restart
-	    %% loop
+	    %% A restart frequency of MaxR=8, MaxT=10 should ensure
+	    %% that restart intensity is not reached -> restart loop.
+	    %% (Note that if we use simple_one_for_one, and start
+	    %% 'many' child instances, the restart frequency must be
+	    %% ajusted accordingly.)
             timer:sleep(2000), % NOTE: this could be a gen_server call timeout
 
             {stop, error}
@@ -41,5 +43,11 @@ code_change(_OldVsn, State, _Extra) ->
 start_child() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [child], []).
 
+start_child_noreg() ->
+    gen_server:start_link(?MODULE, [child], []).
+
 restart_child() ->
     gen_server:cast(supervisor_deadlock, restart).
+
+restart_child(Pid) ->
+    gen_server:cast(Pid, restart).

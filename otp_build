@@ -2,18 +2,19 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2002-2012. All Rights Reserved.
+# Copyright Ericsson AB 2002-2014. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -25,7 +26,7 @@ EXPECTED_AUTOCONF_VERSION=2.59
 #
 # NOTE: lazy_configure depends on '.' always being last directory
 if [ -z "$ONLY_ERTS" ]; then
-    AUTOCONF_SUBDIRS="lib lib/* lib/test_server/src"
+    AUTOCONF_SUBDIRS="lib lib/* lib/common_test/test_server"
 fi
 AUTOCONF_SUBDIRS="$AUTOCONF_SUBDIRS erts ."
 
@@ -138,7 +139,7 @@ check_erltop ()
 	if [ "X$ERL_TOP" = "X" ]; then
 		if [ -f ./otp_build -a -f ./erts/autoconf/config.guess ]; then
 		    ERLTOP_FORCED=true
-		    ERL_TOP=`/bin/pwd`
+		    ERL_TOP=`pwd`
 		    export ERL_TOP
 		else
 		    echo "The environment variable ERL_TOP must be set." >&2
@@ -170,6 +171,14 @@ determine_version_controller ()
 # Special static config flags for certain platforms are set here  
 set_config_flags ()
 {
+	#
+	# NOTE! Do not add special flags here without a *very good*
+	#       reason. We normally do not want "./otp_build configure"
+	#       and "./configure" to produce different results.
+	#       However, in the Windows case this does not matter, since
+	#       the only supported way to build on Windows is using
+	#       otp_build.
+	#
 	# * Extra flags to pass to configure are placed in `CONFIG_FLAGS'.
 	# * The command line is no longer added to `CONFIG_FLAGS' by
 	#   `set_config_flags'. It is instead passed directly to
@@ -179,16 +188,6 @@ set_config_flags ()
 	#   called. These flags should survive the call to `set_config_flags'
 	#   (in the cross compilation case the whole command line as well as
 	#   the cross configuration have been moved here). 
-
-	if target_contains linux; then 
-	        XX=`echo $* | grep -v able-fp-exceptions`
-		if [ "$*" = "$XX" ]; then 
-		    CONFIG_FLAGS="$CONFIG_FLAGS --disable-fp-exceptions"
-		fi
-	fi
-	if target_contains "univel-sysv4"; then
-		CONFIG_FLAGS="$CONFIG_FLAGS --x-libraries=/usr/lib/X11"
-	fi
 
 	if target_contains free_source; then
 		CONFIG_FLAGS="$CONFIG_FLAGS --host=$TARGET"
@@ -262,62 +261,32 @@ create_lib_configure_in()
     }
 }
 
-find_sum()
+distribute_config_helpers ()
 {
-    candidates="sum cksum md5sum sha1sum"
-    SUM_CMD="wc"
-    for x in $candidates; do
-	if (echo foo | $x > /dev/null 2>&1); then
-	    SUM_CMD=$x
-	    break
-	fi
-    done
-}
-
-chk_eq()
-{
-    master=$1
-    shift
-    slaves="$@"
-    master_sum=`$SUM_CMD $master | awk '{print $1}'`
-    for x in $slaves; do
-	s=`$SUM_CMD $x | awk '{print $1}'`
-	if test "$s" != "$master_sum"; then
-	    echo "Error: $master and $x are not equal, make sure they are!" >&2
-	    echo "Maybe you would want to:" >&2
-	    echo "for x in $slaves; do cp $master \$x; done" >&2
-	    echo "? Or something else is wrong." 2>&1
-	    exit 2
-	fi
-    done
-}
-
-check_config_helpers ()
-{
-
-    aclocals="./aclocal.m4 ./lib/erl_interface/aclocal.m4 ./lib/odbc/aclocal.m4 ./lib/wx/aclocal.m4 ./lib/megaco/aclocal.m4"
-    install_shs="./lib/common_test/priv/auxdir/install-sh ./lib/erl_interface/src/auxdir/install-sh ./lib/test_server/src/install-sh"
-    config_guesses="./lib/common_test/priv/auxdir/config.guess ./lib/erl_interface/src/auxdir/config.guess ./lib/test_server/src/config.guess"
-    config_subs="./lib/common_test/priv/auxdir/config.sub ./lib/erl_interface/src/auxdir/config.sub ./lib/test_server/src/config.sub"
+    aclocal_dirs=". ./lib/erl_interface ./lib/odbc ./lib/wx ./lib/megaco"
+    autoconf_aux_dirs="./lib/common_test/priv/auxdir ./lib/erl_interface/src/auxdir ./lib/common_test/test_server ./lib/wx/autoconf"
 
     aclocal_master="./erts/aclocal.m4"
     install_sh_master="./erts/autoconf/install-sh"
     config_guess_master="./erts/autoconf/config.guess"
     config_sub_master="./erts/autoconf/config.sub"
 
-    find_sum
+    for dir in $aclocal_dirs; do
+	$install_sh_master -m 644 -t "$dir" "$aclocal_master"
+    done
 
-    chk_eq $aclocal_master $aclocals
-    chk_eq $install_sh_master $install_shs
-    chk_eq $config_guess_master $config_guesses
-    chk_eq $config_sub_master $config_subs
-
+    for dir in $autoconf_aux_dirs; do
+	$install_sh_master -d "$dir"
+	$install_sh_master -t "$dir" "$install_sh_master"
+	$install_sh_master -t "$dir" "$config_guess_master"
+	$install_sh_master -t "$dir" "$config_sub_master"
+    done
 }
 
 do_autoconf ()		
 {
         create_lib_configure_in
-	check_config_helpers
+	distribute_config_helpers
 
         if target_contains win32; then
 	    # Select the correct autoconf on cygwin
@@ -710,7 +679,7 @@ echo_env_erltop ()
     if [ X"$ERL_TOP" = X"" -o "$ERLTOP_FORCED" = "true" ]; then
 	if [ -f ./otp_build ]; then
 	    # Seems to be current directory...
-	    echo_setenv ERL_TOP `/bin/pwd` ';'
+	    echo_setenv ERL_TOP `pwd` ';'
 	else
 	    echo "You need to either set ERL_TOP first or stand in the same" \ 
 		"directory as this script resides in." >&2
@@ -1308,12 +1277,12 @@ cd $ERL_TOP
 
 determine_version_controller
 
-# Unset ERL_FLAGS and ERL_<Release>_FLAGS during bootstrap to
+# Unset ERL_FLAGS and ERL_OTP<OTP Release>_FLAGS during bootstrap to
 # prevent potential problems
-sys_vsn=`awk '/SYSTEM_VSN = / {print $3}' < erts/vsn.mk`
-sys_erl_flags="ERL_${sys_vsn}_FLAGS"
+otp_major_vsn=`cat OTP_VERSION | sed "s|\([0-9]*\).*|\1|"`
+erl_otp_flags="ERL_OTP${otp_major_vsn}_FLAGS"
 unset ERL_FLAGS
-unset ${sys_erl_flags}
+unset ${erl_otp_flags}
 
 # Target first guess, won't necessarily hold, may be changed for 
 # certain parameters.
@@ -1424,9 +1393,6 @@ case "$1" in
 		    TYPE=opt
 		fi;
 		FLAVOR=$1
-		if [ $FLAVOR = opt ]; then
-		    FLAVOR=plain
-		fi
 		do_boot;;
 	update_primary)
 		case $version_controller in
@@ -1474,13 +1440,13 @@ case "$1" in
 		do_debuginfo_win32 "$2";;
 	env_win32)
 	        if [ x"$2" = x"x64" -o x"$2" = x"amd64" ]; then
-		    if [ -x /usr/bin/msysinfo ]; then
+		    if [ -x /usr/bin/msys-?.0.dll ]; then
 			echo_env_msys64
 		    else
 			echo_env_win64
 		    fi
 		else
-		    if [ -x /usr/bin/msysinfo ]; then
+		    if [ -x /usr/bin/msys-?.0.dll ]; then
 			echo_env_msys32
 		    else
 			echo_env_win32

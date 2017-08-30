@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2012. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -62,13 +63,14 @@ static int eargc;		/* Number of arguments in eargv. */
  */
 
 static void error(char* format, ...);
-static char* emalloc(size_t size);
+static void* emalloc(size_t size);
 static char* strsave(char* string);
 static void push_words(char* src);
 static int run_erlang(char* name, char** argv);
 static char* get_default_emulator(char* progname);
 #ifdef __WIN32__
 static char* possibly_quote(char* arg);
+static void* erealloc(void *p, size_t size);
 #endif
 
 /*
@@ -104,20 +106,31 @@ get_env(char *key)
 {
 #ifdef __WIN32__
     DWORD size = 32;
-    char *value = NULL;
+    char  *value=NULL;
+    wchar_t *wcvalue = NULL;
+    wchar_t wckey[256];
+    int len; 
+
+    MultiByteToWideChar(CP_UTF8, 0, key, -1, wckey, 256);
+    
     while (1) {
 	DWORD nsz;
-	if (value)
-	    free(value);
-	value = emalloc(size);
+	if (wcvalue)
+	    free(wcvalue);
+	wcvalue = (wchar_t*) emalloc(size*sizeof(wchar_t));
 	SetLastError(0);
-	nsz = GetEnvironmentVariable((LPCTSTR) key, (LPTSTR) value, size);
+	nsz = GetEnvironmentVariableW(wckey, wcvalue, size);
 	if (nsz == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
-	    free(value);
+	    free(wcvalue);
 	    return NULL;
 	}
-	if (nsz <= size)
+	if (nsz <= size) {
+	    len = WideCharToMultiByte(CP_UTF8, 0, wcvalue, -1, NULL, 0, NULL, NULL);
+	    value = emalloc(len*sizeof(char));
+	    WideCharToMultiByte(CP_UTF8, 0, wcvalue, -1, value, len, NULL, NULL);
+	    free(wcvalue);
 	    return value;
+	}
 	size = nsz;
     }
 #else
@@ -134,15 +147,32 @@ free_env_val(char *value)
 #endif
 }
 
-int
-main(int argc, char** argv)
+#ifdef __WIN32__
+int wmain(int argc, wchar_t **wcargv)
 {
+    char** argv;
+#else
+int main(int argc, char** argv)
+{
+#endif
     int eargv_size;
     int eargc_base;		/* How many arguments in the base of eargv. */
     char* emulator;
     char *env;
     int i;
     int need_shell = 0;
+
+#ifdef __WIN32__
+    int len;
+    /* Convert argv to utf8 */
+    argv = emalloc((argc+1) * sizeof(char*));
+    for (i=0; i<argc; i++) {
+	len = WideCharToMultiByte(CP_UTF8, 0, wcargv[i], -1, NULL, 0, NULL, NULL);
+	argv[i] = emalloc(len*sizeof(char));
+	WideCharToMultiByte(CP_UTF8, 0, wcargv[i], -1, argv[i], len, NULL, NULL);
+    }
+    argv[argc] = NULL;
+#endif
 
     env = get_env("DIALYZER_EMULATOR");
     emulator = env ? env : get_default_emulator(argv[0]);
@@ -260,49 +290,52 @@ push_words(char* src)
     if (sbuf[0])
 	PUSH(strsave(sbuf));
 }
+
 #ifdef __WIN32__
-char *make_commandline(char **argv)
+wchar_t *make_commandline(char **argv)
 {
-    static char *buff = NULL;
+    static wchar_t *buff = NULL;
     static int siz = 0;
-    int num = 0;
-    char **arg, *p;
+    int num = 0, len;
+    char **arg;
+    wchar_t *p;
 
     if (*argv == NULL) { 
-	return "";
+	return L"";
     }
     for (arg = argv; *arg != NULL; ++arg) {
 	num += strlen(*arg)+1;
     }
     if (!siz) {
 	siz = num;
-	buff = malloc(siz*sizeof(char));
+	buff = (wchar_t *) emalloc(siz*sizeof(wchar_t));
     } else if (siz < num) {
 	siz = num;
-	buff = realloc(buff,siz*sizeof(char));
+	buff = (wchar_t *) erealloc(buff,siz*sizeof(wchar_t));
     }
     p = buff;
+    num=0;
     for (arg = argv; *arg != NULL; ++arg) {
-	strcpy(p,*arg);
-	p+=strlen(*arg);
-	*p++=' ';
+	len = MultiByteToWideChar(CP_UTF8, 0, *arg, -1, p, siz);
+	p+=(len-1);
+	*p++=L' ';
     }
-    *(--p) = '\0';
+    *(--p) = L'\0';
 
     if (debug) {
-	printf("Processed commandline:%s\n",buff);
+	printf("Processed command line:%S\n",buff);
     }
     return buff;
 }
 
 int my_spawnvp(char **argv)
 {
-    STARTUPINFO siStartInfo;
+    STARTUPINFOW siStartInfo;
     PROCESS_INFORMATION piProcInfo;
     DWORD ec;
 
-    memset(&siStartInfo,0,sizeof(STARTUPINFO));
-    siStartInfo.cb = sizeof(STARTUPINFO); 
+    memset(&siStartInfo,0,sizeof(STARTUPINFOW));
+    siStartInfo.cb = sizeof(STARTUPINFOW); 
     siStartInfo.dwFlags = STARTF_USESTDHANDLES;
     siStartInfo.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
     siStartInfo.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -311,7 +344,7 @@ int my_spawnvp(char **argv)
     siStartInfo.dwFlags |= STARTF_USESHOWWINDOW;
 
 
-    if (!CreateProcess(NULL, 
+    if (!CreateProcessW(NULL, 
 		       make_commandline(argv),
 		       NULL, 
 		       NULL, 
@@ -381,14 +414,25 @@ error(char* format, ...)
     exit(1);
 }
 
-static char*
+static void*
 emalloc(size_t size)
 {
-  char *p = malloc(size);
+  void *p = malloc(size);
   if (p == NULL)
     error("Insufficient memory");
   return p;
 }
+
+#ifdef __WIN32__
+static void *
+erealloc(void *p, size_t size)
+{
+    void *res = realloc(p, size);
+    if (res == NULL)
+    error("Insufficient memory");
+    return res;
+}
+#endif
 
 static char*
 strsave(char* string)
@@ -396,6 +440,18 @@ strsave(char* string)
     char* p = emalloc(strlen(string)+1);
     strcpy(p, string);
     return p;
+}
+
+static int 
+file_exists(char *progname) 
+{
+#ifdef __WIN32__
+    wchar_t wcsbuf[MAXPATHLEN];
+    MultiByteToWideChar(CP_UTF8, 0, progname, -1, wcsbuf, MAXPATHLEN);
+    return (_waccess(wcsbuf, 0) != -1);
+#else
+    return (access(progname, 1) != -1);
+#endif
 }
 
 static char*
@@ -411,15 +467,8 @@ get_default_emulator(char* progname)
     for (s = sbuf+strlen(sbuf); s >= sbuf; s--) {
 	if (IS_DIRSEP(*s)) {
 	    strcpy(s+1, ERL_NAME);
-#ifdef __WIN32__
-	    if (_access(sbuf, 0) != -1) {
+	    if(file_exists(sbuf))
 		return strsave(sbuf);
-	    }
-#else
-	    if (access(sbuf, 1) != -1) {
-		return strsave(sbuf);
-	    }
-#endif
 	    break;
 	}
     }

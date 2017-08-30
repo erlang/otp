@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1999-2011. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -74,12 +75,8 @@
 
 
 #ifdef DEBUG
-#ifndef __WIN32__
-#define ASSERT(X) do {if (!(X)) {erl_exit(1,"%s",#X);} } while(0)
-#else
 #include <assert.h>
 #define ASSERT(X) assert(X)
-#endif
 #else
 #define ASSERT(X)
 #endif
@@ -175,6 +172,7 @@ static ErlDrvData trace_file_start(ErlDrvPort port, char *buff);
 static void trace_file_stop(ErlDrvData handle);
 static void trace_file_output(ErlDrvData handle, char *buff,
 			      ErlDrvSizeT bufflen);
+static void trace_file_outputv(ErlDrvData handle, ErlIOVec *ev);
 static void trace_file_finish(void);
 static ErlDrvSSizeT trace_file_control(ErlDrvData handle,
 				      unsigned int command, 
@@ -217,7 +215,7 @@ ErlDrvEntry trace_file_driver_entry = {
     NULL,                  /* void * that is not used (BC) */
     trace_file_control,    /* F_PTR control, port_control callback */
     trace_file_timeout,    /* F_PTR timeout, driver_set_timer callback */
-    NULL,                  /* F_PTR outputv, reserved */
+    trace_file_outputv,    /* F_PTR outputv, reserved */
     NULL, /* ready_async */
     NULL, /* flush */
     NULL, /* call */
@@ -326,9 +324,11 @@ static ErlDrvData trace_file_start(ErlDrvPort port, char *buff)
 		   | O_BINARY
 #endif
 		   , 0777)) < 0) {
+	int saved_errno = errno;
 	if (wrap)
 	    driver_free(wrap);
 	driver_free(data);
+	errno = saved_errno;
 	return ERL_DRV_ERROR_ERRNO;
     } 
 
@@ -364,6 +364,16 @@ static void trace_file_stop(ErlDrvData handle)
 /*
 ** Data sent from erlang to port.
 */
+static void trace_file_outputv(ErlDrvData handle, ErlIOVec *ev)
+{
+    int i;
+    for (i = 0; i < ev->vsize; i++) {
+        if (ev->iov[i].iov_len)
+            trace_file_output(handle, ev->iov[i].iov_base,
+                              ev->iov[i].iov_len);
+    }
+}
+
 static void trace_file_output(ErlDrvData handle, char *buff,
 			      ErlDrvSizeT bufflen)
 {
@@ -524,14 +534,19 @@ static void *my_alloc(size_t size)
 ** A write wrapper that regards it as an error if not all data was written.
 */
 static int do_write(FILETYPE fd, unsigned char *buff, int siz) {
-    int w = write(fd, buff, siz);
-    if (w != siz) {
-	if (w >= 0) {
-	    errno = ENOSPC;
+    int w;
+    while (1) {
+	w = write(fd, buff, siz);
+	if (w < 0 && errno == EINTR)
+	    continue;
+	else if (w != siz) {
+	    if (w >= 0) {
+		errno = ENOSPC;
+	    }
+	    return -1;
 	}
-	return -1;
+	return siz;
     }
-    return siz;
 }
 
 /*
@@ -626,8 +641,10 @@ static void close_unlink_port(TraceFileData *data)
 */
 static int wrap_file(TraceFileData *data) {
     if (my_flush(data) < 0) {
+	int saved_errno = errno;
 	close(data->fd);
 	data->fd = -1;
+	errno = saved_errno;
 	return -1;
     }
     close(data->fd);
@@ -643,12 +660,15 @@ static int wrap_file(TraceFileData *data) {
 	next_name(&data->wrap->del);
     }
     next_name(&data->wrap->cur);
+try_open:
     data->fd = open(data->wrap->cur.name, O_WRONLY | O_TRUNC | O_CREAT
 #ifdef O_BINARY
 	      | O_BINARY
 #endif
 	      , 0777);
     if (data->fd < 0) {
+	if (errno == EINTR)
+	    goto try_open;
 	data->fd = -1;
 	return -1;
     }

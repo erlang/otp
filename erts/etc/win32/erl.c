@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2003-2009. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -27,96 +28,126 @@
 
 typedef int ErlexecFunction(int, char **, HANDLE, int); 
 
-#define INI_FILENAME "erl.ini"
+#define INI_FILENAME L"erl.ini"
 #define INI_SECTION "erlang"
-#define ERLEXEC_BASENAME "erlexec.dll"
+#define ERLEXEC_BASENAME L"erlexec.dll"
 
 static void get_parameters(void);
 static void error(char* format, ...);
 
-static char *erlexec_name;
-static char *erlexec_dir;
+static wchar_t *erlexec_name;
+static wchar_t *erlexec_dir;
 
 #ifdef WIN32_WERL
 #define WERL 1
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-		    PSTR szCmdLine, int iCmdShow)
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
+		    PWSTR szCmdLine, int iCmdShow)
 {
     int argc = __argc;
-    char **argv = __argv;
+    wchar_t **argv = __wargv;
 #else
 #define WERL 0
-int main(int argc, char **argv)
+int wmain(int argc, wchar_t **argv)
 {
 #endif
   HANDLE erlexec_handle; /* Instance */
   ErlexecFunction *win_erlexec;
-  char *path = malloc(100);
-  char *npath;
+  wchar_t *path = malloc(100*sizeof(wchar_t));
+  wchar_t *npath;
   int pathlen;
+  char ** utf8argv;
+  int i, len;
 
   get_parameters();
 
-  if ((pathlen = GetEnvironmentVariable("PATH",path,100)) == 0) {
+  if ((pathlen = GetEnvironmentVariableW(L"PATH",path,100)) == 0) {
     error("No PATH variable (!)");
   } else if (pathlen > 100) {
-    path = realloc(path,pathlen);
-    GetEnvironmentVariable("PATH",path,pathlen);
+    path = realloc(path,pathlen*sizeof(wchar_t));
+    GetEnvironmentVariableW(L"PATH",path,pathlen);
   }
-  npath = malloc(strlen(path) + strlen(erlexec_dir) + 2);
-  sprintf(npath,"%s;%s",erlexec_dir,path);
-  SetEnvironmentVariable("PATH",npath);
+  pathlen = (wcslen(path) + wcslen(erlexec_dir) + 2);
+  npath = (wchar_t *) malloc(pathlen*sizeof(wchar_t));
+  swprintf(npath,pathlen,L"%s;%s",erlexec_dir,path);
+  SetEnvironmentVariableW(L"PATH",npath);
 
-  if ((erlexec_handle = LoadLibrary(erlexec_name)) == NULL) {
-    error("Could not load module %s.",erlexec_name);
+  if ((erlexec_handle = LoadLibraryW(erlexec_name)) == NULL) {
+    error("Could not load module %S.",erlexec_name);
   }
 
   if ((win_erlexec = (ErlexecFunction *) 
        GetProcAddress(erlexec_handle,"win_erlexec")) == NULL) {
-    error("Could not find entry point \"win_erlexec\" in %s.", erlexec_name);
+    error("Could not find entry point \"win_erlexec\" in %S.", erlexec_name);
   }
 
-  return (*win_erlexec)(argc,argv,erlexec_handle,WERL);
+  /* Convert argv to utf8 */
+  utf8argv = malloc((argc+1) * sizeof(char*));
+  for (i=0; i<argc; i++) {
+      len = WideCharToMultiByte(CP_UTF8, 0, argv[i], -1, NULL, 0, NULL, NULL);
+      utf8argv[i] = malloc(len*sizeof(char));
+      WideCharToMultiByte(CP_UTF8, 0, argv[i], -1, utf8argv[i], len, NULL, NULL);
+  }
+  utf8argv[argc] = NULL;
+
+#ifdef HARDDEBUG
+	{
+	    wchar_t tempbuf[2048] = L"";
+	    wchar_t *sbuf;
+	    int i;
+	    sbuf=tempbuf;
+	    sbuf += swprintf(sbuf, 2048, L"utf16: %d\n", argc);
+	    for (i = 0; i < argc; ++i) {
+		sbuf += swprintf(sbuf, 2048, L"|%s|", argv[i]);
+	    };
+	    sbuf += swprintf(sbuf, 2048, L"\nutf8: \n");
+	    for (i = 0; i < argc; ++i) {
+		sbuf += swprintf(sbuf, 2048, L"|%S|", utf8argv[i]);
+	    };
+	    MessageBoxW(NULL, tempbuf, L"erl_exec args", MB_OK|MB_ICONERROR);
+	}
+#endif
+
+  return (*win_erlexec)(argc,utf8argv,erlexec_handle,WERL);
   
 } 
 
 
-static char *replace_filename(char *path, char *new_base) 
+static wchar_t *replace_filename(wchar_t *path, wchar_t *new_base) 
 {
-    int plen = strlen(path);
-    char *res = malloc((plen+strlen(new_base)+1)*sizeof(char));
-    char *p;
+    int plen = wcslen(path);
+    wchar_t *res = malloc((plen+wcslen(new_base)+1)*sizeof(wchar_t));
+    wchar_t *p;
 
-    strcpy(res,path);
-    for (p = res+plen-1 ;p >= res && *p != '\\'; --p)
+    wcscpy(res,path);
+    for (p = res+plen-1 ;p >= res && *p != L'\\'; --p)
         ;
-    *(p+1) ='\0';
-    strcat(res,new_base);
+    *(p+1) =L'\0';
+    wcscat(res,new_base);
     return res;
 }
 
 static char *do_lookup_in_section(InitSection *inis, char *name, 
-				  char *section, char *filename)
+				  char *section, wchar_t *filename)
 {
     char *p = lookup_init_entry(inis, name);
 
     if (p == NULL) {
-	error("Could not find key %s in section %s of file %s",
+	error("Could not find key %s in section %s of file %S",
 	      name,section,filename);
     }
-    return _strdup(p);
+    return p;
 }
 
-static void copy_latest_vsn(char *latest_vsn, char *next_vsn) 
+static void copy_latest_vsn(wchar_t *latest_vsn, wchar_t *next_vsn) 
 {
     /* Copy */
-    char *lp;
-    char *np;
+    wchar_t *lp;
+    wchar_t *np;
     /* Find vsn */
-    for (lp = next_vsn+strlen(next_vsn)-1 ;lp >= next_vsn && *lp != '\\'; --lp)
+    for (lp = next_vsn+wcslen(next_vsn)-1 ;lp >= next_vsn && *lp != L'\\'; --lp)
         ;
     /* lp =+ length("erts-"); */
-    for (np = next_vsn+strlen(next_vsn)-1 ;np >= next_vsn && *np != '\\'; --np)
+    for (np = next_vsn+wcslen(next_vsn)-1 ;np >= next_vsn && *np != L'\\'; --np)
         ;
     /* np =+ length("erts-"); */
     
@@ -124,95 +155,95 @@ static void copy_latest_vsn(char *latest_vsn, char *next_vsn)
 	if (*lp == *np) {
 	    continue;
 	}	
-	if (*np == '.' || *np == '\0' || *np <= *lp) {
+	if (*np == L'.' || *np == L'\0' || *np <= *lp) {
 	/* */
 	    return;
 	}
-	if (*lp == '.' || *lp == '\0') {
-	    strcpy(latest_vsn, next_vsn);
+	if (*lp == L'.' || *lp == L'\0') {
+	    wcscpy(latest_vsn, next_vsn);
 	    return;
 	}
     }
     return;
 }
 
-static char *find_erlexec_dir2(char *install_dir) 
+static wchar_t *find_erlexec_dir2(wchar_t *install_dir) 
 {
     /* List install dir and look for latest erts-vsn */
 
     HANDLE dir_handle;	        /* Handle to directory. */
-    char wildcard[MAX_PATH];	/* Wildcard to search for. */
-    WIN32_FIND_DATA find_data;	/* Data found by FindFirstFile() or FindNext(). */
-    char latest_vsn[MAX_PATH];
+    wchar_t wildcard[MAX_PATH];	/* Wildcard to search for. */
+    WIN32_FIND_DATAW find_data;  /* Data found by FindFirstFile() or FindNext(). */
+    wchar_t latest_vsn[MAX_PATH];
 
     /* Setup wildcard */
-    int length = strlen(install_dir);
-    char *p;
+    int length = wcslen(install_dir);
+    wchar_t *p;
 
     if (length+3 >= MAX_PATH) {
 	error("Cannot find erlexec.exe");
     }
 
-    strcpy(wildcard, install_dir);
+    wcscpy(wildcard, install_dir);
     p = wildcard+length-1;
-    if (*p != '/' && *p != '\\')
-	*++p = '\\';
-    strcpy(++p, "erts-*");
+    if (*p != L'/' && *p != L'\\')
+	*++p = L'\\';
+    wcscpy(++p, L"erts-*");
 
     /* Find first dir */
-    dir_handle = FindFirstFile(wildcard, &find_data);
+    dir_handle = FindFirstFileW(wildcard, &find_data);
     if (dir_handle == INVALID_HANDLE_VALUE) {
 	/* No erts-vsn found*/
 	return NULL;
     }	
-    strcpy(latest_vsn, find_data.cFileName);
+    wcscpy(latest_vsn, find_data.cFileName);
 
     /* Find the rest */
-    while(FindNextFile(dir_handle, &find_data)) {
+    while(FindNextFileW(dir_handle, &find_data)) {
 	copy_latest_vsn(latest_vsn, find_data.cFileName);
     }
     
     FindClose(dir_handle);
 
-    p = malloc((strlen(install_dir)+1+strlen(latest_vsn)+4+1)*sizeof(char));
+    p = (wchar_t *) malloc((wcslen(install_dir)+1+wcslen(latest_vsn)+4+1)*sizeof(wchar_t));
 
-    strcpy(p,install_dir);
-    strcat(p,"\\");
-    strcat(p,latest_vsn);
-    strcat(p,"\\bin");
+    wcscpy(p,install_dir);
+    wcscat(p,L"\\");
+    wcscat(p,latest_vsn);
+    wcscat(p,L"\\bin");
     return p;
 }
 
-static char *find_erlexec_dir(char *erlpath) 
+static wchar_t *find_erlexec_dir(wchar_t *erlpath) 
 {
     /* Assume that the path to erl is absolute and
      * that it is not a symbolic link*/
     
-    char *dir =_strdup(erlpath);
-    char *p;
-    char *p2;
+    wchar_t *dir =_wcsdup(erlpath);
+    wchar_t *p;
+    wchar_t *p2;
     
     /* Chop of base name*/
-    for (p = dir+strlen(dir)-1 ;p >= dir && *p != '\\'; --p)
+    for (p = dir+wcslen(dir)-1 ;p >= dir && *p != L'\\'; --p)
         ;
-    *p ='\0';
+    *p =L'\0';
     p--;
 
     /* Check if dir path is like ...\install_dir\erts-vsn\bin */
-    for (;p >= dir && *p != '\\'; --p)
+    for (;p >= dir && *p != L'\\'; --p)
         ;
     p--;
     for (p2 = p;p2 >= dir && *p2 != '\\'; --p2)
         ;
     p2++;
-    if (strncmp(p2, "erts-", strlen("erts-")) == 0) {
-	p = _strdup(dir);
+    if (wcsncmp(p2, L"erts-", wcslen(L"erts-")) == 0) {
+	p = _wcsdup(dir);
 	free(dir);
 	return p;
     }
 
     /* Assume that dir path is like ...\install_dir\bin */
-    *++p ='\0'; /* chop off bin dir */
+    *++p =L'\0'; /* chop off bin dir */
 
     p = find_erlexec_dir2(dir);
     free(dir);
@@ -225,18 +256,20 @@ static char *find_erlexec_dir(char *erlpath)
 
 static void get_parameters(void)
 {
-    char buffer[MAX_PATH];
-    char *ini_filename;
+    wchar_t buffer[MAX_PATH];
+    wchar_t *ini_filename;
     HANDLE module = GetModuleHandle(NULL);
     InitFile *inif;
     InitSection *inis;
-    char *bindir;
+    char *utf8dir;
+    int len;
 
-    if (module = NULL) {
+
+    if (module == NULL) {
         error("Cannot GetModuleHandle()");
     }
 
-    if (GetModuleFileName(module,buffer,MAX_PATH) == 0) {
+    if (GetModuleFileNameW(module,buffer,MAX_PATH) == 0) {
         error("Could not GetModuleFileName");
     }
 
@@ -244,21 +277,28 @@ static void get_parameters(void)
 
     if ((inif = load_init_file(ini_filename)) == NULL) {
 	erlexec_dir = find_erlexec_dir(ini_filename);
-	SetEnvironmentVariable("ERLEXEC_DIR", erlexec_dir);
+	SetEnvironmentVariableW(L"ERLEXEC_DIR", erlexec_dir);
     } else {
 
       if ((inis = lookup_init_section(inif,INI_SECTION)) == NULL) {
-	error("Could not find section %s in init file %s",
+	error("Could not find section %s in init file %S",
 	      INI_SECTION, ini_filename);
       }
       
-      erlexec_dir = do_lookup_in_section(inis, "Bindir", INI_SECTION, ini_filename);
-      free_init_file(inif);      
+      utf8dir = do_lookup_in_section(inis, "Bindir", INI_SECTION, ini_filename);
+      len = MultiByteToWideChar(CP_UTF8, 0, utf8dir, -1, NULL, 0);
+      erlexec_dir = malloc(len*sizeof(wchar_t));
+      MultiByteToWideChar(CP_UTF8, 0, utf8dir, -1, erlexec_dir, len);
+      if(len == 0) {
+	  error("Bindir is not a valid utf8 '%s' in init file %S",
+		utf8dir, ini_filename);
+      }
+      free_init_file(inif);
     }
     
-    erlexec_name = malloc(strlen(erlexec_dir) + strlen(ERLEXEC_BASENAME) + 2);
-    strcpy(erlexec_name,erlexec_dir);
-    strcat(erlexec_name, "\\" ERLEXEC_BASENAME);
+    erlexec_name = malloc((wcslen(erlexec_dir) + wcslen(ERLEXEC_BASENAME) + 2)*sizeof(wchar_t));
+    wcscpy(erlexec_name,erlexec_dir);
+    wcscat(erlexec_name, L"\\" ERLEXEC_BASENAME);
     
     free(ini_filename);
 }

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -24,7 +25,6 @@
 -module(ssh_io).
 
 -export([yes_no/2, read_password/2, read_line/2, format/2]).
--import(lists, [reverse/1]).
 -include("ssh.hrl").
 
 read_line(Prompt, Ssh) ->
@@ -74,14 +74,18 @@ read_password(Prompt, Ssh) ->
 listify(A) when is_atom(A) ->
     atom_to_list(A);
 listify(L) when is_list(L) ->
-    L.
+    L;
+listify(B) when is_binary(B)  ->
+    binary_to_list(B).
 
 format(Fmt, Args) ->
     io:format(Fmt, Args).
 
 
 trim(Line) when is_list(Line) ->
-    reverse(trim1(reverse(trim1(Line))));
+    lists:reverse(trim1(lists:reverse(trim1(Line))));
+trim(Line) when is_binary(Line) ->
+    trim(unicode:characters_to_list(Line));
 trim(Other) -> Other.
 
 trim1([$\s|Cs]) -> trim(Cs);

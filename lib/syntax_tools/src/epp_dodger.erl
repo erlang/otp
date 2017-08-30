@@ -88,7 +88,7 @@
 %% This is a so-called Erlang I/O ErrorInfo structure; see the {@link
 %% //stdlib/io} module for details.
 
--type errorinfo() :: term(). % {integer(), atom(), term()}.
+-type errorinfo() :: {integer(), atom(), term()}.
 
 -type option() :: atom() | {atom(), term()}.
 
@@ -184,16 +184,42 @@ quick_parse_file(File, Options) ->
     parse_file(File, fun quick_parse/3, Options ++ [no_fail]).
 
 parse_file(File, Parser, Options) ->
+    case do_parse_file(utf8, File, Parser, Options) of
+        {ok, Forms}=Ret ->
+            case find_invalid_unicode(Forms) of
+                none ->
+                    Ret;
+                invalid_unicode ->
+                    case epp:read_encoding(File) of
+                        utf8 ->
+                            Ret;
+                        _ ->
+                            do_parse_file(latin1, File, Parser, Options)
+                    end
+            end;
+        Else ->
+            Else
+    end.
+
+do_parse_file(DefEncoding, File, Parser, Options) ->
     case file:open(File, [read]) of
         {ok, Dev} ->
-            _ = epp:set_encoding(Dev),
+            _ = epp:set_encoding(Dev, DefEncoding),
             try Parser(Dev, 1, Options)
             after ok = file:close(Dev)
 	    end;
-        {error, _} = Error ->
-            Error
+        {error, Error} ->
+            {error, {0, file, Error}}  % defer to file:format_error/1
     end.
 
+find_invalid_unicode([H|T]) ->
+    case H of
+	{error, {_Line, file_io_server, invalid_unicode}} ->
+	    invalid_unicode;
+	_Other ->
+	    find_invalid_unicode(T)
+    end;
+find_invalid_unicode([]) -> none.
 
 %% =====================================================================
 %% @spec parse(IODevice) -> {ok, Forms} | {error, errorinfo()}
@@ -428,7 +454,7 @@ io_error(L, Desc) ->
     {L, ?MODULE, Desc}.
 
 start_pos([T | _Ts], _L) ->
-    element(2, T);
+    erl_anno:line(element(2, T));
 start_pos([], L) ->
     L.
 

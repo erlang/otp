@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2013</year>
+      <year>2004</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -29,6 +30,414 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Tools application.</p>
+
+<section><title>Tools 2.8.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Update fprof to use the new 'spawned' trace event to
+	    determine when a process has been created.</p>
+          <p>
+	    Own Id: OTP-13499</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Optimize adding multiple modules to an Xref server.
+	    </p>
+          <p>
+	    Own Id: OTP-13593</p>
+        </item>
+        <item>
+          <p>
+	    Various emacs mode improvements, such as better tags
+	    support.</p>
+          <p>
+	    Own Id: OTP-13610</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.8.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>cover:compile_beam/1</c> and
+	    <c>cover:compile_beam_directory/1,2</c> crashed when
+	    trying to compile a beam file without a <c>'file'</c>
+	    attribute. This has been corrected and an error is
+	    returned instead.</p>
+          <p>
+	    Thanks to Louis-Philippe Gauthier for reporting this bug.</p>
+          <p>
+	    Own Id: OTP-13200</p>
+        </item>
+        <item>
+	    <p>Fix a bit string comprehension bug in Cover. </p>
+          <p>
+	    Own Id: OTP-13277 Aux Id: PR 856 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The emacs mode does not add a newline after the arrow on
+	    -callback lines anymore.</p>
+          <p>
+	    Own Id: OTP-13042</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a module includes eunit.hrl, a parse transform adds
+	    the function test/0 on line 0 in the module. A bug in
+	    OTP-18.0 caused cover:analyse_to_file/1 to fail to insert
+	    cover data in the output file when line 0 existed in the
+	    cover data table. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-12981</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    In order to improve performance of the cover tool, new
+	    functions are added for cover compilation and analysis on
+	    multiple files. This allows for more parallelisation.</p>
+          <p>
+	    Some improvements of the data base access is also done in
+	    order to improve the performance when analysing and
+	    resetting cover data.</p>
+          <p>
+	    Minor incompatibility: An error reason from
+	    analyse_to_file is changed from no_source_code_found to
+	    {no_source_code_found,Module}.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12330 Aux Id: seq12757 </p>
+        </item>
+        <item>
+	    <p>Attempting to do a <c>cover</c> analysis when neither
+	    source code nor beam file could be found would hang the
+	    <c>cover</c> server. Corrected to return a proper
+	    error.</p>
+          <p>
+	    Own Id: OTP-12806</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Allow maps for supervisor flags and child specs</p>
+          <p>
+	    Earlier, supervisor flags and child specs were given as
+	    tuples. While this is kept for backwards compatibility,
+	    it is now also allowed to give these parameters as maps,
+	    see <seealso
+	    marker="stdlib:supervisor#sup_flags">sup_flags</seealso>
+	    and <seealso
+	    marker="stdlib:supervisor#child_spec">child_spec</seealso>.</p>
+          <p>
+	    Own Id: OTP-11043</p>
+        </item>
+        <item>
+          <p>
+	    Remove Mnemosyne rules support.</p>
+          <p>
+	    Own Id: OTP-12511</p>
+        </item>
+        <item>
+          <p>
+	    Add printout of total number of calls and time in eprof</p>
+          <p>
+	    Own Id: OTP-12681</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix lcnt sorting and printout of histograms.</p>
+          <p>
+	    Own Id: OTP-12364</p>
+        </item>
+        <item>
+	    <p> Fix a Unicode bug in the <c>tags</c> module. </p>
+          <p>
+	    Own Id: OTP-12567</p>
+        </item>
+        <item>
+          <p>
+	    Fix tags completion in erlang.el for GNU Emacs 23+</p>
+          <p>
+	    Own Id: OTP-12583</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a typo in erlang-mode comment.</p>
+          <p>
+	    Own Id: OTP-12214</p>
+        </item>
+        <item>
+          <p>
+	    Add a skeleton for -spec in Erlang mode for Emacs</p>
+          <p>
+	    Own Id: OTP-12283</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Cover no longer crashes when compiling <c>receive</c> and
+	    the like with just an <c>after</c> clause. Thanks to
+	    José Valim for providing a fix.</p>
+          <p>
+	    Own Id: OTP-12328</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add log2 histogram to lcnt for lock wait time</p>
+          <p>
+	    Own Id: OTP-12059</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed <c>erlang:bitstr_to_list/1</c> and
+	    <c>erlang:list_to_bitstr/1</c>. They were added by
+	    mistake, and have always raised an <c>undefined</c>
+	    exception when called.</p>
+          <p>
+	    Own Id: OTP-11942</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Removed the support for the query keyword from emacs mode
+	    (Thanks to Paul Oliver)</p>
+          <p>
+	    Own Id: OTP-11568</p>
+        </item>
+        <item>
+          <p>
+	    Emacs mode improvements (Thanks to Steve Vinoski)</p>
+          <p>
+	    Own Id: OTP-11601</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+        <item>
+          <p>
+	    The emacs erlang mode now match erlang keywords more
+	    carefully (Thanks to Steve Vinoski)</p>
+          <p>
+	    Own Id: OTP-11786</p>
+        </item>
+        <item>
+          <p>
+	    The emacs erlang-mode now auto loads for more file types
+	    (Thanks to Phil Hagelberg)</p>
+          <p>
+	    Own Id: OTP-11788</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    <c>cover</c> can run on itself. Also, support for reading
+	    BEAM files produced by ancient OTP versions before R9C
+	    has been removed.</p>
+          <p>
+	    Own Id: OTP-11692</p>
+        </item>
+        <item>
+          <p>
+	    Support maps in cover</p>
+          <p>
+	    Own Id: OTP-11764</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Erlang-specific compilation error regexp is added in
+	    erlang-eunit.el. This defvar was earlier in erlang.el,
+	    but was erroneously removed in R15B02, while still used
+	    by erlang-eunit.el.</p>
+          <p>
+	    Own Id: OTP-11417 Aux Id: seq12447 </p>
+        </item>
+        <item>
+          <p>
+	    Take compiler options from beam in cover:compile_beam.
+	    Thanks to Péter Gömöri.</p>
+          <p>
+	    Own Id: OTP-11439</p>
+        </item>
+        <item>
+          <p>
+	    Silence warnings (Thanks to Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11517</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add iodata, nonempty_string to built-in type highlighting
+	    for emacs. Thanks to Paul Oliver.</p>
+          <p>
+	    Own Id: OTP-11394</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove trailing spaces in Emacs templates. Thanks to
+	    Roberto Aloi.</p>
+          <p>
+	    Own Id: OTP-11198</p>
+        </item>
+        <item>
+          <p>
+	    Fixed the Emacs erlang-mode to accommodate the coding
+	    style where lists written across several lines have each
+	    line starting with a comma. Thanks to Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-11242</p>
+        </item>
+        <item>
+          <p>
+	    Make the Emacs Erlang mode TRAMP-aware when compiling.
+	    Thanks to Tomas Abrahamsson.</p>
+          <p>
+	    Own Id: OTP-11270</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Tools 2.6.11</title>
 
@@ -103,7 +512,7 @@
         <item>
           <p>
 	    Fix a bug in cover when used with no_auto_import. Thanks
-	    to Jos� Valim.</p>
+	    to José Valim.</p>
           <p>
 	    Own Id: OTP-10778</p>
         </item>
@@ -138,7 +547,7 @@
         <item>
           <p>
 	    Add separate face for exported functions (Thanks to
-	    Thomas J�rvstrand)</p>
+	    Thomas Järvstrand)</p>
           <p>
 	    Own Id: OTP-10637</p>
         </item>
@@ -223,7 +632,7 @@
         </item>
         <item>
           <p>
-	    Documentation fixes (Thanks to Ricardo Catalinas Jim�nez
+	    Documentation fixes (Thanks to Ricardo Catalinas Jiménez
 	    )</p>
           <p>
 	    Own Id: OTP-10121</p>

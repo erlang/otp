@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -509,6 +510,10 @@ trans_fun([{test,test_arity,{f,Lbl},[Reg,N]}|Instructions], Env) ->
   I = hipe_icode:mk_type([trans_arg(Reg)],{tuple,N}, 
 			 hipe_icode:label_name(True),map_label(Lbl)),
   [I,True | trans_fun(Instructions,Env)];
+%%--- is_map ---
+trans_fun([{test,is_map,{f,Lbl},[Arg]}|Instructions], Env) ->
+  {Code,Env1} = trans_type_test(map,Lbl,Arg,Env),
+  [Code | trans_fun(Instructions,Env1)];
 %%--------------------------------------------------------------------
 %%--- select_val ---
 trans_fun([{select_val,Reg,{f,Lbl},{list,Cases}}|Instructions], Env) ->
@@ -876,6 +881,15 @@ trans_fun([{bs_init_bits,{f,Lbl},Size,_Words,_LiveRegs,{field_flags,Flags0},X}|
 trans_fun([{bs_add, {f,Lbl}, [Old,New,Unit], Res}|Instructions], Env) ->
   Dst = mk_var(Res),
   Temp = mk_var(new),
+  {FailLblName, FailCode} =
+    if Lbl =:= 0 ->
+	FailLbl = mk_label(new),
+	{hipe_icode:label_name(FailLbl),
+	 [FailLbl,
+	  hipe_icode:mk_fail([hipe_icode:mk_const(badarg)], error)]};
+       true ->
+	{map_label(Lbl), []}
+    end,
   MultIs =
     case {New,Unit} of
       {{integer, NewInt}, _} ->
@@ -885,40 +899,26 @@ trans_fun([{bs_add, {f,Lbl}, [Old,New,Unit], Res}|Instructions], Env) ->
 	[hipe_icode:mk_move(Temp, NewVar)];
       _ ->
 	NewVar = mk_var(New),
-	if Lbl =:= 0 ->
-	    [hipe_icode:mk_primop([Temp], '*', 
-				  [NewVar, hipe_icode:mk_const(Unit)])];
-	   true ->
-	    Succ = mk_label(new),
-	    [hipe_icode:mk_primop([Temp], '*', 
-				  [NewVar, hipe_icode:mk_const(Unit)],
-				  hipe_icode:label_name(Succ), map_label(Lbl)),
-	     Succ]
-	end
+	Succ = mk_label(new),
+	[hipe_icode:mk_primop([Temp], '*',
+			      [NewVar, hipe_icode:mk_const(Unit)],
+			      hipe_icode:label_name(Succ), FailLblName),
+	 Succ]
     end,
   Succ2 = mk_label(new),
-  {FailLblName, FailCode} = 
-    if Lbl =:= 0 ->
-	FailLbl = mk_label(new),
-	{hipe_icode:label_name(FailLbl),
-	 [FailLbl,
-	  hipe_icode:mk_fail([hipe_icode:mk_const(badarg)], error)]};
-       true ->
-	{map_label(Lbl), []}
-    end,
   IsPos = 
     [hipe_icode:mk_if('>=', [Temp, hipe_icode:mk_const(0)], 
 		      hipe_icode:label_name(Succ2), FailLblName)] ++
-    FailCode ++ [Succ2], 
-  AddI =
+    FailCode ++ [Succ2],
+  AddRhs =
     case Old of
-      {integer,OldInt} ->
-	hipe_icode:mk_primop([Dst], '+', [Temp, hipe_icode:mk_const(OldInt)]);
-      _ ->
-	OldVar = mk_var(Old),
-	hipe_icode:mk_primop([Dst], '+', [Temp, OldVar])
+      {integer,OldInt} -> hipe_icode:mk_const(OldInt);
+      _ -> mk_var(Old)
     end,
-  MultIs ++ IsPos ++ [AddI|trans_fun(Instructions, Env)];
+  Succ3 = mk_label(new),
+  AddI = hipe_icode:mk_primop([Dst], '+', [Temp, AddRhs],
+			      hipe_icode:label_name(Succ3), FailLblName),
+  MultIs ++ IsPos ++ [AddI,Succ3|trans_fun(Instructions, Env)];
 %%--------------------------------------------------------------------
 %% Bit syntax instructions added in R12B-5 (Fall 2008)
 %%--------------------------------------------------------------------
@@ -1121,6 +1121,49 @@ trans_fun([{trim,N,NY}|Instructions], Env) ->
 trans_fun([{line,_}|Instructions], Env) ->
   trans_fun(Instructions,Env);
 %%--------------------------------------------------------------------
+%% Map instructions added in Spring 2014 (17.0).
+%%--------------------------------------------------------------------
+trans_fun([{test,has_map_fields,{f,Lbl},Map,{list,Keys}}|Instructions], Env) ->
+  {MapMove, MapVar, Env1} = mk_move_and_var(Map, Env),
+  %% We assume that hipe_icode:mk_call has no side-effects, and reuse
+  %% the help function of get_map_elements below, discarding the value
+  %% assignment instruction list.
+  {TestInstructions, _GetInstructions, Env2} =
+    trans_map_query(MapVar, map_label(Lbl), Env1,
+		    lists:flatten([[K, {r, 0}] || K <- Keys])),
+  [MapMove, TestInstructions | trans_fun(Instructions, Env2)];
+trans_fun([{get_map_elements,{f,Lbl},Map,{list,KVPs}}|Instructions], Env) ->
+  {MapMove, MapVar, Env1} = mk_move_and_var(Map, Env),
+  {TestInstructions, GetInstructions, Env2} =
+    trans_map_query(MapVar, map_label(Lbl), Env1, KVPs),
+  [MapMove, TestInstructions, GetInstructions | trans_fun(Instructions, Env2)];
+%%--- put_map_assoc ---
+trans_fun([{put_map_assoc,{f,Lbl},Map,Dst,_N,{list,Pairs}}|Instructions], Env) ->
+  {MapMove, MapVar, Env1} = mk_move_and_var(Map, Env),
+  TempMapVar = mk_var(new),
+  TempMapMove = hipe_icode:mk_move(TempMapVar, MapVar),
+  {PutInstructions, Env2}
+    = case Lbl > 0 of
+	true ->
+	  gen_put_map_instrs(exists, assoc, TempMapVar, Dst, Lbl, Pairs, Env1);
+	false ->
+	  gen_put_map_instrs(new, assoc, TempMapVar, Dst, new, Pairs, Env1)
+      end,
+  [MapMove, TempMapMove, PutInstructions | trans_fun(Instructions, Env2)];
+%%--- put_map_exact ---
+trans_fun([{put_map_exact,{f,Lbl},Map,Dst,_N,{list,Pairs}}|Instructions], Env) ->
+  {MapMove, MapVar, Env1} = mk_move_and_var(Map, Env),
+  TempMapVar = mk_var(new),
+  TempMapMove = hipe_icode:mk_move(TempMapVar, MapVar),
+  {PutInstructions, Env2}
+    = case Lbl > 0 of
+	true ->
+	  gen_put_map_instrs(exists, exact, TempMapVar, Dst, Lbl, Pairs, Env1);
+	false ->
+	  gen_put_map_instrs(new, exact, TempMapVar, Dst, new, Pairs, Env1)
+      end,
+  [MapMove, TempMapMove, PutInstructions | trans_fun(Instructions, Env2)];
+%%--------------------------------------------------------------------
 %%--- ERROR HANDLING ---
 %%--------------------------------------------------------------------
 trans_fun([X|_], _) ->
@@ -1258,7 +1301,7 @@ trans_bin([{bs_put_binary,{f,Lbl},Size,Unit,{field_flags,Flags},Source}|
   {Name, Args, Env2} =
     case Size of
       {atom,all} -> %% put all bits
-	{{bs_put_binary_all, Flags}, [Src,Base,Offset], Env};
+	{{bs_put_binary_all, Unit, Flags}, [Src,Base,Offset], Env};
       {integer,NoBits} when is_integer(NoBits), NoBits >= 0 ->
 	%% Create a N*Unit bits subbinary
 	{{bs_put_binary, NoBits*Unit, Flags}, [Src,Base,Offset], Env};
@@ -1499,6 +1542,105 @@ trans_type_test2(function2, Lbl, Arg, Arity, Env) ->
   I = hipe_icode:mk_type([Var1,Var2], function2,
 			 hipe_icode:label_name(True), map_label(Lbl)),
   {[Move1,Move2,I,True],Env2}.
+
+%%
+%% Handles the get_map_elements instruction and the has_map_fields
+%% test instruction.
+%%
+trans_map_query(_MapVar, _FailLabel, Env, []) ->
+  {[], [], Env};
+trans_map_query(MapVar, FailLabel, Env, [Key,Val|KVPs]) ->
+  {Move,KeyVar,Env1} = mk_move_and_var(Key,Env),
+  PassLabel = mk_label(new),
+  BoolVar = hipe_icode:mk_new_var(),
+  ValVar = mk_var(Val),
+  IsKeyCall = hipe_icode:mk_call([BoolVar], maps, is_key, [KeyVar, MapVar],
+				 remote),
+  TrueTest = hipe_icode:mk_if('=:=', [BoolVar, hipe_icode:mk_const(true)],
+			      hipe_icode:label_name(PassLabel), FailLabel),
+  GetCall = hipe_icode:mk_call([ValVar], maps, get,  [KeyVar, MapVar], remote),
+  {TestList, GetList, Env2} = trans_map_query(MapVar, FailLabel, Env1, KVPs),
+  {[Move, IsKeyCall, TrueTest, PassLabel|TestList], [GetCall|GetList], Env2}.
+
+%%
+%% Generates a fail label if necessary when translating put_map_* instructions.
+%%
+gen_put_map_instrs(exists, Op, TempMapVar, Dst, FailLbl, Pairs, Env) ->
+  TrueLabel = mk_label(new),
+  IsMapCode = hipe_icode:mk_type([TempMapVar], map,
+				 hipe_icode:label_name(TrueLabel), map_label(FailLbl)),
+  DstMapVar = mk_var(Dst),
+  {ReturnLbl, PutInstructions, Env1}
+    = case Op of
+	assoc ->
+	  trans_put_map_assoc(TempMapVar, DstMapVar, Pairs, Env, []);
+	exact ->
+	  trans_put_map_exact(TempMapVar, DstMapVar,
+			      map_label(FailLbl), Pairs, Env, [])
+      end,
+  {[IsMapCode, TrueLabel, PutInstructions, ReturnLbl], Env1};
+gen_put_map_instrs(new, Op, TempMapVar, Dst, new, Pairs, Env) ->
+  FailLbl = mk_label(new),
+  DstMapVar = mk_var(Dst),
+  {ReturnLbl, PutInstructions, Env1}
+    = case Op of
+	assoc ->
+	  trans_put_map_assoc(TempMapVar, DstMapVar, Pairs, Env, []);
+	exact ->
+	  trans_put_map_exact(TempMapVar, DstMapVar,
+			      none, Pairs, Env, [])
+      end,
+  Fail = hipe_icode:mk_fail([hipe_icode:mk_const(badarg)], error),
+  {[PutInstructions, FailLbl, Fail, ReturnLbl], Env1}.
+
+%%-----------------------------------------------------------------------
+%% This function generates the instructions needed to insert several
+%% (Key, Value) pairs into an existing map, each recursive call inserts
+%% one (Key, Value) pair.
+%%-----------------------------------------------------------------------
+trans_put_map_assoc(MapVar, DestMapVar, [], Env, Acc) ->
+  MoveToReturnVar = hipe_icode:mk_move(DestMapVar, MapVar),
+  ReturnLbl = mk_label(new),
+  GotoReturn = hipe_icode:mk_goto(hipe_icode:label_name(ReturnLbl)),
+  {ReturnLbl, lists:reverse([GotoReturn, MoveToReturnVar | Acc]), Env};
+trans_put_map_assoc(MapVar, DestMapVar, [Key, Value | Rest], Env, Acc) ->
+  {MoveKey, KeyVar, Env1} = mk_move_and_var(Key, Env),
+  {MoveVal, ValVar, Env2} = mk_move_and_var(Value, Env1),
+  BifCall = hipe_icode:mk_call([MapVar], maps, put,
+			       [KeyVar, ValVar, MapVar], remote),
+  trans_put_map_assoc(MapVar, DestMapVar, Rest, Env2,
+		      [BifCall, MoveVal, MoveKey | Acc]).
+
+%%-----------------------------------------------------------------------
+%% This function generates the instructions needed to update several
+%% (Key, Value) pairs in an existing map, each recursive call inserts
+%% one (Key, Value) pair.
+%%-----------------------------------------------------------------------
+trans_put_map_exact(MapVar, DestMapVar, _FLbl, [], Env, Acc) ->
+  MoveToReturnVar = hipe_icode:mk_move(DestMapVar, MapVar),
+  ReturnLbl = mk_label(new),
+  GotoReturn = hipe_icode:mk_goto(hipe_icode:label_name(ReturnLbl)),
+  {ReturnLbl, lists:reverse([GotoReturn, MoveToReturnVar | Acc]), Env};
+trans_put_map_exact(MapVar, DestMapVar, none, [Key, Value | Rest], Env, Acc) ->
+  {MoveKey, KeyVar, Env1} = mk_move_and_var(Key, Env),
+  {MoveVal, ValVar, Env2} = mk_move_and_var(Value, Env1),
+  BifCallPut = hipe_icode:mk_call([MapVar], maps, update,
+				  [KeyVar, ValVar, MapVar], remote),
+  Acc1 = [BifCallPut, MoveVal, MoveKey | Acc],
+  trans_put_map_exact(MapVar, DestMapVar, none, Rest, Env2, Acc1);
+trans_put_map_exact(MapVar, DestMapVar, FLbl, [Key, Value | Rest], Env, Acc) ->
+  SuccLbl = mk_label(new),
+  {MoveKey, KeyVar, Env1} = mk_move_and_var(Key, Env),
+  {MoveVal, ValVar, Env2} = mk_move_and_var(Value, Env1),
+  IsKey = hipe_icode:mk_new_var(),
+  BifCallIsKey = hipe_icode:mk_call([IsKey], maps, is_key,
+				    [KeyVar, MapVar], remote),
+  IsKeyTest = hipe_icode:mk_if('=:=', [IsKey, hipe_icode:mk_const(true)],
+			       hipe_icode:label_name(SuccLbl), FLbl),
+  BifCallPut = hipe_icode:mk_call([MapVar], maps, put,
+				  [KeyVar, ValVar, MapVar], remote),
+  Acc1 = [BifCallPut, SuccLbl, IsKeyTest, BifCallIsKey, MoveVal, MoveKey | Acc],
+  trans_put_map_exact(MapVar, DestMapVar, FLbl, Rest, Env2, Acc1).
 
 %%-----------------------------------------------------------------------
 %% trans_puts(Code, Environment) -> 

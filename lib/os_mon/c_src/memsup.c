@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -104,7 +105,7 @@
 #if !defined (__OpenBSD__) && !defined (__NetBSD__) 
 #include <vm/vm_param.h>
 #endif
-#if defined (__FreeBSD__) || defined(__DragonFly__) || defined (__NetBSD__)
+#if defined (__FreeBSD__) || defined(__DragonFly__) || defined (__NetBSD__) || defined(__OpenBSD__)
 #include <sys/vmmeter.h>
 #endif
 #endif
@@ -324,7 +325,7 @@ get_mem_procfs(memory_ext *me){
 
 /* arch specific functions */
 
-#if defined(__linux__) /* ifdef SYSINFO */
+#if defined(__linux__) && !defined(__ANDROID__)/* ifdef SYSINFO */
 /* sysinfo does not include cached memory which is a problem. */
 static int
 get_extended_mem_sysinfo(memory_ext *me) {
@@ -395,8 +396,12 @@ get_extended_mem_sgi(memory_ext *me) {
 
 static void
 get_extended_mem(memory_ext *me) {
+/* android */
+#if defined(__ANDROID__)
+    if (get_mem_procfs(me))  return;   
+
 /* linux */
-#if defined(__linux__)
+#elif defined(__linux__)
     if (get_mem_procfs(me))  return;
     if (get_extended_mem_sysinfo(me)) return;
 

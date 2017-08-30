@@ -1,19 +1,19 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -31,7 +31,7 @@
 -define(privdir, "leex_SUITE_priv").
 -define(t, test_server).
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -define(datadir, ?config(data_dir, Config)).
 -define(privdir, ?config(priv_dir, Config)).
 -endif.
@@ -44,8 +44,8 @@
 	 file/1, compile/1, syntax/1,
 	 
 	 pt/1, man/1, ex/1, ex2/1, not_yet/1,
-
-         otp_10302/1]).
+	 line_wrap/1,
+	 otp_10302/1, otp_11286/1, unicode/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -62,12 +62,13 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group, checks}, {group, examples}].
+    [{group, checks}, {group, examples}, {group, bugs}].
 
 groups() -> 
     [{checks, [], [file, compile, syntax]},
-     {examples, [], [pt, man, ex, ex2, not_yet]},
-     {tickets, [], [otp_10302]}].
+     {examples, [], [pt, man, ex, ex2, not_yet, unicode]},
+     {tickets, [], [otp_10302, otp_11286]},
+     {bugs, [], [line_wrap]}].
 
 init_per_suite(Config) ->
     Config.
@@ -395,6 +396,24 @@ pt(Config) when is_list(Config) ->
             "t() ->
                  {ok,[{word,1,\"sture\"},{integer,1,123}],1} =
                      string(\"abc123\"), ok. ">>,
+           default,
+           ok}],
+
+    ?line run(Config, Ts),
+    ok.
+
+unicode(suite) ->
+    [];
+unicode(Config) when is_list(Config) ->
+    Ts = [{unicode_1, 
+	   <<"%% -*- coding: utf-8 -*-\n"
+	     "Definitions.\n"
+	     "RTLarrow    = (←)\n"
+	     "Rules.\n"
+	     "{RTLarrow}  : {token,{'<-',TokenLine}}.\n"
+	     "Erlang code.\n"
+	     "-export([t/0]).\n"
+	     "t() -> {ok, [{'<-', 1}], 1} = string(\"←\"), ok.">>,
            default,
            ok}],
 
@@ -854,6 +873,48 @@ scan_token_1({more, Cont}, [C | Cs], Fun, Loc, Rs) ->
 
 %% End of ex2
 
+line_wrap(doc) ->    "Much more examples.";
+line_wrap(suite) -> [];
+line_wrap(Config) when is_list(Config) ->
+    Xrl =
+     <<"
+Definitions.
+Rules.
+[a]+[\\n]*= : {token, {first, TokenLine}}.
+[a]+ : {token, {second, TokenLine}}.
+[\\s\\r\\n\\t]+ : skip_token.
+Erlang code.
+      ">>,
+    Dir = ?privdir,
+    XrlFile = filename:join(Dir, "test_line_wrap.xrl"),
+    ?line ok = file:write_file(XrlFile, Xrl),
+    ErlFile = filename:join(Dir, "test_line_wrap.erl"),
+    {ok, _} = leex:file(XrlFile, []),
+    {ok, _} = compile:file(ErlFile, [{outdir,Dir}]),
+    code:purge(test_line_wrap),
+    AbsFile = filename:rootname(ErlFile, ".erl"),
+    code:load_abs(AbsFile, test_line_wrap),
+    fun() ->
+            S = "aaa\naaa",
+            {ok,[{second,1},{second,2}],2} = test_line_wrap:string(S)
+    end(),
+    fun() ->
+            S = "aaa\naaa",
+            {ok,[{second,3},{second,4}],4} = test_line_wrap:string(S, 3)
+    end(),
+    fun() ->
+            {done,{ok,{second,1},1},"\na"} = test_line_wrap:token([], "a\na"),
+            {more,Cont1} = test_line_wrap:token([], "\na"),
+            {done,{ok,{second,2},2},eof} = test_line_wrap:token(Cont1, eof)
+    end(),
+    fun() ->
+            {more,Cont1} = test_line_wrap:tokens([], "a\na"),
+            {done,{ok,[{second,1},{second,2}],2},eof} = test_line_wrap:tokens(Cont1, eof)
+    end(),
+    ok.
+
+%% End of line_wrap
+
 not_yet(doc) ->
     "Not yet implemented.";
 not_yet(suite) -> [];
@@ -983,6 +1044,68 @@ otp_10302(Config) when is_list(Config) ->
 
     ok.
 
+otp_11286(doc) ->
+    "OTP-11286. A Unicode filename bug; both Leex and Yecc.";
+otp_11286(suite) -> [];
+otp_11286(Config) when is_list(Config) ->
+    Node = start_node(otp_11286, "+fnu"),
+    Dir = ?privdir,
+    UName = [1024] ++ "u",
+    UDir = filename:join(Dir, UName),
+    ok = rpc:call(Node, file, make_dir, [UDir]),
+
+    %% Note: Cannot use UName as filename since the filename is used
+    %% as module name. To be fixed in R18.
+    Filename = filename:join(UDir, 'OTP-11286.xrl'),
+    Scannerfile = filename:join(UDir, 'OTP-11286.erl'),
+    Options = [return, {scannerfile, Scannerfile}],
+
+    Mini1 = <<"%% coding: utf-8\n"
+              "Definitions.\n"
+              "D  = [0-9]\n"
+              "Rules.\n"
+              "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
+              "Erlang code.\n">>,
+    ok = rpc:call(Node, file, write_file, [Filename, Mini1]),
+    {ok, _, []} = rpc:call(Node, leex, file, [Filename, Options]),
+    {ok,_,_} = rpc:call(Node, compile, file,
+                  [Scannerfile,[basic_validation,return]]),
+
+    Mini2 = <<"Definitions.\n"
+              "D  = [0-9]\n"
+              "Rules.\n"
+              "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
+              "Erlang code.\n">>,
+    ok = rpc:call(Node, file, write_file, [Filename, Mini2]),
+    {ok, _, []} = rpc:call(Node, leex, file, [Filename, Options]),
+    {ok,_,_} = rpc:call(Node, compile, file,
+                  [Scannerfile,[basic_validation,return]]),
+
+    Mini3 = <<"%% coding: latin-1\n"
+              "Definitions.\n"
+              "D  = [0-9]\n"
+              "Rules.\n"
+              "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
+              "Erlang code.\n">>,
+    ok = rpc:call(Node, file, write_file, [Filename, Mini3]),
+    {ok, _, []} = rpc:call(Node, leex, file, [Filename, Options]),
+    {ok,_,_} = rpc:call(Node, compile, file,
+                  [Scannerfile,[basic_validation,return]]),
+
+    true = test_server:stop_node(Node),
+    ok.
+
+start_node(Name, Args) ->
+    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    ct:log("Trying to start ~w@~s~n", [Name,Host]),
+    case test_server:start_node(Name, peer, [{args,Args}]) of
+	{error,Reason} ->
+	    test_server:fail(Reason);
+	{ok,Node} ->
+	    ct:log("Node ~p started~n", [Node]),
+	    Node
+    end.
+
 unwritable(Fname) ->
     {ok, Info} = file:read_file_info(Fname),
     Mode = Info#file_info.mode - 8#00200,
@@ -1014,7 +1137,7 @@ run_test(Config, Def, Pre) ->
     XrlFile = filename:join(DataDir, DefFile),
     ErlFile = filename:join(DataDir, Filename),
     Opts = [return, warn_unused_vars,{outdir,DataDir}],
-    ok = file:write_file(XrlFile, Def),
+    ok = file:write_file(XrlFile, Def, [{encoding, unicode}]),
     LOpts = [return, {report, false} | 
              case Pre of
                  default ->

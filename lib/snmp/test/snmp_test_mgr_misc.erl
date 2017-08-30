@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% 
@@ -23,7 +24,7 @@
 -module(snmp_test_mgr_misc).
 
 %% API
--export([start_link_packet/8, start_link_packet/9, 
+-export([start_link_packet/8, start_link_packet/9, start_link_packet/10,
 	 stop/1, 
 	 send_discovery_pdu/2, 
 	 send_pdu/2, send_msg/4, send_bytes/2,
@@ -31,7 +32,7 @@
 	 get_pdu/1, set_pdu/2, format_hdr/1]).
 
 %% internal exports
--export([init_packet/10]).
+-export([init_packet/11]).
 
 -compile({no_auto_import, [error/2]}).
 
@@ -42,22 +43,26 @@
 %%----------------------------------------------------------------------
 %% The InHandler process will receive messages on the form {snmp_pdu, Pdu}.
 %%----------------------------------------------------------------------
-start_link_packet(InHandler, 
-		  AgentIp, UdpPort, TrapUdp,
-		  VsnHdr, Version, Dir, BufSz) ->
-    start_link_packet(InHandler, 
-		      AgentIp, UdpPort, TrapUdp,
-		      VsnHdr, Version, Dir, BufSz, 
-		      false).
+start_link_packet(
+  InHandler, AgentIp, UdpPort, TrapUdp, VsnHdr, Version, Dir, BufSz) ->
+    start_link_packet(
+      InHandler, AgentIp, UdpPort, TrapUdp, VsnHdr, Version, Dir, BufSz,
+      false).
 
-start_link_packet(InHandler, 
-		  AgentIp, UdpPort, TrapUdp, 
-		  VsnHdr, Version, Dir, BufSz,
-		  Dbg) when is_integer(UdpPort) ->
-    Args = [self(), InHandler,
-	    AgentIp, UdpPort, TrapUdp, 
-	    VsnHdr, Version, Dir, BufSz, 
-	    Dbg],
+start_link_packet(
+  InHandler, AgentIp, UdpPort, TrapUdp, VsnHdr, Version, Dir, BufSz,
+  Dbg) ->
+    start_link_packet(
+      InHandler, AgentIp, UdpPort, TrapUdp, VsnHdr, Version, Dir, BufSz,
+      Dbg, inet).
+
+start_link_packet(
+  InHandler, AgentIp, UdpPort, TrapUdp, VsnHdr, Version, Dir, BufSz,
+  Dbg, IpFamily) when is_integer(UdpPort) ->
+    Args =
+	[self(),
+	 InHandler, AgentIp, UdpPort, TrapUdp,  VsnHdr, Version, Dir, BufSz,
+	 Dbg, IpFamily],
     proc_lib:start_link(?MODULE, init_packet, Args).
 
 stop(Pid) ->
@@ -90,12 +95,14 @@ send_bytes(Bytes, PacketPid) ->
 %%--------------------------------------------------
 %% The SNMP encode/decode process
 %%--------------------------------------------------
-init_packet(Parent, SnmpMgr,
-	    AgentIp, UdpPort, TrapUdp,
-	    VsnHdr, Version, Dir, BufSz, DbgOptions) ->
+init_packet(
+  Parent,
+  SnmpMgr, AgentIp, UdpPort, TrapUdp, VsnHdr, Version, Dir, BufSz,
+  DbgOptions, IpFamily) ->
     put(sname, mgr_misc),
     init_debug(DbgOptions),
-    {ok, UdpId} = gen_udp:open(TrapUdp, [{recbuf,BufSz},{reuseaddr, true}]),
+    {ok, UdpId} =
+	gen_udp:open(TrapUdp, [{recbuf,BufSz}, {reuseaddr, true}, IpFamily]),
     put(msg_id, 1),
     proc_lib:init_ack(Parent, self()),
     init_usm(Version, Dir),

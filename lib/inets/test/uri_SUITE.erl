@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -46,8 +47,10 @@ all() ->
      userinfo,
      scheme,
      queries,
+     fragments,
      escaped,
-     hexed_query
+     hexed_query,
+     scheme_validation
     ].
 
 %%--------------------------------------------------------------------
@@ -105,6 +108,42 @@ queries(Config) when is_list(Config) ->
     {ok, {http,[],"localhost",8888,"/foobar.html","?foo=bar&foobar=42"}} =
 	http_uri:parse("http://localhost:8888/foobar.html?foo=bar&foobar=42").
 
+fragments(Config) when is_list(Config) ->
+    {ok, {http,[],"localhost",80,"/",""}} =
+        http_uri:parse("http://localhost#fragment"),
+    {ok, {http,[],"localhost",80,"/path",""}} =
+        http_uri:parse("http://localhost/path#fragment"),
+    {ok, {http,[],"localhost",80,"/","?query"}} =
+        http_uri:parse("http://localhost?query#fragment"),
+    {ok, {http,[],"localhost",80,"/path","?query"}} =
+        http_uri:parse("http://localhost/path?query#fragment"),
+    {ok, {http,[],"localhost",80,"/","","#fragment"}} =
+        http_uri:parse("http://localhost#fragment", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/path","","#fragment"}} =
+        http_uri:parse("http://localhost/path#fragment", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/","?query","#fragment"}} =
+        http_uri:parse("http://localhost?query#fragment", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/path","?query","#fragment"}} =
+        http_uri:parse("http://localhost/path?query#fragment",
+                       [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/","",""}} =
+        http_uri:parse("http://localhost", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/path","",""}} =
+        http_uri:parse("http://localhost/path", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/","?query",""}} =
+        http_uri:parse("http://localhost?query", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/path","?query",""}} =
+        http_uri:parse("http://localhost/path?query", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/","","#"}} =
+        http_uri:parse("http://localhost#", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/path","","#"}} =
+        http_uri:parse("http://localhost/path#", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/","?query","#"}} =
+        http_uri:parse("http://localhost?query#", [{fragment,true}]),
+    {ok, {http,[],"localhost",80,"/path","?query","#"}} =
+        http_uri:parse("http://localhost/path?query#", [{fragment,true}]),
+    ok.
+
 escaped(Config) when is_list(Config) ->
        {ok, {http,[],"www.somedomain.com",80,"/%2Eabc",[]}} =
 	http_uri:parse("http://www.somedomain.com/%2Eabc"),
@@ -136,6 +175,26 @@ hexed_query(Config) when is_list(Config) ->
     verify_uri(URI1, Verify1),
     verify_uri(URI2, Verify2),
     verify_uri(URI3, Verify3).
+
+scheme_validation(Config) when is_list(Config) ->
+    {ok, {http,[],"localhost",80,"/",""}} =
+	http_uri:parse("http://localhost#fragment"),
+
+    ValidationFun =
+	fun("http") -> valid;
+	   (_) -> {error, bad_scheme}
+	end,
+
+    {ok, {http,[],"localhost",80,"/",""}} =
+	http_uri:parse("http://localhost#fragment",
+		       [{scheme_validation_fun, ValidationFun}]),
+    {error, bad_scheme} =
+	http_uri:parse("https://localhost#fragment",
+		       [{scheme_validation_fun, ValidationFun}]),
+    %% non-fun scheme_validation_fun works as no option passed
+    {ok, {https,[],"localhost",443,"/",""}} =
+	http_uri:parse("https://localhost#fragment",
+		       [{scheme_validation_fun, none}]).
 
 
 %%--------------------------------------------------------------------

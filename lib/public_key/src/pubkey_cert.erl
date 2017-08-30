@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -28,8 +29,9 @@
  	 validate_issuer/4, validate_names/6,
 	 validate_extensions/4,
 	 normalize_general_name/1, is_self_signed/1,
-	 is_issuer/2, issuer_id/2, is_fixed_dh_cert/1,
-	 verify_data/1, verify_fun/4, select_extension/2, match_name/3,
+	 is_issuer/2, issuer_id/2, distribution_points/1, 
+	 is_fixed_dh_cert/1, verify_data/1, verify_fun/4, 
+	 select_extension/2, match_name/3,
 	 extensions_list/1, cert_auth_key_id/1, time_str_2_gregorian_sec/1]).
 
 -define(NULL, 0).
@@ -272,6 +274,16 @@ issuer_id(Otpcert, self) ->
     SerialNr = TBSCert#'OTPTBSCertificate'.serialNumber,
     {ok, {SerialNr, normalize_general_name(Issuer)}}.  
 
+distribution_points(Otpcert) ->
+    TBSCert = Otpcert#'OTPCertificate'.tbsCertificate,
+    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
+    case select_extension(?'id-ce-cRLDistributionPoints', Extensions) of
+	undefined ->
+	    [];
+	#'Extension'{extnValue = Value} ->
+	    Value
+    end.
+
 %%--------------------------------------------------------------------
 -spec is_fixed_dh_cert(#'OTPCertificate'{}) -> boolean().  
 %%
@@ -296,7 +308,9 @@ is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
 %% --------------------------------------------------------------------
 verify_fun(Otpcert, Result, UserState0, VerifyFun) ->
     case VerifyFun(Otpcert, Result, UserState0) of
-	{valid,UserState} ->
+	{valid, UserState} ->
+	    UserState;
+	{valid_peer, UserState} ->
 	    UserState;
 	{fail, Reason} ->
 	    case Reason of
@@ -319,6 +333,8 @@ verify_fun(Otpcert, Result, UserState0, VerifyFun) ->
 %%
 %% Description: Extracts a specific extension from a list of extensions.
 %%--------------------------------------------------------------------
+select_extension(_, asn1_NOVALUE) ->
+    undefined;
 select_extension(_, []) ->
     undefined;
 select_extension(Id, [#'Extension'{extnID = Id} = Extension | _]) ->
@@ -342,8 +358,11 @@ match_name(uniformResourceIdentifier, URI,  [PermittedName | Rest]) ->
 	incomplete ->
 	    false;
 	{_, _, Host, _, _} ->
-	    match_name(fun is_valid_host_or_domain/2, Host,
-		       PermittedName, Rest)
+	    PN = case split_uri(PermittedName) of
+		     {_, _, PNhost, _, _} -> PNhost;
+		     _X -> PermittedName
+		 end,
+	    match_name(fun is_valid_host_or_domain/2, Host, PN, Rest)
     end;
 
 match_name(emailAddress, Name, [PermittedName | Rest]) ->
@@ -427,7 +446,7 @@ extensions_list(Extensions) ->
     Extensions.
 
 extract_verify_data(OtpCert, DerCert) ->
-    {_, Signature} = OtpCert#'OTPCertificate'.signature,
+    Signature = OtpCert#'OTPCertificate'.signature,
     SigAlgRec = OtpCert#'OTPCertificate'.signatureAlgorithm,
     SigAlg = SigAlgRec#'SignatureAlgorithm'.algorithm,
     PlainText = encoded_tbs_cert(DerCert),
@@ -511,10 +530,10 @@ is_dir_name2(Value, Value) -> true;
 is_dir_name2({printableString, Value1}, {printableString, Value2}) ->
     string:to_lower(strip_spaces(Value1)) =:= 
 	string:to_lower(strip_spaces(Value2));
-is_dir_name2({utf8String, Value1}, String) ->  %% BUGBUG FIX UTF8 conv
-    is_dir_name2({printableString, binary_to_list(Value1)}, String);
-is_dir_name2(String, {utf8String, Value1}) ->  %% BUGBUG FIX UTF8 conv
-    is_dir_name2(String, {printableString, binary_to_list(Value1)});
+is_dir_name2({utf8String, Value1}, String) ->
+    is_dir_name2({printableString, unicode:characters_to_list(Value1)}, String);
+is_dir_name2(String, {utf8String, Value1}) ->
+    is_dir_name2(String, {printableString, unicode:characters_to_list(Value1)});
 is_dir_name2(_, _) ->
     false.
 
@@ -528,7 +547,9 @@ cert_auth_key_id(#'AuthorityKeyIdentifier'{authorityCertIssuer =
     {ok, {SerialNr, decode_general_name(AuthCertIssuer)}}.
 
 decode_general_name([{directoryName, Issuer}]) ->
-    normalize_general_name(Issuer).
+    normalize_general_name(Issuer);
+decode_general_name([{_, Issuer}]) ->
+    Issuer.
 
 %% Strip all leading and trailing spaces and make
 %% sure there is no double spaces in between. 

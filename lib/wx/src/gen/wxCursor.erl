@@ -1,23 +1,24 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcursor.html">wxCursor</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html">wxCursor</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxBitmap}
 %% </p>
@@ -42,13 +43,13 @@ parent_class(wxBitmap) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxCursor() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
 -spec new() -> wxCursor().
 new() ->
   wxe_util:construct(?wxCursor_new_0,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
 %% <br /> Also:<br />
 %% new(Image) -> wxCursor() when<br />
 %% 	Image::wxImage:wxImage().<br />
@@ -74,11 +75,11 @@ new(Bits,Width,Height)
  when is_binary(Bits),is_integer(Width),is_integer(Height) ->
   new(Bits,Width,Height, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
 -spec new(Bits, Width, Height, [Option]) -> wxCursor() when
 	Bits::binary(), Width::integer(), Height::integer(),
-	Option :: {hotSpotX, integer()}
-		 | {hotSpotY, integer()}.
+	Option :: {'hotSpotX', integer()}
+		 | {'hotSpotY', integer()}.
 new(Bits,Width,Height, Options)
  when is_binary(Bits),is_integer(Width),is_integer(Height),is_list(Options) ->
   wxe_util:send_bin(Bits),
@@ -89,7 +90,7 @@ new(Bits,Width,Height, Options)
   wxe_util:construct(?wxCursor_new_4,
   <<Width:32/?UI,Height:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcursor.html#wxcursorok">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcursor.html#wxcursorok">external documentation</a>.
 -spec ok(This) -> boolean() when
 	This::wxCursor().
 ok(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -98,7 +99,7 @@ ok(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxCursor()) -> ok.
+-spec destroy(This::wxCursor()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCursor),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

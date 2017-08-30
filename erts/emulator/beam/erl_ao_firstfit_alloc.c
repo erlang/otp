@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2003-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -34,10 +35,11 @@
  *              sub-tree ('max_sz'). By that we can start from root and keep
  *              left (for low addresses) while dismissing entire sub-trees with
  *              too small blocks.
- * AOFFCBF:
+ * Bestfit within carrier:
  *              The only difference for "bestfit within carrier" is the tree
  *              sorting order. Blocks within the same carrier are sorted
- *              wrt size instead of address. 
+ *              wrt size instead of address. The 'max_sz' field is maintained
+ *              in order to dismiss entire carriers with too small blocks. 
  *
  * Authors: 	Rickard Green/Sverker Eriksson
  */
@@ -67,6 +69,15 @@
 #  define LEFT_VISITED_FLG	(((Uint) 1) << 2)
 #  define RIGHT_VISITED_FLG	(((Uint) 1) << 3)
 #endif
+#ifdef DEBUG
+#  define IS_BF_FLG	        (((Uint) 1) << 4)
+#endif
+
+#define IS_TREE_NODE(N)		(((AOFF_RBTree_t *) (N))->flags & TREE_NODE_FLG)
+#define IS_LIST_ELEM(N)		(!IS_TREE_NODE(((AOFF_RBTree_t *) (N))))
+
+#define SET_TREE_NODE(N)	(((AOFF_RBTree_t *) (N))->flags |= TREE_NODE_FLG)
+#define SET_LIST_ELEM(N)	(((AOFF_RBTree_t *) (N))->flags &= ~TREE_NODE_FLG)
 
 #define IS_RED(N)		(((AOFF_RBTree_t *) (N)) \
 				 && ((AOFF_RBTree_t *) (N))->flags & RED_FLG)
@@ -74,9 +85,6 @@
 
 #define SET_RED(N)		(((AOFF_RBTree_t *) (N))->flags |= RED_FLG)
 #define SET_BLACK(N)		(((AOFF_RBTree_t *) (N))->flags &= ~RED_FLG)
-
-#undef ASSERT
-#define ASSERT ASSERT_EXPR
 
 #if 1
 #define RBT_ASSERT	ASSERT
@@ -98,6 +106,16 @@ struct AOFF_RBTree_t_ {
 };
 #define AOFF_BLK_SZ(B) MBC_FBLK_SZ(&(B)->hdr)
 
+/* BF block nodes keeps list of all with equal size
+ */
+typedef struct {
+    AOFF_RBTree_t t;
+    AOFF_RBTree_t *next;
+}AOFF_RBTreeList_t;
+
+#define LIST_NEXT(N) (((AOFF_RBTreeList_t*) (N))->next)
+#define LIST_PREV(N) (((AOFF_RBTreeList_t*) (N))->t.parent)
+
 typedef struct AOFF_Carrier_t_ AOFF_Carrier_t;
 
 struct AOFF_Carrier_t_ {
@@ -105,7 +123,7 @@ struct AOFF_Carrier_t_ {
     AOFF_RBTree_t rbt_node;     /* My node in the carrier tree */
     AOFF_RBTree_t* root;        /* Root of my block tree */
 };
-#define RBT_NODE_TO_MBC(PTR) ((AOFF_Carrier_t*)((char*)(PTR) - offsetof(AOFF_Carrier_t, rbt_node)))
+#define RBT_NODE_TO_MBC(PTR) ErtsContainerStruct((PTR), AOFF_Carrier_t, rbt_node)
 
 /* 
    To support carrier migration we keep two kinds of rb-trees:
@@ -119,11 +137,11 @@ struct AOFF_Carrier_t_ {
 
 #ifdef HARD_DEBUG
 #  define HARD_CHECK_IS_MEMBER(ROOT,NODE) rbt_assert_is_member(ROOT,NODE)
-#  define HARD_CHECK_TREE(CRR,BF,ROOT,SZ) check_tree(CRR, BF, ROOT, SZ)
-static AOFF_RBTree_t * check_tree(Carrier_t* within_crr, int bestfit, AOFF_RBTree_t* root, Uint);
+#  define HARD_CHECK_TREE(CRR,FLV,ROOT,SZ) check_tree(CRR, FLV, ROOT, SZ)
+static AOFF_RBTree_t * check_tree(Carrier_t* within_crr, enum AOFF_Flavor flavor, AOFF_RBTree_t* root, Uint);
 #else
 #  define HARD_CHECK_IS_MEMBER(ROOT,NODE)
-#  define HARD_CHECK_TREE(CRR,BF,ROOT,SZ)
+#  define HARD_CHECK_TREE(CRR,FLV,ROOT,SZ)
 #endif
 
 
@@ -161,25 +179,25 @@ static ERTS_INLINE void lower_max_size(AOFF_RBTree_t *node,
     else ASSERT(new_max == old_max);
 }
 
-static ERTS_INLINE SWord cmp_blocks(int bestfit,
+static ERTS_INLINE SWord cmp_blocks(enum AOFF_Flavor flavor,
 				    AOFF_RBTree_t* lhs, AOFF_RBTree_t* rhs)
 {
     ASSERT(lhs != rhs);
-    ASSERT(!bestfit || FBLK_TO_MBC(&lhs->hdr) == FBLK_TO_MBC(&rhs->hdr));
-    if (bestfit) {
+    ASSERT(flavor == AOFF_AOFF || FBLK_TO_MBC(&lhs->hdr) == FBLK_TO_MBC(&rhs->hdr));
+    if (flavor != AOFF_AOFF) {
 	SWord diff = (SWord)AOFF_BLK_SZ(lhs) - (SWord)AOFF_BLK_SZ(rhs);
-	if (diff) return diff;
+	if (diff || flavor == AOFF_BF) return diff;
     }
     return (char*)lhs - (char*)rhs;
 }
 
-static ERTS_INLINE SWord cmp_cand_blk(int bestfit,
+static ERTS_INLINE SWord cmp_cand_blk(enum AOFF_Flavor flavor,
 				      Block_t* cand_blk, AOFF_RBTree_t* rhs)
 {
-    if (bestfit) {
+    if (flavor != AOFF_AOFF) {
 	if (BLK_TO_MBC(cand_blk) == FBLK_TO_MBC(&rhs->hdr)) {
 	    SWord diff = (SWord)MBC_BLK_SZ(cand_blk) - (SWord)MBC_FBLK_SZ(&rhs->hdr);
-	    if (diff) return diff;
+	    if (diff || flavor == AOFF_BF) return diff;
 	}
     }
     return (char*)cand_blk - (char*)rhs;
@@ -191,14 +209,16 @@ static Block_t*	aoff_get_free_block(Allctr_t *, Uint, Block_t *, Uint);
 static void aoff_link_free_block(Allctr_t *, Block_t*);
 static void aoff_unlink_free_block(Allctr_t *allctr, Block_t *del);
 static void aoff_creating_mbc(Allctr_t*, Carrier_t*);
+#ifdef DEBUG
 static void aoff_destroying_mbc(Allctr_t*, Carrier_t*);
+#endif
 static void aoff_add_mbc(Allctr_t*, Carrier_t*);
 static void aoff_remove_mbc(Allctr_t*, Carrier_t*);
 static UWord aoff_largest_fblk_in_mbc(Allctr_t*, Carrier_t*);
 
 /* Generic tree functions used by both carrier and block trees. */
 static void rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del);
-static void rbt_insert(int bestfit, AOFF_RBTree_t** root, AOFF_RBTree_t* blk);
+static void rbt_insert(enum AOFF_Flavor flavor, AOFF_RBTree_t** root, AOFF_RBTree_t* blk);
 static AOFF_RBTree_t* rbt_search(AOFF_RBTree_t* root, Uint size);
 #ifdef HARD_DEBUG
 static int rbt_assert_is_member(AOFF_RBTree_t* root, AOFF_RBTree_t* node);
@@ -234,26 +254,30 @@ erts_aoffalc_start(AOFFAllctr_t *alc,
 
     sys_memcpy((void *) alc, (void *) &zero.allctr, sizeof(AOFFAllctr_t));
 
-    alc->bf_within_carrier              = aoffinit->bf_within_carrier;
+    alc->flavor                         = aoffinit->flavor;
     allctr->mbc_header_size		= sizeof(AOFF_Carrier_t);
     allctr->min_mbc_size		= MIN_MBC_SZ;
     allctr->min_mbc_first_free_size	= MIN_MBC_FIRST_FREE_SZ;
-    allctr->min_block_size		= sizeof(AOFF_RBTree_t);
+    allctr->min_block_size = (aoffinit->flavor == AOFF_BF ?
+			      sizeof(AOFF_RBTreeList_t):sizeof(AOFF_RBTree_t));
 
-    allctr->vsn_str			= aoffinit->bf_within_carrier ?
-	ERTS_ALC_AOFF_CBF_ALLOC_VSN_STR : ERTS_ALC_AOFF_ALLOC_VSN_STR;
+    allctr->vsn_str			= ERTS_ALC_AOFF_ALLOC_VSN_STR;
 
 
     /* Callback functions */
 
     allctr->get_free_block		= aoff_get_free_block;
     allctr->link_free_block		= aoff_link_free_block;
-    allctr->unlink_free_block	        = aoff_unlink_free_block;
+    allctr->unlink_free_block           = aoff_unlink_free_block;
     allctr->info_options		= info_options;
 
     allctr->get_next_mbc_size		= NULL;
     allctr->creating_mbc		= aoff_creating_mbc;
+#ifdef DEBUG
     allctr->destroying_mbc		= aoff_destroying_mbc;
+#else
+    allctr->destroying_mbc		= NULL;
+#endif
     allctr->add_mbc                     = aoff_add_mbc;
     allctr->remove_mbc                  = aoff_remove_mbc;
     allctr->largest_fblk_in_mbc         = aoff_largest_fblk_in_mbc;
@@ -359,9 +383,7 @@ replace(AOFF_RBTree_t **root, AOFF_RBTree_t *x, AOFF_RBTree_t *y)
     y->parent	= x->parent;
     y->right	= x->right;
     y->left	= x->left;
-
-    y->max_sz = x->max_sz;
-    lower_max_size(y, NULL);
+    y->max_sz   = x->max_sz;
 }
 
 static void
@@ -458,23 +480,47 @@ tree_insert_fixup(AOFF_RBTree_t** root, AOFF_RBTree_t *blk)
 }
 
 static void
-aoff_unlink_free_block(Allctr_t *allctr, Block_t *del)
+aoff_unlink_free_block(Allctr_t *allctr, Block_t *blk)
 {
-#ifdef HARD_DEBUG
     AOFFAllctr_t* alc = (AOFFAllctr_t*)allctr;
-#endif
-    AOFF_Carrier_t *crr = (AOFF_Carrier_t*) FBLK_TO_MBC(del);
+    AOFF_RBTree_t* del = (AOFF_RBTree_t*)blk;
+    AOFF_Carrier_t *crr = (AOFF_Carrier_t*) FBLK_TO_MBC(&del->hdr);
 
     ASSERT(crr->rbt_node.hdr.bhdr == crr->root->max_sz);
-    HARD_CHECK_IS_MEMBER(alc->mbc_root, &crr->rbt_node);
-    HARD_CHECK_TREE(&crr->crr, alc->bf_within_carrier, crr->root, 0);
+    HARD_CHECK_TREE(&crr->crr, alc->flavor, crr->root, 0);
+
+    if (alc->flavor == AOFF_BF) {
+	ASSERT(del->flags & IS_BF_FLG);
+	if (IS_LIST_ELEM(del)) {
+	    /* Remove from list */
+	    ASSERT(LIST_PREV(del));
+	    ASSERT(LIST_PREV(del)->flags & IS_BF_FLG);
+	    LIST_NEXT(LIST_PREV(del)) = LIST_NEXT(del);
+	    if (LIST_NEXT(del)) {
+		ASSERT(LIST_NEXT(del)->flags & IS_BF_FLG);
+		LIST_PREV(LIST_NEXT(del)) = LIST_PREV(del);
+	    }
+	    return;
+	}
+	else if (LIST_NEXT(del)) {
+	    /* Replace tree node by next element in list... */
+	    
+	    ASSERT(AOFF_BLK_SZ(LIST_NEXT(del)) == AOFF_BLK_SZ(del));
+	    ASSERT(IS_LIST_ELEM(LIST_NEXT(del)));
+	    
+	    replace(&crr->root, (AOFF_RBTree_t*)del, LIST_NEXT(del));
+	    
+	    HARD_CHECK_TREE(&crr->crr, alc->flavor, crr->root, 0);
+	    return;
+	}
+    }
 
     rbt_delete(&crr->root, (AOFF_RBTree_t*)del);
 
-    HARD_CHECK_TREE(&crr->crr, alc->bf_within_carrier, crr->root, 0);
+    HARD_CHECK_TREE(&crr->crr, alc->flavor, crr->root, 0);
 
-   /* Update the carrier tree with a potentially new (lower) max_sz
-    */    
+    /* Update the carrier tree with a potentially new (lower) max_sz
+     */    
     if (crr->root) {
 	if (crr->rbt_node.hdr.bhdr == crr->root->max_sz) {
 	    return;
@@ -487,6 +533,7 @@ aoff_unlink_free_block(Allctr_t *allctr, Block_t *del)
     }
     lower_max_size(&crr->rbt_node, NULL);
 }
+
 
 static void
 rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del)
@@ -542,7 +589,9 @@ rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del)
     }
     if (y != z) {
 	/* We spliced out the successor of z; replace z by the successor */
+	ASSERT(z != &null_x);
 	replace(root, z, y);
+	lower_max_size(y, NULL);
     }
 
     if (spliced_is_black) {
@@ -666,12 +715,11 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block)
 
     ASSERT(allctr == ERTS_ALC_CARRIER_TO_ALLCTR(&blk_crr->crr));
     ASSERT(blk_crr->rbt_node.hdr.bhdr == (blk_crr->root ? blk_crr->root->max_sz : 0));
-    HARD_CHECK_IS_MEMBER(alc->mbc_root, &blk_crr->rbt_node);
-    HARD_CHECK_TREE(&blk_crr->crr, alc->bf_within_carrier, blk_crr->root, 0);
+    HARD_CHECK_TREE(&blk_crr->crr, alc->flavor, blk_crr->root, 0);
 
-    rbt_insert(alc->bf_within_carrier, &blk_crr->root, blk);
+    rbt_insert(alc->flavor, &blk_crr->root, blk);
 
-    /* Update the carrier tree with a potential new (larger) max_sz
+    /* Update the carrier tree with a potentially new (larger) max_sz
     */
     crr_node = &blk_crr->rbt_node;
     if (blk_sz > crr_node->hdr.bhdr) {
@@ -683,15 +731,19 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block)
 	    if (!crr_node) break;
 	}
     }
-    HARD_CHECK_TREE(&blk_crr->crr, alc->bf_within_carrier, blk_crr->root, 0);
+    HARD_CHECK_TREE(&blk_crr->crr, alc->flavor, blk_crr->root, 0);
 }
 
 static void
-rbt_insert(int bestfit, AOFF_RBTree_t** root, AOFF_RBTree_t* blk)
+rbt_insert(enum AOFF_Flavor flavor, AOFF_RBTree_t** root, AOFF_RBTree_t* blk)
 {
     Uint blk_sz = AOFF_BLK_SZ(blk);
 
-    blk->flags	= 0;
+#ifdef DEBUG
+    blk->flags  = (flavor == AOFF_BF) ? IS_BF_FLG : 0; 
+#else
+    blk->flags  = 0; 
+#endif
     blk->left	= NULL;
     blk->right	= NULL;
     blk->max_sz = blk_sz;
@@ -704,10 +756,12 @@ rbt_insert(int bestfit, AOFF_RBTree_t** root, AOFF_RBTree_t* blk)
     else {
 	AOFF_RBTree_t *x = *root;
 	while (1) {
+	    SWord diff; 
 	    if (x->max_sz < blk_sz) {
 		x->max_sz = blk_sz;
 	    }
-	    if (cmp_blocks(bestfit, blk, x) < 0) {
+	    diff = cmp_blocks(flavor, blk, x);
+	    if (diff < 0) {
 		if (!x->left) {
 		    blk->parent = x;
 		    x->left = blk;
@@ -715,13 +769,25 @@ rbt_insert(int bestfit, AOFF_RBTree_t** root, AOFF_RBTree_t* blk)
 		}
 		x = x->left;
 	    }
-	    else {
+	    else if (diff > 0) {
 		if (!x->right) {
 		    blk->parent = x;
 		    x->right = blk;
 		    break;
 		}
 		x = x->right;
+	    }
+	    else {
+		ASSERT(flavor == AOFF_BF);
+		ASSERT(blk->flags & IS_BF_FLG);			    
+		ASSERT(x->flags & IS_BF_FLG);			    
+		SET_LIST_ELEM(blk);
+		LIST_NEXT(blk) = LIST_NEXT(x);
+		LIST_PREV(blk) = x;
+		if (LIST_NEXT(x))
+		    LIST_PREV(LIST_NEXT(x)) = blk;
+		LIST_NEXT(x) = blk;
+		return;
 	    }
 	}
 
@@ -731,6 +797,10 @@ rbt_insert(int bestfit, AOFF_RBTree_t** root, AOFF_RBTree_t* blk)
 	SET_RED(blk);
 	if (IS_RED(blk->parent))
 	    tree_insert_fixup(root, blk);
+    }
+    if (flavor == AOFF_BF) {
+	SET_TREE_NODE(blk);
+	LIST_NEXT(blk) = NULL;
     }
 }
 
@@ -780,7 +850,7 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
     /* Get block within carrier tree
      */
 #ifdef HARD_DEBUG
-    dbg_blk = HARD_CHECK_TREE(&crr->crr, alc->bf_within_carrier, crr->root, size);
+    dbg_blk = HARD_CHECK_TREE(&crr->crr, alc->flavor, crr->root, size);
 #endif
 
     blk = rbt_search(crr->root, size);
@@ -793,7 +863,7 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
     if (!blk)
 	return NULL;
 
-    if (cand_blk && cmp_cand_blk(alc->bf_within_carrier, cand_blk, blk) < 0) {
+    if (cand_blk && cmp_cand_blk(alc->flavor, cand_blk, blk) < 0) {
 	return NULL; /* cand_blk was better */
     }
 
@@ -813,7 +883,7 @@ static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier)
     /* Link carrier in address order tree
      */
     crr->rbt_node.hdr.bhdr = 0;
-    rbt_insert(0, root, &crr->rbt_node);
+    rbt_insert(AOFF_AOFF, root, &crr->rbt_node);
 
     /* aoff_link_free_block will add free block later */
     crr->root = NULL;
@@ -821,17 +891,18 @@ static void aoff_creating_mbc(Allctr_t *allctr, Carrier_t *carrier)
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 }
 
+#define IS_CRR_IN_TREE(CRR,ROOT) \
+    ((CRR)->rbt_node.parent || (ROOT) == &(CRR)->rbt_node)
+
+#ifdef DEBUG
 static void aoff_destroying_mbc(Allctr_t *allctr, Carrier_t *carrier)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
-    AOFF_RBTree_t *root = alc->mbc_root;
 
-    if (crr->rbt_node.parent || &crr->rbt_node == root) {
-	aoff_remove_mbc(allctr, carrier);
-    }
-    /*else already removed */
+    ASSERT(!IS_CRR_IN_TREE(crr, alc->mbc_root));
 }
+#endif
 
 static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier)
 {
@@ -839,11 +910,12 @@ static void aoff_add_mbc(Allctr_t *allctr, Carrier_t *carrier)
     AOFF_Carrier_t *crr = (AOFF_Carrier_t*) carrier;
     AOFF_RBTree_t **root = &alc->mbc_root;
 
+    ASSERT(!IS_CRR_IN_TREE(crr, *root));
     HARD_CHECK_TREE(NULL, 0, *root, 0);   
 
     /* Link carrier in address order tree
      */
-    rbt_insert(0, root, &crr->rbt_node);
+    rbt_insert(AOFF_AOFF, root, &crr->rbt_node);
 
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 }
@@ -855,6 +927,10 @@ static void aoff_remove_mbc(Allctr_t *allctr, Carrier_t *carrier)
     AOFF_RBTree_t **root = &alc->mbc_root;
 
     ASSERT(allctr == ERTS_ALC_CARRIER_TO_ALLCTR(carrier));
+
+    if (!IS_CRR_IN_TREE(crr,*root))
+        return;
+
     HARD_CHECK_TREE(NULL, 0, *root, 0);
 
     rbt_delete(root, &crr->rbt_node);
@@ -883,6 +959,7 @@ static struct {
     Eterm as;
     Eterm aoff;
     Eterm aoffcaobf;
+    Eterm aoffcbf;
 #ifdef DEBUG
     Eterm end_of_atoms;
 #endif
@@ -912,6 +989,7 @@ init_atoms(void)
     AM_INIT(as);
     AM_INIT(aoff);
     AM_INIT(aoffcaobf);
+    AM_INIT(aoffcbf);
 
 #ifdef DEBUG
     for (atom = (Eterm *) &am; atom < &am.end_of_atoms; atom++) {
@@ -943,24 +1021,25 @@ info_options(Allctr_t *allctr,
 {
     AOFFAllctr_t* alc = (AOFFAllctr_t*) allctr;
     Eterm res = THE_NON_VALUE;
+    const char* flavor_str[3] = {"aoff", "aoffcaobf", "aoffcbf"};
+    Eterm flavor_atom[3] = {am.aoff, am.aoffcaobf, am.aoffcbf};
 
     if (print_to_p) {
 	erts_print(*print_to_p,
 		   print_to_arg,
 		   "%sas: %s\n",
 		   prefix,
-		   alc->bf_within_carrier ? "aoffcaobf" : "aoff");
+		   flavor_str[alc->flavor]);
     }
 
     if (hpp || szp) {
 	
 	if (!atoms_initialized)
-	    erl_exit(1, "%s:%d: Internal error: Atoms not initialized",
+	    erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error: Atoms not initialized",
 		     __FILE__, __LINE__);;
 
 	res = NIL;
-	add_2tup(hpp, szp, &res, am.as,
-		 alc->bf_within_carrier ? am.aoffcaobf : am.aoff);
+	add_2tup(hpp, szp, &res, am.as, flavor_atom[alc->flavor]);
     }
 
     return res;
@@ -978,6 +1057,7 @@ UWord
 erts_aoffalc_test(UWord op, UWord a1, UWord a2)
 {
     switch (op) {
+    case 0x500: return (UWord) ((AOFFAllctr_t *) a1)->flavor == AOFF_AOBF;
     case 0x501: {
 	AOFF_RBTree_t *node = ((AOFFAllctr_t *) a1)->mbc_root; 
 	Uint size = (Uint) a2;
@@ -987,10 +1067,13 @@ erts_aoffalc_test(UWord op, UWord a1, UWord a2)
     case 0x502:	return (UWord) ((AOFF_RBTree_t *) a1)->parent;
     case 0x503:	return (UWord) ((AOFF_RBTree_t *) a1)->left;
     case 0x504:	return (UWord) ((AOFF_RBTree_t *) a1)->right;
+    case 0x505:	return (UWord) LIST_NEXT(a1);
     case 0x506:	return (UWord) IS_BLACK((AOFF_RBTree_t *) a1);
+    case 0x507:	return (UWord) IS_TREE_NODE((AOFF_RBTree_t *) a1);
     case 0x508: return (UWord) 0; /* IS_BF_ALGO */
     case 0x509: return (UWord) ((AOFF_RBTree_t *) a1)->max_sz;
-    case 0x50a: return (UWord) ((AOFFAllctr_t *) a1)->bf_within_carrier;
+    case 0x50a: return (UWord) ((AOFFAllctr_t *) a1)->flavor == AOFF_BF;
+    case 0x50b:	return (UWord) LIST_PREV(a1);
     default:	ASSERT(0); return ~((UWord) 0);
     }
 }
@@ -1049,7 +1132,7 @@ static void print_tree(AOFF_RBTree_t*);
  */
 
 static AOFF_RBTree_t *
-check_tree(Carrier_t* within_crr, int bestfit, AOFF_RBTree_t* root, Uint size)
+check_tree(Carrier_t* within_crr, enum AOFF_Flavor flavor, AOFF_RBTree_t* root, Uint size)
 {
     AOFF_RBTree_t *res = NULL;
     Sint blacks;
@@ -1061,6 +1144,7 @@ check_tree(Carrier_t* within_crr, int bestfit, AOFF_RBTree_t* root, Uint size)
 #ifdef PRINT_TREE
     print_tree(root);
 #endif
+    ASSERT(within_crr || flavor == AOFF_AOFF);
 
     if (!root)
 	return res;
@@ -1116,6 +1200,20 @@ check_tree(Carrier_t* within_crr, int bestfit, AOFF_RBTree_t* root, Uint size)
 	    ASSERT(crr == within_crr);
 	    ASSERT((char*)x > (char*)crr);
 	    ASSERT(((char*)x + AOFF_BLK_SZ(x)) <= ((char*)crr + CARRIER_SZ(crr)));
+
+	}
+	if (flavor == AOFF_BF) {
+	    AOFF_RBTree_t* y = x;
+	    AOFF_RBTree_t* nxt = LIST_NEXT(y);
+	    ASSERT(IS_TREE_NODE(x));
+	    while (nxt) {
+		ASSERT(IS_LIST_ELEM(nxt));
+		ASSERT(AOFF_BLK_SZ(nxt) == AOFF_BLK_SZ(x));
+		ASSERT(FBLK_TO_MBC(&nxt->hdr) == within_crr);
+		ASSERT(LIST_PREV(nxt) == y);
+		y = nxt;
+		nxt = LIST_NEXT(nxt);
+	    }
 	}
 
 	if (IS_RED(x)) {
@@ -1127,13 +1225,13 @@ check_tree(Carrier_t* within_crr, int bestfit, AOFF_RBTree_t* root, Uint size)
 
 	if (x->left) {
 	    ASSERT(x->left->parent == x);
-	    ASSERT(cmp_blocks(bestfit, x->left, x) < 0);
+	    ASSERT(cmp_blocks(flavor, x->left, x) < 0);
 	    ASSERT(x->left->max_sz <= x->max_sz);	    
 	}
 
 	if (x->right) {
 	    ASSERT(x->right->parent == x);
-	    ASSERT(cmp_blocks(bestfit, x->right, x) > 0);
+	    ASSERT(cmp_blocks(flavor, x->right, x) > 0);
 	    ASSERT(x->right->max_sz <= x->max_sz);	    
 	}
 	ASSERT(x->max_sz >= AOFF_BLK_SZ(x));
@@ -1142,7 +1240,7 @@ check_tree(Carrier_t* within_crr, int bestfit, AOFF_RBTree_t* root, Uint size)
 	       || x->max_sz == (x->right ? x->right->max_sz : 0));
 
 	if (size && AOFF_BLK_SZ(x) >= size) {
-	    if (!res || cmp_blocks(bestfit, x, res) < 0) {
+	    if (!res || cmp_blocks(flavor, x, res) < 0) {
 		res = x;
 	    }
 	}

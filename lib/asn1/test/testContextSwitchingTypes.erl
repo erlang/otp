@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -21,34 +22,34 @@
 
 -export([test/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 test(Config) ->
-    ?line ValT = 'ContextSwitchingTypes':'val1-T'(),
-    ?line {ok,Bytes1} =
-	asn1_wrapper:encode('ContextSwitchingTypes','T',ValT),
-    ?line {ok,Result1} = 
-	asn1_wrapper:decode('ContextSwitchingTypes','T',Bytes1),
-    ?line ok = check_EXTERNAL(Result1),
-    ?line {ok,ValT2} = asn1ct:value('ContextSwitchingTypes','T',
-                                    [{i, ?config(case_dir, Config)}]),
-    ?line {ok,Bytes1_2} =
-	asn1_wrapper:encode('ContextSwitchingTypes','T',ValT2),
-    ?line {ok,Result1_2} = 
-	asn1_wrapper:decode('ContextSwitchingTypes','T',Bytes1_2),
-    ?line ok = check_EXTERNAL(Result1_2),
+    ValT_1 = 'ContextSwitchingTypes':'val1-T'(),
+    check_EXTERNAL(enc_dec('T', ValT_1)),
 
-    ?line ValEP = 'ContextSwitchingTypes':'val1-EP'(),
-    ?line {ok,Bytes2} =
-	asn1_wrapper:encode('ContextSwitchingTypes','EP',ValEP),
-    ?line {ok,_Result2} = 
-	asn1_wrapper:decode('ContextSwitchingTypes','EP',Bytes2),
+    ValT_2 = 'ContextSwitchingTypes':'val2-T'(),
+    check_EXTERNAL(enc_dec('T', ValT_2)),
 
-    ?line ValCS = 'ContextSwitchingTypes':'val1-CS'(),
-    ?line {ok,Bytes3} =
-	asn1_wrapper:encode('ContextSwitchingTypes','CS',ValCS),
-    ?line {ok,_Result3} = 
-	asn1_wrapper:decode('ContextSwitchingTypes','CS',Bytes3).
+    ValT_3 = 'ContextSwitchingTypes':'val3-T'(),
+    check_EXTERNAL(enc_dec('T', ValT_3)),
+
+    ValT_4 = 'ContextSwitchingTypes':'val4-T'(),
+    check_EXTERNAL(enc_dec('T', ValT_4)),
+
+    {ok,ValT2} = asn1ct:value('ContextSwitchingTypes', 'T',
+			      [{i,proplists:get_value(case_dir, Config)}]),
+    io:format("ValT2 ~p~n",[ValT2]),
+    check_EXTERNAL(enc_dec('T', ValT2)),
+
+    ValEP = 'ContextSwitchingTypes':'val1-EP'(),
+    ValEPDec = enc_dec('EP', ValEP),
+    io:format("~p\n~p\n", [ValEP,ValEPDec]),
+
+    ValCS = 'ContextSwitchingTypes':'val1-CS'(),
+    ValCSDec = enc_dec('EP', ValCS),
+    io:format("~p\n~p\n", [ValCS,ValCSDec]),
+    ok.
 
 
 check_EXTERNAL({'EXTERNAL',Identif,DVD,DV})->
@@ -85,3 +86,9 @@ check_object_identifier(Tuple) when is_tuple(Tuple) ->
 	       not is_integer(E)] of
 	[] -> ok
     end.
+
+enc_dec(T, V0) ->
+    M = 'ContextSwitchingTypes',
+    {ok,Enc} = M:encode(T, V0),
+    {ok,V} = M:decode(T, Enc),
+    V.

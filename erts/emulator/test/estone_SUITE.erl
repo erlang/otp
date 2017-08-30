@@ -1,26 +1,26 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 
 -module(estone_SUITE).
 %% Test functions
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,estone/1,estone_bench/1]).
--export([init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, groups/0,
+	 estone/1, estone_bench/1]).
 
 %% Internal exports for EStone tests
 -export([lists/1,
@@ -45,11 +45,8 @@
 	 run_micro/3,p1/1,ppp/3,macro/2,micros/0]).
 
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
-
-%% Test suite defines
--define(default_timeout, ?t:minutes(10)).
 
 %% EStone defines
 -define(TOTAL, (3000 * 1000 * 100)).   %% 300 secs
@@ -65,17 +62,9 @@
 	 str}).    %% Header string
 
 
-
-
-init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
-    ok.
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() -> 
     [estone].
@@ -83,34 +72,18 @@ all() ->
 groups() -> 
     [{estone_bench, [{repeat,50}],[estone_bench]}].
 
-init_per_suite(Config) ->
-    Config.
 
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-estone(suite) ->
-    [];
-estone(doc) ->
-    ["EStone Test"];
+%% EStone Test
 estone(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line Mhz=get_cpu_speed(os:type(),DataDir),
-    ?line L = ?MODULE:macro(?MODULE:micros(),DataDir),
-    ?line {Total, Stones} = sum_micros(L, 0, 0),
-    ?line pp(Mhz,Total,Stones,L),
-    ?line {comment,Mhz ++ " MHz, " ++ 
-	   integer_to_list(Stones) ++ " ESTONES"}.
+    DataDir = proplists:get_value(data_dir,Config),
+    Mhz=get_cpu_speed(os:type(),DataDir),
+    L = ?MODULE:macro(?MODULE:micros(),DataDir),
+    {Total, Stones} = sum_micros(L, 0, 0),
+    pp(Mhz,Total,Stones,L),
+    {comment,Mhz ++ " MHz, " ++ integer_to_list(Stones) ++ " ESTONES"}.
 
 estone_bench(Config) ->
-    DataDir = ?config(data_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
     L = ?MODULE:macro(?MODULE:micros(),DataDir),
     [ct_event:notify(
        #event{name = benchmark_data, 
@@ -339,7 +312,6 @@ micros() ->
     ].
 
 macro(Ms,DataDir) ->
-    erlang:now(),  %% compensate for old 4.3 firsttime clock bug :-(
     statistics(reductions),
     statistics(runtime),
     lists(500),  %% fixup cache on first round
@@ -369,10 +341,9 @@ run_micro(Top, M, DataDir) ->
 apply_micro(M) ->
     {GC0, Words0, _} = statistics(garbage_collection),
     statistics(reductions),
-    Before = erlang:now(),
-
+    Before = monotonic_time(),
     Compensate = apply_micro(M#micro.function, M#micro.loops),
-    After = erlang:now(),
+    After = monotonic_time(),
     {GC1, Words1, _} = statistics(garbage_collection),
     {_, Reds} = statistics(reductions),
     Elapsed = subtr(Before, After),
@@ -383,18 +354,19 @@ apply_micro(M) ->
      {weight_percentage, M#micro.weight},
      {loops, M#micro.loops},
      {microsecs,MicroSecs},
-     {estones, (M#micro.weight * M#micro.weight * ?STONEFACTOR) div MicroSecs},
+     {estones, (M#micro.weight * M#micro.weight * ?STONEFACTOR) div max(1,MicroSecs)},
      {gcs, GC1 - GC0},
      {kilo_word_reclaimed, (Words1 - Words0) div 1000},
      {kilo_reductions, Reds div 1000},
-     {gc_intensity, gci(Elapsed, GC1 - GC0, Words1 - Words0)}].
+     {gc_intensity, gci(max(1,Elapsed), GC1 - GC0, Words1 - Words0)}].
 
+monotonic_time() ->
+    try erlang:monotonic_time() catch error:undef -> erlang:now() end.
 
-subtr(Before, After) ->
-    (element(1,After)*1000000000000
-     +element(2,After)*1000000+element(3,After)) -
-        (element(1,Before)*1000000000000
-         +element(2,Before)*1000000+element(3,Before)).
+subtr(Before, After) when is_integer(Before), is_integer(After) ->
+    erlang:convert_time_unit(After-Before, native, micro_seconds);
+subtr({_,_,_}=Before, {_,_,_}=After) ->
+    timer:now_diff(After, Before).
 
 gci(Micros, Words, Gcs) ->
     ((256 * Gcs) / Micros) + (Words / Micros).
@@ -633,10 +605,10 @@ tup_trav(T, P, End) ->
 %% Port I/O
 port_io(I) ->
     EstoneCat = get(estone_cat),
-    Before = erlang:now(),
+    Before = monotonic_time(),
     Pps = make_port_pids(5, I, EstoneCat),  %% 5 ports
     send_procs(Pps, go),
-    After = erlang:now(),
+    After = monotonic_time(),
     wait_for_pids(Pps),
     subtr(Before, After).
 
@@ -854,10 +826,10 @@ handle_call(_From, State, [abc]) ->
 
 %% Binary handling, creating, manipulating and sending binaries
 binary_h(I) ->
-    Before = erlang:now(),
+    Before = monotonic_time(),
     P = spawn(?MODULE, echo, [self()]),
     B = list_to_binary(lists:duplicate(2000, 5)),
-    After = erlang:now(),
+    After = monotonic_time(),
     Compensate = subtr(Before, After),
     binary_h_2(I, P, B),
     Compensate.
@@ -1136,4 +1108,3 @@ wait_for_pids([P|Tail]) ->
 
 send_procs([P|Tail], Msg) -> P ! Msg, send_procs(Tail, Msg);
 send_procs([], _) -> ok.
-			     

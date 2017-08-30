@@ -52,7 +52,7 @@
 ;;
 ;; To set the variable you can use the following command:
 ;;     M-x set-variable RET debug-on-error RET t RET
-
+
 ;;; Code:
 
 ;;

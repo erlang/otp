@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -73,7 +74,6 @@
 start() -> gen_server:start({local, ?MODULE}, ?MODULE, [], []).
 stop()  -> gen_server:call(?MODULE, stop, infinity).
 
-
 analyze() ->
     analyze(procs).
 
@@ -111,7 +111,7 @@ profile(Rootset, M, F, A, Pattern) when is_list(Rootset), is_atom(M), is_atom(F)
 
 %% Returns when M:F/A has terminated
 profile(Rootset, M, F, A, Pattern, Options) ->
-    start(),
+    ok = start_internal(),
     gen_server:call(?MODULE, {profile_start, Rootset, Pattern, {M,F,A}, Options}, infinity).
 
 dump() -> 
@@ -126,7 +126,7 @@ start_profiling(Rootset) ->
 start_profiling(Rootset, Pattern) ->
     start_profiling(Rootset, Pattern, ?default_options).
 start_profiling(Rootset, Pattern, Options) ->
-    start(),
+    ok = start_internal(),
     gen_server:call(?MODULE, {profile_start, Rootset, Pattern, undefined, Options}, infinity).
 
 stop_profiling() ->
@@ -187,7 +187,7 @@ handle_call({profile_start, Rootset, Pattern, {M,F,A}, Opts}, From, #state{fd = 
     case set_process_trace(true, [Pid|Rootset], Topts) of
 	true ->
 	    ok = set_pattern_trace(true, Pattern),
-	    T0 = now(),
+	    T0 = erlang:timestamp(),
 	    ok = execute_profiling(Pid),
 	    {noreply, #state{
 		    profiling  = true,
@@ -211,7 +211,7 @@ handle_call({profile_start, Rootset, Pattern, undefined, Opts}, From, #state{ fd
 
     case set_process_trace(true, Rootset, Topts) of
 	true ->
-	    T0 = now(),
+	    T0 = erlang:timestamp(),
 	    ok = set_pattern_trace(true, Pattern),
 	    {reply, profiling, #state{
 		    profiling  = true,
@@ -250,9 +250,9 @@ handle_call({logfile, File}, _From, #state{ fd = OldFd } = S) ->
 	{ok, Fd} ->
 	    case OldFd of
 		undefined -> ok;
-		OldFd -> file:close(OldFd)
+		OldFd -> ok = file:close(OldFd)
 	    end,
-	    {reply, ok, S#state{ fd = Fd}};
+	    {reply, ok, S#state{fd = Fd}};
 	Error ->
 	    {reply, Error, S}
     end;
@@ -485,20 +485,22 @@ string_bp_mfa([{Mfa, {Count, Time}}|Mfas], Tus, {MfaW, CountW, PercW, TimeW, TpC
 		erlang:max(TpCW,  length(Stpc))
 	    }, [[Smfa, Scount, Sperc, Stime, Stpc] | Strings]).
 
-print_bp_mfa(Mfas, {_Tn, Tus}, Fd, Opts) ->
+print_bp_mfa(Mfas, {Tn, Tus}, Fd, Opts) ->
     Fmfas = filter_mfa(sort_mfa(Mfas, proplists:get_value(sort, Opts)), proplists:get_value(filter, Opts)),
     {{MfaW, CountW, PercW, TimeW, TpCW}, Strs} = string_bp_mfa(Fmfas, Tus),
-    Ws = {
-	erlang:max(length("FUNCTION"), MfaW),
-	erlang:max(length("CALLS"), CountW),
-	erlang:max(length("  %"), PercW),
-	erlang:max(length("TIME"), TimeW),
-	erlang:max(length("uS / CALLS"), TpCW)
-    },
-    format(Fd, Ws, ["FUNCTION", "CALLS", "  %", "TIME", "uS / CALLS"]),
-    format(Fd, Ws, ["--------", "-----", "---", "----", "----------"]),
-
+    TnStr    = s(Tn),
+    TusStr   = s(Tus),
+    TuspcStr = s("~.2f", [divide(Tus,Tn)]),
+    Ws = {erlang:max(length("FUNCTION"), MfaW),
+          lists:max([length("CALLS"), CountW, length(TnStr)]),
+          erlang:max(length("      %"), PercW),
+          lists:max([length("TIME"), TimeW, length(TusStr)]),
+          lists:max([length("uS / CALLS"), TpCW, length(TuspcStr)])},
+    format(Fd, Ws, ["FUNCTION", "CALLS", "      %", "TIME", "uS / CALLS"]),
+    format(Fd, Ws, ["--------", "-----", "-------", "----", "----------"]),
     lists:foreach(fun (String) -> format(Fd, Ws, String) end, Strs),
+    format(Fd, Ws, [lists:duplicate(N,$-)||N <- tuple_to_list(Ws)]),
+    format(Fd, Ws, ["Total:", TnStr, "100.00%", TusStr, TuspcStr]),
     ok.
 
 s({M,F,A}) -> s("~w:~w/~w",[M,F,A]);
@@ -518,3 +520,10 @@ format(Fd, Format, Strings) ->
 
 divide(_,0) -> 0.0;
 divide(T,N) -> T/N.
+
+start_internal() ->
+    case start() of
+        {ok, _} -> ok;
+        {error, {already_started,_}} -> ok;
+        Error -> Error
+    end.

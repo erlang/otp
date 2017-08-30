@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -246,7 +247,8 @@ test_events(override_with_all) ->
       {?eh,tc_done,{groups_spec_1_SUITE,{init_per_group,g1,[sequence]},ok}},
       {?eh,tc_done,{groups_spec_1_SUITE,t11,ok}},
       {?eh,tc_done,{groups_spec_1_SUITE,t12,{failed,{error,crashes}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t13,{failed,{groups_spec_1_SUITE,t12}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t13,g1},
+			 {failed,{groups_spec_1_SUITE,t12}}}},
       {?eh,test_stats,{3,2,{0,1}}},
       {?eh,tc_start,{groups_spec_1_SUITE,{end_per_group,g1,[sequence]}}},
       {?eh,tc_done,{groups_spec_1_SUITE,{end_per_group,g1,[sequence]},ok}}],
@@ -327,19 +329,27 @@ test_events(override_with_all) ->
        {?eh,tc_done,{groups_spec_1_SUITE,{init_per_group,g3,[sequence]},ok}},
        {?eh,tc_done,{groups_spec_1_SUITE,t31,ok}},
        {?eh,tc_done,{groups_spec_1_SUITE,t32,{failed,{error,crashes}}}},
-       {?eh,tc_auto_skip,{groups_spec_1_SUITE,t33,{failed,{groups_spec_1_SUITE,t32}}}},
+       {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t33,g3},
+			  {failed,{groups_spec_1_SUITE,t32}}}},
        {?eh,test_stats,{14,9,{0,2}}},
        {?eh,tc_start,{groups_spec_1_SUITE,{end_per_group,g3,[sequence]}}},
        {?eh,tc_done,{groups_spec_1_SUITE,{end_per_group,g3,[sequence]},ok}}],
 
       {?eh,tc_done,{groups_spec_1_SUITE,t22,{failed,{error,crashes}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t41,{failed,{groups_spec_1_SUITE,t22}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t51,{failed,{groups_spec_1_SUITE,t22}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t52,{failed,{groups_spec_1_SUITE,t22}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t53,{failed,{groups_spec_1_SUITE,t22}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t54,{failed,{groups_spec_1_SUITE,t22}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t42,{failed,{groups_spec_1_SUITE,t22}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t23,{failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t41,g4},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t51,g5},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t52,g5},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t53,g5},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t54,g5},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t42,g4},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t23,g2},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
       {?eh,test_stats,{14,10,{0,9}}},
 
       {?eh,tc_start,{groups_spec_1_SUITE,{end_per_group,g2,[sequence]}}},
@@ -355,7 +365,8 @@ test_events(override_with_all) ->
        {?eh,tc_done,{groups_spec_1_SUITE,{init_per_group,g3,[sequence]},ok}},
        {?eh,tc_done,{groups_spec_1_SUITE,t31,ok}},
        {?eh,tc_done,{groups_spec_1_SUITE,t32,{failed,{error,crashes}}}},
-       {?eh,tc_auto_skip,{groups_spec_1_SUITE,t33,{failed,{groups_spec_1_SUITE,t32}}}},
+       {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t33,g3},
+			  {failed,{groups_spec_1_SUITE,t32}}}},
        {?eh,test_stats,{16,11,{0,10}}},
        {?eh,tc_start,{groups_spec_1_SUITE,{end_per_group,g3,[sequence]}}},
        {?eh,tc_done,{groups_spec_1_SUITE,{end_per_group,g3,[sequence]},ok}}],
@@ -372,8 +383,10 @@ test_events(override_with_all) ->
 	{?eh,tc_done,{groups_spec_1_SUITE,{init_per_group,g5,[sequence]},ok}},
 	{?eh,tc_done,{groups_spec_1_SUITE,t51,ok}},
 	{?eh,tc_done,{groups_spec_1_SUITE,t52,{failed,{timetrap_timeout,2000}}}},
-	{?eh,tc_auto_skip,{groups_spec_1_SUITE,t53,{failed,{groups_spec_1_SUITE,t52}}}},
-	{?eh,tc_auto_skip,{groups_spec_1_SUITE,t54,{failed,{groups_spec_1_SUITE,t52}}}},
+	{?eh,tc_auto_skip,{groups_spec_1_SUITE,{t53,g5},
+			   {failed,{groups_spec_1_SUITE,t52}}}},
+	{?eh,tc_auto_skip,{groups_spec_1_SUITE,{t54,g5},
+			   {failed,{groups_spec_1_SUITE,t52}}}},
 	{?eh,test_stats,{18,13,{0,12}}},
 	{?eh,tc_start,{groups_spec_1_SUITE,{end_per_group,g5,[sequence]}}},
 	{?eh,tc_done,{groups_spec_1_SUITE,{end_per_group,g5,[sequence]},ok}}],
@@ -417,7 +430,8 @@ test_events(override_with_spec) ->
       {?eh,tc_done,{groups_spec_1_SUITE,{init_per_group,g1,[sequence]},ok}},
       {?eh,tc_done,{groups_spec_1_SUITE,t11,ok}},
       {?eh,tc_done,{groups_spec_1_SUITE,t12,{failed,{error,crashes}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t13,{failed,{groups_spec_1_SUITE,t12}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t13,g1},
+			 {failed,{groups_spec_1_SUITE,t12}}}},
       {?eh,test_stats,{3,2,{0,1}}},
       {?eh,tc_start,{groups_spec_1_SUITE,{end_per_group,g1,[sequence]}}},
       {?eh,tc_done,{groups_spec_1_SUITE,{end_per_group,g1,[sequence]},ok}}],
@@ -493,18 +507,26 @@ test_events(override_with_spec) ->
        {?eh,tc_done,{groups_spec_1_SUITE,{init_per_group,g3,[sequence]},ok}},
        {?eh,tc_done,{groups_spec_1_SUITE,t31,ok}},
        {?eh,tc_done,{groups_spec_1_SUITE,t32,{failed,{error,crashes}}}},
-       {?eh,tc_auto_skip,{groups_spec_1_SUITE,t33,{failed,{groups_spec_1_SUITE,t32}}}},
+       {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t33,g3},
+			  {failed,{groups_spec_1_SUITE,t32}}}},
        {?eh,test_stats,{14,9,{0,2}}},
        {?eh,tc_start,{groups_spec_1_SUITE,{end_per_group,g3,[sequence]}}},
        {?eh,tc_done,{groups_spec_1_SUITE,{end_per_group,g3,[sequence]},ok}}],
       {?eh,tc_done,{groups_spec_1_SUITE,t22,{failed,{error,crashes}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t41,{failed,{groups_spec_1_SUITE,t22}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t51,{failed,{groups_spec_1_SUITE,t22}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t52,{failed,{groups_spec_1_SUITE,t22}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t53,{failed,{groups_spec_1_SUITE,t22}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t54,{failed,{groups_spec_1_SUITE,t22}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t42,{failed,{groups_spec_1_SUITE,t22}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t23,{failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t41,g4},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t51,g5},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t52,g5},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t53,g5},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t54,g5},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t42,g4},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t23,g2},
+			 {failed,{groups_spec_1_SUITE,t22}}}},
       {?eh,test_stats,{14,10,{0,9}}},
       {?eh,tc_start,{groups_spec_1_SUITE,{end_per_group,g2,[sequence]}}},
       {?eh,tc_done,{groups_spec_1_SUITE,{end_per_group,g2,[sequence]},ok}}],
@@ -521,7 +543,8 @@ test_events(override_with_spec) ->
        {?eh,tc_done,{groups_spec_1_SUITE,{init_per_group,g3,[sequence]},ok}},
        {?eh,tc_done,{groups_spec_1_SUITE,t31,ok}},
        {?eh,tc_done,{groups_spec_1_SUITE,t32,{failed,{error,crashes}}}},
-       {?eh,tc_auto_skip,{groups_spec_1_SUITE,t33,{failed,{groups_spec_1_SUITE,t32}}}},
+       {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t33,g3},
+			  {failed,{groups_spec_1_SUITE,t32}}}},
        {?eh,test_stats,{16,11,{0,10}}},
        {?eh,tc_start,{groups_spec_1_SUITE,{end_per_group,g3,[sequence]}}},
        {?eh,tc_done,{groups_spec_1_SUITE,{end_per_group,g3,[sequence]},ok}}],
@@ -535,8 +558,10 @@ test_events(override_with_spec) ->
 	{?eh,tc_done,{groups_spec_1_SUITE,{init_per_group,g5,[sequence]},ok}},
 	{?eh,tc_done,{groups_spec_1_SUITE,t51,ok}},
 	{?eh,tc_done,{groups_spec_1_SUITE,t52,{failed,{timetrap_timeout,2000}}}},
-	{?eh,tc_auto_skip,{groups_spec_1_SUITE,t53,{failed,{groups_spec_1_SUITE,t52}}}},
-	{?eh,tc_auto_skip,{groups_spec_1_SUITE,t54,{failed,{groups_spec_1_SUITE,t52}}}},
+	{?eh,tc_auto_skip,{groups_spec_1_SUITE,{t53,g5},
+			   {failed,{groups_spec_1_SUITE,t52}}}},
+	{?eh,tc_auto_skip,{groups_spec_1_SUITE,{t54,g5},
+			   {failed,{groups_spec_1_SUITE,t52}}}},
 	{?eh,test_stats,{18,13,{0,12}}},
 	{?eh,tc_start,{groups_spec_1_SUITE,{end_per_group,g5,[sequence]}}},
 	{?eh,tc_done,{groups_spec_1_SUITE,{end_per_group,g5,[sequence]},ok}}],
@@ -555,7 +580,8 @@ test_events(override_with_spec) ->
      [{?eh,tc_start,{groups_spec_1_SUITE,{init_per_group,g1,[sequence]}}},
       {?eh,tc_done,{groups_spec_1_SUITE,{init_per_group,g1,[sequence]},ok}},
       {?eh,tc_done,{groups_spec_1_SUITE,t12,{failed,{error,crashes}}}},
-      {?eh,tc_auto_skip,{groups_spec_1_SUITE,t13,{failed,{groups_spec_1_SUITE,t12}}}},
+      {?eh,tc_auto_skip,{groups_spec_1_SUITE,{t13,g1},
+			 {failed,{groups_spec_1_SUITE,t12}}}},
       {?eh,test_stats,{19,15,{0,13}}},
       {?eh,tc_start,{groups_spec_1_SUITE,{end_per_group,g1,[sequence]}}},
       {?eh,tc_done,{groups_spec_1_SUITE,{end_per_group,g1,[sequence]},ok}}],

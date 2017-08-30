@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -22,7 +23,7 @@
 -compile({no_auto_import,[min/2]}).
 
 -export([append/2, append/1, subtract/2, reverse/1,
-	 nth/2, nthtail/2, prefix/2, suffix/2, last/1, 
+	 nth/2, nthtail/2, prefix/2, suffix/2, droplast/1, last/1,
 	 seq/2, seq/3, sum/1, duplicate/2, min/1, max/1, sublist/2, sublist/3,
 	 delete/2,
 	 unzip/1, unzip3/1, zip/2, zip3/3, zipwith/3, zipwith3/4,
@@ -38,7 +39,8 @@
 -export([all/2,any/2,map/2,flatmap/2,foldl/3,foldr/3,filter/2,
 	 partition/2,zf/2,filtermap/2,
 	 mapfoldl/3,mapfoldr/3,foreach/2,takewhile/2,dropwhile/2,splitwith/2,
-	 split/2]).
+	 split/2,
+	 join/2]).
 
 %%% BIFs
 -export([keyfind/3, keymember/3, keysearch/3, member/2, reverse/2]).
@@ -202,6 +204,19 @@ prefix([_|_], List) when is_list(List) -> false.
 suffix(Suffix, List) ->
     Delta = length(List) - length(Suffix),
     Delta >= 0 andalso nthtail(Delta, List) =:= Suffix.
+
+%% droplast(List) returns the list dropping its last element
+
+-spec droplast(List) -> InitList when
+      List :: [T, ...],
+      InitList :: [T],
+      T :: term().
+
+%% This is the simple recursive implementation
+%% reverse(tl(reverse(L))) is faster on average,
+%% but creates more garbage.
+droplast([_T])  -> [];
+droplast([H|T]) -> [H|droplast(T)].
 
 %% last(List) returns the last element in a list.
 
@@ -630,7 +645,7 @@ flatlength([H|T], L) when is_list(H) ->
 flatlength([_|T], L) ->
     flatlength(T, L + 1);
 flatlength([], L) -> L.
-
+
 %% keymember(Key, Index, [Tuple]) Now a BIF!
 %% keyfind(Key, Index, [Tuple]) A BIF!
 %% keysearch(Key, Index, [Tuple]) Now a BIF!
@@ -1163,7 +1178,7 @@ rumerge(T1, []) ->
     T1;
 rumerge(T1, [H2 | T2]) ->
     lists:reverse(rumerge2_1(T1, T2, [], H2), []).
-
+
 %% all(Predicate, List)
 %% any(Predicate, List)
 %% map(Function, List)
@@ -1424,6 +1439,18 @@ split(N, [H|T], R) ->
     split(N-1, T, [H|R]);
 split(_, [], _) ->
     badarg.
+
+-spec join(Sep, List1) -> List2 when
+      Sep :: T,
+      List1 :: [T],
+      List2 :: [T],
+      T :: term().
+
+join(_Sep, []) -> [];
+join(Sep, [H|T]) -> [H|join_prepend(Sep, T)].
+
+join_prepend(_Sep, []) -> [];
+join_prepend(Sep, [H|T]) -> [Sep,H|join_prepend(Sep,T)].
 
 %%% =================================================================
 %%% Here follows the implementation of the sort functions.
@@ -2252,6 +2279,8 @@ ukeysplit_2(I, Y, EY, [Z | L], R) ->
     end;
 ukeysplit_2(_I, Y, _EY, [], R) ->
     [Y | R].
+
+-dialyzer({no_improper_lists, ukeymergel/3}).
 
 ukeymergel(I, [T1, [H2 | T2], [H3 | T3] | L], Acc) ->
     %% The fourth argument, [H2 | H3] (=HdM), may confuse type

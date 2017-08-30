@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -107,29 +108,38 @@ start_server(Config) ->
 %% Connect with matching capabilities and expect the connection to
 %% come up.
 up(Config) ->
-    {Svc, Ref} = connect(Config, []),
+    {Svc, Ref} = connect(Config, [{connect_timer, 5000},
+                                  {watchdog_timer, 15000}]),
     start = event(Svc),
-    {up, Ref, {_,_Caps}, _Config, #diameter_packet{}} = event(Svc),
-    {watchdog, Ref, _, {initial, okay}, _} = event(Svc).
+    {up, Ref, {TPid, Caps}, Cfg, #diameter_packet{}} = event(Svc),
+    {watchdog, Ref, _, {initial, okay}, _} = event(Svc),
+    %% Kill the transport process and see that the connection is
+    %% reestablished after a watchdog timeout, not after connect_timer
+    %% expiry.
+    exit(TPid, kill),
+    {down, Ref, {TPid, Caps}, Cfg} = event(Svc),
+    {watchdog, Ref, _, {okay, down}, _} = event(Svc),
+    {reconnect, Ref, _} = event(Svc, 10000, 20000).
 
 %% Connect with non-matching capabilities and expect CEA from the peer
 %% to indicate as much and then for the transport to be restarted
-%% (after reconnect_timer).
+%% (after connect_timer).
 down(Config) ->
     {Svc, Ref} = connect(Config, [{capabilities, [{'Acct-Application-Id',
                                                    [?DICT_ACCT:id()]}]},
                                   {applications, [?DICT_ACCT]},
-                                  {reconnect_timer, 5000}]),
+                                  {connect_timer, 5000},
+                                  {watchdog_timer, 20000}]),
     start = event(Svc),
     {closed, Ref, {'CEA', ?NO_COMMON_APP, _, #diameter_packet{}}, _}
         = event(Svc),
-    {reconnect, Ref, _} = event(Svc).
+    {reconnect, Ref, _} = event(Svc, 4000, 10000).
 
 %% Connect with matching capabilities but have the server delay its
 %% CEA and cause the client to timeout.
 cea_timeout(Config) ->
     {Svc, Ref} = connect(Config, [{capx_timeout, ?SERVER_CAPX_TMO div 2},
-                                  {reconnect_timer, 2*?SERVER_CAPX_TMO}]),
+                                  {connect_timer, 2*?SERVER_CAPX_TMO}]),
     start = event(Svc),
     {closed, Ref, {'CEA', timeout}, _} = event(Svc).
 
@@ -159,11 +169,17 @@ connect(Config, Opts) ->
     {Name, Ref}.
 
 uniq() ->
-    {MS,S,US} = now(),
-    lists:flatten(io_lib:format("-~p-~p-~p-", [MS,S,US])).
+    "-" ++ diameter_util:unique_string().
 
 event(Name) ->
     receive #diameter_event{service = Name, info = T} -> T end.
+
+event(Name, TL, TH) ->
+    T0 = diameter_lib:now(),
+    Event = event(Name),
+    DT = diameter_lib:micro_diff(T0) div 1000,
+    {true, true, DT, Event} = {TL < DT, DT < TH, DT, Event},
+    Event.
 
 start_service(Name, Opts) ->
     diameter:start_service(Name, [{monitor, self()} | Opts]).

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -23,12 +24,12 @@
 
 -module(ssh_xfer).
 
--export([attach/2, connect/3]).
+-export([attach/2, attach/3, connect/3, connect/4, connect/5]).
 -export([open/6, opendir/3, readdir/3, close/3, read/5, write/5,
 	 rename/5, remove/3, mkdir/4, rmdir/3, realpath/3, extended/4,
 	 stat/4, fstat/4, lstat/4, setstat/4,
 	 readlink/3, fsetstat/4, symlink/4,
-	 protocol_version_request/1,
+	 protocol_version_request/2,
 	 xf_reply/2,
 	 xf_send_reply/3, xf_send_names/3, xf_send_name/4,
 	 xf_send_status/3, xf_send_status/4, xf_send_status/5,
@@ -46,33 +47,49 @@
 -define(is_set(F, Bits),
 	((F) band (Bits)) == (F)).
 
--define(XFER_PACKET_SIZE, 32768).
--define(XFER_WINDOW_SIZE, 4*?XFER_PACKET_SIZE).
+-define(XFER_PACKET_SIZE, 65536).
+-define(XFER_WINDOW_SIZE, 20*?XFER_PACKET_SIZE).
 
 attach(CM, Opts) ->
-    open_xfer(CM, Opts).
+    open_xfer(CM, Opts, []).
+
+attach(CM, Opts, ChanOpts) ->
+    open_xfer(CM, Opts, ChanOpts).
+
 
 connect(Host, Port, Opts) ->
     case ssh:connect(Host, Port, Opts) of
-	{ok, CM} -> open_xfer(CM, Opts);
+	{ok, CM} -> open_xfer(CM, Opts, []);
 	Error -> Error
     end.
 
-open_xfer(CM, Opts) ->
+connect(Host, Port, Opts, Timeout) ->
+    connect(Host, Port, Opts, [], Timeout).
+
+connect(Host, Port, Opts, ChanOpts, Timeout) ->
+    case ssh:connect(Host, Port, Opts, Timeout) of
+	{ok, CM} -> open_xfer(CM, [{timeout, Timeout}|Opts], ChanOpts);
+	{error, Timeout} -> {error, timeout};
+	Error -> Error
+    end.
+
+
+open_xfer(CM, Opts, ChanOpts) ->
     TMO = proplists:get_value(timeout, Opts, infinity),
-    case ssh_connection:session_channel(CM, ?XFER_WINDOW_SIZE, ?XFER_PACKET_SIZE, TMO) of
+    WindowSize = proplists:get_value(window_size, ChanOpts,  ?XFER_WINDOW_SIZE),
+    PacketSize = proplists:get_value(packet_size, ChanOpts,  ?XFER_PACKET_SIZE),
+    case ssh_connection:session_channel(CM, WindowSize, PacketSize, TMO) of
 	{ok, ChannelId} ->
 	    {ok, ChannelId, CM};
 	Error -> 
 	    Error
     end.
 
-protocol_version_request(XF) ->
-    xf_request(XF, ?SSH_FXP_INIT, <<?UINT32(?SSH_SFTP_PROTOCOL_VERSION)>>).
+protocol_version_request(XF, Version) ->
+    xf_request(XF, ?SSH_FXP_INIT, <<?UINT32(Version)>>).
 
 open(XF, ReqID, FileName, Access, Flags, Attrs) -> 
     Vsn = XF#ssh_xfer.vsn,
-    FileName1 = unicode:characters_to_binary(FileName),
     MBits = if Vsn >= 5 -> 
 		    M = encode_ace_mask(Access),
 		    ?uint32(M);
@@ -82,7 +99,7 @@ open(XF, ReqID, FileName, Access, Flags, Attrs) ->
     F = encode_open_flags(Flags),
     xf_request(XF,?SSH_FXP_OPEN, 
 	       [?uint32(ReqID),
-		?binary(FileName1),
+		?string_utf8(FileName),
 		MBits,
 		?uint32(F),
 		encode_ATTR(Vsn,Attrs)]).    
@@ -90,7 +107,7 @@ open(XF, ReqID, FileName, Access, Flags, Attrs) ->
 opendir(XF, ReqID, DirName) ->
     xf_request(XF, ?SSH_FXP_OPENDIR, 
 	       [?uint32(ReqID),
-		?string(DirName)]).
+		?string_utf8(DirName)]).
 
 
 close(XF, ReqID, Handle) ->
@@ -127,13 +144,11 @@ write(XF,ReqID, Handle, Offset, Data) ->
 remove(XF, ReqID, File) ->
     xf_request(XF, ?SSH_FXP_REMOVE, 
 	       [?uint32(ReqID),
-		?string(File)]).
+		?string_utf8(File)]).
 
 %% Rename a file/directory
-rename(XF, ReqID, Old, New, Flags) ->
+rename(XF, ReqID, OldPath, NewPath, Flags) ->
     Vsn = XF#ssh_xfer.vsn,
-    OldPath = unicode:characters_to_binary(Old),
-    NewPath = unicode:characters_to_binary(New),
     FlagBits
 	= if Vsn >= 5 ->
 		  F0 = encode_rename_flags(Flags),
@@ -143,30 +158,27 @@ rename(XF, ReqID, Old, New, Flags) ->
 	  end,
     xf_request(XF, ?SSH_FXP_RENAME, 
 	       [?uint32(ReqID),
-		?binary(OldPath),
-		?binary(NewPath),
+		?string_utf8(OldPath),
+		?string_utf8(NewPath),
 		FlagBits]).
 
 
 
 %% Create directory
 mkdir(XF, ReqID, Path, Attrs) ->
-    Path1 = unicode:characters_to_binary(Path),
     xf_request(XF, ?SSH_FXP_MKDIR, 
 	       [?uint32(ReqID),
-		?binary(Path1),
+		?string_utf8(Path),
 		encode_ATTR(XF#ssh_xfer.vsn, Attrs)]).
 
 %% Remove a directory
 rmdir(XF, ReqID, Dir) ->
-    Dir1 = unicode:characters_to_binary(Dir),
     xf_request(XF, ?SSH_FXP_RMDIR,
 	       [?uint32(ReqID),
-		?binary(Dir1)]).
+		?string_utf8(Dir)]).
 
 %% Stat file
 stat(XF, ReqID, Path, Flags) ->
-    Path1 = unicode:characters_to_binary(Path),
     Vsn = XF#ssh_xfer.vsn,
     AttrFlags = if Vsn >= 5 ->
 			F = encode_attr_flags(Vsn, Flags),
@@ -176,13 +188,12 @@ stat(XF, ReqID, Path, Flags) ->
 		end,
     xf_request(XF, ?SSH_FXP_STAT, 
 	       [?uint32(ReqID),
-		?binary(Path1),
+		?string_utf8(Path),
 		AttrFlags]).
 
 
 %% Stat file - follow symbolic links
 lstat(XF, ReqID, Path, Flags) ->
-    Path1 = unicode:characters_to_binary(Path),
     Vsn = XF#ssh_xfer.vsn,
     AttrFlags = if Vsn >= 5 ->
 			F = encode_attr_flags(Vsn, Flags),
@@ -192,7 +203,7 @@ lstat(XF, ReqID, Path, Flags) ->
 		end,
     xf_request(XF, ?SSH_FXP_LSTAT, 
 	     [?uint32(ReqID),
-	      ?binary(Path1),
+	      ?string_utf8(Path),
 	      AttrFlags]).
 
 %% Stat open file
@@ -211,10 +222,9 @@ fstat(XF, ReqID, Handle, Flags) ->
 
 %% Modify file attributes
 setstat(XF, ReqID, Path, Attrs) ->
-    Path1 = unicode:characters_to_binary(Path),
     xf_request(XF, ?SSH_FXP_SETSTAT, 
 	       [?uint32(ReqID),
-		?binary(Path1),
+		?string_utf8(Path),
 		encode_ATTR(XF#ssh_xfer.vsn, Attrs)]).
 
 
@@ -227,10 +237,9 @@ fsetstat(XF, ReqID, Handle, Attrs) ->
     
 %% Read a symbolic link
 readlink(XF, ReqID, Path) ->
-    Path1 = unicode:characters_to_binary(Path),
     xf_request(XF, ?SSH_FXP_READLINK, 
 	       [?uint32(ReqID),
-		?binary(Path1)]).
+		?string_utf8(Path)]).
 
 
 %% Create a symbolic link    
@@ -244,10 +253,9 @@ symlink(XF, ReqID, LinkPath, TargetPath) ->
 
 %% Convert a path into a 'canonical' form
 realpath(XF, ReqID, Path) ->
-    Path1 = unicode:characters_to_binary(Path),
     xf_request(XF, ?SSH_FXP_REALPATH,     
 	       [?uint32(ReqID),
-		?binary(Path1)]).
+		?string_utf8(Path)]).
 
 extended(XF, ReqID, Request, Data) ->
     xf_request(XF, ?SSH_FXP_EXTENDED,
@@ -267,7 +275,7 @@ xf_request(XF, Op, Arg) ->
 		   list_to_binary(Arg)
 	   end,
     Size = 1+size(Data),
-    ssh_connection:send(CM, Channel, <<?UINT32(Size), Op, Data/binary>>).
+    ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).
 
 xf_send_reply(#ssh_xfer{cm = CM, channel = Channel}, Op, Arg) ->    
     Data = if 
@@ -277,7 +285,7 @@ xf_send_reply(#ssh_xfer{cm = CM, channel = Channel}, Op, Arg) ->
 		   list_to_binary(Arg)
 	   end,
     Size = 1 + size(Data),
-    ssh_connection:send(CM, Channel, <<?UINT32(Size), Op, Data/binary>>).
+    ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).
 
 xf_send_name(XF, ReqId, Name, Attr) ->
     xf_send_names(XF, ReqId, [{Name, Attr}]).
@@ -296,7 +304,10 @@ xf_send_names(#ssh_xfer{cm = CM, channel = Channel, vsn = Vsn},
     Count = length(NamesAndAttrs),
     {Data, Len} = encode_names(Vsn, NamesAndAttrs),
     Size = 1 + 4 + 4 + Len,
-    ToSend = [<<?UINT32(Size), ?SSH_FXP_NAME, ?UINT32(ReqId), ?UINT32(Count)>>,
+    ToSend = [<<?UINT32(Size), 
+		?SSH_FXP_NAME, 
+		?UINT32(ReqId),
+		?UINT32(Count)>>,
 	      Data],
     ssh_connection:send(CM, Channel, ToSend).
 
@@ -818,25 +829,27 @@ decode_names(_Vsn, 0, _Data) ->
 decode_names(Vsn, I, <<?UINT32(Len), FileName:Len/binary, 
 		      ?UINT32(LLen), _LongName:LLen/binary,
 		      Tail/binary>>) when Vsn =< 3 ->
-    Name = binary_to_list(FileName),
+    Name = unicode:characters_to_list(FileName),
     {A, Tail2} = decode_ATTR(Vsn, Tail),
     [{Name, A} | decode_names(Vsn, I-1, Tail2)];
 decode_names(Vsn, I, <<?UINT32(Len), FileName:Len/binary, 
 		      Tail/binary>>) when Vsn >= 4 ->
-    Name = binary_to_list(FileName),
+    Name = unicode:characters_to_list(FileName),
     {A, Tail2} = decode_ATTR(Vsn, Tail),
     [{Name, A} | decode_names(Vsn, I-1, Tail2)].
 
 encode_names(Vsn, NamesAndAttrs) ->
     lists:mapfoldl(fun(N, L) -> encode_name(Vsn, N, L) end, 0, NamesAndAttrs).
 
-encode_name(Vsn, {Name,Attr}, Len) when Vsn =< 3 ->
+encode_name(Vsn, {NameUC,Attr}, Len) when Vsn =< 3 ->
+    Name = binary_to_list(unicode:characters_to_binary(NameUC)),
     NLen = length(Name),
     EncAttr = encode_ATTR(Vsn, Attr),
     ALen = size(EncAttr),
     NewLen = Len + NLen*2 + 4 + 4 + ALen,
     {[<<?UINT32(NLen)>>, Name, <<?UINT32(NLen)>>, Name, EncAttr], NewLen};
-encode_name(Vsn, {Name,Attr}, Len) when Vsn >= 4 ->
+encode_name(Vsn, {NameUC,Attr}, Len) when Vsn >= 4 ->
+    Name = binary_to_list(unicode:characters_to_binary(NameUC)),
     NLen = length(Name),
     EncAttr = encode_ATTR(Vsn, Attr),
     ALen = size(EncAttr),
@@ -851,9 +864,9 @@ encode_acl_items([ACE|As]) ->
     Type = encode_ace_type(ACE#ssh_xfer_ace.type),
     Flag = encode_ace_flag(ACE#ssh_xfer_ace.flag), 
     Mask = encode_ace_mask(ACE#ssh_xfer_ace.mask), 
-    Who = list_to_binary(ACE#ssh_xfer_ace.who),
+    Who = ACE#ssh_xfer_ace.who,
     [?uint32(Type), ?uint32(Flag), ?uint32(Mask), 
-     ?binary(Who) | encode_acl_items(As)];
+     ?string_utf8(Who) | encode_acl_items(As)];
 encode_acl_items([]) ->
     [].
 
@@ -872,7 +885,7 @@ decode_acl_items(I, <<?UINT32(Type),
 		     [#ssh_xfer_ace { type = decode_ace_type(Type),
 				      flag = decode_ace_flag(Flag),
 				      mask = decode_ace_mask(Mask),
-				      who = binary_to_list(BWho)} | Acc]).
+				      who = unicode:characters_to_list(BWho)} | Acc]).
 
 encode_extensions(Exts) ->
     Count = length(Exts),

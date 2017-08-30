@@ -1,32 +1,33 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
 %% @doc Basic functions on Core Erlang abstract syntax trees.
 %%
 %% <p>Syntax trees are defined in the module <a
-%% href=""><code>cerl</code></a>.</p>
+%% href="cerl"><code>cerl</code></a>.</p>
 %%
 %% @type cerl() = cerl:cerl()
 
 -module(cerl_trees).
 
 -export([depth/1, fold/3, free_variables/1, get_label/1, label/1, label/2, 
-	 map/2, mapfold/3, size/1, variables/1]).
+	 map/2, mapfold/3, mapfold/4, size/1, variables/1]).
 
 -import(cerl, [alias_pat/1, alias_var/1, ann_c_alias/3, ann_c_apply/3,
 	       ann_c_binary/2, ann_c_bitstr/6, ann_c_call/4,
@@ -55,7 +56,16 @@
 	       update_c_let/4, update_c_letrec/3, update_c_module/5,
 	       update_c_primop/3, update_c_receive/4, update_c_seq/3,
 	       update_c_try/6, update_c_tuple/2, update_c_tuple_skel/2,
-	       update_c_values/2, values_es/1, var_name/1]).
+	       update_c_values/2, values_es/1, var_name/1,
+
+	       map_arg/1, map_es/1,
+	       ann_c_map/3,
+	       update_c_map/3,
+	       is_c_map_pattern/1, ann_c_map_pattern/2,
+	       map_pair_key/1,map_pair_val/1,map_pair_op/1,
+	       ann_c_map_pair/4,
+	       update_c_map_pair/4
+	   ]).
 
 
 %% ---------------------------------------------------------------------
@@ -129,6 +139,12 @@ map_1(F, T) ->
 			       map(F, cons_tl(T)));
  	tuple ->
 	    update_c_tuple_skel(T, map_list(F, tuple_es(T)));
+ 	map ->
+	    update_c_map(T, map(F, map_arg(T)), map_list(F, map_es(T)));
+	map_pair ->
+	    update_c_map_pair(T, map(F, map_pair_op(T)),
+                                 map(F, map_pair_key(T)),
+                                 map(F, map_pair_val(T)));
  	'let' ->
 	    update_c_let(T, map_list(F, let_vars(T)),
 			 map(F, let_arg(T)),
@@ -235,6 +251,14 @@ fold_1(F, S, T) ->
 	    fold(F, fold(F, S, cons_hd(T)), cons_tl(T));
 	tuple ->
 	    fold_list(F, S, tuple_es(T));
+	map ->
+	    fold_list(F, S, map_es(T));
+	map_pair ->
+	    fold(F,
+		fold(F,
+		    fold(F, S, map_pair_op(T)),
+		    map_pair_key(T)),
+		map_pair_val(T));
  	'let' ->
 	    fold(F, fold(F, fold_list(F, S, let_vars(T)),
 			 let_arg(T)),
@@ -317,127 +341,162 @@ fold_pairs(_, S, []) ->
 %% starting with the given value <code>Initial</code>, while doing a
 %% post-order traversal of the tree, much like <code>fold/3</code>.
 %%
+%% This is the same as mapfold/4, with an identity function as the
+%% pre-operation.
+%%
 %% @see map/2
 %% @see fold/3
+%% @see mapfold/4
 
 -spec mapfold(fun((cerl:cerl(), term()) -> {cerl:cerl(), term()}),
 	      term(), cerl:cerl()) -> {cerl:cerl(), term()}.
 
 mapfold(F, S0, T) ->
+  mapfold(fun(T0, A) -> {T0, A} end, F, S0, T).
+
+
+%% @spec mapfold(Pre, Post, Initial::term(), Tree::cerl()) ->
+%%           {cerl(), term()}
+%%
+%%    Pre = Post = (cerl(), term()) -> {cerl(), term()}
+%%
+%% @doc Does a combined map/fold operation on the nodes of the
+%% tree. It begins by calling <code>Pre</code> on the tree, using the
+%% <code>Initial</code> value. It then deconstructs the top node of
+%% the returned tree and recurses on the children, using the returned
+%% value as the new initial and carrying the returned values from one
+%% call to the next. Finally it reassembles the top node from the
+%% children, calls <code>Post</code> on it and returns the result.
+
+-spec mapfold(fun((cerl:cerl(), term()) -> {cerl:cerl(), term()}),
+              fun((cerl:cerl(), term()) -> {cerl:cerl(), term()}),
+	      term(), cerl:cerl()) -> {cerl:cerl(), term()}.
+
+mapfold(Pre, Post, S00, T0) ->
+    {T, S0} = Pre(T0, S00),
     case type(T) of
  	literal ->
 	    case concrete(T) of
 		[_ | _] ->
-		    {T1, S1} = mapfold(F, S0, cons_hd(T)),
-		    {T2, S2} = mapfold(F, S1, cons_tl(T)),
-		    F(update_c_cons(T, T1, T2), S2);
+		    {T1, S1} = mapfold(Pre, Post, S0, cons_hd(T)),
+		    {T2, S2} = mapfold(Pre, Post, S1, cons_tl(T)),
+		    Post(update_c_cons(T, T1, T2), S2);
 		V when tuple_size(V) > 0 ->
-		    {Ts, S1} = mapfold_list(F, S0, tuple_es(T)),
-		    F(update_c_tuple(T, Ts), S1);
+		    {Ts, S1} = mapfold_list(Pre, Post, S0, tuple_es(T)),
+		    Post(update_c_tuple(T, Ts), S1);
 		_ ->
-		    F(T, S0)
+		    Post(T, S0)
 	    end;
  	var ->
- 	    F(T, S0);
+	    Post(T, S0);
 	values ->
-	    {Ts, S1} = mapfold_list(F, S0, values_es(T)),
- 	    F(update_c_values(T, Ts), S1);
+	    {Ts, S1} = mapfold_list(Pre, Post, S0, values_es(T)),
+	    Post(update_c_values(T, Ts), S1);
 	cons ->
-	    {T1, S1} = mapfold(F, S0, cons_hd(T)),
-	    {T2, S2} = mapfold(F, S1, cons_tl(T)),
-	    F(update_c_cons_skel(T, T1, T2), S2);
+	    {T1, S1} = mapfold(Pre, Post, S0, cons_hd(T)),
+	    {T2, S2} = mapfold(Pre, Post, S1, cons_tl(T)),
+	    Post(update_c_cons_skel(T, T1, T2), S2);
  	tuple ->
-	    {Ts, S1} = mapfold_list(F, S0, tuple_es(T)),
-	    F(update_c_tuple_skel(T, Ts), S1);
+	    {Ts, S1} = mapfold_list(Pre, Post, S0, tuple_es(T)),
+	    Post(update_c_tuple_skel(T, Ts), S1);
+	map ->
+	    {M , S1} = mapfold(Pre, Post, S0, map_arg(T)),
+	    {Ts, S2} = mapfold_list(Pre, Post, S1, map_es(T)),
+	    Post(update_c_map(T, M, Ts), S2);
+	map_pair ->
+	    {Op,  S1} = mapfold(Pre, Post, S0, map_pair_op(T)),
+	    {Key, S2} = mapfold(Pre, Post, S1, map_pair_key(T)),
+	    {Val, S3} = mapfold(Pre, Post, S2, map_pair_val(T)),
+	    Post(update_c_map_pair(T,Op,Key,Val), S3);
  	'let' ->
-	    {Vs, S1} = mapfold_list(F, S0, let_vars(T)),
-	    {A, S2} = mapfold(F, S1, let_arg(T)),
-	    {B, S3} = mapfold(F, S2, let_body(T)),
-	    F(update_c_let(T, Vs, A, B), S3);
+	    {Vs, S1} = mapfold_list(Pre, Post, S0, let_vars(T)),
+	    {A, S2} = mapfold(Pre, Post, S1, let_arg(T)),
+	    {B, S3} = mapfold(Pre, Post, S2, let_body(T)),
+	    Post(update_c_let(T, Vs, A, B), S3);
 	seq ->
-	    {A, S1} = mapfold(F, S0, seq_arg(T)),
-	    {B, S2} = mapfold(F, S1, seq_body(T)),
- 	    F(update_c_seq(T, A, B), S2);
+	    {A, S1} = mapfold(Pre, Post, S0, seq_arg(T)),
+	    {B, S2} = mapfold(Pre, Post, S1, seq_body(T)),
+	    Post(update_c_seq(T, A, B), S2);
  	apply ->
-	    {E, S1} = mapfold(F, S0, apply_op(T)),
-	    {As, S2} = mapfold_list(F, S1, apply_args(T)),
-	    F(update_c_apply(T, E, As), S2);
+	    {E, S1} = mapfold(Pre, Post, S0, apply_op(T)),
+	    {As, S2} = mapfold_list(Pre, Post, S1, apply_args(T)),
+	    Post(update_c_apply(T, E, As), S2);
  	call ->
-	    {M, S1} = mapfold(F, S0, call_module(T)),
-	    {N, S2} = mapfold(F, S1, call_name(T)),
-	    {As, S3} = mapfold_list(F, S2, call_args(T)),
- 	    F(update_c_call(T, M, N, As), S3);
+	    {M, S1} = mapfold(Pre, Post, S0, call_module(T)),
+	    {N, S2} = mapfold(Pre, Post, S1, call_name(T)),
+	    {As, S3} = mapfold_list(Pre, Post, S2, call_args(T)),
+	    Post(update_c_call(T, M, N, As), S3);
  	primop ->
-	    {N, S1} = mapfold(F, S0, primop_name(T)),
-	    {As, S2} = mapfold_list(F, S1, primop_args(T)),
-	    F(update_c_primop(T, N, As), S2);
+	    {N, S1} = mapfold(Pre, Post, S0, primop_name(T)),
+	    {As, S2} = mapfold_list(Pre, Post, S1, primop_args(T)),
+	    Post(update_c_primop(T, N, As), S2);
  	'case' ->
-	    {A, S1} = mapfold(F, S0, case_arg(T)),
-	    {Cs, S2} = mapfold_list(F, S1, case_clauses(T)),
- 	    F(update_c_case(T, A, Cs), S2);
+	    {A, S1} = mapfold(Pre, Post, S0, case_arg(T)),
+	    {Cs, S2} = mapfold_list(Pre, Post, S1, case_clauses(T)),
+	    Post(update_c_case(T, A, Cs), S2);
  	clause ->
-	    {Ps, S1} = mapfold_list(F, S0, clause_pats(T)),
-	    {G, S2} = mapfold(F, S1, clause_guard(T)),
-	    {B, S3} = mapfold(F, S2, clause_body(T)),
-	    F(update_c_clause(T, Ps, G, B), S3);
+	    {Ps, S1} = mapfold_list(Pre, Post, S0, clause_pats(T)),
+	    {G, S2} = mapfold(Pre, Post, S1, clause_guard(T)),
+	    {B, S3} = mapfold(Pre, Post, S2, clause_body(T)),
+	    Post(update_c_clause(T, Ps, G, B), S3);
  	alias ->
-	    {V, S1} = mapfold(F, S0, alias_var(T)),
-	    {P, S2} = mapfold(F, S1, alias_pat(T)),
-	    F(update_c_alias(T, V, P), S2);
+	    {V, S1} = mapfold(Pre, Post, S0, alias_var(T)),
+	    {P, S2} = mapfold(Pre, Post, S1, alias_pat(T)),
+	    Post(update_c_alias(T, V, P), S2);
  	'fun' ->
-	    {Vs, S1} = mapfold_list(F, S0, fun_vars(T)),
-	    {B, S2} = mapfold(F, S1, fun_body(T)),
-	    F(update_c_fun(T, Vs, B), S2);
+	    {Vs, S1} = mapfold_list(Pre, Post, S0, fun_vars(T)),
+	    {B, S2} = mapfold(Pre, Post, S1, fun_body(T)),
+	    Post(update_c_fun(T, Vs, B), S2);
  	'receive' ->
-	    {Cs, S1} = mapfold_list(F, S0, receive_clauses(T)),
-	    {E, S2} = mapfold(F, S1, receive_timeout(T)),
-	    {A, S3} = mapfold(F, S2, receive_action(T)),
-	    F(update_c_receive(T, Cs, E, A), S3);
+	    {Cs, S1} = mapfold_list(Pre, Post, S0, receive_clauses(T)),
+	    {E, S2} = mapfold(Pre, Post, S1, receive_timeout(T)),
+	    {A, S3} = mapfold(Pre, Post, S2, receive_action(T)),
+	    Post(update_c_receive(T, Cs, E, A), S3);
  	'try' ->
-	    {E, S1} = mapfold(F, S0, try_arg(T)),
-	    {Vs, S2} = mapfold_list(F, S1, try_vars(T)),
-	    {B, S3} = mapfold(F, S2, try_body(T)),
-	    {Evs, S4} = mapfold_list(F, S3, try_evars(T)),
-	    {H, S5} = mapfold(F, S4, try_handler(T)),
-	    F(update_c_try(T, E, Vs, B, Evs, H), S5);
+	    {E, S1} = mapfold(Pre, Post, S0, try_arg(T)),
+	    {Vs, S2} = mapfold_list(Pre, Post, S1, try_vars(T)),
+	    {B, S3} = mapfold(Pre, Post, S2, try_body(T)),
+	    {Evs, S4} = mapfold_list(Pre, Post, S3, try_evars(T)),
+	    {H, S5} = mapfold(Pre, Post, S4, try_handler(T)),
+	    Post(update_c_try(T, E, Vs, B, Evs, H), S5);
  	'catch' ->
-	    {B, S1} = mapfold(F, S0, catch_body(T)),
-	    F(update_c_catch(T, B), S1);
+	    {B, S1} = mapfold(Pre, Post, S0, catch_body(T)),
+	    Post(update_c_catch(T, B), S1);
 	binary ->
-	    {Ds, S1} = mapfold_list(F, S0, binary_segments(T)),
-	    F(update_c_binary(T, Ds), S1);
+	    {Ds, S1} = mapfold_list(Pre, Post, S0, binary_segments(T)),
+	    Post(update_c_binary(T, Ds), S1);
 	bitstr ->
-	    {Val, S1} = mapfold(F, S0, bitstr_val(T)),
-	    {Size, S2} = mapfold(F, S1, bitstr_size(T)),
-	    {Unit, S3} = mapfold(F, S2, bitstr_unit(T)),
-	    {Type, S4} = mapfold(F, S3, bitstr_type(T)),
-	    {Flags, S5} = mapfold(F, S4, bitstr_flags(T)),
-	    F(update_c_bitstr(T, Val, Size, Unit, Type, Flags), S5);
+	    {Val, S1} = mapfold(Pre, Post, S0, bitstr_val(T)),
+	    {Size, S2} = mapfold(Pre, Post, S1, bitstr_size(T)),
+	    {Unit, S3} = mapfold(Pre, Post, S2, bitstr_unit(T)),
+	    {Type, S4} = mapfold(Pre, Post, S3, bitstr_type(T)),
+	    {Flags, S5} = mapfold(Pre, Post, S4, bitstr_flags(T)),
+	    Post(update_c_bitstr(T, Val, Size, Unit, Type, Flags), S5);
 	letrec ->
-	    {Ds, S1} = mapfold_pairs(F, S0, letrec_defs(T)),
-	    {B, S2} = mapfold(F, S1, letrec_body(T)),
-	    F(update_c_letrec(T, Ds, B), S2);
+	    {Ds, S1} = mapfold_pairs(Pre, Post, S0, letrec_defs(T)),
+	    {B, S2} = mapfold(Pre, Post, S1, letrec_body(T)),
+	    Post(update_c_letrec(T, Ds, B), S2);
 	module ->
-	    {N, S1} = mapfold(F, S0, module_name(T)),
-	    {Es, S2} = mapfold_list(F, S1, module_exports(T)),
-	    {As, S3} = mapfold_pairs(F, S2, module_attrs(T)),
-	    {Ds, S4} = mapfold_pairs(F, S3, module_defs(T)),
-	    F(update_c_module(T, N, Es, As, Ds), S4)
+	    {N, S1} = mapfold(Pre, Post, S0, module_name(T)),
+	    {Es, S2} = mapfold_list(Pre, Post, S1, module_exports(T)),
+	    {As, S3} = mapfold_pairs(Pre, Post, S2, module_attrs(T)),
+	    {Ds, S4} = mapfold_pairs(Pre, Post, S3, module_defs(T)),
+	    Post(update_c_module(T, N, Es, As, Ds), S4)
     end.
 
-mapfold_list(F, S0, [T | Ts]) ->
-    {T1, S1} = mapfold(F, S0, T),
-    {Ts1, S2} = mapfold_list(F, S1, Ts),
+mapfold_list(Pre, Post, S0, [T | Ts]) ->
+    {T1, S1} = mapfold(Pre, Post, S0, T),
+    {Ts1, S2} = mapfold_list(Pre, Post, S1, Ts),
     {[T1 | Ts1], S2};
-mapfold_list(_, S, []) ->
+mapfold_list(_, _, S, []) ->
     {[], S}.
 
-mapfold_pairs(F, S0, [{T1, T2} | Ps]) ->
-    {T3, S1} = mapfold(F, S0, T1),
-    {T4, S2} = mapfold(F, S1, T2),
-    {Ps1, S3} = mapfold_pairs(F, S2, Ps),
+mapfold_pairs(Pre, Post, S0, [{T1, T2} | Ps]) ->
+    {T3, S1} = mapfold(Pre, Post, S0, T1),
+    {T4, S2} = mapfold(Pre, Post, S1, T2),
+    {Ps1, S3} = mapfold_pairs(Pre, Post, S2, Ps),
     {[{T3, T4} | Ps1], S3};
-mapfold_pairs(_, S, []) ->
+mapfold_pairs(_, _, S, []) ->
     {[], S}.
 
 
@@ -488,6 +547,10 @@ variables(T, S) ->
 			  variables(cons_tl(T), S));
 	tuple ->
 	    vars_in_list(tuple_es(T), S);
+	map ->
+	    vars_in_list([map_arg(T)|map_es(T)], S);
+	map_pair ->
+	    vars_in_list([map_pair_op(T),map_pair_key(T),map_pair_val(T)], S);
 	'let' ->
 	    Vs = variables(let_body(T), S),
 	    Vs1 = var_list_names(let_vars(T)),
@@ -604,8 +667,8 @@ vars_in_list([], _, A) ->
 vars_in_defs(Ds, S) ->
     vars_in_defs(Ds, S, []).
 
-vars_in_defs([{_, F} | Ds], S, A) ->
-    vars_in_defs(Ds, S, ordsets:union(variables(F, S), A));
+vars_in_defs([{_, Post} | Ds], S, A) ->
+    vars_in_defs(Ds, S, ordsets:union(variables(Post, S), A));
 vars_in_defs([], _, A) ->
     A.
 
@@ -667,13 +730,14 @@ label(T, N, Env) ->
 	    %% Constant literals are not labeled.
 	    {T, N};
 	var ->
-	    case dict:find(var_name(T), Env) of
-		{ok, L} ->
-		    {As, _} = label_ann(T, L),
-		    N1 = N;
-		error ->
-		    {As, N1} = label_ann(T, N)
-	    end,
+            {As, N1} =
+                case dict:find(var_name(T), Env) of
+		    {ok, L} ->
+		        {A, _} = label_ann(T, L),
+		        {A, N};
+                    error ->
+		        label_ann(T, N)
+                end,
 	    {set_ann(T, As), N1};
 	values ->
 	    {Ts, N1} = label_list(values_es(T), N, Env),
@@ -688,6 +752,24 @@ label(T, N, Env) ->
 	    {Ts, N1} = label_list(tuple_es(T), N, Env),
 	    {As, N2} = label_ann(T, N1),
 	    {ann_c_tuple_skel(As, Ts), N2};
+ 	map ->
+	    case is_c_map_pattern(T) of
+		false ->
+		    {M,  N1} = label(map_arg(T), N, Env),
+		    {Ts, N2} = label_list(map_es(T), N1, Env),
+		    {As, N3} = label_ann(T, N2),
+		    {ann_c_map(As, M, Ts), N3};
+		true ->
+		    {Ts, N1} = label_list(map_es(T), N, Env),
+		    {As, N2} = label_ann(T, N1),
+		    {ann_c_map_pattern(As, Ts), N2}
+	    end;
+	map_pair ->
+	    {Op,  N1} = label(map_pair_op(T), N, Env),
+	    {Key, N2} = label(map_pair_key(T), N1, Env),
+	    {Val, N3} = label(map_pair_val(T), N2, Env),
+	    {As,  N4} = label_ann(T, N3),
+	    {ann_c_map_pair(As,Op,Key,Val), N4};
  	'let' ->
 	    {A, N1} = label(let_arg(T), N, Env),
 	    {Vs, N2, Env1} = label_vars(let_vars(T), N1, Env),

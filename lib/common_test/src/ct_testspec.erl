@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -26,6 +27,8 @@
 -export([prepare_tests/1, prepare_tests/2, 
 	 collect_tests_from_list/2, collect_tests_from_list/3,
 	 collect_tests_from_file/2, collect_tests_from_file/3]).
+
+-export([testspec_rec2list/1, testspec_rec2list/2]).
 
 -include("ct_util.hrl").
 -define(testspec_fields, record_info(fields, testspec)).
@@ -67,13 +70,17 @@ prepare_tests(TestSpec) when is_record(TestSpec,testspec) ->
     Tests = TestSpec#testspec.tests,
     %% Sort Tests into "flat" Run and Skip lists (not sorted per node).
     {Run,Skip} = get_run_and_skip(Tests,[],[]),
+
     %% Create initial list of {Node,{Run,Skip}} tuples
     NodeList = lists:map(fun(N) -> {N,{[],[]}} end, list_nodes(TestSpec)),
+
     %% Get all Run tests sorted per node basis.
     NodeList1 = run_per_node(Run,NodeList, 
-			     TestSpec#testspec.merge_tests),    
+			     TestSpec#testspec.merge_tests),
+    
     %% Get all Skip entries sorted per node basis.
     NodeList2 = skip_per_node(Skip,NodeList1),
+
     %% Change representation.
     Result=
 	lists:map(fun({Node,{Run1,Skip1}}) ->
@@ -100,7 +107,7 @@ run_per_node([{{Node,Dir},Test}|Ts],Result,MergeTests) ->
 	       true ->
 		   merge_tests(Dir,Test,Run)
 	   end,
-    run_per_node(Ts,insert_in_order({Node,{Run1,Skip}},Result), 
+    run_per_node(Ts,insert_in_order({Node,{Run1,Skip}},Result,replace), 
 		 MergeTests);
 run_per_node([],Result,_) ->
     Result.
@@ -137,7 +144,7 @@ merge_suites(Dir,Test,[]) ->
 skip_per_node([{{Node,Dir},Test}|Ts],Result) ->
     {value,{Node,{Run,Skip}}} = lists:keysearch(Node,1,Result),
     Skip1 = [{Dir,Test}|Skip],
-    skip_per_node(Ts,insert_in_order({Node,{Run,Skip1}},Result));
+    skip_per_node(Ts,insert_in_order({Node,{Run,Skip1}},Result,replace));
 skip_per_node([],Result) -> 
     Result.
 
@@ -153,7 +160,7 @@ skip_per_node([],Result) ->
 %%
 %%   Skip entry: {Suites,Comment} or {Suite,Cases,Comment}
 %%
-get_run_and_skip([{{Node,Dir},Suites}|Tests],Run,Skip) ->    
+get_run_and_skip([{{Node,Dir},Suites}|Tests],Run,Skip) ->
     TestDir = ct_util:get_testdir(Dir,catch element(1,hd(Suites))),
     case lists:keysearch(all,1,Suites) of
 	{value,_} ->				% all Suites in Dir
@@ -180,18 +187,33 @@ prepare_suites(Node,Dir,[{Suite,Cases}|Suites],Run,Skip) ->
 			   [[{{Node,Dir},{Suite,all}}]|Run],
 			   [Skipped|Skip]);
 	false ->
-	    {RL,SL} = prepare_cases(Node,Dir,Suite,Cases),
-	    prepare_suites(Node,Dir,Suites,[RL|Run],[SL|Skip])
+	    {Run1,Skip1} = prepare_cases(Node,Dir,Suite,Cases,Run,Skip),
+	    prepare_suites(Node,Dir,Suites,Run1,Skip1)
     end;
 prepare_suites(_Node,_Dir,[],Run,Skip) ->
     {lists:flatten(lists:reverse(Run)),
      lists:flatten(lists:reverse(Skip))}.
 
-prepare_cases(Node,Dir,Suite,Cases) ->
+prepare_cases(Node,Dir,Suite,Cases,Run,Skip) ->
     case get_skipped_cases(Node,Dir,Suite,Cases) of
-	SkipAll=[{{Node,Dir},{Suite,_Cmt}}] ->	      % all cases to be skipped
-	    %% note: this adds an 'all' test even if only skip is specified
-	    {[{{Node,Dir},{Suite,all}}],SkipAll};
+	[SkipAll={{Node,Dir},{Suite,_Cmt}}] ->	      % all cases to be skipped
+	    case lists:any(fun({{N,D},{S,all}}) when N == Node,
+						     D == Dir,
+						     S == Suite ->
+				   true;
+			      ({{N,D},{S,Cs}}) when N == Node,
+						    D == Dir,
+						    S == Suite ->
+				   lists:member(all,Cs);
+			      (_) -> false
+			   end, lists:flatten(Run)) of
+		true ->
+		    {Run,[SkipAll|Skip]};
+		false ->
+		    %% note: this adds an 'all' test even if
+		    %% only skip is specified		    
+		    {[{{Node,Dir},{Suite,all}}|Run],[SkipAll|Skip]}
+	    end;
 	Skipped ->
 	    %% note: this adds a test even if only skip is specified
 	    PrepC = lists:foldr(fun({{G,Cs},{skip,_Cmt}}, Acc) when
@@ -207,11 +229,11 @@ prepare_cases(Node,Dir,Suite,Cases) ->
 					    true ->
 						Acc;
 					    false ->
-						[C|Acc]
+						[{skipped,C}|Acc]
 					end;
 				   (C,Acc) -> [C|Acc]
 				end, [], Cases),
-    {{{Node,Dir},{Suite,PrepC}},Skipped}
+	    {[{{Node,Dir},{Suite,PrepC}}|Run],[Skipped|Skip]}
     end.
 
 get_skipped_suites(Node,Dir,Suites) ->
@@ -428,6 +450,7 @@ collect_tests({Replace,Terms},TestSpec=#testspec{alias=As,nodes=Ns},Relaxed) ->
 						    merge_tests = MergeTestsDef}),
     TestSpec2 = get_all_nodes(Terms2,TestSpec1),
     {Terms3, TestSpec3} = filter_init_terms(Terms2, [], TestSpec2),
+
     add_tests(Terms3,TestSpec3).
 
 %% replace names (atoms) in the testspec matching those in 'define' terms by
@@ -973,7 +996,8 @@ add_tests([Term={Tag,all_nodes,Data}|Ts],Spec) ->
 					should_be_added(Tag,Node,Data,Spec)],
 	    add_tests(Tests++Ts,Spec);
 	invalid ->				% ignore term
-	    add_tests(Ts,Spec)
+	    Unknown = Spec#testspec.unknown,
+	    add_tests(Ts,Spec#testspec{unknown=Unknown++[Term]})
     end;
 %% create one test entry per node in Nodes and reinsert
 add_tests([{Tag,[],Data}|Ts],Spec) ->
@@ -1001,7 +1025,8 @@ add_tests([Term={Tag,NodeOrOther,Data}|Ts],Spec) ->
 			handle_data(Tag,Node,Data,Spec),
 		    add_tests(Ts,mod_field(Spec,Tag,NodeIxData));
 		invalid ->			% ignore term
-		    add_tests(Ts,Spec)
+		    Unknown = Spec#testspec.unknown,
+		    add_tests(Ts,Spec#testspec{unknown=Unknown++[Term]})
 	    end;
 	false ->
 	    add_tests([{Tag,all_nodes,{NodeOrOther,Data}}|Ts],Spec)
@@ -1012,13 +1037,15 @@ add_tests([Term={Tag,Data}|Ts],Spec) ->
 	valid ->
 	    add_tests([{Tag,all_nodes,Data}|Ts],Spec);
 	invalid ->
-	    add_tests(Ts,Spec)
+	    Unknown = Spec#testspec.unknown,
+	    add_tests(Ts,Spec#testspec{unknown=Unknown++[Term]})
     end;
 %% some other data than a tuple
 add_tests([Other|Ts],Spec) ->	
     case get(relaxed) of
-	true ->		
-	    add_tests(Ts,Spec);
+	true ->
+	    Unknown = Spec#testspec.unknown,
+	    add_tests(Ts,Spec#testspec{unknown=Unknown++[Other]});
 	false ->
 	    throw({error,{undefined_term_in_spec,Other}})
     end;
@@ -1119,9 +1146,11 @@ should_be_added(Tag,Node,_Data,Spec) ->
     if 
 	%% list terms *without* possible duplicates here
 	Tag == logdir;       Tag == logopts;
-	Tag == basic_html;   Tag == label;
-	Tag == auto_compile; Tag == stylesheet;
-	Tag == verbosity;    Tag == silent_connections ->
+	Tag == basic_html;   Tag == esc_chars;
+	Tag == label;        Tag == auto_compile;
+	Tag == abort_if_missing_suites;
+	Tag == stylesheet;   Tag == verbosity;
+	Tag == silent_connections ->
 	    lists:keymember(ref2node(Node,Spec#testspec.nodes),1,
 			    read_field(Spec,Tag)) == false;
 	%% for terms *with* possible duplicates
@@ -1147,6 +1176,24 @@ per_node([N|Ns],Tag,Data,Refs) ->
     [list_to_tuple([Tag,ref2node(N,Refs)|Data])|per_node(Ns,Tag,Data,Refs)];
 per_node([],_,_,_) ->
     [].
+
+%% Change the testspec record "back" to a list of tuples
+testspec_rec2list(Rec) ->
+    {Terms,_} = lists:mapfoldl(fun(unknown, Pos) ->
+				       {element(Pos, Rec),Pos+1};
+				  (F, Pos) ->
+				       {{F,element(Pos, Rec)},Pos+1}
+			       end,2,?testspec_fields),
+    lists:flatten(Terms).
+
+%% Extract one or more values from a testspec record and
+%% return the result as a list of tuples
+testspec_rec2list(Field, Rec) when is_atom(Field) ->
+    [Term] = testspec_rec2list([Field], Rec),
+    Term;
+testspec_rec2list(Fields, Rec) ->
+    Terms = testspec_rec2list(Rec),
+    [{Field,proplists:get_value(Field, Terms)} || Field <- Fields].
 
 %% read the value for FieldName in record Rec#testspec
 read_field(Rec, FieldName) ->
@@ -1231,7 +1278,7 @@ insert_groups1(Suite,Groups,Suites0) ->
 	    Suites0;
 	{value,{Suite,GrAndCases0}} ->
 	    GrAndCases = insert_groups2(Groups,GrAndCases0),
-	    insert_in_order({Suite,GrAndCases},Suites0);
+	    insert_in_order({Suite,GrAndCases},Suites0,replace);
 	false ->
 	    insert_in_order({Suite,Groups},Suites0)
     end.
@@ -1256,7 +1303,7 @@ insert_cases(Node,Dir,Suite,Cases,Tests,false) when is_list(Cases) ->
 insert_cases(Node,Dir,Suite,Cases,Tests,true) when is_list(Cases) ->
     {Tests1,Done} =
 	lists:foldr(fun(All={{N,D},[{all,_}]},{Merged,_}) when N == Node,
-								 D == Dir ->
+							       D == Dir ->
 			    {[All|Merged],true};
 		       ({{N,D},Suites0},{Merged,_}) when N == Node,
 							   D == Dir ->
@@ -1286,7 +1333,7 @@ insert_cases1(Suite,Cases,Suites0) ->
 	    Suites0;
 	{value,{Suite,Cases0}} ->
 	    Cases1 = insert_in_order(Cases,Cases0),
-	    insert_in_order({Suite,Cases1},Suites0);
+	    insert_in_order({Suite,Cases1},Suites0,replace);
 	false ->
 	    insert_in_order({Suite,Cases},Suites0)
     end.
@@ -1343,9 +1390,9 @@ skip_groups1(Suite,Groups,Cmt,Suites0) ->
     case lists:keysearch(Suite,1,Suites0) of
 	{value,{Suite,GrAndCases0}} ->
 	    GrAndCases1 = GrAndCases0 ++ SkipGroups,
-	    insert_in_order({Suite,GrAndCases1},Suites0);
+	    insert_in_order({Suite,GrAndCases1},Suites0,replace);
 	false ->
-	    insert_in_order({Suite,SkipGroups},Suites0)
+	    insert_in_order({Suite,SkipGroups},Suites0,replace)
     end.
 
 skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,false) when is_list(Cases) ->
@@ -1354,7 +1401,7 @@ skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,false) when is_list(Cases) ->
 skip_cases(Node,Dir,Suite,Cases,Cmt,Tests,true) when is_list(Cases) ->
     {Tests1,Done} =
 	lists:foldr(fun({{N,D},Suites0},{Merged,_}) when N == Node,
-							   D == Dir ->
+							 D == Dir ->
 			    Suites1 = skip_cases1(Suite,Cases,Cmt,Suites0),
 			    {[{{N,D},Suites1}|Merged],true};
 		       (T,{Merged,Match}) ->
@@ -1375,32 +1422,55 @@ skip_cases1(Suite,Cases,Cmt,Suites0) ->
     case lists:keysearch(Suite,1,Suites0) of
 	{value,{Suite,Cases0}} ->
 	    Cases1 = Cases0 ++ SkipCases,
-	    insert_in_order({Suite,Cases1},Suites0);
+	    insert_in_order({Suite,Cases1},Suites0,replace);
 	false ->
-	    insert_in_order({Suite,SkipCases},Suites0)
+	    case Suites0 of
+		[{all,_}=All|Skips]->
+		    [All|Skips++[{Suite,SkipCases}]];
+		_ ->
+		    insert_in_order({Suite,SkipCases},Suites0,replace)
+	    end
     end.
 
 append(Elem, List) ->
     List ++ [Elem].
 
-insert_in_order([E|Es],List) ->
-    List1 = insert_elem(E,List,[]),
-    insert_in_order(Es,List1);
-insert_in_order([],List) ->
-    List;
-insert_in_order(E,List) ->
-    insert_elem(E,List,[]).
+insert_in_order(Elems,Dest) ->
+        insert_in_order1(Elems,Dest,false).
 
-%% replace an existing entry (same key) or add last in list
-insert_elem({Key,_}=E,[{Key,_}|Rest],SoFar) ->
+insert_in_order(Elems,Dest,replace) ->
+    insert_in_order1(Elems,Dest,true).
+
+insert_in_order1([_E|Es],all,Replace) ->
+    insert_in_order1(Es,all,Replace);
+
+insert_in_order1([E|Es],List,Replace) ->
+    List1 = insert_elem(E,List,[],Replace),
+    insert_in_order1(Es,List1,Replace);
+insert_in_order1([],List,_Replace) ->
+    List;
+insert_in_order1(E,List,Replace) ->
+    insert_elem(E,List,[],Replace).
+
+
+insert_elem({Key,_}=E,[{Key,_}|Rest],SoFar,true) ->
     lists:reverse([E|SoFar]) ++ Rest;
-insert_elem({E,_},[E|Rest],SoFar) ->
+insert_elem({E,_},[E|Rest],SoFar,true) ->
     lists:reverse([E|SoFar]) ++ Rest;
-insert_elem(E,[E|Rest],SoFar) ->
+insert_elem(E,[E|Rest],SoFar,true) ->
     lists:reverse([E|SoFar]) ++ Rest;
-insert_elem(E,[E1|Rest],SoFar) ->
-    insert_elem(E,Rest,[E1|SoFar]);
-insert_elem(E,[],SoFar) ->
+
+insert_elem({all,_}=E,_,SoFar,_Replace) ->
+    lists:reverse([E|SoFar]);
+insert_elem(_E,[all|_],SoFar,_Replace) ->
+    lists:reverse(SoFar);
+insert_elem(_E,[{all,_}],SoFar,_Replace) ->
+    lists:reverse(SoFar);
+insert_elem({Key,_}=E,[{Key,[]}|Rest],SoFar,_Replace) ->
+    lists:reverse([E|SoFar]) ++ Rest;
+insert_elem(E,[E1|Rest],SoFar,Replace) ->
+    insert_elem(E,Rest,[E1|SoFar],Replace);
+insert_elem(E,[],SoFar,_Replace) ->
     lists:reverse([E|SoFar]).
 
 ref2node(all_nodes,_Refs) ->
@@ -1475,6 +1545,8 @@ valid_terms() ->
      {logopts,3},
      {basic_html,2},
      {basic_html,3},
+     {esc_chars,2},
+     {esc_chars,3},
      {verbosity,2},
      {verbosity,3},
      {silent_connections,2},
@@ -1496,6 +1568,8 @@ valid_terms() ->
      {include,3},
      {auto_compile,2},
      {auto_compile,3},
+     {abort_if_missing_suites,2},
+     {abort_if_missing_suites,3},     
      {stylesheet,2},
      {stylesheet,3},
      {suites,3},

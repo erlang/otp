@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -23,6 +24,9 @@
 #ifndef __ERL_NIF_H__
 #define __ERL_NIF_H__
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
 
 #include "erl_drv_nif.h"
 
@@ -34,76 +38,72 @@
 ** 2.2: R14B03 enif_is_exception
 ** 2.3: R15 enif_make_reverse_list, enif_is_number
 ** 2.4: R16 enif_consume_timeslice
+** 2.5: First experimental maps API additions (libs of this version is not compatible with any other VM)
+** 2.5: R17 Maps API additions
+** 2.6: R17 with maps
+**      R17 dirty schedulers
+** 2.7: 17.3 add enif_schedule_nif
+**           remove enif_schedule_dirty_nif, enif_schedule_dirty_nif_finalizer, enif_dirty_nif_finalizer
+**           add ErlNifEntry options
+**           add ErlNifFunc flags
+** 2.8: 18.0 add enif_has_pending_exception
+** 2.9: 18.2 enif_getenv
+** 2.10: Time API
+** 2.11: 19.0 enif_snprintf
 */
 #define ERL_NIF_MAJOR_VERSION 2
-#define ERL_NIF_MINOR_VERSION 4
+#define ERL_NIF_MINOR_VERSION 11
+
+/*
+ * The emulator will refuse to load a nif-lib with a major version
+ * lower than ERL_NIF_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD. The load
+ * may however fail if user have not removed use of deprecated
+ * symbols.
+ *
+ * The ERL_NIF_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD have to allow
+ * loading of nif-libs built at least two major OTP releases
+ * ago.
+ */
+#define ERL_NIF_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD 2
 
 #include <stdlib.h>
-
-#ifdef SIZEOF_CHAR
-#  define SIZEOF_CHAR_SAVED__ SIZEOF_CHAR
-#  undef SIZEOF_CHAR
-#endif
-#ifdef SIZEOF_SHORT
-#  define SIZEOF_SHORT_SAVED__ SIZEOF_SHORT
-#  undef SIZEOF_SHORT
-#endif
-#ifdef SIZEOF_INT
-#  define SIZEOF_INT_SAVED__ SIZEOF_INT
-#  undef SIZEOF_INT
-#endif
-#ifdef SIZEOF_LONG
-#  define SIZEOF_LONG_SAVED__ SIZEOF_LONG
-#  undef SIZEOF_LONG
-#endif
-#ifdef SIZEOF_LONG_LONG
-#  define SIZEOF_LONG_LONG_SAVED__ SIZEOF_LONG_LONG
-#  undef SIZEOF_LONG_LONG
-#endif
-#ifdef HALFWORD_HEAP_EMULATOR
-#  define HALFWORD_HEAP_EMULATOR_SAVED__ HALFWORD_HEAP_EMULATOR
-#  undef HALFWORD_HEAP_EMULATOR
-#endif
-#include "erl_int_sizes_config.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
-typedef unsigned __int64 ErlNifUInt64;
-typedef __int64 ErlNifSInt64;
-#elif SIZEOF_LONG == 8
-typedef unsigned long ErlNifUInt64;
-typedef long ErlNifSInt64;
-#elif SIZEOF_LONG_LONG == 8
-typedef unsigned long long ErlNifUInt64;
-typedef long long ErlNifSInt64;
-#else
-#error No 64-bit integer type
-#endif
+typedef ErlNapiUInt64 ErlNifUInt64;
+typedef ErlNapiSInt64 ErlNifSInt64;
+typedef ErlNapiUInt ErlNifUInt;
+typedef ErlNapiSInt ErlNifSInt;
 
-#ifdef HALFWORD_HEAP_EMULATOR
-#  define ERL_NIF_VM_VARIANT "beam.halfword" 
-typedef unsigned int ERL_NIF_TERM;
-#else
 #  define ERL_NIF_VM_VARIANT "beam.vanilla" 
-#  if SIZEOF_LONG == SIZEOF_VOID_P
-typedef unsigned long ERL_NIF_TERM;
-#  elif SIZEOF_LONG_LONG == SIZEOF_VOID_P
-typedef unsigned long long ERL_NIF_TERM;
-#  endif
-#endif
+typedef ErlNifUInt ERL_NIF_TERM;
+
+typedef ERL_NIF_TERM ERL_NIF_UINT;
+
+typedef ErlNifSInt64 ErlNifTime;
+
+#define ERL_NIF_TIME_ERROR ((ErlNifSInt64) ERTS_NAPI_TIME_ERROR__)
+
+typedef enum {
+    ERL_NIF_SEC    = ERTS_NAPI_SEC__,
+    ERL_NIF_MSEC   = ERTS_NAPI_MSEC__,
+    ERL_NIF_USEC   = ERTS_NAPI_USEC__,
+    ERL_NIF_NSEC   = ERTS_NAPI_NSEC__
+} ErlNifTimeUnit;
 
 struct enif_environment_t;
 typedef struct enif_environment_t ErlNifEnv;
 
-typedef struct
+typedef struct enif_func_t
 {
     const char* name;
     unsigned arity;
     ERL_NIF_TERM (*fptr)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+    unsigned flags;
 }ErlNifFunc;
+
 
 typedef struct enif_entry_t
 {
@@ -117,8 +117,11 @@ typedef struct enif_entry_t
     int  (*upgrade)(ErlNifEnv*, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
     void (*unload) (ErlNifEnv*, void* priv_data);
     const char* vm_variant;
+    unsigned options;
 }ErlNifEntry;
 
+/* Field bits for ErlNifEntry options */
+#define ERL_NIF_DIRTY_NIF_OPTION 1
 
 
 typedef struct
@@ -147,7 +150,12 @@ typedef enum
 typedef struct
 {
     ERL_NIF_TERM pid;  /* internal, may change */
-}ErlNifPid;
+} ErlNifPid;
+
+typedef struct
+{
+    ERL_NIF_TERM port_id;  /* internal, may change */
+}ErlNifPort;
 
 typedef ErlDrvSysInfo ErlNifSysInfo;
 
@@ -159,16 +167,70 @@ typedef int ErlNifTSDKey;
 
 typedef ErlDrvThreadOpts ErlNifThreadOpts;
 
+typedef enum
+{
+    ERL_NIF_DIRTY_JOB_CPU_BOUND = ERL_DIRTY_JOB_CPU_BOUND,
+    ERL_NIF_DIRTY_JOB_IO_BOUND  = ERL_DIRTY_JOB_IO_BOUND
+}ErlNifDirtyTaskFlags;
+
+typedef struct /* All fields all internal and may change */
+{
+    ERL_NIF_TERM map;
+    ERL_NIF_UINT size;
+    ERL_NIF_UINT idx;
+    union {
+        struct {
+            ERL_NIF_TERM *ks;
+            ERL_NIF_TERM *vs;
+        }flat;
+        struct {
+            struct ErtsDynamicWStack_* wstack;
+            ERL_NIF_TERM* kv;
+        }hash;
+    }u;
+    void* __spare__[2]; /* for future additions to be ABI compatible (same struct size) */
+} ErlNifMapIterator;
+
+typedef enum {
+    ERL_NIF_MAP_ITERATOR_FIRST = 1,
+    ERL_NIF_MAP_ITERATOR_LAST = 2,
+
+    /* deprecated synonyms (undocumented in 17 and 18-rc) */
+    ERL_NIF_MAP_ITERATOR_HEAD = ERL_NIF_MAP_ITERATOR_FIRST,
+    ERL_NIF_MAP_ITERATOR_TAIL = ERL_NIF_MAP_ITERATOR_LAST
+} ErlNifMapIteratorEntry;
+
+typedef enum {
+    ERL_NIF_UNIQUE_POSITIVE = (1 << 0),
+    ERL_NIF_UNIQUE_MONOTONIC = (1 << 1)
+} ErlNifUniqueInteger;
+
+typedef enum {
+    ERL_NIF_BIN2TERM_SAFE = 0x20000000
+} ErlNifBinaryToTerm;
+
+/*
+ * Return values from enif_thread_type(). Negative values
+ * reserved for specific types of non-scheduler threads.
+ * Positive values reserved for scheduler thread types.
+ */
+
+#define ERL_NIF_THR_UNDEFINED 0
+#define ERL_NIF_THR_NORMAL_SCHEDULER 1
+#define ERL_NIF_THR_DIRTY_CPU_SCHEDULER 2
+#define ERL_NIF_THR_DIRTY_IO_SCHEDULER 3
+
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) RET_TYPE (*NAME) ARGS
 typedef struct {
 #  include "erl_nif_api_funcs.h"
+   void* erts_alc_test;
 } TWinDynNifCallbacks;
 extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  undef ERL_NIF_API_FUNC_DECL
 #endif
 
-#if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_)) && !defined(STATIC_ERLANG_DRIVER)
+#if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_)) && !defined(STATIC_ERLANG_DRIVER) && !defined(STATIC_ERLANG_NIF)
 #  define ERL_NIF_API_FUNC_MACRO(NAME) (WinDynNifCallbacks.NAME)
 #  include "erl_nif_api_funcs.h"
 /* note that we have to keep ERL_NIF_API_FUNC_MACRO defined */
@@ -180,17 +242,31 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #  undef ERL_NIF_API_FUNC_DECL
 #endif
 
-
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_INIT_GLOB TWinDynNifCallbacks WinDynNifCallbacks;
-#  define ERL_NIF_INIT_DECL(MODNAME) __declspec(dllexport) ErlNifEntry* nif_init(TWinDynNifCallbacks* callbacks)
+#  define ERL_NIF_INIT_ARGS TWinDynNifCallbacks* callbacks
 #  define ERL_NIF_INIT_BODY memcpy(&WinDynNifCallbacks,callbacks,sizeof(TWinDynNifCallbacks))
+#  define ERL_NIF_INIT_EXPORT __declspec(dllexport)
 #else 
 #  define ERL_NIF_INIT_GLOB
+#  define ERL_NIF_INIT_ARGS void
 #  define ERL_NIF_INIT_BODY
-#  define ERL_NIF_INIT_DECL(MODNAME) ErlNifEntry* nif_init(void)
+#  if defined(__GNUC__) && __GNUC__ >= 4
+#    define ERL_NIF_INIT_EXPORT __attribute__ ((visibility("default")))
+#  elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
+#    define ERL_NIF_INIT_EXPORT __global
+#  else
+#    define ERL_NIF_INIT_EXPORT
+#  endif
 #endif
 
+#ifdef STATIC_ERLANG_NIF
+#  define ERL_NIF_INIT_DECL(MODNAME) ErlNifEntry* MODNAME ## _nif_init(ERL_NIF_INIT_ARGS)
+#else
+#  define ERL_NIF_INIT_DECL(MODNAME) ERL_NIF_INIT_EXPORT ErlNifEntry* nif_init(ERL_NIF_INIT_ARGS)
+#endif
+
+#define ERL_NIF_ENTRY_OPTIONS ERL_NIF_DIRTY_NIF_OPTION
 
 #ifdef __cplusplus
 }
@@ -216,7 +292,8 @@ ERL_NIF_INIT_DECL(NAME)			\
 	sizeof(FUNCS) / sizeof(*FUNCS),	\
 	FUNCS,				\
 	LOAD, RELOAD, UPGRADE, UNLOAD,	\
-	ERL_NIF_VM_VARIANT		\
+	ERL_NIF_VM_VARIANT,		\
+	ERL_NIF_ENTRY_OPTIONS		\
     };                                  \
     ERL_NIF_INIT_BODY;                  \
     return &entry;			\

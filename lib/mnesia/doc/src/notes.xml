@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -38,7 +39,354 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.9</title>
+  <section><title>Mnesia 4.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added experimental external backend plugin api. This adds
+	    the possibility for the user to write other storage
+	    backends for data, for example by using shared memory or
+	    ram-cached disk storage.</p>
+          <p>
+	    The plugin api may change in future versions after being
+	    battle tested.</p>
+          <p>
+	    Own Id: OTP-13058</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.13.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Mnesia transactions could hang while waiting on a
+	    response from a node who had stopped.</p>
+          <p>
+	    Own Id: OTP-13423</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.13.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid deadlock possibility in
+	    <c>mnesia:del_table_copy/2</c></p>
+          <p>
+	    Own Id: OTP-13284</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.13.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a process and file descriptor leak in
+	    mnesia:restore/2.</p>
+          <p>
+	    Own Id: OTP-13025 Aux Id: seq12957 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.13.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved index updates to avoid a timing glitch in
+	    dirty_index_read.</p>
+          <p>
+	    Own Id: OTP-12972</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Mnesia's dirty functions did not always exit with
+	    <c>{aborted, Reason}</c> as documented when an error
+	    occurred.</p>
+          <p>
+	    Own Id: OTP-12714</p>
+        </item>
+        <item>
+          <p>
+	    Consider file descriptors limits (emfile) as a fatal
+	    error and do not delete log files. Previously the error
+	    was seen as a corrupted disk and the log files deleted
+	    which caused data loss.</p>
+          <p>
+	    Own Id: OTP-12807</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make Mnesia DCD dump behavior at start up optional, when
+	    turned off mnesia loads large disc_copies tables faster.</p>
+          <p>
+	    Own Id: OTP-12481</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed race condition in protocol negotiation.</p>
+          <p>
+	    Own Id: OTP-12473</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Grammar corrections. (Thanks to Derek Brown)</p>
+          <p>
+	    Own Id: OTP-12400</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a spelling mistake in mnesia documentation.</p>
+          <p>
+	    Own Id: OTP-12278</p>
+        </item>
+        <item>
+          <p>
+	    Matching data with <c>mnesia:match_object/1</c> did not
+	    work as expected in some cases, when data was written in
+	    the same transaction before the matching was invoked.</p>
+          <p>
+	    Own Id: OTP-12304 Aux Id: Seq12745 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Various logging fixes, including: Add run queue index to
+	    the process dump in crash dumps.<br/> Add thread index to
+	    enomem slogan when crashing.<br/> Remove error logger
+	    message for sending messages to old instances of the same
+	    node.</p>
+          <p>
+	    Own Id: OTP-12115</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a race which could make create_table fail if a node
+	    was going down during the transaction.</p>
+          <p>
+	    Own Id: OTP-12124 Aux Id: seq12694 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Force load table could hang when a node went away during
+	    start up.</p>
+          <p>
+	    Own Id: OTP-11948 Aux Id: seq12585 </p>
+        </item>
+        <item>
+          <p>
+	    The time for inserting locks for a transaction with large
+	    number of locks is reduced significantly.</p>
+          <p>
+	    Own Id: OTP-11981</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some local implementations of removing the last element
+	    from a list are replaced by <c>lists:droplast/1</c>. Note
+	    that this requires at least <c>stdlib-2.0</c>, which is
+	    the stdlib version delivered in OTP 17.0. (Thanks to Hans
+	    Svensson)</p>
+          <p>
+	    Own Id: OTP-11678</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    To prevent a race condition if there is a short
+	    communication problem when node-down and node-up events
+	    are received. They are now stored and later checked if
+	    the node came up just before mnesia flagged the node as
+	    down. (Thanks to Jonas Falkevik )</p>
+          <p>
+	    Own Id: OTP-11497</p>
+        </item>
+        <item>
+          <p>
+	    Added <c>mnesia:sync_log/0</c> to explicit sync mnesias
+	    transaction log.</p>
+          <p>
+	    Own Id: OTP-11729</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a race in mnesia which could cause hanging
+	    transaction when sticky locks had been used. Thanks
+	    janchochol.</p>
+          <p>
+	    Own Id: OTP-11375</p>
+        </item>
+        <item>
+          <p>
+	    Fixed dirty_update_counter which could return ok, thanks
+	    Anton Ryabkov.</p>
+          <p>
+	    Own Id: OTP-11485</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix timing issues in checkpoint creation.</p>
+          <p>
+	    Own Id: OTP-10957</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a problem where the fallback BUP file is removed
+	    when calling mnesia:uninstall_fallback and mnesia is not
+	    started.</p>
+          <p>
+	    Own Id: OTP-11241</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -115,7 +463,7 @@
         <item>
           <p>
 	    Remove support for the query keyword and query
-	    expressions. Thanks to Loïc Hoguin.</p>
+	    expressions. Thanks to LoÃ¯c Hoguin.</p>
           <p>
 	    Own Id: OTP-10729</p>
         </item>
@@ -352,7 +700,7 @@
 	    "-f" is a non-standard chmod option which at least SGI
 	    IRIX and HP UX do not support. As the only effect of the
 	    "-f" flag is to suppress warning messages, it can be
-	    safely omitted. (Thanks to Holger Weiß)</p>
+	    safely omitted. (Thanks to Holger WeiÃŸ)</p>
           <p>
 	    Own Id: OTP-9170</p>
         </item>

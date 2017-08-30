@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -401,7 +402,7 @@ cpu_bind_order_sort(erts_cpu_topology_t *cpudata,
 	    break;
 	default:
 	    cmp_func = NULL;
-	    erl_exit(ERTS_ABORT_EXIT,
+	    erts_exit(ERTS_ABORT_EXIT,
 		     "Bad cpu bind type: %d\n",
 		     (int) cpu_bind_order);
 	    break;
@@ -1589,7 +1590,7 @@ get_cpu_topology_term(Process *c_p, int type)
 	}
 	break;
     default:
-	erl_exit(ERTS_ABORT_EXIT, "Bad cpu topology type: %d\n", type);
+	erts_exit(ERTS_ABORT_EXIT, "Bad cpu topology type: %d\n", type);
 	break;
     }
 
@@ -1699,7 +1700,7 @@ erts_early_init_cpu_topology(int no_schedulers,
     }
 
     max_main_threads = erts_get_cpu_configured(cpuinfo);
-    if (max_main_threads > no_schedulers)
+    if (max_main_threads > no_schedulers || max_main_threads < 0)
 	max_main_threads = no_schedulers;
     *max_main_threads_p = max_main_threads;
 
@@ -1966,7 +1967,7 @@ cpu_group_insert(erts_cpu_groups_map_t *map,
 	    ix = 0;
     } while (ix != start);
 
-    erl_exit(ERTS_ABORT_EXIT, "Reader groups map full\n");
+    erts_exit(ERTS_ABORT_EXIT, "Reader groups map full\n");
 }
 
 
@@ -2289,7 +2290,7 @@ remove_cpu_groups(erts_cpu_groups_callback_t callback, void *arg)
 	prev_cgm = cgm;
     }
 
-    erl_exit(ERTS_ABORT_EXIT, "Cpu groups not found\n");
+    erts_exit(ERTS_ABORT_EXIT, "Cpu groups not found\n");
 }
 
 static int
@@ -2319,7 +2320,7 @@ cpu_groups_lookup(erts_cpu_groups_map_t *map,
 	    ix = 0;
     } while (ix != start);
 
-    erl_exit(ERTS_ABORT_EXIT, "Logical cpu id %d not found\n", logical);
+    erts_exit(ERTS_ABORT_EXIT, "Logical cpu id %d not found\n", logical);
 }
 
 static void

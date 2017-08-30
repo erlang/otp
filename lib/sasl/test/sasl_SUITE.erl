@@ -1,28 +1,24 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 -module(sasl_SUITE).
 -include_lib("common_test/include/ct.hrl").
-
-
-%% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
--define(application, sasl).
 
 %% Test server specific exports
 -export([all/0,groups/0,init_per_group/2,end_per_group/2]).
@@ -31,10 +27,12 @@
 %% Test cases must be exported.
 -export([app_test/1,
 	 appup_test/1,
-	 log_mf_h_env/1]).
+	 log_mf_h_env/1,
+	 log_file/1,
+	 utc_log/1]).
 
 all() -> 
-    [app_test, appup_test, log_mf_h_env].
+    [log_mf_h_env, log_file, app_test, appup_test, utc_log].
 
 groups() -> 
     [].
@@ -47,102 +45,100 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+end_per_testcase(_Case, _Config) ->
     ok.
 
 app_test(Config) when is_list(Config) ->
     ?t:app_test(sasl, allow),
     ok.
 
-%% Test that appup allows upgrade from/downgrade to a maximum of two
-%% major releases back.
+%% Test that appup allows upgrade from/downgrade to a maximum of one
+%% major release back.
 appup_test(_Config) ->
-    application:load(sasl),
-    {sasl,_,SaslVsn} = lists:keyfind(sasl,1,application:loaded_applications()),
-    Ebin = filename:join(code:lib_dir(sasl),ebin),
-    {ok,[{SaslVsn,UpFrom,DownTo}=Appup]} =
-	file:consult(filename:join(Ebin,"sasl.appup")),
-    ct:log("~p~n",[Appup]),
-    {OkVsns,NokVsns} = create_test_vsns(SaslVsn),
+    appup_tests(sasl,create_test_vsns(sasl)).
+
+appup_tests(_App,{[],[]}) ->
+    {skip,"no previous releases available"};
+appup_tests(App,{OkVsns0,NokVsns}) ->
+    application:load(App),
+    {_,_,Vsn} = lists:keyfind(App,1,application:loaded_applications()),
+    AppupFileName = atom_to_list(App) ++ ".appup",
+    AppupFile = filename:join([code:lib_dir(App),ebin,AppupFileName]),
+    {ok,[{Vsn,UpFrom,DownTo}=AppupScript]} = file:consult(AppupFile),
+    ct:log("~p~n",[AppupScript]),
+    OkVsns =
+	case OkVsns0 -- [Vsn] of
+	    OkVsns0 ->
+		OkVsns0;
+	    Ok ->
+		ct:log("Current version, ~p, is same as in previous release.~n"
+		       "Removing this from the list of ok versions.",
+		      [Vsn]),
+		Ok
+	end,
+    ct:log("Testing that appup allows upgrade from these versions: ~p~n",
+	   [OkVsns]),
     check_appup(OkVsns,UpFrom,{ok,[restart_new_emulator]}),
     check_appup(OkVsns,DownTo,{ok,[restart_new_emulator]}),
+    ct:log("Testing that appup does not allow upgrade from these versions: ~p~n",
+	   [NokVsns]),
     check_appup(NokVsns,UpFrom,error),
     check_appup(NokVsns,DownTo,error),
     ok.
 
+create_test_vsns(App) ->
+    ThisMajor = erlang:system_info(otp_release),
+    FirstMajor = previous_major(ThisMajor),
+    SecondMajor = previous_major(FirstMajor),
+    Ok = app_vsn(App,[ThisMajor,FirstMajor]),
+    Nok0 = app_vsn(App,[SecondMajor]),
+    Nok = case Ok of
+	       [Ok1|_] ->
+		   [Ok1 ++ ",1" | Nok0]; % illegal
+	       _ ->
+		   Nok0
+	   end,
+    {Ok,Nok}.
 
-%% For sasl, the versions up to R14B03 were not according to the rule
-%% used for other core applications - i.e. to change the second number
-%% at major releases, the third at maintenance releases and the fourth
-%% for patches - therefore test versions up to and including R16 are
-%% hardcoded.
-%% (All versions below are not necessarily existing.)
--define(r12_vsns,["2.1.5"]).
--define(r13_vsns,["2.1.6","2.1.7.1","2.1.9","2.1.9.1.2"]).
--define(r14_vsns,["2.1.9.2","2.1.9.2.20","2.1.9.4","2.1.10"]).
--define(r15_major,"2.2").
--define(r16_major,"2.3").
--define(r17_major,"2.4").
-create_test_vsns(?r15_major ++ Rest) ->
-    R15Vsns =
-	case string:tokens(Rest,".") of
-	    [] -> [];
-	    ["1"] -> [?r15_major];
-	    _ -> [?r15_major,?r15_major++".1"]
-	end,
-    OkVsns = ?r13_vsns ++ ?r14_vsns ++ R15Vsns,
-    NokVsns = ?r12_vsns ++ [?r15_major++",1", ?r16_major],
-    {OkVsns,NokVsns};
-create_test_vsns(?r16_major ++ Rest) ->
-    R16Vsns =
-	case string:tokens(Rest,".") of
-	    [] -> [];
-	    ["1"] -> [?r16_major];
-	    _ -> [?r16_major,?r16_major++".1"]
-	end,
-    OkVsns = ?r14_vsns ++ [?r15_major, ?r15_major ++ ".1.4"] ++ R16Vsns,
-    NokVsns = ?r13_vsns ++ [?r16_major++",1", ?r17_major],
-    {OkVsns,NokVsns};
-%% Normal erts case - i.e. for versions that comply to the erts standard
-create_test_vsns(Current) ->
-    [XStr,YStr|Rest] = string:tokens(Current,"."),
-    X = list_to_integer(XStr),
-    Y = list_to_integer(YStr),
-    SecondMajor = vsn(X,Y-2),
-    SecondMinor = SecondMajor ++ ".1.3",
-    FirstMajor = vsn(X,Y-1),
-    FirstMinor = FirstMajor ++ ".57",
-    ThisMajor = vsn(X,Y),
-    This =
-	case Rest of
-	    [] ->
-		[];
-	    ["1"] ->
-		[ThisMajor];
-	    _ ->
-		ThisMinor = ThisMajor ++ ".1",
-		[ThisMajor,ThisMinor]
-	end,
-    OkVsns = This ++ [FirstMajor, FirstMinor, SecondMajor, SecondMinor],
+previous_major("17") ->
+    "r16b";
+previous_major("r16b") ->
+    "r15b";
+previous_major(Rel) ->
+    integer_to_list(list_to_integer(Rel)-1).
 
-    ThirdMajor = vsn(X,Y-3),
-    ThirdMinor = ThirdMajor ++ ".10.12",
-    Illegal = ThisMajor ++ ",1",
-    Newer1Major = vsn(X,Y+1),
-    Newer1Minor = Newer1Major ++ ".1",
-    Newer2Major = ThisMajor ++ "1",
-    NokVsns = [ThirdMajor,ThirdMinor,
-	       Illegal,
-	       Newer1Major,Newer1Minor,
-	       Newer2Major],
-    {OkVsns,NokVsns}.
-
-vsn(X,Y) ->
-    integer_to_list(X) ++ "." ++ integer_to_list(Y).
+app_vsn(App,[R|Rs]) ->
+    OldRel =
+	case test_server:is_release_available(R) of
+	    true ->
+		{release,R};
+	    false ->
+		case ct:get_config({otp_releases,list_to_atom(R)}) of
+		    undefined ->
+			false;
+		    Prog0 ->
+			case os:find_executable(Prog0) of
+			    false ->
+				false;
+			    Prog ->
+				{prog,Prog}
+			end
+		end
+	end,
+    case OldRel of
+	false ->
+	    app_vsn(App,Rs);
+	_ ->
+	    {ok,N} = test_server:start_node(prevrel,peer,[{erl,[OldRel]}]),
+	    _ = rpc:call(N,application,load,[App]),
+	    As = rpc:call(N,application,loaded_applications,[]),
+	    {_,_,V} = lists:keyfind(App,1,As),
+	    test_server:stop_node(N),
+	    [V|app_vsn(App,Rs)]
+    end;
+app_vsn(_App,[]) ->
+    [].
 
 check_appup([Vsn|Vsns],Instrs,Expected) ->
     case systools_relup:appup_search_for_version(Vsn, Instrs) of
@@ -153,16 +149,14 @@ check_appup([],_,_) ->
     ok.
 
 
-
 %% OTP-9185 - fail sasl start if some but not all log_mf_h env vars
 %% are given.
 log_mf_h_env(Config) ->
     PrivDir = ?config(priv_dir,Config),
     LogDir = filename:join(PrivDir,sasl_SUITE_log_dir),
-    ok = file:make_dir(LogDir),
+    ok = filelib:ensure_dir(LogDir),
     application:stop(sasl),
-    SaslEnv = application:get_all_env(sasl),
-    lists:foreach(fun({E,_V}) -> application:unset_env(sasl,E) end, SaslEnv),
+    clear_env(sasl),
 
     ok = application:set_env(sasl,error_logger_mf_dir,LogDir),
     match_error(missing_config,application:start(sasl)),
@@ -186,6 +180,107 @@ log_mf_h_env(Config) ->
     ok = application:set_env(sasl,error_logger_mf_dir,LogDir),
     ok = application:start(sasl).
 
+log_file(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    LogDir  = filename:join(PrivDir,sasl_SUITE_log_dir),
+    File    = filename:join(LogDir, "file.log"),
+    ok      = filelib:ensure_dir(File),
+    application:stop(sasl),
+    clear_env(sasl),
+
+    _ = test_log_file(File, {file,File}),
+    _ = test_log_file(File, {file,File,[write]}),
+
+    ok = file:write_file(File, <<"=PROGRESS preserve me\n">>),
+    <<"=PROGRESS preserve me\n",_/binary>> =
+	test_log_file(File, {file,File,[append]}),
+
+    ok = application:set_env(sasl,sasl_error_logger, tty,
+			     [{persistent, false}]),
+    ok = application:start(sasl).
+
+test_log_file(File, Arg) ->
+    ok = application:set_env(sasl, sasl_error_logger, Arg,
+			     [{persistent, true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+    {ok,Bin} = file:read_file(File),
+    ok = file:delete(File),
+    Lines0 = binary:split(Bin, <<"\n">>, [trim_all,global]),
+    Lines = [L || L <- Lines0,
+		  binary:match(L, <<"=PROGRESS">>) =:= {0,9}],
+    io:format("~p:\n~p\n", [Arg,Lines]),
+
+    %% There must be at least four PROGRESS lines.
+    if
+	length(Lines) >= 4 -> ok;
+	true -> ?t:fail()
+    end,
+    Bin.
+
+%% Make a basic test of utc_log.
+utc_log(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    LogDir = filename:join(PrivDir, sasl_SUITE_log_dir),
+    Log = filename:join(LogDir, "utc.log"),
+    ok = filelib:ensure_dir(Log),
+
+    application:stop(sasl),
+    clear_env(sasl),
+
+    %% Test that the UTC marker gets added to PROGRESS lines
+    %% when the utc_log configuration variable is set to true.
+    ok = application:set_env(sasl, sasl_error_logger, {file,Log},
+			     [{persistent,true}]),
+    ok = application:set_env(sasl, utc_log, true, [{persistent,true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+
+    verify_utc_log(Log, true),
+
+    %% Test that no UTC markers gets added to PROGRESS lines
+    %% when the utc_log configuration variable is set to false.
+    ok = application:set_env(sasl, utc_log, false, [{persistent,true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+
+    verify_utc_log(Log, false),
+
+    %% Test that no UTC markers gets added to PROGRESS lines
+    %% when the utc_log configuration variable is unset.
+    ok = application:unset_env(sasl, utc_log, [{persistent,true}]),
+    ok = application:start(sasl),
+    application:stop(sasl),
+
+    verify_utc_log(Log, false),
+
+    %% Change back to the standard TTY error logger.
+    ok = application:set_env(sasl,sasl_error_logger, tty,
+			     [{persistent, false}]),
+    ok = application:start(sasl).
+
+verify_utc_log(Log, UTC) ->
+    {ok,Bin} = file:read_file(Log),
+    ok = file:delete(Log),
+
+    Lines0 = binary:split(Bin, <<"\n">>, [trim_all,global]),
+    Lines = [L || L <- Lines0,
+		  binary:match(L, <<"=PROGRESS">>) =:= {0,9}],
+    Setting = application:get_env(sasl, utc_log),
+    io:format("utc_log ~p:\n~p\n", [Setting,Lines]),
+    Filtered = [L || L <- Lines,
+		     binary:match(L, <<" UTC ===">>) =:= nomatch],
+    %% Filtered now contains all lines WITHOUT any UTC markers.
+    case UTC of
+	false ->
+	    %% No UTC marker on the PROGRESS line.
+	    Filtered = Lines;
+	true ->
+	    %% Each PROGRESS line must have an UTC marker.
+	    [] = Filtered
+    end,
+    ok.
+
 
 %%-----------------------------------------------------------------
 %% Internal
@@ -193,3 +288,7 @@ match_error(Expected,{error,{bad_return,{_,{'EXIT',{Expected,{sasl,_}}}}}}) ->
     ok;
 match_error(Expected,Actual) ->
     ?t:fail({unexpected_return,Expected,Actual}).
+
+clear_env(App) ->
+    [application:unset_env(App,Opt) || {Opt,_} <- application:get_all_env(App)],
+    ok.

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -26,6 +27,8 @@
          keymerge/3, keymerge/4,
          check/1, check/2, 
          keycheck/2, keycheck/3]).
+
+-dialyzer(no_improper_lists).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -304,7 +307,6 @@ options(Option) ->
 
 options([{format, Format} | L], Opts) when Format =:= binary; 
                                            Format =:= term;
-                                           is_function(Format),
                                            is_function(Format, 1) ->
     options(L, Opts#opts{format = Format});
 options([{format, binary_term} | L], Opts) ->
@@ -323,7 +325,7 @@ options([{tmpdir, Dir} | L],  Opts) ->
         FileName -> 
             options(L, Opts#opts{tmpdir = {dir, FileName}})
     end;
-options([{order, Fun} | L], Opts) when is_function(Fun), is_function(Fun, 2) ->
+options([{order, Fun} | L], Opts) when is_function(Fun, 2) ->
     options(L, Opts#opts{order = Fun});
 options([{order, Order} | L], Opts) when Order =:= ascending; 
                                          Order =:= descending ->
@@ -408,7 +410,7 @@ merge_terms_fun(RFun) ->
             case RFun(read) of
                 end_of_input ->
                     eof;
-                {Objs, NRFun} when is_function(NRFun), is_function(NRFun, 1) ->
+                {Objs, NRFun} when is_function(NRFun, 1) ->
                     {_, [], Ts, _} = fun_objs(Objs, [], 0, ?MAXSIZE, I, W),
                     {{I, Ts, ?CHUNKSIZE}, merge_terms_fun(NRFun)};
                 Error ->
@@ -424,13 +426,12 @@ merge_bins_fun(FileName) ->
             Fun(A)
     end.
 
-wrap_output_terms(term, OutFun, _Z) when is_function(OutFun),
-                                         is_function(OutFun, 1) ->
+wrap_output_terms(term, OutFun, _Z) when is_function(OutFun, 1) ->
     {fun_wterms(OutFun), true};
 wrap_output_terms(term, File, Z) when File =/= undefined ->
     {file_wterms(name, File, Z++[write]), false};
 wrap_output_terms(_Format, Output, _Z) ->
-    {Output, is_function(Output) and is_function(Output, 1)}.
+    {Output, is_function(Output, 1)}.
 
 binary_term_fun() ->
     fun binary_to_term/1.
@@ -547,7 +548,7 @@ files(_I, L, _LSz, #w{seq = 1, out = Out}=W, []) ->
             NW = close_input(W1),
             outfun(close, NW);
         Out ->
-            write_run(L, W, Out),
+            _ = write_run(L, W, Out),
             ok
     end;
 files(_I, L, _LSz, W, []) ->
@@ -638,7 +639,7 @@ last_merge(R, W) when length(R) =< W#w.no_files ->
             NW = close_input(W2),
             outfun(close, NW);
         Out ->
-            merge_files(R, W, Out),
+            _ = merge_files(R, W, Out),
             ok
     end;
 last_merge(R, W) ->
@@ -1110,10 +1111,12 @@ read_fun2(Fd, Bin, Size, FileName, Owner) ->
     end.
        
 close_read_fun(Fd, _FileName, user) ->
-    file:close(Fd);
+    _ = file:close(Fd),
+    ok;
 close_read_fun(Fd, FileName, fsort) ->
-    file:close(Fd),
-    file:delete(FileName).
+    _ = file:close(Fd),
+    _ = file:delete(FileName),
+    ok.
 
 read_objs(Fd, FileName, I, L, Bin0, Size0, LSz, W) ->
     Max = erlang:max(Size0, ?CHUNKSIZE),
@@ -1306,8 +1309,7 @@ infun(W) ->
             {end_of_input, W1};
         {end_of_input, Value} ->
             {end_of_input, W1#w{inout_value = {value, Value}}};
-        {Objs, NFun} when is_function(NFun), 
-                          is_function(NFun, 1), 
+        {Objs, NFun} when is_function(NFun, 1),
                           is_list(Objs) ->
             {cont, W#w{in = NFun}, Objs};
         Error ->
@@ -1330,7 +1332,7 @@ outfun(A, W) ->
     try (W#w.out)(A) of
         Reply when A =:= close ->
             Reply;
-        NF when is_function(NF), is_function(NF, 1) ->
+        NF when is_function(NF, 1) ->
             W#w{out = NF};
         Error ->
             error(Error, W1)
@@ -1355,7 +1357,7 @@ is_keyposs([Bad | _]) ->
 is_keyposs(Bad) ->
     {badarg, Bad}.
 
-is_input(Fun) when is_function(Fun), is_function(Fun, 1) ->
+is_input(Fun) when is_function(Fun, 1) ->
     {true, Fun};
 is_input(Files) ->
     is_files(Files).
@@ -1375,7 +1377,7 @@ is_files([], L) ->
 is_files(Bad, _L) ->
     {badarg, Bad}.
 
-maybe_output(Fun) when is_function(Fun), is_function(Fun, 1) ->
+maybe_output(Fun) when is_function(Fun, 1) ->
     {true, Fun};
 maybe_output(File) ->
     case read_file_info(File) of
@@ -1423,8 +1425,8 @@ tmp_prefix1(Dir, TmpDirOpt) ->
     U = "_",
     Node = node(),
     Pid = os:getpid(),
-    {MSecs,Secs,MySecs} = now(),
-    F = lists:concat(["fs_",Node,U,Pid,U,MSecs,U,Secs,U,MySecs,"."]),
+    Unique = erlang:unique_integer([positive]),
+    F = lists:concat(["fs_",Node,U,Pid,U,Unique,"."]),
     TmpDir = case TmpDirOpt of
                  default ->
                      Dir;
@@ -1481,10 +1483,10 @@ cleanup(W) ->
     F = fun(IFun) when is_function(IFun) -> 
                 IFun(close);
            ({Fd,FileName}) ->
-                file:close(Fd),
-                file:delete(FileName);
+                _ = file:close(Fd),
+                _= file:delete(FileName);
            (FileName) -> 
-                file:delete(FileName)
+                _= file:delete(FileName)
         end,
     lists:foreach(F, W1#w.temp).
 
@@ -1502,8 +1504,12 @@ close_out(_) ->
 close_file(Fd, W) ->
     {Fd, FileName} = lists:keyfind(Fd, 1, W#w.temp),
     ?DEBUG("closing ~tp~n", [FileName]),
-    file:close(Fd),
-    W#w{temp = [FileName | lists:keydelete(Fd, 1, W#w.temp)]}.
+    case file:close(Fd) of
+        ok ->
+            W#w{temp = [FileName | lists:keydelete(Fd, 1, W#w.temp)]};
+        Error ->
+            file_error(FileName, Error, W)
+    end.
 
 %%%
 %%% Format 'term'.
@@ -1536,10 +1542,10 @@ file_rterms2(Fd, L, LSz, FileName, Files) when LSz < ?CHUNKSIZE ->
             B = term_to_binary(Term),
             file_rterms2(Fd, [B | L], LSz + byte_size(B), FileName, Files);
         eof ->
-            file:close(Fd),
+            _ = file:close(Fd),
             {lists:reverse(L), file_rterms(no_file, Files)};
         _Error ->
-            file:close(Fd),
+            _ = file:close(Fd),
             {error, {bad_term, FileName}}
     end;
 file_rterms2(Fd, L, _LSz, FileName, Files) ->
@@ -1568,7 +1574,7 @@ write_terms(Fd, F, [B | Bs], Args) ->
         ok -> 
             write_terms(Fd, F, Bs, Args);
         {error, Reason} ->
-            file:close(Fd),
+            _ = file:close(Fd),
             {error, {file_error, F, Reason}}
     end;
 write_terms(Fd, F, [], Args) ->
@@ -1580,7 +1586,6 @@ fun_rterms(InFun) ->
        (read) ->
             case InFun(read) of
                 {Ts, NInFun} when is_list(Ts), 
-                                  is_function(NInFun),
                                   is_function(NInFun, 1) ->
                     {to_bin(Ts, []), fun_rterms(NInFun)};
                 Else ->
@@ -1593,7 +1598,7 @@ fun_wterms(OutFun) ->
             OutFun(close);
        (L) ->
             case OutFun(wterms_arg(L)) of
-                NOutFun when is_function(NOutFun), is_function(NOutFun, 1) ->
+                NOutFun when is_function(NOutFun, 1) ->
                     fun_wterms(NOutFun);
                 Else ->
                     Else

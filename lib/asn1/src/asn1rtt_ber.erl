@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -22,27 +23,28 @@
 %% encoding / decoding of BER
 
 -export([ber_decode_nif/1,ber_decode_erlang/1,match_tags/2,ber_encode/1]).
--export([encode_tags/2,
-	 encode_tags/3,
+-export([encode_tags/3,
 	 skip_ExtensionAdditions/2]).
 -export([encode_boolean/2,decode_boolean/2,
 	 encode_integer/2,encode_integer/3,
-	 decode_integer/2,decode_integer/3,
-	 decode_named_integer/3,decode_named_integer/4,
-	 encode_enumerated/2,decode_enumerated/3,
+	 decode_integer/2,
+	 number2name/2,
+	 encode_unnamed_bit_string/2,encode_unnamed_bit_string/3,
+	 encode_named_bit_string/3,encode_named_bit_string/4,
 	 encode_bit_string/4,
 	 decode_named_bit_string/3,
-	 decode_compact_bit_string/3,
-	 decode_legacy_bit_string/3,
-	 decode_native_bit_string/3,
+	 decode_compact_bit_string/2,compact_bit_string_size/1,
+	 decode_native_bit_string/2,
+	 native_to_legacy_bit_string/1,
 	 encode_null/2,decode_null/2,
 	 encode_relative_oid/2,decode_relative_oid/2,
 	 encode_object_identifier/2,decode_object_identifier/2,
 	 encode_restricted_string/2,
-	 decode_restricted_string/2,decode_restricted_string/3,
-	 encode_universal_string/2,decode_universal_string/3,
+	 decode_octet_string/2,
+	 decode_restricted_string/2,
+	 encode_universal_string/2,decode_universal_string/2,
 	 encode_UTF8_string/2,decode_UTF8_string/2,
-	 encode_BMP_string/2,decode_BMP_string/3]).
+	 encode_BMP_string/2,decode_BMP_string/2]).
 
 -export([encode_open_type/2,decode_open_type/2,
 	 decode_open_type_as_binary/2]).
@@ -589,8 +591,6 @@ encode_tags(TagIn, {BytesSoFar,LenSoFar}) ->
 
 encode_open_type(Val, T) when is_list(Val) ->
     encode_open_type(list_to_binary(Val), T);
-encode_open_type(Val, []) ->
-    {Val,byte_size(Val)};
 encode_open_type(Val, Tag) ->
     encode_tags(Tag, Val, byte_size(Val)).
 
@@ -695,41 +695,14 @@ encode_integer_neg(N, Acc) ->
 
 %%===============================================================================
 %% decode integer
-%%    (Buffer, Range, HasTag, TotalLen) -> {Integer, Remain, RemovedBytes}
-%%    (Buffer, Range, NamedNumberList, HasTag, TotalLen) -> {Integer, Remain, RemovedBytes}
 %%===============================================================================
 
-decode_named_integer(Tlv, NamedNumberList, TagIn) ->
-    V = match_tags(Tlv, TagIn),
-    Int = decode_integer(V),
-    number2name(Int, NamedNumberList).
-
-decode_named_integer(Tlv, Range, NamedNumberList, TagIn) ->
-    V = match_tags(Tlv, TagIn),
-    Int = range_check_integer(decode_integer(V), Range),
-    number2name(Int, NamedNumberList).
-
 decode_integer(Tlv, TagIn) ->
-    V = match_tags(Tlv, TagIn),
-    decode_integer(V).
-
-decode_integer(Tlv, Range, TagIn) ->
-    V = match_tags(Tlv, TagIn),
-    Int = decode_integer(V),
-    range_check_integer(Int, Range).
-
-decode_integer(Bin) ->
+    Bin = match_tags(Tlv, TagIn),
     Len = byte_size(Bin),
     <<Int:Len/signed-unit:8>> = Bin,
     Int.
 
-range_check_integer(Int, {Lb,Ub}) when Lb =< Int, Int =< Ub ->
-    Int;
-range_check_integer(Int, Range) ->
-    exit({error,{asn1,{integer_range,Range,Int}}}).
-
-number2name(Int, []) ->
-    Int;
 number2name(Int, NamedNumberList) ->
     case lists:keyfind(Int, 2, NamedNumberList) of
 	{NamedVal,_} ->
@@ -738,49 +711,60 @@ number2name(Int, NamedNumberList) ->
 	    Int
     end.
 
-
 %%============================================================================
-%% Enumerated value, ITU_T X.690 Chapter 8.4
-
-%% encode enumerated value
+%% Bitstring value, ITU_T X.690 Chapter 8.6
+%%
+%% encode bitstring value
 %%============================================================================
-encode_enumerated(Val, TagIn) when is_integer(Val) ->
-    encode_tags(TagIn, encode_integer(Val)).
 
-%%============================================================================
-%% decode enumerated value
-%%   (Buffer, Range, NamedNumberList, HasTag, TotalLen) ->  Value
-%%===========================================================================
-decode_enumerated(Tlv, NamedNumberList, Tags) ->
-    Buffer = match_tags(Tlv, Tags),
-    decode_enumerated_notag(Buffer, NamedNumberList, Tags).
+encode_unnamed_bit_string(Bits, TagIn) ->
+    Unused = (8 - (bit_size(Bits) band 7)) band 7,
+    Bin = <<Unused,Bits/bitstring,0:Unused>>,
+    encode_tags(TagIn, Bin, byte_size(Bin)).
 
-decode_enumerated_notag(Buffer, {NamedNumberList,ExtList}, _Tags) ->
-    IVal = decode_integer(Buffer),
-    case decode_enumerated1(IVal, NamedNumberList) of
-	{asn1_enum,IVal} ->
-	    decode_enumerated1(IVal,ExtList);
-	EVal ->
-	    EVal
-    end;
-decode_enumerated_notag(Buffer, NNList, _Tags) ->
-    IVal = decode_integer(Buffer),
-    case decode_enumerated1(IVal, NNList) of
-	{asn1_enum,_} ->
-	    exit({error,{asn1, {illegal_enumerated, IVal}}});
-	EVal ->
-	    EVal
+encode_unnamed_bit_string(MaxBits, Bits, TagIn) ->
+    NumBits = bit_size(Bits),
+    Unused = (8 - (NumBits band 7)) band 7,
+    Bin = <<Unused,Bits/bitstring,0:Unused>>,
+    if
+	NumBits > MaxBits ->
+	    exit({error,{asn1,
+			 {bitstring_length,
+			  {{was,NumBits},{maximum,MaxBits}}}}});
+	true ->
+	    encode_tags(TagIn, Bin, byte_size(Bin))
     end.
 
-decode_enumerated1(Val, NamedNumberList) ->
-    %% it must be a named integer
-    case lists:keyfind(Val, 2, NamedNumberList) of
-	{NamedVal, _} ->
-	    NamedVal;
-	_ ->
-	    {asn1_enum,Val}
-    end.
+encode_named_bit_string([H|_]=Bits, NamedBitList, TagIn) when is_atom(H) ->
+    do_encode_named_bit_string(Bits, NamedBitList, TagIn);
+encode_named_bit_string([{bit,_}|_]=Bits, NamedBitList, TagIn) ->
+    do_encode_named_bit_string(Bits, NamedBitList, TagIn);
+encode_named_bit_string([], _NamedBitList, TagIn) ->
+    encode_unnamed_bit_string(<<>>, TagIn);
+encode_named_bit_string(Bits, _NamedBitList, TagIn) when is_bitstring(Bits) ->
+    encode_unnamed_bit_string(Bits, TagIn).
 
+encode_named_bit_string(C, [H|_]=Bits, NamedBitList, TagIn) when is_atom(H) ->
+    do_encode_named_bit_string(C, Bits, NamedBitList, TagIn);
+encode_named_bit_string(C, [{bit,_}|_]=Bits, NamedBitList, TagIn) ->
+    do_encode_named_bit_string(C, Bits, NamedBitList, TagIn);
+encode_named_bit_string(C, [], _NamedBitList, TagIn) ->
+    encode_unnamed_bit_string(C, <<>>, TagIn);
+encode_named_bit_string(C, Bits, _NamedBitList, TagIn) when is_bitstring(Bits) ->
+    encode_unnamed_bit_string(C, Bits, TagIn).
+
+do_encode_named_bit_string([FirstVal | RestVal], NamedBitList, TagIn) ->
+    ToSetPos = get_all_bitposes([FirstVal | RestVal], NamedBitList, []),
+    Size = lists:max(ToSetPos) + 1,
+    BitList = make_and_set_list(Size, ToSetPos, 0),
+    {Len,Unused,OctetList} = encode_bitstring(BitList),
+    encode_tags(TagIn, [Unused|OctetList],Len+1).
+
+do_encode_named_bit_string(Size, [FirstVal | RestVal], NamedBitList, TagIn) ->
+    ToSetPos = get_all_bitposes([FirstVal | RestVal], NamedBitList, []),
+    BitList = make_and_set_list(Size, ToSetPos, 0),
+    {Len, Unused, OctetList} = encode_bitstring(BitList),
+    encode_tags(TagIn, [Unused|OctetList], Len+1).
 
 %%============================================================================
 %% Bitstring value, ITU_T X.690 Chapter 8.6
@@ -881,15 +865,14 @@ remove_unused_then_dotag(TagIn,Unused,BinBits) ->
 
 encode_bit_string_named(C, [FirstVal | RestVal], NamedBitList, TagIn) ->
     ToSetPos = get_all_bitposes([FirstVal | RestVal], NamedBitList, []),
-    Size =
-	case C of
-	    [] ->
-		lists:max(ToSetPos)+1;
-	    {_Min,Max} ->
-		Max;
-	    TSize ->
-		TSize
-	end,
+    Size = case C of
+	       [] ->
+		   lists:max(ToSetPos) + 1;
+	       {_Min,Max} ->
+		   Max;
+	       TSize ->
+		   TSize
+	   end,
     BitList = make_and_set_list(Size, ToSetPos, 0),
     {Len, Unused, OctetList} = encode_bitstring(BitList),
     encode_tags(TagIn, [Unused|OctetList],Len+1).
@@ -1047,33 +1030,23 @@ unused_bitlist([Bit | Rest], Trail, Ack) ->
 %% decode bitstring value
 %%============================================================================
 
-decode_compact_bit_string(Buffer, Range, Tags) ->
+decode_compact_bit_string(Buffer, Tags) ->
     case match_and_collect(Buffer, Tags) of
-	<<0>> ->
-	    check_restricted_string({0,<<>>}, 0, Range);
-	<<Unused,Bits/binary>> ->
-	    Val = {Unused,Bits},
-	    Len = bit_size(Bits) - Unused,
-	    check_restricted_string(Val, Len, Range)
+	<<0>> -> {0,<<>>};
+	<<Unused,Bits/binary>> -> {Unused,Bits}
     end.
 
-decode_legacy_bit_string(Buffer, Range, Tags) ->
-    Val = case match_and_collect(Buffer, Tags) of
-	      <<0>> ->
-		  [];
-	      <<Unused,Bits/binary>> ->
-		  decode_bitstring2(byte_size(Bits), Unused, Bits)
-	  end,
-    check_restricted_string(Val, length(Val), Range).
+compact_bit_string_size({Unused,Bits}) ->
+    bit_size(Bits) - Unused.
 
-decode_native_bit_string(Buffer, Range, Tags) ->
+decode_native_bit_string(Buffer, Tags) ->
     case match_and_collect(Buffer, Tags) of
 	<<0>> ->
-	    check_restricted_string(<<>>, 0, Range);
+	    <<>>;
 	<<Unused,Bits/binary>> ->
 	    Size = bit_size(Bits) - Unused,
 	    <<Val:Size/bitstring,_:Unused/bitstring>> = Bits,
-	    check_restricted_string(Val, Size, Range)
+	    Val
     end.
 
 decode_named_bit_string(Buffer, NamedNumberList, Tags) ->
@@ -1095,6 +1068,9 @@ decode_bitstring2(Len, Unused,
 		  <<B7:1,B6:1,B5:1,B4:1,B3:1,B2:1,B1:1,B0:1,Buffer/binary>>) ->
     [B7,B6,B5,B4,B3,B2,B1,B0|
      decode_bitstring2(Len - 1, Unused, Buffer)].
+
+native_to_legacy_bit_string(Bits) ->
+    [B || <<B:1>> <= Bits].
 
 %%----------------------------------------
 %% Decode the bitlist to names
@@ -1252,25 +1228,19 @@ encode_restricted_string(OctetList, TagIn) when is_list(OctetList) ->
     encode_tags(TagIn, OctetList, length(OctetList)).
 
 %%============================================================================
+%% decode OCTET STRING to binary
+%%============================================================================
+
+decode_octet_string(Tlv, TagsIn) ->
+    Bin = match_and_collect(Tlv, TagsIn),
+    binary:copy(Bin).
+
+%%============================================================================
 %% decode Numeric Printable Teletex Videotex Visible IA5 Graphic General strings
 %%============================================================================
 
 decode_restricted_string(Tlv, TagsIn) ->
-    Bin = match_and_collect(Tlv, TagsIn),
-    binary_to_list(Bin).
-
-decode_restricted_string(Tlv, Range, TagsIn) ->
-    Bin = match_and_collect(Tlv, TagsIn),
-    check_restricted_string(binary_to_list(Bin), byte_size(Bin), Range).
-
-check_restricted_string(Val, _Len, []) ->
-    Val;
-check_restricted_string(Val, Len, {Lb,Ub}) when Lb =< Len, Len =< Ub ->
-    Val;
-check_restricted_string(Val, Len, Len) ->
-    Val;
-check_restricted_string(Val, _Len, Range) ->
-    exit({error,{asn1,{length,Range,Val}}}).
+    match_and_collect(Tlv, TagsIn).
 
 %%============================================================================
 %% encode Universal string
@@ -1296,10 +1266,9 @@ mk_uni_list([H|T],List) ->
 %%                           {String, Remain, RemovedBytes}
 %%===========================================================================
 
-decode_universal_string(Buffer, Range, Tags) ->
+decode_universal_string(Buffer, Tags) ->
     Bin = match_and_collect(Buffer, Tags),
-    Val = mk_universal_string(binary_to_list(Bin)),
-    check_restricted_string(Val, length(Val), Range).
+    mk_universal_string(binary_to_list(Bin)).
 
 mk_universal_string(In) ->
     mk_universal_string(In, []).
@@ -1359,10 +1328,9 @@ mk_BMP_list([H|T], List) ->
 %%    (Buffer, Range, StringType, HasTag, TotalLen) ->
 %%                               {String, Remain, RemovedBytes}
 %%============================================================================
-decode_BMP_string(Buffer, Range, Tags) ->
+decode_BMP_string(Buffer, Tags) ->
     Bin = match_and_collect(Buffer, Tags),
-    Val = mk_BMP_string(binary_to_list(Bin)),
-    check_restricted_string(Val, length(Val), Range).
+    mk_BMP_string(binary_to_list(Bin)).
 
 mk_BMP_string(In) ->
     mk_BMP_string(In,[]).

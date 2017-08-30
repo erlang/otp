@@ -1,4 +1,3 @@
-%% -*- coding: utf-8 -*-
 %% This library is free software; you can redistribute it and/or modify
 %% it under the terms of the GNU Lesser General Public License as
 %% published by the Free Software Foundation; either version 2 of the
@@ -232,7 +231,7 @@ event_logger(LogFile) ->
 event_logger_loop(Reference, FD) ->
     receive
 	{status, _Id, _Info}=Msg ->
-	    io:fwrite(FD, "~p.\n", [Msg]),
+	    io:fwrite(FD, "~tp.\n", [Msg]),
 	    event_logger_loop(Reference, FD);
 	{stop, Reference, _ReplyTo} ->
 	    %% no need to reply, just exit

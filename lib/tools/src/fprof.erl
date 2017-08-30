@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -1002,7 +1003,7 @@ handle_req(#analyse{dest = Dest,
 			already_open ->
 			    ok;
 			ok ->
-			    file:close(DestPid)
+			    ok = file:close(DestPid)
 		    end,
 		    State
 	    end;
@@ -1363,7 +1364,7 @@ tracer_loop(Parent, Handler, State) ->
 	Trace when element(1, Trace) =:= trace_ts ->
 	    tracer_loop(Parent, Handler, Handler(Trace, State));
 	{'EXIT', Parent, Reason} ->
-	    handler(end_of_trace, State),
+	    _ = handler(end_of_trace, State),
 	    exit(Reason);
 	_ ->
 	    tracer_loop(Parent, Handler, State)
@@ -1449,12 +1450,10 @@ end_of_trace(Table, TS) ->
     Procs = get(),
     put(table, Table),
     ?dbg(2, "get() -> ~p~n", [Procs]),
-    lists:map(
-      fun ({Pid, _}) when is_pid(Pid) ->
-	      trace_exit(Table, Pid, TS)
-      end,
-      Procs),
-    erase(),
+    _ = lists:map(fun ({Pid, _}) when is_pid(Pid) ->
+                          trace_exit(Table, Pid, TS)
+                  end, Procs),
+    _ = erase(),
     ok.
 
 
@@ -1566,11 +1565,18 @@ trace_handler({trace_ts, Pid, return_to, {_M, _F, Args} = MFArgs, TS} = Trace,
     trace_return_to(Table, Pid, Func, TS),
     TS;
 %%
-%% spawn
+%% spawn, only needed (and reliable) prior to 19.0
 trace_handler({trace_ts, Pid, spawn, Child, MFArgs, TS} = Trace,
 	      Table, _, Dump) ->
     dump_stack(Dump, get(Pid), Trace),
     trace_spawn(Table, Child, MFArgs, TS, Pid),
+    TS;
+%%
+%% spawned, added in 19.0
+trace_handler({trace_ts, Pid, spawned, Parent, MFArgs, TS} = Trace,
+	      Table, _, Dump) ->
+    dump_stack(Dump, get(Pid), Trace),
+    trace_spawn(Table, Pid, MFArgs, TS, Parent),
     TS;
 %%
 %% exit
@@ -1621,15 +1627,24 @@ trace_handler({trace_ts, Pid, in, {_M, _F, Args} = MFArgs, TS} = Trace,
     TS;
 %%
 %% gc_start
-trace_handler({trace_ts, Pid, gc_start, _Func, TS} = Trace,
-	      Table, _, Dump) ->
+trace_handler({trace_ts, Pid, gc_minor_start, _Func, TS} = Trace, Table, _, Dump) ->
     dump_stack(Dump, get(Pid), Trace),
     trace_gc_start(Table, Pid, TS),
     TS;
+
+trace_handler({trace_ts, Pid, gc_major_start, _Func, TS} = Trace, Table, _, Dump) ->
+    dump_stack(Dump, get(Pid), Trace),
+    trace_gc_start(Table, Pid, TS),
+    TS;
+
 %%
 %% gc_end
-trace_handler({trace_ts, Pid, gc_end, _Func, TS} = Trace,
-	      Table, _, Dump) ->
+trace_handler({trace_ts, Pid, gc_minor_end, _Func, TS} = Trace, Table, _, Dump) ->
+    dump_stack(Dump, get(Pid), Trace),
+    trace_gc_end(Table, Pid, TS),
+    TS;
+
+trace_handler({trace_ts, Pid, gc_major_end, _Func, TS} = Trace, Table, _, Dump) ->
     dump_stack(Dump, get(Pid), Trace),
     trace_gc_end(Table, Pid, TS),
     TS;
@@ -2013,8 +2028,10 @@ trace_spawn(Table, Pid, MFArgs, TS, Parent) ->
 	    ets:insert(Table, #proc{id = Pid, parent = Parent,
 				    spawned_as = MFArgs});
 	_ ->
-	    throw({inconsistent_trace_data, ?MODULE, ?LINE,
-		  [Pid, MFArgs, TS, Parent, Stack]})
+            %% In 19.0 we get both a spawn and spawned event,
+            %% however we do not know the order so we just ignore
+            %% the second event that comes
+	    ok
     end.
 
 
@@ -2028,7 +2045,7 @@ trace_exit(Table, Pid, TS) ->
 	[] ->
 	    ok;
 	[_ | _] = Stack ->
-	    trace_return_to_int(Table, Pid, undefined, TS, Stack),
+	    _ = trace_return_to_int(Table, Pid, undefined, TS, Stack),
 	    ok
     end,
     ok.
@@ -2154,7 +2171,7 @@ trace_clock(_Table, _Pid, _T,
 	    [[{suspend, _}], [{suspend, _}] | _]=_Stack, _Clock) ->
     ?dbg(9, "trace_clock(Table, ~w, ~w, ~w, ~w)~n",
 	 [_Pid, _T, _Stack, _Clock]),
-    void;
+    ok;
 trace_clock(Table, Pid, T, 
 	    [[{garbage_collect, TS0}], [{suspend, _}]], Clock) ->
     trace_clock_1(Table, Pid, T, TS0, undefined, garbage_collect, Clock);
@@ -2169,7 +2186,7 @@ trace_clock(Table, Pid, T, [[{Func0, TS0}], [{Func1, _} | _] | _], Clock) ->
 trace_clock(Table, Pid, T, [[{Func0, TS0}]], Clock) ->
     trace_clock_1(Table, Pid, T, TS0, undefined, Func0, Clock);
 trace_clock(_, _, _, [], _) ->
-    void.
+    ok.
 
 trace_clock_1(Table, Pid, _, _, Caller, suspend, #clocks.own) ->
     clock_add(Table, {Pid, Caller, suspend}, #clocks.own, 0);
@@ -2183,7 +2200,7 @@ trace_clock_1(Table, Pid, T, TS, Caller, Func, Clock) ->
 
 clock_add(Table, Id, Clock, T) ->
     ?dbg(1, "clock_add(Table, ~w, ~w, ~w)~n", [Id, Clock, T]),
-    try ets:update_counter(Table, Id, {Clock, T})
+    try ets:update_counter(Table, Id, {Clock, T}), ok
     catch
 	error:badarg ->
 	    ets:insert(Table, #clocks{id = Id}),
@@ -2192,7 +2209,7 @@ clock_add(Table, Id, Clock, T) ->
 	       true -> ?dbg(0, "Negative counter value ~p ~p ~p ~p~n",
 			  [X, Id, Clock, T])
 	    end,
-	    X
+	    ok
     end.
 
 clocks_add(Table, #clocks{id = Id} = Clocks) ->
@@ -2249,6 +2266,8 @@ do_analyse(Table, Analyse) ->
 	end,
     ?dbg(5, "do_analyse_1(_, _) ->~p~n", [Result]),
     Result.
+
+-dialyzer({no_improper_lists, do_analyse_1/2}).
 
 do_analyse_1(Table, 
 	   #analyse{group_leader = GroupLeader,
@@ -2623,6 +2642,8 @@ funcstat_pd(Pid, Func1, Func0, Clocks) ->
 funcstat_sort_r(FuncstatList, Element) ->
     funcstat_sort_r_1(FuncstatList, Element, []).
 
+-dialyzer({no_improper_lists, funcstat_sort_r_1/3}).
+
 funcstat_sort_r_1([], _, R) ->
     postsort_r(lists:sort(R));
 funcstat_sort_r_1([#funcstat{callers_sum = #clocks{} = Clocks,
@@ -2644,6 +2665,8 @@ funcstat_sort_r_1([#funcstat{callers_sum = #clocks{} = Clocks,
 %% Sort a list of clocks records.
 clocks_sort_r(L, E) ->
     clocks_sort_r_1(L, E, []).
+
+-dialyzer({no_improper_lists, clocks_sort_r_1/3}).
 
 clocks_sort_r_1([], _, R) ->
     postsort_r(lists:sort(R));

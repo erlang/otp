@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -25,9 +26,9 @@
 %%-----------------------------------------------------------------
 -module(orber_acl_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
--define(default_timeout, ?t:minutes(5)).
+-define(default_timeout, test_server:minutes(5)).
 
 -define(match(ExpectedRes,Expr),
         fun() ->
@@ -40,7 +41,7 @@
                    _ ->
                        io:format("###### ERROR ERROR ######~nRESULT:  ~p~n",
                                  [AcTuAlReS]),
-                       ?line exit(AcTuAlReS)
+                       exit(AcTuAlReS)
                end
        end()).
 
@@ -91,21 +92,19 @@ end_per_suite(Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
 %%-----------------------------------------------------------------
-%% Test Case  : 
-%% Description: 
+%% Test Case
+%% Description: Testing IPv4 Verify Operation
 %%-----------------------------------------------------------------
-ipv4_verify(doc) -> ["Testing IPv4 Verify Operation."];
-ipv4_verify(suite) -> [];
 ipv4_verify(_) ->
     ?match(true, orber_acl:verify("192.168.64.148", "192.168.64.0/17", inet)),
     ?match({false,"192.168.128.0","192.168.255.255"},
@@ -132,10 +131,8 @@ ipv4_verify(_) ->
 
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Testing IPv4 Range Operation
 %%-----------------------------------------------------------------
-ipv4_range(doc) -> ["Testing IPv4 Range Operation."];
-ipv4_range(suite) -> [];
 ipv4_range(_) ->
     ?match({ok,"192.168.0.0", "192.168.127.255"},
 	   orber_acl:range("192.168.64.0/17")),
@@ -161,10 +158,8 @@ ipv4_range(_) ->
 
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Testing IPv4 Interfaces Operation
 %%-----------------------------------------------------------------
-ipv4_interfaces(doc) -> ["Testing IPv4 Interfaces Operation."];
-ipv4_interfaces(suite) -> [];
 ipv4_interfaces(_) ->
     ?match({ok, _},
 	   orber_acl:init_acl([{tcp_in, "192.168.128.0/18", ["10.1.1.1"]},
@@ -184,19 +179,15 @@ ipv4_interfaces(_) ->
 
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Benchmarking runtime critical IPv4 Operations
 %%-----------------------------------------------------------------
-ipv4_bm(doc) -> ["Benchmarking runtime critical IPv4 Operations."];
-ipv4_bm(suite) -> [];
 ipv4_bm(_) ->
     ?match({ok, _, _, _}, bm2([{tcp_in, "192.168.64.0/17"}], inet, "192.168.64.148")),
     ok.
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Testing IPv6 Verify Operation
 %%-----------------------------------------------------------------
-ipv6_verify(doc) -> ["Testing IPv6 Verify Operation."];
-ipv6_verify(suite) -> [];
 ipv6_verify(_) ->
     case orber_test_lib:version_ok() of
 	true ->
@@ -214,10 +205,8 @@ ipv6_verify(_) ->
 	    
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Testing IPv6 Range Operation
 %%-----------------------------------------------------------------
-ipv6_range(doc) -> ["Testing IPv6 Range Operation."];
-ipv6_range(suite) -> [];
 ipv6_range(_) ->
     case orber_test_lib:version_ok() of
 	true ->
@@ -232,10 +221,8 @@ ipv6_range(_) ->
 
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Testing IPv6 Interfaces Operation
 %%-----------------------------------------------------------------
-ipv6_interfaces(doc) -> ["Testing IPv6 Interfaces Operation."];
-ipv6_interfaces(suite) -> [];
 ipv6_interfaces(_) ->
     case orber_test_lib:version_ok() of
 	true ->
@@ -251,10 +238,8 @@ ipv6_interfaces(_) ->
 
 %%-----------------------------------------------------------------
 %% Test Case  : 
-%% Description: 
+%% Description: Benchmarking runtime critical IPv6 Operations
 %%-----------------------------------------------------------------
-ipv6_bm(doc) -> ["Benchmarking runtime critical IPv6 Operations."];
-ipv6_bm(suite) -> [];
 ipv6_bm(_) ->
     case orber_test_lib:version_ok() of
 	true ->
@@ -272,21 +257,21 @@ ipv6_bm(_) ->
 bm2(Filters, Family, Ip) ->
     {ok, IPTuple} = inet:getaddr(Ip, Family),
     orber_acl:init_acl(Filters, Family),
-    TimeBefore1 = erlang:now(),
+    TimeBefore1 = erlang:timestamp(),
     bm_loop(IPTuple, ?NO_OF_TIMES),
-    TimeAfter1 = erlang:now(),
+    TimeAfter1 = erlang:timestamp(),
     orber_acl:clear_acl(),
     Time1 = computeTime(TimeBefore1, TimeAfter1),
     orber_acl:init_acl(Filters, Family),
-    TimeBefore2 = erlang:now(),
+    TimeBefore2 = erlang:timestamp(),
     bm_loop2(Ip, ?NO_OF_TIMES, Family),
-    TimeAfter2 = erlang:now(),
+    TimeAfter2 = erlang:timestamp(),
     orber_acl:clear_acl(),
     Time2 = computeTime(TimeBefore2, TimeAfter2),
     orber_acl:init_acl(Filters, Family),
-    TimeBefore3 = erlang:now(),
+    TimeBefore3 = erlang:timestamp(),
     bm_loop2(IPTuple, ?NO_OF_TIMES, Family),
-    TimeAfter3 = erlang:now(),
+    TimeAfter3 = erlang:timestamp(),
     orber_acl:clear_acl(),
     Time3 = computeTime(TimeBefore3, TimeAfter3),
     {ok, round(?NO_OF_TIMES/Time1), round(?NO_OF_TIMES/Time2), round(?NO_OF_TIMES/Time3)}.

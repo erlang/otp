@@ -2,18 +2,19 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -30,7 +31,7 @@
 -type dial_cl_parse_ret() :: {'check_init', #options{}}
                            | {'plt_info', #options{}}
                            | {'cl', #options{}}
-                           | {{'gui', 'gs' | 'wx'}, #options{}}
+                           | {'gui', #options{}}
                            | {'error', string()}.
 
 -type deep_string() :: string() | [deep_string()].
@@ -74,6 +75,9 @@ cl(["-nn"|T]) ->
   cl(["--no_native"|T]);
 cl(["--no_native"|T]) ->
   put(dialyzer_options_native, false),
+  cl(T);
+cl(["--no_native_cache"|T]) ->
+  put(dialyzer_options_native_cache, false),
   cl(T);
 cl(["--plt_info"|T]) ->
   put(dialyzer_options_analysis_type, plt_info),
@@ -193,12 +197,9 @@ cl(["--dump_callgraph", File|T]) ->
   put(dialyzer_callgraph_file, File),
   cl(T);
 cl(["--gui"|T]) ->
-  put(dialyzer_options_mode, {gui, gs}),
+  put(dialyzer_options_mode, gui),
   cl(T);
-cl(["--wx"|T]) ->
-  put(dialyzer_options_mode, {gui, wx}),
-  cl(T);
-cl(["--solver",Solver|T]) -> % not documented
+cl(["--solver", Solver|T]) -> % not documented
   append_var(dialyzer_solvers, [list_to_atom(Solver)]),
   cl(T);
 cl([H|_] = L) ->
@@ -217,7 +218,7 @@ cl([]) ->
 	{plt_info, cl_options()};
       false ->
 	case get(dialyzer_options_mode) of
-	  {gui, _} = GUI -> {GUI, common_options()};
+	  gui -> {gui, common_options()};
 	  cl ->
 	    case get(dialyzer_options_analysis_type) =:= plt_check of
 	      true  -> {check_init, cl_options()};
@@ -360,12 +361,13 @@ help_warnings() ->
 help_message() ->
   S = "Usage: dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
 		[-pa dir]* [--plt plt] [--plts plt*] [-Ddefine]*
-                [-I include_dir]* [--output_plt file] [-Wwarn]*
-                [--src] [--gui | --wx] [files_or_dirs] [-r dirs]
+                [-I include_dir]* [--output_plt file] [-Wwarn]* [--raw]
+                [--src] [--gui] [files_or_dirs] [-r dirs]
                 [--apps applications] [-o outfile]
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
-                [--no_native] [--fullpath] [--statistics]
+                [--dump_callgraph file] [--no_native] [--fullpath]
+                [--statistics] [--no_native_cache]
 Options:
   files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
       Use Dialyzer from the command line to detect defects in the
@@ -470,12 +472,15 @@ Options:
       Bypass the native code compilation of some key files that Dialyzer
       heuristically performs when dialyzing many files; this avoids the
       compilation time but it may result in (much) longer analysis time.
+  --no_native_cache
+      By default, Dialyzer caches the results of native compilation in the
+      $XDG_CACHE_HOME/erlang/dialyzer_hipe_cache directory.
+      XDG_CACHE_HOME defaults to $HOME/.cache.  Use this option to disable
+      caching.
   --fullpath
       Display the full path names of files for which warnings are emitted.
   --gui
-      Use the gs-based GUI.
-  --wx
-      Use the wx-based GUI.
+      Use the GUI.
 
 Note:
   * denotes that multiple occurrences of these options are possible.
@@ -500,17 +505,21 @@ warning_options_msg() ->
      Suppress warnings for unused functions.
   -Wno_improper_lists
      Suppress warnings for construction of improper lists.
-  -Wno_tuple_as_fun
-     Suppress warnings for using tuples instead of funs.
   -Wno_fun_app
      Suppress warnings for fun applications that will fail.
   -Wno_match
      Suppress warnings for patterns that are unused or cannot match.
   -Wno_opaque
      Suppress warnings for violations of opaqueness of data types.
+  -Wno_fail_call
+     Suppress warnings for failing calls.
+  -Wno_contracts
+     Suppress warnings about invalid contracts.
   -Wno_behaviours
      Suppress warnings about behaviour callbacks which drift from the published
      recommended interfaces.
+  -Wno_missing_calls
+     Suppress warnings about calls to missing functions.
   -Wno_undefined_callbacks
      Suppress warnings about behaviours that have no -callback attributes for
      their callbacks.
@@ -524,6 +533,13 @@ warning_options_msg() ->
   -Wunderspecs ***
      Warn about underspecified functions
      (those whose -spec is strictly more allowing than the success typing).
+  -Wunknown ***
+     Let warnings about unknown functions and types affect the
+     exit status of the command line version. The default is to ignore
+     warnings about unknown functions and types when setting the exit
+     status. When using the Dialyzer from Erlang, warnings about unknown
+     functions and types are returned; the default is not to return
+     such warnings.
 
 The following options are also available but their use is not recommended:
 (they are mostly for Dialyzer developers and internal debugging)

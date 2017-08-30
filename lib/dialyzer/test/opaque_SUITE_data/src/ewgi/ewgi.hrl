@@ -28,7 +28,7 @@
 
 %% @type bag() = gb_tree()
 -ifdef(HAS_GB_TREE_SPEC).
--type bag() :: gb_tree().
+-type bag() :: gb_trees:tree().
 -else.
 -type bag() :: {non_neg_integer(), {any(), any(), any(), any()} | 'nil'}.
 -endif.

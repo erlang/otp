@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2010</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ct_property_test</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>ct_property_test.xml</file>
+  </header>
+  <module>ct_property_test</module>
+  <modulesummary>EXPERIMENTAL support in Common Test for calling
+    property-based tests.</modulesummary>
+
+  <description>
+
+    <p>EXPERIMENTAL support in <c>Common Test</c> for calling property-based
+      tests.</p>
+
+    <p>This module is a first step to run property-based tests in the
+      <c>Common Test</c> framework. A property testing tool like QuickCheck
+      or PropEr is assumed to be installed.</p>
+
+    <p>The idea is to have a <c>Common Test</c> test suite calling a property
+      testing tool with special property test suites as defined by that tool.
+      The usual Erlang application directory structure is assumed. The tests
+      are collected in the <c>test</c> directory of the application. The
+      <c>test</c> directory has a subdirectory <c>property_test</c>, where
+      everything needed for the property tests is collected.</p>
+
+    <p>A typical <c>Common Test</c> test suite using <c>ct_property_test</c>
+      is organized as follows:</p>
+
+    <pre>
+ -include_lib("common_test/include/ct.hrl").
+
+ all() -&gt; [prop_ftp_case].
+
+ init_per_suite(Config) -&gt;
+     ct_property_test:init_per_suite(Config).
+
+ %%%---- test case
+ prop_ftp_case(Config) -&gt;
+     ct_property_test:quickcheck(
+       ftp_simple_client_server:prop_ftp(Config),
+       Config
+      ).</pre>
+
+    <warning>
+      <p>This is experimental code that can be changed or removed anytime
+        without any warning.</p>
+    </warning>
+
+  </description>
+
+  <funcs>
+    <func>
+    <name>init_per_suite(Config) -&gt; Config | {skip, Reason}</name>
+    <fsummary>Initializes Config for property testing.</fsummary>
+      <desc><marker id="init_per_suite-1"/>
+        <p>Initializes <c>Config</c> for property testing.</p>
+
+        <p>This function investigates if support is available for either
+          Quickcheck, PropEr, or Triq. The options
+          <c>{property_dir,AbsPath}</c> and <c>{property_test_tool,Tool}</c>
+          are set in the <c>Config</c> returned.</p>
+
+        <p>The function is intended to be called in function
+          <c>init_per_suite</c> in the test suite.</p>
+
+        <p>The property tests are assumed to be in subdirectory
+          <c>property_test</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+    <name>quickcheck(Property, Config) -&gt; true | {fail, Reason}</name>
+    <fsummary>Calls quickcheck and returns the result in a form suitable for
+      Common Test.</fsummary>
+      <desc><marker id="quickcheck-2"/>
+        <p>Calls quickcheck and returns the result in a form suitable for
+          <c>Common Test</c>.</p>
+
+        <p>This function is intended to be called in the test cases in the
+          test suite.</p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+
+

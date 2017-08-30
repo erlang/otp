@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -25,10 +26,10 @@
 
 -module(generated_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("orber/include/corba.hrl").
 
--define(default_timeout, ?t:minutes(3)).
+-define(default_timeout, test_server:minutes(3)).
 
 -define(match(ExpectedRes, Expr),
         fun() ->
@@ -39,7 +40,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
 
@@ -50,7 +51,7 @@
 		    Not ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS);
+			exit(AcTuAlReS);
 		    _ ->
 			AcTuAlReS
 		end
@@ -62,7 +63,7 @@
 		case orber_tc:check_tc(TC) of
 		    false ->
 			io:format("###### ERROR ERROR ######~n~p - ~p~n", [Op, TC]),
-			?line exit(TC);
+			exit(TC);
 		    true ->
 			true
 		end
@@ -122,12 +123,12 @@ end_per_group(_GroupName, Config) ->
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -136,8 +137,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin'(doc) -> ["CosEventDomainAdmin"];
-'CosEventDomainAdmin'(suite) -> [];
 'CosEventDomainAdmin'(_) ->
     ?match("CycleDetection", 'CosEventDomainAdmin':'CycleDetection'()),
     ?match(0, 'CosEventDomainAdmin':'AuthorizeCycles'()),
@@ -151,8 +150,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_DiamondSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_DiamondSeq'(doc) -> ["CosEventDomainAdmin_DiamondSeq"];
-'CosEventDomainAdmin_DiamondSeq'(suite) -> [];
 'CosEventDomainAdmin_DiamondSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosEventDomainAdmin_DiamondSeq':tc())),
     ?match("IDL:omg.org/CosEventDomainAdmin/DiamondSeq:1.0", 
@@ -165,8 +162,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_AlreadyExists'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_AlreadyExists'(doc) -> ["CosEventDomainAdmin_AlreadyExists"];
-'CosEventDomainAdmin_AlreadyExists'(suite) -> [];
 'CosEventDomainAdmin_AlreadyExists'(_) ->
     ?match(true, orber_tc:check_tc('CosEventDomainAdmin_AlreadyExists':tc())),
     ?match("IDL:omg.org/CosEventDomainAdmin/AlreadyExists:1.0", 
@@ -179,8 +174,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_DomainIDSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_DomainIDSeq'(doc) -> ["CosEventDomainAdmin_DomainIDSeq"];
-'CosEventDomainAdmin_DomainIDSeq'(suite) -> [];
 'CosEventDomainAdmin_DomainIDSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosEventDomainAdmin_DomainIDSeq':tc())),
     ?match("IDL:omg.org/CosEventDomainAdmin/DomainIDSeq:1.0", 
@@ -193,8 +186,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_Connection'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_Connection'(doc) -> ["CosEventDomainAdmin_Connection"];
-'CosEventDomainAdmin_Connection'(suite) -> [];
 'CosEventDomainAdmin_Connection'(_) ->
     ?match(true, orber_tc:check_tc('CosEventDomainAdmin_Connection':tc())),
     ?match("IDL:omg.org/CosEventDomainAdmin/Connection:1.0", 
@@ -207,8 +198,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_ConnectionIDSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_ConnectionIDSeq'(doc) -> ["CosEventDomainAdmin_ConnectionIDSeq"];
-'CosEventDomainAdmin_ConnectionIDSeq'(suite) -> [];
 'CosEventDomainAdmin_ConnectionIDSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosEventDomainAdmin_ConnectionIDSeq':tc())),
     ?match("IDL:omg.org/CosEventDomainAdmin/ConnectionIDSeq:1.0", 
@@ -221,8 +210,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_ConnectionNotFound'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_ConnectionNotFound'(doc) -> ["CosEventDomainAdmin_ConnectionNotFound"];
-'CosEventDomainAdmin_ConnectionNotFound'(suite) -> [];
 'CosEventDomainAdmin_ConnectionNotFound'(_) ->
     ?match(true, orber_tc:check_tc('CosEventDomainAdmin_ConnectionNotFound':tc())),
     ?match("IDL:omg.org/CosEventDomainAdmin/ConnectionNotFound:1.0", 
@@ -235,8 +222,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_CycleCreationForbidden'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_CycleCreationForbidden'(doc) -> ["CosEventDomainAdmin_CycleCreationForbidden"];
-'CosEventDomainAdmin_CycleCreationForbidden'(suite) -> [];
 'CosEventDomainAdmin_CycleCreationForbidden'(_) ->
     ?match(true, orber_tc:check_tc('CosEventDomainAdmin_CycleCreationForbidden':tc())),
     ?match("IDL:omg.org/CosEventDomainAdmin/CycleCreationForbidden:1.0", 
@@ -249,8 +234,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_CycleSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_CycleSeq'(doc) -> ["CosEventDomainAdmin_CycleSeq"];
-'CosEventDomainAdmin_CycleSeq'(suite) -> [];
 'CosEventDomainAdmin_CycleSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosEventDomainAdmin_CycleSeq':tc())),
     ?match("IDL:omg.org/CosEventDomainAdmin/CycleSeq:1.0", 
@@ -263,8 +246,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_DiamondCreationForbidden'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_DiamondCreationForbidden'(doc) -> ["CosEventDomainAdmin_DiamondCreationForbidden"];
-'CosEventDomainAdmin_DiamondCreationForbidden'(suite) -> [];
 'CosEventDomainAdmin_DiamondCreationForbidden'(_) ->
     ?match(true, orber_tc:check_tc('CosEventDomainAdmin_DiamondCreationForbidden':tc())),
     ?match("IDL:omg.org/CosEventDomainAdmin/DiamondCreationForbidden:1.0", 
@@ -277,8 +258,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_DomainNotFound'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_DomainNotFound'(doc) -> ["CosEventDomainAdmin_DomainNotFound"];
-'CosEventDomainAdmin_DomainNotFound'(suite) -> [];
 'CosEventDomainAdmin_DomainNotFound'(_) ->
     ?match(true, orber_tc:check_tc('CosEventDomainAdmin_DomainNotFound':tc())),
     ?match("IDL:omg.org/CosEventDomainAdmin/DomainNotFound:1.0", 
@@ -291,8 +270,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_MemberIDSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_MemberIDSeq'(doc) -> ["CosEventDomainAdmin_MemberIDSeq"];
-'CosEventDomainAdmin_MemberIDSeq'(suite) -> [];
 'CosEventDomainAdmin_MemberIDSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosEventDomainAdmin_MemberIDSeq':tc())),
     ?match("IDL:omg.org/CosEventDomainAdmin/MemberIDSeq:1.0", 
@@ -305,8 +282,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_RouteSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_RouteSeq'(doc) -> ["CosEventDomainAdmin_RouteSeq"];
-'CosEventDomainAdmin_RouteSeq'(suite) -> [];
 'CosEventDomainAdmin_RouteSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosEventDomainAdmin_RouteSeq':tc())),
     ?match("IDL:omg.org/CosEventDomainAdmin/RouteSeq:1.0", 
@@ -319,8 +294,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_EventDomainFactory'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_EventDomainFactory'(doc) -> ["CosEventDomainAdmin_EventDomainFactory"];
-'CosEventDomainAdmin_EventDomainFactory'(suite) -> [];
 'CosEventDomainAdmin_EventDomainFactory'(_) ->
     ?nomatch(undefined, 'CosEventDomainAdmin_EventDomainFactory':oe_tc(create_event_domain)),
     ?nomatch(undefined, 'CosEventDomainAdmin_EventDomainFactory':oe_tc(get_all_domains)),
@@ -339,8 +312,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosEventDomainAdmin_EventDomain'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosEventDomainAdmin_EventDomain'(doc) -> ["CosEventDomainAdmin_EventDomain"];
-'CosEventDomainAdmin_EventDomain'(suite) -> [];
 'CosEventDomainAdmin_EventDomain'(_) ->
     ?nomatch(undefined, 'CosEventDomainAdmin_EventDomain':oe_tc(add_channel)),
     ?nomatch(undefined, 'CosEventDomainAdmin_EventDomain':oe_tc(get_all_channels)),

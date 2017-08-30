@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -668,16 +669,45 @@ do_add_directory(Dir, AppName, Bui, Rec, Ver, War, State) ->
     warnings(War, unreadable, Unreadable),
     case Errors of
 	[] ->
-	    do_add_modules(FileNames, AppName, Bui, Ver, War, State, []);
+	    do_add_modules(FileNames, AppName, Bui, Ver, War, State);
 	[Error | _] ->
 	    throw(Error)
     end.
 
-do_add_modules([], _AppName, _OB, _OV, _OW, State, Modules) ->
+do_add_modules(Files, AppName, OB, OV, OW, State0) ->
+    NFiles = length(Files),
+    Reader = fun(SplitName, State) ->
+                     _Pid = read_module(SplitName, AppName, OB, OV, OW, State)
+             end,
+    N = parallelism(),
+    Files1 = start_readers(Files, Reader, State0, N),
+    %% Increase the number of readers towards the end to decrease the
+    %% waiting time for the collecting process:
+    Nx = N,
+    add_mods(Files1, Reader, State0, [], NFiles, Nx).
+
+add_mods(_, _ReaderFun, State, Modules, 0, _Nx) ->
     {ok, sort(Modules), State};
-do_add_modules([File | Files], AppName, OB, OV, OW, State, Modules) ->
-    {ok, M, NewState} = do_add_module(File, AppName, OB, OV, OW, State),
-    do_add_modules(Files, AppName, OB, OV, OW, NewState, M ++ Modules).
+add_mods(Files, ReaderFun, State, Modules, N, Nx) ->
+    {I, Nx1} = case Nx > 0 of
+                   false -> {1, Nx};
+                   true -> {2, Nx - 1}
+               end,
+    Files1 = start_readers(Files, ReaderFun, State, I),
+    {ok, M, NewState} = process_module(State),
+    add_mods(Files1, ReaderFun, NewState, M ++ Modules, N - 1, Nx1).
+
+start_readers([SplitName|Files], ReaderFun, State, N) when N > 0 ->
+    _Pid = ReaderFun(SplitName, State),
+    start_readers(Files, ReaderFun, State, N - 1);
+start_readers(Files, _ReaderFun, _State, _) ->
+    Files.
+
+parallelism() ->
+    case erlang:system_info(multi_scheduling) of
+        enabled -> erlang:system_info(schedulers_online);
+        _ -> 1
+    end.
 
 %% -> {ok, Module, State} | throw(Error)
 do_add_a_module(File, AppName, Builtins, Verbose, Warnings, State) ->
@@ -691,50 +721,75 @@ do_add_a_module(File, AppName, Builtins, Verbose, Warnings, State) ->
 
 %% -> {ok, Module, State} | throw(Error)
 %% Options: verbose, warnings, builtins
-do_add_module({Dir, Basename}, AppName, Builtins, Verbose, Warnings, State) ->
-    File = filename:join(Dir, Basename),
-    {ok, M, Bad, NewState} =
-	do_add_module1(Dir, File, AppName, Builtins, Verbose, Warnings, State),
-    filter(fun({Tag,B}) -> warnings(Warnings, Tag, [[File,B]]) end, Bad),
-    {ok, M, NewState}.
+do_add_module(SplitName, AppName, Builtins, Verbose, Warnings, State) ->
+    _Pid = read_module(SplitName, AppName, Builtins, Verbose, Warnings, State),
+    process_module(State).
 
-do_add_module1(Dir, File, AppName, Builtins, Verbose, Warnings, State) ->
-    message(Verbose, reading_beam, [File]),
-    Mode = State#xref.mode,
+read_module(SplitName, AppName, Builtins, Verbose, Warnings, State) ->
     Me = self(),
-    Fun = fun() -> Me ! {self(), abst(File, Builtins, Mode)} end,
-    case xref_utils:subprocess(Fun, [link, {min_heap_size,100000}]) of
+    #xref{mode = Mode} = State,
+    Fun =
+        fun() ->
+                Me ! {?MODULE,
+                      read_a_module(SplitName, AppName, Builtins, Verbose,
+                                    Warnings, Mode)}
+        end,
+    spawn_opt(Fun, [link, {min_heap_size, 1000000}, {priority, high}]).
+
+read_a_module({Dir, BaseName}, AppName, Builtins, Verbose, Warnings, Mode) ->
+    File = filename:join(Dir, BaseName),
+    case abst(File, Builtins, Mode) of
 	{ok, _M, no_abstract_code} when Verbose ->
-	    message(Verbose, skipped_beam, []),
-	    {ok, [], [], State};
+	    message(Verbose, no_debug_info, [File]),
+	    no;
 	{ok, _M, no_abstract_code} when not Verbose ->
 	    message(Warnings, no_debug_info, [File]),
-	    {ok, [], [], State};
+	    no;
 	{ok, M, Data, UnresCalls0}  ->
-	    %% Remove duplicates. Identical unresolved calls on the
-	    %% same line are counted as _one_ unresolved call.
-	    UnresCalls = usort(UnresCalls0),
-	    message(Verbose, done, []),
-	    NoUnresCalls = length(UnresCalls),
-	    case NoUnresCalls of
-		0 -> ok;
-		1 -> warnings(Warnings, unresolved_summary1, [[M]]);
-		N -> warnings(Warnings, unresolved_summary, [[M, N]])
-	    end,
-	    T = case xref_utils:file_info(File) of
-		    {ok, {_, _, _, Time}} -> Time;
-		    Error -> throw(Error)
-		end,
-	    XMod = #xref_mod{name = M, app_name = AppName, dir = Dir,
-			     mtime = T, builtins = Builtins,
-			     no_unresolved = NoUnresCalls},
-	    do_add_module(State, XMod, UnresCalls, Data);
+	    message(Verbose, done, [File]),
+            %% Remove duplicates. Identical unresolved calls on the
+            %% same line are counted as _one_ unresolved call.
+            UnresCalls = usort(UnresCalls0),
+            NoUnresCalls = length(UnresCalls),
+            case NoUnresCalls of
+                0 -> ok;
+                1 -> warnings(Warnings, unresolved_summary1, [[M]]);
+                N -> warnings(Warnings, unresolved_summary, [[M, N]])
+            end,
+            case xref_utils:file_info(File) of
+                {ok, {_, _, _, Time}} ->
+                    XMod = #xref_mod{name = M, app_name = AppName,
+                                     dir = Dir, mtime = Time,
+                                     builtins = Builtins,
+                                     no_unresolved = NoUnresCalls},
+                    {ok, PrepMod, Bad} =
+                        prepare_module(Mode, XMod, UnresCalls, Data),
+                    foreach(fun({Tag,B}) ->
+                                    warnings(Warnings, Tag,
+                                             [[File,B]])
+                            end, Bad),
+                    {ok, PrepMod};
+                Error -> Error
+            end;
 	Error ->
 	    message(Verbose, error, []),
-	    throw(Error)
+            Error
     end.
 
-abst(File, Builtins, Mode) when Mode =:= functions ->
+process_module(State) ->
+    receive
+        {?MODULE, Reply} ->
+            case Reply of
+                no ->
+                    {ok, [], State};
+                {ok, PrepMod} ->
+                    finish_module(PrepMod, State);
+                Error ->
+                    throw(Error)
+            end
+    end.
+
+abst(File, Builtins, _Mode = functions) ->
     case beam_lib:chunks(File, [abstract_code, exports, attributes]) of
 	{ok, {M,[{abstract_code,NoA},_X,_A]}} when NoA =:= no_abstract_code ->
 	    {ok, M, NoA};
@@ -761,7 +816,7 @@ abst(File, Builtins, Mode) when Mode =:= functions ->
 	Error when element(1, Error) =:= error ->
 	    Error
     end;
-abst(File, Builtins, Mode) when Mode =:= modules ->
+abst(File, Builtins, _Mode = modules) ->
     case beam_lib:chunks(File, [exports, imports, attributes]) of
 	{ok, {Mod, [{exports,X0}, {imports,I0}, {attributes,At}]}} ->
 	    X1 = mfa_exports(X0, At, Mod),
@@ -855,19 +910,13 @@ deprecated_flag(_) -> undefined.
 %% dom CallAt = LC U XC
 %% Attrs is collected from the attribute 'xref' (experimental).
 do_add_module(S, XMod, Unres, Data) ->
-    M = XMod#xref_mod.name,
-    case dict:find(M, S#xref.modules) of
-	{ok, OldXMod}  ->
-	    BF2 = module_file(XMod),
-	    BF1 = module_file(OldXMod),
-	    throw_error({module_clash, {M, BF1, BF2}});
-	error ->
-	    do_add_module(S, M, XMod, Unres, Data)
-    end.
+    #xref{mode = Mode} = S,
+    Mode = S#xref.mode,
+    {ok, PrepMod, Bad} = prepare_module(Mode, XMod, Unres, Data),
+    {ok, Ms, NS} = finish_module(PrepMod, S),
+    {ok, Ms, Bad, NS}.
 
-%%do_add_module(S, M, _XMod, _Unres, Data)->
-%%    {ok, M, [], S};
-do_add_module(S, M, XMod, Unres0, Data) when S#xref.mode =:= functions ->
+prepare_module(_Mode = functions, XMod, Unres0, Data) ->
     {DefAt0, LPreCAt0, XPreCAt0, LC0, XC0, X0, Attrs, Depr} = Data,
     %% Bad is a list of bad values of 'xref' attributes.
     {ALC0,AXC0,Bad0} = Attrs,
@@ -903,26 +952,27 @@ do_add_module(S, M, XMod, Unres0, Data) when S#xref.mode =:= functions ->
     LC = union(LC1, ALC),
 
     {DF1,DF_11,DF_21,DF_31,DBad} = depr_mod(Depr, X),
+    {EE, ECallAt} = inter_graph(X, L, LC, XC, CallAt),
+    {ok, {functions, XMod, [DefAt,L,X,LCallAt,XCallAt,CallAt,LC,XC,EE,ECallAt,
+                            DF1,DF_11,DF_21,DF_31], NoCalls, Unres},
+     DBad++Bad};
+prepare_module(_Mode = modules, XMod, _Unres, Data) ->
+    {X0, I0, Depr} = Data,
+    X1 = xref_utils:xset(X0, [tspec(func)]),
+    I1 = xref_utils:xset(I0, [tspec(func)]),
+    {DF1,DF_11,DF_21,DF_31,DBad} = depr_mod(Depr, X1),
+    {ok, {modules, XMod, [X1,I1,DF1,DF_11,DF_21,DF_31]}, DBad}.
 
-    %% {EE, ECallAt} = inter_graph(X, L, LC, XC, LCallAt, XCallAt),
-    Self = self(),
-    Fun = fun() -> inter_graph(Self, X, L, LC, XC, CallAt) end,
-    {EE, ECallAt} =
-	xref_utils:subprocess(Fun, [link, {min_heap_size,100000}]),
-
+finish_module({functions, XMod, List, NoCalls, Unres}, S) ->
+    ok  = check_module(XMod, S),
     [DefAt2,L2,X2,LCallAt2,XCallAt2,CallAt2,LC2,XC2,EE2,ECallAt2,
-     DF2,DF_12,DF_22,DF_32] =
-	pack([DefAt,L,X,LCallAt,XCallAt,CallAt,LC,XC,EE,ECallAt,
-              DF1,DF_11,DF_21,DF_31]),
-
-    %% Foo = [DefAt2,L2,X2,LCallAt2,XCallAt2,CallAt2,LC2,XC2,EE2,ECallAt2,
-    %%        DF2,DF_12,DF_22,DF_32],
-    %% io:format("{~p, ~p, ~p},~n", [M, pack:lsize(Foo), pack:usize(Foo)]),
+     DF2,DF_12,DF_22,DF_32] = pack(List),
 
     LU = range(LC2),
 
     LPredefined = predefined_funs(LU),
 
+    M = XMod#xref_mod.name,
     MS = xref_utils:xset(M, atom),
     T = from_sets({MS,DefAt2,L2,X2,LCallAt2,XCallAt2,CallAt2,
 		   LC2,XC2,LU,EE2,ECallAt2,Unres,LPredefined,
@@ -933,19 +983,28 @@ do_add_module(S, M, XMod, Unres0, Data) when S#xref.mode =:= functions ->
 
     XMod1 = XMod#xref_mod{data = T, info = Info},
     S1 = S#xref{modules = dict:store(M, XMod1, S#xref.modules)},
-    {ok, [M], DBad++Bad, take_down(S1)};
-do_add_module(S, M, XMod, _Unres, Data) when S#xref.mode =:= modules ->
-    {X0, I0, Depr} = Data,
-    X1 = xref_utils:xset(X0, [tspec(func)]),
-    I1 = xref_utils:xset(I0, [tspec(func)]),
-    {DF1,DF_11,DF_21,DF_31,DBad} = depr_mod(Depr, X1),
-    [X2,I2,DF2,DF_12,DF_22,DF_32] = pack([X1,I1,DF1,DF_11,DF_21,DF_31]),
+    {ok, [M], take_down(S1)};
+finish_module({modules, XMod, List}, S) ->
+    ok = check_module(XMod, S),
+    [X2,I2,DF2,DF_12,DF_22,DF_32] = pack(List),
+    M = XMod#xref_mod.name,
     MS = xref_utils:xset(M, atom),
     T = from_sets({MS, X2, I2, DF2, DF_12, DF_22, DF_32}),
     Info = [],
     XMod1 = XMod#xref_mod{data = T, info = Info},
     S1 = S#xref{modules = dict:store(M, XMod1, S#xref.modules)},
-    {ok, [M], DBad, take_down(S1)}.
+    {ok, [M], take_down(S1)}.
+
+check_module(XMod, State) ->
+    M = XMod#xref_mod.name,
+    case dict:find(M, State#xref.modules) of
+	{ok, OldXMod}  ->
+	    BF2 = module_file(XMod),
+	    BF1 = module_file(OldXMod),
+	    throw_error({module_clash, {M, BF1, BF2}});
+        error ->
+            ok
+    end.
 
 depr_mod({Depr,Bad0}, X) ->
     %% Bad0 are badly formed deprecated attributes.
@@ -990,9 +1049,6 @@ no_info(X, L, LC, XC, EE, Unres, NoCalls, NoUnresCalls) ->
      {no_functions, {no_elements(L), no_elements(X)}},
      %% Note: this is overwritten in do_set_up():
      {no_inter_function_calls, no_elements(EE)}].
-
-inter_graph(Pid, X, L, LC, XC, CallAt) ->
-    Pid ! {self(), inter_graph(X, L, LC, XC, CallAt)}.
 
 %% Inter Call Graph.
 %inter_graph(_X, _L, _LC, _XC, _CallAt) ->
@@ -1726,7 +1782,7 @@ pack(T) ->
     NT = pack1(T),
     %% true = T =:= NT,
     %% io:format("erasing ~p elements...~n", [length(erase())]),
-    erase(), % wasting heap (and time)...
+    _ = erase(), % wasting heap (and time)...
     foreach(fun({K,V}) -> put(K, V) end, PD),
     NT.
 
@@ -1765,10 +1821,6 @@ tpack(T, I, L) ->
 
 message(true, What, Arg) ->
     case What of
-	reading_beam ->
-	    io:format("~ts... ", Arg);
-	skipped_beam ->
-	    io:format("skipped (no debug information)~n", Arg);
 	no_debug_info ->
 	    io:format("Skipping ~ts (no debug information)~n", Arg);
 	unresolved_summary1 ->
@@ -1790,7 +1842,7 @@ message(true, What, Arg) ->
 	set_up ->
 	    io:format("Setting up...", Arg);
 	done ->
-	    io:format("done~n", Arg);
+	    io:format("done reading ~ts~n", Arg);
 	error ->
 	    io:format("error~n", Arg);
 	Else ->

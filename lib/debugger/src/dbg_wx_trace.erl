@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -71,21 +72,14 @@ start(Pid, TraceWin, BackTrace) ->
     start(Pid, TraceWin, BackTrace, ?STRINGS).
 
 start(Pid, TraceWin, BackTrace, Strings) ->
-    case {whereis(dbg_wx_mon), whereis(dbg_ui_mon)} of
-	{undefined, undefined} ->
-	    case which_gui() of
-		gs ->
-		    dbg_ui_trace:start(Pid, TraceWin, BackTrace);
-		wx ->
-		    Parent = wx:new(),
-		    Env = wx:get_env(),
-		    start(Pid, Env, Parent, TraceWin, BackTrace, Strings)
-	    end;
-	{undefined, Monitor} when is_pid(Monitor) ->
-	    dbg_ui_trace:start(Pid, TraceWin, BackTrace);
-	{Monitor, _} when is_pid(Monitor) ->
+    case whereis(dbg_wx_mon) of
+        undefined ->
+            Parent = wx:new(),
+            Env = wx:get_env(),
+            start(Pid, Env, Parent, TraceWin, BackTrace, Strings);
+	Monitor when is_pid(Monitor) ->
 	    Monitor ! {?MODULE, self(), get_env},
-	    receive 
+	    receive
 		{env, Monitor, Env, Parent} ->
 		    start(Pid, Env, Parent, TraceWin, BackTrace, Strings)
 	    end
@@ -108,15 +102,6 @@ start(Pid, Env, Parent, TraceWin, BackTrace, Strings) ->
 	    end;
 	error ->
 	    ignore
-    end.
-
-which_gui() ->
-    try
-	wx:new(),
-	wx:destroy(),
-	wx
-    catch _:_ ->
-	    gs
     end.
 
 %%--------------------------------------------------------------------
@@ -145,7 +130,7 @@ init(Pid, Parent, Meta, TraceWin, BackTrace, Strings) ->
     dbg_wx_winman:insert(Title, Window),
 
     %% Initial process state
-    State1 = #state{win=Win, coords={0,0}, pid=Pid, meta=Meta,
+    State1 = #state{win=Win, coords={-1,-1}, pid=Pid, meta=Meta,
 		    status={idle,null,null},
 		    stack={1,1}, strings=[str_on]},
 
@@ -160,7 +145,7 @@ init(Pid, Parent, Meta, TraceWin, BackTrace, Strings) ->
 
     int:meta(Meta, trace, State3#state.trace),
 
-    gui_enable_updown(stack_trace, {1,1}),
+    gui_enable_updown(State3#state.stack_trace, {1,1}),
     gui_enable_btrace(false, false),
     dbg_wx_trace_win:display(Win,idle),
 
@@ -336,7 +321,7 @@ gui_cmd('Kill', State) ->
     exit(State#state.pid, kill),
     State;
 gui_cmd('Messages', State) ->
-    case int:meta(State#state.meta, messages) of
+    _ = case int:meta(State#state.meta, messages) of
 	[] ->
 	    dbg_wx_trace_win:eval_output(State#state.win,"< No Messages!\n", bold);
 	Messages ->
@@ -826,7 +811,7 @@ gui_show_module(Win, Mod, Line, Mod, _Pid, How) ->
     dbg_wx_trace_win:mark_line(Win, Line, How);
 gui_show_module(Win, Mod, Line, _Cm, Pid, How) ->
     Win2 = case dbg_wx_trace_win:is_shown(Win, Mod) of
-	       {true, Win3} -> Win3;
+	       %% {true, Win3} -> Win3;
 	       false -> gui_load_module(Win, Mod, Pid)
 	   end,
     dbg_wx_trace_win:mark_line(Win2, Line, How).

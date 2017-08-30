@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %% 
@@ -67,11 +68,15 @@ fname(get) ->
 	end,
 	case snmpa:current_address() of
 	    {value, {[_A,_B,_C,_D], E}} when is_integer(E) -> ok;
-	    {value, _} -> throw("bad_ip");
-	    _ -> throw("bad_adr")
+	    {value, {D, _}} when is_atom(D) -> ok;
+	    {value, Ip} ->
+		throw(format_string("bad_ip: ~p", [Ip]));
+	    Other ->
+		throw(format_string("bad_adr: ~p", [Other]))
 	end,
 	case snmpa:current_net_if_data() of
 	    {value, []} -> ok;
+	    {value, [{request_ref, R}]} when is_reference(R) -> ok;
 	    {value, _} -> throw("bad_nil");
 	    _ -> throw("bad_nid")
 	end,
@@ -160,3 +165,6 @@ ftab2(get_next, [9], _Cols) ->
     % bad return value
     io:format("** Here comes Error Report get_next 3 bad return~n"),
     [{[1,5],1},{[2,5],3},{[2,6],3}].    
+
+format_string(Format, Args) ->
+    lists:flatten(io_lib:format(Format, Args)).

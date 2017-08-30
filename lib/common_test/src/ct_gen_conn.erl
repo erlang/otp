@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -24,10 +25,16 @@
 
 -module(ct_gen_conn).
 
--compile(export_all).
-
--export([start/4, stop/1, get_conn_pid/1]).
+-export([start/4, stop/1, get_conn_pid/1, check_opts/1]).
 -export([call/2, call/3, return/2, do_within_time/2]).
+-export([log/3, start_log/1, cont_log/2, end_log/0]).
+
+%%----------------------------------------------------------------------
+%% Exported types
+%%----------------------------------------------------------------------
+-export_type([server_id/0,
+	      target_name/0,
+	      key_or_name/0]).
 
 -ifdef(debug).
 -define(dbg,true).
@@ -46,6 +53,18 @@
 		  conn_pid,
 		  cb_state,
 		  ct_util_server}).
+
+%%------------------------------------------------------------------
+%% Type declarations
+%%------------------------------------------------------------------
+-type server_id() :: atom().
+%% A `ServerId' which exists in a configuration file.
+-type target_name() :: atom().
+%% A name which is associated to a `server_id()' via a
+%% `require' statement or a call to {@link ct:require/2} in the
+%% test suite.
+-type key_or_name() :: server_id() | target_name().
+
 
 %%%-----------------------------------------------------------------
 %%% @spec start(Address,InitData,CallbackMod,Opts) ->
@@ -288,7 +307,8 @@ call(Pid, Msg, Timeout) ->
     end.
 
 return({To,Ref},Result) ->
-    To ! {Ref, Result}.
+    To ! {Ref, Result},
+    ok.
 
 init_gen(Parent,Opts) ->
     process_flag(trap_exit,true),
@@ -325,7 +345,7 @@ loop(Opts) ->
 			    link(NewPid),
 			    put(conn_pid,NewPid),
 			    loop(Opts#gen_opts{conn_pid=NewPid,
-					       cb_state=NewState});
+					       cb_state=NewState});			
 			Error ->
 			    ct_util:unregister_connection(self()),
 			    log("Reconnect failed. Giving up!",

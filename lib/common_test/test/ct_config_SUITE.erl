@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -234,25 +235,25 @@ expected_events(config_static_SUITE)->
      ?sok(test_get_config_deep_nested,{3,0,{0,0}}),
      ?sok(test_default_suitewide,{4,0,{0,0}}),
      ?snok(test_config_name_already_in_use1,
-	  {skipped,{config_name_already_in_use,[x1]}},{4,0,{1,0}}),
-     ?sok(test_default_tclocal,{5,0,{1,0}}),
+	   {failed,{error,{config_name_already_in_use,[x1]}}},{4,1,{0,0}}),
+     ?sok(test_default_tclocal,{5,1,{0,0}}),
      ?snok(test_config_name_already_in_use2,
-	  {skipped,{config_name_already_in_use,[alias,x1]}},{5,0,{2,0}}),
-     ?sok(test_alias_tclocal,{6,0,{2,0}}),
-     ?sok(test_get_config_undefined,{7,0,{2,0}}),
-     ?sok(test_require_subvals,{8,0,{2,0}}),
+	   {failed,{error,{config_name_already_in_use,[alias,x1]}}},{5,2,{0,0}}),
+     ?sok(test_alias_tclocal,{6,2,{0,0}}),
+     ?sok(test_get_config_undefined,{7,2,{0,0}}),
+     ?sok(test_require_subvals,{8,2,{0,0}}),
      ?snok(test_require_subvals2,
-	  {skipped,{require_failed,
-		    {not_available,{gen_cfg,[a,b,c,d]}}}},{8,0,{2,1}}),
-     ?sok(test_require_deep_config,{9,0,{2,1}}),
-     ?sok(test_shadow_all,{10,0,{2,1}}),
-     ?sok(test_element,{11,0,{2,1}}),
-     ?sok(test_shadow_all_element,{12,0,{2,1}}),
-     ?sok(test_internal_deep,{13,0,{2,1}}),
-     ?sok(test_alias_tclocal_nested,{14,0,{2,1}}),
-     ?sok(test_alias_tclocal_nested_backward_compat,{15,0,{2,1}}),
-     ?sok(test_alias_tclocal_nested_backward_compat_subvals,{16,0,{2,1}}),
-     ?sok(test_config_same_name_already_in_use,{17,0,{2,1}}),
+	   {auto_skipped,{require_failed,
+			  {not_available,{gen_cfg,[a,b,c,d]}}}},{8,2,{0,1}}),
+     ?sok(test_require_deep_config,{9,2,{0,1}}),
+     ?sok(test_shadow_all,{10,2,{0,1}}),
+     ?sok(test_element,{11,2,{0,1}}),
+     ?sok(test_shadow_all_element,{12,2,{0,1}}),
+     ?sok(test_internal_deep,{13,2,{0,1}}),
+     ?sok(test_alias_tclocal_nested,{14,2,{0,1}}),
+     ?sok(test_alias_tclocal_nested_backward_compat,{15,2,{0,1}}),
+     ?sok(test_alias_tclocal_nested_backward_compat_subvals,{16,2,{0,1}}),
+     ?sok(test_config_same_name_already_in_use,{17,2,{0,1}}),
      {?eh,tc_start,{config_static_SUITE,end_per_suite}},
      {?eh,tc_done,{config_static_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},

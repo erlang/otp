@@ -50,8 +50,10 @@ call(Req) ->
 	{'DOWN', MRef, _, _, _} ->
 	    erlang:error(badarg);
 	{MRef, badarg} ->
+	    erlang:demonitor(MRef),
 	    erlang:error(badarg);
 	{MRef, Reply} ->
+	    erlang:demonitor(MRef),
 	    Reply
     after 5000 ->
 	    erlang:error(timeout)

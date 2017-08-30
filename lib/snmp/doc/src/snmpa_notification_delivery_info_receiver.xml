@@ -1,24 +1,25 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
       <year>2008</year>
-      <year>2009</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
-  The contents of this file are subject to the Erlang Public License,
-  Version 1.1, (the "License"); you may not use this file except in
-  compliance with the License. You should have received a copy of the
-  Erlang Public License along with this software. If not, it can be
-  retrieved online at http://www.erlang.org/.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
 
-  Software distributed under the License is distributed on an "AS IS"
-  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-  the License for the specific language governing rights and limitations
-  under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
@@ -45,22 +46,30 @@
       must export the following functions: </p>
     <list type="bulleted">
       <item>
-        <p><seealso marker="#delivery_targets">delivery_targets/3</seealso></p>
+        <p><seealso marker="#delivery_targets/3">delivery_targets/3</seealso></p>
       </item>
       <item>
-        <p><seealso marker="#delivery_info">delivery_info/4</seealso></p>
+        <p><seealso marker="#delivery_info/4">delivery_info/4</seealso></p>
       </item>
     </list>
     <p>The semantics of them and their exact signatures are explained
       below. </p>
 
+    <p>Legacy notification delivery information receiver modules
+      used a target argument on the form
+      <c>{IpAddr, PortNumber}</c> instead of
+      <c>{Domain, Addr}</c>, and if the SNMP Agent is run without
+      changing the configuration to use transport domains
+      the notification delivery information receiver will still get
+      the old arguments and work as before.</p>
+
   </description>
 
   <section>
     <title>DATA TYPES</title>
-    <code type="none"><![CDATA[
-address() = A 4-tuple
-    ]]></code>
+    <p>See the <seealso marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seealso>.</p>
+    <marker id="accept_recv"></marker>
 
      <marker id="delivery_targets"></marker>
   </section>
@@ -71,10 +80,8 @@ address() = A 4-tuple
       <fsummary>Inform about target addresses</fsummary>
       <type>
         <v>Tag = term()</v>
-        <v>Targets = [target()]</v>
-        <v>target() = {Address, Port}</v>
-        <v>Address = address()</v>
-        <v>Port = integer()</v>
+        <v>Targets = [Target]</v>
+        <v>Target = {transportDomain(), transportAddressWithPort()</v>
         <v>Extra = term()</v>
       </type>
       <desc>
@@ -94,10 +101,8 @@ address() = A 4-tuple
       <fsummary>Inform about delivery result</fsummary>
       <type>
         <v>Tag = term()</v>
-        <v>Target = target()</v>
-        <v>target() = {Address, Port}</v>
-        <v>Address = address()</v>
-        <v>Port = integer()</v>
+        <v>Targets = [Target]</v>
+        <v>Target = {transportDomain(), transportAddressWithPort()</v>
         <v>DeliveryResult = delivery_result()</v>
         <v>delivery_result() = no_response | got_response</v>
         <v>Extra = term()</v>

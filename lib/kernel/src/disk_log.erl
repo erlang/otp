@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -1076,13 +1077,13 @@ log_end(S, [], [], Sync) ->
 log_end(S, Pids, Bins, Sync) ->
     case do_log(get(log), rflat(Bins)) of
 	N when is_integer(N) ->
-	    replies(Pids, ok),
+	    ok = replies(Pids, ok),
 	    S1 = (state_ok(S))#state{cnt = S#state.cnt+N},
 	    log_end_sync(S1, Sync);
         {error, {error, {full, _Name}}, N} when Pids =:= [] ->
             log_end_sync(state_ok(S#state{cnt = S#state.cnt + N}), Sync);
 	{error, Error, N} ->
-	    replies(Pids, Error),
+	    ok = replies(Pids, Error),
 	    state_err(S#state{cnt = S#state.cnt + N}, Error)
     end.
 
@@ -1091,7 +1092,7 @@ log_end_sync(S, []) ->
     S;
 log_end_sync(S, Sync) ->
     Res = do_sync(get(log)),
-    replies(Sync, Res),
+    ok = replies(Sync, Res),
     state_err(S, Res).
 
 %% Inlined.
@@ -1183,7 +1184,7 @@ do_exit(S, From, Message0, Reason) ->
 		  _ -> Message0
 	      end,
     _ = disk_log_server:close(self()),
-    replies(From, Message),
+    ok = replies(From, Message),
     ?PROFILE(ep:done()),
     exit(Reason).
 
@@ -1309,13 +1310,20 @@ compare_arg(_Attr, _Val, _A) ->
 
 %% -> {ok, Res, log(), Cnt} | Error
 do_open(A) ->
-    L = #log{name = A#arg.name,
-	     filename = A#arg.file,
-	     size = A#arg.size,
-	     head = mk_head(A#arg.head, A#arg.format),
-	     mode = A#arg.mode,
-	     version = A#arg.version},
-    do_open2(L, A).
+    #arg{type = Type, format = Format, name = Name, head = Head0,
+         file = FName, repair = Repair, size = Size, mode = Mode,
+         version = V} = A,
+    Head = mk_head(Head0, Format),
+    case do_open2(Type, Format, Name, FName, Repair, Size, Mode, Head, V) of
+        {ok, Ret, Extra, FormatType, NoItems} ->
+            L = #log{name = Name, type = Type, format = Format,
+                     filename = FName, size = Size,
+                     format_type = FormatType, head = Head, mode = Mode,
+                     version = V, extra = Extra},
+            {ok, Ret, L, NoItems};
+        Error ->
+            Error
+    end.
 
 mk_head({head, Term}, internal) -> {ok, term_to_binary(Term)};
 mk_head({head, Bytes}, external) -> {ok, check_bytes(Bytes)};
@@ -1431,57 +1439,44 @@ do_inc_wrap_file(L) ->
 %%-----------------------------------------------------------------
 %% -> {ok, Reply, log(), Cnt} | Error
 %% Note: the header is always written, even if the log size is too small.
-do_open2(L, #arg{type = halt, format = internal, name = Name, 
-		 file = FName, repair = Repair, size = Size, mode = Mode}) ->
-    case catch disk_log_1:int_open(FName, Repair, Mode, L#log.head) of
+do_open2(halt, internal, Name, FName, Repair, Size, Mode, Head, _V) ->
+    case catch disk_log_1:int_open(FName, Repair, Mode, Head) of
 	{ok, {_Alloc, FdC, {NoItems, _NoBytes}, FileSize}} ->
             Halt = #halt{fdc = FdC, curB = FileSize, size = Size},
-	    {ok, {ok, Name}, L#log{format_type = halt_int, extra = Halt}, 
-	     NoItems};
+	    {ok, {ok, Name}, Halt, halt_int, NoItems};
 	{repaired, FdC, Rec, Bad, FileSize} ->
             Halt = #halt{fdc = FdC, curB = FileSize, size = Size},
 	    {ok, {repaired, Name, {recovered, Rec}, {badbytes, Bad}},
-	     L#log{format_type = halt_int, extra = Halt},
-	     Rec};
+             Halt, halt_int, Rec};
 	Error ->
 	    Error
     end;
-do_open2(L, #arg{type = wrap, format = internal, size = {MaxB, MaxF}, 
-		 name = Name, repair = Repair, file = FName, mode = Mode,
-		 version = V}) ->
+do_open2(wrap, internal, Name, FName, Repair, Size, Mode, Head, V) ->
+    {MaxB, MaxF} = Size,
     case catch 
-      disk_log_1:mf_int_open(FName, MaxB, MaxF, Repair, Mode, L#log.head, V) of
+      disk_log_1:mf_int_open(FName, MaxB, MaxF, Repair, Mode, Head, V) of
 	{ok, Handle, Cnt} ->
-	    {ok, {ok, Name}, L#log{type = wrap,
-				   format_type = wrap_int, 
-				   extra = Handle}, Cnt};
+	    {ok, {ok, Name}, Handle, wrap_int, Cnt};
 	{repaired, Handle, Rec, Bad, Cnt} ->
 	    {ok, {repaired, Name, {recovered, Rec}, {badbytes, Bad}},
-	     L#log{type = wrap, format_type = wrap_int, extra = Handle}, Cnt};
+	     Handle, wrap_int, Cnt};
 	Error ->
 	    Error
     end;
-do_open2(L, #arg{type = halt, format = external, file = FName, name = Name,
-		 size = Size, repair = Repair, mode = Mode}) ->
-    case catch disk_log_1:ext_open(FName, Repair, Mode, L#log.head) of
+do_open2(halt, external, Name, FName, Repair, Size, Mode, Head, _V) ->
+    case catch disk_log_1:ext_open(FName, Repair, Mode, Head) of
 	{ok, {_Alloc, FdC, {NoItems, _NoBytes}, FileSize}} ->
             Halt = #halt{fdc = FdC, curB = FileSize, size = Size},
-	    {ok, {ok, Name}, 
-             L#log{format_type = halt_ext, format = external, extra = Halt}, 
-	     NoItems};
+	    {ok, {ok, Name}, Halt, halt_ext, NoItems};
 	Error ->
 	    Error
     end;
-do_open2(L, #arg{type = wrap, format = external, size = {MaxB, MaxF},
-		 name = Name, file = FName, repair = Repair, mode = Mode,
-		 version = V}) ->
+do_open2(wrap, external, Name, FName, Repair, Size, Mode, Head, V) ->
+    {MaxB, MaxF} = Size,
     case catch 
-      disk_log_1:mf_ext_open(FName, MaxB, MaxF, Repair, Mode, L#log.head, V) of
+      disk_log_1:mf_ext_open(FName, MaxB, MaxF, Repair, Mode, Head, V) of
 	{ok, Handle, Cnt} ->
-	    {ok, {ok, Name}, L#log{type = wrap,
-				   format_type = wrap_ext, 
-				   extra = Handle,
-				   format = external}, Cnt};
+	    {ok, {ok, Name}, Handle, wrap_ext, Cnt};
 	Error ->
 	    Error
     end.
@@ -1881,7 +1876,8 @@ replies(Pids, Reply) ->
     send_reply(Pids, M).
 
 send_reply(Pid, M) when is_pid(Pid) ->
-    Pid ! M;
+    Pid ! M,
+    ok;
 send_reply([Pid | Pids], M) ->
     Pid ! M,
     send_reply(Pids, M);
@@ -2022,7 +2018,7 @@ notify_owners(Note) ->
 
 cache_error(S, Pids) ->
     Error = S#state.cache_error,
-    replies(Pids, Error),
+    ok = replies(Pids, Error),
     state_err(S#state{cache_error = ok}, Error).
 
 state_ok(S) ->

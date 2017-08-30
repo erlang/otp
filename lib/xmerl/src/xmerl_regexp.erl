@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -40,6 +41,8 @@
 %%-compile([export_all]).
 
 -export([setup/1,compile_proc/2]).
+
+-include("xmerl_internal.hrl").
 
 setup(RE0) ->
     RE = setup(RE0, [$^]),
@@ -593,7 +596,7 @@ sub_first_match(S, {regexp,RE}) ->
 	nomatch -> nomatch
     end.
 
-
+
 %% This is the regular expression grammar used. It is equivalent to the
 %% one used in AWK, except that we allow ^ $ to be used anywhere and fail
 %% in the matching.
@@ -844,7 +847,7 @@ parse_error(E) -> throw({error,E}).
 re_apply(S, St, {RE,Sc}) ->
     Subs = erlang:make_tuple(Sc, none),		%Make a sub-regexp table.
     Res = re_apply(RE, [], S, St, Subs),
-    %% io:format("~p x ~p -> ~p\n", [RE,S,Res]),
+    %% ?dbg("~p x ~p -> ~p\n", [RE,S,Res]),
     Res.
 
 re_apply(epsilon, More, S, P, Subs) ->		%This always matches
@@ -900,7 +903,7 @@ re_apply({comp_class,Cc}, More, [C|S], P, Subs) ->
 re_apply(C, More, [C|S], P, Subs) when is_integer(C) ->
     re_apply_more(More, S, P+1, Subs);
 re_apply(_RE, _More, _S, _P, _Subs) ->
-    %% io:format("~p : ~p\n", [_RE,_S]),
+    %% ?dbg("~p : ~p\n", [_RE,_S]),
     nomatch.
 
 %% re_apply_more([RegExp], String, Length, SubsExprs) ->
@@ -961,7 +964,7 @@ re_apply_or(never_match, R2) -> R2;
 re_apply_or(R1, never_match) -> R1;
 re_apply_or(nomatch, R2) -> R2;
 re_apply_or(R1, nomatch) -> R1.
-
+
 %% Record definitions for the NFA, DFA and compiler.
 
 -record(nfa_state, {no,edges=[],accept=no}).
@@ -1026,7 +1029,7 @@ parse_reas([{RegExp,A}|REAs], S) ->
 	{error,E} -> {error,E}
     end;
 parse_reas([], Stack) -> {ok,reverse(Stack)}.
-
+
 %% build_combined_nfa(RegExpActionList) -> {NFA,StartState}.
 %%  Build the combined NFA using Thompson's construction straight out
 %%  of the book. Build the separate NFAs in the same order as the
@@ -1121,7 +1124,7 @@ build_nfa(C, N, S, NFA) when is_integer(C) ->
 nfa_char_class(Cc) ->
     Crs = lists:foldl(fun({C1,C2}, Set) -> add_element({C1,C2}, Set);
 			 (C, Set) -> add_element({C,C}, Set) end, [], Cc),
-    %% io:fwrite("cc: ~p\n", [Crs]),
+    %% ?dbg("cc: ~p\n", [Crs]),
     pack_crs(Crs).
 
 pack_crs([{C1,C2}=Cr,{C3,C4}|Crs]) when C1 =< C3, C2 >= C4 ->
@@ -1141,13 +1144,13 @@ pack_crs([]) -> [].
 
 nfa_comp_class(Cc) ->
     Crs = nfa_char_class(Cc),
-    %% io:fwrite("comp: ~p\n", [Crs]),
+    %% ?dbg("comp: ~p\n", [Crs]),
     comp_crs(Crs, 0).
 
 comp_crs([{C1,C2}|Crs], Last) ->
     [{Last,C1-1}|comp_crs(Crs, C2+1)];
 comp_crs([], Last) -> [{Last,maxchar}].
-
+
 %% build_dfa(NFA, NfaStartState) -> {DFA,DfaStartState}.
 %%  Build a DFA from an NFA using "subset construction". The major
 %%  difference from the book is that we keep the marked and unmarked
@@ -1192,7 +1195,7 @@ build_dfa(Set, Us, N, Ts, Ms, NFA) ->
     Crs1 = lists:usort(Crs0),			%Must remove duplicates!
     %% Build list of disjoint test ranges.
     Test = disjoint_crs(Crs1),
-    %% io:fwrite("bd: ~p\n    ~p\n    ~p\n    ~p\n", [Set,Crs0,Crs1,Test]),
+    %% ?dbg("bd: ~p\n    ~p\n    ~p\n    ~p\n", [Set,Crs0,Crs1,Test]),
     build_dfa(Test, Set, Us, N, Ts, Ms, NFA).
 
 %% disjoint_crs([CharRange]) -> [CharRange].
@@ -1263,7 +1266,7 @@ move(Sts, Cr, NFA) ->
 	    {Crs,St} <- (element(N, NFA))#nfa_state.edges,
 	   is_list(Crs),
 %% 	    begin
-%% 		io:fwrite("move1: ~p\n", [{Sts,Cr,Crs,in_crs(Cr,Crs)}]),
+%% 		?dbg("move1: ~p\n", [{Sts,Cr,Crs,in_crs(Cr,Crs)}]),
 %% 		true
 %% 	    end,
 	    in_crs(Cr, Crs) ].
@@ -1282,7 +1285,7 @@ accept([St|Sts], NFA) ->
 	#nfa_state{accept=no} -> accept(Sts, NFA)
     end;
 accept([], _NFA) -> no.
-
+
 %% minimise_dfa(DFA, StartState, FirstState) -> {DFA,StartState}.
 %%  Minimise the DFA by removing equivalent states. We consider a
 %%  state if both the transitions and the their accept state is the
@@ -1331,7 +1334,7 @@ pack_dfa([D|DFA], NewN, Rs, PDFA) ->
     pack_dfa(DFA, NewN+1, [{D#dfa_state.no,NewN}|Rs],
 	     [D#dfa_state{no=NewN}|PDFA]);
 pack_dfa([], _NewN, Rs, PDFA) -> {PDFA,Rs}.
-
+
 %% comp_apply(String, StartPos, DFAReg) -> {match,RestPos,Rest} | nomatch.
 %% Apply the DFA of a regular expression to a string.  If
 %%  there is a match return the position of the remaining string and
@@ -1413,7 +1416,7 @@ build_trans(Ts0, NoAccept) ->
 	    %% Have transitions, convert to tuple.
 	    Ts2 = keysort(1, Ts1),
 	    {Tmin,Smin,Ts3} = min_trans(Ts2, NoAccept),
-	    %% io:fwrite("exptr: ~p\n", [{Ts3,Tmin}]),
+	    %% ?dbg("exptr: ~p\n", [{Ts3,Tmin}]),
 	    {Trans,Tmax,Smax} = expand_trans(Ts3, Tmin, NoAccept),
 	    {list_to_tuple(Trans),Tmin,Smin,Tmax,Smax,Sp1}
     end.

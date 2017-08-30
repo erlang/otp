@@ -1,27 +1,26 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 -module(cover).
 
 %%
-%% This module implements the Erlang coverage tool. The module named
-%% cover_web implements a user interface for the coverage tool to run
-%% under webtool.
+%% This module implements the Erlang coverage tool.
 %% 
 %% ARCHITECTURE
 %% The coverage tool consists of one process on each node involved in
@@ -77,8 +76,11 @@
 	 compile/1, compile/2, compile_module/1, compile_module/2,
 	 compile_directory/0, compile_directory/1, compile_directory/2,
 	 compile_beam/1, compile_beam_directory/0, compile_beam_directory/1,
-	 analyse/1, analyse/2, analyse/3, analyze/1, analyze/2, analyze/3,
+	 analyse/0, analyse/1, analyse/2, analyse/3,
+	 analyze/0, analyze/1, analyze/2, analyze/3,
+	 analyse_to_file/0,
 	 analyse_to_file/1, analyse_to_file/2, analyse_to_file/3,
+	 analyze_to_file/0,
 	 analyze_to_file/1, analyze_to_file/2, analyze_to_file/3,
 	 async_analyse_to_file/1,async_analyse_to_file/2,
 	 async_analyse_to_file/3, async_analyze_to_file/1,
@@ -89,8 +91,9 @@
 	 flush/1,
 	 stop/0, stop/1]).
 -export([remote_start/1,get_main_node/0]).
-%-export([bump/5]).
--export([transform/4]). % for test purposes
+
+%% Used internally to ensure we upgrade the code to the latest version.
+-export([main_process_loop/1,remote_process_loop/1]).
 
 -record(main_state, {compiled=[],           % [{Module,File}]
 		     imported=[],           % [{Module,File,ImportFile}]
@@ -108,9 +111,9 @@
 	       line     = '_'               % integer()
 	      }).
 -define(BUMP_REC_NAME,bump).
+-define(CHUNK_SIZE, 20000).
 
 -record(vars, {module,                      % atom() Module name
-	       vsn,                         % atom()
 	       
 	       init_info=[],                % [{M,F,A,C,L}]
 
@@ -132,7 +135,7 @@
 -define(SERVER, cover_server).
 
 %% Line doesn't matter.
--define(BLOCK(Expr), {block,0,[Expr]}).
+-define(BLOCK(Expr), {block,erl_anno:new(0),[Expr]}).
 -define(BLOCK1(Expr), 
         if 
             element(1, Expr) =:= block ->
@@ -181,10 +184,11 @@ start(Node) when is_atom(Node) ->
 start(Nodes) ->
     call({start_nodes,remove_myself(Nodes,[])}).
 
-%% compile(ModFile) ->
-%% compile(ModFile, Options) ->
-%% compile_module(ModFile) -> Result
-%% compile_module(ModFile, Options) -> Result
+%% compile(ModFiles) ->
+%% compile(ModFiles, Options) ->
+%% compile_module(ModFiles) -> Result
+%% compile_module(ModFiles, Options) -> Result
+%%   ModFiles = ModFile | [ModFile]
 %%   ModFile = Module | File
 %%     Module = atom()
 %%     File = string()
@@ -198,18 +202,27 @@ compile(ModFile, Options) ->
 compile_module(ModFile) when is_atom(ModFile);
 			     is_list(ModFile) ->
     compile_module(ModFile, []).
-compile_module(Module, Options) when is_atom(Module), is_list(Options) ->
-    compile_module(atom_to_list(Module), Options);
-compile_module(File, Options) when is_list(File), is_list(Options) ->
-    WithExt = case filename:extension(File) of
-		  ".erl" ->
-		      File;
-		  _ ->
-		      File++".erl"
-	      end,
-    AbsFile = filename:absname(WithExt),
-    [R] = compile_modules([AbsFile], Options),
-    R.
+compile_module(ModFile, Options) when is_atom(ModFile);
+				      is_list(ModFile), is_integer(hd(ModFile)) ->
+    [R] = compile_module([ModFile], Options),
+    R;
+compile_module(ModFiles, Options) when is_list(Options) ->
+    AbsFiles =
+	[begin
+	     File =
+		 case ModFile of
+		     _ when is_atom(ModFile) -> atom_to_list(ModFile);
+		     _ when is_list(ModFile) -> ModFile
+		 end,
+	     WithExt = case filename:extension(File) of
+			   ".erl" ->
+			       File;
+			   _ ->
+			       File++".erl"
+		       end,
+	     filename:absname(WithExt)
+	 end || ModFile <- ModFiles],
+    compile_modules(AbsFiles, Options).
 
 %% compile_directory() ->
 %% compile_directory(Dir) ->
@@ -230,78 +243,52 @@ compile_directory(Dir) when is_list(Dir) ->
 compile_directory(Dir, Options) when is_list(Dir), is_list(Options) ->
     case file:list_dir(Dir) of
 	{ok, Files} ->
-	    
-	    %% Filter out all erl files (except cover.erl)
-	    ErlFileNames =
-		lists:filter(fun("cover.erl") ->
-				     false;
-				(File) ->
-				     case filename:extension(File) of
-					 ".erl" -> true;
-					 _ -> false
-				     end
-			     end,
-			     Files),
-
-	    %% Create a list of .erl file names (incl path) and call
-	    %% compile_modules/2 with the list of file names.
-	    ErlFiles = lists:map(fun(ErlFileName) ->
-					 filename:join(Dir, ErlFileName)
-				 end,
-				 ErlFileNames),
+	    ErlFiles = [filename:join(Dir, File) ||
+			   File <- Files,
+			   filename:extension(File) =:= ".erl"],
 	    compile_modules(ErlFiles, Options);
 	Error ->
 	    Error
     end.
 
 compile_modules(Files,Options) ->
-    Options2 = lists:filter(fun(Option) ->
-				    case Option of
-					{i, Dir} when is_list(Dir) -> true;
-					{d, _Macro} -> true;
-					{d, _Macro, _Value} -> true;
-					export_all -> true;
-					_ -> false
-				    end
-			    end,
-			    Options),
-    compile_modules(Files,Options2,[]).
+    Options2 = filter_options(Options),
+    %% compile_modules(Files,Options2,[]).
+    call({compile, Files, Options2}).
 
-compile_modules([File|Files], Options, Result) ->
-    R = call({compile, File, Options}),
-    compile_modules(Files,Options,[R|Result]);
-compile_modules([],_Opts,Result) ->
-    reverse(Result).
+%% compile_modules([File|Files], Options, Result) ->
+%%     R = call({compile, File, Options}),
+%%     compile_modules(Files,Options,[R|Result]);
+%% compile_modules([],_Opts,Result) ->
+%%     lists:reverse(Result).
 
+filter_options(Options) ->
+    lists:filter(fun(Option) ->
+                         case Option of
+                             {i, Dir} when is_list(Dir) -> true;
+                             {d, _Macro} -> true;
+                             {d, _Macro, _Value} -> true;
+                             export_all -> true;
+                             _ -> false
+                         end
+                 end,
+                 Options).
 
 %% compile_beam(ModFile) -> Result | {error,Reason}
 %%   ModFile - see compile/1
 %%   Result - see compile/1
 %%   Reason = non_existing | already_cover_compiled
-compile_beam(Module) when is_atom(Module) ->
-    case code:which(Module) of
-	non_existing -> 
+compile_beam(ModFile0) when is_atom(ModFile0);
+			    is_list(ModFile0), is_integer(hd(ModFile0)) ->
+    case compile_beams([ModFile0]) of
+	[{error,{non_existing,_}}] ->
+	    %% Backwards compatibility
 	    {error,non_existing};
-	?TAG ->
-	    compile_beam(Module,?TAG);
-	File ->
-	    compile_beam(Module,File)
+	[Result] ->
+	    Result
     end;
-compile_beam(File) when is_list(File) ->
-    {WithExt,WithoutExt}
-	= case filename:rootname(File,".beam") of
-	      File ->
-		  {File++".beam",File};
-	      Rootname ->
-		  {File,Rootname}
-	      end,
-    AbsFile = filename:absname(WithExt),
-    Module = list_to_atom(filename:basename(WithoutExt)),
-    compile_beam(Module,AbsFile).
-
-compile_beam(Module,File) ->
-    call({compile_beam,Module,File}).
-    
+compile_beam(ModFiles) when is_list(ModFiles) ->
+    compile_beams(ModFiles).
 
 
 %% compile_beam_directory(Dir) -> [Result] | {error,Reason}
@@ -318,43 +305,60 @@ compile_beam_directory() ->
 compile_beam_directory(Dir) when is_list(Dir) ->
     case file:list_dir(Dir) of
 	{ok, Files} ->
-	    
-	    %% Filter out all beam files (except cover.beam)
-	    BeamFileNames =
-		lists:filter(fun("cover.beam") ->
-				     false;
-				(File) ->
-				     case filename:extension(File) of
-					 ".beam" -> true;
-					 _ -> false
-				     end
-			     end,
-			     Files),
-
-	    %% Create a list of .beam file names (incl path) and call
-	    %% compile_beam/1 for each such file name
-	    BeamFiles = lists:map(fun(BeamFileName) ->
-					  filename:join(Dir, BeamFileName)
-				  end,
-				  BeamFileNames),
+	    BeamFiles =  [filename:join(Dir, File) ||
+			     File <- Files,
+			     filename:extension(File) =:= ".beam"],
 	    compile_beams(BeamFiles);
 	Error ->
 	    Error
     end.
 
-compile_beams(Files) ->
-    compile_beams(Files,[]).
-compile_beams([File|Files],Result) ->
-    R = compile_beam(File),
-    compile_beams(Files,[R|Result]);
-compile_beams([],Result) ->
-    reverse(Result).
+compile_beams(ModFiles0) ->
+    ModFiles = get_mods_and_beams(ModFiles0,[]),
+    call({compile_beams,ModFiles}).
+
+get_mods_and_beams([Module|ModFiles],Acc) when is_atom(Module) ->
+    case code:which(Module) of
+	non_existing ->
+	    get_mods_and_beams(ModFiles,[{error,{non_existing,Module}}|Acc]);
+	File ->
+	    get_mods_and_beams([{Module,File}|ModFiles],Acc)
+    end;
+get_mods_and_beams([File|ModFiles],Acc) when is_list(File) ->
+    {WithExt,WithoutExt}
+	= case filename:rootname(File,".beam") of
+	      File ->
+		  {File++".beam",File};
+	      Rootname ->
+		  {File,Rootname}
+	      end,
+    AbsFile = filename:absname(WithExt),
+    Module = list_to_atom(filename:basename(WithoutExt)),
+    get_mods_and_beams([{Module,AbsFile}|ModFiles],Acc);
+get_mods_and_beams([{Module,File}|ModFiles],Acc) ->
+    %% Check for duplicates
+    case lists:keyfind(Module,2,Acc) of
+	{ok,Module,File} ->
+	    %% Duplicate, but same file so ignore
+	    get_mods_and_beams(ModFiles,Acc);
+	{ok,Module,_OtherFile} ->
+	    %% Duplicate and differnet file - error
+	    get_mods_and_beams(ModFiles,[{error,{duplicate,Module}}|Acc]);
+	_ ->
+	    get_mods_and_beams(ModFiles,[{ok,Module,File}|Acc])
+    end;
+get_mods_and_beams([],Acc) ->
+    lists:reverse(Acc).
 
 
-%% analyse(Module) ->
-%% analyse(Module, Analysis) ->
-%% analyse(Module, Level) ->
-%% analyse(Module, Analysis, Level) -> {ok,Answer} | {error,Error}
+%% analyse(Modules) ->
+%% analyse(Analysis) ->
+%% analyse(Level) ->
+%% analyse(Modules, Analysis) ->
+%% analyse(Modules, Level) ->
+%% analyse(Analysis, Level)
+%% analyse(Modules, Analysis, Level) -> {ok,Answer} | {error,Error}
+%%   Modules = Module | [Module]
 %%   Module = atom()
 %%   Analysis = coverage | calls
 %%   Level = line | clause | function | module
@@ -367,48 +371,74 @@ compile_beams([],Result) ->
 %%        N = A = C = integer()
 %%     Value = {Cov,NotCov} | Calls
 %%       Cov = NotCov = Calls = integer()
-%%   Error = {not_cover_compiled,Module}
+%%   Error = {not_cover_compiled,Module} | not_main_node
+-define(is_analysis(__A__),
+	(__A__=:=coverage orelse __A__=:=calls)).
+-define(is_level(__L__),
+	(__L__=:=line orelse __L__=:=clause orelse
+	 __L__=:=function orelse __L__=:=module)).
+analyse() ->
+    analyse('_').
+
+analyse(Analysis) when ?is_analysis(Analysis) ->
+    analyse('_', Analysis);
+analyse(Level) when ?is_level(Level) ->
+    analyse('_', Level);
 analyse(Module) ->
     analyse(Module, coverage).
-analyse(Module, Analysis) when Analysis=:=coverage; Analysis=:=calls ->
+
+analyse(Analysis, Level) when ?is_analysis(Analysis) andalso
+			      ?is_level(Level) ->
+    analyse('_', Analysis, Level);
+analyse(Module, Analysis) when ?is_analysis(Analysis) ->
     analyse(Module, Analysis, function);
-analyse(Module, Level) when Level=:=line; Level=:=clause; Level=:=function;
-			    Level=:=module ->
+analyse(Module, Level) when ?is_level(Level) ->
     analyse(Module, coverage, Level).
-analyse(Module, Analysis, Level) when is_atom(Module),
-				      Analysis=:=coverage; Analysis=:=calls,
-				      Level=:=line; Level=:=clause;
-				      Level=:=function; Level=:=module ->
+
+analyse(Module, Analysis, Level) when ?is_analysis(Analysis),
+				      ?is_level(Level) ->
     call({{analyse, Analysis, Level}, Module}).
 
+analyze() -> analyse( ).
 analyze(Module) -> analyse(Module).
 analyze(Module, Analysis) -> analyse(Module, Analysis).
 analyze(Module, Analysis, Level) -> analyse(Module, Analysis, Level).
 
-%% analyse_to_file(Module) ->
-%% analyse_to_file(Module, Options) ->
-%% analyse_to_file(Module, OutFile) ->
-%% analyse_to_file(Module, OutFile, Options) -> {ok,OutFile} | {error,Error}
+%% analyse_to_file() ->
+%% analyse_to_file(Modules) ->
+%% analyse_to_file(Modules, Options) ->
+%%   Modules = Module | [Module]
 %%   Module = atom()
 %%   OutFile = string()
 %%   Options = [Option]
-%%     Option = html
+%%     Option = html | {outfile,filename()} | {outdir,dirname()}
 %%   Error = {not_cover_compiled,Module} | no_source_code_found |
 %%           {file,File,Reason}
 %%     File = string()
 %%     Reason = term()
-analyse_to_file(Module) when is_atom(Module) ->
-    analyse_to_file(Module, outfilename(Module,[]), []).
-analyse_to_file(Module, []) when is_atom(Module) ->
-    analyse_to_file(Module, outfilename(Module,[]), []);
-analyse_to_file(Module, Options) when is_atom(Module),
-				      is_list(Options), is_atom(hd(Options)) ->
-    analyse_to_file(Module, outfilename(Module,Options), Options);
-analyse_to_file(Module, OutFile) when is_atom(Module), is_list(OutFile) ->
-    analyse_to_file(Module, OutFile, []).
-analyse_to_file(Module, OutFile, Options) when is_atom(Module), is_list(OutFile) ->
-    call({{analyse_to_file, OutFile, Options}, Module}).
+%%
+%% Kept for backwards compatibility:
+%% analyse_to_file(Modules, OutFile) ->
+%% analyse_to_file(Modules, OutFile, Options) -> {ok,OutFile} | {error,Error}
+analyse_to_file() ->
+    analyse_to_file('_').
+analyse_to_file(Arg) ->
+    case is_options(Arg) of
+	true ->
+	    analyse_to_file('_',Arg);
+	false ->
+	    analyse_to_file(Arg,[])
+    end.
+analyse_to_file(Module, OutFile) when is_list(OutFile), is_integer(hd(OutFile)) ->
+    %% Kept for backwards compatibility
+    analyse_to_file(Module, [{outfile,OutFile}]);
+analyse_to_file(Module, Options) when is_list(Options) ->
+    call({{analyse_to_file, Options}, Module}).
+analyse_to_file(Module, OutFile, Options) when is_list(OutFile) ->
+    %% Kept for backwards compatibility
+    analyse_to_file(Module,[{outfile,OutFile}|Options]).
 
+analyze_to_file() -> analyse_to_file().
 analyze_to_file(Module) -> analyse_to_file(Module).
 analyze_to_file(Module, OptOrOut) -> analyse_to_file(Module, OptOrOut).
 analyze_to_file(Module, OutFile, Options) -> 
@@ -420,6 +450,15 @@ async_analyse_to_file(Module, OutFileOrOpts) ->
     do_spawn(?MODULE, analyse_to_file, [Module, OutFileOrOpts]).
 async_analyse_to_file(Module, OutFile, Options) ->
     do_spawn(?MODULE, analyse_to_file, [Module, OutFile, Options]).
+
+is_options([html]) ->
+    true; % this is not 100% safe - could be a module named html...
+is_options([html|Opts]) ->
+    is_options(Opts);
+is_options([{Opt,_}|_]) when Opt==outfile; Opt==outdir ->
+    true;
+is_options(_) ->
+    false.
 
 do_spawn(M,F,A) ->
     spawn_link(fun() ->
@@ -438,13 +477,16 @@ async_analyze_to_file(Module, OutFileOrOpts) ->
 async_analyze_to_file(Module, OutFile, Options) ->
     async_analyse_to_file(Module, OutFile, Options).
 
-outfilename(Module,Opts) ->
-    case lists:member(html,Opts) of
-	true ->
-	    atom_to_list(Module)++".COVER.html";
-	false ->
-	    atom_to_list(Module)++".COVER.out"
-    end.
+outfilename(undefined, Module, HTML) ->
+    outfilename(Module, HTML);
+outfilename(OutDir, Module, HTML) ->
+    filename:join(OutDir, outfilename(Module, HTML)).
+
+outfilename(Module, true) ->
+    atom_to_list(Module)++".COVER.html";
+outfilename(Module, false) ->
+    atom_to_list(Module)++".COVER.out".
+
 
 %% export(File)
 %% export(File,Module) -> ok | {error,Reason}
@@ -531,7 +573,7 @@ call(Request) ->
     Ref = erlang:monitor(process,?SERVER),
     receive {'DOWN', Ref, _Type, _Object, noproc} -> 
 	    erlang:demonitor(Ref),
-	    start(),
+            {ok,_} = start(),
 	    call(Request)
     after 0 ->
 	    ?SERVER ! {self(),Request},
@@ -547,7 +589,9 @@ call(Request) ->
     end.
 
 reply(From, Reply) ->
-    From ! {?SERVER,Reply}.
+    From ! {?SERVER,Reply},
+    ok.
+
 is_from(From) ->
     is_pid(From).
 
@@ -573,9 +617,11 @@ remote_call(Node,Request) ->
     end.
     
 remote_reply(Proc,Reply) when is_pid(Proc) ->
-    Proc ! {?SERVER,Reply};
+    Proc ! {?SERVER,Reply},
+    ok;
 remote_reply(MainNode,Reply) ->
-    {?SERVER,MainNode} ! {?SERVER,Reply}.
+    {?SERVER,MainNode} ! {?SERVER,Reply},
+    ok.
 
 %%%----------------------------------------------------------------------
 %%% cover_server on main node
@@ -585,14 +631,16 @@ init_main(Starter) ->
     register(?SERVER,self()),
     %% Having write concurrancy here gives a 40% performance boost
     %% when collect/1 is called. 
-    ets:new(?COVER_TABLE, [set, public, named_table
-			   ,{write_concurrency, true}
-			  ]),
-    ets:new(?COVER_CLAUSE_TABLE, [set, public, named_table]),
-    ets:new(?BINARY_TABLE, [set, named_table]),
-    ets:new(?COLLECTION_TABLE, [set, public, named_table]),
-    ets:new(?COLLECTION_CLAUSE_TABLE, [set, public, named_table]),
-    net_kernel:monitor_nodes(true),
+    ?COVER_TABLE = ets:new(?COVER_TABLE, [set, public, named_table,
+                                          {write_concurrency, true}]),
+    ?COVER_CLAUSE_TABLE = ets:new(?COVER_CLAUSE_TABLE, [set, public,
+                                                        named_table]),
+    ?BINARY_TABLE = ets:new(?BINARY_TABLE, [set, public, named_table]),
+    ?COLLECTION_TABLE = ets:new(?COLLECTION_TABLE, [set, public,
+                                                    named_table]),
+    ?COLLECTION_CLAUSE_TABLE = ets:new(?COLLECTION_CLAUSE_TABLE, [set, public,
+                                                                  named_table]),
+    ok = net_kernel:monitor_nodes(true),
     Starter ! {?SERVER,started},
     main_process_loop(#main_state{}).
 
@@ -603,48 +651,19 @@ main_process_loop(State) ->
 	    reply(From, {ok,StartedNodes}),
 	    main_process_loop(State1);
 
-	{From, {compile, File, Options}} ->
-	    case do_compile(File, Options) of
-		{ok, Module} ->
-		    remote_load_compiled(State#main_state.nodes,[{Module,File}]),
-		    reply(From, {ok, Module}),
-		    Compiled = add_compiled(Module, File,
-					    State#main_state.compiled),
-		    Imported = remove_imported(Module,State#main_state.imported),
-		    main_process_loop(State#main_state{compiled = Compiled,
-						       imported = Imported});
-		error ->
-		    reply(From, {error, File}),
-		    main_process_loop(State)
-	    end;
+	{From, {compile, Files, Options}} ->
+	    {R,S} = do_compile(Files, Options, State),
+	    reply(From,R),
+	    %% This module (cover) could have been reloaded. Make
+	    %% sure we run the new code.
+	    ?MODULE:main_process_loop(S);
 
-	{From, {compile_beam, Module, BeamFile0}} ->
-	    Compiled0 = State#main_state.compiled,
-	    case get_beam_file(Module,BeamFile0,Compiled0) of
-		{ok,BeamFile} ->
-		    {Reply,Compiled} = 
-			case do_compile_beam(Module,BeamFile,[]) of
-			    {ok, Module} ->
-				remote_load_compiled(State#main_state.nodes,
-						     [{Module,BeamFile}]),
-				C = add_compiled(Module,BeamFile,Compiled0),
-				{{ok,Module},C};
-			    error ->
-				{{error, BeamFile}, Compiled0};
-			    {error,Reason} -> % no abstract code
-				{{error, {Reason, BeamFile}}, Compiled0}
-			end,
-		    reply(From,Reply),
-		    Imported = remove_imported(Module,State#main_state.imported),
-		    main_process_loop(State#main_state{compiled = Compiled,
-						       imported = Imported});
-		{error,no_beam} ->
-		    %% The module has first been compiled from .erl, and now
-		    %% someone tries to compile it from .beam
-		    reply(From, 
-			  {error,{already_cover_compiled,no_beam_found,Module}}),
-		    main_process_loop(State)
-	    end;
+	{From, {compile_beams, ModsAndFiles}} ->
+	    {R,S} = do_compile_beams(ModsAndFiles,State),
+	    reply(From,R),
+	    %% This module (cover) could have been reloaded. Make
+	    %% sure we run the new code.
+	    ?MODULE:main_process_loop(S);
 
 	{From, {export,OutFile,Module}} ->
 	    spawn(fun() ->
@@ -659,7 +678,7 @@ main_process_loop(State) ->
 		    Imported = do_import_to_table(Fd,File,
 						  State#main_state.imported),
 		    reply(From, ok),
-		    file:close(Fd),
+		    ok = file:close(Fd),
 		    main_process_loop(State#main_state{imported=Imported});
 		{error,Reason} ->
 		    reply(From, {error, {cant_open_file,File,Reason}}),
@@ -729,6 +748,16 @@ main_process_loop(State) ->
             unregister(?SERVER),
 	    reply(From, ok);
 
+	{From, {{analyse, Analysis, Level}, '_'}} ->
+	    R = analyse_all(Analysis, Level, State),
+	    reply(From, R),
+	    main_process_loop(State);
+
+	{From, {{analyse, Analysis, Level}, Modules}} when is_list(Modules) ->
+	    R = analyse_list(Modules, Analysis, Level, State),
+	    reply(From, R),
+	    main_process_loop(State);
+
 	{From, {{analyse, Analysis, Level}, Module}} ->
 	    S = try 
 		    Loaded = is_loaded(Module, State),
@@ -745,15 +774,23 @@ main_process_loop(State) ->
 		end,
 	    main_process_loop(S);
 
-	{From, {{analyse_to_file, OutFile, Opts},Module}} ->
+	{From, {{analyse_to_file, Opts},'_'}} ->
+	    R = analyse_all_to_file(Opts, State),
+	    reply(From,R),
+	    main_process_loop(State);
+
+	{From, {{analyse_to_file, Opts},Modules}} when is_list(Modules) ->
+	    R = analyse_list_to_file(Modules, Opts, State),
+	    reply(From,R),
+	    main_process_loop(State);
+
+	{From, {{analyse_to_file, Opts},Module}} ->
 	    S = try 
 		    Loaded = is_loaded(Module, State),
-		    spawn(fun() ->
-				  ?SPAWN_DBG(analyse_to_file,
-					     {Module,OutFile, Opts}),
+		    spawn_link(fun() ->
+				  ?SPAWN_DBG(analyse_to_file,{Module,Opts}),
 				  do_parallel_analysis_to_file(
-				    Module, OutFile, Opts, 
-				    Loaded, From, State)
+				    Module, Opts, Loaded, From, State)
 			  end),
 		    State
 		catch throw:Reason ->
@@ -839,11 +876,12 @@ main_process_loop(State) ->
 
 init_remote(Starter,MainNode) ->
     register(?SERVER,self()),
-    ets:new(?COVER_TABLE, [set, public, named_table
-			   %% write_concurrency here makes otp_8270 break :(
-			   %,{write_concurrency, true}
-			  ]),
-    ets:new(?COVER_CLAUSE_TABLE, [set, public, named_table]),
+    %% write_concurrency here makes otp_8270 break :(
+    ?COVER_TABLE = ets:new(?COVER_TABLE, [set, public, named_table
+                                          %,{write_concurrency, true}
+                                         ]),
+    ?COVER_CLAUSE_TABLE = ets:new(?COVER_CLAUSE_TABLE, [set, public,
+                                                        named_table]),
     Starter ! {self(),started},
     remote_process_loop(#remote_state{main_node=MainNode}).
 
@@ -854,7 +892,7 @@ remote_process_loop(State) ->
 	{remote,load_compiled,Compiled} ->
 	    Compiled1 = load_compiled(Compiled,State#remote_state.compiled),
 	    remote_reply(State#remote_state.main_node, ok),
-	    remote_process_loop(State#remote_state{compiled=Compiled1});
+	    ?MODULE:remote_process_loop(State#remote_state{compiled=Compiled1});
 
 	{remote,unload,UnloadedModules} ->
 	    unload(UnloadedModules),
@@ -871,12 +909,16 @@ remote_process_loop(State) ->
 	{remote,collect,Module,CollectorPid} ->
 	    self() ! {remote,collect,Module,CollectorPid, ?SERVER};
 
-	{remote,collect,Module,CollectorPid,From} ->
-	   spawn(fun() ->
-			 ?SPAWN_DBG(remote_collect, 
-				    {Module, CollectorPid, From}),
-			 do_collect(Module, CollectorPid, From)
-		 end),
+	{remote,collect,Modules0,CollectorPid,From} ->
+	    Modules = case Modules0 of
+			  '_' -> [M || {M,_} <- State#remote_state.compiled];
+			  _ -> Modules0
+		      end,
+            spawn(fun() ->
+                          ?SPAWN_DBG(remote_collect, 
+                                     {Modules, CollectorPid, From}),
+                          do_collect(Modules, CollectorPid, From)
+                  end),
 	    remote_process_loop(State);
 
 	{remote,stop} ->
@@ -916,51 +958,63 @@ remote_process_loop(State) ->
 	    
     end.
 
-do_collect(Module, CollectorPid, From) ->
-    AllMods = 
-	case Module of
-	    '_' -> ets:tab2list(?COVER_CLAUSE_TABLE);
-	    _ -> ets:lookup(?COVER_CLAUSE_TABLE, Module)
-	end,
-
-    %% Sending clause by clause in order to avoid large lists
-    pmap(
-      fun({_Mod,Clauses}) ->
-	      lists:map(fun(Clause) ->
-				send_collected_data(Clause, CollectorPid)
-			end,Clauses)
-      end,AllMods),
+do_collect(Modules, CollectorPid, From) ->
+    _ = pmap(
+          fun(Module) ->
+                  Pattern = {#bump{module=Module, _='_'}, '$1'},
+                  MatchSpec = [{Pattern,[{'=/=','$1',0}],['$_']}],
+                  Match = ets:select(?COVER_TABLE,MatchSpec,?CHUNK_SIZE),
+                  send_chunks(Match, CollectorPid, [])
+          end,Modules),
     CollectorPid ! done,
     remote_reply(From, ok).
 
-send_collected_data({M,F,A,C,_L}, CollectorPid) ->
-    Pattern = 
-	{#bump{module=M, function=F, arity=A, clause=C}, '_'},
-    Bumps = ets:match_object(?COVER_TABLE, Pattern),
-    %% Reset
-    lists:foreach(fun({Bump,_N}) ->
-			  ets:insert(?COVER_TABLE, {Bump,0})
-		  end,
-		  Bumps),
-    CollectorPid ! {chunk,Bumps}.
+send_chunks('$end_of_table', _CollectorPid, Mons) ->
+    get_downs(Mons);
+send_chunks({Chunk,Continuation}, CollectorPid, Mons) ->
+    Mon = spawn_monitor(
+	    fun() ->
+		    lists:foreach(fun({Bump,_N}) ->
+					  ets:insert(?COVER_TABLE, {Bump,0})
+				  end,
+				  Chunk) end),
+    send_chunk(CollectorPid,Chunk),
+    send_chunks(ets:select(Continuation), CollectorPid, [Mon|Mons]).
 
-reload_originals([{Module,_File}|Compiled]) ->
-    do_reload_original(Module),
-    reload_originals(Compiled);
-reload_originals([]) ->
+send_chunk(CollectorPid,Chunk) ->
+    CollectorPid ! {chunk,Chunk,self()},
+    receive continue -> ok end.
+
+get_downs([]) ->
+    ok;
+get_downs(Mons) ->
+    receive
+	{'DOWN', Ref, _Type, Pid, _Reason} = Down ->
+	    case lists:member({Pid,Ref},Mons) of
+		true ->
+		    get_downs(lists:delete({Pid,Ref},Mons));
+		false ->
+		    %% This should be handled somewhere else
+		    self() ! Down,
+		    get_downs(Mons)
+	    end
+    end.
+
+reload_originals(Compiled) ->
+    _ = pmap(fun do_reload_original/1, [M || {M,_} <- Compiled]),
     ok.
 
 do_reload_original(Module) ->
     case code:which(Module) of
 	?TAG ->
-	    code:purge(Module),     % remove code marked as 'old'
-	    code:delete(Module),    % mark cover compiled code as 'old'
+	    _ = code:purge(Module),     % remove code marked as 'old'
+	    _ = code:delete(Module),    % mark cover compiled code as 'old'
 	    %% Note: original beam code must be loaded before the cover
 	    %% compiled code is purged, in order to for references to
 	    %% 'fun M:F/A' and %% 'fun F/A' funs to be correct (they
 	    %% refer to (M:)F/A in the *latest* version  of the module)
-	    code:load_file(Module), % load original code
-	    code:purge(Module);     % remove cover compiled code
+            _ = code:load_file(Module), % load original code
+	    _ = code:purge(Module);     % remove cover compiled code
 	_ ->
 	    ignore
     end.
@@ -969,14 +1023,24 @@ load_compiled([{Module,File,Binary,InitialTable}|Compiled],Acc) ->
     %% Make sure the #bump{} records are available *before* the
     %% module is loaded.
     insert_initial_data(InitialTable),
-    NewAcc = 
-	case code:load_binary(Module, ?TAG, Binary) of
-	    {module,Module} ->
-		add_compiled(Module, File, Acc);
-	    _  ->
-                do_clear(Module),
-		Acc
-	end,
+    Sticky = case code:is_sticky(Module) of
+                 true ->
+                     code:unstick_mod(Module),
+                     true;
+                 false ->
+                     false
+             end,
+    NewAcc = case code:load_binary(Module, ?TAG, Binary) of
+                 {module,Module} ->
+                     add_compiled(Module, File, Acc);
+                 _  ->
+                     do_clear(Module),
+                     Acc
+             end,
+    case Sticky of
+        true -> code:stick_mod(Module);
+        false -> ok
+    end,
     load_compiled(Compiled,NewAcc);
 load_compiled([],Acc) ->
     Acc.
@@ -1091,15 +1155,40 @@ remote_load_compiled(_Nodes, [], [], _ModNum) ->
     ok;
 remote_load_compiled(Nodes, Compiled, Acc, ModNum) 
   when Compiled == []; ModNum == ?MAX_MODS ->
+    RemoteLoadData = get_downs_r(Acc),
     lists:foreach(
       fun(Node) -> 
-	      remote_call(Node,{remote,load_compiled,Acc})
+	      remote_call(Node,{remote,load_compiled,RemoteLoadData})
       end,
       Nodes),
     remote_load_compiled(Nodes, Compiled, [], 0);
 remote_load_compiled(Nodes, [MF | Rest], Acc, ModNum) ->
     remote_load_compiled(
-      Nodes, Rest, [get_data_for_remote_loading(MF) | Acc], ModNum + 1).
+      Nodes, Rest,
+      [spawn_job_r(fun() -> get_data_for_remote_loading(MF) end) | Acc],
+      ModNum + 1).
+
+spawn_job_r(Fun) ->
+    spawn_monitor(fun() -> exit(Fun()) end).
+
+get_downs_r([]) ->
+    [];
+get_downs_r(Mons) ->
+    receive
+	{'DOWN', Ref, _Type, Pid, R={_,_,_,_}} ->
+	    [R|get_downs_r(lists:delete({Pid,Ref},Mons))];
+	{'DOWN', Ref, _Type, Pid, Reason} = Down ->
+	    case lists:member({Pid,Ref},Mons) of
+		true ->
+		    %% Something went really wrong - don't hang!
+		    exit(Reason);
+		false ->
+		    %% This should be handled somewhere else
+		    self() ! Down,
+		    get_downs_r(Mons)
+	    end
+    end.
+
 
 %% Read all data needed for loading a cover compiled module on a remote node
 %% Binary is the beam code for the module and InitialTable is the initial
@@ -1136,13 +1225,14 @@ remote_reset(Module,Nodes) ->
       Nodes).        
 
 %% Collect data from remote nodes - used for analyse or stop(Node)
-remote_collect(Module,Nodes,Stop) ->
-    pmap(fun(Node) -> 
-		 ?SPAWN_DBG(remote_collect, 
-			    {Module, Nodes, Stop}),
-		 do_collection(Node, Module, Stop)
-	 end,
-	 Nodes).
+remote_collect(Modules,Nodes,Stop) ->
+    _ = pmap(
+          fun(Node) -> 
+                  ?SPAWN_DBG(remote_collect, 
+                             {Modules, Nodes, Stop}),
+                  do_collection(Node, Modules, Stop)
+          end, Nodes),
+    ok.
 
 do_collection(Node, Module, Stop) ->
     CollectorPid = spawn(fun collector_proc/0),
@@ -1161,8 +1251,9 @@ do_collection(Node, Module, Stop) ->
 collector_proc() ->
     ?SPAWN_DBG(collector_proc, []),
     receive 
-	{chunk,Chunk} ->
+	{chunk,Chunk,From} ->
 	    insert_in_collection_table(Chunk),
+	    From ! continue,
 	    collector_proc();
 	done ->
 	    ok
@@ -1177,8 +1268,8 @@ insert_in_collection_table([]) ->
 insert_in_collection_table(Key,Val) ->
     case ets:member(?COLLECTION_TABLE,Key) of
 	true ->
-	    ets:update_counter(?COLLECTION_TABLE,
-			       Key,Val);
+	    _ = ets:update_counter(?COLLECTION_TABLE, Key,Val),
+            ok;
 	false ->
 	    %% Make sure that there are no race conditions from ets:member
 	    case ets:insert_new(?COLLECTION_TABLE,{Key,Val}) of
@@ -1254,12 +1345,12 @@ add_imported(M, F1, ImportFile, [{M,_F2,ImportFiles}|Imported], Acc) ->
 	    dont_import;
 	false ->
 	    NewEntry = {M, F1, [ImportFile | ImportFiles]},
-	    {ok, reverse([NewEntry | Acc]) ++ Imported}
+	    {ok, lists:reverse([NewEntry | Acc]) ++ Imported}
     end;
 add_imported(M, F, ImportFile, [H|Imported], Acc) ->
     add_imported(M, F, ImportFile, Imported, [H|Acc]);
 add_imported(M, F, ImportFile, [], Acc) ->
-    {ok, reverse([{M, F, [ImportFile]} | Acc])}.
+    {ok, lists:reverse([{M, F, [ImportFile]} | Acc])}.
     
 %% Removes a module from the list of imported modules and writes a warning
 %% This is done when a module is compiled.
@@ -1281,6 +1372,19 @@ add_compiled(Module, File, [H|Compiled]) ->
     [H|add_compiled(Module, File, Compiled)];
 add_compiled(Module, File, []) ->
     [{Module,File}].
+
+are_loaded([Module|Modules], State, Loaded, Imported, Error) ->
+    try is_loaded(Module,State) of
+	{loaded,File} ->
+	    are_loaded(Modules, State, [{Module,File}|Loaded], Imported, Error);
+	{imported,File,_} ->
+	    are_loaded(Modules, State, Loaded, [{Module,File}|Imported], Error)
+    catch throw:_ ->
+	    are_loaded(Modules, State, Loaded, Imported,
+		       [{not_cover_compiled,Module}|Error])
+    end;
+are_loaded([], _State, Loaded, Imported, Error) ->
+    {Loaded, Imported, Error}.
 
 is_loaded(Module, State) ->
     case get_file(Module, State#main_state.compiled) of
@@ -1356,18 +1460,75 @@ get_compiled_still_loaded(Nodes,Compiled0) ->
 
 %%%--Compilation---------------------------------------------------------
 
-%% do_compile(File, Options) -> {ok,Module} | {error,Error}
-do_compile(File, UserOptions) ->
+do_compile_beams(ModsAndFiles, State) ->
+    Result0 = pmap(fun({ok,Module,File}) ->
+			  do_compile_beam(Module,File,State);
+		     (Error) ->
+			  Error
+		  end,
+		  ModsAndFiles),
+    Compiled = [{M,F} || {ok,M,F} <- Result0],
+    remote_load_compiled(State#main_state.nodes,Compiled),
+    fix_state_and_result(Result0,State,[]).
+
+do_compile_beam(Module,BeamFile0,State) ->
+    case get_beam_file(Module,BeamFile0,State#main_state.compiled) of
+	{ok,BeamFile} ->
+	    UserOptions = get_compile_options(Module,BeamFile),
+	    case do_compile_beam1(Module,BeamFile,UserOptions) of
+		{ok, Module} ->
+		    {ok,Module,BeamFile};
+		error ->
+		    {error, BeamFile};
+		{error,Reason} -> % no abstract code or no 'file' attribute
+		    {error, {Reason, BeamFile}}
+	    end;
+	{error,no_beam} ->
+	    %% The module has first been compiled from .erl, and now
+	    %% someone tries to compile it from .beam
+	    {error,{already_cover_compiled,no_beam_found,Module}}
+    end.
+
+fix_state_and_result([{ok,Module,BeamFile}|Rest],State,Acc) ->
+    Compiled = add_compiled(Module,BeamFile,State#main_state.compiled),
+    Imported = remove_imported(Module,State#main_state.imported),
+    NewState = State#main_state{compiled=Compiled,imported=Imported},
+    fix_state_and_result(Rest,NewState,[{ok,Module}|Acc]);
+fix_state_and_result([Error|Rest],State,Acc) ->
+    fix_state_and_result(Rest,State,[Error|Acc]);
+fix_state_and_result([],State,Acc) ->
+    {lists:reverse(Acc),State}.
+
+
+do_compile(Files, Options, State) ->
+    Result0 = pmap(fun(File) ->
+			   do_compile(File, Options)
+		   end,
+		   Files),
+    Compiled = [{M,F} || {ok,M,F} <- Result0],
+    remote_load_compiled(State#main_state.nodes,Compiled),
+    fix_state_and_result(Result0,State,[]).
+
+do_compile(File, Options) ->    
+    case do_compile1(File, Options) of
+	{ok, Module} ->
+	    {ok,Module,File};
+	error ->
+	    {error,File}
+    end.
+
+%% do_compile1(File, Options) -> {ok,Module} | error
+do_compile1(File, UserOptions) ->
     Options = [debug_info,binary,report_errors,report_warnings] ++ UserOptions,
     case compile:file(File, Options) of
 	{ok, Module, Binary} ->
-	    do_compile_beam(Module,Binary,UserOptions);
+	    do_compile_beam1(Module,Binary,UserOptions);
 	error ->
 	    error
     end.
 
 %% Beam is a binary or a .beam file name
-do_compile_beam(Module,Beam,UserOptions) ->
+do_compile_beam1(Module,Beam,UserOptions) ->
     %% Clear database
     do_clear(Module),
     
@@ -1380,35 +1541,18 @@ do_compile_beam(Module,Beam,UserOptions) ->
 	    {error,E};
 	encrypted_abstract_code=E ->
 	    {error,E};
-	{Vsn,Code} ->
+	{raw_abstract_v1,Code} ->
             Forms0 = epp:interpret_file_attribute(Code),
-	    {Forms,Vars} = transform(Vsn, Forms0, Module, Beam),
-
-	    %% We need to recover the source from the compilation
-	    %% info otherwise the newly compiled module will have
-	    %% source pointing to the current directory
-	    SourceInfo = get_source_info(Module, Beam),
-
-	    %% Compile and load the result
-	    %% It's necessary to check the result of loading since it may
-	    %% fail, for example if Module resides in a sticky directory
-	    {ok, Module, Binary} = compile:forms(Forms, SourceInfo ++ UserOptions),
-	    case code:load_binary(Module, ?TAG, Binary) of
-		{module, Module} ->
-		    
-		    %% Store info about all function clauses in database
-		    InitInfo = reverse(Vars#vars.init_info),
-		    ets:insert(?COVER_CLAUSE_TABLE, {Module, InitInfo}),
-		    
-		    %% Store binary code so it can be loaded on remote nodes
-		    ets:insert(?BINARY_TABLE, {Module, Binary}),
-
-		    {ok, Module};
-		
-		_Error ->
-		    do_clear(Module),
-		    error
-	    end
+	    case find_main_filename(Forms0) of
+		{ok,MainFile} ->
+		    do_compile_beam2(Module,Beam,UserOptions,Forms0,MainFile);
+		Error ->
+		    Error
+	    end;
+	{_VSN,_Code} ->
+	    %% Wrong version of abstract code. Just report that there
+	    %% is no abstract code.
+	    {error,no_abstract_code}
     end.
 
 get_abstract_code(Module, Beam) ->
@@ -1420,48 +1564,71 @@ get_abstract_code(Module, Beam) ->
 	Error -> Error
     end.
 
+do_compile_beam2(Module,Beam,UserOptions,Forms0,MainFile) ->
+    {Forms,Vars} = transform(Forms0, Module, MainFile),
+
+    %% We need to recover the source from the compilation
+    %% info otherwise the newly compiled module will have
+    %% source pointing to the current directory
+    SourceInfo = get_source_info(Module, Beam),
+
+    %% Compile and load the result
+    %% It's necessary to check the result of loading since it may
+    %% fail, for example if Module resides in a sticky directory
+    {ok, Module, Binary} = compile:forms(Forms, SourceInfo ++ UserOptions),
+    case code:load_binary(Module, ?TAG, Binary) of
+	{module, Module} ->
+
+	    %% Store info about all function clauses in database
+	    InitInfo = lists:reverse(Vars#vars.init_info),
+	    ets:insert(?COVER_CLAUSE_TABLE, {Module, InitInfo}),
+
+	    %% Store binary code so it can be loaded on remote nodes
+	    ets:insert(?BINARY_TABLE, {Module, Binary}),
+
+	    {ok, Module};
+
+	_Error ->
+	    do_clear(Module),
+	    error
+    end.
+
 get_source_info(Module, Beam) ->
+    Compile = get_compile_info(Module, Beam),
+    case lists:keyfind(source, 1, Compile) of
+        { source, _ } = Tuple -> [Tuple];
+        false -> []
+    end.
+
+get_compile_options(Module, Beam) ->
+    Compile = get_compile_info(Module, Beam),
+    case lists:keyfind(options, 1, Compile) of
+        {options, Options } -> filter_options(Options);
+        false -> []
+    end.
+
+get_compile_info(Module, Beam) ->
     case beam_lib:chunks(Beam, [compile_info]) of
 	{ok, {Module, [{compile_info, Compile}]}} ->
-		case lists:keyfind(source, 1, Compile) of
-			{ source, _ } = Tuple -> [Tuple];
-			false -> []
-		end;
+		Compile;
 	_ ->
 		[]
     end.
 
-transform(Vsn, Code, Module, Beam) when Vsn=:=abstract_v1; Vsn=:=abstract_v2 ->
-    Vars0 = #vars{module=Module, vsn=Vsn},
-    MainFile=find_main_filename(Code),
-    {ok, MungedForms,Vars} = transform_2(Code,[],Vars0,MainFile,on),
-    
-    %% Add module and export information to the munged forms
-    %% Information about module_info must be removed as this function
-    %% is added at compilation
-    {ok, {Module, [{exports,Exports1}]}} = beam_lib:chunks(Beam, [exports]),
-    Exports2 = lists:filter(fun(Export) ->
-				    case Export of
-					{module_info,_} -> false;
-					_ -> true
-				    end
-			    end,
-			    Exports1),
-    Forms = [{attribute,1,module,Module},
-	     {attribute,2,export,Exports2}]++ MungedForms,
-    {Forms,Vars};
-transform(Vsn=raw_abstract_v1, Code, Module, _Beam) ->
-    MainFile=find_main_filename(Code),
-    Vars0 = #vars{module=Module, vsn=Vsn},
+transform(Code, Module, MainFile) ->
+    Vars0 = #vars{module=Module},
     {ok,MungedForms,Vars} = transform_2(Code,[],Vars0,MainFile,on),
     {MungedForms,Vars}.
     
 %% Helpfunction which returns the first found file-attribute, which can
 %% be interpreted as the name of the main erlang source file.
 find_main_filename([{attribute,_,file,{MainFile,_}}|_]) ->
-    MainFile;
+    {ok,MainFile};
 find_main_filename([_|Rest]) ->
-    find_main_filename(Rest).
+    find_main_filename(Rest);
+find_main_filename([]) ->
+    {error, no_file_attribute}.
+
 
 transform_2([Form0|Forms],MungedForms,Vars,MainFile,Switch) ->
     Form = expand(Form0),
@@ -1472,7 +1639,7 @@ transform_2([Form0|Forms],MungedForms,Vars,MainFile,Switch) ->
 	    transform_2(Forms,[MungedForm|MungedForms],Vars2,MainFile,NewSwitch)
     end;
 transform_2([],MungedForms,Vars,_,_) ->
-    {ok, reverse(MungedForms), Vars}.
+    {ok, lists:reverse(MungedForms), Vars}.
 
 %% Expand short-circuit Boolean expressions.
 expand(Expr) ->
@@ -1486,18 +1653,18 @@ expand({clause,Line,Pattern,Guards,Body}, Vs, N) ->
 expand({op,_Line,'andalso',ExprL,ExprR}, Vs, N) ->
     {ExpandedExprL,N2} = expand(ExprL, Vs, N),
     {ExpandedExprR,N3} = expand(ExprR, Vs, N2),
-    LineL = element(2, ExpandedExprL),
+    Anno = element(2, ExpandedExprL),
     {bool_switch(ExpandedExprL, 
                  ExpandedExprR,
-                 {atom,LineL,false},
+                 {atom,Anno,false},
                  Vs, N3),
      N3 + 1};
 expand({op,_Line,'orelse',ExprL,ExprR}, Vs, N) ->
     {ExpandedExprL,N2} = expand(ExprL, Vs, N),
     {ExpandedExprR,N3} = expand(ExprR, Vs, N2),
-    LineL = element(2, ExpandedExprL),
+    Anno = element(2, ExpandedExprL),
     {bool_switch(ExpandedExprL,
-                 {atom,LineL,true},
+                 {atom,Anno,true},
                  ExpandedExprR,
                  Vs, N3),
      N3 + 1};
@@ -1539,14 +1706,9 @@ aux_var(Vars, N) ->
     end.
 
 %% This code traverses the abstract code, stored as the abstract_code
-%% chunk in the BEAM file, as described in absform(3) for Erlang/OTP R8B
-%% (Vsn=abstract_v2).
-%% The abstract format after preprocessing differs slightly from the abstract
-%% format given eg using epp:parse_form, this has been noted in comments.
-%% The switch is turned off when we encounter other files then the main file.
+%% chunk in the BEAM file, as described in absform(3).
+%% The switch is turned off when we encounter other files than the main file.
 %% This way we will be able to exclude functions defined in include files.
-munge({function,0,module_info,_Arity,_Clauses},_Vars,_MainFile,_Switch) ->
-    ignore; % module_info will be added again when the forms are recompiled
 munge({function,Line,Function,Arity,Clauses},Vars,_MainFile,on) ->
     Vars2 = Vars#vars{function=Function,
 		      arity=Arity,
@@ -1604,14 +1766,14 @@ munge_clauses([Clause|Clauses], Vars, Lines, MClauses) ->
 			   MClauses])
     end;
 munge_clauses([], Vars, Lines, MungedClauses) -> 
-    {reverse(MungedClauses), Vars#vars{lines = Lines}}.
+    {lists:reverse(MungedClauses), Vars#vars{lines = Lines}}.
 
 munge_body(Expr, Vars) ->
     munge_body(Expr, Vars, [], []).
 
 munge_body([Expr|Body], Vars, MungedBody, LastExprBumpLines) ->
     %% Here is the place to add a call to cover:bump/6!
-    Line = element(2, Expr),
+    Line = erl_anno:line(element(2, Expr)),
     Lines = Vars#vars.lines,
     case lists:member(Line,Lines) of
 	true -> % already a bump at this line
@@ -1648,7 +1810,7 @@ munge_body([Expr|Body], Vars, MungedBody, LastExprBumpLines) ->
 	    munge_body(Body, Vars3, MungedExprs1, NewBumps)
     end;
 munge_body([], Vars, MungedBody, _LastExprBumpLines) ->
-    {reverse(MungedBody), Vars}.
+    {lists:reverse(MungedBody), Vars}.
 
 %%% Fix last expression (OTP-8188). A typical example:
 %%%
@@ -1728,6 +1890,8 @@ fix_expr(T, Line, Bump) when is_tuple(T) ->
 fix_expr(E, _Line, _Bump) ->
     E.
 
+fix_clauses([], _Line, _Bump) ->
+    [];
 fix_clauses(Cs, Line, Bump) ->
     case bumps_line(lists:last(Cs), Line) of
         true ->
@@ -1745,17 +1909,18 @@ fix_cls([Cl | Cls], Line, Bump) ->
         false ->
             {clause,CL,P,G,Body} = Cl,
             UniqueVarName = list_to_atom(lists:concat(["$cover$ ",Line])),
-            V = {var,0,UniqueVarName},
+            A = erl_anno:new(0),
+            V = {var,A,UniqueVarName},
             [Last|Rest] = lists:reverse(Body),
-            Body1 = lists:reverse(Rest, [{match,0,V,Last},Bump,V]),
+            Body1 = lists:reverse(Rest, [{match,A,V,Last},Bump,V]),
             [{clause,CL,P,G,Body1} | fix_cls(Cls, Line, Bump)]
     end.
 
 bumps_line(E, L) ->
     try bumps_line1(E, L) catch true -> true end.
 
-bumps_line1({call,0,{remote,0,{atom,0,ets},{atom,0,update_counter}},
-             [{atom,0,?COVER_TABLE},{tuple,0,[_,_,_,_,_,{integer,0,Line}]},_]},
+bumps_line1({call,_,{remote,_,{atom,_,ets},{atom,_,update_counter}},
+             [{atom,_,?COVER_TABLE},{tuple,_,[_,_,_,_,_,{integer,_,Line}]},_]},
             Line) ->
     throw(true);
 bumps_line1([E | Es], Line) ->
@@ -1769,15 +1934,16 @@ bumps_line1(_, _) ->
 %%% End of fix of last expression.
 
 bump_call(Vars, Line) ->
-    {call,0,{remote,0,{atom,0,ets},{atom,0,update_counter}},
-     [{atom,0,?COVER_TABLE},
-      {tuple,0,[{atom,0,?BUMP_REC_NAME},
-                {atom,0,Vars#vars.module},
-                {atom,0,Vars#vars.function},
-                {integer,0,Vars#vars.arity},
-                {integer,0,Vars#vars.clause},
-                {integer,0,Line}]},
-      {integer,0,1}]}.
+    A = erl_anno:new(0),
+    {call,A,{remote,A,{atom,A,ets},{atom,A,update_counter}},
+     [{atom,A,?COVER_TABLE},
+      {tuple,A,[{atom,A,?BUMP_REC_NAME},
+                {atom,A,Vars#vars.module},
+                {atom,A,Vars#vars.function},
+                {integer,A,Vars#vars.arity},
+                {integer,A,Vars#vars.clause},
+                {integer,A,Line}]},
+      {integer,A,1}]}.
 
 munge_expr({match,Line,ExprL,ExprR}, Vars) ->
     {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
@@ -1786,16 +1952,35 @@ munge_expr({match,Line,ExprL,ExprR}, Vars) ->
 munge_expr({tuple,Line,Exprs}, Vars) ->
     {MungedExprs, Vars2} = munge_exprs(Exprs, Vars, []),
     {{tuple,Line,MungedExprs}, Vars2};
-munge_expr({record,Line,Expr,Exprs}, Vars) ->
-    %% Only for Vsn=raw_abstract_v1
-    {MungedExprName, Vars2} = munge_expr(Expr, Vars),
+munge_expr({record,Line,Name,Exprs}, Vars) ->
+    {MungedExprFields, Vars2} = munge_exprs(Exprs, Vars, []),
+    {{record,Line,Name,MungedExprFields}, Vars2};
+munge_expr({record,Line,Arg,Name,Exprs}, Vars) ->
+    {MungedArg, Vars2} = munge_expr(Arg, Vars),
     {MungedExprFields, Vars3} = munge_exprs(Exprs, Vars2, []),
-    {{record,Line,MungedExprName,MungedExprFields}, Vars3};
+    {{record,Line,MungedArg,Name,MungedExprFields}, Vars3};
 munge_expr({record_field,Line,ExprL,ExprR}, Vars) ->
-    %% Only for Vsn=raw_abstract_v1
-    {MungedExprL, Vars2} = munge_expr(ExprL, Vars),
-    {MungedExprR, Vars3} = munge_expr(ExprR, Vars2),
-    {{record_field,Line,MungedExprL,MungedExprR}, Vars3};
+    {MungedExprR, Vars2} = munge_expr(ExprR, Vars),
+    {{record_field,Line,ExprL,MungedExprR}, Vars2};
+munge_expr({map,Line,Fields}, Vars) ->
+    %% EEP 43
+    {MungedFields, Vars2} = munge_exprs(Fields, Vars, []),
+    {{map,Line,MungedFields}, Vars2};
+munge_expr({map,Line,Arg,Fields}, Vars) ->
+    %% EEP 43
+    {MungedArg, Vars2} = munge_expr(Arg, Vars),
+    {MungedFields, Vars3} = munge_exprs(Fields, Vars2, []),
+    {{map,Line,MungedArg,MungedFields}, Vars3};
+munge_expr({map_field_assoc,Line,Name,Value}, Vars) ->
+    %% EEP 43
+    {MungedName, Vars2} = munge_expr(Name, Vars),
+    {MungedValue, Vars3} = munge_expr(Value, Vars2),
+    {{map_field_assoc,Line,MungedName,MungedValue}, Vars3};
+munge_expr({map_field_exact,Line,Name,Value}, Vars) ->
+    %% EEP 43
+    {MungedName, Vars2} = munge_expr(Name, Vars),
+    {MungedValue, Vars3} = munge_expr(Value, Vars2),
+    {{map_field_exact,Line,MungedName,MungedValue}, Vars3};
 munge_expr({cons,Line,ExprH,ExprT}, Vars) ->
     {MungedExprH, Vars2} = munge_expr(ExprH, Vars),
     {MungedExprT, Vars3} = munge_expr(ExprT, Vars2),
@@ -1825,9 +2010,7 @@ munge_expr({lc,Line,Expr,Qs}, Vars) ->
     {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
     {{lc,Line,MungedExpr,MungedQs}, Vars3};
 munge_expr({bc,Line,Expr,Qs}, Vars) ->
-    {bin,BLine,[{bin_element,EL,Val,Sz,TSL}|Es]} = Expr,
-    Expr2 = {bin,BLine,[{bin_element,EL,?BLOCK1(Val),Sz,TSL}|Es]},
-    {MungedExpr,Vars2} = munge_expr(Expr2, Vars),
+    {MungedExpr,Vars2} = munge_expr(?BLOCK1(Expr), Vars),
     {MungedQs, Vars3} = munge_qualifiers(Qs, Vars2),
     {{bc,Line,MungedExpr,MungedQs}, Vars3};
 munge_expr({block,Line,Body}, Vars) ->
@@ -1857,18 +2040,12 @@ munge_expr({'try',Line,Body,Clauses,CatchClauses,After}, Vars) ->
     {MungedAfter, Vars4} = munge_body(After, Vars3),
     {{'try',Line,MungedBody,MungedClauses,MungedCatchClauses,MungedAfter}, 
      Vars4};
-%% Difference in abstract format after preprocessing: Funs get an extra
-%% element Extra.
-%% NOT NECESSARY FOR Vsn=raw_abstract_v1
-munge_expr({'fun',Line,{function,Name,Arity},_Extra}, Vars) ->
-    {{'fun',Line,{function,Name,Arity}}, Vars};
-munge_expr({'fun',Line,{clauses,Clauses},_Extra}, Vars) ->
-    {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
-    {{'fun',Line,{clauses,MungedClauses}}, Vars2};
 munge_expr({'fun',Line,{clauses,Clauses}}, Vars) ->
-    %% Only for Vsn=raw_abstract_v1
     {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
     {{'fun',Line,{clauses,MungedClauses}}, Vars2};
+munge_expr({named_fun,Line,Name,Clauses}, Vars) ->
+    {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
+    {{named_fun,Line,Name,MungedClauses}, Vars2};
 munge_expr({bin,Line,BinElements}, Vars) ->
     {MungedBinElements,Vars2} = munge_exprs(BinElements, Vars, []),
     {{bin,Line,MungedBinElements}, Vars2};
@@ -1887,7 +2064,7 @@ munge_exprs([Expr|Exprs], Vars, MungedExprs) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
     munge_exprs(Exprs, Vars2, [MungedExpr|MungedExprs]);
 munge_exprs([], Vars, MungedExprs) ->
-    {reverse(MungedExprs), Vars}.
+    {lists:reverse(MungedExprs), Vars}.
 
 %% Every qualifier is decorated with a counter.
 munge_qualifiers(Qualifiers, Vars) ->
@@ -1906,7 +2083,7 @@ munge_qs([Expr|Qs], Vars, MQs) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
     munge_qs1(Qs, L, MungedExpr, Vars, Vars2, MQs);
 munge_qs([], Vars, MQs) ->
-    {reverse(MQs), Vars}.
+    {lists:reverse(MQs), Vars}.
 
 munge_qs1(Qs, Line, NQ, Vars, Vars2, MQs) ->
     case new_bumps(Vars2, Vars) of
@@ -1932,10 +2109,21 @@ common_elems(L1, L2) ->
 collect(Nodes) ->
     %% local node
     AllClauses = ets:tab2list(?COVER_CLAUSE_TABLE),
-    pmap(fun move_modules/1,AllClauses),
-    
+    Mon1 = spawn_monitor(fun() -> pmap(fun move_modules/1,AllClauses) end),
+
     %% remote nodes
-    remote_collect('_',Nodes,false).
+    Mon2 = spawn_monitor(fun() -> remote_collect('_',Nodes,false) end),
+    get_downs([Mon1,Mon2]).
+
+%% Collect data for a list of modules
+collect(Modules,Nodes) ->
+    MS = [{{'$1','_'},[{'==','$1',M}],['$_']} || M <- Modules],
+    Clauses = ets:select(?COVER_CLAUSE_TABLE,MS),
+    Mon1 = spawn_monitor(fun() -> pmap(fun move_modules/1,Clauses) end),
+
+    %% remote nodes
+    Mon2 = spawn_monitor(fun() -> remote_collect('_',Nodes,false) end),
+    get_downs([Mon1,Mon2]).
 
 %% Collect data for one module
 collect(Module,Clauses,Nodes) ->
@@ -1943,25 +2131,26 @@ collect(Module,Clauses,Nodes) ->
     move_modules({Module,Clauses}),
     
     %% remote nodes
-    remote_collect(Module,Nodes,false).
+    remote_collect([Module],Nodes,false).
 
 
 %% When analysing, the data from the local ?COVER_TABLE is moved to the
 %% ?COLLECTION_TABLE. Resetting data in ?COVER_TABLE
 move_modules({Module,Clauses}) ->
     ets:insert(?COLLECTION_CLAUSE_TABLE,{Module,Clauses}),
-    move_clauses(Clauses).
+    Pattern = {#bump{module=Module, _='_'}, '_'},
+    MatchSpec = [{Pattern,[],['$_']}],
+    Match = ets:select(?COVER_TABLE,MatchSpec,?CHUNK_SIZE),
+    do_move_module(Match).
     
-move_clauses([{M,F,A,C,_L}|Clauses]) ->
-    Pattern = {#bump{module=M, function=F, arity=A, clause=C}, '_'},
-    Bumps = ets:match_object(?COVER_TABLE,Pattern),
+do_move_module({Bumps,Continuation}) ->
     lists:foreach(fun({Key,Val}) ->
 			  ets:insert(?COVER_TABLE, {Key,0}),
 			  insert_in_collection_table(Key,Val)
 		  end,
 		  Bumps),
-    move_clauses(Clauses);
-move_clauses([]) ->
+    do_move_module(ets:select(Continuation));
+do_move_module('$end_of_table') ->
     ok.
 
 %% Given a .beam file, find the .erl file. Look first in same directory as
@@ -1979,7 +2168,13 @@ find_source(Module, File0) ->
         throw_file(filename:join([BeamDir, "..", "src", Base])),
         %% Not in ../src: look for source path in compile info, but
         %% first look relative the beam directory.
-        Info = lists:keyfind(source, 1, Module:module_info(compile)),
+        Info =
+            try lists:keyfind(source, 1, Module:module_info(compile))
+            catch error:undef ->
+                    %% The module might have been imported
+                    %% and the beam not available
+                    throw({beam, File0})
+            end,
         false == Info andalso throw({beam, File0}),  %% stripped
         {source, SrcFile} = Info,
         throw_file(splice(BeamDir, SrcFile)),  %% below ../src
@@ -2019,6 +2214,26 @@ splice(BeamDir, SrcFile) ->
 revsplit(Path) ->
     lists:reverse(filename:split(Path)).
 
+analyse_list(Modules, Analysis, Level, State) ->
+    {LoadedMF, ImportedMF, Error} = are_loaded(Modules, State, [], [], []),
+    Loaded = [M || {M,_} <- LoadedMF],
+    Imported = [M || {M,_} <- ImportedMF],
+    collect(Loaded, State#main_state.nodes),
+    MS = [{{'$1','_'},[{'==','$1',M}],['$_']} || M <- Loaded ++ Imported],
+    AllClauses = ets:select(?COLLECTION_CLAUSE_TABLE,MS),
+    Fun = fun({Module,Clauses}) ->
+		  do_analyse(Module, Analysis, Level, Clauses)
+	  end,
+    {result, lists:flatten(pmap(Fun, AllClauses)), Error}.
+
+analyse_all(Analysis, Level, State) ->
+    collect(State#main_state.nodes),
+    AllClauses = ets:tab2list(?COLLECTION_CLAUSE_TABLE),
+    Fun = fun({Module,Clauses}) ->
+		  do_analyse(Module, Analysis, Level, Clauses)
+	  end,
+    {result, lists:flatten(pmap(Fun, AllClauses)), []}.
+
 do_parallel_analysis(Module, Analysis, Level, Loaded, From, State) ->
     analyse_info(Module,State#main_state.imported),
     C = case Loaded of
@@ -2033,7 +2248,7 @@ do_parallel_analysis(Module, Analysis, Level, Loaded, From, State) ->
 		Clauses
 	end,
     R = do_analyse(Module, Analysis, Level, C),
-    reply(From, R).
+    reply(From, {ok,R}).
 
 %% do_analyse(Module, Analysis, Level, Clauses)-> {ok,Answer} | {error,Error}
 %%   Clauses = [{Module,Function,Arity,Clause,Lines}]
@@ -2052,37 +2267,44 @@ do_analyse(Module, Analysis, line, _Clauses) ->
 			  {{Module,L}, N}
 		  end
 	  end,
-    Answer = lists:keysort(1, lists:map(Fun, Bumps)),
-    {ok, Answer};
-do_analyse(_Module, Analysis, clause, Clauses) ->
-    Fun = case Analysis of
-	      coverage ->
-		  fun({M,F,A,C,Ls}) ->
-			  Pattern = {#bump{module=M,function=F,arity=A,
-					   clause=C},0},
-			  Bumps = ets:match_object(?COLLECTION_TABLE, Pattern),
-			  NotCov = length(Bumps),
-			  {{M,F,A,C}, {Ls-NotCov, NotCov}}
-		  end;
-	      calls ->
-		  fun({M,F,A,C,_Ls}) ->
-			  Pattern = {#bump{module=M,function=F,arity=A,
-					   clause=C},'_'},
-			  Bumps = ets:match_object(?COLLECTION_TABLE, Pattern),
-			  {_Bump, Calls} = hd(lists:keysort(1, Bumps)),
-			  {{M,F,A,C}, Calls}
-		  end
-	  end,
-    Answer = lists:map(Fun, Clauses),
-    {ok, Answer};
+    lists:keysort(1, lists:map(Fun, Bumps));
+do_analyse(Module, Analysis, clause, _Clauses) ->
+    Pattern = {#bump{module=Module},'_'},
+    Bumps = lists:keysort(1,ets:match_object(?COLLECTION_TABLE, Pattern)),
+    analyse_clause(Analysis,Bumps);
 do_analyse(Module, Analysis, function, Clauses) ->
-    {ok, ClauseResult} = do_analyse(Module, Analysis, clause, Clauses),
-    Result = merge_clauses(ClauseResult, merge_fun(Analysis)),
-    {ok, Result};
+    ClauseResult = do_analyse(Module, Analysis, clause, Clauses),
+    merge_clauses(ClauseResult, merge_fun(Analysis));
 do_analyse(Module, Analysis, module, Clauses) ->
-    {ok, FunctionResult} = do_analyse(Module, Analysis, function, Clauses),
+    FunctionResult = do_analyse(Module, Analysis, function, Clauses),
     Result = merge_functions(FunctionResult, merge_fun(Analysis)),
-    {ok, {Module,Result}}.
+    {Module,Result}.
+
+analyse_clause(_,[]) ->
+    [];
+analyse_clause(coverage,
+	       [{#bump{module=M,function=F,arity=A,clause=C},_}|_]=Bumps) ->
+    analyse_clause_cov(Bumps,{M,F,A,C},0,0,[]);
+analyse_clause(calls,Bumps) ->
+    analyse_clause_calls(Bumps,{x,x,x,x},[]).
+
+analyse_clause_cov([{#bump{module=M,function=F,arity=A,clause=C},N}|Bumps],
+		   {M,F,A,C}=Clause,Ls,NotCov,Acc) ->
+    analyse_clause_cov(Bumps,Clause,Ls+1,if N==0->NotCov+1; true->NotCov end,Acc);
+analyse_clause_cov([{#bump{module=M1,function=F1,arity=A1,clause=C1},_}|_]=Bumps,
+		    Clause,Ls,NotCov,Acc) ->
+    analyse_clause_cov(Bumps,{M1,F1,A1,C1},0,0,[{Clause,{Ls-NotCov,NotCov}}|Acc]);
+analyse_clause_cov([],Clause,Ls,NotCov,Acc) ->
+    lists:reverse(Acc,[{Clause,{Ls-NotCov,NotCov}}]).
+
+analyse_clause_calls([{#bump{module=M,function=F,arity=A,clause=C},_}|Bumps],
+		     {M,F,A,C}=Clause,Acc) ->
+    analyse_clause_calls(Bumps,Clause,Acc);
+analyse_clause_calls([{#bump{module=M1,function=F1,arity=A1,clause=C1},N}|Bumps],
+		     _Clause,Acc) ->
+    analyse_clause_calls(Bumps,{M1,F1,A1,C1},[{{M1,F1,A1,C1},N}|Acc]);
+analyse_clause_calls([],_Clause,Acc) ->
+    lists:reverse(Acc).
 
 merge_fun(coverage) ->
     fun({Cov1,NotCov1}, {Cov2,NotCov2}) ->
@@ -2099,7 +2321,7 @@ merge_clauses([{{M,F,A,_C1},R1},{{M,F,A,C2},R2}|Clauses], MFun, Result) ->
 merge_clauses([{{M,F,A,_C},R}|Clauses], MFun, Result) ->
     merge_clauses(Clauses, MFun, [{{M,F,A},R}|Result]);
 merge_clauses([], _Fun, Result) ->
-    reverse(Result).
+    lists:reverse(Result).
 
 merge_functions([{_MFA,R}|Functions], MFun) ->
     merge_functions(Functions, MFun, R);
@@ -2111,7 +2333,50 @@ merge_functions([{_MFA,R}|Functions], MFun, Result) ->
 merge_functions([], _MFun, Result) ->
     Result.
 
-do_parallel_analysis_to_file(Module, OutFile, Opts, Loaded, From, State) ->
+analyse_list_to_file(Modules, Opts, State) ->
+    {LoadedMF, ImportedMF, Error} = are_loaded(Modules, State, [], [], []),
+    collect([M || {M,_} <- LoadedMF], State#main_state.nodes),
+    OutDir = proplists:get_value(outdir,Opts),
+    HTML = lists:member(html,Opts),
+    Fun = fun({Module,File}) ->
+		  OutFile = outfilename(OutDir,Module,HTML),
+		  do_analyse_to_file(Module,File,OutFile,HTML,State)
+	  end,
+    {Ok,Error1} = split_ok_error(pmap(Fun, LoadedMF++ImportedMF),[],[]),
+    {result,Ok,Error ++ Error1}.
+
+analyse_all_to_file(Opts, State) ->
+    collect(State#main_state.nodes),
+    AllModules = get_all_modules(State),
+    OutDir = proplists:get_value(outdir,Opts),
+    HTML = lists:member(html,Opts),
+    Fun = fun({Module,File}) ->
+		  OutFile = outfilename(OutDir,Module,HTML),
+		  do_analyse_to_file(Module,File,OutFile,HTML,State)
+	  end,
+    {Ok,Error} = split_ok_error(pmap(Fun, AllModules),[],[]),
+    {result,Ok,Error}.
+
+get_all_modules(State) ->
+    get_all_modules(State#main_state.compiled ++ State#main_state.imported,[]).
+get_all_modules([{Module,File}|Rest],Acc) ->
+    get_all_modules(Rest,[{Module,File}|Acc]);
+get_all_modules([{Module,File,_}|Rest],Acc) ->
+    case lists:keymember(Module,1,Acc) of
+	true -> get_all_modules(Rest,Acc);
+	false -> get_all_modules(Rest,[{Module,File}|Acc])
+    end;
+get_all_modules([],Acc) ->
+    Acc.
+
+split_ok_error([{ok,R}|Result],Ok,Error) ->
+    split_ok_error(Result,[R|Ok],Error);
+split_ok_error([{error,R}|Result],Ok,Error) ->
+    split_ok_error(Result,Ok,[R|Error]);
+split_ok_error([],Ok,Error) ->
+    {Ok,Error}.
+
+do_parallel_analysis_to_file(Module, Opts, Loaded, From, State) ->
     File = case Loaded of
 	       {loaded, File0} ->
 		   [{Module,Clauses}] = 
@@ -2122,24 +2387,32 @@ do_parallel_analysis_to_file(Module, OutFile, Opts, Loaded, From, State) ->
 	       {imported, File0, _} ->
 		   File0
 	   end,
+    HTML = lists:member(html,Opts),
+    OutFile =
+	case proplists:get_value(outfile,Opts) of
+	    undefined ->
+		outfilename(proplists:get_value(outdir,Opts),Module,HTML);
+	    F ->
+		F
+	end,
+    reply(From, do_analyse_to_file(Module,File,OutFile,HTML,State)).
+
+do_analyse_to_file(Module,File,OutFile,HTML,State) ->
     case find_source(Module, File) of
 	{beam,_BeamFile} ->
-	    reply(From, {error,no_source_code_found});
+	    {error,{no_source_code_found,Module}};
 	ErlFile ->
 	    analyse_info(Module,State#main_state.imported),
-	    HTML = lists:member(html,Opts),
-	    R = do_analyse_to_file(Module,OutFile,
-				   ErlFile,HTML),
-	    reply(From, R)
+	    do_analyse_to_file1(Module,OutFile,ErlFile,HTML)
     end.
 
-%% do_analyse_to_file(Module,OutFile,ErlFile) -> {ok,OutFile} | {error,Error}
+%% do_analyse_to_file1(Module,OutFile,ErlFile) -> {ok,OutFile} | {error,Error}
 %%   Module = atom()
 %%   OutFile = ErlFile = string()
-do_analyse_to_file(Module, OutFile, ErlFile, HTML) ->
-    case file:open(ErlFile, [read]) of
+do_analyse_to_file1(Module, OutFile, ErlFile, HTML) ->
+    case file:open(ErlFile, [read,raw,read_ahead]) of
 	{ok, InFd} ->
-	    case file:open(OutFile, [write]) of
+	    case file:open(OutFile, [write,raw,delayed_write]) of
 		{ok, OutFd} ->
 		    if HTML -> 
                            Encoding = encoding(ErlFile),
@@ -2156,7 +2429,7 @@ do_analyse_to_file(Module, OutFile, ErlFile, HTML) ->
                                 "<body style='background-color: white;"
                                 " color: black'>\n"
                                 "<pre>\n"],
-                           file:write(OutFd,Header);
+                           ok = file:write(OutFd,Header);
 		       true -> ok
 		    end,
 		    
@@ -2170,21 +2443,25 @@ do_analyse_to_file(Module, OutFile, ErlFile, HTML) ->
                                       string:right(integer_to_list(H),  2, $0),
                                       string:right(integer_to_list(Mi), 2, $0),
                                       string:right(integer_to_list(S),  2, $0)]),
-                    file:write(OutFd,
+                    ok = file:write(OutFd,
                                ["File generated from ",ErlFile," by COVER ",
                                 Timestamp,"\n\n"
                                 "**************************************"
                                 "**************************************"
                                 "\n\n"]),
 
-		    print_lines(Module, InFd, OutFd, 1, HTML),
+		    Pattern = {#bump{module=Module,line='$1',_='_'},'$2'},
+		    MS = [{Pattern,[{is_integer,'$1'},{'>','$1',0}],[{{'$1','$2'}}]}],
+		    CovLines = lists:keysort(1,ets:select(?COLLECTION_TABLE, MS)),
+		    print_lines(Module, CovLines, InFd, OutFd, 1, HTML),
 		    
-		    if HTML -> io:format(OutFd,"</pre>\n</body>\n</html>\n",[]);
+		    if HTML ->
+                           ok = file:write(OutFd, "</pre>\n</body>\n</html>\n");
 		       true -> ok
 		    end,
 
-		    file:close(OutFd),
-		    file:close(InFd),
+		    ok = file:close(OutFd),
+		    ok = file:close(InFd),
 
 		    {ok, OutFile};
 
@@ -2196,41 +2473,41 @@ do_analyse_to_file(Module, OutFile, ErlFile, HTML) ->
 	    {error, {file, ErlFile, Reason}}
     end.
 
-print_lines(Module, InFd, OutFd, L, HTML) ->
-    case io:get_line(InFd, '') of
+
+print_lines(Module, CovLines, InFd, OutFd, L, HTML) ->
+    case file:read_line(InFd) of
 	eof ->
 	    ignore;
- 	"%"++_=Line ->				%Comment line - not executed.
- 	    io:put_chars(OutFd, [tab(),escape_lt_and_gt(Line, HTML)]),
-	    print_lines(Module, InFd, OutFd, L+1, HTML);
-	RawLine ->
+	{ok,"%"++_=Line} ->		 %Comment line - not executed.
+	    ok = file:write(OutFd, [tab(),escape_lt_and_gt(Line, HTML)]),
+	    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML);
+	{ok,RawLine} ->
 	    Line = escape_lt_and_gt(RawLine,HTML),
-	    Pattern = {#bump{module=Module,line=L},'$1'},
-	    case ets:match(?COLLECTION_TABLE, Pattern) of
-		[] ->
-		    io:put_chars(OutFd, [tab(),Line]);
-		Ns ->
-		    N = lists:foldl(fun([Ni], Nacc) -> Nacc+Ni end, 0, Ns),
-		    if
-			N=:=0, HTML=:=true ->
-			    LineNoNL = Line -- "\n",
-			    Str = "     0",
-			    %%Str = string:right("0", 6, 32),
-			    RedLine = ["<font color=red>",Str,fill1(),
-				       LineNoNL,"</font>\n"],
-			    io:put_chars(OutFd, RedLine);
-			N<1000000 ->
-			    Str = string:right(integer_to_list(N), 6, 32),
-			    io:put_chars(OutFd, [Str,fill1(),Line]);
-			N<10000000 ->
-			    Str = integer_to_list(N),
-			    io:put_chars(OutFd, [Str,fill2(),Line]);
-			true ->
-			    Str = integer_to_list(N),
-			    io:put_chars(OutFd, [Str,fill3(),Line])
-		    end
-	    end,
-	    print_lines(Module, InFd, OutFd, L+1, HTML)
+	    case CovLines of
+	       [{L,N}|CovLines1] ->
+		    %% N = lists:foldl(fun([Ni], Nacc) -> Nacc+Ni end, 0, Ns),
+                    if N=:=0, HTML=:=true ->
+                           LineNoNL = Line -- "\n",
+                           Str = "     0",
+                           %%Str = string:right("0", 6, 32),
+                           RedLine = ["<font color=red>",Str,fill1(),
+                                      LineNoNL,"</font>\n"],
+                           ok = file:write(OutFd, RedLine);
+                       N < 1000000 ->
+                           Str = string:right(integer_to_list(N), 6, 32),
+                           ok = file:write(OutFd, [Str,fill1(),Line]);
+                       N < 10000000 ->
+                           Str = integer_to_list(N),
+                           ok = file:write(OutFd, [Str,fill2(),Line]);
+                       true ->
+                           Str = integer_to_list(N),
+                           ok = file:write(OutFd, [Str,fill3(),Line])
+                    end,
+		    print_lines(Module, CovLines1, InFd, OutFd, L+1, HTML);
+		_ ->
+		    ok = file:write(OutFd, [tab(),Line]),
+		    print_lines(Module, CovLines, InFd, OutFd, L+1, HTML)
+	    end
     end.
 
 tab() ->  "        |  ".
@@ -2240,7 +2517,7 @@ fill3() ->        "|  ".
 
 %%%--Export--------------------------------------------------------------
 do_export(Module, OutFile, From, State) ->
-    case file:open(OutFile,[write,binary,raw]) of
+    case file:open(OutFile,[write,binary,raw,delayed_write]) of
 	{ok,Fd} ->
 	    Reply = 
 		case Module of
@@ -2268,7 +2545,7 @@ do_export(Module, OutFile, From, State) ->
 				{error,{not_cover_compiled,Module}}
 			end
 		end,
-	    file:close(Fd),
+	    ok = file:close(Fd),
 	    reply(From, Reply);
 	{error,Reason} ->
 	    reply(From, {error, {cant_open_file,OutFile,Reason}})
@@ -2310,10 +2587,9 @@ write(Element,Fd) ->
     case byte_size(Bin) of
 	Size when Size > 255 ->
 	    SizeBin = term_to_binary({'$size',Size}),
-	    file:write(Fd,
-                       <<(byte_size(SizeBin)):8,SizeBin/binary,Bin/binary>>);
+	    ok = file:write(Fd, <<(byte_size(SizeBin)):8,SizeBin/binary,Bin/binary>>);
 	Size ->
-	    file:write(Fd,<<Size:8,Bin/binary>>)
+	    ok = file:write(Fd,<<Size:8,Bin/binary>>)
     end,
     ok.    
 
@@ -2379,21 +2655,21 @@ do_reset_collection_table(Module) ->
     ets:match_delete(?COLLECTION_TABLE, {#bump{module=Module},'_'}).
 
 %% do_reset(Module) -> ok
-%% The reset is done on a per-clause basis to avoid building
+%% The reset is done on ?CHUNK_SIZE number of bumps to avoid building
 %% long lists in the case of very large modules
 do_reset(Module) ->
-    [{Module,Clauses}] = ets:lookup(?COVER_CLAUSE_TABLE, Module),
-    do_reset2(Clauses).
+    Pattern = {#bump{module=Module, _='_'}, '$1'},
+    MatchSpec = [{Pattern,[{'=/=','$1',0}],['$_']}],
+    Match = ets:select(?COVER_TABLE,MatchSpec,?CHUNK_SIZE),
+    do_reset2(Match).
 
-do_reset2([{M,F,A,C,_L}|Clauses]) ->
-    Pattern = {#bump{module=M, function=F, arity=A, clause=C}, '_'},
-    Bumps = ets:match_object(?COVER_TABLE, Pattern),
+do_reset2({Bumps,Continuation}) ->
     lists:foreach(fun({Bump,_N}) ->
 			  ets:insert(?COVER_TABLE, {Bump,0})
 		  end,
 		  Bumps),
-    do_reset2(Clauses);
-do_reset2([]) ->
+    do_reset2(ets:select(Continuation));
+do_reset2('$end_of_table') ->
     ok.    
 
 do_clear(Module) ->
@@ -2420,14 +2696,6 @@ not_loaded(_Module,_Else, State) ->
 
 %%%--Div-----------------------------------------------------------------
 
-reverse(List) ->
-    reverse(List,[]).
-reverse([H|T],Acc) ->
-    reverse(T,[H|Acc]);
-reverse([],Acc) ->
-    Acc.
-
-
 escape_lt_and_gt(Rawline,HTML) when HTML =/= true ->
     Rawline;
 escape_lt_and_gt(Rawline,_HTML) ->
@@ -2444,31 +2712,43 @@ escape_lt_and_gt1([],Acc) ->
 escape_lt_and_gt1([H|T],Acc) ->
     escape_lt_and_gt1(T,[H|Acc]).
 
-pmap(Fun, List) ->
-    pmap(Fun, List, 20).
-pmap(Fun, List, Limit) ->
-    pmap(Fun, List, [], Limit, 0, []).
-pmap(Fun, [E | Rest], Pids, Limit, Cnt, Acc) when Cnt < Limit ->
-    Collector = self(),
-    Pid = spawn_link(fun() ->
-			     ?SPAWN_DBG(pmap,E),
-			     Collector ! {res,self(),Fun(E)} 
-		     end),
-    erlang:monitor(process, Pid),
-    pmap(Fun, Rest, Pids ++ [Pid], Limit, Cnt + 1, Acc);
-pmap(Fun, List, [Pid | Pids], Limit, Cnt, Acc) ->
+%%%--Internal functions for parallelization------------------------------
+pmap(Fun,List) ->
+    NTot = length(List),
+    NProcs = erlang:system_info(schedulers) * 2,
+    NPerProc = (NTot div NProcs) + 1,
+    Mons = pmap_spawn(Fun,NPerProc,List,[]),
+    pmap_collect(Mons,[]).
+
+pmap_spawn(_,_,[],Mons) ->
+    Mons;
+pmap_spawn(Fun,NPerProc,List,Mons) ->
+    {L1,L2} = if length(List)>=NPerProc -> lists:split(NPerProc,List);
+		 true -> {List,[]} % last chunk
+	      end,
+    Mon =
+	spawn_monitor(
+	  fun() ->
+		  exit({pmap_done,lists:map(Fun,L1)})
+	  end),
+    pmap_spawn(Fun,NPerProc,L2,[Mon|Mons]).
+
+pmap_collect([],Acc) ->
+    lists:append(Acc);
+pmap_collect(Mons,Acc) ->
     receive
-	{'DOWN', _Ref, process, X, _} when is_pid(X) ->
-	    pmap(Fun, List, [Pid | Pids], Limit, Cnt - 1, Acc);
-	{res, Pid, Res} ->
-	    pmap(Fun, List, Pids, Limit, Cnt, [Res | Acc])
-    end;
-pmap(_Fun, [], [], _Limit, 0, Acc) ->
-    lists:reverse(Acc);
-pmap(Fun, [], [], Limit, Cnt, Acc) ->
-    receive
-	{'DOWN', _Ref, process, X, _} when is_pid(X) ->
-	    pmap(Fun, [], [], Limit, Cnt - 1, Acc)
+	{'DOWN', Ref, process, Pid, {pmap_done,Result}} ->
+	    pmap_collect(lists:delete({Pid,Ref},Mons),[Result|Acc]);
+	{'DOWN', Ref, process, Pid, Reason} = Down ->
+	    case lists:member({Pid,Ref},Mons) of
+		true ->
+		    %% Something went really wrong - don't hang!
+		    exit(Reason);
+		false ->
+		    %% This should be handled somewhere else
+		    self() ! Down,
+		    pmap_collect(Mons,Acc)
+	    end
     end.
 
 %%%-----------------------------------------------------------------

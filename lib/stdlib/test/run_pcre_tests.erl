@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -68,8 +69,6 @@ pick_exec_options([]) ->
 test([],_,_,_) ->
     0;
 test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
-    %io:format("."),
-    %case RE of <<>> -> io:format("Empty re:~w~n",[Line]); _ -> ok end,
     Unicode = lists:member(unicode,Options0),
     RE = case REAsList of
 	     true ->
@@ -89,7 +88,6 @@ test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
 		   end,
     case Cres of
 	{ok,P} ->
-	    %erlang:display({testrun,RE,P,Tests,ExecOptions,Xopt,XMode}),
 	    case (catch testrun(RE,P,Tests,ExecOptions,Xopt,XMode)) of
 		N when is_integer(N) ->
 		    N + test(T,PreCompile,XMode,REAsList);
@@ -124,16 +122,10 @@ test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
 loopexec(_,_,X,Y,_,_) when X > Y ->
     {match,[]};
 loopexec(P,Chal,X,Y,Unicode,Xopt) ->
-    %io:format("~p~n",[X]),
     case re:run(Chal,P,[{offset,X}]++Xopt) of
 	nomatch ->
-	    %io:format(" re:exec(~p,~p,[{offset,~p}]) -> ~p~n",
-	%	      [P,Chal,X,no]),
 	    {match,[]};
-	    %loopexec(P,Chal,X+1,Y);
 	{match,[{A,B}|More]} ->
-	    %io:format(" re:exec(~p,~p,[{offset,~p}]) -> ~p~n",
-	%	      [P,Chal,X,{match,[{A,B}|More]}]),
 	    {match,Rest} = 
 		case B>0 of
 		    true ->
@@ -168,7 +160,6 @@ forward(Chal,A,N,true) ->
 	       _ ->
 		   1
 	   end,
-    %io:format("Forward ~p~n",[Forw]),
     forward(Chal,A+Forw,N-1,true).
     
 contains_eightbit(<<>>) ->
@@ -333,8 +324,6 @@ testrun(RE,P,[{Chal,Line,ExecOpt,Responses}|T],EO,Xopt0,XMode) ->
 				    nomatch ->
 					nomatch;
 				    {match, Reslist} ->
-					%io:format("re:run(~w,~w,~w) -> ~w~n",[Chal,P,ExecOpt++Xopt++
-					%    [{capture,all,list}],Reslist]),
 					UFix = lists:member(unicode,EO),
 					{match,bfix([if 
 							 UFix =:= true -> list_to_utf8(L); 
@@ -424,7 +413,6 @@ pickline(Start,Stop,Bin) when Stop >= size(Bin) ->
     {Res,Stop};
     
 pickline(Start,Stop,Bin) ->
-    %erlang:display({Start,Stop,size(Bin)}),
     <<_:Stop/binary,Ch,_/binary>> = Bin,
     case Ch of
 	$\n ->
@@ -464,29 +452,26 @@ stru([{_,<<>>}|T]) ->
     stru(T);
 stru([{Line,<<Ch,Re0/binary>>}|T0]) ->
     {T,Re} = find_rest_re(Ch,[{Line,Re0}|T0]),
-    %io:format("DBG: ~p~n",[Re]),
     {NewRe,<< Ch, Options/binary >>} = end_of_re(Ch,Re),
     case interpret_options_x(backstrip(frontstrip(Options)),NewRe) of
 	{Olist,<<>>} -> 
+	    U = lists:member(unicode,Olist),
 	    case T of
 		[{_,<<$-,_/binary>>}|Con] ->
-		    %Debug output, we skip those 
-		    %io:format("Skipping debug (~w)~n",[Line]),
+		    %%Debug output, we skip those
 		    TmpT = skip_debug(Con),
-		    {NewT,Matches} = stru2(TmpT),
+		    {NewT,Matches} = stru2(TmpT,U),
 		    [{NewRe,Line,Olist,Matches}|stru(NewT)];
 		[{_,<<$C,$a,$p,$t,$u,$r,$i,$n,$g,_/binary>>}|_] ->
 		    NewT0 = skip_extra_info(T),
-		    {NewT,Matches} = stru2(NewT0),
+		    {NewT,Matches} = stru2(NewT0,U),
 		    [{NewRe,Line,Olist,Matches}|stru(NewT)];
 		[{_,<<Bla,_/binary>>}|_] when Bla =/= $  ->
-		    %io:format("Skipping blabla (~w)~n",[Line]),
 		    NewT = skip_until_empty(T),
 		    stru(NewT);
 		_ ->
-		    {NewT,Matches} = stru2(T),
-		    %erlang:display({NewRe,Line,Olist,Matches}),
-		    Matches1 = case lists:member(unicode,Olist) of
+		    {NewT,Matches} = stru2(T,U),
+		    Matches1 = case U of
 				   true ->
 				       Matches ++
 					   [ {unicode:characters_to_list(E1,unicode),E2,E3,E4} ||
@@ -494,18 +479,10 @@ stru([{Line,<<Ch,Re0/binary>>}|T0]) ->
 				   false ->
 				       Matches
 			       end,
-		    %erlang:display({NewRe,Line,Olist,Matches1}),
 		    [{NewRe,Line,Olist,Matches1}|stru(NewT)]
 	    end;
 	{_,Rest} ->
-%% 	    case T of
-%% 		[{_,<<Bla,_/binary>>}|_] when Bla =/= $  ->
-%% 		    io:format("Skipping blabla (~w)~n",[Line]);
-%% 		_ ->
-%% 		    ok
-%% 	    end,
 	    NewT = skip_until_empty(T),
-	    %{NewT,_Matches} = stru2(T),
 	    info("Skipping options ~s for now (~w)~n",[binary_to_list(Rest),Line]),
 	    case NewT of
 		[{Li,_}|_] ->
@@ -568,10 +545,16 @@ tr_option($g) ->
 tr_option(_) ->
     false.
 
+
 interpret_options(<<$<,Rest0/binary>>) ->
     {Option,Rest} = pinch_cr(Rest0),
-    {Olist,NRest} = interpret_options(Rest),
-    {[Option | Olist], NRest};
+    case Option of
+	{not_supported,{newline,_Offender}} ->
+	    {[],<<$<,Rest0/binary>>};
+	_ ->
+	    {Olist,NRest} = interpret_options(Rest),
+	    {[Option | Olist], NRest}
+    end;
 interpret_options(<<$L,$f,$r,$_,$F,$R,Rest/binary>>) ->
     info("Accepting (and ignoring) french locale~n",[]),
     {Olist,NRest} = interpret_options(Rest),
@@ -603,13 +586,11 @@ backslash_end(<<_>>) ->
 backslash_end(<<_,R/binary>>) ->
     backslash_end(R).
 
-%stru2([<<$ ,$ ,$ ,$ , $*,$*,$*,$ ,_/binary>> | T]) ->
-%    stru2(T);
-stru2([{Line,<<$ ,Rest/binary>>} | T]) ->
-    % A challenge
-    case  (catch responses(T)) of
+stru2([{Line,<<$ ,Rest/binary>>} | T],U) ->
+    %% A challenge
+    case  (catch responses(T,U)) of
 	{NewT,Rlist} ->
-	    {NewNewT,StrList} = stru2(NewT),
+	    {NewNewT,StrList} = stru2(NewT,U),
 	    %% Hack...
 	    FS = case backstrip(frontstrip(Rest)) of
 		     <<"\\">> -> 
@@ -624,7 +605,7 @@ stru2([{Line,<<$ ,Rest/binary>>} | T]) ->
 				 OFS
 			 end
 		 end,
-	    {ExecOpts,NFS} = escape(FS),
+	    {ExecOpts,NFS} = escape(FS,U),
 	    case find_unsupported(ExecOpts) of
 		[] ->
 		    {NewNewT,[{NFS,Line,ExecOpts,
@@ -641,30 +622,29 @@ stru2([{Line,<<$ ,Rest/binary>>} | T]) ->
 	    {NewT,[]}
     end;
 	
-stru2(X) ->
+stru2(X,_) ->
     {X,[]}.
-%responses([<< $ ,$ ,$ ,$ ,$*,$*,$*,$ ,_/binary>>|T]) ->
-%    responses(T);
-responses([{_Line,<< X:2/binary,$:,$ ,Resp/binary>>}|T]) ->
-    {NT,R2} = responses(T),
+
+responses([{_Line,<< X:2/binary,$:,$ ,Resp/binary>>}|T],U) ->
+    {NT,R2} = responses(T,U),
     NX=list_to_integer(binary_to_list(frontstrip(X))),
-    {NT,[{NX,escape2(Resp)} | R2]};
-responses([{_Line,<< X:3/binary,$:,$ ,Resp/binary>>}|T]) ->
-    {NT,R2} = responses(T),
+    {NT,[{NX,escape2(Resp,U)} | R2]};
+responses([{_Line,<< X:3/binary,$:,$ ,Resp/binary>>}|T],U) ->
+    {NT,R2} = responses(T,U),
     NX=list_to_integer(binary_to_list(frontstrip(X))),
-    {NT,[{NX,escape2(Resp)} | R2]};
-responses([{_Line,<<$N,$o,$ ,$m,$a,$t,$c,$h,_/binary>>}|T]) ->
+    {NT,[{NX,escape2(Resp,U)} | R2]};
+responses([{_Line,<<$N,$o,$ ,$m,$a,$t,$c,$h,_/binary>>}|T],_) ->
     {T,nomatch};
-responses([{Line,<<$ ,No,Ch,_/binary>>}|T]) when No >= $0, No =< $9, Ch >= $A, Ch =< $Z ->
+responses([{Line,<<$ ,No,Ch,_/binary>>}|T],U) when No >= $0, No =< $9, Ch >= $A, Ch =< $Z ->
     info("Skipping strange debug response at line ~p~n",[Line]),
-    responses(T);
-responses([{Line,<<$ ,$ ,Ch,_/binary>>}|T]) when Ch =:= $G; Ch =:= $C ->
+    responses(T,U);
+responses([{Line,<<$ ,$ ,Ch,_/binary>>}|T],U) when Ch =:= $G; Ch =:= $C ->
     info("Skipping stranger debug response at line ~p~n",[Line]),
-    responses(T);
-responses([{Line,<<C,_/binary>>=X}|_]) when C =/= $  ->
+    responses(T,U);
+responses([{Line,<<C,_/binary>>=X}|_],_) when C =/= $  ->
     info("Offending response line(~w)! ~p~n",[Line,X]),
     throw(fail);
-responses(X) ->
+responses(X,_) ->
     {X,[]}.
     
 
@@ -753,57 +733,68 @@ splitby(Ch,<<Ch,Rest/binary>>,Acc) ->
     {Acc,Rest};
 splitby(Ch,<<OCh,Rest/binary>>,Acc) ->
     splitby(Ch,Rest,<<Acc/binary,OCh>>).
+
+pick_number(N,<<Ch:8,Rest/binary>>) when Ch >= $0, Ch =< $9 ->
+    pick_number(N*10+(Ch - $0),Rest);
+pick_number(N,Rest) ->
+    {N,Rest}.
+
+pick_offset(Rest) ->
+    {Int,NRest} = pick_number(0,Rest),
+    {{offset,Int},NRest}.
 	    
 
-escape(<<>>) ->
+escape(<<>>,_) ->
     {[],<<>>};
-escape(<<$\\, Ch, Rest/binary>>) when Ch >= $A, Ch =< $Z; Ch =:= $? ->
-    %Options in the string...
+escape(<<$\\, Ch, Rest/binary>>,U) when Ch >= $A, Ch =< $Z; Ch =:= $? ->
+    %%Options in the string...
     NewOpts = eopt(Ch),
-    {MoreOpts,Tail} = escape(Rest),
+    {MoreOpts,Tail} = escape(Rest,U),
     {NewOpts ++ MoreOpts,Tail};
-escape(<<$\\, $<, Rest/binary>>) ->
-    %CR Options in the string...
-    {NewOpt,NewRest} = pinch_cr(Rest),
-    {MoreOpts,Tail} = escape(NewRest),
+escape(<<$\\, $>, Rest/binary>>,U) ->
+    %%Offset Options in the string...
+    {NewOpt,NewRest} = pick_offset(Rest),
+    {MoreOpts,Tail} = escape(NewRest,U),
     {[NewOpt|MoreOpts],Tail};
-escape(<<$\\, Ch, Rest/binary>>) ->
+escape(<<$\\, $<, Rest/binary>>,U) ->
+    %%CR Options in the string...
+    {NewOpt,NewRest} = pinch_cr(Rest),
+    {MoreOpts,Tail} = escape(NewRest,U),
+    {[NewOpt|MoreOpts],Tail};
+escape(<<$\\, Ch, Rest/binary>>,U) ->
     {C,NR} = case single_esc(Ch) of
 		 no ->
-		     case multi_esc(<<Ch,Rest/binary>>) of
+		     case multi_esc(<<Ch,Rest/binary>>,U) of
 			 {CharBin,NewRest} ->
 			     {CharBin,NewRest};
 			 no ->
 			     {<<$\\>>,<<Ch,Rest/binary>>}
 		     end;
 		 CCC ->
-		     %erlang:display({escape,CCC}),
 		     {<<CCC>>,Rest}
 	     end,
-    {MoreOpts,Tail} = escape(NR),
+    {MoreOpts,Tail} = escape(NR,U),
     {MoreOpts,<<C/binary,Tail/binary>>};
-%escape(<<$\\,Rest/binary>>) ->
-%    escape(<<Rest/binary>>);
-escape(<<Ch,Rest/binary>>) ->
-    {X,RR} = escape(<<Rest/binary>>),
+escape(<<Ch,Rest/binary>>,U) ->
+    {X,RR} = escape(<<Rest/binary>>,U),
     {X,<<Ch,RR/binary>>};
-escape(Any) ->
+escape(Any,_) ->
     {[],Any}.
-escape2(<<>>) ->
+escape2(<<>>,_) ->
     <<>>;
-escape2(<<$\\, Ch, Rest/binary>>) ->
-    {C,NR} = case multi_esc(<<Ch,Rest/binary>>) of
+escape2(<<$\\, Ch, Rest/binary>>,U) ->
+    {C,NR} = case multi_esc(<<Ch,Rest/binary>>,U) of
 		 {CharBin,NewRest} ->
 		     {CharBin,NewRest};
 		 no ->
 		     {<<$\\>>,<<Ch,Rest/binary>>}
 	     end,
-    Tail = escape2(NR),
+    Tail = escape2(NR,U),
     <<C/binary,Tail/binary>>;
-escape2(<<Ch,Rest/binary>>) ->
-    RR = escape2(<<Rest/binary>>),
+escape2(<<Ch,Rest/binary>>,U) ->
+    RR = escape2(<<Rest/binary>>,U),
     <<Ch,RR/binary>>;
-escape2(Any) ->
+escape2(Any,_) ->
     Any.
 
 
@@ -848,28 +839,33 @@ list_to_utf8(L) when is_list(L); is_binary(L) ->
 list_to_utf8({Tag,_,_}) when Tag =:= incomplete ; Tag =:= error ->
     throw(skip).
 
-multi_esc(<<M,N,O,Rest/binary>>) 
+multi_esc(<<M,N,O,Rest/binary>>,_) 
    when M >= $0, M =< $7, N >= $0, N =< $7, O  >= $0, O =< $7 ->
     Cha = ((M - $0) bsl 6) bor ((N - $0) bsl 3) bor (O - $0),
     {<<Cha>>,Rest};
-multi_esc(<<N,O,Rest/binary>>) 
+multi_esc(<<N,O,Rest/binary>>,_) 
    when N >= $0, N =< $7, O  >= $0, O =< $7 ->
     Cha = ((N - $0) bsl 3) bor (O - $0),
     {<<Cha>>,Rest};
-multi_esc(<<O,Rest/binary>>) 
+multi_esc(<<O,Rest/binary>>,_) 
    when O  >= $0, O =< $7 ->
     Cha = (O - $0),
     {<<Cha>>,Rest};
 
 
-multi_esc(<<$x,${,N,O,$},Rest/binary>>) 
+multi_esc(<<$x,${,N,O,$},Rest/binary>>,Unicode) 
     when ((((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
 	 ((N >= $a) and (N =< $f))) and 
 	(((O >= $0) and (O =< $9)) or ((O >= $A) and (O =< $F)) or 
 	 ((O >= $a) and (O =< $f)))) -> 
     Cha = (trx(N) bsl 4) bor trx(O),
-    {int_to_utf8(Cha),Rest};
-multi_esc(<<$x,${,N,O,P,$},Rest/binary>>) 
+    case Unicode of
+	false ->
+	    {<<Cha:8>>,Rest};
+	_ ->
+	    {int_to_utf8(Cha),Rest}
+    end;
+multi_esc(<<$x,${,N,O,P,$},Rest/binary>>,_) 
     when ((((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
 	 ((N >= $a) and (N =< $f))) and 
 	(((O >= $0) and (O =< $9)) or ((O >= $A) and (O =< $F)) or 
@@ -878,7 +874,7 @@ multi_esc(<<$x,${,N,O,P,$},Rest/binary>>)
 	 ((P >= $a) and (P =< $f)))) -> 
     Cha = (trx(N) bsl 8) bor (trx(O) bsl 4) bor trx(P),
     {int_to_utf8(Cha),Rest};
-multi_esc(<<$x,${,N,O,P,Q,$},Rest/binary>>) 
+multi_esc(<<$x,${,N,O,P,Q,$},Rest/binary>>,_) 
     when ((((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
 	 ((N >= $a) and (N =< $f))) and 
 	(((O >= $0) and (O =< $9)) or ((O >= $A) and (O =< $F)) or 
@@ -889,7 +885,7 @@ multi_esc(<<$x,${,N,O,P,Q,$},Rest/binary>>)
 	 ((Q >= $a) and (Q =< $f)))) -> 
     Cha = (trx(N) bsl 12) bor (trx(O) bsl 8) bor (trx(P) bsl 4) bor trx(Q),
     {int_to_utf8(Cha),Rest};
-multi_esc(<<$x,${,N,O,P,Q,R,$},Rest/binary>>) 
+multi_esc(<<$x,${,N,O,P,Q,R,$},Rest/binary>>,_) 
     when ((((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
 	 ((N >= $a) and (N =< $f))) and 
 	(((O >= $0) and (O =< $9)) or ((O >= $A) and (O =< $F)) or 
@@ -902,7 +898,7 @@ multi_esc(<<$x,${,N,O,P,Q,R,$},Rest/binary>>)
 	 ((R >= $a) and (R =< $f)))) -> 
     Cha = (trx(N) bsl 16) bor (trx(O) bsl 12) bor (trx(P) bsl 8) bor (trx(Q) bsl 4) bor trx(R),
     {int_to_utf8(Cha),Rest};
-multi_esc(<<$x,${,N,O,P,Q,R,S,$},Rest/binary>>) 
+multi_esc(<<$x,${,N,O,P,Q,R,S,$},Rest/binary>>,_) 
     when ((((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
 	 ((N >= $a) and (N =< $f))) and 
 	(((O >= $0) and (O =< $9)) or ((O >= $A) and (O =< $F)) or 
@@ -917,19 +913,19 @@ multi_esc(<<$x,${,N,O,P,Q,R,S,$},Rest/binary>>)
 	 ((S >= $a) and (S =< $f)))) -> 
     Cha = (trx(N) bsl 20) bor (trx(O) bsl 16) bor (trx(P) bsl 12) bor (trx(Q) bsl 8) bor (trx(R) bsl 4) bor trx(S),
     {int_to_utf8(Cha),Rest};
-multi_esc(<<$x,N,O,Rest/binary>>) 
+multi_esc(<<$x,N,O,Rest/binary>>,_) 
   when ((((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
 	 ((N >= $a) and (N =< $f))) and 
 	(((O >= $0) and (O =< $9)) or ((O >= $A) and (O =< $F)) or 
 	 ((O >= $a) and (O =< $f)))) -> 
     Cha = (trx(N) bsl 4) bor trx(O),
     {<<Cha>>,Rest};
-multi_esc(<<$x,N,Rest/binary>>) 
+multi_esc(<<$x,N,Rest/binary>>,_) 
   when (((N >= $0) and (N =< $9)) or ((N >= $A) and (N =< $F)) or 
 	 ((N >= $a) and (N =< $f)))  -> 
     Cha = trx(N),
     {<<Cha>>,Rest};
-multi_esc(_) ->
+multi_esc(_,_) ->
     no.
 
 single_esc($") ->
@@ -958,8 +954,8 @@ single_esc($\\) ->
     $\\;
 single_esc($a) ->
     7;
-%single_esc(Ch) when Ch >= $A, Ch =< $Z -> % eh?
-%    Ch;
+%%single_esc(Ch) when Ch >= $A, Ch =< $Z -> % eh?
+%%    Ch;
 
 single_esc(_) ->
     no.
@@ -980,125 +976,140 @@ gen_split_test(OneFile) ->
     Lines = splitfile(0,Bin,1),
     Structured = stru(Lines),
     PerlShellScript = OneFile++"_split_test_gen.sh",
-    dumpsplit(Structured,PerlShellScript),
-    PerlShellScript,
+    FunList = dumpsplit(Structured,PerlShellScript),
     ErlModule = "re_"++filename:basename(OneFile)++"_split_test",
     ErlFileName = ErlModule++".erl",
     {ok,F}= file:open(ErlFileName,[write]),
     io:format(F,"-module(~s).~n",[ErlModule]),
     io:format(F,"-compile(export_all).~n",[]),
     io:format(F,"-compile(no_native).~n",[]),
-    io:format(F,"-include(\"test_server.hrl\").~n",[]),
-    %io:format(F,"-define(line,erlang:display(?LINE),).~n",[]),
     io:format(F,"%% This file is generated by running ~w:gen_split_test(~p)~n",
 	      [?MODULE,OneFile]),
     io:format(F,"join([]) -> [];~n",[]),
     io:format(F,"join([A]) -> [A];~n",[]),
     io:format(F,"join([H|T]) -> [H,<<\":\">>|join(T)].~n",[]),
     io:format(F,"run() ->~n",[]),
+    [ io:format(F,"    ~s(),~n",[FunName]) || FunName <- FunList ],
     file:close(F),
     os:cmd("sh "++ PerlShellScript++" 2>/dev/null >> "++ErlFileName),
-    {ok,F2}= file:open(ErlFileName,[append]),
-    io:format(F2,"ok.~n",[]),
-    file:close(F2),
     io:format("~s~n",[os:cmd("wc -l "++ErlFileName)]),
     ok.
 
 dumpsplit(S,Fname) ->
     {ok,F}= file:open(Fname,[write]),
-    dodumpsplit(F,S),
-    file:close(F).
+    Res = dodumpsplit(F,S,0,[],0),
+    file:close(F),
+    Res.
 
-dodumpsplit(_,[]) ->
-    ok;
-dodumpsplit(F,[H|T]) ->
+dodumpsplit(F,[],_,Acc,_) ->
+    io:format(F,"echo \"    ok.\"~n",[]),
+    lists:reverse(Acc);
+dodumpsplit(F,L,0,Acc,FunNum) ->
+    NewFun = "run"++integer_to_list(FunNum),
+    io:format(F,"echo \"    ok.\"~n",[]),
+    io:format(F,"echo \"~s() ->\"~n",[NewFun]),
+    dodumpsplit(F,L,20,[NewFun|Acc],FunNum+1);
+dodumpsplit(F,[H|T],N,Acc,FunNum) ->
     dumponesplit(F,H),
-    dodumpsplit(F,T).
+    dodumpsplit(F,T,N-1,Acc,FunNum).
 
-dumponesplit(F,{RE,_,O,TS}) ->
+dumponesplit(F,{RE,Line,O,TS}) ->
     [begin
 	 {NO,_} = pick_exec_options(O++Op),
 	 SSS = opt_to_string(NO),
-	 io:format(F,"perl -e '$x = join(\":\",split(/~s/~s,\"~s\")); "
-		   "$x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; "
-		   "print \"?line <<\\\"$x\\\">> = "
-		   "iolist_to_binary(join(re:split(\\\"~s\\\","
-		   "\\\"~s\\\",~p))), \\n\";'~n",
-		   [zsafe(safe(RE)),
-		    SSS,
-		    ysafe(safe(Str)),
-		    dsafe(safe(Str)),
-		    dsafe2(safe(RE)),
-		    NO++[trim]]),
-	 io:format(F,"perl -e '$x = join(\":\",split(/~s/~s,\"~s\",2)); "
-		   "$x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; "
-		   "print \"?line <<\\\"$x\\\">> = "
-		   "iolist_to_binary(join(re:split(\\\"~s\\\","
-		   "\\\"~s\\\",~p))), \\n\";'~n",
-		   [zsafe(safe(RE)),
-		    SSS,
-		    ysafe(safe(Str)),
-		    dsafe(safe(Str)),
-		    dsafe2(safe(RE)),
-		    NO++[{parts,2}]]),
-	 io:format(F,"perl -e '$x = join(\":\",split(/~s/~s,\"~s\",-1)); "
-		   "$x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; "
-		   "print \"?line <<\\\"$x\\\">> = "
-		   "iolist_to_binary(join(re:split(\\\"~s\\\","
-		   "\\\"~s\\\",~p))), \\n\";'~n",
-		   [zsafe(safe(RE)),
-		    SSS,
-		    ysafe(safe(Str)),
-		    dsafe(safe(Str)),
-		    dsafe2(safe(RE)),
-		    NO])
+	 LLL = unicode:characters_to_list(RE),
+	 case (catch iolist_to_binary(LLL)) of
+	     X when is_binary(X) -> 
+		 io:format(F,"perl -e '$x = join(\":\",split(/~s/~s,\"~s\")); "
+			   "$x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; "
+			   "print \"    <<\\\"$x\\\">> = "
+			   "iolist_to_binary(join(re:split(\\\"~s\\\","
+			   "\\\"~s\\\",~p))), \\n\";'~n",
+			   [zsafe(safe(RE)),
+			    SSS,
+			    ysafe(safe(Str)),
+			    dsafe(safe(Str)),
+			    dsafe2(safe(RE)),
+			    NO++[trim]]),
+		 io:format(F,"perl -e '$x = join(\":\",split(/~s/~s,\"~s\",2)); "
+			   "$x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; "
+			   "print \"    <<\\\"$x\\\">> = "
+			   "iolist_to_binary(join(re:split(\\\"~s\\\","
+			   "\\\"~s\\\",~p))), \\n\";'~n",
+			   [zsafe(safe(RE)),
+			    SSS,
+			    ysafe(safe(Str)),
+			    dsafe(safe(Str)),
+			    dsafe2(safe(RE)),
+			    NO++[{parts,2}]]),
+		 io:format(F,"perl -e '$x = join(\":\",split(/~s/~s,\"~s\",-1)); "
+			   "$x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; "
+			   "print \"    <<\\\"$x\\\">> = "
+			   "iolist_to_binary(join(re:split(\\\"~s\\\","
+			   "\\\"~s\\\",~p))), \\n\";'~n",
+			   [zsafe(safe(RE)),
+			    SSS,
+			    ysafe(safe(Str)),
+			    dsafe(safe(Str)),
+			    dsafe2(safe(RE)),
+			    NO]);
+	     _ -> io:format("Found fishy character at line ~w~n",[Line])
+	 end
      end ||
 	{Str,_,Op,_} <- TS].
 
 %% Generate replacement tests from indatafile, 
 %% you will need perl on the machine
 gen_repl_test(OneFile) ->
-    random:seed(1219,687731,62804),
+    rand:seed(exsplus, {1219,687731,62804}),
     {ok,Bin} = file:read_file(OneFile),
     Lines = splitfile(0,Bin,1),
     Structured = stru(Lines),
     PerlShellScript = OneFile++"_replacement_test_gen.sh",
-    dump(Structured,PerlShellScript),
+    FunList = dump(Structured,PerlShellScript),
     ErlModule = "re_"++filename:basename(OneFile)++"_replacement_test",
     ErlFileName = ErlModule++".erl",
     {ok,F}= file:open(ErlFileName,[write]),
     io:format(F,"-module(~s).~n",[ErlModule]),
     io:format(F,"-compile(export_all).~n",[]),
     io:format(F,"-compile(no_native).~n",[]),
-    io:format(F,"-include(\"test_server.hrl\").~n",[]),
     io:format(F,"%% This file is generated by running ~w:gen_repl_test(~p)~n",
 	      [?MODULE,OneFile]),
     io:format(F,"run() ->~n",[]),
+    [ io:format(F,"    ~s(),~n",[FunName]) || FunName <- FunList ],
     file:close(F),
     os:cmd("sh "++ PerlShellScript++" 2>/dev/null >> "++ErlFileName),
-    {ok,F2}= file:open(ErlFileName,[append]),
-    io:format(F2,"ok.~n",[]),
-    file:close(F2),
     io:format("~s~n",[os:cmd("wc -l "++ErlFileName)]),
     ok.
 dump(S,Fname) ->
     {ok,F}= file:open(Fname,[write]),
-    dodump(F,S),
-    file:close(F).
+    Res = dodump(F,S,0,[],0),
+    file:close(F),
+    Res.
     
-dodump(_,[]) ->
-    ok;
-dodump(F,[H|T]) ->
+dodump(F,[],_,Acc,_) ->
+    io:format(F,"echo \"    ok.\"~n",[]),
+    lists:reverse(Acc);
+dodump(F,L,0,Acc,FunNum) ->
+    NewFun = "run"++integer_to_list(FunNum),
+    io:format(F,"echo \"    ok.\"~n",[]),
+    io:format(F,"echo \"~s() ->\"~n",[NewFun]),
+    dodump(F,L,20,[NewFun|Acc],FunNum+1);
+dodump(F,[H|T],N,Acc,FunNum) ->
     dumpone(F,H),
-    dodump(F,T).
+    dodump(F,T,N-1,Acc,FunNum).
 
-dumpone(F,{RE,_,O,TS}) ->
+dumpone(F,{RE,Line,O,TS}) ->
     [begin
 	 {NO,_} = pick_exec_options(O++Op),
 	 SSS = opt_to_string(NO),
 	 RS = ranstring(),
-	 io:format(F,"perl -e '$x = \"~s\"; $x =~~ s/~s/~s/~s; $x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; print \"?line <<\\\"$x\\\">> = iolist_to_binary(re:replace(\\\"~s\\\",\\\"~s\\\",\\\"~s\\\",~p)), \\n\";'~n",[ysafe(safe(Str)),zsafe(safe(RE)),perlify(binary_to_list(RS)),SSS,dsafe(safe(Str)),dsafe(safe(RE)),xsafe(RS),NO]),
-	 io:format(F,"perl -e '$x = \"~s\"; $x =~~ s/~s/~s/g~s; $x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; print \"?line <<\\\"$x\\\">> = iolist_to_binary(re:replace(\\\"~s\\\",\\\"~s\\\",\\\"~s\\\",~p)), \\n\";'~n",[ysafe(safe(Str)),zsafe(safe(RE)),perlify(binary_to_list(RS)),SSS,dsafe(safe(Str)),dsafe(safe(RE)),xsafe(RS),NO++[global]])
+	 LLL = unicode:characters_to_list(RE),
+	 case (catch iolist_to_binary(LLL)) of
+	     X when is_binary(X) -> io:format(F,"perl -e '$x = \"~s\"; $x =~~ s/~s/~s/~s; $x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; print \"    <<\\\"$x\\\">> = iolist_to_binary(re:replace(\\\"~s\\\",\\\"~s\\\",\\\"~s\\\",~p)), \\n\";'~n",[ysafe(safe(Str)),zsafe(safe(RE)),perlify(binary_to_list(RS)),SSS,dsafe(safe(Str)),dsafe(safe(RE)),xsafe(RS),NO]),
+	 io:format(F,"perl -e '$x = \"~s\"; $x =~~ s/~s/~s/g~s; $x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; print \"    <<\\\"$x\\\">> = iolist_to_binary(re:replace(\\\"~s\\\",\\\"~s\\\",\\\"~s\\\",~p)), \\n\";'~n",[ysafe(safe(Str)),zsafe(safe(RE)),perlify(binary_to_list(RS)),SSS,dsafe(safe(Str)),dsafe(safe(RE)),xsafe(RS),NO++[global]]);
+	     _ -> io:format("Found fishy character at line ~w~n",[Line])
+	 end
      end ||
 	{Str,_,Op,_} <- TS].
 
@@ -1203,15 +1214,15 @@ btr(_) ->
 
 
 ranchar() ->
-    case random:uniform(10) of
+    case rand:uniform(10) of
 	9 -> $&;
         10 -> <<"\\1">>;		 
 	N when N < 5 ->
-	    random:uniform($Z-$A)+$A-1;
+	    rand:uniform($Z-$A)+$A-1;
 	M when M < 9 ->
-	    random:uniform($z-$a)+$a-1
+	    rand:uniform($z-$a)+$a-1
     end.
 
 ranstring() ->
-    iolist_to_binary([ranchar() || _ <- lists:duplicate(random:uniform(20),0) ]).
+    iolist_to_binary([ranchar() || _ <- lists:duplicate(rand:uniform(20),0) ]).
 

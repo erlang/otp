@@ -1,0 +1,4 @@
+
+maps1.erl:43: Function t3/0 has no local return
+maps1.erl:44: The call maps1:foo(#{'greger'=>3, #{'arne'=>'anka'}=>45},1) will never return since it differs in the 1st and 2nd argument from the success typing arguments: (#{'beta':=_, _=>_},'b')
+maps1.erl:52: The variable Mod can never match since previous clauses completely covered the type #{}

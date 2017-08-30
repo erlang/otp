@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -31,8 +32,8 @@
 %%% Modified by Martin - uses proc_lib, sys and gen!
 
 
--export([start/0, start/1, start_link/0, start_link/1, stop/1, notify/2, 
-	 sync_notify/2,
+-export([start/0, start/1, start_link/0, start_link/1, stop/1, stop/3,
+	 notify/2, sync_notify/2,
 	 add_handler/3, add_sup_handler/3, delete_handler/3, swap_handler/3,
 	 swap_sup_handler/3, which_handlers/1, call/3, call/4, wake_hib/4]).
 
@@ -40,14 +41,14 @@
 	 system_continue/3,
 	 system_terminate/4,
 	 system_code_change/4,
+	 system_get_state/1,
+	 system_replace_state/2,
 	 format_status/2]).
 
 -export_type([handler/0, handler_args/0, add_handler_ret/0,
               del_handler_ret/0]).
 
 -import(error_logger, [error_msg/2]).
-
--define(reply(X), From ! {element(2,Tag), X}).
 
 -record(handler, {module             :: atom(),
 		  id = false,
@@ -99,6 +100,14 @@
 -callback code_change(OldVsn :: (term() | {down, term()}),
                       State :: term(), Extra :: term()) ->
     {ok, NewState :: term()}.
+-callback format_status(Opt, StatusData) -> Status when
+      Opt :: 'normal' | 'terminate',
+      StatusData :: [PDict | State],
+      PDict :: [{Key :: term(), Value :: term()}],
+      State :: term(),
+      Status :: term().
+
+-optional_callbacks([format_status/2]).
 
 %%---------------------------------------------------------------------------
 
@@ -138,15 +147,10 @@ init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, _, _, Options) ->
     process_flag(trap_exit, true),
-    Debug = gen:debug_options(Options),
+    Name = gen:name(Name0),
+    Debug = gen:debug_options(Name, Options),
     proc_lib:init_ack(Starter, {ok, self()}),
-    Name = name(Name0),
     loop(Parent, Name, [], Debug, false).
-
-name({local,Name}) -> Name;
-name({global,Name}) -> Name;
-name({via,_, Name}) -> Name;
-name(Pid) when is_pid(Pid) -> Pid.
 
 -spec add_handler(emgr_ref(), handler(), term()) -> term().
 add_handler(M, Handler, Args) -> rpc(M, {add_handler, Handler, Args}).
@@ -183,7 +187,11 @@ swap_sup_handler(M, {H1, A1}, {H2, A2}) ->
 which_handlers(M) -> rpc(M, which_handlers).
 
 -spec stop(emgr_ref()) -> 'ok'.
-stop(M) -> rpc(M, stop).
+stop(M) ->
+    gen:stop(M).
+
+stop(M, Reason, Timeout) ->
+    gen:stop(M, Reason, Timeout).
 
 rpc(M, Cmd) -> 
     {ok, Reply} = gen:call(M, self(), Cmd, infinity),
@@ -229,24 +237,6 @@ wake_hib(Parent, ServerName, MSL, Debug) ->
 
 fetch_msg(Parent, ServerName, MSL, Debug, Hib) ->
     receive
-	{system, From, get_state} ->
-	    States = [{Mod,Id,State} || #handler{module=Mod, id=Id, state=State} <- MSL],
-	    sys:handle_system_msg(get_state, From, Parent, ?MODULE, Debug,
-				  {States, [ServerName, MSL, Hib]}, Hib);
-	{system, From, {replace_state, StateFun}} ->
-	    {NMSL, NStates} =
-		lists:unzip([begin
-				 Cur = {Mod,Id,State},
-				 try
-				     NState = {Mod,Id,NS} = StateFun(Cur),
-				     {HS#handler{state=NS}, NState}
-				 catch
-				     _:_ ->
-					 {HS, Cur}
-				 end
-			     end || #handler{module=Mod, id=Id, state=State}=HS <- MSL]),
-	    sys:handle_system_msg(replace_state, From, Parent, ?MODULE, Debug,
-				  {NStates, [ServerName, NMSL, Hib]}, Hib);
 	{system, From, Req} ->
 	    sys:handle_system_msg(Req, From, Parent, ?MODULE, Debug,
 				  [ServerName, MSL, Hib],Hib);
@@ -265,49 +255,49 @@ handle_msg(Msg, Parent, ServerName, MSL, Debug) ->
 	{notify, Event} ->
 	    {Hib,MSL1} = server_notify(Event, handle_event, MSL, ServerName),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
-	{From, Tag, {sync_notify, Event}} ->
+	{_From, Tag, {sync_notify, Event}} ->
 	    {Hib, MSL1} = server_notify(Event, handle_event, MSL, ServerName),
-	    ?reply(ok),
+	    reply(Tag, ok),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
 	{'EXIT', From, Reason} ->
 	    MSL1 = handle_exit(From, Reason, MSL, ServerName),
 	    loop(Parent, ServerName, MSL1, Debug, false);
-	{From, Tag, {call, Handler, Query}} ->
+	{_From, Tag, {call, Handler, Query}} ->
 	    {Hib, Reply, MSL1} = server_call(Handler, Query, MSL, ServerName),
-	    ?reply(Reply),
+	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
-	{From, Tag, {add_handler, Handler, Args}} ->
+	{_From, Tag, {add_handler, Handler, Args}} ->
 	    {Hib, Reply, MSL1} = server_add_handler(Handler, Args, MSL),
-	    ?reply(Reply),
+	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
-	{From, Tag, {add_sup_handler, Handler, Args, SupP}} ->
+	{_From, Tag, {add_sup_handler, Handler, Args, SupP}} ->
 	    {Hib, Reply, MSL1} = server_add_sup_handler(Handler, Args, MSL, SupP),
-	    ?reply(Reply),
+	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
-	{From, Tag, {delete_handler, Handler, Args}} ->
+	{_From, Tag, {delete_handler, Handler, Args}} ->
 	    {Reply, MSL1} = server_delete_handler(Handler, Args, MSL,
 						  ServerName),
-	    ?reply(Reply),
+	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, Debug, false);
-	{From, Tag, {swap_handler, Handler1, Args1, Handler2, Args2}} ->
+	{_From, Tag, {swap_handler, Handler1, Args1, Handler2, Args2}} ->
 	    {Hib, Reply, MSL1} = server_swap_handler(Handler1, Args1, Handler2,
 						     Args2, MSL, ServerName),
-	    ?reply(Reply),
+	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
-	{From, Tag, {swap_sup_handler, Handler1, Args1, Handler2, Args2,
+	{_From, Tag, {swap_sup_handler, Handler1, Args1, Handler2, Args2,
 		     Sup}} ->
 	    {Hib, Reply, MSL1} = server_swap_handler(Handler1, Args1, Handler2,
 						Args2, MSL, Sup, ServerName),
-	    ?reply(Reply),
+	    reply(Tag, Reply),
 	    loop(Parent, ServerName, MSL1, Debug, Hib);
-	{From, Tag, stop} ->
+	{_From, Tag, stop} ->
 	    catch terminate_server(normal, Parent, MSL, ServerName),
-	    ?reply(ok);
-	{From, Tag, which_handlers} ->
-	    ?reply(the_handlers(MSL)),
+	    reply(Tag, ok);
+	{_From, Tag, which_handlers} ->
+	    reply(Tag, the_handlers(MSL)),
 	    loop(Parent, ServerName, MSL, Debug, false);
-	{From, Tag, get_modules} ->
-	    ?reply(get_modules(MSL)),
+	{_From, Tag, get_modules} ->
+	    reply(Tag, get_modules(MSL)),
 	    loop(Parent, ServerName, MSL, Debug, false);
 	Other  ->
 	    {Hib, MSL1} = server_notify(Other, handle_info, MSL, ServerName),
@@ -318,6 +308,10 @@ terminate_server(Reason, Parent, MSL, ServerName) ->
     stop_handlers(MSL, ServerName),
     do_unlink(Parent, MSL),
     exit(Reason).
+
+reply({From, Ref}, Msg) ->
+    From ! {Ref, Msg},
+    ok.
 
 %% unlink the supervisor process of all supervised handlers.
 %% We do not want a handler supervisor to EXIT due to the
@@ -382,6 +376,23 @@ system_code_change([ServerName, MSL, Hib], Module, OldVsn, Extra) ->
 		    end,
 		    MSL),
     {ok, [ServerName, MSL1, Hib]}.
+
+system_get_state([_ServerName, MSL, _Hib]) ->
+    {ok, [{Mod,Id,State} || #handler{module=Mod, id=Id, state=State} <- MSL]}.
+
+system_replace_state(StateFun, [ServerName, MSL, Hib]) ->
+    {NMSL, NStates} =
+		lists:unzip([begin
+				 Cur = {Mod,Id,State},
+				 try
+				     NState = {Mod,Id,NS} = StateFun(Cur),
+				     {HS#handler{state=NS}, NState}
+				 catch
+				     _:_ ->
+					 {HS, Cur}
+				 end
+			     end || #handler{module=Mod, id=Id, state=State}=HS <- MSL]),
+    {ok, NStates, [ServerName, NMSL, Hib]}.
 
 %%-----------------------------------------------------------------
 %% Format debug messages.  Print them as the call-back module sees

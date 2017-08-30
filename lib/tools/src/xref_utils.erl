@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -45,8 +46,6 @@
 -export([find_beam/1]).
 
 -export([options/2]).
-
--export([subprocess/2]).
 
 -export([format_error/1]).
 
@@ -244,6 +243,8 @@ select_last_application_version(AppVs) ->
     TL = to_external(partition(1, relation(AppVs))),
     [last(keysort(2, L)) || L <- TL].
 
+-record(scan, {collected = [], errors = [], seen = [], unreadable = []}).
+
 %% scan_directory(Directory, Recurse, Collect, Watch) -> 
 %%     {Collected, Errors, Seen, Unreadable}
 %%
@@ -260,8 +261,9 @@ select_last_application_version(AppVs) ->
 %% Unreadable.
 %%
 scan_directory(File, Recurse, Collect, Watch) ->
-    Init = [[] | {[],[],[]}],
-    [L | {E,J,U}] = find_files_dir(File, Recurse, Collect, Watch, Init),
+    Init = #scan{},
+    S = find_files_dir(File, Recurse, Collect, Watch, Init),
+    #scan{collected = L, errors = E, seen = J, unreadable = U} = S,
     {reverse(L), reverse(E), reverse(J), reverse(U)}.
 
 %% {Dir, Basename} | false
@@ -437,7 +439,7 @@ regexpr({ModExpr, FunExpr, ArityExpr}, Var) ->
 	    V2
     end.
 
-%% -> digraph()
+%% -> digraph:graph()
 relation_to_graph(S) ->
     G = digraph:new(),
     Fun = fun({From, To}) -> 
@@ -508,12 +510,6 @@ find_beam(Culprit) ->
 options(Options, Valid) ->
     split_options(Options, [], [], [], Valid).
 
-subprocess(Fun, Opts) ->
-    Pid = spawn_opt(Fun, Opts),
-    receive 
-	{Pid, Reply} -> Reply
-    end.
-
 format_error({error, Module, Error}) ->
     Module:format_error(Error);
 format_error({file_error, FileName, Reason}) ->
@@ -575,8 +571,7 @@ find_files_dir(Dir, Recurse, Collect, Watch, L) ->
 	{ok, Files} ->
 	    find_files(sort(Files), Dir, Recurse, Collect, Watch, L);
 	{error, Error} ->
-	    [B | {E,J,U}] = L,
-	    [B | {[file_error(Dir, Error)|E],J,U}]
+            L#scan{errors = [file_error(Dir, Error)|L#scan.errors]}
     end.
 
 find_files([F | Fs], Dir, Recurse, Collect, Watch, L) ->
@@ -587,22 +582,23 @@ find_files([F | Fs], Dir, Recurse, Collect, Watch, L) ->
              {ok, {_, directory, _, _}} ->
 		 L;
 	     Info ->
-		 [B | EJU = {E,J,U}] = L,
+                 #scan{collected = B, errors = E,
+                       seen = J, unreadable = U} = L,
 		 Ext = filename:extension(File),
 		 C = member(Ext, Collect),
 		 case C of
 		     true ->
 			 case Info of
 			     {ok, {_, file, readable, _}} ->
-				 [[{Dir,F} | B] | EJU];
+                                 L#scan{collected = [{Dir,F} | B]};
 			     {ok, {_, file, unreadable, _}} ->
-				 [B | {E,J,[File|U]}];
+                                 L#scan{unreadable = [File|U]};
 			     Error ->
-				 [B | {[Error|E],J,U}]
+                                 L#scan{errors = [Error|E]}
 			 end;
 		     false ->
 			 case member(Ext, Watch) of
-			     true -> [B | {E,[File|J],U}];
+                             true -> L#scan{seen = [File|J]};
 			     false -> L
 			 end
 		 end

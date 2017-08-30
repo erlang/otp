@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -42,7 +43,28 @@
 -define(PERM_644, 8#644).
 
 
-%% API
+%%% API
+
+%%% client
+-spec add_host_key(string(),
+		   public_key:public_key(),
+		   proplists:proplist()) -> ok | {error,term()}.
+
+-spec is_host_key(public_key:public_key(),
+		  string(),
+		  ssh_client_key_api:algorithm(),
+		  proplists:proplist()) -> boolean().
+
+-spec user_key(ssh_client_key_api:algorithm(),
+	       proplists:proplist()) -> {ok, public_key:private_key()} | {error,term()}.
+
+%%% server
+-spec host_key(ssh_server_key_api:algorithm(),
+	       proplists:proplist()) ->  {ok, public_key:private_key()} | {error,term()}.
+
+-spec is_auth_key(public_key:public_key(),
+		  string(), proplists:proplist()) -> boolean().
+
 
 %% Used by server
 host_key(Algorithm, Opts) ->
@@ -51,8 +73,20 @@ host_key(Algorithm, Opts) ->
     %% so probably we could hardcod Password = ignore, but
     %% we keep it as an undocumented option for now.
     Password = proplists:get_value(identity_pass_phrase(Algorithm), Opts, ignore),
-    decode(File, Password).
-
+    case decode(File, Password) of
+	{ok,Key} ->
+	    case {Key,Algorithm} of
+		{#'RSAPrivateKey'{}, 'ssh-rsa'} -> {ok,Key};
+		{#'DSAPrivateKey'{}, 'ssh-dss'} -> {ok,Key};
+		{#'ECPrivateKey'{parameters = {namedCurve, ?'secp256r1'}}, 'ecdsa-sha2-nistp256'} -> {ok,Key};
+		{#'ECPrivateKey'{parameters = {namedCurve, ?'secp384r1'}}, 'ecdsa-sha2-nistp384'} -> {ok,Key};
+		{#'ECPrivateKey'{parameters = {namedCurve, ?'secp521r1'}}, 'ecdsa-sha2-nistp521'} -> {ok,Key};
+		_ -> 
+		    {error,bad_keytype_in_file}
+	    end;
+	Other ->
+	    Other
+    end.
 
 is_auth_key(Key, User,Opts) ->
     case lookup_user_key(Key, User, Opts) of
@@ -65,7 +99,7 @@ is_auth_key(Key, User,Opts) ->
 
 %% Used by client
 is_host_key(Key, PeerName, Algorithm, Opts) ->
-    case lookup_host_key(PeerName, Algorithm, Opts) of
+    case lookup_host_key(Key, PeerName, Algorithm, Opts) of
 	{ok, Key} ->
 	    true;
 	_ ->
@@ -80,16 +114,15 @@ user_key(Algorithm, Opts) ->
 
 %% Internal functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-file_base_name('ssh-rsa') ->
-    "ssh_host_rsa_key";
-file_base_name('ssh-dss') ->
-    "ssh_host_dsa_key";
-file_base_name(_) ->
-    "ssh_host_key".
+file_base_name('ssh-rsa'            ) -> "ssh_host_rsa_key";
+file_base_name('ssh-dss'            ) -> "ssh_host_dsa_key";
+file_base_name('ecdsa-sha2-nistp256') -> "ssh_host_ecdsa_key";
+file_base_name('ecdsa-sha2-nistp384') -> "ssh_host_ecdsa_key";
+file_base_name('ecdsa-sha2-nistp521') -> "ssh_host_ecdsa_key";
+file_base_name(_                    ) -> "ssh_host_key".
 
 decode(File, Password) ->
-    try 
-	{ok, decode_ssh_file(read_ssh_file(File), Password)}
+    try {ok, decode_ssh_file(read_ssh_file(File), Password)}
     catch 
 	throw:Reason ->
 	    {error, Reason};
@@ -121,9 +154,9 @@ decode_ssh_file(Pem, Password) ->
 %% return {ok, Key(s)} or {error, not_found}
 %%
 
-lookup_host_key(Host, Alg, Opts) ->
+lookup_host_key(KeyToMatch, Host, Alg, Opts) ->
     Host1 = replace_localhost(Host),
-    do_lookup_host_key(Host1, Alg, Opts).
+    do_lookup_host_key(KeyToMatch, Host1, Alg, Opts).
 	    
 
 add_host_key(Host, Key, Opts) ->
@@ -204,40 +237,43 @@ replace_localhost("localhost") ->
 replace_localhost(Host) ->
     Host.
 
-do_lookup_host_key(Host, Alg, Opts) ->
+do_lookup_host_key(KeyToMatch, Host, Alg, Opts) ->
     case file:open(file_name(user, "known_hosts", Opts), [read, binary]) of
 	{ok, Fd} ->
-	    Res = lookup_host_key_fd(Fd, Host, Alg),
+	    Res = lookup_host_key_fd(Fd, KeyToMatch, Host, Alg),
 	    file:close(Fd),
-	    {ok, Res};
-	{error, enoent} -> {error, not_found};
-	Error -> Error
+	    Res;
+	{error, enoent} ->
+	    {error, not_found};
+	Error ->
+	    Error
     end.
 
-identity_key_filename('ssh-dss') ->
-    "id_dsa";
-identity_key_filename('ssh-rsa') ->
-    "id_rsa".
+identity_key_filename('ssh-dss'            ) -> "id_dsa";
+identity_key_filename('ssh-rsa'            ) -> "id_rsa";
+identity_key_filename('ecdsa-sha2-nistp256') -> "id_ecdsa";
+identity_key_filename('ecdsa-sha2-nistp384') -> "id_ecdsa";
+identity_key_filename('ecdsa-sha2-nistp521') -> "id_ecdsa".
 
-identity_pass_phrase("ssh-dss") ->
-    dsa_pass_phrase;
-identity_pass_phrase('ssh-dss') ->
-    dsa_pass_phrase;
-identity_pass_phrase('ssh-rsa') ->
-    rsa_pass_phrase;
-identity_pass_phrase("ssh-rsa") ->
-    rsa_pass_phrase.
-
-lookup_host_key_fd(Fd, Host, KeyType) ->
+identity_pass_phrase("ssh-dss"       ) -> dsa_pass_phrase;
+identity_pass_phrase("ssh-rsa"       ) -> rsa_pass_phrase;
+identity_pass_phrase("ecdsa-sha2-"++_) -> ecdsa_pass_phrase;
+identity_pass_phrase(P) when is_atom(P) -> 
+    identity_pass_phrase(atom_to_list(P)).
+    
+lookup_host_key_fd(Fd, KeyToMatch, Host, KeyType) ->
     case io:get_line(Fd, '') of
 	eof ->
 	    {error, not_found};
+	{error,Error} ->
+	    %% Rare... For example NFS errors
+	    {error,Error};
 	Line ->
 	    case ssh_decode_line(Line, known_hosts) of
 		[{Key, Attributes}] ->
-		    handle_host(Fd, Host, proplists:get_value(hostnames, Attributes), Key, KeyType);
+		    handle_host(Fd, KeyToMatch, Host, proplists:get_value(hostnames, Attributes), Key, KeyType);
 		[] ->
-		    lookup_host_key_fd(Fd, Host, KeyType)
+		    lookup_host_key_fd(Fd, KeyToMatch, Host, KeyType)
 	    end
     end.
 
@@ -248,13 +284,13 @@ ssh_decode_line(Line, Type) ->
 	    []
     end.
 
-handle_host(Fd, Host, HostList, Key, KeyType) ->
+handle_host(Fd, KeyToMatch, Host, HostList, Key, KeyType) ->
     Host1 = host_name(Host),
-    case lists:member(Host1, HostList) and key_match(Key, KeyType) of
-	true ->
-	    Key;
-	false ->
-	    lookup_host_key_fd(Fd, Host, KeyType)
+    case lists:member(Host1, HostList) andalso key_match(Key, KeyType) of
+	true when KeyToMatch == Key ->
+	    {ok,Key};
+	_ ->
+	    lookup_host_key_fd(Fd, KeyToMatch, Host, KeyType)
     end.
 
 host_name(Atom) when is_atom(Atom) ->
@@ -266,6 +302,13 @@ key_match(#'RSAPublicKey'{}, 'ssh-rsa') ->
     true;
 key_match({_, #'Dss-Parms'{}}, 'ssh-dss') ->
     true;
+key_match({#'ECPoint'{},{namedCurve,Curve}}, Alg) ->
+    case atom_to_list(Alg) of
+	"ecdsa-sha2-"++IdS ->
+	    Curve == public_key:ssh_curvename2oid(list_to_binary(IdS));
+	_ ->
+	    false
+    end;
 key_match(_, _) ->
     false.
 
@@ -292,6 +335,9 @@ lookup_user_key_fd(Fd, Key) ->
     case io:get_line(Fd, '') of
 	eof ->
 	    {error, not_found};
+	{error,Error} ->
+	    %% Rare... For example NFS errors
+	    {error,Error};
 	Line ->
 	    case ssh_decode_line(Line, auth_keys) of
 		[{AuthKey, _}] ->
@@ -311,9 +357,26 @@ is_auth_key(Key, Key) ->
 is_auth_key(_,_) -> 
     false.
 
-default_user_dir()->
-    {ok,[[Home|_]]} = init:get_argument(home),
+
+default_user_dir() ->
+    try
+	default_user_dir(os:getenv("HOME"))
+    catch
+	_:_ ->
+	    default_user_dir(init:get_argument(home))
+    end.
+
+default_user_dir({ok,[[Home|_]]}) ->
+    default_user_dir(Home);
+default_user_dir(Home) when is_list(Home) ->
     UserDir = filename:join(Home, ".ssh"),
     ok = filelib:ensure_dir(filename:join(UserDir, "dummy")),
-    ok = file:change_mode(UserDir, ?PERM_700),
+    {ok,Info} = file:read_file_info(UserDir),
+    #file_info{mode=Mode} = Info,
+    case (Mode band 8#777) of
+	?PERM_700 ->
+	    ok;
+	_Other ->
+	    ok = file:change_mode(UserDir, ?PERM_700)
+    end,
     UserDir.

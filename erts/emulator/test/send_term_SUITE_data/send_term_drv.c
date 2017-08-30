@@ -1,13 +1,14 @@
-/* ``The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved via the world wide web at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+/* ``Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * The Initial Developer of the Original Code is Ericsson Utvecklings AB.
  * Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
@@ -104,7 +105,7 @@ static void send_term_drv_run(ErlDrvData port, char *buf, ErlDrvSizeT count)
 	    double f = 3.1416;
 
 	    msg[0] = ERL_DRV_ATOM;
-	    msg[1] = driver_mk_atom("blurf"),
+	    msg[1] = driver_mk_atom("blurf");
 	    msg[2] = ERL_DRV_INT;
 	    msg[3] = (ErlDrvTermData) 42;
 	    msg[4] = ERL_DRV_NIL;
@@ -126,9 +127,11 @@ static void send_term_drv_run(ErlDrvData port, char *buf, ErlDrvSizeT count)
 	    msg[20] = (ErlDrvTermData) &f;
 	    msg[21] = ERL_DRV_PID;
 	    msg[22] = driver_connected(erlang_port);
-	    msg[23] = ERL_DRV_TUPLE;
-	    msg[24] = (ErlDrvTermData) 7;
-	    msg += 25;
+	    msg[23] = ERL_DRV_MAP;
+	    msg[24] = (ErlDrvTermData) 0;
+	    msg[25] = ERL_DRV_TUPLE;
+	    msg[26] = (ErlDrvTermData) 8;
+	    msg += 27;
 	}
 	break;
 
@@ -481,6 +484,52 @@ static void send_term_drv_run(ErlDrvData port, char *buf, ErlDrvSizeT count)
 	break;
     }
 
+    case 40: {
+	msg[0] = ERL_DRV_MAP;
+	msg[1] = (ErlDrvTermData) 0;
+	msg += 2;
+	break;
+    }
+
+    case 41:    /* Most term types inside a map */
+    case 42: {
+	double f = 3.1416;
+
+	if (buf[i] == 41) {
+	    *msg++ = ERL_DRV_ATOM;
+	    *msg++ = driver_mk_atom("blurf");
+	}
+	*msg++ = ERL_DRV_INT;
+	*msg++ = (ErlDrvTermData)42;
+	*msg++ = ERL_DRV_NIL;
+	*msg++ = ERL_DRV_INT;
+	*msg++ = (ErlDrvTermData)-42;
+	*msg++ = ERL_DRV_TUPLE;
+	*msg++ = (ErlDrvTermData)0;
+	*msg++ = ERL_DRV_PORT;
+	*msg++ = driver_mk_port(erlang_port);
+	*msg++ = ERL_DRV_STRING_CONS;
+	*msg++ = (ErlDrvTermData)"abc";
+	*msg++ = (ErlDrvTermData)3;
+	*msg++ = ERL_DRV_LIST;
+	*msg++ = (ErlDrvTermData)3;
+	*msg++ = ERL_DRV_STRING;
+	*msg++ = (ErlDrvTermData)"kalle";
+	*msg++ = (ErlDrvTermData)5;
+	*msg++ = ERL_DRV_FLOAT;
+	*msg++ = (ErlDrvTermData)&f;
+	*msg++ = ERL_DRV_PID;
+	*msg++ = driver_connected(erlang_port);
+	*msg++ = ERL_DRV_MAP;
+	*msg++ = (ErlDrvTermData)0;
+	if (buf[i] == 42) {
+	    *msg++ = ERL_DRV_ATOM;
+	    *msg++ = driver_mk_atom("blurf");
+	}
+	*msg++ = ERL_DRV_MAP;
+	*msg++ = (ErlDrvTermData)4;
+	break;
+    }
 
     case 127:			/* Error cases */
 	{
@@ -661,6 +710,22 @@ static void send_term_drv_run(ErlDrvData port, char *buf, ErlDrvSizeT count)
 		FAIL_TERM(msg, 1);
 		FAIL_TERM(msg, 2);
 	    }
+
+	    msg[0] = ERL_DRV_MAP;
+	    msg[1] = (ErlDrvTermData) 0;
+	    FAIL_TERM(msg, 1);
+
+	    /* map with duplicate key */
+	    msg[0] = ERL_DRV_ATOM;
+	    msg[1] = driver_mk_atom("key");
+	    msg[2] = ERL_DRV_NIL;
+	    msg[3] = ERL_DRV_ATOM;
+	    msg[4] = driver_mk_atom("key");
+	    msg[5] = ERL_DRV_INT;
+	    msg[6] = (ErlDrvTermData) -4711;
+	    msg[7] = ERL_DRV_MAP;
+	    msg[8] = 2;
+	    FAIL_TERM(msg, 9);
 
 	    /* Signal end of test case */
 	    msg[0] = ERL_DRV_NIL;

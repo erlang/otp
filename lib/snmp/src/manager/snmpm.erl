@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %% 
@@ -75,11 +76,10 @@
 
 	 %% 
 	 %% Logging
-	 log_to_txt/1, 
-	 log_to_txt/2, log_to_txt/3, log_to_txt/4,
-	 log_to_txt/5, log_to_txt/6, log_to_txt/7, 
-	 log_to_io/1,  log_to_io/2,  log_to_io/3,
-	 log_to_io/4,  log_to_io/5,  log_to_io/6, 
+	 log_to_txt/1, log_to_txt/2, log_to_txt/3, log_to_txt/4, 
+	 log_to_txt/5, log_to_txt/6, log_to_txt/7, log_to_txt/8, 
+	 log_to_io/1,  log_to_io/2,  log_to_io/3,  log_to_io/4, 
+	 log_to_io/5,  log_to_io/6,  log_to_io/7, 
 	 change_log_size/1,
 	 get_log_type/0,
 	 set_log_type/1,
@@ -111,6 +111,12 @@
 -export([start_link/3, snmpm_start_verify/2, snmpm_start_verify/3]).
 -export([target_name/1, target_name/2]).
 
+-export_type([
+	      register_timeout/0, 
+	      agent_config/0, 
+	      target_name/0
+	     ]).
+
 
 -include_lib("snmp/src/misc/snmp_debug.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
@@ -119,6 +125,26 @@
 -include("snmp_verbosity.hrl").
 
 -define(DEFAULT_AGENT_PORT, 161).
+-define(ATL_BLOCK_DEFAULT,  true).
+
+
+%%-----------------------------------------------------------------
+%% Types
+%%-----------------------------------------------------------------
+
+-type register_timeout() :: pos_integer() | snmp:snmp_timer().
+-type agent_config() :: {engine_id,        snmp:engine_id()}   | % Mandatory
+			{address,          inet:ip_address()}  | % Mandatory
+			{port,             inet:port_number()} | % Optional
+			{tdomain,          snmp:tdomain()}     | % Optional
+			{community,        snmp:community()}   | % Optional
+			{timeout,          register_timeout()} | % Optional
+			{max_message_size, snmp:mms()}         | % Optional
+			{version,          snmp:version()}     | % Optional
+			{sec_moduel,       snmp:sec_model()}   | % Optional
+			{sec_name,         snmp:sec_name()}    | % Optional
+			{sec_level,        snmp:sec_level()}.    % Optional
+-type target_name() :: string().
 
 
 %% This function is called when the snmp application
@@ -354,21 +380,33 @@ register_agent(UserId, Addr) ->
     register_agent(UserId, Addr, ?DEFAULT_AGENT_PORT, []).
 
 %% Backward compatibility 
-register_agent(UserId, Addr, Port, Config0) ->
+register_agent(UserId, Domain, Addr, Config0) when is_atom(Domain) ->
     case lists:keymember(target_name, 1, Config0) of
 	false ->
-	    TargetName = mk_target_name(Addr, Port, Config0), 
-	    Config     = [{reg_type, addr_port}, 
-			  {address, Addr}, {port, Port} | Config0], 
+	    TargetName = mk_target_name(Domain, Addr, Config0),
+	    Config =
+		[{reg_type, addr_port},
+		 {tdomain, Domain}, {taddress, Addr} | Config0],
 	    do_register_agent(UserId, TargetName, ensure_engine_id(Config));
 	true ->
 	    {value, {_, TargetName}} = 
 		lists:keysearch(target_name, 1, Config0),
 	    Config1 = lists:keydelete(target_name, 1, Config0),
-	    Config2 = [{reg_type, addr_port}, 
-		       {address, Addr}, {port, Port} | Config1], 
+	    Config2 =
+		[{reg_type, addr_port},
+		 {tdomain, Domain}, {taddress, Addr} | Config1],
 	    register_agent(UserId, TargetName, ensure_engine_id(Config2))
-    end.
+    end;
+register_agent(UserId, Ip, Port, Config) when is_integer(Port) ->
+    Domain = snmpm_config:default_transport_domain(),
+    Addr =
+	case snmp_conf:check_address(Domain, {Ip, Port}) of
+	    ok ->
+		{Ip, Port};
+	    {ok, FixedAddr} ->
+		FixedAddr
+	end,
+    register_agent(UserId, Domain, Addr, Config).
 
 unregister_agent(UserId, TargetName) when is_list(TargetName) ->
     snmpm_config:unregister_agent(UserId, TargetName);
@@ -377,8 +415,8 @@ unregister_agent(UserId, TargetName) when is_list(TargetName) ->
 unregister_agent(UserId, Addr) ->
     unregister_agent(UserId, Addr, ?DEFAULT_AGENT_PORT).
 
-unregister_agent(UserId, Addr, Port) ->
-    case target_name(Addr, Port) of
+unregister_agent(UserId, DomainIp, AddressPort) ->
+    case target_name(DomainIp, AddressPort) of
 	{ok, TargetName} ->
 	    unregister_agent(UserId, TargetName);
 	Error ->
@@ -483,7 +521,7 @@ sync_get(UserId, TargetName, Context, Oids, Timeout, ExtraInfo) ->
 
 
 
-%% --- asynchroneous get-request ---
+%% --- asynchronous get-request ---
 %% 
 %% The reply will be delivered to the user
 %% through a call to handle_pdu/5
@@ -551,7 +589,7 @@ sync_get_next(UserId, TargetName, Context, Oids, Timeout, ExtraInfo) ->
 %% </BACKWARD-COMPAT>
 
 
-%% --- asynchroneous get_next-request ---
+%% --- asynchronous get_next-request ---
 %% 
 
 async_get_next2(UserId, TargetName, Oids) ->
@@ -617,7 +655,7 @@ sync_set(UserId, TargetName, Context, VarsAndVals, Timeout, ExtraInfo) ->
 %% </BACKWARD-COMPAT>
 
 
-%% --- asynchroneous set-request --- 
+%% --- asynchronous set-request ---
 %% 
 
 async_set2(UserId, TargetName, VarsAndVals) ->
@@ -709,7 +747,7 @@ sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Context, Oids, Timeout,
 %% </BACKWARD-COMPAT>
 
 
-%% --- asynchroneous get-bulk ---
+%% --- asynchronous get-bulk ---
 %% 
 
 async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
@@ -762,43 +800,204 @@ cancel_async_request(UserId, ReqId) ->
 %%% Audit Trail Log functions (for backward compatibility)
 %%%-----------------------------------------------------------------
 
+-spec log_to_txt(LogDir :: snmp:dir()) ->
+    snmp:void().
+
 log_to_txt(LogDir) ->
     log_to_txt(LogDir, []). 
-log_to_txt(LogDir, Mibs) ->
+
+-spec log_to_txt(LogDir :: snmp:dir(), 
+		 Block  :: boolean()) ->
+    snmp:void();
+                (LogDir :: snmp:dir(), 
+		 Mibs   :: [snmp:mib_name()]) ->
+    snmp:void().
+
+log_to_txt(LogDir, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    Mibs    = [], 
     OutFile = "snmpm_log.txt",       
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile).
-log_to_txt(LogDir, Mibs, OutFile) ->
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
+log_to_txt(LogDir, Mibs) ->
+    Block   = ?ATL_BLOCK_DEFAULT, 
+    OutFile = "snmpm_log.txt",       
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile).
-log_to_txt(LogDir, Mibs, OutFile, LogName) ->
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
+
+-spec log_to_txt(LogDir :: snmp:dir(), 
+		 Mibs   :: [snmp:mib_name()], 
+		 Block  :: boolean()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, Block)  
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    OutFile = "snmpm_log.txt",       
+    LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile).
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
+log_to_txt(LogDir, Mibs, OutFile) ->
+    Block   = ?ATL_BLOCK_DEFAULT, 
+    LogName = ?audit_trail_log_name, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 Block   :: boolean()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, Block)  
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    LogName = ?audit_trail_log_name, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block); 
+log_to_txt(LogDir, Mibs, OutFile, LogName) ->
+    Block   = ?ATL_BLOCK_DEFAULT, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 Block   :: boolean()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, Block)  
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) -> 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile).
+    Block = ?ATL_BLOCK_DEFAULT, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Block   :: boolean()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Start   :: snmp_log:log_time()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block)  
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) -> 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start).
+    Block = ?ATL_BLOCK_DEFAULT, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Block   :: boolean(), 
+		 Start   :: snmp_log:log_time()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Start   :: snmp_log:log_time(), 
+		 Stop    :: snmp_log:log_time()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop).
+    Block = ?ATL_BLOCK_DEFAULT, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Block   :: boolean(), 
+		 Start   :: snmp_log:log_time(), 
+		 Stop    :: snmp_log:log_time()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) -> 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
 
 log_to_io(LogDir) ->
     log_to_io(LogDir, []).
+
+log_to_io(LogDir, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    Mibs    = [], 
+    LogName = ?audit_trail_log_name, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs) ->
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
-log_to_io(LogDir, Mibs, LogName) ->
+
+log_to_io(LogDir, Mibs, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) ->
+    LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
-    snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
+log_to_io(LogDir, Mibs, LogName) ->
+    Block   = ?ATL_BLOCK_DEFAULT, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
+
+log_to_io(LogDir, Mibs, LogName, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName, LogFile) -> 
-    snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
+    Block = ?ATL_BLOCK_DEFAULT, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName, LogFile, Start) -> 
-    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Start).
+    Block = ?ATL_BLOCK_DEFAULT, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start).
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start); 
 log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> 
-    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop).
+    Block = ?ATL_BLOCK_DEFAULT, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
     
 
 change_log_size(NewSize) ->
@@ -1078,14 +1277,17 @@ format_vb_value(Prefix, _Type, Val) ->
 %% --- Internal utility functions ---
 %% 
 
-target_name(Addr) ->
-    target_name(Addr, ?DEFAULT_AGENT_PORT).
+target_name(Ip) ->
+    target_name(Ip, ?DEFAULT_AGENT_PORT).
 
-target_name(Addr, Port) ->
-    snmpm_config:agent_info(Addr, Port, target_name).
+target_name(DomainIp, AddressPort) ->
+    snmpm_config:agent_info(DomainIp, AddressPort, target_name).
 
 mk_target_name(Addr, Port, Config) ->
-    snmpm_config:mk_target_name(Addr, Port, Config).
+    R = snmpm_config:mk_target_name(Addr, Port, Config),
+    p(?MODULE_STRING":mk_target_name(~p, ~p, ~p) -> ~p.~n",
+      [Addr, Port, Config, R]),
+    R.
 
 ensure_engine_id(Config) ->
     case lists:keymember(engine_id, 1, Config) of
@@ -1101,5 +1303,5 @@ ensure_engine_id(Config) ->
 %% p(F) ->
 %%     p(F, []).
 
-%% p(F, A) ->
-%%     io:format("~w:" ++ F ++ "~n", [?MODULE | A]).
+p(F, A) ->
+    io:format("~w:" ++ F ++ "~n", [?MODULE | A]).

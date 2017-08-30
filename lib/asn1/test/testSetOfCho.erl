@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -21,7 +22,7 @@
 
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('SetChoDef',{bool1, int1, set1 = asn1_DEFAULT}).
 -record('SetChoOpt',{bool1, int1, set1 = asn1_NOVALUE}).
@@ -30,120 +31,46 @@
 -record('SetOfChoEmbDef_SETOF',{bool1, int1, set1 = asn1_DEFAULT}).
 -record('SetOfChoEmbOpt_SETOF',{bool1, int1, set1 = asn1_NOVALUE}).
 
-
-
 main(_Rules) ->
-    
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('SetOfCho','SetChoDef',#'SetChoDef'{bool1 = true,
-							  int1 = 17}),
-    ?line {ok,{'SetChoDef',true,17,[]}} = 
-	asn1_wrapper:decode('SetOfCho','SetChoDef',lists:flatten(Bytes11)),
-    
-    
-    ?line {ok,Bytes12} = 
-	asn1_wrapper:encode('SetOfCho','SetChoDef',#'SetChoDef'{bool1 = true,
-							  int1 = 17,
-							  set1 = [{boolIn,true},
-								  {intIn,25}]}),
-    ?line {ok,{'SetChoDef',true,17,[{boolIn,true},{intIn,25}]}} = 
-	asn1_wrapper:decode('SetOfCho','SetChoDef',lists:flatten(Bytes12)),
-    
-    
-    
-    ?line {ok,Bytes15} = 
-	asn1_wrapper:encode('SetOfCho','SetChoOpt',#'SetChoOpt'{bool1 = true,
-							  int1 = 17}),
-    ?line {ok,{'SetChoOpt',true,17,asn1_NOVALUE}} = 
-	asn1_wrapper:decode('SetOfCho','SetChoOpt',lists:flatten(Bytes15)),
-    
-    
-    ?line {ok,Bytes16} = 
-	asn1_wrapper:encode('SetOfCho','SetChoOpt',#'SetChoOpt'{bool1 = true,
-							  int1 = 17,
-							  set1 = [{boolIn,true},
-								  {intIn,25}]}),
-    ?line {ok,{'SetChoOpt',true,17,[{boolIn,true},{intIn,25}]}} = 
-	asn1_wrapper:decode('SetOfCho','SetChoOpt',lists:flatten(Bytes16)),
-    
-    
-    
-    
-    
-    ?line {ok,Bytes21} = 
-	asn1_wrapper:encode('SetOfCho','SetChoEmbDef',#'SetChoEmbDef'{bool1 = true,
-								int1 = 17}),
-    ?line {ok,{'SetChoEmbDef',true,17,[]}} = 
-	asn1_wrapper:decode('SetOfCho','SetChoEmbDef',lists:flatten(Bytes21)),
-    
-    
-    ?line {ok,Bytes22} = 
-	asn1_wrapper:encode('SetOfCho','SetChoEmbDef',#'SetChoEmbDef'{bool1 = true,
-								int1 = 17,
-								set1 = [{boolIn,true},
-									{intIn,25}]}),
-    ?line {ok,{'SetChoEmbDef',true,17,[{boolIn,true},{intIn,25}]}} = 
-	asn1_wrapper:decode('SetOfCho','SetChoEmbDef',lists:flatten(Bytes22)),
-    
-    
-    
-    ?line {ok,Bytes25} = 
-	asn1_wrapper:encode('SetOfCho','SetChoEmbOpt',#'SetChoEmbOpt'{bool1 = true,
-								int1 = 17}),
-    ?line {ok,{'SetChoEmbOpt',true,17,asn1_NOVALUE}} = 
-	asn1_wrapper:decode('SetOfCho','SetChoEmbOpt',lists:flatten(Bytes25)),
-    
-    
-    ?line {ok,Bytes26} = 
-	asn1_wrapper:encode('SetOfCho','SetChoEmbOpt',#'SetChoEmbOpt'{bool1 = true,
-								int1 = 17,
-								set1 = [{boolIn,true},
-									{intIn,25}]}),
-    ?line {ok,{'SetChoEmbOpt',true,17,[{boolIn,true},{intIn,25}]}} = 
-	asn1_wrapper:decode('SetOfCho','SetChoEmbOpt',lists:flatten(Bytes26)),
-    
-    
-    
-    
-    
-    
-    ?line {ok,Bytes31} = 
-	asn1_wrapper:encode('SetOfCho','SetOfChoEmbDef',[#'SetOfChoEmbDef_SETOF'{bool1 = true,
-									   int1 = 17}]),
-    ?line {ok,[{'SetOfChoEmbDef_SETOF',true,17,[]}]} = 
-	asn1_wrapper:decode('SetOfCho','SetOfChoEmbDef',lists:flatten(Bytes31)),
-    
-    
-    ?line {ok,Bytes32} = 
-	asn1_wrapper:encode('SetOfCho','SetOfChoEmbDef',
-		      [#'SetOfChoEmbDef_SETOF'{bool1 = true,
-					       int1 = 17,
-					       set1 = [{boolIn,true},
-						       {intIn,25}]}]),
-    ?line {ok,[{'SetOfChoEmbDef_SETOF',true,17,[{boolIn,true},{intIn,25}]}]} = 
-	asn1_wrapper:decode('SetOfCho','SetOfChoEmbDef',lists:flatten(Bytes32)),
-    
-    
-    
-    ?line {ok,Bytes35} = 
-	asn1_wrapper:encode('SetOfCho','SetOfChoEmbOpt',[#'SetOfChoEmbOpt_SETOF'{bool1 = true,
-									   int1 = 17}]),
-    ?line {ok,[{'SetOfChoEmbOpt_SETOF',true,17,asn1_NOVALUE}]} = 
-	asn1_wrapper:decode('SetOfCho','SetOfChoEmbOpt',lists:flatten(Bytes35)),
-    
-    
-    ?line {ok,Bytes36} = 
-	asn1_wrapper:encode('SetOfCho','SetOfChoEmbOpt',
-		      [#'SetOfChoEmbOpt_SETOF'{bool1 = true,
-					       int1 = 17,
-					       set1 = [{boolIn,true},
-						       {intIn,25}]}]),
-    ?line {ok,[{'SetOfChoEmbOpt_SETOF',true,17,[{boolIn,true},{intIn,25}]}]} = 
-	asn1_wrapper:decode('SetOfCho','SetOfChoEmbOpt',lists:flatten(Bytes36)),
-    
-    
-    
-    
+    roundtrip('SetChoDef',
+	      #'SetChoDef'{bool1=true,int1=17,set1=asn1_DEFAULT},
+	      #'SetChoDef'{bool1=true,int1=17,set1=[]}),
+    roundtrip('SetChoDef',
+	      #'SetChoDef'{bool1=true,int1=17,set1=[{boolIn,true},{intIn,25}]}),
+    roundtrip('SetChoOpt',
+	      #'SetChoOpt'{bool1=true,int1=17,set1=asn1_NOVALUE}),
+    roundtrip('SetChoOpt',
+	      #'SetChoOpt'{bool1=true,int1=17,set1=[{boolIn,true},{intIn,25}]}),
+
+    roundtrip('SetChoEmbDef',
+	      #'SetChoEmbDef'{bool1=true,int1=17,set1=asn1_DEFAULT},
+	      #'SetChoEmbDef'{bool1=true,int1=17,set1=[]}),
+    roundtrip('SetChoEmbDef',
+	      #'SetChoEmbDef'{bool1=true,int1=17,
+			      set1=[{boolIn,true},{intIn,25}]}),
+    roundtrip('SetChoEmbOpt',
+	      #'SetChoEmbOpt'{bool1=true,int1=17,set1=asn1_NOVALUE}),
+    roundtrip('SetChoEmbOpt',
+	      #'SetChoEmbOpt'{bool1=true,int1=17,
+			      set1=[{boolIn,true},{intIn,25}]}),
+
+    roundtrip('SetOfChoEmbDef',
+	      [#'SetOfChoEmbDef_SETOF'{bool1=true,int1=17,set1=asn1_DEFAULT}],
+	      [#'SetOfChoEmbDef_SETOF'{bool1=true,int1=17,set1=[]}]),
+    roundtrip('SetOfChoEmbDef',
+	      [#'SetOfChoEmbDef_SETOF'{bool1=true,int1=17,
+				       set1=[{boolIn,true},{intIn,25}]}]),
+
+    roundtrip('SetOfChoEmbOpt',
+	      [#'SetOfChoEmbOpt_SETOF'{bool1=true,int1=17,set1=asn1_NOVALUE}]),
+    roundtrip('SetOfChoEmbOpt',
+	      [#'SetOfChoEmbOpt_SETOF'{bool1=true,int1=17,
+				       set1=[{boolIn,true},{intIn,25}]}]),
+
     ok.
 
+roundtrip(T, V) ->
+    roundtrip(T, V, V).
 
+roundtrip(Type, Value, ExpectedValue) ->
+    asn1_test_lib:roundtrip('SetOfCho', Type, Value, ExpectedValue).

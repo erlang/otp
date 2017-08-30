@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -24,38 +25,37 @@
 #include "erlsrv_global.h"
 #include "erlsrv_registry.h"
 
-#define LOG_TYPE "System"
-#define LOG_ROOT \
-"SYSTEM\\CurrentControlSet\\Services\\EventLog\\" LOG_TYPE "\\"
+#define LOG_TYPE L"System"
+#define LOG_ROOT L"SYSTEM\\CurrentControlSet\\Services\\EventLog\\" LOG_TYPE L"\\"
 #define LOG_APP_KEY APP_NAME
 
 
 #define BASE_KEY HKEY_LOCAL_MACHINE
 #define PRODUCT_NAME APP_NAME
-#define OLD_PRODUCT_VERSION "1.0"
-#define PRODUCT_VERSION "1.1"
-#define PROG_KEY "SOFTWARE\\Ericsson\\Erlang\\" PRODUCT_NAME "\\" PRODUCT_VERSION
-#define OLD_PROG_KEY "SOFTWARE\\Ericsson\\Erlang\\" PRODUCT_NAME "\\" OLD_PRODUCT_VERSION
+#define OLD_PRODUCT_VERSION L"1.0"
+#define PRODUCT_VERSION L"1.1"
+#define PROG_KEY L"SOFTWARE\\Ericsson\\Erlang\\" PRODUCT_NAME L"\\" PRODUCT_VERSION
+#define OLD_PROG_KEY L"SOFTWARE\\Ericsson\\Erlang\\" PRODUCT_NAME L"\\" OLD_PRODUCT_VERSION
 
 #define MAX_KEY_LEN MAX_PATH
 
-static const char * const noString = "\0";
+static const wchar_t * const noString = L"\0";
 
 #define MAX_MANDATORY_REG_ENTRY 10 /* InternalServiceName == reg_entries[10] */
 static RegEntry reg_entries[] = {
-  {"StopAction",REG_SZ,NULL},
-  {"OnFail",REG_DWORD,NULL},
-  {"Machine",REG_EXPAND_SZ,NULL},
-  {"Env", REG_MULTI_SZ,NULL},
-  {"WorkDir", REG_EXPAND_SZ,NULL},
-  {"Priority",REG_DWORD,NULL},
-  {"SName",REG_SZ,NULL},
-  {"Name",REG_SZ,NULL},
-  {"Args",REG_EXPAND_SZ,NULL},
-  {"DebugType",REG_DWORD,NULL},
-  {"InternalServiceName",REG_SZ,NULL},
+  {L"StopAction",REG_SZ,NULL},
+  {L"OnFail",REG_DWORD,NULL},
+  {L"Machine",REG_EXPAND_SZ,NULL},
+  {L"Env", REG_MULTI_SZ,NULL},
+  {L"WorkDir", REG_EXPAND_SZ,NULL},
+  {L"Priority",REG_DWORD,NULL},
+  {L"SName",REG_SZ,NULL},
+  {L"Name",REG_SZ,NULL},
+  {L"Args",REG_EXPAND_SZ,NULL},
+  {L"DebugType",REG_DWORD,NULL},
+  {L"InternalServiceName",REG_SZ,NULL},
   /* Non mandatory follows */
-  {"Comment",REG_SZ,NULL}
+  {L"Comment",REG_SZ,NULL}
 };
 
 
@@ -73,8 +73,8 @@ void free_keys(RegEntry *keys){
   for(i=0;i<num_reg_entries && keys[i].name != NULL;++i){
     if((keys[i].type == REG_SZ || keys[i].type == REG_EXPAND_SZ ||
 	keys[i].type == REG_MULTI_SZ) && 
-       keys[i].data.bytes != noString){
-      free(keys[i].data.bytes);
+       keys[i].data.string != noString){
+      free(keys[i].data.string);
       if(keys[i].type == REG_EXPAND_SZ && 
 	 keys[i].data.expand.unexpanded != noString)
 	free(keys[i].data.expand.unexpanded);
@@ -92,32 +92,32 @@ void free_all_keys(RegEntryDesc *descs){
   free(descs);
 }
 
-RegEntry *get_keys(char *servicename){
+RegEntry *get_keys(wchar_t *servicename){
   RegEntry *res = NULL;
   HKEY prog_key;
   int key_opened = 0;
   int i;
   DWORD ret;
-  char *copy;
-  char *tmpbuf;
+  wchar_t *copy;
+  wchar_t *tmpbuf;
   DWORD tmpbuflen;
 
-  char key_to_open[MAX_KEY_LEN];
+  wchar_t key_to_open[MAX_KEY_LEN];
 
   DWORD val_type;
-  char *val_data = malloc(MAX_KEY_LEN);
+  wchar_t *val_data = (wchar_t *)malloc(MAX_KEY_LEN * sizeof(wchar_t));
   DWORD val_datalen;
   DWORD val_datasiz = MAX_KEY_LEN;
 
-  if(strlen(PROG_KEY) + strlen(servicename) + 2 > MAX_KEY_LEN)
+  if(wcslen(PROG_KEY) + wcslen(servicename) + 2 > MAX_KEY_LEN)
     goto error;
-  sprintf(key_to_open,"%s\\%s",PROG_KEY,servicename);
+  swprintf(key_to_open,MAX_KEY_LEN,L"%s\\%s",PROG_KEY,servicename);
   
-  if(RegOpenKeyEx(BASE_KEY,
-		  key_to_open,
-		  0,
-		  KEY_QUERY_VALUE,
-		  &prog_key) != ERROR_SUCCESS)
+  if(RegOpenKeyExW(BASE_KEY,
+		   key_to_open,
+		   0,
+		   KEY_QUERY_VALUE,
+		   &prog_key) != ERROR_SUCCESS)
     goto error;
   key_opened = 1;
 
@@ -128,12 +128,12 @@ RegEntry *get_keys(char *servicename){
   for(i=0;i<num_reg_entries;++i){
     for(;;){
       val_datalen = val_datasiz;
-      ret = RegQueryValueEx(prog_key,
-			    reg_entries[i].name,
-			    NULL,
-			    &val_type,
-			    (BYTE *) val_data,
-			    &val_datalen);
+      ret = RegQueryValueExW(prog_key,
+			     reg_entries[i].name,
+			     NULL,
+			     &val_type,
+			     (BYTE *) val_data,
+			     &val_datalen);
       if(ret == ERROR_SUCCESS){
 	if(reg_entries[i].type == val_type)
 	  break;
@@ -167,41 +167,41 @@ RegEntry *get_keys(char *servicename){
     copy = NULL;
     switch(reg_entries[i].type){
     case REG_EXPAND_SZ:
-      if(!val_datalen || val_data[0] == '\0'){
-	copy = (char *) noString;
-	res[i].data.expand.unexpanded = (char *) noString;
+      if(!val_datalen || val_data[0] == L'\0'){
+	  copy = (wchar_t *) noString;
+	res[i].data.expand.unexpanded = (wchar_t *) noString;
       } else {
-	tmpbuf = malloc(MAX_KEY_LEN);
+	tmpbuf = (wchar_t *) malloc(MAX_KEY_LEN * sizeof(wchar_t));
 	tmpbuflen = (DWORD) MAX_KEY_LEN;
 	for(;;){
-	  ret = ExpandEnvironmentStrings(val_data,tmpbuf,tmpbuflen);
+	  ret = ExpandEnvironmentStringsW(val_data,tmpbuf,tmpbuflen);
 	  if(!ret){
 	    free(tmpbuf);
 	    goto error;
 	  }else if(ret > tmpbuflen){
-	    tmpbuf=realloc(tmpbuf,tmpbuflen=ret);
+	    tmpbuf=realloc(tmpbuf,(tmpbuflen=ret)*sizeof(wchar_t));
 	  } else {
-	    copy = strdup(tmpbuf);
+	    copy = wcsdup(tmpbuf);
 	    free(tmpbuf);
 	    break;
 	  }
 	}
-	res[i].data.expand.unexpanded = strdup(val_data);
+	res[i].data.expand.unexpanded = wcsdup(val_data);
       }
     case REG_MULTI_SZ:
     case REG_SZ:
       if(!copy){
 	if(!val_datalen || 
-	   ((val_datalen == 1 && val_data[0] == '\0') ||
-	    (val_datalen == 2 && val_data[0] == '\0' && 
-	     val_data[1] == '\0'))){
-	  copy = (char *) noString;
+	   ((val_datalen == 2 && val_data[0] == L'\0') ||
+	    (val_datalen == 4 && val_data[0] == L'\0' && 
+	     val_data[1] == L'\0'))){
+	  copy = (wchar_t *) noString;
 	} else {
-	  copy = malloc(val_datalen);
-	  memcpy(copy,val_data,val_datalen);
+	  copy = malloc(val_datalen);         /* val_datalen in bytes */
+	  memcpy(copy,val_data,val_datalen); 
 	}
       }
-      res[i].data.bytes = copy;
+      res[i].data.string = copy;
       break;
     case REG_DWORD:
       memcpy(&res[i].data.value,val_data,sizeof(DWORD));
@@ -222,32 +222,32 @@ error:
   return NULL;
 }
 
-int set_keys(char *servicename, RegEntry *keys){
+int set_keys(wchar_t *servicename, RegEntry *keys){
   HKEY prog_key;
   int key_opened = 0;
   int i;
-  char key_to_open[MAX_KEY_LEN];
+  wchar_t key_to_open[MAX_KEY_LEN];
   DWORD disposition;
 
-  if(strlen(PROG_KEY) + strlen(servicename) + 2 > MAX_KEY_LEN)
+  if(wcslen(PROG_KEY) + wcslen(servicename) + 2 > MAX_KEY_LEN)
     goto error;
-  sprintf(key_to_open,"%s\\%s",PROG_KEY,servicename);
+  swprintf(key_to_open,MAX_KEY_LEN,L"%s\\%s",PROG_KEY,servicename);
   
-  if(RegOpenKeyEx(BASE_KEY,
-		  key_to_open,
-		  0,
-		  KEY_SET_VALUE,
-		  &prog_key) != ERROR_SUCCESS){
-    if(RegCreateKeyEx(BASE_KEY,
-		      key_to_open, 
-		      0, 
-		      NULL, 
-		      REG_OPTION_NON_VOLATILE,
-		      KEY_SET_VALUE, 
-		      NULL, 
-		      &prog_key, 
-		      &disposition) != ERROR_SUCCESS)
-    goto error;
+  if(RegOpenKeyExW(BASE_KEY,
+		   key_to_open,
+		   0,
+		   KEY_SET_VALUE,
+		   &prog_key) != ERROR_SUCCESS){
+    if(RegCreateKeyExW(BASE_KEY,
+		       key_to_open, 
+		       0, 
+		       NULL, 
+		       REG_OPTION_NON_VOLATILE,
+		       KEY_SET_VALUE, 
+		       NULL, 
+		       &prog_key, 
+		       &disposition) != ERROR_SUCCESS)
+	goto error;
   }
   key_opened = 1;
 
@@ -258,19 +258,19 @@ int set_keys(char *servicename, RegEntry *keys){
     int j;
     switch(keys[i].type){
     case REG_SZ:
-      ptr = keys[i].data.bytes;
-      siz = strlen(ptr)+1;
+      ptr = keys[i].data.string;
+      siz = (wcslen(ptr)+1)*sizeof(wchar_t);
       break;
     case REG_EXPAND_SZ:
       ptr = keys[i].data.expand.unexpanded;
-      siz = strlen(ptr)+1;
+      siz = (wcslen(ptr)+1)*sizeof(wchar_t);
       break;
     case REG_MULTI_SZ:
-      ptr = keys[i].data.bytes;
-      for(j=0;!(((char *)ptr)[j] == '\0' && 
-		((char *)ptr)[j+1] == '\0');++j)
+      ptr = keys[i].data.string;
+      for(j=0;!(((wchar_t *)ptr)[j] == L'\0' && 
+		((wchar_t *)ptr)[j+1] == L'\0');++j)
 	;
-      siz=(DWORD)j+2;
+      siz=(j+2)*sizeof(wchar_t);
       break;
     case REG_DWORD:
       ptr = &keys[i].data.value;
@@ -280,15 +280,15 @@ int set_keys(char *servicename, RegEntry *keys){
       goto error;
     }
 #ifdef HARDDEBUG
-    fprintf(stderr,"%s %s:%d\n",keys[i].name,
-	    (keys[i].type == REG_DWORD) ? "(dword)" : ptr,siz);
+    fprintf(stderr,"%S %S:%d\n",keys[i].name,
+	    (keys[i].type == REG_DWORD) ? L"(dword)" : ptr,siz);
 #endif
-    if(RegSetValueEx(prog_key,
-		     keys[i].name,
-		     0,
-		     keys[i].type,
-		     ptr,
-		     siz) != ERROR_SUCCESS)
+    if(RegSetValueExW(prog_key,
+		      keys[i].name,
+		      0,
+		      keys[i].type,
+		      ptr,
+		      siz) != ERROR_SUCCESS)
       goto error;
   }
   RegCloseKey(prog_key);
@@ -299,15 +299,15 @@ error:
   return 1;
 }
 
-static int do_remove_keys(char *servicename, const char *prog_key_name){
+static int do_remove_keys(wchar_t *servicename, const wchar_t *prog_key_name){
   HKEY prog_key;
-  if(RegOpenKeyEx(BASE_KEY,
-		  prog_key_name,
-		  0,
-		  KEY_ALL_ACCESS,
-		  &prog_key) != ERROR_SUCCESS)
+  if(RegOpenKeyExW(BASE_KEY,
+		   prog_key_name,
+		   0,
+		   KEY_ALL_ACCESS,
+		   &prog_key) != ERROR_SUCCESS)
     return -1;
-  if(RegDeleteKey(prog_key,servicename) != ERROR_SUCCESS){
+  if(RegDeleteKeyW(prog_key,servicename) != ERROR_SUCCESS){
     RegCloseKey(prog_key);
     return -1;
   }
@@ -315,7 +315,7 @@ static int do_remove_keys(char *servicename, const char *prog_key_name){
   return 0;
 }
 
-int remove_keys(char *servicename){
+int remove_keys(wchar_t *servicename){
     int ret;
 
     if((ret = do_remove_keys(servicename, PROG_KEY)) < 0){
@@ -335,33 +335,33 @@ RegEntryDesc *get_all_keys(void){
   HKEY prog_key;
   int key_opened = 0;
   DWORD enum_index;
-  char name[MAX_KEY_LEN];
+  wchar_t name[MAX_KEY_LEN];
   DWORD namelen;
-  char class[MAX_KEY_LEN];
+  wchar_t class[MAX_KEY_LEN];
   DWORD classlen;
   FILETIME ft;
   
   res[ndx].servicename = NULL;
-  if(RegOpenKeyEx(BASE_KEY, PROG_KEY, 0, 
-		  KEY_QUERY_VALUE | KEY_ENUMERATE_SUB_KEYS,
-		  &prog_key) != ERROR_SUCCESS)
+  if(RegOpenKeyExW(BASE_KEY, PROG_KEY, 0, 
+		   KEY_QUERY_VALUE | KEY_ENUMERATE_SUB_KEYS,
+		   &prog_key) != ERROR_SUCCESS)
     goto error;
   key_opened = 1;
   for(enum_index = 0, namelen = MAX_KEY_LEN, classlen = MAX_KEY_LEN;
-      ERROR_SUCCESS == RegEnumKeyEx(prog_key,
-				   enum_index,
-				   name,
-				   &namelen,
-				   NULL,
-				   class,
-				   &classlen,
-				   &ft);
+      ERROR_SUCCESS == RegEnumKeyExW(prog_key,
+				     enum_index,
+				     name,
+				     &namelen,
+				     NULL,
+				     class,
+				     &classlen,
+				     &ft);
       ++enum_index, namelen = MAX_KEY_LEN, classlen = MAX_KEY_LEN){
     if(ndx >= res_siz - 1)
       res = realloc(res, (res_siz += 10)*sizeof(RegEntryDesc));
     if(!(res[ndx].entries = get_keys(name)))
-      goto error;
-    res[ndx].servicename = strdup(name);
+	goto error;
+    res[ndx].servicename = wcsdup(name);
     res[++ndx].servicename = NULL;
   }
   RegCloseKey(prog_key);
@@ -380,24 +380,24 @@ int register_logkeys(void){
     EVENTLOG_WARNING_TYPE |
     EVENTLOG_INFORMATION_TYPE;
   DWORD catcount=1;
-  char filename[2048];
+  wchar_t filename[2048];
   DWORD fnsiz=2048;
 
-  if(RegCreateKeyEx(HKEY_LOCAL_MACHINE,
-		    LOG_ROOT LOG_APP_KEY, 0, 
-		    NULL, REG_OPTION_NON_VOLATILE,
-		    KEY_SET_VALUE, NULL, 
-		    &key, &disposition) != ERROR_SUCCESS)
+  if(RegCreateKeyExW(HKEY_LOCAL_MACHINE,
+		     LOG_ROOT LOG_APP_KEY, 0, 
+		     NULL, REG_OPTION_NON_VOLATILE,
+		     KEY_SET_VALUE, NULL, 
+		     &key, &disposition) != ERROR_SUCCESS)
     return -1;
-  if(!GetModuleFileName(NULL, filename, fnsiz))
+  if(!GetModuleFileNameW(NULL, filename, fnsiz))
     return -1;
-  if(RegSetValueEx(key, "EventMessageFile",
-		0, REG_EXPAND_SZ, (LPBYTE) filename,
-		strlen(filename)+1) != ERROR_SUCCESS)
+  if(RegSetValueExW(key, L"EventMessageFile",
+		    0, REG_EXPAND_SZ, (LPBYTE) filename,
+		    (wcslen(filename)+1)*sizeof(wchar_t)) != ERROR_SUCCESS)
     return -1;
-  if(RegSetValueEx(key, "TypesSupported",
-		0, REG_DWORD, (LPBYTE) &types,
-		sizeof(DWORD)) != ERROR_SUCCESS)
+  if(RegSetValueExW(key, L"TypesSupported",
+		    0, REG_DWORD, (LPBYTE) &types,
+		    sizeof(DWORD)) != ERROR_SUCCESS)
     return -1;
   return 0;
 }

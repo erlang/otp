@@ -2,18 +2,19 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -35,6 +36,7 @@
 	 is_escaping/2,
 	 is_self_rec/2,
 	 non_local_calls/1,
+	 lookup_letrec/2,
 	 lookup_rec_var/2,
 	 lookup_call_site/2,
 	 lookup_label/2,
@@ -63,14 +65,16 @@
          put_named_tables/2, put_public_tables/2, put_behaviour_api_calls/2,
 	 get_behaviour_api_calls/1, dispose_race_server/1, duplicate/1]).
 
--export_type([callgraph/0, mfa_or_funlbl/0, callgraph_edge/0]).
+-export_type([callgraph/0, mfa_or_funlbl/0, callgraph_edge/0, mod_deps/0]).
 
 -include("dialyzer.hrl").
 
 %%----------------------------------------------------------------------
 
 -type scc()	      :: [mfa_or_funlbl()].
--type mfa_calls()     :: [{mfa_or_funlbl(), mfa_or_funlbl()}].
+-type mfa_call()      :: {mfa_or_funlbl(), mfa_or_funlbl()}.
+-type mfa_calls()     :: [mfa_call()].
+-type mod_deps()      :: dict:dict(module(), [module()]).
 
 %%-----------------------------------------------------------------------------
 %% A callgraph is a directed graph where the nodes are functions and a
@@ -81,6 +85,8 @@
 %% digraph	-  A digraph representing the callgraph. 
 %%		   Nodes are represented as MFAs or labels.
 %% esc		-  A set of all escaping functions as reported by dialyzer_dep.
+%% letrec_map	-  A dict mapping from letrec bound labels to function labels.
+%%		   Includes all functions.
 %% name_map	-  A mapping from label to MFA.
 %% rev_name_map	-  A reverse mapping of the name_map.
 %% rec_var_map	-  A dict mapping from letrec bound labels to function names.
@@ -90,38 +96,42 @@
 %%		   whenever applicable.
 %%-----------------------------------------------------------------------------
 
--record(callgraph, {digraph        = digraph:new() :: digraph(),
-		    active_digraph                 :: active_digraph(),
-                    esc	                           :: ets:tid(),
+%% Types with comment 'race' are due to dialyzer_races.erl.
+-record(callgraph, {digraph        = digraph:new() :: digraph:graph(),
+		    active_digraph                 :: active_digraph()
+                                                    | 'undefined', % race
+                    esc	                           :: ets:tid()
+                                                    | 'undefined', % race
+                    letrec_map                     :: ets:tid()
+                                                    | 'undefined', % race
                     name_map	                   :: ets:tid(),
                     rev_name_map                   :: ets:tid(),
-                    rec_var_map                    :: ets:tid(),
-                    self_rec	                   :: ets:tid(),
-                    calls                          :: ets:tid(),
+                    rec_var_map                    :: ets:tid()
+                                                    | 'undefined', % race
+                    self_rec	                   :: ets:tid()
+                                                    | 'undefined', % race
+                    calls                          :: ets:tid()
+                                                    | 'undefined', % race
                     race_detection = false         :: boolean(),
-		    race_data_server = new_race_data_server() :: pid()}).
-
--record(race_data_state, {race_code     = dict:new() :: dict(),
-			  public_tables = []         :: [label()],
-			  named_tables  = []         :: [string()],
-			  beh_api_calls = []         :: [{mfa(), mfa()}]}).
+		    race_data_server = dialyzer_race_data_server:new() :: pid()}).
 
 %% Exported Types
 
--type callgraph() :: #callgraph{}.
+-opaque callgraph() :: #callgraph{}.
 
--type active_digraph() :: {'d', digraph()} | {'e', ets:tid(), ets:tid()}.
+-type active_digraph() :: {'d', digraph:graph()} | {'e', ets:tid(), ets:tid()}.
 
 %%----------------------------------------------------------------------
 
 -spec new() -> callgraph().
 
 new() ->
-  [ETSEsc, ETSNameMap, ETSRevNameMap, ETSRecVarMap, ETSSelfRec, ETSCalls] =
+  [ETSEsc, ETSNameMap, ETSRevNameMap, ETSRecVarMap, ETSLetrecMap, ETSSelfRec, ETSCalls] =
     [ets:new(N,[public, {read_concurrency, true}]) ||
       N <- [callgraph_esc, callgraph_name_map, callgraph_rev_name_map,
-	    callgraph_rec_var_map, callgraph_self_rec, callgraph_calls]],
+	    callgraph_rec_var_map, callgraph_letrec_map, callgraph_self_rec, callgraph_calls]],
   #callgraph{esc            = ETSEsc,
+	     letrec_map     = ETSLetrecMap,
 	     name_map       = ETSNameMap,
 	     rev_name_map   = ETSRevNameMap,
 	     rec_var_map    = ETSRecVarMap,
@@ -143,6 +153,12 @@ all_nodes(#callgraph{digraph = DG}) ->
 lookup_rec_var(Label, #callgraph{rec_var_map = RecVarMap}) 
   when is_integer(Label) ->
   ets_lookup_dict(Label, RecVarMap).
+
+-spec lookup_letrec(label(), callgraph()) -> 'error' | {'ok', label()}.
+
+lookup_letrec(Label, #callgraph{letrec_map = LetrecMap})
+  when is_integer(Label) ->
+  ets_lookup_dict(Label, LetrecMap).
 
 -spec lookup_call_site(label(), callgraph()) -> 'error' | {'ok', [_]}. % XXX: refine
 
@@ -211,7 +227,10 @@ non_local_calls(#callgraph{digraph = DG}) ->
   Edges = digraph_edges(DG),
   find_non_local_calls(Edges, sets:new()).
 
--spec find_non_local_calls([{mfa_or_funlbl(), mfa_or_funlbl()}], set()) -> mfa_calls().
+-type call_tab() :: sets:set(mfa_call()).
+
+-spec find_non_local_calls([{mfa_or_funlbl(), mfa_or_funlbl()}], call_tab()) ->
+        mfa_calls().
 
 find_non_local_calls([{{M,_,_}, {M,_,_}}|Left], Set) ->
   find_non_local_calls(Left, Set);
@@ -256,7 +275,7 @@ get_required_by(SCC, #callgraph{active_digraph = {'d', DG}}) ->
 modules(#callgraph{digraph = DG}) ->
   ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]).
 
--spec module_postorder(callgraph()) -> {[module()], {'d', digraph()}}.
+-spec module_postorder(callgraph()) -> {[module()], {'d', digraph:graph()}}.
 
 module_postorder(#callgraph{digraph = DG}) ->
   Edges = lists:foldl(fun edge_fold/2, sets:new(), digraph_edges(DG)),
@@ -276,7 +295,7 @@ edge_fold(_, Set) -> Set.
 
 
 %% The module deps of a module are modules that depend on the module
--spec module_deps(callgraph()) -> dict().
+-spec module_deps(callgraph()) -> mod_deps().
 
 module_deps(#callgraph{digraph = DG}) ->
   Edges = lists:foldl(fun edge_fold/2, sets:new(), digraph_edges(DG)),
@@ -290,7 +309,7 @@ module_deps(#callgraph{digraph = DG}) ->
   digraph_delete(MDG),
   dict:from_list(Deps).
 
--spec strip_module_deps(dict(), set()) -> dict().
+-spec strip_module_deps(mod_deps(), sets:set(module())) -> mod_deps().
 
 strip_module_deps(ModDeps, StripSet) ->
   FilterFun1 = fun(Val) -> not sets:is_element(Val, StripSet) end,
@@ -348,16 +367,18 @@ ets_lookup_set(Key, Table) ->
 
 scan_core_tree(Tree, #callgraph{calls = ETSCalls,
 				esc = ETSEsc,
+				letrec_map = ETSLetrecMap,
 				name_map = ETSNameMap,
 				rec_var_map = ETSRecVarMap,
 				rev_name_map = ETSRevNameMap,
 				self_rec = ETSSelfRec}) ->
   %% Build name map and recursion variable maps.
-  build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap),
+  build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap, ETSLetrecMap),
 
   %% First find the module-local dependencies.
-  {Deps0, EscapingFuns, Calls} = dialyzer_dep:analyze(Tree),
+  {Deps0, EscapingFuns, Calls, Letrecs} = dialyzer_dep:analyze(Tree),
   true = ets:insert(ETSCalls, dict:to_list(Calls)),
+  true = ets:insert(ETSLetrecMap, dict:to_list(Letrecs)),
   true = ets:insert(ETSEsc, [{E} || E <- EscapingFuns]),
 
   LabelEdges = get_edges_from_deps(Deps0),
@@ -394,7 +415,7 @@ scan_core_tree(Tree, #callgraph{calls = ETSCalls,
   NamedEdges3 = NewNamedEdges1 ++ NewNamedEdges2,
   {Names3, NamedEdges3}.
 
-build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap) ->
+build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap, ETSLetrecMap) ->
   %% We only care about the named (top level) functions. The anonymous
   %% functions will be analysed together with their parents. 
   Defs = cerl:module_defs(Tree),
@@ -406,6 +427,7 @@ build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap) ->
 	MFA = {Mod, FunName, Arity},
 	FunLabel = get_label(Function),
 	VarLabel = get_label(Var),
+	true = ets:insert(ETSLetrecMap, {VarLabel, FunLabel}),
 	true = ets:insert(ETSNameMap, {FunLabel, MFA}),
 	true = ets:insert(ETSRevNameMap, {MFA, FunLabel}),
 	true = ets:insert(ETSRecVarMap, {VarLabel, MFA})
@@ -458,14 +480,37 @@ scan_one_core_fun(TopTree, FunName) ->
 		  call ->
 		    CalleeM = cerl:call_module(Tree),
 		    CalleeF = cerl:call_name(Tree),
-		    A = length(cerl:call_args(Tree)),
+		    CalleeArgs = cerl:call_args(Tree),
+		    A = length(CalleeArgs),
 		    case (cerl:is_c_atom(CalleeM) andalso 
 			  cerl:is_c_atom(CalleeF)) of
 		      true -> 
 			M = cerl:atom_val(CalleeM),
 			F = cerl:atom_val(CalleeF),
 			case erl_bif_types:is_known(M, F, A) of
-			  true -> Acc;
+			  true ->
+			    case {M, F, A} of
+			      {erlang, make_fun, 3} ->
+				[CA1, CA2, CA3] = CalleeArgs,
+				case
+				  cerl:is_c_atom(CA1) andalso
+				  cerl:is_c_atom(CA2) andalso
+				  cerl:is_c_int(CA3)
+				of
+				  true ->
+				    MM = cerl:atom_val(CA1),
+				    FF = cerl:atom_val(CA2),
+				    AA = cerl:int_val(CA3),
+				    case erl_bif_types:is_known(MM, FF, AA) of
+				      true -> Acc;
+				      false -> [{FunName, {MM, FF, AA}}|Acc]
+				    end;
+				  false ->
+				    Acc
+				end;
+			      _ ->
+				Acc
+			    end;
 			  false -> [{FunName, {M, F, A}}|Acc]
 			end;
 		      false -> 
@@ -561,21 +606,15 @@ digraph_reaching_subgraph(Funs, DG) ->
 %% Races
 %%----------------------------------------------------------------------
 
--spec renew_race_info(callgraph(), dict(), [label()], [string()]) ->
+-spec renew_race_info(callgraph(), dict:dict(), [label()], [string()]) ->
         callgraph().
 
 renew_race_info(#callgraph{race_data_server = RaceDataServer} = CG,
 		RaceCode, PublicTables, NamedTables) ->
-  ok = race_data_server_cast(
+  ok = dialyzer_race_data_server:cast(
 	 {renew_race_info, {RaceCode, PublicTables, NamedTables}},
 	 RaceDataServer),
   CG.
-
-renew_race_info({RaceCode, PublicTables, NamedTables},
-		#race_data_state{} = State) ->
-  State#race_data_state{race_code = RaceCode,
-			public_tables = PublicTables,
-			named_tables = NamedTables}.
 
 -spec renew_race_code(dialyzer_races:races(), callgraph()) -> callgraph().
 
@@ -583,27 +622,18 @@ renew_race_code(Races, #callgraph{race_data_server = RaceDataServer} = CG) ->
   Fun = dialyzer_races:get_curr_fun(Races),
   FunArgs = dialyzer_races:get_curr_fun_args(Races),
   Code = lists:reverse(dialyzer_races:get_race_list(Races)),
-  ok = race_data_server_cast(
+  ok = dialyzer_race_data_server:cast(
 	 {renew_race_code, {Fun, FunArgs, Code}},
 	 RaceDataServer),
   CG.
-
-renew_race_code_handler({Fun, FunArgs, Code},
-		      #race_data_state{race_code = RaceCode} = State) ->
-  State#race_data_state{race_code = dict:store(Fun, [FunArgs, Code], RaceCode)}.
 
 -spec renew_race_public_tables(label(), callgraph()) -> callgraph().
 
 renew_race_public_tables(VarLabel,
 			 #callgraph{race_data_server = RaceDataServer} = CG) ->
   ok =
-    race_data_server_cast({renew_race_public_tables, VarLabel}, RaceDataServer),
+    dialyzer_race_data_server:cast({renew_race_public_tables, VarLabel}, RaceDataServer),
   CG.
-
-renew_race_public_tables_handler(VarLabel,
-				 #race_data_state{public_tables = PT}
-				 = State) ->
-  State#race_data_state{public_tables = ordsets:add_element(VarLabel, PT)}.
 
 -spec cleanup(callgraph()) -> callgraph().
 
@@ -614,20 +644,20 @@ cleanup(#callgraph{digraph = Digraph,
   #callgraph{digraph = Digraph,
 	     name_map = NameMap,
              rev_name_map = RevNameMap,
-	     race_data_server = race_data_server_call(dup, RaceDataServer)}.
+	     race_data_server = dialyzer_race_data_server:duplicate(RaceDataServer)}.
 
 -spec duplicate(callgraph()) -> callgraph().
 
 duplicate(#callgraph{race_data_server = RaceDataServer} = Callgraph) ->
   Callgraph#callgraph{
-    race_data_server = race_data_server_call(dup, RaceDataServer)}.
+    race_data_server = dialyzer_race_data_server:duplicate(RaceDataServer)}.
 
 -spec dispose_race_server(callgraph()) -> ok.
 
 dispose_race_server(#callgraph{race_data_server = RaceDataServer}) ->
-  race_data_server_cast(stop, RaceDataServer).
+  dialyzer_race_data_server:stop(RaceDataServer).
 
--spec get_digraph(callgraph()) -> digraph().
+-spec get_digraph(callgraph()) -> digraph:graph().
 
 get_digraph(#callgraph{digraph = Digraph}) ->
   Digraph.
@@ -635,17 +665,17 @@ get_digraph(#callgraph{digraph = Digraph}) ->
 -spec get_named_tables(callgraph()) -> [string()].
 
 get_named_tables(#callgraph{race_data_server = RaceDataServer}) ->
-  race_data_server_call(get_named_tables, RaceDataServer).
+  dialyzer_race_data_server:call(get_named_tables, RaceDataServer).
 
 -spec get_public_tables(callgraph()) -> [label()].
 
 get_public_tables(#callgraph{race_data_server = RaceDataServer}) ->
-  race_data_server_call(get_public_tables, RaceDataServer).
+  dialyzer_race_data_server:call(get_public_tables, RaceDataServer).
 
--spec get_race_code(callgraph()) -> dict().
+-spec get_race_code(callgraph()) -> dict:dict().
 
 get_race_code(#callgraph{race_data_server = RaceDataServer}) ->
-  race_data_server_call(get_race_code, RaceDataServer).
+  dialyzer_race_data_server:call(get_race_code, RaceDataServer).
 
 -spec get_race_detection(callgraph()) -> boolean().
 
@@ -655,23 +685,23 @@ get_race_detection(#callgraph{race_detection = RD}) ->
 -spec get_behaviour_api_calls(callgraph()) -> [{mfa(), mfa()}].
 
 get_behaviour_api_calls(#callgraph{race_data_server = RaceDataServer}) ->
-  race_data_server_call(get_behaviour_api_calls, RaceDataServer).
+  dialyzer_race_data_server:call(get_behaviour_api_calls, RaceDataServer).
 
 -spec race_code_new(callgraph()) -> callgraph().
 
 race_code_new(#callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = race_data_server_cast(race_code_new, RaceDataServer),
+  ok = dialyzer_race_data_server:cast(race_code_new, RaceDataServer),
   CG.
 
--spec put_digraph(digraph(), callgraph()) -> callgraph().
+-spec put_digraph(digraph:graph(), callgraph()) -> callgraph().
 
 put_digraph(Digraph, Callgraph) ->
   Callgraph#callgraph{digraph = Digraph}.
 
--spec put_race_code(dict(), callgraph()) -> callgraph().
+-spec put_race_code(dict:dict(), callgraph()) -> callgraph().
 
 put_race_code(RaceCode, #callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = race_data_server_cast({put_race_code, RaceCode}, RaceDataServer),
+  ok = dialyzer_race_data_server:cast({put_race_code, RaceCode}, RaceDataServer),
   CG.
 
 -spec put_race_detection(boolean(), callgraph()) -> callgraph().
@@ -683,77 +713,22 @@ put_race_detection(RaceDetection, Callgraph) ->
 
 put_named_tables(NamedTables,
 		 #callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = race_data_server_cast({put_named_tables, NamedTables}, RaceDataServer),
+  ok = dialyzer_race_data_server:cast({put_named_tables, NamedTables}, RaceDataServer),
   CG.
 
 -spec put_public_tables([label()], callgraph()) -> callgraph().
 
 put_public_tables(PublicTables,
 		 #callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = race_data_server_cast({put_public_tables, PublicTables}, RaceDataServer),
+  ok = dialyzer_race_data_server:cast({put_public_tables, PublicTables}, RaceDataServer),
   CG.
 
 -spec put_behaviour_api_calls([{mfa(), mfa()}], callgraph()) -> callgraph().
 
 put_behaviour_api_calls(Calls,
 		 #callgraph{race_data_server = RaceDataServer} = CG) ->
-  ok = race_data_server_cast({put_behaviour_api_calls, Calls}, RaceDataServer),
+  ok = dialyzer_race_data_server:cast({put_behaviour_api_calls, Calls}, RaceDataServer),
   CG.
-
-
-new_race_data_server() ->
-  spawn_link(fun() -> race_data_server_loop(#race_data_state{}) end).
-
-race_data_server_loop(State) ->
-  receive
-    {call, From, Ref, Query} ->
-      Reply = race_data_server_handle_call(Query, State),
-      From ! {Ref, Reply},
-      race_data_server_loop(State);
-    {cast, stop} ->
-      ok;
-    {cast, Message} ->
-      NewState = race_data_server_handle_cast(Message, State),
-      race_data_server_loop(NewState)
-  end.
-
-race_data_server_call(Query, Server) ->
-  Ref = make_ref(),
-  Server ! {call, self(), Ref, Query},
-  receive
-    {Ref, Reply} -> Reply
-  end.
-
-race_data_server_cast(Message, Server) ->
-  Server ! {cast, Message},
-  ok.
-
-race_data_server_handle_cast(race_code_new, State) ->
-  State#race_data_state{race_code = dict:new()};
-race_data_server_handle_cast({Tag, Data}, State) ->
-  case Tag of
-    renew_race_info -> renew_race_info(Data, State);
-    renew_race_code -> renew_race_code_handler(Data, State);
-    renew_race_public_tables -> renew_race_public_tables_handler(Data, State);
-    put_race_code -> State#race_data_state{race_code = Data};
-    put_public_tables -> State#race_data_state{public_tables = Data};
-    put_named_tables -> State#race_data_state{named_tables = Data};
-    put_behaviour_api_calls -> State#race_data_state{beh_api_calls = Data}
-  end.
-
-race_data_server_handle_call(Query,
-			     #race_data_state{race_code = RaceCode,
-					      public_tables = PublicTables,
-					      named_tables = NamedTables,
-					      beh_api_calls = BehApiCalls}
-			     = State) ->
-  case Query of
-    dup -> spawn_link(fun() -> race_data_server_loop(State) end);
-    get_race_code -> RaceCode;
-    get_public_tables -> PublicTables;
-    get_named_tables -> NamedTables;
-    get_behaviour_api_calls -> BehApiCalls
-  end.
 
 %%=============================================================================
 %% Utilities for 'dot'

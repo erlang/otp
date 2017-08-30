@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -43,28 +44,28 @@
 %%
 
 -spec components(Digraph) -> [Component] when
-      Digraph :: digraph(),
+      Digraph :: digraph:graph(),
       Component :: [digraph:vertex()].
 
 components(G) ->
     forest(G, fun inout/3).
 
 -spec strong_components(Digraph) -> [StrongComponent] when
-      Digraph :: digraph(),
+      Digraph :: digraph:graph(),
       StrongComponent :: [digraph:vertex()].
 
 strong_components(G) ->
     forest(G, fun in/3, revpostorder(G)).
 
 -spec cyclic_strong_components(Digraph) -> [StrongComponent] when
-      Digraph :: digraph(),
+      Digraph :: digraph:graph(),
       StrongComponent :: [digraph:vertex()].
 
 cyclic_strong_components(G) ->
     remove_singletons(strong_components(G), G, []).
 
 -spec reachable(Vertices, Digraph) -> Reachable when
-      Digraph :: digraph(),
+      Digraph :: digraph:graph(),
       Vertices :: [digraph:vertex()],
       Reachable :: [digraph:vertex()].
 
@@ -72,7 +73,7 @@ reachable(Vs, G) when is_list(Vs) ->
     lists:append(forest(G, fun out/3, Vs, first)).
 
 -spec reachable_neighbours(Vertices, Digraph) -> Reachable when
-      Digraph :: digraph(),
+      Digraph :: digraph:graph(),
       Vertices :: [digraph:vertex()],
       Reachable :: [digraph:vertex()].
 
@@ -80,7 +81,7 @@ reachable_neighbours(Vs, G) when is_list(Vs) ->
     lists:append(forest(G, fun out/3, Vs, not_first)).
 
 -spec reaching(Vertices, Digraph) -> Reaching when
-      Digraph :: digraph(),
+      Digraph :: digraph:graph(),
       Vertices :: [digraph:vertex()],
       Reaching :: [digraph:vertex()].
 
@@ -88,7 +89,7 @@ reaching(Vs, G) when is_list(Vs) ->
     lists:append(forest(G, fun in/3, Vs, first)).
 
 -spec reaching_neighbours(Vertices, Digraph) -> Reaching when
-      Digraph :: digraph(),
+      Digraph :: digraph:graph(),
       Vertices :: [digraph:vertex()],
       Reaching :: [digraph:vertex()].
 
@@ -96,7 +97,7 @@ reaching_neighbours(Vs, G) when is_list(Vs) ->
     lists:append(forest(G, fun in/3, Vs, not_first)).
 
 -spec topsort(Digraph) -> Vertices | 'false' when
-      Digraph :: digraph(),
+      Digraph :: digraph:graph(),
       Vertices :: [digraph:vertex()].
 
 topsort(G) ->
@@ -107,13 +108,13 @@ topsort(G) ->
     end.
 
 -spec is_acyclic(Digraph) -> boolean() when
-      Digraph :: digraph().
+      Digraph :: digraph:graph().
 
 is_acyclic(G) ->
     loop_vertices(G) =:= [] andalso topsort(G) =/= false.
 
 -spec arborescence_root(Digraph) -> 'no' | {'yes', Root} when
-      Digraph :: digraph(),
+      Digraph :: digraph:graph(),
       Root :: digraph:vertex().
 
 arborescence_root(G) ->
@@ -136,29 +137,29 @@ arborescence_root(G) ->
     end.
 
 -spec is_arborescence(Digraph) -> boolean() when
-      Digraph :: digraph().
+      Digraph :: digraph:graph().
 
 is_arborescence(G) ->
     arborescence_root(G) =/= no.
 
 -spec is_tree(Digraph) -> boolean() when
-      Digraph :: digraph().
+      Digraph :: digraph:graph().
 
 is_tree(G) ->
     (digraph:no_edges(G) =:= digraph:no_vertices(G) - 1)
     andalso (length(components(G)) =:= 1).
 
 -spec loop_vertices(Digraph) -> Vertices when
-      Digraph :: digraph(),
+      Digraph :: digraph:graph(),
       Vertices :: [digraph:vertex()].
 
 loop_vertices(G) ->
     [V || V <- digraph:vertices(G), is_reflexive_vertex(V, G)].
 
 -spec subgraph(Digraph, Vertices) -> SubGraph when
-      Digraph :: digraph(),
+      Digraph :: digraph:graph(),
       Vertices :: [digraph:vertex()],
-      SubGraph :: digraph().
+      SubGraph :: digraph:graph().
 
 subgraph(G, Vs) ->
     try
@@ -169,8 +170,8 @@ subgraph(G, Vs) ->
     end.
 
 -spec subgraph(Digraph, Vertices, Options) -> SubGraph when
-      Digraph :: digraph(),
-      SubGraph :: digraph(),
+      Digraph :: digraph:graph(),
+      SubGraph :: digraph:graph(),
       Vertices :: [digraph:vertex()],
       Options :: [{'type', SubgraphType} | {'keep_labels', boolean()}],
       SubgraphType :: 'inherit' | [digraph:d_type()].
@@ -184,8 +185,8 @@ subgraph(G, Vs, Opts) ->
     end.
 
 -spec condensation(Digraph) -> CondensedDigraph when
-      Digraph :: digraph(),
-      CondensedDigraph :: digraph().
+      Digraph :: digraph:graph(),
+      CondensedDigraph :: digraph:graph().
 
 condensation(G) ->
     SCs = strong_components(G),
@@ -209,14 +210,14 @@ condensation(G) ->
     SCG.
 
 -spec preorder(Digraph) -> Vertices when
-      Digraph :: digraph(),
+      Digraph :: digraph:graph(),
       Vertices :: [digraph:vertex()].
 
 preorder(G) ->
     lists:reverse(revpreorder(G)).
 
 -spec postorder(Digraph) -> Vertices when
-      Digraph :: digraph(),
+      Digraph :: digraph:graph(),
       Vertices :: [digraph:vertex()].
 
 postorder(G) ->
@@ -370,5 +371,5 @@ condense('$end_of_table', _T, _SC, _G, _SCG, _I2C) ->
 condense(I, T, SC, G, SCG, I2C) ->
     [{_,C}] = ets:lookup(I2C, I),
     digraph:add_vertex(SCG, C),
-    [digraph:add_edge(SCG, SC, C) || C =/= SC],
+    _ = [digraph:add_edge(SCG, SC, C) || C =/= SC],
     condense(ets:next(T, I), T, SC, G, SCG, I2C).

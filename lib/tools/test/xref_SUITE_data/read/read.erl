@@ -156,20 +156,19 @@ bi() ->
     <<D:16, E, F/binary>> = Bin3,
     X = 9, <<(X+1):8>>,
     _Fyy = <<X:4/little-signed-integer-unit:8>>,
-    D + E + F.
-%bi() ->
-%    %% POS15=POS14+13
-%    try
-%       foo:t(),
-%       bar:t()
-%    of
-%       {v,1} ->
-%             local();
-%       {v,2} ->
-%             foo:t()
-%    catch
-%       {'EXIT',_} -> bar:t()
-%    end.
+    D + E + F;
+bi() ->
+    %% EEP37. POS15=POS14+23
+    F = fun Fact(N) when N > 0 ->
+                N * Fact(N - 1);
+            Fact(0) ->
+                1
+        end,
+    F(6),
+    G = fun _(foo) -> bar;
+            _(X) -> X / 3
+        end,
+    G(foo).
 
 local() ->
     true.

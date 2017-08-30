@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1998</year><year>2013</year>
+      <year>1998</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -30,7 +31,109 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.3.2</title>
+   <section><title>IC 4.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Internal changes</p>
+          <p>
+	    Own Id: OTP-13551</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change license text from Erlang Public License to Apache
+	    Public License v2</p>
+          <p>
+	    Own Id: OTP-12845</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix compiler warnings reported by LLVM</p>
+          <p>
+	    Own Id: OTP-12138</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Added Latin-1 code directive in the generated files
+	    to keep old behaviour. Updated IC so it can handle
+	    Unicode characters in the path. </p>
+          <p>
+	    Own Id: OTP-11783</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix two small silent rules omissions. Thanks to Anthony
+	    Ramine.</p>
+          <p>
+	    Own Id: OTP-11351</p>
+        </item>
+        <item>
+          <p>
+	    Silence warnings (Thanks to Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11517</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.3.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Header and library files from ic and erl_interface are
+	    now installed into usr/{include,lib}. Note that these
+	    directories are unversioned, so the latest installed
+	    version will be the one in the directory.</p>
+          <p>
+	    Own Id: OTP-11284</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.3.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

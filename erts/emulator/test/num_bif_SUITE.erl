@@ -1,25 +1,26 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
-%% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
 %% %CopyrightEnd%
 %%
 
 -module(num_bif_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Tests the BIFs:
 %% 	abs/1
@@ -35,22 +36,22 @@
 %%	integer_to_binary/2
 %%	binary_to_integer/1
 
--export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2, t_abs/1, t_float/1,
 	 t_float_to_string/1, t_integer_to_string/1,
-	 t_string_to_integer/1,
+	 t_string_to_integer/1, t_list_to_integer_edge_cases/1,
 	 t_string_to_float_safe/1, t_string_to_float_risky/1,
 	 t_round/1, t_trunc/1
      ]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [t_abs, t_float, t_float_to_string, t_integer_to_string,
      {group, t_string_to_float}, t_string_to_integer, t_round,
-     t_trunc].
+     t_trunc, t_list_to_integer_edge_cases].
 
-groups() -> 
+groups() ->
     [{t_string_to_float, [],
       [t_string_to_float_safe, t_string_to_float_risky]}].
 
@@ -72,7 +73,7 @@ t_abs(Config) when is_list(Config) ->
     5.5 = abs(id(5.5)),
     0.0 = abs(id(0.0)),
     100.0 = abs(id(-100.0)),
-    
+
     %% Integers.
     5 = abs(id(5)),
     0 = abs(id(0)),
@@ -92,7 +93,7 @@ t_abs(Config) when is_list(Config) ->
     BigNum = abs(BigNum),
     BigNum = abs(-BigNum),
     ok.
-    
+
 t_float(Config) when is_list(Config) ->
     0.0 = float(id(0)),
     2.5 = float(id(2.5)),
@@ -108,7 +109,7 @@ t_float(Config) when is_list(Config) ->
     %% Extremly big bignums.
     Big = id(list_to_integer(id(lists:duplicate(2000, $1)))),
     {'EXIT', {badarg, _}} = (catch float(Big)),
-    
+
     ok.
 
 
@@ -182,7 +183,7 @@ t_float_to_string(Config) when is_list(Config) ->
     test_fts("1.2300000000e+20",1.23e20, [{scientific, 10}, compact]),
     test_fts("1.23000000000000000000e+20",1.23e20, []),
     ok.
-    
+
 test_fts(Expect, Float) ->
     Expect = float_to_list(Float),
     BinExpect = list_to_binary(Expect),
@@ -254,7 +255,7 @@ t_round(Config) when is_list(Config) ->
     256 = round(id(255.6)),
     -1033 = round(id(-1033.3)),
     -1034 = round(id(-1033.6)),
-    
+
     % OTP-3722:
     X = id((1 bsl 27) - 1),
     MX = -X,
@@ -344,10 +345,28 @@ t_integer_to_string(Config) when is_list(Config) ->
 
     %% Invalid types
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch erlang:integer_to_binary(Value)),
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch erlang:integer_to_list(Value))
+		  end,[atom,1.2,0.0,[$1,[$2]]]),
+
+    %% Base-2 integers
+    test_its("0", 0, 2),
+    test_its("1", 1, 2),
+    test_its("110110", 54, 2),
+    test_its("-1000000", -64, 2),
+    %% Base-16 integers
+    test_its("0", 0, 16),
+    test_its("A", 10, 16),
+    test_its("D4BE", 54462, 16),
+    test_its("-D4BE", -54462, 16),
+
+    lists:foreach(fun(Value) ->
+			  {'EXIT', {badarg, _}} =
+			      (catch erlang:integer_to_binary(Value, 8)),
+			  {'EXIT', {badarg, _}} =
+			      (catch erlang:integer_to_list(Value, 8))
 		  end,[atom,1.2,0.0,[$1,[$2]]]),
 
     ok.
@@ -355,6 +374,10 @@ t_integer_to_string(Config) when is_list(Config) ->
 test_its(List,Int) ->
     Int = list_to_integer(List),
     Int = binary_to_integer(list_to_binary(List)).
+
+test_its(List,Int,Base) ->
+    Int = list_to_integer(List, Base),
+    Int = binary_to_integer(list_to_binary(List), Base).
 
 %% Tests binary_to_integer/1.
 
@@ -372,18 +395,15 @@ t_string_to_integer(Config) when is_list(Config) ->
     test_sti(268435455),
     test_sti(-268435455),
 
-    %% 1 bsl 28 - 1, just before 32 bit bignum
-    test_sti(1 bsl 28 - 1),
-    %% 1 bsl 28, just beyond 32 bit small
-    test_sti(1 bsl 28),
-    %% 1 bsl 33, just beyond 32 bit
-    test_sti(1 bsl 33),
-    %% 1 bsl 60 - 1, just before 64 bit bignum
-    test_sti(1 bsl 60 - 1),
-    %% 1 bsl 60, just beyond 64 bit small
-    test_sti(1 bsl 60),
-    %% 1 bsl 65, just beyond 64 bit
-    test_sti(1 bsl 65),
+    % Interesting values around 2-pows, such as MIN_SMALL and MAX_SMALL.
+    lists:foreach(fun(Bits) ->
+			  N = 1 bsl Bits,
+			  test_sti(N - 1),
+			  test_sti(N),
+			  test_sti(N + 1)
+		  end,
+		  lists:seq(16, 130)),
+
     %% Bignums.
     test_sti(123456932798748738738,16),
     test_sti(list_to_integer(lists:duplicate(2000, $1))),
@@ -396,46 +416,102 @@ t_string_to_integer(Config) when is_list(Config) ->
 
     %% Invalid types
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch binary_to_integer(Value)),
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch erlang:list_to_integer(Value))
 		  end,[atom,1.2,0.0,[$1,[$2]]]),
-    
+
     % Default base error cases
     lists:foreach(fun(Value) ->
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch erlang:binary_to_integer(
 				       list_to_binary(Value))),
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch erlang:list_to_integer(Value))
-		  end,["1.0"," 1"," -1",""]),
-    
+		  end,["1.0"," 1"," -1","","+"]),
+
     % Custom base error cases
     lists:foreach(fun({Value,Base}) ->
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch binary_to_integer(
 				       list_to_binary(Value),Base)),
-			  {'EXIT', {badarg, _}} = 
+			  {'EXIT', {badarg, _}} =
 			      (catch erlang:list_to_integer(Value,Base))
 		  end,[{" 1",1},{" 1",37},{"2",2},{"C",11},
 		       {"1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111z",16},
 		       {"1z111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",16},
 		       {"111z11111111",16}]),
-    
+
+    %% log2 calculation overflow bug in do_integer_to_list (OTP-12624)
+    %% Would crash with segv
+    0 = list_to_integer(lists:duplicate(10000000,$0)),
+
+    ok.
+
+%% Tests edge cases for list_to_integer; compares with known good values
+
+t_list_to_integer_edge_cases(Config) when is_list(Config) ->
+    %% Take integer literals and compare to their representation in ExtTerm
+    T = [
+        {16, "0", <<131,97,0>>},
+        {16, "-0", <<131,97,0>>},
+
+        {16, "f", <<131,97,15>>},
+        {16, "-f", <<131,98,255,255,255,241>>},
+
+        {16, "0000000000000000000000000000000000000000000000000f",
+            <<131,97,15>>},
+        {16, "-0000000000000000000000000000000000000000000000000f",
+            <<131,98,255,255,255,241>>},
+
+        {16, "ffffffff", <<131,110,4,0,255,255,255,255>>},
+        {16, "-ffffffff", <<131,110,4,1,255,255,255,255>>},
+
+        {16, "7fffffff", <<131,110,4,0,255,255,255,127>>},
+        {16, "-7fffffff", <<131,98,128,0,0,1>>},
+
+        {16, "ffffffffffffffff",
+            <<131,110,8,0,255,255,255,255,255,255,255,255>>},
+        {16, "-ffffffffffffffff",
+            <<131,110,8,1,255,255,255,255,255,255,255,255>>},
+
+        {16, "7fffffffffffffff",
+            <<131,110,8,0,255,255,255,255,255,255,255,127>>},
+        {16, "-7fffffffffffffff",
+            <<131,110,8,1,255,255,255,255,255,255,255,127>>},
+
+        %% Alleged 32-bit corner case (should not happen on 64-bit). At 32-4
+        %% bits we may corrupt sign bit and fall out of SMALL_INT range.
+        {2, "1000000000000000000000000000", <<131,98,8,0,0,0>>},
+        {2, "-1000000000000000000000000000", <<131,98,248,0,0,0>>},
+
+        %% 64-bit corner case (should not happen on 32-bit) at 64-4 bits we
+        %% corrupt sign bit and fall out of SMALL_INT range (bam! all dead)
+        {2, "100000000000000000000000000000000000000000000000000000000000",
+            <<131,110,8,0,0,0,0,0,0,0,0,8>>},
+        {2, "-100000000000000000000000000000000000000000000000000000000000",
+            <<131,110,8,1,0,0,0,0,0,0,0,8>>}
+    ],
+    [begin
+         io:format("~s base ~p vs ~p~n", [Str, Base, Bin]),
+         FromStr = list_to_integer(Str, Base),
+         FromStr = binary_to_term(Bin)
+     end || {Base, Str, Bin} <- T],
     ok.
 
 test_sti(Num) ->
     [begin
 	 io:format("Testing ~p:~p",[Num,Base]),
-	 test_sti(Num,Base) 
+	 test_sti(Num,Base)
      end|| Base <- lists:seq(2,36)].
 
 test_sti(Num,Base) ->
-    Num  = list_to_integer(int2list(Num,Base),Base),
-    Num = -1*list_to_integer(int2list(Num*-1,Base),Base),
-    Num  = binary_to_integer(int2bin(Num,Base),Base),
-    Num = -1*binary_to_integer(int2bin(Num*-1,Base),Base).
+    Neg = -Num,
+    Num = list_to_integer(int2list(Num,Base),Base),
+    Neg = list_to_integer(int2list(Num*-1,Base),Base),
+    Num = binary_to_integer(int2bin(Num,Base),Base),
+    Neg = binary_to_integer(int2bin(Num*-1,Base),Base).
 
 % Calling this function (which is not supposed to be inlined) prevents
 % the compiler from calculating the answer, so we don't test the compiler

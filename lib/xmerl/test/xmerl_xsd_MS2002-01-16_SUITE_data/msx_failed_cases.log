@@ -532,7 +532,7 @@
         "elemQ018.xml",
         "elemO011.xml",
         "elemO006.xml"],[]}}.
-{group,{["groupO027.xsd",
+{model_group,{["groupO027.xsd",
          "groupO025.xsd",
          "groupO024.xsd",
          "groupO023.xsd",

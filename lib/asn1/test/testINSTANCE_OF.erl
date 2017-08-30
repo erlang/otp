@@ -1,63 +1,41 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 %%
 -module(testINSTANCE_OF).
-
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
-main(Erule) ->
+main(_Erule) ->
+    Int = roundtrip('Int', 3),
 
-    ?line {ok,Integer} = asn1_wrapper:encode('INSTANCEOF','Int',3),
-    Int = list_to_binary(Integer),
     ValotherName = {otherName,{'INSTANCE OF',{2,4},Int}},
+    _ = roundtrip('GeneralName', ValotherName),
+
     VallastName1 = {lastName,{'GeneralName_lastName',{2,4},12}},
+    _ = roundtrip('GeneralName', VallastName1),
+
     VallastName2 = {lastName,{'GeneralName_lastName',{2,3,4},
 			      {'Seq',12,true}}},
-    ?line {ok,BytesoN}=
-	asn1_wrapper:encode('INSTANCEOF','GeneralName',ValotherName),
-    ?line {ok,Res1={otherName,_}} = 
-	asn1_wrapper:decode('INSTANCEOF','GeneralName',BytesoN),
-    ?line ok = test_encdec(Erule,Int,Res1),
+    _ = roundtrip('GeneralName', VallastName2),
+    ok.
 
-    ?line {ok,ByteslN1}=
-	asn1_wrapper:encode('INSTANCEOF','GeneralName',VallastName1),
-    ?line {ok,Res2={lastName,_}} = 
-	asn1_wrapper:decode('INSTANCEOF','GeneralName',ByteslN1),
-    ?line test_encdec(Erule,Res2),
-
-    ?line {ok,ByteslN2}=
-	asn1_wrapper:encode('INSTANCEOF','GeneralName',VallastName2),
-    ?line {ok,Res3={lastName,_}} = 
-	asn1_wrapper:decode('INSTANCEOF','GeneralName',ByteslN2),
-    ?line test_encdec(Erule,Res3).
-
-test_encdec(_Erule,Int,{otherName,{'INSTANCE OF',{2,4},Int}}) ->
-    ok;
-test_encdec(Erule,Int,R={otherName,{'INSTANCE OF',{2,4},_Int2}}) ->
-    {error,{Erule,Int,R}}.
-
-test_encdec(_Erule,{lastName,{'GeneralName_lastName',{2,4},12}}) ->
-    ok;
-test_encdec(_Erule,{lastName,{'GeneralName_lastName',{2,3,4},
-			     {'Seq',12,true}}}) ->
-    ok;
-test_encdec(Erule,Res) ->
-    {error,{Erule,Res}}.
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip_enc('INSTANCEOF', T, V).

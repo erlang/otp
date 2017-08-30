@@ -11,7 +11,8 @@
   {applications, [kernel,stdlib]},
   {env, [{file_util_search_methods,[{"", ""}, {"ebin", "esrc"}, {"ebin", "src"}]}
 	]
-  }
+  },
+  {runtime_dependencies, ["stdlib-2.5","kernel-3.0","erts-6.0"]}
  ]
 }. 
  

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -29,7 +30,6 @@
 	 start_link/3, 
 	 request/2, 
 	 cancel_request/2,
-	 request_canceled/3,
 	 request_done/2, 
 	 retry_request/2, 
 	 redirect_request/2,
@@ -144,22 +144,7 @@ redirect_request(Request, ProfileName) ->
 %%--------------------------------------------------------------------
 
 cancel_request(RequestId, ProfileName) ->
-    call(ProfileName, {cancel_request, RequestId}).
-
-
-%%--------------------------------------------------------------------
-%% Function: request_canceled(RequestId, ProfileName) -> ok
-%%	RequestId - ref()
-%%      ProfileName = atom()
-%%
-%% Description: Confirms that a request has been canceld. Intended to
-%% be called by the httpc handler process.
-%%--------------------------------------------------------------------
-
-request_canceled(RequestId, ProfileName, From) ->
-    gen_server:reply(From, ok),
-    cast(ProfileName, {request_canceled, RequestId}).
-
+    cast(ProfileName, {cancel_request, RequestId}).
 
 %%--------------------------------------------------------------------
 %% Function: request_done(RequestId, ProfileName) -> ok
@@ -474,26 +459,6 @@ handle_call({request, Request}, _, State) ->
 	    {stop, Error, httpc_response:error(Request, Error), State}
     end;
 
-handle_call({cancel_request, RequestId}, From, 
-	    #state{handler_db = HandlerDb} = State) ->
-    ?hcri("cancel_request", [{request_id, RequestId}]),
-    case ets:lookup(HandlerDb, RequestId) of
-	[] ->
-	    %% The request has allready compleated make sure
-	    %% it is deliverd to the client process queue so
-	    %% it can be thrown away by httpc:cancel_request
-	    %% This delay is hopfully a temporary workaround.
-	    %% Note that it will not not delay the manager,
-	    %% only the client that called httpc:cancel_request
-	    timer:apply_after(?DELAY, gen_server, reply, [From, ok]),
-	    {noreply, State};
-	[{_, Pid, _}] ->
-	    httpc_handler:cancel(RequestId, Pid, From),
-	    {noreply, 
-	     State#state{cancel = 
-			 [{RequestId, Pid, From} | State#state.cancel]}}
-    end;
-
 handle_call(reset_cookies, _, #state{cookie_db = CookieDb} = State) ->
     ?hcrv("reset cookies", []),
     httpc_cookie:reset_db(CookieDb),
@@ -555,19 +520,19 @@ handle_cast({retry_or_redirect_request, Request}, State) ->
 	    {stop, Error, State}
     end;
 
-handle_cast({request_canceled, RequestId}, State) ->
-    ?hcrv("request canceled", [{request_id, RequestId}]),
-    ets:delete(State#state.handler_db, RequestId),
-    case lists:keysearch(RequestId, 1, State#state.cancel) of
-	{value, Entry = {RequestId, _, From}} ->
-	    ?hcrt("found in cancel", [{from, From}]),
-	    {noreply, 
-	     State#state{cancel = lists:delete(Entry, State#state.cancel)}};
-	Else ->
-	    ?hcrt("not found in cancel", [{else, Else}]),
-	   {noreply, State}
+handle_cast({cancel_request, RequestId}, 
+	    #state{handler_db = HandlerDb} = State) ->
+    case ets:lookup(HandlerDb, RequestId) of
+	[] ->
+	    %% Request already compleated nothing to 
+	    %% cancel
+	    {noreply, State};
+	[{_, Pid, _}] ->
+	    httpc_handler:cancel(RequestId, Pid),
+	    ets:delete(State#state.handler_db, RequestId),
+	    {noreply, State}
     end;
-
+  
 handle_cast({request_done, RequestId}, State) ->
     ?hcrv("request done", [{request_id, RequestId}]),
     ets:delete(State#state.handler_db, RequestId),
@@ -629,22 +594,8 @@ handle_info({'EXIT', _, _}, State) ->
     %% Handled in DOWN
     {noreply, State};
 handle_info({'DOWN', _, _, Pid, _}, State) ->
-    ets:match_delete(State#state.handler_db, {'_', Pid, '_'}),
-
-    %% If there where any canceled request, handled by the
-    %% the process that now has terminated, the
-    %% cancelation can be viewed as sucessfull!
-    NewCanceldList =
-	lists:foldl(fun(Entry = {_, HandlerPid, From}, Acc)  ->
-			    case HandlerPid of
-				Pid ->
-				    gen_server:reply(From, ok),
-				    lists:delete(Entry, Acc);
-				_ ->
-				    Acc
-			    end 
-		    end, State#state.cancel, State#state.cancel),
-    {noreply, State#state{cancel = NewCanceldList}};
+    ets:match_delete(State#state.handler_db, {'_', Pid, '_'}),  
+    {noreply, State};
 handle_info(Info, State) ->
     Report = io_lib:format("Unknown message in "
 			   "httpc_manager:handle_info ~p~n", [Info]),
@@ -869,7 +820,7 @@ select_session(Method, HostPort, Scheme, SessionType,
 	    ?hcrd("select session", [{host_port,  HostPort}, 
 				     {scheme,     Scheme}, 
 				     {type,       SessionType}, 
-				     {candidates, Candidates}]),
+				     {candidates, Candidates}]),	    
 	    select_session(Candidates, MaxKeepAlive, MaxPipe, SessionType);
 	false ->
 	    no_connection

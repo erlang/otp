@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -31,12 +32,8 @@
 %% on the beam file of another dictionary.
 %%
 
--export([from_dict/4]).
-
-%% Internal exports (for test).
--export([file/1,
-         file/2,
-         file/3]).
+-export([from_dict/4,
+         is_printable_ascii/1]). %% used by ?TERM/1 in diameter_forms.hrl
 
 -include("diameter_forms.hrl").
 -include("diameter_vsn.hrl").
@@ -48,18 +45,61 @@
 
 %% ===========================================================================
 
--spec from_dict(File, Spec, Opts, Mode)
+-spec from_dict(File, ParseD, Opts, Mode)
    -> ok
+    | term()
  when File :: string(),
-      Spec :: orddict:orddict(),
+      ParseD :: orddict:orddict(),
       Opts :: list(),
-      Mode :: spec | erl | hrl.
+      Mode :: parse | forms | erl | hrl.
 
-from_dict(File, Spec, Opts, Mode) ->
+from_dict(File, ParseD, Opts, Mode) ->
     Outdir = proplists:get_value(outdir, Opts, "."),
+    Return = proplists:get_value(return, Opts, false),
+    Mod = mod(File, orddict:find(name, ParseD)),
     putr(verbose, lists:member(verbose, Opts)),
-    putr(debug,   lists:member(debug, Opts)),
-    codegen(File, Spec, Outdir, Mode).
+    try
+        maybe_write(Return, Mode, Outdir, Mod, gen(Mode, ParseD, ?A(Mod)))
+    after
+        eraser(verbose)
+    end.
+
+mod(File, error) ->
+    filename:rootname(filename:basename(File));
+mod(_, {ok, Mod}) ->
+    Mod.
+
+maybe_write(true, _, _, _, T) ->
+    T;
+
+maybe_write(_, Mode, Outdir, Mod, T) ->
+    Path = filename:join(Outdir, Mod),  %% minus extension
+    do_write(Mode, [Path, $., ext(Mode)], T).
+
+ext(parse) ->
+    "D";
+ext(forms) ->
+    "F";
+ext(T) ->
+    ?S(T).
+
+do_write(M, Path, T)
+  when M == parse;
+       M == forms ->
+    write_term(Path, T);
+do_write(_, Path, T) ->
+    write(Path, T).
+
+write(Path, T) ->
+    write(Path, "~s", T).
+
+write_term(Path, T) ->
+    write(Path, "~p.~n", T).
+
+write(Path, Fmt, T) ->
+    {ok, Fd} = file:open(Path, [write]),
+    io:fwrite(Fd, Fmt, [T]),
+    ok = file:close(Fd).
 
 %% Optional reports when running verbosely.
 report(What, Data) ->
@@ -77,118 +117,80 @@ putr(Key, Value) ->
 getr(Key) ->
     get({?MODULE, Key}).
 
-%% ===========================================================================
-%% ===========================================================================
-
-%% Generate from parsed dictionary in a file.
-
-file(F) ->
-    file(F, spec).
-
-file(F, Mode) ->
-    file(F, ".", Mode).
-
-file(F, Outdir, Mode) ->
-    {ok, [Spec]} = file:consult(F),
-    from_dict(F, Spec, Outdir, Mode).
+eraser(Key) ->
+    erase({?MODULE, Key}).
 
 %% ===========================================================================
 %% ===========================================================================
+
+is_printable_ascii(C) ->
+    16#20 =< C andalso C =< 16#7F.
 
 get_value(Key, Plist) ->
     proplists:get_value(Key, Plist, []).
 
-write(Path, Str) ->
-    w(Path, Str, "~s").
+gen(parse, ParseD, _Mod) ->
+    [?VERSION | ParseD];
 
-write_term(Path, T) ->
-    w(Path, T, "~p.").
+gen(forms, ParseD, Mod) ->
+    preprocess(Mod, erl_forms(Mod, ParseD));
 
-w(Path, T, Fmt) ->
-    {ok, Fd} = file:open(Path, [write]),
-    io:fwrite(Fd, Fmt ++ "~n", [T]),
-    file:close(Fd).
+gen(hrl, ParseD, Mod) ->
+    gen_hrl(Mod, ParseD);
 
-codegen(File, Spec, Outdir, Mode) ->
-    Mod = mod(File, orddict:find(name, Spec)),
-    Path = filename:join(Outdir, Mod),  %% minus extension
-    gen(Mode, Spec, ?A(Mod), Path),
-    ok.
+gen(erl, ParseD, Mod) ->
+    [header(), prettypr(erl_forms(Mod, ParseD)), $\n].
 
-mod(File, error) ->
-    filename:rootname(filename:basename(File));
-mod(_, {ok, Mod}) ->
-    Mod.
+erl_forms(Mod, ParseD) ->
+    Forms = [[{?attribute, module, Mod},
+              {?attribute, compile, {parse_transform, diameter_exprecs}},
+              {?attribute, compile, nowarn_unused_function}],
+             make_hrl_forms(ParseD),
+             [{?attribute, export, [{name, 0},
+                                    {id, 0},
+                                    {vendor_id, 0},
+                                    {vendor_name, 0},
+                                    {decode_avps, 2}, %% in diameter_gen.hrl
+                                    {encode_avps, 2}, %%
+                                    {msg_name, 2},
+                                    {msg_header, 1},
+                                    {rec2msg, 1},
+                                    {msg2rec, 1},
+                                    {name2rec, 1},
+                                    {avp_name, 2},
+                                    {avp_arity, 2},
+                                    {avp_header, 1},
+                                    {avp, 3},
+                                    {grouped_avp, 3},
+                                    {enumerated_avp, 3},
+                                    {empty_value, 1},
+                                    {dict, 0}]},
+              %% diameter.hrl is included for #diameter_avp
+              {?attribute, include_lib, "diameter/include/diameter.hrl"},
+              {?attribute, include_lib, "diameter/include/diameter_gen.hrl"},
+              f_name(Mod),
+              f_id(ParseD),
+              f_vendor_id(ParseD),
+              f_vendor_name(ParseD),
+              f_msg_name(ParseD),
+              f_msg_header(ParseD),
+              f_rec2msg(ParseD),
+              f_msg2rec(ParseD),
+              f_name2rec(ParseD),
+              f_avp_name(ParseD),
+              f_avp_arity(ParseD),
+              f_avp_header(ParseD),
+              f_avp(ParseD),
+              f_enumerated_avp(ParseD),
+              f_empty_value(ParseD),
+              f_dict(ParseD),
+              {eof, erl_anno:new(?LINE)}]],
 
-gen(spec, Spec, _Mod, Path) ->
-    write_term(Path ++ ".spec", [?VERSION | Spec]);
+    lists:append(Forms).
 
-gen(hrl, Spec, Mod, Path) ->
-    gen_hrl(Path ++ ".hrl", Mod, Spec);
-
-gen(erl, Spec, Mod, Path) ->
-    Forms = [{?attribute, module, Mod},
-             {?attribute, compile, {parse_transform, diameter_exprecs}},
-             {?attribute, compile, nowarn_unused_function},
-             {?attribute, export, [{name, 0},
-                                   {id, 0},
-                                   {vendor_id, 0},
-                                   {vendor_name, 0},
-                                   {decode_avps, 2}, %% in diameter_gen.hrl
-                                   {encode_avps, 2}, %%
-                                   {msg_name, 2},
-                                   {msg_header, 1},
-                                   {rec2msg, 1},
-                                   {msg2rec, 1},
-                                   {name2rec, 1},
-                                   {avp_name, 2},
-                                   {avp_arity, 2},
-                                   {avp_header, 1},
-                                   {avp, 3},
-                                   {grouped_avp, 3},
-                                   {enumerated_avp, 3},
-                                   {empty_value, 1},
-                                   {dict, 0}]},
-             %% diameter.hrl is included for #diameter_avp
-             {?attribute, include_lib, "diameter/include/diameter.hrl"},
-             {?attribute, include_lib, "diameter/include/diameter_gen.hrl"},
-             f_name(Mod),
-             f_id(Spec),
-             f_vendor_id(Spec),
-             f_vendor_name(Spec),
-             f_msg_name(Spec),
-             f_msg_header(Spec),
-             f_rec2msg(Spec),
-             f_msg2rec(Spec),
-             f_name2rec(Spec),
-             f_avp_name(Spec),
-             f_avp_arity(Spec),
-             f_avp_header(Spec),
-             f_avp(Spec),
-             f_enumerated_avp(Spec),
-             f_empty_value(Spec),
-             f_dict(Spec),
-             {eof, ?LINE}],
-
-    gen_erl(Path, insert_hrl_forms(Spec, Forms)).
-
-gen_erl(Path, Forms) ->
-    getr(debug) andalso write_term(Path ++ ".forms", Forms),
-    write(Path ++ ".erl",
-          header() ++ erl_prettypr:format(erl_syntax:form_list(Forms))).
-
-insert_hrl_forms(Spec, Forms) ->
-    {H,T} = lists:splitwith(fun is_header/1, Forms),
-    H ++ make_hrl_forms(Spec) ++ T.
-
-is_header({attribute, _, export, _}) ->
-    false;
-is_header(_) ->
-    true.
-
-make_hrl_forms(Spec) ->
+make_hrl_forms(ParseD) ->
     {_Prefix, MsgRecs, GrpRecs, ImportedGrpRecs}
-        = make_record_forms(Spec),
+        = make_record_forms(ParseD),
 
     RecordForms = MsgRecs ++ GrpRecs ++ lists:flatmap(fun({_,Fs}) -> Fs end,
                                                       ImportedGrpRecs),
@@ -199,16 +201,16 @@ make_hrl_forms(Spec) ->
     %% export_records is used by the diameter_exprecs parse transform.
     [{?attribute, export_records, RecNames} | RecordForms].
 
-make_record_forms(Spec) ->
-    Prefix = prefix(Spec),
+make_record_forms(ParseD) ->
+    Prefix = prefix(ParseD),
 
-    MsgRecs = a_record(Prefix, fun msg_proj/1, get_value(messages, Spec)),
-    GrpRecs = a_record(Prefix, fun grp_proj/1, get_value(grouped, Spec)),
+    MsgRecs = a_record(Prefix, fun msg_proj/1, get_value(messages, ParseD)),
+    GrpRecs = a_record(Prefix, fun grp_proj/1, get_value(grouped, ParseD)),
 
     ImportedGrpRecs = [{M, a_record(Prefix, fun grp_proj/1, Gs)}
-                       || {M,Gs} <- get_value(import_groups, Spec)],
+                       || {M,Gs} <- get_value(import_groups, ParseD)],
 
-    {Prefix, MsgRecs, GrpRecs, ImportedGrpRecs}.
+    {to_upper(Prefix), MsgRecs, GrpRecs, ImportedGrpRecs}.
 
 msg_proj({Name, _, _, _, Avps}) ->
     {Name, Avps}.
@@ -246,9 +248,9 @@ f_name(Name) ->
 %%% # id/0
 %%% ------------------------------------------------------------------------
 
-f_id(Spec) ->
+f_id(ParseD) ->
     {?function, id, 0,
-     [c_id(orddict:find(id, Spec))]}.
+     [c_id(orddict:find(id, ParseD))]}.
 
 c_id({ok, Id}) ->
     {?clause, [], [], [?INTEGER(Id)]};
@@ -260,9 +262,9 @@ c_id(error) ->
 %%% # vendor_id/0
 %%% ------------------------------------------------------------------------
 
-f_vendor_id(Spec) ->
+f_vendor_id(ParseD) ->
     {?function, vendor_id, 0,
-     [{?clause, [], [], [b_vendor_id(orddict:find(vendor, Spec))]}]}.
+     [{?clause, [], [], [b_vendor_id(orddict:find(vendor, ParseD))]}]}.
 
 b_vendor_id({ok, {Id, _}}) ->
     ?INTEGER(Id);
@@ -273,9 +275,9 @@ b_vendor_id(error) ->
 %%% # vendor_name/0
 %%% ------------------------------------------------------------------------
 
-f_vendor_name(Spec) ->
+f_vendor_name(ParseD) ->
     {?function, vendor_name, 0,
-     [{?clause, [], [], [b_vendor_name(orddict:find(vendor, Spec))]}]}.
+     [{?clause, [], [], [b_vendor_name(orddict:find(vendor, ParseD))]}]}.
 
 b_vendor_name({ok, {_, Name}}) ->
     ?Atom(Name);
@@ -286,15 +288,15 @@ b_vendor_name(error) ->
 %%% # msg_name/1
 %%% ------------------------------------------------------------------------
 
-f_msg_name(Spec) ->
-    {?function, msg_name, 2, msg_name(Spec)}.
+f_msg_name(ParseD) ->
+    {?function, msg_name, 2, msg_name(ParseD)}.
 
 %% Return the empty name for any unknown command to which
 %% DIAMETER_COMMAND_UNSUPPORTED should be replied.
 
-msg_name(Spec) ->
+msg_name(ParseD) ->
     lists:flatmap(fun c_msg_name/1, proplists:get_value(command_codes,
-                                                        Spec,
+                                                        ParseD,
                                                         []))
         ++ [{?clause, [?VAR('_'), ?VAR('_')], [], [?ATOM('')]}].
 
@@ -310,12 +312,12 @@ c_msg_name({Code, Req, Ans}) ->
 %%% # msg2rec/1
 %%% ------------------------------------------------------------------------
 
-f_msg2rec(Spec) ->
-    {?function, msg2rec, 1, msg2rec(Spec)}.
+f_msg2rec(ParseD) ->
+    {?function, msg2rec, 1, msg2rec(ParseD)}.
 
-msg2rec(Spec) ->
-    Pre = prefix(Spec),
-    lists:map(fun(T) -> c_msg2rec(T, Pre) end, get_value(messages, Spec))
+msg2rec(ParseD) ->
+    Pre = prefix(ParseD),
+    lists:map(fun(T) -> c_msg2rec(T, Pre) end, get_value(messages, ParseD))
         ++ [?BADARG(1)].
 
 c_msg2rec({N,_,_,_,_}, Pre) ->
@@ -325,12 +327,12 @@ c_msg2rec({N,_,_,_,_}, Pre) ->
 %%% # rec2msg/1
 %%% ------------------------------------------------------------------------
 
-f_rec2msg(Spec) ->
-    {?function, rec2msg, 1, rec2msg(Spec)}.
+f_rec2msg(ParseD) ->
+    {?function, rec2msg, 1, rec2msg(ParseD)}.
 
-rec2msg(Spec) ->
-    Pre = prefix(Spec),
-    lists:map(fun(T) -> c_rec2msg(T, Pre) end, get_value(messages, Spec))
+rec2msg(ParseD) ->
+    Pre = prefix(ParseD),
+    lists:map(fun(T) -> c_rec2msg(T, Pre) end, get_value(messages, ParseD))
         ++ [?BADARG(1)].
 
 c_rec2msg({N,_,_,_,_}, Pre) ->
@@ -340,13 +342,13 @@ c_rec2msg({N,_,_,_,_}, Pre) ->
 %%% # name2rec/1
 %%% ------------------------------------------------------------------------
 
-f_name2rec(Spec) ->
-    {?function, name2rec, 1, name2rec(Spec)}.
+f_name2rec(ParseD) ->
+    {?function, name2rec, 1, name2rec(ParseD)}.
 
-name2rec(Spec) ->
-    Pre = prefix(Spec),
-    Groups = get_value(grouped, Spec)
-          ++ lists:flatmap(fun avps/1, get_value(import_groups, Spec)),
+name2rec(ParseD) ->
+    Pre = prefix(ParseD),
+    Groups = get_value(grouped, ParseD)
+          ++ lists:flatmap(fun avps/1, get_value(import_groups, ParseD)),
     lists:map(fun({N,_,_,_}) -> c_name2rec(N, Pre) end, Groups)
         ++ [{?clause, [?VAR('T')], [], [?CALL(msg2rec, [?VAR('T')])]}].
 
@@ -360,8 +362,8 @@ avps({_Mod, Avps}) ->
 %%% # avp_name/1
 %%% ------------------------------------------------------------------------
 
-f_avp_name(Spec) ->
-    {?function, avp_name, 2, avp_name(Spec)}.
+f_avp_name(ParseD) ->
+    {?function, avp_name, 2, avp_name(ParseD)}.
 
 %% 3588, 4.1:
 %%
@@ -372,11 +374,11 @@ f_avp_name(Spec) ->
 %%       field.  AVP numbers 256 and above are used for Diameter, which are
 %%       allocated by IANA (see Section 11.1).
 
-avp_name(Spec) ->
-    Avps = get_value(avp_types, Spec),
-    Imported = get_value(import_avps, Spec),
-    Vid = orddict:find(vendor, Spec),
-    Vs = vendor_id_map(Spec),
+avp_name(ParseD) ->
+    Avps = get_value(avp_types, ParseD),
+    Imported = get_value(import_avps, ParseD),
+    Vid = orddict:find(vendor, ParseD),
+    Vs = vendor_id_map(ParseD),
 
     lists:map(fun(T) -> c_avp_name(T, Vs, Vid) end, Avps)
         ++ lists:flatmap(fun(T) -> c_imported_avp_name(T, Vs) end, Imported)
@@ -407,25 +409,25 @@ c_avp_name_(T, Code, Vid) ->
      [],
      [T]}.
 
-vendor_id_map(Spec) ->
+vendor_id_map(ParseD) ->
     lists:flatmap(fun({V,Ns}) -> [{N,V} || N <- Ns] end,
-                  get_value(avp_vendor_id, Spec))
+                  get_value(avp_vendor_id, ParseD))
         ++ lists:flatmap(fun({_,_,[],_}) -> [];
                             ({N,_,[V],_}) -> [{N,V}]
                          end,
-                         get_value(grouped, Spec)).
+                         get_value(grouped, ParseD)).
 
 %%% ------------------------------------------------------------------------
 %%% # avp_arity/2
 %%% ------------------------------------------------------------------------
 
-f_avp_arity(Spec) ->
-    {?function, avp_arity, 2, avp_arity(Spec)}.
+f_avp_arity(ParseD) ->
+    {?function, avp_arity, 2, avp_arity(ParseD)}.
 
-avp_arity(Spec) ->
-    Msgs = get_value(messages, Spec),
-    Groups = get_value(grouped, Spec)
-          ++ lists:flatmap(fun avps/1, get_value(import_groups, Spec)),
+avp_arity(ParseD) ->
+    Msgs = get_value(messages, ParseD),
+    Groups = get_value(grouped, ParseD)
+          ++ lists:flatmap(fun avps/1, get_value(import_groups, ParseD)),
     c_avp_arity(Msgs ++ Groups)
         ++ [{?clause, [?VAR('_'), ?VAR('_')], [], [?INTEGER(0)]}].
 
@@ -449,15 +451,15 @@ c_arity(Name, Avp) ->
 %%% # avp/3
 %%% ------------------------------------------------------------------------
 
-f_avp(Spec) ->
-    {?function, avp, 3, avp(Spec) ++ [?BADARG(3)]}.
+f_avp(ParseD) ->
+    {?function, avp, 3, avp(ParseD) ++ [?BADARG(3)]}.
 
-avp(Spec) ->
-    Native     = get_value(avp_types, Spec),
-    CustomMods = get_value(custom_types, Spec),
-    TypeMods   = get_value(codecs, Spec),
-    Imported   = get_value(import_avps, Spec),
-    Enums      = get_value(enum, Spec),
+avp(ParseD) ->
+    Native     = get_value(avp_types, ParseD),
+    CustomMods = get_value(custom_types, ParseD),
+    TypeMods   = get_value(codecs, ParseD),
+    Imported   = get_value(import_avps, ParseD),
+    Enums      = get_value(enum, ParseD),
 
     Custom = lists:map(fun({M,As}) -> {M, custom_types, As} end,
                        CustomMods)
@@ -548,14 +550,14 @@ custom(codecs, AvpName, Type) ->
 %%% # enumerated_avp/3
 %%% ------------------------------------------------------------------------
 
-f_enumerated_avp(Spec) ->
-    {?function, enumerated_avp, 3, enumerated_avp(Spec) ++ [?BADARG(3)]}.
+f_enumerated_avp(ParseD) ->
+    {?function, enumerated_avp, 3, enumerated_avp(ParseD) ++ [?BADARG(3)]}.
 
-enumerated_avp(Spec) ->
-    Enums = get_value(enum, Spec),
+enumerated_avp(ParseD) ->
+    Enums = get_value(enum, ParseD),
     lists:flatmap(fun cs_enumerated_avp/1, Enums)
         ++ lists:flatmap(fun({M,Es}) -> enumerated_avp(M, Es, Enums) end,
-                         get_value(import_enums, Spec)).
+                         get_value(import_enums, ParseD)).
 
 enumerated_avp(Mod, Es, Enums) ->
     lists:flatmap(fun({N,_}) ->
@@ -585,16 +587,16 @@ c_enumerated_avp(AvpName, {_,I}) ->
 %%% msg_header/1
 %%% ------------------------------------------------------------------------
 
-f_msg_header(Spec) ->
-    {?function, msg_header, 1, msg_header(Spec) ++ [?BADARG(1)]}.
+f_msg_header(ParseD) ->
+    {?function, msg_header, 1, msg_header(ParseD) ++ [?BADARG(1)]}.
 
-msg_header(Spec) ->
-    msg_header(get_value(messages, Spec), Spec).
+msg_header(ParseD) ->
+    msg_header(get_value(messages, ParseD), ParseD).
 
 msg_header([], _) ->
     [];
-msg_header(Msgs, Spec) ->
-    ApplId = orddict:fetch(id, Spec),
+msg_header(Msgs, ParseD) ->
+    ApplId = orddict:fetch(id, ParseD),
 
     lists:map(fun({M,C,F,_,_}) -> c_msg_header(M, C, F, ApplId) end, Msgs).
 
@@ -616,14 +618,14 @@ emf('ERR', N) -> N bor 2#00100000.
 %%% # avp_header/1
 %%% ------------------------------------------------------------------------
 
-f_avp_header(Spec) ->
-    {?function, avp_header, 1, avp_header(Spec) ++ [?BADARG(1)]}.
+f_avp_header(ParseD) ->
+    {?function, avp_header, 1, avp_header(ParseD) ++ [?BADARG(1)]}.
 
-avp_header(Spec) ->
-    Native = get_value(avp_types, Spec),
-    Imported = get_value(import_avps, Spec),
-    Vid = orddict:find(vendor, Spec),
-    Vs = vendor_id_map(Spec),
+avp_header(ParseD) ->
+    Native = get_value(avp_types, ParseD),
+    Imported = get_value(import_avps, ParseD),
+    Vid = orddict:find(vendor, ParseD),
+    Vs = vendor_id_map(ParseD),
 
     lists:flatmap(fun(A) -> c_avp_header(A, Vs, Vid) end,
                   Native ++ Imported).
@@ -679,14 +681,14 @@ v(false, _, _, _) ->
 %%% # empty_value/0
 %%% ------------------------------------------------------------------------
 
-f_empty_value(Spec) ->
-    {?function, empty_value, 1, empty_value(Spec)}.
+f_empty_value(ParseD) ->
+    {?function, empty_value, 1, empty_value(ParseD)}.
 
-empty_value(Spec) ->
-    Imported = lists:flatmap(fun avps/1, get_value(import_enums, Spec)),
-    Groups = get_value(grouped, Spec)
-        ++ lists:flatmap(fun avps/1, get_value(import_groups, Spec)),
-    Enums = [T || {N,_} = T <- get_value(enum, Spec),
+empty_value(ParseD) ->
+    Imported = lists:flatmap(fun avps/1, get_value(import_enums, ParseD)),
+    Groups = get_value(grouped, ParseD)
+        ++ lists:flatmap(fun avps/1, get_value(import_groups, ParseD)),
+    Enums = [T || {N,_} = T <- get_value(enum, ParseD),
                   not lists:keymember(N, 1, Imported)]
         ++ Imported,
     lists:map(fun c_empty_value/1, Groups ++ Enums)
@@ -706,72 +708,52 @@ c_empty_value({Name, _}) ->
 %%% # dict/0
 %%% ------------------------------------------------------------------------
 
-f_dict(Spec) ->
+f_dict(ParseD) ->
     {?function, dict, 0,
-     [{?clause, [], [], [?TERM([?VERSION | Spec])]}]}.
+     [{?clause, [], [], [?TERM([?VERSION | ParseD])]}]}.
 
 %%% ------------------------------------------------------------------------
-%%% # gen_hrl/3
+%%% # gen_hrl/2
 %%% ------------------------------------------------------------------------
 
-gen_hrl(Path, Mod, Spec) ->
-    {ok, Fd} = file:open(Path, [write]),
-
+gen_hrl(Mod, ParseD) ->
     {Prefix, MsgRecs, GrpRecs, ImportedGrpRecs}
-        = make_record_forms(Spec),
+        = make_record_forms(ParseD),
 
-    file:write(Fd, hrl_header(Mod)),
+    [hrl_header(Mod),
+     forms("Message records",     MsgRecs),
+     forms("Grouped AVP records", GrpRecs),
+     lists:map(fun({M,Fs}) ->
+                       forms("Grouped AVP records from " ++ atom_to_list(M),
+                             Fs)
+               end,
+               ImportedGrpRecs),
+     format("ENUM Macros", m_enums(Prefix, false, get_value(enum, ParseD))),
+     format("DEFINE Macros", m_enums(Prefix, false, get_value(define, ParseD))),
+     lists:map(fun({M,Es}) ->
+                       format("ENUM Macros from " ++ atom_to_list(M),
+                              m_enums(Prefix, true, Es))
+               end,
+               get_value(import_enums, ParseD))].
 
-    forms("Message records",     Fd, MsgRecs),
-    forms("Grouped AVP records", Fd, GrpRecs),
+forms(_, [] = No) ->
+    No;
+forms(Banner, Forms) ->
+    format(Banner, prettypr(Forms)).
 
-    lists:foreach(fun({M,Fs}) ->
-                          forms("Grouped AVP records from " ++ atom_to_list(M),
-                                Fd,
-                                Fs)
-                  end,
-                  ImportedGrpRecs),
-
-    PREFIX = to_upper(Prefix),
-
-    write("ENUM Macros",
-          Fd,
-          m_enums(PREFIX, false, get_value(enum, Spec))),
-    write("DEFINE Macros",
-          Fd,
-          m_enums(PREFIX, false, get_value(define, Spec))),
-
-    lists:foreach(fun({M,Es}) ->
-                          write("ENUM Macros from " ++ atom_to_list(M),
-                                Fd,
-                                m_enums(PREFIX, true, Es))
-                  end,
-                  get_value(import_enums, Spec)),
-
-    file:close(Fd).
-
-forms(_, _, []) ->
-    ok;
-forms(Banner, Fd, Forms) ->
-    write(Banner, Fd, prettypr(Forms)).
-
-write(_, _, []) ->
-    ok;
-write(Banner, Fd, Str) ->
-    banner(Fd, Banner),
-    io:fwrite(Fd, "~s~n", [Str]).
+format(_, [] = No) ->
+    No;
+format(Banner, Str) ->
+    [banner(Banner), Str, $\n].
 
 prettypr(Forms) ->
     erl_prettypr:format(erl_syntax:form_list(Forms)).
 
-banner(Fd, Heading) ->
-    file:write(Fd, banner(Heading)).
-
 banner(Heading) ->
-    ("\n\n"
+    ["\n\n"
      "%%% -------------------------------------------------------\n"
-     "%%% " ++ Heading ++ ":\n"
-     "%%% -------------------------------------------------------\n\n").
+     "%%% ", Heading, ":\n"
+     "%%% -------------------------------------------------------\n\n"].
 
 z(S) ->
     string:join(string:tokens(S, "\s\t"), "\s").
@@ -845,8 +827,8 @@ arity([_],   '*' = Inf) -> {0, Inf};
 arity({_},   '*' = Inf) -> {1, Inf};
 arity(_,   {_,_} = Q)   -> Q.
 
-prefix(Spec) ->
-    case orddict:find(prefix, Spec) of
+prefix(ParseD) ->
+    case orddict:find(prefix, ParseD) of
         {ok, P} ->
             P ++ "_";
         error ->
@@ -855,3 +837,93 @@ prefix(Spec) ->
 
 rec_name(Name, Prefix) ->
     Prefix ++ Name.
+
+%% ===========================================================================
+%% preprocess/2
+%%
+%% Preprocess forms as generated by 'forms' option. In particular,
+%% replace the include_lib attributes in generated forms by the
+%% corresponding forms, extracting the latter from an existing
+%% dictionary (diameter_gen_relay). The resulting forms can be
+%% compiled to beam using compile:forms/2 (which does no preprocessing
+%% of it's own; DiY currently appears to be the only way to preprocess
+%% a forms list).
+
+preprocess(Mod, Forms) ->
+    {_, Beam, _} = code:get_object_code(diameter_gen_relay),
+    pp(Forms, remod(Mod, abstract_code(Beam))).
+
+pp(Forms, {ok, Code}) ->
+    Files = files(Code, []),
+    lists:flatmap(fun(T) -> include(T, Files) end, Forms);
+
+pp(Forms, {error, Reason}) ->
+    erlang:error({forms, Reason, Forms}).
+
+%% Replace literal diameter_gen_relay atoms in the extracted forms.
+%% ?MODULE for example.
+
+remod(Mod, L)
+  when is_list(L) ->
+    [remod(Mod, T) || T <- L];
+
+remod(Mod, {atom, _, diameter_gen_relay} = T) ->
+    setelement(3, T, Mod);
+
+remod(Mod, T)
+  when is_tuple(T) ->
+    list_to_tuple(remod(Mod, tuple_to_list(T)));
+
+remod(_, T) ->
+    T.
+
+%% Replace include_lib by the corresponding forms.
+
+include({attribute, _, include_lib, Path}, Files) ->
+    Inc = filename:basename(Path),
+    [{Inc, Forms}] = [T || {F, _} = T <- Files, F == Inc], %% expect one
+    lists:flatmap(fun filter/1, Forms);
+
+include(T, _) ->
+    [T].
+
+%% Extract abstract code.
+
+abstract_code(Beam) ->
+    case beam_lib:chunks(Beam, [abstract_code]) of
+        {ok, {_Mod, [{abstract_code, {_Vsn, Code}}]}} ->
+            {ok, Code};
+        {ok, {_Mod, [{abstract_code, no_abstract_code = No}]}} ->
+            {error, No};
+        {error = E, beam_lib, Reason} ->
+            {E, Reason}
+    end.
+
+%% Extract filename/forms pairs for included forms.
+
+files([{attribute, _, file, {Path, _}} | T], Acc) ->
+    {Body, Rest} = lists:splitwith(fun({attribute, _, file, _}) -> false;
+                                      (_) -> true
+                                   end,
+                                   T),
+    files(Rest, [{filename:basename(Path), Body} | Acc]);
+
+files([], Acc) ->
+    Acc.
+
+%% Only retain record diameter_avp and functions not generated by
+%% diameter_exprecs.
+
+filter({attribute, _, record, {diameter_avp, _}} = T) ->
+    [T];
+
+filter({function, _, Name, _, _} = T) ->
+    case ?S(Name) of
+        [$#|_] ->  %% generated by diameter_exprecs
+            [];
+        _ ->
+            [T]
+    end;
+
+filter(_) ->
+    [].

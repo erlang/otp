@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %% 
@@ -47,7 +48,8 @@
          handle_pdu/4,
          handle_trap/3,
          handle_inform/3,
-         handle_report/3
+         handle_report/3, 
+	 handle_invalid_result/3
 	]).
 
 
@@ -55,7 +57,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
 	 code_change/3, terminate/2]).
 
--record(state, {mgr, parent, req, agent_target_name}).
+-record(state, {parent, req, agent_target_name}).
 
 -define(SERVER, ?MODULE).
 -define(USER,   ?MODULE).
@@ -129,10 +131,10 @@ init([Parent, Opts]) ->
 do_init(Opts) ->
     {MgrDir, MgrConf, MgrOpts, AgentTargetName, AgentConf} = parse_opts(Opts),
     ok = snmp_config:write_manager_config(MgrDir, "", MgrConf),
-    {ok, Pid} = snmpm:start_link(MgrOpts),
+    ok = snmpm:start_link(MgrOpts),
     ok = snmpm:register_user(?USER, ?MODULE, self()),
     ok = snmpm:register_agent(?USER, AgentTargetName, AgentConf),
-    {ok, #state{mgr = Pid, agent_target_name = AgentTargetName}}.
+    {ok, #state{agent_target_name = AgentTargetName}}.
 
 
 parse_opts(Opts) ->
@@ -279,10 +281,16 @@ handle_info({snmp_inform, TargetName, Info, Pid},
 handle_info({snmp_report, TargetName, Info, Pid}, 
 	    #state{parent = P} = State) ->
     info_msg("received snmp report: "
-	      "~n   TargetName: ~p"
-	      "~n   Info:       ~p", [TargetName, Info]),
+	     "~n   TargetName: ~p"
+	     "~n   Info:       ~p", [TargetName, Info]),
     Pid ! {snmp_report_reply, ignore, self()},
     P ! {snmp_report, TargetName, Info}, 
+    {noreply, State};
+
+handle_info({snmp_invalid_result, In, Out}, State) ->
+    error_msg("Callback failure: "
+	      "~n   In:  ~p"
+	      "~n   Out: ~p", [In, Out]),
     {noreply, State};
 
 handle_info(Info, State) ->
@@ -369,7 +377,12 @@ handle_report(TargetName, SnmpInfo, Pid) ->
     after 10000 ->
 	    ignore
     end.
-    
+
+
+handle_invalid_result(In, Out, Pid) ->
+    Pid ! {snmp_invalid_result, In, Out},
+    ignore.
+
 
 %%----------------------------------------------------------------------
          

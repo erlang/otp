@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -51,6 +52,8 @@
 	 type_test/2,new_type_test/2,old_type_test/2,old_bif/2]).
 -export([arith_op/2,bool_op/2,comp_op/2,list_op/2,send_op/2,op_type/2]).
 
+-export([is_type/2]).
+
 %%---------------------------------------------------------------------------
 
 %%  Erlang builtin functions allowed in guards.
@@ -70,6 +73,7 @@ guard_bif(bit_size, 1) -> true;
 guard_bif(byte_size, 1) -> true;
 guard_bif(element, 2) -> true;
 guard_bif(self, 0) -> true;
+guard_bif(map_size, 1) -> true;
 guard_bif(node, 0) -> true;
 guard_bif(node, 1) -> true;
 guard_bif(tuple_size, 1) -> true;
@@ -82,6 +86,7 @@ guard_bif(is_function, 1) -> true;
 guard_bif(is_function, 2) -> true;
 guard_bif(is_integer, 1) -> true;
 guard_bif(is_list, 1) -> true;
+guard_bif(is_map, 1) -> true;
 guard_bif(is_number, 1) -> true;
 guard_bif(is_pid, 1) -> true;
 guard_bif(is_port, 1) -> true;
@@ -113,6 +118,7 @@ new_type_test(is_function, 1) -> true;
 new_type_test(is_function, 2) -> true;
 new_type_test(is_integer, 1) -> true;
 new_type_test(is_list, 1) -> true;
+new_type_test(is_map, 1) -> true;
 new_type_test(is_number, 1) -> true;
 new_type_test(is_pid, 1) -> true;
 new_type_test(is_port, 1) -> true;
@@ -267,6 +273,7 @@ bif(bitstring_to_list, 1) -> true;
 bif(byte_size, 1) -> true;
 bif(check_old_code, 1) -> true;
 bif(check_process_code, 2) -> true;
+bif(check_process_code, 3) -> true;
 bif(date, 0) -> true;
 bif(delete_module, 1) -> true;
 bif(demonitor, 1) -> true;
@@ -286,8 +293,10 @@ bif(float_to_binary, 1) -> true;
 bif(float_to_binary, 2) -> true;
 bif(garbage_collect, 0) -> true;
 bif(garbage_collect, 1) -> true;
+bif(garbage_collect, 2) -> true;
 bif(get, 0) -> true;
 bif(get, 1) -> true;
+bif(get_keys, 0) -> true;
 bif(get_keys, 1) -> true;
 bif(group_leader, 0) -> true;
 bif(group_leader, 2) -> true;
@@ -313,6 +322,7 @@ bif(is_function, 1) -> true;
 bif(is_function, 2) -> true;
 bif(is_integer, 1) -> true;
 bif(is_list, 1) -> true;
+bif(is_map, 1) -> true;
 bif(is_number, 1) -> true;
 bif(is_pid, 1) -> true;
 bif(is_port, 1) -> true;
@@ -333,6 +343,7 @@ bif(list_to_pid, 1) -> true;
 bif(list_to_tuple, 1) -> true;
 bif(load_module, 2) -> true;
 bif(make_ref, 0) -> true;
+bif(map_size,1) -> true;
 bif(max,2) -> true;
 bif(min,2) -> true;
 bif(module_loaded, 1) -> true;
@@ -523,3 +534,53 @@ old_bif(unlink, 1) -> true;
 old_bif(unregister, 1) -> true;
 old_bif(whereis, 1) -> true;
 old_bif(Name, A) when is_atom(Name), is_integer(A) -> false.
+
+-spec is_type(Name, NumberOfTypeVariables) -> boolean() when
+      Name :: atom(),
+      NumberOfTypeVariables :: non_neg_integer().
+%% Returns true if Name/NumberOfTypeVariables is a predefined type.
+
+is_type(any, 0) -> true;
+is_type(arity, 0) -> true;
+is_type(atom, 0) -> true;
+is_type(binary, 0) -> true;
+is_type(bitstring, 0) -> true;
+is_type(bool, 0) -> true;
+is_type(boolean, 0) -> true;
+is_type(byte, 0) -> true;
+is_type(char, 0) -> true;
+is_type(float, 0) -> true;
+is_type(function, 0) -> true;
+is_type(identifier, 0) -> true;
+is_type(integer, 0) -> true;
+is_type(iodata, 0) -> true;
+is_type(iolist, 0) -> true;
+is_type(list, 0) -> true;
+is_type(list, 1) -> true;
+is_type(map, 0) -> true;
+is_type(maybe_improper_list, 0) -> true;
+is_type(maybe_improper_list, 2) -> true;
+is_type(mfa, 0) -> true;
+is_type(module, 0) -> true;
+is_type(neg_integer, 0) -> true;
+is_type(nil, 0) -> true;
+is_type(no_return, 0) -> true;
+is_type(node, 0) -> true;
+is_type(non_neg_integer, 0) -> true;
+is_type(none, 0) -> true;
+is_type(nonempty_improper_list, 2) -> true;
+is_type(nonempty_list, 0) -> true;
+is_type(nonempty_list, 1) -> true;
+is_type(nonempty_maybe_improper_list, 0) -> true;
+is_type(nonempty_maybe_improper_list, 2) -> true;
+is_type(nonempty_string, 0) -> true;
+is_type(number, 0) -> true;
+is_type(pid, 0) -> true;
+is_type(port, 0) -> true;
+is_type(pos_integer, 0) -> true;
+is_type(reference, 0) -> true;
+is_type(string, 0) -> true;
+is_type(term, 0) -> true;
+is_type(timeout, 0) -> true;
+is_type(tuple, 0) -> true;
+is_type(_, _) -> false.

@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2012. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -139,6 +140,24 @@ void fini_getenv_state(GETENV_STATE *state)
     FreeEnvironmentStringsW(state->environment_strings);
     state->environment_strings = state->next_string = NULL;
     erts_smp_rwmtx_runlock(&environ_rwmtx);
+}
+
+int erts_sys_unsetenv(char *key)
+{
+    int res = 0;
+    WCHAR *wkey = (WCHAR *) key;
+
+    SetLastError(0);
+    erts_smp_rwmtx_rlock(&environ_rwmtx);
+    GetEnvironmentVariableW(wkey,
+                            NULL,
+                            0);
+    if (GetLastError() != ERROR_ENVVAR_NOT_FOUND) {
+        res = (SetEnvironmentVariableW(wkey,
+                                       NULL) ? 0 : 1);
+    }
+    erts_smp_rwmtx_runlock(&environ_rwmtx);
+    return res;
 }
 
 char*

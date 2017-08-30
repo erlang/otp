@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -28,9 +29,9 @@
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
 
-init({File, Type}) ->
+init({File, Modes, Type}) when is_list(Modes) ->
     process_flag(trap_exit, true),
-    case file:open(File, [write]) of
+    case file:open(File, Modes) of
 	{ok,Fd} ->
 	    {ok, {Fd, File, Type}};
 	What ->
@@ -40,7 +41,7 @@ init({File, Type}) ->
 handle_event({_Type, GL, _Msg}, State) when node(GL) /= node() ->
     {ok, State};
 handle_event(Event, {Fd, File, Type}) ->
-    sasl_report:write_report(Fd, Type, tag_event(Event)),
+    _ = sasl_report:write_report(Fd, Type, tag_event(Event)),
     {ok, {Fd, File, Type}};
 handle_event(_, State) ->
     {ok, State}.
@@ -53,7 +54,7 @@ handle_info(_, State) ->
 handle_call(_Query, _State) -> {error, bad_query}.
 
 terminate(_, {Fd, _File, _Type}) ->
-    file:close(Fd),
+    _ = file:close(Fd),
     [].
 
 tag_event(Event) ->    

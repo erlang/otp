@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -26,10 +27,13 @@
 #define ERL_SMP_H
 #include "erl_threads.h"
 
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
 #define erts_smp_mtx_lock(L) erts_smp_mtx_lock_x(L, __FILE__, __LINE__)
+#define erts_smp_mtx_trylock(L) erts_smp_mtx_trylock_x(L, __FILE__, __LINE__)
 #define erts_smp_spin_lock(L) erts_smp_spin_lock_x(L, __FILE__, __LINE__)
+#define erts_smp_rwmtx_tryrlock(L) erts_smp_rwmtx_tryrlock_x(L, __FILE__, __LINE__)
 #define erts_smp_rwmtx_rlock(L) erts_smp_rwmtx_rlock_x(L, __FILE__, __LINE__)
+#define erts_smp_rwmtx_tryrwlock(L) erts_smp_rwmtx_tryrwlock_x(L, __FILE__, __LINE__)
 #define erts_smp_rwmtx_rwlock(L) erts_smp_rwmtx_rwlock_x(L, __FILE__, __LINE__)
 #define erts_smp_read_lock(L) erts_smp_read_lock_x(L, __FILE__, __LINE__)
 #define erts_smp_write_lock(L) erts_smp_write_lock_x(L, __FILE__, __LINE__)
@@ -57,6 +61,7 @@ typedef erts_tsd_key_t erts_smp_tsd_key_t;
 #define erts_smp_dw_atomic_t erts_dw_atomic_t
 #define erts_smp_atomic_t erts_atomic_t
 #define erts_smp_atomic32_t erts_atomic32_t
+#define erts_smp_atomic64_t erts_atomic64_t
 typedef erts_spinlock_t erts_smp_spinlock_t;
 typedef erts_rwlock_t erts_smp_rwlock_t;
 void erts_thr_fatal_error(int, char *); /* implemented in erl_init.c */
@@ -92,6 +97,7 @@ typedef int erts_smp_tsd_key_t;
 #define erts_smp_dw_atomic_t erts_no_dw_atomic_t
 #define erts_smp_atomic_t erts_no_atomic_t
 #define erts_smp_atomic32_t erts_no_atomic32_t
+#define erts_smp_atomic64_t erts_no_atomic64_t
 #if __GNUC__ > 2
 typedef struct { } erts_smp_spinlock_t;
 typedef struct { } erts_smp_rwlock_t;
@@ -131,10 +137,11 @@ ERTS_GLB_INLINE void erts_smp_mtx_init_locked_x(erts_smp_mtx_t *mtx,
 ERTS_GLB_INLINE void erts_smp_mtx_init(erts_smp_mtx_t *mtx, char *name);
 ERTS_GLB_INLINE void erts_smp_mtx_init_locked(erts_smp_mtx_t *mtx, char *name);
 ERTS_GLB_INLINE void erts_smp_mtx_destroy(erts_smp_mtx_t *mtx);
-ERTS_GLB_INLINE int erts_smp_mtx_trylock(erts_smp_mtx_t *mtx);
-#ifdef ERTS_ENABLE_LOCK_COUNT
-ERTS_GLB_INLINE void erts_smp_mtx_lock_x(erts_smp_mtx_t *mtx, char *file, int line);
+#ifdef ERTS_ENABLE_LOCK_POSITION
+ERTS_GLB_INLINE int erts_smp_mtx_trylock_x(erts_smp_mtx_t *mtx, char *file, unsigned int line);
+ERTS_GLB_INLINE void erts_smp_mtx_lock_x(erts_smp_mtx_t *mtx, char *file, unsigned int line);
 #else
+ERTS_GLB_INLINE int erts_smp_mtx_trylock(erts_smp_mtx_t *mtx);
 ERTS_GLB_INLINE void erts_smp_mtx_lock(erts_smp_mtx_t *mtx);
 #endif
 ERTS_GLB_INLINE void erts_smp_mtx_unlock(erts_smp_mtx_t *mtx);
@@ -159,16 +166,18 @@ ERTS_GLB_INLINE void erts_smp_rwmtx_init_opt(erts_smp_rwmtx_t *rwmtx,
 ERTS_GLB_INLINE void erts_smp_rwmtx_init(erts_smp_rwmtx_t *rwmtx,
 					 char *name);
 ERTS_GLB_INLINE void erts_smp_rwmtx_destroy(erts_smp_rwmtx_t *rwmtx);
-ERTS_GLB_INLINE int erts_smp_rwmtx_tryrlock(erts_smp_rwmtx_t *rwmtx);
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
+ERTS_GLB_INLINE int erts_smp_rwmtx_tryrlock_x(erts_smp_rwmtx_t *rwmtx, char *file, unsigned int line);
 ERTS_GLB_INLINE void erts_smp_rwmtx_rlock_x(erts_smp_rwmtx_t *rwmtx, char *file, unsigned int line);
 ERTS_GLB_INLINE void erts_smp_rwmtx_rwlock_x(erts_smp_rwmtx_t *rwmtx, char *file, unsigned int line);
+ERTS_GLB_INLINE int erts_smp_rwmtx_tryrwlock_x(erts_smp_rwmtx_t *rwmtx, char *file, unsigned int line);
 #else
+ERTS_GLB_INLINE int erts_smp_rwmtx_tryrlock(erts_smp_rwmtx_t *rwmtx);
 ERTS_GLB_INLINE void erts_smp_rwmtx_rlock(erts_smp_rwmtx_t *rwmtx);
 ERTS_GLB_INLINE void erts_smp_rwmtx_rwlock(erts_smp_rwmtx_t *rwmtx);
+ERTS_GLB_INLINE int erts_smp_rwmtx_tryrwlock(erts_smp_rwmtx_t *rwmtx);
 #endif
 ERTS_GLB_INLINE void erts_smp_rwmtx_runlock(erts_smp_rwmtx_t *rwmtx);
-ERTS_GLB_INLINE int erts_smp_rwmtx_tryrwlock(erts_smp_rwmtx_t *rwmtx);
 ERTS_GLB_INLINE void erts_smp_rwmtx_rwunlock(erts_smp_rwmtx_t *rwmtx);
 ERTS_GLB_INLINE int erts_smp_lc_rwmtx_is_rlocked(erts_smp_rwmtx_t *mtx);
 ERTS_GLB_INLINE int erts_smp_lc_rwmtx_is_rwlocked(erts_smp_rwmtx_t *mtx);
@@ -179,7 +188,7 @@ ERTS_GLB_INLINE void erts_smp_spinlock_init(erts_smp_spinlock_t *lock,
 					    char *name);
 ERTS_GLB_INLINE void erts_smp_spinlock_destroy(erts_smp_spinlock_t *lock);
 ERTS_GLB_INLINE void erts_smp_spin_unlock(erts_smp_spinlock_t *lock);
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
 ERTS_GLB_INLINE void erts_smp_spin_lock_x(erts_smp_spinlock_t *lock, char *file, unsigned int line);
 #else
 ERTS_GLB_INLINE void erts_smp_spin_lock(erts_smp_spinlock_t *lock);
@@ -192,7 +201,7 @@ ERTS_GLB_INLINE void erts_smp_rwlock_init(erts_smp_rwlock_t *lock,
 					  char *name);
 ERTS_GLB_INLINE void erts_smp_rwlock_destroy(erts_smp_rwlock_t *lock);
 ERTS_GLB_INLINE void erts_smp_read_unlock(erts_smp_rwlock_t *lock);
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
 ERTS_GLB_INLINE void erts_smp_read_lock_x(erts_smp_rwlock_t *lock, char *file, unsigned int line);
 ERTS_GLB_INLINE void erts_smp_write_lock_x(erts_smp_rwlock_t *lock, char *file, unsigned int line);
 #else
@@ -202,7 +211,8 @@ ERTS_GLB_INLINE void erts_smp_write_lock(erts_smp_rwlock_t *lock);
 ERTS_GLB_INLINE void erts_smp_write_unlock(erts_smp_rwlock_t *lock);
 ERTS_GLB_INLINE int erts_smp_lc_rwlock_is_rlocked(erts_smp_rwlock_t *lock);
 ERTS_GLB_INLINE int erts_smp_lc_rwlock_is_rwlocked(erts_smp_rwlock_t *lock);
-ERTS_GLB_INLINE void erts_smp_tsd_key_create(erts_smp_tsd_key_t *keyp);
+ERTS_GLB_INLINE void erts_smp_tsd_key_create(erts_smp_tsd_key_t *keyp,
+					     char *keyname);
 ERTS_GLB_INLINE void erts_smp_tsd_key_delete(erts_smp_tsd_key_t key);
 ERTS_GLB_INLINE void erts_smp_tsd_set(erts_smp_tsd_key_t key, void *value);
 ERTS_GLB_INLINE void * erts_smp_tsd_get(erts_smp_tsd_key_t key);
@@ -482,6 +492,116 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_atomic32_set_dirty erts_atomic32_set_dirty
 #define erts_smp_atomic32_read_dirty erts_atomic32_read_dirty
 
+/* 64-bit atomics */
+
+#define erts_smp_atomic64_init_nob erts_atomic64_init_nob
+#define erts_smp_atomic64_set_nob erts_atomic64_set_nob
+#define erts_smp_atomic64_read_nob erts_atomic64_read_nob
+#define erts_smp_atomic64_inc_read_nob erts_atomic64_inc_read_nob
+#define erts_smp_atomic64_dec_read_nob erts_atomic64_dec_read_nob
+#define erts_smp_atomic64_inc_nob erts_atomic64_inc_nob
+#define erts_smp_atomic64_dec_nob erts_atomic64_dec_nob
+#define erts_smp_atomic64_add_read_nob erts_atomic64_add_read_nob
+#define erts_smp_atomic64_add_nob erts_atomic64_add_nob
+#define erts_smp_atomic64_read_bor_nob erts_atomic64_read_bor_nob
+#define erts_smp_atomic64_read_band_nob erts_atomic64_read_band_nob
+#define erts_smp_atomic64_xchg_nob erts_atomic64_xchg_nob
+#define erts_smp_atomic64_cmpxchg_nob erts_atomic64_cmpxchg_nob
+#define erts_smp_atomic64_read_bset_nob erts_atomic64_read_bset_nob
+
+#define erts_smp_atomic64_init_mb erts_atomic64_init_mb
+#define erts_smp_atomic64_set_mb erts_atomic64_set_mb
+#define erts_smp_atomic64_read_mb erts_atomic64_read_mb
+#define erts_smp_atomic64_inc_read_mb erts_atomic64_inc_read_mb
+#define erts_smp_atomic64_dec_read_mb erts_atomic64_dec_read_mb
+#define erts_smp_atomic64_inc_mb erts_atomic64_inc_mb
+#define erts_smp_atomic64_dec_mb erts_atomic64_dec_mb
+#define erts_smp_atomic64_add_read_mb erts_atomic64_add_read_mb
+#define erts_smp_atomic64_add_mb erts_atomic64_add_mb
+#define erts_smp_atomic64_read_bor_mb erts_atomic64_read_bor_mb
+#define erts_smp_atomic64_read_band_mb erts_atomic64_read_band_mb
+#define erts_smp_atomic64_xchg_mb erts_atomic64_xchg_mb
+#define erts_smp_atomic64_cmpxchg_mb erts_atomic64_cmpxchg_mb
+#define erts_smp_atomic64_read_bset_mb erts_atomic64_read_bset_mb
+
+#define erts_smp_atomic64_init_acqb erts_atomic64_init_acqb
+#define erts_smp_atomic64_set_acqb erts_atomic64_set_acqb
+#define erts_smp_atomic64_read_acqb erts_atomic64_read_acqb
+#define erts_smp_atomic64_inc_read_acqb erts_atomic64_inc_read_acqb
+#define erts_smp_atomic64_dec_read_acqb erts_atomic64_dec_read_acqb
+#define erts_smp_atomic64_inc_acqb erts_atomic64_inc_acqb
+#define erts_smp_atomic64_dec_acqb erts_atomic64_dec_acqb
+#define erts_smp_atomic64_add_read_acqb erts_atomic64_add_read_acqb
+#define erts_smp_atomic64_add_acqb erts_atomic64_add_acqb
+#define erts_smp_atomic64_read_bor_acqb erts_atomic64_read_bor_acqb
+#define erts_smp_atomic64_read_band_acqb erts_atomic64_read_band_acqb
+#define erts_smp_atomic64_xchg_acqb erts_atomic64_xchg_acqb
+#define erts_smp_atomic64_cmpxchg_acqb erts_atomic64_cmpxchg_acqb
+#define erts_smp_atomic64_read_bset_acqb erts_atomic64_read_bset_acqb
+
+#define erts_smp_atomic64_init_relb erts_atomic64_init_relb
+#define erts_smp_atomic64_set_relb erts_atomic64_set_relb
+#define erts_smp_atomic64_read_relb erts_atomic64_read_relb
+#define erts_smp_atomic64_inc_read_relb erts_atomic64_inc_read_relb
+#define erts_smp_atomic64_dec_read_relb erts_atomic64_dec_read_relb
+#define erts_smp_atomic64_inc_relb erts_atomic64_inc_relb
+#define erts_smp_atomic64_dec_relb erts_atomic64_dec_relb
+#define erts_smp_atomic64_add_read_relb erts_atomic64_add_read_relb
+#define erts_smp_atomic64_add_relb erts_atomic64_add_relb
+#define erts_smp_atomic64_read_bor_relb erts_atomic64_read_bor_relb
+#define erts_smp_atomic64_read_band_relb erts_atomic64_read_band_relb
+#define erts_smp_atomic64_xchg_relb erts_atomic64_xchg_relb
+#define erts_smp_atomic64_cmpxchg_relb erts_atomic64_cmpxchg_relb
+#define erts_smp_atomic64_read_bset_relb erts_atomic64_read_bset_relb
+
+#define erts_smp_atomic64_init_ddrb erts_atomic64_init_ddrb
+#define erts_smp_atomic64_set_ddrb erts_atomic64_set_ddrb
+#define erts_smp_atomic64_read_ddrb erts_atomic64_read_ddrb
+#define erts_smp_atomic64_inc_read_ddrb erts_atomic64_inc_read_ddrb
+#define erts_smp_atomic64_dec_read_ddrb erts_atomic64_dec_read_ddrb
+#define erts_smp_atomic64_inc_ddrb erts_atomic64_inc_ddrb
+#define erts_smp_atomic64_dec_ddrb erts_atomic64_dec_ddrb
+#define erts_smp_atomic64_add_read_ddrb erts_atomic64_add_read_ddrb
+#define erts_smp_atomic64_add_ddrb erts_atomic64_add_ddrb
+#define erts_smp_atomic64_read_bor_ddrb erts_atomic64_read_bor_ddrb
+#define erts_smp_atomic64_read_band_ddrb erts_atomic64_read_band_ddrb
+#define erts_smp_atomic64_xchg_ddrb erts_atomic64_xchg_ddrb
+#define erts_smp_atomic64_cmpxchg_ddrb erts_atomic64_cmpxchg_ddrb
+#define erts_smp_atomic64_read_bset_ddrb erts_atomic64_read_bset_ddrb
+
+#define erts_smp_atomic64_init_rb erts_atomic64_init_rb
+#define erts_smp_atomic64_set_rb erts_atomic64_set_rb
+#define erts_smp_atomic64_read_rb erts_atomic64_read_rb
+#define erts_smp_atomic64_inc_read_rb erts_atomic64_inc_read_rb
+#define erts_smp_atomic64_dec_read_rb erts_atomic64_dec_read_rb
+#define erts_smp_atomic64_inc_rb erts_atomic64_inc_rb
+#define erts_smp_atomic64_dec_rb erts_atomic64_dec_rb
+#define erts_smp_atomic64_add_read_rb erts_atomic64_add_read_rb
+#define erts_smp_atomic64_add_rb erts_atomic64_add_rb
+#define erts_smp_atomic64_read_bor_rb erts_atomic64_read_bor_rb
+#define erts_smp_atomic64_read_band_rb erts_atomic64_read_band_rb
+#define erts_smp_atomic64_xchg_rb erts_atomic64_xchg_rb
+#define erts_smp_atomic64_cmpxchg_rb erts_atomic64_cmpxchg_rb
+#define erts_smp_atomic64_read_bset_rb erts_atomic64_read_bset_rb
+
+#define erts_smp_atomic64_init_wb erts_atomic64_init_wb
+#define erts_smp_atomic64_set_wb erts_atomic64_set_wb
+#define erts_smp_atomic64_read_wb erts_atomic64_read_wb
+#define erts_smp_atomic64_inc_read_wb erts_atomic64_inc_read_wb
+#define erts_smp_atomic64_dec_read_wb erts_atomic64_dec_read_wb
+#define erts_smp_atomic64_inc_wb erts_atomic64_inc_wb
+#define erts_smp_atomic64_dec_wb erts_atomic64_dec_wb
+#define erts_smp_atomic64_add_read_wb erts_atomic64_add_read_wb
+#define erts_smp_atomic64_add_wb erts_atomic64_add_wb
+#define erts_smp_atomic64_read_bor_wb erts_atomic64_read_bor_wb
+#define erts_smp_atomic64_read_band_wb erts_atomic64_read_band_wb
+#define erts_smp_atomic64_xchg_wb erts_atomic64_xchg_wb
+#define erts_smp_atomic64_cmpxchg_wb erts_atomic64_cmpxchg_wb
+#define erts_smp_atomic64_read_bset_wb erts_atomic64_read_bset_wb
+
+#define erts_smp_atomic64_set_dirty erts_atomic64_set_dirty
+#define erts_smp_atomic64_read_dirty erts_atomic64_read_dirty
+
 #else /* !ERTS_SMP */
 
 /* Double word size atomics */
@@ -744,6 +864,116 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_atomic32_set_dirty erts_no_atomic32_set
 #define erts_smp_atomic32_read_dirty erts_no_atomic32_read
 
+/* 64-bit atomics */
+
+#define erts_smp_atomic64_init_nob erts_no_atomic64_set
+#define erts_smp_atomic64_set_nob erts_no_atomic64_set
+#define erts_smp_atomic64_read_nob erts_no_atomic64_read
+#define erts_smp_atomic64_inc_read_nob erts_no_atomic64_inc_read
+#define erts_smp_atomic64_dec_read_nob erts_no_atomic64_dec_read
+#define erts_smp_atomic64_inc_nob erts_no_atomic64_inc
+#define erts_smp_atomic64_dec_nob erts_no_atomic64_dec
+#define erts_smp_atomic64_add_read_nob erts_no_atomic64_add_read
+#define erts_smp_atomic64_add_nob erts_no_atomic64_add
+#define erts_smp_atomic64_read_bor_nob erts_no_atomic64_read_bor
+#define erts_smp_atomic64_read_band_nob erts_no_atomic64_read_band
+#define erts_smp_atomic64_xchg_nob erts_no_atomic64_xchg
+#define erts_smp_atomic64_cmpxchg_nob erts_no_atomic64_cmpxchg
+#define erts_smp_atomic64_read_bset_nob erts_no_atomic64_read_bset
+
+#define erts_smp_atomic64_init_mb erts_no_atomic64_set
+#define erts_smp_atomic64_set_mb erts_no_atomic64_set
+#define erts_smp_atomic64_read_mb erts_no_atomic64_read
+#define erts_smp_atomic64_inc_read_mb erts_no_atomic64_inc_read
+#define erts_smp_atomic64_dec_read_mb erts_no_atomic64_dec_read
+#define erts_smp_atomic64_inc_mb erts_no_atomic64_inc
+#define erts_smp_atomic64_dec_mb erts_no_atomic64_dec
+#define erts_smp_atomic64_add_read_mb erts_no_atomic64_add_read
+#define erts_smp_atomic64_add_mb erts_no_atomic64_add
+#define erts_smp_atomic64_read_bor_mb erts_no_atomic64_read_bor
+#define erts_smp_atomic64_read_band_mb erts_no_atomic64_read_band
+#define erts_smp_atomic64_xchg_mb erts_no_atomic64_xchg
+#define erts_smp_atomic64_cmpxchg_mb erts_no_atomic64_cmpxchg
+#define erts_smp_atomic64_read_bset_mb erts_no_atomic64_read_bset
+
+#define erts_smp_atomic64_init_acqb erts_no_atomic64_set
+#define erts_smp_atomic64_set_acqb erts_no_atomic64_set
+#define erts_smp_atomic64_read_acqb erts_no_atomic64_read
+#define erts_smp_atomic64_inc_read_acqb erts_no_atomic64_inc_read
+#define erts_smp_atomic64_dec_read_acqb erts_no_atomic64_dec_read
+#define erts_smp_atomic64_inc_acqb erts_no_atomic64_inc
+#define erts_smp_atomic64_dec_acqb erts_no_atomic64_dec
+#define erts_smp_atomic64_add_read_acqb erts_no_atomic64_add_read
+#define erts_smp_atomic64_add_acqb erts_no_atomic64_add
+#define erts_smp_atomic64_read_bor_acqb erts_no_atomic64_read_bor
+#define erts_smp_atomic64_read_band_acqb erts_no_atomic64_read_band
+#define erts_smp_atomic64_xchg_acqb erts_no_atomic64_xchg
+#define erts_smp_atomic64_cmpxchg_acqb erts_no_atomic64_cmpxchg
+#define erts_smp_atomic64_read_bset_acqb erts_no_atomic64_read_bset
+
+#define erts_smp_atomic64_init_relb erts_no_atomic64_set
+#define erts_smp_atomic64_set_relb erts_no_atomic64_set
+#define erts_smp_atomic64_read_relb erts_no_atomic64_read
+#define erts_smp_atomic64_inc_read_relb erts_no_atomic64_inc_read
+#define erts_smp_atomic64_dec_read_relb erts_no_atomic64_dec_read
+#define erts_smp_atomic64_inc_relb erts_no_atomic64_inc
+#define erts_smp_atomic64_dec_relb erts_no_atomic64_dec
+#define erts_smp_atomic64_add_read_relb erts_no_atomic64_add_read
+#define erts_smp_atomic64_add_relb erts_no_atomic64_add
+#define erts_smp_atomic64_read_bor_relb erts_no_atomic64_read_bor
+#define erts_smp_atomic64_read_band_relb erts_no_atomic64_read_band
+#define erts_smp_atomic64_xchg_relb erts_no_atomic64_xchg
+#define erts_smp_atomic64_cmpxchg_relb erts_no_atomic64_cmpxchg
+#define erts_smp_atomic64_read_bset_relb erts_no_atomic64_read_bset
+
+#define erts_smp_atomic64_init_ddrb erts_no_atomic64_set
+#define erts_smp_atomic64_set_ddrb erts_no_atomic64_set
+#define erts_smp_atomic64_read_ddrb erts_no_atomic64_read
+#define erts_smp_atomic64_inc_read_ddrb erts_no_atomic64_inc_read
+#define erts_smp_atomic64_dec_read_ddrb erts_no_atomic64_dec_read
+#define erts_smp_atomic64_inc_ddrb erts_no_atomic64_inc
+#define erts_smp_atomic64_dec_ddrb erts_no_atomic64_dec
+#define erts_smp_atomic64_add_read_ddrb erts_no_atomic64_add_read
+#define erts_smp_atomic64_add_ddrb erts_no_atomic64_add
+#define erts_smp_atomic64_read_bor_ddrb erts_no_atomic64_read_bor
+#define erts_smp_atomic64_read_band_ddrb erts_no_atomic64_read_band
+#define erts_smp_atomic64_xchg_ddrb erts_no_atomic64_xchg
+#define erts_smp_atomic64_cmpxchg_ddrb erts_no_atomic64_cmpxchg
+#define erts_smp_atomic64_read_bset_ddrb erts_no_atomic64_read_bset
+
+#define erts_smp_atomic64_init_rb erts_no_atomic64_set
+#define erts_smp_atomic64_set_rb erts_no_atomic64_set
+#define erts_smp_atomic64_read_rb erts_no_atomic64_read
+#define erts_smp_atomic64_inc_read_rb erts_no_atomic64_inc_read
+#define erts_smp_atomic64_dec_read_rb erts_no_atomic64_dec_read
+#define erts_smp_atomic64_inc_rb erts_no_atomic64_inc
+#define erts_smp_atomic64_dec_rb erts_no_atomic64_dec
+#define erts_smp_atomic64_add_read_rb erts_no_atomic64_add_read
+#define erts_smp_atomic64_add_rb erts_no_atomic64_add
+#define erts_smp_atomic64_read_bor_rb erts_no_atomic64_read_bor
+#define erts_smp_atomic64_read_band_rb erts_no_atomic64_read_band
+#define erts_smp_atomic64_xchg_rb erts_no_atomic64_xchg
+#define erts_smp_atomic64_cmpxchg_rb erts_no_atomic64_cmpxchg
+#define erts_smp_atomic64_read_bset_rb erts_no_atomic64_read_bset
+
+#define erts_smp_atomic64_init_wb erts_no_atomic64_set
+#define erts_smp_atomic64_set_wb erts_no_atomic64_set
+#define erts_smp_atomic64_read_wb erts_no_atomic64_read
+#define erts_smp_atomic64_inc_read_wb erts_no_atomic64_inc_read
+#define erts_smp_atomic64_dec_read_wb erts_no_atomic64_dec_read
+#define erts_smp_atomic64_inc_wb erts_no_atomic64_inc
+#define erts_smp_atomic64_dec_wb erts_no_atomic64_dec
+#define erts_smp_atomic64_add_read_wb erts_no_atomic64_add_read
+#define erts_smp_atomic64_add_wb erts_no_atomic64_add
+#define erts_smp_atomic64_read_bor_wb erts_no_atomic64_read_bor
+#define erts_smp_atomic64_read_band_wb erts_no_atomic64_read_band
+#define erts_smp_atomic64_xchg_wb erts_no_atomic64_xchg
+#define erts_smp_atomic64_cmpxchg_wb erts_no_atomic64_cmpxchg
+#define erts_smp_atomic64_read_bset_wb erts_no_atomic64_read_bset
+
+#define erts_smp_atomic64_set_dirty erts_no_atomic64_set
+#define erts_smp_atomic64_read_dirty erts_no_atomic64_read
+
 #endif /* !ERTS_SMP */
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -835,7 +1065,7 @@ ERTS_GLB_INLINE void
 erts_smp_mtx_init_x(erts_smp_mtx_t *mtx, char *name, Eterm extra)
 {
 #ifdef ERTS_SMP
-    erts_mtx_init_x(mtx, name, extra);
+    erts_mtx_init_x(mtx, name, extra, 1);
 #endif
 }
 
@@ -843,7 +1073,7 @@ ERTS_GLB_INLINE void
 erts_smp_mtx_init_locked_x(erts_smp_mtx_t *mtx, char *name, Eterm extra)
 {
 #ifdef ERTS_SMP
-    erts_mtx_init_locked_x(mtx, name, extra);
+    erts_mtx_init_locked_x(mtx, name, extra, 1);
 #endif
 }
 
@@ -872,9 +1102,15 @@ erts_smp_mtx_destroy(erts_smp_mtx_t *mtx)
 }
 
 ERTS_GLB_INLINE int
+#ifdef ERTS_ENABLE_LOCK_POSITION
+erts_smp_mtx_trylock_x(erts_smp_mtx_t *mtx, char *file, unsigned int line)
+#else
 erts_smp_mtx_trylock(erts_smp_mtx_t *mtx)
+#endif
 {
-#ifdef ERTS_SMP
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_POSITION)
+    return erts_mtx_trylock_x(mtx,file,line);
+#elif defined(ERTS_SMP)
     return erts_mtx_trylock(mtx);
 #else
     return 0;
@@ -884,13 +1120,13 @@ erts_smp_mtx_trylock(erts_smp_mtx_t *mtx)
 
 
 ERTS_GLB_INLINE void
-#ifdef ERTS_ENABLE_LOCK_COUNT
-erts_smp_mtx_lock_x(erts_smp_mtx_t *mtx, char *file, int line)
+#ifdef ERTS_ENABLE_LOCK_POSITION
+erts_smp_mtx_lock_x(erts_smp_mtx_t *mtx, char *file, unsigned int line)
 #else
 erts_smp_mtx_lock(erts_smp_mtx_t *mtx)
 #endif
 {
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_POSITION)
     erts_mtx_lock_x(mtx, file, line);
 #elif defined(ERTS_SMP)
     erts_mtx_lock(mtx);
@@ -1020,9 +1256,15 @@ erts_smp_rwmtx_destroy(erts_smp_rwmtx_t *rwmtx)
 }
 
 ERTS_GLB_INLINE int
+#ifdef ERTS_ENABLE_LOCK_POSITION
+erts_smp_rwmtx_tryrlock_x(erts_smp_rwmtx_t *rwmtx, char *file, unsigned int line)
+#else
 erts_smp_rwmtx_tryrlock(erts_smp_rwmtx_t *rwmtx)
+#endif
 {
-#ifdef ERTS_SMP
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_POSITION)
+    return erts_rwmtx_tryrlock_x(rwmtx, file, line);
+#elif defined(ERTS_SMP)
     return erts_rwmtx_tryrlock(rwmtx);
 #else
     return 0;
@@ -1030,13 +1272,13 @@ erts_smp_rwmtx_tryrlock(erts_smp_rwmtx_t *rwmtx)
 }
 
 ERTS_GLB_INLINE void
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
 erts_smp_rwmtx_rlock_x(erts_smp_rwmtx_t *rwmtx, char *file, unsigned int line)
 #else
 erts_smp_rwmtx_rlock(erts_smp_rwmtx_t *rwmtx)
 #endif
 {
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_POSITION)
     erts_rwmtx_rlock_x(rwmtx, file, line);
 #elif defined(ERTS_SMP)
     erts_rwmtx_rlock(rwmtx);
@@ -1053,9 +1295,15 @@ erts_smp_rwmtx_runlock(erts_smp_rwmtx_t *rwmtx)
 
 
 ERTS_GLB_INLINE int
+#ifdef ERTS_ENABLE_LOCK_POSITION
+erts_smp_rwmtx_tryrwlock_x(erts_smp_rwmtx_t *rwmtx, char *file, unsigned int line)
+#else
 erts_smp_rwmtx_tryrwlock(erts_smp_rwmtx_t *rwmtx)
+#endif
 {
-#ifdef ERTS_SMP
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_POSITION)
+    return erts_rwmtx_tryrwlock_x(rwmtx, file, line);
+#elif defined(ERTS_SMP)
     return erts_rwmtx_tryrwlock(rwmtx);
 #else
     return 0;
@@ -1063,13 +1311,13 @@ erts_smp_rwmtx_tryrwlock(erts_smp_rwmtx_t *rwmtx)
 }
 
 ERTS_GLB_INLINE void
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
 erts_smp_rwmtx_rwlock_x(erts_smp_rwmtx_t *rwmtx, char *file, unsigned int line)
 #else
 erts_smp_rwmtx_rwlock(erts_smp_rwmtx_t *rwmtx)
 #endif
 {
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_POSITION)
     erts_rwmtx_rwlock_x(rwmtx, file, line);
 #elif defined(ERTS_SMP)
     erts_rwmtx_rwlock(rwmtx);
@@ -1171,13 +1419,13 @@ erts_smp_spin_unlock(erts_smp_spinlock_t *lock)
 }
 
 ERTS_GLB_INLINE void
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
 erts_smp_spin_lock_x(erts_smp_spinlock_t *lock, char *file, unsigned int line)
 #else
 erts_smp_spin_lock(erts_smp_spinlock_t *lock)
 #endif
 {
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_POSITION)
     erts_spin_lock_x(lock, file, line);
 #elif defined(ERTS_SMP)
     erts_spin_lock(lock);
@@ -1237,13 +1485,13 @@ erts_smp_read_unlock(erts_smp_rwlock_t *lock)
 }
 
 ERTS_GLB_INLINE void
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
 erts_smp_read_lock_x(erts_smp_rwlock_t *lock, char *file, unsigned int line)
 #else
 erts_smp_read_lock(erts_smp_rwlock_t *lock)
 #endif 
 {
-#if defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP)
+#if defined(ERTS_ENABLE_LOCK_POSITION) && defined(ERTS_SMP)
     erts_read_lock_x(lock, file, line);
 #elif defined(ERTS_SMP)
     erts_read_lock(lock);
@@ -1263,13 +1511,13 @@ erts_smp_write_unlock(erts_smp_rwlock_t *lock)
 }
 
 ERTS_GLB_INLINE void
-#ifdef ERTS_ENABLE_LOCK_COUNT
+#ifdef ERTS_ENABLE_LOCK_POSITION
 erts_smp_write_lock_x(erts_smp_rwlock_t *lock, char *file, unsigned int line)
 #else
 erts_smp_write_lock(erts_smp_rwlock_t *lock)
 #endif 
 {
-#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_POSITION)
     erts_write_lock_x(lock, file, line);
 #elif defined(ERTS_SMP)
     erts_write_lock(lock);
@@ -1299,10 +1547,10 @@ erts_smp_lc_rwlock_is_rwlocked(erts_smp_rwlock_t *lock)
 }
 
 ERTS_GLB_INLINE void
-erts_smp_tsd_key_create(erts_smp_tsd_key_t *keyp)
+erts_smp_tsd_key_create(erts_smp_tsd_key_t *keyp, char* keyname)
 {
 #ifdef ERTS_SMP
-    erts_tsd_key_create(keyp);
+    erts_tsd_key_create(keyp,keyname);
 #endif
 }
 

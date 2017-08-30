@@ -38,7 +38,8 @@
   {registered, []},
   {applications, [orber, stdlib, kernel]},
   {env, []},
-  {mod, {cosEventApp, []}}
+  {mod, {cosEventApp, []}},
+  {runtime_dependencies, ["stdlib-2.0","orber-3.6.27","kernel-3.0","erts-7.0"]}
 ]}.
 
 

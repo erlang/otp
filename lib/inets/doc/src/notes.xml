@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2013</year>
+      <year>2002</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-      
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
       
     </legalnotice>
     
@@ -32,8 +33,908 @@
     <file>notes.xml</file>
   </header>
   
-  
-  <section><title>Inets 5.9.5</title>
+  <section><title>Inets 6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ftp client fixes: 1) Corrected a bug that the ftp client
+	    gen_server crashed if the listening data socket was
+	    closed.</p>
+          <p>
+	    2) Corrections of ftp client error codes so they are as
+	    defined in the reference manual</p>
+          <p>
+	    Own Id: OTP-13644</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Remove usage of erlang:now(). </p>
+          <p>
+	    Own Id: OTP-12441</p>
+        </item>
+        <item>
+	    <p> Add handling of DELETE Body to http client. </p>
+          <p>
+	    Own Id: OTP-13383 Aux Id: PR-972 </p>
+        </item>
+        <item>
+          <p>
+	    Removed references to mod_include and webtool from
+	    examples and tests.</p>
+          <p>
+	    Own Id: OTP-13445 Aux Id: PR-988 </p>
+        </item>
+        <item>
+          <p>
+	    Remove module inets_regexp. Module re should be used
+	    instead.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13561</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Handle multiple \t in mime types file</p>
+          <p>
+	    Own Id: OTP-13663 Aux Id: seq13132 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Put back unused module inets_regexp and remove it in OTP
+	    19 instead as it is an incompatibility, although it is an
+	    undocumented module and should not affect other
+	    applications.</p>
+          <p>
+	    Own Id: OTP-13533</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add environment information item peer_cert to mod_esi</p>
+          <p>
+	    Own Id: OTP-13510</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Mend ipv6_host_with_brackets option in httpc</p>
+          <p>
+	    Own Id: OTP-13417</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The TFTP client/server has been fixed to allow file sizes
+	    larger than 32MB block by allowing the 16 bit block
+	    counter to wrap. Since this is a commonly accepted
+	    behavior we regard it as a bug fix.</p>
+          <p>
+	    Own Id: OTP-13403</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Handle HTTP PATCH method in client.</p>
+          <p>
+	    Own Id: OTP-13286</p>
+        </item>
+        <item>
+          <p>
+	    Expected termination should not be logged as an
+	    application error.</p>
+          <p>
+	    Own Id: OTP-13389</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    mod_alias now traverses all aliases picking the longest
+	    match and not the first match.</p>
+          <p>
+	    Own Id: OTP-13248</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Replace obs-folds with spaces instead of failing</p>
+          <p>
+	    Own Id: OTP-13069</p>
+        </item>
+        <item>
+          <p>
+	    Add validation fun for URI scheme to http_uri API</p>
+          <p>
+	    Own Id: OTP-13071</p>
+        </item>
+        <item>
+          <p>
+	    Handle stream bodies as documented.</p>
+          <p>
+	    Own Id: OTP-13093</p>
+        </item>
+        <item>
+          <p>
+	    Correct error handling of mod_esi generated chunks. Send
+	    warning headers in chunk trailers instead of generating
+	    an unexpected additional 500 request response, when
+	    problems, such as a timeout occurs.</p>
+          <p>
+	    Own Id: OTP-13110</p>
+        </item>
+        <item>
+          <p>
+	    HTTP client terminates gracefully when an invalid chunked
+	    length header is encountered.</p>
+          <p>
+	    Own Id: OTP-13117</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add default for SNI (Server Name Indication) when running
+	    https using the inets HTTP-client.</p>
+          <p>
+	    Own Id: OTP-12985</p>
+        </item>
+        <item>
+          <p>
+	    Be forgiving to chunked sizes that have trailing
+	    whitespaces as prior implementation was. Also some legacy
+	    embedded devices does actually have trailing whitespaces
+	    even though this in not according to the spec.</p>
+          <p>
+	    Own Id: OTP-13116</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improved error handling and gracfully termination when an
+	    invalid chunked length header is encountered.</p>
+          <p>
+	    Own Id: OTP-13061</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add possibility to set socket options, such as nodelay,
+	    for httpd. Also phase out legacy option value inet6bf4
+	    for the ipfamily option. This value will be translated to
+	    the value inet.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13062</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Avoid crash in mod_auth_server and mod_security_server
+	    due to using an atom instead of a string when creating a
+	    name.</p>
+          <p>
+	    Own Id: OTP-13022</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add function response_default_headers/0 to httpd
+	    customize API, to allow user to specify default values
+	    for HTTP response headers.</p>
+          <p>
+	    Own Id: OTP-13013</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix broken socket feature, that is on Linux systems a
+	    socket may be opened before starting Erlang and then
+	    passed to Erlang's httpd daemon. This is useful as the
+	    wrap program can open a privileged port and Erlang does
+	    not have to be run as root.</p>
+          <p>
+	    Own Id: OTP-12875 Aux Id: seq12878 </p>
+        </item>
+        <item>
+          <p>
+	    Fix broken socket feature, that is on Linux systems a
+	    socket may be opened before starting Erlang and then
+	    passed to Erlangs tftp daemon. This is useful as the wrap
+	    program can open a privileged port and Erlang does not
+	    have to be run as root.</p>
+          <p>
+	    Own Id: OTP-12898 Aux Id: seq12900 </p>
+        </item>
+        <item>
+          <p>
+	    httpc_handler should react properly to cancel requests
+	    even when the request to be canceled was already finished
+	    but httpc_manager did not get notified about that yet.</p>
+          <p>
+	    Own Id: OTP-12922</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added format_status function to httpd process to avoid
+	    sensitive information to be printed in supervisor logs.</p>
+          <p>
+	    Own Id: OTP-12976</p>
+        </item>
+        <item>
+          <p>
+	    Return meaningful error reason disregarding whether a
+	    http proxy is used or not.</p>
+          <p>
+	    Own Id: OTP-12984</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix race condition in httpc. If the socket is closed by
+	    the peer do not try to close it again.</p>
+          <p>
+	    Own Id: OTP-11845</p>
+        </item>
+        <item>
+          <p>
+	    Avoid process leak by gracefully terminating httpc
+	    request handler process when send operation fails.</p>
+          <p>
+	    Own Id: OTP-12362</p>
+        </item>
+        <item>
+          <p>
+	    Reject messages with a Content-Length less than 0</p>
+          <p>
+	    Own Id: OTP-12739 Aux Id: seq12860 </p>
+        </item>
+        <item>
+          <p>
+	    Let gen_tcp:controlling_process/2 and
+	    inet_sctp:connect/[45] propagate prim_inet:setopt/3
+	    errors instead of having them generate badmatch
+	    exceptions.</p>
+          <p>
+	    Own Id: OTP-12798</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove Server Side Include support from inets, as this is
+	    an old technic that has security issues and was not well
+	    tested.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12156</p>
+        </item>
+        <item>
+          <p>
+	    New value in <c>server_tokens</c> config for limiting
+	    banner grabbing attempts. </p>
+          <p>
+	    By setting <c>{server_tokens, none}</c> in
+	    <c>ServiceConfig</c> for <c>inets:start(httpd,
+	    ServiceConfig)</c>, the "Server:" header will not be set
+	    in messages from the server.</p>
+          <p>
+	    Own Id: OTP-12661 Aux Id: seq12840 </p>
+        </item>
+        <item>
+          <p>
+	    To enable the HTTP server to run in a virtualized
+	    environment, where there can be more that one server that
+	    has the same ip-address and port, we add a new option
+	    profile.</p>
+          <p>
+	    Own Id: OTP-12674</p>
+        </item>
+        <item>
+          <p>
+	    httpc: Fix implementation of gracefull shudown to work as
+	    intended for keep alive connections not using pipelining.</p>
+          <p>
+	    Own Id: OTP-12803</p>
+        </item>
+        <item>
+          <p>
+	    Correct handling of proxy options when using persistent
+	    connections.</p>
+          <p>
+	    Own Id: OTP-12822</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add behaviour with optional callbacks to customize the
+	    inets HTTP server.</p>
+          <p>
+	    Own Id: OTP-12776</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Reject messages with a Content-Length less than 0</p>
+          <p>
+	    Own Id: OTP-12739 Aux Id: seq12860 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New value in <c>server_tokens</c> config for limiting
+	    banner grabbing attempts. </p>
+          <p>
+	    By setting <c>{server_tokens, none}</c> in
+	    <c>ServiceConfig</c> for <c>inets:start(httpd,
+	    ServiceConfig)</c>, the "Server:" header will not be set
+	    in messages from the server.</p>
+          <p>
+	    Own Id: OTP-12661 Aux Id: seq12840 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    inets: parse correctly 'Set-Cookie' header with empty
+	    value</p>
+          <p>
+	    httpc_cookie should parse cookies with empty values and
+	    no attributes set in the 'Set-Cookie' headers.</p>
+          <p>
+	    Own Id: OTP-12455</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add parsing of URI fragments to http_uri:parse</p>
+          <p>
+	    This fixes a bug in httpc where redirection URIs could
+	    lead to bad requests if they contained fragments.</p>
+          <p>
+	    Own Id: OTP-12398</p>
+        </item>
+        <item>
+          <p>
+	    httpc: http client now ignores invalid set-cookie headers</p>
+          <p>
+	    Own Id: OTP-12430</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    mod_alias now handles https-URIs properly</p>
+          <p>
+	    Consistent view of configuration parameter
+	    keep_alive_timeout, should be presented in the
+	    httpd:info/[1,2] function in the same unit as it is
+	    inputted.</p>
+          <p>
+	    Own Id: OTP-12436 Aux Id: seq12786 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Gracefully handle invalid content-lenght headers instead
+	    of crashing in list_to_integer.</p>
+          <p>
+	    Own Id: OTP-12429</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a spelling mistake in httpc documentation.</p>
+          <p>
+	    Own Id: OTP-12221</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add option {ftp_extension, boolean} to enable use of
+	    extended commands EPSV and EPRT, as specified in RFC
+	    2428, for IPv4 instead of using the legacy commands. Ipv6
+	    can not be supported without the extended commands.</p>
+          <p>
+	    Own Id: OTP-12255</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix some spelling mistakes in documentation</p>
+          <p>
+	    Own Id: OTP-12152</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    httpd: Seperate timeout for TLS/SSL handshake from
+	    keepalive timeout</p>
+          <p>
+	    Own Id: OTP-12013</p>
+        </item>
+        <item>
+          <p>
+	    Warning: this is experimental and may disappear or change
+	    without previous warning.</p>
+          <p>
+	    Experimental support for running Quickcheck and PropEr
+	    tests from common_test suites is added to common_test.
+	    See the reference manual for the new module
+	    <c>ct_property_testing</c>.</p>
+          <p>
+	    Experimental property tests are added under
+	    <c>lib/{inet,ssh}/test/property_test</c>. They can be run
+	    directly or from the commont_test suites
+	    <c>inet/ftp_property_test_SUITE.erl</c> and
+	    <c>ssh/test/ssh_property_test_SUITE.erl</c>.</p>
+          <p>
+	    See the code in the <c>test</c> directories and the man
+	    page for details.</p>
+          <p>
+	    (Thanks to Tuncer Ayaz for a patch adding Triq)</p>
+          <p>
+	    Own Id: OTP-12119</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    httpc: Fix streaming bugs when handling small responses</p>
+          <p>
+	    Own Id: OTP-11992</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct distirbing mode for httpd:reload_config/2</p>
+          <p>
+	    Own Id: OTP-11914</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved handling of invalid strings in the HTTP request
+	    line.</p>
+          <p>
+	    Impact: May improve memory consumption</p>
+          <p>
+	    Own Id: OTP-11925 Aux Id: Sequence 12601 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a spelling mistake in httpc doc (Thanks to Wasif
+	    Riaz Malik)</p>
+          <p>
+	    Own Id: OTP-11538</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+        <item>
+          <p>
+	    ftp now sanitize file name, user name and passwords from
+	    &lt;CR&gt; and &lt;LF&gt; tags (Thanks to Sergei Golovan)</p>
+          <p>
+	    Own Id: OTP-11750</p>
+        </item>
+        <item>
+          <p>
+	    Corrected error handling in the HTTP client, making it
+	    behave more graceful.</p>
+          <p>
+	    Thanks to Kirilll Zaborsky</p>
+          <p>
+	    Own Id: OTP-11794</p>
+        </item>
+        <item>
+          <p>
+	    Support identity transfer-encoding in httpc.</p>
+          <p>
+	    Thanks to Anthony Ramine</p>
+          <p>
+	    Own Id: OTP-11802</p>
+        </item>
+        <item>
+          <p>
+	    Ignore empty Set-Cookie headers to increase
+	    interoperability with servers that violate the RFC. </p>
+          <p>
+	    Thanks to Kirilll Zaborsky</p>
+          <p>
+	    Own Id: OTP-11803</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The commit 6189bc07 "inets: httpc improve pipelining" has
+	    been reverted, as it turned out to break things rather
+	    than improve pipelining utilization. It is instead up to
+	    the user to configure httpc and use it wisely to be able
+	    to get the most out of pipelining.</p>
+          <p>
+	    Own Id: OTP-11756</p>
+        </item>
+        <item>
+          <p>
+	    Handle all response codes in httpd_util:message/3</p>
+          <p>
+	    Own Id: OTP-11838</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Mend max_clients check that was broken and avoid too
+	    extensive logging that could cause memory problems.</p>
+          <p>
+	    Own Id: OTP-11557 Aux Id: seq12478 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix httpd config option 'script_timeout' and fixed httpd
+	    config option 'keep_alive_timeout'. Thanks to Johannes
+	    Weissl.</p>
+          <p>
+	    Own Id: OTP-11276</p>
+        </item>
+        <item>
+          <p>
+	    Make httpc:request_cancel/[1,2] asynchronous. Previously
+	    these functions tried to guarantee request answer would
+	    not reach the client, which only worked for some of the
+	    use cases. Now these functions are totally asynchronous
+	    which makes it the clients responsibility to disregard
+	    possible answers to canceled requests. </p>
+          <p>
+	    Also pipelining implementation has been changed to
+	    improve the utilization factor. Further investigation of
+	    possible enhancements in this area are planned for later.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-11312</p>
+        </item>
+        <item>
+          <p>
+	    [httpd] Add handling of new response for mod_head
+	    (otherwise causing case_clause crash). Also updated
+	    logging: Removed logging for keep-alive connections
+	    timeout (this is a normal occurrence and not an error)
+	    and some access-log body size corrections.</p>
+          <p>
+	    Own Id: OTP-11328</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The ftp client now supports ftp over tls (ftps).</p>
+          <p>
+	    Own Id: OTP-11037</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    httpc: Allow content body in DELETE requests. Thanks to
+	    James Wheare.</p>
+          <p>
+	    Own Id: OTP-11190</p>
+        </item>
+        <item>
+          <p>
+	    Add missing brackets to report formatting on ftp_progress
+	    process exit. Thanks to Artur Wilniewczyc.</p>
+          <p>
+	    Own Id: OTP-11202</p>
+        </item>
+        <item>
+          <p>
+	    Fix some errors in the inets documentation. Thanks to
+	    Johannes Weissl.</p>
+          <p>
+	    Own Id: OTP-11210</p>
+        </item>
+        <item>
+          <p>
+	    Fix various typos in httpd, inets. Thanks to Tomohiko
+	    Aono.</p>
+          <p>
+	    Own Id: OTP-11226</p>
+        </item>
+        <item>
+          <p>
+	    Fix httpd config option 'erl_script_nocache'. Thanks to
+	    Johannes Weissl.</p>
+          <p>
+	    Own Id: OTP-11260</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 5.9.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -46,8 +947,6 @@
         </item>
       </list>
     </section>
-
-
     <section><title>Improvements and New Features</title>
       <list>
         <item>
@@ -93,7 +992,6 @@
 </section>
 
 <section><title>Inets 5.9.4</title>
-
     <section><title>Improvements and New Features</title>
       <list>
         <item>
@@ -160,6 +1058,32 @@
     </section>
 
 </section>
+<section><title>Inets 5.9.2.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make log_alert configurable as option in ssl, SSLLogLevel
+	    added as option to inets conf file</p>
+          <p>
+	    Own Id: OTP-11259</p>
+	</item>
+      </list>
+    </section>
+</section>
+<section><title>Inets 5.9.2.1</title>
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fixed obsolete error report in inets.</p>
+	  <p>
+	    Own Id: OTP-11185 Aux Id: seq12357 </p>
+	</item>
+      </list>
+    </section>
+</section>
 
 <section><title>Inets 5.9.2</title>
 
@@ -195,9 +1119,9 @@
           <p>Better handling of errorI(s) during update of the session 
 	  database. </p>
 	  <p>Also added and updated some debugging functions 
-	  <seealso marker="httpc#which_sessions">which_sessions/10,1</seealso>
+	  <seealso marker="httpc#which_sessions-0">which_sessions/[0,1]</seealso>
 	  and 
-	  <seealso marker="httpc#info">info/0</seealso>. </p>
+	  <seealso marker="httpc#info-0">info/0</seealso>. </p>
 	  <p>Own Id: OTP-10093</p>
           <p>Aux Id: Seq 12062</p>
         </item>
@@ -291,7 +1215,7 @@
 
         <item>
           <p>[httpc] Add function for retrieving current options, 
-	  <seealso marker="httpc#get_options">get_options/1,2</seealso>. </p>
+	  <seealso marker="httpc#get_options-1">get_options/[1,2]</seealso>. </p>
 	  <p>Own Id: OTP-9979</p>
         </item>
 
@@ -468,15 +1392,11 @@
 
     <section>
       <title>Incompatibilities</title>
-<!--
-      <p>-</p>
--->
-
       <list>
         <item>
           <p>[httpc] Deprecated interface module <c>http</c> has been removed. 
 	  It has (long) been replaced by http client interface module 
-	  <seealso marker="httpc#">httpc</seealso>. </p>
+	  <seealso marker="httpc">httpc</seealso>. </p>
 	  <p>Own Id: OTP-9359</p>
         </item>
 
@@ -594,7 +1514,7 @@
           <p>[httpd] Fix httpd directory traversal on Windows. 
           Directory traversal was possible on Windows where
           backward slash is used as directory separator. </p>
-          <p>András Veres-Szentkirályi.</p>
+          <p>AndrÃ¡s Veres-SzentkirÃ¡lyi.</p>
           <p>Own Id: OTP-9561</p>
         </item>
 
@@ -664,15 +1584,13 @@
   <section><title>Inets 5.6</title>
 
     <section><title>Improvements and New Features</title>
-<!--
-    <p>-</p>
--->
+
       <list>
         <item>
           <p>[httpc] Add support for upload body streaming (PUT and POST).</p>
 	  <p>For more info, 
 	  see the definition of the <c>Body</c> argument of the 
-	  <seealso marker="httpc#request2">request/4,5</seealso> 
+	  <seealso marker="httpc#request-4">request/[4,5]</seealso> 
 	  function. </p>
 	  <p>Filipe David Manana</p>
 	  <p>Own Id: OTP-9094</p>
@@ -685,7 +1603,7 @@
 
         <item>
           <p>[httpd] 
-	  <seealso marker="mod_esi#deliver">mod_esi:deliver/2</seealso> 
+	  <seealso marker="mod_esi#deliver-2">mod_esi:deliver/2</seealso> 
 	  made to accept binary data. </p>
           <p>Bernard Duggan</p>
           <p>Own Id: OTP-9123</p>
@@ -702,7 +1620,7 @@
 
         <item>
           <p>[httpd] Improved error messages. </p>
-	  <p>Ricardo Catalinas Jiménez</p>
+	  <p>Ricardo Catalinas JimÃ©nez</p>
           <p>Own Id: OTP-9157</p>
         </item>
 
@@ -713,7 +1631,7 @@
 	  for using file descriptors has been improved. 
 	  It is now possible to add the file descriptor to the config 
 	  (option fd) when calling the 
-	  <seealso marker="inets#start2">inets:start(httpd, ...)</seealso> 
+	  <seealso marker="inets#start-2">inets:start(httpd, ...)</seealso> 
 	  function. </p>
 	  <p>Attila Rajmund Nohl</p>
           <p>Own Id: OTP-9202</p>
@@ -727,7 +1645,7 @@
 	  <p>See the httpd 
 	  <seealso marker="httpd#props_comm">socket_type</seealso> 
 	  communication property or the httpc 
-	  <seealso marker="httpc#request2">request/4,5</seealso> function
+	  <seealso marker="httpc#request-4">request/[4,5]</seealso> function
 	  for more info. </p>
 	  <p>Own Id: OTP-9230</p>
 	  <p>*** POTENTIAL INCOMPATIBILITY ***</p>
@@ -927,7 +1845,7 @@
 	  <p>[httpc|httpd] - Now allow the use of the "new" ssl, by using
             the <c>essl</c> tag instead. </p> 
           <p>See the <c>http_option</c> option in the 
-            <seealso marker="httpc#request2">request/4,5</seealso> or 
+            <seealso marker="httpc#request-4">request/[4,5]</seealso> or 
             the <seealso marker="httpd#props_comm">socket-type</seealso>
             section of the Communication properties chapter for more info, </p>
 	  <p>Own Id: OTP-7907</p>
@@ -1122,23 +2040,21 @@
 
         <item>
 	  <p>[httpd] - Issues with ESI erl_script_timeout. </p>
-          <p>
-            <list type="bulleted">
-	      <item>
-		<p>The <c>erl_script_timeout</c> config option is ducumented
-                  as a number of seconds. But when parsing the config, in the
-                  new format (not a config file), it was handled as if in
-                  number of milliseconds. </p>
-              </item>
-	      <item>
-		<p>When the erl-script-timeout time was exceeded, the server
-                  incorrectly marked the answer as sent, thereby leaving 
-                  client hanging (with an incomplete answer).
-                  This has been changed, so that now the socket will be
-                  closed. </p>
-	      </item>
-	    </list>
-	  </p>
+          <list type="bulleted">
+	    <item>
+	      <p>The <c>erl_script_timeout</c> config option is ducumented
+              as a number of seconds. But when parsing the config, in the
+              new format (not a config file), it was handled as if in
+              number of milliseconds. </p>
+            </item>
+	    <item>
+	      <p>When the erl-script-timeout time was exceeded, the server
+              incorrectly marked the answer as sent, thereby leaving 
+              client hanging (with an incomplete answer).
+              This has been changed, so that now the socket will be
+              closed. </p>
+	    </item>
+	  </list>
 	  <p>Own Id: OTP-8509</p>
         </item>
       </list>
@@ -1159,8 +2075,8 @@
 	  <p>[httpc] - Allow users to pass socket options to the transport 
             module when making requests. </p> 
           <p>See the <c>socket_opts</c> option in the 
-            <seealso marker="httpc#request2">request/4</seealso> or 
-            <seealso marker="httpc#set_options">set_options/1,2</seealso>
+            <seealso marker="httpc#request-4">request/4</seealso> or 
+            <seealso marker="httpc#set_options-1">set_options/[1,2]</seealso>
             for more info, </p>
 	  <p>Own Id: OTP-8352</p>
         </item>
@@ -1201,7 +2117,7 @@
             deliver an async reply to more receivers then the calling 
             process. </p> 
           <p>See the 
-            <seealso marker="httpc#request2">receiver</seealso>
+            <seealso marker="httpc#request-2">receiver</seealso>
             option for more info, </p>
 	  <p>Own Id: OTP-8106</p>
         </item>
@@ -1214,20 +2130,19 @@
 
         <item>
           <p>[httpc] Several more or less critical fixes:</p>
-          <p>
-            <list type="bulleted">
-	      <item>
-		<p>Initial call between the httpc manager and request 
-                  handler was synchronous. </p>
-		<p>When the manager starts a new request handler, 
-                  this is no longer a synchronous operation. Previously, 
-                  the new request handler made the connection to the 
-                  server and issuing of the first request (the reason 
-                  for starting it) in the gen_server init function. 
-                  If the connection for some reason "took some time", 
-                  the manager hanged, leaving all other activities by 
-                  that manager also hanging. </p>
-              </item>
+          <list type="bulleted">
+	    <item>
+	      <p>Initial call between the httpc manager and request 
+              handler was synchronous. </p>
+	      <p>When the manager starts a new request handler, 
+              this is no longer a synchronous operation. Previously, 
+              the new request handler made the connection to the 
+              server and issuing of the first request (the reason 
+              for starting it) in the gen_server init function. 
+              If the connection for some reason "took some time", 
+              the manager hanged, leaving all other activities by 
+              that manager also hanging. </p>
+            </item>
 <!--
 	      <item>
 	        <p>Copying of data between processes</p>
@@ -1238,8 +2153,7 @@
 	        <p>TBD</p>
 	      </item>
 -->
-	    </list>
-	  </p>
+	  </list>
           <p>As a side-effect of these changes, some modules was also 
             renamed, and a new api module, 
             <seealso marker="httpc">httpc</seealso>, has been introduced
@@ -1470,7 +2384,7 @@
               request, when the client connects to the server. Default 
               value is that of the <c>timeout</c> option. </p>
             <p>See the 
-	      <seealso marker="httpc#request2">request/4,5</seealso> 
+	      <seealso marker="httpc#request-4">request/[4,5]</seealso> 
               function for more info. </p>
 	    <p>Own Id: OTP-7298</p>
 	    <!-- <p>Aux Id: seq11086</p> -->
@@ -1577,7 +2491,7 @@
               the client connects to the server. </p>
 	    <p>As a side-effect of this, the option <c>ipv6</c> has been 
               removed and replaced by the <c>ipfamily</c> option. </p>
-	    <p>See <seealso marker="httpc#set_options">http:set_options/1,2</seealso> 
+	    <p>See <seealso marker="httpc#set_options-1">http:set_options/[1,2]</seealso> 
               for more info. </p>
             <p>*** POTENTIAL INCOMPATIBILITY ***</p>
 	    <p>Own Id: OTP-8004</p>

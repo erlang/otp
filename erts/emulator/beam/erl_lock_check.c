@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -91,10 +92,12 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "driver_list",                          NULL                    },
     {	"proc_link",				"pid"			},
     {	"proc_msgq",				"pid"			},
+    {	"proc_btm",				"pid"			},
     {	"dist_entry",				"address"		},
     {	"dist_entry_links",			"address"		},
     {   "code_write_permission",                NULL                    },
     {	"proc_status",				"pid"			},
+    {	"proc_trace",				"pid"			},
     {   "ports_snapshot",                       NULL                    },
     {	"meta_name_tab",	         	"address"		},
     {	"meta_main_tab_slot",			"address"		},
@@ -111,9 +114,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"environ",				NULL			},
 #endif
     {	"efile_drv",				"address"		},
-#if defined(ENABLE_CHILD_WAITER_THREAD) || defined(ERTS_SMP)
-    {	"child_status",				NULL			},
-#endif
     {	"drv_ev_state_grow",			NULL,   		},
     {	"drv_ev_state",				"address"		},
     {	"safe_hash",				"address"		},
@@ -123,6 +123,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"schdlr_sspnd",				NULL			},
     {	"migration_info_update",		NULL			},
     {	"run_queue",				"address"		},
+#ifdef ERTS_DIRTY_SCHEDULERS
+    {   "dirty_run_queue_sleep_list",		"address"		},
+#endif
     {	"process_table",			NULL			},
     {	"cpu_info",				NULL			},
     {	"pollset",				"address"		},
@@ -132,18 +135,21 @@ static erts_lc_lock_order_t erts_lock_order[] = {
 #endif /* __WIN32__ */
     {	"alcu_init_atoms",			NULL			},
     {	"mseg_init_atoms",			NULL			},
+    {	"mmap_init_atoms",			NULL			},
     {	"drv_tsd",				NULL			},
     {	"async_enq_mtx",			NULL			},
+    {   "msacc_list_mutex",                     NULL                    },
+    {   "msacc_unmanaged_mutex",                NULL                    },
 #ifdef ERTS_SMP
-    {	"sys_msg_q", 				NULL			},
     {	"atom_tab",				NULL			},
-    {	"make_ref",				NULL			},
     {	"misc_op_list_pre_alloc_lock",		"address"		},
     {	"message_pre_alloc_lock",		"address"		},
     {	"ptimer_pre_alloc_lock",		"address",		},
     {	"btm_pre_alloc_lock",			NULL,			},
     {	"dist_entry_out_queue",			"address"		},
     {	"port_sched_lock",			"port_id"		},
+    {	"sys_msg_q", 				NULL			},
+    {	"tracer_mtx", 				NULL			},
     {   "port_table",                           NULL                    },
 #endif
     {	"mtrace_op",				NULL			},
@@ -151,19 +157,15 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"instr",				NULL			},
     {	"alcu_allocator",			"index"			},
     {	"mseg",					NULL			},
-#if HALFWORD_HEAP
-    {	"pmmap",				NULL			},
-#endif
 #ifdef ERTS_SMP
     {	"port_task_pre_alloc_lock",		"address"		},
     {	"proclist_pre_alloc_lock",		"address"		},
     {	"xports_list_pre_alloc_lock",		"address"		},
     {	"inet_buffer_stack_lock",		NULL			},
-    {	"gc_info",				NULL			},
-    {	"io_wake",				NULL			},
-    {	"timer_wheel",				NULL			},
     {	"system_block",				NULL			},
     {	"timeofday",				NULL			},
+    {	"get_time",				NULL			},
+    {	"get_corrected_time",			NULL			},
     {	"breakpoints",				NULL			},
     {	"pollsets_lock",			NULL			},
     {	"pix_lock",				"address"		},
@@ -180,12 +182,12 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "efile_drv dtrace mutex",               NULL                    },
 #endif
     {	"mtrace_buf",				NULL			},
-#ifdef __WIN32__
 #ifdef ERTS_SMP
-    {   "sys_gethrtime",                        NULL                    },
+    {	"os_monotonic_time",			NULL			},
 #endif
-#endif
-    {	"erts_alloc_hard_debug",		NULL			}
+    {	"erts_alloc_hard_debug",		NULL			},
+    {	"hard_dbg_mseg",		        NULL	                },
+    {	"erts_mmap",				NULL			}
 };
 
 #define ERTS_LOCK_ORDER_SIZE \
@@ -221,8 +223,7 @@ rw_op_str(Uint16 flags)
     case ERTS_LC_FLG_LO_READ:
 	return " (r)";
     case ERTS_LC_FLG_LO_WRITE:
-	erts_fprintf(stderr, "\nInternal error\n");
-	lc_abort();
+	ERTS_INTERNAL_ERROR("Only write flag present");
     default:
 	break;
     }
@@ -235,6 +236,8 @@ struct erts_lc_locked_lock_t_ {
     erts_lc_locked_lock_t *prev;
     UWord extra;
     Sint16 id;
+    char *file;
+    unsigned int line;
     Uint16 flags;
 };
 
@@ -262,9 +265,9 @@ union erts_lc_free_block_t_ {
 
 static ethr_tsd_key locks_key;
 
-static erts_lc_locked_locks_t *erts_locked_locks;
+static erts_lc_locked_locks_t *erts_locked_locks = NULL;
 
-static erts_lc_free_block_t *free_blocks;
+static erts_lc_free_block_t *free_blocks = NULL;
 
 #ifdef ERTS_LC_STATIC_ALLOC
 #define ERTS_LC_FB_CHUNK_SIZE 10000
@@ -303,8 +306,7 @@ static ERTS_INLINE void lc_free(void *p)
 static void *lc_core_alloc(void)
 {
     lc_unlock();
-    erts_fprintf(stderr, "Lock checker out of memory!\n");
-    lc_abort();
+    ERTS_INTERNAL_ERROR("Lock checker out of memory!\n");
 }
 
 #else
@@ -317,8 +319,7 @@ static void *lc_core_alloc(void)
     fbs = (erts_lc_free_block_t *) malloc(sizeof(erts_lc_free_block_t)
 					  * ERTS_LC_FB_CHUNK_SIZE);
     if (!fbs) {
-	erts_fprintf(stderr, "Lock checker failed to allocate memory!\n");
-	lc_abort();
+        ERTS_INTERNAL_ERROR("Lock checker failed to allocate memory!");
     }
     for (i = 1; i < ERTS_LC_FB_CHUNK_SIZE - 1; i++) {
 #ifdef DEBUG
@@ -358,11 +359,11 @@ create_locked_locks(char *thread_name)
 {
     erts_lc_locked_locks_t *l_lcks = malloc(sizeof(erts_lc_locked_locks_t));
     if (!l_lcks)
-	lc_abort();
+	ERTS_INTERNAL_ERROR("Lock checker failed to allocate memory!");
 
     l_lcks->thread_name = strdup(thread_name ? thread_name : "unknown");
     if (!l_lcks->thread_name)
-	lc_abort();
+	ERTS_INTERNAL_ERROR("Lock checker failed to allocate memory!");
 
     l_lcks->emu_thread = 0;
     l_lcks->tid = erts_thr_self();
@@ -424,47 +425,51 @@ make_my_locked_locks(void)
 }
 
 static ERTS_INLINE erts_lc_locked_lock_t *
-new_locked_lock(erts_lc_lock_t *lck, Uint16 op_flags)
+new_locked_lock(erts_lc_lock_t *lck, Uint16 op_flags,
+		char *file, unsigned int line)
 {
     erts_lc_locked_lock_t *l_lck = (erts_lc_locked_lock_t *) lc_alloc();
     l_lck->next = NULL;
     l_lck->prev = NULL;
     l_lck->id = lck->id;
     l_lck->extra = lck->extra;
+    l_lck->file = file;
+    l_lck->line = line;
     l_lck->flags = lck->flags | op_flags;
     return l_lck;
 }
 
 static void
-print_lock2(char *prefix, Sint16 id, Wterm extra, Uint16 flags, char *suffix)
+raw_print_lock(char *prefix, Sint16 id, Wterm extra, Uint16 flags,
+	       char* file, unsigned int line, char *suffix)
 {
     char *lname = (0 <= id && id < ERTS_LOCK_ORDER_SIZE
 		   ? erts_lock_order[id].name
 		   : "unknown");
+    erts_fprintf(stderr,"%s'%s:",prefix,lname);
+
     if (is_not_immed(extra))
-	erts_fprintf(stderr,
-		     "%s'%s:%p%s'%s%s",
-		     prefix,
-		     lname,
-		     _unchecked_boxed_val(extra),
-		     lock_type(flags),
-		     rw_op_str(flags),
-		     suffix);
+      erts_fprintf(stderr,"%p",_unchecked_boxed_val(extra));
     else
-	erts_fprintf(stderr,
-		     "%s'%s:%T%s'%s%s",
-		     prefix,
-		     lname,
-		     extra,
-		     lock_type(flags),
-		     rw_op_str(flags),
-		     suffix);
+      erts_fprintf(stderr,"%T",extra);
+    erts_fprintf(stderr,"%s",lock_type(flags));
+
+    if (file)
+      erts_fprintf(stderr,"(%s:%d)",file,line);
+
+    erts_fprintf(stderr,"'%s%s",rw_op_str(flags),suffix);
+}
+
+static void
+print_lock2(char *prefix, Sint16 id, Wterm extra, Uint16 flags, char *suffix)
+{
+  raw_print_lock(prefix, id, extra, flags, NULL, 0, suffix);
 }
 
 static void
 print_lock(char *prefix, erts_lc_lock_t *lck, char *suffix)
 {
-    print_lock2(prefix, lck->id, lck->extra, lck->flags, suffix);
+  raw_print_lock(prefix, lck->id, lck->extra, lck->flags, NULL, 0, suffix);
 }
 
 static void
@@ -480,7 +485,8 @@ print_curr_locks(erts_lc_locked_locks_t *l_lcks)
 		     "Currently these locks are locked by the %s thread:\n",
 		     l_lcks->thread_name);
 	for (l_lck = l_lcks->locked.first; l_lck; l_lck = l_lck->next)
-	    print_lock2("  ", l_lck->id, l_lck->extra, l_lck->flags, "\n");
+	  raw_print_lock("  ", l_lck->id, l_lck->extra, l_lck->flags,
+			 l_lck->file, l_lck->line, "\n");
     }
 }
 
@@ -678,7 +684,7 @@ erts_lc_set_thread_name(char *thread_name)
 	free((void *) l_lcks->thread_name);
 	l_lcks->thread_name = strdup(thread_name ? thread_name : "unknown");
 	if (!l_lcks->thread_name)
-	    lc_abort();
+	    ERTS_INTERNAL_ERROR("strdup failed");
     }
     l_lcks->emu_thread = 1;
 }
@@ -996,7 +1002,8 @@ erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, Uint16 op_flags)
 #endif
 }
 
-void erts_lc_trylock_flg(int locked, erts_lc_lock_t *lck, Uint16 op_flags)
+void erts_lc_trylock_flg_x(int locked, erts_lc_lock_t *lck, Uint16 op_flags,
+			   char *file, unsigned int line)
 {
     erts_lc_locked_locks_t *l_lcks;
     erts_lc_locked_lock_t *l_lck;
@@ -1008,7 +1015,7 @@ void erts_lc_trylock_flg(int locked, erts_lc_lock_t *lck, Uint16 op_flags)
 	return;
 
     l_lcks = make_my_locked_locks();
-    l_lck = locked ? new_locked_lock(lck, op_flags) : NULL;
+    l_lck = locked ? new_locked_lock(lck, op_flags, file, line) : NULL;
 
     if (!l_lcks->locked.last) {
 	ASSERT(!l_lcks->locked.first);
@@ -1049,13 +1056,14 @@ void erts_lc_trylock_flg(int locked, erts_lc_lock_t *lck, Uint16 op_flags)
 
 }
 
-void erts_lc_require_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags)
+void erts_lc_require_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags,
+			      char *file, unsigned int line)
 {
     erts_lc_locked_locks_t *l_lcks = make_my_locked_locks();
     erts_lc_locked_lock_t *l_lck = l_lcks->locked.first;
     if (!find_lock(&l_lck, lck))
 	required_not_locked(l_lcks, lck);
-    l_lck = new_locked_lock(lck, op_flags);
+    l_lck = new_locked_lock(lck, op_flags, file, line);
     if (!l_lcks->required.last) {
 	ASSERT(!l_lcks->required.first);
 	l_lck->next = l_lck->prev = NULL;
@@ -1123,7 +1131,8 @@ void erts_lc_unrequire_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags)
     lc_free((void *) l_lck);
 }
 
-void erts_lc_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags)
+void erts_lc_lock_flg_x(erts_lc_lock_t *lck, Uint16 op_flags,
+			char *file, unsigned int line)
 {
     erts_lc_locked_locks_t *l_lcks;
     erts_lc_locked_lock_t *l_lck;
@@ -1135,7 +1144,7 @@ void erts_lc_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags)
 	return;
 
     l_lcks = make_my_locked_locks();
-    l_lck = new_locked_lock(lck, op_flags);
+    l_lck = new_locked_lock(lck, op_flags, file, line);
 
     if (!l_lcks->locked.last) {
 	ASSERT(!l_lcks->locked.first);
@@ -1226,15 +1235,15 @@ erts_lc_trylock_force_busy(erts_lc_lock_t *lck)
 }
 
 void
-erts_lc_trylock(int locked, erts_lc_lock_t *lck)
+erts_lc_trylock_x(int locked, erts_lc_lock_t *lck, char *file, unsigned int line)
 {
-    erts_lc_trylock_flg(locked, lck, 0);
+    erts_lc_trylock_flg_x(locked, lck, 0, file, line);
 }
 
 void
-erts_lc_lock(erts_lc_lock_t *lck)
+erts_lc_lock_x(erts_lc_lock_t *lck, char *file, unsigned int line)
 {
-    erts_lc_lock_flg(lck, 0);
+    erts_lc_lock_flg_x(lck, 0, file, line);
 }
 
 void
@@ -1248,9 +1257,9 @@ void erts_lc_might_unlock(erts_lc_lock_t *lck)
     erts_lc_might_unlock_flg(lck, 0);
 }
 
-void erts_lc_require_lock(erts_lc_lock_t *lck)
+void erts_lc_require_lock(erts_lc_lock_t *lck, char *file, unsigned int line)
 {
-    erts_lc_require_lock_flg(lck, 0);
+    erts_lc_require_lock_flg(lck, 0, file, line);
 }
 
 void erts_lc_unrequire_lock(erts_lc_lock_t *lck)
@@ -1314,9 +1323,9 @@ erts_lc_init(void)
 #endif /* #ifdef ERTS_LC_STATIC_ALLOC */
 
     if (ethr_spinlock_init(&free_blocks_lock) != 0)
-	lc_abort();
+	ERTS_INTERNAL_ERROR("spinlock_init failed");
 
-    erts_tsd_key_create(&locks_key);
+    erts_tsd_key_create(&locks_key,"erts_lock_check_key");
 }
 
 void

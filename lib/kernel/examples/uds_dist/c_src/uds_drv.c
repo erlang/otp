@@ -1,13 +1,14 @@
-/* ``The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved via the world wide web at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+/* ``Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * The Initial Developer of the Original Code is Ericsson Utvecklings AB.
  * Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
@@ -956,28 +957,24 @@ static void put_packet_length(char *b, int len)
 
 /*
 ** Malloc wrappers
-** Note!
-** The function erl_exit is actually not a pert of the 
-** driver interface, but it is very nice to use if one wants to halt
-** with a core and an erlang crash dump.
 */
 static void *my_malloc(size_t size) 
 {
-    void erl_exit(int, char *, ...);
     void *ptr;
 
     if ((ptr = driver_alloc(size)) == NULL) {
-	erl_exit(1,"Could not allocate %lu bytes of memory",(unsigned long) size);
+	fprintf(stderr, "Could not allocate %lu bytes of memory",(unsigned long) size);
+	abort();
     }
     return ptr;
 }
 
 static void *my_realloc(void *ptr, size_t size)
 {
-    void erl_exit(int, char *, ...);
     void *nptr;
     if ((nptr = driver_realloc(ptr, size)) == NULL) {
-	erl_exit(1,"Could not reallocate %lu bytes of memory",(unsigned long) size);
+	fprintf(stderr, "Could not reallocate %lu bytes of memory",(unsigned long) size);
+	abort();
     }
     return nptr;
 }

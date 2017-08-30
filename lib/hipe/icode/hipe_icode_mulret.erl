@@ -1,19 +1,20 @@
-%% -*- coding: utf-8; erlang-indent-level: 2 -*-
+%% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -1166,9 +1167,9 @@ printCallList([]) -> io:format("~n").
 %% removeUnElems([#icode_call{'fun'={unsafe_element,_}, args=Var}|List], Var, Res) ->
 %%     removeUnElems(List, Var, Res);
 %% removeUnElems([I=#icode_move{dst=Var}|List], [Var], Res) ->
-%%     lists:reverse(Res) ++ [I|List];
+%%     lists:reverse(Res, [I|List]);
 %% removeUnElems([I=#icode_call{dstlist=Var}|List], Var, Res) ->
-%%     lists:reverse(Res) ++ [I|List];
+%%     lists:reverse(Res, [I|List]);
 %% removeUnElems([I|List], Var, Res) ->
 %%     removeUnElems(List, Var, [I|Res]);
 %% removeUnElems([], _, Res) -> lists:reverse(Res).
@@ -1187,7 +1188,7 @@ printCallList([]) -> io:format("~n").
 %% 			false ->
 %% 			    case lists:member(Var, Defs) of
 %% 				true ->
-%% 				    lists:reverse(Res) ++ [I|List];
+%% 				    lists:reverse(Res, [I|List]);
 %% 				false ->
 %% 				    removeUnElems(List, Var, [I|Res])
 %% 			    end 
@@ -1195,7 +1196,7 @@ printCallList([]) -> io:format("~n").
 %% 		false ->
 %% 		    case lists:member(Var, Defs) of
 %% 			true ->
-%% 			    lists:reverse(Res) ++ [I|List];
+%% 			    lists:reverse(Res, [I|List]);
 %% 			false ->
 %% 			    removeUnElems(List, Var, [I|Res])
 %% 		    end
@@ -1203,7 +1204,7 @@ printCallList([]) -> io:format("~n").
 %% 	false ->
 %% 	    case lists:member(Var, Defs) of
 %% 		true ->
-%% 		    lists:reverse(Res) ++ [I|List];
+%% 		    lists:reverse(Res, [I|List]);
 %% 		false ->
 %% 		    removeUnElems(List, Var, [I|Res])
 %% 	    end
@@ -1248,16 +1249,16 @@ printCallList([]) -> io:format("~n").
 %% modifyCode([I|Code], Var, Res) ->
 %%     case scanInstr(I, Var) of
 %% 	{move, Arity, VarLst} ->
-%% 	    Code2 = [#icode_return{vars=VarLst}, I |lists:reverse(Res) ++ Code],
+%% 	    Code2 = [#icode_return{vars=VarLst}, I |lists:reverse(Res, Code)],
 %% 	    {Arity, lists:reverse(Code2)};
 %% 	{mktuple, Arity, VarLst} ->
-%% 	    Code2 = [#icode_return{vars=VarLst}|lists:reverse(Res) ++ Code],
+%% 	    Code2 = [#icode_return{vars=VarLst}|lists:reverse(Res, Code)],
 %% 	    {Arity, lists:reverse(Code2)};
 %% 	other ->
 %% 	    modifyCode(Code, Var, [I|Res])
 %%     end;
 %% modifyCode([], Var, Res) ->
-%%     {1, lists:reverse(Res) ++ [#icode_return{vars=Var}]}.
+%%     {1, lists:reverse(Res, [#icode_return{vars=Var}]}.
     
 %% scanInstr(#icode_call{dstlist=Var, 'fun'=mktuple, args=Lst}, Var) ->
 %%     {mktuple, length(Lst), Lst};

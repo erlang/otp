@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2015. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -41,7 +42,14 @@
 #  include "config.h"
 #endif
 #ifdef HAVE_WORKING_POSIX_OPENPT
-#define _XOPEN_SOURCE 600 
+#  ifndef _XOPEN_SOURCE
+     /* On OS X and BSD, we must leave _XOPEN_SOURCE undefined in order for
+      * the prototype of vsyslog() to be included.
+      */
+#    if !(defined(__APPLE__) || defined(__FreeBSD__) || defined(__DragonFly__))
+#      define _XOPEN_SOURCE 600
+#    endif
+#  endif
 #endif
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -60,7 +68,8 @@
 #include <dirent.h>
 #include <termios.h>
 #include <time.h>
-#ifndef NO_SYSLOG
+
+#ifdef HAVE_SYSLOG_H
 #  include <syslog.h>
 #endif
 #ifdef HAVE_PTY_H
@@ -68,6 +77,9 @@
 #endif
 #ifdef HAVE_UTMP_H
 #  include <utmp.h>
+#endif
+#ifdef HAVE_LIBUTIL_H
+#  include <libutil.h>
 #endif
 #ifdef HAVE_UTIL_H
 #  include <util.h>
@@ -197,8 +209,9 @@ static char* outbuf_in;
 #endif
 
 
-#ifdef NO_SYSLOG
+#ifndef HAVE_SYSLOG_H
 #    define OPEN_SYSLOG() ((void) 0)
+#    define LOG_ERR NULL
 #else
 #    define OPEN_SYSLOG() openlog(simple_basename(program_name),   \
                                   LOG_PID|LOG_CONS|LOG_NOWAIT,LOG_USER)
@@ -415,7 +428,7 @@ int main(int argc, char **argv)
     }
 #endif
 
-#ifndef NO_SYSLOG
+#ifdef HAVE_SYSLOG_H
     /* Before fiddling with file descriptors we make sure syslog is turned off
        or "closed". In the single case where we might want it again, 
        we will open it again instead. Would not want syslog to
@@ -1142,6 +1155,14 @@ static void daemon_init(void)
 	sf_close(i);
     }
 
+    /* Necessary on some platforms */
+
+    open("/dev/null", O_RDONLY); /* Order is important! */
+    open("/dev/null", O_WRONLY);
+    open("/dev/null", O_WRONLY);
+
+    errno = 0;  /* if set by open */
+
     OPEN_SYSLOG();
     run_daemon = 1;
 }
@@ -1155,7 +1176,7 @@ static void error_logf(int priority, int line, const char *format, ...)
     va_list args;
     va_start(args, format);
 
-#ifndef NO_SYSLOG
+#ifdef HAVE_SYSLOG_H
     if (run_daemon) {
 	vsyslog(priority,format,args);
     }

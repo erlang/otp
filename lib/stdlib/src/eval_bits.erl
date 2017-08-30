@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -192,7 +193,7 @@ bin_gen_field({bin_element,Line,VE,Size0,Options0},
         make_bit_type(Line, Size0, Options0),
     V = erl_eval:partial_eval(VE),
     NewV = coerce_to_float(V, Type),
-    match_check_size(Mfun, Size1, BBs0),
+    match_check_size(Mfun, Size1, BBs0, false),
     {value, Size, _BBs} = Efun(Size1, BBs0),
     bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun).
 
@@ -380,20 +381,25 @@ make_bit_type(_Line, Size, Type0) -> %Size evaluates to an integer or 'all'
         {error,Reason} -> error(Reason)
     end.
 
-match_check_size(Mfun, {var,_,V}, Bs) ->
+match_check_size(Mfun, Size, Bs) ->
+    match_check_size(Mfun, Size, Bs, true).
+
+match_check_size(Mfun, {var,_,V}, Bs, _AllowAll) ->
     case Mfun(binding, {V,Bs}) of
         {value,_} -> ok;
 	unbound -> throw(invalid) % or, rather, error({unbound,V})
     end;
-match_check_size(_, {atom,_,all}, _Bs) ->
+match_check_size(_, {atom,_,all}, _Bs, true) ->
     ok;
-match_check_size(_, {atom,_,undefined}, _Bs) ->
+match_check_size(_, {atom,_,all}, _Bs, false) ->
+    throw(invalid);
+match_check_size(_, {atom,_,undefined}, _Bs, _AllowAll) ->
     ok;
-match_check_size(_, {integer,_,_}, _Bs) ->
+match_check_size(_, {integer,_,_}, _Bs, _AllowAll) ->
     ok;
-match_check_size(_, {value,_,_}, _Bs) ->
+match_check_size(_, {value,_,_}, _Bs, _AllowAll) ->
     ok;	%From the debugger.
-match_check_size(_, _, _Bs) ->
+match_check_size(_, _, _Bs, _AllowAll) ->
     throw(invalid).
 
 %% error(Reason) -> exception thrown

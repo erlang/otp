@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -157,7 +158,7 @@ terminate(_Reason, _State) ->
     ok.
 
 %%-----------------------------------------------------------------
-%% Func: parse_options/2
+%% Func: get_options/2
 %%-----------------------------------------------------------------
 get_options(normal, _Options) ->
     [];
@@ -212,14 +213,21 @@ get_options(ssl, Options) ->
 %%-----------------------------------------------------------------
 parse_options([{port, Type, Port} | Rest], State) ->
     Options = get_options(Type, []),
-    Options2 = case orber_env:ip_address_variable_defined() of
-		   false ->
-		       Options;
-		   Host ->
-		       IPVersion = orber:ip_version(),
-		       {ok, IP} = inet:getaddr(Host, IPVersion),
-		       [{ip, IP} | Options]
-	       end,
+    Family = orber_env:ip_version(),
+    IPFamilyOptions = 
+	case Family of
+	    inet -> [inet];
+	    inet6 -> [inet6, {ipv6_v6only, true}]
+	end,    
+    Options2 = 
+	case orber_env:ip_address_variable_defined() of
+	    false ->
+		IPFamilyOptions ++ Options;
+	    Host ->
+		{ok, IP} = inet:getaddr(Host, Family),
+		IPFamilyOptions ++ [{ip, IP} |Options]
+	end,
+
     {ok, Listen, NewPort} = orber_socket:listen(Type, Port, Options2, true),
     {ok, Pid} = orber_iiop_socketsup:start_accept(Type, Listen, 0),
     link(Pid),
@@ -283,28 +291,33 @@ handle_call({remove, Ref}, _From, State) ->
 	    {reply, ok, State}
     end;
 handle_call({add, IP, Type, Port, AllOptions}, _From, State) ->
-    Family = orber_env:ip_version(),
+    Family = orber_tb:keysearch(ip_family, AllOptions, orber_env:ip_version()),
+    IPFamilyOptions = 
+	case Family of
+	    inet -> [inet];
+	    inet6 -> [inet6, {ipv6_v6only, true}]
+	end,   
     case inet:getaddr(IP, Family) of
 	{ok, IPTuple} ->
-	    try [{ip, IPTuple} |get_options(Type, AllOptions)] of
-		Options ->
-     	            Ref = make_ref(),
-		    ProxyOptions = filter_options(AllOptions, []),
-	            case orber_socket:listen(Type, Port, Options, false) of
-		        {ok, Listen, NewPort} ->
-		            {ok, Pid} = orber_iiop_socketsup:start_accept(Type, Listen, Ref,
-		       					                  ProxyOptions),
-		            link(Pid),
-		            ets:insert(?CONNECTION_DB, #listen{pid = Pid, 
-						               socket = Listen, 
-						               port = NewPort, 
-						               type = Type, ref = Ref,
-						               options = Options,
-						               proxy_options = ProxyOptions}),
-		            {reply, {ok, Ref}, State};
-	          	Error ->
-		            {reply, Error, State}
-	            end
+	    try 
+		Options = IPFamilyOptions ++ [{ip, IPTuple} |get_options(Type, AllOptions)],
+	        Ref = make_ref(),
+	        ProxyOptions = filter_options(AllOptions, []),
+	        case orber_socket:listen(Type, Port, Options, false) of
+		    {ok, Listen, NewPort} ->
+			{ok, Pid} = orber_iiop_socketsup:start_accept(Type, Listen, Ref,
+								      ProxyOptions),
+			link(Pid),
+			ets:insert(?CONNECTION_DB, #listen{pid = Pid, 
+							   socket = Listen, 
+							   port = NewPort, 
+							   type = Type, ref = Ref,
+							   options = Options,
+							   proxy_options = ProxyOptions}),
+			{reply, {ok, Ref}, State};
+		    Error ->
+			{reply, Error, State}
+		end
             catch
 		error:Reason ->
 		    {reply, {error, Reason}, State}

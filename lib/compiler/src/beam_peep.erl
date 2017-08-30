@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -64,18 +65,6 @@ function({function,Name,Arity,CLabel,Is0}) ->
 %%      InEncoding =:= latin1, OutEncoding =:= unicode; 
 %%      InEncoding =:= latin1, OutEncoding =:= utf8 ->
 %%
-%% (2) A select_val/4 instruction that only verifies that
-%%     its argument is either 'true' or 'false' can be
-%%     be replaced with an is_boolean/2 instruction. That is:
-%%
-%%          select_val Reg Fail   [ true Next false Next ]
-%%        Next: ...
-%%         
-%%     can be rewritten to
-%%
-%%          is_boolean Fail Reg
-%%        Next: ...
-%%
 
 peep(Is) ->
     peep(Is, gb_sets:empty(), []).
@@ -94,12 +83,19 @@ peep([{gc_bif,_,_,_,_,Dst}=I|Is], SeenTests0, Acc) ->
     %% Kill all remembered tests that depend on the destination register.
     SeenTests = kill_seen(Dst, SeenTests0),
     peep(Is, SeenTests, [I|Acc]);
-peep([{test,is_boolean,{f,Fail},Ops}|_]=Is, SeenTests,
-     [{test,is_atom,{f,Fail},Ops}|Acc]) ->
-    %% The previous is_atom/2 test (with the same failure label) is redundant.
-    %% (If is_boolean(Src) is true, is_atom(Src) is also true, so it is
-    %% OK to still remember that we have seen is_atom/1.)
-    peep(Is, SeenTests, Acc);
+peep([{jump,{f,L}},{label,L}=I|Is], _, Acc) ->
+    %% Sometimes beam_jump has missed this optimization.
+    peep(Is, gb_sets:empty(), [I|Acc]);
+peep([{select,Op,R,F,Vls0}|Is], _, Acc) ->
+    case prune_redundant_values(Vls0, F) of
+	[] ->
+	    %% No values left. Must convert to plain jump.
+	    I = {jump,F},
+	    peep(Is, gb_sets:empty(), [I|Acc]);
+	[_|_]=Vls ->
+	    I = {select,Op,R,F,Vls},
+	    peep(Is, gb_sets:empty(), [I|Acc])
+    end;
 peep([{test,Op,_,Ops}=I|Is], SeenTests0, Acc) ->
     case beam_utils:is_pure_test(I) of
 	false ->
@@ -108,33 +104,32 @@ peep([{test,Op,_,Ops}=I|Is], SeenTests0, Acc) ->
 	    %% has succeeded.
 	    peep(Is, gb_sets:empty(), [I|Acc]);
 	true ->
-	    Test = {Op,Ops},
-	    case gb_sets:is_element(Test, SeenTests0) of
+	    case is_test_redundant(Op, Ops, SeenTests0) of
 		true ->
-		    %% This test has already succeeded and
+		    %% This test or a similar test has already succeeded and
 		    %% is therefore redundant.
 		    peep(Is, SeenTests0, Acc);
 		false ->
 		    %% Remember that we have seen this test.
+		    Test = {Op,Ops},
 		    SeenTests = gb_sets:insert(Test, SeenTests0),
 		    peep(Is, SeenTests, [I|Acc])
 	    end
     end;
-peep([{select,select_val,Src,Fail,
-       [{atom,false},{f,L},{atom,true},{f,L}]}|
-      [{label,L}|_]=Is], SeenTests, Acc) ->
-    I = {test,is_boolean,Fail,[Src]},
-    peep([I|Is], SeenTests, Acc);
-peep([{select,select_val,Src,Fail,
-       [{atom,true},{f,L},{atom,false},{f,L}]}|
-      [{label,L}|_]=Is], SeenTests, Acc) ->
-    I = {test,is_boolean,Fail,[Src]},
-    peep([I|Is], SeenTests, Acc);
 peep([I|Is], _, Acc) ->
     %% An unknown instruction. Throw away all information we
     %% have collected about test instructions.
     peep(Is, gb_sets:empty(), [I|Acc]);
 peep([], _, Acc) -> reverse(Acc).
+
+is_test_redundant(Op, Ops, Seen) ->
+    gb_sets:is_element({Op,Ops}, Seen) orelse
+	is_test_redundant_1(Op, Ops, Seen).
+
+is_test_redundant_1(is_boolean, [R], Seen) ->
+    gb_sets:is_element({is_eq_exact,[R,{atom,false}]}, Seen) orelse
+	gb_sets:is_element({is_eq_exact,[R,{atom,true}]}, Seen);
+is_test_redundant_1(_, _, _) -> false.
 
 kill_seen(Dst, Seen0) ->
     gb_sets:from_ordset(kill_seen_1(gb_sets:to_list(Seen0), Dst)).
@@ -145,3 +140,9 @@ kill_seen_1([{_,Ops}=Test|T], Dst) ->
 	false -> [Test|kill_seen_1(T, Dst)]
     end;
 kill_seen_1([], _) -> [].
+
+prune_redundant_values([_Val,F|Vls], F) ->
+    prune_redundant_values(Vls, F);
+prune_redundant_values([Val,Lbl|Vls], F) ->
+    [Val,Lbl|prune_redundant_values(Vls, F)];
+prune_redundant_values([], _) -> [].

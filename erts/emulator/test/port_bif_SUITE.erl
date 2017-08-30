@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -20,20 +21,20 @@
 -module(port_bif_SUITE).
 
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, command/1,
+-export([all/0, suite/0, groups/0,
+         command/1,
 	 command_e_1/1, command_e_2/1, command_e_3/1, command_e_4/1,
 	 port_info1/1, port_info2/1,
-	 port_info_os_pid/1,
+	 port_info_os_pid/1, port_info_race/1,
 	 connect/1, control/1, echo_to_busy/1]).
 
 -export([do_command_e_1/1, do_command_e_2/1, do_command_e_4/1]).
 
--export([init_per_testcase/2, end_per_testcase/2]).
+-include_lib("common_test/include/ct.hrl").
 
--include_lib("test_server/include/test_server.hrl").
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 10}}].
 
 all() -> 
     [command, {group, port_info}, connect, control,
@@ -42,28 +43,8 @@ all() ->
 groups() -> 
     [{command_e, [],
       [command_e_1, command_e_2, command_e_3, command_e_4]},
-     {port_info, [], [port_info1, port_info2, port_info_os_pid]}].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-
-init_per_testcase(_Func, Config) when is_list(Config) ->
-    Dog=test_server:timetrap(test_server:minutes(10)),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Func, Config) when is_list(Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+     {port_info, [],
+      [port_info1, port_info2, port_info_os_pid, port_info_race]}].
 
 command(Config) when is_list(Config) ->
     load_control_drv(Config),
@@ -85,17 +66,17 @@ do_command(P, Data) ->
 	{P,{data,Data0}} ->
 	    case {list_to_binary(Data0),list_to_binary([Data])} of
 		{B,B} -> ok;
-		_ -> test_server:fail({unexpected_data,Data0})
+		_ -> ct:fail({unexpected_data,Data0})
 	    end;
 	Other ->
-	    test_server:fail({unexpected_message,Other})
+	    ct:fail({unexpected_message,Other})
     end.
 
 
 
 %% port_command/2: badarg 1st arg
 command_e_1(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Program = filename:join(DataDir, "port_test"),
 
     process_flag(trap_exit, true),
@@ -104,9 +85,9 @@ command_e_1(Config) when is_list(Config) ->
         {'EXIT', Pid, {badarg, _}} when is_pid(Pid) ->
             ok;
         Other ->
-            test_server:fail(Other)
+            ct:fail(Other)
     after 10000 ->
-            test_server:fail(timeout)
+            ct:fail(timeout)
     end,
     ok.
 
@@ -117,7 +98,7 @@ do_command_e_1(Program) ->
 
 %% port_command/2: badarg 2nd arg
 command_e_2(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Program = filename:join(DataDir, "port_test"),
 
     process_flag(trap_exit, true),
@@ -126,9 +107,9 @@ command_e_2(Config) when is_list(Config) ->
         {'EXIT', Pid, {badarg, _}} when is_pid(Pid) ->
             ok;
         Other ->
-            test_server:fail(Other)
+            ct:fail(Other)
     after 10000 ->
-            test_server:fail(timeout)
+            ct:fail(timeout)
     end,
     ok.
 
@@ -139,7 +120,7 @@ do_command_e_2(Program) ->
 
 %% port_command/2: Posix signals trapped
 command_e_3(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Program = filename:join(DataDir, "port_test"),
 
     process_flag(trap_exit, true),
@@ -150,15 +131,15 @@ command_e_3(Config) when is_list(Config) ->
         {'EXIT', Port, einval} when is_port(Port) ->
             ok;
         Other ->
-            test_server:fail(Other)
+            ct:fail(Other)
     after 10000 ->
-            test_server:fail(timeout)
+            ct:fail(timeout)
     end,
     ok.
 
 %% port_command/2: Posix exit signals not trapped
 command_e_4(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     Program = filename:join(DataDir, "port_test"),
 
     process_flag(trap_exit, true),
@@ -167,9 +148,9 @@ command_e_4(Config) when is_list(Config) ->
         {'EXIT', Pid, {einval, _}} when is_pid(Pid) ->
             ok;
         Other ->
-            test_server:fail(Other)
+            ct:fail(Other)
     after 10000 ->
-            test_server:fail(timeout)
+            ct:fail(timeout)
     end,
     ok.
 
@@ -246,7 +227,7 @@ do_port_info_os_pid() ->
     {os_pid, InfoOSPid} = erlang:port_info(P, os_pid),
     EchoPidStr = receive
 	    {P, {data, EchoPidStr0}} -> EchoPidStr0
-	    after 10000 -> test_server:fail(timeout)
+	    after 10000 -> ct:fail(timeout)
     end,
     {ok, [EchoPid], []} = io_lib:fread("~u\n", EchoPidStr),
     {value,{os_pid, InfoOSPid}}=lists:keysearch(os_pid, 1, A),
@@ -254,15 +235,36 @@ do_port_info_os_pid() ->
     true = erlang:port_close(P),
     ok.
 
+port_info_race(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Program = filename:join(DataDir, "port_test"),
+    Top = self(),
+    P1 = open_port({spawn,Program}, [{packet,1}]),
+    P2 = open_port({spawn,Program}, [{packet,1}]),
+    Info1 = erlang:port_info(P1),
+    Info2 = erlang:port_info(P2),
+    F = fun Loop(Port, _, 0) ->
+                Top ! {ok,Port};
+            Loop(Port, Info, N) ->
+                Info = erlang:port_info(Port),
+                Loop(Port, Info, N - 1)
+        end,
+    spawn_link(fun () -> F(P1, Info1, 1000) end),
+    spawn_link(fun () -> F(P2, Info2, 1000) end),
+    receive {ok,P1} -> ok end,
+    receive {ok,P2} -> ok end,
+    true = erlang:port_close(P1),
+    true = erlang:port_close(P2),
+    ok.
+
 output_test(_, _, Input, Output) when Output > 16#1fffffff ->
     io:format("~p bytes received\n", [Input]);
 output_test(P, Bin, Input0, Output0) ->
     erlang:port_command(P, Bin),
     receive
-	{P,{data,Bin}} -> ok;
-	Other ->
-	    io:format("~p", [Other]),
-	    ?t:fail()
+        {P,{data,Bin}} -> ok;
+        Other ->
+            ct:fail("~p", [Other])
     end,
     Input = Input0 + size(Bin),
     Output = Output0 + size(Bin),
@@ -272,8 +274,8 @@ output_test(P, Bin, Input0, Output0) ->
     %% We can't test much here, but hopefully a debug-built emulator will crasch
     %% if there is something wrong with the heap allocation.
     case erlang:statistics(io) of
-	{{input,In},{output,Out}} when is_integer(In), is_integer(Out) ->
-	    ok
+        {{input,In},{output,Out}} when is_integer(In), is_integer(Out) ->
+            ok
     end,
     output_test(P, Bin, Input, Output).
 
@@ -321,7 +323,7 @@ connect(Config) when is_list(Config) ->
     exit(P, you_should_die),
     receive
         {'EXIT',RecPid,you_should_die} -> ok;
-        Other -> ?line ?t:fail({bad_message,Other})
+        Other -> ct:fail({bad_message,Other})
     end,
 
     %% Done.
@@ -386,7 +388,7 @@ test_op(P, Op) ->
     <<Op:32>> = list_to_binary(R).
 
 echo_to_busy(Config) when is_list(Config) ->
-    Dog = test_server:timetrap(test_server:seconds(10)),
+    ct:timetrap({seconds, 10}),
     load_control_drv(Config),
     P = open_port({spawn, control_drv}, []),
     erlang:port_control(P, $b, [1]),	% Set to busy.
@@ -398,11 +400,10 @@ echo_to_busy(Config) when is_list(Config) ->
         {Echoer, done} ->
             ok;
         {Echoer, Other} ->
-            test_server:fail(Other);
+            ct:fail(Other);
         Other ->
-            test_server:fail({unexpected_message, Other})
+            ct:fail({unexpected_message, Other})
     end,
-    test_server:timetrap_cancel(Dog),
     ok.
 
 echoer(P, ReplyTo) ->
@@ -427,7 +428,7 @@ echo(P, Size) ->
     Packet = erlang:port_control(P, $e, [unaligned_sub_bin(Bin)]).
 
 load_control_drv(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     erl_ddll:start(),
     ok = load_driver(DataDir, "control_drv").
 
@@ -461,14 +462,7 @@ random_char(Chars) ->
     lists:nth(uniform(length(Chars)), Chars).
 
 uniform(N) ->
-    case get(random_seed) of
-	undefined ->
-	    {X, Y, Z} = time(),
-	    random:seed(X, Y, Z);
-	_ ->
-	    ok
-    end,
-    random:uniform(N).
+    rand:uniform(N).
 
 unaligned_sub_bin(Bin0) ->
     Bin1 = <<0:3,Bin0/binary,31:5>>,

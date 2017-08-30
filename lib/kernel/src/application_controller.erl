@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -461,14 +462,16 @@ permit_application(ApplName, Flag) ->
 
 
 set_env(AppName, Key, Val) ->
-    gen_server:call(?AC, {set_env, AppName, Key, Val}).
-set_env(AppName, Key, Val, Timeout) ->
-    gen_server:call(?AC, {set_env, AppName, Key, Val}, Timeout).
+    gen_server:call(?AC, {set_env, AppName, Key, Val, []}).
+set_env(AppName, Key, Val, Opts) ->
+    Timeout = proplists:get_value(timeout, Opts, 5000),
+    gen_server:call(?AC, {set_env, AppName, Key, Val, Opts}, Timeout).
 
 unset_env(AppName, Key) ->
-    gen_server:call(?AC, {unset_env, AppName, Key}).
-unset_env(AppName, Key, Timeout) ->
-    gen_server:call(?AC, {unset_env, AppName, Key}, Timeout).
+    gen_server:call(?AC, {unset_env, AppName, Key, []}).
+unset_env(AppName, Key, Opts) ->
+    Timeout = proplists:get_value(timeout, Opts, 5000),
+    gen_server:call(?AC, {unset_env, AppName, Key, Opts}, Timeout).
 
 %%%-----------------------------------------------------------------
 %%% call-back functions from gen_server
@@ -488,7 +491,8 @@ init(Init, Kernel) ->
 	    %% called during start-up of any app.
 	    case check_conf_data(ConfData) of
 		ok ->
-		    ets:new(ac_tab, [set, public, named_table]),
+		    _ = ets:new(ac_tab, [set, public, named_table,
+                                         {read_concurrency,true}]),
 		    S = #state{conf_data = ConfData},
 		    {ok, KAppl} = make_appl(Kernel),
 		    case catch load(S, KAppl) of
@@ -609,8 +613,8 @@ check_para([Else | _ParaList], AppName) ->
                | {'change_application_data', _, _}
                | {'permit_application', atom() | {'application',atom(),_},_}
                | {'start_application', _, _}
-               | {'unset_env', _, _}
-               | {'set_env', _, _, _}.
+               | {'unset_env', _, _, _}
+               | {'set_env', _, _, _, _}.
 
 -spec handle_call(calls(), {pid(), term()}, state()) ->
         {'noreply', state()} | {'reply', term(), state()}.
@@ -827,12 +831,12 @@ handle_call({change_application_data, Applications, Config}, _From, S) ->
 	    {reply, Error, S};
 	{'EXIT', R} ->
 	    {reply, {error, R}, S};
-	NewAppls ->
+	{NewAppls, NewConfig} ->
 	    lists:foreach(fun(Appl) ->
 				  ets:insert(ac_tab, {{loaded, Appl#appl.name},
 						      Appl})
 			  end, NewAppls),
-	    {reply, ok, S#state{conf_data = Config}}
+	    {reply, ok, S#state{conf_data = NewConfig}}
     end;
 
 handle_call(prep_config_change, _From, S) ->
@@ -858,13 +862,25 @@ handle_call(which_applications, _From, S) ->
 	       end, S#state.running),
     {reply, Reply, S};
 
-handle_call({set_env, AppName, Key, Val}, _From, S) ->
+handle_call({set_env, AppName, Key, Val, Opts}, _From, S) ->
     ets:insert(ac_tab, {{env, AppName, Key}, Val}),
-    {reply, ok, S};
+    case proplists:get_value(persistent, Opts, false) of
+	true ->
+	    Fun = fun(Env) -> lists:keystore(Key, 1, Env, {Key, Val}) end,
+	    {reply, ok, S#state{conf_data = change_app_env(S#state.conf_data, AppName, Fun)}};
+	false ->
+	    {reply, ok, S}
+    end;
 
-handle_call({unset_env, AppName, Key}, _From, S) ->
+handle_call({unset_env, AppName, Key, Opts}, _From, S) ->
     ets:delete(ac_tab, {env, AppName, Key}),
-    {reply, ok, S};
+    case proplists:get_value(persistent, Opts, false) of
+	true ->
+	    Fun = fun(Env) -> lists:keydelete(Key, 1, Env) end,
+	    {reply, ok, S#state{conf_data = change_app_env(S#state.conf_data, AppName, Fun)}};
+	false ->
+	    {reply, ok, S}
+    end;
 
 handle_call({control_application, AppName}, {Pid, _Tag}, S) ->
     Control = S#state.control,
@@ -1536,18 +1552,19 @@ do_change_apps(Applications, Config, OldAppls) ->
 		  end,
 		  Errors),
 
-    map(fun(Appl) ->
-		AppName = Appl#appl.name,
-		case is_loaded_app(AppName, Applications) of
-		    {true, Application} ->
-			do_change_appl(make_appl(Application),
-				       Appl, SysConfig);
+    {map(fun(Appl) ->
+		 AppName = Appl#appl.name,
+		 case is_loaded_app(AppName, Applications) of
+		     {true, Application} ->
+			 do_change_appl(make_appl(Application),
+					Appl, SysConfig);
 
-		    %% ignored removed apps - handled elsewhere
-		    false ->
-			Appl
-		end
-	end, OldAppls).
+		     %% ignored removed apps - handled elsewhere
+		     false ->
+			 Appl
+		 end
+	 end, OldAppls),
+     SysConfig}.
 
 is_loaded_app(AppName, [{application, AppName, App} | _]) ->
     {true, {application, AppName, App}};
@@ -1600,7 +1617,6 @@ conv([Key, Val | T]) ->
     [{make_term(Key), make_term(Val)} | conv(T)];
 conv(_) -> [].
 
-%%% Fix some day: eliminate the duplicated code here
 make_term(Str) -> 
     case erl_scan:string(Str) of
 	{ok, Tokens, _} ->		  
@@ -1608,15 +1624,16 @@ make_term(Str) ->
 		{ok, Term} ->
 		    Term;
 		{error, {_,M,Reason}} ->
-		    error_logger:format("application_controller: ~ts: ~ts~n",
-					[M:format_error(Reason), Str]),
-		    throw({error, {bad_environment_value, Str}})
+                    handle_make_term_error(M, Reason, Str)
 	    end;
 	{error, {_,M,Reason}, _} ->
-	    error_logger:format("application_controller: ~ts: ~ts~n",
-				[M:format_error(Reason), Str]),
-	    throw({error, {bad_environment_value, Str}})
+            handle_make_term_error(M, Reason, Str)
     end.
+
+handle_make_term_error(Mod, Reason, Str) ->
+    error_logger:format("application_controller: ~ts: ~ts~n",
+        [Mod:format_error(Reason), Str]),
+    throw({error, {bad_environment_value, Str}}).
 
 get_env_i(Name, #state{conf_data = ConfData}) when is_list(ConfData) ->
     case lists:keyfind(Name, 1, ConfData) of
@@ -1639,6 +1656,16 @@ merge_env([{App, AppEnv1} | T], Env2, Res) ->
     end;
 merge_env([], Env2, Res) ->
     Env2 ++ Res.
+
+%% Changes the environment for the given application
+%% If there is no application, an empty one is created
+change_app_env(Env, App, Fun) ->
+    case get_env_key(App, Env) of
+	{value, AppEnv, RestEnv} ->
+	    [{App, Fun(AppEnv)} | RestEnv];
+	_ ->
+	    [{App, Fun([])} | Env]
+    end.
 
 %% Merges envs for an application.  Env2 overrides Env1
 merge_app_env(Env1, Env2) ->
@@ -1949,10 +1976,10 @@ test_change_apps(Apps, Conf) ->
 test_do_change_appl([], _, _) ->
     ok;
 test_do_change_appl([A|Apps], [], [R|Res]) ->
-    do_change_appl(R, #appl{name = A}, []),
+    _ = do_change_appl(R, #appl{name = A}, []),
     test_do_change_appl(Apps, [], Res);
 test_do_change_appl([A|Apps], [C|Conf], [R|Res]) ->
-    do_change_appl(R, #appl{name = A}, C),
+    _ = do_change_appl(R, #appl{name = A}, C),
     test_do_change_appl(Apps, Conf, Res).
 
 test_make_apps([], Res) ->

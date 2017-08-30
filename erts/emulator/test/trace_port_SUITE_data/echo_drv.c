@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "erl_driver.h"
+#include <errno.h>
 
 
 
@@ -14,6 +15,7 @@ enum e_heavy {
 typedef struct _erl_drv_data {
     ErlDrvPort   erlang_port;
     enum e_heavy heavy;
+    int crash;
 } EchoDrvData;
 
 static EchoDrvData echo_drv_data, *echo_drv_data_p;
@@ -78,6 +80,7 @@ static EchoDrvData *echo_drv_start(ErlDrvPort port, char *command)
     echo_drv_data_p = &echo_drv_data;
     echo_drv_data_p->erlang_port = port;
     echo_drv_data_p->heavy = heavy_off;
+    echo_drv_data_p->crash = 0;
     return echo_drv_data_p;
 }
 
@@ -87,6 +90,12 @@ static void echo_drv_stop(EchoDrvData *data_p) {
 
 static void echo_drv_output(ErlDrvData drv_data, char *buf, ErlDrvSizeT len) {
     EchoDrvData* data_p = (EchoDrvData *) drv_data;
+
+    if (data_p->crash) {
+	driver_failure_posix(data_p->erlang_port, EINTR);
+	return;
+    }
+
     driver_output(data_p->erlang_port, buf, len);
     switch (data_p->heavy) {
     case heavy_off:
@@ -100,6 +109,7 @@ static void echo_drv_output(ErlDrvData drv_data, char *buf, ErlDrvSizeT len) {
 	data_p->heavy = heavy_off;
 	break;
     }
+
 }
 
 static void echo_drv_finish() {
@@ -115,6 +125,8 @@ static ErlDrvSSizeT echo_drv_control(ErlDrvData drv_data,
     case 'h':
 	data_p->heavy = heavy_set;
 	break;
+    case 'c':
+	data_p->crash = 1;
     }
     return 0;
 }

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -81,7 +82,8 @@
 	 system_info/0,                      % Not for public use
 
 	 %% Database mgt
-	 create_schema/1, delete_schema/1,
+	 create_schema/1, create_schema/2, delete_schema/1,
+         add_backend_type/2,
 	 backup/1, backup/2, traverse_backup/4, traverse_backup/6,
 	 install_fallback/1, install_fallback/2,
 	 uninstall_fallback/0, uninstall_fallback/1,
@@ -104,7 +106,8 @@
 	 set_master_nodes/1, set_master_nodes/2,
 
 	 %% Misc admin
-	 dump_log/0, subscribe/1, unsubscribe/1, report_event/1,
+	 dump_log/0, sync_log/0,
+	 subscribe/1, unsubscribe/1, report_event/1,
 
 	 %% Snmp
 	 snmp_open_table/2, snmp_close_table/1,
@@ -144,7 +147,7 @@
 %% Local function in order to avoid external function call
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason);
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
 	Value -> Value
     end.
 
@@ -195,6 +198,9 @@ e_has_var(X, Pos) ->
 %% Start and stop
 
 start() ->
+    start([]).
+
+start_() ->
     {Time , Res} =  timer:tc(application, start, [?APPLICATION, temporary]),
 
     Secs = Time div 1000000,
@@ -230,7 +236,7 @@ patched_start([{Env, Val} | Tail]) when is_atom(Env) ->
 patched_start([Head | _]) ->
     {error, {bad_type, Head}};
 patched_start([]) ->
-    start().
+    start_().
 
 stop() ->
     case application:stop(?APPLICATION) of
@@ -295,6 +301,7 @@ ms() ->
 
      %% Keep these last in the list, so
      %% mnesia_sup kills these last
+     mnesia_ext_sup,
      mnesia_monitor,
      mnesia_event
     ].
@@ -305,6 +312,8 @@ ms() ->
 
 -spec abort(_) -> no_return().
 
+abort(Reason = {aborted, _}) ->
+    exit(Reason);
 abort(Reason) ->
     exit({aborted, Reason}).
 
@@ -552,22 +561,16 @@ write(_Tid, _Ts, Tab, Val, LockKind) ->
     abort({bad_type, Tab, Val, LockKind}).
 
 write_to_store(Tab, Store, Oid, Val) ->
-    case ?catch_val({Tab, record_validation}) of
-	{RecName, Arity, Type}
-	  when tuple_size(Val) == Arity, RecName == element(1, Val) ->
-	    case Type of
-		bag ->
-		    ?ets_insert(Store, {Oid, Val, write});
-		_  ->
-		    ?ets_delete(Store, Oid),
-		    ?ets_insert(Store, {Oid, Val, write})
-	    end,
-	    ok;
-	{'EXIT', _} ->
-	    abort({no_exists, Tab});
-	_ ->
-	    abort({bad_type, Val})
-    end.
+    {_, _, Type} = mnesia_lib:validate_record(Tab, Val),
+    Oid = {Tab, element(2, Val)},
+    case Type of
+	bag ->
+	    ?ets_insert(Store, {Oid, Val, write});
+	_  ->
+	    ?ets_delete(Store, Oid),
+	    ?ets_insert(Store, {Oid, Val, write})
+    end,
+    ok.
 
 delete({Tab, Key}) ->
     delete(Tab, Key, write);
@@ -806,7 +809,7 @@ next(Tid,Ts,Tab,Key)
 	tid ->
 	    lock_table(Tid, Ts, Tab, read),
 	    do_fixtable(Tab,Ts),
-	    New = (catch dirty_next(Tab,Key)),
+	    New = ?CATCH(dirty_next(Tab,Key)),
 	    stored_keys(Tab,New,Key,Ts,next,
 			val({Tab, setorbag}));
 	_Protocol ->
@@ -832,7 +835,7 @@ prev(Tid,Ts,Tab,Key)
 	tid ->
 	    lock_table(Tid, Ts, Tab, read),
 	    do_fixtable(Tab,Ts),
-	    New = (catch dirty_prev(Tab,Key)),
+	    New = ?CATCH(dirty_prev(Tab,Key)),
 	    stored_keys(Tab,New,Key,Ts,prev,
 			val({Tab, setorbag}));
 	_Protocol ->
@@ -964,7 +967,7 @@ foldl(Fun, Acc, Tab, LockKind) when is_function(Fun) ->
 
 foldl(ActivityId, Opaque, Fun, Acc, Tab, LockKind) ->
     {Type, Prev} = init_iteration(ActivityId, Opaque, Tab, LockKind),
-    Res = (catch do_foldl(ActivityId, Opaque, Tab, dirty_first(Tab), Fun, Acc, Type, Prev)),
+    Res = ?CATCH(do_foldl(ActivityId, Opaque, Tab, dirty_first(Tab), Fun, Acc, Type, Prev)),
     close_iteration(Res, Tab).
 
 do_foldl(A, O, Tab, '$end_of_table', Fun, RAcc, _Type, Stored) ->
@@ -1010,7 +1013,7 @@ foldr(ActivityId, Opaque, Fun, Acc, Tab, LockKind) ->
 	    true ->      %% Order doesn't matter for set and bag
 		TempPrev %% Keep the order so we can use ordsets:del_element
 	end,
-    Res = (catch do_foldr(ActivityId, Opaque, Tab, dirty_last(Tab), Fun, Acc, Type, Prev)),
+    Res = ?CATCH(do_foldr(ActivityId, Opaque, Tab, dirty_last(Tab), Fun, Acc, Type, Prev)),
     close_iteration(Res, Tab).
 
 do_foldr(A, O, Tab, '$end_of_table', Fun, RAcc, _Type, Stored) ->
@@ -1139,10 +1142,12 @@ match_object(_Tid, _Ts, Tab, Pat, _LockKind) ->
 
 add_written_match(S, Pat, Tab, Objs) ->
     Ops = find_ops(S, Tab, Pat),
-    add_match(Ops, Objs, val({Tab, setorbag})).
+    FixedRes = add_match(Ops, Objs, val({Tab, setorbag})),
+    MS = ets:match_spec_compile([{Pat, [], ['$_']}]),
+    ets:match_spec_run(FixedRes, MS).
 
 find_ops(S, Tab, Pat) ->
-    GetWritten = [{{{Tab, '_'}, Pat, write}, [], ['$_']},
+    GetWritten = [{{{Tab, '_'}, '_', write}, [], ['$_']},
 		  {{{Tab, '_'}, '_', delete}, [], ['$_']},
 		  {{{Tab, '_'}, Pat, delete_object}, [], ['$_']}],
     ets:select(S, GetWritten).
@@ -1542,16 +1547,9 @@ dirty_write(Tab, Val) ->
 
 do_dirty_write(SyncMode, Tab, Val)
   when is_atom(Tab), Tab /= schema, is_tuple(Val), tuple_size(Val) > 2 ->
-    case ?catch_val({Tab, record_validation}) of
-	{RecName, Arity, _Type}
-	when tuple_size(Val) == Arity, RecName == element(1, Val) ->
-	    Oid = {Tab, element(2, Val)},
-	    mnesia_tm:dirty(SyncMode, {Oid, Val, write});
-	{'EXIT', _} ->
-	    abort({no_exists, Tab});
-	_ ->
-	    abort({bad_type, Val})
-    end;
+    {_, _, _} = mnesia_lib:validate_record(Tab, Val),
+    Oid = {Tab, element(2, Val)},
+    mnesia_tm:dirty(SyncMode, {Oid, Val, write});
 do_dirty_write(_SyncMode, Tab, Val) ->
     abort({bad_type, Tab, Val}).
 
@@ -1603,8 +1601,8 @@ dirty_update_counter(Tab, Key, Incr) ->
 
 do_dirty_update_counter(SyncMode, Tab, Key, Incr)
   when is_atom(Tab), Tab /= schema, is_integer(Incr) ->
-    case ?catch_val({Tab, record_validation}) of
-	{RecName, 3, set} ->
+    case mnesia_lib:validate_key(Tab, Key) of
+	{RecName, 3, Type} when Type == set; Type == ordered_set ->
 	    Oid = {Tab, Key},
 	    mnesia_tm:dirty(SyncMode, {Oid, {RecName, Incr}, update_counter});
 	_ ->
@@ -1623,13 +1621,7 @@ dirty_read(Oid) ->
 
 dirty_read(Tab, Key)
   when is_atom(Tab), Tab /= schema ->
-%%    case catch ?ets_lookup(Tab, Key) of
-%%        {'EXIT', _} ->
-            %% Bad luck, we have to perform a real lookup
-            dirty_rpc(Tab, mnesia_lib, db_get, [Tab, Key]);
-%%        Val ->
-%%            Val
-%%    end;
+    dirty_rpc(Tab, mnesia_lib, db_get, [Tab, Key]);
 dirty_read(Tab, _Key) ->
     abort({bad_type, Tab}).
 
@@ -1808,7 +1800,7 @@ do_dirty_rpc(Tab, Node, M, F, Args) ->
 	{badrpc, Reason} ->
 	    timer:sleep(20), %% Do not be too eager, and can't use yield on SMP
 	    %% Sync with mnesia_monitor
-	    try sys:get_status(mnesia_monitor) catch _:_ -> ok end,
+	    _ = try sys:get_status(mnesia_monitor) catch _:_ -> ok end,
 	    case mnesia_controller:call({check_w2r, Node, Tab}) of % Sync
 		NewNode when NewNode =:= Node ->
 		    ErrorTag = mnesia_lib:dirty_rpc_error_tag(Reason),
@@ -1902,21 +1894,23 @@ any_table_info(Tab, _Item) ->
     abort({bad_type, Tab}).
 
 raw_table_info(Tab, Item) ->
-    case ?catch_val({Tab, storage_type}) of
-	ram_copies ->
-	    info_reply(catch ?ets_info(Tab, Item), Tab, Item);
-	disc_copies ->
-	    info_reply(catch ?ets_info(Tab, Item), Tab, Item);
-	disc_only_copies ->
-	    info_reply(catch dets:info(Tab, Item), Tab, Item);
-	unknown ->
-	    bad_info_reply(Tab, Item);
-	{'EXIT', _} ->
+    try
+	case ?ets_lookup_element(mnesia_gvar, {Tab, storage_type}, 2) of
+	    ram_copies ->
+		info_reply(?ets_info(Tab, Item), Tab, Item);
+	    disc_copies ->
+		info_reply(?ets_info(Tab, Item), Tab, Item);
+	    disc_only_copies ->
+		info_reply(dets:info(Tab, Item), Tab, Item);
+            {ext, Alias, Mod} ->
+                info_reply(catch Mod:info(Alias, Tab, Item), Tab, Item);
+	    unknown ->
+		bad_info_reply(Tab, Item)
+	end
+    catch error:_ ->
 	    bad_info_reply(Tab, Item)
     end.
 
-info_reply({'EXIT', _Reason}, Tab, Item) ->
-    bad_info_reply(Tab, Item);
 info_reply({error, _Reason}, Tab, Item) ->
     bad_info_reply(Tab, Item);
 info_reply(Val, _Tab, _Item) ->
@@ -2022,15 +2016,26 @@ display_tab_info() ->
     MasterTabs = mnesia_recover:get_master_node_tables(),
     io:format("master node tables = ~p~n", [lists:sort(MasterTabs)]),
 
+    case get_backend_types() of
+	[] -> ok;
+	Ts -> list_backend_types(Ts, "backend types      = ")
+    end,
+
+    case get_index_plugins() of
+	[] -> ok;
+	Ps -> list_index_plugins(Ps, "index plugins      = ")
+    end,
+
     Tabs = system_info(tables),
 
-    {Unknown, Ram, Disc, DiscOnly} =
-	lists:foldl(fun storage_count/2, {[], [], [], []}, Tabs),
+    {Unknown, Ram, Disc, DiscOnly, Ext} =
+	lists:foldl(fun storage_count/2, {[], [], [], [], []}, Tabs),
 
     io:format("remote             = ~p~n", [lists:sort(Unknown)]),
     io:format("ram_copies         = ~p~n", [lists:sort(Ram)]),
     io:format("disc_copies        = ~p~n", [lists:sort(Disc)]),
     io:format("disc_only_copies   = ~p~n", [lists:sort(DiscOnly)]),
+    [io:format("~-19s= ~p~n", [atom_to_list(A), Ts]) || {A,Ts} <- Ext],
 
     Rfoldl = fun(T, Acc) ->
 		     Rpat =
@@ -2038,7 +2043,7 @@ display_tab_info() ->
 			     read_only ->
 				 lists:sort([{A, read_only} || A <- val({T, active_replicas})]);
 			     read_write ->
-				 table_info(T, where_to_commit)
+				 [fix_wtc(W) || W <- table_info(T, where_to_commit)]
 			 end,
 		     case lists:keysearch(Rpat, 1, Acc) of
 			 {value, {_Rpat, Rtabs}} ->
@@ -2051,18 +2056,65 @@ display_tab_info() ->
     Rdisp = fun({Rpat, Rtabs}) -> io:format("~p = ~p~n", [Rpat, Rtabs]) end,
     lists:foreach(Rdisp, lists:sort(Repl)).
 
-storage_count(T, {U, R, D, DO}) ->
+get_backend_types() ->
+    case ?catch_val({schema, user_property, mnesia_backend_types}) of
+	{'EXIT', _} ->
+	    [];
+	{mnesia_backend_types, Ts} ->
+	    lists:sort(Ts)
+    end.
+
+get_index_plugins() ->
+    case ?catch_val({schema, user_property, mnesia_index_plugins}) of
+	{'EXIT', _} ->
+	    [];
+	{mnesia_index_plugins, Ps} ->
+	    lists:sort(Ps)
+    end.
+
+
+list_backend_types([{A,M} | T] = Ts, Legend) ->
+    Indent = [$\s || _ <- Legend],
+    W = integer_to_list(
+	  lists:foldl(fun({Alias,_}, Wa) ->
+			      erlang:max(Wa, length(atom_to_list(Alias)))
+		      end, 0, Ts)),
+    io:fwrite(Legend ++ "~-" ++ W ++ "s - ~s~n",
+	      [atom_to_list(A), atom_to_list(M)]),
+    [io:fwrite(Indent ++ "~-" ++ W ++ "s - ~s~n",
+	       [atom_to_list(A1), atom_to_list(M1)])
+     || {A1,M1} <- T].
+
+list_index_plugins([{N,M,F} | T] = Ps, Legend) ->
+    Indent = [$\s || _ <- Legend],
+    W = integer_to_list(
+	  lists:foldl(fun({N1,_,_}, Wa) ->
+			      erlang:max(Wa, length(pp_ix_name(N1)))
+		      end, 0, Ps)),
+    io:fwrite(Legend ++ "~-" ++ W ++ "s - ~s:~s~n",
+	      [pp_ix_name(N), atom_to_list(M), atom_to_list(F)]),
+    [io:fwrite(Indent ++ "~-" ++ W ++ "s - ~s:~s~n",
+	       [pp_ix_name(N1), atom_to_list(M1), atom_to_list(F1)])
+     || {N1,M1,F1} <- T].
+
+pp_ix_name(N) ->
+    lists:flatten(io_lib:fwrite("~w", [N])).
+
+fix_wtc({N, {ext,A,_}}) -> {N, A};
+fix_wtc({N,A}) when is_atom(A) -> {N, A}.
+
+storage_count(T, {U, R, D, DO, Ext}) ->
     case table_info(T, storage_type) of
-	unknown -> {[T | U], R, D, DO};
-	ram_copies -> {U, [T | R], D, DO};
-	disc_copies -> {U, R, [T | D], DO};
-	disc_only_copies -> {U, R, D, [T | DO]}
+	unknown -> {[T | U], R, D, DO, Ext};
+	ram_copies -> {U, [T | R], D, DO, Ext};
+	disc_copies -> {U, R, [T | D], DO, Ext};
+	disc_only_copies -> {U, R, D, [T | DO], Ext};
+        {ext, A, _} -> {U, R, D, DO, orddict:append(A, T, Ext)}
     end.
 
 system_info(Item) ->
-    case catch system_info2(Item) of
-	{'EXIT',Error} -> abort(Error);
-	Other -> Other
+    try system_info2(Item)
+    catch _:Error -> abort(Error)
     end.
 
 system_info2(all) ->
@@ -2072,9 +2124,10 @@ system_info2(all) ->
 system_info2(db_nodes) ->
     DiscNs = ?catch_val({schema, disc_copies}),
     RamNs = ?catch_val({schema, ram_copies}),
+    ExtNs = ?catch_val({schema, external_copies}),
     if
-	is_list(DiscNs), is_list(RamNs) ->
-	    DiscNs ++ RamNs;
+	is_list(DiscNs), is_list(RamNs), is_list(ExtNs) ->
+	    DiscNs ++ RamNs ++ ExtNs;
 	true ->
 	    case mnesia_schema:read_nodes() of
 		{ok, Nodes} -> Nodes;
@@ -2168,7 +2221,7 @@ system_info2(version) ->
 		    Version;
 		false ->
 		    %% Ensure that it does not match
-		    {mnesia_not_loaded, node(), now()}
+		    {mnesia_not_loaded, node(), erlang:timestamp()}
 	    end;
 	Version ->
 	    Version
@@ -2178,6 +2231,7 @@ system_info2(access_module) -> mnesia_monitor:get_env(access_module);
 system_info2(auto_repair) -> mnesia_monitor:get_env(auto_repair);
 system_info2(is_running) -> mnesia_lib:is_running();
 system_info2(backup_module) -> mnesia_monitor:get_env(backup_module);
+system_info2(backend_types) -> mnesia_schema:backend_types();
 system_info2(event_module) -> mnesia_monitor:get_env(event_module);
 system_info2(debug) -> mnesia_monitor:get_env(debug);
 system_info2(dump_log_load_regulation) -> mnesia_monitor:get_env(dump_log_load_regulation);
@@ -2214,6 +2268,7 @@ system_info_items(yes) ->
     [
      access_module,
      auto_repair,
+     backend_types,
      backup_module,
      checkpoints,
      db_nodes,
@@ -2307,10 +2362,16 @@ load_mnesia_or_abort() ->
 %% Database mgt
 
 create_schema(Ns) ->
-    mnesia_bup:create_schema(Ns).
+    create_schema(Ns, []).
+
+create_schema(Ns, Properties) ->
+    mnesia_bup:create_schema(Ns, Properties).
 
 delete_schema(Ns) ->
     mnesia_schema:delete_schema(Ns).
+
+add_backend_type(Alias, Module) ->
+    mnesia_schema:add_backend_type(Alias, Module).
 
 backup(Opaque) ->
     mnesia_log:backup(Opaque).
@@ -2378,11 +2439,10 @@ del_table_index(Tab, Ix) ->
     mnesia_schema:del_table_index(Tab, Ix).
 
 transform_table(Tab, Fun, NewA) ->
-    case catch val({Tab, record_name}) of
-	{'EXIT', Reason} ->
-	    mnesia:abort(Reason);
-	OldRN ->
-	    mnesia_schema:transform_table(Tab, Fun, NewA, OldRN)
+    try val({Tab, record_name}) of
+	OldRN -> mnesia_schema:transform_table(Tab, Fun, NewA, OldRN)
+    catch exit:Reason ->
+	    mnesia:abort(Reason)
     end.
 
 transform_table(Tab, Fun, NewA, NewRN) ->
@@ -2553,6 +2613,9 @@ set_master_nodes(Tab, Nodes) ->
 
 dump_log() ->
     mnesia_controller:sync_dump_log(user).
+
+sync_log() ->
+    mnesia_monitor:sync_log(latest_log).
 
 subscribe(What) ->
     mnesia_subscr:subscribe(self(), What).
@@ -2790,7 +2853,7 @@ pre_qlc(Opts, Tab) ->
     end.
 
 post_qlc(Tab) ->
-    case catch get(mnesia_activity_state) of
+    case get(mnesia_activity_state) of
 	{_,#tid{},_} -> ok;
 	_ ->
 	    case ?catch_val({Tab, setorbag}) of

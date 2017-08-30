@@ -1,24 +1,25 @@
-<?xml version="1.0" encoding="ISO-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
       <year>2009</year>
-      <year>2013</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
-  The contents of this file are subject to the Erlang Public License,
-  Version 1.1, (the "License"); you may not use this file except in
-  compliance with the License. You should have received a copy of the
-  Erlang Public License along with this software. If not, it can be
-  retrieved online at http://www.erlang.org/.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
 
-  Software distributed under the License is distributed on an "AS IS"
-  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-  the License for the specific language governing rights and limitations
-  under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
@@ -247,7 +248,7 @@
 
 	<p>When starting this release, three things must be specified:</p>
 	<taglist>
-	  <tag><b>Which <c>releases</c> directory to use</b></tag>
+	  <tag><em>Which <c>releases</c> directory to use</em></tag>
 	  <item>Tell the release handler to use the <c>releases</c>
 	  directory in our target structure instead of
 	  <c>$OTP_ROOT/releases</c>. This is done by setting the SASL
@@ -256,7 +257,7 @@
 	  &lt;target-dir&gt;/releases</c>) or in
 	  <c>sys.config</c>.</item>
 
-	  <tag><b>Which boot file to use</b></tag>
+	  <tag><em>Which boot file to use</em></tag>
 	  <item>The default boot file is <c>$OTP_ROOT/bin/start</c>,
 	  but in this case we need to specify a boot file from our
 	  target structure, typically
@@ -264,7 +265,7 @@
 	  is done with the <c>-boot</c> command line option to
 	  <c>erl</c></item>
 
-	  <tag><b>The location of our applications</b></tag>
+	  <tag><em>The location of our applications</em></tag>
 	  <item>The generated .script (and .boot) file uses the
 	  environment variable <c>$RELTOOL_EXT_LIB</c> as prefix for
 	  the paths to all applications. The <c>-boot_var</c> option
@@ -274,8 +275,8 @@
 	</taglist>
 
 	<p>Example:</p>
-	<p><code>erl -sasl releases_dir \"mytarget/releases\" -boot mytarget/releases/1.0/myrel\
- -boot_var RELTOOL_EXT_LIB mytarget/lib</code></p>
+	<code>erl -sasl releases_dir \"mytarget/releases\" -boot mytarget/releases/1.0/myrel\
+ -boot_var RELTOOL_EXT_LIB mytarget/lib</code>
       </item>
 
       <tag><c>incl_sys_filters</c></tag>

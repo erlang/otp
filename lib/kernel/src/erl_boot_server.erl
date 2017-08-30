@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -191,7 +192,7 @@ init(Slaves) ->
     {ok, UPort} = inet:port(U),
     Ref = make_ref(),
     Pid = proc_lib:spawn_link(?MODULE, boot_init, [Ref]),
-    gen_tcp:controlling_process(L, Pid),
+    ok = gen_tcp:controlling_process(L, Pid),
     Pid ! {Ref, L},
     %% We trap exit inorder to restart boot_init and udp_port 
     process_flag(trap_exit, true),
@@ -233,9 +234,19 @@ handle_info({udp, U, IP, Port, Data}, S0) ->
     %% erlang version as the boot server node
     case {Valid,Data,Token} of
 	{true,Token,Token} ->
-	    gen_udp:send(U,IP,Port,[?EBOOT_REPLY,S0#state.priority,
-				    int16(S0#state.listen_port),
-				    S0#state.version]),
+	    case gen_udp:send(U,IP,Port,[?EBOOT_REPLY,S0#state.priority,
+                                         int16(S0#state.listen_port),
+                                         S0#state.version])
+            of
+                ok -> ok;
+                {error, not_owner} ->
+                    error_logger:error_msg("** Illegal boot server connection attempt: "
+				   "not owner of ~w ** ~n", [U]);
+                {error, Reason} ->
+                    Err = file:format_error(Reason),
+                    error_logger:error_msg("** Illegal boot server connection attempt: "
+				   "~w POSIX error ** ~n", [U, Err])
+            end,
 	    {noreply,S0};
 	{false,_,_} ->
 	    error_logger:error_msg("** Illegal boot server connection attempt: "
@@ -331,9 +342,13 @@ handle_command(S, PS, Msg) ->
 	    send_file_result(S, list_dir, Res),
 	    PS2;
 	{read_file_info,File} ->
-	    {Res, PS2} = erl_prim_loader:prim_read_file_info(PS, File),
+	    {Res, PS2} = erl_prim_loader:prim_read_file_info(PS, File, true),
 	    send_file_result(S, read_file_info, Res),
 	    PS2;
+        {read_link_info,File} ->
+            {Res, PS2} = erl_prim_loader:prim_read_file_info(PS, File, false),
+            send_file_result(S, read_link_info, Res),
+            PS2;
 	get_cwd ->
 	    {Res, PS2} = erl_prim_loader:prim_get_cwd(PS, []),
 	    send_file_result(S, get_cwd, Res),
@@ -351,7 +366,14 @@ handle_command(S, PS, Msg) ->
     end.
 
 send_file_result(S, Cmd, Result) ->
-    gen_tcp:send(S, term_to_binary({Cmd,Result})).
+    send_result(S, {Cmd,Result}).
 
-send_result(S, Result) ->
-    gen_tcp:send(S, term_to_binary(Result)).
+send_result(S, Term) ->
+    case gen_tcp:send(S, term_to_binary(Term)) of
+	ok ->
+	    ok;
+	Error ->
+	    error_logger:error_msg("** Boot server could not send result "
+				   "to socket: ~w** ~n", [Error]),
+	    ok
+    end.

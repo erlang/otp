@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -38,7 +39,7 @@
 
 -export([uprompt/1]).
 
-%-define(without_test_server, true).
+%%-define(without_test_server, true).
 
 -ifdef(without_test_server).
 -define(line, put(line, ?LINE), ).
@@ -46,8 +47,8 @@
 -define(t, test_server).
 -define(privdir(_), "./io_SUITE_priv").
 -else.
--include_lib("test_server/include/test_server.hrl").
--define(privdir(Conf), ?config(priv_dir, Conf)).
+-include_lib("common_test/include/ct.hrl").
+-define(privdir(Conf), proplists:get_value(priv_dir, Conf)).
 -endif.
 
 %%-define(debug, true).
@@ -56,35 +57,25 @@
 -define(format(S, A), io:format(S, A)).
 -define(dbg(Data),io:format(standard_error, "DBG: ~p\r\n",[Data])).
 -define(RM_RF(Dir),begin io:format(standard_error, "Not Removed: ~p\r\n",[Dir]), 
-	ok end).
+			 ok end).
 -else.
 -define(format(S, A), ok).
 -define(dbg(Data),noop).
 -define(RM_RF(Dir),rm_rf(Dir)).
 -endif.
 
-
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(20)).
-
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    Term = case os:getenv("TERM") of
-	       List when is_list(List) ->
-		   List;
-	       _ ->
-		   "dumb"
-	   end,
+    Term = os:getenv("TERM", "dumb"),
     os:putenv("TERM","vt100"),
-    [{watchdog, Dog}, {term, Term} | Config].
+    [{term, Term} | Config].
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    Term = ?config(term,Config),
+    Term = proplists:get_value(term,Config),
     os:putenv("TERM",Term),
-    test_server:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [setopts_getopts, unicode_options, unicode_options_gen,
@@ -114,184 +105,175 @@ end_per_group(_GroupName, Config) ->
 	  q = [],
 	  nxt = eof,
 	  mode = list
-	  }).
+	 }).
 
 uprompt(_L) ->
     [1050,1072,1082,1074,1086,32,1077,32,85,110,105,99,111,100,101,32,63].
 
-unicode_prompt(suite) ->
-    [];
-unicode_prompt(doc) ->
-    ["Test that an Unicode prompt does not crash the shell"];
+%% Test that an Unicode prompt does not crash the shell.
 unicode_prompt(Config) when is_list(Config) ->
-    ?line PA = filename:dirname(code:which(?MODULE)),
+    PA = filename:dirname(code:which(?MODULE)),
     case proplists:get_value(default_shell,Config) of
 	old ->
 	    ok;
 	new ->
-	    ?line rtnode([{putline,""},
-			  {putline, "2."},
-			  {getline, "2"},
-			  {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
-			  {getline, "default"},
-			  {putline, "io:get_line('')."},
-			  {putline, "hej"},
-			  {getline, "\"hej\\n\""},
-			  {putline, "io:setopts([{binary,true}])."},
-			  {getline, "ok"},
-			  {putline, "io:get_line('')."},
-			  {putline, "hej"},
-			  {getline, "<<\"hej\\n\">>"}
-			 ],[],[],"-pa \""++ PA++"\"")
+	    rtnode([{putline,""},
+		    {putline, "2."},
+		    {getline, "2"},
+		    {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
+		    {getline, "default"},
+		    {putline, "io:get_line('')."},
+		    {putline, "hej"},
+		    {getline, "\"hej\\n\""},
+		    {putline, "io:setopts([{binary,true}])."},
+		    {getline, "ok"},
+		    {putline, "io:get_line('')."},
+		    {putline, "hej"},
+		    {getline, "<<\"hej\\n\">>"}
+		   ],[],[],"-pa \""++ PA++"\"")
     end,
     %% And one with oldshell
-     ?line rtnode([{putline,""},
-		   {putline, "2."},
-		   {getline_re, ".*2$"},
-		   {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
-		   {getline_re, ".*default"},
-		   {putline, "io:get_line('')."},
-		   {putline, "hej"},
-		   {getline_re, ".*\"hej\\\\n\""},
-		   {putline, "io:setopts([{binary,true}])."},
-		   {getline_re, ".*ok"},
-		   {putline, "io:get_line('')."},
-		   {putline, "hej"},
-		   {getline_re, ".*<<\"hej\\\\n\">>"}
-		  ],[],[],"-oldshell -pa \""++PA++"\""),
+    rtnode([{putline,""},
+	    {putline, "2."},
+	    {getline_re, ".*2$"},
+	    {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
+	    {getline_re, ".*default"},
+	    {putline, "io:get_line('')."},
+	    {putline, "hej"},
+	    {getline_re, ".*\"hej\\\\n\""},
+	    {putline, "io:setopts([{binary,true}])."},
+	    {getline_re, ".*ok"},
+	    {putline, "io:get_line('')."},
+	    {putline, "hej"},
+	    {getline_re, ".*<<\"hej\\\\n\">>"}
+	   ],[],[],"-oldshell -pa \""++PA++"\""),
     ok.
-    
 
-setopts_getopts(suite) ->
-    [];
-setopts_getopts(doc) ->
-    ["Check io:setopts and io:getopts functions"];
+
+%% Check io:setopts and io:getopts functions.
 setopts_getopts(Config) when is_list(Config) ->
-    ?line FileName = filename:join([?config(priv_dir,Config),
-				    "io_proto_SUITE_setopts_getopts.dat"]),
-    ?line {ok,WFile} = file:open(FileName,[write]),
-    ?line Server = start_io_server_proxy(),
-    ?line [{binary, false}] = io:getopts(Server),
-    ?line [getopts] = proxy_getall(Server),
-    ?line [{binary,false},{encoding,latin1}] = lists:sort(io:getopts(WFile)),
-    ?line proxy_setnext(Server,"Hej"),
-    ?line "Hej" = io:get_line(Server,''),
-    ?line proxy_setnext(Server,"Hej"++[532]),
-    ?line [$H,$e,$j,532] = io:get_line(Server,''),
-    ?line ok = io:setopts(Server,[{binary,true}]),
-    ?line proxy_setnext(Server,"Hej"),
-    ?line <<"Hej">> = io:get_line(Server,''),
-    ?line proxy_setnext(Server,"Hej"++[532]),
-    ?line <<72,101,106,200,148>> = io:get_line(Server,''),
-    ?line [$H,$e,$j,532] = lists:flatten(io_lib:format("~ts",[<<72,101,106,200,148>>])),
-    ?line file:write(WFile,<<"HejA">>),
-    ?line file:write(WFile,unicode:characters_to_binary("Hej"++[532],unicode,unicode)),
-    ?line file:write(WFile,unicode:characters_to_binary("Hej"++[532],unicode,{utf16,big})),
-    ?line file:write(WFile,unicode:characters_to_binary("Hej"++[532],unicode,{utf16,little})),
-    ?line file:write(WFile,unicode:characters_to_binary("Hej"++[532],unicode,{utf32,big})),
-    ?line file:write(WFile,unicode:characters_to_binary("Hej"++[532],unicode,{utf32,little})),
-    ?line file:close(WFile),
-    ?line {ok,RFile} = file:open(FileName,[read]),
-    ?line [{binary,false},{encoding,latin1}] = lists:sort(io:getopts(RFile)),
-    ?line [$H,$e,$j,$A] = io:get_chars(RFile,'',4),
-    ?line io:setopts(RFile,[{encoding,unicode}]),
-    ?line [$H,$e,$j,532] = io:get_chars(RFile,'',4),
-    ?line [{binary,false},{encoding,unicode}] = lists:sort(io:getopts(RFile)),
-    ?line io:setopts(RFile,[{encoding,{utf16,big}}]),
-    ?line [$H,$e,$j,532] = io:get_chars(RFile,'',4),
-    ?line [{binary,false},{encoding,{utf16,big}}] = 
+    FileName = filename:join([proplists:get_value(priv_dir,Config),
+			      "io_proto_SUITE_setopts_getopts.dat"]),
+    {ok,WFile} = file:open(FileName,[write]),
+    Server = start_io_server_proxy(),
+    [{binary, false}] = io:getopts(Server),
+    [getopts] = proxy_getall(Server),
+    [{binary,false},{encoding,latin1}] = lists:sort(io:getopts(WFile)),
+    proxy_setnext(Server,"Hej"),
+    "Hej" = io:get_line(Server,''),
+    proxy_setnext(Server,"Hej"++[532]),
+    [$H,$e,$j,532] = io:get_line(Server,''),
+    ok = io:setopts(Server,[{binary,true}]),
+    proxy_setnext(Server,"Hej"),
+    <<"Hej">> = io:get_line(Server,''),
+    proxy_setnext(Server,"Hej"++[532]),
+    <<72,101,106,200,148>> = io:get_line(Server,''),
+    [$H,$e,$j,532] = lists:flatten(io_lib:format("~ts",[<<72,101,106,200,148>>])),
+    file:write(WFile,<<"HejA">>),
+    file:write(WFile,unicode:characters_to_binary("Hej"++[532],unicode,unicode)),
+    file:write(WFile,unicode:characters_to_binary("Hej"++[532],unicode,{utf16,big})),
+    file:write(WFile,unicode:characters_to_binary("Hej"++[532],unicode,{utf16,little})),
+    file:write(WFile,unicode:characters_to_binary("Hej"++[532],unicode,{utf32,big})),
+    file:write(WFile,unicode:characters_to_binary("Hej"++[532],unicode,{utf32,little})),
+    file:close(WFile),
+    {ok,RFile} = file:open(FileName,[read]),
+    [{binary,false},{encoding,latin1}] = lists:sort(io:getopts(RFile)),
+    [$H,$e,$j,$A] = io:get_chars(RFile,'',4),
+    io:setopts(RFile,[{encoding,unicode}]),
+    [$H,$e,$j,532] = io:get_chars(RFile,'',4),
+    [{binary,false},{encoding,unicode}] = lists:sort(io:getopts(RFile)),
+    io:setopts(RFile,[{encoding,{utf16,big}}]),
+    [$H,$e,$j,532] = io:get_chars(RFile,'',4),
+    [{binary,false},{encoding,{utf16,big}}] =
 	lists:sort(io:getopts(RFile)),
-    ?line io:setopts(RFile,[{encoding,{utf16,little}}]),
-    ?line [$H,$e,$j,532] = io:get_chars(RFile,'',4),
-    ?line [{binary,false},{encoding,{utf16,little}}] = 
+    io:setopts(RFile,[{encoding,{utf16,little}}]),
+    [$H,$e,$j,532] = io:get_chars(RFile,'',4),
+    [{binary,false},{encoding,{utf16,little}}] =
 	lists:sort(io:getopts(RFile)),
-    ?line io:setopts(RFile,[{encoding,{utf32,big}}]),
-    ?line [$H,$e,$j,532] = io:get_chars(RFile,'',4),
-    ?line [{binary,false},{encoding,{utf32,big}}] = 
+    io:setopts(RFile,[{encoding,{utf32,big}}]),
+    [$H,$e,$j,532] = io:get_chars(RFile,'',4),
+    [{binary,false},{encoding,{utf32,big}}] =
 	lists:sort(io:getopts(RFile)),
-    ?line io:setopts(RFile,[{encoding,{utf32,little}}]),
-    ?line [$H,$e,$j,532] = io:get_chars(RFile,'',4),
-    ?line [{binary,false},{encoding,{utf32,little}}] = 
+    io:setopts(RFile,[{encoding,{utf32,little}}]),
+    [$H,$e,$j,532] = io:get_chars(RFile,'',4),
+    [{binary,false},{encoding,{utf32,little}}] =
 	lists:sort(io:getopts(RFile)),
-    ?line eof = io:get_line(RFile,''),
-    ?line file:position(RFile,0),
-    ?line io:setopts(RFile,[{binary,true},{encoding,latin1}]),
-    ?line <<$H,$e,$j,$A>> = io:get_chars(RFile,'',4),
-    ?line [{binary,true},{encoding,latin1}] = lists:sort(io:getopts(RFile)),
-    ?line io:setopts(RFile,[{encoding,unicode}]),
-    ?line <<$H,$e,$j,532/utf8>> = io:get_chars(RFile,'',4),
-    ?line [{binary,true},{encoding,unicode}] = lists:sort(io:getopts(RFile)),
-    ?line io:setopts(RFile,[{encoding,{utf16,big}}]),
-    ?line <<$H,$e,$j,532/utf8>> = io:get_chars(RFile,'',4),
-    ?line [{binary,true},{encoding,{utf16,big}}] = 
+    eof = io:get_line(RFile,''),
+    file:position(RFile,0),
+    io:setopts(RFile,[{binary,true},{encoding,latin1}]),
+    <<$H,$e,$j,$A>> = io:get_chars(RFile,'',4),
+    [{binary,true},{encoding,latin1}] = lists:sort(io:getopts(RFile)),
+    io:setopts(RFile,[{encoding,unicode}]),
+    <<$H,$e,$j,532/utf8>> = io:get_chars(RFile,'',4),
+    [{binary,true},{encoding,unicode}] = lists:sort(io:getopts(RFile)),
+    io:setopts(RFile,[{encoding,{utf16,big}}]),
+    <<$H,$e,$j,532/utf8>> = io:get_chars(RFile,'',4),
+    [{binary,true},{encoding,{utf16,big}}] =
 	lists:sort(io:getopts(RFile)),
-    ?line io:setopts(RFile,[{encoding,{utf16,little}}]),
-    ?line <<$H,$e,$j,532/utf8>> = io:get_chars(RFile,'',4),
-    ?line [{binary,true},{encoding,{utf16,little}}] = 
+    io:setopts(RFile,[{encoding,{utf16,little}}]),
+    <<$H,$e,$j,532/utf8>> = io:get_chars(RFile,'',4),
+    [{binary,true},{encoding,{utf16,little}}] =
 	lists:sort(io:getopts(RFile)),
-    ?line io:setopts(RFile,[{encoding,{utf32,big}}]),
-    ?line <<$H,$e,$j,532/utf8>> = io:get_chars(RFile,'',4),
-    ?line [{binary,true},{encoding,{utf32,big}}] = 
+    io:setopts(RFile,[{encoding,{utf32,big}}]),
+    <<$H,$e,$j,532/utf8>> = io:get_chars(RFile,'',4),
+    [{binary,true},{encoding,{utf32,big}}] =
 	lists:sort(io:getopts(RFile)),
-    ?line io:setopts(RFile,[{encoding,{utf32,little}}]),
-    ?line <<$H,$e,$j,532/utf8>> = io:get_chars(RFile,'',4),
-    ?line [{binary,true},{encoding,{utf32,little}}] = 
+    io:setopts(RFile,[{encoding,{utf32,little}}]),
+    <<$H,$e,$j,532/utf8>> = io:get_chars(RFile,'',4),
+    [{binary,true},{encoding,{utf32,little}}] =
 	lists:sort(io:getopts(RFile)),
-    ?line eof = io:get_line(RFile,''),
-    ?line file:close(RFile),
+    eof = io:get_line(RFile,''),
+    file:close(RFile),
     case proplists:get_value(default_shell,Config) of
 	old ->
 	    ok;
 	new ->
 	    %% So, lets test another node with new interactive shell
-	    ?line rtnode([{putline,""},
-			  {putline, "2."},
-			  {getline, "2"},
-			  {putline, "lists:keyfind(binary,1,io:getopts())."},
-			  {getline, "{binary,false}"},
-			  {putline, "io:get_line('')."},
-			  {putline, "hej"},
-			  {getline, "\"hej\\n\""},
-			  {putline, "io:setopts([{binary,true}])."},
-			  {getline, "ok"},
-			  {putline, "io:get_line('')."},
-			  {putline, "hej"},
-			  {getline, "<<\"hej\\n\">>"}
-			 ],[])
+	    rtnode([{putline,""},
+		    {putline, "2."},
+		    {getline, "2"},
+		    {putline, "lists:keyfind(binary,1,io:getopts())."},
+		    {getline, "{binary,false}"},
+		    {putline, "io:get_line('')."},
+		    {putline, "hej"},
+		    {getline, "\"hej\\n\""},
+		    {putline, "io:setopts([{binary,true}])."},
+		    {getline, "ok"},
+		    {putline, "io:get_line('')."},
+		    {putline, "hej"},
+		    {getline, "<<\"hej\\n\">>"}
+		   ],[])
     end,
     %% And one with oldshell
-    ?line rtnode([{putline,""},
-		  {putline, "2."},
-		  {getline_re, ".*2$"},
-		  {putline, "lists:keyfind(binary,1,io:getopts())."},
-		  {getline_re, ".*{binary,false}"},
-		  {putline, "io:get_line('')."},
-		  {putline, "hej"},
-		  {getline_re, ".*\"hej\\\\n\""},
-		  {putline, "io:setopts([{binary,true}])."},
-		  {getline_re, ".*ok"},
-		  {putline, "io:get_line('')."},
-		  {putline, "hej"},
-		  {getline_re, ".*<<\"hej\\\\n\">>"}
-		  ],[],[],"-oldshell"),
+    rtnode([{putline,""},
+	    {putline, "2."},
+	    {getline_re, ".*2$"},
+	    {putline, "lists:keyfind(binary,1,io:getopts())."},
+	    {getline_re, ".*{binary,false}"},
+	    {putline, "io:get_line('')."},
+	    {putline, "hej"},
+	    {getline_re, ".*\"hej\\\\n\""},
+	    {putline, "io:setopts([{binary,true}])."},
+	    {getline_re, ".*ok"},
+	    {putline, "io:get_line('')."},
+	    {putline, "hej"},
+	    {getline_re, ".*<<\"hej\\\\n\">>"}
+	   ],[],[],"-oldshell"),
     ok.
 
 
 get_lc_ctype() ->
-	case {os:type(),os:version()} of
-		{{unix,sunos},{5,N,_}} when N =< 8 ->
-			"iso_8859_1";
-		_ ->
-			"ISO-8859-1"
-	end.
-    
-unicode_options(suite) ->
-    [];
-unicode_options(doc) ->
-    ["Tests various unicode options"];
+    case {os:type(),os:version()} of
+	{{unix,sunos},{5,N,_}} when N =< 8 ->
+	    "iso_8859_1";
+	_ ->
+	    "ISO-8859-1"
+    end.
+
+%% Test various unicode options.
 unicode_options(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir,Config),
-    PrivDir = ?config(priv_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    PrivDir = proplists:get_value(priv_dir,Config),
     %% A string in both russian and greek characters, which is present
     %% in all the internal test files (but in different formats of course)...
     TestData = [1090,1093,1077,32,1073,1080,1075,32,
@@ -326,13 +308,10 @@ unicode_options(Config) when is_list(Config) ->
 			"external_utf16_little_bom.dat",
 			"external_utf16_big_bom.dat"],
     ReadBomFile = fun(File,Dir) ->
-			  %io:format(standard_error,"~s\r\n",[filename:join([Dir,File])]),			  
 			  {ok,F} = file:open(filename:join([Dir,File]),
 					     [read,binary]),
 			  {ok,Bin} = file:read(F,4),
 			  {Type,Bytes} = unicode:bom_to_encoding(Bin),
-			  %io:format(standard_error,"~p\r\n",[{Type,Bytes}]),			  
-			  
 			  file:position(F,Bytes),
 			  io:setopts(F,[{encoding,Type}]),
 			  R = unicode:characters_to_list(
@@ -350,26 +329,26 @@ unicode_options(Config) when is_list(Config) ->
 			      R
 		      end,
     ReadBomlessFileList = fun({Type,File},DataLen,Dir) ->
-			      {ok,F} = file:open(filename:join([Dir,File]),
-						 [read,
-						  {encoding,Type}]),
-			      R = io:get_chars(F,'',DataLen),
-			      file:close(F),
-			      R
-		      end,
+				  {ok,F} = file:open(filename:join([Dir,File]),
+						     [read,
+						      {encoding,Type}]),
+				  R = io:get_chars(F,'',DataLen),
+				  file:close(F),
+				  R
+			  end,
     ReadBomlessFileListLine = fun({Type,File},Dir) ->
-			      {ok,F} = file:open(filename:join([Dir,File]),
-						 [read,
-						  {encoding,Type}]),
-			      R = io:get_line(F,''),
-			      file:close(F),
-			      R
-		      end,
-    ?line [TestData = ReadBomFile(F,DataDir) || F <- InternalBomFiles ],
-    ?line [ExternalTestData = ReadBomFile(F,DataDir) || F <- ExternalBomFiles ],
-    ?line [TestData = ReadBomlessFile(F,length(TestData),DataDir) || F <- AllNoBom ],
-    ?line [TestData = ReadBomlessFileList(F,length(TestData),DataDir) || F <- AllNoBom ],
-    ?line [TestData = ReadBomlessFileListLine(F,DataDir) || F <- AllNoBom ],
+				      {ok,F} = file:open(filename:join([Dir,File]),
+							 [read,
+							  {encoding,Type}]),
+				      R = io:get_line(F,''),
+				      file:close(F),
+				      R
+			      end,
+    [TestData = ReadBomFile(F,DataDir) || F <- InternalBomFiles ],
+    [ExternalTestData = ReadBomFile(F,DataDir) || F <- ExternalBomFiles ],
+    [TestData = ReadBomlessFile(F,length(TestData),DataDir) || F <- AllNoBom ],
+    [TestData = ReadBomlessFileList(F,length(TestData),DataDir) || F <- AllNoBom ],
+    [TestData = ReadBomlessFileListLine(F,DataDir) || F <- AllNoBom ],
 
     BomDir = filename:join([PrivDir,"BOMDATA"]),
     BomlessDir = filename:join([PrivDir,"BOMLESSDATA"]),
@@ -385,8 +364,8 @@ unicode_options(Config) when is_list(Config) ->
 			   file:close(F),
 			   ok
 		   end,
-    ?line [ ok = WriteBomFile(F,BomDir) || F <- AllNoBom ],
-    ?line [TestData = ReadBomFile(F,BomDir) || {_,F} <- AllNoBom ],
+    [ ok = WriteBomFile(F,BomDir) || F <- AllNoBom ],
+    [TestData = ReadBomFile(F,BomDir) || {_,F} <- AllNoBom ],
     WriteBomlessFile = fun({Enc,File},TData,Dir) ->
 			       {ok,F} = file:open(
 					  filename:join([Dir,File]),
@@ -395,13 +374,13 @@ unicode_options(Config) when is_list(Config) ->
 			       file:close(F),
 			       ok
 		       end,
-    ?line [ ok = WriteBomlessFile(F,TestData,BomlessDir) || F <- AllNoBom ],
-    ?line [TestData = ReadBomlessFile(F,length(TestData),BomlessDir) || F <- AllNoBom ],
-    ?line [TestData = ReadBomlessFileList(F,length(TestData),BomlessDir) || F <- AllNoBom ],
-    ?line [TestData = ReadBomlessFileListLine(F,BomlessDir) || F <- AllNoBom ],
-    
+    [ ok = WriteBomlessFile(F,TestData,BomlessDir) || F <- AllNoBom ],
+    [TestData = ReadBomlessFile(F,length(TestData),BomlessDir) || F <- AllNoBom ],
+    [TestData = ReadBomlessFileList(F,length(TestData),BomlessDir) || F <- AllNoBom ],
+    [TestData = ReadBomlessFileListLine(F,BomlessDir) || F <- AllNoBom ],
+
     CannotReadFile = fun({Enc,File},Dir) ->
-			     %io:format(standard_error,"~s\r\n",[filename:join([Dir,File])]),
+			     %%io:format(standard_error,"~s\r\n",[filename:join([Dir,File])]),
 			     {ok,F} = file:open(
 					filename:join([Dir,File]),
 					[read,binary,{encoding,Enc}]),
@@ -418,14 +397,14 @@ unicode_options(Config) when is_list(Config) ->
 			     {error,terminated} = io:get_chars(F,'',10),
 			     ok
 		     end,
-    ?line [ ok = CannotReadFile(F,DataDir) || F <- AllNoBom ],
-    ?line [ ok = CannotReadFile(F,BomlessDir) || F <- AllNoBom ],
-    ?line [ ok = CannotReadFile(F,BomDir) || F <- AllNoBom ],			     
+    [ ok = CannotReadFile(F,DataDir) || F <- AllNoBom ],
+    [ ok = CannotReadFile(F,BomlessDir) || F <- AllNoBom ],
+    [ ok = CannotReadFile(F,BomDir) || F <- AllNoBom ],
 
-    ?line [ ok = WriteBomlessFile(F,TestData2,BomlessDir) || F <- AllNoBom ],
-    ?line [TestData2 = ReadBomlessFile(F,length(TestData2),BomlessDir) || F <- AllNoBom ],
-    ?line [TestData2 = ReadBomlessFileList(F,length(TestData2),BomlessDir) || F <- AllNoBom ],
-    ?line [TestData2 = ReadBomlessFileListLine(F,BomlessDir) || F <- AllNoBom ],
+    [ ok = WriteBomlessFile(F,TestData2,BomlessDir) || F <- AllNoBom ],
+    [TestData2 = ReadBomlessFile(F,length(TestData2),BomlessDir) || F <- AllNoBom ],
+    [TestData2 = ReadBomlessFileList(F,length(TestData2),BomlessDir) || F <- AllNoBom ],
+    [TestData2 = ReadBomlessFileListLine(F,BomlessDir) || F <- AllNoBom ],
 
 
     FailDir = filename:join([PrivDir,"FAIL"]),
@@ -435,178 +414,222 @@ unicode_options(Config) when is_list(Config) ->
 			      {ok,F} = file:open(
 					 filename:join([Dir,File]),
 					 [write,binary]),
-			      ?line {'EXIT', {no_translation,_}} =
+			      {'EXIT', {no_translation,_}} =
 				  (catch io:put_chars(F,TestData)),
-			      ?line {'EXIT', {terminated,_}} = (catch io:put_chars(F,TestData)),
+			      {'EXIT', {terminated,_}} = (catch io:put_chars(F,TestData)),
 			      ok
 		      end,
-    ?line [ ok = CannotWriteFile(F,FailDir) || F <- AllNoBom ],
+    [ ok = CannotWriteFile(F,FailDir) || F <- AllNoBom ],
 
     case proplists:get_value(default_shell,Config) of
 	old ->
 	    ok;
 	new ->
 	    %% OK, time for the group_leaders...
-	    ?line rtnode([{putline,""},
-			  {putline, "2."},
-			  {getline, "2"},
-			  {putline, "lists:keyfind(encoding,1,io:getopts())."},
-			  {getline, "{encoding,latin1}"},
-			  {putline, "io:format(\"~ts~n\",[[1024]])."},
-			  {getline, "\\x{400}"},
-			  {putline, "io:setopts([unicode])."},
-			  {getline, "ok"},
-			  {putline, "io:format(\"~ts~n\",[[1024]])."},
-			  {getline,
-			   binary_to_list(unicode:characters_to_binary(
-					    [1024],unicode,utf8))}
-			 ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; "
-			 "export LC_CTYPE; ")
+	    rtnode([{putline,""},
+		    {putline, "2."},
+		    {getline, "2"},
+		    {putline, "lists:keyfind(encoding,1,io:getopts())."},
+		    {getline, "{encoding,latin1}"},
+		    {putline, "io:format(\"~ts~n\",[[1024]])."},
+		    {getline, "\\x{400}"},
+		    {putline, "io:setopts([unicode])."},
+		    {getline, "ok"},
+		    {putline, "io:format(\"~ts~n\",[[1024]])."},
+		    {getline,
+		     binary_to_list(unicode:characters_to_binary(
+				      [1024],unicode,utf8))}
+		   ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; "
+		   "export LC_CTYPE; ")
     end,
-    ?line rtnode([{putline,""},
-		  {putline, "2."},
-		  {getline_re, ".*2$"},
-		  {putline, "lists:keyfind(encoding,1,io:getopts())."},
-		  {getline_re, ".*{encoding,latin1}"},
-		  {putline, "io:format(\"~ts~n\",[[1024]])."},
-		  {getline_re, ".*\\\\x{400\\}"},
-		  {putline, "io:setopts([{encoding,unicode}])."},
-		  {getline_re, ".*ok"},
-		  {putline, "io:format(\"~ts~n\",[[1024]])."},
-		  {getline_re, 
-		   ".*"++binary_to_list(unicode:characters_to_binary(
-					  [1024],unicode,utf8))}
-		 ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; ",
-		 " -oldshell "),
+    rtnode([{putline,""},
+	    {putline, "2."},
+	    {getline_re, ".*2$"},
+	    {putline, "lists:keyfind(encoding,1,io:getopts())."},
+	    {getline_re, ".*{encoding,latin1}"},
+	    {putline, "io:format(\"~ts~n\",[[1024]])."},
+	    {getline_re, ".*\\\\x{400\\}"},
+	    {putline, "io:setopts([{encoding,unicode}])."},
+	    {getline_re, ".*ok"},
+	    {putline, "io:format(\"~ts~n\",[[1024]])."},
+	    {getline_re,
+	     ".*"++binary_to_list(unicode:characters_to_binary(
+				    [1024],unicode,utf8))}
+	   ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; ",
+	   " -oldshell "),
 
     ok.
-    
-unicode_options_gen(suite) ->		   
-    [];
-unicode_options_gen(doc) ->
-    ["Tests various unicode options on random generated files"];
+
+%% Tests various unicode options on random generated files.
 unicode_options_gen(Config) when is_list(Config) ->
-    ?line random:seed(1240,900586,553728),
-    ?line PrivDir = ?config(priv_dir,Config),
-    ?line AllModes = [utf8,utf16,{utf16,big},{utf16,little},utf32,{utf32,big},{utf32,little}],
-    ?line FSize = 17*1024,
-    ?line NumItersRead = 2,
-    ?line NumItersWrite = 2,
-    ?line Dir =  filename:join([PrivDir,"GENDATA1"]),
-    ?line file:make_dir(Dir),
+    ct:timetrap({minutes,30}), %% valgrind needs a alot of time
+    random:seed(1240, 900586, 553728),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    AllModes = [utf8,utf16,{utf16,big},{utf16,little},
+		utf32,{utf32,big},{utf32,little}],
+    FSize = 9*1024,
+    NumItersRead = 2,
+    NumItersWrite = 2,
+    Dir = filename:join(PrivDir, "GENDATA1"),
+    file:make_dir(Dir),
 
-    %dbg:tracer(process,{fun(A,_) -> erlang:display(A) end,true}),
-    %dbg:tpl(file_io_server,x),
-    %dbg:ctpl(file_io_server,cafu),
-    %dbg:tp(unicode,x),
+    DoOneFile1 =
+	fun(Encoding, N, M) ->
+		?dbg({Encoding,M,N}),
+		io:format("Read test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
+		io:format(standard_error,
+			  "Read test: Encoding ~p, Chunk size ~p, Iteration ~p\r\n",[Encoding,M,N]),
+		Fname = filename:join(Dir,
+				      "genfile_"++enc2str(Encoding)++
+					  "_"++integer_to_list(N)),
+		Ulist = random_unicode(FSize),
+		Bin = unicode:characters_to_binary(Ulist, utf8, Encoding),
+		ok = file:write_file(Fname, Bin),
 
-    DoOneFile1 = fun(Encoding,N,M) ->
-			 ?dbg({Encoding,M,N}),
-			 io:format("Read test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
-			 io:format(standard_error,"Read test: Encoding ~p, Chunk size ~p, Iteration ~p\r\n",[Encoding,M,N]),
-			 ?line Fname = filename:join([Dir,"genfile_"++enc2str(Encoding)++"_"++integer_to_list(N)]), 
-			 ?dbg(?LINE),
-			 ?line Ulist = random_unicode(FSize),
-			 ?dbg(?LINE),
-			 ?line my_write_file(Fname,Ulist,Encoding),
-			 ?dbg(?LINE),
-			 ?line {ok,F1} = file:open(Fname,[read,{encoding,Encoding}]),
-			 
-			 ?dbg(?LINE),
-			 ?line Res1 = read_whole_file(fun(FD) -> io:get_line(FD,'') end,F1),
-			 ?dbg(?LINE),
-			 ?line Ulist = unicode:characters_to_list(Res1,unicode),
-			 ?dbg(?LINE),
-			 ?line file:close(F1),
-			 ?line {ok,F2} = file:open(Fname, [read,binary,{encoding,Encoding}]),
-			 ?line Res2 = read_whole_file(fun(FD) -> io:get_chars(FD,'',M) end,F2),
-			 ?line Ulist = unicode:characters_to_list(Res2,unicode),
-			 ?dbg(?LINE),
-			 ?line file:close(F2),
-			 ?line {ok,F3} = file:open(Fname, [read,binary,{encoding,Encoding}]),
-			 ?dbg(?LINE),
-%% 			 case {Encoding,M,N} of
-%% 			     {{utf16,little},10,2} ->
-%% 				 dbg:p(F3,call);
-%% 			     _ ->
-%% 				 ok
-%% 			 end,
+		Read1 = fun(FD) -> io:get_line(FD, '') end,
+		Res1 = read_whole_file(Fname,
+				       [read,read_ahead,{encoding,Encoding}],
+				       Read1),
 
-			 ?line Res3 = read_whole_file(fun(FD) -> case io:fread(FD,'',"~ts") of {ok,D} -> D; O -> O end end, F3),
-			 ?dbg(?LINE),
-			 ?line Ulist2 = [ X || X <- Ulist,
-					       X =/= $\n, X =/= $  ],
-			 ?dbg(?LINE),
-			 ?line Ulist2 = unicode:characters_to_list(Res3,unicode),
-			 ?dbg(?LINE),
-			 ?line file:close(F3),
-			 ?line {ok,F4} = file:open(Fname, [read,{encoding,Encoding}]),
-			 ?line Res4 = read_whole_file(fun(FD) -> case io:fread(FD,'',"~tc") of {ok,D} -> D; O -> O end end,F4),
-			 ?line Ulist3 = [ X || X <- Ulist,
-					       X =/= $\n ],
-			 ?line Ulist3 = unicode:characters_to_list(Res4,unicode),
-			 ?dbg(?LINE),
-			 ?line file:close(F4),
-			 ?line file:delete(Fname)
-		 end,
-    
-    [ [ [ DoOneFile1(E,N,M) || E <- AllModes ] || M <- [10,1000,128,1024,8192,8193] ] || N <- lists:seq(1,NumItersRead)],
-    DoOneFile2 = fun(Encoding,N,M) ->
-			 ?dbg({Encoding,M,N}),
-			 io:format("Write test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
-			 io:format(standard_error,"Write test: Encoding ~p, Chunk size ~p, Iteration ~p\r\n",[Encoding,M,N]),
-			 ?line Fname = filename:join([Dir,"genfile_"++enc2str(Encoding)++"_"++integer_to_list(N)]), 
-			 ?dbg(?LINE),
-			 ?line Ulist = random_unicode(FSize),
-			 ?dbg(?LINE),
-			 ?line {ok,F1} = file:open(Fname,[write,{encoding,Encoding}]),
-			 ?line io:put_chars(F1,Ulist),
-			 ?line file:close(F1),
-			 ?line Ulist = my_read_file(Fname,Encoding),
-			 ?line file:delete(Fname),
-			 ?line {ok,F2} = file:open(Fname,[write,binary,{encoding,Encoding}]),
-			 ?line io:put_chars(F2,Ulist),
-			 ?line file:close(F2),
-			 ?line Ulist = my_read_file(Fname,Encoding),
-			 ?line file:delete(Fname),
-			 ?line {ok,F3} = file:open(Fname,[write,{encoding,Encoding}]),
-			 ?line LL = string:tokens(Ulist,"\n"),
-			 ?line Ulist2 = lists:flatten(LL),
-			 ?line [ io:format(F3,"~ts",[L]) || L <- LL ],
-			 ?line file:close(F3),
-			 ?line Ulist2 = my_read_file(Fname,Encoding),
-			 ?line file:delete(Fname),
-			 ?line {ok,F4} = file:open(Fname,[write,{encoding,Encoding}]),
-			 ?line [ io:format(F4,"~tc",[C]) || C <- Ulist ],
-			 ?line file:close(F4),
-			 ?line Ulist = my_read_file(Fname,Encoding),
-			 ?line file:delete(Fname),
-			 ?line {ok,F5} = file:open(Fname,[write,{encoding,Encoding}]),
-			 ?line io:put_chars(F5,unicode:characters_to_binary(Ulist)),
-			 ?line file:close(F5),
-			 ?line Ulist = my_read_file(Fname,Encoding),
-			 ?line file:delete(Fname),
-			 ok
-		 end,
-    [ [ [ DoOneFile2(E,N,M) || E <- AllModes ] || M <- [10,1000,128,1024,8192,8193] ] || N <- lists:seq(1,NumItersWrite)],
+		Read2 = fun(FD) -> io:get_chars(FD, '', M) end,
+		Res2 = read_whole_file(Fname,
+				       [read,binary,
+					read_ahead,{encoding,Encoding}],
+				       Read2),
+
+		Read3 = fun(FD) ->
+				case io:fread(FD, '', "~ts") of
+				    {ok,D} -> D;
+				    Other -> Other end
+			end,
+		Res3 = read_whole_file(Fname,
+				       [read,binary,
+					read_ahead,{encoding,Encoding}],
+				       Read3),
+
+		Read4 = fun(FD) ->
+				case io:fread(FD, '', "~ts") of
+				    {ok,D} -> D;
+				    Other -> Other end
+			end,
+		Res4 = read_whole_file(Fname,
+				       [read,read_ahead,{encoding,Encoding}],
+				       Read4),
+
+		Ulist2 = [X || X <- Ulist, X =/= $\n, X =/= $\s],
+		Ulist3 = [X || X <- Ulist, X =/= $\n],
+		Ulist = done(Res1),
+		Ulist = done(Res2),
+		Ulist2 = done(Res3),
+		Ulist3 = done(Res4),
+
+		file:delete(Fname)
+	end,
+    [ [ [ DoOneFile1(E, N, M) || E <- AllModes ] ||
+	  M <- [10,1000,128,1024,8192,8193] ] ||
+	N <- lists:seq(1, NumItersRead) ],
+
+    DoOneFile2 =
+	fun(Encoding,N,M) ->
+		?dbg({Encoding,M,N}),
+		io:format("Write test: Encoding ~p, Chunk size ~p, Iteration ~p~n",[Encoding,M,N]),
+		io:format(standard_error,
+			  "Write test: Encoding ~p, Chunk size ~p, Iteration ~p\r\n",[Encoding,M,N]),
+		Fname = filename:join(Dir,
+				      "genfile_"++enc2str(Encoding)++
+					  "_"++integer_to_list(N)),
+		Ulist = random_unicode(FSize),
+
+		Res1 = write_read_file(Fname, 1,
+				       [write],
+				       Encoding,
+				       fun(FD) -> io:put_chars(FD, Ulist) end),
+
+		Res2 = write_read_file(Fname, 2,
+				       [write,binary],
+				       Encoding,
+				       fun(FD) -> io:put_chars(FD, Ulist) end),
+
+		Fun3 = fun(FD) ->
+			       _ = [io:format(FD, "~tc", [C]) || C <- Ulist],
+			       ok
+		       end,
+		Res3 = write_read_file(Fname, 3,
+				       [write],
+				       Encoding,
+				       Fun3),
+
+		Fun4 = fun(FD) ->
+			       io:put_chars(FD,
+					    unicode:characters_to_binary(Ulist))
+		       end,
+		Res4 = write_read_file(Fname, 4,
+				       [write],
+				       Encoding,
+				       Fun4),
+
+		LL = string:tokens(Ulist, "\n"),
+		Fun5 = fun(FD) ->
+			       _ = [io:format(FD, "~ts", [L]) || L <- LL],
+			       ok
+		       end,
+		Res5 = write_read_file(Fname, 5,
+				       [write],
+				       Encoding,
+				       Fun5),
+
+		Ulist2 = lists:flatten(LL),
+		ResBin = done(Res1),
+		ResBin = done(Res2),
+		ResBin = done(Res3),
+		ResBin = done(Res4),
+		Ulist = unicode:characters_to_list(ResBin, Encoding),
+
+		ResBin2 = done(Res5),
+		Ulist2 = unicode:characters_to_list(ResBin2, Encoding),
+
+		ok
+	end,
+    [ [ [ DoOneFile2(E, N, M) || E <- AllModes ] ||
+	  M <- [10,1000,128,1024,8192,8193] ] ||
+	N <- lists:seq(1, NumItersWrite) ],
     ok.
 
+read_whole_file(Fname, Options, Fun) ->
+    do(fun() ->
+	       do_read_whole_file(Fname, Options, Fun)
+       end).
 
-			 
-			 
-read_whole_file(Fun,F) ->			 
+do_read_whole_file(Fname, Options, Fun) ->
+    {ok,F} = file:open(Fname, Options),
+    Res = do_read_whole_file_1(Fun, F),
+    ok = file:close(F),
+    unicode:characters_to_list(Res, unicode).
+
+do_read_whole_file_1(Fun, F) ->
     case Fun(F) of
 	eof ->
 	    [];
 	{error,Error} ->
-	    ?dbg(Error),
 	    receive after 10000 -> ok end,
 	    exit(Error);
 	Other ->
-	    %?dbg(Other),
-	    [Other | read_whole_file(Fun,F)]
+	    [Other|do_read_whole_file_1(Fun, F)]
     end.
-			
+
+write_read_file(Fname0, N, Options, Enc, Writer) ->
+    Fname = Fname0 ++ "_" ++ integer_to_list(N),
+    do(fun() ->
+	       do_write_read_file(Fname, Options, Enc, Writer)
+       end).
+
+do_write_read_file(Fname, Options, Encoding, Writer) ->
+    {ok,F} = file:open(Fname, [{encoding,Encoding}|Options]),
+    Writer(F),
+    ok = file:close(F),
+    {ok,Bin} = file:read_file(Fname),
+    ok = file:delete(Fname),
+    Bin.
 
 enc2str(Atom) when is_atom(Atom) ->
     atom_to_list(Atom);
@@ -614,27 +637,17 @@ enc2str({A1,A2}) when is_atom(A1), is_atom(A2) ->
     atom_to_list(A1)++"_"++atom_to_list(A2).
 
 
-
-
-my_write_file(Filename,UniList,Encoding) ->
-    Bin = unicode:characters_to_binary(UniList,utf8,Encoding),
-    file:write_file(Filename,Bin).
-
-my_read_file(Filename,Encoding) ->
-    {ok,Bin} = file:read_file(Filename),
-    unicode:characters_to_list(Bin,Encoding).
-
 random_unicode(0) ->
     [];
 random_unicode(N) ->
-    % Favour large unicode and make linebreaks
+    %% Favour large unicode and make linebreaks
     X = case random:uniform(20) of
-	   A when A =< 1 -> $\n;
-	   A0 when A0 =< 3 -> random:uniform(16#10FFFF);
-	   A1 when A1 =< 6 -> random:uniform(16#10FFFF - 16#7F) + 16#7F;
-	   A2 when A2 =< 12 -> random:uniform(16#10FFFF - 16#7FF) + 16#7FF;
-	   _ -> random:uniform(16#10FFFF - 16#FFFF) + 16#FFFF
-       end,
+	    A when A =< 1 -> $\n;
+	    A0 when A0 =< 3 -> random:uniform(16#10FFFF);
+	    A1 when A1 =< 6 -> random:uniform(16#10FFFF - 16#7F) + 16#7F;
+	    A2 when A2 =< 12 -> random:uniform(16#10FFFF - 16#7FF) + 16#7FF;
+	    _ -> random:uniform(16#10FFFF - 16#FFFF) + 16#FFFF
+	end,
     case X of
 	Inv1 when Inv1 >= 16#D800, Inv1 =< 16#DFFF;
 	          Inv1 =:= 16#FFFE; 
@@ -643,15 +656,12 @@ random_unicode(N) ->
 	_ ->
 	    [X | random_unicode(N-1)]
     end.
-	    
 
-binary_options(suite) ->
-    [];
-binary_options(doc) ->
-    ["Tests variants with binary option"];
+
+%% Test variants with binary option.
 binary_options(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir,Config),
-    PrivDir = ?config(priv_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    PrivDir = proplists:get_value(priv_dir,Config),
     TestData = unicode:characters_to_binary(
 		 [1090,1093,1077,32,1073,1080,1075,32,
 		  1088,1077,1076,32,1092,1086,1100,32,1093,
@@ -662,84 +672,79 @@ binary_options(Config) when is_list(Config) ->
     First10List = binary_to_list(First10),
     Second10List = binary_to_list(Second10),
     TestFile = filename:join([DataDir, "testdata_utf8.dat"]),
-    ?line {ok, F} = file:open(TestFile,[read]),
-    ?line {ok, First10List} = file:read(F,10),
-    ?line io:setopts(F,[binary]),
-    ?line {ok, Second10} = file:read(F,10),
-    ?line file:close(F),
-    ?line {ok, F2} = file:open(TestFile,[read,binary]),
-    ?line {ok, First10} = file:read(F2,10),
-    ?line io:setopts(F2,[list]),
-    ?line {ok, Second10List} = file:read(F2,10),
-    ?line file:position(F2,0),
-    %dbg:tracer(),dbg:p(F2,call),dbg:tpl(file_io_server,x),
-    ?line First10List = io:get_chars(F2,'',10),
-    ?line io:setopts(F2,[binary]),
-    ?line Second10 = unicode:characters_to_binary(io:get_chars(F2,'',10),unicode,latin1),
-    ?line file:close(F2),
-    ?line LineBreakFileName =  filename:join([PrivDir, "testdata.dat"]),
-    ?line LineBreakTestData = <<TestData/binary,$\n>>, 
-    ?line LineBreakTestDataList = binary_to_list(LineBreakTestData),
-    ?line file:write_file(LineBreakFileName,[LineBreakTestData,LineBreakTestData,LineBreakTestData,TestData]),
-    ?line {ok, F3} = file:open(LineBreakFileName,[read]),
-    ?line LineBreakTestDataList = io:get_line(F3,''),
-    ?line io:setopts(F3,[binary]),
-    ?line LineBreakTestData =  unicode:characters_to_binary(io:get_line(F3,''),unicode,latin1),
-    ?line io:setopts(F3,[list]),
-    ?line LineBreakTestDataList = io:get_line(F3,''),
-    ?line io:setopts(F3,[binary]), 
-    %ok = io:format(standard_error,"TestData = ~w~n",[TestData]),
-    ?line TestData = unicode:characters_to_binary(io:get_line(F3,''),unicode,latin1),
-    ?line eof = io:get_line(F3,''),
-    ?line file:close(F3),
+    {ok, F} = file:open(TestFile,[read]),
+    {ok, First10List} = file:read(F,10),
+    io:setopts(F,[binary]),
+    {ok, Second10} = file:read(F,10),
+    file:close(F),
+    {ok, F2} = file:open(TestFile,[read,binary]),
+    {ok, First10} = file:read(F2,10),
+    io:setopts(F2,[list]),
+    {ok, Second10List} = file:read(F2,10),
+    file:position(F2,0),
+    First10List = io:get_chars(F2,'',10),
+    io:setopts(F2,[binary]),
+    Second10 = unicode:characters_to_binary(io:get_chars(F2,'',10),unicode,latin1),
+    file:close(F2),
+    LineBreakFileName =  filename:join([PrivDir, "testdata.dat"]),
+    LineBreakTestData = <<TestData/binary,$\n>>,
+    LineBreakTestDataList = binary_to_list(LineBreakTestData),
+    file:write_file(LineBreakFileName,[LineBreakTestData,LineBreakTestData,LineBreakTestData,TestData]),
+    {ok, F3} = file:open(LineBreakFileName,[read]),
+    LineBreakTestDataList = io:get_line(F3,''),
+    io:setopts(F3,[binary]),
+    LineBreakTestData =  unicode:characters_to_binary(io:get_line(F3,''),unicode,latin1),
+    io:setopts(F3,[list]),
+    LineBreakTestDataList = io:get_line(F3,''),
+    io:setopts(F3,[binary]),
+    TestData = unicode:characters_to_binary(io:get_line(F3,''),unicode,latin1),
+    eof = io:get_line(F3,''),
+    file:close(F3),
+
     %% OK, time for the group_leaders...
-    %% io:format(standard_error,"Hmmm:~w~n",["<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\">>"]),
     case proplists:get_value(default_shell,Config) of
 	old ->
 	    ok;
 	new ->
-	    ?line rtnode([{putline, "2."},
-			  {getline, "2"},
-			  {putline, "lists:keyfind(binary,1,io:getopts())."},
-			  {getline, "{binary,false}"},
-			  {putline, "io:get_line('')."},
-			  {putline, "hej"},
-			  {getline, "\"hej\\n\""},
-			  {putline, "io:setopts([{binary,true},unicode])."},
-			  {getline, "ok"},
-			  {putline, "io:get_line('')."},
-			  {putline, "hej"},
-			  {getline, "<<\"hej\\n\">>"},
-			  {putline, "io:get_line('')."},
-			  {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
-			  {getline, "<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>"}
-			 ],[])
+	    rtnode([{putline, "2."},
+		    {getline, "2"},
+		    {putline, "lists:keyfind(binary,1,io:getopts())."},
+		    {getline, "{binary,false}"},
+		    {putline, "io:get_line('')."},
+		    {putline, "hej"},
+		    {getline, "\"hej\\n\""},
+		    {putline, "io:setopts([{binary,true},unicode])."},
+		    {getline, "ok"},
+		    {putline, "io:get_line('')."},
+		    {putline, "hej"},
+		    {getline, "<<\"hej\\n\">>"},
+		    {putline, "io:get_line('')."},
+		    {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
+		    {getline, "<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\"/utf8>>"}
+		   ],[])
     end,
-   %% And one with oldshell
-    ?line rtnode([{putline, "2."},
-		  {getline_re, ".*2$"},
-		  {putline, "lists:keyfind(binary,1,io:getopts())."},
-		  {getline_re, ".*{binary,false}"},
-		  {putline, "io:get_line('')."},
-		  {putline, "hej"},
-		  {getline_re, ".*\"hej\\\\n\""},
-		  {putline, "io:setopts([{binary,true},unicode])."},
-		  {getline_re, ".*ok"},
-		  {putline, "io:get_line('')."},
-		  {putline, "hej"},
-		  {getline_re, ".*<<\"hej\\\\n\">>"},
-		  {putline, "io:get_line('')."},
-		  {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
-		  {getline_re, ".*<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\\\n\"/utf8>>"}
-		  ],[],[],"-oldshell"),
+    %% And one with oldshell
+    rtnode([{putline, "2."},
+	    {getline_re, ".*2$"},
+	    {putline, "lists:keyfind(binary,1,io:getopts())."},
+	    {getline_re, ".*{binary,false}"},
+	    {putline, "io:get_line('')."},
+	    {putline, "hej"},
+	    {getline_re, ".*\"hej\\\\n\""},
+	    {putline, "io:setopts([{binary,true},unicode])."},
+	    {getline_re, ".*ok"},
+	    {putline, "io:get_line('')."},
+	    {putline, "hej"},
+	    {getline_re, ".*<<\"hej\\\\n\">>"},
+	    {putline, "io:get_line('')."},
+	    {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
+	    {getline_re, ".*<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\\\n\"/utf8>>"}
+	   ],[],[],"-oldshell"),
     ok.
 
-bc_with_r12(suite) ->
-    [];
-bc_with_r12(doc) ->
-    ["Test io protocol compatibility with R12 nodes"];
+%% Test io protocol compatibility with R12 nodes.
 bc_with_r12(Config) when is_list(Config) ->
-    case ?t:is_release_available("r12b") of
+    case test_server:is_release_available("r12b") of
 	true -> bc_with_r12_1(Config);
 	false -> {skip,"No R12B found"}
     end.
@@ -747,135 +752,134 @@ bc_with_r12(Config) when is_list(Config) ->
 bc_with_r12_1(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
     Name1 = io_proto_r12_1,
-    ?line N1 = list_to_atom(atom_to_list(Name1) ++ "@" ++ hostname()),
-    ?line ?t:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},{erl,[{release,"r12b"}]}]),
-    DataDir = ?config(data_dir,Config),
-    %PrivDir = ?config(priv_dir,Config),
+    N1 = list_to_atom(atom_to_list(Name1) ++ "@" ++ hostname()),
+    test_server:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},
+					 {erl,[{release,"r12b"}]}]),
+    DataDir = proplists:get_value(data_dir,Config),
     FileName1 = filename:join([DataDir,"testdata_latin1.dat"]),
     TestDataLine1 = [229,228,246],
     TestDataLine2 = [197,196,214],
-    ?line SPid1 = rpc:call(N1,erlang,spawn,[?MODULE,hold_the_line,[self(),FileName1,[read]]]),
-    ?line {ok,F1} = receive
-			{SPid1,Res1} ->
-			    Res1
-		    after 5000 ->
-			    exit(timeout)
-		    end,
-    ?line TestDataLine1 = chomp(io:get_line(F1,'')),
-    ?line SPid1 ! die,
+    SPid1 = rpc:call(N1,erlang,spawn,[?MODULE,hold_the_line,[self(),FileName1,[read]]]),
+    {ok,F1} = receive
+		  {SPid1,Res1} ->
+		      Res1
+	      after 5000 ->
+		      exit(timeout)
+	      end,
+    TestDataLine1 = chomp(io:get_line(F1,'')),
+    SPid1 ! die,
     receive after 1000 -> ok end,
-    ?line SPid2 = rpc:call(N1,erlang,spawn,[?MODULE,hold_the_line,[self(),FileName1,[read,binary]]]),
-    ?line {ok,F2} = receive
-			{SPid2,Res2} ->
-			    Res2
-		    after 5000 ->
-			    exit(timeout)
-		    end,
+    SPid2 = rpc:call(N1,erlang,spawn,[?MODULE,hold_the_line,[self(),FileName1,[read,binary]]]),
+    {ok,F2} = receive
+		  {SPid2,Res2} ->
+		      Res2
+	      after 5000 ->
+		      exit(timeout)
+	      end,
     TestDataLine1BinUtf = unicode:characters_to_binary(TestDataLine1),
     TestDataLine1BinLatin = list_to_binary(TestDataLine1),
     TestDataLine2BinUtf = unicode:characters_to_binary(TestDataLine2),
     TestDataLine2BinLatin = list_to_binary(TestDataLine2),
-    ?line TestDataLine1BinUtf = chomp(io:get_line(F2,'')),
-    ?line TestDataLine2BinUtf = chomp(io:get_line(F2,'')),
-    %io:format(standard_error,"Exec:~s\r\n",[rpc:call(N1,os,find_executable,["erl"])]),
-    %io:format(standard_error,"Io:~s\r\n",[rpc:call(N1,code,which,[io])]),
-    %io:format(standard_error,"File_io_server:~s\r\n",[rpc:call(N1,code,which,[file_io_server])]),
-    ?line file:position(F2,0),
-    ?line TestDataLine1BinLatin =  chomp(rpc:call(N1,io,get_line,[F2,''])),
-    ?line TestDataLine2BinUtf = chomp(io:get_line(F2,'')),
-    ?line file:position(F2,0),
-    ?line TestDataLine1BinUtf = chomp(io:get_line(F2,'')),
-    ?line TestDataLine2BinLatin =  chomp(rpc:call(N1,io,get_line,[F2,''])),
-    ?line eof =  chomp(rpc:call(N1,io,get_line,[F2,''])),
-    ?line file:position(F2,0),
-    ?line TestDataLine1BinLatin =  rpc:call(N1,io,get_chars,[F2,'',3]),
+    TestDataLine1BinUtf = chomp(io:get_line(F2,'')),
+    TestDataLine2BinUtf = chomp(io:get_line(F2,'')),
+    %%io:format(standard_error,"Exec:~s\r\n",[rpc:call(N1,os,find_executable,["erl"])]),
+    %%io:format(standard_error,"Io:~s\r\n",[rpc:call(N1,code,which,[io])]),
+    %%io:format(standard_error,"File_io_server:~s\r\n",[rpc:call(N1,code,which,[file_io_server])]),
+    file:position(F2,0),
+    TestDataLine1BinLatin =  chomp(rpc:call(N1,io,get_line,[F2,''])),
+    TestDataLine2BinUtf = chomp(io:get_line(F2,'')),
+    file:position(F2,0),
+    TestDataLine1BinUtf = chomp(io:get_line(F2,'')),
+    TestDataLine2BinLatin =  chomp(rpc:call(N1,io,get_line,[F2,''])),
+    eof =  chomp(rpc:call(N1,io,get_line,[F2,''])),
+    file:position(F2,0),
+    TestDataLine1BinLatin =  rpc:call(N1,io,get_chars,[F2,'',3]),
     io:get_chars(F2,'',1),
-    ?line TestDataLine2BinLatin =  chomp(rpc:call(N1,io,get_line,[F2,''])),
-    ?line file:position(F2,0),
-    ?line {ok,[TestDataLine1]} = io:fread(F2,'',"~s"),
-    ?line {ok,[TestDataLine2]} = rpc:call(N1,io,fread,[F2,'',"~s"]),
+    TestDataLine2BinLatin =  chomp(rpc:call(N1,io,get_line,[F2,''])),
+    file:position(F2,0),
+    {ok,[TestDataLine1]} = io:fread(F2,'',"~s"),
+    {ok,[TestDataLine2]} = rpc:call(N1,io,fread,[F2,'',"~s"]),
 
-    ?line DataLen1 = length(TestDataLine1),
-    ?line DataLen2 = length(TestDataLine2),
+    DataLen1 = length(TestDataLine1),
+    DataLen2 = length(TestDataLine2),
 
-    ?line file:position(F2,0),
-    ?line {ok,TestDataLine1BinLatin} = file:read(F2,DataLen1),
-    ?line {ok,_} = file:read(F2,1),
-    ?line {ok,TestDataLine2BinLatin} = rpc:call(N1,file,read,[F2,DataLen2]),
-    ?line {ok,_} = file:read(F2,1),
-    ?line eof = rpc:call(N1,file,read,[F2,1]),
+    file:position(F2,0),
+    {ok,TestDataLine1BinLatin} = file:read(F2,DataLen1),
+    {ok,_} = file:read(F2,1),
+    {ok,TestDataLine2BinLatin} = rpc:call(N1,file,read,[F2,DataLen2]),
+    {ok,_} = file:read(F2,1),
+    eof = rpc:call(N1,file,read,[F2,1]),
     %% As r12 has a bug when setting options with setopts, we need
     %% to reopen the file...
-    ?line SPid2 ! die,
+    SPid2 ! die,
     receive after 1000 -> ok end,
-    ?line SPid3 = rpc:call(N1,erlang,spawn,[?MODULE,hold_the_line,[self(),FileName1,[read]]]),
-    ?line {ok,F3} = receive
-			{SPid3,Res3} ->
-			    Res3
-		    after 5000 ->
-			    exit(timeout)
-		    end,
-    
-    ?line file:position(F3,0),
-    ?line {ok,[TestDataLine1]} = io:fread(F3,'',"~s"),
-    ?line {ok,[TestDataLine2]} = rpc:call(N1,io,fread,[F3,'',"~s"]),
+    SPid3 = rpc:call(N1,erlang,spawn,[?MODULE,hold_the_line,[self(),FileName1,[read]]]),
+    {ok,F3} = receive
+		  {SPid3,Res3} ->
+		      Res3
+	      after 5000 ->
+		      exit(timeout)
+	      end,
 
-    
-    ?line file:position(F3,0),
-    ?line {ok,TestDataLine1} = file:read(F3,DataLen1),
-    ?line {ok,_} = file:read(F3,1),
-    ?line {ok,TestDataLine2} = rpc:call(N1,file,read,[F3,DataLen2]),
-    ?line {ok,_} = file:read(F3,1),
-    ?line eof = rpc:call(N1,file,read,[F3,1]),
-    
+    file:position(F3,0),
+    {ok,[TestDataLine1]} = io:fread(F3,'',"~s"),
+    {ok,[TestDataLine2]} = rpc:call(N1,io,fread,[F3,'',"~s"]),
+
+
+    file:position(F3,0),
+    {ok,TestDataLine1} = file:read(F3,DataLen1),
+    {ok,_} = file:read(F3,1),
+    {ok,TestDataLine2} = rpc:call(N1,file,read,[F3,DataLen2]),
+    {ok,_} = file:read(F3,1),
+    eof = rpc:call(N1,file,read,[F3,1]),
+
 
     %% So, lets do it all again, but the other way around
     {ok,F4} = file:open(FileName1,[read]),
-    ?line TestDataLine1 = chomp(io:get_line(F4,'')),
-    ?line file:position(F4,0),
-    ?line io:setopts(F4,[binary]),
-    ?line TestDataLine1BinUtf = chomp(io:get_line(F4,'')),
-    ?line TestDataLine2BinUtf = chomp(io:get_line(F4,'')),
-    ?line file:position(F4,0),
-    ?line TestDataLine1BinUtf = chomp(io:get_line(F4,'')),
-    ?line TestDataLine2BinUtf = chomp(io:get_line(F4,'')),
-    ?line file:position(F4,0),
-    %dbg:tracer(),dbg:p(F4,[call,m]),dbg:tpl(file_io_server,x),dbg:tpl(io_lib,x),
-    ?line TestDataLine1BinUtf = chomp(io:get_line(F4,'')),
-    ?line TestDataLine2BinLatin =  chomp(rpc:call(N1,io,get_line,[F4,''])),
-    ?line file:position(F4,0),
-    ?line TestDataLine1BinLatin =  chomp(rpc:call(N1,io,get_line,[F4,''])),
-    ?line TestDataLine2BinUtf = chomp(io:get_line(F4,'')),
-    ?line eof =  chomp(rpc:call(N1,io,get_line,[F4,''])),
-    ?line file:position(F4,0),
-    ?line TestDataLine1BinLatin =  rpc:call(N1,io,get_chars,[F4,'',3]),
+    TestDataLine1 = chomp(io:get_line(F4,'')),
+    file:position(F4,0),
+    io:setopts(F4,[binary]),
+    TestDataLine1BinUtf = chomp(io:get_line(F4,'')),
+    TestDataLine2BinUtf = chomp(io:get_line(F4,'')),
+    file:position(F4,0),
+    TestDataLine1BinUtf = chomp(io:get_line(F4,'')),
+    TestDataLine2BinUtf = chomp(io:get_line(F4,'')),
+    file:position(F4,0),
+    TestDataLine1BinUtf = chomp(io:get_line(F4,'')),
+    TestDataLine2BinLatin =  chomp(rpc:call(N1,io,get_line,[F4,''])),
+    file:position(F4,0),
+    TestDataLine1BinLatin =  chomp(rpc:call(N1,io,get_line,[F4,''])),
+    TestDataLine2BinUtf = chomp(io:get_line(F4,'')),
+    eof =  chomp(rpc:call(N1,io,get_line,[F4,''])),
+    file:position(F4,0),
+    TestDataLine1BinLatin =  rpc:call(N1,io,get_chars,[F4,'',3]),
     io:get_chars(F4,'',1),
-    ?line TestDataLine2BinLatin =  chomp(rpc:call(N1,io,get_line,[F4,''])),
-    ?line file:position(F4,0),
-    ?line {ok,[TestDataLine1]} = io:fread(F4,'',"~s"),
-    ?line {ok,[TestDataLine2]} = rpc:call(N1,io,fread,[F4,'',"~s"]),
-    ?line file:position(F4,0),
-    ?line {ok,TestDataLine1BinLatin} = file:read(F4,DataLen1),
-    ?line {ok,_} = file:read(F4,1),
-    ?line {ok,TestDataLine2BinLatin} = rpc:call(N1,file,read,[F4,DataLen2]),
-    ?line {ok,_} = file:read(F4,1),
-    ?line eof = rpc:call(N1,file,read,[F4,1]),
-    ?line io:setopts(F4,[list]),
+    TestDataLine2BinLatin =  chomp(rpc:call(N1,io,get_line,[F4,''])),
+    file:position(F4,0),
+    {ok,[TestDataLine1]} = io:fread(F4,'',"~s"),
+    {ok,[TestDataLine2]} = rpc:call(N1,io,fread,[F4,'',"~s"]),
+    file:position(F4,0),
+    {ok,TestDataLine1BinLatin} = file:read(F4,DataLen1),
+    {ok,_} = file:read(F4,1),
+    {ok,TestDataLine2BinLatin} = rpc:call(N1,file,read,[F4,DataLen2]),
+    {ok,_} = file:read(F4,1),
+    eof = rpc:call(N1,file,read,[F4,1]),
+    io:setopts(F4,[list]),
 
-    ?line file:position(F4,0),
-    ?line {ok,[TestDataLine1]} = io:fread(F4,'',"~s"),
-    ?line {ok,[TestDataLine2]} = rpc:call(N1,io,fread,[F4,'',"~s"]),
+    file:position(F4,0),
+    {ok,[TestDataLine1]} = io:fread(F4,'',"~s"),
+    {ok,[TestDataLine2]} = rpc:call(N1,io,fread,[F4,'',"~s"]),
 
-    
-    ?line file:position(F4,0),
-    ?line {ok,TestDataLine1} = file:read(F4,DataLen1),
-    ?line {ok,_} = file:read(F4,1),
-    ?line {ok,TestDataLine2} = rpc:call(N1,file,read,[F4,DataLen2]),
-    ?line {ok,_} = file:read(F4,1),
-    ?line eof = rpc:call(N1,file,read,[F4,1]),
-    
+
+    file:position(F4,0),
+    {ok,TestDataLine1} = file:read(F4,DataLen1),
+    {ok,_} = file:read(F4,1),
+    {ok,TestDataLine2} = rpc:call(N1,file,read,[F4,DataLen2]),
+    {ok,_} = file:read(F4,1),
+    eof = rpc:call(N1,file,read,[F4,1]),
+
     file:close(F4),
-    ?t:stop_node(N1),
+    test_server:stop_node(N1),
     ok.
 
 hold_the_line(Parent,Filename,Options) ->
@@ -884,14 +888,11 @@ hold_the_line(Parent,Filename,Options) ->
 	die ->
 	    ok
     end.
-    
 
-bc_with_r12_gl(suite) ->
-    [];
-bc_with_r12_gl(doc) ->
-    ["Test io protocol compatibility with R12 nodes (terminals)"];
+
+%% Test io protocol compatibility with R12 nodes (terminals).
 bc_with_r12_gl(Config) when is_list(Config) ->
-    case ?t:is_release_available("r12b") of
+    case test_server:is_release_available("r12b") of
 	true -> 
 	    case  get_progs() of
 		{error,Reason} ->
@@ -903,12 +904,9 @@ bc_with_r12_gl(Config) when is_list(Config) ->
 	    {skip,"No R12B found"}
     end.
 
-bc_with_r12_ogl(suite) ->
-    [];
-bc_with_r12_ogl(doc) ->
-    ["Test io protocol compatibility with R12 nodes (oldshell)"];
+%% Test io protocol compatibility with R12 nodes (oldshell).
 bc_with_r12_ogl(Config) when is_list(Config) ->
-    case ?t:is_release_available("r12b") of
+    case test_server:is_release_available("r12b") of
 	true -> 
 	    case  get_progs() of
 		{error,Reason} ->
@@ -923,8 +921,9 @@ bc_with_r12_ogl(Config) when is_list(Config) ->
 bc_with_r12_gl_1(_Config,Machine) ->
     PA = filename:dirname(code:which(?MODULE)),
     Name1 = io_proto_r12_gl_1,
-    ?line N1 = list_to_atom(atom_to_list(Name1) ++ "@" ++ hostname()),
-    ?line ?t:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},{erl,[{release,"r12b"}]}]),
+    N1 = list_to_atom(atom_to_list(Name1) ++ "@" ++ hostname()),
+    test_server:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},
+					 {erl,[{release,"r12b"}]}]),
     TestDataLine1 = [229,228,246],
     TestDataLine1BinUtf = unicode:characters_to_binary(TestDataLine1),
     TestDataLine1BinLatin = list_to_binary(TestDataLine1),
@@ -934,141 +933,141 @@ bc_with_r12_gl_1(_Config,Machine) ->
     register(io_proto_suite,self()),
     AM1 = spawn(?MODULE,Machine,
 		[MyNodeList, "io_proto_suite", N2List]),
-    
-    ?line GL = receive X when is_pid(X) -> X end,
-    %% get_line
-    ?line "Hej\n" = rpc:call(N1,io,get_line,[GL,"Prompt\n"]),
-    ?line io:setopts(GL,[binary]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line <<"Hej\n">> = rpc:call(N1,io,get_line,[GL,"Prompt\n"]),
-    ?line io:setopts(GL,[{encoding,latin1}]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinLatin = chomp(rpc:call(N1,io,get_line,[GL,"Prompt\n"])),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinUtf = chomp(io:get_line(GL,"Prompt\n")),
-    ?line io:setopts(GL,[{encoding,unicode}]),
-    
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinLatin = chomp(rpc:call(N1,io,get_line,[GL,"Prompt\n"])),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinUtf = chomp(io:get_line(GL,"Prompt\n")),
-    ?line io:setopts(GL,[list]),
-    ?line io:format(GL,"Okej~n",[]),
-    
-    %%get_chars
-    ?line "Hej" = rpc:call(N1,io,get_chars,[GL,"Prompt\n",3]),
-    ?line io:setopts(GL,[binary]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line <<"Hej">> = rpc:call(N1,io,get_chars,[GL,"Prompt\n",3]),
-    ?line io:setopts(GL,[{encoding,latin1}]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinLatin = rpc:call(N1,io,get_chars,[GL,"Prompt\n",3]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinUtf = io:get_chars(GL,"Prompt\n",3),
-    ?line io:setopts(GL,[{encoding,unicode}]),
-    
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinLatin = rpc:call(N1,io,get_chars,[GL,"Prompt\n",3]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinUtf = io:get_chars(GL,"Prompt\n",3),
-    ?line io:setopts(GL,[list]),
-    ?line io:format(GL,"Okej~n",[]),
-    %%fread
-    ?line {ok,["Hej"]} = rpc:call(N1,io,fread,[GL,"Prompt\n","~s"]),
-    ?line io:setopts(GL,[binary]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line {ok,["Hej"]} = rpc:call(N1,io,fread,[GL,"Prompt\n","~s"]),
-    ?line io:setopts(GL,[{encoding,latin1}]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line {ok,[TestDataLine1]} = rpc:call(N1,io,fread,[GL,"Prompt\n","~s"]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
-    ?line io:setopts(GL,[{encoding,unicode}]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line {ok,[TestDataLine1]} = rpc:call(N1,io,fread,[GL,"Prompt\n","~s"]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
-    ?line io:setopts(GL,[list]),
-    ?line io:format(GL,"Okej~n",[]),
-    
 
-    ?line receive
-	      {AM1,done} ->
-		  ok
-	  after 5000 ->
-		  exit(timeout)
-	  end,
-    ?t:stop_node(N1),
+    GL = receive X when is_pid(X) -> X end,
+    %% get_line
+    "Hej\n" = rpc:call(N1,io,get_line,[GL,"Prompt\n"]),
+    io:setopts(GL,[binary]),
+    io:format(GL,"Okej~n",[]),
+    <<"Hej\n">> = rpc:call(N1,io,get_line,[GL,"Prompt\n"]),
+    io:setopts(GL,[{encoding,latin1}]),
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinLatin = chomp(rpc:call(N1,io,get_line,[GL,"Prompt\n"])),
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinUtf = chomp(io:get_line(GL,"Prompt\n")),
+    io:setopts(GL,[{encoding,unicode}]),
+
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinLatin = chomp(rpc:call(N1,io,get_line,[GL,"Prompt\n"])),
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinUtf = chomp(io:get_line(GL,"Prompt\n")),
+    io:setopts(GL,[list]),
+    io:format(GL,"Okej~n",[]),
+
+    %%get_chars
+    "Hej" = rpc:call(N1,io,get_chars,[GL,"Prompt\n",3]),
+    io:setopts(GL,[binary]),
+    io:format(GL,"Okej~n",[]),
+    <<"Hej">> = rpc:call(N1,io,get_chars,[GL,"Prompt\n",3]),
+    io:setopts(GL,[{encoding,latin1}]),
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinLatin = rpc:call(N1,io,get_chars,[GL,"Prompt\n",3]),
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinUtf = io:get_chars(GL,"Prompt\n",3),
+    io:setopts(GL,[{encoding,unicode}]),
+
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinLatin = rpc:call(N1,io,get_chars,[GL,"Prompt\n",3]),
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinUtf = io:get_chars(GL,"Prompt\n",3),
+    io:setopts(GL,[list]),
+    io:format(GL,"Okej~n",[]),
+    %%fread
+    {ok,["Hej"]} = rpc:call(N1,io,fread,[GL,"Prompt\n","~s"]),
+    io:setopts(GL,[binary]),
+    io:format(GL,"Okej~n",[]),
+    {ok,["Hej"]} = rpc:call(N1,io,fread,[GL,"Prompt\n","~s"]),
+    io:setopts(GL,[{encoding,latin1}]),
+    io:format(GL,"Okej~n",[]),
+    {ok,[TestDataLine1]} = rpc:call(N1,io,fread,[GL,"Prompt\n","~s"]),
+    io:format(GL,"Okej~n",[]),
+    {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
+    io:setopts(GL,[{encoding,unicode}]),
+    io:format(GL,"Okej~n",[]),
+    {ok,[TestDataLine1]} = rpc:call(N1,io,fread,[GL,"Prompt\n","~s"]),
+    io:format(GL,"Okej~n",[]),
+    {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
+    io:setopts(GL,[list]),
+    io:format(GL,"Okej~n",[]),
+
+
+    receive
+	{AM1,done} ->
+	    ok
+    after 5000 ->
+	    exit(timeout)
+    end,
+    test_server:stop_node(N1),
     ok.
- 
+
 
 answering_machine1(OthNode,OthReg,Me) ->
     TestDataLine1 = [229,228,246],
     TestDataUtf = binary_to_list(unicode:characters_to_binary(TestDataLine1)),
-    ?line rtnode([{putline,""},
-		  {putline, "2."},
-		  {getline, "2"},
-		  {putline, "{"++OthReg++","++OthNode++"} ! group_leader()."},
-		  {getline, "<"},
-		  % get_line
-		  {getline_re, ".*Prompt"},
-		  {putline, "Hej"},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, "Hej"},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataLine1},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataLine1},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataUtf},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataUtf},
-		  {getline_re, ".*Okej"},
-		  % get_chars
-		  {getline_re, ".*Prompt"},
-		  {putline, "Hej"},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, "Hej"},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataLine1},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataLine1},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataUtf},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataUtf},
-		  {getline_re, ".*Okej"},
-		  % fread
-		  {getline_re, ".*Prompt"},
-		  {putline, "Hej"},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, "Hej"},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataLine1},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataLine1},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataUtf},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataUtf},
-		  {getline_re, ".*Okej"}
-		  
-		 ],Me,"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; "),
+    rtnode([{putline,""},
+	    {putline, "2."},
+	    {getline, "2"},
+	    {putline, "{"++OthReg++","++OthNode++"} ! group_leader()."},
+	    {getline, "<"},
+	    %% get_line
+	    {getline_re, ".*Prompt"},
+	    {putline, "Hej"},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, "Hej"},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataLine1},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataLine1},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataUtf},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataUtf},
+	    {getline_re, ".*Okej"},
+	    %% get_chars
+	    {getline_re, ".*Prompt"},
+	    {putline, "Hej"},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, "Hej"},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataLine1},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataLine1},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataUtf},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataUtf},
+	    {getline_re, ".*Okej"},
+	    %% fread
+	    {getline_re, ".*Prompt"},
+	    {putline, "Hej"},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, "Hej"},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataLine1},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataLine1},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataUtf},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataUtf},
+	    {getline_re, ".*Okej"}
+
+	   ],Me,"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; "),
     O = list_to_atom(OthReg),
     O ! {self(),done},
     ok.
@@ -1076,79 +1075,76 @@ answering_machine1(OthNode,OthReg,Me) ->
 answering_machine2(OthNode,OthReg,Me) ->
     TestDataLine1 = [229,228,246],
     TestDataUtf = binary_to_list(unicode:characters_to_binary(TestDataLine1)),
-    ?line rtnode([{putline,""},
-		  {putline, "2."},
-		  {getline, "2"},
-		  {putline, "{"++OthReg++","++OthNode++"} ! group_leader()."},
-		  {getline_re, ".*<[0-9].*"},
-		  % get_line
-		  {getline_re, ".*Prompt"},
-		  {putline, "Hej"},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, "Hej"},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataLine1},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataLine1},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataUtf},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataUtf},
-		  {getline_re, ".*Okej"},
-		  % get_chars
-		  {getline_re, ".*Prompt"},
-		  {putline, "Hej"},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, "Hej"},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataLine1},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataLine1},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataUtf},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataUtf},
-		  {getline_re, ".*Okej"},
-		  % fread
-		  {getline_re, ".*Prompt"},
-		  {putline, "Hej"},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, "Hej"},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataLine1},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataLine1},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataUtf},
-		  {getline_re, ".*Okej"},
-		  {getline_re, ".*Prompt"},
-		  {putline, TestDataUtf},
-		  {getline_re, ".*Okej"}
-		  
-		 ],Me,"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; "," -oldshell "),
+    rtnode([{putline,""},
+	    {putline, "2."},
+	    {getline, "2"},
+	    {putline, "{"++OthReg++","++OthNode++"} ! group_leader()."},
+	    {getline_re, ".*<[0-9].*"},
+	    %% get_line
+	    {getline_re, ".*Prompt"},
+	    {putline, "Hej"},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, "Hej"},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataLine1},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataLine1},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataUtf},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataUtf},
+	    {getline_re, ".*Okej"},
+	    %% get_chars
+	    {getline_re, ".*Prompt"},
+	    {putline, "Hej"},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, "Hej"},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataLine1},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataLine1},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataUtf},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataUtf},
+	    {getline_re, ".*Okej"},
+	    %% fread
+	    {getline_re, ".*Prompt"},
+	    {putline, "Hej"},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, "Hej"},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataLine1},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataLine1},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataUtf},
+	    {getline_re, ".*Okej"},
+	    {getline_re, ".*Prompt"},
+	    {putline, TestDataUtf},
+	    {getline_re, ".*Okej"}
+
+	   ],Me,"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; "," -oldshell "),
     O = list_to_atom(OthReg),
     O ! {self(),done},
     ok.
-    
 
-read_modes_ogl(suite) ->
-    [];
-read_modes_ogl(doc) ->
-    ["Test various modes when reading from the group leade from another machine"];
+
+%% Test various modes when reading from the group leade from another machine.
 read_modes_ogl(Config) when is_list(Config) -> 
     case get_progs() of
 	{error,Reason} ->
@@ -1157,10 +1153,7 @@ read_modes_ogl(Config) when is_list(Config) ->
 	    read_modes_gl_1(Config,answering_machine2)
     end.
 
-read_modes_gl(suite) ->
-    [];
-read_modes_gl(doc) ->
-    ["Test various modes when reading from the group leade from another machine"];
+%% Test various modes when reading from the group leade from another machine.
 read_modes_gl(Config) when is_list(Config) -> 
     case {get_progs(),proplists:get_value(default_shell,Config)} of
 	{{error,Reason},_} ->
@@ -1181,81 +1174,78 @@ read_modes_gl_1(_Config,Machine) ->
     register(io_proto_suite,self()),
     AM1 = spawn(?MODULE,Machine,
 		[MyNodeList, "io_proto_suite", N2List]),
-    
-    ?line GL = receive X when is_pid(X) -> X end,
+
+    GL = receive X when is_pid(X) -> X end,
     ?dbg({group_leader,X}),
     %% get_line
-    ?line receive after 500 -> ok end, % Dont clash with the new shell...
-    ?line "Hej\n" = io:get_line(GL,"Prompt\n"),
-    ?line io:setopts(GL,[binary]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line <<"Hej\n">> = io:get_line(GL,"Prompt\n"),
-    ?line io:setopts(GL,[{encoding,latin1}]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinLatin = chomp(io:request(GL,{get_line,latin1,"Prompt\n"})),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinUtf = chomp(io:get_line(GL,"Prompt\n")),
-    ?line io:setopts(GL,[{encoding,unicode}]),
-    
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinLatin = chomp(io:request(GL,{get_line,latin1,"Prompt\n"})),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinUtf = chomp(io:get_line(GL,"Prompt\n")),
-    ?line io:setopts(GL,[list]),
-    ?line io:format(GL,"Okej~n",[]),
-    
-    %%get_chars
-    ?line "Hej" = io:get_chars(GL,"Prompt\n",3),
-    ?line io:setopts(GL,[binary]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line <<"Hej">> = io:get_chars(GL,"Prompt\n",3),
-    ?line io:setopts(GL,[{encoding,latin1}]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinLatin = io:request(GL,{get_chars,latin1,"Prompt\n",3}),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinUtf = io:get_chars(GL,"Prompt\n",3),
-    ?line io:setopts(GL,[{encoding,unicode}]),
-    
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinLatin = io:request(GL,{get_chars,latin1,"Prompt\n",3}),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line TestDataLine1BinUtf = io:get_chars(GL,"Prompt\n",3),
-    ?line io:setopts(GL,[list]),
-    ?line io:format(GL,"Okej~n",[]),
-    %%fread
-    ?line {ok,["Hej"]} = io:fread(GL,"Prompt\n","~s"),
-    ?line io:setopts(GL,[binary]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line {ok,["Hej"]} = io:fread(GL,"Prompt\n","~s"),
-    ?line io:setopts(GL,[{encoding,latin1}]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
-    ?line io:setopts(GL,[{encoding,unicode}]),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
-    ?line io:format(GL,"Okej~n",[]),
-    ?line {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
-    ?line io:setopts(GL,[list]),
-    ?line io:format(GL,"Okej~n",[]),
-    
+    receive after 500 -> ok end, % Dont clash with the new shell...
+    "Hej\n" = io:get_line(GL,"Prompt\n"),
+    io:setopts(GL,[binary]),
+    io:format(GL,"Okej~n",[]),
+    <<"Hej\n">> = io:get_line(GL,"Prompt\n"),
+    io:setopts(GL,[{encoding,latin1}]),
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinLatin = chomp(io:request(GL,{get_line,latin1,"Prompt\n"})),
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinUtf = chomp(io:get_line(GL,"Prompt\n")),
+    io:setopts(GL,[{encoding,unicode}]),
 
-    ?line receive
-	      {AM1,done} ->
-		  ok
-	  after 5000 ->
-		  exit(timeout)
-	  end,
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinLatin = chomp(io:request(GL,{get_line,latin1,"Prompt\n"})),
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinUtf = chomp(io:get_line(GL,"Prompt\n")),
+    io:setopts(GL,[list]),
+    io:format(GL,"Okej~n",[]),
+
+    %%get_chars
+    "Hej" = io:get_chars(GL,"Prompt\n",3),
+    io:setopts(GL,[binary]),
+    io:format(GL,"Okej~n",[]),
+    <<"Hej">> = io:get_chars(GL,"Prompt\n",3),
+    io:setopts(GL,[{encoding,latin1}]),
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinLatin = io:request(GL,{get_chars,latin1,"Prompt\n",3}),
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinUtf = io:get_chars(GL,"Prompt\n",3),
+    io:setopts(GL,[{encoding,unicode}]),
+
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinLatin = io:request(GL,{get_chars,latin1,"Prompt\n",3}),
+    io:format(GL,"Okej~n",[]),
+    TestDataLine1BinUtf = io:get_chars(GL,"Prompt\n",3),
+    io:setopts(GL,[list]),
+    io:format(GL,"Okej~n",[]),
+    %%fread
+    {ok,["Hej"]} = io:fread(GL,"Prompt\n","~s"),
+    io:setopts(GL,[binary]),
+    io:format(GL,"Okej~n",[]),
+    {ok,["Hej"]} = io:fread(GL,"Prompt\n","~s"),
+    io:setopts(GL,[{encoding,latin1}]),
+    io:format(GL,"Okej~n",[]),
+    {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
+    io:format(GL,"Okej~n",[]),
+    {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
+    io:setopts(GL,[{encoding,unicode}]),
+    io:format(GL,"Okej~n",[]),
+    {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
+    io:format(GL,"Okej~n",[]),
+    {ok,[TestDataLine1]} = io:fread(GL,"Prompt\n","~s"),
+    io:setopts(GL,[list]),
+    io:format(GL,"Okej~n",[]),
+
+
+    receive
+	{AM1,done} ->
+	    ok
+    after 5000 ->
+	    exit(timeout)
+    end,
     ok.
 
 
-broken_unicode(suite) ->
-    [];
-broken_unicode(doc) ->
-    ["Test behaviour when reading broken Unicode files"];
+%% Test behaviour when reading broken Unicode files
 broken_unicode(Config) when is_list(Config) ->
-    Dir = ?config(priv_dir,Config),
+    Dir = proplists:get_value(priv_dir,Config),
     Latin1Name = filename:join([Dir,"latin1_data_file.dat"]),
     Utf8Name = filename:join([Dir,"utf8_data_file.dat"]),
     Latin1Data = iolist_to_binary(lists:duplicate(10,lists:seq(0,255)++[255,255,255])),
@@ -1263,10 +1253,10 @@ broken_unicode(Config) when is_list(Config) ->
 		 lists:duplicate(10,lists:seq(0,255))),
     file:write_file(Latin1Name,Latin1Data),
     file:write_file(Utf8Name,Utf8Data),
-    ?line [ latin1 = heuristic_encoding_file2(Latin1Name,N,utf8) || N <- lists:seq(1,100)++[1024,2048,10000]],
-    ?line [ utf8 = heuristic_encoding_file2(Utf8Name,N,utf8) || N <- lists:seq(1,100)++[1024,2048,10000]],
-    ?line [ latin1 = heuristic_encoding_file2(Latin1Name,N,utf16) || N <- lists:seq(1,100)++[1024,2048,10000]],
-    ?line [ latin1 = heuristic_encoding_file2(Latin1Name,N,utf32) || N <- lists:seq(1,100)++[1024,2048,10000]],
+    [ latin1 = heuristic_encoding_file2(Latin1Name,N,utf8) || N <- lists:seq(1,100)++[1024,2048,10000]],
+    [ utf8 = heuristic_encoding_file2(Utf8Name,N,utf8) || N <- lists:seq(1,100)++[1024,2048,10000]],
+    [ latin1 = heuristic_encoding_file2(Latin1Name,N,utf16) || N <- lists:seq(1,100)++[1024,2048,10000]],
+    [ latin1 = heuristic_encoding_file2(Latin1Name,N,utf32) || N <- lists:seq(1,100)++[1024,2048,10000]],
     ok.
 
 
@@ -1285,10 +1275,7 @@ loop_through_file2(F,Bin,Chunk,Enc) when is_binary(Bin) ->
 
 
 
-eof_on_pipe(suite) ->
-    [];
-eof_on_pipe(doc) ->
-    ["tests eof before newline on stdin when erlang is in pipe"];
+%% Test eof before newline on stdin when erlang is in pipe.
 eof_on_pipe(Config) when is_list(Config) ->
     case {get_progs(),os:type()} of
 	{{error,Reason},_} ->
@@ -1308,10 +1295,10 @@ eof_on_pipe(Config) when is_list(Config) ->
 				   end
 			   end,
 		CommandLine1 = EchoLine ++
-		"\""++Erl++"\" -noshell -eval  "
-		"'io:format(\"~p\",[io:get_line(\"\")]),"
-		"io:format(\"~p\",[io:get_line(\"\")]),"
-		"io:format(\"~p\",[io:get_line(\"\")]).' -run init stop",
+		    "\""++Erl++"\" -noshell -eval  "
+		    "'io:format(\"~p\",[io:get_line(\"\")]),"
+		    "io:format(\"~p\",[io:get_line(\"\")]),"
+		    "io:format(\"~p\",[io:get_line(\"\")]).' -run init stop",
 		case os:cmd(CommandLine1) of
 		    "\"a\\n\"\"bu\"eof" ->
 			ok;
@@ -1319,10 +1306,10 @@ eof_on_pipe(Config) when is_list(Config) ->
 			exit({unexpected1,Other1})
 		end,
 		CommandLine2 = EchoLine ++
-		"\""++Erl++"\" -noshell -eval  "
-		"'io:setopts([binary]),io:format(\"~p\",[io:get_line(\"\")]),"
-		"io:format(\"~p\",[io:get_line(\"\")]),"
-		"io:format(\"~p\",[io:get_line(\"\")]).' -run init stop",
+		    "\""++Erl++"\" -noshell -eval  "
+		    "'io:setopts([binary]),io:format(\"~p\",[io:get_line(\"\")]),"
+		    "io:format(\"~p\",[io:get_line(\"\")]),"
+		    "io:format(\"~p\",[io:get_line(\"\")]).' -run init stop",
 		case os:cmd(CommandLine2) of
 		    "<<\"a\\n\">><<\"bu\">>eof" ->
 			ok;
@@ -1331,12 +1318,12 @@ eof_on_pipe(Config) when is_list(Config) ->
 		end
 	    catch
 		throw:skip ->
-		     {skipped,"unsupported echo program"}
+		    {skipped,"unsupported echo program"}
 	    end;
 	{_,_} ->
 	    {skipped,"Only on linux"}
     end.
-    
+
 
 %%
 %% Tool for running interactive shell (stolen from the kernel
@@ -1349,47 +1336,43 @@ rtnode(C,N) ->
 rtnode(Commands,Nodename,ErlPrefix) ->
     rtnode(Commands,Nodename,ErlPrefix,[]).
 rtnode(Commands,Nodename,ErlPrefix,Extra) ->
-    ?line case get_progs() of
-	      {error,_Reason} ->
-		  ?line {skip,"No runerl present"};
-	      {RunErl,ToErl,Erl} ->
-		  ?line case create_tempdir() of
-			    {error, Reason2} ->
-				?line {skip, Reason2};
-			    Tempdir ->
-				?line SPid = 
-				    start_runerl_node(RunErl,ErlPrefix++
-							  "\\\""++Erl++"\\\"",
-						      Tempdir,Nodename, Extra),
-				?line CPid = start_toerl_server(ToErl,Tempdir),
-				?line erase(getline_skipped),
-				?line Res = 
-				    (catch get_and_put(CPid, Commands,1)),
-				?line case stop_runerl_node(CPid) of
-					  {error,_} ->
-					      ?line CPid2 = 
-						  start_toerl_server
-						    (ToErl,Tempdir),
-					      ?line erase(getline_skipped),
-					      ?line ok = get_and_put
-							   (CPid2, 
-							    [{putline,[7]},
-							     {sleep,
-							      timeout(short)},
-							     {putline,""},
-							     {getline," -->"},
-							     {putline,"s"},
-							     {putline,"c"},
-							     {putline,""}],1),
-					      ?line stop_runerl_node(CPid2);
-					  _ ->
-					      ?line ok
-				      end,
-				?line wait_for_runerl_server(SPid),
-				?line ok = ?RM_RF(Tempdir),
-				?line ok = Res
-			end
-	  end.
+    case get_progs() of
+	{error,_Reason} ->
+	    {skip,"No runerl present"};
+	{RunErl,ToErl,Erl} ->
+	    case create_tempdir() of
+		{error, Reason2} ->
+		    {skip, Reason2};
+		Tempdir ->
+		    SPid = start_runerl_node(RunErl, ErlPrefix++
+						 "\\\""++Erl++"\\\"",
+					     Tempdir, Nodename, Extra),
+		    CPid = start_toerl_server(ToErl, Tempdir),
+		    put(getline_skipped, []),
+		    Res = (catch get_and_put(CPid, Commands, 1)),
+		    case stop_runerl_node(CPid) of
+			{error,_} ->
+			    CPid2 = start_toerl_server(ToErl, Tempdir),
+			    put(getline_skipped, []),
+			    ok = get_and_put
+				   (CPid2,
+				    [{putline,[7]},
+				     {sleep,
+				      timeout(short)},
+				     {putline,""},
+				     {getline," -->"},
+				     {putline,"s"},
+				     {putline,"c"},
+				     {putline,""}], 1),
+			    stop_runerl_node(CPid2);
+			_ ->
+			    ok
+		    end,
+		    wait_for_runerl_server(SPid),
+		    ok = ?RM_RF(Tempdir),
+		    ok = Res
+	    end
+    end.
 
 timeout(long) ->
     2 * timeout(normal);
@@ -1410,16 +1393,16 @@ timeout(normal) ->
 -ifndef(debug).
 rm_rf(Dir) ->
     try
-      {ok,List} = file:list_dir(Dir),
-      Files = [filename:join([Dir,X]) || X <- List],
-      [case file:list_dir(Y) of
-	   {error, enotdir} ->
-	       ok = file:delete(Y);
-	   _ ->
-	       ok = rm_rf(Y)
-       end || Y <- Files],
-       ok = file:del_dir(Dir),
-       ok
+	{ok,List} = file:list_dir(Dir),
+	Files = [filename:join([Dir,X]) || X <- List],
+	[case file:list_dir(Y) of
+	     {error, enotdir} ->
+		 ok = file:delete(Y);
+	     _ ->
+		 ok = rm_rf(Y)
+	 end || Y <- Files],
+	ok = file:del_dir(Dir),
+	ok
     catch
 	_:Exception -> {error, {Exception,Dir}}
     end.
@@ -1433,64 +1416,58 @@ get_and_put(CPid, [{sleep, X}|T],N) ->
     after X ->
 	    get_and_put(CPid,T,N+1)
     end;
-get_and_put(CPid, [{getline, Match}|T],N) ->
+get_and_put(CPid, [{getline_pred,Pred,Msg}|T]=T0, N)
+  when is_function(Pred) ->
     ?dbg({getline, Match}),
     CPid ! {self(), {get_line, timeout(normal)}},
     receive
 	{get_line, timeout} ->
 	    error_logger:error_msg("~p: getline timeout waiting for \"~s\" "
 				   "(command number ~p, skipped: ~p)~n",
-				   [?MODULE, Match,N,get(getline_skipped)]),
+				   [?MODULE,Msg,N,get(getline_skipped)]),
 	    {error, timeout};
 	{get_line, Data} ->
 	    ?dbg({data,Data}),
-	    case lists:prefix(Match, Data) of
-		true ->
-		    erase(getline_skipped),
+	    case Pred(Data) of
+		yes ->
+		    put(getline_skipped, []),
 		    get_and_put(CPid, T,N+1);
-		false ->
-		    case get(getline_skipped) of
-			undefined ->
-			    put(getline_skipped,[Data]);
-			List ->
-			    put(getline_skipped,List ++ [Data])
-		    end,
-		    get_and_put(CPid,  [{getline, Match}|T],N)
+		no ->
+		    error_logger:error_msg("~p: getline match failure "
+					   "\"~s\" "
+					   "(command number ~p)\n",
+					   [?MODULE,Msg,N]),
+		    {error, no_match};
+		maybe ->
+		    List = get(getline_skipped),
+		    put(getline_skipped, List ++ [Data]),
+		    get_and_put(CPid, T0, N)
 	    end
     end;
+get_and_put(CPid, [{getline, Match}|T],N) ->
+    ?dbg({getline, Match}),
+    F = fun(Data) ->
+		case lists:prefix(Match, Data) of
+		    true -> yes;
+		    false -> maybe
+		end
+	end,
+    get_and_put(CPid, [{getline_pred,F,Match}|T], N);
 get_and_put(CPid, [{getline_re, Match}|T],N) ->
-    ?dbg({getline_re, Match}),
-    CPid ! {self(), {get_line, timeout(normal)}},
-    receive
-	{get_line, timeout} ->
-	    error_logger:error_msg("~p: getline_re timeout waiting for \"~s\" "
-				   "(command number ~p, skipped: ~p)~n",
-				   [?MODULE, Match,N,get(getline_skipped)]),
-	    {error, timeout};
-	{get_line, Data} ->
-	    ?dbg({data,Data}),
-	    case re:run(Data, Match,[{capture,none}]) of
-		match ->
-		    erase(getline_skipped),
-		    get_and_put(CPid, T,N+1);
-		_ ->
-		    case get(getline_skipped) of
-			undefined ->
-			    put(getline_skipped,[Data]);
-			List ->
-			    put(getline_skipped,List ++ [Data])
-		    end,
-		    get_and_put(CPid,  [{getline_re, Match}|T],N)
-	    end
-    end;
-
+    F = fun(Data) ->
+		case re:run(Data, Match, [{capture,none}]) of
+		    match -> yes;
+		    _ -> maybe
+		end
+	end,
+    get_and_put(CPid, [{getline_pred,F,Match}|T], N);
 get_and_put(CPid, [{putline_raw, Line}|T],N) ->
     ?dbg({putline_raw, Line}),
     CPid ! {self(), {send_line, Line}},
     Timeout = timeout(normal),
     receive
 	{send_line, ok} ->
-	     get_and_put(CPid, T,N+1)
+	    get_and_put(CPid, T,N+1)
     after Timeout ->
 	    error_logger:error_msg("~p: putline_raw timeout (~p) sending "
 				   "\"~s\" (command number ~p)~n",
@@ -1504,7 +1481,7 @@ get_and_put(CPid, [{putline, Line}|T],N) ->
     Timeout = timeout(normal),
     receive
 	{send_line, ok} ->
-	     get_and_put(CPid, [{getline, []}|T],N)
+	    get_and_put(CPid, [{getline, []}|T],N)
     after Timeout ->
 	    error_logger:error_msg("~p: putline timeout (~p) sending "
 				   "\"~s\" (command number ~p)~n[~p]~n",
@@ -1521,8 +1498,8 @@ wait_for_runerl_server(SPid) ->
     after Timeout ->
 	    {error, timeout}
     end.
-	
-    
+
+
 
 stop_runerl_node(CPid) ->
     Ref = erlang:monitor(process, CPid),
@@ -1573,11 +1550,11 @@ create_tempdir(Dir,X) when X > $Z, X < $a ->
     create_tempdir(Dir,$a);
 create_tempdir(Dir,X) when X > $z -> 
     Estr = lists:flatten(
-		     io_lib:format("Unable to create ~s, reason eexist",
-				   [Dir++[$z]])),
+	     io_lib:format("Unable to create ~s, reason eexist",
+			   [Dir++[$z]])),
     {error, Estr};
 create_tempdir(Dir0, Ch) ->
-    % Expect fairly standard unix.
+    %% Expect fairly standard unix.
     Dir = Dir0++[Ch],
     case file:make_dir(Dir) of
 	{error, eexist} ->
@@ -1615,8 +1592,8 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename,Extra) ->
 		   [];
 	       _ ->
 		   " -sname "++(if is_atom(Nodename) -> atom_to_list(Nodename);
-				  true -> Nodename 
-			       end)++
+				   true -> Nodename
+				end)++
 		       " -setcookie "++atom_to_list(erlang:get_cookie())
 	   end,
     XXArg = case Extra of
@@ -1627,9 +1604,9 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename,Extra) ->
 	    end,
     spawn(fun() ->
 		  ?dbg("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++
-		       " \""++Erl++XArg++XXArg++"\""),
+			   " \""++Erl++XArg++XXArg++"\""),
 		  os:cmd("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++
-			 " \""++Erl++XArg++XXArg++"\"")
+			     " \""++Erl++XArg++XXArg++"\"")
 	  end).
 
 start_toerl_server(ToErl,Tempdir) ->
@@ -1687,7 +1664,7 @@ toerl_loop(Port,Acc) ->
 		_ ->
 		    toerl_loop(Port,[{Tag0,Data}|Acc])
 	    end;
-	 {Pid,{get_line,Timeout}} ->
+	{Pid,{get_line,Timeout}} ->
 	    case Acc of
 		[] ->
 		    case get_data_within(Port,Timeout,[]) of
@@ -1736,11 +1713,10 @@ toerl_loop(Port,Acc) ->
 	Other ->
 	    {error, {unexpected, Other}}
     end.
-	
+
 millistamp() ->
-    {Mega, Secs, Micros} = erlang:now(),
-    (Micros div 1000) + Secs * 1000 + Mega * 1000000000.
-    
+    erlang:monotonic_time(milli_seconds).
+
 get_data_within(Port, X, Acc) when X =< 0 ->
     ?dbg({get_data_within, X, Acc, ?LINE}),
     receive
@@ -1773,10 +1749,22 @@ get_data_within(Port, Timeout, Acc) ->
     end.
 
 get_default_shell() ->
+    Match = fun(Data) ->
+		    case lists:prefix("undefined", Data) of
+			true ->
+			    yes;
+			false ->
+			    case re:run(Data, "<\\d+[.]\\d+[.]\\d+>",
+					[{capture,none}]) of
+				match -> no;
+				_ -> maybe
+			    end
+		    end
+	    end,
     try
 	rtnode([{putline,""},
 		{putline, "whereis(user_drv)."},
-		{getline, "undefined"}],[]),
+		{getline_pred, Match, "matching of user_drv pid"}], []),
 	old
     catch _E:_R ->
 	    ?dbg({_E,_R}),
@@ -1847,8 +1835,8 @@ request({get_until, Encoding, Prompt, M, F, As}, State) ->
     {ok, convert(State#state.nxt, Encoding, State#state.mode), State#state{nxt = eof, q = [{get_until, Encoding, Prompt, M, F, As} | State#state.q]}};
 request({get_chars, Encoding, Prompt, N}, State) ->
     {ok, convert(State#state.nxt, Encoding, State#state.mode), State#state{nxt = eof, 
-				      q = [{get_chars, Encoding, Prompt, N} | 
-					   State#state.q]}};
+									   q = [{get_chars, Encoding, Prompt, N} |
+										State#state.q]}};
 request({get_line, Encoding, Prompt}, State) ->
     {ok, convert(State#state.nxt, Encoding, State#state.mode), 
      State#state{nxt = eof, 
@@ -1880,7 +1868,7 @@ request(getopts, State) ->
 	     binary -> [{binary, true}]
 	 end, State#state{q=[getopts | State#state.q ]}};
 request({requests, Reqs}, State) ->
-     multi_request(Reqs, {ok, ok, State}).
+    multi_request(Reqs, {ok, ok, State}).
 
 multi_request([R|Rs], {ok, _Res, State}) ->
     multi_request(Rs, request(R, State));
@@ -1911,7 +1899,7 @@ convert(Data, latin1, binary) ->
 	_ ->
 	    {error, {cannot_convert, unicode, latin1}}
     end.
-	
+
 hostname() ->
     from($@, atom_to_list(node())).
 
@@ -1937,3 +1925,15 @@ chomp(<<Ch,Rest/binary>>) ->
     <<Ch,X/binary>>;
 chomp(Atom) ->
     Atom.
+
+do(Fun) ->
+    {_,Ref} = spawn_monitor(fun() ->
+				    exit(Fun())
+			    end),
+    Ref.
+
+done(Ref) ->
+    receive
+	{'DOWN',Ref,process,_,Result} ->
+	    Result
+    end.

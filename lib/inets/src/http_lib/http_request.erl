@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -21,8 +22,16 @@
 
 -include("http_internal.hrl").
 
--export([headers/2, http_headers/1, is_absolut_uri/1]).
+-export([headers/2, http_headers/1, is_absolut_uri/1, key_value/1]).
 
+
+key_value(KeyValueStr) ->
+    case lists:splitwith(fun($:) -> false; (_) -> true end, KeyValueStr) of
+	{Key, [$: | Value]} ->
+	    {http_util:to_lower(string:strip(Key)),  string:strip(Value)};
+	{_, []} -> 
+	    undefined
+    end.
 %%-------------------------------------------------------------------------
 %% headers(HeaderList, #http_request_h{}) -> #http_request_h{}
 %%   HeaderList - ["HeaderField:Value"]     	
@@ -34,17 +43,12 @@
 %%-------------------------------------------------------------------------
 headers([], Headers) ->
     Headers;
-headers([Header | Tail], Headers) ->  
-    case lists:splitwith(fun($:) -> false; (_) -> true end, Header) of
-	{Key, [$: | Value]}  ->
-	    headers(Tail, headers(http_util:to_lower(string:strip(Key)), 
-				  string:strip(Value), Headers));
-	{_, []} -> 
-	    Report = io_lib:format("Ignored invalid HTTP-header: ~p~n", 
-				   [Header]),
-	    error_logger:error_report(Report),
-	    headers(Tail, Headers)
-    end.
+headers([{Key, Value} | Tail], Headers) ->  
+    headers(Tail, headers(Key, Value, Headers));
+headers([undefined], Headers) -> 
+    Headers;
+headers(KeyValues, Headers) -> 
+    headers([key_value(KeyValue) || KeyValue <-  KeyValues], Headers).
 
 %%-------------------------------------------------------------------------
 %% headers(#http_request_h{}) -> HeaderList

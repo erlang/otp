@@ -10,10 +10,15 @@ f2() ->
     f2_line2.
 
 call_f2_when_isolated() ->
+    [Other] = nodes(),
+    net_kernel:disconnect(Other),
+    do_call_f2_when_isolated().
+
+do_call_f2_when_isolated() ->
     case nodes() of
 	[] ->
 	    f2();
 	_ ->
 	    timer:sleep(100),
-	    call_f2_when_isolated()
+	    do_call_f2_when_isolated()
     end.

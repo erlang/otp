@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -371,7 +372,7 @@ info(Tab) ->
       Item :: 'access' | 'auto_save' | 'bchunk_format'
             | 'hash' | 'file_size' | 'filename' | 'keypos' | 'memory'
             | 'no_keys' | 'no_objects' | 'no_slots' | 'owner' | 'ram_file'
-            | 'safe_fixed' | 'size' | 'type' | 'version',
+            | 'safe_fixed' | 'safe_fixed_monotonic_time' | 'size' | 'type' | 'version',
       Value :: term().
 
 info(Tab, owner) ->
@@ -440,9 +441,10 @@ insert(Tab, Objs) when is_list(Objs) ->
 insert(Tab, Obj) ->
     badarg(treq(Tab, {insert, [Obj]}), [Tab, Obj]).
 
--spec insert_new(Name, Objects) -> boolean() when
+-spec insert_new(Name, Objects) -> boolean() | {'error', Reason} when
       Name :: tab_name(),
-      Objects :: object() | [object()].
+      Objects :: object() | [object()],
+      Reason :: term().
 
 insert_new(Tab, Objs) when is_list(Objs) ->
     badarg(treq(Tab, {insert_new, Objs}), [Tab, Objs]);
@@ -469,7 +471,7 @@ is_compatible_bchunk_format(Tab, Term) ->
 is_dets_file(FileName) ->
     case catch read_file_header(FileName, read, false) of
 	{ok, Fd, FH} ->
-	    file:close(Fd),
+	    _ = file:close(Fd),
 	    FH#fileheader.cookie =:= ?MAGIC;
 	{error, {tooshort, _}} ->
 	    false;
@@ -951,10 +953,10 @@ do_trav(Proc, Acc, Fun) ->
 	    Error
     end.
     
-do_trav(#dets_cont{bin = eof}, _Proc, Acc, _Fun) ->
-    Acc;
 do_trav(State, Proc, Acc, Fun) ->
     case req(Proc, {match_init, State, safe}) of
+        '$end_of_table'->
+            Acc;
 	{cont, {Bins, NewState}} ->
 	    do_trav_bins(NewState, Proc, Acc, Fun, lists:reverse(Bins));
 	Error ->
@@ -1122,7 +1124,9 @@ repl({delayed_write, {Delay,Size} = C}, Defs)
     Defs#open_args{delayed_write = C};
 repl({estimated_no_objects, I}, Defs)  ->
     repl({min_no_slots, I}, Defs);
-repl({file, File}, Defs) ->
+repl({file, File}, Defs) when is_list(File) ->
+    Defs#open_args{file = File};
+repl({file, File}, Defs) when is_atom(File) ->
     Defs#open_args{file = to_list(File)};
 repl({keypos, P}, Defs) when is_integer(P), P > 0 ->
     Defs#open_args{keypos =P};
@@ -1287,7 +1291,15 @@ init(Parent, Server) ->
     open_file_loop(#head{parent = Parent, server = Server}).
 
 open_file_loop(Head) ->
-    open_file_loop(Head, 0).
+    %% The Dets server pretends the file is open before
+    %% internal_open() has been called, which means that unless the
+    %% internal_open message is applied first, other processes can
+    %% find the pid by calling dets_server:get_pid() and do things
+    %% before Head has been initialized properly.
+    receive
+        ?DETS_CALL(From, {internal_open, _Ref, _Args}=Op) ->
+            do_apply_op(Op, From, Head, 0)
+    end.
 
 open_file_loop(Head, N) when element(1, Head#head.update_mode) =:= error ->
     open_file_loop2(Head, N);
@@ -1384,7 +1396,8 @@ do_apply_op(Op, From, Head, N) ->
             end,
             if
                 From =/= self() ->
-                    From ! {self(), {error, {dets_bug, Name, Op, Bad}}};
+                    From ! {self(), {error, {dets_bug, Name, Op, Bad}}},
+                    ok;
                 true -> % auto_save | may_grow | {delayed_write, _}
                     ok
             end,
@@ -1634,7 +1647,8 @@ start_auto_save_timer(Head) when Head#head.auto_save =:= infinity ->
     ok;
 start_auto_save_timer(Head) ->
     Millis = Head#head.auto_save,
-    erlang:send_after(Millis, self(), ?DETS_CALL(self(), auto_save)).
+    _Ref = erlang:send_after(Millis, self(), ?DETS_CALL(self(), auto_save)),
+    ok.
 
 %% Version 9: Peek the message queue and try to evaluate several
 %% lookup requests in parallel. Evalute delete_object, delete and
@@ -1683,7 +1697,7 @@ stream_end(Head, Pids0, C, N, Next) ->
 	    %%  replies to delete and insert requests even if the
 	    %%  latter requests were made before the lookup requests,
 	    %%  which can be confusing.)
-	    lookup_replies(Found),
+	    _ = lookup_replies(Found),
 	    stream_end1(Pids0, Next, N, C, Head1, PwriteList);
 	Head1 when is_record(Head1, head) ->
 	    stream_end2(Pids0, Pids0, Next, N, C, Head1, ok);	    
@@ -1733,7 +1747,7 @@ lookup_replies(Q) ->
 lookup_replies(P, O, []) ->
     lookup_reply(P, O);
 lookup_replies(P, O, [{P2,O2} | L]) ->
-    lookup_reply(P, O),
+    _ = lookup_reply(P, O),
     lookup_replies(P2, lists:append(O2), L).
 
 %% If a list of Pid then op was {member, Key}. Inlined.
@@ -1783,6 +1797,7 @@ read_file_header(FileName, Access, RamFile) ->
         Version =:= 9 ->
             dets_v9:read_file_header(Fd, FileName);
         true ->
+            _ = file:close(Fd),
             throw({error, {not_a_dets_file, FileName}})
     end.
 
@@ -1790,12 +1805,15 @@ fclose(Head) ->
     {Head1, Res} = perform_save(Head, false),
     case Head1#head.ram_file of
 	true -> 
-	    ignore;
+            Res;
 	false -> 
             dets_utils:stop_disk_map(),
-	    file:close(Head1#head.fptr)
-    end,
-    Res.
+	    Res2 = file:close(Head1#head.fptr),
+            if
+                Res2 =:= ok -> Res;
+                true -> Res2
+            end
+    end.
 
 %% -> {NewHead, Res}
 perform_save(Head, DoSync) when Head#head.update_mode =:= dirty;
@@ -1956,7 +1974,9 @@ do_safe_fixtable(Head, Pid, true) ->
     case Head#head.fixed of 
 	false -> 
 	    link(Pid),
-	    Fixed = {erlang:now(), [{Pid, 1}]},
+	    MonTime = erlang:monotonic_time(),
+	    TimeOffset = erlang:time_offset(),
+	    Fixed = {{MonTime, TimeOffset}, [{Pid, 1}]},
 	    Ftab = dets_utils:get_freelists(Head),
 	    Head#head{fixed = Fixed, freelists = {Ftab, Ftab}};
 	{TimeStamp, Counters} ->
@@ -2002,7 +2022,7 @@ remove_fix(Head, Pid, How) ->
     end.
 
 do_stop(Head) ->
-    unlink_fixing_procs(Head),
+    _NewHead = unlink_fixing_procs(Head),
     fclose(Head).
 
 unlink_fixing_procs(Head) ->
@@ -2010,7 +2030,7 @@ unlink_fixing_procs(Head) ->
 	false ->
 	    Head;
 	{_, Counters} ->
-	    lists:map(fun({Pid, _Counter}) -> unlink(Pid) end, Counters),
+	    lists:foreach(fun({Pid, _Counter}) -> unlink(Pid) end, Counters),
 	    Head#head{fixed = false, 
 		      freelists = dets_utils:get_freelists(Head)}
     end.
@@ -2021,8 +2041,9 @@ check_growth(Head) ->
     NoThings = no_things(Head),
     if
 	NoThings > Head#head.next ->
-	    erlang:send_after(200, self(), 
-			      ?DETS_CALL(self(), may_grow)); % Catch up.
+	    _Ref = erlang:send_after
+                     (200, self(), ?DETS_CALL(self(), may_grow)), % Catch up.
+            ok;
 	true ->
 	    ok
     end.
@@ -2082,7 +2103,22 @@ finfo(H, no_keys) ->
 finfo(H, no_slots) -> {H, (H#head.mod):no_slots(H)};
 finfo(H, pid) -> {H, self()};
 finfo(H, ram_file) -> {H, H#head.ram_file};
-finfo(H, safe_fixed) -> {H, H#head.fixed};
+finfo(H, safe_fixed) ->
+    {H,
+     case H#head.fixed of
+	 false ->
+	     false;
+	 {{FixMonTime, TimeOffset}, RefList} ->
+	     {make_timestamp(FixMonTime, TimeOffset), RefList}
+     end};
+finfo(H, safe_fixed_monotonic_time) ->
+    {H,
+     case H#head.fixed of
+	 false ->
+	     false;
+	 {{FixMonTime, _TimeOffset}, RefList} ->
+	     {FixMonTime, RefList}
+     end};
 finfo(H, size) -> 
     case catch write_cache(H) of
 	{H2, []} ->
@@ -2107,6 +2143,8 @@ test_bchunk_format(Head, Term) ->
 
 do_open_file([Fname, Verbose], Parent, Server, Ref) ->
     case catch fopen2(Fname, Ref) of
+	{error, {tooshort, _}} ->
+            err({error, {not_a_dets_file, Fname}});
 	{error, _Reason} = Error ->
 	    err(Error);
 	{ok, Head} ->
@@ -2120,11 +2158,10 @@ do_open_file([Fname, Verbose], Parent, Server, Ref) ->
 	       [Bad]),
 	    {error, {dets_bug, Fname, Bad}}
     end;
-do_open_file([Tab, OpenArgs, Verb], Parent, Server, Ref) ->
+do_open_file([Tab, OpenArgs, Verb], Parent, Server, _Ref) ->
     case catch fopen3(Tab, OpenArgs) of
 	{error, {tooshort, _}} ->
-	    file:delete(OpenArgs#open_args.file),
-	    do_open_file([Tab, OpenArgs, Verb], Parent, Server, Ref);
+            err({error, {not_a_dets_file, OpenArgs#open_args.file}});
 	{error, _Reason} = Error ->
 	    err(Error);
 	{ok, Head} ->
@@ -2480,7 +2517,6 @@ fopen2(Fname, Tab) ->
 	{ok, _} ->
 	    Acc = read_write,
 	    Ram = false, 
-	    %% Fd is not always closed upon error, but exit is soon called.
 	    {ok, Fd, FH} = read_file_header(Fname, Acc, Ram),
             Mod = FH#fileheader.mod,
             Do = case Mod:check_file_header(FH, Fd) of
@@ -2536,7 +2572,6 @@ fopen_existing_file(Tab, OpenArgs) ->
                ram_file = Ram, delayed_write = CacheSz, auto_save =
                Auto, access = Acc, version = Version, debug = Debug} =
         OpenArgs,
-    %% Fd is not always closed upon error, but exit is soon called.
     {ok, Fd, FH} = read_file_header(Fname, Acc, Ram),
     V9 = (Version =:= 9) or (Version =:= default),
     MinF = (MinSlots =:= default) or (MinSlots =:= FH#fileheader.min_no_slots),
@@ -2671,11 +2706,11 @@ fopen_init_file(Tab, OpenArgs) ->
     case catch Mod:initiate_file(Fd, Tab, Fname, Type, Kp, MinSlots, MaxSlots,
 				 Ram, CacheSz, Auto, true) of
 	{error, Reason} when Ram ->
-	    file:close(Fd),
+	    _ = file:close(Fd),
 	    throw({error, Reason});
 	{error, Reason} ->
-	    file:close(Fd),
-	    file:delete(Fname),
+	    _ = file:close(Fd),
+	    _ = file:delete(Fname),
 	    throw({error, Reason});
 	{ok, Head} ->
 	    start_auto_save_timer(Head),
@@ -2730,8 +2765,8 @@ compact(SourceHead) ->
 	       {ok, H} ->
 		   H;
 	       Error ->
-		   file:close(Fd),
-                   file:delete(Tmp),
+		   _ = file:close(Fd),
+                   _ = file:delete(Tmp),
 		   throw(Error)
 	   end,
 
@@ -2748,12 +2783,12 @@ compact(SourceHead) ->
 	    if 
 		R =:= ok -> ok;
 		true ->
-		    file:delete(Tmp),
+		    _ = file:delete(Tmp),
 		    throw(R)
 	    end;
 	Err ->
-	    file:close(Fd),
-            file:delete(Tmp),
+	    _ = file:close(Fd),
+            _ = file:delete(Tmp),
 	    throw(Err)
     end.
 	    
@@ -2777,7 +2812,7 @@ fsck(Fd, Tab, Fname, FH, MinSlotsArg, MaxSlotsArg, Version) ->
 	    BetterSlotNumbers = {MinSlots, BetterNoSlots, MaxSlots},
             case fsck_try(Fd, Tab, FH, Fname, BetterSlotNumbers, Version) of
                 {try_again, _} ->
-                    file:close(Fd),
+                    _ = file:close(Fd),
                     {error, {cannot_repair, Fname}};
                 Else ->
                     Else
@@ -2818,31 +2853,36 @@ fsck_try(Fd, Tab, FH, Fname, SlotNumbers, Version) ->
                     if 
 			R =:= ok -> ok;
 			true ->
-			    file:delete(Tmp),
+			    _ = file:delete(Tmp),
 			    R
 		    end;
 		TryAgainOrError ->
-                    file:delete(Tmp),
+                    _ = file:delete(Tmp),
                     TryAgainOrError
             end;
 	Error -> 
-	    file:close(Fd),
+	    _ = file:close(Fd),
 	    Error
     end.
 
 tempfile(Fname) ->
     Tmp = lists:concat([Fname, ".TMP"]),
-    tempfile(Tmp, 10).
-
-tempfile(Tmp, 0) ->
-    Tmp;
-tempfile(Tmp, N) ->
     case file:delete(Tmp) of
-        {error, eacces} -> % 'dets_process_died' happened anyway... (W-nd-ws)
-            timer:sleep(1000),
-            tempfile(Tmp, N-1);
-        _ ->
-            Tmp
+        {error, _Reason} -> % typically enoent
+            ok;
+        ok ->
+            assure_no_file(Tmp)
+    end,
+    Tmp.
+
+assure_no_file(File) ->
+    case file:read_file_info(File) of
+        {ok, _FileInfo} ->
+            %% Wait for some other process to close the file:
+            timer:sleep(100),
+            assure_no_file(File);
+        {error, _} ->
+            ok
     end.
 
 %% -> {ok, NewHead} | {try_again, integer()} | Error
@@ -2855,13 +2895,13 @@ fsck_try_est(Head, Fd, Fname, SlotNumbers, FH) ->
     Bulk = false,
     case Reply of 
         {ok, NoDups, H1} ->
-            file:close(Fd),
+            _ = file:close(Fd),
             fsck_copy(SizeData, H1, Bulk, NoDups);
         {try_again, _} = Return ->
             close_files(Bulk, SizeData, Head),
             Return;
         Else ->
-            file:close(Fd),
+            _ = file:close(Fd),
             close_files(Bulk, SizeData, Head),
 	    Else
     end.
@@ -2896,14 +2936,20 @@ fsck_copy1([SzData | L], Head, Bulk, NoDups) ->
     {LogSz, Pos, {FileName, Fd}, NoObjects} = SzData,
     Size = if NoObjects =:= 0 -> 0; true -> ?POW(LogSz-1) end,
     ExpectedSize = Size * NoObjects,
-    close_tmp(Fd),
-    case file:position(Out, Pos) of
-	{ok, Pos} -> ok;
-	PError -> dets_utils:file_error(FileName, PError)
+    case close_tmp(Fd) of
+        ok -> ok;
+        Err ->
+	    close_files(Bulk, L, Head),
+	    dets_utils:file_error(FileName, Err)
     end,
-    {ok, Pos} = file:position(Out, Pos),
+    case file:position(Out, Pos) of
+        {ok, Pos} -> ok;
+        Err2 ->
+	    close_files(Bulk, L, Head),
+	    dets_utils:file_error(Head#head.filename, Err2)
+        end,
     CR = file:copy({FileName, [raw,binary]}, Out),
-    file:delete(FileName),
+    _ = file:delete(FileName),
     case CR of 
 	{ok, Copied} when Copied =:= ExpectedSize;
 			  NoObjects =:= 0 -> % the segments
@@ -2937,11 +2983,11 @@ free_n_objects(Head, Addr, Size, N) ->
     free_n_objects(NewHead, NewAddr, Size, N-1).
 
 close_files(false, SizeData, Head) ->
-    file:close(Head#head.fptr),
+    _ = file:close(Head#head.fptr),
     close_files(true, SizeData, Head);
 close_files(true, SizeData, _Head) ->
     Fun = fun({_Size, _Pos, {FileName, Fd}, _No}) ->
-		  close_tmp(Fd),
+		  _ = close_tmp(Fd),
 		  file:delete(FileName);
 	     (_) ->
 		  ok
@@ -3070,14 +3116,14 @@ update_cache(Head, ToAdd) ->
 	    {Head1, Found, []};
 	Cache#cache.wrtime =:= undefined ->
 	    %% Empty cache. Schedule a delayed write.
-	    Now = now(), Me = self(),
+	    Now = time_now(), Me = self(),
 	    Call = ?DETS_CALL(Me, {delayed_write, Now}),
 	    erlang:send_after(Cache#cache.delay, Me, Call),
 	    {Head1#head{cache = NewCache#cache{wrtime = Now}}, Found, []};
 	Size0 =:= 0 ->
 	    %% Empty cache that has been written after the
 	    %% currently scheduled delayed write.
-	    {Head1#head{cache = NewCache#cache{wrtime = now()}}, Found, []};
+	    {Head1#head{cache = NewCache#cache{wrtime = time_now()}}, Found, []};
 	true ->
 	    %% Cache is not empty, delayed write has been scheduled.
 	    {Head1, Found, []}
@@ -3140,11 +3186,7 @@ delayed_write(Head, WrTime) ->
 		    Head#head{cache = NewCache};
 		true ->
 		    %% Yes, schedule a new delayed write.
-		    {MS1,S1,M1} = WrTime,
-		    {MS2,S2,M2} = LastWrTime,
-		    WrT = M1+1000000*(S1+1000000*MS1),
-		    LastWrT = M2+1000000*(S2+1000000*MS2),
-		    When = round((LastWrT - WrT)/1000), Me = self(),
+		    When = round((LastWrTime - WrTime)/1000), Me = self(),
 		    Call = ?DETS_CALL(Me, {delayed_write, LastWrTime}),
 		    erlang:send_after(When, Me, Call),
 		    Head
@@ -3256,12 +3298,25 @@ err(Error) ->
 	    Error
     end.
 
+-compile({inline, [time_now/0]}).
+time_now() ->
+    erlang:monotonic_time(1000000).
+
+make_timestamp(MonTime, TimeOffset) ->
+    ErlangSystemTime = erlang:convert_time_unit(MonTime+TimeOffset,
+						native,
+						micro_seconds),
+    MegaSecs = ErlangSystemTime div 1000000000000,
+    Secs = ErlangSystemTime div 1000000 - MegaSecs*1000000,
+    MicroSecs = ErlangSystemTime rem 1000000,
+    {MegaSecs, Secs, MicroSecs}.
+
 %%%%%%%%%%%%%%%%%  DEBUG functions %%%%%%%%%%%%%%%%
 
 file_info(FileName) ->
     case catch read_file_header(FileName, read, false) of
 	{ok, Fd, FH} ->
-	    file:close(Fd),
+	    _ = file:close(Fd),
             (FH#fileheader.mod):file_info(FH);
 	Other ->
 	    Other
@@ -3290,7 +3345,7 @@ view(FileName) ->
                         X ->
                             X
                     end
-            after file:close(Fd)
+            after _ = file:close(Fd)
             end;
 	X -> 
 	    X

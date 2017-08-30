@@ -8,7 +8,7 @@
 -module(trec).
 -export([test/0, mk_foo_exp/2]).
 
--record(foo, {a :: integer(), b :: [atom()]}).
+-record(foo, {a :: integer() | 'undefined', b :: [atom()]}).
 
 %%
 %% For these functions we currently get the following warnings:
@@ -18,20 +18,22 @@
 %%      ('undefined',atom())
 %%   3. Function mk_foo_loc/2 has no local return
 %%
-%% Arguably, the second warning is not what most users have in mind
-%% when they wrote the type declarations in the 'foo' record, so no
-%% doubt they'll find it confusing. But note that it is also inconsistent!
-%% How come there is a success typing for a function that has no local return?
+%% Arguably, the second warning is not what most users have in mind when
+%% they wrote the type declarations in the 'foo' record, so no doubt
+%% they'll find it confusing. But note that it is also quite confusing!
+%% Many users may be wondering: How come there is a success typing for a
+%% function that has no local return? Running typer on this module
+%% reveals a success typing for this function that is interesting indeed.
 %%
 test() ->
-   mk_foo_loc(42, bar:f()).
+   mk_foo_loc(42, some_mod:some_function()).
 
 mk_foo_loc(A, B) ->
     #foo{a = A, b = [A,B]}.
 
 %%
-%% For this function we currently get "has no local return" but we get
-%% no reason; I want us to get a reason.
+%% For this function we used to get a "has no local return" warning
+%% but we got no reason. This has now been fixed.
 %%
 mk_foo_exp(A, B) when is_integer(A) ->
     #foo{a = A, b = [A,B]}.

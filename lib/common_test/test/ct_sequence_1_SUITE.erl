@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -182,16 +183,15 @@ test_events(subgroup_return_fail) ->
        {?eh,test_stats,{0,1,{0,0}}},
        {?eh,tc_start,
 	{subgroups_1_SUITE,{end_per_group,return_fail,[]}}},
-       {?eh,tc_done,{subgroups_1_SUITE,{end_per_group,return_fail,[]},
-		     {return_group_result,failed}}}],
+       {?eh,tc_done,{subgroups_1_SUITE,{end_per_group,return_fail,[]},ok}}],
       {?eh,tc_auto_skip,
-       {subgroups_1_SUITE,ok_tc,{group_result,return_fail,failed}}},
+       {subgroups_1_SUITE,{ok_tc,ok_group},
+	{group_result,return_fail,failed}}},
       {?eh,test_stats,{0,1,{0,1}}},
       {?eh,tc_start,
        {subgroups_1_SUITE,{end_per_group,subgroup_return_fail,[sequence]}}},
       {?eh,tc_done,
-       {subgroups_1_SUITE,{end_per_group,subgroup_return_fail,[sequence]},
-	{return_group_result,failed}}}],
+       {subgroups_1_SUITE,{end_per_group,subgroup_return_fail,[sequence]},ok}}],
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -208,19 +208,19 @@ test_events(subgroup_init_fail) ->
       [{?eh,tc_start,{subgroups_1_SUITE,{init_per_group,fail_init,[]}}},
        {?eh,tc_done,{subgroups_1_SUITE,{init_per_group,fail_init,[]},
 		     {failed,{error,init_per_group_fails_on_purpose}}}},
-       {?eh,tc_auto_skip,{subgroups_1_SUITE,ok_tc,
+       {?eh,tc_auto_skip,{subgroups_1_SUITE,{ok_tc,fail_init},
 			  {failed,{subgroups_1_SUITE,init_per_group,
 				   {'EXIT',init_per_group_fails_on_purpose}}}}},
        {?eh,test_stats,{0,0,{0,1}}},
-       {?eh,tc_auto_skip,{subgroups_1_SUITE,end_per_group,
+       {?eh,tc_auto_skip,{subgroups_1_SUITE,{end_per_group,fail_init},
              {failed,{subgroups_1_SUITE,init_per_group,
 		      {'EXIT',init_per_group_fails_on_purpose}}}}}],
-      {?eh,tc_auto_skip,{subgroups_1_SUITE,ok_tc,{group_result,fail_init,failed}}},
+      {?eh,tc_auto_skip,{subgroups_1_SUITE,{ok_tc,ok_group},
+			 {group_result,fail_init,failed}}},
       {?eh,test_stats,{0,0,{0,2}}},
       {?eh,tc_start,{subgroups_1_SUITE,{end_per_group,subgroup_init_fail,[sequence]}}},
       {?eh,tc_done,{subgroups_1_SUITE,
-		    {end_per_group,subgroup_init_fail,[sequence]},
-		    {return_group_result,failed}}}],
+		    {end_per_group,subgroup_init_fail,[sequence]},ok}}],
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -237,13 +237,13 @@ test_events(subgroup_after_failed_case) ->
       {?eh,tc_start,{subgroups_1_SUITE,failing_tc}},
       {?eh,tc_done,{subgroups_1_SUITE,failing_tc,{failed,{error,{{badmatch,3},'_'}}}}},
       {?eh,test_stats,{0,1,{0,0}}},
-      {?eh,tc_auto_skip,{subgroups_1_SUITE,ok_tc,{failed,{subgroups_1_SUITE,failing_tc}}}},
+      {?eh,tc_auto_skip,{subgroups_1_SUITE,{ok_tc,ok_group},
+			 {failed,{subgroups_1_SUITE,failing_tc}}}},
       {?eh,test_stats,{0,1,{0,1}}},
       {?eh,tc_start,{subgroups_1_SUITE,
 		     {end_per_group,subgroup_after_failed_case,[sequence]}}},
       {?eh,tc_done,{subgroups_1_SUITE,
-		    {end_per_group,subgroup_after_failed_case,[sequence]},
-		    {return_group_result,failed}}}],
+		    {end_per_group,subgroup_after_failed_case,[sequence]},ok}}],
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
 ];
@@ -263,15 +263,14 @@ test_events(case_after_subgroup_return_fail) ->
        {?eh,tc_done,{subgroups_1_SUITE,failing_tc,{failed,{error,{{badmatch,3},'_'}}}}},
        {?eh,test_stats,{0,1,{0,0}}},
        {?eh,tc_start,{subgroups_1_SUITE,{end_per_group,return_fail,[]}}},
-       {?eh,tc_done,{subgroups_1_SUITE,{end_per_group,return_fail,[]},
-		     {return_group_result,failed}}}],
-      {?eh,tc_auto_skip,{subgroups_1_SUITE,ok_tc,{group_result,return_fail,failed}}},
+       {?eh,tc_done,{subgroups_1_SUITE,{end_per_group,return_fail,[]},ok}}],
+      {?eh,tc_auto_skip,{subgroups_1_SUITE,{ok_tc,case_after_subgroup_return_fail},
+			 {group_result,return_fail,failed}}},
       {?eh,test_stats,{0,1,{0,1}}},
       {?eh,tc_start,{subgroups_1_SUITE,
 		     {end_per_group,case_after_subgroup_return_fail,[sequence]}}},
       {?eh,tc_done,{subgroups_1_SUITE,
-		    {end_per_group,case_after_subgroup_return_fail,[sequence]},
-		    {return_group_result,failed}}}],
+		    {end_per_group,case_after_subgroup_return_fail,[sequence]},ok}}],
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -289,24 +288,24 @@ test_events(case_after_subgroup_fail_init) ->
        {?eh,tc_done,{subgroups_1_SUITE,
 		     {init_per_group,fail_init,[]},
 		     {failed,{error,init_per_group_fails_on_purpose}}}},
-       {?eh,tc_auto_skip,{subgroups_1_SUITE,ok_tc,
+       {?eh,tc_auto_skip,{subgroups_1_SUITE,{ok_tc,fail_init},
 			  {failed,
 			   {subgroups_1_SUITE,init_per_group,
 			    {'EXIT',init_per_group_fails_on_purpose}}}}},
        {?eh,test_stats,{0,0,{0,1}}},
-       {?eh,tc_auto_skip,{subgroups_1_SUITE,end_per_group,
+       {?eh,tc_auto_skip,{subgroups_1_SUITE,{end_per_group,fail_init},
 			  {failed,
 			   {subgroups_1_SUITE,init_per_group,
 			    {'EXIT',init_per_group_fails_on_purpose}}}}}],
 
       {?eh,tc_auto_skip,
-       {subgroups_1_SUITE,ok_tc,{group_result,fail_init,failed}}},
+       {subgroups_1_SUITE,{ok_tc,case_after_subgroup_fail_init},
+	{group_result,fail_init,failed}}},
       {?eh,test_stats,{0,0,{0,2}}},
       {?eh,tc_start,{subgroups_1_SUITE,
 		     {end_per_group,case_after_subgroup_fail_init,[sequence]}}},
       {?eh,tc_done,{subgroups_1_SUITE,
-		    {end_per_group,case_after_subgroup_fail_init,[sequence]},
-		    {return_group_result,failed}}}],
+		    {end_per_group,case_after_subgroup_fail_init,[sequence]},ok}}],
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ].

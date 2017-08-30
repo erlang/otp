@@ -1,0 +1,248 @@
+   CryptographicMessageSyntaxAlgorithms-2009
+       { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+       smime(16) modules(0) id-mod-cmsalg-2001-02(37) }
+   DEFINITIONS IMPLICIT TAGS ::=
+   BEGIN
+   IMPORTS
+
+   ParamOptions, DIGEST-ALGORITHM, SIGNATURE-ALGORITHM,
+      PUBLIC-KEY, KEY-DERIVATION, KEY-WRAP, MAC-ALGORITHM,
+      KEY-AGREE, KEY-TRANSPORT, CONTENT-ENCRYPTION, ALGORITHM,
+      AlgorithmIdentifier{}, SMIME-CAPS
+   FROM AlgorithmInformation-2009
+       {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+       mechanisms(5) pkix(7) id-mod(0)
+       id-mod-algorithmInformation-02(58)}
+
+   pk-rsa, pk-dh, pk-dsa, rsaEncryption, DHPublicKey, dhpublicnumber
+   FROM PKIXAlgs-2009
+        {iso(1) identified-organization(3) dod(6)
+        internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+        id-mod-pkix1-algorithms2008-02(56)}
+
+   cap-RC2CBC
+   FROM SecureMimeMessageV3dot1-2009
+        {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+        smime(16) modules(0) id-mod-msg-v3dot1-02(39)};
+
+   --  2. Hash algorithms in this document
+
+   MessageDigestAlgs DIGEST-ALGORITHM ::= {
+   --   mda-md5 | mda-sha1,
+        ... }
+
+   --  3. Signature algorithms in this document
+
+   SignatureAlgs SIGNATURE-ALGORITHM ::= {
+   --  See RFC 3279
+   --  sa-dsaWithSHA1 |  sa-rsaWithMD5 | sa-rsaWithSHA1,
+       ... }
+
+   --  4.  Key Management Algorithms
+   --  4.1 Key Agreement Algorithms
+
+   KeyAgreementAlgs KEY-AGREE ::= { kaa-esdh | kaa-ssdh, ...}
+   KeyAgreePublicKeys PUBLIC-KEY ::= { pk-dh, ...}
+
+   --  4.2  Key Transport Algorithms
+
+   KeyTransportAlgs KEY-TRANSPORT ::= { kt-rsa, ... }
+
+   --  4.3  Symmetric Key-Encryption Key Algorithms
+
+   KeyWrapAlgs KEY-WRAP ::= { kwa-3DESWrap | kwa-RC2Wrap, ... }
+
+   --  4.4  Key Derivation Algorithms
+
+   KeyDerivationAlgs KEY-DERIVATION ::= { kda-PBKDF2, ... }
+
+   --  5.  Content Encryption Algorithms
+
+   ContentEncryptionAlgs CONTENT-ENCRYPTION ::=
+       { cea-3DES-cbc | cea-RC2-cbc, ... }
+
+   --  6.  Message Authentication Code Algorithms
+
+   MessageAuthAlgs MAC-ALGORITHM ::= { maca-hMAC-SHA1, ... }
+
+   --  S/MIME Capabilities for these items
+
+   SMimeCaps SMIME-CAPS ::= {
+       kaa-esdh.&smimeCaps         |
+       kaa-ssdh.&smimeCaps         |
+       kt-rsa.&smimeCaps           |
+       kwa-3DESWrap.&smimeCaps     |
+       kwa-RC2Wrap.&smimeCaps      |
+       cea-3DES-cbc.&smimeCaps     |
+       cea-RC2-cbc.&smimeCaps      |
+       maca-hMAC-SHA1.&smimeCaps,
+       ...}
+
+   --
+   --
+   --
+
+   -- Algorithm Identifiers
+
+   -- rsaEncryption OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+   --    us(840) rsadsi(113549) pkcs(1) pkcs-1(1) 1 }
+
+   id-alg-ESDH OBJECT IDENTIFIER ::= { iso(1) member-body(2) us(840)
+      rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) alg(3) 5 }
+
+   id-alg-SSDH OBJECT IDENTIFIER ::= { iso(1) member-body(2) us(840)
+      rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) alg(3) 10 }
+
+   id-alg-CMS3DESwrap OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+      us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) alg(3) 6 }
+
+   id-alg-CMSRC2wrap OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+      us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) alg(3) 7 }
+
+   des-ede3-cbc OBJECT IDENTIFIER ::= { iso(1) member-body(2)
+      us(840) rsadsi(113549) encryptionAlgorithm(3) 7 }
+
+   rc2-cbc OBJECT IDENTIFIER ::= { iso(1) member-body(2) us(840)
+      rsadsi(113549) encryptionAlgorithm(3) 2 }
+
+   hMAC-SHA1 OBJECT IDENTIFIER ::= { iso(1) identified-organization(3)
+      dod(6) internet(1) security(5) mechanisms(5) 8 1 2 }
+
+   id-PBKDF2 OBJECT IDENTIFIER ::= { iso(1) member-body(2) us(840)
+      rsadsi(113549) pkcs(1) pkcs-5(5) 12 }
+
+   -- Algorithm Identifier Parameter Types
+
+   KeyWrapAlgorithm ::=
+       AlgorithmIdentifier {KEY-WRAP, {KeyWrapAlgs }}
+
+   RC2wrapParameter ::= RC2ParameterVersion
+   RC2ParameterVersion ::= INTEGER
+
+   CBCParameter ::= IV
+
+   IV ::= OCTET STRING  -- exactly 8 octets
+
+   RC2CBCParameter ::= SEQUENCE {
+       rc2ParameterVersion INTEGER (1..256),
+       iv OCTET STRING  }  -- exactly 8 octets
+
+   maca-hMAC-SHA1 MAC-ALGORITHM ::= {
+       IDENTIFIER hMAC-SHA1
+       PARAMS TYPE NULL ARE preferredAbsent
+       IS-KEYED-MAC TRUE
+       SMIME-CAPS {IDENTIFIED BY hMAC-SHA1}
+   }
+
+   PBKDF2-PRFsAlgorithmIdentifier ::= AlgorithmIdentifier{ ALGORITHM,
+                                          {PBKDF2-PRFs} }
+
+   alg-hMAC-SHA1 ALGORITHM ::=
+       { IDENTIFIER hMAC-SHA1 PARAMS TYPE NULL ARE required }
+
+   PBKDF2-PRFs ALGORITHM ::= { alg-hMAC-SHA1, ... }
+
+   PBKDF2-SaltSources ALGORITHM ::= { ... }
+
+   PBKDF2-SaltSourcesAlgorithmIdentifier ::=
+       AlgorithmIdentifier {ALGORITHM, {PBKDF2-SaltSources}}
+
+   defaultPBKDF2 PBKDF2-PRFsAlgorithmIdentifier ::=
+       { algorithm alg-hMAC-SHA1.&id, parameters NULL:NULL }
+
+   PBKDF2-params ::= SEQUENCE {
+       salt CHOICE {
+           specified OCTET STRING,
+           otherSource PBKDF2-SaltSourcesAlgorithmIdentifier },
+       iterationCount INTEGER (1..MAX),
+       keyLength INTEGER (1..MAX) OPTIONAL,
+       prf PBKDF2-PRFsAlgorithmIdentifier DEFAULT
+               defaultPBKDF2
+           }
+
+   --
+   --  This object is included for completeness.  It should not be used
+   --      for encoding of signatures, but was sometimes used in older
+   --      versions of CMS for encoding of RSA signatures.
+   --
+   --
+   -- sa-rsa SIGNATURE-ALGORITHM ::= {
+   --         IDENTIFIER rsaEncryption
+   --         - - value is not ASN.1 encoded
+   --         PARAMS TYPE NULL ARE required
+   --         HASHES {mda-sha1 | mda-md5, ...}
+   --         PUBLIC-KEYS { pk-rsa}
+   -- }
+   --
+   -- No ASN.1 encoding is applied to the signature value
+   --    for these items
+
+   kaa-esdh KEY-AGREE ::= {
+        IDENTIFIER id-alg-ESDH
+        PARAMS TYPE KeyWrapAlgorithm ARE required
+        PUBLIC-KEYS { pk-dh }
+        -- UKM is not ASN.1 encoded
+        UKM ARE optional
+        SMIME-CAPS {TYPE KeyWrapAlgorithm IDENTIFIED BY id-alg-ESDH}
+   }
+
+   kaa-ssdh KEY-AGREE ::= {
+        IDENTIFIER id-alg-SSDH
+        PARAMS TYPE KeyWrapAlgorithm ARE required
+        PUBLIC-KEYS {pk-dh}
+        -- UKM is not ASN.1 encoded
+        UKM ARE optional
+        SMIME-CAPS {TYPE KeyWrapAlgorithm IDENTIFIED BY id-alg-SSDH}
+   }
+
+   dh-public-number OBJECT IDENTIFIER ::= dhpublicnumber
+
+   pk-originator-dh PUBLIC-KEY ::= {
+       IDENTIFIER dh-public-number
+       KEY DHPublicKey
+       PARAMS ARE absent
+       CERT-KEY-USAGE {keyAgreement, encipherOnly, decipherOnly}
+   }
+
+   kwa-3DESWrap KEY-WRAP ::= {
+        IDENTIFIER id-alg-CMS3DESwrap
+        PARAMS TYPE NULL ARE required
+        SMIME-CAPS {IDENTIFIED BY id-alg-CMS3DESwrap}
+   }
+
+   kwa-RC2Wrap KEY-WRAP ::= {
+        IDENTIFIER id-alg-CMSRC2wrap
+        PARAMS TYPE RC2wrapParameter ARE required
+        SMIME-CAPS { IDENTIFIED BY id-alg-CMSRC2wrap }
+   }
+
+   kda-PBKDF2 KEY-DERIVATION ::= {
+       IDENTIFIER id-PBKDF2
+       PARAMS TYPE PBKDF2-params ARE required
+       -- No S/MIME caps defined
+   }
+
+   cea-3DES-cbc CONTENT-ENCRYPTION ::= {
+       IDENTIFIER des-ede3-cbc
+       PARAMS TYPE IV ARE required
+       SMIME-CAPS { IDENTIFIED BY des-ede3-cbc }
+   }
+
+   cea-RC2-cbc CONTENT-ENCRYPTION ::= {
+       IDENTIFIER rc2-cbc
+       PARAMS TYPE RC2CBCParameter ARE required
+       SMIME-CAPS cap-RC2CBC
+   }
+
+   kt-rsa KEY-TRANSPORT ::= {
+       IDENTIFIER rsaEncryption
+       PARAMS TYPE NULL ARE required
+       PUBLIC-KEYS { pk-rsa }
+       SMIME-CAPS {IDENTIFIED BY rsaEncryption}
+   }
+
+   --  S/MIME Capabilities - most have no label.
+
+   cap-3DESwrap SMIME-CAPS ::= { IDENTIFIED BY id-alg-CMS3DESwrap }
+
+   END

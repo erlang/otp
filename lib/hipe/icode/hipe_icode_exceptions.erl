@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -84,7 +85,7 @@
 
 %%----------------------------------------------------------------------------
 
--spec fix_catches(#cfg{}) -> #cfg{}.
+-spec fix_catches(cfg()) -> cfg().
 
 fix_catches(CFG) ->
   {Map, State} = build_mapping(find_catches(init_state(CFG))),
@@ -392,24 +393,19 @@ get_renaming(C, Map) ->
 %%---------------------------------------------------------------------
 %% State abstraction
 
--record(state, {cfg					:: #cfg{},
+-record(state, {cfg					:: cfg(),
 		changed = false				:: boolean(),
-		succ					:: #cfg{},
-		pred					:: #cfg{},
+		succ					:: cfg(),
+		pred					:: cfg(),
 		start_labels				:: [icode_lbl(),...],
-		visited = hipe_icode_cfg:none_visited()	:: gb_set(),
-		out     = gb_trees:empty()		:: gb_tree(),
-		in      = gb_trees:empty()		:: gb_tree()
+		visited = hipe_icode_cfg:none_visited()	:: gb_sets:set(),
+		out     = gb_trees:empty()		:: gb_trees:tree(),
+		in      = gb_trees:empty()		:: gb_trees:tree()
 	       }).
 
 init_state(CFG) ->
-  State = #state{cfg = CFG},
-  refresh_state_cache(State).
-
-refresh_state_cache(State) ->
-  CFG = State#state.cfg,
   SLs = [hipe_icode_cfg:start_label(CFG)],
-  State#state{succ = CFG, pred = CFG, start_labels = SLs}.
+  #state{cfg = CFG, succ = CFG, pred = CFG, start_labels = SLs}.
 
 get_cfg(State) ->
   State#state.cfg.
@@ -465,7 +461,8 @@ get_bb_code(L, State) ->
 set_bb_code(L, Code, State) ->
   CFG = State#state.cfg,
   CFG1 = hipe_icode_cfg:bb_add(CFG, L, hipe_bb:mk_bb(Code)),
-  refresh_state_cache(State#state{cfg = CFG1}).
+  SLs = [hipe_icode_cfg:start_label(CFG1)],
+  State#state{cfg = CFG1, succ = CFG1, pred = CFG1, start_labels = SLs}.
 
 get_new_catches_in(L, State) ->
   Ps = get_pred(L, State),

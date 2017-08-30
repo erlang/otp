@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -28,27 +29,26 @@
 	 create/1,add_element/1,del_element/1,
 	 subtract/1,intersection/1,union/1,is_subset/1,
 	 is_set/1,fold/1,filter/1,
-	 take_smallest/1,take_largest/1]).
+	 take_smallest/1,take_largest/1, iterate/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -import(lists, [foldl/3,reverse/1]).
 
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?t:minutes(5)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     [create, add_element, del_element, subtract,
      intersection, union, is_subset, is_set, fold, filter,
-     take_smallest, take_largest].
+     take_smallest, take_largest, iterate].
 
 groups() -> 
     [].
@@ -106,9 +106,9 @@ add_element_del([H|T], M, S, Del, []) ->
     add_element_del(T, M, M(add_element, {H,S}), Del, [H]);
 add_element_del([H|T], M, S0, Del, Inserted) ->
     S1 = M(add_element, {H,S0}),
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 ->
-	    OldEl = lists:nth(random:uniform(length(Inserted)), Inserted),
+	    OldEl = lists:nth(rand:uniform(length(Inserted)), Inserted),
 	    S = M(del_element, {OldEl,S1}),
 	    add_element_del(T, M, S, [OldEl|Del], [H|Inserted]);
 	_ ->
@@ -426,6 +426,44 @@ take_largest_3(S0, List0, M) ->
 	    take_largest_3(S, List, M)
     end.
 
+iterate(Config) when is_list(Config) ->
+    test_all(fun iterate_1/1).
+
+iterate_1(M) ->
+    case M(module, []) of
+	gb_sets -> iterate_2(M);
+	_ -> ok
+    end,
+    M(empty, []).
+
+iterate_2(M) ->
+    rand:seed(exsplus, {1,2,42}),
+    iter_set(M, 1000).
+
+iter_set(_M, 0) ->
+    ok;
+iter_set(M, N) ->
+    L = [I || I <- lists:seq(1, N)],
+    T = M(from_list, L),
+    L = lists:reverse(iterate_set(M, T)),
+    R = rand:uniform(N),
+    S = lists:reverse(iterate_set(M, R, T)),
+    S = [E || E <- L, E >= R],
+    iter_set(M, N-1).
+
+iterate_set(M, Set) ->
+    I = M(iterator, Set),
+    iterate_set_1(M, M(next, I), []).
+
+iterate_set(M, Start, Set) ->
+    I = M(iterator_from, {Start, Set}),
+    iterate_set_1(M, M(next, I), []).
+
+iterate_set_1(_, none, R) ->
+    R;
+iterate_set_1(M, {E, I}, R) ->
+    iterate_set_1(M, M(next, I), [E | R]).
+
 %%%
 %%% Helper functions.
 %%%
@@ -442,7 +480,7 @@ sets_mods() ->
 
 test_all(Tester) ->
     Res = [begin
-	       random:seed(1, 2, 42),
+	       rand:seed(exsplus, {1,2,42}),
 	       S = Tester(M),
 	       {M(size, S),lists:sort(M(to_list, S))}
 	   end || M <- sets_mods()],
@@ -453,7 +491,7 @@ test_all([{Low,High}|T], Tester) ->
 test_all([Sz|T], Tester) when is_integer(Sz) ->
     List = rnd_list(Sz),
     Res = [begin
-		     random:seed(19, 2, Sz),
+		     rand:seed(exsplus, {19,2,Sz}),
 		     S = Tester(List, M),
 		     {M(size, S),lists:sort(M(to_list, S))}
 		 end || M <- sets_mods()],
@@ -473,10 +511,10 @@ rnd_list(Sz) ->
     rnd_list_1(Sz, []).
     
 atomic_rnd_term() ->
-    case random:uniform(3) of
-	1 -> list_to_atom(integer_to_list($\s+random:uniform(94))++"rnd");
-	2 -> random:uniform();
-	3 -> random:uniform(50)-37
+    case rand:uniform(3) of
+	1 -> list_to_atom(integer_to_list($\s+rand:uniform(94))++"rnd");
+	2 -> rand:uniform();
+	3 -> rand:uniform(50)-37
     end.
 
 rnd_list_1(0, Acc) -> Acc;
@@ -504,7 +542,7 @@ remove_some(List0, P) ->
     end.
 
 remove_some([H|T], P, Acc) ->
-    case random:uniform() of
+    case rand:uniform() of
 	F when F < P ->				%Remove.
 	    remove_some(T, P, Acc);
 	_ ->

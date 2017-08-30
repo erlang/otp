@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2009-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -86,6 +87,46 @@ int ZEXPORT erl_zlib_deflate_finish(z_stream *streamp)
 {
     return deflateEnd(streamp);
 }
+
+int ZEXPORT erl_zlib_inflate_start(z_stream *streamp, const Bytef* source,
+                                   uLong sourceLen)
+{
+    streamp->next_in = (Bytef*)source;
+    streamp->avail_in = (uInt)sourceLen;
+    streamp->total_out = streamp->avail_out = 0;
+    streamp->next_out = NULL;
+    erl_zlib_alloc_init(streamp);
+    return inflateInit(streamp);
+}
+/*
+ * Inflate a chunk, The destination length is the limit.
+ * Returns Z_OK if more to process, Z_STREAM_END if we are done.
+ */
+int ZEXPORT erl_zlib_inflate_chunk(z_stream *streamp, Bytef* dest, uLongf* destLen)
+{
+    int err;
+    uLongf last_tot = streamp->total_out;
+
+    streamp->next_out = dest;
+    streamp->avail_out = (uInt)*destLen;
+
+    if ((uLong)streamp->avail_out != *destLen) return Z_BUF_ERROR;
+
+    err = inflate(streamp, Z_NO_FLUSH);
+    ASSERT(err != Z_STREAM_ERROR);
+    *destLen = streamp->total_out - last_tot;
+    return err;
+}
+
+/*
+ * When we are done, free up the inflate structure
+ * Retyurns Z_OK or Error
+ */
+int ZEXPORT erl_zlib_inflate_finish(z_stream *streamp)
+{
+    return inflateEnd(streamp);
+}
+
 
 int ZEXPORT erl_zlib_compress2 (Bytef* dest, uLongf* destLen,
 				const Bytef* source, uLong sourceLen,

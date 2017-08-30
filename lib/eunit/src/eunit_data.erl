@@ -391,7 +391,7 @@ parse({with, X, As}=T) when is_list(As) ->
 parse({S, T1} = T) when is_list(S) ->
     case eunit_lib:is_string(S) of
 	true ->
-	    group(#group{tests = T1, desc = list_to_binary(S)});
+	    group(#group{tests = T1, desc = unicode:characters_to_binary(S)});
 	false ->
 	    bad_test(T)
     end;
@@ -440,13 +440,8 @@ parse_function({M, F}) when is_atom(M), is_atom(F) ->
 parse_function(F) ->
     bad_test(F).
 
-check_arity(F, N, T) when is_function(F) ->
-    case erlang:fun_info(F, arity) of
-	{arity, N} ->
-	    ok;
-	_ ->
-	    bad_test(T) 
-    end;
+check_arity(F, N, _) when is_function(F, N) ->
+    ok;
 check_arity(_, _, T) ->
     bad_test(T).
 
@@ -766,6 +761,7 @@ lazy_test_() ->
 	     lazy_gen(7),
 	     ?_assertMatch(7, get(count))]}.
 
+-dialyzer({no_improper_lists, lazy_gen/1}).
 lazy_gen(N) ->
     {generator,
      fun () ->

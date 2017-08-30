@@ -2,18 +2,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -25,13 +26,11 @@
    definitions ourselves */
 
 #ifdef __WIN32__
-#define NO_SYSLOG
 #define NO_SYSCONF
 #define NO_DAEMON
 #endif
 
 #ifdef VXWORKS
-#define NO_SYSLOG
 #define NO_SYSCONF
 #define NO_DAEMON
 #define NO_FCNTL
@@ -49,6 +48,7 @@
 #  ifndef WINDOWS_H_INCLUDES_WINSOCK2_H
 #    include <winsock2.h>
 #  endif
+#  include <ws2tcpip.h>
 #  include <windows.h>
 #  include <process.h>
 #endif
@@ -95,10 +95,9 @@
 
 #include <ctype.h>
 #include <signal.h>
-
 #include <errno.h>
 
-#ifndef NO_SYSLOG
+#ifdef HAVE_SYSLOG_H
 #  include <syslog.h>
 #endif
 
@@ -111,6 +110,14 @@
 #endif
 
 #include <stdarg.h>
+
+#ifdef HAVE_SYSTEMD_DAEMON
+#  include <systemd/sd-daemon.h>
+#endif /* HAVE_SYSTEMD_DAEMON */
+
+#if defined(HAVE_IN6) && defined(AF_INET6) && defined(HAVE_INET_PTON)
+#  define EPMD6
+#endif
 
 /* ************************************************************************ */
 /* Replace some functions by others by making the function name a macro */
@@ -165,33 +172,53 @@
 /* ************************************************************************ */
 /* Macros that let us use IPv6                                              */
 
-#if defined(HAVE_IN6) && defined(AF_INET6) && defined(EPMD6)
+#if HAVE_IN6
+#  if ! defined(HAVE_IN6ADDR_ANY) || ! HAVE_IN6ADDR_ANY
+#    if HAVE_DECL_IN6ADDR_ANY_INIT
+static const struct in6_addr in6addr_any = { { IN6ADDR_ANY_INIT } };
+#    else
+static const struct in6_addr in6addr_any =
+    { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } };
+#    endif /* HAVE_IN6ADDR_ANY_INIT */
+#  endif /* ! HAVE_DECL_IN6ADDR_ANY */
 
-#define EPMD_SOCKADDR_IN sockaddr_in6
-#define EPMD_IN_ADDR in6_addr
-#define EPMD_S_ADDR s6_addr
-#define EPMD_ADDR_LOOPBACK in6addr_loopback.s6_addr
-#define EPMD_ADDR_ANY in6addr_any.s6_addr
+#  if ! defined(HAVE_IN6ADDR_LOOPBACK) || ! HAVE_IN6ADDR_LOOPBACK
+#    if HAVE_DECL_IN6ADDR_LOOPBACK_INIT
+static const struct in6_addr in6addr_loopback =
+    { { IN6ADDR_LOOPBACK_INIT } };
+#    else
+static const struct in6_addr in6addr_loopback =
+    { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } };
+#    endif /* HAVE_IN6ADDR_LOOPBACK_INIT */
+#  endif /* ! HAVE_DECL_IN6ADDR_LOOPBACK */
+#endif /* HAVE_IN6 */
+
+#define IS_ADDR_LOOPBACK(addr) ((addr).s_addr == htonl(INADDR_LOOPBACK))
+
+#if defined(EPMD6)
+
+#define EPMD_SOCKADDR_IN sockaddr_storage
 #define FAMILY AF_INET6
 
-#define SET_ADDR(dst, addr, port) do { \
-    memset((char*)&(dst), 0, sizeof(dst)); \
-    memcpy((char*)&(dst).sin6_addr.s6_addr, (char*)&(addr), 16); \
-    (dst).sin6_family = AF_INET6; \
-    (dst).sin6_flowinfo = 0; \
-    (dst).sin6_port = htons(port); \
+#define SET_ADDR6(dst, addr, port) do { \
+    struct sockaddr_in6 *sa = (struct sockaddr_in6 *)&(dst); \
+    memset(sa, 0, sizeof(dst)); \
+    sa->sin6_family = AF_INET6; \
+    sa->sin6_addr = (addr); \
+    sa->sin6_port = htons(port); \
  } while(0)
 
-#define IS_ADDR_LOOPBACK(addr) \
-    (memcmp((addr).s6_addr, in6addr_loopback.s6_addr, 16) == 0)
+#define SET_ADDR(dst, addr, port) do { \
+    struct sockaddr_in *sa = (struct sockaddr_in *)&(dst); \
+    memset(sa, 0, sizeof(dst)); \
+    sa->sin_family = AF_INET; \
+    sa->sin_addr.s_addr = (addr); \
+    sa->sin_port = htons(port); \
+ } while(0)
 
 #else /* Not IP v6 */
 
 #define EPMD_SOCKADDR_IN sockaddr_in
-#define EPMD_IN_ADDR in_addr
-#define EPMD_S_ADDR s_addr
-#define EPMD_ADDR_LOOPBACK htonl(INADDR_LOOPBACK)
-#define EPMD_ADDR_ANY htonl(INADDR_ANY)
 #define FAMILY AF_INET
 
 #define SET_ADDR(dst, addr, port) do { \
@@ -200,8 +227,6 @@
     (dst).sin_addr.s_addr = (addr); \
     (dst).sin_port = htons(port); \
  } while(0)
-
-#define IS_ADDR_LOOPBACK(addr) ((addr).s_addr == htonl(INADDR_LOOPBACK))
 
 #endif /* Not IP v6 */
 
@@ -212,8 +237,8 @@
 #define EPMD_TRUE 1
 
 /* If no activity we let select() return every IDLE_TIMEOUT second
-   A file descriptor that are idle for CLOSE_TIMEOUT seconds and
-   isn't a ALIVE socket is probably hanging and we close it */
+   A file descriptor that has been idle for CLOSE_TIMEOUT seconds and
+   isn't an ALIVE socket has probably hanged and should be closed */
 
 #define IDLE_TIMEOUT 5
 #define CLOSE_TIMEOUT 60
@@ -323,6 +348,9 @@ typedef struct {
   int listenfd[MAX_LISTEN_SOCKETS];
   char *addresses;
   char **argv;
+#ifdef HAVE_SYSTEMD_DAEMON
+  int is_systemd;
+#endif /* HAVE_SYSTEMD_DAEMON */
 } EpmdVars;
 
 void dbg_printf(EpmdVars*,int,const char*,...);

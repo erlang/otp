@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -29,9 +30,9 @@
 
 -define(NO_UNUSED, true).
 
--export([module/2]).
+-export([module/1, module/2]).
 -ifndef(NO_UNUSED).
--export([function/3, function/4, module/1]).
+-export([function/3, function/4]).
 -endif.
 
 %% Added in an attempt to suppress message by Dialyzer, but I run into
@@ -102,36 +103,32 @@
 
 %% Record definitions
 
--record(ctxt, {final = false :: boolean(),
-	       effect = false,
-	       fail = [],		% [] or fail-to label
-	       class = expr,		% expr | guard
-	       line = 0,		% current line number
-	       'receive'		% undefined | #receive{}
-	      }).		
-
 -record('receive', {loop}).
 -record(cerl_to_icode__var, {name}).
 -record('fun', {label, vars}).
 
+-record(ctxt, {final  = false :: boolean(),
+	       effect = false :: boolean(),
+	       fail   = [],		% [] or fail-to label
+	       class  = expr  :: 'expr' | 'guard',
+	       line   = 0     :: erl_anno:line(),	% current line number
+	       'receive'      :: 'undefined' | #'receive'{}
+	      }).
 
 %% ---------------------------------------------------------------------
 %% Code
 
-
-%% @spec module(Module::cerl()) -> [icode()]
+%% @spec module(Module::cerl()) -> [{mfa(), icode()}]
 %% @equiv module(Module, [])
 
--ifndef(NO_UNUSED).
+-spec module(cerl:c_module()) -> [{mfa(), hipe_icode:icode()}].
+
 module(E) ->
     module(E, []).
--endif.
-%% @clear
 
-
-%% @spec module(Module::cerl(), Options::[term()]) -> [icode()]
+%% @spec module(Module::cerl(), Options::[term()]) -> [{mfa(), icode()}]
 %%
-%%	    cerl() = cerl:cerl()
+%%	    cerl() = cerl:c_module()
 %%	    icode() = hipe_icode:icode()
 %%
 %% @doc Transforms a Core Erlang module to linear HiPE Icode. The result
@@ -149,7 +146,7 @@ module(E) ->
 %% @see function/4
 %% @see cerl_hipeify:transform/1
 
-%% -spec module(cerl:c_module(), [term()]) -> [{mfa(), hipe_icode:icode()}].
+-spec module(cerl:c_module(), [term()]) -> [{mfa(), hipe_icode:icode()}].
 
 module(E, Options) ->
     module_1(cerl_hipeify:transform(E, Options), Options).
@@ -163,8 +160,8 @@ module_1(E, Options) ->
 	    throw(error)
     end,
     S0 = init(M),
-    S1 =  s__set_pmatch(proplists:get_value(pmatch, Options), S0),
-    S2 =  s__set_bitlevel_binaries(proplists:get_value(
+    S1 = s__set_pmatch(proplists:get_value(pmatch, Options), S0),
+    S2 = s__set_bitlevel_binaries(proplists:get_value(
 				      bitlevel_binaries, Options), S1),
     {Icode, _} = lists:mapfoldl(fun function_definition/2,
 				S2, cerl:module_defs(E)),
@@ -797,9 +794,9 @@ bitstr_gen_op([V], #ctxt{fail=FL, class=guard}, SizeInfo, ConstInfo,
 	      Type, Flags, Base, Offset) ->
     SL = new_label(),
     case SizeInfo of
-	{all,_NewUnit, NewAlign, S1} ->
+	{all, NewUnit, NewAlign, S1} ->
 	    Type = binary,
-	    Name = {bs_put_binary_all, Flags},
+	    Name = {bs_put_binary_all, NewUnit, Flags},
 	    Primop = {hipe_bs_primop, Name},
 	    {add_code([icode_guardop([Offset], Primop,
 				     [V, Base, Offset], SL, FL),
@@ -822,9 +819,9 @@ bitstr_gen_op([V], #ctxt{fail=FL, class=guard}, SizeInfo, ConstInfo,
 bitstr_gen_op([V], _Ctxt, SizeInfo, ConstInfo, Type, Flags, Base,
 	      Offset) ->
     case SizeInfo of
-	{all, _NewUnit, NewAlign, S} ->
+	{all, NewUnit, NewAlign, S} ->
 	    Type = binary,
-	    Name = {bs_put_binary_all, Flags},
+	    Name = {bs_put_binary_all, NewUnit, Flags},
 	    Primop = {hipe_bs_primop, Name},
 	    {add_code([icode_call_primop([Offset], Primop, 
 					 [V, Base, Offset])], S), 

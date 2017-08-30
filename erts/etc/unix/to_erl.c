@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2015. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -339,13 +340,13 @@ int main(int argc, char **argv)
     tty_smode.c_cc[VTIME]     =0;/* Note that VTIME is the same as VEOL! */
     tty_smode.c_cc[VINTR]     =3;
     
-    tcsetattr(0, TCSANOW, &tty_smode);
+    tcsetattr(0, TCSADRAIN, &tty_smode);
     
 #ifdef DEBUG
     show_terminal_settings(&tty_smode);
 #endif
     /*
-     * 	 "Write a ^R to the FIFO which causes the other end to redisplay
+     * 	 "Write a ^L to the FIFO which causes the other end to redisplay
      *    the input line."
      * This does not seem to work as was intended in old comment above.
      * However, this control character is now (R12B-3) used by run_erl
@@ -354,7 +355,7 @@ int main(int argc, char **argv)
      */
 
     if (write(wfd, "\014", 1) < 0) {
-	fprintf(stderr, "Error in writing ^R to FIFO.\n");
+	fprintf(stderr, "Error in writing ^L to FIFO.\n");
     }
 
     /*
@@ -484,7 +485,7 @@ int main(int argc, char **argv)
      * Reset terminal characterstics 
      * XXX
      */
-    tcsetattr(0, TCSANOW, &tty_rmode);
+    tcsetattr(0, TCSADRAIN, &tty_rmode);
     return 0;
 }
 
@@ -526,7 +527,7 @@ static int window_size_seq(char* buf, size_t bufsz)
 
 /*   to_erl                     run_erl
  *     |                           |
- *     |---------- '\022' -------->| (session start)
+ *     |---------- '\014' -------->| (session start)
  *     |                           |
  *     |<---- "[run_erl v1-0]" ----| (version interval)
  *     |                           |

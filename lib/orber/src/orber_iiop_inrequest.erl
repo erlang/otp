@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -239,6 +240,7 @@ check_context([_|Rest], Acc, Env) ->
 %%-----------------------------------------------------------------
 %% Func: call_interceptors
 %%-----------------------------------------------------------------
+-dialyzer({no_improper_lists, call_interceptors/7}).
 call_interceptors(SocketType, #giop_env{interceptors = {native, Ref, PIs},
 					ctx = Ctx} = Env, 
 		  ReqHdr, Rest, Len, ByteOrder, Msg) ->
@@ -275,6 +277,7 @@ call_interceptors(SocketType, #giop_env{interceptors = {portable, _PIs}} = Env,
 %%-----------------------------------------------------------------
 %% Func: call_interceptors_out
 %%-----------------------------------------------------------------
+-dialyzer({no_improper_lists, call_interceptors_out/7}).
 call_interceptors_out(#giop_env{interceptors = {native, Ref, PIs}, ctx = Ctx} = Env, 
 		      ReqId, Result, Obj, Type, Operation, TypeCodes) ->
     ReqHdr = #request_header{object_key = Obj,

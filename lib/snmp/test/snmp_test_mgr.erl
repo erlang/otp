@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% 
@@ -161,7 +162,7 @@ get_timeout() ->
 	    get_timeout(os:type())
     end.
 
-get_timeout(_)       -> 3500.
+get_timeout(_)       -> 10000. % Trying to improve test results % 3500.
 
 %%----------------------------------------------------------------------
 %% Receives a trap from the agent.
@@ -188,8 +189,9 @@ receive_trap(Timeout) ->
 init({Options, CallerPid}) ->
     put(sname,     mgr),
     put(verbosity, debug), 
-    {A1,A2,A3} = erlang:now(),
-    random:seed(A1,A2,A3),
+    random:seed(erlang:phash2([node()]),
+                erlang:monotonic_time(),
+                erlang:unique_integer()),
     case (catch is_options_ok(Options)) of
 	true ->
 	    put(debug, get_value(debug, Options, false)),
@@ -235,21 +237,23 @@ init({Options, CallerPid}) ->
 	    VsnHdrD = 
 		{Com, User, EngineId, CtxEngineId, mk_seclevel(SecLevel)},
 	    io:format("[~w] ~p -> VsnHdrD: ~p~n", [?MODULE, self(), VsnHdrD]),
+	    IpFamily = get_value(ipfamily, Options, inet),
+	    io:format("[~w] ~p -> IpFamily: ~p~n", [?MODULE, self(), IpFamily]),
 	    AgIp = case snmp_misc:assq(agent, Options) of
 		       {value, Tuple4} when is_tuple(Tuple4) andalso 
 					    (size(Tuple4) =:= 4) ->
 			   Tuple4;
 		       {value, Host} when is_list(Host) ->
-			   {ok, Ip} = snmp_misc:ip(Host),
+			   {ok, Ip} = snmp_misc:ip(Host, IpFamily),
 			   Ip
 		   end,
 	    io:format("[~w] ~p -> AgIp: ~p~n", [?MODULE, self(), AgIp]),
 	    Quiet = lists:member(quiet, Options),
 	    io:format("[~w] ~p -> Quiet: ~p~n", [?MODULE, self(), Quiet]),
-	    PackServ = start_packet_server(Quiet, Options, CallerPid, 
-					   AgIp, Udp, TrapUdp, 
-					   VsnHdrD, Version, Dir, RecBufSz, 
-					   PacksDbg),
+	    PackServ =
+		start_packet_server(
+		  Quiet, Options, CallerPid, AgIp, Udp, TrapUdp,
+		  VsnHdrD, Version, Dir, RecBufSz, PacksDbg, IpFamily),
 	    d("init -> packet server: ~p",[PackServ]),
 	    State = #state{parent        = CallerPid,
 			   quiet         = Quiet,
@@ -263,29 +267,31 @@ init({Options, CallerPid}) ->
     end.
 
 start_packet_server(false, _Options, _CallerPid, AgIp, Udp, TrapUdp, 
-		    VsnHdrD, Version, Dir, RecBufSz, PacksDbg) ->
+		    VsnHdrD, Version, Dir, RecBufSz, PacksDbg, IpFamily) ->
     d("start_packet_server -> entry", []),
-    ?PACK_SERV:start_link_packet({msg, self()}, 
-				 AgIp, Udp, TrapUdp, 
-				 VsnHdrD, Version, Dir, RecBufSz,
-				 PacksDbg);
+    ?PACK_SERV:start_link_packet(
+       {msg, self()}, AgIp, Udp, TrapUdp,
+       VsnHdrD, Version, Dir, RecBufSz, PacksDbg, IpFamily);
 start_packet_server(true, Options, CallerPid, AgIp, Udp, TrapUdp, 
-		    VsnHdrD, Version, Dir, RecBufSz, PacksDbg) ->
+		    VsnHdrD, Version, Dir, RecBufSz, PacksDbg, IpFamily) ->
     Type =  get_value(receive_type, Options, pdu),
     d("start_packet_server -> entry with"
       "~n   CallerPid: ~p"
       "~n   when"
       "~n   Type:      ~p",[CallerPid, Type]),
-    ?PACK_SERV:start_link_packet({Type, CallerPid}, 
-				    AgIp, Udp, TrapUdp,
-				    VsnHdrD, Version, Dir, RecBufSz,
-				    PacksDbg).
+    ?PACK_SERV:start_link_packet(
+       {Type, CallerPid}, AgIp, Udp, TrapUdp,
+       VsnHdrD, Version, Dir, RecBufSz, PacksDbg, IpFamily).
 
 is_options_ok([{mibs,List}|Opts]) when is_list(List) ->
     is_options_ok(Opts);
 is_options_ok([quiet|Opts])  ->
     is_options_ok(Opts);
 is_options_ok([{agent,_}|Opts]) ->
+    is_options_ok(Opts);
+is_options_ok([{ipfamily,IpFamily}|Opts])
+  when IpFamily =:= inet;
+       IpFamily =:= inet6 ->
     is_options_ok(Opts);
 is_options_ok([{agent_udp,Int}|Opts]) when is_integer(Int) ->
     is_options_ok(Opts);
@@ -657,7 +663,8 @@ make_vb(Oid) ->
     #varbind{oid = Oid, variabletype = 'NULL', value = 'NULL'}.
 
 make_request_id() ->
-    random:uniform(16#FFFFFFF-1).
+    %% random:uniform(16#FFFFFFF-1).
+    snmp_test_mgr_counter_server:increment(mgr_request_id, 1, 1, 2147483647).
 
 echo_pdu(PDU, MiniMIB) ->
     io:format("~s", [snmp_misc:format_pdu(PDU, MiniMIB)]).
@@ -1130,4 +1137,3 @@ d(_,_F,_A) ->
 
 formated_timestamp() ->
     snmp_test_lib:formated_timestamp().
-

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -406,9 +407,9 @@ check_rel(Release) ->
     end.
 
 check_rel1({release,{Name,Vsn},{erts,EVsn},Appl}) when is_list(Appl) ->
-    check_name(Name),
-    check_vsn(Vsn),
-    check_evsn(EVsn),
+    Name = check_name(Name),
+    Vsn = check_vsn(Vsn),
+    EVsn = check_evsn(EVsn),
     {{Appls,Incls},Ws} = check_appl(Appl),
     {ok, {Name,Vsn,EVsn,Appls,Incls},Ws};
 check_rel1(_) ->
@@ -974,7 +975,8 @@ check_xref(Appls, Path, XrefP) ->
 	    ok;
 	{error, {already_started, _Pid}} ->
 	    xref:stop(?XREF_SERVER), %% Clear out any previous data
-	    xref:start(?XREF_SERVER, XrefArgs)
+	    {ok,_} = xref:start(?XREF_SERVER, XrefArgs),
+	    ok
     end,
     {ok, _} = xref:set_default(?XREF_SERVER, verbose, false),
     LibPath = case Path == code:get_path() of
@@ -1135,10 +1137,10 @@ generate_script(Output, Release, Appls, Flags) ->
 	      load_appl_mods(Appls, Mandatory ++ Preloaded,
 			     PathFlag, Variables) ++
 	      [{path, create_path(Appls, PathFlag, Variables)}] ++
-	      create_kernel_procs(Appls) ++
-	      create_load_appls(Appls) ++
-	      create_start_appls(Appls) ++
-	      script_end()
+		  create_kernel_procs(Appls) ++
+		  create_load_appls(Appls) ++
+		  create_start_appls(Appls) ++
+		  script_end(lists:member(no_dot_erlang, Flags))
 	     },
 
     ScriptFile = Output ++ ".script",
@@ -1146,14 +1148,17 @@ generate_script(Output, Release, Appls, Flags) ->
 	{ok, Fd} ->
 	    io:format(Fd, "%% script generated at ~w ~w\n~p.\n",
 		      [date(), time(), Script]),
-	    file:close(Fd),
-
-	    BootFile = Output ++ ".boot",
-	    case file:write_file(BootFile, term_to_binary(Script)) of
+	    case file:close(Fd) of
 		ok ->
-		    ok;
+		    BootFile = Output ++ ".boot",
+		    case file:write_file(BootFile, term_to_binary(Script)) of
+			ok ->
+			    ok;
+			{error, Reason} ->
+			    {error, ?MODULE, {open,BootFile,Reason}}
+		    end;
 		{error, Reason} ->
-		    {error, ?MODULE, {open,BootFile,Reason}}
+		    {error, ?MODULE, {close,ScriptFile,Reason}}
 	    end;
 	{error, Reason} ->
 	    {error, ?MODULE, {open,ScriptFile,Reason}}
@@ -1229,9 +1234,12 @@ create_load_appls([]) ->
 %%______________________________________________________________________
 %% The final part of the script.
 
-script_end() ->
+script_end(false) ->  %% Do not skip loading of $HOME/.erlang
     [{apply, {c, erlangrc, []}},
-     {progress, started}].
+     {progress, started}];
+script_end(true) ->   %% Ignore loading of $HOME/.erlang
+    [{progress, started}].
+
 
 %%-----------------------------------------------------------------
 %% Function: sort_appls(Appls) -> {ok, Appls'} | throw({error, Error})
@@ -1445,23 +1453,46 @@ behave([H|T]) ->
 behave([]) ->
     [].
 
-%%______________________________________________________________________
-%% mandatory modules; this modules must be loaded before processes
-%% can be started. These are a collection of modules from the kernel
-%% and stdlib applications.
-%% Nowadays, error_handler dynamically loads almost every module.
-%% The error_handler self must still be there though.
-
 mandatory_modules() ->
-    %% Sorted
-    [error_handler].
+    [error_handler,				%Truly mandatory.
+
+     %% Modules that are almost always needed. Listing them here
+     %% helps the init module to load them faster. Modules not
+     %% listed here will be loaded by the error_handler module.
+     %%
+     %% Keep this list sorted.
+     application,
+     application_controller,
+     application_master,
+     code,
+     code_server,
+     erl_eval,
+     erl_lint,
+     erl_parse,
+     error_logger,
+     ets,
+     file,
+     filename,
+     file_server,
+     file_io_server,
+     gen,
+     gen_event,
+     gen_server,
+     heart,
+     kernel,
+     lists,
+     proc_lib,
+     supervisor
+    ].
 
 %%______________________________________________________________________
 %% This is the modules that are preloaded into the Erlang system.
 
 preloaded() ->
     %% Sorted
-    [erl_prim_loader,erlang,erts_internal,init,otp_ring0,prim_eval,prim_file,
+    [erl_prim_loader,erl_tracer,erlang,
+     erts_code_purger,
+     erts_internal,init,otp_ring0,prim_eval,prim_file,
      prim_inet,prim_zip,zlib].
 
 %%______________________________________________________________________
@@ -1529,14 +1560,16 @@ mk_tar(RelName, Release, Appls, Flags, Path1) ->
     Tar = open_main_tar(TarName),
     case catch mk_tar(Tar, RelName, Release, Appls, Flags, Path1) of
 	{error,Error} ->
-	    del_tar(Tar, TarName),
+	    _ = del_tar(Tar, TarName),
 	    {error,?MODULE,Error};
 	{'EXIT',Reason} ->
-	    del_tar(Tar, TarName),
+	    _ = del_tar(Tar, TarName),
 	    {error,?MODULE,Reason};
 	_ ->
-	    close_tar(Tar),
-	    ok
+	    case erl_tar:close(Tar) of
+		ok -> ok;
+		{error,Reason} -> {error,?MODULE,{close,TarName,Reason}}
+	    end
     end.
 
 open_main_tar(TarName) ->
@@ -1591,14 +1624,13 @@ add_variable_tar({Variable,P}, Appls, Tar, Flags) ->
 	    case catch add_applications(Appls, VarTar, [{Variable,P}],
 					Flags, Variable) of
 		ok when Flag == include ->
-		    close_tar(VarTar),
+		    close_tar(VarTar,TarName),
 		    add_to_tar(Tar, TarName, TarName),
 		    del_file(TarName);
 		ok when Flag == ownfile ->
-		    close_tar(VarTar),
-		    ok;
+		    close_tar(VarTar,TarName);
 		Error ->
-		    del_tar(VarTar, TarName),
+		    _ = del_tar(VarTar, TarName),
 		    throw(Error)
 	    end
     end.
@@ -1856,12 +1888,15 @@ open_tar(TarName) ->
 	    throw({error,{tar_error, {open, TarName, Error}}})
     end.
 
-close_tar(Tar) ->
-    erl_tar:close(Tar).
+close_tar(Tar,File) ->
+    case erl_tar:close(Tar) of
+	ok -> ok;
+	{error,Reason} -> throw({error,{close,File,Reason}})
+    end.
 
 del_tar(Tar, TarName) ->
-    close_tar(Tar),
-    del_file(TarName).
+    _ = erl_tar:close(Tar),
+    file:delete(TarName).
 
 add_to_tar(Tar, FromFile, ToFile) ->
     case erl_tar:add(Tar, FromFile, ToFile, [compressed, dereference]) of
@@ -1916,13 +1951,20 @@ read_file(File, Path) ->
 			 Other ->
 			     Other
 		     end,
-	    file:close(Stream),
-	    Return;
+	    case file:close(Stream) of
+		ok -> Return;
+		{error, Error} -> {error, {close,File,Error}}
+	    end;
 	_Other ->
 	    {error, {not_found, File}}
     end.
 
-del_file(File) -> file:delete(File).
+del_file(File) ->
+    case file:delete(File) of
+	ok -> ok;
+	{error, Error} ->
+	    throw({error, {delete, File, Error}})
+    end.
 
 dirp(Dir) ->
     case file:read_file_info(Dir) of
@@ -2055,6 +2097,9 @@ cas([no_warn_sasl | Args], X) ->
 %%% no_module_tests (kept for backwards compatibility, but ignored) ----
 cas([no_module_tests | Args], X) ->
     cas(Args, X);
+cas([no_dot_erlang | Args], X) ->
+    cas(Args, X);
+
 %%% ERROR --------------------------------------------------------------
 cas([Y | Args], X) ->
     cas(Args, X++[Y]).
@@ -2212,7 +2257,7 @@ format_error({undefined_applications,Apps}) ->
     io_lib:format("Undefined applications: ~p~n",[Apps]);
 format_error({duplicate_modules,Dups}) ->
     io_lib:format("Duplicated modules: ~n~ts",
-		  [map(fun({{Mod,_,App1,_,_},{Mod,_,App2,_,_}}) ->
+		  [map(fun({{Mod,App1,_},{Mod,App2,_}}) ->
 			       io_lib:format("\t~w specified in ~w and ~w~n",
 					     [Mod,App1,App2])
 		       end, Dups)]);
@@ -2237,6 +2282,12 @@ format_error({read,File}) ->
     io_lib:format("Cannot read ~p~n",[File]);
 format_error({open,File,Error}) ->
     io_lib:format("Cannot open ~p - ~ts~n",
+		  [File,file:format_error(Error)]);
+format_error({close,File,Error}) ->
+    io_lib:format("Cannot close ~p - ~ts~n",
+		  [File,file:format_error(Error)]);
+format_error({delete,File,Error}) ->
+    io_lib:format("Cannot delete ~p - ~ts~n",
 		  [File,file:format_error(Error)]);
 format_error({tar_error,What}) ->
     form_tar_err(What);

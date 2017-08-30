@@ -1,10 +1,10 @@
 {module, freg_range}.  %% version = 0
 
-{exports, [{module_info,0},{module_info,1},{prod,2},{sum,2},{sum_prod,3}]}.
+{exports, [{sum_1,2},{sum_2,2},{sum_3,2},{sum_4,2}]}.
 
 {attributes, []}.
 
-{labels, 8}.
+{labels, 9}.
 
 
 {function, sum_1, 2, 2}.

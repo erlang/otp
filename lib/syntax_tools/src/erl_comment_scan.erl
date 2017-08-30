@@ -72,13 +72,24 @@ file(Name) ->
 	{ok, V} ->
 	    case V of
 		{ok, B} ->
-                    Enc = case epp:read_encoding(Name) of
+                    Encoding = epp:read_encoding_from_binary(B),
+                    Enc = case Encoding of
                               none -> epp:default_encoding();
                               Enc0 -> Enc0
                           end,
                     case catch unicode:characters_to_list(B, Enc) of
                         String when is_list(String) ->
                             string(String);
+                        R when Encoding =:= none ->
+                            case
+                              catch unicode:characters_to_list(B, latin1)
+                            of
+                                String when is_list(String) ->
+                                    string(String);
+                                _ ->
+                                    error_read_file(Name1),
+                                    exit(R)
+                            end;
                         R ->
                             error_read_file(Name1),
                             exit(R)

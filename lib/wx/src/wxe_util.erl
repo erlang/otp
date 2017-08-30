@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%%-------------------------------------------------------------------
@@ -74,16 +75,18 @@ call(Op, Args) ->
 	true ->
 	    debug_call(Dbg band 15, Op, Args, Port)
     end.
-	    
+
 rec(Op) ->
     receive 
 	{'_wxe_result_', Res} -> Res;
 	{'_wxe_error_', Op, Error} -> 
 	    [{_,MF}] = ets:lookup(wx_debug_info,Op),
 	    erlang:error({Error, MF});
-	{'_wxe_error_', Old, Error} -> 
-	    [{_,MF}] = ets:lookup(wx_debug_info,Old),
-	    erlang:exit({Error, MF})
+	{'_wxe_error_', Old, Error} ->
+	    [{_,{M,F,A}}] = ets:lookup(wx_debug_info,Old),
+	    Msg = io_lib:format("~p in ~w:~w/~w", [Error, M, F, A]),
+	    wxe_master ! {wxe_driver, error, Msg},
+	    rec(Op)
     end.
 
 construct(Op, Args) ->
@@ -108,20 +111,38 @@ send_bin(Bin) when is_binary(Bin) ->
 get_cbId(Fun) ->
     gen_server:call((wx:get_env())#wx_env.sv,{register_cb, Fun}, infinity).   
 
-connect_cb(Object,EvData) ->
-    handle_listener(connect_cb, Object, EvData).
+connect_cb(Object,EvData0 = #evh{cb=Callback}) ->
+    Server = (wx:get_env())#wx_env.sv,
+    case Callback of
+	0 -> %% Message api connect from this process
+	    case wxEvtHandler:connect_impl(Object,EvData0) of
+		{ok, Listener} ->
+		    EvData = EvData0#evh{handler=Listener, userdata=undefined},
+		    gen_server:call(Server, {connect_cb,Object,EvData}, infinity);
+		Error ->
+		    Error
+	    end;
+	_ -> %% callback, fun or pid (pid for wx_object:sync_events masked callbacks)
+	    %% let the server do the connect
+	    gen_server:call(Server, {connect_cb,Object,EvData0}, infinity)
+    end.
 
 disconnect_cb(Object,EvData) ->
-    handle_listener(disconnect_cb, Object, EvData).
+    Server = (wx:get_env())#wx_env.sv,
+    {try_in_order, Handlers} =
+	gen_server:call(Server, {disconnect_cb,Object,EvData}, infinity),
+    disconnect(Object, Handlers).
 
-handle_listener(Op,Object,EvData) ->
-    Listener = gen_server:call((wx:get_env())#wx_env.sv, {Op,Object,EvData}, infinity),
-    case Listener of
-	{call_impl, connect_cb, EvtList} ->
-	    wxEvtHandler:connect_impl(EvtList,Object,EvData);
-	Res ->
-	    Res
-    end.
+disconnect(Object,[Ev|Evs]) ->
+    try wxEvtHandler:disconnect_impl(Object,Ev) of
+	true ->  true;
+	false -> disconnect(Object, Evs);
+	Error -> Error
+    catch _:_ ->
+	    false
+    end;
+disconnect(_, []) -> false.
+
 
 debug_cast(1, Op, _Args, _Port) ->
     check_previous(),

@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1998</year><year>2011</year>
+      <year>1998</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -38,18 +39,18 @@
       functions for the SNMP-TARGET-MIB, 
       and functions for configuring the database. </p>
     <p>The configuration files are described in the SNMP User's Manual.</p>
+    <p>Legacy API functions <c>add_addr/10</c> that does not specify
+      transport domain, and <c>add_addr/11</c> that has got separate
+      <c>IpAddr</c> and <c>PortNumber</c> arguments still work as before
+      for backwards compatibility reasons.</p>
 
     <marker id="types"></marker>
   </description>
 
   <section>
     <title>DATA TYPES</title>
-    <code type="none"><![CDATA[
-transportDomain() = transportDomainUdpIpv4 | transportDomainUdpIpv6
-transportAddressIPv4() = [integer()], length 4
-transportAddressIPv6() = [integer()], length 8
-transportAddressMask() = [integer()], length 0 (default), 6 (IPv4) or 10 (IPv6)
-    ]]></code>
+    <p>See the <seealso marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seealso>.</p>
 
     <marker id="configure"></marker>
   </section>
@@ -129,20 +130,18 @@ transportAddressMask() = [integer()], length 0 (default), 6 (IPv4) or 10 (IPv6)
     </func>
 
     <func>
-      <name>add_addr(Name, Ip, Port, Timeout, Retry, TagList, Params, EngineId, TMask, MMS) -> Ret</name>
-      <name>add_addr(Name, Domain, Ip, Port, Timeout, Retry, TagList, Params, EngineId, TMask, MMS) -> Ret</name>
+      <name>add_addr(Name, Domain, Addr, Timeout, Retry, TagList, Params, EngineId, TMask, MMS) -> Ret</name>
       <fsummary>Add one target address definition</fsummary>
       <type>
         <v>Name = string()</v>
         <v>Domain = transportDomain()</v>
-        <v>Ip = transportAddressIPv4() | transportAddressIPv6() (depends on the value of Domain)</v>
-        <v>Port = integer()</v>
+	<v>Addr = transportAddress()  % Default port is 162</v>
         <v>Timeout = integer()</v>
         <v>Retry = integer()</v>
         <v>TagList = string()</v>
         <v>ParamsName = string()</v>
         <v>EngineId = string()</v>
-        <v>TMask = transportAddressMask() (depends on Domain)</v>
+        <v>TMask = transportAddressMask()  % Depends on Domain</v>
         <v>MMS = integer()</v>
         <v>Ret = {ok, Key} | {error, Reason}</v>
         <v>Key = term()</v>

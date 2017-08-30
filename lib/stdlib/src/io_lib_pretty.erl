@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -64,13 +65,13 @@ print(Term) ->
            (term(), options()) -> chars().
 
 print(Term, Options) when is_list(Options) ->
-    Col = proplists:get_value(column, Options, 1),
-    Ll = proplists:get_value(line_length, Options, 80),
-    D = proplists:get_value(depth, Options, -1),
-    M = proplists:get_value(max_chars, Options, -1),
-    RecDefFun = proplists:get_value(record_print_fun, Options, no_fun),
-    Encoding = proplists:get_value(encoding, Options, epp:default_encoding()),
-    Strings = proplists:get_value(strings, Options, true),
+    Col = get_option(column, Options, 1),
+    Ll = get_option(line_length, Options, 80),
+    D = get_option(depth, Options, -1),
+    M = get_option(max_chars, Options, -1),
+    RecDefFun = get_option(record_print_fun, Options, no_fun),
+    Encoding = get_option(encoding, Options, epp:default_encoding()),
+    Strings = get_option(strings, Options, true),
     print(Term, Col, Ll, D, M, RecDefFun, Encoding, Strings);
 print(Term, RecDefFun) ->
     print(Term, -1, RecDefFun).
@@ -101,6 +102,7 @@ print(Term, Col, Ll, D, M, RecDefFun, Enc, Str) when Col =< 0 ->
     print(Term, 1, Ll, D, M, RecDefFun, Enc, Str);
 print(Term, Col, Ll, D, M0, RecDefFun, Enc, Str) when is_tuple(Term);
                                                       is_list(Term);
+                                                      is_map(Term);
                                                       is_bitstring(Term) ->
     If = {_S, Len} = print_length(Term, D, RecDefFun, Enc, Str),
     M = max_cs(M0, Len),
@@ -137,6 +139,10 @@ pp({{tuple,true,L}, _Len}, Col, Ll, M, TInd, Ind, LD, W) ->
     [${, pp_tag_tuple(L, Col, Ll, M, TInd, Ind, LD, W + 1), $}];
 pp({{tuple,false,L}, _Len}, Col, Ll, M, TInd, Ind, LD, W) ->
     [${, pp_list(L, Col + 1, Ll, M, TInd, indent(1, Ind), LD, $,, W + 1), $}];
+pp({{map,Pairs},_Len}, Col, Ll, M, TInd, Ind, LD, W) ->
+    [$#,${, pp_list(Pairs, Col + 2, Ll, M, TInd, indent(2, Ind), LD, $,, W + 1), $}];
+pp({{map_pair,K,V},_Len}, Col, Ll, M, TInd, Ind, LD, W) ->
+    [pp(K, Col, Ll, M, TInd, Ind, LD, W), " => ", pp(V, Col, Ll, M, TInd, Ind, LD, W)];
 pp({{record,[{Name,NLen} | L]}, _Len}, Col, Ll, M, TInd, Ind, LD, W) ->
     [Name, ${, pp_record(L, NLen, Col, Ll, M, TInd, Ind, LD, W + NLen+1), $}];
 pp({{bin,S}, _Len}, Col, Ll, M, _TInd, Ind, LD, W) ->
@@ -283,6 +289,10 @@ write({{tuple, _IsTagged, L}, _}) ->
     [${, write_list(L, $,), $}];
 write({{list, L}, _}) ->
     [$[, write_list(L, $|), $]];
+write({{map, Pairs}, _}) ->
+    [$#,${, write_list(Pairs, $,), $}];
+write({{map_pair, K, V}, _}) ->
+    [write(K)," => ",write(V)];
 write({{record, [{Name,_} | L]}, _}) ->
     [Name, ${, write_fields(L), $}];
 write({{bin, S}, _}) ->
@@ -331,6 +341,8 @@ print_length([], _D, _RF, _Enc, _Str) ->
     {"[]", 2};
 print_length({}, _D, _RF, _Enc, _Str) ->
     {"{}", 2};
+print_length(#{}=M, _D, _RF, _Enc, _Str) when map_size(M) =:= 0 ->
+    {"#{}", 3};
 print_length(List, D, RF, Enc, Str) when is_list(List) ->
     case Str andalso printable_list(List, D, Enc) of
         true ->
@@ -356,6 +368,8 @@ print_length(R, D, RF, Enc, Str) when is_atom(element(1, R)),
     end;
 print_length(Tuple, D, RF, Enc, Str) when is_tuple(Tuple) ->
     print_length_tuple(Tuple, D, RF, Enc, Str);
+print_length(Map, D, RF, Enc, Str) when is_map(Map) ->
+    print_length_map(Map, D, RF, Enc, Str);
 print_length(<<>>, _D, _RF, _Enc, _Str) ->
     {"<<>>", 4};
 print_length(<<_/bitstring>>, 1, _RF, _Enc, _Str) ->
@@ -388,6 +402,25 @@ print_length(<<_/bitstring>>=Bin, D, _RF, Enc, Str) ->
 print_length(Term, _D, _RF, _Enc, _Str) ->
     S = io_lib:write(Term),
     {S, lists:flatlength(S)}.
+
+print_length_map(_Map, 1, _RF, _Enc, _Str) ->
+    {"#{...}", 6};
+print_length_map(Map, D, RF, Enc, Str) when is_map(Map) ->
+    Pairs = print_length_map_pairs(maps:to_list(Map), D, RF, Enc, Str),
+    {{map, Pairs}, list_length(Pairs, 3)}.
+
+print_length_map_pairs([], _D, _RF, _Enc, _Str) ->
+    [];
+print_length_map_pairs(_Pairs, 1, _RF, _Enc, _Str) ->
+    {dots, 3};
+print_length_map_pairs([{K,V}|Pairs], D, RF, Enc, Str) ->
+    [print_length_map_pair(K,V,D-1,RF,Enc,Str) |
+     print_length_map_pairs(Pairs,D-1,RF,Enc,Str)].
+
+print_length_map_pair(K, V, D, RF, Enc, Str) ->
+    {KS, KL} = print_length(K, D, RF, Enc, Str),
+    {VS, VL} = print_length(V, D, RF, Enc, Str),
+    {{map_pair, {KS,KL}, {VS,VL}}, KL + VL}.
 
 print_length_tuple(_Tuple, 1, _RF, _Enc, _Str) ->
     {"{...}", 5};
@@ -727,3 +760,10 @@ chars(C, N) when (N band 1) =:= 0 ->
 chars(C, N) ->
     S = chars(C, N bsr 1),
     [C, S | S].
+
+get_option(Key, TupleList, Default) ->
+    case lists:keyfind(Key, 1, TupleList) of
+	false -> Default;
+	{Key, Value} -> Value;
+	_ -> Default
+    end.

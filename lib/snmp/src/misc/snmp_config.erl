@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% 
@@ -26,24 +27,29 @@
 -compile({no_auto_import,[error/1]}).
 -export([config/0]).
 
--export([write_config_file/4, append_config_file/4, read_config_file/3]).
+%%-export([write_config_file/4, append_config_file/4, read_config_file/4]).
+
+-export([write_config_file/6, append_config_file/6, read_config_file/4]).
 
 -export([write_agent_snmp_files/7, write_agent_snmp_files/12,
+	 write_agent_snmp_files/6, write_agent_snmp_files/11,
 
-	 write_agent_snmp_conf/5, 
+	 write_agent_snmp_conf/4, write_agent_snmp_conf/5,
 	 write_agent_snmp_context_conf/1, 
 	 write_agent_snmp_community_conf/1, 
 	 write_agent_snmp_standard_conf/2, 
-	 write_agent_snmp_target_addr_conf/4, 
-	 write_agent_snmp_target_addr_conf/6, 
+	 write_agent_snmp_target_addr_conf/3,
+	 write_agent_snmp_target_addr_conf/4,
+	 write_agent_snmp_target_addr_conf/5,
+	 write_agent_snmp_target_addr_conf/6,
 	 write_agent_snmp_target_params_conf/2, 
 	 write_agent_snmp_notify_conf/2, 
 	 write_agent_snmp_usm_conf/5, 
 	 write_agent_snmp_vacm_conf/3, 
 
 	 write_manager_snmp_files/8,
-	 write_manager_snmp_conf/5, 
-	 write_manager_snmp_users_conf/2, 
+	 write_manager_snmp_conf/4, write_manager_snmp_conf/5,
+	 write_manager_snmp_users_conf/2,
 	 write_manager_snmp_agents_conf/2, 
 	 write_manager_snmp_usm_conf/2
  	 
@@ -90,9 +96,9 @@
 	]).
 
 
--export_type([void/0, 
-	      verify_config_entry_function/0, 
-	      verify_config_function/0, 
+-export_type([void/0,
+	      order_config_entry_function/0,
+	      check_config_entry_function/0,
 	      write_config_function/0]).
 
 
@@ -233,16 +239,18 @@ config_agent_sys() ->
 		     fun verify_verbosity/1),
     DbDir     = ask("5. Database directory (absolute path)?", DefDir, 
 		    fun verify_dir/1),
-    MibStorageType = ask("6. Mib storage type (ets/dets/mnesia)?", "ets",
+    DbInitError = ask("6. How to handle DB init error?", 
+		      "terminate", fun verify_db_init_error/1),
+    MibStorageType = ask("7. Mib storage type (ets/dets/mnesia)?", "ets",
 			 fun verify_mib_storage_type/1),
     MibStorage = 
 	case MibStorageType of
 	    ets ->
 		[{module, snmpa_mib_storage_ets}];
 	    dets ->
-		DetsDir = ask("6b. Mib storage directory (absolute path)?",
+		DetsDir = ask("7b. Mib storage directory (absolute path)?",
 			      DbDir, fun verify_dir/1),
-		DetsAction = ask("6c. Mib storage [dets] database start "
+		DetsAction = ask("7c. Mib storage [dets] database start "
 				 "action "
 				 "(default/clear/keep)?", 
 				 "default", fun verify_mib_storage_action/1),
@@ -257,7 +265,7 @@ config_agent_sys() ->
 		end;
 	    mnesia ->
 		Nodes = [],
-		MnesiaAction = ask("6b. Mib storage [mnesia] database start "
+		MnesiaAction = ask("7b. Mib storage [mnesia] database start "
 				   "action "
 				   "(default/clear/keep)?", 
 				   "default", fun verify_mib_storage_action/1),
@@ -275,80 +283,80 @@ config_agent_sys() ->
     %% Here we should ask about mib-server data module, 
     %% but as we only have one at the moment...
 
-    TargetCacheVerb = ask("7. Target cache verbosity "
+    TargetCacheVerb = ask("8. Target cache verbosity "
 			  "(silence/info/log/debug/trace)?", "silence",
 			  fun verify_verbosity/1),
-    SymStoreVerb = ask("8. Symbolic store verbosity "
+    SymStoreVerb = ask("9. Symbolic store verbosity "
 		       "(silence/info/log/debug/trace)?", "silence",
 		       fun verify_verbosity/1),
-    LocalDbVerb = ask("9. Local DB verbosity "
+    LocalDbVerb = ask("10. Local DB verbosity "
 		       "(silence/info/log/debug/trace)?", "silence",
 		       fun verify_verbosity/1),
-    LocalDbRepair = ask("10. Local DB repair (true/false/force)?", "true",
+    LocalDbRepair = ask("11. Local DB repair (true/false/force)?", "true",
 			fun verify_dets_repair/1),
-    LocalDbAutoSave = ask("11. Local DB auto save (infinity/milli seconds)?", 
+    LocalDbAutoSave = ask("12. Local DB auto save (infinity/milli seconds)?", 
 			  "5000", fun verify_dets_auto_save/1),
-    ErrorMod = ask("12. Error report module?", "snmpa_error_logger", fun verify_module/1),
-    Type = ask("13. Agent type (master/sub)?", "master", 
+    ErrorMod = ask("13. Error report module?", "snmpa_error_logger", fun verify_module/1),
+    Type = ask("14. Agent type (master/sub)?", "master", 
 	       fun verify_agent_type/1),
     AgentConfig = 
 	case Type of 
 	    master ->
-		MasterAgentVerb = ask("14. Master-agent verbosity "
+		MasterAgentVerb = ask("15. Master-agent verbosity "
 				      "(silence/info/log/debug/trace)?", 
 				      "silence",
 				      fun verify_verbosity/1),
-		ForceLoad = ask("15. Shall the agent re-read the "
+		ForceLoad = ask("16. Shall the agent re-read the "
 				"configuration files during startup ~n"
 				"    (and ignore the configuration "
 				"database) (true/false)?", "true", 
 				fun verify_bool/1),
-		MultiThreaded = ask("16. Multi threaded agent (true/false)?", 
+		MultiThreaded = ask("17. Multi threaded agent (true/false)?", 
 				    "false",
 				    fun verify_bool/1),
-		MeOverride = ask("17. Check for duplicate mib entries when "
+		MeOverride = ask("18. Check for duplicate mib entries when "
 				 "installing a mib (true/false)?", "false",
 				 fun verify_bool/1),
-		TrapOverride = ask("18. Check for duplicate trap names when "
+		TrapOverride = ask("19. Check for duplicate trap names when "
 				   "installing a mib (true/false)?", "false",
 				   fun verify_bool/1),
-		MibServerVerb = ask("19. Mib server verbosity "
+		MibServerVerb = ask("20. Mib server verbosity "
 				    "(silence/info/log/debug/trace)?", 
 				    "silence",
 				    fun verify_verbosity/1),
-		MibServerCache = ask("20. Mib server cache "
+		MibServerCache = ask("21. Mib server cache "
 				    "(true/false)?", 
 				    "true",
 				    fun verify_bool/1),
-		NoteStoreVerb = ask("21. Note store verbosity "
+		NoteStoreVerb = ask("22. Note store verbosity "
 				    "(silence/info/log/debug/trace)?", 
 				    "silence",
 				    fun verify_verbosity/1),
-		NoteStoreTimeout = ask("22. Note store GC timeout?", "30000",
+		NoteStoreTimeout = ask("23. Note store GC timeout?", "30000",
 				       fun verify_timeout/1),
 		ATL = 
-		    case ask("23. Shall the agent use an audit trail log "
+		    case ask("24. Shall the agent use an audit trail log "
 			     "(y/n)?",
 			     "n", fun verify_yes_or_no/1) of
 			yes ->
-			    ATLType = ask("23b. Audit trail log type "
+			    ATLType = ask("24b. Audit trail log type "
 					  "(write/read_write)?",
 					  "read_write", fun verify_atl_type/1),
-			    ATLDir = ask("23c. Where to store the "
+			    ATLDir = ask("24c. Where to store the "
 					 "audit trail log?",
 					 DefDir, fun verify_dir/1),
-			    ATLMaxFiles = ask("23d. Max number of files?", 
+			    ATLMaxFiles = ask("24d. Max number of files?", 
 					      "10", 
 					      fun verify_pos_integer/1),
-			    ATLMaxBytes = ask("23e. Max size (in bytes) "
+			    ATLMaxBytes = ask("24e. Max size (in bytes) "
 					      "of each file?", 
 					      "10240", 
 					      fun verify_pos_integer/1),
 			    ATLSize = {ATLMaxBytes, ATLMaxFiles},
-			    ATLRepair = ask("23f. Audit trail log repair "
+			    ATLRepair = ask("24f. Audit trail log repair "
 					    "(true/false/truncate/snmp_repair)?", "true",
 					    fun verify_atl_repair/1),
-			    ATLSeqNo = ask("23g. Audit trail log "
+			    ATLSeqNo = ask("24g. Audit trail log "
 					   "sequence-numbering (true/false)?", 
 					   "false",
 					   fun verify_atl_seqno/1),
@@ -360,33 +368,33 @@ config_agent_sys() ->
 			no ->
 			    []
 		    end,
-		NetIfVerb = ask("24. Network interface verbosity "
+		NetIfVerb = ask("25. Network interface verbosity "
 				"(silence/info/log/debug/trace)?", 
 				"silence",
 				fun verify_verbosity/1),
-		NetIfMod = ask("25. Which network interface module shall be used?",
+		NetIfMod = ask("26. Which network interface module shall be used?",
 			       "snmpa_net_if", fun verify_module/1),
 		NetIfOpts = 
 		    case NetIfMod of
 			snmpa_net_if ->
 			    NetIfBindTo = 
-				ask("25a. Bind the agent IP address "
+				ask("26a. Bind the agent IP address "
 				    "(true/false)?",
 				    "false", fun verify_bool/1),
 			    NetIfNoReuse = 
-				ask("25b. Shall the agents "
+				ask("26b. Shall the agents "
 				    "IP address "
 				    "and port be not reusable "
 				    "(true/false)?",
 				    "false", fun verify_bool/1),
 			    NetIfReqLimit = 
-				ask("25c. Agent request limit "
+				ask("26c. Agent request limit "
 				    "(used for flow control) "
 				    "(infinity/pos integer)?", 
 				    "infinity",
 				    fun verify_netif_req_limit/1),
 			    NetIfRecbuf = 
-				case ask("25d. Receive buffer size of the "
+				case ask("26d. Receive buffer size of the "
 					 "agent (in bytes) "
 					 "(default/pos integer)?", 
 					 "default", 
@@ -397,7 +405,7 @@ config_agent_sys() ->
 					[{recbuf, RecBufSz}]
 				end,
 			    NetIfSndbuf = 
-				case ask("25e. Send buffer size of the agent "
+				case ask("26e. Send buffer size of the agent "
 					 "(in bytes) (default/pos integer)?", 
 					 "default", 
 					 fun verify_netif_sndbuf/1) of
@@ -407,7 +415,7 @@ config_agent_sys() ->
 					[{sndbuf, SndBufSz}]
 				end,
 			    NetIfFilter = 
-				case ask("25f. Do you wish to specify a "
+				case ask("26f. Do you wish to specify a "
 					 "network interface filter module "
 					 "(or use default)",
 					 "default", fun verify_module/1) of
@@ -426,18 +434,18 @@ config_agent_sys() ->
 		NetIf = [{module,    NetIfMod},
 			 {verbosity, NetIfVerb},
 			 {options,   NetIfOpts}],
-		TermDiscoEnable = ask("26a. Allow terminating discovery "
+		TermDiscoEnable = ask("27. Allow terminating discovery "
 				      "(true/false)?", "true",
 				      fun verify_bool/1),
 		TermDiscoConf = 
 		    case TermDiscoEnable of
 			true ->
 			    TermDiscoStage2 = 
-				ask("26b. Second stage behaviour "
+				ask("27a. Second stage behaviour "
 				    "(discovery/plain)?", "discovery",
 				    fun verify_term_disco_behaviour/1),
 			    TermDiscoTrigger = 
-				ask("26c. Trigger username "
+				ask("27b. Trigger username "
 				    "(default/a string)?", "default",
 				    fun verify_term_disco_trigger_username/1),
 			    [{enable, TermDiscoEnable},
@@ -448,7 +456,7 @@ config_agent_sys() ->
 			     {stage2, discovery},
 			     {trigger_username, ""}]
 		    end,
-		OrigDiscoEnable = ask("27a. Allow originating discovery "
+		OrigDiscoEnable = ask("28. Allow originating discovery "
 				      "(true/false)?", "true",
 				      fun verify_bool/1),
 		OrigDiscoConf = 
@@ -471,7 +479,7 @@ config_agent_sys() ->
 				    {verbosity, NoteStoreVerb}]},
 		 {net_if, NetIf}] ++ ATL;
 	    sub ->
-		SubAgentVerb = ask("14. Sub-agent verbosity "
+		SubAgentVerb = ask("15. Sub-agent verbosity "
 				   "(silence/info/log/debug/trace)?", 
 				   "silence",
 				   fun verify_verbosity/1),
@@ -480,11 +488,12 @@ config_agent_sys() ->
 		 {config,          [{dir, ConfigDir}]}]
 	end,
     SysConfig = 
-	[{priority,    Prio},
-	 {versions,    Vsns},
-	 {db_dir,      DbDir},
-	 {mib_storage, MibStorage},
-	 {target_cache, [{verbosity, TargetCacheVerb}]},
+	[{priority,       Prio},
+	 {versions,       Vsns},
+	 {db_dir,         DbDir},
+	 {db_init_error,  DbInitError},
+	 {mib_storage,    MibStorage},
+	 {target_cache,   [{verbosity, TargetCacheVerb}]},
 	 {symbolic_store, [{verbosity, SymStoreVerb}]},
 	 {local_db, [{repair,    LocalDbRepair},
 		     {auto_save, LocalDbAutoSave},
@@ -564,11 +573,9 @@ config_agent_snmp(Dir, Vsns) ->
 		end,
 		NT
 	end,
-    case (catch write_agent_snmp_files(Dir, 
-				       Vsns, ManagerIP, TrapUdp, 
-				       AgentIP, AgentUDP,
-				       SysName, NotifType, SecType, 
-				       Passwd, EngineID, MMS)) of
+    case (catch write_agent_snmp_files(
+		  Dir, Vsns, ManagerIP, TrapUdp, AgentIP, AgentUDP, SysName,
+		  NotifType, SecType, Passwd, EngineID, MMS)) of
 	ok ->
 	   i("~n- - - - - - - - - - - - -"),
 	   i("Info: 1. SecurityName \"initial\" has noAuthNoPriv read access~n"
@@ -630,19 +637,21 @@ config_manager_sys() ->
 			fun verify_verbosity/1),
     ConfigDbDir = ask("5. Database directory (absolute path)?", 
 		      DefDir, fun verify_dir/1),
-    ConfigDbRepair = ask("6. Database repair "
+    ConfigDbInitError = ask("6. How to handle DB init error?", 
+			    "terminate", fun verify_db_init_error/1),
+    ConfigDbRepair = ask("7. Database repair "
 			 "(true/false/force)?", "true",
 			 fun verify_dets_repair/1),
-    ConfigDbAutoSave = ask("7. Database auto save "
+    ConfigDbAutoSave = ask("8. Database auto save "
 			   "(infinity/milli seconds)?", 
 			   "5000", fun verify_dets_auto_save/1),
     IRB = 
-	case ask("8. Inform request behaviour (auto/user)?", 
+	case ask("9. Inform request behaviour (auto/user)?", 
 		 "auto", fun verify_irb/1) of
 	    auto ->
 		auto;
 	    user ->
-		case ask("8b. Use default GC timeout"
+		case ask("9b. Use default GC timeout"
 			 "(default/seconds)?",
 			 "default", fun verify_irb_user/1) of
 		    default ->
@@ -651,31 +660,31 @@ config_manager_sys() ->
 			{user, IrbGcTo}
 		end
 	end,
-    ServerVerb = ask("9. Server verbosity "
+    ServerVerb = ask("10. Server verbosity "
 			"(silence/info/log/debug/trace)?", 
 			"silence",
 			fun verify_verbosity/1),
-    ServerTimeout = ask("10. Server GC timeout?", "30000",
+    ServerTimeout = ask("11. Server GC timeout?", "30000",
 			   fun verify_timeout/1),    
-    NoteStoreVerb = ask("11. Note store verbosity "
+    NoteStoreVerb = ask("12. Note store verbosity "
 			"(silence/info/log/debug/trace)?", 
 			"silence",
 			fun verify_verbosity/1),
-    NoteStoreTimeout = ask("12. Note store GC timeout?", "30000",
+    NoteStoreTimeout = ask("13. Note store GC timeout?", "30000",
 			   fun verify_timeout/1),    
-    NetIfMod = ask("13. Which network interface module shall be used?",
+    NetIfMod = ask("14. Which network interface module shall be used?",
 		   "snmpm_net_if", fun verify_module/1),
-    NetIfVerb = ask("14. Network interface verbosity "
+    NetIfVerb = ask("15. Network interface verbosity "
 		    "(silence/info/log/debug/trace)?", "silence",
 		    fun verify_verbosity/1),
-    NetIfBindTo = ask("15. Bind the manager IP address "
+    NetIfBindTo = ask("16. Bind the manager IP address "
 		      "(true/false)?",
 		      "false", fun verify_bool/1),
-    NetIfNoReuse = ask("16. Shall the manager IP address and port "
+    NetIfNoReuse = ask("17. Shall the manager IP address and port "
 		       "be not reusable (true/false)?",
 		       "false", fun verify_bool/1),
     NetIfRecbuf = 
-	case ask("17. Receive buffer size of the manager (in bytes) "
+	case ask("18. Receive buffer size of the manager (in bytes) "
 		 "(default/pos integer)?", "default", 
 		 fun verify_netif_recbuf/1) of
 	    default ->
@@ -684,7 +693,7 @@ config_manager_sys() ->
 		[{recbuf, RecBufSz}]
 	end,
     NetIfSndbuf = 
-	case ask("18. Send buffer size of the manager (in bytes) "
+	case ask("19. Send buffer size of the manager (in bytes) "
 		 "(default/pos integer)?", "default", 
 		 fun verify_netif_sndbuf/1) of
 	    default ->
@@ -700,28 +709,28 @@ config_manager_sys() ->
 	 {verbosity, NetIfVerb},
 	 {options,   NetIfOpts}], 
     ATL = 
-	case ask("19. Shall the manager use an audit trail log "
+	case ask("20. Shall the manager use an audit trail log "
 		 "(y/n)?",
 		 "n", fun verify_yes_or_no/1) of
 	    yes ->
-		ATLType = ask("19b. Audit trail log type "
+		ATLType = ask("20b. Audit trail log type "
 			      "(write/read_write)?",
 			      "read_write", fun verify_atl_type/1),
-		ATLDir = ask("19c. Where to store the "
+		ATLDir = ask("20c. Where to store the "
 			     "audit trail log?",
 			     DefDir, fun verify_dir/1),
-		ATLMaxFiles = ask("19d. Max number of files?", 
+		ATLMaxFiles = ask("20d. Max number of files?", 
 				  "10", 
 				  fun verify_pos_integer/1),
-		ATLMaxBytes = ask("19e. Max size (in bytes) "
+		ATLMaxBytes = ask("20e. Max size (in bytes) "
 				  "of each file?", 
 				  "10240", 
 				  fun verify_pos_integer/1),
 		ATLSize = {ATLMaxBytes, ATLMaxFiles},
-		ATLRepair = ask("19f. Audit trail log repair "
+		ATLRepair = ask("20f. Audit trail log repair "
 				"(true/false/truncate/snmp_repair)?", "true",
 				fun verify_atl_repair/1),
-		ATLSeqNo = ask("19g. Audit trail log sequence-numbering "
+		ATLSeqNo = ask("20g. Audit trail log sequence-numbering "
 			       "(true/false)?", "false",
 			       fun verify_atl_seqno/1),
 		[{audit_trail_log, [{type,   ATLType},
@@ -733,14 +742,14 @@ config_manager_sys() ->
 		[]
 	end,
     DefUser = 
-	case ask("20. Do you wish to assign a default user [yes] or use~n"
+	case ask("21. Do you wish to assign a default user [yes] or use~n"
 		 "    the default settings [no] (y/n)?", "n", 
 		 fun verify_yes_or_no/1) of
 	    yes ->
-		DefUserMod = ask("20b. Default user module?", 
+		DefUserMod = ask("21b. Default user module?", 
 				 "snmpm_user_default",
 				 fun verify_module/1),
-		DefUserData = ask("20c. Default user data?", "undefined",
+		DefUserData = ask("21c. Default user data?", "undefined",
 				  fun verify_user_data/1),
 		[{def_user_mod,  DefUserMod},
 		 {def_user_data, DefUserData}];
@@ -750,11 +759,12 @@ config_manager_sys() ->
     SysConfig = 
 	[{priority,   Prio},
 	 {versions,   Vsns},
-	 {config,     [{dir,       ConfigDir}, 
-		       {verbosity, ConfigVerb},
-		       {db_dir,    ConfigDbDir},
-		       {repair,    ConfigDbRepair},
-		       {auto_save, ConfigDbAutoSave}]},
+	 {config,     [{dir,           ConfigDir},
+		       {db_dir,        ConfigDbDir}, 
+		       {db_init_error, ConfigDbInitError},
+		       {repair,        ConfigDbRepair},
+		       {auto_save,     ConfigDbAutoSave}, 
+		       {verbosity,     ConfigVerb}]},
 	 {inform_request_behaviour, IRB},
 	 {mibs,       []},
 	 {server,     [{timeout,   ServerTimeout},
@@ -1069,6 +1079,16 @@ verify_dir(Dir) ->
 	_E -> 
 	    {error, "invalid directory (not absolute): " ++ Dir}
     end.
+
+
+verify_db_init_error("terminate") ->
+    {ok, true};
+verify_db_init_error("create") ->
+    {ok, create};
+verify_db_init_error("create_db_and_dir") ->
+    {ok, create_db_and_dir};
+verify_db_init_error(R) ->
+    {error, "invalid DB init error: " ++ R}.
 	    
 
 verify_notif_type("trap")   -> {ok, trap};
@@ -1164,13 +1184,20 @@ verify_dets_auto_save(I0) ->
 
 
 %% I know that this is a little of the edge, but...
+verify_module(M) when is_atom(M) ->
+    {ok, M};
+verify_module(M0) when is_list(M0) ->
+    {ok, list_to_atom(M0)};
 verify_module(M0) ->
-    case (catch list_to_atom(M0)) of
-	M when is_atom(M) ->
-	    {ok, M};
-	_ ->
-	    {error, "invalid module: " ++ M0}
-    end.
+    {error, lists:flatten(io_lib:format("invalid module: ~p", [M0]))}.
+
+%% verify_module(M0) ->
+%%     case (catch list_to_atom(M0)) of
+%% 	M when is_atom(M) ->
+%% 	    {ok, M};
+%% 	_ ->
+%% 	    {error, "invalid module: " ++ M0}
+%%     end.
 	 
 
 verify_agent_type("master") ->
@@ -1557,35 +1584,63 @@ remove_newline(Str) ->
 %% File generation
 %%======================================================================
 
+write_agent_snmp_files(
+  Dir, Vsns, Domain, ManagerAddr, AgentAddr, SysName)
+  when is_list(Dir),
+       is_list(Vsns),
+       is_atom(Domain),
+       is_list(SysName) ->
+    write_agent_snmp_files(
+      Dir, Vsns, Domain, ManagerAddr, AgentAddr, SysName,
+      trap, none, "", "agentEngine", 484).
+
 %%----------------------------------------------------------------------
 %% Dir: string()  (ex: "../conf/")
 %% ManagerIP, AgentIP: [int(),int(),int(),int()]
 %% TrapUdp, AgentUDP: integer()
 %% SysName: string()
 %%----------------------------------------------------------------------
-write_agent_snmp_files(Dir, Vsns, ManagerIP, TrapUdp, 
-		       AgentIP, AgentUDP, SysName) 
-  when is_list(Dir) andalso 
-       is_list(Vsns) andalso 
-       is_list(ManagerIP) andalso 
-       is_integer(TrapUdp) andalso 
-       is_list(AgentIP) andalso 
-       is_integer(AgentUDP) andalso 
+write_agent_snmp_files(
+  Dir, Vsns, ManagerIP, TrapUDP, AgentIP, AgentUDP, SysName)
+  when is_list(Dir) andalso
+       is_list(Vsns) andalso
+       is_list(ManagerIP) andalso
+       is_integer(TrapUDP) andalso
+       is_list(AgentIP) andalso
+       is_integer(AgentUDP) andalso
        is_list(SysName) ->
-    write_agent_snmp_files(Dir, Vsns, ManagerIP, TrapUdp, AgentIP, AgentUDP,
-			   SysName, "trap", none, "", "agentEngine", 484).
+    write_agent_snmp_files(
+      Dir, Vsns, ManagerIP, TrapUDP, AgentIP, AgentUDP, SysName,
+      trap, none, "", "agentEngine", 484).
 
 %% 
 %% ----- Agent config files generator functions -----
 %% 
 
-write_agent_snmp_files(Dir, Vsns, ManagerIP, TrapUdp, AgentIP, AgentUDP, 
-		       SysName, NotifType, SecType, Passwd, EngineID, MMS) ->
+write_agent_snmp_files(
+  Dir, Vsns, Domain, ManagerAddr, AgentAddr, SysName,
+  NotifType, SecType, Passwd, EngineID, MMS) ->
+    write_agent_snmp_conf(Dir, Domain, AgentAddr, EngineID, MMS),
+    write_agent_snmp_context_conf(Dir),
+    write_agent_snmp_community_conf(Dir),
+    write_agent_snmp_standard_conf(Dir, SysName),
+    write_agent_snmp_target_addr_conf(Dir, Domain, ManagerAddr, Vsns),
+    write_agent_snmp_target_params_conf(Dir, Vsns),
+    write_agent_snmp_notify_conf(Dir, NotifType),
+    write_agent_snmp_usm_conf(Dir, Vsns, EngineID, SecType, Passwd),
+    write_agent_snmp_vacm_conf(Dir, Vsns, SecType),
+    ok.
+
+write_agent_snmp_files(
+  Dir, Vsns, ManagerIP, TrapUDP, AgentIP, AgentUDP, SysName,
+  NotifType, SecType, Passwd, EngineID, MMS) ->
+    Domain = snmp_target_mib:default_domain(),
+    ManagerAddr = {ManagerIP, TrapUDP},
     write_agent_snmp_conf(Dir, AgentIP, AgentUDP, EngineID, MMS),
     write_agent_snmp_context_conf(Dir),
     write_agent_snmp_community_conf(Dir),
     write_agent_snmp_standard_conf(Dir, SysName),
-    write_agent_snmp_target_addr_conf(Dir, ManagerIP, TrapUdp, Vsns),
+    write_agent_snmp_target_addr_conf(Dir, Domain, ManagerAddr, Vsns),
     write_agent_snmp_target_params_conf(Dir, Vsns),
     write_agent_snmp_notify_conf(Dir, NotifType),
     write_agent_snmp_usm_conf(Dir, Vsns, EngineID, SecType, Passwd),
@@ -1593,11 +1648,40 @@ write_agent_snmp_files(Dir, Vsns, ManagerIP, TrapUdp, AgentIP, AgentUDP,
     ok.
 
 
+
 %% 
 %% ------ [agent] agent.conf ------
 %% 
 
-write_agent_snmp_conf(Dir, AgentIP, AgentUDP, EngineID, MMS) -> 
+write_agent_snmp_conf(Dir, Transports, EngineID, MMS) ->
+    Conf =
+	[{intAgentTransports,       Transports},
+	 {snmpEngineID,             EngineID},
+	 {snmpEngineMaxMessageSize, MMS}],
+    do_write_agent_snmp_conf(Dir, Conf).
+
+write_agent_snmp_conf(Dir, Domain, AgentAddr, EngineID, MMS)
+  when is_atom(Domain) ->
+    {AgentIP, AgentUDP} = AgentAddr,
+    Conf =
+	[{intAgentTransportDomain,  Domain},
+	 {intAgentUDPPort,          AgentUDP},
+	 {intAgentIpAddress,        AgentIP},
+	 {snmpEngineID,             EngineID},
+	 {snmpEngineMaxMessageSize, MMS}],
+    do_write_agent_snmp_conf(Dir, Conf);
+write_agent_snmp_conf(Dir, AgentIP, AgentUDP, EngineID, MMS)
+  when is_integer(AgentUDP) ->
+    Conf =
+	[{intAgentUDPPort,          AgentUDP},
+	 {intAgentIpAddress,        AgentIP},
+	 {snmpEngineID,             EngineID},
+	 {snmpEngineMaxMessageSize, MMS}],
+    do_write_agent_snmp_conf(Dir, Conf);
+write_agent_snmp_conf(_Dir, Domain, AgentAddr, _EngineID, _MMS) ->
+    error({bad_address, {Domain, AgentAddr}}).
+
+do_write_agent_snmp_conf(Dir, Conf) ->
     Comment = 
 "%% This file defines the Agent local configuration info\n"
 "%% The data is inserted into the snmpEngine* variables defined\n"
@@ -1612,11 +1696,7 @@ write_agent_snmp_conf(Dir, AgentIP, AgentUDP, EngineID, MMS) ->
 "%% {snmpEngineID, \"agentEngine\"}.\n"
 "%% {snmpEngineMaxMessageSize, 484}.\n"
 "%%\n\n",
-    Hdr = header() ++ Comment, 
-    Conf = [{intAgentUDPPort,          AgentUDP}, 
-	    {intAgentIpAddress,        AgentIP},
-	    {snmpEngineID,             EngineID},
-	    {snmpEngineMaxMessageSize, MMS}],
+    Hdr = header() ++ Comment,
     write_agent_config(Dir, Hdr, Conf).
 
 write_agent_config(Dir, Hdr, Conf) ->
@@ -1722,17 +1802,19 @@ update_agent_standard_config(Dir, Conf) ->
 %% ------ target_addr.conf ------
 %% 
 
-write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP, Vsns) -> 
-    Timeout    = 1500, 
-    RetryCount = 3, 
-    write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP, 
-				      Timeout, RetryCount, 
-				      Vsns).
+write_agent_snmp_target_addr_conf(Dir, Addresses, Vsns) ->
+    Timeout    = 1500,
+    RetryCount = 3,
+    write_agent_snmp_target_addr_conf(
+      Dir, Addresses, Timeout, RetryCount, Vsns).
 
-write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP, 
-				  Timeout, RetryCount, 
-				  Vsns) -> 
-    Comment = 
+write_agent_snmp_target_addr_conf(Dir, Domain_or_Ip, Addr_or_Port, Vsns) ->
+    Addresses = [{Domain_or_Ip, Addr_or_Port}],
+    write_agent_snmp_target_addr_conf(Dir, Addresses, Vsns).
+
+write_agent_snmp_target_addr_conf(
+  Dir, Addresses, Timeout, RetryCount, Vsns) ->
+    Comment =
 "%% This file defines the target address parameters.\n"
 "%% The data is inserted into the snmpTargetAddrTable defined\n"
 "%% in SNMP-TARGET-MIB, and in the snmpTargetAddrExtTable defined\n"
@@ -1751,36 +1833,59 @@ write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP,
 "%%  [127,0,0,0],  2048}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment,
-    F = fun(v1 = Vsn, Acc) ->
-		[{mk_ip(ManagerIp, Vsn), 
-		  snmp_target_mib:default_domain(), 
-		  ManagerIp, UDP, Timeout, RetryCount, 
-		  "std_trap", mk_param(Vsn), "", [], 2048}| Acc];
-	   (v2 = Vsn, Acc) ->
-		[{mk_ip(ManagerIp, Vsn), 
-		  snmp_target_mib:default_domain(), 
-		  ManagerIp, UDP, Timeout, RetryCount, 
-		  "std_trap", mk_param(Vsn), "", [], 2048},
-		 {lists:flatten(io_lib:format("~s.2",[mk_ip(ManagerIp, Vsn)])),
-		  ManagerIp, UDP, Timeout, RetryCount, 
-		  "std_inform", mk_param(Vsn), "", [], 2048}| Acc];
-	   (v3 = Vsn, Acc) ->
-		[{mk_ip(ManagerIp, Vsn), 
-		  snmp_target_mib:default_domain(), 
-		  ManagerIp, UDP, Timeout, RetryCount, 
-		  "std_trap", mk_param(Vsn), "", [], 2048},
-		 {lists:flatten(io_lib:format("~s.3",[mk_ip(ManagerIp, Vsn)])),
-		  ManagerIp, UDP, Timeout, RetryCount, 
-		  "std_inform", mk_param(Vsn), "mgrEngine", [], 2048}| Acc]
-	end,
-    Conf = lists:foldl(F, [], Vsns),
+    Conf =
+	lists:foldl(
+	  fun ({Domain_or_Ip, Addr_or_Port} = Address, OuterAcc) ->
+		  lists:foldl(
+		    fun(v1 = Vsn, Acc) ->
+			    [{mk_name(Address, Vsn),
+			      Domain_or_Ip, Addr_or_Port,
+			      Timeout, RetryCount,
+			      "std_trap", mk_param(Vsn), "",
+			      [], 2048}| Acc];
+		       (v2 = Vsn, Acc) ->
+			    [{mk_name(Address, Vsn),
+			      Domain_or_Ip, Addr_or_Port,
+			      Timeout, RetryCount,
+			      "std_trap", mk_param(Vsn), "",
+			      [], 2048},
+			       {lists:flatten(
+				  io_lib:format(
+				    "~s.2", [mk_name(Address, Vsn)])),
+				Domain_or_Ip, Addr_or_Port,
+				Timeout, RetryCount,
+				"std_inform", mk_param(Vsn), "",
+				[], 2048}| Acc];
+		       (v3 = Vsn, Acc) ->
+			    [{mk_name(Address, Vsn),
+			      Domain_or_Ip, Addr_or_Port,
+			      Timeout, RetryCount,
+			      "std_trap", mk_param(Vsn), "",
+			      [], 2048},
+			     {lists:flatten(
+				io_lib:format(
+				  "~s.3", [mk_name(Address, Vsn)])),
+			      Domain_or_Ip, Addr_or_Port,
+			      Timeout, RetryCount,
+			      "std_inform", mk_param(Vsn), "mgrEngine",
+			      [], 2048} | Acc]
+		    end, OuterAcc, Vsns)
+	  end, [], Addresses),
     write_agent_target_addr_config(Dir, Hdr, Conf).
+
+write_agent_snmp_target_addr_conf(
+  Dir, Domain_or_Ip, Addr_or_Port, Timeout, RetryCount, Vsns) ->
+    Addresses = [{Domain_or_Ip, Addr_or_Port}],
+    write_agent_snmp_target_addr_conf(
+      Dir, Addresses, Timeout, RetryCount, Vsns).
 
 mk_param(Vsn) ->
     lists:flatten(io_lib:format("target_~w", [Vsn])).
 
-mk_ip([A,B,C,D], Vsn) ->
-    lists:flatten(io_lib:format("~w.~w.~w.~w ~w", [A,B,C,D,Vsn])).
+mk_name(Address, Vsn) ->
+    lists:flatten(
+      io_lib:format(
+	"~s ~w", [snmp_conf:mk_addr_string(Address), Vsn])).
 
 write_agent_target_addr_config(Dir, Hdr, Conf) ->
     snmpa_conf:write_target_addr_config(Dir, Hdr, Conf).
@@ -2014,7 +2119,24 @@ write_manager_snmp_files(Dir, IP, Port, MMS, EngineID,
 %% ------ manager.conf ------
 %% 
 
-write_manager_snmp_conf(Dir, IP, Port, MMS, EngineID) -> 
+write_manager_snmp_conf(Dir, Transports, MMS, EngineID) ->
+    Comment =
+"%% This file defines the Manager local configuration info\n"
+"%% Each row is a 2-tuple:\n"
+"%% {Variable, Value}.\n"
+"%% For example\n"
+"%% {transports,       [{transportDomainUdpIpv4, {{127,42,17,5}, 5000}}]}.\n"
+"%% {engine_id,        \"managerEngine\"}.\n"
+"%% {max_message_size, 484}.\n"
+"%%\n\n",
+    Hdr = header() ++ Comment,
+    Conf =
+	[{transports, Transports},
+	 {engine_id,        EngineID},
+	 {max_message_size, MMS}],
+    write_manager_config(Dir, Hdr, Conf).
+
+write_manager_snmp_conf(Dir, Domain_or_IP, Addr_or_Port, MMS, EngineID) ->
     Comment = 
 "%% This file defines the Manager local configuration info\n"
 "%% Each row is a 2-tuple:\n"
@@ -2026,10 +2148,20 @@ write_manager_snmp_conf(Dir, IP, Port, MMS, EngineID) ->
 "%% {max_message_size, 484}.\n"
 "%%\n\n",
     Hdr = header() ++ Comment,
-    Conf = [{port,             Port}, 
-            {address,          IP}, 
-	    {engine_id,        EngineID}, 
-	    {max_message_size, MMS}], 
+    Conf =
+	case Addr_or_Port of
+	    {IP, Port} when is_integer(Port), is_atom(Domain_or_IP) ->
+		[{domain,  Domain_or_IP},
+		 {port,    Port},
+		 {address, IP}];
+	    _ when is_integer(Addr_or_Port) ->
+		[{port,    Addr_or_Port},
+		 {address, Domain_or_IP}];
+	    _ ->
+		error({bad_address, {Domain_or_IP, Addr_or_Port}})
+	end ++
+	[{engine_id,        EngineID},
+	 {max_message_size, MMS}],
     write_manager_config(Dir, Hdr, Conf).
 
 write_manager_config(Dir, Hdr, Conf) ->
@@ -2168,6 +2300,8 @@ write_sys_config_file_agent_opt(Fid, {config, Opts}) ->
     ok = io:format(Fid, "}", []);
 write_sys_config_file_agent_opt(Fid, {db_dir, Dir}) ->
     ok = io:format(Fid, "     {db_dir, \"~s\"}", [Dir]);
+write_sys_config_file_agent_opt(Fid, {db_init_error, Action}) ->
+    ok = io:format(Fid, "     {db_init_error, ~w}", [Action]);
 write_sys_config_file_agent_opt(Fid, {mib_storage, ets}) ->
     ok = io:format(Fid, "     {mib_storage, ets}", []);
 write_sys_config_file_agent_opt(Fid, {mib_storage, {dets, Dir}}) ->
@@ -2344,6 +2478,8 @@ write_sys_config_file_manager_config_opt(Fid, {dir, Dir}) ->
     ok = io:format(Fid, "{dir, \"~s\"}", [Dir]);
 write_sys_config_file_manager_config_opt(Fid, {db_dir, Dir}) ->
     ok = io:format(Fid, "{db_dir, \"~s\"}", [Dir]);
+write_sys_config_file_manager_config_opt(Fid, {db_init_error, Action}) ->
+    ok = io:format(Fid, "{db_init_error, ~w}", [Action]);
 write_sys_config_file_manager_config_opt(Fid, {repair, Rep}) ->
     ok = io:format(Fid, "{repair, ~w}", [Rep]);
 write_sys_config_file_manager_config_opt(Fid, {auto_save, As}) ->
@@ -2383,83 +2519,92 @@ header() ->
 		  [?MODULE, ?version, Y, Mo, D, H, Mi, S]).
 
 
-%% *If* these functions are successfull, they successfully return anything
-%% (which is ignored), but they fail with either a throw or an exit or 
-%% something similar.
+%% *If* these functions are successfull, they successfully return
+%% (value is ignored), but they fail preferably with
+%% throw({error, Reason}).  Other exceptions are also handled.
 
-%% Verification of one config entry read from a file
--type(verify_config_entry_function() :: 
-      fun((Entry :: term()) -> ok | {error, Reason :: term()})).
+%% Sorting order for config entries (see lists:sort/2)
+-type(order_config_entry_function() ::
+	fun((term(), term()) -> boolean())).
 
-%% Verification of config to be written
--type(verify_config_function() :: 
-      fun(() -> void())).
+%% Check of config entries. Initial State is 'undefined'
+-type(check_config_entry_function() ::
+	fun((Entry :: term(), State :: undefined | term()) ->
+		    {ok | {ok, NewEntry :: term()}, NewState :: term()})).
 
-%% Write config to file (as defined by Fd)
--type(write_config_function() :: 
-      fun((Fd :: file:io_device()) -> void())).
+%% Write configuration entries to file descriptor Fd
+-type(write_config_function() ::
+	fun((Fd :: file:io_device(), [Entry :: term()]) -> ok)).
 
--spec write_config_file(Dir :: string(), 
-			FileName :: string(), 
-			Verify :: verify_config_function(), 
-			Write :: write_config_function()) ->
-    ok | {error, Reason :: term()}.
+-spec write_config_file(
+	Dir :: string(),
+	FileName :: string(),
+	Order :: order_config_entry_function(),
+	Check :: check_config_entry_function(),
+	Write :: write_config_function(),
+	Entries :: [term()]) ->
+			       ok | {error, term()}.
 
-write_config_file(Dir, FileName, Verify, Write) 
-  when (is_list(Dir) andalso 
-	is_list(FileName) andalso 
-	is_function(Verify) andalso 
-	is_function(Write)) ->
+write_config_file(Dir, FileName, Order, Check, Write, Entries)
+  when is_list(Dir), is_list(FileName),
+       is_function(Order), is_function(Check), is_function(Write),
+       is_list(Entries) ->
     try
-	begin
-	    do_write_config_file(Dir, FileName, Verify, Write)
-	end
+	SortedEntries = lists:sort(Order, Entries),
+	_ =
+	    lists:foldl(
+	      fun (Entry, State) ->
+		      case Check(Entry, State) of
+			  {Ok, NewState} when is_list(Ok) ->
+			      NewState;
+			  {ok, NewState} ->
+			      NewState;
+			  {{ok, _}, NewState} ->
+			      NewState
+		      end
+	      end, undefined, SortedEntries),
+	ok
+    of
+	_ ->
+	    case file:open(filename:join(Dir, FileName), [write]) of
+		{ok, Fd} ->
+		    write_config_file(Dir, FileName, Write, Entries, Fd);
+		Error ->
+		    Error
+	    end
     catch
-	throw:Error ->
-	    Error;
-	  T:E ->
-	    {error, {failed_write, Dir, FileName, T, E}}
-    end.
-
-
-do_write_config_file(Dir, FileName, Verify, Write) ->
-    Verify(),
-    case file:open(filename:join(Dir, FileName), [write]) of
-	{ok, Fd} ->
-	    file_write_and_close(Write, Fd, Dir, FileName);
 	Error ->
-	    Error
+	    S = erlang:get_stacktrace(),
+	    d("File write of ~s throwed: ~p~n    ~p~n",
+	      [FileName, Error, S]),
+	    Error;
+	C:E ->
+	    S = erlang:get_stacktrace(),
+	    d("File write of ~s exception: ~p:~p~n    ~p~n",
+	      [FileName,C,E,S]),
+	    {error, {failed_write, Dir, FileName, {C, E, S}}}
     end.
 
-append_config_file(Dir, FileName, Verify, Write) 
-  when (is_list(Dir) andalso 
-	is_list(FileName) andalso 
-	is_function(Verify) andalso 
-	is_function(Write)) ->
-    try
-	begin
-	    do_append_config_file(Dir, FileName, Verify, Write)
-	end
+write_config_file(Dir, FileName, Write, Entries, Fd) ->
+    try	Write(Fd, Entries) of
+	ok ->
+	    close_config_file(Dir, FileName, Fd)
     catch
-	throw:Error ->
-	    Error;
-	  T:E ->
-	    {error, {failed_append, Dir, FileName, T, E}}
-    end.
-
-do_append_config_file(Dir, FileName, Verify, Write) ->
-    Verify(),
-    case file:open(filename:join(Dir, FileName), [read, write]) of
-	{ok, Fd} ->
-	    file:position(Fd, eof),
-	    file_write_and_close(Write, Fd, Dir, FileName);
 	Error ->
-	    Error
+	    S = erlang:get_stacktrace(),
+	    d("File write of ~s throwed: ~p~n    ~p~n",
+	      [FileName, Error, S]),
+	    close_config_file(Dir, FileName, Fd),
+	    Error;
+	C:E ->
+	    S = erlang:get_stacktrace(),
+	    d("File write of ~s exception: ~p:~p~n    ~p~n",
+	      [FileName,C,E,S]),
+	    close_config_file(Dir, FileName, Fd),
+	    {error, {failed_write, Dir, FileName, {C, E, S}}}
     end.
 
-
-file_write_and_close(Write, Fd, Dir, FileName) ->
-    ok = Write(Fd),
+close_config_file(Dir, FileName, Fd) ->
     case file:sync(Fd) of
 	ok ->
 	    case file:close(Fd) of
@@ -2469,61 +2614,157 @@ file_write_and_close(Write, Fd, Dir, FileName) ->
 		    {error, {failed_closing, Dir, FileName, Reason}}
 	    end;
 	{error, Reason} ->
+	    _ = file:close(Fd),
 	    {error, {failed_syncing, Dir, FileName, Reason}}
     end.
 
 
--spec read_config_file(Dir :: string(), 
-		       FileName :: string(), 
-		       Verify :: verify_config_entry_function()) ->
-    {ok, Config :: list()} | {error, Reason :: term()}.
 
-read_config_file(Dir, FileName, Verify) 
-  when is_list(Dir) andalso is_list(FileName) andalso is_function(Verify) ->
-    (catch do_read_config_file(Dir, FileName, Verify)).
+-spec append_config_file(
+	Dir :: string(),
+	FileName :: string(),
+	Order :: order_config_entry_function(),
+	Check :: check_config_entry_function(),
+	Write :: write_config_function(),
+	Entries :: [term()]) ->
+			       ok | {error, term()}.
 
-do_read_config_file(Dir, FileName, Verify) ->
+append_config_file(Dir, FileName, Order, Check, Write, Entries)
+  when is_list(Dir), is_list(FileName),
+       is_function(Order), is_function(Check), is_function(Write),
+       is_list(Entries) ->
+    case file:open(filename:join(Dir, FileName), [read, write]) of
+	{ok, Fd} ->
+	    append_config_file(
+	      Dir, FileName, Order, Check, Write, Entries, Fd);
+	Error ->
+	    Error
+    end.
+
+append_config_file(Dir, FileName, Order, Check, Write, Entries, Fd) ->
+    try
+	%% Verify the entries together with the file content
+	LinesInFileR = read_lines(Fd, [], 1),
+	StartLine =
+	    case LinesInFileR of
+		[] ->
+		    1;
+		[{_, _, EndLine} | _] ->
+		    EndLine
+	    end,
+	LinesR = prepend_lines(LinesInFileR, Entries, StartLine),
+	SortedLines = sort_lines(lists:reverse(LinesR), Order),
+	_ = verify_lines(SortedLines, Check, undefined, []),
+	%% Append to the file
+	Write(Fd, Entries)
+    of
+	ok ->
+	    close_config_file(Dir, FileName, Fd)
+    catch
+	Error ->
+	    S = erlang:get_stacktrace(),
+	    d("File append of ~s throwed: ~p~n    ~p~n",
+	      [FileName, Error, S]),
+	    close_config_file(Dir, FileName, Fd),
+	    Error;
+	C:E ->
+	    S = erlang:get_stacktrace(),
+	    d("File append of ~s exception: ~p:~p~n    ~p~n",
+	      [FileName,C,E,S]),
+	    close_config_file(Dir, FileName, Fd),
+	    {error, {failed_append, Dir, FileName, {C, E, S}}}
+    end.
+
+%% Fake line numbers, one per entry
+prepend_lines(Lines, [], _) ->
+    Lines;
+prepend_lines(Lines, [Entry | Entries], StartLine) ->
+    EndLine = StartLine + 1,
+    prepend_lines([{StartLine, Entry, EndLine} | Lines], Entries, EndLine).
+
+
+
+-spec read_config_file(
+	Dir :: string(),
+	FileName :: string(),
+	Order :: order_config_entry_function(),
+	Check :: check_config_entry_function()) ->
+				{ok, Config :: [Entry :: term()]} |
+				{error, Reason :: term()}.
+
+read_config_file(Dir, FileName, Order, Check)
+  when is_list(Dir), is_list(FileName),
+       is_function(Order), is_function(Check) ->
     case file:open(filename:join(Dir, FileName), [read]) of
 	{ok, Fd} ->
-	    Result = read_loop(Fd, [], Verify, 1),
-	    file:close(Fd),
-	    Result;
+	    try
+		Lines = lists:reverse(read_lines(Fd, [], 1)),
+		SortedLines = sort_lines(Lines, Order),
+		{ok, verify_lines(SortedLines, Check, undefined, [])}
+	    catch
+		Error ->
+		    S = erlang:get_stacktrace(),
+		    d("File read of ~s throwed: ~p~n    ~p~n",
+		      [FileName, Error, S]),
+		    {error, Error};
+		T:E ->
+		    S = erlang:get_stacktrace(),
+		    d("File read of ~s exception: ~p:~p~n    ~p~n",
+		      [FileName,T,E,S]),
+		    {error, {failed_read, Dir, FileName, {T, E, S}}}
+	    after
+		file:close(Fd)
+	    end;
 	{error, Reason} ->
 	    {error, {Reason, FileName}}
     end.
 
-read_loop(Fd, Acc, Check, StartLine) ->
-    case read_term(Fd, StartLine) of
+read_lines(Fd, Acc, StartLine) ->
+    case read_and_parse_term(Fd, StartLine) of
 	{ok, Term, EndLine} ->
-	    case (catch Check(Term)) of
-		ok ->
-		    read_loop(Fd, [Term | Acc], Check, EndLine);
-		{error, Reason} ->
-		    {error, {failed_check, StartLine, EndLine, Reason}};
-		Error ->
-		    {error, {failed_check, StartLine, EndLine, Error}}
-	    end;
-	{error, EndLine, Error} ->
-            {error, {failed_reading, StartLine, EndLine, Error}};
-        eof ->
-            {ok, lists:reverse(Acc)}
+	    read_lines(Fd, [{StartLine, Term, EndLine}|Acc], EndLine);
+	{error, Error, EndLine} ->
+            throw({failed_reading, StartLine, EndLine, Error});
+        {eof, _EndLine} ->
+	    Acc
     end.
-	    
-read_term(Fd, StartLine) ->
+
+read_and_parse_term(Fd, StartLine) ->
     case io:request(Fd, {get_until, "", erl_scan, tokens, [StartLine]}) of
 	{ok, Tokens, EndLine} ->
 	    case erl_parse:parse_term(Tokens) of
                 {ok, Term} ->
                     {ok, Term, EndLine};
                 {error, {Line, erl_parse, Error}} ->
-                    {error, Line, {parse_error, Error}}
+                    {error, {parse_error, Error}, Line}
             end;
-        {error, E, EndLine} ->
-            {error, EndLine, E};
-        {eof, _EndLine} ->
-            eof;
         Other ->
             Other
+    end.
+
+sort_lines(Lines, Order) ->
+    lists:sort(
+      fun ({_, T1, _}, {_, T2, _}) ->
+	      Order(T1, T2)
+      end, Lines).
+
+verify_lines([], _, _, Acc) ->
+    lists:reverse(Acc);
+verify_lines(
+  [{StartLine, Term, EndLine}|Lines], Check, State, Acc) ->
+    try Check(Term, State) of
+	{Terms, NewState} when is_list(Terms) ->
+	    verify_lines(Lines, Check, NewState, Terms ++ Acc);
+	{ok, NewState} ->
+	    verify_lines(Lines, Check, NewState, [Term|Acc]);
+	{{ok, NewTerm}, NewState} ->
+	    verify_lines(Lines, Check, NewState, [NewTerm|Acc])
+    catch
+	{error, Reason} ->
+	    throw({failed_check, StartLine, EndLine, Reason});
+	C:R ->
+	    S = erlang:get_stacktrace(),
+	    throw({failed_check, StartLine, EndLine, {C, R, S}})
     end.
 
 
@@ -2548,8 +2789,8 @@ ensure_started(App) ->
 
 %% -------------------------------------------------------------------------
 
-% d(F, A) ->
-%     i("DBG: " ++ F, A).
+d(F, A) ->
+    i("DBG: " ++ F, A).
 
 i(F) ->
     i(F, []).

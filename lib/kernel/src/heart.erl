@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -25,7 +26,7 @@
 %%%--------------------------------------------------------------------
 %%% This is a rewrite of pre_heart from BS.3.
 %%%
-%%% The purpose of this process-module is to act as an supervisor
+%%% The purpose of this process-module is to act as a supervisor
 %%% of the entire erlang-system. This 'heart' beats with a frequence
 %%% satisfying an external port program *not* reboot the entire
 %%% system. If however the erlang-emulator would hang, a reboot is
@@ -33,7 +34,11 @@
 %%%
 %%% It recognizes the flag '-heart'
 %%%--------------------------------------------------------------------
--export([start/0, init/2, set_cmd/1, clear_cmd/0, get_cmd/0, cycle/0]).
+-export([start/0, init/2,
+         set_cmd/1, clear_cmd/0, get_cmd/0,
+         set_callback/2, clear_callback/0, get_callback/0,
+         set_options/1, get_options/0,
+         cycle/0]).
 
 -define(START_ACK, 1).
 -define(HEART_BEAT, 2).
@@ -47,6 +52,16 @@
 -define(TIMEOUT, 5000).
 -define(CYCLE_TIMEOUT, 10000).
 -define(HEART_PORT_NAME, heart_port).
+
+%% valid heart options
+-define(SCHEDULER_CHECK_OPT, check_schedulers).
+
+-type heart_option() :: ?SCHEDULER_CHECK_OPT.
+
+-record(state,{port :: port(),
+               cmd  :: [] | binary(),
+               options :: [heart_option()],
+               callback :: 'undefined' | {atom(), atom()}}).
 
 %%---------------------------------------------------------------------
 
@@ -80,11 +95,11 @@ wait_for_init_ack(From) ->
 init(Starter, Parent) ->
     process_flag(trap_exit, true),
     process_flag(priority, max),
-    register(heart, self()),
+    register(?MODULE, self()),
     case catch start_portprogram() of
 	{ok, Port} ->
 	    Starter ! {ok, self()},
-	    loop(Parent, Port, "");
+	    loop(Parent, #state{port=Port, cmd=[], options=[]});
 	no_heart ->
 	    Starter ! {no_heart, self()};
 	error ->
@@ -95,33 +110,68 @@ init(Starter, Parent) ->
       Cmd :: string().
 
 set_cmd(Cmd) ->
-    heart ! {self(), set_cmd, Cmd},
+    ?MODULE ! {self(), set_cmd, Cmd},
     wait().
 
 -spec get_cmd() -> {ok, Cmd} when
       Cmd :: string().
 
 get_cmd() ->
-    heart ! {self(), get_cmd},
+    ?MODULE ! {self(), get_cmd},
     wait().
 
 -spec clear_cmd() -> ok.
 
 clear_cmd() ->
-    heart ! {self(), clear_cmd},
+    ?MODULE ! {self(), clear_cmd},
     wait().
 
+-spec set_callback(Module,Function) -> 'ok' | {'error', {'bad_callback', {Module, Function}}} when
+      Module :: atom(),
+      Function :: atom().
+
+set_callback(Module, Function) ->
+    ?MODULE ! {self(), set_callback, {Module,Function}},
+    wait().
+
+-spec get_callback() -> {'ok', {Module, Function}} | 'none' when
+      Module :: atom(),
+      Function :: atom().
+
+get_callback() ->
+    ?MODULE ! {self(), get_callback},
+    wait().
+
+-spec clear_callback() -> ok.
+
+clear_callback() ->
+    ?MODULE ! {self(), clear_callback},
+    wait().
+
+-spec set_options(Options) -> 'ok' | {'error', {'bad_options', Options}} when
+      Options :: [heart_option()].
+
+set_options(Options) ->
+    ?MODULE ! {self(), set_options, Options},
+    wait().
+
+-spec get_options() -> {'ok', Options} | 'none' when
+      Options :: [atom()].
+
+get_options() ->
+    ?MODULE ! {self(), get_options},
+    wait().
 
 %%% Should be used solely by the release handler!!!!!!!
 -spec cycle() -> 'ok' | {'error', term()}.
 
 cycle() ->
-    heart ! {self(), cycle},
+    ?MODULE ! {self(), cycle},
     wait().
 
 wait() ->
     receive
-	{heart, Res} ->
+	{?MODULE, Res} ->
 	    Res
     end.
 
@@ -181,85 +231,133 @@ wait_ack(Port) ->
 	    {error, Reason}
     end.
 
-loop(Parent, Port, Cmd) ->
-    send_heart_beat(Port),
+loop(Parent, #state{port=Port}=S) ->
+    _ = send_heart_beat(S),
     receive
-	{From, set_cmd, NewCmd} when length(NewCmd) < 2047 ->
-	    send_heart_cmd(Port, NewCmd),
-	    wait_ack(Port),
-	    From ! {heart, ok},
-	    loop(Parent, Port, NewCmd);
-	{From, set_cmd, NewCmd} ->
-	    From ! {heart, {error, {bad_cmd, NewCmd}}},
-	    loop(Parent, Port, Cmd);
+	{From, set_cmd, NewCmd0} ->
+	    Enc = file:native_name_encoding(),
+	    case catch unicode:characters_to_binary(NewCmd0,Enc,Enc) of
+		NewCmd when is_binary(NewCmd), byte_size(NewCmd) < 2047 ->
+		    _ = send_heart_cmd(Port, NewCmd),
+		    _ = wait_ack(Port),
+		    From ! {?MODULE, ok},
+		    loop(Parent, S#state{cmd=NewCmd});
+		_ ->
+		    From ! {?MODULE, {error, {bad_cmd, NewCmd0}}},
+		    loop(Parent, S)
+	    end;
 	{From, clear_cmd} ->
-	    From ! {heart, ok},
-	    send_heart_cmd(Port, ""),
-	    wait_ack(Port),
-	    loop(Parent, Port, "");
+	    From ! {?MODULE, ok},
+	    _ = send_heart_cmd(Port, []),
+	    _ = wait_ack(Port),
+	    loop(Parent, S#state{cmd = []});
 	{From, get_cmd} ->
-	    From ! {heart, get_heart_cmd(Port)},
-	    loop(Parent, Port, Cmd);
+	    From ! {?MODULE, get_heart_cmd(Port)},
+            loop(Parent, S);
+	{From, set_callback, Callback} ->
+            case Callback of
+                {M,F} when is_atom(M), is_atom(F) ->
+                    From ! {?MODULE, ok},
+                    loop(Parent, S#state{callback=Callback});
+                _ ->
+		    From ! {?MODULE, {error, {bad_callback, Callback}}},
+                    loop(Parent, S)
+            end;
+        {From, get_callback} ->
+            Res = case S#state.callback of
+                      undefined -> none;
+                      Cb -> {ok, Cb}
+                  end,
+            From ! {?MODULE, Res},
+            loop(Parent, S);
+        {From, clear_callback} ->
+            From ! {?MODULE, ok},
+            loop(Parent, S#state{callback=undefined});
+	{From, set_options, Options} ->
+            case validate_options(Options) of
+                Validated when is_list(Validated) ->
+                    From ! {?MODULE, ok},
+                    loop(Parent, S#state{options=Validated});
+                _ ->
+		    From ! {?MODULE, {error, {bad_options, Options}}},
+                    loop(Parent, S)
+            end;
+        {From, get_options} ->
+            Res = case S#state.options of
+                      [] -> none;
+                      Cb -> {ok, Cb}
+                  end,
+            From ! {?MODULE, Res},
+            loop(Parent, S);
 	{From, cycle} ->
 	    %% Calls back to loop
-	    do_cycle_port_program(From, Parent, Port, Cmd);  
+	    do_cycle_port_program(From, Parent, S);
 	{'EXIT', Parent, shutdown} ->
 	    no_reboot_shutdown(Port);
 	{'EXIT', Parent, Reason} ->
 	    exit(Port, Reason),
 	    exit(Reason);
 	{'EXIT', Port, badsig} ->  % we can ignore badsig-messages!
-	    loop(Parent, Port, Cmd);
+	    loop(Parent, S);
 	{'EXIT', Port, _Reason} ->
-	    exit({port_terminated, {heart, loop, [Parent, Port, Cmd]}});
+	    exit({port_terminated, {?MODULE, loop, [Parent, S]}});
 	_ -> 
-	    loop(Parent, Port, Cmd)
+	    loop(Parent, S)
     after
 	?TIMEOUT ->
-	    loop(Parent, Port, Cmd)
+	    loop(Parent, S)
     end.
 
 -spec no_reboot_shutdown(port()) -> no_return().
 
 no_reboot_shutdown(Port) ->
-    send_shutdown(Port),
+    _ = send_shutdown(Port),
     receive
 	{'EXIT', Port, Reason} when Reason =/= badsig ->
 	    exit(normal)
     end.
 
-do_cycle_port_program(Caller, Parent, Port, Cmd) ->
+validate_options(Opts) -> validate_options(Opts,[]).
+validate_options([],Res) -> Res;
+validate_options([?SCHEDULER_CHECK_OPT=Opt|Opts],Res) -> validate_options(Opts,[Opt|Res]);
+validate_options(_,_) -> error.
+
+do_cycle_port_program(Caller, Parent, #state{port=Port} = S) ->
     unregister(?HEART_PORT_NAME),
     case catch start_portprogram() of
 	{ok, NewPort} ->
-	    send_shutdown(Port),
+	    _ = send_shutdown(Port),
 	    receive
 		{'EXIT', Port, _Reason} ->
-		    send_heart_cmd(NewPort, Cmd),
-		    Caller ! {heart, ok},
-		    loop(Parent, NewPort, Cmd)
+		    _ = send_heart_cmd(NewPort, S#state.cmd),
+		    Caller ! {?MODULE, ok},
+		    loop(Parent, S#state{port=NewPort})
 	    after
 		?CYCLE_TIMEOUT ->
 		    %% Huh! Two heart port programs running...
 		    %% well, the old one has to be sick not to respond
 		    %% so we'll settle for the new one...
-		    send_heart_cmd(NewPort, Cmd),
-		    Caller ! {heart, {error, stop_error}},
-		    loop(Parent, NewPort, Cmd)
+		    _ = send_heart_cmd(NewPort, S#state.cmd),
+		    Caller ! {?MODULE, {error, stop_error}},
+		    loop(Parent, S#state{port=NewPort})
 	    end;
 	no_heart ->
-	    Caller ! {heart, {error, no_heart}},
-	    loop(Parent, Port, Cmd);
+	    Caller ! {?MODULE, {error, no_heart}},
+	    loop(Parent, S);
 	error ->
-	    Caller ! {heart, {error, start_error}},
-	    loop(Parent, Port, Cmd)
+	    Caller ! {?MODULE, {error, start_error}},
+	    loop(Parent, S)
     end.
     
 
 %% "Beates" the heart once.
-send_heart_beat(Port) -> Port ! {self(), {command, [?HEART_BEAT]}}.
+send_heart_beat(#state{port=Port, callback=Cb, options=Opts}) ->
+    ok = check_system(Opts),
+    ok = check_callback(Cb),
+    Port ! {self(), {command, [?HEART_BEAT]}}.
 
 %% Set a new HEART_COMMAND.
+-dialyzer({no_improper_lists, send_heart_cmd/2}).
 send_heart_cmd(Port, []) ->
     Port ! {self(), {command, [?CLEAR_CMD]}};
 send_heart_cmd(Port, Cmd) ->
@@ -270,6 +368,24 @@ get_heart_cmd(Port) ->
     receive
 	{Port, {data, [?HEART_CMD | Cmd]}} ->
 	    {ok, Cmd}
+    end.
+
+check_system([]) -> ok;
+check_system([?SCHEDULER_CHECK_OPT|Opts]) ->
+    ok = erts_internal:system_check(schedulers),
+    check_system(Opts).
+
+%% validate system by performing a check before the heartbeat
+%% return 'ok' if everything is alright.
+%% Terminate if with reason if something is a miss.
+%% It is fine to timeout in the callback, in fact that is the intention
+%% if something goes wront -> no heartbeat.
+
+check_callback(Callback) ->
+    case Callback of
+        undefined -> ok;
+        {M,F} ->
+            erlang:apply(M,F,[])
     end.
 
 %% Sends shutdown command to the port.

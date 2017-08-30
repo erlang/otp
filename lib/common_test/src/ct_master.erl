@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -25,7 +26,8 @@
 -export([run/1,run/3,run/4]).
 -export([run_on_node/2,run_on_node/3]).
 -export([run_test/1,run_test/2]).
--export([basic_html/1]).
+-export([get_event_mgr_ref/0]).
+-export([basic_html/1,esc_chars/1]).
 
 -export([abort/0,abort/1,progress/0]).
 
@@ -292,6 +294,18 @@ progress() ->
     call(progress).
 
 %%%-----------------------------------------------------------------
+%%% @spec get_event_mgr_ref() -> MasterEvMgrRef
+%%%       MasterEvMgrRef = atom()
+%%%
+%%% @doc <p>Call this function in order to get a reference to the
+%%%         CT master event manager. The reference can be used to e.g.
+%%%         add a user specific event handler while tests are running.
+%%%         Example:
+%%%         <c>gen_event:add_handler(ct_master:get_event_mgr_ref(), my_ev_h, [])</c></p>
+get_event_mgr_ref() ->
+    ?CT_MEVMGR_REF.
+
+%%%-----------------------------------------------------------------
 %%% @spec basic_html(Bool) -> ok
 %%%       Bool = true | false
 %%%
@@ -300,6 +314,16 @@ progress() ->
 %%%      sheet.
 basic_html(Bool) ->
     application:set_env(common_test_master, basic_html, Bool),
+    ok.
+
+%%%-----------------------------------------------------------------
+%%% @spec esc_chars(Bool) -> ok
+%%%       Bool = true | false
+%%%
+%%% @doc If set to false, the ct_master logs will be written without
+%%%      special characters being escaped in the HTML logs.
+esc_chars(Bool) ->
+    application:set_env(common_test_master, esc_chars, Bool),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -352,7 +376,7 @@ init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,
     end,
 
     %% start master event manager and add default handler
-    ct_master_event:start_link(),
+    {ok, _}  = start_ct_master_event(),
     ct_master_event:add_handler(),
     %% add user handlers for master event manager
     Add = fun({H,Args}) ->
@@ -373,6 +397,14 @@ init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,
 	    ok
     end,
     init_master1(Parent,NodeOptsList,InitOptions,LogDirs).
+
+start_ct_master_event() ->
+    case ct_master_event:start_link() of
+        {error, {already_started, Pid}} ->
+            {ok, Pid};
+        Else ->
+            Else
+    end.
 
 init_master1(Parent,NodeOptsList,InitOptions,LogDirs) ->
     {Inaccessible,NodeOptsList1,InitOptions1} = init_nodes(NodeOptsList,
@@ -634,7 +666,7 @@ refresh_logs([D|Dirs],Refreshed) ->
 		    {ok,Cwd} = file:get_cwd(),
 		    case catch ct_run:refresh_logs(D) of
 			{'EXIT',Reason} ->
-			    file:set_cwd(Cwd),
+			    ok = file:set_cwd(Cwd),
 			    refresh_logs(Dirs,[{D,{error,Reason}}|Refreshed]);
 			Result -> 
 			    refresh_logs(Dirs,[{D,Result}|Refreshed])
@@ -677,7 +709,7 @@ init_node_ctrl(MasterPid,Cookie,Opts) ->
     end,
     
     %% start a local event manager
-    ct_event:start_link(),
+    {ok, _} = start_ct_event(),
     ct_event:add_handler([{master,MasterPid}]),
 
     %% log("Running test with options: ~p~n", [Opts]),
@@ -695,6 +727,14 @@ init_node_ctrl(MasterPid,Cookie,Opts) ->
 	pang ->
 	    io:format("Warning! Connection to master node ~w is lost. "
 		      "Can't report result!~n~n", [MasterNode])
+    end.
+
+start_ct_event() ->
+    case ct_event:start_link() of
+        {error, {already_started, Pid}} ->
+            {ok, Pid};
+        Else ->
+            Else
     end.
 
 %%%-----------------------------------------------------------------
@@ -754,7 +794,7 @@ reply(Result,To) ->
     ok.
 
 init_nodes(NodeOptions, InitOptions)->
-    ping_nodes(NodeOptions),
+    _ = ping_nodes(NodeOptions),
     start_nodes(InitOptions),
     eval_on_nodes(InitOptions),
     {Inaccessible, NodeOptions1}=ping_nodes(NodeOptions),

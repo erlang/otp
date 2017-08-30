@@ -1,23 +1,31 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
 
-import com.ericsson.otp.erlang.*;
+import com.ericsson.otp.erlang.OtpErlangAtom;
+import com.ericsson.otp.erlang.OtpErlangExit;
+import com.ericsson.otp.erlang.OtpErlangLong;
+import com.ericsson.otp.erlang.OtpErlangObject;
+import com.ericsson.otp.erlang.OtpErlangPid;
+import com.ericsson.otp.erlang.OtpErlangTuple;
+import com.ericsson.otp.erlang.OtpMbox;
+import com.ericsson.otp.erlang.OtpNode;
 
 class MboxLinkUnlink {
 
@@ -66,7 +74,10 @@ class MboxLinkUnlink {
 		OtpErlangObject[] msg = {mainMbox.self(),mbox.self()};
 		mbox.send("erl_link_server", erlNode, new OtpErlangTuple(msg));
 		OtpErlangObject o = mbox.receive(1000);
-		if (o == null) System.exit(1);
+        if (o == null) {
+            System.exit(1);
+            return;
+        }
 		OtpErlangTuple tuple = (OtpErlangTuple)o;
 		int tag = (int)((OtpErlangLong)tuple.elementAt(0)).longValue();
 
@@ -91,6 +102,7 @@ class MboxLinkUnlink {
 		    expected = tuple.elementAt(2);
 		    mbox.receive(1000);
 		    System.exit(2);
+            break;
 		case erl_link_java_exit:
 		    dbg("Java got \"erl_link_java_exit\"");
 		    mbox.exit(tuple.elementAt(2));
@@ -104,6 +116,7 @@ class MboxLinkUnlink {
 		    expected = tuple.elementAt(2);
 		    mbox.receive(1000);
 		    System.exit(3);
+            break;
 		case internal_link_linking_exits:
 		    dbg("Java got \"internal_link_linking_exits\"");
 		    mbox2 = node.createMbox();
@@ -113,6 +126,7 @@ class MboxLinkUnlink {
 		    expected = tuple.elementAt(2);
 		    mbox2.receive(1000); // hanging waiting for exit
 		    System.exit(4);  // got someting other than exit
+            break;
 		case internal_link_linked_exits:
 		    dbg("Java got \"internal_link_linked_exits\"");
 		    mbox2 = node.createMbox();
@@ -122,6 +136,7 @@ class MboxLinkUnlink {
 		    expected = tuple.elementAt(2);
 		    mbox.receive(1000); // hanging waiting for exit
 		    System.exit(5);  // got someting other than exit
+            break;
 		case internal_unlink_linking_exits:
 		    dbg("Java got \"internal_unlink_linking_exits\"");
 		    mbox2 = node.createMbox();

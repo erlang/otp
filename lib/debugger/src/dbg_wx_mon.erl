@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -134,7 +135,7 @@ init2(CallingPid, Mode, SFile, GS) ->
 
     %% Start other necessary stuff
     dbg_wx_win:init(),     
-    dbg_wx_winman:start(), % Debugger window manager
+    _ = dbg_wx_winman:start(), % Debugger window manager
 
     %% Create monitor window
     Title = "Monitor",
@@ -148,7 +149,7 @@ init2(CallingPid, Mode, SFile, GS) ->
 
 		    win     = Win,
 		    focus   = undefined,
-		    coords  = {20,20},
+		    coords  = {-1,-1},
 
 		    intdir  = element(2, file:get_cwd()),
 		    pinfos  = [],
@@ -338,7 +339,7 @@ gui_cmd('Delete All Modules', State) ->
     lists:foreach(fun(Mod) -> int:nn(Mod) end, int:interpreted()),
     State;
 gui_cmd({module, Mod, What}, State) ->
-    case What of
+    _ = case What of
 	delete -> int:nn(Mod);
 	view -> 
 	    Window = dbg_wx_mon_win:get_window(State#state.win),
@@ -414,7 +415,7 @@ gui_cmd({'Trace Window', TraceWin}, State) ->
     State2 = State#state{tracewin=TraceWin},
     case State#state.attach of
 	false -> ignore;
-	{Flags, {dbg_ui_trace, start, StartFlags}} ->
+	{Flags, {dbg_wx_trace, start, StartFlags}} ->
 	    case trace_function(State2) of
 		{_, _, StartFlags} -> ignore;
 		NewFunction -> % {_, _, NewStartFlags}

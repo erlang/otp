@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2013</year>
+      <year>1999</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -25,8 +26,1206 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the SSL application.</p>
-  
-  <section><title>SSL 5.3</title>
+
+
+<section><title>SSL 8.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Server now rejects, a not requested client cert, as an
+	    incorrect handshake message and ends the connection.</p>
+          <p>
+	    Own Id: OTP-13651</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove default support for DES cipher suites</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13195</p>
+        </item>
+        <item>
+          <p>
+	    Deprecate the function <c>crypto:rand_bytes</c> and make
+	    sure that <c>crypto:strong_rand_bytes</c> is used in all
+	    places that are cryptographically significant.</p>
+          <p>
+	    Own Id: OTP-13214</p>
+        </item>
+        <item>
+          <p>
+	    Better error handling of user error during TLS upgrade.
+	    ERL-69 is solved by gen_statem rewrite of ssl
+	    application.</p>
+          <p>
+	    Own Id: OTP-13255</p>
+        </item>
+        <item>
+          <p>
+	    Provide user friendly error message when crypto rejects a
+	    key</p>
+          <p>
+	    Own Id: OTP-13256</p>
+        </item>
+        <item>
+          <p>
+	    Add ssl:getstat/1 and ssl:getstat/2</p>
+          <p>
+	    Own Id: OTP-13415</p>
+        </item>
+        <item>
+          <p>
+	    TLS distribution connections now allow specifying the
+	    options <c>verify_fun</c>, <c>crl_check</c> and
+	    <c>crl_cache</c>. See the documentation. GitHub pull req
+	    #956 contributed by Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-13429 Aux Id: Pull#956 </p>
+        </item>
+        <item>
+          <p>
+	    Remove confusing error message when closing a distributed
+	    erlang node running over TLS</p>
+          <p>
+	    Own Id: OTP-13431</p>
+        </item>
+        <item>
+          <p>
+	    Remove default support for use of md5 in TLS 1.2
+	    signature algorithms</p>
+          <p>
+	    Own Id: OTP-13463</p>
+        </item>
+        <item>
+          <p>
+	    ssl now uses gen_statem instead of gen_fsm to implement
+	    the ssl connection process, this solves some timing
+	    issues in addition to making the code more intuitive as
+	    the behaviour can be used cleanly instead of having a lot
+	    of workaround for shortcomings of the behaviour.</p>
+          <p>
+	    Own Id: OTP-13464</p>
+        </item>
+        <item>
+          <p>
+	    Phase out interoperability with clients that offer SSLv2.
+	    By default they are no longer supported, but an option to
+	    provide interoperability is offered.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13465</p>
+        </item>
+        <item>
+          <p>
+	    OpenSSL has functions to generate short (eight hex
+	    digits) hashes of issuers of certificates and CRLs. These
+	    hashes are used by the "c_rehash" script to populate
+	    directories of CA certificates and CRLs, e.g. in the
+	    Apache web server. Add functionality to let an Erlang
+	    program find the right CRL for a given certificate in
+	    such a directory.</p>
+          <p>
+	    Own Id: OTP-13530</p>
+        </item>
+        <item>
+          <p>
+	    Some legacy TLS 1.0 software does not tolerate the 1/n-1
+	    content split BEAST mitigation technique. Add a
+	    beast_mitigation SSL option (defaulting to
+	    one_n_minus_one) to select or disable the BEAST
+	    mitigation technique.</p>
+          <p>
+	    Own Id: OTP-13629</p>
+        </item>
+        <item>
+          <p>
+	    Enhance error log messages to facilitate for users to
+	    understand the error</p>
+          <p>
+	    Own Id: OTP-13632</p>
+        </item>
+        <item>
+          <p>
+	    Increased default DH params to 2048-bit</p>
+          <p>
+	    Own Id: OTP-13636</p>
+        </item>
+        <item>
+          <p>
+	    Propagate CRL unknown CA error so that public_key
+	    validation process continues correctly and determines
+	    what should happen.</p>
+          <p>
+	    Own Id: OTP-13656</p>
+        </item>
+        <item>
+          <p>
+	    Introduce a flight concept for handshake packages. This
+	    is a preparation for enabling DTLS, however it can also
+	    have a positive effects for TLS on slow and unreliable
+	    networks.</p>
+          <p>
+	    Own Id: OTP-13678</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 7.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct ssl:prf/5 to use the negotiated cipher suite's
+	    prf function in ssl:prf/5 instead of the default prf.</p>
+          <p>
+	    Own Id: OTP-13546</p>
+        </item>
+        <item>
+          <p>
+	    Timeouts may have the value 0, guards have been corrected
+	    to allow this</p>
+          <p>
+	    Own Id: OTP-13635</p>
+        </item>
+        <item>
+          <p>
+	    Change of internal handling of hash sign pairs as the
+	    used one enforced to much restrictions making some valid
+	    combinations unavailable.</p>
+          <p>
+	    Own Id: OTP-13670</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Create a little randomness in sending of session
+	    invalidation messages, to mitigate load when whole table
+	    is invalidated.</p>
+          <p>
+	    Own Id: OTP-13490</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 7.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct cipher suites conversion and gaurd expression.
+	    Caused problems with GCM cipher suites and client side
+	    option to set signature_algorithms extention values.</p>
+          <p>
+	    Own Id: OTP-13525</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 7.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrections to cipher suite handling using the 3 and 4
+	    tuple format in addition to commit
+	    89d7e21cf4ae988c57c8ef047bfe85127875c70c</p>
+          <p>
+	    Own Id: OTP-13511</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make values for the TLS-1.2 signature_algorithms
+	    extension configurable</p>
+          <p>
+	    Own Id: OTP-13261</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure there is only one poller validator at a time
+	    for validating the session cache.</p>
+          <p>
+	    Own Id: OTP-13185</p>
+        </item>
+        <item>
+          <p>
+	    A timing related issue could cause ssl to hang,
+	    especially happened with newer versions of OpenSSL in
+	    combination with ECC ciphers.</p>
+          <p>
+	    Own Id: OTP-13253</p>
+        </item>
+        <item>
+          <p>
+	    Work around a race condition in the TLS distribution
+	    start.</p>
+          <p>
+	    Own Id: OTP-13268</p>
+        </item>
+        <item>
+          <p>
+	    Big handshake messages are now correctly fragmented in
+	    the TLS record layer.</p>
+          <p>
+	    Own Id: OTP-13306</p>
+        </item>
+        <item>
+          <p>
+	    Improve portability of ECC tests in Crypto and SSL for
+	    "exotic" OpenSSL versions.</p>
+          <p>
+	    Own Id: OTP-13311</p>
+        </item>
+        <item>
+          <p>
+	    Certificate extensions marked as critical are ignored
+	    when using verify_none</p>
+          <p>
+	    Own Id: OTP-13377</p>
+        </item>
+        <item>
+          <p>
+	    If a certificate doesn't contain a CRL Distribution
+	    Points extension, and the relevant CRL is not in the
+	    cache, and the <c>crl_check</c> option is not set to
+	    <c>best_effort</c> , the revocation check should fail.</p>
+          <p>
+	    Own Id: OTP-13378</p>
+        </item>
+        <item>
+          <p>
+	    Enable TLS distribution over IPv6</p>
+          <p>
+	    Own Id: OTP-13391</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improve error reporting for TLS distribution</p>
+          <p>
+	    Own Id: OTP-13219</p>
+        </item>
+        <item>
+          <p>
+	    Include options from connect, listen and accept in
+	    <c>connection_information/1,2</c></p>
+          <p>
+	    Own Id: OTP-13232</p>
+        </item>
+        <item>
+          <p>
+	    Allow adding extra options for outgoing TLS distribution
+	    connections, as supported for plain TCP connections.</p>
+          <p>
+	    Own Id: OTP-13285</p>
+        </item>
+        <item>
+          <p>
+	    Use loopback as server option in TLS-distribution module</p>
+          <p>
+	    Own Id: OTP-13300</p>
+        </item>
+        <item>
+          <p>
+	    Verify certificate signature against original certificate
+	    binary.</p>
+          <p>
+	    This avoids bugs due to encoding errors when re-encoding
+	    a decode certificate. As there exists several decode step
+	    and using of different ASN.1 specification this is a risk
+	    worth avoiding.</p>
+          <p>
+	    Own Id: OTP-13334</p>
+        </item>
+        <item>
+          <p>
+	    Use <c>application:ensure_all_started/2</c> instead of
+	    hard-coding dependencies</p>
+          <p>
+	    Own Id: OTP-13363</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Honor distribution port range options</p>
+          <p>
+	    Own Id: OTP-12838</p>
+        </item>
+        <item>
+          <p>
+	    Correct supervisor specification in TLS distribution.</p>
+          <p>
+	    Own Id: OTP-13134</p>
+        </item>
+        <item>
+          <p>
+	    Correct cache timeout</p>
+          <p>
+	    Own Id: OTP-13141</p>
+        </item>
+        <item>
+          <p>
+	    Avoid crash and restart of ssl process when key file does
+	    not exist.</p>
+          <p>
+	    Own Id: OTP-13144</p>
+        </item>
+        <item>
+          <p>
+	    Enable passing of raw socket options on the format
+	    {raw,_,_,_} to the underlying socket.</p>
+          <p>
+	    Own Id: OTP-13166</p>
+        </item>
+        <item>
+          <p>
+	    Hibernation with small or a zero timeout will now work as
+	    expected</p>
+          <p>
+	    Own Id: OTP-13189</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add upper limit for session cache, configurable on ssl
+	    application level.</p>
+          <p>
+	    If upper limit is reached, invalidate the current cache
+	    entries, e.i the session lifetime is the max time a
+	    session will be keept, but it may be invalidated earlier
+	    if the max limit for the table is reached. This will keep
+	    the ssl manager process well behaved, not exhusting
+	    memeory. Invalidating the entries will incrementally
+	    empty the cache to make room for fresh sessions entries.</p>
+          <p>
+	    Own Id: OTP-12392</p>
+        </item>
+        <item>
+          <p>
+	    Use new time functions to measure passed time.</p>
+          <p>
+	    Own Id: OTP-12457</p>
+        </item>
+        <item>
+          <p>
+	    Improved error handling in TLS distribution</p>
+          <p>
+	    Own Id: OTP-13142</p>
+        </item>
+        <item>
+          <p>
+	    Distribution over TLS now honors the nodelay distribution
+	    flag</p>
+          <p>
+	    Own Id: OTP-13143</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 7.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add DER encoded ECPrivateKey as valid input format for
+	    key option.</p>
+          <p>
+	    Own Id: OTP-12974</p>
+        </item>
+        <item>
+          <p>
+	    Correct return value of default session callback module</p>
+          <p>
+	    This error had the symptom that the client check for
+	    unique session would always fail, potentially making the
+	    client session table grow a lot and causing long setup
+	    times.</p>
+          <p>
+	    Own Id: OTP-12980</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add possibility to downgrade an SSL/TLS connection to a
+	    tcp connection, and give back the socket control to a
+	    user process.</p>
+          <p>
+	    This also adds the possibility to specify a timeout to
+	    the ssl:close function.</p>
+          <p>
+	    Own Id: OTP-11397</p>
+        </item>
+        <item>
+          <p>
+	    Add application setting to be able to change fatal alert
+	    shutdown timeout, also shorten the default timeout. The
+	    fatal alert timeout is the number of milliseconds between
+	    sending of a fatal alert and closing the connection.
+	    Waiting a little while improves the peers chances to
+	    properly receiving the alert so it may shutdown
+	    gracefully.</p>
+          <p>
+	    Own Id: OTP-12832</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 7.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ignore signature_algorithm (TLS 1.2 extension) sent to
+	    TLS 1.0 or TLS 1.1 server</p>
+          <p>
+	    Own Id: OTP-12670</p>
+        </item>
+        <item>
+          <p>
+	    Improve error handling in TLS distribution module to
+	    avoid lingering sockets.</p>
+          <p>
+	    Own Id: OTP-12799 Aux Id: Tom Briden </p>
+        </item>
+        <item>
+          <p>
+	    Add option {client_renegotiation, boolean()} option to
+	    the server-side of the SSL application.</p>
+          <p>
+	    Own Id: OTP-12815</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add new API functions to handle CRL-verification</p>
+          <p>
+	    Own Id: OTP-10362 Aux Id: kunagi-215 [126] </p>
+        </item>
+        <item>
+          <p>
+	    Remove default support for SSL-3.0, due to Poodle
+	    vunrability in protocol specification.</p>
+          <p>
+	    Add padding check for TLS-1.0 to remove Poodle
+	    vunrability from TLS 1.0, also add the option
+	    padding_check. This option only affects TLS-1.0
+	    connections and if set to false it disables the block
+	    cipher padding check to be able to interoperate with
+	    legacy software.</p>
+          <p>
+	    Remove default support for RC4 cipher suites, as they are
+	    consider too weak.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12390</p>
+        </item>
+        <item>
+          <p>
+	    Add support for TLS ALPN (Application-Layer Protocol
+	    Negotiation) extension.</p>
+          <p>
+	    Own Id: OTP-12580</p>
+        </item>
+        <item>
+          <p>
+	    Add SNI (Server Name Indication) support for the server
+	    side.</p>
+          <p>
+	    Own Id: OTP-12736</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 6.0.1.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+    <list>
+          <item>
+          <p>
+	    Gracefully ignore proprietary hash_sign algorithms</p>
+          <p>
+	    Own Id: OTP-12829</p>
+        </item>
+    </list>
+    </section>
+</section>
+
+
+<section><title>SSL 6.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Terminate gracefully when receving bad input to premaster
+	    secret calculation</p>
+          <p>
+	    Own Id: OTP-12783</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 6.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Exclude self-signed trusted anchor certificates from
+	    certificate prospective certification path according to
+	    RFC 3280.</p>
+          <p>
+	    This will avoid some unnecessary certificate processing.</p>
+          <p>
+	    Own Id: OTP-12449</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Separate client and server session cache internally.</p>
+          <p>
+	    Avoid session table growth when client starts many
+	    connections in such a manner that many connections are
+	    started before session reuse is possible. Only save a new
+	    session in client if there is no equivalent session
+	    already stored.</p>
+          <p>
+	    Own Id: OTP-11365</p>
+        </item>
+        <item>
+          <p>
+	    The PEM cache is now validated by a background process,
+	    instead of always keeping it if it is small enough and
+	    clearing it otherwise. That strategy required that small
+	    caches where cleared by API function if a file changes on
+	    disk.</p>
+          <p>
+	    However export the API function to clear the cache as it
+	    may still be useful.</p>
+          <p>
+	    Own Id: OTP-12391</p>
+        </item>
+        <item>
+          <p>
+	    Add padding check for TLS-1.0 to remove Poodle
+	    vulnerability from TLS 1.0, also add the option
+	    padding_check. This option only affects TLS-1.0
+	    connections and if set to false it disables the block
+	    cipher padding check to be able to interoperate with
+	    legacy software.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12420</p>
+        </item>
+        <item>
+          <p>
+	    Add support for TLS_FALLBACK_SCSV used to prevent
+	    undesired TLS version downgrades. If used by a client
+	    that is vulnerable to the POODLE attack, and the server
+	    also supports TLS_FALLBACK_SCSV, the attack can be
+	    prevented.</p>
+          <p>
+	    Own Id: OTP-12458</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure the clean rule for ssh, ssl, eunit and otp_mibs
+	    actually removes generated files.</p>
+          <p>
+	    Own Id: OTP-12200</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change code to reflect that state data may be secret to
+	    avoid breaking dialyzer contracts.</p>
+          <p>
+	    Own Id: OTP-12341</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Handle the fact that servers may send an empty SNI
+	    extension to the client.</p>
+          <p>
+	    Own Id: OTP-12198</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrected handling of ECC certificates, there where
+	    several small issues with the handling of such
+	    certificates in the ssl and public_key application. Now
+	    ECC signed ECC certificates shall work and not only RSA
+	    signed ECC certificates.</p>
+          <p>
+	    Own Id: OTP-12026</p>
+        </item>
+        <item>
+          <p>
+	    Check that the certificate chain ends with a trusted ROOT
+	    CA e.i. a self-signed certificate, but provide an option
+	    partial_chain to enable the application to define an
+	    intermediat CA as trusted.</p>
+          <p>
+	    Own Id: OTP-12149</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add decode functions for SNI (Server Name Indication)</p>
+          <p>
+	    Own Id: OTP-12048</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ssl:recv now returns {error, einval} if applied to a non
+	    passive socket, the same as gen_tcp:recv. </p>
+          <p>
+	    Thanks to Danil Zagoskin for reporting this issue</p>
+          <p>
+	    Own Id: OTP-11878</p>
+        </item>
+        <item>
+          <p>
+	    Corrected handling of default values for
+	    signature_algorithms extension in TLS-1.2 and
+	    corresponding values used in previous versions that does
+	    not support this extension. </p>
+          <p>
+	    Thanks to Danil Zagoskin</p>
+          <p>
+	    Own Id: OTP-11886</p>
+        </item>
+        <item>
+          <p>
+	    Handle socket option inheritance when pooling of accept
+	    sockets is used</p>
+          <p>
+	    Own Id: OTP-11897</p>
+        </item>
+        <item>
+          <p>
+	    Make sure that the list of versions, possibly supplied in
+	    the versions option, is not order dependent.</p>
+          <p>
+	    Thanks to Ransom Richardson for reporting this issue</p>
+          <p>
+	    Own Id: OTP-11912</p>
+        </item>
+        <item>
+          <p>
+	    Reject connection if the next_protocol message is sent
+	    twice.</p>
+          <p>
+	    Own Id: OTP-11926</p>
+        </item>
+        <item>
+          <p>
+	    Correct options handling when ssl:ssl_accept/3 is called
+	    with new ssl options after calling ssl:listen/2</p>
+          <p>
+	    Own Id: OTP-11950</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Gracefully handle unknown alerts</p>
+          <p>
+	    Thanks to Atul Atri for reporting this issue</p>
+          <p>
+	    Own Id: OTP-11874</p>
+        </item>
+        <item>
+          <p>
+	    Gracefully ignore cipher suites sent by client not
+	    supported by the SSL/TLS version that the client has
+	    negotiated.</p>
+          <p>
+	    Thanks to Danil Zagoskin for reporting this issue</p>
+          <p>
+	    Own Id: OTP-11875</p>
+        </item>
+        <item>
+          <p>
+	    Gracefully handle structured garbage, i.e a client sends
+	    some garbage in a ssl record instead of a valid fragment.</p>
+          <p>
+	    Thanks to Danil Zagoskin</p>
+          <p>
+	    Own Id: OTP-11880</p>
+        </item>
+        <item>
+          <p>
+	    Gracefully handle invalid alerts</p>
+          <p>
+	    Own Id: OTP-11890</p>
+        </item>
+        <item>
+          <p>
+	    Generalize handling of default ciphers</p>
+          <p>
+	    Thanks to Andreas Schultz</p>
+          <p>
+	    Own Id: OTP-11966</p>
+        </item>
+        <item>
+          <p>
+	    Make sure change cipher spec is correctly handled</p>
+          <p>
+	    Own Id: OTP-11975</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix incorrect dialyzer spec and types, also enhance
+	    documentation. </p>
+          <p>
+	    Thanks to Ayaz Tuncer.</p>
+          <p>
+	    Own Id: OTP-11627</p>
+        </item>
+        <item>
+          <p>
+	    Fix possible mismatch between SSL/TLS version and default
+	    ciphers. Could happen when you specified SSL/TLS-version
+	    in optionlist to listen or accept.</p>
+          <p>
+	    Own Id: OTP-11712</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Moved elliptic curve definition from the crypto
+	    NIF/OpenSSL into Erlang code, adds the RFC-5639 brainpool
+	    curves and makes TLS use them (RFC-7027).</p>
+          <p>
+	    Thanks to Andreas Schultz</p>
+          <p>
+	    Own Id: OTP-11578</p>
+        </item>
+        <item>
+          <p>
+	    Unicode adaptations</p>
+          <p>
+	    Own Id: OTP-11620</p>
+        </item>
+        <item>
+          <p>
+	    Added option honor_cipher_order. This instructs the
+	    server to prefer its own cipher ordering rather than the
+	    client's and can help protect against things like BEAST
+	    while maintaining compatability with clients which only
+	    support older ciphers. </p>
+          <p>
+	    Thanks to Andrew Thompson for the implementation, and
+	    Andreas Schultz for the test cases.</p>
+          <p>
+	    Own Id: OTP-11621</p>
+        </item>
+        <item>
+          <p>
+	    Replace boolean checking in validate_option with
+	    is_boolean guard. </p>
+          <p>
+	    Thanks to Andreas Schultz.</p>
+          <p>
+	    Own Id: OTP-11634</p>
+        </item>
+        <item>
+          <p>
+	    Some function specs are corrected or moved and some edoc
+	    comments are corrected in order to allow use of edoc.
+	    (Thanks to Pierre Fenoll)</p>
+          <p>
+	    Own Id: OTP-11702</p>
+        </item>
+        <item>
+          <p>
+	    Correct clean up of certificate database when certs are
+	    inputed in pure DER format.The incorrect code could cause
+	    a memory leek when certs where inputed in DER. Thanks to
+	    Bernard Duggan for reporting this.</p>
+          <p>
+	    Own Id: OTP-11733</p>
+        </item>
+        <item>
+          <p>
+	    Improved documentation of the cacertfile option</p>
+          <p>
+	    Own Id: OTP-11759 Aux Id: seq12535 </p>
+        </item>
+        <item>
+          <p>
+	    Avoid next protocol negotiation failure due to incorrect
+	    option format.</p>
+          <p>
+	    Own Id: OTP-11760</p>
+        </item>
+        <item>
+          <p>
+	    Handle v1 CRLs, with no extensions and fixes issues with
+	    IDP (Issuing Distribution Point) comparison during CRL
+	    validation. </p>
+          <p>
+	    Thanks to Andrew Thompson</p>
+          <p>
+	    Own Id: OTP-11761</p>
+        </item>
+        <item>
+          <p>
+	    Server now ignores client ECC curves that it does not
+	    support instead of crashing. </p>
+          <p>
+	    Thanks to Danil Zagoskin for reporting the issue and
+	    suggesting a solution.</p>
+          <p>
+	    Own Id: OTP-11780</p>
+        </item>
+        <item>
+          <p>
+	    Handle SNI (Server Name Indication) alert
+	    unrecognized_name and gracefully deal with unexpected
+	    alerts. </p>
+          <p>
+	    Thanks to Masatake Daimon for reporting this.</p>
+          <p>
+	    Own Id: OTP-11815</p>
+        </item>
+        <item>
+          <p>
+	    Add possibility to specify ssl options when calling
+	    ssl:ssl_accept</p>
+          <p>
+	    Own Id: OTP-11837</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add missing validation of the server_name_indication
+	    option and test for its explicit use. It was not possible
+	    to set or disable the default server_name_indication as
+	    the validation of the option was missing.</p>
+          <p>
+	    Own Id: OTP-11567</p>
+        </item>
+        <item>
+          <p>
+	    Elliptic curve selection in server mode now properly
+	    selects a curve suggested by the client, if possible, and
+	    the fallback alternative is changed to a more widely
+	    supported curve.</p>
+          <p>
+	    Own Id: OTP-11575</p>
+        </item>
+        <item>
+          <p>
+	    Bug in the TLS hello extension handling caused the server
+	    to behave as it did not understand secure renegotiation.</p>
+          <p>
+	    Own Id: OTP-11595</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Honors the clients advertised support of elliptic curves
+	    and no longer sends incorrect elliptic curve extension in
+	    server hello.</p>
+          <p>
+	    Own Id: OTP-11370</p>
+        </item>
+        <item>
+          <p>
+	    Fix initialization of DTLS fragment reassembler, in
+	    previously contributed code, for future support of DTLS .
+	    Thanks to Andreas Schultz.</p>
+          <p>
+	    Own Id: OTP-11376</p>
+        </item>
+        <item>
+          <p>
+	    Corrected type error in client_preferred_next_protocols
+	    documentation. Thanks to Julien Barbot.</p>
+          <p>
+	    Own Id: OTP-11457</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    TLS code has been refactored to prepare for future DTLS
+	    support. Also some DTLS code is in place but not yet
+	    runnable, some of it contributed by Andreas Schultz and
+	    some of it written by the OTP team. Thanks to to Andreas
+	    for his participation.</p>
+          <p>
+	    Own Id: OTP-11292</p>
+        </item>
+        <item>
+          <p>
+	    Remove extraneous dev debug code left in the close
+	    function. Thanks to Ken Key.</p>
+          <p>
+	    Own Id: OTP-11447</p>
+        </item>
+        <item>
+          <p>
+	    Add SSL Server Name Indication (SNI) client support.
+	    Thanks to Julien Barbot.</p>
+          <p>
+	    Own Id: OTP-11460</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Setopts during renegotiation caused the renegotiation to
+	    be unsuccessful.</p>
+          <p>
+	    If calling setopts during a renegotiation the FSM state
+	    might change during the handling of the setopts messages,
+	    this is now handled correctly.</p>
+          <p>
+	    Own Id: OTP-11228</p>
+        </item>
+        <item>
+          <p>
+	    Now handles signature_algorithm field in digitally_signed
+	    properly with proper defaults. Prior to this change some
+	    elliptic curve cipher suites could fail reporting the
+	    error "bad certificate".</p>
+          <p>
+	    Own Id: OTP-11229</p>
+        </item>
+        <item>
+          <p>
+	    The code emulating the inet header option was changed in
+	    the belief that it made it inet compatible. However the
+	    testing is a bit hairy as the inet option is actually
+	    broken, now the tests are corrected and the header option
+	    should work in the same broken way as inet again,
+	    preferably use the bitsyntax instead.</p>
+          <p>
+	    Own Id: OTP-11230</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Make the ssl manager name for erlang distribution over
+	    SSL/TLS relative to the module name of the ssl_manager.</p>
+          <p>
+	    This can be beneficial when making tools that rename
+	    modules for internal processing in the tool.</p>
+          <p>
+	    Own Id: OTP-11255</p>
+        </item>
+        <item>
+          <p>
+	    Add documentation regarding log_alert option.</p>
+          <p>
+	    Own Id: OTP-11271</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -100,7 +1299,6 @@
 </section>
 
 <section><title>SSL 5.2.1</title>
-
     <section><title>Improvements and New Features</title>
       <list>
         <item>
@@ -126,9 +1324,20 @@
     </section>
 
 </section>
-
+<section><title>SSL 5.1.2.1</title>
+<section><title>Improvements and New Features</title>
+<list>
+  <item>
+    <p>
+      Make log_alert configurable as option in ssl, SSLLogLevel
+    added as option to inets conf file</p>
+    <p>
+    Own Id: OTP-11259</p>
+  </item>
+</list>
+</section>
+</section>
 <section><title>SSL 5.2</title>
-
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>

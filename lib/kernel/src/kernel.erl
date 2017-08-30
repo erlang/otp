@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -32,8 +33,13 @@ start(_, []) ->
     case supervisor:start_link({local, kernel_sup}, kernel, []) of
 	{ok, Pid} ->
 	    Type = get_error_logger_type(),
-	    error_logger:swap_handler(Type),
-	    {ok, Pid, []};
+            case error_logger:swap_handler(Type) of
+                ok -> {ok, Pid, []};
+                Error ->
+                    %% Not necessary since the node will crash anyway:
+                    exit(Pid, shutdown),
+                    Error
+            end;
 	Error -> Error
     end.
 
@@ -92,7 +98,7 @@ init([]) ->
 	      {kernel_config, start_link, []},
 	      permanent, 2000, worker, [kernel_config]},
     Code = {code_server,
-	    {code, start_link, get_code_args()},
+	    {code, start_link, []},
 	    permanent, 2000, worker, [code]},
     File = {file_server_2,
 	    {file_server, start_link, []},
@@ -112,7 +118,7 @@ init([]) ->
 			       [{local, kernel_safe_sup}, ?MODULE, safe]},
 			      permanent, infinity, supervisor, [?MODULE]},
 	    {ok, {SupFlags,
-		  [File, Code, StdError, User,
+		  [Code, File, StdError, User,
 		   Config, SafeSupervisor]}};
 	_ ->
 	    Rpc = {rex, {rpc, start_link, []}, 
@@ -134,8 +140,8 @@ init([]) ->
 			       [{local, kernel_safe_sup}, ?MODULE, safe]},
 			      permanent, infinity, supervisor, [?MODULE]},
 	    {ok, {SupFlags,
-		  [Rpc, Global, InetDb | DistAC] ++ 
-		  [NetSup, Glo_grp, File, Code, 
+		  [Code, Rpc, Global, InetDb | DistAC] ++
+		  [NetSup, Glo_grp, File,
 		   StdError, User, Config, SafeSupervisor] ++ Timer}}
     end;
 init(safe) ->
@@ -151,12 +157,6 @@ init(safe) ->
     init:run_on_load_handlers(),
 
     {ok, {SupFlags, Boot ++ DiskLog ++ Pg2}}.
-
-get_code_args() ->
-    case init:get_argument(nostick) of
-	{ok, [[]]} -> [[nostick]];
-	_ -> []
-    end.
 
 start_dist_ac() ->
     Spec = [{dist_ac,{dist_ac,start_link,[]},permanent,2000,worker,[dist_ac]}],

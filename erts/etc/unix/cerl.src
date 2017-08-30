@@ -2,18 +2,19 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2013. All Rights Reserved.
+# Copyright Ericsson AB 2003-2016. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -33,6 +34,7 @@
 #               You have to start beam in gdb using "run".
 #   -rgdb       Run the debug compiled emulator in gdb.
 #               You have to start beam in gdb using "run".
+#   -dump       Dump the bt of all threads in a core.
 #   -break F    Run the debug compiled emulator in emacs and gdb and set break.
 #               The session is started, i.e. "run" is already don for you.
 #   -xxgdb      FIXME currently disabled
@@ -42,6 +44,7 @@
 #   -gcov       Run emulator compiled for gcov
 #   -valgrind   Run emulator compiled for valgrind
 #   -lcnt	Run emulator compiled for lock counting
+#   -icount	Run emulator compiled for instruction counting
 #   -nox        Unset the DISPLAY variable to disable us of X Windows
 #
 # FIXME For GDB you can also set the break point using "-break FUNCTION".
@@ -85,6 +88,7 @@ run_valgrind=no
 # Default rootdir
 ROOTDIR=%SRC_ROOTDIR%
 BINDIR="$ROOTDIR/bin/`$ROOTDIR/erts/autoconf/config.guess`"
+TARGET=%TARGET%
 #BINDIR="$ROOTDIR/bin/%TARGET%"
 PROGNAME=$ROOTDIR/bin/cerl
 EMU=beam
@@ -178,6 +182,17 @@ while [ $# -gt 0 ]; do
 	    cargs="$cargs -frmptr"
 	    TYPE=.frmptr
 	    ;;
+	"-icount")
+	    shift
+	    cargs="$cargs -icount"
+	    TYPE=.icount
+	    ;;
+	"-dump")
+	    shift
+	    GDB=dump
+	    core="$1"
+	    shift
+	    ;;
 	"-gdb")
 	    shift
 	    GDB=egdb
@@ -241,6 +256,12 @@ while [ $# -gt 0 ]; do
 done
 
 
+if [ ! -f $BINDIR/erlexec -a -f $ROOTDIR/bin/$TARGET/erlexec ]; then
+    # We are in a strange target (I'm looking at you openbsd) where
+    # TARGET != config.guess
+    BINDIR=$ROOTDIR/bin/$TARGET
+fi
+
 PATH=$BINDIR:$ROOTDIR/bin:$PATH
 EXEC=$BINDIR/erlexec
 
@@ -283,6 +304,19 @@ if [ "x$GDB" = "x" ]; then
 	else
 	    valgrind_misc_flags="$VALGRIND_MISC_FLAGS"
 	fi
+	if which taskset > /dev/null && test -e /proc/cpuinfo; then
+	    # We only let valgrind utilize one core with "taskset 1" as it can be very slow
+	    # on multiple cores (especially with async threads). Valgrind only run one pthread
+	    # at a time anyway so there is no point letting it utilize more than one core.
+	    # Use $sched_arg to force all schedulers online to emulate multicore.
+	    taskset1="taskset 1"
+	    ncpu=`cat /proc/cpuinfo | grep -w processor | wc -l`
+	    sched_arg="-S$ncpu:$ncpu"
+	else
+	    taskset1=
+	    sched_arg=
+	fi
+
 	beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
 
 	# Time for some argument passing voodoo:
@@ -293,7 +327,7 @@ if [ "x$GDB" = "x" ]; then
 '
 	set -- $beam_args
 	IFS="$SAVE_IFS"
-	exec valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $emu_xargs "$@" -pz $PRELOADED
+	exec $taskset1 valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@" -pz $PRELOADED
     else
 	exec $EXEC $eeargs $xargs ${1+"$@"}
     fi
@@ -318,7 +352,7 @@ elif [ "x$GDB" = "xgdb" ]; then
     echo "source $ROOTDIR/erts/etc/unix/etp-commands" > $cmdfile
     # Fire up gdb in emacs...
     exec gdb $GDBBP -x $cmdfile $gdbcmd
-else
+elif [ "x$GDB" = "xegdb" ]; then
     if [ "x$EMACS" = "x" ]; then
 	EMACS=emacs
     fi
@@ -326,7 +360,7 @@ else
     case "x$core" in
 	x)
 	    # Get emu args to use from erlexec...
-	    beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
+	    beam_args=`$EXEC -emu_args_exit ${1+"$@"} | tr '\n' ' '`
 	    gdbcmd="(insert-string \"set args $beam_args\") \
                     (comint-send-input)"
 	    ;;
@@ -348,7 +382,9 @@ else
         # Set annotation level for gdb in emacs 22 and higher. Seems to
         # be working with level 1 for emacs 22 and level 3 for emacs 23...
 	emacs_major=`$EMACS --version | head -1 | sed 's,^[^0-9]*\([0-9]*\).*,\1,g'`
-	if [ '!' -z "$emacs_major" -a $emacs_major -gt 22 ]; then
+	if [ '!' -z "$emacs_major" -a $emacs_major -gt 23 ]; then
+	    GDBARGS="-i=mi "
+	elif [ '!' -z "$emacs_major" -a $emacs_major -gt 22 ]; then
 	    GDBARGS="--annotate=3 "
 	elif [ '!' -z "$emacs_major" -a $emacs_major -gt 21 ]; then
 	    GDBARGS="--annotate=1 "
@@ -359,4 +395,23 @@ else
             (comint-send-input)"
     # Fire up gdb in emacs...
     exec $EMACS --eval "(progn (gdb \"gdb $GDBARGS$EMU_NAME\") $gdbcmd)"
+elif [ "x$GDB" = "xdump" ]; then
+    cmdfile="/tmp/.cerlgdb.$$"
+    case "x$core" in
+	x/*)
+	    gdbcmd="$EMU_NAME ${core}"
+	    ;;
+	*)
+	    dir=`pwd`
+	    gdbcmd="$EMU_NAME ${dir}/${core}"
+	    ;;
+    esac
+    echo "set width 0
+set height 0
+set verbose off
+
+source $ROOTDIR/erts/etc/unix/etp-commands
+thread apply all bt
+" > $cmdfile
+    exec gdb --batch --command=$cmdfile $gdbcmd
 fi

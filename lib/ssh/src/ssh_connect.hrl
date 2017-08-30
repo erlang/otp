@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -21,9 +22,15 @@
 
 %%% Description : SSH connection protocol 
 
--define(DEFAULT_PACKET_SIZE, 32768).
--define(DEFAULT_WINDOW_SIZE, 2*?DEFAULT_PACKET_SIZE).
+-type role()               :: client | server .
+-type connection_ref()     :: pid().
+-type channel_id()         :: pos_integer().
+
+-define(DEFAULT_PACKET_SIZE, 65536).
+-define(DEFAULT_WINDOW_SIZE, 10*?DEFAULT_PACKET_SIZE).
+
 -define(DEFAULT_TIMEOUT, 5000).
+-define(MAX_PROTO_VERSION, 255).      % Max length of the hello string
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -162,6 +169,10 @@
 	  recipient_channel
 	 }).
 
+-define(TERMINAL_WIDTH, 80).
+-define(TERMINAL_HEIGHT, 24).
+-define(DEFAULT_TERMINAL, "vt100").
+
 -define(TTY_OP_END,0).  %% Indicates end of options.
 -define(VINTR,1).       %% Interrupt character; 255 if none. Similarly for the
 			%% other characters. Not all of these characters are
@@ -232,7 +243,7 @@
 
 -record(channel,
 	{
-	  type,          %% "session", "x11", "forwarded-tcpip", "direct-tcpip"
+	  type,          %% "session"
 	  sys,           %% "none", "shell", "exec" "subsystem"
 	  user,          %% "user" process id (default to cm user)
 	  flow_control, 
@@ -240,6 +251,9 @@
 	  local_id,           %% local channel id
 
 	  recv_window_size,
+	  recv_window_pending = 0, %% Sum of window size updates that has not
+	                           %% yet been sent. This limits the number
+	                           %% of sent update msgs.
 	  recv_packet_size,
 	  recv_close = false,
 
@@ -260,6 +274,7 @@
 	  port,
 	  options,
 	  exec,
+	  system_supervisor,
 	  sub_system_supervisor,
 	  connection_supervisor
 	 }).

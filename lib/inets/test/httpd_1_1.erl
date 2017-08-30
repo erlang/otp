@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -20,12 +21,10 @@
 
 -module(httpd_1_1).
 
--include("test_server.hrl").
--include("test_server_line.hrl").
 -include_lib("kernel/include/file.hrl").
 
--export([host/4, chunked/4, expect/4, range/4, if_test/5, http_trace/4,
-	 head/4, mod_cgi_chunked_encoding_test/5]).
+-export([host/4, chunked/4, expect/4, range/4, if_test/5, trace/4,
+	 head/4, mod_cgi_chunked_encoding_test/5, mod_esi_chunk_timeout/4]).
 
 %% -define(all_keys_lower_case,true).
 -ifndef(all_keys_lower_case).
@@ -40,14 +39,10 @@
 
 
 %%-------------------------------------------------------------------------
-%% Test cases starts here.
+%% Test cases 
 %%-------------------------------------------------------------------------
 host(Type, Port, Host, Node) ->
-    %% No host needed for HTTP/1.0
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-				       "GET / HTTP/1.0\r\n\r\n", 
-				       [{statuscode, 200},
-					{version, "HTTP/1.0"}]),
+  
     %% No host must generate an error
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET / HTTP/1.1\r\n\r\n",
@@ -158,13 +153,13 @@ if_test(Type, Port, Host, Node, DocRoot)->
 	calendar:datetime_to_gregorian_seconds(FileInfo#file_info.mtime),
     
     Mod = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
-    				      CreatedSec-1)),
+				    CreatedSec-1)),
     
     %% Test that we get the data when the file is modified
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
     				       "GET / HTTP/1.1\r\nHost:" ++ Host ++
-    				       "\r\nIf-Modified-Since:" ++
-    				       Mod ++ "\r\n\r\n",
+					   "\r\nIf-Modified-Since:" ++
+					   Mod ++ "\r\n\r\n",
     				       [{statuscode, 200}]),
     Mod1 = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
     				     CreatedSec+100)),
@@ -174,83 +169,70 @@ if_test(Type, Port, Host, Node, DocRoot)->
     				       ++ Mod1 ++"\r\n\r\n",
     				       [{statuscode, 304}]),
     
-
+    
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 				       "GET / HTTP/1.1\r\nHost:" ++ Host ++
-				       "\r\nIf-Modified-Since:" ++
-				       "AAA[...]AAAA" ++ "\r\n\r\n",
+					   "\r\nIf-Modified-Since:" ++
+					   "AAA[...]AAAA" ++ "\r\n\r\n",
 				       [{statuscode, 400}]),
-
-
-     Mod2 =  httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
+    
+    Mod2 =  httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
     				      CreatedSec+1)),
-     %% Control that the If-Unmodified-Header lmits the response
-     ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
-    					  "GET / HTTP/1.1\r\nHost:"
-    					  ++ Host ++ 
-    					  "\r\nIf-Unmodified-Since:" ++ Mod2 
-    					  ++ "\r\n\r\n",
-    					  [{statuscode, 200}]),
-     Mod3 = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
+    %% Control that the If-Unmodified-Header lmits the response
+    ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
+				       "GET / HTTP/1.1\r\nHost:"
+				       ++ Host ++ 
+					   "\r\nIf-Unmodified-Since:" ++ Mod2 
+				       ++ "\r\n\r\n",
+				       [{statuscode, 200}]),
+    Mod3 = httpd_util:rfc1123_date(calendar:gregorian_seconds_to_datetime(
     				     CreatedSec-1)),
     
      ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-    					  "GET / HTTP/1.1\r\nHost:"
-    					  ++ Host ++ 
-    					  "\r\nIf-Unmodified-Since:"++ Mod3 
+					"GET / HTTP/1.1\r\nHost:"
+					++ Host ++ 
+					    "\r\nIf-Unmodified-Since:"++ Mod3 
     					  ++"\r\n\r\n",
-    					  [{statuscode, 412}]),
+					[{statuscode, 412}]),
     
-     %% Control that we get the body when the etag match
+    %% Control that we get the body when the etag match
      ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-    					  "GET / HTTP/1.1\r\nHost:" ++ Host 
-    					  ++"\r\n"++
-    					  "If-Match:"++ 
-    					  httpd_util:create_etag(FileInfo)++
-    					  "\r\n\r\n",
-    					  [{statuscode, 200}]),
-     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-    					  "GET / HTTP/1.1\r\nHost:" ++ 
-    					  Host ++ "\r\n"++
-    					  "If-Match:NotEtag\r\n\r\n",
-    					  [{statuscode, 412}]),
+					"GET / HTTP/1.1\r\nHost:" ++ Host 
+					++"\r\n"++
+     					   "If-Match:"++ 
+					    httpd_util:create_etag(FileInfo)++
+					    "\r\n\r\n",
+					[{statuscode, 200}]),
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+				       "GET / HTTP/1.1\r\nHost:" ++ 
+					   Host ++ "\r\n"++
+					   "If-Match:NotEtag\r\n\r\n",
+				       [{statuscode, 412}]),
     
-     %% Control the response when the if-none-match header is there
-     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-    					  "GET / HTTP/1.1\r\nHost:"
-    					  ++ Host ++"\r\n"++
-    					  "If-None-Match:NoTaag," ++ 
-    					  httpd_util:create_etag(FileInfo) ++
-    					  "\r\n\r\n",
-    					  [{statuscode, 304}]),
+    %% Control the response when the if-none-match header is there
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+    				       "GET / HTTP/1.1\r\nHost:"
+     				       ++ Host ++"\r\n"++
+     					   "If-None-Match:NoTaag," ++ 
+     					   httpd_util:create_etag(FileInfo) ++
+     					   "\r\n\r\n",
+     				       [{statuscode, 304}]),
     
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
     					  "GET / HTTP/1.1\r\nHost:"
-    					  ++ Host ++ "\r\n"++
-    					  "If-None-Match:NotEtag,"
-    					  "NeihterEtag\r\n\r\n",
+				       ++ Host ++ "\r\n"++
+					   "If-None-Match:NotEtag,"
+				       "NeihterEtag\r\n\r\n",
     					  [{statuscode,200}]),
     ok.
-    
-http_trace(Type, Port, Host, Node)->
+
+trace(Type, Port, Host, Node)->
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
 					  "TRACE / HTTP/1.1\r\n" ++
 					  "Host:" ++ Host ++ "\r\n" ++
 					  "Max-Forwards:2\r\n\r\n",
-					  [{statuscode, 200}]),
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
-				       "TRACE / HTTP/1.0\r\n\r\n",
-				       [{statuscode, 501}, 
-					{version, "HTTP/1.0"}]).
+					  [{statuscode, 200}]).
 head(Type, Port, Host, Node)->
-    %% mod_include 
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
-				       "HEAD /fsize.shtml HTTP/1.0\r\n\r\n", 
-				       [{statuscode, 200},
-				       {version, "HTTP/1.0"}]),
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
-			"HEAD /fsize.shtml HTTP/1.1\r\nhost:" ++ 
-			Host  ++ "\r\n\r\n", [{statuscode, 200}]),
     %% mod_esi
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
 			"HEAD /cgi-bin/erl/httpd_example/newformat"
@@ -284,12 +266,21 @@ mod_cgi_chunked_encoding_test(Type, Port, Host, Node, [Request| Rest])->
 				       [{statuscode, 200}]),
     mod_cgi_chunked_encoding_test(Type, Port, Host, Node, Rest).
 
+
+mod_esi_chunk_timeout(Type, Port, Host, Node) ->
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+				       "GET /cgi-bin/erl/httpd_example/chunk_timeout?input=20000 HTTP/1.1\r\n" 
+				       "Host:"++ Host ++"\r\n"
+				       "\r\n",
+				       [{statuscode, 200},
+					{header, "warning"}]).
+     
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
 validateRangeRequest(Socket,Response,ValidBody,C,O,DE)->
     receive
-	{tcp,Socket,Data} ->
+	{_,Socket,Data} ->
 	    case string:str(Data,"\r\n") of
 		0->
 		    validateRangeRequest(Socket,
@@ -318,7 +309,7 @@ validateRangeRequest1(Socket, Response, ValidBody) ->
     case end_of_header(Response) of
 	false ->
 	    receive
-		{tcp,Socket,Data} ->
+		{_,Socket,Data} ->
 		    validateRangeRequest1(Socket, Response ++ Data, 
 					  ValidBody);
 		_->
@@ -337,10 +328,10 @@ validateRangeRequest2(Socket, Head, Body, ValidBody, {multiPart,Boundary})->
 	    validateMultiPartRangeRequest(Body, ValidBody, Boundary);
 	false->
 	    receive
-		{tcp, Socket, Data} ->
+		{_, Socket, Data} ->
 		    validateRangeRequest2(Socket, Head, Body ++ Data,
 					  ValidBody, {multiPart, Boundary});
-		{tcp_closed, Socket} ->
+		{_, Socket} ->
 		    error;
 		_ ->
 		    error
@@ -359,7 +350,7 @@ validateRangeRequest2(Socket, Head, Body, ValidBody, BodySize)
 	    end;	
 	Size when Size < BodySize ->
 	    receive
-		{tcp, Socket, Data} ->
+		{_, Socket, Data} ->
 		    validateRangeRequest2(Socket, Head,
 					  Body ++ Data, ValidBody, BodySize);
 		_ ->
@@ -371,18 +362,18 @@ validateRangeRequest2(Socket, Head, Body, ValidBody, BodySize)
 
 
 validateMultiPartRangeRequest(Body, ValidBody, Boundary)->
-    case inets_regexp:split(Body,"--"++Boundary++"--") of
+    case re:split(Body,"--"++Boundary++"--", [{return, list}]) of
 	%%Last is the epilogue and must be ignored 
-	{ok,[First | _Last]}->
+	[First | _Last]->
 	    %%First is now the actuall http request body.
-	    case inets_regexp:split(First, "--" ++ Boundary) of
+	    case re:split(First, "--" ++ Boundary, [{return, list}]) of
 		%%Parts is now a list of ranges and the heads for each range
 		%%Gues we try to split out the body
-		{ok,Parts}->
+		Parts->
 		    case lists:flatten(lists:map(fun splitRange/1,Parts)) of
 			ValidBody->
 			    ok;
-		       ParsedBody->
+			ParsedBody->
 			    error = ParsedBody
 		    end
 	    end;
@@ -392,8 +383,8 @@ validateMultiPartRangeRequest(Body, ValidBody, Boundary)->
 
 
 splitRange(Part)->	    
-    case inets_regexp:split(Part, "\r\n\r\n") of
-	{ok,[_, Body]} ->
+    case re:split(Part, "\r\n\r\n", [{return, list}]) of
+	[_, Body] ->
 	    string:substr(Body, 1, length(Body) - 2);
 	_ ->
 	    []
@@ -413,13 +404,13 @@ getRangeSize(Head)->
 	{multiPart, BoundaryString}->
 	    {multiPart, BoundaryString};
 	_X1 ->
-	    case inets_regexp:match(Head, ?CONTENT_RANGE "bytes=.*\r\n") of
-		{match, Start, Lenght} ->
+	    case re:run(Head, ?CONTENT_RANGE "bytes=.*\r\n", [{capture, first}]) of
+		{match, [{Start, Lenght}]} ->
 		    %% Get the range data remove the fieldname and the
 		    %% end of line.
-		    RangeInfo = string:substr(Head, Start + 20, 
-					      Lenght - (20 - 2)),
-		    rangeSize(RangeInfo);
+		    RangeInfo = string:substr(Head, Start + 1 + 20, 
+					      Lenght - (20 +2)),
+		    rangeSize(string:strip(RangeInfo));
 		_X2 ->
 		    error
 	    end
@@ -455,10 +446,10 @@ num(_CharVal, false) ->
     true.
 
 controlMimeType(Head)->
-    case inets_regexp:match(Head,?CONTENT_TYPE "multipart/byteranges.*\r\n") of
-	{match,Start,Length}->
+    case re:run(Head,?CONTENT_TYPE "multipart/byteranges.*\r\n", [{capture, first}]) of
+	{match, [{Start,Length}]}->
 	    FieldNameLen = length(?CONTENT_TYPE "multipart/byteranges"),
-	    case clearBoundary(string:substr(Head, Start + FieldNameLen,
+	    case clearBoundary(string:substr(Head, Start + 1 + FieldNameLen,
 					     Length - (FieldNameLen+2))) of
 		error ->
 		    error;
@@ -472,10 +463,10 @@ controlMimeType(Head)->
     end.
 
 clearBoundary(Boundary)->
-    case inets_regexp:match(Boundary, "boundary=.*\$") of
-	{match, Start1, Length1}->
+    case re:run(Boundary, "boundary=.*\$", [{capture, first}]) of
+	{match, [{Start1, Length1}]}->
 	    BoundLen = length("boundary="),
-	    string:substr(Boundary, Start1 + BoundLen, Length1 - BoundLen);
+	    string:substr(Boundary, Start1 + 1 + BoundLen, Length1 - BoundLen);
 	_ ->
 	    error
     end.
@@ -490,12 +481,12 @@ end_of_header(HeaderPart) ->
     end.
 
 get_body_size(Head) ->
-    case inets_regexp:match(Head,?CONTENT_LENGTH ".*\r\n") of
- 	{match, Start, Length} ->
+    case re:run(Head,?CONTENT_LENGTH ".*\r\n", [{capture, first}]) of
+ 	{match, [{Start, Length}]} ->
  	    %% 15 is length of Content-Length, 
  	    %% 17 Is length of Content-Length and \r\
  	    S = list_to_integer(
- 		  string:strip(string:substr(Head, Start + 15, Length-17))),
+ 		  string:strip(string:substr(Head, Start +1 + 15, Length-17))),
  	    S;
  	_->
  	    0

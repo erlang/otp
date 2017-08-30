@@ -5,7 +5,7 @@ asn1ct.erl:1673: The pattern 'all' can never match the type 'asn1_module' | 'exc
 asn1ct.erl:672: The pattern <{'false', Result}, _, _> can never match the type <{'true','true'},atom() | binary() | [atom() | [any()] | char()],[any()]>
 asn1ct.erl:909: Guard test is_atom(Ext::[49 | 97 | 98 | 100 | 110 | 115]) can never succeed
 asn1ct_check.erl:1698: The pattern {'error', _} can never match the type [any()]
-asn1ct_check.erl:2733: The pattern {'type', Tag, _, _, _, _} can never match the type 'ASN1_OPEN_TYPE' | {_,_} | {'fixedtypevaluefield',_,_}
+asn1ct_check.erl:2733: Matching of pattern {'type', Tag, _, _, _, _} tagged with a record name violates the declared type of 'ASN1_OPEN_TYPE' | {_,_} | {'fixedtypevaluefield',_,_}
 asn1ct_check.erl:2738: The pattern <_S, _> can never match since previous clauses completely covered the type <#state{},#'ObjectClassFieldType'{class::#objectclass{fields::maybe_improper_list() | {_,_,_,_}},fieldname::{_,maybe_improper_list()},type::'ASN1_OPEN_TYPE' | {_,_} | {'fixedtypevaluefield',_,_}}>
 asn1ct_check.erl:2887: The variable Other can never match since previous clauses completely covered the type any()
 asn1ct_check.erl:3188: The pattern <_S, [], B> can never match the type <#state{},{'SingleValue',_},{'ValueRange',_}>

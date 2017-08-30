@@ -1,0 +1,7 @@
+
+funs_from_outside.erl:18: The pattern 'error' can never match the type {'ok','nothing' | 'something'}
+funs_from_outside.erl:32: Function run2/2 has no local return
+funs_from_outside.erl:35: Function testb/3 has no local return
+funs_from_outside.erl:41: The pattern 'error' can never match the type {'ok','nothing' | 'something'}
+funs_from_outside.erl:78: Function test2/1 has no local return
+funs_from_outside.erl:83: The pattern 'error' can never match the type 'ok'

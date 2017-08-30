@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -25,7 +26,9 @@
 
 -behaviour(supervisor).
 
--export([start_link/1, connection_supervisor/1, channel_supervisor/1
+-export([start_link/1,
+	 connection_supervisor/1,
+	 channel_supervisor/1
 	]).
 
 %% Supervisor callback
@@ -48,6 +51,8 @@ channel_supervisor(SupPid) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
+-spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
+
 init([Opts]) ->
     RestartStrategy = one_for_all,
     MaxR = 0,
@@ -61,9 +66,9 @@ init([Opts]) ->
 child_specs(Opts) ->
     case proplists:get_value(role, Opts) of
 	client ->		
-	    [ssh_connectinon_child_spec(Opts)];
+	    [];
 	server ->
-	    [ssh_connectinon_child_spec(Opts), ssh_channel_child_spec(Opts)]
+	    [ssh_channel_child_spec(Opts), ssh_connectinon_child_spec(Opts)]
     end.
   
 ssh_connectinon_child_spec(Opts) ->
@@ -72,9 +77,9 @@ ssh_connectinon_child_spec(Opts) ->
     Role = proplists:get_value(role, Opts),
     Name = id(Role, ssh_connection_sup, Address, Port),
     StartFunc = {ssh_connection_sup, start_link, [Opts]},
-    Restart = transient, 
+    Restart = temporary,
     Shutdown = 5000,
-    Modules = [ssh_connection_sup],
+     Modules = [ssh_connection_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
@@ -84,7 +89,7 @@ ssh_channel_child_spec(Opts) ->
     Role = proplists:get_value(role, Opts),
     Name = id(Role, ssh_channel_sup, Address, Port),
     StartFunc = {ssh_channel_sup, start_link, [Opts]},
-    Restart = transient, 
+    Restart = temporary,
     Shutdown = infinity,
     Modules = [ssh_channel_sup],
     Type = supervisor,

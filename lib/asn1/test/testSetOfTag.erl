@@ -1,30 +1,28 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 %%
 -module(testSetOfTag).
-
-
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("External.hrl").
-
 
 -record('SetTagNt',{nt}).
 -record('SetTagNtI',{imp}).
@@ -44,148 +42,44 @@
 -record('Imp',{os, bool}).
 -record('Exp',{os, bool}).
 
-
-
 main(_Rules) ->
-    
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('SetOfTag','SetTagNt',
-		      #'SetTagNt'{nt = [#'NT'{bool = true, os = "kalle"},
-					#'NT'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagNt',
-	       [{'NT',[107,97,108,108,101],true},{'NT',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagNt',lists:flatten(Bytes11)),
-    
-    ?line {ok,Bytes12} = 
-	asn1_wrapper:encode('SetOfTag','SetTagNtI',
-		      #'SetTagNtI'{imp = [#'Imp'{bool = true, os = "kalle"},
-					  #'Imp'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagNtI',
-	       [{'Imp',[107,97,108,108,101],true},{'Imp',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagNtI',lists:flatten(Bytes12)),
-    
-    ?line {ok,Bytes13} = 
-	asn1_wrapper:encode('SetOfTag','SetTagNtE',
-		      #'SetTagNtE'{exp = [#'Exp'{bool = true, os = "kalle"},
-					  #'Exp'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagNtE',
-	       [{'Exp',[107,97,108,108,101],true},{'Exp',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagNtE',lists:flatten(Bytes13)),
-    
-    
-    
-    ?line {ok,Bytes21} = 
-	asn1_wrapper:encode('SetOfTag','SetTagI',
-		      #'SetTagI'{nt = [#'NT'{bool = true, os = "kalle"},
-				       #'NT'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagI',
-	       [{'NT',[107,97,108,108,101],true},{'NT',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagI',lists:flatten(Bytes21)),
-    
-    ?line {ok,Bytes22} = 
-	asn1_wrapper:encode('SetOfTag','SetTagII',
-		      #'SetTagII'{imp = [#'Imp'{bool = true, os = "kalle"},
-					 #'Imp'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagII',
-	       [{'Imp',[107,97,108,108,101],true},{'Imp',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagII',lists:flatten(Bytes22)),
-    
-    ?line {ok,Bytes23} = 
-	asn1_wrapper:encode('SetOfTag','SetTagIE',
-		      #'SetTagIE'{exp = [#'Exp'{bool = true, os = "kalle"},
-					 #'Exp'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagIE',
-	       [{'Exp',[107,97,108,108,101],true},{'Exp',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagIE',lists:flatten(Bytes23)),
-    
-    
-    
-    ?line {ok,Bytes31} = 
-	asn1_wrapper:encode('SetOfTag','SetTagE',
-		      #'SetTagE'{nt = [#'NT'{bool = true, os = "kalle"},
-				       #'NT'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagE',
-	       [{'NT',[107,97,108,108,101],true},{'NT',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagE',lists:flatten(Bytes31)),
-    
-    ?line {ok,Bytes32} = 
-	asn1_wrapper:encode('SetOfTag','SetTagEI',
-		      #'SetTagEI'{imp = [#'Imp'{bool = true, os = "kalle"},
-					 #'Imp'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagEI',
-	       [{'Imp',[107,97,108,108,101],true},{'Imp',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagEI',lists:flatten(Bytes32)),
-    
-    ?line {ok,Bytes33} = 
-	asn1_wrapper:encode('SetOfTag','SetTagEE',
-		      #'SetTagEE'{exp = [#'Exp'{bool = true, os = "kalle"},
-					 #'Exp'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagEE',
-	       [{'Exp',[107,97,108,108,101],true},{'Exp',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagEE',lists:flatten(Bytes33)),
-    
-    
-    
-    
-
-
-
-    ?line {ok,Bytes41} = 
-	asn1_wrapper:encode('SetOfTag','SetTagXNt',
-		      #'SetTagXNt'{xnt = [#'XSetNT'{bool = true, os = "kalle"},
-					  #'XSetNT'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagXNt',
-	       [{'XSetNT',[107,97,108,108,101],true},{'XSetNT',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagXNt',lists:flatten(Bytes41)),
-    
-    ?line {ok,Bytes42} = 
-	asn1_wrapper:encode('SetOfTag','SetTagXI',
-		      #'SetTagXI'{ximp = [#'XSetImp'{bool = true, os = "kalle"},
-					  #'XSetImp'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagXI',
-	       [{'XSetImp',[107,97,108,108,101],true},{'XSetImp',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagXI',lists:flatten(Bytes42)),
-    
-    ?line {ok,Bytes43} = 
-	asn1_wrapper:encode('SetOfTag','SetTagXE',
-		      #'SetTagXE'{xexp = [#'XSetExp'{bool = true, os = "kalle"},
-					  #'XSetExp'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagXE',
-	       [{'XSetExp',[107,97,108,108,101],true},{'XSetExp',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagXE',lists:flatten(Bytes43)),
-        
-    
-
-
-    
-    ?line {ok,Bytes51} = 
-	asn1_wrapper:encode('SetOfTag','SetTagImpX',
-		      #'SetTagImpX'{xnt = [#'XSetNT'{bool = true, os = "kalle"},
-					   #'XSetNT'{bool = true, os = "kalle"}],
-				    ximp = [#'XSetImp'{bool = true, os = "kalle"},
-					    #'XSetImp'{bool = true, os = "kalle"}],
-				    xexp = [#'XSetExp'{bool = true, os = "kalle"},
-					    #'XSetExp'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagImpX',
-	       [{'XSetNT',[107,97,108,108,101],true},{'XSetNT',[107,97,108,108,101],true}], 
-	       [{'XSetImp',[107,97,108,108,101],true},{'XSetImp',[107,97,108,108,101],true}],
-	       [{'XSetExp',[107,97,108,108,101],true},{'XSetExp',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagImpX',lists:flatten(Bytes51)),
-    
-
-
-    ?line {ok,Bytes52} = 
-	asn1_wrapper:encode('SetOfTag','SetTagExpX',
-		      #'SetTagExpX'{xnt = [#'XSetNT'{bool = true, os = "kalle"},
-					   #'XSetNT'{bool = true, os = "kalle"}],
-				    ximp = [#'XSetImp'{bool = true, os = "kalle"},
-					    #'XSetImp'{bool = true, os = "kalle"}],
-				    xexp = [#'XSetExp'{bool = true, os = "kalle"},
-					    #'XSetExp'{bool = true, os = "kalle"}]}),
-    ?line {ok,{'SetTagExpX',
-	       [{'XSetNT',[107,97,108,108,101],true},{'XSetNT',[107,97,108,108,101],true}], 
-	       [{'XSetImp',[107,97,108,108,101],true},{'XSetImp',[107,97,108,108,101],true}],
-	       [{'XSetExp',[107,97,108,108,101],true},{'XSetExp',[107,97,108,108,101],true}]}} = 
-	asn1_wrapper:decode('SetOfTag','SetTagExpX',lists:flatten(Bytes52)),
-    
+    roundtrip('SetTagNt', #'SetTagNt'{nt=[#'NT'{os = <<"kalle">>,bool=true},
+					  #'NT'{os = <<"kalle">>,bool=true}]}),
+    roundtrip('SetTagNtI', #'SetTagNtI'{imp=[#'Imp'{os = <<"kalle">>,bool=true},
+					     #'Imp'{os = <<"kalle">>,bool=true}]}),
+    roundtrip('SetTagNtE', #'SetTagNtE'{exp=[#'Exp'{os = <<"kalle">>,bool=true},
+					     #'Exp'{os = <<"kalle">>,bool=true}]}),
+    roundtrip('SetTagI', #'SetTagI'{nt=[#'NT'{os = <<"kalle">>,bool=true},
+					#'NT'{os = <<"kalle">>,bool=true}]}),
+    roundtrip('SetTagII', #'SetTagII'{imp=[#'Imp'{os = <<"kalle">>,bool=true},
+					   #'Imp'{os = <<"kalle">>,bool=true}]}),
+    roundtrip('SetTagIE', #'SetTagIE'{exp=[#'Exp'{os = <<"kalle">>,bool=true},
+					   #'Exp'{os = <<"kalle">>,bool=true}]}),
+    roundtrip('SetTagE', #'SetTagE'{nt=[#'NT'{os = <<"kalle">>,bool=true},
+					#'NT'{os = <<"kalle">>,bool=true}]}),
+    roundtrip('SetTagEI', #'SetTagEI'{imp=[#'Imp'{os = <<"kalle">>,bool=true},
+					   #'Imp'{os = <<"kalle">>,bool=true}]}),
+    roundtrip('SetTagEE', #'SetTagEE'{exp=[#'Exp'{os = <<"kalle">>,bool=true},
+					   #'Exp'{os = <<"kalle">>,bool=true}]}),
+    roundtrip('SetTagXNt', #'SetTagXNt'{xnt=[#'XSetNT'{os = <<"kalle">>,bool=true},
+					     #'XSetNT'{os = <<"kalle">>,bool=true}]}),
+    roundtrip('SetTagXI', #'SetTagXI'{ximp=[#'XSetImp'{os = <<"kalle">>,bool=true},
+					    #'XSetImp'{os = <<"kalle">>,bool=true}]}),
+    roundtrip('SetTagXE', #'SetTagXE'{xexp=[#'XSetExp'{os = <<"kalle">>,bool=true},
+					    #'XSetExp'{os = <<"kalle">>,bool=true}]}),
+    roundtrip('SetTagImpX', #'SetTagImpX'{xnt=[#'XSetNT'{os = <<"kalle">>,bool=true},
+					       #'XSetNT'{os = <<"kalle">>,bool=true}],
+					  ximp=[#'XSetImp'{os = <<"kalle">>,bool=true},
+						#'XSetImp'{os = <<"kalle">>,bool=true}],
+					  xexp=[#'XSetExp'{os = <<"kalle">>,bool=true},
+						#'XSetExp'{os = <<"kalle">>,bool=true}]}),
+    roundtrip('SetTagExpX', #'SetTagExpX'{xnt=[#'XSetNT'{os = <<"kalle">>,bool=true},
+					       #'XSetNT'{os = <<"kalle">>,bool=true}],
+					  ximp=[#'XSetImp'{os = <<"kalle">>,bool=true},
+						#'XSetImp'{os = <<"kalle">>,bool=true}],
+					  xexp=[#'XSetExp'{os = <<"kalle">>,bool=true},
+						#'XSetExp'{os = <<"kalle">>,bool=true}]}),
     ok.
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('SetOfTag', T, V).

@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -34,8 +35,8 @@
 #define ERTS_WANT_EXTERNAL_TAGS
 #include "external.h"
 
-#define WORD_FMT "%X"
-#define ADDR_FMT "%X"
+#define PTR_FMT "%bpX"
+#define ETERM_FMT "%beX"
 
 #define OUR_NIL	_make_header(0,_TAG_HEADER_FLOAT)
 
@@ -43,8 +44,9 @@ static void dump_process_info(int to, void *to_arg, Process *p);
 static void dump_element(int to, void *to_arg, Eterm x);
 static void dump_dist_ext(int to, void *to_arg, ErtsDistExternal *edep);
 static void dump_element_nl(int to, void *to_arg, Eterm x);
-static int stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp,
+static int stack_element_dump(int to, void *to_arg, Eterm* sp,
 			      int yreg);
+static void stack_trace_dump(int to, void *to_arg, Eterm* sp);
 static void print_function_from_pc(int to, void *to_arg, BeamInstr* x);
 static void heap_dump(int to, void *to_arg, Eterm x);
 static void dump_binaries(int to, void *to_arg, Binary* root);
@@ -76,13 +78,14 @@ erts_deep_process_dump(int to, void *to_arg)
     dump_binaries(to, to_arg, all_binaries);
 }
 
-Uint erts_process_memory(Process *p) {
-  ErlMessage *mp;
+Uint erts_process_memory(Process *p, int incl_msg_inq) {
+  ErtsMessage *mp;
   Uint size = 0;
   struct saved_calls *scb;
   size += sizeof(Process);
 
-  ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
+  if (incl_msg_inq)
+      ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
 
   erts_doforall_links(ERTS_P_LINKS(p), &erts_one_link_size, &size);
   erts_doforall_monitors(ERTS_P_MONITORS(p), &erts_one_mon_size, &size);
@@ -90,7 +93,7 @@ Uint erts_process_memory(Process *p) {
   if (p->old_hend && p->old_heap)
     size += (p->old_hend - p->old_heap) * sizeof(Eterm);
 
-  size += p->msg.len * sizeof(ErlMessage);
+  size += p->msg.len * sizeof(ErtsMessage);
 
   for (mp = p->msg.first; mp; mp = mp->next)
     if (mp->data.attached)
@@ -100,7 +103,7 @@ Uint erts_process_memory(Process *p) {
     size += p->arity * sizeof(p->arg_reg[0]);
   }
 
-  if (p->psd)
+  if (erts_smp_atomic_read_nob(&p->psd) != (erts_aint_t) NULL)
     size += sizeof(ErtsPSD);
 
   scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
@@ -117,7 +120,7 @@ static void
 dump_process_info(int to, void *to_arg, Process *p)
 {
     Eterm* sp;
-    ErlMessage* mp;
+    ErtsMessage* mp;
     int yreg = -1;
 
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
@@ -148,7 +151,7 @@ dump_process_info(int to, void *to_arg, Process *p)
     if ((ERTS_TRACE_FLAGS(p) & F_SENSITIVE) == 0) {
 	erts_print(to, to_arg, "=proc_stack:%T\n", p->common.id);
 	for (sp = p->stop; sp < STACK_START(p); sp++) {
-	    yreg = stack_element_dump(to, to_arg, p, sp, yreg);
+	    yreg = stack_element_dump(to, to_arg, sp, yreg);
 	}
 
 	erts_print(to, to_arg, "=proc_heap:%T\n", p->common.id);
@@ -210,9 +213,9 @@ static void
 dump_element(int to, void *to_arg, Eterm x)
 {
     if (is_list(x)) {
-	erts_print(to, to_arg, "H" WORD_FMT, list_val(x));
+	erts_print(to, to_arg, "H" PTR_FMT, list_val(x));
     } else if (is_boxed(x)) {
-	erts_print(to, to_arg, "H" WORD_FMT, boxed_val(x));
+	erts_print(to, to_arg, "H" PTR_FMT, boxed_val(x));
     } else if (is_immed(x)) {
 	if (is_atom(x)) {
 	    unsigned char* s = atom_tab(atom_val(x))->name;
@@ -243,9 +246,65 @@ dump_element_nl(int to, void *to_arg, Eterm x)
     erts_putc(to, to_arg, '\n');
 }
 
+static void
+stack_trace_dump(int to, void *to_arg, Eterm *sp) {
+    Eterm x = *sp;
+    if (is_CP(x)) {
+        erts_print(to, to_arg, "%p:", sp);
+        erts_print(to, to_arg, "SReturn addr 0x%X (", cp_val(x));
+        print_function_from_pc(to, to_arg, cp_val(x));
+        erts_print(to, to_arg, ")\n");
+    }
+}
+
+void
+erts_limited_stack_trace(int to, void *to_arg, Process *p)
+{
+    Eterm* sp;
+
+
+    if (ERTS_TRACE_FLAGS(p) & F_SENSITIVE) {
+	return;
+    }
+
+    if (STACK_START(p) < STACK_TOP(p)) {
+        return;
+    }
+
+    if ((STACK_START(p) - STACK_TOP(p)) < 512) {
+        if (erts_sys_is_area_readable((char*)STACK_TOP(p),
+                                      (char*)STACK_START(p)))
+            for (sp = STACK_TOP(p); sp < STACK_START(p); sp++)
+                stack_trace_dump(to, to_arg, sp);
+        else
+            erts_print(to, to_arg, "Could not read from stack memory: %p - %p\n",
+                       STACK_TOP(p), STACK_START(p));
+    } else {
+        sp = STACK_TOP(p);
+        if (erts_sys_is_area_readable((char*)STACK_TOP(p),
+                                      (char*)(STACK_TOP(p) + 25)))
+            for (; sp < (STACK_TOP(p) + 256); sp++)
+                stack_trace_dump(to, to_arg, sp);
+        else
+            erts_print(to, to_arg, "Could not read from stack memory: %p - %p\n",
+                       STACK_TOP(p), STACK_TOP(p) + 256);
+
+        erts_print(to, to_arg, "%p: skipping %d frames\n",
+                   sp, STACK_START(p) - STACK_TOP(p) - 512);
+
+        if (erts_sys_is_area_readable((char*)(STACK_START(p) - 256),
+                                      (char*)STACK_START(p)))
+            for (sp = STACK_START(p) - 256; sp < STACK_START(p); sp++)
+                stack_trace_dump(to, to_arg, sp);
+        else
+            erts_print(to, to_arg, "Could not read from stack memory: %p - %p\n",
+                       STACK_START(p) - 256, STACK_START(p));
+    }
+
+}
 
 static int
-stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp, int yreg)
+stack_element_dump(int to, void *to_arg, Eterm* sp, int yreg)
 {
     Eterm x = *sp;
 
@@ -307,11 +366,11 @@ heap_dump(int to, void *to_arg, Eterm x)
 
     while (x != OUR_NIL) {
 	if (is_CP(x)) {
-	    next = (Eterm *) EXPAND_POINTER(x);
+	    next = (Eterm *) x;
 	} else if (is_list(x)) {
 	    ptr = list_val(x);
 	    if (ptr[0] != OUR_NIL) {
-		erts_print(to, to_arg, ADDR_FMT ":l", ptr);
+		erts_print(to, to_arg, PTR_FMT ":l", ptr);
 		dump_element(to, to_arg, ptr[0]);
 		erts_putc(to, to_arg, '|');
 		dump_element(to, to_arg, ptr[1]);
@@ -320,7 +379,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 		    ptr[1] = make_small(0);
 		}
 		x = ptr[0];
-		ptr[0] = (Eterm) COMPRESS_POINTER(next);
+		ptr[0] = (Eterm) next;
 		next = ptr + 1;
 		continue;
 	    }
@@ -330,12 +389,12 @@ heap_dump(int to, void *to_arg, Eterm x)
 	    ptr = boxed_val(x);
 	    hdr = *ptr;
 	    if (hdr != OUR_NIL) {	/* If not visited */
-		erts_print(to, to_arg, ADDR_FMT ":", ptr);
+		erts_print(to, to_arg, PTR_FMT ":", ptr);
 	        if (is_arity_value(hdr)) {
 		    Uint i;
 		    Uint arity = arityval(hdr);
 
-		    erts_print(to, to_arg, "t" WORD_FMT ":", arity);
+		    erts_print(to, to_arg, "t" ETERM_FMT ":", arity);
 		    for (i = 1; i <= arity; i++) {
 			dump_element(to, to_arg, ptr[i]);
 			if (is_immed(ptr[i])) {
@@ -350,7 +409,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 			ptr[0] = OUR_NIL;
 		    } else {
 			x = ptr[arity];
-			ptr[0] = (Eterm) COMPRESS_POINTER(next);
+			ptr[0] = (Eterm) next;
 			next = ptr + arity - 1;
 			continue;
 		    }
@@ -388,21 +447,43 @@ heap_dump(int to, void *to_arg, Eterm x)
 			    val->flags = (UWord) all_binaries;
 			    all_binaries = val;
 			}
-			erts_print(to, to_arg, "Yc%X:%X:%X", val,
+			erts_print(to, to_arg,
+				   "Yc" PTR_FMT ":" PTR_FMT ":" PTR_FMT,
+				   val,
 				   pb->bytes - (byte *)val->orig_bytes,
 				   size);
 		    } else if (tag == SUB_BINARY_SUBTAG) {
 			ErlSubBin* Sb = (ErlSubBin *) binary_val(x);
-			Eterm* real_bin = binary_val(Sb->orig);
+			Eterm* real_bin;
 			void* val;
 
+			/*
+			 * Must use boxed_val() here, because the original
+			 * binary may have been visited and have had its
+			 * header word changed to OUR_NIL (in which case
+			 * binary_val() will cause an assertion failure in
+			 * the DEBUG emulator).
+			 */
+
+			real_bin = boxed_val(Sb->orig);
+
 			if (thing_subtag(*real_bin) == REFC_BINARY_SUBTAG) {
+			    /*
+			     * Unvisited REFC_BINARY: Point directly to
+			     * the binary.
+			     */
 			    ProcBin* pb = (ProcBin *) real_bin;
 			    val = pb->val;
-			} else {	/* Heap binary */
+			} else {
+			    /*
+			     * Heap binary or visited REFC binary: Point
+			     * to heap binary or ProcBin on the heap.
+			     */
 			    val = real_bin;
 			}
-			erts_print(to, to_arg, "Ys%X:%X:%X", val, Sb->offs, size);
+			erts_print(to, to_arg,
+				   "Ys" PTR_FMT ":" PTR_FMT ":" PTR_FMT,
+				   val, Sb->offs, size);
 		    }
 		    erts_putc(to, to_arg, '\n');
 		    *ptr = OUR_NIL;
@@ -438,7 +519,7 @@ dump_binaries(int to, void *to_arg, Binary* current)
 	long size = current->orig_size;
 	byte* bytes = (byte*) current->orig_bytes;
 
-	erts_print(to, to_arg, "=binary:%X\n", current);
+	erts_print(to, to_arg, "=binary:" PTR_FMT "\n", current);
 	erts_print(to, to_arg, "%X:", size);
 	for (i = 0; i < size; i++) {
 	    erts_print(to, to_arg, "%02X", bytes[i]);
@@ -479,10 +560,128 @@ dump_externally(int to, void *to_arg, Eterm term)
 	}
     }
 
+    /* Do not handle maps */
+    if (is_map(term)) {
+        term = am_undefined;
+    }
+
     s = p = sbuf;
     erts_encode_ext(term, &p);
     erts_print(to, to_arg, "E%X:", p-s);
     while (s < p) {
 	erts_print(to, to_arg, "%02X", *s++);
     }
+}
+
+void erts_dump_process_state(int to, void *to_arg, erts_aint32_t psflg)
+{
+    char *s;
+    switch (erts_process_state2status(psflg)) {
+    case am_free: s = "Non Existing"; break; /* Should never happen */
+    case am_exiting: s = "Exiting"; break;
+    case am_garbage_collecting: s = "Garbing"; break;
+    case am_suspended: s = "Suspended"; break;
+    case am_running: s = "Running"; break;
+    case am_runnable: s = "Scheduled"; break;
+    case am_waiting: s = "Waiting"; break;
+    default: s = "Undefined"; break; /* Should never happen */
+    }
+
+    erts_print(to, to_arg, "%s\n", s);
+}
+
+void
+erts_dump_extended_process_state(int to, void *to_arg, erts_aint32_t psflg) {
+
+    int i;
+
+    switch (ERTS_PSFLGS_GET_ACT_PRIO(psflg)) {
+    case PRIORITY_MAX: erts_print(to, to_arg, "ACT_PRIO_MAX | "); break;
+    case PRIORITY_HIGH: erts_print(to, to_arg, "ACT_PRIO_HIGH | "); break;
+    case PRIORITY_NORMAL: erts_print(to, to_arg, "ACT_PRIO_NORMAL | "); break;
+    case PRIORITY_LOW: erts_print(to, to_arg, "ACT_PRIO_LOW | "); break;
+    }
+    switch (ERTS_PSFLGS_GET_USR_PRIO(psflg)) {
+    case PRIORITY_MAX: erts_print(to, to_arg, "USR_PRIO_MAX | "); break;
+    case PRIORITY_HIGH: erts_print(to, to_arg, "USR_PRIO_HIGH | "); break;
+    case PRIORITY_NORMAL: erts_print(to, to_arg, "USR_PRIO_NORMAL | "); break;
+    case PRIORITY_LOW: erts_print(to, to_arg, "USR_PRIO_LOW | "); break;
+    }
+    switch (ERTS_PSFLGS_GET_PRQ_PRIO(psflg)) {
+    case PRIORITY_MAX: erts_print(to, to_arg, "PRQ_PRIO_MAX"); break;
+    case PRIORITY_HIGH: erts_print(to, to_arg, "PRQ_PRIO_HIGH"); break;
+    case PRIORITY_NORMAL: erts_print(to, to_arg, "PRQ_PRIO_NORMAL"); break;
+    case PRIORITY_LOW: erts_print(to, to_arg, "PRQ_PRIO_LOW"); break;
+    }
+
+    psflg &= ~(ERTS_PSFLGS_ACT_PRIO_MASK |
+               ERTS_PSFLGS_USR_PRIO_MASK |
+               ERTS_PSFLGS_PRQ_PRIO_MASK);
+
+    if (psflg)
+        erts_print(to, to_arg, " | ");
+
+    for (i = 0; i <= ERTS_PSFLG_MAX && psflg; i++) {
+        erts_aint32_t chk = (1 << i);
+        if (psflg & chk) {
+            switch (chk) {
+            case ERTS_PSFLG_IN_PRQ_MAX:
+                erts_print(to, to_arg, "IN_PRQ_MAX"); break;
+            case ERTS_PSFLG_IN_PRQ_HIGH:
+                erts_print(to, to_arg, "IN_PRQ_HIGH"); break;
+            case ERTS_PSFLG_IN_PRQ_NORMAL:
+                erts_print(to, to_arg, "IN_PRQ_NORMAL"); break;
+            case ERTS_PSFLG_IN_PRQ_LOW:
+                erts_print(to, to_arg, "IN_PRQ_LOW"); break;
+            case ERTS_PSFLG_FREE:
+                erts_print(to, to_arg, "FREE"); break;
+            case ERTS_PSFLG_EXITING:
+                erts_print(to, to_arg, "EXITING"); break;
+            case ERTS_PSFLG_PENDING_EXIT:
+                erts_print(to, to_arg, "PENDING_EXIT"); break;
+            case ERTS_PSFLG_ACTIVE:
+                erts_print(to, to_arg, "ACTIVE"); break;
+            case ERTS_PSFLG_IN_RUNQ:
+                erts_print(to, to_arg, "IN_RUNQ"); break;
+            case ERTS_PSFLG_RUNNING:
+                erts_print(to, to_arg, "RUNNING"); break;
+            case ERTS_PSFLG_SUSPENDED:
+                erts_print(to, to_arg, "SUSPENDED"); break;
+            case ERTS_PSFLG_GC:
+                erts_print(to, to_arg, "GC"); break;
+            case ERTS_PSFLG_BOUND:
+                erts_print(to, to_arg, "BOUND"); break;
+            case ERTS_PSFLG_TRAP_EXIT:
+                erts_print(to, to_arg, "TRAP_EXIT"); break;
+            case ERTS_PSFLG_ACTIVE_SYS:
+                erts_print(to, to_arg, "ACTIVE_SYS"); break;
+            case ERTS_PSFLG_RUNNING_SYS:
+                erts_print(to, to_arg, "RUNNING_SYS"); break;
+            case ERTS_PSFLG_PROXY:
+                erts_print(to, to_arg, "PROXY"); break;
+            case ERTS_PSFLG_DELAYED_SYS:
+                erts_print(to, to_arg, "DELAYED_SYS"); break;
+            case ERTS_PSFLG_OFF_HEAP_MSGQ:
+                erts_print(to, to_arg, "OFF_HEAP_MSGQ"); break;
+            case ERTS_PSFLG_ON_HEAP_MSGQ:
+                erts_print(to, to_arg, "ON_HEAP_MSGQ"); break;
+            case ERTS_PSFLG_DIRTY_CPU_PROC:
+                erts_print(to, to_arg, "DIRTY_CPU_PROC"); break;
+            case ERTS_PSFLG_DIRTY_IO_PROC:
+                erts_print(to, to_arg, "DIRTY_IO_PROC"); break;
+            case ERTS_PSFLG_DIRTY_ACTIVE_SYS:
+                erts_print(to, to_arg, "DIRTY_ACTIVE_SYS"); break;
+            case ERTS_PSFLG_DIRTY_RUNNING:
+                erts_print(to, to_arg, "DIRTY_RUNNING"); break;
+            case ERTS_PSFLG_DIRTY_RUNNING_SYS:
+                erts_print(to, to_arg, "DIRTY_RUNNING_SYS"); break;
+            default:
+                erts_print(to, to_arg, "UNKNOWN(%d)", chk); break;
+            }
+            if (psflg > chk)
+                erts_print(to, to_arg, " | ");
+            psflg -= chk;
+        }
+    }
+    erts_print(to, to_arg, "\n");
 }

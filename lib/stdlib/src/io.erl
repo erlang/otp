@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -40,12 +41,12 @@
 %%-------------------------------------------------------------------------
 
 -type device() :: atom() | pid().
--type prompt() :: atom() | string().
+-type prompt() :: atom() | unicode:chardata().
 
 %% ErrorDescription is whatever the I/O-server sends.
 -type server_no_data() :: {'error', ErrorDescription :: term()} | 'eof'.
 
--type location() :: erl_scan:location().
+-type location() :: erl_anno:location().
 
 %%-------------------------------------------------------------------------
 
@@ -177,13 +178,15 @@ get_password(Io) ->
                     | {'expand_fun', expand_fun()}
                     | {'encoding', encoding()}.
 
--spec getopts() -> [opt_pair()].
+-spec getopts() -> [opt_pair()] | {'error', Reason} when
+      Reason :: term().
 
 getopts() ->
     getopts(default_input()).
 
--spec getopts(IoDevice) -> [opt_pair()] when
-      IoDevice :: device().
+-spec getopts(IoDevice) -> [opt_pair()] | {'error', Reason} when
+      IoDevice :: device(),
+      Reason :: term().
 
 getopts(Io) ->
     request(Io, getopts).
@@ -441,7 +444,7 @@ scan_erl_form(Io, Prompt, Pos0, Options) ->
 %% Parsing Erlang code.
 
 -type parse_ret() :: {'ok',
-                      ExprList :: erl_parse:abstract_expr(),
+                      ExprList :: [erl_parse:abstract_expr()],
                       EndLocation :: location()}
                    | {'eof', EndLocation :: location()}
                    | {'error',
@@ -564,12 +567,23 @@ request(Name, Request) when is_atom(Name) ->
 
 execute_request(Pid, {Convert,Converted}) ->
     Mref = erlang:monitor(process, Pid),
-    Pid ! {io_request,self(),Pid,Converted},
-    if
-	Convert ->
-	    convert_binaries(wait_io_mon_reply(Pid, Mref));
-	true ->
-	    wait_io_mon_reply(Pid, Mref)
+    Pid ! {io_request,self(),Mref,Converted},
+
+    receive
+	{io_reply, Mref, Reply} ->
+	    erlang:demonitor(Mref, [flush]),
+	    if
+		Convert ->
+		    convert_binaries(Reply);
+		true ->
+		    Reply
+	    end;
+	{'DOWN', Mref, _, _, _} ->
+	    receive
+		{'EXIT', Pid, _What} -> true
+	    after 0 -> true
+	    end,
+	    {error,terminated}
     end.
 
 requests(Requests) ->				%Requests as atomic action
@@ -595,26 +609,6 @@ default_input() ->
 default_output() ->
     group_leader().
 
-wait_io_mon_reply(From, Mref) ->
-    receive
-	{io_reply, From, Reply} ->
-	    erlang:demonitor(Mref, [flush]),
-	    Reply;
-	{'EXIT', From, _What} ->
-	    receive
-		{'DOWN', Mref, _, _, _} -> true
-	    after 0 -> true
-	    end,
-	    {error,terminated};
-	{'DOWN', Mref, _, _, _} ->
-	    receive
-		{'EXIT', From, _What} -> true
-	    after 0 -> true
-	    end,
-	    {error,terminated}
-    end.
-
-
 %% io_requests(Requests)
 %%  Transform requests into correct i/o server messages. Only handle the
 %%  one we KNOW must be changed, others, including incorrect ones, are
@@ -637,41 +631,20 @@ io_requests(Pid, [], [Rs|Cont], Tail) ->
 io_requests(_Pid, [], [], _Tail) -> 
     {false,[]}.
 
-
-bc_req(Pid,{Op,Enc,Param},MaybeConvert) ->
+bc_req(Pid, Req0, MaybeConvert) ->
     case net_kernel:dflag_unicode_io(Pid) of
 	true ->
-	    {false,{Op,Enc,Param}};
+	    %% The most common case. A modern i/o server.
+	    {false,Req0};
 	false ->
-	    {MaybeConvert,{Op,Param}}
-    end;
-bc_req(Pid,{Op,Enc,P,F},MaybeConvert) ->
-    case net_kernel:dflag_unicode_io(Pid) of
-	true ->
-	    {false,{Op,Enc,P,F}};
-	false ->
-	    {MaybeConvert,{Op,P,F}}
-    end;
-bc_req(Pid, {Op,Enc,M,F,A},MaybeConvert) ->
-    case net_kernel:dflag_unicode_io(Pid) of
-	true ->
-	    {false,{Op,Enc,M,F,A}};
-	false ->
-	    {MaybeConvert,{Op,M,F,A}}
-    end;
-bc_req(Pid, {Op,Enc,P,M,F,A},MaybeConvert) ->
-    case net_kernel:dflag_unicode_io(Pid) of
-	true ->
-	    {false,{Op,Enc,P,M,F,A}};
-	false ->
-	    {MaybeConvert,{Op,P,M,F,A}}
-    end;
-bc_req(Pid,{Op,Enc},MaybeConvert) ->
-    case net_kernel:dflag_unicode_io(Pid) of
-	true ->
-	    {false,{Op, Enc}};
-	false ->
-	    {MaybeConvert,Op}
+	    %% Backward compatibility only. Unlikely to ever happen.
+	    case tuple_to_list(Req0) of
+		[Op,_Enc] ->
+		    {MaybeConvert,Op};
+		[Op,_Enc|T] ->
+		    Req = list_to_tuple([Op|T]),
+		    {MaybeConvert,Req}
+	    end
     end.
 
 io_request(Pid, {write,Term}) ->

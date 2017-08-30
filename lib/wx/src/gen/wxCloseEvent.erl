@@ -1,23 +1,24 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcloseevent.html">wxCloseEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcloseevent.html">wxCloseEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>close_window</em>, <em>end_session</em>, <em>query_end_session</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxClose(). #wxClose{}} event record type.
@@ -43,7 +44,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxCloseEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcloseevent.html#wxcloseeventcanveto">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcloseevent.html#wxcloseeventcanveto">external documentation</a>.
 -spec canVeto(This) -> boolean() when
 	This::wxCloseEvent().
 canVeto(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -51,7 +52,7 @@ canVeto(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCloseEvent_CanVeto,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcloseevent.html#wxcloseeventgetloggingoff">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcloseevent.html#wxcloseeventgetloggingoff">external documentation</a>.
 -spec getLoggingOff(This) -> boolean() when
 	This::wxCloseEvent().
 getLoggingOff(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -59,8 +60,8 @@ getLoggingOff(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCloseEvent_GetLoggingOff,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcloseevent.html#wxcloseeventsetcanveto">external documentation</a>.
--spec setCanVeto(This, CanVeto) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcloseevent.html#wxcloseeventsetcanveto">external documentation</a>.
+-spec setCanVeto(This, CanVeto) -> 'ok' when
 	This::wxCloseEvent(), CanVeto::boolean().
 setCanVeto(#wx_ref{type=ThisT,ref=ThisRef},CanVeto)
  when is_boolean(CanVeto) ->
@@ -68,8 +69,8 @@ setCanVeto(#wx_ref{type=ThisT,ref=ThisRef},CanVeto)
   wxe_util:cast(?wxCloseEvent_SetCanVeto,
   <<ThisRef:32/?UI,(wxe_util:from_bool(CanVeto)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcloseevent.html#wxcloseeventsetloggingoff">external documentation</a>.
--spec setLoggingOff(This, LogOff) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcloseevent.html#wxcloseeventsetloggingoff">external documentation</a>.
+-spec setLoggingOff(This, LogOff) -> 'ok' when
 	This::wxCloseEvent(), LogOff::boolean().
 setLoggingOff(#wx_ref{type=ThisT,ref=ThisRef},LogOff)
  when is_boolean(LogOff) ->
@@ -78,17 +79,17 @@ setLoggingOff(#wx_ref{type=ThisT,ref=ThisRef},LogOff)
   <<ThisRef:32/?UI,(wxe_util:from_bool(LogOff)):32/?UI>>).
 
 %% @equiv veto(This, [])
--spec veto(This) -> ok when
+-spec veto(This) -> 'ok' when
 	This::wxCloseEvent().
 
 veto(This)
  when is_record(This, wx_ref) ->
   veto(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcloseevent.html#wxcloseeventveto">external documentation</a>.
--spec veto(This, [Option]) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcloseevent.html#wxcloseeventveto">external documentation</a>.
+-spec veto(This, [Option]) -> 'ok' when
 	This::wxCloseEvent(),
-	Option :: {veto, boolean()}.
+	Option :: {'veto', boolean()}.
 veto(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxCloseEvent),

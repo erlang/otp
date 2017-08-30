@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -38,7 +39,7 @@
 #include "erl_nif.h"
 
 #define EXT_LEN          4
-#define FILE_EXT         ".dll"
+#define FILE_EXT_WCHAR   L".dll"
 
 static DWORD tls_index = 0;
 static TWinDynDriverCallbacks wddc;
@@ -51,17 +52,22 @@ void erl_sys_ddll_init(void) {
 #define ERL_NIF_API_FUNC_DECL(RET,NAME,ARGS) nif_callbacks.NAME = NAME
 #include "erl_nif_api_funcs.h"
 #undef ERL_NIF_API_FUNC_DECL
-   
+    nif_callbacks.erts_alc_test = erts_alc_test;
+ 
     return;
 }
 
 /* 
  * Open a shared object
+ * Expecting 'full_name' as an UTF-8 string.
  */
-int erts_sys_ddll_open2(const char *full_name, void **handle, ErtsSysDdllError* err)
+int erts_sys_ddll_open(const char *full_name, void **handle, ErtsSysDdllError* err)
 {
+    HINSTANCE hinstance;
     int len;
-    char dlname[MAXPATHLEN + 1];
+    wchar_t* wcp;
+    Sint used;
+    int code;
     
     if ((len = sys_strlen(full_name)) >= MAXPATHLEN - EXT_LEN) {
 	if (err != NULL) {
@@ -69,10 +75,26 @@ int erts_sys_ddll_open2(const char *full_name, void **handle, ErtsSysDdllError* 
 	}
 	return ERL_DE_LOAD_ERROR_NAME_TO_LONG;
     }
-    sys_strcpy(dlname, full_name);
-    sys_strcpy(dlname+len, FILE_EXT);
-    return erts_sys_ddll_open_noext(dlname, handle, err);
+
+    wcp = (wchar_t*)erts_convert_filename_to_wchar((byte*)full_name, len,
+						   NULL, 0,
+						   ERTS_ALC_T_TMP, &used, EXT_LEN);
+    wcscpy(&wcp[used/2 - 1], FILE_EXT_WCHAR);
+
+    if ((hinstance = LoadLibraryW(wcp)) == NULL) {
+	code = ERL_DE_DYNAMIC_ERROR_OFFSET - GetLastError();
+	if (err != NULL) {
+	    err->str = erts_sys_ddll_error(code);
+	}
+    }
+    else {
+        code = ERL_DE_NO_ERROR;
+	*handle = (void *) hinstance;
+    }
+    erts_free(ERTS_ALC_T_TMP, wcp);
+    return code;
 }
+
 int erts_sys_ddll_open_noext(char *dlname, void **handle, ErtsSysDdllError* err)
 {
     HINSTANCE hinstance;

@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% 
@@ -29,7 +30,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 -define(SNMP_USE_V3, true).
 -include_lib("snmp/include/snmp_types.hrl").
@@ -331,7 +332,7 @@ log_to_io1(doc) -> "Log to io from the same process that opened "
 log_to_io1(Config) when is_list(Config) ->
     p(log_to_io1),
     put(sname,l2i1),
-    put(verbosity,trace),
+    put(verbosity,debug),
     ?DBG("log_to_io1 -> start", []),
     Dir    = ?config(log_dir, Config),
     Name   = "snmp_test_l2i1",
@@ -365,7 +366,7 @@ log_to_io1(Config) when is_list(Config) ->
     display_info(Info),
 
     ?DBG("log_to_io1 -> do the convert to io (stdout)", []),
-    ? line ok = snmp_log:log_to_io(Log, File, Dir, []),
+    ? line ok = snmp:log_to_io(Dir, [], Name, File, false),
 
     ?DBG("log_to_io1 -> close log", []),
     ?line ok = snmp_log:close(Log),
@@ -377,7 +378,7 @@ log_to_io1(Config) when is_list(Config) ->
 %%======================================================================
 %% Start a logger-process that logs messages with a certain interval.
 %% Start a reader-process that reads messages from the log at a certain
-%% point of time.
+%% point in time.
 
 log_to_io2(suite) -> [];
 log_to_io2(doc) -> "Log to io from a different process than which "
@@ -386,7 +387,7 @@ log_to_io2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     p(log_to_io2),
     put(sname, l2i2),
-    put(verbosity,trace),
+    put(verbosity,debug),
     ?DBG("log_to_io2 -> start", []),
     Dir    = ?config(log_dir, Config),
     Name   = "snmp_test_l2i2",
@@ -414,13 +415,13 @@ log_to_io2(Config) when is_list(Config) ->
 	log_reader_log_to(Reader, 
 			  fun() -> 
 				  I = disk_log:info(Log),
-				  R = snmp_log:log_to_io(Log, File, Dir, []),
+				  R = snmp:log_to_io(Dir, [], Name, File, true),
 				  {R, I}
 			  end),
 
     case Res of
-	{ok, Info} ->
-	    ?DBG("log_to_io2 -> ~n   Info: ~p", [Info]),
+	{ok, _Info} ->
+	    ?DBG("log_to_io2 -> ~n   Info: ~p", [_Info]),
 	    ok;
 	{Error, Info} ->
 	    ?DBG("log_to_io2 -> log to io failed: "
@@ -445,7 +446,7 @@ log_to_txt1(suite) -> [];
 log_to_txt1(Config) when is_list(Config) ->
     p(log_to_txt1),
     put(sname,l2t1),
-    put(verbosity,trace),
+    put(verbosity,debug),
     ?DBG("log_to_txt1 -> start", []),
 
     Name     = "snmp_test_l2t1",
@@ -463,7 +464,7 @@ log_to_txt2(suite) -> [];
 log_to_txt2(Config) when is_list(Config) ->
     p(log_to_txt2),
     put(sname,l2t2),
-    put(verbosity,trace),
+    put(verbosity,debug),
     ?DBG("log_to_txt2 -> start", []),
 
     Name     = "snmp_test_l2t2",
@@ -520,14 +521,21 @@ log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
     ?line {ok, Info} = snmp_log:info(Log),
     display_info(Info),
 
-    Out1 = join(Dir, "snmp_text-1.txt"),
-    ?DBG("log_to_txt -> do the convert to a text file when"
-	"~n   Out1: ~p", [Out1]),
-    ?line ok = snmp:log_to_txt(Dir, [], Out1, Log, File),
+    Out1a = join(Dir, "snmp_text-1-unblocked.txt"),
+    ?DBG("log_to_txt -> do the convert to a text file (~s) unblocked", [Out1a]),
+    ?line ok = snmp:log_to_txt(Dir, [], Out1a, Log, File, false),
 
-    ?line {ok, #file_info{size = Size1}} = file:read_file_info(Out1),
-    ?DBG("log_to_txt -> text file size: ~p", [Size1]),
-    validate_size(Size1),
+    ?line {ok, #file_info{size = Size1a}} = file:read_file_info(Out1a),
+    ?DBG("log_to_txt -> text file size: ~p", [Size1a]),
+    validate_size(Size1a),
+
+    Out1b = join(Dir, "snmp_text-1-blocked.txt"),
+    ?DBG("log_to_txt -> do the convert to a text file (~s) blocked", [Out1b]),
+    ?line ok = snmp:log_to_txt(Dir, [], Out1b, Log, File, true),
+
+    ?line {ok, #file_info{size = Size1b}} = file:read_file_info(Out1b),
+    ?DBG("log_to_txt -> text file size: ~p", [Size1b]),
+    validate_size(Size1b, {eq, Size1a}),
 
     Out2 = join(Dir, "snmp_text-2.txt"),
     ?DBG("log_to_txt -> do the convert to a text file when"
@@ -538,7 +546,7 @@ log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
 
     ?line {ok, #file_info{size = Size2}} = file:read_file_info(Out2),
     ?DBG("log_to_txt -> text file size: ~p", [Size2]),
-    validate_size(Size2, {le, Size1}),
+    validate_size(Size2, {le, Size1a}),
 
     %% Calculate new start / stop times...
     GStart = calendar:datetime_to_gregorian_seconds(Start),
@@ -568,7 +576,7 @@ log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
 
     ?line {ok, #file_info{size = Size3}} = file:read_file_info(Out3),
     ?DBG("log_to_txt -> text file size: ~p", [Size3]),
-    validate_size(Size3, {l, Size1}),    
+    validate_size(Size3, {l, Size1a}),    
 
     ?DBG("log_to_txt -> close log", []),
     ?line ok = snmp_log:close(Log),
@@ -593,7 +601,7 @@ log_to_txt3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     p(log_to_txt3),
     put(sname,l2t3),
-    put(verbosity,trace),
+    put(verbosity,debug),
     ?DBG("log_to_txt3 -> start", []),
     Dir     = ?config(log_dir, Config),
     Name    = "snmp_test_l2t3",
@@ -626,19 +634,19 @@ log_to_txt3(Config) when is_list(Config) ->
 	log_reader_log_to(Reader, 
 			  fun() -> 
 				  I = disk_log:info(Log),
-				  T1 = t(), 
+				  T1 = snmp_misc:now(ms),
 				  R = snmp_log:log_to_txt(Log, LogFile, Dir, 
 							  Mibs, TxtFile),
-				  T2 = t(), 
-				  io:format(user, 
+				  T2 = snmp_misc:now(ms),
+				  io:format(user,
 					    "Time converting file: ~w ms~n",
 					    [T2 - T1]),
 				  {R, I}
 			  end),
 
     case Res of
-	{ok, Info} ->
-	    ?DBG("log_to_txt3 -> ~n   Info: ~p", [Info]),
+	{ok, _Info} ->
+	    ?DBG("log_to_txt3 -> ~n   Info: ~p", [_Info]),
 	    ?line {ok, #file_info{size = FileSize}} = 
 		file:read_file_info(TxtFile),
 	    ?DBG("log_to_txt3 -> text file size: ~p", [FileSize]),
@@ -667,6 +675,8 @@ validate_size(_) ->
 
 validate_size(0, _) ->
     ?FAIL(invalid_size);
+validate_size(A, {eq, A}) ->
+    ok;
 validate_size(A, {le, B}) when A =< B ->
     ok;
 validate_size(A, {l, B}) when A < B ->
@@ -695,11 +705,11 @@ log_writer_start(Name, File, Size, Repair) ->
 
 log_writer_stop(Pid) ->
     Pid ! {stop, self()},
-    T1 = t(),
+    _T1 = snmp_misc:now(ms),
     receive
 	{'EXIT', Pid, normal} ->
-	    T2 = t(),
-	    ?DBG("it took ~w ms to stop the writer", [T2 - T1]),
+	    _T2 = snmp_misc:now(ms),
+	    ?DBG("it took ~w ms to stop the writer", [_T2 - _T1]),
 	    ok
     after 60000 ->
 	    Msg  = receive Any -> Any after 0 -> nothing end,
@@ -712,11 +722,11 @@ log_writer_info(Pid) ->
 
 log_writer_sleep(Pid, Time) ->
     Pid ! {sleep, Time, self()},
-    T1 = t(),
+    _T1 = snmp_misc:now(ms),
     receive 
 	{sleeping, Pid} ->
-	    T2 = t(),
-	    ?DBG("it took ~w ms to put the writer to sleep", [T2 - T1]),
+	    _T2 = snmp_misc:now(ms),
+	    ?DBG("it took ~w ms to put the writer to sleep", [_T2 - _T1]),
 	    ok;
 	{'EXIT', Pid, Reason} ->
 	    {error, Reason}
@@ -784,11 +794,11 @@ lp(F, A) ->
 
 log_reader_start() ->
     Pid = spawn_link(?MODULE, log_reader_main, [self()]),
-    T1 = t(),
+    _T1 = snmp_misc:now(ms),
     receive 
 	{started, Pid} ->
-	    T2 = t(),
-	    ?DBG("it took ~w ms to start the reader", [T2 - T1]),
+	    _T2 = snmp_misc:now(ms),
+	    ?DBG("it took ~w ms to start the reader", [_T2 - _T1]),
 	    {ok, Pid};
 	{'EXIT', Pid, Reason} ->
 	    {error, Reason}
@@ -798,11 +808,11 @@ log_reader_start() ->
 
 log_reader_stop(Pid) ->
     Pid ! {stop, self()},
-    T1 = t(),
+    _T1 = snmp_misc:now(ms),
     receive
 	{'EXIT', Pid, normal} ->
-	    T2 = t(),
-	    ?DBG("it took ~w ms to put the reader to eleep", [T2 - T1]),
+	    _T2 = snmp_misc:now(ms),
+	    ?DBG("it took ~w ms to put the reader to eleep", [_T2 - _T1]),
 	    ok
     after 1000 ->
 	    Msg = receive Any -> Any after 0 -> nothing end,
@@ -1115,8 +1125,3 @@ join(D, F) ->
 
 p(Case) ->
     io:format(user, "test case: ~w~n", [Case]).
-
-%% Time in milli sec
-t() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).

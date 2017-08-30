@@ -1,4 +1,3 @@
 
-higher_order_discrepancy.erl:11: The call higher_order_discrepancy:g('foo') will never return since it differs in the 1st argument from the success typing arguments: ('bar')
-higher_order_discrepancy.erl:14: Function g/1 has no local return
-higher_order_discrepancy.erl:14: The pattern 'bar' can never match the type 'foo'
+higher_order_discrepancy.erl:19: Function g/1 has no local return
+higher_order_discrepancy.erl:19: The pattern 'bar' can never match the type 'foo'

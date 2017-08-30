@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+# Generate ssh moduli files for the sizes in $moduli
+
+moduli="1024 1536 2048 3072 4096 6144 7168 8192"
+
+# In arg 1: size
+# Out: a file "moduli-$1" (for example: $1=2048 -> file "moduli.2048"
+function one_modulus() {
+    candidates=candidate-$1
+    ssh-keygen -G $candidates -b $1
+    ssh-keygen -T moduli-$1 -f $candidates
+    rm $candidates
+}
+
+
+# Generate in background
+for m in $moduli
+do
+    one_modulus $m &
+done
+
+# When all files moduli-* are generated, do:
+# cat moduli-* > moduli
+

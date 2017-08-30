@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -22,7 +23,7 @@
 
 %% External exports
 -export([start/0, start/1, stop/0, rescan/0, rescan/1]).
--export([list/0, list/1, show/0, show/1, grep/1, filter/1, filter/2, start_log/1, stop_log/0]).
+-export([list/0, list/1, log_list/0, log_list/1, show/0, show/1, grep/1, filter/1, filter/2, start_log/1, stop_log/0]).
 -export([h/0, help/0]).
 
 %% Internal exports
@@ -62,6 +63,9 @@ rescan(Options) ->
 list() -> list(all).
 list(Type) -> call({list, Type}).
 
+log_list() -> log_list(all).
+log_list(Type) -> call({log_list, Type}).
+
 show() -> 
     call(show).
 
@@ -93,6 +97,8 @@ help() ->
     io:format("rb:help()          - print this help~n"),
     io:format("rb:list()          - list all reports~n"),
     io:format("rb:list(Type)      - list all reports of type Type~n"),
+    io:format("rb:log_list()      - log list of all reports~n"),
+    io:format("rb:log_list(Type)  - log list of all reports of type Type~n"),
     io:format("      currently supported types are:~n"),
     print_types(),
     io:format("rb:grep(RegExp)      - print reports containing RegExp.~n"),
@@ -113,7 +119,7 @@ help() ->
     io:format("rb:show(Number)    - print report no Number~n"),
     io:format("rb:show(Type)      - print all reports of type Type~n"),
     io:format("rb:show()          - print all reports~n"),
-    io:format("rb:start_log(File) - redirect all reports to file~n"),
+    io:format("rb:start_log(File) - redirect all reports to file or io_device~n"),
     io:format("rb:stop_log()      - close the log file and redirect to~n"),
     io:format("                     standard_io~n"),
     io:format("rb:stop            - stop the rb_server~n").
@@ -207,7 +213,10 @@ handle_call({rescan, Options}, _From, State) ->
 handle_call(_, _From, #state{data = undefined}) ->
     {reply, {error, no_data}, #state{}};
 handle_call({list, Type}, _From, State) ->
-    print_list(State#state.data, Type),
+    print_list(standard_io, State#state.data, Type),
+    {reply, ok, State};
+handle_call({log_list, Type}, _From, State) ->
+    print_list(State#state.device, State#state.data, Type),
     {reply, ok, State};
 handle_call({start_log, FileName}, _From, State) ->
     NewDevice = open_log_file(FileName),
@@ -262,7 +271,16 @@ code_change(_OldVsn, State, _Extra) ->
 %% Returns: A Device for later use in call to io:format
 %%-----------------------------------------------------------------
 open_log_file(standard_io) -> standard_io;
-open_log_file(FileName) ->
+open_log_file(Fd) when is_atom(Fd),Fd=/=standard_error -> 
+    case whereis(Fd) of
+	undefined -> io:format("rb: Registered name not found '~s'.~n",
+		      [Fd]),
+	             io:format("rb: Using standard_io~n"),
+                     open_log_file(standard_io);
+	Pid       -> open_log_file(Pid)	
+    end;
+open_log_file(Fd) when is_pid(Fd)-> Fd;
+open_log_file(FileName) when is_list(FileName) ->
     case file:open(FileName, [write,append]) of
 	{ok, Fd} -> Fd;
 	Error -> 
@@ -270,7 +288,10 @@ open_log_file(FileName) ->
 		      [FileName, Error]),
 	    io:format("rb: Using standard_io~n"),
 	    standard_io
-    end.
+    end;
+open_log_file(standard_error) -> 
+	    io:format("rb: Using standard_io~n"),
+	    standard_io.
 
 close_device(Fd) when is_pid(Fd) ->
     catch file:close(Fd);
@@ -309,11 +330,11 @@ scan_files(RptDir, Max, Type) ->
 	{ok, Fd} ->
 	    case catch file:read(Fd, 1) of
 		{ok, [LastWritten]} -> 
-		    file:close(Fd),
+		    ok = file:close(Fd),
 		    Files = make_file_list(RptDir, LastWritten),
 		    scan_files(RptDir, Files, Max, Type);		
 		_X ->
-		    file:close(Fd),
+		    _ = file:close(Fd),
 		    exit("cannot read the index file")
 	    end;
 	_X -> exit("cannot read the index file")
@@ -386,7 +407,7 @@ read_reports(No, Fd, Fname, Max, Type) ->
     io:format("rb: reading report..."),
     case catch read_reports(Fd, [], Type) of
 	{ok, Res} -> 
-	    file:close(Fd),
+	    ok = file:close(Fd),
 	    io:format("done.~n"),
 	    NewRes = 
 		if
@@ -397,7 +418,7 @@ read_reports(No, Fd, Fname, Max, Type) ->
 		end,
 	    add_report_data(NewRes, No, Fname);
 	{error, [Problem | Res]} ->
-	    file:close(Fd),
+	    _ = file:close(Fd),
 	    io:format("Error: ~p~n",[Problem]),
 	    io:format("Salvaged ~p entries from corrupt report file ~s...~n",
 		      [length(Res),Fname]),
@@ -550,18 +571,18 @@ local_time_to_universal_time({Date,Time}) ->
     end.
 
 
-print_list(Data, Type) ->
+print_list(Fd, Data, Type) ->
     Header = {"No", "Type", "Process", "Date     Time"},
     Width = find_width([Header | Data], 0)+1,
     DateWidth = find_date_width([Header | Data], 0) +1,
     Format = lists:concat(["~4s~20s ~", Width, "s~20s~n"]),
-    io:format(Format, tuple_to_list(Header)),
-    io:format(Format, ["==", "====", "=======", "====     ===="]),
-    print_list(Data, Type, Width, DateWidth).
-print_list([], _, _, _) -> true;
-print_list([H|T], Type, Width, DateWidth) ->
-    print_one_report(H, Type, Width, DateWidth),
-    print_list(T, Type, Width, DateWidth).
+    io:format(Fd, Format, tuple_to_list(Header)),
+    io:format(Fd, Format, ["==", "====", "=======", "====     ===="]),
+    print_list(Fd, Data, Type, Width, DateWidth).
+print_list(_, [], _, _, _) -> true;
+print_list(Fd, [H|T], Type, Width, DateWidth) ->
+    print_one_report(Fd, H, Type, Width, DateWidth),
+    print_list(Fd, T, Type, Width, DateWidth).
 
 find_width([], Width) -> Width;
 find_width([H|T], Width) ->
@@ -578,22 +599,22 @@ find_date_width([H|T], Width) ->
 	true -> find_date_width(T, Width)
     end.
 
-print_one_report({No, RealType, ShortDescr, Date, _Fname, _FilePos},
+print_one_report(Fd, {No, RealType, ShortDescr, Date, _Fname, _FilePos},
 		 WantedType,
 		 Width, DateWidth) ->
     if
 	WantedType == all ->
-	    print_short_descr(No, RealType, ShortDescr, Date, Width, 
+	    print_short_descr(Fd, No, RealType, ShortDescr, Date, Width, 
 			      DateWidth);
 	WantedType == RealType ->
-	    print_short_descr(No, RealType, ShortDescr, Date, Width, 
+	    print_short_descr(Fd, No, RealType, ShortDescr, Date, Width, 
 			      DateWidth);
 	true -> ok
     end.
 
-print_short_descr(No, Type, ShortDescr, Date, Width, DateWidth) ->
+print_short_descr(Fd, No, Type, ShortDescr, Date, Width, DateWidth) ->
     Format = lists:concat(["~4w~20w ~", Width, "s~", DateWidth,"s~n"]),
-    io:format(Format, [No,
+    io:format(Fd, Format, [No,
 		       Type, 
 		       io_lib:format("~s", [ShortDescr]),
 		       Date]).
@@ -898,7 +919,7 @@ handle_bad_form(Date, Msg, Device, Abort, Log) ->
     end.
 
 read_rep_msg(Fd, FilePosition) ->
-    file:position(Fd, {bof, FilePosition}),
+    {ok,_} = file:position(Fd, {bof, FilePosition}),
     Res = 
 	case catch read_report(Fd) of
 	    {ok, Report} ->
@@ -906,5 +927,5 @@ read_rep_msg(Fd, FilePosition) ->
 		{Date, Report};
 	    _ -> error
 	end,
-    file:close(Fd),
+    ok = file:close(Fd),
     Res.

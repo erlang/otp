@@ -1,26 +1,26 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 %%
 -module(httpd_block).
 
--include("test_server.hrl").
--include("test_server_line.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% General testcases bodies called from httpd_SUITE
 -export([block_disturbing_idle/4, block_non_disturbing_idle/4,
@@ -88,7 +88,7 @@ block_503(Type, Port, Host, Node) ->
 block_disturbing_active(Type, Port, Host, Node) ->
     process_flag(trap_exit, true),
     Pid = long_poll(Type, Host, Port, Node, 200, 60000),
-    test_server:sleep(15000),
+    ct:sleep(15000),
     block_server(Node, Host, Port),
     await_suite_failed_process_exit(Pid, "poller", 60000,
 				    connection_closed),
@@ -100,7 +100,7 @@ block_disturbing_active(Type, Port, Host, Node) ->
 block_non_disturbing_active(Type, Port, Host, Node) ->
     process_flag(trap_exit, true),
     Poller = long_poll(Type, Host, Port, Node, 200, 60000),
-    test_server:sleep(15000),
+    ct:sleep(15000),
     ok = block_nd_server(Node, Host, Port),
     await_normal_process_exit(Poller, "poller", 60000),
     blocked = get_admin_state(Node, Host, Port),
@@ -111,9 +111,8 @@ block_non_disturbing_active(Type, Port, Host, Node) ->
 block_disturbing_active_timeout_not_released(Type, Port, Host, Node) ->
     process_flag(trap_exit, true),
     Poller = long_poll(Type, Host, Port, Node, 200, 60000),
-    test_server:sleep(15000),
-    Blocker = blocker(Node, Host, Port, 50000),
-    await_normal_process_exit(Blocker, "blocker", 50000),
+    ct:sleep(15000),
+    ok = httpd_block(undefined,  Port, disturbing, 50000),
     await_normal_process_exit(Poller, "poller", 30000),
     blocked = get_admin_state(Node, Host, Port),
     process_flag(trap_exit, false),
@@ -123,9 +122,8 @@ block_disturbing_active_timeout_not_released(Type, Port, Host, Node) ->
 block_disturbing_active_timeout_released(Type, Port, Host, Node) ->
     process_flag(trap_exit, true),
     Poller = long_poll(Type, Host, Port, Node, 200, 40000),
-    test_server:sleep(5000),
-    Blocker = blocker(Node, Host, Port, 10000),
-    await_normal_process_exit(Blocker, "blocker", 15000),
+    ct:sleep(5000),
+    ok = httpd_block(undefined,  Port, disturbing, 10000),
     await_suite_failed_process_exit(Poller, "poller", 40000, 
 					  connection_closed),
     blocked = get_admin_state(Node, Host, Port),
@@ -135,7 +133,7 @@ block_disturbing_active_timeout_released(Type, Port, Host, Node) ->
 block_non_disturbing_active_timeout_not_released(Type, Port, Host, Node) ->
     process_flag(trap_exit, true),
     Poller = long_poll(Type, Host, Port, Node, 200, 60000),
-    test_server:sleep(5000),
+    ct:sleep(5000),
     ok = block_nd_server(Node, Host, Port, 40000),
     await_normal_process_exit(Poller, "poller", 60000),
     blocked = get_admin_state(Node, Host, Port),
@@ -146,7 +144,7 @@ block_non_disturbing_active_timeout_not_released(Type, Port, Host, Node) ->
 block_non_disturbing_active_timeout_released(Type, Port, Host, Node) ->
     process_flag(trap_exit, true),
     Poller = long_poll(Type, Host, Port, Node, 200, 45000),
-    test_server:sleep(5000),
+    ct:sleep(5000),
     Blocker = blocker_nd(Node, Host, Port ,10000, {error,timeout}),
     await_normal_process_exit(Blocker, "blocker", 15000),
     await_normal_process_exit(Poller, "poller", 50000),
@@ -157,9 +155,9 @@ block_non_disturbing_active_timeout_released(Type, Port, Host, Node) ->
 disturbing_blocker_dies(Type, Port, Host, Node) ->
     process_flag(trap_exit, true),
     Poller = long_poll(Type, Host, Port, Node, 200, 60000),
-    test_server:sleep(5000),
+    ct:sleep(5000),
     Blocker = blocker(Node, Host, Port, 10000),
-    test_server:sleep(5000),
+    ct:sleep(5000),
     exit(Blocker,simulate_blocker_crash),
     await_normal_process_exit(Poller, "poller", 60000),
     unblocked = get_admin_state(Node, Host, Port),
@@ -170,9 +168,9 @@ disturbing_blocker_dies(Type, Port, Host, Node) ->
 non_disturbing_blocker_dies(Type, Port, Host, Node) ->
     process_flag(trap_exit, true),
     Poller = long_poll(Type, Host, Port, Node, 200, 60000),
-    test_server:sleep(5000),  
+    ct:sleep(5000),  
     Blocker = blocker_nd(Node, Host, Port, 10000, ok),
-    test_server:sleep(5000),
+    ct:sleep(5000),
     exit(Blocker, simulate_blocker_crash),
     await_normal_process_exit(Poller, "poller", 60000),
     unblocked = get_admin_state(Node, Host, Port),
@@ -295,11 +293,14 @@ httpd_restart(Addr, Port) ->
     end.
     
 make_name(Addr, Port) ->
-    httpd_util:make_name("httpd", Addr, Port).
+    httpd_util:make_name("httpd", Addr, Port, default).
 
-get_admin_state(Node, _Host, Port) ->
-    Addr = undefined, 
-    rpc:call(Node, httpd, get_admin_state, [Addr, Port]).
+get_admin_state(_, _Host, Port) ->
+    Name = make_name(undefined, Port),
+    {status, _, _, StatusInfo} = sys:get_status(whereis(Name)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = state(Prop),
+    element(6, State).
 
 validate_admin_state(Node, Host, Port, Expect) ->
     io:format("try validating server admin state: ~p~n", [Expect]),
@@ -323,15 +324,15 @@ await_normal_process_exit(Pid, Name, Timeout) ->
 		  io_lib:format("expected normal exit, "
 				"unexpected exit of ~s process: ~p",
 				[Name, Reason])),
-	    test_server:fail(Err)
+	    ct:fail(Err)
     after Timeout ->
-	   test_server:fail("timeout while waiting for " ++ Name)
+	    ct:fail("timeout while waiting for " ++ Name)
     end.
 
 
 await_suite_failed_process_exit(Pid, Name, Timeout, Why) ->
     receive 
-	{'EXIT', Pid, {suite_failed, Why}} ->
+	{'EXIT', Pid, {test_failed, Why}} ->
 	    ok;
 	{'EXIT', Pid, Reason} ->
 	    Err = 
@@ -339,9 +340,9 @@ await_suite_failed_process_exit(Pid, Name, Timeout, Why) ->
 		  io_lib:format("expected connection_closed, "
 				"unexpected exit of ~s process: ~p",
 				[Name, Reason])),
-	    test_server:fail(Err)
+	    ct:fail(Err)
     after Timeout ->
-	    test_server:fail("timeout while waiting for " ++ Name)
+	    ct:fail("timeout while waiting for " ++ Name)
     end.
 	  
 long_poll(Type, Host, Port, Node, StatusCode, Timeout) ->
@@ -359,10 +360,13 @@ do_long_poll(Type, Host, Port, Node, StatusCode, Timeout) ->
 	ok ->
 	    exit(normal);
 	Reason ->
-	    test_server:fail(Reason)
+	    exit({test_failed, Reason})
     end.
 
 
-
-
-
+state([{data,[{"State", State}]} | _]) ->
+    State;
+state([{data,[{"StateData", State}]} | _]) ->
+    State;
+state([_ | Rest]) ->
+    state(Rest).

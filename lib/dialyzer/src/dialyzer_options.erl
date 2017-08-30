@@ -2,18 +2,19 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -28,7 +29,7 @@
 
 -module(dialyzer_options).
 
--export([build/1]).
+-export([build/1, build_warnings/2]).
 
 -include("dialyzer.hrl").
 
@@ -46,7 +47,7 @@ build(Opts) ->
 		  ?WARN_CALLGRAPH,
 		  ?WARN_FAILING_CALL,
 		  ?WARN_BIN_CONSTRUCTION,
-		  ?WARN_CALLGRAPH,
+		  ?WARN_MAP_CONSTRUCTION,
 		  ?WARN_CONTRACT_RANGE,
 		  ?WARN_CONTRACT_TYPES,
 		  ?WARN_CONTRACT_SYNTAX,
@@ -72,8 +73,14 @@ preprocess_opts([Opt|Opts]) ->
   [Opt|preprocess_opts(Opts)].
 
 postprocess_opts(Opts = #options{}) ->
+  check_file_existence(Opts),
   Opts1 = check_output_plt(Opts),
   adapt_get_warnings(Opts1).
+
+check_file_existence(#options{analysis_type = plt_remove}) -> ok;
+check_file_existence(#options{files = Files, files_rec = FilesRec}) ->
+  assert_filenames_exist(Files),
+  assert_filenames_exist(FilesRec).
 
 check_output_plt(Opts = #options{analysis_type = Mode, from = From,
 				 output_plt = OutPLT}) ->
@@ -126,14 +133,14 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
     apps ->
       OldValues = Options#options.files_rec,
       AppDirs = get_app_dirs(Value),
-      assert_filenames(Term, AppDirs),
+      assert_filenames_form(Term, AppDirs),
       build_options(Rest, Options#options{files_rec = AppDirs ++ OldValues});
     files ->
-      assert_filenames(Term, Value),
+      assert_filenames_form(Term, Value),
       build_options(Rest, Options#options{files = Value});
     files_rec ->
       OldValues = Options#options.files_rec,
-      assert_filenames(Term, Value),
+      assert_filenames_form(Term, Value),
       build_options(Rest, Options#options{files_rec = Value ++ OldValues});
     analysis_type ->
       NewOptions =
@@ -210,16 +217,26 @@ get_app_dirs(Apps) when is_list(Apps) ->
 get_app_dirs(Apps) ->
   bad_option("Use a list of otp applications", Apps).
 
-assert_filenames(Term, [FileName|Left]) when length(FileName) >= 0 ->
+assert_filenames(Term, Files) ->
+  assert_filenames_form(Term, Files),
+  assert_filenames_exist(Files).
+
+assert_filenames_form(Term, [FileName|Left]) when length(FileName) >= 0 ->
+  assert_filenames_form(Term, Left);
+assert_filenames_form(_Term, []) ->
+  ok;
+assert_filenames_form(Term, [_|_]) ->
+  bad_option("Malformed or non-existing filename", Term).
+
+assert_filenames_exist([FileName|Left]) ->
   case filelib:is_file(FileName) orelse filelib:is_dir(FileName) of
     true -> ok;
-    false -> bad_option("No such file, directory or application", FileName)
+    false ->
+      bad_option("No such file, directory or application", FileName)
   end,
-  assert_filenames(Term, Left);
-assert_filenames(_Term, []) ->
-  ok;
-assert_filenames(Term, [_|_]) ->
-  bad_option("Malformed or non-existing filename", Term).
+  assert_filenames_exist(Left);
+assert_filenames_exist([]) ->
+  ok.
 
 assert_filename(FileName) when length(FileName) >= 0 ->
   ok;
@@ -269,7 +286,7 @@ assert_solvers([v2|Terms]) ->
 assert_solvers([Term|_]) ->
   bad_option("Illegal value for solver", Term).
 
--spec build_warnings([atom()], [dial_warning()]) -> [dial_warning()].
+-spec build_warnings([atom()], dial_warn_tags()) -> dial_warn_tags().
 
 build_warnings([Opt|Opts], Warnings) ->
   NewWarnings =
@@ -301,6 +318,8 @@ build_warnings([Opt|Opts], Warnings) ->
 	ordsets:add_element(?WARN_RETURN_ONLY_EXIT, Warnings);
       race_conditions ->
 	ordsets:add_element(?WARN_RACE_CONDITION, Warnings);
+      no_missing_calls ->
+        ordsets:del_element(?WARN_CALLGRAPH, Warnings);
       specdiffs ->
 	S = ordsets:from_list([?WARN_CONTRACT_SUBTYPE, 
 			       ?WARN_CONTRACT_SUPERTYPE,
@@ -310,6 +329,8 @@ build_warnings([Opt|Opts], Warnings) ->
 	ordsets:add_element(?WARN_CONTRACT_SUBTYPE, Warnings);
       underspecs ->
 	ordsets:add_element(?WARN_CONTRACT_SUPERTYPE, Warnings);
+      unknown ->
+	ordsets:add_element(?WARN_UNKNOWN, Warnings);
       OtherAtom ->
 	bad_option("Unknown dialyzer warning option", OtherAtom)
     end,

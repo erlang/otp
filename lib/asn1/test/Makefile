@@ -1,18 +1,19 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2013. All Rights Reserved.
+# Copyright Ericsson AB 1997-2016. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -26,7 +27,6 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES= \
 	h323test \
-	choice_extension \
 	ber_decode_error \
 	testPrim \
 	testPrimStrings \
@@ -36,7 +36,6 @@ MODULES= \
 	testChoExtension \
 	testChoExternal \
 	testChoOptional \
-	testChoOptionalImplicitTag \
 	testChoRecursive \
 	testChoTypeRefCho \
 	testChoTypeRefPrim \
@@ -51,12 +50,12 @@ MODULES= \
 	testSeqOptional \
 	testSeq2738 \
 	testSeqPrim \
+	testSeqSetIndefinite \
 	testSeqTag \
 	testSeqTypeRefCho \
 	testSeqTypeRefPrim \
 	testSeqTypeRefSeq \
 	testSeqTypeRefSet \
-	testSeqIndefinite \
 	testSeqOf \
 	testSeqOfIndefinite \
 	testSeqOfCho \
@@ -72,7 +71,6 @@ MODULES= \
 	testSetTypeRefPrim \
 	testSetTypeRefSeq \
 	testSetTypeRefSet \
-	testSetIndefinite \
 	testChoiceIndefinite \
 	testSetOf \
 	testSetOfCho \
@@ -81,7 +79,9 @@ MODULES= \
 	testEnumExt \
 	testInfObjectClass \
 	testInfObj \
+	testInfObjExtract \
 	testParameterizedInfObj \
+	testFragmented \
 	testMergeCompile \
 	testMultipleLevels \
 	testDeepTConstr \
@@ -99,7 +99,6 @@ MODULES= \
 	test_special_decode_performance \
 	testTCAP \
 	testSSLspecs \
-	test_driver_load \
 	testSelectionTypes \
 	test_undecoded_rest \
 	testTcapsystem \
@@ -107,17 +106,19 @@ MODULES= \
 	test_compile_options \
 	testDoubleEllipses \
 	test_modified_x420 \
-	testX420 \
 	test_x691 \
 	testWSParamClass \
+	testValueTest \
+	testUniqueObjectSets \
+	testRfcs \
+	testImporting \
+	testExtensibilityImplied \
 	asn1_test_lib \
 	asn1_app_test \
 	asn1_appup_test \
-	asn1_wrapper \
 	asn1_SUITE \
-	error_SUITE
-
-SUITE= asn1_SUITE.erl
+	error_SUITE \
+	syntax_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -143,7 +144,7 @@ EBIN = .
 $(EMAKEFILE): $(ERL_FILES) $(HRL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) $(ERL_FILES) >$(EMAKEFILE)
 
-tests debug opt: $(SUITE) $(SUITE_BIN) $(SUITE_BIN_V2) $(EMAKEFILE)
+tests debug opt: $(EMAKEFILE)
 
 clean:
 	rm -f core
@@ -160,7 +161,7 @@ release_spec: opt
 release_tests_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DIR) "$(RELSYSDIR)/asn1_SUITE_data"
-	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(EMAKEFILE) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) asn1.spec asn1.cover $(INSTALL_PROGS) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	cd asn1_SUITE_data; tar cfh "$(RELSYSDIR)/asn1_SUITE_data.tar" *

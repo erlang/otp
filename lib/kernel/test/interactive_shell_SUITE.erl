@@ -1,64 +1,60 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
 -module(interactive_shell_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 get_columns_and_rows/1, exit_initial/1, job_control_local/1, 
 	 job_control_remote/1,
-	 job_control_remote_noshell/1]).
+	 job_control_remote_noshell/1,ctrl_keys/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% For spawn
 -export([toerl_server/3]).
 
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(test_server:minutes(3)),
-    [{watchdog,Dog}|Config].
+    Config.
 
-end_per_testcase(_Func, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog).
+end_per_testcase(_Func, _Config) ->
+    ok.
 
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,3}}].
 
 all() -> 
     [get_columns_and_rows, exit_initial, job_control_local,
-     job_control_remote, job_control_remote_noshell].
+     job_control_remote, job_control_remote_noshell,
+     ctrl_keys].
 
 groups() -> 
     [].
 
 init_per_suite(Config) ->
-    Term = case os:getenv("TERM") of
-	       List when is_list(List) ->
-		   List;
-	       _ ->
-		   "dumb"
-	   end,
+    Term = os:getenv("TERM", "dumb"),
     os:putenv("TERM","vt100"),
     DefShell = get_default_shell(),
     [{default_shell,DefShell},{term,Term}|Config].
 
 end_per_suite(Config) ->
-    Term = ?config(term,Config),
+    Term = proplists:get_value(term,Config),
     os:putenv("TERM",Term),
     ok.
 
@@ -69,68 +65,66 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-%-define(DEBUG,1).
+%%-define(DEBUG,1).
 -ifdef(DEBUG).
 -define(dbg(Data),erlang:display(Data)).
 -else.
 -define(dbg(Data),noop).
 -endif.
 
-get_columns_and_rows(suite) -> [];
-get_columns_and_rows(doc) -> ["Test that the shell can access columns and rows"];
+%% Test that the shell can access columns and rows.
 get_columns_and_rows(Config) when is_list(Config) ->
     case proplists:get_value(default_shell,Config) of
 	old ->
 	    %% Old shell tests
 	    ?dbg(old_shell),
-	    ?line rtnode([{putline,""},
-			  {putline, "2."},
-			  {getline, "2"},
-			  {putline,"io:columns()."},
-			  {getline_re,".*{error,enotsup}"},
-			  {putline,"io:rows()."},
-			  {getline_re,".*{error,enotsup}"}
+	    rtnode([{putline,""},
+		    {putline, "2."},
+		    {getline, "2"},
+		    {putline,"io:columns()."},
+		    {getline_re,".*{error,enotsup}"},
+		    {putline,"io:rows()."},
+		    {getline_re,".*{error,enotsup}"}
 
-			 ],[]),
-	    ?line rtnode([{putline,""},
-			  {putline, "2."},
-			  {getline, "2"},
-			  {putline,"io:columns()."},
-			  {getline_re,".*{ok,90}"},
-			  {putline,"io:rows()."},
-			  {getline_re,".*{ok,40}"}],
-			 [],
-			 "stty rows 40; stty columns 90; ");
+		   ],[]),
+	    rtnode([{putline,""},
+		    {putline, "2."},
+		    {getline, "2"},
+		    {putline,"io:columns()."},
+		    {getline_re,".*{ok,90}"},
+		    {putline,"io:rows()."},
+		    {getline_re,".*{ok,40}"}],
+		   [],
+		   "stty rows 40; stty columns 90; ");
 	new ->
-	    % New shell tests
+	    %% New shell tests
 	    ?dbg(new_shell),
-	    ?line rtnode([{putline,""},
-			  {putline, "2."},
-			  {getline, "2"},
-			  {putline,"io:columns()."},
-			  %% Behaviour change in R12B-5, returns 80
-			  %%		  {getline,"{error,enotsup}"},
-			  {getline,"{ok,80}"},
-			  {putline,"io:rows()."},
-			  %% Behaviour change in R12B-5, returns 24
-			  %%		  {getline,"{error,enotsup}"}
-			  {getline,"{ok,24}"}
-			 ],[]),
-	    ?line rtnode([{putline,""},
-			  {putline, "2."},
-			  {getline, "2"},
-			  {putline,"io:columns()."},
-			  {getline,"{ok,90}"},
-			  {putline,"io:rows()."},
-			  {getline,"{ok,40}"}],
-			 [],
-			 "stty rows 40; stty columns 90; ")
+	    rtnode([{putline,""},
+		    {putline, "2."},
+		    {getline, "2"},
+		    {putline,"io:columns()."},
+		    %% Behaviour change in R12B-5, returns 80
+		    %%		  {getline,"{error,enotsup}"},
+		    {getline,"{ok,80}"},
+		    {putline,"io:rows()."},
+		    %% Behaviour change in R12B-5, returns 24
+		    %%		  {getline,"{error,enotsup}"}
+		    {getline,"{ok,24}"}
+		   ],[]),
+	    rtnode([{putline,""},
+		    {putline, "2."},
+		    {getline, "2"},
+		    {putline,"io:columns()."},
+		    {getline,"{ok,90}"},
+		    {putline,"io:rows()."},
+		    {getline,"{ok,40}"}],
+		   [],
+		   "stty rows 40; stty columns 90; ")
     end.
-    
-    
 
-exit_initial(suite) -> [];
-exit_initial(doc) -> ["Tests that exit of initial shell restarts shell"];
+
+
+%% Tests that exit of initial shell restarts shell.
 exit_initial(Config) when is_list(Config) ->
     case proplists:get_value(default_shell,Config) of
 	old ->
@@ -155,9 +149,7 @@ exit_initial(Config) when is_list(Config) ->
 		    {getline_re,"35"}],[])
     end.
 
-job_control_local(suite) -> [];
-job_control_local(doc) -> [ "Tests that local shell can be "
-			    "started by means of job control" ];
+%% Tests that local shell can be started by means of job control.
 job_control_local(Config) when is_list(Config) ->
     case proplists:get_value(default_shell,Config) of
 	old ->
@@ -165,174 +157,218 @@ job_control_local(Config) when is_list(Config) ->
 	    {skip,"No new shell found"};
 	new ->
 	    %% New shell tests
-	    ?line rtnode([{putline,""},
-			  {putline, "2."},
-			  {getline, "2"},
-			  {putline,[7]},
-			  {sleep,timeout(short)},
-			  {putline,""},
-			  {getline," -->"},
-			  {putline,"s"},
-			  {putline,"c"},
-			  {putline_raw,""},
-			  {getline,"Eshell"},
-			  {putline_raw,""},
-			  {getline,"1>"},
-			  {putline,"35."},
-			  {getline,"35"}],[])
+	    rtnode([{putline,""},
+		    {putline, "2."},
+		    {getline, "2"},
+		    {putline,[7]},
+		    {sleep,timeout(short)},
+		    {putline,""},
+		    {getline," -->"},
+		    {putline,"s"},
+		    {putline,"c"},
+		    {putline_raw,""},
+		    {getline,"Eshell"},
+		    {putline_raw,""},
+		    {getline,"1>"},
+		    {putline,"35."},
+		    {getline,"35"}],[])
     end.
 
-job_control_remote(suite) -> [];
 job_control_remote(doc) -> [ "Tests that remote shell can be "
 			     "started by means of job control" ];
 job_control_remote(Config) when is_list(Config) ->
     case {node(),proplists:get_value(default_shell,Config)} of
 	{nonode@nohost,_} ->
-	    ?line exit(not_distributed);
+	    exit(not_distributed);
 	{_,old} ->
 	    {skip,"No new shell found"};
 	_ ->
-	    ?line RNode = create_nodename(),
-	    ?line MyNode = atom2list(node()),
-	    ?line Pid = spawn_link(fun() ->
-					   receive die ->
-						   ok
-					   end 
-				   end),
-	    ?line PidStr = pid_to_list(Pid),
-	    ?line register(kalaskula,Pid),
-	    ?line CookieString = lists:flatten(
-				   io_lib:format("~w",
-						 [erlang:get_cookie()])),
-	    ?line Res = rtnode([{putline,""},
-				{putline, "erlang:get_cookie()."},
-				{getline, CookieString},
-				{putline,[7]},
-				{sleep,timeout(short)},
-				{putline,""},
-				{getline," -->"},
-				{putline,"r '"++MyNode++"'"},
-				{putline,"c"},
-				{putline_raw,""},
-				{getline,"Eshell"},
-				{sleep,timeout(short)},
-				{putline_raw,""},
-				{getline,"("++MyNode++")1>"},
-				{putline,"whereis(kalaskula)."},
-				{getline,PidStr},
-				{sleep,timeout(short)}, % Race, known bug.
-				{putline_raw,"exit()."},
-				{getline,"***"},
-				{putline,[7]},
-				{putline,""},
-				{getline," -->"},
-				{putline,"c 1"},
-				{putline,""},
-				{sleep,timeout(short)},
-				{putline_raw,""},
-				{getline,"("++RNode++")"}],RNode),
-	    ?line Pid ! die,
-	    ?line Res
+	    RNode = create_nodename(),
+	    MyNode = atom2list(node()),
+	    Pid = spawn_link(fun() ->
+				     receive die ->
+					     ok
+				     end
+			     end),
+	    PidStr = pid_to_list(Pid),
+	    register(kalaskula,Pid),
+	    CookieString = lists:flatten(
+			     io_lib:format("~w",
+					   [erlang:get_cookie()])),
+	    Res = rtnode([{putline,""},
+			  {putline, "erlang:get_cookie()."},
+			  {getline, CookieString},
+			  {putline,[7]},
+			  {sleep,timeout(short)},
+			  {putline,""},
+			  {getline," -->"},
+			  {putline,"r '"++MyNode++"'"},
+			  {putline,"c"},
+			  {putline_raw,""},
+			  {getline,"Eshell"},
+			  {sleep,timeout(short)},
+			  {putline_raw,""},
+			  {getline,"("++MyNode++")1>"},
+			  {putline,"whereis(kalaskula)."},
+			  {getline,PidStr},
+			  {sleep,timeout(short)}, % Race, known bug.
+			  {putline_raw,"exit()."},
+			  {getline,"***"},
+			  {putline,[7]},
+			  {putline,""},
+			  {getline," -->"},
+			  {putline,"c 1"},
+			  {putline,""},
+			  {sleep,timeout(short)},
+			  {putline_raw,""},
+			  {getline,"("++RNode++")"}],RNode),
+	    Pid ! die,
+	    Res
     end.
-job_control_remote_noshell(suite) -> [];
-job_control_remote_noshell(doc) -> 
-    [ "Tests that remote shell can be "
-      "started by means of job control to -noshell node" ];
+
+%% Tests that remote shell can be
+%% started by means of job control to -noshell node.
 job_control_remote_noshell(Config) when is_list(Config) ->
     case {node(),proplists:get_value(default_shell,Config)} of
 	{nonode@nohost,_} ->
-	    ?line exit(not_distributed);
+	    exit(not_distributed);
 	{_,old} ->
 	    {skip,"No new shell found"};
 	_ ->
-	    ?line RNode = create_nodename(),
-	    ?line NSNode = start_noshell_node(interactive_shell_noshell),
-	    ?line Pid = spawn_link(NSNode, fun() ->
-						   receive die ->
-							   ok
-						   end 
-					   end),
-	    ?line PidStr = rpc:call(NSNode,erlang,pid_to_list,[Pid]),
-	    ?line true = rpc:call(NSNode,erlang,register,[kalaskula,Pid]),
-	    ?line NSNodeStr = atom2list(NSNode),
-	    ?line CookieString = lists:flatten(
-				   io_lib:format("~w",
-						 [erlang:get_cookie()])),
-	    ?line Res = rtnode([{putline,""},
-				{putline, "erlang:get_cookie()."},
-				{getline, CookieString},
-				{putline,[7]},
-				{sleep,timeout(short)},
-				{putline,""},
-				{getline," -->"},
-				{putline,"r '"++NSNodeStr++"'"},
-				{putline,"c"},
-				{putline_raw,""},
-				{getline,"Eshell"},
-				{sleep,timeout(short)},
-				{putline_raw,""},
-				{getline,"("++NSNodeStr++")1>"},
-				{putline,"whereis(kalaskula)."},
-				{getline,PidStr},
-				{sleep,timeout(short)}, % Race, known bug.
-				{putline_raw,"exit()."},
-				{getline,"***"},
-				{putline,[7]},
-				{putline,""},
-				{getline," -->"},
-				{putline,"c 1"},
-				{putline,""},
-				{sleep,timeout(short)},
-				{putline_raw,""},
-				{getline,"("++RNode++")"}],RNode),
-	    ?line Pid ! die,
-	    ?line stop_noshell_node(NSNode),
-	    ?line Res
+	    RNode = create_nodename(),
+	    NSNode = start_noshell_node(interactive_shell_noshell),
+	    Pid = spawn_link(NSNode, fun() ->
+					     receive die ->
+						     ok
+					     end
+				     end),
+	    PidStr = rpc:call(NSNode,erlang,pid_to_list,[Pid]),
+	    true = rpc:call(NSNode,erlang,register,[kalaskula,Pid]),
+	    NSNodeStr = atom2list(NSNode),
+	    CookieString = lists:flatten(
+			     io_lib:format("~w",
+					   [erlang:get_cookie()])),
+	    Res = rtnode([{putline,""},
+			  {putline, "erlang:get_cookie()."},
+			  {getline, CookieString},
+			  {putline,[7]},
+			  {sleep,timeout(short)},
+			  {putline,""},
+			  {getline," -->"},
+			  {putline,"r '"++NSNodeStr++"'"},
+			  {putline,"c"},
+			  {putline_raw,""},
+			  {getline,"Eshell"},
+			  {sleep,timeout(short)},
+			  {putline_raw,""},
+			  {getline,"("++NSNodeStr++")1>"},
+			  {putline,"whereis(kalaskula)."},
+			  {getline,PidStr},
+			  {sleep,timeout(short)}, % Race, known bug.
+			  {putline_raw,"exit()."},
+			  {getline,"***"},
+			  {putline,[7]},
+			  {putline,""},
+			  {getline," -->"},
+			  {putline,"c 1"},
+			  {putline,""},
+			  {sleep,timeout(short)},
+			  {putline_raw,""},
+			  {getline,"("++RNode++")"}],RNode),
+	    Pid ! die,
+	    stop_noshell_node(NSNode),
+	    Res
     end.
-	    
+
+%% Tests various control keys.
+ctrl_keys(_Conf) when is_list(_Conf) ->
+    Cu=[$\^u],
+    Cw=[$\^w],
+    Cy=[$\^y],
+    Home=[27,$O,$H],
+    End=[27,$O,$F],
+    rtnode([{putline,""},
+	    {putline,"2."},
+	    {getline,"2"},
+	    {putline,"\"hello "++Cw++"world\"."},	% test <CTRL>+W
+	    {getline,"\"world\""},
+	    {putline,"\"hello "++Cu++"\"world\"."},	% test <CTRL>+U
+	    {getline,"\"world\""},
+	    {putline,"world\"."++Home++"\"hello "},	% test <HOME>
+	    {getline,"\"hello world\""},
+	    {putline,"world"++Home++"\"hello "++End++"\"."},	% test <END>
+	    {getline,"\"hello world\""},
+	    {putline,"\"hello world\""++Cu++Cy++"."},
+	    {getline,"\"hello world\""}]
+	   ++wordLeft()++wordRight(),[]).
+
+
+wordLeft() ->
+    L1=[27,27,$[,$D],
+    L2=[27]++"[5D",
+    L3=[27]++"[1;5D",
+    wordLeft(L1)++wordLeft(L2)++wordLeft(L3).
+
+wordLeft(Chars) ->
+    End=[27,$O,$F],
+    [{putline,"\"world\""++Chars++"hello "++End++"."},
+     {getline,"\"hello world\""}].
+
+wordRight() ->
+    R1=[27,27,$[,$C],
+    R2=[27]++"[5C",
+    R3=[27]++"[1;5C",
+    wordRight(R1)++wordRight(R2)++wordRight(R3).
+
+wordRight(Chars) ->
+    Home=[27,$O,$H],
+    [{putline,"world"++Home++"\"hello "++Chars++"\"."},
+     {getline,"\"hello world\""}].
+
+
 rtnode(C,N) ->
     rtnode(C,N,[]).
 rtnode(Commands,Nodename,ErlPrefix) ->
-    ?line case get_progs() of
-	      {error,_Reason} ->
-		  ?line {skip,"No runerl present"};
-	      {RunErl,ToErl,Erl} ->
-		  ?line case create_tempdir() of
-			    {error, Reason2} ->
-				?line {skip, Reason2};
-			    Tempdir ->
-				?line SPid = 
-				    start_runerl_node(RunErl,ErlPrefix++"\\\""++Erl++"\\\"",
-						      Tempdir,Nodename),
-				?line CPid = start_toerl_server(ToErl,Tempdir),
-				?line erase(getline_skipped),
-				?line Res = 
-				    (catch get_and_put(CPid, Commands,1)),
-				?line case stop_runerl_node(CPid) of
-					  {error,_} ->
-					      ?line CPid2 = 
-						  start_toerl_server
-						    (ToErl,Tempdir),
-					      ?line erase(getline_skipped),
-					      ?line ok = get_and_put
-							   (CPid2, 
-							    [{putline,[7]},
-							     {sleep,
-							      timeout(short)},
-							     {putline,""},
-							     {getline," -->"},
-							     {putline,"s"},
-							     {putline,"c"},
-							     {putline,""}],1),
-					      ?line stop_runerl_node(CPid2);
-					  _ ->
-					      ?line ok
-				      end,
-				?line wait_for_runerl_server(SPid),
-				?line ok = rm_rf(Tempdir),
-				?line ok = Res
-			end
-	  end.
+    case get_progs() of
+	{error,_Reason} ->
+	    {skip,"No runerl present"};
+	{RunErl,ToErl,Erl} ->
+	    case create_tempdir() of
+		{error, Reason2} ->
+		    {skip, Reason2};
+		Tempdir ->
+		    SPid =
+			start_runerl_node(RunErl,ErlPrefix++"\\\""++Erl++"\\\"",
+					  Tempdir,Nodename),
+		    CPid = start_toerl_server(ToErl,Tempdir),
+		    erase(getline_skipped),
+		    Res =
+			(catch get_and_put(CPid, Commands,1)),
+		    case stop_runerl_node(CPid) of
+			{error,_} ->
+			    CPid2 =
+				start_toerl_server
+				  (ToErl,Tempdir),
+			    erase(getline_skipped),
+			    ok = get_and_put
+				   (CPid2,
+				    [{putline,[7]},
+				     {sleep,
+				      timeout(short)},
+				     {putline,""},
+				     {getline," -->"},
+				     {putline,"s"},
+				     {putline,"c"},
+				     {putline,""}],1),
+			    stop_runerl_node(CPid2);
+			_ ->
+			    ok
+		    end,
+		    wait_for_runerl_server(SPid),
+		    ok = rm_rf(Tempdir),
+		    ok = Res
+	    end
+    end.
 
 timeout(long) ->
     2 * timeout(normal);
@@ -345,7 +381,7 @@ timeout(normal) ->
 start_noshell_node(Name) ->
     PADir =  filename:dirname(code:which(?MODULE)),
     {ok, Node} = test_server:start_node(Name,slave,[{args," -noshell -pa "++
-						     PADir++" "}]),
+							 PADir++" "}]),
     Node.
 stop_noshell_node(Node) ->
     test_server:stop_node(Node).
@@ -353,20 +389,20 @@ stop_noshell_node(Node) ->
 
 rm_rf(Dir) ->
     try
-      {ok,List} = file:list_dir(Dir),
-      Files = [filename:join([Dir,X]) || X <- List],
-      [case file:list_dir(Y) of
-	   {error, enotdir} ->
-	       ok = file:delete(Y);
-	   _ ->
-	       ok = rm_rf(Y)
-       end || Y <- Files],
-       ok = file:del_dir(Dir),
-       ok
+	{ok,List} = file:list_dir(Dir),
+	Files = [filename:join([Dir,X]) || X <- List],
+	[case file:list_dir(Y) of
+	     {error, enotdir} ->
+		 ok = file:delete(Y);
+	     _ ->
+		 ok = rm_rf(Y)
+	 end || Y <- Files],
+	ok = file:del_dir(Dir),
+	ok
     catch
 	_:Exception -> {error, {Exception,Dir}}
     end.
-       
+
 
 get_and_put(_CPid,[],_) ->
     ok;
@@ -435,7 +471,7 @@ get_and_put(CPid, [{putline_raw, Line}|T],N) ->
     Timeout = timeout(normal),
     receive
 	{send_line, ok} ->
-	     get_and_put(CPid, T,N+1)
+	    get_and_put(CPid, T,N+1)
     after Timeout ->
 	    error_logger:error_msg("~p: putline_raw timeout (~p) sending "
 				   "\"~s\" (command number ~p)~n",
@@ -449,7 +485,7 @@ get_and_put(CPid, [{putline, Line}|T],N) ->
     Timeout = timeout(normal),
     receive
 	{send_line, ok} ->
-	     get_and_put(CPid, [{getline, []}|T],N)
+	    get_and_put(CPid, [{getline, []}|T],N)
     after Timeout ->
 	    error_logger:error_msg("~p: putline timeout (~p) sending "
 				   "\"~s\" (command number ~p)~n[~p]~n",
@@ -466,8 +502,8 @@ wait_for_runerl_server(SPid) ->
     after Timeout ->
 	    {error, timeout}
     end.
-	
-    
+
+
 
 stop_runerl_node(CPid) ->
     Ref = erlang:monitor(process, CPid),
@@ -518,11 +554,11 @@ create_tempdir(Dir,X) when X > $Z, X < $a ->
     create_tempdir(Dir,$a);
 create_tempdir(Dir,X) when X > $z -> 
     Estr = lists:flatten(
-		     io_lib:format("Unable to create ~s, reason eexist",
-				   [Dir++[$z]])),
+	     io_lib:format("Unable to create ~s, reason eexist",
+			   [Dir++[$z]])),
     {error, Estr};
 create_tempdir(Dir0, Ch) ->
-    % Expect fairly standard unix.
+    %% Expect fairly standard unix.
     Dir = Dir0++[Ch],
     case file:make_dir(Dir) of
 	{error, eexist} ->
@@ -560,13 +596,13 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename) ->
 		   [];
 	       _ ->
 		   " -sname "++(if is_atom(Nodename) -> atom_to_list(Nodename);
-				  true -> Nodename 
-			       end)++
+				   true -> Nodename
+				end)++
 		       " -setcookie "++atom_to_list(erlang:get_cookie())
 	   end,
     spawn(fun() ->
 		  os:cmd("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++
-			 Erl++XArg++"\"")
+			     Erl++XArg++"\"")
 	  end).
 
 start_toerl_server(ToErl,Tempdir) ->
@@ -624,7 +660,7 @@ toerl_loop(Port,Acc) ->
 		_ ->
 		    toerl_loop(Port,[{Tag0,Data}|Acc])
 	    end;
-	 {Pid,{get_line,Timeout}} ->
+	{Pid,{get_line,Timeout}} ->
 	    case Acc of
 		[] ->
 		    case get_data_within(Port,Timeout,[]) of
@@ -673,11 +709,10 @@ toerl_loop(Port,Acc) ->
 	Other ->
 	    {error, {unexpected, Other}}
     end.
-	
+
 millistamp() ->
-    {Mega, Secs, Micros} = erlang:now(),
-    (Micros div 1000) + Secs * 1000 + Mega * 1000000000.
-    
+    erlang:monotonic_time(milli_seconds).
+
 get_data_within(Port, X, Acc) when X =< 0 ->
     ?dbg({get_data_within, X, Acc, ?LINE}),
     receive
@@ -708,7 +743,7 @@ get_data_within(Port, Timeout, Acc) ->
     after Timeout ->
 	    timeout
     end.
-	    
+
 get_default_shell() ->
     try
 	rtnode([{putline,""},

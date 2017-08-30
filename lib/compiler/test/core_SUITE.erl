@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -23,23 +24,25 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 dehydrated_itracer/1,nested_tries/1,
 	 seq_in_guard/1,make_effect_seq/1,eval_is_boolean/1,
-	 unsafe_case/1,nomatch_shadow/1,reversed_annos/1]).
+	 unsafe_case/1,nomatch_shadow/1,reversed_annos/1,
+	 map_core_test/1,eval_case/1,bad_boolean_guard/1,
+	 bs_shadowed_size_var/1
+	]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(comp(N),
 	N(Config) when is_list(Config) -> try_it(N, Config)).
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = test_server:timetrap(?t:minutes(5)),
-    [{watchdog,Dog}|Config].
+    Config.
 
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,5}}].
 
 all() -> 
     test_lib:recompile(?MODULE),
@@ -48,7 +51,10 @@ all() ->
 groups() -> 
     [{p,test_lib:parallel(),
       [dehydrated_itracer,nested_tries,seq_in_guard,make_effect_seq,
-       eval_is_boolean,unsafe_case,nomatch_shadow,reversed_annos]}].
+       eval_is_boolean,unsafe_case,nomatch_shadow,reversed_annos,
+       map_core_test,eval_case,bad_boolean_guard,
+       bs_shadowed_size_var
+   ]}].
 
 
 init_per_suite(Config) ->
@@ -72,13 +78,22 @@ end_per_group(_GroupName, Config) ->
 ?comp(unsafe_case).
 ?comp(nomatch_shadow).
 ?comp(reversed_annos).
+?comp(map_core_test).
+?comp(eval_case).
+?comp(bad_boolean_guard).
+?comp(bs_shadowed_size_var).
+
 
 try_it(Mod, Conf) ->
-    Src = filename:join(?config(data_dir, Conf), atom_to_list(Mod)),
+    Src = filename:join(proplists:get_value(data_dir, Conf),
+			atom_to_list(Mod)),
     compile_and_load(Src, []),
     compile_and_load(Src, [no_copt]).
 
 compile_and_load(Src, Opts) ->
     {ok,Mod,Bin} = compile:file(Src, [from_core,report,time,binary|Opts]),
     {module,Mod} = code:load_binary(Mod, Mod, Bin),
-    ok = Mod:Mod().
+    ok = Mod:Mod(),
+    _ = code:delete(Mod),
+    _ = code:purge(Mod),
+    ok.

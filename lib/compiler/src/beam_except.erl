@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -131,9 +132,15 @@ translate_exception(_, _, _, _) -> no.
 
 fix_block(Is, 0) ->
     reverse(Is);
-fix_block(Is0, Words) ->
-    [{set,[],[],{alloc,Live,{F1,F2,Needed,F3}}}|Is] = reverse(Is0),
-    [{set,[],[],{alloc,Live,{F1,F2,Needed-Words,F3}}}|Is].
+fix_block(Is, Words) ->
+    reverse(fix_block_1(Is, Words)).
+
+fix_block_1([{set,[],[],{alloc,Live,{F1,F2,Needed0,F3}}}|Is], Words) ->
+    Needed = Needed0 - Words,
+    true = Needed >= 0,				%Assertion.
+    [{set,[],[],{alloc,Live,{F1,F2,Needed,F3}}}|Is];
+fix_block_1([I|Is], Words) ->
+    [I|fix_block_1(Is, Words)].
 
 dig_out_block_fc([{set,[],[],{alloc,Live,_}}|Bl]) ->
     case dig_out_fc(Bl, Live-1, nil) of

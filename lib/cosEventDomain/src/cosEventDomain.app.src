@@ -27,5 +27,7 @@
   {registered, []},
   {applications, [orber, stdlib, kernel]},
   {env, []},
-  {mod, {cosEventDomainApp, []}}
+  {mod, {cosEventDomainApp, []}},
+  {runtime_dependencies, ["stdlib-2.0","orber-3.6.27","kernel-3.0","erts-7.0",
+			  "cosNotification-1.1.21"]}
 ]}.

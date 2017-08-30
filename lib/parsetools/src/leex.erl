@@ -436,7 +436,7 @@ parse_defs(_, {eof,L}, St) ->
 parse_defs(Ifile, {ok,Chars,L}=Line, Ms, St) ->
     %% This little beauty matches out a macro definition, RE's are so clear.
     MS = "^[ \t]*([A-Z_][A-Za-z0-9_]*)[ \t]*=[ \t]*([^ \t\r\n]*)[ \t\r\n]*\$",
-    case re:run(Chars, MS, [{capture,all_but_first,list}]) of
+    case re:run(Chars, MS, [{capture,all_but_first,list},unicode]) of
         {match,[Name,Def]} ->
             %%io:fwrite("~p = ~p\n", [Name,Def]),
             parse_defs(Ifile, nextline(Ifile, L, St), [{Name,Def}|Ms], St);
@@ -491,7 +491,7 @@ parse_rules_end(_, NextLine, REAs, As, St) ->
 
 collect_rule(Ifile, Chars, L0) ->
     %% Erlang strings are 1 based, but re 0 :-(
-    {match,[{St0,Len}|_]} = re:run(Chars, "[^ \t\r\n]+"),
+    {match,[{St0,Len}|_]} = re:run(Chars, "[^ \t\r\n]+", [unicode]),
     St = St0 + 1,
     %%io:fwrite("RE = ~p~n", [substr(Chars, St, Len)]),
     case collect_action(Ifile, substr(Chars, St+Len), L0, []) of
@@ -548,7 +548,7 @@ var_used(Name, Toks) ->
 %% here as it uses info in replace string (&).
 
 parse_rule_regexp(RE0, [{M,Exp}|Ms], St) ->
-    Split= re:split(RE0, "\\{" ++ M ++ "\\}", [{return,list}]),
+    Split= re:split(RE0, "\\{" ++ M ++ "\\}", [{return,list},unicode]),
     RE1 = string:join(Split, Exp),
     parse_rule_regexp(RE1, Ms, St);
 parse_rule_regexp(RE, [], St) ->
@@ -1545,7 +1545,7 @@ out_action_code(File, XrlFile, {_A,Code,_Vars,Name,Args,ArgsChars}) ->
     %% Should set the file to the .erl file, but instead assumes that
     %% ?LEEXINC is syntactically correct.
     io:fwrite(File, "\n-compile({inline,~w/~w}).\n", [Name, length(Args)]),
-    {line, L} = erl_scan:token_info(hd(Code), line),
+    L = erl_scan:line(hd(Code)),
     output_file_directive(File, XrlFile, L-2),
     io:fwrite(File, "~s(~s) ->~n", [Name, ArgsChars]),
     io:fwrite(File, "    ~s\n", [pp_tokens(Code, L)]).
@@ -1557,7 +1557,7 @@ pp_tokens(Tokens, Line0) -> pp_tokens(Tokens, Line0, none).
     
 pp_tokens([], _Line0, _) -> [];
 pp_tokens([T | Ts], Line0, Prev) ->
-    {line, Line} = erl_scan:token_info(T, line),
+    Line = erl_scan:line(T),
     [pp_sep(Line, Line0, Prev, T), pp_symbol(T) | pp_tokens(Ts, Line, T)].
 
 pp_symbol({var,_,Var}) -> atom_to_list(Var);
@@ -1645,10 +1645,14 @@ output_encoding_comment(File, #leex{encoding = Encoding}) ->
 
 output_file_directive(File, Filename, Line) ->
     io:fwrite(File, <<"-file(~ts, ~w).\n">>,
-              [format_filename(Filename), Line]).
+              [format_filename(Filename, File), Line]).
 
-format_filename(Filename) ->
-    io_lib:write_string(filename:flatten(Filename)).
+format_filename(Filename0, File) ->
+    Filename = filename:flatten(Filename0),
+    case lists:keyfind(encoding, 1, io:getopts(File)) of
+        {encoding, unicode} -> io_lib:write_string(Filename);
+        _ ->                   io_lib:write_string_as_latin1(Filename)
+    end.
 
 quote($^)  -> "\\^";
 quote($.)  -> "\\.";

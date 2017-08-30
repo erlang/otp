@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -511,18 +512,21 @@ TESTCASE(send_tmo)
 	    for (i=0;i < iterations; ++i) {
 		res = ei_send_tmo(com_sock, &pid, send_buffer.buff, 
 				  send_buffer.index, 5000);
-		DEBUGF(("Sent bindata (%d):\n",res));
+		if (res < 0) {
+		    DEBUGF(("Sent bindata failed (%d) after %d iterations:\n", res, i));
+		    break;
+		}
 #ifdef DEBUG
+		if (i < 10 || (i % 100 == 0))  /* don't flood the log */
 		{
 		    int ndx = 0;
 		    int v;
+		    DEBUGF(("%d: Sent bindata (%d): ", i, res));
 		    ei_decode_version(send_buffer.buff,&ndx,&v);
 		    ei_print_term(debugfile, send_buffer.buff, &ndx);
+		    DEBUGF(("\n"));
 		}
 #endif
-		DEBUGF(("\n"));
-		if (res < 0) 
-		    break;
 	    }
 	    if (res < 0) {
 		DEBUGF(("ei_send_tmo failure at line %d\n",__LINE__));

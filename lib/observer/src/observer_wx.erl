@@ -1,27 +1,28 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 -module(observer_wx).
 
 -behaviour(wx_object).
 
--export([start/0]).
--export([create_menus/2, get_attrib/1, get_tracer/0, set_status/1,
-	 create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
+-export([start/0, stop/0]).
+-export([create_menus/2, get_attrib/1, get_tracer/0, get_active_node/0,
+	 set_status/1, create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
 	 handle_call/3, handle_info/2, check_page_title/1]).
@@ -36,11 +37,14 @@
 -define(ID_PING, 1).
 -define(ID_CONNECT, 2).
 -define(ID_NOTEBOOK, 3).
+-define(ID_CDV,      4).
+-define(ID_LOGVIEW, 5).
 
 -define(FIRST_NODES_MENU_ID, 1000).
 -define(LAST_NODES_MENU_ID,  2000).
 
 -define(TRACE_STR, "Trace Overview").
+-define(ALLOC_STR, "Memory Allocators").
 
 %% Records
 -record(state,
@@ -51,15 +55,19 @@
 	 notebook,
 	 main_panel,
 	 pro_panel,
+	 port_panel,
 	 tv_panel,
 	 sys_panel,
 	 trace_panel,
 	 app_panel,
 	 perf_panel,
+	 allc_panel,
 	 active_tab,
 	 node,
 	 nodes,
-	 prev_node=""
+	 prev_node="",
+	 log = false,
+	 reply_to=false
 	}).
 
 start() ->
@@ -67,6 +75,9 @@ start() ->
 	Err = {error, _} -> Err;
 	_Obj -> ok
     end.
+
+stop() ->
+    wx_object:call(observer, stop).
 
 create_menus(Object, Menus) when is_list(Menus) ->
     wx_object:call(Object, {create_menus, Menus}).
@@ -79,6 +90,9 @@ set_status(What) ->
 
 get_tracer() ->
     wx_object:call(observer, get_tracer).
+
+get_active_node() ->
+    wx_object:call(observer, get_active_node).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -108,9 +122,6 @@ setup(#state{frame = Frame} = State) ->
     observer_lib:create_menus(DefMenus, MenuBar, default),
 
     wxFrame:setMenuBar(Frame, MenuBar),
-    StatusBar = wxFrame:createStatusBar(Frame, []),
-    wxFrame:setTitle(Frame, atom_to_list(node())),
-    wxStatusBar:setStatusText(StatusBar, atom_to_list(node())),
 
     %% Setup panels
     Panel = wxPanel:new(Frame, []),
@@ -126,17 +137,29 @@ setup(#state{frame = Frame} = State) ->
     wxSizer:add(MainSizer, Notebook, [{proportion, 1}, {flag, ?wxEXPAND}]),
     wxPanel:setSizer(Panel, MainSizer),
 
+    StatusBar = wxStatusBar:new(Frame),
+    wxFrame:setStatusBar(Frame, StatusBar),
+    wxFrame:setTitle(Frame, atom_to_list(node())),
+    wxStatusBar:setStatusText(StatusBar, atom_to_list(node())),
+
     wxNotebook:connect(Notebook, command_notebook_page_changing),
     wxFrame:connect(Frame, close_window, [{skip, true}]),
     wxMenu:connect(Frame, command_menu_selected),
     wxFrame:show(Frame),
 
+    %% Freeze and thaw is buggy currently
+    DoFreeze = [?wxMAJOR_VERSION,?wxMINOR_VERSION] < [2,9],
+    DoFreeze andalso wxWindow:freeze(Panel),
     %% I postpone the creation of the other tabs so they can query/use
     %% the window size
 
     %% Perf Viewer Panel
     PerfPanel = observer_perf_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, PerfPanel, "Load Charts", []),
+
+    %% Memory Allocator Viewer Panel
+    AllcPanel = observer_alloc_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, AllcPanel, ?ALLOC_STR, []),
 
     %% App Viewer Panel
     AppPanel = observer_app_wx:start_link(Notebook, self()),
@@ -146,6 +169,10 @@ setup(#state{frame = Frame} = State) ->
     ProPanel = observer_pro_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, ProPanel, "Processes", []),
 
+    %% Port Panel
+    PortPanel = observer_port_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, PortPanel, "Ports", []),
+
     %% Table Viewer Panel
     TVPanel = observer_tv_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, TVPanel, "Table Viewer", []),
@@ -154,9 +181,12 @@ setup(#state{frame = Frame} = State) ->
     TracePanel = observer_trace_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, TracePanel, ?TRACE_STR, []),
 
-
-    %% Force redraw (window needs it)
+    %% Force redraw (windows needs it)
     wxWindow:refresh(Panel),
+    DoFreeze andalso wxWindow:thaw(Panel),
+
+    wxFrame:raise(Frame),
+    wxFrame:setFocus(Frame),
 
     SysPid = wx_object:get_pid(SysPanel),
     SysPid ! {active, node()},
@@ -166,10 +196,12 @@ setup(#state{frame = Frame} = State) ->
 			   status_bar = StatusBar,
 			   sys_panel = SysPanel,
 			   pro_panel = ProPanel,
+			   port_panel = PortPanel,
 			   tv_panel  = TVPanel,
 			   trace_panel = TracePanel,
 			   app_panel = AppPanel,
 			   perf_panel = PerfPanel,
+			   allc_panel = AllcPanel,
 			   active_tab = SysPid,
 			   node  = node(),
 			   nodes = Nodes
@@ -203,11 +235,17 @@ handle_event(#wx{event=#wxNotebook{type=command_notebook_page_changing}},
 	    {noreply, State#state{active_tab=Pid}}
     end;
 
+handle_event(#wx{id = ?ID_CDV, event = #wxCommand{type = command_menu_selected}}, State) ->
+    spawn(crashdump_viewer, start, []),
+    {noreply, State};
+
 handle_event(#wx{event = #wxClose{}}, State) ->
-    {stop, normal, State};
+    stop_servers(State),
+    {noreply, State};
 
 handle_event(#wx{id = ?wxID_EXIT, event = #wxCommand{type = command_menu_selected}}, State) ->
-    {stop, normal, State};
+    stop_servers(State),
+    {noreply, State};
 
 handle_event(#wx{id = ?wxID_HELP, event = #wxCommand{type = command_menu_selected}}, State) ->
     External = "http://www.erlang.org/doc/apps/observer/index.html",
@@ -284,12 +322,42 @@ handle_event(#wx{id = ?ID_PING, event = #wxCommand{type = command_menu_selected}
 	       end,
     {noreply, UpdState};
 
-handle_event(#wx{id = Id, event = #wxCommand{type = command_menu_selected}}, State)
-  when Id > ?FIRST_NODES_MENU_ID, Id < ?LAST_NODES_MENU_ID ->
+handle_event(#wx{id = ?ID_LOGVIEW, event = #wxCommand{type = command_menu_selected}},
+	     #state{frame = Frame, log = PrevLog, node = Node} = State) ->
+    try
+	ok = ensure_sasl_started(Node),
+	ok = ensure_mf_h_handler_used(Node),
+	ok = ensure_rb_mode(Node, PrevLog),
+	case PrevLog of
+	    false ->
+		rpc:block_call(Node, rb, start, []),
+		set_status("Observer - " ++ atom_to_list(Node) ++ " (rb_server started)"),
+		{noreply, State#state{log=true}};
+	    true ->
+		rpc:block_call(Node, rb, stop, []),
+		set_status("Observer - " ++ atom_to_list(Node) ++ " (rb_server stopped)"),
+		{noreply, State#state{log=false}}
+	end
+    catch
+	throw:Reason ->
+	    create_txt_dialog(Frame, Reason, "Log view status", ?wxICON_ERROR),
+	    {noreply, State}
+    end;
 
-    Node = lists:nth(Id - ?FIRST_NODES_MENU_ID, State#state.nodes),
-    UpdState = change_node_view(Node, State),
-    {noreply, UpdState};
+handle_event(#wx{id = Id, event = #wxCommand{type = command_menu_selected}},
+	     #state{nodes= Ns , node = PrevNode, log = PrevLog} = State)
+  when Id > ?FIRST_NODES_MENU_ID, Id < ?LAST_NODES_MENU_ID ->
+    Node = lists:nth(Id - ?FIRST_NODES_MENU_ID, Ns),
+    %% Close rb_server only if another node than current one selected
+    LState = case PrevLog of
+		 true  -> case Node == PrevNode of
+			      false -> rpc:block_call(PrevNode, rb, stop, []),
+				       State#state{log=false} ;
+			      true  -> State
+			  end;
+		 false -> State
+             end,
+    {noreply, change_node_view(Node, LState)};
 
 handle_event(Event, State) ->
     Pid = get_active_pid(State),
@@ -320,6 +388,16 @@ handle_call({get_attrib, Attrib}, _From, State) ->
 handle_call(get_tracer, _From, State=#state{trace_panel=TraceP}) ->
     {reply, TraceP, State};
 
+handle_call(get_active_node, _From, State=#state{node=Node}) ->
+    {reply, Node, State};
+
+handle_call(stop, From, State) ->
+    stop_servers(State),
+    {noreply, State#state{reply_to=From}};
+
+handle_call(log_status, _From, State) ->
+    {reply, State#state.log, State};
+
 handle_call(_Msg, _From, State) ->
     {reply, ok, State}.
 
@@ -340,16 +418,70 @@ handle_info({nodedown, Node},
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
     {noreply, State3};
 
-handle_info({'EXIT', Pid, _Reason}, State) ->
-    io:format("Child (~s) crashed exiting:  ~p ~p~n",
-	      [pid2panel(Pid, State), Pid,_Reason]),
+handle_info({open_link, Id0}, State = #state{pro_panel=ProcViewer,
+					     port_panel=PortViewer,
+					     frame=Frame}) ->
+    Id = case Id0 of
+	      [_|_] -> try list_to_pid(Id0) catch _:_ -> Id0 end;
+	      _ -> Id0
+	  end,
+    %% Forward to process tab
+    case Id of
+	Pid when is_pid(Pid) ->
+	    wx_object:get_pid(ProcViewer) ! {procinfo_open, Pid};
+	"#Port" ++ _ = Port ->
+	    wx_object:get_pid(PortViewer) ! {portinfo_open, Port};
+	_ ->
+	    Msg = io_lib:format("Information about ~p is not available or implemented",[Id]),
+	    Info = wxMessageDialog:new(Frame, Msg),
+	    wxMessageDialog:showModal(Info),
+	    wxMessageDialog:destroy(Info)
+    end,
+    {noreply, State};
+
+handle_info({get_debug_info, From}, State = #state{notebook=Notebook, active_tab=Pid}) ->
+    From ! {observer_debug, wx:get_env(), Notebook, Pid},
+    {noreply, State};
+
+handle_info({'EXIT', Pid, Reason}, State) ->
+    case Reason of
+	normal ->
+	    {noreply, State};
+	_ ->
+	    io:format("Observer: Child (~s) crashed exiting:  ~p ~p~n",
+		      [pid2panel(Pid, State), Pid, Reason]),
+	    {stop, normal, State}
+    end;
+
+handle_info({stop, Me}, State) when Me =:= self() ->
     {stop, normal, State};
 
 handle_info(_Info, State) ->
     {noreply, State}.
 
-terminate(_Reason, #state{frame = Frame}) ->
+stop_servers(#state{node=Node, log=LogOn, sys_panel=Sys, pro_panel=Procs, tv_panel=TVs,
+		    trace_panel=Trace, app_panel=Apps, perf_panel=Perfs,
+		    allc_panel=Alloc} = _State) ->
+    LogOn andalso rpc:block_call(Node, rb, stop, []),
+    Me = self(),
+    Tabs = [Sys, Procs, TVs, Trace, Apps, Perfs, Alloc],
+    Stop = fun() ->
+		   try
+		       _ = [wx_object:stop(Panel) || Panel <- Tabs],
+		       ok
+		   catch _:_ -> ok
+		   end,
+		   Me ! {stop, Me}
+	   end,
+    spawn(Stop).
+
+terminate(_Reason, #state{frame = Frame, reply_to=From}) ->
     wxFrame:destroy(Frame),
+    wx:destroy(),
+    case From of
+	false -> ignore;
+	_ -> gen_server:reply(From, ok)
+    end,
     ok.
 
 code_change(_, _, State) ->
@@ -381,8 +513,7 @@ return_to_localnode(Frame, Node) ->
     end.
 
 create_txt_dialog(Frame, Msg, Title, Style) ->
-    MD = wxMessageDialog:new(Frame, Msg, [{style, Style}]),
-    wxMessageDialog:setTitle(MD, Title),
+    MD = wxMessageDialog:new(Frame, Msg, [{style, Style}, {caption,Title}]),
     wxDialog:showModal(MD),
     wxDialog:destroy(MD).
 
@@ -427,21 +558,23 @@ check_page_title(Notebook) ->
 
 get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys,
 		      tv_panel=Tv, trace_panel=Trace, app_panel=App,
-		      perf_panel=Perf
+		      perf_panel=Perf, allc_panel=Alloc, port_panel=Port
 		     }) ->
     Panel = case check_page_title(Notebook) of
 		"Processes" -> Pro;
+		"Ports" -> Port;
 		"System" -> Sys;
 		"Table Viewer" -> Tv;
 		?TRACE_STR -> Trace;
 		"Load Charts" -> Perf;
-		"Applications" -> App
+		"Applications" -> App;
+		?ALLOC_STR -> Alloc
 	    end,
     wx_object:get_pid(Panel).
 
 pid2panel(Pid, #state{pro_panel=Pro, sys_panel=Sys,
 		      tv_panel=Tv, trace_panel=Trace, app_panel=App,
-		      perf_panel=Perf}) ->
+		      perf_panel=Perf, allc_panel=Alloc}) ->
     case Pid of
 	Pro -> "Processes";
 	Sys -> "System";
@@ -449,6 +582,7 @@ pid2panel(Pid, #state{pro_panel=Pro, sys_panel=Sys,
 	Trace -> ?TRACE_STR;
 	Perf -> "Load Charts";
 	App -> "Applications";
+	Alloc -> ?ALLOC_STR;
 	_ -> "unknown"
     end.
 
@@ -517,26 +651,30 @@ create_connect_dialog(connect, #state{frame = Frame}) ->
     end.
 
 default_menus(NodesMenuItems) ->
+    CDV   = #create_menu{id = ?ID_CDV, text = "Examine Crashdump"},
     Quit  = #create_menu{id = ?wxID_EXIT, text = "Quit"},
     About = #create_menu{id = ?wxID_ABOUT, text = "About"},
     Help  = #create_menu{id = ?wxID_HELP},
+    FileMenu = {"File", [CDV, Quit]},
     NodeMenu = case erlang:is_alive() of
 		   true ->  {"Nodes", NodesMenuItems ++
 				 [#create_menu{id = ?ID_PING, text = "Connect Node"}]};
 		   false -> {"Nodes", NodesMenuItems ++
 				 [#create_menu{id = ?ID_CONNECT, text = "Enable distribution"}]}
 	       end,
+    LogMenu =  {"Log", [#create_menu{id = ?ID_LOGVIEW, text = "Toggle log view"}]},
     case os:type() =:= {unix, darwin} of
 	false ->
-	    FileMenu = {"File", [Quit]},
+	    FileMenu = {"File", [CDV, Quit]},
 	    HelpMenu = {"Help", [About,Help]},
-	    [FileMenu, NodeMenu, HelpMenu];
+	    [FileMenu, NodeMenu, LogMenu, HelpMenu];
 	true ->
 	    %% On Mac quit and about will be moved to the "default' place
 	    %% automagicly, so just add them to a menu that always exist.
 	    %% But not to the help menu for some reason
-	    {Tag, Menus} = NodeMenu,
-	    [{Tag, Menus ++ [Quit,About]}, {"&Help", [Help]}]
+
+	    {Tag, Menus} = FileMenu,
+	    [{Tag, Menus ++ [Quit,About]}, NodeMenu, LogMenu, {"&Help", [Help]}]
     end.
 
 clean_menus(Menus, MenuBar) ->
@@ -550,13 +688,6 @@ remove_menu_items([{MenuStr = "File", Menus}|Rest], MenuBar) ->
 	    Menu = wxMenuBar:getMenu(MenuBar, MenuId),
 	    Items = [wxMenu:findItem(Menu, Tag) || #create_menu{text=Tag} <- Menus],
 	    [wxMenu:delete(Menu, MItem) || MItem <- Items],
-	    case os:type() =:= {unix, darwin} of
-	    	true ->
-	    	    wxMenuBar:remove(MenuBar, MenuId),
-	    	    wxMenu:destroy(Menu);
-	    	false ->
-	    	    ignore
-	    end,
 	    remove_menu_items(Rest, MenuBar)
     end;
 remove_menu_items([{"Nodes", _}|_], _MB) ->
@@ -622,3 +753,59 @@ update_node_list(State = #state{menubar=MenuBar}) ->
 	   end,
     observer_lib:create_menu_item(Dist, NodeMenu, Index),
     State#state{nodes = Nodes}.
+
+ensure_sasl_started(Node) ->
+   %% is sasl started ?
+   Apps = rpc:block_call(Node, application, which_applications, []),
+   case lists:keyfind(sasl, 1, Apps) of
+       false        ->  throw("Error: sasl application not started."),
+                        error;
+       {sasl, _, _} ->  ok
+   end.
+
+ensure_mf_h_handler_used(Node) ->
+   %% is log_mf_h used ?
+   Handlers = rpc:block_call(Node, gen_event, which_handlers, [error_logger]),
+   case lists:any(fun(L)-> L == log_mf_h end, Handlers) of
+       false -> throw("Error: log_mf_h handler not used in sasl."),
+                error;
+       true  -> ok
+   end.
+
+ensure_rb_mode(Node, PrevLog) ->
+    ok = ensure_rb_module_loaded(Node),
+    ok = is_rb_compatible(Node),
+    ok = is_rb_server_running(Node, PrevLog),
+    ok.
+
+
+ensure_rb_module_loaded(Node) ->
+   %% Need to ensure that module is loaded in order to detect exported
+   %% functions on interactive nodes
+   case rpc:block_call(Node, code, ensure_loaded, [rb]) of
+       {badrpc, Reason} ->
+	   throw("Error: badrpc - " ++ io_lib:format("~tp",[Reason]));
+       {error, Reason} ->
+	   throw("Error: rb module load error - " ++ io_lib:format("~tp",[Reason]));
+       {module,rb} ->
+	   ok
+   end.
+
+is_rb_compatible(Node) ->
+   %% Simply test that rb:log_list/0 is exported
+   case rpc:block_call(Node, erlang, function_exported, [rb, log_list, 0]) of
+       false -> throw("Error: Node's Erlang release must be at least R16B02.");
+       true  -> ok
+   end.
+
+is_rb_server_running(Node, LogState) ->
+   %% If already started, somebody else may use it.
+   %% We can not use it too, as far log file would be overriden. Not fair.
+   case rpc:block_call(Node, erlang, whereis, [rb_server]) of
+       Pid when is_pid(Pid), (LogState == false) ->
+	   throw("Error: rb_server is already started and maybe used by someone.");
+       Pid when is_pid(Pid) ->
+	   ok;
+       undefined ->
+	   ok
+   end.

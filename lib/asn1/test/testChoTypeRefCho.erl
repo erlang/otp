@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -21,46 +22,18 @@
 
 -export([choice/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 choice(_Rules) ->
-    
-    ?line {ok,Bytes11} = asn1_wrapper:encode('ChoTypeRefCho','ChoTRcho',{choCho,{choInt,88}}),
-    ?line {ok,{choCho,{choInt,88}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoTRcho',lists:flatten(Bytes11)),
-    
-    ?line {ok,Bytes12} = asn1_wrapper:encode('ChoTypeRefCho','ChoTRcho',{choChoE,{choInt,88}}),
-    ?line {ok,{choChoE,{choInt,88}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoTRcho',lists:flatten(Bytes12)),
-    
-    ?line {ok,Bytes13} = asn1_wrapper:encode('ChoTypeRefCho','ChoTRcho',{'choCho-E',{choInt,88}}),
-    ?line {ok,{'choCho-E',{choInt,88}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoTRcho',lists:flatten(Bytes13)),
-    
-    ?line {ok,Bytes14} = asn1_wrapper:encode('ChoTypeRefCho','ChoTRcho',{'choChoE-E',{choInt,88}}),
-    ?line {ok,{'choChoE-E',{choInt,88}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoTRcho',lists:flatten(Bytes14)),
-    
-    
-
-    ?line {ok,Bytes21} = asn1_wrapper:encode('ChoTypeRefCho','ChoChoInline',{bool1,true}),
-    ?line {ok,{bool1,true}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoChoInline',lists:flatten(Bytes21)),
-    
-    ?line {ok,Bytes22} = asn1_wrapper:encode('ChoTypeRefCho','ChoChoInline',{'choCho',{bool,true}}),
-    ?line {ok,{'choCho',{bool,true}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoChoInline',lists:flatten(Bytes22)),
-    
-    ?line {ok,Bytes23} = asn1_wrapper:encode('ChoTypeRefCho','ChoChoInline',{'choCho',{octStr,"kk"}}),
-    ?line {ok,{'choCho',{octStr,"kk"}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoChoInline',lists:flatten(Bytes23)),
-    
-    ?line {ok,Bytes24} = asn1_wrapper:encode('ChoTypeRefCho','ChoChoInline',{'choCho',{int,55}}),
-    ?line {ok,{'choCho',{int,55}}} = 
-	asn1_wrapper:decode('ChoTypeRefCho','ChoChoInline',lists:flatten(Bytes24)),
-    
-    
-    
-    
-    
+    roundtrip('ChoTRcho', {choCho,{choInt,88}}),
+    roundtrip('ChoTRcho', {choChoE,{choInt,88}}),
+    roundtrip('ChoTRcho', {'choCho-E',{choInt,88}}),
+    roundtrip('ChoTRcho', {'choChoE-E',{choInt,88}}),
+    roundtrip('ChoChoInline', {bool1,true}),
+    roundtrip('ChoChoInline', {choCho,{bool,true}}),
+    roundtrip('ChoChoInline', {choCho,{octStr,<<"kk">>}}),
+    roundtrip('ChoChoInline', {choCho,{int,55}}),
     ok.
+
+roundtrip(Type, Value) ->
+    asn1_test_lib:roundtrip('ChoTypeRefCho', Type, Value).

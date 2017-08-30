@@ -1,23 +1,24 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html">wxFrame</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html">wxFrame</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxTopLevelWindow}
 %% <br />{@link wxWindow}
@@ -36,11 +37,11 @@
   setStatusText/3,setStatusWidths/2,setToolBar/2]).
 
 %% inherited exports
--export([cacheBestSize/2,captureMouse/1,center/1,center/2,centerOnParent/1,
-  centerOnParent/2,centerOnScreen/1,centerOnScreen/2,centre/1,centre/2,
-  centreOnParent/1,centreOnParent/2,centreOnScreen/1,centreOnScreen/2,
-  clearBackground/1,clientToScreen/2,clientToScreen/3,close/1,close/2,
-  connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
+-export([cacheBestSize/2,canSetTransparent/1,captureMouse/1,center/1,center/2,
+  centerOnParent/1,centerOnParent/2,centerOnScreen/1,centerOnScreen/2,
+  centre/1,centre/2,centreOnParent/1,centreOnParent/2,centreOnScreen/1,
+  centreOnScreen/2,clearBackground/1,clientToScreen/2,clientToScreen/3,
+  close/1,close/2,connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
   destroyChildren/1,disable/1,disconnect/1,disconnect/2,disconnect/3,
   enable/1,enable/2,findWindow/2,fit/1,fitInside/1,freeze/1,getAcceleratorTable/1,
   getBackgroundColour/1,getBackgroundStyle/1,getBestSize/1,getCaret/1,
@@ -54,29 +55,30 @@
   getVirtualSize/1,getWindowStyleFlag/1,getWindowVariant/1,hasCapture/1,
   hasScrollbar/2,hasTransparentBackground/1,hide/1,iconize/1,iconize/2,
   inheritAttributes/1,initDialog/1,invalidateBestSize/1,isActive/1,
-  isEnabled/1,isExposed/2,isExposed/3,isExposed/5,isFullScreen/1,isIconized/1,
-  isMaximized/1,isRetained/1,isShown/1,isTopLevel/1,layout/1,lineDown/1,
-  lineUp/1,lower/1,makeModal/1,makeModal/2,maximize/1,maximize/2,move/2,
-  move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,navigate/1,
-  navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,popEventHandler/2,
-  popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
-  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,requestUserAttention/1,
-  requestUserAttention/2,screenToClient/1,screenToClient/2,scrollLines/2,
-  scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
-  setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
-  setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
-  setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,setFont/2,
-  setForegroundColour/2,setHelpText/2,setIcon/2,setIcons/2,setId/2,setLabel/2,
-  setMaxSize/2,setMinSize/2,setName/2,setOwnBackgroundColour/2,setOwnFont/2,
-  setOwnForegroundColour/2,setPalette/2,setScrollPos/3,setScrollPos/4,
-  setScrollbar/5,setScrollbar/6,setShape/2,setSize/2,setSize/3,setSize/5,
-  setSize/6,setSizeHints/2,setSizeHints/3,setSizeHints/4,setSizer/2,
-  setSizer/3,setSizerAndFit/2,setSizerAndFit/3,setThemeEnabled/2,setTitle/2,
-  setToolTip/2,setVirtualSize/2,setVirtualSize/3,setVirtualSizeHints/2,
-  setVirtualSizeHints/3,setVirtualSizeHints/4,setWindowStyle/2,setWindowStyleFlag/2,
-  setWindowVariant/2,shouldInheritColours/1,show/1,show/2,showFullScreen/2,
-  showFullScreen/3,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
-  update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
+  isDoubleBuffered/1,isEnabled/1,isExposed/2,isExposed/3,isExposed/5,
+  isFullScreen/1,isIconized/1,isMaximized/1,isRetained/1,isShown/1,isTopLevel/1,
+  layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,maximize/1,
+  maximize/2,move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
+  navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,
+  popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,
+  refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,removeChild/2,
+  reparent/2,requestUserAttention/1,requestUserAttention/2,screenToClient/1,
+  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
+  setAcceleratorTable/2,setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,
+  setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
+  setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
+  setFont/2,setForegroundColour/2,setHelpText/2,setIcon/2,setIcons/2,
+  setId/2,setLabel/2,setMaxSize/2,setMinSize/2,setName/2,setOwnBackgroundColour/2,
+  setOwnFont/2,setOwnForegroundColour/2,setPalette/2,setScrollPos/3,
+  setScrollPos/4,setScrollbar/5,setScrollbar/6,setShape/2,setSize/2,
+  setSize/3,setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,setSizeHints/4,
+  setSizer/2,setSizer/3,setSizerAndFit/2,setSizerAndFit/3,setThemeEnabled/2,
+  setTitle/2,setToolTip/2,setTransparent/2,setVirtualSize/2,setVirtualSize/3,
+  setVirtualSizeHints/2,setVirtualSizeHints/3,setVirtualSizeHints/4,
+  setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,shouldInheritColours/1,
+  show/1,show/2,showFullScreen/2,showFullScreen/3,thaw/1,transferDataFromWindow/1,
+  transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
+  validate/1,warpPointer/3]).
 
 -export_type([wxFrame/0]).
 %% @hidden
@@ -86,7 +88,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxFrame() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframewxframe">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframewxframe">external documentation</a>.
 -spec new() -> wxFrame().
 new() ->
   wxe_util:construct(?wxFrame_new_0,
@@ -100,12 +102,12 @@ new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   new(Parent,Id,Title, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframewxframe">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframewxframe">external documentation</a>.
 -spec new(Parent, Id, Title, [Option]) -> wxFrame() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
  when is_integer(Id),is_list(Title),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -126,12 +128,12 @@ create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   create(This,Parent,Id,Title, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframecreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframecreate">external documentation</a>.
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
 	This::wxFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
  when is_integer(Id),is_list(Title),is_list(Options) ->
   ?CLASS(ThisT,wxFrame),
@@ -153,12 +155,12 @@ createStatusBar(This)
  when is_record(This, wx_ref) ->
   createStatusBar(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframecreatestatusbar">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframecreatestatusbar">external documentation</a>.
 -spec createStatusBar(This, [Option]) -> wxStatusBar:wxStatusBar() when
 	This::wxFrame(),
-	Option :: {number, integer()}
-		 | {style, integer()}
-		 | {id, integer()}.
+	Option :: {'number', integer()}
+		 | {'style', integer()}
+		 | {'id', integer()}.
 createStatusBar(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxFrame),
@@ -178,11 +180,11 @@ createToolBar(This)
  when is_record(This, wx_ref) ->
   createToolBar(This, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframecreatetoolbar">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframecreatetoolbar">external documentation</a>.
 -spec createToolBar(This, [Option]) -> wxToolBar:wxToolBar() when
 	This::wxFrame(),
-	Option :: {style, integer()}
-		 | {id, integer()}.
+	Option :: {'style', integer()}
+		 | {'id', integer()}.
 createToolBar(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxFrame),
@@ -193,7 +195,7 @@ createToolBar(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxFrame_CreateToolBar,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframegetclientareaorigin">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegetclientareaorigin">external documentation</a>.
 -spec getClientAreaOrigin(This) -> {X::integer(), Y::integer()} when
 	This::wxFrame().
 getClientAreaOrigin(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -201,7 +203,7 @@ getClientAreaOrigin(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxFrame_GetClientAreaOrigin,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframegetmenubar">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegetmenubar">external documentation</a>.
 -spec getMenuBar(This) -> wxMenuBar:wxMenuBar() when
 	This::wxFrame().
 getMenuBar(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -209,7 +211,7 @@ getMenuBar(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxFrame_GetMenuBar,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframegetstatusbar">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegetstatusbar">external documentation</a>.
 -spec getStatusBar(This) -> wxStatusBar:wxStatusBar() when
 	This::wxFrame().
 getStatusBar(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -217,7 +219,7 @@ getStatusBar(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxFrame_GetStatusBar,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframegetstatusbarpane">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegetstatusbarpane">external documentation</a>.
 -spec getStatusBarPane(This) -> integer() when
 	This::wxFrame().
 getStatusBarPane(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -225,7 +227,7 @@ getStatusBarPane(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxFrame_GetStatusBarPane,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframegettoolbar">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframegettoolbar">external documentation</a>.
 -spec getToolBar(This) -> wxToolBar:wxToolBar() when
 	This::wxFrame().
 getToolBar(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -233,7 +235,7 @@ getToolBar(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxFrame_GetToolBar,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframeprocesscommand">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframeprocesscommand">external documentation</a>.
 -spec processCommand(This, Winid) -> boolean() when
 	This::wxFrame(), Winid::integer().
 processCommand(#wx_ref{type=ThisT,ref=ThisRef},Winid)
@@ -242,16 +244,16 @@ processCommand(#wx_ref{type=ThisT,ref=ThisRef},Winid)
   wxe_util:call(?wxFrame_ProcessCommand,
   <<ThisRef:32/?UI,Winid:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframesendsizeevent">external documentation</a>.
--spec sendSizeEvent(This) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesendsizeevent">external documentation</a>.
+-spec sendSizeEvent(This) -> 'ok' when
 	This::wxFrame().
 sendSizeEvent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFrame),
   wxe_util:cast(?wxFrame_SendSizeEvent,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframesetmenubar">external documentation</a>.
--spec setMenuBar(This, Menubar) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetmenubar">external documentation</a>.
+-spec setMenuBar(This, Menubar) -> 'ok' when
 	This::wxFrame(), Menubar::wxMenuBar:wxMenuBar().
 setMenuBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenubarT,ref=MenubarRef}) ->
   ?CLASS(ThisT,wxFrame),
@@ -259,8 +261,8 @@ setMenuBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenubarT,ref=MenubarRef}
   wxe_util:cast(?wxFrame_SetMenuBar,
   <<ThisRef:32/?UI,MenubarRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframesetstatusbar">external documentation</a>.
--spec setStatusBar(This, Statbar) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatusbar">external documentation</a>.
+-spec setStatusBar(This, Statbar) -> 'ok' when
 	This::wxFrame(), Statbar::wxStatusBar:wxStatusBar().
 setStatusBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=StatbarT,ref=StatbarRef}) ->
   ?CLASS(ThisT,wxFrame),
@@ -268,8 +270,8 @@ setStatusBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=StatbarT,ref=StatbarRe
   wxe_util:cast(?wxFrame_SetStatusBar,
   <<ThisRef:32/?UI,StatbarRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframesetstatusbarpane">external documentation</a>.
--spec setStatusBarPane(This, N) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatusbarpane">external documentation</a>.
+-spec setStatusBarPane(This, N) -> 'ok' when
 	This::wxFrame(), N::integer().
 setStatusBarPane(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
@@ -278,17 +280,17 @@ setStatusBarPane(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @equiv setStatusText(This,Text, [])
--spec setStatusText(This, Text) -> ok when
+-spec setStatusText(This, Text) -> 'ok' when
 	This::wxFrame(), Text::unicode:chardata().
 
 setStatusText(This,Text)
  when is_record(This, wx_ref),is_list(Text) ->
   setStatusText(This,Text, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframesetstatustext">external documentation</a>.
--spec setStatusText(This, Text, [Option]) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatustext">external documentation</a>.
+-spec setStatusText(This, Text, [Option]) -> 'ok' when
 	This::wxFrame(), Text::unicode:chardata(),
-	Option :: {number, integer()}.
+	Option :: {'number', integer()}.
 setStatusText(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
  when is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxFrame),
@@ -299,8 +301,8 @@ setStatusText(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
   wxe_util:cast(?wxFrame_SetStatusText,
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframesetstatuswidths">external documentation</a>.
--spec setStatusWidths(This, Widths_field) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesetstatuswidths">external documentation</a>.
+-spec setStatusWidths(This, Widths_field) -> 'ok' when
 	This::wxFrame(), Widths_field::[integer()].
 setStatusWidths(#wx_ref{type=ThisT,ref=ThisRef},Widths_field)
  when is_list(Widths_field) ->
@@ -309,8 +311,8 @@ setStatusWidths(#wx_ref{type=ThisT,ref=ThisRef},Widths_field)
   <<ThisRef:32/?UI,(length(Widths_field)):32/?UI,
         (<< <<C:32/?I>> || C <- Widths_field>>)/binary, 0:(((0+length(Widths_field)) rem 2)*32)>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframesettoolbar">external documentation</a>.
--spec setToolBar(This, Toolbar) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxframe.html#wxframesettoolbar">external documentation</a>.
+-spec setToolBar(This, Toolbar) -> 'ok' when
 	This::wxFrame(), Toolbar::wxToolBar:wxToolBar().
 setToolBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ToolbarT,ref=ToolbarRef}) ->
   ?CLASS(ThisT,wxFrame),
@@ -319,7 +321,7 @@ setToolBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ToolbarT,ref=ToolbarRef}
   <<ThisRef:32/?UI,ToolbarRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFrame()) -> ok.
+-spec destroy(This::wxFrame()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFrame),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
@@ -372,6 +374,14 @@ getIcons(This) -> wxTopLevelWindow:getIcons(This).
 %% @hidden
 getIcon(This) -> wxTopLevelWindow:getIcon(This).
  %% From wxWindow
+%% @hidden
+setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
+%% @hidden
+isDoubleBuffered(This) -> wxWindow:isDoubleBuffered(This).
+%% @hidden
+canSetTransparent(This) -> wxWindow:canSetTransparent(This).
+%% @hidden
+setTransparent(This,Alpha) -> wxWindow:setTransparent(This,Alpha).
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -28,9 +29,12 @@
 
 -define(DEFAULT_CLIENT_VERSION, {2, 0}).
 -define(DEFAULT_SERVER_VERSION, {2, 0}).
--define(DEFAULT_DH_GROUP_MIN, 512).
--define(DEFAULT_DH_GROUP_NBITS, 1024).
--define(DEFAULT_DH_GROUP_MAX,  4096).
+
+-define(MAX_NUM_ALGORITHMS, 200).
+
+-define(DEFAULT_DH_GROUP_MIN,   1024).
+-define(DEFAULT_DH_GROUP_NBITS, 2048).
+-define(DEFAULT_DH_GROUP_MAX,   8192).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -108,8 +112,9 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% diffie-hellman-group1-sha1
--define(SSH_MSG_KEXDH_INIT,  30).
+%% diffie-hellman-group1-sha1 | diffie-hellman-group14-sha1
+
+-define(SSH_MSG_KEXDH_INIT,   30).
 -define(SSH_MSG_KEXDH_REPLY,  31).
 
 -record(ssh_msg_kexdh_init,
@@ -133,7 +138,7 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% diffie-hellman-group-exchange-sha1
+%% diffie-hellman-group-exchange-sha1 | diffie-hellman-group-exchange-sha256
 -define(SSH_MSG_KEX_DH_GEX_REQUEST_OLD, 30).
 -define(SSH_MSG_KEX_DH_GEX_REQUEST,     34).
 -define(SSH_MSG_KEX_DH_GEX_GROUP,       31).
@@ -170,7 +175,36 @@
 	  h_sig
 	 }).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% KEY ECDH messages
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% ecdh-sha2-nistp256 | ecdh-sha2-nistp384 | ecdh-sha2-nistp521
+
+-define(SSH_MSG_KEX_ECDH_INIT,                30).
+-define(SSH_MSG_KEX_ECDH_REPLY,               31).
+
+-record(ssh_msg_kex_ecdh_init,
+	{
+	  q_c    % string (client's ephemeral public key octet string)
+	}).
+
+-record(ssh_msg_kex_ecdh_reply,
+	{
+	  public_host_key,   % string (server's public host key) (k_s)
+	  q_s,               % string (server's ephemeral public key octet string)
+	  h_sig              % string (the signature on the exchange hash)
+	}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
 %% error codes
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 -define(SSH_DISCONNECT_HOST_NOT_ALLOWED_TO_CONNECT,   1).
 -define(SSH_DISCONNECT_PROTOCOL_ERROR,   2).
 -define(SSH_DISCONNECT_KEY_EXCHANGE_FAILED,   3).
@@ -188,48 +222,20 @@
 -define(SSH_DISCONNECT_ILLEGAL_USER_NAME,  15).
 
 
-%%%----------------------------------------------------------------------
-%%% #   DH_14_xxx
-%%% Description: Oakley group 14 prime numbers and generator. Used in
-%%%              diffie-hellman-group1-sha1 key exchange method.
-%%%----------------------------------------------------------------------
-%%%----------------------------------------------------------------------
-%%% #   DH_14_P
-%%% Description: Prime for this group
-%%%----------------------------------------------------------------------
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% groups
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--define(DH_14_P,
-	<<000,000,000,129,000,255,255,255,255,255,255,255,255,201,015,218,
-	  162,033,104,194,052,196,198,098,139,128,220,028,209,041,002,078,
-	  008,138,103,204,116,002,011,190,166,059,019,155,034,081,074,008,
-	  121,142,052,004,221,239,149,025,179,205,058,067,027,048,043,010,
-	  109,242,095,020,055,079,225,053,109,109,081,194,069,228,133,181,
-	  118,098,094,126,198,244,076,066,233,166,055,237,107,011,255,092,
-	  182,244,006,183,237,238,056,107,251,090,137,159,165,174,159,036,
-	  017,124,075,031,230,073,040,102,081,236,230,083,129,255,255,255,
-	  255,255,255,255,255>>).
+%%% rfc 2489, ch 6.2
+%%% Size 1024
+-define(dh_group1,
+	 {2, 16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381FFFFFFFFFFFFFFFF}).
 
-%%%----------------------------------------------------------------------
-%%% #   DH_14_G
-%%% Description: Generator for DH_14_P.
-%%%----------------------------------------------------------------------
-
--define(DH_14_G, <<0,0,0,1,2>>).
-
-%%%----------------------------------------------------------------------
-%%% #   DH_14_Q
-%%% Description: Group order (DH_14_P - 1) / 2.
-%%%----------------------------------------------------------------------
-
--define(DH_14_Q,
-	<<000,000,000,128,127,255,255,255,255,255,255,255,228,135,237,081,
-	  016,180,097,026,098,099,049,069,192,110,014,104,148,129,039,004,
-	  069,051,230,058,001,005,223,083,029,137,205,145,040,165,004,060,
-	  199,026,002,110,247,202,140,217,230,157,033,141,152,021,133,054,
-	  249,047,138,027,167,240,154,182,182,168,225,034,242,066,218,187,
-	  049,047,063,099,122,038,033,116,211,027,246,181,133,255,174,091,
-	  122,003,091,246,247,028,053,253,173,068,207,210,215,079,146,008,
-	  190,037,143,243,036,148,051,040,246,115,041,192,255,255,255,255,
-	  255,255,255,255>>).
+%%% rfc 3526, ch3
+%%% Size 2048
+-define(dh_group14,
+	 {2, 16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF}).
 
 -endif. % -ifdef(ssh_transport).

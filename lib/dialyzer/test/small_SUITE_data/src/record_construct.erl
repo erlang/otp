@@ -7,7 +7,7 @@ t_loc() ->
   #r_loc{}.
 
 -record(r_opa, {a                 :: atom(),
-		b = gb_sets:new() :: gb_set(),
+		b = gb_sets:new() :: gb_sets:set(),
 		c = 42            :: boolean(),
 		d,	% untyped on purpose
 		e = false         :: boolean()}).

@@ -1,7 +1,8 @@
 <?xml version="1.0"?>
 <apo:purchaseOrder xmlns:apo="http://www.example.com/PO1"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                    orderDate="1999-10-20">
-  <billTo country="US">
+  <billTo country="US" xsi:type="apo:USAddress">
     <name>Robert Smith</name>
     <street>8 Oak Avenue</street>
     <!-- etc. -->
@@ -10,7 +11,7 @@
       <zip>95819</zip>
   </billTo>
   <apo:comment>Hurry, my lawn is going wild!</apo:comment>
-  <shipTo country="US">
+  <shipTo country="US" xsi:type="apo:USAddress">
     <name>Alice Smith</name>
     <street>123 Maple Street</street>
     <!-- etc. -->

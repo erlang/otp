@@ -75,7 +75,7 @@
 #define SUPPORT_UCP
 
 /* Define to enable support for the UTF-8 Unicode encoding. */
-#define SUPPORT_UTF8 
+#define SUPPORT_UTF 
 
 /* Version number of package */
-#define VERSION "7.6"
+#define VERSION "8.33"

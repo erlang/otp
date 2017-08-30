@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -71,7 +72,6 @@ typedef struct erl_heap_bin {
  */
 
 #define binary_size(Bin) (binary_val(Bin)[1])
-#define binary_size_rel(Bin,BasePtr) (binary_val_rel(Bin,BasePtr)[1])
 
 #define binary_bitsize(Bin)			\
   ((*binary_val(Bin) == HEADER_SUB_BIN) ?	\
@@ -94,12 +94,9 @@ typedef struct erl_heap_bin {
  * Bitsize: output variable (Uint)
  */
 
-#define ERTS_GET_BINARY_BYTES(Bin,Bytep,Bitoffs,Bitsize) \
-     ERTS_GET_BINARY_BYTES_REL(Bin,Bytep,Bitoffs,Bitsize,NULL)
-
-#define ERTS_GET_BINARY_BYTES_REL(Bin,Bytep,Bitoffs,Bitsize,BasePtr)    \
+#define ERTS_GET_BINARY_BYTES(Bin,Bytep,Bitoffs,Bitsize)                \
 do {									\
-    Eterm* _real_bin = binary_val_rel(Bin,BasePtr);			\
+    Eterm* _real_bin = binary_val(Bin);		                	\
     Uint _offs = 0;							\
     Bitoffs = Bitsize = 0;						\
     if (*_real_bin == HEADER_SUB_BIN) {					\
@@ -107,7 +104,7 @@ do {									\
 	_offs = _sb->offs;						\
         Bitoffs = _sb->bitoffs;						\
         Bitsize = _sb->bitsize;						\
-	_real_bin = binary_val_rel(_sb->orig,BasePtr);			\
+	_real_bin = binary_val(_sb->orig);	        		\
     }									\
     if (*_real_bin == HEADER_PROC_BIN) {				\
 	Bytep = ((ProcBin *) _real_bin)->bytes + _offs;			\
@@ -130,11 +127,8 @@ do {									\
  */
 
 #define ERTS_GET_REAL_BIN(Bin, RealBin, ByteOffset, BitOffset, BitSize) \
-     ERTS_GET_REAL_BIN_REL(Bin, RealBin, ByteOffset, BitOffset, BitSize, NULL)
-
-#define ERTS_GET_REAL_BIN_REL(Bin, RealBin, ByteOffset, BitOffset, BitSize, BasePtr) \
   do {									\
-    ErlSubBin* _sb = (ErlSubBin *) binary_val_rel(Bin,BasePtr);	        \
+    ErlSubBin* _sb = (ErlSubBin *) binary_val(Bin);	                \
     if (_sb->thing_word == HEADER_SUB_BIN) {				\
       RealBin = _sb->orig;						\
       ByteOffset = _sb->offs;						\
@@ -153,7 +147,7 @@ do {									\
 #define binary_bytes(Bin)						\
   (*binary_val(Bin) == HEADER_PROC_BIN ?				\
    ((ProcBin *) binary_val(Bin))->bytes :				\
-   (ASSERT_EXPR(thing_subtag(*binary_val(Bin)) == HEAP_BINARY_SUBTAG),	\
+   (ASSERT(thing_subtag(*binary_val(Bin)) == HEAP_BINARY_SUBTAG),	\
    (byte *)(&(((ErlHeapBin *) binary_val(Bin))->data))))
 
 void erts_init_binary(void);
@@ -166,7 +160,7 @@ Eterm erts_bin_bytes_to_list(Eterm previous, Eterm* hp, byte* bytes, Uint size, 
  * Common implementation for erlang:list_to_binary/1 and binary:list_to_bin/1
  */
 
-BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg);
+BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg, Export *bif);
 BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is_tuple);
 BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen);
 
@@ -183,7 +177,7 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen);
 #endif
 
 #define ERTS_CHK_BIN_ALIGNMENT(B) \
-  do { ASSERT(!(B) || (((UWord) &((Binary *)(B))->orig_bytes[0]) & ERTS_BIN_ALIGNMENT_MASK) == ((UWord) 0)) } while(0)
+  do { ASSERT(!(B) || (((UWord) &((Binary *)(B))->orig_bytes[0]) & ERTS_BIN_ALIGNMENT_MASK) == ((UWord) 0)); } while(0)
 
 ERTS_GLB_INLINE byte* erts_get_aligned_binary_bytes(Eterm bin, byte** base_ptr);
 ERTS_GLB_INLINE void erts_free_aligned_binary_bytes(byte* buf);
@@ -194,6 +188,9 @@ ERTS_GLB_INLINE Binary *erts_bin_nrml_alloc(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc_fnf(Binary *bp, Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_realloc(Binary *bp, Uint size);
 ERTS_GLB_INLINE void erts_bin_free(Binary *bp);
+ERTS_GLB_INLINE Binary *erts_create_magic_binary_x(Uint size,
+                                                  void (*destructor)(Binary *),
+                                                  int unaligned);
 ERTS_GLB_INLINE Binary *erts_create_magic_binary(Uint size,
 						 void (*destructor)(Binary *));
 
@@ -225,41 +222,64 @@ erts_free_aligned_binary_bytes(byte* buf)
 ** These extra bytes where earlier (< R13B04) added by an alignment-bug
 ** in this code. Do we dare remove this in some major release (R14?) maybe?
 */
-#ifdef DEBUG
+#if defined(DEBUG) || defined(VALGRIND)
 #  define CHICKEN_PAD 0
 #else
 #  define CHICKEN_PAD (sizeof(void*) - 1)
 #endif
 
+/* Caller must initialize 'refc'
+*/
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc_fnf(Uint size)
 {
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    void *res;
+    Binary *res;
+
+    if (bsize < size) /* overflow */
+	return NULL;
     res = erts_alloc_fnf(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
-    return (Binary *) res;
+    if (res) {
+	res->orig_size = size;
+	res->flags = BIN_FLAG_DRV;
+    }
+    return res;
 }
 
+/* Caller must initialize 'refc'
+*/
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc(Uint size)
 {
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    void *res;
+    Binary *res;
+
+    if (bsize < size) /* overflow */
+	erts_alloc_enomem(ERTS_ALC_T_DRV_BINARY, size);
     res = erts_alloc(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
-    return (Binary *) res;
+    res->orig_size = size;
+    res->flags = BIN_FLAG_DRV;
+    return res;
 }
 
 
+/* Caller must initialize 'refc'
+*/
 ERTS_GLB_INLINE Binary *
 erts_bin_nrml_alloc(Uint size)
 {
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
-    void *res;
+    Binary *res;
+
+    if (bsize < size) /* overflow */
+	erts_alloc_enomem(ERTS_ALC_T_BINARY, size);
     res = erts_alloc(ERTS_ALC_T_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
-    return (Binary *) res;
+    res->orig_size = size;
+    res->flags = 0;
+    return res;
 }
 
 ERTS_GLB_INLINE Binary *
@@ -267,12 +287,15 @@ erts_bin_realloc_fnf(Binary *bp, Uint size)
 {
     Binary *nbp;
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
+    ErtsAlcType_t type = (bp->flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
+	                                            : ERTS_ALC_T_BINARY;
     ASSERT((bp->flags & BIN_FLAG_MAGIC) == 0);
-    if (bp->flags & BIN_FLAG_DRV)
-	nbp = erts_realloc_fnf(ERTS_ALC_T_DRV_BINARY, (void *) bp, bsize);
-    else
-	nbp = erts_realloc_fnf(ERTS_ALC_T_BINARY, (void *) bp, bsize);
+    if (bsize < size) /* overflow */
+	return NULL;
+    nbp = erts_realloc_fnf(type, (void *) bp, bsize);
     ERTS_CHK_BIN_ALIGNMENT(nbp);
+    if (nbp)
+	nbp->orig_size = size;
     return nbp;
 }
 
@@ -281,18 +304,16 @@ erts_bin_realloc(Binary *bp, Uint size)
 {
     Binary *nbp;
     Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
+    ErtsAlcType_t type = (bp->flags & BIN_FLAG_DRV) ? ERTS_ALC_T_DRV_BINARY
+	                                            : ERTS_ALC_T_BINARY;
     ASSERT((bp->flags & BIN_FLAG_MAGIC) == 0);
-    if (bp->flags & BIN_FLAG_DRV)
-	nbp = erts_realloc_fnf(ERTS_ALC_T_DRV_BINARY, (void *) bp, bsize);
-    else
-	nbp = erts_realloc_fnf(ERTS_ALC_T_BINARY, (void *) bp, bsize);
+    if (bsize < size) /* overflow */
+	erts_realloc_enomem(type, bp, size);
+    nbp = erts_realloc_fnf(type, (void *) bp, bsize);
     if (!nbp)
-	erts_realloc_n_enomem(ERTS_ALC_T2N(bp->flags & BIN_FLAG_DRV
-					   ? ERTS_ALC_T_DRV_BINARY
-					   : ERTS_ALC_T_BINARY),
-			      bp,
-			      bsize);
+	erts_realloc_enomem(type, bp, bsize);
     ERTS_CHK_BIN_ALIGNMENT(nbp);
+    nbp->orig_size = size;
     return nbp;
 }
 
@@ -308,20 +329,30 @@ erts_bin_free(Binary *bp)
 }
 
 ERTS_GLB_INLINE Binary *
-erts_create_magic_binary(Uint size, void (*destructor)(Binary *))
+erts_create_magic_binary_x(Uint size, void (*destructor)(Binary *),
+                           int unaligned)
 {
-    Uint bsize = ERTS_MAGIC_BIN_SIZE(size);
+    Uint bsize = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_SIZE(size)
+                           : ERTS_MAGIC_BIN_SIZE(size);
     Binary* bptr = erts_alloc_fnf(ERTS_ALC_T_BINARY, bsize);
+    ASSERT(bsize > size);
     if (!bptr)
 	erts_alloc_n_enomem(ERTS_ALC_T2N(ERTS_ALC_T_BINARY), bsize);
     ERTS_CHK_BIN_ALIGNMENT(bptr);
     bptr->flags = BIN_FLAG_MAGIC;
-    bptr->orig_size = ERTS_MAGIC_BIN_ORIG_SIZE(size);
+    bptr->orig_size = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_ORIG_SIZE(size)
+                                : ERTS_MAGIC_BIN_ORIG_SIZE(size);
     erts_refc_init(&bptr->refc, 0);
     ERTS_MAGIC_BIN_DESTRUCTOR(bptr) = destructor;
     return bptr;
 }
 
+ERTS_GLB_INLINE Binary *
+erts_create_magic_binary(Uint size, void (*destructor)(Binary *))
+{
+    return erts_create_magic_binary_x(size, destructor, 0);
+}
+
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#endif
+#endif /* !__ERL_BINARY_H */

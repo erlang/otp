@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -200,7 +201,7 @@ log_header(Kind, Version) ->
 		log_kind=Kind,
 		mnesia_version=mnesia:system_info(version),
 		node=node(),
-		now=now()}.
+		now=erlang:timestamp()}.
 
 version() -> "4.3".
 
@@ -223,17 +224,12 @@ sappend(Log, Term) ->
     ok = disk_log:log(Log, Term).
 
 %% Write commit records to the latest_log
-log(C) when  C#commit.disc_copies == [],
-             C#commit.disc_only_copies  == [],
-             C#commit.schema_ops == [] ->
-    ignore;
 log(C) ->
-    case mnesia_monitor:use_dir() of
+    case need_log(C) andalso mnesia_monitor:use_dir() of
         true ->
 	    if
 		is_record(C, commit) ->
-		    C2 =  C#commit{ram_copies = [], snmp = []},
-		    append(latest_log, C2);
+		    append(latest_log, strip_snmp(C));
 		true ->
 		    %% Either a commit record as binary
 		    %% or some decision related info
@@ -246,17 +242,12 @@ log(C) ->
 
 %% Synced
 
-slog(C) when  C#commit.disc_copies == [],
-             C#commit.disc_only_copies  == [],
-             C#commit.schema_ops == [] ->
-    ignore;
 slog(C) ->
-    case mnesia_monitor:use_dir() of
+    case need_log(C) andalso mnesia_monitor:use_dir() of
         true ->
 	    if
 		is_record(C, commit) ->
-		    C2 =  C#commit{ram_copies = [], snmp = []},
-		    sappend(latest_log, C2);
+		    sappend(latest_log, strip_snmp(C));
 		true ->
 		    %% Either a commit record as binary
 		    %% or some decision related info
@@ -267,6 +258,13 @@ slog(C) ->
 	    ignore
     end.
 
+need_log(#commit{disc_copies=[], disc_only_copies=[], schema_ops=[], ext=Ext}) ->
+    lists:keymember(ext_copies, 1, Ext);
+need_log(_) -> true.
+
+strip_snmp(#commit{ext=[]}=CR) -> CR;
+strip_snmp(#commit{ext=Ext}=CR) ->
+    CR#commit{ext=lists:keydelete(snmp, 1, Ext)}.
 
 %% Stuff related to the file LOG
 
@@ -349,6 +347,8 @@ open_log(Name, Header, Fname, Exists, Repair, Mode) ->
 	    mnesia_lib:important("Data may be missing, log ~p repaired: Lost ~p bytes~n",
 				 [Fname, BadBytes]),
 	    Log;
+	{error, Reason = {file_error, _Fname, emfile}} ->
+	    fatal("Cannot open log file ~p: ~p~n", [Fname, Reason]);
 	{error, Reason} when Repair == true ->
 	    file:delete(Fname),
 	    mnesia_lib:important("Data may be missing, Corrupt logfile deleted: ~p, ~p ~n",
@@ -393,13 +393,15 @@ unsafe_close_log(Log) ->
 
 purge_some_logs() ->
     mnesia_monitor:unsafe_close_log(latest_log),
-    file:delete(latest_log_file()),
-    file:delete(decision_tab_file()).
+    _ = file:delete(latest_log_file()),
+    _ = file:delete(decision_tab_file()),
+    ok.
 
 purge_all_logs() ->
-    file:delete(previous_log_file()),
-    file:delete(latest_log_file()),
-    file:delete(decision_tab_file()).
+    _ = file:delete(previous_log_file()),
+    _ = file:delete(latest_log_file()),
+    _ = file:delete(decision_tab_file()),
+    ok.
 
 %% Prepare dump by renaming the open logfile if possible
 %% Returns a tuple on the following format: {Res, OpenLog}
@@ -460,7 +462,7 @@ chunk_log(Cont) ->
 chunk_log(_Log, eof) ->
     eof;
 chunk_log(Log, Cont) ->
-    case catch disk_log:chunk(Log, Cont) of
+    case disk_log:chunk(Log, Cont) of
 	{error, Reason} ->
 	    fatal("Possibly truncated ~p file: ~p~n",
 		  [Log, Reason]);
@@ -645,11 +647,11 @@ backup_checkpoint(Name, Opaque, Args) when is_list(Args) ->
     end.
 
 check_backup_args([Arg | Tail], B) ->
-    case catch check_backup_arg_type(Arg, B) of
-	{'EXIT', _Reason} ->
-	    {error, {badarg, Arg}};
+    try check_backup_arg_type(Arg, B) of
 	B2 ->
 	    check_backup_args(Tail, B2)
+    catch error:_ ->
+	    {error, {badarg, Arg}}
     end;
 
 check_backup_args([], B) ->
@@ -672,11 +674,11 @@ check_backup_arg_type(Arg, B) ->
 
 backup_master(ClientPid, B) ->
     process_flag(trap_exit, true),
-    case catch do_backup_master(B) of
-	{'EXIT', Reason} ->
-	    ClientPid ! {self(), ClientPid, {error, {'EXIT', Reason}}};
+    try do_backup_master(B) of
 	Res ->
 	    ClientPid ! {self(), ClientPid, Res}
+    catch _:Reason ->
+	    ClientPid ! {self(), ClientPid, {error, {'EXIT', Reason}}}
     end,
     unlink(ClientPid),
     exit(normal).
@@ -729,27 +731,30 @@ backup_schema(B, Tabs) ->
 safe_apply(B, write, [_, Items]) when Items == [] ->
     B;
 safe_apply(B, What, Args) ->
-    Abort = fun(R) -> abort_write(B, What, Args, R) end,
+    Abort = abort_write_fun(B, What, Args),
     receive
 	{'EXIT', Pid, R} -> Abort({'EXIT', Pid, R})
     after 0 ->
 	    Mod = B#backup_args.module,
-	    case catch apply(Mod, What, Args) of
+	    try apply(Mod, What, Args) of
 		{ok, Opaque} -> B#backup_args{opaque=Opaque};
-		{error, R} -> Abort(R);
-		R -> Abort(R)
+		{error, R} -> Abort(R)
+	    catch _:R -> Abort(R)
 	    end
     end.
+
+-spec abort_write_fun(_, _, _) -> fun((_) -> no_return()).
+abort_write_fun(B, What, Args) ->
+    fun(R) -> abort_write(B, What, Args, R) end.
 
 abort_write(B, What, Args, Reason) ->
     Mod = B#backup_args.module,
     Opaque = B#backup_args.opaque,
     dbg_out("Failed to perform backup. M=~p:F=~p:A=~p -> ~p~n",
 	    [Mod, What, Args, Reason]),
-    case catch apply(Mod, abort_write, [Opaque]) of
-	{ok, _Res} ->
-	    throw({error, Reason});
-	Other ->
+    try apply(Mod, abort_write, [Opaque]) of
+	{ok, _Res} -> throw({error, Reason})
+    catch _:Other ->
 	    error("Failed to abort backup. ~p:~p~p -> ~p~n",
 		  [Mod, abort_write, [Opaque], Other]),
 	    throw({error, Reason})
@@ -890,10 +895,8 @@ tab_receiver(Pid, B, Tab, RecName, Slot) ->
     end.
 
 rec_filter(B, schema, _RecName, Recs) ->
-    case catch mnesia_bup:refresh_cookie(Recs, B#backup_args.cookie) of
-	Recs2 when is_list(Recs2) ->
-	    Recs2;
-	{error, _Reason} ->
+    try mnesia_bup:refresh_cookie(Recs, B#backup_args.cookie)
+    catch throw:{error, _Reason} ->
 	    %% No schema table cookie
 	    Recs
     end;
@@ -1004,13 +1007,14 @@ add_recs([{{Tab, _Key}, Val, delete_object} | Rest], N) ->
     add_recs(Rest, N+1);
 add_recs([{{Tab, Key}, Val, update_counter} | Rest], N) ->
     {RecName, Incr} = Val,
-    case catch ets:update_counter(Tab, Key, Incr) of
-	CounterVal when is_integer(CounterVal) ->
-	    ok;
-	_ when Incr < 0 ->
+    try
+	CounterVal = ets:update_counter(Tab, Key, Incr),
+	true = (CounterVal >= 0)
+    catch
+	error:_ when Incr < 0 ->
 	    Zero = {RecName, Key, 0},
 	    true = ets:insert(Tab, Zero);
-	_ ->
+	error:_ ->
 	    Zero = {RecName, Key, Incr},
 	    true = ets:insert(Tab, Zero)
     end,

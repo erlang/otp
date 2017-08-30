@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <specs xmlns:xi="http://www.w3.org/2001/XInclude">
   <xi:include href="../specs/specs_array.xml"/>
   <xi:include href="../specs/specs_base64.xml"/>
@@ -11,6 +11,7 @@
   <xi:include href="../specs/specs_digraph.xml"/>
   <xi:include href="../specs/specs_digraph_utils.xml"/>
   <xi:include href="../specs/specs_epp.xml"/>
+  <xi:include href="../specs/specs_erl_anno.xml"/>
   <xi:include href="../specs/specs_erl_eval.xml"/>
   <xi:include href="../specs/specs_erl_expand_records.xml"/>
   <xi:include href="../specs/specs_erl_id_trans.xml"/>
@@ -29,21 +30,23 @@
   <xi:include href="../specs/specs_gen_event.xml"/>
   <xi:include href="../specs/specs_gen_fsm.xml"/>
   <xi:include href="../specs/specs_gen_server.xml"/>
+  <xi:include href="../specs/specs_gen_statem.xml"/>
   <xi:include href="../specs/specs_io.xml"/>
   <xi:include href="../specs/specs_io_lib.xml"/>
   <xi:include href="../specs/specs_lib.xml"/>
   <xi:include href="../specs/specs_lists.xml"/>
   <xi:include href="../specs/specs_log_mf_h.xml"/>
+  <xi:include href="../specs/specs_maps.xml"/>
   <xi:include href="../specs/specs_math.xml"/>
   <xi:include href="../specs/specs_ms_transform.xml"/>
   <xi:include href="../specs/specs_orddict.xml"/>
   <xi:include href="../specs/specs_ordsets.xml"/>
-  <xi:include href="../specs/specs_pg.xml"/>
   <xi:include href="../specs/specs_pool.xml"/>
   <xi:include href="../specs/specs_proc_lib.xml"/>
   <xi:include href="../specs/specs_proplists.xml"/>
   <xi:include href="../specs/specs_qlc.xml"/>
   <xi:include href="../specs/specs_queue.xml"/>
+  <xi:include href="../specs/specs_rand.xml"/>
   <xi:include href="../specs/specs_random.xml"/>
   <xi:include href="../specs/specs_re.xml"/>
   <xi:include href="../specs/specs_sets.xml"/>

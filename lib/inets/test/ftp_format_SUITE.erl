@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -21,21 +22,15 @@
 -author('ingela@erix.ericsson.se').
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
 -include("ftp_internal.hrl").
 
-%% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2, end_per_testcase/2]).
+%% Note: This directive should only be used in test suites.
+-compile(export_all).
 
-%% Test cases must be exported.
--export([ ftp_150/1, 
-	  ftp_200/1,  ftp_220/1, ftp_226/1, ftp_257/1, ftp_331/1, ftp_425/1, 
-	  ftp_other_status_codes/1, ftp_multiple_lines/1, 
-	  ftp_multipel_ctrl_messages/1, format_error/1]).
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> 
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{seconds,5}}
+    ].
 
 all() -> 
     [{group, ftp_response}, format_error].
@@ -60,23 +55,16 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_, Config) ->
-    Dog = test_server:timetrap(?t:minutes(1)),
-    NewConfig = lists:keydelete(watchdog, 1, Config),
-    [{watchdog, Dog} | NewConfig].
-
-end_per_testcase(_, Config) ->
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+end_per_testcase(_, _) ->
     ok.
 
 %%-------------------------------------------------------------------------
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
 
-ftp_150(doc) ->
-    ["Especially check that respons can be devided in a random place."];
-ftp_150(suite) ->
-    [];
+ftp_150() ->
+    [{doc, "Especially check that respons can be devided in a random place."}].
 ftp_150(Config) when is_list(Config) ->
     FtpResponse = ["150 ASCII data conn", "ection for /bin/ls ",
 		   "(134.138.177", ".89,50434) (0 bytes).\r\n"],
@@ -84,14 +72,11 @@ ftp_150(Config) when is_list(Config) ->
     "150 ASCII data connection for /bin/ls "
 	"(134.138.177.89,50434) (0 bytes).\r\n" = Msg =
 	parse(ftp_response, parse_lines, [[], start], FtpResponse),
-    {pos_prel, _} = ftp_response:interpret(Msg),
-    ok.
-    
-ftp_200(doc) ->
-    ["Especially check that respons can be devided after the first status "
-    "code character and in the end delimiter."];
-ftp_200(suite) ->
-    [];
+    {pos_prel, _} = ftp_response:interpret(Msg).
+   
+ftp_200() ->
+    [{doc, "Especially check that respons can be devided after the first status "
+    "code character and in the end delimiter."}].
 ftp_200(Config) when is_list(Config) ->
     FtpResponse = ["2", "00 PORT command successful.", [?CR], [?LF]], 
     
@@ -100,11 +85,9 @@ ftp_200(Config) when is_list(Config) ->
     {pos_compl, _} = ftp_response:interpret(Msg),
     ok.
 
-ftp_220(doc) ->
-    ["Especially check that respons can be devided after the "
-     "first with space "];
-ftp_220(suite) ->
-    [];
+ftp_220() ->
+    [{doc, "Especially check that respons can be devided after the "
+     "first with space "}].
 ftp_220(Config) when is_list(Config) ->
     FtpResponse = ["220 ","fingon FTP server (SunOS 5.8) ready.\r\n"], 
     
@@ -113,11 +96,9 @@ ftp_220(Config) when is_list(Config) ->
     {pos_compl, _} = ftp_response:interpret(Msg),
     ok.
 
-ftp_226(doc) ->
-    ["Especially check that respons can be devided after second status code"
-    " character and in the end delimiter."];
-ftp_226(suite) ->
-    [];
+ftp_226() ->
+    [{doc, "Especially check that respons can be devided after second status code"
+    " character and in the end delimiter."}].
 ftp_226(Config) when is_list(Config) ->
     FtpResponse = ["22" "6 Transfer complete.\r", [?LF]],
     
@@ -126,10 +107,8 @@ ftp_226(Config) when is_list(Config) ->
     {pos_compl, _} = ftp_response:interpret(Msg),
     ok.
 
-ftp_257(doc) ->
-    ["Especially check that quoted chars do not cause a problem."];
-ftp_257(suite) ->
-    [];
+ftp_257() ->
+    [{doc, "Especially check that quoted chars do not cause a problem."}].
 ftp_257(Config) when is_list(Config) ->
     FtpResponse = ["257 \"/\" is current directory.\r\n"], 
     
@@ -138,11 +117,9 @@ ftp_257(Config) when is_list(Config) ->
     {pos_compl, _} = ftp_response:interpret(Msg),
     ok.
 
-ftp_331(doc) ->
-    ["Especially check that respons can be devided after the third status "
-    " status code character."];
-ftp_331(suite) ->
-    [];
+ftp_331() ->
+    [{doc, "Especially check that respons can be devided after the third status "
+    " status code character."}].
 ftp_331(Config) when is_list(Config) ->
     %% Brake before white space after code
     FtpResponse = 
@@ -153,10 +130,8 @@ ftp_331(Config) when is_list(Config) ->
     {pos_interm, _} = ftp_response:interpret(Msg),
     ok.
 
-ftp_425(doc) ->
-    ["Especially check a message that was received in only one part."];
-ftp_425(suite) ->
-    [];
+ftp_425() ->
+    [{doc, "Especially check a message that was received in only one part."}].
 ftp_425(Config) when is_list(Config) ->
     FtpResponse = 
 	["425 Can't build data connection: Connection refused.\r\n"],
@@ -166,10 +141,8 @@ ftp_425(Config) when is_list(Config) ->
     {trans_neg_compl, _} = ftp_response:interpret(Msg),
     ok.
 
-ftp_multiple_lines(doc) ->
-    ["Especially check multiple lines devided in significant places"];
-ftp_multiple_lines(suite) ->
-    [];
+ftp_multiple_lines() ->
+    [{doc, "Especially check multiple lines devided in significant places"}].
 ftp_multiple_lines(Config) when is_list(Config) ->
     FtpResponse =   ["21", "4","-The",
 		     " following commands are recognized:\r\n"
@@ -247,13 +220,11 @@ ftp_multiple_lines(Config) when is_list(Config) ->
 			       FtpResponse2),
     ok.
 
-ftp_other_status_codes(doc) ->
-    ["Check that other valid status codes, than the ones above, are handled"
+ftp_other_status_codes() ->
+    [{doc, "Check that other valid status codes, than the ones above, are handled"
      "by ftp_response:interpret/1. Note there are som ftp status codes" 
      "that will not be received with the current ftp instruction support," 
-     "they are not included here."];
-ftp_other_status_codes(suite) ->
-    [];
+     "they are not included here."}].
 ftp_other_status_codes(Config) when is_list(Config) ->
 
     %% 1XX
@@ -282,18 +253,16 @@ ftp_other_status_codes(Config) when is_list(Config) ->
     {perm_neg_compl, _ }  = ftp_response:interpret("501 Foobar\r\n"),
     {perm_neg_compl, _ }  = ftp_response:interpret("503 Foobar\r\n"),
     {perm_neg_compl, _ }  = ftp_response:interpret("504 Foobar\r\n"),
-    {perm_neg_compl, _ }  = ftp_response:interpret("530 Foobar\r\n"),
+    {elogin, _ } = ftp_response:interpret("530 Foobar\r\n"),
     {perm_neg_compl, _ }  = ftp_response:interpret("532 Foobar\r\n"),
     {epath, _ }  = ftp_response:interpret("550 Foobar\r\n"),
     {epnospc, _ }  = ftp_response:interpret("552 Foobar\r\n"),
     {efnamena, _ }  = ftp_response:interpret("553 Foobar\r\n"),
     ok.
        
-ftp_multipel_ctrl_messages(doc) ->
-    ["The ftp server may send more than one control message as a reply," 
-     "check that they are handled one at the time."];
-ftp_multipel_ctrl_messages(suite) ->
-    [];
+ftp_multipel_ctrl_messages() ->
+    [{doc, "The ftp server may send more than one control message as a reply," 
+     "check that they are handled one at the time."}].
 ftp_multipel_ctrl_messages(Config) when is_list(Config) ->
     FtpResponse = ["200 PORT command successful.\r\n200 Foobar\r\n"], 
     
@@ -306,10 +275,6 @@ ftp_multipel_ctrl_messages(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
-format_error(doc) ->
-    [""];
-format_error(suite) ->
-    [];
 format_error(Config) when is_list(Config) ->
     "Synchronisation error during chunk sending." =
 	ftp:formaterror(echunk),
@@ -346,7 +311,7 @@ parse(Module, Function, [AccLines, StatusCode], [Data | Rest]) ->
 	{continue, {NewData, NewAccLines, NewStatusCode}} ->
 	    case Rest of
 		[] ->
-		    test_server:fail({wrong_input, Data, Rest});
+		    ct:fail({wrong_input, Data, Rest});
 		[_ | _] ->
 		    parse(Module, Function, [NewAccLines, NewStatusCode], 
 			  [binary_to_list(NewData) ++ hd(Rest) | tl(Rest)])

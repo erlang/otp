@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -36,14 +37,16 @@
 #include "erl_alloc.h"
 #include "erl_monitors.h"
 
-#define ERTS_TRACER_PROC(P) 	((P)->common.tracer_proc)
+#define ERTS_TRACER(P)          ((P)->common.tracer)
+#define ERTS_TRACER_MODULE(T) 	(CAR(list_val(T)))
+#define ERTS_TRACER_STATE(T) 	(CDR(list_val(T)))
 #define ERTS_TRACE_FLAGS(P)	((P)->common.trace_flags)
 
 #define ERTS_P_LINKS(P)		((P)->common.u.alive.links)
 #define ERTS_P_MONITORS(P)	((P)->common.u.alive.monitors)
 
 #define IS_TRACED(p) \
-    (ERTS_TRACER_PROC((p)) != NIL)
+    (ERTS_TRACER(p) != NIL)
 #define ARE_TRACE_FLAGS_ON(p,tf) \
     ((ERTS_TRACE_FLAGS((p)) & (tf|F_SENSITIVE)) == (tf))
 #define IS_TRACED_FL(p,tf) \
@@ -51,11 +54,13 @@
 
 typedef struct {
     Eterm id;
-#ifdef ERTS_SMP
-    erts_atomic32_t refc;
-#endif
-    Eterm tracer_proc;
+    union {
+	erts_atomic_t atmc;
+	Sint sint;
+    } refc;
+    ErtsTracer tracer;
     Uint trace_flags;
+    erts_smp_atomic_t timer;
     union {
 	/* --- While being alive --- */
 	struct {
@@ -63,11 +68,6 @@ typedef struct {
 	    struct reg_proc *reg;
 	    ErtsLink *links;
 	    ErtsMonitor *monitors;
-#ifdef ERTS_SMP
-	    ErtsSmpPTimer *ptimer;
-#else
-	    ErlTimer tm;
-#endif
 	} alive;
 
 	/* --- While being released --- */
@@ -88,11 +88,7 @@ typedef struct {
 } ErtsPTabListData;
 
 typedef struct {
-#ifdef ARCH_32
-    erts_smp_dw_atomic_t last_data;
-#else
-    erts_smp_atomic_t last_data;
-#endif
+    erts_smp_atomic64_t last_data;
     erts_smp_atomic32_t count;
     erts_smp_atomic32_t aid_ix;
     erts_smp_atomic32_t fid_ix;
@@ -100,7 +96,7 @@ typedef struct {
 
 typedef struct {
     erts_smp_atomic_t *tab;
-    Uint32 *free_id_data;
+    erts_smp_atomic32_t *free_id_data;
     Uint32 max;
     Uint32 pix_mask;
     Uint32 pix_cl_mask;
@@ -115,6 +111,7 @@ typedef struct {
     Eterm invalid_data;
     void (*release_element)(void *);
     UWord element_size;
+    int atomic_refc;
 } ErtsPTabReadOnlyData;
 
 typedef struct {
@@ -171,7 +168,7 @@ typedef struct {
 
 #define ERTS_PTAB_INVALID_ID(TAG)					\
     ((Eterm)								\
-     ((((1 << ERTS_PTAB_ID_DATA_SIZE) - 1) << ERTS_PTAB_ID_DATA_SHIFT)	\
+     ((((1U << ERTS_PTAB_ID_DATA_SIZE) - 1) << ERTS_PTAB_ID_DATA_SHIFT)	\
       | (TAG)))
 
 #define erts_ptab_is_valid_id(ID)					\
@@ -185,7 +182,8 @@ void erts_ptab_init_table(ErtsPTab *ptab,
 			  int size,
 			  UWord element_size,
 			  char *name,
-			  int legacy);
+			  int legacy,
+			  int atomic_refc);
 int erts_ptab_new_element(ErtsPTab *ptab,
 			  ErtsPTabElementCommon *ptab_el,
 			  void *init_arg,
@@ -210,9 +208,15 @@ ERTS_GLB_INLINE erts_aint_t erts_ptab_pix2intptr_ddrb(ErtsPTab *ptab, int ix);
 ERTS_GLB_INLINE erts_aint_t erts_ptab_pix2intptr_rb(ErtsPTab *ptab, int ix);
 ERTS_GLB_INLINE erts_aint_t erts_ptab_pix2intptr_acqb(ErtsPTab *ptab, int ix);
 ERTS_GLB_INLINE void erts_ptab_inc_refc(ErtsPTabElementCommon *ptab_el);
-ERTS_GLB_INLINE int erts_ptab_dec_test_refc(ErtsPTabElementCommon *ptab_el);
-ERTS_GLB_INLINE int erts_ptab_add_test_refc(ErtsPTabElementCommon *ptab_el,
-					    Sint32 add_refc);
+ERTS_GLB_INLINE Sint erts_ptab_dec_test_refc(ErtsPTabElementCommon *ptab_el);
+ERTS_GLB_INLINE Sint erts_ptab_add_test_refc(ErtsPTabElementCommon *ptab_el,
+					     Sint add_refc);
+ERTS_GLB_INLINE Sint erts_ptab_read_refc(ErtsPTabElementCommon *ptab_el);
+ERTS_GLB_INLINE void erts_ptab_atmc_inc_refc(ErtsPTabElementCommon *ptab_el);
+ERTS_GLB_INLINE Sint erts_ptab_atmc_dec_test_refc(ErtsPTabElementCommon *ptab_el);
+ERTS_GLB_INLINE Sint erts_ptab_atmc_add_test_refc(ErtsPTabElementCommon *ptab_el,
+						  Sint add_refc);
+ERTS_GLB_INLINE Sint erts_ptab_atmc_read_refc(ErtsPTabElementCommon *ptab_el);
 ERTS_GLB_INLINE void erts_ptab_rlock(ErtsPTab *ptab);
 ERTS_GLB_INLINE int erts_ptab_tryrlock(ErtsPTab *ptab);
 ERTS_GLB_INLINE void erts_ptab_runlock(ErtsPTab *ptab);
@@ -369,50 +373,65 @@ ERTS_GLB_INLINE erts_aint_t erts_ptab_pix2intptr_acqb(ErtsPTab *ptab, int ix)
     return erts_smp_atomic_read_acqb(&ptab->r.o.tab[ix]);
 }
 
+ERTS_GLB_INLINE void erts_ptab_atmc_inc_refc(ErtsPTabElementCommon *ptab_el)
+{
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    erts_aint_t refc = erts_atomic_inc_read_nob(&ptab_el->refc.atmc);
+    ERTS_LC_ASSERT(refc > 1);
+#else
+    erts_atomic_inc_nob(&ptab_el->refc.atmc);
+#endif
+}
+
+ERTS_GLB_INLINE Sint erts_ptab_atmc_dec_test_refc(ErtsPTabElementCommon *ptab_el)
+{
+    erts_aint_t refc = erts_atomic_dec_read_relb(&ptab_el->refc.atmc);
+    ERTS_SMP_LC_ASSERT(refc >= 0);
+#ifdef ERTS_SMP
+    if (refc == 0)
+	ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
+#endif
+    return (Sint) refc;
+}
+
+ERTS_GLB_INLINE Sint erts_ptab_atmc_add_test_refc(ErtsPTabElementCommon *ptab_el,
+						  Sint add_refc)
+{
+    erts_aint_t refc = erts_atomic_add_read_mb(&ptab_el->refc.atmc,
+					       (erts_aint_t) add_refc);
+    ERTS_SMP_LC_ASSERT(refc >= 0);
+    return (Sint) refc;
+}
+
+ERTS_GLB_INLINE Sint erts_ptab_atmc_read_refc(ErtsPTabElementCommon *ptab_el)
+{
+    return (Sint) erts_atomic_read_nob(&ptab_el->refc.atmc);
+}
+
 ERTS_GLB_INLINE void erts_ptab_inc_refc(ErtsPTabElementCommon *ptab_el)
 {
-#ifdef ERTS_SMP
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_aint32_t refc = erts_atomic32_inc_read_nob(&ptab_el->refc);
-    ERTS_SMP_LC_ASSERT(refc > 1);
-#else
-    erts_atomic32_inc_nob(&ptab_el->refc);
-#endif
-#endif
+    ptab_el->refc.sint++;
+    ASSERT(ptab_el->refc.sint > 1);
 }
 
-ERTS_GLB_INLINE int erts_ptab_dec_test_refc(ErtsPTabElementCommon *ptab_el)
+ERTS_GLB_INLINE Sint erts_ptab_dec_test_refc(ErtsPTabElementCommon *ptab_el)
 {
-#ifdef ERTS_SMP
-    erts_aint32_t refc = erts_atomic32_dec_read_nob(&ptab_el->refc);
+    Sint refc = --ptab_el->refc.sint;
     ERTS_SMP_LC_ASSERT(refc >= 0);
-    return (int) refc;
-#else
-    return 0;
-#endif
+    return refc;
 }
 
-ERTS_GLB_INLINE int erts_ptab_add_test_refc(ErtsPTabElementCommon *ptab_el,
-					    Sint32 add_refc)
+ERTS_GLB_INLINE Sint erts_ptab_add_test_refc(ErtsPTabElementCommon *ptab_el,
+					     Sint add_refc)
 {
-#ifdef ERTS_SMP
-    erts_aint32_t refc;
+    ptab_el->refc.sint += add_refc;
+    ERTS_SMP_LC_ASSERT(ptab_el->refc.sint >= 0);
+    return (Sint) ptab_el->refc.sint;
+}
 
-#ifndef ERTS_ENABLE_LOCK_CHECK
-    if (add_refc >= 0) {
-	erts_atomic32_add_nob(&ptab_el->refc,
-			      (erts_aint32_t) add_refc);
-	return 1;
-    }
-#endif
-
-    refc = erts_atomic32_add_read_nob(&ptab_el->refc,
-				      (erts_aint32_t) add_refc);
-    ERTS_SMP_LC_ASSERT(refc >= 0);
-    return (int) refc;
-#else
-    return 0;
-#endif
+ERTS_GLB_INLINE Sint erts_ptab_read_refc(ErtsPTabElementCommon *ptab_el)
+{
+    return ptab_el->refc.sint;
 }
 
 ERTS_GLB_INLINE void erts_ptab_rlock(ErtsPTab *ptab)

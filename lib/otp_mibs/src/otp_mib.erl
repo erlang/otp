@@ -1,26 +1,27 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
-%% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
 %% %CopyrightEnd%
 %%
 -module(otp_mib).
 %%%-----------------------------------------------------------------
 %%% Description: This module implements the OTP-MIB.
 %%% The tables are implemented as shadow tables with the module
-%%% snmp_shadow_table. 
+%%% snmp_shadow_table.
 %%%-----------------------------------------------------------------
 
 %% API
@@ -35,9 +36,9 @@
 %% Exported for internal use via rpc
 -export([get_erl_node/1, get_appls/1]).
 
-%% Shadow tables  
+%% Shadow tables
 -record(erlNodeTable,
-	{erlNodeId, erlNodeName, erlNodeMachine, erlNodeVersion, 
+	{erlNodeId, erlNodeName, erlNodeMachine, erlNodeVersion,
 	 erlNodeRunQueue,
          erlNodeRunTime, erlNodeWallClock, erlNodeReductions,
 	 erlNodeProcesses, erlNodeInBytes, erlNodeOutBytes}).
@@ -45,13 +46,13 @@
 -record(applTable, {key = '_', applName = '_', applDescr = '_',
 		    applVsn = '_'}).
 
-%% Shadow argument macros 
--define(erlNodeShadowArgs, 
+%% Shadow argument macros
+-define(erlNodeShadowArgs,
 	{erlNodeTable, integer, record_info(fields, erlNodeTable), 5000,
 	 fun otp_mib:update_erl_node_table/0}).
 
 -define(applShadowArgs,
-	{applTable, {integer, integer}, record_info(fields, applTable), 
+	{applTable, {integer, integer}, record_info(fields, applTable),
 	 5000, fun otp_mib:update_appl_table/0}).
 
 %% Misc
@@ -79,14 +80,14 @@ load(Agent) ->
 %%-------------------------------------------------------------------------
 unload(Agent) ->
     snmpa:unload_mibs(Agent, ["OTP-MIB"]).
-    
+
 
 %%%=========================================================================
 %%%  SNMP instrumentation
 %%%=========================================================================
 erl_node_table(new) ->
     Tab = erlNodeAlloc,
-    Storage = ram_copies, 
+    Storage = ram_copies,
     case lists:member(Tab, mnesia:system_info(tables)) of
 	true ->
 	    case mnesia:table_info(Tab, storage_type) of
@@ -101,12 +102,12 @@ erl_node_table(new) ->
 		     {attributes, record_info(fields, erlNodeAlloc)},
 		     {local_content, true},
 		     {Storage, Nodes}],
-	    {atomic, ok} = mnesia:create_table(Tab, Props)    
+	    {atomic, ok} = mnesia:create_table(Tab, Props)
     end,
     ok = mnesia:dirty_write({erlNodeAlloc, next_index, 1}),
     update_node_alloc([node() | nodes()]),
     snmp_shadow_table:table_func(new, ?erlNodeShadowArgs).
-    
+
 erl_node_table(Op, RowIndex, Cols) ->
     snmp_shadow_table:table_func(Op, RowIndex, Cols, ?erlNodeShadowArgs).
 
@@ -148,21 +149,26 @@ update_appl_table() ->
 %%% Exported for internal use via rpc
 %%%========================================================================
 get_erl_node(Id) ->
+    RunQueue = erlang:statistics(run_queue),
+    RunTime = element(1, erlang:statistics(runtime)),
+    WallClock = element(1, erlang:statistics(wall_clock)),
+    Reductions = element(1, erlang:statistics(reductions)),
+    Processes = length(processes()),
     IO = erlang:statistics(io),
-    #erlNodeTable{erlNodeId = Id,
+    InBytes = element(2, element(1, IO)),
+    OutBytes = element(2, element(2, IO)),
+    #erlNodeTable{erlNodeId = truncate_int('Integer32', Id),
 		  erlNodeName = atom_to_list(node()),
 		  erlNodeVersion = erlang:system_info(version),
 		  erlNodeMachine = erlang:system_info(machine),
-		  erlNodeRunQueue = erlang:statistics(run_queue),
-		  erlNodeRunTime = element(1, erlang:statistics(runtime)),
-		  erlNodeWallClock = 
-		  element(1, erlang:statistics(wall_clock)),
-		  erlNodeReductions = 
-		  element(1, erlang:statistics(reductions)),
-		  erlNodeProcesses = length(processes()),
-		  erlNodeInBytes = element(2, element(1, IO)),
-		  erlNodeOutBytes = element(2, element(2, IO))}.
-    
+		  erlNodeRunQueue = truncate_int('Unsigned32', RunQueue),
+		  erlNodeRunTime = truncate_int('Counter64', RunTime),
+		  erlNodeWallClock = truncate_int('Counter64', WallClock),
+		  erlNodeReductions = truncate_int('Counter64', Reductions),
+		  erlNodeProcesses = truncate_int('Unsigned32', Processes),
+		  erlNodeInBytes = truncate_int('Counter64', InBytes),
+		  erlNodeOutBytes = truncate_int('Counter64', OutBytes)}.
+
 get_appls(NodeId) ->
     element(1,
 	    lists:mapfoldl(
@@ -181,7 +187,7 @@ update_node_alloc([Node | T]) ->
     case mnesia:dirty_read({erlNodeAlloc, Node}) of
 	[] ->
 	    [{_, _, Idx}] = mnesia:dirty_read({erlNodeAlloc, next_index}),
-	    ok = mnesia:dirty_write(#erlNodeAlloc{nodeName = Node, 
+	    ok = mnesia:dirty_write(#erlNodeAlloc{nodeName = Node,
 						  nodeId = Idx}),
 	    ok = mnesia:dirty_write({erlNodeAlloc, next_index, Idx + 1});
 	_ ->
@@ -196,3 +202,15 @@ delete_all(Key, Name) ->
     Next = mnesia:dirty_next(Name, Key),
     ok = mnesia:dirty_delete({Name, Key}),
     delete_all(Next, Name).
+
+%% This will return a value limited to fit into the specified type.
+%% While counter types will be resetted, other integer types will
+%% only be restricted to the valid range.
+truncate_int('Counter64', Value) when Value < 0 -> 0;
+truncate_int('Counter64', Value) -> Value rem 18446744073709551615;
+truncate_int('Unsigned32', Value) when Value < 0 -> 0;
+truncate_int('Unsigned32', Value) when Value > 4294967295 -> 4294967295;
+truncate_int('Unsigned32', Value) -> Value;
+truncate_int('Integer32', Value) when Value < -2147483648 -> -2147483648;
+truncate_int('Integer32', Value) when Value > 2147483647 -> 2147483647;
+truncate_int('Integer32', Value) -> Value.

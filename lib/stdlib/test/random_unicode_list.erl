@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -84,7 +85,7 @@ int_to_utf32_little(I) ->
 id(I) -> I.
 
 random_char() ->
-     case random:uniform(16#10FFFF+1) - 1 of
+     case rand:uniform(16#10FFFF+1) - 1 of
 	 X when X >= 16#D800,
 	  X =< 16#DFFF ->
 	     random_char();
@@ -115,13 +116,13 @@ random_binary(N,Enc) ->
 					   int_to(Enc,X)
 				   end,
 				   L)),
-    case {random:uniform(3),size(B)} of
+    case {rand:uniform(3),size(B)} of
 	{2,M} when M > 1 ->
 	    B2 = id(<<1:3,B/binary,1:5>>),
 	    <<_:3,C:M/binary,_:5>> = B2,
 	    C;
 	{3,M} when M > 1 ->
-	    X = random:uniform(M+1)-1,
+	    X = rand:uniform(M+1)-1,
 	    <<B1:X/binary,B2/binary>> = B,
 	    [B1,B2];
 	_ ->
@@ -131,7 +132,7 @@ random_list(N) ->
     random_list(N,[]).
 
 front() ->
-    case random:uniform(10) of
+    case rand:uniform(10) of
 	10 ->
 	    false;
 	_ ->
@@ -139,7 +140,7 @@ front() ->
     end.
 
 any_type() ->
-    case random:uniform(10) of
+    case rand:uniform(10) of
 	1 ->
 	    list;
 	2 ->
@@ -151,7 +152,7 @@ any_type() ->
     end.
 
 tail_type() ->
-    case random:uniform(5) of
+    case rand:uniform(5) of
 	1 ->
 	    list;
 	2 ->
@@ -164,9 +165,9 @@ random_length(N) ->
     UpperLimit = 255,
     case N of
 	M when M > UpperLimit ->
-	    random:uniform(UpperLimit+1) - 1;
+	    rand:uniform(UpperLimit+1) - 1;
 	_ ->
-	    random:uniform(N+1) - 1
+	    rand:uniform(N+1) - 1
     end.
 
 random_unicode_list(0,Acc,_Enc) ->
@@ -213,7 +214,7 @@ random_unicode_list(N,Enc) ->
     
 
 standard_seed() ->
-    random:seed(1201,855653,380975).
+    rand:seed(exsplus, {1201,855653,380975}).
 
 do_comp(List,F1,F2) ->
     X = F1(List),

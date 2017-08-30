@@ -3,18 +3,19 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2012. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2016. All Rights Reserved.
      #
-     # The contents of this file are subject to the Erlang Public License,
-     # Version 1.1, (the "License"); you may not use this file except in
-     # compliance with the License. You should have received a copy of the
-     # Erlang Public License along with this software. If not, it can be
-     # retrieved online at http://www.erlang.org/.
+     # Licensed under the Apache License, Version 2.0 (the "License");
+     # you may not use this file except in compliance with the License.
+     # You may obtain a copy of the License at
      #
-     # Software distributed under the License is distributed on an "AS IS"
-     # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-     # the License for the specific language governing rights and limitations
-     # under the License.
+     #     http://www.apache.org/licenses/LICENSE-2.0
+     #
+     # Unless required by applicable law or agreed to in writing, software
+     # distributed under the License is distributed on an "AS IS" BASIS,
+     # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     # See the License for the specific language governing permissions and
+     # limitations under the License.
      #
      # %CopyrightEnd%
 
@@ -23,10 +24,75 @@
 <xsl:stylesheet version="1.0"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns:exsl="http://exslt.org/common"
-  extension-element-prefixes="exsl"
+  xmlns:func="http://exslt.org/functions"
+  xmlns:erl="http://erlang.org"
+  extension-element-prefixes="exsl func"
   xmlns:fn="http://www.w3.org/2005/02/xpath-functions">
 
   <xsl:include href="db_html_params.xsl"/>
+
+  <func:function name="erl:flip_first_char">
+    <xsl:param name="in"/>
+
+    <xsl:variable name="uppercase" select="'ABCDEFGHIJKLMNOPQRSTUVWXYZ'"/>
+    <xsl:variable name="lowercase" select="'abcdefghijklmnopqrstuvwxyz'"/>
+
+    <xsl:variable name="first-char" select="substring($in, 1, 1)"/>
+
+    <xsl:variable name="result">
+      <xsl:choose>
+        <xsl:when test="contains($uppercase, $first-char)">
+          <xsl:value-of select="concat(translate($first-char, $uppercase, $lowercase), substring($in, 2))"/>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:value-of select="concat(translate($first-char, $lowercase, $uppercase), substring($in, 2))"/>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+
+    <func:result select="$result"/>
+  </func:function>
+
+  <!-- Used from template menu.funcs to sort a module's functions for the lefthand index list,
+       from the module's .xml file. Returns a value on which to sort the entity in question
+       (a <name> element).
+
+       Some functions are listed with the name as an attribute, as in string.xml:
+       <name name="join" arity="2"/>       
+
+       Others use the element value for the name, as in gen_server.xml:
+       <name>start_link(Module, Args, Options) -> Result</name>
+
+       Additionally, callbacks may be included, as in gen_server.xml:
+       <name>Module:handle_call(Request, From, State) -> Result</name>
+
+       So first, get the name from either the attribute or the element value.
+       Then, reverse the case of the first character. This is because xsltproc, used for processing,
+       orders uppercase before lowercase (even when the 'case-order="lower-first"' option
+       is given). But we want the Module callback functions listed after a module's regular
+       functions, as they are now. This doesn't affect the actual value used in the output, but
+       just the value used as a sort key. To then ensure that uppercase is indeed sorted before
+       lower, as we now want it to be, the 'case-order="upper-first"' option is used.
+
+       This processing only affect the lefthand index list- the body of the doc page is not 
+       affected.
+  -->
+  <func:function name="erl:get_sort_field">
+    <xsl:param name="elem"/>
+
+    <xsl:variable name="base">
+      <xsl:choose>
+        <xsl:when test="string-length($elem/@name) > 0">
+          <xsl:value-of select="$elem/@name"/>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:value-of select="$elem"/>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+
+    <func:result select="erl:flip_first_char($base)"/>
+  </func:function>
 
   <!-- Start of Dialyzer type/spec tags.
        See also the templates matching "name" and "seealso" as well as
@@ -382,9 +448,7 @@
 	</xsl:choose>
       </xsl:when>
       <xsl:otherwise> <!-- <datatype> with <name> -->
-	<span class="bold_code">
-          <xsl:apply-templates/>
-	</span>
+        <xsl:call-template name="name"/>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
@@ -786,39 +850,36 @@
 
   <!-- Book -->
   <xsl:template match="/book">
-
-    <xsl:apply-templates name="parts"/>
-    <xsl:apply-templates name="applications"/>
-
+    <xsl:apply-templates select="parts"/>
+    <xsl:apply-templates select="applications"/>
+    <xsl:apply-templates select="releasenotes"/>
   </xsl:template>
 
   <!-- Parts -->
   <xsl:template match="parts">
-    <xsl:apply-templates name="part"/>
+    <xsl:apply-templates select="part"/>
   </xsl:template>
 
   <!-- Applications -->
   <xsl:template match="applications">
-    <xsl:apply-templates name="application"/>
+    <xsl:apply-templates select="application"/>
   </xsl:template>
-
 
  <!-- Header -->
-  <xsl:template match="header">
-  </xsl:template>
+ <xsl:template match="header"/>
+  
+ <!-- Section/Title -->
+ <xsl:template match="section/title"/>
 
-  <!-- Section/Title -->
-  <xsl:template match="section/title">
- </xsl:template>
+ <xsl:template match="pagetext"/>
 
- <xsl:template match="pagetext">
- </xsl:template>
-
-
-  <!-- Chapter/Section -->
+  <!-- Chapter/Section, subsection level 1-->
   <xsl:template match="chapter/section">
     <xsl:param name="chapnum"/>
     <h3>
+      <xsl:for-each select="marker">
+	<xsl:call-template name="marker-before-title"/>
+      </xsl:for-each>
       <a name="{generate-id(title)}">
         <xsl:value-of select="$chapnum"/>.<xsl:number/>&#160;
         <xsl:value-of select="title"/>
@@ -830,14 +891,33 @@
     </xsl:apply-templates>
   </xsl:template>
 
-  <!-- Subsections lvl 3 and ... -->
+  <!-- Subsections lvl 2 -->
   <xsl:template match="section/section">
     <xsl:param name="chapnum"/>
     <xsl:param name="sectnum"/>
     <h4>
+      <xsl:for-each select="marker">
+	<xsl:call-template name="marker-before-title"/>
+      </xsl:for-each>
       <!-- xsl:value-of select="$partnum"/>.<xsl:value-of select="$chapnum"/>.<xsl:value-of select="$sectnum"/>.<xsl:number/ -->
       <xsl:value-of select="title"/>
     </h4>
+    <xsl:apply-templates>
+      <xsl:with-param name="chapnum" select="$chapnum"/>
+    </xsl:apply-templates>
+  </xsl:template>
+
+  <!-- Subsections lvl 3 and ... -->
+  <xsl:template match="section/section/section">
+    <xsl:param name="chapnum"/>
+    <xsl:param name="sectnum"/>
+    <h5>
+      <xsl:for-each select="marker">
+	<xsl:call-template name="marker-before-title"/>
+      </xsl:for-each>
+      <!-- xsl:value-of select="$partnum"/>.<xsl:value-of select="$chapnum"/>.<xsl:value-of select="$sectnum"/>.<xsl:number/ -->
+      <xsl:value-of select="title"/>
+    </h5>
     <xsl:apply-templates>
       <xsl:with-param name="chapnum" select="$chapnum"/>
     </xsl:apply-templates>
@@ -847,6 +927,9 @@
   <xsl:template match="erlref/section|cref/section|comref/section|fileref/section|appref/section">
     <xsl:param name="chapnum"/>
     <h3>
+      <xsl:for-each select="marker">
+	<xsl:call-template name="marker-before-title"/>
+      </xsl:for-each>
       <a name="{generate-id(title)}">
         <xsl:value-of select="title"/>
       </a>
@@ -874,7 +957,6 @@
 
 
   <!-- Lists -->
-
   <xsl:template match="list">
     <xsl:param name="chapnum"/>
     <ul>
@@ -952,6 +1034,48 @@
     </div>
   </xsl:template>
 
+  <!-- Do -->
+  <xsl:template match="do">
+    <xsl:param name="chapnum"/>
+    <div class="do">
+      <div class="label">Do</div>
+      <div class="content">
+        <p>
+          <xsl:apply-templates>
+            <xsl:with-param name="chapnum" select="$chapnum"/>
+          </xsl:apply-templates>
+        </p>
+      </div>
+    </div>
+  </xsl:template>
+
+  <!-- Dont -->
+  <xsl:template match="dont">
+    <xsl:param name="chapnum"/>
+    <div class="dont">
+      <div class="label">Don't</div>
+      <div class="content">
+        <p>
+          <xsl:apply-templates>
+            <xsl:with-param name="chapnum" select="$chapnum"/>
+          </xsl:apply-templates>
+        </p>
+      </div>
+    </div>
+  </xsl:template>
+
+  <!-- Quote -->
+  <xsl:template match="quote">
+    <xsl:param name="chapnum"/>
+    <div class="quote">
+      <p>
+        <xsl:apply-templates>
+          <xsl:with-param name="chapnum" select="$chapnum"/>
+        </xsl:apply-templates>
+      </p>
+    </div>
+  </xsl:template>
+
  <!-- Paragraph -->
   <xsl:template match="p">
     <p>
@@ -959,10 +1083,9 @@
     </p>
   </xsl:template>
 
-
   <!-- Inline elements -->
-  <xsl:template match="b">
-    <strong><xsl:apply-templates/></strong>
+  <xsl:template match="i">
+    <i><xsl:apply-templates/></i>
   </xsl:template>
 
   <xsl:template match="br">
@@ -974,6 +1097,10 @@
   </xsl:template>
 
   <xsl:template match="em">
+    <strong><xsl:apply-templates/></strong>
+  </xsl:template>
+
+  <xsl:template match="strong">
     <strong><xsl:apply-templates/></strong>
   </xsl:template>
 
@@ -1063,11 +1190,11 @@
     <xsl:param name="chapnum"/>
     <xsl:param name="fignum"/>
 
-      <em>Figure
+      <p><em>Figure
         <xsl:value-of select="$chapnum"/>.<xsl:value-of select="$fignum"/>:
         &#160;
         <xsl:apply-templates/>
-      </em>
+      </em></p>
 
   </xsl:template>
 
@@ -1102,6 +1229,9 @@
 
     <center><h4>Version <xsl:value-of select="$appver"/></h4></center>
     <center><h4><xsl:value-of select="$gendate"/></h4></center>
+    <div class="extrafrontpageinfo">
+    <center><xsl:value-of select="$extra_front_page_info"/></center>
+    </div>
 
     <xsl:apply-templates select="chapter"/>
 
@@ -1251,9 +1381,7 @@
       <xsl:with-param name="type">ref_man</xsl:with-param>
     </xsl:call-template-->
 
-
     <xsl:document href="{$outdir}/index.html" method="html" encoding="UTF-8" indent="yes" doctype-public="-//W3C//DTD HTML 4.01 Transitional//EN">
-
       <xsl:call-template name="pagelayout"/>
     </xsl:document>
   </xsl:template>
@@ -1267,6 +1395,9 @@
 
     <center><h4>Version <xsl:value-of select="$appver"/></h4></center>
     <center><h4><xsl:value-of select="$gendate"/></h4></center>
+    <div class="extrafrontpageinfo">
+    <center><xsl:value-of select="$extra_front_page_info"/></center>
+    </div>
 
     <xsl:apply-templates select="erlref|cref|comref|fileref|appref"/>
 
@@ -1420,6 +1551,8 @@
     <xsl:param name="cval"/>
 
     <xsl:for-each select="$entries">
+      <!-- Sort on function name, so the index list in lefthand frame is ordered. -->
+      <xsl:sort select="erl:get_sort_field(.)" data-type="text" case-order="upper-first"/>
 
       <xsl:choose>
         <xsl:when test="ancestor::cref">
@@ -1815,6 +1948,7 @@
     </xsl:choose>
   </xsl:template>
 
+  <!-- Used both in <datatype> and in <func>! -->
   <xsl:template name="name">
 
     <xsl:variable name="tmpstring">
@@ -1871,7 +2005,14 @@
             </xsl:otherwise>
           </xsl:choose>
         </xsl:variable>
-        <a name="{$fname}-{$arity}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
+	<xsl:choose>
+	  <xsl:when test="ancestor::datatype">
+            <a name="type-{$fname}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
+	  </xsl:when>
+          <xsl:otherwise>
+            <a name="{$fname}-{$arity}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
+          </xsl:otherwise>
+	</xsl:choose>
       </xsl:when>
       <xsl:otherwise>
         <span class="bold_code"><xsl:value-of select="."/></span>
@@ -1957,7 +2098,7 @@
   </xsl:template>
 
   <xsl:template match="seealso">
-     <xsl:call-template name="seealso"/>
+    <xsl:call-template name="seealso"/>
   </xsl:template>
 
   <xsl:template name="seealso">
@@ -2039,15 +2180,26 @@
 
   </xsl:template>
 
-
   <xsl:template match="url">
     <span class="bold_code"><a href="{@href}"><xsl:apply-templates/></a></span>
   </xsl:template>
 
-
   <xsl:template match="marker">
-    <a name="{@id}"><xsl:apply-templates/></a>
+    <xsl:choose>
+      <xsl:when test="not(parent::section and following-sibling::title)">
+        <a name="{@id}"><xsl:apply-templates/></a>
+      </xsl:when>
+    </xsl:choose>
   </xsl:template>
+
+  <xsl:template name="marker-before-title">
+    <xsl:choose>
+      <xsl:when test="self::marker and parent::section and following-sibling::title">
+	 <a name="{@id}"><xsl:apply-templates/></a>
+      </xsl:when>
+    </xsl:choose>
+  </xsl:template>
+
 
   <xsl:template match="term">
     <xsl:value-of select="@id"/>
@@ -2089,6 +2241,9 @@
 
     <center><h4>Version <xsl:value-of select="$appver"/></h4></center>
     <center><h4><xsl:value-of select="$gendate"/></h4></center>
+    <div class="extrafrontpageinfo">
+    <center><xsl:value-of select="$extra_front_page_info"/></center>
+    </div>
 
     <xsl:apply-templates select="chapter"/>
 
@@ -2324,7 +2479,11 @@
 
   <xsl:template name="nl">
     <xsl:text>
-</xsl:text>
+    </xsl:text>
+  </xsl:template>
+
+  <xsl:template match="seealso//text()">
+    <xsl:value-of select="normalize-space(.)"/>
   </xsl:template>
 
 </xsl:stylesheet>

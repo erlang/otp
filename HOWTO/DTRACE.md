@@ -27,12 +27,10 @@ Goals
 Supported platforms
 -------------------
 
-* OS X 10.6.x / Snow Leopard.  It should also work for 10.7 / Lion,
-  but I haven't personally tested it.
+* OS X 10.6.x / Snow Leopard, OS X 10.7.x / Lion and probably newer versions.
 * Solaris 10.  I have done limited testing on Solaris 11 and
   OpenIndiana release 151a, and both appear to work.
-* FreeBSD 9.0, though please see the "FreeBSD 9.0 Release Notes"
-  section below!
+* FreeBSD 9.0 and 10.0.
 * Linux via SystemTap compatibility.  Please see
   [$ERL_TOP/HOWTO/SYSTEMTAP.md][] for more details.
 

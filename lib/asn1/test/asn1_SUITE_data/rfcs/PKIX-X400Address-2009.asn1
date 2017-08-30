@@ -1,0 +1,300 @@
+  --
+  --  This module is used to isolate all the X.400 naming information.
+  --  There is no reason to expect this to occur in a PKIX certificate.
+  --
+
+  PKIX-X400Address-2009
+      {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+      mechanisms(5) pkix(7) id-mod(0) id-mod-pkix1-x400address-02(60) }
+  DEFINITIONS EXPLICIT TAGS ::=
+  BEGIN
+
+  -- X.400 address syntax starts here
+
+  ORAddress ::= SEQUENCE {
+     built-in-standard-attributes BuiltInStandardAttributes,
+     built-in-domain-defined-attributes
+                     BuiltInDomainDefinedAttributes OPTIONAL,
+
+     -- see also teletex-domain-defined-attributes
+     extension-attributes ExtensionAttributes OPTIONAL }
+
+  -- Built-in Standard Attributes
+
+  BuiltInStandardAttributes ::= SEQUENCE {
+     country-name                  CountryName OPTIONAL,
+     administration-domain-name    AdministrationDomainName OPTIONAL,
+     network-address           [0] IMPLICIT NetworkAddress OPTIONAL,
+       -- see also extended-network-address
+     terminal-identifier       [1] IMPLICIT TerminalIdentifier OPTIONAL,
+     private-domain-name       [2] PrivateDomainName OPTIONAL,
+     organization-name         [3] IMPLICIT OrganizationName OPTIONAL,
+       -- see also teletex-organization-name
+     numeric-user-identifier   [4] IMPLICIT NumericUserIdentifier
+                                   OPTIONAL,
+     personal-name             [5] IMPLICIT PersonalName OPTIONAL,
+       -- see also teletex-personal-name
+     organizational-unit-names [6] IMPLICIT OrganizationalUnitNames
+                                   OPTIONAL }
+       -- see also teletex-organizational-unit-names
+
+  CountryName ::= [APPLICATION 1] CHOICE {
+     x121-dcc-code         NumericString
+                             (SIZE (ub-country-name-numeric-length)),
+     iso-3166-alpha2-code  PrintableString
+                             (SIZE (ub-country-name-alpha-length)) }
+
+  AdministrationDomainName ::= [APPLICATION 2] CHOICE {
+     numeric   NumericString   (SIZE (0..ub-domain-name-length)),
+     printable PrintableString (SIZE (0..ub-domain-name-length)) }
+
+  NetworkAddress ::= X121Address  -- see also extended-network-address
+
+  X121Address ::= NumericString (SIZE (1..ub-x121-address-length))
+
+  TerminalIdentifier ::= PrintableString (SIZE
+  (1..ub-terminal-id-length))
+
+  PrivateDomainName ::= CHOICE {
+     numeric   NumericString   (SIZE (1..ub-domain-name-length)),
+     printable PrintableString (SIZE (1..ub-domain-name-length)) }
+
+  OrganizationName ::= PrintableString
+                              (SIZE (1..ub-organization-name-length))
+    -- see also teletex-organization-name
+
+  NumericUserIdentifier ::= NumericString
+                              (SIZE (1..ub-numeric-user-id-length))
+
+  PersonalName ::= SET {
+     surname     [0] IMPLICIT PrintableString
+                      (SIZE (1..ub-surname-length)),
+     given-name  [1] IMPLICIT PrintableString
+                      (SIZE (1..ub-given-name-length)) OPTIONAL,
+     initials    [2] IMPLICIT PrintableString
+                      (SIZE (1..ub-initials-length)) OPTIONAL,
+     generation-qualifier [3] IMPLICIT PrintableString
+                      (SIZE (1..ub-generation-qualifier-length))
+                      OPTIONAL }
+    -- see also teletex-personal-name
+
+  OrganizationalUnitNames ::= SEQUENCE SIZE (1..ub-organizational-units)
+                               OF OrganizationalUnitName
+    -- see also teletex-organizational-unit-names
+
+  OrganizationalUnitName ::= PrintableString (SIZE
+                      (1..ub-organizational-unit-name-length))
+
+  -- Built-in Domain-defined Attributes
+
+  BuiltInDomainDefinedAttributes ::= SEQUENCE SIZE
+                      (1..ub-domain-defined-attributes) OF
+                      BuiltInDomainDefinedAttribute
+
+  BuiltInDomainDefinedAttribute ::= SEQUENCE {
+     type PrintableString (SIZE
+                     (1..ub-domain-defined-attribute-type-length)),
+     value PrintableString (SIZE
+                     (1..ub-domain-defined-attribute-value-length)) }
+
+  -- Extension Attributes
+
+  ExtensionAttributes ::= SET SIZE (1..ub-extension-attributes) OF
+                 ExtensionAttribute
+
+  EXTENSION-ATTRIBUTE ::= CLASS {
+      &id             INTEGER (0..ub-extension-attributes) UNIQUE,
+      &Type
+  } WITH SYNTAX { &Type IDENTIFIED BY &id }
+
+  ExtensionAttribute ::=  SEQUENCE {
+     extension-attribute-type [0] IMPLICIT EXTENSION-ATTRIBUTE.
+          &id({SupportedExtensionAttributes}),
+     extension-attribute-value [1] EXTENSION-ATTRIBUTE.
+          &Type({SupportedExtensionAttributes}
+              {@extension-attribute-type})}
+
+  SupportedExtensionAttributes EXTENSION-ATTRIBUTE ::= {
+      ea-commonName | ea-teletexCommonName | ea-teletexOrganizationName
+      | ea-teletexPersonalName | ea-teletexOrganizationalUnitNames |
+      ea-pDSName | ea-physicalDeliveryCountryName | ea-postalCode |
+      ea-physicalDeliveryOfficeName | ea-physicalDeliveryOfficeNumber |
+      ea-extensionORAddressComponents | ea-physicalDeliveryPersonalName
+      | ea-physicalDeliveryOrganizationName |
+      ea-extensionPhysicalDeliveryAddressComponents |
+      ea-unformattedPostalAddress | ea-streetAddress |
+      ea-postOfficeBoxAddress | ea-posteRestanteAddress |
+      ea-uniquePostalName | ea-localPostalAttributes |
+      ea-extendedNetworkAddress | ea-terminalType |
+      ea-teletexDomainDefinedAttributes, ... }
+
+  -- Extension types and attribute values
+
+  ea-commonName EXTENSION-ATTRIBUTE ::= { PrintableString
+      (SIZE (1..ub-common-name-length)) IDENTIFIED BY 1 }
+
+  ea-teletexCommonName EXTENSION-ATTRIBUTE ::= {TeletexString
+      (SIZE (1..ub-common-name-length)) IDENTIFIED BY 2 }
+
+  ea-teletexOrganizationName EXTENSION-ATTRIBUTE::= { TeletexString
+      (SIZE (1..ub-organization-name-length)) IDENTIFIED BY 3 }
+
+  ea-teletexPersonalName EXTENSION-ATTRIBUTE ::= {SET {
+     surname     [0] IMPLICIT TeletexString
+                      (SIZE (1..ub-surname-length)),
+     given-name  [1] IMPLICIT TeletexString
+                      (SIZE (1..ub-given-name-length)) OPTIONAL,
+     initials    [2] IMPLICIT TeletexString
+                      (SIZE (1..ub-initials-length)) OPTIONAL,
+     generation-qualifier [3] IMPLICIT TeletexString
+                      (SIZE (1..ub-generation-qualifier-length))
+                      OPTIONAL } IDENTIFIED BY 4 }
+
+  ea-teletexOrganizationalUnitNames EXTENSION-ATTRIBUTE ::=
+      { SEQUENCE SIZE (1..ub-organizational-units) OF
+            TeletexOrganizationalUnitName IDENTIFIED BY 5 }
+
+  TeletexOrganizationalUnitName ::= TeletexString
+      (SIZE (1..ub-organizational-unit-name-length))
+
+  ea-pDSName EXTENSION-ATTRIBUTE ::= {PrintableString
+      (SIZE (1..ub-pds-name-length)) IDENTIFIED BY 7 }
+
+  ea-physicalDeliveryCountryName EXTENSION-ATTRIBUTE ::= { CHOICE {
+       x121-dcc-code NumericString (SIZE
+          (ub-country-name-numeric-length)),
+       iso-3166-alpha2-code PrintableString
+          (SIZE (ub-country-name-alpha-length)) }
+       IDENTIFIED BY 8 }
+
+  ea-postalCode EXTENSION-ATTRIBUTE ::= { CHOICE {
+     numeric-code NumericString (SIZE (1..ub-postal-code-length)),
+     printable-code PrintableString (SIZE (1..ub-postal-code-length)) }
+     IDENTIFIED BY 9 }
+
+  ea-physicalDeliveryOfficeName EXTENSION-ATTRIBUTE ::=
+      { PDSParameter IDENTIFIED BY 10 }
+
+  ea-physicalDeliveryOfficeNumber EXTENSION-ATTRIBUTE ::=
+      {PDSParameter IDENTIFIED BY 11 }
+
+  ea-extensionORAddressComponents EXTENSION-ATTRIBUTE ::=
+      {PDSParameter IDENTIFIED BY 12 }
+
+  ea-physicalDeliveryPersonalName EXTENSION-ATTRIBUTE ::=
+      {PDSParameter IDENTIFIED BY 13}
+
+  ea-physicalDeliveryOrganizationName EXTENSION-ATTRIBUTE ::=
+      {PDSParameter IDENTIFIED BY 14 }
+
+  ea-extensionPhysicalDeliveryAddressComponents EXTENSION-ATTRIBUTE ::=
+      {PDSParameter IDENTIFIED BY 15 }
+
+  ea-unformattedPostalAddress EXTENSION-ATTRIBUTE ::= { SET {
+     printable-address SEQUENCE SIZE (1..ub-pds-physical-address-lines)
+           OF PrintableString (SIZE (1..ub-pds-parameter-length))
+           OPTIONAL,
+     teletex-string TeletexString
+           (SIZE (1..ub-unformatted-address-length)) OPTIONAL }
+     IDENTIFIED BY 16 }
+
+  ea-streetAddress EXTENSION-ATTRIBUTE ::=
+      {PDSParameter IDENTIFIED BY 17 }
+
+  ea-postOfficeBoxAddress EXTENSION-ATTRIBUTE ::=
+      {PDSParameter IDENTIFIED BY 18 }
+
+  ea-posteRestanteAddress EXTENSION-ATTRIBUTE ::=
+      {PDSParameter IDENTIFIED BY 19 }
+
+  ea-uniquePostalName EXTENSION-ATTRIBUTE ::=
+      { PDSParameter IDENTIFIED BY 20 }
+
+  ea-localPostalAttributes EXTENSION-ATTRIBUTE ::=
+      {PDSParameter IDENTIFIED BY 21 }
+  PDSParameter ::= SET {
+     printable-string PrintableString
+                  (SIZE(1..ub-pds-parameter-length)) OPTIONAL,
+     teletex-string TeletexString
+                  (SIZE(1..ub-pds-parameter-length)) OPTIONAL }
+
+  ea-extendedNetworkAddress EXTENSION-ATTRIBUTE ::= {
+     CHOICE {
+         e163-4-address SEQUENCE {
+             number      [0] IMPLICIT NumericString
+                   (SIZE (1..ub-e163-4-number-length)),
+             sub-address [1] IMPLICIT NumericString
+                   (SIZE (1..ub-e163-4-sub-address-length)) OPTIONAL
+         },
+         psap-address [0] IMPLICIT PresentationAddress
+     } IDENTIFIED BY 22
+  }
+
+  PresentationAddress ::= SEQUENCE {
+      pSelector     [0] EXPLICIT OCTET STRING OPTIONAL,
+      sSelector     [1] EXPLICIT OCTET STRING OPTIONAL,
+      tSelector     [2] EXPLICIT OCTET STRING OPTIONAL,
+      nAddresses    [3] EXPLICIT SET SIZE (1..MAX) OF OCTET STRING }
+
+  ea-terminalType EXTENSION-ATTRIBUTE ::= {INTEGER {
+     telex (3),
+     teletex (4),
+     g3-facsimile (5),
+     g4-facsimile (6),
+     ia5-terminal (7),
+     videotex (8) } (0..ub-integer-options)
+     IDENTIFIED BY 23 }
+
+  -- Extension Domain-defined Attributes
+
+  ea-teletexDomainDefinedAttributes EXTENSION-ATTRIBUTE ::=
+      { SEQUENCE SIZE (1..ub-domain-defined-attributes) OF
+           TeletexDomainDefinedAttribute IDENTIFIED BY 6 }
+
+  TeletexDomainDefinedAttribute ::= SEQUENCE {
+      type TeletexString
+          (SIZE (1..ub-domain-defined-attribute-type-length)),
+      value TeletexString
+          (SIZE (1..ub-domain-defined-attribute-value-length)) }
+
+  --  specifications of Upper Bounds MUST be regarded as mandatory
+  --  from Annex B of ITU-T X.411 Reference Definition of MTS Parameter
+  --  Upper Bounds
+  -- Upper Bounds
+  ub-match INTEGER ::= 128
+  ub-common-name-length INTEGER ::= 64
+  ub-country-name-alpha-length INTEGER ::= 2
+  ub-country-name-numeric-length INTEGER ::= 3
+  ub-domain-defined-attributes INTEGER ::= 4
+  ub-domain-defined-attribute-type-length INTEGER ::= 8
+  ub-domain-defined-attribute-value-length INTEGER ::= 128
+  ub-domain-name-length INTEGER ::= 16
+  ub-extension-attributes INTEGER ::= 256
+  ub-e163-4-number-length INTEGER ::= 15
+  ub-e163-4-sub-address-length INTEGER ::= 40
+  ub-generation-qualifier-length INTEGER ::= 3
+  ub-given-name-length INTEGER ::= 16
+  ub-initials-length INTEGER ::= 5
+  ub-integer-options INTEGER ::= 256
+  ub-numeric-user-id-length INTEGER ::= 32
+  ub-organization-name-length INTEGER ::= 64
+  ub-organizational-unit-name-length INTEGER ::= 32
+  ub-organizational-units INTEGER ::= 4
+  ub-pds-name-length INTEGER ::= 16
+  ub-pds-parameter-length INTEGER ::= 30
+  ub-pds-physical-address-lines INTEGER ::= 6
+  ub-postal-code-length INTEGER ::= 16
+  ub-surname-length INTEGER ::= 40
+  ub-terminal-id-length INTEGER ::= 24
+  ub-unformatted-address-length INTEGER ::= 180
+  ub-x121-address-length INTEGER ::= 16
+
+  -- Note - upper bounds on string types, such as TeletexString, are
+  -- measured in characters.  Excepting PrintableString or IA5String, a
+  -- significantly greater number of octets will be required to hold
+  -- such a value.  As a minimum, 16 octets or twice the specified
+  -- upper bound, whichever is the larger, should be allowed for
+  -- TeletexString.  For UTF8String or UniversalString, at least four
+  -- times the upper bound should be allowed.
+
+  END

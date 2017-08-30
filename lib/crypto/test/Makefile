@@ -28,7 +28,7 @@ RELSYSDIR = $(RELEASE_PATH)/crypto_test
 # FLAGS
 # ----------------------------------------------------
 ERL_MAKE_FLAGS += 
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
+ERL_COMPILE_FLAGS +=
 
 EBIN = .
 MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)

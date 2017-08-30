@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 
@@ -150,8 +151,7 @@ test() ->  %% Known to solvable
      {{9,2},4}, {{9,4},5}, {{9,6},8}, {{9,8},7}].
 
 new_game(S) ->
-    {X,Y,Z} = erlang:now(),
-    random:seed(Y,X,Z),
+    rand:seed(exsplus),
     case new_game(1,1,gb_sets:empty(),empty_table(S#s{}),[], 0) of
 	stop -> new_game(S); 
 	Game -> Game
@@ -170,7 +170,7 @@ new_game(R,C,BT,St,Acc,Cnt) when R < 10, C < 10 ->
 	    [{{BR,BC},BVal,BBT,BST}|BAcc] = Acc,
 	    new_game(BR,BC,gb_sets:add(BVal,BBT),BST,BAcc,Cnt+1);
 	Size -> 
-	    Ind = random:uniform(Size),
+	    Ind = rand:uniform(Size),
 	    V = lists:nth(Ind,gb_sets:to_list(S)),
 	    new_game(R,C+1,gb_sets:empty(),
 		     add({R,C,M},V,St),		    
@@ -206,7 +206,7 @@ pick_shown(Given,Left,S0,Level,Gfx) ->
 	    io:format("Below level ~p ~p~n", [GivenSz,Level]),
             S0;
        true ->
-	    Ran = random:uniform(LeftSz),
+	    Ran = rand:uniform(LeftSz),
 	    V   = lists:nth(Ran,gb_sets:to_list(Left)),
 	    S1  = rebuild_all(rcm(V),S0#s{v=setelement(V,S0#s.v,0)}),
 	    case solve(S1, true) of

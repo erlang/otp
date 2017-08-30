@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2013</year>
+      <year>1999</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -41,7 +42,7 @@
       </item>
       <item>
         <p>Block ciphers - <url href="http://csrc.nist.gov/groups/ST/toolkit/block_ciphers.html"> </url> DES and AES in
-        Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB and CTR </url></p>
+        Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB, CTR and GCM </url></p>
       </item>
       <item>
         <p><url href="http://www.ietf.org/rfc/rfc1321.txt"> RSA encryption RFC 1321 </url> </p>
@@ -53,35 +54,41 @@
       <item>
         <p><url href="http://www.ietf.org/rfc/rfc2945.txt"> Secure Remote Password Protocol (SRP - RFC 2945) </url></p>
       </item>
+      <item>
+        <p>gcm: Dworkin, M., "Recommendation for Block Cipher Modes of
+        Operation: Galois/Counter Mode (GCM) and GMAC",
+        National Institute of Standards and Technology SP 800-
+        38D, November 2007.</p>
+      </item>
     </list>
   </description>
 
  <section>
     <title>DATA TYPES </title>
     
-    <p><code>key_value()  = integer() | binary() </code></p>
+    <code>key_value()  = integer() | binary() </code>
     <p>Always <c>binary()</c> when used as return value</p>
 
-    <p><code>rsa_public()  = [key_value()] = [E, N]  </code></p>
+    <code>rsa_public()  = [key_value()] = [E, N]  </code>
     <p> Where E is the public exponent and N is public modulus. </p>
 
-    <p><code>rsa_private() = [key_value()] = [E, N, D] | [E, N, D, P1, P2, E1, E2, C] </code></p>
+    <code>rsa_private() = [key_value()] = [E, N, D] | [E, N, D, P1, P2, E1, E2, C] </code>
     <p>Where E is the public exponent, N is public modulus and D is
     the private exponent.The longer key format contains redundant
     information that will make the calculation faster. P1,P2 are first
     and second prime factors. E1,E2 are first and second exponents. C
     is the CRT coefficient. Terminology is taken from <url href="http://www.ietf.org/rfc/rfc3477.txt"> RFC 3447</url>.</p>
 
-    <p><code>dss_public() = [key_value()] = [P, Q, G, Y] </code></p>
+    <code>dss_public() = [key_value()] = [P, Q, G, Y] </code>
     <p>Where P, Q and G are the dss parameters and Y is the public key.</p>
 
-    <p><code>dss_private() =  [key_value()] = [P, Q, G, X] </code></p>
+    <code>dss_private() =  [key_value()] = [P, Q, G, X] </code>
     <p>Where P, Q and G are the dss parameters and X is the private key.</p>
 
-    <p><code>srp_public() = key_value() </code></p>
+    <code>srp_public() = key_value() </code>
     <p>Where is <c>A</c> or <c>B</c> from <url href="http://srp.stanford.edu/design.html">SRP design</url></p>
 
-    <p><code>srp_private() = key_value() </code></p>
+    <code>srp_private() = key_value() </code>
     <p>Where is  <c>a</c> or <c>b</c> from <url href="http://srp.stanford.edu/design.html">SRP design</url></p>
 
     <p>Where Verifier is <c>v</c>, Generator is <c>g</c> and Prime is<c> N</c>, DerivedKey is <c>X</c>, and Scrambler is
@@ -89,94 +96,154 @@
     Version = '3' |  '6' |  '6a'
     </p>
 
-    <p><code>dh_public() = key_value() </code></p>
+    <code>dh_public() = key_value() </code>
 
-    <p><code>dh_private() = key_value() </code></p>
+    <code>dh_private() = key_value() </code>
 
-    <p><code>dh_params() = [key_value()] = [P, G] </code></p>
+    <code>dh_params() = [key_value()] = [P, G] </code>
 
-    <p><code>ecdh_public() = key_value() </code></p>
+    <code>ecdh_public() = key_value() </code>
 
-    <p><code>ecdh_private() = key_value() </code></p>
+    <code>ecdh_private() = key_value() </code>
 
-    <p><code>ecdh_params() =  ec_named_curve() |
-    {ec_field(), Prime :: key_value(), Point :: key_value(), Order :: integer(), CoFactor :: none | integer()} </code></p>
+    <code>ecdh_params() =  ec_named_curve() | ec_explicit_curve()</code>
 
-    <p><code>ec_field() = {prime_field, Prime :: integer()} |
-    {characteristic_two_field, M :: integer(), Basis :: ec_basis()}</code></p>
+    <code>ec_explicit_curve() =
+    {ec_field(), Prime :: key_value(), Point :: key_value(), Order :: integer(), CoFactor :: none | integer()} </code>
 
-    <p><code>ec_basis() =  {tpbasis, K :: non_neg_integer()} |
+    <code>ec_field() = {prime_field, Prime :: integer()} |
+    {characteristic_two_field, M :: integer(), Basis :: ec_basis()}</code>
+
+    <code>ec_basis() =  {tpbasis, K :: non_neg_integer()} |
     {ppbasis, K1 :: non_neg_integer(), K2 :: non_neg_integer(), K3 :: non_neg_integer()} |
-    onbasis</code></p>
+    onbasis</code>
 
-    <p><code>ec_named_curve() ->
+    <code>ec_named_curve() ->
       sect571r1| sect571k1| sect409r1| sect409k1| secp521r1| secp384r1| secp224r1| secp224k1|
       secp192k1| secp160r2| secp128r2| secp128r1| sect233r1| sect233k1| sect193r2| sect193r1|
       sect131r2| sect131r1| sect283r1| sect283k1| sect163r2| secp256k1| secp160k1| secp160r1|
       secp112r2| secp112r1| sect113r2| sect113r1| sect239k1| sect163r1| sect163k1| secp256r1|
-      secp192r1 </code></p>
+      secp192r1|
+      brainpoolP160r1| brainpoolP160t1| brainpoolP192r1| brainpoolP192t1| brainpoolP224r1|
+      brainpoolP224t1| brainpoolP256r1| brainpoolP256t1| brainpoolP320r1| brainpoolP320t1|
+      brainpoolP384r1| brainpoolP384t1| brainpoolP512r1| brainpoolP512t1
+    </code>
+    <p>Note that the <em>sect</em> curves are GF2m (characteristic two) curves and are only supported if the
+    underlying OpenSSL has support for them.
+    See also <seealso marker="#supports-0">crypto:supports/0</seealso>
+    </p>
 
-     <p><code>stream_cipher() = rc4 | aes_ctr </code></p>
+     <code>stream_cipher() = rc4 | aes_ctr </code>
 
-     <p><code>block_cipher() =  aes_cbc128 | aes_cfb128 | blowfish_cbc |
-     blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf
-     | des_ede3 | rc2_cbc </code></p>
+     <code>block_cipher() =  aes_cbc | aes_cfb8 | aes_cfb128 | aes_ige256 | blowfish_cbc |
+     blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | rc2_cbc </code>
 
-     <p><code>stream_key() =  aes_key() | rc4_key() </code></p>
+     <code>aead_cipher() =  aes_gcm | chacha20_poly1305 </code>
 
-     <p><code>block_key() =  aes_key() |  blowfish_key() | des_key()| des3_key() </code></p>
+     <code>stream_key() =  aes_key() | rc4_key() </code>
 
-     <p><code>aes_key() = iodata() </code> Key length is 128, 192 or 256 bits</p>
+     <code>block_key() =  aes_key() |  blowfish_key() | des_key()| des3_key() </code>
 
-     <p><code>rc4_key() = iodata() </code> Variable key length from 8 bits up to 2048 bits (usually between 40 and 256)</p>
+     <code>aes_key() = iodata() </code> <p>Key length is 128, 192 or 256 bits</p>
 
-     <p><code>blowfish_key() = iodata() </code> Variable key length from 32 bits up to 448 bits</p>
+     <code>rc4_key() = iodata() </code> <p>Variable key length from 8 bits up to 2048 bits (usually between 40 and 256)</p>
 
-     <p><code>des_key() = iodata() </code> Key length is 64 bits (in CBC mode only 8 bits are used)</p>
+     <code>blowfish_key() = iodata() </code> <p>Variable key length from 32 bits up to 448 bits</p>
 
-     <p><code>des3_key() = [binary(), binary(), binary()] </code> Each key part is 64 bits (in CBC mode only 8 bits are used)</p>
+     <code>des_key() = iodata() </code> <p>Key length is 64 bits (in CBC mode only 8 bits are used)</p>
 
-     <p><code>digest_type() =  md5 | sha | sha224 | sha256 | sha384 | sha512</code></p>
+     <code>des3_key() = [binary(), binary(), binary()] </code> <p>Each key part is 64 bits (in CBC mode only 8 bits are used)</p>
 
-     <p><code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> md4 is also supported for hash_init/1 and hash/2.
+     <code>digest_type() =  md5 | sha | sha224 | sha256 | sha384 | sha512</code>
+
+     <code> hash_algorithms() =  md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512 </code> <p>md4 is also supported for hash_init/1 and hash/2.
      Note that both md4 and md5 are recommended only for compatibility with existing applications.
      </p>
-     <p><code> cipher_algorithms() = des_cbc | des_cfb |  des3_cbc | des3_cbf | des_ede3 |
-     blowfish_cbc | blowfish_cfb64 | aes_cbc128 | aes_cfb128| aes_cbc256 | rc2_cbc | aes_ctr| rc4  </code> </p>
-     <p><code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh </code> </p>
-     
+     <code> cipher_algorithms() = aes_cbc | aes_cfb8 | aes_cfb128 | aes_ctr | aes_gcm |
+     aes_ige256 | blowfish_cbc | blowfish_cfb64 | chacha20_poly1305 | des_cbc | des_cfb |
+     des3_cbc | des3_cbf | des_ede3 | rc2_cbc | rc4 </code>
+     <code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
+     <p>Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
+     with ecdsa and ecdh.
+     </p>
+
  </section>
 
   <funcs>
-      <func>
-      <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
-      <fsummary>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher</fsummary>
+    <func>
+      <name>block_encrypt(Type, Key, PlainText) -> CipherText</name>
+      <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
-	<v>Type = block_cipher() </v>
-	<v>Key = block_key() </v>
+  <v>Type = des_ecb | blowfish_ecb | aes_ecb </v>
+  <v>Key = block_key() </v>
         <v>PlainText = iodata() </v>
-        <v>IVec = CipherText = binary()</v>
       </type>
       <desc>
-        <p>Encrypt <c>PlainText</c>according to <c>Type</c> block cipher.
-	<c>IVec</c> is an arbitrary initializing vector.
-         </p>
+        <p>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher.</p>
+  <p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+  is not supported by the underlying OpenSSL implementation.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>block_decrypt(Type, Key, CipherText) -> PlainText</name>
+      <fsummary>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher</fsummary>
+      <type>
+  <v>Type = des_ecb | blowfish_ecb | aes_ecb </v>
+  <v>Key = block_key() </v>
+        <v>PlainText = iodata() </v>
+      </type>
+      <desc>
+        <p>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher.</p>
+  <p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+  is not supported by the underlying OpenSSL implementation.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>block_encrypt(Type, Key, Ivec, PlainText) -> CipherText</name>
+      <name>block_encrypt(AeadType, Key, Ivec, {AAD, PlainText}) -> {CipherText, CipherTag}</name>
+      <name>block_encrypt(aes_gcm, Key, Ivec, {AAD, PlainText, TagLength}) -> {CipherText, CipherTag}</name>
+      <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>
+      <type>
+	<v>Type = block_cipher() </v>
+	<v>AeadType = aead_cipher() </v>
+	<v>Key = block_key() </v>
+        <v>PlainText = iodata() </v>
+        <v>AAD = IVec = CipherText = CipherTag = binary()</v>
+        <v>TagLength = 1..16</v>
+      </type>
+      <desc>
+        <p>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher.
+	<c>IVec</c> is an arbitrary initializing vector.</p>
+	<p>In AEAD (Authenticated Encryption with Associated Data) mode, encrypt
+	<c>PlainText</c>according to <c>Type</c> block cipher and calculate
+	<c>CipherTag</c> that also authenticates the <c>AAD</c> (Associated Authenticated Data).</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
 
     <func>
       <name>block_decrypt(Type, Key, Ivec, CipherText) -> PlainText</name>
-      <fsummary>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher</fsummary>
+      <name>block_decrypt(AeadType, Key, Ivec, {AAD, CipherText, CipherTag}) -> PlainText | error</name>
+      <fsummary>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher</fsummary>
       <type>
 	<v>Type = block_cipher() </v>
+	<v>AeadType = aead_cipher() </v>
 	<v>Key = block_key() </v>
         <v>PlainText = iodata() </v>
-        <v>IVec = CipherText = binary()</v>
+        <v>AAD = IVec = CipherText = CipherTag = binary()</v>
       </type>
       <desc>
-        <p>Decrypt <c>CipherText</c>according to <c>Type</c> block cipher.
-	<c>IVec</c> is an arbitrary initializing vector.
-         </p>
+        <p>Decrypt <c>CipherText</c> according to <c>Type</c> block cipher.
+	<c>IVec</c> is an arbitrary initializing vector.</p>
+        <p>In AEAD (Authenticated Encryption with Associated Data) mode, decrypt
+	<c>CipherText</c>according to <c>Type</c> block cipher and check the authenticity
+	the <c>PlainText</c> and <c>AAD</c> (Associated Authenticated Data) using the
+	<c>CipherTag</c>. May return <c>error</c> if the decryption or validation fail's</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
     
@@ -235,12 +302,14 @@
 	<v>SrpUserParams = {user, [Generator::binary(), Prime::binary(), Version::atom()]}</v>
 	<v>SrpHostParams = {host, [Verifier::binary(), Generator::binary(), Prime::binary(), Version::atom()]}</v>
 	<v>PublicKey =  dh_public() | ecdh_public() | srp_public() </v>
-	<v>PrivKeyIn = undefined | dh_private() | srp_private() </v>
+	<v>PrivKeyIn = undefined | dh_private() | ecdh_private() | srp_private() </v>
 	<v>PrivKeyOut =  dh_private() | ecdh_private() | srp_private() </v>
       </type>
       <desc>
 	<p>Generates public keys of type <c>Type</c>.
 	See also <seealso marker="public_key:public_key#generate_key-1">public_key:generate_key/1</seealso>
+	May throw exception <c>low_entropy</c> in case the random generator
+	failed due to lack of secure "randomness".
 	</p>
       </desc>
     </func>
@@ -316,8 +385,8 @@
       </type>
       <desc>
         <p>Computes a HMAC of type <c>Type</c> from <c>Data</c> using
-        <c>Key</c> as the authentication key.</p> <c>MacLength</c>
-        will limit the size of the resultant <c>Mac</c>.
+        <c>Key</c> as the authentication key.</p> <p><c>MacLength</c>
+        will limit the size of the resultant <c>Mac</c>.</p>
       </desc>
     </func>
 
@@ -351,7 +420,11 @@
 	or to one of the functions <seealso marker="#hmac_final-1">hmac_final</seealso> and
 	<seealso marker="#hmac_final_n-2">hmac_final_n</seealso>
 	</p>
-
+	<warning><p>Do not use a <c>Context</c> as argument in more than one
+	call to	hmac_update or hmac_final. The semantics of reusing old contexts
+	in any way is undefined and could even crash the VM in earlier releases.
+	The reason for this limitation is a lack of support in the underlying
+	OpenSSL	API.</p></warning>
       </desc>
     </func>
 
@@ -437,17 +510,17 @@
     </func>
 
     <func>
-      <name>private_decrypt(Type, ChipherText, PrivateKey, Padding) -> PlainText</name>
-      <fsummary>Decrypts ChipherText using the private Key.</fsummary>
+      <name>private_decrypt(Type, CipherText, PrivateKey, Padding) -> PlainText</name>
+      <fsummary>Decrypts CipherText using the private Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
-	<v>ChipherText = binary()</v>
+	<v>CipherText = binary()</v>
 	<v>PrivateKey = rsa_private()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
         <v>PlainText = binary()</v>
       </type>
       <desc>
-	<p>Decrypts the <c>ChipherText</c>, encrypted with
+	<p>Decrypts the <c>CipherText</c>, encrypted with
 	<seealso marker="#public_encrypt-4">public_encrypt/4</seealso> (or equivalent function)
 	  using the <c>PrivateKey</c>, and returns the
 	  plaintext (message digest). This is a low level signature  verification operation
@@ -458,7 +531,7 @@
     </func>
     
     <func>
-      <name>private_encrypt(Type, PlainText, PrivateKey, Padding) -> ChipherText</name>
+      <name>private_encrypt(Type, PlainText, PrivateKey, Padding) -> CipherText</name>
       <fsummary>Encrypts PlainText using the private Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
@@ -469,7 +542,7 @@
 	used, where N is public modulus of the RSA key.</d>
 	<v>PrivateKey = rsa_private()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
-        <v>ChipherText = binary()</v>
+        <v>CipherText = binary()</v>
       </type>
       <desc>
 	<p>Encrypts the <c>PlainText</c> using the <c>PrivateKey</c>
@@ -481,17 +554,17 @@
       </desc>
     </func>
     <func>
-      <name>public_decrypt(Type, ChipherText, PublicKey, Padding) -> PlainText</name>
-      <fsummary>Decrypts ChipherText using the public Key.</fsummary>
+      <name>public_decrypt(Type, CipherText, PublicKey, Padding) -> PlainText</name>
+      <fsummary>Decrypts CipherText using the public Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
-	<v>ChipherText = binary()</v>
+	<v>CipherText = binary()</v>
 	<v>PublicKey =  rsa_public() </v>
 	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
         <v>PlainText = binary()</v>
       </type>
       <desc>
-	<p>Decrypts the <c>ChipherText</c>, encrypted with
+	<p>Decrypts the <c>CipherText</c>, encrypted with
 	<seealso marker="#private_encrypt-4">private_encrypt/4</seealso>(or equivalent function)
 	  using the <c>PrivateKey</c>, and returns the
 	  plaintext (message digest). This is a low level signature verification operation
@@ -502,7 +575,7 @@
     </func>
 
     <func>
-      <name>public_encrypt(Type, PlainText, PublicKey, Padding) -> ChipherText</name>
+      <name>public_encrypt(Type, PlainText, PublicKey, Padding) -> CipherText</name>
       <fsummary>Encrypts PlainText using the public Key.</fsummary>
       <type>
 	<v>Type = rsa</v>
@@ -513,7 +586,7 @@
 	used, where N is public modulus of the RSA key.</d>
 	<v>PublicKey = rsa_public()</v>
 	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
-        <v>ChipherText = binary()</v>
+        <v>CipherText = binary()</v>
       </type>
       <desc>
 	<p>Encrypts the <c>PlainText</c> (message digest) using the <c>PublicKey</c>
@@ -525,15 +598,17 @@
     </func>
 
     <func>
-      <name>rand_bytes(N) -> binary()</name>
-      <fsummary>Generate a binary of random bytes</fsummary>
+      <name>rand_seed(Seed) -> ok</name>
+      <fsummary>Set the seed for random bytes generation</fsummary>
       <type>
-        <v>N = integer()</v>
+        <v>Seed = binary()</v>
       </type>
       <desc>
-        <p>Generates N bytes randomly uniform 0..255, and returns the
-          result in a binary. Uses the <c>crypto</c> library pseudo-random
-          number generator.</p>
+        <p>Set the seed for PRNG to the given binary. This calls the
+	RAND_seed function from openssl. Only use this if the system
+	you are running on does not have enough "randomness" built in.
+	Normally this is when <seealso marker="#strong_rand_bytes/1">
+	strong_rand_bytes/1</seealso> returns <c>low_entropy</c></p>
       </desc>
     </func>
 
@@ -566,7 +641,7 @@
 	<p>Creates a digital signature.</p>
 	<p>Algorithm <c>dss</c> can only be used together with digest type
 	<c>sha</c>.</p>
-	See also <seealso marker="public_key:public_key#sign-3">public_key:sign/3</seealso>
+	<p>See also <seealso marker="public_key:public_key#sign-3">public_key:sign/3</seealso>.</p>
       </desc>
     </func>
 
@@ -626,7 +701,7 @@
       </type>
       <desc>
         <p>Initializes the state for use in streaming AES encryption using Counter mode (CTR).
-        <c>Key</c> is the AES key and must be either 128, 192, or 256 bts long. <c>IVec</c> is
+        <c>Key</c> is the AES key and must be either 128, 192, or 256 bits long. <c>IVec</c> is
         an arbitrary initializing vector of 128 bits (16 bytes). This state is for use with
         <seealso marker="#stream_encrypt-2">stream_encrypt</seealso> and
         <seealso marker="#stream_decrypt-2">stream_decrypt</seealso>.</p>
@@ -659,7 +734,7 @@
 	<p>Decrypts <c>CipherText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
 	<c>PlainText</c> can be any number of bytes. The initial <c>State</c> is created using
         <seealso marker="#stream_init-2">stream_init</seealso>.
-	<c>NewState</c> must be passed into the next call to <c>stream_encrypt</c>.</p>
+	<c>NewState</c> must be passed into the next call to <c>stream_decrypt</c>.</p>
       </desc>
     </func>
 
@@ -678,7 +753,29 @@
       </desc>
     </func>
 
-    
+    <func>
+      <name>ec_curves() -> EllipticCurveList </name>
+      <fsummary>Provide a list of available named elliptic curves.</fsummary>
+      <type>
+      <v>EllipticCurveList = [ec_named_curve()]</v>
+      </type>
+      <desc>
+        <p>Can be used to determine which named elliptic curves are supported.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>ec_curve(NamedCurve) -> EllipticCurve </name>
+      <fsummary>Get the defining parameters of a elliptic curve.</fsummary>
+      <type>
+      <v>NamedCurve = ec_named_curve()</v>
+      <v>EllipticCurve = ec_explicit_curve()</v>
+      </type>
+      <desc>
+        <p>Return the defining parameters of a elliptic curve.</p>
+      </desc>
+    </func>
+
   <func>
       <name>verify(Algorithm, DigestType, Msg, Signature, Key) -> boolean()</name>
       <fsummary>Verifies a digital signature.</fsummary>
@@ -696,7 +793,7 @@
 	<p>Algorithm <c>dss</c> can only be used together with digest type
 	<c>sha</c>.</p>
 
-	See also <seealso marker="public_key:public_key#verify-4">public_key:verify/4</seealso>
+	<p>See also <seealso marker="public_key:public_key#verify-4">public_key:verify/4</seealso>.</p>
       </desc>
     </func>
 

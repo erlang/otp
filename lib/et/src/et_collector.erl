@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -26,8 +27,7 @@
 -behaviour(gen_server).
 
 %% External exports
--export([
-         start_link/1, 
+-export([start_link/1, 
          stop/1,
 
          report/2, 
@@ -54,8 +54,7 @@
          dict_delete/2, 
          dict_lookup/2, 
          dict_match/2,
-         multicast/2
-        ]).
+         multicast/2]).
 
 %% Internal export
 -export([monitor_trace_port/2]).
@@ -63,6 +62,8 @@
 %% gen_server callbacks
 -export([init/1,terminate/2, code_change/3,
          handle_call/3, handle_cast/2, handle_info/2]).
+
+-compile([{nowarn_deprecated_function,[{erlang,now,0}]}]).
 
 -include("et_internal.hrl").
 -include("../include/et.hrl").
@@ -255,7 +256,7 @@ parse_opt(BadList, _S, _Dict, _Clients) ->
     {error, {bad_option_list, BadList}}.
 
 start_clients(CollectorPid, [{Type, Parameters} | T]) ->
-    start_trace_client(CollectorPid, Type, Parameters),
+    _ = start_trace_client(CollectorPid, Type, Parameters),
     start_clients(CollectorPid, T);
 start_clients(CollectorPid, []) ->
     {ok, CollectorPid}.
@@ -409,8 +410,6 @@ report(TH, TraceOrEvent) when is_record(TH, table_handle) ->
                     report(TH#table_handle.collector_pid, TraceOrEvent)
             end
     end;
-report(TH, end_of_trace) when is_record(TH, table_handle) ->
-    {ok, TH};
 report(_, Bad) ->
     exit({bad_event, Bad}).
 
@@ -891,7 +890,7 @@ init([InitialS, Dict]) ->
     process_flag(trap_exit, true),
     case InitialS#state.parent_pid of
 	undefined ->
-	    ignore;
+	    ok;
 	Pid when is_pid(Pid) ->
 	    link(Pid)
     end,
@@ -913,7 +912,7 @@ init_global(S) ->
             Spec = trace_spec_wrapper(EventFun, EndFun, {ok, self()}),
             dbg:tracer(process, Spec),
             et_selector:change_pattern(S#state.trace_pattern),
-            net_kernel:monitor_nodes(true),
+            ok = net_kernel:monitor_nodes(true),
             lists:foreach(fun(N) -> self() ! {nodeup, N} end, nodes()),
             S#state{trace_nodes = [node()]};
         false ->
@@ -1000,7 +999,7 @@ handle_call({save_event_file, FileName, Options}, _From, S) ->
                             %% insert() ->
                             %%   case S2#state.file of    
                             %%       undefined ->
-                            %%           ignore;
+                            %%           ok;
                             %%       F  ->
                             %%           Fd = F#file.desc,
                             %%           ok = disk_log:log(Fd, Event)
@@ -1009,7 +1008,7 @@ handle_call({save_event_file, FileName, Options}, _From, S) ->
                                 Fun = fun({_, E}, A) -> ok = disk_log:log(Fd, E), A end,
                                 Tab = S#state.event_tab,
                                 Reply = tab_iterate(Fun, Tab, ets:first(Tab), ok),
-                                disk_log:close(Fd),
+                                ok = disk_log:close(Fd),
                                 {Reply, S}
                             %% all ->
                             %%     Reply = tab_iterate(WriteFun, Tab, ok),
@@ -1032,7 +1031,7 @@ handle_call({save_event_file, FileName, Options}, _From, S) ->
 
 handle_call({change_pattern, Pattern}, _From, S) ->
     Ns = S#state.trace_nodes,
-    rpc:multicall(Ns, et_selector, change_pattern, [Pattern]),
+    {_,[]} = rpc:multicall(Ns, et_selector, change_pattern, [Pattern]),
     Reply = {old_pattern, S#state.trace_pattern},
     S2 = S#state{trace_pattern = Pattern},
     reply(Reply, S2);
@@ -1044,8 +1043,9 @@ handle_call(clear_table, _From, S) ->
 handle_call(stop, _From, S) ->
     do_multicast(S#state.subscribers, close),
     case S#state.trace_global of
-        true  -> rpc:multicall(S#state.trace_nodes, dbg, stop_clear, []);
-        false -> ignore
+        true  -> {_,[]} = rpc:multicall(S#state.trace_nodes, dbg, stop_clear, []),
+                 ok;
+        false -> ok
     end,
     {stop, shutdown, ok, S};
 handle_call(Request, From, S) ->
@@ -1238,8 +1238,8 @@ tab_iterate(Fun, Tab, Key, Acc) ->
 file_open(F) ->
     Fd = make_ref(),
     case F#file.file_opt of
-        write  -> file:rename(F#file.name, F#file.name ++ ".OLD");
-        append -> ignore
+        write  -> ok = file:rename(F#file.name, F#file.name ++ ".OLD");
+        append -> ok
     end,
     Args = [{file, F#file.name}, {name, Fd},
             {repair, true}, {mode, read_write}],
@@ -1277,7 +1277,7 @@ do_multicast([], _Msg) ->
 opt_unlink(Pid) ->
     if
 	Pid =:= undefined ->
-	    ignore;
+	    ok;
 	true ->
 	    unlink(Pid)
     end.

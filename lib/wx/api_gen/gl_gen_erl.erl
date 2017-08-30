@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -91,7 +92,6 @@ types() ->
 
 gl_api(Fs) ->
     open_write("../src/gen/gl.erl", [{encoding,utf8}]),
-    w("%% -*- coding: utf-8 -*-~n~n", []),
     erl_copyright(),
     w("~n%% OPENGL API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
@@ -150,7 +150,6 @@ gl_api(Fs) ->
 
 glu_api(Fs) ->
     open_write("../src/gen/glu.erl", [{encoding,utf8}]),
-    w("%% -*- coding: utf-8 -*-~n~n", []),
     erl_copyright(),
     w("~n%% OPENGL UTILITY API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
@@ -227,10 +226,14 @@ gen_types(Where) ->
 	    w("-type clamp() :: float().    %% 0.0..1.0~n", []),
 	    w("-type offset() :: non_neg_integer(). %% Offset in memory block~n", [])
     end,
-    w("-type matrix() :: {float(),float(),float(),float(),~n", []),
+    w("-type matrix12() :: {float(),float(),float(),float(),~n", []),
+    w("                   float(),float(),float(),float(),~n", []),
+    w("                   float(),float(),float(),float()}.~n", []),
+    w("-type matrix16() :: {float(),float(),float(),float(),~n", []),
     w("                   float(),float(),float(),float(),~n", []),
     w("                   float(),float(),float(),float(),~n", []),
     w("                   float(),float(),float(),float()}.~n", []),
+    w("-type matrix() :: matrix12() | matrix16().~n", []),
     w("-type mem() :: binary() | tuple().   %% Memory block~n", []),
     ok.
 
@@ -460,7 +463,7 @@ doc_return_types(T, Ps0) ->
     Ps = [P || P=#arg{in=In, where=Where} <- Ps0,In =/= true, Where =/= c],
     doc_return_types2(T, Ps).
 
-doc_return_types2(void, []) ->    "ok";
+doc_return_types2(void, []) ->    "'ok'";
 doc_return_types2(void, [#arg{type=T}]) ->  doc_arg_type2(T);
 doc_return_types2(T, []) ->              doc_arg_type2(T);
 doc_return_types2(void, Ps) ->
@@ -481,10 +484,12 @@ doc_arg_type2(T=#type{single=true}) ->
     doc_arg_type3(T);
 doc_arg_type2(T=#type{single=undefined}) ->
     doc_arg_type3(T);
-doc_arg_type2(T=#type{single={tuple,undefined}}) ->
-    "{" ++ doc_arg_type3(T) ++ "}";
+doc_arg_type2(_T=#type{single={tuple,undefined}}) ->
+    "tuple()";
 doc_arg_type2(#type{base=float, single={tuple,16}}) ->
     "matrix()";
+doc_arg_type2(#type{base=string, single=list}) ->
+    "iolist()";
 doc_arg_type2(T=#type{single={tuple,Sz}}) ->
     "{" ++ args(fun doc_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}";
 doc_arg_type2(T=#type{single=list}) ->

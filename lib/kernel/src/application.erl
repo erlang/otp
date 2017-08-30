@@ -1,24 +1,26 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
 -module(application).
 
--export([start/1, start/2, start_boot/1, start_boot/2, stop/1, 
+-export([ensure_all_started/1, ensure_all_started/2, start/1, start/2,
+	 start_boot/1, start_boot/2, stop/1, 
 	 load/1, load/2, unload/1, takeover/2,
 	 which_applications/0, which_applications/1,
 	 loaded_applications/0, permit/2]).
@@ -28,6 +30,8 @@
 -export([get_key/1, get_key/2, get_all_key/0, get_all_key/1]).
 -export([get_application/0, get_application/1, info/0]).
 -export([start_type/0]).
+
+-export_type([start_type/0]).
 
 %%%-----------------------------------------------------------------
 
@@ -57,8 +61,7 @@
 
 %%------------------------------------------------------------------
 
--callback start(StartType :: normal | {takeover, node()} | {failover, node()},
-		StartArgs :: term()) ->
+-callback start(StartType :: start_type(), StartArgs :: term()) ->
     {'ok', pid()} | {'ok', pid(), State :: term()} | {'error', Reason :: term()}.
 
 -callback stop(State :: term()) ->
@@ -112,6 +115,46 @@ load1(Application, DistNodes) ->
 
 unload(Application) ->
     application_controller:unload_application(Application).
+
+
+-spec ensure_all_started(Application) -> {'ok', Started} | {'error', Reason} when
+      Application :: atom(),
+      Started :: [atom()],
+      Reason :: term().
+ensure_all_started(Application) ->
+    ensure_all_started(Application, temporary).
+
+-spec ensure_all_started(Application, Type) -> {'ok', Started} | {'error', Reason} when
+      Application :: atom(),
+      Type :: restart_type(),
+      Started :: [atom()],
+      Reason :: term().
+ensure_all_started(Application, Type) ->
+    case ensure_all_started(Application, Type, []) of
+	{ok, Started} ->
+	    {ok, lists:reverse(Started)};
+	{error, Reason, Started} ->
+	    _ = [stop(App) || App <- Started],
+	    {error, Reason}
+    end.
+
+ensure_all_started(Application, Type, Started) ->
+    case start(Application, Type) of
+	ok ->
+	    {ok, [Application | Started]};
+	{error, {already_started, Application}} ->
+	    {ok, Started};
+	{error, {not_started, Dependency}} ->
+	    case ensure_all_started(Dependency, Type, Started) of
+		{ok, NewStarted} ->
+		    ensure_all_started(Application, Type, NewStarted);
+		Error ->
+		    Error
+	    end;
+	{error, Reason} ->
+	    {error, {Application, Reason}, Started}
+    end.
+
 
 -spec start(Application) -> 'ok' | {'error', Reason} when
       Application :: atom(),
@@ -244,16 +287,18 @@ info() ->
 set_env(Application, Key, Val) -> 
     application_controller:set_env(Application, Key, Val).
 
--spec set_env(Application, Par, Val, Timeout) -> 'ok' when
+-spec set_env(Application, Par, Val, Opts) -> 'ok' when
       Application :: atom(),
       Par :: atom(),
       Val :: term(),
-      Timeout :: timeout().
+      Opts :: [{timeout, timeout()} | {persistent, boolean()}].
 
 set_env(Application, Key, Val, infinity) ->
-    application_controller:set_env(Application, Key, Val, infinity);
+    set_env(Application, Key, Val, [{timeout, infinity}]);
 set_env(Application, Key, Val, Timeout) when is_integer(Timeout), Timeout>=0 ->
-    application_controller:set_env(Application, Key, Val, Timeout).
+    set_env(Application, Key, Val, [{timeout, Timeout}]);
+set_env(Application, Key, Val, Opts) when is_list(Opts) ->
+    application_controller:set_env(Application, Key, Val, Opts).
 
 -spec unset_env(Application, Par) -> 'ok' when
       Application :: atom(),
@@ -262,15 +307,17 @@ set_env(Application, Key, Val, Timeout) when is_integer(Timeout), Timeout>=0 ->
 unset_env(Application, Key) -> 
     application_controller:unset_env(Application, Key).
 
--spec unset_env(Application, Par, Timeout) -> 'ok' when
+-spec unset_env(Application, Par, Opts) -> 'ok' when
       Application :: atom(),
       Par :: atom(),
-      Timeout :: timeout().
+      Opts :: [{timeout, timeout()} | {persistent, boolean()}].
 
 unset_env(Application, Key, infinity) ->
-    application_controller:unset_env(Application, Key, infinity);
+    unset_env(Application, Key, [{timeout, infinity}]);
 unset_env(Application, Key, Timeout) when is_integer(Timeout), Timeout>=0 ->
-    application_controller:unset_env(Application, Key, Timeout).
+    unset_env(Application, Key, [{timeout, Timeout}]);
+unset_env(Application, Key, Opts) when is_list(Opts) ->
+    application_controller:unset_env(Application, Key, Opts).
 
 -spec get_env(Par) -> 'undefined' | {'ok', Val} when
       Par :: atom(),

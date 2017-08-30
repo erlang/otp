@@ -1,0 +1,6 @@
+
+NIF_LIBS = dirty_nif_SUITE@dll@
+
+all: $(NIF_LIBS)
+
+@SHLIB_RULES@

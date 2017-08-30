@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -78,7 +79,7 @@ run_tests(char* argv0, TestCase test_cases[], unsigned number)
     }
 }
 
-
+
 /***********************************************************************
  *
  * R e a d i n g   p a c k e t s
@@ -188,7 +189,7 @@ char *read_packet(int *len)
   return io_buf;
 }
 
-
+
 /***********************************************************************
  * S e n d i n g   r e p l i e s
  *
@@ -199,8 +200,8 @@ char *read_packet(int *len)
  * -----		----------------------------
  * [$b|Bytes]		{bytes, Bytes}
  * [$e]			eot
- * [$f]			test_server:fail()
- * [$f|Reason]		test_server:fail(Reason)
+ * [$f]			ct:fail()
+ * [$f|Reason]		ct:fail(Reason)
  * [$t|EncodedTerm]	{term, Term}
  * [$N]			'NULL'
  * [$m|Message]		io:format("~s", [Message])   (otherwise ignored)
@@ -212,7 +213,7 @@ char *read_packet(int *len)
  * you implement a test case entirely in C code.
  *
  * If the ok argument is zero, a [$f] reply will be sent to the
- * Erlang side (causing test_server:fail() to be called); otherwise,
+ * Erlang side (causing ct:fail() to be called); otherwise,
  * the atom 'eot' will be sent to Erlang.
  *
  * If you need to provide more details on a failure, use the fail() function.
@@ -252,7 +253,7 @@ do_report(file, line, ok)
 
 
 /*
- * This function causes a call to test_server:fail(Reason) on the
+ * This function causes a call to ct:fail(Reason) on the
  * Erlang side.
  */
 

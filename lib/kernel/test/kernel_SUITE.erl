@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -20,24 +21,20 @@
 %%% Kernel application test suite.
 %%%-----------------------------------------------------------------
 -module(kernel_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
-
-% Test server specific exports
+%% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
-% Test cases must be exported.
+%% Test cases must be exported.
 -export([app_test/1, appup_test/1]).
 
-%%
-%% all/1
-%%
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,2}}].
 
 all() -> 
     [app_test, appup_test].
@@ -59,75 +56,105 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
+    Config.
+end_per_testcase(_Case, _Config) ->
     ok.
 
-%
-% Test cases starts here.
-%
-app_test(doc) ->
-    ["Tests the applications consistency."];
-app_test(suite) ->
-    [];
+%%
+%% Test cases starts here.
+%%
+%% Tests the applications consistency.
 app_test(Config) when is_list(Config) ->
-    ?line ok=?t:app_test(kernel),
+    ok=test_server:app_test(kernel),
     ok.
 
 
-%% Test that appup allows upgrade from/downgrade to a maximum of two
-%% major releases back.
+%% Test that appup allows upgrade from/downgrade to a maximum of one
+%% major release back.
 appup_test(_Config) ->
-    application:load(kernel),
-    {_,_,Vsn} = lists:keyfind(kernel,1,application:loaded_applications()),
-    AppupFile = filename:join([code:lib_dir(kernel),ebin,"kernel.appup"]),
+    appup_tests(kernel,create_test_vsns(kernel)).
+
+appup_tests(_App,{[],[]}) ->
+    {skip,"no previous releases available"};
+appup_tests(App,{OkVsns0,NokVsns}) ->
+    application:load(App),
+    {_,_,Vsn} = lists:keyfind(App,1,application:loaded_applications()),
+    AppupFileName = atom_to_list(App) ++ ".appup",
+    AppupFile = filename:join([code:lib_dir(App),ebin,AppupFileName]),
     {ok,[{Vsn,UpFrom,DownTo}=AppupScript]} = file:consult(AppupFile),
     ct:log("~p~n",[AppupScript]),
-    {OkVsns,NokVsns} = create_test_vsns(Vsn),
+    OkVsns =
+	case OkVsns0 -- [Vsn] of
+	    OkVsns0 ->
+		OkVsns0;
+	    Ok ->
+		ct:log("Current version, ~p, is same as in previous release.~n"
+		       "Removing this from the list of ok versions.",
+		      [Vsn]),
+		Ok
+	end,
+    ct:log("Testing that appup allows upgrade from these versions: ~p~n",
+	   [OkVsns]),
     check_appup(OkVsns,UpFrom,{ok,[restart_new_emulator]}),
     check_appup(OkVsns,DownTo,{ok,[restart_new_emulator]}),
+    ct:log("Testing that appup does not allow upgrade from these versions: ~p~n",
+	   [NokVsns]),
     check_appup(NokVsns,UpFrom,error),
     check_appup(NokVsns,DownTo,error),
     ok.
 
-create_test_vsns(Current) ->
-    [XStr,YStr|Rest] = string:tokens(Current,"."),
-    X = list_to_integer(XStr),
-    Y = list_to_integer(YStr),
-    SecondMajor = vsn(X,Y-2),
-    SecondMinor = SecondMajor ++ ".1.3",
-    FirstMajor = vsn(X,Y-1),
-    FirstMinor = FirstMajor ++ ".57",
-    ThisMajor = vsn(X,Y),
-    This =
-	case Rest of
-	    [] ->
-		[];
-	    ["1"] ->
-		[ThisMajor];
-	    _ ->
-		ThisMinor = ThisMajor ++ ".1",
-		[ThisMajor,ThisMinor]
+create_test_vsns(App) ->
+    ThisMajor = erlang:system_info(otp_release),
+    FirstMajor = previous_major(ThisMajor),
+    SecondMajor = previous_major(FirstMajor),
+    Ok = app_vsn(App,[ThisMajor,FirstMajor]),
+    Nok0 = app_vsn(App,[SecondMajor]),
+    Nok = case Ok of
+	       [Ok1|_] ->
+		   [Ok1 ++ ",1" | Nok0]; % illegal
+	       _ ->
+		   Nok0
+	   end,
+    {Ok,Nok}.
+
+previous_major("17") ->
+    "r16b";
+previous_major("r16b") ->
+    "r15b";
+previous_major(Rel) ->
+    integer_to_list(list_to_integer(Rel)-1).
+
+app_vsn(App,[R|Rs]) ->
+    OldRel =
+	case test_server:is_release_available(R) of
+	    true ->
+		{release,R};
+	    false ->
+		case ct:get_config({otp_releases,list_to_atom(R)}) of
+		    undefined ->
+			false;
+		    Prog0 ->
+			case os:find_executable(Prog0) of
+			    false ->
+				false;
+			    Prog ->
+				{prog,Prog}
+			end
+		end
 	end,
-    OkVsns = This ++ [FirstMajor, FirstMinor, SecondMajor, SecondMinor],
-
-    ThirdMajor = vsn(X,Y-3),
-    ThirdMinor = ThirdMajor ++ ".10.12",
-    Illegal = ThisMajor ++ ",1",
-    Newer1Major = vsn(X,Y+1),
-    Newer1Minor = Newer1Major ++ ".1",
-    Newer2Major = ThisMajor ++ "1",
-    NokVsns = [ThirdMajor,ThirdMinor,
-	       Illegal,
-	       Newer1Major,Newer1Minor,
-	       Newer2Major],
-    {OkVsns,NokVsns}.
-
-vsn(X,Y) ->
-    integer_to_list(X) ++ "." ++ integer_to_list(Y).
+    case OldRel of
+	false ->
+	    app_vsn(App,Rs);
+	_ ->
+	    {ok,N} = test_server:start_node(prevrel,peer,[{erl,[OldRel]}]),
+	    _ = rpc:call(N,application,load,[App]),
+	    As = rpc:call(N,application,loaded_applications,[]),
+	    {_,_,V} = lists:keyfind(App,1,As),
+	    test_server:stop_node(N),
+	    [V|app_vsn(App,Rs)]
+    end;
+app_vsn(_App,[]) ->
+    [].
 
 check_appup([Vsn|Vsns],Instrs,Expected) ->
     case systools_relup:appup_search_for_version(Vsn, Instrs) of

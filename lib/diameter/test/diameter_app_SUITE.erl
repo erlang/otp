@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -50,7 +51,7 @@
                            diameter_exprecs,
                            diameter_make]).
 
--define(HELP_MODULES, [diameter_dbg,
+-define(INFO_MODULES, [diameter_dbg,
                        diameter_info]).
 
 %% ===========================================================================
@@ -99,13 +100,13 @@ vsn(Config) ->
 %% # modules/1
 %%
 %% Ensure that the app file modules and installed modules differ by
-%% compiler/help modules.
+%% compiler/info modules.
 %% ===========================================================================
 
 modules(Config) ->
     Mods = fetch(modules, fetch(app, Config)),
     Installed = code_mods(),
-    Help = lists:sort(?HELP_MODULES ++ ?COMPILER_MODULES),
+    Help = lists:sort(?INFO_MODULES ++ ?COMPILER_MODULES),
 
     {[], Help} = {Mods -- Installed, lists:sort(Installed -- Mods)}.
 
@@ -158,12 +159,15 @@ appvsn(Name) ->
 %% # xref/1
 %%
 %% Ensure that no function in our application calls an undefined function
-%% or one in an application we haven't specified as a dependency. (Almost.)
+%% or one in an application we haven't declared as a dependency. (Almost.)
 %% ===========================================================================
 
 xref(Config) ->
     App = fetch(app, Config),
-    Mods = fetch(modules, App),
+    Mods = fetch(modules, App),  %% modules listed in the app file
+
+    %% List of application names extracted from runtime_dependencies.
+    Deps = lists:map(fun unversion/1, fetch(runtime_dependencies, App)),
 
     {ok, XRef} = xref:start(make_name(xref_test_name)),
     ok = xref:set_default(XRef, [{verbose, false}, {warnings, false}]),
@@ -178,30 +182,88 @@ xref(Config) ->
                        [?APP, erts | fetch(applications, App)]),
 
     {ok, Undefs} = xref:analyze(XRef, undefined_function_calls),
-    {ok, Called} = xref:analyze(XRef, {module_call, ?COMPILER_MODULES}),
+    {ok, RTmods} = xref:analyze(XRef, {module_use, Mods}),
+    {ok, CTmods} = xref:analyze(XRef, {module_use, ?COMPILER_MODULES}),
+    {ok, RTdeps} = xref:analyze(XRef, {module_call, Mods}),
 
     xref:stop(XRef),
 
+    Rel = release(),  %% otp_release-ish
+
     %% Only care about calls from our own application.
-    [] = lists:filter(fun({{F,_,_},{T,_,_}}) ->
+    [] = lists:filter(fun({{F,_,_} = From, {_,_,_} = To}) ->
                               lists:member(F, Mods)
-                                  andalso {F,T} /= {diameter_tcp, ssl}
+                                  andalso not ignored(From, To, Rel)
                       end,
                       Undefs),
+
+    %% Ensure that only runtime or info modules call runtime modules.
+    %% It's not strictly necessary that diameter compiler modules not
+    %% depend on other diameter modules but it's a simple source of
+    %% build errors if not properly encoded in the makefile so guard
+    %% against it.
+    [] = (RTmods -- Mods) -- ?INFO_MODULES,
+
+    %% Ensure that runtime modules don't call compiler modules.
+    CTmods = CTmods -- Mods,
+
+    %% Ensure that runtime modules only call other runtime modules, or
+    %% applications declared as in runtime_dependencies in the app
+    %% file. Note that the declared application versions are ignored
+    %% since we only know what we can see now.
+    [] = lists:filter(fun(M) -> not lists:member(app(M), Deps) end,
+                      RTdeps -- Mods).
+
+ignored({FromMod,_,_}, {ToMod,_,_} = To, Rel)->
     %% diameter_tcp does call ssl despite the latter not being listed
     %% as a dependency in the app file since ssl is only required for
-    %% TLS security: it's up to a client who wants TLS it to start
-    %% ssl.
+    %% TLS security: it's up to a client who wants TLS to start ssl.
+    %% The OTP 18 time api is also called if it exists, so that the
+    %% same code can be run on older releases.
+    {FromMod, ToMod} == {diameter_tcp, ssl}
+        orelse (FromMod == diameter_lib
+                andalso Rel < 18
+                andalso lists:member(To, time_api())).
 
-    [] = lists:filter(fun is_bad_dependency/1, Called).
+%% New time api in OTP 18.
+time_api() ->
+    [{erlang, F, A} || {F,A} <- [{convert_time_unit,3},
+                                 {monotonic_time,0},
+                                 {monotonic_time,1},
+                                 {system_time,0},
+                                 {system_time,1},
+                                 {time_offset,0},
+                                 {time_offset,1},
+                                 {timestamp,0},
+                                 {unique_integer,0},
+                                 {unique_integer,1}]]
+        ++ [{os, system_time, 0},
+            {os, system_time, 1}].
 
-%% It's not strictly necessary that diameter compiler modules not
-%% depend on other diameter modules but it's a simple source of build
-%% errors if not encoded in the makefile (hence the test) so guard
-%% against it.
-is_bad_dependency(Mod) ->
-    lists:prefix("diameter", atom_to_list(Mod))
-        andalso not lists:member(Mod, ?COMPILER_MODULES).
+release() ->
+    Rel = erlang:system_info(otp_release),
+    try list_to_integer(Rel) of
+        N -> N
+    catch
+        error:_ ->
+            0  %% aka < 17
+    end.
+
+unversion(App) ->
+    {Name, [$-|Vsn]} = lists:splitwith(fun(C) -> C /= $- end, App),
+    true = is_app(Name), %% assert
+    Vsn = vsn_str(Vsn),  %%
+    Name.
+
+app('$M_EXPR') -> %% could be anything but assume it's ok
+    "erts";
+app(Mod) ->
+    case code:which(Mod) of
+        preloaded ->
+            "erts";
+        Path ->
+            unversion(lists:nth(3, lists:reverse(filename:split(Path))))
+    end.
 
 add_application(XRef, App) ->
     add_application(XRef, App, code:lib_dir(App)).
@@ -260,11 +322,11 @@ acc_rel(Dir, Rel, {Vsn, _}, Acc) ->
 
 %% Write a rel file and return its name.
 write_rel(Dir, [Erts | Apps], Vsn) ->
-    true = is_vsn(Vsn),
-    Name = "diameter_test_" ++ Vsn,
+    VS = vsn_str(Vsn),
+    Name = "diameter_test_" ++ VS,
     ok = write_file(filename:join([Dir, Name ++ ".rel"]),
                     {release,
-                     {"diameter " ++ Vsn ++ " test release", Vsn},
+                     {"diameter " ++ VS ++ " test release", VS},
                      Erts,
                      Apps}),
     Name.
@@ -279,10 +341,34 @@ fetch(Key, List) ->
 write_file(Path, T) ->
     file:write_file(Path, io_lib:format("~p.", [T])).
 
-%% Is a version string of the expected form? Return the argument
-%% itself for 'false' for a useful badmatch.
+%% Is a version string of the expected form?
 is_vsn(V) ->
-    is_list(V)
-        andalso length(V) == string:span(V, "0123456789.")
-        andalso V == string:join(string:tokens(V, [$.]), ".")  %% no ".."
-        orelse {error, V}.
+    V = vsn_str(V),
+    true.
+
+%% Turn a from/to version in appup to a version string after ensuring
+%% that it's valid version number of regexp. In the regexp case, the
+%% regexp itself becomes the version string since there's no
+%% requirement that a version in appup be anything but a string. The
+%% restrictions placed on string-valued version numbers (that they be
+%% '.'-separated integers) are our own.
+
+vsn_str(S)
+  when is_list(S) ->
+    {_, match}   = {S, match(S, "^(0|[1-9][0-9]*)(\\.(0|[1-9][0-9]*))*$")},
+    {_, nomatch} = {S, match(S, "\\.0\\.0$")},
+    S;
+
+vsn_str(B)
+  when is_binary(B) ->
+    {ok, _} = re:compile(B),
+    binary_to_list(B).
+
+match(S, RE) ->
+    re:run(S, RE, [{capture, none}]).
+
+%% Is an application name of the expected form?
+is_app(S)
+  when is_list(S) ->
+    {_, match} = {S, match(S, "^([a-z]([a-z_]*|[a-zA-Z]*))$")},
+    true.

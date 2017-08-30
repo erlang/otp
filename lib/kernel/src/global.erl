@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -458,17 +459,17 @@ init([]) ->
                  no_trace
          end,
 
+    Ca = case init:get_argument(connect_all) of
+             {ok, [["false"]]} ->
+                 false;
+             _ ->
+                 true
+         end,
     S = #state{the_locker = start_the_locker(DoTrace),
                trace = T0,
-               the_registrar = start_the_registrar()},
-    S1 = trace_message(S, {init, node()}, []),
-
-    case init:get_argument(connect_all) of
-	{ok, [["false"]]} ->
-	    {ok, S1#state{connect_all = false}};
-	_ ->
-	    {ok, S1#state{connect_all = true}}
-    end.
+               the_registrar = start_the_registrar(),
+               connect_all = Ca},
+    {ok, trace_message(S, {init, node()}, [])}.
 
 %%-----------------------------------------------------------------
 %% Connection algorithm
@@ -881,11 +882,12 @@ handle_info({nodeup, Node}, S0) when S0#state.connect_all ->
 	false ->
 	    resend_pre_connect(Node),
 
-	    %% now() is used as a tag to separate different synch sessions
+	    %% erlang:unique_integer([monotonic]) is used as a tag to
+	    %% separate different synch sessions
 	    %% from each others. Global could be confused at bursty nodeups
 	    %% because it couldn't separate the messages between the different
 	    %% synch sessions started by a nodeup.
-	    MyTag = now(),
+	    MyTag = erlang:unique_integer([monotonic]),
 	    put({sync_tag_my, Node}, MyTag),
             ?trace({sending_nodeup_to_locker, {node,Node},{mytag,MyTag}}),
 	    S1#state.the_locker ! {nodeup, Node, MyTag},
@@ -1513,14 +1515,18 @@ delete_global_name(_Name, _Pid) ->
 -record(him, {node, locker, vsn, my_tag}).
 
 start_the_locker(DoTrace) ->
-    spawn_link(fun() -> init_the_locker(DoTrace) end).
+    spawn_link(init_the_locker_fun(DoTrace)).
 
-init_the_locker(DoTrace) ->
-    process_flag(trap_exit, true),    % needed?
-    S0 = #multi{do_trace = DoTrace},
-    S1 = update_locker_known({add, get_known()}, S0),
-    loop_the_locker(S1),
-    erlang:error(locker_exited).
+-spec init_the_locker_fun(boolean()) -> fun(() -> no_return()).
+
+init_the_locker_fun(DoTrace) ->
+    fun() ->
+            process_flag(trap_exit, true),    % needed?
+            S0 = #multi{do_trace = DoTrace},
+            S1 = update_locker_known({add, get_known()}, S0),
+            loop_the_locker(S1),
+            erlang:error(locker_exited)
+    end.
 
 loop_the_locker(S) ->
     ?trace({loop_the_locker,S}),
@@ -1768,8 +1774,8 @@ update_locker_known(Upd, S) ->
     S#multi{known = Known, the_boss = TheBoss}.
 
 random_element(L) ->
-    {A,B,C} = now(),
-    E = (A+B+C) rem length(L),
+    E = abs(erlang:monotonic_time()
+		bxor erlang:unique_integer()) rem length(L),
     lists:nth(E+1, L).
 
 exclude_known(Others, Known) ->
@@ -2062,21 +2068,17 @@ get_known() ->
     gen_server:call(global_name_server, get_known, infinity).
 
 random_sleep(Times) ->
-    case (Times rem 10) of
-	0 -> erase(random_seed);
-	_ -> ok
-    end,
-    case get(random_seed) of
-	undefined ->
-	    {A1, A2, A3} = now(),
-	    random:seed(A1, A2, A3 + erlang:phash(node(), 100000));
-	_ -> ok
-    end,
+    _ = case Times rem 10 of
+	    0 ->
+		_ = rand:seed(exsplus);
+	    _ ->
+		ok
+	end,
     %% First time 1/4 seconds, then doubling each time up to 8 seconds max.
     Tmax = if Times > 5 -> 8000;
 	      true -> ((1 bsl Times) * 1000) div 8
 	   end,
-    T = random:uniform(Tmax),
+    T = rand:uniform(Tmax),
     ?trace({random_sleep, {me,self()}, {times,Times}, {t,T}, {tmax,Tmax}}),
     receive after T -> ok end.
 
@@ -2101,7 +2103,7 @@ trace_message(S, M, X) ->
     S#state{trace = [trace_message(M, X) | S#state.trace]}.
 
 trace_message(M, X) ->
-    {node(), now(), M, nodes(), X}.
+    {node(), erlang:timestamp(), M, nodes(), X}.
 
 %%-----------------------------------------------------------------
 %% Each sync process corresponds to one call to sync. Each such

@@ -1,19 +1,19 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -138,6 +138,10 @@
 %%   approach is that it does not require the complete list of all
 %%   elements to be built in memory at one time.
 %%
+%% - iterator_from(X, S): returns an iterator that can be used for
+%%   traversing the elements of set S greater than or equal to X;
+%%   see `next'.
+%%
 %% - next(T): returns {X, T1} where X is the smallest element referred
 %%   to by the iterator T, and T1 is the new iterator to be used for
 %%   traversing the remaining elements, or the atom `none' if no
@@ -158,8 +162,8 @@
 	 insert/2, add/2, delete/2, delete_any/2, balance/1, union/2,
 	 union/1, intersection/2, intersection/1, is_disjoint/2, difference/2,
 	 is_subset/2, to_list/1, from_list/1, from_ordset/1, smallest/1,
-	 largest/1, take_smallest/1, take_largest/1, iterator/1, next/1,
-	 filter/2, fold/3, is_set/1]).
+	 largest/1, take_smallest/1, take_largest/1, iterator/1,
+         iterator_from/2, next/1, filter/2, fold/3, is_set/1]).
 
 %% `sets' compatibility aliases:
 
@@ -197,31 +201,29 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Some types.
 
--export_type([iter/0]).
+-export_type([set/0, set/1, iter/0, iter/1]).
 
--type gb_set_node() :: 'nil' | {term(), _, _}.
--opaque iter() :: [gb_set_node()].
-
-%% A declaration equivalent to the following is currently hard-coded
-%% in erl_types.erl
-%%
-%% -opaque gb_set() :: {non_neg_integer(), gb_set_node()}.
+-type gb_set_node(Element) :: 'nil' | {Element, _, _}.
+-opaque set(Element) :: {non_neg_integer(), gb_set_node(Element)}.
+-type set() :: set(_).
+-opaque iter(Element) :: [gb_set_node(Element)].
+-type iter() :: iter(_).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -spec empty() -> Set when
-      Set :: gb_set().
+      Set :: set().
 
 empty() ->
     {0, nil}.
 
 -spec new() -> Set when
-      Set :: gb_set().
+      Set :: set().
 
 new() -> empty().
 
 -spec is_empty(Set) -> boolean() when
-      Set :: gb_set().
+      Set :: set().
 
 is_empty({0, nil}) ->
     true;
@@ -229,27 +231,24 @@ is_empty(_) ->
     false.
 
 -spec size(Set) -> non_neg_integer() when
-      Set :: gb_set().
+      Set :: set().
 
 size({Size, _}) ->
     Size.
 
--spec singleton(Element) -> gb_set() when
-      Element :: term().
+-spec singleton(Element) -> set(Element).
 
 singleton(Key) ->
     {1, {Key, nil, nil}}.
 
 -spec is_element(Element, Set) -> boolean() when
-      Element :: term(),
-      Set :: gb_set().
+      Set :: set(Element).
 
 is_element(Key, S) ->
     is_member(Key, S).
 
 -spec is_member(Element, Set) -> boolean() when
-      Element :: term(),
-      Set :: gb_set().
+      Set :: set(Element).
 
 is_member(Key, {_, T}) ->
     is_member_1(Key, T).
@@ -264,9 +263,8 @@ is_member_1(_, nil) ->
     false.
 
 -spec insert(Element, Set1) -> Set2 when
-      Element :: term(),
-      Set1 :: gb_set(),
-      Set2 :: gb_set().
+      Set1 :: set(Element),
+      Set2 :: set(Element).
 
 insert(Key, {S, T}) ->
     S1 = S + 1,
@@ -323,8 +321,8 @@ count(nil) ->
     {1, 0}.
 
 -spec balance(Set1) -> Set2 when
-      Set1 :: gb_set(),
-      Set2 :: gb_set().
+      Set1 :: set(Element),
+      Set2 :: set(Element).
 
 balance({S, T}) ->
     {S, balance(T, S)}.
@@ -350,17 +348,15 @@ balance_list_1(L, 0) ->
     {nil, L}.
 
 -spec add_element(Element, Set1) -> Set2 when
-      Element :: term(),
-      Set1 :: gb_set(),
-      Set2 :: gb_set().
+      Set1 :: set(Element),
+      Set2 :: set(Element).
 
 add_element(X, S) ->
     add(X, S).
 
 -spec add(Element, Set1) -> Set2 when
-      Element :: term(),
-      Set1 :: gb_set(),
-      Set2 :: gb_set().
+      Set1 :: set(Element),
+      Set2 :: set(Element).
 
 add(X, S) ->
     case is_member(X, S) of
@@ -371,32 +367,30 @@ add(X, S) ->
     end.
 
 -spec from_list(List) -> Set when
-      List :: [term()],
-      Set :: gb_set().
+      List :: [Element],
+      Set :: set(Element).
 
 from_list(L) ->
     from_ordset(ordsets:from_list(L)).
 
 -spec from_ordset(List) -> Set when
-      List :: [term()],
-      Set :: gb_set().
+      List :: [Element],
+      Set :: set(Element).
 
 from_ordset(L) ->
     S = length(L),
     {S, balance_list(L, S)}.
 
 -spec del_element(Element, Set1) -> Set2 when
-      Element :: term(),
-      Set1 :: gb_set(),
-      Set2 :: gb_set().
+      Set1 :: set(Element),
+      Set2 :: set(Element).
 
 del_element(Key, S) ->
     delete_any(Key, S).
 
 -spec delete_any(Element, Set1) -> Set2 when
-      Element :: term(),
-      Set1 :: gb_set(),
-      Set2 :: gb_set().
+      Set1 :: set(Element),
+      Set2 :: set(Element).
 
 delete_any(Key, S) ->
     case is_member(Key, S) of
@@ -407,9 +401,8 @@ delete_any(Key, S) ->
     end.
 
 -spec delete(Element, Set1) -> Set2 when
-      Element :: term(),
-      Set1 :: gb_set(),
-      Set2 :: gb_set().
+      Set1 :: set(Element),
+      Set2 :: set(Element).
 
 delete(Key, {S, T}) ->
     {S - 1, delete_1(Key, T)}.
@@ -432,9 +425,8 @@ merge(Smaller, Larger) ->
     {Key, Smaller, Larger1}.
 
 -spec take_smallest(Set1) -> {Element, Set2} when
-      Set1 :: gb_set(),
-      Set2 :: gb_set(),
-      Element :: term().
+      Set1 :: set(Element),
+      Set2 :: set(Element).
 
 take_smallest({S, T}) ->
     {Key, Larger} = take_smallest1(T),
@@ -446,8 +438,8 @@ take_smallest1({Key, Smaller, Larger}) ->
     {Key1, Smaller1} = take_smallest1(Smaller),
     {Key1, {Key, Smaller1, Larger}}.
 
--spec smallest(Set) -> term() when
-      Set :: gb_set().
+-spec smallest(Set) -> Element when
+      Set :: set(Element).
 
 smallest({_, T}) ->
     smallest_1(T).
@@ -458,9 +450,8 @@ smallest_1({_Key, Smaller, _Larger}) ->
     smallest_1(Smaller).
 
 -spec take_largest(Set1) -> {Element, Set2} when
-      Set1 :: gb_set(),
-      Set2 :: gb_set(),
-      Element :: term().
+      Set1 :: set(Element),
+      Set2 :: set(Element).
 
 take_largest({S, T}) ->
     {Key, Smaller} = take_largest1(T),
@@ -472,8 +463,8 @@ take_largest1({Key, Smaller, Larger}) ->
     {Key1, Larger1} = take_largest1(Larger),
     {Key1, {Key, Smaller, Larger1}}.
 
--spec largest(Set) -> term() when
-      Set :: gb_set().
+-spec largest(Set) -> Element when
+      Set :: set(Element).
 
 largest({_, T}) ->
     largest_1(T).
@@ -484,8 +475,8 @@ largest_1({_Key, _Smaller, Larger}) ->
     largest_1(Larger).
 
 -spec to_list(Set) -> List when
-      Set :: gb_set(),
-      List :: [term()].
+      Set :: set(Element),
+      List :: [Element].
 
 to_list({_, T}) ->
     to_list(T, []).
@@ -497,8 +488,8 @@ to_list({Key, Small, Big}, L) ->
 to_list(nil, L) -> L.
 
 -spec iterator(Set) -> Iter when
-      Set :: gb_set(),
-      Iter :: iter().
+      Set :: set(Element),
+      Iter :: iter(Element).
 
 iterator({_, T}) ->
     iterator(T, []).
@@ -513,10 +504,25 @@ iterator({_, L, _} = T, As) ->
 iterator(nil, As) ->
     As.
 
+-spec iterator_from(Element, Set) -> Iter when
+      Set :: set(Element),
+      Iter :: iter(Element).
+
+iterator_from(S, {_, T}) ->
+    iterator_from(S, T, []).
+
+iterator_from(S, {K, _, T}, As) when K < S ->
+    iterator_from(S, T, As);
+iterator_from(_, {_, nil, _} = T, As) ->
+    [T | As];
+iterator_from(S, {_, L, _} = T, As) ->
+    iterator_from(S, L, [T | As]);
+iterator_from(_, nil, As) ->
+    As.
+
 -spec next(Iter1) -> {Element, Iter2} | 'none' when
-      Iter1 :: iter(),
-      Iter2 :: iter(),
-      Element :: term().
+      Iter1 :: iter(Element),
+      Iter2 :: iter(Element).
 
 next([{X, _, T} | As]) ->
     {X, iterator(T, As)};
@@ -547,9 +553,9 @@ next([]) ->
 %% overhead.
 
 -spec union(Set1, Set2) -> Set3 when
-      Set1 :: gb_set(),
-      Set2 :: gb_set(),
-      Set3 :: gb_set().
+      Set1 :: set(Element),
+      Set2 :: set(Element),
+      Set3 :: set(Element).
 
 union({N1, T1}, {N2, T2}) when N2 < N1 ->
     union(to_list_1(T2), N2, T1, N1);
@@ -571,7 +577,7 @@ union(L, N1, T2, N2) ->
 	    union_1(L, mk_set(N2, T2))
     end.
 
--spec mk_set(non_neg_integer(), gb_set_node()) -> gb_set().
+-spec mk_set(non_neg_integer(), gb_set_node(T)) -> set(T).
 
 mk_set(N, T) ->
     {N, T}.
@@ -652,8 +658,8 @@ balance_revlist_1(L, 0) ->
     {nil, L}.
 
 -spec union(SetList) -> Set when
-      SetList :: [gb_set(),...],
-      Set :: gb_set().
+      SetList :: [set(Element),...],
+      Set :: set(Element).
 
 union([S | Ss]) ->
     union_list(S, Ss);
@@ -667,9 +673,9 @@ union_list(S, []) -> S.
 %% The rest is modelled on the above.
 
 -spec intersection(Set1, Set2) -> Set3 when
-      Set1 :: gb_set(),
-      Set2 :: gb_set(),
-      Set3 :: gb_set().
+      Set1 :: set(Element),
+      Set2 :: set(Element),
+      Set3 :: set(Element).
 
 intersection({N1, T1}, {N2, T2}) when N2 < N1 ->
     intersection(to_list_1(T2), N2, T1, N1);
@@ -718,8 +724,8 @@ intersection_2(_, [], As, S) ->
     {S, balance_revlist(As, S)}.
 
 -spec intersection(SetList) -> Set when
-      SetList :: [gb_set(),...],
-      Set :: gb_set().
+      SetList :: [set(Element),...],
+      Set :: set(Element).
 
 intersection([S | Ss]) ->
     intersection_list(S, Ss).
@@ -729,8 +735,8 @@ intersection_list(S, [S1 | Ss]) ->
 intersection_list(S, []) -> S.
 
 -spec is_disjoint(Set1, Set2) -> boolean() when
-      Set1 :: gb_set(),
-      Set2 :: gb_set().
+      Set1 :: set(Element),
+      Set2 :: set(Element).
 
 is_disjoint({N1, T1}, {N2, T2}) when N1 < N2 ->
     is_disjoint_1(T1, T2);
@@ -759,17 +765,17 @@ is_disjoint_1(_, nil) ->
 %% traverse the whole element list of the left operand.
 
 -spec subtract(Set1, Set2) -> Set3 when
-      Set1 :: gb_set(),
-      Set2 :: gb_set(),
-      Set3 :: gb_set().
+      Set1 :: set(Element),
+      Set2 :: set(Element),
+      Set3 :: set(Element).
 
 subtract(S1, S2) ->
     difference(S1, S2).
 
 -spec difference(Set1, Set2) -> Set3 when
-      Set1 :: gb_set(),
-      Set2 :: gb_set(),
-      Set3 :: gb_set().
+      Set1 :: set(Element),
+      Set2 :: set(Element),
+      Set3 :: set(Element).
 
 difference({N1, T1}, {N2, T2}) ->
     difference(to_list_1(T1), N1, T2, N2).
@@ -818,8 +824,8 @@ difference_2(Xs, [], As, S) ->
 %% without the construction of a new set.
 
 -spec is_subset(Set1, Set2) -> boolean() when
-      Set1 :: gb_set(),
-      Set2 :: gb_set().
+      Set1 :: set(Element),
+      Set2 :: set(Element).
 
 is_subset({N1, T1}, {N2, T2}) ->
     is_subset(to_list_1(T1), N1, T2, N2).
@@ -868,20 +874,20 @@ is_set({N, {_, _, _}}) when is_integer(N), N >= 0 -> true;
 is_set(_) -> false.
 
 -spec filter(Pred, Set1) -> Set2 when
-      Pred :: fun((E :: term()) -> boolean()),
-      Set1 :: gb_set(),
-      Set2 :: gb_set().
+      Pred :: fun((Element) -> boolean()),
+      Set1 :: set(Element),
+      Set2 :: set(Element).
 
 filter(F, S) ->
     from_ordset([X || X <- to_list(S), F(X)]).
 
 -spec fold(Function, Acc0, Set) -> Acc1 when
-      Function :: fun((E :: term(), AccIn) -> AccOut),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
-      Set :: gb_set().
+      Function :: fun((Element, AccIn) -> AccOut),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc,
+      Set :: set(Element).
 
 fold(F, A, {_, T}) when is_function(F, 2) ->
     fold_1(F, A, T).

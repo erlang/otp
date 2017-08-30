@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -25,10 +26,10 @@
 
 -module(generated_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("orber/include/corba.hrl").
 
--define(default_timeout, ?t:minutes(3)).
+-define(default_timeout, test_server:minutes(3)).
 
 -define(match(ExpectedRes, Expr),
         fun() ->
@@ -39,7 +40,7 @@
 		    _ ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS)
+			exit(AcTuAlReS)
 		end
 	end()).
 
@@ -50,7 +51,7 @@
 		    Not ->
 			io:format("###### ERROR ERROR ######~n~p~n",
 				  [AcTuAlReS]),
-			?line exit(AcTuAlReS);
+			exit(AcTuAlReS);
 		    _ ->
 			AcTuAlReS
 		end
@@ -62,7 +63,7 @@
 		case orber_tc:check_tc(TC) of
 		    false ->
 			io:format("###### ERROR ERROR ######~n~p - ~p~n", [Op, TC]),
-			?line exit(TC);
+			exit(TC);
 		    true ->
 			true
 		end
@@ -192,12 +193,12 @@ end_per_group(_GroupName, Config) ->
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
 end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -205,8 +206,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification'(doc) -> ["CosNotification"];
-'CosNotification'(suite) -> [];
 'CosNotification'(_) ->
     ?match("EventReliability", 'CosNotification':'EventReliability'()),
     ?match(0, 'CosNotification':'BestEffort'()),
@@ -241,8 +240,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_EventHeader'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_EventHeader'(doc) -> ["CosNotification_EventHeader"];
-'CosNotification_EventHeader'(suite) -> [];
 'CosNotification_EventHeader'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_EventHeader':tc())),
     ?match("IDL:omg.org/CosNotification/EventHeader:1.0", 
@@ -256,8 +253,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_EventType'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_EventType'(doc) -> ["CosNotification_EventType"];
-'CosNotification_EventType'(suite) -> [];
 'CosNotification_EventType'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_EventType':tc())),
     ?match("IDL:omg.org/CosNotification/EventType:1.0", 
@@ -271,8 +266,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_FixedEventHeader'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_FixedEventHeader'(doc) -> ["CosNotification_FixedEventHeader"];
-'CosNotification_FixedEventHeader'(suite) -> [];
 'CosNotification_FixedEventHeader'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_FixedEventHeader':tc())),
     ?match("IDL:omg.org/CosNotification/FixedEventHeader:1.0", 
@@ -286,8 +279,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_NamedPropertyRange'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_NamedPropertyRange'(doc) -> ["CosNotification_NamedPropertyRange"];
-'CosNotification_NamedPropertyRange'(suite) -> [];
 'CosNotification_NamedPropertyRange'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_NamedPropertyRange':tc())),
     ?match("IDL:omg.org/CosNotification/NamedPropertyRange:1.0", 
@@ -301,8 +292,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_Property'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_Property'(doc) -> ["CosNotification_Property"];
-'CosNotification_Property'(suite) -> [];
 'CosNotification_Property'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_Property':tc())),
     ?match("IDL:omg.org/CosNotification/Property:1.0", 
@@ -316,8 +305,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_PropertyError'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_PropertyError'(doc) -> ["CosNotification_PropertyError"];
-'CosNotification_PropertyError'(suite) -> [];
 'CosNotification_PropertyError'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_PropertyError':tc())),
     ?match("IDL:omg.org/CosNotification/PropertyError:1.0", 
@@ -331,8 +318,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_PropertyRange'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_PropertyRange'(doc) -> [""];
-'CosNotification_PropertyRange'(suite) -> [];
 'CosNotification_PropertyRange'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_PropertyRange':tc())),
     ?match("IDL:omg.org/CosNotification/PropertyRange:1.0", 
@@ -346,8 +331,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_StructuredEvent'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_StructuredEvent'(doc) -> ["CosNotification_StructuredEvent"];
-'CosNotification_StructuredEvent'(suite) -> [];
 'CosNotification_StructuredEvent'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_StructuredEvent':tc())),
     ?match("IDL:omg.org/CosNotification/StructuredEvent:1.0", 
@@ -361,8 +344,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_UnsupportedAdmin'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_UnsupportedAdmin'(doc) -> ["CosNotification_UnsupportedAdmin"];
-'CosNotification_UnsupportedAdmin'(suite) -> [];
 'CosNotification_UnsupportedAdmin'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_UnsupportedAdmin':tc())),
     ?match("IDL:omg.org/CosNotification/UnsupportedAdmin:1.0", 
@@ -376,8 +357,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_UnsupportedQoS'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_UnsupportedQoS'(doc) -> ["CosNotification_UnsupportedQoS"];
-'CosNotification_UnsupportedQoS'(suite) -> [];
 'CosNotification_UnsupportedQoS'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_UnsupportedQoS':tc())),
     ?match("IDL:omg.org/CosNotification/UnsupportedQoS:1.0", 
@@ -391,8 +370,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_EventBatch'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_EventBatch'(doc) -> ["CosNotification_EventBatch"];
-'CosNotification_EventBatch'(suite) -> [];
 'CosNotification_EventBatch'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_EventBatch':tc())),
     ?match("IDL:omg.org/CosNotification/EventBatch:1.0", 
@@ -406,8 +383,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_EventTypeSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_EventTypeSeq'(doc) -> ["CosNotification_EventTypeSeq"];
-'CosNotification_EventTypeSeq'(suite) -> [];
 'CosNotification_EventTypeSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_EventTypeSeq':tc())),
     ?match("IDL:omg.org/CosNotification/EventTypeSeq:1.0", 
@@ -421,8 +396,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_NamedPropertyRangeSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_NamedPropertyRangeSeq'(doc) -> ["CosNotification_NamedPropertyRangeSeq"];
-'CosNotification_NamedPropertyRangeSeq'(suite) -> [];
 'CosNotification_NamedPropertyRangeSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_NamedPropertyRangeSeq':tc())),
     ?match("IDL:omg.org/CosNotification/NamedPropertyRangeSeq:1.0", 
@@ -436,8 +409,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_PropertyErrorSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_PropertyErrorSeq'(doc) -> ["CosNotification_PropertyErrorSeq"];
-'CosNotification_PropertyErrorSeq'(suite) -> [];
 'CosNotification_PropertyErrorSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_PropertyErrorSeq':tc())),
     ?match("IDL:omg.org/CosNotification/PropertyErrorSeq:1.0", 
@@ -451,8 +422,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_PropertySeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_PropertySeq'(doc) -> ["CosNotification_PropertySeq"];
-'CosNotification_PropertySeq'(suite) -> [];
 'CosNotification_PropertySeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotification_PropertySeq':tc())),
     ?match("IDL:omg.org/CosNotification/PropertySeq:1.0", 
@@ -466,8 +435,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_AdminLimit'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_AdminLimit'(doc) -> ["CosNotifyChannelAdmin_AdminLimit"];
-'CosNotifyChannelAdmin_AdminLimit'(suite) -> [];
 'CosNotifyChannelAdmin_AdminLimit'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyChannelAdmin_AdminLimit':tc())),
     ?match("IDL:omg.org/CosNotifyChannelAdmin/AdminLimit:1.0", 
@@ -481,8 +448,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_AdminLimitExceeded'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_AdminLimitExceeded'(doc) -> ["CosNotifyChannelAdmin_AdminLimitExceeded"];
-'CosNotifyChannelAdmin_AdminLimitExceeded'(suite) -> [];
 'CosNotifyChannelAdmin_AdminLimitExceeded'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyChannelAdmin_AdminLimitExceeded':tc())),
     ?match("IDL:omg.org/CosNotifyChannelAdmin/AdminLimitExceeded:1.0", 
@@ -496,8 +461,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_AdminNotFound'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_AdminNotFound'(doc) -> ["CosNotifyChannelAdmin_AdminNotFound"];
-'CosNotifyChannelAdmin_AdminNotFound'(suite) -> [];
 'CosNotifyChannelAdmin_AdminNotFound'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyChannelAdmin_AdminNotFound':tc())),
     ?match("IDL:omg.org/CosNotifyChannelAdmin/AdminNotFound:1.0", 
@@ -511,8 +474,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_ChannelNotFound'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_ChannelNotFound'(doc) -> ["CosNotifyChannelAdmin_ChannelNotFound"];
-'CosNotifyChannelAdmin_ChannelNotFound'(suite) -> [];
 'CosNotifyChannelAdmin_ChannelNotFound'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyChannelAdmin_ChannelNotFound':tc())),
     ?match("IDL:omg.org/CosNotifyChannelAdmin/ChannelNotFound:1.0", 
@@ -526,8 +487,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_ConnectionAlreadyActive'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_ConnectionAlreadyActive'(doc) -> ["CosNotifyChannelAdmin_ConnectionAlreadyActive"];
-'CosNotifyChannelAdmin_ConnectionAlreadyActive'(suite) -> [];
 'CosNotifyChannelAdmin_ConnectionAlreadyActive'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyChannelAdmin_ConnectionAlreadyActive':tc())),
     ?match("IDL:omg.org/CosNotifyChannelAdmin/ConnectionAlreadyActive:1.0", 
@@ -536,13 +495,10 @@ end_per_testcase(_Case, Config) ->
 	   'CosNotifyChannelAdmin_ConnectionAlreadyActive':name()),
     ok.
 
-
 %%-----------------------------------------------------------------
 %% Test Case: 'CosNotifyChannelAdmin_ConnectionAlreadyInactive'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_ConnectionAlreadyInactive'(doc) -> ["CosNotifyChannelAdmin_ConnectionAlreadyInactive"];
-'CosNotifyChannelAdmin_ConnectionAlreadyInactive'(suite) -> [];
 'CosNotifyChannelAdmin_ConnectionAlreadyInactive'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyChannelAdmin_ConnectionAlreadyInactive':tc())),
     ?match("IDL:omg.org/CosNotifyChannelAdmin/ConnectionAlreadyInactive:1.0", 
@@ -555,8 +511,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_NotConnected'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_NotConnected'(doc) -> ["CosNotifyChannelAdmin_NotConnected"];
-'CosNotifyChannelAdmin_NotConnected'(suite) -> [];
 'CosNotifyChannelAdmin_NotConnected'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyChannelAdmin_NotConnected':tc())),
     ?match("IDL:omg.org/CosNotifyChannelAdmin/NotConnected:1.0", 
@@ -569,8 +523,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_AdminIDSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_AdminIDSeq'(doc) -> ["CosNotifyChannelAdmin_AdminIDSeq"];
-'CosNotifyChannelAdmin_AdminIDSeq'(suite) -> [];
 'CosNotifyChannelAdmin_AdminIDSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyChannelAdmin_AdminIDSeq':tc())),
     ?match("IDL:omg.org/CosNotifyChannelAdmin/AdminIDSeq:1.0", 
@@ -583,8 +535,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_ChannelIDSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_ChannelIDSeq'(doc) -> ["CosNotifyChannelAdmin_ChannelIDSeq"];
-'CosNotifyChannelAdmin_ChannelIDSeq'(suite) -> [];
 'CosNotifyChannelAdmin_ChannelIDSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyChannelAdmin_ChannelIDSeq':tc())),
     ?match("IDL:omg.org/CosNotifyChannelAdmin/ChannelIDSeq:1.0", 
@@ -597,8 +547,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_ProxyIDSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_ProxyIDSeq'(doc) -> ["CosNotifyChannelAdmin_ProxyIDSeq"];
-'CosNotifyChannelAdmin_ProxyIDSeq'(suite) -> [];
 'CosNotifyChannelAdmin_ProxyIDSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyChannelAdmin_ProxyIDSeq':tc())),
     ?match("IDL:omg.org/CosNotifyChannelAdmin/ProxyIDSeq:1.0", 
@@ -611,8 +559,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_CallbackNotFound'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_CallbackNotFound'(doc) -> ["CosNotifyFilter_CallbackNotFound"];
-'CosNotifyFilter_CallbackNotFound'(suite) -> [];
 'CosNotifyFilter_CallbackNotFound'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_CallbackNotFound':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/CallbackNotFound:1.0", 
@@ -625,8 +571,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_ConstraintExp'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_ConstraintExp'(doc) -> ["CosNotifyFilter_ConstraintExp"];
-'CosNotifyFilter_ConstraintExp'(suite) -> [];
 'CosNotifyFilter_ConstraintExp'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_ConstraintExp':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/ConstraintExp:1.0", 
@@ -639,8 +583,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_ConstraintInfo'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_ConstraintInfo'(doc) -> ["CosNotifyFilter_ConstraintInfo"];
-'CosNotifyFilter_ConstraintInfo'(suite) -> [];
 'CosNotifyFilter_ConstraintInfo'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_ConstraintInfo':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/ConstraintInfo:1.0", 
@@ -653,8 +595,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_ConstraintNotFound'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_ConstraintNotFound'(doc) -> ["CosNotifyFilter_ConstraintNotFound"];
-'CosNotifyFilter_ConstraintNotFound'(suite) -> [];
 'CosNotifyFilter_ConstraintNotFound'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_ConstraintNotFound':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/ConstraintNotFound:1.0", 
@@ -667,8 +607,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_DuplicateConstraintID'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_DuplicateConstraintID'(doc) -> ["CosNotifyFilter_DuplicateConstraintID"];
-'CosNotifyFilter_DuplicateConstraintID'(suite) -> [];
 'CosNotifyFilter_DuplicateConstraintID'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_DuplicateConstraintID':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/DuplicateConstraintID:1.0", 
@@ -681,8 +619,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_FilterNotFound'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_FilterNotFound'(doc) -> ["CosNotifyFilter_FilterNotFound"];
-'CosNotifyFilter_FilterNotFound'(suite) -> [];
 'CosNotifyFilter_FilterNotFound'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_FilterNotFound':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/FilterNotFound:1.0", 
@@ -695,8 +631,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_InvalidConstraint'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_InvalidConstraint'(doc) -> ["CosNotifyFilter_InvalidConstraint"];
-'CosNotifyFilter_InvalidConstraint'(suite) -> [];
 'CosNotifyFilter_InvalidConstraint'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_InvalidConstraint':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/InvalidConstraint:1.0", 
@@ -709,8 +643,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_InvalidGrammar'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_InvalidGrammar'(doc) -> ["CosNotifyFilter_InvalidGrammar"];
-'CosNotifyFilter_InvalidGrammar'(suite) -> [];
 'CosNotifyFilter_InvalidGrammar'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_InvalidGrammar':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/InvalidGrammar:1.0", 
@@ -723,8 +655,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_InvalidValue'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_InvalidValue'(doc) -> ["CosNotifyFilter_InvalidValue"];
-'CosNotifyFilter_InvalidValue'(suite) -> [];
 'CosNotifyFilter_InvalidValue'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_InvalidValue':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/InvalidValue:1.0", 
@@ -737,8 +667,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_MappingConstraintInfo'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_MappingConstraintInfo'(doc) -> ["CosNotifyFilter_MappingConstraintInfo"];
-'CosNotifyFilter_MappingConstraintInfo'(suite) -> [];
 'CosNotifyFilter_MappingConstraintInfo'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_MappingConstraintInfo':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/MappingConstraintInfo:1.0", 
@@ -751,8 +679,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_MappingConstraintPair'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_MappingConstraintPair'(doc) -> ["CosNotifyFilter_MappingConstraintPair"];
-'CosNotifyFilter_MappingConstraintPair'(suite) -> [];
 'CosNotifyFilter_MappingConstraintPair'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_MappingConstraintPair':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/MappingConstraintPair:1.0", 
@@ -765,8 +691,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_UnsupportedFilterableData'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_UnsupportedFilterableData'(doc) -> ["CosNotifyFilter_UnsupportedFilterableData"];
-'CosNotifyFilter_UnsupportedFilterableData'(suite) -> [];
 'CosNotifyFilter_UnsupportedFilterableData'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_UnsupportedFilterableData':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/UnsupportedFilterableData:1.0", 
@@ -779,8 +703,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_CallbackIDSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_CallbackIDSeq'(doc) -> ["CosNotifyFilter_CallbackIDSeq"];
-'CosNotifyFilter_CallbackIDSeq'(suite) -> [];
 'CosNotifyFilter_CallbackIDSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_CallbackIDSeq':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/CallbackIDSeq:1.0", 
@@ -794,8 +716,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_ConstraintExpSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_ConstraintExpSeq'(doc) -> ["CosNotifyFilter_ConstraintExpSeq"];
-'CosNotifyFilter_ConstraintExpSeq'(suite) -> [];
 'CosNotifyFilter_ConstraintExpSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_ConstraintExpSeq':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/ConstraintExpSeq:1.0", 
@@ -809,8 +729,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_ConstraintIDSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_ConstraintIDSeq'(doc) -> ["CosNotifyFilter_ConstraintIDSeq"];
-'CosNotifyFilter_ConstraintIDSeq'(suite) -> [];
 'CosNotifyFilter_ConstraintIDSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_ConstraintIDSeq':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/ConstraintIDSeq:1.0", 
@@ -824,8 +742,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_ConstraintInfoSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_ConstraintInfoSeq'(doc) -> ["CosNotifyFilter_ConstraintInfoSeq"];
-'CosNotifyFilter_ConstraintInfoSeq'(suite) -> [];
 'CosNotifyFilter_ConstraintInfoSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_ConstraintInfoSeq':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/ConstraintInfoSeq:1.0", 
@@ -839,8 +755,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_FilterIDSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_FilterIDSeq'(doc) -> ["CosNotifyFilter_FilterIDSeq"];
-'CosNotifyFilter_FilterIDSeq'(suite) -> [];
 'CosNotifyFilter_FilterIDSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_FilterIDSeq':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/FilterIDSeq:1.0", 
@@ -854,8 +768,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_MappingConstraintInfoSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_MappingConstraintInfoSeq'(doc) -> ["CosNotifyFilter_MappingConstraintInfoSeq"];
-'CosNotifyFilter_MappingConstraintInfoSeq'(suite) -> [];
 'CosNotifyFilter_MappingConstraintInfoSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_MappingConstraintInfoSeq':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/MappingConstraintInfoSeq:1.0", 
@@ -869,8 +781,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_MappingConstraintPairSeq'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_MappingConstraintPairSeq'(doc) -> ["CosNotifyFilter_MappingConstraintPairSeq"];
-'CosNotifyFilter_MappingConstraintPairSeq'(suite) -> [];
 'CosNotifyFilter_MappingConstraintPairSeq'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyFilter_MappingConstraintPairSeq':tc())),
     ?match("IDL:omg.org/CosNotifyFilter/MappingConstraintPairSeq:1.0", 
@@ -884,8 +794,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_InvalidEventType'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_InvalidEventType'(doc) -> ["CosNotifyComm_InvalidEventType"];
-'CosNotifyComm_InvalidEventType'(suite) -> [];
 'CosNotifyComm_InvalidEventType'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyComm_InvalidEventType':tc())),
     ?match("IDL:omg.org/CosNotifyComm/InvalidEventType:1.0", 
@@ -899,8 +807,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_ProxyNotFound'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_ProxyNotFound'(doc) -> ["CosNotifyChannelAdmin_ProxyNotFound"];
-'CosNotifyChannelAdmin_ProxyNotFound'(suite) -> [];
 'CosNotifyChannelAdmin_ProxyNotFound'(_) ->
     ?match(true, orber_tc:check_tc('CosNotifyChannelAdmin_ProxyNotFound':tc())),
     ?match("IDL:omg.org/CosNotifyChannelAdmin/ProxyNotFound:1.0", 
@@ -914,8 +820,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_AdminPropertiesAdmin'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_AdminPropertiesAdmin'(doc) -> ["CosNotification_AdminPropertiesAdmin"];
-'CosNotification_AdminPropertiesAdmin'(suite) -> [];
 'CosNotification_AdminPropertiesAdmin'(_) ->
     ?nomatch(undefined, 'CosNotification_AdminPropertiesAdmin':oe_tc(get_admin)),
     ?nomatch(undefined, 'CosNotification_AdminPropertiesAdmin':oe_tc(set_admin)),
@@ -932,8 +836,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotification_QoSAdmin'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotification_QoSAdmin'(doc) -> ["CosNotification_QoSAdmin"];
-'CosNotification_QoSAdmin'(suite) -> [];
 'CosNotification_QoSAdmin'(_) ->
     ?nomatch(undefined, 'CosNotification_QoSAdmin':oe_tc(get_qos)),
     ?nomatch(undefined, 'CosNotification_QoSAdmin':oe_tc(set_qos)),
@@ -951,8 +853,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_ConsumerAdmin'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_ConsumerAdmin'(doc) -> ["CosNotifyChannelAdmin_ConsumerAdmin"];
-'CosNotifyChannelAdmin_ConsumerAdmin'(suite) -> [];
 'CosNotifyChannelAdmin_ConsumerAdmin'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ConsumerAdmin':oe_tc('_get_MyID')),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ConsumerAdmin':oe_tc('_get_MyChannel')),
@@ -998,8 +898,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_EventChannel'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_EventChannel'(doc) -> ["CosNotifyChannelAdmin_EventChannel"];
-'CosNotifyChannelAdmin_EventChannel'(suite) -> [];
 'CosNotifyChannelAdmin_EventChannel'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_EventChannel':oe_tc('_get_MyFactory')),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_EventChannel':oe_tc('_get_default_consumer_admin')),
@@ -1038,8 +936,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_EventChannelFactory'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_EventChannelFactory'(doc) -> ["CosNotifyChannelAdmin_EventChannelFactory"];
-'CosNotifyChannelAdmin_EventChannelFactory'(suite) -> [];
 'CosNotifyChannelAdmin_EventChannelFactory'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_EventChannelFactory':oe_tc(create_channel)),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_EventChannelFactory':oe_tc(get_all_channels)),
@@ -1057,8 +953,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_ProxyConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_ProxyConsumer'(doc) -> ["CosNotifyChannelAdmin_ProxyConsumer"];
-'CosNotifyChannelAdmin_ProxyConsumer'(suite) -> [];
 'CosNotifyChannelAdmin_ProxyConsumer'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ProxyConsumer':oe_tc('_get_MyType')),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ProxyConsumer':oe_tc('_get_MyAdmin')),
@@ -1087,8 +981,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_ProxyPullConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_ProxyPullConsumer'(doc) -> ["CosNotifyChannelAdmin_ProxyPullConsumer"];
-'CosNotifyChannelAdmin_ProxyPullConsumer'(suite) -> [];
 'CosNotifyChannelAdmin_ProxyPullConsumer'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ProxyPullConsumer':oe_tc(connect_any_pull_supplier)),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ProxyPullConsumer':oe_tc(suspend_connection)),
@@ -1128,8 +1020,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_ProxyPullSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_ProxyPullSupplier'(doc) -> ["CosNotifyChannelAdmin_ProxyPullSupplier"];
-'CosNotifyChannelAdmin_ProxyPullSupplier'(suite) -> [];
 'CosNotifyChannelAdmin_ProxyPullSupplier'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ProxyPullSupplier':oe_tc('_get_MyType')),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ProxyPullSupplier':oe_tc('_get_MyAdmin')),
@@ -1175,8 +1065,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_ProxyPushConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_ProxyPushConsumer'(doc) -> ["CosNotifyChannelAdmin_ProxyPushConsumer"];
-'CosNotifyChannelAdmin_ProxyPushConsumer'(suite) -> [];
 'CosNotifyChannelAdmin_ProxyPushConsumer'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ProxyPushConsumer':oe_tc(connect_any_push_supplier)),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ProxyPushConsumer':oe_tc('_get_MyType')),
@@ -1215,8 +1103,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_ProxyPushSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_ProxyPushSupplier'(doc) -> ["CosNotifyChannelAdmin_ProxyPushSupplier"];
-'CosNotifyChannelAdmin_ProxyPushSupplier'(suite) -> [];
 'CosNotifyChannelAdmin_ProxyPushSupplier'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ProxyPushSupplier':oe_tc(connect_any_push_consumer)),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ProxyPushSupplier':oe_tc(suspend_connection)),
@@ -1263,8 +1149,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_ProxySupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_ProxySupplier'(doc) -> ["CosNotifyChannelAdmin_ProxySupplier"];
-'CosNotifyChannelAdmin_ProxySupplier'(suite) -> [];
 'CosNotifyChannelAdmin_ProxySupplier'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ProxySupplier':oe_tc('_get_MyType')),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_ProxySupplier':oe_tc('_get_MyAdmin')),
@@ -1298,8 +1182,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_SequenceProxyPullConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_SequenceProxyPullConsumer'(doc) -> ["CosNotifyChannelAdmin_SequenceProxyPullConsumer"];
-'CosNotifyChannelAdmin_SequenceProxyPullConsumer'(suite) -> [];
 'CosNotifyChannelAdmin_SequenceProxyPullConsumer'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_SequenceProxyPullConsumer':oe_tc(connect_sequence_pull_supplier)),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_SequenceProxyPullConsumer':oe_tc(suspend_connection)),
@@ -1337,8 +1219,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_SequenceProxyPullSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_SequenceProxyPullSupplier'(doc) -> ["CosNotifyChannelAdmin_SequenceProxyPullSupplier"];
-'CosNotifyChannelAdmin_SequenceProxyPullSupplier'(suite) -> [];
 'CosNotifyChannelAdmin_SequenceProxyPullSupplier'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_SequenceProxyPullSupplier':oe_tc(connect_sequence_pull_consumer)),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_SequenceProxyPullSupplier':oe_tc('_get_MyType')),
@@ -1383,8 +1263,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_SequenceProxyPushConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_SequenceProxyPushConsumer'(doc) -> ["CosNotifyChannelAdmin_SequenceProxyPushConsumer"];
-'CosNotifyChannelAdmin_SequenceProxyPushConsumer'(suite) -> [];
 'CosNotifyChannelAdmin_SequenceProxyPushConsumer'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_SequenceProxyPushConsumer':oe_tc(connect_sequence_push_supplier)),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_SequenceProxyPushConsumer':oe_tc('_get_MyType')),
@@ -1421,8 +1299,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_SequenceProxyPushSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_SequenceProxyPushSupplier'(doc) -> ["CosNotifyChannelAdmin_SequenceProxyPushSupplier"];
-'CosNotifyChannelAdmin_SequenceProxyPushSupplier'(suite) -> [];
 'CosNotifyChannelAdmin_SequenceProxyPushSupplier'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_SequenceProxyPushSupplier':oe_tc(connect_sequence_push_consumer)),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_SequenceProxyPushSupplier':oe_tc(suspend_connection)),
@@ -1467,8 +1343,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_StructuredProxyPullConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_StructuredProxyPullConsumer'(doc) -> ["CosNotifyChannelAdmin_StructuredProxyPullConsumer"];
-'CosNotifyChannelAdmin_StructuredProxyPullConsumer'(suite) -> [];
 'CosNotifyChannelAdmin_StructuredProxyPullConsumer'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_StructuredProxyPullConsumer':oe_tc(connect_structured_pull_supplier)),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_StructuredProxyPullConsumer':oe_tc(suspend_connection)),
@@ -1506,8 +1380,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_StructuredProxyPullSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_StructuredProxyPullSupplier'(doc) -> ["CosNotifyChannelAdmin_StructuredProxyPullSupplier"];
-'CosNotifyChannelAdmin_StructuredProxyPullSupplier'(suite) -> [];
 'CosNotifyChannelAdmin_StructuredProxyPullSupplier'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_StructuredProxyPullSupplier':oe_tc(connect_structured_pull_consumer)),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_StructuredProxyPullSupplier':oe_tc('_get_MyType')),
@@ -1552,8 +1424,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_StructuredProxyPushConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_StructuredProxyPushConsumer'(doc) -> ["CosNotifyChannelAdmin_StructuredProxyPushConsumer"];
-'CosNotifyChannelAdmin_StructuredProxyPushConsumer'(suite) -> [];
 'CosNotifyChannelAdmin_StructuredProxyPushConsumer'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_StructuredProxyPushConsumer':oe_tc(connect_structured_push_supplier)),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_StructuredProxyPushConsumer':oe_tc('_get_MyType')),
@@ -1590,8 +1460,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_StructuredProxyPushSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_StructuredProxyPushSupplier'(doc) -> ["CosNotifyChannelAdmin_StructuredProxyPushSupplier"];
-'CosNotifyChannelAdmin_StructuredProxyPushSupplier'(suite) -> [];
 'CosNotifyChannelAdmin_StructuredProxyPushSupplier'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_StructuredProxyPushSupplier':oe_tc(connect_structured_push_consumer)),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_StructuredProxyPushSupplier':oe_tc(suspend_connection)),
@@ -1636,8 +1504,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyChannelAdmin_SupplierAdmin'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyChannelAdmin_SupplierAdmin'(doc) -> ["CosNotifyChannelAdmin_SupplierAdmin"];
-'CosNotifyChannelAdmin_SupplierAdmin'(suite) -> [];
 'CosNotifyChannelAdmin_SupplierAdmin'(_) ->
     ?nomatch(undefined, 'CosNotifyChannelAdmin_SupplierAdmin':oe_tc('_get_MyID')),
     ?nomatch(undefined, 'CosNotifyChannelAdmin_SupplierAdmin':oe_tc('_get_MyChannel')),
@@ -1680,8 +1546,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_Filter'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_Filter'(doc) -> ["CosNotifyFilter_Filter"];
-'CosNotifyFilter_Filter'(suite) -> [];
 'CosNotifyFilter_Filter'(_) ->
     ?nomatch(undefined, 'CosNotifyFilter_Filter':oe_tc('_get_constraint_grammar')),
     ?nomatch(undefined, 'CosNotifyFilter_Filter':oe_tc(add_constraints)),
@@ -1710,8 +1574,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_FilterAdmin'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_FilterAdmin'(doc) -> ["CosNotifyFilter_FilterAdmin"];
-'CosNotifyFilter_FilterAdmin'(suite) -> [];
 'CosNotifyFilter_FilterAdmin'(_) ->
     ?nomatch(undefined, 'CosNotifyFilter_FilterAdmin':oe_tc(add_filter)),
     ?nomatch(undefined, 'CosNotifyFilter_FilterAdmin':oe_tc(remove_filter)),
@@ -1732,8 +1594,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_FilterFactory'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_FilterFactory'(doc) -> ["CosNotifyFilter_FilterFactory"];
-'CosNotifyFilter_FilterFactory'(suite) -> [];
 'CosNotifyFilter_FilterFactory'(_) ->
     ?nomatch(undefined, 'CosNotifyFilter_FilterFactory':oe_tc(create_filter)),
     ?nomatch(undefined, 'CosNotifyFilter_FilterFactory':oe_tc(create_mapping_filter)),
@@ -1751,8 +1611,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyFilter_MappingFilter'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyFilter_MappingFilter'(doc) -> ["CosNotifyFilter_MappingFilter"];
-'CosNotifyFilter_MappingFilter'(suite) -> [];
 'CosNotifyFilter_MappingFilter'(_) ->
     ?nomatch(undefined, 'CosNotifyFilter_MappingFilter':oe_tc('_get_constraint_grammar')),
     ?nomatch(undefined, 'CosNotifyFilter_MappingFilter':oe_tc('_get_value_type')),
@@ -1780,8 +1638,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_NotifyPublish'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_NotifyPublish'(doc) -> ["CosNotifyComm_NotifyPublish"];
-'CosNotifyComm_NotifyPublish'(suite) -> [];
 'CosNotifyComm_NotifyPublish'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_NotifyPublish':oe_tc(offer_change)),
     ?match(undefined, 'CosNotifyComm_NotifyPublish':oe_tc(undefined)),
@@ -1798,8 +1654,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_NotifySubscribe'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_NotifySubscribe'(doc) -> ["CosNotifyComm_NotifySubscribe"];
-'CosNotifyComm_NotifySubscribe'(suite) -> [];
 'CosNotifyComm_NotifySubscribe'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_NotifySubscribe':oe_tc(subscription_change)),
     ?match(undefined, 'CosNotifyComm_NotifySubscribe':oe_tc(undefined)),
@@ -1816,8 +1670,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_PullConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_PullConsumer'(doc) -> ["CosNotifyComm_PullConsumer"];
-'CosNotifyComm_PullConsumer'(suite) -> [];
 'CosNotifyComm_PullConsumer'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_PullConsumer':oe_tc(offer_change)),
     ?nomatch(undefined, 'CosNotifyComm_PullConsumer':oe_tc(disconnect_pull_consumer)),
@@ -1837,8 +1689,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_PullSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_PullSupplier'(doc) -> ["CosNotifyComm_PullSupplier"];
-'CosNotifyComm_PullSupplier'(suite) -> [];
 'CosNotifyComm_PullSupplier'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_PullSupplier':oe_tc(subscription_change)),
     ?nomatch(undefined, 'CosNotifyComm_PullSupplier':oe_tc(pull)),
@@ -1860,8 +1710,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_PushConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_PushConsumer'(doc) -> ["CosNotifyComm_PushConsumer"];
-'CosNotifyComm_PushConsumer'(suite) -> [];
 'CosNotifyComm_PushConsumer'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_PushConsumer':oe_tc(offer_change)),
     ?nomatch(undefined, 'CosNotifyComm_PushConsumer':oe_tc(push)),
@@ -1882,8 +1730,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_PushSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_PushSupplier'(doc) -> ["CosNotifyComm_PushSupplier"];
-'CosNotifyComm_PushSupplier'(suite) -> [];
 'CosNotifyComm_PushSupplier'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_PushSupplier':oe_tc(subscription_change)),
     ?nomatch(undefined, 'CosNotifyComm_PushSupplier':oe_tc(disconnect_push_supplier)),
@@ -1903,8 +1749,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_SequencePullConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_SequencePullConsumer'(doc) -> ["CosNotifyComm_SequencePullConsumer"];
-'CosNotifyComm_SequencePullConsumer'(suite) -> [];
 'CosNotifyComm_SequencePullConsumer'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_SequencePullConsumer':oe_tc(disconnect_sequence_pull_consumer)),
     ?nomatch(undefined, 'CosNotifyComm_SequencePullConsumer':oe_tc(offer_change)),
@@ -1923,8 +1767,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_SequencePullSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_SequencePullSupplier'(doc) -> ["CosNotifyComm_SequencePullSupplier"];
-'CosNotifyComm_SequencePullSupplier'(suite) -> [];
 'CosNotifyComm_SequencePullSupplier'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_SequencePullSupplier':oe_tc(pull_structured_events)),
     ?nomatch(undefined, 'CosNotifyComm_SequencePullSupplier':oe_tc(try_pull_structured_events)),
@@ -1945,8 +1787,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_SequencePushConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_SequencePushConsumer'(doc) -> ["CosNotifyComm_SequencePushConsumer"];
-'CosNotifyComm_SequencePushConsumer'(suite) -> [];
 'CosNotifyComm_SequencePushConsumer'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_SequencePushConsumer':oe_tc(push_structured_events)),
     ?nomatch(undefined, 'CosNotifyComm_SequencePushConsumer':oe_tc(disconnect_sequence_push_consumer)),
@@ -1966,8 +1806,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_SequencePushSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_SequencePushSupplier'(doc) -> ["CosNotifyComm_SequencePushSupplier"];
-'CosNotifyComm_SequencePushSupplier'(suite) -> [];
 'CosNotifyComm_SequencePushSupplier'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_SequencePushSupplier':oe_tc(disconnect_sequence_push_supplier)),
     ?nomatch(undefined, 'CosNotifyComm_SequencePushSupplier':oe_tc(subscription_change)),
@@ -1986,8 +1824,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_StructuredPullConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_StructuredPullConsumer'(doc) -> ["CosNotifyComm_StructuredPullConsumer"];
-'CosNotifyComm_StructuredPullConsumer'(suite) -> [];
 'CosNotifyComm_StructuredPullConsumer'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_StructuredPullConsumer':oe_tc(disconnect_structured_pull_consumer)),
     ?nomatch(undefined, 'CosNotifyComm_StructuredPullConsumer':oe_tc(offer_change)),
@@ -2006,8 +1842,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_StructuredPullSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_StructuredPullSupplier'(doc) -> ["CosNotifyComm_StructuredPullSupplier"];
-'CosNotifyComm_StructuredPullSupplier'(suite) -> [];
 'CosNotifyComm_StructuredPullSupplier'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_StructuredPullSupplier':oe_tc(pull_structured_event)),
     ?nomatch(undefined, 'CosNotifyComm_StructuredPullSupplier':oe_tc(try_pull_structured_event)),
@@ -2028,8 +1862,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_StructuredPushConsumer'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_StructuredPushConsumer'(doc) -> ["CosNotifyComm_StructuredPushConsumer"];
-'CosNotifyComm_StructuredPushConsumer'(suite) -> [];
 'CosNotifyComm_StructuredPushConsumer'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_StructuredPushConsumer':oe_tc(push_structured_event)),
     ?nomatch(undefined, 'CosNotifyComm_StructuredPushConsumer':oe_tc(disconnect_structured_push_consumer)),
@@ -2049,8 +1881,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'CosNotifyComm_StructuredPushSupplier'
 %% Description: 
 %%-----------------------------------------------------------------
-'CosNotifyComm_StructuredPushSupplier'(doc) -> ["CosNotifyComm_StructuredPushSupplier"];
-'CosNotifyComm_StructuredPushSupplier'(suite) -> [];
 'CosNotifyComm_StructuredPushSupplier'(_) ->
     ?nomatch(undefined, 'CosNotifyComm_StructuredPushSupplier':oe_tc(disconnect_structured_push_supplier)),
     ?nomatch(undefined, 'CosNotifyComm_StructuredPushSupplier':oe_tc(subscription_change)),
@@ -2069,8 +1899,6 @@ end_per_testcase(_Case, Config) ->
 %% Test Case: 'oe_CosNotificationComm_Event'
 %% Description: 
 %%-----------------------------------------------------------------
-'oe_CosNotificationComm_Event'(doc) -> ["oe_CosNotificationComm_Event"];
-'oe_CosNotificationComm_Event'(suite) -> [];
 'oe_CosNotificationComm_Event'(_) ->
     ?nomatch(undefined, 'oe_CosNotificationComm_Event':oe_tc(callSeq)),
     ?nomatch(undefined, 'oe_CosNotificationComm_Event':oe_tc(callAny)),

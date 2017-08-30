@@ -1,0 +1,528 @@
+   PKIXAlgs-2009 { iso(1) identified-organization(3) dod(6)
+     internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+     id-mod-pkix1-algorithms2008-02(56) }
+
+   DEFINITIONS EXPLICIT TAGS ::=
+   BEGIN
+   IMPORTS
+
+   PUBLIC-KEY, SIGNATURE-ALGORITHM, DIGEST-ALGORITHM, SMIME-CAPS
+   FROM AlgorithmInformation-2009
+       {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+       mechanisms(5) pkix(7) id-mod(0)
+       id-mod-algorithmInformation-02(58)}
+
+   mda-sha224, mda-sha256, mda-sha384, mda-sha512
+   FROM PKIX1-PSS-OAEP-Algorithms-2009
+       {iso(1) identified-organization(3) dod(6) internet(1)
+       security(5) mechanisms(5) pkix(7) id-mod(0)
+       id-mod-pkix1-rsa-pkalgs-02(54)} ;
+
+   --
+   -- Public Key (pk-) Algorithms
+   --
+
+   PublicKeys PUBLIC-KEY ::= {
+    pk-rsa  |
+    pk-dsa  |
+    pk-dh   |
+    pk-kea,
+    ...,
+    pk-ec   |
+    pk-ecDH |
+    pk-ecMQV
+   }
+
+   --
+   -- Signature Algorithms (sa-)
+   --
+
+   SignatureAlgs SIGNATURE-ALGORITHM ::= {
+    sa-rsaWithMD2      |
+    sa-rsaWithMD5      |
+    sa-rsaWithSHA1     |
+    sa-dsaWithSHA1     |
+    sa-ecdsaWithSHA1,
+    ..., -- Extensible
+    sa-dsaWithSHA224   |
+    sa-dsaWithSHA256   |
+    sa-ecdsaWithSHA224 |
+    sa-ecdsaWithSHA256 |
+    sa-ecdsaWithSHA384 |
+    sa-ecdsaWithSHA512
+   }
+
+   --
+   -- S/MIME CAPS for algorithms in this document
+   --
+   -- For all of the algorithms laid out in this document, the
+   -- parameters field for the S/MIME capabilities is defined as
+   -- ABSENT as there are no specific values that need to be known
+   -- by the receiver for negotiation.
+
+   --
+
+   SMimeCaps SMIME-CAPS ::= {
+    sa-rsaWithMD2.&smimeCaps      |
+    sa-rsaWithMD5.&smimeCaps      |
+    sa-rsaWithSHA1.&smimeCaps     |
+    sa-dsaWithSHA1.&smimeCaps     |
+    sa-dsaWithSHA224.&smimeCaps   |
+    sa-dsaWithSHA256.&smimeCaps   |
+    sa-ecdsaWithSHA1.&smimeCaps   |
+    sa-ecdsaWithSHA224.&smimeCaps |
+    sa-ecdsaWithSHA256.&smimeCaps |
+    sa-ecdsaWithSHA384.&smimeCaps |
+    sa-ecdsaWithSHA512.&smimeCaps,
+    ... }
+
+   -- RSA PK Algorithm, Parameters, and Keys
+
+   pk-rsa PUBLIC-KEY ::= {
+    IDENTIFIER rsaEncryption
+    KEY RSAPublicKey
+    PARAMS TYPE NULL ARE absent
+    -- Private key format not in this module --
+    CERT-KEY-USAGE {digitalSignature, nonRepudiation,
+    keyEncipherment, dataEncipherment, keyCertSign, cRLSign}
+   }
+
+   rsaEncryption OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1)
+    pkcs-1(1) 1 }
+
+   RSAPublicKey ::= SEQUENCE {
+    modulus         INTEGER, -- n
+    publicExponent  INTEGER  -- e
+   }
+
+   -- DSA PK Algorithm, Parameters, and Keys
+
+   pk-dsa PUBLIC-KEY ::= {
+    IDENTIFIER id-dsa
+    KEY DSAPublicKey
+    PARAMS TYPE DSA-Params ARE inheritable
+    -- Private key format not in this module --
+    CERT-KEY-USAGE { digitalSignature, nonRepudiation, keyCertSign,
+                        cRLSign }
+   }
+
+   id-dsa OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) x9-57(10040) x9algorithm(4) 1 }
+
+   DSA-Params ::= SEQUENCE {
+    p  INTEGER,
+    q  INTEGER,
+    g  INTEGER
+   }
+
+   DSAPublicKey ::= INTEGER --  public key, y
+
+   -- Diffie-Hellman PK Algorithm, Parameters, and Keys
+
+   pk-dh PUBLIC-KEY ::= {
+    IDENTIFIER dhpublicnumber
+    KEY DHPublicKey
+    PARAMS TYPE DomainParameters ARE inheritable
+    -- Private key format not in this module --
+    CERT-KEY-USAGE {keyAgreement, encipherOnly, decipherOnly }
+   }
+
+   dhpublicnumber OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) ansi-x942(10046)
+    number-type(2) 1 }
+
+   DomainParameters ::= SEQUENCE {
+    p                INTEGER,           -- odd prime, p=jq +1
+    g                INTEGER,           -- generator, g
+    q                INTEGER,           -- factor of p-1
+    j                INTEGER OPTIONAL,  -- subgroup factor, j>= 2
+    validationParams  ValidationParams OPTIONAL
+   }
+
+   ValidationParams ::= SEQUENCE {
+    seed         BIT STRING,
+    pgenCounter  INTEGER
+   }
+
+   DiffieHellmanPublicNumber ::= INTEGER   -- according to http://wikisec.free.fr/crypto/crypto.html
+
+   DHPublicKey ::= INTEGER  -- public key, y = g^x mod p
+
+   -- KEA PK Algorithm and Parameters
+
+   pk-kea PUBLIC-KEY ::= {
+    IDENTIFIER id-keyExchangeAlgorithm
+    -- key is not encoded --
+    PARAMS TYPE KEA-Params-Id ARE required
+    -- Private key format not in this module --
+    CERT-KEY-USAGE {keyAgreement, encipherOnly, decipherOnly }
+   }
+   id-keyExchangeAlgorithm OBJECT IDENTIFIER ::= {
+       joint-iso-itu-t(2) country(16) us(840) organization(1)
+       gov(101) dod(2) infosec(1) algorithms(1) 22 }
+
+   KEA-Params-Id ::= OCTET STRING
+
+   -- Elliptic Curve (EC) Signatures: Unrestricted Algorithms
+   --  (Section 2.1.1 of RFC 5480)
+   --
+   -- EC Unrestricted Algorithm ID -- -- this is used for ECDSA
+
+   pk-ec PUBLIC-KEY ::= {
+    IDENTIFIER id-ecPublicKey
+    KEY ECPoint
+    PARAMS TYPE ECParameters ARE required
+    -- Private key format not in this module --
+    CERT-KEY-USAGE { digitalSignature, nonRepudiation, keyAgreement,
+                         keyCertSign, cRLSign }
+   }
+
+   ECPoint ::= OCTET STRING -- see RFC 5480 for syntax and restrictions
+
+   id-ecPublicKey OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) ansi-X9-62(10045) keyType(2) 1 }
+
+   -- Elliptic Curve (EC) Signatures: Restricted Algorithms
+   --  (Section 2.1.2 of RFC 5480)
+   --
+   -- EC Diffie-Hellman Algorithm ID
+
+   pk-ecDH PUBLIC-KEY ::= {
+    IDENTIFIER id-ecDH
+    KEY ECPoint
+    PARAMS TYPE ECParameters ARE required
+    -- Private key format not in this module --
+    CERT-KEY-USAGE { keyAgreement, encipherOnly, decipherOnly }
+   }
+
+   id-ecDH OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) schemes(1)
+    ecdh(12) }
+
+   -- EC Menezes-Qu-Vanstone Algorithm ID
+
+   pk-ecMQV PUBLIC-KEY ::= {
+    IDENTIFIER id-ecMQV
+    KEY ECPoint
+    PARAMS TYPE ECParameters ARE required
+    -- Private key format not in this module --
+    CERT-KEY-USAGE { keyAgreement, encipherOnly, decipherOnly }
+   }
+
+   id-ecMQV OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) schemes(1)
+    ecmqv(13) }
+
+   -- Parameters and Keys for both Restricted and Unrestricted EC
+
+   ECParameters ::= CHOICE {
+    namedCurve      CURVE.&id({NamedCurve})
+    -- implicitCurve   NULL
+      -- implicitCurve MUST NOT be used in PKIX
+    -- specifiedCurve  SpecifiedCurve
+      -- specifiedCurve MUST NOT be used in PKIX
+      -- Details for specifiedCurve can be found in [X9.62]
+      -- Any future additions to this CHOICE should be coordinated
+      -- with ANSI X.9.
+   }
+   -- If you need to be able to decode ANSI X.9 parameter structures,
+   -- uncomment the implicitCurve and specifiedCurve above, and also
+   -- uncomment the following:
+   --(WITH COMPONENTS {namedCurve PRESENT})
+
+   -- Sec 2.1.1.1 Named Curve
+
+   CURVE ::= CLASS { &id OBJECT IDENTIFIER UNIQUE }
+    WITH SYNTAX { ID &id }
+
+   NamedCurve CURVE ::= {
+   { ID secp192r1 } | { ID sect163k1 } | { ID sect163r2 } |
+   { ID secp224r1 } | { ID sect233k1 } | { ID sect233r1 } |
+   { ID secp256r1 } | { ID sect283k1 } | { ID sect283r1 } |
+   { ID secp384r1 } | { ID sect409k1 } | { ID sect409r1 } |
+   { ID secp521r1 } | { ID sect571k1 } | { ID sect571r1 },
+   ... -- Extensible
+   }
+
+   -- Note in [X9.62] the curves are referred to as 'ansiX9' as
+   -- opposed to 'sec'.  For example, secp192r1 is the same curve as
+   -- ansix9p192r1.
+
+   -- Note that in [PKI-ALG] the secp192r1 curve was referred to as
+   -- prime192v1 and the secp256r1 curve was referred to as
+   -- prime256v1.
+
+   -- Note that [FIPS186-3] refers to secp192r1 as P-192,
+   -- secp224r1 as P-224, secp256r1 as P-256, secp384r1 as P-384,
+   -- and secp521r1 as P-521.
+
+   secp192r1 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) ansi-X9-62(10045) curves(3)
+    prime(1) 1 }
+
+   sect163k1 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) curve(0) 1 }
+
+   sect163r2 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) curve(0) 15 }
+
+   secp224r1 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) curve(0) 33 }
+
+   sect233k1 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) curve(0) 26 }
+
+   sect233r1 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) curve(0) 27 }
+
+   secp256r1 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) ansi-X9-62(10045) curves(3)
+    prime(1) 7 }
+
+   sect283k1 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) curve(0) 16 }
+
+   sect283r1 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) curve(0) 17 }
+
+   secp384r1 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) curve(0) 34 }
+
+   sect409k1 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) curve(0) 36 }
+
+   sect409r1 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) curve(0) 37 }
+
+   secp521r1 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) curve(0) 35 }
+
+   sect571k1 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) curve(0) 38 }
+
+   sect571r1 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) certicom(132) curve(0) 39 }
+
+   -- RSA with MD-2
+
+   sa-rsaWithMD2 SIGNATURE-ALGORITHM ::= {
+    IDENTIFIER md2WithRSAEncryption
+    PARAMS TYPE NULL ARE required
+    HASHES { mda-md2 }
+    PUBLIC-KEYS { pk-rsa }
+    SMIME-CAPS { IDENTIFIED BY md2WithRSAEncryption }
+   }
+
+   md2WithRSAEncryption OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1)
+    pkcs-1(1) 2 }
+
+   -- RSA with MD-5
+
+   sa-rsaWithMD5 SIGNATURE-ALGORITHM ::= {
+    IDENTIFIER md5WithRSAEncryption
+    PARAMS TYPE NULL ARE required
+    HASHES { mda-md5 }
+    PUBLIC-KEYS { pk-rsa }
+    SMIME-CAPS { IDENTIFIED BY md5WithRSAEncryption }
+   }
+
+   md5WithRSAEncryption OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1)
+    pkcs-1(1) 4 }
+
+   -- RSA with SHA-1
+
+   sa-rsaWithSHA1 SIGNATURE-ALGORITHM ::= {
+    IDENTIFIER sha1WithRSAEncryption
+    PARAMS TYPE NULL ARE required
+    HASHES { mda-sha1 }
+    PUBLIC-KEYS { pk-rsa }
+    SMIME-CAPS {IDENTIFIED BY sha1WithRSAEncryption }
+   }
+
+   sha1WithRSAEncryption OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1)
+    pkcs-1(1) 5 }
+
+   -- DSA with SHA-1
+
+   sa-dsaWithSHA1 SIGNATURE-ALGORITHM ::= {
+    IDENTIFIER dsa-with-sha1
+    VALUE DSA-Sig-Value
+    PARAMS TYPE NULL ARE absent
+    HASHES { mda-sha1 }
+    PUBLIC-KEYS { pk-dsa }
+    SMIME-CAPS { IDENTIFIED BY dsa-with-sha1 }
+   }
+
+   dsa-with-sha1 OBJECT IDENTIFIER ::=  {
+    iso(1) member-body(2) us(840) x9-57(10040) x9algorithm(4) 3 }
+
+   -- DSA with SHA-224
+
+   sa-dsaWithSHA224 SIGNATURE-ALGORITHM ::= {
+    IDENTIFIER dsa-with-sha224
+    VALUE DSA-Sig-Value
+    PARAMS TYPE NULL ARE absent
+    HASHES { mda-sha224 }
+    PUBLIC-KEYS { pk-dsa }
+    SMIME-CAPS { IDENTIFIED BY dsa-with-sha224 }
+   }
+
+   dsa-with-sha224 OBJECT IDENTIFIER  ::=  {
+    joint-iso-ccitt(2) country(16) us(840) organization(1) gov(101)
+    csor(3) algorithms(4) id-dsa-with-sha2(3) 1 }
+
+   -- DSA with SHA-256
+
+   sa-dsaWithSHA256 SIGNATURE-ALGORITHM ::= {
+    IDENTIFIER dsa-with-sha256
+    VALUE DSA-Sig-Value
+    PARAMS TYPE NULL ARE absent
+    HASHES { mda-sha256 }
+    PUBLIC-KEYS { pk-dsa }
+    SMIME-CAPS { IDENTIFIED BY dsa-with-sha256 }
+   }
+
+   dsa-with-sha256 OBJECT IDENTIFIER  ::=  {
+    joint-iso-ccitt(2) country(16) us(840) organization(1) gov(101)
+    csor(3) algorithms(4) id-dsa-with-sha2(3) 2 }
+
+   -- ECDSA with SHA-1
+
+   sa-ecdsaWithSHA1 SIGNATURE-ALGORITHM ::= {
+    IDENTIFIER ecdsa-with-SHA1
+    VALUE ECDSA-Sig-Value
+    PARAMS TYPE NULL ARE absent
+    HASHES { mda-sha1 }
+    PUBLIC-KEYS { pk-ec }
+    SMIME-CAPS {IDENTIFIED BY ecdsa-with-SHA1 }
+   }
+
+   ecdsa-with-SHA1 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) ansi-X9-62(10045)
+    signatures(4) 1 }
+
+   -- ECDSA with SHA-224
+
+   sa-ecdsaWithSHA224 SIGNATURE-ALGORITHM ::= {
+    IDENTIFIER ecdsa-with-SHA224
+    VALUE ECDSA-Sig-Value
+    PARAMS TYPE NULL ARE absent
+    HASHES { mda-sha224 }
+    PUBLIC-KEYS { pk-ec }
+    SMIME-CAPS { IDENTIFIED BY ecdsa-with-SHA224 }
+   }
+
+   ecdsa-with-SHA224 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) ansi-X9-62(10045) signatures(4)
+    ecdsa-with-SHA2(3) 1 }
+
+   -- ECDSA with SHA-256
+
+   sa-ecdsaWithSHA256 SIGNATURE-ALGORITHM ::= {
+    IDENTIFIER ecdsa-with-SHA256
+    VALUE ECDSA-Sig-Value
+    PARAMS TYPE NULL ARE absent
+    HASHES { mda-sha256 }
+    PUBLIC-KEYS { pk-ec }
+    SMIME-CAPS { IDENTIFIED BY ecdsa-with-SHA256 }
+   }
+
+   ecdsa-with-SHA256 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) ansi-X9-62(10045) signatures(4)
+    ecdsa-with-SHA2(3) 2 }
+
+   -- ECDSA with SHA-384
+
+   sa-ecdsaWithSHA384 SIGNATURE-ALGORITHM ::= {
+    IDENTIFIER ecdsa-with-SHA384
+    VALUE ECDSA-Sig-Value
+    PARAMS TYPE NULL ARE absent
+    HASHES { mda-sha384 }
+    PUBLIC-KEYS { pk-ec }
+    SMIME-CAPS { IDENTIFIED BY ecdsa-with-SHA384 }
+   }
+   ecdsa-with-SHA384 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) ansi-X9-62(10045) signatures(4)
+    ecdsa-with-SHA2(3) 3 }
+
+   -- ECDSA with SHA-512
+
+   sa-ecdsaWithSHA512 SIGNATURE-ALGORITHM ::= {
+    IDENTIFIER ecdsa-with-SHA512
+    VALUE ECDSA-Sig-Value
+    PARAMS TYPE NULL ARE absent
+    HASHES { mda-sha512 }
+    PUBLIC-KEYS { pk-ec }
+    SMIME-CAPS { IDENTIFIED BY ecdsa-with-SHA512 }
+   }
+
+   ecdsa-with-SHA512 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) ansi-X9-62(10045) signatures(4)
+    ecdsa-with-SHA2(3) 4 }
+
+   --
+   -- Signature Values
+   --
+
+   -- DSA
+
+   DSA-Sig-Value ::= SEQUENCE {
+    r  INTEGER,
+    s  INTEGER
+   }
+
+   -- ECDSA
+
+   ECDSA-Sig-Value ::= SEQUENCE {
+    r  INTEGER,
+    s  INTEGER
+   }
+
+   --
+   -- Message Digest Algorithms (mda-)
+   --
+
+   HashAlgs DIGEST-ALGORITHM ::= {
+    mda-md2    |
+    mda-md5    |
+    mda-sha1,
+    ... -- Extensible
+   }
+   -- MD-2
+
+   mda-md2 DIGEST-ALGORITHM ::= {
+    IDENTIFIER id-md2
+    PARAMS TYPE NULL ARE preferredAbsent
+   }
+
+   id-md2  OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549)
+    digestAlgorithm(2) 2 }
+
+   -- MD-5
+
+   mda-md5 DIGEST-ALGORITHM ::= {
+    IDENTIFIER id-md5
+    PARAMS TYPE NULL ARE preferredAbsent
+   }
+
+   id-md5  OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549)
+    digestAlgorithm(2) 5 }
+
+   -- SHA-1
+
+   mda-sha1 DIGEST-ALGORITHM ::= {
+    IDENTIFIER id-sha1
+    PARAMS TYPE NULL ARE preferredAbsent
+   }
+
+   id-sha1 OBJECT IDENTIFIER ::= {
+    iso(1) identified-organization(3) oiw(14) secsig(3)
+    algorithm(2) 26 }
+
+   END

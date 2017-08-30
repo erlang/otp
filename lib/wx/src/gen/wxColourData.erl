@@ -1,23 +1,24 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourdata.html">wxColourData</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html">wxColourData</a>.
 %% @type wxColourData().  An object reference, The representation is internal
 %% and can be changed without notice. It can't be used for comparsion
 %% stored on disc or distributed for use on other nodes.
@@ -35,13 +36,13 @@
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxColourData() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourdata.html#wxcolourdatawxcolourdata">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html#wxcolourdatawxcolourdata">external documentation</a>.
 -spec new() -> wxColourData().
 new() ->
   wxe_util:construct(?wxColourData_new_0,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourdata.html#wxcolourdatawxcolourdata">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html#wxcolourdatawxcolourdata">external documentation</a>.
 -spec new(Data) -> wxColourData() when
 	Data::wxColourData().
 new(#wx_ref{type=DataT,ref=DataRef}) ->
@@ -49,7 +50,7 @@ new(#wx_ref{type=DataT,ref=DataRef}) ->
   wxe_util:construct(?wxColourData_new_1,
   <<DataRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourdata.html#wxcolourdatagetchoosefull">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html#wxcolourdatagetchoosefull">external documentation</a>.
 -spec getChooseFull(This) -> boolean() when
 	This::wxColourData().
 getChooseFull(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -57,7 +58,7 @@ getChooseFull(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxColourData_GetChooseFull,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourdata.html#wxcolourdatagetcolour">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html#wxcolourdatagetcolour">external documentation</a>.
 -spec getColour(This) -> wx:wx_colour4() when
 	This::wxColourData().
 getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -65,7 +66,7 @@ getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxColourData_GetColour,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourdata.html#wxcolourdatagetcustomcolour">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html#wxcolourdatagetcustomcolour">external documentation</a>.
 -spec getCustomColour(This, I) -> wx:wx_colour4() when
 	This::wxColourData(), I::integer().
 getCustomColour(#wx_ref{type=ThisT,ref=ThisRef},I)
@@ -74,8 +75,8 @@ getCustomColour(#wx_ref{type=ThisT,ref=ThisRef},I)
   wxe_util:call(?wxColourData_GetCustomColour,
   <<ThisRef:32/?UI,I:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourdata.html#wxcolourdatasetchoosefull">external documentation</a>.
--spec setChooseFull(This, Flag) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html#wxcolourdatasetchoosefull">external documentation</a>.
+-spec setChooseFull(This, Flag) -> 'ok' when
 	This::wxColourData(), Flag::boolean().
 setChooseFull(#wx_ref{type=ThisT,ref=ThisRef},Flag)
  when is_boolean(Flag) ->
@@ -83,8 +84,8 @@ setChooseFull(#wx_ref{type=ThisT,ref=ThisRef},Flag)
   wxe_util:cast(?wxColourData_SetChooseFull,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Flag)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourdata.html#wxcolourdatasetcolour">external documentation</a>.
--spec setColour(This, Colour) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html#wxcolourdatasetcolour">external documentation</a>.
+-spec setColour(This, Colour) -> 'ok' when
 	This::wxColourData(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT,ref=ThisRef},Colour)
  when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
@@ -92,8 +93,8 @@ setColour(#wx_ref{type=ThisT,ref=ThisRef},Colour)
   wxe_util:cast(?wxColourData_SetColour,
   <<ThisRef:32/?UI,(wxe_util:colour_bin(Colour)):16/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourdata.html#wxcolourdatasetcustomcolour">external documentation</a>.
--spec setCustomColour(This, I, Colour) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcolourdata.html#wxcolourdatasetcustomcolour">external documentation</a>.
+-spec setCustomColour(This, I, Colour) -> 'ok' when
 	This::wxColourData(), I::integer(), Colour::wx:wx_colour().
 setCustomColour(#wx_ref{type=ThisT,ref=ThisRef},I,Colour)
  when is_integer(I),tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
@@ -102,7 +103,7 @@ setCustomColour(#wx_ref{type=ThisT,ref=ThisRef},I,Colour)
   <<ThisRef:32/?UI,I:32/?UI,(wxe_util:colour_bin(Colour)):16/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxColourData()) -> ok.
+-spec destroy(This::wxColourData()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxColourData),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

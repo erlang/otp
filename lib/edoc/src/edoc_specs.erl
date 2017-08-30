@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -35,20 +36,21 @@
 %%  Exported functions
 %%
 
--spec type(Form::syntaxTree(), TypeDocs::dict()) -> #tag{}.
+-spec type(Form::syntaxTree(), TypeDocs::dict:dict()) -> #tag{}.
 
 %% @doc Convert an Erlang type to EDoc representation.
 %% TypeDocs is a dict of {Name, Doc}.
 %% Note: #t_typedef.name is set to {record, R} for record types.
 type(Form, TypeDocs) ->
-    {Name, Data0} = erl_syntax_lib:analyze_wild_attribute(Form),
-    type = tag(Name),
+    {Name, Data0} = analyze_type_attribute(Form),
     {TypeName, Type, Args, Doc} =
         case Data0 of
-            {{record, R}, Fs, []} ->
+            {R, Fs} ->
+                record = Name,
                 L = erl_syntax:get_pos(Form),
                 {{record, R}, {type, L, record, [{atom,L,R} | Fs]}, [], ""};
             {N,T,As} ->
+                type = tag(Name),
                 Doc0 =
                     case dict:find({N, length(As)}, TypeDocs) of
                         {ok, Doc1} ->
@@ -58,7 +60,7 @@ type(Form, TypeDocs) ->
                     end,
                 {#t_name{name = N}, T, As, Doc0}
         end,
-    #tag{name = type, line = element(2, Type),
+    #tag{name = type, line = get_line(element(2, Type)),
          origin = code,
          data = {#t_typedef{name = TypeName,
                             args = d2e(Args),
@@ -71,7 +73,7 @@ type(Form, TypeDocs) ->
 spec(Form, Clause) ->
     {Name, _Arity, TypeSpecs} = get_spec(Form),
     TypeSpec = lists:nth(Clause, TypeSpecs),
-    #tag{name = spec, line = element(2, TypeSpec),
+    #tag{name = spec, line = get_line(element(2, TypeSpec)),
          origin = code,
          data = aspec(d2e(TypeSpec), Name)}.
 
@@ -83,12 +85,12 @@ dummy_spec(Form) ->
     {#t_name{name = Name}, Arity, TypeSpecs} = get_spec(Form),
     As = string:join(lists:duplicate(Arity, "_X"), ","),
     S = lists:flatten(io_lib:format("~p(~s) -> true\n", [Name, As])),
-    #tag{name = spec, line = element(2, hd(TypeSpecs)),
+    #tag{name = spec, line = get_line(element(2, hd(TypeSpecs))),
          origin = code, data = S}.
 
 -spec docs(Forms::[syntaxTree()],
            CommentFun :: fun( ([syntaxTree()], Line :: term()) -> #tag{} ))
-          -> dict().
+          -> dict:dict().
 
 %% @doc Find comments after -type/-opaque declarations.
 %% Postcomments "inside" the type are skipped.
@@ -140,7 +142,7 @@ find_type_docs([F | Fs], Cs, Fun) ->
             %% Postcomments before the dot after the typespec are ignored.
             C2 = [C1 | [C ||
                            C <- erl_syntax:get_postcomments(F),
-                           get_line(erl_syntax:get_pos(C)) >= LastTypeLine]],
+                           erl_syntax:get_pos(C) >= LastTypeLine]],
             C3 = collect_comments(Fs, LastTypeLine),
             #tag{data = Doc0} = Fun(lists:reverse(C2 ++ C3), LastTypeLine),
             case strip(Doc0) of % Strip away "f(). \n"
@@ -157,7 +159,7 @@ find_type_docs([F | Fs], Cs, Fun) ->
 collect_comments([], _Line) ->
     [];
 collect_comments([F | Fs], Line) ->
-    L1 = get_line(erl_syntax:get_pos(F)),
+    L1 = erl_syntax:get_pos(F),
     if
         L1 =:= Line + 1;
         L1 =:= Line -> % a separate postcomment
@@ -187,32 +189,29 @@ strip([_ | S]) ->
 %% Find the type name and the greatest line number of a type spec.
 %% Should use syntax_tools but this has to do for now.
 get_name_and_last_line(F) ->
-    {Name, Data} = erl_syntax_lib:analyze_wild_attribute(F),
+    {Name, Data} = analyze_type_attribute(F),
     type = edoc_specs:tag(Name),
     Attr = {attribute, erl_syntax:get_pos(F), Name, Data},
-    Ref = make_ref(),
-    Fun = fun(L) -> {Ref, get_line(L)} end,
+    Fun = fun(A) ->
+                  Line = get_line(A),
+                  case get('$max_line') of
+                      Max when Max < Line ->
+                          _ = put('$max_line', Line);
+                      _ ->
+                          ok
+                  end
+          end,
+    undefined = put('$max_line', 0),
+    _ = erl_parse:map_anno(Fun, Attr),
+    Line = erase('$max_line'),
     TypeName = case Data of
                    {N, _T, As} when is_atom(N) -> % skip records
                        {N, length(As)}
                end,
-    Line = gll(erl_lint:modify_line(Attr, Fun), Ref),
     {TypeName, Line}.
 
-gll({Ref, Line}, Ref) ->
-    Line;
-gll([], _Ref) ->
-    0;
-gll(List, Ref) when is_list(List) ->
-    lists:max([gll(E, Ref) || E <- List]);
-gll(Tuple, Ref) when is_tuple(Tuple) ->
-    gll(tuple_to_list(Tuple), Ref);
-gll(_, _) ->
-    0.
-
-get_line(Pos) ->
-    {line, Line} = erl_scan:attributes_info(Pos, line),
-    Line.
+get_line(Anno) ->
+    erl_anno:line(Anno).
 
 %% Collect all Erlang types. Types in comments (@type) shadow Erlang
 %% types (-spec/-opaque).
@@ -231,6 +230,7 @@ get_all_tags(Es) ->
 %% Turns an opaque type into an abstract datatype.
 %% Note: top level annotation is ignored.
 opaque2abstr(opaque, _T) -> undefined;
+opaque2abstr(record, T) -> T;
 opaque2abstr(type, T) -> T.
 
 %% Replaces the parameters extracted from the source (by
@@ -272,11 +272,7 @@ parms([], []) ->
 parms([A | As], [D | Ds]) ->
     [param(A, D) | parms(As, Ds)].
 
-param(#t_list{type = Type}, Default) ->
-    param(Type, Default);
 param(#t_paren{type = Type}, Default) ->
-    param(Type, Default);
-param(#t_nonempty_list{type = Type}, Default) ->
     param(Type, Default);
 param(#t_record{name = #t_atom{val = Name}}, _Default) ->
     list_to_atom(capitalize(atom_to_list(Name)));
@@ -298,47 +294,54 @@ arg_name([A | As], Default) ->
 is_name(A) ->
     is_atom(A).
 
-d2e({ann_type,_,[V, T0]}) ->
+d2e(T) ->
+    d2e(T, 0).
+
+d2e({ann_type,_,[V, T0]}, Prec) ->
     %% Note: the -spec/-type syntax allows annotations everywhere, but
     %% EDoc does not. The fact that the annotation is added to the
     %% type here does not necessarily mean that it will be used by the
     %% layout module.
-    T = d2e(T0),
-    ?add_t_ann(T, element(3, V));
-d2e({remote_type,_,[{atom,_,M},{atom,_,F},Ts0]}) ->
+    {_L,P,R} = erl_parse:type_inop_prec('::'),
+    T1 = d2e(T0, R),
+    T = ?add_t_ann(T1, element(3, V)),
+    maybe_paren(P, Prec, T); % the only necessary call to maybe_paren()
+d2e({remote_type,_,[{atom,_,M},{atom,_,F},Ts0]}, _Prec) ->
     Ts = d2e(Ts0),
     typevar_anno(#t_type{name = #t_name{module = M, name = F}, args = Ts}, Ts);
-d2e({type,_,'fun',[{type,_,product,As0},Ran0]}) ->
+d2e({type,_,'fun',[{type,_,product,As0},Ran0]}, _Prec) ->
     Ts = [Ran|As] = d2e([Ran0|As0]),
     %% Assume that the linter has checked type variables.
     typevar_anno(#t_fun{args = As, range = Ran}, Ts);
-d2e({type,_,'fun',[A0={type,_,any},Ran0]}) ->
+d2e({type,_,'fun',[A0={type,_,any},Ran0]}, _Prec) ->
     Ts = [A, Ran] = d2e([A0, Ran0]),
     typevar_anno(#t_fun{args = [A], range = Ran}, Ts);
-d2e({type,_,'fun',[]}) ->
+d2e({type,_,'fun',[]}, _Prec) ->
     #t_type{name = #t_name{name = function}, args = []};
-d2e({type,_,any}) ->
+d2e({type,_,any}, _Prec) ->
     #t_var{name = '...'}; % Kludge... not a type variable!
-d2e({type,_,nil,[]}) ->
+d2e({type,_,nil,[]}, _Prec) ->
     #t_nil{};
-d2e({paren_type,_,[T]}) ->
-    #t_paren{type = d2e(T)};
-d2e({type,_,list,[T0]}) ->
+d2e({paren_type,_,[T]}, Prec) ->
+    d2e(T, Prec);
+d2e({type,_,list,[T0]}, _Prec) ->
     T = d2e(T0),
     typevar_anno(#t_list{type = T}, [T]);
-d2e({type,_,nonempty_list,[T0]}) ->
+d2e({type,_,nonempty_list,[T0]}, _Prec) ->
     T = d2e(T0),
     typevar_anno(#t_nonempty_list{type = T}, [T]);
-d2e({type,_,bounded_fun,[T,Gs]}) ->
+d2e({type,_,bounded_fun,[T,Gs]}, _Prec) ->
     [F0|Defs] = d2e([T|Gs]),
     F = ?set_t_ann(F0, lists:keydelete(type_variables, 1, ?t_ann(F0))),
     %% Assume that the linter has checked type variables.
     #t_spec{type = typevar_anno(F, [F0]), defs = Defs};
-d2e({type,_,range,[V1,V2]}) ->
+d2e({type,_,range,[V1,V2]}, Prec) ->
+    {_L,P,_R} = erl_parse:type_inop_prec('..'),
     {integer,_,I1} = erl_eval:partial_eval(V1),
     {integer,_,I2} = erl_eval:partial_eval(V2),
-    #t_integer_range{from = I1, to = I2};
-d2e({type,_,constraint,[Sub,Ts0]}) ->
+    T0 = #t_integer_range{from = I1, to = I2},
+    maybe_paren(P, Prec, T0);
+d2e({type,_,constraint,[Sub,Ts0]}, _Prec) ->
     case {Sub,Ts0} of
         {{atom,_,is_subtype},[{var,_,N},T0]} ->
             Ts = [T] = d2e([T0]),
@@ -348,41 +351,62 @@ d2e({type,_,constraint,[Sub,Ts0]}) ->
             Ts = [ST,T] = d2e([ST0,T0]),
             #t_def{name = ST, type = typevar_anno(T, Ts)};
         _ ->
-            throw_error(element(2, Sub), "cannot handle guard", [])
+            throw_error(get_line(element(2, Sub)), "cannot handle guard", [])
     end;
-d2e({type,_,union,Ts0}) ->
-    Ts = d2e(Ts0),
-    typevar_anno(#t_union{types = Ts}, Ts);
-d2e({type,_,tuple,any}) ->
+d2e({type,_,union,Ts0}, Prec) ->
+    {_L,P,R} = erl_parse:type_inop_prec('|'),
+    Ts = d2e(Ts0, R),
+    T = maybe_paren(P, Prec, #t_union{types = Ts}),
+    typevar_anno(T, Ts);
+d2e({type,_,tuple,any}, _Prec) ->
     #t_type{name = #t_name{name = tuple}, args = []};
-d2e({type,_,binary,[Base,Unit]}) ->
-    #t_binary{base_size = element(3, Base),
-              unit_size = element(3, Unit)};
-d2e({type,_,tuple,Ts0}) ->
+d2e({type,_,binary,[Base,Unit]}, _Prec) ->
+    {integer,_,B} = erl_eval:partial_eval(Base),
+    {integer,_,U} = erl_eval:partial_eval(Unit),
+    #t_binary{base_size = B, unit_size = U};
+d2e({type,_,map,any}, _Prec) ->
+    #t_map{types = []};
+d2e({type,_,map,Es}, _Prec) ->
+    #t_map{types = d2e(Es) };
+d2e({type,_,map_field_assoc,[K,V]}, Prec) ->
+    T = #t_map_field{assoc_type = assoc, k_type = d2e(K), v_type=d2e(V) },
+    {P,_R} = erl_parse:type_preop_prec('#'),
+    maybe_paren(P, Prec, T);
+d2e({type,_,map_field_exact,[K,V]}, Prec) ->
+    T = #t_map_field{assoc_type = exact, k_type = d2e(K), v_type=d2e(V) },
+    {P,_R} = erl_parse:type_preop_prec('#'),
+    maybe_paren(P, Prec, T);
+d2e({type,_,tuple,Ts0}, _Prec) ->
     Ts = d2e(Ts0),
     typevar_anno(#t_tuple{types = Ts}, Ts);
-d2e({type,_,record,[Name|Fs0]}) ->
+d2e({type,_,record,[Name|Fs0]}, Prec) ->
     Atom = #t_atom{val = element(3, Name)},
     Fs = d2e(Fs0),
-    typevar_anno(#t_record{name = Atom, fields = Fs}, Fs);
-d2e({type,_,field_type,[Name,Type0]}) ->
-    Type = d2e(Type0),
-    typevar_anno(#t_field{name = #t_atom{val = element(3, Name)}, type = Type},
-                 [Type]);
-d2e({typed_record_field,{record_field,L,Name},Type}) ->
-    d2e({type,L,field_type,[Name,Type]});
-d2e({typed_record_field,{record_field,L,Name,_E},Type}) ->
-    d2e({type,L,field_type,[Name,Type]});
-d2e({record_field,L,_Name,_E}=F) ->
-    d2e({typed_record_field,F,{type,L,any,[]}}); % Maybe skip...
-d2e({record_field,L,_Name}=F) ->
-    d2e({typed_record_field,F,{type,L,any,[]}}); % Maybe skip...
-d2e({type,_,Name,Types0}) ->
+    {P,_R} = erl_parse:type_preop_prec('#'),
+    T = maybe_paren(P, Prec, #t_record{name = Atom, fields = Fs}),
+    typevar_anno(T, Fs);
+d2e({type,_,field_type,[Name,Type0]}, Prec) ->
+    {_L,P,R} = erl_parse:type_inop_prec('::'),
+    Type = maybe_paren(P, Prec, d2e(Type0, R)),
+    T = #t_field{name = #t_atom{val = element(3, Name)}, type = Type},
+    typevar_anno(T, [Type]);
+d2e({typed_record_field,{record_field,L,Name},Type}, Prec) ->
+    d2e({type,L,field_type,[Name,Type]}, Prec);
+d2e({typed_record_field,{record_field,L,Name,_E},Type}, Prec) ->
+    d2e({type,L,field_type,[Name,Type]}, Prec);
+d2e({record_field,L,_Name,_E}=F, Prec) ->
+    d2e({typed_record_field,F,{type,L,any,[]}}, Prec); % Maybe skip...
+d2e({record_field,L,_Name}=F, Prec) ->
+    d2e({typed_record_field,F,{type,L,any,[]}}, Prec); % Maybe skip...
+d2e({type,_,Name,Types0}, _Prec) ->
     Types = d2e(Types0),
     typevar_anno(#t_type{name = #t_name{name = Name}, args = Types}, Types);
-d2e({var,_,'_'}) ->
+d2e({user_type,_,Name,Types0}, _Prec) ->
+    Types = d2e(Types0),
+    typevar_anno(#t_type{name = #t_name{name = Name}, args = Types}, Types);
+d2e({var,_,'_'}, _Prec) ->
     #t_type{name = #t_name{name = ?TOP_TYPE}};
-d2e({var,_,TypeName}) ->
+d2e({var,_,TypeName}, _Prec) ->
     TypeVar = ordsets:from_list([TypeName]),
     T = #t_var{name = TypeName},
     %% Annotate type variables with the name of the variable.
@@ -390,13 +414,13 @@ d2e({var,_,TypeName}) ->
     %% from using the argument name from the source or to invent a new name.
     T1 = ?add_t_ann(T, {type_variables, TypeVar}),
     ?add_t_ann(T1, TypeName);
-d2e(L) when is_list(L) ->
-    [d2e(T) || T <- L];
-d2e({atom,_,A}) ->
+d2e(L, Prec) when is_list(L) ->
+    [d2e(T, Prec) || T <- L];
+d2e({atom,_,A}, _Prec) ->
     #t_atom{val = A};
-d2e(undefined = U) -> % opaque
+d2e(undefined = U, _Prec) -> % opaque
     U;
-d2e(Expr) ->
+d2e(Expr, _Prec) ->
     {integer,_,I} = erl_eval:partial_eval(Expr),
     #t_integer{val = I}.
 
@@ -413,6 +437,11 @@ typevars(Ts) ->
 
 get_typevars(Ts) ->
     [Vs || T <- Ts, T =/= undefined, {type_variables, Vs} <- ?t_ann(T)].
+
+maybe_paren(P, Prec, T)  when P < Prec ->
+    #t_paren{type = T};
+maybe_paren(_P, _Prec, T) ->
+    T.
 
 -record(parms, {tab, warn, file, line}).
 
@@ -476,6 +505,11 @@ xrecs(#t_fun{args = Args0, range = Range0}=T, P) ->
     Args = xrecs(Args0, P),
     Range = xrecs(Range0, P),
     T#t_fun{args = Args, range = Range};
+xrecs(#t_map{types = Ts0 }=T,P) ->
+    Ts = xrecs(Ts0, P),
+    T#t_map{types = Ts };
+xrecs(#t_map_field{k_type=Kt, v_type=Vt}=T, P) ->
+    T#t_map_field{k_type=xrecs(Kt,P), v_type=xrecs(Vt,P)};
 xrecs(#t_tuple{types = Types0}=T, P) ->
     Types = xrecs(Types0, P),
     T#t_tuple{types = Types};
@@ -575,6 +609,16 @@ find_field(F, Fs) ->
 type_name(#tag{name = type,
                data = {#t_typedef{name = Name, args = As},_}}) ->
     {Name, length(As)}.
+
+analyze_type_attribute(Form) ->
+    Name = erl_syntax:atom_value(erl_syntax:attribute_name(Form)),
+    case tag(Name) of
+        type ->
+            erl_syntax_lib:analyze_wild_attribute(Form);
+        _ when Name =:= record ->
+            {attribute, _, record, {N, Fields}} = erl_syntax:revert(Form),
+            {record, {N, Fields}}
+    end.
 
 %% @doc Return `true' if `Tag' is one of the specification and type
 %% attribute tags recognized by the Erlang compiler.

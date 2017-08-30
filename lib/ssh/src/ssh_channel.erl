@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -67,7 +68,8 @@
 %% Internal application API
 -export([cache_create/0, cache_lookup/2, cache_update/2, 
 	 cache_delete/1, cache_delete/2,  cache_foldl/3,
-	 cache_find/2]).
+	 cache_info/2,  cache_find/2,
+	 get_print_info/1]).
 
 -record(state, {
 	  cm,
@@ -190,6 +192,14 @@ init([Options]) ->
 %%                                      {stop, Reason, State}
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
+handle_call(get_print_info, _From, State) ->
+    Reply =
+	{{State#state.cm,
+	  State#state.channel_id},
+	 io_lib:format('CB=~p',[State#state.channel_cb])
+	},
+    {reply, Reply, State};
+
 handle_call(Request, From, #state{channel_cb = Module, 
 				  channel_state = ChannelState} = State) ->
    try Module:handle_call(Request, From, ChannelState) of
@@ -284,7 +294,7 @@ handle_info(Msg, #state{cm = ConnectionManager, channel_cb = Module,
 terminate(Reason, #state{cm = ConnectionManager, 
  			 channel_id = ChannelId,
  			 close_sent = false} = State) ->
-    ssh_connection:close(ConnectionManager, ChannelId),
+    catch ssh_connection:close(ConnectionManager, ChannelId),
     terminate(Reason, State#state{close_sent = true});
 terminate(_, #state{channel_cb = Cb, channel_state = ChannelState}) ->
     catch Cb:terminate(Cb, ChannelState),
@@ -325,6 +335,9 @@ cache_delete(Cache) ->
 cache_foldl(Fun, Acc, Cache) ->
     ets:foldl(Fun, Acc, Cache).
     
+cache_info(num_entries, Cache) ->
+    proplists:get_value(size, ets:info(Cache)).
+
 cache_find(ChannelPid, Cache) ->
    case ets:match_object(Cache, #channel{user = ChannelPid}) of
        [] ->
@@ -332,6 +345,9 @@ cache_find(ChannelPid, Cache) ->
        [Channel] ->
 	   Channel
    end.
+
+get_print_info(Pid) ->
+    call(Pid, get_print_info, 1000).
 
 %%--------------------------------------------------------------------
 %%% Internal functions

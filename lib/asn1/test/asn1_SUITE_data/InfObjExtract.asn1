@@ -1,0 +1,136 @@
+InfObjExtract DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+DATA-CLASS ::= CLASS {
+  &id INTEGER UNIQUE,
+  &Type
+} WITH SYNTAX {
+  ID &id
+  TYPE &Type
+}
+
+data-object-1 DATA-CLASS ::= { ID 1 TYPE BOOLEAN }
+data-object-2 DATA-CLASS ::= { ID 2 TYPE OCTET STRING }
+data-object-3 DATA-CLASS ::= { ID 3 TYPE BIT STRING }
+
+ObjSet DATA-CLASS ::= {
+  holder-object-1.&obj |
+  data-object-2 |
+  data-object-3,
+  ...
+}
+
+OBJ-SET DATA-CLASS ::= {
+  holder-object-1.&obj |
+  data-object-2 |
+  data-object-3,
+  ...
+}
+
+SingleElementSet DATA-CLASS ::= {
+  holder-object-1.&obj
+}
+
+holder-object-1 HOLDER-CLASS ::= {
+  OBJ data-object-1
+}
+
+holder-object-2 HOLDER-CLASS ::= {
+  OBJ-SET {data-object-1}
+}
+
+holder-object-3 HOLDER-CLASS ::= {
+  OBJ-SET {holder-object-2.&ObjSet}
+}
+
+-- Note: References to object sets with names in all uppercase/hyphens
+-- may be represented differently compared to object sets with names
+-- that contain lowercase letters. CAVEAT TESTOR.
+
+HOLDER-OBJECTS HOLDER-CLASS ::= { holder-object-2 }
+HolderObjects HOLDER-CLASS ::= { holder-object-3 }
+
+holder-object-4 HOLDER-CLASS ::= {
+  OBJ-SET { HOLDER-OBJECTS.&ObjSet }
+}
+
+holder-object-5 HOLDER-CLASS ::= {
+  OBJ-SET { HolderObjects.&ObjSet }
+}
+
+holder-object-6 HOLDER-CLASS ::= {
+  OBJ-SET { OBJ-SET }
+}
+
+holder-object-7 HOLDER-CLASS ::= {
+  OBJ-SET { ObjSet  }
+}
+
+HOLDER-CLASS ::= CLASS {
+  &obj DATA-CLASS OPTIONAL,
+  &ObjSet DATA-CLASS OPTIONAL
+} WITH SYNTAX {
+  [OBJ &obj]
+  [OBJ-SET &ObjSet]
+}
+
+TestSeq{DATA-CLASS:ObjectSet} ::= SEQUENCE {
+  id DATA-CLASS.&id ({ObjectSet}),
+  data DATA-CLASS.&Type ({ObjectSet}{@id})
+}
+
+DataSeq-1 ::= TestSeq{ {ObjSet} }
+DataSeq-2 ::= TestSeq{ {holder-object-3.&ObjSet} }
+
+DataSeq-3 ::= TestSeq{ {holder-object-4.&ObjSet} }
+DataSeq-4 ::= TestSeq{ {holder-object-5.&ObjSet} }
+DataSeq-5 ::= TestSeq{ {holder-object-6.&ObjSet} }
+DataSeq-6 ::= TestSeq{ {holder-object-7.&ObjSet} }
+
+DataSeqSingleSet-1 ::= TestSeq{ {SingleElementSet} }
+DataSeqSingleSet-2 ::= TestSeq{ {holder-object-1.&obj} }
+
+--
+-- Test ObjectSetFromObjects.
+--
+
+OBJ-CLASS ::= CLASS {
+  &id INTEGER UNIQUE,
+  &Data OPTIONAL,
+  &Obj OBJ-CLASS OPTIONAL,
+  &obj OBJ-CLASS OPTIONAL
+}
+
+obj-class-obj-1 OBJ-CLASS ::= { &id 1, &Data BOOLEAN }
+
+obj-class-obj-2 OBJ-CLASS ::= { &id 2, &Data BOOLEAN,
+			         &Obj {obj-class-obj-1} }
+
+obj-class-obj-3 OBJ-CLASS ::= { &id 3, &Data BOOLEAN,
+			         &obj {&id 99, &Obj {obj-class-obj-1}} }
+
+obj-class-obj-4 OBJ-CLASS ::= { &id 4, &Data BOOLEAN, &obj obj-class-obj-2 }
+
+obj-class-obj-5 OBJ-CLASS ::= { &id 5, &Data BOOLEAN,
+		                &Obj {obj-class-obj-4.&obj} }
+
+ObjClassSet OBJ-CLASS ::= { obj-class-obj-3.&obj.&Obj |
+			    obj-class-obj-4.&Obj | -- Non-existing field
+			    obj-class-obj-5.&Obj
+			   }
+
+TestObjClassSeq{OBJ-CLASS:ObjectSet} ::= SEQUENCE {
+  id OBJ-CLASS.&id ({ObjectSet}),
+  data OBJ-CLASS.&Data ({ObjectSet}{@id})
+}
+
+ObjClassSeq-1 ::= TestObjClassSeq{{ObjClassSet}}
+
+--
+-- Test several levels of inlined definitions.
+--
+
+obj-class-obj-6 OBJ-CLASS ::= { &id 6, &Obj {{&id 100, &Data INTEGER}},
+		                &Data INTEGER }
+
+END

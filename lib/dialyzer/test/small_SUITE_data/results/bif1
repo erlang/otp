@@ -1,0 +1,3 @@
+
+bif1.erl:13: Function string_chars/0 has no local return
+bif1.erl:16: The call string:chars(S::65,10,L2::bif1_adt:s()) contains an opaque term as 3rd argument when terms of different types are expected in these positions

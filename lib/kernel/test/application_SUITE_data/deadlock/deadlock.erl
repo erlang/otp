@@ -21,7 +21,7 @@ init([sup]) ->
     {ok, {{one_for_one, 5, 10}, [
         {
             sasl_syslog_dm, {?MODULE, start_link, []},
-            permanent, brutal_kill, worker,
+            permanent, 25000, worker,
             [deadlock]
         }
     ]}};
@@ -32,6 +32,8 @@ init([sup]) ->
 init([child]) ->
     case application:get_env(deadlock, fail_start) of
         {ok, false} ->
+	    process_flag(trap_exit, true),
+	    io:format("~p: Traps exit~n",[?MODULE]),
             %% we must not fail on the first init, otherwise supervisor
             %% terminates immediately
             {ok, []};
@@ -50,6 +52,14 @@ handle_info(_Msg, State) ->
     {noreply, State}.
 
 terminate(_Reason, _State) ->
+    case application:get_env(deadlock, fail_stop) of
+        {ok, false} -> ok;
+        {ok, Tester}  ->
+	    Tester ! {deadlock, self()},
+	    io:format("~p: Waiting in terminate (~p)~n",[?MODULE,Tester]),
+	    receive continue -> ok end
+    end,
+    io:format("~p: terminates~n", [?MODULE]),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->

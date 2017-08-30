@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -20,7 +21,7 @@
 
 -module(multi_ORB_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
@@ -30,7 +31,7 @@
 -include_lib("orber/COSS/CosNaming/CosNaming_NamingContext.hrl").
 
 
--define(default_timeout, ?t:minutes(15)).
+-define(default_timeout, test_server:minutes(15)).
 
 -define(match(ExpectedRes,Expr),
 	fun() ->
@@ -43,7 +44,7 @@
 		   _ ->
 		       io:format("###### ERROR ERROR ######~nRESULT:  ~p~n",
 				 [AcTuAlReS]),
-		       ?line exit(AcTuAlReS)
+		       exit(AcTuAlReS)
 	       end
        end()).
 
@@ -75,8 +76,6 @@
 	 close_connections_local_interface_ctx_override_api/1,
 	 ssl_1_multi_orber_generation_3_api/1, ssl_2_multi_orber_generation_3_api/1,
 	 ssl_reconfigure_generation_3_api/1,
-	 ssl_1_multi_orber_generation_3_api_old/1, ssl_2_multi_orber_generation_3_api_old/1,
-	 ssl_reconfigure_generation_3_api_old/1,
 	 close_connections_alt_iiop_addr_api/1, close_connections_multiple_profiles_api/1]).
 
 
@@ -137,13 +136,10 @@ cases() ->
      setup_multi_connection_timeout_attempts_api,
      setup_multi_connection_timeout_random_api,
      ssl_1_multi_orber_api,
-     ssl_1_multi_orber_generation_3_api_old,
      ssl_1_multi_orber_generation_3_api,
      ssl_2_multi_orber_api,
-     ssl_2_multi_orber_generation_3_api_old,
      ssl_2_multi_orber_generation_3_api,
      ssl_reconfigure_api,
-     ssl_reconfigure_generation_3_api_old,
      ssl_reconfigure_generation_3_api].
 
 %%-----------------------------------------------------------------
@@ -155,10 +151,7 @@ init_per_testcase(TC,Config)
        TC =:= ssl_reconfigure_api ->
     init_ssl(Config);
 init_per_testcase(TC,Config)
-  when TC =:= ssl_1_multi_orber_generation_3_api_old;
-       TC =:= ssl_2_multi_orber_generation_3_api_old;
-       TC =:= ssl_reconfigure_generation_3_api_old;
-       TC =:= ssl_1_multi_orber_generation_3_api;
+  when TC =:= ssl_1_multi_orber_generation_3_api;
        TC =:= ssl_2_multi_orber_generation_3_api;
        TC =:= ssl_reconfigure_generation_3_api ->
     init_ssl_3(Config);
@@ -166,7 +159,7 @@ init_per_testcase(_Case, Config) ->
     init_all(Config).
 
 init_ssl(Config) ->
-    case  ?config(crypto_started, Config) of
+    case  proplists:get_value(crypto_started, Config) of
 	true ->
 	    case orber_test_lib:ssl_version() of
 		no_ssl ->
@@ -179,7 +172,7 @@ init_ssl(Config) ->
     end.
 
 init_ssl_3(Config) ->
-    case  ?config(crypto_started, Config) of
+    case  proplists:get_value(crypto_started, Config) of
 	true ->
 	    case orber_test_lib:ssl_version() of
 		3 ->
@@ -207,7 +200,7 @@ end_per_testcase(_Case, Config) ->
     orber:jump_stop(),
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -232,8 +225,7 @@ end_per_suite(Config) ->
 %%  API tests for ORB to ORB, no security
 %%-----------------------------------------------------------------
 
-implicit_context_api(doc) -> ["IIOP Implicit Contex tests"];
-implicit_context_api(suite) -> [];
+%% IIOP Implicit Contex tests
 implicit_context_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -264,9 +256,7 @@ implicit_context_api(_Config) ->
     ?match(true, lists:keymember(Loopback, 1, Conns)),
     ok.
 
-implicit_context_roundtrip_api(doc) ->
-    ["IIOP Implicit Contex roundtrip tests"];
-implicit_context_roundtrip_api(suite) -> [];
+%% IIOP Implicit Contex roundtrip tests
 implicit_context_roundtrip_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -296,10 +286,7 @@ implicit_context_roundtrip_api(_Config) ->
     ?match(true, lists:keymember(Loopback, 1, Conns)),
     ok.
 
-
-
-oneway_implicit_context_api(doc) -> ["IIOP Implicit Contex oneway tests"];
-oneway_implicit_context_api(suite) -> [];
+%% IIOP Implicit Contex oneway tests
 oneway_implicit_context_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -333,9 +320,7 @@ oneway_implicit_context_api(_Config) ->
     ?match(true, lists:keymember(Loopback, 1, Conns)),
     ok.
 
-
-pseudo_implicit_context_api(doc) -> ["IIOP Implicit Contex tests (via pseudo object)"];
-pseudo_implicit_context_api(suite) -> [];
+%% IIOP Implicit Contex tests (via pseudo object)
 pseudo_implicit_context_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -365,9 +350,7 @@ pseudo_implicit_context_api(_Config) ->
     ?match(true, lists:keymember(Loopback, 1, Conns)),
     ok.
 
-pseudo_two_implicit_context_api(doc) ->
-    ["IIOP two Implicit Contex tests (via pseudo object)"];
-pseudo_two_implicit_context_api(suite) -> [];
+%% IIOP two Implicit Contex tests (via pseudo object)
 pseudo_two_implicit_context_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -401,8 +384,7 @@ pseudo_two_implicit_context_api(_Config) ->
     ?match(true, lists:keymember(Loopback, 1, Conns)),
     ok.
 
-oneway_pseudo_implicit_context_api(doc) -> ["IIOP Implicit Contex tests (via pseudo object oneway)"];
-oneway_pseudo_implicit_context_api(suite) -> [];
+%% IIOP Implicit Contex tests (via pseudo object oneway)
 oneway_pseudo_implicit_context_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -432,9 +414,7 @@ oneway_pseudo_implicit_context_api(_Config) ->
     ?match(true, lists:keymember(Loopback, 1, Conns)),
     ok.
 
-oneway_pseudo_two_implicit_context_api(doc) ->
-    ["IIOP two Implicit Contex tests (via pseudo object oneway)"];
-oneway_pseudo_two_implicit_context_api(suite) -> [];
+%% IIOP two Implicit Contex tests (via pseudo object oneway)
 oneway_pseudo_two_implicit_context_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -471,8 +451,7 @@ oneway_pseudo_two_implicit_context_api(_Config) ->
 
 
 
-multiple_accept_api(doc) -> ["IIOP Multiple Accept tests"];
-multiple_accept_api(suite) -> [];
+%% IIOP Multiple Accept tests
 multiple_accept_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -544,10 +523,9 @@ multiple_accept_api(_Config) ->
     ok.
 
 
-proxy_interface_api(doc) -> ["IIOP Proxy Interface tests",
-			     "This case test if the server ORB use the correct",
-			     "interface when exporting IOR:s"];
-proxy_interface_api(suite) -> [];
+%% IIOP Proxy Interface tests
+%% This case test if the server ORB use the correct
+%% interface when exporting IOR:s
 proxy_interface_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -564,10 +542,9 @@ proxy_interface_api(_Config) ->
 	   iop_ior:get_key(IOR2)),
     ok.
 
-proxy_interface_ipv6_api(doc) -> ["IIOP Proxy Interface tests",
-				  "This case test if the server ORB use the correct",
-				  "IPv6 interface when exporting IOR:s"];
-proxy_interface_ipv6_api(suite) -> [];
+%% IIOP Proxy Interface tests
+%% This case test if the server ORB use the correct
+%% IPv6 interface when exporting IOR:s
 proxy_interface_ipv6_api(_Config) ->
     case orber_test_lib:version_ok() of
 	true ->
@@ -590,20 +567,19 @@ proxy_interface_ipv6_api2() ->
 
     IOR1 = ?match(#'IOP_IOR'{},
 		  orber_test_lib:remote_apply(ClientNode, corba, string_to_object,
-					      ["corbaloc::1.2@"++IP++":"++integer_to_list(ServerPort)++"/NameService"])),
+					      ["corbaloc::1.2@["++IP++"]:"++integer_to_list(ServerPort)++"/NameService"])),
     ?match({'external', {IP, ServerPort, _ObjectKey, _Counter, _TP, _NewHD}},
 	   orber_test_lib:remote_apply(ClientNode, iop_ior, get_key, [IOR1])),
     IOR2 = ?match(#'IOP_IOR'{},
 		  orber_test_lib:remote_apply(ClientNode, corba, string_to_object,
-					      ["corbaloc::1.2@"++Loopback++":"++integer_to_list(ServerPort)++"/NameService"])),
+					      ["corbaloc::1.2@["++Loopback++"]:"++integer_to_list(ServerPort)++"/NameService"])),
     ?match({'external', {Loopback, ServerPort, _ObjectKey, _Counter, _TP, _NewHD}},
 	   orber_test_lib:remote_apply(ClientNode, iop_ior, get_key, [IOR2])),
     ok.
 
-local_interface_api(doc) -> ["IIOP Local Interface tests",
-			     "This case test if the server ORB use the correct",
-			     "local interface when connecting to another ORB"];
-local_interface_api(suite) -> [];
+%% IIOP Local Interface tests
+%% This case test if the server ORB use the correct
+%% local interface when connecting to another ORB
 local_interface_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -634,11 +610,9 @@ local_interface_api(_Config) ->
 
     ok.
 
-local_interface_ctx_override_api(doc) ->
-    ["IIOP Local Interface tests",
-     "This case test if the server ORB use the correct",
-     "local interface when connecting to another ORB"];
-local_interface_ctx_override_api(suite) -> [];
+%% IIOP Local Interface tests
+%% This case test if the server ORB use the correct
+%% local interface when connecting to another ORB
 local_interface_ctx_override_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -671,11 +645,9 @@ local_interface_ctx_override_api(_Config) ->
 
     ok.
 
-local_interface_acl_override_api(doc) ->
-    ["IIOP Local Interface tests",
-     "This case test if the server ORB use the correct",
-     "local interface when connecting to another ORB"];
-local_interface_acl_override_api(suite) -> [];
+%% IIOP Local Interface tests
+%% This case test if the server ORB use the correct
+%% local interface when connecting to another ORB
 local_interface_acl_override_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -715,9 +687,8 @@ local_interface_acl_override_api(_Config) ->
     ok.
 
 
-iiop_timeout_api(doc) -> ["IIOP TIMEOUT API tests",
-			 "This case test if timeout configuration behaves correctly"];
-iiop_timeout_api(suite) -> [];
+%% IIOP TIMEOUT API tests
+%% This case test if timeout configuration behaves correctly
 iiop_timeout_api(_Config) ->
 
     %% Install two secure orber.
@@ -761,9 +732,8 @@ iiop_timeout_api(_Config) ->
 					   [timeout])),
     ok.
 
-iiop_timeout_added_api(doc) -> ["IIOP TIMEOUT API tests",
-			 "This case test if timeout configuration behaves correctly"];
-iiop_timeout_added_api(suite) -> [];
+%% IIOP TIMEOUT API tests
+%% This case test if timeout configuration behaves correctly
 iiop_timeout_added_api(_Config) ->
     IP = orber_test_lib:get_host(),
     {ok, Node, _Host} = ?match({ok,_,_}, orber_test_lib:js_node([])),
@@ -798,12 +768,10 @@ iiop_timeout_added_api(_Config) ->
 %%  API tests for ORB to ORB using pseudo call/cast, no security
 %%-----------------------------------------------------------------
 
-multi_pseudo_orber_api(doc) ->
-    ["MULTI ORB PSEUDO API tests",
-     "This case test if data encode/decode (IIOP) for pseudo objects",
-     "produce the correct result, i.e., the test_server echos",
-     "the input parameter or an exception is raised (MARSHAL)."];
-multi_pseudo_orber_api(suite) -> [];
+%% MULTI ORB PSEUDO API tests
+%% This case test if data encode/decode (IIOP) for pseudo objects
+%% produce the correct result, i.e., the test_server echos
+%% the input parameter or an exception is raised (MARSHAL)
 multi_pseudo_orber_api(_Config) ->
     %% --- Create a slave-node ---
     {ok, Node, Host} =
@@ -847,9 +815,7 @@ multi_pseudo_orber_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  API tests for ORB to ORB with local flags definition set.
 %%-----------------------------------------------------------------
-flags_added_api(doc) ->
-    ["MULTI ORB PSEUDO with local flags definition set"];
-flags_added_api(suite) -> [];
+%% MULTI ORB PSEUDO with local flags definition set
 flags_added_api(_Config) ->
     %% --- Create a slave-node ---
     IP = orber_test_lib:get_host(),
@@ -887,9 +853,7 @@ flags_added_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  API tests for ORB to ORB with limited concurrent requests
 %%-----------------------------------------------------------------
-max_requests_api(doc) ->
-    ["MULTI ORB PSEUDO with limited concurrent requests tests"];
-max_requests_api(suite) -> [];
+%% MULTI ORB PSEUDO with limited concurrent requests tests
 max_requests_api(_Config) ->
     %% --- Create a slave-node ---
     {ok, Node, Host} =
@@ -897,9 +861,7 @@ max_requests_api(_Config) ->
     Port = orber_test_lib:remote_apply(Node, orber, iiop_port, []),
     max_requests(Node, Host, Port).
 
-max_requests_added_api(doc) ->
-    ["MULTI ORB PSEUDO with limited concurrent requests tests"];
-max_requests_added_api(suite) -> [];
+%% MULTI ORB PSEUDO with limited concurrent requests tests
 max_requests_added_api(_Config) ->
     %% --- Create a slave-node ---
     [IP] = ?match([_], orber:host()),
@@ -930,9 +892,9 @@ max_requests(Node, Host, Port) ->
     spawn(orber_test_server, pseudo_call_delay, [Obj, 15000]),
     %% Wait for a second to be sure that the previous request has been sent
     timer:sleep(1000),
-    {MegaSecsB, Before, _} = now(),
+    {MegaSecsB, Before, _} = erlang:timestamp(),
     pseudo_calls(5, Obj),
-    {MegaSecsA, After, _} = now(),
+    {MegaSecsA, After, _} = erlang:timestamp(),
     %% Normally we we can perform hundreds of pseudo-calls per second. Hence,
     %% if we add 8 seconds to 'Before' it should still be less since we only
     %% allow one request at a time to the target ORB.
@@ -947,9 +909,7 @@ max_requests(Node, Host, Port) ->
 %%-----------------------------------------------------------------
 %%  API tests for ORB to ORB with limited concurrent connections
 %%-----------------------------------------------------------------
-max_connections_api(doc) ->
-    ["MULTI ORB PSEUDO with limited concurrent connections tests"];
-max_connections_api(suite) -> [];
+%% MULTI ORB PSEUDO with limited concurrent connections tests
 max_connections_api(_Config) ->
     %% --- Create a slave-node ---
     {ok, ServerNode, ServerHost} =
@@ -1019,9 +979,7 @@ max_connections_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  API tests for terminating connection by using an IOR.
 %%-----------------------------------------------------------------
-close_connections_api(doc) ->
-    ["Close outgoing connection "];
-close_connections_api(suite) -> [];
+%% Close outgoing connection
 close_connections_api(_Config) ->
     %% --- Create a slave-node ---
     IP = orber_test_lib:get_host(),
@@ -1054,11 +1012,9 @@ close_connections_api(_Config) ->
     ok.
 
 
-close_connections_local_interface_api(doc) ->
-    ["IIOP Local Interface disconnect tests",
-     "This case test if the server ORB use the correct",
-     "local interface when connecting to another ORB"];
-close_connections_local_interface_api(suite) -> [];
+%% IIOP Local Interface disconnect tests
+%% This case test if the server ORB use the correct
+%% local interface when connecting to another ORB
 close_connections_local_interface_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -1090,11 +1046,9 @@ close_connections_local_interface_api(_Config) ->
 
     ok.
 
-close_connections_local_interface_ctx_override_api(doc) ->
-    ["IIOP Local Interface disconnect tests",
-     "This case test if the server ORB use the correct",
-     "local interface when connecting to another ORB"];
-close_connections_local_interface_ctx_override_api(suite) -> [];
+%% IIOP Local Interface disconnect tests
+%% This case test if the server ORB use the correct
+%% local interface when connecting to another ORB
 close_connections_local_interface_ctx_override_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -1154,11 +1108,9 @@ close_connections_local_interface_ctx_override_api(_Config) ->
 					   iiop_connections, [out])),
     ok.
 
-close_connections_alt_iiop_addr_api(doc) ->
-    ["IIOP alternate address disconnect tests",
-     "This case test if the server ORB use the correct",
-     "local interface when connecting to another ORB"];
-close_connections_alt_iiop_addr_api(suite) -> [];
+%% IIOP alternate address disconnect tests
+%% This case test if the server ORB use the correct
+%% local interface when connecting to another ORB
 close_connections_alt_iiop_addr_api(_Config) ->
     %% --- Create a slave-node ---
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -1194,11 +1146,9 @@ close_connections_alt_iiop_addr_api(_Config) ->
 					   iiop_connections, [in])),
     ok.
 
-close_connections_multiple_profiles_api(doc) ->
-    ["IIOP alternate address disconnect tests",
-     "This case test if the server ORB use the correct",
-     "local interface when connecting to another ORB"];
-close_connections_multiple_profiles_api(suite) -> [];
+%% IIOP alternate address disconnect tests
+%% This case test if the server ORB use the correct
+%% local interface when connecting to another ORB
 close_connections_multiple_profiles_api(_Config) ->
     IP = orber_test_lib:get_host(),
     Loopback = orber_test_lib:get_loopback_interface(),
@@ -1235,9 +1185,7 @@ close_connections_multiple_profiles_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  API tests for ORB to ORB with iiop_packet_size set
 %%-----------------------------------------------------------------
-max_packet_size_exceeded_api(doc) ->
-    ["Exceed the maximum request size"];
-max_packet_size_exceeded_api(suite) -> [];
+%% Exceed the maximum request size
 max_packet_size_exceeded_api(_Config) ->
     case catch gen_tcp:listen(0, [{packet,cdr}, {packet_size, 14}]) of
 	{'EXIT',badarg} ->
@@ -1257,9 +1205,7 @@ max_packet_size_exceeded_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  API tests for ORB to ORB with iiop_packet_size set
 %%-----------------------------------------------------------------
-max_packet_size_ok_api(doc) ->
-    ["Not exceed the maximum request size"];
-max_packet_size_ok_api(suite) -> [];
+%% Not exceed the maximum request size
 max_packet_size_ok_api(_Config) ->
     case catch gen_tcp:listen(0, [{packet,cdr}, {packet_size, 14}]) of
 	{'EXIT',badarg} ->
@@ -1281,9 +1227,7 @@ max_packet_size_ok_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  API tests for ORB to ORB, no security
 %%-----------------------------------------------------------------
-
-light_ifr_api(doc) -> ["LIGHT IFR ORB API tests"];
-light_ifr_api(suite) -> [];
+%% LIGHT IFR ORB API tests
 light_ifr_api(_Config) ->
 
     {ok, ClientNode, _ClientHost} =
@@ -1356,11 +1300,9 @@ light_ifr_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  API tests for ORB to ORB, no security
 %%-----------------------------------------------------------------
-
-light_orber_api(doc) -> ["LIGHT ORB API tests",
-			 "This case test if a light Orber can communicate correctly",
-			 "with an fully installed Orber."];
-light_orber_api(suite) -> [];
+%% LIGHT ORB API tests
+%% This case test if a light Orber can communicate correctly
+%% with an fully installed Orber.
 light_orber_api(_Config) ->
     %% --- Create a slave-node ---
     LocalHost = net_adm:localhost(),
@@ -1405,13 +1347,11 @@ light_orber_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  API tests for ORB to ORB, no security
 %%-----------------------------------------------------------------
-
-light_orber2_api(doc) -> ["LIGHT ORB API tests",
-			 "This case test if a light Orber can communicate correctly",
-			 "with an fully installed Orber. This case test if we can",
-			 "start as lightweight without first setting the environment",
-			 "variable"];
-light_orber2_api(suite) -> [];
+%% LIGHT ORB API tests
+%% This case test if a light Orber can communicate correctly
+%% with an fully installed Orber. This case test if we can
+%% start as lightweight without first setting the environment
+%% variable
 light_orber2_api(_Config) ->
     %% --- Create a slave-node ---
     LocalHost = net_adm:localhost(),
@@ -1457,12 +1397,10 @@ light_orber2_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  API tests for ORB to ORB, no security
 %%-----------------------------------------------------------------
-
-multi_orber_api(doc) -> ["MULTI ORB API tests",
-			 "This case test if data encode/decode (IIOP)",
-			 "produce the correct result, i.e., the test_server echos",
-			 "the input parameter or an exception is raised (MARSHAL)."];
-multi_orber_api(suite) -> [];
+%% MULTI ORB API tests
+%% This case test if data encode/decode (IIOP)
+%% produce the correct result, i.e., the test_server echos
+%% the input parameter or an exception is raised (MARSHAL).
 multi_orber_api(_Config) ->
 
     NewICObj1 = ?match({_,_,_,_,_,_}, orber_test_server:oe_create([])),
@@ -1542,12 +1480,11 @@ multi_orber_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  API tests for ORB to ORB, no security, using basic interceptors
 %%-----------------------------------------------------------------
-basic_PI_api(doc) -> ["MULTI ORB API tests",
-		      "This case test if data encode/decode (IIOP)",
-		      "produce the correct result when using basic interceptors,",
-		      "i.e., the test_server echos",
-		      "the input parameter or an exception is raised (MARSHAL)."];
-basic_PI_api(suite) -> [];
+%% MULTI ORB API tests
+%% This case test if data encode/decode (IIOP)
+%% produce the correct result when using basic interceptors
+%% i.e., the test_server echos the input parameter or 
+%% an exception is raised (MARSHAL).
 basic_PI_api(_Config) ->
     %% Change configuration to use Basic Interceptors.
     orber:configure_override(interceptors, {native, [orber_test_lib]}),
@@ -1619,11 +1556,10 @@ basic_PI_api(_Config) ->
 %%  API tests for ORB to ORB, ssl security depth 1
 %%-----------------------------------------------------------------
 
-ssl_1_multi_orber_api(doc) -> ["SECURE MULTI ORB API tests (SSL depth 1)",
-			       "This case set up two secure orbs and test if they can",
-			     "communicate. The case also test to access one of the",
-			     "secure orbs which must raise a NO_PERMISSION exception."];
-ssl_1_multi_orber_api(suite) -> [];
+%% SECURE MULTI ORB API tests (SSL depth 1)
+%% This case set up two secure orbs and test if they can
+%% communicate. The case also test to access one of the
+%% secure orbs which must raise a NO_PERMISSION exception.
 ssl_1_multi_orber_api(_Config) ->
     ServerOptions = orber_test_lib:get_options_old(iiop_ssl, server,
 					       1, [{iiop_ssl_port, 0}]),
@@ -1632,27 +1568,10 @@ ssl_1_multi_orber_api(_Config) ->
     ssl_suite(ServerOptions, ClientOptions).
 
 
-ssl_1_multi_orber_generation_3_api_old(doc) -> ["SECURE MULTI ORB API tests (SSL depth 1)",
-			       "This case set up two secure orbs and test if they can",
-			     "communicate. The case also test to access one of the",
-			     "secure orbs which must raise a NO_PERMISSION exception."];
-ssl_1_multi_orber_generation_3_api_old(suite) -> [];
-ssl_1_multi_orber_generation_3_api_old(_Config) ->
-
-    ServerOptions = orber_test_lib:get_options_old(iiop_ssl, server,
-					       1, [{ssl_generation, 3},
-						   {iiop_ssl_port, 0}]),
-    ClientOptions = orber_test_lib:get_options_old(iiop_ssl, client,
-					       1, [{ssl_generation, 3},
-						   {iiop_ssl_port, 0}]),
-    ssl_suite(ServerOptions, ClientOptions).
-
-
-ssl_1_multi_orber_generation_3_api(doc) -> ["SECURE MULTI ORB API tests (SSL depth 1)",
-			       "This case set up two secure orbs and test if they can",
-			     "communicate. The case also test to access one of the",
-			     "secure orbs which must raise a NO_PERMISSION exception."];
-ssl_1_multi_orber_generation_3_api(suite) -> [];
+%% SECURE MULTI ORB API tests (SSL depth 1)
+%% This case set up two secure orbs and test if they can
+%% communicate. The case also test to access one of the
+%% secure orbs which must raise a NO_PERMISSION exception.
 ssl_1_multi_orber_generation_3_api(_Config) ->
 
     ServerOptions = orber_test_lib:get_options(iiop_ssl, server,
@@ -1667,11 +1586,10 @@ ssl_1_multi_orber_generation_3_api(_Config) ->
 %%  API tests for ORB to ORB, ssl security depth 2
 %%-----------------------------------------------------------------
 
-ssl_2_multi_orber_api(doc) -> ["SECURE MULTI ORB API tests (SSL depth 2)",
-			     "This case set up two secure orbs and test if they can",
-			     "communicate. The case also test to access one of the",
-			     "secure orbs which must raise a NO_PERMISSION exception."];
-ssl_2_multi_orber_api(suite) -> [];
+%% SECURE MULTI ORB API tests (SSL depth 2)
+%% These case set up two secure orbs and test if they can
+%% communicate. They also test to access one of the
+%% secure orbs which must raise a NO_PERMISSION exception.
 ssl_2_multi_orber_api(_Config) ->
 
     ServerOptions = orber_test_lib:get_options_old(iiop_ssl, server,
@@ -1680,28 +1598,6 @@ ssl_2_multi_orber_api(_Config) ->
 					       2, [{iiop_ssl_port, 0}]),
     ssl_suite(ServerOptions, ClientOptions).
 
-
-ssl_2_multi_orber_generation_3_api_old(doc) -> ["SECURE MULTI ORB API tests (SSL depth 2)",
-			     "This case set up two secure orbs and test if they can",
-			     "communicate. The case also test to access one of the",
-			     "secure orbs which must raise a NO_PERMISSION exception."];
-ssl_2_multi_orber_generation_3_api_old(suite) -> [];
-ssl_2_multi_orber_generation_3_api_old(_Config) ->
-
-    ServerOptions = orber_test_lib:get_options_old(iiop_ssl, server,
-					       2, [{ssl_generation, 3},
-						   {iiop_ssl_port, 0}]),
-    ClientOptions = orber_test_lib:get_options_old(iiop_ssl, client,
-					       2, [{ssl_generation, 3},
-						   {iiop_ssl_port, 0}]),
-    ssl_suite(ServerOptions, ClientOptions).
-
-
-ssl_2_multi_orber_generation_3_api(doc) -> ["SECURE MULTI ORB API tests (SSL depth 2)",
-			     "This case set up two secure orbs and test if they can",
-			     "communicate. The case also test to access one of the",
-			     "secure orbs which must raise a NO_PERMISSION exception."];
-ssl_2_multi_orber_generation_3_api(suite) -> [];
 ssl_2_multi_orber_generation_3_api(_Config) ->
 
     ServerOptions = orber_test_lib:get_options(iiop_ssl, server,
@@ -1715,22 +1611,16 @@ ssl_2_multi_orber_generation_3_api(_Config) ->
 %%  API tests for ORB to ORB, ssl security depth 2
 %%-----------------------------------------------------------------
 
-ssl_reconfigure_api(doc) -> ["SECURE MULTI ORB API tests (SSL depth 2)",
-			     "This case set up two secure orbs and test if they can",
-			     "communicate. The case also test to access one of the",
-			     "secure orbs which must raise a NO_PERMISSION exception."];
-ssl_reconfigure_api(suite) -> [];
+%% SECURE MULTI ORB API tests (SSL depth 2)
+%% These case set up two secure orbs and test if they can
+%% communicate. They also test to access one of the
+%% secure orbs which must raise a NO_PERMISSION exception.
 ssl_reconfigure_api(_Config) ->
     ssl_reconfigure_old([]).
 
 
-ssl_reconfigure_generation_3_api_old(doc) -> ["SECURE MULTI ORB API tests (SSL depth 2)",
-			     "This case set up two secure orbs and test if they can",
-			     "communicate. The case also test to access one of the",
-			     "secure orbs which must raise a NO_PERMISSION exception."];
-ssl_reconfigure_generation_3_api_old(suite) -> [];
-ssl_reconfigure_generation_3_api_old(_Config) ->
-    ssl_reconfigure_old([{ssl_generation, 3}]).
+% ssl_reconfigure_generation_3_api_old(_Config) ->
+%     ssl_reconfigure_old([{ssl_generation, 3}]).
 
 ssl_reconfigure_old(ExtraSSLOptions) ->
 
@@ -1781,11 +1671,6 @@ ssl_reconfigure_old(ExtraSSLOptions) ->
 					   print, [Obj])).
 
 
-ssl_reconfigure_generation_3_api(doc) -> ["SECURE MULTI ORB API tests (SSL depth 2)",
-			     "This case set up two secure orbs and test if they can",
-			     "communicate. The case also test to access one of the",
-			     "secure orbs which must raise a NO_PERMISSION exception."];
-ssl_reconfigure_generation_3_api(suite) -> [];
 ssl_reconfigure_generation_3_api(_Config) ->
     ssl_reconfigure([{ssl_generation, 3}]).
 
@@ -1839,18 +1724,6 @@ ssl_reconfigure(ExtraSSLOptions) ->
 					   print, [Obj])).
 
 
-%%-----------------------------------------------------------------
-%%  API tests for Orber to Java ORB, no security
-%%-----------------------------------------------------------------
-
-%orber_java_api(doc) -> ["ERLANG-ORB <-> JAVA-ORB API tests",
-%			"This case test if data encode/decode (IIOP)",
-%			"produce the correct result, i.e., the test_server echos",
-%			"the input parameter or an exception is raised (MARSHAL)."];
-%orber_java_api(suite) -> [];
-%orber_java_api(Config) ->
-%    ok.
-
 %%------------------------------------------------------------
 %% function : ssl_suite
 %% Arguments: Config
@@ -1858,7 +1731,6 @@ ssl_reconfigure(ExtraSSLOptions) ->
 %% Returns  : ok
 %% Effect   :
 %%------------------------------------------------------------
-
 ssl_suite(ServerOptions, ClientOptions) ->
 
     {ok, ServerNode, ServerHost} =
@@ -1905,8 +1777,6 @@ ssl_suite(ServerOptions, ClientOptions) ->
 %%-----------------------------------------------------------------
 %%  iiop_setup_connection_timeout API tests for ORB to ORB.
 %%-----------------------------------------------------------------
-setup_connection_timeout_api(doc) -> ["iiop_setup_connection_timeout API tests for ORB to ORB."];
-setup_connection_timeout_api(suite) -> [];
 setup_connection_timeout_api(_Config) ->
     ?match(ok, application:set_env(orber, iiop_backlog, 0)),
     %% Wait to be sure that the configuration has kicked in.
@@ -1930,9 +1800,6 @@ setup_connection_timeout_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  iiop_setup_connection_timeout API tests for ORB to ORB.
 %%-----------------------------------------------------------------
-setup_multi_connection_timeout_api(doc) ->
-    ["iiop_multi_setup_connection_timeout API tests for ORB to ORB."];
-setup_multi_connection_timeout_api(suite) -> [];
 setup_multi_connection_timeout_api(_Config) ->
     ?match(ok, application:set_env(orber, iiop_backlog, 0)),
     %% Wait to be sure that the configuration has kicked in.
@@ -1955,9 +1822,6 @@ setup_multi_connection_timeout_api(_Config) ->
     ?match(ok, application:set_env(orber, iiop_out_ports, undefined)),
     ok.
 
-setup_multi_connection_timeout_attempts_api(doc) ->
-    ["iiop_multi_setup_connection_timeout API tests for ORB to ORB."];
-setup_multi_connection_timeout_attempts_api(suite) -> [];
 setup_multi_connection_timeout_attempts_api(_Config) ->
     ?match(ok, application:set_env(orber, iiop_backlog, 0)),
     %% Wait to be sure that the configuration has kicked in.
@@ -1981,9 +1845,6 @@ setup_multi_connection_timeout_attempts_api(_Config) ->
     ?match(ok, application:set_env(orber, iiop_out_ports, undefined)),
     ok.
 
-setup_multi_connection_timeout_random_api(doc) ->
-    ["iiop_multi_setup_connection_timeout API tests for ORB to ORB."];
-setup_multi_connection_timeout_random_api(suite) -> [];
 setup_multi_connection_timeout_random_api(_Config) ->
     ?match(ok, application:set_env(orber, iiop_backlog, 0)),
     %% Wait to be sure that the configuration has kicked in.
@@ -2010,8 +1871,6 @@ setup_multi_connection_timeout_random_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  Sending an incorrect header to the server-side ORB.
 %%-----------------------------------------------------------------
-bad_giop_header_api(doc) -> ["Sending an incorrect header to the server-side ORB."];
-bad_giop_header_api(suite) -> [];
 bad_giop_header_api(_Config) ->
     orber:configure_override(interceptors, {native,[orber_iiop_tracer]}),
     orber:configure(orber_debug_level, 10),
@@ -2040,8 +1899,6 @@ bad_giop_header_api(_Config) ->
 -define(FRAG_4, <<71,73,79,80,1,2,0,7,0,0,0,5,0,0,0,?REQUEST_ID,0>>).
 
 
-fragments_server_api(doc) -> ["fragments API tests for server-side ORB."];
-fragments_server_api(suite) -> [];
 fragments_server_api(_Config) ->
     %% --- Create a slave-node ---
     {ok, Node, Host} =
@@ -2098,8 +1955,6 @@ fragments_server_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  Fragmented IIOP tests (Server-side). Exceeding Maximum.
 %%-----------------------------------------------------------------
-fragments_max_server_api(doc) -> ["Maximum fragments API tests for server-side ORB."];
-fragments_max_server_api(suite) -> [];
 fragments_max_server_api(_Config) ->
     %% --- Create a slave-node ---
     IP = orber_test_lib:get_host(),
@@ -2109,8 +1964,6 @@ fragments_max_server_api(_Config) ->
     ServerPort = orber_test_lib:remote_apply(ServerNode, orber, iiop_port, []),
     fragments_max_server(ServerNode, IP, ServerPort).
 
-fragments_max_server_added_api(doc) -> ["Maximum fragments API tests for server-side ORB."];
-fragments_max_server_added_api(suite) -> [];
 fragments_max_server_added_api(_Config) ->
     %% --- Create a slave-node ---
     IP = orber_test_lib:get_host(),
@@ -2172,8 +2025,6 @@ fragments_max_server(ServerNode, ServerHost, ServerPort) ->
 %%-----------------------------------------------------------------
 %%  Fragmented IIOP tests (Client-side).
 %%-----------------------------------------------------------------
-fragments_client_api(doc) -> ["fragments API tests for client-side ORB."];
-fragments_client_api(suite) -> [];
 fragments_client_api(_Config) ->
     Any = #any{typecode = {tk_string,0},
 	       value = "123"},
@@ -2191,11 +2042,6 @@ fragments_client_api(_Config) ->
     orber:configure(orber_debug_level, 0),
     ok.
 
-%%-----------------------------------------------------------------
-%%  Fragmented IIOP tests (Client-side).
-%%-----------------------------------------------------------------
-bad_fragment_id_client_api(doc) -> ["fragments API tests for client-side ORB."];
-bad_fragment_id_client_api(suite) -> [];
 bad_fragment_id_client_api(_Config) ->
     application:set_env(orber, interceptors, {native,[orber_iiop_tracer]}),
     orber:configure(orber_debug_level, 10),
@@ -2215,8 +2061,6 @@ bad_fragment_id_client_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  Non-existing request id
 %%-----------------------------------------------------------------
-bad_id_cancel_request_api(doc) -> ["Description", "more description"];
-bad_id_cancel_request_api(suite) -> [];
 bad_id_cancel_request_api(Config) when is_list(Config) ->
     Req10 = cdr_encode:enc_cancel_request(#giop_env{version = {1, 0},
 						    request_id = 556}),

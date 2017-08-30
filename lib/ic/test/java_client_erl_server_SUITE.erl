@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -22,7 +23,7 @@
 %%%----------------------------------------------------------------------
 
 -module(java_client_erl_server_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
@@ -98,7 +99,7 @@ end_per_suite(Config) -> Config.
 %% Add/remove code path and watchdog before/after each test case.
 %%
 init_per_testcase(_Case, Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     code:add_patha(DataDir),
 
     %% Since other test suites use the module m_i et,al, we have
@@ -114,9 +115,9 @@ init_per_testcase(_Case, Config) ->
     [{watchdog, WatchDog}| Config].
 
 end_per_testcase(_Case, Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     code:del_path(DataDir),
-    WatchDog = ?config(watchdog, Config),
+    WatchDog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(WatchDog).
 
 
@@ -125,127 +126,104 @@ end_per_testcase(_Case, Config) ->
 %%
 %% Test cases
 
-marshal_ll(doc) ->
-    ["Testing marshalling of IDL long long"];
-marshal_ll(suite) -> [];
+%% Testing marshalling of IDL long long
 marshal_ll(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_ll}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_ll}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_ll]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_ull(doc) ->
-    ["Testing marshalling of IDL unsigned long long"];
-marshal_ull(suite) -> [];
+%% Testing marshalling of IDL unsigned long long
 marshal_ull(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_ull}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_ull}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_ull]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_l(doc) ->
-    ["Testing marshalling of IDL long"];
-marshal_l(suite) -> [];
+%% Testing marshalling of IDL long
 marshal_l(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_l}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_l}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_l]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_ul(doc) ->
-    ["Testing marshalling of IDL unsigned long"];
-marshal_ul(suite) -> [];
+%% Testing marshalling of IDL unsigned long
 marshal_ul(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_ul}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_ul}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_ul]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_s(doc) ->
-    ["Testing marshalling of IDL short"];
-marshal_s(suite) -> [];
+%% Testing marshalling of IDL short
 marshal_s(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_s}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_s}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_s]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_us(doc) ->
-    ["Testing marshalling of IDL unsigned short"];
-marshal_us(suite) -> [];
+%% Testing marshalling of IDL unsigned short
 marshal_us(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_us}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_us}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_us]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_c(doc) ->
-    ["Testing marshalling of IDL char"];
-marshal_c(suite) -> [];
+%% Testing marshalling of IDL char
 marshal_c(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_c}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_c}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_c]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_wc(doc) ->
-    ["Testing marshalling of IDL char"];
-marshal_wc(suite) -> [];
+%% Testing marshalling of IDL char
 marshal_wc(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_wc}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_wc}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_wc]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_str(doc) ->
-    ["Testing marshalling of IDL string"];
-marshal_str(suite) -> [];
+%% Testing marshalling of IDL string
 marshal_str(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_str}),
-    ?line ok = java(?config(java, Config), DataDir, 
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_str}),
+    ok = java(proplists:get_value(java, Config), DataDir, 
 %%% 		    "-DOtpConnection.trace=4 "
 		    "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_str]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_any_3(doc) ->
-    ["Testing marshalling of IDL any"];
-marshal_any_3(suite) -> [];
+%% Testing marshalling of IDL any
 marshal_any_3(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_any_3}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_any_3}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_any_3]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
-marshal_any_2(doc) ->
-    ["Testing marshalling of IDL any"];
-marshal_any_2(suite) -> [];
 marshal_any_2(Config) when is_list(Config) ->
-    ?line DataDir = ?config(data_dir, Config),
-    ?line {ok,Server} = m_i:oe_create_link([], {local,marshal_any_2}),
-    ?line ok = java(?config(java, Config), DataDir, "JavaClient",
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Server} = m_i:oe_create_link([], {local,marshal_any_2}),
+    ok = java(proplists:get_value(java, Config), DataDir, "JavaClient",
 		    ["JavaClient",node(),erlang:get_cookie(),marshal_any_2]),
-    ?line ok = m_i:stop(Server),
+    ok = m_i:stop(Server),
     ok.
 
 %%--------------------------------------------------------------------
@@ -280,15 +258,11 @@ classpath(Dir) ->
     Dir++PS++
 	filename:join([code:lib_dir(ic),"priv","ic.jar"])++PS++
 	filename:join([code:lib_dir(jinterface),"priv","OtpErlang.jar"])++PS++
-	case os:getenv("CLASSPATH") of
-	    false -> "";
-	    Classpath -> Classpath
-	end.
-
+	os:getenv("CLASSPATH", "").
 
 cmd(Cmd) ->
     PortOpts = [{line,80},eof,exit_status,stderr_to_stdout],
-    io:format("<cmd> ~s~n", [Cmd]),
+    io:format("<cmd> ~ts~n", [Cmd]),
     case catch open_port({spawn,Cmd}, PortOpts) of
 	Port when is_port(Port) ->
 	    Result = cmd_loop(Port, []),

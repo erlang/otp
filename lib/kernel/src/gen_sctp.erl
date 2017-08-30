@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -36,7 +37,7 @@
 
 -type assoc_id() :: term().
 -type option() ::
-        {active, true | false | once} |
+        {active, true | false | once | -32768..32767} |
         {buffer, non_neg_integer()} |
         {dontroute, boolean()} |
         {high_msgq_watermark, pos_integer()} |
@@ -123,8 +124,8 @@ open() ->
 	      SockType :: seqpacket | stream,
               Socket :: sctp_socket().
 
-open(Opts) when is_list(Opts) ->
-    Mod = mod(Opts, undefined),
+open(Opts0) when is_list(Opts0) ->
+    {Mod, Opts} = inet:sctp_module(Opts0),
     case Mod:open(Opts) of
 	{error,badarg} ->
 	    erlang:error(badarg, [Opts]);
@@ -274,7 +275,7 @@ do_connect(S, Addr, Port, Opts, Timeout, ConnWait) when is_port(S), is_list(Opts
 				    Mod:connect(S, IP, Port, Opts, ConnectTimer);
 				Error -> Error
 			    after
-				inet:stop_timer(Timer)
+				_ = inet:stop_timer(Timer)
 			    end
 		    catch
 			error:badarg ->
@@ -423,7 +424,11 @@ error_string(9) ->
 error_string(10) ->
     "Cookie Received While Shutting Down";
 error_string(11) ->
+    "Restart of an Association with New Addresses";
+error_string(12) ->
     "User Initiated Abort";
+error_string(13) ->
+    "Protocol Violation";
 %% For more info on principal SCTP error codes: phone +44 7981131933
 error_string(N) when is_integer(N) ->
     unknown_error;
@@ -440,32 +445,3 @@ controlling_process(S, Pid) when is_port(S), is_pid(Pid) ->
     inet:udp_controlling_process(S, Pid);
 controlling_process(S, Pid) ->
     erlang:error(badarg, [S,Pid]).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Utilites
-%%
-
-%% Get the SCTP module, but IPv6 address overrides default IPv4
-mod(Address) ->
-    case inet_db:sctp_module() of
-	inet_sctp when tuple_size(Address) =:= 8 ->
-	    inet6_sctp;
-	Mod ->
-	    Mod
-    end.
-
-%% Get the SCTP module, but option sctp_module|inet|inet6 overrides
-mod([{sctp_module,Mod}|_], _Address) ->
-    Mod;
-mod([inet|_], _Address) ->
-    inet_sctp;
-mod([inet6|_], _Address) ->
-    inet6_sctp;
-mod([{ip, Address}|Opts], _) ->
-    mod(Opts, Address);
-mod([{ifaddr, Address}|Opts], _) ->
-    mod(Opts, Address);
-mod([_|Opts], Address) ->
-    mod(Opts, Address);
-mod([], Address) ->
-    mod(Address).

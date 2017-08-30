@@ -2,18 +2,19 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -43,19 +44,21 @@
 	 insert/3,
 	 insert_exports/2,
          insert_temp_exported_types/2,
+         insert_fun_meta_info/2,
 	 is_exported/2,
 	 lookup_mod_code/2,
 	 lookup_mfa_code/2,
 	 lookup_mod_records/2,
 	 lookup_mod_contracts/2,
 	 lookup_mfa_contract/2,
+         lookup_meta_info/2,
 	 new/0,
 	 set_next_core_label/2,
 	 set_temp_records/2,
 	 store_temp_records/3,
 	 store_temp_contracts/4]).
 
--export_type([codeserver/0]).
+-export_type([codeserver/0, fun_meta_info/0]).
 
 -include("dialyzer.hrl").
 
@@ -64,12 +67,25 @@
 -type dict_ets() :: ets:tid().
 -type  set_ets() :: ets:tid().
 
+-type types()         :: erl_types:type_table().
+-type mod_records()   :: dict:dict(module(), types()).
+
+-type contracts()     :: dict:dict(mfa(),dialyzer_contracts:file_contract()).
+-type mod_contracts() :: dict:dict(module(), contracts()).
+
+%% A property-list of data compiled from -compile and -dialyzer attributes.
+-type meta_info()     :: [{{'nowarn_function' | dial_warn_tag()},
+                           'mod' | 'func'}].
+-type fun_meta_info() :: [{mfa(), meta_info()}
+                          | {module(), [dial_warn_tag()]}].
+
 -record(codeserver, {next_core_label = 0 :: label(),
 		     code		 :: dict_ets(),
-                     exported_types      :: set_ets(), % set(mfa())
-		     records             :: dict_ets(),
-		     contracts           :: dict_ets(),
-		     callbacks           :: dict_ets(),
+                     exported_types      :: set_ets() | 'undefined', % set(mfa())
+		     records             :: dict_ets() | 'undefined',
+		     contracts           :: dict_ets() | 'undefined',
+		     callbacks           :: dict_ets() | 'undefined',
+                     fun_meta_info       :: dict_ets(), % {mfa(), meta_info()}
 		     exports             :: 'clean' | set_ets(), % set(mfa())
                      temp_exported_types :: 'clean' | set_ets(), % set(mfa())
 		     temp_records        :: 'clean' | dict_ets(),
@@ -123,14 +139,17 @@ new() ->
   CodeOptions = [compressed, public, {read_concurrency, true}],
   Code = ets:new(dialyzer_codeserver_code, CodeOptions),
   TempOptions = [public, {write_concurrency, true}],
-  [Exports, TempExportedTypes, TempRecords, TempContracts, TempCallbacks] =
+  [Exports, FunMetaInfo, TempExportedTypes, TempRecords, TempContracts,
+   TempCallbacks] =
     [ets:new(Name, TempOptions) ||
       Name <-
-	[dialyzer_codeserver_exports, dialyzer_codeserver_temp_exported_types,
+	[dialyzer_codeserver_exports, dialyzer_codeserver_fun_meta_info,
+         dialyzer_codeserver_temp_exported_types,
 	 dialyzer_codeserver_temp_records, dialyzer_codeserver_temp_contracts,
 	 dialyzer_codeserver_temp_callbacks]],
   #codeserver{code                = Code,
 	      exports             = Exports,
+              fun_meta_info       = FunMetaInfo,
 	      temp_exported_types = TempExportedTypes,
 	      temp_records        = TempRecords,
 	      temp_contracts      = TempContracts,
@@ -160,12 +179,12 @@ insert(Mod, ModCode, CS) ->
   true = ets:insert(CS#codeserver.code, [ModEntry|Funs]),
   CS.
 
--spec get_temp_exported_types(codeserver()) -> set().
+-spec get_temp_exported_types(codeserver()) -> sets:set(mfa()).
 
 get_temp_exported_types(#codeserver{temp_exported_types = TempExpTypes}) ->
   ets_set_to_set(TempExpTypes).
 
--spec insert_temp_exported_types(set(), codeserver()) -> codeserver().
+-spec insert_temp_exported_types(sets:set(mfa()), codeserver()) -> codeserver().
 
 insert_temp_exported_types(Set, CS) ->
   TempExportedTypes = CS#codeserver.temp_exported_types,
@@ -178,22 +197,28 @@ insert_exports(List, #codeserver{exports = Exports} = CS) ->
   true = ets_set_insert_list(List, Exports),
   CS.
 
+-spec insert_fun_meta_info(fun_meta_info(), codeserver()) -> codeserver().
+
+insert_fun_meta_info(List, #codeserver{fun_meta_info = FunMetaInfo} = CS) ->
+  true = ets:insert(FunMetaInfo, List),
+  CS.
+
 -spec is_exported(mfa(), codeserver()) -> boolean().
 
 is_exported(MFA, #codeserver{exports = Exports}) ->
   ets_set_is_element(MFA, Exports).
 
--spec get_exported_types(codeserver()) -> set(). % set(mfa())
+-spec get_exported_types(codeserver()) -> sets:set(mfa()).
 
 get_exported_types(#codeserver{exported_types = ExpTypes}) ->
   ets_set_to_set(ExpTypes).
 
--spec get_exports(codeserver()) -> set().  % set(mfa())
+-spec get_exports(codeserver()) -> sets:set(mfa()).
 
 get_exports(#codeserver{exports = Exports}) ->
   ets_set_to_set(Exports).
 
--spec finalize_exported_types(set(), codeserver()) -> codeserver().
+-spec finalize_exported_types(sets:set(mfa()), codeserver()) -> codeserver().
 
 finalize_exported_types(Set, CS) ->
   ExportedTypes = ets_read_concurrent_table(dialyzer_codeserver_exported_types),
@@ -222,7 +247,7 @@ get_next_core_label(#codeserver{next_core_label = NCL}) ->
 set_next_core_label(NCL, CS) ->
   CS#codeserver{next_core_label = NCL}.
 
--spec lookup_mod_records(atom(), codeserver()) -> dict().
+-spec lookup_mod_records(atom(), codeserver()) -> types().
 
 lookup_mod_records(Mod, #codeserver{records = RecDict}) when is_atom(Mod) ->
   case ets_dict_find(Mod, RecDict) of
@@ -230,12 +255,12 @@ lookup_mod_records(Mod, #codeserver{records = RecDict}) when is_atom(Mod) ->
     {ok, Dict} -> Dict
   end.
 
--spec get_records(codeserver()) -> dict().
+-spec get_records(codeserver()) -> mod_records().
 
 get_records(#codeserver{records = RecDict}) ->
   ets_dict_to_dict(RecDict).
 
--spec store_temp_records(atom(), dict(), codeserver()) -> codeserver().
+-spec store_temp_records(module(), types(), codeserver()) -> codeserver().
 
 store_temp_records(Mod, Dict, #codeserver{temp_records = TempRecDict} = CS)
   when is_atom(Mod) ->
@@ -244,12 +269,12 @@ store_temp_records(Mod, Dict, #codeserver{temp_records = TempRecDict} = CS)
     false -> CS#codeserver{temp_records = ets_dict_store(Mod, Dict, TempRecDict)}
   end.
 
--spec get_temp_records(codeserver()) -> dict().
+-spec get_temp_records(codeserver()) -> mod_records().
 
 get_temp_records(#codeserver{temp_records = TempRecDict}) ->
   ets_dict_to_dict(TempRecDict).
 
--spec set_temp_records(dict(), codeserver()) -> codeserver().
+-spec set_temp_records(mod_records(), codeserver()) -> codeserver().
 
 set_temp_records(Dict, CS) ->
   true = ets:delete(CS#codeserver.temp_records),
@@ -257,7 +282,7 @@ set_temp_records(Dict, CS) ->
   true = ets_dict_store_dict(Dict, TempRecords),
   CS#codeserver{temp_records = TempRecords}.
 
--spec finalize_records(dict(), codeserver()) -> codeserver().
+-spec finalize_records(mod_records(), codeserver()) -> codeserver().
 
 finalize_records(Dict, CS) ->
   true = ets:delete(CS#codeserver.temp_records),
@@ -265,17 +290,17 @@ finalize_records(Dict, CS) ->
   true = ets_dict_store_dict(Dict, Records),
   CS#codeserver{records = Records, temp_records = clean}.
 
--spec lookup_mod_contracts(atom(), codeserver()) -> dict().
+-spec lookup_mod_contracts(atom(), codeserver()) -> contracts().
 
 lookup_mod_contracts(Mod, #codeserver{contracts = ContDict})
   when is_atom(Mod) ->
   case ets_dict_find(Mod, ContDict) of
     error -> dict:new();
     {ok, Keys} ->
-      dict:from_list([get_contract_pair(Key, ContDict)|| Key <- Keys])
+      dict:from_list([get_file_contract(Key, ContDict)|| Key <- Keys])
   end.
 
-get_contract_pair(Key, ContDict) ->
+get_file_contract(Key, ContDict) ->
   {Key, ets:lookup_element(ContDict, Key, 2)}.
 
 -spec lookup_mfa_contract(mfa(), codeserver()) ->
@@ -284,7 +309,15 @@ get_contract_pair(Key, ContDict) ->
 lookup_mfa_contract(MFA, #codeserver{contracts = ContDict}) ->
   ets_dict_find(MFA, ContDict).
 
--spec get_contracts(codeserver()) -> dict().
+-spec lookup_meta_info(module() | mfa(), codeserver()) -> meta_info().
+
+lookup_meta_info(MorMFA, #codeserver{fun_meta_info = FunMetaInfo}) ->
+  case ets_dict_find(MorMFA, FunMetaInfo) of
+    error -> [];
+    {ok, PropList} -> PropList
+  end.
+
+-spec get_contracts(codeserver()) -> mod_contracts().
 
 get_contracts(#codeserver{contracts = ContDict}) ->
   ets_dict_to_dict(ContDict).
@@ -294,7 +327,7 @@ get_contracts(#codeserver{contracts = ContDict}) ->
 get_callbacks(#codeserver{callbacks = CallbDict}) ->
   ets:tab2list(CallbDict).
 
--spec store_temp_contracts(atom(), dict(), dict(), codeserver()) ->
+-spec store_temp_contracts(module(), contracts(), contracts(), codeserver()) ->
 	 codeserver().
 
 store_temp_contracts(Mod, SpecDict, CallbackDict,
@@ -313,13 +346,14 @@ store_temp_contracts(Mod, SpecDict, CallbackDict,
       CS1#codeserver{temp_callbacks = ets_dict_store(Mod, CallbackDict, Cb)}
   end.
 
--spec get_temp_contracts(codeserver()) -> {dict(), dict()}.
+-spec get_temp_contracts(codeserver()) -> {mod_contracts(), mod_contracts()}.
 
 get_temp_contracts(#codeserver{temp_contracts = TempContDict,
 			       temp_callbacks = TempCallDict}) ->
   {ets_dict_to_dict(TempContDict), ets_dict_to_dict(TempCallDict)}.
 
--spec finalize_contracts(dict(), dict(), codeserver()) -> codeserver().
+-spec finalize_contracts(mod_contracts(), mod_contracts(), codeserver()) ->
+                           codeserver().
 
 finalize_contracts(SpecDict, CallbackDict, CS)  ->
   Contracts = ets_read_concurrent_table(dialyzer_codeserver_contracts),

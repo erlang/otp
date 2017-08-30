@@ -1,4 +1,3 @@
-%%% -*- coding: utf-8 -*-
 %%%
 %%% Dialyzer was giving a warning with this input because of a bug in the
 %%% substitution of remote types in specs. Remote types in the first element of
@@ -14,7 +13,7 @@
 -export([init/1]).
 
 -spec init(atom()) ->
-	{ok, {{supervisor:strategy(), non_neg_integer(), non_neg_integer()},
+	{ok, {{supervisor:strategy(), non_neg_integer(), pos_integer()},
 	      [supervisor:child_spec()]}} | ignore.
 
 init(StorageName) ->

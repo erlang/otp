@@ -1,21 +1,22 @@
-%%<copyright>
-%% <year>2002-2008</year>
-%% <holder>Ericsson AB, All Rights Reserved</holder>
-%%</copyright>
-%%<legalnotice>
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2002-2015. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% The Initial Developer of the Original Code is Ericsson AB.
-%%</legalnotice>
+%% %CopyrightEnd%
 %%
 %%----------------------------------------------------------------------
 %% Purpose: Define common macros for testing
@@ -32,14 +33,15 @@
 -define(APPLICATION,    snmp).
 -endif.
 
--define(SCONF(K,D,C),         snmp_test_lib:set_config(K,D,C)).
--define(GCONF(K,C),           snmp_test_lib:get_config(K,C)).
--define(RCONF(K,C,V),         snmp_test_lib:replace_config(K,C,V)).
--define(HOSTNAME(N),          snmp_test_lib:hostname(N)).
--define(LOCALHOST(),          snmp_test_lib:localhost()).
--define(SZ(X),                snmp_test_lib:sz(X)).
--define(OSTYPE(),             snmp_test_lib:os_type()).
--define(DISPLAY_SUITE_INFO(), snmp_test_lib:display_suite_info(?MODULE)).
+-define(SCONF(K,D,C),               snmp_test_lib:set_config(K,D,C)).
+-define(GCONF(K,C),                 snmp_test_lib:get_config(K,C)).
+-define(RCONF(K,C,V),               snmp_test_lib:replace_config(K,C,V)).
+-define(HOSTNAME(N),                snmp_test_lib:hostname(N)).
+-define(LOCALHOST(),                snmp_test_lib:localhost()).
+-define(LOCALHOST(Family),          snmp_test_lib:localhost(Family)).
+-define(SZ(X),                      snmp_test_lib:sz(X)).
+-define(OSTYPE(),                   snmp_test_lib:os_type()).
+-define(DISPLAY_SUITE_INFO(),       snmp_test_lib:display_suite_info(?MODULE)).
 
 
 %% - Test case macros - 
@@ -72,8 +74,6 @@
 -endif.
 
 -define(SLEEP(MSEC),    snmp_test_lib:sleep(MSEC)).
--define(M(),            snmp_test_lib:millis()).
--define(MDIFF(A,B),     snmp_test_lib:millis_diff(A,B)).
 
 %% - Process utility macros - 
 
@@ -148,4 +148,3 @@
 
 -define(PRINT(P,F,A),
 	snmp_test_lib:print(P,?MODULE,?LINE,F,A)).
-

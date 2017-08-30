@@ -79,11 +79,12 @@ rewrite([{function,_,test,0,_}=F | Fs], As, Module, _Test) ->
 rewrite([F | Fs], As, Module, Test) ->
     rewrite(Fs, [F | As], Module, Test);
 rewrite([], As, Module, Test) ->
+    L = erl_anno:new(0),
     {if Test ->
-	     [{function,0,test,0,
-	       [{clause,0,[],[],
-		 [{call,0,{remote,0,{atom,0,eunit},{atom,0,test}},
-		   [{atom,0,Module}]}]}]}
+	     [{function,L,test,0,
+	       [{clause,L,[],[],
+		 [{call,L,{remote,L,{atom,L,eunit},{atom,L,test}},
+		   [{atom,L,Module}]}]}]}
 	      | As];
 	true ->
 	     As
@@ -96,4 +97,4 @@ module_decl(Name, M, Fs, Exports) ->
     Es = if Test -> [{test,0} | Exports];
 	    true -> Exports
 	 end,
-    [M, {attribute,0,export,Es} | lists:reverse(Fs1)].
+    [M, {attribute,erl_anno:new(0),export,Es} | lists:reverse(Fs1)].

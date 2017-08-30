@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -30,7 +31,7 @@
 	 convert_netscapecookie_date/1, enable_debug/1, valid_options/3,
 	 modules_validate/1, module_validate/1, 
 	 dir_validate/2, file_validate/2, mime_type_validate/1, 
-	 mime_types_validate/1, custom_date/0]).
+	 mime_types_validate/1, custom_date/0, error_log/2]).
 
 -export([encode_hex/1, decode_hex/1]).
 -include_lib("kernel/include/file.hrl").
@@ -41,17 +42,7 @@ ip_address({_,_,_,_,_,_,_,_} = Address, _IpFamily) ->
     {ok, Address};
 ip_address(Host, IpFamily) 
   when ((IpFamily =:= inet) orelse (IpFamily =:= inet6)) ->
-    inet:getaddr(Host, IpFamily);
-ip_address(Host, inet6fb4 = _IpFamily) ->
-    Inet = case gen_tcp:listen(0, [inet6]) of
-	       {ok, Dummyport} ->
-		   gen_tcp:close(Dummyport),
-		   inet6;
-	       _ ->
-		   inet
-	   end,
-    inet:getaddr(Host, Inet).
-
+    inet:getaddr(Host, IpFamily).
 
 %% lookup
 
@@ -206,9 +197,6 @@ message(413, Reason,_) ->
     "Entity: " ++ html_encode(Reason);
 message(414,ReasonPhrase,_) ->
     "Message " ++ html_encode(ReasonPhrase) ++ ".";
-message(416,ReasonPhrase,_) ->
-    html_encode(ReasonPhrase);
-
 message(500,_,ConfigDB) ->
     ServerAdmin=lookup(ConfigDB,server_admin,"unknown@unknown"),
     "The server encountered an internal error or "
@@ -233,7 +221,9 @@ message(501,{Method, RequestURI, HTTPVersion}, _ConfigDB) ->
     end;
 
 message(503, String, _ConfigDB) ->
-    "This service in unavailable due to: " ++ html_encode(String).
+    "This service in unavailable due to: " ++ html_encode(String);
+message(_, ReasonPhrase, _) ->
+    html_encode(ReasonPhrase).
 
 maybe_encode(URI) ->
     Decoded = try http_uri:decode(URI) of
@@ -430,11 +420,11 @@ flatlength([],L) ->
 %% split_path
 
 split_path(Path) ->
-    case inets_regexp:match(Path,"[\?].*\$") of
+    case re:run(Path,"[\?].*\$", [{capture, first}]) of
 	%% A QUERY_STRING exists!
-	{match,Start,Length} ->
-	    {http_uri:decode(string:substr(Path,1,Start-1)),
-	     string:substr(Path,Start,Length)};
+	{match,[{Start,Length}]} ->
+	    {http_uri:decode(string:substr(Path,1,Start)),
+	     string:substr(Path,Start+1,Length)};
 	%% A possible PATH_INFO exists!
 	nomatch ->
 	    split_path(Path,[])
@@ -532,25 +522,8 @@ remove_ws(Rest) ->
 
 %% split
 
-split(String,RegExp,Limit) ->
-    case inets_regexp:parse(RegExp) of
-	{error,Reason} ->
-	    {error,Reason};
-	{ok,_} ->
-	    {ok,do_split(String,RegExp,Limit)}
-    end.
-
-do_split(String, _RegExp, 1) ->
-    [String];
-
-do_split(String,RegExp,Limit) ->
-    case inets_regexp:first_match(String,RegExp) of 
-	{match,Start,Length} ->
-	    [string:substr(String,1,Start-1)|
-	     do_split(lists:nthtail(Start+Length-1,String),RegExp,Limit-1)];
-	nomatch ->
-	    [String]
-    end.
+split(String,RegExp,N) ->
+    {ok, re:split(String, RegExp, [{parts, N}, {return, list}])}.
 
 %% make_name/2, make_name/3
 %% Prefix  -> string()
@@ -573,7 +546,10 @@ make_name(Prefix,Port) ->
 
 make_name(Prefix,Addr,Port) ->
     make_name(Prefix,Addr,Port,"").
-    
+
+make_name(Prefix, Addr,Port,Postfix) when is_atom(Postfix)->
+    make_name(Prefix, Addr,Port, atom_to_list(Postfix));
+
 make_name(Prefix,"*",Port,Postfix) ->
     make_name(Prefix,undefined,Port,Postfix);
 
@@ -596,15 +572,7 @@ make_name2({A,B,C,D}) ->
     io_lib:format("~w_~w_~w_~w", [A,B,C,D]);
 
 make_name2({A, B, C, D, E, F, G, H}) ->
-    io_lib:format("~s_~s_~s_~s_~s_~s_~s_~s", [integer_to_hexlist(A),
-					      integer_to_hexlist(B),
-					      integer_to_hexlist(C),
-					      integer_to_hexlist(D),
-					      integer_to_hexlist(E),
-					      integer_to_hexlist(F),
-					      integer_to_hexlist(G),
-					      integer_to_hexlist(H)
-					     ]);
+    io_lib:format("~w_~w_~w_~w_~w_~w_~w_~w", [A,B,C,D,E,F,G,H]);
 make_name2(Addr) ->
     search_and_replace(Addr,$.,$_).
 
@@ -791,3 +759,17 @@ do_enable_debug([{Level,Modules}|Rest])
 	    ok
     end,
     do_enable_debug(Rest).
+
+error_log(ConfigDb, Error) ->
+    error_log(mod_log, ConfigDb, Error),
+    error_log(mod_disk_log, ConfigDb, Error).
+	
+error_log(Mod, ConfigDB, Error) ->
+    Modules = httpd_util:lookup(ConfigDB, modules,
+				[mod_get, mod_head, mod_log]),
+    case lists:member(Mod, Modules) of
+	true ->
+	    Mod:report_error(ConfigDB, Error);
+	_ ->
+	    ok
+    end.

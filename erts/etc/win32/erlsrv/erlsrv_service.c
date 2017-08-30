@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2012. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -99,8 +100,8 @@ static BOOL reset_current(){
 }
 
 static VOID WINAPI handler(DWORD control){
-  char buffer[1024];
-  sprintf(buffer,"handler called with control = %d.",(int) control);
+  wchar_t buffer[1024];
+  swprintf(buffer,1024,L"handler called with control = %d.",(int) control);
   log_debug(buffer);
   switch(control){
   case SERVICE_CONTROL_STOP:
@@ -119,7 +120,7 @@ typedef struct _server_info {
   RegEntry *keys;
   PROCESS_INFORMATION info;
   HANDLE erl_stdin;
-  char *event_name;
+  wchar_t *event_name;
 } ServerInfo;
 
 
@@ -138,7 +139,7 @@ static BOOL reset_acl(SaveAclStruct *save_acl){
       return FALSE;
     if(!OpenProcessToken(GetCurrentProcess(),
 			 TOKEN_READ|TOKEN_WRITE,&tokenh)){
-      log_warning("Failed to open access token.");
+      log_warning(L"Failed to open access token.");
       return FALSE;
     } 
     save_acl->initialized = FALSE;
@@ -146,7 +147,7 @@ static BOOL reset_acl(SaveAclStruct *save_acl){
 			    TokenDefaultDacl,
 			    save_acl->defdacl,
 			    sizeof(TOKEN_DEFAULT_DACL))){
-      log_warning("Failed to get default ACL from token.");
+      log_warning(L"Failed to get default ACL from token.");
       CloseHandle(tokenh);
       LocalFree(save_acl->defdacl);
       LocalFree(save_acl->newacl);
@@ -177,7 +178,7 @@ static BOOL new_acl(SaveAclStruct *save_acl){
     save_acl->initialized = FALSE;
     if(!OpenProcessToken(GetCurrentProcess(),
 			 TOKEN_READ|TOKEN_WRITE,&tokenh)){
-      log_warning("Failed to open access token.");
+      log_warning(L"Failed to open access token.");
       return FALSE;
     } 
     save_acl->defdacl = &dummy;
@@ -188,7 +189,7 @@ static BOOL new_acl(SaveAclStruct *save_acl){
 			sizeof(TOKEN_DEFAULT_DACL),
 			&required);
     if(required == 0){
-      log_warning("Failed to get any ACL info from token.");
+      log_warning(L"Failed to get any ACL info from token.");
       CloseHandle(tokenh);
       return FALSE;
     }
@@ -200,7 +201,7 @@ static BOOL new_acl(SaveAclStruct *save_acl){
 			    &required)){
 #ifdef HARDDEBUG
 	{
-	  char *mes;
+	  wchar_t *mes;
 	  FormatMessage(
 			FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
 			NULL,    
@@ -213,7 +214,7 @@ static BOOL new_acl(SaveAclStruct *save_acl){
 	  LocalFree(mes);
 	}
 #endif 
-      log_warning("Failed to get default ACL from token.");
+      log_warning(L"Failed to get default ACL from token.");
       CloseHandle(tokenh);
       return FALSE;
     }
@@ -221,7 +222,7 @@ static BOOL new_acl(SaveAclStruct *save_acl){
     oldacl = save_acl->defdacl->DefaultDacl;
     if(!GetAclInformation(oldacl, &si, sizeof(si), 
 			  AclSizeInformation)){
-      log_warning("Failed to get size information for ACL");
+      log_warning(L"Failed to get size information for ACL");
       CloseHandle(tokenh);
       return FALSE;
     }
@@ -237,7 +238,7 @@ static BOOL new_acl(SaveAclStruct *save_acl){
 				 0,
 				 0,
 				 &extra_sid)){
-      log_warning("Failed to initialize administrator SID.");
+      log_warning(L"Failed to initialize administrator SID.");
       CloseHandle(tokenh);
       return FALSE;
     }
@@ -248,7 +249,7 @@ static BOOL new_acl(SaveAclStruct *save_acl){
     newacl = LocalAlloc(LPTR,newsize);
     
     if(!InitializeAcl(newacl, newsize, ACL_REVISION)){
-      log_warning("Failed to initialize new ACL.");
+      log_warning(L"Failed to initialize new ACL.");
       LocalFree(newacl);
       FreeSid(extra_sid);
       CloseHandle(tokenh);
@@ -258,7 +259,7 @@ static BOOL new_acl(SaveAclStruct *save_acl){
     for(i=0;i<((int)si.AceCount);++i){
       ACE_HEADER *ace_header;
       if (!GetAce (oldacl, i, &ace_header)){
-	log_warning("Failed to get ACE from old ACL.");
+	log_warning(L"Failed to get ACE from old ACL.");
 	LocalFree(newacl);
 	FreeSid(extra_sid);
 	CloseHandle(tokenh);
@@ -266,7 +267,7 @@ static BOOL new_acl(SaveAclStruct *save_acl){
       }
       if(!AddAce(newacl,ACL_REVISION,0xffffffff,ace_header,
 		 ace_header->AceSize)){
-	log_warning("Failed to set ACE in new ACL.");
+	log_warning(L"Failed to set ACE in new ACL.");
 	LocalFree(newacl);
 	FreeSid(extra_sid);
 	CloseHandle(tokenh);
@@ -277,7 +278,7 @@ static BOOL new_acl(SaveAclStruct *save_acl){
 			   ACL_REVISION2, 
 			   PROCESS_ALL_ACCESS,
 			   extra_sid)){
-   	log_warning("Failed to add system ACE to new ACL.");
+   	log_warning(L"Failed to add system ACE to new ACL.");
 	LocalFree(newacl);
 	FreeSid(extra_sid);
 	return FALSE;
@@ -288,7 +289,7 @@ static BOOL new_acl(SaveAclStruct *save_acl){
 			    TokenDefaultDacl,
 			    &newdacl,
 			    sizeof(newdacl))){
-      log_warning("Failed to set token information");
+      log_warning(L"Failed to set token information");
       LocalFree(newacl);
       FreeSid(extra_sid);
       CloseHandle(tokenh);
@@ -302,18 +303,18 @@ static BOOL new_acl(SaveAclStruct *save_acl){
     return TRUE;
 }
 
-static char **find_arg(char **arg, char *str){
-    char *tmp;
+static wchar_t **find_arg(wchar_t **arg, wchar_t *str){
+    wchar_t *tmp;
     int len;
 
-    str = strdup(str);
-    if((tmp = strchr(str,'=')) == NULL)
+    str = wcsdup(str);
+    if((tmp = wcschr(str,L'=')) == NULL)
 	goto fail;
     tmp++;
-    *tmp = '\0';
+    *tmp = L'\0';
     len = tmp - str;
     while(*arg != NULL){
-	if(!_strnicmp(*arg,str,len)){
+	if(!_wcsnicmp(*arg,str,len)){
 	    free(str);
 	    return arg;
 	}
@@ -324,11 +325,11 @@ fail:
     return NULL;
 }
     
-static char **merge_environment(char *current, char *add){
-    char **c_arg = env_to_arg(envdup(current));
-    char **a_arg = env_to_arg(envdup(add));
-    char **new;
-    char **tmp;
+static wchar_t **merge_environment(wchar_t *current, wchar_t *add){
+    wchar_t **c_arg = env_to_arg(envdup(current));
+    wchar_t **a_arg = env_to_arg(envdup(add));
+    wchar_t **new;
+    wchar_t **tmp;
     int i,j;
     
     for(i=0;c_arg[i] != NULL;++i)
@@ -336,19 +337,19 @@ static char **merge_environment(char *current, char *add){
     for(j=0;a_arg[j] != NULL;++j)
 	;
 
-    new = malloc(sizeof(char *)*(i + j + 3));
+    new = malloc(sizeof(wchar_t *)*(i + j + 3));
 
     for(i = 0; c_arg[i] != NULL; ++i)
-	new[i] = strdup(c_arg[i]);
+	new[i] = wcsdup(c_arg[i]);
 
     new[i] = NULL;
 
     for(j = 0; a_arg[j] != NULL; ++j){
 	if((tmp = find_arg(new,a_arg[j])) != NULL){
 	    free(*tmp);
-	    *tmp = strdup(a_arg[j]);
+	    *tmp = wcsdup(a_arg[j]);
 	} else {
-	    new[i++] = strdup(a_arg[j]);
+	    new[i++] = wcsdup(a_arg[j]);
 	    new[i] = NULL;
 	}
     }	    
@@ -358,12 +359,12 @@ static char **merge_environment(char *current, char *add){
 }
 
 
-static char *get_next_debug_file(char *prefix){
-    char *buffer = malloc(strlen(prefix)+12);
+static wchar_t *get_next_debug_file(wchar_t *prefix){
+    wchar_t *buffer = malloc((wcslen(prefix)+12)*sizeof(wchar_t));
     int i;
     for(i=1;i<100;++i){
-	sprintf(buffer,"%s.%d",prefix,i);
-	if(GetFileAttributes(buffer) == 0xFFFFFFFF)
+	swprintf(buffer,wcslen(prefix)+12,L"%s.%d",prefix,i);
+	if(GetFileAttributesW(buffer) == 0xFFFFFFFF)
 	    return buffer;
     }
     return NULL;
@@ -372,56 +373,66 @@ static char *get_next_debug_file(char *prefix){
 
 
 static BOOL start_a_service(ServerInfo *srvi){
-  STARTUPINFO start;
-  char execbuff[MAX_PATH*4]; /* FIXME: Can get overflow! */
-  char namebuff[MAX_PATH];
-  char errbuff[MAX_PATH*4]; /* hmmm.... */
+  STARTUPINFOW start;
+  wchar_t namebuff[MAX_PATH];
+  wchar_t *execbuff;
+  wchar_t *errbuff;
   HANDLE write_pipe = NULL, read_pipe = NULL;
   SECURITY_ATTRIBUTES pipe_security;
   SECURITY_ATTRIBUTES attr;
   HANDLE nul;
   SaveAclStruct save_acl;
-  char *my_environ;
+  wchar_t *my_environ;
   BOOL console_allocated = FALSE;
+  int bufflen=0;
 
-  if(!(*(srvi->keys[Env].data.bytes))){
+  if(!(*(srvi->keys[Env].data.string))){
       my_environ = NULL;
   } else {
-      char *tmp;
-      char **merged = merge_environment((tmp = GetEnvironmentStrings()),
-					srvi->keys[Env].data.bytes);
-      FreeEnvironmentStrings(tmp);
+      wchar_t *tmp;
+      wchar_t **merged = merge_environment((tmp = GetEnvironmentStringsW()),
+					   srvi->keys[Env].data.string);
+      FreeEnvironmentStringsW(tmp);
       my_environ = arg_to_env(merged);
   }
       
-  if(!*(srvi->keys[Machine].data.bytes) || 
-     (!*(srvi->keys[SName].data.bytes) && 
-	 !*(srvi->keys[Name].data.bytes))){
-    log_error("Not enough parameters for erlang service.");
+  if(!*(srvi->keys[Machine].data.string) || 
+     (!*(srvi->keys[SName].data.string) && 
+	 !*(srvi->keys[Name].data.string))){
+    log_error(L"Not enough parameters for erlang service.");
     if(my_environ)
 	free(my_environ);
     return FALSE;
   }
 
-  if(*(srvi->keys[SName].data.bytes))
-    sprintf(namebuff,"-nohup -sname %s",srvi->keys[SName].data.bytes);
+  if(*(srvi->keys[SName].data.string))
+    swprintf(namebuff,MAX_PATH,L"-nohup -sname %s",srvi->keys[SName].data.string);
   else
-    sprintf(namebuff,"-nohup -name %s",srvi->keys[Name].data.bytes);
+    swprintf(namebuff,MAX_PATH,L"-nohup -name %s",srvi->keys[Name].data.string);
   
   if(srvi->keys[DebugType].data.value == DEBUG_TYPE_CONSOLE)
-      strcat(namebuff," -keep_window");
+      wcscat(namebuff,L" -keep_window");
+
+  bufflen = MAX_PATH +
+    wcslen(srvi->keys[Machine].data.string) +
+    wcslen(srvi->event_name) +
+    wcslen(namebuff) +
+    wcslen(srvi->keys[Args].data.string);
+
+  execbuff = malloc(bufflen * sizeof(wchar_t));
+  errbuff  = malloc((MAX_PATH + bufflen) * sizeof(wchar_t));
 
   if (srvi->event_name != NULL) {
-      sprintf(execbuff,"\"%s\" -service_event %s %s %s",
-	      srvi->keys[Machine].data.bytes,
-	      srvi->event_name,
-	      namebuff,
-	      srvi->keys[Args].data.bytes);
+    swprintf(execbuff,bufflen,L"\"%s\" -service_event %s %s %s",
+	     srvi->keys[Machine].data.string,
+	     srvi->event_name,
+	     namebuff,
+	     srvi->keys[Args].data.string);
   } else {
-      sprintf(execbuff,"\"%s\" %s %s",
-	      srvi->keys[Machine].data.bytes,
-	      namebuff,
-	      srvi->keys[Args].data.bytes);
+    swprintf(execbuff,bufflen,L"\"%s\" %s %s",
+	     srvi->keys[Machine].data.string,
+	     namebuff,
+	     srvi->keys[Args].data.string);
   }
 
   memset (&start, 0, sizeof (start));
@@ -435,45 +446,49 @@ static BOOL start_a_service(ServerInfo *srvi){
       if(console_allocated = AllocConsole())
 	  SetConsoleScreenBufferSize(GetStdHandle(STD_OUTPUT_HANDLE),coord);
       else
-	  log_warning("Unable to allocate debugging console!");
-  } else if(*(srvi->keys[StopAction].data.bytes) || 
+	  log_warning(L"Unable to allocate debugging console!");
+  } else if(*(srvi->keys[StopAction].data.string) || 
 	    srvi->keys[DebugType].data.value != DEBUG_TYPE_NO_DEBUG){
     pipe_security.nLength = sizeof(pipe_security);
     pipe_security.lpSecurityDescriptor = NULL;
     pipe_security.bInheritHandle = TRUE;
     if(!CreatePipe(&read_pipe,&write_pipe,&pipe_security,0)){
-	log_error("Could not create pipe for erlang service.");
+	log_error(L"Could not create pipe for erlang service.");
 	if(my_environ)
-	    free(my_environ);
+	  free(my_environ);
+	free(execbuff);
+	free(errbuff);
 	return FALSE;
     }
     if(srvi->keys[DebugType].data.value != DEBUG_TYPE_NO_DEBUG){
-	char *filename;
-	if(*(srvi->keys[WorkDir].data.bytes)){
-	    filename = malloc(strlen(srvi->keys[WorkDir].data.bytes) + 1 +
-			      strlen(service_name)+strlen(".debug")+1);
-	    sprintf(filename,"%s\\%s.debug",
-		    srvi->keys[WorkDir].data.bytes,
-		    service_name);
+	wchar_t *filename;
+	if(*(srvi->keys[WorkDir].data.string)){
+	    int filenamelen = (wcslen(srvi->keys[WorkDir].data.string) + 1 +
+			       wcslen(service_name)+wcslen(L".debug")+1);
+	    filename = malloc(filenamelen*sizeof(wchar_t));
+	    swprintf(filename,filenamelen,L"%s\\%s.debug",
+		     srvi->keys[WorkDir].data.string,
+		     service_name);
 	} else {
-	    filename = malloc(strlen(service_name)+strlen(".debug")+1);
-	    sprintf(filename,"%s.debug",service_name);
+	    int filenamelen = wcslen(service_name)+wcslen(L".debug")+1;
+	    filename = malloc(filenamelen*sizeof(wchar_t));
+	    swprintf(filename,filenamelen,L"%s.debug",service_name);
 	} 
 	log_debug(filename);
 
 	if(srvi->keys[DebugType].data.value == DEBUG_TYPE_NEW){
-	    char *tmpfn = get_next_debug_file(filename);
+	    wchar_t *tmpfn = get_next_debug_file(filename);
 	    if(tmpfn){
 		free(filename);
 		filename = tmpfn;
 	    } else {
-		log_warning("Number of debug files exceeds system defined "
-			    "limit, reverting to DebugType: reuse. ");
+		log_warning(L"Number of debug files exceeds system defined "
+			    L"limit, reverting to DebugType: reuse. ");
 	    }
 	}
 		
 
-	nul = CreateFile(filename,
+	nul = CreateFileW(filename,
 			 GENERIC_READ | GENERIC_WRITE,
 			 FILE_SHARE_READ | FILE_SHARE_WRITE,
 			 &pipe_security,
@@ -492,9 +507,9 @@ static BOOL start_a_service(ServerInfo *srvi){
     }
     if(nul == NULL){
 	log_error((srvi->keys[DebugType].data.value != DEBUG_TYPE_NO_DEBUG) 
-		  ? "Could not create debug file. "
-		  "(Working directory not valid?)" 
-		  : "Cold not open NUL!");
+		  ? L"Could not create debug file. "
+		  L"(Working directory not valid?)" 
+		  : L"Cold not open NUL!");
 	start.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
 	start.hStdError = GetStdHandle(STD_ERROR_HANDLE);
     }
@@ -510,23 +525,24 @@ static BOOL start_a_service(ServerInfo *srvi){
 
   new_acl(&save_acl);
 
-  if(!CreateProcess(NULL,
-		    execbuff,
-		    &attr,
-		    NULL,
-		    (read_pipe != NULL),
-		    CREATE_DEFAULT_ERROR_MODE | 
-		    (srvi->keys[Priority].data.value),
-		    my_environ,
-		    (*(srvi->keys[WorkDir].data.bytes)) ?
-		    srvi->keys[WorkDir].data.bytes : NULL,
-		    &start,
-		    &(srvi->info))){
-    sprintf(errbuff,"Could not start erlang service "
-	    "with commandline \"%s\".",
-	    service_name,
-	    execbuff
-	    );
+  if(!CreateProcessW(NULL,
+		     execbuff,
+		     &attr,
+		     NULL,
+		     (read_pipe != NULL),
+		     CREATE_UNICODE_ENVIRONMENT | 
+		     CREATE_DEFAULT_ERROR_MODE | 
+		     (srvi->keys[Priority].data.value),
+		     my_environ,
+		     (*(srvi->keys[WorkDir].data.string)) ?
+		     srvi->keys[WorkDir].data.string : NULL,
+		     &start,
+		     &(srvi->info))){
+    swprintf(errbuff,bufflen+MAX_PATH,L"Could not start erlang service \"%s\""
+	     L"with commandline [%s].",
+	     service_name,
+	     execbuff
+	     );
     log_error(errbuff);
     if(read_pipe != NULL){
       CloseHandle(read_pipe);
@@ -539,14 +555,16 @@ static BOOL start_a_service(ServerInfo *srvi){
     reset_acl(&save_acl);
     if(my_environ)
 	free(my_environ);
+    free(execbuff);
+    free(errbuff);
     return FALSE;
   }
   if(console_allocated) 
       FreeConsole();
 #ifdef HARDDEBUG
-  sprintf(errbuff,
-	  "Started %s with the following commandline: "
-	  "%s",service_name,execbuff);
+  swprintf(errbuff,bufflen+MAX_PATH,
+	   L"Started %s with the following commandline: %s",
+	   service_name,execbuff);
   log_debug(errbuff);
 #endif
   if(read_pipe != NULL){
@@ -559,19 +577,21 @@ static BOOL start_a_service(ServerInfo *srvi){
   reset_acl(&save_acl);
   if(my_environ)
       free(my_environ);
+  free(execbuff);
+  free(errbuff);
   return TRUE;
 }
 
-static HANDLE create_erlang_event(char *event_name)
+static HANDLE create_erlang_event(wchar_t *event_name)
 {
     HANDLE e;
-    if ((e = OpenEvent(EVENT_ALL_ACCESS,FALSE,event_name)) == NULL) {
-	if ((e = CreateEvent(NULL, TRUE, FALSE, event_name)) == NULL) {
-	    log_warning("Could not create or access erlang termination event");
+    if ((e = OpenEventW(EVENT_ALL_ACCESS,FALSE,event_name)) == NULL) {
+	if ((e = CreateEventW(NULL, TRUE, FALSE, event_name)) == NULL) {
+	    log_warning(L"Could not create or access erlang termination event");
 	}
     } else {
 	if (!ResetEvent(e)) {
-	    log_warning("Could not reset erlang termination event.");
+	    log_warning(L"Could not reset erlang termination event.");
 	}
     }
     return e;
@@ -580,17 +600,18 @@ static HANDLE create_erlang_event(char *event_name)
 static BOOL stop_erlang(ServerInfo *srvi, int waithint, 
 			int *checkpoint){
   DWORD written = 0;
-  char *action = srvi->keys[StopAction].data.bytes;
-  DWORD towrite = strlen(action)+1;
-  char *toerl;
+  wchar_t *wc_action = srvi->keys[StopAction].data.string;
+  DWORD towrite = wcslen(wc_action);
+  char  *toerl;
   DWORD exitcode;
   int i;
   int kill;
   
   if(towrite > 2 && srvi->erl_stdin != NULL){
-    toerl = malloc(towrite+1);
-    strcpy(toerl,action);
-    strcat(toerl,"\n");
+    towrite = WideCharToMultiByte(CP_UTF8, 0, wc_action, -1, NULL, 0, NULL, NULL);
+    toerl = malloc((1+towrite)*sizeof(char));
+    WideCharToMultiByte(CP_UTF8, 0, wc_action, -1, toerl, towrite, NULL, NULL);
+    strcat(toerl, "\n");
     WriteFile(srvi->erl_stdin, toerl, towrite, &written,0);
     free(toerl);
     /* Give it 45 seconds to terminate */
@@ -605,9 +626,9 @@ static BOOL stop_erlang(ServerInfo *srvi, int waithint,
       ++(*checkpoint);
       set_stop_pending(waithint,*checkpoint);
     }
-    log_warning("StopAction did not terminate erlang. Trying forced kill.");
+    log_warning(L"StopAction did not terminate erlang. Trying forced kill.");
   } 
-  log_debug("Terminating erlang...");
+  log_debug(L"Terminating erlang...");
   kill = 1;
   if(eventKillErlang != NULL && SetEvent(eventKillErlang) != 0){
     for(i=0;i<10;++i){
@@ -621,25 +642,25 @@ static BOOL stop_erlang(ServerInfo *srvi, int waithint,
   } else {
 #ifdef HARDDEBUG
 	{
-	  char *mes;
-	  FormatMessage(
-			FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
-			NULL,    
-			GetLastError(),
-			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), 
-			(LPTSTR) &mes,    
-			0,    
-			NULL );
+	  wchar_t *mes;
+	  FormatMessageW(
+			 FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+			 NULL,    
+			 GetLastError(),
+			 MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), 
+			 (LPWSTR) &mes,
+			 0,    
+			 NULL );
 	  log_info(mes);
 	  LocalFree(mes);
 	}
 #endif 
-    log_debug("Could not send control event to Erlang process");
+    log_debug(L"Could not send control event to Erlang process");
   }
   if(kill){
-    log_warning("Using TerminateProcess to kill erlang.");
+    log_warning(L"Using TerminateProcess to kill erlang.");
     if(!TerminateProcess(srvi->info.hProcess,NO_ERROR))
-      log_error("TerminateProcess failed");
+      log_error(L"TerminateProcess failed");
   }
   GetExitCodeProcess(srvi->info.hProcess,&exitcode);
   CloseHandle(srvi->info.hProcess);
@@ -668,14 +689,14 @@ static BOOL enable_privilege(void) {
 static BOOL pull_service_name(void){
   SC_HANDLE scm;
   DWORD sz = 1024;
-  static char service_name_buff[1024];
+  static wchar_t service_name_buff[1024];
   if((scm = OpenSCManager(NULL, 
 			  NULL,  
 			  GENERIC_READ))
      == NULL){
     return FALSE;
   }
-  if(!GetServiceDisplayName(scm,real_service_name,service_name_buff,&sz))
+  if(!GetServiceDisplayNameW(scm,real_service_name,service_name_buff,&sz))
     return FALSE;
   CloseServiceHandle(scm);
   service_name = service_name_buff;
@@ -683,7 +704,7 @@ static BOOL pull_service_name(void){
 }
   
 
-static VOID WINAPI service_main_loop(DWORD argc, char **argv){
+static VOID WINAPI service_main_loop(DWORD argc, wchar_t **argv){
   int waithint = 30000;
   int checkpoint = 1;
   RegEntry *keys;
@@ -692,36 +713,35 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
   HANDLE harr[2];
   FILETIME creationt,exitt,kernelt,usert;
   LONGLONG creationl,exitl,diffl;
-  char event_name[MAX_PATH] = "ErlSrv_";
-  char executable_name[MAX_PATH];
+  wchar_t event_name[MAX_PATH] = L"ErlSrv_";
+  wchar_t executable_name[MAX_PATH];
 #ifdef DEBUG
-  char errorbuff[2048]; /* FIXME... */
+  wchar_t errorbuff[2048]; /* FIXME... */
 #endif
   int success_wait = NO_SUCCESS_WAIT;
 
   real_service_name = argv[0];
   if(!pull_service_name()){
-    log_error("Could not get Display name of erlang service.");
+    log_error(L"Could not get Display name of erlang service.");
     set_stopped(ERROR_CANTREAD);
     return;
   }
 
-  SetEnvironmentVariable((LPCTSTR) SERVICE_ENV, (LPCTSTR) service_name);
+  SetEnvironmentVariableW(SERVICE_ENV, service_name);
 
-  strncat(event_name, service_name, MAX_PATH - strlen(event_name));
-  event_name[MAX_PATH - 1] = '\0';
+  wcsncat(event_name, service_name, MAX_PATH - wcslen(event_name));
+  event_name[MAX_PATH - 1] = L'\0';
 
-  if(!GetModuleFileName(NULL, executable_name, MAX_PATH)){
-      log_error("Unable to retrieve module file name, " EXECUTABLE_ENV 
-		" will not be set.");
+  if(!GetModuleFileNameW(NULL, executable_name, MAX_PATH)){
+      log_error(L"Unable to retrieve module file name, " EXECUTABLE_ENV 
+		L" will not be set.");
   } else {
-      char quoted_exe_name[MAX_PATH+4];
-      sprintf(quoted_exe_name, "\"%s\"", executable_name);
-      SetEnvironmentVariable((LPCTSTR) EXECUTABLE_ENV,
-			     (LPCTSTR) quoted_exe_name);
+      wchar_t quoted_exe_name[MAX_PATH+4];
+      swprintf(quoted_exe_name, MAX_PATH+4, L"\"%s\"", executable_name);
+      SetEnvironmentVariableW(EXECUTABLE_ENV, quoted_exe_name);
   }
 
-  log_debug("Here we go, service_main_loop...");
+  log_debug(L"Here we go, service_main_loop...");
   currentState = SERVICE_START_PENDING;
   InitializeCriticalSection(&crit);
   eventStop = CreateEvent(NULL,FALSE,FALSE,NULL); 
@@ -730,13 +750,13 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
   } else {
       srvi.event_name = NULL;
   }
-  statusHandle = RegisterServiceCtrlHandler(real_service_name, &handler);
+  statusHandle = RegisterServiceCtrlHandlerW(real_service_name, &handler);
   if(!statusHandle)
     return;
   set_start_pending(waithint,checkpoint);
   keys = get_keys(service_name);
   if(!keys){
-    log_error("Could not get registry keys for erlang service.");
+    log_error(L"Could not get registry keys for erlang service.");
     set_stopped(ERROR_CANTREAD);
     return;
   }
@@ -745,7 +765,7 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
   
   ++checkpoint;
   if(!start_a_service(&srvi)){
-    log_error("Could not start erlang machine");
+    log_error(L"Could not start erlang machine");
     set_stopped(ERROR_PROCESS_ABORTED);
     if (eventKillErlang != NULL) {
 	CloseHandle(eventKillErlang);
@@ -769,16 +789,16 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
     if(ret == WAIT_TIMEOUT){
       /* Just do the "success reporting" and continue */
       if(success_wait == INITIAL_SUCCESS_WAIT){
-	log_info("Erlang service started successfully.");
+	log_info(L"Erlang service started successfully.");
       } else {
-	log_warning("Erlang service restarted");
+	log_warning(L"Erlang service restarted");
       }
       success_wait = NO_SUCCESS_WAIT;
       continue;
     }
     if(ret == WAIT_FAILED || (int)(ret-WAIT_OBJECT_0) >= 2){
       set_stopped(WAIT_FAILED);
-      log_error("Internal error, could not wait for objects.");
+      log_error(L"Internal error, could not wait for objects.");
       if (eventKillErlang != NULL) {
 	  CloseHandle(eventKillErlang);
       }
@@ -791,7 +811,7 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
       checkpoint = 2; /* 1 is taken by the handler */
       set_stop_pending(waithint,checkpoint);
       if(stop_erlang(&srvi,waithint,&checkpoint)){
-	log_debug("Erlang machine is stopped");
+	log_debug(L"Erlang machine is stopped");
 	CloseHandle(eventStop);
 	if (eventKillErlang != NULL) {
 	    CloseHandle(eventKillErlang);
@@ -802,7 +822,7 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
 	free_keys(keys);
 	return;
       } else {
-	log_warning("Unable to stop erlang service.");
+	log_warning(L"Unable to stop erlang service.");
 	set_running();
 	continue;
       }
@@ -811,12 +831,12 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
     save_keys = keys;
     keys = get_keys(service_name);
     if(!keys){
-      log_error("Could not reload registry keys.");
+      log_error(L"Could not reload registry keys.");
       keys = srvi.keys = save_keys;
     } else {
 #ifdef HARDDEBUG
-      sprintf(errorbuff,"Reloaded the registry keys because %s stopped.",
-	      service_name);
+      swprintf(errorbuff,2048,L"Reloaded the registry keys because %s stopped.",
+	       service_name);
       log_debug(errorbuff);
 #endif /* HARDDEBUG */
       free_keys(save_keys);
@@ -827,7 +847,7 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
       if(!GetProcessTimes(srvi.info.hProcess,&creationt,
 			  &exitt,&kernelt,&usert)){
 	DWORD rcode = GetLastError();
-	log_error("Could not get process time of terminated process.");
+	log_error(L"Could not get process time of terminated process.");
 	CloseHandle(srvi.info.hProcess);
 	CloseHandle(srvi.info.hThread);
 	CloseHandle(eventStop);
@@ -850,15 +870,14 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
       diffl = exitl - creationl;
       diffl /= 10000000;
 #ifdef DEBUG
-      sprintf(errorbuff,"Process lived for %d seconds", (int) diffl);
+      swprintf(errorbuff,2048,L"Process lived for %d seconds", (int) diffl);
       log_debug(errorbuff);
 #endif      
 
       if(diffl > CYCLIC_RESTART_LIMIT || 
 	 srvi.keys[OnFail].data.value == ON_FAIL_RESTART_ALWAYS){
 	if(!start_a_service(&srvi)){
-	  log_error("Unable to restart failed erlang service, "
-		    "aborting.");
+	  log_error(L"Unable to restart failed erlang service, aborting.");
 	  CloseHandle(eventStop);
 	  set_stopped(ERROR_PROCESS_ABORTED);
 	  if (eventKillErlang != NULL) {
@@ -867,19 +886,19 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
 	  free_keys(keys);
 	  return;
 	}
-	log_warning("Restarted erlang machine.");
+	log_warning(L"Restarted erlang machine.");
 	if(diffl <= CYCLIC_RESTART_LIMIT)
-	  log_warning("Possible cyclic restarting of erlang machine.");
+	  log_warning(L"Possible cyclic restarting of erlang machine.");
 	success_wait = RESTART_SUCCESS_WAIT;
 	harr[0] = srvi.info.hProcess;
       } else {
 	if(success_wait == INITIAL_SUCCESS_WAIT){
-	  log_error("Erlang machine stopped instantly "
-		    "(distribution name conflict?). "
-		    "The service is not restarted, ignoring OnFail option.");
+	  log_error(L"Erlang machine stopped instantly "
+		    L"(distribution name conflict?). "
+		    L"The service is not restarted, ignoring OnFail option.");
 	} else {
-	  log_error("Erlang machine seems to die "
-		    "continously, not restarted.");
+	  log_error(L"Erlang machine seems to die "
+		    L"continously, not restarted.");
 	}
 	CloseHandle(eventStop);
 	set_stopped(ERROR_PROCESS_ABORTED);
@@ -890,21 +909,21 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
 	return;
       }
     } else if(srvi.keys[OnFail].data.value == ON_FAIL_REBOOT){
-      log_error("Rebooting because erlang machine stopped.");
+      log_error(L"Rebooting because erlang machine stopped.");
       enable_privilege();
       if(!InitiateSystemShutdown("",NULL,0,TRUE,TRUE)){
-	log_error("Failed to reboot!");
+	log_error(L"Failed to reboot!");
 #ifdef HARDDEBUG
 	{
-	  char *mes;
-	  FormatMessage(
-			FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
-			NULL,    
-			GetLastError(),
-			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), 
-			(LPTSTR) &mes,    
-			0,    
-			NULL );
+	  wchar_t *mes;
+	  FormatMessageW(
+			 FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
+			 NULL,    
+			 GetLastError(),
+			 MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), 
+			 (LPWSTR) &mes,    
+			 0,    
+			 NULL );
 	  log_debug(mes);
 	  LocalFree(mes);
 	}
@@ -923,13 +942,13 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
     } else {
       DWORD ecode = NO_ERROR;
       if(success_wait == NO_SUCCESS_WAIT){
-	log_warning("Erlang machine voluntarily stopped. "
-		    "The service is not restarted as OnFail "
-		    "is set to ignore.");
+	log_warning(L"Erlang machine voluntarily stopped. "
+		    L"The service is not restarted as OnFail "
+		    L"is set to ignore.");
       } else {
-	log_error("Erlang machine stopped instantly "
-		  "(distribution name conflict?). "
-		  "The service is not restarted as OnFail is set to ignore.");
+	log_error(L"Erlang machine stopped instantly "
+		  L"(distribution name conflict?). "
+		  L"The service is not restarted as OnFail is set to ignore.");
 	ecode = ERROR_PROCESS_ABORTED;
       }
       CloseHandle(srvi.info.hProcess);
@@ -946,20 +965,19 @@ static VOID WINAPI service_main_loop(DWORD argc, char **argv){
   }
 }
 
-int service_main(int argc, char **argv){
-  char dummy_name[] = "";
-  SERVICE_TABLE_ENTRY serviceTable[] = 
+int service_main(int argc, wchar_t **argv){
+  wchar_t dummy_name[] = L"";
+  SERVICE_TABLE_ENTRYW serviceTable[] = 
   { 
     { dummy_name,
-      (LPSERVICE_MAIN_FUNCTION) service_main_loop},
+      (LPSERVICE_MAIN_FUNCTIONW) service_main_loop},
     { NULL, NULL }
   };
   BOOL success;
-  success = 
-       StartServiceCtrlDispatcher(serviceTable);
+  success = StartServiceCtrlDispatcherW(serviceTable);
   if (!success)
-    log_error("Could not initiate service");
-  log_debug("service_main done its job");
+    log_error(L"Could not initiate service");
+  log_debug(L"service_main done its job");
   return 0;
 }
   

@@ -1,0 +1,595 @@
+<?xml version="1.0" encoding="utf8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+<chapter>
+    <header>
+        <copyright>
+            <year>2016</year><year>2016</year>
+            <holder>Ericsson AB. All Rights Reserved.</holder>
+        </copyright>
+        <legalnotice>
+            Licensed under the Apache License, Version 2.0 (the "License");
+            you may not use this file except in compliance with the License.
+            You may obtain a copy of the License at
+
+            http://www.apache.org/licenses/LICENSE-2.0
+
+            Unless required by applicable law or agreed to in writing, software
+            distributed under the License is distributed on an "AS IS" BASIS,
+            WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+            See the License for the specific language governing permissions and
+            limitations under the License.
+        </legalnotice>
+
+        <title>LTTng and Erlang/OTP</title>
+        <prepared></prepared>
+        <responsible></responsible>
+        <docno></docno>
+        <approved></approved>
+        <checked></checked>
+        <date>2016-04-27</date>
+        <rev></rev>
+        <file>LTTng.xml</file>
+    </header>
+
+    <section>
+        <title>Introduction</title>
+        <p>The Linux Trace Toolkit: next generation is an open source system software package
+            for correlated tracing of the Linux kernel, user applications and libraries. </p>
+        <p>For more information, please visit <url href="http://lttng.org">http://lttng.org</url></p>
+    </section>
+
+    <section>
+        <title>Building Erlang/OTP with LTTng support</title>
+        <p>
+            Configure and build Erlang with LTTng support:
+        </p>
+        <p>For LTTng to work properly with Erlang/OTP you need
+            the following packages installed:</p>
+
+      <list type="bulleted">
+          <item><p>LTTng-tools: a command line interface to control tracing sessions.</p></item>
+          <item><p>LTTng-UST: user space tracing library.</p></item>
+      </list>
+
+      <p>On Ubuntu this can be installed via <c>aptitude</c>:</p>
+
+      <code type="none">$ sudo aptitude install lttng-tools liblttng-ust-dev</code>
+      <p>See <url href="http://lttng.org/docs/#doc-installing-lttng">Installing LTTng</url>
+          for more information on how to install LTTng on your system.</p>
+
+      <p>After LTTng is properly installed on the system Erlang/OTP can be built with LTTng support.</p>
+ 
+
+<code type="none">$ ./configure --with-dynamic-trace=lttng
+$ make </code>
+    </section>
+
+    <section>
+        <title>Dyntrace Tracepoints</title>
+        <p>All tracepoints are in the domain of <c>org_erlang_dyntrace</c></p>
+        <p>All Erlang types are the string equivalent in LTTng.</p>
+
+        <p><em>process_spawn</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>parent : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>procs</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">process_spawn: { cpu_id = 3 }, { pid = "&lt;0.131.0&gt;", parent = "&lt;0.130.0&gt;", entry = "erlang:apply/2" }</code>
+
+        <p><em>process_link</em></p>
+        <list type="bulleted">
+            <item><c>to : string</c> :: Process ID or Port ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>from : string</c> :: Process ID or Port ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>type : string</c> :: <c>"link" | "unlink"</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>procs</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">process_link: { cpu_id = 3 }, { from = "&lt;0.130.0&gt;", to = "&lt;0.131.0&gt;", type = "link" }</code>
+
+
+        <p><em>process_exit</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>reason : string</c> :: Exit reason. Ex. <c>"normal"</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>procs</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">process_exit: { cpu_id = 3 }, { pid = "&lt;0.130.0&gt;", reason = "normal" }</code>
+
+        <p><em>process_register</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>name : string</c> :: Registered name. Ex. <c>"error_logger"</c></item>
+            <item><c>type : string</c> :: <c>"register" | "unregister"</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">process_register: { cpu_id = 0 }, { pid = "&lt;0.128.0&gt;", name = "dyntrace_lttng_SUITE" type = "register" }</code>
+
+        <p><em>process_scheduled</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
+            <item><c>type : string</c> :: <c>"in" | "out" | "in_exiting" | "out_exiting" | "out_exited"</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>running</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">process_scheduled: { cpu_id = 0 }, { pid = "&lt;0.136.0&gt;", entry = "erlang:apply/2", type = "in" }</code>
+
+
+        <p><em>port_open</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>ports</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">port_open: { cpu_id = 5 }, { pid = "&lt;0.131.0&gt;", driver = "'/bin/sh -s unix:cmd'", port = "#Port&lt;0.1887&gt;" }</code>
+
+        <p><em>port_exit</em></p>
+        <list type="bulleted">
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>reason : string</c> :: Exit reason. Ex. <c>"normal"</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>ports</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">port_exit: { cpu_id = 5 }, { port = "#Port&lt;0.1887&gt;", reason = "normal" }</code>
+
+        <p><em>port_link</em></p>
+        <list type="bulleted">
+            <item><c>to : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>from : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>type : string</c> :: <c>"link" | "unlink"</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>ports</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">port_link: { cpu_id = 5 }, { from = "#Port&lt;0.1887&gt;", to = "&lt;0.131.0&gt;", type = "unlink" }</code>
+
+        <p><em>port_scheduled</em></p>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>running</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <list type="bulleted">
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>entry : string</c> :: Callback. Ex. <c>"open"</c></item>
+            <item><c>type : string</c> :: <c>"in" | "out" | "in_exiting" | "out_exiting" | "out_exited"</c></item>
+        </list>
+
+        <p>Example:</p>
+        <code type="none">port_scheduled: { cpu_id = 5 }, { pid = "#Port&lt;0.1905&gt;", entry = "close", type = "out" }</code>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>running</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p><em>function_call</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
+            <item><c>depth : integer</c> :: Stack depth. Ex. <c>0</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>call</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">function_call: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:'-t_call/1-fun-1-'/0", depth = 0 }</code>
+
+        <p><em>function_return</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
+            <item><c>depth : integer</c> :: Stack depth. Ex. <c>0</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>call</c> or <c>return_to</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">function_return: { cpu_id = 5 }, { pid = "&lt;0.145.0&gt;", entry = "dyntrace_lttng_SUITE:waiter/0", depth = 0 }</code>
+
+        <p><em>function_exception</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>entry : string</c> :: Code Location. Ex. <c>"lists:sort/1"</c></item>
+            <item><c>class : string</c> :: Error reason. Ex. <c>"error"</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>call</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">function_exception: { cpu_id = 5 }, { pid = "&lt;0.144.0&gt;", entry = "t:call_exc/1", class = "error" }</code>
+
+        <p><em>message_send</em></p>
+        <list type="bulleted">
+            <item><c>from : string</c> :: Process ID or Port ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>to : string</c> :: Process ID or Port ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>message : string</c> :: Message sent. Ex. <c>"{&lt;0.162.0&gt;,ok}"</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>send</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">message_send: { cpu_id = 3 }, { from = "#Port&lt;0.1938&gt;", to = "&lt;0.160.0&gt;", message = "{#Port&lt;0.1938&gt;,eof}" }</code>
+
+        <p><em>message_receive</em></p>
+        <list type="bulleted">
+            <item><c>to : string</c> :: Process ID or Port ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>message : string</c> :: Message received. Ex. <c>"{&lt;0.162.0&gt;,ok}"</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>'receive'</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">message_receive: { cpu_id = 7 }, { to = "&lt;0.167.0&gt;", message = "{&lt;0.165.0&gt;,ok}" }</code>
+
+        <p><em>gc_minor_start</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>need : integer</c> :: Heap need. Ex. <c>2</c></item>
+            <item><c>heap : integer</c> :: Young heap word size. Ex. <c>233</c></item>
+            <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">gc_minor_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 0, heap = 610, old_heap = 0 }</code>
+
+        <p><em>gc_minor_end</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>reclaimed : integer</c> :: Heap reclaimed. Ex. <c>2</c></item>
+            <item><c>heap : integer</c> :: Young heap word size. Ex. <c>233</c></item>
+            <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">gc_minor_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 120, heap = 1598, old_heap = 1598 }</code>
+
+        <p><em>gc_major_start</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>need : integer</c> :: Heap need. Ex. <c>2</c></item>
+            <item><c>heap : integer</c> :: Young heap word size. Ex. <c>233</c></item>
+            <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">gc_major_start: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", need = 8, heap = 2586, old_heap = 1598 }</code>
+
+        <p><em>gc_major_end</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>reclaimed : integer</c> :: Heap reclaimed. Ex. <c>2</c></item>
+            <item><c>heap : integer</c> :: Young heap word size. Ex. <c>233</c></item>
+            <item><c>old_heap : integer</c> :: Old heap word size. Ex. <c>233</c></item>
+        </list>
+        <p>
+            Available through
+            <seealso marker="erts:erlang#trace-3"><c>erlang:trace/3</c></seealso> with trace flag <c>garbage_collection</c> and <c>{tracer,dyntrace,[]}</c> as tracer module.
+        </p>
+        <p>Example:</p>
+        <code type="none">gc_major_end: { cpu_id = 0 }, { pid = "&lt;0.172.0&gt;", reclaimed = 240, heap = 4185, old_heap = 0 }</code>
+
+    </section>
+
+    <section>
+        <title>BEAM Tracepoints</title>
+        <p>All tracepoints are in the domain of <c>org_erlang_otp</c></p>
+        <p>All Erlang types are the string equivalent in LTTng.</p>
+
+        <p><em>scheduler_poll</em></p>
+        <list type="bulleted">
+            <item><c>scheduler : integer</c> :: Scheduler ID. Ex. <c>1</c></item>
+            <item><c>runnable : integer</c> :: Runnable. Ex. <c>1</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">scheduler_poll: { cpu_id = 4 }, { scheduler = 1, runnable = 1 }</code>
+
+        <p><em>driver_init</em></p>
+        <list type="bulleted">
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>major : integer</c> :: Major version. Ex. <c>3</c></item>
+            <item><c>minor : integer</c> :: Minor version. Ex. <c>1</c></item>
+            <item><c>flags : integer</c> :: Flags. Ex. <c>1</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">driver_init: { cpu_id = 2 }, { driver = "caller_drv", major = 3, minor = 3, flags = 1 }</code>
+
+        <p><em>driver_start</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">driver_start: { cpu_id = 2 }, { pid = "&lt;0.198.0&gt;", driver = "caller_drv", port = "#Port&lt;0.3676&gt;" }</code>
+
+        <p><em>driver_output</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">driver_output: { cpu_id = 2 }, { pid = "&lt;0.198.0&gt;", port = "#Port&lt;0.3677&gt;", driver = "/bin/sh -s unix:cmd", bytes = 36 }</code>
+
+        <p><em>driver_outputv</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">driver_outputv: { cpu_id = 5 }, { pid = "&lt;0.194.0&gt;", port = "#Port&lt;0.3663&gt;", driver = "tcp_inet", bytes = 3 }</code>
+
+        <p><em>driver_ready_input</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">driver_ready_input: { cpu_id = 5 }, { pid = "&lt;0.189.0&gt;", port = "#Port&lt;0.3637&gt;", driver = "inet_gethost 4 " }</code>
+
+        <p><em>driver_ready_output</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">driver_ready_output: { cpu_id = 5 }, { pid = "&lt;0.194.0&gt;", port = "#Port&lt;0.3663&gt;", driver = "tcp_inet" }</code>
+
+        <p><em>driver_timeout</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">driver_timeout: { cpu_id = 5 }, { pid = "&lt;0.196.0&gt;", port = "#Port&lt;0.3664&gt;", driver = "tcp_inet" }</code>
+
+        <p><em>driver_stop_select</em></p>
+        <list type="bulleted">
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">driver_stop_select: { cpu_id = 5 }, { driver = "unknown" }</code>
+
+        <p><em>driver_flush</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">driver_flush: { cpu_id = 7 }, { pid = "&lt;0.204.0&gt;", port = "#Port&lt;0.3686&gt;", driver = "tcp_inet" }</code>
+
+        <p><em>driver_stop</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">driver_stop: { cpu_id = 5 }, { pid = "[]", port = "#Port&lt;0.3673&gt;", driver = "efile" }</code>
+
+        <p><em>driver_process_exit</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+
+        <p><em>driver_ready_async</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">driver_ready_async: { cpu_id = 3 }, { pid = "&lt;0.181.0&gt;", port = "#Port&lt;0.3622&gt;", driver = "efile" }</code>
+
+        <p><em>driver_call</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>command : integer</c> :: Command integer. Ex. <c>1</c></item>
+            <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">driver_call: { cpu_id = 2 }, { pid = "&lt;0.202.0&gt;", port = "#Port&lt;0.3676&gt;", driver = "caller_drv", command = 0, bytes = 2 }</code>
+
+        <p><em>driver_control</em></p>
+        <list type="bulleted">
+            <item><c>pid : string</c> :: Process ID. Ex. <c>"&lt;0.131.0&gt;"</c></item>
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>driver : string</c> :: Driver name. Ex. <c>"efile"</c></item>
+            <item><c>command : integer</c> :: Command integer. Ex. <c>1</c></item>
+            <item><c>bytes : integer</c> :: Size of data returned. Ex. <c>82</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">driver_control: { cpu_id = 3 }, { pid = "&lt;0.32767.8191&gt;", port = "#Port&lt;0.0&gt;", driver = "forker", command = 83, bytes = 32 }</code>
+
+        <p><em>aio_pool_get</em></p>
+        <list type="bulleted">
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>length : integer</c> :: Async queue length. Ex. <c>0</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">aio_pool_get: { cpu_id = 4 }, { port = "#Port&lt;0.3614&gt;", length = 0 }</code>
+
+        <p><em>aio_pool_put</em></p>
+        <list type="bulleted">
+            <item><c>port : string</c> :: Port ID. Ex. <c>"#Port&lt;0.1031&gt;"</c></item>
+            <item><c>length : integer</c> :: Async queue length. Ex. <c>-1</c></item>
+        </list>
+        <p>Async queue length is not defined for <c>put</c> operations.</p>
+        <p>Example:</p>
+        <code type="none">aio_pool_put: { cpu_id = 3 }, { port = "#Port&lt;0.3614&gt;", length = -1 }</code>
+
+        <p><em>carrier_create</em></p>
+        <list type="bulleted">
+            <item><c>type : string</c> :: Carrier type. Ex. <c>"ets_alloc"</c></item>
+            <item><c>instance : integer</c> :: Allocator instance. Ex. <c>1</c></item>
+            <item><c>size : integer</c> :: Carrier size. Ex. <c>262144</c></item>
+            <item><c>mbc_carriers : integer</c> :: Number of multiblock carriers in instance. Ex. <c>3</c></item>
+            <item><c>mbc_carriers_size : integer</c> :: Total size of multiblock blocks carriers in instance. Ex. <c>1343488</c></item>
+            <item><c>mbc_blocks : integer</c> :: Number of multiblock blocks in instance. Ex. <c>122</c></item>
+            <item><c>mbc_blocks_size : integer</c> :: Total size of all multiblock blocks in instance. Ex. <c>285296</c></item>
+            <item><c>sbc_carriers : integer</c> :: Number of singleblock carriers in instance. Ex. <c>1</c></item>
+            <item><c>sbc_carriers_size : integer</c> :: Total size of singleblock blocks carriers in instance. Ex. <c>1343488</c></item>
+            <item><c>sbc_blocks : integer</c> :: Number of singleblocks in instance. Ex. <c>1</c></item>
+            <item><c>sbc_blocks_size : integer</c> :: Total size of all singleblock blocks in instance. Ex. <c>285296</c></item>
+
+        </list>
+        <p>Example:</p>
+        <code type="none">carrier_create: { cpu_id = 2 }, { type = "ets_alloc", instance = 7, size = 2097152, mbc_carriers = 4, mbc_carriers_size = 3440640, mbc_blocks = 526, mbc_blocks_size = 1278576, sbc_carriers = 0, sbc_carriers_size = 0, sbc_blocks = 0, sbc_blocks_size = 0 }</code>
+
+        <p><em>carrier_destroy</em></p>
+        <list type="bulleted">
+            <item><c>type : string</c> :: Carrier type. Ex. <c>"ets_alloc"</c></item>
+            <item><c>instance : integer</c> :: Allocator instance. Ex. <c>1</c></item>
+            <item><c>size : integer</c> :: Carrier size. Ex. <c>262144</c></item>
+            <item><c>mbc_carriers : integer</c> :: Number of multiblock carriers in instance. Ex. <c>3</c></item>
+            <item><c>mbc_carriers_size : integer</c> :: Total size of multiblock blocks carriers in instance. Ex. <c>1343488</c></item>
+            <item><c>mbc_blocks : integer</c> :: Number of multiblock blocks in instance. Ex. <c>122</c></item>
+            <item><c>mbc_blocks_size : integer</c> :: Total size of all multiblock blocks in instance. Ex. <c>285296</c></item>
+            <item><c>sbc_carriers : integer</c> :: Number of singleblock carriers in instance. Ex. <c>1</c></item>
+            <item><c>sbc_carriers_size : integer</c> :: Total size of singleblock blocks carriers in instance. Ex. <c>1343488</c></item>
+            <item><c>sbc_blocks : integer</c> :: Number of singleblocks in instance. Ex. <c>1</c></item>
+            <item><c>sbc_blocks_size : integer</c> :: Total size of all singleblock blocks in instance. Ex. <c>285296</c></item>
+
+        </list>
+        <p>Example:</p>
+        <code type="none">carrier_destroy: { cpu_id = 6 }, { type = "ets_alloc", instance = 7, size = 262144, mbc_carriers = 3, mbc_carriers_size = 3178496, mbc_blocks = 925, mbc_blocks_size = 2305336, sbc_carriers = 0, sbc_carriers_size = 0, sbc_blocks = 0, sbc_blocks_size = 0 }</code>
+
+        <p><em>carrier_pool_put</em></p>
+        <list type="bulleted">
+            <item><c>type : string</c> :: Carrier type. Ex. <c>"ets_alloc"</c></item>
+            <item><c>instance : integer</c> :: Allocator instance. Ex. <c>1</c></item>
+            <item><c>size : integer</c> :: Carrier size. Ex. <c>262144</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">carrier_pool_put: { cpu_id = 3 }, { type = "ets_alloc", instance = 5, size = 1048576 }</code>
+
+        <p><em>carrier_pool_get</em></p>
+        <list type="bulleted">
+            <item><c>type : string</c> :: Carrier type. Ex. <c>"ets_alloc"</c></item>
+            <item><c>instance : integer</c> :: Allocator instance. Ex. <c>1</c></item>
+            <item><c>size : integer</c> :: Carrier size. Ex. <c>262144</c></item>
+        </list>
+        <p>Example:</p>
+        <code type="none">carrier_pool_get: { cpu_id = 7 }, { type = "ets_alloc", instance = 4, size = 3208 }</code>
+    </section>
+
+    <section>
+        <title>Example of process tracing</title>
+    <p>An example of process tracing of <c>os_mon</c> and friends.</p>
+
+    <p>Clean start of lttng in a bash shell.</p>
+
+    <pre>$ lttng create erlang-demo
+Spawning a session daemon
+Session erlang-demo created.
+Traces will be written in /home/egil/lttng-traces/erlang-demo-20160526-165920</pre>
+
+     <p>Start an Erlang node with lttng enabled.</p>
+
+     <pre>$ erl
+Erlang/OTP 19 [erts-8.0] [source-4d7b24d] [64-bit] [smp:8:8] [async-threads:10] [hipe] [kernel-poll:false] [lttng]
+
+Eshell V8.0  (abort with ^G)
+1></pre>
+
+     <p>Load the <c>dyntrace</c> module.</p>
+
+     <pre>1> <input>l(dyntrace).</input>
+{module,dyntrace}</pre>
+
+     <p>All tracepoints via dyntrace are now visibile and can be listed through <c>lttng list -u</c>.</p>
+
+     <p>Enable the process_register LTTng tracepoint for Erlang.</p>
+
+     <pre>$ lttng enable-event -u org_erlang_dyntrace:process_register
+UST event org_erlang_dyntrace:process_register created in channel channel0</pre>
+
+     <p>Enable process tracing for new processes and use <c>dyntrace</c> as tracer backend.</p>
+
+     <pre>2> <input>erlang:trace(new,true,[procs,{tracer,dyntrace,[]}]).</input>
+0</pre>
+
+     <p>Start LTTng tracing.</p>
+
+     <pre>$ lttng start
+Tracing started for session erlang-demo</pre>
+
+     <p>Start the <c>os_mon</c> application in Erlang.</p>
+
+     <pre>3> <input>application:ensure_all_started(os_mon).</input>
+{ok,[sasl,os_mon]}</pre>
+
+     <p>Stop LTTng tracing and view the result.</p>
+
+     <pre>$ lttng stop
+Tracing stopped for session erlang-demo
+$ lttng view
+[17:20:42.561168759] (+?.?????????) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.66.0&gt;", name = "sasl_sup", type = "register" }
+[17:20:42.561215519] (+0.000046760) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.67.0&gt;", name = "sasl_safe_sup", type = "register" }
+[17:20:42.562149024] (+0.000933505) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.68.0&gt;", name = "alarm_handler", type = "register" }
+[17:20:42.571035803] (+0.008886779) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.69.0&gt;", name = "release_handler", type = "register" }
+[17:20:42.574939868] (+0.003904065) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.74.0&gt;", name = "os_mon_sup", type = "register" }
+[17:20:42.576818712] (+0.001878844) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.75.0&gt;", name = "disksup", type = "register" }
+[17:20:42.580032013] (+0.003213301) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.76.0&gt;", name = "memsup", type = "register" }
+[17:20:42.583046339] (+0.003014326) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.78.0&gt;", name = "cpu_sup", type = "register" }
+[17:20:42.586206242] (+0.003159903) elxd1168lx9 org_erlang_dyntrace:process_register: \
+    { cpu_id = 5 }, { pid = "&lt;0.82.0&gt;", name = "timer_server", type = "register" }</pre>
+    </section>
+</chapter>

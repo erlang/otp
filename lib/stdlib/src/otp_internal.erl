@@ -1,38 +1,41 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 -module(otp_internal).
 
--export([obsolete/3]).
+-export([obsolete/3, obsolete_type/3]).
 
 %%----------------------------------------------------------------------
+
+-dialyzer({no_match, obsolete/3}).
 
 -type tag()     :: 'deprecated' | 'removed'. %% | 'experimental'.
 -type mfas()    :: mfa() | {atom(), atom(), [byte()]}.
 -type release() :: string().
 
--spec obsolete(atom(), atom(), byte()) ->
+-spec obsolete(module(), atom(), arity()) ->
 	'no' | {tag(), string()} | {tag(), mfas(), release()}.
 
 obsolete(Module, Name, Arity) ->
     case obsolete_1(Module, Name, Arity) of
 	{deprecated=Tag,{_,_,_}=Replacement} ->
-	    {Tag,Replacement,"in a future release"};
+	    {Tag,Replacement,"a future release"};
 	{_,String}=Ret when is_list(String) ->
 	    Ret;
 	{_,_,_}=Ret ->
@@ -44,29 +47,23 @@ obsolete(Module, Name, Arity) ->
 obsolete_1(net, _, _) ->
     {deprecated, "module 'net' obsolete; use 'net_adm'"};
 
-obsolete_1(erl_internal, builtins, 0) ->
-    {deprecated, {erl_internal, bif, 2}};
-
-obsolete_1(erl_eval, seq, 2) ->
-    {deprecated, {erl_eval, exprs, 2}};
-obsolete_1(erl_eval, seq, 3) ->
-    {deprecated, {erl_eval, exprs, 3}};
-obsolete_1(erl_eval, arg_list, 2) ->
-    {deprecated, {erl_eval, expr_list, 2}};
-obsolete_1(erl_eval, arg_list, 3) ->
-    {deprecated, {erl_eval, expr_list, 3}};
-
 obsolete_1(erlang, hash, 2) ->
     {deprecated, {erlang, phash2, 2}};
+
+obsolete_1(erlang, now, 0) ->
+    {deprecated,
+     "Deprecated BIF. See the \"Time and Time Correction in Erlang\" "
+     "chapter of the ERTS User's Guide for more information."};
 
 obsolete_1(calendar, local_time_to_universal_time, 1) ->
     {deprecated, {calendar, local_time_to_universal_time_dst, 1}};
 
-obsolete_1(rpc, safe_multi_server_call, A) when A =:= 2; A =:= 3 ->
-    {deprecated, {rpc, multi_server_call, A}};
+%% *** CRYPTO added in OTP 19 ***
 
+obsolete_1(crypto, rand_bytes, 1) ->
+    {deprecated, {crypto, strong_rand_bytes, 1}};
 
-%% *** CRYPTO add in R16B01 ***
+%% *** CRYPTO added in R16B01 ***
 
 obsolete_1(crypto, md4, 1) ->
     {deprecated, {crypto, hash, 2}};
@@ -83,18 +80,18 @@ obsolete_1(crypto, sha_init, 0) ->
     {deprecated, {crypto, hash_init, 1}};
 
 obsolete_1(crypto, md4_update, 2) ->
-    {deprecated, {crypto, hash_update, 3}};
+    {deprecated, {crypto, hash_update, 2}};
 obsolete_1(crypto, md5_update, 2) ->
-    {deprecated, {crypto, hash_update, 3}};
+    {deprecated, {crypto, hash_update, 2}};
 obsolete_1(crypto, sha_update, 2) ->
-    {deprecated, {crypto, hash_update, 3}};
+    {deprecated, {crypto, hash_update, 2}};
 
 obsolete_1(crypto, md4_final, 1) ->
-    {deprecated, {crypto, hash_final, 2}};
+    {deprecated, {crypto, hash_final, 1}};
 obsolete_1(crypto, md5_final, 1) ->
-    {deprecated, {crypto, hash_final, 2}};
+    {deprecated, {crypto, hash_final, 1}};
 obsolete_1(crypto, sha_final, 1) ->
-    {deprecated, {crypto, hash_final, 2}};
+    {deprecated, {crypto, hash_final, 1}};
 
 obsolete_1(crypto, md5_mac, 2) ->
     {deprecated, {crypto, hmac, 3}};
@@ -104,9 +101,9 @@ obsolete_1(crypto, sha_mac, 3) ->
     {deprecated, {crypto, hmac, 4}};
 
 obsolete_1(crypto, sha_mac_96, 2) ->
-    {deprecated, {crypto, hmac_n, 3}};
+    {deprecated, {crypto, hmac, 4}};
 obsolete_1(crypto, md5_mac_96, 2) ->
-    {deprecated, {crypto, hmac_n, 3}};
+    {deprecated, {crypto, hmac, 4}};
 
 obsolete_1(crypto, rsa_sign, 2) ->
     {deprecated, {crypto, sign, 4}};
@@ -123,9 +120,9 @@ obsolete_1(crypto, dss_sign, 3) ->
     {deprecated, {crypto, sign, 4}};
 
 obsolete_1(crypto, dss_verify, 3) ->
-    {deprecated, {crypto, verify, 4}};
+    {deprecated, {crypto, verify, 5}};
 obsolete_1(crypto, dss_verify, 4) ->
-    {deprecated, {crypto, verify, 4}};
+    {deprecated, {crypto, verify, 5}};
 
 obsolete_1(crypto, mod_exp, 3) ->
     {deprecated, {crypto, mod_pow, 3}};
@@ -133,7 +130,7 @@ obsolete_1(crypto, mod_exp, 3) ->
 obsolete_1(crypto, dh_compute_key, 3) ->
     {deprecated, {crypto, compute_key, 4}};
 obsolete_1(crypto, dh_generate_key, 1) ->
-    {deprecated, {crypto, generate_key, 3}};
+    {deprecated, {crypto, generate_key, 2}};
 obsolete_1(crypto, dh_generate_key, 2) ->
     {deprecated, {crypto, generate_key, 3}};
 
@@ -250,12 +247,12 @@ obsolete_1(snmp, N, A) ->
 	false ->
 	    no;
 	true ->
-	    {deprecated, "Deprecated (will be removed in R17B); use snmpa:"++atom_to_list(N)++"/"++
+	    {deprecated, "Deprecated (will be removed in OTP 18); use snmpa:"++atom_to_list(N)++"/"++
 	     integer_to_list(A)++" instead"}
     end;
 
 obsolete_1(snmpa, old_info_format, 1) ->
-    {deprecated, "Deprecated; (will be removed in R17B); use \"new\" format instead"};
+    {deprecated, "Deprecated; (will be removed in OTP 18); use \"new\" format instead"};
 obsolete_1(snmpm, agent_info, 3) ->
     {removed, {snmpm, agent_info, 2}, "R16B"};
 obsolete_1(snmpm, update_agent_info, 5) ->
@@ -366,23 +363,6 @@ obsolete_1(auth, node_cookie, 1) ->
 obsolete_1(auth, node_cookie, 2) ->
     {deprecated, "Deprecated; use erlang:set_cookie/2 and net_adm:ping/1 instead"};
 
-obsolete_1(erlang, is_constant, 1) ->
-    {removed, "Removed in R13B"};
-
-%% Added in R12B-0.
-obsolete_1(ssl, port, 1) ->
-    {removed, {ssl, sockname, 1}, "R13B"};
-obsolete_1(ssl, accept, A) when A =:= 1; A =:= 2 ->
-    {removed, "deprecated; use ssl:transport_accept/1,2 and ssl:ssl_accept/1,2"};
-obsolete_1(erlang, fault, 1) ->
-    {removed, {erlang,error,1}, "R13B"};
-obsolete_1(erlang, fault, 2) ->
-    {removed, {erlang,error,2}, "R13B"};
-
-%% Added in R12B-2.
-obsolete_1(file, rawopen, 2) ->
-    {removed, "deprecated (will be removed in R13B); use file:open/2 with the raw option"};
-
 obsolete_1(http, request, 1) 	      -> {removed,{httpc,request,1},"R15B"};
 obsolete_1(http, request, 2) 	      -> {removed,{httpc,request,2},"R15B"};
 obsolete_1(http, request, 4) 	      -> {removed,{httpc,request,4},"R15B"};
@@ -400,105 +380,9 @@ obsolete_1(http, cookie_header, 2)    -> {removed,{httpc,cookie_header,2},"R15B"
 obsolete_1(http, stream_next, 1)      -> {removed,{httpc,stream_next,1},"R15B"};
 obsolete_1(http, default_profile, 0)  -> {removed,{httpc,default_profile,0},"R15B"};
 
-obsolete_1(httpd, start, 0) 	      -> {removed,{inets,start,[2,3]},"R14B"};
-obsolete_1(httpd, start, 1) 	      -> {removed,{inets,start,[2,3]},"R14B"};
-obsolete_1(httpd, start_link, 0)      -> {removed,{inets,start,[2,3]},"R14B"};
-obsolete_1(httpd, start_link, 1)      -> {removed,{inets,start,[2,3]},"R14B"};
-obsolete_1(httpd, start_child, 0)     -> {removed,{inets,start,[2,3]},"R14B"};
-obsolete_1(httpd, start_child, 1)     -> {removed,{inets,start,[2,3]},"R14B"};
-obsolete_1(httpd, stop, 0) 	      -> {removed,{inets,stop,2},"R14B"};
-obsolete_1(httpd, stop, 1)            -> {removed,{inets,stop,2},"R14B"};
-obsolete_1(httpd, stop, 2)            -> {removed,{inets,stop,2},"R14B"};
-obsolete_1(httpd, stop_child, 0)      -> {removed,{inets,stop,2},"R14B"};
-obsolete_1(httpd, stop_child, 1)      -> {removed,{inets,stop,2},"R14B"};
-obsolete_1(httpd, stop_child, 2)      -> {removed,{inets,stop,2},"R14B"};
-obsolete_1(httpd, restart, 0) 	      -> {removed,{httpd,reload_config,2},"R14B"};
-obsolete_1(httpd, restart, 1) 	      -> {removed,{httpd,reload_config,2},"R14B"};
-obsolete_1(httpd, restart, 2) 	      -> {removed,{httpd,reload_config,2},"R14B"};
-obsolete_1(httpd, block, 0) 	      -> {removed,{httpd,reload_config,2},"R14B"};
-obsolete_1(httpd, block, 1) 	      -> {removed,{httpd,reload_config,2},"R14B"};
-obsolete_1(httpd, block, 2) 	      -> {removed,{httpd,reload_config,2},"R14B"};
-obsolete_1(httpd, block, 3) 	      -> {removed,{httpd,reload_config,2},"R14B"};
-obsolete_1(httpd, block, 4)	      -> {removed,{httpd,reload_config,2},"R14B"};
-obsolete_1(httpd, unblock, 0) 	      -> {removed,{httpd,reload_config,2},"R14B"};
-obsolete_1(httpd, unblock, 1)         -> {removed,{httpd,reload_config,2},"R14B"};
-obsolete_1(httpd, unblock, 2)         -> {removed,{httpd,reload_config,2},"R14B"};
-obsolete_1(httpd_util, key1search, 2) -> {removed,{proplists,get_value,2},"R13B"};
-obsolete_1(httpd_util, key1search, 3) -> {removed,{proplists,get_value,3},"R13B"};
-obsolete_1(ftp, open, 3)              -> {removed,{inets,start,[2,3]},"R14B"};
-obsolete_1(ftp, force_active, 1)      -> {removed,{inets,start,[2,3]},"R14B"};
-
-%% Added in R12B-4.
-obsolete_1(ssh_cm, connect, A) when 1 =< A, A =< 3 ->
-    {removed,{ssh,connect,A},"R14B"};
-obsolete_1(ssh_cm, listen, A) when 2 =< A, A =< 4 ->
-    {removed,{ssh,daemon,A},"R14B"};
-obsolete_1(ssh_cm, stop_listener, 1) ->
-    {removed,{ssh,stop_listener,[1,2]},"R14B"};
-obsolete_1(ssh_cm, session_open, A) when A =:= 2; A =:= 4 ->
-    {removed,{ssh_connection,session_channel,A},"R14B"};
-obsolete_1(ssh_cm, direct_tcpip, A) when A =:= 6; A =:= 8 ->
-    {removed,{ssh_connection,direct_tcpip,A}};
-obsolete_1(ssh_cm, tcpip_forward, 3) ->
-    {removed,{ssh_connection,tcpip_forward,3},"R14B"};
-obsolete_1(ssh_cm, cancel_tcpip_forward, 3) ->
-    {removed,{ssh_connection,cancel_tcpip_forward,3},"R14B"};
-obsolete_1(ssh_cm, open_pty, A) when A =:= 3; A =:= 7; A =:= 9 ->
-    {removed,{ssh_connection,open_pty,A},"R14"};
-obsolete_1(ssh_cm, setenv, 5) ->
-    {removed,{ssh_connection,setenv,5},"R14B"};
-obsolete_1(ssh_cm, shell, 2) ->
-    {removed,{ssh_connection,shell,2},"R14B"};
-obsolete_1(ssh_cm, exec, 4) ->
-    {removed,{ssh_connection,exec,4},"R14B"};
-obsolete_1(ssh_cm, subsystem, 4) ->
-    {removed,{ssh_connection,subsystem,4},"R14B"};
-obsolete_1(ssh_cm, winch, A) when A =:= 4; A =:= 6 ->
-    {removed,{ssh_connection,window_change,A},"R14B"};
-obsolete_1(ssh_cm, signal, 3) ->
-    {removed,{ssh_connection,signal,3},"R14B"};
-obsolete_1(ssh_cm, attach, A) when A =:= 2; A =:= 3 ->
-    {removed,{ssh,attach,A}};
-obsolete_1(ssh_cm, detach, 2) ->
-    {removed,"no longer useful; will be removed in R14B"};
-obsolete_1(ssh_cm, set_user_ack, 4) ->
-    {removed,"no longer useful; will be removed in R14B"};
-obsolete_1(ssh_cm, adjust_window, 3) ->
-    {removed,{ssh_connection,adjust_window,3},"R14B"};
-obsolete_1(ssh_cm, close, 2) ->
-    {removed,{ssh_connection,close,2},"R14B"};
-obsolete_1(ssh_cm, stop, 1) ->
-    {removed,{ssh,close,1},"R14B"};
-obsolete_1(ssh_cm, send_eof, 2) ->
-    {removed,{ssh_connection,send_eof,2},"R14B"};
-obsolete_1(ssh_cm, send, A) when A =:= 3; A =:= 4 ->
-    {removed,{ssh_connection,send,A},"R14B"};
-obsolete_1(ssh_cm, send_ack, A) when 3 =< A, A =< 5 ->
-    {removed,{ssh_connection,send,[3,4]},"R14B"};
-obsolete_1(ssh_ssh, connect, A) when 1 =< A, A =< 3 ->
-    {removed,{ssh,shell,A},"R14B"};
-obsolete_1(ssh_sshd, listen, A) when 0 =< A, A =< 3 ->
-    {removed,{ssh,daemon,[1,2,3]},"R14"};
-obsolete_1(ssh_sshd, stop, 1) ->
-    {removed,{ssh,stop_listener,1}};
-
 %% Added in R13A.
 obsolete_1(regexp, _, _) ->
     {removed, "removed in R15; use the re module instead"};
-
-obsolete_1(lists, flat_length, 1) ->
-    {removed,{lists,flatlength,1},"R14"};
-
-obsolete_1(ssh_sftp, connect, A) when 1 =< A, A =< 3 ->
-    {removed,{ssh_sftp,start_channel,A},"R14B"};
-obsolete_1(ssh_sftp, stop, 1) ->
-    {removed,{ssh_sftp,stop_channel,1},"R14B"};
-
-%% Added in R13B01.
-obsolete_1(ssl_pkix, decode_cert_file, A) when A =:= 1; A =:= 2 ->
-    {removed,"removed in R14A; use public_key:pem_to_der/1 and public_key:pkix_decode_cert/2 instead"};
-obsolete_1(ssl_pkix, decode_cert, A) when A =:= 1; A =:= 2 ->
-    {removed,{public_key,pkix_decode_cert,2},"R14A"};
 
 %% Added in R13B04.
 obsolete_1(erlang, concat_binary, 1) ->
@@ -524,7 +408,7 @@ obsolete_1(docb_xml_check, _, _) ->
 
 %% Added in R15B
 obsolete_1(asn1rt, F, _) when F == load_driver; F == unload_driver ->
-    {deprecated,"deprecated (will be removed in R16A); has no effect as drivers are no longer used."};
+    {deprecated,"deprecated (will be removed in OTP 18); has no effect as drivers are no longer used"};
 obsolete_1(ssl, pid, 1) ->
     {removed,"was removed in R16; is no longer needed"};
 obsolete_1(inviso, _, _) ->
@@ -532,7 +416,7 @@ obsolete_1(inviso, _, _) ->
 
 %% Added in R15B01.
 obsolete_1(gs, _, _) ->
-    {deprecated,"the gs application has been deprecated and will be removed in R17; use the wx application instead"};
+    {deprecated,"the gs application has been deprecated and will be removed in OTP 18; use the wx application instead"};
 obsolete_1(ssh, sign_data, 2) ->
     {deprecated,"deprecated (will be removed in R16A); use public_key:pem_decode/1, public_key:pem_entry_decode/1 "
      "and public_key:sign/3 instead"};
@@ -576,6 +460,96 @@ obsolete_1(wxCursor, new, 3) ->
     {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
 obsolete_1(wxCursor, new, 4) ->
     {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+
+%% Added in OTP 17.
+obsolete_1(asn1ct, decode,3) ->
+    {deprecated,"deprecated; use Mod:decode/2 instead"};
+obsolete_1(asn1ct, encode, 3) ->
+    {deprecated,"deprecated; use Mod:encode/2 instead"};
+obsolete_1(asn1rt, decode,3) ->
+    {deprecated,"deprecated; use Mod:decode/2 instead"};
+obsolete_1(asn1rt, encode, 2) ->
+    {deprecated,"deprecated; use Mod:encode/2 instead"};
+obsolete_1(asn1rt, encode, 3) ->
+    {deprecated,"deprecated; use Mod:encode/2 instead"};
+obsolete_1(asn1rt, info, 1) ->
+    {deprecated,"deprecated; use Mod:info/0 instead"};
+obsolete_1(asn1rt, utf8_binary_to_list, 1) ->
+    {deprecated,{unicode,characters_to_list,1}};
+obsolete_1(asn1rt, utf8_list_to_binary, 1) ->
+    {deprecated,{unicode,characters_to_binary,1}};
+
+%% Added in OTP 18.
+obsolete_1(core_lib, get_anno, 1) ->
+    {removed,{cerl,get_ann,1},"19"};
+obsolete_1(core_lib, set_anno, 2) ->
+    {removed,{cerl,set_ann,2},"19"};
+obsolete_1(core_lib, is_literal, 1) ->
+    {removed,{cerl,is_literal,1},"19"};
+obsolete_1(core_lib, is_literal_list, 1) ->
+    {removed,"removed; use lists:all(fun cerl:is_literal/1, L)"
+     " instead"};
+obsolete_1(core_lib, literal_value, 1) ->
+    {removed,{core_lib,concrete,1},"19"};
+obsolete_1(erl_scan, set_attribute, 3) ->
+    {removed,{erl_anno,set_line,2},"19.0"};
+obsolete_1(erl_scan, attributes_info, 1) ->
+    {removed,"removed in 19.0; use "
+     "erl_anno:{column,line,location,text}/1 instead"};
+obsolete_1(erl_scan, attributes_info, 2) ->
+    {removed,"removed in 19.0; use "
+     "erl_anno:{column,line,location,text}/1 instead"};
+obsolete_1(erl_scan, token_info, 1) ->
+    {removed,"removed in 19.0; use "
+     "erl_scan:{category,column,line,location,symbol,text}/1 instead"};
+obsolete_1(erl_scan, token_info, 2) ->
+    {removed,"removed in 19.0; use "
+     "erl_scan:{category,column,line,location,symbol,text}/1 instead"};
+obsolete_1(erl_parse, set_line, 2) ->
+    {removed,{erl_anno,set_line,2},"19.0"};
+obsolete_1(erl_parse, get_attributes, 1) ->
+    {removed,"removed in 19.0; use "
+     "erl_anno:{column,line,location,text}/1 instead"};
+obsolete_1(erl_parse, get_attribute, 2) ->
+    {removed,"removed in 19.0; use "
+     "erl_anno:{column,line,location,text}/1 instead"};
+obsolete_1(erl_lint, modify_line, 2) ->
+    {removed,{erl_parse,map_anno,2},"19.0"};
+obsolete_1(ssl, negotiated_next_protocol, 1) ->
+    {deprecated,{ssl,negotiated_protocol,1}};
+
+obsolete_1(ssl, connection_info, 1) ->
+    {deprecated, "deprecated; use connection_information/[1,2] instead"};
+
+obsolete_1(httpd_conf, check_enum, 2) ->
+    {deprecated, "deprecated; use lists:member/2 instead"};
+obsolete_1(httpd_conf, clean, 1) ->
+    {deprecated, "deprecated; use sting:strip/1 instead or possible the re module"};
+obsolete_1(httpd_conf, custom_clean, 3) ->
+    {deprecated, "deprecated; use sting:strip/3 instead or possible the re module"};
+obsolete_1(httpd_conf, is_directory, 1) ->
+    {deprecated, "deprecated; use filelib:is_dir/1 instead"};
+obsolete_1(httpd_conf, is_file, 1) ->
+    {deprecated, "deprecated; use filelib:is_file/1 instead"};
+obsolete_1(httpd_conf, make_integer, 1) ->
+    {deprecated, "deprecated; use erlang:list_to_integer/1 instead"};
+
+%% Added in OTP 19.
+
+obsolete_1(random, _, _) ->
+    {deprecated, "the 'random' module is deprecated; "
+     "use the 'rand' module instead"};
+obsolete_1(code, rehash, 0) ->
+    {deprecated, "deprecated because the code path cache feature has been removed"};
+obsolete_1(queue, lait, 1) ->
+    {deprecated, {queue,liat,1}};
+
+%% Removed in OTP 19.
+
+obsolete_1(overload, _, _) ->
+    {removed, "removed in OTP 19"};
+obsolete_1(rpc, safe_multi_server_call, A) when A =:= 2; A =:= 3 ->
+    {removed, {rpc, multi_server_call, A}};
 
 obsolete_1(_, _, _) ->
     no.
@@ -623,3 +597,30 @@ is_snmp_agent_function(add_agent_caps,        2) -> true;
 is_snmp_agent_function(del_agent_caps,        1) -> true;
 is_snmp_agent_function(get_agent_caps,        0) -> true;
 is_snmp_agent_function(_,		      _) -> false.
+
+-dialyzer({no_match, obsolete_type/3}).
+
+-spec obsolete_type(module(), atom(), arity()) ->
+	'no' | {tag(), string()} | {tag(), mfas(), release()}.
+
+-dialyzer({no_match, obsolete_type/3}).
+obsolete_type(Module, Name, NumberOfVariables) ->
+    case obsolete_type_1(Module, Name, NumberOfVariables) of
+        {deprecated=Tag,{_,_,_}=Replacement} ->
+            {Tag,Replacement,"in a future release"};
+	{_,String}=Ret when is_list(String) ->
+	    Ret;
+        {_,_,_}=Ret ->
+            Ret;
+	no ->
+	    no
+    end.
+
+obsolete_type_1(erl_scan,column,0) ->
+    {removed,{erl_anno,column,0},"19.0"};
+obsolete_type_1(erl_scan,line,0) ->
+    {removed,{erl_anno,line,0},"19.0"};
+obsolete_type_1(erl_scan,location,0) ->
+    {removed,{erl_anno,location,0},"19.0"};
+obsolete_type_1(_,_,_) ->
+    no.

@@ -103,14 +103,47 @@ c(babb) -> rec_arg({b, {a, {b, b}}});
 c(ababb) -> rec_arg({a, {b, {a, {b, b}}}});
 c(babaa) -> rec_arg({b, {a, {b, {a, a}}}}).
 
-w(ab) -> rec_arg({a, b});
-w(ba) -> rec_arg({b, a});
-w(aba) -> rec_arg({a, {b, a}});
-w(bab) -> rec_arg({b, {a, b}});
-w(abab) -> rec_arg({a, {b, {a, b}}});
-w(baba) -> rec_arg({b, {a, {b, a}}});
+w(ab) -> rec_arg({a, b}); % breaks the contract
+w(ba) -> rec_arg({b, a}); % breaks the contract
+w(aba) -> rec_arg({a, {b, a}}); % no longer breaks the contract
+w(bab) -> rec_arg({b, {a, b}}); % breaks the contract
+w(abab) -> rec_arg({a, {b, {a, b}}}); % no longer breaks the contract
+w(baba) -> rec_arg({b, {a, {b, a}}}); % no longer breaks the contract
 w(ababa) -> rec_arg({a, {b, {a, {b, a}}}});
 w(babab) -> rec_arg({b, {a, {b, {a, b}}}}).
+
+%% For comparison: the same thing with types
+
+-type ab() :: {a, a()} | {b, b()}.
+-type a() :: a | {b, b()}.
+-type b() :: b | {a, a()}.
+
+-spec rec2(Arg) -> ok when
+      Arg :: ab().
+
+rec2(X) -> get(X).
+
+d(aa) -> rec2({a, a});
+d(bb) -> rec2({b, b});
+d(abb) -> rec2({a, {b, b}});
+d(baa) -> rec2({b, {a, a}});
+d(abaa) -> rec2({a, {b, {a, a}}});
+d(babb) -> rec2({b, {a, {b, b}}});
+d(ababb) -> rec2({a, {b, {a, {b, b}}}});
+d(babaa) -> rec2({b, {a, {b, {a, a}}}}).
+
+q(ab) -> rec2({a, b}); % breaks the contract
+q(ba) -> rec2({b, a}); % breaks the contract
+q(aba) -> rec2({a, {b, a}}); % breaks the contract
+q(bab) -> rec2({b, {a, b}}); % breaks the contract
+q(abab) -> rec2({a, {b, {a, b}}}); % breaks the contract
+q(baba) -> rec2({b, {a, {b, a}}}); % breaks the contract
+q(ababa) -> rec2({a, {b, {a, {b, a}}}}); % breaks the contract
+q(babab) -> rec2({b, {a, {b, {a, b}}}}); % breaks the contract
+q(ababab) -> rec2({a, {b, {a, {b, {a, b}}}}});
+q(bababa) -> rec2({b, {a, {b, {a, {b, a}}}}});
+q(abababa) -> rec2({a, {b, {a, {b, {a, {b, a}}}}}});
+q(bababab) -> rec2({b, {a, {b, {a, {b, {a, b}}}}}}).
 
 %===============================================================================
 
@@ -143,7 +176,7 @@ st(X) when is_atom(X) ->
 		_Other -> ok
 	    end;
 	alpha -> bad;
-	{ok, 42} -> bad;
+	{ok, 42} -> ok;
 	42 -> bad
     end.
 
@@ -161,7 +194,7 @@ dt(X) when is_atom(X) ->
 	err2 -> ok;
 	{ok, X} -> ok;
 	alpha -> bad;
-	{ok, 42} -> bad;
+	{ok, 42} -> ok;
 	42 -> bad
     end.
 
@@ -181,7 +214,7 @@ dt2(X) when is_atom(X) ->
 	err2 -> ok;
 	{ok, X} -> ok;
 	alpha -> bad;
-	{ok, 42} -> bad;
+	{ok, 42} -> ok;
 	42 -> bad
     end.
 

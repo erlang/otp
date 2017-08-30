@@ -1,6 +1,6 @@
 %%---------------------------------------------------------------------
 %% This is added as a test because it was giving a false positive
-%% (function move/4 will nevr be called) due to the strange use of
+%% (function move/4 will never be called) due to the strange use of
 %% self-recursive fun construction in placex/3.
 %%
 %% The analysis was getting confused that the foldl call will never

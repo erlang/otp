@@ -6,7 +6,7 @@ wsp_pdu.erl:2403: The call wsp_pdu:d_date(Data1::binary()) will never return sin
 wsp_pdu.erl:2406: Guard test is_integer(Sec::{[byte()] | byte() | {'long',binary()} | {'short',binary()},binary()}) can never succeed
 wsp_pdu.erl:2408: The pattern {'short', Data2} can never match the type {[byte()] | byte() | {'long',binary()} | {'short',binary()},binary()}
 wsp_pdu.erl:2755: Function parse_push_flag/1 has no local return
-wsp_pdu.erl:2756: The call erlang:integer_to_list(Value::[any()]) breaks the contract (Integer) -> string() when is_subtype(Integer,integer())
+wsp_pdu.erl:2756: The call erlang:integer_to_list(Value::[any()]) breaks the contract (Integer) -> string() when Integer :: integer()
 wsp_pdu.erl:2875: The call wsp_pdu:d_text_string(Data::byte()) will never return since it differs in the 1st argument from the success typing arguments: (binary())
 wsp_pdu.erl:2976: The call wsp_pdu:d_q_value(QData::byte()) will never return since it differs in the 1st argument from the success typing arguments: (<<_:8,_:_*8>>)
 wsp_pdu.erl:3336: The call wsp_pdu:encode_typed_field(Ver::any(),'Q-value',ParamValue::any()) will never return since it differs in the 2nd argument from the success typing arguments: (any(),'Constrained-encoding' | 'Date-value' | 'No-value' | 'Short-integer' | 'Text-string' | 'Text-value' | 'Well-known-charset',any())

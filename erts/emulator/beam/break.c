@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -36,7 +37,7 @@
 #include "atom.h"
 #include "beam_load.h"
 #include "erl_instrument.h"
-#include "erl_bif_timer.h"
+#include "erl_hl_timer.h"
 #include "erl_thr_progress.h"
 
 /* Forward declarations -- should really appear somewhere else */
@@ -76,7 +77,10 @@ process_info(int to, void *to_arg)
     for (i = 0; i < max; i++) {
 	Process *p = erts_pix2proc(i);
 	if (p && p->i != ENULL) {
-	    if (!ERTS_PROC_IS_EXITING(p))
+	    /* Do not include processes with no heap,
+	     * they are most likely just created and has invalid data
+	     */
+	    if (!ERTS_PROC_IS_EXITING(p) && p->heap != NULL)
 		print_process_info(to, to_arg, p);
 	}
     }
@@ -100,19 +104,23 @@ process_killer(void)
 	    erts_printf("(k)ill (n)ext (r)eturn:\n");
 	    while(1) {
 		if ((j = sys_get_key(0)) <= 0)
-		    erl_exit(0, "");
+		    erts_exit(0, "");
 		switch(j) {
 		case 'k': {
 		    ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
 		    erts_aint32_t state;
-		    erts_smp_proc_inc_refc(rp);
+		    erts_proc_inc_refc(rp);
 		    erts_smp_proc_lock(rp, rp_locks);
 		    state = erts_smp_atomic32_read_acqb(&rp->state);
 		    if (state & (ERTS_PSFLG_FREE
-				  | ERTS_PSFLG_EXITING
-				  | ERTS_PSFLG_ACTIVE
-				  | ERTS_PSFLG_IN_RUNQ
-				  | ERTS_PSFLG_RUNNING)) {
+				 | ERTS_PSFLG_EXITING
+				 | ERTS_PSFLG_ACTIVE
+				 | ERTS_PSFLG_ACTIVE_SYS
+				 | ERTS_PSFLG_IN_RUNQ
+				 | ERTS_PSFLG_RUNNING
+				 | ERTS_PSFLG_RUNNING_SYS
+				 | ERTS_PSFLG_DIRTY_RUNNING
+				 | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
 			erts_printf("Can only kill WAITING processes this way\n");
 		    }
 		    else {
@@ -126,7 +134,7 @@ process_killer(void)
 						     0);
 		    }
 		    erts_smp_proc_unlock(rp, rp_locks);
-		    erts_smp_proc_dec_refc(rp);
+		    erts_proc_dec_refc(rp);
 		}
 		case 'n': br = 1; break;
 		case 'r': return;
@@ -176,7 +184,6 @@ static void doit_print_monitor(ErtsMonitor *mon, void *vpcontext)
 	    ASSERT(is_node_name_atom(mon->pid));
 	    erts_print(to, to_arg, "%s{to,{%T,%T},%T}", prefix, mon->name,
 		       mon->pid, mon->ref);
-	    erts_print(to, to_arg,"}");
 	} else if (is_atom(mon->name)){ /* local by name */
 	    erts_print(to, to_arg, "%s{to,{%T,%T},%T}", prefix, mon->name,
 		       erts_this_dist_entry->sysname, mon->ref);
@@ -205,25 +212,13 @@ print_process_info(int to, void *to_arg, Process *p)
     erts_print(to, to_arg, "State: ");
 
     state = erts_smp_atomic32_read_acqb(&p->state);
-    if (state & ERTS_PSFLG_FREE)
-	erts_print(to, to_arg, "Non Existing\n"); /* Should never happen */
-    else if (state & ERTS_PSFLG_EXITING)
-	erts_print(to, to_arg, "Exiting\n");
-    else if (state & ERTS_PSFLG_GC) {
-	garbing = 1;
-	running = 1;
-	erts_print(to, to_arg, "Garbing\n");
-    }
-    else if (state & ERTS_PSFLG_SUSPENDED)
-	erts_print(to, to_arg, "Suspended\n");
-    else if (state & ERTS_PSFLG_RUNNING) {
-	running = 1;
-	erts_print(to, to_arg, "Running\n");
-    }
-    else if (state & ERTS_PSFLG_ACTIVE)
-	erts_print(to, to_arg, "Scheduled\n");
-    else
-	erts_print(to, to_arg, "Waiting\n");
+    erts_dump_process_state(to, to_arg, state);
+    if (state & ERTS_PSFLG_GC) {
+        garbing = 1;
+        running = 1;
+    } else if (state & (ERTS_PSFLG_RUNNING
+			| ERTS_PSFLG_DIRTY_RUNNING))
+        running = 1;
 
     /*
      * If the process is registered as a global process, display the
@@ -236,9 +231,9 @@ print_process_info(int to, void *to_arg, Process *p)
      * Display the initial function name
      */
     erts_print(to, to_arg, "Spawned as: %T:%T/%bpu\n",
-	       p->initial[INITIAL_MOD],
-	       p->initial[INITIAL_FUN],
-	       p->initial[INITIAL_ARI]);
+	       p->u.initial[INITIAL_MOD],
+	       p->u.initial[INITIAL_FUN],
+	       p->u.initial[INITIAL_ARI]);
     
     if (p->current != NULL) {
 	if (running) {
@@ -260,7 +255,7 @@ print_process_info(int to, void *to_arg, Process *p)
 
     /* display the message queue only if there is anything in it */
     if (!ERTS_IS_CRASH_DUMPING && p->msg.first != NULL && !garbing) {
-	ErlMessage* mp;
+	ErtsMessage* mp;
 	erts_print(to, to_arg, "Message queue: [");
 	for (mp = p->msg.first; mp; mp = mp->next)
 	    erts_print(to, to_arg, mp->next ? "%T," : "%T", ERL_MESSAGE_TERM(mp));
@@ -331,7 +326,7 @@ print_process_info(int to, void *to_arg, Process *p)
     erts_print(to, to_arg, "Heap unused: %bpu\n", (p->hend - p->htop));
     erts_print(to, to_arg, "OldHeap unused: %bpu\n",
 	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HTOP(p)) );
-    erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p));
+    erts_print(to, to_arg, "Memory: %beu\n", erts_process_memory(p, !0));
 
     if (garbing) {
 	print_garb_info(to, to_arg, p);
@@ -346,13 +341,20 @@ print_process_info(int to, void *to_arg, Process *p)
 #endif
 	    erts_stack_dump(to, to_arg, p);
     }
+
+    /* Display all states */
+    erts_print(to, to_arg, "Internal State: ");
+    erts_dump_extended_process_state(to, to_arg, state);
 }
 
 static void
 print_garb_info(int to, void *to_arg, Process* p)
 {
+#ifdef ERTS_SMP
     /* ERTS_SMP: A scheduler is probably concurrently doing gc... */
-#ifndef ERTS_SMP
+    if (!ERTS_IS_CRASH_DUMPING)
+      return;
+#endif
     erts_print(to, to_arg, "New heap start: %bpX\n", p->heap);
     erts_print(to, to_arg, "New heap top: %bpX\n", p->htop);
     erts_print(to, to_arg, "Stack top: %bpX\n", p->stop);
@@ -360,7 +362,6 @@ print_garb_info(int to, void *to_arg, Process* p)
     erts_print(to, to_arg, "Old heap start: %bpX\n", OLD_HEAP(p));
     erts_print(to, to_arg, "Old heap top: %bpX\n", OLD_HTOP(p));
     erts_print(to, to_arg, "Old heap end: %bpX\n", OLD_HEND(p));
-#endif
 }
 
 void
@@ -385,7 +386,7 @@ loaded(int to, void *to_arg)
     int i;
     int old = 0;
     int cur = 0;
-    BeamInstr* code;
+    BeamCodeHeader* code;
     Module* modp;
     ErtsCodeIndex code_ix;
 
@@ -443,30 +444,30 @@ loaded(int to, void *to_arg)
 		erts_print(to, to_arg, "\n");
 		erts_print(to, to_arg, "Current size: %d\n",
 			   modp->curr.code_length);
-		code = modp->curr.code;
-		if (code != NULL && code[MI_ATTR_PTR]) {
+		code = modp->curr.code_hdr;
+		if (code != NULL && code->attr_ptr) {
 		    erts_print(to, to_arg, "Current attributes: ");
-		    dump_attributes(to, to_arg, (byte *) code[MI_ATTR_PTR],
-				    code[MI_ATTR_SIZE]);
+		    dump_attributes(to, to_arg, code->attr_ptr,
+				    code->attr_size);
 		}
-		if (code != NULL && code[MI_COMPILE_PTR]) {
+		if (code != NULL && code->compile_ptr) {
 		    erts_print(to, to_arg, "Current compilation info: ");
-		    dump_attributes(to, to_arg, (byte *) code[MI_COMPILE_PTR],
-				    code[MI_COMPILE_SIZE]);
+		    dump_attributes(to, to_arg, code->compile_ptr,
+				    code->compile_size);
 		}
 
 		if (modp->old.code_length != 0) {
 		    erts_print(to, to_arg, "Old size: %d\n", modp->old.code_length);
-		    code = modp->old.code;
-		    if (code[MI_ATTR_PTR]) {
+		    code = modp->old.code_hdr;
+		    if (code->attr_ptr) {
 			erts_print(to, to_arg, "Old attributes: ");
-			dump_attributes(to, to_arg, (byte *) code[MI_ATTR_PTR],
-					code[MI_ATTR_SIZE]);
+			dump_attributes(to, to_arg, code->attr_ptr,
+					code->attr_size);
 		    }
-		    if (code[MI_COMPILE_PTR]) {
+		    if (code->compile_ptr) {
 			erts_print(to, to_arg, "Old compilation info: ");
-			dump_attributes(to, to_arg, (byte *) code[MI_COMPILE_PTR],
-					code[MI_COMPILE_SIZE]);
+			dump_attributes(to, to_arg, code->compile_ptr,
+					code->compile_size);
 		    }
 		}
 	    }
@@ -497,7 +498,7 @@ do_break(void)
        halt immediately if break is called */
     mode = erts_read_env("ERL_CONSOLE_MODE");
     if (mode && strcmp(mode, "window") != 0)
-	erl_exit(0, "");
+	erts_exit(0, "");
     erts_free_read_env(mode);
 #endif /* __WIN32__ */
 
@@ -507,7 +508,7 @@ do_break(void)
 
     while (1) {
 	if ((i = sys_get_key(0)) <= 0)
-	    erl_exit(0, "");
+	    erts_exit(0, "");
 	switch (i) {
 	case 'q':
 	case 'a': 
@@ -517,9 +518,9 @@ do_break(void)
 		   * The usual reason for a read error is Ctrl-C. Treat this as
 		   * 'a' to avoid infinite loop.
 		   */
-	    erl_exit(0, "");
+	    erts_exit(0, "");
 	case 'A':		/* Halt generating crash dump */
-	    erl_exit(1, "Crash dump requested by user");
+	    erts_exit(ERTS_ERROR_EXIT, "Crash dump requested by user");
 	case 'c':
 	    return;
 	case 'p':
@@ -540,7 +541,9 @@ do_break(void)
 	    erts_printf("Erlang (%s) emulator version "
 		       ERLANG_VERSION "\n",
 		       EMULATOR);
+#if ERTS_SAVED_COMPILE_TIME
 	    erts_printf("Compiled on " ERLANG_COMPILE_DATE "\n");
+#endif
 	    return;
 	case 'd':
 	    distribution_info(ERTS_PRINT_STDOUT, NULL);
@@ -675,27 +678,39 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     char* dumpname;
     int secs;
     int env_erl_crash_dump_seconds_set = 1;
+    int i;
 
     if (ERTS_SOMEONE_IS_CRASH_DUMPING)
 	return;
 
 #ifdef ERTS_SMP
+    /* Order all managed threads to block, this has to be done
+       first to guarantee that this is the only thread to generate
+       crash dump. */
+    erts_thr_progress_fatal_error_block(&tpd_buf);
+
+#ifdef ERTS_SYS_SUSPEND_SIGNAL
     /*
-     * Wait for all managed threads to block. If all threads haven't blocked
-     * after a minute, we go anyway and hope for the best...
-     *
-     * We do not release system again. We expect an exit() or abort() after
-     * dump has been written.
+     * We suspend all scheduler threads so that we can dump some
+     * data about the currently running processes and scheduler data.
+     * We have to be very very careful when doing this as the schedulers
+     * could be anywhere.
      */
-    erts_thr_progress_fatal_error_block(60000, &tpd_buf);
-    /* Either worked or not... */
+    for (i = 0; i < erts_no_schedulers; i++) {
+        erts_tid_t tid = ERTS_SCHEDULER_IX(i)->tid;
+        if (!erts_equal_tids(tid,erts_thr_self()))
+            sys_thr_suspend(tid);
+    }
+
+#endif
 
     /* Allow us to pass certain places without locking... */
     erts_smp_atomic32_set_mb(&erts_writing_erl_crash_dump, 1);
     erts_smp_tsd_set(erts_is_crash_dumping_key, (void *) 1);
-#else
+
+#else /* !ERTS_SMP */
     erts_writing_erl_crash_dump = 1;
-#endif
+#endif /* ERTS_SMP */
 
     envsz = sizeof(env);
     /* ERL_CRASH_DUMP_SECONDS not set
@@ -748,13 +763,14 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 	dumpname = "erl_crash.dump";
     else
 	dumpname = &dumpnamebuf[0];
+    
+    erts_fprintf(stderr,"\nCrash dump is being written to: %s...", dumpname);
 
     fd = open(dumpname,O_WRONLY | O_CREAT | O_TRUNC,0640);
-    if (fd < 0) 
+    if (fd < 0)
 	return; /* Can't create the crash dump, skip it */
-    
     time(&now);
-    erts_fdprintf(fd, "=erl_crash_dump:0.2\n%s", ctime(&now));
+    erts_fdprintf(fd, "=erl_crash_dump:0.3\n%s", ctime(&now));
 
     if (file != NULL)
        erts_fdprintf(fd, "The error occurred in file %s, line %d\n", file, line);
@@ -765,10 +781,77 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     }
     erts_fdprintf(fd, "System version: ");
     erts_print_system_version(fd, NULL, NULL);
+#if ERTS_SAVED_COMPILE_TIME
     erts_fdprintf(fd, "%s\n", "Compiled: " ERLANG_COMPILE_DATE);
+#endif
+
     erts_fdprintf(fd, "Taints: ");
     erts_print_nif_taints(fd, NULL);
     erts_fdprintf(fd, "Atoms: %d\n", atom_table_size());
+
+#ifdef USE_THREADS
+    /* We want to note which thread it was that called erts_exit */
+    if (erts_get_scheduler_data()) {
+        erts_fdprintf(fd, "Calling Thread: scheduler:%d\n",
+                      erts_get_scheduler_data()->no);
+    } else {
+        if (!erts_thr_getname(erts_thr_self(), dumpnamebuf, MAXPATHLEN))
+            erts_fdprintf(fd, "Calling Thread: %s\n", dumpnamebuf);
+        else
+            erts_fdprintf(fd, "Calling Thread: %p\n", erts_thr_self());
+    }
+#else
+    erts_fdprintf(fd, "Calling Thread: scheduler:1\n");
+#endif
+
+#if defined(ERTS_HAVE_TRY_CATCH)
+
+    /*
+     * erts_print_scheduler_info is not guaranteed to be safe to call
+     * here for all schedulers as we may have suspended a scheduler
+     * in the middle of updating the STACK_TOP and STACK_START
+     * variables and thus when scanning the stack we could get
+     * segmentation faults. We protect against this very unlikely
+     * scenario by using the ERTS_SYS_TRY_CATCH.
+     */
+    for (i = 0; i < erts_no_schedulers; i++) {
+        ERTS_SYS_TRY_CATCH(
+            erts_print_scheduler_info(fd, NULL, ERTS_SCHEDULER_IX(i)),
+            erts_fdprintf(fd, "** crashed **\n"));
+    }
+#endif
+
+#ifdef ERTS_SMP
+
+#ifdef ERTS_SYS_SUSPEND_SIGNAL
+
+    /* We resume all schedulers so that we are in a known safe state
+       when we write the rest of the crash dump */
+    for (i = 0; i < erts_no_schedulers; i++) {
+        erts_tid_t tid = ERTS_SCHEDULER_IX(i)->tid;
+        if (!erts_equal_tids(tid,erts_thr_self()))
+	    sys_thr_resume(tid);
+    }
+#endif
+
+    /*
+     * Wait for all managed threads to block. If all threads haven't blocked
+     * after a minute, we go anyway and hope for the best...
+     *
+     * We do not release system again. We expect an exit() or abort() after
+     * dump has been written.
+     */
+    erts_thr_progress_fatal_error_wait(60000);
+    /* Either worked or not... */
+#endif
+
+#ifndef ERTS_HAVE_TRY_CATCH
+    /* This is safe to call here, as all schedulers are blocked */
+    for (i = 0; i < erts_no_schedulers; i++) {
+        erts_print_scheduler_info(fd, NULL, ERTS_SCHEDULER_IX(i));
+    }
+#endif
+    
     info(fd, NULL); /* General system info */
     if (erts_ptab_initialized(&erts_proc))
 	process_info(fd, NULL); /* Info about each process and port */
@@ -798,7 +881,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 
     erts_fdprintf(fd, "=end\n");
     close(fd);
-    erts_fprintf(stderr,"\nCrash dump was written to: %s\n", dumpname);
+    erts_fprintf(stderr,"done\n");
 }
 
 void

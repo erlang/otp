@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -30,24 +31,21 @@
 
 %-define(BITS, (hipe_rtl_arch:word_size() * 8) - ?TAG_IMMED1_SIZE).
 -define(BITS, 128). %This is only in bsl to convert answer to pos_inf/neg_inf.
--define(TAG_IMMED1_SIZE, 4).
+-export([type/3, type/4, type/5, arg_types/3,
+	 is_known/3, opaque_args/5, infinity_add/2]).
 
--export([type/3, type/4, arg_types/3, 
-	 is_known/3, structure_inspecting_args/3, infinity_add/2]).
-
--import(erl_types, [number_max/1,
-		    number_min/1,
+-import(erl_types, [number_max/2,
+		    number_min/2,
 		    t_any/0,
 		    t_arity/0,
 		    t_atom/0,
 		    t_atom/1,
 		    t_atoms/1,
-		    t_atom_vals/1,
+		    t_atom_vals/2,
 		    t_binary/0,
 		    t_bitstr/0,
 		    t_boolean/0,
 		    t_byte/0,
-		    t_char/0,
 		    t_cons/0,
 		    t_cons/2,
 		    t_cons_hd/1,
@@ -60,10 +58,11 @@
 		    t_from_term/1,
 		    t_fun/0,
 		    t_fun/2,
-		    t_fun_args/1,
-		    t_fun_range/1,
+		    t_fun_args/2,
+		    t_fun_range/2,
 		    t_identifier/0,
-		    t_inf/2,
+                    t_has_opaque_subtype/2,
+                    t_inf/3,
 		    t_integer/0,
 		    t_integer/1,
 		    t_non_neg_fixnum/0,
@@ -71,31 +70,28 @@
 		    t_pos_integer/0,
 		    t_integers/1,
 		    t_is_any/1,
-		    t_is_atom/1,
-		    t_is_binary/1,
-		    t_is_bitstr/1,
-		    t_is_boolean/1,
-		    t_is_cons/1,
-		    t_is_float/1,
-		    t_is_float/1,
-		    t_is_fun/1,
-		    t_is_integer/1,
-		    t_is_integer/1,
-		    t_is_nil/1,
+		    t_is_atom/2,
+		    t_is_binary/2,
+		    t_is_bitstr/2,
+		    t_is_boolean/2,
+		    t_is_cons/2,
+		    t_is_float/2,
+		    t_is_fun/2,
+		    t_is_integer/2,
+		    t_is_nil/1, t_is_nil/2,
 		    t_is_none/1,
 		    t_is_none_or_unit/1,
-		    t_is_number/1,
-		    t_is_pid/1,
-		    t_is_port/1,
-		    t_is_maybe_improper_list/1,
-		    t_is_reference/1,
-		    t_is_string/1,
+		    t_is_number/2,
+		    t_is_pid/2,
+		    t_is_port/2,
+		    t_is_maybe_improper_list/2,
+		    t_is_reference/2,
 		    t_is_subtype/2,
-		    t_is_tuple/1,
+		    t_is_tuple/2,
 		    t_list/0,
 		    t_list/1,
-		    t_list_elements/1,
-		    t_list_termination/1,
+		    t_list_elements/2,
+		    t_list_termination/2,
 		    t_mfa/0,
 		    t_module/0,
 		    t_nil/0,
@@ -104,7 +100,7 @@
 		    t_nonempty_list/0,
 		    t_nonempty_list/1,
 		    t_number/0,
-		    t_number_vals/1,
+		    t_number_vals/2,
 		    t_pid/0,
 		    t_port/0,
 		    t_maybe_improper_list/0,
@@ -115,9 +111,20 @@
 		    t_sup/2,
 		    t_tuple/0,
 		    t_tuple/1,
-		    t_tuple_args/1,
-		    t_tuple_size/1,
-		    t_tuple_subtypes/1
+		    t_tuple_args/2,
+		    t_tuple_size/2,
+		    t_tuple_subtypes/2,
+		    t_is_map/2,
+		    t_map/0,
+		    t_map/3,
+		    t_map_def_key/2,
+		    t_map_def_val/2,
+		    t_map_get/3,
+		    t_map_is_key/3,
+		    t_map_entries/2,
+		    t_map_put/3,
+		    t_map_update/3,
+		    map_pairwise_merge/3
 		   ]).
 
 -ifdef(DO_ERL_BIF_TYPES_TEST).
@@ -129,47 +136,61 @@
 -spec type(atom(), atom(), arity()) -> erl_types:erl_type().
 
 type(M, F, A) ->
-  type(M, F, A, any_list(A)).
+  type(M, F, A, any_list(A), []).
 
 %% Arguments should be checked for undefinedness, so we do not make
 %% unnecessary overapproximations.
 
 -spec type(atom(), atom(), arity(), [erl_types:erl_type()]) -> erl_types:erl_type().
 
+type(M, F, A, Xs) ->
+  type(M, F, A, Xs, 'universe').
+
+-type opaques() :: erl_types:opaques().
+
+-type arg_types() :: [erl_types:erl_type()].
+
+-spec type(atom(), atom(), arity(), arg_types(), opaques()) ->
+              erl_types:erl_type().
+
 %%-- erlang -------------------------------------------------------------------
-type(erlang, halt, 0, _) -> t_none();
-type(erlang, halt, 1, _) -> t_none();
-type(erlang, halt, 2, _) -> t_none();
-type(erlang, exit, 1, _) -> t_none();
-type(erlang, error, 1, _) -> t_none();
-type(erlang, error, 2, _) -> t_none();
-type(erlang, throw, 1, _) -> t_none();
-type(erlang, '==', 2, Xs = [X1, X2]) ->
-  case t_is_atom(X1) andalso t_is_atom(X2) of
-    true -> type(erlang, '=:=', 2, Xs);
+type(erlang, halt, 0, _, _) -> t_none();
+type(erlang, halt, 1, _, _) -> t_none();
+type(erlang, halt, 2, _, _) -> t_none();
+type(erlang, exit, 1, _, _) -> t_none();
+type(erlang, error, 1, _, _) -> t_none();
+type(erlang, error, 2, _, _) -> t_none();
+type(erlang, throw, 1, _, _) -> t_none();
+type(erlang, '==', 2, Xs = [X1, X2], Opaques) ->
+  case
+    t_is_atom(X1, Opaques) andalso t_is_atom(X2, Opaques)
+  of
+    true -> type(erlang, '=:=', 2, Xs, Opaques);
     false ->
-      case t_is_integer(X1) andalso t_is_integer(X2) of
-	true -> type(erlang, '=:=', 2, Xs);
-	false -> strict(Xs, t_boolean())
+      case t_is_integer(X1, Opaques) andalso t_is_integer(X2, Opaques) of
+	true -> type(erlang, '=:=', 2, Xs, Opaques);
+	false -> strict2(Xs, t_boolean())
       end
   end;
-type(erlang, '/=', 2, Xs = [X1, X2]) -> 
-  case t_is_atom(X1) andalso t_is_atom(X2) of
-    true -> type(erlang, '=/=', 2, Xs);
+type(erlang, '/=', 2, Xs = [X1, X2], Opaques) ->
+  case
+    t_is_atom(X1, Opaques) andalso t_is_atom(X2, Opaques)
+  of
+    true -> type(erlang, '=/=', 2, Xs, Opaques);
     false ->
-      case t_is_integer(X1) andalso t_is_integer(X2) of
-	true -> type(erlang, '=/=', 2, Xs);
-	false -> strict(Xs, t_boolean())
+      case t_is_integer(X1, Opaques) andalso t_is_integer(X2, Opaques) of
+	true -> type(erlang, '=/=', 2, Xs, Opaques);
+	false -> strict2(Xs, t_boolean())
       end
   end;
-type(erlang, '=:=', 2, Xs = [Lhs, Rhs]) -> 
+type(erlang, '=:=', 2, Xs = [Lhs, Rhs], Opaques) ->
   Ans =
-    case t_is_none(t_inf(Lhs, Rhs)) of
+    case t_is_none(t_inf(Lhs, Rhs, Opaques)) of
       true -> t_atom('false');
       false ->
-	case t_is_atom(Lhs) andalso t_is_atom(Rhs) of
+	case t_is_atom(Lhs, Opaques) andalso t_is_atom(Rhs, Opaques) of
 	  true ->
-	    case {t_atom_vals(Lhs), t_atom_vals(Rhs)} of
+	    case {t_atom_vals(Lhs, Opaques), t_atom_vals(Rhs, Opaques)} of
 	      {unknown, _} -> t_boolean();
 	      {_, unknown} -> t_boolean();
 	      {[X], [X]} -> t_atom('true');
@@ -181,16 +202,20 @@ type(erlang, '=:=', 2, Xs = [Lhs, Rhs]) ->
 		end
 	    end;
 	  false ->
-	    case t_is_integer(Lhs) andalso t_is_integer(Rhs) of
+	    case
+              t_is_integer(Lhs, Opaques) andalso t_is_integer(Rhs, Opaques)
+            of
 	      false -> t_boolean();
 	      true ->
-		case {t_number_vals(Lhs), t_number_vals(Rhs)} of
+		case
+                  {t_number_vals(Lhs, Opaques), t_number_vals(Rhs, Opaques)}
+                of
 		  {[X], [X]} when is_integer(X) -> t_atom('true');
 		  _ ->
-		    LhsMax = number_max(Lhs),
-		    LhsMin = number_min(Lhs),
-		    RhsMax = number_max(Rhs),
-		    RhsMin = number_min(Rhs),
+		    LhsMax = number_max(Lhs, Opaques),
+		    LhsMin = number_min(Lhs, Opaques),
+		    RhsMax = number_max(Rhs, Opaques),
+		    RhsMin = number_min(Rhs, Opaques),
 		    Ans1 = (is_integer(LhsMin) 
 			    andalso is_integer(RhsMax)
 			    andalso (LhsMin > RhsMax)),
@@ -205,15 +230,15 @@ type(erlang, '=:=', 2, Xs = [Lhs, Rhs]) ->
 	    end
 	end
     end,
-  strict(Xs, Ans);
-type(erlang, '=/=', 2, Xs = [Lhs, Rhs]) ->
+  strict2(Xs, Ans);
+type(erlang, '=/=', 2, Xs = [Lhs, Rhs], Opaques) ->
   Ans =
-    case t_is_none(t_inf(Lhs, Rhs)) of
+    case t_is_none(t_inf(Lhs, Rhs, Opaques)) of
       true -> t_atom('true');
       false ->
-	case t_is_atom(Lhs) andalso t_is_atom(Rhs) of
+	case t_is_atom(Lhs, Opaques) andalso t_is_atom(Rhs, Opaques) of
 	  true ->
-	    case {t_atom_vals(Lhs), t_atom_vals(Rhs)} of
+	    case {t_atom_vals(Lhs, Opaques), t_atom_vals(Rhs, Opaques)} of
 	      {unknown, _} -> t_boolean();
 	      {_, unknown} -> t_boolean();
 	      {[Val], [Val]} -> t_atom('false');
@@ -221,13 +246,15 @@ type(erlang, '=/=', 2, Xs = [Lhs, Rhs]) ->
 		t_sup([t_from_term(X =/= Y) || X <- LhsVals, Y <- RhsVals])
 	    end;
 	  false ->
-	    case t_is_integer(Lhs) andalso t_is_integer(Rhs) of
+	    case
+              t_is_integer(Lhs, Opaques) andalso t_is_integer(Rhs, Opaques)
+            of
 	      false -> t_boolean();
 	      true ->
-		LhsMax = number_max(Lhs),
-		LhsMin = number_min(Lhs),
-		RhsMax = number_max(Rhs),
-		RhsMin = number_min(Rhs),
+		LhsMax = number_max(Lhs, Opaques),
+		LhsMin = number_min(Lhs, Opaques),
+		RhsMax = number_max(Rhs, Opaques),
+		RhsMin = number_min(Rhs, Opaques),
 		Ans1 = (is_integer(LhsMin) andalso is_integer(RhsMax)
 			andalso (LhsMin > RhsMax)),
 		Ans2 = (is_integer(LhsMax) andalso is_integer(RhsMin)
@@ -244,15 +271,15 @@ type(erlang, '=/=', 2, Xs = [Lhs, Rhs]) ->
 	    end
 	end
     end,
-  strict(Xs, Ans);
-type(erlang, '>', 2, Xs = [Lhs, Rhs]) -> 
+  strict2(Xs, Ans);
+type(erlang, '>', 2, Xs = [Lhs, Rhs], Opaques) ->
   Ans =
-    case t_is_integer(Lhs) andalso t_is_integer(Rhs) of
+    case t_is_integer(Lhs, Opaques) andalso t_is_integer(Rhs, Opaques) of
       true ->
-	LhsMax = number_max(Lhs),
-	LhsMin = number_min(Lhs),
-	RhsMax = number_max(Rhs),
-	RhsMin = number_min(Rhs),
+	LhsMax = number_max(Lhs, Opaques),
+	LhsMin = number_min(Lhs, Opaques),
+	RhsMax = number_max(Rhs, Opaques),
+	RhsMin = number_min(Rhs, Opaques),
 	T = t_atom('true'),
 	F = t_atom('false'),
 	if 
@@ -260,17 +287,17 @@ type(erlang, '>', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMax), is_integer(RhsMin), RhsMin >= LhsMax -> F;
 	  true -> t_boolean()
 	end;
-      false -> compare('>', Lhs, Rhs)
+      false -> compare('>', Lhs, Rhs, Opaques)
     end,
-  strict(Xs, Ans);
-type(erlang, '>=', 2, Xs = [Lhs, Rhs]) ->
+  strict2(Xs, Ans);
+type(erlang, '>=', 2, Xs = [Lhs, Rhs], Opaques) ->
   Ans =
-    case t_is_integer(Lhs) andalso t_is_integer(Rhs) of
+    case t_is_integer(Lhs, Opaques) andalso t_is_integer(Rhs, Opaques) of
       true ->
-	LhsMax = number_max(Lhs),
-	LhsMin = number_min(Lhs),
-	RhsMax = number_max(Rhs),
-	RhsMin = number_min(Rhs),
+	LhsMax = number_max(Lhs, Opaques),
+	LhsMin = number_min(Lhs, Opaques),
+	RhsMax = number_max(Rhs, Opaques),
+	RhsMin = number_min(Rhs, Opaques),
 	T = t_atom('true'),
 	F = t_atom('false'),
 	if 
@@ -278,17 +305,17 @@ type(erlang, '>=', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMax), is_integer(RhsMin), RhsMin > LhsMax -> F;
 	  true -> t_boolean()
 	end;
-      false -> compare('>=', Lhs, Rhs)
+      false -> compare('>=', Lhs, Rhs, Opaques)
     end,
-  strict(Xs, Ans);
-type(erlang, '<', 2, Xs = [Lhs, Rhs]) ->
+  strict2(Xs, Ans);
+type(erlang, '<', 2, Xs = [Lhs, Rhs], Opaques) ->
   Ans =
-    case t_is_integer(Lhs) andalso t_is_integer(Rhs) of
+    case t_is_integer(Lhs, Opaques) andalso t_is_integer(Rhs, Opaques) of
       true ->
-	LhsMax = number_max(Lhs),
-	LhsMin = number_min(Lhs),
-	RhsMax = number_max(Rhs),
-	RhsMin = number_min(Rhs),
+	LhsMax = number_max(Lhs, Opaques),
+	LhsMin = number_min(Lhs, Opaques),
+	RhsMax = number_max(Rhs, Opaques),
+	RhsMin = number_min(Rhs, Opaques),
 	T = t_atom('true'),
 	F = t_atom('false'),
 	if 
@@ -296,17 +323,17 @@ type(erlang, '<', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMin), is_integer(RhsMax), RhsMax =< LhsMin -> F;
 	  true -> t_boolean()
 	end;
-      false -> compare('<', Lhs, Rhs)
+      false -> compare('<', Lhs, Rhs, Opaques)
     end,
-  strict(Xs, Ans);
-type(erlang, '=<', 2, Xs = [Lhs, Rhs]) ->
+  strict2(Xs, Ans);
+type(erlang, '=<', 2, Xs = [Lhs, Rhs], Opaques) ->
   Ans =
-    case t_is_integer(Lhs) andalso t_is_integer(Rhs) of
+    case t_is_integer(Lhs, Opaques) andalso t_is_integer(Rhs, Opaques) of
       true ->
-	LhsMax = number_max(Lhs),
-	LhsMin = number_min(Lhs),
-	RhsMax = number_max(Rhs),
-	RhsMin = number_min(Rhs),
+	LhsMax = number_max(Lhs, Opaques),
+	LhsMin = number_min(Lhs, Opaques),
+	RhsMax = number_max(Rhs, Opaques),
+	RhsMin = number_min(Rhs, Opaques),
 	T = t_atom('true'),
 	F = t_atom('false'),
 	if 
@@ -314,232 +341,235 @@ type(erlang, '=<', 2, Xs = [Lhs, Rhs]) ->
 	  is_integer(LhsMin), is_integer(RhsMax), RhsMax < LhsMin -> F;
 	  true -> t_boolean()
 	end;
-      false -> compare('=<', Lhs, Rhs)
+      false -> compare('=<', Lhs, Rhs, Opaques)
     end,
-  strict(Xs, Ans);
-type(erlang, '+', 1, Xs) ->
-  strict(arg_types(erlang, '+', 1), Xs, 
-	 fun ([X]) -> X end);
-type(erlang, '-', 1, Xs) ->
-  strict(arg_types(erlang, '-', 1), Xs, 
+  strict2(Xs, Ans);
+type(erlang, '+', 1, Xs, Opaques) ->
+  strict(erlang, '+', 1, Xs, fun ([X]) -> X end, Opaques);
+type(erlang, '-', 1, Xs, Opaques) ->
+  strict(erlang, '-', 1, Xs,
 	 fun ([X]) -> 
-	     case t_is_integer(X) of
+	     case t_is_integer(X, Opaques) of
 	       true -> type(erlang, '-', 2, [t_integer(0), X]);
 	       false -> X
 	     end
-	 end);
-type(erlang, '!', 2, Xs) ->
-  strict(arg_types(erlang, '!', 2), Xs, fun ([_, X2]) -> X2 end);
-type(erlang, '+', 2, Xs) ->
-  strict(arg_types(erlang, '+', 2), Xs,
+	 end, Opaques);
+type(erlang, '!', 2, Xs, Opaques) ->
+  strict(erlang, '!', 2, Xs, fun ([_, X2]) -> X2 end, Opaques);
+type(erlang, '+', 2, Xs, Opaques) ->
+  strict(erlang, '+', 2, Xs,
 	 fun ([X1, X2]) ->
-	     case arith('+', X1, X2) of
+	     case arith('+', X1, X2, Opaques) of
 	       {ok, T} -> T;
 	       error ->
-		 case t_is_float(X1) orelse t_is_float(X2) of
+		 case
+                   t_is_float(X1, Opaques) orelse t_is_float(X2, Opaques)
+                 of
 		   true -> t_float();
 		   false -> t_number()
 		 end
 	     end
-	 end);
-type(erlang, '-', 2, Xs) ->
-  strict(arg_types(erlang, '-', 2), Xs,
+	 end, Opaques);
+type(erlang, '-', 2, Xs, Opaques) ->
+  strict(erlang, '-', 2, Xs,
 	 fun ([X1, X2]) ->
-	     case arith('-', X1, X2) of
+	     case arith('-', X1, X2, Opaques) of
 	       {ok, T} -> T;
 	       error ->
-		 case t_is_float(X1) orelse t_is_float(X2) of
+		 case
+                   t_is_float(X1, Opaques) orelse t_is_float(X2, Opaques)
+                 of
 		   true -> t_float();
 		   false -> t_number()
 		 end
 	     end
-	 end);
-type(erlang, '*', 2, Xs) ->
-  strict(arg_types(erlang, '*', 2), Xs,
+	 end, Opaques);
+type(erlang, '*', 2, Xs, Opaques) ->
+  strict(erlang, '*', 2, Xs,
 	 fun ([X1, X2]) ->
-	     case arith('*', X1, X2) of
+	     case arith('*', X1, X2, Opaques) of
 	       {ok, T} -> T;
 	       error ->
-		 case t_is_float(X1) orelse t_is_float(X2) of
+		 case
+                   t_is_float(X1, Opaques) orelse t_is_float(X2, Opaques)
+                 of
 		   true -> t_float();
 		   false -> t_number()
 		 end
 	     end
-	 end);
-type(erlang, '/', 2, Xs) ->
-  strict(arg_types(erlang, '/', 2), Xs,
-	 fun (_) -> t_float() end);
-type(erlang, 'div', 2, Xs) ->
-  strict(arg_types(erlang, 'div', 2), Xs,
+	 end, Opaques);
+type(erlang, '/', 2, Xs, Opaques) ->
+  strict(erlang, '/', 2, Xs, fun (_) -> t_float() end, Opaques);
+type(erlang, 'div', 2, Xs, Opaques) ->
+  strict(erlang, 'div', 2, Xs,
 	 fun ([X1, X2]) ->
-	     case arith('div', X1, X2) of
+	     case arith('div', X1, X2, Opaques) of
 	       error -> t_integer();
 	       {ok, T} -> T
 	     end
-	 end);
-type(erlang, 'rem', 2, Xs) ->
-  strict(arg_types(erlang, 'rem', 2), Xs,
+	 end, Opaques);
+type(erlang, 'rem', 2, Xs, Opaques) ->
+  strict(erlang, 'rem', 2, Xs,
 	 fun ([X1, X2]) ->
-	     case arith('rem', X1, X2) of
+	     case arith('rem', X1, X2, Opaques) of
 	       error -> t_non_neg_integer();
 	       {ok, T} -> T
 	     end
-	 end);
-type(erlang, '++', 2, Xs) ->
-  strict(arg_types(erlang, '++', 2), Xs,
+	 end, Opaques);
+type(erlang, '++', 2, Xs, Opaques) ->
+  strict(erlang, '++', 2, Xs,
 	 fun ([X1, X2]) ->
-	     case t_is_nil(X1) of
+	     case t_is_nil(X1, Opaques) of
 	       true  -> X2;    % even if X2 is not a list
 	       false ->
-		 case t_is_nil(X2) of
+		 case t_is_nil(X2, Opaques) of
 		   true  -> X1;
 		   false ->
-		     E1 = t_list_elements(X1),
-		     case t_is_cons(X1) of
+		     E1 = t_list_elements(X1, Opaques),
+		     case t_is_cons(X1, Opaques) of
 		       true -> t_cons(E1, X2);
 		       false ->
 			 t_sup(X2, t_cons(E1, X2))
 		     end
 		 end
 	     end
-	 end);
-type(erlang, '--', 2, Xs) ->
+	 end, Opaques);
+type(erlang, '--', 2, Xs, Opaques) ->
   %% We don't know which elements (if any) in X2 will be found and
   %% removed from X1, even if they would have the same type. Thus, we
   %% must assume that X1 can remain unchanged. However, if we succeed,
   %% we know that X1 must be a proper list, but the result could
   %% possibly be empty even if X1 is nonempty.
-  strict(arg_types(erlang, '--', 2), Xs,
+  strict(erlang, '--', 2, Xs,
 	 fun ([X1, X2]) ->
-	     case t_is_nil(X1) of
+	     case t_is_nil(X1, Opaques) of
 	       true  -> t_nil();
 	       false ->
-		 case t_is_nil(X2) of
+		 case t_is_nil(X2, Opaques) of
 		   true  -> X1;
-		   false -> t_list(t_list_elements(X1))
+		   false -> t_list(t_list_elements(X1, Opaques))
 		 end
 	     end
-	 end);
-type(erlang, 'and', 2, Xs) ->
-  strict(arg_types(erlang, 'and', 2), Xs, fun (_) -> t_boolean() end);
-type(erlang, 'or', 2, Xs) ->
-  strict(arg_types(erlang, 'or', 2), Xs, fun (_) -> t_boolean() end);
-type(erlang, 'xor', 2, Xs) ->
-  strict(arg_types(erlang, 'xor', 2), Xs, fun (_) -> t_boolean() end);
-type(erlang, 'not', 1, Xs) ->
-  strict(arg_types(erlang, 'not', 1), Xs, fun (_) -> t_boolean() end);
-type(erlang, 'band', 2, Xs) ->
-  strict(arg_types(erlang, 'band', 2), Xs,
+	 end, Opaques);
+type(erlang, 'and', 2, Xs, Opaques) ->
+  strict(erlang, 'and', 2, Xs, fun (_) -> t_boolean() end, Opaques);
+type(erlang, 'or', 2, Xs, Opaques) ->
+  strict(erlang, 'or', 2, Xs, fun (_) -> t_boolean() end, Opaques);
+type(erlang, 'xor', 2, Xs, Opaques) ->
+  strict(erlang, 'xor', 2, Xs, fun (_) -> t_boolean() end, Opaques);
+type(erlang, 'not', 1, Xs, Opaques) ->
+  strict(erlang, 'not', 1, Xs, fun (_) -> t_boolean() end, Opaques);
+type(erlang, 'band', 2, Xs, Opaques) ->
+  strict(erlang, 'band', 2, Xs,
 	 fun ([X1, X2]) ->
-	     case arith('band', X1, X2) of
+	     case arith('band', X1, X2, Opaques) of
 	       error -> t_integer();
 	       {ok, T} -> T
 	     end
-	 end);
+	 end, Opaques);
 %% The result is not wider than the smallest argument. We need to
 %% kill any value-sets in the result.
-%%  strict(arg_types(erlang, 'band', 2), Xs,
-%%	 fun ([X1, X2]) -> t_sup(t_inf(X1, X2), t_byte()) end);
-type(erlang, 'bor', 2, Xs) ->
-  strict(arg_types(erlang, 'bor', 2), Xs,
+%%  strict(erlang, 'band', 2, Xs,
+%%	 fun ([X1, X2]) -> t_sup(t_inf(X1, X2, Opaques), t_byte()) end, Opaques);
+type(erlang, 'bor', 2, Xs, Opaques) ->
+  strict(erlang, 'bor', 2, Xs,
 	 fun ([X1, X2]) ->
-	     case arith('bor', X1, X2) of
+	     case arith('bor', X1, X2, Opaques) of
 	       error -> t_integer();
 	       {ok, T} -> T
 	     end
-	 end);
+	 end, Opaques);
 %% The result is not wider than the largest argument. We need to
 %% kill any value-sets in the result.
-%%  strict(arg_types(erlang, 'bor', 2), Xs,
-%%	 fun ([X1, X2]) -> t_sup(t_sup(X1, X2), t_byte()) end);
-type(erlang, 'bxor', 2, Xs) ->
-  strict(arg_types(erlang, 'bxor', 2), Xs,
+%%  strict(erlang, 'bor', 2, Xs,
+%%	 fun ([X1, X2]) -> t_sup(t_sup(X1, X2), t_byte()) end, Opaques);
+type(erlang, 'bxor', 2, Xs, Opaques) ->
+  strict(erlang, 'bxor', 2, Xs,
 	 fun ([X1, X2]) ->
-	     case arith('bxor', X1, X2) of
+	     case arith('bxor', X1, X2, Opaques) of
 	       error -> t_integer();
 	       {ok, T} -> T
 	     end
-	 end);
+	 end, Opaques);
 %% The result is not wider than the largest argument. We need to
 %% kill any value-sets in the result.
-%%  strict(arg_types(erlang, 'bxor', 2), Xs,
-%%	 fun ([X1, X2]) -> t_sup(t_sup(X1, X2), t_byte()) end);
-type(erlang, 'bsr', 2, Xs) ->
-  strict(arg_types(erlang, 'bsr', 2), Xs,
+%%  strict(erlang, 'bxor', 2, Xs,
+%%	 fun ([X1, X2]) -> t_sup(t_sup(X1, X2), t_byte()) end, Opaques);
+type(erlang, 'bsr', 2, Xs, Opaques) ->
+  strict(erlang, 'bsr', 2, Xs,
 	 fun ([X1, X2]) ->
-	     case arith('bsr', X1, X2) of
+	     case arith('bsr', X1, X2, Opaques) of
 	       error -> t_integer();
 	       {ok, T} -> T
 	     end
-	 end);
+	 end, Opaques);
 %% If the first argument is unsigned (which is the case for
 %% characters and bytes), the result is never wider. We need to kill
 %% any value-sets in the result.
-%%  strict(arg_types(erlang, 'bsr', 2), Xs,
-%%	 fun ([X, _]) -> t_sup(X, t_byte()) end);
-type(erlang, 'bsl', 2, Xs) ->
-  strict(arg_types(erlang, 'bsl', 2), Xs,
+%%  strict(erlang, 'bsr', 2, Xs,
+%%	 fun ([X, _]) -> t_sup(X, t_byte()) end, Opaques);
+type(erlang, 'bsl', 2, Xs, Opaques) ->
+  strict(erlang, 'bsl', 2, Xs,
 	 fun ([X1, X2]) ->
-	     case arith('bsl', X1, X2) of
+	     case arith('bsl', X1, X2, Opaques) of
 	       error -> t_integer();
 	       {ok, T} -> T
 	     end
-	 end);
+	 end, Opaques);
 %% Not worth doing anything special here.
-%%  strict(arg_types(erlang, 'bsl', 2), Xs, fun (_) -> t_integer() end);
-type(erlang, 'bnot', 1, Xs) ->
- strict(arg_types(erlang, 'bnot', 1), Xs,
+%%  strict(erlang, 'bsl', 2, Xs, fun (_) -> t_integer() end, Opaques);
+type(erlang, 'bnot', 1, Xs, Opaques) ->
+ strict(erlang, 'bnot', 1, Xs,
 	 fun ([X1]) ->
-	     case arith('bnot', X1) of
+	     case arith_bnot(X1, Opaques) of
 	       error -> t_integer();
 	       {ok, T} -> T
 	     end
-	 end);
+	 end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, abs, 1, Xs) ->
-  strict(arg_types(erlang, abs, 1), Xs, fun ([X]) -> X end);
+type(erlang, abs, 1, Xs, Opaques) ->
+  strict(erlang, abs, 1, Xs,
+         fun ([X1]) -> arith_abs(X1, Opaques) end, Opaques);
 %% This returns (-X)-1, so it often gives a negative result.
-%%  strict(arg_types(erlang, 'bnot', 1), Xs, fun (_) -> t_integer() end);
-type(erlang, append, 2, Xs) -> type(erlang, '++', 2, Xs); % alias
-type(erlang, apply, 2, Xs) ->
+%%  strict(erlang, 'bnot', 1, Xs, fun (_) -> t_integer() end, Opaques);
+type(erlang, append, 2, Xs, _Opaques) -> type(erlang, '++', 2, Xs); % alias
+type(erlang, apply, 2, Xs, Opaques) ->
   Fun = fun ([X, _Y]) -> 
-	    case t_is_fun(X) of
+	    case t_is_fun(X, Opaques) of
 	      true ->
-		t_fun_range(X);
+		t_fun_range(X, Opaques);
 	      false ->
 		t_any() 
 	    end
 	end,
-  strict(arg_types(erlang, apply, 2), Xs, Fun);
-type(erlang, apply, 3, Xs) ->
-  strict(arg_types(erlang, apply, 3), Xs, fun (_) -> t_any() end);
+  strict(erlang, apply, 2, Xs, Fun, Opaques);
+type(erlang, apply, 3, Xs, Opaques) ->
+  strict(erlang, apply, 3, Xs, fun (_) -> t_any() end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, binary_part, 2, Xs) ->
-  strict(arg_types(erlang, binary_part, 2), Xs, fun (_) -> t_binary() end);
+type(erlang, binary_part, 2, Xs, Opaques) ->
+  strict(erlang, binary_part, 2, Xs, fun (_) -> t_binary() end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, binary_part, 3, Xs) ->
-  strict(arg_types(erlang, binary_part, 3), Xs, fun (_) -> t_binary() end);
+type(erlang, binary_part, 3, Xs, Opaques) ->
+  strict(erlang, binary_part, 3, Xs, fun (_) -> t_binary() end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, bit_size, 1, Xs) ->
-  strict(arg_types(erlang, bit_size, 1), Xs,
-	 fun (_) -> t_non_neg_integer() end);
+type(erlang, bit_size, 1, Xs, Opaques) ->
+  strict(erlang, bit_size, 1, Xs,
+	 fun (_) -> t_non_neg_integer() end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, byte_size, 1, Xs) ->
-  strict(arg_types(erlang, byte_size, 1), Xs,
-	 fun (_) -> t_non_neg_integer() end);
-type(erlang, disconnect_node, 1, Xs) ->
-  strict(arg_types(erlang, disconnect_node, 1), Xs, fun (_) -> t_sup([t_boolean(), t_atom('ignored')]) end);
+type(erlang, byte_size, 1, Xs, Opaques) ->
+  strict(erlang, byte_size, 1, Xs,
+	 fun (_) -> t_non_neg_integer() end, Opaques);
 %% Guard bif, needs to be here.
 %% Also much more expressive than anything you could write in a spec...
-type(erlang, element, 2, Xs) ->
-  strict(arg_types(erlang, element, 2), Xs,
+type(erlang, element, 2, Xs, Opaques) ->
+  strict(erlang, element, 2, Xs,
 	 fun ([X1, X2]) ->
-	     case t_tuple_subtypes(X2) of
+	     case t_tuple_subtypes(X2, Opaques) of
 	       unknown -> t_any();
 	       [_] ->
-		 Sz = t_tuple_size(X2),
-		 As = t_tuple_args(X2),
-		 case t_number_vals(X1) of
+		 Sz = t_tuple_size(X2, Opaques),
+		 As = t_tuple_args(X2, Opaques),
+		 case t_number_vals(X1, Opaques) of
 		   unknown -> t_sup(As);
 		   Ns when is_list(Ns) ->
 		     Fun = fun 
@@ -553,165 +583,159 @@ type(erlang, element, 2, Xs) ->
 	       Ts when is_list(Ts) ->
 		 t_sup([type(erlang, element, 2, [X1, Y]) || Y <- Ts])
 	     end
-	 end);
+	 end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, float, 1, Xs) ->
-  strict(arg_types(erlang, float, 1), Xs, fun (_) -> t_float() end);
-type(erlang, fun_info, 1, Xs) ->
-  strict(arg_types(erlang, fun_info, 1), Xs,
-	 fun (_) -> t_list(t_tuple([t_atom(), t_any()])) end);
-type(erlang, get_cookie, 0, _) -> t_atom();  % | t_atom('nocookie')
+type(erlang, float, 1, Xs, Opaques) ->
+  strict(erlang, float, 1, Xs, fun (_) -> t_float() end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, hd, 1, Xs) ->
-  strict(arg_types(erlang, hd, 1), Xs, fun ([X]) -> t_cons_hd(X) end);
-type(erlang, integer_to_list, 2, Xs) ->
-  strict(arg_types(erlang, integer_to_list, 2), Xs,
-	 fun (_) -> t_string() end);
-type(erlang, info, 1, Xs) -> type(erlang, system_info, 1, Xs); % alias
+type(erlang, hd, 1, Xs, Opaques) ->
+  strict(erlang, hd, 1, Xs, fun ([X]) -> t_cons_hd(X) end, Opaques);
+type(erlang, info, 1, Xs, _) -> type(erlang, system_info, 1, Xs); % alias
 %% All type tests are guard BIF's and may be implemented in ways that
 %% cannot be expressed in a type spec, why they are kept in erl_bif_types.
-type(erlang, is_atom, 1, Xs) ->   
-  Fun = fun (X) -> check_guard(X, fun (Y) -> t_is_atom(Y) end, t_atom()) end,
-  strict(arg_types(erlang, is_atom, 1), Xs, Fun);
-type(erlang, is_binary, 1, Xs) ->
+type(erlang, is_atom, 1, Xs, Opaques) ->
   Fun = fun (X) ->
-	    check_guard(X, fun (Y) -> t_is_binary(Y) end, t_binary())
-	end,
-  strict(arg_types(erlang, is_binary, 1), Xs, Fun);
-type(erlang, is_bitstring, 1, Xs) ->
+            check_guard(X, fun (Y) -> t_is_atom(Y, Opaques) end,
+                        t_atom(), Opaques)
+        end,
+  strict(erlang, is_atom, 1, Xs, Fun, Opaques);
+type(erlang, is_binary, 1, Xs, Opaques) ->
   Fun = fun (X) ->
-	    check_guard(X, fun (Y) -> t_is_bitstr(Y) end, t_bitstr())
+	    check_guard(X, fun (Y) -> t_is_binary(Y, Opaques) end,
+                        t_binary(), Opaques)
 	end,
-  strict(arg_types(erlang, is_bitstring, 1), Xs, Fun);
-type(erlang, is_boolean, 1, Xs) ->
+  strict(erlang, is_binary, 1, Xs, Fun, Opaques);
+type(erlang, is_bitstring, 1, Xs, Opaques) ->
   Fun = fun (X) ->
-	    check_guard(X, fun (Y) -> t_is_boolean(Y) end, t_boolean())
+	    check_guard(X, fun (Y) -> t_is_bitstr(Y, Opaques) end,
+                        t_bitstr(), Opaques)
 	end,
-  strict(arg_types(erlang, is_boolean, 1), Xs, Fun);
-type(erlang, is_float, 1, Xs) ->
+  strict(erlang, is_bitstring, 1, Xs, Fun, Opaques);
+type(erlang, is_boolean, 1, Xs, Opaques) ->
   Fun = fun (X) ->
-	    check_guard(X, fun (Y) -> t_is_float(Y) end, t_float())
+	    check_guard(X, fun (Y) -> t_is_boolean(Y, Opaques) end,
+                        t_boolean(), Opaques)
 	end,
-  strict(arg_types(erlang, is_float, 1), Xs, Fun);
-type(erlang, is_function, 1, Xs) ->
-  Fun = fun (X) -> check_guard(X, fun (Y) -> t_is_fun(Y) end, t_fun()) end,
-  strict(arg_types(erlang, is_function, 1), Xs, Fun);
-type(erlang, is_function, 2, Xs) ->
+  strict(erlang, is_boolean, 1, Xs, Fun, Opaques);
+type(erlang, is_float, 1, Xs, Opaques) ->
+  Fun = fun (X) ->
+	    check_guard(X, fun (Y) -> t_is_float(Y, Opaques) end,
+                        t_float(), Opaques)
+	end,
+  strict(erlang, is_float, 1, Xs, Fun, Opaques);
+type(erlang, is_function, 1, Xs, Opaques) ->
+  Fun = fun (X) ->
+            check_guard(X, fun (Y) -> t_is_fun(Y, Opaques) end,
+                        t_fun(), Opaques)
+        end,
+  strict(erlang, is_function, 1, Xs, Fun, Opaques);
+type(erlang, is_function, 2, Xs, Opaques) ->
   Fun = fun ([FunType, ArityType]) -> 
-	    case t_number_vals(ArityType) of
+	    case t_number_vals(ArityType, Opaques) of
 	      unknown -> t_boolean();
 	      [Val] -> 
 		FunConstr = t_fun(any_list(Val), t_any()),
 		Fun2 = fun (X) ->
 			   t_is_subtype(X, FunConstr) andalso (not t_is_none(X))
 		       end,
-		check_guard_single(FunType, Fun2, FunConstr);
+		check_guard_single(FunType, Fun2, FunConstr, Opaques);
 	      IntList when is_list(IntList) -> t_boolean() %% true?
 	    end
 	end,
-  strict(arg_types(erlang, is_function, 2), Xs, Fun);
-type(erlang, is_integer, 1, Xs) ->
+  strict(erlang, is_function, 2, Xs, Fun, Opaques);
+type(erlang, is_integer, 1, Xs, Opaques) ->
   Fun = fun (X) ->
-	    check_guard(X, fun (Y) -> t_is_integer(Y) end, t_integer())
+	    check_guard(X, fun (Y) -> t_is_integer(Y, Opaques) end,
+                        t_integer(), Opaques)
 	end,
-  strict(arg_types(erlang, is_integer, 1), Xs, Fun);
-type(erlang, is_list, 1, Xs) ->
+  strict(erlang, is_integer, 1, Xs, Fun, Opaques);
+type(erlang, is_list, 1, Xs, Opaques) ->
   Fun = fun (X) ->
-	    Fun2 = fun (Y) -> t_is_maybe_improper_list(Y) end,
-	    check_guard(X, Fun2, t_maybe_improper_list())
+	    Fun2 = fun (Y) -> t_is_maybe_improper_list(Y, Opaques) end,
+	    check_guard(X, Fun2, t_maybe_improper_list(), Opaques)
 	end,
-  strict(arg_types(erlang, is_list, 1), Xs, Fun);
-type(erlang, is_number, 1, Xs) ->
+  strict(erlang, is_list, 1, Xs, Fun, Opaques);
+type(erlang, is_map, 1, Xs, Opaques) ->
+  Fun = fun (X) -> 
+	    check_guard(X, fun (Y) -> t_is_map(Y, Opaques) end,
+	    t_map(), Opaques) end,
+  strict(erlang, is_map, 1, Xs, Fun, Opaques);
+type(erlang, is_number, 1, Xs, Opaques) ->
   Fun = fun (X) ->
-	    check_guard(X, fun (Y) -> t_is_number(Y) end, t_number())
+	    check_guard(X, fun (Y) -> t_is_number(Y, Opaques) end,
+                        t_number(), Opaques)
 	end,
-  strict(arg_types(erlang, is_number, 1), Xs, Fun);
-type(erlang, is_pid, 1, Xs) ->
-  Fun = fun (X) -> check_guard(X, fun (Y) -> t_is_pid(Y) end, t_pid()) end,
-  strict(arg_types(erlang, is_pid, 1), Xs, Fun);
-type(erlang, is_port, 1, Xs) ->
-  Fun = fun (X) -> check_guard(X, fun (Y) -> t_is_port(Y) end, t_port()) end,
-  strict(arg_types(erlang, is_port, 1), Xs, Fun);
-type(erlang, is_record, 2, Xs) ->
+  strict(erlang, is_number, 1, Xs, Fun, Opaques);
+type(erlang, is_pid, 1, Xs, Opaques) ->
+  Fun = fun (X) ->
+            check_guard(X, fun (Y) -> t_is_pid(Y, Opaques) end,
+                        t_pid(), Opaques)
+        end,
+  strict(erlang, is_pid, 1, Xs, Fun, Opaques);
+type(erlang, is_port, 1, Xs, Opaques) ->
+  Fun = fun (X) ->
+            check_guard(X, fun (Y) -> t_is_port(Y, Opaques) end,
+                        t_port(), Opaques)
+        end,
+  strict(erlang, is_port, 1, Xs, Fun, Opaques);
+type(erlang, is_record, 2, Xs, Opaques) ->
   Fun = fun ([X, Y]) ->
-	    case t_is_tuple(X) of
+	    case t_is_tuple(X, Opaques) of
 	      false ->
-		case t_is_none(t_inf(t_tuple(), X)) of
-		  true -> t_atom('false');
+		case t_is_none(t_inf(t_tuple(), X, Opaques)) of
+		  true ->
+                    case t_has_opaque_subtype(X, Opaques) of
+                      true -> t_none();
+                      false -> t_atom('false')
+                    end;
 		  false -> t_boolean()
 		end;
 	      true ->
-		case t_tuple_subtypes(X) of
+		case t_tuple_subtypes(X, Opaques) of
 		  unknown -> t_boolean();
 		  [Tuple] ->
-		    case t_tuple_args(Tuple) of
+		    case t_tuple_args(Tuple, Opaques) of
 		      %% any -> t_boolean();
-		      [Tag|_] ->
-			case t_is_atom(Tag) of
-			  false ->
-			    TagAtom = t_inf(Tag, t_atom()),
-			    case t_is_none(TagAtom) of
-			      true -> t_atom('false');
-			      false -> t_boolean()
-			    end;
-			  true ->
-			    case t_atom_vals(Tag) of
-			      [RealTag] -> 
-				case t_atom_vals(Y) of
-				  [RealTag] -> t_atom('true');
-				  _ -> t_boolean() 
-				end;
-			      _ -> t_boolean()
-			    end
-			end
+		      [Tag|_] -> check_record_tag(Tag, Y, Opaques)
 		    end;
 		  List when length(List) >= 2 ->
 		    t_sup([type(erlang, is_record, 2, [T, Y]) || T <- List])
 		end
 	    end
 	end,
-  strict(arg_types(erlang, is_record, 2), Xs, Fun);
-type(erlang, is_record, 3, Xs) ->
+  strict(erlang, is_record, 2, Xs, Fun, Opaques);
+type(erlang, is_record, 3, Xs, Opaques) ->
   Fun = fun ([X, Y, Z]) ->
-	    Arity = t_number_vals(Z),
-	    case t_is_tuple(X) of
+	    Arity = t_number_vals(Z, Opaques),
+	    case t_is_tuple(X, Opaques) of
 	      false when length(Arity) =:= 1 ->
 		[RealArity] = Arity,
-		case t_is_none(t_inf(t_tuple(RealArity), X)) of
-		  true -> t_atom('false');
+		case t_is_none(t_inf(t_tuple(RealArity), X, Opaques)) of
+		  true ->
+                    case t_has_opaque_subtype(X, Opaques) of
+                      true -> t_none();
+                      false -> t_atom('false')
+                    end;
 		  false -> t_boolean()
 		end;
 	      false ->
-		case t_is_none(t_inf(t_tuple(), X)) of
-		  true -> t_atom('false');
+		case t_is_none(t_inf(t_tuple(), X, Opaques)) of
+		  true ->
+                    case t_has_opaque_subtype(X, Opaques) of
+                      true -> t_none();
+                      false -> t_atom('false')
+                    end;
 		  false -> t_boolean()
 		end;
 	      true when length(Arity) =:= 1 ->
 		[RealArity] = Arity,
-		case t_tuple_subtypes(X) of
+		case t_tuple_subtypes(X, Opaques) of
 		  unknown -> t_boolean();
 		  [Tuple] ->
-		    case t_tuple_args(Tuple) of
+		    case t_tuple_args(Tuple, Opaques) of
 		      %% any -> t_boolean();
 		      Args when length(Args) =:= RealArity ->
-			Tag = hd(Args),
-			case t_is_atom(Tag) of
-			  false ->
-			    TagAtom = t_inf(Tag, t_atom()),
-			    case t_is_none(TagAtom) of
-			      true -> t_atom('false');
-			      false -> t_boolean()
-			    end;
-			  true ->
-			    case t_atom_vals(Tag) of
-			      [RealTag] -> 
-				case t_atom_vals(Y) of
-				  [RealTag] -> t_atom('true');
-				  _ -> t_boolean()
-				end;
-			      _ -> t_boolean()
-			    end
-			end;
+                        check_record_tag(hd(Args), Y, Opaques);
 		      Args when length(Args) =/= RealArity ->
 			t_atom('false')
 		    end;
@@ -722,62 +746,77 @@ type(erlang, is_record, 3, Xs) ->
 		t_boolean()
 	    end
 	end,
-  strict(arg_types(erlang, is_record, 3), Xs, Fun);
-type(erlang, is_reference, 1, Xs) ->
+  strict(erlang, is_record, 3, Xs, Fun, Opaques);
+type(erlang, is_reference, 1, Xs, Opaques) ->
   Fun = fun (X) ->
-	    check_guard(X, fun (Y) -> t_is_reference(Y) end, t_reference())
+	    check_guard(X, fun (Y) -> t_is_reference(Y, Opaques) end,
+                        t_reference(), Opaques)
 	end,
-  strict(arg_types(erlang, is_reference, 1), Xs, Fun);
-type(erlang, is_tuple, 1, Xs) ->
+  strict(erlang, is_reference, 1, Xs, Fun, Opaques);
+type(erlang, is_tuple, 1, Xs, Opaques) ->
   Fun = fun (X) ->
-	    check_guard(X, fun (Y) -> t_is_tuple(Y) end, t_tuple())
+	    check_guard(X, fun (Y) -> t_is_tuple(Y, Opaques) end,
+                        t_tuple(), Opaques)
 	end,
-  strict(arg_types(erlang, is_tuple, 1), Xs, Fun);
+  strict(erlang, is_tuple, 1, Xs, Fun, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, length, 1, Xs) ->
-  strict(arg_types(erlang, length, 1), Xs, fun (_) -> t_non_neg_fixnum() end);
-type(erlang, make_tuple, 2, Xs) ->
-  strict(arg_types(erlang, make_tuple, 2), Xs,
+type(erlang, length, 1, Xs, Opaques) ->
+  strict(erlang, length, 1, Xs, fun (_) -> t_non_neg_fixnum() end, Opaques);
+%% Guard bif, needs to be here.
+type(erlang, map_size, 1, Xs, Opaques) ->
+  type(maps, size, 1, Xs, Opaques);
+type(erlang, make_fun, 3, Xs, Opaques) ->
+  strict(erlang, make_fun, 3, Xs,
+         fun ([_, _, Arity]) ->
+             case t_number_vals(Arity, Opaques) of
+               [N] ->
+                 case is_integer(N) andalso 0 =< N andalso N =< 255 of
+                   true -> t_fun(N, t_any());
+                   false -> t_none()
+                 end;
+               _Other -> t_fun()
+             end
+         end, Opaques);
+type(erlang, make_tuple, 2, Xs, Opaques) ->
+  strict(erlang, make_tuple, 2, Xs,
 	 fun ([Int, _]) ->
-	     case t_number_vals(Int) of
+	     case t_number_vals(Int, Opaques) of
 	       [N] when is_integer(N), N >= 0 -> t_tuple(N);
 	       _Other -> t_tuple()
 	     end
-	 end);
-type(erlang, make_tuple, 3, Xs) ->
-  strict(arg_types(erlang, make_tuple, 3), Xs,
+	 end, Opaques);
+type(erlang, make_tuple, 3, Xs, Opaques) ->
+  strict(erlang, make_tuple, 3, Xs,
 	 fun ([Int, _, _]) ->
-	     case t_number_vals(Int) of
+	     case t_number_vals(Int, Opaques) of
 	       [N] when is_integer(N), N >= 0 -> t_tuple(N);
 	       _Other -> t_tuple()
 	     end
-	 end);
-type(erlang, memory, 0, _) -> t_list(t_tuple([t_atom(), t_non_neg_fixnum()]));
-type(erlang, nif_error, 1, _) ->
-  t_any();   % this BIF and the next one are stubs for NIFs and never return
-type(erlang, nif_error, 2, Xs) ->
-  strict(arg_types(erlang, nif_error, 2), Xs, fun (_) -> t_any() end);
+	 end, Opaques);
+type(erlang, nif_error, 1, Xs, Opaques) ->
+  %% this BIF and the next one are stubs for NIFs and never return
+  strict(erlang, nif_error, 1, Xs, fun (_) -> t_any() end, Opaques);
+type(erlang, nif_error, 2, Xs, Opaques) ->
+  strict(erlang, nif_error, 2, Xs, fun (_) -> t_any() end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, node, 0, _) -> t_node();
+type(erlang, node, 0, _, _Opaques) -> t_node();
 %% Guard bif, needs to be here.
-type(erlang, node, 1, Xs) ->
-  strict(arg_types(erlang, node, 1), Xs, fun (_) -> t_node() end);
+type(erlang, node, 1, Xs, Opaques) ->
+  strict(erlang, node, 1, Xs, fun (_) -> t_node() end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, round, 1, Xs) ->
-  strict(arg_types(erlang, round, 1), Xs, fun (_) -> t_integer() end);
+type(erlang, round, 1, Xs, Opaques) ->
+  strict(erlang, round, 1, Xs, fun (_) -> t_integer() end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, self, 0, _) -> t_pid();
-type(erlang, set_cookie, 2, Xs) ->
-  strict(arg_types(erlang, set_cookie, 2), Xs, fun (_) -> t_atom('true') end);
-type(erlang, setelement, 3, Xs) ->
-  strict(arg_types(erlang, setelement, 3), Xs,
+type(erlang, self, 0, _, _Opaques) -> t_pid();
+type(erlang, setelement, 3, Xs, Opaques) ->
+  strict(erlang, setelement, 3, Xs,
 	 fun ([X1, X2, X3]) ->
-	     case t_tuple_subtypes(X2) of
+	     case t_tuple_subtypes(X2, Opaques) of
 	       unknown -> t_tuple();
 	       [_] ->
-		 Sz = t_tuple_size(X2),
-		 As = t_tuple_args(X2),
-		 case t_number_vals(X1) of
+		 Sz = t_tuple_size(X2, Opaques),
+		 As = t_tuple_args(X2, Opaques),
+		 case t_number_vals(X1, Opaques) of
 		   unknown ->
 		     t_tuple([t_sup(X, X3) || X <- As]);
 		   [N] when is_integer(N), 1 =< N, N =< Sz ->
@@ -799,29 +838,17 @@ type(erlang, setelement, 3, Xs) ->
 	       Ts when is_list(Ts) ->
 		 t_sup([type(erlang, setelement, 3, [X1, Y, X3]) || Y <- Ts])
 	     end
-	 end);
+	 end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, size, 1, Xs) ->
-  strict(arg_types(erlang, size, 1), Xs, fun (_) -> t_non_neg_integer() end);
-type(erlang, spawn, 1, Xs) ->
-  strict(arg_types(erlang, spawn, 1), Xs, fun (_) -> t_pid() end);
-type(erlang, spawn, 2, Xs) ->
-  strict(arg_types(erlang, spawn, 2), Xs, fun (_) -> t_pid() end);
-type(erlang, spawn, 4, Xs) ->
-  strict(arg_types(erlang, spawn, 4), Xs, fun (_) -> t_pid() end);
-type(erlang, spawn_link, 1, Xs) -> type(erlang, spawn, 1, Xs);  % same
-type(erlang, spawn_link, 2, Xs) -> type(erlang, spawn, 2, Xs);  % same
-type(erlang, spawn_link, 4, Xs) -> type(erlang, spawn, 4, Xs);  % same
-type(erlang, subtract, 2, Xs) -> type(erlang, '--', 2, Xs); % alias
-type(erlang, suspend_process, 1, Xs) ->
-  strict(arg_types(erlang, suspend_process, 1), Xs,
-	 fun (_) -> t_atom('true') end);
-type(erlang, system_info, 1, Xs) ->
-  strict(arg_types(erlang, system_info, 1), Xs,
+type(erlang, size, 1, Xs, Opaques) ->
+  strict(erlang, size, 1, Xs, fun (_) -> t_non_neg_integer() end, Opaques);
+type(erlang, subtract, 2, Xs, _Opaques) -> type(erlang, '--', 2, Xs); % alias
+type(erlang, system_info, 1, Xs, Opaques) ->
+  strict(erlang, system_info, 1, Xs,
 	 fun ([Type]) ->
-	     case t_is_atom(Type) of
+	     case t_is_atom(Type, Opaques) of
 	       true ->
-		 case t_atom_vals(Type) of
+		 case t_atom_vals(Type, Opaques) of
 		   ['allocated_areas'] ->
 		     t_list(t_sup([t_tuple([t_atom(),t_non_neg_integer()]),
 				   t_tuple([t_atom(),
@@ -936,26 +963,28 @@ type(erlang, system_info, 1, Xs) ->
 	       false ->  %% This currently handles only {allocator, Alloc}
 		 t_any() %% overapproximation as the return value might change
 	     end
-	 end);
+	 end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, tl, 1, Xs) ->
-  strict(arg_types(erlang, tl, 1), Xs, fun ([X]) -> t_cons_tl(X) end);
+type(erlang, tl, 1, Xs, Opaques) ->
+  strict(erlang, tl, 1, Xs, fun ([X]) -> t_cons_tl(X) end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, trunc, 1, Xs) ->
-  strict(arg_types(erlang, trunc, 1), Xs, fun (_) -> t_integer() end);
+type(erlang, trunc, 1, Xs, Opaques) ->
+  strict(erlang, trunc, 1, Xs, fun (_) -> t_integer() end, Opaques);
 %% Guard bif, needs to be here.
-type(erlang, tuple_size, 1, Xs) ->
-  strict(arg_types(erlang, tuple_size, 1), Xs, fun (_) -> t_non_neg_integer() end);
-type(erlang, tuple_to_list, 1, Xs) ->
-  strict(arg_types(erlang, tuple_to_list, 1), Xs,
+type(erlang, tuple_size, 1, Xs, Opaques) ->
+  strict(erlang, tuple_size, 1, Xs,
+         fun (_) -> t_non_neg_integer() end, Opaques);
+type(erlang, tuple_to_list, 1, Xs, Opaques) ->
+  strict(erlang, tuple_to_list, 1, Xs,
 	 fun ([X]) ->
-	     case t_tuple_subtypes(X) of
+	     case t_tuple_subtypes(X, Opaques) of
 	       unknown -> t_list();
 	       SubTypes -> 
-		 Args = lists:flatten([t_tuple_args(ST) || ST <- SubTypes]),
+                 Args = lists:append([t_tuple_args(ST, Opaques) ||
+                                       ST <- SubTypes]),
 		 %% Can be nil if the tuple can be {}
 		 case lists:any(fun (T) ->
-				    t_tuple_size(T) =:= 0
+				    t_tuple_size(T, Opaques) =:= 0
 				end, SubTypes) of
 		   true ->
 		     %% Be careful here. If we had only {} we need to
@@ -965,279 +994,277 @@ type(erlang, tuple_to_list, 1, Xs) ->
 		     t_nonempty_list(t_sup(Args))
 		 end
 	     end
-	 end);
-type(erlang, yield, 0, _) -> t_atom('true');
-%%-- ets ----------------------------------------------------------------------
-type(ets, rename, 2, Xs) ->
-  strict(arg_types(ets, rename, 2), Xs, fun ([_, Name]) -> Name end);
+	 end, Opaques);
 %%-- hipe_bifs ----------------------------------------------------------------
-type(hipe_bifs, add_ref, 2, Xs) ->
-  strict(arg_types(hipe_bifs, add_ref, 2), Xs, fun (_) -> t_nil() end);
-type(hipe_bifs, alloc_data, 2, Xs) ->
-  strict(arg_types(hipe_bifs, alloc_data, 2), Xs,
-	 fun (_) -> t_integer() end); % address
-type(hipe_bifs, array, 2, Xs) ->
-  strict(arg_types(hipe_bifs, array, 2), Xs, fun (_) -> t_immarray() end);
-type(hipe_bifs, array_length, 1, Xs) ->
-  strict(arg_types(hipe_bifs, array_length, 1), Xs,
-	 fun (_) -> t_non_neg_fixnum() end);
-type(hipe_bifs, array_sub, 2, Xs) ->
-  strict(arg_types(hipe_bifs, array_sub, 2), Xs, fun (_) -> t_immediate() end);
-type(hipe_bifs, array_update, 3, Xs) ->
-  strict(arg_types(hipe_bifs, array_update, 3), Xs,
-	 fun (_) -> t_immarray() end);
-type(hipe_bifs, atom_to_word, 1, Xs) ->
-  strict(arg_types(hipe_bifs, atom_to_word, 1), Xs,
-	 fun (_) -> t_integer() end);
-type(hipe_bifs, bif_address, 3, Xs) ->
-  strict(arg_types(hipe_bifs, bif_address, 3), Xs,
-	 fun (_) -> t_sup(t_integer(), t_atom('false')) end);
-type(hipe_bifs, bitarray, 2, Xs) ->
-  strict(arg_types(hipe_bifs, bitarray, 2), Xs, fun (_) -> t_bitarray() end);
-type(hipe_bifs, bitarray_sub, 2, Xs) ->
-  strict(arg_types(hipe_bifs, bitarray_sub, 2), Xs, fun (_) -> t_boolean() end);
-type(hipe_bifs, bitarray_update, 3, Xs) ->
-  strict(arg_types(hipe_bifs, bitarray_update, 3), Xs,
-	 fun (_) -> t_bitarray() end);
-type(hipe_bifs, bytearray, 2, Xs) ->
-  strict(arg_types(hipe_bifs, bytearray, 2), Xs, fun (_) -> t_bytearray() end);
-type(hipe_bifs, bytearray_sub, 2, Xs) ->
-  strict(arg_types(hipe_bifs, bytearray_sub, 2), Xs, fun (_) -> t_byte() end);
-type(hipe_bifs, bytearray_update, 3, Xs) ->
-  strict(arg_types(hipe_bifs, bytearray_update, 3), Xs,
-	 fun (_) -> t_bytearray() end);
-type(hipe_bifs, call_count_clear, 1, Xs) ->
-  strict(arg_types(hipe_bifs, call_count_clear, 1), Xs,
-	 fun (_) -> t_sup(t_non_neg_integer(), t_atom('false')) end);
-type(hipe_bifs, call_count_get, 1, Xs) ->
-  strict(arg_types(hipe_bifs, call_count_get, 1), Xs,
-	 fun (_) -> t_sup(t_non_neg_integer(), t_atom('false')) end);
-type(hipe_bifs, call_count_off, 1, Xs) ->
-  strict(arg_types(hipe_bifs, call_count_off, 1), Xs,
-	 fun (_) -> t_sup(t_non_neg_integer(), t_atom('false')) end);
-type(hipe_bifs, call_count_on, 1, Xs) ->
-  strict(arg_types(hipe_bifs, call_count_on, 1), Xs,
-	 fun (_) -> t_sup(t_atom('true'), t_nil()) end);
-type(hipe_bifs, check_crc, 1, Xs) ->
-  strict(arg_types(hipe_bifs, check_crc, 1), Xs, fun (_) -> t_boolean() end);
-type(hipe_bifs, enter_code, 2, Xs) ->
-  strict(arg_types(hipe_bifs, enter_code, 2), Xs,
+type(hipe_bifs, add_ref, 2, Xs, Opaques) ->
+  strict(hipe_bifs, add_ref, 2, Xs, fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, alloc_data, 2, Xs, Opaques) ->
+  strict(hipe_bifs, alloc_data, 2, Xs,
+	 fun (_) -> t_integer() end, Opaques); % address
+type(hipe_bifs, array, 2, Xs, Opaques) ->
+  strict(hipe_bifs, array, 2, Xs, fun (_) -> t_immarray() end, Opaques);
+type(hipe_bifs, array_length, 1, Xs, Opaques) ->
+  strict(hipe_bifs, array_length, 1, Xs,
+	 fun (_) -> t_non_neg_fixnum() end, Opaques);
+type(hipe_bifs, array_sub, 2, Xs, Opaques) ->
+  strict(hipe_bifs, array_sub, 2, Xs, fun (_) -> t_immediate() end, Opaques);
+type(hipe_bifs, array_update, 3, Xs, Opaques) ->
+  strict(hipe_bifs, array_update, 3, Xs,
+	 fun (_) -> t_immarray() end, Opaques);
+type(hipe_bifs, atom_to_word, 1, Xs, Opaques) ->
+  strict(hipe_bifs, atom_to_word, 1, Xs,
+	 fun (_) -> t_integer() end, Opaques);
+type(hipe_bifs, bif_address, 3, Xs, Opaques) ->
+  strict(hipe_bifs, bif_address, 3, Xs,
+	 fun (_) -> t_sup(t_integer(), t_atom('false')) end, Opaques);
+type(hipe_bifs, bitarray, 2, Xs, Opaques) ->
+  strict(hipe_bifs, bitarray, 2, Xs, fun (_) -> t_bitarray() end, Opaques);
+type(hipe_bifs, bitarray_sub, 2, Xs, Opaques) ->
+  strict(hipe_bifs, bitarray_sub, 2, Xs,
+         fun (_) -> t_boolean() end, Opaques);
+type(hipe_bifs, bitarray_update, 3, Xs, Opaques) ->
+  strict(hipe_bifs, bitarray_update, 3, Xs,
+	 fun (_) -> t_bitarray() end, Opaques);
+type(hipe_bifs, bytearray, 2, Xs, Opaques) ->
+  strict(hipe_bifs, bytearray, 2, Xs, fun (_) -> t_bytearray() end, Opaques);
+type(hipe_bifs, bytearray_sub, 2, Xs, Opaques) ->
+  strict(hipe_bifs, bytearray_sub, 2, Xs, fun (_) -> t_byte() end, Opaques);
+type(hipe_bifs, bytearray_update, 3, Xs, Opaques) ->
+  strict(hipe_bifs, bytearray_update, 3, Xs,
+	 fun (_) -> t_bytearray() end, Opaques);
+type(hipe_bifs, call_count_clear, 1, Xs, Opaques) ->
+  strict(hipe_bifs, call_count_clear, 1, Xs,
+	 fun (_) -> t_sup(t_non_neg_integer(), t_atom('false')) end, Opaques);
+type(hipe_bifs, call_count_get, 1, Xs, Opaques) ->
+  strict(hipe_bifs, call_count_get, 1, Xs,
+	 fun (_) -> t_sup(t_non_neg_integer(), t_atom('false')) end, Opaques);
+type(hipe_bifs, call_count_off, 1, Xs, Opaques) ->
+  strict(hipe_bifs, call_count_off, 1, Xs,
+	 fun (_) -> t_sup(t_non_neg_integer(), t_atom('false')) end, Opaques);
+type(hipe_bifs, call_count_on, 1, Xs, Opaques) ->
+  strict(hipe_bifs, call_count_on, 1, Xs,
+	 fun (_) -> t_sup(t_atom('true'), t_nil()) end, Opaques);
+type(hipe_bifs, check_crc, 1, Xs, Opaques) ->
+  strict(hipe_bifs, check_crc, 1, Xs, fun (_) -> t_boolean() end, Opaques);
+type(hipe_bifs, enter_code, 2, Xs, Opaques) ->
+  strict(hipe_bifs, enter_code, 2, Xs,
 	 fun (_) -> t_tuple([t_integer(),
 			     %% XXX: The tuple below contains integers and
 			     %% is of size same as the length of the MFA list
-			     t_sup(t_nil(), t_binary())]) end);
-type(hipe_bifs, enter_sdesc, 1, Xs) ->
-  strict(arg_types(hipe_bifs, enter_sdesc, 1), Xs, fun (_) -> t_nil() end);
-type(hipe_bifs, find_na_or_make_stub, 2, Xs) ->
-  strict(arg_types(hipe_bifs, find_na_or_make_stub, 2), Xs,
-	 fun (_) -> t_integer() end); % address
-type(hipe_bifs, fun_to_address, 1, Xs) ->
-  strict(arg_types(hipe_bifs, fun_to_address, 1), Xs,
-	 fun (_) -> t_integer() end);
-%% type(hipe_bifs, get_emu_address, 1, Xs) ->
-%%    strict(arg_types(hipe_bifs, get_emu_address, 1), Xs,
-%%	   fun (_) -> t_integer() end); % address
-type(hipe_bifs, get_rts_param, 1, Xs) ->
-  strict(arg_types(hipe_bifs, get_rts_param, 1), Xs,
-	 fun (_) -> t_sup(t_integer(), t_nil()) end);
-type(hipe_bifs, invalidate_funinfo_native_addresses, 1, Xs) ->
-  strict(arg_types(hipe_bifs, invalidate_funinfo_native_addresses, 1), Xs,
-	 fun (_) -> t_nil() end);
-type(hipe_bifs, make_fe, 3, Xs) ->
-  strict(arg_types(hipe_bifs, make_fe, 3), Xs, fun (_) -> t_integer() end);
-%% type(hipe_bifs, make_native_stub, 2, Xs) ->
-%%    strict(arg_types(hipe_bifs, make_native_stub, 2), Xs,
-%%	   fun (_) -> t_integer() end); % address
-type(hipe_bifs, mark_referred_from, 1, Xs) ->
-  strict(arg_types(hipe_bifs, mark_referred_from, 1), Xs,
-	 fun (_) -> t_nil() end);
-type(hipe_bifs, merge_term, 1, Xs) ->
-  strict(arg_types(hipe_bifs, merge_term, 1), Xs, fun ([X]) -> X end);
-type(hipe_bifs, nstack_used_size, 0, _) ->
+			     t_sup(t_nil(), t_binary())]) end, Opaques);
+type(hipe_bifs, enter_sdesc, 1, Xs, Opaques) ->
+  strict(hipe_bifs, enter_sdesc, 1, Xs, fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, find_na_or_make_stub, 2, Xs, Opaques) ->
+  strict(hipe_bifs, find_na_or_make_stub, 2, Xs,
+	 fun (_) -> t_integer() end, Opaques); % address
+type(hipe_bifs, fun_to_address, 1, Xs, Opaques) ->
+  strict(hipe_bifs, fun_to_address, 1, Xs,
+	 fun (_) -> t_integer() end, Opaques);
+type(hipe_bifs, get_fe, 2, Xs, Opaques) ->
+  strict(hipe_bifs, get_fe, 2, Xs, fun (_) -> t_integer() end, Opaques);
+type(hipe_bifs, get_rts_param, 1, Xs, Opaques) ->
+  strict(hipe_bifs, get_rts_param, 1, Xs,
+	 fun (_) -> t_sup(t_integer(), t_nil()) end, Opaques);
+type(hipe_bifs, invalidate_funinfo_native_addresses, 1, Xs, Opaques) ->
+  strict(hipe_bifs, invalidate_funinfo_native_addresses, 1, Xs,
+	 fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, mark_referred_from, 1, Xs, Opaques) ->
+  strict(hipe_bifs, mark_referred_from, 1, Xs,
+	 fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, merge_term, 1, Xs, Opaques) ->
+  strict(hipe_bifs, merge_term, 1, Xs, fun ([X]) -> X end, Opaques);
+type(hipe_bifs, nstack_used_size, 0, _, _Opaques) ->
   t_non_neg_fixnum();
-type(hipe_bifs, patch_call, 3, Xs) ->
-  strict(arg_types(hipe_bifs, patch_call, 3), Xs, fun (_) -> t_nil() end);
-type(hipe_bifs, patch_insn, 3, Xs) ->
-  strict(arg_types(hipe_bifs, patch_insn, 3), Xs, fun (_) -> t_nil() end);
-type(hipe_bifs, primop_address, 1, Xs) ->
-  strict(arg_types(hipe_bifs, primop_address, 1), Xs,
-	 fun (_) -> t_sup(t_integer(), t_atom('false')) end);
-type(hipe_bifs, redirect_referred_from, 1, Xs) ->
-  strict(arg_types(hipe_bifs, redirect_referred_from, 1), Xs,
-	 fun (_) -> t_nil() end);
-type(hipe_bifs, ref, 1, Xs) ->
-  strict(arg_types(hipe_bifs, ref, 1), Xs, fun (_) -> t_immarray() end);
-type(hipe_bifs, ref_get, 1, Xs) ->
-  strict(arg_types(hipe_bifs, ref_get, 1), Xs, fun (_) -> t_immediate() end);
-type(hipe_bifs, ref_set, 2, Xs) ->
-  strict(arg_types(hipe_bifs, ref_set, 2), Xs, fun (_) -> t_nil() end);
-type(hipe_bifs, remove_refs_from, 1, Xs) ->
-  strict(arg_types(hipe_bifs, remove_refs_from, 1), Xs,
-	 fun (_) -> t_atom('ok') end);
-type(hipe_bifs, set_funinfo_native_address, 3, Xs) ->
-  strict(arg_types(hipe_bifs, set_funinfo_native_address, 3), Xs,
-	 fun (_) -> t_nil() end);
-type(hipe_bifs, set_native_address, 3, Xs) ->
-  strict(arg_types(hipe_bifs, set_native_address, 3), Xs,
-	 fun (_) -> t_nil() end);
-type(hipe_bifs, system_crc, 1, Xs) ->
-  strict(arg_types(hipe_bifs, system_crc, 1), Xs, fun (_) -> t_crc32() end);
-type(hipe_bifs, term_to_word, 1, Xs) ->
-  strict(arg_types(hipe_bifs, term_to_word, 1), Xs,
-	 fun (_) -> t_integer() end);
-type(hipe_bifs, update_code_size, 3, Xs) ->
-  strict(arg_types(hipe_bifs, update_code_size, 3), Xs,
-	 fun (_) -> t_nil() end);
-type(hipe_bifs, write_u8, 2, Xs) ->
-  strict(arg_types(hipe_bifs, write_u8, 2), Xs, fun (_) -> t_nil() end);
-type(hipe_bifs, write_u32, 2, Xs) ->
-  strict(arg_types(hipe_bifs, write_u32, 2), Xs, fun (_) -> t_nil() end);
-type(hipe_bifs, write_u64, 2, Xs) ->
-  strict(arg_types(hipe_bifs, write_u64, 2), Xs, fun (_) -> t_nil() end);
+type(hipe_bifs, patch_call, 3, Xs, Opaques) ->
+  strict(hipe_bifs, patch_call, 3, Xs, fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, patch_insn, 3, Xs, Opaques) ->
+  strict(hipe_bifs, patch_insn, 3, Xs, fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, primop_address, 1, Xs, Opaques) ->
+  strict(hipe_bifs, primop_address, 1, Xs,
+	 fun (_) -> t_sup(t_integer(), t_atom('false')) end, Opaques);
+type(hipe_bifs, redirect_referred_from, 1, Xs, Opaques) ->
+  strict(hipe_bifs, redirect_referred_from, 1, Xs,
+	 fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, ref, 1, Xs, Opaques) ->
+  strict(hipe_bifs, ref, 1, Xs, fun (_) -> t_immarray() end, Opaques);
+type(hipe_bifs, ref_get, 1, Xs, Opaques) ->
+  strict(hipe_bifs, ref_get, 1, Xs, fun (_) -> t_immediate() end, Opaques);
+type(hipe_bifs, ref_set, 2, Xs, Opaques) ->
+  strict(hipe_bifs, ref_set, 2, Xs, fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, remove_refs_from, 1, Xs, Opaques) ->
+  strict(hipe_bifs, remove_refs_from, 1, Xs,
+	 fun (_) -> t_atom('ok') end, Opaques);
+type(hipe_bifs, set_funinfo_native_address, 3, Xs, Opaques) ->
+  strict(hipe_bifs, set_funinfo_native_address, 3, Xs,
+	 fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, set_native_address, 3, Xs, Opaques) ->
+  strict(hipe_bifs, set_native_address, 3, Xs,
+	 fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, set_native_address_in_fe, 2, Xs, Opaques) ->
+  strict(hipe_bifs, set_native_address_in_fe, 2, Xs,
+	 fun (_) -> t_atom('true') end, Opaques);
+type(hipe_bifs, system_crc, 0, _, _Opaques) ->
+  t_crc32();
+type(hipe_bifs, term_to_word, 1, Xs, Opaques) ->
+  strict(hipe_bifs, term_to_word, 1, Xs,
+	 fun (_) -> t_integer() end, Opaques);
+type(hipe_bifs, update_code_size, 3, Xs, Opaques) ->
+  strict(hipe_bifs, update_code_size, 3, Xs,
+	 fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, write_u8, 2, Xs, Opaques) ->
+  strict(hipe_bifs, write_u8, 2, Xs, fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, write_u32, 2, Xs, Opaques) ->
+  strict(hipe_bifs, write_u32, 2, Xs, fun (_) -> t_nil() end, Opaques);
+type(hipe_bifs, write_u64, 2, Xs, Opaques) ->
+  strict(hipe_bifs, write_u64, 2, Xs, fun (_) -> t_nil() end, Opaques);
 %%-- lists --------------------------------------------------------------------
-type(lists, all, 2, Xs) ->
-  strict(arg_types(lists, all, 2), Xs, 
+type(lists, all, 2, Xs, Opaques) ->
+  strict(lists, all, 2, Xs,
 	 fun ([F, L]) -> 
-	     case t_is_nil(L) of
+	     case t_is_nil(L, Opaques) of
 	       true -> t_atom('true');
 	       false ->
-		 El = t_list_elements(L),
-		 case check_fun_application(F, [El]) of
+		 El = t_list_elements(L, Opaques),
+		 case check_fun_application(F, [El], Opaques) of
 		   ok -> 
-		     case t_is_cons(L) of
-		       true -> t_fun_range(F);
+		     case t_is_cons(L, Opaques) of
+		       true -> t_fun_range(F, Opaques);
 		       false -> 
 			 %% The list can be empty.
-			 t_sup(t_atom('true'), t_fun_range(F))
+			 t_sup(t_atom('true'), t_fun_range(F, Opaques))
 		     end;
 		   error ->
-		     case t_is_cons(L) of
+		     case t_is_cons(L, Opaques) of
 		       true -> t_none();
-		       false -> t_fun_range(F)
+		       false -> t_fun_range(F, Opaques)
 		     end
 		 end
 	     end
-	 end);
-type(lists, any, 2, Xs) ->
-  strict(arg_types(lists, any, 2), Xs, 
+	 end, Opaques);
+type(lists, any, 2, Xs, Opaques) ->
+  strict(lists, any, 2, Xs,
 	 fun ([F, L]) -> 
-	     case t_is_nil(L) of
+	     case t_is_nil(L, Opaques) of
 	       true -> t_atom('false');
 	       false ->
-		 El = t_list_elements(L),
-		 case check_fun_application(F, [El]) of
+		 El = t_list_elements(L, Opaques),
+		 case check_fun_application(F, [El], Opaques) of
 		   ok -> 
-		     case t_is_cons(L) of
-		       true -> t_fun_range(F);
+		     case t_is_cons(L, Opaques) of
+		       true -> t_fun_range(F, Opaques);
 		       false -> 
 			 %% The list can be empty
-			 t_sup(t_atom('false'), t_fun_range(F))
+			 t_sup(t_atom('false'), t_fun_range(F, Opaques))
 		     end;
 		   error ->
-		     case t_is_cons(L) of
+		     case t_is_cons(L, Opaques) of
 		       true -> t_none();
-		       false -> t_fun_range(F)
+		       false -> t_fun_range(F, Opaques)
 		     end
 		 end
 	     end
-	 end);
-type(lists, append, 2, Xs) -> type(erlang, '++', 2, Xs);  % alias
-type(lists, delete, 2, Xs) ->
-  strict(arg_types(lists, delete, 2), Xs, 
+	 end, Opaques);
+type(lists, append, 2, Xs, _Opaques) -> type(erlang, '++', 2, Xs);  % alias
+type(lists, delete, 2, Xs, Opaques) ->
+  strict(lists, delete, 2, Xs,
 	 fun ([_, List]) -> 
-	     case t_is_cons(List) of
+	     case t_is_cons(List, Opaques) of
 	       true -> t_cons_tl(List);
 	       false -> List
 	     end
-	 end);
-type(lists, dropwhile, 2, Xs) -> 
-  strict(arg_types(lists, dropwhile, 2), Xs,
+	 end, Opaques);
+type(lists, dropwhile, 2, Xs, Opaques) ->
+  strict(lists, dropwhile, 2, Xs,
 	 fun ([F, X]) -> 
-	     case t_is_nil(X) of
+	     case t_is_nil(X, Opaques) of
 	       true -> t_nil();
 	       false ->
-		 X1 = t_list_elements(X),
-		 case check_fun_application(F, [X1]) of
+		 X1 = t_list_elements(X, Opaques),
+		 case check_fun_application(F, [X1], Opaques) of
 		   ok ->
-		     case t_atom_vals(t_fun_range(F)) of
+		     case t_atom_vals(t_fun_range(F, Opaques), Opaques) of
 		       ['true'] ->
-			 case t_is_none(t_inf(t_list(), X)) of
+			 case t_is_none(t_inf(t_list(), X, Opaques)) of
 			   true -> t_none();
 			   false -> t_nil()
 			 end;
 		       ['false'] -> 
-			 case t_is_none(t_inf(t_list(), X)) of
+			 case t_is_none(t_inf(t_list(), X, Opaques)) of
 			   true -> t_none();
 			   false -> X
 			 end;
 		       _ -> 
-			 t_inf(t_cons_tl(t_inf(X, t_cons())), 
-			       t_maybe_improper_list())
+			 t_inf(t_cons_tl(t_inf(X, t_cons(), Opaques)),
+                             t_maybe_improper_list(), Opaques)
 		     end;
 		   error ->
-		     case t_is_cons(X) of
+		     case t_is_cons(X, Opaques) of
 		       true -> t_none();
 		       false -> t_nil()
 		     end
 		 end
 	     end
-	 end);
-type(lists, filter, 2, Xs) ->
-  strict(arg_types(lists, filter, 2), Xs,
+	 end, Opaques);
+type(lists, filter, 2, Xs, Opaques) ->
+  strict(lists, filter, 2, Xs,
 	 fun ([F, L]) -> 
-	     case t_is_nil(L) of
+	     case t_is_nil(L, Opaques) of
 	       true -> t_nil();
 	       false ->
-		 T = t_list_elements(L),
-		 case check_fun_application(F, [T]) of
+		 T = t_list_elements(L, Opaques),
+		 case check_fun_application(F, [T], Opaques) of
 		   ok ->
-		     case t_atom_vals(t_fun_range(F)) =:= ['false'] of
+                     RangeVals = t_atom_vals(t_fun_range(F, Opaques), Opaques),
+		     case RangeVals =:= ['false'] of
 		       true -> t_nil();
 		       false -> 
-			 case t_atom_vals(t_fun_range(F)) =:= ['true'] of
+			 case RangeVals =:= ['true'] of
 			   true -> L;
 			   false -> t_list(T)
 			 end
 		     end;
 		   error ->
-		     case t_is_cons(L) of
+		     case t_is_cons(L, Opaques) of
 		       true -> t_none();
 		       false -> t_nil()
 		     end
 		 end
 	     end
-	 end);
-type(lists, flatten, 1, Xs) ->
-  strict(arg_types(lists, flatten, 1), Xs,
+	 end, Opaques);
+type(lists, flatten, 1, Xs, Opaques) ->
+  strict(lists, flatten, 1, Xs,
 	 fun ([L]) ->
-	     case t_is_nil(L) of
+	     case t_is_nil(L, Opaques) of
 	       true -> L;    % (nil has undefined elements)
 	       false ->
 		 %% Avoiding infinite recursion is tricky
-		 X1 = t_list_elements(L),
+		 X1 = t_list_elements(L, Opaques),
 		 case t_is_any(X1) of
 		   true -> 
 		     t_list();
 		   false ->
-		     X2 = type(lists, flatten, 1, [t_inf(X1, t_list())]),
+		     X2 = type(lists, flatten, 1, [t_inf(X1, t_list(), Opaques)]),
 		     t_sup(t_list(t_subtract(X1, t_list())), X2)
 		 end
 	     end
-	 end);
-type(lists, flatmap, 2, Xs) ->
-  strict(arg_types(lists, flatmap, 2), Xs,
+	 end, Opaques);
+type(lists, flatmap, 2, Xs, Opaques) ->
+  strict(lists, flatmap, 2, Xs,
 	 fun ([F, List]) -> 
-	     case t_is_nil(List) of
+	     case t_is_nil(List, Opaques) of
 	       true -> t_nil();
 	       false ->
-		 case check_fun_application(F, [t_list_elements(List)]) of
+		 case
+                   check_fun_application(F, [t_list_elements(List, Opaques)],
+                                         Opaques)
+                 of
 		   ok ->
-		     R = t_fun_range(F),
+		     R = t_fun_range(F, Opaques),
 		     case t_is_nil(R) of
 		       true -> t_nil();
 		       false ->
-			 Elems = t_list_elements(R),
-			 case t_is_cons(List) of
+			 Elems = t_list_elements(R, Opaques),
+			 case t_is_cons(List, Opaques) of
 			   true ->
 			     case t_is_subtype(t_nil(), R) of
 			       true -> t_list(Elems);
@@ -1247,58 +1274,65 @@ type(lists, flatmap, 2, Xs) ->
 			 end
 		     end;
 		   error ->
-		     case t_is_cons(List) of
+		     case t_is_cons(List, Opaques) of
 		       true -> t_none();
 		       false -> t_nil()
 		     end
 		 end
  	     end
-	 end);
-type(lists, foreach, 2, Xs) ->
-  strict(arg_types(lists, foreach, 2), Xs,
+	 end, Opaques);
+type(lists, foreach, 2, Xs, Opaques) ->
+  strict(lists, foreach, 2, Xs,
 	 fun ([F, List]) ->
-	     case t_is_cons(List) of
+	     case t_is_cons(List, Opaques) of
 	       true ->
-		 case check_fun_application(F, [t_list_elements(List)]) of
+		 case
+                   check_fun_application(F, [t_list_elements(List, Opaques)],
+                                         Opaques)
+                 of
 		   ok -> t_atom('ok');
 		   error -> t_none()
 		 end;
 	       false ->
 		 t_atom('ok')
 	     end
-	 end);
-type(lists, foldl, 3, Xs) ->
-  strict(arg_types(lists, foldl, 3), Xs,
+	 end, Opaques);
+type(lists, foldl, 3, Xs, Opaques) ->
+  strict(lists, foldl, 3, Xs,
 	 fun ([F, Acc, List]) ->
-	     case t_is_nil(List) of
+	     case t_is_nil(List, Opaques) of
 	       true -> Acc;
 	       false ->
-		 case check_fun_application(F, [t_list_elements(List), Acc]) of
+		 case
+                   check_fun_application(F,
+                                         [t_list_elements(List, Opaques),Acc],
+                                         Opaques)
+                 of
 		   ok ->
-		     case t_is_cons(List) of
-		       true -> t_fun_range(F);
-		       false -> t_sup(t_fun_range(F), Acc)
+		     case t_is_cons(List, Opaques) of
+		       true -> t_fun_range(F, Opaques);
+		       false -> t_sup(t_fun_range(F, Opaques), Acc)
 		     end;
 		   error ->
-		     case t_is_cons(List) of
+		     case t_is_cons(List, Opaques) of
 		       true -> t_none();
 		       false -> Acc
 		     end
 		 end
 	     end
-	 end);
-type(lists, foldr, 3, Xs) -> type(lists, foldl, 3, Xs);    % same
-type(lists, keydelete, 3, Xs) ->
-  strict(arg_types(lists, keydelete, 3), Xs, 
+	 end, Opaques);
+type(lists, foldr, 3, Xs, _Opaques) -> type(lists, foldl, 3, Xs);  % same
+type(lists, keydelete, 3, Xs, Opaques) ->
+  strict(lists, keydelete, 3, Xs,
 	 fun ([_, _, L]) ->
-	     Term = t_list_termination(L),
-	     t_sup(Term, erl_types:lift_list_to_pos_empty(L))
-	 end);
-type(lists, keyfind, 3, Xs) ->
-  strict(arg_types(lists, keyfind, 3), Xs,
+	     Term = t_list_termination(L, Opaques),
+	     t_sup(Term, erl_types:lift_list_to_pos_empty(L, Opaques))
+	 end, Opaques);
+type(lists, keyfind, 3, Xs, Opaques) ->
+  strict(lists, keyfind, 3, Xs,
 	 fun ([X, Y, Z]) ->
-	     ListEs = t_list_elements(Z),
-	     Tuple = t_inf(t_tuple(), ListEs),
+	     ListEs = t_list_elements(Z, Opaques),
+	     Tuple = t_inf(t_tuple(), ListEs, Opaques),
 	     case t_is_none(Tuple) of
 	       true -> t_atom('false');
 	       false ->
@@ -1308,58 +1342,61 @@ type(lists, keyfind, 3, Xs) ->
 		 case t_is_any(X) of
 		   true -> Ret;
 		   false ->
-		     case t_tuple_subtypes(Tuple) of
+		     case t_tuple_subtypes(Tuple, Opaques) of
 		       unknown -> Ret;
 		       List ->
-			 case key_comparisons_fail(X, Y, List) of
+			 case key_comparisons_fail(X, Y, List, Opaques) of
 			   true -> t_atom('false');
 			   false -> Ret
 			 end
 		     end
 		 end
 	     end
-	 end);
-type(lists, keymap, 3, Xs) ->
-  strict(arg_types(lists, keymap, 3), Xs,
+	 end, Opaques);
+type(lists, keymap, 3, Xs, Opaques) ->
+  strict(lists, keymap, 3, Xs,
 	 fun ([F, _I, L]) ->
-	     case t_is_nil(L) of
+	     case t_is_nil(L, Opaques) of
 	       true -> L;
-	       false -> t_list(t_sup(t_fun_range(F), t_list_elements(L)))
+	       false -> t_list(t_sup(t_fun_range(F, Opaques),
+                                     t_list_elements(L, Opaques)))
 	     end
-	 end);
-type(lists, keymember, 3, Xs) ->
-  strict(arg_types(lists, keymember, 3), Xs,
+	 end, Opaques);
+type(lists, keymember, 3, Xs, Opaques) ->
+  strict(lists, keymember, 3, Xs,
 	 fun ([X, Y, Z]) ->
-	     ListEs = t_list_elements(Z),
-	     Tuple = t_inf(t_tuple(), ListEs),
+	     ListEs = t_list_elements(Z, Opaques),
+	     Tuple = t_inf(t_tuple(), ListEs, Opaques),
 	     case t_is_none(Tuple) of
 	       true -> t_atom('false');
 	       false ->
 		 case t_is_any(X) of
 		   true -> t_boolean();
 		   false ->
-		     case t_tuple_subtypes(Tuple) of
+		     case t_tuple_subtypes(Tuple, Opaques) of
 		       unknown -> t_boolean();
 		       List ->
-			 case key_comparisons_fail(X, Y, List) of
+			 case key_comparisons_fail(X, Y, List, Opaques) of
 			   true -> t_atom('false');
 			   false -> t_boolean()
 			 end
 		     end
 		 end
 	     end
-	 end);
-type(lists, keymerge, 3, Xs) ->
-  strict(arg_types(lists, keymerge, 3), Xs,
-	 fun ([_I, L1, L2]) -> type(lists, merge, 2, [L1, L2]) end);
-type(lists, keyreplace, 4, Xs) ->
-  strict(arg_types(lists, keyreplace, 4), Xs,
-	 fun ([_K, _I, L, T]) -> t_list(t_sup(t_list_elements(L), T)) end);
-type(lists, keysearch, 3, Xs) ->
-  strict(arg_types(lists, keysearch, 3), Xs,
+	 end, Opaques);
+type(lists, keymerge, 3, Xs, Opaques) ->
+  strict(lists, keymerge, 3, Xs,
+	 fun ([_I, L1, L2]) -> type(lists, merge, 2, [L1, L2]) end, Opaques);
+type(lists, keyreplace, 4, Xs, Opaques) ->
+  strict(lists, keyreplace, 4, Xs,
+	 fun ([_K, _I, L, T]) ->
+             t_list(t_sup(t_list_elements(L, Opaques), T))
+         end, Opaques);
+type(lists, keysearch, 3, Xs, Opaques) ->
+  strict(lists, keysearch, 3, Xs,
 	 fun ([X, Y, Z]) ->
-	     ListEs = t_list_elements(Z),
-	     Tuple = t_inf(t_tuple(), ListEs),
+	     ListEs = t_list_elements(Z, Opaques),
+	     Tuple = t_inf(t_tuple(), ListEs, Opaques),
 	     case t_is_none(Tuple) of
 	       true -> t_atom('false');
 	       false ->
@@ -1368,91 +1405,93 @@ type(lists, keysearch, 3, Xs) ->
 		 case t_is_any(X) of
 		   true -> Ret;
 		   false ->
-		     case t_tuple_subtypes(Tuple) of
+		     case t_tuple_subtypes(Tuple, Opaques) of
 		       unknown -> Ret;
 		       List ->
-			 case key_comparisons_fail(X, Y, List) of
+			 case key_comparisons_fail(X, Y, List, Opaques) of
 			   true -> t_atom('false');
 			   false -> Ret
 			 end
 		     end
 		 end
 	     end
-	 end);
-type(lists, keysort, 2, Xs) ->
-  strict(arg_types(lists, keysort, 2), Xs, fun ([_, L]) -> L end);
-type(lists, last, 1, Xs) ->
-  strict(arg_types(lists, last, 1), Xs, fun ([L]) -> t_list_elements(L) end);
-type(lists, map, 2, Xs) ->
-  strict(arg_types(lists, map, 2), Xs,
+	 end, Opaques);
+type(lists, keysort, 2, Xs, Opaques) ->
+  strict(lists, keysort, 2, Xs, fun ([_, L]) -> L end, Opaques);
+type(lists, last, 1, Xs, Opaques) ->
+  strict(lists, last, 1, Xs,
+         fun ([L]) -> t_list_elements(L, Opaques) end, Opaques);
+type(lists, map, 2, Xs, Opaques) ->
+  strict(lists, map, 2, Xs,
 	 fun ([F, L]) -> 
-	     case t_is_nil(L) of
+	     case t_is_nil(L, Opaques) of
 	       true -> L;
 	       false ->
-		 El = t_list_elements(L),
-		 case t_is_cons(L) of
+		 El = t_list_elements(L, Opaques),
+		 case t_is_cons(L, Opaques) of
 		   true ->
-		     case check_fun_application(F, [El]) of
-		       ok -> t_nonempty_list(t_fun_range(F));
+		     case check_fun_application(F, [El], Opaques) of
+		       ok -> t_nonempty_list(t_fun_range(F, Opaques));
 		       error -> t_none()
 		     end;
 		   false ->
-		     case check_fun_application(F, [El]) of
-		       ok -> t_list(t_fun_range(F));
+		     case check_fun_application(F, [El], Opaques) of
+		       ok -> t_list(t_fun_range(F, Opaques));
 		       error -> t_nil()
 		     end
 		 end
 	     end
-	 end);
-type(lists, mapfoldl, 3, Xs) ->
-  strict(arg_types(lists, mapfoldl, 3), Xs,
+	 end, Opaques);
+type(lists, mapfoldl, 3, Xs, Opaques) ->
+  strict(lists, mapfoldl, 3, Xs,
 	 fun ([F, Acc, List]) ->
-	     case t_is_nil(List) of
+	     case t_is_nil(List, Opaques) of
 	       true -> t_tuple([List, Acc]);
 	       false ->
-		 El = t_list_elements(List),
-		 R = t_fun_range(F),
-		 case t_is_cons(List) of
+		 El = t_list_elements(List, Opaques),
+		 R = t_fun_range(F, Opaques),
+		 case t_is_cons(List, Opaques) of
 		   true ->
-		     case check_fun_application(F, [El, Acc]) of
+		     case check_fun_application(F, [El, Acc], Opaques) of
 		       ok ->
 			 Fun = fun (RangeTuple) ->
-				   [T1, T2] = t_tuple_args(RangeTuple),
+				   [T1, T2] = t_tuple_args(RangeTuple, Opaques),
 				   t_tuple([t_nonempty_list(T1), T2])
 			       end,
-			 t_sup([Fun(ST) || ST <- t_tuple_subtypes(R)]);
+			 t_sup([Fun(ST) || ST <- t_tuple_subtypes(R, Opaques)]);
 		       error -> 
 			 t_none()
 		     end;
 		   false ->
-		     case check_fun_application(F, [El, Acc]) of
+		     case check_fun_application(F, [El, Acc], Opaques) of
 		       ok ->
 			 Fun = fun (RangeTuple) ->
-				   [T1, T2] = t_tuple_args(RangeTuple),
+				   [T1, T2] = t_tuple_args(RangeTuple, Opaques),
 				   t_tuple([t_list(T1), t_sup(Acc, T2)])
 			       end,
-			 t_sup([Fun(ST) || ST <- t_tuple_subtypes(R)]);
+			 t_sup([Fun(ST) || ST <- t_tuple_subtypes(R, Opaques)]);
 		       error ->
 			 t_tuple([t_nil(), Acc])
 		     end
 		 end
 	     end
-	 end);
-type(lists, mapfoldr, 3, Xs) -> type(lists, mapfoldl, 3, Xs);    % same
-type(lists, max, 1, Xs) ->
-  strict(arg_types(lists, max, 1), Xs, fun ([L]) -> t_list_elements(L) end);
-type(lists, member, 2, Xs) ->
-  strict(arg_types(lists, member, 2), Xs,
+	 end, Opaques);
+type(lists, mapfoldr, 3, Xs, _Opaques) -> type(lists, mapfoldl, 3, Xs); % same
+type(lists, max, 1, Xs, Opaques) ->
+  strict(lists, max, 1, Xs,
+         fun ([L]) -> t_list_elements(L, Opaques) end, Opaques);
+type(lists, member, 2, Xs, Opaques) ->
+  strict(lists, member, 2, Xs,
 	 fun ([X, Y]) ->
-	     Y1 = t_list_elements(Y),
-	     case t_is_none(t_inf(Y1, X)) of
+	     Y1 = t_list_elements(Y, Opaques),
+	     case t_is_none(t_inf(Y1, X, Opaques)) of
 	       true -> t_atom('false');
 	       false -> t_boolean()
 	     end
-	 end);
-%% type(lists, merge, 1, Xs) ->
-type(lists, merge, 2, Xs) ->
-  strict(arg_types(lists, merge, 2), Xs,
+	 end, Opaques);
+%% type(lists, merge, 1, Xs, Opaques) ->
+type(lists, merge, 2, Xs, Opaques) ->
+  strict(lists, merge, 2, Xs,
 	 fun ([L1, L2]) ->
 	     case t_is_none(L1) of
 	       true -> L2;
@@ -1462,30 +1501,31 @@ type(lists, merge, 2, Xs) ->
 		   false -> t_sup(L1, L2)
 		 end
 	     end
-	 end);
-type(lists, min, 1, Xs) ->
-  strict(arg_types(lists, min, 1), Xs, fun ([L]) -> t_list_elements(L) end);
-type(lists, nth, 2, Xs) ->
-  strict(arg_types(lists, nth, 2), Xs,
-	 fun ([_, Y]) -> t_list_elements(Y) end);
-type(lists, nthtail, 2, Xs) ->
-  strict(arg_types(lists, nthtail, 2), Xs,
-	 fun ([_, Y]) -> t_sup(Y, t_list()) end);
-type(lists, partition, 2, Xs) ->
-  strict(arg_types(lists, partition, 2), Xs,
+	 end, Opaques);
+type(lists, min, 1, Xs, Opaques) ->
+  strict(lists, min, 1, Xs,
+         fun ([L]) -> t_list_elements(L, Opaques) end, Opaques);
+type(lists, nth, 2, Xs, Opaques) ->
+  strict(lists, nth, 2, Xs,
+	 fun ([_, Y]) -> t_list_elements(Y, Opaques) end, Opaques);
+type(lists, nthtail, 2, Xs, Opaques) ->
+  strict(lists, nthtail, 2, Xs,
+	 fun ([_, Y]) -> t_sup(Y, t_list()) end, Opaques);
+type(lists, partition, 2, Xs, Opaques) ->
+  strict(lists, partition, 2, Xs,
 	 fun ([F, L]) ->
-	     case t_is_nil(L) of
+	     case t_is_nil(L, Opaques) of
 	       true -> t_tuple([L,L]);
 	       false ->
-		 El = t_list_elements(L),
-		 case check_fun_application(F, [El]) of
+		 El = t_list_elements(L, Opaques),
+		 case check_fun_application(F, [El], Opaques) of
 		   error -> 
-		     case t_is_cons(L) of
+		     case t_is_cons(L, Opaques) of
 		       true -> t_none();
 		       false -> t_tuple([t_nil(), t_nil()])
 		     end;
 		   ok ->
-		     case t_atom_vals(t_fun_range(F)) of
+		     case t_atom_vals(t_fun_range(F, Opaques), Opaques) of
 		       ['true'] -> t_tuple([L, t_nil()]);
 		       ['false'] -> t_tuple([t_nil(), L]);
 		       [_, _] ->
@@ -1494,139 +1534,211 @@ type(lists, partition, 2, Xs) ->
 		     end
 		 end
 	     end
-	 end);
-type(lists, reverse, 1, Xs) ->
-  strict(arg_types(lists, reverse, 1), Xs, fun ([X]) -> X end);
-type(lists, reverse, 2, Xs) ->
+	 end, Opaques);
+type(lists, reverse, 1, Xs, Opaques) ->
+  strict(lists, reverse, 1, Xs, fun ([X]) -> X end, Opaques);
+type(lists, reverse, 2, Xs, _Opaques) ->
   type(erlang, '++', 2, Xs);    % reverse-onto is just like append
-type(lists, sort, 1, Xs) ->
-  strict(arg_types(lists, sort, 1), Xs, fun ([X]) -> X end);
-type(lists, sort, 2, Xs) ->
-  strict(arg_types(lists, sort, 2), Xs,
+type(lists, sort, 1, Xs, Opaques) ->
+  strict(lists, sort, 1, Xs, fun ([X]) -> X end, Opaques);
+type(lists, sort, 2, Xs, Opaques) ->
+  strict(lists, sort, 2, Xs,
 	 fun ([F, L]) ->
-	     R = t_fun_range(F),
-	     case t_is_boolean(R) of
+	     R = t_fun_range(F, Opaques),
+	     case t_is_boolean(R, Opaques) of
 	       true -> L;
 	       false ->
-		 case t_is_nil(L) of
+		 case t_is_nil(L, Opaques) of
 		   true -> t_nil();
 		   false -> t_none()
 		 end
 	     end
-	 end);
-type(lists, split, 2, Xs) ->
-  strict(arg_types(lists, split, 2), Xs,
+	 end, Opaques);
+type(lists, split, 2, Xs, Opaques) ->
+  strict(lists, split, 2, Xs,
 	 fun ([_, L]) ->
-	     case t_is_nil(L) of
+	     case t_is_nil(L, Opaques) of
 	       true -> t_tuple([L, L]);
 	       false ->
-		 T = t_list_elements(L),
+		 T = t_list_elements(L, Opaques),
 		 t_tuple([t_list(T), t_list(T)])
 	     end
-	 end);
-type(lists, splitwith, 2, Xs) -> 
+	 end, Opaques);
+type(lists, splitwith, 2, Xs, _Opaques) ->
   T1 = type(lists, takewhile, 2, Xs),
   T2 = type(lists, dropwhile, 2, Xs),
   case t_is_none(T1) orelse t_is_none(T2) of
     true -> t_none();
     false -> t_tuple([T1, T2])
   end;
-type(lists, subtract, 2, Xs) -> type(erlang, '--', 2, Xs);  % alias
-type(lists, takewhile, 2, Xs) ->
-  strict(arg_types(lists, takewhile, 2), Xs,
+type(lists, subtract, 2, Xs, _Opaques) -> type(erlang, '--', 2, Xs);  % alias
+type(lists, takewhile, 2, Xs, Opaques) ->
+  strict(lists, takewhile, 2, Xs,
 	 fun([F, L]) ->
-	     case t_is_none(t_inf(t_list(), L)) of
+	     case t_is_none(t_inf(t_list(), L, Opaques)) of
 	       false -> type(lists, filter, 2, Xs);
 	       true ->
 		 %% This works for non-proper lists as well.
-		 El = t_list_elements(L),
+		 El = t_list_elements(L, Opaques),
 		 type(lists, filter, 2, [F, t_list(El)])
 	     end
-	 end);
-type(lists, usort, 1, Xs) -> type(lists, sort, 1, Xs); % same
-type(lists, usort, 2, Xs) -> type(lists, sort, 2, Xs); % same
-type(lists, unzip, 1, Xs) ->
-  strict(arg_types(lists, unzip, 1), Xs, 
+	 end, Opaques);
+type(lists, usort, 1, Xs, _Opaques) -> type(lists, sort, 1, Xs); % same
+type(lists, usort, 2, Xs, _Opaques) -> type(lists, sort, 2, Xs); % same
+type(lists, unzip, 1, Xs, Opaques) ->
+  strict(lists, unzip, 1, Xs,
  	 fun ([Ps]) ->
-	     case t_is_nil(Ps) of
+	     case t_is_nil(Ps, Opaques) of
 	       true ->
 		 t_tuple([t_nil(), t_nil()]);
 	       false -> % Ps is a proper list of pairs
-		 TupleTypes = t_tuple_subtypes(t_list_elements(Ps)),
+		 TupleTypes = t_tuple_subtypes(t_list_elements(Ps, Opaques),
+                                               Opaques),
 		 lists:foldl(fun(Tuple, Acc) ->
-				 [A, B] = t_tuple_args(Tuple),
+				 [A, B] = t_tuple_args(Tuple, Opaques),
 				 t_sup(t_tuple([t_list(A), t_list(B)]), Acc)
 			     end, t_none(), TupleTypes)
 	     end
- 	 end);
-type(lists, unzip3, 1, Xs) ->
-  strict(arg_types(lists, unzip3, 1), Xs, 
+         end, Opaques);
+type(lists, unzip3, 1, Xs, Opaques) ->
+  strict(lists, unzip3, 1, Xs,
  	 fun ([Ts]) ->
-	     case t_is_nil(Ts) of
+	     case t_is_nil(Ts, Opaques) of
 	       true ->
 		 t_tuple([t_nil(), t_nil(), t_nil()]);
 	       false -> % Ps is a proper list of triples
-		 TupleTypes = t_tuple_subtypes(t_list_elements(Ts)),
+		 TupleTypes = t_tuple_subtypes(t_list_elements(Ts, Opaques),
+                                              Opaques),
 		 lists:foldl(fun(T, Acc) ->
-				 [A, B, C] = t_tuple_args(T),
+				 [A, B, C] = t_tuple_args(T, Opaques),
 				 t_sup(t_tuple([t_list(A), 
 						t_list(B), 
 						t_list(C)]),
 				       Acc)
 			     end, t_none(), TupleTypes)
 	     end
- 	 end);
-type(lists, zip, 2, Xs) ->
-  strict(arg_types(lists, zip, 2), Xs,
+         end, Opaques);
+type(lists, zip, 2, Xs, Opaques) ->
+  strict(lists, zip, 2, Xs,
 	 fun ([As, Bs]) ->
-	     case (t_is_nil(As) orelse t_is_nil(Bs)) of
+	     case (t_is_nil(As, Opaques) orelse t_is_nil(Bs, Opaques)) of
 	       true -> t_nil();
 	       false ->
-		 A = t_list_elements(As),
-		 B = t_list_elements(Bs),
+		 A = t_list_elements(As, Opaques),
+		 B = t_list_elements(Bs, Opaques),
 		 t_list(t_tuple([A, B]))
 	     end
-	 end);
-type(lists, zip3, 3, Xs) ->
-  strict(arg_types(lists, zip3, 3), Xs,
+	 end, Opaques);
+type(lists, zip3, 3, Xs, Opaques) ->
+  strict(lists, zip3, 3, Xs,
 	 fun ([As, Bs, Cs]) ->
-	     case (t_is_nil(As) orelse t_is_nil(Bs) orelse t_is_nil(Cs)) of
+	     case
+               (t_is_nil(As, Opaques)
+                orelse t_is_nil(Bs, Opaques)
+                orelse t_is_nil(Cs, Opaques))
+             of
 	       true -> t_nil();
 	       false ->
-		 A = t_list_elements(As),
-		 B = t_list_elements(Bs),
-		 C = t_list_elements(Cs),
+		 A = t_list_elements(As, Opaques),
+		 B = t_list_elements(Bs, Opaques),
+		 C = t_list_elements(Cs, Opaques),
 		 t_list(t_tuple([A, B, C]))
 	     end
-	 end);
-type(lists, zipwith, 3, Xs) ->
-  strict(arg_types(lists, zipwith, 3), Xs,
-	 fun ([F, _As, _Bs]) -> t_sup(t_list(t_fun_range(F)), t_nil()) end);
-type(lists, zipwith3, 4, Xs) ->
-  strict(arg_types(lists, zipwith3, 4), Xs,
-	 fun ([F,_As,_Bs,_Cs]) -> t_sup(t_list(t_fun_range(F)), t_nil()) end);
+	 end, Opaques);
+type(lists, zipwith, 3, Xs, Opaques) ->
+  strict(lists, zipwith, 3, Xs,
+	 fun ([F, _As, _Bs]) -> t_sup(t_list(t_fun_range(F, Opaques)),
+                                      t_nil()) end, Opaques);
+type(lists, zipwith3, 4, Xs, Opaques) ->
+  strict(lists, zipwith3, 4, Xs,
+	 fun ([F,_As,_Bs,_Cs]) -> t_sup(t_list(t_fun_range(F, Opaques)),
+                                        t_nil()) end, Opaques);
 
-%%-- string -------------------------------------------------------------------
-type(string, chars, 2, Xs) ->  % NOTE: added to avoid loss of information
-  strict(arg_types(string, chars, 2), Xs, fun (_) -> t_string() end);
-type(string, chars, 3, Xs) ->  % NOTE: added to avoid loss of information
-  strict(arg_types(string, chars, 3), Xs,
-	 fun ([Char, N, Tail]) ->
-	     case t_is_nil(Tail) of
-	       true ->
-		 type(string, chars, 2, [Char, N]);
+%%-- maps ---------------------------------------------------------------------
+type(maps, from_list, 1, Xs, Opaques) ->
+  strict(maps, from_list, 1, Xs,
+	 fun ([List]) ->
+	     case t_is_nil(List, Opaques) of
+	       true -> t_from_term(#{});
 	       false ->
-		 case t_is_string(Tail) of
-		   true ->
-		     t_string();
-		   false ->
-		     t_sup(t_sup(t_string(), Tail), t_cons(Char, Tail))
+		 T = t_list_elements(List, Opaques),
+		 case t_tuple_subtypes(T, Opaques) of
+		   unknown -> t_map();
+		   Stypes when length(Stypes) >= 1 ->
+		     t_sup([begin
+			      [K, V] = t_tuple_args(Args, Opaques),
+			      t_map([], K, V)
+			    end || Args <- Stypes])
 		 end
 	     end
-	 end);
+	 end, Opaques);
+type(maps, get, 2, Xs, Opaques) ->
+  strict(maps, get, 2, Xs,
+	 fun ([Key, Map]) ->
+	     t_map_get(Key, Map, Opaques)
+	 end, Opaques);
+type(maps, is_key, 2, Xs, Opaques) ->
+  strict(maps, is_key, 2, Xs,
+	 fun ([Key, Map]) ->
+	     t_map_is_key(Key, Map, Opaques)
+	 end, Opaques);
+type(maps, merge, 2, Xs, Opaques) ->
+  strict(maps, merge, 2, Xs,
+	 fun ([MapA, MapB]) ->
+	     ADefK = t_map_def_key(MapA, Opaques),
+	     BDefK = t_map_def_key(MapB, Opaques),
+	     ADefV = t_map_def_val(MapA, Opaques),
+	     BDefV = t_map_def_val(MapB, Opaques),
+	     t_map(map_pairwise_merge(
+		     fun(K, _,     _,  mandatory, V) -> {K, mandatory, V};
+			(K, MNess, VA, optional, VB) -> {K, MNess, t_sup(VA,VB)}
+		     end, MapA, MapB),
+		   t_sup(ADefK, BDefK), t_sup(ADefV, BDefV))
+	 end, Opaques);
+type(maps, put, 3, Xs, Opaques) ->
+  strict(maps, put, 3, Xs,
+	 fun ([Key, Value, Map]) ->
+	     t_map_put({Key, Value}, Map, Opaques)
+	 end, Opaques);
+type(maps, size, 1, Xs, Opaques) ->
+  strict(maps, size, 1, Xs,
+	 fun ([Map]) ->
+	     Mand = [E || E={_,mandatory,_} <- t_map_entries(Map, Opaques)],
+	     LowerBound = length(Mand),
+	     case t_is_none(t_map_def_key(Map, Opaques)) of
+	       false -> t_from_range(LowerBound, pos_inf);
+	       true ->
+		 Opt = [E || E={_,optional,_} <- t_map_entries(Map, Opaques)],
+		 UpperBound = LowerBound + length(Opt),
+		 t_from_range(LowerBound, UpperBound)
+	     end
+	 end, Opaques);
+type(maps, to_list, 1, Xs, Opaques) ->
+  strict(maps, to_list, 1, Xs,
+	 fun ([Map]) ->
+	     DefK = t_map_def_key(Map, Opaques),
+	     DefV = t_map_def_val(Map, Opaques),
+	     Pairs = t_map_entries(Map, Opaques),
+	     EType = lists:foldl(
+		       fun({K,_,V},EType0) ->
+			   case t_is_none(V) of
+			     true -> t_subtract(EType0, t_tuple([K,t_any()]));
+			     false -> t_sup(EType0, t_tuple([K,V]))
+			   end
+		       end, t_tuple([DefK, DefV]), Pairs),
+	     case t_is_none(EType) of
+	       true -> t_nil();
+	       false -> t_list(EType)
+	     end
+	 end, Opaques);
+type(maps, update, 3, Xs, Opaques) ->
+  strict(maps, update, 3, Xs,
+	 fun ([Key, Value, Map]) ->
+	     t_map_update({Key, Value}, Map, Opaques)
+	 end, Opaques);
 
 %%-----------------------------------------------------------------------------
-type(M, F, A, Xs) when is_atom(M), is_atom(F),
+type(M, F, A, Xs, _O) when is_atom(M), is_atom(F),
 		       is_integer(A), 0 =< A, A =< 255 ->
   strict(Xs, t_any()).  % safe approximation for all functions.
 
@@ -1635,13 +1747,20 @@ type(M, F, A, Xs) when is_atom(M), is_atom(F),
 %% Auxiliary functions
 %%-----------------------------------------------------------------------------
 
-strict(Xs, Ts, F) ->
-  %% io:format("inf lists arg~n1:~p~n2:~p ~n", [Xs, Ts]),
-  Xs1 = inf_lists(Xs, Ts),
+strict(M, F, A, Xs, Fun, Opaques) ->
+  Ts = arg_types(M, F, A),
+  %% io:format("inf lists arg~nXs: ~p~nTs: ~p ~n", [Xs, Ts]),
+  Xs1 = inf_lists(Xs, Ts, Opaques),
   %% io:format("inf lists return ~p ~n", [Xs1]),
   case any_is_none_or_unit(Xs1) of
     true -> t_none();
-    false -> F(Xs1)
+    false -> Fun(Xs1)
+  end.
+
+strict2(Xs, X) ->
+  case any_is_none_or_unit(Xs) of
+    true -> t_none();
+    false -> X
   end.
 
 strict(Xs, X) ->
@@ -1650,9 +1769,9 @@ strict(Xs, X) ->
     false -> X
   end.
 
-inf_lists([X | Xs], [T | Ts]) ->
-  [t_inf(X, T) | inf_lists(Xs, Ts)];
-inf_lists([], []) ->
+inf_lists([X | Xs], [T | Ts], Opaques) ->
+  [t_inf(X, T, Opaques) | inf_lists(Xs, Ts, Opaques)];
+inf_lists([], [], _Opaques) ->
   [].
 
 any_list(N) -> any_list(N, t_any()).
@@ -1670,20 +1789,43 @@ list_replace(1, E, [_X | Xs]) ->
 any_is_none_or_unit(Ts) ->
   lists:any(fun erl_types:t_is_none_or_unit/1, Ts).
 
-check_guard([X], Test, Type) ->
-  check_guard_single(X, Test, Type).
+check_guard([X], Test, Type, Opaques) ->
+  check_guard_single(X, Test, Type, Opaques).
 
-check_guard_single(X, Test, Type) ->
+check_guard_single(X, Test, Type, Opaques) ->
   case Test(X) of
     true -> t_atom('true');
     false ->
-      case erl_types:t_is_opaque(X) of
-	true -> t_none();
-	false ->
-	  case t_is_none(t_inf(Type, X)) of
-	    true -> t_atom('false');
-	    false -> t_boolean()
-	  end
+      case t_is_none(t_inf(Type, X, Opaques)) of
+        true ->
+          case t_has_opaque_subtype(X, Opaques) of
+            true -> t_none();
+            false -> t_atom('false')
+          end;
+        false -> t_boolean()
+      end
+  end.
+
+check_record_tag(Tag, Y, Opaques) ->
+  case t_is_atom(Tag, Opaques) of
+    false ->
+      TagAtom = t_inf(Tag, t_atom(), Opaques),
+      case t_is_none(TagAtom) of
+        true ->
+          case t_has_opaque_subtype(Tag, Opaques) of
+            true -> t_none();
+            false -> t_atom('false')
+          end;
+        false -> t_boolean()
+      end;
+    true ->
+      case t_atom_vals(Tag, Opaques) of
+        [RealTag] ->
+          case t_atom_vals(Y, Opaques) of
+            [RealTag] -> t_atom('true');
+            _ -> t_boolean()
+          end;
+        _ -> t_boolean()
       end
   end.
 
@@ -1797,7 +1939,11 @@ infinity_add(neg_inf, _Number) -> neg_inf;
 infinity_add(_Number, pos_inf) -> pos_inf;
 infinity_add(_Number, neg_inf) -> neg_inf;
 infinity_add(Number1, Number2) when is_integer(Number1), is_integer(Number2) ->
-  Number1 + Number2.
+  try Number1 + Number2
+  catch
+    error:system_limit when Number1 < 0 -> neg_inf;
+    error:system_limit -> pos_inf
+  end.
 
 infinity_mult(neg_inf, Number) -> 
   Greater = infinity_geq(Number, 0), 
@@ -1808,7 +1954,13 @@ infinity_mult(pos_inf, Number) -> infinity_inv(infinity_mult(neg_inf, Number));
 infinity_mult(Number, pos_inf) -> infinity_inv(infinity_mult(neg_inf, Number));
 infinity_mult(Number, neg_inf) -> infinity_mult(neg_inf, Number);
 infinity_mult(Number1, Number2) when is_integer(Number1), is_integer(Number2)->
-  Number1 * Number2.
+  try Number1 * Number2
+  catch
+    error:system_limit ->
+      if (Number1 >= 0) =:= (Number2 >= 0) -> pos_inf;
+         true -> neg_inf
+      end
+  end.
 
 width({Min, Max}) -> infinity_max([width(Min), width(Max)]);
 width(pos_inf) -> pos_inf;
@@ -1828,14 +1980,36 @@ negwidth(X, N) ->
     false -> negwidth(X, N+1)
   end.
 
-arith('bnot', X1) ->
-  case t_is_integer(X1) of
+arith_bnot(X1, Opaques) ->
+  case t_is_integer(X1, Opaques) of
     false -> error;
     true ->
-      Min1 = number_min(X1),
-      Max1 = number_max(X1),
+      Min1 = number_min(X1, Opaques),
+      Max1 = number_max(X1, Opaques),
       {ok, t_from_range(infinity_add(infinity_inv(Max1), -1),
 			infinity_add(infinity_inv(Min1), -1))}
+  end.
+
+arith_abs(X1, Opaques) ->
+  case t_is_integer(X1, Opaques) of
+    false ->
+      case t_is_float(X1, Opaques) of
+        true -> t_float();
+        false -> t_number()
+      end;
+    true ->
+      Min1 = number_min(X1, Opaques),
+      Max1 = number_max(X1, Opaques),
+      {NewMin, NewMax} =
+        case infinity_geq(Min1, 0) of
+          true -> {Min1, Max1};
+          false ->
+            case infinity_geq(Max1, 0) of
+              true  -> {0, infinity_inv(Min1)};
+              false -> {infinity_inv(Max1), infinity_inv(Min1)}
+            end
+        end,
+      t_from_range(NewMin, NewMax)
   end.
 
 arith_mult(Min1, Max1, Min2, Max2) ->
@@ -1907,13 +2081,13 @@ arith_bor_range_set({Min, Max}, [Int|IntList]) ->
 	      IntList),
   {infinity_bor(Min, SafeAnd), infinity_bor(Max, SafeAnd)}.
 	      
-arith_band(X1, X2) ->
-  L1 = t_number_vals(X1), 
-  L2 = t_number_vals(X2),
-  Min1 = number_min(X1),
-  Max1 = number_max(X1),
-  Min2 = number_min(X2),
-  Max2 = number_max(X2),
+arith_band(X1, X2, Opaques) ->
+  L1 = t_number_vals(X1, Opaques),
+  L2 = t_number_vals(X2, Opaques),
+  Min1 = number_min(X1, Opaques),
+  Max1 = number_max(X1, Opaques),
+  Min2 = number_min(X2, Opaques),
+  Max2 = number_max(X2, Opaques),
   case {L1 =:= unknown, L2 =:= unknown} of
     {true, false} ->
       arith_band_range_set(arith_band_ranges(Min1, Max1, Min2, Max2), L2);
@@ -1923,13 +2097,13 @@ arith_band(X1, X2) ->
       arith_band_ranges(Min1, Max1, Min2, Max2)
   end.
 
-arith_bor(X1, X2) ->
-  L1 = t_number_vals(X1), 
-  L2 = t_number_vals(X2),
-  Min1 = number_min(X1),
-  Max1 = number_max(X1),
-  Min2 = number_min(X2),
-  Max2 = number_max(X2),
+arith_bor(X1, X2, Opaques) ->
+  L1 = t_number_vals(X1, Opaques),
+  L2 = t_number_vals(X2, Opaques),
+  Min1 = number_min(X1, Opaques),
+  Max1 = number_max(X1, Opaques),
+  Min2 = number_min(X2, Opaques),
+  Max2 = number_max(X2, Opaques),
   case {L1 =:= unknown, L2 =:= unknown} of
     {true, false} ->
       arith_bor_range_set(arith_bor_ranges(Min1, Max1, Min2, Max2), L2);
@@ -1967,19 +2141,19 @@ arith_bor_ranges(Min1, Max1, Min2, Max2) ->
     end,
   {Min, Max}.
 
-arith(Op, X1, X2) ->
+arith(Op, X1, X2, Opaques) ->
   %% io:format("arith ~p ~p ~p~n", [Op, X1, X2]),
-  case t_is_integer(X1) andalso t_is_integer(X2) of
+  case t_is_integer(X1, Opaques) andalso t_is_integer(X2, Opaques) of
     false -> error;
     true ->
-      L1 = t_number_vals(X1), 
-      L2 = t_number_vals(X2),
+      L1 = t_number_vals(X1, Opaques),
+      L2 = t_number_vals(X2, Opaques),
       case (L1 =:= unknown) orelse (L2 =:= unknown) of
 	true ->
-	  Min1 = number_min(X1),
-	  Max1 = number_max(X1),
-	  Min2 = number_min(X2),
-	  Max2 = number_max(X2),
+	  Min1 = number_min(X1, Opaques),
+	  Max1 = number_max(X1, Opaques),
+	  Min2 = number_min(X2, Opaques),
+	  Max2 = number_max(X2, Opaques),
 	  {NewMin, NewMax} =
 	    case Op of
 	      '+'    -> {infinity_add(Min1, Min2), infinity_add(Max1, Max2)};
@@ -1992,8 +2166,8 @@ arith(Op, X1, X2) ->
 	      'bsr'  -> NewMin2 = infinity_inv(Max2),
 			NewMax2 = infinity_inv(Min2),
 			arith_bsl(Min1, Max1, NewMin2, NewMax2);
-	      'band' -> arith_band(X1, X2);
-	      'bor'  -> arith_bor(X1, X2);
+	      'band' -> arith_band(X1, X2, Opaques);
+	      'bor'  -> arith_bor(X1, X2, Opaques);
 	      'bxor' -> arith_bor_ranges(Min1, Max1, Min2, Max2) %% overaprox.
 	    end,
 	  %% io:format("done arith ~p = ~p~n", [Op, {NewMin, NewMax}]),
@@ -2025,58 +2199,62 @@ arith(Op, X1, X2) ->
 %% Comparison of terms
 %%=============================================================================
 
-compare(Op, Lhs, Rhs) ->
-  case t_is_none(t_inf(Lhs, Rhs)) of
+compare(Op, Lhs, Rhs, Opaques) ->
+  case t_is_none(t_inf(Lhs, Rhs, Opaques)) of
     false -> t_boolean();
     true ->
-      case Op of
-	'<' -> always_smaller(Lhs, Rhs);
-	'>' -> always_smaller(Rhs, Lhs);
-	'=<' -> always_smaller(Lhs, Rhs);
-	'>=' -> always_smaller(Rhs, Lhs)
+      case opaque_args(erlang, Op, 2, [Lhs, Rhs], Opaques) =:= [] of
+        true ->
+          case Op of
+            '<' -> always_smaller(Lhs, Rhs, Opaques);
+            '>' -> always_smaller(Rhs, Lhs, Opaques);
+            '=<' -> always_smaller(Lhs, Rhs, Opaques);
+            '>=' -> always_smaller(Rhs, Lhs, Opaques)
+          end;
+        false -> t_none()
       end
   end.
 
-always_smaller(Type1, Type2) ->
-  {Min1, Max1} = type_ranks(Type1),
-  {Min2, Max2} = type_ranks(Type2),
+always_smaller(Type1, Type2, Opaques) ->
+  {Min1, Max1} = type_ranks(Type1, Opaques),
+  {Min2, Max2} = type_ranks(Type2, Opaques),
   if Max1 < Min2 -> t_atom('true');
      Min1 > Max2 -> t_atom('false');
      true        -> t_boolean()
   end.
 
-type_ranks(Type) ->
-  type_ranks(Type, 1, 0, 0, type_order()).
+type_ranks(Type, Opaques) ->
+  type_ranks(Type, 1, 0, 0, type_order(), Opaques).
 
-type_ranks(_Type, _I, Min, Max, []) -> {Min, Max};
-type_ranks(Type, I, Min, Max, [TypeClass|Rest]) ->
+type_ranks(_Type, _I, Min, Max, [], _Opaques) -> {Min, Max};
+type_ranks(Type, I, Min, Max, [TypeClass|Rest], Opaques) ->
   {NewMin, NewMax} =
-    case t_is_none(t_inf(Type, TypeClass)) of
+    case t_is_none(t_inf(Type, TypeClass, Opaques)) of
       true  -> {Min, Max};
       false -> case Min of
 		 0 -> {I, I};
 		 _ -> {Min, I}
 	       end
     end,
-  type_ranks(Type, I+1, NewMin, NewMax, Rest).
+  type_ranks(Type, I+1, NewMin, NewMax, Rest, Opaques).
 
 type_order() ->
   [t_number(), t_atom(), t_reference(), t_fun(), t_port(), t_pid(), t_tuple(),
-   t_list(), t_binary()].
+   t_map(), t_list(), t_bitstr()].
 
-key_comparisons_fail(X0, KeyPos, TupleList) ->
-  X = case t_is_number(t_inf(X0, t_number())) of
+key_comparisons_fail(X0, KeyPos, TupleList, Opaques) ->
+  X = case t_is_number(t_inf(X0, t_number(), Opaques), Opaques) of
 	false -> X0;
 	true -> t_number()
       end,
   lists:all(fun(Tuple) ->
 		Key = type(erlang, element, 2, [KeyPos, Tuple]),
-		t_is_none(t_inf(Key, X))
+		t_is_none(t_inf(Key, X, Opaques))
 	    end, TupleList).
 
 %%=============================================================================
 
--spec arg_types(atom(), atom(), arity()) -> [erl_types:erl_type()] | 'unknown'.
+-spec arg_types(atom(), atom(), arity()) -> arg_types() | 'unknown'.
 
 %%------- erlang --------------------------------------------------------------
 arg_types(erlang, '!', 2) ->
@@ -2162,9 +2340,7 @@ arg_types(erlang, bit_size, 1) ->
   [t_bitstr()];
 %% Guard bif, needs to be here.
 arg_types(erlang, byte_size, 1) ->
-  [t_binary()];
-arg_types(erlang, disconnect_node, 1) ->
-  [t_node()];
+  [t_bitstr()];
 arg_types(erlang, halt, 0) ->
   [];
 arg_types(erlang, halt, 1) ->
@@ -2184,17 +2360,11 @@ arg_types(erlang, element, 2) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, float, 1) ->
   [t_number()];
-arg_types(erlang, fun_info, 1) ->
-  [t_fun()];
-arg_types(erlang, get_cookie, 0) ->
-  [];
 %% Guard bif, needs to be here.
 arg_types(erlang, hd, 1) ->
   [t_cons()];
 arg_types(erlang, info, 1) ->
   arg_types(erlang, system_info, 1); % alias
-arg_types(erlang, integer_to_list, 2) ->
-  [t_integer(), t_from_range(2, 36)];
 arg_types(erlang, is_atom, 1) ->
   [t_any()];
 arg_types(erlang, is_binary, 1) ->
@@ -2213,6 +2383,8 @@ arg_types(erlang, is_integer, 1) ->
   [t_any()];
 arg_types(erlang, is_list, 1) ->
   [t_any()];
+arg_types(erlang, is_map, 1) ->
+  [t_any()];
 arg_types(erlang, is_number, 1) ->
   [t_any()];
 arg_types(erlang, is_pid, 1) ->
@@ -2230,12 +2402,15 @@ arg_types(erlang, is_tuple, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, length, 1) ->
   [t_list()];
+%% Guard bif, needs to be here.
+arg_types(erlang, map_size, 1) ->
+  [t_map()];
+arg_types(erlang, make_fun, 3) ->
+  [t_atom(), t_atom(), t_arity()];
 arg_types(erlang, make_tuple, 2) ->
   [t_non_neg_fixnum(), t_any()];  % the value 0 is OK as first argument
 arg_types(erlang, make_tuple, 3) ->
   [t_non_neg_fixnum(), t_any(), t_list(t_tuple([t_pos_integer(), t_any()]))];
-arg_types(erlang, memory, 0) ->
-  [];
 arg_types(erlang, nif_error, 1) ->
   [t_any()];
 arg_types(erlang, nif_error, 2) ->
@@ -2252,29 +2427,13 @@ arg_types(erlang, round, 1) ->
 %% Guard bif, needs to be here.
 arg_types(erlang, self, 0) ->
   [];
-arg_types(erlang, set_cookie, 2) ->
-  [t_node(), t_atom()];
 arg_types(erlang, setelement, 3) ->
   [t_pos_integer(), t_tuple(), t_any()];
 %% Guard bif, needs to be here.
 arg_types(erlang, size, 1) ->
   [t_sup(t_tuple(), t_binary())];
-arg_types(erlang, spawn, 1) -> %% TODO: Tuple?
-  [t_fun()];
-arg_types(erlang, spawn, 2) -> %% TODO: Tuple?
-  [t_node(), t_fun()];
-arg_types(erlang, spawn, 4) -> %% TODO: Tuple?
-  [t_node(), t_atom(), t_atom(), t_list()];
-arg_types(erlang, spawn_link, 1) ->
-  arg_types(erlang, spawn, 1);  % same
-arg_types(erlang, spawn_link, 2) ->
-  arg_types(erlang, spawn, 2);  % same
-arg_types(erlang, spawn_link, 4) ->
-  arg_types(erlang, spawn, 4);  % same
 arg_types(erlang, subtract, 2) ->
   arg_types(erlang, '--', 2);
-arg_types(erlang, suspend_process, 1) ->
-  [t_pid()];
 arg_types(erlang, system_info, 1) ->
   [t_sup([t_atom(),                     % documented
 	  t_tuple([t_atom(), t_any()]), % documented
@@ -2293,11 +2452,6 @@ arg_types(erlang, tuple_size, 1) ->
   [t_tuple()];
 arg_types(erlang, tuple_to_list, 1) ->
   [t_tuple()];
-arg_types(erlang, yield, 0) ->
-  [];
-%%------- ets -----------------------------------------------------------------
-arg_types(ets, rename, 2) ->
-  [t_atom(), t_atom()];
 %%------- hipe_bifs -----------------------------------------------------------
 arg_types(hipe_bifs, add_ref, 2) ->
   [t_mfa(), t_tuple([t_mfa(),
@@ -2349,16 +2503,12 @@ arg_types(hipe_bifs, find_na_or_make_stub, 2) ->
   [t_mfa(), t_boolean()];
 arg_types(hipe_bifs, fun_to_address, 1) ->
   [t_mfa()];
-%% arg_types(hipe_bifs, get_emu_address, 1) ->
-%%   [t_mfa()];
+arg_types(hipe_bifs, get_fe, 2) ->
+  [t_atom(), t_tuple([t_integer(), t_integer(), t_integer()])];
 arg_types(hipe_bifs, get_rts_param, 1) ->
   [t_fixnum()];
 arg_types(hipe_bifs, invalidate_funinfo_native_addresses, 1) ->
   [t_list(t_mfa())];
-arg_types(hipe_bifs, make_fe, 3) ->
-  [t_integer(), t_atom(), t_tuple([t_integer(), t_integer(), t_integer()])];
-%% arg_types(hipe_bifs, make_native_stub, 2) ->
-%%   [t_integer(), t_arity()];
 arg_types(hipe_bifs, mark_referred_from, 1) ->
   [t_mfa()];
 arg_types(hipe_bifs, merge_term, 1) ->
@@ -2385,8 +2535,10 @@ arg_types(hipe_bifs, set_funinfo_native_address, 3) ->
   arg_types(hipe_bifs, set_native_address, 3);
 arg_types(hipe_bifs, set_native_address, 3) ->
   [t_mfa(), t_integer(), t_boolean()];
-arg_types(hipe_bifs, system_crc, 1) ->
-  [t_crc32()];
+arg_types(hipe_bifs, set_native_address_in_fe, 2) ->
+  [t_integer(), t_integer()];
+arg_types(hipe_bifs, system_crc, 0) ->
+  [];
 arg_types(hipe_bifs, term_to_word, 1) ->
   [t_any()];
 arg_types(hipe_bifs, update_code_size, 3) ->
@@ -2496,59 +2648,102 @@ arg_types(lists, zipwith, 3) ->
   [t_fun([t_any(), t_any()], t_any()), t_list(), t_list()];
 arg_types(lists, zipwith3, 4) ->
   [t_fun([t_any(), t_any(), t_any()], t_any()), t_list(), t_list(), t_list()];
-
-%%------- string --------------------------------------------------------------
-arg_types(string, chars, 2) ->
-  [t_char(), t_non_neg_integer()];
-arg_types(string, chars, 3) ->
-  [t_char(), t_non_neg_integer(), t_any()];
-%%-----------------------------------------------------------------------------
+%%------- maps ----------------------------------------------------------------
+arg_types(maps, from_list, 1) ->
+  [t_list(t_tuple(2))];
+arg_types(maps, get, 2) ->
+  [t_any(), t_map()];
+arg_types(maps, is_key, 2) ->
+  [t_any(), t_map()];
+arg_types(maps, merge, 2) ->
+  [t_map(), t_map()];
+arg_types(maps, put, 3) ->
+  [t_any(), t_any(), t_map()];
+arg_types(maps, size, 1) ->
+  [t_map()];
+arg_types(maps, to_list, 1) ->
+  [t_map()];
+arg_types(maps, update, 3) ->
+  [t_any(), t_any(), t_map()];
 arg_types(M, F, A) when is_atom(M), is_atom(F),
 			is_integer(A), 0 =< A, A =< 255 ->
   unknown.                     % safe approximation for all functions.
 
 
--spec is_known(atom(), atom(), arity()) -> boolean().
+-spec is_known(module(), atom(), arity()) -> boolean().
 
 is_known(M, F, A) ->
   arg_types(M, F, A) =/= unknown.
 
+-spec opaque_args(module(), atom(), arity(),
+                  arg_types(), opaques()) -> [pos_integer()].
 
--spec structure_inspecting_args(atom(), atom(), arity()) -> [1..255].
+%% Use this function to find out which argument caused empty type.
 
-structure_inspecting_args(erlang, element, 2) -> [2];
-structure_inspecting_args(erlang, is_atom, 1) -> [1];
-structure_inspecting_args(erlang, is_boolean, 1) -> [1];
-structure_inspecting_args(erlang, is_binary, 1) -> [1];
-structure_inspecting_args(erlang, is_bitstring, 1) -> [1];
-structure_inspecting_args(erlang, is_float, 1) -> [1];
-structure_inspecting_args(erlang, is_function, 1) -> [1];
-structure_inspecting_args(erlang, is_integer, 1) -> [1];
-structure_inspecting_args(erlang, is_list, 1) -> [1];
-structure_inspecting_args(erlang, is_number, 1) -> [1];
-structure_inspecting_args(erlang, is_pid, 1) -> [1];
-structure_inspecting_args(erlang, is_port, 1) -> [1];
-structure_inspecting_args(erlang, is_reference, 1) -> [1];
-structure_inspecting_args(erlang, is_tuple, 1) -> [1];
-structure_inspecting_args(erlang, length, 1) -> [1];
-%%structure_inspecting_args(erlang, setelement, 3) -> [2].
-structure_inspecting_args(_, _, _) -> []. % XXX: assume no arg needs inspection
+opaque_args(_M, _F, _A, _Xs, 'universe') -> [];
+opaque_args(M, F, A, Xs, Opaques) ->
+  case kind_of_check(M, F, A) of
+    record ->
+      [X,Y|_] = Xs,
+      [1 ||
+        case t_is_tuple(X, Opaques) of
+          true ->
+            case t_tuple_subtypes(X, Opaques) of
+              unknown -> false;
+              List when length(List) >= 1 ->
+                (t_is_atom(Y, Opaques) andalso
+                 opaque_recargs(List, Y, Opaques))
+            end;
+          false -> t_has_opaque_subtype(X, Opaques)
+        end];
+    subtype ->
+      [N ||
+        {N, X} <- lists:zip(lists:seq(1, length(Xs)), Xs),
+        t_has_opaque_subtype(X, Opaques)];
+    find_unknown ->
+      [L, R] = Xs,
+      erl_types:t_find_unknown_opaque(L, R, Opaques);
+    no_check -> []
+  end.
 
+kind_of_check(erlang, is_record, 3) ->
+  record;
+kind_of_check(erlang, is_record, 2) ->
+  record;
+kind_of_check(erlang, F, A) ->
+  case erl_internal:guard_bif(F, A) orelse erl_internal:bool_op(F, A) of
+    true -> subtype;
+    false ->
+      case erl_internal:comp_op(F, A) of
+        true -> find_unknown;
+        false -> no_check
+      end
+  end;
+kind_of_check(_M, _F, _A) -> no_check.
 
-check_fun_application(Fun, Args) ->
-  case t_is_fun(Fun) of
+opaque_recargs(Tuples, Y, Opaques) ->
+  Fun = fun(Tuple) ->
+            case t_tuple_args(Tuple, Opaques) of
+              [Tag|_] -> t_is_none(check_record_tag(Tag, Y, Opaques));
+              _ -> false
+            end
+        end,
+  lists:all(Fun, Tuples).
+
+check_fun_application(Fun, Args, Opaques) ->
+  case t_is_fun(Fun, Opaques) of
     true ->
-      case t_fun_args(Fun) of
+      case t_fun_args(Fun, Opaques) of
 	unknown ->
-	  case t_is_none_or_unit(t_fun_range(Fun)) of
+	  case t_is_none_or_unit(t_fun_range(Fun, Opaques)) of
 	    true -> error;
 	    false -> ok
 	  end;
 	FunDom when length(FunDom) =:= length(Args) ->
-	  case any_is_none_or_unit(inf_lists(FunDom, Args)) of
+	  case any_is_none_or_unit(inf_lists(FunDom, Args, Opaques)) of
 	    true -> error;
 	    false ->
-	      case t_is_none_or_unit(t_fun_range(Fun)) of
+	      case t_is_none_or_unit(t_fun_range(Fun, Opaques)) of
 		true -> error;
 		false -> ok
 	      end

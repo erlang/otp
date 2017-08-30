@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -39,14 +40,21 @@
 		   Size       :: 0 | pos_integer() | string()) ->
 			  {Log :: atom() | pid(), Entry :: string()} | term() .
 
-access_entry(Log, NoLog, Info, RFC931, AuthUser, Date, StatusCode, SizeStr) 
-  when is_list(SizeStr) ->
+%% Somethime the size in the form of the content_length is put here, which
+%% is actually in the form of a string
+%% So it can either be the size as an integer, the size as a string
+%% or, worst case scenario, bytes.
+access_entry(Log, NoLog, Info, RFC931, AuthUser, Date, StatusCode, 
+	     SizeStrOrBytes) 
+  when is_list(SizeStrOrBytes) ->
     Size = 
-	case (catch list_to_integer(SizeStr)) of
+	case (catch list_to_integer(SizeStrOrBytes)) of
 	    I when is_integer(I) ->
+		%% This is from using the content_length (which is a string)
 		I;
 	    _ ->
-		SizeStr % This is better then nothing
+		%% This is better than nothing
+		httpd_util:flatlength(SizeStrOrBytes) 
 	end,
     access_entry(Log, NoLog, Info, RFC931, AuthUser, Date, StatusCode, Size);
 access_entry(Log, NoLog, 

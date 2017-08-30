@@ -1,0 +1,11 @@
+-ifdef(BIT32).
+-define(NR_PINNED_REGS, 2).
+-define(NR_ARG_REGS, 3).
+-define(ARCH_REGISTERS, hipe_x86_registers).
+-define(FLOAT_OFFSET, 2).
+-else.
+-define(NR_PINNED_REGS, 2).
+-define(NR_ARG_REGS, 4).
+-define(ARCH_REGISTERS, hipe_amd64_registers).
+-define(FLOAT_OFFSET, 6).
+-endif.

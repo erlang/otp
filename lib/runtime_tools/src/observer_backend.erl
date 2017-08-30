@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -22,7 +23,8 @@
 -export([vsn/0]).
 
 %% observer stuff
--export([sys_info/0, get_table/3, get_table_list/2, fetch_stats/2]).
+-export([sys_info/0, get_port_list/0,
+	 get_table/3, get_table_list/2, fetch_stats/2]).
 
 %% etop stuff
 -export([etop_collect/1]).
@@ -53,6 +55,13 @@ sys_info() ->
 		  Mem -> Mem
 	      catch _:_ -> []
 	      end,
+
+    SchedulersOnline = erlang:system_info(schedulers_online),
+    SchedulersAvailable = case erlang:system_info(multi_scheduling) of
+			      enabled -> SchedulersOnline;
+			      _ -> 1
+			  end,
+
     {{_,Input},{_,Output}} = erlang:statistics(io),
     [{process_count, erlang:system_info(process_count)},
      {process_limit, erlang:system_info(process_limit)},
@@ -60,9 +69,13 @@ sys_info() ->
      {run_queue, erlang:statistics(run_queue)},
      {io_input, Input},
      {io_output,  Output},
+
      {logical_processors, erlang:system_info(logical_processors)},
-     {logical_processors_available, erlang:system_info(logical_processors_available)},
      {logical_processors_online, erlang:system_info(logical_processors_online)},
+     {logical_processors_available, erlang:system_info(logical_processors_available)},
+     {schedulers, erlang:system_info(schedulers)},
+     {schedulers_online, SchedulersOnline},
+     {schedulers_available, SchedulersAvailable},
 
      {otp_release, erlang:system_info(otp_release)},
      {version, erlang:system_info(version)},
@@ -77,8 +90,8 @@ sys_info() ->
      | MemInfo].
 
 alloc_info() ->
-    {_,_,AllocTypes,_} = erlang:system_info(allocator),
-    try erlang:system_info({allocator_sizes,AllocTypes}) of
+    AlcuAllocs = erlang:system_info(alloc_util_allocators),
+    try erlang:system_info({allocator_sizes, AlcuAllocs}) of
 	Allocators -> Allocators
     catch _:_ -> []
     end.
@@ -126,6 +139,15 @@ get_mnesia_loop(Parent, '$end_of_table') ->
 get_mnesia_loop(Parent, {Match, Cont}) ->
     Parent ! {self(), Match},
     get_mnesia_loop(Parent, mnesia:select(Cont)).
+
+get_port_list() ->
+    [begin
+	 [{port_id,P}|erlang:port_info(P)] ++
+	     case erlang:port_info(P,monitors) of
+		 undefined -> [];
+		 Monitors -> [Monitors]
+	     end
+     end || P <- erlang:ports()].
 
 get_table_list(ets, Opts) ->
     HideUnread = proplists:get_value(unread_hidden, Opts, true),
@@ -216,12 +238,14 @@ fetch_stats(Parent, Time) ->
 fetch_stats_loop(Parent, Time) ->
     erlang:system_flag(scheduler_wall_time, true),
     receive
-	_Msg -> erlang:system_flag(scheduler_wall_time, false)
+	_Msg ->
+	    %% erlang:system_flag(scheduler_wall_time, false)
+	    ok
     after Time ->
 	    _M = Parent ! {stats, 1,
 			   erlang:statistics(scheduler_wall_time),
 			   erlang:statistics(io),
-			   erlang:memory()},
+			   try erlang:memory() catch _:_ -> [] end},
 	    fetch_stats_loop(Parent, Time)
     end.
 %%
@@ -233,33 +257,32 @@ etop_collect(Collector) ->
     %% utilization in etop). Next time the flag will be true and then
     %% there will be a measurement.
     SchedulerWallTime = erlang:statistics(scheduler_wall_time),
-
-    %% Turn off the flag while collecting data per process etc.
-    case erlang:system_flag(scheduler_wall_time,false) of
-	false ->
-	    %% First time and the flag was false - start a monitoring
-	    %% process to set the flag back to false when etop is stopped.
-	    spawn(fun() -> flag_holder_proc(Collector) end);
-	_ ->
-	    ok
-    end,
-
     ProcInfo = etop_collect(processes(), []),
 
-    Collector ! {self(),#etop_info{now = now(),
+    Collector ! {self(),#etop_info{now = erlang:timestamp(),
 				   n_procs = length(ProcInfo),
 				   run_queue = erlang:statistics(run_queue),
 				   runtime = SchedulerWallTime,
 				   memi = etop_memi(),
 				   procinfo = ProcInfo
 				  }},
+
+    case SchedulerWallTime of
+	undefined ->
+	    spawn(fun() -> flag_holder_proc(Collector) end),
+            ok;
+	_ ->
+	    ok
+    end,
+
     erlang:system_flag(scheduler_wall_time,true).
 
 flag_holder_proc(Collector) ->
     Ref = erlang:monitor(process,Collector),
     receive
 	{'DOWN',Ref,_,_,_} ->
-	    erlang:system_flag(scheduler_wall_time,false)
+	    %% erlang:system_flag(scheduler_wall_time,false)
+	    ok
     end.
 
 etop_memi() ->
@@ -322,8 +345,8 @@ ttb_init_node(MetaFile_0,PI,Traci) ->
     MetaPid ! {metadata,Traci},
     case PI of
 	true ->
-	    Proci = pnames(),
-	    MetaPid ! {metadata,Proci};
+	    MetaPid ! {metadata,pnames()},
+            ok;
 	false ->
 	    ok
     end,
@@ -342,7 +365,8 @@ ttb_meta_tracer(MetaFile,PI,Parent,SessionData) ->
 	    erlang:trace_pattern({erlang,spawn_link,3},ReturnMS,[meta]),
 	    erlang:trace_pattern({erlang,spawn_opt,1},ReturnMS,[meta]),
 	    erlang:trace_pattern({erlang,register,2},[],[meta]),
-	    erlang:trace_pattern({global,register_name,2},[],[meta]);
+	    erlang:trace_pattern({global,register_name,2},[],[meta]),
+            ok;
 	false ->
 	    ok
     end,
@@ -350,7 +374,8 @@ ttb_meta_tracer(MetaFile,PI,Parent,SessionData) ->
     case proplists:get_value(overload_check, SessionData) of
         {Ms, M, F} ->
             catch M:F(init),
-            erlang:send_after(Ms, self(), overload_check);
+            erlang:send_after(Ms, self(), overload_check),
+            ok;
         _ ->
             ok
     end,
@@ -359,10 +384,10 @@ ttb_meta_tracer(MetaFile,PI,Parent,SessionData) ->
 ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
     receive
 	{trace_ts,_,call,{erlang,register,[Name,Pid]},_} ->
-	    ttb_store_meta({pid,{Pid,Name}},MetaFile),
+	    ok = ttb_store_meta({pid,{Pid,Name}},MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
 	{trace_ts,_,call,{global,register_name,[Name,Pid]},_} ->
-	    ttb_store_meta({pid,{Pid,{global,Name}}},MetaFile),
+	    ok = ttb_store_meta({pid,{Pid,{global,Name}}},MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
 	{trace_ts,CallingPid,call,{erlang,spawn_opt,[{M,F,Args,_}]},_} ->
 	    MFA = {M,F,length(Args)},
@@ -378,7 +403,7 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
 	    NewAcc = 
 		dict:update(CallingPid,
 			    fun([H|T]) -> 
-				    ttb_store_meta({pid,{NewPid,H}},MetaFile),
+				    ok = ttb_store_meta({pid,{NewPid,H}},MetaFile),
 				    T 
 			    end,
 			    Acc),
@@ -396,22 +421,22 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
 	    NewAcc = 
 		dict:update(CallingPid,
 			    fun([H|T]) -> 
-				    ttb_store_meta({pid,{NewPid,H}},MetaFile),
+				    ok = ttb_store_meta({pid,{NewPid,H}},MetaFile),
 				    T
 			    end,
 			    Acc),
 	    ttb_meta_tracer_loop(MetaFile,PI,NewAcc,State);
 
 	{metadata,Data} when is_list(Data) ->
-	    ttb_store_meta(Data,MetaFile),
+	    ok = ttb_store_meta(Data,MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
 
 	{metadata,Key,Fun} when is_function(Fun) ->
-	    ttb_store_meta([{Key,Fun()}],MetaFile),
+	    ok = ttb_store_meta([{Key,Fun()}],MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
 
 	{metadata,Key,What} ->
-	    ttb_store_meta([{Key,What}],MetaFile),
+	    ok = ttb_store_meta([{Key,What}],MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
         overload_check ->
             {Ms, M, F} = proplists:get_value(overload_check, State),
@@ -427,7 +452,7 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
                     ttb_meta_tracer_loop(MetaFile,PI,Acc, State)
             end;
      {'DOWN', _, _, _, _} ->
-            stop_seq_trace(),
+            _ = stop_seq_trace(),
             self() ! stop,
             ttb_meta_tracer_loop(MetaFile,PI,Acc, State);
      stop when PI=:=true ->
@@ -516,7 +541,7 @@ ttb_store_meta(Data,MetaFile) ->
     ttb_store_meta([Data],MetaFile).
 
 ttb_write_binary(Fd,[H|T]) ->
-    file:write(Fd,ttb_make_binary(H)),
+    ok = file:write(Fd,ttb_make_binary(H)),
     ttb_write_binary(Fd,T);
 ttb_write_binary(_Fd,[]) ->
     ok.
@@ -573,9 +598,9 @@ ttb_fetch(MetaFile,{Port,Host}) ->
 
 send_files({Sock,Host},[File|Files]) ->
     {ok,Fd} = file:open(File,[raw,read,binary]),
-    gen_tcp:send(Sock,<<1,(list_to_binary(filename:basename(File)))/binary>>),
+    ok = gen_tcp:send(Sock,<<1,(list_to_binary(filename:basename(File)))/binary>>),
     send_chunks(Sock,Fd),
-    file:delete(File),
+    ok = file:delete(File),
     send_files({Sock,Host},Files);
 send_files({_Sock,_Host},[]) ->
     done.

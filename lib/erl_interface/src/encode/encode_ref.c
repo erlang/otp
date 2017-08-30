@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -23,6 +24,7 @@
 
 int ei_encode_ref(char *buf, int *index, const erlang_ref *p)
 {
+  const char tag = (p->creation > 3) ? ERL_NEWER_REFERENCE_EXT : ERL_NEW_REFERENCE_EXT;
   char *s = buf + *index;
   int i;
 
@@ -35,7 +37,7 @@ int ei_encode_ref(char *buf, int *index, const erlang_ref *p)
   /* Always encode as an extended reference; all participating parties
      are now expected to be able to decode extended references. */
   if (buf) {
-	  put8(s,ERL_NEW_REFERENCE_EXT);
+	  put8(s, tag);
 
 	  /* first, number of integers */
 	  put16be(s, p->len);
@@ -44,12 +46,15 @@ int ei_encode_ref(char *buf, int *index, const erlang_ref *p)
 	  s = buf + *index;
 
 	  /* now the integers */
-	  put8(s,(p->creation & 0x03));
+          if (tag == ERL_NEW_REFERENCE_EXT)
+              put8(s,(p->creation & 0x03));
+          else
+              put32be(s, p->creation);
 	  for (i = 0; i < p->len; i++)
 	      put32be(s,p->n[i]);
   }
   
-  *index += p->len*4 + 1;  
+  *index += p->len*4 + (tag == ERL_NEW_REFERENCE_EXT ? 1 : 4);
   return 0;
 }
 

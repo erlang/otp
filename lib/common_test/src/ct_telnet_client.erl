@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -32,12 +33,14 @@
 
 -module(ct_telnet_client).
 
--export([open/1, open/2, open/3, open/4, close/1]).
--export([send_data/2, get_data/1]).
+%%-define(debug, true).
+
+-export([open/2, open/3, open/4, open/5, open/6, close/1]).
+-export([send_data/2, send_data/3, get_data/1]).
 
 -define(TELNET_PORT, 23).
 -define(OPEN_TIMEOUT,10000).
--define(IDLE_TIMEOUT,10000).
+-define(IDLE_TIMEOUT,8000).
 
 %% telnet control characters
 -define(SE,	240).
@@ -64,20 +67,26 @@
 -define(TERMINAL_TYPE,     24).  
 -define(WINDOW_SIZE,       31).
 
--record(state,{get_data, keep_alive=true}).
+-record(state,{conn_name, get_data, keep_alive=true, log_pos=1}).
 
-open(Server) ->
-    open(Server, ?TELNET_PORT, ?OPEN_TIMEOUT, true).
+open(Server, ConnName) ->
+    open(Server, ?TELNET_PORT, ?OPEN_TIMEOUT, true, false, ConnName).
 
-open(Server, Port) ->
-    open(Server, Port, ?OPEN_TIMEOUT, true).
+open(Server, Port, ConnName) ->
+    open(Server, Port, ?OPEN_TIMEOUT, true, false, ConnName).
 
-open(Server, Port, Timeout) ->
-    open(Server, Port, Timeout, true).
+open(Server, Port, Timeout, ConnName) ->
+    open(Server, Port, Timeout, true, false, ConnName).
 
-open(Server, Port, Timeout, KeepAlive) ->
+open(Server, Port, Timeout, KeepAlive, ConnName) ->
+    open(Server, Port, Timeout, KeepAlive, false, ConnName).
+
+open(Server, Port, Timeout, KeepAlive, NoDelay, ConnName) ->
     Self = self(),
-    Pid = spawn(fun() -> init(Self, Server, Port, Timeout, KeepAlive) end),
+    Pid = spawn(fun() ->
+			init(Self, Server, Port, Timeout,
+			     KeepAlive, NoDelay, ConnName)
+		end),
     receive 
 	{open,Pid} ->
 	    {ok,Pid};
@@ -86,29 +95,37 @@ open(Server, Port, Timeout, KeepAlive) ->
     end.
 
 close(Pid) ->
-    Pid ! close.
+    Pid ! {close,self()},
+    receive closed -> ok 
+    after 5000 -> ok
+    end.	    
 
 send_data(Pid, Data) ->
-    Pid ! {send_data, Data++"\n"},
+    send_data(Pid, Data, true).
+send_data(Pid, Data, true) ->
+    send_data(Pid, Data++"\n", false);
+send_data(Pid, Data, false) ->
+    Pid ! {send_data, Data},
     ok.
 
 get_data(Pid) ->
-    Pid ! {get_data, self()},
+    Pid ! {get_data,self()},
     receive 
 	{data,Data} ->
-	    {ok, Data}
+	    {ok,Data}
     end.
-
 
 %%%-----------------------------------------------------------------
 %%% Internal functions
-init(Parent, Server, Port, Timeout, KeepAlive) ->
-    case gen_tcp:connect(Server, Port, [list,{packet,0}], Timeout) of
+init(Parent, Server, Port, Timeout, KeepAlive, NoDelay, ConnName) ->
+    case gen_tcp:connect(Server, Port, [list,{packet,0},{nodelay,NoDelay}], Timeout) of
 	{ok,Sock} ->
-	    dbg("Connected to: ~p (port: ~w, keep_alive: ~w)\n", [Server,Port,KeepAlive]),
-	    send([?IAC,?DO,?SUPPRESS_GO_AHEAD], Sock),	      
+	    dbg("~p connected to: ~p (port: ~w, keep_alive: ~w)\n",
+		[ConnName,Server,Port,KeepAlive]),
+	    send([?IAC,?DO,?SUPPRESS_GO_AHEAD], Sock, ConnName),	      
 	    Parent ! {open,self()},
-	    loop(#state{get_data=10, keep_alive=KeepAlive}, Sock, []),
+	    loop(#state{conn_name=ConnName, get_data=10, keep_alive=KeepAlive},
+		 Sock, []),
 	    gen_tcp:close(Sock);
         Error ->
 	    Parent ! {Error,self()}
@@ -118,6 +135,13 @@ loop(State, Sock, Acc) ->
     receive
 	{tcp_closed,_} ->
 	    dbg("Connection closed\n", []),
+	    Data = lists:reverse(lists:append(Acc)),
+	    dbg("Printing queued messages: ~tp",[Data]),
+	    ct_telnet:log(State#state.conn_name,
+			  general_io, "~ts",
+			  [lists:sublist(Data,
+					 State#state.log_pos,
+					 length(Data))]),
 	    receive
 		{get_data,Pid} ->
 		    Pid ! closed
@@ -125,11 +149,11 @@ loop(State, Sock, Acc) ->
 		    ok
 	    end;
 	{tcp,_,Msg0} ->
-	    dbg("tcp msg: ~p~n",[Msg0]),
+	    dbg("rcv tcp msg: ~tp~n",[Msg0]),
 	    Msg = check_msg(Sock,Msg0,[]),
 	    loop(State, Sock, [Msg | Acc]);
 	{send_data,Data} ->
-	    send(Data, Sock),
+	    send(Data, Sock, State#state.conn_name),
 	    loop(State, Sock, Acc);
 	{get_data,Pid} ->
 	    NewState = 
@@ -144,56 +168,111 @@ loop(State, Sock, Acc) ->
 			end;
 		    _ ->
 			Data = lists:reverse(lists:append(Acc)),
-			dbg("get_data ~p\n",[Data]),
+			Len = length(Data),
+			dbg("get_data ~tp\n",[Data]),
+			ct_telnet:log(State#state.conn_name,
+				      general_io, "~ts",
+				      [lists:sublist(Data,
+						     State#state.log_pos,
+						     Len)]),
 			Pid ! {data,Data},
-			State
+			State#state{log_pos = 1}
 		end,
 	    loop(NewState, Sock, []);
 	{get_data_delayed,Pid} ->
 	    NewState =
 		case State of
 		    #state{keep_alive = true, get_data = 0} ->
-			if Acc == [] -> send([?IAC,?NOP], Sock);
+			dbg("sending NOP\n",[]),
+			if Acc == [] -> send([?IAC,?NOP], Sock, 
+					     State#state.conn_name);
 			   true -> ok
 			end,
 			State#state{get_data=10};
 		    _ ->
 			State
 		end,
-	    NewAcc = 
+	    {NewAcc,Pos} = 
 		case erlang:is_process_alive(Pid) of
-		    true ->
+		    true when Acc /= [] ->
 			Data = lists:reverse(lists:append(Acc)),
-			dbg("get_data_delayed ~p\n",[Data]),
+			Len = length(Data),
+			dbg("get_data_delayed ~tp\n",[Data]),
+			ct_telnet:log(State#state.conn_name,
+				      general_io, "~ts",
+				      [lists:sublist(Data,
+						     State#state.log_pos,
+						     Len)]),
 			Pid ! {data,Data},
-			[];
+			{[],1};
+		    true when Acc == [] ->
+			dbg("get_data_delayed nodata\n",[]),
+			Pid ! {data,[]},
+			{[],1};
 		    false ->
-			Acc
+			{Acc,NewState#state.log_pos}
 		end,
-	    loop(NewState, Sock, NewAcc);			       
-	close ->
+	    loop(NewState#state{log_pos=Pos}, Sock, NewAcc);			       
+	{close,Pid} ->
 	    dbg("Closing connection\n", []),
-	    gen_tcp:close(Sock),
-	    ok
-    after wait(State#state.keep_alive,?IDLE_TIMEOUT) ->
-	    if 
-		Acc == [] -> send([?IAC,?NOP], Sock);
-		true -> ok
+	    if Acc == [] ->
+		    ok;
+	       true ->
+		    Data = lists:reverse(lists:append(Acc)),
+		    dbg("Printing queued messages: ~tp",[Data]),
+		    ct_telnet:log(State#state.conn_name,
+				  general_io, "~ts",
+				  [lists:sublist(Data,
+						 State#state.log_pos,
+						 length(Data))])
 	    end,
-	    loop(State, Sock, Acc)
+	    gen_tcp:close(Sock),
+	    Pid ! closed
+    after wait(State#state.keep_alive,?IDLE_TIMEOUT) ->
+	    dbg("idle timeout\n",[]),
+	    Data = lists:reverse(lists:append(Acc)),
+	    case Data of
+		[] ->
+		    dbg("sending NOP\n",[]),
+		    send([?IAC,?NOP], Sock, State#state.conn_name),
+		    loop(State, Sock, Acc);
+		_ when State#state.log_pos == length(Data)+1 ->
+		    loop(State, Sock, Acc);
+		_ ->
+		    dbg("idle timeout, printing ~tp\n",[Data]),
+		    Len = length(Data),
+		    ct_telnet:log(State#state.conn_name,
+				  general_io, "~ts",
+				  [lists:sublist(Data,
+						 State#state.log_pos,
+						 Len)]),
+		    loop(State#state{log_pos = Len+1}, Sock, Acc)
+	    end
     end.
 
 wait(true, Time) -> Time;
 wait(false, _) -> infinity.   
 
-send(Data, Sock) ->
+send(Data, Sock, ConnName) ->
     case Data of
 	[?IAC|_] = Cmd ->
-	    cmd_dbg(Cmd);
+	    cmd_dbg("Sending",Cmd),
+	    try io_lib:format("[~w] ~w", [?MODULE,Data]) of
+		Str ->
+		    ct_telnet:log(ConnName, general_io, Str, [])
+	    catch
+		_:_ -> ok
+	    end;
 	_ ->
-	    dbg("Sending: ~p\n", [Data])
+	    dbg("Sending: ~tp\n", [Data]),
+	    try io_lib:format("[~w] ~ts", [?MODULE,Data]) of
+		Str ->
+		    ct_telnet:log(ConnName, general_io, Str, [])
+	    catch
+		_:_ -> ok
+	    end
     end,
-    gen_tcp:send(Sock, Data),
+    ok = gen_tcp:send(Sock, Data),
     ok.
 
 %% [IAC,IAC] = buffer data value 255
@@ -204,9 +283,8 @@ check_msg(Sock, [?IAC,?IAC | T], Acc) ->
 check_msg(Sock, [?IAC | Cs], Acc) ->
     case get_cmd(Cs) of
 	{Cmd,Cs1} ->
-	    dbg("Got ", []), 
-	    cmd_dbg(Cmd),
-	    respond_cmd(Cmd, Sock),
+	    cmd_dbg("Got",Cmd),
+	    ok = respond_cmd(Cmd, Sock),
 	    check_msg(Sock, Cs1, Acc); 
 	error ->
 	    Acc
@@ -224,12 +302,12 @@ check_msg(_Sock, [], Acc) ->
 
 respond_cmd([?WILL,?ECHO], Sock) ->
     R = [?IAC,?DO,?ECHO],
-    cmd_dbg(R),
+    cmd_dbg("Responding",R),
     gen_tcp:send(Sock, R);
 
 respond_cmd([?DO,?ECHO], Sock) ->
     R = [?IAC,?WILL,?ECHO],
-    cmd_dbg(R),
+    cmd_dbg("Responding",R),
     gen_tcp:send(Sock, R);
 
 %% Answers from server
@@ -249,12 +327,12 @@ respond_cmd([?WONT | _Opt], _Sock) ->		% server ack?
 
 respond_cmd([?WILL,Opt], Sock) ->
     R = [?IAC,?DONT,Opt],
-    cmd_dbg(R),
+    cmd_dbg("Responding",R),
     gen_tcp:send(Sock, R);
 
 respond_cmd([?DO | Opt], Sock) ->
     R = [?IAC,?WONT | Opt],
-    cmd_dbg(R),
+    cmd_dbg("Responding",R),
     gen_tcp:send(Sock, R);
 
 %% Commands without options (which we ignore)
@@ -290,13 +368,14 @@ get_subcmd([Opt | Rest], Acc) ->
     get_subcmd(Rest, [Opt | Acc]).
 
 -ifdef(debug).
-dbg(_Str,_Args) ->
-    io:format(_Str,_Args).
+dbg(Str,Args) ->
+    TS = timestamp(),
+    io:format("[~p ct_telnet_client, ~s]\n" ++ Str,[self(),TS|Args]).
 
-cmd_dbg(_Cmd) ->
-    case _Cmd of
+cmd_dbg(Prefix,Cmd) ->
+    case Cmd of
 	[?IAC|Cmd1] ->
-	    cmd_dbg(Cmd1);
+	    cmd_dbg(Prefix,Cmd1);
 	[Ctrl|Opts] ->
 	    CtrlStr =
 		case Ctrl of
@@ -312,15 +391,23 @@ cmd_dbg(_Cmd) ->
 		    [Opt] -> Opt;
 		    _ -> Opts
 		end,
-	    io:format("~ts(~w): ~w\n", [CtrlStr,Ctrl,Opts1]);
+	    dbg("~ts: ~ts(~w): ~w\n", [Prefix,CtrlStr,Ctrl,Opts1]);
 	Any  ->
-	    io:format("Unexpected in cmd_dbg:~n~w~n",[Any])
+	    dbg("Unexpected in cmd_dbg:~n~w~n",[Any])
     end.
 
+timestamp() ->
+    {MS,S,US} = os:timestamp(),
+    {{Year,Month,Day}, {Hour,Min,Sec}} =
+        calendar:now_to_local_time({MS,S,US}),
+    MilliSec = trunc(US/1000),
+    lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0B "
+                                "~2.10.0B:~2.10.0B:~2.10.0B.~3.10.0B",
+                                [Year,Month,Day,Hour,Min,Sec,MilliSec])).
 -else.
 dbg(_Str,_Args) ->
     ok.
 
-cmd_dbg(_Cmd) ->
+cmd_dbg(_Prefix,_Cmd) ->
     ok.
 -endif.

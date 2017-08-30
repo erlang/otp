@@ -1,14 +1,14 @@
-%% -*- coding: utf-8 -*-
-%% ``The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved via the world wide web at http://www.erlang.org/.
+%% ``Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
@@ -123,7 +123,7 @@ format_error(Other) -> io_lib:write(Other).
 
 string_thing($') -> "atom";
 string_thing($") -> "string".
-
+
 %% Re-entrant pre-scanner.
 %%
 %% If the input list of characters is insufficient to build a term the
@@ -241,7 +241,7 @@ pre_comment(eof, Sofar, Pos) ->
 
 pre_error(E, Epos, Pos) ->
     {error,{Epos,core_scan,E}, Pos}.
-
+
 %% scan(CharList, StartPos)
 %%  This takes a list of characters and tries to tokenise them.
 %%

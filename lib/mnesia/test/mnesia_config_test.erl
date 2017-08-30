@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -37,7 +38,6 @@
 	
 	 dump_log_update_in_place/1,
 	 event_module/1,
-	 ignore_fallback_at_startup/1,
 	 inconsistent_database/1,
 	 max_wait_for_decision/1,
 	 send_compressed/1,
@@ -104,7 +104,7 @@ all() ->
     [access_module, auto_repair, backup_module, debug, dir,
      dump_log_load_regulation, {group, dump_log_thresholds},
      dump_log_update_in_place,
-     event_module, ignore_fallback_at_startup,
+     event_module,
      inconsistent_database, max_wait_for_decision,
      send_compressed, app_test, {group, schema_config},
      unknown_config].
@@ -317,11 +317,17 @@ backup_module(Config) when is_list(Config) ->
     ?match([], mnesia_test_lib:start_mnesia(Nodes, [test_table, test_table2])),
 
     %% Now check newly started tables
-    ?match({atomic, [1,2]}, 
+    ?match({atomic, [1,2]},
 	   mnesia:transaction(fun() -> lists:sort(mnesia:all_keys(test_table)) end)),
-    ?match({atomic, [3,4]}, 
+    ?match({atomic, [3,4]},
 	   mnesia:transaction(fun() -> lists:sort(mnesia:all_keys(test_table2)) end)),
-    
+
+    %% Test some error cases
+    mnesia:set_debug_level(debug),
+    ?match({error, _}, mnesia:install_fallback("NonExisting.FILE")),
+    ?match({error, _}, mnesia:install_fallback(filename:join(mnesia_lib:dir(), "LATEST.LOG"))),
+
+    %% Cleanup
     file:delete(File),
     ?verify_mnesia(Nodes, []),
     ?cleanup(1, Config),
@@ -609,13 +615,6 @@ dump_log_load_regulation(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-ignore_fallback_at_startup(doc) ->
-    ["Start Mnesia without rollback of the database to the fallback. ",
-     "Once Mnesia has been (re)started the installed fallback should",
-     "be handled as a normal active fallback.",
-     "Install a customized event module which disables the termination",
-     "of Mnesia when mnesia_down occurrs with an active fallback."].
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 max_wait_for_decision(doc) ->
@@ -639,10 +638,10 @@ send_compressed(Config) ->
 	     end,
     
     ?match([], mnesia_test_lib:kill_mnesia([N2])),
-    
+    sys:get_status(mnesia_monitor), %% sync N1
     ?match([], mnesia_test_lib:kill_mnesia([N1])),
     ?match(ok, mnesia:start([{send_compressed, 9}])),
-    ?match(ok, mnesia:wait_for_tables([t0,t1,t2], 5000)),
+    ?match(ok, mnesia:wait_for_tables([t0,t1,t2], 25000)),
 
     ?match({atomic, ok}, mnesia:transaction(Create, [t0])),
     ?match({atomic, ok}, mnesia:transaction(Create, [t1])),
@@ -694,9 +693,9 @@ event_module(Config) when is_list(Config) ->
 	  end,
 
     ?match({[ok, ok], []}, rpc:multicall(Nodes, mnesia, start, [Def])),
-    receive after 1000 -> ok end,
+    receive after 2000 -> ok end,
     mnesia_event ! {get_log, self()},
-    DebugLog1 = receive 
+    DebugLog1 = receive
 		    {log, L1} -> L1
 		after 10000 -> [timeout]
 		end,
@@ -707,9 +706,9 @@ event_module(Config) when is_list(Config) ->
 
     ?match({[ok], []}, rpc:multicall([N2], mnesia, start, [])),
 
-    receive after 1000 -> ok end,
+    receive after 2000 -> ok end,
     mnesia_event ! {get_log, self()},
-    DebugLog = receive 
+    DebugLog = receive
 		   {log, L} -> L
 	       after 10000 -> [timeout]
 	       end,
@@ -1101,8 +1100,8 @@ dynamic_basic(Config) when is_list(Config) ->
 
     ?match(ok, mnesia:dirty_write({tab1, 1, 1})),
     ?match(ok, mnesia:dirty_write({tab2, 1, 1})),
-   
-    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes, [N1]}]])),
+
+    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes, [N1]}, {schema, ?BACKEND}]])),
     ?match(ok, rpc:call(N2, mnesia, wait_for_tables, [[tab1,tab2],5000])),
     io:format("Here ~p ~n",[?LINE]), 
     check_storage(N2, N1, [N3]),
@@ -1113,7 +1112,7 @@ dynamic_basic(Config) when is_list(Config) ->
     ?match(ok, mnesia:delete_schema([N3])),
     
     io:format("T1 ~p ~n",[rpc:call(N3,?MODULE,c_nodes,[])]),
-    ?match(ok, rpc:call(N3, mnesia, start, [])),
+    ?match(ok, rpc:call(N3, mnesia, start, [[{schema, ?BACKEND}]])),
     io:format("T2 ~p ~n",[rpc:call(N3,?MODULE,c_nodes,[])]),
     timer:sleep(2000),
     io:format("T3 ~p ~n",[rpc:call(N3,?MODULE,c_nodes,[])]),
@@ -1128,7 +1127,7 @@ dynamic_basic(Config) when is_list(Config) ->
     ?match([], mnesia_test_lib:kill_mnesia([N3])),
     ?match(ok, mnesia:delete_schema([N3])),
     
-    ?match(ok, rpc:call(N3, mnesia, start, [])),
+    ?match(ok, rpc:call(N3, mnesia, start, [[{schema, ?BACKEND}]])),
     ?match({ok, [N3]}, sort(?rpc_connect(N1, [N3]))),
     ?match(ok, rpc:call(N3, mnesia, wait_for_tables, [[tab1,tab2],5000])),
     io:format("Here ~p ~n",[?LINE]), 
@@ -1144,7 +1143,7 @@ dynamic_basic(Config) when is_list(Config) ->
     % mnesia should come up now.
     ?match({atomic, ok}, mnesia:add_table_copy(tab1, N2, ram_copies)),
 
-    ?match(ok, rpc:call(N2, mnesia, start, [])),
+    ?match(ok, rpc:call(N2, mnesia, start, [[{schema, ?BACKEND}]])),
     ?match({ok, _}, sort(?rpc_connect(N2, [N3]))),
     
     ?match(SNs, sort(rpc:call(N1, mnesia, system_info, [running_db_nodes]))),
@@ -1158,11 +1157,12 @@ dynamic_basic(Config) when is_list(Config) ->
 
     %%% SYNC!!!
     timer:sleep(1000),
+    sys:get_status(mnesia_monitor),
 
     ?match([N3,N1], sort(rpc:call(N1, mnesia, system_info, [running_db_nodes]))),
     ?match([N3,N1], sort(rpc:call(N3, mnesia, system_info, [running_db_nodes]))),
     
-    ?match(ok, rpc:call(N2, mnesia, start, [])),
+    ?match(ok, rpc:call(N2, mnesia, start, [[{schema, ?BACKEND}]])),
     ?match({ok, _}, sort(?rpc_connect(N3, [N2]))),
     
     ?match(SNs, sort(rpc:call(N1, mnesia, system_info, [running_db_nodes]))),
@@ -1192,7 +1192,7 @@ dynamic_ext(Config) when is_list(Config) ->
     
     mnesia_test_lib:kill_mnesia([N2]),
     ?match(ok, mnesia:delete_schema([N2])),
-    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes, [N1]}]])),
+    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes, [N1]}, {schema, ?BACKEND}]])),
     
     ?match(SNs, sort(rpc:call(N1, mnesia, system_info, [running_db_nodes]))),
     ?match(SNs, sort(rpc:call(N2, mnesia, system_info, [running_db_nodes]))),
@@ -1206,14 +1206,14 @@ dynamic_ext(Config) when is_list(Config) ->
 	    end,
     [Check(Test) || Test <- [{tab1, ram_copies},{tab2, disc_copies},{tab3, disc_only_copies}]],
     
-    T = now(),
+    T = erlang:unique_integer(),
     ?match(ok, mnesia:dirty_write({tab0, 42, T})),
     ?match(ok, mnesia:dirty_write({tab1, 42, T})),
     ?match(ok, mnesia:dirty_write({tab2, 42, T})),
     ?match(ok, mnesia:dirty_write({tab3, 42, T})),
     
     ?match(stopped, rpc:call(N2, mnesia, stop, [])),
-    ?match(ok, rpc:call(N2, mnesia, start, [])),
+    ?match(ok, rpc:call(N2, mnesia, start, [[{schema, ?BACKEND}]])),
     ?match(SNs, sort(rpc:call(N2, mnesia, system_info, [running_db_nodes]))),
     ?match(ok, mnesia:wait_for_tables([tab0,tab1,tab2,tab3], 10000)),
     ?match(ok, rpc:call(N2, mnesia, wait_for_tables, [[tab1,tab2,tab3], 100])),
@@ -1226,7 +1226,7 @@ dynamic_ext(Config) when is_list(Config) ->
 
     ?match(stopped, rpc:call(N1, mnesia, stop, [])),
 
-    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes,[N1,N2]}]])),
+    ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes,[N1,N2]}, {schema, ?BACKEND}]])),
     ?match({timeout,[tab0]}, rpc:call(N2, mnesia, wait_for_tables, [[tab0], 500])),
 
     ?match(ok, rpc:call(N1, mnesia, start, [[{extra_db_nodes, [N1,N2]}]])),
@@ -1238,7 +1238,7 @@ dynamic_ext(Config) when is_list(Config) ->
     ?match(stopped, rpc:call(N1, mnesia, stop, [])),
     mnesia_test_lib:kill_mnesia([N2]),
     ?match(ok, mnesia:delete_schema([N2])),
-    ?match(ok, rpc:call(N1, mnesia, start, [[{extra_db_nodes, [N1,N2]}]])),   
+    ?match(ok, rpc:call(N1, mnesia, start, [[{extra_db_nodes, [N1,N2]}, {schema, ?BACKEND}]])),
     ?match({timeout,[tab0]}, rpc:call(N1, mnesia, wait_for_tables, [[tab0], 500])),
 
     ?match(ok, rpc:call(N2, mnesia, start, [[{extra_db_nodes,[N1,N2]}]])),
@@ -1284,7 +1284,7 @@ check_storage(Me, Orig, Other) ->
     
     mnesia_test_lib:kill_mnesia([Orig]),
     mnesia_test_lib:kill_mnesia(Other),
-    T = now(),
+    T = erlang:unique_integer(),
     ?match(ok, rpc:call(Me, mnesia, dirty_write, [{tab2, 42, T}])),
     ?match(stopped, rpc:call(Me, mnesia, stop, [])),
     ?match(ok, rpc:call(Me, mnesia, start, [])),   

@@ -1,4 +1,4 @@
-{module, t}.  %% version = 0
+{module, bad_dsetel}.  %% version = 0
 
 {exports, [{module_info,0},{module_info,1},{t,1}]}.
 
@@ -21,7 +21,9 @@
     {move,{integer,3},{x,0}}.
     {call_ext,3,{extfunc,erlang,setelement,3}}.
     {test_heap,6,1}.
-    {put_string,3,{string,"abc"},{x,1}}.
+    {put_list,{integer,99},nil,{x,1}}.
+    {put_list,{integer,98},{x,1},{x,1}}.
+    {put_list,{integer,97},{x,1},{x,1}}.
     {set_tuple_element,{x,1},{x,0},1}.
     {'%live',1}.
     {deallocate,0}.

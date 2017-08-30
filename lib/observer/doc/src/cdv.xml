@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>2003</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>The cdv program</title>
+    <prepared>Siri Hansen</prepared>
+    <responsible>Siri Hansen</responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2013-10-015</date>
+    <rev>PA1</rev>
+    <file>cdv.xml</file>
+  </header>
+  <com>cdv</com>
+  <comsummary>Script to start the Crashdump Viewer from the
+  OS command line.
+  </comsummary>
+
+  <description>
+    <p>The <c>cdv</c> shell script is located in directory <c>priv</c>
+     of the Observer application. The script is used
+    for starting the Crashdump Viewer tool from the OS command
+    line.</p>
+    <p>For Windows users, <c>cdv.bat</c> is found in the same
+    location.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name>cdv [file]</name>
+      <fsummary>Start the Crashdump Viewer and load the given file.</fsummary>
+      <desc>
+	<p>Argument <c>file</c> is optional. If not specified, a file
+	dialog is displayed, allowing you to select a crashdump
+	from the file system.</p>
+      </desc>
+    </func>
+  </funcs>
+
+</comref>

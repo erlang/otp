@@ -39,5 +39,6 @@
   {registered, [cosTransactions_sup, oe_cosTransactionsFactory]},
   {applications, [orber, stdlib, kernel]},
   {env, []},
-  {mod, {cosTransactions, []}}
+  {mod, {cosTransactions, []}},
+  {runtime_dependencies, ["stdlib-2.0","orber-3.6.27","kernel-3.0","erts-7.0"]}
 ]}.

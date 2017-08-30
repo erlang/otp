@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -480,7 +481,7 @@ events(Test) when Test == dir1 ; Test == dir2 ;
       {Suite,tc4,{skipped,"Skipping this one"}}},
      {?eh,test_stats,{7,0,{1,0}}},
      {?eh,tc_start,{Suite,end_per_suite}},
-     {?eh,tc_done,{Suite,end_per_suite,ips_data}},
+     {?eh,tc_done,{Suite,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -517,7 +518,7 @@ events(Test) when Test == dir1_2 ; Test == suite11_21 ->
       {happy_11_SUITE,tc4,{skipped,"Skipping this one"}}},
      {?eh,test_stats,{7,0,{1,0}}},
      {?eh,tc_start,{happy_11_SUITE,end_per_suite}},
-     {?eh,tc_done,{happy_11_SUITE,end_per_suite,ips_data}},
+     {?eh,tc_done,{happy_11_SUITE,end_per_suite,ok}},
      {?eh,tc_start,{happy_21_SUITE,init_per_suite}},
      {?eh,tc_done,{happy_21_SUITE,init_per_suite,ok}},
      {?eh,tc_start,{happy_21_SUITE,tc1}},
@@ -546,7 +547,7 @@ events(Test) when Test == dir1_2 ; Test == suite11_21 ->
       {happy_21_SUITE,tc4,{skipped,"Skipping this one"}}},
      {?eh,test_stats,{14,0,{2,0}}},
      {?eh,tc_start,{happy_21_SUITE,end_per_suite}},
-     {?eh,tc_done,{happy_21_SUITE,end_per_suite,ips_data}},
+     {?eh,tc_done,{happy_21_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -563,7 +564,7 @@ events(Test) when Test == tc111 ; Test == tc211 ->
      {?eh,tc_done,{Suite,tc1,ok}},
      {?eh,test_stats,{1,0,{0,0}}},
      {?eh,tc_start,{Suite,end_per_suite}},
-     {?eh,tc_done,{Suite,end_per_suite,ips_data}},
+     {?eh,tc_done,{Suite,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -582,7 +583,7 @@ events(tc111_112) ->
      {?eh,tc_done,{happy_11_SUITE,tc2,ok}},
      {?eh,test_stats,{2,0,{0,0}}},
      {?eh,tc_start,{happy_11_SUITE,end_per_suite}},
-     {?eh,tc_done,{happy_11_SUITE,end_per_suite,ips_data}},
+     {?eh,tc_done,{happy_11_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ].

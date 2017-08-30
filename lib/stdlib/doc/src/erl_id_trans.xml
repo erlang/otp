@@ -1,24 +1,25 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
       <year>1996</year>
-      <year>2011</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
-  The contents of this file are subject to the Erlang Public License,
-  Version 1.1, (the "License"); you may not use this file except in
-  compliance with the License. You should have received a copy of the
-  Erlang Public License along with this software. If not, it can be
-  retrieved online at http://www.erlang.org/.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
 
-  Software distributed under the License is distributed on an "AS IS"
-  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-  the License for the specific language governing rights and limitations
-  under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
@@ -29,30 +30,32 @@
     <docno>1</docno>
     <approved>Bjarne D&auml;cker</approved>
     <checked></checked>
-    <date>97-01-21</date>
+    <date>1997-01-21</date>
     <rev>B</rev>
-    <file>erl_id_trans.sgml</file>
+    <file>erl_id_trans.xml</file>
   </header>
   <module>erl_id_trans</module>
-  <modulesummary>An Identity Parse Transform</modulesummary>
+  <modulesummary>An identity parse transform.</modulesummary>
   <description>
     <p>This module performs an identity parse transformation of Erlang code.
-      It is included as an example for users who may wish to write their own
-      parse transformers. If the option <c>{parse_transform,Module}</c> is passed
-      to the compiler, a user written function <c>parse_transform/2</c>
-      is called by the compiler before the code is checked for
-      errors.</p>
+      It is included as an example for users who wants to write their own
+      parse transformers. If option <c>{parse_transform,Module}</c> is passed
+      to the compiler, a user-written function <c>parse_transform/2</c>
+      is called by the compiler before the code is checked for errors.</p>
   </description>
+
   <funcs>
     <func>
       <name>parse_transform(Forms, Options) -> Forms</name>
-      <fsummary>Transform Erlang forms</fsummary>
+      <fsummary>Transform Erlang forms.</fsummary>
       <type>
-        <v>Forms = [<seealso marker="erl_parse#type-abstract_form">erl_parse:abstract_form()</seealso>]</v>
+        <v>Forms = [<seealso marker="erl_parse#type-abstract_form">erl_parse:abstract_form()</seealso>
+          | <seealso marker="erl_parse#type-form_info">erl_parse:form_info()</seealso>]</v>
         <v>Options = [<seealso marker="compile#type-option">compile:option()</seealso>]</v>
       </type>
       <desc>
-        <p>Performs an identity transformation on Erlang forms, as an example.</p>
+        <p>Performs an identity transformation on Erlang forms, as an example.
+        </p>
       </desc>
     </func>
   </funcs>
@@ -61,17 +64,17 @@
     <title>Parse Transformations</title>
     <p>Parse transformations are used if a programmer wants to use
       Erlang syntax, but with different semantics. The original Erlang
-      code is then transformed into other Erlang code.
-      </p>
+      code is then transformed into other Erlang code.</p>
     <note>
-      <p>Programmers are strongly advised not to engage in parse transformations and no support is offered for problems encountered.</p>
+      <p>Programmers are strongly advised not to engage in parse
+        transformations. No support is offered for problems encountered.</p>
     </note>
   </section>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erl_parse">erl_parse(3)</seealso>,
-    <seealso marker="compiler:compile">compile(3)</seealso>.</p>
+    <p><seealso marker="erl_parse"><c>erl_parse(3)</c></seealso>,
+      <seealso marker="compiler:compile"><c>compile(3)</c></seealso></p>
   </section>
 </erlref>
 

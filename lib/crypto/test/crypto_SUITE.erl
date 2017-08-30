@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -30,6 +31,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app,
+     appup,
      {group, md4},
      {group, md5},
      {group, ripemd160},
@@ -54,11 +56,17 @@ all() ->
      {group, blowfish_cfb64},
      {group, blowfish_ofb64},
      {group, aes_cbc128},
+     {group, aes_cfb8},
      {group, aes_cfb128},
      {group, aes_cbc256},
+     {group, aes_ecb},
+     {group, aes_ige256},
      {group, rc2_cbc},
      {group, rc4}, 
      {group, aes_ctr},
+     {group, aes_gcm},
+     {group, chacha20_poly1305},
+     {group, aes_cbc},
      mod_pow,
      exor,
      rand_uniform
@@ -79,7 +87,7 @@ groups() ->
      {dss, [], [sign_verify]},
      {ecdsa, [], [sign_verify]},
      {dh, [], [generate_compute]},
-     {ecdh, [], [compute]},
+     {ecdh, [], [compute, generate]},
      {srp, [], [generate_compute]},
      {des_cbc, [], [block]},
      {des_cfb, [], [block]},
@@ -88,21 +96,41 @@ groups() ->
      {des3_cbf,[], [block]},
      {rc2_cbc,[], [block]},
      {aes_cbc128,[], [block]},
+     {aes_cfb8,[], [block]},
      {aes_cfb128,[], [block]},
      {aes_cbc256,[], [block]},
+     {aes_ecb,[], [block]},
+     {aes_ige256,[], [block]},
      {blowfish_cbc, [], [block]},
      {blowfish_ecb, [], [block]},
      {blowfish_cfb64, [], [block]},
      {blowfish_ofb64,[], [block]},
      {rc4, [], [stream]}, 
-     {aes_ctr, [], [stream]}
+     {aes_ctr, [], [stream]},
+     {aes_gcm, [], [aead]},
+     {chacha20_poly1305, [], [aead]},
+     {aes_cbc, [], [block]}
     ].
 
 %%-------------------------------------------------------------------
 init_per_suite(Config) ->
     try crypto:start() of
 	ok ->
-	    Config
+	    try crypto:strong_rand_bytes(1) of
+		_ ->
+		    Config
+	    catch error:low_entropy ->
+                    %% We are testing on an OS with low entropy in its random
+                    %% seed. So we have to seed it with a binary to get started.
+
+		    %% This is NOT how you want to do seeding, it is just here
+		    %% to make the tests pass. Check your OS manual for how you
+		    %% really want to seed.
+		    {H,M,L} = erlang:now(),
+		    Bin = <<H:24,M:20,L:20>>,
+		    crypto:rand_seed(<< <<Bin/binary>> || _ <- lists:seq(1,16) >>),
+		    Config
+	    end
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -140,10 +168,16 @@ app() ->
 app(Config) when is_list(Config) ->
     ok = ?t:app_test(crypto).
 %%--------------------------------------------------------------------
+appup() ->
+    [{doc, "Test that the crypto appup file is ok"}].
+appup(Config) when is_list(Config) ->
+    ok = ?t:appup_test(crypto).
+%%--------------------------------------------------------------------
 hash() ->
     [{doc, "Test all different hash functions"}].
 hash(Config) when is_list(Config) ->
-    {Type, Msgs, Digests} = proplists:get_value(hash, Config),
+    {Type, MsgsLE, Digests} = proplists:get_value(hash, Config),
+    Msgs = lazy_eval(MsgsLE),
     [LongMsg | _] = lists:reverse(Msgs),
     Inc = iolistify(LongMsg),
     [IncrDigest | _] = lists:reverse(Digests),
@@ -154,7 +188,8 @@ hash(Config) when is_list(Config) ->
 hmac() ->
      [{doc, "Test all different hmac functions"}].
 hmac(Config) when is_list(Config) ->
-    {Type, Keys, Data, Expected} = proplists:get_value(hmac, Config),
+    {Type, Keys, DataLE, Expected} = proplists:get_value(hmac, Config),
+    Data = lazy_eval(DataLE),
     hmac(Type, Keys, Data, Expected),
     hmac(Type, lists:map(fun iolistify/1, Keys), lists:map(fun iolistify/1, Data), Expected),
     hmac_increment(Type).
@@ -171,10 +206,19 @@ block(Config) when is_list(Config) ->
 stream() ->
       [{doc, "Test stream ciphers"}].
 stream(Config) when is_list(Config) ->
-    Streams = proplists:get_value(stream, Config),
+    Streams = lazy_eval(proplists:get_value(stream, Config)),
+
     lists:foreach(fun stream_cipher/1, Streams),
     lists:foreach(fun stream_cipher/1, stream_iolistify(Streams)),
     lists:foreach(fun stream_cipher_incment/1, stream_iolistify(Streams)).
+
+%%--------------------------------------------------------------------
+aead() ->
+      [{doc, "Test AEAD ciphers"}].
+aead(Config) when is_list(Config) ->
+    AEADs = lazy_eval(proplists:get_value(aead, Config)),
+
+    lists:foreach(fun aead_cipher/1, AEADs).
 
 %%-------------------------------------------------------------------- 
 sign_verify() ->
@@ -204,6 +248,12 @@ compute(Config) when is_list(Config) ->
     Gen = proplists:get_value(compute, Config),
     lists:foreach(fun do_compute/1, Gen).
 %%--------------------------------------------------------------------
+generate() ->
+     [{doc, " Test crypto:generate_key"}].
+generate(Config) when is_list(Config) ->
+    Gen = proplists:get_value(generate, Config),
+    lists:foreach(fun do_generate/1, Gen).
+%%--------------------------------------------------------------------
 mod_pow() ->
     [{doc, "mod_pow testing (A ^ M % P with bignums)"}].
 mod_pow(Config) when is_list(Config) ->
@@ -219,7 +269,6 @@ rand_uniform() ->
     [{doc, "rand_uniform and random_bytes testing"}].
 rand_uniform(Config) when is_list(Config) ->
     rand_uniform_aux_test(10),
-    10 = byte_size(crypto:rand_bytes(10)),
     10 = byte_size(crypto:strong_rand_bytes(10)).
 
 %%--------------------------------------------------------------------
@@ -315,6 +364,21 @@ block_cipher({Type, Key,  IV, PlainText}) ->
 	    ok;
 	Other ->
 	    ct:fail({{crypto, block_decrypt, [Type, Key, IV, CipherText]}, {expected, Plain}, {got, Other}})
+    end;
+
+block_cipher({Type, Key, IV, PlainText, CipherText}) ->
+    Plain = iolist_to_binary(PlainText),
+    case crypto:block_encrypt(Type, Key, IV, Plain) of
+	CipherText ->
+	    ok;
+	Other0 ->
+	    ct:fail({{crypto, block_encrypt, [Type, Key, IV, Plain]}, {expected, CipherText}, {got, Other0}})
+    end,
+    case crypto:block_decrypt(Type, Key, IV, CipherText) of
+	Plain ->
+	    ok;
+	Other1 ->
+	    ct:fail({{crypto, block_decrypt, [Type, Key, IV, CipherText]}, {expected, Plain}, {got, Other1}})
     end.
 
 block_cipher_increment({Type, Key, IV, PlainTexts}) when Type == des_cbc;
@@ -322,7 +386,11 @@ block_cipher_increment({Type, Key, IV, PlainTexts}) when Type == des_cbc;
 							 Type == aes_cbc; 
 							 Type == des_cbf
 							 ->
-     block_cipher_increment(Type, Key, IV, IV, PlainTexts, iolist_to_binary(PlainTexts), []);
+    block_cipher_increment(Type, Key, IV, IV, PlainTexts, iolist_to_binary(PlainTexts), []);
+block_cipher_increment({Type, Key, IV, PlainTexts, _CipherText}) when Type == aes_cbc ->
+    Plain = iolist_to_binary(PlainTexts),
+    Blocks = [iolistify(Block) || << Block:128/bitstring >> <= Plain],
+    block_cipher_increment(Type, Key, IV, IV, Blocks, Plain, []);
 block_cipher_increment({_Type, _, _, _}) ->
     ok;
 block_cipher_increment({_,_,_}) ->
@@ -379,7 +447,37 @@ stream_cipher_incment(_State, OrigState, [], Acc, Plain) ->
 stream_cipher_incment(State0, OrigState, [PlainText | PlainTexts], Acc, Plain) ->
     {State, CipherText} = crypto:stream_encrypt(State0, PlainText),
     stream_cipher_incment(State, OrigState, PlainTexts, [CipherText | Acc], Plain).
-	
+
+aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag}) ->
+    Plain = iolist_to_binary(PlainText),
+    case crypto:block_encrypt(Type, Key, IV, {AAD, Plain}) of
+	{CipherText, CipherTag} ->
+	    ok;
+	Other0 ->
+	    ct:fail({{crypto, block_encrypt, [Plain, PlainText]}, {expected, {CipherText, CipherTag}}, {got, Other0}})
+    end,
+    case crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, CipherTag}) of
+	Plain ->
+	    ok;
+	Other1 ->
+	    ct:fail({{crypto, block_decrypt, [CipherText]}, {expected, Plain}, {got, Other1}})
+    end;
+aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen}) ->
+    <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
+    Plain = iolist_to_binary(PlainText),
+    case crypto:block_encrypt(Type, Key, IV, {AAD, Plain, TagLen}) of
+	{CipherText, TruncatedCipherTag} ->
+	    ok;
+	Other0 ->
+	    ct:fail({{crypto, block_encrypt, [Plain, PlainText]}, {expected, {CipherText, TruncatedCipherTag}}, {got, Other0}})
+    end,
+    case crypto:block_decrypt(Type, Key, IV, {AAD, CipherText, TruncatedCipherTag}) of
+	Plain ->
+	    ok;
+	Other1 ->
+	    ct:fail({{crypto, block_decrypt, [CipherText]}, {expected, Plain}, {got, Other1}})
+    end.
+
 do_sign_verify({Type, Hash, Public, Private, Msg}) ->
     Signature = crypto:sign(Type, Hash, Msg, Private),
     case crypto:verify(Type, Hash, Msg, Signature, Public) of
@@ -432,13 +530,24 @@ do_generate_compute({dh, P, G}) ->
     SharedSecret = crypto:compute_key(dh, UserPub, HostPriv, [P, G]).
     
 do_compute({ecdh = Type, Pub, Priv, Curve, SharedSecret}) ->
-    Secret = crypto:bytes_to_integer(crypto:compute_key(Type, Pub, Priv, Curve)),
+    Secret = crypto:compute_key(Type, Pub, Priv, Curve),
      case Secret of
 	 SharedSecret ->
 	     ok;
 	 Other ->
 	     ct:fail({{crypto, compute_key, [Type, Pub, Priv, Curve]}, {expected, SharedSecret}, {got, Other}})
      end.
+
+do_generate({ecdh = Type, Curve, Priv, Pub}) ->
+    case crypto:generate_key(Type, Curve, Priv) of
+	{Pub, _} ->
+	    ok;
+	{Other, _} ->
+	    ct:fail({{crypto, generate_key, [Type, Priv, Curve]}, {expected, Pub}, {got, Other}})
+    end.
+
+hexstr2point(X, Y) ->
+    <<4:8, (hexstr2bin(X))/binary, (hexstr2bin(Y))/binary>>.
 
 hexstr2bin(S) ->
     list_to_binary(hexstr2list(S)).
@@ -478,7 +587,9 @@ do_block_iolistify({des_ede3 = Type, Key, IV, PlainText}) ->
 do_block_iolistify({Type, Key, PlainText}) ->
     {Type, iolistify(Key), iolistify(PlainText)};
 do_block_iolistify({Type, Key, IV, PlainText}) ->
-    {Type, iolistify(Key), IV, iolistify(PlainText)}.
+    {Type, iolistify(Key), IV, iolistify(PlainText)};
+do_block_iolistify({Type, Key, IV, PlainText, CipherText}) ->
+    {Type, iolistify(Key), IV, iolistify(PlainText), CipherText}.
 
 iolistify(<<"Test With Truncation">>)->
     %% Do not iolistify as it spoils this special case
@@ -537,8 +648,8 @@ ipow(A, B, M, Prod)  ->
 do_exor(B) ->
     Z1 = zero_bin(B),
     Z1 = crypto:exor(B, B),
-    B1 = crypto:rand_bytes(100),
-    B2 = crypto:rand_bytes(100),
+    B1 = crypto:strong_rand_bytes(100),
+    B2 = crypto:strong_rand_bytes(100),
     Z2 = zero_bin(B1),
     Z2 = crypto:exor(B1, B1),
     Z2 = crypto:exor(B2, B2),
@@ -660,11 +771,12 @@ group_config(ecdsa = Type, Config) ->
     SignVerify = [{Type, sha, Public, Private, Msg}],
     [{sign_verify, SignVerify} | Config];
 group_config(srp, Config) ->
-    GenerateCompute = [srp3(), srp6(), srp6a()],
+    GenerateCompute = [srp3(), srp6(), srp6a(), srp6a_smaller_prime()],
     [{generate_compute, GenerateCompute} | Config];
 group_config(ecdh, Config) ->
-    Compute = [ecdh()],
-    [{compute, Compute} | Config];
+    Compute = ecdh(),
+    Generate = ecc(),
+    [{compute, Compute}, {generate, Generate} | Config];
 group_config(dh, Config) ->
     GenerateCompute = [dh()],
     [{generate_compute, GenerateCompute} | Config];
@@ -692,6 +804,15 @@ group_config(aes_cbc128, Config) ->
 group_config(aes_cbc256, Config) ->
     Block = aes_cbc256(),
     [{block, Block} | Config];
+group_config(aes_ecb, Config) ->
+    Block = aes_ecb(),
+    [{block, Block} | Config];    
+group_config(aes_ige256, Config) ->
+    Block = aes_ige256(),
+    [{block, Block} | Config];
+group_config(aes_cfb8, Config) ->
+    Block = aes_cfb8(),
+    [{block, Block} | Config];
 group_config(aes_cfb128, Config) ->
     Block = aes_cfb128(),
     [{block, Block} | Config];
@@ -713,6 +834,15 @@ group_config(rc4, Config) ->
 group_config(aes_ctr, Config) ->
     Stream = aes_ctr(),
     [{stream, Stream} | Config];
+group_config(aes_gcm, Config) ->
+    AEAD = aes_gcm(),
+    [{aead, AEAD} | Config];
+group_config(chacha20_poly1305, Config) ->
+    AEAD = chacha20_poly1305(),
+    [{aead, AEAD} | Config];
+group_config(aes_cbc, Config) ->
+    Block = aes_cbc(),
+    [{block, Block} | Config];
 group_config(_, Config) ->
     Config.
 
@@ -795,7 +925,15 @@ rfc_4634_sha512_digests() ->
      hexstr2bin("8E959B75DAE313DA8CF4F72814FC143F8F7779C6EB9F7FA17299AEADB6889018501D289E4900F7E4331B99DEC4B5433AC7D329EEB6DD26545E96E55B874BE909")].
 
 long_msg() ->
-    lists:duplicate(1000000, $a).
+    fun() -> lists:duplicate(1000000, $a) end.
+
+%% Building huge terms (like long_msg/0) in init_per_group seems to cause
+%% test_server crash with 'no_answer_from_tc_supervisor' sometimes on some
+%% machines. Therefore lazy evaluation when test case has started.
+lazy_eval(F) when is_function(F) -> F();
+lazy_eval(Lst)  when is_list(Lst) -> lists:map(fun lazy_eval/1, Lst);
+lazy_eval(Tpl) when is_tuple(Tpl) -> list_to_tuple(lists:map(fun lazy_eval/1, tuple_to_list(Tpl)));
+lazy_eval(Term) -> Term.
 
 long_sha_digest() ->
     hexstr2bin("34aa973c" "d4c4daa4" "f61eeb2b" "dbad2731" "6534016f").
@@ -1068,6 +1206,50 @@ rc2_cbc() ->
       <<72,91,135,182,25,42,35,210>>,
      <<36,245,206,158,168,230,58,69,148,137,32,192,250,41,237,181,181,251, 192,2,175,135,177,171,57,30,111,117,159,149,15,28,88,158,28,81,28,115, 85,219,241,82,117,222,91,85,73,117,164,25,182,52,191,64,123,57,26,19, 211,27,253,31,194,219,231,104,247,240,172,130,119,21,225,154,101,247, 32,216,42,216,133,169,78,22,97,27,227,26,196,224,172,168,17,9,148,55, 203,91,252,40,61,226,236,221,215,160,78,63,13,181,68,57,196,241,185, 207, 116,129,152,237,60,139,247,153,27,146,161,246,222,98,185,222,152, 187,135, 236,86,34,7,110,91,230,173,34,160,242,202,222,121,127,181,140, 101,203,195, 190,88,250,86,147,127,87,72,126,171,16,71,47,110,248,88, 14,29,143,161,152, 129,236,148,22,152,186,208,119,70,8,174,193,203,100, 193,203,200,117,102,242, 134,142,96,125,135,200,217,190,76,117,50,70, 209,186,101,241,200,91,40,193,54, 90,195,38,47,59,197,38,234,86,223,16, 51,253,204,129,20,171,66,21,241,26,135,216, 196,114,110,91,15,53,40, 164,201,136,113,95,247,51,181,208,241,68,168,98,151,36, 155,72,24,57, 42,191,14,125,204,10,167,214,233,138,115,125,234,121,134,227,26,247, 77,200,117,110,117,111,168,156,206,67,159,149,189,173,150,193,91,199, 216,153,22, 189,137,185,89,160,13,131,132,58,109,28,110,246,252,251,14, 232,91,38,52,29,101,188,69,123,50,0,130,178,93,73,239,118,7,77,35,59, 253,10,159,45,86,142,37,78,232,48>>
      }].
+
+%% AES CBC test vectors from http://csrc.nist.gov/publications/nistpubs/800-38a/sp800-38a.pdf
+aes_cbc() ->
+    [
+     %% F.2.1 CBC-AES128.Encrypt, F.2.2 CBC-AES128.Decrypt
+     {aes_cbc,
+      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),                    %% Key
+      hexstr2bin("000102030405060708090a0b0c0d0e0f"),                    %% IV
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a"                      %% PlainText
+		 "ae2d8a571e03ac9c9eb76fac45af8e51"
+		 "30c81c46a35ce411e5fbc1191a0a52ef"
+		 "f69f2445df4f9b17ad2b417be66c3710"),
+      hexstr2bin("7649abac8119b246cee98e9b12e9197d"                      %% CipherText
+		 "5086cb9b507219ee95db113a917678b2"
+		 "73bed6b8e3c1743b7116e69e22229516"
+		 "3ff1caa1681fac09120eca307586e1a7")},
+     %% F.2.3 CBC-AES192.Encrypt, F.2.4 CBC-AES192.Decrypt
+     {aes_cbc,
+      hexstr2bin("8e73b0f7da0e6452c810f32b809079e5"                      %% Key
+		 "62f8ead2522c6b7b"),
+      hexstr2bin("000102030405060708090a0b0c0d0e0f"),                    %% IV
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a"                      %% PlainText
+		 "ae2d8a571e03ac9c9eb76fac45af8e51"
+		 "30c81c46a35ce411e5fbc1191a0a52ef"
+		 "f69f2445df4f9b17ad2b417be66c3710"),
+      hexstr2bin("4f021db243bc633d7178183a9fa071e8"                      %% CipherText
+		 "b4d9ada9ad7dedf4e5e738763f69145a"
+		 "571b242012fb7ae07fa9baac3df102e0"
+		 "08b0e27988598881d920a9e64f5615cd")},
+     %% F.2.5 CBC-AES256.Encrypt, F.2.6 CBC-AES256.Decrypt
+     {aes_cbc,
+      hexstr2bin("603deb1015ca71be2b73aef0857d7781"                      %% Key
+		 "1f352c073b6108d72d9810a30914dff4"),
+      hexstr2bin("000102030405060708090a0b0c0d0e0f"),                    %% IV
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a"                      %% PlainText
+		 "ae2d8a571e03ac9c9eb76fac45af8e51"
+		 "30c81c46a35ce411e5fbc1191a0a52ef"
+		 "f69f2445df4f9b17ad2b417be66c3710"),
+      hexstr2bin("f58c4c04d6e5f1ba779eabfb5f7bfbd6"                      %% CipherText
+		 "9cfc4e967edb808d679f777bc6702c7d"
+		 "39f23369a9d9bacfa530e26304231461"
+		 "b2eb05e2c39be9fcda6c19078c6a9d1b")}
+    ].
+
 aes_cbc128() ->
     [{aes_cbc128,
       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
@@ -1106,6 +1288,200 @@ aes_cbc256() ->
        hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
      ].
 
+aes_ecb() -> 
+    [
+     {aes_ecb,
+      <<"YELLOW SUBMARINE">>, 
+      <<"YELLOW SUBMARINE">>},
+     {aes_ecb,
+      <<"0000000000000000">>, 
+      <<"0000000000000000">>},
+     {aes_ecb,
+      <<"FFFFFFFFFFFFFFFF">>, 
+      <<"FFFFFFFFFFFFFFFF">>},
+     {aes_ecb,
+      <<"3000000000000000">>, 
+      <<"1000000000000001">>},
+     {aes_ecb,
+      <<"1111111111111111">>, 
+      <<"1111111111111111">>},
+     {aes_ecb,
+      <<"0123456789ABCDEF">>, 
+      <<"1111111111111111">>},
+     {aes_ecb,
+      <<"0000000000000000">>, 
+      <<"0000000000000000">>},
+     {aes_ecb,
+      <<"FEDCBA9876543210">>, 
+      <<"0123456789ABCDEF">>},
+     {aes_ecb,
+      <<"7CA110454A1A6E57">>, 
+      <<"01A1D6D039776742">>},
+     {aes_ecb,
+      <<"0131D9619DC1376E">>, 
+      <<"5CD54CA83DEF57DA">>},
+     {aes_ecb,
+      <<"07A1133E4A0B2686">>, 
+      <<"0248D43806F67172">>},
+     {aes_ecb,
+      <<"3849674C2602319E">>, 
+      <<"51454B582DDF440A">>},
+     {aes_ecb,
+      <<"04B915BA43FEB5B6">>, 
+      <<"42FD443059577FA2">>},
+     {aes_ecb,
+      <<"0113B970FD34F2CE">>, 
+      <<"059B5E0851CF143A">>},
+     {aes_ecb,
+      <<"0170F175468FB5E6">>, 
+      <<"0756D8E0774761D2">>},
+     {aes_ecb,
+      <<"43297FAD38E373FE">>, 
+      <<"762514B829BF486A">>},
+     {aes_ecb,
+      <<"07A7137045DA2A16">>, 
+      <<"3BDD119049372802">>},
+     {aes_ecb,
+      <<"04689104C2FD3B2F">>, 
+      <<"26955F6835AF609A">>},
+     {aes_ecb,
+      <<"37D06BB516CB7546">>, 
+      <<"164D5E404F275232">>},
+     {aes_ecb,
+      <<"1F08260D1AC2465E">>, 
+      <<"6B056E18759F5CCA">>},
+     {aes_ecb,
+      <<"584023641ABA6176">>, 
+      <<"004BD6EF09176062">>},
+     {aes_ecb,
+      <<"025816164629B007">>, 
+      <<"480D39006EE762F2">>},
+     {aes_ecb,
+      <<"49793EBC79B3258F">>, 
+      <<"437540C8698F3CFA">>},
+     {aes_ecb,
+      <<"018310DC409B26D6">>, 
+      <<"1D9D5C5018F728C2">>},
+     {aes_ecb,
+      <<"1C587F1C13924FEF">>, 
+      <<"305532286D6F295A">>},
+     {aes_ecb,
+      <<"0101010101010101">>, 
+      <<"0123456789ABCDEF">>},
+     {aes_ecb,
+      <<"1F1F1F1F0E0E0E0E">>, 
+      <<"0123456789ABCDEF">>},
+     {aes_ecb,
+      <<"E0FEE0FEF1FEF1FE">>, 
+      <<"0123456789ABCDEF">>},
+     {aes_ecb,
+      <<"0000000000000000">>, 
+      <<"FFFFFFFFFFFFFFFF">>},
+     {aes_ecb,
+      <<"FFFFFFFFFFFFFFFF">>, 
+      <<"0000000000000000">>},
+     {aes_ecb,
+      <<"0123456789ABCDEF">>, 
+      <<"0000000000000000">>},
+     {aes_ecb,
+      <<"FEDCBA9876543210">>, 
+      <<"FFFFFFFFFFFFFFFF">>},
+     %% AES ECB test vectors from http://csrc.nist.gov/publications/nistpubs/800-38a/sp800-38a.pdf
+     %% F.1.1 ECB-AES128.Encrypt, F.1.2 ECB-AES128.Decrypt
+     {aes_ecb,
+      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+		 "ae2d8a571e03ac9c9eb76fac45af8e51"
+		 "30c81c46a35ce411e5fbc1191a0a52ef"
+		 "f69f2445df4f9b17ad2b417be66c3710")},
+     %% F.1.3 ECB-AES192.Encrypt, F.1.4 ECB-AES192.Decrypt
+     {aes_ecb,
+      hexstr2bin("8e73b0f7da0e6452c810f32b809079e5"
+		 "62f8ead2522c6b7b"),
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+		 "ae2d8a571e03ac9c9eb76fac45af8e51"
+		 "30c81c46a35ce411e5fbc1191a0a52ef"
+		 "f69f2445df4f9b17ad2b417be66c3710")},
+     %% F.1.5 ECB-AES256.Encrypt, F.1.6 ECB-AES256.Decrypt
+     {aes_ecb,
+      hexstr2bin("603deb1015ca71be2b73aef0857d7781"
+		 "1f352c073b6108d72d9810a30914dff4"),
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a"
+		 "ae2d8a571e03ac9c9eb76fac45af8e51"
+		 "30c81c46a35ce411e5fbc1191a0a52ef"
+		 "f69f2445df4f9b17ad2b417be66c3710")}
+    ].
+
+aes_ige256() ->
+    [{aes_ige256,
+      hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+      hexstr2bin("000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"),
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
+      {aes_ige256,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("4D0F9E735749215C05CB20DA00F7814B77D33F8A668BEBBAC1739AB20302D4FE"),
+       hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
+      {aes_ige256,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("2A5569424DAE1ACEABDEEA108DB4606AE21A9227CAB5F55BF52535CFA2B34717"),
+       hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
+      {aes_ige256,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("15D5A583D2D668E518E683D9BDF1B6D0E0C3B1E5D5C1D51E964822E1ADE88DFA"),
+       hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
+     ].
+
+aes_cfb8() -> 
+    [{aes_cfb8,
+      hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+      hexstr2bin("000102030405060708090a0b0c0d0e0f"),
+      hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
+      {aes_cfb8,
+       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+       hexstr2bin("3B3FD92EB72DAD20333449F8E83CFB4A"),
+       hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
+      {aes_cfb8,
+       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+       hexstr2bin("C8A64537A0B3A93FCDE3CDAD9F1CE58B"),
+       hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
+      {aes_cfb8,
+       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
+       hexstr2bin("26751F67A3CBB140B1808CF187A4F4DF"),
+       hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")},
+      {aes_cfb8,
+       hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+       hexstr2bin("000102030405060708090a0b0c0d0e0f"),
+       hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
+      {aes_cfb8,
+       hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+       hexstr2bin("cdc80d6fddf18cab34c25909c99a4174"),
+       hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
+      {aes_cfb8,
+       hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+       hexstr2bin("67ce7f7f81173621961a2b70171d3d7a"),
+       hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
+      {aes_cfb8,
+       hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+       hexstr2bin("2e1e8a1dd59b88b1c8e60fed1efac4c9"),
+       hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")},
+      {aes_cfb8,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("000102030405060708090a0b0c0d0e0f"),
+       hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
+      {aes_cfb8,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("dc7e84bfda79164b7ecd8486985d3860"),
+       hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
+      {aes_cfb8,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("39ffed143b28b1c832113c6331e5407b"),
+       hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
+      {aes_cfb8,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("df10132415e54b92a13ed0a8267ae2f9"),
+       hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
+     ].
+
 aes_cfb128() -> 
     [{aes_cfb128,
       hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
@@ -1122,6 +1498,38 @@ aes_cfb128() ->
       {aes_cfb128,
        hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"), 
        hexstr2bin("26751F67A3CBB140B1808CF187A4F4DF"),
+       hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")},
+      {aes_cfb128,
+       hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+       hexstr2bin("000102030405060708090a0b0c0d0e0f"),
+       hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
+      {aes_cfb128,
+       hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+       hexstr2bin("cdc80d6fddf18cab34c25909c99a4174"),
+       hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
+      {aes_cfb128,
+       hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+       hexstr2bin("67ce7f7f81173621961a2b70171d3d7a"),
+       hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
+      {aes_cfb128,
+       hexstr2bin("8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"),
+       hexstr2bin("2e1e8a1dd59b88b1c8e60fed1efac4c9"),
+       hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")},
+      {aes_cfb128,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("000102030405060708090a0b0c0d0e0f"),
+       hexstr2bin("6bc1bee22e409f96e93d7e117393172a")},
+      {aes_cfb128,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("dc7e84bfda79164b7ecd8486985d3860"),
+       hexstr2bin("ae2d8a571e03ac9c9eb76fac45af8e51")},
+      {aes_cfb128,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("39ffed143b28b1c832113c6331e5407b"),
+       hexstr2bin("30c81c46a35ce411e5fbc1191a0a52ef")},
+      {aes_cfb128,
+       hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
+       hexstr2bin("df10132415e54b92a13ed0a8267ae2f9"),
        hexstr2bin("f69f2445df4f9b17ad2b417be66c3710")}
      ].
 
@@ -1245,7 +1653,7 @@ blowfish_ofb64() ->
 rc4() ->
     [{rc4, <<"apaapa">>, <<"Yo baby yo">>},
      {rc4, <<"apaapa">>, list_to_binary(lists:seq(0, 255))},
-     {rc4, <<"apaapa">>, lists:duplicate(1000000, $a)}
+     {rc4, <<"apaapa">>, long_msg()}
     ].
 
 aes_ctr() ->
@@ -1293,7 +1701,299 @@ aes_ctr() ->
 
        {aes_ctr,  hexstr2bin("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"),
 	hexstr2bin("f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"),
-	lists:duplicate(1000000, $a)}
+	long_msg()}
+    ].
+
+
+%% AES GCM test vectors from http://csrc.nist.gov/groups/ST/toolkit/BCM/documents/proposedmodes/gcm/gcm-spec.pdf
+aes_gcm() ->
+    [
+     %% Test Case 1
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"),           %% Key
+      hexstr2bin(""),                                                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin(""),                                                    %% CipherText
+      hexstr2bin("58e2fccefa7e3061367f1d57a4e7455a")},                   %% CipherTag
+
+     %% Test Case 2
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"),           %% Key
+      hexstr2bin("00000000000000000000000000000000"),                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin("0388dace60b6a392f328c2b971b2fe78"),                    %% CipherText
+      hexstr2bin("ab6e47d42cec13bdf53a67b21257bddf")},                   %% CipherTag
+
+     %% Test Case 3
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"),           %% Key
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b391aafd255"),
+      hexstr2bin("cafebabefacedbaddecaf888"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin("42831ec2217774244b7221b784d0d49c"                      %% CipherText
+		 "e3aa212f2c02a4e035c17e2329aca12e"
+		 "21d514b25466931c7d8f6a5aac84aa05"
+		 "1ba30b396a0aac973d58e091473f5985"),
+      hexstr2bin("4d5c2af327cd64a62cf35abd2ba6fab4")},                   %% CipherTag
+
+     %% Test Case 4
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"),           %% Key
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("cafebabefacedbaddecaf888"),                            %% IV
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("42831ec2217774244b7221b784d0d49c"                      %% CipherText
+		 "e3aa212f2c02a4e035c17e2329aca12e"
+		 "21d514b25466931c7d8f6a5aac84aa05"
+		 "1ba30b396a0aac973d58e091"),
+      hexstr2bin("5bc94fbc3221a5db94fae95ae7121a47")},                   %% CipherTag
+
+     %% Test Case 5
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"),           %% Key
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("cafebabefacedbad"),                                    %% IV
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("61353b4c2806934a777ff51fa22a4755"                      %% CipherText
+		 "699b2a714fcdc6f83766e5f97b6c7423"
+		 "73806900e49f24b22b097544d4896b42"
+		 "4989b5e1ebac0f07c23f4598"),
+      hexstr2bin("3612d2e79e3b0785561be14aaca2fccb")},                   %% CipherTag
+
+     %% Test Case 6"
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"),           %% Key
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("9313225df88406e555909c5aff5269aa"                      %% IV
+		 "6a7a9538534f7da1e4c303d2a318a728"
+		 "c3c0c95156809539fcf0e2429a6b5254"
+		 "16aedbf5a0de6a57a637b39b"),
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("8ce24998625615b603a033aca13fb894"                      %% CipherText
+		 "be9112a5c3a211a8ba262a3cca7e2ca7"
+		 "01e4a9a4fba43c90ccdcb281d48c7c6f"
+		 "d62875d2aca417034c34aee5"),
+      hexstr2bin("619cc5aefffe0bfa462af43c1699d050")},                   %% CipherTag
+
+     %% Test Case 7
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"             %% Key
+			  "0000000000000000"),
+      hexstr2bin(""),                                                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin(""),                                                    %% CipherText
+      hexstr2bin("cd33b28ac773f74ba00ed1f312572435")},                   %% CipherTag
+
+     %% Test Case 8
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"             %% Key
+			  "0000000000000000"),
+      hexstr2bin("00000000000000000000000000000000"),                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin("98e7247c07f0fe411c267e4384b0f600"),                    %% CipherText
+      hexstr2bin("2ff58d80033927ab8ef4d4587514f0fb")},                   %% CipherTag
+
+     %% Test Case 9
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b391aafd255"),
+      hexstr2bin("cafebabefacedbaddecaf888"),                            %% IV
+      hexstr2bin(""),                                                    %% ADD
+      hexstr2bin("3980ca0b3c00e841eb06fac4872a2757"                      %% CipherText
+		 "859e1ceaa6efd984628593b40ca1e19c"
+		 "7d773d00c144c525ac619d18c84a3f47"
+		 "18e2448b2fe324d9ccda2710acade256"),
+      hexstr2bin("9924a7c8587336bfb118024db8674a14")},                   %% CipherTag
+
+     %% Test Case 10
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("cafebabefacedbaddecaf888"),                            %% IV
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("3980ca0b3c00e841eb06fac4872a2757"                      %% CipherText
+		 "859e1ceaa6efd984628593b40ca1e19c"
+		 "7d773d00c144c525ac619d18c84a3f47"
+		 "18e2448b2fe324d9ccda2710"),
+      hexstr2bin("2519498e80f1478f37ba55bd6d27618c")},                   %% CipherTag
+
+     %% Test Case 11
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("cafebabefacedbad"),                                    %% IV
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("0f10f599ae14a154ed24b36e25324db8"                      %% CipherText
+		 "c566632ef2bbb34f8347280fc4507057"
+		 "fddc29df9a471f75c66541d4d4dad1c9"
+		 "e93a19a58e8b473fa0f062f7"),
+      hexstr2bin("65dcc57fcf623a24094fcca40d3533f8")},                   %% CipherTag
+
+     %% Test Case 12
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+		 "feffe9928665731c"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("9313225df88406e555909c5aff5269aa"                      %% IV
+		 "6a7a9538534f7da1e4c303d2a318a728"
+		 "c3c0c95156809539fcf0e2429a6b5254"
+		 "16aedbf5a0de6a57a637b39b"),
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("d27e88681ce3243c4830165a8fdcf9ff"                      %% CipherText
+		 "1de9a1d8e6b447ef6ef7b79828666e45"
+		 "81e79012af34ddd9e2f037589b292db3"
+		 "e67c036745fa22e7e9b7373b"),
+      hexstr2bin("dcf566ff291c25bbb8568fc3d376a6d9")},                   %% CipherTag
+
+     %% Test Case 13
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"             %% Key
+			  "00000000000000000000000000000000"),
+      hexstr2bin(""),                                                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin(""),                                                    %% CipherText
+      hexstr2bin("530f8afbc74536b9a963b4f1c4cb738b")},                   %% CipherTag
+
+     %% Test Case 14
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"             %% Key
+			  "00000000000000000000000000000000"),
+      hexstr2bin("00000000000000000000000000000000"),                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin("cea7403d4d606b6e074ec5d3baf39d18"),                    %% CipherText
+      hexstr2bin("d0d1c8a799996bf0265b98b5d48ab919")},                   %% CipherTag
+
+     %% Test Case 15
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c6d6a8f9467308308"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b391aafd255"),
+      hexstr2bin("cafebabefacedbaddecaf888"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin("522dc1f099567d07f47f37a32a84427d"                      %% CipherText
+		 "643a8cdcbfe5c0c97598a2bd2555d1aa"
+		 "8cb08e48590dbb3da7b08b1056828838"
+		 "c5f61e6393ba7a0abcc9f662898015ad"),
+      hexstr2bin("b094dac5d93471bdec1a502270e3cc6c")},                   %% CipherTag
+
+     %% Test Case 16
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c6d6a8f9467308308"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("cafebabefacedbaddecaf888"),                            %% IV
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("522dc1f099567d07f47f37a32a84427d"                      %% CipherText
+		 "643a8cdcbfe5c0c97598a2bd2555d1aa"
+		 "8cb08e48590dbb3da7b08b1056828838"
+		 "c5f61e6393ba7a0abcc9f662"),
+      hexstr2bin("76fc6ece0f4e1768cddf8853bb2d551b")},                   %% CipherTag
+
+     %% Test Case 17
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c6d6a8f9467308308"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("cafebabefacedbad"),                                    %% IV
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("c3762df1ca787d32ae47c13bf19844cb"                      %% CipherText
+		 "af1ae14d0b976afac52ff7d79bba9de0"
+		 "feb582d33934a4f0954cc2363bc73f78"
+		 "62ac430e64abe499f47c9b1f"),
+      hexstr2bin("3a337dbf46a792c45e454913fe2ea8f2")},                   %% CipherTag
+
+     %% Test Case 18
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c6d6a8f9467308308"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("9313225df88406e555909c5aff5269aa"                      %% IV
+		 "6a7a9538534f7da1e4c303d2a318a728"
+		 "c3c0c95156809539fcf0e2429a6b5254"
+		 "16aedbf5a0de6a57a637b39b"),
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("5a8def2f0c9e53f1f75d7853659e2a20"                      %% CipherText
+		 "eeb2b22aafde6419a058ab4f6f746bf4"
+		 "0fc0c3b780f244452da3ebf1c5d82cde"
+		 "a2418997200ef82e44ae7e3f"),
+      hexstr2bin("a44a8266ee1c8eb0c8b5d4cf5ae9f19a")},                   %% CipherTag
+
+     %% Test Case 0 for TagLength = 1
+     {aes_gcm, hexstr2bin("00000000000000000000000000000000"),           %% Key
+      hexstr2bin(""),                                                    %% PlainText
+      hexstr2bin("000000000000000000000000"),                            %% IV
+      hexstr2bin(""),                                                    %% AAD
+      hexstr2bin(""),                                                    %% CipherText
+      hexstr2bin("58"),                                                  %% CipherTag
+      1},                                                                %% TagLength
+
+     %% Test Case 18 for TagLength = 1
+     {aes_gcm, hexstr2bin("feffe9928665731c6d6a8f9467308308"             %% Key
+			  "feffe9928665731c6d6a8f9467308308"),
+      hexstr2bin("d9313225f88406e5a55909c5aff5269a"                      %% PlainText
+		 "86a7a9531534f7da2e4c303d8a318a72"
+		 "1c3c0c95956809532fcf0e2449a6b525"
+		 "b16aedf5aa0de657ba637b39"),
+      hexstr2bin("9313225df88406e555909c5aff5269aa"                      %% IV
+		 "6a7a9538534f7da1e4c303d2a318a728"
+		 "c3c0c95156809539fcf0e2429a6b5254"
+		 "16aedbf5a0de6a57a637b39b"),
+      hexstr2bin("feedfacedeadbeeffeedfacedeadbeef"                      %% AAD
+		 "abaddad2"),
+      hexstr2bin("5a8def2f0c9e53f1f75d7853659e2a20"                      %% CipherText
+		 "eeb2b22aafde6419a058ab4f6f746bf4"
+		 "0fc0c3b780f244452da3ebf1c5d82cde"
+		 "a2418997200ef82e44ae7e3f"),
+      hexstr2bin("a4"),                                                  %% CipherTag
+      1}                                                                 %% TagLength
+    ].
+
+%% http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-04
+chacha20_poly1305() ->
+    [
+     {chacha20_poly1305, hexstr2bin("4290bcb154173531f314af57f3be3b500"  %% Key
+				    "6da371ece272afa1b5dbdd1100a1007"),
+      hexstr2bin("86d09974840bded2a5ca"),                                %% PlainText
+      hexstr2bin("cd7cf67be39c794a"),                                    %% Nonce
+      hexstr2bin("87e229d4500845a079c0"),                                %% AAD
+      hexstr2bin("e3e446f7ede9a19b62a4"),                                %% CipherText
+      hexstr2bin("677dabf4e3d24b876bb284753896e1d6")}                   %% CipherTag
     ].
 
 rsa_plain() ->
@@ -1322,8 +2022,9 @@ dss_params() ->
      18320614775012672475365915366944922415598782131828709277168615511695849821411624805195787607930033958243224786899641459701930253094446221381818858674389863050420226114787005820357372837321561754462061849169568607689530279303056075793886577588606958623645901271866346406773590024901668622321064384483571751669].
 
 ec_key_named() ->
-    {D2_pub, D2_priv} = crypto:generate_key(ecdh, sect113r2),
-    {[D2_priv, sect113r2], [D2_pub, sect113r2]}.  
+    Curve = hd(crypto:ec_curves()),
+    {D2_pub, D2_priv} = crypto:generate_key(ecdh, Curve),
+    {[D2_priv, Curve], [D2_pub, Curve]}.
 
 ec_msg() ->
     <<99,234,6,64,190,237,201,99,80,248,58,40,70,45,149,218,5,246,242,63>>.
@@ -1414,6 +2115,32 @@ srp6() ->
     ClientPublic = crypto:mod_pow(Generator, ClientPrivate, Prime),
     srp(ClientPrivate, Generator, Prime, Version, Verifier, ServerPublic, ServerPrivate, UserPassHash, Scrambler, SessionKey).
 
+
+srp6a_smaller_prime() ->
+    Username = <<"alice">>,
+    Password = <<"password123">>,
+    Salt = <<"mystrongsalt">>,
+    Prime = hexstr2bin("894B645E89E1535BBDAD5B8B290650530801B18EBFBF5E8FAB3C82872A3E9BB7"),
+    Generator = <<7>>,
+    Version = '6a',
+    Scrambler = hexstr2bin("18DE4A002AD05EF464B19AE2B6929F9B1319C7AA"),
+    Verifier = hexstr2bin("867401D5DE10964768184EAF246B322760C847604075FA66A4423907"
+			  "8428BCA5"),
+    ClientPrivate = hexstr2bin("C49F832EE8D67ECF9E7F2785EB0622D8B3FE2344C00F96E1AEF4103C"
+			  "A44D51F9"),
+    ServerPrivate = hexstr2bin("6C78CCEAAEC15E69068A87795B2A20ED7B45CFC5A254EBE2F17F144A"
+			  "4D99DB18"),
+    ClientPublic = hexstr2bin("2452A57166BBBF690DB77539BAF9C57CD1ED99D5AA15ED925AD9B5C3"
+			  "64BBEDFF"),
+    ServerPublic = hexstr2bin("2C0464DE84B91E4963A3546CAC0EFE55F31F49208C3F0AD7EE55F444"
+			  "8F38BA7F"),
+
+    SessionKey = hexstr2bin("65581B2302580BD26F522A5A421CF969B9CCBCE4051196B034A2A9D22065D848"),
+    UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, Password])]),
+    Verifier = crypto:mod_pow(Generator, UserPassHash, Prime), 
+    ClientPublic = crypto:mod_pow(Generator, ClientPrivate, Prime),
+    srp(ClientPrivate, Generator, Prime, Version, Verifier, ServerPublic, ServerPrivate, UserPassHash, Scrambler, SessionKey).
+
 srp6a() ->
     Username = <<"alice">>,
     Password = <<"password123">>,
@@ -1463,9 +2190,95 @@ srp(ClientPrivate, Generator, Prime, Version, Verifier, ServerPublic, ServerPriv
      {host, [Verifier, Prime, Version, Scrambler]},
      SessionKey}.
 ecdh() ->
-    {ecdh, 10053111454769593468622878414300213417816614162107065345116848162553478019161427871683337786549966,
-     1373339791687564785573162818422814591820885704654,
-     secp160r1, 990333295438215762119481641129490894973766052278}.
+    %% http://csrc.nist.gov/groups/STM/cavp/
+    Curves = crypto:ec_curves(),
+    TestCases =
+        [{ecdh, hexstr2point("42ea6dd9969dd2a61fea1aac7f8e98edcc896c6e55857cc0", "dfbe5d7c61fac88b11811bde328e8a0d12bf01a9d204b523"),
+          hexstr2bin("f17d3fea367b74d340851ca4270dcb24c271f445bed9d527"),
+          secp192r1,
+          hexstr2bin("803d8ab2e5b6e6fca715737c3a82f7ce3c783124f6d51cd0")},
+         {ecdh, hexstr2point("deb5712fa027ac8d2f22c455ccb73a91e17b6512b5e030e7", "7e2690a02cc9b28708431a29fb54b87b1f0c14e011ac2125"),
+          hexstr2bin("56e853349d96fe4c442448dacb7cf92bb7a95dcf574a9bd5"),
+          secp192r1,
+          hexstr2bin("c208847568b98835d7312cef1f97f7aa298283152313c29d")},
+         {ecdh, hexstr2point("af33cd0629bc7e996320a3f40368f74de8704fa37b8fab69abaae280", "882092ccbba7930f419a8a4f9bb16978bbc3838729992559a6f2e2d7"),
+          hexstr2bin("8346a60fc6f293ca5a0d2af68ba71d1dd389e5e40837942df3e43cbd"),
+          secp224r1,
+          hexstr2bin("7d96f9a3bd3c05cf5cc37feb8b9d5209d5c2597464dec3e9983743e8")},
+         {ecdh, hexstr2point("13bfcd4f8e9442393cab8fb46b9f0566c226b22b37076976f0617a46", "eeb2427529b288c63c2f8963c1e473df2fca6caa90d52e2f8db56dd4"),
+          hexstr2bin("043cb216f4b72cdf7629d63720a54aee0c99eb32d74477dac0c2f73d"),
+          secp224r1,
+          hexstr2bin("ee93ce06b89ff72009e858c68eb708e7bc79ee0300f73bed69bbca09")},
+         {ecdh, hexstr2point("700c48f77f56584c5cc632ca65640db91b6bacce3a4df6b42ce7cc838833d287", "db71e509e3fd9b060ddb20ba5c51dcc5948d46fbf640dfe0441782cab85fa4ac"),
+          hexstr2bin("7d7dc5f71eb29ddaf80d6214632eeae03d9058af1fb6d22ed80badb62bc1a534"),
+          secp256r1,
+          hexstr2bin("46fc62106420ff012e54a434fbdd2d25ccc5852060561e68040dd7778997bd7b")},
+         {ecdh, hexstr2point("809f04289c64348c01515eb03d5ce7ac1a8cb9498f5caa50197e58d43a86a7ae", "b29d84e811197f25eba8f5194092cb6ff440e26d4421011372461f579271cda3"),
+          hexstr2bin("38f65d6dce47676044d58ce5139582d568f64bb16098d179dbab07741dd5caf5"),
+          secp256r1,
+          hexstr2bin("057d636096cb80b67a8c038c890e887d1adfa4195e9b3ce241c8a778c59cda67")},
+         {ecdh, hexstr2point("a7c76b970c3b5fe8b05d2838ae04ab47697b9eaf52e764592efda27fe7513272734466b400091adbf2d68c58e0c50066", "ac68f19f2e1cb879aed43a9969b91a0839c4c38a49749b661efedf243451915ed0905a32b060992b468c64766fc8437a"),
+          hexstr2bin("3cc3122a68f0d95027ad38c067916ba0eb8c38894d22e1b15618b6818a661774ad463b205da88cf699ab4d43c9cf98a1"),
+          secp384r1,
+          hexstr2bin("5f9d29dc5e31a163060356213669c8ce132e22f57c9a04f40ba7fcead493b457e5621e766c40a2e3d4d6a04b25e533f1")},
+         {ecdh, hexstr2point("30f43fcf2b6b00de53f624f1543090681839717d53c7c955d1d69efaf0349b7363acb447240101cbb3af6641ce4b88e0", "25e46c0c54f0162a77efcc27b6ea792002ae2ba82714299c860857a68153ab62e525ec0530d81b5aa15897981e858757"),
+          hexstr2bin("92860c21bde06165f8e900c687f8ef0a05d14f290b3f07d8b3a8cc6404366e5d5119cd6d03fb12dc58e89f13df9cd783"),
+          secp384r1,
+          hexstr2bin("a23742a2c267d7425fda94b93f93bbcc24791ac51cd8fd501a238d40812f4cbfc59aac9520d758cf789c76300c69d2ff")},
+         {ecdh, hexstr2point("00685a48e86c79f0f0875f7bc18d25eb5fc8c0b07e5da4f4370f3a9490340854334b1e1b87fa395464c60626124a4e70d0f785601d37c09870ebf176666877a2046d", "01ba52c56fc8776d9e8f5db4f0cc27636d0b741bbe05400697942e80b739884a83bde99e0f6716939e632bc8986fa18dccd443a348b6c3e522497955a4f3c302f676"),
+          hexstr2bin("017eecc07ab4b329068fba65e56a1f8890aa935e57134ae0ffcce802735151f4eac6564f6ee9974c5e6887a1fefee5743ae2241bfeb95d5ce31ddcb6f9edb4d6fc47"),
+          secp521r1,
+          hexstr2bin("005fc70477c3e63bc3954bd0df3ea0d1f41ee21746ed95fc5e1fdf90930d5e136672d72cc770742d1711c3c3a4c334a0ad9759436a4d3c5bf6e74b9578fac148c831")},
+         {ecdh, hexstr2point("01df277c152108349bc34d539ee0cf06b24f5d3500677b4445453ccc21409453aafb8a72a0be9ebe54d12270aa51b3ab7f316aa5e74a951c5e53f74cd95fc29aee7a", "013d52f33a9f3c14384d1587fa8abe7aed74bc33749ad9c570b471776422c7d4505d9b0a96b3bfac041e4c6a6990ae7f700e5b4a6640229112deafa0cd8bb0d089b0"),
+          hexstr2bin("00816f19c1fb10ef94d4a1d81c156ec3d1de08b66761f03f06ee4bb9dcebbbfe1eaa1ed49a6a990838d8ed318c14d74cc872f95d05d07ad50f621ceb620cd905cfb8"),
+          secp521r1,
+          hexstr2bin("000b3920ac830ade812c8f96805da2236e002acbbf13596a9ab254d44d0e91b6255ebf1229f366fb5a05c5884ef46032c26d42189273ca4efa4c3db6bd12a6853759")},
+
+         %% RFC-6954, Appendix A
+         {ecdh, hexstr2point("A9C21A569759DA95E0387041184261440327AFE33141CA04B82DC92E",
+                             "98A0F75FBBF61D8E58AE5511B2BCDBE8E549B31E37069A2825F590C1"),
+          hexstr2bin("6060552303899E2140715816C45B57D9B42204FB6A5BF5BEAC10DB00"),
+          brainpoolP224r1,
+          hexstr2bin("1A4BFE705445120C8E3E026699054104510D119757B74D5FE2462C66")},
+         {ecdh, hexstr2point("034A56C550FF88056144E6DD56070F54B0135976B5BF77827313F36B",
+                             "75165AD99347DC86CAAB1CBB579E198EAF88DC35F927B358AA683681"),
+          hexstr2bin("39F155483CEE191FBECFE9C81D8AB1A03CDA6790E7184ACE44BCA161"),
+          brainpoolP224r1,
+          hexstr2bin("1A4BFE705445120C8E3E026699054104510D119757B74D5FE2462C66")},
+         {ecdh, hexstr2point("44106E913F92BC02A1705D9953A8414DB95E1AAA49E81D9E85F929A8E3100BE5",
+                             "8AB4846F11CACCB73CE49CBDD120F5A900A69FD32C272223F789EF10EB089BDC"),
+          hexstr2bin("55E40BC41E37E3E2AD25C3C6654511FFA8474A91A0032087593852D3E7D76BD3"),
+          brainpoolP256r1,
+          hexstr2bin("89AFC39D41D3B327814B80940B042590F96556EC91E6AE7939BCE31F3A18BF2B")},
+         {ecdh, hexstr2point("8D2D688C6CF93E1160AD04CC4429117DC2C41825E1E9FCA0ADDD34E6F1B39F7B",
+                             "990C57520812BE512641E47034832106BC7D3E8DD0E4C7F1136D7006547CEC6A"),
+          hexstr2bin("81DB1EE100150FF2EA338D708271BE38300CB54241D79950F77B063039804F1D"),
+          brainpoolP256r1,
+          hexstr2bin("89AFC39D41D3B327814B80940B042590F96556EC91E6AE7939BCE31F3A18BF2B")},
+         {ecdh, hexstr2point("68B665DD91C195800650CDD363C625F4E742E8134667B767B1B476793588F885AB698C852D4A6E77A252D6380FCAF068",
+                             "55BC91A39C9EC01DEE36017B7D673A931236D2F1F5C83942D049E3FA20607493E0D038FF2FD30C2AB67D15C85F7FAA59"),
+          hexstr2bin("032640BC6003C59260F7250C3DB58CE647F98E1260ACCE4ACDA3DD869F74E01F8BA5E0324309DB6A9831497ABAC96670"),
+          brainpoolP384r1,
+          hexstr2bin("0BD9D3A7EA0B3D519D09D8E48D0785FB744A6B355E6304BC51C229FBBCE239BBADF6403715C35D4FB2A5444F575D4F42")},
+         {ecdh, hexstr2point("4D44326F269A597A5B58BBA565DA5556ED7FD9A8A9EB76C25F46DB69D19DC8CE6AD18E404B15738B2086DF37E71D1EB4",
+                             "62D692136DE56CBE93BF5FA3188EF58BC8A3A0EC6C1E151A21038A42E9185329B5B275903D192F8D4E1F32FE9CC78C48"),
+          hexstr2bin("1E20F5E048A5886F1F157C74E91BDE2B98C8B52D58E5003D57053FC4B0BD65D6F15EB5D1EE1610DF870795143627D042"),
+          brainpoolP384r1,
+          hexstr2bin("0BD9D3A7EA0B3D519D09D8E48D0785FB744A6B355E6304BC51C229FBBCE239BBADF6403715C35D4FB2A5444F575D4F42")},
+         {ecdh, hexstr2point("0A420517E406AAC0ACDCE90FCD71487718D3B953EFD7FBEC5F7F27E28C6149999397E91E029E06457DB2D3E640668B392C2A7E737A7F0BF04436D11640FD09FD",
+                             "72E6882E8DB28AAD36237CD25D580DB23783961C8DC52DFA2EC138AD472A0FCEF3887CF62B623B2A87DE5C588301EA3E5FC269B373B60724F5E82A6AD147FDE7"),
+          hexstr2bin("230E18E1BCC88A362FA54E4EA3902009292F7F8033624FD471B5D8ACE49D12CFABBC19963DAB8E2F1EBA00BFFB29E4D72D13F2224562F405CB80503666B25429"),
+          brainpoolP512r1,
+          hexstr2bin("A7927098655F1F9976FA50A9D566865DC530331846381C87256BAF3226244B76D36403C024D7BBF0AA0803EAFF405D3D24F11A9B5C0BEF679FE1454B21C4CD1F")},
+         {ecdh, hexstr2point("9D45F66DE5D67E2E6DB6E93A59CE0BB48106097FF78A081DE781CDB31FCE8CCBAAEA8DD4320C4119F1E9CD437A2EAB3731FA9668AB268D871DEDA55A5473199F",
+                             "2FDC313095BCDD5FB3A91636F07A959C8E86B5636A1E930E8396049CB481961D365CC11453A06C719835475B12CB52FC3C383BCE35E27EF194512B71876285FA"),
+          hexstr2bin("16302FF0DBBB5A8D733DAB7141C1B45ACBC8715939677F6A56850A38BD87BD59B09E80279609FF333EB9D4C061231FB26F92EEB04982A5F1D1764CAD57665422"),
+          brainpoolP512r1,
+          hexstr2bin("A7927098655F1F9976FA50A9D566865DC530331846381C87256BAF3226244B76D36403C024D7BBF0AA0803EAFF405D3D24F11A9B5C0BEF679FE1454B21C4CD1F")}],
+    lists:filter(fun ({_Type, _Pub, _Priv, Curve, _SharedSecret}) ->
+                         lists:member(Curve, Curves)
+                 end,
+                 TestCases).
 
 dh() ->
     {dh, 0087761979513264537414556992123116644042638206717762626089877284926656954974893442000747478454809111207351620687968672207938731607963470779396984752680274820156266685080223616226905101126463253150237669547023934604953898814222890239130021414026118792251620881355456432549881723310342870016961804255746630219, 2}.
@@ -1483,6 +2296,33 @@ rsa_oaep() ->
     %%Msg = hexstr2bin("6628194e12073db03ba94cda9ef9532397d50dba79b987004afefe34"),
     Msg =  hexstr2bin("750c4047f547e8e41411856523298ac9bae245efaf1397fbe56f9dd5"),
     {rsa, Public, Private, Msg, rsa_pkcs1_oaep_padding}.
+
+ecc() ->
+%%               http://point-at-infinity.org/ecc/nisttv
+%%
+%% Test vectors for the NIST elliptic curves P192, P224, P256, P384, P521,
+%% B163, B233, B283, B409, B571, K163, K233, K283, K409 and K571. For more
+%% information about the curves see
+%%       http://csrc.nist.gov/encryption/dss/ecdsa/NISTReCur.pdf
+%%
+    Curves = crypto:ec_curves(),
+    TestCases =
+        [{ecdh,secp192r1,1,
+          hexstr2point("188DA80EB03090F67CBF20EB43A18800F4FF0AFD82FF1012",
+                       "07192B95FFC8DA78631011ED6B24CDD573F977A11E794811")},
+         {ecdh,secp192r1,2,
+          hexstr2point("DAFEBF5828783F2AD35534631588A3F629A70FB16982A888",
+                       "DD6BDA0D993DA0FA46B27BBC141B868F59331AFA5C7E93AB")},
+         {ecdh,secp192r1,3,
+          hexstr2point("76E32A2557599E6EDCD283201FB2B9AADFD0D359CBB263DA",
+                       "782C37E372BA4520AA62E0FED121D49EF3B543660CFD05FD")},
+         {ecdh,secp192r1,4,
+          hexstr2point("35433907297CC378B0015703374729D7A4FE46647084E4BA",
+                       "A2649984F2135C301EA3ACB0776CD4F125389B311DB3BE32")}],
+    lists:filter(fun ({_Type, Curve, _Priv, _Pub}) ->
+                         lists:member(Curve, Curves)
+                 end,
+                 TestCases).
 
 no_padding() ->
     Public = [_, Mod] = rsa_public(),

@@ -1,0 +1,2 @@
+
+r.erl:16: Record construction #r{a::{'fi'},b::{'a','b'},c::[],d::'undefined',e::[],f::'undefined'} violates the declared type of field b::[any()] and d::[any()] and f::[any()]

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 -module(observer_tv_wx).
@@ -36,7 +37,8 @@
 -define(ID_UNREADABLE, 405).
 -define(ID_SYSTEM_TABLES, 406).
 -define(ID_TABLE_INFO, 407).
-
+-define(ID_SHOW_TABLE, 408).
+ 
 -record(opt, {type=ets,
 	      sys_hidden=true,
 	      unread_hidden=true,
@@ -48,6 +50,7 @@
 	{
 	  parent,
 	  grid,
+	  panel,
 	  node=node(),
 	  opt=#opt{},
 	  selected,
@@ -85,12 +88,13 @@ init([Notebook, Parent]) ->
     wxListItem:destroy(Li),
 
     wxListCtrl:connect(Grid, command_list_item_activated),
+    wxListCtrl:connect(Grid, command_list_item_right_click),
     wxListCtrl:connect(Grid, command_list_item_selected),
     wxListCtrl:connect(Grid, command_list_col_click),
     wxListCtrl:connect(Grid, size, [{skip, true}]),
 
     wxWindow:setFocus(Grid),
-    {Panel, #state{grid=Grid, parent=Parent, timer={false, 10}}}.
+    {Panel, #state{grid=Grid, parent=Parent, panel=Panel, timer={false, 10}}}.
 
 handle_event(#wx{id=?ID_REFRESH},
 	     State = #state{node=Node, grid=Grid, opt=Opt}) ->
@@ -132,8 +136,8 @@ handle_event(#wx{event=#wxSize{size={W,_}}},  State=#state{grid=Grid}) ->
     observer_lib:set_listctrl_col_size(Grid, W),
     {noreply, State};
 
-handle_event(#wx{obj=Grid, event=#wxList{type=command_list_item_activated,
-					 itemIndex=Index}},
+handle_event(#wx{event=#wxList{type=command_list_item_activated,
+			       itemIndex=Index}},
 	     State=#state{grid=Grid, node=Node, opt=#opt{type=Type}, tabs=Tabs}) ->
     Table = lists:nth(Index+1, Tabs),
     case Table#tab.protection of
@@ -142,6 +146,16 @@ handle_event(#wx{obj=Grid, event=#wxList{type=command_list_item_activated,
 	_ ->
 	    observer_tv_table:start_link(Grid, [{node,Node}, {type,Type}, {table,Table}])
     end,
+    {noreply, State};
+
+handle_event(#wx{event=#wxList{type=command_list_item_right_click}},
+	     State=#state{panel=Panel}) ->
+
+    Menu = wxMenu:new(),
+    wxMenu:append(Menu, ?ID_TABLE_INFO, "Table info"),
+    wxMenu:append(Menu, ?ID_SHOW_TABLE, "Show Table Content"),
+    wxWindow:popupMenu(Panel, Menu),
+    wxMenu:destroy(Menu),
     {noreply, State};
 
 handle_event(#wx{event=#wxList{type=command_list_item_selected, itemIndex=Index}},
@@ -156,6 +170,22 @@ handle_event(#wx{id=?ID_TABLE_INFO},
 	R when is_integer(R) ->
 	    Table = lists:nth(Sel+1, Tabs),
 	    display_table_info(Grid, Node, Type, Table),
+	    {noreply, State}
+    end;
+
+handle_event(#wx{id=?ID_SHOW_TABLE},
+	     State=#state{grid=Grid, node=Node, opt=#opt{type=Type}, tabs=Tabs, selected=Sel}) ->
+    case Sel of
+	undefined ->
+	    {noreply, State};
+	R when is_integer(R) ->
+	    Table = lists:nth(Sel+1, Tabs),
+	    case Table#tab.protection of
+		private ->
+		    self() ! {error, "Table has 'private' protection and can not be read"};
+		_ ->
+		    observer_tv_table:start_link(Grid, [{node,Node}, {type,Type}, {table,Table}])
+	    end,
 	    {noreply, State}
     end;
 
@@ -176,10 +206,16 @@ handle_call(Event, From, _State) ->
 handle_cast(Event, _State) ->
     error({unhandled_cast, Event}).
 
-handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt}) ->
-    Tables = get_tables(Node, Opt),
-    Tabs = update_grid(Grid, Opt, Tables),
-    {noreply, State#state{tabs=Tabs}};
+handle_info(refresh_interval, State = #state{node=Node, grid=Grid, opt=Opt,
+                                             tabs=OldTabs}) ->
+    case get_tables(Node, Opt) of
+        OldTabs ->
+            %% no change
+            {noreply, State};
+        Tables ->
+            Tabs = update_grid(Grid, Opt, Tables),
+            {noreply, State#state{tabs=Tabs}}
+    end;
 
 handle_info({active, Node}, State = #state{parent=Parent, grid=Grid, opt=Opt,
 					   timer=Timer0}) ->
@@ -308,6 +344,7 @@ display_table_info(Parent0, Node, Source, Table) ->
 
     {_, Sizer, _} = observer_lib:display_info(Frame, [IdInfo,Settings,Memory]),
     wxSizer:setSizeHints(Sizer, Frame),
+    wxWindow:setMinSize(Frame, {300, -1}),
     wxFrame:center(Frame),
     wxFrame:show(Frame).
 

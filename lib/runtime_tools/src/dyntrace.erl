@@ -41,6 +41,27 @@
          pn/1, pn/2, pn/3, pn/4, pn/5, pn/6, pn/7, pn/8, pn/9]).
 -export([put_tag/1, get_tag/0, get_tag_data/0, spread_tag/1, restore_tag/1]).
 
+-export([trace/5,
+         trace_procs/5,
+         trace_ports/5,
+         trace_running_procs/5,
+         trace_running_ports/5,
+         trace_call/5,
+         trace_send/5,
+         trace_receive/5,
+         trace_garbage_collection/5]).
+
+-export([enabled_procs/3,
+         enabled_ports/3,
+         enabled_running_procs/3,
+         enabled_running_ports/3,
+         enabled_call/3,
+         enabled_send/3,
+         enabled_receive/3,
+         enabled_garbage_collection/3,
+         enabled/3]).
+
+
 -export([user_trace_i4s4/9]). % Know what you're doing!
 -on_load(on_load/0).
 
@@ -123,6 +144,60 @@ user_trace_i4s4(_, _, _, _, _, _, _, _, _) ->
       true | false | error | badarg.
 
 user_trace_n(_, _, _, _, _, _, _, _, _, _) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace_procs(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace_ports(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace_running_procs(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace_running_ports(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace_call(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace_send(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace_receive(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
+trace_garbage_collection(_TraceTag, _TracerState, _Tracee, _TraceTerm, _Opts) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled(_TraceTag, _TracerState, _Tracee) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled_procs(_TraceTag, _TracerState, _Tracee) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled_ports(_TraceTag, _TracerState, _Tracee) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled_running_procs(_TraceTag, _TracerState, _Tracee) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled_running_ports(_TraceTag, _TracerState, _Tracee) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled_call(_TraceTag, _TracerState, _Tracee) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled_send(_TraceTag, _TracerState, _Tracee) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled_receive(_TraceTag, _TracerState, _Tracee) ->
+    erlang:nif_error(nif_not_loaded).
+
+enabled_garbage_collection(_TraceTag, _TracerState, _Tracee) ->
     erlang:nif_error(nif_not_loaded).
 
 %%%

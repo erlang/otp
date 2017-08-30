@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2011. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -62,12 +63,18 @@ static SysGetKeyFunction *sys_get_key_p;
 static ErlStartFunction *erl_start_p;
 static SysPrimitiveInitFunction *sys_primitive_init_p;
 
-static HMODULE load_win_beam_dll(char *name)
+/*
+ * To enable debugging of argument processing etc
+ * #define ARGS_HARDDEBUG 1
+ * #define HARDDEBUG 1
+ */
+
+static HMODULE load_win_beam_dll(wchar_t *name)
 {
     HMODULE beam_module;
-    beam_module=LoadLibrary(name);
+    beam_module=LoadLibraryW(name);
     if (beam_module == INVALID_HANDLE_VALUE || beam_module == NULL) {
-	error("Unable to load emulator DLL\n(%s)",name);
+	error("Unable to load emulator DLL\n(%S)",name);
 	return NULL;
     }
     sys_get_key_p = (SysGetKeyFunction *) 
@@ -83,9 +90,21 @@ static HMODULE load_win_beam_dll(char *name)
 #define DLL_ENV "ERL_EMULATOR_DLL"
 
 static void
-set_env(char *key, char *value)
+set_env(char *key, char *value) /* Both in UTF-8 encoding */
 {
-    if (!SetEnvironmentVariable((LPCTSTR) key, (LPCTSTR) value))
+    wchar_t *wkey=NULL;
+    wchar_t *wvalue=NULL;
+    int keylen;
+    int valuelen;
+
+
+    keylen = MultiByteToWideChar(CP_UTF8, 0, key, -1, NULL, 0);
+    valuelen = MultiByteToWideChar(CP_UTF8, 0, value, -1, NULL, 0);
+    wkey = malloc(keylen*sizeof(wchar_t));
+    wvalue = malloc(valuelen*sizeof(wchar_t));
+    MultiByteToWideChar(CP_UTF8, 0, key, -1, wkey, keylen);
+    MultiByteToWideChar(CP_UTF8, 0, value, -1, wvalue, valuelen);
+    if (!SetEnvironmentVariableW( wkey, wvalue))
 	error("SetEnvironmentVariable(\"%s\", \"%s\") failed!", key, value);
 }
 
@@ -121,55 +140,97 @@ free_env_val(char *value)
 
 
 int
-start_win_emulator(char* emu, char *start_prog, char** argv, int start_detached)
+start_win_emulator(char* utf8emu, char *utf8start_prog, char** utf8argv, int start_detached)
 {
-    int result;
+    int len;
+    int argc = 0;
 
     windowed = 1;
+    while (utf8argv[argc] != NULL) {
+	++argc;
+    }
+
     if (start_detached) {
-	char *buff;
+	wchar_t *start_prog=NULL;
+	int result;
+	int i;
+	wchar_t **argv;
 	close(0);
 	close(1);
 	close(2);
 	
 	set_env("ERL_CONSOLE_MODE", "detached");
-	set_env(DLL_ENV, emu);
+	set_env(DLL_ENV, utf8emu);
 
-	argv[0] = start_prog;
-	argv = fnuttify_argv(argv);
-	result = spawnv(_P_DETACH, start_prog, argv);
-	free_fnuttified(argv);
-    } else {
-	int argc = 0;
-#ifdef LOAD_BEAM_DYNAMICALLY
-	HMODULE beam_module = load_win_beam_dll(emu);
-#endif	
-	set_env("ERL_CONSOLE_MODE", "window");
-	while (argv[argc] != NULL) {
-	    ++argc;
+	utf8argv[0] = utf8start_prog;
+	utf8argv = fnuttify_argv(utf8argv);
+
+	len = MultiByteToWideChar(CP_UTF8, 0, utf8start_prog, -1, NULL, 0);
+	start_prog = malloc(len*sizeof(wchar_t));
+	MultiByteToWideChar(CP_UTF8, 0, utf8start_prog, -1, start_prog, len);
+
+	/* Convert utf8argv to multibyte argv */
+	argv = malloc((argc+1) * sizeof(wchar_t*));
+	for (i=0; i<argc; i++) {
+	    len = MultiByteToWideChar(CP_UTF8, 0, utf8argv[i], -1, NULL, 0);
+	    argv[i] = malloc(len*sizeof(wchar_t));
+	    MultiByteToWideChar(CP_UTF8, 0, utf8argv[i], -1, argv[i], len);
 	}
+	argv[argc] = NULL;
+
+#ifdef ARGS_HARDDEBUG
+	{
+	    wchar_t tempbuf[2048] = L"";
+	    wchar_t *sbuf;
+	    int i;
+	    sbuf=tempbuf;
+	    sbuf += swprintf(sbuf, 2048, L"utf16: %s\n", start_prog);
+	    for (i = 0; i < argc; ++i) {
+		sbuf += swprintf(sbuf, 2048, L"|%s|", argv[i]);
+	    };
+	    sbuf += swprintf(sbuf, 2048, L"\nutf8: \n");
+	    for (i = 0; i < argc; ++i) {
+		sbuf += swprintf(sbuf, 2048, L"|%S|", utf8argv[i]);
+	    };
+	    MessageBoxW(NULL, tempbuf, L"respawn args", MB_OK|MB_ICONERROR);
+	}
+#endif
+
+	result = _wspawnv(_P_DETACH, start_prog, argv);
+	free_fnuttified(utf8argv);
+	if (result == -1) {
+	    error("Failed to execute %S: %s", start_prog, win32_errorstr(_doserrno));
+	}
+    } else {
+	wchar_t *emu=NULL;
+#ifdef LOAD_BEAM_DYNAMICALLY
+	HMODULE beam_module = NULL;
+	len = MultiByteToWideChar(CP_UTF8, 0, utf8emu, -1, NULL, 0);
+	emu = malloc(len*sizeof(wchar_t));
+	MultiByteToWideChar(CP_UTF8, 0, utf8emu, -1, emu, len);
 #ifdef ARGS_HARDDEBUG
 	{
 	    char sbuf[2048] = "";
 	    int i;
+	    strcat(sbuf,utf8emu);
+	    strcat(sbuf,":");
 	    for (i = 0; i < argc; ++i) {
 		strcat(sbuf,"|");
-		strcat(sbuf, argv[i]);
+		strcat(sbuf, utf8argv[i]);
 		strcat(sbuf,"| ");
 	    }
-	    MessageBox(NULL, sbuf, "Werl", MB_OK|MB_ICONERROR);
+	    MessageBox(NULL, sbuf, "erl_start args", MB_OK|MB_ICONERROR);
 	}
 #endif
+	beam_module = load_win_beam_dll(emu);
+#endif	
+	set_env("ERL_CONSOLE_MODE", "window");
 #ifdef LOAD_BEAM_DYNAMICALLY
 	(*sys_primitive_init_p)(beam_module);
-	(*erl_start_p)(argc,argv);
+	(*erl_start_p)(argc,utf8argv);
 #else
-	erl_start(argc, argv);
+	erl_start(argc,utf8argv);
 #endif
-	result = 0;
-    }
-    if (result == -1) {
-	error("Failed to execute %s: %s", emu, win32_errorstr(_doserrno));
     }
     return 0;
 }
@@ -186,61 +247,103 @@ do_keep_window(void)
 }
 
 int
-start_emulator(char* emu, char *start_prog, char** argv, int start_detached)
+start_emulator(char* utf8emu, char *utf8start_prog, char** utf8argv, int start_detached)
 {
-    int result;
     static char console_mode[] = "tty:ccc";
     char* fd_type;
     char* title;
+    int len;
+    int argc = 0;
 
 #ifdef HARDDEBUG
-    fprintf(stderr,"emu = %s, start_prog = %s\n",emu, start_prog);
+    fprintf(stderr,"utf8emu = %s, start_prog = %s\n", utf8emu, utf8start_prog);
 #endif
 
     fd_type = strchr(console_mode, ':');
     fd_type++;
     _flushall();
-    
+
+    while (utf8argv[argc] != NULL) {
+	++argc;
+    }
+
     /*
      * If no console, we will spawn the emulator detached.
      */
 
     if (start_detached) {
-	char *buff;
+	int result;
+	int i;
+	wchar_t *start_prog=NULL;
+	wchar_t **argv;
 	close(0);
 	close(1);
 	close(2);
 	set_env("ERL_CONSOLE_MODE", "detached");
-	set_env(DLL_ENV, emu);
+	set_env(DLL_ENV, utf8emu);
 
-	argv[0] = start_prog;
-	argv = fnuttify_argv(argv);
+	utf8argv[0] = utf8start_prog;
+	utf8argv = fnuttify_argv(utf8argv);
+
+	len = MultiByteToWideChar(CP_UTF8, 0, utf8start_prog, -1, NULL, 0);
+	start_prog = malloc(len*sizeof(wchar_t));
+	MultiByteToWideChar(CP_UTF8, 0, utf8start_prog, -1, start_prog, len);
+
+	/* Convert utf8argv to multibyte argv */
+	argv = malloc((argc+1) * sizeof(wchar_t*));
+	for (i=0; i<argc; i++) {
+	    len = MultiByteToWideChar(CP_UTF8, 0,utf8argv[i], -1, NULL, 0);
+	    argv[i] = malloc(len*sizeof(wchar_t));
+	    MultiByteToWideChar(CP_UTF8, 0, utf8argv[i], -1, argv[i], len);
+	}
+	argv[argc] = NULL;
+
 #ifdef ARGS_HARDDEBUG
 	{
-	    char buffer[2048];
+	    wchar_t buffer[2048];
 	    int i;
-	    sprintf(buffer,"Start detached [%s]\n",start_prog);
+	    wsprintfW(buffer,L"Start detached [%s]\n",start_prog);
 	    for(i=0;argv[i] != NULL;++i) {
-		strcat(buffer,"|");
-		strcat(buffer,argv[i]);
-		strcat(buffer,"|\n");
+		wcscat(buffer,L"|");
+		wcscat(buffer,argv[i]);
+		wcscat(buffer,L"|\n");
 	    }
-	    MessageBox(NULL, buffer,"Start detached",MB_OK);
+	    MessageBoxW(NULL, buffer, L"Start detached",MB_OK);
 	}
-#endif	    
-	result = spawnv(_P_DETACH, start_prog, argv);
-	free_fnuttified(argv);
+#endif
+	result = _wspawnv(_P_DETACH, start_prog, argv);
+	free_fnuttified(utf8argv);
+	free(start_prog);
+
 	if (result == -1) {
 #ifdef ARGS_HARDDEBUG
-	    MessageBox(NULL, "_spawnv failed","Start detached",MB_OK);
+	    MessageBox(NULL, "_wspawnv failed","Start detached",MB_OK);
 #endif
 	    return 1;
 	}
 	SetPriorityClass((HANDLE) result, GetPriorityClass(GetCurrentProcess()));
     } else {
-	int argc = 0;
+	wchar_t *emu=NULL;
 #ifdef LOAD_BEAM_DYNAMICALLY
-	HMODULE beam_module = load_win_beam_dll(emu);
+	HMODULE beam_module;
+	len = MultiByteToWideChar(CP_UTF8, 0, utf8emu, -1, NULL, 0);
+	emu = malloc(len*sizeof(wchar_t));
+	MultiByteToWideChar(CP_UTF8, 0, utf8emu, -1, emu, len);
+#ifdef ARGS_HARDDEBUG
+	{
+	    char sbuf[2048] = "";
+	    int i;
+	    strcat(sbuf,utf8emu);
+	    strcat(sbuf,":");
+	    for (i = 0; i < argc; ++i) {
+		strcat(sbuf,"|");
+		strcat(sbuf, utf8argv[i]);
+		strcat(sbuf,"| ");
+	    }
+	    MessageBox(NULL, sbuf, "erl_start args", MB_OK|MB_ICONERROR);
+	}
+#endif
+	beam_module = load_win_beam_dll(emu);
 #endif	
 
 	/*
@@ -254,9 +357,6 @@ start_emulator(char* emu, char *start_prog, char** argv, int start_detached)
 	free_env_val(title);
 	
 	set_env("ERL_CONSOLE_MODE", console_mode);
-	while (argv[argc] != NULL) {
-	    ++argc;
-	}
 	if (keep_window) {
 	    atexit(do_keep_window);
 	}
@@ -266,17 +366,17 @@ start_emulator(char* emu, char *start_prog, char** argv, int start_detached)
 	    int i;
 	    for (i = 0; i < argc; ++i) {
 		strcat(sbuf,"|");
-		strcat(sbuf, argv[i]);
+		strcat(sbuf, utf8argv[i]);
 		strcat(sbuf,"|\n");
 	    }
-	    MessageBox(NULL, sbuf, "erl", MB_OK);
+	    MessageBox(NULL, sbuf, "erl_start", MB_OK);
 	}
 #endif
 #ifdef LOAD_BEAM_DYNAMICALLY
 	(*sys_primitive_init_p)(beam_module);
-	(*erl_start_p)(argc,argv);
+	(*erl_start_p)(argc,utf8argv);
 #else
-	erl_start(argc, argv);
+	erl_start(argc, utf8argv);
 #endif
     }
     return 0;

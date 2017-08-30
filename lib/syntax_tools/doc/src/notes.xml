@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2007</year><year>2013</year>
+      <year>2007</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -30,6 +31,226 @@
   </header>
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
+
+<section><title>Syntax_Tools 2.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The abstract data type in <c>erl_syntax</c> is
+	    augmented with types and function specifications.</p>
+	    <p>The module <c>erl_prettypr</c> pretty prints types and
+	    function specification, and the output can be parsed.</p>
+	    <p>The types of record fields are no longer ignored. As a
+	    consequence <c>erl_syntax_lib:analyze_record_field/1</c>
+	    returns <c>{Default, Type}</c> instead of <c>Default</c>.
+	    The functions <c>analyze_record_attribute</c>,
+	    <c>analyze_attribute</c>, <c>analyze_form</c>, and
+	    <c>analyze_forms</c> in the <c>erl_syntax_lib</c> module
+	    are also affected by this incompatible change.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12863</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 1.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Use the new <c>erl_anno</c> module.</p>
+          <p>
+	    Own Id: OTP-12732</p>
+        </item>
+        <item>
+	    <p>The <c>merl</c> module has been added to the
+	    <c>syntax_tools</c> application. The Merl library is a
+	    simpler way to work with erl_syntax parse trees.</p>
+          <p>
+	    Own Id: OTP-12769</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 1.6.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bad format of error in epp_dodger:parse_file/3</p>
+          <p>
+	    Own Id: OTP-12406</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 1.6.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Teach Maps to erl_syntax</p>
+          <p>
+	    Affected functions:</p> <list>
+	    <item>erl_syntax:abstract/1</item>
+	    <item>erl_syntax:concrete/1</item>
+	    <item>erl_syntax:is_leaf/1</item>
+	    <item>erl_syntax:is_literal/1</item> </list>
+          <p>
+	    Own Id: OTP-12265</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 1.6.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The default encoding for Erlang source files is now
+	    UTF-8. As a temporary measure to ease the transition from
+	    the old default of Latin-1, if EDoc encounters byte
+	    sequences that are not valid UTF-8 sequences, EDoc will
+	    re-try in Latin-1 mode. This workaround will be removed
+	    in a future release. </p>
+          <p>
+	    Own Id: OTP-12008</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 1.6.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix reverting map in syntax_tools</p>
+          <p>
+	    There was a bug in erl_syntax when running e.g.
+	    erl_syntax:revert_forms, affecting maps. Instead of
+	    getting Key/Value you got Key/Key in the resulting
+	    abstract form.</p>
+          <p>
+	    Own Id: OTP-11930</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 1.6.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add implementation of having erl_tidy print to screen
+	    instead of writing to the file provided. (Thanks to Aaron
+	    France)</p>
+          <p>
+	    Own Id: OTP-11632</p>
+        </item>
+        <item>
+          <p>
+	    Support Maps syntax in syntax_tools (Thanks to Anthony
+	    Ramine).</p>
+          <p>
+	    Own Id: OTP-11663</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 1.6.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    In syntax_tools-1.6.12 (OTP R16B03) a bug was introduced
+	    which broke reverting of local implicit funs. Implicit
+	    funs were mistakenly thought to be using abstract terms
+	    for their name and arity. This has now been corrected.
+	    (Thanks to Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11576</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The default encoding of Erlang files has been changed
+	    from ISO-8859-1 to UTF-8. </p> <p> The encoding of XML
+	    files has also been changed to UTF-8. </p>
+          <p>
+	    Own Id: OTP-10907</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 1.6.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix transformation of implicit funs in igor (Thanks to
+	    Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11506</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Syntax_Tools 1.6.11</title>
 

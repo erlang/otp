@@ -1,18 +1,19 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2005-2012. All Rights Reserved.
+# Copyright Ericsson AB 2005-2015. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -39,12 +40,18 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
+
+BEHAVIOUR_MODULES= \
+        httpd_custom_api
+
 MODULES = \
 	httpd \
 	httpd_acceptor \
 	httpd_acceptor_sup \
+	httpd_connection_sup\
 	httpd_cgi \
 	httpd_conf \
+	httpd_custom \
 	httpd_example \
 	httpd_esi \
 	httpd_file\
@@ -74,7 +81,6 @@ MODULES = \
 	mod_get \
 	mod_head \
 	mod_htaccess \
-	mod_include \
 	mod_log \
 	mod_range \
 	mod_responsecontrol \
@@ -84,9 +90,12 @@ MODULES = \
 
 HRL_FILES = httpd.hrl httpd_internal.hrl mod_auth.hrl
 
-ERL_FILES = $(MODULES:%=%.erl)
+ERL_FILES = $(MODULES:%=%.erl)\
+	    $(BEHAVIOUR_MODULES:%=%.erl)
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) 
+
+BEHAVIOUR_TARGET_FILES= $(BEHAVIOUR_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 INETS_FLAGS = -D'SERVER_SOFTWARE="$(APPLICATION)/$(VSN)"'
 
@@ -107,11 +116,12 @@ ERL_COMPILE_FLAGS += \
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
+$(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
 debug opt: $(TARGET_FILES)
 
 clean:
-	rm -f $(TARGET_FILES)
+	rm -f $(TARGET_FILES) $(BEHAVIOUR_TARGET_FILES)
 	rm -f core
 
 docs:
@@ -127,7 +137,7 @@ release_spec: opt
 	$(INSTALL_DIR)  "$(RELSYSDIR)/src/http_server"
 	$(INSTALL_DATA) $(HRL_FILES) $(ERL_FILES) "$(RELSYSDIR)/src/http_server"
 	$(INSTALL_DIR)  "$(RELSYSDIR)/ebin"
-	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DATA) $(TARGET_FILES) $(BEHAVIOUR_TARGET_FILES) "$(RELSYSDIR)/ebin"
 
 release_docs_spec:
 

@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -41,6 +42,7 @@ static ERL_NIF_TERM am_null;
 static ERL_NIF_TERM am_resource_type;
 static ERL_NIF_TERM am_resource_dtor_A;
 static ERL_NIF_TERM am_resource_dtor_B;
+static ERL_NIF_TERM am_return;
 
 static NifModPrivData* priv_data(ErlNifEnv* env)
 {
@@ -54,6 +56,7 @@ static void init(ErlNifEnv* env)
     am_resource_type = enif_make_atom(env, "resource_type");
     am_resource_dtor_A = enif_make_atom(env, "resource_dtor_A");
     am_resource_dtor_B = enif_make_atom(env, "resource_dtor_B");
+    am_return = enif_make_atom(env, "return");
 }
 
 static void add_call_with_arg(ErlNifEnv* env, NifModPrivData* data, const char* func_name,
@@ -105,19 +108,15 @@ static void resource_dtor_B(ErlNifEnv* env, void* a)
 }
 
 /* {resource_type, Ix|null, ErlNifResourceFlags in, "TypeName", dtor(A|B|null), ErlNifResourceFlags out}*/
-static void open_resource_type(ErlNifEnv* env, ERL_NIF_TERM op_tpl)
+static void open_resource_type(ErlNifEnv* env, const ERL_NIF_TERM* arr)
 {
     NifModPrivData* data = priv_data(env);
-    const ERL_NIF_TERM* arr;
-    int arity;
     char rt_name[30];
     union { ErlNifResourceFlags e; int i; } flags, exp_res, got_res;
     unsigned ix;
     ErlNifResourceDtor* dtor;
     ErlNifResourceType* got_ptr;
 
-    CHECK(enif_get_tuple(env, op_tpl, &arity, &arr));
-    CHECK(arity == 6);
     CHECK(enif_is_identical(arr[0], am_resource_type));
     CHECK(enif_get_int(env, arr[2], &flags.i));
     CHECK(enif_get_string(env, arr[3], rt_name, sizeof(rt_name), ERL_NIF_LATIN1) > 0);
@@ -147,18 +146,32 @@ static void open_resource_type(ErlNifEnv* env, ERL_NIF_TERM op_tpl)
     CHECK(got_res.e == exp_res.e);
 }
 
-static void do_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info)
+static void do_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info, int* retvalp)
 {
     NifModPrivData* data = priv_data(env);
     ERL_NIF_TERM head, tail;
     unsigned ix;
+
     for (ix=0; ix<RT_MAX; ix++) {
 	data->rt_arr[ix] = NULL;
     }
     for (head = load_info; enif_get_list_cell(env, head, &head, &tail);
 	  head = tail) {
+	const ERL_NIF_TERM* arr;
+	int arity;
 
-	open_resource_type(env, head);	
+	CHECK(enif_get_tuple(env, head, &arity, &arr));
+	switch (arity) {
+	case 6:
+	    open_resource_type(env, arr);
+	    break;
+	case 2:
+	    CHECK(arr[0] == am_return);
+	    CHECK(enif_get_int(env, arr[1], retvalp));
+	    break;
+	default:
+	    CHECK(0);
+	}
     }    
     CHECK(enif_is_empty_list(env, head));
 }
@@ -166,6 +179,7 @@ static void do_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info)
 static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
 {
     NifModPrivData* data;
+    int retval = 0;
 
     init(env);
     data = (NifModPrivData*) enif_alloc(sizeof(NifModPrivData));
@@ -177,38 +191,42 @@ static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
 
     add_call(env, data, "load");
 
-    do_load_info(env, load_info);
-    data->calls = 0;    
-    return 0;
+    do_load_info(env, load_info, &retval);
+    if (retval)
+	NifModPrivData_release(data);
+    return retval;
 }
 
 static int reload(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
 {
     NifModPrivData* data = (NifModPrivData*) *priv;
+    int retval = 0;
     init(env);
     add_call(env, data, "reload");
     
-    do_load_info(env, load_info);
-    return 0;
+    do_load_info(env, load_info, &retval);
+    return retval;
 }
 
 static int upgrade(ErlNifEnv* env, void** priv, void** old_priv_data, ERL_NIF_TERM load_info)
 {
     NifModPrivData* data = (NifModPrivData*) *old_priv_data;
+    int retval = 0;
     init(env);
     add_call(env, data, "upgrade");
     data->ref_cnt++;
 
     *priv = *old_priv_data;    
-    do_load_info(env, load_info);
-    
-    return 0;
+    do_load_info(env, load_info, &retval);
+    if (retval)
+	NifModPrivData_release(data);
+    return retval;
 }
 
 static void unload(ErlNifEnv* env, void* priv)
 {
     NifModPrivData* data = (NifModPrivData*) priv;
-    int is_last;
+
     add_call(env, data, "unload");
     NifModPrivData_release(data);
 }
@@ -222,7 +240,7 @@ static ERL_NIF_TERM lib_version(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM get_priv_data_ptr(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ADD_CALL("get_priv_data_ptr");
-    return enif_make_ulong(env, (unsigned long)priv_data(env));
+    return enif_make_uint64(env, (ErlNifUInt64)priv_data(env));
 }
 
 static ERL_NIF_TERM make_new_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -26,7 +27,7 @@
 %%-----------------------------------------------------------------
 -module(ic_register_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("orber/include/corba.hrl").
 %%-----------------------------------------------------------------
 %% External exports
@@ -50,7 +51,7 @@
 			 end).
 %% Standard options to the ic compiler, NOTE unholy use of OutDir
 
--define(OUT(X), filename:join([?config(priv_dir, Config), gen, to_list(X)])).
+-define(OUT(X), filename:join([proplists:get_value(priv_dir, Config), gen, to_list(X)])).
 
 
 %%-----------------------------------------------------------------
@@ -110,39 +111,37 @@ end_per_suite(Config) ->
 %%-----------------------------------------------------------------
 %% Test Case: IFR type registration
 %%-----------------------------------------------------------------
-ifr_reg_unreg(doc) ->
-    ["Checks that the generated register/unregister "
-     "code for the IFR is correct."];
-ifr_reg_unreg(suite) -> [];
+%% Checks that the generated register/unregister 
+%% code for the IFR is correct.
 ifr_reg_unreg(Config) when is_list(Config) ->
     ?REMAP_EXCEPT(ifr_reg_unregt_run(Config)).
 
 ifr_reg_unregt_run(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(ifr_reg_unreg),
     File0 = filename:join(DataDir, reg_m8),
     File1 = filename:join(DataDir, reg_m9),
     File2 = filename:join(DataDir, reg_m10),
-    ?line ok = ic:gen(File0, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File0, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File0, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File0, stdopts(OutDir)++[silent2, {preproc_flags,
 					       "-I" ++ DataDir}]),
-    ?line ok = ic:gen(File1, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File1, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File1, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File1, stdopts(OutDir)++[silent2, {preproc_flags,
 					       "-I" ++ DataDir}]),
-    ?line ok = ic:gen(File2, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File2, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File2, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File2, stdopts(OutDir)++[silent2, {preproc_flags,
 					       "-I" ++ DataDir}]),
-    ?line ok = compile(OutDir, ifr_reg_unreg_files()),
+    ok = compile(OutDir, ifr_reg_unreg_files()),
     code:add_pathz(OutDir),
-    ?line ok = 'oe_reg_m8':'oe_register'(),
-    ?line ok = 'oe_reg_m9':'oe_register'(),
-    ?line ok = 'oe_reg_m10':'oe_register'(),
-    ?line ok = 'oe_reg_m10':'oe_unregister'(),
-    ?line ok = 'oe_reg_m9':'oe_unregister'(),
-    ?line ok = 'oe_reg_m8':'oe_unregister'(),
+    ok = 'oe_reg_m8':'oe_register'(),
+    ok = 'oe_reg_m9':'oe_register'(),
+    ok = 'oe_reg_m10':'oe_register'(),
+    ok = 'oe_reg_m10':'oe_unregister'(),
+    ok = 'oe_reg_m9':'oe_unregister'(),
+    ok = 'oe_reg_m8':'oe_unregister'(),
     code:del_path(OutDir),
     ok.
 
@@ -154,58 +153,56 @@ ifr_reg_unreg_files() -> ['oe_reg_m8', 'oe_reg_m9', 'oe_reg_m10'].
 %% Test Case: IFR registration when object inheritence 
 %%            is applied and registered.
 %%-----------------------------------------------------------------
-ifr_reg_unreg_with_inheritence(doc) ->
-    ["Checks that the generated register/unregister "
-     "code for the IFR is correct, and works even when"
-     "the object inheritence is registered. This fixes"
-     "two bugs in ifr that caused crash when trying to"
-     "use OE_register/OE_unregister in a sequence of"
-     "compiled files that contained interfaces who"
-     "inherited others in sequence."];
-ifr_reg_unreg_with_inheritence(suite) -> [];
+%% Checks that the generated register/unregister 
+%% code for the IFR is correct, and works even when
+%% the object inheritence is registered. This fixes
+%% two bugs in ifr that caused crash when trying to
+%% use OE_register/OE_unregister in a sequence of
+%% compiled files that contained interfaces who
+%% inherited others in sequence.
 ifr_reg_unreg_with_inheritence(Config) when is_list(Config) ->
     ?REMAP_EXCEPT(ifr_reg_unreg_with_inheritence_run(Config)).
 
 ifr_reg_unreg_with_inheritence_run(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(ifr_reg_unreg),
     File0 = filename:join(DataDir, reg_m8),
     File1 = filename:join(DataDir, reg_m9),
     File2 = filename:join(DataDir, reg_m10),
     File3 = filename:join(DataDir, reg_m11),
     File4 = filename:join(DataDir, reg_m12),
-    ?line ok = ic:gen(File0, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File0, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File0, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File0, stdopts(OutDir)++[silent2, {preproc_flags,
 					       "-I" ++ DataDir}]),
-    ?line ok = ic:gen(File1, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File1, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File1, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File1, stdopts(OutDir)++[silent2, {preproc_flags,
 					       "-I" ++ DataDir}]),
-    ?line ok = ic:gen(File2, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File2, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File2, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File2, stdopts(OutDir)++[silent2, {preproc_flags,
 					       "-I" ++ DataDir}]),
-    ?line ok = ic:gen(File3, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File3, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File3, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File3, stdopts(OutDir)++[silent2, {preproc_flags,
 						"-I" ++ DataDir}]),
-    ?line ok = ic:gen(File4, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File4, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File4, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File4, stdopts(OutDir)++[silent2, {preproc_flags,
 						"-I" ++ DataDir}]),
-    ?line ok = compile(OutDir, ifr_reg_unreg_with_inheritence_files()),
+    ok = compile(OutDir, ifr_reg_unreg_with_inheritence_files()),
     code:add_pathz(OutDir),
-    ?line ok = 'oe_reg_m8':'oe_register'(),
-    ?line ok = 'oe_reg_m9':'oe_register'(),
-    ?line ok = 'oe_reg_m10':'oe_register'(),
-    ?line ok = 'oe_reg_m11':'oe_register'(),
-    ?line ok = 'oe_reg_m12':'oe_register'(),
-    ?line ok = 'oe_reg_m8':'oe_unregister'(),
-    ?line ok = 'oe_reg_m9':'oe_unregister'(),
-    ?line ok = 'oe_reg_m10':'oe_unregister'(),
-    ?line ok = 'oe_reg_m11':'oe_unregister'(),
-    ?line ok = 'oe_reg_m12':'oe_unregister'(),
+    ok = 'oe_reg_m8':'oe_register'(),
+    ok = 'oe_reg_m9':'oe_register'(),
+    ok = 'oe_reg_m10':'oe_register'(),
+    ok = 'oe_reg_m11':'oe_register'(),
+    ok = 'oe_reg_m12':'oe_register'(),
+    ok = 'oe_reg_m8':'oe_unregister'(),
+    ok = 'oe_reg_m9':'oe_unregister'(),
+    ok = 'oe_reg_m10':'oe_unregister'(),
+    ok = 'oe_reg_m11':'oe_unregister'(),
+    ok = 'oe_reg_m12':'oe_unregister'(),
     code:del_path(OutDir),
     ok.
 
@@ -223,35 +220,28 @@ ifr_reg_unreg_with_inheritence_files() ->
 %%            are not allready registered when the current 
 %%            object is getting registered.
 %%-----------------------------------------------------------------
-ifr_reg_unreg_with_inheritence_bad_order(doc) ->
-    ["This tests that ifr registration is done with
-      the right write order."
-     "Modules included and used from an ifr object"
-     "are tested if allready registered when the "
-     "current object is getting registered."];
-ifr_reg_unreg_with_inheritence_bad_order(suite) -> [];
 ifr_reg_unreg_with_inheritence_bad_order(Config) when is_list(Config) ->
     ?REMAP_EXCEPT(ifr_reg_unreg_with_inheritence_bad_order_run(Config)).
 
 ifr_reg_unreg_with_inheritence_bad_order_run(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(ifr_reg_unreg),
     File1 = filename:join(DataDir, reg_m9),
     File2 = filename:join(DataDir, reg_m10),
     File4 = filename:join(DataDir, reg_m12),
-    ?line ok = ic:gen(File1, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File1, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File1, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File1, stdopts(OutDir)++[silent2, {preproc_flags,
 					       "-I" ++ DataDir}]),
-    ?line ok = ic:gen(File2, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File2, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File2, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File2, stdopts(OutDir)++[silent2, {preproc_flags,
 					       "-I" ++ DataDir}]),
-    ?line ok = ic:gen(File4, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File4, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File4, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File4, stdopts(OutDir)++[silent2, {preproc_flags,
 						"-I" ++ DataDir}]),
-    ?line ok = compile(OutDir, ifr_reg_unreg_with_inheritence_files()),
+    ok = compile(OutDir, ifr_reg_unreg_with_inheritence_files()),
     code:add_pathz(OutDir),
     case catch 'oe_reg_m12':'oe_register'() of
 	{'EXIT',Reason1} ->
@@ -260,7 +250,7 @@ ifr_reg_unreg_with_inheritence_bad_order_run(Config) ->
 	_ ->
 	    test_server:fail("Failed to detect object missing : IDL:M1:1.0~n")
     end,
-    ?line ok = 'oe_reg_m9':'oe_register'(),
+    ok = 'oe_reg_m9':'oe_register'(),
     case catch 'oe_reg_m10':'oe_register'() of
 	{'EXIT',Reason2} ->
 	    io:format("IFR object missing detected : ~p~n",[Reason2]),
@@ -268,75 +258,70 @@ ifr_reg_unreg_with_inheritence_bad_order_run(Config) ->
 	_ ->
 	    test_server:fail("Failed to detect object missing : IDL:M0:1.0~n")
     end,
-    ?line ok = 'oe_reg_m9':'oe_unregister'(),
+    ok = 'oe_reg_m9':'oe_unregister'(),
     code:del_path(OutDir),
     ok.
 
-
-
 %%-----------------------------------------------------------------
-%% Test Case: IFR registration with inheritence
+%% Test Case: IFR registration with inheritence is correctly registered
 %%-----------------------------------------------------------------
-ifr_inheritence_reg(doc) ->
-    ["Checks that IFR object inheritence is correctly registered."];
-ifr_inheritence_reg(suite) -> [];
 ifr_inheritence_reg(Config) when is_list(Config) ->
     ?REMAP_EXCEPT(ifr_inh_reg_run(Config)).
 
 ifr_inh_reg_run(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     OutDir = ?OUT(ifr_reg_unreg),
     File0 = filename:join(DataDir, reg_m8),
     File1 = filename:join(DataDir, reg_m9),
     File2 = filename:join(DataDir, reg_m10),
     File3 = filename:join(DataDir, reg_m11),
     File4 = filename:join(DataDir, reg_m12),
-    ?line ok = ic:gen(File0, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File0, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File0, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File0, stdopts(OutDir)++[silent2, {preproc_flags,
 					       "-I" ++ DataDir}]),
-    ?line ok = ic:gen(File1, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File1, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File1, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File1, stdopts(OutDir)++[silent2, {preproc_flags,
 					       "-I" ++ DataDir}]),
-    ?line ok = ic:gen(File2, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File2, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File2, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File2, stdopts(OutDir)++[silent2, {preproc_flags,
 					       "-I" ++ DataDir}]),
-    ?line ok = ic:gen(File3, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File3, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File3, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File3, stdopts(OutDir)++[silent2, {preproc_flags,
 						"-I" ++ DataDir}]),
-    ?line ok = ic:gen(File4, stdopts(OutDir)++[{preproc_flags,
+    ok = ic:gen(File4, stdopts(OutDir)++[{preproc_flags,
 						"-I" ++ DataDir}] ),
-    ?line {ok, []} = ic:gen(File4, stdopts(OutDir)++[silent2, {preproc_flags,
+    {ok, []} = ic:gen(File4, stdopts(OutDir)++[silent2, {preproc_flags,
 						"-I" ++ DataDir}]),
-    ?line ok = compile(OutDir, ifr_reg_unreg_with_inheritence_files()),
+    ok = compile(OutDir, ifr_reg_unreg_with_inheritence_files()),
     code:add_pathz(OutDir),
     %% OE_register for all files
-    ?line ok = 'oe_reg_m8':'oe_register'(),
-    ?line ok = 'oe_reg_m9':'oe_register'(),
-    ?line ok = 'oe_reg_m10':'oe_register'(),
-    ?line ok = 'oe_reg_m11':'oe_register'(),
-    ?line ok = 'oe_reg_m12':'oe_register'(),
+    ok = 'oe_reg_m8':'oe_register'(),
+    ok = 'oe_reg_m9':'oe_register'(),
+    ok = 'oe_reg_m10':'oe_register'(),
+    ok = 'oe_reg_m11':'oe_register'(),
+    ok = 'oe_reg_m12':'oe_register'(),
     
     %% Inheritence registration test
     OE_IFR = orber_ifr:find_repository(),
     %% Interfaces that not inherit from other interfaces
-    ?line [] = get_inh(OE_IFR, "IDL:m0/i0:1.0"),
-    ?line [] = get_inh(OE_IFR, "IDL:m1/i1:1.0"),
-    ?line [] = get_inh(OE_IFR, "IDL:m3/i3:1.0"),
+    [] = get_inh(OE_IFR, "IDL:m0/i0:1.0"),
+    [] = get_inh(OE_IFR, "IDL:m1/i1:1.0"),
+    [] = get_inh(OE_IFR, "IDL:m3/i3:1.0"),
     %% Interfaces that inherit from other interfaces
-    ?line ["IDL:m1/i1:1.0"] = get_inh(OE_IFR, "IDL:m2/i2:1.0"),
-    ?line ["IDL:m1/i1:1.0","IDL:m2/i2:1.0"] = get_inh(OE_IFR, "IDL:m4/i4:1.0"),
-    ?line ["IDL:m3/i3:1.0"] = get_inh(OE_IFR, "IDL:m4/i5:1.0"),
+    ["IDL:m1/i1:1.0"] = get_inh(OE_IFR, "IDL:m2/i2:1.0"),
+    ["IDL:m1/i1:1.0","IDL:m2/i2:1.0"] = get_inh(OE_IFR, "IDL:m4/i4:1.0"),
+    ["IDL:m3/i3:1.0"] = get_inh(OE_IFR, "IDL:m4/i5:1.0"),
     
     %% OE_unregister for all files
-    ?line ok = 'oe_reg_m8':'oe_unregister'(),
-    ?line ok = 'oe_reg_m9':'oe_unregister'(),
-    ?line ok = 'oe_reg_m10':'oe_unregister'(),
-    ?line ok = 'oe_reg_m11':'oe_unregister'(),
-    ?line ok = 'oe_reg_m12':'oe_unregister'(),
+    ok = 'oe_reg_m8':'oe_unregister'(),
+    ok = 'oe_reg_m9':'oe_unregister'(),
+    ok = 'oe_reg_m10':'oe_unregister'(),
+    ok = 'oe_reg_m11':'oe_unregister'(),
+    ok = 'oe_reg_m12':'oe_unregister'(),
     code:del_path(OutDir),
     ok.
 

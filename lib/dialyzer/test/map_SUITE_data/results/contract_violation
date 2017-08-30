@@ -1,0 +1,3 @@
+
+contract_violation.erl:12: The pattern #{I:=Loc} can never match the type #{}
+contract_violation.erl:16: Invalid type specification for function contract_violation:beam_disasm_lines/2. The success typing is ('none' | <<_:32,_:_*8>>,_) -> #{pos_integer()=>{'location',_,_}}

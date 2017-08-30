@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -21,7 +22,7 @@
 
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('T11',{number, string=asn1_DEFAULT}).
 -record('T12',{number, string=asn1_DEFAULT}).
@@ -29,53 +30,38 @@
 -record('T22',{number, string}).
 
 main(Rules) ->
-    
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('ParamBasic','T11',
-			    #'T11'{number = 11,
-				   string = "hello"}),
-    ?line {ok,{'T11',11,"hello"}} =
-	asn1_wrapper:decode('ParamBasic','T11',Bytes11),
-	    
-    ?line {ok,Bytes12} = 
-	asn1_wrapper:encode('ParamBasic','T12',
-			    #'T12'{number = 11,
-				   string = <<2#10101:5>>}),
-    {ok,{'T12',11,<<2#10101:5>>}} =
-	asn1_wrapper:decode('ParamBasic','T12',Bytes12),
-    
-    ?line {ok,Bytes13} = 
-	asn1_wrapper:encode('ParamBasic','T21',
-			    #'T21'{number = 11,
-				   string = "hello"}),
-    ?line {ok,{'T21',11,"hello"}} =
-	asn1_wrapper:decode('ParamBasic','T21',Bytes13),
-	    
-    ?line {ok,Bytes14} = 
-	asn1_wrapper:encode('ParamBasic','T22',
-			    #'T22'{number = 11,
-				   string = <<2#10101:5>>}),
-    {ok,{'T22',11,<<2#10101:5>>}} =
-	asn1_wrapper:decode('ParamBasic','T22',Bytes14),
-
+    roundtrip('T11', #'T11'{number=11,string="hello"}),
+    roundtrip('T12', #'T12'{number=11,string = <<21:5>>}),
+    roundtrip('T21', #'T21'{number=11,string="hello"}),
+    roundtrip('T22', #'T22'{number=11,string = <<21:5>>}),
     case Rules of
 	der ->
-
-	    ?line {ok,[48,3,128,1,11]} = 
-		asn1_wrapper:encode('ParamBasic','T11',
-				    #'T11'{number = 11,
-					   string = "hej"}),
-	    ?line {ok,{'T11',11,"hej"}} =
-		asn1_wrapper:decode('ParamBasic','T11',[48,3,128,1,11]),
-	    
-	    ?line {ok,[48,3,128,1,11]} = 
-		asn1_wrapper:encode('ParamBasic','T12',
-				    #'T12'{number = 11,
-					   string = [1,0,1,0]}),
-	    
-	    ?line {ok,{'T12',11,[1,0,1,0]}} =
-		asn1_wrapper:decode('ParamBasic','T12',[48,3,128,1,11]);
+	    <<48,3,128,1,11>> =
+		roundtrip_enc('T11', #'T11'{number=11,string="hej"}),
+	    <<48,3,128,1,11>> =
+		roundtrip_enc('T12',
+			      #'T12'{number=11,string=[1,0,1,0]},
+			      #'T12'{number=11,string = <<10:4>>});
 	_ -> ok
     end,
-	    
+    roundtrip('AnAlgorithm', {'AnAlgorithm',1,42}),
+    roundtrip('AnAlgorithm', {'AnAlgorithm',2,true}),
+    roundtrip('AnAlgorithm', {'AnAlgorithm',2,false}),
+    {'AnAlgorithm',1,42} = 'ParamBasic':'alg-seq-1'(),
+    {'AnAlgorithm',2,true} = 'ParamBasic':'alg-seq-2'(),
+
+    roundtrip('Seq', {'Seq',
+		      {'Seq_c1',{2,1,1},42},
+		      {'Seq_c2',{2,1,1,1},asn1_NOVALUE}}),
+
+    {_,{2,9,9,9,7},'NULL'} = 'ParamBasic':'algid-hmacWithSHA1'(),
     ok.
+
+roundtrip(Type, Value) ->
+    asn1_test_lib:roundtrip('ParamBasic', Type, Value).
+
+roundtrip_enc(Type, Value) ->
+    asn1_test_lib:roundtrip_enc('ParamBasic', Type, Value).
+
+roundtrip_enc(Type, Value, Expected) ->
+    asn1_test_lib:roundtrip_enc('ParamBasic', Type, Value, Expected).

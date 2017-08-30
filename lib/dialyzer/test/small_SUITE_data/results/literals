@@ -1,0 +1,17 @@
+
+literals.erl:11: Function t1/0 has no local return
+literals.erl:12: Record construction #r{id::'a'} violates the declared type of field id::'integer'
+literals.erl:14: Function t2/0 has no local return
+literals.erl:15: Record construction #r{id::'a'} violates the declared type of field id::'integer'
+literals.erl:17: Function t3/0 has no local return
+literals.erl:18: Record construction #r{id::'a'} violates the declared type of field id::'integer'
+literals.erl:20: Function t4/0 has no local return
+literals.erl:21: Record construction #r{id::'a'} violates the declared type of field id::'integer'
+literals.erl:23: Function m1/1 has no local return
+literals.erl:23: Matching of pattern {'r', 'a'} tagged with a record name violates the declared type of #r{id::'integer'}
+literals.erl:26: Function m2/1 has no local return
+literals.erl:26: Matching of pattern {'r', 'a'} tagged with a record name violates the declared type of #r{id::'integer'}
+literals.erl:29: Function m3/1 has no local return
+literals.erl:29: The pattern {{'r', 'a'}} can never match the type any()
+literals.erl:32: Function m4/1 has no local return
+literals.erl:32: Matching of pattern {'r', 'a'} tagged with a record name violates the declared type of #r{id::'integer'}

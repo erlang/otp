@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -29,12 +30,32 @@
 
 -include("ssl_alert.hrl").
 -include("ssl_record.hrl").
+-include("ssl_internal.hrl").
 
--export([alert_txt/1, reason_code/2]).
+-export([encode/3, decode/1, alert_txt/1, reason_code/2]).
 
 %%====================================================================
 %% Internal application API
 %%====================================================================
+
+%%--------------------------------------------------------------------
+-spec encode(#alert{}, ssl_record:ssl_version(), #connection_states{}) -> 
+		    {iolist(), #connection_states{}}.
+%%
+%% Description: Encodes an alert
+%%--------------------------------------------------------------------
+encode(#alert{} = Alert, Version, ConnectionStates) ->
+    ssl_record:encode_alert_record(Alert, Version, ConnectionStates).
+
+%%--------------------------------------------------------------------
+-spec decode(binary()) -> [#alert{}] | #alert{}.
+%%
+%% Description: Decode alert(s), will return a singel own alert if peer
+%% sends garbage or too many warning alerts.
+%%--------------------------------------------------------------------
+decode(Bin) ->
+    decode(Bin, [], 0).
+
 %%--------------------------------------------------------------------
 -spec reason_code(#alert{}, client | server) -> closed | {essl, string()}.
 %%
@@ -52,14 +73,34 @@ reason_code(#alert{description = Description}, _) ->
 %%
 %% Description: Returns the error string for given alert.
 %%--------------------------------------------------------------------
-
-alert_txt(#alert{level = Level, description = Description, where = {Mod,Line}}) ->
+alert_txt(#alert{level = Level, description = Description, where = {Mod,Line}, reason = undefined}) ->
     Mod ++ ":" ++ integer_to_list(Line) ++ ":" ++ 
-	level_txt(Level) ++" "++ description_txt(Description).
+        level_txt(Level) ++" "++ description_txt(Description);
+alert_txt(#alert{reason = Reason} = Alert) ->
+    BaseTxt = alert_txt(Alert#alert{reason = undefined}),
+    FormatDepth = 9, % Some limit on printed representation of an error
+    ReasonTxt = lists:flatten(io_lib:format("~P", [Reason, FormatDepth])),
+    BaseTxt ++ " - " ++ ReasonTxt.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+%% It is very unlikely that an correct implementation will send more than one alert at the time
+%% So it there is more than 10 warning alerts we consider it an error
+decode(<<?BYTE(Level), ?BYTE(_), _/binary>>, _, N) when Level == ?WARNING, N > ?MAX_ALERTS ->
+    ?ALERT_REC(?FATAL, ?DECODE_ERROR, too_many_remote_alerts);
+decode(<<?BYTE(Level), ?BYTE(Description), Rest/binary>>, Acc, N) when Level == ?WARNING ->
+    Alert = ?ALERT_REC(Level, Description),
+    decode(Rest, [Alert | Acc], N + 1);
+decode(<<?BYTE(Level), ?BYTE(Description), _Rest/binary>>, Acc, _) when Level == ?FATAL->
+    Alert = ?ALERT_REC(Level, Description),
+    lists:reverse([Alert | Acc]); %% No need to decode rest fatal alert will end the connection
+decode(<<?BYTE(_Level), _/binary>>, _, _) ->
+    ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, failed_to_decode_remote_alert);
+decode(<<>>, Acc, _) ->
+    lists:reverse(Acc, []).
+
 level_txt(?WARNING) ->
     "Warning:";
 level_txt(?FATAL) ->
@@ -113,5 +154,21 @@ description_txt(?USER_CANCELED) ->
     "user canceled";
 description_txt(?NO_RENEGOTIATION) ->
     "no renegotiation";
+description_txt(?UNSUPPORTED_EXTENSION) ->
+    "unsupported extension";
+description_txt(?CERTIFICATE_UNOBTAINABLE) ->
+    "certificate unobtainable";
+description_txt(?UNRECOGNISED_NAME) ->
+    "unrecognised name";
+description_txt(?BAD_CERTIFICATE_STATUS_RESPONSE) ->
+    "bad certificate status response";
+description_txt(?BAD_CERTIFICATE_HASH_VALUE) ->
+    "bad certificate hash value";
 description_txt(?UNKNOWN_PSK_IDENTITY) ->
-    "unknown psk identity".
+    "unknown psk identity";
+description_txt(?INAPPROPRIATE_FALLBACK) ->
+    "inappropriate fallback";
+description_txt(?NO_APPLICATION_PROTOCOL) ->
+    "no application protocol";
+description_txt(Enum) ->
+    lists:flatten(io_lib:format("unsupported/unknown alert: ~p", [Enum])).

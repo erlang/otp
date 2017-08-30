@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -105,8 +106,7 @@ encode_real(_C, {Mantissa, Base, Exponent}) when Base =:= 2 ->
 		     true    -> list_to_binary(real_mininum_octets(-(Man))) % signbit keeps track of sign
 		  end,
     %%    ok = io:format("LenMask: ~w EOctets: ~w~nFirstOctet: ~w OctMantissa: ~w OctExpLen: ~w~n", [LenMask, EOctets, FirstOctet, OctMantissa, OctExpLen]),
-    Bin = <<FirstOctet/binary, EOctets/binary, OctMantissa/binary>>,
-    {Bin, size(Bin)};
+    <<FirstOctet/binary, EOctets/binary, OctMantissa/binary>>;
 encode_real(C, {Mantissa,Base,Exponent})
   when Base =:= 10, is_integer(Mantissa), is_integer(Exponent) ->
     %% always encode as NR3 due to DER on the format
@@ -176,8 +176,7 @@ encode_real_as_string(_C, Mantissa, Exponent)
 	end,
     ManBin = list_to_binary(TruncMant),
     NR3 = 3,
-    {<<NR3,ManBin/binary,$.,ExpBin/binary>>,
-     2 + byte_size(ManBin) + byte_size(ExpBin)}.
+    <<NR3,ManBin/binary,$.,ExpBin/binary>>.
 
 remove_trailing_zeros(IntStr) ->
     case lists:dropwhile(fun($0)-> true;

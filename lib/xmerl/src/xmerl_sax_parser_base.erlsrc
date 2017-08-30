@@ -1,18 +1,19 @@
 %%-*-erlang-*-
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%----------------------------------------------------------------------
@@ -28,12 +29,10 @@
 %%----------------------------------------------------------------------
 %% External exports
 %%----------------------------------------------------------------------
--export([
-	 parse/2,
+-export([parse/2,
 	 parse_dtd/2,
 	 is_name_char/1,
-	 is_name_start/1
-        ]).
+	 is_name_start/1]).
 
 %%----------------------------------------------------------------------
 %% Internal exports
@@ -113,6 +112,10 @@ parse_dtd(Xml, State) ->
 	    State3 =  event_callback(endDocument, State2),
 	    ets:delete(RefTable),
 	    {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
+	{endDocument, Rest, State2} when is_record(State2, xmerl_sax_parser_state) ->
+	    State3 =  event_callback(endDocument, State2),
+	    ets:delete(RefTable),
+	    {ok, State3#xmerl_sax_parser_state.event_state, Rest}; 
 	Other ->
 	    _State2 = event_callback(endDocument, State1),
 	    ets:delete(RefTable),
@@ -147,6 +150,7 @@ parse_document(Rest, State) when is_record(State, xmerl_sax_parser_state) ->
 %%             [22] prolog ::= XMLDecl? Misc* (doctypedecl Misc*)?
 %%             [23] XMLDecl ::= '<?xml' VersionInfo EncodingDecl? SDDecl? S? '?>'
 %%----------------------------------------------------------------------
+-dialyzer({[no_fail_call, no_match], parse_xml_decl/2}).
 parse_xml_decl(?STRING_EMPTY, State) ->
     cf(?STRING_EMPTY, State, fun parse_xml_decl/2);
 parse_xml_decl(?BYTE_ORDER_MARK_1, State) ->
@@ -207,8 +211,14 @@ parse_prolog(?STRING_EMPTY, State) ->
 parse_prolog(?STRING("<") = Bytes, State) ->
     cf(Bytes, State, fun parse_prolog/2);
 parse_prolog(?STRING_REST("<?", Rest), State) ->
-    {Rest1, State1} = parse_pi(Rest, State),
-    parse_prolog(Rest1, State1);
+    case parse_pi(Rest, State) of
+	{Rest1, State1} ->
+	    parse_prolog(Rest1, State1);
+	{endDocument, Rest1, State1} ->
+	    parse_prolog(Rest1, State1)  
+	    % IValue = ?TO_INPUT_FORMAT("<?"),
+	    % {?APPEND_STRING(IValue, Rest1), State1}
+    end;
 parse_prolog(?STRING_REST("<!", Rest), State) ->
     parse_prolog_1(Rest, State);
 parse_prolog(?STRING_REST("<", Rest), State) ->
@@ -409,10 +419,11 @@ parse_pi(?STRING_UNBOUND_REST(C, Rest) = Bytes, State) ->
 		parse_name(Rest, State, [C]),
 	    case string:to_lower(PiTarget) of  
 		"xml" ->
-		    case State#xmerl_sax_parser_state.end_tags of
-			[] ->
-			    {Bytes, State};
-			_ ->
+		    case check_if_new_doc_allowed(State#xmerl_sax_parser_state.input_type,
+						  State#xmerl_sax_parser_state.end_tags) of
+			true ->
+			    {endDocument, Bytes, State};
+			false ->
 			    ?fatal_error(State1, "<?xml  ...?> not first in document")
 		    end;
 		_ ->
@@ -425,6 +436,11 @@ parse_pi(?STRING_UNBOUND_REST(C, Rest) = Bytes, State) ->
     end;
 parse_pi(Bytes, State) ->
     unicode_incomplete_check([Bytes, State, fun parse_pi/2], undefined).
+
+check_if_new_doc_allowed(stream, []) ->
+    true;
+check_if_new_doc_allowed(_, _) ->
+    false.
 
 %%----------------------------------------------------------------------
 %% Function: parse_pi_1(Rest, State) -> Result
@@ -657,8 +673,13 @@ parse_misc(?STRING_EMPTY, State, Eod) ->
 parse_misc(?STRING("<") = Rest, State, Eod) ->
     cf(Rest, State, Eod, fun parse_misc/3);
 parse_misc(?STRING_REST("<?", Rest), State, Eod) ->
-    {Rest1, State1} = parse_pi(Rest, State),
-    parse_misc(Rest1, State1, Eod);
+    case parse_pi(Rest, State) of
+	{Rest1, State1} ->
+	    parse_misc(Rest1, State1, Eod);
+	{endDocument, _Rest1, State1} ->
+	    IValue = ?TO_INPUT_FORMAT("<?"),
+	    {?APPEND_STRING(IValue, Rest), State1}
+    end;
 parse_misc(?STRING("<!") = Rest, State, Eod) ->
     cf(Rest, State, Eod, fun parse_misc/3);
 parse_misc(?STRING("<!-") = Rest, State, Eod) ->
@@ -1063,8 +1084,13 @@ parse_content(?STRING_REST("<!--", Rest), State, Acc, IgnorableWS) ->
     parse_content(Rest1, State2, [], true);
 parse_content(?STRING_REST("<?", Rest), State, Acc, IgnorableWS) ->
     State1 = send_character_event(length(Acc), IgnorableWS, lists:reverse(Acc), State),
-    {Rest1, State2} = parse_pi(Rest, State1),
-    parse_content(Rest1, State2, [], true);
+    case parse_pi(Rest, State1) of
+	{Rest1, State2} ->
+	    parse_content(Rest1, State2, [], true);
+	{endDocument, _Rest1, State2} ->
+	    IValue = ?TO_INPUT_FORMAT("<?"),
+	    {?APPEND_STRING(IValue, Rest), State2}
+    end;
 parse_content(?STRING_REST("<!", Rest1) = Rest, #xmerl_sax_parser_state{end_tags = ET} = State, Acc, IgnorableWS) ->
     case ET of 
 	[] ->
@@ -1178,6 +1204,7 @@ send_character_event(_, true, String, State) ->
 %% Description: Parse whitespaces.
 %%              [3] S ::= (#x20 | #x9 | #xD | #xA)+
 %%----------------------------------------------------------------------
+-dialyzer({no_fail_call, whitespace/3}).
 whitespace(?STRING_EMPTY, State, Acc) ->  
     case cf(?STRING_EMPTY, State, Acc, fun whitespace/3) of
 	{?STRING_EMPTY, State} ->
@@ -1649,9 +1676,10 @@ handle_external_entity({file, FileToOpen}, State) ->
 	    {?STRING_EMPTY, EntityState} = 
 		parse_external_entity_1(<<>>, 
 					State#xmerl_sax_parser_state{continuation_state=FD,
-							      current_location=filename:dirname(FileToOpen),
-							      entity=filename:basename(FileToOpen)}),
-	    file:close(FD),
+								     current_location=filename:dirname(FileToOpen),
+								     entity=filename:basename(FileToOpen),
+								     input_type=file}),
+	    ok = file:close(FD),
 	    EntityState#xmerl_sax_parser_state.event_state
     end;
 handle_external_entity({http, Url}, State) ->
@@ -1667,10 +1695,11 @@ handle_external_entity({http, Url}, State) ->
 		{?STRING_EMPTY, EntityState} = 
 		    parse_external_entity_1(<<>>, 
 					    State#xmerl_sax_parser_state{continuation_state=FD,
-								  current_location=filename:dirname(Url),
-								  entity=filename:basename(Url)}),
-		file:close(FD),
-		file:delete(TmpFile),
+									 current_location=filename:dirname(Url),
+									 entity=filename:basename(Url),
+									 input_type=file}),
+		ok = file:close(FD),
+		ok = file:delete(TmpFile),
 		EntityState#xmerl_sax_parser_state.event_state
 	end
     catch
@@ -1687,6 +1716,7 @@ handle_external_entity({Tag, _Url}, State) ->
 %% Result    : {Rest, State}
 %% Description: Parse the external entity.
 %%----------------------------------------------------------------------
+-dialyzer({[no_fail_call, no_match], parse_external_entity_1/2}).
 parse_external_entity_1(?STRING_EMPTY, #xmerl_sax_parser_state{file_type=Type} = State) ->
     case catch cf(?STRING_EMPTY, State, fun parse_external_entity_1/2) of
 	{Rest, State1} when is_record(State1, xmerl_sax_parser_state) ->
@@ -1881,8 +1911,13 @@ parse_doctype_decl(?STRING_EMPTY, State) ->
 parse_doctype_decl(?STRING("<"), State) ->
     cf(?STRING("<"), State, fun parse_doctype_decl/2);
 parse_doctype_decl(?STRING_REST("<?", Rest), State) ->
-    {Rest1, State1} = parse_pi(Rest, State),
-    parse_doctype_decl(Rest1, State1);
+    case parse_pi(Rest, State) of
+	{Rest1, State1} ->
+	     parse_doctype_decl(Rest1, State1);
+	{endDocument, _Rest1, State1} ->
+	    IValue = ?TO_INPUT_FORMAT("<?"),
+	    {?APPEND_STRING(IValue, Rest), State1}
+    end;
 parse_doctype_decl(?STRING_REST("%", Rest), State) ->
     {Ref, Rest1, State1} = parse_pe_reference(Rest, State),
     case Ref of
@@ -3434,17 +3469,17 @@ http_get_file(Host, Port, Key) ->
 		receive_msg(Socket, FD, true, SendTimeout)
 	    catch
 		throw:{error, Error} -> 
-		    file:close(FD),	 	
-		    file:delete(Filename),		    
+		    ok = file:close(FD),	 	
+		    ok = file:delete(Filename),		    
 		    throw({error, Error})
 	    end;
 	{error, _Reason} ->
-	    file:close(FD),	 	
-	    file:delete(Filename),
+	    ok = file:close(FD),	 	
+	    ok = file:delete(Filename),
 	    throw({error, lists:flatten(io_lib:format("Couldn't fetch http://~s:~p/~s",
 						      [Host, Port, Key]))})
     end,
-    file:close(FD),	 	
+    ok = file:close(FD),	 	
     Filename.
 
 %%----------------------------------------------------------------------
@@ -3461,11 +3496,11 @@ receive_msg(Socket, FD, WaitForHeader, Timeout) ->
 	{tcp_closed, Socket} ->
 	    ok;
 	{tcp, Socket, Response} when WaitForHeader == false  ->
-	    file:write(FD, Response),
+	    ok = file:write(FD, Response),
 	    receive_msg(Socket, FD, WaitForHeader, Timeout);
 	{tcp, Socket, Response} ->
 	    MsgBody = remove_header(Response),
-	    file:write(FD, MsgBody),
+	    ok = file:write(FD, MsgBody),
 	    receive_msg(Socket, FD, false, Timeout);
 	{tcp_error, Socket, _Reason} ->
 	    gen_tcp:close(Socket),

@@ -70,6 +70,9 @@ in the future.
 
 *   Lists aren't supported inside block quotes.
 
+*   Nested block quotes can be generated, but current DTD does not
+    support it.
+
 *   Link and image definition names *are* case sensitive.
 
 #### Additional Features ####
@@ -126,7 +129,7 @@ places. Appropriate attributes to the `X` tag will also be generated.
     <icaption>...</icaption> </image>` sequence where the "title" will be
     placed between `<icaption>` and `</icaption>`.
 
-*   Block quotes generate `<blockquote>` tags.
+*   Block quotes generate `<quote>` tags.
 
 *   If the first line of a top level block quote begins with a `> *NOTE*:`
     character sequence, a `<note>` tag will be generated instead of a
@@ -152,7 +155,7 @@ places. Appropriate attributes to the `X` tag will also be generated.
 
 *   Emphasis (single `*` or `_`) will generate `<em>` tags.
 
-*   Strong emphasis (double `*` or `_`) will generate `<b>` tags.
+*   Strong emphasis (double `*` or `_`) will generate `<strong>` tags.
 
 *   The level 1 heading will cause the following to be generated:
 
@@ -180,11 +183,11 @@ places. Appropriate attributes to the `X` tag will also be generated.
     contain information from a \%CopyrightBegin\%, \%CopyrightEnd\% block
     if such exist (see below).
 
-*   A level `X` heading where `1 < X <= 3` will cause the the following
+*   A level `X` heading where `1 < X <= 6` will cause the the following
     to be generated:
 
-        <marker id="..."/>
         <section>
+            <marker id="..."/>
             <title>...</title>
             ...
         </section>
@@ -206,11 +209,11 @@ places. Appropriate attributes to the `X` tag will also be generated.
     other documents. That is, *be careful* when changing headings in an
     existing document.
 
-*   A level `X` heading where `3 < X` will cause the the following
+*   A level `X` heading where `6 < X` will cause the the following
     to be generated:
 
         <marker id="..."/>
-        <p><b>...</b></p>
+        <p><strong>...</strong></p>
         ...
 
     Current DTD:s used don't support deeper levels of sections, and we
@@ -223,8 +226,11 @@ places. Appropriate attributes to the `X` tag will also be generated.
     \%CopyrightBegin\% and \%CopyrightEnd\% "tags" will be removed from
     the output.
 
-*   All occurrences of \%OTP-REL% will be replaced by current release number
-    (e.g. R14A).
+*   All occurrences of \%OTP-REL% will be replaced by current OTP release number
+    (e.g. 17).
+
+*   All occurrences of \%OTP-VSN% will be replaced by current OTP version
+    (e.g. 17.0).
 
 *   All occurrences of \%ERTS-VSN% will be replaced by current ERTS version
     (e.g. 5.8).
@@ -243,16 +249,17 @@ Copyright and License
 
 Copyright Ericsson AB 2010-2013. All Rights Reserved.
 
-The contents of this file are subject to the Erlang Public License,
-Version 1.1, (the "License"); you may not use this file except in
-compliance with the License. You should have received a copy of the
-Erlang Public License along with this software. If not, it can be
-retrieved online at http://www.erlang.org/.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
 
-Software distributed under the License is distributed on an "AS IS"
-basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-the License for the specific language governing rights and limitations
-under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 %CopyrightEnd%
 

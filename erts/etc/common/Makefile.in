@@ -1,18 +1,19 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2012. All Rights Reserved.
+# Copyright Ericsson AB 1996-2016. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -62,7 +63,9 @@ LIBS      = @LIBS@
 LDFLAGS   = @LDFLAGS@
 
 # For clock_gettime in heart
+ifneq ($(TARGET),arm-unknown-linux-androideabi)
 RTLIBS = @LIBRT@
+endif
 
 ifeq ($(TARGET),win32)
 ifeq ($(TYPE),debug)
@@ -78,8 +81,13 @@ EMUOSDIR  = $(ERL_TOP)/erts/emulator/@ERLANG_OSTYPE@
 SYSDIR    = $(ERL_TOP)/erts/emulator/sys/@ERLANG_OSTYPE@
 DRVDIR    = $(ERL_TOP)/erts/emulator/drivers/@ERLANG_OSTYPE@
 UXETC     = ../unix
-OSEETC	  = ../ose
 WINETC	  = ../win32
+
+ifeq ($(TARGET), win32)
+ETC       = $(WINETC)
+else
+ETC       = $(UXETC)
+endif
 
 ifeq ($(TARGET), win32)
 ERLEXEC = erlexec.dll
@@ -147,7 +155,8 @@ INSTALL_TOP_BIN = $(BINDIR)/Install.exe
 INSTALL_PROGS =              \
 	$(INET_GETHOST)      \
 	$(BINDIR)/heart.exe   $(BINDIR)/erlsrv.exe   \
-	$(BINDIR)/erl.exe $(BINDIR)/werl.exe \
+	$(BINDIR)/erl.exe $(BINDIR)/erl_log.exe \
+	$(BINDIR)/werl.exe \
 	$(BINDIR)/$(ERLEXEC) \
 	$(INSTALL_EMBEDDED_PROGS)
 
@@ -161,7 +170,7 @@ endif
 PORT_ENTRY_POINT=erl_port_entry
 ENTRY_LDFLAGS=-entry:$(PORT_ENTRY_POINT)
 
-else # UNIX (!win32)
+else
 ENTRY_LDFLAGS=
 ENTRY_OBJ=
 ERLSRV_OBJECTS= 
@@ -170,11 +179,11 @@ INET_GETHOST = $(BINDIR)/inet_gethost@EXEEXT@
 INSTALL_EMBEDDED_PROGS += $(BINDIR)/typer@EXEEXT@ $(BINDIR)/dialyzer@EXEEXT@ \
  $(BINDIR)/erlc@EXEEXT@ $(BINDIR)/escript@EXEEXT@ $(BINDIR)/ct_run@EXEEXT@ \
  $(BINDIR)/run_erl $(BINDIR)/to_erl $(BINDIR)/dyn_erl
-INSTALL_EMBEDDED_DATA = ../unix/start.src ../unix/start_erl.src
+INSTALL_EMBEDDED_DATA = $(UXETC)/start.src $(UXETC)/start_erl.src
 INSTALL_TOP = Install
 INSTALL_TOP_BIN = 
-INSTALL_MISC = ../unix/format_man_pages ../unix/makewhatis
-INSTALL_SRC = ../unix/setuid_socket_wrap.c #delivered as an example
+INSTALL_MISC = $(UXETC)/format_man_pages $(UXETC)/makewhatis
+INSTALL_SRC = $(UXETC)/setuid_socket_wrap.c #delivered as an example
 ERLEXECDIR = .
 INSTALL_LIBS =
 INSTALL_OBJS =
@@ -230,11 +239,14 @@ endif
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/run_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/to_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/dyn_erl.o
-	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/safe_string.o	
+	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/safe_string.o
+	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/run_erl.o
+	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/to_erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/typer.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/ct_run.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/vxcall.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/erl.o
+	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/erl_log.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/werl.o
 	rm -f $(TEXTFILES)
 	rm -f *~ core
@@ -257,6 +269,9 @@ $(BINDIR)/erl@EXEEXT@: $(OBJDIR)/erl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_
 
 $(BINDIR)/werl@EXEEXT@: $(OBJDIR)/werl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ)
 	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/werl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ) 
+
+$(BINDIR)/erl_log@EXEEXT@: $(OBJDIR)/erl_log.o
+	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/erl_log.o
 
 $(BINDIR)/start_erl@EXEEXT@: $(OBJDIR)/start_erl.o 
 	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/start_erl.o
@@ -310,6 +325,10 @@ $(OBJDIR)/erlsrv_util.o: $(WINETC)/erlsrv/erlsrv_util.c $(ERLSRV_HEADERS) \
 $(OBJDIR)/werl.o: $(WINETC)/erl.c $(WINETC)/init_file.h $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
 	-DWIN32_WERL -o $@ -c $(WINETC)/erl.c
+
+$(OBJDIR)/erl_log.o: $(WINETC)/erl_log.c $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
+	-o $@ -c $(WINETC)/erl_log.c
 
 $(OBJDIR)/erl.o: $(WINETC)/erl.c $(WINETC)/init_file.h $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -DBUILD_TYPE=\"-$(TYPE)\" -DERL_RUN_SHARED_LIB=1 \
@@ -370,29 +389,29 @@ $(OBJDIR)/heart.o: heart.c $(RC_GENERATED)
 $(OBJDIR)/inet_gethost.o: inet_gethost.c $(RC_GENERATED)
 	$(V_CC) $(CFLAGS) -o $@ -c inet_gethost.c
 
+# inet_gethost
 $(BINDIR)/inet_gethost@EXEEXT@: $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(ERTS_LIB)
 	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
+# run_erl
 $(BINDIR)/run_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o
 	$(V_LD) $(LDFLAGS) -o $@ $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o $(LIBS)
+$(OBJDIR)/run_erl.o: $(ETC)/run_erl.c $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -o $@ -c $(ETC)/run_erl.c
 
-$(OBJDIR)/run_erl.o: ../unix/run_erl.c $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c ../unix/run_erl.c
-
+# to_erl
 $(BINDIR)/to_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o
 	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/safe_string.o $(OBJDIR)/to_erl.o
+$(OBJDIR)/to_erl.o: $(ETC)/to_erl.c $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -o $@ -c $(ETC)/to_erl.c
 
-$(OBJDIR)/to_erl.o: ../unix/to_erl.c $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c ../unix/to_erl.c
-
+# dyn_erl
 $(BINDIR)/dyn_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/dyn_erl.o
 	$(V_LD) $(LDFLAGS) -o $@  $(OBJDIR)/safe_string.o $(OBJDIR)/dyn_erl.o
-
-$(OBJDIR)/dyn_erl.o: ../unix/dyn_erl.c $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c ../unix/dyn_erl.c
-
-$(OBJDIR)/safe_string.o: ../unix/safe_string.c $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) -o $@ -c ../unix/safe_string.c
+$(OBJDIR)/dyn_erl.o: $(UXETC)/dyn_erl.c $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -o $@ -c $(UXETC)/dyn_erl.c
+$(OBJDIR)/safe_string.o: $(ETC)/safe_string.c $(RC_GENERATED)
+	$(V_CC) $(CFLAGS) -o $@ -c $(ETC)/safe_string.c
 
 ifneq ($(TARGET),win32)
 $(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o $(ERTS_LIB)
@@ -401,6 +420,7 @@ $(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o $(ERTS_LIB)
 $(OBJDIR)/$(ERLEXEC).o: $(ERLEXECDIR)/$(ERLEXEC).c $(RC_GENERATED)
 	$(V_CC) -I$(EMUDIR) $(CFLAGS) -o $@ -c $(ERLEXECDIR)/$(ERLEXEC).c
 endif
+
 $(BINDIR)/erlc@EXEEXT@: $(OBJDIR)/erlc.o $(ERTS_LIB)
 	$(ld_verbose)$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
@@ -433,18 +453,18 @@ $(OBJDIR)/ct_run.o: ct_run.c $(RC_GENERATED)
 
 
 
-Install:	../unix/Install.src ../../vsn.mk $(TARGET)/Makefile
+Install:	$(UXETC)/Install.src ../../vsn.mk $(TARGET)/Makefile
 	$(vsn_verbose)sed -e 's;%I_VSN%;$(VSN);' \
 	    -e 's;%EMULATOR%;$(EMULATOR);' \
             -e 's;%EMULATOR_NUMBER%;$(EMULATOR_NUMBER);' \
 	    -e 's;%I_SYSTEM_VSN%;$(SYSTEM_VSN);' \
-          ../unix/Install.src > Install
+          $(UXETC)/Install.src > Install
 
-erl.src: ../unix/erl.src.src ../../vsn.mk $(TARGET)/Makefile
+erl.src: $(UXETC)/erl.src.src ../../vsn.mk $(TARGET)/Makefile
 	$(vsn_verbose)sed -e 's;%EMULATOR%;$(EMULATOR);' \
             -e 's;%EMULATOR_NUMBER%;$(EMULATOR_NUMBER);' \
             -e 's;%VSN%;$(VSN);' \
-                  ../unix/erl.src.src > erl.src
+                  $(UXETC)/erl.src.src > erl.src
 
 # ----------------------------------------------------
 # Release Target
@@ -460,9 +480,7 @@ endif
 	$(INSTALL_DIR) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 ifneq ($(TARGET), win32)
 ifneq ($(findstring vxworks,$(TARGET)), vxworks)
-ifneq ($(findstring ose,$(TARGET)), ose)
 	$(INSTALL_SCRIPT) erl.src "$(RELEASE_PATH)/erts-$(VSN)/bin"
-endif
 endif
 endif
 ifneq ($(INSTALL_PROGS),)
@@ -478,17 +496,12 @@ ifneq ($(INSTALL_MISC),)
 	$(INSTALL_DIR) "$(RELEASE_PATH)/misc"
 	$(INSTALL_SCRIPT) $(INSTALL_MISC) "$(RELEASE_PATH)/misc"
 endif
-ifneq ($(INSTALL_ERL_OSE),)
-	$(INSTALL_DIR) "$(RELEASE_PATH)/build_erl_ose"
-	cd $(OSEETC) && $(TAR) erl_ose_$(SYSTEM_VSN).tar $(INSTALL_ERL_OSE)
-	cd $(OSEETC) && $(INSTALL_SCRIPT) erl_ose_$(SYSTEM_VSN).tar "$(RELEASE_PATH)/build_erl_ose"
-endif
 ifneq ($(INSTALL_SRC),)
 	$(INSTALL_DIR) "$(RELEASE_PATH)/erts-$(VSN)/src"
 	$(INSTALL_DATA) $(INSTALL_SRC) "$(RELEASE_PATH)/erts-$(VSN)/src"
 endif
 ifneq ($(INSTALL_EMBEDDED_DATA),)
-	$(INSTALL_DATA) $(INSTALL_EMBEDDED_DATA) "$(RELEASE_PATH)/erts-$(VSN)/bin"
+	$(INSTALL_SCRIPT) $(INSTALL_EMBEDDED_DATA) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 endif
 ifneq ($(INSTALL_LIBS),)
 	$(INSTALL_DATA) $(INSTALL_LIBS) "$(RELEASE_PATH)/erts-$(VSN)/bin"

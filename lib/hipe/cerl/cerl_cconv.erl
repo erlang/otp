@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -709,7 +710,7 @@ ren__new() ->
 ren__add(Key, Value, Ren) ->
     dict:store(Key, Value, Ren).
 
-ren__map(Key, Ren) ->  
+ren__map(Key, Ren) ->
     case dict:find(Key, Ren) of
 	{ok, Value} ->
 	    Value;
@@ -721,11 +722,14 @@ ren__map(Key, Ren) ->
 %% ---------------------------------------------------------------------
 %% State
 
--record(state, {module :: module(), function :: {atom(), arity()},
-		names, refs, defs = []}).
+-record(state, {module             :: module(),
+		function           :: {atom(), arity()} | 'undefined',
+		names = sets:new() :: sets:set(),  %% XXX: refine
+		refs  = dict:new() :: dict:dict(), %% XXX: refine
+		defs  = []}).
 
 s__new(Module) ->
-    #state{module = Module, names = sets:new(), refs = dict:new()}.
+    #state{module = Module}.
 
 s__add_function_name(Name, S) ->
     S#state{names = sets:add_element(Name, S#state.names)}.

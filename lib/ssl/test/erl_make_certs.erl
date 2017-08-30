@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -114,7 +115,7 @@ verify_signature(DerEncodedCert, DerKey, _KeyParams) ->
 	#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y} ->
 	    public_key:pkix_verify(DerEncodedCert, {Y, #'Dss-Parms'{p=P, q=Q, g=G}});
 	#'ECPrivateKey'{version = _Version, privateKey = _PrivKey,
-			parameters = Params, publicKey = {0, PubKey}} ->
+			parameters = Params, publicKey = PubKey} ->
 	    public_key:pkix_verify(DerEncodedCert, {#'ECPoint'{point = PubKey}, Params})
     end.
 
@@ -204,7 +205,7 @@ issuer_der(Issuer) ->
     Subject.
 
 subject(undefined, IsRootCA) ->
-    User = if IsRootCA -> "RootCA"; true -> user() end,
+    User = if IsRootCA -> "RootCA"; true -> os:getenv("USER", "test_user") end,
     Opts = [{email, User ++ "@erlang.org"},
 	    {name, User},
 	    {city, "Stockholm"},
@@ -214,14 +215,6 @@ subject(undefined, IsRootCA) ->
     subject(Opts);
 subject(Opts, _) ->
     subject(Opts).
-
-user() ->
-    case os:getenv("USER") of
-	false ->
-	    "test_user";
-	User ->
-	    User
-    end.
 
 subject(SubjectOpts) when is_list(SubjectOpts) ->
     Encode = fun(Opt) ->
@@ -300,7 +293,7 @@ publickey(#'DSAPrivateKey'{p=P, q=Q, g=G, y=Y}) ->
 publickey(#'ECPrivateKey'{version = _Version,
 			  privateKey = _PrivKey,
 			  parameters = Params,
-			  publicKey = {0, PubKey}}) ->
+			  publicKey = PubKey}) ->
     Algo = #'PublicKeyAlgorithm'{algorithm= ?'id-ecPublicKey', parameters=Params},
     #'OTPSubjectPublicKeyInfo'{algorithm = Algo,
 			       subjectPublicKey = #'ECPoint'{point = PubKey}}.
@@ -325,14 +318,14 @@ sign_algorithm(#'RSAPrivateKey'{}, Opts) ->
     {Type, 'NULL'};
 sign_algorithm(#'DSAPrivateKey'{p=P, q=Q, g=G}, _Opts) ->
     {?'id-dsa-with-sha1', {params,#'Dss-Parms'{p=P, q=Q, g=G}}};
-sign_algorithm(#'ECPrivateKey'{}, Opts) ->
+sign_algorithm(#'ECPrivateKey'{parameters = Parms}, Opts) ->
     Type = case proplists:get_value(digest, Opts, sha1) of
 	       sha1 ->   ?'ecdsa-with-SHA1';
 	       sha512 -> ?'ecdsa-with-SHA512';
 	       sha384 -> ?'ecdsa-with-SHA384';
 	       sha256 -> ?'ecdsa-with-SHA256'
 	   end,
-    {Type, 'NULL'}.
+    {Type, Parms}.
 
 make_key(rsa, _Opts) ->
     %% (OBS: for testing only)
@@ -341,7 +334,9 @@ make_key(dsa, _Opts) ->
     gen_dsa2(128, 20);  %% Bytes i.e. {1024, 160}
 make_key(ec, _Opts) ->
     %% (OBS: for testing only)
-    gen_ec2(secp256k1).
+    CurveOid = hd(tls_v1:ecc_curves(0)),
+    NamedCurve = pubkey_cert_records:namedCurves(CurveOid),
+    gen_ec2(NamedCurve).
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% RSA key generation  (OBS: for testing only)
@@ -409,9 +404,9 @@ gen_ec2(CurveId) ->
      {PubKey, PrivKey} = crypto:generate_key(ecdh, CurveId),
 
     #'ECPrivateKey'{version = 1,
-		    privateKey = binary_to_list(PrivKey),
+		    privateKey = PrivKey,
 		    parameters = {namedCurve, pubkey_cert_records:namedCurves(CurveId)},
-		    publicKey = {0, PubKey}}.
+		    publicKey = PubKey}.
 
 %% See fips_186-3.pdf
 dsa_search(T, P0, Q, Iter) when Iter > 0 ->

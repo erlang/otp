@@ -1,35 +1,62 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 
 -module(diameter_lib).
+-compile({no_auto_import, [now/0]}).
 
 -export([info_report/2,
          error_report/2,
          warning_report/2,
+         now/0,
+         timestamp/0,
+         timestamp/1,
          now_diff/1,
+         micro_diff/1,
+         micro_diff/2,
          time/1,
          eval/1,
+         eval_name/1,
+         get_stacktrace/0,
          ipaddr/1,
          spawn_opts/2,
          wait/1,
          fold_tuple/3,
+         fold_n/3,
+         for_n/2,
          log/4]).
+
+%% ---------------------------------------------------------------------------
+%% # get_stacktrace/0
+%% ---------------------------------------------------------------------------
+
+%% Return a stacktrace with a leading, potentially large, argument
+%% list replaced by an arity. Trace on stacktrace/0 to see the
+%% original.
+
+get_stacktrace() ->
+    stacktrace(erlang:get_stacktrace()).
+
+stacktrace([{M,F,A,L} | T]) when is_list(A) ->
+    [{M, F, length(A), L} | T];
+stacktrace(L) ->
+    L.
 
 %% ---------------------------------------------------------------------------
 %% # info_report/2
@@ -60,26 +87,90 @@ warning_report(Reason, T) ->
     report(fun error_logger:warning_report/1, Reason, T).
 
 report(Fun, Reason, T) ->
-    Fun([{why, Reason}, {who, self()}, {what, T}]),
+    Fun(io_lib:format("diameter: ~" ++ fmt(Reason) ++ "~n    ~p~n",
+                      [Reason, T])),
     false.
+
+fmt(T) ->
+    if is_list(T) ->
+            "s";
+       true ->
+            "p"
+    end.
+
+%% ---------------------------------------------------------------------------
+%% # now/0
+%% ---------------------------------------------------------------------------
+
+-spec now()
+   -> integer().
+
+now() ->
+    erlang:monotonic_time().
+
+%% ---------------------------------------------------------------------------
+%% # timestamp/0
+%% ---------------------------------------------------------------------------
+
+-spec timestamp()
+   -> erlang:timestamp().
+
+timestamp() ->
+    timestamp(now()).
+
+%% ---------------------------------------------------------------------------
+%% # timestamp/1
+%% ---------------------------------------------------------------------------
+
+-spec timestamp(integer())
+   -> erlang:timestamp().
+
+timestamp(MonoT) ->  %% monotonic time
+    MicroSecs = monotonic_to_microseconds(MonoT + erlang:time_offset()),
+    Secs = MicroSecs div 1000000,
+    {Secs div 1000000, Secs rem 1000000, MicroSecs rem 1000000}.
+
+monotonic_to_microseconds(MonoT) ->
+    erlang:convert_time_unit(MonoT, native, micro_seconds).
 
 %% ---------------------------------------------------------------------------
 %% # now_diff/1
 %% ---------------------------------------------------------------------------
 
--spec now_diff(NowT)
+-spec now_diff(T0 :: integer())
    -> {Hours, Mins, Secs, MicroSecs}
- when NowT  :: {non_neg_integer(), 0..999999, 0..999999},
-      Hours :: non_neg_integer(),
+ when Hours :: non_neg_integer(),
       Mins  :: 0..59,
       Secs  :: 0..59,
       MicroSecs :: 0..999999.
 
-%% Return timer:now_diff(now(), NowT) as an {H, M, S, MicroS} tuple
-%% instead of as integer microseconds.
+%% Return time difference as an {H, M, S, MicroS} tuple instead of as
+%% integer microseconds.
 
-now_diff({_,_,_} = Time) ->
-    time(timer:now_diff(now(), Time)).
+now_diff(T0) ->
+    time(micro_diff(T0)).
+
+%% ---------------------------------------------------------------------------
+%% # micro_diff/1
+%% ---------------------------------------------------------------------------
+
+-spec micro_diff(T0 :: integer())
+   -> MicroSecs
+ when MicroSecs :: non_neg_integer().
+
+micro_diff(T0) ->  %% monotonic time
+    monotonic_to_microseconds(erlang:monotonic_time() - T0).
+
+%% ---------------------------------------------------------------------------
+%% # micro_diff/2
+%% ---------------------------------------------------------------------------
+
+-spec micro_diff(T1 :: integer(), T0 :: integer())
+   -> MicroSecs
+ when MicroSecs :: non_neg_integer().
+
+micro_diff(T1, T0) ->  %% monotonic time
+    monotonic_to_microseconds(T1 - T0).
 
 %% ---------------------------------------------------------------------------
 %% # time/1
@@ -87,18 +178,12 @@ now_diff({_,_,_} = Time) ->
 %% Return an elapsed time as an {H, M, S, MicroS} tuple.
 %% ---------------------------------------------------------------------------
 
--spec time(NowT | Diff)
+-spec time(Diff :: non_neg_integer())
    -> {Hours, Mins, Secs, MicroSecs}
- when NowT  :: {non_neg_integer(), 0..999999, 0..999999},
-      Diff  :: non_neg_integer(),
-      Hours :: non_neg_integer(),
+ when Hours :: non_neg_integer(),
       Mins  :: 0..59,
       Secs  :: 0..59,
       MicroSecs :: 0..999999.
-
-time({_,_,_} = NowT) ->  %% time of day
-    %% 24 hours = 24*60*60*1000000 = 86400000000 microsec
-    time(timer:now_diff(NowT, {0,0,0}) rem 86400000000);
 
 time(Micro) ->  %% elapsed time
     Seconds = Micro div 1000000,
@@ -129,8 +214,8 @@ eval({M,F,A}) ->
 eval([{M,F,A} | X]) ->
     apply(M, F, X ++ A);
 
-eval([[F|A] | X]) ->
-    eval([F | X ++ A]);
+eval([[F|X] | A]) ->
+    eval([F | A ++ X]);
 
 eval([F|A]) ->
     apply(F,A);
@@ -140,6 +225,28 @@ eval({F}) ->
 
 eval(F) ->
     F().
+
+%% ---------------------------------------------------------------------------
+%% eval_name/1
+%% ---------------------------------------------------------------------------
+
+eval_name({M,F,A}) ->
+    {M, F, length(A)};
+
+eval_name([{M,F,A} | X]) ->
+    {M, F, length(A) + length(X)};
+
+eval_name([[F|A] | X]) ->
+    eval_name([F | X ++ A]);
+
+eval_name([F|_]) ->
+    F;
+
+eval_name({F}) ->
+    eval_name(F);
+
+eval_name(F) ->
+    F.
 
 %% ---------------------------------------------------------------------------
 %% # ipaddr/1
@@ -199,17 +306,19 @@ opts(HeapSize, Opts) ->
 %% # wait/1
 %% ---------------------------------------------------------------------------
 
--spec wait([pid()])
+-spec wait([pid() | reference()])
    -> ok.
 
 wait(L) ->
-    down([erlang:monitor(process, P) || P <- L]).
+    lists:foreach(fun down/1, L).
 
-down([]) ->
-    ok;
-down([MRef|T]) ->
-    receive {'DOWN', MRef, process, _, _} -> ok end,
-    down(T).
+down(Pid)
+  when is_pid(Pid) ->
+    down(monitor(process, Pid));
+
+down(MRef)
+  when is_reference(MRef) ->
+    receive {'DOWN', MRef, process, _, _} = T -> T end.
 
 %% ---------------------------------------------------------------------------
 %% # fold_tuple/3
@@ -240,6 +349,35 @@ ft(undefined, {_, T}) ->
     T;
 ft(Value, {Idx, T}) ->
     setelement(Idx, T, Value).
+
+%% ---------------------------------------------------------------------------
+%% # fold_n/3
+%% ---------------------------------------------------------------------------
+
+-spec fold_n(F, Acc0, N)
+   -> term()
+ when F    :: fun((non_neg_integer(), term()) -> term()),
+      Acc0 :: term(),
+      N    :: non_neg_integer().
+
+fold_n(F, Acc, N)
+  when is_integer(N), 0 < N ->
+    fold_n(F, F(N, Acc), N-1);
+
+fold_n(_, Acc, _) ->
+    Acc.
+
+%% ---------------------------------------------------------------------------
+%% # for_n/2
+%% ---------------------------------------------------------------------------
+
+-spec for_n(F, N)
+   -> non_neg_integer()
+ when F :: fun((non_neg_integer()) -> term()),
+      N :: non_neg_integer().
+
+for_n(F, N) ->
+    fold_n(fun(M,A) -> F(M), A+1 end, 0, N).
 
 %% ---------------------------------------------------------------------------
 %% # log/4

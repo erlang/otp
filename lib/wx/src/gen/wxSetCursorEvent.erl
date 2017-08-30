@@ -1,23 +1,24 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsetcursorevent.html">wxSetCursorEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsetcursorevent.html">wxSetCursorEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>set_cursor</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxSetCursor(). #wxSetCursor{}} event record type.
@@ -43,7 +44,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxSetCursorEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsetcursorevent.html#wxsetcursoreventgetcursor">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsetcursorevent.html#wxsetcursoreventgetcursor">external documentation</a>.
 -spec getCursor(This) -> wxCursor:wxCursor() when
 	This::wxSetCursorEvent().
 getCursor(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -51,7 +52,7 @@ getCursor(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSetCursorEvent_GetCursor,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsetcursorevent.html#wxsetcursoreventgetx">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsetcursorevent.html#wxsetcursoreventgetx">external documentation</a>.
 -spec getX(This) -> integer() when
 	This::wxSetCursorEvent().
 getX(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -59,7 +60,7 @@ getX(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSetCursorEvent_GetX,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsetcursorevent.html#wxsetcursoreventgety">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsetcursorevent.html#wxsetcursoreventgety">external documentation</a>.
 -spec getY(This) -> integer() when
 	This::wxSetCursorEvent().
 getY(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -67,7 +68,7 @@ getY(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSetCursorEvent_GetY,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsetcursorevent.html#wxsetcursoreventhascursor">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsetcursorevent.html#wxsetcursoreventhascursor">external documentation</a>.
 -spec hasCursor(This) -> boolean() when
 	This::wxSetCursorEvent().
 hasCursor(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -75,8 +76,8 @@ hasCursor(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSetCursorEvent_HasCursor,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsetcursorevent.html#wxsetcursoreventsetcursor">external documentation</a>.
--spec setCursor(This, Cursor) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxsetcursorevent.html#wxsetcursoreventsetcursor">external documentation</a>.
+-spec setCursor(This, Cursor) -> 'ok' when
 	This::wxSetCursorEvent(), Cursor::wxCursor:wxCursor().
 setCursor(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=CursorT,ref=CursorRef}) ->
   ?CLASS(ThisT,wxSetCursorEvent),

@@ -1,23 +1,24 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnavigationkeyevent.html">wxNavigationKeyEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnavigationkeyevent.html">wxNavigationKeyEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>navigation_key</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxNavigationKey(). #wxNavigationKey{}} event record type.
@@ -44,7 +45,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxNavigationKeyEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnavigationkeyevent.html#wxnavigationkeyeventgetdirection">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnavigationkeyevent.html#wxnavigationkeyeventgetdirection">external documentation</a>.
 -spec getDirection(This) -> boolean() when
 	This::wxNavigationKeyEvent().
 getDirection(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -52,8 +53,8 @@ getDirection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNavigationKeyEvent_GetDirection,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnavigationkeyevent.html#wxnavigationkeyeventsetdirection">external documentation</a>.
--spec setDirection(This, BForward) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnavigationkeyevent.html#wxnavigationkeyeventsetdirection">external documentation</a>.
+-spec setDirection(This, BForward) -> 'ok' when
 	This::wxNavigationKeyEvent(), BForward::boolean().
 setDirection(#wx_ref{type=ThisT,ref=ThisRef},BForward)
  when is_boolean(BForward) ->
@@ -61,7 +62,7 @@ setDirection(#wx_ref{type=ThisT,ref=ThisRef},BForward)
   wxe_util:cast(?wxNavigationKeyEvent_SetDirection,
   <<ThisRef:32/?UI,(wxe_util:from_bool(BForward)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnavigationkeyevent.html#wxnavigationkeyeventiswindowchange">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnavigationkeyevent.html#wxnavigationkeyeventiswindowchange">external documentation</a>.
 -spec isWindowChange(This) -> boolean() when
 	This::wxNavigationKeyEvent().
 isWindowChange(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -69,8 +70,8 @@ isWindowChange(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNavigationKeyEvent_IsWindowChange,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnavigationkeyevent.html#wxnavigationkeyeventsetwindowchange">external documentation</a>.
--spec setWindowChange(This, BIs) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnavigationkeyevent.html#wxnavigationkeyeventsetwindowchange">external documentation</a>.
+-spec setWindowChange(This, BIs) -> 'ok' when
 	This::wxNavigationKeyEvent(), BIs::boolean().
 setWindowChange(#wx_ref{type=ThisT,ref=ThisRef},BIs)
  when is_boolean(BIs) ->
@@ -78,7 +79,7 @@ setWindowChange(#wx_ref{type=ThisT,ref=ThisRef},BIs)
   wxe_util:cast(?wxNavigationKeyEvent_SetWindowChange,
   <<ThisRef:32/?UI,(wxe_util:from_bool(BIs)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnavigationkeyevent.html#wxnavigationkeyeventisfromtab">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnavigationkeyevent.html#wxnavigationkeyeventisfromtab">external documentation</a>.
 -spec isFromTab(This) -> boolean() when
 	This::wxNavigationKeyEvent().
 isFromTab(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -86,8 +87,8 @@ isFromTab(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNavigationKeyEvent_IsFromTab,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnavigationkeyevent.html#wxnavigationkeyeventsetfromtab">external documentation</a>.
--spec setFromTab(This, BIs) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnavigationkeyevent.html#wxnavigationkeyeventsetfromtab">external documentation</a>.
+-spec setFromTab(This, BIs) -> 'ok' when
 	This::wxNavigationKeyEvent(), BIs::boolean().
 setFromTab(#wx_ref{type=ThisT,ref=ThisRef},BIs)
  when is_boolean(BIs) ->
@@ -95,7 +96,7 @@ setFromTab(#wx_ref{type=ThisT,ref=ThisRef},BIs)
   wxe_util:cast(?wxNavigationKeyEvent_SetFromTab,
   <<ThisRef:32/?UI,(wxe_util:from_bool(BIs)):32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnavigationkeyevent.html#wxnavigationkeyeventgetcurrentfocus">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnavigationkeyevent.html#wxnavigationkeyeventgetcurrentfocus">external documentation</a>.
 -spec getCurrentFocus(This) -> wxWindow:wxWindow() when
 	This::wxNavigationKeyEvent().
 getCurrentFocus(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -103,8 +104,8 @@ getCurrentFocus(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxNavigationKeyEvent_GetCurrentFocus,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnavigationkeyevent.html#wxnavigationkeyeventsetcurrentfocus">external documentation</a>.
--spec setCurrentFocus(This, Win) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxnavigationkeyevent.html#wxnavigationkeyeventsetcurrentfocus">external documentation</a>.
+-spec setCurrentFocus(This, Win) -> 'ok' when
 	This::wxNavigationKeyEvent(), Win::wxWindow:wxWindow().
 setCurrentFocus(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WinT,ref=WinRef}) ->
   ?CLASS(ThisT,wxNavigationKeyEvent),

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -27,21 +28,22 @@
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include("inets_test_lib.hrl").
-
+-include("http_internal.hrl").
+-include("httpc_internal.hrl").
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
 -define(URL_START, "http://").
 -define(TLS_URL_START, "https://").
 -define(NOT_IN_USE_PORT, 8997).
--define(LF, $\n).
--define(HTTP_MAX_HEADER_SIZE, 10240).
+
 -record(sslsocket, {fd = nil, pid = nil}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]}
+    ].
 
 all() ->
     [
@@ -66,7 +68,9 @@ real_requests()->
      head,
      get,
      post,
+     delete,
      post_stream,
+     patch,
      async,
      pipeline,
      persistent_connection,
@@ -91,19 +95,29 @@ only_simulated() ->
     [
      cookie,
      cookie_profile,
+     empty_set_cookie,
+     invalid_set_cookie,
      trace,
      stream_once,
+     stream_single_chunk,
+     stream_no_length,
+     not_streamed_once,
+     stream_large_not_200_or_206,
      no_content_204,
      tolerate_missing_CR,
      userinfo,
      bad_response,
      internal_server_error,
      invalid_http,
+     invalid_chunk_size,
      headers_dummy,
+     headers_with_obs_fold,
      empty_response_header,
      remote_socket_close,
      remote_socket_close_async,
+     process_leak_on_keepalive,
      transfer_encoding,
+     transfer_encoding_identity,
      redirect_loop,
      redirect_moved_permanently,
      redirect_multiple_choises,
@@ -124,8 +138,9 @@ misc() ->
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    DataDir = ?config(data_dir, Config),
+    ct:timetrap({seconds, 30}),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     inets_test_lib:start_apps([inets]),
     ServerRoot = filename:join(PrivDir, "server_root"),
     DocRoot = filename:join(ServerRoot, "htdocs"),
@@ -134,7 +149,7 @@ init_per_suite(Config) ->
 
 end_per_suite(Config) ->
     inets_test_lib:stop_apps([inets]),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     inets_test_lib:del_dirs(PrivDir),
     ok.
 
@@ -145,6 +160,23 @@ init_per_group(misc = Group, Config) ->
     ok = httpc:set_options([{ipfamily, Inet}]),
     Config;
 
+init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https->
+    ct:timetrap({seconds, 30}),
+    start_apps(Group),
+    StartSsl = try ssl:start()
+    catch
+	Error:Reason ->
+	    {skip, lists:flatten(io_lib:format("Failed to start apps for https Error=~p Reason=~p", [Error, Reason]))}
+    end,
+    case StartSsl of
+	{error, {already_started, _}} ->
+	    do_init_per_group(Group, Config0);
+	ok ->
+	    do_init_per_group(Group, Config0);
+	_ ->
+	    StartSsl
+    end;
+
 init_per_group(Group, Config0) ->
     start_apps(Group),
     Config = proplists:delete(port, Config0),
@@ -153,7 +185,10 @@ init_per_group(Group, Config0) ->
 
 end_per_group(_, _Config) ->
     ok.
-
+do_init_per_group(Group, Config0) ->
+    Config = proplists:delete(port, Config0),
+    Port = server_start(Group, server_config(Group, Config)),
+    [{port, Port} | Config].
 %%--------------------------------------------------------------------
 init_per_testcase(pipeline, Config) ->
     inets:start(httpc, [{profile, pipeline}]),
@@ -167,7 +202,15 @@ init_per_testcase(persistent_connection, Config) ->
 		       {max_keep_alive_length, 3}], persistent_connection),
 
     Config;
-
+init_per_testcase(wait_for_whole_response, Config) ->
+    ct:timetrap({seconds, 60*3}),
+    Config;
+init_per_testcase(Case, Config) when Case == post;
+				     Case == delete;
+				     Case == post_delete;
+				     Case == post_stream ->
+    ct:timetrap({seconds, 30}),
+    Config;
 init_per_testcase(_Case, Config) ->
     Config.
 
@@ -225,6 +268,51 @@ post(Config) when is_list(Config) ->
     {ok, {{_,504,_}, [_ | _], []}} =
 	httpc:request(post, {URL, [{"expect","100-continue"}],
 			     "text/plain", "foobar"}, [], []).
+%%--------------------------------------------------------------------
+delete() ->
+    [{"Test http delete request against local server. We do in this case "
+     "only care about the client side of the the delete. The server "
+     "script will not actually use the delete data."}].
+delete(Config) when is_list(Config) ->
+    CGI = case test_server:os_type() of
+          {win32, _} ->
+          "/cgi-bin/cgi_echo.exe";
+          _ ->
+          "/cgi-bin/cgi_echo"
+      end,
+
+    URL  = url(group_name(Config), CGI, Config),
+    Body = lists:duplicate(100, "1"),
+
+    {ok, {{_,200,_}, [_ | _], [_ | _]}} =
+    httpc:request(delete, {URL, [{"expect","100-continue"}],
+                 "text/plain", Body}, [], []),
+
+    {ok, {{_,504,_}, [_ | _], []}} =
+    httpc:request(delete, {URL, [{"expect","100-continue"}],
+                 "text/plain", "foobar"}, [], []).
+
+%%--------------------------------------------------------------------
+patch() ->
+    [{"Test http patch request against local server. We do in this case "
+     "only care about the client side of the the patch. The server "
+     "script will not actually use the patch data."}].
+patch(Config) when is_list(Config) ->
+    CGI = case test_server:os_type() of
+	      {win32, _} ->
+		  "/cgi-bin/cgi_echo.exe";
+	      _ ->
+		  "/cgi-bin/cgi_echo"
+	  end,
+
+     URL = url(group_name(Config), CGI, Config),
+
+    %% Cgi-script expects the body length to be 100
+    Body = lists:duplicate(100, "1"),
+
+    {ok, {{_,200,_}, [_ | _], [_ | _]}} =
+	httpc:request(patch, {URL, [{"expect","100-continue"}],
+			     "text/plain", Body}, [], []).
 
 %%--------------------------------------------------------------------
 post_stream() ->
@@ -277,9 +365,9 @@ trace(Config) when is_list(Config) ->
 pipeline(Config) when is_list(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), []},
     {ok, _} = httpc:request(get, Request, [], [], pipeline),
-    
+
     %% Make sure pipeline session is registerd
-    test_server:sleep(4000),
+    ct:sleep(4000),
     keep_alive_requests(Request, pipeline).
 
 %%--------------------------------------------------------------------
@@ -289,7 +377,7 @@ persistent_connection(Config) when is_list(Config) ->
     {ok, _} = httpc:request(get, Request, [], [], persistent),
 
     %% Make sure pipeline session is registerd
-    test_server:sleep(4000),
+    ct:sleep(4000),
     keep_alive_requests(Request, persistent).
 
 %%-------------------------------------------------------------------------
@@ -311,18 +399,13 @@ async(Config) when is_list(Config) ->
 
     {ok, NewRequestId} =
 	httpc:request(get, Request, [], [{sync, false}]),
-    ok = httpc:cancel_request(NewRequestId),
-    receive
-	{http, {NewRequestId, _}} ->
-	    ct:fail(http_cancel_request_failed)
-    after 3000 ->
-	    ok
-    end.
+    ok = httpc:cancel_request(NewRequestId).
+
 %%-------------------------------------------------------------------------
 save_to_file() ->
     [{doc, "Test to save the http body to a file"}].
 save_to_file(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     FilePath = filename:join(PrivDir, "dummy.html"),
     URL = url(group_name(Config), "/dummy.html", Config),
     Request = {URL, []},
@@ -336,7 +419,7 @@ save_to_file(Config) when is_list(Config) ->
 save_to_file_async() ->
     [{doc,"Test to save the http body to a file"}].
 save_to_file_async(Config) when is_list(Config) ->
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     FilePath = filename:join(PrivDir, "dummy.html"),
     URL = url(group_name(Config), "/dummy.html", Config),
     Request = {URL, []},
@@ -371,6 +454,37 @@ stream_once(Config) when is_list(Config) ->
 
     Request2  = {url(group_name(Config), "/once_chunked.html", Config), []},
     stream_test(Request2, {stream, {self, once}}).
+%%-------------------------------------------------------------------------
+stream_single_chunk() ->
+    [{doc, "Test the option stream for asynchrony requests"}].
+stream_single_chunk(Config) when is_list(Config) ->
+    Request  = {url(group_name(Config), "/single_chunk.html", Config), []},
+    stream_test(Request, {stream, self}).
+%%-------------------------------------------------------------------------
+stream_no_length() ->
+    [{doc, "Test the option stream for asynchrony requests with HTTP 1.0 "
+      "body end on closed connection" }].
+stream_no_length(Config) when is_list(Config) ->
+    Request1 = {url(group_name(Config), "/http_1_0_no_length_single.html", Config), []},
+    stream_test(Request1, {stream, self}),
+    Request2 = {url(group_name(Config), "/http_1_0_no_length_multiple.html", Config), []},
+    stream_test(Request2, {stream, self}).
+%%-------------------------------------------------------------------------
+stream_large_not_200_or_206() ->
+    [{doc, "Test the option stream for large responses with status codes "
+      "other than 200 or 206" }].
+stream_large_not_200_or_206(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/large_404_response.html", Config), []},
+    {404, _} = not_streamed_test(Request, {stream, self}).
+%%-------------------------------------------------------------------------
+not_streamed_once() ->
+    [{doc, "Test not streamed responses with once streaming"}].
+not_streamed_once(Config) when is_list(Config) ->
+    Request0 = {url(group_name(Config), "/404.html", Config), []},
+    {404, _} = not_streamed_test(Request0, {stream, {self, once}}),
+    Request1 = {url(group_name(Config), "/404_chunked.html", Config), []},
+    {404, _} = not_streamed_test(Request1, {stream, {self, once}}).
+
 
 %%-------------------------------------------------------------------------
 redirect_multiple_choises() ->
@@ -522,6 +636,31 @@ cookie_profile(Config) when is_list(Config) ->
     inets:stop(httpc, cookie_test).
 
 %%-------------------------------------------------------------------------
+empty_set_cookie() ->
+    [{doc, "Test empty Set-Cookie header."}].
+empty_set_cookie(Config) when is_list(Config) ->
+    ok = httpc:set_options([{cookies, enabled}]),
+
+    Request0 = {url(group_name(Config), "/empty_set_cookie.html", Config), []},
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(get, Request0, [], []),
+
+    ok = httpc:set_options([{cookies, disabled}]).
+
+%%-------------------------------------------------------------------------
+invalid_set_cookie(doc) ->
+    ["Test ignoring invalid Set-Cookie header"];
+invalid_set_cookie(Config) when is_list(Config) ->
+    ok = httpc:set_options([{cookies, enabled}]),
+
+    URL = url(group_name(Config), "/invalid_set_cookie.html", Config),
+    {ok, {{_,200,_}, [_|_], [_|_]}} =
+        httpc:request(get, {URL, []}, [], []),
+
+    ok = httpc:set_options([{cookies, disabled}]).
+
+%%-------------------------------------------------------------------------
 headers_as_is(doc) ->
     ["Test the option headers_as_is"];
 headers_as_is(Config) when is_list(Config) ->
@@ -616,6 +755,12 @@ transfer_encoding(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
+transfer_encoding_identity(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/identity_transfer_encoding.html", Config),
+    {ok, {{_,200,_}, [_|_], "IDENTITY"}} = httpc:request(URL).
+
+%%-------------------------------------------------------------------------
+
 empty_response_header() ->
     [{doc, "Test the case that the HTTP server does not send any headers. Solves OTP-6830"}].
 empty_response_header(Config) when is_list(Config) ->
@@ -679,6 +824,22 @@ invalid_http(Config) when is_list(Config) ->
     ct:print("Parse error: ~p ~n", [Reason]).
 
 %%-------------------------------------------------------------------------
+
+invalid_chunk_size(doc) ->
+    ["Test parse error of HTTP chunk size"];
+invalid_chunk_size(suite) ->
+    [];
+invalid_chunk_size(Config) when is_list(Config) ->
+
+    URL = url(group_name(Config), "/invalid_chunk_size.html", Config),
+
+    {error, {chunk_size, _} = Reason} =
+	httpc:request(get, {URL, []}, [], []),
+
+    ct:print("Parse error: ~p ~n", [Reason]).
+
+%%-------------------------------------------------------------------------
+
 emulate_lower_versions(doc) ->
     [{doc, "Perform request as 0.9 and 1.0 clients."}];
 emulate_lower_versions(Config) when is_list(Config) ->
@@ -718,7 +879,7 @@ headers() ->
 headers(Config) when is_list(Config) ->
 
     URL = url(group_name(Config), "/dummy.html", Config),
-    DocRoot = ?config(doc_root, Config),
+    DocRoot = proplists:get_value(doc_root, Config),
 
     {ok, FileInfo} =
 	file:read_file_info(filename:join([DocRoot,"dummy.html"])),
@@ -825,6 +986,13 @@ headers_dummy(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------------
 
+headers_with_obs_fold(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/obs_folded_headers.html", Config), []},
+    {ok, {{_,200,_}, Headers, [_|_]}} = httpc:request(get, Request, [], []),
+    "a b" = proplists:get_value("folded", Headers).
+
+%%-------------------------------------------------------------------------
+
 invalid_headers(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), [{"cookie", undefined}]},
     {error, _} = httpc:request(get, Request, [], []).
@@ -845,6 +1013,33 @@ remote_socket_close_async(Config) when is_list(Config) ->
 	{http, {RequestId, {error, socket_closed_remotely}}} ->
 	    ok
     end.
+
+%%-------------------------------------------------------------------------
+
+process_leak_on_keepalive(Config) ->
+    {ok, ClosedSocket} = gen_tcp:listen(6666, [{active, false}]),
+    ok = gen_tcp:close(ClosedSocket),
+    Request  = {url(group_name(Config), "/dummy.html", Config), []},
+    HttpcHandlers0 = supervisor:which_children(httpc_handler_sup),
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
+    HttpcHandlers1 = supervisor:which_children(httpc_handler_sup),
+    ChildrenCount = supervisor:count_children(httpc_handler_sup),
+    %% Assuming that the new handler will be selected for keep_alive
+    %% which could not be the case if other handlers existed
+    [{undefined, Pid, worker, [httpc_handler]}] =
+        ordsets:to_list(
+          ordsets:subtract(ordsets:from_list(HttpcHandlers1),
+                           ordsets:from_list(HttpcHandlers0))),
+    sys:replace_state(
+      Pid, fun (State) ->
+                   Session = element(3, State),
+                   setelement(3, State, Session#session{socket=ClosedSocket})
+           end),
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
+    %% bad handler with the closed socket should get replaced by
+    %% the new one, so children count should stay the same
+    ChildrenCount = supervisor:count_children(httpc_handler_sup),
+    ok.
 
 %%-------------------------------------------------------------------------
 
@@ -1012,14 +1207,27 @@ stream_test(Request, To) ->
 		ct:fail(Msg)
 	end,
 
-    Body == binary_to_list(StreamedBody).
+    Body = binary_to_list(StreamedBody).
+
+not_streamed_test(Request, To) ->
+    {ok, {{_,Code,_}, [_ | _], Body}} =
+	httpc:request(get, Request, [], [{body_format, binary}]),
+    {ok, RequestId} =
+	httpc:request(get, Request, [], [{body_format, binary}, {sync, false}, To]),
+
+    receive
+	{http, {RequestId, {{_, Code, _}, _Headers, Body}}} ->
+	    {Code, binary_to_list(Body)};
+	{http, Msg} ->
+	    ct:fail(Msg)
+    end.
 
 url(http, End, Config) ->
-    Port = ?config(port, Config),
+    Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
     ?URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End;
 url(https, End, Config) ->
-    Port = ?config(port, Config),
+    Port = proplists:get_value(port, Config),
     {ok,Host} = inet:gethostname(),
     ?TLS_URL_START ++ Host ++ ":" ++ integer_to_list(Port) ++ End;
 url(sim_http, End, Config) ->
@@ -1027,10 +1235,10 @@ url(sim_http, End, Config) ->
 url(sim_https, End, Config) ->
     url(https, End, Config).
 url(http, UserInfo, End, Config) ->
-    Port = ?config(port, Config),
+    Port = proplists:get_value(port, Config),
     ?URL_START ++ UserInfo ++ integer_to_list(Port) ++ End;
 url(https, UserInfo, End, Config) ->
-    Port = ?config(port, Config),
+    Port = proplists:get_value(port, Config),
     ?TLS_URL_START ++ UserInfo ++ integer_to_list(Port) ++ End;
 url(sim_http, UserInfo, End, Config) ->
     url(http, UserInfo, End, Config);
@@ -1038,7 +1246,7 @@ url(sim_https, UserInfo, End, Config) ->
     url(https, UserInfo, End, Config).
 
 group_name(Config) ->
-    GroupProp = ?config(tc_group_properties, Config),
+    GroupProp = proplists:get_value(tc_group_properties, Config),
     proplists:get_value(name, GroupProp).
 
 server_start(sim_http, _) ->
@@ -1060,11 +1268,11 @@ server_start(_, HttpdConfig) ->
     proplists:get_value(port, Info).
 
 server_config(http, Config) ->
-    ServerRoot = ?config(server_root, Config),
+    ServerRoot = proplists:get_value(server_root, Config),
     [{port, 0},
      {server_name,"httpc_test"},
      {server_root, ServerRoot},
-     {document_root, ?config(doc_root, Config)},
+     {document_root, proplists:get_value(doc_root, Config)},
      {bind_address, any},
      {ipfamily, inet_version()},
      {mime_type, "text/plain"},
@@ -1080,11 +1288,13 @@ server_config(_, _) ->
 
 start_apps(https) ->
     inets_test_lib:start_apps([crypto, public_key, ssl]);
+start_apps(sim_https) ->
+    inets_test_lib:start_apps([crypto, public_key, ssl]);
 start_apps(_) ->
     ok.
 
 ssl_config(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     [{certfile, filename:join(DataDir, "ssl_server_cert.pem")},
      {verify, verify_none}
     ].
@@ -1149,7 +1359,7 @@ receive_replys([ID|IDs]) ->
 	{http, {ID, {{_, 200, _}, [_|_], _}}} ->
 	    receive_replys(IDs);
 	{http, {Other, {{_, 200, _}, [_|_], _}}} ->
-	    ct:fail({recived_canceld_id, Other})
+	    ct:pal({recived_canceld_id, Other})
     end.
 
 %% Perform a synchronous stop
@@ -1189,8 +1399,14 @@ dummy_server_init(Caller, ip_comm, Inet, _) ->
     {ok, ListenSocket} = gen_tcp:listen(0, [Inet | BaseOpts]),
     {ok, Port} = inet:port(ListenSocket),
     Caller ! {port, Port},
-    dummy_ipcomm_server_loop({httpd_request, parse, [?HTTP_MAX_HEADER_SIZE]},
-			     [], ListenSocket);
+    dummy_ipcomm_server_loop({httpd_request, parse, [[{max_uri,    ?HTTP_MAX_URI_SIZE},
+						      {max_header, ?HTTP_MAX_HEADER_SIZE},
+						      {max_version,?HTTP_MAX_VERSION_STRING}, 
+						      {max_method, ?HTTP_MAX_METHOD_STRING},
+						      {max_content_length, ?HTTP_MAX_CONTENT_LENGTH},
+						      {customize, httpd_custom}
+						     ]]},
+    [], ListenSocket);
 
 dummy_server_init(Caller, ssl, Inet, SSLOptions) ->
     BaseOpts = [binary, {reuseaddr,true}, {active, false} |
@@ -1201,7 +1417,13 @@ dummy_ssl_server_init(Caller, BaseOpts, Inet) ->
     {ok, ListenSocket} = ssl:listen(0, [Inet | BaseOpts]),
     {ok, {_, Port}} = ssl:sockname(ListenSocket),
     Caller ! {port, Port},
-    dummy_ssl_server_loop({httpd_request, parse, [?HTTP_MAX_HEADER_SIZE]},
+    dummy_ssl_server_loop({httpd_request, parse, [[{max_uri,    ?HTTP_MAX_URI_SIZE},
+						   {max_method, ?HTTP_MAX_METHOD_STRING},
+						   {max_version,?HTTP_MAX_VERSION_STRING}, 
+						   {max_method, ?HTTP_MAX_METHOD_STRING},
+						   {max_content_length, ?HTTP_MAX_CONTENT_LENGTH},
+						   {customize, httpd_custom}
+						  ]]},
 			  [], ListenSocket).
 
 dummy_ipcomm_server_loop(MFA, Handlers, ListenSocket) ->
@@ -1231,6 +1453,7 @@ dummy_ssl_server_loop(MFA, Handlers, ListenSocket) ->
 	    From ! {stopped, self()}
     after 0 ->
 	    {ok, Socket} = ssl:transport_accept(ListenSocket),
+	    ok = ssl:ssl_accept(Socket, infinity),
 	    HandlerPid  = dummy_request_handler(MFA, Socket),
 	    ssl:controlling_process(Socket, HandlerPid),
 	    HandlerPid ! ssl_controller,
@@ -1277,10 +1500,22 @@ handle_request(Module, Function, Args, Socket) ->
 		stop ->
 		    stop;
 		<<>> ->
-		    {httpd_request, parse, [[<<>>, ?HTTP_MAX_HEADER_SIZE]]};
+		    {httpd_request, parse, [[{max_uri,?HTTP_MAX_URI_SIZE},
+					     {max_header, ?HTTP_MAX_HEADER_SIZE},
+					     {max_version,?HTTP_MAX_VERSION_STRING}, 
+					     {max_method, ?HTTP_MAX_METHOD_STRING},
+					     {max_content_length, ?HTTP_MAX_CONTENT_LENGTH},
+					     {customize, httpd_custom}
+					    ]]};
 		Data ->	
 		    handle_request(httpd_request, parse, 
-				   [Data |[?HTTP_MAX_HEADER_SIZE]], Socket)
+				   [Data, [{max_uri,    ?HTTP_MAX_URI_SIZE},
+					   {max_header, ?HTTP_MAX_HEADER_SIZE},
+					    {max_version,?HTTP_MAX_VERSION_STRING}, 
+					    {max_method, ?HTTP_MAX_METHOD_STRING},
+					    {max_content_length, ?HTTP_MAX_CONTENT_LENGTH},
+					   {customize, httpd_custom}
+					  ]], Socket)
 	    end;
 	NewMFA ->
 	    NewMFA
@@ -1370,7 +1605,7 @@ dummy_ssl_server_hang_loop(_) ->
 
 ensure_host_header_with_port([]) ->
     false;
-ensure_host_header_with_port(["host: " ++ Host| _]) ->
+ensure_host_header_with_port([{"host", Host}| _]) ->
     case string:tokens(Host, [$:]) of
 	[_ActualHost, _Port] ->
 	    true;
@@ -1382,7 +1617,7 @@ ensure_host_header_with_port([_|T]) ->
 
 auth_header([]) ->
     auth_header_not_found;
-auth_header(["authorization:" ++ Value | _]) ->
+auth_header([{"authorization", Value} | _]) ->
     {ok, string:strip(Value)};
 auth_header([_ | Tail]) ->
     auth_header(Tail).
@@ -1399,7 +1634,7 @@ handle_auth("Basic " ++ UserInfo, Challange, DefaultResponse) ->
 
 check_cookie([]) ->
     ct:fail(no_cookie_header);
-check_cookie(["cookie:" ++ _Value | _]) ->
+check_cookie([{"cookie", _} | _]) ->
     ok;
 check_cookie([_Head | Tail]) ->
    check_cookie(Tail).
@@ -1518,6 +1753,11 @@ handle_uri(_,"/307.html",Port,_,Socket,_) ->
 	"Content-Length:" ++ integer_to_list(length(Body))
 	++ "\r\n\r\n" ++ Body;
 
+handle_uri(_,"/404.html",_,_,_,_) ->
+    "HTTP/1.1 404 not found\r\n" ++
+	"Content-Length:14\r\n\r\n" ++
+	"Page not found";
+
 handle_uri(_,"/500.html",_,_,_,_) ->
     "HTTP/1.1 500 Internal Server Error\r\n" ++
 	"Content-Length:47\r\n\r\n" ++
@@ -1591,6 +1831,13 @@ handle_uri(_,"/dummy_headers.html",_,_,Socket,_) ->
     send(Socket, http_chunk:encode("obar</BODY></HTML>")),
     http_chunk:encode_last();
 
+handle_uri(_,"/obs_folded_headers.html",_,_,_,_) ->
+    "HTTP/1.1 200 ok\r\n"
+    "Content-Length:5\r\n"
+    "Folded: a\r\n"
+    " b\r\n\r\n"
+    "Hello";
+
 handle_uri(_,"/capital_transfer_encoding.html",_,_,Socket,_) ->
     Head =  "HTTP/1.1 200 ok\r\n" ++
 	"Transfer-Encoding:Chunked\r\n\r\n",
@@ -1599,10 +1846,31 @@ handle_uri(_,"/capital_transfer_encoding.html",_,_,Socket,_) ->
     send(Socket, http_chunk:encode("obar</BODY></HTML>")),
     http_chunk:encode_last();
 
+handle_uri(_,"/identity_transfer_encoding.html",_,_,_,_) ->
+    "HTTP/1.0 200 OK\r\n"
+    "Transfer-Encoding:identity\r\n"
+    "Content-Length:8\r\n"
+    "\r\n"
+    "IDENTITY";
+
 handle_uri(_,"/cookie.html",_,_,_,_) ->
     "HTTP/1.1 200 ok\r\n" ++
 	"set-cookie:" ++ "test_cookie=true; path=/;" ++
 	"max-age=60000\r\n" ++
+	"Content-Length:32\r\n\r\n"++
+	"<HTML><BODY>foobar</BODY></HTML>";
+
+handle_uri(_,"/empty_set_cookie.html",_,_,_,_) ->
+    "HTTP/1.1 200 ok\r\n" ++
+	"set-cookie: \r\n" ++
+	"Content-Length:32\r\n\r\n"++
+	"<HTML><BODY>foobar</BODY></HTML>";
+
+handle_uri(_,"/invalid_set_cookie.html",_,_,_,_) ->
+    "HTTP/1.1 200 ok\r\n" ++
+	"set-cookie: =\r\n" ++
+	"set-cookie: name=\r\n" ++
+	"set-cookie: name-or-value\r\n" ++
 	"Content-Length:32\r\n\r\n"++
 	"<HTML><BODY>foobar</BODY></HTML>";
 
@@ -1625,19 +1893,67 @@ handle_uri(_,"/once_chunked.html",_,_,Socket,_) ->
 	 http_chunk:encode("obar</BODY></HTML>")),
     http_chunk:encode_last();
 
+handle_uri(_,"/404_chunked.html",_,_,Socket,_) ->
+    Head =  "HTTP/1.1 404 not found\r\n" ++
+	"Transfer-Encoding:Chunked\r\n\r\n",
+    send(Socket, Head),
+    send(Socket, http_chunk:encode("<HTML><BODY>Not ")),
+    send(Socket,
+	 http_chunk:encode("found</BODY></HTML>")),
+    http_chunk:encode_last();
+
+handle_uri(_,"/single_chunk.html",_,_,Socket,_) ->
+    Chunk =  "HTTP/1.1 200 ok\r\n" ++
+        "Transfer-Encoding:Chunked\r\n\r\n" ++
+        http_chunk:encode("<HTML><BODY>fo") ++
+        http_chunk:encode("obar</BODY></HTML>") ++
+        http_chunk:encode_last(),
+    send(Socket, Chunk);
+
+handle_uri(_,"/http_1_0_no_length_single.html",_,_,Socket,_) ->
+    Body = "HTTP/1.0 200 ok\r\n"
+        "Content-type:text/plain\r\n\r\n"
+        "single packet",
+    send(Socket, Body),
+    close(Socket);
+
+handle_uri(_,"/http_1_0_no_length_multiple.html",_,_,Socket,_) ->
+    Head = "HTTP/1.0 200 ok\r\n"
+        "Content-type:text/plain\r\n\r\n"
+        "multiple packets, ",
+    send(Socket, Head),
+    %% long body to make sure it will be sent in multiple tcp packets
+    send(Socket, string:copies("other multiple packets ", 200)),
+    close(Socket);
+
+handle_uri(_,"/large_404_response.html",_,_,Socket,_) ->
+    %% long body to make sure it will be sent in multiple tcp packets
+    Body = string:copies("other multiple packets ", 200),
+    Head = io_lib:format("HTTP/1.1 404 not found\r\n"
+                         "Content-length: ~B\r\n"
+                         "Content-type: text/plain\r\n\r\n",
+                         [length(Body)]),
+    send(Socket, Head),
+    send(Socket, Body),
+    close(Socket);
+
 handle_uri(_,"/once.html",_,_,Socket,_) ->
     Head =  "HTTP/1.1 200 ok\r\n" ++
 	"Content-Length:32\r\n\r\n",
     send(Socket, Head),
     send(Socket, "<HTML><BODY>fo"),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     send(Socket, "ob"),
-    test_server:sleep(1000),
+    ct:sleep(1000),
     send(Socket, "ar</BODY></HTML>");
 
 handle_uri(_,"/invalid_http.html",_,_,_,_) ->
     "HTTP/1.1 301\r\nDate:Sun, 09 Dec 2007 13:04:18 GMT\r\n" ++
 	"Transfer-Encoding:chunked\r\n\r\n";
+
+handle_uri(_,"/invalid_chunk_size.html",_,_,_,_) ->
+    "HTTP/1.1 200 ok\r\n" ++
+	"Transfer-Encoding:chunked\r\n\r\nåäö\r\n";
 
 handle_uri(_,"/missing_reason_phrase.html",_,_,_,_) ->
     "HTTP/1.1 200\r\n" ++
@@ -1764,7 +2080,7 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
 			      end
 		      end),
 	      MRef = erlang:monitor(process, Pid),
-	      timer:sleep(10 + random:uniform(1334)),
+	      timer:sleep(10 + rand:uniform(1334)),
 	      {Id, Pid, MRef}
       end,
       lists:seq(1, NumClients)).
@@ -1772,12 +2088,13 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
 wait4clients([], _Timeout) ->
     ok;
 wait4clients(Clients, Timeout) when Timeout > 0 ->
-    Time = now_ms(),
+    Time = erlang:monotonic_time(),
+
     receive
 	{'DOWN', _MRef, process, Pid, normal} ->
 	    {value, {Id, _, _}} = lists:keysearch(Pid, 2, Clients),
 	    NewClients = lists:keydelete(Id, 1, Clients),
-	    wait4clients(NewClients, Timeout - (now_ms() - Time));
+	    wait4clients(NewClients, Timeout - inets_lib:millisec_passed(Time));
 	{'DOWN', _MRef, process, Pid, Reason} ->
 	    {value, {Id, _, _}} = lists:keysearch(Pid, 2, Clients),
 	    ct:fail({bad_client_termination, Id, Reason})
@@ -1852,7 +2169,7 @@ slowly_send_response(CSock, Answer) ->
 					    [length(Answer), Answer])),
     lists:foreach(
       fun(Char) ->
-	      timer:sleep(random:uniform(500)),
+	      timer:sleep(rand:uniform(500)),
 	      gen_tcp:send(CSock, <<Char>>)
       end,
       Response).
@@ -1870,15 +2187,10 @@ parse_connection_type(Request) ->
 	"keep-alive" -> keep_alive
     end.
 
-%% Time in milli seconds
-now_ms() ->
-    {A,B,C} = erlang:now(),
-    A*1000000000+B*1000+(C div 1000).
-
 set_random_seed() ->
-    {_, _, Micros} = now(),
-    A = erlang:phash2([make_ref(), self(), Micros]),
-    random:seed(A, A, A).
+    Unique = erlang:unique_integer(),
+    A = erlang:phash2([make_ref(), self(), Unique]),
+    rand:seed(exsplus, {A, A, A}).
 
 
 otp_8739(doc) ->

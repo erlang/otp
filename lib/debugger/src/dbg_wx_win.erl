@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -42,7 +43,8 @@
 %%   GS = term()
 %%--------------------------------------------------------------------
 init() ->
-    wx:new().
+    _ = wx:new(),
+    ok.
 
 %%--------------------------------------------------------------------
 %% create_menus(MenuBar, [Menu])
@@ -79,12 +81,12 @@ create_menus(_MB,[], _Win,Id) ->
     Id.
 
 create_menu_item(Menu, [separator|Is], Win, Id,Connect) ->
-    wxMenu:appendSeparator(Menu),
+    _ = wxMenu:appendSeparator(Menu),
     create_menu_item(Menu,Is,Win,Id+1,Connect);
 create_menu_item(Menu, [{Name, _N, cascade, Items}|Is], Win, Id0,Connect) ->
     Sub = wxMenu:new([]),
     Id = create_menu_item(Sub, Items, Win, Id0, false),
-    wxMenu:append(Menu, ?wxID_ANY, menu_name(Name,ignore), Sub),
+    _ = wxMenu:append(Menu, ?wxID_ANY, menu_name(Name,ignore), Sub),
     %% Simulate GS sub checkBox/RadioBox behaviour
     Self = self(),
     Butts = [{MI,get(MI)} || {MI,_,_} <- Items],
@@ -94,13 +96,12 @@ create_menu_item(Menu, [{Name, _N, cascade, Items}|Is], Win, Id0,Connect) ->
 			    false -> Acc
 			end		
 		end,
-    Filter = fun(_,_) ->	     
+    Filter = fun(Ev,_) ->
 		     Enabled = lists:foldl(IsChecked, [], Butts),
-		     Self ! #wx{userData={Name, Enabled},
-				event=#wxCommand{type=command_menu_selected}}
+		     Self ! Ev#wx{userData={Name, Enabled}}
 	     end,
-    wxMenu:connect(Win, command_menu_selected, 
-		   [{id,Id0},{lastId, Id-1},{callback,Filter}]),
+    _ = wxMenu:connect(Win, command_menu_selected,
+		       [{id,Id0},{lastId, Id-1},{callback,Filter}]),
     create_menu_item(Menu, Is, Win, Id, Connect);
 create_menu_item(Menu, [{Name,Pos}|Is], Win, Id, Connect) -> 
     MenuId = case lists:member(Name, ['Debugger']) of
@@ -168,7 +169,7 @@ add_break(Win, MenuName, Point) ->
     Delete = wxMenu:appendRadioItem(Trigger, ?wxID_ANY,"Delete"),
     Add(Delete, {break,Point,{trigger,delete}}),
 
-    wxMenu:append(Sub, ?wxID_ANY, "Trigger Action", Trigger),
+    _ = wxMenu:append(Sub, ?wxID_ANY, "Trigger Action", Trigger),
     MenuBtn = wxMenu:append(Menu,?wxID_ANY, Label, Sub),
 
     #break{mb={Menu,MenuBtn}, 

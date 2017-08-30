@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
   <!ENTITY records
   '<seealso marker="diameter_dict#MESSAGE_RECORDS">diameter_dict(4)</seealso>'>
@@ -13,20 +13,21 @@
 <erlref>
 <header>
 <copyright>
-<year>2012</year>
+<year>2012</year><year>2016</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
-The contents of this file are subject to the Erlang Public License,
-Version 1.1, (the "License"); you may not use this file except in
-compliance with the License. You should have received a copy of the
-Erlang Public License along with this software. If not, it can be
-retrieved online at http://www.erlang.org/.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
 
-Software distributed under the License is distributed on an "AS IS"
-basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-the License for the specific language governing rights and limitations
-under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 </legalnotice>
 
@@ -73,7 +74,7 @@ are defined in diameter.hrl, which can be included as follows.</p>
 </pre>
 
 <p>
-Application-specific records are definied in the hrl
+Application-specific records are defined in the hrl
 files resulting from dictionary file compilation.</p>
 
 </description>
@@ -122,7 +123,7 @@ Fields have the following types.</p>
 <item>
 <p>
 Values in the AVP header, corresponding to AVP Code, the M flag, P
-flags and Vendor-ID respectivelty.
+flags and Vendor-ID respectively.
 A Vendor-ID other than <c>undefined</c> implies a set V flag.</p>
 </item>
 
@@ -222,7 +223,7 @@ header.</p>
 <tag><c>is_retransmitted = boolean()</c></tag>
 <item>
 <p>
-Values correspoding to the R(equest), P(roxiable), E(rror)
+Values corresponding to the R(equest), P(roxiable), E(rror)
 and T(Potentially re-transmitted message) flags of the Diameter
 header.</p>
 </item>

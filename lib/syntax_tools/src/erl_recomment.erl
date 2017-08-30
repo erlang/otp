@@ -123,7 +123,6 @@ recomment_forms(Tree, Cs, Insert) ->
 	form_list ->
 	    Tree1 = erl_syntax:flatten_form_list(Tree),
 	    Node = build_tree(Tree1),
-
 	    %% Here we make a small assumption about the substructure of
 	    %% a `form_list' tree: it has exactly one group of subtrees.
 	    [Node1] = node_subtrees(Node),
@@ -602,21 +601,24 @@ expand_comment(C) ->
 
 -record(leaf, {min = 0           :: integer(),
 	       max = 0           :: integer(),
-	       precomments  = [] :: [erl_syntax:syntaxTree()],
-	       postcomments = [] :: [erl_syntax:syntaxTree()],
+	       precomments  = [] :: [erl_comment_scan:comment()],
+	       postcomments = [] :: [erl_comment_scan:comment()],
 	       value             :: erl_syntax:syntaxTree()}).
 
 -record(tree, {min = 0           :: integer(),
 	       max = 0           :: integer(),
 	       type              :: atom(),
 	       attrs             :: erl_syntax:syntaxTreeAttributes(),
-	       precomments  = [] :: [erl_syntax:syntaxTree()],
-	       postcomments = [] :: [erl_syntax:syntaxTree()],
-	       subtrees     = [] :: [erl_syntax:syntaxTree()]}).
+	       precomments  = [] :: [erl_comment_scan:comment()],
+	       postcomments = [] :: [erl_comment_scan:comment()],
+	       subtrees     = [] :: [extendedSyntaxTree()]}).
+
 
 -record(list, {min = 0           :: integer(),
 	       max = 0           :: integer(),
 	       subtrees = []     :: [erl_syntax:syntaxTree()]}).
+
+-type extendedSyntaxTree() :: #tree{} | #leaf{} | #list{}.
 
 leaf_node(Min, Max, Value) ->
     #leaf{min = Min,
@@ -753,7 +755,13 @@ get_line(Node) ->
 	{_, L, _} when is_integer(L) ->
 	    L;
 	Pos ->
-	    exit({bad_position, Pos})
+            try erl_anno:line(Pos) of
+                Line ->
+                    Line
+            catch
+                _:_ ->
+                    exit({bad_position, Pos})
+            end
     end.
 
 

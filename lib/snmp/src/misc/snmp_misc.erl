@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %% 
@@ -101,21 +102,14 @@ sleep(Time) ->
 %% Returns time in ms = sec/1000
 % now() -> now(ms).
 now(ms) ->
-    Now = erlang:now(),
-    element(1,Now)*1000000000+
-	element(2,Now)*1000+
-	(element(3,Now) div 1000);
+    erlang:monotonic_time(milli_seconds);
+
 %% Returns time in cs = sec/100
 now(cs) ->
-    Now = erlang:now(),
-    element(1,Now)*100000000+
-        element(2,Now)*100+
-	(element(3,Now) div 10000);
+    erlang:monotonic_time(100);
+
 now(sec) ->
-    Now = erlang:now(),
-    element(1,Now)*1000000+
-        element(2,Now)+
-	(element(3,Now) div 1000000).
+    erlang:monotonic_time(seconds).
     
 
 is_crypto_supported(Alg) ->
@@ -479,7 +473,3 @@ format_val('OBJECT IDENTIFIER', _, Val, MiniMib) ->
     io_lib:format("~w", [NVal]);
 format_val(_, _, Val, _MiniMib) ->
     io_lib:format("~p", [Val]).
-    
-
-
-

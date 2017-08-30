@@ -2,18 +2,19 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -63,10 +64,10 @@
 	 %% Files in 'fms' are compilable with option 'to_pp'; we keep them
 	 %% as {FileName, ModuleName} in case the ModuleName is different
 	 fms        = []		 :: [{file:filename(), module()}],
-	 ex_func    = map__new()	 :: map(),
-	 record     = map__new()	 :: map(),
-	 func       = map__new()	 :: map(),
-	 inc_func   = map__new()	 :: map(),
+	 ex_func    = map__new()	 :: map_dict(),
+	 record     = map__new()	 :: map_dict(),
+	 func       = map__new()	 :: map_dict(),
+	 inc_func   = map__new()	 :: map_dict(),
 	 trust_plt  = dialyzer_plt:new() :: plt()}).
 -type analysis() :: #analysis{}.
 
@@ -136,11 +137,14 @@ extract(#analysis{macros = Macros,
   NewCodeServer =
     try
       NewRecords = dialyzer_codeserver:get_temp_records(CodeServer1),
+      NewExpTypes = dialyzer_codeserver:get_temp_exported_types(CodeServer1),
+      case sets:size(NewExpTypes) of 0 -> ok end,
       OldRecords = dialyzer_plt:get_types(TrustPLT), % XXX change to the PLT?
       MergedRecords = dialyzer_utils:merge_records(NewRecords, OldRecords),
       CodeServer2 = dialyzer_codeserver:set_temp_records(MergedRecords, CodeServer1),
-      CodeServer3 = dialyzer_utils:process_record_remote_types(CodeServer2),
-      dialyzer_contracts:process_contract_remote_types(CodeServer3)
+      CodeServer3 = dialyzer_codeserver:finalize_exported_types(NewExpTypes, CodeServer2),
+      CodeServer4 = dialyzer_utils:process_record_remote_types(CodeServer3),
+      dialyzer_contracts:process_contract_remote_types(CodeServer4)
     catch
       throw:{error, ErrorMsg} ->
 	compile_error(ErrorMsg)
@@ -220,11 +224,11 @@ get_external(Exts, Plt) ->
 -type fa()        :: {atom(), arity()}.
 -type func_info() :: {line(), atom(), arity()}.
 
--record(info, {records = map__new() :: map(),
+-record(info, {records = map__new() :: map_dict(),
 	       functions = []       :: [func_info()],
-	       types = map__new()   :: map(),
+	       types = map__new()   :: map_dict(),
 	       edoc = false	    :: boolean()}).
--record(inc, {map = map__new() :: map(), filter = [] :: files()}).
+-record(inc, {map = map__new() :: map_dict(), filter = [] :: files()}).
 -type inc() :: #inc{}.
 
 -spec show_or_annotate(analysis()) -> 'ok'.
@@ -405,7 +409,7 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, Records) ->
   case dialyzer_codeserver:lookup_mfa_contract(MFA, CodeServer) of
     error ->
       {{F, A}, {Range, Arg}};
-    {ok, {_FileLine, Contract}} ->
+    {ok, {_FileLine, Contract, _Xtra}} ->
       Sig = erl_types:t_fun(Arg, Range),
       case dialyzer_contracts:check_contract(Contract, Sig) of
 	ok -> {{F, A}, {contract, Contract}};
@@ -844,8 +848,7 @@ collect_info(Analysis) ->
       %% io:format("Merged Records ~p",[MergedRecords]),
       TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer),
       TmpCServer2 =
-        dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
-                                                       TmpCServer1),
+        dialyzer_codeserver:finalize_exported_types(MergedExpTypes, TmpCServer1),
       TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
       dialyzer_contracts:process_contract_remote_types(TmpCServer3)
     catch
@@ -931,7 +934,9 @@ analyze_one_function({Var, FunBody} = Function, Acc) ->
   A = cerl:fname_arity(Var),
   TmpDialyzerObj = {{Acc#tmpAcc.module, F, A}, Function},
   NewDialyzerObj = Acc#tmpAcc.dialyzerObj ++ [TmpDialyzerObj],  
-  [_, LineNo, {file, FileName}] = cerl:get_ann(FunBody),
+  Anno = cerl:get_ann(FunBody),
+  LineNo = get_line(Anno),
+  FileName = get_file(Anno),
   BaseName = filename:basename(FileName),
   FuncInfo = {LineNo, F, A},
   OriginalName = Acc#tmpAcc.file,
@@ -950,6 +955,14 @@ analyze_one_function({Var, FunBody} = Function, Acc) ->
   Acc#tmpAcc{funcAcc = FuncAcc,
 	     incFuncAcc = IncFuncAcc,
 	     dialyzerObj = NewDialyzerObj}.
+
+get_line([Line|_]) when is_integer(Line) -> Line;
+get_line([_|T]) -> get_line(T);
+get_line([]) -> none.
+
+get_file([{file,File}|_]) -> File;
+get_file([_|T]) -> get_file(T);
+get_file([]) -> "no_file". % should not happen
 
 -spec get_dialyzer_plt(analysis()) -> plt().
 
@@ -1001,15 +1014,7 @@ compile_error(Reason) ->
 -spec msg(string()) -> 'ok'.
 
 msg(Msg) ->
-  case os:type() of
-    {unix, _} -> % Output a message on 'stderr', if possible
-      P = open_port({fd, 0, 2}, [out]),
-      port_command(P, Msg),
-      true = port_close(P),
-      ok;
-    _ ->  % win32
-      io:format("~s", [Msg])
-  end.
+  io:format(standard_error, "~s", [Msg]).
 
 %%--------------------------------------------------------------------
 %% Version and help messages.
@@ -1094,29 +1099,29 @@ rcv_ext_types(Self, ExtTypes) ->
 %% specialized for the uses in this module
 %%--------------------------------------------------------------------
 
--type map() :: dict().
+-type map_dict() :: dict:dict().
 
--spec map__new() -> map().
+-spec map__new() -> map_dict().
 map__new() ->
   dict:new().
 
--spec map__insert({term(), term()}, map()) -> map().
+-spec map__insert({term(), term()}, map_dict()) -> map_dict().
 map__insert(Object, Map) ->
   {Key, Value} = Object,
   dict:store(Key, Value, Map).
 
--spec map__lookup(term(), map()) -> term().
+-spec map__lookup(term(), map_dict()) -> term().
 map__lookup(Key, Map) ->
   try dict:fetch(Key, Map) catch error:_ -> none end.
 
--spec map__from_list([{fa(), term()}]) -> map().
+-spec map__from_list([{fa(), term()}]) -> map_dict().
 map__from_list(List) ->
   dict:from_list(List).
 
--spec map__remove(term(), map()) -> map().
+-spec map__remove(term(), map_dict()) -> map_dict().
 map__remove(Key, Dict) ->
   dict:erase(Key, Dict).
 
--spec map__fold(fun((term(), term(), term()) -> map()), map(), map()) -> map().
+-spec map__fold(fun((term(), term(), term()) -> map_dict()), map_dict(), map_dict()) -> map_dict().
 map__fold(Fun, Acc0, Dict) -> 
   dict:fold(Fun, Acc0, Dict).

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -44,9 +45,6 @@ help() ->
       "  sort        runtime | reductions | memory | msg_q~n"
       "                         What information to sort by~n"
       "                         Default: runtime (reductions if tracing=off)~n"
-      "  output      graphical | text~n"
-      "                         How to present results~n"
-      "                         Default: graphical~n"
       "  tracing     on | off   etop uses the erlang trace facility, and thus~n"
       "                         no other tracing is possible on the node while~n"
       "                         etop is running, unless this option is set to~n"
@@ -317,7 +315,7 @@ handle_args([_| R], C) ->
 handle_args([], C) ->
     C.
 
-output(graphical) -> etop_gui;
+output(graphical) -> exit({deprecated, "Use observer instead"});
 output(text) -> etop_txt.
 
 

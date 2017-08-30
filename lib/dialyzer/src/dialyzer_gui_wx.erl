@@ -2,18 +2,19 @@
 %%------------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -51,7 +52,6 @@
 		    add_dir           :: wx:wx_object(),
 		    add_rec           :: wx:wx_object(),
 		    chosen_box        :: wx:wx_object(),
-		    analysis_pid      :: pid(),
 		    del_file          :: wx:wx_object(),
 		    doc_plt           :: dialyzer_plt:plt(),
 		    clear_chosen      :: wx:wx_object(),
@@ -61,7 +61,7 @@
 		    init_plt          :: dialyzer_plt:plt(),
 		    dir_entry         :: wx:wx_object(),
 		    file_box          :: wx:wx_object(),
-		    files_to_analyze  :: ordset(string()),
+		    files_to_analyze  :: ordsets:ordset(string()),
 		    gui               :: wx:wx_object(),
 		    log               :: wx:wx_object(),
 		    menu              :: menu(),
@@ -71,11 +71,11 @@
 		    stop              :: wx:wx_object(),
 		    frame             :: wx:wx_object(),
 		    warnings_box      :: wx:wx_object(),
-		    explanation_box   :: wx:wx_object(),
+		    explanation_box   :: wx:wx_object() | 'undefined',
 		    wantedWarnings    :: list(),
 		    rawWarnings       :: list(),
-		    backend_pid       :: pid(),
-		    expl_pid          :: pid()}).
+		    backend_pid       :: pid() | 'undefined',
+		    expl_pid          :: pid() | 'undefined'}).
 	       
 %%------------------------------------------------------------------------
 
@@ -422,7 +422,7 @@ gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
     #wx{id=?menuID_HELP_ABOUT, obj=Frame, 
 	event=#wxCommand{type=command_menu_selected}} ->
       Message = "	       This is DIALYZER version "  ++ ?VSN ++  " \n"++
-	"DIALYZER is a DIscrepany AnaLYZer for ERlang programs.\n\n"++
+	"DIALYZER is a DIscrepancy AnaLYZer for ERlang programs.\n\n"++
 	"     Copyright (C) Tobias Lindahl <tobiasl@it.uu.se>\n"++
 	"                   Kostis Sagonas <kostis@it.uu.se>\n\n",
       output_sms(State, "About Dialyzer", Message, info),
@@ -699,8 +699,7 @@ handle_add_files(#gui_state{chosen_box = ChosenBox, file_box = FileBox,
   end.
 
 handle_add_dir(#gui_state{chosen_box = ChosenBox, dir_entry = DirBox,
-			  files_to_analyze = FileList,
-			  mode = Mode} = State) ->
+			  files_to_analyze = FileList, mode = Mode} = State) ->
   case wxDirPickerCtrl:getPath(DirBox) of
     "" ->
       State;
@@ -714,8 +713,8 @@ handle_add_dir(#gui_state{chosen_box = ChosenBox, dir_entry = DirBox,
       State#gui_state{files_to_analyze = add_files(filter_mods(NewDir1,Ext), FileList, ChosenBox, Ext)}
   end.
 	    
-handle_add_rec(#gui_state{chosen_box = ChosenBox, dir_entry = DirBox, files_to_analyze = FileList,
-			     mode = Mode} = State) ->
+handle_add_rec(#gui_state{chosen_box = ChosenBox, dir_entry = DirBox,
+			  files_to_analyze = FileList, mode = Mode} = State) ->
   case wxDirPickerCtrl:getPath(DirBox) of
     "" ->
       State;
@@ -723,11 +722,11 @@ handle_add_rec(#gui_state{chosen_box = ChosenBox, dir_entry = DirBox, files_to_a
       NewDir = ordsets:new(),
       NewDir1 = ordsets:add_element(Dir,NewDir),
       TargetDirs = ordsets:union(NewDir1, all_subdirs(NewDir1)),
-      case wxRadioBox:getSelection(Mode) of
-	0 -> Ext = ".beam";
-	1-> Ext = ".erl"
-      end,
-      State#gui_state{files_to_analyze = add_files(filter_mods(TargetDirs,Ext), FileList, ChosenBox, Ext)}
+      Ext = case wxRadioBox:getSelection(Mode) of
+	      0 -> ".beam";
+	      1 -> ".erl"
+	    end,
+      State#gui_state{files_to_analyze = add_files(filter_mods(TargetDirs, Ext), FileList, ChosenBox, Ext)}
   end.
 
 handle_file_delete(#gui_state{chosen_box = ChosenBox,
@@ -886,13 +885,10 @@ config_gui_start(State) ->
   wxRadioBox:disable(State#gui_state.mode).
 
 save_file(#gui_state{frame = Frame, warnings_box = WBox, log = Log} = State, Type) ->
-  case Type of
-    warnings ->
-      Message = "Save Warnings",
-      Box = WBox;
-    log -> Message = "Save Log",
-	   Box = Log
-  end,
+  {Message, Box} = case Type of
+		     warnings -> {"Save Warnings", WBox};
+		     log -> {"Save Log", Log}
+		   end,
   case wxTextCtrl:getValue(Box) of
     "" -> error_sms(State,"There is nothing to save...\n");
     _ ->
@@ -936,8 +932,7 @@ include_dialog(#gui_state{gui = Wx, frame = Frame, options = Options}) ->
   wxButton:connect(DeleteAllButton, command_button_clicked),
   wxButton:connect(Ok, command_button_clicked),
   wxButton:connect(Cancel, command_button_clicked),
-  Dirs = [io_lib:format("~s", [X]) 
-	  || X <- Options#options.include_dirs],
+  Dirs = [io_lib:format("~s", [X]) || X <- Options#options.include_dirs],
   wxListBox:set(Box, Dirs),
   Layout = wxBoxSizer:new(?wxVERTICAL),
   Buttons = wxBoxSizer:new(?wxHORIZONTAL),

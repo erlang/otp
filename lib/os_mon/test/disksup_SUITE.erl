@@ -1,26 +1,27 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 -module(disksup_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Test server specific exports
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0]).
 -export([init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -29,129 +30,100 @@
 -export([port/1]).
 -export([terminate/1, unavailable/1, restart/1]).
 -export([otp_5910/1]).
-
-%% Default timetrap timeout (set in init_per_testcase)
--define(default_timeout, ?t:minutes(1)).
+-export([posix_only/1]).
 
 init_per_suite(Config) when is_list(Config) ->
-    ?line ok = application:start(os_mon),
+    ok = application:start(os_mon),
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
-    ?line ok = application:stop(os_mon),
+    ok = application:stop(os_mon),
     Config.
 
 init_per_testcase(unavailable, Config) ->
     terminate(Config),
     init_per_testcase(dummy, Config);
 init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?default_timeout),
-    [{watchdog,Dog} | Config].
+    Config.
 
-end_per_testcase(unavailable, Config) ->
+end_per_testcase(TC, Config) when TC =:= unavailable;
+                                  TC =:= posix_only ->
     restart(Config),
     end_per_testcase(dummy, Config);
-end_per_testcase(_Case, Config) ->
-    Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+end_per_testcase(_Case, _Config) ->
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     Bugs = [otp_5910],
+    Always = [api, config, alarm, port, posix_only, unavailable] ++ Bugs,
     case test_server:os_type() of
-	{unix, sunos} ->
-	    [api, config, alarm, port, unavailable] ++ Bugs;
-	{unix, _OSname} -> [api, alarm] ++ Bugs;
-	{win32, _OSname} -> [api, alarm] ++ Bugs;
+	{unix, _OSname} -> Always;
+	{win32, _OSname} -> Always;
 	_OS -> [unavailable]
     end.
 
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-api(suite) ->
-    [];
-api(doc) ->
-    ["Test of API functions"];
+%% Test of API functions
 api(Config) when is_list(Config) ->
 
     %% get_disk_data()
-    ?line [{Id, KByte, Capacity}|_] = disksup:get_disk_data(),
-    ?line true = io_lib:printable_list(Id),
-    ?line true = is_integer(KByte),
-    ?line true = is_integer(Capacity),
-    ?line true = KByte>0,
-    ?line true = Capacity>0,
+    ok = check_get_disk_data(),
 
     %% get_check_interval()
-    ?line 1800000 = disksup:get_check_interval(),
+    1800000 = disksup:get_check_interval(),
 
     %% set_check_interval(Minutes)
-    ?line ok = disksup:set_check_interval(20),
-    ?line 1200000 = disksup:get_check_interval(),
-    ?line {'EXIT',{badarg,_}} = (catch disksup:set_check_interval(0.5)),
-    ?line 1200000 = disksup:get_check_interval(),
-    ?line ok = disksup:set_check_interval(30),
+    ok = disksup:set_check_interval(20),
+    1200000 = disksup:get_check_interval(),
+    {'EXIT',{badarg,_}} = (catch disksup:set_check_interval(0.5)),
+    1200000 = disksup:get_check_interval(),
+    ok = disksup:set_check_interval(30),
 
     %% get_almost_full_threshold()
-    ?line 80 = disksup:get_almost_full_threshold(),
+    80 = disksup:get_almost_full_threshold(),
 
     %% set_almost_full_threshold(Float)
-    ?line ok = disksup:set_almost_full_threshold(0.90),
-    ?line 90 = disksup:get_almost_full_threshold(),
-    ?line {'EXIT',{badarg,_}} =
+    ok = disksup:set_almost_full_threshold(0.90),
+    90 = disksup:get_almost_full_threshold(),
+    {'EXIT',{badarg,_}} =
 	(catch disksup:set_almost_full_threshold(-0.5)),
-    ?line 90 = disksup:get_almost_full_threshold(),
-    ?line ok = disksup:set_almost_full_threshold(0.80),
+    90 = disksup:get_almost_full_threshold(),
+    ok = disksup:set_almost_full_threshold(0.80),
 
     ok.
 
-config(suite) ->
-    [];
-config(doc) ->
-    ["Test configuration"];
+%% Test configuration
 config(Config) when is_list(Config) ->
 
     %% Change configuration parameters and make sure change is reflected
     %% when disksup is restarted
-    ?line ok =
-	application:set_env(os_mon, disk_space_check_interval, 29),
-    ?line ok =
-	application:set_env(os_mon, disk_almost_full_threshold, 0.81),
+    ok = application:set_env(os_mon, disk_space_check_interval, 29),
+    ok = application:set_env(os_mon, disk_almost_full_threshold, 0.81),
 
-    ?line ok = supervisor:terminate_child(os_mon_sup, disksup),
-    ?line {ok, _Child1} = supervisor:restart_child(os_mon_sup, disksup),
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
+    {ok, _Child1} = supervisor:restart_child(os_mon_sup, disksup),
 
-    ?line 1740000 = disksup:get_check_interval(),
-    ?line 81 = disksup:get_almost_full_threshold(),
+    1740000 = disksup:get_check_interval(),
+    81 = disksup:get_almost_full_threshold(),
 
     %% Also try this with bad parameter values, should be ignored
-    ?line ok =
+    ok =
 	application:set_env(os_mon, disk_space_check_interval, 0.5),
-    ?line ok =
+    ok =
 	application:set_env(os_mon, disk_almost_full_threshold, -0.81),
 
-    ?line ok = supervisor:terminate_child(os_mon_sup, disksup),
-    ?line {ok, _Child2} = supervisor:restart_child(os_mon_sup, disksup),
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
+    {ok, _Child2} = supervisor:restart_child(os_mon_sup, disksup),
 
-    ?line 1800000 = disksup:get_check_interval(),
-    ?line 80 = disksup:get_almost_full_threshold(),
+    1800000 = disksup:get_check_interval(),
+    80 = disksup:get_almost_full_threshold(),
 
     %% Reset configuration parameters
-    ?line ok =
-	application:set_env(os_mon, disk_space_check_interval, 30),
-    ?line ok =
-	application:set_env(os_mon, disk_almost_full_threshold, 0.80),
-
+    ok = application:set_env(os_mon, disk_space_check_interval, 30),
+    ok = application:set_env(os_mon, disk_almost_full_threshold, 0.80),
     ok.
 
 %%----------------------------------------------------------------------
@@ -159,24 +131,22 @@ config(Config) when is_list(Config) ->
 %% changes too much during its course, or if there are timing problems
 %% with the alarm_handler receiving the alarms too late
 %%----------------------------------------------------------------------
-alarm(suite) ->
-    [];
-alarm(doc) ->
-    ["Test that alarms are set and cleared"];
+
+%% Test that alarms are set and cleared
 alarm(Config) when is_list(Config) ->
 
     %% Find out how many disks exceed the threshold
     %% and make sure the corresponding number of alarms is set
-    ?line Threshold1 = disksup:get_almost_full_threshold(), % 80
-    ?line Data1 = disksup:get_disk_data(),
-    ?line Over1 = over_threshold(Data1, Threshold1),
-    ?line Alarms1 = get_alarms(),
+    Threshold1 = disksup:get_almost_full_threshold(), % 80
+    Data1 = disksup:get_disk_data(),
+    Over1 = over_threshold(Data1, Threshold1),
+    Alarms1 = get_alarms(),
     if
 	Over1==length(Alarms1) ->
-	    ?line true;
+	    true;
 	true ->
 	    dump_info(),
-	    ?line ?t:fail({bad_alarms, Threshold1, Data1, Alarms1})
+	    ct:fail({bad_alarms, Threshold1, Data1, Alarms1})
     end,
 
     %% Try to find a disk with space usage below Threshold1,
@@ -187,24 +157,24 @@ alarm(Config) when is_list(Config) ->
 		       true -> false
 		   end
 	   end,
-    ?line case until(Fun1, Data1) of
+    case until(Fun1, Data1) of
 	      {_, _, Cap1} ->
 		  Threshold2 = Cap1-1,
-		  ?line ok =
+		  ok =
 		      disksup:set_almost_full_threshold(Threshold2/100),
-		  ?line disksup ! timeout, % force a disk check
-		  ?line Data2 = disksup:get_disk_data(),
-		  ?line Over2 = over_threshold(Data2, Threshold2),
-		  ?line Alarms2 = get_alarms(),
+		  disksup ! timeout, % force a disk check
+		  Data2 = disksup:get_disk_data(),
+		  Over2 = over_threshold(Data2, Threshold2),
+		  Alarms2 = get_alarms(),
 		  if
 		      Over2==length(Alarms2), Over2>Over1 ->
-			  ?line true;
+			  true;
 		      true ->
 			  dump_info(),
-			  ?line ?t:fail({bad_alarms, Threshold2, Data2, Alarms2})
+			  ct:fail({bad_alarms, Threshold2, Data2, Alarms2})
 		  end;
 	      false ->
-		  ?line ignore
+		  ignore
 	  end,
 
     %% Find out the highest space usage among all disks
@@ -216,40 +186,35 @@ alarm(Config) when is_list(Config) ->
 		       true -> MaxAcc
 		   end
 	   end,
-    ?line case lists:foldl(Fun2, 0, Data1) of
+    case lists:foldl(Fun2, 0, Data1) of
 	      Max when Max<100 ->
 		  Threshold3 = Max+1,
-		  ?line ok =
-		      disksup:set_almost_full_threshold(Threshold3/100),
-		  ?line disksup ! timeout, % force a disk check
-		  ?line Data3 = disksup:get_disk_data(),
-		  ?line Over3 = over_threshold(Data3, Threshold3),
-		  ?line Alarms3 = get_alarms(),
+		  ok = disksup:set_almost_full_threshold(Threshold3/100),
+		  disksup ! timeout, % force a disk check
+		  Data3   = disksup:get_disk_data(),
+		  Over3   = over_threshold(Data3, Threshold3),
+		  Alarms3 = get_alarms(),
 		  if
 		      Over3==0, length(Alarms3)==0 ->
-			  ?line ok;
+			  ok;
 		      true ->
 			  dump_info(),
-			  ?line ?t:fail({bad_alarms, Threshold3, Data3, Alarms3})
+			  ct:fail({bad_alarms, Threshold3, Data3, Alarms3})
 		  end;
 	      100 ->
-		  ?line ignore
+		  ignore
 	  end,
 
     %% Reset threshold
-    ?line ok = disksup:set_almost_full_threshold(Threshold1/100),
-
+    ok = disksup:set_almost_full_threshold(Threshold1/100),
     ok.
 
 over_threshold(Data, Threshold) ->
     Data2 = remove_duplicated_disks(lists:keysort(1, Data)),
-    lists:foldl(fun({_Id, _Kbyte, Cap}, N) when Cap>=Threshold ->
-			N+1;
-		   (_DiskData, N) ->
-			N
-		end,
-		0,
-		Data2).
+    lists:foldl(fun
+	    ({_Id, _Kbyte, Cap}, N) when Cap>=Threshold -> N+1;
+	    (_DiskData, N) -> N
+	end, 0, Data2).
 
 %% On some platforms (for example MontaVista) data for one disk can be
 %% "duplicated":
@@ -278,33 +243,28 @@ remove_duplicated_disks([]) ->
     [].
 
 get_alarms() ->
-    lists:filter(fun({{disk_almost_full, _Disk},_}) -> true;
-		    (_) -> false
-		 end,
-		 alarm_handler:get_alarms()).
+    lists:filter(fun
+	    ({{disk_almost_full, _Disk},_}) -> true;
+	    (_) -> false
+	end, alarm_handler:get_alarms()).
 
 until(Fun, [H|T]) ->
     case Fun(H) of
 	true -> H;
-	false ->
-	    until(Fun, T)
+	false -> until(Fun, T)
     end;
-until(_Fun, []) ->
-    false.
+until(_Fun, []) -> false.
 
-port(suite) ->
-    [];
-port(doc) ->
-    ["Test that disksup handles a terminating port program"];
+%% Test that disksup handles a terminating port program
 port(Config) when is_list(Config) ->
-    ?line Str = os:cmd("ps -ef | grep '[d]isksup'"),
+    Str = os:cmd("ps -ef | grep '[d]isksup'"),
     case io_lib:fread("~s ~s", Str) of
-	 {ok, [_Uid,Pid], _Rest} ->
+	{ok, [_Uid,Pid], _Rest} ->
 
 	    %% Monitor disksup
-	    ?line MonRef = erlang:monitor(process, disksup),
-	    ?line [{_Disk1,Kbyte1,_Cap1}|_] = disksup:get_disk_data(),
-	    ?line true = Kbyte1>0,
+	    MonRef = erlang:monitor(process, disksup),
+	    [{_Disk1,Kbyte1,_Cap1}|_] = disksup:get_disk_data(),
+	    true = Kbyte1>0,
 
 	    %% Kill the port program
 	    case os:cmd("kill -9 " ++ Pid) of
@@ -315,17 +275,16 @@ port(Config) when is_list(Config) ->
 			{'DOWN', MonRef, _, _, {port_died, _Reason}} ->
 			    ok;
 			{'DOWN', MonRef, _, _, Reason} ->
-			    ?line ?t:fail({unexpected_exit_reason, Reason})
+			    ct:fail({unexpected_exit_reason, Reason})
 		    after
 			3000 ->
-			    ?line ?t:fail({still_alive, Str})
+			    ct:fail({still_alive, Str})
 		    end,
 
 		    %% Give os_mon_sup time to restart disksup
-		    ?t:sleep(?t:seconds(3)),
-		    ?line [{_Disk2,Kbyte2,_Cap2}|_] =
-			disksup:get_disk_data(),
-		    ?line true = Kbyte2>0,
+		    ct:sleep({seconds,3}),
+		    [{_Disk2,Kbyte2,_Cap2}|_] = disksup:get_disk_data(),
+		    true = Kbyte2>0,
 
 		    ok;
 
@@ -337,68 +296,58 @@ port(Config) when is_list(Config) ->
 	    {skip, {os_pid_not_found, Str}}
     end.
 
-terminate(suite) ->
-    [];
 terminate(Config) when is_list(Config) ->
-    ?line ok = application:set_env(os_mon, start_disksup, false),
-    ?line ok = supervisor:terminate_child(os_mon_sup, disksup),
+    ok = application:set_env(os_mon, start_disksup, false),
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
     ok.
 
-unavailable(suite) ->
-    [];
-unavailable(doc) ->
-    ["Test correct behaviour when service is unavailable"];
+%% Test correct behaviour when service is unavailable
 unavailable(Config) when is_list(Config) ->
 
     %% Make sure all API functions return their dummy values
-    ?line [{"none",0,0}] = disksup:get_disk_data(),
-    ?line 1800000 = disksup:get_check_interval(),
-    ?line ok = disksup:set_check_interval(5),
-    ?line 80 = disksup:get_almost_full_threshold(),
-    ?line ok = disksup:set_almost_full_threshold(0.9),
-
+    [{"none",0,0}] = disksup:get_disk_data(),
+    1800000 = disksup:get_check_interval(),
+    ok = disksup:set_check_interval(5),
+    80 = disksup:get_almost_full_threshold(),
+    ok = disksup:set_almost_full_threshold(0.9),
     ok.
 
-restart(suite) ->
-    [];
 restart(Config) when is_list(Config) ->
-    ?line ok = application:set_env(os_mon, start_disksup, true),
-    ?line {ok, _Pid} = supervisor:restart_child(os_mon_sup, disksup),
-    ok.
+    ok = application:set_env(os_mon, start_disksup, true),
+    ok = application:set_env(os_mon, disksup_posix_only, false),
+    case supervisor:restart_child(os_mon_sup, disksup) of
+        {ok, _Pid} -> ok;
+        {error, running} -> ok
+    end.
 
-otp_5910(suite) ->
-    [];
-otp_5910(doc) ->
-    ["Test that alarms are cleared if disksup crashes or "
-     "if OS_Mon is stopped"];
+%% Test that alarms are cleared if disksup crashes or
+%% if OS_Mon is stopped
 otp_5910(Config) when is_list(Config) ->
 
     %% Make sure disksup sets at least one alarm
-    ?line Data = disksup:get_disk_data(),
-    ?line Threshold0 = disksup:get_almost_full_threshold(),
-    ?line Threshold = case over_threshold(Data, Threshold0) of
-			  0 ->
-			      [{_Id,_Kbyte,Cap}|_] = Data,
-			      ?line ok = disksup:set_almost_full_threshold((Cap-1)/100),
-			      Cap-1;
-			  _N ->
-			      Threshold0
-		      end,
-    ?line ok = application:set_env(os_mon,
-				   disk_almost_full_threshold,
-				   Threshold/100),
-    ?line disksup ! timeout, % force a disk check
-    ?line Data2 = disksup:get_disk_data(),
-    ?line Over = over_threshold(Data2, Threshold),
-    ?line Alarms = get_alarms(),
+    Data = lists:sort(disksup:get_disk_data()),
+    Threshold0 = disksup:get_almost_full_threshold(),
+    Threshold  = case over_threshold(Data, Threshold0) of
+		     0 ->
+			 [{_Id,_Kbyte,Cap}|_] = Data,
+			 io:format("Data ~p Threshold ~p ~n",[Data, Cap-1]),
+			 ok = disksup:set_almost_full_threshold((Cap-1)/100),
+			 Cap-1;
+		     _N -> Threshold0
+		 end,
+    ok = application:set_env(os_mon, disk_almost_full_threshold, Threshold/100),
+    disksup ! timeout, % force a disk check
+    Data2 = disksup:get_disk_data(),
+    Over = over_threshold(Data2, Threshold),
+    Alarms = get_alarms(),
     if
 	Over==0 ->
-	    ?line ?t:fail({threshold_too_low, Data2, Threshold});
+	    ct:fail({threshold_too_low, Data2, Threshold});
 	Over==length(Alarms) ->
 	    ok;
 	true ->
 	    dump_info(),
-	    ?line ?t:fail({bad_alarms, Threshold, Data2, Alarms})
+	    ct:fail({bad_alarms, Threshold, Data2, Alarms})
     end,
 
     %% Kill disksup
@@ -406,35 +355,61 @@ otp_5910(Config) when is_list(Config) ->
 
     %% Wait a little to make sure disksup has been restarted,
     %% then make sure the alarms are set once, but not twice
-    ?t:sleep(?t:seconds(1)),
-    ?line Data3 = disksup:get_disk_data(),
-    ?line Alarms2 = get_alarms(),
+    ct:sleep({seconds,1}),
+    Data3   = disksup:get_disk_data(),
+    Alarms2 = get_alarms(),
     if
-	length(Alarms2)==length(Alarms) ->
-	    ok;
+	length(Alarms2)==length(Alarms) -> ok;
 	true ->
 	    dump_info(),
-	    ?line ?t:fail({bad_alarms, Threshold, Data3, Alarms,Alarms2})
+	    ct:fail({bad_alarms,Threshold,Data3,Alarms,Alarms2})
     end,
 
     %% Stop OS_Mon and make sure all disksup alarms are cleared
-    ?line ok = application:stop(os_mon),
-    ?t:sleep(?t:seconds(1)),
-    ?line Alarms3 = get_alarms(),
-    if
-	length(Alarms3)==0 ->
-	    ok;
-	true ->
-	    ?line ?t:fail({alarms_not_cleared, Alarms3})
+    ok = application:stop(os_mon),
+    ct:sleep({seconds,1}),
+    Alarms3 = get_alarms(),
+    case get_alarms() of
+	[] -> ok;
+	_  -> ct:fail({alarms_not_cleared, Alarms3})
     end,
 
     %% Reset threshold and restart OS_Mon
-    ?line ok = application:set_env(os_mon,
-				   disksup_almost_full_threshold, 0.8),
-    ?line ok = disksup:set_almost_full_threshold(0.8),
-    ?line ok = application:start(os_mon),
-
+    ok = application:set_env(os_mon, disksup_almost_full_threshold, 0.8),
+    ok = disksup:set_almost_full_threshold(0.8),
+    ok = application:start(os_mon),
     ok.
+
+%% Test disksup_posix_only option
+posix_only(Config) when is_list(Config) ->
+    %% Set option and restart disksup
+    ok = application:set_env(os_mon, disksup_posix_only, true),
+    ok = supervisor:terminate_child(os_mon_sup, disksup),
+    {ok, _Child1} = supervisor:restart_child(os_mon_sup, disksup),
+
+    ok = check_get_disk_data().
 
 dump_info() ->
     io:format("Status: ~p~n", [sys:get_status(disksup)]).
+
+check_get_disk_data() ->
+    [{Id,KByte,Capacity}|_] = get_disk_data(),
+    true = io_lib:printable_list(Id),
+    true = is_integer(KByte),
+    true = is_integer(Capacity),
+    true = Capacity>0,
+    true = KByte>0,
+    ok.
+
+% filter get_disk_data and remove entriew with zero capacity
+% "non-normal" filesystems report zero capacity
+% - Perhaps errorneous 'df -k -l'?
+% - Always list filesystems by type '-t ufs,zfs,..' instead?
+% It is unclear what the intention was from the beginning.
+get_disk_data() ->
+    get_disk_data(disksup:get_disk_data()).
+
+get_disk_data([{"none",0,0}=E]) -> [E];
+get_disk_data([{_,_,0}|Es]) -> get_disk_data(Es);
+get_disk_data([E|Es]) -> [E|get_disk_data(Es)];
+get_disk_data([]) -> [].

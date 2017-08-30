@@ -1,27 +1,28 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 %%
 -module(testNBAPsystem).
 
--export([compile/2,test/2,cell_setup_req_msg/0]).
+-export([compile/2,test/2]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('InitiatingMessage',{
 procedureID, criticality, messageDiscriminator, transactionID, value}).
@@ -79,41 +80,35 @@ powerRaiseLimit, dLPowerAveragingWindowSize, 'iE-Extensions' = asn1_NOVALUE}).
 
 
 compile(Config, Options) ->
-    [asn1_test_lib:compile(filename:join([nbapsystem, M]), Config, Options)
-     || M <- ["NBAP-CommonDataTypes.asn",
-              "NBAP-IEs.asn",
-              "NBAP-PDU-Contents.asn",
-              "NBAP-PDU-Discriptions.asn",
-              "NBAP-Constants.asn",
-              "NBAP-Containers.asn"]],
+    Fs = [filename:join("nbapsystem", M) ||
+	     M <- ["NBAP-CommonDataTypes.asn",
+		   "NBAP-IEs.asn",
+		   "NBAP-PDU-Contents.asn",
+		   "NBAP-PDU-Discriptions.asn",
+		   "NBAP-Constants.asn",
+		   "NBAP-Containers.asn"]],
+    asn1_test_lib:compile_all(Fs, Config, Options),
     ok.
 
 
 test(_Erule,Config) ->
-    ?line ok = enc_audit_req_msg(),
-    ?line ok = cell_setup_req_msg_test(),
+    ok = enc_audit_req_msg(),
+    ok = cell_setup_req_msg_test(),
     ticket_5812(Config).
 
 ticket_5812(Config) ->
-    ?line Msg = v_5812(),
-    ?line {ok,B2} = asn1_wrapper:encode('NBAP-PDU-Discriptions',
-				  'NBAP-PDU',
-				  Msg),
+    Msg = v_5812(),
+    {ok,B2} = 'NBAP-PDU-Discriptions':encode('NBAP-PDU', Msg),
     V = <<0,28,74,0,3,48,0,0,1,0,123,64,41,0,0,0,126,64,35,95,208,2,89,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,145,0,1,205,0,0,0,0,2,98,64,1,128>>,
-    ?line ok = compare(V,B2),
-    ?line {ok,Msg2} = asn1_wrapper:decode('NBAP-PDU-Discriptions',
-				  'NBAP-PDU',B2),
-    ?line ok = check_record_names(Msg2,Config).
+    ok = compare(V,B2),
+    {ok,Msg2} = 'NBAP-PDU-Discriptions':decode('NBAP-PDU', B2),
+    ok = check_record_names(Msg2,Config).
 
 enc_audit_req_msg() ->
     Msg = {initiatingMessage, audit_req_msg()},
-    ?line {ok,B}=asn1_wrapper:encode('NBAP-PDU-Discriptions',
-				     'NBAP-PDU',
-				     Msg),
-    ?line {ok,_Msg}=asn1_wrapper:decode('NBAP-PDU-Discriptions',
-				     'NBAP-PDU',
-				     B),
-    ?line {initiatingMessage,
+    {ok,B} = 'NBAP-PDU-Discriptions':encode('NBAP-PDU', Msg),
+    {ok,_Msg} = 'NBAP-PDU-Discriptions':decode('NBAP-PDU', B),
+    {initiatingMessage,
 	   #'InitiatingMessage'{value=#'AuditRequest'{protocolIEs=[{_,114,ignore,_}],
 						      protocolExtensions = asn1_NOVALUE}}} = _Msg,
     io:format("Msg: ~n~P~n~n_Msg:~n~P~n",[Msg,15,_Msg,15]),
@@ -121,12 +116,8 @@ enc_audit_req_msg() ->
     
 cell_setup_req_msg_test() ->
     Msg = {initiatingMessage, cell_setup_req_msg()},
-    ?line {ok,B}=asn1_wrapper:encode('NBAP-PDU-Discriptions',
-				     'NBAP-PDU',
-				     Msg),
-    ?line {ok,_Msg}=asn1_wrapper:decode('NBAP-PDU-Discriptions',
-				     'NBAP-PDU',
-				     B),
+    {ok,B} = 'NBAP-PDU-Discriptions':encode('NBAP-PDU', Msg),
+    {ok,_Msg} = 'NBAP-PDU-Discriptions':decode('NBAP-PDU', B),
     io:format("Msg: ~P~n~n_Msg: ~P~n",[Msg,15,_Msg,15]),
     ok.
     
@@ -294,8 +285,8 @@ compare(_,_) ->
     false.
 
 check_record_names(Msg,Config) ->
-    DataDir = ?config(data_dir,Config),
-    CaseDir = ?config(case_dir,Config),
+    DataDir = proplists:get_value(data_dir,Config),
+    CaseDir = proplists:get_value(case_dir,Config),
     {ok, test_records} = compile:file(filename:join([DataDir, "test_records"]),
                                       [{i, CaseDir}]),
     ok = test_records:'check_record_names_OTP-5812'(Msg).

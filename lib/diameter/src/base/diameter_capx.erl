@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -50,7 +51,8 @@
 -export([build_CER/2,
          recv_CER/3,
          recv_CEA/3,
-         make_caps/2]).
+         make_caps/2,
+         binary_caps/1]).
 
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
@@ -115,7 +117,8 @@ mk_caps(Caps0, Opts) ->
 
 -define(SC(K,F),
         set_cap({K, Val}, {Caps, #diameter_caps{F = false} = C}) ->
-            {Caps#diameter_caps{F = cap(K, Val)}, C#diameter_caps{F = true}}).
+            {Caps#diameter_caps{F = cap(K, copy(Val))},
+             C#diameter_caps{F = true}}).
 
 ?SC('Origin-Host',         origin_host);
 ?SC('Origin-Realm',        origin_realm);
@@ -168,12 +171,13 @@ ipaddr(A) ->
 %%
 %% Build a CER record to send to a remote peer.
 
-%% Use the fact that diameter_caps has the same field names as CER.
+%% Use the fact that diameter_caps is expected to have the same field
+%% names as CER.
 bCER(#diameter_caps{} = Rec, Dict) ->
-    Values = lists:zip(Dict:'#info-'(diameter_base_CER, fields),
+    RecName = Dict:msg2rec('CER'),
+    Values = lists:zip(Dict:'#info-'(RecName, fields),
                        tl(tuple_to_list(Rec))),
-    Dict:'#new-'(diameter_base_CER, [{K, map(K, V, Dict)}
-                                     || {K,V} <- Values]).
+    Dict:'#new-'(RecName, [{K, map(K, V, Dict)} || {K,V} <- Values]).
 
 %% map/3
 %%
@@ -186,8 +190,9 @@ bCER(#diameter_caps{} = Rec, Dict) ->
 %% since the corresponding dictionaries expect different values for a
 %% 'Vendor-Id': a list for 3588, an integer for 6733.
 
-map('Vendor-Specific-Application-Id', L, Dict) ->
-    Rec = Dict:'#new-'('diameter_base_Vendor-Specific-Application-Id', []),
+map('Vendor-Specific-Application-Id' = T, L, Dict) ->
+    RecName = Dict:name2rec(T),
+    Rec = Dict:'#new-'(RecName, []),
     Def = Dict:'#get-'('Vendor-Id', Rec),
     [vsa(V, Def) || V <- L];
 map(_, V, _) ->
@@ -342,8 +347,9 @@ cs(LS, RS) ->
 %% CER is a subset of CEA, the latter adding Result-Code and a few
 %% more AVP's.
 cea_from_cer(CER, Dict) ->
-    [diameter_base_CER | Values] = Dict:'#get-'(CER),
-    Dict:'#set-'(Values, Dict:'#new-'(diameter_base_CEA)).
+    RecName = Dict:msg2rec('CEA'),
+    [_ | Values] = Dict:'#get-'(CER),
+    Dict:'#set-'(Values, Dict:'#new-'(RecName)).
 
 %% rCEA/3
 
@@ -372,10 +378,10 @@ capx_to_caps(CEX, Dict) ->
                         'Firmware-Revision',
                         'AVP'],
                        CEX),
-    #diameter_caps{origin_host = OH,
-                   origin_realm = OR,
+    #diameter_caps{origin_host = copy(OH),
+                   origin_realm = copy(OR),
                    vendor_id = VId,
-                   product_name = PN,
+                   product_name = copy(PN),
                    origin_state_id = OSI,
                    host_ip_address = IP,
                    supported_vendor_id = SV,
@@ -385,6 +391,32 @@ capx_to_caps(CEX, Dict) ->
                    vendor_specific_application_id = VSA,
                    firmware_revision = FR,
                    avp = X}.
+
+%% Copy binaries to avoid retaining a reference to a large binary
+%% containing AVPs we aren't interested in.
+copy(B)
+  when is_binary(B) ->
+    binary:copy(B);
+
+copy(T) ->
+    T.
+
+%% binary_caps/1
+%%
+%% Encode stringish capabilities with {string_decode, false}.
+
+binary_caps(Caps) ->
+    lists:foldl(fun bcaps/2, Caps, [#diameter_caps.origin_host,
+                                    #diameter_caps.origin_realm,
+                                    #diameter_caps.product_name]).
+
+bcaps(N, Caps) ->
+    case element(N, Caps) of
+        undefined ->
+            Caps;
+        V ->
+            setelement(N, Caps, iolist_to_binary(V))
+    end.
 
 %% ---------------------------------------------------------------------------
 %% ---------------------------------------------------------------------------

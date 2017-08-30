@@ -86,22 +86,22 @@ id-at-initials          AttributeType ::= { id-at 43 }
 id-at-generationQualifier AttributeType ::= { id-at 44 }
 
 X520name ::= CHOICE {
-      teletexString     TeletexString   (SIZE (1..ub-name)),
-      printableString   PrintableString (SIZE (1..ub-name)),
-      universalString   UniversalString (SIZE (1..ub-name)),
-      utf8String        UTF8String      (SIZE (1..ub-name)),
-      bmpString         BMPString       (SIZE (1..ub-name)) }
+      teletexString     TeletexString   (SIZE (1..ub-name-teletex)),
+      printableString   PrintableString (SIZE (1..ub-name-printable)),
+      universalString   UniversalString (SIZE (1..ub-name-universal)),
+      utf8String        UTF8String      (SIZE (1..ub-name-utf8)),
+      bmpString         BMPString       (SIZE (1..ub-name-universal)) }
 
 -- Naming attributes of type X520CommonName
 
 id-at-commonName        AttributeType ::= { id-at 3 }
 
 X520CommonName ::= CHOICE {
-      teletexString     TeletexString   (SIZE (1..ub-common-name)),
-      printableString   PrintableString (SIZE (1..ub-common-name)),
-      universalString   UniversalString (SIZE (1..ub-common-name)),
-      utf8String        UTF8String      (SIZE (1..ub-common-name)),
-      bmpString         BMPString       (SIZE (1..ub-common-name)) }
+      teletexString     TeletexString   (SIZE (1..ub-common-name-teletex)),
+      printableString   PrintableString (SIZE (1..ub-common-name-printable)),
+      universalString   UniversalString (SIZE (1..ub-common-name-universal)),
+      utf8String        UTF8String      (SIZE (1..ub-common-name-utf8)),
+      bmpString         BMPString       (SIZE (1..ub-common-name-universal)) }
 
 -- Naming attributes of type X520LocalityName
 
@@ -110,9 +110,9 @@ id-at-localityName      AttributeType ::= { id-at 7 }
 X520LocalityName ::= CHOICE {
       teletexString     TeletexString   (SIZE (1..ub-locality-name)),
       printableString   PrintableString (SIZE (1..ub-locality-name)),
-      universalString   UniversalString (SIZE (1..ub-locality-name)),
-      utf8String        UTF8String      (SIZE (1..ub-locality-name)),
-      bmpString         BMPString       (SIZE (1..ub-locality-name)) }
+      universalString   UniversalString (SIZE (1..ub-locality-name-universal)),
+      utf8String        UTF8String      (SIZE (1..ub-locality-name-utf8)),
+      bmpString         BMPString       (SIZE (1..ub-locality-name-universal)) }
 
 -- Naming attributes of type X520StateOrProvinceName
 
@@ -121,9 +121,9 @@ id-at-stateOrProvinceName AttributeType ::= { id-at 8 }
 X520StateOrProvinceName ::= CHOICE {
       teletexString     TeletexString   (SIZE (1..ub-state-name)),
       printableString   PrintableString (SIZE (1..ub-state-name)),
-      universalString   UniversalString (SIZE (1..ub-state-name)),
-      utf8String        UTF8String      (SIZE (1..ub-state-name)),
-      bmpString         BMPString       (SIZE(1..ub-state-name)) }
+      universalString   UniversalString (SIZE (1..ub-state-name-universal)),
+      utf8String        UTF8String      (SIZE (1..ub-state-name-utf8)),
+      bmpString         BMPString       (SIZE(1..ub-state-name-universal)) }
 
 -- Naming attributes of type X520OrganizationName
 
@@ -131,15 +131,15 @@ id-at-organizationName  AttributeType ::= { id-at 10 }
 
 X520OrganizationName ::= CHOICE {
       teletexString     TeletexString
-                          (SIZE (1..ub-organization-name)),
+                          (SIZE (1..ub-organization-name-teletex)),
       printableString   PrintableString
-                          (SIZE (1..ub-organization-name)),
+                          (SIZE (1..ub-organization-name-printable)),
       universalString   UniversalString
-                          (SIZE (1..ub-organization-name)),
+                          (SIZE (1..ub-organization-name-universal)),
       utf8String        UTF8String
-                          (SIZE (1..ub-organization-name)),
+                          (SIZE (1..ub-organization-name-utf8)),
       bmpString         BMPString
-                          (SIZE (1..ub-organization-name))  }
+                          (SIZE (1..ub-organization-name-universal)) }
 
 -- Naming attributes of type X520OrganizationalUnitName
 
@@ -147,26 +147,26 @@ id-at-organizationalUnitName AttributeType ::= { id-at 11 }
 
 X520OrganizationalUnitName ::= CHOICE {
       teletexString     TeletexString
-                          (SIZE (1..ub-organizational-unit-name)),
+                          (SIZE (1..ub-organizational-unit-name-teletex)),
       printableString   PrintableString
-                          (SIZE (1..ub-organizational-unit-name)),
+                          (SIZE (1..ub-organizational-unit-name-printable)),
       universalString   UniversalString
-                          (SIZE (1..ub-organizational-unit-name)),
+                          (SIZE (1..ub-organizational-unit-name-universal)),
       utf8String        UTF8String
-                          (SIZE (1..ub-organizational-unit-name)),
+                          (SIZE (1..ub-organizational-unit-name-utf8)),
       bmpString         BMPString
-                          (SIZE (1..ub-organizational-unit-name)) }
+                          (SIZE (1..ub-organizational-unit-name-universal)) }
 
 -- Naming attributes of type X520Title
 
 id-at-title             AttributeType ::= { id-at 12 }
 
 X520Title ::= CHOICE {
-      teletexString     TeletexString   (SIZE (1..ub-title)),
-      printableString   PrintableString (SIZE (1..ub-title)),
-      universalString   UniversalString (SIZE (1..ub-title)),
-      utf8String        UTF8String      (SIZE (1..ub-title)),
-      bmpString         BMPString       (SIZE (1..ub-title)) }
+      teletexString     TeletexString   (SIZE (1..ub-title-teletex)),
+      printableString   PrintableString (SIZE (1..ub-title-printable)),
+      universalString   UniversalString (SIZE (1..ub-title-universal)),
+      utf8String        UTF8String      (SIZE (1..ub-title-utf8)),
+      bmpString         BMPString       (SIZE (1..ub-title-universal)) }
 
 -- Naming attributes of type X520dnQualifier
 
@@ -193,9 +193,9 @@ id-at-pseudonym         AttributeType ::= { id-at 65 }
 X520Pseudonym ::= CHOICE {
    teletexString     TeletexString   (SIZE (1..ub-pseudonym)),
    printableString   PrintableString (SIZE (1..ub-pseudonym)),
-   universalString   UniversalString (SIZE (1..ub-pseudonym)),
-   utf8String        UTF8String      (SIZE (1..ub-pseudonym)),
-   bmpString         BMPString       (SIZE (1..ub-pseudonym)) }
+   universalString   UniversalString (SIZE (1..ub-pseudonym-universal)),
+   utf8String        UTF8String      (SIZE (1..ub-pseudonym-utf8)),
+   bmpString         BMPString       (SIZE (1..ub-pseudonym-universal)) }
 
 -- Naming attributes of type DomainComponent (from RFC 2247)
 
@@ -363,7 +363,7 @@ PrivateDomainName ::= CHOICE {
    printable PrintableString (SIZE (1..ub-domain-name-length)) }
 
 OrganizationName ::= PrintableString
-                            (SIZE (1..ub-organization-name-length))
+                            (SIZE (1..ub-organization-name-printable))
   -- see also teletex-organization-name
 
 NumericUserIdentifier ::= NumericString
@@ -386,7 +386,7 @@ OrganizationalUnitNames ::= SEQUENCE SIZE (1..ub-organizational-units)
   -- see also teletex-organizational-unit-names
 
 OrganizationalUnitName ::= PrintableString (SIZE
-                    (1..ub-organizational-unit-name-length))
+                    (1..ub-organizational-unit-name-printable))
 
 -- Built-in Domain-defined Attributes
 
@@ -415,16 +415,16 @@ ExtensionAttribute ::=  SEQUENCE {
 
 common-name INTEGER ::= 1
 
-CommonName ::= PrintableString (SIZE (1..ub-common-name-length))
+CommonName ::= PrintableString (SIZE (1..ub-common-name-printable))
 
 teletex-common-name INTEGER ::= 2
 
-TeletexCommonName ::= TeletexString (SIZE (1..ub-common-name-length))
+TeletexCommonName ::= TeletexString (SIZE (1..ub-common-name-teletex))
 
 teletex-organization-name INTEGER ::= 3
 
 TeletexOrganizationName ::=
-                TeletexString (SIZE (1..ub-organization-name-length))
+                TeletexString (SIZE (1..ub-organization-name-teletex))
 
 teletex-personal-name INTEGER ::= 4
 
@@ -445,7 +445,7 @@ TeletexOrganizationalUnitNames ::= SEQUENCE SIZE
       (1..ub-organizational-units) OF TeletexOrganizationalUnitName
 
 TeletexOrganizationalUnitName ::= TeletexString
-                  (SIZE (1..ub-organizational-unit-name-length))
+                  (SIZE (1..ub-organizational-unit-name-teletex))
 
 pds-name INTEGER ::= 7
 
@@ -570,16 +570,39 @@ TeletexDomainDefinedAttribute ::= SEQUENCE {
 
 -- Upper Bounds
 ub-name INTEGER ::= 32768
+ub-name-teletex INTEGER ::= 65536
+ub-name-printable INTEGER ::= 65536
+ub-name-universal INTEGER ::= 131072
+ub-name-utf8 INTEGER ::= 131072
 ub-common-name INTEGER ::= 64
+ub-common-name-teletex INTEGER::= 128
+ub-common-name-printable INTEGER ::= 128
+ub-common-name-universal INTEGER ::= 256
+ub-common-name-utf8 INTEGER ::= 256
 ub-locality-name INTEGER ::= 128
+ub-locality-name-utf8 INTEGER ::= 256
+ub-locality-name-universal INTEGER ::= 256
 ub-state-name INTEGER ::= 128
+ub-state-name-universal INTEGER ::= 256
+ub-state-name-utf8 INTEGER ::= 256
 ub-organization-name INTEGER ::= 64
+ub-organization-name-printable INTEGER ::= 128
+ub-organization-name-teletex INTEGER ::= 128
+ub-organization-name-universal INTEGER ::= 256
+ub-organization-name-utf8 INTEGER ::= 256
 ub-organizational-unit-name INTEGER ::= 64
+ub-organizational-unit-name-printable INTEGER ::= 128
+ub-organizational-unit-name-teletex INTEGER ::= 128
+ub-organizational-unit-name-universal INTEGER ::= 256
+ub-organizational-unit-name-utf8 INTEGER ::= 256
 ub-title INTEGER ::= 64
+ub-title-teletex INTEGER ::= 128
+ub-title-printable INTEGER ::= 128
+ub-title-universal INTEGER ::= 256
+ub-title-utf8 INTEGER ::= 256
 ub-serial-number INTEGER ::= 64
 ub-match INTEGER ::= 128
 ub-emailaddress-length INTEGER ::= 255
-ub-common-name-length INTEGER ::= 64
 ub-country-name-alpha-length INTEGER ::= 2
 ub-country-name-numeric-length INTEGER ::= 3
 ub-domain-defined-attributes INTEGER ::= 4
@@ -594,14 +617,14 @@ ub-given-name-length INTEGER ::= 16
 ub-initials-length INTEGER ::= 5
 ub-integer-options INTEGER ::= 256
 ub-numeric-user-id-length INTEGER ::= 32
-ub-organization-name-length INTEGER ::= 64
-ub-organizational-unit-name-length INTEGER ::= 32
 ub-organizational-units INTEGER ::= 4
 ub-pds-name-length INTEGER ::= 16
 ub-pds-parameter-length INTEGER ::= 30
 ub-pds-physical-address-lines INTEGER ::= 6
 ub-postal-code-length INTEGER ::= 16
 ub-pseudonym INTEGER ::= 128
+ub-pseudonym-utf8 INTEGER ::= 256
+ub-pseudonym-universal INTEGER ::= 256
 ub-surname-length INTEGER ::= 40
 ub-terminal-id-length INTEGER ::= 24
 ub-unformatted-address-length INTEGER ::= 180

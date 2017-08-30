@@ -1,19 +1,19 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -32,7 +32,7 @@
 %%
 -module(hash_SUITE).
 -export([basic_test/0,cmp_test/1,range_test/0,spread_test/1,
-	 phash2_test/0, otp_5292_test/0, bit_level_binaries/0,
+	 phash2_test/0, otp_5292_test/0,
          otp_7127_test/0]).
 -compile({nowarn_deprecated_function, {erlang,hash,2}}).
 
@@ -50,7 +50,7 @@
 -define(config(A,B),config(A,B)).
 -export([config/2]).
 -else.
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -endif.
 
 -ifdef(debug).
@@ -70,97 +70,56 @@ config(priv_dir,_) ->
     ".".
 -else.
 %% When run in test server.
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,
+-export([all/0, suite/0,
 	 test_basic/1,test_cmp/1,test_range/1,test_spread/1,
 	 test_phash2/1,otp_5292/1,bit_level_binaries/1,otp_7127/1,
-	 end_per_testcase/2,init_per_testcase/2]).
-init_per_testcase(_Case, Config) ->
-    Dog=test_server:timetrap(test_server:minutes(10)),
-    [{watchdog, Dog}|Config].
- 
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
-suite() -> [{ct_hooks,[ts_install_cth]}].
+         test_hash_zero/1]).
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 10}}].
 
 all() -> 
     [test_basic, test_cmp, test_range, test_spread,
-     test_phash2, otp_5292, bit_level_binaries, otp_7127].
+     test_phash2, otp_5292, bit_level_binaries, otp_7127,
+     test_hash_zero].
 
-groups() -> 
-    [].
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-
-test_basic(suite) ->
-    [];
-test_basic(doc) ->
-    ["Tests basic functionality of erlang:phash and that the "
-     "hashes has not changed (neither hash nor phash)"];
+%% Tests basic functionality of erlang:phash and that the
+%% hashes has not changed (neither hash nor phash)
 test_basic(Config) when is_list(Config) ->
     basic_test().
 
 
-test_cmp(suite) ->
-    [];
-test_cmp(doc) ->
-    ["Compares integer hashes made by erlang:phash with those of a reference "
-     "implementation"];
+%% Compares integer hashes made by erlang:phash with those of a reference implementation
 test_cmp(Config) when is_list(Config) ->
     cmp_test(10000).
 
-test_range(suite) ->
-    [];
-test_range(doc) ->
-    ["Tests ranges on erlang:phash from 1 to 2^32"];
+%% Tests ranges on erlang:phash from 1 to 2^32
 test_range(Config) when is_list(Config) ->
     range_test().
 
-test_spread(suite) ->
-    [];
-test_spread(doc) ->
-    ["Tests that the hashes are spread ok"];
+%% Tests that the hashes are spread ok
 test_spread(Config) when is_list(Config) ->
     spread_test(10).
 
-test_phash2(suite) ->
-    [];
-test_phash2(doc) ->
-    ["Tests phash2"];
+%% Tests phash2
 test_phash2(Config) when is_list(Config) ->
     phash2_test().
 
-otp_5292(suite) ->
-    [];
-otp_5292(doc) ->
-    ["Tests hash, phash and phash2 regarding integers."];
+%% Tests hash, phash and phash2 regarding integers.
 otp_5292(Config) when is_list(Config) ->
     otp_5292_test().
 
 %% Test hashing bit-level binaries.
 bit_level_binaries(Config) when is_list(Config) ->
-    bit_level_binaries().
+    bit_level_binaries_do().
 
-otp_7127(suite) ->
-    [];
-otp_7127(doc) ->
-    ["Tests phash2/1."];
+%% Tests phash2/1.
 otp_7127(Config) when is_list(Config) ->
     otp_7127_test().
 
+test_hash_zero(Config) when is_list(Config) ->
+    hash_zero_test().
 -endif.
 
 
@@ -218,11 +177,10 @@ basic_test() ->
 
 
 range_test() ->
-    random:seed(),
     F = fun(From,From,_FF) ->
 		ok;
 	   (From,To,FF) ->
-		R = random:uniform(16#FFFFFFFFFFFFFFFF),
+		R = rand:uniform(16#FFFFFFFFFFFFFFFF),
 		X = erlang:phash(R, From),
 		Y = erlang:phash(R, 16#100000000) - 1,
 		Z = (Y rem From) + 1,
@@ -260,14 +218,13 @@ spread_test(N) ->
 
 
 cmp_test(N) ->
-    % No need to save seed, the error indicates what number caused it.
-    random:seed(),
     do_cmp_hashes(N,8).
+
 do_cmp_hashes(0,_) ->
     ok;
 do_cmp_hashes(N,Steps) ->
-    R0 = random:uniform(1 bsl Steps - 1) + random:uniform(16#FFFFFFFF),
-    R = case random:uniform(2) of
+    R0 = rand:uniform(1 bsl Steps - 1) + rand:uniform(16#FFFFFFFF),
+    R = case rand:uniform(2) of
 	    1 ->
 		R0;
 	    _ ->
@@ -537,7 +494,7 @@ hash_int(Start, End, F) ->
 md5(T) ->
     erlang:md5(term_to_binary(T)).   
 
-bit_level_binaries() ->
+bit_level_binaries_do() ->
     [3511317,7022633,14044578,28087749,56173436,112344123,90467083|_] =
 	bit_level_all_different(fun erlang:hash/2),
     [3511317,7022633,14044578,28087749,56173436,112344123,90467083|_] =
@@ -591,6 +548,26 @@ otp_7127_test() ->
     %% Used to return 2589127136.
     38990304 = erlang:phash2(<<"Scott9">>),
     ok.
+
+hash_zero_test() ->
+    Zs = [0.0, -0.0, 0/-1, 0.0/-1, 0/-(1 bsl 65),
+          binary_to_term(<<131,70,0,0,0,0,0,0,0,0>>),    %% +0.0
+          binary_to_term(<<131,70,128,0,0,0,0,0,0,0>>)], %% -0.0
+    ok = hash_zero_test(Zs,fun(T) -> erlang:phash2(T, 1 bsl 32) end),
+    ok = hash_zero_test(Zs,fun(T) -> erlang:phash(T, 1 bsl 32) end),
+    ok = hash_zero_test(Zs,fun(T) -> erlang:hash(T, (1 bsl 27) - 1) end),
+    ok.
+
+hash_zero_test([Z|Zs],F) ->
+    hash_zero_test(Zs,Z,F(Z),F).
+hash_zero_test([Z|Zs],Z0,V,F) ->
+    true = Z0 =:= Z, %% assert exact equal
+    Z0   = Z,        %% assert matching
+    V    = F(Z),     %% assert hash
+    hash_zero_test(Zs,Z0,V,F);
+hash_zero_test([],_,_,_) ->
+    ok.
+
 
 %%
 %% Reference implementation of integer hashing

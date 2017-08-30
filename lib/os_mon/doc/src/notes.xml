@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2013</year>
+      <year>2004</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -29,6 +30,205 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
+
+<section><title>Os_Mon 2.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix type specification for cpu_sup:util/1</p>
+          <p>
+	    Own Id: OTP-13526 Aux Id: PR-1029 </p>
+        </item>
+        <item>
+          <p>
+	    Fix strict compilation on SUN/SPARC</p>
+          <p>
+	    Own Id: OTP-13548 Aux Id: PR-1046 </p>
+        </item>
+        <item>
+          <p>
+	    Implement cpu_sup:util/0,1 on Mac OSX</p>
+          <p>
+	    Own Id: OTP-13597 Aux Id: PR-1049 </p>
+        </item>
+        <item>
+          <p>
+	    Fix memsup:get_os_wordsize() on 64-bit FreeBSD and 64-bit
+	    Linux PPC</p>
+          <p>
+	    Own Id: OTP-13601 Aux Id: PR-1039 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    cpu_sup should use native sysctl/libkvm calls on BSD</p>
+          <p>
+	    This avoids forking off with os:cmd every time we just
+	    want to collect the load averages. riak does this every
+	    second, which results in a lot of unnecessary load.</p>
+          <p>
+	    Own Id: OTP-12730</p>
+        </item>
+        <item>
+          <p>
+	    Implement native cpu_sup:util/0,1 for FreeBSD</p>
+          <p>
+	    Own Id: OTP-12796</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Do not crash with badmatch when integer part of loadavg
+	    has more than 2 digits.</p>
+          <p>
+	    Own Id: OTP-12581</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix compilation of memsup on OpenBSD.</p>
+          <p>
+	    Own Id: OTP-12404</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Adds a new application parameter 'disksup_posix_only', to
+	    make diskup use only options defined in the POSIX
+	    standard.</p>
+          <p>
+	    Own Id: OTP-12053</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Calls to erlang:open_port/2 with 'spawn' are updated to
+	    handle space in the command path.</p>
+          <p>
+	    Own Id: OTP-10842</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix incorrect reporting of memory on OS X via memsup.
+	    Thanks to Christopher Meiklejohn.</p>
+          <p>
+	    Own Id: OTP-11454</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Os_Mon 2.2.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Use 'df -k -l' to query FreeBSD and OpenBSD about
+	    diskspace on local disks. Previously 'df' -k -t ufs' was
+	    used but this will not handle zfs or other disks. Just
+	    use '-l' instead of listing potential filesystems.</p>
+          <p>
+	    Own Id: OTP-11207</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix compilation on Solaris. Thanks to Maciej Malecki.</p>
+          <p>
+	    Own Id: OTP-11213</p>
+        </item>
+        <item>
+          <p>
+	    Fix broken cpu_sup:nprocs and others on Solaris 64-bit.
+	    Thanks to Simon Cornish.</p>
+          <p>
+	    Own Id: OTP-11298</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Os_Mon 2.2.12</title>
 

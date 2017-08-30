@@ -11,7 +11,4 @@ main(_) ->
     ok.
 
 roundtrip(Data) ->
-    IF = 'InformationFramework',
-    {ok,Enc} = asn1_wrapper:encode(IF, 'Attribute', Data),
-    {ok,Data} = IF:decode('Attribute', Enc),
-    ok.
+    asn1_test_lib:roundtrip('InformationFramework', 'Attribute', Data).

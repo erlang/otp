@@ -1,3 +1,0 @@
-#!/bin/sh 
-
-erl -sname webtool -s webtool script_start $@

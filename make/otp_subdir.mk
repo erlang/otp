@@ -3,28 +3,29 @@
 # 
 # Copyright Ericsson AB 1997-2011. All Rights Reserved.
 # 
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
-# 
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # 
 # %CopyrightEnd%
 #
 # Make include file for otp
 
 .PHONY: debug opt release docs release_docs tests release_tests \
-	clean depend valgrind
+	clean depend valgrind static_lib
 
 #
 # Targets that don't affect documentation directories
 #
-opt debug release docs release_docs tests release_tests clean depend valgrind:
+opt debug release docs release_docs tests release_tests clean depend valgrind static_lib:
 	@set -e ;							\
 	app_pwd=`pwd` ;							\
 	if test -f vsn.mk; then						\
@@ -44,5 +45,14 @@ opt debug release docs release_docs tests release_tests clean depend valgrind:
 	    fi ;							\
 	done ;								\
 	if test -f vsn.mk; then						\
+	    if test release = $@ && test ! -f SKIP; then		\
+		app=`basename $$app_pwd` ;				\
+		app_vsn=`echo $$app | sed "y|abcdefghijklmnopqrstuvwxyz|ABCDEFGHIJKLMNOPQRSTUVWXYZ|"` ; \
+		app_vsn=$${app_vsn}_VSN ;				\
+		( $(MAKE) -f "$(ERL_TOP)/make/otp_released_app.mk"	\
+			APP_PWD="$$app_pwd" APP_VSN=$$app_vsn APP=$$app	\
+			TESTROOT="$(TESTROOT)" update)			\
+		|| exit $$?  ;						\
+	    fi	;							\
 	    echo "=== Leaving application" `basename $$app_pwd` ;	\
 	fi

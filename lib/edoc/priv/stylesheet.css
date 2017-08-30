@@ -27,10 +27,10 @@ div.spec {
  	margin-left: 2em;
 	background-color: #eeeeee;
 }
-a.module,a.package {
+a.module {
 	text-decoration:none
 }
-a.module:hover,a.package:hover {
+a.module:hover {
 	background-color: #eeeeee;
 }
 ul.definitions {

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -28,8 +29,6 @@
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [{group, 'tlsv1.2'},
@@ -70,10 +69,8 @@ init_per_suite(Config) ->
     try crypto:start() of
 	ok ->
 	    ssl:start(),
-	    Result =
-		(catch make_certs:all(?config(data_dir, Config),
-				      ?config(priv_dir, Config))),
-	    ct:log("Make certs  ~p~n", [Result]),
+	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config),
+				      proplists:get_value(priv_dir, Config)),
 	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
@@ -89,8 +86,7 @@ init_per_group(GroupName, Config) ->
 	true ->
 	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
 		true ->
-		    ssl_test_lib:init_tls_version(GroupName),
-		    Config;
+		    ssl_test_lib:init_tls_version(GroupName, Config);
 		false ->
 		    {skip, "Missing crypto support"}
 	    end;
@@ -100,6 +96,15 @@ init_per_group(GroupName, Config) ->
     end.
 
 end_per_group(_GroupName, Config) ->
+    Config.
+
+init_per_testcase(_TestCase, Config) ->
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
+    ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
+    ct:timetrap({seconds, 10}),
+    Config.
+
+end_per_testcase(_TestCase, Config) ->     
     Config.
 
 %%--------------------------------------------------------------------
@@ -172,7 +177,7 @@ no_client_negotiate_but_server_supports_npn(Config) when is_list(Config) ->
     run_npn_handshake(Config,
 			   [],
 			   [{next_protocols_advertised, [<<"spdy/1">>, <<"http/1.1">>, <<"http/1.0">>]}],
-			   {error, next_protocol_not_negotiated}).
+			   {error, protocol_not_negotiated}).
 %--------------------------------------------------------------------------------
 
 
@@ -180,16 +185,16 @@ client_negotiate_server_does_not_support(Config) when is_list(Config) ->
     run_npn_handshake(Config,
 			   [{client_preferred_next_protocols, {client, [<<"spdy/2">>], <<"http/1.1">>}}],
 			   [],
-			   {error, next_protocol_not_negotiated}).
+			   {error, protocol_not_negotiated}).
 
 %--------------------------------------------------------------------------------
 renegotiate_from_client_after_npn_handshake(Config) when is_list(Config) ->
     Data = "hello world",
     
-    ClientOpts0 = ?config(client_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_opts, Config),
     ClientOpts = [{client_preferred_next_protocols,
 		   {client, [<<"http/1.0">>], <<"http/1.1">>}}] ++ ClientOpts0,
-    ServerOpts0 = ?config(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
     ServerOpts = [{next_protocols_advertised,
 		   [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}] ++  ServerOpts0,
     ExpectedProtocol = {ok, <<"http/1.0">>},
@@ -211,7 +216,7 @@ renegotiate_from_client_after_npn_handshake(Config) when is_list(Config) ->
 
 %--------------------------------------------------------------------------------
 npn_not_supported_client(Config) when is_list(Config) ->
-    ClientOpts0 = ?config(client_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_opts, Config),
     PrefProtocols = {client_preferred_next_protocols,
 		     {client, [<<"http/1.0">>], <<"http/1.1">>}},
     ClientOpts = [PrefProtocols] ++ ClientOpts0,
@@ -226,7 +231,7 @@ npn_not_supported_client(Config) when is_list(Config) ->
 
 %--------------------------------------------------------------------------------
 npn_not_supported_server(Config) when is_list(Config)->
-    ServerOpts0 = ?config(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
     AdvProtocols = {next_protocols_advertised, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]},
     ServerOpts = [AdvProtocols] ++  ServerOpts0,
   
@@ -234,10 +239,10 @@ npn_not_supported_server(Config) when is_list(Config)->
 
 %--------------------------------------------------------------------------------
 npn_handshake_session_reused(Config) when  is_list(Config)->
-    ClientOpts0 = ?config(client_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_opts, Config),
     ClientOpts = [{client_preferred_next_protocols,
 		   {client, [<<"http/1.0">>], <<"http/1.1">>}}] ++ ClientOpts0,
-    ServerOpts0 = ?config(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
     ServerOpts =[{next_protocols_advertised,
 		   [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}]  ++ ServerOpts0,
 
@@ -288,9 +293,9 @@ npn_handshake_session_reused(Config) when  is_list(Config)->
 run_npn_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtocol) ->
     Data = "hello world",
 
-    ClientOpts0 = ?config(client_opts, Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_opts, Config),
     ClientOpts = ClientExtraOpts ++ ClientOpts0,
-    ServerOpts0 = ?config(server_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_opts, Config),
     ServerOpts = ServerExtraOpts ++  ServerOpts0,
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -311,8 +316,8 @@ run_npn_handshake(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtocol) ->
 
 assert_npn(Socket, Protocol) ->
     ct:log("Negotiated Protocol ~p, Expecting: ~p ~n",
-		       [ssl:negotiated_next_protocol(Socket), Protocol]),
-    Protocol = ssl:negotiated_next_protocol(Socket).
+		       [ssl:negotiated_protocol(Socket), Protocol]),
+    Protocol = ssl:negotiated_protocol(Socket).
 
 assert_npn_and_renegotiate_and_send_data(Socket, Protocol, Data) ->
     assert_npn(Socket, Protocol),
@@ -332,7 +337,7 @@ ssl_receive_and_assert_npn(Socket, Protocol, Data) ->
 
 ssl_send(Socket, Data) ->
     ct:log("Connection info: ~p~n",
-               [ssl:connection_info(Socket)]),
+               [ssl:connection_information(Socket)]),
     ssl:send(Socket, Data).
 
 ssl_receive(Socket, Data) ->
@@ -340,7 +345,7 @@ ssl_receive(Socket, Data) ->
 
 ssl_receive(Socket, Data, Buffer) ->
     ct:log("Connection info: ~p~n",
-               [ssl:connection_info(Socket)]),
+               [ssl:connection_information(Socket)]),
     receive
     {ssl, Socket, MoreData} ->
         ct:log("Received ~p~n",[MoreData]),
@@ -360,4 +365,4 @@ ssl_receive(Socket, Data, Buffer) ->
 
 
 connection_info_result(Socket) ->
-    ssl:connection_info(Socket).
+    ssl:connection_information(Socket).

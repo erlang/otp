@@ -26,7 +26,7 @@
     {call_ext,1,{extfunc,erlang,erase,1}}.
     {move,{atom,nested},{x,0}}.
     {call_ext,1,{extfunc,erlang,erase,1}}.
-    {bif,self,nofail,[],{x,0}}.
+    {bif,self,{f,0},[],{x,0}}.
     {'try',{y,8},{f,13}}.
     {'try',{y,7},{f,11}}.
     {'try',{y,6},{f,9}}.
@@ -34,7 +34,7 @@
 %% Because the following instructions can't possible throw an exception,
 %% label 7 used to get no state. Now the try_end itself will save the state.
     {move,{x,0},{y,4}}.
-    {bif,self,nofail,[],{x,0}}.
+    {bif,self,{f,0},[],{x,0}}.
     {'%live',1}.
     {try_end,{y,5}}.
     {test,is_eq_exact,{f,15},[{x,0},{y,4}]}.

@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -83,8 +84,8 @@ typedef struct {
     ErtsThrPrgrLeaderState leader_state;
 } ErtsThrPrgrData;
 
-void erts_thr_progress_fatal_error_block(SWord timeout,
-					 ErtsThrPrgrData *tmp_tpd_bufp);
+int erts_thr_progress_fatal_error_block(ErtsThrPrgrData *tmp_tpd_bufp);
+void erts_thr_progress_fatal_error_wait(SWord timeout);
 
 #endif /* ERTS_SMP */
 
@@ -115,11 +116,7 @@ struct ErtsThrPrgrLaterOp_ {
 
 extern erts_tsd_key_t erts_thr_prgr_data_key__;
 
-#ifdef ARCH_64
-#  define ERTS_THR_PRGR_ATOMIC erts_atomic_t
-#else /* ARCH_32 */
-#  define ERTS_THR_PRGR_ATOMIC erts_dw_atomic_t
-#endif
+#define ERTS_THR_PRGR_ATOMIC erts_atomic64_t
 
 typedef struct {
     void *arg;
@@ -158,10 +155,6 @@ void erts_thr_progress_unmanaged_continue__(int umrefc_ix);
 
 void erts_thr_progress_dbg_print_state(void);
 
-#ifdef ARCH_32
-#define ERTS_THR_PRGR_ATOMIC erts_dw_atomic_t
-ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_dw_aint_to_val__(erts_dw_aint_t *dw_aint);
-#endif
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_read_nob__(ERTS_THR_PRGR_ATOMIC *atmc);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_read_acqb__(ERTS_THR_PRGR_ATOMIC *atmc);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_read_mb__(ERTS_THR_PRGR_ATOMIC *atmc);
@@ -184,67 +177,23 @@ ERTS_GLB_INLINE int erts_thr_progress_has_reached(ErtsThrPrgrVal val);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-#ifdef ARCH_64
-
 ERTS_GLB_INLINE ErtsThrPrgrVal
 erts_thr_prgr_read_nob__(ERTS_THR_PRGR_ATOMIC *atmc)
 {
-    return (ErtsThrPrgrVal) erts_atomic_read_nob(atmc);
+    return (ErtsThrPrgrVal) erts_atomic64_read_nob(atmc);
 }
 
 ERTS_GLB_INLINE ErtsThrPrgrVal
 erts_thr_prgr_read_acqb__(ERTS_THR_PRGR_ATOMIC *atmc)
 {
-    return (ErtsThrPrgrVal) erts_atomic_read_acqb(atmc);
+    return (ErtsThrPrgrVal) erts_atomic64_read_acqb(atmc);
 }
 
 ERTS_GLB_INLINE ErtsThrPrgrVal
 erts_thr_prgr_read_mb__(ERTS_THR_PRGR_ATOMIC *atmc)
 {
-    return (ErtsThrPrgrVal) erts_atomic_read_mb(atmc);
+    return (ErtsThrPrgrVal) erts_atomic64_read_mb(atmc);
 }
-
-#else /* ARCH_32 */
-
-ERTS_GLB_INLINE ErtsThrPrgrVal
-erts_thr_prgr_dw_aint_to_val__(erts_dw_aint_t *dw_aint)
-{
-#ifdef ETHR_SU_DW_NAINT_T__
-    return (ErtsThrPrgrVal) dw_aint->dw_sint;
-#else
-    ErtsThrPrgrVal res;
-    res = (ErtsThrPrgrVal) ((Uint32) dw_aint->sint[ERTS_DW_AINT_HIGH_WORD]);
-    res <<= 32;
-    res |= (ErtsThrPrgrVal) ((Uint32) dw_aint->sint[ERTS_DW_AINT_LOW_WORD]);
-    return res;
-#endif
-}
-
-ERTS_GLB_INLINE ErtsThrPrgrVal
-erts_thr_prgr_read_nob__(ERTS_THR_PRGR_ATOMIC *atmc)
-{
-    erts_dw_aint_t dw_aint;
-    erts_dw_atomic_read_nob(atmc, &dw_aint);
-    return erts_thr_prgr_dw_aint_to_val__(&dw_aint);
-}
-
-ERTS_GLB_INLINE ErtsThrPrgrVal
-erts_thr_prgr_read_acqb__(ERTS_THR_PRGR_ATOMIC *atmc)
-{
-    erts_dw_aint_t dw_aint;
-    erts_dw_atomic_read_acqb(atmc, &dw_aint);
-    return erts_thr_prgr_dw_aint_to_val__(&dw_aint);
-}
-
-ERTS_GLB_INLINE ErtsThrPrgrVal
-erts_thr_prgr_read_mb__(ERTS_THR_PRGR_ATOMIC *atmc)
-{
-    erts_dw_aint_t dw_aint;
-    erts_dw_atomic_read_mb(atmc, &dw_aint);
-    return erts_thr_prgr_dw_aint_to_val__(&dw_aint);
-}
-
-#endif
 
 ERTS_GLB_INLINE int
 erts_thr_progress_is_managed_thread(void)

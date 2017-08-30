@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -101,7 +102,7 @@ void erl_sys_ddll_init(void) {
 /* 
  * Open a shared object
  */
-int erts_sys_ddll_open2(const char *full_name, void **handle, ErtsSysDdllError* err)
+int erts_sys_ddll_open(const char *full_name, void **handle, ErtsSysDdllError* err)
 {
 #if defined(HAVE_DLOPEN)
     char* dlname; 
@@ -123,6 +124,7 @@ int erts_sys_ddll_open2(const char *full_name, void **handle, ErtsSysDdllError* 
 
 int erts_sys_ddll_open_noext(char *dlname, void **handle, ErtsSysDdllError* err)
 {
+#if defined(HAVE_DLOPEN)   
     int ret = ERL_DE_NO_ERROR;
     char *str;
     dlerror();
@@ -148,6 +150,9 @@ int erts_sys_ddll_open_noext(char *dlname, void **handle, ErtsSysDdllError* err)
 	ret = ERL_DE_DYNAMIC_ERROR_OFFSET - find_errcode(str, err);
     }
     return ret;
+#else
+    return ERL_DE_ERROR_NO_DDLL_FUNCTIONALITY;
+#endif
 }
 
 /* 

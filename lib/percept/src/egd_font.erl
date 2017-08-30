@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 
@@ -50,9 +51,7 @@
 %%
 
 %%==========================================================================
-%%
-%%		Interface functions	
-%%
+%% Interface functions
 %%==========================================================================
 
 size(Font) ->
@@ -69,15 +68,14 @@ load(Filename) ->
     load_font_header(Font).
 
 %%==========================================================================
-%%
-%%		Internal functions	
-%%
+%% Internal functions
 %%==========================================================================
 
 %% ETS handler functions
 
 initialize_table() ->
-    ets:new(egd_font_table, [named_table, ordered_set, public]).
+    egd_font_table = ets:new(egd_font_table, [named_table, ordered_set, public]),
+    ok.
 
 glyph_insert(Font, Code, Translation, LSs) ->
     Element = {{Font, Code}, Translation, LSs},

@@ -1,0 +1,5 @@
+
+guard_update.erl:5: Function t/0 has no local return
+guard_update.erl:6: The call guard_update:f(#{'a':=2}) will never return since it differs in the 1st argument from the success typing arguments: (#{'b':=_, _=>_})
+guard_update.erl:8: Clause guard cannot succeed. The variable M was matched against the type #{'a':=2}
+guard_update.erl:8: Function f/1 has no local return

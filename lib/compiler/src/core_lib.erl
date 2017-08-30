@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -20,71 +21,16 @@
 
 -module(core_lib).
 
--export([get_anno/1,set_anno/2]).
--export([is_literal/1,is_literal_list/1]).
--export([literal_value/1]).
 -export([make_values/1]).
 -export([is_var_used/2]).
 
 -include("core_parse.hrl").
 
-%%
-%% Generic get/set annotation that should be used only with cerl() structures.
-%%
--spec get_anno(cerl:cerl()) -> term().
-
-get_anno(C) -> element(2, C).
-
--spec set_anno(cerl:cerl(), term()) -> cerl:cerl().
-
-set_anno(C, A) -> setelement(2, C, A).
-
--spec is_literal(cerl:cerl()) -> boolean().
-
-is_literal(#c_literal{}) -> true;
-is_literal(#c_cons{hd=H,tl=T}) ->
-    is_literal(H) andalso is_literal(T);
-is_literal(#c_tuple{es=Es}) -> is_literal_list(Es);
-is_literal(#c_binary{segments=Es}) -> is_lit_bin(Es);
-is_literal(_) -> false.
-
--spec is_literal_list([cerl:cerl()]) -> boolean().
-
-is_literal_list(Es) -> lists:all(fun is_literal/1, Es).
-
-is_lit_bin(Es) ->
-    lists:all(fun (#c_bitstr{val=E,size=S}) ->
-		      is_literal(E) andalso is_literal(S)
-	      end, Es).
-
-%% Return the value of LitExpr.
--spec literal_value(cerl:c_literal() | cerl:c_binary() |
-		    cerl:c_cons() | cerl:c_tuple()) -> term().
-
-literal_value(#c_literal{val=V}) -> V;
-literal_value(#c_binary{segments=Es}) ->
-    list_to_binary([literal_value_bin(Bit) || Bit <- Es]);
-literal_value(#c_cons{hd=H,tl=T}) ->
-    [literal_value(H)|literal_value(T)];
-literal_value(#c_tuple{es=Es}) ->
-    list_to_tuple(literal_value_list(Es)).
-
-literal_value_list(Vals) -> [literal_value(V) || V <- Vals].
-
-literal_value_bin(#c_bitstr{val=Val,size=Sz,unit=U,type=T,flags=Fs}) ->
-    %% We will only handle literals constructed by make_literal/1.
-    %% Could be made more general in the future if the need arises.
-    8 = literal_value(Sz),
-    1 = literal_value(U),
-    integer = literal_value(T),
-    [unsigned,big] = literal_value(Fs),
-    literal_value(Val).
-
 %% Make a suitable values structure, expr or values, depending on Expr.
 -spec make_values([cerl:cerl()] | cerl:cerl()) -> cerl:cerl().
 
 make_values([E]) -> E;
-make_values([H|_]=Es) -> #c_values{anno=get_anno(H),es=Es};
+make_values([H|_]=Es) -> #c_values{anno=cerl:get_ann(H),es=Es};
 make_values([]) -> #c_values{es=[]};
 make_values(E) -> E.
 
@@ -105,6 +51,10 @@ vu_expr(V, #c_cons{hd=H,tl=T}) ->
     vu_expr(V, H) orelse vu_expr(V, T);
 vu_expr(V, #c_tuple{es=Es}) ->
     vu_expr_list(V, Es);
+vu_expr(V, #c_map{arg=M,es=Es}) ->
+    vu_expr(V, M) orelse vu_expr_list(V, Es);
+vu_expr(V, #c_map_pair{key=Key,val=Val}) ->
+    vu_expr_list(V, [Key,Val]);
 vu_expr(V, #c_binary{segments=Ss}) ->
     vu_seg_list(V, Ss);
 vu_expr(V, #c_fun{vars=Vs,body=B}) ->
@@ -201,6 +151,8 @@ vu_pattern(V, #c_tuple{es=Es}, St) ->
     vu_pattern_list(V, Es, St);
 vu_pattern(V, #c_binary{segments=Ss}, St) ->
     vu_pat_seg_list(V, Ss, St);
+vu_pattern(V, #c_map{es=Es}, St) ->
+    vu_map_pairs(V, Es, St);
 vu_pattern(V, #c_alias{var=Var,pat=P}, St0) ->
     case vu_pattern(V, Var, St0) of
 	{true,_}=St1 -> St1;
@@ -222,6 +174,18 @@ vu_pat_seg_list(V, Ss, St) ->
 				{vu_expr(V, Size),Shad}
 			end
 		end, St, Ss).
+
+vu_map_pairs(V, [#c_map_pair{key=Key,val=Pat}|T], St0) ->
+    case vu_expr(V, Key) of
+	true ->
+	    {true,false};
+	false ->
+	    case vu_pattern(V, Pat, St0) of
+		{true,_}=St -> St;
+		St -> vu_map_pairs(V, T, St)
+	    end
+    end;
+vu_map_pairs(_, [], St) -> St.
 
 -spec vu_var_list(cerl:var_name(), [cerl:c_var()]) -> boolean().
 

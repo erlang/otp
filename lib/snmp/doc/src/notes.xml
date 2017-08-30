@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -31,6 +32,584 @@
     <rev></rev>
     <file>notes.xml</file>
   </header>
+
+
+  <section><title>SNMP 5.2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Internal changes</p>
+          <p>
+	    Own Id: OTP-13551</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Snmp agent now properly handles <c>vacmViewTreeFamily</c>
+	    masks.</p>
+          <p>
+	    Own Id: OTP-13264</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Small documentation fixes</p>
+          <p>
+	    Own Id: OTP-13017</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update configuration check of imask ( list of ones and
+	    zeros) to allow the empty list.</p>
+          <p>
+	    Own Id: OTP-13101</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The runtime dependencies in the application resource
+	    file have been updated. </p>
+          <p>
+	    Own Id: OTP-12762</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug in the SNMP Agent has been corrected; when opening
+	    a port using the command line argument -snmpa_fd the Port
+	    should be 0 when calling gen_udp:open.</p>
+          <p>
+	    A bug in the SNMP manager has been corrected; it should
+	    not look at the -snmp_fd command line argument, but
+	    instead at -snmpm_fd.</p>
+          <p>
+	    Own Id: OTP-12669 Aux Id: seq12841 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved cryptocraphic capability.</p>
+          <p>
+	    Own Id: OTP-12452</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
+    <title>SNMP Development Toolkit 5.1.1</title>
+    <p>Version 5.1.1 supports code replacement in runtime from/to
+    version 5.1. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[compiler] Refinement of type Opaque was not allowed. </p>
+          <p>MIB constructs such as '<c>SYNTAX Opaque (SIZE(0..65535))</c>' 
+	  was previously not allowed, 
+	  see the standard <c>ALARM-MIB</c> for eaxmple. </p>
+          <p>Own Id: OTP-12066</p>
+          <p>Aux Id: Seq 12669</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] 
+	  see <seealso marker="snmpa#load_mibs">load_mibs</seealso> and 
+	  <seealso marker="snmpa#unload_mibs">unload_mibs</seealso>. </p>
+          <p>Own Id: OTP-11216</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+  </section> <!-- 5.1.1 -->
+
+
+
+  <section><title>SNMP 5.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The SNMP manager has been enhanced with dual stack
+	    IPv4+IPv6, as the agent just was. The documentation is
+	    also now updated for both the agent and the manager.</p>
+          <p>
+	    Own Id: OTP-12108 Aux Id: OTP-12020 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    SNMP has been improved to handle IPv6. The agent can
+	    handle dual stack IPv4 + IPv6, but not yet the manager.
+	    The documentation also still lags behind... If you do
+	    such advanced stuff like writing a custom net_if module,
+	    the interface for it has changed, but other than that
+	    SNMP is backwards compatible.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-12020 Aux Id: OTP-11518 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 4.25.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section>
+    <title>SNMP Development Toolkit 4.25.0.1</title>
+    <p>Version 4.25.0.1 supports code replacement in runtime from/to
+    version 4.25, 4.24.2, 4.24.1 and 4.24. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Updated doc files to utf8. </p>
+          <p>Own Id: OTP-10907</p>
+        </item>
+
+        <item>
+          <p>Fixed test suite to support UTF-8 paths. </p>
+          <p>Own Id: OTP-10877</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Wrong block cypher type used for AES ('aes_cbf128' 
+	  instead of 'aes_cfb128') when performing AES block 
+	  encrypt/decrypt which breaks SNMP usmAesCfb128Protocol 
+	  in agent and manager. </p>
+          <p>Own Id: OTP-11412</p>
+        </item>
+
+        <item>
+          <p>[manager] When performing the AES encryption, invalid values for 
+	  the EngineBoots and EngineTime was used. </p>
+	  <p>The values of the local agent was used, which would have produced 
+	  "some" values if an agent was actually running. 
+	  If not it would have caused a crash. </p>
+	  <p>Own Id: OTP-11413</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+  </section> <!-- 4.25.0.1 -->
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.25</title>
+    <p>Version 4.25 supports code replacement in runtime from/to
+    version 4.24.2, 4.24.1, 4.24, 4.23.1 and 4.23. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Enable SNMP to create missing database directories. </p>
+	  <p>Add 
+	  <seealso marker="snmp_app#db_init_error">
+	  {db_init_error, create_db_and_dir}</seealso> option to SNMP 
+	  <seealso marker="snmp_app#manager_opts_and_types">manager</seealso> 
+	  and
+	  <seealso marker="snmp_app#agent_opts_and_types">agent</seealso>. 
+	  This allows them to create any missing parent directories for
+	  <c>db_dir</c>, rather than treating any missing directories 
+	  as a fatal error.
+	  The default for <c>db_init_error</c>, which is <c>terminate</c>, 
+	  is unchanged. </p>
+	  <p>Steve Vinoski</p>
+          <p>Own Id: OTP-11352</p>
+        </item>
+
+        <item>
+          <p>[manager] Improved handling of unexpected return values from
+	  <seealso marker="snmpm_user">snmpm_user</seealso>
+	  callback functions. </p>
+	  <p>Violations of the documented API (crashes or invalid return 
+	  values) will now result in an error message. </p>
+          <p>Own Id: OTP-11307</p>
+        </item>
+
+        <item>
+          <p>Add (atl) log conversion block option. </p>
+	  <p>It is now possible to request that the Audit Trail Log should
+	  be blocked during conversion (<c>log_to_txt</c> or <c>log_to_io</c>). 
+	  This could be usefull when coverting an entire large log (when 
+	  there is a chance it may otherwise wrap during conversion). </p>
+	  <p>See 
+	  agent 
+	  <seealso marker="snmpa#log_to_txt">log_to_txt</seealso> and
+	  <seealso marker="snmpa#log_to_io">log_to_io</seealso> and also 
+	  manager 
+	  <seealso marker="snmpm#log_to_txt">log_to_txt</seealso> and
+	  <seealso marker="snmpm#log_to_io">log_to_io</seealso> 
+	  for details. </p>
+          <p>Own Id: OTP-11396</p>
+          <p>Own Id: seq12433</p>
+        </item>
+
+        <item>
+          <p>When converting an Audit Trail Log to text, a corrupt
+	  log entry could cause the entire conversion to fail. </p>
+	  <p>Also, for a log with sequence numbers, failing to 
+	  decode a log entry would cause the conversion to fail
+	  (not because of the failed decode, but because of the 
+	  failure to write the error message). </p>
+          <p>Own Id: OTP-111453</p>
+          <p>Aux Id: Seq 12459</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Wrong block cypher type used for AES ('aes_cbf128' 
+	  instead of 'aes_cfb128') when performing AES block 
+	  encrypt/decrypt which breaks SNMP usmAesCfb128Protocol 
+	  in agent and manager. </p>
+          <p>Own Id: OTP-11412</p>
+        </item>
+
+        <item>
+          <p>[manager] When performing the AES encryption, invalid values for 
+	  the EngineBoots and EngineTime was used. </p>
+	  <p>The values of the local agent was used, which would have produced 
+	  "some" values if an agent was actually running. 
+	  If not it would have caused a crash. </p>
+	  <p>Own Id: OTP-11413</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+  </section> <!-- 4.25 -->
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.24.2</title>
+    <p>Version 4.24.2 supports code replacement in runtime from/to
+    version 4.24.1, 4.24, 4.23.1 and 4.23. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Improved documentation for the functions for 
+	  loading and unloading mibs, 
+	  see <seealso marker="snmpa#load_mibs">load_mibs</seealso> and 
+	  <seealso marker="snmpa#unload_mibs">unload_mibs</seealso> for 
+	  more info. </p>
+          <p>Also added new functions for loading and unloading a single mib, 
+	  see <seealso marker="snmpa#load_mib">load_mib</seealso> and 
+	  <seealso marker="snmpa#unload_mib">unload_mib</seealso> for 
+	  more info. </p>
+          <p>Own Id: OTP-11216</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] 
+	  see <seealso marker="snmpa#load_mibs">load_mibs</seealso> and 
+	  <seealso marker="snmpa#unload_mibs">unload_mibs</seealso>. </p>
+          <p>Own Id: OTP-11216</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+    
+  </section> <!-- 4.24.2 -->
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.24.1</title>
+    <p>Version 4.24.1 supports code replacement in runtime from/to
+    version 4.24, 4.23.1 and 4.23. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent,manager] Updated to support the new crypto interface. </p>
+          <p>Own Id: OTP-11009</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Reading the value of the vacmViewTreeFamilyMask returns 
+	  it in the wrong (internal bitlist) format. </p>
+	  <p>The vacmViewTreeFamilyMask is defined as a bit string in the MIB
+	  (OCTET STRING). Internally a bitlist (list of 1's and 0's, 
+	  see <seealso marker="snmp_agent_config_files#vacm">vacm config file</seealso>
+	  for more info) is used. 
+	  However, the MIB implementation assumed the latter, effectively
+	  rendering all attempts to read/set masks via SNMP unsuccessful. </p>
+	  <p>Since the mask is used in hot paths (e.g. access permission checks 
+	  for each SNMP operation, the bitlist representation of the mask has 
+	  benefits (e.g. faster processing). Reading/writing the view mask 
+	  objects is less time-critical. Therefore, to fix the issue, convert 
+	  between the bitlist (internal) representation and bitstring 
+	  (external) when the vacmViewTreeFamilyMask objects are accessed. </p>
+	  <p>Also, the check of the vacm config file was invalid with 
+	  regard to the mask value. It was assumed to be a proper oid, which 
+	  is not strictly the case (see bitlist above). </p>
+          <p>Own Id: OTP-11177</p>
+	  <p>Stefan Zegenhagen</p>
+        </item>
+
+        <item>
+          <p>[agent] The counter increment function in the local-db was  
+	  incorrect. It did not handle counter wrap correctly. </p>
+          <p>Own Id: OTP-11192</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[manager] The old Addr-and-Port based API functions, previously
+	  long deprecated and marked for deletion in R16B, has now been
+	  removed. </p>
+          <p>Own Id: OTP-10027</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+  </section> <!-- 4.24.1 -->
 
 
   <section>
@@ -67,7 +646,7 @@
 	  <seealso marker="snmpa_mib_storage">mib storage</seealso>. 
 	  At present there are three simple modules 
 	  (<c>snmpa_mib_storage_ets</c>, <c>snmpa_mib_storage_dets</c> and 
-	  <c>snmpa_mib_storage_mnesia</c>) implementíng this behaviour, 
+	  <c>snmpa_mib_storage_mnesia</c>) implementing this behaviour,
 	  provided with the app. </p>
 	  <p>A config option for the (agent) 
 	  <seealso marker="snmp_config#agent_mib_storage">mib storage</seealso> 

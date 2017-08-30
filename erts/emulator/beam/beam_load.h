@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -26,14 +27,12 @@
 Eterm beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks,
 			    Eterm module);
 
-
 typedef struct gen_op_entry {
    char* name;
    int arity;
    int specific;
    int num_specific;
    int transform;
-   int min_window;
 } GenOpEntry;
 
 extern GenOpEntry gen_opc[];
@@ -49,6 +48,8 @@ extern void** beam_ops;
 extern BeamInstr beam_debug_apply[];
 extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_apply_bif;
+extern BeamInstr* em_call_nif;
+
 
 /*
  * The following variables keep a sorted list of address ranges for
@@ -58,68 +59,81 @@ extern BeamInstr* em_apply_bif;
 
 /* Total code size in bytes */
 extern Uint erts_total_code_size;
+
+typedef struct BeamCodeLineTab_ BeamCodeLineTab;
+
 /*
- * Index into start of code chunks which contains additional information
+ * Header of code chunks which contains additional information
  * about the loaded module.
- *
- * First number of functions.
  */
+typedef struct beam_code_header {
+    /*
+     * Number of functions.
+     */
+    UWord num_functions;
 
-#define MI_NUM_FUNCTIONS     0
+    /*
+     * The attributes retrieved by Mod:module_info(attributes).
+     */
+    byte* attr_ptr;
+    UWord attr_size;
+    UWord attr_size_on_heap;
 
-/*
- * The attributes retrieved by Mod:module_info(attributes).
- */
+    /*
+     * The compilation information retrieved by Mod:module_info(compile).
+     */
+    byte* compile_ptr;
+    UWord compile_size;
+    UWord compile_size_on_heap;
 
-#define MI_ATTR_PTR          1
-#define MI_ATTR_SIZE	     2
-#define MI_ATTR_SIZE_ON_HEAP 3
+    /*
+     * Literal area (constant pool).
+     */
+    Eterm* literals_start;
+    Eterm* literals_end;
+    struct erl_off_heap_header* literals_off_heap;
 
-/*
- * The compilation information retrieved by Mod:module_info(compile).
- */
+    /*
+     * Pointer to the on_load function (or NULL if none).
+     */
+    BeamInstr* on_load_function_ptr;
 
-#define MI_COMPILE_PTR          4
-#define MI_COMPILE_SIZE         5
-#define MI_COMPILE_SIZE_ON_HEAP 6
+    /*
+     * Pointer to the line table (or NULL if none).
+     */
+    BeamCodeLineTab* line_table;
 
-/*
- * Literal area (constant pool).
- */
-#define MI_LITERALS_START	7
-#define MI_LITERALS_END		8
-#define MI_LITERALS_OFF_HEAP	9
+    /*
+     * Pointer to the module MD5 sum (16 bytes)
+     */
+    byte* md5_ptr;
 
+    /*
+     * Start of function pointer table.  This table contains pointers to
+     * all functions in the module plus an additional pointer just beyond
+     * the end of the last function.
+     *
+     * The actual loaded code (for the first function) start just beyond
+     * this table.
+     */
+    BeamInstr* functions[1];
 
-/*
- * Pointer to the on_load function (or NULL if none).
- */
-#define MI_ON_LOAD_FUNCTION_PTR 10
+}BeamCodeHeader;
 
-/*
- * Pointer to the line table (or NULL if none).
- */
-#define MI_LINE_TABLE 11
-
-/*
- * Start of function pointer table.  This table contains pointers to
- * all functions in the module plus an additional pointer just beyond
- * the end of the last function.
- *
- * The actual loaded code (for the first function) start just beyond
- * this table.
- */
-
-#define MI_FUNCTIONS         12
+int erts_is_module_native(BeamCodeHeader* code);
 
 /*
  * Layout of the line table.
  */
-
-#define MI_LINE_FNAME_PTR 0
-#define MI_LINE_LOC_TAB 1
-#define MI_LINE_LOC_SIZE 2
-#define MI_LINE_FUNC_TAB 3
+struct BeamCodeLineTab_ {
+    Eterm* fname_ptr;
+    int loc_size;
+    union {
+        Uint16* p2;
+        Uint32* p4;
+    }loc_tab;
+    const BeamInstr** func_tab[1];
+};
 
 #define LINE_INVALID_LOCATION (0)
 

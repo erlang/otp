@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -41,9 +42,9 @@
       Format :: string(),
       Return :: {'more', Continuation1 :: io_lib:continuation()}
               | {'done', Result, LeftOverChars :: string()},
-      Result :: {'ok', InputList :: io_lib:chars()}
+      Result :: {'ok', InputList :: [io_lib:fread_item()]}
               | 'eof'
-              | {'error', {'read', What :: io_lib:fread_error()}}.
+              | {'error', {'fread', What :: io_lib:fread_error()}}.
 
 fread([], Chars, Format) ->
     %%io:format("FREAD: ~w `~s'~n", [Format,Chars]),
@@ -101,11 +102,12 @@ fread_line(Format0, Line, N0, Results0, More, Newline) ->
 -spec fread(Format, String) -> Result when
       Format :: string(),
       String :: string(),
-      Result :: {'ok', InputList :: io_lib:chars(), LeftOverChars :: string()}
+      Result :: {'ok', InputList :: [io_lib:fread_item()],
+                 LeftOverChars :: string()}
               | {'more', RestFormat :: string(),
                  Nchars :: non_neg_integer(),
                  InputStack :: io_lib:chars()}
-              | {'error', What :: term()}.
+              | {'error', {'fread', What :: io_lib:fread_error()}}.
 
 fread(Format, Line) ->
     fread(Format, Line, 0, []).

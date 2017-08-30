@@ -4,7 +4,7 @@
 ##	      Kostis Sagonas <kostis@it.uu.se>
 ##----------------------------------------------------------------------------
 
-The DIALYZER, a DIscrepany AnaLYZer for ERlang programs.
+The DIALYZER, a DIscrepancy AnaLYZer for ERlang programs.
 
 
 -----------------------------------------------
@@ -125,7 +125,7 @@ The exit status of the command line version is:
 Usage: dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
 		[-pa dir]* [--plt plt] [--plts plt*] [-Ddefine]*
                 [-I include_dir]* [--output_plt file] [-Wwarn]*
-                [--src] [--gui | --wx] [files_or_dirs] [-r dirs]
+                [--src] [--gui] [files_or_dirs] [-r dirs]
                 [--apps applications] [-o outfile]
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
@@ -234,9 +234,7 @@ Options:
   --fullpath
       Display the full path names of files for which warnings are emitted.
    --gui
-       Use the gs-based GUI.
-   --wx
-       Use the wx-based GUI.
+       Use the GUI.
 
 Note:
   * denotes that multiple occurrences of these options are possible.

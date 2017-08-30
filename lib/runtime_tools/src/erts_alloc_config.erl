@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% The Initial Developer of the Original Code is Ericsson AB.
 %% 
@@ -39,6 +40,8 @@
 		need_config_change,
 		alloc_util,
 		instances,
+		strategy,
+		acul,
 		low_mbc_blocks_size,
 		high_mbc_blocks_size,
 		sbct,
@@ -53,8 +56,6 @@
 -define(PRINT_WITDH, 76).
 
 -define(SERVER, '__erts_alloc_config__').
-
--define(MAX_ALLOCATOR_INSTANCES, 16).
 
 -define(KB, 1024).
 -define(MB, 1048576).
@@ -99,22 +100,10 @@
 	 {ets_alloc, 131072},
 	 {fix_alloc, 131072},
 	 {eheap_alloc, 524288},
-	 {ll_alloc, 2097152},
+	 {ll_alloc, 131072},
 	 {sl_alloc, 131072},
 	 {temp_alloc, 131072},
 	 {driver_alloc, 131072}]).
-
--define(MMMBC_DEFAULTS,
-	[{binary_alloc, 10},
-	 {std_alloc, 10},
-	 {ets_alloc, 10},
-	 {fix_alloc, 10},
-	 {eheap_alloc, 10},
-	 {ll_alloc, 0},
-	 {sl_alloc, 10},
-	 {temp_alloc, 10},
-	 {driver_alloc, 10}]).
-
 
 %%%
 %%% Exported interface
@@ -139,7 +128,7 @@ make_config(FileName) when is_list(FileName) ->
     case file:open(FileName, [write]) of
 	{ok, IODev} ->
 	    Res = req({make_config, IODev}),
-	    file:close(IODev),
+	    ok = file:close(IODev),
 	    Res;
 	Error ->
 	    Error
@@ -211,9 +200,11 @@ server_loop(State) ->
 			       Conf = #conf{segments = ?MBC_MSEG_LIMIT,
 					    format_to = IODev},
 			       Res = mk_config(Conf, State#state.alloc),
-			       From ! {response, Ref, Res};
+			       From ! {response, Ref, Res},
+                               ok;
 			   _ ->
-			       From ! {response, Ref, no_scenario_saved}
+			       From ! {response, Ref, no_scenario_saved},
+                               ok
 		       end,
 		       State;
 		   {request, From, Ref, stop} ->
@@ -230,20 +221,72 @@ server_loop(State) ->
 	       end,
     server_loop(NewState).
 
-allocator_instances(temp_alloc) ->
-    erlang:system_info(schedulers) + 1;
-allocator_instances(ll_alloc) ->
+carrier_migration_support(aoff) ->
+    true;
+carrier_migration_support(aoffcbf) ->
+    true;
+carrier_migration_support(aoffcaobf) ->
+    true;
+carrier_migration_support(_) ->
+    false.
+
+allocator_instances(ll_alloc, Strategy) ->
+    case carrier_migration_support(Strategy) of
+	true -> erlang:system_info(schedulers);
+	false -> 1
+    end;
+allocator_instances(_A, undefined) ->
     1;
-allocator_instances(_Allocator) ->
-    case erlang:system_info(schedulers) of
-	Schdlrs when Schdlrs =< ?MAX_ALLOCATOR_INSTANCES -> Schdlrs;
-	_Schdlrs -> ?MAX_ALLOCATOR_INSTANCES
+allocator_instances(_A, _Strategy) ->
+    erlang:system_info(schedulers).
+
+strategy(temp_alloc, _AI) ->
+    af;
+strategy(A, AI) ->
+    try
+	{A, OptList} = lists:keyfind(A, 1, AI),
+	{as, S} = lists:keyfind(as, 1, OptList),
+	S
+    catch
+	_ : _ ->
+	    undefined
     end.
-					   
+
+strategy_str(af) ->
+    "A fit";
+strategy_str(gf) ->
+    "Good fit";
+strategy_str(bf) ->
+    "Best fit";
+strategy_str(aobf) ->
+    "Address order best fit";
+strategy_str(aoff) ->
+    "Address order first fit";
+strategy_str(aoffcbf) ->
+    "Address order first fit carrier best fit";
+strategy_str(aoffcaobf) ->
+    "Address order first fit carrier adress order best fit".
+
+default_acul(A, S) ->
+    case carrier_migration_support(S) of
+	false ->
+	    0;
+	true ->
+	    case A of
+		ll_alloc -> 85;
+		eheap_alloc -> 45;
+		_ -> 60
+	    end
+    end.
+
 make_state() ->
+    {_, _, _, AI} = erlang:system_info(allocator),
     #state{alloc = lists:map(fun (A) ->
+				     S = strategy(A, AI),
 				     #alloc{name = A,
-					    instances = allocator_instances(A)}
+					    strategy = S,
+					    acul = default_acul(A, S),
+					    instances = allocator_instances(A, S)}
 			     end,
 			     ?ALLOCATORS)}.
 
@@ -345,7 +388,7 @@ do_save_scenario(AlcList) ->
 conf_size(Bytes) when is_integer(Bytes), Bytes < 0 ->
     exit({bad_value, Bytes});
 conf_size(Bytes) when is_integer(Bytes), Bytes < 1*?MB ->
-    ?ROUNDUP(?B2KB(Bytes), 128);
+    ?ROUNDUP(?B2KB(Bytes), 256);
 conf_size(Bytes) when is_integer(Bytes), Bytes < 10*?MB ->
     ?ROUNDUP(?B2KB(Bytes), ?B2KB(1*?MB));
 conf_size(Bytes) when is_integer(Bytes), Bytes < 100*?MB ->
@@ -376,28 +419,25 @@ mmbcs(#conf{format_to = FTO},
 	     temp_alloc -> BlocksSize;
 	     _ -> BlocksSize div Insts
 	 end,
-    case BS > default_mmbcs(A, Insts) of
-	true ->
+    DefMMBCS = default_mmbcs(A, Insts),
+    case {Insts, BS > DefMMBCS} of
+	{1, true} ->
 	    MMBCS = conf_size(BS),
 	    fc(FTO, "Main mbc size of ~p kilobytes.", [MMBCS]),
 	    format(FTO, " +M~cmmbcs ~p~n", [alloc_char(A), MMBCS]);
-	false ->
+	_ ->
+	    MMBCS = ?B2KB(DefMMBCS),
+	    fc(FTO, "Main mbc size of ~p kilobytes.", [MMBCS]),
+	    format(FTO, " +M~cmmbcs ~p~n", [alloc_char(A), MMBCS]),
 	    ok
     end.
 
-smbcs_lmbcs_mmmbc(#conf{format_to = FTO},
-		  #alloc{name = A, instances = Insts, segments = Segments}) ->
-    MMMBC = case {A, Insts} of
-		{_, 1} -> Segments#segment.number;
-		{temp_alloc, _} -> Segments#segment.number;
-		_ -> (Segments#segment.number div Insts) + 1
-	    end,
+smbcs_lmbcs(#conf{format_to = FTO},
+	    #alloc{name = A, segments = Segments}) ->
     MBCS = Segments#segment.size,
     AC = alloc_char(A),
     fc(FTO, "Mseg mbc size of ~p kilobytes.", [MBCS]),
     format(FTO, " +M~csmbcs ~p +M~clmbcs ~p~n", [AC, MBCS, AC, MBCS]),
-    fc(FTO, "Max ~p mseg mbcs.", [MMMBC]),
-    format(FTO, " +M~cmmmbc ~p~n", [AC, MMMBC]),
     ok.
 
 alloc_char(binary_alloc) -> $B;
@@ -462,6 +502,8 @@ au_conf_alloc(#conf{format_to = FTO} = Conf,
 	      #alloc{name = A,
 		     alloc_util = true,
 		     instances = Insts,
+		     acul = Acul,
+		     strategy = Strategy,
 		     low_mbc_blocks_size = Low,
 		     high_mbc_blocks_size = High} = Alc) ->
     fcp(FTO, "Usage of mbcs: ~p - ~p kilobytes", [?B2KB(Low), ?B2KB(High)]),
@@ -470,31 +512,49 @@ au_conf_alloc(#conf{format_to = FTO} = Conf,
 	    fc(FTO, "One instance used."),
 	    format(FTO, " +M~ct false~n", [alloc_char(A)]);
 	_ ->
-	    fc(FTO, "~p instances used.",
+	    fc(FTO, "~p + 1 instances used.",
 	       [Insts]),
-	    format(FTO, " +M~ct true~n", [alloc_char(A)])
-    end,	    
+	    format(FTO, " +M~ct true~n", [alloc_char(A)]),
+	    case Strategy of
+		undefined ->
+		    ok;
+		_ ->
+		    fc(FTO, "Allocation strategy: ~s.",
+		       [strategy_str(Strategy)]),
+		    format(FTO, " +M~cas ~s~n", [alloc_char(A),
+						 atom_to_list(Strategy)])
+	    end,
+	    case carrier_migration_support(Strategy) of
+		false ->
+		    ok;
+		true ->
+		    fc(FTO, "Abandon carrier utilization limit of ~p%.", [Acul]),
+		    format(FTO, " +M~cacul ~p~n", [alloc_char(A), Acul])
+	    end
+    end,
     mmbcs(Conf, Alc),
-    smbcs_lmbcs_mmmbc(Conf, Alc),
+    smbcs_lmbcs(Conf, Alc),
     sbct(Conf, Alc).
-
-large_growth(Low, High) ->
-    High - Low >= ?LARGE_GROWTH_ABS_LIMIT.
 
 calc_seg_size(Growth, Segs) ->
     conf_size(round(Growth*?FRAG_FACT*?GROWTH_SEG_FACT) div Segs).
 
 calc_growth_segments(Conf, AlcList0) ->
-    CalcSmall = fun (#alloc{name = ll_alloc} = Alc, Acc) ->
-			{Alc#alloc{segments = #segment{size = 0,
+    CalcSmall = fun (#alloc{name = ll_alloc, instances = 1} = Alc, Acc) ->
+			{Alc#alloc{segments = #segment{size = conf_size(0),
 						       number = 0}},
 			 Acc};
 		    (#alloc{alloc_util = true,
-			    low_mbc_blocks_size = Low,
+			    instances = Insts,
+			    low_mbc_blocks_size = LowMBC,
 			    high_mbc_blocks_size = High} = Alc,
 		     {SL, AL}) ->
+			Low = case Insts of
+				  1 -> LowMBC;
+				  _ -> 0
+			      end,
 			Growth = High - Low,
-			case large_growth(Low, High) of
+			case Growth >= ?LARGE_GROWTH_ABS_LIMIT of
 			    true ->
 				{Alc, {SL, AL+1}};
 			    false ->
@@ -522,8 +582,13 @@ calc_growth_segments(Conf, AlcList0) ->
 			   end,
 	    CalcLarge = fun (#alloc{alloc_util = true,
 				    segments = undefined,
-				    low_mbc_blocks_size = Low,
+				    instances = Insts,
+				    low_mbc_blocks_size = LowMBC,
 				    high_mbc_blocks_size = High} = Alc) ->
+				Low = case Insts of
+					  1 -> LowMBC;
+					  _ -> 0
+				      end,
 				Growth = High - Low,
 				SegSize = calc_seg_size(Growth,
 							SegsPerAlloc),
@@ -560,15 +625,10 @@ format_header(FTO) ->
     case erlang:system_info(schedulers) of
 	1 -> ok;
 	Schdlrs ->
-	    MinSchdlrs = case Schdlrs > ?MAX_ALLOCATOR_INSTANCES of
-			     true -> ?MAX_ALLOCATOR_INSTANCES;
-			     false -> Schdlrs
-			 end,
 	    fcp(FTO,
 		"NOTE: This configuration was made for ~p schedulers. "
-		"It is very important that at least ~p schedulers "
-		"are used.",
-		[Schdlrs, MinSchdlrs])
+		"It is very important that ~p schedulers are used.",
+		[Schdlrs, Schdlrs])
     end,
     fcp(FTO,
 	"This configuration is intended as a suggestion and "

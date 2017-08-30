@@ -1,18 +1,19 @@
 /* 
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -54,37 +55,89 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
+
+/* Helper macro to construct a OPENSSL_VERSION_NUMBER.
+ * See openssl/opensslv.h
+ */
+#define OpenSSL_version(MAJ, MIN, FIX, P)	\
+    ((((((((MAJ << 8) | MIN) << 8 ) | FIX) << 8) | (P-'a'+1)) << 4) | 0xf)
+
+#define OpenSSL_version_plain(MAJ, MIN, FIX) \
+    OpenSSL_version(MAJ,MIN,FIX,('a'-1))
+
+
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+#include <openssl/modes.h>
+#endif
+
 #include "crypto_callback.h"
 
-#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA224) && defined(NID_sha224)\
-         && !defined(OPENSSL_NO_SHA256) /* disabled like this in my sha.h (?) */
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(0,9,8)	\
+    && !defined(OPENSSL_NO_SHA224) && defined(NID_sha224) \
+    && !defined(OPENSSL_NO_SHA256) /* disabled like this in my sha.h (?) */
 # define HAVE_SHA224
 #endif
-#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA256) && defined(NID_sha256)
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(0,9,8)	\
+    && !defined(OPENSSL_NO_SHA256) && defined(NID_sha256)
 # define HAVE_SHA256
 #endif
-#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA384) && defined(NID_sha384)\
-         && !defined(OPENSSL_NO_SHA512) /* disabled like this in my sha.h (?) */
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(0,9,8)	\
+    && !defined(OPENSSL_NO_SHA384) && defined(NID_sha384)\
+    && !defined(OPENSSL_NO_SHA512) /* disabled like this in my sha.h (?) */
 # define HAVE_SHA384
 #endif
-#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512)
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(0,9,8)	\
+    && !defined(OPENSSL_NO_SHA512) && defined(NID_sha512)
 # define HAVE_SHA512
 #endif
-#if OPENSSL_VERSION_NUMBER >= 0x0090705FL
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version(0,9,7,'e')
 # define HAVE_DES_ede3_cfb_encrypt
 #endif
 
-#if OPENSSL_VERSION_NUMBER >= 0x009080ffL \
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version(0,9,8,'o') \
 	&& !defined(OPENSSL_NO_EC) \
 	&& !defined(OPENSSL_NO_ECDH) \
 	&& !defined(OPENSSL_NO_ECDSA)
 # define HAVE_EC
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version(0,9,8,'c')
+# define HAVE_AES_IGE
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,1)
+# define HAVE_EVP_AES_CTR
+# define HAVE_GCM
+# if OPENSSL_VERSION_NUMBER < OpenSSL_version(1,0,1,'d')
+#  define HAVE_GCM_EVP_DECRYPT_BUG
+# endif
+#endif
+
+#if defined(NID_chacha20) && !defined(OPENSSL_NO_CHACHA) && !defined(OPENSSL_NO_POLY1305)
+# define HAVE_CHACHA20_POLY1305
+#endif
+
+#if OPENSSL_VERSION_NUMBER <= OpenSSL_version(0,9,8,'l')
+# define HAVE_ECB_IVEC_BUG
+#endif
+
 #if defined(HAVE_EC)
 #include <openssl/ec.h>
 #include <openssl/ecdh.h>
 #include <openssl/ecdsa.h>
+#endif
+
+#if defined(HAVE_CHACHA20_POLY1305)
+#include <openssl/chacha.h>
+#include <openssl/poly1305.h>
+
+#if !defined(CHACHA20_NONCE_LEN)
+# define CHACHA20_NONCE_LEN 8
+#endif
+#if !defined(POLY1305_TAG_LEN)
+# define POLY1305_TAG_LEN 16
+#endif
+
 #endif
 
 #ifdef VALGRIND
@@ -163,69 +216,31 @@ static void unload(ErlNifEnv* env, void* priv_data);
 /* The NIFs: */
 static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM md5(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM md5_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM md5_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM md5_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM ripemd160(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM ripemd160_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM ripemd160_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM ripemd160_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha224_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha224_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha224_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha224_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha256_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha256_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha256_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha256_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha384_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha384_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha384_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha384_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha512_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha512_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha512_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha512_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM md4(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM md4_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM md4_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM md4_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM md5_mac_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha_mac_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha224_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha256_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha384_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM sha512_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM hmac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM hmac_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM des_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM des_cfb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM des_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM des_ede3_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM des_ede3_cfb_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_bytes_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rand_bytes_3(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM strong_rand_mpint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM do_exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rc2_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -237,48 +252,27 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM bf_cfb64_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM bf_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM bf_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM blowfish_ofb64_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-static ERL_NIF_TERM ec_key_to_term_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM ecdsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
+static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
+static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+#ifdef HAVE_GCM_EVP_DECRYPT_BUG
+static ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+#endif
+
+static ERL_NIF_TERM chacha20_poly1305_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM chacha20_poly1305_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 /* helpers */
-static void init_algorithms_types(void);
+static void init_algorithms_types(ErlNifEnv*);
 static void init_digest_types(ErlNifEnv* env);
-static void hmac_md5(unsigned char *key, int klen,
-		     unsigned char *dbuf, int dlen, 
-		     unsigned char *hmacbuf);
-static void hmac_sha1(unsigned char *key, int klen,
-		      unsigned char *dbuf, int dlen, 
-		      unsigned char *hmacbuf);
-#ifdef HAVE_SHA224
-static void hmac_sha224(unsigned char *key, int klen,
-			unsigned char *dbuf, int dlen,
-			unsigned char *hmacbuf);
-#endif
-#ifdef HAVE_SHA256
-static void hmac_sha256(unsigned char *key, int klen,
-			unsigned char *dbuf, int dlen,
-			unsigned char *hmacbuf);
-#endif
-#ifdef HAVE_SHA384
-static void hmac_sha384(unsigned char *key, int klen,
-			unsigned char *dbuf, int dlen,
-			unsigned char *hmacbuf);
-#endif
-#ifdef HAVE_SHA512
-static void hmac_sha512(unsigned char *key, int klen,
-			unsigned char *dbuf, int dlen,
-			unsigned char *hmacbuf);
-#endif
+static void init_cipher_types(ErlNifEnv* env);
 #ifdef HAVE_EC
 static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg);
 static int term2point(ErlNifEnv* env, ERL_NIF_TERM term,
@@ -290,72 +284,36 @@ static int library_refc = 0; /* number of users of this dynamic library */
 static ErlNifFunc nif_funcs[] = {
     {"info_lib", 0, info_lib},
     {"algorithms", 0, algorithms},
-    {"md5", 1, md5},
-    {"md5_init", 0, md5_init},
-    {"md5_update", 2, md5_update},
-    {"md5_final", 1, md5_final},
-    {"ripemd160", 1, ripemd160},
-    {"ripemd160_init", 0, ripemd160_init},
-    {"ripemd160_update", 2, ripemd160_update},
-    {"ripemd160_final", 1, ripemd160_final},
-    {"sha", 1, sha},
-    {"sha_init", 0, sha_init},
-    {"sha_update", 2, sha_update},
-    {"sha_final", 1, sha_final},
-    {"sha224_nif", 1, sha224_nif},
-    {"sha224_init_nif", 0, sha224_init_nif},
-    {"sha224_update_nif", 2, sha224_update_nif},
-    {"sha224_final_nif", 1, sha224_final_nif},
-    {"sha256_nif", 1, sha256_nif},
-    {"sha256_init_nif", 0, sha256_init_nif},
-    {"sha256_update_nif", 2, sha256_update_nif},
-    {"sha256_final_nif", 1, sha256_final_nif},
-    {"sha384_nif", 1, sha384_nif},
-    {"sha384_init_nif", 0, sha384_init_nif},
-    {"sha384_update_nif", 2, sha384_update_nif},
-    {"sha384_final_nif", 1, sha384_final_nif},
-    {"sha512_nif", 1, sha512_nif},
-    {"sha512_init_nif", 0, sha512_init_nif},
-    {"sha512_update_nif", 2, sha512_update_nif},
-    {"sha512_final_nif", 1, sha512_final_nif},
-    {"md4", 1, md4},
-    {"md4_init", 0, md4_init},
-    {"md4_update", 2, md4_update},
-    {"md4_final", 1, md4_final},
-    {"md5_mac_n", 3, md5_mac_n},
-    {"sha_mac_n", 3, sha_mac_n},
-    {"sha224_mac_nif", 3, sha224_mac_nif},
-    {"sha256_mac_nif", 3, sha256_mac_nif},
-    {"sha384_mac_nif", 3, sha384_mac_nif},
-    {"sha512_mac_nif", 3, sha512_mac_nif},
-    {"hmac_init", 2, hmac_init},
-    {"hmac_update", 2, hmac_update},
-    {"hmac_final", 1, hmac_final},
-    {"hmac_final_n", 2, hmac_final},
-    {"des_cbc_crypt", 4, des_cbc_crypt},
-    {"des_cfb_crypt", 4, des_cfb_crypt},
-    {"des_ecb_crypt", 3, des_ecb_crypt},
-    {"des_ede3_cbc_crypt", 6, des_ede3_cbc_crypt},
-    {"des_ede3_cfb_crypt_nif", 6, des_ede3_cfb_crypt_nif},
-    {"aes_cfb_128_crypt", 4, aes_cfb_128_crypt},
+    {"hash_nif", 2, hash_nif},
+    {"hash_init_nif", 1, hash_init_nif},
+    {"hash_update_nif", 2, hash_update_nif},
+    {"hash_final_nif", 1, hash_final_nif},
+    {"hmac_nif", 3, hmac_nif},
+    {"hmac_nif", 4, hmac_nif},
+    {"hmac_init_nif", 2, hmac_init_nif},
+    {"hmac_update_nif", 2, hmac_update_nif},
+    {"hmac_final_nif", 1, hmac_final_nif},
+    {"hmac_final_nif", 2, hmac_final_nif},
+    {"block_crypt_nif", 5, block_crypt_nif},
+    {"block_crypt_nif", 4, block_crypt_nif},
+    {"aes_ige_crypt_nif", 4, aes_ige_crypt_nif},
+
     {"aes_ctr_encrypt", 3, aes_ctr_encrypt},
     {"aes_ctr_decrypt", 3, aes_ctr_encrypt},
+    {"aes_ctr_stream_init", 2, aes_ctr_stream_init},
     {"aes_ctr_stream_encrypt", 2, aes_ctr_stream_encrypt},
     {"aes_ctr_stream_decrypt", 2, aes_ctr_stream_encrypt},
     {"rand_bytes", 1, rand_bytes_1},
     {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif},
-    {"rand_bytes", 3, rand_bytes_3},
     {"strong_rand_mpint_nif", 3, strong_rand_mpint_nif},
     {"rand_uniform_nif", 2, rand_uniform_nif},
     {"mod_exp_nif", 4, mod_exp_nif},
     {"dss_verify_nif", 4, dss_verify_nif},
     {"rsa_verify_nif", 4, rsa_verify_nif},
-    {"aes_cbc_crypt", 4, aes_cbc_crypt},
     {"do_exor", 2, do_exor},
     {"rc4_encrypt", 2, rc4_encrypt},
     {"rc4_set_key", 1, rc4_set_key},
     {"rc4_encrypt_with_state", 2, rc4_encrypt_with_state},
-    {"rc2_cbc_crypt", 4, rc2_cbc_crypt},
     {"rsa_sign_nif", 3, rsa_sign_nif},
     {"dss_sign_nif", 3, dss_sign_nif},
     {"rsa_public_crypt", 4, rsa_public_crypt},
@@ -367,150 +325,34 @@ static ErlNifFunc nif_funcs[] = {
     {"srp_value_B_nif", 5, srp_value_B_nif},
     {"srp_user_secret_nif", 7, srp_user_secret_nif},
     {"srp_host_secret_nif", 5, srp_host_secret_nif},
-    {"bf_cfb64_crypt", 4, bf_cfb64_crypt},
-    {"bf_cbc_crypt", 4, bf_cbc_crypt},
-    {"bf_ecb_crypt", 3, bf_ecb_crypt},
-    {"blowfish_ofb64_encrypt", 3, blowfish_ofb64_encrypt},
 
-    {"ec_key_to_term_nif", 1, ec_key_to_term_nif},
-    {"term_to_ec_key_nif", 3, term_to_ec_key_nif},
-    {"ec_key_generate", 1, ec_key_generate},
-    {"ecdsa_sign_nif", 3, ecdsa_sign_nif},
-    {"ecdsa_verify_nif", 4, ecdsa_verify_nif},
-    {"ecdh_compute_key_nif", 2, ecdh_compute_key_nif}
+    {"ec_key_generate", 2, ec_key_generate},
+    {"ecdsa_sign_nif", 4, ecdsa_sign_nif},
+    {"ecdsa_verify_nif", 5, ecdsa_verify_nif},
+    {"ecdh_compute_key_nif", 3, ecdh_compute_key_nif},
+
+    {"rand_seed_nif", 1, rand_seed_nif},
+
+    {"aes_gcm_encrypt", 5, aes_gcm_encrypt},
+    {"aes_gcm_decrypt", 5, aes_gcm_decrypt},
+
+    {"chacha20_poly1305_encrypt", 4, chacha20_poly1305_encrypt},
+    {"chacha20_poly1305_decrypt", 5, chacha20_poly1305_decrypt}
+
+
 };
-
-#if defined(HAVE_EC)
-struct nid_map {
-    char *name;
-    int nid;
-    ERL_NIF_TERM atom;
-};
-
-static struct nid_map ec_curves[] = {
-    /* prime field curves */
-    /* secg curves */
-    { "secp112r1", NID_secp112r1 },
-    { "secp112r2", NID_secp112r2 },
-    { "secp128r1", NID_secp128r1 },
-    { "secp128r2", NID_secp128r2 },
-    { "secp160k1", NID_secp160k1 },
-    { "secp160r1", NID_secp160r1 },
-    { "secp160r2", NID_secp160r2 },
-    /* SECG secp192r1 is the same as X9.62 prime192v1 */
-    { "secp192r1", NID_X9_62_prime192v1 },
-    { "secp192k1", NID_secp192k1 },
-    { "secp224k1", NID_secp224k1 },
-    { "secp224r1", NID_secp224r1 },
-    { "secp256k1", NID_secp256k1 },
-    /* SECG secp256r1 is the same as X9.62 prime256v1 */
-    { "secp256r1", NID_X9_62_prime256v1 },
-    { "secp384r1", NID_secp384r1 },
-    { "secp521r1", NID_secp521r1 },
-    /* X9.62 curves */
-    { "prime192v1", NID_X9_62_prime192v1 },
-    { "prime192v2", NID_X9_62_prime192v2 },
-    { "prime192v3", NID_X9_62_prime192v3 },
-    { "prime239v1", NID_X9_62_prime239v1 },
-    { "prime239v2", NID_X9_62_prime239v2 },
-    { "prime239v3", NID_X9_62_prime239v3 },
-    { "prime256v1", NID_X9_62_prime256v1 },
-    /* characteristic two field curves */
-    /* NIST/SECG curves */
-    { "sect113r1", NID_sect113r1 },
-    { "sect113r2", NID_sect113r2 },
-    { "sect131r1", NID_sect131r1 },
-    { "sect131r2", NID_sect131r2 },
-    { "sect163k1", NID_sect163k1 },
-    { "sect163r1", NID_sect163r1 },
-    { "sect163r2", NID_sect163r2 },
-    { "sect193r1", NID_sect193r1 },
-    { "sect193r2", NID_sect193r2 },
-    { "sect233k1", NID_sect233k1 },
-    { "sect233r1", NID_sect233r1 },
-    { "sect239k1", NID_sect239k1 },
-    { "sect283k1", NID_sect283k1 },
-    { "sect283r1", NID_sect283r1 },
-    { "sect409k1", NID_sect409k1 },
-    { "sect409r1", NID_sect409r1 },
-    { "sect571k1", NID_sect571k1 },
-    { "sect571r1", NID_sect571r1 },
-    /* X9.62 curves */
-    { "c2pnb163v1", NID_X9_62_c2pnb163v1 },
-    { "c2pnb163v2", NID_X9_62_c2pnb163v2 },
-    { "c2pnb163v3", NID_X9_62_c2pnb163v3 },
-    { "c2pnb176v1", NID_X9_62_c2pnb176v1 },
-    { "c2tnb191v1", NID_X9_62_c2tnb191v1 },
-    { "c2tnb191v2", NID_X9_62_c2tnb191v2 },
-    { "c2tnb191v3", NID_X9_62_c2tnb191v3 },
-    { "c2pnb208w1", NID_X9_62_c2pnb208w1 },
-    { "c2tnb239v1", NID_X9_62_c2tnb239v1 },
-    { "c2tnb239v2", NID_X9_62_c2tnb239v2 },
-    { "c2tnb239v3", NID_X9_62_c2tnb239v3 },
-    { "c2pnb272w1", NID_X9_62_c2pnb272w1 },
-    { "c2pnb304w1", NID_X9_62_c2pnb304w1 },
-    { "c2tnb359v1", NID_X9_62_c2tnb359v1 },
-    { "c2pnb368w1", NID_X9_62_c2pnb368w1 },
-    { "c2tnb431r1", NID_X9_62_c2tnb431r1 },
-    /* the WAP/WTLS curves
-     * [unlike SECG, spec has its own OIDs for curves from X9.62] */
-    { "wtls1", NID_wap_wsg_idm_ecid_wtls1 },
-    { "wtls3", NID_wap_wsg_idm_ecid_wtls3 },
-    { "wtls4", NID_wap_wsg_idm_ecid_wtls4 },
-    { "wtls5", NID_wap_wsg_idm_ecid_wtls5 },
-    { "wtls6", NID_wap_wsg_idm_ecid_wtls6 },
-    { "wtls7", NID_wap_wsg_idm_ecid_wtls7 },
-    { "wtls8", NID_wap_wsg_idm_ecid_wtls8 },
-    { "wtls9", NID_wap_wsg_idm_ecid_wtls9 },
-    { "wtls10", NID_wap_wsg_idm_ecid_wtls10 },
-    { "wtls11", NID_wap_wsg_idm_ecid_wtls11 },
-    { "wtls12", NID_wap_wsg_idm_ecid_wtls12 },
-    /* IPSec curves */
-    { "ipsec3", NID_ipsec3 },
-    { "ipsec4", NID_ipsec4 }
-};
-
-#define EC_CURVES_CNT (sizeof(ec_curves)/sizeof(struct nid_map))
-
-struct nif_ec_key {
-    EC_KEY *key;
-};
-#endif
 
 ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
 
 
-#define MD5_CTX_LEN     (sizeof(MD5_CTX))
-#define MD5_LEN         16
-#define MD5_LEN_96      12
-#define MD4_CTX_LEN     (sizeof(MD4_CTX))
-#define MD4_LEN         16
+#define MD5_CTX_LEN       (sizeof(MD5_CTX))
+#define MD4_CTX_LEN       (sizeof(MD4_CTX))
 #define RIPEMD160_CTX_LEN (sizeof(RIPEMD160_CTX))
-#define RIPEMD160_LEN   20
-#define SHA_CTX_LEN     (sizeof(SHA_CTX))
-#define SHA_LEN         20
-#define SHA_LEN_96      12
-#define SHA224_LEN	(224/8)
-#define SHA256_LEN	(256/8)
-#define SHA384_LEN	(384/8)
-#define SHA512_LEN	(512/8)
-#define HMAC_INT_LEN    64
-#define HMAC_INT2_LEN   128
-
-#define HMAC_IPAD       0x36
-#define HMAC_OPAD       0x5c
 
 
 static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_false;
 static ERL_NIF_TERM atom_sha;
-static ERL_NIF_TERM atom_sha224;
-static ERL_NIF_TERM atom_sha256;
-static ERL_NIF_TERM atom_sha384;
-static ERL_NIF_TERM atom_sha512;
-static ERL_NIF_TERM atom_md5;
-static ERL_NIF_TERM atom_md4;
-static ERL_NIF_TERM atom_ripemd160;
 static ERL_NIF_TERM atom_error;
 static ERL_NIF_TERM atom_rsa_pkcs1_padding;
 static ERL_NIF_TERM atom_rsa_pkcs1_oaep_padding;
@@ -528,37 +370,190 @@ static ERL_NIF_TERM atom_none;
 static ERL_NIF_TERM atom_notsup;
 static ERL_NIF_TERM atom_digest;
 
-static ERL_NIF_TERM atom_ec;
-
 #if defined(HAVE_EC)
+static ERL_NIF_TERM atom_ec;
 static ERL_NIF_TERM atom_prime_field;
 static ERL_NIF_TERM atom_characteristic_two_field;
 static ERL_NIF_TERM atom_tpbasis;
 static ERL_NIF_TERM atom_ppbasis;
 static ERL_NIF_TERM atom_onbasis;
-
-static ErlNifResourceType* res_type_ec_key;
-static void ec_key_dtor(ErlNifEnv* env, void* obj);
 #endif
+
+static ERL_NIF_TERM atom_aes_cfb8;
+static ERL_NIF_TERM atom_aes_cfb128;
+#ifdef HAVE_ECB_IVEC_BUG
+static ERL_NIF_TERM atom_aes_ecb;
+static ERL_NIF_TERM atom_des_ecb;
+static ERL_NIF_TERM atom_blowfish_ecb;
+#endif
+
+static ErlNifResourceType* hmac_context_rtype;
+struct hmac_context
+{
+    ErlNifMutex* mtx;
+    int alive;
+    HMAC_CTX ctx;
+};
+static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context*);
+
+struct digest_type_t {
+    union {
+	const char*  str;        /* before init, NULL for end-of-table */
+	ERL_NIF_TERM atom;       /* after init, 'false' for end-of-table */
+    }type;
+    union {
+	const EVP_MD* (*funcp)(void);  /* before init, NULL if notsup */
+	const EVP_MD* p;               /* after init, NULL if notsup */
+    }md;
+};
+
+struct digest_type_t digest_types[] =
+{
+    {{"md4"}, {&EVP_md4}},
+    {{"md5"}, {&EVP_md5}},
+    {{"ripemd160"}, {&EVP_ripemd160}},
+    {{"sha"}, {&EVP_sha1}},
+    {{"sha224"},
+#ifdef HAVE_SHA224
+     {&EVP_sha224}
+#else
+     {NULL}
+#endif
+    },
+    {{"sha256"},
+#ifdef HAVE_SHA256
+     {&EVP_sha256}
+#else
+     {NULL}
+#endif
+    },
+    {{"sha384"},
+#ifdef HAVE_SHA384
+     {&EVP_sha384}
+#else
+     {NULL}
+#endif
+    },
+    {{"sha512"},
+#ifdef HAVE_SHA512
+     {&EVP_sha512}
+#else
+     {NULL}
+#endif
+    },
+    {{NULL}}
+};
+
+static struct digest_type_t* get_digest_type(ERL_NIF_TERM type);
+
+struct cipher_type_t {
+    union {
+	const char* str;    /* before init */
+	ERL_NIF_TERM atom;  /* after init */
+    }type;
+    union {
+	const EVP_CIPHER* (*funcp)(void); /* before init, NULL if notsup */
+	const EVP_CIPHER* p;              /* after init, NULL if notsup */
+    }cipher;
+    const size_t key_len;      /* != 0 to also match on key_len */
+};
+
+struct cipher_type_t cipher_types[] =
+{
+    {{"rc2_cbc"}, {&EVP_rc2_cbc}},
+    {{"des_cbc"}, {&EVP_des_cbc}},
+    {{"des_cfb"}, {&EVP_des_cfb8}},
+    {{"des_ecb"}, {&EVP_des_ecb}},
+    {{"des_ede3_cbc"}, {&EVP_des_ede3_cbc}},
+    {{"des_ede3_cbf"},
+#ifdef HAVE_DES_ede3_cfb_encrypt
+     {&EVP_des_ede3_cfb8}
+#else
+     {NULL}
+#endif
+    },
+    {{"blowfish_cbc"}, {&EVP_bf_cbc}},
+    {{"blowfish_cfb64"}, {&EVP_bf_cfb64}},
+    {{"blowfish_ofb64"}, {&EVP_bf_ofb}},
+    {{"blowfish_ecb"}, {&EVP_bf_ecb}},
+    {{"aes_cbc"}, {&EVP_aes_128_cbc}, 16},
+    {{"aes_cbc"}, {&EVP_aes_192_cbc}, 24},
+    {{"aes_cbc"}, {&EVP_aes_256_cbc}, 32},
+    {{"aes_cbc128"}, {&EVP_aes_128_cbc}},
+    {{"aes_cbc256"}, {&EVP_aes_256_cbc}},
+    {{"aes_cfb8"}, {&EVP_aes_128_cfb8}},
+    {{"aes_cfb128"}, {&EVP_aes_128_cfb128}},
+    {{"aes_ecb"}, {&EVP_aes_128_ecb}, 16},
+    {{"aes_ecb"}, {&EVP_aes_192_ecb}, 24},
+    {{"aes_ecb"}, {&EVP_aes_256_ecb}, 32},
+    {{NULL}}
+};
+
+static struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len);
 
 /*
 #define PRINTF_ERR0(FMT) enif_fprintf(stderr, FMT "\n")
 #define PRINTF_ERR1(FMT, A1) enif_fprintf(stderr, FMT "\n", A1)
+#define PRINTF_ERR2(FMT, A1, A2) enif_fprintf(stderr, FMT "\n", A1, A2)
 */
 #define PRINTF_ERR0(FMT)
 #define PRINTF_ERR1(FMT,A1)
+#define PRINTF_ERR2(FMT,A1,A2)
+
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+/* Define resource types for OpenSSL context structures. */
+static ErlNifResourceType* evp_md_ctx_rtype;
+static void evp_md_ctx_dtor(ErlNifEnv* env, EVP_MD_CTX* ctx) {
+    EVP_MD_CTX_cleanup(ctx);
+}
+#endif
+
+#ifdef HAVE_EVP_AES_CTR
+static ErlNifResourceType* evp_cipher_ctx_rtype;
+static void evp_cipher_ctx_dtor(ErlNifEnv* env, EVP_CIPHER_CTX* ctx) {
+    EVP_CIPHER_CTX_cleanup(ctx);
+}
+#endif
+
+static int verify_lib_version(void)
+{
+    const unsigned long libv = SSLeay();
+    const unsigned long hdrv = OPENSSL_VERSION_NUMBER;
+
+#   define MAJOR_VER(V) ((unsigned long)(V) >> (7*4))
+
+    if (MAJOR_VER(libv) != MAJOR_VER(hdrv)) {
+	PRINTF_ERR2("CRYPTO: INCOMPATIBLE SSL VERSION"
+		    " lib=%lx header=%lx\n", libv, hdrv);
+	return 0;
+    }
+    return 1;
+}
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
-static int change_basename(char* buf, int bufsz, const char* newfile)
+
+# if defined(DEBUG)
+static char crypto_callback_name[] = "crypto_callback.debug";
+# elif defined(VALGRIND)
+static char crypto_callback_name[] = "crypto_callback.valgrind";
+# else
+static char crypto_callback_name[] = "crypto_callback";
+# endif
+
+static int change_basename(ErlNifBinary* bin, char* buf, int bufsz, const char* newfile)
 {
-    char* p = strrchr(buf, '/');
-    p = (p == NULL) ? buf : p + 1;
+    int i;
     
-    if ((p - buf) + strlen(newfile) >= bufsz) {
+    for (i = bin->size; i > 0; i--) {
+	if (bin->data[i-1] == '/')
+	    break;
+    }
+    if (i + strlen(newfile) >= bufsz) {
 	PRINTF_ERR0("CRYPTO: lib name too long");
 	return 0;
     }
-    strcpy(p, newfile);
+    memcpy(buf, bin->data, i);
+    strcpy(buf+i, newfile);
     return 1;
 }
 
@@ -570,34 +565,60 @@ static void error_handler(void* null, const char* errstr)
 
 static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
-    int i;
+#ifdef OPENSSL_THREADS
     ErlNifSysInfo sys_info;
+#endif
     get_crypto_callbacks_t* funcp;
     struct crypto_callbacks* ccb;
     int nlocks = 0;
     int tpl_arity;
     const ERL_NIF_TERM* tpl_array;
     int vernum;
+    ErlNifBinary lib_bin;
     char lib_buf[1000];
 
-    /* load_info: {201, "/full/path/of/this/library"} */
+    if (!verify_lib_version())
+	return 0;
+
+    /* load_info: {301, <<"/full/path/of/this/library">>} */
     if (!enif_get_tuple(env, load_info, &tpl_arity, &tpl_array)
 	|| tpl_arity != 2
 	|| !enif_get_int(env, tpl_array[0], &vernum)
-	|| vernum != 201
-	|| enif_get_string(env, tpl_array[1], lib_buf, sizeof(lib_buf), ERL_NIF_LATIN1) <= 0) {
+	|| vernum != 301
+	|| !enif_inspect_binary(env, tpl_array[1], &lib_bin)) {
 
 	PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
 	return 0;
     }
 
-#if defined(HAVE_EC)
-    res_type_ec_key = enif_open_resource_type(env,NULL,"crypto.EC_KEY",
-					      ec_key_dtor,
-					      ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
-					      NULL);
+    hmac_context_rtype = enif_open_resource_type(env, NULL, "hmac_context",
+						 (ErlNifResourceDtor*) hmac_context_dtor,
+						 ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+						 NULL);
+    if (!hmac_context_rtype) {
+	PRINTF_ERR0("CRYPTO: Could not open resource type 'hmac_context'");
+	return 0;
+    }
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+    evp_md_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_MD_CTX",
+                                               (ErlNifResourceDtor*) evp_md_ctx_dtor,
+                                               ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+                                               NULL);
+    if (!evp_md_ctx_rtype) {
+        PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_MD_CTX'");
+        return 0;
+    }
 #endif
-
+#ifdef HAVE_EVP_AES_CTR
+    evp_cipher_ctx_rtype = enif_open_resource_type(env, NULL, "EVP_CIPHER_CTX",
+                                                   (ErlNifResourceDtor*) evp_cipher_ctx_dtor,
+                                                   ERL_NIF_RT_CREATE|ERL_NIF_RT_TAKEOVER,
+                                                   NULL);
+    if (!evp_cipher_ctx_rtype) {
+        PRINTF_ERR0("CRYPTO: Could not open resource type 'EVP_CIPHER_CTX'");
+        return 0;
+    }
+#endif
     if (library_refc > 0) {
 	/* Repeated loading of this library (module upgrade).
 	 * Atoms and callbacks are already set, we are done.
@@ -605,16 +626,9 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	return 1;
     }
 
-    atom_true = enif_make_atom(env,"true");
+    atom_true  = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
     atom_sha = enif_make_atom(env,"sha");
-    atom_sha224 = enif_make_atom(env,"sha224");
-    atom_sha256 = enif_make_atom(env,"sha256");
-    atom_sha384 = enif_make_atom(env,"sha384");
-    atom_sha512 = enif_make_atom(env,"sha512");
-    atom_md4 = enif_make_atom(env,"md4");
-    atom_md5 = enif_make_atom(env,"md5");
-    atom_ripemd160 = enif_make_atom(env,"ripemd160");
     atom_error = enif_make_atom(env,"error");
     atom_rsa_pkcs1_padding = enif_make_atom(env,"rsa_pkcs1_padding");
     atom_rsa_pkcs1_oaep_padding = enif_make_atom(env,"rsa_pkcs1_oaep_padding");
@@ -638,18 +652,23 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_tpbasis = enif_make_atom(env,"tpbasis");
     atom_ppbasis = enif_make_atom(env,"ppbasis");
     atom_onbasis = enif_make_atom(env,"onbasis");
-
-    for (i = 0; i < EC_CURVES_CNT; i++)
-	    ec_curves[i].atom =  enif_make_atom(env,ec_curves[i].name);
+#endif
+    atom_aes_cfb8 = enif_make_atom(env, "aes_cfb8");
+    atom_aes_cfb128 = enif_make_atom(env, "aes_cfb128");
+#ifdef HAVE_ECB_IVEC_BUG
+    atom_aes_ecb = enif_make_atom(env, "aes_ecb");
+    atom_des_ecb = enif_make_atom(env, "des_ecb");
+    atom_blowfish_ecb = enif_make_atom(env, "blowfish_ecb");
 #endif
 
     init_digest_types(env);
-    init_algorithms_types();
+    init_cipher_types(env);
+    init_algorithms_types(env);
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
     {
 	void* handle;
-	if (!change_basename(lib_buf, sizeof(lib_buf), "crypto_callback")) {
+	if (!change_basename(&lib_bin, lib_buf, sizeof(lib_buf), crypto_callback_name)) {
 	    return 0;
 	}
 	if (!(handle = enif_dlopen(lib_buf, &error_handler, NULL))) {
@@ -725,36 +744,91 @@ static void unload(ErlNifEnv* env, void* priv_data)
     --library_refc;
 }
 
-static int algos_cnt;
-static ERL_NIF_TERM algos[9];   /* increase when extending the list */
+static int algo_hash_cnt;
+static ERL_NIF_TERM algo_hash[8];   /* increase when extending the list */
+static int algo_pubkey_cnt;
+static ERL_NIF_TERM algo_pubkey[7]; /* increase when extending the list */
+static int algo_cipher_cnt;
+static ERL_NIF_TERM algo_cipher[20]; /* increase when extending the list */
 
-static void init_algorithms_types(void)
+static void init_algorithms_types(ErlNifEnv* env)
 {
-    algos_cnt = 0;
-    algos[algos_cnt++] = atom_md4;
-    algos[algos_cnt++] = atom_md5;
-    algos[algos_cnt++] = atom_sha;
-    algos[algos_cnt++] = atom_ripemd160;
+    algo_hash_cnt = 0;
+    algo_hash[algo_hash_cnt++] = atom_sha;
 #ifdef HAVE_SHA224
-    algos[algos_cnt++] = atom_sha224;
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha224");
 #endif
 #ifdef HAVE_SHA256
-    algos[algos_cnt++] = atom_sha256;
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha256");
 #endif
 #ifdef HAVE_SHA384
-    algos[algos_cnt++] = atom_sha384;
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha384");
 #endif
 #ifdef HAVE_SHA512
-    algos[algos_cnt++] = atom_sha512;
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "sha512");
 #endif
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "md4");
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "md5");
+    algo_hash[algo_hash_cnt++] = enif_make_atom(env, "ripemd160");
+
+    algo_pubkey_cnt = 0;
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "rsa");
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "dss");
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "dh");
 #if defined(HAVE_EC)
-    algos[algos_cnt++] = atom_ec;
+#if !defined(OPENSSL_NO_EC2M)
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "ec_gf2m");
 #endif
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "ecdsa");
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "ecdh");
+#endif
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
+
+    algo_cipher_cnt = 0;
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbc");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des_ede3");
+#ifdef HAVE_DES_ede3_cfb_encrypt
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "des3_cbf");
+#endif
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc128");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb8");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cfb128");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_cbc256");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ctr");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env, "aes_ecb");
+#ifdef HAVE_AES_IGE
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_ige256");
+#endif
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"des_cbc");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"des_cfb");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_cbc");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_cfb64");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_ofb64");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"blowfish_ecb");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc2_cbc");
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"rc4");
+#if defined(HAVE_GCM)
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"aes_gcm");
+#endif
+#if defined(HAVE_CHACHA20_POLY1305)
+    algo_cipher[algo_cipher_cnt++] = enif_make_atom(env,"chacha20_poly1305");
+#endif
+
+    ASSERT(algo_hash_cnt <= sizeof(algo_hash)/sizeof(ERL_NIF_TERM));
+    ASSERT(algo_pubkey_cnt <= sizeof(algo_pubkey)/sizeof(ERL_NIF_TERM));
+    ASSERT(algo_cipher_cnt <= sizeof(algo_cipher)/sizeof(ERL_NIF_TERM));
 }
 
 static ERL_NIF_TERM algorithms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    return enif_make_list_from_array(env, algos, algos_cnt);
+    int hash_cnt   = algo_hash_cnt;
+    int pubkey_cnt = algo_pubkey_cnt;
+    int cipher_cnt = algo_cipher_cnt;
+    return enif_make_tuple3(env,
+			    enif_make_list_from_array(env, algo_hash,   hash_cnt),
+			    enif_make_list_from_array(env, algo_pubkey, pubkey_cnt),
+			    enif_make_list_from_array(env, algo_cipher, cipher_cnt));
 }
 
 static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -784,663 +858,486 @@ static ERL_NIF_TERM info_lib(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 						 ver_term));
 }
 
-static ERL_NIF_TERM md5(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data) */
-    ErlNifBinary ibin;
-    ERL_NIF_TERM ret;
+static ERL_NIF_TERM make_badarg_maybe(ErlNifEnv* env)
+{
+    ERL_NIF_TERM reason;
+    if (enif_has_pending_exception(env, &reason))
+	return reason; /* dummy return value ignored */
+    else
+	return enif_make_badarg(env);
+}
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
+static ERL_NIF_TERM hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type, Data) */
+    struct digest_type_t *digp = NULL;
+    const EVP_MD         *md;
+    ErlNifBinary         data;
+    ERL_NIF_TERM         ret;
+    unsigned             ret_size;
+
+    digp = get_digest_type(argv[0]);
+    if (!digp ||
+        !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
 	return enif_make_badarg(env);
     }
-    MD5((unsigned char *) ibin.data, ibin.size,
-	enif_make_new_binary(env,MD5_LEN, &ret));
-    CONSUME_REDS(env,ibin);
+    md = digp->md.p;
+    if (!md) {
+	return atom_notsup;
+    }
+
+    ret_size = (unsigned)EVP_MD_size(md);
+    ASSERT(0 < ret_size && ret_size <= EVP_MAX_MD_SIZE);
+    if (!EVP_Digest(data.data, data.size,
+                    enif_make_new_binary(env, ret_size, &ret), &ret_size,
+                    md, NULL)) {
+        return atom_notsup;
+    }
+    ASSERT(ret_size == (unsigned)EVP_MD_size(md));
+
+    CONSUME_REDS(env, data);
     return ret;
 }
-static ERL_NIF_TERM md5_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* () */   
-    ERL_NIF_TERM ret;
-    MD5_Init((MD5_CTX *) enif_make_new_binary(env, MD5_CTX_LEN, &ret));
+
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+
+static ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type) */
+    struct digest_type_t *digp = NULL;
+    EVP_MD_CTX           *ctx;
+    ERL_NIF_TERM         ret;
+
+    digp = get_digest_type(argv[0]);
+    if (!digp) {
+	return enif_make_badarg(env);
+    }
+    if (!digp->md.p) {
+	return atom_notsup;
+    }
+
+    ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(EVP_MD_CTX));
+    if (!EVP_DigestInit(ctx, digp->md.p)) {
+        enif_release_resource(ctx);
+        return atom_notsup;
+    }
+    ret = enif_make_resource(env, ctx);
+    enif_release_resource(ctx);
     return ret;
 }
-static ERL_NIF_TERM md5_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data) */
-    MD5_CTX* new_ctx;
-    ErlNifBinary ctx_bin, data_bin;
+    EVP_MD_CTX   *ctx, *new_ctx;
+    ErlNifBinary data;
     ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin)
-	|| ctx_bin.size != MD5_CTX_LEN
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
-	return enif_make_badarg(env);
+
+    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx) ||
+        !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
+        return enif_make_badarg(env);
     }
-    new_ctx = (MD5_CTX*) enif_make_new_binary(env,MD5_CTX_LEN, &ret);
-    memcpy(new_ctx, ctx_bin.data, MD5_CTX_LEN);
-    MD5_Update(new_ctx, data_bin.data, data_bin.size);
-    CONSUME_REDS(env,data_bin);
+
+    new_ctx = enif_alloc_resource(evp_md_ctx_rtype, sizeof(EVP_MD_CTX));
+    if (!EVP_MD_CTX_copy(new_ctx, ctx) ||
+        !EVP_DigestUpdate(new_ctx, data.data, data.size)) {
+        enif_release_resource(new_ctx);
+        return atom_notsup;
+    }
+
+    ret = enif_make_resource(env, new_ctx);
+    enif_release_resource(new_ctx);
+    CONSUME_REDS(env, data);
     return ret;
 }
-static ERL_NIF_TERM md5_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context) */
-    ErlNifBinary ctx_bin;
-    MD5_CTX ctx_clone; 
-    ERL_NIF_TERM ret;    
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != MD5_CTX_LEN) {
-	return enif_make_badarg(env);
+    EVP_MD_CTX    *ctx, new_ctx;
+    ERL_NIF_TERM  ret;
+    unsigned      ret_size;
+
+    if (!enif_get_resource(env, argv[0], evp_md_ctx_rtype, (void**)&ctx)) {
+        return enif_make_badarg(env);
     }
-    memcpy(&ctx_clone, ctx_bin.data, MD5_CTX_LEN); /* writable */
-    MD5_Final(enif_make_new_binary(env, MD5_LEN, &ret), &ctx_clone);
+
+    ret_size = (unsigned)EVP_MD_CTX_size(ctx);
+    ASSERT(0 < ret_size && ret_size <= EVP_MAX_MD_SIZE);
+
+    if (!EVP_MD_CTX_copy(&new_ctx, ctx) ||
+        !EVP_DigestFinal(&new_ctx,
+                         enif_make_new_binary(env, ret_size, &ret),
+                         &ret_size)) {
+        return atom_notsup;
+    }
+    ASSERT(ret_size == (unsigned)EVP_MD_CTX_size(ctx));
+
     return ret;
 }
 
-static ERL_NIF_TERM ripemd160(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data) */
-    ErlNifBinary ibin;
-    ERL_NIF_TERM ret;
+#else /* if OPENSSL_VERSION_NUMBER < 1.0 */
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
-	return enif_make_badarg(env);
-    }
-    RIPEMD160((unsigned char *) ibin.data, ibin.size,
-	      enif_make_new_binary(env,RIPEMD160_LEN, &ret));
-    CONSUME_REDS(env,ibin);
-    return ret;
-}
-static ERL_NIF_TERM ripemd160_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* () */
-    ERL_NIF_TERM ret;
-    RIPEMD160_Init((RIPEMD160_CTX *) enif_make_new_binary(env, RIPEMD160_CTX_LEN, &ret));
-    return ret;
-}
-static ERL_NIF_TERM ripemd160_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context, Data) */
-    RIPEMD160_CTX* new_ctx;
-    ErlNifBinary ctx_bin, data_bin;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin)
-	|| ctx_bin.size != RIPEMD160_CTX_LEN
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
-	return enif_make_badarg(env);
-    }
-    new_ctx = (RIPEMD160_CTX*) enif_make_new_binary(env,RIPEMD160_CTX_LEN, &ret);
-    memcpy(new_ctx, ctx_bin.data, RIPEMD160_CTX_LEN);
-    RIPEMD160_Update(new_ctx, data_bin.data, data_bin.size);
-    CONSUME_REDS(env, data_bin);
-    return ret;
-}
-static ERL_NIF_TERM ripemd160_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context) */
-    ErlNifBinary ctx_bin;
-    RIPEMD160_CTX ctx_clone;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != RIPEMD160_CTX_LEN) {
-	return enif_make_badarg(env);
-    }
-    memcpy(&ctx_clone, ctx_bin.data, RIPEMD160_CTX_LEN); /* writable */
-    RIPEMD160_Final(enif_make_new_binary(env, RIPEMD160_LEN, &ret), &ctx_clone);
-    return ret;
-}
+static ERL_NIF_TERM hash_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type) */
+    typedef int (*init_fun)(unsigned char*);
+    struct digest_type_t *digp = NULL;
+    ERL_NIF_TERM         ctx;
+    size_t               ctx_size = 0;
+    init_fun             ctx_init = 0;
 
-
-static ERL_NIF_TERM sha(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data) */    
-    ErlNifBinary ibin;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
+    digp = get_digest_type(argv[0]);
+    if (!digp) {
 	return enif_make_badarg(env);
     }
-    SHA1((unsigned char *) ibin.data, ibin.size,
-	 enif_make_new_binary(env,SHA_LEN, &ret));
-    CONSUME_REDS(env,ibin);
-    return ret;
-}
-static ERL_NIF_TERM sha_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* () */   
-    ERL_NIF_TERM ret;
-    SHA1_Init((SHA_CTX *) enif_make_new_binary(env, SHA_CTX_LEN, &ret));
-    return ret;
-}
-static ERL_NIF_TERM sha_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context, Data) */
-    SHA_CTX* new_ctx;
-    ErlNifBinary ctx_bin, data_bin;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != SHA_CTX_LEN
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
-	return enif_make_badarg(env);
+    if (!digp->md.p) {
+	return atom_notsup;
     }
-    new_ctx = (SHA_CTX*) enif_make_new_binary(env,SHA_CTX_LEN, &ret);
-    memcpy(new_ctx, ctx_bin.data, SHA_CTX_LEN);
-    SHA1_Update(new_ctx, data_bin.data, data_bin.size);
-    CONSUME_REDS(env,data_bin);
-    return ret;
-}
-static ERL_NIF_TERM sha_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context) */
-    ErlNifBinary ctx_bin;
-    SHA_CTX ctx_clone;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != SHA_CTX_LEN) {
-	return enif_make_badarg(env);
-    }
-    memcpy(&ctx_clone, ctx_bin.data, SHA_CTX_LEN); /* writable */
-    SHA1_Final(enif_make_new_binary(env, SHA_LEN, &ret), &ctx_clone);    
-    return ret;
-}
 
-static ERL_NIF_TERM sha224_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data) */
+    switch (EVP_MD_type(digp->md.p))
+    {
+    case NID_md4:
+        ctx_size = MD4_CTX_LEN;
+        ctx_init = (init_fun)(&MD4_Init);
+        break;
+    case NID_md5:
+        ctx_size = MD5_CTX_LEN;
+        ctx_init = (init_fun)(&MD5_Init);
+        break;
+    case NID_ripemd160:
+        ctx_size = RIPEMD160_CTX_LEN;
+        ctx_init = (init_fun)(&RIPEMD160_Init);
+        break;
+    case NID_sha1:
+        ctx_size = sizeof(SHA_CTX);
+        ctx_init = (init_fun)(&SHA1_Init);
+        break;
 #ifdef HAVE_SHA224
-    ErlNifBinary ibin;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
-	return enif_make_badarg(env);
-    }
-    SHA224((unsigned char *) ibin.data, ibin.size,
-	 enif_make_new_binary(env,SHA224_LEN, &ret));
-    CONSUME_REDS(env,ibin);
-    return ret;
-#else
-    return atom_notsup;
+    case NID_sha224:
+        ctx_size = sizeof(SHA256_CTX);
+        ctx_init = (init_fun)(&SHA224_Init);
+        break;
 #endif
+#ifdef HAVE_SHA256
+    case NID_sha256:
+        ctx_size = sizeof(SHA256_CTX);
+        ctx_init = (init_fun)(&SHA256_Init);
+        break;
+#endif
+#ifdef HAVE_SHA384
+    case NID_sha384:
+        ctx_size = sizeof(SHA512_CTX);
+        ctx_init = (init_fun)(&SHA384_Init);
+        break;
+#endif
+#ifdef HAVE_SHA512
+    case NID_sha512:
+        ctx_size = sizeof(SHA512_CTX);
+        ctx_init = (init_fun)(&SHA512_Init);
+        break;
+#endif
+    default:
+        return atom_notsup;
+    }
+    ASSERT(ctx_size);
+    ASSERT(ctx_init);
+
+    ctx_init(enif_make_new_binary(env, ctx_size, &ctx));
+    return enif_make_tuple2(env, argv[0], ctx);
 }
-static ERL_NIF_TERM sha224_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* () */
+static ERL_NIF_TERM hash_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* ({Type, Context}, Data) */
+    typedef int (*update_fun)(unsigned char*, const unsigned char*, size_t);
+    ERL_NIF_TERM         new_ctx;
+    ErlNifBinary         ctx, data;
+    const ERL_NIF_TERM   *tuple;
+    int                  arity;
+    struct digest_type_t *digp = NULL;
+    unsigned char        *ctx_buff;
+    size_t               ctx_size   = 0;
+    update_fun           ctx_update = 0;
+
+    if (!enif_get_tuple(env, argv[0], &arity, &tuple) ||
+        arity != 2 ||
+        !(digp = get_digest_type(tuple[0])) ||
+        !enif_inspect_binary(env, tuple[1], &ctx) ||
+        !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
+        return enif_make_badarg(env);
+    }
+    if (!digp->md.p) {
+	return atom_notsup;
+    }
+
+    switch (EVP_MD_type(digp->md.p))
+    {
+    case NID_md4:
+        ctx_size   = MD4_CTX_LEN;
+        ctx_update = (update_fun)(&MD4_Update);
+        break;
+    case NID_md5:
+        ctx_size   = MD5_CTX_LEN;
+        ctx_update = (update_fun)(&MD5_Update);
+        break;
+    case NID_ripemd160:
+        ctx_size   = RIPEMD160_CTX_LEN;
+        ctx_update = (update_fun)(&RIPEMD160_Update);
+        break;
+    case NID_sha1:
+        ctx_size   = sizeof(SHA_CTX);
+        ctx_update = (update_fun)(&SHA1_Update);
+        break;
 #ifdef HAVE_SHA224
-    ERL_NIF_TERM ret;
-    SHA224_Init((SHA256_CTX *) enif_make_new_binary(env, sizeof(SHA256_CTX), &ret));
-    return ret;
-#else
-    return atom_notsup;
+    case NID_sha224:
+        ctx_size   = sizeof(SHA256_CTX);
+        ctx_update = (update_fun)(&SHA224_Update);
+        break;
 #endif
+#ifdef HAVE_SHA256
+    case NID_sha256:
+        ctx_size   = sizeof(SHA256_CTX);
+        ctx_update = (update_fun)(&SHA256_Update);
+        break;
+#endif
+#ifdef HAVE_SHA384
+    case NID_sha384:
+        ctx_size   = sizeof(SHA512_CTX);
+        ctx_update = (update_fun)(&SHA384_Update);
+        break;
+#endif
+#ifdef HAVE_SHA512
+    case NID_sha512:
+        ctx_size   = sizeof(SHA512_CTX);
+        ctx_update = (update_fun)(&SHA512_Update);
+        break;
+#endif
+    default:
+        return atom_notsup;
+    }
+    ASSERT(ctx_size);
+    ASSERT(ctx_update);
+
+    if (ctx.size != ctx_size) {
+        return enif_make_badarg(env);
+    }
+
+    ctx_buff = enif_make_new_binary(env, ctx_size, &new_ctx);
+    memcpy(ctx_buff, ctx.data, ctx_size);
+    ctx_update(ctx_buff, data.data, data.size);
+
+    CONSUME_REDS(env, data);
+    return enif_make_tuple2(env, tuple[0], new_ctx);
 }
-static ERL_NIF_TERM sha224_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context, Data) */
+static ERL_NIF_TERM hash_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* ({Type, Context}) */
+    typedef int (*final_fun)(unsigned char*, void*);
+    ERL_NIF_TERM         ret;
+    ErlNifBinary         ctx;
+    const ERL_NIF_TERM   *tuple;
+    int                  arity;
+    struct digest_type_t *digp = NULL;
+    const EVP_MD         *md;
+    void                 *new_ctx;
+    size_t               ctx_size  = 0;
+    final_fun            ctx_final = 0;
+
+    if (!enif_get_tuple(env, argv[0], &arity, &tuple) ||
+        arity != 2 ||
+        !(digp = get_digest_type(tuple[0])) ||
+        !enif_inspect_binary(env, tuple[1], &ctx)) {
+        return enif_make_badarg(env);
+    }
+    md = digp->md.p;
+    if (!md) {
+	return atom_notsup;
+    }
+
+
+    switch (EVP_MD_type(md))
+    {
+    case NID_md4:
+        ctx_size  = MD4_CTX_LEN;
+        ctx_final = (final_fun)(&MD4_Final);
+        break;
+    case NID_md5:
+        ctx_size  = MD5_CTX_LEN;
+        ctx_final = (final_fun)(&MD5_Final);
+        break;
+    case NID_ripemd160:
+        ctx_size  = RIPEMD160_CTX_LEN;
+        ctx_final = (final_fun)(&RIPEMD160_Final);
+        break;
+    case NID_sha1:
+        ctx_size  = sizeof(SHA_CTX);
+        ctx_final = (final_fun)(&SHA1_Final);
+        break;
 #ifdef HAVE_SHA224
-    SHA256_CTX* new_ctx;
-    ErlNifBinary ctx_bin, data_bin;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA256_CTX)
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
-	return enif_make_badarg(env);
-    }
-    new_ctx = (SHA256_CTX*) enif_make_new_binary(env,sizeof(SHA256_CTX), &ret);
-    memcpy(new_ctx, ctx_bin.data, sizeof(SHA256_CTX));
-    SHA224_Update(new_ctx, data_bin.data, data_bin.size);
-    CONSUME_REDS(env,data_bin);
-    return ret;
-#else
-    return atom_notsup;
+    case NID_sha224:
+        ctx_size  = sizeof(SHA256_CTX);
+        ctx_final = (final_fun)(&SHA224_Final);
+        break;
 #endif
-}
-static ERL_NIF_TERM sha224_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context) */
-#ifdef HAVE_SHA224
-    ErlNifBinary ctx_bin;
-    SHA256_CTX ctx_clone;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA256_CTX)) {
-	return enif_make_badarg(env);
-    }
-    memcpy(&ctx_clone, ctx_bin.data, sizeof(SHA256_CTX)); /* writable */
-    SHA224_Final(enif_make_new_binary(env, SHA224_LEN, &ret), &ctx_clone);
-    return ret;
-#else
-    return atom_notsup;
-#endif
-}
-
-static ERL_NIF_TERM sha256_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data) */
 #ifdef HAVE_SHA256
-    ErlNifBinary ibin;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
-	return enif_make_badarg(env);
-    }
-    SHA256((unsigned char *) ibin.data, ibin.size,
-	 enif_make_new_binary(env,SHA256_LEN, &ret));
-    CONSUME_REDS(env,ibin);
-    return ret;
-#else
-    return atom_notsup;
+    case NID_sha256:
+        ctx_size  = sizeof(SHA256_CTX);
+        ctx_final = (final_fun)(&SHA256_Final);
+        break;
 #endif
-}
-static ERL_NIF_TERM sha256_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* () */   
-#ifdef HAVE_SHA256
-    ERL_NIF_TERM ret;
-    SHA256_Init((SHA256_CTX *) enif_make_new_binary(env, sizeof(SHA256_CTX), &ret));
-    return ret;
-#else
-    return atom_notsup;
-#endif
-}
-static ERL_NIF_TERM sha256_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context, Data) */
-#ifdef HAVE_SHA256
-    SHA256_CTX* new_ctx;
-    ErlNifBinary ctx_bin, data_bin;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA256_CTX)
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
-	return enif_make_badarg(env);
-    }
-    new_ctx = (SHA256_CTX*) enif_make_new_binary(env,sizeof(SHA256_CTX), &ret);
-    memcpy(new_ctx, ctx_bin.data, sizeof(SHA256_CTX));
-    SHA256_Update(new_ctx, data_bin.data, data_bin.size);
-    CONSUME_REDS(env,data_bin);
-    return ret;
-#else
-    return atom_notsup;
-#endif
-}
-static ERL_NIF_TERM sha256_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context) */
-#ifdef HAVE_SHA256
-    ErlNifBinary ctx_bin;
-    SHA256_CTX ctx_clone;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA256_CTX)) {
-	return enif_make_badarg(env);
-    }
-    memcpy(&ctx_clone, ctx_bin.data, sizeof(SHA256_CTX)); /* writable */
-    SHA256_Final(enif_make_new_binary(env, SHA256_LEN, &ret), &ctx_clone);    
-    return ret;
-#else
-    return atom_notsup;
-#endif
-}
-
-static ERL_NIF_TERM sha384_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data) */
 #ifdef HAVE_SHA384
-    ErlNifBinary ibin;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
-	return enif_make_badarg(env);
-    }
-    SHA384((unsigned char *) ibin.data, ibin.size,
-	 enif_make_new_binary(env,SHA384_LEN, &ret));
-    CONSUME_REDS(env,ibin);
-    return ret;
-#else
-    return atom_notsup;
+    case NID_sha384:
+        ctx_size  = sizeof(SHA512_CTX);
+        ctx_final = (final_fun)(&SHA384_Final);
+        break;
 #endif
-}
-static ERL_NIF_TERM sha384_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* () */
-#ifdef HAVE_SHA384
-    ERL_NIF_TERM ret;
-    SHA384_Init((SHA512_CTX *) enif_make_new_binary(env, sizeof(SHA512_CTX), &ret));
-    return ret;
-#else
-    return atom_notsup;
-#endif
-}
-static ERL_NIF_TERM sha384_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context, Data) */
-#ifdef HAVE_SHA384
-    SHA512_CTX* new_ctx;
-    ErlNifBinary ctx_bin, data_bin;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA512_CTX)
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
-	return enif_make_badarg(env);
-    }
-    new_ctx = (SHA512_CTX*) enif_make_new_binary(env,sizeof(SHA512_CTX), &ret);
-    memcpy(new_ctx, ctx_bin.data, sizeof(SHA512_CTX));
-    SHA384_Update(new_ctx, data_bin.data, data_bin.size);
-    CONSUME_REDS(env,data_bin);
-    return ret;
-#else
-    return atom_notsup;
-#endif
-}
-static ERL_NIF_TERM sha384_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context) */
-#ifdef HAVE_SHA384
-    ErlNifBinary ctx_bin;
-    SHA512_CTX ctx_clone;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA512_CTX)) {
-	return enif_make_badarg(env);
-    }
-    memcpy(&ctx_clone, ctx_bin.data, sizeof(SHA512_CTX)); /* writable */
-    SHA384_Final(enif_make_new_binary(env, SHA384_LEN, &ret), &ctx_clone);
-    return ret;
-#else
-    return atom_notsup;
-#endif
-}
-
-static ERL_NIF_TERM sha512_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data) */
 #ifdef HAVE_SHA512
-    ErlNifBinary ibin;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
-	return enif_make_badarg(env);
-    }
-    SHA512((unsigned char *) ibin.data, ibin.size,
-	 enif_make_new_binary(env,SHA512_LEN, &ret));
-    CONSUME_REDS(env,ibin);
-    return ret;
-#else
-    return atom_notsup;
+    case NID_sha512:
+        ctx_size  = sizeof(SHA512_CTX);
+        ctx_final = (final_fun)(&SHA512_Final);
+        break;
 #endif
-}
-static ERL_NIF_TERM sha512_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* () */   
-#ifdef HAVE_SHA512
-    ERL_NIF_TERM ret;
-    SHA512_Init((SHA512_CTX *) enif_make_new_binary(env, sizeof(SHA512_CTX), &ret));
-    return ret;
-#else
-    return atom_notsup;
-#endif
-}
-static ERL_NIF_TERM sha512_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context, Data) */
-#ifdef HAVE_SHA512
-    SHA512_CTX* new_ctx;
-    ErlNifBinary ctx_bin, data_bin;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA512_CTX)
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
-	return enif_make_badarg(env);
+    default:
+        return atom_notsup;
     }
-    new_ctx = (SHA512_CTX*) enif_make_new_binary(env,sizeof(SHA512_CTX), &ret);
-    memcpy(new_ctx, ctx_bin.data, sizeof(SHA512_CTX));
-    SHA512_Update(new_ctx, data_bin.data, data_bin.size);
-    CONSUME_REDS(env,data_bin);
-    return ret;
-#else
-    return atom_notsup;
-#endif
-}
-static ERL_NIF_TERM sha512_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context) */
-#ifdef HAVE_SHA512
-    ErlNifBinary ctx_bin;
-    SHA512_CTX ctx_clone;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA512_CTX)) {
-	return enif_make_badarg(env);
+    ASSERT(ctx_size);
+    ASSERT(ctx_final);
+
+    if (ctx.size != ctx_size) {
+        return enif_make_badarg(env);
     }
-    memcpy(&ctx_clone, ctx_bin.data, sizeof(SHA512_CTX)); /* writable */
-    SHA512_Final(enif_make_new_binary(env, SHA512_LEN, &ret), &ctx_clone);    
+
+    new_ctx = enif_alloc(ctx_size);
+    memcpy(new_ctx, ctx.data, ctx_size);
+    ctx_final(enif_make_new_binary(env, (size_t)EVP_MD_size(md), &ret),
+              new_ctx);
+    enif_free(new_ctx);
+
     return ret;
-#else
-    return atom_notsup;
-#endif
 }
+#endif  /* OPENSSL_VERSION_NUMBER < 1.0 */
 
+static ERL_NIF_TERM hmac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type, Key, Data) or (Type, Key, Data, MacSize) */
+    struct digest_type_t *digp = NULL;
+    ErlNifBinary         key, data;
+    unsigned char        buff[EVP_MAX_MD_SIZE];
+    unsigned             size = 0, req_size = 0;
+    ERL_NIF_TERM         ret;
 
-static ERL_NIF_TERM md4(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data) */    
-    ErlNifBinary ibin;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
-	return enif_make_badarg(env);
+    digp = get_digest_type(argv[0]);
+    if (!digp ||
+        !enif_inspect_iolist_as_binary(env, argv[1], &key) ||
+        !enif_inspect_iolist_as_binary(env, argv[2], &data) ||
+        (argc == 4 && !enif_get_uint(env, argv[3], &req_size))) {
+        return enif_make_badarg(env);
     }
-    MD4((unsigned char *) ibin.data, ibin.size,
-	enif_make_new_binary(env,MD4_LEN, &ret));
-    CONSUME_REDS(env,ibin);
-    return ret;
-}
-static ERL_NIF_TERM md4_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* () */   
-    ERL_NIF_TERM ret;
-    MD4_Init((MD4_CTX *) enif_make_new_binary(env, MD4_CTX_LEN, &ret));
-    return ret;
-}
-static ERL_NIF_TERM md4_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context, Data) */
-    MD4_CTX* new_ctx;
-    ErlNifBinary ctx_bin, data_bin;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != MD4_CTX_LEN
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
-	return enif_make_badarg(env);
+
+    if (!digp->md.p ||
+        !HMAC(digp->md.p,
+              key.data, key.size,
+              data.data, data.size,
+              buff, &size)) {
+        return atom_notsup;
     }
-    new_ctx = (MD4_CTX*) enif_make_new_binary(env,MD4_CTX_LEN, &ret);
-    memcpy(new_ctx, ctx_bin.data, MD4_CTX_LEN);
-    MD4_Update(new_ctx, data_bin.data, data_bin.size);
-    CONSUME_REDS(env,data_bin);
-    return ret;
-}
-static ERL_NIF_TERM md4_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context) */
-    ErlNifBinary ctx_bin;
-    MD4_CTX ctx_clone;
-    ERL_NIF_TERM ret;    
-    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != MD4_CTX_LEN) {
-	return enif_make_badarg(env);
+    ASSERT(0 < size && size <= EVP_MAX_MD_SIZE);
+    CONSUME_REDS(env, data);
+
+    if (argc == 4) {
+        if (req_size <= size) {
+            size = req_size;
+        }
+        else {
+            return enif_make_badarg(env);
+        }
     }
-    memcpy(&ctx_clone, ctx_bin.data, MD4_CTX_LEN); /* writable */
-    MD4_Final(enif_make_new_binary(env, MD4_LEN, &ret), &ctx_clone);    
+    memcpy(enif_make_new_binary(env, size, &ret), buff, size);
     return ret;
 }
 
-static ERL_NIF_TERM md5_mac_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, Data, MacSize) */
-    unsigned char hmacbuf[SHA_DIGEST_LENGTH];
-    ErlNifBinary key, data;
-    unsigned mac_sz;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)
-	|| !enif_get_uint(env,argv[2],&mac_sz) || mac_sz > MD5_LEN) {
-	return enif_make_badarg(env);
+static void hmac_context_dtor(ErlNifEnv* env, struct hmac_context *obj)
+{
+    if (obj->alive) {
+	HMAC_CTX_cleanup(&obj->ctx);
+	obj->alive = 0;
     }
-    hmac_md5(key.data, key.size, data.data, data.size, hmacbuf);
-    memcpy(enif_make_new_binary(env, mac_sz, &ret), hmacbuf, mac_sz);
-    CONSUME_REDS(env,data);
-    return ret;
+    enif_mutex_destroy(obj->mtx);
 }
 
-static ERL_NIF_TERM sha_mac_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, Data, MacSize) */
-    unsigned char hmacbuf[SHA_DIGEST_LENGTH];
-    ErlNifBinary key, data;
-    unsigned mac_sz;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)
-	|| !enif_get_uint(env,argv[2],&mac_sz) || mac_sz > SHA_LEN) {
-	return enif_make_badarg(env);
-    }
-    hmac_sha1(key.data, key.size, data.data, data.size, hmacbuf);
-    memcpy(enif_make_new_binary(env, mac_sz, &ret),
-	   hmacbuf, mac_sz);
-    CONSUME_REDS(env,data);
-    return ret;
-}
-
-static ERL_NIF_TERM sha224_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, Data, MacSize) */
-#ifdef HAVE_SHA224
-    unsigned char hmacbuf[SHA224_DIGEST_LENGTH];
-    ErlNifBinary key, data;
-    unsigned mac_sz;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)
-	|| !enif_get_uint(env,argv[2],&mac_sz) || mac_sz > SHA224_DIGEST_LENGTH) {
-	return enif_make_badarg(env);
-    }
-    hmac_sha224(key.data, key.size, data.data, data.size, hmacbuf);
-    memcpy(enif_make_new_binary(env, mac_sz, &ret),
-	   hmacbuf, mac_sz);
-    CONSUME_REDS(env,data);
-    return ret;
-#else
-    return atom_notsup;
-#endif
-}
-
-static ERL_NIF_TERM sha256_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, Data, MacSize) */
-#ifdef HAVE_SHA256
-    unsigned char hmacbuf[SHA256_DIGEST_LENGTH];
-    ErlNifBinary key, data;
-    unsigned mac_sz;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)
-	|| !enif_get_uint(env,argv[2],&mac_sz) || mac_sz > SHA256_DIGEST_LENGTH) {
-	return enif_make_badarg(env);
-    }
-    hmac_sha256(key.data, key.size, data.data, data.size, hmacbuf);
-    memcpy(enif_make_new_binary(env, mac_sz, &ret),
-	   hmacbuf, mac_sz);
-    CONSUME_REDS(env,data);
-    return ret;
-#else
-    return atom_notsup;
-#endif
-}
-
-static ERL_NIF_TERM sha384_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, Data, MacSize) */
-#ifdef HAVE_SHA384
-    unsigned char hmacbuf[SHA384_DIGEST_LENGTH];
-    ErlNifBinary key, data;
-    unsigned mac_sz;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)
-	|| !enif_get_uint(env,argv[2],&mac_sz) || mac_sz > SHA384_DIGEST_LENGTH) {
-	return enif_make_badarg(env);
-    }
-    hmac_sha384(key.data, key.size, data.data, data.size, hmacbuf);
-    memcpy(enif_make_new_binary(env, mac_sz, &ret),
-	   hmacbuf, mac_sz);
-    CONSUME_REDS(env,data);
-    return ret;
-#else
-    return atom_notsup;
-#endif
-}
-
-
-static ERL_NIF_TERM sha512_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, Data, MacSize) */
-#ifdef HAVE_SHA512
-    unsigned char hmacbuf[SHA512_DIGEST_LENGTH];
-    ErlNifBinary key, data;
-    unsigned mac_sz;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)
-	|| !enif_get_uint(env,argv[2],&mac_sz) || mac_sz > SHA512_DIGEST_LENGTH) {
-	return enif_make_badarg(env);
-    }
-    hmac_sha512(key.data, key.size, data.data, data.size, hmacbuf);
-    memcpy(enif_make_new_binary(env, mac_sz, &ret),
-	   hmacbuf, mac_sz);
-    CONSUME_REDS(env,data);
-    return ret;
-#else
-    return atom_notsup;
-#endif
-}
-
-static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM hmac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Key) */
-    ErlNifBinary key;
-    ERL_NIF_TERM ret;
-    unsigned char * ctx_buf;
-    const EVP_MD *md;
-    
-    if (argv[0] == atom_sha) md = EVP_sha1();
-#ifdef HAVE_SHA224
-    else if (argv[0] == atom_sha224) md = EVP_sha224();
-#endif
-#ifdef HAVE_SHA256
-    else if (argv[0] == atom_sha256) md = EVP_sha256();
-#endif
-#ifdef HAVE_SHA384
-    else if (argv[0] == atom_sha384) md = EVP_sha384();
-#endif
-#ifdef HAVE_SHA512
-    else if (argv[0] == atom_sha512) md = EVP_sha512();
-#endif
-    else if (argv[0] == atom_md5) md = EVP_md5();
-    else if (argv[0] == atom_ripemd160) md = EVP_ripemd160();
-    else goto badarg;
-    
-    if (!enif_inspect_iolist_as_binary(env, argv[1], &key)) {
-    badarg:
-	return enif_make_badarg(env);
+    struct digest_type_t *digp = NULL;
+    ErlNifBinary         key;
+    ERL_NIF_TERM         ret;
+    struct hmac_context  *obj;
+
+    digp = get_digest_type(argv[0]);
+    if (!digp ||
+        !enif_inspect_iolist_as_binary(env, argv[1], &key)) {
+        return enif_make_badarg(env);
+    }
+    if (!digp->md.p) {
+        return atom_notsup;
     }
 
-    ctx_buf = enif_make_new_binary(env, sizeof(HMAC_CTX), &ret);
-    HMAC_CTX_init((HMAC_CTX *) ctx_buf);
-    HMAC_Init((HMAC_CTX *) ctx_buf, key.data, key.size, md);
+    obj = enif_alloc_resource(hmac_context_rtype, sizeof(struct hmac_context));
+    obj->mtx = enif_mutex_create("crypto.hmac");
+    obj->alive = 1;
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+    // Check the return value of HMAC_Init: it may fail in FIPS mode
+    // for disabled algorithms
+    if (!HMAC_Init(&obj->ctx, key.data, key.size, digp->md.p)) {
+        enif_release_resource(obj);
+        return atom_notsup;
+    }
+#else
+    HMAC_Init(&obj->ctx, key.data, key.size, digp->md.p);
+#endif
 
+    ret = enif_make_resource(env, obj);
+    enif_release_resource(obj);
     return ret;
 }
 
-static ERL_NIF_TERM hmac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM hmac_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data) */
-    ErlNifBinary context, data;
-    ERL_NIF_TERM ret;
-    unsigned char * ctx_buf;
+    ErlNifBinary data;
+    struct hmac_context* obj;
     
-    if (!enif_inspect_binary(env, argv[0], &context)
-        || !enif_inspect_iolist_as_binary(env, argv[1], &data)
-        || context.size != sizeof(HMAC_CTX)) {
+    if (!enif_get_resource(env, argv[0], hmac_context_rtype, (void**)&obj)
+	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)) {
 	return enif_make_badarg(env);
     }
+    enif_mutex_lock(obj->mtx);
+    if (!obj->alive) {
+	enif_mutex_unlock(obj->mtx);
+	return enif_make_badarg(env);
+    }
+    HMAC_Update(&obj->ctx, data.data, data.size);
+    enif_mutex_unlock(obj->mtx);
 
-    ctx_buf = enif_make_new_binary(env, sizeof(HMAC_CTX), &ret);
-    memcpy(ctx_buf, context.data, context.size);
-    HMAC_Update((HMAC_CTX *)ctx_buf, data.data, data.size);
     CONSUME_REDS(env,data);
-
-    return ret;
+    return argv[0];
 }
 
-static ERL_NIF_TERM hmac_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static ERL_NIF_TERM hmac_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context) or (Context, HashLen) */
-    ErlNifBinary context;
     ERL_NIF_TERM ret;
-    HMAC_CTX ctx;
+    struct hmac_context* obj;
     unsigned char mac_buf[EVP_MAX_MD_SIZE];
     unsigned char * mac_bin;
     unsigned int req_len = 0;
     unsigned int mac_len;
-    
-    if (!enif_inspect_binary(env, argv[0], &context)) {
-	return enif_make_badarg(env);
-    }
-    if (argc == 2 && !enif_get_uint(env, argv[1], &req_len)) {
+
+    if (!enif_get_resource(env,argv[0],hmac_context_rtype, (void**)&obj)
+	|| (argc == 2 && !enif_get_uint(env, argv[1], &req_len))) {
 	return enif_make_badarg(env);
     }
 
-    if (context.size != sizeof(ctx)) {
-        return enif_make_badarg(env);
+    enif_mutex_lock(obj->mtx);
+    if (!obj->alive) {
+	enif_mutex_unlock(obj->mtx);
+	return enif_make_badarg(env);
     }
-    memcpy(&ctx, context.data, context.size);
     
-    HMAC_Final(&ctx, mac_buf, &mac_len);
-    HMAC_CTX_cleanup(&ctx);
+    HMAC_Final(&obj->ctx, mac_buf, &mac_len);
+    HMAC_CTX_cleanup(&obj->ctx);
+    obj->alive = 0;
+    enif_mutex_unlock(obj->mtx);
 
     if (argc == 2 && req_len < mac_len) { 
-        // Only truncate to req_len bytes if asked.
+        /* Only truncate to req_len bytes if asked. */
         mac_len = req_len;
     }
     mac_bin = enif_make_new_binary(env, mac_len, &ret);
@@ -1449,167 +1346,197 @@ static ERL_NIF_TERM hmac_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     return ret;
 }
 
-static ERL_NIF_TERM des_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, Ivec, Text, IsEncrypt) */    
-    ErlNifBinary key, ivec, text;
-    DES_key_schedule schedule;
-    DES_cblock ivec_clone; /* writable copy */
-    ERL_NIF_TERM ret;
+static ERL_NIF_TERM block_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type, Key, Ivec, Text, IsEncrypt) or (Type, Key, Text, IsEncrypt) */
+    struct cipher_type_t *cipherp = NULL;
+    const EVP_CIPHER     *cipher;
+    ErlNifBinary         key, ivec, text;
+    EVP_CIPHER_CTX       ctx;
+    ERL_NIF_TERM         ret;
+    unsigned char        *out;
+    int                  ivec_size, out_size = 0;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 8
-	|| !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 8
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)
-	|| text.size % 8 != 0) {
-	return enif_make_badarg(env);
+    if (!enif_inspect_iolist_as_binary(env, argv[1], &key)
+        || !(cipherp = get_cipher_type(argv[0], key.size))
+        || !enif_inspect_iolist_as_binary(env, argv[argc - 2], &text)) {
+        return enif_make_badarg(env);
     }
-    memcpy(&ivec_clone, ivec.data, 8);
-    DES_set_key((const_DES_cblock*)key.data, &schedule);
-    DES_ncbc_encrypt(text.data, enif_make_new_binary(env, text.size, &ret),
-		     text.size, &schedule, &ivec_clone, (argv[3] == atom_true));
-    CONSUME_REDS(env,text);
+    cipher = cipherp->cipher.p;
+    if (!cipher) {
+        return enif_raise_exception(env, atom_notsup);
+    }
+
+    if ((argv[0] == atom_aes_cfb8 || argv[0] == atom_aes_cfb128)
+        && (key.size == 24 || key.size == 32)) {
+        /* Why do EVP_CIPHER_CTX_set_key_length() fail on these key sizes?
+         * Fall back on low level API
+         */
+        return aes_cfb_8_crypt(env, argc-1, argv+1);
+    }
+
+    ivec_size  = EVP_CIPHER_iv_length(cipher);
+
+#ifdef HAVE_ECB_IVEC_BUG
+    if (argv[0] == atom_aes_ecb || argv[0] == atom_blowfish_ecb ||
+	argv[0] == atom_des_ecb)
+	ivec_size = 0; /* 0.9.8l returns faulty ivec_size */
+#endif
+
+    if (text.size % EVP_CIPHER_block_size(cipher) != 0 ||
+        (ivec_size == 0 ? argc != 4
+                      : (argc != 5 ||
+                         !enif_inspect_iolist_as_binary(env, argv[2], &ivec) ||
+                         ivec.size != ivec_size))) {
+        return enif_make_badarg(env);
+    }
+
+    out = enif_make_new_binary(env, text.size, &ret);
+
+    EVP_CIPHER_CTX_init(&ctx);
+    if (!EVP_CipherInit_ex(&ctx, cipher, NULL, NULL, NULL,
+                           (argv[argc - 1] == atom_true)) ||
+        !EVP_CIPHER_CTX_set_key_length(&ctx, key.size) ||
+        !(EVP_CIPHER_type(cipher) != NID_rc2_cbc ||
+          EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_SET_RC2_KEY_BITS, key.size * 8, NULL)) ||
+        !EVP_CipherInit_ex(&ctx, NULL, NULL,
+                           key.data, ivec_size ? ivec.data : NULL, -1) ||
+        !EVP_CIPHER_CTX_set_padding(&ctx, 0)) {
+
+        EVP_CIPHER_CTX_cleanup(&ctx);
+        return enif_raise_exception(env, atom_notsup);
+    }
+
+    if (text.size > 0 && /* OpenSSL 0.9.8h asserts text.size > 0 */
+        (!EVP_CipherUpdate(&ctx, out, &out_size, text.data, text.size)
+         || (ASSERT(out_size == text.size), 0)
+         || !EVP_CipherFinal_ex(&ctx, out + out_size, &out_size))) {
+
+        EVP_CIPHER_CTX_cleanup(&ctx);
+        return enif_raise_exception(env, atom_notsup);
+    }
+    ASSERT(out_size == 0);
+    EVP_CIPHER_CTX_cleanup(&ctx);
+    CONSUME_REDS(env, text);
+
     return ret;
 }
 
-static ERL_NIF_TERM des_cfb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, Ivec, Text, IsEncrypt) */
-    ErlNifBinary key, ivec, text;
-    DES_key_schedule schedule;
-    DES_cblock ivec_clone; /* writable copy */
-    ERL_NIF_TERM ret;
+static ERL_NIF_TERM aes_cfb_8_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, IVec, Data, IsEncrypt) */
+     ErlNifBinary key, ivec, text;
+     AES_KEY aes_key;
+     unsigned char ivec_clone[16]; /* writable copy */
+     int new_ivlen = 0;
+     ERL_NIF_TERM ret;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 8
-	|| !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 8
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
-	return enif_make_badarg(env);
-    }
-    memcpy(&ivec_clone, ivec.data, 8);
-    DES_set_key((const_DES_cblock*)key.data, &schedule);
-    DES_cfb_encrypt(text.data, enif_make_new_binary(env, text.size, &ret),
-		     8, text.size, &schedule, &ivec_clone, (argv[3] == atom_true));
-    CONSUME_REDS(env,text);
-    return ret;
+     if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+         || !(key.size == 16 || key.size == 24 || key.size == 32)
+         || !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
+         || !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
+         return enif_make_badarg(env);
+     }
+
+     memcpy(ivec_clone, ivec.data, 16);
+     AES_set_encrypt_key(key.data, key.size * 8, &aes_key);
+     AES_cfb8_encrypt((unsigned char *) text.data,
+                      enif_make_new_binary(env, text.size, &ret),
+                      text.size, &aes_key, ivec_clone, &new_ivlen,
+                      (argv[3] == atom_true));
+     CONSUME_REDS(env,text);
+     return ret;
 }
 
-static ERL_NIF_TERM des_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, Text/Cipher, IsEncrypt) */
-    ErlNifBinary key, text;
-    DES_key_schedule schedule;
-    ERL_NIF_TERM ret;
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 8 ||
-	!enif_inspect_iolist_as_binary(env, argv[1], &text) || text.size != 8) {
-	return enif_make_badarg(env);
-    }
-    DES_set_key((const_DES_cblock*)key.data, &schedule);
-    DES_ecb_encrypt((const_DES_cblock*)text.data,
-		    (DES_cblock*)enif_make_new_binary(env, 8, &ret),
-		    &schedule, (argv[2] == atom_true));
-    CONSUME_REDS(env,text);
-    return ret;
-}
-
-static ERL_NIF_TERM des_ede3_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key1, Key2, Key3, IVec, Text/Cipher, IsEncrypt) */    
-    ErlNifBinary key1, key2, key3, ivec, text;
-    DES_key_schedule schedule1, schedule2, schedule3;
-    DES_cblock ivec_clone; /* writable copy */
+static ERL_NIF_TERM aes_ige_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, IVec, Data, IsEncrypt) */
+#ifdef HAVE_AES_IGE
+    ErlNifBinary key_bin, ivec_bin, data_bin;
+    AES_KEY aes_key;
+    unsigned char ivec[32];
+    int i;
+    unsigned char* ret_ptr;
     ERL_NIF_TERM ret;
 
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key1) || key1.size != 8
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &key2) || key2.size != 8
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &key3) || key3.size != 8
-	|| !enif_inspect_binary(env, argv[3], &ivec) || ivec.size != 8
-	|| !enif_inspect_iolist_as_binary(env, argv[4], &text)
-	|| text.size % 8 != 0) {
-	return enif_make_badarg(env);
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
+       || (key_bin.size != 16 && key_bin.size != 32)
+       || !enif_inspect_binary(env, argv[1], &ivec_bin)
+       || ivec_bin.size != 32
+       || !enif_inspect_iolist_as_binary(env, argv[2], &data_bin)
+       || data_bin.size % 16 != 0) {
+
+       return enif_make_badarg(env);
     }
 
-    memcpy(&ivec_clone, ivec.data, 8);
-    DES_set_key((const_DES_cblock*)key1.data, &schedule1);
-    DES_set_key((const_DES_cblock*)key2.data, &schedule2);
-    DES_set_key((const_DES_cblock*)key3.data, &schedule3);
-    DES_ede3_cbc_encrypt(text.data, enif_make_new_binary(env,text.size,&ret), 
-			 text.size, &schedule1, &schedule2, &schedule3,
-			 &ivec_clone, (argv[5] == atom_true));
-    CONSUME_REDS(env,text);
-    return ret;
-}
-
-static ERL_NIF_TERM des_ede3_cfb_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key1, Key2, Key3, IVec, Text/Cipher, IsEncrypt) */
-#ifdef HAVE_DES_ede3_cfb_encrypt
-    ErlNifBinary key1, key2, key3, ivec, text;
-    DES_key_schedule schedule1, schedule2, schedule3;
-    DES_cblock ivec_clone; /* writable copy */
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key1) || key1.size != 8
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &key2) || key2.size != 8
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &key3) || key3.size != 8
-	|| !enif_inspect_binary(env, argv[3], &ivec) || ivec.size != 8
-	|| !enif_inspect_iolist_as_binary(env, argv[4], &text)) {
-	return enif_make_badarg(env);
+    if (argv[3] == atom_true) {
+       i = AES_ENCRYPT;
+       AES_set_encrypt_key(key_bin.data, key_bin.size*8, &aes_key);
+    }
+    else {
+       i = AES_DECRYPT;
+       AES_set_decrypt_key(key_bin.data, key_bin.size*8, &aes_key);
     }
 
-    memcpy(&ivec_clone, ivec.data, 8);
-    DES_set_key((const_DES_cblock*)key1.data, &schedule1);
-    DES_set_key((const_DES_cblock*)key2.data, &schedule2);
-    DES_set_key((const_DES_cblock*)key3.data, &schedule3);
-    DES_ede3_cfb_encrypt(text.data, enif_make_new_binary(env,text.size,&ret),
-			 8, text.size, &schedule1, &schedule2, &schedule3,
-			 &ivec_clone, (argv[5] == atom_true));
-    CONSUME_REDS(env,text);
+    ret_ptr = enif_make_new_binary(env, data_bin.size, &ret);
+    memcpy(ivec, ivec_bin.data, 32); /* writable copy */
+    AES_ige_encrypt(data_bin.data, ret_ptr, data_bin.size, &aes_key, ivec, i);
+    CONSUME_REDS(env,data_bin);
     return ret;
 #else
     return atom_notsup;
 #endif
 }
 
-static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, IVec, Data, IsEncrypt) */    
-    ErlNifBinary key, ivec, text;
-    AES_KEY aes_key;
-    unsigned char ivec_clone[16]; /* writable copy */
-    int new_ivlen = 0;
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 16
-	|| !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
-	return enif_make_badarg(env);
-    }
-
-    memcpy(ivec_clone, ivec.data, 16);
-    AES_set_encrypt_key(key.data, 128, &aes_key);
-    AES_cfb128_encrypt((unsigned char *) text.data,
-		       enif_make_new_binary(env, text.size, &ret), 
-		       text.size, &aes_key, ivec_clone, &new_ivlen,
-		       (argv[3] == atom_true));
-    CONSUME_REDS(env,text);
-    return ret;
-}
-
 /* Common for both encrypt and decrypt
 */
 static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, IVec, Data) */    
-    ErlNifBinary key, ivec, text;
-    AES_KEY aes_key;
-    unsigned char ivec_clone[16]; /* writable copy */
-    unsigned char ecount_buf[AES_BLOCK_SIZE];
-    unsigned int num = 0;
-    ERL_NIF_TERM ret;
+    ErlNifBinary     key, ivec, text;
+#ifdef HAVE_EVP_AES_CTR
+    const EVP_CIPHER *cipher;
+    EVP_CIPHER_CTX   ctx;
+    unsigned char    *out;
+    int              outl = 0;
+#else
+    AES_KEY          aes_key;
+    unsigned char    ivec_clone[16]; /* writable copy */
+    unsigned char    ecount_buf[AES_BLOCK_SIZE];
+    unsigned int     num = 0;
+#endif
+    ERL_NIF_TERM     ret;
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+#ifndef HAVE_EVP_AES_CTR
 	|| AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
+#endif
 	|| !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
 	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
 	return enif_make_badarg(env);
     }
+#ifdef HAVE_EVP_AES_CTR
+    switch (key.size)
+    {
+    case 16: cipher = EVP_aes_128_ctr(); break;
+    case 24: cipher = EVP_aes_192_ctr(); break;
+    case 32: cipher = EVP_aes_256_ctr(); break;
+    default: return enif_make_badarg(env);
+    }
+
+    out = enif_make_new_binary(env,text.size,&ret);
+    EVP_CIPHER_CTX_init(&ctx);
+    EVP_CipherInit_ex(&ctx, cipher, NULL,
+                      key.data, ivec.data, (argv[3] == atom_true));
+    EVP_CIPHER_CTX_set_padding(&ctx, 0);
+    EVP_CipherUpdate(&ctx, out, &outl, text.data, text.size);
+    ASSERT(outl == text.size);
+    EVP_CipherFinal_ex(&ctx, out + outl, &outl);
+    ASSERT(outl == 0);
+    EVP_CIPHER_CTX_cleanup(&ctx);
+#else
     memcpy(ivec_clone, ivec.data, 16);    
     memset(ecount_buf, 0, sizeof(ecount_buf));
     AES_ctr128_encrypt((unsigned char *) text.data,
 		       enif_make_new_binary(env, text.size, &ret), 
 		       text.size, &aes_key, ivec_clone, ecount_buf, &num);
+#endif
     CONSUME_REDS(env,text);
 
     /* To do an incremental {en|de}cryption, the state to to keep between calls
@@ -1619,6 +1546,81 @@ static ERL_NIF_TERM aes_ctr_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
 /* Initializes state for ctr streaming (de)encryption
 */
+#ifdef HAVE_EVP_AES_CTR
+static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, IVec) */
+    ErlNifBinary     key_bin, ivec_bin;
+    EVP_CIPHER_CTX   *ctx;
+    const EVP_CIPHER *cipher;
+    ERL_NIF_TERM     ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
+        || !enif_inspect_binary(env, argv[1], &ivec_bin)
+        || ivec_bin.size != 16) {
+        return enif_make_badarg(env);
+    }
+
+    switch (key_bin.size)
+    {
+    case 16: cipher = EVP_aes_128_ctr(); break;
+    case 24: cipher = EVP_aes_192_ctr(); break;
+    case 32: cipher = EVP_aes_256_ctr(); break;
+    default: return enif_make_badarg(env);
+    }
+
+    ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(EVP_CIPHER_CTX));
+    EVP_CIPHER_CTX_init(ctx);
+    EVP_CipherInit_ex(ctx, cipher, NULL,
+                      key_bin.data, ivec_bin.data, 1);
+    EVP_CIPHER_CTX_set_padding(ctx, 0);
+    ret = enif_make_resource(env, ctx);
+    enif_release_resource(ctx);
+    return ret;
+}
+static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context, Data) */
+    EVP_CIPHER_CTX *ctx, *new_ctx;
+    ErlNifBinary   data_bin;
+    ERL_NIF_TERM   ret, cipher_term;
+    unsigned char  *out;
+    int            outl = 0;
+
+    if (!enif_get_resource(env, argv[0], evp_cipher_ctx_rtype, (void**)&ctx)
+        || !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
+        return enif_make_badarg(env);
+    }
+    new_ctx = enif_alloc_resource(evp_cipher_ctx_rtype, sizeof(EVP_CIPHER_CTX));
+    EVP_CIPHER_CTX_init(new_ctx);
+    EVP_CIPHER_CTX_copy(new_ctx, ctx);
+    out = enif_make_new_binary(env, data_bin.size, &cipher_term);
+    EVP_CipherUpdate(new_ctx, out, &outl, data_bin.data, data_bin.size);
+    ASSERT(outl == data_bin.size);
+
+    ret = enif_make_tuple2(env, enif_make_resource(env, new_ctx), cipher_term);
+    enif_release_resource(new_ctx);
+    CONSUME_REDS(env,data_bin);
+    return ret;
+}
+
+#else /* if not HAVE_EVP_AES_CTR */
+
+static ERL_NIF_TERM aes_ctr_stream_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, IVec) */
+    ErlNifBinary key_bin, ivec_bin;
+    ERL_NIF_TERM ecount_bin;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
+        || !enif_inspect_binary(env, argv[1], &ivec_bin)
+        || !(key_bin.size == 16 || key_bin.size == 24 || key_bin.size ==32)
+        || ivec_bin.size != 16) {
+        return enif_make_badarg(env);
+    }
+
+    memset(enif_make_new_binary(env, AES_BLOCK_SIZE, &ecount_bin),
+           0, AES_BLOCK_SIZE);
+    return enif_make_tuple4(env, argv[0], argv[1], ecount_bin, enif_make_int(env, 0));
+}
+
 static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* ({Key, IVec, ECount, Num}, Data) */    
     ErlNifBinary key_bin, ivec_bin, text_bin, ecount_bin;
@@ -1657,12 +1659,316 @@ static ERL_NIF_TERM aes_ctr_stream_encrypt(ErlNifEnv* env, int argc, const ERL_N
     CONSUME_REDS(env,text_bin);
     return ret;
 }
+#endif /* !HAVE_EVP_AES_CTR */
+
+static ERL_NIF_TERM aes_gcm_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key,Iv,AAD,In) */
+#if defined(HAVE_GCM)
+    EVP_CIPHER_CTX ctx;
+    const EVP_CIPHER *cipher = NULL;
+    ErlNifBinary key, iv, aad, in;
+    unsigned int tag_len;
+    unsigned char *outp, *tagp;
+    ERL_NIF_TERM out, out_tag;
+    int len;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+	|| (key.size != 16 && key.size != 24 && key.size != 32)
+	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
+	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)
+	|| !enif_get_uint(env, argv[4], &tag_len) || tag_len < 1 || tag_len > 16) {
+	return enif_make_badarg(env);
+    }
+
+    if (key.size == 16)
+        cipher = EVP_aes_128_gcm();
+    else if (key.size == 24)
+        cipher = EVP_aes_192_gcm();
+    else if (key.size == 32)
+        cipher = EVP_aes_256_gcm();
+
+    EVP_CIPHER_CTX_init(&ctx);
+
+    if (EVP_EncryptInit_ex(&ctx, cipher, NULL, NULL, NULL) != 1)
+        goto out_err;
+
+    EVP_CIPHER_CTX_set_padding(&ctx, 0);
+
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size, NULL) != 1)
+        goto out_err;
+    if (EVP_EncryptInit_ex(&ctx, NULL, NULL, key.data, iv.data) != 1)
+        goto out_err;
+    if (EVP_EncryptUpdate(&ctx, NULL, &len, aad.data, aad.size) != 1)
+        goto out_err;
+
+    outp = enif_make_new_binary(env, in.size, &out);
+
+    if (EVP_EncryptUpdate(&ctx, outp, &len, in.data, in.size) != 1)
+        goto out_err;
+    if (EVP_EncryptFinal_ex(&ctx, outp+len, &len) != 1)
+        goto out_err;
+
+    tagp = enif_make_new_binary(env, tag_len, &out_tag);
+
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_GET_TAG, tag_len, tagp) != 1)
+        goto out_err;
+
+    EVP_CIPHER_CTX_cleanup(&ctx);
+
+    CONSUME_REDS(env, in);
+
+    return enif_make_tuple2(env, out, out_tag);
+
+out_err:
+    EVP_CIPHER_CTX_cleanup(&ctx);
+    return atom_error;
+
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
+}
+
+static ERL_NIF_TERM aes_gcm_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key,Iv,AAD,In,Tag) */
+#if defined(HAVE_GCM_EVP_DECRYPT_BUG)
+    return aes_gcm_decrypt_NO_EVP(env, argc, argv);
+#elif defined(HAVE_GCM)
+    EVP_CIPHER_CTX ctx;
+    const EVP_CIPHER *cipher = NULL;
+    ErlNifBinary key, iv, aad, in, tag;
+    unsigned char *outp;
+    ERL_NIF_TERM out;
+    int len;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+	|| (key.size != 16 && key.size != 24 && key.size != 32)
+	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
+	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)
+	|| !enif_inspect_iolist_as_binary(env, argv[4], &tag)) {
+	return enif_make_badarg(env);
+    }
+
+    if (key.size == 16)
+        cipher = EVP_aes_128_gcm();
+    else if (key.size == 24)
+        cipher = EVP_aes_192_gcm();
+    else if (key.size == 32)
+        cipher = EVP_aes_256_gcm();
+
+    EVP_CIPHER_CTX_init(&ctx);
+
+    if (EVP_DecryptInit_ex(&ctx, cipher, NULL, NULL, NULL) != 1)
+        goto out_err;
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_IVLEN, iv.size, NULL) != 1)
+        goto out_err;
+    if (EVP_DecryptInit_ex(&ctx, NULL, NULL, key.data, iv.data) != 1)
+        goto out_err;
+    if (EVP_DecryptUpdate(&ctx, NULL, &len, aad.data, aad.size) != 1)
+        goto out_err;
+
+    outp = enif_make_new_binary(env, in.size, &out);
+
+    if (EVP_DecryptUpdate(&ctx, outp, &len, in.data, in.size) != 1)
+        goto out_err;
+    if (EVP_CIPHER_CTX_ctrl(&ctx, EVP_CTRL_GCM_SET_TAG, tag.size, tag.data) != 1)
+        goto out_err;
+    if (EVP_DecryptFinal_ex(&ctx, outp+len, &len) != 1)
+        goto out_err;
+
+    EVP_CIPHER_CTX_cleanup(&ctx);
+
+    CONSUME_REDS(env, in);
+
+    return out;
+
+out_err:
+    EVP_CIPHER_CTX_cleanup(&ctx);
+    return atom_error;
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
+}
+
+#ifdef HAVE_GCM_EVP_DECRYPT_BUG
+static ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    GCM128_CONTEXT *ctx;
+    ErlNifBinary key, iv, aad, in, tag;
+    AES_KEY aes_key;
+    unsigned char *outp;
+    ERL_NIF_TERM out;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+        || AES_set_encrypt_key(key.data, key.size*8, &aes_key) != 0
+        || !enif_inspect_binary(env, argv[1], &iv) || iv.size == 0
+        || !enif_inspect_iolist_as_binary(env, argv[2], &aad)
+        || !enif_inspect_iolist_as_binary(env, argv[3], &in)
+        || !enif_inspect_iolist_as_binary(env, argv[4], &tag)) {
+        return enif_make_badarg(env);
+    }
+
+    if (!(ctx = CRYPTO_gcm128_new(&aes_key, (block128_f)AES_encrypt)))
+        return atom_error;
+
+    CRYPTO_gcm128_setiv(ctx, iv.data, iv.size);
+
+    if (CRYPTO_gcm128_aad(ctx, aad.data, aad.size))
+        goto out_err;
+
+    outp = enif_make_new_binary(env, in.size, &out);
+
+    /* decrypt */
+    if (CRYPTO_gcm128_decrypt(ctx, in.data, outp, in.size))
+            goto out_err;
+
+    /* calculate and check the tag */
+    if (CRYPTO_gcm128_finish(ctx, tag.data, tag.size))
+            goto out_err;
+
+    CRYPTO_gcm128_release(ctx);
+    CONSUME_REDS(env, in);
+
+    return out;
+
+out_err:
+    CRYPTO_gcm128_release(ctx);
+    return atom_error;
+}
+#endif /* HAVE_GCM_EVP_DECRYPT_BUG */
+
+#if defined(HAVE_CHACHA20_POLY1305)
+static void
+poly1305_update_with_length(poly1305_state *poly1305,
+			    const unsigned char *data, size_t data_len)
+{
+        size_t j = data_len;
+        unsigned char length_bytes[8];
+        unsigned i;
+
+        for (i = 0; i < sizeof(length_bytes); i++) {
+                length_bytes[i] = j;
+                j >>= 8;
+        }
+
+        CRYPTO_poly1305_update(poly1305, data, data_len);
+        CRYPTO_poly1305_update(poly1305, length_bytes, sizeof(length_bytes));
+}
+#endif
+
+static ERL_NIF_TERM chacha20_poly1305_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key,Iv,AAD,In) */
+#if defined(HAVE_CHACHA20_POLY1305)
+    ErlNifBinary key, iv, aad, in;
+    unsigned char *outp;
+    ERL_NIF_TERM out, out_tag;
+    ErlNifUInt64 in_len_64;
+    unsigned char poly1305_key[32];
+    poly1305_state poly1305;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 32
+	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size != CHACHA20_NONCE_LEN
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
+	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)) {
+	return enif_make_badarg(env);
+    }
+
+    /* Take from OpenSSL patch set/LibreSSL:
+     *
+     * The underlying ChaCha implementation may not overflow the block
+     * counter into the second counter word. Therefore we disallow
+     * individual operations that work on more than 2TB at a time.
+     * in_len_64 is needed because, on 32-bit platforms, size_t is only
+     * 32-bits and this produces a warning because it's always false.
+     * Casting to uint64_t inside the conditional is not sufficient to stop
+     * the warning. */
+    in_len_64 = in.size;
+    if (in_len_64 >= (1ULL << 32) * 64 - 64)
+	return enif_make_badarg(env);
+
+    memset(poly1305_key, 0, sizeof(poly1305_key));
+    CRYPTO_chacha_20(poly1305_key, poly1305_key, sizeof(poly1305_key), key.data, iv.data, 0);
+
+    outp = enif_make_new_binary(env, in.size, &out);
+
+    CRYPTO_poly1305_init(&poly1305, poly1305_key);
+    poly1305_update_with_length(&poly1305, aad.data, aad.size);
+    CRYPTO_chacha_20(outp, in.data, in.size, key.data, iv.data, 1);
+    poly1305_update_with_length(&poly1305, outp, in.size);
+
+    CRYPTO_poly1305_finish(&poly1305, enif_make_new_binary(env, POLY1305_TAG_LEN, &out_tag));
+
+    CONSUME_REDS(env, in);
+
+    return enif_make_tuple2(env, out, out_tag);
+
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
+}
+
+static ERL_NIF_TERM chacha20_poly1305_decrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key,Iv,AAD,In,Tag) */
+#if defined(HAVE_CHACHA20_POLY1305)
+    ErlNifBinary key, iv, aad, in, tag;
+    unsigned char *outp;
+    ERL_NIF_TERM out;
+    ErlNifUInt64 in_len_64;
+    unsigned char poly1305_key[32];
+    unsigned char mac[POLY1305_TAG_LEN];
+    poly1305_state poly1305;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 32
+	|| !enif_inspect_binary(env, argv[1], &iv) || iv.size != CHACHA20_NONCE_LEN
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &aad)
+	|| !enif_inspect_iolist_as_binary(env, argv[3], &in)
+	|| !enif_inspect_iolist_as_binary(env, argv[4], &tag) || tag.size != POLY1305_TAG_LEN) {
+	return enif_make_badarg(env);
+    }
+
+    /* Take from OpenSSL patch set/LibreSSL:
+     *
+     * The underlying ChaCha implementation may not overflow the block
+     * counter into the second counter word. Therefore we disallow
+     * individual operations that work on more than 2TB at a time.
+     * in_len_64 is needed because, on 32-bit platforms, size_t is only
+     * 32-bits and this produces a warning because it's always false.
+     * Casting to uint64_t inside the conditional is not sufficient to stop
+     * the warning. */
+    in_len_64 = in.size;
+    if (in_len_64 >= (1ULL << 32) * 64 - 64)
+	return enif_make_badarg(env);
+
+    memset(poly1305_key, 0, sizeof(poly1305_key));
+    CRYPTO_chacha_20(poly1305_key, poly1305_key, sizeof(poly1305_key), key.data, iv.data, 0);
+
+    CRYPTO_poly1305_init(&poly1305, poly1305_key);
+    poly1305_update_with_length(&poly1305, aad.data, aad.size);
+    poly1305_update_with_length(&poly1305, in.data, in.size);
+    CRYPTO_poly1305_finish(&poly1305, mac);
+
+    if (memcmp(mac, tag.data, POLY1305_TAG_LEN) != 0)
+	return atom_error;
+
+    outp = enif_make_new_binary(env, in.size, &out);
+
+    CRYPTO_chacha_20(outp, in.data, in.size, key.data, iv.data, 1);
+
+    CONSUME_REDS(env, in);
+
+    return out;
+#else
+    return enif_raise_exception(env, atom_notsup);
+#endif
+}
 
 static ERL_NIF_TERM rand_bytes_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Bytes) */     
     unsigned bytes;
     unsigned char* data;
     ERL_NIF_TERM ret;
+
     if (!enif_get_uint(env, argv[0], &bytes)) {
 	return enif_make_badarg(env);
     }
@@ -1676,6 +1982,7 @@ static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NI
     unsigned bytes;
     unsigned char* data;
     ERL_NIF_TERM ret;
+
     if (!enif_get_uint(env, argv[0], &bytes)) {
 	return enif_make_badarg(env);
     }
@@ -1687,26 +1994,7 @@ static ERL_NIF_TERM strong_rand_bytes_nif(ErlNifEnv* env, int argc, const ERL_NI
     return ret;
 }
 
-static ERL_NIF_TERM rand_bytes_3(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Bytes, TopMask, BottomMask) */    
-    unsigned bytes;
-    unsigned char* data;
-    unsigned top_mask, bot_mask;
-    ERL_NIF_TERM ret;
-    if (!enif_get_uint(env, argv[0], &bytes)
-	|| !enif_get_uint(env, argv[1], &top_mask)
-	|| !enif_get_uint(env, argv[2], &bot_mask)) {
-	return enif_make_badarg(env);
-    }
-    data = enif_make_new_binary(env, bytes, &ret);
-    RAND_pseudo_bytes(data, bytes);
-    ERL_VALGRIND_MAKE_MEM_DEFINED(data, bytes);
-    if (bytes > 0) {
-	data[bytes-1] |= top_mask;
-	data[0] |= bot_mask;
-    }
-    return ret;
-}
+
 static ERL_NIF_TERM strong_rand_mpint_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Bytes, TopMask, BottomMask) */    
     unsigned bits;
@@ -1715,6 +2003,7 @@ static ERL_NIF_TERM strong_rand_mpint_nif(ErlNifEnv* env, int argc, const ERL_NI
     unsigned char* data;
     unsigned dlen;
     ERL_NIF_TERM ret;
+
     if (!enif_get_uint(env, argv[0], &bits)
 	|| !enif_get_int(env, argv[1], &top)
 	|| !enif_get_int(env, argv[2], &bottom)) {
@@ -1782,6 +2071,7 @@ static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
     unsigned char* data;
     unsigned dlen;
     ERL_NIF_TERM ret;
+
     if (!get_bn_from_mpint(env, argv[0], &bn_from)
 	|| !get_bn_from_mpint(env, argv[1], &bn_rand)) {
 	if (bn_from) BN_free(bn_from);
@@ -1805,7 +2095,7 @@ static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
 static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Base,Exponent,Modulo,bin_hdr) */
-    BIGNUM *bn_base=NULL, *bn_exponent=NULL, *bn_modulo, *bn_result;
+    BIGNUM *bn_base=NULL, *bn_exponent=NULL, *bn_modulo=NULL, *bn_result;
     BN_CTX *bn_ctx;
     unsigned char* ptr;
     unsigned dlen;      
@@ -1820,6 +2110,7 @@ static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
 	if (bn_base) BN_free(bn_base);
 	if (bn_exponent) BN_free(bn_exponent);
+	if (bn_modulo) BN_free(bn_modulo);
 	return enif_make_badarg(env);
     }
     bn_result = BN_new();
@@ -1843,44 +2134,17 @@ static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 }
 
 static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (DigestType|none, Data|{digest,Digest}, Signature,Key=[P, Q, G, Y]) */
-    ErlNifBinary data_bin, sign_bin;
+{/* (sha, Digest, Signature,Key=[P, Q, G, Y]) */
+    ErlNifBinary digest_bin, sign_bin;
     BIGNUM *dsa_p = NULL, *dsa_q = NULL, *dsa_g = NULL, *dsa_y = NULL;
-    unsigned char hmacbuf[SHA_DIGEST_LENGTH];
-    unsigned char* digest;
     ERL_NIF_TERM head, tail;
-    const ERL_NIF_TERM* tpl_terms;
-    int tpl_arity;
     DSA *dsa;
     int i;
 
-    if (argv[0] == atom_sha) {
-	if (enif_get_tuple(env, argv[1], &tpl_arity, &tpl_terms)) {
-	    if (tpl_arity != 2 || tpl_terms[0] != atom_digest
-		|| !enif_inspect_binary(env, tpl_terms[1], &data_bin)
-		|| data_bin.size != SHA_DIGEST_LENGTH) {
-
-		return enif_make_badarg(env);
-	    }
-	    digest = data_bin.data;
-	}
-	else {
-	    if (!enif_inspect_binary(env, argv[1], &data_bin)) {
-		return enif_make_badarg(env);
-	    }
-	    SHA1(data_bin.data, data_bin.size, hmacbuf);
-	    digest = hmacbuf;
-	}
-    }
-    else if (argv[0] == atom_none && enif_inspect_binary(env, argv[1], &data_bin)
-	     && data_bin.size == SHA_DIGEST_LENGTH) {
-	digest = data_bin.data;
-    }
-    else {
-	return enif_make_badarg(env);
-    }
-
-    if (!enif_inspect_binary(env, argv[2], &sign_bin)
+    if (!argv[0] == atom_sha
+        || !enif_inspect_binary(env, argv[1], &digest_bin)
+        || digest_bin.size != SHA_DIGEST_LENGTH
+        || !enif_inspect_binary(env, argv[2], &sign_bin)
 	|| !enif_get_list_cell(env, argv[3], &head, &tail)
 	|| !get_bn_from_bin(env, head, &dsa_p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
@@ -1904,104 +2168,52 @@ static ERL_NIF_TERM dss_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     dsa->g = dsa_g;
     dsa->priv_key = NULL;
     dsa->pub_key = dsa_y;
-    i =  DSA_verify(0, digest, SHA_DIGEST_LENGTH,
+    i =  DSA_verify(0, digest_bin.data, SHA_DIGEST_LENGTH,
 		    sign_bin.data, sign_bin.size, dsa);
     DSA_free(dsa);
     return(i > 0) ? atom_true : atom_false;
 }
 
-
-static void md5_digest(unsigned char* in, unsigned int in_len, unsigned char* out)
-{
-    MD5(in, in_len, out);
-}
-static void sha1_digest(unsigned char* in, unsigned int in_len, unsigned char* out)
-{
-    SHA1(in, in_len, out);
-}
-#ifdef HAVE_SHA224
-static void sha224_digest(unsigned char* in, unsigned int in_len, unsigned char* out)
-{
-    SHA224(in, in_len, out);
-}
-#endif
-#ifdef HAVE_SHA256
-static void sha256_digest(unsigned char* in, unsigned int in_len, unsigned char* out)
-{
-    SHA256(in, in_len, out);
-}
-#endif
-#ifdef HAVE_SHA384
-static void sha384_digest(unsigned char* in, unsigned int in_len, unsigned char* out)
-{
-    SHA384(in, in_len, out);
-}
-#endif
-#ifdef HAVE_SHA512
-static void sha512_digest(unsigned char* in, unsigned int in_len, unsigned char* out)
-{
-    SHA512(in, in_len, out);
-}
-#endif
-
-struct digest_type_t {
-    const char* type_str;
-    unsigned len; /* 0 if notsup */
-    int NID_type;
-    void (*funcp)(unsigned char* in, unsigned int in_len, unsigned char* out);
-    ERL_NIF_TERM type_atom;
-};
-
-struct digest_type_t digest_types[] =
-{
-    {"md5", MD5_DIGEST_LENGTH, NID_md5, md5_digest},
-    {"sha", SHA_DIGEST_LENGTH, NID_sha1, sha1_digest},
-    {"sha224",
-#ifdef HAVE_SHA224
-     SHA224_LEN, NID_sha224, sha224_digest
-#else
-      0
-#endif
-    },
-    {"sha256",
-#ifdef HAVE_SHA256
-     SHA256_LEN, NID_sha256, sha256_digest
-#else
-      0
-#endif
-    },
-    {"sha384",
-#ifdef HAVE_SHA384
-     SHA384_LEN, NID_sha384, sha384_digest
-#else
-     0
-#endif
-    },
-    {"sha512",
-#ifdef HAVE_SHA512
-     SHA512_LEN, NID_sha512, sha512_digest
-#else
-     0
-#endif
-    },
-    {NULL}
-};
-
 static void init_digest_types(ErlNifEnv* env)
 {
     struct digest_type_t* p = digest_types;
 
-    for (p = digest_types; p->type_str; p++) {
-	p->type_atom = enif_make_atom(env, p->type_str);
+    for (p = digest_types; p->type.str; p++) {
+	p->type.atom = enif_make_atom(env, p->type.str);
+	if (p->md.funcp)
+	    p->md.p = p->md.funcp();
     }
+    p->type.atom = atom_false;  /* end marker */
+}
 
+static void init_cipher_types(ErlNifEnv* env)
+{
+    struct cipher_type_t* p = cipher_types;
+
+    for (p = cipher_types; p->type.str; p++) {
+	p->type.atom = enif_make_atom(env, p->type.str);
+	if (p->cipher.funcp)
+	    p->cipher.p = p->cipher.funcp();
+    }
+    p->type.atom = atom_false; /* end marker */
 }
 
 static struct digest_type_t* get_digest_type(ERL_NIF_TERM type)
 {
     struct digest_type_t* p = NULL;
-    for (p = digest_types; p->type_str; p++) {
-	if (type == p->type_atom) {
+    for (p = digest_types; p->type.atom != atom_false; p++) {
+	if (type == p->type.atom) {
+	    return p;
+	}
+    }
+    return NULL;
+}
+
+static struct cipher_type_t* get_cipher_type(ERL_NIF_TERM type, size_t key_len)
+{
+    struct cipher_type_t* p = NULL;
+    for (p = cipher_types; p->type.atom != atom_false; p++) {
+	if (type == p->type.atom && (!p->key_len || key_len == p->key_len)) {
 	    return p;
 	}
     }
@@ -2009,29 +2221,33 @@ static struct digest_type_t* get_digest_type(ERL_NIF_TERM type)
 }
 
 static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Data|{digest,Digest}, Signature, Key=[E,N]) */
-    ErlNifBinary data_bin, sign_bin;
-    unsigned char hmacbuf[SHA512_LEN];
-    ERL_NIF_TERM head, tail, ret;
-    int i;
-    RSA* rsa;
-    const ERL_NIF_TERM type = argv[0];
-    const ERL_NIF_TERM* tpl_terms;
-    int tpl_arity;
-    struct digest_type_t* digp = NULL;
-    unsigned char* digest = NULL;
+{/* (Type, Digest, Signature, Key=[E,N]) */
+    ErlNifBinary         digest_bin, sign_bin;
+    ERL_NIF_TERM         head, tail, ret;
+    int                  i;
+    RSA                  *rsa;
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+    EVP_PKEY             *pkey;
+    EVP_PKEY_CTX         *ctx;
+#endif
+    const EVP_MD         *md;
+    const ERL_NIF_TERM   type = argv[0];
+    struct digest_type_t *digp = NULL;
 
     digp = get_digest_type(type);
     if (!digp) {
 	return enif_make_badarg(env);
     }
-    if (!digp->len) {
+    md = digp->md.p;
+    if (!md) {
 	return atom_notsup;
     }
 
     rsa = RSA_new();
 
-    if (!enif_inspect_binary(env, argv[2], &sign_bin)
+    if (!enif_inspect_binary(env, argv[1], &digest_bin)
+        || digest_bin.size != EVP_MD_size(md)
+        || !enif_inspect_binary(env, argv[2], &sign_bin)
 	|| !enif_get_list_cell(env, argv[3], &head, &tail)
 	|| !get_bn_from_bin(env, head, &rsa->e)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
@@ -2041,68 +2257,29 @@ static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 	ret = enif_make_badarg(env);
 	goto done;
     }
-    if (enif_get_tuple(env, argv[1], &tpl_arity, &tpl_terms)) {
-	if (tpl_arity != 2 || tpl_terms[0] != atom_digest
-	    || !enif_inspect_binary(env, tpl_terms[1], &data_bin)
-	    || data_bin.size != digp->len) {
 
-	    ret = enif_make_badarg(env);
-	    goto done;
-	}
-	digest = data_bin.data;
-    }
-    else if (enif_inspect_binary(env, argv[1], &data_bin)) {
-	digest = hmacbuf;
-	digp->funcp(data_bin.data, data_bin.size, digest);
-    }
-    else {
-	ret = enif_make_badarg(env);
-	goto done;
-    }
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+    pkey = EVP_PKEY_new();
+    EVP_PKEY_set1_RSA(pkey, rsa);
 
-    i = RSA_verify(digp->NID_type, digest, digp->len,
+    ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    EVP_PKEY_verify_init(ctx);
+    EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING);
+    EVP_PKEY_CTX_set_signature_md(ctx, md);
+
+    i = EVP_PKEY_verify(ctx, sign_bin.data, sign_bin.size,
+                        digest_bin.data, digest_bin.size);
+    EVP_PKEY_CTX_free(ctx);
+    EVP_PKEY_free(pkey);
+#else
+    i = RSA_verify(md->type, digest_bin.data, EVP_MD_size(md),
 		   sign_bin.data, sign_bin.size, rsa);
+#endif
 
     ret = (i==1 ? atom_true : atom_false);
 
 done:
     RSA_free(rsa);
-    return ret;
-}
-
-
-static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, IVec, Data, IsEncrypt) */
-    ErlNifBinary key_bin, ivec_bin, data_bin;
-    AES_KEY aes_key;
-    unsigned char ivec[16];
-    int i;
-    unsigned char* ret_ptr;
-    ERL_NIF_TERM ret;    
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
-	|| (key_bin.size != 16 && key_bin.size != 32)
-	|| !enif_inspect_binary(env, argv[1], &ivec_bin)
-	|| ivec_bin.size != 16
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &data_bin)
-	|| data_bin.size % 16 != 0) {
-
-	return enif_make_badarg(env);
-    }
-
-    if (argv[3] == atom_true) {
-	i = AES_ENCRYPT;
-	AES_set_encrypt_key(key_bin.data, key_bin.size*8, &aes_key);
-    }
-    else {
-	i = AES_DECRYPT;
-	AES_set_decrypt_key(key_bin.data, key_bin.size*8, &aes_key);
-    }
-
-    ret_ptr = enif_make_new_binary(env, data_bin.size, &ret);
-    memcpy(ivec, ivec_bin.data, 16); /* writable copy */
-    AES_cbc_encrypt(data_bin.data, ret_ptr, data_bin.size, &aes_key, ivec, i);
-    CONSUME_REDS(env,data_bin);
     return ret;
 }
 
@@ -2177,33 +2354,6 @@ static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_N
     return enif_make_tuple2(env,new_state,new_data);
 }   
 
-static ERL_NIF_TERM rc2_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key,IVec,Data,IsEncrypt) */
-    ErlNifBinary key_bin, ivec_bin, data_bin;
-    RC2_KEY rc2_key;
-    ERL_NIF_TERM ret;
-    unsigned char iv_copy[8];
-    
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
-	|| (key_bin.size != 5 && key_bin.size != 8 && key_bin.size != 16)
-	|| !enif_inspect_binary(env, argv[1], &ivec_bin)
-	|| ivec_bin.size != 8
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &data_bin)
-	|| data_bin.size % 8 != 0) {
-	return enif_make_badarg(env);
-    }
-    
-    RC2_set_key(&rc2_key, key_bin.size, key_bin.data, key_bin.size*8);
-    memcpy(iv_copy, ivec_bin.data, 8);
-    RC2_cbc_encrypt(data_bin.data,
-		    enif_make_new_binary(env, data_bin.size, &ret),
-		    data_bin.size, &rc2_key,
-		    iv_copy,
-		    (argv[3] == atom_true));
-    CONSUME_REDS(env,data_bin);
-    return ret;
-}
-
 static int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
 {
     /* key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C] */
@@ -2233,40 +2383,32 @@ static int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
 }
 
 static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Data|{digest,Digest}, Key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C]) */
-    ErlNifBinary data_bin, ret_bin;
-    unsigned char hmacbuf[SHA512_LEN];
-    unsigned rsa_s_len;
-    RSA* rsa;
-    int i;
-    const ERL_NIF_TERM* tpl_terms;
-    int tpl_arity;
+{/* (Type, Digest, Key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C]) */
+    ErlNifBinary         digest_bin, ret_bin;
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+    EVP_PKEY             *pkey;
+    EVP_PKEY_CTX         *ctx;
+    size_t               rsa_s_len;
+#else
+    unsigned             rsa_s_len, len;
+#endif
+    RSA                  *rsa;
+    int                  i;
     struct digest_type_t *digp;
-    unsigned char* digest;
+    const EVP_MD         *md;
 
     digp = get_digest_type(argv[0]);
     if (!digp) {
 	return enif_make_badarg(env);
     }
-    if (!digp->len) {
+    md = digp->md.p;
+    if (!md) {
 	return atom_notsup;
     }
 
-    if (enif_get_tuple(env, argv[1], &tpl_arity, &tpl_terms)) {
-	if (tpl_arity != 2 || tpl_terms[0] != atom_digest
-	    || !enif_inspect_binary(env, tpl_terms[1], &data_bin)
-	    || data_bin.size != digp->len) {
-
-	    return enif_make_badarg(env);
-	}
-	digest = data_bin.data;
-    }
-    else {
-	if (!enif_inspect_binary(env,argv[1],&data_bin)) {
-	    return enif_make_badarg(env);
-	}
-	digest = hmacbuf;
-	digp->funcp(data_bin.data, data_bin.size, digest);
+    if (!enif_inspect_binary(env,argv[1],&digest_bin)
+        || digest_bin.size != EVP_MD_size(md)) {
+        return enif_make_badarg(env);
     }
 
     rsa = RSA_new();
@@ -2276,14 +2418,33 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     }
 
 
-    enif_alloc_binary(RSA_size(rsa), &ret_bin);
+#if OPENSSL_VERSION_NUMBER >= OpenSSL_version_plain(1,0,0)
+    pkey = EVP_PKEY_new();
+    EVP_PKEY_set1_RSA(pkey, rsa);
+    rsa_s_len=(size_t)EVP_PKEY_size(pkey);
+    enif_alloc_binary(rsa_s_len, &ret_bin);
 
-    ERL_VALGRIND_ASSERT_MEM_DEFINED(digest, digp->len);
-    i =  RSA_sign(digp->NID_type, digest, digp->len,
+    ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    EVP_PKEY_sign_init(ctx);
+    EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING);
+    EVP_PKEY_CTX_set_signature_md(ctx, md);
+
+    i = EVP_PKEY_sign(ctx, ret_bin.data, &rsa_s_len,
+                      digest_bin.data, digest_bin.size);
+    ASSERT(i<=0 || rsa_s_len <= ret_bin.size);
+    EVP_PKEY_CTX_free(ctx);
+    EVP_PKEY_free(pkey);
+#else
+    enif_alloc_binary(RSA_size(rsa), &ret_bin);
+    len = EVP_MD_size(md);
+
+    ERL_VALGRIND_ASSERT_MEM_DEFINED(digest_bin.data, len);
+    i =  RSA_sign(md->type, digest_bin.data, len,
 		  ret_bin.data, &rsa_s_len, rsa);
+#endif
 
     RSA_free(rsa);
-    if (i) {
+    if (i > 0) {
 	ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, rsa_s_len);
 	if (rsa_s_len != ret_bin.size) {
 	    enif_realloc_binary(&ret_bin, rsa_s_len);
@@ -2299,42 +2460,16 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
 
 static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (DigesType|none, Data|{digest,Digest}, Key=[P,Q,G,PrivKey]) */
-    ErlNifBinary data_bin, ret_bin;
+{/* (sha, Digest, Key=[P,Q,G,PrivKey]) */
+    ErlNifBinary digest_bin, ret_bin;
     ERL_NIF_TERM head, tail;
-    unsigned char hmacbuf[SHA_DIGEST_LENGTH];
     unsigned int dsa_s_len;
-    const ERL_NIF_TERM* tpl_terms;
-    int tpl_arity;
-    unsigned char* digest = NULL;
     DSA* dsa;
     int i;
 
-    if (argv[0] == atom_sha) {
-	if (enif_get_tuple(env, argv[1], &tpl_arity, &tpl_terms)) {
-	    if (tpl_arity != 2 || tpl_terms[0] != atom_digest
-		|| !enif_inspect_binary(env, tpl_terms[1], &data_bin)
-		|| data_bin.size != SHA_DIGEST_LENGTH) {
-
-		return enif_make_badarg(env);
-	    }
-	    digest = data_bin.data;
-	}
-	else {
-	    if (!enif_inspect_binary(env,argv[1],&data_bin)) {
-		return enif_make_badarg(env);
-	    }
-	    SHA1(data_bin.data, data_bin.size, hmacbuf);
-	    digest = hmacbuf;
-	}
-    }
-    else if (argv[0] == atom_none
-	     && enif_inspect_binary(env,argv[1],&data_bin)
-	     && data_bin.size == SHA_DIGEST_LENGTH) {
-
-	digest = data_bin.data;
-    }
-    else {
+    if (!argv[0] == atom_sha
+        || !enif_inspect_binary(env, argv[1], &digest_bin)
+        || digest_bin.size != SHA_DIGEST_LENGTH) {
 	return enif_make_badarg(env);
     }
 
@@ -2355,7 +2490,7 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     }
 
     enif_alloc_binary(DSA_size(dsa), &ret_bin);
-    i =  DSA_sign(NID_sha1, digest, SHA_DIGEST_LENGTH,
+    i =  DSA_sign(NID_sha1, digest_bin.data, SHA_DIGEST_LENGTH,
 		  ret_bin.data, &dsa_s_len, dsa);
     DSA_free(dsa);
     if (i) {
@@ -2365,6 +2500,7 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 	return enif_make_binary(env, &ret_bin);
     }
     else {
+	enif_release_binary(&ret_bin);
 	return atom_error;
     }
 }
@@ -2392,7 +2528,9 @@ static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TER
     ErlNifBinary data_bin, ret_bin;
     ERL_NIF_TERM head, tail;
     int padding, i;
-    RSA* rsa = RSA_new();
+    RSA* rsa;
+
+    rsa = RSA_new();
 
     if (!enif_inspect_binary(env, argv[0], &data_bin)
 	|| !enif_get_list_cell(env, argv[1], &head, &tail)
@@ -2438,7 +2576,9 @@ static ERL_NIF_TERM rsa_private_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TE
 {/* (Data, Key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C], Padding, IsEncrypt) */
     ErlNifBinary data_bin, ret_bin;
     int padding, i;
-    RSA* rsa = RSA_new();
+    RSA* rsa;
+
+    rsa = RSA_new();
 
     if (!enif_inspect_binary(env, argv[0], &data_bin)
 	|| !get_rsa_private_key(env, argv[1], rsa)
@@ -2507,9 +2647,11 @@ static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const E
 
 static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* ([PrimeLen, Generator]) */
-    DH* dh_params = DH_new();
+    DH* dh_params;
     int i;
     ERL_NIF_TERM ret, head, tail;
+
+    dh_params = DH_new();
 
     if (!enif_get_list_cell(env, argv[0], &head, &tail)   
 	|| !get_bn_from_bin(env, head, &dh_params->p)
@@ -2537,11 +2679,13 @@ static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
 static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (PrivKey, DHParams=[P,G], Mpint) */
-    DH* dh_params = DH_new();
+    DH* dh_params;
     int pub_len, prv_len;
     unsigned char *pub_ptr, *prv_ptr;
     ERL_NIF_TERM ret, ret_pub, ret_prv, head, tail;
     int mpint; /* 0 or 4 */
+
+    dh_params = DH_new();
 
     if (!(get_bn_from_bin(env, argv[0], &dh_params->priv_key)
 	  || argv[0] == atom_undefined)
@@ -2579,11 +2723,13 @@ static ERL_NIF_TERM dh_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 
 static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (OthersPublicKey, MyPrivateKey, DHParams=[P,G]) */
-    DH* dh_params = DH_new();
+    DH* dh_params;
     BIGNUM* pubkey = NULL;
     int i;
     ErlNifBinary ret_bin;
     ERL_NIF_TERM ret, head, tail;
+
+    dh_params = DH_new();
 
     if (!get_bn_from_bin(env, argv[0], &pubkey)
 	|| !get_bn_from_bin(env, argv[1], &dh_params->priv_key)
@@ -2605,6 +2751,7 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 	    ret = enif_make_binary(env, &ret_bin);
 	}
 	else {
+            enif_release_binary(&ret_bin);
 	    ret = atom_error;
 	}
     }
@@ -2616,7 +2763,7 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Multiplier, Verifier, Generator, Exponent, Prime) */
     BIGNUM *bn_verifier = NULL;
-    BIGNUM *bn_exponent, *bn_generator, *bn_prime, *bn_multiplier, *bn_result;
+    BIGNUM *bn_exponent = NULL, *bn_generator = NULL, *bn_prime = NULL, *bn_multiplier = NULL, *bn_result;
     BN_CTX *bn_ctx;
     unsigned char* ptr;
     unsigned dlen;
@@ -2629,9 +2776,9 @@ static ERL_NIF_TERM srp_value_B_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 	|| !get_bn_from_bin(env, argv[4], &bn_prime)) {
 	if (bn_multiplier) BN_free(bn_multiplier);
 	if (bn_verifier) BN_free(bn_verifier);
-	if (bn_verifier) BN_free(bn_generator);
-	if (bn_verifier) BN_free(bn_exponent);
-	if (bn_verifier) BN_free(bn_prime);
+	if (bn_generator) BN_free(bn_generator);
+	if (bn_exponent) BN_free(bn_exponent);
+	if (bn_prime) BN_free(bn_prime);
 	return enif_make_badarg(env);
     }
 
@@ -2674,8 +2821,9 @@ static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
         <premaster secret> = (B - (k * g^x)) ^ (a + (u * x)) % N
 */
     BIGNUM *bn_exponent = NULL, *bn_a = NULL;
-    BIGNUM *bn_u, *bn_multiplier, *bn_exp2, *bn_base,
-	*bn_prime, *bn_generator, *bn_B, *bn_result;
+    BIGNUM *bn_u = NULL, *bn_multiplier = NULL, *bn_exp2,
+        *bn_base, *bn_prime = NULL, *bn_generator = NULL,
+        *bn_B = NULL, *bn_result;
     BN_CTX *bn_ctx;
     unsigned char* ptr;
     unsigned dlen;
@@ -2724,8 +2872,8 @@ static ERL_NIF_TERM srp_user_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
 
     /* a + (u * x) */
     bn_exp2 = BN_new();
-    BN_mod_mul(bn_result, bn_u, bn_exponent, bn_prime, bn_ctx);
-    BN_mod_add(bn_exp2, bn_a, bn_result, bn_prime, bn_ctx);
+    BN_mul(bn_result, bn_u, bn_exponent, bn_ctx);
+    BN_add(bn_exp2, bn_a, bn_result);
 
     /* (B - (k * g^x)) ^ (a + (u * x)) % N */
     BN_mod_exp(bn_result, bn_base, bn_exp2, bn_prime, bn_ctx);
@@ -2754,7 +2902,7 @@ static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
         <premaster secret> = (A * v^u) ^ b % N
 */
     BIGNUM *bn_b = NULL, *bn_verifier = NULL;
-    BIGNUM *bn_prime, *bn_A, *bn_u, *bn_base, *bn_result;
+    BIGNUM *bn_prime = NULL, *bn_A = NULL, *bn_u = NULL, *bn_base, *bn_result;
     BN_CTX *bn_ctx;
     unsigned char* ptr;
     unsigned dlen;
@@ -2812,111 +2960,10 @@ static ERL_NIF_TERM srp_host_secret_nif(ErlNifEnv* env, int argc, const ERL_NIF_
     return ret;
 }
 
-static ERL_NIF_TERM bf_cfb64_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])    
-{/* (Key, Ivec, Data, IsEncrypt) */
-    ErlNifBinary key_bin, ivec_bin, data_bin;
-    BF_KEY bf_key; /* blowfish key 8 */
-    unsigned char bf_tkey[8]; /* blowfish ivec */    
-    int bf_n = 0; /* blowfish ivec pos */
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
-	|| !enif_inspect_binary(env, argv[1], &ivec_bin)
-	|| ivec_bin.size != 8 
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &data_bin)) {
-	return enif_make_badarg(env);
-    }
-
-    BF_set_key(&bf_key, key_bin.size, key_bin.data);
-    memcpy(bf_tkey, ivec_bin.data, 8);
-    BF_cfb64_encrypt(data_bin.data, enif_make_new_binary(env,data_bin.size,&ret),
-		     data_bin.size, &bf_key, bf_tkey, &bf_n,
-		     (argv[3] == atom_true ? BF_ENCRYPT : BF_DECRYPT));
-    CONSUME_REDS(env,data_bin);
-    return ret;
-}
-
-static ERL_NIF_TERM bf_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Key, Ivec, Data, IsEncrypt) */
-    ErlNifBinary key_bin, ivec_bin, data_bin;
-    BF_KEY bf_key; /* blowfish key 8 */
-    unsigned char bf_tkey[8]; /* blowfish ivec */    
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
-	|| !enif_inspect_binary(env, argv[1], &ivec_bin)
-	|| ivec_bin.size != 8 
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &data_bin)
-	|| data_bin.size % 8 != 0) {
-	return enif_make_badarg(env);
-    }
-
-    BF_set_key(&bf_key, key_bin.size, key_bin.data);
-    memcpy(bf_tkey, ivec_bin.data, 8);
-    BF_cbc_encrypt(data_bin.data, enif_make_new_binary(env,data_bin.size,&ret),
-		   data_bin.size, &bf_key, bf_tkey,
-		   (argv[3] == atom_true ? BF_ENCRYPT : BF_DECRYPT));
-    CONSUME_REDS(env,data_bin);
-    return ret;
-}
-
-static ERL_NIF_TERM bf_ecb_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])    
-{/* (Key, Data, IsEncrypt) */
-    ErlNifBinary key_bin, data_bin;
-    BF_KEY bf_key; /* blowfish key 8 */
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
-	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)
-	|| data_bin.size < 8) {
-	return enif_make_badarg(env);
-    }
-    BF_set_key(&bf_key, key_bin.size, key_bin.data);
-    BF_ecb_encrypt(data_bin.data, enif_make_new_binary(env,data_bin.size,&ret),
-		   &bf_key, (argv[2] == atom_true ? BF_ENCRYPT : BF_DECRYPT));
-    CONSUME_REDS(env,data_bin);
-    return ret;
-}
-
-static ERL_NIF_TERM blowfish_ofb64_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])    
-{/* (Key, IVec, Data) */
-    ErlNifBinary key_bin, ivec_bin, data_bin;
-    BF_KEY bf_key; /* blowfish key 8 */
-    unsigned char bf_tkey[8]; /* blowfish ivec */    
-    int bf_n = 0; /* blowfish ivec pos */
-    ERL_NIF_TERM ret;
-
-    if (!enif_inspect_iolist_as_binary(env, argv[0], &key_bin)
-	|| !enif_inspect_binary(env, argv[1], &ivec_bin)
-	|| ivec_bin.size != 8 
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &data_bin)) {
-	return enif_make_badarg(env);
-    }
-
-    BF_set_key(&bf_key, key_bin.size, key_bin.data);
-    memcpy(bf_tkey, ivec_bin.data, 8);
-    BF_ofb64_encrypt(data_bin.data, enif_make_new_binary(env,data_bin.size,&ret),
-		     data_bin.size, &bf_key, bf_tkey, &bf_n);
-    CONSUME_REDS(env,data_bin);
-    return ret;
-}
-
 #if defined(HAVE_EC)
-static int term2curve_id(ERL_NIF_TERM nid)
-{
-    int i;
-
-    for (i = 0; i < EC_CURVES_CNT; i++)
-	if (ec_curves[i].atom == nid)
-	    return ec_curves[i].nid;
-
-    return 0;
-}
-
 static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
 {
     EC_KEY *key = NULL;
-    int nid = 0;
     int c_arity = -1;
     const ERL_NIF_TERM* curve;
     ErlNifBinary seed;
@@ -2928,18 +2975,11 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
     EC_GROUP *group = NULL;
     EC_POINT *point = NULL;
 
-    if (enif_is_atom(env, curve_arg)) {
-	nid = term2curve_id(curve_arg);
-	if (nid == 0)
-	    return NULL;
-	key = EC_KEY_new_by_curve_name(nid);
-    }
-    else if (enif_is_tuple(env, curve_arg)
-	     && enif_get_tuple(env,curve_arg,&c_arity,&curve)
-	     && c_arity == 5
-	     && get_bn_from_bin(env, curve[3], &bn_order)
-	     && (curve[4] != atom_none && get_bn_from_bin(env, curve[4], &cofactor))) {
-	//* {Field, Prime, Point, Order, CoFactor} = Curve */
+    /* {Field, Prime, Point, Order, CoFactor} = Curve */
+    if (enif_get_tuple(env,curve_arg,&c_arity,&curve)
+	&& c_arity == 5
+	&& get_bn_from_bin(env, curve[3], &bn_order)
+	&& (curve[4] != atom_none && get_bn_from_bin(env, curve[4], &cofactor))) {
 
 	int f_arity = -1;
 	const ERL_NIF_TERM* field;
@@ -2974,6 +3014,10 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
 	    group = EC_GROUP_new_curve_GFp(p, a, b, NULL);
 
 	} else if (f_arity == 3 && field[0] == atom_characteristic_two_field) {
+#if defined(OPENSSL_NO_EC2M)
+	    enif_raise_exception(env, atom_notsup);
+	    goto out_err;
+#else
 	    /* {characteristic_two_field, M, Basis} */
 
 	    int b_arity = -1;
@@ -3031,8 +3075,12 @@ static EC_KEY* ec_key_new(ErlNifEnv* env, ERL_NIF_TERM curve_arg)
 		goto out_err;
 
 	    group = EC_GROUP_new_curve_GF2m(p, a, b, NULL);
+#endif
 	} else
 	    goto out_err;
+
+        if (!group)
+            goto out_err;
 
 	if (enif_inspect_binary(env, prime[2], &seed)) {
 	    EC_GROUP_set_seed(group, seed.data, seed.size);
@@ -3076,6 +3124,7 @@ out:
     if (bn_order) BN_free(bn_order);
     if (cofactor) BN_free(cofactor);
     if (group) EC_GROUP_free(group);
+    if (point) EC_POINT_free(point);
 
     return key;
 }
@@ -3093,7 +3142,7 @@ static ERL_NIF_TERM bn2term(ErlNifEnv* env, const BIGNUM *bn)
     dlen = BN_num_bytes(bn);
     ptr = enif_make_new_binary(env, dlen, &ret);
     BN_bn2bin(bn, ptr);
-
+    ERL_VALGRIND_MAKE_MEM_DEFINED(ptr, dlen);
     return ret;
 }
 
@@ -3116,39 +3165,10 @@ static ERL_NIF_TERM point2term(ErlNifEnv* env,
 	enif_release_binary(&bin);
 	return enif_make_badarg(env);
     }
-
+    ERL_VALGRIND_MAKE_MEM_DEFINED(bin.data, bin.size);
     return enif_make_binary(env, &bin);
 }
-#endif
 
-static ERL_NIF_TERM ec_key_to_term_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{
-#if defined(HAVE_EC)
-    struct nif_ec_key *obj;
-    const EC_GROUP *group;
-    const EC_POINT *public_key;
-    const BIGNUM *priv_key = NULL;
-    ERL_NIF_TERM pub_key = atom_undefined;
-
-    if (!enif_get_resource(env, argv[0], res_type_ec_key, (void **)&obj))
-	    return enif_make_badarg(env);
-
-    group = EC_KEY_get0_group(obj->key);
-    public_key = EC_KEY_get0_public_key(obj->key);
-    priv_key = EC_KEY_get0_private_key(obj->key);
-
-    if (group) {
-	if (public_key)
-	    pub_key = point2term(env, group, public_key, EC_KEY_get_conv_form(obj->key));
-    }
-
-    return enif_make_tuple2(env, pub_key, bn2term(env, priv_key));
-#else
-    return atom_notsup;
-#endif
-}
-
-#if defined(HAVE_EC)
 static int term2point(ErlNifEnv* env, ERL_NIF_TERM term,
 		      EC_GROUP *group, EC_POINT **pptr)
 {
@@ -3176,24 +3196,22 @@ static int term2point(ErlNifEnv* env, ERL_NIF_TERM term,
 
     return ret;
 }
-#endif
 
-static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+static int get_ec_key(ErlNifEnv* env,
+		      ERL_NIF_TERM curve, ERL_NIF_TERM priv, ERL_NIF_TERM pub,
+		      EC_KEY** res)
 {
-#if defined(HAVE_EC)
-    ERL_NIF_TERM ret;
     EC_KEY *key = NULL;
     BIGNUM *priv_key = NULL;
     EC_POINT *pub_key = NULL;
-    struct nif_ec_key *obj;
     EC_GROUP *group = NULL;
 
-    if (!(argv[1] == atom_undefined || get_bn_from_bin(env, argv[1], &priv_key))
-	|| !(argv[2] == atom_undefined || enif_is_binary(env, argv[2]))) {
+    if (!(priv == atom_undefined || get_bn_from_bin(env, priv, &priv_key))
+	|| !(pub == atom_undefined || enif_is_binary(env, pub))) {
 	goto out_err;
     }
 
-    key = ec_key_new(env, argv[0]);
+    key = ec_key_new(env, curve);
 
     if (!key) {
 	goto out_err;
@@ -3202,12 +3220,12 @@ static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
     if (!group)
 	group = EC_GROUP_dup(EC_KEY_get0_group(key));
 
-    if (term2point(env, argv[2], group, &pub_key)) {
+    if (term2point(env, pub, group, &pub_key)) {
 	    if (!EC_KEY_set_public_key(key, pub_key)) {
 		    goto out_err;
 	    }
     }
-    if (argv[1] != atom_undefined
+    if (priv != atom_undefined
 	&& !BN_is_zero(priv_key)) {
 	    if (!EC_KEY_set_private_key(key, priv_key))
 		    goto out_err;
@@ -3226,19 +3244,11 @@ static ERL_NIF_TERM term_to_ec_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 	    }
     }
 
-    obj = enif_alloc_resource(res_type_ec_key, sizeof(struct nif_ec_key));
-    if (!obj)
-	goto out_err;
-
-    obj->key = key;
-    ret = enif_make_resource(env, obj);
-    enif_release_resource(obj);
-
     goto out;
 
 out_err:
     if (key) EC_KEY_free(key);
-    ret = enif_make_badarg(env);
+    key = NULL;
 
 out:
     /* some OpenSSL structures are mem-dup'ed into the key,
@@ -3246,87 +3256,81 @@ out:
     if (priv_key) BN_clear_free(priv_key);
     if (pub_key) EC_POINT_free(pub_key);
     if (group) EC_GROUP_free(group);
-    return ret;
-#else
-    return atom_notsup;
-#endif
+    if (!key)
+	return 0;
+    *res = key;
+    return 1;
 }
+#endif /* HAVE_EC */
 
 static ERL_NIF_TERM ec_key_generate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 #if defined(HAVE_EC)
-    EC_KEY *key = ec_key_new(env, argv[0]);
+    EC_KEY *key = NULL;
+    const EC_GROUP *group;
+    const EC_POINT *public_key;
+    ERL_NIF_TERM priv_key;
+    ERL_NIF_TERM pub_key = atom_undefined;
 
-    if (key && EC_KEY_generate_key(key)) {
-	ERL_NIF_TERM term;
-	struct nif_ec_key *obj = enif_alloc_resource(res_type_ec_key, sizeof(struct nif_ec_key));
-	if (!obj)
-	    return atom_error;
-	obj->key = key;
-	term = enif_make_resource(env, obj);
-	enif_release_resource(obj);
-	return term;
+    if (!get_ec_key(env, argv[0], argv[1], atom_undefined, &key))
+	goto badarg;
+
+    if (argv[1] == atom_undefined) {
+	if (!EC_KEY_generate_key(key))
+	    goto badarg;
     }
-    else
-	return enif_make_badarg(env);
+
+    group = EC_KEY_get0_group(key);
+    public_key = EC_KEY_get0_public_key(key);
+
+    if (group && public_key) {
+	pub_key = point2term(env, group, public_key,
+			     EC_KEY_get_conv_form(key));
+    }
+    priv_key = bn2term(env, EC_KEY_get0_private_key(key));
+    EC_KEY_free(key);
+    return enif_make_tuple2(env, pub_key, priv_key);
+
+badarg:
+    if (key)
+	EC_KEY_free(key);
+    return make_badarg_maybe(env);
 #else
     return atom_notsup;
 #endif
 }
 
-#if defined(HAVE_EC)
-static void ec_key_dtor(ErlNifEnv* env, void* obj)
-{
-    struct nif_ec_key *key = (struct nif_ec_key*) obj;
-    EC_KEY_free(key->key);
-}
-#endif
-
 static ERL_NIF_TERM ecdsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Data|{digest,Digest}, Key) */
+{/* (Type, Digest, Curve, Key) */
 #if defined(HAVE_EC)
-    ErlNifBinary data_bin, ret_bin;
-    unsigned char hmacbuf[SHA_DIGEST_LENGTH];
+    ErlNifBinary digest_bin, ret_bin;
     unsigned int dsa_s_len;
-    struct nif_ec_key *obj;
-    int i;
-    const ERL_NIF_TERM* tpl_terms;
-    int tpl_arity;
+    EC_KEY* key = NULL;
+    int i, len;
     struct digest_type_t *digp;
-    unsigned char* digest;
+    const EVP_MD         *md;
 
     digp = get_digest_type(argv[0]);
     if (!digp) {
 	return enif_make_badarg(env);
     }
-    if (!digp->len) {
+    md = digp->md.p;
+    if (!md) {
 	return atom_notsup;
     }
+    len = EVP_MD_size(md);
 
-    if (!enif_get_resource(env, argv[2], res_type_ec_key, (void **)&obj))
-	return enif_make_badarg(env);
+    if (!enif_inspect_binary(env,argv[1],&digest_bin)
+        || digest_bin.size != len
+        || !get_ec_key(env, argv[2], argv[3], atom_undefined, &key))
+      goto badarg;
 
-    if (enif_get_tuple(env, argv[1], &tpl_arity, &tpl_terms)) {
-	if (tpl_arity != 2 || tpl_terms[0] != atom_digest
-	    || !enif_inspect_binary(env, tpl_terms[1], &data_bin)
-	    || data_bin.size != digp->len) {
+    enif_alloc_binary(ECDSA_size(key), &ret_bin);
 
-	    return enif_make_badarg(env);
-	}
-	digest = data_bin.data;
-    }
-    else {
-	if (!enif_inspect_binary(env,argv[1],&data_bin)) {
-	    return enif_make_badarg(env);
-	}
-	digest = hmacbuf;
-	digp->funcp(data_bin.data, data_bin.size, digest);
-    }
+    i = ECDSA_sign(md->type, digest_bin.data, len,
+		   ret_bin.data, &dsa_s_len, key);
 
-    enif_alloc_binary(ECDSA_size(obj->key), &ret_bin);
-
-    i = ECDSA_sign(digp->NID_type, digest, digp->len,
-		   ret_bin.data, &dsa_s_len, obj->key);
+    EC_KEY_free(key);
     if (i) {
 	if (dsa_s_len != ret_bin.size) {
 	    enif_realloc_binary(&ret_bin, dsa_s_len);
@@ -3337,57 +3341,53 @@ static ERL_NIF_TERM ecdsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 	enif_release_binary(&ret_bin);
 	return atom_error;
     }
+
+badarg:
+    if (key)
+	EC_KEY_free(key);
+    return make_badarg_maybe(env);
 #else
     return atom_notsup;
 #endif
 }
 
 static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type, Data|{digest,Digest}, Signature, Key) */
+{/* (Type, Digest, Signature, Curve, Key) */
 #if defined(HAVE_EC)
-    ErlNifBinary data_bin, sign_bin;
-    unsigned char hmacbuf[SHA512_LEN];
-    int i;
-    struct nif_ec_key *obj;
+    ErlNifBinary digest_bin, sign_bin;
+    int i, len;
+    EC_KEY* key = NULL;
     const ERL_NIF_TERM type = argv[0];
-    const ERL_NIF_TERM* tpl_terms;
-    int tpl_arity;
-    struct digest_type_t* digp = NULL;
-    unsigned char* digest = NULL;
+    struct digest_type_t *digp = NULL;
+    const EVP_MD         *md;
 
     digp = get_digest_type(type);
     if (!digp) {
 	return enif_make_badarg(env);
     }
-    if (!digp->len) {
+    md = digp->md.p;
+    if (!md) {
 	return atom_notsup;
     }
+    len = EVP_MD_size(md);
 
-    if (!enif_inspect_binary(env, argv[2], &sign_bin)
-	|| !enif_get_resource(env, argv[3], res_type_ec_key, (void **)&obj))
-	return enif_make_badarg(env);
+    if (!enif_inspect_binary(env, argv[1], &digest_bin)
+        || digest_bin.size != len
+        || !enif_inspect_binary(env, argv[2], &sign_bin)
+	|| !get_ec_key(env, argv[3], atom_undefined, argv[4], &key))
+	goto badarg;
 
-    if (enif_get_tuple(env, argv[1], &tpl_arity, &tpl_terms)) {
-	if (tpl_arity != 2 || tpl_terms[0] != atom_digest
-	    || !enif_inspect_binary(env, tpl_terms[1], &data_bin)
-	    || data_bin.size != digp->len) {
+    i = ECDSA_verify(md->type, digest_bin.data, len,
+		     sign_bin.data, sign_bin.size, key);
 
-	    return enif_make_badarg(env);
-	}
-	digest = data_bin.data;
-    }
-    else if (enif_inspect_binary(env, argv[1], &data_bin)) {
-	digest = hmacbuf;
-	digp->funcp(data_bin.data, data_bin.size, digest);
-    }
-    else {
-	return enif_make_badarg(env);
-    }
-
-    i = ECDSA_verify(digp->NID_type, digest, digp->len,
-		     sign_bin.data, sign_bin.size, obj->key);
+    EC_KEY_free(key);
 
     return (i==1 ? atom_true : atom_false);
+
+badarg:
+    if (key)
+	EC_KEY_free(key);
+    return make_badarg_maybe(env);
 #else
     return atom_notsup;
 #endif
@@ -3398,24 +3398,24 @@ static ERL_NIF_TERM ecdsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
   (_OthersPublicKey, _MyEC_Point)
 */
 static ERL_NIF_TERM ecdh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+/* (OtherPublicKey, Curve, My) */
 {
 #if defined(HAVE_EC)
     ERL_NIF_TERM ret;
     unsigned char *p;
-    struct nif_ec_key *other_key;
+    EC_KEY* key = NULL;
     int field_size = 0;
     int i;
-
     EC_GROUP *group;
     const BIGNUM *priv_key;
     EC_POINT *my_ecpoint;
     EC_KEY *other_ecdh = NULL;
 
-    if (!enif_get_resource(env, argv[1], res_type_ec_key, (void **)&other_key))
-	return enif_make_badarg(env);
+    if (!get_ec_key(env, argv[1], argv[2], atom_undefined, &key))
+	return make_badarg_maybe(env);
 
-    group    = EC_GROUP_dup(EC_KEY_get0_group(other_key->key));
-    priv_key = EC_KEY_get0_private_key(other_key->key);
+    group    = EC_GROUP_dup(EC_KEY_get0_group(key));
+    priv_key = EC_KEY_get0_private_key(key);
 
     if (!term2point(env, argv[0], group, &my_ecpoint)) {
 	goto out_err;
@@ -3439,6 +3439,7 @@ out:
     if (group) EC_GROUP_free(group);
     if (my_ecpoint) EC_POINT_free(my_ecpoint);
     if (other_ecdh) EC_KEY_free(other_ecdh);
+    if (key) EC_KEY_free(key);
 
     return ret;
 
@@ -3450,246 +3451,12 @@ out_err:
 #endif
 }
 
-
-/* HMAC */
-
-static void hmac_md5(unsigned char *key, int klen, unsigned char *dbuf, int dlen,
-		     unsigned char *hmacbuf)
+static ERL_NIF_TERM rand_seed_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    MD5_CTX ctx;
-    char ipad[HMAC_INT_LEN];
-    char opad[HMAC_INT_LEN];
-    unsigned char nkey[MD5_LEN];
-    int i;
+    ErlNifBinary seed_bin;
 
-    /* Change key if longer than 64 bytes */
-    if (klen > HMAC_INT_LEN) {
-	MD5(key, klen, nkey);
-	key = nkey;
-	klen = MD5_LEN;
-    }
-
-    memset(ipad, '\0', sizeof(ipad));
-    memset(opad, '\0', sizeof(opad));
-    memcpy(ipad, key, klen);
-    memcpy(opad, key, klen);
-
-    for (i = 0; i < HMAC_INT_LEN; i++) {
-	ipad[i] ^= HMAC_IPAD;
-	opad[i] ^= HMAC_OPAD;
-    }
-
-    /* inner MD5 */
-    MD5_Init(&ctx);
-    MD5_Update(&ctx, ipad, HMAC_INT_LEN);
-    MD5_Update(&ctx, dbuf, dlen);
-    MD5_Final((unsigned char *) hmacbuf, &ctx);
-    /* outer MD5 */
-    MD5_Init(&ctx);
-    MD5_Update(&ctx, opad, HMAC_INT_LEN);
-    MD5_Update(&ctx, hmacbuf, MD5_LEN);
-    MD5_Final((unsigned char *) hmacbuf, &ctx);
+    if (!enif_inspect_binary(env, argv[0], &seed_bin))
+        return enif_make_badarg(env);
+    RAND_seed(seed_bin.data,seed_bin.size);
+    return atom_ok;
 }
-
-static void hmac_sha1(unsigned char *key, int klen,
-		      unsigned char *dbuf, int dlen, 
-		      unsigned char *hmacbuf)
-{
-    SHA_CTX ctx;
-    char ipad[HMAC_INT_LEN];
-    char opad[HMAC_INT_LEN];
-    unsigned char nkey[SHA_LEN];
-    int i;
-
-    /* Change key if longer than 64 bytes */
-    if (klen > HMAC_INT_LEN) {
-	SHA1(key, klen, nkey);
-	key = nkey;
-	klen = SHA_LEN;
-    }
-
-    memset(ipad, '\0', sizeof(ipad));
-    memset(opad, '\0', sizeof(opad));
-    memcpy(ipad, key, klen);
-    memcpy(opad, key, klen);
-
-    for (i = 0; i < HMAC_INT_LEN; i++) {
-	ipad[i] ^= HMAC_IPAD;
-	opad[i] ^= HMAC_OPAD;
-    }
-
-    /* inner SHA */
-    SHA1_Init(&ctx);
-    SHA1_Update(&ctx, ipad, HMAC_INT_LEN);
-    SHA1_Update(&ctx, dbuf, dlen);
-    SHA1_Final((unsigned char *) hmacbuf, &ctx);
-    /* outer SHA */
-    SHA1_Init(&ctx);
-    SHA1_Update(&ctx, opad, HMAC_INT_LEN);
-    SHA1_Update(&ctx, hmacbuf, SHA_LEN);
-    SHA1_Final((unsigned char *) hmacbuf, &ctx);
-}
-
-#ifdef HAVE_SHA224
-static void hmac_sha224(unsigned char *key, int klen,
-			unsigned char *dbuf, int dlen,
-			unsigned char *hmacbuf)
-{
-    SHA256_CTX ctx;
-    char ipad[HMAC_INT_LEN];
-    char opad[HMAC_INT_LEN];
-    unsigned char nkey[SHA224_DIGEST_LENGTH];
-    int i;
-
-    /* Change key if longer than 64 bytes */
-    if (klen > HMAC_INT_LEN) {
-	SHA224(key, klen, nkey);
-	key = nkey;
-	klen = SHA224_DIGEST_LENGTH;
-    }
-
-    memset(ipad, '\0', sizeof(ipad));
-    memset(opad, '\0', sizeof(opad));
-    memcpy(ipad, key, klen);
-    memcpy(opad, key, klen);
-
-    for (i = 0; i < HMAC_INT_LEN; i++) {
-	ipad[i] ^= HMAC_IPAD;
-	opad[i] ^= HMAC_OPAD;
-    }
-
-    /* inner SHA */
-    SHA224_Init(&ctx);
-    SHA224_Update(&ctx, ipad, HMAC_INT_LEN);
-    SHA224_Update(&ctx, dbuf, dlen);
-    SHA224_Final((unsigned char *) hmacbuf, &ctx);
-    /* outer SHA */
-    SHA224_Init(&ctx);
-    SHA224_Update(&ctx, opad, HMAC_INT_LEN);
-    SHA224_Update(&ctx, hmacbuf, SHA224_DIGEST_LENGTH);
-    SHA224_Final((unsigned char *) hmacbuf, &ctx);
-}
-#endif
-
-#ifdef HAVE_SHA256
-static void hmac_sha256(unsigned char *key, int klen,
-			unsigned char *dbuf, int dlen,
-			unsigned char *hmacbuf)
-{
-    SHA256_CTX ctx;
-    char ipad[HMAC_INT_LEN];
-    char opad[HMAC_INT_LEN];
-    unsigned char nkey[SHA256_DIGEST_LENGTH];
-    int i;
-
-    /* Change key if longer than 64 bytes */
-    if (klen > HMAC_INT_LEN) {
-	SHA256(key, klen, nkey);
-	key = nkey;
-	klen = SHA256_DIGEST_LENGTH;
-    }
-
-    memset(ipad, '\0', sizeof(ipad));
-    memset(opad, '\0', sizeof(opad));
-    memcpy(ipad, key, klen);
-    memcpy(opad, key, klen);
-
-    for (i = 0; i < HMAC_INT_LEN; i++) {
-	ipad[i] ^= HMAC_IPAD;
-	opad[i] ^= HMAC_OPAD;
-    }
-
-    /* inner SHA */
-    SHA256_Init(&ctx);
-    SHA256_Update(&ctx, ipad, HMAC_INT_LEN);
-    SHA256_Update(&ctx, dbuf, dlen);
-    SHA256_Final((unsigned char *) hmacbuf, &ctx);
-    /* outer SHA */
-    SHA256_Init(&ctx);
-    SHA256_Update(&ctx, opad, HMAC_INT_LEN);
-    SHA256_Update(&ctx, hmacbuf, SHA256_DIGEST_LENGTH);
-    SHA256_Final((unsigned char *) hmacbuf, &ctx);
-}
-#endif
-
-#ifdef HAVE_SHA384
-static void hmac_sha384(unsigned char *key, int klen,
-			unsigned char *dbuf, int dlen,
-			unsigned char *hmacbuf)
-{
-    SHA512_CTX ctx;
-    char ipad[HMAC_INT2_LEN];
-    char opad[HMAC_INT2_LEN];
-    unsigned char nkey[SHA384_DIGEST_LENGTH];
-    int i;
-
-    /* Change key if longer than 64 bytes */
-    if (klen > HMAC_INT2_LEN) {
-	SHA384(key, klen, nkey);
-	key = nkey;
-	klen = SHA384_DIGEST_LENGTH;
-    }
-
-    memset(ipad, '\0', sizeof(ipad));
-    memset(opad, '\0', sizeof(opad));
-    memcpy(ipad, key, klen);
-    memcpy(opad, key, klen);
-
-    for (i = 0; i < HMAC_INT2_LEN; i++) {
-	ipad[i] ^= HMAC_IPAD;
-	opad[i] ^= HMAC_OPAD;
-    }
-
-    /* inner SHA */
-    SHA384_Init(&ctx);
-    SHA384_Update(&ctx, ipad, HMAC_INT2_LEN);
-    SHA384_Update(&ctx, dbuf, dlen);
-    SHA384_Final((unsigned char *) hmacbuf, &ctx);
-    /* outer SHA */
-    SHA384_Init(&ctx);
-    SHA384_Update(&ctx, opad, HMAC_INT2_LEN);
-    SHA384_Update(&ctx, hmacbuf, SHA384_DIGEST_LENGTH);
-    SHA384_Final((unsigned char *) hmacbuf, &ctx);
-}
-#endif
-
-#ifdef HAVE_SHA512
-static void hmac_sha512(unsigned char *key, int klen,
-			unsigned char *dbuf, int dlen,
-			unsigned char *hmacbuf)
-{
-    SHA512_CTX ctx;
-    char ipad[HMAC_INT2_LEN];
-    char opad[HMAC_INT2_LEN];
-    unsigned char nkey[SHA512_DIGEST_LENGTH];
-    int i;
-
-    /* Change key if longer than 64 bytes */
-    if (klen > HMAC_INT2_LEN) {
-	SHA512(key, klen, nkey);
-	key = nkey;
-	klen = SHA512_DIGEST_LENGTH;
-    }
-
-    memset(ipad, '\0', sizeof(ipad));
-    memset(opad, '\0', sizeof(opad));
-    memcpy(ipad, key, klen);
-    memcpy(opad, key, klen);
-
-    for (i = 0; i < HMAC_INT2_LEN; i++) {
-	ipad[i] ^= HMAC_IPAD;
-	opad[i] ^= HMAC_OPAD;
-    }
-
-    /* inner SHA */
-    SHA512_Init(&ctx);
-    SHA512_Update(&ctx, ipad, HMAC_INT2_LEN);
-    SHA512_Update(&ctx, dbuf, dlen);
-    SHA512_Final((unsigned char *) hmacbuf, &ctx);
-    /* outer SHA */
-    SHA512_Init(&ctx);
-    SHA512_Update(&ctx, opad, HMAC_INT2_LEN);
-    SHA512_Update(&ctx, hmacbuf, SHA512_DIGEST_LENGTH);
-    SHA512_Final((unsigned char *) hmacbuf, &ctx);
-}
-#endif

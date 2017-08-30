@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2012. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd% 
 */
@@ -133,9 +134,9 @@ case 5015: { // gluBuild3DMipmaps
 }; break;
 case 5016: { // gluCheckExtension
  GLubyte *extName = (GLubyte *) bp;
- int extNameLen[1] = {strlen((char *)extName)}; bp += extNameLen[0]+1+((8-((1+extNameLen[0]+0)%8))%8);
+ int extNameLen[1] = {(int)strlen((char *)extName)}; bp += extNameLen[0]+1+((8-((1+extNameLen[0]+0)%8))%8);
  GLubyte *extString = (GLubyte *) bp;
- int extStringLen[1] = {strlen((char *)extString)}; bp += extStringLen[0]+1+((8-((1+extStringLen[0]+0)%8))%8);
+ int extStringLen[1] = {(int)strlen((char *)extString)}; bp += extStringLen[0]+1+((8-((1+extStringLen[0]+0)%8))%8);
  GLboolean result = wegluCheckExtension(extName,extString);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
@@ -3246,7 +3247,7 @@ case 5446: { // glBindAttribLocation
  GLuint *program = (GLuint *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  weglBindAttribLocation(*program,*index,name);
 }; break;
 case 5447: { // glCompileShader
@@ -3352,7 +3353,7 @@ case 5457: { // glGetAttachedShaders
 case 5458: { // glGetAttribLocation
  GLuint *program = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
  GLint result = weglGetAttribLocation(*program,name);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
@@ -3427,7 +3428,7 @@ case 5463: { // glGetShaderSource
 case 5464: { // glGetUniformLocation
  GLuint *program = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
  GLint result = weglGetUniformLocation(*program,name);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
@@ -4186,13 +4187,13 @@ case 5558: { // glBindFragDataLocation
  GLuint *program = (GLuint *) bp; bp += 4;
  GLuint *color = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  weglBindFragDataLocation(*program,*color,name);
 }; break;
 case 5559: { // glGetFragDataLocation
  GLuint *program = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
  GLint result = weglGetFragDataLocation(*program,name);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
@@ -4547,7 +4548,7 @@ case 5608: { // glProgramStringARB
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *format = (GLenum *) bp; bp += 4;
  GLvoid *string = (GLvoid *) bp;
- int stringLen[1] = {strlen((char *)string)}; bp += stringLen[0]+1+((8-((1+stringLen[0]+0)%8))%8);
+ int stringLen[1] = {(int)strlen((char *)string)}; bp += stringLen[0]+1+((8-((1+stringLen[0]+0)%8))%8);
  weglProgramStringARB(*target,*format,*stringLen,string);
 }; break;
 case 5609: { // glBindProgramARB
@@ -4867,7 +4868,7 @@ case 5640: { // glGetAttachedObjectsARB
 case 5641: { // glGetUniformLocationARB
  GLhandleARB programObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  GLint result = weglGetUniformLocationARB(programObj,name);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
@@ -4970,7 +4971,7 @@ case 5646: { // glBindAttribLocationARB
  GLhandleARB programObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
  weglBindAttribLocationARB(programObj,*index,name);
 }; break;
 case 5647: { // glGetActiveAttribARB
@@ -4996,7 +4997,7 @@ case 5647: { // glGetActiveAttribARB
 case 5648: { // glGetAttribLocationARB
  GLhandleARB programObj = (GLhandleARB) * (GLuint64EXT *) bp; bp += 8;
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  GLint result = weglGetAttribLocationARB(programObj,name);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
@@ -5288,7 +5289,7 @@ case 5677: { // glGetActiveUniformName
 case 5678: { // glGetUniformBlockIndex
  GLuint *program = (GLuint *) bp; bp += 4;
  GLchar *uniformBlockName = (GLchar *) bp;
- int uniformBlockNameLen[1] = {strlen((char *)uniformBlockName)}; bp += uniformBlockNameLen[0]+1+((8-((1+uniformBlockNameLen[0]+4)%8))%8);
+ int uniformBlockNameLen[1] = {(int)strlen((char *)uniformBlockName)}; bp += uniformBlockNameLen[0]+1+((8-((1+uniformBlockNameLen[0]+4)%8))%8);
  GLuint result = weglGetUniformBlockIndex(*program,uniformBlockName);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
@@ -5525,14 +5526,14 @@ case 5700: { // glSampleMaski
 case 5701: { // glNamedStringARB
  GLenum *type = (GLenum *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
  GLchar *string = (GLchar *) bp;
- int stringLen[1] = {strlen((char *)string)}; bp += stringLen[0]+1+((8-((1+stringLen[0]+0)%8))%8);
+ int stringLen[1] = {(int)strlen((char *)string)}; bp += stringLen[0]+1+((8-((1+stringLen[0]+0)%8))%8);
  weglNamedStringARB(*type,*nameLen,name,*stringLen,string);
 }; break;
 case 5702: { // glDeleteNamedStringARB
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  weglDeleteNamedStringARB(*nameLen,name);
 }; break;
 case 5703: { // glCompileShaderIncludeARB
@@ -5549,7 +5550,7 @@ case 5703: { // glCompileShaderIncludeARB
 }; break;
 case 5704: { // glIsNamedStringARB
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  GLboolean result = weglIsNamedStringARB(*nameLen,name);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
@@ -5559,7 +5560,7 @@ case 5704: { // glIsNamedStringARB
 }; break;
 case 5705: { // glGetNamedStringARB
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  GLsizei *bufSize = (GLsizei *) bp; bp += 4;
  GLint stringlen[1] = {0};
  GLchar *string;
@@ -5574,7 +5575,7 @@ case 5705: { // glGetNamedStringARB
 }; break;
 case 5706: { // glGetNamedStringivARB
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLint params[1] = {0};
  weglGetNamedStringivARB(*nameLen,name,*pname,params);
@@ -5589,13 +5590,13 @@ case 5707: { // glBindFragDataLocationIndexed
  GLuint *colorNumber = (GLuint *) bp; bp += 4;
  GLuint *index = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
  weglBindFragDataLocationIndexed(*program,*colorNumber,*index,name);
 }; break;
 case 5708: { // glGetFragDataIndex
  GLuint *program = (GLuint *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+4)%8))%8);
  GLint result = weglGetFragDataIndex(*program,name);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
@@ -5954,7 +5955,7 @@ case 5748: { // glGetSubroutineUniformLocation
  GLuint *program = (GLuint *) bp; bp += 4;
  GLenum *shadertype = (GLenum *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  GLint result = weglGetSubroutineUniformLocation(*program,*shadertype,name);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
@@ -5966,7 +5967,7 @@ case 5749: { // glGetSubroutineIndex
  GLuint *program = (GLuint *) bp; bp += 4;
  GLenum *shadertype = (GLenum *) bp; bp += 4;
  GLchar *name = (GLchar *) bp;
- int nameLen[1] = {strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
+ int nameLen[1] = {(int)strlen((char *)name)}; bp += nameLen[0]+1+((8-((1+nameLen[0]+0)%8))%8);
  GLuint result = weglGetSubroutineIndex(*program,*shadertype,name);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
@@ -6869,7 +6870,7 @@ case 5854: { // glDebugMessageInsertARB
  GLuint *id = (GLuint *) bp; bp += 4;
  GLenum *severity = (GLenum *) bp; bp += 4;
  GLchar *buf = (GLchar *) bp;
- int bufLen[1] = {strlen((char *)buf)}; bp += bufLen[0]+1+((8-((1+bufLen[0]+0)%8))%8);
+ int bufLen[1] = {(int)strlen((char *)buf)}; bp += bufLen[0]+1+((8-((1+bufLen[0]+0)%8))%8);
  weglDebugMessageInsertARB(*source,*type,*id,*severity,*bufLen,buf);
 }; break;
 case 5855: { // glGetDebugMessageLogARB

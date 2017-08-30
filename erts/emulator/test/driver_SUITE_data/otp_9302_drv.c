@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -94,7 +95,7 @@ DRIVER_INIT(otp_9302_drv)
 static void stop(ErlDrvData drv_data)
 {
     Otp9302Data *data = (Otp9302Data *) drv_data;
-    if (!data->smp)
+    if (data->msgq.mtx)
 	erl_drv_mutex_destroy(data->msgq.mtx);
     driver_free(data);
 }
@@ -114,13 +115,16 @@ static ErlDrvData start(ErlDrvPort port,
     driver_system_info(&sys_info, sizeof(ErlDrvSysInfo));
     data->smp = sys_info.smp_support;
 
+    data->msgq.mtx = NULL;
     if (!data->smp) {
 	data->msgq.start = NULL;
 	data->msgq.end = NULL;
-	data->msgq.mtx = erl_drv_mutex_create("");
-	if (!data->msgq.mtx) {
-	    driver_free(data);
-	    return ERL_DRV_ERROR_GENERAL;
+	if (sys_info.thread_support) {
+	    data->msgq.mtx = erl_drv_mutex_create("");
+	    if (!data->msgq.mtx) {
+		driver_free(data);
+		return ERL_DRV_ERROR_GENERAL;
+	    }
 	}
     }
 
@@ -143,19 +147,22 @@ static void enqueue_reply(Otp9302AsyncData *adata)
     Otp9302MsgQ *msgq = adata->msgq;
     adata->next = NULL;
     adata->refc++;
-    erl_drv_mutex_lock(msgq->mtx);
+    if (msgq->mtx)
+	erl_drv_mutex_lock(msgq->mtx);
     if (msgq->end)
 	msgq->end->next = adata;
     else
 	msgq->end = msgq->start = adata;
     msgq->end = adata;
-    erl_drv_mutex_unlock(msgq->mtx);
+    if (msgq->mtx)
+	erl_drv_mutex_unlock(msgq->mtx);
 }
 
 static void dequeue_replies(Otp9302AsyncData *adata)
 {
     Otp9302MsgQ *msgq = adata->msgq;
-    erl_drv_mutex_lock(msgq->mtx);
+    if (msgq->mtx)
+	erl_drv_mutex_lock(msgq->mtx);
     if (--adata->refc == 0)
 	driver_free(adata);
     while (msgq->start) {
@@ -166,7 +173,8 @@ static void dequeue_replies(Otp9302AsyncData *adata)
 	    driver_free(adata);
     }
     msgq->start = msgq->end = NULL;
-    erl_drv_mutex_unlock(msgq->mtx);
+    if (msgq->mtx)
+	erl_drv_mutex_unlock(msgq->mtx);
 }
 
 static void async_invoke(void *data)
@@ -227,6 +235,4 @@ static void output(ErlDrvData drv_data,
     ad[4]->term_data.msg = driver_mk_atom("end_of_jobs");
     for (i = 0; i < sizeof(id)/sizeof(id[0]); i++)
 	id[i] = driver_async(data->port, &key, async_invoke, ad[i], driver_free);
-    if (id[2] > 0)
-	driver_async_cancel(id[2]);
 }

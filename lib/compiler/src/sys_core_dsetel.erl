@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -71,7 +72,7 @@ module(M0, _Options) ->
     {ok,M}.
 
 visit_module(#c_module{defs=Ds0}=R) ->
-    Env = dict:new(),
+    Env = #{},
     Ds = visit_module_1(Ds0, Env, []),
     R#c_module{defs=Ds}.
 
@@ -94,14 +95,23 @@ visit(Env, #c_var{name={_,_}}=R) ->
     {R, Env};
 visit(Env0, #c_var{name=X}=R) ->
     %% There should not be any free variables. If there are,
-    %% the next line will cause an exception.
-    {ok, N} = dict:find(X, Env0),
-    {R, dict:store(X, N+1, Env0)};
+    %% the case will fail with an exception.
+    case Env0 of
+	#{X:=N} ->
+	    {R, Env0#{X:=N+1}}
+    end;
 visit(Env, #c_literal{}=R) ->
     {R, Env};
 visit(Env0, #c_tuple{es=Es0}=R) ->
     {Es1,Env1} = visit_list(Env0, Es0),
     {R#c_tuple{es=Es1}, Env1};
+visit(Env0, #c_map{es=Es0}=R) ->
+    {Es1,Env1} = visit_list(Env0, Es0),
+    {R#c_map{es=Es1}, Env1};
+visit(Env0, #c_map_pair{key=K0,val=V0}=R) ->
+    {K,Env1} = visit(Env0, K0),
+    {V,Env2} = visit(Env1, V0),
+    {R#c_map_pair{key=K,val=V}, Env2};
 visit(Env0, #c_cons{hd=H0,tl=T0}=R) ->
     {H1,Env1} = visit(Env0, H0),
     {T1,Env2} = visit(Env1, T0),
@@ -195,7 +205,7 @@ bind_vars(Vs, Env) ->
     bind_vars(Vs, Env, []).
 
 bind_vars([#c_var{name=X}|Vs], Env0, Xs)->
-    bind_vars(Vs, dict:store(X, 0, Env0), [X|Xs]);
+    bind_vars(Vs, Env0#{X=>0}, [X|Xs]);
 bind_vars([], Env,Xs) ->
     {Xs, Env}.
 
@@ -209,9 +219,14 @@ visit_pats([], Env, Vs) ->
     {Vs, Env}.
 
 visit_pat(Env0, #c_var{name=V}, Vs) ->
-    {[V|Vs], dict:store(V, 0, Env0)};
+    {[V|Vs], Env0#{V=>0}};
 visit_pat(Env0, #c_tuple{es=Es}, Vs) ->
     visit_pats(Es, Env0, Vs);
+visit_pat(Env0, #c_map{es=Es}, Vs) ->
+    visit_pats(Es, Env0, Vs);
+visit_pat(Env0, #c_map_pair{op=#c_literal{val=exact},key=V,val=K}, Vs0) ->
+    {Vs1, Env1} = visit_pat(Env0, V, Vs0),
+    visit_pat(Env1, K, Vs1);
 visit_pat(Env0, #c_cons{hd=H,tl=T}, Vs0) ->
     {Vs1, Env1} = visit_pat(Env0, H, Vs0),
     visit_pat(Env1, T, Vs1);
@@ -222,23 +237,25 @@ visit_pat(Env0, #c_bitstr{val=Val,size=Sz}, Vs0) ->
 	case Sz of
 	    #c_var{name=V} ->
 		%% We don't tolerate free variables.
-		{ok, N} = dict:find(V, Env0),
-		{Vs0, dict:store(V, N+1, Env0)};
+		case Env0 of
+		    #{V:=N} ->
+			{Vs0, Env0#{V:=N+1}}
+		end;
 	    _ ->
 		visit_pat(Env0, Sz, Vs0)
 	end,
     visit_pat(Env1, Val, Vs1);
 visit_pat(Env0, #c_alias{pat=P,var=#c_var{name=V}}, Vs) ->
-    visit_pat(dict:store(V, 0, Env0), P, [V|Vs]);
+    visit_pat(Env0#{V=>0}, P, [V|Vs]);
 visit_pat(Env, #c_literal{}, Vs) ->
     {Vs, Env}.
 
 restore_vars([V|Vs], Env0, Env1) ->
-    case dict:find(V, Env0) of
-	{ok, N} ->
-	    restore_vars(Vs, Env0, dict:store(V, N, Env1));
-	error ->
-	    restore_vars(Vs, Env0, dict:erase(V, Env1))
+    case Env0 of
+	#{V:=N} ->
+	    restore_vars(Vs, Env0, Env1#{V=>N});
+	_ ->
+	    restore_vars(Vs, Env0, maps:remove(V, Env1))
     end;
 restore_vars([], _, Env1) ->
     Env1.
@@ -336,8 +353,8 @@ is_safe(#c_literal{}) -> true;
 is_safe(_) -> false.
 
 is_single_use(V, Env) ->
-    case dict:find(V, Env) of
-	{ok, 1} ->
+    case Env of
+	#{V:=1} ->
 	    true;
 	_ ->
 	    false

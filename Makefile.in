@@ -3,16 +3,17 @@
 #
 # Copyright Ericsson AB 1998-2013. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 
@@ -172,6 +173,7 @@ endif
 TARGET	:= @TARGET@
 include $(ERL_TOP)/make/target.mk
 export TARGET
+include $(ERL_TOP)/make/otp_default_release_path.mk
 
 BOOTSTRAP_ONLY = @BOOTSTRAP_ONLY@
 
@@ -395,29 +397,39 @@ endif
 	cd $(ERL_TOP)/erts && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
 	    $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" release
+ifeq ($(RELEASE_ROOT),)
+	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(OTP_DEFAULT_RELEASE_PATH)/releases/@OTP_REL@"
+else
+	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(RELEASE_ROOT)/releases/@OTP_REL@"
+endif
 
 # ---------------------------------------------------------------
 # Target only used when building commercial ERTS patches
 # ---------------------------------------------------------------
-release_docs docs: mod2app
+
+release_docs docs: doc_bootstrap_build doc_bootstrap_copy mod2app 
 ifeq ($(OTP_SMALL_BUILD),true)
 	cd $(ERL_TOP)/lib && \
-	  PATH=$(ERL_TOP)/bin:"$${PATH}" ERL_TOP=$(ERL_TOP) \
-	  $(MAKE) TESTROOT="$(RELEASE_ROOT)" $@
+	  PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
+	  $(MAKE) TESTROOT="$(RELEASE_ROOT)" DOCGEN=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen $@
 else
 	cd $(ERL_TOP)/lib && \
-	  PATH=$(ERL_TOP)/bin:"$${PATH}" ERL_TOP=$(ERL_TOP) \
-	  $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" $@
+	  PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
+	  $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" DOCGEN=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen $@
 endif
 	cd $(ERL_TOP)/erts && \
-	  PATH=$(ERL_TOP)/bin:"$${PATH}" ERL_TOP=$(ERL_TOP) \
-	  $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" $@
+	  PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
+	  $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" DOCGEN=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen $@
 	cd $(ERL_TOP)/system/doc && \
-	  PATH=$(ERL_TOP)/bin:"$${PATH}" \
-	  ERL_TOP=$(ERL_TOP) $(MAKE) TESTROOT="$(RELEASE_ROOT)" $@
+	  PATH=$(BOOT_PREFIX)"$${PATH}" \
+	  ERL_TOP=$(ERL_TOP) $(MAKE) TESTROOT="$(RELEASE_ROOT)" DOCGEN=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen $@
+ifneq  ($(OTP_SMALL_BUILD),true)
+	echo "OTP doc built" > $(ERL_TOP)/make/otp_doc_built
+endif
+
 
 mod2app: 
-	PATH=$(ERL_TOP)/bin:"$${PATH}" escript $(ERL_TOP)/lib/erl_docgen/priv/bin/xref_mod_app.escript -topdir $(ERL_TOP) -outfile $(ERL_TOP)/make/$(TARGET)/mod2app.xml
+	PATH=$(BOOT_PREFIX)"$${PATH}" escript $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/priv/bin/xref_mod_app.escript -topdir $(ERL_TOP) -outfile $(ERL_TOP)/make/$(TARGET)/mod2app.xml
 
 # ----------------------------------------------------------------------
 ERLANG_EARS=$(BOOTSTRAP_ROOT)/bootstrap/erts
@@ -440,6 +452,7 @@ else
 	$(make_verbose)cd lib && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
+	$(V_at)echo "OTP built" > $(ERL_TOP)/make/otp_built
 endif
 kernel:
 	$(make_verbose)cd lib/kernel && \
@@ -657,8 +670,6 @@ tertiary_bootstrap_copy:
 	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx ; fi
 	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin ; fi
 	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server ; fi
-	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include ; fi
 	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test ; fi
 	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include ; fi
 	$(V_at)for x in lib/ic/ebin/*.beam; do \
@@ -739,17 +750,6 @@ tertiary_bootstrap_copy:
 	done
 
 #	copy test includes to be able to compile tests with bootstrap compiler
-	$(V_at)for x in lib/test_server/include/*.hrl; do \
-		BN=`basename $$x`; \
-		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include/$$BN; \
-		test -f  $$TF && \
-		test '!' -z "`find $$x -newer $$TF -print`" && \
-			cp $$x $$TF; \
-		test '!' -f $$TF && \
-			cp $$x $$TF; \
-		true; \
-	done
-
 	$(V_at)for x in lib/common_test/include/*.hrl; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include/$$BN; \
@@ -761,6 +761,80 @@ tertiary_bootstrap_copy:
 		true; \
 	done
 #	$(V_at)cp lib/syntax_tools/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin
+
+doc_bootstrap_build:
+	$(make_verbose)cd lib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
+		$(MAKE) opt DOC_BOOTSTRAP=true
+
+doc_bootstrap_copy:
+	$(make_verbose)
+#       XMERL
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/ebin ; fi
+	$(V_at)for x in lib/xmerl/ebin/*.beam; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/xmerl/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+#       xmerl/include already copied in secondary bootstrap
+#       EDOC
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/edoc ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/edoc ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/edoc/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/edoc/ebin ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/edoc/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/edoc/include ; fi
+	$(V_at)for x in lib/edoc/ebin/*.beam; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/edoc/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+	$(V_at)for x in lib/edoc/include/*.hrl; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/edoc/include/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+#       ERL_DOCGEN
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen ; fi
+	$(V_at)if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/ebin ; fi
+	$(V_at)for x in lib/erl_docgen/ebin/*.beam; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+	$(V_at)for d in priv priv/bin priv/css priv/dtd priv/dtd_html_entities priv/dtd_man_entities priv/images priv/js priv/js/flipmenu priv/xsl; do \
+	  if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/$$d ; then mkdir -p $(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/$$d ; fi; \
+	  for x in lib/erl_docgen/$$d/*; do \
+	    BN=`basename $$x`; \
+	    if test ! -d lib/erl_docgen/$$d/$$BN ; then \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/erl_docgen/$$d/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	   fi; \
+	  done; \
+	done
 
 .PHONY: check_recreate_primary_bootstrap recreate_primary_bootstrap
 
@@ -879,7 +953,7 @@ primary_bootstrap_copy:
 
 # To remove modules left by the bootstrap building, but leave (restore)
 # the modules in kernel which are needed for an emulator build
-KERNEL_PRELOAD    = otp_ring0 init erl_prim_loader prim_inet prim_file zlib prim_zip erlang
+KERNEL_PRELOAD    = otp_ring0 init erl_prim_loader prim_inet prim_file zlib prim_zip erlang erts_code_purger
 KERNEL_PRELOAD_BEAMS=$(KERNEL_PRELOAD:%=$(BOOTSTRAP_TOP)/lib/kernel/ebin/%.beam)
 
 start_scripts:
@@ -900,11 +974,16 @@ local_setup:
 # ---------------------------------------------------------------------
 
 TEST_DIRS := \
-	lib/test_server \
+	lib/common_test/test_server \
 	$(wildcard lib/*/test) \
 	erts/test \
 	erts/epmd/test \
 	erts/emulator/test
+
+# Any applications listed in SKIP-APPLICATIONS should be skipped
+SKIP_FILE := $(wildcard lib/SKIP-APPLICATIONS)
+SKIP_TEST_DIRS := $(if $(SKIP_FILE),$(foreach APP,$(shell cat $(SKIP_FILE)),lib/$(APP)/test))
+TEST_DIRS := $(filter-out $(SKIP_TEST_DIRS),$(TEST_DIRS))
 
 .PHONY: tests release_tests $(TEST_DIRS)
 
@@ -921,7 +1000,7 @@ $(TEST_DIRS):
 #
 # Order is important here, don't change it!
 #
-INST_DEP += install.dirs install.emulator install.libs install.Install install.bin
+INST_DEP += install.dirs install.emulator install.libs install.Install install.otp_version install.bin
 
 install: $(INST_DEP)
 
@@ -949,6 +1028,13 @@ endif
 install.Install:
 	(cd "$(ERLANG_LIBDIR)" \
 	 && ./Install $(INSTALL_CROSS) -minimal "$(ERLANG_INST_LIBDIR)")
+
+install.otp_version:
+ifeq ($(ERLANG_LIBDIR),)
+	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(OTP_DEFAULT_RELEASE_PATH)/releases/@OTP_REL@"
+else
+	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(ERLANG_LIBDIR)/releases/@OTP_REL@"
+endif
 
 #
 # Install erlang base public files
@@ -992,9 +1078,12 @@ $(IBIN_DIR):
 
 clean: check_recreate_primary_bootstrap
 	rm -f *~ *.bak config.log config.status prebuilt.files ibin/*
-	find . -type f -name SKIP -print | xargs $(RM)
 	cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) clean
 	cd lib  && ERL_TOP=$(ERL_TOP) $(MAKE) clean BUILD_ALL=true
+
+distclean: clean
+	find . -type f -name SKIP              -print | xargs $(RM)
+	find . -type f -name SKIP-APPLICATIONS -print | xargs $(RM)
 
 #
 # Just wipe out emulator, not libraries

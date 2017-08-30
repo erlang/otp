@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -72,6 +73,17 @@
         <p>The threshold, as percentage of total disk space, for how
           much disk can be utilized before the <c>disk_almost_full</c>
           alarm is set. The default is 0.80 (80%).</p>
+      </item>
+      <tag><c>disksup_posix_only = bool()</c></tag>
+      <item>
+        <p>Specifies whether the <c>disksup</c> helper process should only
+          use POSIX conformant commands (<c>true</c>) or not. The default is
+          <c>false</c>. Setting this parameter to <c>true</c> can be
+          necessary on embedded systems with stripped-down versions
+          of Unix tools like <c>df</c>. The returned disk data and alarms
+          can be different when using this option.</p>
+        <p>The parameter is ignored on platforms that are known to not be
+          posix compatible (Windows and SunOS).</p>
       </item>
     </taglist>
     <p>See <seealso marker="kernel:config">config(4)</seealso> for

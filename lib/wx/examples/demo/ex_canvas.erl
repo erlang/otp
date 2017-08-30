@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 
@@ -34,7 +35,9 @@
 	  parent,
 	  config,
 	  canvas,
-	  bitmap
+	  bitmap,
+	  overlay,
+	  pos
 	}).
 
 start(Config) ->
@@ -59,6 +62,10 @@ do_init(Config) ->
 
     wxPanel:connect(Canvas, paint, [callback]),
     wxPanel:connect(Canvas, size),
+    wxPanel:connect(Canvas, left_down),
+    wxPanel:connect(Canvas, left_up),
+    wxPanel:connect(Canvas, motion),
+
     wxPanel:connect(Button, command_button_clicked),
 
     %% Add to sizers
@@ -77,7 +84,9 @@ do_init(Config) ->
     Bitmap = wxBitmap:new(erlang:max(W,30),erlang:max(30,H)),
     
     {Panel, #state{parent=Panel, config=Config,
-		   canvas = Canvas, bitmap = Bitmap}}.
+		   canvas = Canvas, bitmap = Bitmap,
+		   overlay = wxOverlay:new()
+		  }}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Sync event from callback events, paint event must be handled in callbacks
@@ -126,11 +135,42 @@ handle_event(#wx{event = #wxCommand{type = command_button_clicked}},
     wxBitmap:destroy(Bmp),
     {noreply, State};
 handle_event(#wx{event = #wxSize{size={W,H}}},
-	     State = #state{bitmap=Prev}) ->
-    Bitmap = wxBitmap:new(W,H),
-    draw(State#state.canvas, Bitmap, fun(DC) -> wxDC:clear(DC) end),
-    wxBitmap:destroy(Prev),
-    {noreply, State#state{bitmap = Bitmap}};
+	     State = #state{bitmap=Prev, canvas=Canvas}) ->
+    if W > 0 andalso H > 0 ->
+	    Bitmap = wxBitmap:new(W,H),
+	    draw(Canvas, Bitmap, fun(DC) -> wxDC:clear(DC) end),
+	    wxBitmap:destroy(Prev),
+	    {noreply, State#state{bitmap = Bitmap}};
+       true ->
+	    {noreply, State}
+    end;
+handle_event(#wx{event = #wxMouse{type=left_down, x=X, y=Y}}, State) ->
+    {noreply, State#state{pos={X,Y}}};
+handle_event(#wx{event = #wxMouse{type=motion, x=X1, y=Y1}},
+	     #state{pos=Start, overlay=Overlay, canvas=Canvas} = State) ->
+    case Start of
+	undefined -> ignore;
+	{X0,Y0} ->
+	    DC = wxClientDC:new(Canvas),
+	    DCO = wxDCOverlay:new(Overlay, DC),
+	    wxDCOverlay:clear(DCO),
+	    wxDC:setPen(DC, ?wxLIGHT_GREY_PEN),
+	    wxDC:setBrush(DC, ?wxTRANSPARENT_BRUSH),
+	    wxDC:drawRectangle(DC, {X0,Y0, X1-X0, Y1-Y0}),
+	    wxDCOverlay:destroy(DCO),
+	    wxClientDC:destroy(DC)
+    end,
+    {noreply, State};
+handle_event(#wx{event = #wxMouse{type=left_up}},
+	     #state{overlay=Overlay, canvas=Canvas} = State) ->
+    DC = wxClientDC:new(Canvas),
+    DCO = wxDCOverlay:new(Overlay, DC),
+    wxDCOverlay:clear(DCO),
+    wxDCOverlay:destroy(DCO),
+    wxClientDC:destroy(DC),
+    wxOverlay:reset(Overlay),
+    {noreply, State#state{pos=undefined}};
+
 handle_event(Ev = #wx{}, State = #state{}) ->
     demo:format(State#state.config, "Got Event ~p\n", [Ev]),
     {noreply, State}.
@@ -154,7 +194,8 @@ handle_cast(Msg, State) ->
 code_change(_, _, State) ->
     {stop, ignore, State}.
 
-terminate(_Reason, _) ->
+terminate(_Reason, #state{overlay=Overlay}) ->
+    wxOverlay:destroy(Overlay),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -181,4 +222,4 @@ redraw(DC, Bitmap) ->
     wxMemoryDC:destroy(MemoryDC).
 
 get_pos(W,H) ->
-    {random:uniform(W), random:uniform(H)}.
+    {rand:uniform(W), rand:uniform(H)}.

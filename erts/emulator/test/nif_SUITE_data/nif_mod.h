@@ -14,7 +14,6 @@ typedef struct call_info_t
 typedef struct
 {
     ErlNifMutex* mtx;
-    int calls;
     int ref_cnt;
     CallInfo* call_history;
     ErlNifResourceType* rt_arr[RT_MAX];
@@ -28,6 +27,11 @@ typedef struct
         enif_mutex_unlock((NMPD)->mtx); \
         if (is_last) { \
 	    enif_mutex_destroy((NMPD)->mtx); \
+	    while ((NMPD)->call_history) { \
+	        CallInfo* next = (NMPD)->call_history->next; \
+		enif_free((NMPD)->call_history); \
+		(NMPD)->call_history = next; \
+	    } \
 	    enif_free((NMPD)); \
         } \
     }while (0)

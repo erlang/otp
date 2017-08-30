@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -29,19 +30,23 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> 
+    [].
 
 all() -> 
     [
      pbdkdf1,
      pbdkdf2,
-     encrypted_private_key_info].
+     old_enc,
+     pbes1,
+     pbes2].
 
 groups() -> 
     [].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    application:stop(crypto),
     try crypto:start() of
 	ok ->
 	    Config
@@ -191,36 +196,48 @@ pbdkdf2(Config) when is_list(Config) ->
       16#cc, 16#37, 16#d7, 16#f0, 16#34, 16#25, 16#e0, 16#c3>>
 	= pubkey_pbe:pbdkdf2("pass\0word", 
 			     "sa\0lt", 4096, 16, fun crypto:hmac/4, sha, 20).
+
+old_enc() ->
+    [{doc,"Tests encode/decode RSA key encrypted with different ciphers using old PEM encryption scheme"}].
+old_enc(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    %% key generated with ssh-keygen -N hello_aes -f old_aes_128_cbc_enc_key.pem
+    {ok, PemAesCbc} = file:read_file(filename:join(Datadir, "old_aes_128_cbc_enc_key.pem")),
     
-encrypted_private_key_info() ->
-    [{doc,"Tests reading a EncryptedPrivateKeyInfo file encrypted with different ciphers"}].
-encrypted_private_key_info(Config) when is_list(Config) ->
-    Datadir = ?config(data_dir, Config),
-    {ok, PemDes} = file:read_file(filename:join(Datadir, "des_cbc_enc_key.pem")),
+    PemAesCbcEntry = public_key:pem_decode(PemAesCbc),
+    ct:print("Pem entry: ~p" , [PemAesCbcEntry]),
+    [{'RSAPrivateKey', _, {"AES-128-CBC",_}} = PubAesCbcEntry] = PemAesCbcEntry,
+    #'RSAPrivateKey'{} = public_key:pem_entry_decode(PubAesCbcEntry, "hello_aes").
+
+pbes1() ->
+    [{doc,"Tests encode/decode EncryptedPrivateKeyInfo encrypted with different ciphers using PBES1"}].
+pbes1(Config) when is_list(Config) ->
+    decode_encode_key_file("pbes1_des_cbc_md5_enc_key.pem", "password", "DES-CBC", Config).
     
-    PemDesEntry = public_key:pem_decode(PemDes),
-    ct:print("Pem entry: ~p" , [PemDesEntry]),
-    [{'PrivateKeyInfo', _, {"DES-CBC",_}} = PubEntry0] = PemDesEntry,
-    KeyInfo = public_key:pem_entry_decode(PubEntry0, "password"),
-    
-    {ok, Pem3Des} = file:read_file(filename:join(Datadir, "des_ede3_cbc_enc_key.pem")),
-
-    Pem3DesEntry = public_key:pem_decode(Pem3Des),
-    ct:print("Pem entry: ~p" , [Pem3DesEntry]),
-    [{'PrivateKeyInfo', _, {"DES-EDE3-CBC",_}} = PubEntry1] = Pem3DesEntry,
-    KeyInfo = public_key:pem_entry_decode(PubEntry1, "password"),
-
-    {ok, PemRc2} = file:read_file(filename:join(Datadir, "rc2_cbc_enc_key.pem")),
-
-    PemRc2Entry = public_key:pem_decode(PemRc2),
-    ct:print("Pem entry: ~p" , [PemRc2Entry]),
-    [{'PrivateKeyInfo', _, {"RC2-CBC",_}} = PubEntry2] = PemRc2Entry,
-    KeyInfo = public_key:pem_entry_decode(PubEntry2, "password"),
-
-    check_key_info(KeyInfo).
-
+pbes2() ->
+    [{doc,"Tests encode/decode EncryptedPrivateKeyInfo encrypted with different ciphers using PBES2"}].
+pbes2(Config) when is_list(Config) ->
+    decode_encode_key_file("pbes2_des_cbc_enc_key.pem", "password", "DES-CBC", Config),
+    decode_encode_key_file("pbes2_des_ede3_cbc_enc_key.pem", "password", "DES-EDE3-CBC", Config),   
+    decode_encode_key_file("pbes2_rc2_cbc_enc_key.pem", "password", "RC2-CBC", Config).
 
 check_key_info(#'PrivateKeyInfo'{privateKeyAlgorithm =
 				     #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?rsaEncryption},
 				 privateKey = Key}) ->
     #'RSAPrivateKey'{} = public_key:der_decode('RSAPrivateKey', iolist_to_binary(Key)).
+
+decode_encode_key_file(File, Password, Cipher, Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, PemKey} = file:read_file(filename:join(Datadir, File)),
+    
+    PemEntry = public_key:pem_decode(PemKey),
+    ct:print("Pem entry: ~p" , [PemEntry]),
+    [{Asn1Type, _, {Cipher,_} = CipherInfo} = PubEntry] = PemEntry,
+    KeyInfo = public_key:pem_entry_decode(PubEntry, Password),
+    PemKey1 = public_key:pem_encode([public_key:pem_entry_encode(Asn1Type, KeyInfo, {CipherInfo, Password})]),
+    Pem = strip_ending_newlines(PemKey),
+    Pem = strip_ending_newlines(PemKey1),
+    check_key_info(KeyInfo).
+
+strip_ending_newlines(Bin) ->
+    string:strip(binary_to_list(Bin), right, 10).

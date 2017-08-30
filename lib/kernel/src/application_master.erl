@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -27,7 +28,7 @@
 
 -include("application_master.hrl").
 
--record(state, {child, appl_data, children = [], procs = 0, gleader}).
+-record(state, {child, appl_data, children = [], procs = 0, gleader, req=[]}).
 
 %%-----------------------------------------------------------------
 %% Func: start_link/1
@@ -103,9 +104,9 @@ call(AppMaster, Req) ->
 %%% The reason for not using the logical structrure is that
 %%% the application start function is synchronous, and 
 %%% that the AM is GL.  This means that if AM executed the start
-%%% function, and this function uses spawn_request/1
-%%% or io, deadlock would occur.  Therefore, this function is
-%%% executed by the process X.  Also, AM needs three loops;
+%%% function, and this function uses io, deadlock would occur.  
+%%% Therefore, this function is executed by the process X. 
+%%% Also, AM needs three loops;
 %%% init_loop (waiting for the start function to return)
 %%% main_loop
 %%% terminate_loop (waiting for the process to die)
@@ -125,7 +126,7 @@ init(Parent, Starter, ApplData, Type) ->
     State = #state{appl_data = ApplData, gleader = OldGleader},
     case start_it(State, Type) of
 	{ok, Pid} ->          % apply(M,F,A) returned ok
-	    set_timer(ApplData#appl_data.maxT),
+	    ok = set_timer(ApplData#appl_data.maxT),
 	    unlink(Starter),
 	    proc_lib:init_ack(Starter, {ok,self()}),
 	    main_loop(Parent, State#state{child = Pid});
@@ -205,22 +206,25 @@ terminate_loop(Child, State) ->
 
 %%-----------------------------------------------------------------
 %% The Application Master is linked to *all* processes in the group
-%% (application).  
+%% (application).
 %%-----------------------------------------------------------------
 handle_msg({get_child, Tag, From}, State) ->
-    From ! {Tag, get_child_i(State#state.child)},
-    State;
+    get_child_i(State, Tag, From);
 handle_msg({stop, Tag, From}, State) ->
     catch terminate(normal, State),
     From ! {Tag, ok},
     exit(normal);
+handle_msg({child, Ref, GrandChild, Mod}, #state{req=Reqs0}=State) ->
+    {value, {_, Tag, From}, Reqs} = lists:keytake(Ref, 1, Reqs0),
+    From ! {Tag, {GrandChild, Mod}},
+    State#state{req=Reqs};
 handle_msg(_, State) ->
     State.
 
-
-terminate(Reason, State) ->
-    terminate_child(State#state.child, State),
-    kill_children(State#state.children),
+terminate(Reason, State = #state{child=Child, children=Children, req=Reqs}) ->
+    _ = [From ! {Tag, error} || {_, Tag, From} <- Reqs],
+    terminate_child(Child, State),
+    kill_children(Children),
     exit(Reason).
 
 
@@ -342,8 +346,8 @@ start_supervisor(Type, M, A) ->
 
 loop_it(Parent, Child, Mod, AppState) ->
     receive
-	{Parent, get_child} ->
-	    Parent ! {self(), Child, Mod},
+	{Parent, get_child, Ref} ->
+	    Parent ! {child, Ref, Child, Mod},
 	    loop_it(Parent, Child, Mod, AppState);
 	{Parent, terminate} ->
 	    NewAppState = prep_stop(Mod, AppState),
@@ -382,10 +386,15 @@ prep_stop(Mod, AppState) ->
 	    NewAppState
     end.
 
-get_child_i(Child) ->
-    Child ! {self(), get_child},
-    receive
-	{Child, GrandChild, Mod} -> {GrandChild, Mod}
+get_child_i(#state{child=Child, req=Reqs}=State, Tag, From) ->
+    Ref = erlang:make_ref(),
+    case erlang:is_process_alive(Child) of
+	true ->
+	    Child ! {self(), get_child, Ref},
+	    State#state{req=[{Ref, Tag, From}|Reqs]};
+	false ->
+	    From ! {Tag, error},
+	    State
     end.
 
 terminate_child_i(Child, State) ->
@@ -418,4 +427,6 @@ kill_all_procs_1([], _, 0) -> ok;
 kill_all_procs_1([], _, _) -> kill_all_procs().
 
 set_timer(infinity) -> ok;
-set_timer(Time) -> timer:exit_after(Time, timeout).
+set_timer(Time) ->
+    {ok, _} = timer:exit_after(Time, timeout),
+    ok.

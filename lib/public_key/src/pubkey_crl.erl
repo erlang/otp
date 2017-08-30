@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -39,7 +40,13 @@ validate(OtpCert, OtherDPCRLs, DP, {DerCRL, CRL}, {DerDeltaCRL, DeltaCRL},
 		CertIssuer = TBSCert#'OTPTBSCertificate'.issuer,
 		TBSCRL = CRL#'CertificateList'.tbsCertList,
 		CRLIssuer =  TBSCRL#'TBSCertList'.issuer,
-		AltNames = subject_alt_names(TBSCert#'OTPTBSCertificate'.extensions),
+		AltNames = case pubkey_cert:select_extension(?'id-ce-subjectAltName',
+							     TBSCert#'OTPTBSCertificate'.extensions) of
+			       #'Extension'{extnValue = Value} ->
+				   Value;
+			       _ ->
+				   []
+			   end,
 		revoked_status(DP, IDP, {directoryName, CRLIssuer},
 			       [ {directoryName, CertIssuer} | AltNames], SerialNumber, Revoked,
 			       DeltaRevoked, RevokedState1);
@@ -397,16 +404,18 @@ verify_dp_name(IDPNames, DPorIssuerNames) ->
 match_one([], _) ->
     false;
 match_one([{Type, Name} | Names], CandidateNames) ->
-    Candidates = [NameName || {NameType, NameName} <- CandidateNames, NameType == Type],
+    Candidates = [NameName || {NameType, NameName} <- CandidateNames, 
+			      NameType == Type],
     case Candidates of
 	[] ->
 	    false;
-	[_|_] -> case pubkey_cert:match_name(Type, Name, Candidates) of
-		     true ->
-			 true;
-		 false ->
-			 match_one(Names, CandidateNames)
-		 end
+	[_|_] ->
+	    case pubkey_cert:match_name(Type, Name, Candidates) of
+		true ->
+		    true;
+		false ->
+		    match_one(Names, CandidateNames)
+	    end
     end.
 
 verify_dp_bools(TBSCert, IDP) ->
@@ -465,7 +474,7 @@ check_crl_num(_,_) ->
 extension_value(Extension, ExtType, Extensions) ->
     case pubkey_cert:select_extension(Extension, Extensions) of
 	#'Extension'{extnValue = Value} ->
-	    public_key:der_decode(ExtType, list_to_binary(Value));
+	    public_key:der_decode(ExtType, iolist_to_binary(Value));
 	_ ->
 	    undefined
     end.
@@ -557,7 +566,7 @@ verify_crl_signature(CRL, DerCRL, Key, KeyParams) ->
 			      {Key, KeyParams})
     end.
 extract_crl_verify_data(CRL, DerCRL) ->
-    {0, Signature} = CRL#'CertificateList'.signature,
+    Signature = CRL#'CertificateList'.signature,
     #'AlgorithmIdentifier'{algorithm = SigAlg} =
 	CRL#'CertificateList'.signatureAlgorithm,
     PlainText = encoded_tbs_crl(DerCRL),
@@ -664,6 +673,8 @@ verify_extensions([#'TBSCertList_revokedCertificates_SEQOF'{crlEntryExtensions =
     verify_extensions(pubkey_cert:extensions_list(Ext)) and verify_extensions(Rest);
 verify_extensions([]) ->
     true;
+verify_extensions(asn1_NOVALUE) ->
+    true;
 verify_extensions([#'Extension'{critical = true, extnID = Id} | Rest]) ->
     case lists:member(Id, [?'id-ce-authorityKeyIdentifier',
 			   ?'id-ce-issuerAltName',
@@ -689,13 +700,3 @@ authority_key_identifier(Extensions) ->
     Enc = extension_value(?'id-ce-authorityKeyIdentifier',
 			  'AuthorityKeyIdentifier', Extensions),
     pubkey_cert_records:transform(Enc, decode).
-
-subject_alt_names(Extensions) ->
-    Enc = extension_value(?'id-ce-subjectAltName',
-			  'GeneralNames', Extensions),
-    case Enc of
-	undefined ->
-	    [];
-	_ ->
-	    pubkey_cert_records:transform(Enc, decode)
-    end.

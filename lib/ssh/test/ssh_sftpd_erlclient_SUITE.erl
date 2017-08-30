@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -25,6 +26,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
+-include("ssh_test_lib.hrl").
 
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
@@ -35,7 +37,8 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{ct_hooks,[ts_install_cth]}].
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{seconds,40}}].
 
 all() -> 
     [close_file, 
@@ -51,29 +54,26 @@ groups() ->
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
-    catch ssh:stop(),
-    case catch crypto:start() of
-	ok ->
-	    DataDir = ?config(data_dir, Config),
-	    PrivDir = ?config(priv_dir, Config),
-	    FileAlt = filename:join(DataDir, "ssh_sftpd_file_alt.erl"),
-	    c:c(FileAlt),
-	    FileName = filename:join(DataDir, "test.txt"),
-	    {ok, FileInfo} = file:read_file_info(FileName),
-	    ok = file:write_file_info(FileName,
-				      FileInfo#file_info{mode = 8#400}),
-	    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-	    Config;
-	_Else ->
-	    {skip,"Could not start ssh!"}
-    end.
+    ?CHECK_CRYPTO(
+       begin
+	   catch ssh:stop(),
+	   DataDir = proplists:get_value(data_dir, Config),
+	   PrivDir = proplists:get_value(priv_dir, Config),
+	   FileAlt = filename:join(DataDir, "ssh_sftpd_file_alt.erl"),
+	   c:c(FileAlt),
+	   FileName = filename:join(DataDir, "test.txt"),
+	   {ok, FileInfo} = file:read_file_info(FileName),
+	   ok = file:write_file_info(FileName,
+				     FileInfo#file_info{mode = 8#400}),
+	   ssh_test_lib:setup_dsa(DataDir, PrivDir),
+	   Config
+       end).
 
 end_per_suite(Config) -> 
-    UserDir = filename:join(?config(priv_dir, Config), nopubkey),
+    UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
     file:del_dir(UserDir),
-    SysDir = ?config(priv_dir, Config),
+    SysDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:clean_dsa(SysDir),
-    crypto:stop(),
     ok.
 
 %%--------------------------------------------------------------------
@@ -87,7 +87,7 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(TestCase, Config) ->
     ssh:start(),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     SystemDir = filename:join(PrivDir, system),
 
     Options =
@@ -100,7 +100,7 @@ init_per_testcase(TestCase, Config) ->
 		 {user_dir, PrivDir},
 		 {subsystems, [Spec]}];
 	    "root_dir" ->
-		Privdir = ?config(priv_dir, Config),
+		Privdir = proplists:get_value(priv_dir, Config),
 		Root = filename:join(Privdir, root),
 		file:make_dir(Root),
 		Spec = ssh_sftpd:subsystem_spec([{root,Root}]),
@@ -136,8 +136,8 @@ init_per_testcase(TestCase, Config) ->
     [{port, Port}, {sftp, {ChannelPid, Connection}}, {sftpd, Sftpd} | NewConfig].
 
 end_per_testcase(_TestCase, Config) ->
-    catch ssh_sftpd:stop(?config(sftpd, Config)),
-    {Sftp, Connection} = ?config(sftp, Config),
+    catch ssh_sftpd:stop(proplists:get_value(sftpd, Config)),
+    {Sftp, Connection} = proplists:get_value(sftp, Config),
     catch ssh_sftp:stop_channel(Sftp),
     catch ssh:close(Connection),
     ssh:stop().
@@ -150,14 +150,14 @@ close_file() ->
      "transfer OTP-6350"}].
 
 close_file(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     FileName = filename:join(DataDir, "test.txt"),
 
-    {Sftp, _} = ?config(sftp, Config),
+    {Sftp, _} = proplists:get_value(sftp, Config),
 
     NumOfPorts = length(erlang:ports()),
 
-    ct:pal("Number of open ports:  ~p~n", [NumOfPorts]),
+    ct:log("Number of open ports:  ~p~n", [NumOfPorts]),
 
     {ok, <<_/binary>>} = ssh_sftp:read_file(Sftp, FileName),
 
@@ -171,12 +171,12 @@ quit() ->
      "client hanging. OTP-6349"}].
 
 quit(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     FileName = filename:join(DataDir, "test.txt"),
-    UserDir = ?config(priv_dir, Config), 
-    Port = ?config(port, Config),
+    UserDir = proplists:get_value(priv_dir, Config), 
+    Port = proplists:get_value(port, Config),
 
-    {Sftp, _} = ?config(sftp, Config),
+    {Sftp, _} = proplists:get_value(sftp, Config),
 
     {ok, <<_/binary>>} = ssh_sftp:read_file(Sftp, FileName),
 
@@ -202,13 +202,13 @@ file_cb() ->
       " the sftpds filehandling. OTP-6356"}].
 
 file_cb(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    PrivDir =  ?config(priv_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir =  proplists:get_value(priv_dir, Config),
     FileName = filename:join(DataDir, "test.txt"),
 
     register(sftpd_file_alt_tester, self()),
 
-    {Sftp, _} = ?config(sftp, Config),
+    {Sftp, _} = proplists:get_value(sftp, Config),
 
     {ok, Bin} = ssh_sftp:read_file(Sftp, FileName),
     alt_file_handler_check(alt_open),
@@ -246,29 +246,29 @@ file_cb(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 
 root_dir(Config) when is_list(Config) ->
-    {Sftp, _} = ?config(sftp, Config),
+    {Sftp, _} = proplists:get_value(sftp, Config),
     FileName = "test.txt",
     Bin =  <<"Test file for root dir option">>,
     ok = ssh_sftp:write_file(Sftp, FileName, Bin),
     {ok, Bin} = ssh_sftp:read_file(Sftp, FileName),
     {ok, Listing} =
 	ssh_sftp:list_dir(Sftp, "."),
-    ct:pal("Listing: ~p~n", [Listing]).
+    ct:log("Listing: ~p~n", [Listing]).
 
 %%--------------------------------------------------------------------
 list_dir_limited(Config) when is_list(Config) ->
-    {Sftp, _} = ?config(sftp, Config),
+    {Sftp, _} = proplists:get_value(sftp, Config),
     {ok, Listing} =
 	ssh_sftp:list_dir(Sftp, "."),
-    ct:pal("Listing: ~p~n", [Listing]).
+    ct:log("Listing: ~p~n", [Listing]).
 
 %%--------------------------------------------------------------------
 ver6_basic() ->
     [{doc, "Test some version 6 features"}].
 ver6_basic(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
+    PrivDir =  proplists:get_value(priv_dir, Config),
     NewDir = filename:join(PrivDir, "testdir2"),
-    {Sftp, _} = ?config(sftp, Config),
+    {Sftp, _} = proplists:get_value(sftp, Config),
     ok =  ssh_sftp:make_dir(Sftp, NewDir),
     %%Test file_is_a_directory
     {error, file_is_a_directory} = ssh_sftp:delete(Sftp, NewDir).

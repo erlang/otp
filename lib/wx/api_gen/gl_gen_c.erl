@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -242,7 +243,7 @@ decode_arg(P=#arg{name=Name,type=#type{name=Type,base=guard_int}},A0) ->
     {P, A};
 decode_arg(P=#arg{name=Name,type=#type{name=Type,base=string,single=true}},A0) ->
     w(" ~s *~s = (~s *) bp;~n", [Type,Name,Type]),
-    w(" int ~sLen[1] = {strlen((char *)~s)}; bp += ~sLen[0]+1+((8-((1+~sLen[0]+~p)%8))%8);~n",
+    w(" int ~sLen[1] = {(int)strlen((char *)~s)}; bp += ~sLen[0]+1+((8-((1+~sLen[0]+~p)%8))%8);~n",
       [Name,Name,Name,Name,A0]),
     {P, 0};
 decode_arg(P=#arg{name=Name,

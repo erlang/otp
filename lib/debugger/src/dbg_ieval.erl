@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -204,7 +205,8 @@ meta(Int, Debugged, M, F, As) ->
 		%% If it's a fun we're evaluating, show a text
 		%% representation of the fun and its arguments,
 		%% not dbg_ieval:eval_fun(...)
-		{dbg_ieval, eval_fun} ->
+		{dbg_ieval, EvalFun} when EvalFun =:= eval_fun;
+					  EvalFun =:= eval_named_fun ->
 		    {Mx, Fx} = lists:last(As),
 		    {Mx, Fx, lists:nth(2, As)};
 		_ ->
@@ -432,7 +434,8 @@ eval_function(Mod, Name, As, Bs, Called, Ieval0, Lc) ->
 
 do_eval_function(Mod, Fun, As0, Bs0, _, Ieval0) when is_function(Fun);
 						    Mod =:= ?MODULE,
-						    Fun =:= eval_fun ->
+						    Fun =:= eval_fun orelse
+						    Fun =:= eval_named_fun ->
     #ieval{level=Le,line=Li,top=Top} = Ieval0,
     case lambda(Fun, As0) of
 	{[{clause,Fc,_,_,_}|_]=Cs,Module,Name,As,Bs} ->
@@ -454,11 +457,6 @@ do_eval_function(Mod, Fun, As0, Bs0, _, Ieval0) when is_function(Fun);
 	    %% ({badarity,{{Mod,Name},As}})
 	    exception(error, Reason, Bs0, Ieval0)
     end;
-
-%% Common Test adaptation
-do_eval_function(ct_line, line, As, Bs, extern, #ieval{level=Le}=Ieval) ->
-    debugged_cmd({apply,ct_line,line,As}, Bs, Ieval#ieval{level=Le+1}),
-    {value, ignore, Bs};
 
 do_eval_function(Mod, Name, As0, Bs0, Called, Ieval0) ->
     #ieval{level=Le,line=Li,top=Top} = Ieval0,
@@ -487,13 +485,29 @@ lambda(eval_fun, [Cs,As,Bs,{Mod,Name}=F]) ->
 	true -> 
 	    {error,{badarity,{F,As}}}
     end;
+lambda(eval_named_fun, [Cs,As,Bs0,FName,RF,{Mod,Name}=F]) ->
+    %% Fun defined in interpreted code, called from outside
+    if
+	length(element(3,hd(Cs))) =:= length(As) ->
+	    db_ref(Mod),  %% Adds ref between module and process
+	    Bs1 = add_binding(FName, RF, Bs0),
+	    {Cs,Mod,Name,As,Bs1};
+	true ->
+	    {error,{badarity,{F,As}}}
+    end;
 lambda(Fun, As) when is_function(Fun) ->
     %% Fun called from within interpreted code...
     case erlang:fun_info(Fun, module) of
 
 	%% ... and the fun was defined in interpreted code
 	{module, ?MODULE} ->
-	    {env, [{Mod,Name},Bs,Cs]} = erlang:fun_info(Fun, env),
+	    {Mod,Name,Bs, Cs} =
+		case erlang:fun_info(Fun, env) of
+		    {env,[{{M,F},Bs0,Cs0}]} ->
+		        {M,F,Bs0, Cs0};
+		    {env,[{{M,F},Bs0,Cs0,FName}]} ->
+		        {M,F,add_binding(FName, Fun, Bs0), Cs0}
+		end,
 	    {arity, Arity} = erlang:fun_info(Fun, arity),
 	    if 
 		length(As) =:= Arity ->
@@ -546,7 +560,7 @@ get_function(Mod, Name, Args, extern) ->
     end.
 
 db_ref(Mod) ->
-    case get([Mod|db]) of
+    case get(?DB_REF_KEY(Mod)) of
 	undefined ->
 	    case dbg_iserver:call(get(int),
 				  {get_module_db, Mod, get(self)}) of
@@ -558,7 +572,7 @@ db_ref(Mod) ->
 				Node =/= node() -> {Node,ModDb};
 				true -> ModDb
 			    end,
-		    put([Mod|db], DbRef),
+		    put(?DB_REF_KEY(Mod), DbRef),
 		    DbRef
 	    end;
 	DbRef ->
@@ -636,6 +650,20 @@ expr({tuple,Line,Es0}, Bs0, Ieval) ->
     {Vs,Bs} = eval_list(Es0, Bs0, Ieval#ieval{line=Line}),
     {value,list_to_tuple(Vs),Bs};
 
+%% Map
+expr({map,Line,Fs}, Bs0, Ieval) ->
+    {Map,Bs} = eval_new_map_fields(Fs, Bs0, Ieval#ieval{line=Line,top=false},
+				   fun expr/3),
+    {value,Map,Bs};
+expr({map,Line,E0,Fs0}, Bs0, Ieval0) ->
+    Ieval = Ieval0#ieval{line=Line,top=false},
+    {value,E,Bs1} = expr(E0, Bs0, Ieval),
+    {Fs,Bs2} = eval_map_fields(Fs0, Bs0, Ieval),
+    _ = maps:put(k, v, E),			%Validate map.
+    Value = lists:foldl(fun ({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi);
+			    ({map_exact,K,V}, Mi) -> maps:update(K,V,Mi)
+			end, E, Fs),
+    {value,Value,merge_bindings(Bs2, Bs1, Ieval)};
 %% A block of statements
 expr({block,Line,Es},Bs,Ieval) ->
     seq(Es, Bs, Ieval#ieval{line=Line});
@@ -694,23 +722,25 @@ expr({'if',Line,Cs}, Bs, Ieval) ->
     if_clauses(Cs, Bs, Ieval#ieval{line=Line});
 
 %% Andalso/orelse
-expr({'andalso',Line,E1,E2}, Bs, Ieval) ->
-    case expr(E1, Bs, Ieval#ieval{line=Line, top=false}) of
-	{value,false,_}=Res ->
-	    Res;
-	{value,true,_} -> 
-	    expr(E2, Bs, Ieval#ieval{line=Line, top=false});
-	{value,Val,Bs} ->
-	    exception(error, {badarg,Val}, Bs, Ieval)
+expr({'andalso',Line,E1,E2}, Bs0, Ieval) ->
+    case expr(E1, Bs0, Ieval#ieval{line=Line, top=false}) of
+        {value,false,_}=Res ->
+           Res;
+        {value,true,Bs} ->
+            {value,Val,_} = expr(E2, Bs, Ieval#ieval{line=Line, top=false}),
+            {value,Val,Bs};
+        {value,Val,Bs} ->
+            exception(error, {badarg,Val}, Bs, Ieval)
     end;
-expr({'orelse',Line,E1,E2}, Bs, Ieval) ->
-    case expr(E1, Bs, Ieval#ieval{line=Line, top=false}) of
-	{value,true,_}=Res ->
-	    Res;
-	{value,false,_} ->
-	    expr(E2, Bs, Ieval#ieval{line=Line, top=false});
-	{value,Val,_} ->
-	    exception(error, {badarg,Val}, Bs, Ieval)
+expr({'orelse',Line,E1,E2}, Bs0, Ieval) ->
+    case expr(E1, Bs0, Ieval#ieval{line=Line, top=false}) of
+        {value,true,_}=Res ->
+           Res;
+        {value,false,Bs} ->
+            {value,Val,_} = expr(E2, Bs, Ieval#ieval{line=Line, top=false}),
+            {value,Val,Bs};
+        {value,Val,Bs} ->
+            exception(error, {badarg,Val}, Bs, Ieval)
     end;
 
 %% Matching expression
@@ -727,46 +757,117 @@ expr({match,Line,Lhs,Rhs0}, Bs0, Ieval0) ->
 %% Construct a fun
 expr({make_fun,Line,Name,Cs}, Bs, #ieval{module=Module}=Ieval) ->
     Arity = length(element(3,hd(Cs))),
-    Info = {Module,Name},
+    Info = {{Module,Name},Bs,Cs},
     Fun = 
 	case Arity of
-	    0 -> fun() -> eval_fun(Cs, [], Bs, Info) end;
-	    1 -> fun(A) -> eval_fun(Cs, [A], Bs,Info) end;
-	    2 -> fun(A,B) -> eval_fun(Cs, [A,B], Bs,Info) end;
-	    3 -> fun(A,B,C) -> eval_fun(Cs, [A,B,C], Bs,Info) end;
-	    4 -> fun(A,B,C,D) -> eval_fun(Cs, [A,B,C,D], Bs,Info) end;
-	    5 -> fun(A,B,C,D,E) -> eval_fun(Cs, [A,B,C,D,E], Bs,Info) end;
-	    6 -> fun(A,B,C,D,E,F) -> eval_fun(Cs, [A,B,C,D,E,F], Bs,Info) end;
+	    0 -> fun() -> eval_fun([], Info) end;
+	    1 -> fun(A) -> eval_fun([A], Info) end;
+	    2 -> fun(A,B) -> eval_fun([A,B], Info) end;
+	    3 -> fun(A,B,C) -> eval_fun([A,B,C], Info) end;
+	    4 -> fun(A,B,C,D) -> eval_fun([A,B,C,D], Info) end;
+	    5 -> fun(A,B,C,D,E) -> eval_fun([A,B,C,D,E], Info) end;
+	    6 -> fun(A,B,C,D,E,F) -> eval_fun([A,B,C,D,E,F], Info) end;
 	    7 -> fun(A,B,C,D,E,F,G) -> 
-			 eval_fun(Cs, [A,B,C,D,E,F,G], Bs,Info) end;
+			 eval_fun([A,B,C,D,E,F,G], Info) end;
 	    8 -> fun(A,B,C,D,E,F,G,H) -> 
-			 eval_fun(Cs, [A,B,C,D,E,F,G,H], Bs,Info) end;
+			 eval_fun([A,B,C,D,E,F,G,H], Info) end;
 	    9 -> fun(A,B,C,D,E,F,G,H,I) -> 
-			 eval_fun(Cs, [A,B,C,D,E,F,G,H,I], Bs,Info) end;
+			 eval_fun([A,B,C,D,E,F,G,H,I], Info) end;
 	    10 -> fun(A,B,C,D,E,F,G,H,I,J) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J], Info) end;
 	    11 -> fun(A,B,C,D,E,F,G,H,I,J,K) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K], Info) end;
 	    12 -> fun(A,B,C,D,E,F,G,H,I,J,K,L) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L], Info) end;
 	    13 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M], Info) end;
 	    14 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N], Info) end;
 	    15 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O], Info) end;
 	    16 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P], Info) end;
 	    17 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q], Info) end;
 	    18 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R], Info) end;
 	    19 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S],Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S],Info) end;
 	    20 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T) -> 
-			  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T],Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T],Info) end;
 	    _Other ->
 		exception(error, {'argument_limit',{'fun',Cs}}, Bs,
+			  Ieval#ieval{line=Line})
+	end,
+    {value,Fun,Bs};
+
+%% Construct a fun
+expr({make_named_fun,Line,Name,FName,Cs}, Bs, #ieval{module=Module}=Ieval) ->
+    Arity = length(element(3,hd(Cs))),
+    Info = {{Module,Name},Bs,Cs,FName},
+    Fun =
+	case Arity of
+	    0 -> fun RF() -> eval_named_fun([], RF, Info) end;
+	    1 -> fun RF(A) -> eval_named_fun([A], RF, Info) end;
+	    2 -> fun RF(A,B) ->
+			 eval_named_fun([A,B], RF, Info) end;
+	    3 -> fun RF(A,B,C) ->
+			 eval_named_fun([A,B,C], RF, Info) end;
+	    4 -> fun RF(A,B,C,D) ->
+			 eval_named_fun([A,B,C,D], RF, Info) end;
+	    5 -> fun RF(A,B,C,D,E) ->
+			 eval_named_fun([A,B,C,D,E],
+					RF, Info) end;
+	    6 -> fun RF(A,B,C,D,E,F) ->
+			 eval_named_fun([A,B,C,D,E,F],
+					RF, Info) end;
+	    7 -> fun RF(A,B,C,D,E,F,G) ->
+			 eval_named_fun([A,B,C,D,E,F,G],
+					RF, Info) end;
+	    8 -> fun RF(A,B,C,D,E,F,G,H) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H],
+					RF, Info) end;
+	    9 -> fun RF(A,B,C,D,E,F,G,H,I) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I],
+					RF, Info) end;
+	    10 -> fun RF(A,B,C,D,E,F,G,H,I,J) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J],
+					RF, Info) end;
+	    11 -> fun RF(A,B,C,D,E,F,G,H,I,J,K) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K],
+					RF, Info) end;
+	    12 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L],
+					RF, Info) end;
+	    13 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M],
+					RF, Info) end;
+	    14 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N],
+					RF, Info) end;
+	    15 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O],
+					RF, Info) end;
+	    16 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P],
+					RF, Info) end;
+	    17 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q],
+					RF, Info) end;
+	    18 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,
+					     R],
+					RF, Info) end;
+	    19 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,
+					     R,S],
+					RF, Info) end;
+	    20 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,
+					     R,S,T],
+					RF, Info) end;
+	    _Other ->
+		exception(error, {'argument_limit',{named_fun,FName,Cs}}, Bs,
 			  Ieval#ieval{line=Line})
 	end,
     {value,Fun,Bs};
@@ -785,11 +886,6 @@ expr({make_ext_fun,Line,MFA0}, Bs0, Ieval0) ->
 				 arguments=[M,F,A],line=-1},
 	    exception(error, badarg, Bs, Ieval, true)
     end;
-
-%% Common test adaptation
-expr({call_remote,0,ct_line,line,As0,Lc}, Bs0, Ieval0) ->
-    {As,_Bs} = eval_list(As0, Bs0, Ieval0),
-    eval_function(ct_line, line, As, Bs0, extern, Ieval0, Lc);
 
 %% Local function call
 expr({local_call,Line,F,As0,Lc}, Bs0, #ieval{module=M} = Ieval0) ->
@@ -960,8 +1056,12 @@ expr(E, _Bs, _Ieval) ->
     erlang:error({'NYI',E}).
 
 %% Interpreted fun() called from uninterpreted module, recurse
-eval_fun(Cs, As, Bs, Info) ->
+eval_fun(As, {Info,Bs,Cs}) ->
     dbg_debugged:eval(?MODULE, eval_fun, [Cs,As,Bs,Info]).
+
+%% Interpreted named fun() called from uninterpreted module, recurse
+eval_named_fun(As, RF, {Info,Bs,Cs,FName}) ->
+    dbg_debugged:eval(?MODULE, eval_named_fun, [Cs,As,Bs,FName,RF,Info]).
 
 %% eval_lc(Expr,[Qualifier],Bindings,IevalState) ->
 %%	{value,Value,Bindings}.
@@ -1032,7 +1132,7 @@ eval_generate([V|Rest], P, Bs0, CompFun, Ieval) ->
     case catch match1(P, V, erl_eval:new_bindings(), Bs0) of
 	{match,Bsn} ->
 	    Bs2 = add_bindings(Bsn, Bs0),
-            CompFun(Bs2) ++ eval_generate(Rest, P, Bs2, CompFun, Ieval);
+            CompFun(Bs2) ++ eval_generate(Rest, P, Bs0, CompFun, Ieval);
 	nomatch -> 
 	    eval_generate(Rest, P, Bs0, CompFun, Ieval)
 	end;
@@ -1373,6 +1473,21 @@ guard_expr({cons,_,H0,T0}, Bs) ->
 guard_expr({tuple,_,Es0}, Bs) ->
     {values,Es} = guard_exprs(Es0, Bs),
     {value,list_to_tuple(Es)};
+guard_expr({map,_,Fs}, Bs0) ->
+    F = fun (G0, B0, _) ->
+		{value,G} = guard_expr(G0, B0),
+		{value,G,B0}
+	end,
+    {Map,_} = eval_new_map_fields(Fs, Bs0, #ieval{top=false}, F),
+    {value,Map};
+guard_expr({map,_,E0,Fs0}, Bs) ->
+    {value,E} = guard_expr(E0, Bs),
+    Fs = eval_map_fields_guard(Fs0, Bs),
+    Value = lists:foldl(fun ({map_assoc,K,V}, Mi) -> maps:put(K,V,Mi);
+                            ({map_exact,K,V}, Mi) -> maps:update(K,V,Mi) end,
+                        E, Fs),
+    io:format("~p~n", [{E,Value}]),
+    {value,Value};
 guard_expr({bin,_,Flds}, Bs) ->
     {value,V,_Bs} = 
 	eval_bits:expr_grp(Flds, Bs,
@@ -1381,6 +1496,48 @@ guard_expr({bin,_,Flds}, Bs) ->
 				   {value,V,B}
 			   end, [], false),
     {value,V}.
+
+
+%% eval_map_fields([Field], Bindings, IEvalState) ->
+%%  {[{map_assoc | map_exact,Key,Value}],Bindings}
+
+eval_map_fields(Fs, Bs, Ieval) ->
+    eval_map_fields(Fs, Bs, Ieval, fun expr/3).
+
+eval_map_fields_guard(Fs0, Bs) ->
+    {Fs,_} = eval_map_fields(Fs0, Bs, #ieval{},
+                             fun (G0, Bs0, _) ->
+                            {value,G} = guard_expr(G0, Bs0),
+                            {value,G,Bs0}
+                    end),
+    Fs.
+
+eval_map_fields(Fs, Bs, Ieval, F) ->
+    eval_map_fields(Fs, Bs, Ieval, F, []).
+
+eval_map_fields([{map_field_assoc,Line,K0,V0}|Fs], Bs0, Ieval0, F, Acc) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {value,K,Bs1} = F(K0, Bs0, Ieval),
+    {value,V,Bs2} = F(V0, Bs1, Ieval),
+    eval_map_fields(Fs, Bs2, Ieval0, F, [{map_assoc,K,V}|Acc]);
+eval_map_fields([{map_field_exact,Line,K0,V0}|Fs], Bs0, Ieval0, F, Acc) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {value,K,Bs1} = F(K0, Bs0, Ieval),
+    {value,V,Bs2} = F(V0, Bs1, Ieval),
+    eval_map_fields(Fs, Bs2, Ieval0, F, [{map_exact,K,V}|Acc]);
+eval_map_fields([], Bs, _Ieval, _F, Acc) ->
+    {lists:reverse(Acc),Bs}.
+
+eval_new_map_fields(Fs, Bs0, Ieval, F) ->
+    eval_new_map_fields(Fs, Bs0, Ieval, F, []).
+
+eval_new_map_fields([{Line,K0,V0}|Fs], Bs0, Ieval0, F, Acc) ->
+    Ieval = Ieval0#ieval{line=Line},
+    {value,K,Bs1} = F(K0, Bs0, Ieval),
+    {value,V,Bs2} = F(V0, Bs1, Ieval),
+    eval_new_map_fields(Fs, Bs2, Ieval0, F, [{K,V}|Acc]);
+eval_new_map_fields([], Bs, _, _, Acc) ->
+    {maps:from_list(lists:reverse(Acc)),Bs}.
 
 %% match(Pattern,Term,Bs) -> {match,Bs} | nomatch
 match(Pat, Term, Bs) ->
@@ -1411,6 +1568,8 @@ match1({cons,_,H,T}, [H1|T1], Bs0, BBs) ->
 match1({tuple,_,Elts}, Tuple, Bs, BBs) 
   when length(Elts) =:= tuple_size(Tuple) ->
     match_tuple(Elts, Tuple, 1, Bs, BBs);
+match1({map,_,Fields}, Map, Bs, BBs) when is_map(Map) ->
+    match_map(Fields, Map, Bs, BBs);
 match1({bin,_,Fs}, B, Bs0, BBs) when is_bitstring(B) ->
     try eval_bits:match_bits(Fs, B, Bs0, BBs,
 			     match_fun(BBs),
@@ -1432,6 +1591,17 @@ match_tuple([E|Es], Tuple, I, Bs0, BBs) ->
     {match,Bs} = match1(E, element(I, Tuple), Bs0, BBs),
     match_tuple(Es, Tuple, I+1, Bs, BBs);
 match_tuple([], _, _, Bs, _BBs) ->
+    {match,Bs}.
+
+match_map([{map_field_exact,_,K0,Pat}|Fs], Map, Bs0, BBs) ->
+    {value,K,BBs} = expr(K0, BBs, #ieval{}),
+    case maps:find(K, Map) of
+        {ok,Value} ->
+            {match,Bs} = match1(Pat, Value, Bs0, BBs),
+            match_map(Fs, Map, Bs, BBs);
+        error -> throw(nomatch)
+    end;
+match_map([], _, Bs, _BBs) ->
     {match,Bs}.
 
 head_match([Par|Pars], [Arg|Args], Bs0, BBs) ->

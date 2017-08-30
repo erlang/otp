@@ -8,7 +8,7 @@
   },
   {registered,[]},
   {applications, [kernel,stdlib]},
-  {env, []
-  }
+  {env, []},
+  {runtime_dependencies, ["xmerl-1.3.7","stdlib-2.5","edoc-0.7.13","erts-6.0"]}
  ]
 }.

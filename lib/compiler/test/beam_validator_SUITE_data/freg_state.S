@@ -1,6 +1,6 @@
 {module, freg_state}.  %% version = 0
 
-{exports, []}.
+{exports, [{sum_1,2},{sum_2,2},{sum_3,2},{sum_4,2},{sum_5,2}]}.
 
 {attributes, []}.
 

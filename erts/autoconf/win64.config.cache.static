@@ -262,7 +262,6 @@ ac_cv_type_signal=${ac_cv_type_signal=void}
 ac_cv_type_size_t=${ac_cv_type_size_t=yes}
 ac_cv_type_uid_t=${ac_cv_type_uid_t=no}
 ac_cv_working_alloca_h=${ac_cv_working_alloca_h=no}
-erl_cv_time_correction=${erl_cv_time_correction=none}
 erts_cv___after_morecore_hook_can_track_malloc=${erts_cv___after_morecore_hook_can_track_malloc=no}
 erts_cv_fwrite_unlocked=${erts_cv_fwrite_unlocked=no}
 erts_cv_have__end_symbol=${erts_cv_have__end_symbol=no}

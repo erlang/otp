@@ -2,18 +2,19 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -62,18 +63,18 @@ plain_cl() ->
       cl_halt(cl_check_init(Opts), Opts);
     {plt_info, Opts} ->
       cl_halt(cl_print_plt_info(Opts), Opts);
-    {{gui, Type}, Opts} ->
+    {gui, Opts} ->
       try check_gui_options(Opts)
       catch throw:{dialyzer_error, Msg} -> cl_error(Msg)
       end,
       case Opts#options.check_plt of
 	true ->
 	  case cl_check_init(Opts#options{get_warnings = false}) of
-	    {ok, _} -> gui_halt(internal_gui(Type, Opts), Opts);
+	    {ok, _} -> gui_halt(internal_gui(Opts), Opts);
 	    {error, _} = Error -> cl_halt(Error, Opts)
 	  end;
 	false ->
-	  gui_halt(internal_gui(Type, Opts), Opts)
+	  gui_halt(internal_gui(Opts), Opts)
       end;
     {cl, Opts} ->
       case Opts#options.check_plt of
@@ -162,29 +163,29 @@ run(Opts) ->
     {error, Msg} ->
       throw({dialyzer_error, Msg});
     OptsRecord ->
-      case OptsRecord#options.check_plt of
-        true ->
-          case cl_check_init(OptsRecord) of
-            {ok, ?RET_NOTHING_SUSPICIOUS} -> ok;
-            {error, ErrorMsg1} -> throw({dialyzer_error, ErrorMsg1})
-          end;
-        false -> ok
-      end,
+      ok = check_init(OptsRecord),
       case dialyzer_cl:start(OptsRecord) of
         {?RET_DISCREPANCIES, Warnings} -> Warnings;
-        {?RET_NOTHING_SUSPICIOUS, []}  -> []
+        {?RET_NOTHING_SUSPICIOUS, _}  -> []
       end
   catch
     throw:{dialyzer_error, ErrorMsg} ->
       erlang:error({dialyzer_error, lists:flatten(ErrorMsg)})
   end.
 
-internal_gui(Type, OptsRecord) ->
+check_init(#options{analysis_type = plt_check}) ->
+    ok;
+check_init(#options{check_plt = true} = OptsRecord) ->
+    case cl_check_init(OptsRecord) of
+	{ok, _} -> ok;
+	{error, Msg} -> throw({dialyzer_error, Msg})
+    end;
+check_init(#options{check_plt = false}) ->
+    ok.
+
+internal_gui(OptsRecord) ->
   F = fun() ->
-	  case Type of
-	    gs -> dialyzer_gui:start(OptsRecord);
-	    wx -> dialyzer_gui_wx:start(OptsRecord)
-	  end,
+	  dialyzer_gui_wx:start(OptsRecord),
 	  ?RET_NOTHING_SUSPICIOUS
       end,
   doit(F).
@@ -202,17 +203,13 @@ gui(Opts) ->
       throw({dialyzer_error, Msg});
     OptsRecord ->
       ok = check_gui_options(OptsRecord),
-      case cl_check_init(OptsRecord) of
-	{ok, ?RET_NOTHING_SUSPICIOUS} ->
-	  F = fun() ->
-		  dialyzer_gui:start(OptsRecord)
-	      end,
-	  case doit(F) of
-	    {ok, _} -> ok;
-	    {error, Msg} -> throw({dialyzer_error, Msg})
-	  end;
-	{error, ErrorMsg1} ->
-	  throw({dialyzer_error, ErrorMsg1})
+      ok = check_init(OptsRecord),
+      F = fun() ->
+          dialyzer_gui_wx:start(OptsRecord)
+      end,
+      case doit(F) of
+	  {ok, _} -> ok;
+	  {error, Msg} -> throw({dialyzer_error, Msg})
       end
   catch
     throw:{dialyzer_error, ErrorMsg} ->
@@ -285,15 +282,17 @@ cl_check_log(none) ->
 cl_check_log(Output) ->
   io:format("  Check output file `~s' for details\n", [Output]).
 
--spec format_warning(dial_warning()) -> string().
+-spec format_warning(raw_warning()) -> string().
 
 format_warning(W) ->
   format_warning(W, basename).
 
--spec format_warning(dial_warning(), fopt()) -> string().
+-spec format_warning(raw_warning() | dial_warning(), fopt()) -> string().
 
+format_warning({Tag, {File, Line, _MFA}, Msg}, FOpt) ->
+  format_warning({Tag, {File, Line}, Msg}, FOpt);
 format_warning({_Tag, {File, Line}, Msg}, FOpt) when is_list(File),
-						     is_integer(Line) ->
+                                                     is_integer(Line) ->
   F = case FOpt of
 	fullpath -> File;
 	basename -> filename:basename(File)
@@ -337,6 +336,9 @@ message_to_string({guard_fail, []}) ->
   "Clause guard cannot succeed.\n";
 message_to_string({guard_fail, [Arg1, Infix, Arg2]}) ->
   io_lib:format("Guard test ~s ~s ~s can never succeed\n", [Arg1, Infix, Arg2]);
+message_to_string({map_update, [Type, Key]}) ->
+  io_lib:format("A key of type ~s cannot exist "
+		"in a map of type ~s\n", [Key, Type]);
 message_to_string({neg_guard_fail, [Arg1, Infix, Arg2]}) ->
   io_lib:format("Guard test not(~s ~s ~s) can never succeed\n",
 		[Arg1, Infix, Arg2]);
@@ -426,6 +428,9 @@ message_to_string({call_without_opaque, [M, F, Args, ExpectedTriples]}) ->
 message_to_string({opaque_eq, [Type, _Op, OpaqueType]}) ->
   io_lib:format("Attempt to test for equality between a term of type ~s"
 		" and a term of opaque type ~s\n", [Type, OpaqueType]);
+message_to_string({opaque_guard, [Arg1, Infix, Arg2, ArgNs]}) ->
+  io_lib:format("Guard test ~s ~s ~s contains ~s\n",
+		[Arg1, Infix, Arg2, form_positions(ArgNs)]);
 message_to_string({opaque_guard, [Guard, Args]}) ->
   io_lib:format("Guard test ~w~s breaks the opaqueness of its argument\n",
 		[Guard, Args]);
@@ -438,8 +443,15 @@ message_to_string({opaque_match, [Pat, OpaqueType, OpaqueTerm]}) ->
 message_to_string({opaque_neq, [Type, _Op, OpaqueType]}) ->
   io_lib:format("Attempt to test for inequality between a term of type ~s"
 		" and a term of opaque type ~s\n", [Type, OpaqueType]);
-message_to_string({opaque_type_test, [Fun, Opaque]}) ->
-  io_lib:format("The type test ~s(~s) breaks the opaqueness of the term ~s\n", [Fun, Opaque, Opaque]);
+message_to_string({opaque_type_test, [Fun, Args, Arg, ArgType]}) ->
+  io_lib:format("The type test ~s~s breaks the opaqueness of the term ~s~s\n",
+                [Fun, Args, Arg, ArgType]);
+message_to_string({opaque_size, [SizeType, Size]}) ->
+  io_lib:format("The size ~s breaks the opaqueness of ~s\n",
+                [SizeType, Size]);
+message_to_string({opaque_call, [M, F, Args, Culprit, OpaqueType]}) ->
+  io_lib:format("The call ~s:~s~s breaks the opaqueness of the term ~s :: ~s\n",
+                [M, F, Args, Culprit, OpaqueType]);
 %%----- Warnings for concurrency errors --------------------
 message_to_string({race_condition, [M, F, Args, Reason]}) ->
   io_lib:format("The call ~w:~w~s ~s\n", [M, F, Args, Reason]);
@@ -466,7 +478,14 @@ message_to_string({callback_missing, [B, F, A]}) ->
   io_lib:format("Undefined callback function ~w/~w (behaviour '~w')\n",
 		[F, A, B]);
 message_to_string({callback_info_missing, [B]}) ->
-  io_lib:format("Callback info about the ~w behaviour is not available\n", [B]).
+  io_lib:format("Callback info about the ~w behaviour is not available\n", [B]);
+%%----- Warnings for unknown functions, types, and behaviours -------------
+message_to_string({unknown_type, {M, F, A}}) ->
+  io_lib:format("Unknown type ~w:~w/~w", [M, F, A]);
+message_to_string({unknown_function, {M, F, A}}) ->
+  io_lib:format("Unknown function ~w:~w/~w", [M, F, A]);
+message_to_string({unknown_behaviour, B}) ->
+  io_lib:format("Unknown behaviour ~w", [B]).
 
 %%-----------------------------------------------------------------------------
 %% Auxiliary functions below
@@ -549,4 +568,4 @@ form_position_string(ArgNs) ->
 ordinal(1) -> "1st";
 ordinal(2) -> "2nd";
 ordinal(3) -> "3rd";
-ordinal(N) when is_integer(N) -> io_lib:format("~wth",[N]).
+ordinal(N) when is_integer(N) -> io_lib:format("~wth", [N]).

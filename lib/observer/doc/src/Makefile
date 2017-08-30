@@ -1,13 +1,14 @@
-# ``The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved via the world wide web at http://www.erlang.org/.
-# 
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+# ``Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # 
 # The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 # Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
@@ -34,6 +35,8 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
+XML_REF1_FILES = \
+	cdv.xml
 XML_REF3_FILES = \
 	crashdump.xml \
 	observer.xml \
@@ -59,19 +62,14 @@ BOOK_FILES = book.xml
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
-	$(XML_PART_FILES) $(XML_REF3_FILES) \
+	$(XML_PART_FILES) $(XML_REF1_FILES) $(XML_REF3_FILES) \
 	$(XML_APPLICATION_FILES) $(XML_REF6_FILES)
 
-ONLY_HTML_FILE = \
-	crashdump_help.html
+ONLY_HTML_FILE =
 
 GIF_FILES = \
 	et_processes.gif \
 	et_modsprocs.gif \
-	etop_main.gif \
-	etop_5.gif \
-	etop_lines.gif \
-	etop_opt.gif \
 	note.gif
 
 # ----------------------------------------------------
@@ -81,6 +79,7 @@ HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
 
 INFO_FILE = ../../info
 
+MAN1_FILES = $(XML_REF1_FILES:%.xml=$(MAN1DIR)/%.1)
 MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
 MAN6_FILES = $(XML_REF6_FILES:%_app.xml=$(MAN6DIR)/%.6)
 
@@ -110,6 +109,7 @@ html: gifs $(HTML_REF_MAN_FILE) $(ONLY_HTML_FILE:%=$(HTMLDIR)/%)
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
+	rm -f $(MAN1DIR)/*
 	rm -f $(MAN3DIR)/*
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
@@ -119,7 +119,7 @@ clean clean_docs:
 $(HTMLDIR)/$(ONLY_HTML_FILE):
 	$(INSTALL_DATA) $(ONLY_HTML_FILE) $@
 
-man: $(MAN3_FILES) $(MAN6_FILES)
+man: $(MAN1_FILES) $(MAN3_FILES) $(MAN6_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
@@ -139,6 +139,8 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(HTMLDIR)/* \
 		"$(RELSYSDIR)/doc/html"
 	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man1"
+	$(INSTALL_DATA) $(MAN1DIR)/* "$(RELEASE_PATH)/man/man1"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
 	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man6"

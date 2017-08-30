@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2006-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -25,6 +26,7 @@
 #  include <windows.h>
 #endif
 
+#include "ethread_inline.h"
 #include "erl_misc_utils.h"
 
 #if defined(__WIN32__)
@@ -189,7 +191,7 @@ struct erts_cpu_info_t_ {
 
 #if defined(__WIN32__)
 
-static __forceinline int
+static ETHR_FORCE_INLINE int
 get_proc_affinity(erts_cpu_info_t *cpuinfo, cpu_set_t *cpuset)
 {
     DWORD_PTR pamask;
@@ -204,7 +206,7 @@ get_proc_affinity(erts_cpu_info_t *cpuinfo, cpu_set_t *cpuset)
     }
 }
 
-static __forceinline int
+static ETHR_FORCE_INLINE int
 set_thr_affinity(cpu_set_t *set)
 {
     if (*set == (cpu_set_t) 0)
@@ -1151,7 +1153,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 #define ERTS_MU_RELATION_CACHE                2 /* RelationCache */
 #define ERTS_MU_RELATION_PROCESSOR_PACKAGE    3 /* RelationProcessorPackage */
 
-static __forceinline int
+static ETHR_FORCE_INLINE int
 rel_cmp_val(int r)
 {
     switch (r) {
@@ -1508,7 +1510,7 @@ const char* parse_topology_spec_group(erts_cpu_info_t *cpuinfo, const char* xml,
 		if (is_thread_group) {
 		    thread++;
 		} else {
-		    *core_p = (*core_p)++;
+		    *core_p = (*core_p) + 1;
 		}
 		index_procs++;
 	    }
@@ -1528,9 +1530,9 @@ const char* parse_topology_spec_group(erts_cpu_info_t *cpuinfo, const char* xml,
 
     if (parentCacheLevel == 0) {
 	*core_p = 0;
-	*processor_p = (*processor_p)++;
+	*processor_p = (*processor_p) + 1;
     } else {
-	*core_p = (*core_p)++;
+	*core_p = (*core_p) + 1;
     }
 
     if (error)

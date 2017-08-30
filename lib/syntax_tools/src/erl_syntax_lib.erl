@@ -35,8 +35,8 @@
          analyze_function_name/1, analyze_implicit_fun/1,
          analyze_import_attribute/1, analyze_module_attribute/1,
          analyze_record_attribute/1, analyze_record_expr/1,
-         analyze_record_field/1, analyze_rule/1,
-         analyze_wild_attribute/1, annotate_bindings/1,
+         analyze_record_field/1, analyze_wild_attribute/1, annotate_bindings/1,
+         analyze_type_application/1, analyze_type_name/1,
          annotate_bindings/2, fold/3, fold_subtrees/3, foldl_listlist/3,
          function_name_expansions/1, is_fail_expr/1, limit/2, limit/3,
          map/2, map_subtrees/2, mapfold/3, mapfold_subtrees/3,
@@ -288,7 +288,7 @@ mapfoldl(_, S, []) ->
 %%
 %% @see //stdlib/sets
 
--spec variables(erl_syntax:syntaxTree()) -> set().
+-spec variables(erl_syntax:syntaxTree()) -> sets:set(atom()).
 
 variables(Tree) ->
     variables(Tree, sets:new()).
@@ -343,7 +343,7 @@ default_variable_name(N) ->
 %%
 %% @see new_variable_name/2
 
--spec new_variable_name(set()) -> atom().
+-spec new_variable_name(sets:set(atom())) -> atom().
 
 new_variable_name(S) ->
     new_variable_name(fun default_variable_name/1, S).
@@ -360,16 +360,16 @@ new_variable_name(S) ->
 %% within a reasonably small range relative to the number of elements in
 %% the set.
 %%
-%% This function uses the module `random' to generate new
+%% This function uses the module `rand' to generate new
 %% keys. The seed it uses may be initialized by calling
-%% `random:seed/0' or `random:seed/3' before this
+%% `rand:seed/1' or `rand:seed/2' before this
 %% function is first called.
 %%
 %% @see new_variable_name/1
 %% @see //stdlib/sets
 %% @see //stdlib/random
 
--spec new_variable_name(fun((integer()) -> atom()), set()) -> atom().
+-spec new_variable_name(fun((integer()) -> atom()), sets:set(atom())) -> atom().
 
 new_variable_name(F, S) ->
     R = start_range(S),
@@ -405,7 +405,13 @@ start_range(S) ->
 %% order, but (pseudo-)randomly distributed over the range.
 
 generate(_Key, Range) ->
-    random:uniform(Range).    % works well
+    _ = case rand:export_seed() of
+	    undefined ->
+		rand:seed(exsplus, {753,8,73});
+	    _ ->
+		ok
+	end,
+    rand:uniform(Range).			% works well
 
 
 %% =====================================================================
@@ -416,7 +422,7 @@ generate(_Key, Range) ->
 %% 
 %% @see new_variable_name/1
 
--spec new_variable_names(integer(), set()) -> [atom()].
+-spec new_variable_names(integer(), sets:set(atom())) -> [atom()].
 
 new_variable_names(N, S) ->
     new_variable_names(N, fun default_variable_name/1, S).
@@ -432,7 +438,7 @@ new_variable_names(N, S) ->
 %% 
 %% @see new_variable_name/2
 
--spec new_variable_names(integer(), fun((integer()) -> atom()), set()) ->
+-spec new_variable_names(integer(), fun((integer()) -> atom()), sets:set(atom())) ->
 	[atom()].
 
 new_variable_names(N, F, S) when is_integer(N) ->
@@ -527,8 +533,6 @@ vann(Tree, Env) ->
             vann_try_expr(Tree, Env);
         function ->
             vann_function(Tree, Env);
-        rule ->
-            vann_rule(Tree, Env);
         fun_expr ->
             vann_fun_expr(Tree, Env);
         list_comp ->
@@ -566,15 +570,6 @@ vann_function(Tree, Env) ->
     N = erl_syntax:function_name(Tree),
     {N1, _, _} = vann(N, Env),
     Tree1 = rewrite(Tree, erl_syntax:function(N1, Cs1)),
-    Bound = [],
-    {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
-
-vann_rule(Tree, Env) ->
-    Cs = erl_syntax:rule_clauses(Tree),
-    {Cs1, {_, Free}} = vann_clauses(Cs, Env),
-    N = erl_syntax:rule_name(Tree),
-    {N1, _, _} = vann(N, Env),
-    Tree1 = rewrite(Tree, erl_syntax:rule(N1, Cs1)),
     Bound = [],
     {ann_bindings(Tree1, Env, Bound, Free), Bound, Free}.
 
@@ -946,7 +941,7 @@ is_fail_expr(E) ->
 %%
 %%          Forms = syntaxTree() | [syntaxTree()]
 %%          Key = attributes | errors | exports | functions | imports
-%%                | module | records | rules | warnings
+%%                | module | records | warnings
 %%
 %% @doc Analyzes a sequence of "program forms". The given
 %% `Forms' may be a single syntax tree of type
@@ -1035,27 +1030,20 @@ is_fail_expr(E) ->
 %%     <dt>`{records, Records}'</dt>
 %%       <dd><ul>
 %% 	    <li>`Records = [{atom(), Fields}]'</li>
-%% 	    <li>`Fields = [{atom(), Default}]'</li>
+%% 	    <li>`Fields = [{atom(), {Default, Type}}]'</li>
 %% 	    <li>`Default = none | syntaxTree()'</li>
+%% 	    <li>`Type = none | syntaxTree()'</li>
 %%       </ul>
 %% 	 `Records' is a list of pairs representing the names
 %% 	 and corresponding field declarations of all record declaration
 %% 	 attributes occurring in `Forms'. For fields declared
 %% 	 without a default value, the corresponding value for
-%% 	 `Default' is the atom `none' (cf.
+%% 	 `Default' is the atom `none'. Similarly, for fields declared
+%%       without a type, the corresponding value for `Type' is the
+%%       atom `none' (cf.
 %% 	 `analyze_record_attribute/1'). We do not guarantee
 %% 	 that each record name occurs at most once in the list. The
 %% 	 order of listing is not defined.</dd>
-%%
-%%     <dt>`{rules, Rules}'</dt>
-%%       <dd><ul>
-%% 	    <li>`Rules = [{atom(), integer()}]'</li>
-%%       </ul>
-%% 	 `Rules' is a list of the names of the rules that are
-%% 	 defined in `Forms' (cf.
-%% 	 `analyze_rule/1'). We do not guarantee that each
-%% 	 name occurs at most once in the list. The order of listing is
-%% 	 not defined.</dd>
 %%
 %%     <dt>`{warnings, Warnings}'</dt>
 %%       <dd><ul>
@@ -1071,15 +1059,14 @@ is_fail_expr(E) ->
 %%
 %% @see analyze_wild_attribute/1
 %% @see analyze_export_attribute/1
+%% @see analyze_function/1
 %% @see analyze_import_attribute/1
 %% @see analyze_record_attribute/1
-%% @see analyze_function/1
-%% @see analyze_rule/1
 %% @see erl_syntax:error_marker_info/1
 %% @see erl_syntax:warning_marker_info/1
 
 -type key() :: 'attributes' | 'errors' | 'exports' | 'functions' | 'imports'
-             | 'module' | 'records' | 'rules' | 'warnings'.
+             | 'module' | 'records' | 'warnings'.
 -type info_pair() :: {key(), term()}.
 
 -spec analyze_forms(erl_syntax:forms()) -> [info_pair()].
@@ -1099,8 +1086,6 @@ collect_form(Node, Info) ->
             Info;
         {function, Name} ->
             finfo_add_function(Name, Info);
-        {rule, Name} ->
-            finfo_add_rule(Name, Info);
         {error_marker, Data} ->
             finfo_add_error(Data, Info);
         {warning_marker, Data} ->
@@ -1121,8 +1106,6 @@ collect_attribute(file, _, Info) ->
     Info;
 collect_attribute(record, {R, L}, Info) ->
     finfo_add_record(R, L, Info);
-collect_attribute(spec, _, Info) ->
-    Info;
 collect_attribute(_, {N, V}, Info) ->
     finfo_add_attribute(N, V, Info).
 
@@ -1133,13 +1116,15 @@ collect_attribute(_, {N, V}, Info) ->
 		module_imports = []   :: [atom()],
 		imports        = []   :: [{atom(), [{atom(), arity()}]}],
 		attributes     = []   :: [{atom(), term()}],
-		records        = []   :: [{atom(), [{atom(), field_default()}]}],
+		records        = []   :: [{atom(), [{atom(),
+                                                     field_default(),
+                                                     field_type()}]}],
 		errors         = []   :: [term()],
 		warnings       = []   :: [term()],
-		functions      = []   :: [{atom(), arity()}],
-		rules          = []   :: [{atom(), arity()}]}).
+		functions      = []   :: [{atom(), arity()}]}).
 
 -type field_default() :: 'none' | erl_syntax:syntaxTree().
+-type field_type()    :: 'none' | erl_syntax:syntaxTree().
 
 new_finfo() ->
     #forms{}.
@@ -1183,9 +1168,6 @@ finfo_add_warning(R, Info) ->
 finfo_add_function(F, Info) ->
     Info#forms{functions = [F | Info#forms.functions]}.
 
-finfo_add_rule(F, Info) ->
-    Info#forms{rules = [F | Info#forms.rules]}.
-
 finfo_to_list(Info) ->
     [{Key, Value}
      || {Key, {value, Value}} <-
@@ -1197,8 +1179,7 @@ finfo_to_list(Info) ->
              {records, list_value(Info#forms.records)},
              {errors, list_value(Info#forms.errors)},
              {warnings, list_value(Info#forms.warnings)},
-             {functions, list_value(Info#forms.functions)},
-             {rules, list_value(Info#forms.rules)}
+             {functions, list_value(Info#forms.functions)}
             ]].
 
 list_value([]) ->
@@ -1229,10 +1210,6 @@ list_value(List) ->
 %%
 %% 	    <dd>where `Info = analyze_function(Node)'.</dd>
 %%
-%%   <dt>`{rule, Info}'</dt>
-%%
-%% 	    <dd>where `Info = analyze_rule(Node)'.</dd>
-%%
 %%   <dt>`{warning_marker, Info}'</dt>
 %%
 %% 	    <dd>where `Info =
@@ -1245,7 +1222,6 @@ list_value(List) ->
 %%
 %% @see analyze_attribute/1
 %% @see analyze_function/1
-%% @see analyze_rule/1
 %% @see erl_syntax:is_form/1
 %% @see erl_syntax:error_marker_info/1
 %% @see erl_syntax:warning_marker_info/1
@@ -1258,8 +1234,6 @@ analyze_form(Node) ->
             {attribute, analyze_attribute(Node)};
         function ->
             {function, analyze_function(Node)};
-        rule ->
-            {rule, analyze_rule(Node)};
         error_marker ->
             {error_marker, erl_syntax:error_marker_info(Node)};
         warning_marker ->
@@ -1357,10 +1331,6 @@ analyze_attribute(file, Node) ->
     analyze_file_attribute(Node);
 analyze_attribute(record, Node) ->
     analyze_record_attribute(Node);
-analyze_attribute(define, _Node) ->
-    define;
-analyze_attribute(spec, _Node) ->
-    spec;
 analyze_attribute(_, Node) ->
     %% A "wild" attribute (such as e.g. a `compile' directive).
     analyze_wild_attribute(Node).
@@ -1556,6 +1526,55 @@ analyze_import_attribute(Node) ->
 
 
 %% =====================================================================
+%% @spec analyze_type_name(Node::syntaxTree()) -> TypeName
+%%
+%%          TypeName = atom()
+%%                   | {atom(), integer()}
+%%                   | {ModuleName, {atom(), integer()}}
+%%          ModuleName = atom()
+%%
+%% @doc Returns the type name represented by a syntax tree. If
+%% `Node' represents a type name, such as
+%% "`foo/1'" or "`bloggs:fred/2'", a uniform
+%% representation of that name is returned.
+%%
+%% The evaluation throws `syntax_error' if
+%% `Node' does not represent a well-formed type name.
+
+-spec analyze_type_name(erl_syntax:syntaxTree()) -> typeName().
+
+analyze_type_name(Node) ->
+    case erl_syntax:type(Node) of
+        atom ->
+            erl_syntax:atom_value(Node);
+        arity_qualifier ->
+            A = erl_syntax:arity_qualifier_argument(Node),
+            N = erl_syntax:arity_qualifier_body(Node),
+
+            case ((erl_syntax:type(A) =:= integer)
+                  and (erl_syntax:type(N) =:= atom))
+            of
+                true ->
+                    append_arity(erl_syntax:integer_value(A),
+                                 erl_syntax:atom_value(N));
+                _ ->
+                    throw(syntax_error)
+            end;
+        module_qualifier ->
+            M = erl_syntax:module_qualifier_argument(Node),
+            case erl_syntax:type(M) of
+                atom ->
+                    N = erl_syntax:module_qualifier_body(Node),
+                    N1 = analyze_type_name(N),
+                    {erl_syntax:atom_value(M), N1};
+                _ ->
+                    throw(syntax_error)
+            end;
+        _ ->
+            throw(syntax_error)
+    end.
+
+%% =====================================================================
 %% @spec analyze_wild_attribute(Node::syntaxTree()) -> {atom(), term()}
 %%
 %% @doc Returns the name and value of a "wild" attribute. The result is
@@ -1580,6 +1599,7 @@ analyze_wild_attribute(Node) ->
                 atom ->
                     case erl_syntax:attribute_arguments(Node) of
                         [V] ->
+                            %% Note: does not work well with macros.
 			    case catch {ok, erl_syntax:concrete(V)} of
 				{ok, Val} ->
 				    {erl_syntax:atom_value(N), Val};
@@ -1601,17 +1621,22 @@ analyze_wild_attribute(Node) ->
 %% @spec analyze_record_attribute(Node::syntaxTree()) ->
 %%           {atom(), Fields}
 %%
-%%          Fields = [{atom(), none | syntaxTree()}]
+%% 	    Fields = [{atom(), {Default, Type}}]
+%% 	    Default = none | syntaxTree()
+%% 	    Type = none | syntaxTree()
 %%
 %% @doc Returns the name and the list of fields of a record declaration
 %% attribute. The result is a pair `{Name, Fields}', if
 %% `Node' represents "`-record(Name, {...}).'",
 %% where `Fields' is a list of pairs `{Label,
-%% Default}' for each field "`Label'" or "`Label =
-%% <em>Default</em>'" in the declaration, listed in left-to-right
+%% {Default, Type}}' for each field "`Label'", "`Label =
+%% <em>Default</em>'", "`Label :: <em>Type</em>'", or
+%% "`Label = <em>Default</em> :: <em>Type</em>'" in the declaration,
+%% listed in left-to-right
 %% order. If the field has no default-value declaration, the value for
-%% `Default' will be the atom `none'. We do not
-%% guarantee that each label occurs at most one in the list.
+%% `Default' will be the atom `none'. If the field has no type declaration,
+%% the value for `Type' will be the atom `none'. We do not
+%% guarantee that each label occurs at most once in the list.
 %%
 %% The evaluation throws `syntax_error' if
 %% `Node' does not represent a well-formed record declaration
@@ -1620,7 +1645,9 @@ analyze_wild_attribute(Node) ->
 %% @see analyze_attribute/1
 %% @see analyze_record_field/1
 
--type fields() :: [{atom(), 'none' | erl_syntax:syntaxTree()}].
+-type field() :: {atom(), {field_default(), field_type()}}.
+
+-type fields() :: [field()].
 
 -spec analyze_record_attribute(erl_syntax:syntaxTree()) -> {atom(), fields()}.
 
@@ -1658,7 +1685,7 @@ analyze_record_attribute_tuple(Node) ->
 %%     {atom(), Info} | atom()
 %%
 %%    Info = {atom(), [{atom(), Value}]} | {atom(), atom()} | atom()
-%%    Value = none | syntaxTree()
+%%    Value = syntaxTree()
 %%
 %% @doc Returns the record name and field name/names of a record
 %% expression. If `Node' has type `record_expr',
@@ -1671,19 +1698,17 @@ analyze_record_attribute_tuple(Node) ->
 %%   <dt>`record_expr':</dt>
 %%     <dd>`{atom(), [{atom(), Value}]}'</dd>
 %%   <dt>`record_access':</dt>
-%%     <dd>`{atom(), atom()} | atom()'</dd>
+%%     <dd>`{atom(), atom()}'</dd>
 %%   <dt>`record_index_expr':</dt>
 %%     <dd>`{atom(), atom()}'</dd>
 %% </dl>
 %%
 %% For a `record_expr' node, `Info' represents
 %% the record name and the list of descriptors for the involved fields,
-%% listed in the order they appear. (See
-%% `analyze_record_field/1' for details on the field
-%% descriptors). For a `record_access' node,
-%% `Info' represents the record name and the field name (or
-%% if the record name is not included, only the field name; this is
-%% allowed only in Mnemosyne-query syntax). For a
+%% listed in the order they appear. A field descriptor is a pair
+%% `{Label, Value}', if `Node' represents "`Label = <em>Value</em>'".
+%% For a `record_access' node,
+%% `Info' represents the record name and the field name. For a
 %% `record_index_expr' node, `Info' represents the
 %% record name and the name field name.
 %%
@@ -1694,7 +1719,7 @@ analyze_record_attribute_tuple(Node) ->
 %% @see analyze_record_attribute/1
 %% @see analyze_record_field/1
 
--type info() :: {atom(), [{atom(), 'none' | erl_syntax:syntaxTree()}]}
+-type info() :: {atom(), [{atom(), erl_syntax:syntaxTree()}]}
               | {atom(), atom()} | atom().
 
 -spec analyze_record_expr(erl_syntax:syntaxTree()) -> {atom(), info()} | atom().
@@ -1705,8 +1730,9 @@ analyze_record_expr(Node) ->
             A = erl_syntax:record_expr_type(Node),
             case erl_syntax:type(A) of
                 atom ->
-                    Fs = [analyze_record_field(F)
-			  || F <- erl_syntax:record_expr_fields(Node)],
+                    Fs0 = [analyze_record_field(F)
+                           || F <- erl_syntax:record_expr_fields(Node)],
+                    Fs = [{N, D} || {N, {D, _T}} <- Fs0],
                     {record_expr, {erl_syntax:atom_value(A), Fs}};
                 _ ->
                     throw(syntax_error)
@@ -1715,18 +1741,14 @@ analyze_record_expr(Node) ->
 	    F = erl_syntax:record_access_field(Node),
 	    case erl_syntax:type(F) of
 		atom ->
-		    case erl_syntax:record_access_type(Node) of
-			none ->
-			    {record_access, erl_syntax:atom_value(F)};
-			A ->
-			    case erl_syntax:type(A) of
-				atom ->
-				    {record_access,
-				     {erl_syntax:atom_value(A),
-				      erl_syntax:atom_value(F)}};
-				_ ->
-				    throw(syntax_error)
-			    end
+		    A = erl_syntax:record_access_type(Node),
+                    case erl_syntax:type(A) of
+                        atom ->
+                            {record_access,
+                             {erl_syntax:atom_value(A),
+                              erl_syntax:atom_value(F)}};
+                        _ ->
+                            throw(syntax_error)
 		    end;
 		_ ->
 		    throw(syntax_error)
@@ -1752,16 +1774,19 @@ analyze_record_expr(Node) ->
     end.
 
 %% =====================================================================
-%% @spec analyze_record_field(Node::syntaxTree()) -> {atom(), Value}
+%% @spec analyze_record_field(Node::syntaxTree()) -> {atom(), {Default, Type}}
 %%
-%%          Value = none | syntaxTree()
+%%          Default = none | syntaxTree()
+%%          Type = none | syntaxTree()
 %%
-%% @doc Returns the label and value-expression of a record field
-%% specifier. The result is a pair `{Label, Value}', if
-%% `Node' represents "`Label = <em>Value</em>'" or
-%% "`Label'", where in the first case, `Value' is
-%% a syntax tree, and in the second case `Value' is
-%% `none'.
+%% @doc Returns the label, value-expression, and type of a record field
+%% specifier. The result is a pair `{Label, {Default, Type}}', if
+%% `Node' represents "`Label'", "`Label = <em>Default</em>'",
+%% "`Label :: <em>Type</em>'", or
+%%  "`Label = <em>Default</em> :: <em>Type</em>'".
+%% If the field has no value-expression, the value for
+%% `Default' will be the atom `none'. If the field has no type,
+%% the value for `Type' will be the atom `none'. 
 %%
 %% The evaluation throws `syntax_error' if
 %% `Node' does not represent a well-formed record field
@@ -1770,8 +1795,7 @@ analyze_record_expr(Node) ->
 %% @see analyze_record_attribute/1
 %% @see analyze_record_expr/1
 
--spec analyze_record_field(erl_syntax:syntaxTree()) ->
-        {atom(), 'none' | erl_syntax:syntaxTree()}.
+-spec analyze_record_field(erl_syntax:syntaxTree()) -> field().
 
 analyze_record_field(Node) ->
     case erl_syntax:type(Node) of
@@ -1780,10 +1804,15 @@ analyze_record_field(Node) ->
             case erl_syntax:type(A) of
                 atom ->
                     T = erl_syntax:record_field_value(Node),
-                    {erl_syntax:atom_value(A), T};
+                    {erl_syntax:atom_value(A), {T, none}};
                 _ ->
                     throw(syntax_error)
             end;
+        typed_record_field ->
+            F = erl_syntax:typed_record_field_body(Node),
+            {N, {V, _none}} = analyze_record_field(F),
+            T = erl_syntax:typed_record_field_type(Node),
+            {N, {V, T}};
         _ ->
             throw(syntax_error)
     end.
@@ -1837,8 +1866,6 @@ analyze_file_attribute(Node) ->
 %% The evaluation throws `syntax_error' if
 %% `Node' does not represent a well-formed function
 %% definition.
-%%
-%% @see analyze_rule/1
 
 -spec analyze_function(erl_syntax:syntaxTree()) -> {atom(), arity()}.
 
@@ -1850,37 +1877,6 @@ analyze_function(Node) ->
                 atom ->
                     {erl_syntax:atom_value(N),
                      erl_syntax:function_arity(Node)};
-                _ ->
-                    throw(syntax_error)
-            end;
-        _ ->
-            throw(syntax_error)
-    end.
-
-
-%% =====================================================================
-%% @spec analyze_rule(Node::syntaxTree()) -> {atom(), integer()}
-%%
-%% @doc Returns the name and arity of a Mnemosyne rule. The result is a
-%% pair `{Name, A}' if `Node' represents a rule
-%% "`Name(<em>P_1</em>, ..., <em>P_A</em>) :- ...'".
-%%
-%% The evaluation throws `syntax_error' if
-%% `Node' does not represent a well-formed Mnemosyne
-%% rule.
-%%
-%% @see analyze_function/1
-
--spec analyze_rule(erl_syntax:syntaxTree()) -> {atom(), arity()}.
-
-analyze_rule(Node) ->
-    case erl_syntax:type(Node) of
-        rule ->
-            N = erl_syntax:rule_name(Node),
-            case erl_syntax:type(N) of
-                atom ->
-                    {erl_syntax:atom_value(N),
-                     erl_syntax:rule_arity(Node)};
                 _ ->
                     throw(syntax_error)
             end;
@@ -1950,6 +1946,55 @@ analyze_application(Node) ->
                     A;
                 {ok, N} ->
                     append_arity(A, N);
+                _ ->
+                    throw(syntax_error)
+            end;
+        _ ->
+            throw(syntax_error)
+    end.
+
+
+%% =====================================================================
+%% @spec analyze_type_application(Node::syntaxTree()) -> typeName()
+%%
+%%          TypeName = {atom(), integer()}
+%%                   | {ModuleName, {atom(), integer()}}
+%%          ModuleName = atom()
+%%
+%% @doc Returns the name of a used type. The result is a
+%% representation of the name of the used pre-defined or local type `N/A',
+%% if `Node' represents a local (user) type application
+%% "`<em>N</em>(<em>T_1</em>, ..., <em>T_A</em>)'", or
+%% a representation of the name of the used remote type `M:N/A'
+%% if `Node' represents a remote user type application
+%% "`<em>M</em>:<em>N</em>(<em>T_1</em>, ..., <em>T_A</em>)'".
+%%
+%% The evaluation throws `syntax_error' if `Node' does not represent a
+%% well-formed (user) type application expression.
+%%
+%% @see analyze_type_name/1
+
+-type typeName() :: atom() | {module(), atom(), arity()} | {atom(), arity()}.
+
+-spec analyze_type_application(erl_syntax:syntaxTree()) -> typeName().
+
+analyze_type_application(Node) ->
+    case erl_syntax:type(Node) of
+        type_application ->
+            A = length(erl_syntax:type_application_arguments(Node)),
+            N = erl_syntax:type_application_name(Node),
+            case catch {ok, analyze_type_name(N)} of
+                {ok, TypeName} ->
+                    append_arity(A, TypeName);
+                _ ->
+                    throw(syntax_error)
+            end;
+        user_type_application ->
+            A = length(erl_syntax:user_type_application_arguments(Node)),
+            N = erl_syntax:user_type_application_name(Node),
+            case catch {ok, analyze_type_name(N)} of
+                {ok, TypeName} ->
+                    append_arity(A, TypeName);
                 _ ->
                     throw(syntax_error)
             end;

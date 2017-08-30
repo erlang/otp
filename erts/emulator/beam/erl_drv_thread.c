@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -42,7 +43,7 @@ fatal_error(int err, char *func)
 	else
 	    estr = "Unknown error";
     }
-    erl_exit(ERTS_ABORT_EXIT, "Fatal error in %s: %s [%d]\n", func, estr, err);
+    erts_exit(ERTS_ABORT_EXIT, "Fatal error in %s: %s [%d]\n", func, estr, err);
 }
 
 #define ERL_DRV_TSD_KEYS_INC 10
@@ -77,8 +78,6 @@ struct ErlDrvTid_ {
 };
 
 static ethr_tsd_key tid_key;
-
-static ethr_thr_opts def_ethr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
 
 #else /* USE_THREADS */
 static Uint tsd_len;
@@ -123,7 +122,7 @@ void erl_drv_thr_init(void)
 {
     int i;
 #ifdef USE_THREADS
-    int res = ethr_tsd_key_create(&tid_key);
+    int res = ethr_tsd_key_create(&tid_key,"erts_tid_key");
     if (res == 0)
 	res = ethr_install_exit_handler(thread_exit_handler);
     if (res != 0)
@@ -185,6 +184,17 @@ erl_drv_mutex_destroy(ErlDrvMutex *dmtx)
     if (res != 0)
 	fatal_error(res, "erl_drv_mutex_destroy()");
     erts_free(ERTS_ALC_T_DRV_MTX, (void *) dmtx);
+#endif
+}
+
+
+char *
+erl_drv_mutex_name(ErlDrvMutex *dmtx)
+{
+#ifdef USE_THREADS
+    return dmtx ? dmtx->name : NULL;
+#else
+    return NULL;
 #endif
 }
 
@@ -258,6 +268,15 @@ erl_drv_cond_destroy(ErlDrvCond *dcnd)
 #endif
 }
 
+char *
+erl_drv_cond_name(ErlDrvCond *dcnd)
+{
+#ifdef USE_THREADS
+    return dcnd ? dcnd->name : NULL;
+#else
+    return NULL;
+#endif
+}
 
 void
 erl_drv_cond_signal(ErlDrvCond *dcnd)
@@ -328,6 +347,16 @@ erl_drv_rwlock_destroy(ErlDrvRWLock *drwlck)
     if (res != 0)
 	fatal_error(res, "erl_drv_rwlock_destroy()");
     erts_free(ERTS_ALC_T_DRV_RWLCK, (void *) drwlck);
+#endif
+}
+
+char *
+erl_drv_rwlock_name(ErlDrvRWLock *drwlck)
+{
+#ifdef USE_THREADS
+    return drwlck ? drwlck->name : NULL;
+#else
+    return NULL;
 #endif
 }
 
@@ -573,16 +602,16 @@ erl_drv_thread_create(char *name,
 #ifdef USE_THREADS
     int res;
     struct ErlDrvTid_ *dtid;
-    ethr_thr_opts ethr_opts;
+    ethr_thr_opts ethr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
     ethr_thr_opts *use_opts;
 
-    if (!opts)
+    if (!opts && !name)
 	use_opts = NULL;
     else {
-	sys_memcpy((void *) &ethr_opts,
-		   (void *) &def_ethr_opts,
-		   sizeof(ethr_thr_opts));
-	ethr_opts.suggested_stack_size = opts->suggested_stack_size;
+	if(opts)
+	    ethr_opts.suggested_stack_size = opts->suggested_stack_size;
+
+        ethr_opts.name = name;
 	use_opts = &ethr_opts;
     }
 
@@ -616,6 +645,18 @@ erl_drv_thread_create(char *name,
     return ENOTSUP;
 #endif
 }
+
+char *
+erl_drv_thread_name(ErlDrvTid tid)
+{
+#ifdef USE_THREADS
+    struct ErlDrvTid_ *dtid = (struct ErlDrvTid_ *) tid;
+    return dtid ? dtid->name : NULL;
+#else
+    return NULL;
+#endif
+}
+
 
 ErlDrvTid
 erl_drv_thread_self(void)

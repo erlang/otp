@@ -1,26 +1,26 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 %%
-
 -module(csiv2_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("orber/include/corba.hrl").
 -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
@@ -30,7 +30,7 @@
 -include_lib("orber/COSS/CosNaming/CosNaming_NamingContext.hrl").
 %%-include_lib("orber/src/OrberCSIv2.hrl").
 
--define(default_timeout, ?t:minutes(5)).
+-define(default_timeout, test_server:minutes(5)).
 
 -define(match(ExpectedRes,Expr),
 	fun() ->
@@ -43,7 +43,7 @@
 		   _ ->
 		       io:format("###### ERROR ERROR ######~nRESULT:  ~p~n",
 				 [AcTuAlReS]),
-		       ?line exit(AcTuAlReS)
+		       exit(AcTuAlReS)
 	       end
        end()).
 
@@ -356,7 +356,7 @@ end_per_testcase(_Case, Config) ->
     orber:jump_stop(),
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -388,8 +388,8 @@ end_per_suite(Config) ->
 
 -ifdef(false).
 %% OrberCSIv2
-code_CertificateChain_api(doc) -> ["Code CertificateChain"];
-code_CertificateChain_api(suite) -> [];
+%%-----------------------------------------------------------------
+%% Code CertificateChain
 code_CertificateChain_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _},
@@ -398,8 +398,7 @@ code_CertificateChain_api(_Config) ->
 	   'OrberCSIv2':decode('CertificateChain', list_to_binary(Enc))),
     ok.
 
-code_AttributeCertChain_api(doc) -> ["Code AttributeCertChain"];
-code_AttributeCertChain_api(suite) -> [];
+%% Code AttributeCertChain
 code_AttributeCertChain_api(_Config) ->
      {ok, Enc} =
 	?match({ok, _},
@@ -408,8 +407,7 @@ code_AttributeCertChain_api(_Config) ->
 	   'OrberCSIv2':decode('AttributeCertChain', list_to_binary(Enc))),
     ok.
 
-code_VerifyingCertChain_api(doc) -> ["Code VerifyingCertChain"];
-code_VerifyingCertChain_api(suite) -> [];
+%% Code VerifyingCertChain
 code_VerifyingCertChain_api(_Config) ->
      {ok, Enc} =
 	?match({ok, _},
@@ -419,8 +417,8 @@ code_VerifyingCertChain_api(_Config) ->
     ok.
 
 %% PKIXAttributeCertificate
-code_AttributeCertificate_api(doc) -> ["Code AttributeCertificate"];
-code_AttributeCertificate_api(suite) -> [];
+%%-----------------------------------------------------------------
+%% Code AttributeCertificate
 code_AttributeCertificate_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _},
@@ -429,8 +427,7 @@ code_AttributeCertificate_api(_Config) ->
 	   'OrberCSIv2':decode('AttributeCertificate', list_to_binary(Enc))),
     ok.
 
-code_AttributeCertificateInfo_api(doc) -> ["Code AttributeCertificateInfo"];
-code_AttributeCertificateInfo_api(suite) -> [];
+%% Code AttributeCertificateInfo
 code_AttributeCertificateInfo_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _},
@@ -439,8 +436,7 @@ code_AttributeCertificateInfo_api(_Config) ->
 	   'OrberCSIv2':decode('AttributeCertificateInfo', list_to_binary(Enc))),
     ok.
 
-code_AttCertVersion_api(doc) -> ["Code AttCertVersion"];
-code_AttCertVersion_api(suite) -> [];
+%% Code AttCertVersion
 code_AttCertVersion_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _},
@@ -449,8 +445,7 @@ code_AttCertVersion_api(_Config) ->
 	   'OrberCSIv2':decode('AttCertVersion', list_to_binary(Enc))),
     ok.
 
-code_Holder_api(doc) -> ["Code Holder"];
-code_Holder_api(suite) -> [];
+%% Code Holder
 code_Holder_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _},
@@ -459,8 +454,7 @@ code_Holder_api(_Config) ->
 	   'OrberCSIv2':decode('Holder', list_to_binary(Enc))),
     ok.
 
-code_AttCertIssuer_api(doc) -> ["Code AttCertIssuer"];
-code_AttCertIssuer_api(suite) -> [];
+%% Code AttCertIssuer
 code_AttCertIssuer_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _},
@@ -469,8 +463,7 @@ code_AttCertIssuer_api(_Config) ->
 	   'OrberCSIv2':decode('AttCertIssuer', list_to_binary(Enc))),
     ok.
 
-code_AttCertValidityPeriod_api(doc) -> ["Code AttCertValidityPeriod"];
-code_AttCertValidityPeriod_api(suite) -> [];
+%% Code AttCertValidityPeriod
 code_AttCertValidityPeriod_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _}, 'OrberCSIv2':encode('AttCertValidityPeriod', ?AttCertValidityPeriod)),
@@ -478,8 +471,7 @@ code_AttCertValidityPeriod_api(_Config) ->
 	   'OrberCSIv2':decode('AttCertValidityPeriod', list_to_binary(Enc))),
     ok.
 
-code_V2Form_api(doc) -> ["Code V2Form"];
-code_V2Form_api(suite) -> [];
+%% Code V2Form
 code_V2Form_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _},
@@ -488,8 +480,7 @@ code_V2Form_api(_Config) ->
 	   'OrberCSIv2':decode('V2Form', list_to_binary(Enc))),
     ok.
 
-code_IssuerSerial_api(doc) -> ["Code IssuerSerial"];
-code_IssuerSerial_api(suite) -> [];
+%% Code IssuerSerial
 code_IssuerSerial_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _},
@@ -498,8 +489,7 @@ code_IssuerSerial_api(_Config) ->
 	   'OrberCSIv2':decode('IssuerSerial', list_to_binary(Enc))),
     ok.
 
-code_ObjectDigestInfo_api(doc) -> ["Code ObjectDigestInfo"];
-code_ObjectDigestInfo_api(suite) -> [];
+%% Code ObjectDigestInfo
 code_ObjectDigestInfo_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _},
@@ -509,8 +499,8 @@ code_ObjectDigestInfo_api(_Config) ->
     ok.
 
 %% PKIX1Explicit88
-code_Certificate_api(doc) -> ["Code Certificate"];
-code_Certificate_api(suite) -> [];
+%%-----------------------------------------------------------------
+%% Code Certificate
 code_Certificate_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _},
@@ -519,8 +509,7 @@ code_Certificate_api(_Config) ->
 	   'OrberCSIv2':decode('Certificate', list_to_binary(Enc))),
     ok.
 
-code_TBSCertificate_api(doc) -> ["Code TBSCertificate"];
-code_TBSCertificate_api(suite) -> [];
+%% Code TBSCertificate
 code_TBSCertificate_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _},
@@ -529,8 +518,7 @@ code_TBSCertificate_api(_Config) ->
 	   'OrberCSIv2':decode('TBSCertificate', list_to_binary(Enc))),
     ok.
 
-code_CertificateSerialNumber_api(doc) -> ["Code CertificateSerialNumber"];
-code_CertificateSerialNumber_api(suite) -> [];
+%% Code CertificateSerialNumber"];
 code_CertificateSerialNumber_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _},
@@ -539,16 +527,14 @@ code_CertificateSerialNumber_api(_Config) ->
 	   'OrberCSIv2':decode('CertificateSerialNumber', list_to_binary(Enc))),
     ok.
 
-code_Version_api(doc) -> ["Code Version"];
-code_Version_api(suite) -> [];
+%% Code Version
 code_Version_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _}, 'OrberCSIv2':encode('Version', ?Version)),
     ?match({ok, ?Version}, 'OrberCSIv2':decode('Version', list_to_binary(Enc))),
     ok.
 
-code_AlgorithmIdentifier_api(doc) -> ["Code AlgorithmIdentifier"];
-code_AlgorithmIdentifier_api(suite) -> [];
+%% Code AlgorithmIdentifier
 code_AlgorithmIdentifier_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _}, 'OrberCSIv2':encode('AlgorithmIdentifier', ?AlgorithmIdentifier)),
@@ -556,8 +542,7 @@ code_AlgorithmIdentifier_api(_Config) ->
 	   'OrberCSIv2':decode('AlgorithmIdentifier', list_to_binary(Enc))),
     ok.
 
-code_Name_api(doc) -> ["Code Name"];
-code_Name_api(suite) -> [];
+%% Code Name
 code_Name_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _}, 'OrberCSIv2':encode('Name', ?Name)),
@@ -565,8 +550,7 @@ code_Name_api(_Config) ->
 	   'OrberCSIv2':decode('Name', list_to_binary(Enc))),
     ok.
 
-code_RDNSequence_api(doc) -> ["Code RDNSequence"];
-code_RDNSequence_api(suite) -> [];
+%% Code RDNSequence
 code_RDNSequence_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _}, 'OrberCSIv2':encode('RDNSequence', ?RDNSequence)),
@@ -574,8 +558,7 @@ code_RDNSequence_api(_Config) ->
 	   'OrberCSIv2':decode('RDNSequence', list_to_binary(Enc))),
     ok.
 
-code_RelativeDistinguishedName_api(doc) -> ["Code RelativeDistinguishedName"];
-code_RelativeDistinguishedName_api(suite) -> [];
+%% Code RelativeDistinguishedName
 code_RelativeDistinguishedName_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _}, 'OrberCSIv2':encode('RelativeDistinguishedName', ?RelativeDistinguishedName)),
@@ -583,8 +566,7 @@ code_RelativeDistinguishedName_api(_Config) ->
 	   'OrberCSIv2':decode('RelativeDistinguishedName', list_to_binary(Enc))),
     ok.
 
-code_AttributeTypeAndValue_api(doc) -> ["Code AttributeTypeAndValue"];
-code_AttributeTypeAndValue_api(suite) -> [];
+%% Code AttributeTypeAndValue
 code_AttributeTypeAndValue_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _}, 'OrberCSIv2':encode('AttributeTypeAndValue', ?AttributeTypeAndValue)),
@@ -592,8 +574,7 @@ code_AttributeTypeAndValue_api(_Config) ->
 	   'OrberCSIv2':decode('AttributeTypeAndValue', list_to_binary(Enc))),
     ok.
 
-code_Attribute_api(doc) -> ["Code Attribute"];
-code_Attribute_api(suite) -> [];
+%% Code Attribute"];
 code_Attribute_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _}, 'OrberCSIv2':encode('Attribute', ?Attribute)),
@@ -601,8 +582,7 @@ code_Attribute_api(_Config) ->
 	   'OrberCSIv2':decode('Attribute', list_to_binary(Enc))),
     ok.
 
-code_Validity_api(doc) -> ["Code Validity"];
-code_Validity_api(suite) -> [];
+%% Code Validity
 code_Validity_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _}, 'OrberCSIv2':encode('Validity', ?Validity)),
@@ -610,8 +590,7 @@ code_Validity_api(_Config) ->
 	   'OrberCSIv2':decode('Validity', list_to_binary(Enc))),
     ok.
 
-code_SubjectPublicKeyInfo_api(doc) -> ["Code SubjectPublicKeyInfo"];
-code_SubjectPublicKeyInfo_api(suite) -> [];
+%% Code SubjectPublicKeyInfo
 code_SubjectPublicKeyInfo_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _}, 'OrberCSIv2':encode('SubjectPublicKeyInfo', ?SubjectPublicKeyInfo)),
@@ -619,16 +598,14 @@ code_SubjectPublicKeyInfo_api(_Config) ->
 	   'OrberCSIv2':decode('SubjectPublicKeyInfo', list_to_binary(Enc))),
     ok.
 
-code_UniqueIdentifier_api(doc) -> ["Code UniqueIdentifier"];
-code_UniqueIdentifier_api(suite) -> [];
+%% Code UniqueIdentifier
 code_UniqueIdentifier_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _}, 'OrberCSIv2':encode('UniqueIdentifier', ?UniqueIdentifier)),
     ?match({ok, _}, 'OrberCSIv2':decode('UniqueIdentifier', list_to_binary(Enc))),
     ok.
 
-code_Extensions_api(doc) -> ["Code Extensions"];
-code_Extensions_api(suite) -> [];
+%% Code Extensions
 code_Extensions_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _}, 'OrberCSIv2':encode('Extensions', ?Extensions)),
@@ -636,8 +613,7 @@ code_Extensions_api(_Config) ->
 	   'OrberCSIv2':decode('Extensions', list_to_binary(Enc))),
     ok.
 
-code_Extension_api(doc) -> ["Code Extension"];
-code_Extension_api(suite) -> [];
+%% Code Extension
 code_Extension_api(_Config) ->
     {ok, Enc} =
 	?match({ok, _}, 'OrberCSIv2':encode('Extension', ?Extension)),
@@ -646,8 +622,8 @@ code_Extension_api(_Config) ->
     ok.
 
 %% OpenSSL generated x509 Certificate
-code_OpenSSL509_api(doc) -> ["Code OpenSSL generated x509 Certificate"];
-code_OpenSSL509_api(suite) -> [];
+%%-----------------------------------------------------------------
+%% Code OpenSSL generated x509 Certificate
 code_OpenSSL509_api(_Config) ->
     {ok, Cert} =
 	?match({ok, #'Certificate'{}},
@@ -665,8 +641,7 @@ code_OpenSSL509_api(_Config) ->
 %%-----------------------------------------------------------------
 %%  Test ssl:peercert
 %%-----------------------------------------------------------------
-ssl_server_peercert_api(doc) -> ["Test ssl:peercert (server side)"];
-ssl_server_peercert_api(suite) -> [];
+%% Test ssl:peercert (server side)
 ssl_server_peercert_api(_Config) ->
     Options = orber_test_lib:get_options(iiop_ssl, server,
 	2, [{iiop_ssl_port, 0}]),
@@ -684,8 +659,7 @@ ssl_server_peercert_api(_Config) ->
     destroy_fake_ORB(ssl, Socket),
     ok.
 
-ssl_client_peercert_api(doc) -> ["Test ssl:peercert (client side)"];
-ssl_client_peercert_api(suite) -> [];
+%% Test ssl:peercert (client side)
 ssl_client_peercert_api(_Config) ->
     Options = orber_test_lib:get_options(iiop_ssl, client,
 	2, [{iiop_ssl_port, 0}]),
@@ -826,7 +800,7 @@ context_test(Obj) ->
 				 context_data = MTContextError},
 	   #'IOP_ServiceContext'{context_id=?IOP_SecurityAttributeService,
 				 context_data = MTMessageInContext}],
-    ?line ?match(ok, orber_test_server:testing_iiop_context(Obj, [{context, Ctx}])).
+    ?match(ok, orber_test_server:testing_iiop_context(Obj, [{context, Ctx}])).
 
 
 fake_server_ORB(Type, Port, Options) ->

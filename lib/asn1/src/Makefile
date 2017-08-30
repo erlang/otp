@@ -1,18 +1,19 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2013. All Rights Reserved.
+# Copyright Ericsson AB 1997-2016. All Rights Reserved.
 # 
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
-# 
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # 
 # %CopyrightEnd%
 #
@@ -43,9 +44,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/asn1-$(VSN)
 
 EBIN = ../ebin
 
-EVAL_CT_MODULES = asn1ct_eval_ext \
-		  asn1ct_eval_per \
-		  asn1ct_eval_uper
+EVAL_CT_MODULES = asn1ct_eval_ext
 
 CT_MODULES= \
 	asn1ct \
@@ -54,8 +53,8 @@ CT_MODULES= \
 	asn1ct_pretty_format \
 	asn1ct_func \
 	asn1ct_gen \
+	asn1ct_gen_check \
 	asn1ct_gen_per \
-	asn1ct_gen_per_rt2ct \
 	asn1ct_name \
 	asn1ct_constructed_per \
 	asn1ct_constructed_ber_bin_v2 \
@@ -138,7 +137,7 @@ $(EBIN)/asn1ct_func.$(EMULATOR): asn1ct_func.erl
 
 asn1ct_eval_%.erl: asn1ct_eval_%.funcs
 	$(gen_verbose)erl -pa $(EBIN) -noshell -noinput \
-	   -run prepare_templates gen_asn1ct_eval $< >$@
+	   -run prepare_templates gen_asn1ct_eval $<
 
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
@@ -183,7 +182,7 @@ RT_TEMPLATES_TARGET = $(RT_TEMPLATES:%=%.$(EMULATOR))
 
 asn1ct_rtt.erl: prepare_templates.$(EMULATOR) $(RT_TEMPLATES_TARGET)
 	$(gen_verbose)erl -noshell -noinput -run prepare_templates gen_asn1ct_rtt \
-           $(RT_TEMPLATES_TARGET) >asn1ct_rtt.erl
+           $(RT_TEMPLATES_TARGET)
 
 prepare_templates.$(EMULATOR): prepare_templates.erl
 	$(V_ERLC) prepare_templates.erl
@@ -208,6 +207,7 @@ $(EBIN)/asn1ct_constructed_per.beam: asn1ct_constructed_per.erl asn1_records.hrl
 $(EBIN)/asn1ct_func.beam: asn1ct_func.erl
 $(EBIN)/asn1ct_gen.beam: asn1ct_gen.erl asn1_records.hrl
 $(EBIN)/asn1ct_gen_ber_bin_v2.beam: asn1ct_gen_ber_bin_v2.erl asn1_records.hrl
+$(EBIN)/asn1ct_gen_check.beam: asn1_records.hrl
 $(EBIN)/asn1ct_gen_per.beam: asn1ct_gen_per.erl asn1_records.hrl
 $(EBIN)/asn1ct_gen_per_rt2ct.beam: asn1ct_gen_per_rt2ct.erl asn1_records.hrl
 $(EBIN)/asn1ct_imm.beam: asn1ct_imm.erl

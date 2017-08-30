@@ -1,28 +1,28 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 %%
 -module(testSeqSetDefaultVal).
+-export([main/2]).
 
 -include("External.hrl").
--export([main/1]).
-
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('SeqInts',{a = asn1_DEFAULT, 
 		   b = asn1_DEFAULT, 
@@ -35,7 +35,9 @@
 -record('SeqBS',{a = asn1_DEFAULT, 
 		 b = asn1_DEFAULT, 
 		 c = asn1_DEFAULT,
-		 d = asn1_DEFAULT}).
+		 d = asn1_DEFAULT,
+		 e = asn1_DEFAULT}).
+-record('SeqBS2',{bs = asn1_DEFAULT}).
 -record('SetBS',{a = asn1_DEFAULT, 
 		 b = asn1_DEFAULT, 
 		 c = asn1_DEFAULT,
@@ -93,244 +95,470 @@
 	      b = asn1_DEFAULT}).
 -record('S4_b',{ba = asn1_DEFAULT, 
 		bb = asn1_DEFAULT}).
+-record('SeqNamedInts',
+	{i1 = asn1_DEFAULT,
+	 i2 = asn1_DEFAULT}).
+-record('S5',{s3 = asn1_DEFAULT,
+	      so = asn1_DEFAULT,
+	      soe = asn1_DEFAULT}).
+-record('SOI', {soi = asn1_DEFAULT}).
 
-main(_Rules) ->
-    
-    ?line {ok,[48,0]} = 
-	asn1_wrapper:encode('Default','SeqInts',#'SeqInts'{}),
-    ?line {ok,[48,0]} =
-	asn1_wrapper:encode('Default','SeqInts',#'SeqInts'{a=1,b=-1,c=three,
-							   d=1}),
-    ?line {ok,{'SeqInts',1,-1,3,1}} = 
-	asn1_wrapper:decode('Default','SeqInts',[48,0]),
-    
-    ?line {ok,[49,0]} = 
-	asn1_wrapper:encode('Default','SetInts',#'SetInts'{}),
-    ?line {ok,[49,0]} =
-	asn1_wrapper:encode('Default','SetInts',#'SetInts'{a=1,b=-1,c=three,
-							   d=1}),
-    ?line {ok,{'SetInts',1,-1,3,1}} = 
-	asn1_wrapper:decode('Default','SetInts',[49,0]),
-    
-    
-    ?line {ok,[48,0]} = 
-	asn1_wrapper:encode('Default','SeqBS',
-			    #'SeqBS'{a=2#1010110,
-				     b=16#A8A,
-				     c=[second],
-				     d=[1,0,0,1]}),
+main(ber, []) ->
+    %% Nothing to test because plain BER will only use
+    %% default values when explicitly told to do so by
+    %% asn1_DEFAULT.
+    ok;
+main(Rule, Opts) ->
+    %% DER, PER, UPER. These encodings should not encode
+    %% values that are equal to the default value.
 
-    ?line {ok,[48,0]} = 
-	asn1_wrapper:encode('Default','SeqBS',
-			    #'SeqBS'{a=[1,0,1,0,1,1,0],
-				     b=[1,0,1,0,1,0,0,0,1,0,1,0],
-				     c={5,<<64>>},
-				     d=9}),
+    case {Rule,Opts} of
+	{ber,[der]} ->
+	    der(),
+	    case 'Default':legacy_erlang_types() of
+		false -> der_new_types();
+		true -> der_legacy()
+	    end;
+	{_,_} ->
+	    ok
+    end,
 
-    ?line {ok,[48,3,131,1,0]} = 
-	asn1_wrapper:encode('Default','SeqBS',
-			    #'SeqBS'{a=[1,0,1,0,1,1,0],
-				     b=[1,0,1,0,1,0,0,0,1,0,1,0],
-				     c={5,<<64>>},
-				     d=0}),
+    Ts = [{#'SeqInts'{},
+	   [{#'SeqInts'.c,
+	     [asn1_DEFAULT,
+	      three,
+	      3]}]},
 
-    {ok,{'SeqBS',[1,0,1,0,1,1,0],2698,[second],<<>>}} =
-	asn1_wrapper:decode('Default','SeqBS',[48,3,131,1,0]),
+	  {#'SeqBS'{},
+	   [{#'SeqBS'.a,
+	     [asn1_DEFAULT,			%Always.
+	      <<1:1,0:1,1:1,0:1,1:1,1:1,0:1>>],
+	     [2#0110101,			%Legacy only.
+	      [1,0,1,0,1,1,0],
+	      {1,<<16#AC>>}]},
+	    {#'SeqBS'.b,
+	     [asn1_DEFAULT,
+	      <<16#A8:8,16#A:4>>],
+	     [2#10100010101,
+	      [1,0,1,0,1,0,0,0,1,0,1,0],
+	      {4,<<16#A8,16#A0>>}]},
+	    {#'SeqBS'.c,
+	     [asn1_DEFAULT,
+	      [second],
+	      <<1:2>>],
+	     [[0,1],
+	      {6,<<0:1,1:1,0:6>>}]},
+	    {#'SeqBS'.c,			%Zeroes on the right
+	     [asn1_DEFAULT,
+	      [second],
+	      <<1:2,0:17>>],
+	     [[0,1,0,0,0],
+	      {4,<<0:1,1:1,0:6>>}]},
+	    {#'SeqBS'.d,
+	     [asn1_DEFAULT,
+	      <<2#1001:4>>],
+	     [2#1001,
+	      [1,0,0,1],
+	      {4,<<2#1001:4,0:4>>}]},
+	    {#'SeqBS'.e,
+	     [asn1_DEFAULT,
+	      <<2#01011010:8>>],
+	     [[0,1,0,1,1,0,1,0],
+	      {0,<<2#01011010:8>>}]},
+	    %% Not EQUAL to DEFAULT.
+	    {#'SeqBS'.b,
+	     [<<6:3>>],
+	     [[1,1,0],				%Not equal to DEFAULT
+	      {5,<<6:3,0:5>>}]}
+	   ]},
 
-    ?line {ok,{'SeqBS',[1,0,1,0,1,1,0],2698,[second],[1,0,0,1]}} =
-	asn1_wrapper:decode('Default','SeqBS',[48,0]),
+	  {#'SeqOS'{},
+	   [{#'SeqOS'.a,
+	     [asn1_DEFAULT,
+	      <<172>>]}]},
 
-    ?line {ok,[49,0]} = 
-	asn1_wrapper:encode('Default','SetBS',
-			    #'SetBS'{a=2#1010110,
-				     b=16#A8A,
-				     c=[second],
-				     d=[1,0,0,1]}),
+	  {#'SeqOI'{},
+	   [{#'SeqOI'.a,
+	     [asn1_DEFAULT,
+	      {1,2,14,15}]},
+	    {#'SeqOI'.b,
+	     [asn1_DEFAULT,
+	      %%	      {iso,'member-body',250,3,4},
+	      {1,2,250,3,4}]},
+	    {#'SeqOI'.c,
+	     [asn1_DEFAULT,
+	      %%	      {iso,standard,8571,2,250,4},
+	      {1,0,8571,2,250,4}]}]}
+	 ],
+    R0 = [[consistency(Rec, PosVs) || PosVs <- Fs] || {Rec,Fs} <- Ts],
+    case lists:flatten(R0) of
+	[] ->
+	    ok;
+	[_|_]=R ->
+	    io:format("~p\n", [R]),
+	    ?t:fail()
+    end.
 
-    ?line {ok,[49,0]} = 
-	asn1_wrapper:encode('Default','SetBS',
-			    #'SetBS'{a=[1,0,1,0,1,1,0],
-				     b=[1,0,1,0,1,0,0,0,1,0,1,0],
-				     c={5,<<64>>},
-				     d=9}),
+legacy_filter({_,_}=Keep) ->
+    Keep;
+legacy_filter({Rec,Standard,Legacy}) ->
+    case 'Default':legacy_erlang_types() of
+	false ->
+	    {Rec,Standard};
+	true ->
+	    {Rec,Standard++Legacy}
+    end.
 
-    ?line {ok,[49,3,131,1,0]} = 
-	asn1_wrapper:encode('Default','SetBS',
-			    #'SetBS'{a=[1,0,1,0,1,1,0],
-				     b=[1,0,1,0,1,0,0,0,1,0,1,0],
-				     c={5,<<64>>},
-				     d=0}),
+consistency(Rec0, PosVs) ->
+    {Pos,[V|Vs]=AllVs} = legacy_filter(PosVs),
+    T = element(1, Rec0),
+    io:format("~p: ~p\n", [T,AllVs]),
+    Rec = setelement(Pos, Rec0, V),
+    {ok,Enc} = 'Default':encode(T, Rec),
+    {ok,_SmokeTest} = 'Default':decode(T, Enc),
+    consistency_1(Vs, Rec0, Pos, Enc).
 
-    {ok,{'SetBS',[1,0,1,0,1,1,0],2698,[second],<<>>}} =
-	asn1_wrapper:decode('Default','SetBS',[49,3,131,1,0]),
+consistency_1([V|Vs], Rec0, Pos, Enc) ->
+    Rec = setelement(Pos, Rec0, V),
+    case 'Default':encode(element(1, Rec), Rec) of
+	{ok,Enc} ->
+	    consistency_1(Vs, Rec0, Pos, Enc);
+	{ok,WrongEnc} ->
+	    [{Rec,{wrong,WrongEnc},{should_be,Enc}}|
+	     consistency_1(Vs, Rec0, Pos, Enc)]
+    end;
+consistency_1([], _, _, _) -> [].
 
-    ?line {ok,{'SetBS',[1,0,1,0,1,1,0],2698,[second],[1,0,0,1]}} =
-	asn1_wrapper:decode('Default','SetBS',[49,0]),
+der() ->
+    io:put_chars("Performing DER-specific tests..."),
+    roundtrip(<<48,0>>,
+	      'SeqInts',
+	      #'SeqInts'{a=asn1_DEFAULT,b=asn1_DEFAULT,
+			 c=asn1_DEFAULT,d=asn1_DEFAULT},
+	      #'SeqInts'{a=1,b=-1,c=3,d=1}),
+    roundtrip(<<48,0>>,
+	      'SeqInts',
+	      #'SeqInts'{a=1,b=-1,c=three,d=1},
+	      #'SeqInts'{a=1,b=-1,c=3,d=1}),
 
-    ?line {ok,[48,0]} = 
-	asn1_wrapper:encode('Default','SeqOS',
-			    #'SeqOS'{a=[172],
-				     b=[16#A8,16#A0],
-				     c='NULL'}),
+    roundtrip(<<49,0>>,
+	      'SetInts',
+	      #'SetInts'{a=asn1_DEFAULT,b=asn1_DEFAULT,
+			 c=asn1_DEFAULT,d=asn1_DEFAULT},
+	      #'SetInts'{a=1,b=-1,c=3,d=1}),
+    roundtrip(<<49,0>>,
+	      'SetInts',
+	      #'SetInts'{a=1,b=-1,c=three,d=1},
+	      #'SetInts'{a=1,b=-1,c=3,d=1}),
 
-    ?line {ok,[48,0]} = 
-	asn1_wrapper:encode('Default','SeqOS',
-			    #'SeqOS'{a=2#10101100,
-				     b=16#A8A0,
-				     c='NULL'}),
+    roundtrip(<<48,0>>,
+	      'SeqOI',
+	      #'SeqOI'{a={1,2,14,15},
+		       b={iso,'member-body',250,3,4},
+		       c={iso,standard,8571,2,250,4}},
+	      #'SeqOI'{a={1,2,14,15},
+		       b={1,2,250,3,4},
+		       c={1,0,8571,2,250,4}}),
 
-    ?line {ok,{'SeqOS',[172],[16#A8,16#A0],'NULL'}} =
-	asn1_wrapper:decode('Default','SeqOS',[48,0]),
+    roundtrip(<<49,0>>,
+	      'SetOI',
+	      #'SetOI'{a={1,2,14,15},
+		       b={iso,'member-body',250,3,4},
+		       c={iso,standard,8571,2,250,4}},
+	      #'SetOI'{a={1,2,14,15},
+		       b={1,2,250,3,4},
+		       c={1,0,8571,2,250,4}}),
 
-    ?line {ok,[49,0]} = 
-	asn1_wrapper:encode('Default','SetOS',
-			    #'SetOS'{a=[172],
-				     b=[16#A8,16#A0],
-				     c='NULL'}),
+    roundtrip(<<48,0>>, 'SeqEnum', #'SeqEnum'{a=b4,b=b2}),
+    roundtrip(<<49,0>>, 'SetEnum', #'SetEnum'{a=b4,b=b2}),
 
-    ?line {ok,[49,0]} = 
-	asn1_wrapper:encode('Default','SetOS',
-			    #'SetOS'{a=2#10101100,
-				     b=16#A8A0,
-				     c='NULL'}),
+    roundtrip(<<48,0>>,
+	      'SeqIntBool',
+	      #'SeqIntBool'{a=#'SeqIntBool_a'{aa=12,ab=13},
+			    b=#'S2'{a=14,b=true},
+			    c=#'S2'{a=15,b=false}}),
+    roundtrip(<<48,0>>,
+	      'SeqIntBool',
+	      #'SeqIntBool'{a=asn1_DEFAULT,b=asn1_DEFAULT,c=asn1_DEFAULT},
+	      #'SeqIntBool'{a=#'SeqIntBool_a'{aa=12,ab=13},
+			    b=#'S2'{a=14,b=true},
+			    c=#'S2'{a=15,b=false}}),
 
-    ?line {ok,{'SetOS',[172],[16#A8,16#A0],'NULL'}} =
-	asn1_wrapper:decode('Default','SetOS',[49,0]),
+    roundtrip(<<49,0>>,
+	      'SetIntBool',
+	      #'SetIntBool'{a=#'SetIntBool_a'{aa=12,ab=13},
+			    b=#'S2'{a=14,b=true},
+			    c=#'S2'{a=15,b=false}}),
+    roundtrip(<<49,0>>,
+	      'SetIntBool',
+	      #'SetIntBool'{a=asn1_DEFAULT,b=asn1_DEFAULT,c=asn1_DEFAULT},
+	      #'SetIntBool'{a=#'SetIntBool_a'{aa=12,ab=13},
+			    b=#'S2'{a=14,b=true},
+			    c=#'S2'{a=15,b=false}}),
 
-    ?line {ok,[48,0]} =
-	asn1_wrapper:encode('Default','SeqOI',
-			    #'SeqOI'{a={1,2,14,15},
-				     b={iso,'member-body',250,3,4},
-				     c={iso,standard,8571,2,250,4}}),
-    
-    ?line {ok,{'SeqOI',{1,2,14,15},{1,2,250,3,4},{1,0,8571,2,250,4}}} =
-	asn1_wrapper:decode('Default','SeqOI',[48,0]),
+    roundtrip(<<48,0>>,
+	      'SeqStrings',
+	      #'SeqStrings'{a="123456789",b1="abcdef",
+			    b2={0,13},
+			    b3={"First line",{0,13},"Second line"},
+			    c="Printable string",
+			    d={0,0,1,14}},
+	      #'SeqStrings'{a="123456789",b1="abcdef",
+			    b2=[0,13],
+			    b3=["First line",[0,13],"Second line"],
+			    c="Printable string",
+			    d=[0,0,1,14]}),
 
-    ?line {ok,[49,0]} =
-	asn1_wrapper:encode('Default','SetOI',
-			    #'SetOI'{a={1,2,14,15},
-				     b={iso,'member-body',250,3,4},
-				     c={iso,standard,8571,2,250,4}}),
-    
-    ?line {ok,{'SetOI',{1,2,14,15},{1,2,250,3,4},{1,0,8571,2,250,4}}} =
-	asn1_wrapper:decode('Default','SetOI',[49,0]),
-    
-    ?line {ok,[48,0]} = 
-	asn1_wrapper:encode('Default','SeqEnum',#'SeqEnum'{a=b4,b=b2}),
+    roundtrip(<<49,0>>,
+	      'SetStrings',
+	      #'SetStrings'{a="123456789",b1="abcdef",
+			    b2={0,13},
+			    b3={"First line",{0,13},"Second line"},
+			    c="Printable string",
+			    d={0,0,1,14}},
+	      #'SetStrings'{a="123456789",b1="abcdef",
+			    b2=[0,13],
+			    b3=["First line",[0,13],"Second line"],
+			    c="Printable string",
+			    d=[0,0,1,14]}),
 
-    ?line {ok,{'SeqEnum',b4,b2}} =
-	asn1_wrapper:decode('Default','SeqEnum',[48,0]),
+    roundtrip(<<48,0>>,
+	      'S1',
+	      #'S1'{a=#'S1_a'{aa=1,ab=#'S2'{a=2,b=true}},
+		    b=#'S4'{a=#'S2'{a=2,b=true},b=#'S4_b'{ba=true,bb=5}}}),
 
-    ?line {ok,[49,0]} = 
-	asn1_wrapper:encode('Default','SetEnum',#'SetEnum'{a=b4,b=b2}),
+    roundtrip(<<48,3,129,1,255>>, 'S2', #'S2'{a=1,b=true}),
 
-    ?line {ok,{'SetEnum',b4,b2}} =
-	asn1_wrapper:decode('Default','SetEnum',[49,0]),
-    
-    ?line {ok,[48,0]} =
-	asn1_wrapper:encode('Default','SeqIntBool',
-			    #'SeqIntBool'{a=#'SeqIntBool_a'{aa=12,ab=13},
-					  b=#'S2'{a=14,b=true},
-					  c=#'S2'{a=15,b=false}}),
-    
-    ?line {ok,[48,0]} =
-	asn1_wrapper:encode('Default','SeqIntBool',
-			    #'SeqIntBool'{}),
+    roundtrip(<<48,0>>,
+	      'S3',
+	      #'S3'{a="\v\f\r",
+		    b=[{a,11},{b,true},{c,13}],
+		    c=[1,2,3,4],
+		    d=[#'S2'{a=20,b=true},#'S2'{a=30,b=false}]}),
+    roundtrip(<<48,0>>,
+	      'S3',
+	      #'S3'{a=[11,13,12],
+		    b=[{b,true},{a,11},{c,13}],
+		    c=[3,4,1,2],
+		    d=[#'S2'{a=30,b=false},#'S2'{a=20,b=true}]},
+	      #'S3'{a=[11,12,13],
+		    b=[{a,11},{b,true},{c,13}],
+		    c=[1,2,3,4],
+		    d=[#'S2'{a=20,b=true},#'S2'{a=30,b=false}]}),
+    roundtrip(<<48,0>>,
+	      'S3',
+	      #'S3'{a=asn1_DEFAULT,b=asn1_DEFAULT,
+		    c=asn1_DEFAULT,d=asn1_DEFAULT},
+	      #'S3'{a=[11,12,13],
+		    b=[{a,11},{b,true},{c,13}],
+		    c=[1,2,3,4],
+		    d=[#'S2'{a=20,b=true},#'S2'{a=30,b=false}]}),
 
-    ?line {ok,{'SeqIntBool',{'SeqIntBool_a',12,13},
-	       {'S2',14,true},{'S2',15,false}}} =
-	asn1_wrapper:decode('Default','SeqIntBool',[48,0]),
+    roundtrip(<<49,0>>,
+	      'S3set',
+	      #'S3set'{a=[{c,#'S2'{a=3,b=true}},{b,17},{a,false}],
+		       b=[1,2,3,4]}),
+    roundtrip(<<49,0>>,
+	      'S3set',
+	      #'S3set'{a=[{b,17},{c,#'S2'{a=3,b=true}},{a,false}],
+		       b=[1,3,4,2]},
+	      #'S3set'{a=[{c,#'S2'{a=3,b=true}},{b,17},{a,false}],
+		       b=[1,2,3,4]}),
+    roundtrip(<<49,0>>,
+	      'S3set',
+	      #'S3set'{a=asn1_DEFAULT,b=asn1_DEFAULT},
+	      #'S3set'{a=[{c,#'S2'{a=3,b=true}},{b,17},{a,false}],
+		       b=[1,2,3,4]}),
 
-    ?line {ok,[49,0]} =
-	asn1_wrapper:encode('Default','SetIntBool',
-			    #'SetIntBool'{a=#'SetIntBool_a'{aa=12,ab=13},
-					  b=#'S2'{a=14,b=true},
-					  c=#'S2'{a=15,b=false}}),
-    
-    ?line {ok,[49,0]} =
-	asn1_wrapper:encode('Default','SetIntBool',
-			    #'SetIntBool'{}),
+    roundtrip(<<48,0>>,
+	      'S4',
+	      #'S4'{a=#'S2'{a=1,b=asn1_NOVALUE},b=#'S4_b'{ba=true,bb=0}},
+	      #'S4'{a=#'S2'{a=1,b=asn1_NOVALUE},b=#'S4_b'{ba=true,bb=0}}),
 
-    ?line {ok,{'SetIntBool',{'SetIntBool_a',12,13},
-	       {'S2',14,true},{'S2',15,false}}} =
-	asn1_wrapper:decode('Default','SetIntBool',[49,0]),
-    
-    ?line {ok,[48,0]} = 
-	asn1_wrapper:encode('Default','SeqStrings',
-			    #'SeqStrings'{a="123456789",
-					  b1="abcdef",
-					  b2={0,13},
-					  b3={"First line",{0,13},"Second line"},
-					  c="Printable string",
-					  d={0,0,1,14}}),
- 
-    ?line {ok,{'SeqStrings',"123456789","abcdef",[0,13],
-	       ["First line",[0,13],"Second line"],"Printable string",
-	       [0,0,1,14]}} = 
-	asn1_wrapper:decode('Default','SeqStrings',[48,0]),
+    roundtrip(<<48,0>>,
+	      'SeqBS',
+	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<2#1001:4>>,
+		       e = <<2#01011010:8>>}),
+    roundtrip(<<49,0>>,
+	      'SetBS',
+	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<2#1001:4>>}),
 
-    ?line {ok,[49,0]} = 
-	asn1_wrapper:encode('Default','SetStrings',
-			    #'SetStrings'{a="123456789",
-					  b1="abcdef",
-					  b2={0,13},
-					  b3={"First line",{0,13},"Second line"},
-					  c="Printable string",
-					  d={0,0,1,14}}),
- 
-    ?line {ok,{'SetStrings',"123456789","abcdef",[0,13],
-	       ["First line",[0,13],"Second line"],"Printable string",
-	       [0,0,1,14]}} = 
-	asn1_wrapper:decode('Default','SetStrings',[49,0]),
+    %% None of the default values are used.
+    roundtrip(<<48,19,128,2,7,128,129,2,5,64,130,2,5,32,131,1,0,132,2,5,224>>,
+	      'SeqBS',
+	      #'SeqBS'{a = <<1:1>>,
+		       b = <<2:3>>,
+		       c = [third],
+		       d = <<>>,
+		       e = <<7:3>>}),
+    roundtrip(<<49,3,131,1,0>>,
+	      'SetBS',
+	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<>>}),
 
+    %% SeqNamedInts
+    roundtrip(<<48,0>>,
+	      'SeqNamedInts',
+	      #'SeqNamedInts'{i1=15,i2=31}),
+    roundtrip(<<48,0>>,
+	      'SeqNamedInts',
+	      #'SeqNamedInts'{},
+	      #'SeqNamedInts'{i1=15,i2=31}),
+    roundtrip(<<48,0>>,
+	      'SeqNamedInts',
+	      #'SeqNamedInts'{i2=last},
+	      #'SeqNamedInts'{i1=15,i2=31}),
+    roundtrip(<<48,3,128,1,0>>,
+	      'SeqNamedInts',
+	      #'SeqNamedInts'{i1=first,i2=31},
+	      #'SeqNamedInts'{i1=first,i2=31}),
 
-    ?line {ok,[48,0]} = 
-	asn1_wrapper:encode('Default','S1',
-			    #'S1'{a=#'S1_a'{aa=1,
-					    ab=#'S2'{a=2,b=true}},
-				  b=#'S4'{a=#'S2'{a=2,b=true},
-					  b=#'S4_b'{ba=true,
-						    bb=5}}}),
+    %% S5
+    roundtrip(<<48,0>>,
+	      'S5',
+	      #'S5'{s3=#'S3'{a=[11,12,13],
+			     b=[{a,11},{b,true},{c,13}],
+			     c=[1,2,3,4],
+			     d=[#'S2'{a=20,b=true},#'S2'{a=30,b=false}]},
+		    so=[{0,1,999},{0,1,555}],
+		    soe=[]}),
+    roundtrip(<<48,0>>,
+	      'S5',
+	      #'S5'{},
+	      #'S5'{s3=#'S3'{a=[11,12,13],
+			     b=[{a,11},{b,true},{c,13}],
+			     c=[1,2,3,4],
+			     d=[#'S2'{a=20,b=true},#'S2'{a=30,b=false}]},
+		    so=[{0,1,999},{0,1,555}],
+		    soe=[]}),
 
-    ?line {ok,{'S1',{'S1_a',1,{'S2',2,true}},
-	       {'S4',{'S2',2,true},{'S4_b',true,5}}}} =
-	asn1_wrapper:decode('Default','S1',[48,0]),
+    %% SOI
+    roundtrip(<<48,0>>,
+	      'SOI',
+	      #'SOI'{},
+	      #'SOI'{soi=[{1,2,250,9,55},{1,2,250,3,4}]}),
 
-    ?line {ok,[48,3,129,1,255]} =
-	asn1_wrapper:encode('Default','S2',
-			    #'S2'{a=1,b=true}),
+    %% SeqBS2
+    roundtrip(<<48,0>>,
+	      'SeqBS2',
+	      #'SeqBS2'{bs= <<16#5:3>>}),
+    roundtrip(<<48,0>>,
+	      'SeqBS2',
+	      #'SeqBS2'{bs= <<16#5:3,0:4>>},
+	      #'SeqBS2'{bs= <<16#5:3>>}),
 
-    ?line {ok,[48,0]} =
-	asn1_wrapper:encode('Default','S3',
-			    #'S3'{a=[11,12,13],
-				  b=[{a,11},{b,true},{c,13}],
-				  c=[1,2,3,4],
-				  d=[#'S2'{a=20,b=true},#'S2'{a=30,b=false}]}),
+    ok.
 
-    ?line {ok,[48,0]} =
-	asn1_wrapper:encode('Default','S3',
-			    #'S3'{a=[11,13,12],
-				  b=[{b,true},{a,11},{c,13}],
-				  c=[3,4,1,2],
-				  d=[#'S2'{a=30,b=false},#'S2'{a=20,b=true}]}),
+der_new_types() ->
+    io:put_chars("Performing DER-specific tests with new types..."),
 
-    ?line {ok,[48,0]} = asn1_wrapper:encode('Default','S3',#'S3'{}),
+    roundtrip(<<48,0>>, 'SeqOS',
+	      #'SeqOS'{a = <<172>>,b = <<16#A8,16#A0>>,c='NULL'}),
 
-    ?line {ok,[49,0]} = 
-	asn1_wrapper:encode('Default','S3set',
-			    #'S3set'{a=[{c,#'S2'{a=3,b=true}},
-					{b,17},{a,false}],
-				     b=[1,2,3,4]}),
+    roundtrip(<<49,0>>, 'SetOS',
+	      #'SetOS'{a = <<172>>,b = <<16#A8,16#A0>>,c='NULL'}),
+    ok.
 
-    ?line {ok,[49,0]} = 
-	asn1_wrapper:encode('Default','S3set',
-			    #'S3set'{a=[{b,17},{c,#'S2'{a=3,b=true}},
-					{a,false}],
-				     b=[1,3,4,2]}),
+der_legacy() ->
+    io:put_chars("Performing DER-specific tests with legacy types..."),
 
-    ?line {ok,[49,0]} = asn1_wrapper:encode('Default','S3set',#'S3set'{}),
-    
-    ?line {ok,[48,0]} = 
-	asn1_wrapper:encode('Default','S4',#'S4'{a={'S2',1,asn1_NOVALUE},
-						 b=#'S4_b'{ba=true,bb=0}}),
+    roundtrip(<<48,0>>, 'SeqOS',
+	      #'SeqOS'{a=[172],b=[16#A8,16#A0],c='NULL'}),
+    roundtrip(<<49,0>>, 'SetOS',
+	      #'SetOS'{a=[172],b=[16#A8,16#A0],c='NULL'}),
+
+    roundtrip(<<48,0>>,
+	      'SeqBS',
+	      #'SeqBS'{a=2#0110101,
+		       b=2#010100010101,
+		       c=[second],
+		       d=[1,0,0,1]},
+	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<2#1001:4>>,
+		       e = <<2#01011010:8>>}),
+    roundtrip(<<48,0>>,
+	      'SeqBS',
+	      #'SeqBS'{a=[1,0,1,0,1,1,0],
+		       b=[1,0,1,0,1,0,0,0,1,0,1,0],
+		       c={5,<<64>>},
+		       d=2#1001},
+	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<2#1001:4>>,
+		       e = <<2#01011010:8>>}),
+    roundtrip(<<48,3,131,1,0>>,
+	      'SeqBS',
+	      #'SeqBS'{a=[1,0,1,0,1,1,0],
+		       b=[1,0,1,0,1,0,0,0,1,0,1,0],
+		       c={5,<<64>>},
+		       d=0},
+	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<>>,
+		       e = <<2#01011010:8>>}),
+    roundtrip(<<48,3,131,1,0>>,
+	      'SeqBS',
+	      #'SeqBS'{a = <<1:1,0:1,1:1,0:1,1:1,1:1,0:1>>,
+		       b = <<1:1,0:1,1:1,0:1,1:1,0:1,0:1,0:1,1:1,0:1,1:1,0:1>>,
+		       c = <<2:3>>,
+		       d=0,
+		       e = <<16#5A:8>>},
+	      #'SeqBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<>>,
+		       e = <<2#01011010:8>>}),
+
+    %% None of the default values are used.
+    roundtrip(<<48,19,128,2,7,128,129,2,5,64,130,2,5,32,131,1,0,132,2,5,224>>,
+	      'SeqBS',
+	      #'SeqBS'{a = <<1:1>>,
+		       b = {5,<<64>>},
+		       c = [third],
+		       d = 0,
+		       e = <<7:3>>},
+	      #'SeqBS'{a = <<1:1>>,
+		       b = <<2:3>>,
+		       c = [third],
+		       d = <<>>,
+		       e = <<7:3>>}),
+    roundtrip(<<49,0>>,
+	      'SetBS',
+	      #'SetBS'{a=2#0110101,
+		       b=2#010100010101,
+		       c=[second],
+		       d=[1,0,0,1]},
+	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<2#1001:4>>}),
+    roundtrip(<<49,0>>,
+	      'SetBS',
+	      #'SetBS'{a=[1,0,1,0,1,1,0],
+		       b=[1,0,1,0,1,0,0,0,1,0,1,0],
+		       c={5,<<64>>},
+		       d=9},
+	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<2#1001:4>>}),
+    roundtrip(<<49,3,131,1,0>>,
+	      'SetBS',
+	      #'SetBS'{a=[1,0,1,0,1,1,0],
+		       b=[1,0,1,0,1,0,0,0,1,0,1,0],
+		       c={5,<<64>>},
+		       d=0},
+	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<>>}),
+    roundtrip(<<49,3,131,1,0>>,
+	      'SetBS',
+	      #'SetBS'{a = <<1:1,0:1,1:1,0:1,1:1,1:1,0:1>>,
+		       b = <<1:1,0:1,1:1,0:1,1:1,0:1,0:1,0:1,1:1,0:1,1:1,0:1>>,
+		       c = <<2:3>>,
+		       d=0},
+	      #'SetBS'{a = <<2#1010110:7>>, b = <<16#A8A:12>>,
+		       c=[second], d = <<>>}),
+
+    ok.
+
+roundtrip(Encoded, Type, Value) ->
+    roundtrip(Encoded, Type, Value, Value).
+
+roundtrip(Encoded, Type, Value, ExpectedValue) ->
+    Encoded = asn1_test_lib:roundtrip_enc('Default', Type,
+					  Value, ExpectedValue),
     ok.

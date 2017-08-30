@@ -3,44 +3,59 @@
     {vsn, "%VSN%"},
     {modules, [
 	       %% TLS/SSL 
-	       tls,
 	       tls_connection,
 	       tls_handshake,
 	       tls_record,
+	       tls_v1,
+	       ssl_v3,
+	       ssl_v2,
 	       %% DTLS
-	       dtls_record,
-	       dtls_handshake,
 	       dtls_connection,
-	       dtls,	
-	       %% Backwards compatibility
-               ssl,
-	       %% Both TLS/SSL and DTLS
-	       ssl_app,
-	       ssl_sup,
-	       inet_tls_dist,
-	       ssl_tls_dist_proxy,
-	       ssl_dist_sup,
-	       ssl_tls1,
-	       ssl_ssl3,
-	       ssl_ssl2,
-	       ssl_session,
+	       dtls_handshake,
+	       dtls_record,
+	       dtls_v1,
+	       %% API
+	       ssl,  %% Main API		  
+	       tls,  %% TLS specific
+	       dtls, %% DTLS specific 
 	       ssl_session_cache_api,
-	       ssl_session_cache,
-	       ssl_socket,	
-	       %%ssl_record,
-	       ssl_manager,
-	       %%ssl_handshake,
-	       ssl_connection_sup,
-	       %%ssl_connection,
+	       %% Both TLS/SSL and DTLS
+	       ssl_config,
+	       ssl_connection,
+	       ssl_handshake,
+	       ssl_record,
 	       ssl_cipher,
 	       ssl_srp_primes,
+	       ssl_alert,
+	       ssl_socket,
+	       ssl_listen_tracker_sup,	
+	       %% Erlang Distribution over SSL/TLS
+	       inet_tls_dist,
+	       inet6_tls_dist,
+	       ssl_tls_dist_proxy,
+	       ssl_dist_sup,
+	       %% SSL/TLS session handling
+	       ssl_session,
+	       ssl_session_cache,
+	       ssl_manager,
 	       ssl_pkix_db,
 	       ssl_certificate,
-	       ssl_alert
+	       %% CRL handling
+	       ssl_crl,
+	       ssl_crl_cache, 
+	       ssl_crl_cache_api,
+	       ssl_crl_hash_dir,
+	       %% App structure
+	       ssl_app,
+	       ssl_sup,
+	       tls_connection_sup,
+	       dtls_connection_sup	
 	       ]},
     {registered, [ssl_sup, ssl_manager]},
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
-    {mod, {ssl_app, []}}]}.
+    {mod, {ssl_app, []}},
+    {runtime_dependencies, ["stdlib-3.0","public_key-1.2","kernel-3.0",
+			    "erts-7.0","crypto-3.3", "inets-5.10.7"]}]}.
 
 

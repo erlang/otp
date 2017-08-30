@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2011. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  *
@@ -29,9 +30,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef QNX
 #include <memory.h>
-#endif
 
 #if defined(__sun__) && defined(__SVR4) && !defined(__EXTENSIONS__)
 #   define __EXTENSIONS__
@@ -45,7 +44,7 @@
 #include <fcntl.h>
 #include "erl_errno.h"
 #include <signal.h>
-
+#include <setjmp.h>
 
 #if HAVE_SYS_SOCKETIO_H
 #   include <sys/socketio.h>
@@ -91,11 +90,6 @@
 #include <ieeefp.h>
 #endif
 
-#ifdef QNX
-#include <process.h>
-#include <sys/qnx_glob.h>
-#endif
-
 #include <pwd.h>
 
 #ifndef HZ
@@ -107,14 +101,17 @@
 #endif
 #include <netdb.h>
 
+#ifdef HAVE_MACH_ABSOLUTE_TIME
+#include <mach/mach_time.h>
+#endif
+
+#ifdef HAVE_POSIX_MEMALIGN
+#  define ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC 1
+#endif
+
 /*
  * Make sure that MAXPATHLEN is defined.
  */
-#ifdef GETHRTIME_WITH_CLOCK_GETTIME
-#undef HAVE_GETHRTIME
-#define HAVE_GETHRTIME 1
-#endif
-
 #ifndef MAXPATHLEN
 #   ifdef PATH_MAX
 #       define MAXPATHLEN PATH_MAX
@@ -123,22 +120,17 @@
 #   endif
 #endif
 
+/*
+ * Min number of async threads
+ */
+#define  ERTS_MIN_NO_OF_ASYNC_THREADS 0
+
 /* File descriptors are numbers anc consecutively allocated on Unix */
 #define  ERTS_SYS_CONTINOUS_FD_NUMBERS
-
-#define HAVE_ERTS_CHECK_IO_DEBUG
-int erts_check_io_debug(void);
 
 #ifndef ERTS_SMP
 #  undef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
 #  define ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
-#endif
-
-#ifndef ENABLE_CHILD_WAITER_THREAD
-#  ifdef ERTS_SMP
-#    define ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
-void erts_check_children(void);
-#  endif
 #endif
 
 typedef void *GETENV_STATE;
@@ -154,35 +146,155 @@ typedef struct timeval SysTimeval;
 
 typedef struct tms SysTimes;
 
-extern int erts_ticks_per_sec;
-
-#define SYS_CLK_TCK (erts_ticks_per_sec)
+#define SYS_CLK_TCK (erts_sys_time_data__.r.o.ticks_per_sec)
 
 #define sys_times(Arg) times(Arg)
 
-#define ERTS_WRAP_SYS_TIMES 1
-extern int erts_ticks_per_sec_wrap;
-#define SYS_CLK_TCK_WRAP (erts_ticks_per_sec_wrap)
-extern clock_t sys_times_wrap(void);
+#if SIZEOF_LONG == 8
+typedef long ErtsMonotonicTime;
+typedef long ErtsSysHrTime;
+#elif SIZEOF_LONG_LONG == 8
+typedef long long ErtsMonotonicTime;
+typedef long long ErtsSysHrTime;
+#else
+#error No signed 64-bit type found...
+#endif
 
-#ifdef HAVE_GETHRTIME
-#ifdef GETHRTIME_WITH_CLOCK_GETTIME
-typedef long long SysHrTime;
+typedef ErtsMonotonicTime ErtsSystemTime;
+typedef ErtsSysHrTime ErtsSysPerfCounter;
 
-extern SysHrTime sys_gethrtime(void);
-#define sys_init_hrtime() /* Nothing */
+#define ERTS_MONOTONIC_TIME_MIN ((ErtsMonotonicTime) (1ULL << 63))
+#define ERTS_MONOTONIC_TIME_MAX (~ERTS_MONOTONIC_TIME_MIN)
 
-#else /* Real gethrtime (Solaris) */
+/*
+ * OS monotonic time and OS system time
+ */
+#undef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
 
-typedef hrtime_t SysHrTime;
+#if defined(OS_SYSTEM_TIME_USING_CLOCK_GETTIME) \
+    && defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
+#  if defined(__linux__)
+#    define ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__ 1
+#  endif
+#endif
 
-#define sys_gethrtime() gethrtime()
-#define sys_init_hrtime() /* Nothing */
+ErtsSystemTime erts_os_system_time(void);
 
-#endif /* GETHRTIME_WITH_CLOCK_GETTIME */
-#endif /* HAVE_GETHRTIME */
+#undef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
+#undef ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT
+#undef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
 
-#if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME))
+#if defined(OS_MONOTONIC_TIME_USING_CLOCK_GETTIME)
+#  define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
+#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000*1000)
+#  if defined(__linux__)
+#    define ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__ 1
+#  endif
+#elif defined(OS_MONOTONIC_TIME_USING_MACH_CLOCK_GET_TIME)
+#  define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
+#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000*1000)
+#elif defined(OS_MONOTONIC_TIME_USING_GETHRTIME)
+#  define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
+#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000*1000)
+#elif defined(OS_MONOTONIC_TIME_USING_TIMES)
+#  define ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT 1
+/* Time unit determined at runtime... */
+#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT 0
+#else /* No OS monotonic available... */
+#  define ERTS_COMPILE_TIME_MONOTONIC_TIME_UNIT (1000*1000)
+#endif
+
+/*
+ * erts_sys_hrtime() is the highest resolution
+ * time function found. Time unit is nano-seconds.
+ * It may or may not be monotonic.
+ */
+ErtsSysHrTime erts_sys_hrtime(void);
+#define ERTS_HRTIME_UNIT (1000*1000*1000)
+
+struct erts_sys_time_read_only_data__ {
+#ifdef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
+    ErtsMonotonicTime (*os_monotonic_time)(void);
+#endif
+#ifdef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
+    void (*os_times)(ErtsMonotonicTime *, ErtsSystemTime *);
+#endif
+    ErtsSysPerfCounter (*perf_counter)(void);
+    ErtsSysPerfCounter perf_counter_unit;
+    int ticks_per_sec;
+};
+
+typedef struct {
+    union {
+	struct erts_sys_time_read_only_data__ o;
+	char align__[(((sizeof(struct erts_sys_time_read_only_data__) - 1)
+		       / ASSUMED_CACHE_LINE_SIZE) + 1)
+		     * ASSUMED_CACHE_LINE_SIZE];
+    } r;
+} ErtsSysTimeData__;
+
+extern ErtsSysTimeData__ erts_sys_time_data__;
+
+#ifdef ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT
+
+#ifdef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
+ERTS_GLB_INLINE
+#endif
+ErtsMonotonicTime erts_os_monotonic_time(void);
+
+#ifdef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
+ERTS_GLB_INLINE
+#endif
+void erts_os_times(ErtsMonotonicTime *, ErtsSystemTime *);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+#ifdef ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__
+
+ERTS_GLB_INLINE ErtsMonotonicTime
+erts_os_monotonic_time(void)
+{
+    return (*erts_sys_time_data__.r.o.os_monotonic_time)();
+}
+
+#endif /* ERTS_OS_MONOTONIC_INLINE_FUNC_PTR_CALL__ */
+
+#ifdef ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__
+
+ERTS_GLB_INLINE void
+erts_os_times(ErtsMonotonicTime *mtimep, ErtsSystemTime *stimep)
+{
+    return (*erts_sys_time_data__.r.o.os_times)(mtimep, stimep);
+}
+
+#endif /* ERTS_OS_TIMES_INLINE_FUNC_PTR_CALL__ */
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+#endif /* ERTS_HAVE_OS_MONOTONIC_TIME_SUPPORT */
+
+/*
+ * Functions for getting the performance counter
+ */
+
+ERTS_GLB_INLINE ErtsSysPerfCounter erts_sys_perf_counter(void);
+#define erts_sys_perf_counter_unit() erts_sys_time_data__.r.o.perf_counter_unit
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE ErtsSysPerfCounter
+erts_sys_perf_counter()
+{
+    return (*erts_sys_time_data__.r.o.perf_counter)();
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+/*
+ * Functions for measuring CPU time
+ */
+
+#if (defined(HAVE_GETHRVTIME) || defined(HAVE_CLOCK_GETTIME_CPU_TIME))
 typedef long long SysCpuTime;
 typedef struct timespec SysTimespec;
 
@@ -194,7 +306,7 @@ typedef struct timespec SysTimespec;
 int sys_start_hrvtime(void);
 int sys_stop_hrvtime(void);
 
-#elif defined(HAVE_CLOCK_GETTIME)
+#elif defined(HAVE_CLOCK_GETTIME_CPU_TIME)
 #define sys_clock_gettime(cid,tp) clock_gettime((cid),&(tp))
 #define sys_get_proc_cputime(t,tp) sys_clock_gettime(CLOCK_PROCESS_CPUTIME_ID,(tp))
 
@@ -205,25 +317,38 @@ int sys_stop_hrvtime(void);
 #define SYS_CLOCK_RESOLUTION 1
 
 /* These are defined in sys.c */
-#if defined(SIG_SIGSET)		/* Old SysV */
-RETSIGTYPE (*sys_sigset())();
-#elif defined(SIG_SIGNAL)	/* Old BSD */
-RETSIGTYPE (*sys_sigset())();
-#else
-RETSIGTYPE (*sys_sigset(int, RETSIGTYPE (*func)(int)))(int);
-#endif
+typedef void (*SIGFUNC)(int);
+extern SIGFUNC sys_signal(int, SIGFUNC);
 extern void sys_sigrelease(int);
 extern void sys_sigblock(int);
-extern void sys_stop_cat(void);
+extern void sys_init_suspend_handler(void);
 
 /*
  * Handling of floating point exceptions.
  */
 
 #ifdef USE_ISINF_ISNAN		/* simulate finite() */
-#  define finite(f) (!isinf(f) && !isnan(f))
-#  define HAVE_FINITE
+#  define isfinite(f) (!isinf(f) && !isnan(f))
+#  define HAVE_ISFINITE
+#elif (defined(__GNUC__) && !defined(__llvm__)) && defined(HAVE_FINITE)
+/* We use finite in gcc as it emits assembler instead of
+   the function call that isfinite emits. The assembler is
+   significantly faster. */
+#  ifdef isfinite
+#     undef isfinite
+#  endif
+#  define isfinite finite
+#  ifndef HAVE_ISFINITE
+#    define HAVE_ISFINITE
+#  endif
+#elif defined(isfinite) && !defined(HAVE_ISFINITE)
+#  define HAVE_ISFINITE
+#elif !defined(HAVE_ISFINITE) && defined(HAVE_FINITE)
+#  define isfinite finite
+#  define HAVE_ISFINITE
 #endif
+
+#define erts_isfinite isfinite
 
 #ifdef NO_FPE_SIGNALS
 
@@ -232,7 +357,7 @@ extern void sys_stop_cat(void);
 #define erts_thread_init_fp_exception() do{}while(0)
 #endif
 #  define __ERTS_FP_CHECK_INIT(fpexnp) do {} while (0)
-#  define __ERTS_FP_ERROR(fpexnp, f, Action) if (!finite(f)) { Action; } else {}
+#  define __ERTS_FP_ERROR(fpexnp, f, Action) if (!isfinite(f)) { Action; } else {}
 #  define __ERTS_FP_ERROR_THOROUGH(fpexnp, f, Action) __ERTS_FP_ERROR(fpexnp, f, Action)
 #  define __ERTS_SAVE_FP_EXCEPTION(fpexnp)
 #  define __ERTS_RESTORE_FP_EXCEPTION(fpexnp)
@@ -296,7 +421,7 @@ static __inline__ void __ERTS_FP_CHECK_INIT(volatile unsigned long *fp_exception
       code to always throw floating-point exceptions on errors. */
 static __inline__ int erts_check_fpe_thorough(volatile unsigned long *fp_exception, double f)
 {
-    return erts_check_fpe(fp_exception, f) || !finite(f);
+    return erts_check_fpe(fp_exception, f) || !isfinite(f);
 }
 #  define __ERTS_FP_ERROR_THOROUGH(fpexnp, f, Action) \
   do { if (erts_check_fpe_thorough((fpexnp),(f))) { Action; } } while (0)
@@ -311,19 +436,6 @@ void erts_sys_unblock_fpe(int);
 #define ERTS_FP_ERROR_THOROUGH(p, f, A)	__ERTS_FP_ERROR_THOROUGH(&(p)->fp_exception, f, A)
 
 
-#ifdef NEED_CHILD_SETUP_DEFINES
-/* The child setup argv[] */
-#define CS_ARGV_PROGNAME_IX	0		/* Program name		*/
-#define CS_ARGV_UNBIND_IX	1		/* Unbind from cpu	*/
-#define CS_ARGV_WD_IX		2		/* Working directory	*/
-#define CS_ARGV_CMD_IX		3		/* Command		*/
-#define CS_ARGV_FD_CR_IX	4		/* Fd close range	*/
-#define CS_ARGV_DUP2_OP_IX(N)	((N) + 5)	/* dup2 operations	*/
-
-#define CS_ARGV_NO_OF_DUP2_OPS	3		/* Number of dup2 ops	*/
-#define CS_ARGV_NO_OF_ARGS	8		/* Number of arguments	*/
-#endif /* #ifdef NEED_CHILD_SETUP_DEFINES */
-
 /* Threads */
 #ifdef USE_THREADS
 extern int init_async(int);
@@ -331,5 +443,29 @@ extern int exit_async(void);
 #endif
 
 #define ERTS_EXIT_AFTER_DUMP _exit
+
+#if !defined(__APPLE__) && !defined(__MACH__)
+/* Some OS X versions do not allow (ab)using signal handlers like this */
+#define ERTS_HAVE_TRY_CATCH 1
+
+/* We try to simulate a try catch in C with the help of signal handlers.
+ * Only use this as a very last resort, as it is not very portable and
+ * quite unstable. It is also not thread safe, so make sure that only
+ * one thread can call this at a time!
+ */
+extern void erts_sys_sigsegv_handler(int);
+extern jmp_buf erts_sys_sigsegv_jmp;
+#define ERTS_SYS_TRY_CATCH(EXPR,CATCH)                                  \
+    do {                                                                \
+        SIGFUNC prev_handler = sys_signal(SIGSEGV,                      \
+                                          erts_sys_sigsegv_handler);    \
+        if (!setjmp(erts_sys_sigsegv_jmp)) {                            \
+            EXPR;                                                       \
+        } else {                                                        \
+            CATCH;                                                      \
+        }                                                               \
+        sys_signal(SIGSEGV,prev_handler);                               \
+    } while(0)
+#endif
 
 #endif /* #ifndef _ERL_UNIX_SYS_H */

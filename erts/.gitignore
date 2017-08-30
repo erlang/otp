@@ -11,6 +11,7 @@
 
 /etc/common/Install
 /etc/common/erl.src
+/etc/unix/etp-commands
 
 /test/Emakefile
 /test/*.beam

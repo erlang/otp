@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 
@@ -32,28 +33,28 @@
 %% 
 
 graph(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, binary_to_list(graph(Env, Input))).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, binary_to_list(graph(Env, Input))).
  
 %% activity
 %% @spec activity(SessionID, Env, Input) -> term() 
 %% @doc An ESI callback implementation used by the httpd server.
 
 activity(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, binary_to_list(activity_bar(Env, Input))).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, binary_to_list(activity_bar(Env, Input))).
 
 proc_lifetime(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, binary_to_list(proc_lifetime(Env, Input))).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, binary_to_list(proc_lifetime(Env, Input))).
 
 percentage(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, binary_to_list(percentage(Env,Input))).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, binary_to_list(percentage(Env,Input))).
 
 scheduler_graph(SessionID, Env, Input) ->
-    mod_esi:deliver(SessionID, header()),
-    mod_esi:deliver(SessionID, binary_to_list(scheduler_graph(Env, Input))).
+    ok = mod_esi:deliver(SessionID, header()),
+    ok = mod_esi:deliver(SessionID, binary_to_list(scheduler_graph(Env, Input))).
 
 graph(_Env, Input) ->
     Query    = httpd:parse_query(Input),

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -90,8 +91,8 @@ parse(AbsURI, Opts) ->
 	    {error, Reason};
 	{Scheme, DefaultPort, Rest} ->
 	    case (catch parse_uri_rest(Scheme, DefaultPort, Rest, Opts)) of
-		{ok, {UserInfo, Host, Port, Path, Query}} ->
-		    {ok, {Scheme, UserInfo, Host, Port, Path, Query}};
+                {ok, Result} ->
+                    {ok, Result};
 		{error, Reason} ->
 		    {error, {Reason, Scheme, AbsURI}};
 		_  ->
@@ -137,38 +138,50 @@ parse_scheme(AbsURI, Opts) ->
 	{error, no_scheme} ->
 	    {error, no_scheme};
 	{SchemeStr, Rest} ->
-	    Scheme = list_to_atom(http_util:to_lower(SchemeStr)),
-	    SchemeDefaults = which_scheme_defaults(Opts), 
-	    case lists:keysearch(Scheme, 1, SchemeDefaults) of
-		{value, {Scheme, DefaultPort}} ->
-		    {Scheme, DefaultPort, Rest};
-		false ->
-		    {Scheme, no_default_port, Rest}
+	    case extract_scheme(SchemeStr, Opts) of
+		{error, Error} ->
+		    {error, Error};
+		{ok, Scheme} ->
+		    SchemeDefaults = which_scheme_defaults(Opts),
+		    case lists:keysearch(Scheme, 1, SchemeDefaults) of
+			{value, {Scheme, DefaultPort}} ->
+			    {Scheme, DefaultPort, Rest};
+			false ->
+			    {Scheme, no_default_port, Rest}
+		    end
 	    end
     end.
 
+extract_scheme(Str, Opts) ->
+    case lists:keysearch(scheme_validation_fun, 1, Opts) of
+	{value, {scheme_validation_fun, Fun}} when is_function(Fun) ->
+	    case Fun(Str) of
+		valid ->
+		    {ok, list_to_atom(http_util:to_lower(Str))};
+		{error, Error} ->
+		    {error, Error}
+	    end;
+	_ ->
+	    {ok, list_to_atom(http_util:to_lower(Str))}
+    end.
+
 parse_uri_rest(Scheme, DefaultPort, "//" ++ URIPart, Opts) ->
-    {Authority, PathQuery} =
-	case split_uri(URIPart, "/", URIPart, 1, 0) of
-	    Split = {_, _} ->
-		Split;
-	    URIPart ->
-		case split_uri(URIPart, "\\?", URIPart, 1, 0) of
-		    Split = {_, _} ->
-			Split;
-		    URIPart ->
-			{URIPart,""}
-		end
-	end,
+    {Authority, PathQueryFragment} =
+        split_uri(URIPart, "[/?#]", {URIPart, ""}, 1, 0),
+    {RawPath, QueryFragment} =
+        split_uri(PathQueryFragment, "[?#]", {PathQueryFragment, ""}, 1, 0),
+    {Query, Fragment} =
+        split_uri(QueryFragment, "#", {QueryFragment, ""}, 1, 0),
     {UserInfo, HostPort} = split_uri(Authority, "@", {"", Authority}, 1, 1),
     {Host, Port}         = parse_host_port(Scheme, DefaultPort, HostPort, Opts),
-    {Path, Query}        = parse_path_query(PathQuery),
-    {ok, {UserInfo, Host, Port, Path, Query}}.
+    Path                 = path(RawPath),
+    case lists:keyfind(fragment, 1, Opts) of
+        {fragment, true} ->
+            {ok, {Scheme, UserInfo, Host, Port, Path, Query, Fragment}};
+        _ ->
+            {ok, {Scheme, UserInfo, Host, Port, Path, Query}}
+    end.
 
-
-parse_path_query(PathQuery) ->
-    {Path, Query} =  split_uri(PathQuery, "\\?", {PathQuery, ""}, 1, 0),
-    {path(Path), Query}.
 
 %% In this version of the function, we no longer need 
 %% the Scheme argument, but just in case...
@@ -183,10 +196,10 @@ parse_host_port(_Scheme, DefaultPort, HostPort, _Opts) ->
     {Host, int_port(Port)}.
 
 split_uri(UriPart, SplitChar, NoMatchResult, SkipLeft, SkipRight) ->
-    case inets_regexp:first_match(UriPart, SplitChar) of
-	{match, Match, _} ->
-	    {string:substr(UriPart, 1, Match - SkipLeft),
-	     string:substr(UriPart, Match + SkipRight, length(UriPart))};
+    case re:run(UriPart, SplitChar, [{capture, first}]) of
+	{match, [{Match, _}]} ->
+	    {string:substr(UriPart, 1, Match + 1 - SkipLeft),
+	     string:substr(UriPart, Match + 1 + SkipRight, length(UriPart))};
 	nomatch ->
 	    NoMatchResult
     end.

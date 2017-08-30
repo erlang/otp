@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2013</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -33,7 +34,125 @@
   </header>
 
 
-  <section><title>Orber 3.6.26.1</title>
+  <section><title>Orber 3.8.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Internal changes</p>
+          <p>
+	    Own Id: OTP-13551</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Orber 3.8.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Suppress Dialyzer warnings. </p>
+          <p>
+	    Own Id: OTP-12862</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Orber 3.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Remove the usage of erlang:now() from all Corba
+	    applications and use the new rand module instead of
+	    random. </p>
+          <p>
+	    Own Id: OTP-12687</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Orber 3.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fixed problem with IPv6 addresses in Service Context
+	    when orber is default configured for IPv4. </p>
+          <p>
+	    Own Id: OTP-12193</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Orber 3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The following functions have been corrected so they
+	    work properly with IPv6 addresses. </p> <list>
+	    <item><c>corba:resolve_initial_references_remote/2/3</c></item>
+	    <item><c>corba:list_initial_references_remote/1/2</c></item>
+	    <item><c>corba:string_to_object/1/2</c></item> </list>
+          <p>
+	    Own Id: OTP-12016</p>
+        </item>
+        <item>
+	    <p> A couple of macros were malformed, missing commas:
+	    PROFILEBODY_1_1_TYPEDEF and PROFILEBODY_1_2_TYPEDEF.
+	    Thanks to Vlad Dumitrescu. </p>
+          <p>
+	    Own Id: OTP-12062</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> It is now possible to add listen interfaces for IPv6
+	    when orber is default configured for IPv4 and the other
+	    way around. For more information, consult the User's
+	    Guide and the orber module Reference Manual. </p>
+          <p>
+	    Own Id: OTP-12007</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Orber 3.6.27</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Some local implementations of removing the last element
+	    from a list are replaced by <c>lists:droplast/1</c>. Note
+	    that this requires at least <c>stdlib-2.0</c>, which is
+	    the stdlib version delivered in OTP 17.0. (Thanks to Hans
+	    Svensson)</p>
+          <p>
+	    Own Id: OTP-11678</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Orber 3.6.26.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>
@@ -79,11 +198,9 @@
     <section><title>Known Bugs and Problems</title>
       <list>
         <item>
-	    <p>
           <p>
-	    </p></p>
-          <p>
-	    Own Id: OTP-10675 Aux Id: seq12154 </p>
+	    Own Id: OTP-10675 Aux Id: seq12154
+	  </p>
         </item>
       </list>
     </section>

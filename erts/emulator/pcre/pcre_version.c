@@ -6,7 +6,7 @@
 and semantics are as close as possible to those of the Perl 5 language.
 
                        Written by Philip Hazel
-           Copyright (c) 1997-2008 University of Cambridge
+           Copyright (c) 1997-2012 University of Cambridge
 
 -----------------------------------------------------------------------------
 Redistribution and use in source and binary forms, with or without
@@ -38,7 +38,7 @@ POSSIBILITY OF SUCH DAMAGE.
 */
 
 
-/* This module contains the external function erts_pcre_version(), which returns a
+/* This module contains the external function pcre_version(), which returns a
 string that identifies the PCRE version that is in use. */
 
 /* %ExternalCopyright% */
@@ -80,8 +80,21 @@ I could find no way of detecting that a macro is defined as an empty string at
 pre-processor time. This hack uses a standard trick for avoiding calling
 the STRING macro with an empty argument when doing the test. */
 
-PCRE_EXP_DEFN const char *
+#if defined COMPILE_PCRE8
+#if defined(ERLANG_INTEGRATION)
+PCRE_EXP_DEFN const char * PCRE_CALL_CONVENTION
 erts_pcre_version(void)
+#else
+PCRE_EXP_DEFN const char * PCRE_CALL_CONVENTION
+pcre_version(void)
+#endif
+#elif defined COMPILE_PCRE16
+PCRE_EXP_DEFN const char * PCRE_CALL_CONVENTION
+pcre16_version(void)
+#elif defined COMPILE_PCRE32
+PCRE_EXP_DEFN const char * PCRE_CALL_CONVENTION
+pcre32_version(void)
+#endif
 {
 return (XSTRING(Z PCRE_PRERELEASE)[1] == 0)?
   XSTRING(PCRE_MAJOR.PCRE_MINOR PCRE_DATE) :

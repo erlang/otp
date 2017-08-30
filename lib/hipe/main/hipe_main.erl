@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -49,12 +50,12 @@
 %%=====================================================================
 
 -type comp_icode_ret() :: {'native',hipe_architecture(),{'unprofiled',_}}
-			| {'rtl',tuple()}.
+			| {'rtl',tuple()} | {'llvm_binary',term()}.
 
 %%=====================================================================
 
 %% @spec compile_icode(MFA::mfa(),
-%%                     LinearIcode::#icode{},
+%%                     LinearIcode::icode(),
 %%                     CompilerOptions::comp_options(),
 %%		       CompServers::#comp_servers()) ->
 %%          {native,Platform,{unprofiled,NativeCode}} | {rtl,RTLCode}
@@ -68,7 +69,7 @@
 %% generated). The compiler options must have already been expanded
 %% (cf. `<a href="hipe.html">hipe:expand_options</a>'). </p>
 
--spec compile_icode(mfa(), #icode{}, comp_options(), #comp_servers{}) ->
+-spec compile_icode(mfa(), icode(), comp_options(), #comp_servers{}) ->
 	 comp_icode_ret().
 
 compile_icode(MFA, LinearIcode, Options, Servers) ->
@@ -115,11 +116,18 @@ compile_icode(MFA, LinearIcode0, Options, Servers, DebugState) ->
   pp(IcodeCfg7, MFA, icode_liveness, pp_icode_liveness, Options, Servers),
   FinalIcode = hipe_icode_cfg:cfg_to_linear(IcodeCfg7),
   ?opt_stop_timer("Icode"),
-  LinearRTL = ?option_time(icode_to_rtl(MFA,FinalIcode,Options, Servers), 
-			   "RTL", Options),
+  {LinearRTL, Roots} = ?option_time(icode_to_rtl(MFA, FinalIcode, Options, Servers),
+          "RTL", Options),
   case proplists:get_bool(to_rtl, Options) of
     false ->
-      rtl_to_native(MFA, LinearRTL, Options, DebugState);
+      case proplists:get_bool(to_llvm, Options) of
+        false ->
+          rtl_to_native(MFA, LinearRTL, Options, DebugState);
+        true ->
+          %% The LLVM backend returns binary code, unlike the rest of the HiPE
+          %% backends which return native assembly.
+          rtl_to_llvm_to_binary(MFA, LinearRTL, Roots, Options, DebugState)
+      end;
     true ->
       put(hipe_debug, DebugState),
       {rtl, LinearRTL}
@@ -222,10 +230,12 @@ get_pp_module(icode_liveness) -> hipe_icode_liveness;
 get_pp_module(rtl_liveness) -> hipe_rtl_liveness.
   
 perform_io(no_fun, _) -> ok;
-perform_io(Fun,PPServer) when is_pid(PPServer) ->
-  PPServer ! {print,Fun};
-perform_io(Fun, undefined) ->
-  Fun().
+perform_io(Fun, PPServer) when is_pid(PPServer) ->
+  PPServer ! {print, Fun},
+  ok;
+perform_io(Fun, none) ->
+  Fun(),
+  ok.
 
 
 %%--------------------------------------------------------------------
@@ -274,8 +284,9 @@ icode_ssa_type(IcodeSSA, MFA, Options, Servers) ->
 	  false -> AnnIcode1
 	end,
       AnnIcode3 = icode_range_analysis(AnnIcode2, MFA, Options, Servers),
-      pp(AnnIcode3, MFA, icode, pp_range_icode, Options, Servers),
-      hipe_icode_type:unannotate_cfg(AnnIcode3)
+      AnnIcode4 = icode_eliminate_safe_calls(AnnIcode3, Options),
+      pp(AnnIcode4, MFA, icode, pp_range_icode, Options, Servers),
+      hipe_icode_type:unannotate_cfg(AnnIcode4)
   end.
 
 icode_ssa_convert(IcodeCfg, Options) ->
@@ -285,7 +296,7 @@ icode_ssa_convert(IcodeCfg, Options) ->
 icode_ssa_const_prop(IcodeSSA, Options) ->
   case proplists:get_bool(icode_ssa_const_prop, Options) of
     true ->
-      ?option_time(Tmp=hipe_icode_ssa_const_prop:propagate(IcodeSSA),
+      Tmp = ?option_time(hipe_icode_ssa_const_prop:propagate(IcodeSSA),
 		   "Icode SSA sparse conditional constant propagation", Options),
       ?option_time(hipe_icode_ssa:remove_dead_code(Tmp),
 		   "Icode SSA dead code elimination pass 1", Options);
@@ -320,6 +331,15 @@ icode_range_analysis(IcodeSSA, MFA, Options, Servers) ->
     true ->
       ?option_time(hipe_icode_range:cfg(IcodeSSA, MFA, Options, Servers), 
 		   "Icode SSA integer range analysis", Options);
+    false ->
+     IcodeSSA
+  end.
+
+icode_eliminate_safe_calls(IcodeSSA, Options) ->
+  case proplists:get_bool(icode_call_elim, Options) of
+    true ->
+      ?option_time(hipe_icode_call_elim:cfg(IcodeSSA),
+		   "Icode SSA safe call elimination", Options);
     false ->
      IcodeSSA
   end.
@@ -385,11 +405,21 @@ icode_to_rtl(MFA, Icode, Options, Servers) ->
   %% hipe_rtl_cfg:pp(RtlCfg3),
   pp(RtlCfg3, MFA, rtl_liveness, pp_rtl_liveness, Options, Servers),
   RtlCfg4 = rtl_lcm(RtlCfg3, Options),
-  pp(RtlCfg4, MFA, rtl, pp_rtl, Options, Servers),
-  LinearRTL1 = hipe_rtl_cfg:linearize(RtlCfg4),
+  %% LLVM: A liveness analysis on RTL must be performed in order to find the GC
+  %% roots and explicitly mark them (in RTL) when they go out of scope (only
+  %% when the LLVM backend is used).
+  {RtlCfg5, Roots} =
+    case proplists:get_bool(to_llvm, Options) of
+      false ->
+        {RtlCfg4, []};
+      true ->
+        hipe_llvm_liveness:analyze(RtlCfg4)
+    end,
+  pp(RtlCfg5, MFA, rtl, pp_rtl, Options, Servers),
+  LinearRTL1 = hipe_rtl_cfg:linearize(RtlCfg5),
   LinearRTL2 = hipe_rtl_cleanup_const:cleanup(LinearRTL1),
   %% hipe_rtl:pp(standard_io, LinearRTL2),
-  LinearRTL2.
+  {LinearRTL2, Roots}.
 
 translate_to_rtl(Icode, Options) ->
   %% GC tests should have been added in the conversion to Icode.
@@ -539,6 +569,17 @@ rtl_to_native(MFA, LinearRTL, Options, DebugState) ->
   ?opt_stop_timer("Native code"),
   put(hipe_debug, DebugState),
   LinearNativeCode.
+
+%% Translate Linear RTL to binary code using LLVM.
+rtl_to_llvm_to_binary(MFA, LinearRTL, Roots, Options, DebugState) ->
+  ?opt_start_timer("LLVM native code"),
+  %% BinaryCode is a tuple, as defined in llvm/hipe_llvm_main module, which
+  %% contains the binary code together with info needed by the loader, e.g.
+  %% ConstTab, Refs, LabelMap, etc.
+  BinaryCode = hipe_llvm_main:rtl_to_native(MFA, LinearRTL, Roots, Options),
+  ?opt_stop_timer("LLVM native code"),
+  put(hipe_debug, DebugState),
+  {llvm_binary, BinaryCode}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Debugging stuff ...

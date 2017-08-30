@@ -9,20 +9,20 @@
 
 -compile(export_all).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
 -import(xmerl_xs, 
-	[ xslapply/2, value_of/1, select/2, built_in_rules/2 ]).
+        [ xslapply/2, value_of/1, select/2, built_in_rules/2 ]).
 
 
 one() ->
-    ?line {A,_}=xmerl_scan:file('motorcycles.xml'),
-    ?line [["Suzuki","Yamaha"]] = template(A),
+    {A,_}=xmerl_scan:file('motorcycles.xml'),
+    [["Suzuki","Yamaha"]] = template(A),
     ok.
 
 %%% templates, test of OTP-5268
 template(E = #xmlElement{name='motorcycles'}) ->
-	 [value_of(select("bike/name/manufacturer/text()",E))];
+    [value_of(select("bike/name/manufacturer/text()",E))];
 template(E) -> built_in_rules(fun template/1, E).
 

@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% 
@@ -31,7 +32,7 @@
 %% Include files
 %%----------------------------------------------------------------------
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 -include("snmp_test_data/Test2.hrl").
 
@@ -139,6 +140,8 @@
 
 -define(NS_TIMEOUT,     10000).
 
+-define(DEFAULT_MNESIA_DEBUG, none).
+
 
 %%----------------------------------------------------------------------
 %% Records
@@ -173,7 +176,9 @@ end_per_suite(Config) when is_list(Config) ->
 
 
 init_per_testcase(Case, Config) when is_list(Config) ->
-    io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE,Case]),
+    io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE, Case]),
+    p(Case, "init_per_testcase begin when"
+      "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     %% This version of the API, based on Addr and Port, has been deprecated
     DeprecatedApiCases = 
 	[
@@ -187,16 +192,25 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 	 simple_async_get_bulk1,
 	 misc_async1
 	],
-    case lists:member(Case, DeprecatedApiCases) of
-	true ->
-	    %% ?SKIP(api_no_longer_supported);
-	    {skip, api_no_longer_supported};
-	false ->
-	    init_per_testcase2(Case, Config)
-    end.
+    Result = 
+	case lists:member(Case, DeprecatedApiCases) of
+	    true ->
+		%% ?SKIP(api_no_longer_supported);
+		{skip, api_no_longer_supported};
+	    false ->
+		init_per_testcase2(Case, Config)
+	end,
+    p(Case, "init_per_testcase end when"
+      "~n      Nodes:  ~p"
+      "~n      Result: ~p"
+      "~n~n", [Result, erlang:nodes()]),
+    Result.
 
 init_per_testcase2(Case, Config) ->
-    ?DBG("init_per_testcase2 -> ~p", [erlang:nodes()]),
+    ?DBG("init_per_testcase2 -> "
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p"
+	 "~n   Nodes:  ~p", [Case, Config, erlang:nodes()]),
 
     CaseTopDir = snmp_test_lib:init_testcase_top_dir(Case, Config), 
 
@@ -228,8 +242,11 @@ init_per_testcase2(Case, Config) ->
     AgLogDir  = filename:join(AgTopDir,   "log/"),
     ?line ok  = file:make_dir(AgLogDir),
 
+    Family = proplists:get_value(ipfamily, Config, inet),
+
     Conf = [{watchdog,                  ?WD_START(?MINS(5))},
-	    {ip,                        ?LOCALHOST()},
+	    {ipfamily,                  Family},
+	    {ip,                        ?LOCALHOST(Family)},
 	    {case_top_dir,              CaseTopDir},
 	    {agent_dir,                 AgTopDir},
 	    {agent_conf_dir,            AgConfDir},
@@ -314,6 +331,8 @@ init_per_testcase3(Case, Config) ->
     end.
 
 end_per_testcase(Case, Config) when is_list(Config) ->
+    p(Case, "end_per_testcase begin when"
+      "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     ?DBG("fin [~w] Nodes [1]: ~p", [Case, erlang:nodes()]),
     Dog    = ?config(watchdog, Config),
     ?WD_STOP(Dog),
@@ -322,6 +341,8 @@ end_per_testcase(Case, Config) when is_list(Config) ->
     ?DBG("fin [~w] Nodes [2]: ~p", [Case, erlang:nodes()]),
     %%     TopDir = ?config(top_dir, Conf2),
     %%     ?DEL_DIR(TopDir),
+    p(Case, "end_per_testcase end when"
+      "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     Conf2.
 
 end_per_testcase2(Case, Config) ->
@@ -393,7 +414,9 @@ all() ->
      {group, event_tests}, 
      {group, event_tests_mt}, 
      discovery, 
-     {group, tickets} 
+     {group, tickets}, 
+     {group, ipv6},
+     {group, ipv6_mt}
     ].
 
 groups() -> 
@@ -428,10 +451,10 @@ groups() ->
      {request_tests, [],
       [
        {group, get_tests}, 
-       {group, get_next_tests},
+       {group, get_next_tests}, 
        {group, set_tests}, 
-       {group, bulk_tests},
-       {group, misc_request_tests}
+       {group, bulk_tests}, 
+       {group, misc_request_tests} 
       ]
      },
      {request_tests_mt, [],
@@ -528,8 +551,28 @@ groups() ->
       [
        otp8395_1
       ]
-     }
+     },
+     {ipv6, [], ipv6_tests()},
+     {ipv6_mt, [], ipv6_tests()}
+
     ].
+
+ipv6_tests() ->
+    [
+     register_agent1,
+     simple_sync_get_next3,
+     simple_async_get2,
+     simple_sync_get3,
+     simple_async_get_next2,
+     simple_sync_set3,
+     simple_async_set2,
+     simple_sync_get_bulk2,
+     simple_async_get_bulk3,
+     misc_async2,
+     inform1,
+     inform_swarm
+    ].
+
 
 init_per_group(request_tests_mt = GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(
@@ -539,10 +582,39 @@ init_per_group(event_tests_mt = GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(
       GroupName, 
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
+init_per_group(ipv6_mt = GroupName, Config) ->
+    case ct:require(ipv6_hosts) of
+	ok ->
+	    case gen_udp:open(0, [inet6]) of
+		{ok, S} ->
+		    ok = gen_udp:close(S),
+		    ipv6_init(
+		      snmp_test_lib:init_group_top_dir(
+			GroupName,
+			[{manager_net_if_module, snmpm_net_if_mt}
+			 | Config]));
+		{error, _} ->
+		    {skip, "Host seems to not support IPv6"}
+	    end;
+	_ ->
+	    {skip, "Host does not support IPV6"}
+    end;
+init_per_group(ipv6 = GroupName, Config) -> 
+    case ct:require(ipv6_hosts) of
+	ok ->
+	    case gen_udp:open(0, [inet6]) of
+		{ok, S} ->
+		    ok = gen_udp:close(S),
+		    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
+		{error, _} ->
+		    {skip, "Host seems to not support IPv6"}
+	    end;
+	_ ->
+	    {skip, "Host does not support IPV6"}
+    end;
 init_per_group(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
-
-	    
+   
 end_per_group(_GroupName, Config) ->
     %% Do we really need to do this?
     lists:keydelete(snmp_group_top_dir, 1, Config).
@@ -1491,7 +1563,7 @@ register_agent3(Config) when is_list(Config) ->
     TargetName2 = "agent3", 
     ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName2,
 				  [{tdomain,   transportDomainUdpIpv6},
-				   {address,   LocalHost},
+				   {address,   {0,0,0,0,0,0,0,1}},
 				   {port,      5002},
 				   {engine_id, "agentEngineId-2"}]),
     TargetName3 = "agent4", 
@@ -1615,10 +1687,10 @@ simple_sync_get1(Config) when is_list(Config) ->
     ok.
 
 do_simple_sync_get(Node, Addr, Port, Oids) ->
-    ?line {ok, Reply, Rem} = mgr_user_sync_get(Node, Addr, Port, Oids),
+    ?line {ok, Reply, _Rem} = mgr_user_sync_get(Node, Addr, Port, Oids),
 
     ?DBG("~n   Reply: ~p"
-	 "~n   Rem:   ~w", [Reply, Rem]),
+	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
     %% The order should be the same, so no need to seach 
@@ -1682,10 +1754,10 @@ do_simple_sync_get2(Config, Get, PostVerify) ->
 
 do_simple_sync_get2(Node, TargetName, Oids, Get, PostVerify) 
   when is_function(Get, 3) andalso is_function(PostVerify, 0) ->
-    ?line {ok, Reply, Rem} = Get(Node, TargetName, Oids),
+    ?line {ok, Reply, _Rem} = Get(Node, TargetName, Oids),
 
     ?DBG("~n   Reply: ~p"
-	 "~n   Rem:   ~w", [Reply, Rem]),
+	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
     %% The order should be the same, so no need to seach 
@@ -2061,10 +2133,10 @@ simple_sync_get_next1(Config) when is_list(Config) ->
 do_simple_get_next(N, Node, Addr, Port, Oids, Verify) ->
     p("issue get-next command ~w", [N]),
     case mgr_user_sync_get_next(Node, Addr, Port, Oids) of
-	{ok, Reply, Rem} ->
+	{ok, Reply, _Rem} ->
 	    ?DBG("get-next ok:"
 		 "~n   Reply: ~p"
-		 "~n   Rem:   ~w", [Reply, Rem]),
+		 "~n   Rem:   ~w", [Reply, _Rem]),
 	    Verify(Reply);
 
 	Error ->
@@ -2217,10 +2289,10 @@ do_simple_sync_get_next2(Config, GetNext, PostVerify)
 do_simple_get_next(N, Node, TargetName, Oids, Verify, GetNext, PostVerify) ->
     p("issue get-next command ~w", [N]),
     case GetNext(Node, TargetName, Oids) of
-	{ok, Reply, Rem} ->
+	{ok, Reply, _Rem} ->
 	    ?DBG("get-next ok:"
 		 "~n   Reply: ~p"
-		 "~n   Rem:   ~w", [Reply, Rem]),
+		 "~n   Rem:   ~w", [Reply, _Rem]),
 	    PostVerify(Verify(Reply));
 
 	Error ->
@@ -2551,10 +2623,10 @@ simple_sync_set1(Config) when is_list(Config) ->
 
 do_simple_set1(Node, Addr, Port, VAVs) ->
     [SysName, SysLoc] = value_of_vavs(VAVs),
-    ?line {ok, Reply, Rem} = mgr_user_sync_set(Node, Addr, Port, VAVs),
+    ?line {ok, Reply, _Rem} = mgr_user_sync_set(Node, Addr, Port, VAVs),
 
     ?DBG("~n   Reply: ~p"
-	 "~n   Rem:   ~w", [Reply, Rem]),
+	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
     %% The order should be the same, so no need to seach 
@@ -2631,10 +2703,10 @@ do_simple_sync_set2(Config, Set, PostVerify)
 
 do_simple_set2(Node, TargetName, VAVs, Set, PostVerify) ->
     [SysName, SysLoc] = value_of_vavs(VAVs),
-    ?line {ok, Reply, Rem} = Set(Node, TargetName, VAVs),
+    ?line {ok, Reply, _Rem} = Set(Node, TargetName, VAVs),
 
     ?DBG("~n   Reply: ~p"
-	 "~n   Rem:   ~w", [Reply, Rem]),
+	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
     %% The order should be the same, so no need to seach 
@@ -3026,10 +3098,10 @@ fl(L) ->
 do_simple_get_bulk1(N, Node, Addr, Port, NonRep, MaxRep, Oids, Verify) ->
     p("issue get-bulk command ~w", [N]),
     case mgr_user_sync_get_bulk(Node, Addr, Port, NonRep, MaxRep, Oids) of
-	{ok, Reply, Rem} ->
+	{ok, Reply, _Rem} ->
 	    ?DBG("get-bulk ok:"
 		 "~n   Reply: ~p"
-		 "~n   Rem:   ~w", [Reply, Rem]),
+		 "~n   Rem:   ~w", [Reply, _Rem]),
 	    Verify(Reply);
 
 	Error ->
@@ -3213,10 +3285,10 @@ do_simple_get_bulk2(N,
        is_function(PostVerify) ->
     p("issue get-bulk command ~w", [N]),
     case GetBulk(NonRep, MaxRep, Oids) of
-	{ok, Reply, Rem} ->
+	{ok, Reply, _Rem} ->
 	    ?DBG("get-bulk ok:"
 		 "~n   Reply: ~p"
-		 "~n   Rem:   ~w", [Reply, Rem]),
+		 "~n   Rem:   ~w", [Reply, _Rem]),
 	    PostVerify(Verify(Reply));
 
 	Error ->
@@ -5057,7 +5129,7 @@ inform_swarm_collector(N) ->
 inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, _) 
   when ((N == SentAckCnt) and 
 	(N == RespCnt)    and
-	(N >= RecvCnt)) ->
+	(N =< RecvCnt)) ->
     p("inform_swarm_collector -> done when"
       "~n   N:          ~w"
       "~n   SentAckCnt: ~w"
@@ -5303,34 +5375,59 @@ init_manager(AutoInform, Config) ->
 
     ?line Node = start_manager_node(),
 
+    %% The point with this (try catch block) is to be 
+    %% able to do some cleanup in case we fail to 
+    %% start some of the apps. That is, if we fail to 
+    %% start the apps (mnesia, crypto and snmp agent) 
+    %% we stop the (agent) node!
 
-    %% -- 
-    %% Start and initiate crypto on manager node
-    %% 
+    try
+	begin
 
-    ?line ok = init_crypto(Node),
+	    %% -- 
+	    %% Start and initiate crypto on manager node
+	    %% 
+	    
+	    ?line ok = init_crypto(Node),
+	    
+	    %% 
+	    %% Write manager config
+	    %% 
+	    
+	    ?line ok = write_manager_config(Config),
+	    
+	    IRB  = case AutoInform of
+		       true ->
+			   auto;
+		       _ ->
+			   user
+		   end,
+	    Conf = [{manager_node, Node}, {irb, IRB} | Config],
+	    Vsns = [v1,v2,v3], 
+	    start_manager(Node, Vsns, Conf)
+	end
+    catch
+	T:E ->
+	    StackTrace = ?STACK(), 
+	    p("Failure during manager start: "
+	      "~n      Error Type: ~p"
+	      "~n      Error:      ~p"
+	      "~n      StackTrace: ~p", [T, E, StackTrace]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)), 
+	    ?FAIL({failed_starting_manager, T, E, StackTrace})
+    end.
 
-    %% 
-    %% Write manager config
-    %% 
-
-    ?line ok = write_manager_config(Config),
-    
-    IRB  = case AutoInform of
-	       true ->
-		   auto;
-	       _ ->
-		   user
-	   end,
-    Conf = [{manager_node, Node}, {irb, IRB} | Config],
-    Vsns = [v1,v2,v3], 
-    start_manager(Node, Vsns, Conf).
-    
 fin_manager(Config) ->
     Node = ?config(manager_node, Config),
-    stop_manager(Node, Config),
-    fin_crypto(Node),
-    stop_node(Node),
+    StopMgrRes    = stop_manager(Node),
+    StopCryptoRes = fin_crypto(Node),
+    StopNode      = stop_node(Node),
+    p("fin_agent -> stop apps and (mgr node ~p) node results: "
+      "~n      SNMP Mgr: ~p"
+      "~n      Crypto:   ~p"
+      "~n      Node:     ~p", 
+      [Node, StopMgrRes, StopCryptoRes, StopNode]),
     Config.
     
 
@@ -5352,51 +5449,92 @@ init_agent(Config) ->
 
     ?line Node = start_agent_node(),
 
+    %% The point with this (try catch block) is to be 
+    %% able to do some cleanup in case we fail to 
+    %% start some of the apps. That is, if we fail to 
+    %% start the apps (mnesia, crypto and snmp agent) 
+    %% we stop the (agent) node!
 
-    %% -- 
-    %% Start and initiate mnesia on agent node
-    %% 
-
-    ?line ok = init_mnesia(Node, Dir),
+    try
+	begin
+	    
+	    %% -- 
+	    %% Start and initiate mnesia on agent node
+	    %% 
+	    
+	    ?line ok = init_mnesia(Node, Dir, ?config(mnesia_debug, Config)),
+	    
+	    
+	    %% -- 
+	    %% Start and initiate crypto on agent node
+	    %% 
+	    
+	    ?line ok = init_crypto(Node),
+	    
+	    
+	    %% 
+	    %% Write agent config
+	    %% 
+	    
+	    Vsns = [v1,v2], 
+	    ?line ok = write_agent_config(Vsns, Config),
+	    
+	    Conf = [{agent_node, Node},
+		    {mib_dir,    MibDir} | Config],
     
-
-    %% -- 
-    %% Start and initiate crypto on agent node
-    %% 
-
-    ?line ok = init_crypto(Node),
-    
-
-    %% 
-    %% Write agent config
-    %% 
-
-    Vsns = [v1,v2], 
-    ?line ok = write_agent_config(Vsns, Config),
-
-    Conf = [{agent_node, Node},
-	    {mib_dir,    MibDir} | Config],
-    
-    %% 
-    %% Start the agent 
-    %% 
-
-    start_agent(Node, Vsns, Conf).
+	    %% 
+	    %% Start the agent 
+	    %% 
+	    
+	    start_agent(Node, Vsns, Conf)
+	end
+    catch
+	T:E ->
+	    StackTrace = ?STACK(), 
+	    p("Failure during agent start: "
+	      "~n      Error Type: ~p"
+	      "~n      Error:      ~p"
+	      "~n      StackTrace: ~p", [T, E, StackTrace]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)), 
+	    ?FAIL({failed_starting_agent, T, E, StackTrace})
+    end.
+	      
 
 fin_agent(Config) ->
     Node = ?config(agent_node, Config),
-    stop_agent(Node, Config),
-    fin_crypto(Node),
-    fin_mnesia(Node),
-    stop_node(Node),
+    StopAgentRes  = stop_agent(Node),
+    StopCryptoRes = fin_crypto(Node),
+    StopMnesiaRes = fin_mnesia(Node),
+    StopNode      = stop_node(Node),
+    p("fin_agent -> stop apps and (agent node ~p) node results: "
+      "~n      SNMP Agent: ~p"
+      "~n      Crypto:     ~p"
+      "~n      Mnesia:     ~p"
+      "~n      Node:       ~p", 
+      [Node, StopAgentRes, StopCryptoRes, StopMnesiaRes, StopNode]),
     Config.
 
-init_mnesia(Node, Dir) ->
+init_mnesia(Node, Dir, MnesiaDebug) 
+  when ((MnesiaDebug =/= none) andalso 
+	(MnesiaDebug =/= debug) andalso (MnesiaDebug =/= trace)) ->
+    init_mnesia(Node, Dir, ?DEFAULT_MNESIA_DEBUG);
+init_mnesia(Node, Dir, MnesiaDebug) ->
     ?DBG("init_mnesia -> load application mnesia", []),
     ?line ok = load_mnesia(Node),
 
     ?DBG("init_mnesia -> application mnesia: set_env dir: ~n~p",[Dir]),
     ?line ok = set_mnesia_env(Node, dir, filename:join(Dir, "mnesia")),
+
+    %% Just in case, only set (known to be) valid values for debug
+    if
+	((MnesiaDebug =:= debug) orelse (MnesiaDebug =:= trace)) ->
+	    ?DBG("init_mnesia -> application mnesia: set_env debug: ~w", 
+		 [MnesiaDebug]),
+	    ?line ok = set_mnesia_env(Node, debug, MnesiaDebug);
+	true ->
+	    ok
+    end,
 
     ?DBG("init_mnesia -> create mnesia schema",[]),
     ?line case create_schema(Node) of
@@ -5434,25 +5572,89 @@ fin_crypto(Node) ->
 
 %% -- Misc application wrapper functions --
 
-load_app(Node, App) when (Node =:= node()) andalso is_atom(App) ->
-    application:load(App);
-load_app(Node, App) when is_atom(App) ->
-    rcall(Node, application, load, [App]).
-    
-start_app(Node, App) when (Node =:= node()) andalso is_atom(App) ->
-    application:start(App);
+load_app(Node, App) ->
+    VerifySuccess = fun(ok) ->
+			    ok;
+		       ({error, {already_loaded, LoadedApp}}) when (LoadedApp =:= App) ->
+			    ok;
+		       ({error, Reason}) ->
+			    p("failed loading app ~w on ~p: "
+			      "~n      ~p", [App, Node, Reason]),
+			    ?FAIL({failed_load, Node, App, Reason})
+		    end,
+    do_load_app(Node, App, VerifySuccess).
+
+do_load_app(Node, App, VerifySuccess) 
+  when (Node =:= node()) andalso is_atom(App) ->
+    %% Local app
+    exec(fun() -> application:load(App) end, VerifySuccess);
+do_load_app(Node, App, VerifySuccess) ->
+    %% Remote app
+    exec(fun() -> rcall(Node, application, load, [App]) end, VerifySuccess).
+
+
 start_app(Node, App) ->
-    rcall(Node, application, start, [App]).
+    VerifySuccess = fun(ok) ->
+			    ok;
+		       ({error, {already_started, LoadedApp}}) when (LoadedApp =:= App) ->
+			    ok;
+		       ({error, Reason}) ->
+			    p("failed starting app ~w on ~p: "
+			      "~n      ~p", [App, Node, Reason]),
+			    ?FAIL({failed_start, Node, App, Reason})
+		    end,
+    start_app(Node, App, VerifySuccess).
 
-stop_app(Node, App) when (Node =:= node()) andalso is_atom(App)  ->
-    application:stop(App);
-stop_app(Node, App) when is_atom(App) ->
-    rcall(Node, application, stop, [App]).
+start_app(Node, App, VerifySuccess) 
+  when (Node =:= node()) andalso is_atom(App) ->
+    exec(fun() -> application:start(App) end, VerifySuccess);
+start_app(Node, App, VerifySuccess) ->
+    exec(fun() -> rcall(Node, application, start, [App]) end, VerifySuccess).
 
-set_app_env(Node, App, Key, Val) when (Node =:= node()) andalso is_atom(App) ->
-    application:set_env(App, Key, Val);
-set_app_env(Node, App, Key, Val) when is_atom(App) ->
-    rcall(Node, application, set_env, [App, Key, Val]).
+
+stop_app(Node, App) ->
+    VerifySuccess = fun(ok) ->
+			    ok;
+		       ({error, {not_started, LoadedApp}}) when (LoadedApp =:= App) ->
+			    ok;
+		       ({error, Reason}) ->
+			    p("failed stopping app ~w on ~p: "
+			      "~n      ~p", [App, Node, Reason]),
+			    ?FAIL({failed_stop, Node, App, Reason})
+		    end,
+    stop_app(Node, App, VerifySuccess).
+    
+stop_app(Node, App, VerifySuccess) 
+  when (Node =:= node()) andalso is_atom(App)  ->
+    exec(fun() -> application:stop(App) end, VerifySuccess);
+stop_app(Node, App, VerifySuccess) when is_atom(App) ->
+    exec(fun() -> rcall(Node, application, stop, [App]) end, VerifySuccess).
+
+
+set_app_env(Node, App, Key, Val) ->
+    VerifySuccess = fun(ok) ->
+			    ok;
+		       ({error, Reason}) ->
+			    p("failed setting app ~w env on ~p"
+			      "~n      Key:    ~p"
+			      "~n      Val:    ~p"
+			      "~n      Reason: ~p"
+			      "~n      ~p", [App, Node, Key, Val, Reason]),
+			    ?FAIL({failed_set_app_env, 
+				   Node, App, Key, Val, Reason})
+		    end,
+    set_app_env(Node, App, Key, Val, VerifySuccess).
+
+set_app_env(Node, App, Key, Val, VerifySuccess) 
+  when (Node =:= node()) andalso is_atom(App) ->
+    exec(fun() -> application:set_env(App, Key, Val) end, VerifySuccess);
+set_app_env(Node, App, Key, Val, VerifySuccess) when is_atom(App) ->
+    exec(fun() -> rcall(Node, application, set_env, [App, Key, Val]) end, 
+	 VerifySuccess).
+
+
+exec(Cmd, VerifySuccess) ->
+    VerifySuccess(Cmd()).
 
 
 %% -- Misc snmp wrapper functions --
@@ -5603,17 +5805,29 @@ fin_mgr_user(Conf) ->
 init_mgr_user_data1(Conf) ->
     Node = ?config(manager_node, Conf),
     TargetName = ?config(manager_agent_target_name, Conf),
-    Addr       = ?config(ip, Conf),
+    IpFamily   = ?config(ipfamily, Conf),
+    Ip         = ?config(ip, Conf),
     Port       = ?AGENT_PORT,
-    ?line ok = mgr_user_register_agent(Node, TargetName, 
-				       [{address,   Addr},
-					{port,      Port},
-					{engine_id, "agentEngine"}]),
-    Agents = mgr_user_which_own_agents(Node),
-    ?DBG("Own agents: ~p", [Agents]),
+    ?line ok =
+	case IpFamily of
+	    inet ->
+		mgr_user_register_agent(
+		  Node, TargetName,
+		  [{address,   Ip},
+		   {port,      Port},
+		   {engine_id, "agentEngine"}]);
+	    inet6 ->
+		mgr_user_register_agent(
+		  Node, TargetName,
+		  [{tdomain,   transportDomainUdpIpv6},
+		   {taddress,  {Ip, Port}},
+		   {engine_id, "agentEngine"}])
+	end,
+    _Agents = mgr_user_which_own_agents(Node),
+    ?DBG("Own agents: ~p", [_Agents]),
 
-    ?line {ok, DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
-    ?DBG("Default agent config: ~n~p", [DefAgentConf]),
+    ?line {ok, _DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    ?DBG("Default agent config: ~n~p", [_DefAgentConf]),
 
     ?line ok = mgr_user_update_agent_info(Node, TargetName, 
 					  community, "all-rights"),
@@ -5624,8 +5838,8 @@ init_mgr_user_data1(Conf) ->
     ?line ok = mgr_user_update_agent_info(Node, TargetName, 
 					  max_message_size, 1024),
 
-    ?line {ok, AgentConf} = mgr_user_agent_info(Node, TargetName, all),
-    ?DBG("Updated agent config: ~n~p", [AgentConf]),
+    ?line {ok, _AgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    ?DBG("Updated agent config: ~n~p", [_AgentConf]),
     Conf.
 
 init_mgr_user_data2(Conf) ->
@@ -5633,17 +5847,29 @@ init_mgr_user_data2(Conf) ->
 	 "~n   Conf: ~p", [Conf]),
     Node       = ?config(manager_node, Conf),
     TargetName = ?config(manager_agent_target_name, Conf),
-    Addr       = ?config(ip, Conf),
+    IpFamily   = ?config(ipfamily, Conf),
+    Ip         = ?config(ip, Conf),
     Port       = ?AGENT_PORT,
-    ?line ok = mgr_user_register_agent(Node, TargetName, 
-				       [{address,   Addr}, 
-					{port,      Port},
-					{engine_id, "agentEngine"}]),
-    Agents = mgr_user_which_own_agents(Node),
-    ?DBG("Own agents: ~p", [Agents]),
+    ?line ok =
+	case IpFamily of
+	    inet ->
+		mgr_user_register_agent(
+		  Node, TargetName,
+		  [{address,   Ip},
+		   {port,      Port},
+		   {engine_id, "agentEngine"}]);
+	    inet6 ->
+		mgr_user_register_agent(
+		  Node, TargetName,
+		  [{tdomain,   transportDomainUdpIpv6},
+		   {taddress,  {Ip, Port}},
+		   {engine_id, "agentEngine"}])
+	end,
+    _Agents = mgr_user_which_own_agents(Node),
+    ?DBG("Own agents: ~p", [_Agents]),
 
-    ?line {ok, DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
-    ?DBG("Default agent config: ~n~p", [DefAgentConf]),
+    ?line {ok, _DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    ?DBG("Default agent config: ~n~p", [_DefAgentConf]),
 
     ?line ok = mgr_user_update_agent_info(Node, TargetName, 
 					  community, "all-rights"),
@@ -5652,8 +5878,8 @@ init_mgr_user_data2(Conf) ->
     ?line ok = mgr_user_update_agent_info(Node, TargetName, 
 					  max_message_size, 1024),
 
-    ?line {ok, AgentConf} = mgr_user_agent_info(Node, TargetName, all),
-    ?DBG("Updated agent config: ~n~p", [AgentConf]),
+    ?line {ok, _AgentConf} = mgr_user_agent_info(Node, TargetName, all),
+    ?DBG("Updated agent config: ~n~p", [_AgentConf]),
     Conf.
 
 fin_mgr_user_data1(Conf) ->
@@ -5853,12 +6079,12 @@ mgr_user_name_to_oid(Node, Name) ->
 
 start_manager(Node, Vsns, Config) ->
     start_manager(Node, Vsns, Config, []).
-start_manager(Node, Vsns, Conf0, Opts) ->
+start_manager(Node, Vsns, Conf0, _Opts) ->
     ?DBG("start_manager -> entry with"
 	 "~n   Node:   ~p"
 	 "~n   Vsns:   ~p"
 	 "~n   Conf0:  ~p"
-	 "~n   Opts:   ~p", [Node, Vsns, Conf0, Opts]),
+	 "~n   Opts:   ~p", [Node, Vsns, Conf0, _Opts]),
     
     AtlDir  = ?config(manager_log_dir,  Conf0),
     ConfDir = ?config(manager_conf_dir, Conf0),
@@ -5900,20 +6126,20 @@ start_manager(Node, Vsns, Conf0, Opts) ->
     
     Conf0.
 
-stop_manager(Node, Conf) ->
-    stop_snmp(Node),
-    Conf.
+stop_manager(Node) ->
+    stop_snmp(Node).
+
 
 %% -- Misc agent wrapper functions --
 
 start_agent(Node, Vsns, Config) ->
     start_agent(Node, Vsns, Config, []).
-start_agent(Node, Vsns, Conf0, Opts) ->
+start_agent(Node, Vsns, Conf0, _Opts) ->
     ?DBG("start_agent -> entry with"
 	 "~n   Node:   ~p"
 	 "~n   Vsns:   ~p"
 	 "~n   Conf0:  ~p"
-	 "~n   Opts:   ~p", [Node, Vsns, Conf0, Opts]),
+	 "~n   Opts:   ~p", [Node, Vsns, Conf0, _Opts]),
     
     AtlDir  = ?config(agent_log_dir,  Conf0),
     ConfDir = ?config(agent_conf_dir, Conf0),
@@ -5951,9 +6177,8 @@ start_agent(Node, Vsns, Conf0, Opts) ->
     ?line ok = start_snmp(Node),
     Conf0.
 
-stop_agent(Node, Conf) ->
-    stop_snmp(Node),
-    Conf.
+stop_agent(Node) ->
+    stop_snmp(Node).
 
 agent_load_mib(Node, Mib) ->
     rcall(Node, snmpa, load_mibs, [[Mib]]).
@@ -6015,17 +6240,18 @@ stop_node(Node) ->
     rpc:cast(Node, erlang, halt, []),
     await_stopped(Node, 5).
 
-await_stopped(_, 0) ->
+await_stopped(Node, 0) ->
+    p("await_stopped -> ~p still exist: giving up", [Node]),
     ok;
 await_stopped(Node, N) ->
     Nodes = erlang:nodes(),
     case lists:member(Node, Nodes) of
 	true ->
-	    ?DBG("[~w] ~p still exist", [N, Node]),
+	    p("await_stopped -> ~p still exist: ~w", [Node, N]),
 	    ?SLEEP(1000),
 	    await_stopped(Node, N-1);
 	false ->
-	    ?DBG("[~w] ~p gone", [N, Node]),
+	    p("await_stopped -> ~p gone: ~w", [Node, N]),
 	    ok
     end.
     
@@ -6035,10 +6261,16 @@ await_stopped(Node, N) ->
 
 write_manager_config(Config) ->
     Dir  = ?config(manager_conf_dir, Config),
-    Ip   = ?config(ip, Config),
-    Addr = tuple_to_list(Ip),
-    snmp_config:write_manager_snmp_files(Dir, Addr, ?MGR_PORT, 
-					 ?MGR_MMS, ?MGR_ENGINE_ID, [], [], []).
+    Ip = tuple_to_list(?config(ip, Config)),
+    {Addr, Port} =
+	case ?config(ipfamily, Config) of
+	    inet ->
+		{Ip, ?MGR_PORT};
+	    inet6 ->
+		{transportDomainUdpIpv6, {Ip, ?MGR_PORT}}
+	end,
+    snmp_config:write_manager_snmp_files(
+      Dir, Addr, Port, ?MGR_MMS, ?MGR_ENGINE_ID, [], [], []).
 
 write_manager_conf(Dir) ->
     Port = "5000",
@@ -6067,25 +6299,27 @@ write_manager_conf(Dir, Str) ->
 
 write_agent_config(Vsns, Conf) ->
     Dir = ?config(agent_conf_dir, Conf),
-    Ip  = ?config(ip, Conf),
-    ?line Addr = tuple_to_list(Ip),
-    ?line ok = write_agent_config_files(Dir, Vsns, Addr),
+    ?line Ip  = tuple_to_list(?config(ip, Conf)),
+    ?line Domain =
+	case ?config(ipfamily, Conf) of
+	    inet ->
+		snmpUDPDomain;
+	    inet6 ->
+		transportDomainUdpIpv6
+	end,
+    ?line ok = write_agent_config_files(Dir, Vsns, Domain, Ip),
     ?line ok = update_agent_usm(Vsns, Dir),
     ?line ok = update_agent_community(Vsns, Dir),
     ?line ok = update_agent_vacm(Vsns, Dir),
-    ?line ok = write_agent_target_addr_conf(Dir, Addr, Vsns),
+    ?line ok = write_agent_target_addr_conf(Dir, Domain, Ip, Vsns),
     ?line ok = write_agent_target_params_conf(Dir, Vsns),
     ?line ok = write_agent_notify_conf(Dir),
     ok.
     
-write_agent_config_files(Dir, Vsns, Addr) ->
-    snmp_config:write_agent_snmp_files(Dir, Vsns, 
-				       Addr, ?MGR_PORT, 
-				       Addr, ?AGENT_PORT, 
-				       "mgr-test", "trap", 
-				       none, "", 
-				       ?AGENT_ENGINE_ID, 
-				       ?AGENT_MMS).
+write_agent_config_files(Dir, Vsns, Domain, Ip) ->
+    snmp_config:write_agent_snmp_files(
+      Dir, Vsns, Domain, {Ip, ?MGR_PORT}, {Ip, ?AGENT_PORT}, "mgr-test",
+      trap, none, "", ?AGENT_ENGINE_ID, ?AGENT_MMS).
 
 update_agent_usm(Vsns, Dir) ->
     case lists:member(v3, Vsns) of
@@ -6153,9 +6387,9 @@ update_agent_vacm(_Vsns, Dir) ->
              excluded, null}],
     snmp_config:update_agent_vacm_config(Dir, Conf).
 
-write_agent_target_addr_conf(Dir, Addr, Vsns) -> 
-    snmp_config:write_agent_snmp_target_addr_conf(Dir, Addr, ?MGR_PORT, 
-						  300, 3, Vsns).
+write_agent_target_addr_conf(Dir, Domain, Ip, Vsns) ->
+    snmp_config:write_agent_snmp_target_addr_conf(
+      Dir, Domain, {Ip, ?MGR_PORT}, 300, 3, Vsns).
 
 write_agent_target_params_conf(Dir, Vsns) -> 
     F = fun(v1) -> {"target_v1", v1,  v1,  "all-rights", noAuthNoPriv};
@@ -6271,7 +6505,7 @@ p(F, A) ->
  
 p(TName, F, A) ->
     io:format("*** [~w][~s] ***"
-              "~n" ++ F ++ "~n", [TName, formated_timestamp()|A]).
+              "~n   " ++ F ++ "~n", [TName, formated_timestamp()|A]).
 
 formated_timestamp() ->
     snmp_test_lib:formated_timestamp().
@@ -6279,3 +6513,5 @@ formated_timestamp() ->
 %% p(TName, F, A) ->
 %%     io:format("~w -> " ++ F ++ "~n", [TName|A]).
 
+ipv6_init(Config) when is_list(Config) ->
+    [{ipfamily, inet6} | Config].

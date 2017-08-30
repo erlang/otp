@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2013</year>
+      <year>2004</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -29,6 +30,260 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
+
+<section><title>Erl_Interface 3.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix decoding of LLONG_MIN in erl_decode</p>
+          <p>
+	    Own Id: OTP-13666 Aux Id: ERL-158 </p>
+        </item>
+        <item>
+          <p>
+	    On windows <c>ei_decode_ulong</c> and
+	    <c>ei_decode_long</c> now correctly returns an error when
+	    trying to decode a number that does not fit in a long.
+	    Fixed a bug on windows where enabling ei tracing would
+	    cause a segmentation fault.</p>
+          <p>
+	    Own Id: OTP-13673</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Handle terms (pids,ports and refs) from nodes with a
+	    'creation' value larger than 3. This is a preparation of
+	    the distribution protocol to allow OTP 19 nodes to
+	    correctly communicate with future nodes (20 or higher).
+	    The 'creation' value differentiates different
+	    incarnations of the same node (name).</p>
+          <p>
+	    Own Id: OTP-13488</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix Erl_Interface build error on Debian/Hurd and
+	    Debian/kFreeBSD. (Thanks to Sergei Golovan)</p>
+          <p>
+	    Own Id: OTP-13328</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    EPMD supports both IPv4 and IPv6</p>
+          <p>
+	    Also affects oldest supported windows version.</p>
+          <p>
+	    Own Id: OTP-13364</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.8.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix the conditional selection of gethostbyname_r and
+	    gethostbyaddr_r.</p>
+          <p>
+	    Own Id: OTP-13188</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Do not accept Nan and Infinity values</p>
+          <p>
+	    Erlang does not accept these values, so we return an
+	    error in the C interface rather than letting them through
+	    to the Erlang VM, which rejects the message with a
+	    somewhat cryptic "bad external term".</p>
+          <p>
+	    Own Id: OTP-12801</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.7.20</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Use C99 function isfinite() instead of finite() when
+	    available on non GCC compilers.</p>
+          <p>
+	    Own Id: OTP-12268</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Distribute <c>autoconf</c> helpers to applications at
+	    build time instead of having multiple identical copies
+	    committed in the repository.</p>
+          <p>
+	    Own Id: OTP-12348</p>
+        </item>
+        <item>
+          <p>
+	    Added an .appup file for the application.</p>
+          <p>
+	    Own Id: OTP-12358 Aux Id: OTP-12178 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.7.19</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Added a <c>.app</c> file for the application.</p>
+          <p>
+	    Own Id: OTP-12178</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.7.18</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Implement --enable-sanitizers[=sanitizers]. Similar to
+	    debugging with Valgrind, it's very useful to enable
+	    -fsanitize= switches to catch bugs at runtime.</p>
+          <p>
+	    Own Id: OTP-12153</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.7.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Now works with Visual Studio.</p>
+          <p>
+	    Own Id: OTP-11984</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.7.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix memcheck warning in gen_challange (Thanks to Olivier
+	    Girondel)</p>
+          <p>
+	    Own Id: OTP-11608</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.7.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Silence warnings (Thanks to Anthony Ramine)</p>
+          <p>
+	    Own Id: OTP-11517</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.7.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Introduced functionality for inspection of system and
+	    build configuration.</p>
+          <p>
+	    Own Id: OTP-11196</p>
+        </item>
+        <item>
+          <p>
+	    Header and library files from ic and erl_interface are
+	    now installed into usr/{include,lib}. Note that these
+	    directories are unversioned, so the latest installed
+	    version will be the one in the directory.</p>
+          <p>
+	    Own Id: OTP-11284</p>
+        </item>
+        <item>
+          <p>
+	    Fix location of true binary under Mac OSX. Thanks to
+	    Simon Cornish.</p>
+          <p>
+	    Own Id: OTP-11289</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Erl_Interface 3.7.13</title>
 
@@ -262,7 +517,7 @@
         <item>
           <p>
 	    Initialize <c>to</c> and <c>to_name</c> in
-	    <c>erl_receive_msg</c>. (Thanks to Göran Larsson)</p>
+	    <c>erl_receive_msg</c>. (Thanks to GÃ¶ran Larsson)</p>
           <p>
 	    Own Id: OTP-9241</p>
         </item>

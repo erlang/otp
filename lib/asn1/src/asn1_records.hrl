@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -37,7 +38,7 @@
 -record('ObjectClassFieldType',{classname,class,fieldname,type}).
 
 -record(typedef,{checked=false,pos,name,typespec}).
--record(classdef,{checked=false,pos,name,typespec}).
+-record(classdef, {checked=false,pos,name,module,typespec}).
 -record(valuedef,{checked=false,pos,name,type,value,module}).
 -record(ptypedef,{checked=false,pos,name,args,typespec}).
 -record(pvaluedef,{checked=false,pos,name,args,type,value}).
@@ -45,7 +46,6 @@
 -record(pobjectdef,{checked=false,pos,name,args,class,def}).
 -record(pobjectsetdef,{checked=false,pos,name,args,class,def}).
 
--record(identifier,{pos,val}).
 -record('Constraint',{'SingleValue'=no,'SizeConstraint'=no,'ValueRange'=no,'PermittedAlphabet'=no,
 		      'ContainedSubtype'=no, 'TypeConstraint'=no,'InnerSubtyping'=no,e=no,'Other'=no}).
 -record(simpletableattributes,{objectsetname,c_name,c_index,usedclassfield,
@@ -73,9 +73,28 @@
 % Externalvaluereference -> modulename '.' typename
 -record('Externalvaluereference',{pos,module,value}).
 
--record(state,{module,mname,type,tname,value,vname,erule,parameters=[],
-	       inputmodules,abscomppath=[],recordtopname=[],options,
-	       sourcedir}).
+%% Used to hold a tag for a field in a SEQUENCE/SET. It can also
+%% be used for identifiers in OBJECT IDENTIFIER values, since the
+%% parser cannot always distinguish a SEQUENCE with one element from
+%% an OBJECT IDENTIFIER.
+-record(seqtag,
+	{pos :: integer(),
+	 module :: atom(),
+	 val :: atom()}).
+
+-record(state,
+	{module,
+	 mname,
+	 tname,
+	 erule,
+	 parameters=[],
+	 inputmodules=[],
+	 abscomppath=[],
+	 recordtopname=[],
+	 options,
+	 sourcedir,
+	 error_context				%Top-level thingie (contains line numbers)
+	}).
 
 %% state record used by back-end at partial decode
 %% active is set to 'yes' when a partial decode function is generated.

@@ -230,7 +230,7 @@ insulator_wait(Child, Parent, Buf, St) ->
 	    message_super(Id, {progress, 'begin', {Type, Data}}, St),
 	    insulator_wait(Child, Parent, [[] | Buf], St);
 	{child, Child, Id, {'end', Status, Time}} ->
-	    Data = [{time, Time}, {output, buffer_to_binary(hd(Buf))}],
+	    Data = [{time, Time}, {output, lists:reverse(hd(Buf))}],
 	    message_super(Id, {progress, 'end', {Status, Data}}, St),
 	    insulator_wait(Child, Parent, tl(Buf), St);
 	{child, Child, Id, {skipped, Reason}} ->
@@ -268,12 +268,11 @@ insulator_wait(Child, Parent, Buf, St) ->
 	    kill_task(Child, St)
     end.
 
+-spec kill_task(_, _) -> no_return().
+
 kill_task(Child, St) ->
     exit(Child, kill),
     terminate_insulator(St).
-
-buffer_to_binary([B]) when is_binary(B) -> B;  % avoid unnecessary copying
-buffer_to_binary(Buf) -> list_to_binary(lists:reverse(Buf)).
 
 %% Unlinking before exit avoids polluting the parent process with exit
 %% signals from the insulator. The child process is already dead here.
@@ -597,7 +596,7 @@ group_leader_loop(Runner, Wait, Buf) ->
 	    %% no more messages and nothing to wait for; we ought to
 	    %% have collected all immediately pending output now
 	    process_flag(priority, normal),
-	    Runner ! {self(), buffer_to_binary(Buf)}
+	    Runner ! {self(), lists:reverse(Buf)}
     end.
 
 group_leader_sync(G) ->
@@ -643,11 +642,11 @@ io_request({get_until, _Prompt, _M, _F, _As}, Buf) ->
 io_request({setopts, _Opts}, Buf) ->
     {ok, Buf};
 io_request(getopts, Buf) ->
-    {error, {error, enotsup}, Buf};
+    {{error, enotsup}, Buf};
 io_request({get_geometry,columns}, Buf) ->
-    {error, {error, enotsup}, Buf};
+    {{error, enotsup}, Buf};
 io_request({get_geometry,rows}, Buf) ->
-    {error, {error, enotsup}, Buf};
+    {{error, enotsup}, Buf};
 io_request({requests, Reqs}, Buf) ->
     io_requests(Reqs, {ok, Buf});
 io_request(_, Buf) ->
@@ -657,3 +656,10 @@ io_requests([R | Rs], {ok, Buf}) ->
     io_requests(Rs, io_request(R, Buf));
 io_requests(_, Result) ->
     Result.
+
+-ifdef(TEST).
+io_error_test_() ->
+    [?_assertMatch({error, enotsup}, io:getopts()),
+     ?_assertMatch({error, enotsup}, io:columns()),
+     ?_assertMatch({error, enotsup}, io:rows())].
+-endif.

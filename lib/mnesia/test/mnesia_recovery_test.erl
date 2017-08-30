@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -320,7 +321,9 @@ read_during_down(Op, Config) when is_list(Config) ->
     ?log("W2R ~p~n", [W2R]),
     loop_and_kill_mnesia(10, hd(W2R), Tabs),
     [Pid ! self() || Pid <- Readers],
-    ?match([ok, ok, ok], [receive ok -> ok after 1000 -> {Pid, mnesia_lib:dist_coredump()} end || Pid <- Readers]),
+    ?match([ok, ok, ok],
+	   [receive ok -> ok after 5000 -> {Pid, mnesia_lib:dist_coredump()} end
+	    || Pid <- Readers]),
     ?verify_mnesia(Ns, []).
 
 reader(Tab, OP) ->
@@ -338,8 +341,12 @@ reader(Tab, OP) ->
 	    ?error("Expected ~p Got ~p ~n", [[{Tab, key, val}], Else]),
 	    erlang:error(test_failed)
     end,
-    receive Pid ->
-	    Pid ! ok
+    receive
+	Pid when is_pid(Pid) ->
+	    Pid ! ok;
+	Other ->
+	    io:format("Msg: ~p~n", [Other]),
+	    error(Other)
     after 50 ->
 	    reader(Tab, OP)
     end.
@@ -497,12 +504,21 @@ with_checkpoint(Config, Type) when is_list(Config) ->
     ?match(ok, mnesia:deactivate_checkpoint(sune)),
     ?match([], check_chkp(Nodes)),
 
+    Wait = fun(Loop) ->
+		   timer:sleep(300),
+		   sys:get_status(mnesia_monitor),
+		   case lists:member(Kill, mnesia_lib:val({current, db_nodes})) of
+		       true -> Loop(Loop);
+		       false -> ok
+		   end
+	   end,
+
     case Kill of
 	Node1 -> 
 	    ignore;
 	Node2 ->
 	    mnesia_test_lib:kill_mnesia([Kill]),
-	    timer:sleep(500),  %% Just to help debugging
+	    Wait(Wait),
 	    ?match({ok, sune, _}, mnesia:activate_checkpoint([{name, sune}, 
 		{max, mnesia:system_info(tables)}, 
 		{ram_overrides_dump, true}])),
@@ -569,7 +585,7 @@ delete_during_start(Config) when is_list(Config) ->
     mnesia_test_lib:kill_mnesia([N2,N3]),
 %%    timer:sleep(500),
     ?match({[ok,ok],[]}, rpc:multicall([N2,N3], mnesia,start, 
-				       [[{extra_db_nodes,[N1]}]])),
+				       [[{extra_db_nodes,[N1]}, {schema, ?BACKEND}]])),
     [Tab1,Tab2,Tab3|_] = Tabs,
     ?match({atomic, ok}, mnesia:delete_table(Tab1)),
     ?match({atomic, ok}, mnesia:delete_table(Tab2)),
@@ -1535,8 +1551,9 @@ disc_less(Config) when is_list(Config) ->
     ?match(ok, rpc:call(Node2, mnesia, start, [])),
 
     timer:sleep(500),
-    ?match(ok, rpc:call(Node3, mnesia, start, [[{extra_db_nodes, [Node1, Node2]}]])),
+    ?match(ok, rpc:call(Node3, mnesia, start, [[{extra_db_nodes, [Node1, Node2]}, {schema, ?BACKEND}]])),
     ?match(ok, rpc:call(Node3, mnesia, wait_for_tables, [[Tab1, Tab2, Tab3], 20000])),
+    ?match(ok, rpc:call(Node1, mnesia, wait_for_tables, [[Tab1, Tab2, Tab3], 20000])),
 
     ?match(ok, rpc:call(Node3, ?MODULE, verify_data, [Tab1, 100])),
     ?match(ok, rpc:call(Node3, ?MODULE, verify_data, [Tab2, 100])),

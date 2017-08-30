@@ -1,0 +1,95 @@
+module 'map_core_test' ['map_core_test'/0,
+			'module_info'/0,
+			'module_info'/1]
+    attributes []
+'map_core_test'/0 =
+    %% Line 14
+    fun () ->
+	let <_cor0> =
+	    %% Line 15
+	    ~{'check'=>'ok',1337=>#{#<104>(8,1,'integer',['unsigned'|['big']]),
+				      #<101>(8,1,'integer',['unsigned'|['big']]),
+				      #<108>(8,1,'integer',['unsigned'|['big']]),
+				      #<108>(8,1,'integer',['unsigned'|['big']]),
+				      #<111>(8,1,'integer',['unsigned'|['big']])}#,'val'=>0}~
+	in  let <M> =
+		%% Line 15
+		apply 'id'/1
+		    (_cor0)
+	    in  let <_cor2> =
+		    %% Line 16
+		    apply 'id'/1
+			([1|[2|[3|[4|[5|[6]]]]]])
+		in  %% Line 16
+		    case apply 'call'/2
+			     (M, _cor2) of
+		      <~{1337:=#{#<104>(8,1,'integer',['unsigned'|['big']]),
+				#<101>(8,1,'integer',['unsigned'|['big']]),
+				#<108>(8,1,'integer',['unsigned'|['big']]),
+				#<108>(8,1,'integer',['unsigned'|['big']]),
+				#<111>(8,1,'integer',['unsigned'|['big']]),
+				#<32>(8,1,'integer',['unsigned'|['big']]),
+				#<49>(8,1,'integer',['unsigned'|['big']]),
+				#<32>(8,1,'integer',['unsigned'|['big']]),
+				#<50>(8,1,'integer',['unsigned'|['big']]),
+				#<32>(8,1,'integer',['unsigned'|['big']]),
+				#<51>(8,1,'integer',['unsigned'|['big']]),
+				#<32>(8,1,'integer',['unsigned'|['big']]),
+				#<52>(8,1,'integer',['unsigned'|['big']]),
+				#<32>(8,1,'integer',['unsigned'|['big']]),
+				#<53>(8,1,'integer',['unsigned'|['big']]),
+				#<32>(8,1,'integer',['unsigned'|['big']]),
+				#<54>(8,1,'integer',['unsigned'|['big']])}#,'check':='ok','val':=21}~> when 'true' ->
+			  %% Line 17
+			  'ok'
+		      ( <_cor3> when 'true' ->
+			    primop 'match_fail'
+				({'badmatch',_cor3})
+			-| ['compiler_generated'] )
+		    end
+'call'/2 =
+    %% Line 20
+    fun (_cor1,_cor0) ->
+	case <_cor1,_cor0> of
+	  <M = ~{1337:=Bin,'check':=_cor8,'val':=Val}~,[V|Vs]> when 'true' ->
+	      let <_cor3> =
+		  %% Line 21
+		  call 'erlang':'+'
+		      (V, 48)
+	      in  let <_cor4> =
+		      %% Line 21
+		      #{#<Bin>('all',8,'binary',['unsigned'|['big']]),
+			#<32>(8,1,'integer',['unsigned'|['big']]),
+			#<_cor3>(8,1,'integer',['unsigned'|['big']])}#
+		  in  let <_cor2> =
+			  %% Line 21
+			  call 'erlang':'+'
+			      (Val, V)
+		      in  let <_cor5> =
+			      %% Line 21
+			      ~{1337:=_cor4,'val':=_cor2|M}~
+			  in  %% Line 21
+			      apply 'call'/2
+				  (_cor5, Vs)
+	  %% Line 22
+	  <M,[]> when 'true' ->
+	      M
+	  ( <_cor7,_cor6> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_cor7,_cor6})
+		  -| [{'function_name',{'call',2}}] )
+	    -| ['compiler_generated'] )
+	end
+'id'/1 =
+    %% Line 24
+    fun (_cor0) ->
+	_cor0
+'module_info'/0 =
+    fun () ->
+	call 'erlang':'get_module_info'
+	    ('map_core_test')
+'module_info'/1 =
+    fun (_cor0) ->
+	call 'erlang':'get_module_info'
+	    ('map_core_test', _cor0)
+end

@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2013</year>
+      <year>2006</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -30,6 +31,521 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.15.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    HiPE compiler crashed, during compilation, in some cases
+	    that involved inlining of float operations on complicated
+	    control flow graphs.</p>
+          <p>
+	    Own Id: OTP-13407 Aux Id: PR-984 </p>
+        </item>
+        <item>
+          <p>
+	    Various fixes and improvements to the HiPE LLVM backend.
+	    <list> <item>Add support for LLVM 3.7 and 3.8 in the
+	    HiPE/LLVM x86_64 backend</item> <item>Reinstate support
+	    for the LLVM backend on x86 (works OK for LLVM 3.5 to 3.7
+	    -- LLVM 3.8 has a bug that prevents it from generating
+	    correct native code on x86)</item> </list></p>
+          <p>
+	    Own Id: OTP-13626</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Elimination of <c>maps:is_key/2</c> calls to HiPE</p>
+          <p>
+	    Own Id: OTP-13625 Aux Id: PR-1069 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix pretty printing of Core Maps</p>
+          <p>
+	    Literal maps could cause Dialyzer to crash when pretty
+	    printing the results.</p>
+          <p>
+	    Own Id: OTP-13238</p>
+        </item>
+        <item>
+          <p>
+	    Dialyzer warnings removed.</p>
+          <p>
+	    Own Id: OTP-13379</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix HiPE ErLLVM code generation for pattern matching with
+	    UTF binaries.</p>
+          <p>
+	    Own Id: OTP-13269</p>
+        </item>
+        <item>
+          <p>
+	    Fix various binary construction inconsistencies for hipe
+	    compiled code. <list> <item>Passing bad field sizes to
+	    binary constructions would throw <c>badarith</c> rather
+	    than <c>badarg</c>. Worse, in guards, when the unit size
+	    of the field was 1, the exception would leak rather than
+	    failing the function clause match.</item> <item>Passing
+	    bignums as field sizes to binary constructions would
+	    always fail (and always with <c>badarg</c>).</item>
+	    <item>A bug in bs_init_bits that cased binary
+	    constructions to fail with system_limit if they were at
+	    least 1/8th of the actual limit.</item> <item>Compiler
+	    crashes when matches against an integer literal whose
+	    size fits an unsigned word, but not a signed word or
+	    matches against an integer literal that whose size is
+	    larger than the largest allowed bignum.</item> <item>Very
+	    large binary constructions that should fail with
+	    system_limit could instead fail with <c>badarg</c> or
+	    even succeed with a faulty result.</item> <item>Add
+	    missing check for unit size match when inserting a
+	    binary. For example, a faulty expression like
+	    <c>&lt;&lt;&lt;&lt;1:7&gt;&gt;/binary&gt;&gt;</c> would
+	    succeed.</item> </list></p>
+          <p>
+	    Own Id: OTP-13272</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix hipe bug causing segfaults when native code
+	    constructs binaries starting with a zero-length integer
+	    field.</p>
+          <p>
+	    Own Id: OTP-13048</p>
+        </item>
+        <item>
+          <p>
+	    Reintroduce the <c>erlang:make_fun/3</c> BIF in
+	    erl_bif_types.</p>
+          <p>
+	    Own Id: OTP-13068</p>
+        </item>
+        <item>
+          <p>
+	    In certain cases of matching with very big binaries, the
+	    HiPE compiler generated code that would fail the match,
+	    even in cases that the matching was successful. The
+	    problem was more quite noticeable on 32-bit platforms.</p>
+          <p>
+	    Own Id: OTP-13092</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    mikpe/hipe_x86_signal-musl-support</p>
+          <p>
+	    Own Id: OTP-13159</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix bugs concerning <c>erlang:abs/1</c>. </p>
+          <p>
+	    Own Id: OTP-12948</p>
+        </item>
+        <item>
+	    <p> Fix a bug concerning <c>lists:keydelete/3</c> with
+	    union and opaque types. </p>
+          <p>
+	    Own Id: OTP-12949</p>
+        </item>
+        <item>
+          <p>
+	    A beam file compiled by hipe for an incompatible runtime
+	    system was sometimes not rejected by the loader, which
+	    could lead to vm crash. This fix will also allow the same
+	    hipe compiler to be used by both normal and debug-built
+	    vm.</p>
+          <p>
+	    Own Id: OTP-12962</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New function <c>hipe:erts_checksum/0</c> which returns a
+	    value identifying the target runtime system for the
+	    compiler. Used by dialyzer for its beam cache directory.</p>
+          <p>
+	    Own Id: OTP-12963 Aux Id: OTP-12962, OTP-12964 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a minor bug in the handling of opaque types. </p>
+          <p>
+	    Own Id: OTP-12666</p>
+        </item>
+        <item>
+          <p>
+	    Fix hipe bug when matching a "writable" binary. The bug
+	    has been seen to sometimes cause a failed binary matching
+	    of a correct utf8 character, but other symptoms are also
+	    possible.</p>
+          <p>
+	    Own Id: OTP-12667</p>
+        </item>
+        <item>
+          <p>
+	    Optimizations and code cleanup in hipe code loader.</p>
+          <p>
+	    Own Id: OTP-12816</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved error handling when memory allocation for HiPE
+	    code fails.</p>
+          <p>
+	    Own Id: OTP-12448</p>
+        </item>
+        <item>
+          <p>
+	    Allow use of complete interface of cerl_pmatch module</p>
+          <p>
+	    Own Id: OTP-12794</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.11.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix HiPE for ARM when Erlang VM is compiled for Thumb
+	    execution mode. This was a problem on e.g. Ubuntu which
+	    configures its system GCC to generate Thumb by default.</p>
+          <p>
+	    Own Id: OTP-12405</p>
+        </item>
+        <item>
+          <p>
+	    Reduced lock contention of dynamic function lookups (like
+	    apply) from hipe compiled code.</p>
+          <p>
+	    Own Id: OTP-12557</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix two bugs in HiPE compiler regarding floating-points,
+	    both leading to crash during compilation. The
+	    target-specific code generators failed to handle integer
+	    to floating-point conversion instructions with constant
+	    operands. The middle-end could use an incorrect
+	    representation for copies between floating-point
+	    registers.</p>
+          <p>
+	    Own Id: OTP-12413</p>
+        </item>
+        <item>
+          <p>
+	    Improved error handling when memory allocation for HiPE
+	    code fails.</p>
+          <p>
+	    Own Id: OTP-12448</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.11.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed internal elf_format hrl file to contain valid
+	    erlang</p>
+          <p>
+	    Own Id: OTP-12322</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The pretty-printing of bitstrings has been corrected.
+	    </p>
+          <p>
+	    Own Id: OTP-12015</p>
+        </item>
+        <item>
+	    <p> A bug concerning <c>is_record/2,3</c> has been fixed,
+	    as well as some cases where Dialyzer could crash due to
+	    reaching system limits. </p>
+          <p>
+	    Own Id: OTP-12018</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A Dialyzer crash involving analysis of Map types has now
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-11947</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Handle Maps instructions get_map_elements, put_map_assoc,
+	    put_map_exact in HiPE compiler.</p>
+          <p>
+	    Own Id: OTP-11900</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.10.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix compilation with 'no_remove_comments' (Thanks to
+	    Johannes WeiÃŸl)</p>
+          <p>
+	    Own Id: OTP-11564</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+        <item>
+          <p>
+	    There is now a test suite for the Hipe application</p>
+          <p>
+	    Own Id: OTP-11748</p>
+        </item>
+        <item>
+          <p>
+	    Support for a LLVM backend has been added in HiPE</p>
+          <p>
+	    Own Id: OTP-11801</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The pre-defined types <c>array/0</c>, <c>dict/0</c>,
+	    <c>digraph/0</c>, <c>gb_set/0</c>, <c>gb_tree/0</c>,
+	    <c>queue/0</c>, <c>set/0</c>, and <c>tid/0</c> have been
+	    deprecated. They will be removed in Erlang/OTP 18.0. </p>
+	    <p> Instead the types <c>array:array/0</c>,
+	    <c>dict:dict/0</c>, <c>digraph:graph/0</c>,
+	    <c>gb_set:set/0</c>, <c>gb_tree:tree/0</c>,
+	    <c>queue:queue/0</c>, <c>sets:set/0</c>, and
+	    <c>ets:tid/0</c> can be used. (Note: it has always been
+	    necessary to use <c>ets:tid/0</c>.) </p> <p> It is
+	    allowed in Erlang/OTP 17.0 to locally re-define the types
+	    <c>array/0</c>, <c>dict/0</c>, and so on. </p> <p> New
+	    types <c>array:array/1</c>, <c>dict:dict/2</c>,
+	    <c>gb_sets:set/1</c>, <c>gb_trees:tree/2</c>,
+	    <c>queue:queue/1</c>, and <c>sets:set/1</c> have been
+	    added. </p> <p> A compiler option,
+	    <c>nowarn_deprecated_type</c>, has been introduced. By
+	    including the attribute </p> <c>
+	    -compile(nowarn_deprecated_type).</c> <p> in an Erlang
+	    source file, warnings about deprecated types can be
+	    avoided in Erlang/OTP 17.0. </p> <p> The option can also
+	    be given as a compiler flag: </p> <c> erlc
+	    +nowarn_deprecated_type file.erl</c>
+          <p>
+	    Own Id: OTP-10342</p>
+        </item>
+        <item>
+          <p>
+	    EEP43: New data type - Maps</p>
+          <p>
+	    With Maps you may for instance:</p>
+          <taglist>
+            <tag/> <item><c>M0 = #{ a =&gt; 1, b =&gt; 2}, % create
+	      associations</c></item>
+            <tag/><item><c>M1 = M0#{ a := 10 }, % update values</c></item>
+            <tag/><item><c>M2 = M1#{ "hi" =&gt;
+	      "hello"}, % add new associations</c></item>
+            <tag/><item><c>#{ "hi" := V1, a := V2, b := V3} = M2.
+               % match keys with values</c></item>
+          </taglist>
+          <p>
+	    For information on how to use Maps please see Map Expressions in the
+		<seealso marker="doc/reference_manual:expressions#map_expressions">
+			Reference Manual</seealso>.</p>
+          <p>
+	    The current implementation is without the following
+	    features:</p>
+          <taglist>
+            <tag/><item>No variable keys</item>
+	    <tag/><item>No single value access</item>
+            <tag/><item>No map comprehensions</item>
+          </taglist>
+          <p>
+	    Note that Maps is <em>experimental</em> during OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-11616</p>
+        </item>
+        <item>
+	    <p> Parameterized opaque types have been introduced. </p>
+          <p>
+	    Own Id: OTP-11625</p>
+        </item>
+        <item>
+          <p>
+	    Add support for the compilation of the is_map/1 and
+	    map_size/1 guards to native code.</p>
+          <p>
+	    Own Id: OTP-11831</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.10.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a dialyzer crash when using remote types in the
+	    tail position of a maybe_improper_list/2 type. Thanks to
+	    Kostis Sagonas</p>
+          <p>
+	    Own Id: OTP-11374</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.10.2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The encoding of the <c>notes.xml</c> file has been
+	    changed from latin1 to utf-8 to avoid future merge
+	    problems.</p>
+          <p>
+	    Own Id: OTP-11310</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.10.2</title>
 
     <section><title>Improvements and New Features</title>
@@ -37,7 +553,7 @@
         <item>
           <p>
 	    Fix the title of hipe_app documentation page. Thanks to
-	    Loïc Hoguin.</p>
+	    LoÃ¯c Hoguin.</p>
           <p>
 	    Own Id: OTP-10904</p>
         </item>
@@ -76,7 +592,7 @@
           <p>
 	    Fix bug in hipe compiled code related to the handling of
 	    <c>is_number/1</c>. (Thanks to Sebastian Egner and
-	    Johannes Weißl for minimal test code and Kostis for quick
+	    Johannes WeiÃŸl for minimal test code and Kostis for quick
 	    patch)</p>
           <p>
 	    Own Id: OTP-10897</p>
@@ -241,19 +757,17 @@
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
-          <p>
 	    <list> <item><p>No warnings for underspecs with remote
 	    types</p></item> <item><p> Fix crash in Typer</p></item>
 	    <item><p>Fix Dialyzer's warning for its own
 	    code</p></item> <item><p>Fix Dialyzer's warnings in
 	    HiPE</p></item> <item><p>Add file/line info in a
 	    particular Dialyzer crash</p></item> <item><p>Update
-	    inets test results</p></item> </list></p>
+	    inets test results</p></item> </list>
           <p>
 	    Own Id: OTP-9758</p>
         </item>
         <item>
-          <p>
 	    <list> <item><p>Correct callback spec in application
 	    module</p></item> <item><p>Refine warning about callback
 	    specs with extra ranges</p></item> <item><p>Cleanup
@@ -264,7 +778,7 @@
 	    analysis</p></item> <item><p>Fix crash in
 	    Dialyzer</p></item> <item><p>Variable substitution was
 	    not generalizing any unknown variables.</p></item>
-	    </list></p>
+	    </list>
           <p>
 	    Own Id: OTP-9776</p>
         </item>

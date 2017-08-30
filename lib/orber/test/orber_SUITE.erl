@@ -1,26 +1,27 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
 %%
 -module(orber_SUITE).
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
--define(default_timeout, ?t:minutes(15)).
+-define(default_timeout, test_server:minutes(15)).
 -define(application, orber).
 
 % Test server specific exports
@@ -63,21 +64,19 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
+    Dog=proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
 %
 % Test cases starts here.
 %
-app_test(doc) -> [];
-app_test(suite) -> [];
 app_test(_Config) ->
-    ?line ok=?t:app_test(orber),
+    ok=test_server:app_test(orber),
     ok.
 
 otp_9887(_Config) ->
@@ -102,10 +101,6 @@ otp_9887(_Config) ->
     ok.
 
 %% Install Orber using the load_order option.
-install_load_order(suite) ->
-    [];
-install_load_order(doc) ->
-    [];
 install_load_order(_Config) ->
     orber:jump_stop(),
     case catch install_load_order2() of
@@ -128,10 +123,6 @@ install_load_order2() ->
     ok.
 
 %% Install Orber using the local_content option.
-install_local_content(suite) ->
-    [];
-install_local_content(doc) ->
-    [];
 install_local_content(_Config) ->
     orber:jump_stop(),
     case catch install_local_content2() of
@@ -156,10 +147,6 @@ install_local_content2() ->
 
 
 %% Check for undefined functions
-undefined_functions(suite) ->
-    [];
-undefined_functions(doc) ->
-    [];
 undefined_functions(_Config) ->
     App            = orber,
     Root           = code:root_dir(),

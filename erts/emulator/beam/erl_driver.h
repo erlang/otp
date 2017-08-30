@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -34,52 +35,6 @@
 #    undef ERL_DRV_DEPRECATED_FUNC
 #    define ERL_DRV_DEPRECATED_FUNC __attribute__((deprecated))
 #  endif
-#endif
-
-#ifdef SIZEOF_CHAR
-#  define SIZEOF_CHAR_SAVED__ SIZEOF_CHAR
-#  undef SIZEOF_CHAR
-#endif
-#ifdef SIZEOF_SHORT
-#  define SIZEOF_SHORT_SAVED__ SIZEOF_SHORT
-#  undef SIZEOF_SHORT
-#endif
-#ifdef SIZEOF_INT
-#  define SIZEOF_INT_SAVED__ SIZEOF_INT
-#  undef SIZEOF_INT
-#endif
-#ifdef SIZEOF_LONG
-#  define SIZEOF_LONG_SAVED__ SIZEOF_LONG
-#  undef SIZEOF_LONG
-#endif
-#ifdef SIZEOF_LONG_LONG
-#  define SIZEOF_LONG_LONG_SAVED__ SIZEOF_LONG_LONG
-#  undef SIZEOF_LONG_LONG
-#endif
-#ifdef HALFWORD_HEAP_EMULATOR
-#  define HALFWORD_HEAP_EMULATOR_SAVED__ HALFWORD_HEAP_EMULATOR
-#  undef HALFWORD_HEAP_EMULATOR
-#endif
-#include "erl_int_sizes_config.h"
-#if defined(SIZEOF_CHAR_SAVED__) && SIZEOF_CHAR_SAVED__ != SIZEOF_CHAR
-#  error SIZEOF_CHAR mismatch
-#endif
-#if defined(SIZEOF_SHORT_SAVED__) && SIZEOF_SHORT_SAVED__ != SIZEOF_SHORT
-#  error SIZEOF_SHORT mismatch
-#endif
-#if defined(SIZEOF_INT_SAVED__) && SIZEOF_INT_SAVED__ != SIZEOF_INT
-#  error SIZEOF_INT mismatch
-#endif
-#if defined(SIZEOF_LONG_SAVED__) && SIZEOF_LONG_SAVED__ != SIZEOF_LONG
-#  error SIZEOF_LONG mismatch
-#endif
-#if defined(SIZEOF_LONG_LONG_SAVED__) && SIZEOF_LONG_LONG_SAVED__ != SIZEOF_LONG_LONG
-#  error SIZEOF_LONG_LONG mismatch
-#endif
-
-/* This is OK to override by the NIF/driver implementor */
-#if defined(HALFWORD_HEAP_EMULATOR_SAVED__) && !defined(HALFWORD_HEAP_EMULATOR)
-#define HALFWORD_HEAP_EMULATOR HALFWORD_HEAP_EMULATOR_SAVED__
 #endif
 
 #include "erl_drv_nif.h"
@@ -132,8 +87,24 @@ typedef struct {
 #define DO_WRITE ERL_DRV_WRITE
 
 #define ERL_DRV_EXTENDED_MARKER		(0xfeeeeeed)
-#define ERL_DRV_EXTENDED_MAJOR_VERSION	2
-#define ERL_DRV_EXTENDED_MINOR_VERSION	1
+#define ERL_DRV_EXTENDED_MAJOR_VERSION	3
+#define ERL_DRV_EXTENDED_MINOR_VERSION	3
+
+/*
+ * The emulator will refuse to load a driver with a major version
+ * lower than ERL_DRV_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD. The load
+ * may however fail if user have not removed use of deprecated
+ * symbols.
+ *
+ * The ERL_DRV_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD have to allow
+ * loading of drivers built at least two major OTP releases
+ * ago.
+ *
+ * Bump of major version to 3 happened in OTP 17. That is, in
+ * OTP 19 we can increase ERL_DRV_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD
+ * to 3.
+ */
+#define ERL_DRV_MIN_REQUIRED_MAJOR_VERSION_ON_LOAD 2
 
 /*
  * The emulator will refuse to load a driver with different major
@@ -155,34 +126,19 @@ typedef struct {
 #define ERL_DRV_FLAG_USE_PORT_LOCKING	(1 << 0)
 #define ERL_DRV_FLAG_SOFT_BUSY		(1 << 1)
 #define ERL_DRV_FLAG_NO_BUSY_MSGQ	(1 << 2)
+#define ERL_DRV_FLAG_USE_INIT_ACK	(1 << 3)
 
 /*
  * Integer types
  */
-#if  defined(__WIN32__) && (SIZEOF_VOID_P == 8)
-typedef unsigned __int64 ErlDrvTermData;
-typedef unsigned __int64 ErlDrvUInt;
-typedef signed __int64 ErlDrvSInt;
-#else
-typedef unsigned long ErlDrvTermData;
-typedef unsigned long ErlDrvUInt;
-typedef signed long ErlDrvSInt;
-#endif
 
-#if defined(__WIN32__)
-typedef unsigned __int64 ErlDrvUInt64;
-typedef __int64 ErlDrvSInt64;
-#elif SIZEOF_LONG == 8
-typedef unsigned long ErlDrvUInt64;
-typedef long ErlDrvSInt64;
-#elif SIZEOF_LONG_LONG == 8
-typedef unsigned long long ErlDrvUInt64;
-typedef long long ErlDrvSInt64;
-#else
-#error No 64-bit integer type
-#endif
+typedef ErlNapiUInt64 ErlDrvUInt64;
+typedef ErlNapiSInt64 ErlDrvSInt64;
+typedef ErlNapiUInt ErlDrvUInt;
+typedef ErlNapiSInt ErlDrvSInt;
+typedef ErlNapiUInt ErlDrvTermData;
 
-#if defined(__WIN32__)
+#if defined(__WIN32__) || defined(_WIN32)
 typedef ErlDrvUInt ErlDrvSizeT;
 typedef ErlDrvSInt ErlDrvSSizeT;
 #else
@@ -233,6 +189,17 @@ typedef struct {
     unsigned long microsecs;
 } ErlDrvNowData;
 
+typedef ErlDrvSInt64 ErlDrvTime;
+
+#define ERL_DRV_TIME_ERROR ((ErlDrvSInt64) ERTS_NAPI_TIME_ERROR__)
+
+typedef enum {
+    ERL_DRV_SEC = ERTS_NAPI_SEC__,
+    ERL_DRV_MSEC = ERTS_NAPI_MSEC__,
+    ERL_DRV_USEC = ERTS_NAPI_USEC__,
+    ERL_DRV_NSEC = ERTS_NAPI_NSEC__
+} ErlDrvTimeUnit;
+
 /*
  * Error codes that can be return from driver.
  */
@@ -270,7 +237,6 @@ typedef struct ErlDrvMutex_ ErlDrvMutex;
 typedef struct ErlDrvCond_ ErlDrvCond;
 typedef struct ErlDrvRWLock_ ErlDrvRWLock;
 typedef int ErlDrvTSDKey;
-
 
 /*
  * 
@@ -346,6 +312,9 @@ typedef struct erl_drv_entry {
     	                        /* Called on behalf of driver_select when
 				   it is safe to release 'event'. A typical
 				   unix driver would call close(event) */
+    void (*emergency_close)(ErlDrvData drv_data);
+                                /* called when the port is closed abruptly.
+				   specifically when erl_crash_dump is called. */
     /* When adding entries here, dont forget to pad in obsolete/driver.h */
 } ErlDrvEntry;
 
@@ -365,18 +334,25 @@ typedef struct erl_drv_entry {
  * It must initialize a ErlDrvEntry structure and return a pointer to it.
  */
 
-/* For windows dynamic drivers */
+#ifdef STATIC_ERLANG_DRIVER
+#  define ERLANG_DRIVER_NAME(NAME) NAME ## _driver_init
+#  define ERL_DRIVER_EXPORT
+#else
+#  define ERLANG_DRIVER_NAME(NAME) driver_init
+#  if defined(__GNUC__) && __GNUC__ >= 4
+#    define ERL_DRIVER_EXPORT __attribute__ ((visibility("default")))
+#  elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
+#    define ERL_DRIVER_EXPORT __global
+#  else
+#    define ERL_DRIVER_EXPORT
+#  endif
+#endif
+
 #ifndef ERL_DRIVER_TYPES_ONLY
 
-#if defined(__WIN32__)
-#  define DRIVER_INIT(DRIVER_NAME) \
-    __declspec(dllexport) ErlDrvEntry* driver_init(void); \
-    __declspec(dllexport) ErlDrvEntry* driver_init(void)
-#else 
-#  define DRIVER_INIT(DRIVER_NAME) \
-    ErlDrvEntry* driver_init(void); \
-    ErlDrvEntry* driver_init(void)
-#endif
+#define DRIVER_INIT(DRIVER_NAME) \
+    ERL_DRIVER_EXPORT ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void); \
+    ERL_DRIVER_EXPORT ErlDrvEntry* ERLANG_DRIVER_NAME(DRIVER_NAME)(void)
 
 #define ERL_DRV_BUSY_MSGQ_DISABLED	(~((ErlDrvSizeT) 0))
 #define ERL_DRV_BUSY_MSGQ_READ_ONLY	((ErlDrvSizeT) 0)
@@ -546,6 +522,11 @@ EXTERN int erl_drv_equal_tids(ErlDrvTid tid1, ErlDrvTid tid2);
 EXTERN void erl_drv_thread_exit(void *resp);
 EXTERN int erl_drv_thread_join(ErlDrvTid, void **respp);
 
+EXTERN char* erl_drv_mutex_name(ErlDrvMutex *mtx);
+EXTERN char* erl_drv_cond_name(ErlDrvCond *cnd);
+EXTERN char* erl_drv_rwlock_name(ErlDrvRWLock *rwlck);
+EXTERN char* erl_drv_thread_name(ErlDrvTid tid);
+
 /*
  * Misc.
  */
@@ -594,6 +575,8 @@ EXTERN int null_func(void);
 #define ERL_DRV_INT64       ((ErlDrvTermData) 15) /* ErlDrvSInt64 * */
 #define ERL_DRV_UINT64      ((ErlDrvTermData) 16) /* ErlDrvUInt64 * */
 
+#define ERL_DRV_MAP         ((ErlDrvTermData) 17) /* ErlDrvUInt */
+
 #ifndef ERL_DRIVER_TYPES_ONLY
 
 /* make terms for driver_output_term and driver_send_term */
@@ -638,17 +621,13 @@ EXTERN int erl_drv_send_term(ErlDrvTermData port,
 			     int len);
 
 /* Async IO functions */
+EXTERN unsigned int driver_async_port_key(ErlDrvPort port);
+
 EXTERN long driver_async(ErlDrvPort ix,
 			 unsigned int* key,
 			 void (*async_invoke)(void*), 
 			 void* async_data,
 			 void (*async_free)(void*));
-
-/*
- * driver_async_cancel() is deprecated. It is scheduled for removal
- * in OTP-R16. For more information see the erl_driver(3) documentation.
- */
-EXTERN int driver_async_cancel(unsigned int key) ERL_DRV_DEPRECATED_FUNC;
 
 /* Locks the driver in the machine "forever", there is
    no unlock function. Note that this is almost never useful, as an open
@@ -657,8 +636,16 @@ EXTERN int driver_async_cancel(unsigned int key) ERL_DRV_DEPRECATED_FUNC;
 EXTERN int driver_lock_driver(ErlDrvPort ix);
 
 /* Get the current 'now' timestamp (analogue to erlang:now()) */
-EXTERN int driver_get_now(ErlDrvNowData *now);
+EXTERN int driver_get_now(ErlDrvNowData *now) ERL_DRV_DEPRECATED_FUNC;
 
+/* Erlang Monotonic Time */
+EXTERN ErlDrvTime erl_drv_monotonic_time(ErlDrvTimeUnit time_unit);
+/* Time offset between Erlang Monotonic Time and Erlang System Time */
+EXTERN ErlDrvTime erl_drv_time_offset(ErlDrvTimeUnit time_unit);
+/* Time unit conversion */
+EXTERN ErlDrvTime erl_drv_convert_time_unit(ErlDrvTime val,
+					    ErlDrvTimeUnit from,
+					    ErlDrvTimeUnit to);
 
 /* These were removed from the ANSI version, now they're back. */
 
@@ -668,8 +655,14 @@ EXTERN int driver_dl_close(void *);
 EXTERN char *driver_dl_error(void);
 
 /* environment */
-EXTERN int erl_drv_putenv(char *key, char *value);
-EXTERN int erl_drv_getenv(char *key, char *value, size_t *value_size);
+EXTERN int erl_drv_putenv(const char *key, char *value);
+EXTERN int erl_drv_getenv(const char *key, char *value, size_t *value_size);
+
+/* spawn start init ack */
+EXTERN void erl_drv_init_ack(ErlDrvPort ix, ErlDrvData res);
+
+/* set the pid seen in port_info */
+EXTERN void erl_drv_set_os_pid(ErlDrvPort ix, ErlDrvSInt pid);
 
 #endif /* !ERL_DRIVER_TYPES_ONLY */
 
@@ -681,6 +674,3 @@ EXTERN int erl_drv_getenv(char *key, char *value, size_t *value_size);
 
 /* also in global.h, but driver's can't include global.h */
 void dtrace_drvport_str(ErlDrvPort port, char *port_buf);
-
-
-

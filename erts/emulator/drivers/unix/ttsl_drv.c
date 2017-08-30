@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -32,6 +33,10 @@ static ErlDrvData ttysl_start(ErlDrvPort, char*);
 
 #ifdef HAVE_TERMCAP  /* else make an empty driver that can not be opened */
 
+#ifndef WANT_NONBLOCKING
+#define WANT_NONBLOCKING
+#endif
+
 #include "sys.h"
 #include <ctype.h>
 #include <stdlib.h>
@@ -39,6 +44,7 @@ static ErlDrvData ttysl_start(ErlDrvPort, char*);
 #include <string.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <locale.h>
 #include <unistd.h>
 #include <termios.h>
@@ -55,6 +61,14 @@ static ErlDrvData ttysl_start(ErlDrvPort, char*);
 #define PRIMITIVE_UTF8_CHECK 1
 #else
 #include <langinfo.h>
+#endif
+
+#if defined IOV_MAX
+#define MAXIOV IOV_MAX
+#elif defined UIO_MAXIOV
+#define MAXIOV UIO_MAXIOV
+#else
+#define MAXIOV 16
 #endif
 
 #define TRUE 1
@@ -80,12 +94,15 @@ static volatile int cols_needs_update = FALSE;
 #define OP_INSC 2
 #define OP_DELC 3
 #define OP_BEEP 4
+#define OP_PUTC_SYNC 5
 /* Control op */
 #define CTRL_OP_GET_WINSIZE 100
 #define CTRL_OP_GET_UNICODE_STATE 101
 #define CTRL_OP_SET_UNICODE_STATE 102
 
-
+/* We use 1024 as the buf size as that was the default buf size of FILE streams
+   on all platforms that I checked. */
+#define TTY_BUFFSIZE 1024
 
 static int lbuf_size = BUFSIZ;
 static Uint32 *lbuf;		/* The current line buffer */
@@ -113,13 +130,19 @@ static int lpos;                /* The current "cursor position" in the line buf
 /* Main interface functions. */
 static void ttysl_stop(ErlDrvData);
 static void ttysl_from_erlang(ErlDrvData, char*, ErlDrvSizeT);
+static void ttysl_to_tty(ErlDrvData, ErlDrvEvent);
+static void ttysl_flush_tty(ErlDrvData);
 static void ttysl_from_tty(ErlDrvData, ErlDrvEvent);
 static void ttysl_stop_select(ErlDrvEvent, void*);
 static Sint16 get_sint16(char*);
 
 static ErlDrvPort ttysl_port;
 static int ttysl_fd;
-static FILE *ttysl_out;
+static int ttysl_terminate = 0;
+static int ttysl_send_ok = 0;
+static ErlDrvBinary *putcbuf;
+static int putcpos;
+static int putclen;
 
 /* Functions that work on the line buffer. */
 static int start_lbuf(void);
@@ -176,7 +199,7 @@ static void my_debug_printf(char *fmt, ...)
     erts_vsnprintf(buffer,1024,fmt,args);
     va_end(args);
     erts_fprintf(debuglog,"%s\n",buffer);
-    //erts_printf("Debuglog = %s\n",buffer);
+    /*erts_printf("Debuglog = %s\n",buffer);*/
 }
 
 #else
@@ -201,22 +224,22 @@ struct erl_drv_entry ttsl_driver_entry = {
     IF_IMPL(ttysl_stop),
     IF_IMPL(ttysl_from_erlang),
     IF_IMPL(ttysl_from_tty),
-    NULL,
-    "tty_sl",
-    NULL,
-    NULL,
+    IF_IMPL(ttysl_to_tty),
+    "tty_sl", /* driver_name */
+    NULL, /* finish */
+    NULL, /* handle */
     IF_IMPL(ttysl_control),
     NULL, /* timeout */
     NULL, /* outputv */
     NULL, /* ready_async */
-    NULL, /* flush */
+    IF_IMPL(ttysl_flush_tty),
     NULL, /* call */
     NULL, /* event */
     ERL_DRV_EXTENDED_MARKER,
     ERL_DRV_EXTENDED_MAJOR_VERSION,
     ERL_DRV_EXTENDED_MINOR_VERSION,
     0, /* ERL_DRV_FLAGs */
-    NULL,
+    NULL, /* handle2 */
     NULL, /* process_exit */
     IF_IMPL(ttysl_stop_select)
 };
@@ -238,7 +261,7 @@ static int ttysl_init(void)
 	    if (debuglog != NULL)
 		setbuf(debuglog,NULL);
 	}
-	DEBUGLOG(("Debuglog = %s(0x%ld)\n",dl,(long) debuglog));
+	DEBUGLOG(("ttysl_init: Debuglog = %s(0x%ld)\n",dl,(long) debuglog));
     }
 #endif
     return 0;
@@ -254,36 +277,46 @@ static ErlDrvData ttysl_start(ErlDrvPort port, char* buf)
     int flag;
     extern int using_oldshell; /* set this to let the rest of erts know */
 
+    DEBUGLOG(("ttysl_start: driver input \"%s\", ttysl_port = %d (-1 expected)", buf, ttysl_port));
     utf8buf_size = 0;
-    if (ttysl_port != (ErlDrvPort)-1)
-      return ERL_DRV_ERROR_GENERAL;
+    if (ttysl_port != (ErlDrvPort)-1) {
+        DEBUGLOG(("ttysl_start: failure with ttysl_port = %d, not initialized properly?\n", ttysl_port));
+        return ERL_DRV_ERROR_GENERAL;
+    }
 
-    if (!isatty(0) || !isatty(1))
+    DEBUGLOG(("ttysl_start: isatty(0) = %d (1 expected), isatty(1) = %d (1 expected)", isatty(0), isatty(1)));
+    if (!isatty(0) || !isatty(1)) {
+        DEBUGLOG(("ttysl_start: failure in isatty, isatty(0) = %d, isatty(1) = %d", isatty(0), isatty(1)));
 	return ERL_DRV_ERROR_GENERAL;
+    }
 
     /* Set the terminal modes to default leave as is. */
     canon = echo = sig = 0;
 
     /* Parse the input parameters. */
     for (s = strchr(buf, ' '); s; s = t) {
-	s++;
-	/* Find end of this argument (start of next) and insert NUL. */
-	if ((t = strchr(s, ' '))) {
-	    *t = '\0';
-	}
-	if ((flag = ((*s == '+') ? 1 : ((*s == '-') ? -1 : 0)))) {
-	    if (s[1] == 'c') canon = flag;
-	    if (s[1] == 'e') echo = flag;
-	    if (s[1] == 's') sig = flag;
-	}
-	else if ((ttysl_fd = open(s, O_RDWR, 0)) < 0)
-	      return ERL_DRV_ERROR_GENERAL;
+        s++;
+        /* Find end of this argument (start of next) and insert NUL. */
+        if ((t = strchr(s, ' '))) {
+            *t = '\0';
+        }
+        if ((flag = ((*s == '+') ? 1 : ((*s == '-') ? -1 : 0)))) {
+            if (s[1] == 'c') canon = flag;
+            if (s[1] == 'e') echo = flag;
+            if (s[1] == 's') sig = flag;
+        }
+        else if ((ttysl_fd = open(s, O_RDWR, 0)) < 0) {
+            DEBUGLOG(("ttysl_start: failed to open ttysl_fd, open(%s, O_RDWR, 0)) = %d\n", s, ttysl_fd));
+            return ERL_DRV_ERROR_GENERAL;
+        }
     }
+
     if (ttysl_fd < 0)
       ttysl_fd = 0;
 
     if (tty_init(ttysl_fd, canon, echo, sig) < 0 ||
-	tty_set(ttysl_fd) < 0) {
+        tty_set(ttysl_fd) < 0) {
+        DEBUGLOG(("ttysl_start: failed init tty or set tty\n"));
 	ttysl_port = (ErlDrvPort)-1;
 	tty_reset(ttysl_fd);
 	return ERL_DRV_ERROR_GENERAL;
@@ -291,13 +324,13 @@ static ErlDrvData ttysl_start(ErlDrvPort port, char* buf)
 
     /* Set up smart line and termcap stuff. */
     if (!start_lbuf() || !start_termcap()) {
+        DEBUGLOG(("ttysl_start: failed to start_lbuf or start_termcap\n"));
 	stop_lbuf();		/* Must free this */
 	tty_reset(ttysl_fd);
 	return ERL_DRV_ERROR_GENERAL;
     }
 
-    /* Open the terminal and set the terminal */
-    ttysl_out = fdopen(ttysl_fd, "w");
+    SET_NONBLOCKING(ttysl_fd);
 
 #ifdef PRIMITIVE_UTF8_CHECK
     setlocale(LC_CTYPE, "");  /* Set international environment, 
@@ -313,12 +346,12 @@ static ErlDrvData ttysl_start(ErlDrvPort port, char* buf)
     l = setlocale(LC_CTYPE, "");  /* Set international environment */
     if (l != NULL) {
 	utf8_mode = (strcmp(nl_langinfo(CODESET), "UTF-8") == 0);
-	DEBUGLOG(("setlocale: %s\n",l));
+	DEBUGLOG(("ttysl_start: setlocale: %s",l));
     }
 #endif
-    DEBUGLOG(("utf8_mode is %s\n",(utf8_mode) ? "on" : "off"));
-    sys_sigset(SIGCONT, cont);
-    sys_sigset(SIGWINCH, winch);
+    DEBUGLOG(("ttysl_start: utf8_mode is %s",(utf8_mode) ? "on" : "off"));
+    sys_signal(SIGCONT, cont);
+    sys_signal(SIGWINCH, winch);
 
     driver_select(port, (ErlDrvEvent)(UWord)ttysl_fd, ERL_DRV_READ|ERL_DRV_USE, 1);
     ttysl_port = port;
@@ -326,6 +359,7 @@ static ErlDrvData ttysl_start(ErlDrvPort port, char* buf)
     /* we need to know this when we enter the break handler */
     using_oldshell = 0;
 
+    DEBUGLOG(("ttysl_start: successful start\n"));
     return (ErlDrvData)ttysl_port;	/* Nothing important to return */
 #endif /* HAVE_TERMCAP */
 }
@@ -396,16 +430,19 @@ static ErlDrvSSizeT ttysl_control(ErlDrvData drv_data,
 
 static void ttysl_stop(ErlDrvData ttysl_data)
 {
+    DEBUGLOG(("ttysl_stop: ttysl_port = %d\n",ttysl_port));
     if (ttysl_port != (ErlDrvPort)-1) {
 	stop_lbuf();
 	stop_termcap();
 	tty_reset(ttysl_fd);
-	driver_select(ttysl_port, (ErlDrvEvent)(UWord)ttysl_fd, ERL_DRV_READ|ERL_DRV_USE, 0);
-	sys_sigset(SIGCONT, SIG_DFL);
-	sys_sigset(SIGWINCH, SIG_DFL);
+	driver_select(ttysl_port, (ErlDrvEvent)(UWord)ttysl_fd,
+                      ERL_DRV_WRITE|ERL_DRV_READ|ERL_DRV_USE, 0);
+	sys_signal(SIGCONT, SIG_DFL);
+	sys_signal(SIGWINCH, SIG_DFL);
     }
     ttysl_port = (ErlDrvPort)-1;
     ttysl_fd = -1;
+    ttysl_terminate = 0;
     /* return TRUE; */
 }
 
@@ -593,12 +630,13 @@ static int check_buf_size(byte *s, int n)
     int ch;
     int size = 10;
 
+    DEBUGLOG(("check_buf_size: n = %d",n));
     while(pos < n) {
 	/* Indata is always UTF-8 */
 	if ((ch = pick_utf8(s,n,&pos)) < 0) {
 	    /* XXX temporary allow invalid chars */
 	    ch = (int) s[pos];
-	    DEBUGLOG(("Invalid UTF8:%d",ch));
+	    DEBUGLOG(("check_buf_size: Invalid UTF8:%d",ch));
 	    ++pos;
 	} 
 	if (utf8_mode) { /* That is, terminal is UTF8 compliant */
@@ -606,7 +644,7 @@ static int check_buf_size(byte *s, int n)
 #ifdef HAVE_WCWIDTH
 		int width;
 #endif
-		DEBUGLOG(("Printable(UTF-8:%d):%d",pos,ch));
+		DEBUGLOG(("check_buf_size: Printable(UTF-8:%d):%d",pos,ch));
 		size++;
 #ifdef HAVE_WCWIDTH
 		if ((width = wcwidth(ch)) > 1) {
@@ -616,21 +654,21 @@ static int check_buf_size(byte *s, int n)
 	    } else if (ch == '\t') {
 		size += 8;
 	    } else {
-		DEBUGLOG(("Magic(UTF-8:%d):%d",pos,ch));
+		DEBUGLOG(("check_buf_size: Magic(UTF-8:%d):%d",pos,ch));
 		size += 2;
 	    }
 	} else {
 	    if (ch <= 255 && isprint(ch)) {
-		DEBUGLOG(("Printable:%d",ch));
+		DEBUGLOG(("check_buf_size: Printable:%d",ch));
 		size++;
 	    } else if (ch == '\t') 
 		size += 8;
 	    else if (ch >= 128) {
-		DEBUGLOG(("Non printable:%d",ch));
+		DEBUGLOG(("check_buf_size: Non printable:%d",ch));
 		size += (octal_or_hex_positions(ch) + 1);
 	    }
 	    else {
-		DEBUGLOG(("Magic:%d",ch));
+		DEBUGLOG(("check_buf_size: Magic:%d",ch));
 		size += 2;
 	    }
 	}
@@ -640,22 +678,42 @@ static int check_buf_size(byte *s, int n)
 
 	lbuf_size = size + lpos + BUFSIZ;
 	if ((lbuf = driver_realloc(lbuf, lbuf_size * sizeof(Uint32))) == NULL) {
+            DEBUGLOG(("check_buf_size: alloc failure of %d bytes", lbuf_size * sizeof(Uint32)));
 	    driver_failure(ttysl_port, -1);
 	    return(0);
 	}
     }
+    DEBUGLOG(("check_buf_size: success\n"));
     return(1);
 }
 
 
 static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT count)
 {
+    ErlDrvSizeT sz;
+
+    sz = driver_sizeq(ttysl_port);
+
+    putclen = count > TTY_BUFFSIZE ? TTY_BUFFSIZE : count;
+    putcbuf = driver_alloc_binary(putclen);
+    putcpos = 0;
+
     if (lpos > MAXSIZE) 
 	put_chars((byte*)"\n", 1);
 
+    DEBUGLOG(("ttysl_from_erlang: OP = %d", buf[0]));
+
     switch (buf[0]) {
+    case OP_PUTC_SYNC:
+        /* Using sync means that we have to send an ok to the
+           controlling process for each command call. We delay
+           sending ok if the driver queue exceeds a certain size.
+           We do not set ourselves as a busy port, as this
+           could be very bad for user_drv, if it gets blocked on
+           the port_command. */
+        /* fall through */
     case OP_PUTC:
-	DEBUGLOG(("OP: Putc(%lu)",(unsigned long) count-1));
+	DEBUGLOG(("ttysl_from_erlang: OP: Putc(%lu)",(unsigned long) count-1));
 	if (check_buf_size((byte*)buf+1, count-1) == 0)
 	    return; 
 	put_chars((byte*)buf+1, count-1);
@@ -678,8 +736,112 @@ static void ttysl_from_erlang(ErlDrvData ttysl_data, char* buf, ErlDrvSizeT coun
 	/* Unknown op, just ignore. */
 	break;
     }
-    fflush(ttysl_out);
+
+    driver_enq_bin(ttysl_port,putcbuf,0,putcpos);
+    driver_free_binary(putcbuf);
+
+    if (sz == 0) {
+        for (;;) {
+            int written, qlen;
+            SysIOVec *iov;
+
+            iov = driver_peekq(ttysl_port,&qlen);
+            if (iov)
+                written = writev(ttysl_fd, iov, qlen > MAXIOV ? MAXIOV : qlen);
+            else
+                written = 0;
+            if (written < 0) {
+                if (errno == ERRNO_BLOCK || errno == EINTR) {
+                    driver_select(ttysl_port,(ErlDrvEvent)(long)ttysl_fd,
+                                  ERL_DRV_USE|ERL_DRV_WRITE,1);
+                    break;
+                } else {
+                    DEBUGLOG(("ttysl_from_erlang: driver failure in writev(%d,..) = %d (errno = %d)\n", ttysl_fd, written, errno));
+		    driver_failure_posix(ttysl_port, errno);
+		    return;
+                }
+            } else {
+                if (driver_deq(ttysl_port, written) == 0)
+                    break;
+            }
+        }
+    }
+
+    if (buf[0] == OP_PUTC_SYNC) {
+        if (driver_sizeq(ttysl_port) > TTY_BUFFSIZE && !ttysl_terminate) {
+            /* We delay sending the ack until the buffer has been consumed */
+            ttysl_send_ok = 1;
+        } else {
+            ErlDrvTermData spec[] = {
+                ERL_DRV_PORT, driver_mk_port(ttysl_port),
+                ERL_DRV_ATOM, driver_mk_atom("ok"),
+                ERL_DRV_TUPLE, 2
+            };
+            ASSERT(ttysl_send_ok == 0);
+            erl_drv_output_term(driver_mk_port(ttysl_port), spec,
+                                sizeof(spec) / sizeof(spec[0]));
+        }
+    }
+
     return; /* TRUE; */
+}
+
+static void ttysl_to_tty(ErlDrvData ttysl_data, ErlDrvEvent fd) {
+    for (;;) {
+        int written, qlen;
+        SysIOVec *iov;
+        ErlDrvSizeT sz;
+
+        iov = driver_peekq(ttysl_port,&qlen);
+        
+        DEBUGLOG(("ttysl_to_tty: qlen = %d", qlen));
+
+        if (iov)
+            written = writev(ttysl_fd, iov, qlen > MAXIOV ? MAXIOV : qlen);
+        else
+            written = 0;
+        if (written < 0) {
+            if (errno == EINTR) {
+	        continue;
+	    } else if (errno != ERRNO_BLOCK){
+                DEBUGLOG(("ttysl_to_tty: driver failure in writev(%d,..) = %d (errno = %d)\n", ttysl_fd, written, errno));
+	        driver_failure_posix(ttysl_port, errno);
+            }
+            break;
+        } else {
+            sz = driver_deq(ttysl_port, written);
+            if (sz < TTY_BUFFSIZE && ttysl_send_ok) {
+                ErlDrvTermData spec[] = {
+                    ERL_DRV_PORT, driver_mk_port(ttysl_port),
+                    ERL_DRV_ATOM, driver_mk_atom("ok"),
+                    ERL_DRV_TUPLE, 2
+                };
+                ttysl_send_ok = 0;
+                erl_drv_output_term(driver_mk_port(ttysl_port), spec,
+                                    sizeof(spec) / sizeof(spec[0]));
+            }
+            if (sz == 0) {
+                driver_select(ttysl_port,(ErlDrvEvent)(long)ttysl_fd,
+                              ERL_DRV_WRITE,0);
+                if (ttysl_terminate) {
+                    /* flush has been called, which means we should terminate
+                       when queue is empty. This will not send any exit
+                       message */
+                    DEBUGLOG(("ttysl_to_tty: ttysl_terminate normal\n"));
+                    driver_failure_atom(ttysl_port, "normal");
+		}
+                break;
+            }
+        }
+    }
+
+    return;
+}
+
+static void ttysl_flush_tty(ErlDrvData ttysl_data) {
+    DEBUGLOG(("ttysl_flush_tty: .."));
+    ttysl_terminate = 1;
+    return;
 }
 
 static void ttysl_from_tty(ErlDrvData ttysl_data, ErlDrvEvent fd)
@@ -698,6 +860,8 @@ static void ttysl_from_tty(ErlDrvData ttysl_data, ErlDrvEvent fd)
 	p += utf8buf_size;
 	utf8buf_size = 0;
     }
+
+    DEBUGLOG(("ttysl_from_tty: remainder = %d", left));
     
     if ((i = read((int)(SWord)fd, (char *) p, left)) >= 0) {
 	if (p != b) {
@@ -711,7 +875,7 @@ static void ttysl_from_tty(ErlDrvData ttysl_data, ErlDrvEvent fd)
 		utf8buf_size = i -pos;
 		memcpy(utf8buf,b+pos,utf8buf_size);
 	    } else if (ch == -1) {
-		DEBUGLOG(("Giving up on UTF8 mode, invalid character"));
+		DEBUGLOG(("ttysl_from_tty: Giving up on UTF8 mode, invalid character"));
 		utf8_mode = 0;
 		goto latin_terminal;
 	    }
@@ -728,6 +892,7 @@ static void ttysl_from_tty(ErlDrvData ttysl_data, ErlDrvEvent fd)
 	    }
 	}
     } else {
+        DEBUGLOG(("ttysl_from_tty: driver failure in read(%d,..) = %d\n", (int)(SWord)fd, i)); 
 	driver_failure(ttysl_port, -1);
     }
 }
@@ -745,7 +910,7 @@ static Sint16 get_sint16(char *s)
 {
     return ((*s << 8) | ((byte*)s)[1]);
 }
-
+
 static int start_lbuf(void)
 {
     if (!lbuf && !(lbuf = ( Uint32*) driver_alloc(lbuf_size * sizeof(Uint32))))
@@ -1019,7 +1184,7 @@ static int write_buf(Uint32 *s, int n)
 	    byte *octbuff;
 	    byte octtmp[256];
 	    int octbytes;
-	    DEBUGLOG(("Escaped: %d", ch));
+	    DEBUGLOG(("write_buf: Escaped: %d", ch));
 	    octbytes = octal_or_hex_positions(ch);
 	    if (octbytes > 256) {
 		octbuff = driver_alloc(octbytes);
@@ -1028,11 +1193,11 @@ static int write_buf(Uint32 *s, int n)
 	    }
 	    octbytes = 0;
 	    octal_or_hex_format(ch, octbuff, &octbytes);
-	     DEBUGLOG(("octbytes: %d", octbytes));
+            DEBUGLOG(("write_buf: octbytes: %d", octbytes));
 	    outc('\\');
 	    for (i = 0; i < octbytes; ++i) {
 		outc(lastput = octbuff[i]);
-		DEBUGLOG(("outc: %d", (int) lastput));
+		DEBUGLOG(("write_buf: outc: %d", (int) lastput));
 	    }
 	    n -= octbytes+1;
 	    s += octbytes+1;
@@ -1044,7 +1209,7 @@ static int write_buf(Uint32 *s, int n)
 	    --n; s++;
 #endif
 	} else {
-	    DEBUGLOG(("Very unexpected character %d",(int) *s));
+	    DEBUGLOG(("write_buf: Very unexpected character %d",(int) *s));
 	    ++n;
 	    --s;
 	}
@@ -1070,7 +1235,15 @@ static int write_buf(Uint32 *s, int n)
 /* The basic procedure for outputting one character. */
 static int outc(int c)
 {
-    return (int)putc(c, ttysl_out);
+    putcbuf->orig_bytes[putcpos++] = c;
+    if (putcpos == putclen) {
+        driver_enq_bin(ttysl_port,putcbuf,0,putclen);
+        driver_free_binary(putcbuf);
+        putcpos = 0;
+        putclen = TTY_BUFFSIZE;
+        putcbuf = driver_alloc_binary(BUFSIZ);
+    }
+    return 1;
 }
 
 static int move_cursor(int from, int to)
@@ -1091,13 +1264,16 @@ static int move_cursor(int from, int to)
       move_left(-dc);
     return TRUE;
 }
-
+
 static int start_termcap(void)
 {
     int eres;
     size_t envsz = 1024;
     char *env = NULL;
     char *c;
+    int tres;
+
+    DEBUGLOG(("start_termcap: .."));
 
     capbuf = driver_alloc(1024);
     if (!capbuf)
@@ -1105,9 +1281,10 @@ static int start_termcap(void)
     eres = erl_drv_getenv("TERM", capbuf, &envsz);
     if (eres == 0)
 	env = capbuf;
-    else if (eres < 0)
+    else if (eres < 0) {
+        DEBUGLOG(("start_termcap: failure in erl_drv_getenv(\"TERM\", ..) = %d\n", eres));
 	goto false;
-    else /* if (eres > 1) */ {
+    } else /* if (eres > 1) */ {
       char *envbuf = driver_alloc(envsz);
       if (!envbuf)
 	  goto false;
@@ -1117,7 +1294,8 @@ static int start_termcap(void)
 	  if (eres == 0)
 	      break;
 	  newenvbuf = driver_realloc(envbuf, envsz);
-	  if (eres < 0 || !newenvbuf) {
+          if (eres < 0 || !newenvbuf) {
+              DEBUGLOG(("start_termcap: failure in erl_drv_getenv(\"TERM\", ..) = %d or realloc buf == %p\n", eres, newenvbuf));
 	      env = newenvbuf ? newenvbuf : envbuf;
 	      goto false;
 	  }
@@ -1125,8 +1303,10 @@ static int start_termcap(void)
       }
       env = envbuf;
     }
-    if (tgetent((char*)lbuf, env) <= 0)
-      goto false;
+    if ((tres = tgetent((char*)lbuf, env)) <= 0) {
+        DEBUGLOG(("start_termcap: failure in tgetent(..) = %d\n", tres));
+        goto false;
+    }
     if (env != capbuf) {
 	env = NULL;
 	driver_free(env);
@@ -1142,8 +1322,11 @@ static int start_termcap(void)
     if (!(left = tgetflag("bs") ? "\b" : tgetstr("bc", &c)))
       left = "\b";		/* Can't happen - but does on Solaris 2 */
     right = tgetstr("nd", &c);
-    if (up && down && left && right)
-      return TRUE;
+    if (up && down && left && right) {
+        DEBUGLOG(("start_termcap: successful start\n"));
+        return TRUE;
+    }
+    DEBUGLOG(("start_termcap: failed start\n"));
  false:
     if (env && env != capbuf)
 	driver_free(env);
@@ -1187,7 +1370,7 @@ static int move_down(int n)
       tputs(down, 1, outc);
     return TRUE;
 }
-		    
+
 
 /*
  * Updates cols if terminal has resized (SIGWINCH). Should be called
@@ -1209,7 +1392,7 @@ static void update_cols(void)
 	cols = width;
     }
 }
-		    
+
 
 /*
  * Put a terminal device into non-canonical mode with ECHO off.
@@ -1220,10 +1403,13 @@ static void update_cols(void)
 
 static struct termios tty_smode, tty_rmode;
 
-static int tty_init(int fd, int canon, int echo, int sig)
-{
-    if (tcgetattr(fd, &tty_rmode) < 0)
-      return -1;
+static int tty_init(int fd, int canon, int echo, int sig) {
+    int tres;
+    DEBUGLOG(("tty_init: fd = %d, canon = %d, echo = %d, sig = %d", fd, canon, echo, sig));
+    if ((tres = tcgetattr(fd, &tty_rmode)) < 0) {
+        DEBUGLOG(("tty_init: failure in tcgetattr(%d,..) = %d\n", fd, tres));
+        return -1;
+    }
     tty_smode = tty_rmode;
 
     /* Default characteristics for all usage including termcap output. */
@@ -1276,6 +1462,7 @@ static int tty_init(int fd, int canon, int echo, int sig)
 #endif	
 	tty_smode.c_lflag &= ~(ISIG|IEXTEN);
     }
+    DEBUGLOG(("tty_init: successful init\n"));
     return 0;
 }
 
@@ -1286,20 +1473,25 @@ static int tty_init(int fd, int canon, int echo, int sig)
 
 static int tty_set(int fd)
 {
-    DEBUGF(("Setting tty...\n"));
+    int tres;
+    DEBUGF(("tty_set: Setting tty...\n"));
 
-    if (tcsetattr(fd, TCSANOW, &tty_smode) < 0)
+    if ((tres = tcsetattr(fd, TCSANOW, &tty_smode)) < 0) {
+        DEBUGLOG(("tty_set: failure in tcgetattr(%d,..) = %d\n", fd, tres));
 	return(-1);
+    }
     return(0);
 }
 
 static int tty_reset(int fd)         /* of terminal device */
 {
-    DEBUGF(("Resetting tty...\n"));
+    int tres;
+    DEBUGF(("tty_reset: Resetting tty...\n"));
 
-    if (tcsetattr(fd, TCSANOW, &tty_rmode) < 0)
+    if ((tres = tcsetattr(fd, TCSANOW, &tty_rmode)) < 0) {
+        DEBUGLOG(("tty_reset: failure in tcsetattr(%d,..) = %d\n", fd, tres));
 	return(-1);
-    
+    }
     return(0);
 }
 
@@ -1314,17 +1506,19 @@ static int tty_reset(int fd)         /* of terminal device */
 static RETSIGTYPE suspend(int sig)
 {
     if (tty_reset(ttysl_fd) < 0) {
+        DEBUGLOG(("signal: failure in suspend(%d), can't reset tty %d\n", sig, ttysl_fd));
 	fprintf(stderr,"Can't reset tty \n");
 	exit(1);
     }
 
-    sys_sigset(sig, SIG_DFL);	/* Set signal handler to default */
+    sys_signal(sig, SIG_DFL);	/* Set signal handler to default */
     sys_sigrelease(sig);	/* Allow 'sig' to come through */
     kill(getpid(), sig);	/* Send ourselves the signal */
     sys_sigblock(sig);		/* Reset to old mask */
-    sys_sigset(sig, suspend);	/* Reset signal handler */ 
+    sys_signal(sig, suspend);	/* Reset signal handler */ 
 
     if (tty_set(ttysl_fd) < 0) {
+        DEBUGLOG(("signal: failure in suspend(%d), can't set tty %d\n", sig, ttysl_fd));
 	fprintf(stderr,"Can't set tty raw \n");
 	exit(1);
     }
@@ -1335,6 +1529,7 @@ static RETSIGTYPE suspend(int sig)
 static RETSIGTYPE cont(int sig)
 {
     if (tty_set(ttysl_fd) < 0) {
+        DEBUGLOG(("signal: failure in cont(%d), can't set tty raw %d\n", sig, ttysl_fd));
 	fprintf(stderr,"Can't set tty raw\n");
 	exit(1);
     }

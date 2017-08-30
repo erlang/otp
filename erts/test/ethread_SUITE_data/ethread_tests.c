@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -976,7 +977,7 @@ tsd_test(void)
     ethr_tid tid[TT_THREADS];
     int values[TT_THREADS];
 
-    res = ethr_tsd_key_create(&tt_key);
+    res = ethr_tsd_key_create(&tt_key,"tsd_test");
     ASSERT(res == 0);
 
     for (i = 1; i < TT_THREADS; i++) {
@@ -1456,6 +1457,9 @@ do { \
     ASSERT(ethr_ ## A ## _read ## B(&A) == 0x33333333); \
 } while (0)
 
+ethr_atomic32_t atomic32;
+ethr_atomic_t atomic;
+ethr_dw_atomic_t dw_atomic;
 
 static void
 atomic_basic_test(void)
@@ -1464,8 +1468,6 @@ atomic_basic_test(void)
      * Verify that each op does what it is expected
      * to do for at least one input.
      */
-    ethr_atomic32_t atomic32;
-    ethr_atomic_t atomic;
 
     print_line("AT_AINT32_MAX=%d",AT_AINT32_MAX);
     print_line("AT_AINT32_MIN=%d",AT_AINT32_MIN);
@@ -1628,7 +1630,6 @@ atomic_basic_test(void)
 
     /* Double word */
     {
-	ethr_dw_atomic_t dw_atomic;
 	ethr_dw_sint_t dw0, dw1;
 	dw0.sint[0] = 4711;
 	dw0.sint[1] = 4712;

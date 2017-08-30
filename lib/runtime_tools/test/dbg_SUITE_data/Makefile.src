@@ -1,0 +1,8 @@
+
+NIF_LIBS = dbg_SUITE@dll@
+
+all: $(NIF_LIBS)
+
+@SHLIB_RULES@
+
+$(NIF_LIBS): dbg_SUITE.c

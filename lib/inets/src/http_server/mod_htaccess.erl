@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -34,7 +35,7 @@
 % Names on accessfiles
 %----------------------------------------------------------------------
 load("AccessFileName" ++ FileNames, _Context)->
-    CleanFileNames=httpd_conf:clean(FileNames),
+    CleanFileNames=string:strip(FileNames),
     {ok,[],{access_files,string:tokens(CleanFileNames," ")}}.
 
 store({access_files, Files} = Conf, _) when is_list(Files)->
@@ -326,9 +327,9 @@ memberNetwork(Networks,UserNetwork,IfTrue,IfFalse)->
 %ipadresses or subnet addresses.
 memberNetwork(Networks,UserNetwork)->
     case lists:filter(fun(Net)->
-			      case inets_regexp:match(UserNetwork,
-						formatRegexp(Net)) of
-				  {match,1,_}->
+			      case re:run(UserNetwork,
+					  formatRegexp(Net), [{capture, first}]) of
+				  {match,[{0,_}]}->
 				      true;
 				  _NotSubNet ->
 				      false
@@ -411,8 +412,8 @@ getAuthenticatingDataFromHeader(Info)->
 		    case httpd_util:split(UnCodedString,":",2) of
 			{ok,[User,PassWord]}->
 			    {user,User,PassWord};
-			{error,Error}->
-			    {error,Error}
+			Other ->
+			    {error, Other}
 		    end
 	    end;
 	BadCredentials ->
@@ -637,13 +638,8 @@ getHtAccessFileNames(Info)->
 %HtAccessFileNames=["accessfileName1",..."AccessFileName2"]
 %----------------------------------------------------------------------
 getData(Path,Info,HtAccessFileNames)->	    
-    case inets_regexp:split(Path,"/") of
-	{error,Error}->
-	    {error,Error};
-	{ok,SplittedPath}->
-	    getData2(HtAccessFileNames,SplittedPath,Info)
-	end.
-
+    SplittedPath = re:split(Path, "/", [{return, list}]),
+    getData2(HtAccessFileNames,SplittedPath,Info).
 
 %----------------------------------------------------------------------
 %Add to together the data in the Splittedpath up to the path 
@@ -941,20 +937,16 @@ getAuthorizationType(AuthType)->
 %Returns a list of the specified methods to limit or the atom all
 %----------------------------------------------------------------------
 getLimits(Limits)->
-    case inets_regexp:split(Limits,">")of
-	{ok,[_NoEndOnLimit]}->
+    case re:split(Limits,">", [{return, list}])of
+	[_NoEndOnLimit]->
 	    error;
-	{ok, [Methods | _Crap]}->
-	    case inets_regexp:split(Methods," ") of
-		{ok,[]}->
+	[Methods | _Crap]->
+	    case re:split(Methods," ",  [{return, list}]) of
+		[[]]->
 		    all;
-		{ok,SplittedMethods}->
-		    SplittedMethods;
-		{error, _Error}->
-		    error
-	    end;
-	{error,_Error}->
-	    error
+		SplittedMethods ->
+		    SplittedMethods
+	    end
     end.
 
 

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -48,19 +49,19 @@ groups() ->
        load_directly_when_all_are_ram_copiesB,
        {group, late_load_when_all_are_ram_copies_on_ram_nodes},
        load_when_last_replica_becomes_available,
-       load_when_we_have_down_from_all_other_replica_nodes,
+       load_when_down_from_all_other_replica_nodes,
        late_load_transforms_into_disc_load,
        late_load_leads_to_hanging,
        force_load_when_nobody_intents_to_load,
        force_load_when_someone_has_decided_to_load,
-       force_load_when_someone_else_already_has_loaded,
+       force_load_when_someone_else_has_loaded,
        force_load_when_we_has_loaded,
        force_load_on_a_non_local_table,
        force_load_when_the_table_does_not_exist,
        {group, load_tables_with_master_tables}]},
      {late_load_when_all_are_ram_copies_on_ram_nodes, [],
-      [late_load_when_all_are_ram_copies_on_ram_nodes1,
-       late_load_when_all_are_ram_copies_on_ram_nodes2]},
+      [late_load_all_ram_cs_ram_nodes1,
+       late_load_all_ram_cs_ram_nodes2]},
      {load_tables_with_master_tables, [],
       [master_nodes, starting_master_nodes,
        master_on_non_local_tables,
@@ -292,8 +293,8 @@ load_directly_when_all_are_ram_copiesB(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-late_load_when_all_are_ram_copies_on_ram_nodes1(suite) -> [];
-late_load_when_all_are_ram_copies_on_ram_nodes1(Config) when is_list(Config) ->
+late_load_all_ram_cs_ram_nodes1(suite) -> [];
+late_load_all_ram_cs_ram_nodes1(Config) when is_list(Config) ->
     [N1, N2] = mnesia_test_lib:prepare_test_case([{init_test_case, [mnesia]},
 						  delete_schema,
 						  {reload_appls, [mnesia]}],
@@ -303,8 +304,8 @@ late_load_when_all_are_ram_copies_on_ram_nodes1(Config) when is_list(Config) ->
 				      2, Config, ?FILE, ?LINE),
     Res.
 
-late_load_when_all_are_ram_copies_on_ram_nodes2(suite) -> [];
-late_load_when_all_are_ram_copies_on_ram_nodes2(Config) when is_list(Config) ->
+late_load_all_ram_cs_ram_nodes2(suite) -> [];
+late_load_all_ram_cs_ram_nodes2(Config) when is_list(Config) ->
     [N1, N2, N3] = mnesia_test_lib:prepare_test_case([{init_test_case, [mnesia]},
 						      delete_schema,
 						      {reload_appls, [mnesia]}],
@@ -439,13 +440,13 @@ load_when_last_replica_becomes_available(Config) when is_list(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-load_when_we_have_down_from_all_other_replica_nodes(doc) ->
+load_when_down_from_all_other_replica_nodes(doc) ->
     ["The table can be loaded if this node was the last one surviving. ",
      "Check this by having N1, N2, N3 and a table replicated on all those ",
      "nodes. Then kill them in the N1, N2, N3 order. Then start N3 and ",
      "verify that the table is available with correct contents."];
-load_when_we_have_down_from_all_other_replica_nodes(suite) -> [];
-load_when_we_have_down_from_all_other_replica_nodes(Config) when is_list(Config) ->
+load_when_down_from_all_other_replica_nodes(suite) -> [];
+load_when_down_from_all_other_replica_nodes(Config) when is_list(Config) ->
     [N1, N2, N3] = Nodes = ?acquire_nodes(3, Config),
     ?match({atomic,ok},
            mnesia:create_table(test_rec,
@@ -773,14 +774,14 @@ wait_for_signal() ->
 	
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-force_load_when_someone_else_already_has_loaded(doc) ->
+force_load_when_someone_else_has_loaded(doc) ->
     ["Normal case. Do a force load when somebody else has loaded the table. ",
      "Start N1, N2, kill in N1, N2 order. Start N2 load the table, start N1 ",
      "force load. Did it work? (i.e: did N1 load the table from N2 as that",
      "one is the latest version and it is available on N2)"];
 
-force_load_when_someone_else_already_has_loaded(suite) -> [];
-force_load_when_someone_else_already_has_loaded(Config) when is_list(Config) ->
+force_load_when_someone_else_has_loaded(suite) -> [];
+force_load_when_someone_else_has_loaded(Config) when is_list(Config) ->
     [N1, N2] = Nodes = ?acquire_nodes(2, Config),
     Table = test_rec,
     Trec1 = #test_rec{key=1,val=111},

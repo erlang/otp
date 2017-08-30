@@ -1,0 +1,13 @@
+
+typeflow2.erl:10: The pattern #{'a':=X} can never match the type #{'a'=>none(), _=>maybe_improper_list() | integer()}
+typeflow2.erl:11: The pattern #{'a':=X} can never match the type #{'a'=>none(), _=>maybe_improper_list() | integer()}
+typeflow2.erl:26: Function t2/1 has no local return
+typeflow2.erl:29: The call lists:sort(integer()) will never return since it differs in the 1st argument from the success typing arguments: ([any()])
+typeflow2.erl:42: The pattern #{'a':=X} can never match since previous clauses completely covered the type #{'a':=integer()}
+typeflow2.erl:43: The variable _ can never match since previous clauses completely covered the type #{'a':=integer()}
+typeflow2.erl:48: The pattern #{} can never match since previous clauses completely covered the type #{'a':=atom() | maybe_improper_list() | integer()}
+typeflow2.erl:58: The pattern #{'a':=X} can never match the type #{'a'=>none(), _=>maybe_improper_list() | integer()}
+typeflow2.erl:59: The pattern #{'a':=X} can never match the type #{'a'=>none(), _=>maybe_improper_list() | integer()}
+typeflow2.erl:60: The pattern #{'a':=X} can never match the type #{'a'=>none(), _=>maybe_improper_list() | integer()}
+typeflow2.erl:82: The pattern #{'a':=X} can never match the type #{}
+typeflow2.erl:83: The pattern #{'a':=X} can never match the type #{}

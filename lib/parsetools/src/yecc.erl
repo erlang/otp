@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -423,7 +424,7 @@ infile(Parent, Infilex, Options) ->
          end,
     case {St#yecc.errors, werror(St)} of
         {[], false} -> ok;
-        _ -> _ = file:delete(St#yecc.outfile)
+        _ -> _ = file:delete(St#yecc.outfile), ok
     end,
     Parent ! {self(), yecc_ret(St)}.
 
@@ -482,7 +483,7 @@ generate(St0) ->
     F = case member(time, St1#yecc.options) of
             true -> 
                 io:fwrite(<<"Generating parser from grammar in ~ts\n">>,
-                          [format_filename(St1#yecc.infile)]),
+                          [format_filename(St1#yecc.infile, St1)]),
                 fun timeit/3;
             false ->
                 fun(_Name, Fn, St) -> Fn(St) end
@@ -2064,11 +2065,13 @@ output_actions(St0, StateJumps, StateInfo) ->
     SelS = [{State,Called} || 
                {{State,_JActions}, {State,Called}} <- 
                    lists:zip(StateJumps, lists:keysort(1, Sel))],
+    St05 =
+        fwrite(St0, <<"-dialyzer({nowarn_function, yeccpars2/7}).\n">>, []),
     St10 = foldl(fun({State, Called}, St_0) ->
                          {State, #state_info{state_repr = IState}} = 
                              lookup_state(StateInfo, State),
                          output_state_selection(St_0, State, IState, Called)
-            end, St0, SelS),
+            end, St05, SelS),
     St20 = fwrite(St10, <<"yeccpars2(Other, _, _, _, _, _, _) ->\n">>, []),
     St = fwrite(St20,
                 ?YECC_BUG(<<"{missing_state_in_action_table, Other}">>, []),
@@ -2089,7 +2092,8 @@ output_state_selection(St0, State, IState, Called) ->
            [Comment, IState]).
 
 output_state_actions(St, State, State, {Actions,jump_none}, SI) ->
-    output_state_actions1(St, State, Actions, true, normal, SI);
+    St1 = output_state_actions_begin(St, State, Actions),
+    output_state_actions1(St1, State, Actions, true, normal, SI);
 output_state_actions(St0, State, State, {Actions, Jump}, SI) ->
     {Tag, To, Common} = Jump,
     CS = case Tag of
@@ -2099,15 +2103,24 @@ output_state_actions(St0, State, State, {Actions, Jump}, SI) ->
     St = output_state_actions1(St0, State, Actions, true, {to, CS}, SI),
     if 
         To =:= State ->
-            output_state_actions1(St, CS, Common, true, normal, SI);
+            St1 = output_state_actions_begin(St, State, Actions),
+            output_state_actions1(St1, CS, Common, true, normal, SI);
         true ->
             St
     end;
 output_state_actions(St, State, JState, _XActions, _SI) ->
     fwrite(St, <<"%% yeccpars2_~w: see yeccpars2_~w\n\n">>, [State, JState]).
 
-output_state_actions1(St, State, [], _IsFirst, normal, _SI) ->
-    output_state_actions_fini(State, St);
+output_state_actions_begin(St, State, Actions) ->
+    case [yes || {_, #reduce{}} <- Actions] of
+        [] ->
+            fwrite(St, <<"-dialyzer({nowarn_function, yeccpars2_~w/7}).\n">>,
+                   [State]); % Only when yeccerror(T) is output.
+        _ -> St
+    end.
+
+output_state_actions1(St, State, [], IsFirst, normal, _SI) ->
+    output_state_actions_fini(State, IsFirst, St);
 output_state_actions1(St0, State, [], IsFirst, {to, ToS}, _SI) ->
     St = delim(St0, IsFirst),
     fwrite(St, 
@@ -2151,9 +2164,9 @@ output_call_to_includefile(NewState, St) ->
     fwrite(St, <<" yeccpars1(S, ~w, Ss, Stack, T, Ts, Tzr)">>, 
            [NewState]).
 
-output_state_actions_fini(State, St0) ->
+output_state_actions_fini(State, IsFirst, St0) ->
     %% Backward compatible.
-    St10 = delim(St0, false),
+    St10 = delim(St0, IsFirst),
     St = fwrite(St10, <<"yeccpars2_~w(_, _, _, _, T, _, _) ->\n">>, [State]),
     fwrite(St, <<" yeccerror(T).\n\n">>, []).
 
@@ -2519,7 +2532,7 @@ output_encoding_comment(#yecc{encoding = Encoding}=St) ->
 
 output_file_directive(St, Filename, Line) when St#yecc.file_attrs ->
     fwrite(St, <<"-file(~ts, ~w).\n">>,
-           [format_filename(Filename), Line]);
+           [format_filename(Filename, St), Line]);
 output_file_directive(St, _Filename, _Line) ->
     St.
 
@@ -2547,8 +2560,12 @@ nl(#yecc{outport = Outport, line = Line}=St) ->
     io:nl(Outport),
     St#yecc{line = Line + 1}.
 
-format_filename(Filename) ->
-    io_lib:write_string(filename:flatten(Filename)).
+format_filename(Filename0, St) ->
+    Filename = filename:flatten(Filename0),
+    case lists:keyfind(encoding, 1, io:getopts(St#yecc.outport)) of
+        {encoding, unicode} -> io_lib:write_string(Filename);
+        _ ->                   io_lib:write_string_as_latin1(Filename)
+    end.
 
 format_assoc(left) ->
     "Left";

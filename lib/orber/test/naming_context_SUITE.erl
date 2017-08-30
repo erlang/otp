@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -25,12 +26,12 @@
 %%-----------------------------------------------------------------
 -module(naming_context_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
 -include_lib("orber/src/orber_iiop.hrl").
 -include_lib("orber/include/corba.hrl").
 
--define(default_timeout, ?t:minutes(5)).
+-define(default_timeout, test_server:minutes(5)).
 
 %%-----------------------------------------------------------------
 %% External exports
@@ -67,7 +68,7 @@
                     _ ->
                         io:format("###### ERROR ERROR ######~n~p~n",
                                   [AcTuAlReS]),
-                        ?line exit(AcTuAlReS)
+                        exit(AcTuAlReS)
                 end
         end()).
  
@@ -101,7 +102,7 @@ cases() ->
 init_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     orber:jump_start(0),
     [{watchdog, Dog}|Config].
 
@@ -110,7 +111,7 @@ end_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
     orber:jump_stop(),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -124,139 +125,134 @@ end_per_suite(Config) ->
 %% Test Case: name handling tests
 %% Description: 
 %%-----------------------------------------------------------------
-name_context(doc) -> ["Description", "more description"];
-name_context(suite) -> [];
 name_context(_) ->
     ?REMAP_EXCEPT(name_context_run()).
 
 name_context_run() ->
-    ?line Ns = corba:resolve_initial_references("NameService"),
+    Ns = corba:resolve_initial_references("NameService"),
 
     ?match({'EXCEPTION', #'NO_PERMISSION'{}},
 	   'CosNaming_NamingContextExt':destroy(Ns)),
 
     %% Create a test context.
-    ?line Tc = 'CosNaming_NamingContext':bind_new_context(Ns,
+    Tc = 'CosNaming_NamingContext':bind_new_context(Ns,
 				[#'CosNaming_NameComponent'{id="testcontext",
 							    kind=""}]),
     %% Start testing
-    ?line 'CosNaming_NamingContext':bind(Tc, [#'CosNaming_NameComponent'
+    'CosNaming_NamingContext':bind(Tc, [#'CosNaming_NameComponent'
 					      {id="hej",
 					       kind=""}], Ns),
-    ?line Ns = 'CosNaming_NamingContext':resolve(Tc,
+    Ns = 'CosNaming_NamingContext':resolve(Tc,
 				       [#'CosNaming_NameComponent'{id="hej",
 								   kind=""}]),
-    ?line Nc = 'CosNaming_NamingContext':new_context(Tc),
-    ?line 'CosNaming_NamingContext':bind(Tc, [#'CosNaming_NameComponent'
+    Nc = 'CosNaming_NamingContext':new_context(Tc),
+    'CosNaming_NamingContext':bind(Tc, [#'CosNaming_NameComponent'
 					      {id="stop",
 					       kind=""}], Nc),
-    ?line Nc = 'CosNaming_NamingContext':resolve(Tc,
+    Nc = 'CosNaming_NamingContext':resolve(Tc,
 				       [#'CosNaming_NameComponent'{id="stop",
 								   kind=""}]),
-    ?line {'EXCEPTION', E0} =
+    {'EXCEPTION', E0} =
 	(catch 'CosNaming_NamingContext':bind(Tc,
 			          [#'CosNaming_NameComponent'{id="stop",
 							      kind=""}], Ns)),
-    ?line ok = 'CosNaming_NamingContext':rebind(Tc,
+    ok = 'CosNaming_NamingContext':rebind(Tc,
 			          [#'CosNaming_NameComponent'{id="stop",
 							      kind=""}], Ns),
-    ?line {'CosNaming_NamingContext_AlreadyBound', _} = E0,
-    ?line 'CosNaming_NamingContext':bind_context(Tc,
+    {'CosNaming_NamingContext_AlreadyBound', _} = E0,
+    'CosNaming_NamingContext':bind_context(Tc,
 				   [#'CosNaming_NameComponent'{id="evaluate",
 							       kind=""}], Nc),
-    ?line Nc =
+    Nc =
 	'CosNaming_NamingContext':resolve(Tc,
 			      [#'CosNaming_NameComponent'{id="evaluate",
 							  kind=""}]),
-    ?line 'CosNaming_NamingContext':bind(Tc,
+    'CosNaming_NamingContext':bind(Tc,
 			      [#'CosNaming_NameComponent'{id="evaluate",
 							  kind=""},
 			       #'CosNaming_NameComponent'{id="hej",
 							  kind=""}], Ns),
-    ?line ok = 'CosNaming_NamingContext':rebind(Tc,
+    ok = 'CosNaming_NamingContext':rebind(Tc,
 			      [#'CosNaming_NameComponent'{id="evaluate",
 							  kind=""},
 			       #'CosNaming_NameComponent'{id="hej",
 							  kind=""}], Ns),
-    ?line Ns = 'CosNaming_NamingContext':resolve(Tc,
+    Ns = 'CosNaming_NamingContext':resolve(Tc,
 			      [#'CosNaming_NameComponent'{id="evaluate",
 							  kind=""},
 			       #'CosNaming_NameComponent'{id="hej",
 							  kind=""}]),
-    ?line {'EXCEPTION', E1} =
+    {'EXCEPTION', E1} =
 	(catch 'CosNaming_NamingContext':resolve(Tc,
 			       [#'CosNaming_NameComponent'{id="stop",
 							   kind=""},
 				#'CosNaming_NameComponent'{id="hej",
 							   kind=""}])),
-    ?line ?match(ok, orber_diagnostics:nameservice()),
+    ?match(ok, orber_diagnostics:nameservice()),
 
-    ?line {'CosNaming_NamingContext_CannotProceed', _,_,_} = E1,
-    ?line {'EXCEPTION', E2} = (catch 'CosNaming_NamingContext':destroy(Nc)),
-    ?line {'CosNaming_NamingContext_NotEmpty', _} = E2,
-    ?line ok = 'CosNaming_NamingContext':unbind(Tc,
+    {'CosNaming_NamingContext_CannotProceed', _,_,_} = E1,
+    {'EXCEPTION', E2} = (catch 'CosNaming_NamingContext':destroy(Nc)),
+    {'CosNaming_NamingContext_NotEmpty', _} = E2,
+    ok = 'CosNaming_NamingContext':unbind(Tc,
 				[#'CosNaming_NameComponent'{id="evaluate",
 							    kind=""},
 				 #'CosNaming_NameComponent'{id="hej",
 							    kind=""}]),
-    ?line ok = 'CosNaming_NamingContext':destroy(Nc),
-    ?line ok = 'CosNaming_NamingContext':unbind(Tc,
+    ok = 'CosNaming_NamingContext':destroy(Nc),
+    ok = 'CosNaming_NamingContext':unbind(Tc,
 				 [#'CosNaming_NameComponent'{id="evaluate",
 							     kind=""}]),
-    ?line ok = 'CosNaming_NamingContext':unbind(Tc,
+    ok = 'CosNaming_NamingContext':unbind(Tc,
 				 [#'CosNaming_NameComponent'{id="stop",
 							     kind=""}]),
-    ?line ok = 'CosNaming_NamingContext':unbind(Tc,
+    ok = 'CosNaming_NamingContext':unbind(Tc,
 				 [#'CosNaming_NameComponent'{id="hej",
 							     kind=""}]),
-    ?line case 'CosNaming_NamingContext':list(Tc, 3) of
+    case 'CosNaming_NamingContext':list(Tc, 3) of
 	      {ok, [], ?ORBER_NIL_OBJREF} ->
 		  ok;
 	      _ ->
 		  exit(not_empty)
 	  end,
-    ?line ok = 'CosNaming_NamingContext':unbind(Ns,
+    ok = 'CosNaming_NamingContext':unbind(Ns,
 			      [#'CosNaming_NameComponent'{id="testcontext",
 							  kind=""}]),
-    ?line ok = 'CosNaming_NamingContext':destroy(Tc),
+    ok = 'CosNaming_NamingContext':destroy(Tc),
     ok.
 
 
 
-check_list(doc) -> 
-    ["Check that the CosNaming::NamingContext::list()", 
-     "returns ok.",
-     "Own Id: OTP-2023"];
-check_list(suite) -> [];
+%% Check that the CosNaming::NamingContext::list() returns ok.
+%% Own Id: OTP-2023
 check_list(Config) when is_list(Config) ->
     ?REMAP_EXCEPT(check_list_run(Config)).
 
 check_list_run(_Config) ->
     create_default_contexts(),
-    ?line Ns = corba:resolve_initial_references("NameService"),
-    ?line {_, BL, _} = ?match({ok, _, ?ORBER_NIL_OBJREF}, 
+    Ns = corba:resolve_initial_references("NameService"),
+    {_, BL, _} = ?match({ok, _, ?ORBER_NIL_OBJREF}, 
 			      'CosNaming_NamingContext':list(Ns, 256)),
     
     FF = fun(X) -> XX = hd(X#'CosNaming_Binding'.binding_name),
 		   XX#'CosNaming_NameComponent'.id end,
 		  
     L = lists:sort(lists:map(FF, BL)),
-    ?line ["host", "workgroup"] = L,
+    ["host", "workgroup"] = L,
     
     %% Test next_n/2
-    ?line {_, _, BI} = ?match({ok, [], _BI}, 'CosNaming_NamingContext':list(Ns, 0)),
-    ?line ?match({true, []}, 'CosNaming_BindingIterator':next_n(BI, 0)),
-    ?line ?match({true, [_]}, 'CosNaming_BindingIterator':next_n(BI, 1)),
-    ?line ?match({false, [_]}, 'CosNaming_BindingIterator':next_n(BI, 1)),
-    ?line ?match({false, []}, 'CosNaming_BindingIterator':next_n(BI, 1)),
-    ?line ?match(ok, 'CosNaming_BindingIterator':destroy(BI)),
+    {_, _, BI} = ?match({ok, [], _BI}, 'CosNaming_NamingContext':list(Ns, 0)),
+    ?match({true, []}, 'CosNaming_BindingIterator':next_n(BI, 0)),
+    ?match({true, [_]}, 'CosNaming_BindingIterator':next_n(BI, 1)),
+    ?match({false, [_]}, 'CosNaming_BindingIterator':next_n(BI, 1)),
+    ?match({false, []}, 'CosNaming_BindingIterator':next_n(BI, 1)),
+    ?match(ok, 'CosNaming_BindingIterator':destroy(BI)),
 
-    ?line {_, _, BI2} = ?match({ok, [], _BI2}, 'CosNaming_NamingContext':list(Ns, 0)),
-    ?line ?match({true, _}, 'CosNaming_BindingIterator':next_one(BI2)),
-    ?line ?match({true, _}, 'CosNaming_BindingIterator':next_one(BI2)),
-    ?line ?match({false, _}, 'CosNaming_BindingIterator':next_one(BI2)),
-    ?line ?match(ok, 'CosNaming_BindingIterator':destroy(BI2)),
-    ?line ?match(ok, orber_diagnostics:nameservice()),
+    {_, _, BI2} = ?match({ok, [], _BI2}, 'CosNaming_NamingContext':list(Ns, 0)),
+    ?match({true, _}, 'CosNaming_BindingIterator':next_one(BI2)),
+    ?match({true, _}, 'CosNaming_BindingIterator':next_one(BI2)),
+    ?match({false, _}, 'CosNaming_BindingIterator':next_one(BI2)),
+    ?match(ok, 'CosNaming_BindingIterator':destroy(BI2)),
+    ?match(ok, orber_diagnostics:nameservice()),
     ok.
 
 create_default_contexts() ->
@@ -307,13 +303,11 @@ create_default_contexts() ->
 %% Test Case: 
 %% Description: 
 %%-----------------------------------------------------------------
-name_context_ext(doc) -> ["Description", "more description"];
-name_context_ext(suite) -> [];
 name_context_ext(_Config) ->
     ?REMAP_EXCEPT(name_context_ext_run()).
 
 name_context_ext_run() ->
-    ?line NS = ?match({_,pseudo,_, _,_, _},
+    NS = ?match({_,pseudo,_, _,_, _},
 		      corba:resolve_initial_references("NameService")),
     
     Name1 = [#'CosNaming_NameComponent'{id="\\<id1\\>", kind="kind1"},
@@ -356,7 +350,7 @@ name_context_ext_run() ->
 	   'CosNaming_NamingContextExt':to_name(NS, BadString2)),
 
     %% Create a test context.
-    ?line Tc = ?match({_,pseudo,_, _,_, _},
+    Tc = ?match({_,pseudo,_, _,_, _},
 		      'CosNaming_NamingContext':bind_new_context(NS,
 				[#'CosNaming_NameComponent'{id="testcontext",
 							    kind=""}])),

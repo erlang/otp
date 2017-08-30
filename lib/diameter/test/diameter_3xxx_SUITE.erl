@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -47,6 +48,7 @@
          send_double_error/1,
          send_3xxx/1,
          send_5xxx/1,
+         counters/1,
          stop/1]).
 
 %% diameter callbacks
@@ -111,7 +113,7 @@ all() ->
 
 groups() ->
     Tc = tc(),
-    [{?util:name([E,D]), [], [start] ++ Tc ++ [stop]}
+    [{?util:name([E,D]), [], [start] ++ Tc ++ [counters, stop]}
      || E <- ?ERRORS, D <- ?RFCS].
 
 init_per_suite(Config) ->
@@ -168,6 +170,203 @@ stop(_Config) ->
     ok = diameter:remove_transport(?SERVER, true),
     ok = diameter:stop_service(?SERVER),
     ok = diameter:stop_service(?CLIENT).
+
+%% counters/1
+%%
+%% Check that counters are as expected.
+
+counters(Config) ->
+    Group = proplists:get_value(group, Config),
+    [_Errors, _Rfc] = G = ?util:name(Group),
+    [] = ?util:run([[fun counters/3, K, S, G]
+                    || K <- [statistics, transport, connections],
+                       S <- [?CLIENT, ?SERVER]]).
+
+counters(Key, Svc, Group) ->
+    counters(Key, Svc, Group, [_|_] = diameter:service_info(Svc, Key)).
+
+counters(statistics, Svc, [Errors, Rfc], L) ->
+    [{P, Stats}] = L,
+    true = is_pid(P),
+    stats(Svc, Errors, Rfc, lists:sort(Stats));
+
+counters(_, _, _, _) ->
+    todo.
+
+stats(?CLIENT, E, rfc3588, L)
+  when E == answer;
+       E == answer_3xxx ->
+    [{{{unknown,0},recv},2},
+     {{{0,257,0},recv},1},
+     {{{0,257,1},send},1},
+     {{{0,275,0},recv},6},
+     {{{0,275,1},send},10},
+     {{{unknown,0},recv,{'Result-Code',3001}},1},
+     {{{unknown,0},recv,{'Result-Code',3007}},1},
+     {{{0,257,0},recv,{'Result-Code',2001}},1},
+     {{{0,275,0},recv,{'Result-Code',2001}},1},
+     {{{0,275,0},recv,{'Result-Code',3008}},2},
+     {{{0,275,0},recv,{'Result-Code',3999}},1},
+     {{{0,275,0},recv,{'Result-Code',5002}},1},
+     {{{0,275,0},recv,{'Result-Code',5005}},1}]
+        = L;
+
+stats(?SERVER, E, rfc3588, L)
+  when E == answer;
+       E == answer_3xxx ->
+    [{{{unknown,0},send},2},
+     {{{unknown,1},recv},1},
+     {{{0,257,0},send},1},
+     {{{0,257,1},recv},1},
+     {{{0,275,0},send},6},
+     {{{0,275,1},recv},8},
+     {{{unknown,0},send,{'Result-Code',3001}},1},
+     {{{unknown,0},send,{'Result-Code',3007}},1},
+     {{{unknown,1},recv,error},1},
+     {{{0,257,0},send,{'Result-Code',2001}},1},
+     {{{0,275,0},send,{'Result-Code',2001}},1},
+     {{{0,275,0},send,{'Result-Code',3008}},2},
+     {{{0,275,0},send,{'Result-Code',3999}},1},
+     {{{0,275,0},send,{'Result-Code',5002}},1},
+     {{{0,275,0},send,{'Result-Code',5005}},1},
+     {{{0,275,1},recv,error},5}]
+        = L;
+
+stats(?CLIENT, answer, rfc6733, L) ->
+    [{{{unknown,0},recv},2},
+     {{{0,257,0},recv},1},
+     {{{0,257,1},send},1},
+     {{{0,275,0},recv},8},
+     {{{0,275,1},send},10},
+     {{{unknown,0},recv,{'Result-Code',3001}},1},
+     {{{unknown,0},recv,{'Result-Code',3007}},1},
+     {{{0,257,0},recv,{'Result-Code',2001}},1},
+     {{{0,275,0},recv,{'Result-Code',3008}},2},
+     {{{0,275,0},recv,{'Result-Code',3999}},1},
+     {{{0,275,0},recv,{'Result-Code',5002}},1},
+     {{{0,275,0},recv,{'Result-Code',5005}},3},
+     {{{0,275,0},recv,{'Result-Code',5999}},1}]
+        = L;
+
+stats(?SERVER, answer, rfc6733, L) ->
+    [{{{unknown,0},send},2},
+     {{{unknown,1},recv},1},
+     {{{0,257,0},send},1},
+     {{{0,257,1},recv},1},
+     {{{0,275,0},send},8},
+     {{{0,275,1},recv},8},
+     {{{unknown,0},send,{'Result-Code',3001}},1},
+     {{{unknown,0},send,{'Result-Code',3007}},1},
+     {{{unknown,1},recv,error},1},
+     {{{0,257,0},send,{'Result-Code',2001}},1},
+     {{{0,275,0},send,{'Result-Code',3008}},2},
+     {{{0,275,0},send,{'Result-Code',3999}},1},
+     {{{0,275,0},send,{'Result-Code',5002}},1},
+     {{{0,275,0},send,{'Result-Code',5005}},3},
+     {{{0,275,0},send,{'Result-Code',5999}},1},
+     {{{0,275,1},recv,error},5}]
+        = L;
+
+stats(?CLIENT, answer_3xxx, rfc6733, L) ->
+    [{{{unknown,0},recv},2},
+     {{{0,257,0},recv},1},
+     {{{0,257,1},send},1},
+     {{{0,275,0},recv},8},
+     {{{0,275,1},send},10},
+     {{{unknown,0},recv,{'Result-Code',3001}},1},
+     {{{unknown,0},recv,{'Result-Code',3007}},1},
+     {{{0,257,0},recv,{'Result-Code',2001}},1},
+     {{{0,275,0},recv,{'Result-Code',2001}},1},
+     {{{0,275,0},recv,{'Result-Code',3008}},2},
+     {{{0,275,0},recv,{'Result-Code',3999}},1},
+     {{{0,275,0},recv,{'Result-Code',5002}},1},
+     {{{0,275,0},recv,{'Result-Code',5005}},2},
+     {{{0,275,0},recv,{'Result-Code',5999}},1}]
+        = L;
+
+stats(?SERVER, answer_3xxx, rfc6733, L) ->
+    [{{{unknown,0},send},2},
+     {{{unknown,1},recv},1},
+     {{{0,257,0},send},1},
+     {{{0,257,1},recv},1},
+     {{{0,275,0},send},8},
+     {{{0,275,1},recv},8},
+     {{{unknown,0},send,{'Result-Code',3001}},1},
+     {{{unknown,0},send,{'Result-Code',3007}},1},
+     {{{unknown,1},recv,error},1},
+     {{{0,257,0},send,{'Result-Code',2001}},1},
+     {{{0,275,0},send,{'Result-Code',2001}},1},
+     {{{0,275,0},send,{'Result-Code',3008}},2},
+     {{{0,275,0},send,{'Result-Code',3999}},1},
+     {{{0,275,0},send,{'Result-Code',5002}},1},
+     {{{0,275,0},send,{'Result-Code',5005}},2},
+     {{{0,275,0},send,{'Result-Code',5999}},1},
+     {{{0,275,1},recv,error},5}]
+        = L;
+
+stats(?CLIENT, callback, rfc3588, L) ->
+    [{{{unknown,0},recv},1},
+     {{{0,257,0},recv},1},
+     {{{0,257,1},send},1},
+     {{{0,275,0},recv},6},
+     {{{0,275,1},send},10},
+     {{{unknown,0},recv,{'Result-Code',3007}},1},
+     {{{0,257,0},recv,{'Result-Code',2001}},1},
+     {{{0,275,0},recv,{'Result-Code',2001}},2},
+     {{{0,275,0},recv,{'Result-Code',3999}},1},
+     {{{0,275,0},recv,{'Result-Code',5002}},1},
+     {{{0,275,0},recv,{'Result-Code',5005}},2}]
+        = L;
+
+stats(?SERVER, callback, rfc3588, L) ->
+    [{{{unknown,0},send},1},
+     {{{unknown,1},recv},1},
+     {{{0,257,0},send},1},
+     {{{0,257,1},recv},1},
+     {{{0,275,0},send},6},
+     {{{0,275,1},recv},8},
+     {{{unknown,0},send,{'Result-Code',3007}},1},
+     {{{unknown,1},recv,error},1},
+     {{{0,257,0},send,{'Result-Code',2001}},1},
+     {{{0,275,0},send,{'Result-Code',2001}},2},
+     {{{0,275,0},send,{'Result-Code',3999}},1},
+     {{{0,275,0},send,{'Result-Code',5002}},1},
+     {{{0,275,0},send,{'Result-Code',5005}},2},
+     {{{0,275,1},recv,error},5}]
+        = L;
+
+stats(?CLIENT, callback, rfc6733, L) ->
+    [{{{unknown,0},recv},1},
+     {{{0,257,0},recv},1},
+     {{{0,257,1},send},1},
+     {{{0,275,0},recv},8},
+     {{{0,275,1},send},10},
+     {{{unknown,0},recv,{'Result-Code',3007}},1},
+     {{{0,257,0},recv,{'Result-Code',2001}},1},
+     {{{0,275,0},recv,{'Result-Code',2001}},2},
+     {{{0,275,0},recv,{'Result-Code',3999}},1},
+     {{{0,275,0},recv,{'Result-Code',5002}},1},
+     {{{0,275,0},recv,{'Result-Code',5005}},3},
+     {{{0,275,0},recv,{'Result-Code',5999}},1}]
+        = L;
+
+stats(?SERVER, callback, rfc6733, L) ->
+    [{{{unknown,0},send},1},
+     {{{unknown,1},recv},1},
+     {{{0,257,0},send},1},
+     {{{0,257,1},recv},1},
+     {{{0,275,0},send},8},
+     {{{0,275,1},recv},8},
+     {{{unknown,0},send,{'Result-Code',3007}},1},
+     {{{unknown,1},recv,error},1},
+     {{{0,257,0},send,{'Result-Code',2001}},1},
+     {{{0,275,0},send,{'Result-Code',2001}},2},
+     {{{0,275,0},send,{'Result-Code',3999}},1},
+     {{{0,275,0},send,{'Result-Code',5002}},1},
+     {{{0,275,0},send,{'Result-Code',5005}},3},
+     {{{0,275,0},send,{'Result-Code',5999}},1},
+     {{{0,275,1},recv,error},5}]
+        = L.
 
 %% send_unknown_application/1
 %%

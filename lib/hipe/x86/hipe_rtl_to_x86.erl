@@ -2,18 +2,19 @@
 %%%
 %%% %CopyrightBegin%
 %%% 
-%%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%% 
-%%% The contents of this file are subject to the Erlang Public License,
-%%% Version 1.1, (the "License"); you may not use this file except in
-%%% compliance with the License. You should have received a copy of the
-%%% Erlang Public License along with this software. If not, it can be
-%%% retrieved online at http://www.erlang.org/.
-%%% 
-%%% Software distributed under the License is distributed on an "AS IS"
-%%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%%% the License for the specific language governing rights and limitations
-%%% under the License.
+%%% Licensed under the Apache License, Version 2.0 (the "License");
+%%% you may not use this file except in compliance with the License.
+%%% You may obtain a copy of the License at
+%%%
+%%%     http://www.apache.org/licenses/LICENSE-2.0
+%%%
+%%% Unless required by applicable law or agreed to in writing, software
+%%% distributed under the License is distributed on an "AS IS" BASIS,
+%%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%%% See the License for the specific language governing permissions and
+%%% limitations under the License.
 %%% 
 %%% %CopyrightEnd%
 %%%
@@ -236,7 +237,7 @@ conv_insn(I, Map, Data) ->
     #fconv{} ->
       {Dst, Map0} = conv_dst(hipe_rtl:fconv_dst(I), Map),
       {[], Src, Map1} = conv_src(hipe_rtl:fconv_src(I), Map0),
-      I2 = [hipe_x86:mk_fmove(Src, Dst)],
+      I2 = conv_fconv(Dst, Src),
       {I2, Map1, Data};
     X ->
       %% gctest??
@@ -711,6 +712,19 @@ vmap_lookup(Map, Key) ->
 
 vmap_bind(Map, Key, Val) ->
   gb_trees:insert(Key, Val, Map).
+
+%%% Finalise the conversion of an Integer-to-Float operation.
+
+conv_fconv(Dst, Src) ->
+  case hipe_x86:is_imm(Src) of
+    false ->
+      [hipe_x86:mk_fmove(Src, Dst)];
+    true ->
+      %% cvtsi2sd does not allow src to be an immediate
+      Tmp = new_untagged_temp(),
+      [hipe_x86:mk_move(Src, Tmp),
+       hipe_x86:mk_fmove(Tmp, Dst)]
+  end.
 
 %%% Finalise the conversion of a 2-address FP operation.
 

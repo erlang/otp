@@ -1,25 +1,26 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 -module(binary).
 %%
 %% Implemented in this module:
--export([split/2,split/3,replace/3,replace/4]).
+-export([replace/3,replace/4]).
 
 -export_type([cp/0]).
 
@@ -33,7 +34,8 @@
          decode_unsigned/2, encode_unsigned/1, encode_unsigned/2,
          first/1, last/1, list_to_bin/1, longest_common_prefix/1,
          longest_common_suffix/1, match/2, match/3, matches/2,
-         matches/3, part/2, part/3, referenced_byte_size/1]).
+         matches/3, part/2, part/3, referenced_byte_size/1,
+         split/2, split/3]).
 
 -spec at(Subject, Pos) -> byte() when
       Subject :: binary(),
@@ -89,9 +91,9 @@ copy(_, _) ->
 decode_unsigned(_) ->
     erlang:nif_error(undef).
 
--spec decode_unsigned(Subject, Endianess) -> Unsigned when
+-spec decode_unsigned(Subject, Endianness) -> Unsigned when
       Subject :: binary(),
-      Endianess :: big | little,
+      Endianness :: big | little,
       Unsigned :: non_neg_integer().
 
 decode_unsigned(_, _) ->
@@ -103,9 +105,9 @@ decode_unsigned(_, _) ->
 encode_unsigned(_) ->
     erlang:nif_error(undef).
 
--spec encode_unsigned(Unsigned, Endianess) -> binary() when
+-spec encode_unsigned(Unsigned, Endianness) -> binary() when
       Unsigned :: non_neg_integer(),
-      Endianess :: big | little.
+      Endianness :: big | little.
 
 encode_unsigned(_, _) ->
     erlang:nif_error(undef).
@@ -197,69 +199,25 @@ part(_, _, _) ->
 referenced_byte_size(_) ->
     erlang:nif_error(undef).
 
-%%% End of BIFs.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% split
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 -spec split(Subject, Pattern) -> Parts when
       Subject :: binary(),
       Pattern :: binary() | [binary()] | cp(),
       Parts :: [binary()].
 
-split(H,N) ->
-    split(H,N,[]).
+split(_, _) ->
+    erlang:nif_error(undef).
 
 -spec split(Subject, Pattern, Options) -> Parts when
       Subject :: binary(),
       Pattern :: binary() | [binary()] | cp(),
       Options :: [Option],
-      Option :: {scope, part()} | trim | global,
+      Option :: {scope, part()} | trim | global | trim_all,
       Parts :: [binary()].
 
-split(Haystack,Needles,Options) ->
-    try
-	{Part,Global,Trim} = get_opts_split(Options,{no,false,false}),
-	Moptlist = case Part of
-		       no ->
-			   [];
-		       {A,B} ->
-			   [{scope,{A,B}}]
-		   end,
-	MList = if
-		    Global ->
-			binary:matches(Haystack,Needles,Moptlist);
-		    true ->
-			case binary:match(Haystack,Needles,Moptlist) of
-			    nomatch -> [];
-			    Match -> [Match]
-			end
-		end,
-	do_split(Haystack,MList,0,Trim)
-    catch
-	_:_ ->
-	    erlang:error(badarg)
-    end.
+split(_, _, _) ->
+    erlang:nif_error(undef).
 
-do_split(H,[],N,true) when N >= byte_size(H) ->
-    [];
-do_split(H,[],N,_) ->
-    [binary:part(H,{N,byte_size(H)-N})];
-do_split(H,[{A,B}|T],N,Trim) ->
-    case binary:part(H,{N,A-N}) of
-	<<>> ->
-	    Rest =  do_split(H,T,A+B,Trim),
-	    case {Trim, Rest} of
-		{true,[]} ->
-		    [];
-		_ ->
-		    [<<>> | Rest]
-	    end;
-	Oth ->
-	    [Oth | do_split(H,T,A+B,Trim)]
-    end.
-
+%%% End of BIFs.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% replace
@@ -345,17 +303,6 @@ splitat(H,N,[I|T]) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Simple helper functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-get_opts_split([],{Part,Global,Trim}) ->
-    {Part,Global,Trim};
-get_opts_split([{scope,{A,B}} | T],{_Part,Global,Trim}) ->
-    get_opts_split(T,{{A,B},Global,Trim});
-get_opts_split([global | T],{Part,_Global,Trim}) ->
-    get_opts_split(T,{Part,true,Trim});
-get_opts_split([trim | T],{Part,Global,_Trim}) ->
-    get_opts_split(T,{Part,Global,true});
-get_opts_split(_,_) ->
-    throw(badopt).
 
 get_opts_replace([],{Part,Global,Insert}) ->
     {Part,Global,Insert};

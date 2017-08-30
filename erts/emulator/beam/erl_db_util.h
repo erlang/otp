@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -76,6 +77,9 @@ typedef struct db_term {
 union db_table;
 typedef union db_table DbTable;
 
+#define DB_MUST_RESIZE 1
+#define DB_NEW_OBJECT 2
+
 /* Info about a database entry while it's being updated
  * (by update_counter or update_element)
  */
@@ -84,11 +88,8 @@ typedef struct {
     DbTerm* dbterm;
     void** bp;         /* {Hash|Tree}DbTerm** */
     Uint new_size;
-    int mustResize;
+    int flags;
     void* lck;
-#if HALFWORD_HEAP
-    unsigned char* abs_vec;  /* [i] true if dbterm->tpl[i] is absolute Eterm */
-#endif
 } DbUpdateHandle;
 
 
@@ -165,6 +166,7 @@ typedef struct db_table_method
 				    DbTable* tb, /* [in out] */ 
 				    Eterm continuation, 
 				    Eterm* ret);
+    int (*db_take)(Process *, DbTable *, Eterm, Eterm *);
 
     int (*db_delete_all_objects)(Process* p,
 				 DbTable* db /* [in out] */ );
@@ -182,15 +184,14 @@ typedef struct db_table_method
 			       void *arg);
     void (*db_check_table)(DbTable* tb);
 
-    /* Lookup a dbterm for updating. Return false if not found.
-    */
-    int (*db_lookup_dbterm)(DbTable*, Eterm key, 
-			    DbUpdateHandle* handle); /* [out] */
+    /* Lookup a dbterm for updating. Return false if not found. */
+    int (*db_lookup_dbterm)(Process *, DbTable *, Eterm key, Eterm obj,
+                            DbUpdateHandle* handle);
 
-    /* Must be called for each db_lookup_dbterm that returned true,
-    ** even if dbterm was not updated.
-    */
-    void (*db_finalize_dbterm)(DbUpdateHandle* handle);
+    /* Must be called for each db_lookup_dbterm that returned true, even if
+    ** dbterm was not updated. If the handle was of a new object and cret is
+    ** not DB_ERROR_NONE, the object is removed from the table. */
+    void (*db_finalize_dbterm)(int cret, DbUpdateHandle* handle);
 
 } DbTableMethod;
 
@@ -225,7 +226,10 @@ typedef struct db_table_common {
     DbTableMethod* meth;      /* table methods */
     erts_smp_atomic_t nitems; /* Total number of items in table */
     erts_smp_atomic_t memory_size;/* Total memory size. NOTE: in bytes! */
-    Uint megasec,sec,microsec; /* Last fixation time */
+    struct {                  /* Last fixation time */
+	ErtsMonotonicTime monotonic;
+	ErtsMonotonicTime offset;
+    } time;
     DbFixation* fixations;    /* List of processes who have done safe_fixtable,
                                  "local" fixations not included. */ 
     /* All 32-bit fields */
@@ -283,10 +287,10 @@ ERTS_GLB_INLINE Eterm db_copy_key(Process* p, DbTable* tb, DbTerm* obj)
     Eterm key = GETKEY(tb, obj->tpl);
     if IS_CONST(key) return key;
     else {
-	Uint size = size_object_rel(key, obj->tpl);
+	Uint size = size_object(key);
 	Eterm* hp = HAlloc(p, size);
-	Eterm res = copy_struct_rel(key, size, &hp, &MSO(p), obj->tpl, NULL);
-	ASSERT(eq_rel(res,NULL,key,obj->tpl));
+	Eterm res = copy_struct(key, size, &hp, &MSO(p));
+	ASSERT(EQ(res,key));
 	return res;
     }
 }
@@ -298,14 +302,14 @@ ERTS_GLB_INLINE Eterm db_copy_object_from_ets(DbTableCommon* tb, DbTerm* bp,
 	return db_copy_from_comp(tb, bp, hpp, off_heap);
     }
     else {
-	return copy_shallow_rel(bp->tpl, bp->size, hpp, off_heap, bp->tpl);
+	return copy_shallow(bp->tpl, bp->size, hpp, off_heap);
     }
 }
 
 ERTS_GLB_INLINE int db_eq(DbTableCommon* tb, Eterm a, DbTerm* b)
 {
     if (!tb->compress) {
-	return eq_rel(a, NULL, make_tuple_rel(b->tpl,b->tpl), b->tpl);
+	return EQ(a, make_tuple(b->tpl));
     }
     else {
 	return db_eq_comp(tb, a, b);
@@ -339,6 +343,7 @@ void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj);
 void* db_store_term_comp(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj);
 Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p, DbTerm* obj,
 			       Uint pos, Eterm** hpp, Uint extra);
+int db_has_map(Eterm obj);
 int db_has_variable(Eterm obj);
 int db_is_variable(Eterm obj);
 void db_do_update_element(DbUpdateHandle* handle,
@@ -420,6 +425,11 @@ typedef struct dmc_err_info {
 #define DCOMP_FAKE_DESTRUCTIVE ((Uint) 8) /* When this is active, no setting of
 					     trace control words or seq_trace tokens will be done. */
 
+/* Allow lock seizing operations on the tracee and 3rd party processes */
+#define DCOMP_ALLOW_TRACE_OPS ((Uint) 0x10)
+
+/* This is call trace */
+#define DCOMP_CALL_TRACE ((Uint) 0x20)
 
 Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 			 Eterm *body, int num_matches, 
@@ -430,7 +440,8 @@ Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
 		      int all, DbTerm* obj, Eterm** hpp, Uint extra);
 
-Eterm db_prog_match(Process *p, Binary *prog, Eterm term, Eterm* base,
+Eterm db_prog_match(Process *p, Process *self,
+                    Binary *prog, Eterm term,
 		    Eterm *termp, int arity,
 		    enum erts_pam_run_flags in_flags,
 		    Uint32 *return_flags /* Zeroed on enter */);
@@ -457,7 +468,7 @@ int erts_db_is_compiled_ms(Eterm term);
    && ERTS_MAGIC_BIN_DESTRUCTOR((BP)) == erts_db_match_prog_destructor)
 
 #define Binary2MatchProg(BP) \
-  (ASSERT_EXPR(IsMatchProgBinary((BP))), \
+  (ASSERT(IsMatchProgBinary((BP))), \
    ((MatchProg *) ERTS_MAGIC_BIN_DATA((BP))))
 /*
 ** Debugging 

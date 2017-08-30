@@ -1,24 +1,25 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
       <year>2008</year>
-      <year>2013</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
-  The contents of this file are subject to the Erlang Public License,
-  Version 1.1, (the "License"); you may not use this file except in
-  compliance with the License. You should have received a copy of the
-  Erlang Public License along with this software. If not, it can be
-  retrieved online at http://www.erlang.org/.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
 
-  Software distributed under the License is distributed on an "AS IS"
-  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-  the License for the specific language governing rights and limitations
-  under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
@@ -31,6 +32,190 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
+
+<section><title>Eunit 2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>There is a new <c>debugVal/2</c> that gives control
+	    over the truncation depth.</p>
+          <p>
+	    Own Id: OTP-13612</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Suppress Dialyzer warnings. </p>
+          <p>
+	    Own Id: OTP-12862</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Small documentation fixes</p>
+          <p>
+	    Own Id: OTP-13017</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improve success message when 2 tests have passed</p>
+          <p>
+	    Own Id: OTP-12952</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The <c>eunit</c> application is now unicode safe.</p>
+          <p>
+	    Own Id: OTP-11660</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure to install .hrl files when needed</p>
+          <p>
+	    Own Id: OTP-12197</p>
+        </item>
+        <item>
+          <p>
+	    Make sure the clean rule for ssh, ssl, eunit and otp_mibs
+	    actually removes generated files.</p>
+          <p>
+	    Own Id: OTP-12200</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor refactoring.</p>
+          <p>
+	    Own Id: OTP-12051</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix I/O-protocol error handling in eunit. Thanks to Yuki
+	    Ito.</p>
+          <p>
+	    Own Id: OTP-11373</p>
+        </item>
+        <item>
+          <p>
+	    Do not attempt to detect lists of printable characters in
+	    format. Thanks to Roberto Aloi.</p>
+          <p>
+	    Own Id: OTP-11467</p>
+        </item>
+        <item>
+          <p>
+	    Fix silent make rule (Thanks to Anthony Ramine )</p>
+          <p>
+	    Own Id: OTP-11516</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Eunit 2.2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Wrap eunit macros into begin ... end blocks. Thanks to
+	    Anthony Ramine.</p>
+          <p>
+	    Own Id: OTP-11217</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Eunit 2.2.4</title>
 

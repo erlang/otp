@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -34,7 +35,7 @@
 
 typedef Uint     ErtsDigit;
 
-#if ((SIZEOF_VOID_P == 4) || HALFWORD_HEAP) && defined(SIZEOF_LONG_LONG) && (SIZEOF_LONG_LONG == 8)
+#if (SIZEOF_VOID_P == 4) && defined(SIZEOF_LONG_LONG) && (SIZEOF_LONG_LONG == 8)
 /* Assume 32-bit machine with long long support */
 typedef Uint64   ErtsDoubleDigit;
 typedef Uint16   ErtsHalfDigit;
@@ -52,9 +53,6 @@ typedef Uint32   ErtsHalfDigit;
 #else
 #error "can not determine machine size"
 #endif
-
-#define D_DECIMAL_EXP	9
-#define D_DECIMAL_BASE	1000000000
 
 typedef Uint  dsize_t;	 /* Vector size type */
 
@@ -85,25 +83,25 @@ typedef Uint  dsize_t;	 /* Vector size type */
 
 /* The heap size needed for a bignum */
 #define BIG_NEED_SIZE(x)  ((x) + 1)
+#define BIG_NEED_FOR_BITS(bits) BIG_NEED_SIZE(((bits)-1)/D_EXP + 1)
 
 #define BIG_UINT_HEAP_SIZE (1 + 1)	/* always, since sizeof(Uint) <= sizeof(Eterm) */
 
-#if HALFWORD_HEAP
-#define BIG_UWORD_HEAP_SIZE(UW) (((UW) >> (sizeof(Uint) * 8)) ? 3 : 2)
-#else
 #define BIG_UWORD_HEAP_SIZE(UW) BIG_UINT_HEAP_SIZE
-#endif
 
-#if defined(ARCH_32) || HALFWORD_HEAP
+#if defined(ARCH_32)
 
 #define ERTS_UINT64_BIG_HEAP_SIZE__(X) \
   ((X) >= (((Uint64) 1) << 32) ? (1 + 2) : (1 + 1))
 #define ERTS_SINT64_HEAP_SIZE(X)				\
   (IS_SSMALL((X))						\
    ? 0								\
-   : ERTS_UINT64_BIG_HEAP_SIZE__((X) >= 0 ? (X) : -(X)))
+   : ERTS_UINT64_BIG_HEAP_SIZE__((X) >= 0 ? (X) : -(Uint64)(X)))
 #define ERTS_UINT64_HEAP_SIZE(X)				\
   (IS_USMALL(0, (X)) ? 0 : ERTS_UINT64_BIG_HEAP_SIZE__((X)))
+#define ERTS_MAX_SINT64_HEAP_SIZE (1 + 2)
+#define ERTS_MAX_UINT64_HEAP_SIZE (1 + 2)
+#define ERTS_UINT64_ARRAY_TO_BIG_MAX_HEAP_SZ(LEN) (2*(LEN)+1)
 
 #else
 
@@ -111,6 +109,9 @@ typedef Uint  dsize_t;	 /* Vector size type */
   (IS_SSMALL((X)) ? 0 : (1 + 1))
 #define ERTS_UINT64_HEAP_SIZE(X)				\
   (IS_USMALL(0, (X)) ? 0 : (1 + 1))
+#define ERTS_MAX_SINT64_HEAP_SIZE (1 + 1)
+#define ERTS_MAX_UINT64_HEAP_SIZE (1 + 1)
+#define ERTS_UINT64_ARRAY_TO_BIG_MAX_HEAP_SZ(LEN) ((LEN)+1)
 
 #endif
 
@@ -141,7 +142,7 @@ Eterm big_lshift(Eterm, Sint, Eterm*);
 int big_comp (Wterm, Wterm);
 int big_ucomp (Eterm, Eterm);
 int big_to_double(Wterm x, double* resp);
-Eterm double_to_big(double, Eterm*);
+Eterm double_to_big(double, Eterm*, Uint hsz);
 Eterm small_to_big(Sint, Eterm*);
 Eterm uint_to_big(Uint, Eterm*);
 Eterm uword_to_big(UWord, Eterm*);
@@ -153,9 +154,11 @@ Eterm bytes_to_big(byte*, dsize_t, int, Eterm*);
 byte* big_to_bytes(Eterm, byte*);
 
 int term_to_Uint(Eterm, Uint*);
+int term_to_Uint_mask(Eterm, Uint*);
 int term_to_UWord(Eterm, UWord*);
 int term_to_Sint(Eterm, Sint*);
 #if HAVE_INT64
+Eterm erts_uint64_array_to_big(Uint **, int, int, Uint64 *);
 int term_to_Uint64(Eterm, Uint64*);
 int term_to_Sint64(Eterm, Sint64*);
 #endif
@@ -168,5 +171,15 @@ Eterm erts_sint64_to_big(Sint64, Eterm **);
 
 Eterm erts_chars_to_integer(Process *, char*, Uint, const int);
 
-#endif
+/* How list_to_integer classifies the input, was it even a string? */
+typedef enum {
+    LTI_BAD_STRUCTURE = 0,
+    LTI_NO_INTEGER    = 1,
+    LTI_SOME_INTEGER  = 2,
+    LTI_ALL_INTEGER   = 3
+} LTI_result_t;
 
+LTI_result_t erts_list_to_integer(Process *BIF_P, Eterm orig_list,
+                                  const Uint base,
+                                  Eterm *integer_out, Eterm *tail_out);
+#endif

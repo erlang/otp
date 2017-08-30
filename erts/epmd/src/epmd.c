@@ -2,18 +2,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -28,7 +29,7 @@
 #ifdef HAVE_STDLIB_H
 #  include <stdlib.h>
 #endif
-
+#include <time.h>
 /* forward declarations */
 
 static void usage(EpmdVars *);
@@ -52,7 +53,7 @@ static int epmd_main(int, char **, int);
 
 int epmd_dbg(int level,int port) /* Utility to debug epmd... */
 {
-  char* argv[MAX_DEBUG+2];
+  char* argv[MAX_DEBUG+4];
   char  ibuff[100];
   int   argc = 0;
   
@@ -175,6 +176,9 @@ int main(int argc, char** argv)
     g->nodes.reg = g->nodes.unreg = g->nodes.unreg_tail = NULL;
     g->nodes.unreg_count = 0;
     g->active_conn    = 0;
+#ifdef HAVE_SYSTEMD_DAEMON
+    g->is_systemd     = 0;
+#endif /* HAVE_SYSTEMD_DAEMON */
 
     for (i = 0; i < MAX_LISTEN_SOCKETS; i++)
 	g->listenfd[i] = -1;
@@ -248,8 +252,12 @@ int main(int argc, char** argv)
 	    else
 		usage(g);
 	    epmd_cleanup_exit(g,0);
-	}
-	else
+#ifdef HAVE_SYSTEMD_DAEMON
+	} else if (strcmp(argv[0], "-systemd") == 0) {
+            g->is_systemd = 1;
+            argv++; argc--;
+#endif /* HAVE_SYSTEMD_DAEMON */
+	} else
 	    usage(g);
     }
     dbg_printf(g,1,"epmd running - daemon = %d",g->is_daemon);
@@ -286,7 +294,7 @@ static void run_daemon(EpmdVars *g)
     /* fork to make sure first child is not a process group leader */
     if (( child_pid = fork()) < 0)
       {
-#ifndef NO_SYSLOG
+#ifdef HAVE_SYSLOG_H
 	syslog(LOG_ERR,"erlang mapper daemon cant fork %m");
 #endif
 	epmd_cleanup_exit(g,1);
@@ -312,7 +320,7 @@ static void run_daemon(EpmdVars *g)
 
     if ((child_pid = fork()) < 0)
       {
-#ifndef NO_SYSLOG
+#ifdef HAVE_SYSLOG_H
 	syslog(LOG_ERR,"erlang mapper daemon cant fork 2'nd time %m");
 #endif
 	epmd_cleanup_exit(g,1);
@@ -335,10 +343,10 @@ static void run_daemon(EpmdVars *g)
     for (fd = 0; fd < g->max_conn ; fd++) /* close all files ... */
         close(fd);
     /* Syslog on linux will try to write to whatever if we dont
-       inform it of that the log is closed. */
+       inform it that the log is closed. */
     closelog();
 
-    /* These chouldn't be needed but for safety... */
+    /* These shouldn't be needed but for safety... */
 
     open("/dev/null", O_RDONLY); /* Order is important! */
     open("/dev/null", O_WRONLY);
@@ -379,7 +387,7 @@ static void run_daemon(EpmdVars *g)
     close(1);
     close(2);
 
-    /* These chouldn't be needed but for safety... */
+    /* These shouldn't be needed but for safety... */
 
     open("nul", O_RDONLY);
     open("nul", O_WRONLY);
@@ -454,6 +462,11 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "        Forcibly unregisters a name with epmd\n");
     fprintf(stderr, "        (only allowed if -relaxed_command_check was given when \n");
     fprintf(stderr, "        epmd was started).\n");
+#ifdef HAVE_SYSTEMD_DAEMON
+    fprintf(stderr, "    -systemd\n");
+    fprintf(stderr, "        Wait for socket from systemd. The option makes sense\n");
+    fprintf(stderr, "        when started from .socket unit.\n");
+#endif /* HAVE_SYSTEMD_DAEMON */
     epmd_cleanup_exit(g,1);
 }
 
@@ -483,7 +496,7 @@ static void dbg_gen_printf(int onsyslog,int perr,int from_level,
 
   if (g->is_daemon)
     {
-#ifndef NO_SYSLOG
+#ifdef HAVE_SYSLOG_H
       if (onsyslog)
 	{
 	  erts_vsnprintf(buf, DEBUG_BUFFER_SIZE, format, args);
@@ -577,9 +590,13 @@ void epmd_cleanup_exit(EpmdVars *g, int exitval)
       for(i=0; g->argv[i] != NULL; ++i)
 	  free(g->argv[i]);
       free(g->argv);
-  }      
-      
-
+  }
+#ifdef HAVE_SYSTEMD_DAEMON
+  if (g->is_systemd){
+    sd_notifyf(0, "STATUS=Exited.\n"
+               "ERRNO=%i", exitval);
+  }
+#endif /* HAVE_SYSTEMD_DAEMON */
   exit(exitval);
 }
 

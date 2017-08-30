@@ -2,18 +2,19 @@
 %%%
 %%% %CopyrightBegin%
 %%%
-%%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%%
-%%% The contents of this file are subject to the Erlang Public License,
-%%% Version 1.1, (the "License"); you may not use this file except in
-%%% compliance with the License. You should have received a copy of the
-%%% Erlang Public License along with this software. If not, it can be
-%%% retrieved online at http://www.erlang.org/.
+%%% Licensed under the Apache License, Version 2.0 (the "License");
+%%% you may not use this file except in compliance with the License.
+%%% You may obtain a copy of the License at
 %%%
-%%% Software distributed under the License is distributed on an "AS IS"
-%%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%%% the License for the specific language governing rights and limitations
-%%% under the License.
+%%%     http://www.apache.org/licenses/LICENSE-2.0
+%%%
+%%% Unless required by applicable law or agreed to in writing, software
+%%% distributed under the License is distributed on an "AS IS" BASIS,
+%%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%%% See the License for the specific language governing permissions and
+%%% limitations under the License.
 %%%
 %%% %CopyrightEnd%
 %%%
@@ -102,10 +103,18 @@ conv_insn(I, Map, Data) ->
   end.
 
 conv_fconv(I, Map, Data) ->
-  %% Dst := (double)Src, where Dst is FP reg and Src is int reg
+  %% Dst := (double)Src, where Dst is FP reg and Src is GP reg or imm
   {Dst, Map0} = conv_fpreg(hipe_rtl:fconv_dst(I), Map),
-  {Src, Map1} = conv_src(hipe_rtl:fconv_src(I), Map0), % exclude imm src
-  I2 = mk_fconv(Dst, Src),
+  {Src, Map1} = conv_src(hipe_rtl:fconv_src(I), Map0),
+  I2 =
+    case hipe_ppc:is_temp(Src) of
+      true ->
+	mk_fconv(Dst, Src);
+      false ->
+	Tmp = new_untagged_temp(),
+	mk_li(Tmp, Src,
+	      mk_fconv(Dst, Tmp))
+    end,
   {I2, Map1, Data}.
 
 mk_fconv(Dst, Src) ->

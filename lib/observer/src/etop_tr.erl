@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -59,7 +60,7 @@ reader(Config) ->
     Port = getopt(port, Config),    
     
     {ok, Sock} = gen_tcp:connect(Host, Port, [{active, false}]),
-    spawn_link(fun() -> reader_init(Sock,getopt(store,Config),nopid) end).
+    spawn_link(fun() -> reader_init(Sock,getopt(store,Config),[]) end).
 
 
 %%%%%%%%%%%%%%   Socket reader %%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -73,24 +74,30 @@ reader(Sock, Store, Last) ->
     New = handle_data(Last, Data, Store),
     reader(Sock, Store, New).
 
-handle_data(_, {_, Pid, in, _, Time}, _) ->
-    {Pid,Time};
-handle_data({Pid,Time1}, {_, Pid, out, _, Time2}, Store) ->
-    Elapsed = elapsed(Time1, Time2),
-    case ets:member(Store,Pid) of
-	true -> ets:update_counter(Store, Pid, Elapsed);
-	false -> ets:insert(Store,{Pid,Elapsed})
-    end,
-    nopid;
+handle_data(Last, {_, Pid, in, _, Time}, _) ->
+    [{Pid,Time}|Last];
+handle_data([], {_, _, out, _, _}, _Store) ->
+    %% ignore - there was probably just a 'drop'
+    [];
+handle_data(Last, {_, Pid, out, _, Time2} = G, Store) ->
+    case lists:keytake(Pid, 1, Last) of
+         {_, {_, Time1}, New} ->
+             Elapsed = elapsed(Time1, Time2),
+             case ets:member(Store,Pid) of
+                  true -> ets:update_counter(Store, Pid, Elapsed);
+                  false -> ets:insert(Store,{Pid,Elapsed})
+             end,
+             New;
+         false ->
+             io:format("Erlang top got garbage ~p~n", [G]),
+             Last
+    end;
 handle_data(_W, {drop, D}, _) ->  %% Error case we are missing data here!
     io:format("Erlang top dropped data ~p~n", [D]),
-    nopid;
-handle_data(nopid, {_, _, out, _, _}, _Store) ->
-    %% ignore - there was probably just a 'drop'
-    nopid;
-handle_data(_, G, _) ->
+    [];
+handle_data(Last, G, _) ->
     io:format("Erlang top got garbage ~p~n", [G]),
-    nopid.
+    Last.
 
 elapsed({Me1, S1, Mi1}, {Me2, S2, Mi2}) ->
     Me = (Me2 - Me1) * 1000000,

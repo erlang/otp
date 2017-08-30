@@ -252,7 +252,17 @@ domainComponent ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
 
 emailAddress ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
 	ID id-emailAddress
-	TYPE EmailAddress }
+	TYPE EmailAddress } -- this is currently not used when decoding
+ -- The decoding and mapping between ID and Type is done in the code
+ -- in module publickey_cert_records via the function attribute_type
+ -- To be more forgiving and compatible with other SSL implementations
+ -- regarding how to handle and sometimes accept incorrect certificates
+ -- we define and use the type below instead of emailAddress
+
+ OTP-emailAddress ::= CHOICE {
+       ia5String         IA5String       (SIZE (1..255)),
+       utf8String        UTF8String      (SIZE (1..255))
+}
 
 --
 -- Signature and Public Key Algorithms
@@ -442,23 +452,23 @@ SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
 
    ecdsa-with-sha1 SIGNATURE-ALGORITHM-CLASS ::= {
        ID ecdsa-with-SHA1
-       TYPE NULL }  -- XXX Must be empty and not NULL
+       TYPE EcpkParameters }  -- XXX Must be empty and not NULL
 
    ecdsa-with-sha224 SIGNATURE-ALGORITHM-CLASS ::= {
        ID ecdsa-with-SHA224
-       TYPE NULL }  -- XXX Must be empty and not NULL
+       TYPE EcpkParameters }  -- XXX Must be empty and not NULL
 
    ecdsa-with-sha256 SIGNATURE-ALGORITHM-CLASS ::= {
        ID ecdsa-with-SHA256
-       TYPE NULL }  -- XXX Must be empty and not NULL
+       TYPE EcpkParameters }  -- XXX Must be empty and not NULL
 
    ecdsa-with-sha384 SIGNATURE-ALGORITHM-CLASS ::= {
        ID ecdsa-with-SHA384
-       TYPE NULL }  -- XXX Must be empty and not NULL
+       TYPE EcpkParameters }  -- XXX Must be empty and not NULL
 
    ecdsa-with-sha512 SIGNATURE-ALGORITHM-CLASS ::= {
        ID ecdsa-with-SHA512
-       TYPE NULL }  -- XXX Must be empty and not NULL
+       TYPE EcpkParameters }  -- XXX Must be empty and not NULL
 
    FIELD-ID-CLASS ::= CLASS {
 	&id OBJECT IDENTIFIER UNIQUE,

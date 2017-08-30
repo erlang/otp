@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -55,8 +56,6 @@ end_per_group(_GroupName, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init_per_suite(suite) -> [];
-init_per_suite(doc) -> [];
 init_per_suite(Config) when is_list(Config) ->
     case is_app(xmerl) of
 	{ok, AppFile} ->
@@ -77,18 +76,12 @@ is_app(App) ->
     end.
 
 
-end_per_suite(suite) -> [];
-end_per_suite(doc) -> [];
 end_per_suite(Config) when is_list(Config) ->
     Config.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-fields(suite) ->
-    [];
-fields(doc) ->
-    [];
 fields(Config) when is_list(Config) ->
     AppFile = key1search(app_file, Config),
     Fields = [vsn, description, modules, registered, applications],
@@ -116,10 +109,6 @@ check_field(Name, AppFile, Missing) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-modules(suite) ->
-    [];
-modules(doc) ->
-    [];
 modules(Config) when is_list(Config) ->
     AppFile  = key1search(app_file, Config),
     Mods     = key1search(modules, AppFile),
@@ -173,10 +162,6 @@ extra_modules(Mods, [Mod|Ebins], Extra) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-exportall(suite) ->
-    [];
-exportall(doc) ->
-    [];
 exportall(Config) when is_list(Config) ->
     AppFile = key1search(app_file, Config),
     Mods    = key1search(modules, AppFile),
@@ -206,24 +191,17 @@ check_export_all([Mod|Mods]) ->
 	    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-app_depend(suite) ->
-    [];
-app_depend(doc) ->
-    [];
 app_depend(Config) when is_list(Config) ->
     AppFile = key1search(app_file, Config),
     Apps    = key1search(applications, AppFile),
     check_apps(Apps).
 
 
-check_apps([]) ->
-    ok;
+check_apps([]) -> ok;
 check_apps([App|Apps]) ->
     case is_app(App) of
-	{ok, _} ->
-	    check_apps(Apps);
-	Error ->
-	    throw({error, {missing_app, {App, Error}}})
+	{ok, _} -> check_apps(Apps);
+	Error -> throw({error, {missing_app, {App, Error}}})
     end.
 
 

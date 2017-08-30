@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -48,10 +49,6 @@
 %%                  | Le
 %% specifies if the process should break.
 %%--------------------------------------------------------------------
-
-%% Common Test adaptation
-cmd({call_remote,0,ct_line,line,_As}, Bs, _Ieval) -> 
-    Bs;
 
 cmd(Expr, Bs, Ieval) ->
     cmd(Expr, Bs, get(next_break), Ieval).
@@ -174,10 +171,10 @@ handle_cmd(Bs, Status, Ieval) ->
 %% User control of process execution and settings
 %%====================================================================
 
-step(Meta) ->     Meta ! {user, {cmd, step}}.
-next(Meta) ->     Meta ! {user, {cmd, next}}.
-continue(Meta) -> Meta ! {user, {cmd, continue}}.
-finish(Meta) ->   Meta ! {user, {cmd, finish}}.
+step(Meta) ->     Meta ! {user, {cmd, step}}, ok.
+next(Meta) ->     Meta ! {user, {cmd, next}}, ok.
+continue(Meta) -> Meta ! {user, {cmd, continue}}, ok.
+finish(Meta) ->   Meta ! {user, {cmd, finish}}, ok.
 skip(Meta) ->     Meta ! {user, {cmd, skip}}.
 
 timeout(Meta) ->  Meta ! {user, timeout}.
@@ -270,7 +267,7 @@ handle_int_msg({old_code,Mod}, Status, Bs,
 	       #ieval{level=Le,module=M}=Ieval) ->
     if
 	Status =:= idle, Le =:= 1 ->
-	    erase([Mod|db]),
+	    erase(?DB_REF_KEY(Mod)),
 	    put(cache, []);
 	true ->
 	    case dbg_istk:in_use_p(Mod, M) of
@@ -280,7 +277,7 @@ handle_int_msg({old_code,Mod}, Status, Bs,
 		    exit(get(self), kill),
 		    dbg_ieval:exception(exit, old_code, Bs, Ieval);
 		false ->
-		    erase([Mod|db]),
+		    erase(?DB_REF_KEY(Mod)),
 		    put(cache, [])
 	    end
     end;
@@ -399,7 +396,7 @@ eval_restricted({From,_Mod,Cmd,SP}, Bs) ->
 
 eval_nonrestricted({From,Mod,Cmd,SP}, Bs, #ieval{level=Le}) when SP < Le->
     %% Evaluate in stack
-    eval_restricted({From, Mod, Cmd, SP}, Bs),
+    _ = eval_restricted({From, Mod, Cmd, SP}, Bs),
     Bs;
 eval_nonrestricted({From, _Mod, Cmd, _SP}, Bs, 
 		   #ieval{level=Le,module=M,line=Line}=Ieval) ->
@@ -465,7 +462,8 @@ tell_attached(Msg) ->
     case get(attached) of
 	undefined -> ignore;
 	AttPid ->
-	    AttPid ! {self(), Msg}
+	    AttPid ! {self(), Msg},
+            ignore
     end.
 
 %%====================================================================

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -29,6 +30,7 @@
 -export([more_catch/1,more_nocatch/1,exit_me/0]).
 -export([f/1, f_try/1, f_catch/1]).
 -export([otp_5837/1, otp_8310/0]).
+-export([empty_map_update/1, update_in_fun/0]).
 
 %% Internal exports.
 -export([echo/2,my_subtract/2,catch_a_ball/0,throw_a_ball/0]).
@@ -236,4 +238,13 @@ otp_8310() ->
         (catch {a, [X || X <- a]}),
     {'EXIT',{{bad_generator,b},_}} =
         (catch {a, << <<X>>  || << X >> <= b >>}),
+    true = begin (X1 = true) andalso X1, X1 end,
+    false = begin (X2 = false) andalso X2, X2 end,
+    true = begin (X3 = true) orelse X3, X3 end,
+    false = begin (X4 = false) orelse X4, X4 end,
     ok.
+
+empty_map_update(Map) -> Map#{}.
+
+update_in_fun() ->
+    lists:map(fun (X) -> X#{price := 0} end, [#{hello => 0, price => nil}]).

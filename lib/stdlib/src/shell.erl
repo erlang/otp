@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -22,7 +23,7 @@
 -export([whereis_evaluator/0, whereis_evaluator/1]).
 -export([start_restricted/1, stop_restricted/0]).
 -export([local_allowed/3, non_local_allowed/3]).
--export([prompt_func/1, strings/1]).
+-export([catch_exception/1, prompt_func/1, strings/1]).
 
 -define(LINEMAX, 30).
 -define(CHAR_MAX, 60).
@@ -58,7 +59,7 @@ start(NoCtrlG) ->
     start(NoCtrlG, false).
 
 start(NoCtrlG, StartSync) ->
-    code:ensure_loaded(user_default),
+    _ = code:ensure_loaded(user_default),
     spawn(fun() -> server(NoCtrlG, StartSync) end).
 
 %% Find the pid of the current evaluator process.
@@ -314,7 +315,8 @@ prompt(N, Eval0, Bs0, RT, Ds0) ->
     case get_prompt_func() of
         {M,F} ->
             L = [{history,N}],
-            C = {call,1,{remote,1,{atom,1,M},{atom,1,F}},[{value,1,L}]},
+            A = erl_anno:new(1),
+            C = {call,A,{remote,A,{atom,A,M},{atom,A,F}},[{value,A,L}]},
             {V,Eval,Bs,Ds} = shell_cmd([C], Eval0, Bs0, RT, Ds0, pmt),
             {Eval,Bs,Ds,case V of
                             {pmt,Val} ->
@@ -371,6 +373,14 @@ expand_expr({bc,L,E,Qs}, C) ->
     {bc,L,expand_expr(E, C),expand_quals(Qs, C)};
 expand_expr({tuple,L,Elts}, C) ->
     {tuple,L,expand_exprs(Elts, C)};
+expand_expr({map,L,Es}, C) ->
+    {map,L,expand_exprs(Es, C)};
+expand_expr({map,L,Arg,Es}, C) ->
+    {map,L,expand_expr(Arg, C),expand_exprs(Es, C)};
+expand_expr({map_field_assoc,L,K,V}, C) ->
+    {map_field_assoc,L,expand_expr(K, C),expand_expr(V, C)};
+expand_expr({map_field_exact,L,K,V}, C) ->
+    {map_field_exact,L,expand_expr(K, C),expand_expr(V, C)};
 expand_expr({record_index,L,Name,F}, C) ->
     {record_index,L,Name,expand_expr(F, C)};
 expand_expr({record,L,Name,Is}, C) ->
@@ -408,7 +418,7 @@ expand_expr({call,_L,{atom,_,v},[N]}, C) ->
         {_,undefined,_} ->
 	    no_command(N);
 	{Ces,V,CommandN} when is_list(Ces) ->
-            {value,CommandN,V}
+            {value,erl_anno:new(CommandN),V}
     end;
 expand_expr({call,L,F,Args}, C) ->
     {call,L,expand_expr(F, C),expand_exprs(Args, C)};
@@ -424,6 +434,8 @@ expand_expr({remote,L,M,F}, C) ->
     {remote,L,expand_expr(M, C),expand_expr(F, C)};
 expand_expr({'fun',L,{clauses,Cs}}, C) ->
     {'fun',L,{clauses,expand_exprs(Cs, C)}};
+expand_expr({named_fun,L,Name,Cs}, C) ->
+    {named_fun,L,Name,expand_exprs(Cs, C)};
 expand_expr({clause,L,H,G,B}, C) ->
     %% Could expand H and G, but then erl_eval has to be changed as well.
     {clause,L,H, G, expand_exprs(B, C)};
@@ -677,8 +689,10 @@ exprs([E0|Es], Bs1, RT, Lf, Ef, Bs0, W) ->
             if
                 Es =:= [] ->
                     VS = pp(V0, 1, RT),
-                    [io:requests([{put_chars, unicode, VS}, nl]) ||
-                        W =:= cmd],
+                    case W of
+                        cmd -> io:requests([{put_chars, unicode, VS}, nl]);
+                        pmt -> ok
+                    end,
                     %% Don't send the result back if it will be
                     %% discarded anyway.
                     V = if
@@ -889,7 +903,7 @@ prep_check({call,Line,{atom,_,f},[{var,_,_Name}]}) ->
     {atom,Line,ok};
 prep_check({value,_CommandN,_Val}) ->
     %% erl_lint cannot handle the history expansion {value,_,_}.
-    {atom,0,ok};
+    {atom,a0(),ok};
 prep_check(T) when is_tuple(T) ->
     list_to_tuple(prep_check(tuple_to_list(T)));
 prep_check([E | Es]) ->
@@ -901,11 +915,11 @@ expand_records([], E0) ->
     E0;
 expand_records(UsedRecords, E0) ->
     RecordDefs = [Def || {_Name,Def} <- UsedRecords],
-    L = 1,
+    L = erl_anno:new(1),
     E = prep_rec(E0),
-    Forms = RecordDefs ++ [{function,L,foo,0,[{clause,L,[],[],[E]}]}],
-    [{function,L,foo,0,[{clause,L,[],[],[NE]}]}] = 
-        erl_expand_records:module(Forms, [strict_record_tests]), 
+    Forms0 = RecordDefs ++ [{function,L,foo,0,[{clause,L,[],[],[E]}]}],
+    Forms = erl_expand_records:module(Forms0, [strict_record_tests]),
+    {function,L,foo,0,[{clause,L,[],[],[NE]}]} = lists:last(Forms),
     prep_rec(NE).
 
 prep_rec({value,_CommandN,_V}=Value) ->
@@ -985,12 +999,7 @@ local_func(rl, [A], Bs0, _Shell, RT, Lf, Ef) ->
     {value,list_records(record_defs(RT, listify(Recs))),Bs};
 local_func(rp, [A], Bs0, _Shell, RT, Lf, Ef) ->
     {[V],Bs} = expr_list([A], Bs0, Lf, Ef),
-    Cs = io_lib_pretty:print(V, ([{column, 1},
-                                  {line_length, columns()},
-                                  {depth, -1},
-                                  {max_chars, ?CHAR_MAX},
-                                  {record_print_fun, record_print_fun(RT)}]
-                                 ++ enc())),
+    Cs = pp(V, _Column=1, _Depth=-1, RT),
     io:requests([{put_chars, unicode, Cs}, nl]),
     {value,ok,Bs};
 local_func(rr, [A], Bs0, _Shell, RT, Lf, Ef) ->
@@ -1072,6 +1081,8 @@ record_fields([{record_field,_,{atom,_,Field}} | Fs]) ->
     [Field | record_fields(Fs)];
 record_fields([{record_field,_,{atom,_,Field},_} | Fs]) ->
     [Field | record_fields(Fs)];
+record_fields([{typed_record_field,Field,_Type} | Fs]) ->
+    record_fields([Field | Fs]);
 record_fields([]) ->
     [].
 
@@ -1308,8 +1319,15 @@ list_bindings([{Name,Val}|Bs], RT) ->
     case erl_eval:fun_data(Val) of
         {fun_data,_FBs,FCs0} ->
             FCs = expand_value(FCs0), % looks nicer
-            F = {'fun',0,{clauses,FCs}},
-            M = {match,0,{var,0,Name},F},
+            A = a0(),
+            F = {'fun',A,{clauses,FCs}},
+            M = {match,A,{var,A,Name},F},
+            io:fwrite(<<"~ts\n">>, [erl_pp:expr(M, enc())]);
+        {named_fun_data,_FBs,FName,FCs0} ->
+            FCs = expand_value(FCs0), % looks nicer
+            A = a0(),
+            F = {named_fun,A,FName,FCs},
+            M = {match,A,{var,A,Name},F},
             io:fwrite(<<"~ts\n">>, [erl_pp:expr(M, enc())]);
         false ->
             Namel = io_lib:fwrite(<<"~s = ">>, [Name]),
@@ -1339,13 +1357,18 @@ expand_value(E) ->
 %% There is no abstract representation of funs.
 try_abstract(V, CommandN) ->
     try erl_parse:abstract(V)
-    catch _:_ -> {call,0,{atom,0,v},[{integer,0,CommandN}]}
+    catch
+        _:_ ->
+            A = a0(),
+            {call,A,{atom,A,v},[{integer,A,CommandN}]}
     end.
 
 %% Rather than listing possibly huge results the calls to v/1 are shown.
 prep_list_commands(E) ->
-    substitute_v1(fun({value,CommandN,_V}) -> 
-                          {call,0,{atom,0,v},[{integer,0,CommandN}]}
+    A = a0(),
+    substitute_v1(fun({value,Anno,_V}) ->
+                          CommandN = erl_anno:line(Anno),
+                          {call,A,{atom,A,v},[{integer,A,CommandN}]}
                   end, E).
 
 substitute_v1(F, {value,_,_}=Value) ->
@@ -1356,6 +1379,9 @@ substitute_v1(F, [E | Es]) ->
     [substitute_v1(F, E) | substitute_v1(F, Es)];
 substitute_v1(_F, E) -> 
     E.
+
+a0() ->
+    erl_anno:new(0).
 
 check_and_get_history_and_results() ->
     check_env(shell_history_length),
@@ -1368,9 +1394,9 @@ get_history_and_results() ->
     {History, erlang:min(Results, History)}.
 
 pp(V, I, RT) ->
-    pp(V, I, RT, enc()).
+    pp(V, I, _Depth=?LINEMAX, RT).
 
-pp(V, I, RT, Enc) ->
+pp(V, I, D, RT) ->
     Strings =
         case application:get_env(stdlib, shell_strings) of
             {ok, false} ->
@@ -1379,10 +1405,10 @@ pp(V, I, RT, Enc) ->
                 true
         end,
     io_lib_pretty:print(V, ([{column, I}, {line_length, columns()},
-                             {depth, ?LINEMAX}, {max_chars, ?CHAR_MAX},
+                             {depth, D}, {max_chars, ?CHAR_MAX},
                              {strings, Strings},
                              {record_print_fun, record_print_fun(RT)}]
-                            ++ Enc)).
+                            ++ enc())).
 
 columns() ->
     case io:columns() of

@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2013. All Rights Reserved.
+ * Copyright Ericsson AB 2013-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -85,13 +86,13 @@ thread_func(void *arg)
     for (i = 0; i < (TEST_NO_CARRIERS_PER_THREAD+TEST_CARRIERS_OFFSET); i++) {
 	int d;
 	if (i < TEST_NO_CARRIERS_PER_THREAD) {
-	    CPOOL_INSERT(alloc, crr[i]);
+	    (void) CPOOL_INSERT(alloc, crr[i]);
 	    if ((i & 0x7) == 0)
 		FATAL_ASSERT(CPOOL_IS_IN_POOL(alloc, crr[i]));
 	}
 	d = i-TEST_CARRIERS_OFFSET;
 	if (d >= 0) {
-	    CPOOL_DELETE(alloc, crr[d]);
+	    (void) CPOOL_DELETE(alloc, crr[d]);
 	    if ((d & 0x7) == 0)
 		FATAL_ASSERT(!CPOOL_IS_IN_POOL(alloc, crr[d]));
 	}
@@ -128,7 +129,7 @@ testcase_run(TestCaseState_t *tcs)
 	for (c = 0; c < TEST_NO_CARRIERS_PER_THREAD; c++) {
 	    Carrier_t *crr = (Carrier_t *) p;
 	    p += zcrr_sz;
-	    ZERO_CRR_INIT(alloc, crr);
+	    (void) ZERO_CRR_INIT(alloc, crr);
 	    threads[t].crr[c] = crr;
 	}
     }
@@ -155,3 +156,6 @@ testcase_run(TestCaseState_t *tcs)
 
     ASSERT(tcs, no_threads == TEST_NO_THREADS);
 }
+
+ERL_NIF_INIT(cpool, testcase_nif_funcs, testcase_nif_init,
+	     NULL, NULL, NULL);

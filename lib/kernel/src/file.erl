@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -95,7 +96,8 @@
                       Delay :: non_neg_integer()}
 		   | 'delayed_write' | {'read_ahead', Size :: pos_integer()}
 		   | 'read_ahead' | 'compressed'
-		   | {'encoding', unicode:encoding()}.
+		   | {'encoding', unicode:encoding()}
+		   | sync.
 -type deep_list() :: [char() | atom() | deep_list()].
 -type name()      :: string() | atom() | deep_list().
 -type name_all()  :: string() | atom() | deep_list() | (RawFilename :: binary()).
@@ -110,20 +112,13 @@
 -type date_time() :: calendar:datetime().
 -type posix_file_advise() :: 'normal' | 'sequential' | 'random'
                            | 'no_reuse' | 'will_need' | 'dont_need'.
--type sendfile_option() :: {chunk_size, non_neg_integer()}.
+-type sendfile_option() :: {chunk_size, non_neg_integer()}
+			 | {use_threads, boolean()}.
 -type file_info_option() :: {'time', 'local'} | {'time', 'universal'} 
-			  | {'time', 'posix'}.
+			  | {'time', 'posix'} | raw.
 %%% BIFs
 
--export([file_info/1, native_name_encoding/0]).
-
--spec file_info(Filename) -> {ok, FileInfo} | {error, Reason} when
-      Filename :: name_all(),
-      FileInfo :: file_info(),
-      Reason :: posix() | badarg.
-
-file_info(_) ->
-    erlang:nif_error(undef).
+-export([native_name_encoding/0]).
 
 -spec native_name_encoding() -> latin1 | utf8.
 
@@ -197,7 +192,8 @@ get_cwd(Drive) ->
     check_and_call(get_cwd, [file_name(Drive)]).
 
 -spec set_cwd(Dir) -> ok | {error, Reason} when
-      Dir :: name(),
+      Dir :: name() | EncodedBinary,
+      EncodedBinary :: binary(),
       Reason :: posix() | badarg | no_translation.
 
 set_cwd(Dirname) -> 
@@ -247,7 +243,19 @@ read_file_info(Name) ->
       Reason :: posix() | badarg.
 
 read_file_info(Name, Opts) when is_list(Opts) ->
-    check_and_call(read_file_info, [file_name(Name), Opts]).
+    Args = [file_name(Name), Opts],
+    case check_args(Args) of
+        ok ->
+            case lists:member(raw, Opts) of
+                true ->
+                    [FileName|_] = Args,
+                    ?PRIM_FILE:read_file_info(FileName, Opts);
+                false ->
+                    call(read_file_info, Args)
+            end;
+        Error ->
+            Error
+    end.
 
 -spec altname(Name :: name_all()) -> any().
 
@@ -269,7 +277,19 @@ read_link_info(Name) ->
       Reason :: posix() | badarg.
 
 read_link_info(Name, Opts) when is_list(Opts) ->
-    check_and_call(read_link_info, [file_name(Name),Opts]).
+    Args = [file_name(Name), Opts],
+    case check_args(Args) of
+        ok ->
+            case lists:member(raw, Opts) of
+                true ->
+                    [FileName|_] = Args,
+                    ?PRIM_FILE:read_link_info(FileName, Opts);
+                false ->
+                    call(read_link_info, Args)
+            end;
+        Error ->
+            Error
+    end.
 
 
 -spec read_link(Name) -> {ok, Filename} | {error, Reason} when
@@ -303,7 +323,19 @@ write_file_info(Name, Info = #file_info{}) ->
       Reason :: posix() | badarg.
 
 write_file_info(Name, Info = #file_info{}, Opts) when is_list(Opts) ->
-    check_and_call(write_file_info, [file_name(Name), Info, Opts]).
+    Args = [file_name(Name), Info, Opts],
+    case check_args(Args) of
+        ok ->
+            case lists:member(raw, Opts) of
+                true ->
+                    [FileName|_] = Args,
+                    ?PRIM_FILE:write_file_info(FileName, Info, Opts);
+                false ->
+                    call(write_file_info, Args)
+            end;
+        Error ->
+            Error
+    end.
 
 -spec list_dir(Dir) -> {ok, Filenames} | {error, Reason} when
       Dir :: name_all(),
@@ -376,7 +408,7 @@ write_file(Name, Bin, ModeList) when is_list(ModeList) ->
 			ok ->
 			    close(Handle);
 			E1 ->
-			    close(Handle),
+			    _ = close(Handle),
 			    E1
 		    end;
 		E2 ->
@@ -389,26 +421,12 @@ write_file(Name, Bin, ModeList) when is_list(ModeList) ->
 %% Obsolete, undocumented, local node only, don't use!.
 %% XXX to be removed.
 raw_read_file_info(Name) ->
-    Args = [file_name(Name)],
-    case check_args(Args) of
-	ok ->
-	    [FileName] = Args,
-	    ?PRIM_FILE:read_file_info(FileName);
-	Error ->
-	    Error
-    end.
+    read_file_info(Name, [raw]).
 
 %% Obsolete, undocumented, local node only, don't use!.
 %% XXX to be removed.
 raw_write_file_info(Name, #file_info{} = Info) ->
-    Args = [file_name(Name)],
-    case check_args(Args) of
-	ok ->
-	    [FileName] = Args,
-	    ?PRIM_FILE:write_file_info(FileName, Info);
-	Error ->
-	    Error
-    end.
+    write_file_info(Name, Info, [raw]).
 
 %%%-----------------------------------------------------------------
 %%% File io server functions.
@@ -428,21 +446,15 @@ open(Item, ModeList) when is_list(ModeList) ->
     case lists:member(raw, ModeList) of
 	%% Raw file, use ?PRIM_FILE to handle this file
 	true ->
-	    %% check if raw file mode is disabled
-	    case catch application:get_env(kernel, raw_files) of
-		{ok,false} ->
-		    open(Item, lists:delete(raw, ModeList));
-		_ ->				% undefined | {ok,true}
-		    Args = [file_name(Item) | ModeList],
-		    case check_args(Args) of
-			ok ->
-			    [FileName | _] = Args,
-			    %% We rely on the returned Handle (in {ok, Handle})
-			    %% being a pid() or a #file_descriptor{}
-			    ?PRIM_FILE:open(FileName, ModeList);
-			Error ->
-			    Error
-		    end
+            Args = [file_name(Item) | ModeList],
+            case check_args(Args) of
+                ok ->
+                    [FileName | _] = Args,
+                    %% We rely on the returned Handle (in {ok, Handle})
+                    %% being a pid() or a #file_descriptor{}
+                    ?PRIM_FILE:open(FileName, ModeList);
+                Error ->
+                    Error
 	    end;
 	false ->
 	    case lists:member(ram, ModeList) of
@@ -770,7 +782,7 @@ copy_int({SourceName, SourceOpts}, Dest, Length)
 	    case open(Source, [read | SourceOpts]) of
 		{ok, Handle} ->
 		    Result = copy_opened_int(Handle, Dest, Length, 0),
-		    close(Handle),
+		    _ = close(Handle),
 		    Result;
 		{error, _} = Error ->
 		    Error
@@ -786,9 +798,16 @@ copy_int(Source, {DestName, DestOpts}, Length)
 	Dest ->
 	    case open(Dest, [write | DestOpts]) of
 		{ok, Handle} ->
-		    Result = copy_opened_int(Source, Handle, Length, 0),
-		    close(Handle),
-		    Result;
+                    case copy_opened_int(Source, Handle, Length, 0) of
+                        {ok, _} = OK ->
+                            case close(Handle) of
+                                ok -> OK;
+                                Error -> Error
+                            end;
+                        Error ->
+                            _ = close(Handle),
+                            Error
+                    end;
 		{error, _} = Error ->
 		    Error
 	    end
@@ -957,7 +976,7 @@ consult(File) ->
     case open(File, [read]) of
 	{ok, Fd} ->
 	    R = consult_stream(Fd),
-	    close(Fd),
+	    _ = close(Fd),
 	    R;
 	Error ->
 	    Error
@@ -977,10 +996,10 @@ path_consult(Path, File) ->
 	{ok, Fd, Full} ->
 	    case consult_stream(Fd) of
 		{ok, List} ->
-		    close(Fd),
+		    _ = close(Fd),
 		    {ok, List, Full};
 		E1 ->
-		    close(Fd),
+		    _ = close(Fd),
 		    E1
 	    end;
 	E2 ->
@@ -1005,7 +1024,7 @@ eval(File, Bs) ->
     case open(File, [read]) of
 	{ok, Fd} ->
 	    R = eval_stream(Fd, ignore, Bs),
-	    close(Fd),
+	    _ = close(Fd),
 	    R;
 	Error ->
 	    Error
@@ -1035,10 +1054,10 @@ path_eval(Path, File, Bs) ->
 	{ok, Fd, Full} ->
 	    case eval_stream(Fd, ignore, Bs) of
 		ok ->
-		    close(Fd),
+		    _ = close(Fd),
 		    {ok, Full};
 		E1 ->
-		    close(Fd),
+		    _ = close(Fd),
 		    E1
 	    end;
 	E2 ->
@@ -1065,7 +1084,7 @@ script(File, Bs) ->
     case open(File, [read]) of
 	{ok, Fd} ->
 	    R = eval_stream(Fd, return, Bs),
-	    close(Fd),
+	    _ = close(Fd),
 	    R;
 	Error ->
 	    Error
@@ -1098,10 +1117,10 @@ path_script(Path, File, Bs) ->
 	{ok,Fd,Full} ->
 	    case eval_stream(Fd, return, Bs) of
 		{ok,R} ->
-		    close(Fd),
+		    _ = close(Fd),
 		    {ok, R, Full};
 		E1 ->
-		    close(Fd),
+		    _ = close(Fd),
 		    E1
 	    end;
 	E2 ->
@@ -1208,7 +1227,8 @@ change_time(Name, {{AY, AM, AD}, {AH, AMin, ASec}}=Atime,
 %% Send data using sendfile
 %%
 
--define(MAX_CHUNK_SIZE, (1 bsl 20)*20). %% 20 MB, has to fit in primary memory
+%% 1 MB, Windows seems to behave badly if it is much larger then this
+-define(MAX_CHUNK_SIZE, (1 bsl 20)).
 
 -spec sendfile(RawFile, Socket, Offset, Bytes, Opts) ->
    {'ok', non_neg_integer()} | {'error', inet:posix() | 
@@ -1221,8 +1241,7 @@ change_time(Name, {{AY, AM, AD}, {AH, AMin, ASec}}=Atime,
 sendfile(File, _Sock, _Offet, _Bytes, _Opts) when is_pid(File) ->
     {error, badarg};
 sendfile(File, Sock, Offset, Bytes, []) ->
-    sendfile(File, Sock, Offset, Bytes, ?MAX_CHUNK_SIZE, [], [],
-	     false, false, false);
+    sendfile(File, Sock, Offset, Bytes, ?MAX_CHUNK_SIZE, [], [], []);
 sendfile(File, Sock, Offset, Bytes, Opts) ->
     ChunkSize0 = proplists:get_value(chunk_size, Opts, ?MAX_CHUNK_SIZE),
     ChunkSize = if ChunkSize0 > ?MAX_CHUNK_SIZE ->
@@ -1232,8 +1251,7 @@ sendfile(File, Sock, Offset, Bytes, Opts) ->
     %% Support for headers, trailers and options has been removed because the
     %% Darwin and BSD API for using it does not play nice with
     %% non-blocking sockets. See unix_efile.c for more info.
-    sendfile(File, Sock, Offset, Bytes, ChunkSize, [], [],
-	     false,false,false).
+    sendfile(File, Sock, Offset, Bytes, ChunkSize, [], [], Opts).
 
 %% sendfile/2
 -spec sendfile(Filename, Socket) ->
@@ -1247,23 +1265,23 @@ sendfile(Filename, Sock)  ->
 	    {error, Reason};
 	{ok, Fd} ->
 	    Res = sendfile(Fd, Sock, 0, 0, []),
-	    file:close(Fd),
+	    _ = file:close(Fd),
 	    Res
     end.
 
 %% Internal sendfile functions
 sendfile(#file_descriptor{ module = Mod } = Fd, Sock, Offset, Bytes,
-	 ChunkSize, Headers, Trailers, Nodiskio, MNowait, Sync)
+	 ChunkSize, Headers, Trailers, Opts)
   when is_port(Sock) ->
     case Mod:sendfile(Fd, Sock, Offset, Bytes, ChunkSize, Headers, Trailers,
-		      Nodiskio, MNowait, Sync) of
+		      Opts) of
 	{error, enotsup} ->
 	    sendfile_fallback(Fd, Sock, Offset, Bytes, ChunkSize,
 			      Headers, Trailers);
 	Else ->
 	    Else
     end;
-sendfile(_,_,_,_,_,_,_,_,_,_) ->
+sendfile(_,_,_,_,_,_,_,_) ->
     {error, badarg}.
 
 %%%
@@ -1298,7 +1316,7 @@ sendfile_fallback(File, Sock, Offset, Bytes, ChunkSize) ->
     {ok, CurrPos} = file:position(File, {cur, 0}),
     {ok, _NewPos} = file:position(File, {bof, Offset}),
     Res = sendfile_fallback_int(File, Sock, Bytes, ChunkSize, 0),
-    file:position(File, {bof, CurrPos}),
+    _ = file:position(File, {bof, CurrPos}),
     Res.
 
 

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -22,7 +23,7 @@
 -include("External.hrl").
 -export([main/3]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('SeqExt1',{}).
 -record('SeqExt2',{bool, int}).
@@ -44,7 +45,7 @@ main(Erule, DataDir, Opts) ->
     roundtrip('SeqExt4', #'SeqExt4'{bool=true,int=12345}),
     roundtrip('SeqExt4', #'SeqExt4'{bool=false,int=123456}),
 
-    roundtrip('SeqExt5', #'SeqExt5'{name="Arne",shoesize=47}),
+    roundtrip('SeqExt5', #'SeqExt5'{name = <<"Arne">>,shoesize=47}),
 
     %% Encode a value with this version of the specification.
     BigInt = 128638468966,
@@ -52,7 +53,7 @@ main(Erule, DataDir, Opts) ->
 			   s2=#'SeqExt2'{bool=true,int=2345},
 			   s3=#'SeqExt3'{bool=false,int=17},
 			   s4=#'SeqExt4'{bool=true,int=38739739},
-			   s5=#'SeqExt5'{name="Arne",shoesize=47},
+			   s5=#'SeqExt5'{name = <<"Arne">>,shoesize=47},
 			   s6=#'SeqExt6'{i1=531,i2=601,i3=999,
 					 i4=777,i5=11953,
 					 i6=13553,i7=77777},
@@ -108,18 +109,14 @@ main(Erule, DataDir, Opts) ->
     ok.
 
 roundtrip(Type, Value) ->
-    {ok,Encoded} = 'SeqExtension':encode(Type, Value),
-    {ok,Value} = 'SeqExtension':decode(Type, Encoded),
-    ok.
+    asn1_test_lib:roundtrip('SeqExtension', Type, Value).
 
 v_roundtrip2(Erule, Type, Value) ->
     Encoded = asn1_test_lib:hex_to_bin(v(Erule, Type)),
     Encoded = roundtrip2(Type, Value).
 
 roundtrip2(Type, Value) ->
-    {ok,Encoded} = 'SeqExtension2':encode(Type, Value),
-    {ok,Value} = 'SeqExtension2':decode(Type, Encoded),
-    Encoded.
+    asn1_test_lib:roundtrip_enc('SeqExtension2', Type, Value).
 
 v(ber, 'SeqExt66') ->  "30049F41 017D";
 v(per, 'SeqExt66') ->  "C0420000 00000000 00004001 FA";

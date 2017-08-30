@@ -3,5 +3,5 @@
 -export([sleep/1]).
 
 sleep(T) ->
-    timer:sleep(T),
+    ct:sleep(T),
     ok.

@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -106,7 +107,7 @@
 #define dist_entry_channel_no(x)				\
   ((x) == erts_this_dist_entry					\
    ? ((Uint) 0)							\
-   : (ASSERT_EXPR(is_atom((x)->sysname)),			\
+   : (ASSERT(is_atom((x)->sysname)),			        \
       (Uint) atom_val((x)->sysname)))
 #define internal_channel_no(x) ((Uint) ERST_INTERNAL_CHANNEL_NO)
 #define external_channel_no(x) \
@@ -122,10 +123,10 @@ extern ErtsPTab erts_proc;
 							  (D), \
 							  _TAG_IMMED1_PID)
 
-#define internal_pid_index(PID)		(ASSERT_EXPR(is_internal_pid((PID))), \
+#define internal_pid_index(PID)		(ASSERT(is_internal_pid((PID))), \
 					 erts_ptab_id2pix(&erts_proc, (PID)))
 
-#define internal_pid_data(PID)		(ASSERT_EXPR(is_internal_pid((PID))), \
+#define internal_pid_data(PID)		(ASSERT(is_internal_pid((PID))), \
 					 erts_ptab_id2data(&erts_proc, (PID)))
 
 #define internal_pid_number(x)		_GET_PID_NUM(internal_pid_data((x)))
@@ -193,10 +194,10 @@ extern ErtsPTab erts_port;
 							  (D), \
 							  _TAG_IMMED1_PORT)
 
-#define internal_port_index(PRT)	(ASSERT_EXPR(is_internal_port((PRT))), \
+#define internal_port_index(PRT)	(ASSERT(is_internal_port((PRT))), \
 					 erts_ptab_id2pix(&erts_port, (PRT)))
 
-#define internal_port_data(PRT)		(ASSERT_EXPR(is_internal_port((PRT))), \
+#define internal_port_data(PRT)		(ASSERT(is_internal_port((PRT))), \
 					 erts_ptab_id2data(&erts_port, (PRT)))
 
 #define internal_port_number(x) _GET_PORT_NUM(internal_port_data((x)))
@@ -254,7 +255,7 @@ extern ErtsPTab erts_port;
  * Refs                                                                    *
 \*                                                                         */
 
-#if defined(ARCH_64) && !HALFWORD_HEAP
+#if defined(ARCH_64)
 
 #define internal_ref_no_of_numbers(x)					\
   (internal_ref_data((x))[0])
@@ -327,8 +328,6 @@ extern ErtsPTab erts_port;
 					 : external_ref_channel_no((x)))
 #define is_ref(x)			(is_internal_ref((x))		\
 					 || is_external_ref((x)))
-#define is_ref_rel(x,Base)		(is_internal_ref_rel((x),Base)	\
-					 || is_external_ref_rel((x),Base))
 #define is_not_ref(x)			(!is_ref(x))
 
 #endif

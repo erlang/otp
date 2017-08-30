@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -34,6 +35,8 @@
 
 %% For backward compatibility.
 -export([sz2pos/1]).
+
+-dialyzer(no_improper_lists).
 
 -compile({inline, [{sz2pos,1},{scan_skip,7}]}).
 -compile({inline, [{skip_bytes,5}, {get_segp,1}]}).
@@ -199,10 +202,10 @@
 %% -> ok | throw({NewHead,Error})
 mark_dirty(Head) ->
     Dirty = [{?CLOSED_PROPERLY_POS, <<?NOT_PROPERLY_CLOSED:32>>}],
-    dets_utils:pwrite(Head, Dirty),
-    dets_utils:sync(Head),
-    dets_utils:position(Head, Head#head.freelists_p),
-    dets_utils:truncate(Head, cur).
+    {_NewHead, ok} = dets_utils:pwrite(Head, Dirty),
+    ok = dets_utils:sync(Head),
+    {ok, _Pos} = dets_utils:position(Head, Head#head.freelists_p),
+    ok = dets_utils:truncate(Head, cur).
 
 %% -> {ok, head()} | throw(Error)
 initiate_file(Fd, Tab, Fname, Type, Kp, MinSlots, MaxSlots, 

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -21,7 +22,7 @@
 
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("External.hrl").
 
 -record('SeqTag',{nt, imp, exp}).
@@ -35,69 +36,25 @@
 -record('Exp',{os, bool}).
 
 main(_Rules) ->
-    
-    
-    ?line {ok,Bytes11} = 
-	asn1_wrapper:encode('SeqTag','SeqTag',#'SeqTag'{nt = #'NT'{bool = true, os = "kalle"},
-						  imp = #'Imp'{bool = true, os = "kalle"},
-						  exp = #'Exp'{bool = true, os = "kalle"}}),
-    ?line {ok,{'SeqTag',{'NT',"kalle",true},{'Imp',"kalle",true},{'Exp',"kalle",true}}} = 
-	asn1_wrapper:decode('SeqTag','SeqTag',lists:flatten(Bytes11)),
-    
-    
-    ?line {ok,Bytes12} = 
-	asn1_wrapper:encode('SeqTag','SeqTagImp',#'SeqTagImp'{nt = #'NT'{bool = true, os = "kalle"},
-							imp = #'Imp'{bool = true, os = "kalle"},
-							exp = #'Exp'{bool = true, os = "kalle"}}),
-    ?line {ok,{'SeqTagImp',{'NT',"kalle",true},{'Imp',"kalle",true},{'Exp',"kalle",true}}} = 
-	asn1_wrapper:decode('SeqTag','SeqTagImp',lists:flatten(Bytes12)),
-    
-    
-    ?line {ok,Bytes13} = 
-	asn1_wrapper:encode('SeqTag','SeqTagExp',#'SeqTagExp'{nt = #'NT'{bool = true, os = "kalle"},
-							imp = #'Imp'{bool = true, os = "kalle"},
-							exp = #'Exp'{bool = true, os = "kalle"}}),
-    ?line {ok,{'SeqTagExp',{'NT',"kalle",true},{'Imp',"kalle",true},{'Exp',"kalle",true}}} = 
-	asn1_wrapper:decode('SeqTag','SeqTagExp',lists:flatten(Bytes13)),
-    
-    
-    
-    
-    
-    ?line {ok,Bytes21} = 
-	asn1_wrapper:encode('SeqTag','SeqTagX',
-		      #'SeqTagX'{xnt = #'XSeqNT'{bool = true, os = "kalle"},
-				 ximp = #'XSeqImp'{bool = true, os = "kalle"},
-				 xexp = #'XSeqExp'{bool = true, os = "kalle"}}),
-    ?line {ok,{'SeqTagX',{'XSeqNT',"kalle",true},
-	       {'XSeqImp',"kalle",true},
-	       {'XSeqExp',"kalle",true}}} = 
-	asn1_wrapper:decode('SeqTag','SeqTagX',lists:flatten(Bytes21)),
-    
-    
-    ?line {ok,Bytes22} = 
-	asn1_wrapper:encode('SeqTag','SeqTagImpX',
-		      #'SeqTagImpX'{xnt = #'XSeqNT'{bool = true, os = "kalle"},
-				    ximp = #'XSeqImp'{bool = true, os = "kalle"},
-				    xexp = #'XSeqExp'{bool = true, os = "kalle"}}),
-    ?line {ok,{'SeqTagImpX',{'XSeqNT',"kalle",true},
-	       {'XSeqImp',"kalle",true},
-	       {'XSeqExp',"kalle",true}}} = 
-	asn1_wrapper:decode('SeqTag','SeqTagImpX',lists:flatten(Bytes22)),
-    
-    
-    ?line {ok,Bytes23} = 
-	asn1_wrapper:encode('SeqTag','SeqTagExpX',
-		      #'SeqTagExpX'{xnt = #'XSeqNT'{bool = true, os = "kalle"},
-				    ximp = #'XSeqImp'{bool = true, os = "kalle"},
-				    xexp = #'XSeqExp'{bool = true, os = "kalle"}}),
-    ?line {ok,{'SeqTagExpX',{'XSeqNT',"kalle",true},
-	       {'XSeqImp',"kalle",true},
-	       {'XSeqExp',"kalle",true}}} = 
-	asn1_wrapper:decode('SeqTag','SeqTagExpX',lists:flatten(Bytes23)),
-    
-    
-    
-    
-    
+    roundtrip('SeqTag', #'SeqTag'{nt=#'NT'{os = <<"kalle">>,bool=true},
+				  imp=#'Imp'{os = <<"kalle">>,bool=true},
+				  exp=#'Exp'{os = <<"kalle">>,bool=true}}),
+    roundtrip('SeqTagImp', #'SeqTagImp'{nt=#'NT'{os = <<"kalle">>,bool=true},
+					imp=#'Imp'{os = <<"kalle">>,bool=true},
+					exp=#'Exp'{os = <<"kalle">>,bool=true}}),
+    roundtrip('SeqTagExp', #'SeqTagExp'{nt=#'NT'{os = <<"kalle">>,bool=true},
+					imp=#'Imp'{os = <<"kalle">>,bool=true},
+					exp=#'Exp'{os = <<"kalle">>,bool=true}}),
+    roundtrip('SeqTagX', #'SeqTagX'{xnt=#'XSeqNT'{os = <<"kalle">>,bool=true},
+				    ximp=#'XSeqImp'{os = <<"kalle">>,bool=true},
+				    xexp=#'XSeqExp'{os = <<"kalle">>,bool=true}}),
+    roundtrip('SeqTagImpX', #'SeqTagImpX'{xnt=#'XSeqNT'{os = <<"kalle">>,bool=true},
+					  ximp=#'XSeqImp'{os = <<"kalle">>,bool=true},
+					  xexp=#'XSeqExp'{os = <<"kalle">>,bool=true}}),
+    roundtrip('SeqTagExpX', #'SeqTagExpX'{xnt=#'XSeqNT'{os = <<"kalle">>,bool=true},
+					  ximp=#'XSeqImp'{os = <<"kalle">>,bool=true},
+					  xexp=#'XSeqExp'{os = <<"kalle">>,bool=true}}),
     ok.
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('SeqTag', T, V).

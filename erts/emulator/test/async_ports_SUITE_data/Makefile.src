@@ -1,0 +1,15 @@
+CC = @CC@
+LD = @LD@
+CFLAGS = @CFLAGS@ @DEFS@
+CROSSLDFLAGS = @CROSSLDFLAGS@
+
+PROGS = cport@exe@
+
+
+all: $(PROGS)
+
+cport@exe@: cport@obj@
+	$(LD) $(CROSSLDFLAGS) -o cport cport@obj@ @LIBS@
+
+cport@obj@: cport.c
+	$(CC) -c -o cport@obj@ $(CFLAGS) cport.c

@@ -24,7 +24,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/eunit-$(VSN)
 EBIN = ../ebin
 INCLUDE=../include
 
-ERL_COMPILE_FLAGS += -pa $(EBIN) -I$(INCLUDE) +warn_unused_vars +nowarn_shadow_vars +warn_unused_import +warn_obsolete_guard
+ERL_COMPILE_FLAGS += -pa $(EBIN) -pa ../../stdlib/ebin -I$(INCLUDE) +warn_unused_vars +nowarn_shadow_vars +warn_unused_import +warn_obsolete_guard
 
 PARSE_TRANSFORM = eunit_autoexport.erl
 
@@ -45,6 +45,8 @@ SOURCES= \
 	eunit_surefire.erl \
 
 INCLUDE_FILES = eunit.hrl
+
+INTERNAL_HRL_FILES= eunit_internal.hrl
 
 PARSE_TRANSFORM_BIN = $(PARSE_TRANSFORM:%.erl=$(EBIN)/%.$(EMULATOR))
 
@@ -78,7 +80,7 @@ all: $(OBJECTS)
 
 
 clean:
-	rm -f $(OBJECTS)
+	rm -f $(OBJECTS) $(PARSE_TRANSFORM_BIN)
 	rm -f core *~
 
 distclean: clean
@@ -95,7 +97,7 @@ info:
 realclean: clean
 
 $(EBIN)/%.$(EMULATOR):%.erl
-	erlc -W $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
+	$(erlc_verbose)erlc -W $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
 $(OBJECTS): $(PARSE_TRANSFORM_BIN)
 
@@ -119,6 +121,7 @@ release_spec: opt
 	$(INSTALL_DATA) $(PARSE_TRANSFORM_BIN) $(OBJECTS) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src"
 	$(INSTALL_DATA) $(PARSE_TRANSFORM) $(SOURCES) "$(RELSYSDIR)/src"
+	$(INSTALL_DATA) $(INTERNAL_HRL_FILES) "$(RELSYSDIR)/src"
 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
 	$(INSTALL_DATA) $(INCLUDE_DELIVERABLES) "$(RELSYSDIR)/include"
 

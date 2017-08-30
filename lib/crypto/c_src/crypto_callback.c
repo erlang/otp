@@ -1,22 +1,24 @@
 /* 
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
 
+#include <stdio.h>
 #include <string.h>
 #include <openssl/opensslconf.h>
 
@@ -41,6 +43,10 @@
 
 #ifdef __WIN32__
 #  define DLLEXPORT __declspec(dllexport)
+#elif defined(__GNUC__) && __GNUC__ >= 4
+#  define DLLEXPORT __attribute__ ((visibility("default")))
+#elif defined (__SUNPRO_C) && (__SUNPRO_C >= 0x550)
+#  define DLLEXPORT __global
 #else
 #  define DLLEXPORT
 #endif
@@ -49,15 +55,28 @@
 DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks);
 
 
-static ErlNifRWLock** lock_vec = NULL; /* Static locks used by openssl */
+static void nomem(size_t size, const char* op)
+{
+    fprintf(stderr, "Out of memory abort. Crypto failed to %s %zu bytes.\r\n",
+	    op, size);
+    abort();
+}
 
 static void* crypto_alloc(size_t size)
 {
-    return enif_alloc(size);
+    void *ret = enif_alloc(size);
+
+    if (!ret && size)
+	nomem(size, "allocate");
+    return ret;
 }
 static void* crypto_realloc(void* ptr, size_t size)
 {
-    return enif_realloc(ptr, size);
+    void* ret = enif_realloc(ptr, size);
+
+    if (!ret && size)
+	nomem(size, "reallocate");
+    return ret;
 }
 static void crypto_free(void* ptr)
 {
@@ -66,6 +85,8 @@ static void crypto_free(void* ptr)
 
 
 #ifdef OPENSSL_THREADS /* vvvvvvvvvvvvvvv OPENSSL_THREADS vvvvvvvvvvvvvvvv */
+
+static ErlNifRWLock** lock_vec = NULL; /* Static locks used by openssl */
 
 #include <openssl/crypto.h>
 
@@ -91,8 +112,6 @@ static INLINE void locking(int mode, ErlNifRWLock* lock)
 
 static void locking_function(int mode, int n, const char *file, int line)
 {
-    ASSERT(n>=0 && n<CRYPTO_num_locks());
-
     locking(mode, lock_vec[n]);
 }
 

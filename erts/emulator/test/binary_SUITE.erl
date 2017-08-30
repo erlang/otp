@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -39,7 +40,7 @@
 %%      phash2(Binary, N)
 %%
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
@@ -47,7 +48,8 @@
 	 copy_terms/1, conversions/1, deep_lists/1, deep_bitstr_lists/1,
 	 bad_list_to_binary/1, bad_binary_to_list/1,
 	 t_split_binary/1, bad_split/1,
-	 terms/1, terms_float/1, external_size/1, t_iolist_size/1,
+	 terms/1, terms_float/1, float_middle_endian/1,
+	 external_size/1, t_iolist_size/1,
 	 t_hash/1,
 	 bad_size/1,
 	 bad_term_to_binary/1,
@@ -57,25 +59,27 @@
 	 ordering/1,unaligned_order/1,gc_test/1,
 	 bit_sized_binary_sizes/1,
 	 otp_6817/1,deep/1,obsolete_funs/1,robustness/1,otp_8117/1,
-	 otp_8180/1, ttb_trap/1]).
+	 otp_8180/1, trapping/1, large/1,
+	 error_after_yield/1, cmp_old_impl/1]).
 
 %% Internal exports.
--export([sleeper/0,ttb_loop/2]).
+-export([sleeper/0,trapping_loop/4]).
 
 suite() -> [{ct_hooks,[ts_install_cth]},
-	    {timetrap,{minutes,2}}].
+	    {timetrap,{minutes,4}}].
 
 all() -> 
     [copy_terms, conversions, deep_lists, deep_bitstr_lists,
      t_split_binary, bad_split,
      bad_list_to_binary, bad_binary_to_list, terms,
-     terms_float, external_size, t_iolist_size,
+     terms_float, float_middle_endian, external_size, t_iolist_size,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
      bad_term_to_binary, more_bad_terms, otp_5484, otp_5933,
      ordering, unaligned_order, gc_test,
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
-     obsolete_funs, robustness, otp_8180, ttb_trap].
+     obsolete_funs, robustness, otp_8180, trapping, large,
+     error_after_yield, cmp_old_impl].
 
 groups() -> 
     [].
@@ -102,17 +106,17 @@ end_per_testcase(_Func, _Config) ->
 
 copy_terms(Config) when is_list(Config) ->
     Self = self(),
-    ?line Pid = spawn_link(fun() -> copy_server(Self) end),
+    Pid = spawn_link(fun() -> copy_server(Self) end),
     F = fun(Term) ->
 		Pid ! Term,
 		receive
 		    Term -> ok;
 		    Other ->
 			io:format("Sent: ~P\nGot back:~P", [Term,12,Other,12]),
-			?t:fail(bad_term)
+			ct:fail(bad_term)
 		end
 	end,
-    ?line test_terms(F),
+    test_terms(F),
     ok.
 
 copy_server(Parent) ->
@@ -125,154 +129,152 @@ copy_server(Parent) ->
 %% Tests list_to_binary/1, binary_to_list/1 and size/1,
 %% using flat lists.
 
-conversions(suite) -> [];
 conversions(Config) when is_list(Config) ->
-    ?line test_bin([]),
-    ?line test_bin([1]),
-    ?line test_bin([1, 2]),
-    ?line test_bin([1, 2, 3]),
-    ?line test_bin(lists:seq(0, ?heap_binary_size)),
-    ?line test_bin(lists:seq(0, ?heap_binary_size+1)),
-    ?line test_bin(lists:seq(0, 255)),
-    ?line test_bin(lists:duplicate(50000, $@)),
+    test_bin([]),
+    test_bin([1]),
+    test_bin([1, 2]),
+    test_bin([1, 2, 3]),
+    test_bin(lists:seq(0, ?heap_binary_size)),
+    test_bin(lists:seq(0, ?heap_binary_size+1)),
+    test_bin(lists:seq(0, 255)),
+    test_bin(lists:duplicate(50000, $@)),
 
     %% Binary in list.
     List = [1,2,3,4,5],
-    ?line B1 = make_sub_binary(list_to_binary(List)),
-    ?line 5 = size(B1),
-    ?line 5 = size(make_unaligned_sub_binary(B1)),
-    ?line 40 = bit_size(B1),
-    ?line 40 = bit_size(make_unaligned_sub_binary(B1)),
-    ?line B2 = list_to_binary([42,B1,19]),
-    ?line B2 = list_to_binary([42,make_unaligned_sub_binary(B1),19]),
-    ?line B2 = iolist_to_binary(B2),
-    ?line B2 = iolist_to_binary(make_unaligned_sub_binary(B2)),
-    ?line 7 = size(B2),
-    ?line 7 = size(make_sub_binary(B2)),
-    ?line 56 = bit_size(B2),
-    ?line 56 = bit_size(make_sub_binary(B2)),
-    ?line [42,1,2,3,4,5,19] = binary_to_list(B2),
-    ?line [42,1,2,3,4,5,19] = binary_to_list(make_sub_binary(B2)),
-    ?line [42,1,2,3,4,5,19] = binary_to_list(make_unaligned_sub_binary(B2)),
-    ?line [42,1,2,3,4,5,19] = bitstring_to_list(B2),
-    ?line [42,1,2,3,4,5,19] = bitstring_to_list(make_sub_binary(B2)),
-    ?line [42,1,2,3,4,5,19] = bitstring_to_list(make_unaligned_sub_binary(B2)),
+    B1 = make_sub_binary(list_to_binary(List)),
+    5 = size(B1),
+    5 = size(make_unaligned_sub_binary(B1)),
+    40 = bit_size(B1),
+    40 = bit_size(make_unaligned_sub_binary(B1)),
+    B2 = list_to_binary([42,B1,19]),
+    B2 = list_to_binary([42,make_unaligned_sub_binary(B1),19]),
+    B2 = iolist_to_binary(B2),
+    B2 = iolist_to_binary(make_unaligned_sub_binary(B2)),
+    7 = size(B2),
+    7 = size(make_sub_binary(B2)),
+    56 = bit_size(B2),
+    56 = bit_size(make_sub_binary(B2)),
+    [42,1,2,3,4,5,19] = binary_to_list(B2),
+    [42,1,2,3,4,5,19] = binary_to_list(make_sub_binary(B2)),
+    [42,1,2,3,4,5,19] = binary_to_list(make_unaligned_sub_binary(B2)),
+    [42,1,2,3,4,5,19] = bitstring_to_list(B2),
+    [42,1,2,3,4,5,19] = bitstring_to_list(make_sub_binary(B2)),
+    [42,1,2,3,4,5,19] = bitstring_to_list(make_unaligned_sub_binary(B2)),
 
     ok.
 
 test_bin(List) ->
-    ?line Size = length(List),
-    ?line Bin = list_to_binary(List),
-    ?line Bin = iolist_to_binary(List),
-    ?line Bin = list_to_bitstring(List),
-    ?line Size = iolist_size(List),
-    ?line Size = iolist_size(Bin),
-    ?line Size = iolist_size(make_unaligned_sub_binary(Bin)),
-    ?line Size = size(Bin),
-    ?line Size = size(make_sub_binary(Bin)),
-    ?line Size = size(make_unaligned_sub_binary(Bin)),
-    ?line List = binary_to_list(Bin),
-    ?line List = binary_to_list(make_sub_binary(Bin)),
-    ?line List = binary_to_list(make_unaligned_sub_binary(Bin)),
-    ?line List = bitstring_to_list(Bin),
-    ?line List = bitstring_to_list(make_unaligned_sub_binary(Bin)).
+    Size = length(List),
+    Bin = list_to_binary(List),
+    Bin = iolist_to_binary(List),
+    Bin = list_to_bitstring(List),
+    Size = iolist_size(List),
+    Size = iolist_size(Bin),
+    Size = iolist_size(make_unaligned_sub_binary(Bin)),
+    Size = size(Bin),
+    Size = size(make_sub_binary(Bin)),
+    Size = size(make_unaligned_sub_binary(Bin)),
+    List = binary_to_list(Bin),
+    List = binary_to_list(make_sub_binary(Bin)),
+    List = binary_to_list(make_unaligned_sub_binary(Bin)),
+    List = bitstring_to_list(Bin),
+    List = bitstring_to_list(make_unaligned_sub_binary(Bin)).
 
 %% Tests list_to_binary/1, iolist_to_binary/1, list_to_bitstr/1, binary_to_list/1,3,
 %% bitstr_to_list/1, and size/1, using deep lists.
 
 deep_lists(Config) when is_list(Config) ->
-    ?line test_deep_list(["abc"]),
-    ?line test_deep_list([[12,13,[123,15]]]),
-    ?line test_deep_list([[12,13,[lists:seq(0, 255), []]]]),
+    test_deep_list(["abc"]),
+    test_deep_list([[12,13,[123,15]]]),
+    test_deep_list([[12,13,[lists:seq(0, 255), []]]]),
     ok.
 
 test_deep_list(List) ->
-    ?line FlatList = lists:flatten(List),
-    ?line Size = length(FlatList),
-    ?line Bin = list_to_binary(List),
-    ?line Bin = iolist_to_binary(List),
-    ?line Bin = iolist_to_binary(Bin),
-    ?line Bin = list_to_bitstring(List),
-    ?line Size = size(Bin),
-    ?line Size = iolist_size(List),
-    ?line Size = iolist_size(FlatList),
-    ?line Size = iolist_size(Bin),
-    ?line Bitsize = bit_size(Bin),
-    ?line Bitsize = 8*Size,
-    ?line FlatList = binary_to_list(Bin),
-    ?line FlatList = bitstring_to_list(Bin),
+    FlatList = lists:flatten(List),
+    Size = length(FlatList),
+    Bin = list_to_binary(List),
+    Bin = iolist_to_binary(List),
+    Bin = iolist_to_binary(Bin),
+    Bin = list_to_bitstring(List),
+    Size = size(Bin),
+    Size = iolist_size(List),
+    Size = iolist_size(FlatList),
+    Size = iolist_size(Bin),
+    Bitsize = bit_size(Bin),
+    Bitsize = 8*Size,
+    FlatList = binary_to_list(Bin),
+    FlatList = bitstring_to_list(Bin),
     io:format("testing plain binary..."),
-    ?line t_binary_to_list_3(FlatList, Bin, 1, Size),
+    t_binary_to_list_3(FlatList, Bin, 1, Size),
     io:format("testing unaligned sub binary..."),
-    ?line t_binary_to_list_3(FlatList, make_unaligned_sub_binary(Bin), 1, Size).
+    t_binary_to_list_3(FlatList, make_unaligned_sub_binary(Bin), 1, Size).
 
 t_binary_to_list_3(List, Bin, From, To) ->
-    ?line going_up(List, Bin, From, To),
-    ?line going_down(List, Bin, From, To),
-    ?line going_center(List, Bin, From, To).
+    going_up(List, Bin, From, To),
+    going_down(List, Bin, From, To),
+    going_center(List, Bin, From, To).
 
 going_up(List, Bin, From, To) when From =< To ->
-    ?line List = binary_to_list(Bin, From, To),
-    ?line going_up(tl(List), Bin, From+1, To);
+    List = binary_to_list(Bin, From, To),
+    going_up(tl(List), Bin, From+1, To);
 going_up(_List, _Bin, From, To) when From > To ->
     ok.
     
 going_down(List, Bin, From, To) when To > 0->
-    ?line compare(List, binary_to_list(Bin, From, To), To-From+1),
-    ?line going_down(List, Bin, From, To-1);
+    compare(List, binary_to_list(Bin, From, To), To-From+1),
+    going_down(List, Bin, From, To-1);
 going_down(_List, _Bin, _From, _To) ->
     ok.
 
 going_center(List, Bin, From, To) when From >= To ->
-    ?line compare(List, binary_to_list(Bin, From, To), To-From+1),
-    ?line going_center(tl(List), Bin, From+1, To-1);
+    compare(List, binary_to_list(Bin, From, To), To-From+1),
+    going_center(tl(List), Bin, From+1, To-1);
 going_center(_List, _Bin, _From, _To) ->
     ok.
 
 compare([X|Rest1], [X|Rest2], Left) when Left > 0 ->
-    ?line compare(Rest1, Rest2, Left-1);
+    compare(Rest1, Rest2, Left-1);
 compare([_X|_], [_Y|_], _Left) ->
-    ?line test_server:fail();
+    ct:fail("compare fail");
 compare(_List, [], 0) ->
     ok.
 
 deep_bitstr_lists(Config) when is_list(Config) ->
-    ?line {<<7:3>>,[<<7:3>>]} = test_deep_bitstr([<<7:3>>]),
-    ?line {<<42,5:3>>=Bin,[42,<<5:3>>]=List} = test_deep_bitstr([42,<<5:3>>]),
-    ?line {Bin,List} = test_deep_bitstr([42|<<5:3>>]),
-    ?line {Bin,List} = test_deep_bitstr([<<42,5:3>>]),
-    ?line {Bin,List} = test_deep_bitstr([<<1:3>>,<<10:5>>|<<5:3>>]),
-    ?line {Bin,List} = test_deep_bitstr([<<1:3>>,<<10:5>>,<<5:3>>]),
-    ?line {Bin,List} = test_deep_bitstr([[<<1:3>>,<<10:5>>],[],<<5:3>>]),
-    ?line {Bin,List} = test_deep_bitstr([[[<<1:3>>]|<<10:5>>],[],<<5:3>>]),
-    ?line {Bin,List} = test_deep_bitstr([[<<0:1>>,<<0:1>>,[],<<1:1>>,<<10:5>>],
+    {<<7:3>>,[<<7:3>>]} = test_deep_bitstr([<<7:3>>]),
+    {<<42,5:3>>=Bin,[42,<<5:3>>]=List} = test_deep_bitstr([42,<<5:3>>]),
+    {Bin,List} = test_deep_bitstr([42|<<5:3>>]),
+    {Bin,List} = test_deep_bitstr([<<42,5:3>>]),
+    {Bin,List} = test_deep_bitstr([<<1:3>>,<<10:5>>|<<5:3>>]),
+    {Bin,List} = test_deep_bitstr([<<1:3>>,<<10:5>>,<<5:3>>]),
+    {Bin,List} = test_deep_bitstr([[<<1:3>>,<<10:5>>],[],<<5:3>>]),
+    {Bin,List} = test_deep_bitstr([[[<<1:3>>]|<<10:5>>],[],<<5:3>>]),
+    {Bin,List} = test_deep_bitstr([[<<0:1>>,<<0:1>>,[],<<1:1>>,<<10:5>>],
 					 <<1:1>>,<<0:1>>,<<1:1>>]),
     ok.
 
 test_deep_bitstr(List) ->
-    %%?line {'EXIT',{badarg,_}} = list_to_binary(List),
+    %%{'EXIT',{badarg,_}} = list_to_binary(List),
     Bin = list_to_bitstring(List),
     {Bin,bitstring_to_list(Bin)}.
 
-bad_list_to_binary(suite) -> [];
 bad_list_to_binary(Config) when is_list(Config) ->
-    ?line test_bad_bin(atom),
-    ?line test_bad_bin(42),
-    ?line test_bad_bin([1|2]),
-    ?line test_bad_bin([256]),
-    ?line test_bad_bin([255, [256]]),
-    ?line test_bad_bin([-1]),
-    ?line test_bad_bin([atom_in_list]),
-    ?line test_bad_bin([[<<8>>]|bad_tail]),
+    test_bad_bin(atom),
+    test_bad_bin(42),
+    test_bad_bin([1|2]),
+    test_bad_bin([256]),
+    test_bad_bin([255, [256]]),
+    test_bad_bin([-1]),
+    test_bad_bin([atom_in_list]),
+    test_bad_bin([[<<8>>]|bad_tail]),
 
     {'EXIT',{badarg,_}} = (catch list_to_binary(id(<<1,2,3>>))),
     {'EXIT',{badarg,_}} = (catch list_to_binary(id([<<42:7>>]))),
     {'EXIT',{badarg,_}} = (catch list_to_bitstring(id(<<1,2,3>>))),
     
     %% Funs used to be implemented as a type of binary internally.
-    ?line test_bad_bin(fun(X, Y) -> X*Y end),
-    ?line test_bad_bin([1,fun(X) -> X + 1 end,2|fun() -> 0 end]),
-    ?line test_bad_bin([fun(X) -> X + 1 end]),
+    test_bad_bin(fun(X, Y) -> X*Y end),
+    test_bad_bin([1,fun(X) -> X + 1 end,2|fun() -> 0 end]),
+    test_bad_bin([fun(X) -> X + 1 end]),
 
     %% Test iolists that do not fit in the address space.
     %% Unfortunately, it would be too slow to test in a 64-bit emulator.
@@ -283,15 +285,15 @@ bad_list_to_binary(Config) when is_list(Config) ->
 
 huge_iolists() ->
     FourGigs = 1 bsl 32,
-    ?line Sizes = [FourGigs+N || N <- lists:seq(0, 64)] ++
+    Sizes = [FourGigs+N || N <- lists:seq(0, 64)] ++
 	[1 bsl N || N <- lists:seq(33, 37)],
-    ?line Base = <<0:(1 bsl 20)/unit:8>>,
+    Base = <<0:(1 bsl 20)/unit:8>>,
     [begin
 	 L = build_iolist(Sz, Base),
-	 ?line {'EXIT',{system_limit,_}} = (catch list_to_binary([L])),
-	 ?line {'EXIT',{system_limit,_}} = (catch list_to_bitstring([L])),
-	 ?line {'EXIT',{system_limit,_}} = (catch binary:list_to_bin([L])),
-	 ?line {'EXIT',{system_limit,_}} = (catch iolist_to_binary(L))
+	 {'EXIT',{system_limit,_}} = (catch list_to_binary([L])),
+	 {'EXIT',{system_limit,_}} = (catch list_to_bitstring([L])),
+	 {'EXIT',{system_limit,_}} = (catch binary:list_to_bin([L])),
+	 {'EXIT',{system_limit,_}} = (catch iolist_to_binary(L))
 	 end || Sz <- Sizes],
     ok.
 
@@ -301,15 +303,15 @@ test_bad_bin(List) ->
     {'EXIT',{badarg,_}} = (catch list_to_bitstring(List)),
     {'EXIT',{badarg,_}} = (catch iolist_size(List)).
 
-bad_binary_to_list(doc) -> "Tries binary_to_list/1,3 with bad arguments.";
+%% Tries binary_to_list/1,3 with bad arguments.
 bad_binary_to_list(Config) when is_list(Config) ->
-    ?line bad_bin_to_list(fun(X) -> X * 42 end),
+    bad_bin_to_list(fun(X) -> X * 42 end),
 
     GoodBin = list_to_binary(lists:seq(1, 10)),
-    ?line bad_bin_to_list(fun(X) -> X * 44 end, 1, 2),
-    ?line bad_bin_to_list(GoodBin, 0, 1),
-    ?line bad_bin_to_list(GoodBin, 2, 1),
-    ?line bad_bin_to_list(GoodBin, 11, 11),
+    bad_bin_to_list(fun(X) -> X * 44 end, 1, 2),
+    bad_bin_to_list(GoodBin, 0, 1),
+    bad_bin_to_list(GoodBin, 2, 1),
+    bad_bin_to_list(GoodBin, 11, 11),
     {'EXIT',{badarg,_}} = (catch binary_to_list(id(<<42:7>>))),
     ok.
 
@@ -323,63 +325,61 @@ bad_bin_to_list(Bin, First, Last) ->
     
 %% Tries to split a binary at all possible positions.
 
-t_split_binary(suite) -> [];
 t_split_binary(Config) when is_list(Config) ->
-    ?line L = lists:seq(0, ?heap_binary_size-5), %Heap binary.
-    ?line B = list_to_binary(L),
-    ?line split(L, B, size(B)),
+    L = lists:seq(0, ?heap_binary_size-5), %Heap binary.
+    B = list_to_binary(L),
+    split(L, B, size(B)),
 
     %% Sub binary of heap binary.
-    ?line split(L, make_sub_binary(B), size(B)),
+    split(L, make_sub_binary(B), size(B)),
     {X,_Y} = split_binary(B, size(B) div 2),
-    ?line split(binary_to_list(X), X, size(X)),
+    split(binary_to_list(X), X, size(X)),
 
     %% Unaligned sub binary of heap binary.
-    ?line split(L, make_unaligned_sub_binary(B), size(B)),
+    split(L, make_unaligned_sub_binary(B), size(B)),
     {X,_Y} = split_binary(B, size(B) div 2),
-    ?line split(binary_to_list(X), X, size(X)),
+    split(binary_to_list(X), X, size(X)),
     
     %% Reference-counted binary.
-    ?line L2 = lists:seq(0, ?heap_binary_size+1),
-    ?line B2 = list_to_binary(L2),
-    ?line split(L2, B2, size(B2)),
+    L2 = lists:seq(0, ?heap_binary_size+1),
+    B2 = list_to_binary(L2),
+    split(L2, B2, size(B2)),
 
     %% Sub binary of reference-counted binary.
-    ?line split(L2, make_sub_binary(B2), size(B2)),
+    split(L2, make_sub_binary(B2), size(B2)),
     {X2,_Y2} = split_binary(B2, size(B2) div 2),
-    ?line split(binary_to_list(X2), X2, size(X2)),
+    split(binary_to_list(X2), X2, size(X2)),
 
     %% Unaligned sub binary of reference-counted binary.
-    ?line split(L2, make_unaligned_sub_binary(B2), size(B2)),
+    split(L2, make_unaligned_sub_binary(B2), size(B2)),
     {X2,_Y2} = split_binary(B2, size(B2) div 2),
-    ?line split(binary_to_list(X2), X2, size(X2)),
+    split(binary_to_list(X2), X2, size(X2)),
 
     ok.
 
 split(L, B, Pos) when Pos > 0 ->
-    ?line {B1, B2} = split_binary(B, Pos),
-    ?line B1 = list_to_binary(lists:sublist(L, 1, Pos)),
-    ?line B2 = list_to_binary(lists:nthtail(Pos, L)),
-    ?line split(L, B, Pos-1);
+    {B1, B2} = split_binary(B, Pos),
+    B1 = list_to_binary(lists:sublist(L, 1, Pos)),
+    B2 = list_to_binary(lists:nthtail(Pos, L)),
+    split(L, B, Pos-1);
 split(_L, _B, 0) ->
     ok.
 
-bad_split(doc) -> "Tries split_binary/2 with bad arguments.";
-bad_split(suite) -> [];
+%% Tries split_binary/2 with bad arguments.
 bad_split(Config) when is_list(Config) ->
     GoodBin = list_to_binary([1,2,3]),
-    ?line bad_split(GoodBin, -1),
-    ?line bad_split(GoodBin, 4),
-    ?line bad_split(GoodBin, a),
+    bad_split(GoodBin, -1),
+    bad_split(GoodBin, 4),
+    bad_split(GoodBin, a),
 
     %% Funs are a kind of binaries.
-    ?line bad_split(fun(_X) -> 1 end, 1),
+    bad_split(fun(_X) -> 1 end, 1),
     ok.
     
 bad_split(Bin, Pos) ->
     {'EXIT',{badarg,_}} = (catch split_binary(Bin, Pos)).
 
-t_hash(doc) -> "Test hash/2 with different type of binaries.";
+%% Test hash/2 with different type of binaries.
 t_hash(Config) when is_list(Config) ->
     test_hash([]),
     test_hash([253]),
@@ -392,36 +392,34 @@ test_hash(List) ->
     Bin = list_to_binary(List),
     Sbin = make_sub_binary(List),
     Unaligned = make_unaligned_sub_binary(Sbin),
-    ?line test_hash_1(Bin, Sbin, Unaligned, fun erlang:hash/2),
-    ?line test_hash_1(Bin, Sbin, Unaligned, fun erlang:phash/2),
-    ?line test_hash_1(Bin, Sbin, Unaligned, fun erlang:phash2/2).
+    test_hash_1(Bin, Sbin, Unaligned, fun erlang:hash/2),
+    test_hash_1(Bin, Sbin, Unaligned, fun erlang:phash/2),
+    test_hash_1(Bin, Sbin, Unaligned, fun erlang:phash2/2).
 
 test_hash_1(Bin, Sbin, Unaligned, Hash) when is_function(Hash, 2) ->
     N = 65535,
     case {Hash(Bin, N),Hash(Sbin, N),Hash(Unaligned, N)} of
 	{H,H,H} -> ok;
 	{H1,H2,H3} ->
-	    io:format("Different hash values: ~p, ~p, ~p\n", [H1,H2,H3]),
-	    ?t:fail()
+	    ct:fail("Different hash values: ~p, ~p, ~p\n", [H1,H2,H3])
     end.
 
-bad_size(doc) -> "Try bad arguments to size/1.";
-bad_size(suite) -> [];
+%% Try bad arguments to size/1.
 bad_size(Config) when is_list(Config) ->
-    ?line {'EXIT',{badarg,_}} = (catch size(fun(X) -> X + 33 end)),
+    {'EXIT',{badarg,_}} = (catch size(fun(X) -> X + 33 end)),
     ok.
 
 bad_term_to_binary(Config) when is_list(Config) ->
     T = id({a,b,c}),
-    ?line {'EXIT',{badarg,_}} = (catch term_to_binary(T, not_a_list)),
-    ?line {'EXIT',{badarg,_}} = (catch term_to_binary(T, [blurf])),
-    ?line {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,-1}])),
-    ?line {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,10}])),
-    ?line {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,cucumber}])),
-    ?line {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed}])),
-    ?line {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{version,1}|bad_tail])),
-    ?line {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{minor_version,-1}])),
-    ?line {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{minor_version,x}])),
+    {'EXIT',{badarg,_}} = (catch term_to_binary(T, not_a_list)),
+    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [blurf])),
+    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,-1}])),
+    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,10}])),
+    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,cucumber}])),
+    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed}])),
+    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{version,1}|bad_tail])),
+    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{minor_version,-1}])),
+    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{minor_version,x}])),
 
     ok.
 
@@ -446,62 +444,66 @@ terms(Config) when is_list(Config) ->
               Sz1 when is_integer(Sz1), size(Bin1) =< Sz1 ->
                   ok
               end,
-		      Term = binary_to_term(Bin),
-		      Term = binary_to_term(Bin, [safe]),
+		      Term = binary_to_term_stress(Bin),
+		      Term = binary_to_term_stress(Bin, [safe]),
 		      Unaligned = make_unaligned_sub_binary(Bin),
-		      Term = binary_to_term(Unaligned),
-		      Term = binary_to_term(Unaligned, []),
-		      Term = binary_to_term(Bin, [safe]),
+		      Term = binary_to_term_stress(Unaligned),
+		      Term = binary_to_term_stress(Unaligned, []),
+		      Term = binary_to_term_stress(Bin, [safe]),
 		      BinC = erlang:term_to_binary(Term, [compressed]),
-		      Term = binary_to_term(BinC),
+		      Term = binary_to_term_stress(BinC),
 		      true = size(BinC) =< size(Bin),
 		      Bin = term_to_binary(Term, [{compressed,0}]),
 		      terms_compression_levels(Term, size(Bin), 1),
 		      UnalignedC = make_unaligned_sub_binary(BinC),
-		      Term = binary_to_term(UnalignedC)
+		      Term = binary_to_term_stress(UnalignedC)
 	      end,
-    ?line test_terms(TestFun),
+    test_terms(TestFun),
     ok.
 
 terms_compression_levels(Term, UncompressedSz, Level) when Level < 10 ->
     BinC = erlang:term_to_binary(Term, [{compressed,Level}]),
-    Term = binary_to_term(BinC),
+    Term = binary_to_term_stress(BinC),
     Sz = byte_size(BinC),
     true = Sz =< UncompressedSz,
     terms_compression_levels(Term, UncompressedSz, Level+1);
 terms_compression_levels(_, _, _) -> ok.
 
 terms_float(Config) when is_list(Config) ->
-    ?line test_floats(fun(Term) ->
-			      Bin0 = term_to_binary(Term),
+    test_floats(fun(Term) ->
 			      Bin0 = term_to_binary(Term, [{minor_version,0}]),
-			      Term = binary_to_term(Bin0),
+			      Term = binary_to_term_stress(Bin0),
+			      Bin1 = term_to_binary(Term),
 			      Bin1 = term_to_binary(Term, [{minor_version,1}]),
-			      Term = binary_to_term(Bin1),
+			      Term = binary_to_term_stress(Bin1),
 			      true = size(Bin1) < size(Bin0),
-                  Size0 = erlang:external_size(Term),
-                  Size00 = erlang:external_size(Term, [{minor_version, 0}]),
-                  Size1 = erlang:external_size(Term, [{minor_version, 1}]),
-                  true = (Size0 =:= Size00),
+                  Size0 = erlang:external_size(Term, [{minor_version, 0}]),
+                  Size1 = erlang:external_size(Term),
+                  Size11 = erlang:external_size(Term, [{minor_version, 1}]),
+                  true = (Size1 =:= Size11),
                   true = Size1 < Size0
 		      end).
 
+float_middle_endian(Config) when is_list(Config) ->
+    %% Testing for roundtrip is not enough.
+    <<131,70,63,240,0,0,0,0,0,0>> = term_to_binary(1.0, [{minor_version,1}]),
+    1.0 = binary_to_term_stress(<<131,70,63,240,0,0,0,0,0,0>>).
+
 external_size(Config) when is_list(Config) ->
     %% Build a term whose external size only fits in a big num (on 32-bit CPU).
-    ?line external_size_1(16#11111111111111117777777777777777888889999, 0, 16#FFFFFFF),
+    external_size_1(16#11111111111111117777777777777777888889999, 0, 16#FFFFFFF),
 
     %% Test that the same binary aligned and unaligned has the same external size.
-    ?line Bin = iolist_to_binary([1,2,3,96]),
-    ?line Unaligned = make_unaligned_sub_binary(Bin),
+    Bin = iolist_to_binary([1,2,3,96]),
+    Unaligned = make_unaligned_sub_binary(Bin),
     case {erlang:external_size(Bin),erlang:external_size(Unaligned)} of
 	{X,X} -> ok;
 	{Sz1,Sz2} ->
-	    io:format("  Aligned size: ~p\n", [Sz1]),
-	    io:format("Unaligned size: ~p\n", [Sz2]),
-	    ?line ?t:fail()
+	    ct:fail("  Aligned size: ~p\n"
+                    "Unaligned size: ~p\n", [Sz1,Sz2])
     end,
-    ?line erlang:external_size(Bin) =:= erlang:external_size(Bin, [{minor_version, 1}]),
-    ?line erlang:external_size(Unaligned) =:= erlang:external_size(Unaligned, [{minor_version, 1}]).
+    true = (erlang:external_size(Bin) =:= erlang:external_size(Bin, [{minor_version, 1}])),
+    true = (erlang:external_size(Unaligned) =:= erlang:external_size(Unaligned, [{minor_version, 1}])).
 
 external_size_1(Term, Size0, Limit) when Size0 < Limit ->
     case erlang:external_size(Term) of
@@ -512,28 +514,29 @@ external_size_1(Term, Size0, Limit) when Size0 < Limit ->
 external_size_1(_, _, _) -> ok.
 
 t_iolist_size(Config) when is_list(Config) ->
-    ?line Seed = now(),
-    ?line io:format("Seed: ~p", [Seed]),
-    ?line random:seed(Seed),
-    ?line Base = <<0:(1 bsl 20)/unit:8>>,
-    ?line Powers = [1 bsl N || N <- lists:seq(2, 37)],
-    ?line Sizes0 = [[N - random:uniform(N div 2),
-		     lists:seq(N-2, N+2),
-		     N+N div 2,
-		     N + random:uniform(N div 2)] ||
-		       N <- Powers],
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+
+    Base = <<0:(1 bsl 20)/unit:8>>,
+    Powers = [1 bsl N || N <- lists:seq(2, 37)],
+    Sizes0 = [[N - rand:uniform(N div 2),
+	       lists:seq(N-2, N+2),
+	       N+N div 2,
+	       N + rand:uniform(N div 2)] ||
+		 N <- Powers],
+
     %% Test sizes around 1^32 more thoroughly.
     FourGigs = 1 bsl 32,
-    ?line Sizes1 = [FourGigs+N || N <- lists:seq(-8, 40)] ++ Sizes0,
-    ?line Sizes2 = lists:flatten(Sizes1),
-    ?line Sizes = lists:usort(Sizes2),
+    Sizes1 = [FourGigs+N || N <- lists:seq(-8, 40)] ++ Sizes0,
+    Sizes2 = lists:flatten(Sizes1),
+    Sizes = lists:usort(Sizes2),
     io:format("~p sizes:", [length(Sizes)]),
     io:format("~p\n", [Sizes]),
-    ?line [Sz = iolist_size(build_iolist(Sz, Base)) || Sz <- Sizes],
+    _ = [Sz = iolist_size(build_iolist(Sz, Base)) || Sz <- Sizes],
     ok.
 
 build_iolist(N, Base) when N < 16 ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 ->
 	    <<Bin:N/binary,_/binary>> = Base,
 	    Bin;
@@ -541,7 +544,7 @@ build_iolist(N, Base) when N < 16 ->
 	    lists:seq(1, N)
     end;
 build_iolist(N, Base) when N =< byte_size(Base) ->
-    case random:uniform(3) of
+    case rand:uniform(3) of
 	1 ->
 	    <<Bin:N/binary,_/binary>> = Base,
 	    Bin;
@@ -559,7 +562,7 @@ build_iolist(N, Base) when N =< byte_size(Base) ->
 	    end
     end;
 build_iolist(N0, Base) ->
-    Small = random:uniform(15),
+    Small = rand:uniform(15),
     Seq = lists:seq(1, Small),
     N = N0 - Small,
     case N rem 2 of
@@ -572,63 +575,67 @@ build_iolist(N0, Base) ->
     end.
 
 
-bad_binary_to_term_2(doc) -> "OTP-4053.";
-bad_binary_to_term_2(suite) -> [];
+%% OTP-4053
 bad_binary_to_term_2(Config) when is_list(Config) ->
-    ?line {ok, N} = test_server:start_node(plopp, slave, []),
-    ?line R = rpc:call(N, erlang, binary_to_term, [<<131,111,255,255,255,0>>]),
-    ?line case R of
+    {ok, N} = test_server:start_node(plopp, slave, []),
+    R = rpc:call(N, erlang, binary_to_term, [<<131,111,255,255,255,0>>]),
+    case R of
 	      {badrpc, {'EXIT', _}} ->
 		  ok;
 	      _Other ->
-		  test_server:fail({rpcresult, R})
+		  ct:fail({rpcresult, R})
 	  end,
-    ?line test_server:stop_node(N),
+    test_server:stop_node(N),
     ok.
 
-bad_binary_to_term(doc) -> "Try bad input to binary_to_term/1.";
+%% Try bad input to binary_to_term/1.
 bad_binary_to_term(Config) when is_list(Config) ->
-    ?line bad_bin_to_term(an_atom),
-    ?line bad_bin_to_term({an,tuple}),
-    ?line bad_bin_to_term({a,list}),
-    ?line bad_bin_to_term(fun() -> self() end),
-    ?line bad_bin_to_term(fun(X) -> 42*X end),
-    ?line bad_bin_to_term(fun(X, Y) -> {X,Y} end),
-    ?line bad_bin_to_term(fun(X, Y, Z) -> {X,Y,Z} end),
-    ?line bad_bin_to_term(bit_sized_binary(term_to_binary({you,should,'not',see,this,term}))),
+    bad_bin_to_term(an_atom),
+    bad_bin_to_term({an,tuple}),
+    bad_bin_to_term({a,list}),
+    bad_bin_to_term(fun() -> self() end),
+    bad_bin_to_term(fun(X) -> 42*X end),
+    bad_bin_to_term(fun(X, Y) -> {X,Y} end),
+    bad_bin_to_term(fun(X, Y, Z) -> {X,Y,Z} end),
+    bad_bin_to_term(bit_sized_binary(term_to_binary({you,should,'not',see,this,term}))),
 
     %% Bad float.
-    ?line bad_bin_to_term(<<131,70,-1:64>>),
+    bad_bin_to_term(<<131,70,-1:64>>),
 
     %% Truncated UTF8 character (ERL-474)
     bad_bin_to_term(<<131,119,1,194,163>>),
     ok.
 
 bad_bin_to_term(BadBin) ->
-    {'EXIT',{badarg,_}} = (catch binary_to_term(BadBin)).
+    {'EXIT',{badarg,_}} = (catch binary_to_term_stress(BadBin)).
 
 bad_bin_to_term(BadBin,Opts) ->
-    {'EXIT',{badarg,_}} = (catch binary_to_term(BadBin,Opts)).
+    {'EXIT',{badarg,_}} = (catch binary_to_term_stress(BadBin,Opts)).
 
-safe_binary_to_term2(doc) -> "Test safety options for binary_to_term/2";
+%% Test safety options for binary_to_term/2
 safe_binary_to_term2(Config) when is_list(Config) ->
-    ?line bad_bin_to_term(<<131,100,0,14,"undefined_atom">>, [safe]),
-    ?line bad_bin_to_term(<<131,100,0,14,"other_bad_atom">>, [safe]),
+    bad_bin_to_term(<<131,100,0,14,"undefined_atom">>, [safe]),
+    bad_bin_to_term(<<131,100,0,14,"other_bad_atom">>, [safe]),
     BadHostAtom = <<100,0,14,"badguy@badhost">>,
     Empty = <<0,0,0,0>>,
     BadRef = <<131,114,0,3,BadHostAtom/binary,0,<<0,0,0,255>>/binary,
 	      Empty/binary,Empty/binary>>,
-    ?line bad_bin_to_term(BadRef, [safe]), % good ref, with a bad atom
-    ?line fullsweep_after = binary_to_term(<<131,100,0,15,"fullsweep_after">>, [safe]), % should be a good atom
+    bad_bin_to_term(BadRef, [safe]), % good ref, with a bad atom
+    fullsweep_after = binary_to_term_stress(<<131,100,0,15,"fullsweep_after">>, [safe]), % should be a good atom
     BadExtFun = <<131,113,100,0,4,98,108,117,101,100,0,4,109,111,111,110,97,3>>,
-    ?line bad_bin_to_term(BadExtFun, [safe]),
+    bad_bin_to_term(BadExtFun, [safe]),
     ok.
 
 %% Tests bad input to binary_to_term/1.
 
-bad_terms(suite) -> [];
 bad_terms(Config) when is_list(Config) ->
-    ?line test_terms(fun corrupter/1).
+    test_terms(fun corrupter/1),
+    {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,3:32,0,11,22,33>>)),
+    {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,3:32,9,11,22,33>>)),
+    {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,0:32,1,11,22,33>>)),
+    {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,-1:32,1,11,22,33>>)),
+    ok.
+
 
 corrupter(Term) when is_function(Term);
 		     is_function(hd(Term));
@@ -655,7 +662,7 @@ corrupter(Term) ->
     corrupter0(Term).
 
 corrupter0(Term) ->
-    ?line try
+    try
 	      S = io_lib:format("About to corrupt: ~P", [Term,12]),
 	      io:put_chars(S)
 	  catch
@@ -663,44 +670,43 @@ corrupter0(Term) ->
 		  io:format("About to corrupt: <<bit-level-binary:~p",
 			    [bit_size(Term)])
 	  end,
-    ?line Bin = term_to_binary(Term),
-    ?line corrupter(Bin, size(Bin)-1),
-    ?line CompressedBin = term_to_binary(Term, [compressed]),
-    ?line corrupter(CompressedBin, size(CompressedBin)-1).
+    Bin = term_to_binary(Term),
+    corrupter(Bin, size(Bin)-1),
+    CompressedBin = term_to_binary(Term, [compressed]),
+    corrupter(CompressedBin, size(CompressedBin)-1).
 
 corrupter(Bin, Pos) when Pos >= 0 ->
-    ?line {ShorterBin, Rest} = split_binary(Bin, Pos),
-    ?line catch binary_to_term(ShorterBin), %% emulator shouldn't crash
-    ?line MovedBin = list_to_binary([ShorterBin]),
-    ?line catch binary_to_term(MovedBin), %% emulator shouldn't crash
+    {ShorterBin, Rest} = split_binary(Bin, Pos),
+    catch binary_to_term_stress(ShorterBin), %% emulator shouldn't crash
+    MovedBin = list_to_binary([ShorterBin]),
+    catch binary_to_term_stress(MovedBin), %% emulator shouldn't crash
 
     %% Bit faults, shouldn't crash
     <<Byte,Tail/binary>> = Rest,
     Fun = fun(M) -> FaultyByte = Byte bxor M,                    
-		    catch binary_to_term(<<ShorterBin/binary,
+		    catch binary_to_term_stress(<<ShorterBin/binary,
 					  FaultyByte, Tail/binary>>) end,
-    ?line lists:foreach(Fun,[1,2,4,8,16,32,64,128,255]),    
-    ?line corrupter(Bin, Pos-1);
+    lists:foreach(Fun,[1,2,4,8,16,32,64,128,255]),    
+    corrupter(Bin, Pos-1);
 corrupter(_Bin, _) ->
     ok.
 
-more_bad_terms(suite) -> [];
 more_bad_terms(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
-    ?line BadFile = filename:join(Data, "bad_binary"),
-    ?line ok = io:format("File: ~s\n", [BadFile]),
-    ?line case file:read_file(BadFile) of
+    Data = proplists:get_value(data_dir, Config),
+    BadFile = filename:join(Data, "bad_binary"),
+    ok = io:format("File: ~s\n", [BadFile]),
+    case file:read_file(BadFile) of
 	      {ok,Bin} ->
-		  ?line {'EXIT',{badarg,_}} = (catch binary_to_term(Bin)),
+		  {'EXIT',{badarg,_}} = (catch binary_to_term_stress(Bin)),
 		  ok;
 	      Other ->
-		  ?line ?t:fail(Other)
+		  ct:fail(Other)
 	  end.
 
 otp_5484(Config) when is_list(Config) ->
-    ?line {'EXIT',_} =
+    {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       <<131,
 		104,2,				%Tuple, 2 elements
 		103,				%Pid
@@ -711,9 +717,9 @@ otp_5484(Config) when is_list(Config) ->
 		255,
 		106>>)),
 
-    ?line {'EXIT',_} =
+    {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       <<131,
 		104,2,				%Tuple, 2 elements
 		103,				%Pid
@@ -723,15 +729,15 @@ otp_5484(Config) when is_list(Config) ->
 		2,
 		106>>)),
 
-    ?line {'EXIT',_} =
+    {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       %% A old-type fun in a list containing a bad creator pid.
 	       <<131,108,0,0,0,1,117,0,0,0,0,103,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,255,255,0,25,255,0,0,0,0,100,0,1,116,97,0,98,6,142,121,72,106>>)),
 
-    ?line {'EXIT',_} =
+    {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       %% A new-type fun in a list containing a bad creator pid.
 	       %% 
 	       <<131,
@@ -741,9 +747,9 @@ otp_5484(Config) when is_list(Config) ->
 		106,				%[] instead of an atom.
 		0,0,0,27,0,0,0,0,0,106>>)),
 
-    ?line {'EXIT',_} =
+    {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       %% A new-type fun in a list containing a bad module.
 	       <<131,
 		108,0,0,0,1,			%List, 1 element
@@ -752,9 +758,9 @@ otp_5484(Config) when is_list(Config) ->
 		107,0,1,64,			%String instead of atom (same length).
 		97,0,98,6,64,82,230,103,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,0,0,0,48,0,0,0,0,0,97,42,97,7,106>>)),
 
-    ?line {'EXIT',_} =
+    {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       %% A new-type fun in a list containing a bad index.
 	       <<131,
 		108,0,0,0,1,			%List, 1 element
@@ -764,9 +770,9 @@ otp_5484(Config) when is_list(Config) ->
 		104,0,				%Tuple {} instead of integer.
 		98,6,64,82,230,103,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,0,0,0,48,0,0,0,0,0,97,42,97,7,106>>)),
 
-    ?line {'EXIT',_} =
+    {'EXIT',_} =
 	(catch
-	     binary_to_term(
+	     binary_to_term_stress(
 	       %% A new-type fun in a list containing a bad unique value.
 	       <<131,
 		108,0,0,0,1,			%List, 1 element
@@ -778,47 +784,47 @@ otp_5484(Config) when is_list(Config) ->
 		103,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,0,0,0,48,0,0,0,0,0,97,42,97,7,106>>)),
 
     %% An absurdly large atom.
-    ?line {'EXIT',_} = 
-	(catch binary_to_term(iolist_to_binary([<<131,100,65000:16>>|
+    {'EXIT',_} = 
+	(catch binary_to_term_stress(iolist_to_binary([<<131,100,65000:16>>|
 						lists:duplicate(65000, 42)]))),
 
     %% Longer than 255 characters.
-    ?line {'EXIT',_} = 
-	(catch binary_to_term(iolist_to_binary([<<131,100,256:16>>|
+    {'EXIT',_} = 
+	(catch binary_to_term_stress(iolist_to_binary([<<131,100,256:16>>|
 						lists:duplicate(256, 42)]))),
 
     %% OTP-7218. Thanks to Matthew Dempsky. Also make sure that we
     %% cover the other error cases for external funs (EXPORT_EXT).
-    ?line {'EXIT',_} = 
-	(catch binary_to_term(
+    {'EXIT',_} = 
+	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  97,13,			%Integer: 13
 		  97,13,			%Integer: 13
 		  97,13>>)),			%Integer: 13
-    ?line {'EXIT',_} = 
-	(catch binary_to_term(
+    {'EXIT',_} = 
+	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
 		  97,13,			%Integer: 13
 		  97,13>>)),			%Integer: 13
-    ?line {'EXIT',_} = 
-	(catch binary_to_term(
+    {'EXIT',_} = 
+	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
 		  100,0,1,64,			%Atom: '@'
 		  106>>)),			%NIL
-    ?line {'EXIT',_} = 
-	(catch binary_to_term(
+    {'EXIT',_} = 
+	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
 		  100,0,1,64,			%Atom: '@'
 		  98,255,255,255,255>>)),	%Integer: -1
-    ?line {'EXIT',_} = 
-	(catch binary_to_term(
+    {'EXIT',_} = 
+	(catch binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
@@ -826,7 +832,7 @@ otp_5484(Config) when is_list(Config) ->
 		  113,97,13,97,13,97,13>>)),	%fun 13:13/13
 
     %% Bad funs.
-    ?line {'EXIT',_} = (catch binary_to_term(fake_fun(0, lists:seq(0, 256)))),
+    {'EXIT',_} = (catch binary_to_term_stress(fake_fun(0, lists:seq(0, 256)))),
     ok.
 
 fake_fun(Arity, Env0) ->
@@ -849,9 +855,9 @@ fake_fun(Arity, Env0) ->
 
 %% More bad terms submitted by Matthias Lang.
 otp_5933(Config) when is_list(Config) ->
-    ?line try_bad_lengths(<<131,$m>>),		%binary
-    ?line try_bad_lengths(<<131,$n>>),		%bignum
-    ?line try_bad_lengths(<<131,$o>>),		%huge bignum
+    try_bad_lengths(<<131,$m>>),		%binary
+    try_bad_lengths(<<131,$n>>),		%bignum
+    try_bad_lengths(<<131,$o>>),		%huge bignum
     ok.
 
 try_bad_lengths(B) ->
@@ -860,7 +866,7 @@ try_bad_lengths(B) ->
 try_bad_lengths(B, L) when L > 16#FFFFFFF0 ->
     Bin = <<B/binary,L:32>>,
     io:format("~p\n", [Bin]),
-    {'EXIT',_} = (catch binary_to_term(Bin)),
+    {'EXIT',_} = (catch binary_to_term_stress(Bin)),
     try_bad_lengths(B, L-1);
 try_bad_lengths(_, _) -> ok.
 
@@ -870,7 +876,7 @@ otp_6817(Config) when is_list(Config) ->
 
     %% Floats are only validated when the heap fragment has been allocated.
     BadFloat = <<131,99,53,46,48,$X,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,101,45,48,49,0,0,0,0,0>>,
-    ?line otp_6817_try_bin(BadFloat),
+    otp_6817_try_bin(BadFloat),
 
     %% {Binary,BadFloat}: When the error in float is discovered, a refc-binary
     %% has been allocated and the list of refc-binaries goes through the
@@ -890,7 +896,7 @@ otp_6817(Config) when is_list(Config) ->
 	 230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,248,
 	 249,250,251,252,253,254,255,99,51,46,49,52,$B,$l,$u,$r,$f,48,48,48,48,48,48,
 	 48,48,49,50,52,51,52,101,43,48,48,0,0,0,0,0>>,
-    ?line otp_6817_try_bin(BinAndFloat),
+    otp_6817_try_bin(BinAndFloat),
 
     %% {Fun,BadFloat}
     FunAndFloat =
@@ -898,14 +904,14 @@ otp_6817(Config) when is_list(Config) ->
 	 71,8,0,0,0,0,0,0,0,0,100,0,1,116,97,0,98,5,175,169,123,103,100,0,13,110,111,
 	 110,111,100,101,64,110,111,104,111,115,116,0,0,0,41,0,0,0,0,0,99,50,46,55,48,
 	 $Y,57,57,57,57,57,57,57,57,57,57,57,57,57,54,52,52,55,101,43,48,48,0,0,0,0,0>>,
-    ?line otp_6817_try_bin(FunAndFloat),
+    otp_6817_try_bin(FunAndFloat),
 
     %% [ExternalPid|BadFloat]
     ExtPidAndFloat =
 	<<131,108,0,0,0,1,103,100,0,13,107,97,108,108,101,64,115,116,114,105,100,101,
 	 114,0,0,0,36,0,0,0,0,2,99,48,46,$@,48,48,48,48,48,48,48,48,48,48,48,48,48,48,
 	 48,48,48,48,48,101,43,48,48,0,0,0,0,0>>,
-    ?line otp_6817_try_bin(ExtPidAndFloat),
+    otp_6817_try_bin(ExtPidAndFloat),
     ok.
 
 otp_6817_try_bin(Bin) ->
@@ -914,7 +920,7 @@ otp_6817_try_bin(Bin) ->
     %% If the bug is present, the heap pointer will moved when the invalid term
     %% is found and we will have a linked list passing through the limbo area
     %% between the heap top and the stack pointer.
-    catch binary_to_term(Bin),
+    catch binary_to_term_stress(Bin),
 
     %% If the bug is present, we will overwrite the pointers in the limbo area.
     Filler = erlang:make_tuple(1024, 16#3FA),
@@ -923,28 +929,31 @@ otp_6817_try_bin(Bin) ->
     %% Will crash if the bug is present.
     erlang:garbage_collect().
 
-otp_8117(doc) -> "Some bugs in binary_to_term when 32-bit integers are negative.";
-otp_8117(suite) -> [];
+%% Some bugs in binary_to_term when 32-bit integers are negative.
 otp_8117(Config) when is_list(Config) ->
-    [otp_8117_do(Op,-(1 bsl N)) || Op <- ['fun',list,tuple],
+    [otp_8117_do(Op,-(1 bsl N)) || Op <- ['fun',named_fun,list,tuple],
 				   N <- lists:seq(0,31)],
     ok.
 
 otp_8117_do('fun',Neg) ->
     % Fun with negative num_free
     FunBin = term_to_binary(fun() -> ok end),
-    ?line <<B1:27/binary,_NumFree:32,Rest/binary>> = FunBin,   
-    ?line bad_bin_to_term(<<B1/binary,Neg:32,Rest/binary>>);
+    <<B1:27/binary,_NumFree:32,Rest/binary>> = FunBin,   
+    bad_bin_to_term(<<B1/binary,Neg:32,Rest/binary>>);
+otp_8117_do(named_fun,Neg) ->
+    % Named fun with negative num_free
+    FunBin = term_to_binary(fun F() -> F end),
+    <<B1:27/binary,_NumFree:32,Rest/binary>> = FunBin,
+    bad_bin_to_term(<<B1/binary,Neg:32,Rest/binary>>);
 otp_8117_do(list,Neg) ->
     %% List with negative length
-    ?line bad_bin_to_term(<<131,104,2,108,Neg:32,97,11,104,1,97,12,97,13,106,97,14>>);
+    bad_bin_to_term(<<131,104,2,108,Neg:32,97,11,104,1,97,12,97,13,106,97,14>>);
 otp_8117_do(tuple,Neg) ->    
     %% Tuple with negative arity
-    ?line bad_bin_to_term(<<131,104,2,105,Neg:32,97,11,97,12,97,13,97,14>>).
+    bad_bin_to_term(<<131,104,2,105,Neg:32,97,11,97,12,97,13,97,14>>).
     
 
-ordering(doc) -> "Tests ordering of binaries.";
-ordering(suite) -> [];
+%% Tests ordering of binaries.
 ordering(Config) when is_list(Config) ->
     B1 = list_to_binary([7,8,9]),
     B2 = make_sub_binary([1,2,3,4]),
@@ -953,54 +962,54 @@ ordering(Config) when is_list(Config) ->
 
     %% From R8 binaries are compared as strings.
 
-    ?line false = B1 == B2,
-    ?line false = B1 =:= B2,
-    ?line true = B1 /= B2,
-    ?line true = B1 =/= B2,
+    false = B1 == B2,
+    false = B1 =:= B2,
+    true = B1 /= B2,
+    true = B1 =/= B2,
 
-    ?line true = B1 > B2,
-    ?line true = B2 < B3,
-    ?line true = B2 =< B1,
-    ?line true = B2 =< B3,
+    true = B1 > B2,
+    true = B2 < B3,
+    true = B2 =< B1,
+    true = B2 =< B3,
 
-    ?line true = B2 =:= Unaligned,
-    ?line true = B2 == Unaligned,
-    ?line true = Unaligned < B3,
-    ?line true = Unaligned =< B3,
+    true = B2 =:= Unaligned,
+    true = B2 == Unaligned,
+    true = Unaligned < B3,
+    true = Unaligned =< B3,
 
     %% Binaries are greater than all other terms.
 
-    ?line true = B1 > 0,
-    ?line true = B1 > 39827491247298471289473333333333333333333333333333,
-    ?line true = B1 > -3489274937438742190467869234328742398347,
-    ?line true = B1 > 3.14,
-    ?line true = B1 > [],
-    ?line true = B1 > [a],
-    ?line true = B1 > {a},
-    ?line true = B1 > self(),
-    ?line true = B1 > make_ref(),
-    ?line true = B1 > xxx,
-    ?line true = B1 > fun() -> 1 end,
-    ?line true = B1 > fun erlang:send/2,
+    true = B1 > 0,
+    true = B1 > 39827491247298471289473333333333333333333333333333,
+    true = B1 > -3489274937438742190467869234328742398347,
+    true = B1 > 3.14,
+    true = B1 > [],
+    true = B1 > [a],
+    true = B1 > {a},
+    true = B1 > self(),
+    true = B1 > make_ref(),
+    true = B1 > xxx,
+    true = B1 > fun() -> 1 end,
+    true = B1 > fun erlang:send/2,
 
-    ?line Path = ?config(priv_dir, Config),
-    ?line AFile = filename:join(Path, "vanilla_file"),
-    ?line Port = open_port(AFile, [out]),
-    ?line true = B1 > Port,
+    Path = proplists:get_value(priv_dir, Config),
+    AFile = filename:join(Path, "vanilla_file"),
+    Port = open_port(AFile, [out]),
+    true = B1 > Port,
 
-    ?line true = B1 >= 0,
-    ?line true = B1 >= 39827491247298471289473333333333333333333333333333,
-    ?line true = B1 >= -3489274937438742190467869234328742398347,
-    ?line true = B1 >= 3.14,
-    ?line true = B1 >= [],
-    ?line true = B1 >= [a],
-    ?line true = B1 >= {a},
-    ?line true = B1 >= self(),
-    ?line true = B1 >= make_ref(),
-    ?line true = B1 >= xxx,
-    ?line true = B1 >= fun() -> 1 end,
-    ?line true = B1 >= fun erlang:send/2,
-    ?line true = B1 >= Port,
+    true = B1 >= 0,
+    true = B1 >= 39827491247298471289473333333333333333333333333333,
+    true = B1 >= -3489274937438742190467869234328742398347,
+    true = B1 >= 3.14,
+    true = B1 >= [],
+    true = B1 >= [a],
+    true = B1 >= {a},
+    true = B1 >= self(),
+    true = B1 >= make_ref(),
+    true = B1 >= xxx,
+    true = B1 >= fun() -> 1 end,
+    true = B1 >= fun erlang:send/2,
+    true = B1 >= Port,
 
     ok.
 
@@ -1013,153 +1022,153 @@ unaligned_order(Config) when is_list(Config) ->
 test_unaligned_order(I, J) ->
     Align = {I,J},
     io:format("~p ~p", [I,J]),
-    ?line true = test_unaligned_order_1('=:=', <<1,2,3,16#AA,16#7C,4,16#5F,5,16#5A>>,
+    true = test_unaligned_order_1('=:=', <<1,2,3,16#AA,16#7C,4,16#5F,5,16#5A>>,
 					<<1,2,3,16#AA,16#7C,4,16#5F,5,16#5A>>,
 					Align),
-    ?line false = test_unaligned_order_1('=/=', <<1,2,3>>, <<1,2,3>>, Align),
-    ?line true = test_unaligned_order_1('==', <<4,5,6>>, <<4,5,6>>, Align),
-    ?line false = test_unaligned_order_1('/=', <<1,2,3>>, <<1,2,3>>, Align),
+    false = test_unaligned_order_1('=/=', <<1,2,3>>, <<1,2,3>>, Align),
+    true = test_unaligned_order_1('==', <<4,5,6>>, <<4,5,6>>, Align),
+    false = test_unaligned_order_1('/=', <<1,2,3>>, <<1,2,3>>, Align),
 
-    ?line true = test_unaligned_order_1('<', <<1,2>>, <<1,2,3>>, Align),
-    ?line true = test_unaligned_order_1('=<', <<1,2>>, <<1,2,3>>, Align),
-    ?line true = test_unaligned_order_1('=<', <<1,2,7,8>>, <<1,2,7,8>>, Align),
+    true = test_unaligned_order_1('<', <<1,2>>, <<1,2,3>>, Align),
+    true = test_unaligned_order_1('=<', <<1,2>>, <<1,2,3>>, Align),
+    true = test_unaligned_order_1('=<', <<1,2,7,8>>, <<1,2,7,8>>, Align),
     ok.
 
 test_unaligned_order_1(Op, A, B, {Aa,Ba}) ->
     erlang:Op(unaligned_sub_bin(A, Aa), unaligned_sub_bin(B, Ba)).
     
 test_terms(Test_Func) ->
-    ?line Test_Func(atom),
-    ?line Test_Func(''),
-    ?line Test_Func('a'),
-    ?line Test_Func('ab'),
-    ?line Test_Func('abc'),
-    ?line Test_Func('abcd'),
-    ?line Test_Func('abcde'),
-    ?line Test_Func('abcdef'),
-    ?line Test_Func('abcdefg'),
-    ?line Test_Func('abcdefgh'),
+    Test_Func(atom),
+    Test_Func(''),
+    Test_Func('a'),
+    Test_Func('ab'),
+    Test_Func('abc'),
+    Test_Func('abcd'),
+    Test_Func('abcde'),
+    Test_Func('abcdef'),
+    Test_Func('abcdefg'),
+    Test_Func('abcdefgh'),
 
-    ?line Test_Func(fun() -> ok end),
+    Test_Func(fun() -> ok end),
     X = id([a,{b,c},c]),
     Y = id({x,y,z}),
     Z = id(1 bsl 8*257),
-    ?line Test_Func(fun() -> X end),
-    ?line Test_Func(fun() -> {X,Y} end),
-    ?line Test_Func([fun() -> {X,Y,Z} end,
+    Test_Func(fun() -> X end),
+    Test_Func(fun() -> {X,Y} end),
+    Test_Func([fun() -> {X,Y,Z} end,
 		     fun() -> {Z,X,Y} end,
 		     fun() -> {Y,Z,X} end]),
 
-    ?line Test_Func({trace_ts,{even_bigger,{some_data,fun() -> ok end}},{1,2,3}}),
-    ?line Test_Func({trace_ts,{even_bigger,{some_data,<<1,2,3,4,5,6,7,8,9,10>>}},
+    Test_Func({trace_ts,{even_bigger,{some_data,fun() -> ok end}},{1,2,3}}),
+    Test_Func({trace_ts,{even_bigger,{some_data,<<1,2,3,4,5,6,7,8,9,10>>}},
 		     {1,2,3}}),
 
-    ?line Test_Func(1),
-    ?line Test_Func(42),
-    ?line Test_Func(-23),
-    ?line Test_Func(256),
-    ?line Test_Func(25555),
-    ?line Test_Func(-3333),
+    Test_Func(1),
+    Test_Func(42),
+    Test_Func(-23),
+    Test_Func(256),
+    Test_Func(25555),
+    Test_Func(-3333),
 
-    ?line Test_Func(1.0),
+    Test_Func(1.0),
 
-    ?line Test_Func(183749783987483978498378478393874),
-    ?line Test_Func(-37894183749783987483978498378478393874),
+    Test_Func(183749783987483978498378478393874),
+    Test_Func(-37894183749783987483978498378478393874),
     Very_Big = very_big_num(),
-    ?line Test_Func(Very_Big),
-    ?line Test_Func(-Very_Big+1),
+    Test_Func(Very_Big),
+    Test_Func(-Very_Big+1),
 
-    ?line Test_Func([]),
-    ?line Test_Func("abcdef"),
-    ?line Test_Func([a, b, 1, 2]),
-    ?line Test_Func([a|b]),
+    Test_Func([]),
+    Test_Func("abcdef"),
+    Test_Func([a, b, 1, 2]),
+    Test_Func([a|b]),
 
-    ?line Test_Func({}),
-    ?line Test_Func({1}),
-    ?line Test_Func({a, b}),
-    ?line Test_Func({a, b, c}),
-    ?line Test_Func(list_to_tuple(lists:seq(0, 255))),
-    ?line Test_Func(list_to_tuple(lists:seq(0, 256))),
+    Test_Func({}),
+    Test_Func({1}),
+    Test_Func({a, b}),
+    Test_Func({a, b, c}),
+    Test_Func(list_to_tuple(lists:seq(0, 255))),
+    Test_Func(list_to_tuple(lists:seq(0, 256))),
 
-    ?line Test_Func(make_ref()),
-    ?line Test_Func([make_ref(), make_ref()]),
+    Test_Func(make_ref()),
+    Test_Func([make_ref(), make_ref()]),
 
-    ?line Test_Func(make_port()),
+    Test_Func(make_port()),
 
-    ?line Test_Func(make_pid()),
+    Test_Func(make_pid()),
 
-    ?line Test_Func(Bin0 = list_to_binary(lists:seq(0, 14))),
-    ?line Test_Func(Bin1 = list_to_binary(lists:seq(0, ?heap_binary_size))),
-    ?line Test_Func(Bin2 = list_to_binary(lists:seq(0, ?heap_binary_size+1))),
-    ?line Test_Func(Bin3 = list_to_binary(lists:seq(0, 255))),
+    Test_Func(Bin0 = list_to_binary(lists:seq(0, 14))),
+    Test_Func(Bin1 = list_to_binary(lists:seq(0, ?heap_binary_size))),
+    Test_Func(Bin2 = list_to_binary(lists:seq(0, ?heap_binary_size+1))),
+    Test_Func(Bin3 = list_to_binary(lists:seq(0, 255))),
 
-    ?line Test_Func(make_unaligned_sub_binary(Bin0)),
-    ?line Test_Func(make_unaligned_sub_binary(Bin1)),
-    ?line Test_Func(make_unaligned_sub_binary(Bin2)),
-    ?line Test_Func(make_unaligned_sub_binary(Bin3)),
+    Test_Func(make_unaligned_sub_binary(Bin0)),
+    Test_Func(make_unaligned_sub_binary(Bin1)),
+    Test_Func(make_unaligned_sub_binary(Bin2)),
+    Test_Func(make_unaligned_sub_binary(Bin3)),
 
-    ?line Test_Func(make_sub_binary(lists:seq(42, 43))),
-    ?line Test_Func(make_sub_binary([42,43,44])),
-    ?line Test_Func(make_sub_binary([42,43,44,45])),
-    ?line Test_Func(make_sub_binary([42,43,44,45,46])),
-    ?line Test_Func(make_sub_binary([42,43,44,45,46,47])),
-    ?line Test_Func(make_sub_binary([42,43,44,45,46,47,48])),
-    ?line Test_Func(make_sub_binary(lists:seq(42, 49))),
-    ?line Test_Func(make_sub_binary(lists:seq(0, 14))),
-    ?line Test_Func(make_sub_binary(lists:seq(0, ?heap_binary_size))),
-    ?line Test_Func(make_sub_binary(lists:seq(0, ?heap_binary_size+1))),
-    ?line Test_Func(make_sub_binary(lists:seq(0, 255))),
+    Test_Func(make_sub_binary(lists:seq(42, 43))),
+    Test_Func(make_sub_binary([42,43,44])),
+    Test_Func(make_sub_binary([42,43,44,45])),
+    Test_Func(make_sub_binary([42,43,44,45,46])),
+    Test_Func(make_sub_binary([42,43,44,45,46,47])),
+    Test_Func(make_sub_binary([42,43,44,45,46,47,48])),
+    Test_Func(make_sub_binary(lists:seq(42, 49))),
+    Test_Func(make_sub_binary(lists:seq(0, 14))),
+    Test_Func(make_sub_binary(lists:seq(0, ?heap_binary_size))),
+    Test_Func(make_sub_binary(lists:seq(0, ?heap_binary_size+1))),
+    Test_Func(make_sub_binary(lists:seq(0, 255))),
 
-    ?line Test_Func(make_unaligned_sub_binary(lists:seq(42, 43))),
-    ?line Test_Func(make_unaligned_sub_binary([42,43,44])),
-    ?line Test_Func(make_unaligned_sub_binary([42,43,44,45])),
-    ?line Test_Func(make_unaligned_sub_binary([42,43,44,45,46])),
-    ?line Test_Func(make_unaligned_sub_binary([42,43,44,45,46,47])),
-    ?line Test_Func(make_unaligned_sub_binary([42,43,44,45,46,47,48])),
-    ?line Test_Func(make_unaligned_sub_binary(lists:seq(42, 49))),
-    ?line Test_Func(make_unaligned_sub_binary(lists:seq(0, 14))),
-    ?line Test_Func(make_unaligned_sub_binary(lists:seq(0, ?heap_binary_size))),
-    ?line Test_Func(make_unaligned_sub_binary(lists:seq(0, ?heap_binary_size+1))),
-    ?line Test_Func(make_unaligned_sub_binary(lists:seq(0, 255))),
+    Test_Func(make_unaligned_sub_binary(lists:seq(42, 43))),
+    Test_Func(make_unaligned_sub_binary([42,43,44])),
+    Test_Func(make_unaligned_sub_binary([42,43,44,45])),
+    Test_Func(make_unaligned_sub_binary([42,43,44,45,46])),
+    Test_Func(make_unaligned_sub_binary([42,43,44,45,46,47])),
+    Test_Func(make_unaligned_sub_binary([42,43,44,45,46,47,48])),
+    Test_Func(make_unaligned_sub_binary(lists:seq(42, 49))),
+    Test_Func(make_unaligned_sub_binary(lists:seq(0, 14))),
+    Test_Func(make_unaligned_sub_binary(lists:seq(0, ?heap_binary_size))),
+    Test_Func(make_unaligned_sub_binary(lists:seq(0, ?heap_binary_size+1))),
+    Test_Func(make_unaligned_sub_binary(lists:seq(0, 255))),
 
     %% Bit level binaries.
-    ?line Test_Func(<<1:1>>),
-    ?line Test_Func(<<2:2>>),
-    ?line Test_Func(<<42:10>>),
-    ?line Test_Func(list_to_bitstring([<<5:6>>|lists:seq(0, 255)])),
+    Test_Func(<<1:1>>),
+    Test_Func(<<2:2>>),
+    Test_Func(<<42:10>>),
+    Test_Func(list_to_bitstring([<<5:6>>|lists:seq(0, 255)])),
 
-    ?line Test_Func(F = fun(A) -> 42*A end),
-    ?line Test_Func(lists:duplicate(32, F)),
+    Test_Func(F = fun(A) -> 42*A end),
+    Test_Func(lists:duplicate(32, F)),
 
-    ?line Test_Func(FF = fun binary_SUITE:all/0),
-    ?line Test_Func(lists:duplicate(32, FF)),
+    Test_Func(FF = fun binary_SUITE:all/0),
+    Test_Func(lists:duplicate(32, FF)),
 
     ok.
 
 test_floats(Test_Func) ->
-    ?line Test_Func(5.5),
-    ?line Test_Func(-15.32),
-    ?line Test_Func(1.2435e25),
-    ?line Test_Func(1.2333e-20),
-    ?line Test_Func(199.0e+15),
+    Test_Func(5.5),
+    Test_Func(-15.32),
+    Test_Func(1.2435e25),
+    Test_Func(1.2333e-20),
+    Test_Func(199.0e+15),
     ok.
 
 very_big_num() ->
     very_big_num(33, 1).
 
 very_big_num(Left, Result) when Left > 0 ->
-    ?line very_big_num(Left-1, Result*256);
+    very_big_num(Left-1, Result*256);
 very_big_num(0, Result) ->
-    ?line Result.
+    Result.
 
 make_port() ->
-    ?line open_port({spawn, efile}, [eof]).
+    open_port({spawn, efile}, [eof]).
 
 make_pid() ->
-    ?line spawn_link(?MODULE, sleeper, []).
+    spawn_link(?MODULE, sleeper, []).
 
 sleeper() ->
-    ?line receive after infinity -> ok end.
+    receive after infinity -> ok end.
 
 
 %% Test that binaries are garbage collected properly.
@@ -1199,7 +1208,7 @@ gc_test1(Pid) ->
     receive
 	{Pid,done} -> ok
     after 10000 ->
-	    ?line ?t:fail()
+	    ct:fail("timeout")
     end.
 
 %% Like split binary, but returns REFC binaries. Only useful for gc_test/1.
@@ -1218,30 +1227,36 @@ gc() ->
 gc1() -> ok.
 
 bit_sized_binary_sizes(Config) when is_list(Config) ->
-    ?line [bsbs_1(A) || A <- lists:seq(0, 7)],
+    [bsbs_1(A) || A <- lists:seq(1, 8)],
     ok.
 
-bsbs_1(0) ->
-    BinSize = 32+8,
-    io:format("A: ~p BinSize: ~p", [0,BinSize]),
-    Bin = binary_to_term(<<131,$M,5:32,0,0,0,0,0,0>>),
-    BinSize = bit_size(Bin);
 bsbs_1(A) ->
     BinSize = 32+A,
     io:format("A: ~p BinSize: ~p", [A,BinSize]),
-    Bin = binary_to_term(<<131,$M,5:32,A,0,0,0,0,0>>),
+    Bin = binary_to_term_stress(<<131,$M,5:32,A,0,0,0,0,0>>),
     BinSize = bit_size(Bin).
 
+%% lists:foldl(_,_,lists:seq(_,_)) with less heap consumption
+lists_foldl_seq(Fun, Acc0, N, To) when N =< To ->
+    Acc1 = Fun(N, Acc0),
+    lists_foldl_seq(Fun, Acc1, N+1, To);
+
+lists_foldl_seq(_, Acc, _, _) ->
+    Acc.
+
 deep(Config) when is_list(Config) ->
-    ?line deep_roundtrip(lists:foldl(fun(E, A) ->
-					     [E,A]
-				     end, [], lists:seq(1, 1000000))),
-    ?line deep_roundtrip(lists:foldl(fun(E, A) ->
-					     {E,A}
-				     end, [], lists:seq(1, 1000000))),
-    ?line deep_roundtrip(lists:foldl(fun(E, A) ->
-					     fun() -> {E,A} end
-				     end, [], lists:seq(1, 1000000))),
+    deep_roundtrip(lists_foldl_seq(fun(E, A) ->
+					   [E,A]
+				   end, [], 1, 1000000)),
+    erlang:garbage_collect(),
+    deep_roundtrip(lists_foldl_seq(fun(E, A) ->
+					   {E,A}
+				   end, [], 1, 1000000)),
+    erlang:garbage_collect(),
+    deep_roundtrip(lists_foldl_seq(fun(E, A) ->
+					   fun() -> {E,A} end
+				   end, [], 1, 1000000)),
+    erlang:garbage_collect(),
     ok.
 
 deep_roundtrip(T) ->
@@ -1254,13 +1269,13 @@ obsolete_funs(Config) when is_list(Config) ->
     X = id({1,2,3}),
     Y = id([a,b,c,d]),
     Z = id({x,y,z}),
-    ?line obsolete_fun(fun() -> ok end),
-    ?line obsolete_fun(fun() -> X end),
-    ?line obsolete_fun(fun(A) -> {A,X} end),
-    ?line obsolete_fun(fun() -> {X,Y} end),
-    ?line obsolete_fun(fun() -> {X,Y,Z} end),
+    obsolete_fun(fun() -> ok end),
+    obsolete_fun(fun() -> X end),
+    obsolete_fun(fun(A) -> {A,X} end),
+    obsolete_fun(fun() -> {X,Y} end),
+    obsolete_fun(fun() -> {X,Y,Z} end),
 
-    ?line obsolete_fun(fun ?MODULE:all/1),
+    obsolete_fun(fun ?MODULE:all/1),
 
     erts_debug:set_internal_state(available_internal_state, false),
     ok.
@@ -1281,83 +1296,280 @@ obsolete_fun(Fun) ->
     Tuple = no_fun_roundtrip(Fun).
 
 no_fun_roundtrip(Term) ->
-    binary_to_term(erts_debug:get_internal_state({term_to_binary_no_funs,Term})).
+    binary_to_term_stress(erts_debug:get_internal_state({term_to_binary_no_funs,Term})).
 
 %% Test non-standard encodings never generated by term_to_binary/1
 %% but recognized by binary_to_term/1.
 
 robustness(Config) when is_list(Config) ->
-    ?line [] = binary_to_term(<<131,107,0,0>>),	%Empty string.
-    ?line [] = binary_to_term(<<131,108,0,0,0,0,106>>),	%Zero-length list.
+    [] = binary_to_term_stress(<<131,107,0,0>>),	%Empty string.
+    [] = binary_to_term_stress(<<131,108,0,0,0,0,106>>),	%Zero-length list.
 
     %% {[],a} where [] is a zero-length list.
-    ?line {[],a} = binary_to_term(<<131,104,2,108,0,0,0,0,106,100,0,1,97>>),
+    {[],a} = binary_to_term_stress(<<131,104,2,108,0,0,0,0,106,100,0,1,97>>),
 
     %% {42,a} where 42 is a zero-length list with 42 in the tail.
-    ?line {42,a} = binary_to_term(<<131,104,2,108,0,0,0,0,97,42,100,0,1,97>>),
+    {42,a} = binary_to_term_stress(<<131,104,2,108,0,0,0,0,97,42,100,0,1,97>>),
 
     %% {{x,y},a} where {x,y} is a zero-length list with {x,y} in the tail.
-    ?line {{x,y},a} = binary_to_term(<<131,104,2,108,0,0,0,0,
+    {{x,y},a} = binary_to_term_stress(<<131,104,2,108,0,0,0,0,
 				      104,2,100,0,1,120,100,0,1,
 				      121,100,0,1,97>>),
 
     %% Bignums fitting in 32 bits.
-    ?line 16#7FFFFFFF = binary_to_term(<<131,98,127,255,255,255>>),
-    ?line -1 = binary_to_term(<<131,98,255,255,255,255>>),
+    16#7FFFFFFF = binary_to_term_stress(<<131,98,127,255,255,255>>),
+    -1 = binary_to_term_stress(<<131,98,255,255,255,255>>),
     
     ok.
 
 %% OTP-8180: Test several terms that have been known to crash the emulator.
 %% (Thanks to Scott Lystig Fritchie.)
 otp_8180(Config) when is_list(Config) ->
-    ?line Data = ?config(data_dir, Config),
-    ?line Wc = filename:join(Data, "zzz.*"),
+    Data = proplists:get_value(data_dir, Config),
+    Wc = filename:join(Data, "zzz.*"),
     Files = filelib:wildcard(Wc),
     [run_otp_8180(F) || F <- Files],
     ok.
 
 run_otp_8180(Name) ->
     io:format("~s", [Name]),
-    ?line {ok,Bins} = file:consult(Name),
+    {ok,Bins} = file:consult(Name),
     [begin
 	 io:format("~p\n", [Bin]),
-	 ?line {'EXIT',{badarg,_}} = (catch binary_to_term(Bin))
+	 {'EXIT',{badarg,_}} = (catch binary_to_term_stress(Bin))
      end || Bin <- Bins],
     ok.
 
-%% Test that exit and GC during term_to_binary trap does not crash.
-ttb_trap(Config) when is_list(Config)->
-    case erlang:system_info(wordsize) of
-	N when N < 8 ->
-	    {skipped, "Only on 64bit machines"};
-	_ ->
-	    do_ttb_trap(5)
-    end.
+%% Test that exit and GC during trapping term_to_binary and binary_to_term
+%% does not crash.
+trapping(Config) when is_list(Config)->
+    do_trapping(5, term_to_binary,
+		fun() -> [lists:duplicate(2000000,2000000)] end),
+    do_trapping(5, binary_to_term,
+		fun() -> [term_to_binary(lists:duplicate(2000000,2000000))] end),
+    do_trapping(5, binary_to_list,
+		fun() -> [list_to_binary(lists:duplicate(2000000,$x))] end),
+    do_trapping(5, list_to_binary,
+		fun() -> [lists:duplicate(2000000,$x)] end),
+    do_trapping(5, bitstring_to_list,
+		fun() -> [list_to_bitstring([lists:duplicate(2000000,$x),<<7:4>>])] end),
+    do_trapping(5, list_to_bitstring,
+		fun() -> [[lists:duplicate(2000000,$x),<<7:4>>]] end)
+    .
 
-do_ttb_trap(0) ->
+do_trapping(0, _, _) ->
     ok;
-do_ttb_trap(N) ->
-    Pid = spawn(?MODULE,ttb_loop,[1000,self()]),
+do_trapping(N, Bif, ArgFun) ->
+    io:format("N=~p: Do ~p ~s gc.\n", [N, Bif, case N rem 2 of 0 -> "with"; 1 -> "without" end]),
+    Pid = spawn(?MODULE,trapping_loop,[Bif, ArgFun, 1000, self()]),
     receive ok -> ok end,
     receive after 100 -> ok end,
-    erlang:garbage_collect(Pid),
-    receive after 100 -> ok end,
+    Ref = make_ref(),
+    case N rem 2 of
+	0 -> erlang:garbage_collect(Pid, [{async,Ref}]),
+	     receive after 100 -> ok end;
+	1 -> void
+    end,
     exit(Pid,kill),
+    case N rem 2 of
+	0 -> receive {garbage_collect, Ref, _} -> ok end;
+	1 -> void
+    end,
     receive after 1 -> ok end,
-    do_ttb_trap(N-1).
+    do_trapping(N-1, Bif, ArgFun).
 
-ttb_loop(N,Pid) ->
-    Term = lists:duplicate(2000000,2000000),
+trapping_loop(Bif, ArgFun, N, Pid) ->
+    Args = ArgFun(),
     Pid ! ok,
-    ttb_loop2(N,Term).
-ttb_loop2(0,_T) ->
+    trapping_loop2(Bif,Args,N).
+trapping_loop2(_,_,0) ->
     ok;
-ttb_loop2(N,T) ->
-    apply(erlang,term_to_binary,[T]),
-    ttb_loop2(N-1,T).
+trapping_loop2(Bif,Args,N) ->
+    apply(erlang,Bif,Args),
+    trapping_loop2(Bif, Args, N-1).
 
+large(Config) when is_list(Config) ->
+    List = lists:flatten(lists:map(fun (_) ->
+					   [0,1,2,3,4,5,6,7,8]
+				   end,
+				   lists:seq(1, 131072))),
+    Bin = list_to_binary(List),
+    List = binary_to_list(Bin),
+    PartList = lists:reverse(tl(tl(lists:reverse(tl(tl(List)))))),
+    PartList = binary_to_list(Bin, 3, length(List)-2),
+    ListBS = List ++ [<<7:4>>],
+    ListBS = bitstring_to_list(list_to_bitstring(ListBS)),
+    BitStr1 = list_to_bitstring(lists:duplicate(1024*1024, [<<1,5:3>>])),
+    BitStr1 = list_to_bitstring(bitstring_to_list(BitStr1)),
+    BitStr2 = list_to_bitstring([lists:duplicate(512*1024, [<<1,5:3>>]),
+				Bin]),
+    BitStr2 = list_to_bitstring(bitstring_to_list(BitStr2)),
+    ok.
+
+error_after_yield(Config) when is_list(Config) ->
+    L2BTrap = {erts_internal, list_to_binary_continue, 1},
+    error_after_yield(badarg, erlang, list_to_binary, 1, fun () -> [[mk_list(1000000), oops]] end, L2BTrap),
+    error_after_yield(badarg, erlang, iolist_to_binary, 1, fun () -> [[list2iolist(mk_list(1000000)), oops]] end, L2BTrap),
+    error_after_yield(badarg, erlang, list_to_bitstring, 1, fun () -> [[list2bitstrlist(mk_list(1000000)), oops]] end, L2BTrap),
+    error_after_yield(badarg, binary, list_to_bin, 1, fun () -> [[mk_list(1000000), oops]] end, L2BTrap),
+
+    B2TTrap = {erts_internal, binary_to_term_trap, 1},
+
+    error_after_yield(badarg, erlang, binary_to_term, 1, fun () -> [error_after_yield_bad_ext_term()] end, B2TTrap),
+    error_after_yield(badarg, erlang, binary_to_term, 2, fun () -> [error_after_yield_bad_ext_term(), [safe]] end, B2TTrap),
+
+    case erlang:system_info(wordsize) of
+	4 ->
+	    SysLimitSz = 1 bsl 32,
+	    error_after_yield(system_limit, erlang, list_to_binary, 1, fun () -> [[huge_iolist(SysLimitSz), $x]] end, L2BTrap),
+	    error_after_yield(system_limit, erlang, iolist_to_binary, 1, fun () -> [[huge_iolist(SysLimitSz), $x]] end, L2BTrap),
+	    error_after_yield(system_limit, erlang, list_to_bitstring, 1, fun () -> [[huge_iolist(SysLimitSz), $x]] end, L2BTrap),
+	    error_after_yield(system_limit, binary, list_to_bin, 1, fun () -> [[huge_iolist(SysLimitSz), $x]] end, L2BTrap);
+	8 ->
+	    % Takes waaaay to long time to test system_limit on 64-bit archs...
+	    ok
+    end,
+    ok.
+
+error_after_yield(Type, M, F, AN, AFun, TrapFunc) ->
+    io:format("Testing ~p for ~p:~p/~p~n", [Type, M, F, AN]),
+    Tracer = self(),
+    {Pid, Mon} = spawn_monitor(fun () ->
+				       A = AFun(),
+				       try
+					   erlang:yield(),
+					   erlang:trace(self(),true,[running,{tracer,Tracer}]),
+					   apply(M, F, A),
+					   exit({unexpected_success, {M, F, A}})
+				       catch
+					   error:Type ->
+					       erlang:trace(self(),false,[running,{tracer,Tracer}]),
+					       %% We threw the exception from the native
+					       %% function we trapped to, but we want
+					       %% the BIF that originally was called
+					       %% to appear in the stack trace.
+					       [{M, F, A, _} | _] = erlang:get_stacktrace()
+				       end
+			       end),
+    receive
+	{'DOWN', Mon, process, Pid, Reason} ->
+	    normal = Reason
+    end,
+    TD = erlang:trace_delivered(Pid),
+    receive
+	{trace_delivered, Pid, TD} ->
+	    NoYields = error_after_yield_sched(Pid, TrapFunc, 0),
+	    io:format("No of yields: ~p~n", [NoYields]),
+	    true =  NoYields > 2
+    end,
+    ok.
+
+error_after_yield_sched(P, TrapFunc, N) ->
+    receive
+	{trace, P, out, TrapFunc} ->
+	    receive
+		{trace, P, in, TrapFunc} ->
+		    error_after_yield_sched(P, TrapFunc, N+1)
+	    after 0 ->
+		    exit(trap_sched_mismatch)
+	    end;
+	{trace, P, out, Func} ->
+	    receive
+		{trace, P, in, Func} ->
+		    error_after_yield_sched(P, TrapFunc, N)
+	    after 0 ->
+		    exit(other_sched_mismatch)
+	    end
+    after 0 ->
+	    N
+    end.
+
+error_after_yield_bad_ext_term() ->
+    TupleSz = 2000000,
+    <<131, % Version magic
+      AtomExt/binary>> = term_to_binary(an_atom_we_use_for_this),
+    BadAtomExt = [100, %% ATOM_EXT
+		  255, 255, % Invalid size of 65535 bytes
+		  "oops"],
+
+    %% Produce a large tuple where the last element is invalid
+    list_to_binary([131, %% Version magic
+		    105, %% LARGE_TUPLE_EXT
+		    <<TupleSz:32/big>>, %% Tuple size
+		    lists:duplicate(TupleSz-1, AtomExt), %% Valid atoms
+		    BadAtomExt]). %% Invalid atom at the end
+	    
+cmp_old_impl(Config) when is_list(Config) ->
+    %% Compare results from new yielding implementations with
+    %% old non yielding implementations 
+    Cookie = atom_to_list(erlang:get_cookie()),
+    Rel = "r16b_latest",
+    case test_server:is_release_available(Rel) of
+	false ->
+	    {skipped, "No "++Rel++" available"};
+	true ->
+	    {ok, Node} = test_server:start_node(list_to_atom(atom_to_list(?MODULE)++"_"++Rel),
+				       peer,
+				       [{args, " -setcookie "++Cookie},
+					{erl, [{release, Rel}]}]),
+
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(1))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(10))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(100))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(1000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(10000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(100000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(1000000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list(10000000))]}),
+	    cmp_node(Node, {erlang, list_to_binary, [list2iolist(mk_list_lb(10000000))]}),
+
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(1))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(10))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(100))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(1000))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(10000))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(100000))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(1000000))]}),
+	    cmp_node(Node, {erlang, binary_to_list, [list_to_binary(mk_list(10000000))]}),
+
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(1))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(10))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(100))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(1000))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(10000))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(100000))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(1000000))]}),
+	    cmp_node(Node, {erlang, list_to_bitstring, [list2bitstrlist(mk_list(10000000))]}),
+
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(1)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(10)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(100)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(1000)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(10000)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(100000)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(1000000)))]}),
+	    cmp_node(Node, {erlang, bitstring_to_list, [list_to_bitstring(list2bitstrlist(mk_list(10000000)))]}),
+
+	    test_server:stop_node(Node),
+
+	    ok
+    end.
 
 %% Utilities.
+
+huge_iolist(Lim) ->
+    Sz = 1024,
+    huge_iolist(list_to_binary(mk_list(Sz)), Sz, Lim).
+
+huge_iolist(X, Sz, Lim) when Sz >= Lim ->
+    X;
+huge_iolist(X, Sz, Lim) ->
+    huge_iolist([X, X], Sz*2, Lim).
+
+cmp_node(Node, {M, F, A}) ->
+    Res = rpc:call(Node, M, F, A),
+    Res = apply(M, F, A),
+    ok.
 
 make_sub_binary(Bin) when is_binary(Bin) ->
     {_,B} = split_binary(list_to_binary([0,1,3,Bin]), 3),
@@ -1382,7 +1594,7 @@ bit_sized_binary(Bin0) ->
 
 unaligned_sub_bin(Bin, 0) -> Bin;
 unaligned_sub_bin(Bin0, Offs) ->
-    F = random:uniform(256),
+    F = rand:uniform(256),
     Roffs = 8-Offs,
     Bin1 = <<F:Offs,Bin0/binary,F:Roffs>>,
     Sz = size(Bin0),
@@ -1390,3 +1602,127 @@ unaligned_sub_bin(Bin0, Offs) ->
     Bin.
 
 id(I) -> I.
+
+
+%% Stress binary_to_term with different initial reductions
+binary_to_term_stress(Bin) ->
+    binary_to_term_stress(Bin, no_opts).
+
+binary_to_term_stress(Bin, Opts) ->
+    Reds = get_reds(),
+    T = b2t(erlang:system_info(context_reductions),
+	    Bin, Opts, catch_binary_to_term(Bin, Opts)),
+    set_reds(Reds),
+    T = case Opts of
+	    no_opts -> binary_to_term(Bin);
+	    _ ->       binary_to_term(Bin,Opts)
+	end.
+
+catch_binary_to_term(Bin, no_opts) ->
+    try binary_to_term(Bin)
+    catch
+	error:badarg -> binary_to_term_throws_badarg
+    end;
+catch_binary_to_term(Bin, Opts) ->
+    try binary_to_term(Bin, Opts)
+    catch
+	error:badarg -> binary_to_term_throws_badarg
+    end.
+
+b2t(0, _Bin, _Opts, Term) ->
+    Term;
+b2t(Reds, Bin, Opts, Term) ->
+    set_reds(Reds),
+    Term = catch_binary_to_term(Bin,Opts),
+    b2t(Reds div 3, Bin, Opts, Term).
+
+set_reds(Reds) ->
+    try	erts_debug:set_internal_state(reds_left, Reds)
+    catch
+	error:undef ->
+	    erts_debug:set_internal_state(available_internal_state, true),
+	    set_reds(Reds)
+    end.
+
+get_reds() ->
+    try	erts_debug:get_internal_state(reds_left)
+    catch
+	error:undef ->
+	    erts_debug:set_internal_state(available_internal_state, true),
+	    get_reds()
+    end.
+
+-define(LARGE_BIN, (512*1024+10)).
+-define(LARGE_BIN_LIM, (1024*1024)).
+
+mk_list(0, Acc) ->
+    Acc;
+mk_list(Sz, Acc) ->
+    mk_list(Sz-1, [$A+(Sz band 63) | Acc]).
+
+mk_list(Sz) when Sz >= ?LARGE_BIN_LIM ->
+    SzLeft = Sz - ?LARGE_BIN,
+    SzHd = SzLeft div 2,
+    SzTl = SzLeft - SzHd,
+    [mk_list(SzHd, []), erlang:list_to_binary(mk_list(?LARGE_BIN, [])), mk_list(SzTl, [])];
+mk_list(Sz) ->
+    mk_list(Sz, []).
+
+mk_list_lb(Sz) when Sz >= ?LARGE_BIN_LIM ->
+    SzLeft = Sz - ?LARGE_BIN,
+    SzHd = SzLeft div 2,
+    SzTl = SzLeft - SzHd,
+    [mk_list(SzHd, []), erlang:list_to_binary(mk_list(?LARGE_BIN, [])), mk_list(SzTl, [])];
+mk_list_lb(Sz) ->
+    mk_list(Sz, []).
+
+
+list2iolist(List) ->
+    list2iolist(List, []).
+
+list2iolist([], Acc) ->
+    Acc;
+list2iolist([X0, X1, X2, X3, X4, X5 | Xs], Acc) when is_integer(X0), 0 =< X0, X0 < 256,
+						     is_integer(X1), 0 =< X1, X1 < 256,
+						     is_integer(X2), 0 =< X2, X2 < 256,
+						     is_integer(X3), 0 =< X3, X3 < 256,
+						     is_integer(X4), 0 =< X4, X4 < 256,
+						     is_integer(X5), 0 =< X5, X5 < 256 ->
+    NewAcc = case (X0+X1+X2+X3+X4+X5) band 3 of
+		 0 ->
+		     [Acc, [[[[[[[[[[[[X0,[],<<"">>,X1]]]]]]]]],[X2,X3]],[],[],[],[],X4],X5]];
+		 1 ->
+		     [Acc, [], erlang:list_to_binary([X0, X1, X2, X3, X4, X5])];
+		 2 ->
+		     [Acc, [[[[X0|erlang:list_to_binary([X1])],[X2|erlang:list_to_binary([X3])],[X4|erlang:list_to_binary([X5])]]]|<<"">>]];
+		 3 ->
+		     [Acc, X0, X1, X2, <<"">>, [], X3, X4 | erlang:list_to_binary([X5])]
+	     end,
+    list2iolist(Xs, NewAcc);
+list2iolist([X | Xs], Acc) ->
+    list2iolist(Xs, [Acc,X]).
+
+list2bitstrlist(List) ->
+    [list2bitstrlist(List, []), <<4:7>>].
+
+list2bitstrlist([], Acc) ->
+    Acc;
+list2bitstrlist([X0, X1, X2, X3, X4, X5 | Xs], Acc) when is_integer(X0), 0 =< X0, X0 < 256,
+						     is_integer(X1), 0 =< X1, X1 < 256,
+						     is_integer(X2), 0 =< X2, X2 < 256,
+						     is_integer(X3), 0 =< X3, X3 < 256,
+						     is_integer(X4), 0 =< X4, X4 < 256,
+						     is_integer(X5), 0 =< X5, X5 < 256 ->
+    NewAcc = case (X0+X1+X2+X3+X4+X5) band 3 of
+		 0 ->
+		     [Acc, [[[[[[[[[[[[X0,[],<<"">>,X1]]]]]]]]],[X2,X3]],[],[],[],[],X4],X5]];
+		 1 ->
+		     [Acc, [], <<X0:X1>>, <<X2:X3>>, <<X4:X5>>];
+		 2 ->
+		     [Acc, [[[[X0|<<X1:X2>>],X3]],[X4|erlang:list_to_binary([X5])]|<<"">>]];
+		 3 ->
+		     [Acc, X0, X1, X2, <<"">>, [], X3, X4 | erlang:list_to_binary([X5])]
+	     end,
+    list2bitstrlist(Xs, NewAcc);
+list2bitstrlist([X | Xs], Acc) ->
+    list2bitstrlist(Xs, [Acc,X]).

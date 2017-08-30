@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE cref SYSTEM "cref.dtd">
 
 <cref>
   <header>
     <copyright>
-      <year>2002</year><year>2013</year>
+      <year>2002</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -51,6 +52,8 @@
       <item>Allocator used for ETS data.</item>
       <tag><c>driver_alloc</c></tag>
       <item>Allocator used for driver data.</item>
+      <tag><c>literal_alloc</c></tag>
+      <item>Allocator used for constant terms in Erlang code.</item>
       <tag><c>sl_alloc</c></tag>
       <item>Allocator used for memory blocks that are expected to be
        short-lived.</item>
@@ -60,6 +63,9 @@
       <tag><c>fix_alloc</c></tag>
       <item>A fast allocator used for some frequently used
        fixed size data types.</item>
+      <tag><c>exec_alloc</c></tag>
+      <item>Allocator used by hipe for native executable code
+      on specific architectures (x86_64).</item>
       <tag><c>std_alloc</c></tag>
       <item>Allocator used for most memory blocks not allocated via any of
        the other allocators described above.</item>
@@ -76,8 +82,9 @@
        instead of creating new segments.  This in order to reduce
        the number of system calls made.</item>
     </taglist>
-    <p><c>sys_alloc</c> is always enabled and
-      cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
+    <p><c>sys_alloc</c> and <c>literal_alloc</c> are always enabled and
+      cannot be disabled. <c>exec_alloc</c> is only available if it is needed
+      and cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
       available and an allocator that uses it is enabled. All other
       allocators can be <seealso marker="#M_e">enabled or disabled</seealso>.
       By default all allocators are enabled.
@@ -170,6 +177,15 @@
           used. The time complexity is proportional to log N, where
           N is the number of free blocks.</p>
       </item>
+      <tag>Address order first fit carrier best fit</tag>
+      <item>
+        <p>Strategy: Find the <em>carrier</em> with the lowest address that
+	can satisfy the requested block size, then find a block within
+	that carrier using the "best fit" strategy.</p>
+        <p>Implementation: Balanced binary search trees are
+          used. The time complexity is proportional to log N, where
+          N is the number of free blocks.</p>
+      </item>
       <tag>Address order first fit carrier address order best fit</tag>
       <item>
         <p>Strategy: Find the <em>carrier</em> with the lowest address that
@@ -240,29 +256,102 @@
       <item><c>E: ets_alloc</c></item>
       <item><c>F: fix_alloc</c></item>
       <item><c>H: eheap_alloc</c></item>
+      <item><c>I: literal_alloc</c></item>
       <item><c>L: ll_alloc</c></item>
       <item><c>M: mseg_alloc</c></item>
       <item><c>R: driver_alloc</c></item>
       <item><c>S: sl_alloc</c></item>
       <item><c>T: temp_alloc</c></item>
+      <item><c>X: exec_alloc</c></item>
       <item><c>Y: sys_alloc</c></item>
     </list>
     <p>The following flags are available for configuration of
       <c>mseg_alloc</c>:</p>
     <taglist>
-      <tag><marker id="MMamcbf"><c><![CDATA[+MMamcbf <size>]]></c></marker></tag>
+      <tag><marker id="MMamcbf"/><c><![CDATA[+MMamcbf <size>]]></c></tag>
       <item>
        Absolute max cache bad fit (in kilobytes). A segment in the
        memory segment cache is not reused if its size exceeds the
        requested size with more than the value of this
        parameter. Default value is 4096. </item>
-      <tag><marker id="MMrmcbf"><c><![CDATA[+MMrmcbf <ratio>]]></c></marker></tag>
+      <tag><marker id="MMrmcbf"/><c><![CDATA[+MMrmcbf <ratio>]]></c></tag>
       <item>
        Relative max cache bad fit (in percent). A segment in the
        memory segment cache is not reused if its size exceeds the
        requested size with more than relative max cache bad fit
        percent of the requested size. Default value is 20.</item>
-      <tag><marker id="MMmcs"><c><![CDATA[+MMmcs <amount>]]></c></marker></tag>
+      <tag><marker id="MMsco"/><c><![CDATA[+MMsco true|false]]></c></tag>
+      <item>
+	Set <seealso marker="#MMscs">super carrier</seealso> only flag. This
+	flag defaults to <c>true</c>. When a super carrier is used and this
+	flag is <c>true</c>, <c>mseg_alloc</c> will only create carriers
+	in the super carrier. Note that the <c>alloc_util</c> framework may
+	create <c>sys_alloc</c> carriers, so if you want all carriers to
+	be created in the super carrier, you therefore want to disable use
+	of <c>sys_alloc</c> carriers by also passing
+	<seealso marker="#Musac"><c>+Musac false</c></seealso>. When the flag
+	is <c>false</c>, <c>mseg_alloc</c> will try to create carriers outside
+	of the super carrier when the super carrier is full.
+	<br/><br/>
+	<em>NOTE</em>: Setting this flag to <c>false</c> may not be supported
+	on all systems. This flag will in that case be ignored.
+	<br/><br/>
+	<em>NOTE</em>: The super carrier cannot be enabled nor
+	disabled on halfword heap systems. This flag will be
+	ignored on halfword heap systems.
+      </item>
+      <tag><marker id="MMscrfsd"/><c><![CDATA[+MMscrfsd <amount>]]></c></tag>
+      <item>
+	Set <seealso marker="#MMscs">super carrier</seealso> reserved
+	free segment descriptors. This parameter defaults to <c>65536</c>.
+	This parameter determines the amount of memory to reserve for
+	free segment descriptors used by the super carrier. If the system
+	runs out of reserved memory for free segment descriptors, other
+	memory will be used. This may however cause fragmentation issues,
+	so you want to ensure that this	never happens. The maximum amount
+	of free segment descriptors used can be retrieved from the
+	<c>erts_mmap</c> tuple part of the result from calling
+	<seealso marker="erts:erlang#system_info_allocator_tuple">erlang:system_info({allocator, mseg_alloc})</seealso>.
+      </item>
+      <tag><marker id="MMscrpm"/><c><![CDATA[+MMscrpm true|false]]></c></tag>
+      <item>
+	Set <seealso marker="#MMscs">super carrier</seealso> reserve physical
+	memory flag. This flag defaults	to <c>true</c>. When this flag is
+	<c>true</c>, physical memory will be reserved for the whole super
+	carrier at once when it is created. The reservation will after that
+	be left unchanged. When this flag is set to <c>false</c> only virtual
+	address space will be reserved for the super carrier upon creation.
+	The system will attempt to reserve physical memory upon carrier
+	creations in the super carrier, and attempt to unreserve physical
+	memory upon carrier destructions in the super carrier.
+	<br/><br/>
+	<em>NOTE</em>: What reservation of physical memory actually means
+	highly depends on the operating system, and how it is configured. For
+	example, different memory overcommit settings on Linux drastically
+	change the behaviour. Also note, setting this flag to <c>false</c>
+	may not be supported on all systems. This flag will in that case
+	be ignored.
+	<br/><br/>
+	<em>NOTE</em>: The super carrier cannot be enabled nor
+	disabled on halfword heap systems. This flag will be
+	ignored on halfword heap systems.
+      </item>
+      <tag><marker id="MMscs"/><c><![CDATA[+MMscs <size in MB>]]></c></tag>
+      <item>
+	Set super carrier size (in MB). The super carrier size defaults to
+	zero; i.e, the super carrier is by default disabled. The super
+	carrier is a large continuous area in the virtual address space.
+	<c>mseg_alloc</c> will always try to create new carriers in the super
+	carrier if it exists. Note that the <c>alloc_util</c> framework may
+	create <c>sys_alloc</c> carriers. For more information on this, see the
+	documentation of the <seealso marker="#MMsco"><c>+MMsco</c></seealso>
+	flag.
+	<br/><br/>
+	<em>NOTE</em>: The super carrier cannot be enabled nor
+	disabled on halfword heap systems. This flag will be
+	ignored on halfword heap systems.
+      </item>
+      <tag><marker id="MMmcs"/><c><![CDATA[+MMmcs <amount>]]></c></tag>
       <item>
        Max cached segments. The maximum number of memory segments
        stored in the memory segment cache. Valid range is
@@ -271,15 +360,15 @@
     <p>The following flags are available for configuration of
       <c>sys_alloc</c>:</p>
     <taglist>
-      <tag><marker id="MYe"><c>+MYe true</c></marker></tag>
+      <tag><marker id="MYe"/><c>+MYe true</c></tag>
       <item>
        Enable <c>sys_alloc</c>. Note: <c>sys_alloc</c> cannot be disabled.</item>
-      <tag><marker id="MYm"><c>+MYm libc</c></marker></tag>
+      <tag><marker id="MYm"/><c>+MYm libc</c></tag>
       <item>
       <c>malloc</c> library to use. Currently only
       <c>libc</c> is available. <c>libc</c> enables the standard
       <c>libc</c> malloc implementation. By default <c>libc</c> is used.</item>
-      <tag><marker id="MYtt"><c><![CDATA[+MYtt <size>]]></c></marker></tag>
+      <tag><marker id="MYtt"/><c><![CDATA[+MYtt <size>]]></c></tag>
       <item>
        Trim threshold size (in kilobytes). This is the maximum amount
        of free memory at the top of the heap (allocated by
@@ -291,7 +380,7 @@
        trim threshold is 128. <em>Note:</em> This flag will
        only have any effect when the emulator has been linked with
        the GNU C library, and uses its <c>malloc</c> implementation.</item>
-      <tag><marker id="MYtp"><c><![CDATA[+MYtp <size>]]></c></marker></tag>
+      <tag><marker id="MYtp"/><c><![CDATA[+MYtp <size>]]></c></tag>
       <item>
        Top pad size (in kilobytes). This is the amount of extra
        memory that will be allocated by <c>malloc</c> when
@@ -309,45 +398,47 @@
        subsystem identifier, only the specific allocator identified will be
        effected:</p>
     <taglist>
-      <tag><marker id="M_acul"><c><![CDATA[+M<S>acul <utilization>|de]]></c></marker></tag>
+      <tag><marker id="M_acul"/><c><![CDATA[+M<S>acul <utilization>|de]]></c></tag>
       <item>
 	Abandon carrier utilization limit. A valid
 	<c><![CDATA[<utilization>]]></c> is an integer in the range
 	<c>[0, 100]</c> representing utilization in percent. When a
 	utilization value larger than zero is used, allocator instances
-	are allowed to abandon multiblock carriers. Currently the default
-	is zero. If <c>de</c> (default enabled) is passed instead of a
-	<c><![CDATA[<utilization>]]></c>, a recomended non zero utilization
-	value will be used. The actual value chosen depend on allocator
-	type and may be changed between ERTS versions. Carriers will be
-	abandoned when memory utilization in the allocator instance falls
-	below the utilization value used. Once a carrier has been abandoned,
-	no new allocations will be made in it. When an allocator instance
-	gets an increased multiblock carrier need, it will first try to
-	fetch an abandoned carrier from an allocator instances of the same
+	are allowed to abandon multiblock carriers. If <c>de</c> (default
+	enabled) is passed instead of a <c><![CDATA[<utilization>]]></c>,
+	a recomended non zero utilization value will be used. The actual
+	value chosen depend on allocator type and may be changed between
+	ERTS versions. Currently the default equals <c>de</c>, but this
+	may be changed in the future. Carriers will be abandoned when
+	memory utilization in the allocator instance falls below the
+	utilization value used. Once a carrier has been abandoned, no new
+	allocations will be made in it. When an allocator instance gets an
+	increased multiblock carrier need, it will first try to fetch an
+	abandoned carrier from an allocator instances of the same
 	allocator type. If no abandoned carrier could be fetched, it will
 	create a new empty carrier. When an abandoned carrier has been
 	fetched it will function as an ordinary carrier. This feature has
 	special requirements on the
 	<seealso marker="#M_as">allocation strategy</seealso> used. Currently
-	only the <c>aoff</c> and the <c>aoffcaobf</c> strategies support
+	only the strategies <c>aoff</c>, <c>aoffcbf</c> and <c>aoffcaobf</c> support
 	abandoned carriers. This feature also requires
 	<seealso marker="#M_t">multiple thread specific instances</seealso>
 	to be enabled. When enabling this feature, multiple thread specific
 	instances will be enabled if not already enabled, and the
-	<c>aoffcaobf</c> strategy will be enabled if current strategy does not
+	<c>aoffcbf</c> strategy will be enabled if current strategy does not
 	support abandoned carriers. This feature can be enabled on all
 	allocators based on the <c>alloc_util</c> framework with the
 	exception of <c>temp_alloc</c> (which would be pointless).
       </item>
-      <tag><marker id="M_as"><c><![CDATA[+M<S>as bf|aobf|aoff|aoffcaobf|gf|af]]></c></marker></tag>
+      <tag><marker id="M_as"/><c><![CDATA[+M<S>as bf|aobf|aoff|aoffcbf|aoffcaobf|gf|af]]></c></tag>
       <item>
        Allocation strategy. Valid strategies are <c>bf</c> (best fit),
       <c>aobf</c> (address order best fit), <c>aoff</c> (address order first fit),
+      <c>aoffcbf</c> (address order first fit carrier best fit),
       <c>aoffcaobf</c> (address order first fit carrier address order best fit),
       <c>gf</c> (good fit), and <c>af</c> (a fit). See 
       <seealso marker="#strategy">the description of allocation strategies</seealso> in "the <c>alloc_util</c> framework" section.</item>
-      <tag><marker id="M_asbcst"><c><![CDATA[+M<S>asbcst <size>]]></c></marker></tag>
+      <tag><marker id="M_asbcst"/><c><![CDATA[+M<S>asbcst <size>]]></c></tag>
       <item>
        Absolute singleblock carrier shrink threshold (in
        kilobytes). When a block located in an
@@ -355,23 +446,23 @@
        will be left unchanged if the amount of unused memory is less
        than this threshold; otherwise, the carrier will be shrunk.
        See also <seealso marker="#M_rsbcst">rsbcst</seealso>.</item>
-      <tag><marker id="M_e"><c><![CDATA[+M<S>e true|false]]></c></marker></tag>
+      <tag><marker id="M_e"/><c><![CDATA[+M<S>e true|false]]></c></tag>
       <item>
        Enable allocator <c><![CDATA[<S>]]></c>.</item>
-      <tag><marker id="M_lmbcs"><c><![CDATA[+M<S>lmbcs <size>]]></c></marker></tag>
+      <tag><marker id="M_lmbcs"/><c><![CDATA[+M<S>lmbcs <size>]]></c></tag>
       <item>
        Largest (<c>mseg_alloc</c>) multiblock carrier size (in
        kilobytes).  See <seealso marker="#mseg_mbc_sizes">the description
        on how sizes for mseg_alloc multiblock carriers are decided</seealso>
        in "the <c>alloc_util</c> framework" section. On 32-bit Unix style OS
        this limit can not be set higher than 128 megabyte.</item>
-      <tag><marker id="M_mbcgs"><c><![CDATA[+M<S>mbcgs <ratio>]]></c></marker></tag>
+      <tag><marker id="M_mbcgs"/><c><![CDATA[+M<S>mbcgs <ratio>]]></c></tag>
       <item>
        (<c>mseg_alloc</c>) multiblock carrier growth stages. See
       <seealso marker="#mseg_mbc_sizes">the description on how sizes for
        mseg_alloc multiblock carriers are decided</seealso>
        in "the <c>alloc_util</c> framework" section.</item>
-      <tag><marker id="M_mbsd"><c><![CDATA[+M<S>mbsd <depth>]]></c></marker></tag>
+      <tag><marker id="M_mbsd"/><c><![CDATA[+M<S>mbsd <depth>]]></c></tag>
       <item>
        Max block search depth. This flag has effect only if the
        good fit strategy has been selected for allocator
@@ -381,40 +472,40 @@
        search depth sets a limit on the maximum number of blocks to
        inspect in a free list during a search for suitable block
        satisfying the request.</item>
-      <tag><marker id="M_mmbcs"><c><![CDATA[+M<S>mmbcs <size>]]></c></marker></tag>
+      <tag><marker id="M_mmbcs"/><c><![CDATA[+M<S>mmbcs <size>]]></c></tag>
       <item>
        Main multiblock carrier size. Sets the size of the main
        multiblock carrier for allocator <c><![CDATA[<S>]]></c>. The main
        multiblock carrier is allocated via <c><![CDATA[sys_alloc]]></c> and is
        never deallocated.</item>
-      <tag><marker id="M_mmmbc"><c><![CDATA[+M<S>mmmbc <amount>]]></c></marker></tag>
+      <tag><marker id="M_mmmbc"/><c><![CDATA[+M<S>mmmbc <amount>]]></c></tag>
       <item>
        Max <c>mseg_alloc</c> multiblock carriers. Maximum number of
        multiblock carriers allocated via <c>mseg_alloc</c> by
        allocator <c><![CDATA[<S>]]></c>. When this limit has been reached,
        new multiblock carriers will be allocated via
       <c>sys_alloc</c>.</item>
-      <tag><marker id="M_mmsbc"><c><![CDATA[+M<S>mmsbc <amount>]]></c></marker></tag>
+      <tag><marker id="M_mmsbc"/><c><![CDATA[+M<S>mmsbc <amount>]]></c></tag>
       <item>
        Max <c>mseg_alloc</c> singleblock carriers. Maximum number of
        singleblock carriers allocated via <c>mseg_alloc</c> by
        allocator <c><![CDATA[<S>]]></c>. When this limit has been reached,
        new singleblock carriers will be allocated via
       <c>sys_alloc</c>.</item>
-      <tag><marker id="M_ramv"><c><![CDATA[+M<S>ramv <bool>]]></c></marker></tag>
+      <tag><marker id="M_ramv"/><c><![CDATA[+M<S>ramv <bool>]]></c></tag>
       <item>
        Realloc always moves. When enabled, reallocate operations will
        more or less be translated into an allocate, copy, free sequence.
        This often reduce memory fragmentation, but costs performance.
       </item>
-      <tag><marker id="M_rmbcmt"><c><![CDATA[+M<S>rmbcmt <ratio>]]></c></marker></tag>
+      <tag><marker id="M_rmbcmt"/><c><![CDATA[+M<S>rmbcmt <ratio>]]></c></tag>
       <item>
        Relative multiblock carrier move threshold (in percent). When
        a block located in a multiblock carrier is shrunk,
        the block will be moved if the ratio of the size of the returned
        memory compared to the previous size is more than this threshold;
        otherwise, the block will be shrunk at current location.</item>
-      <tag><marker id="M_rsbcmt"><c><![CDATA[+M<S>rsbcmt <ratio>]]></c></marker></tag>
+      <tag><marker id="M_rsbcmt"/><c><![CDATA[+M<S>rsbcmt <ratio>]]></c></tag>
       <item>
        Relative singleblock carrier move threshold (in percent). When
        a block located in a singleblock carrier is shrunk to
@@ -423,7 +514,7 @@
        the block will be left unchanged in the singleblock carrier if
        the ratio of unused memory is less than this threshold;
        otherwise, it will be moved into a multiblock carrier. </item>
-      <tag><marker id="M_rsbcst"><c><![CDATA[+M<S>rsbcst <ratio>]]></c></marker></tag>
+      <tag><marker id="M_rsbcst"/><c><![CDATA[+M<S>rsbcst <ratio>]]></c></tag>
       <item>
        Relative singleblock carrier shrink threshold (in
        percent). When a block located in an <c>mseg_alloc</c>
@@ -431,33 +522,27 @@
        unchanged if the ratio of unused memory is less than this
        threshold; otherwise, the carrier will be shrunk.
        See also <seealso marker="#M_asbcst">asbcst</seealso>.</item>
-      <tag><marker id="M_sbct"><c><![CDATA[+M<S>sbct <size>]]></c></marker></tag>
+      <tag><marker id="M_sbct"/><c><![CDATA[+M<S>sbct <size>]]></c></tag>
       <item>
        Singleblock carrier threshold. Blocks larger than this
        threshold will be placed in singleblock carriers. Blocks
        smaller than this threshold will be placed in multiblock
        carriers. On 32-bit Unix style OS this threshold can not be set higher
        than 8 megabytes.</item>
-      <tag><marker id="M_smbcs"><c><![CDATA[+M<S>smbcs <size>]]></c></marker></tag>
+      <tag><marker id="M_smbcs"/><c><![CDATA[+M<S>smbcs <size>]]></c></tag>
       <item>
        Smallest (<c>mseg_alloc</c>) multiblock carrier size (in
        kilobytes). See <seealso marker="#mseg_mbc_sizes">the description
        on how sizes for mseg_alloc multiblock carriers are decided</seealso>
        in "the <c>alloc_util</c> framework" section.</item>
-      <tag><marker id="M_t"><c><![CDATA[+M<S>t true|false]]></c></marker></tag>
+      <tag><marker id="M_t"/><c><![CDATA[+M<S>t true|false]]></c></tag>
       <item>
        <p>Multiple, thread specific instances of the allocator.
        This option will only have any effect on the runtime system
        with SMP support. Default behaviour on the runtime system with
-       SMP support:</p>
-       <taglist>
-         <tag><c>ll_alloc</c></tag>
-	 <item><c>1</c> instance.</item>
-         <tag>Other allocators</tag>
-	 <item><c>NoSchedulers+1</c> instances. Each scheduler will use
-	 a lock-free instance of its own and other threads will use
-	 a common instance.</item>
-       </taglist>
+       SMP support is <c>NoSchedulers+1</c> instances. Each scheduler will use
+       a lock-free instance of its own and other threads will use
+       a common instance.</p>
        <p>It was previously (before ERTS version 5.9) possible to configure
        a smaller amount of thread specific instances than schedulers.
        This is, however, not possible any more.</p>
@@ -467,35 +552,59 @@
       <c>alloc_util</c>, i.e. all allocators based on <c>alloc_util</c>
       will be effected:</p>
     <taglist>
-      <tag><marker id="Muycs"><c><![CDATA[+Muycs <size>]]></c></marker></tag>
+      <tag><marker id="Muycs"/><c><![CDATA[+Muycs <size>]]></c></tag>
       <item>
       <c>sys_alloc</c> carrier size. Carriers allocated via
       <c>sys_alloc</c> will be allocated in sizes which are
        multiples of the <c>sys_alloc</c> carrier size. This is not
        true for main multiblock carriers and carriers allocated
        during a memory shortage, though.</item>
-      <tag><marker id="Mummc"><c><![CDATA[+Mummc <amount>]]></c></marker></tag>
+      <tag><marker id="Mummc"/><c><![CDATA[+Mummc <amount>]]></c></tag>
       <item>
        Max <c>mseg_alloc</c> carriers. Maximum number of carriers
        placed in separate memory segments. When this limit has been
        reached, new carriers will be placed in memory retrieved from
       <c>sys_alloc</c>.</item>
+      <tag><marker id="Musac"/><c><![CDATA[+Musac <bool>]]></c></tag>
+      <item>
+	Allow <c>sys_alloc</c> carriers. By default <c>true</c>. If
+	set to <c>false</c>, <c>sys_alloc</c> carriers will never be
+	created by allocators using the <c>alloc_util</c> framework.</item>
+    </taglist>
+    <p>The following flag is special for <c>literal_alloc</c>:</p>
+    <taglist>
+      <tag><marker id="MIscs"/><c><![CDATA[+MIscs <size in MB>]]></c></tag>
+      <item>
+      <c>literal_alloc</c> super carrier size (in MB). The amount of
+      <em>virtual</em> address space reserved for literal terms in
+      Erlang code on 64-bit architectures. The default is 1024 (1GB)
+      and is usually sufficient. The flag is ignored on 32-bit
+      architectures.</item>
+    </taglist>
+    <p>The following flag is special for <c>exec_alloc</c>:</p>
+    <taglist>
+      <tag><marker id="MXscs"/><c><![CDATA[+MXscs <size in MB>]]></c></tag>
+      <item>
+      <c>exec_alloc</c> super carrier size (in MB). The amount of
+      <em>virtual</em> address space reserved for native executable code
+      used by hipe on specific architectures (x86_64). The default is 512 MB.
+      </item>
     </taglist>
     <p>Instrumentation flags:</p>
     <taglist>
-      <tag><marker id="Mim"><c>+Mim true|false</c></marker></tag>
+      <tag><marker id="Mim"/><c>+Mim true|false</c></tag>
       <item>
        A map over current allocations is kept by the emulator. The
        allocation map can be retrieved via the <c>instrument</c>
        module. <c>+Mim true</c> implies <c>+Mis true</c>.
       <c>+Mim true</c> is the same as
       <seealso marker="erl#instr">-instr</seealso>.</item>
-      <tag><marker id="Mis"><c>+Mis true|false</c></marker></tag>
+      <tag><marker id="Mis"/><c>+Mis true|false</c></tag>
       <item>
        Status over allocated memory is kept by the emulator. The
        allocation status can be retrieved via the <c>instrument</c>
        module.</item>
-      <tag><marker id="Mit"><c>+Mit X</c></marker></tag>
+      <tag><marker id="Mit"/><c>+Mit X</c></tag>
       <item>
        Reserved for future use. Do <em>not</em> use this flag.</item>
     </taglist>
@@ -505,7 +614,7 @@
     </note>
     <p>Other flags:</p>
     <taglist>
-      <tag><marker id="Mea"><c>+Mea min|max|r9c|r10b|r11b|config</c></marker></tag>
+      <tag><marker id="Mea"/><c>+Mea min|max|r9c|r10b|r11b|config</c></tag>
       <item>
       <taglist>
         <tag><c>min</c></tag>
@@ -534,6 +643,16 @@
 	  configuration.
         </item>
       </taglist>
+      </item>
+      <tag><marker id="Mlpm"/><c>+Mlpm all|no</c></tag>
+      <item>Lock physical memory. The default value is <c>no</c>, i.e.,
+      no physical memory will be locked. If set to <c>all</c>, all
+      memory mappings made by the runtime system, will be locked into
+      physical memory. If set to <c>all</c>, the runtime system will fail
+      to start if this feature is not supported, the user has not got enough
+      privileges, or the user is not allowed to lock enough physical memory.
+      The runtime system will also fail with an out of memory condition
+      if the user limit on the amount of locked memory is reached.
       </item>
     </taglist>
     <p>Only some default values have been presented

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -76,7 +77,7 @@ end_per_group(_GroupName, _Config) ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_testcase(tc1, Config) ->
-    timer:sleep(5000),
+    ct:sleep(5000),
     Config;
 init_per_testcase(tc8, _Config) ->
     {skip,"tc8 skipped"};
@@ -92,7 +93,7 @@ init_per_testcase(_TestCase, Config) ->
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
 end_per_testcase(tc2, Config) ->
-    timer:sleep(5000);
+    ct:sleep(5000);
 end_per_testcase(tc12, Config) ->
     ct:comment("end_per_testcase(tc12) called!"),
     ct:pal("end_per_testcase(tc12) called!", []),
@@ -146,7 +147,7 @@ tc2(_) ->
     timeout_in_end_per_testcase.
 
 tc3(_) ->
-   timer:sleep(5000).
+   ct:sleep(5000).
 
 tc4(_) ->
     exit(failed_on_purpose).
@@ -186,7 +187,7 @@ gtc2(_) ->
 tc12(_) ->
     F = fun() -> ct:abort_current_testcase('stopping tc12') end,
     spawn(F),
-    timer:sleep(1000),
+    ct:sleep(1000),
     exit(should_have_been_aborted).
 
 tc13(_) ->

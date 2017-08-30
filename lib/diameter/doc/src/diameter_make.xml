@@ -1,5 +1,7 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY compile_forms2
+  '<seealso marker="compiler:compile#forms-2">compile:forms/2</seealso>'>
   <!ENTITY filename
   '<seealso marker="kernel:file#type-name">file:name()</seealso>'>
   <!ENTITY dictionary
@@ -14,20 +16,21 @@
 <header>
 <copyright>
 <year>2012</year>
-<year>2013</year>
+<year>2016</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
-The contents of this file are subject to the Erlang Public License,
-Version 1.1, (the "License"); you may not use this file except in
-compliance with the License. You should have received a copy of the
-Erlang Public License along with this software. If not, it can be
-retrieved online at http://www.erlang.org/.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+ 
+    http://www.apache.org/licenses/LICENSE-2.0
 
-Software distributed under the License is distributed on an "AS IS"
-basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-the License for the specific language governing rights and limitations
-under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 </legalnotice>
 
@@ -50,8 +53,8 @@ under the License.
 <p>
 The function &codec; is used to compile a diameter
 &dictionary; into Erlang source.
-The resulting source implements the interface diameter required
-to encode and decode the dictionary's messages and AVP's.</p>
+The resulting source implements the interface diameter requires
+to encode and decode the dictionary's messages and AVPs.</p>
 
 <p>
 The utility &man_compile; provides an alternate compilation
@@ -64,15 +67,46 @@ interface.</p>
 <funcs>
 
 <func>
-<name>codec(Path::string(), [Opt]) -> ok | {error, Reason}</name>
+<name>codec(File :: iolist() | binary(), [Opt]) -> ok
+                                                 | {ok, [Out]}
+                                                 | {error, Reason}</name>
 <fsummary>Compile a dictionary file into Erlang source.</fsummary>
 <desc>
 
 <p>
-Compile a single dictionary file to Erlang source.
-<c>Opt</c> can have the following types.</p>
+Compile a single dictionary file.
+The input <c>File</c> can be either a path or a literal dictionary,
+the occurrence of newline (ascii NL) or carriage return (ascii CR)
+identifying the latter.
+<c>Opt</c> determines the format of the results and whether they are
+written to file or returned, and can have the following types.</p>
 
 <taglist>
+
+<tag><c>parse | forms | erl | hrl</c></tag>
+<item>
+<p>
+Specifies an output format.
+Whether the output is returned or written to file depends on whether
+or not option <c>return</c> is specified.
+When written to file, the resulting file(s) will have extensions
+<c>.D</c>, <c>.F</c>, <c>.erl</c>, and <c>.hrl</c>
+respectively, basenames defaulting to <c>dictionary</c> if the input
+dictionary is literal and does not specify <c>&dict_name;</c>.
+When returned, results are in the order of the corresponding format
+options.
+Format options default to <c>erl</c> and <c>hrl</c> (in this order) if
+unspecified.</p>
+
+<p>
+The <c>parse</c> format is an internal representation that can be
+passed to &flatten; and &format;, while the <c>forms</c> format can be
+passed to &compile_forms2;.
+The <c>erl</c> and <c>hrl</c> formats are returned as
+iolists.</p>
+<!-- That codec/2 can take the parsed format is undocumented, and
+     options name and inherits have no effect in this case. -->
+</item>
 
 <tag><c>{include, string()}</c></tag>
 <item>
@@ -90,7 +124,15 @@ Multiple <c>include</c> options can be specified.</p>
 <item>
 <p>
 Write generated source to the specified directory.
-Defaults to the current working directory.</p>
+Defaults to the current working directory.
+Has no effect if option <c>return</c> is specified.</p>
+</item>
+
+<tag><c>return</c></tag>
+<item>
+<p>
+Return results in a <c>{ok, [Out]}</c> tuple instead of writing to
+file and returning <c>ok</c>.</p>
 </item>
 
 <tag><c>{name|prefix, string()}</c></tag>
@@ -108,7 +150,7 @@ Transform the input dictionary before compilation, appending
 <c>&dict_inherits;</c> of the specified string.</p>
 
 <p>
-Two forms of <c>@inherits</c> have special meaning:</p>
+Two forms have special meaning:</p>
 
 <pre>
 {inherits, "-"}
@@ -127,6 +169,57 @@ Multiple <c>inherits</c> options can be specified.</p>
 
 </taglist>
 
+<p>
+Note that a dictionary's <c>&dict_name;</c>, together with the
+<c>outdir</c> option, determine the output paths when the
+<c>return</c> option is not specified.
+The <c>&dict_name;</c> of a literal input dictionary defaults to
+<c>dictionary</c>.</p>
+
+<p>
+A returned error reason can be converted into a readable string using
+&format_error;.</p>
+
+</desc>
+</func>
+
+<!-- ===================================================================== -->
+
+<func>
+<name>format(Parsed) -> iolist()</name>
+<fsummary>Format a parsed dictionary.</fsummary>
+<desc>
+<p>
+Turns a parsed dictionary, as returned by &codec;, back into the
+dictionary format.</p>
+</desc>
+</func>
+
+<!-- ===================================================================== -->
+
+<func>
+<name>flatten(Parsed) -> term()</name>
+<fsummary>Flatten a parsed dictionary.</fsummary>
+<desc>
+
+<p>
+Reconstitute a parsed dictionary, as returned by &codec;, without
+using <c>&dict_inherits;</c>.
+That is, construct an equivalent dictionary in which all AVP's are
+definined in the dictionary itself.
+The return value is also a parsed dictionary.</p>
+</desc>
+</func>
+
+<!-- ===================================================================== -->
+
+<func>
+<name>format_error(Reason) -> string()</name>
+<fsummary>Turn an error reason into a readable string.</fsummary>
+<desc>
+
+<p>
+Turn an error reason returned by &codec; into a readable string.</p>
 </desc>
 </func>
 
@@ -138,11 +231,7 @@ Multiple <c>inherits</c> options can be specified.</p>
 <title>BUGS</title>
 
 <p>
-All options are string-valued.
-In particular, it is not currently possible to specify
-an &dict_inherits; module as an atom(), or a path as an arbitrary
-&filename;</p>
-
+Unrecognized options are silently ignored.</p>
 </section>
 
 <!-- ===================================================================== -->

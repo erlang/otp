@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -171,9 +172,15 @@ handle_info({pending_reply, {Ref, Result0}}, State) ->
 		link(Pid),
 		do_link(Store, FromPid),
 		true = ets:insert(Store, {FromPid, Tab}),
-		true = ets:insert(?REGISTRY, {Tab, 1, Pid}),
-		true = ets:insert(?OWNERS, {Pid, Tab}),
+                %% do_internal_open() has already done the following:
+                %% true = ets:insert(?REGISTRY, {Tab, 1, Pid}),
+                %% true = ets:insert(?OWNERS, {Pid, Tab}),
 		{ok, Tab};
+            {Reply, internal_open} ->
+                %% Clean up what do_internal_open() did:
+                true = ets:delete(?REGISTRY, Tab),
+                true = ets:delete(?OWNERS, Pid),
+                Reply;
 	    {Reply, _} -> % ok or Error
 		Reply
 	end,
@@ -241,8 +248,8 @@ ensure_started() ->
 init() ->
     set_verbose(verbose_flag()),
     process_flag(trap_exit, true),
-    ets:new(?REGISTRY, [set, named_table]),
-    ets:new(?OWNERS, [set, named_table]),
+    ?REGISTRY = ets:new(?REGISTRY, [set, named_table]),
+    ?OWNERS = ets:new(?OWNERS, [set, named_table]),
     ets:new(?STORE, [duplicate_bag]).
 
 verbose_flag() ->
@@ -309,6 +316,12 @@ do_internal_open(State, From, Args) ->
                       [T, _, _] -> T;
                       [_, _] -> Ref
                   end,
+            %% Pretend the table is open. If someone else tries to
+            %% open the file it will always become a pending
+            %% 'add_user' request. If someone tries to use the table
+            %% there will be a delay, but that is OK.
+            true = ets:insert(?REGISTRY, {Tab, 1, Pid}),
+            true = ets:insert(?OWNERS, {Pid, Tab}),
             pending_call(Tab, Pid, Ref, From, Args, internal_open, State);
         Error ->
             {Error, State}
@@ -338,7 +351,7 @@ handle_close(State, Req, {FromPid,_Tag}=From, Tab) ->
                         [{Tab, _Counter, Pid}] ->
 			    do_unlink(Store, FromPid),
 			    true = ets:match_delete(Store, {FromPid, Tab}),
-			    [true = ets:insert(Store, K) || K <- Keep],
+                            true = ets:insert(Store, Keep),
 			    ets:update_counter(?REGISTRY, Tab, -1),
                             pending_call(Tab, Pid, make_ref(), From, [],
                                          remove_user, State)

@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -29,6 +30,7 @@
 #ifdef USE_THREADS
 #include "erl_threads.h"
 #endif
+#include "erl_mmap.h"
 
 #ifdef DEBUG
 #  undef ERTS_ALC_WANT_INLINE
@@ -42,9 +44,11 @@
 #if ERTS_CAN_INLINE && ERTS_ALC_WANT_INLINE
 #  define ERTS_ALC_DO_INLINE 1
 #  define ERTS_ALC_INLINE static ERTS_INLINE
+#  define ERTS_ALC_FORCE_INLINE static ERTS_FORCE_INLINE
 #else
 #  define ERTS_ALC_DO_INLINE 0
 #  define ERTS_ALC_INLINE
+#  define ERTS_ALC_FORCE_INLINE
 #endif
 
 #define ERTS_ALC_NO_FIXED_SIZES \
@@ -54,6 +58,16 @@ void erts_sys_alloc_init(void);
 void *erts_sys_alloc(ErtsAlcType_t, void *, Uint);
 void *erts_sys_realloc(ErtsAlcType_t, void *, void *, Uint);
 void erts_sys_free(ErtsAlcType_t, void *, void *);
+#if ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
+/*
+ * Note 'alignment' must remain the same in calls to
+ * 'erts_sys_aligned_realloc()' and 'erts_sys_aligned_free()'
+ * as in the initial call to 'erts_sys_aligned_alloc()'.
+ */
+void *erts_sys_aligned_alloc(UWord alignment, UWord size);
+void *erts_sys_aligned_realloc(UWord alignment, void *ptr, UWord size, UWord old_size);
+void erts_sys_aligned_free(UWord alignment, void *ptr);
+#endif
 
 Eterm erts_memory(int *, void *, void *, Eterm);
 Eterm erts_allocated_areas(int *, void *, void *);
@@ -166,6 +180,12 @@ void  sys_free(void *)               __deprecated; /* erts_free()        */
 void *sys_alloc(Uint )               __deprecated; /* erts_alloc_fnf()   */
 void *sys_realloc(void *, Uint)      __deprecated; /* erts_realloc_fnf() */
 
+#undef ERTS_HAVE_IS_IN_LITERAL_RANGE
+#if defined(ARCH_32) || defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
+#  define ERTS_HAVE_IS_IN_LITERAL_RANGE
+#endif
+
+
 /*
  * erts_alloc[_fnf](), erts_realloc[_fnf](), erts_free() works as
  * malloc(), realloc(), and free() with the following exceptions:
@@ -193,14 +213,17 @@ void erts_free(ErtsAlcType_t type, void *ptr);
 void *erts_alloc_fnf(ErtsAlcType_t type, Uint size);
 void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size);
 int erts_is_allctr_wrapper_prelocked(void);
+#ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
+int erts_is_in_literal_range(void* ptr);
+#endif
 
 #endif /* #if !ERTS_ALC_DO_INLINE */
 
 void *erts_alloc_permanent_cache_aligned(ErtsAlcType_t type, Uint size);
 
 #ifndef ERTS_CACHE_LINE_SIZE
-/* Assume a cache line size of 64 bytes */
-#  define ERTS_CACHE_LINE_SIZE ((UWord) 64)
+/* Assumed cache line size */
+#  define ERTS_CACHE_LINE_SIZE ((UWord) ASSUMED_CACHE_LINE_SIZE)
 #  define ERTS_CACHE_LINE_MASK (ERTS_CACHE_LINE_SIZE - 1)
 #endif
 
@@ -210,12 +233,14 @@ ERTS_ALC_INLINE
 void *erts_alloc(ErtsAlcType_t type, Uint size)
 {
     void *res;
+    ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     res = (*erts_allctrs[ERTS_ALC_T2A(type)].alloc)(
-	ERTS_ALC_T2N(type),
-	erts_allctrs[ERTS_ALC_T2A(type)].extra,
-	size);
+            ERTS_ALC_T2N(type),
+            erts_allctrs[ERTS_ALC_T2A(type)].extra,
+            size);
     if (!res)
 	erts_alloc_n_enomem(ERTS_ALC_T2N(type), size);
+    ERTS_MSACC_POP_STATE_X();
     return res;
 }
 
@@ -223,6 +248,7 @@ ERTS_ALC_INLINE
 void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size)
 {
     void *res;
+    ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     res = (*erts_allctrs[ERTS_ALC_T2A(type)].realloc)(
 	ERTS_ALC_T2N(type),
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
@@ -230,37 +256,48 @@ void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size)
 	size);
     if (!res)
 	erts_realloc_n_enomem(ERTS_ALC_T2N(type), ptr, size);
+    ERTS_MSACC_POP_STATE_X();
     return res;
 }
 
 ERTS_ALC_INLINE
 void erts_free(ErtsAlcType_t type, void *ptr)
 {
+    ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
     (*erts_allctrs[ERTS_ALC_T2A(type)].free)(
 	ERTS_ALC_T2N(type),
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	ptr);
+    ERTS_MSACC_POP_STATE_X();
 }
 
 
 ERTS_ALC_INLINE
 void *erts_alloc_fnf(ErtsAlcType_t type, Uint size)
 {
-    return (*erts_allctrs[ERTS_ALC_T2A(type)].alloc)(
+    void *res;
+    ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
+    res = (*erts_allctrs[ERTS_ALC_T2A(type)].alloc)(
 	ERTS_ALC_T2N(type),
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	size);
+    ERTS_MSACC_POP_STATE_X();
+    return res;
 }
 
 
 ERTS_ALC_INLINE
 void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size)
 {
-    return (*erts_allctrs[ERTS_ALC_T2A(type)].realloc)(
+    void *res;
+    ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
+    res = (*erts_allctrs[ERTS_ALC_T2A(type)].realloc)(
 	ERTS_ALC_T2N(type),
 	erts_allctrs[ERTS_ALC_T2A(type)].extra,
 	ptr,
 	size);
+    ERTS_MSACC_POP_STATE_X();
+    return res;
 }
 
 ERTS_ALC_INLINE
@@ -269,6 +306,28 @@ int erts_is_allctr_wrapper_prelocked(void)
     return erts_allctr_wrapper_prelocked                 /* locked */
 	&& !!erts_tsd_get(erts_allctr_prelock_tsd_key);  /* by me  */
 }
+
+#ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
+
+ERTS_ALC_FORCE_INLINE
+int erts_is_in_literal_range(void* ptr)
+{
+#if defined(ARCH_32)
+    Uint ix = (UWord)ptr >> ERTS_MMAP_SUPERALIGNED_BITS;
+
+    return erts_literal_vspace_map[ix / ERTS_VSPACE_WORD_BITS]
+                  & ((UWord)1 << (ix % ERTS_VSPACE_WORD_BITS));
+
+#elif defined(ARCH_64)
+    extern char* erts_literals_start;
+    extern UWord erts_literals_size;
+    return ErtsInArea(ptr, erts_literals_start, erts_literals_size);
+#else
+# error No ARCH_xx
+#endif
+}
+
+#endif /* ERTS_HAVE_IS_IN_LITERAL_RANGE */
 
 #endif /* #if ERTS_ALC_DO_INLINE || defined(ERTS_ALC_INTERNAL__) */
 
@@ -482,7 +541,7 @@ static TYPE *								\
 NAME##_alloc(void)							\
 {									\
     ErtsSchedulerData *esdp = erts_get_scheduler_data();		\
-    if (!esdp)								\
+    if (!esdp || ERTS_SCHEDULER_IS_DIRTY(esdp))				\
 	return NULL;							\
     return (TYPE *) erts_sspa_alloc(sspa_data_##NAME##__,		\
 				    (int) esdp->no - 1);		\
@@ -505,5 +564,3 @@ NAME##_free(TYPE *p)							\
 #undef ERTS_ALC_ATTRIBUTES
 
 #endif /* #ifndef ERL_ALLOC_H__ */
-
-

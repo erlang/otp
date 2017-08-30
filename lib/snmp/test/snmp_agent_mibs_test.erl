@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %% 
@@ -30,7 +31,7 @@
 %% Include files
 %%----------------------------------------------------------------------
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
 -include_lib("snmp/include/SNMP-COMMUNITY-MIB.hrl").
@@ -238,6 +239,8 @@ start_and_stop(Config) when is_list(Config) ->
 
 load_unload(suite) -> [];
 load_unload(Config) when is_list(Config) ->
+    ?DBG("load_unload -> start", []),
+
     Prio       = normal,
     Verbosity  = log,
     MibDir     = ?config(data_dir, Config),
@@ -253,8 +256,10 @@ load_unload(Config) when is_list(Config) ->
     ?line ok = load_mibs(MibsPid, MibDir, ["Test2"]),
     ?line ok = verify_loaded_mibs(MibsPid, MibDir, ["Test2"]),
     
-    ?DBG("load_unload -> load one already loaded mib", []),
-    ?line {error, _} = load_mibs(MibsPid, MibDir, ["Test2"]),
+    ?DBG("load_unload -> try load one *already loaded* mib", []),
+    EMib = join(MibDir, "Test2"), 
+    ?line {error, {'load aborted at', EMib, already_loaded}} = 
+	load_mibs(MibsPid, MibDir, ["Test2"]),
 
     ?DBG("load_unload -> load 2 not already loaded mibs", []),
     ?line ok = load_mibs(MibsPid, MibDir, ["TestTrap", "TestTrapv2"]),
@@ -266,7 +271,8 @@ load_unload(Config) when is_list(Config) ->
     ?line ok = verify_loaded_mibs(MibsPid, MibDir, ["TestTrap", "TestTrapv2"]),
     
     ?DBG("load_unload -> try unload two loaded mibs and one not loaded", []),
-    ?line {error, _} = unload_mibs(MibsPid, ["TestTrap","Test2","TestTrapv2"]),
+    ?line {error, {'unload aborted at', "Test2", not_loaded}} = 
+	   unload_mibs(MibsPid, ["TestTrap","Test2","TestTrapv2"]),
     ?line ok = verify_loaded_mibs(MibsPid, MibDir, ["TestTrapv2"]),
     
     ?DBG("load_unload -> unload the remaining loaded mib", []),
@@ -279,6 +285,7 @@ load_unload(Config) when is_list(Config) ->
     ?DBG("load_unload -> stop symbolic store", []),
     ?line sym_stop(),
 
+    ?DBG("load_unload -> done", []),
     ok.
 
 
@@ -691,10 +698,16 @@ mibs_info(Pid) ->
 
 load_mibs(Pid, Dir, Mibs0) ->
     Mibs = [join(Dir, Mib) || Mib <- Mibs0],
-    snmpa_mib:load_mibs(Pid, Mibs).
+    Res = snmpa_mib:load_mibs(Pid, Mibs),
+    %% ?DBG("load_mibs -> "
+    %% 	 "~n   Res: ~p", [Res]),
+    Res.
 
 unload_mibs(Pid, Mibs) ->
-    snmpa_mib:unload_mibs(Pid, Mibs).
+    Res = snmpa_mib:unload_mibs(Pid, Mibs),
+    %% ?DBG("unload_mibs -> "
+    %% 	 "~n   Res: ~p", [Res]),
+    Res.
 
 verify_loaded_mibs(Pid, Dir, ExpectedMibs0) ->
     ExpectedMibs = [join(Dir, Mib) || Mib <- ExpectedMibs0],

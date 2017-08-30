@@ -1,13 +1,14 @@
-/* ``The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved via the world wide web at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+/* ``Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * The Initial Developer of the Original Code is Ericsson Utvecklings AB.
  * Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
@@ -85,7 +86,7 @@ static void fail(int t_no, char *frmt, ...)
 
     tc_failed = 1;
 
-    if (erl_drv_getenv("ERL_ABORT_ON_FAILURE", buf, &bufsz) == 0
+    if (enif_getenv("ERL_ABORT_ON_FAILURE", buf, &bufsz) == 0
 	&& strcmp("true", buf) == 0) {
 	fprintf(stderr, "Testcase \"%s\" failed: %s\n",
 		testcase_name(), err_buf);
@@ -95,16 +96,11 @@ static void fail(int t_no, char *frmt, ...)
     exit_thread(t_no, 0);
 }
 
-static Allctr_t *alloc_not_ts = NULL;
 static Allctr_t *alloc_ts_1 = NULL;
 static Allctr_t *alloc_ts_2 = NULL;
 
 static void stop_allocators(void)
 {
-    if (alloc_not_ts) {
-	STOP_ALC(alloc_not_ts);
-	alloc_not_ts = NULL;
-    }
     if (alloc_ts_1) {
 	STOP_ALC(alloc_ts_1);
 	alloc_ts_1 = NULL;
@@ -154,7 +150,6 @@ testcase_run(TestCaseState_t *tcs)
     if (!IS_THREADS_ENABLED)
 	testcase_skipped(tcs, "Threads not enabled");
 
-    alloc_not_ts = NULL;
     alloc_ts_1 = NULL;
     alloc_ts_2 = NULL;
 
@@ -163,16 +158,12 @@ testcase_run(TestCaseState_t *tcs)
     sprintf(sbct_buf, "%d", SBC_THRESHOLD/1024);
     
     memcpy((void *) argv, argv_org, sizeof(argv_org));
-    alloc_not_ts = START_ALC("threads_not_ts", 0, argv);
-    ASSERT(tcs, alloc_not_ts);
-    memcpy((void *) argv, argv_org, sizeof(argv_org));
     alloc_ts_1 = START_ALC("threads_ts_1", 1, argv);
     ASSERT(tcs, alloc_ts_1);
     memcpy((void *) argv, argv_org, sizeof(argv_org));
     alloc_ts_2 = START_ALC("threads_ts_2", 1, argv);
     ASSERT(tcs, alloc_ts_2);
 
-    ASSERT(tcs, !IS_ALLOC_THREAD_SAFE(alloc_not_ts));
     ASSERT(tcs, IS_ALLOC_THREAD_SAFE(alloc_ts_1));
     ASSERT(tcs, IS_ALLOC_THREAD_SAFE(alloc_ts_2));
 
@@ -186,16 +177,10 @@ testcase_run(TestCaseState_t *tcs)
 
     for(i = 1; i <= NO_OF_THREADS; i++) {
 	char *alc;
-	int res;
 
 	threads[i].arg.no_ops_per_bl = NO_OF_OPS_PER_BL;
 
-	if (i == 1) {
-	    alc = "threads_not_ts";
-	    threads[i].arg.no_ops_per_bl *= 2;
-	    threads[i].arg.a = alloc_not_ts;
-	}
-	else if (i % 2 == 0) {
+	if (i % 2 == 0) {
 	    alc = "threads_ts_1";
 	    threads[i].arg.a = alloc_ts_1;
 	}
@@ -396,7 +381,7 @@ alloc_op(int t_no, Allctr_t *a, block *bp, int id, int clean_up)
 	bp->p = (unsigned char *) ALLOC(a, bp->s);
 	if(!bp->p)
 	    fail(t_no, "ALLOC(%lu) failed [id=%d])\n", bp->s, id);
-	memset((void *) bp->p, id, (size_t) bp->s);
+	memset((void *) bp->p, (unsigned char)id, (size_t) bp->s);
     }
     else {
 	unsigned char *p = (unsigned char *) REALLOC(a, bp->p, bp->as[bp->i]);
@@ -406,7 +391,7 @@ alloc_op(int t_no, Allctr_t *a, block *bp, int id, int clean_up)
 
 	if(bp->s < bp->as[bp->i]) {
 	    CHECK_BLOCK_DATA(t_no, p, bp->s, id);
-	    memset((void *) p, id, (size_t) bp->as[bp->i]);
+	    memset((void *) p, (unsigned char)id, (size_t) bp->as[bp->i]);
 	}
 	else
 	    CHECK_BLOCK_DATA(t_no, p, bp->as[bp->i], id);
@@ -445,3 +430,6 @@ thread_func(void *arg)
     exit_thread(td->t_no, 1);
     return NULL;
 }
+
+ERL_NIF_INIT(threads, testcase_nif_funcs, testcase_nif_init,
+	     NULL, NULL, NULL);

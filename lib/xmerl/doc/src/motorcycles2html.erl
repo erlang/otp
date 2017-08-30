@@ -7,7 +7,7 @@
 %%%-------------------------------------------------------------------
 -module(motorcycles2html).
 
--include("xmerl.hrl").
+-include_lib("xmerl/include/xmerl.hrl").
 
 -import(xmerl_xs, 
 	[ xslapply/2, value_of/1, select/2, built_in_rules/2 ]).
@@ -57,12 +57,12 @@ template(E) -> built_in_rules(fun template/1, E).
 %% sorts on the bike name element, unwraps the bike information and
 %% inserts a line feed and indentation on each bike element.
 sort_by_manufacturer(L) ->
-    Tuples=[X1||X1={H,T} <- L],
+    Tuples=[X1||X1={_,_} <- L],
     SortedTS = lists:keysort(1,Tuples),
     InsertRefName_UnWrap=
 	fun([{[Name],V}|Rest],Name,F)->
 		[V|F(Rest,Name,F)];
-	   ([{[Name],V}|Rest],PreviousName,F) ->
+	   ([{[Name],V}|Rest],_PreviousName,F) ->
 		[["<a name=\"",Name,"\"></>"],V|F(Rest,Name,F)];
 	   ([],_,_) -> []
 	end,
@@ -71,7 +71,7 @@ sort_by_manufacturer(L) ->
     WS = "\n    ",
     Fun=fun([H|T],Acc,F)->
 		F(T,[H,WS|Acc],F);
-	   ([],Acc,F)->
+	   ([],Acc,_F)->
 		lists:reverse([WS|Acc])
 	end,
     if length(SortedRefed) > 0 ->
@@ -96,13 +96,12 @@ remove_duplicates([A|L],Acc) ->
     end.
 
 make_ref([]) -> [];
-make_ref([H]) when atom(H) ->
+make_ref([H]) when is_atom(H) ->
     "<ul><a href=\"#"++atom_to_list(H)++"\">"++atom_to_list(H)++"</a></ul>";
-make_ref([H]) when list(H) ->
+make_ref([H]) when is_list(H) ->
     "<ul><a href=\"#"++H++"\">\s"++H++"</a></ul>";
-make_ref([H|T]) when atom(H) ->
+make_ref([H|T]) when is_atom(H) ->
     ["<ul><a href=\"#"++atom_to_list(H)++"\">\s"++atom_to_list(H)++",\n</a></ul>"
      |make_ref(T)];
-make_ref([H|T]) when list(H) ->
+make_ref([H|T]) when is_list(H) ->
     ["<ul><a href=\"#"++H++"\">\s"++H++",\n</a></ul>"|make_ref(T)].
-

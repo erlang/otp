@@ -1,25 +1,26 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
 
 -module(erl_expand_records_SUITE).
 
-%-define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -define(line, put(line, ?LINE), ).
@@ -27,8 +28,8 @@
 -define(privdir, "erl_expand_records_SUITE_priv").
 -define(t, test_server).
 -else.
--include_lib("test_server/include/test_server.hrl").
--define(privdir, ?config(priv_dir, Config)).
+-include_lib("common_test/include/ct.hrl").
+-define(privdir, proplists:get_value(priv_dir, Config)).
 -endif.
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -38,25 +39,21 @@
 -export([attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
 	 otp_5915/1, otp_7931/1, otp_5990/1,
-	 otp_7078/1, otp_7101/1]).
-
-% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
+	 otp_7078/1, otp_7101/1, maps/1]).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?default_timeout),
-    [{watchdog, Dog} | Config].
+    Config.
 
 end_per_testcase(_Case, _Config) ->
-    Dog = ?config(watchdog, _Config),
-    test_server:timetrap_cancel(Dog),
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{minutes,1}}].
 
 all() -> 
     [attributes, expr, guard, init,
-     pattern, strict, update, {group, tickets}].
+     pattern, strict, update, maps, {group, tickets}].
 
 groups() -> 
     [{tickets, [],
@@ -75,30 +72,26 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-attributes(doc) ->
-    "Import module and functions.";
-attributes(suite) -> [];
+%% Import module and functions.
 attributes(Config) when is_list(Config) ->
     Ts = [
-      <<"-import(lists, [append/2, reverse/1]).
+	  <<"-import(lists, [append/2, reverse/1]).
 
          -record(r, {a,b}).
 
-         t() ->
-             [2,1] = reverse(append([1],[2])),
-             3 = length([1,2,3]),
-             3 = record_info(size, r),
-             [a, b] = record_info(fields, r),
-             [] = erl_expand_records_SUITE:attributes(suite),
-             ok.
-      ">>
+t() ->
+    [2,1] = reverse(append([1],[2])),
+    3 = length([1,2,3]),
+    3 = record_info(size, r),
+    [a, b] = record_info(fields, r),
+    [_|_] = erl_expand_records_SUITE:all(),
+    ok.
+">>
       ],
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
     
-expr(doc) ->
-    "Some expressions.";
-expr(suite) -> [];
+%% Some expressions.
 expr(Config) when is_list(Config) ->
     Ts = [
       <<"
@@ -158,14 +151,12 @@ expr(Config) when is_list(Config) ->
 
     %% The code above should run equally well with and without
     %% strict record tests.
-    ?line run(Config, Ts, [no_strict_record_tests]),
-    ?line run(Config, Ts, [strict_record_tests]),
+    run(Config, Ts, [no_strict_record_tests]),
+    run(Config, Ts, [strict_record_tests]),
     
     ok.
     
-guard(doc) ->
-    "is_record in guards.";
-guard(suite) -> [];
+%% is_record in guards.
 guard(Config) when is_list(Config) ->
     File = filename("guard.erl", Config),
     Beam = filename("guard.beam", Config),
@@ -201,18 +192,16 @@ guard(Config) when is_list(Config) ->
                   12.
              ">>,
 
-    ?line ok = file:write_file(File, Test),
-    ?line {ok, guard, Ws} = compile:file(File, [return,{outdir,?privdir}]),
-    ?line Warnings = [L || {_File,WL} <- Ws, {L,_M,nomatch_guard} <- WL],
-    ?line [7,9,11,13,15,17,19,21,23,25,27] = Warnings,
+    ok = file:write_file(File, Test),
+    {ok, guard, Ws} = compile:file(File, [return,{outdir,?privdir}]),
+    Warnings = [L || {_File,WL} <- Ws, {L,_M,nomatch_guard} <- WL],
+    [7,9,11,13,15,17,19,21,23,25,27] = Warnings,
 
-    ?line ok = file:delete(File),
-    ?line ok = file:delete(Beam),
+    ok = file:delete(File),
+    ok = file:delete(Beam),
     ok.
 
-init(doc) ->
-    "Wildcard initialisation.";
-init(suite) -> [];
+%% Wildcard initialisation.
 init(Config) when is_list(Config) ->
     Ts = [
       <<"
@@ -227,12 +216,10 @@ init(Config) when is_list(Config) ->
              end.
       ">>
       ],
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
     
-pattern(doc) ->
-    "Some patterns.";
-pattern(suite) -> [];
+%% Some patterns.
 pattern(Config) when is_list(Config) ->
     Ts = [
       <<"-import(lists, [append/2, reverse/1]).
@@ -316,12 +303,9 @@ pattern(Config) when is_list(Config) ->
              16.
       ">>
       ],
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
     
-strict(doc) ->
-    "";
-strict(suite) -> [];
 strict(Config) when is_list(Config) ->
     Ts1 = [
       <<"-record(r1, {a,b}).
@@ -344,7 +328,7 @@ strict(Config) when is_list(Config) ->
              error(wrong_element).
       ">>
       ],
-    ?line run(Config, Ts1, [strict_record_tests]),
+    run(Config, Ts1, [strict_record_tests]),
 
     Ts2 = [
       <<"-record(r1, {a,b}).
@@ -360,12 +344,10 @@ strict(Config) when is_list(Config) ->
              error(wrong_element).
       ">>
       ],
-    ?line run(Config, Ts2, [no_strict_record_tests]),
+    run(Config, Ts2, [no_strict_record_tests]),
     ok.
     
-update(doc) ->
-    "Record updates.";
-update(suite) -> [];
+%% Record updates.
 update(Config) when is_list(Config) ->
     Ts = [
       <<"-record(r, {a,b,c,d,e,f}).
@@ -400,13 +382,26 @@ update(Config) when is_list(Config) ->
              erlang:error(wrong_setelement_called).
       ">>
       ],
-    ?line run(Config, Ts),
+    run(Config, Ts),
     ok.
-    
 
-otp_5915(doc) ->
-    "Strict record tests in guards.";
-otp_5915(suite) -> [];
+maps(Config) when is_list(Config) ->
+    Ts = [<<"-record(rr, {a,b,c}).
+             t() ->
+                 R0 = id(#rr{a=1,b=2,c=3}),
+                 R1 = id(#rr{a=4,b=5,c=6}),
+                 [{R0,R1}] =
+                     maps:to_list(#{#rr{a=1,b=2,c=3} => #rr{a=4,b=5,c=6}}),
+                 #{#rr{a=1,b=2,c=3} := #rr{a=1,b=2,c=3}} =
+                     #{#rr{a=1,b=2,c=3} => R1}#{#rr{a=1,b=2,c=3} := R0},
+                 ok.
+
+             id(X) -> X.
+            ">>],
+    run(Config, Ts, [strict_record_tests]),
+    ok.
+
+%% Strict record tests in guards.
 otp_5915(Config) when is_list(Config) ->
     %% These tests are also run by the compiler's record_SUITE.
     Ts = [
@@ -549,12 +544,10 @@ otp_5915(Config) when is_list(Config) ->
              ok.
       ">>
       ],
-    ?line run(Config, Ts, [strict_record_tests]),
+    run(Config, Ts, [strict_record_tests]),
     ok.
 
-otp_7931(doc) ->
-    "Test optimization of record accesses and is_record/3 tests in guards";
-otp_7931(suite) -> [];
+%% Test optimization of record accesses and is_record/3 tests in guards.
 otp_7931(Config) when is_list(Config) ->
     Ts = [
       <<"-record(r, {a = 4,b}).
@@ -638,12 +631,10 @@ otp_7931(Config) when is_list(Config) ->
              ok.
       ">>
       ],
-    ?line run(Config, Ts, [strict_record_tests]),
+    run(Config, Ts, [strict_record_tests]),
     ok.
 
-otp_5990(doc) ->
-    "OTP-5990. {erlang,is_record}.";
-otp_5990(suite) -> [];
+%% OTP-5990. {erlang,is_record}.
 otp_5990(Config) when is_list(Config) ->
     Ts = [
       <<"
@@ -674,13 +665,11 @@ otp_5990(Config) when is_list(Config) ->
              ok.
       ">>
       ],
-    ?line run(Config, Ts, [strict_record_tests]),
+    run(Config, Ts, [strict_record_tests]),
     ok.
         
 
-otp_7078(doc) ->
-    "OTP-7078. Record update: missing test.";
-otp_7078(suite) -> [];
+%% OTP-7078. Record update: missing test.
 otp_7078(Config) when is_list(Config) ->
     Ts = [
       <<"
@@ -708,14 +697,12 @@ otp_7078(Config) when is_list(Config) ->
       ">>
 
       ],
-    ?line run(Config, Ts, [strict_record_tests]),
+    run(Config, Ts, [strict_record_tests]),
     ok.
 
 -record(otp_7101, {a,b,c=[],d=[],e=[]}).
 
-otp_7101(doc) ->
-    "OTP-7101. Record update: more than one call to setelement/3.";
-otp_7101(suite) -> [];
+%% OTP-7101. Record update: more than one call to setelement/3.
 otp_7101(Config) when is_list(Config) ->
     Rec = #otp_7101{},
 
@@ -723,28 +710,28 @@ otp_7101(Config) when is_list(Config) ->
     %% The tracer will forward all trace messages to us.
     Self = self(),
     Tracer = spawn_link(fun() -> otp_7101_tracer(Self, 0) end),
-    ?line 1 = erlang:trace_pattern({erlang,setelement,3}, true),
-    ?line erlang:trace(self(), true, [{tracer,Tracer},call]),
+    1 = erlang:trace_pattern({erlang,setelement,3}, true),
+    erlang:trace(self(), true, [{tracer,Tracer},call]),
     
     %% Update the record.
-    ?line #otp_7101{a=2,b=1,c=[],d=[],e=[]} = otp_7101_update1(Rec),
-    ?line #otp_7101{a=1,b=2,c=[],d=[],e=[]} = otp_7101_update2(Rec),
-    ?line #otp_7101{a=2,b=1,c=[],d=[],e=[]} = otp_7101_update3(Rec),
-    ?line #otp_7101{a=1,b=2,c=[],d=[],e=[]} = otp_7101_update4(Rec),
+    #otp_7101{a=2,b=1,c=[],d=[],e=[]} = otp_7101_update1(Rec),
+    #otp_7101{a=1,b=2,c=[],d=[],e=[]} = otp_7101_update2(Rec),
+    #otp_7101{a=2,b=1,c=[],d=[],e=[]} = otp_7101_update3(Rec),
+    #otp_7101{a=1,b=2,c=[],d=[],e=[]} = otp_7101_update4(Rec),
 
     %% Verify that setelement/3 was called the same number of times as
     %% the number of record updates.
-    ?line Ref = erlang:trace_delivered(Self),
+    Ref = erlang:trace_delivered(Self),
     receive
 	{trace_delivered, Self, Ref} ->
 	    Tracer ! done
     end,
-    ?line 1 = erlang:trace_pattern({erlang,setelement,3}, false),
+    1 = erlang:trace_pattern({erlang,setelement,3}, false),
     receive
 	4 ->
 	    ok;
 	Other ->
-	    ?line ?t:fail({unexpected,Other})
+	    ct:fail({unexpected,Other})
     end.
 
 otp_7101_tracer(Parent, N) ->
@@ -781,10 +768,9 @@ run(Config, Tests, Opts) ->
                 AbsFile = filename:rootname(SourceFile, ".erl"),
                 code:purge(Mod),
                 code:load_abs(AbsFile, Mod),
-%io:format("run~n"),
                 case catch Mod:t() of
                     {'EXIT', _Reason} = Error ->
-                        ?t:format("failed, got ~p~n", [Error]),
+                        io:format("failed, got ~p~n", [Error]),
                         fail();
                     ok ->
                         ok
@@ -821,5 +807,4 @@ warnings(File, Ws) ->
     end.
 
 fail() ->
-    io:format("failed~n"),
-    ?t:fail().
+    ct:fail(failed).

@@ -1,37 +1,24 @@
-%%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
-%% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
-%% 
-%% %CopyrightEnd%
-%%
-
+%% -*- erlang -*-
 {"%VSN%",
 
 %% ----- U p g r a d e -------------------------------------------------------
-
+%% Instruction examples: 
+%% {restart_application, snmp}
+%% {load_module, snmp_pdus, soft_purge, soft_purge, []}
+%% {update, snmpa_local_db, soft, soft_purge, soft_purge, []}
+%% {add_module,  snmpm_net_if_mt}
  [
-  {"4.23.1", [{restart_application, snmp}]}, 
-  {"4.23",   [{restart_application, snmp}]}
- ], 
-
+  {<<"5\\..*">>, [{restart_application, snmp}]},	
+  {<<"4\\..*">>, [{restart_application, snmp}]}
+ ],
+ 
 %% ------D o w n g r a d e ---------------------------------------------------
-
+%% Instruction examples: 
+%% {remove, {snmpm_net_if_mt, soft_purge, soft_purge}}
+ 
  [
-  {"4.23.1", [{restart_application, snmp}]}, 
-  {"4.23",   [{restart_application, snmp}]}
- ]
-
-}.
+  {<<"5\\..*">>, [{restart_application, snmp}]},	
+  {<<"4\\..*">>, [{restart_application, snmp}]}
+ ]  	       
+}.	 
 

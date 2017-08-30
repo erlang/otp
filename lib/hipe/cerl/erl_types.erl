@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -40,17 +41,16 @@
 	 any_none_or_unit/1,
 	 lookup_record/3,
 	 max/2,
-	 module_builtin_opaques/1,
 	 min/2,
-	 number_max/1,
-	 number_min/1,
+	 number_max/1, number_max/2,
+	 number_min/1, number_min/2,
 	 t_abstract_records/2,
 	 t_any/0,
 	 t_arity/0,
 	 t_atom/0,
 	 t_atom/1,
 	 t_atoms/1,
-	 t_atom_vals/1,
+	 t_atom_vals/1, t_atom_vals/2,
 	 t_binary/0,
 	 t_bitstr/0,
 	 t_bitstr/2,
@@ -66,39 +66,41 @@
 	 t_collect_vars/1,
 	 t_cons/0,
 	 t_cons/2,
-	 t_cons_hd/1,
-	 t_cons_tl/1,
-	 t_constant/0,
-	 t_contains_opaque/1,
+	 t_cons_hd/1, t_cons_hd/2,
+	 t_cons_tl/1, t_cons_tl/2,
+         t_contains_opaque/1, t_contains_opaque/2,
+         t_decorate_with_opaque/3,
 	 t_elements/1,
-	 t_find_opaque_mismatch/2,
+	 t_find_opaque_mismatch/3,
+         t_find_unknown_opaque/3,
 	 t_fixnum/0,
 	 t_map/2,
 	 t_non_neg_fixnum/0,
 	 t_pos_fixnum/0,
 	 t_float/0,
+         t_var_names/1,
 	 t_form_to_string/1,
-	 t_from_form/1,
-	 t_from_form/2,
-	 t_from_form/3,
+         t_from_form/6,
+         t_from_form_without_remote/3,
+         t_check_record_fields/6,
 	 t_from_range/2,
 	 t_from_range_unsafe/2,
 	 t_from_term/1,
 	 t_fun/0,
 	 t_fun/1,
 	 t_fun/2,
-	 t_fun_args/1,
-	 t_fun_arity/1,
-	 t_fun_range/1,
-	 t_has_opaque_subtype/1,
+	 t_fun_args/1, t_fun_args/2,
+	 t_fun_arity/1, t_fun_arity/2,
+	 t_fun_range/1, t_fun_range/2,
+	 t_has_opaque_subtype/2,
 	 t_has_var/1,
 	 t_identifier/0,
 	 %% t_improper_list/2,
-	 t_inf/2,
-	 t_inf/3,
-	 t_inf_lists/2,
-	 t_inf_lists/3,
-	 t_inf_lists_masked/3,
+         t_inf/1,
+         t_inf/2,
+         t_inf/3,
+         t_inf_lists/2,
+         t_inf_lists/3,
 	 t_integer/0,
 	 t_integer/1,
 	 t_non_neg_integer/0,
@@ -107,45 +109,57 @@
 	 t_iodata/0,
 	 t_iolist/0,
 	 t_is_any/1,
-	 t_is_atom/1,
-	 t_is_atom/2,
-	 t_is_binary/1,
-	 t_is_bitstr/1,
+	 t_is_atom/1, t_is_atom/2,
+	 t_is_any_atom/2, t_is_any_atom/3,
+	 t_is_binary/1, t_is_binary/2,
+	 t_is_bitstr/1, t_is_bitstr/2,
 	 t_is_bitwidth/1,
-	 t_is_boolean/1,
+	 t_is_boolean/1, t_is_boolean/2,
 	 %% t_is_byte/1,
 	 %% t_is_char/1,
-	 t_is_cons/1,
-	 t_is_constant/1,
+	 t_is_cons/1, t_is_cons/2,
 	 t_is_equal/2,
 	 t_is_fixnum/1,
-	 t_is_float/1,
-	 t_is_fun/1,
+	 t_is_float/1, t_is_float/2,
+	 t_is_fun/1, t_is_fun/2,
 	 t_is_instance/2,
-	 t_is_integer/1,
+	 t_is_integer/1, t_is_integer/2,
 	 t_is_list/1,
+	 t_is_map/1,
+	 t_is_map/2,
 	 t_is_matchstate/1,
-	 t_is_nil/1,
+	 t_is_nil/1, t_is_nil/2,
 	 t_is_non_neg_integer/1,
 	 t_is_none/1,
 	 t_is_none_or_unit/1,
-	 t_is_number/1,
-	 t_is_opaque/1,
-	 t_is_pid/1,
-	 t_is_port/1,
-	 t_is_maybe_improper_list/1,
-	 t_is_reference/1,
-	 t_is_remote/1,
+	 t_is_number/1, t_is_number/2,
+	 t_is_opaque/1, t_is_opaque/2,
+	 t_is_pid/1, t_is_pid/2,
+	 t_is_port/1, t_is_port/2,
+	 t_is_maybe_improper_list/1, t_is_maybe_improper_list/2,
+	 t_is_reference/1, t_is_reference/2,
+	 t_is_singleton/1,
+	 t_is_singleton/2,
 	 t_is_string/1,
 	 t_is_subtype/2,
-	 t_is_tuple/1,
+	 t_is_tuple/1, t_is_tuple/2,
 	 t_is_unit/1,
 	 t_is_var/1,
 	 t_limit/2,
 	 t_list/0,
 	 t_list/1,
-	 t_list_elements/1,
-	 t_list_termination/1,
+	 t_list_elements/1, t_list_elements/2,
+	 t_list_termination/1, t_list_termination/2,
+	 t_map/0,
+	 t_map/1,
+	 t_map/3,
+	 t_map_entries/2, t_map_entries/1,
+	 t_map_def_key/2, t_map_def_key/1,
+	 t_map_def_val/2, t_map_def_val/1,
+	 t_map_get/2, t_map_get/3,
+	 t_map_is_key/2, t_map_is_key/3,
+	 t_map_update/2, t_map_update/3,
+	 t_map_put/2, t_map_put/3,
 	 t_matchstate/0,
 	 t_matchstate/2,
 	 t_matchstate_present/1,
@@ -163,54 +177,50 @@
 	 t_nonempty_string/0,
 	 t_number/0,
 	 t_number/1,
-	 t_number_vals/1,
+	 t_number_vals/1, t_number_vals/2,
 	 t_opaque_from_records/1,
-	 t_opaque_match_atom/2,
-	 t_opaque_match_record/2,
-	 t_opaque_matching_structure/2,
 	 t_opaque_structure/1,
-	 %% t_parameterized_module/0,
 	 t_pid/0,
 	 t_port/0,
 	 t_maybe_improper_list/0,
 	 %% t_maybe_improper_list/2,
 	 t_product/1,
 	 t_reference/0,
-	 t_remote/3,
+	 t_singleton_to_term/2,
 	 t_string/0,
 	 t_struct_from_opaque/2,
-	 t_solve_remote/3,
 	 t_subst/2,
 	 t_subtract/2,
 	 t_subtract_list/2,
 	 t_sup/1,
 	 t_sup/2,
-	 t_tid/0,
 	 t_timeout/0,
 	 t_to_string/1,
 	 t_to_string/2,
 	 t_to_tlist/1,
 	 t_tuple/0,
 	 t_tuple/1,
-	 t_tuple_args/1,
-	 t_tuple_size/1,
+	 t_tuple_args/1, t_tuple_args/2,
+	 t_tuple_size/1, t_tuple_size/2,
 	 t_tuple_sizes/1,
 	 t_tuple_subtypes/1,
+         t_tuple_subtypes/2,
 	 t_unify/2,
-	 t_unify/3,
 	 t_unit/0,
-	 t_unopaque/1,
-	 t_unopaque/2,
-	 t_unopaque_on_mismatch/3,
+	 t_unopaque/1, t_unopaque/2,
 	 t_var/1,
 	 t_var_name/1,
 	 %% t_assign_variables_to_subtype/2,
 	 type_is_defined/4,
 	 record_field_diffs_to_string/2,
 	 subst_all_vars_to_any/1,
-	 lift_list_to_pos_empty/1,
+         lift_list_to_pos_empty/1, lift_list_to_pos_empty/2,
+         is_opaque_type/2,
 	 is_erl_type/1,
-	 atom_to_string/1
+	 atom_to_string/1,
+	 var_table__new/0,
+         cache__new/0,
+	 map_pairwise_merge/3
 	]).
 
 %%-define(DO_ERL_TYPES_TEST, true).
@@ -226,7 +236,15 @@
 -export([t_is_identifier/1]).
 -endif.
 
--export_type([erl_type/0]).
+-export_type([erl_type/0, opaques/0, type_table/0, var_table/0, cache/0]).
+
+%%-define(DEBUG, true).
+
+-ifdef(DEBUG).
+-define(debug(__A), __A).
+-else.
+-define(debug(__A), ok).
+-endif.
 
 %%=============================================================================
 %%
@@ -239,6 +257,8 @@
 %%
 
 -define(REC_TYPE_LIMIT, 2).
+-define(EXPAND_DEPTH, 16).
+-define(EXPAND_LIMIT, 10000).
 
 -define(TUPLE_TAG_LIMIT, 5).
 -define(TUPLE_ARITY_LIMIT, 8).
@@ -251,6 +271,8 @@
 -define(TAG_IMMED1_SIZE, 4).
 -define(BITS, (erlang:system_info(wordsize) * 8) - ?TAG_IMMED1_SIZE).
 
+-define(MAX_TUPLE_SIZE, (1 bsl 10)).
+
 %%-----------------------------------------------------------------------------
 %% Type tags and qualifiers
 %%
@@ -260,20 +282,20 @@
 -define(function_tag,   function).
 -define(identifier_tag, identifier).
 -define(list_tag,       list).
+-define(map_tag,        map).
 -define(matchstate_tag, matchstate).
 -define(nil_tag,        nil).
 -define(number_tag,     number).
 -define(opaque_tag,     opaque).
 -define(product_tag,    product).
--define(remote_tag,     remote).
 -define(tuple_set_tag,  tuple_set).
 -define(tuple_tag,      tuple).
 -define(union_tag,      union).
 -define(var_tag,        var).
 
 -type tag()  :: ?atom_tag | ?binary_tag | ?function_tag | ?identifier_tag
-              | ?list_tag | ?matchstate_tag | ?nil_tag | ?number_tag
-              | ?opaque_tag | ?product_tag | ?remote_tag
+              | ?list_tag | ?map_tag | ?matchstate_tag | ?nil_tag | ?number_tag
+              | ?opaque_tag | ?product_tag
               | ?tuple_tag | ?tuple_set_tag | ?union_tag | ?var_tag.
 
 -define(float_qual,     float).
@@ -305,14 +327,16 @@
 %% Auxiliary types and convenient macros
 %%
 
--type parse_form() :: {atom(), _, _} | {atom(), _, _, _} | {'op', _, _, _, _}. %% XXX: Temporarily
+-type parse_form() :: erl_parse:abstract_type().
 -type rng_elem()   :: 'pos_inf' | 'neg_inf' | integer().
 
 -record(int_set, {set :: [integer()]}).
 -record(int_rng, {from :: rng_elem(), to :: rng_elem()}).
+%% Note: the definition of #opaque{} was changed to 'mod' and 'name';
+%% it used to be an ordsets of {Mod, Name} pairs. The Dialyzer version
+%% was updated to 2.7 due to this change.
 -record(opaque,  {mod :: module(), name :: atom(),
 		  args = [] :: [erl_type()], struct :: erl_type()}).
--record(remote,  {mod:: module(), name :: atom(), args = [] :: [erl_type()]}).
 
 -define(atom(Set),                 #c{tag=?atom_tag, elements=Set}).
 -define(bitstr(Unit, Base),        #c{tag=?binary_tag, elements=[Unit,Base]}).
@@ -329,9 +353,10 @@
 -define(nonempty_list(Types, Term),?list(Types, Term, ?nonempty_qual)).
 -define(number(Set, Qualifier),    #c{tag=?number_tag, elements=Set, 
 				      qualifier=Qualifier}).
+-define(map(Pairs,DefKey,DefVal),
+	#c{tag=?map_tag, elements={Pairs,DefKey,DefVal}}).
 -define(opaque(Optypes),           #c{tag=?opaque_tag, elements=Optypes}).
 -define(product(Types),            #c{tag=?product_tag, elements=Types}).
--define(remote(RemTypes),          #c{tag=?remote_tag, elements=RemTypes}).
 -define(tuple(Types, Arity, Qual), #c{tag=?tuple_tag, elements=Types, 
 				      qualifier={Arity, Qual}}).
 -define(tuple_set(Tuples),         #c{tag=?tuple_set_tag, elements=Tuples}).
@@ -345,6 +370,19 @@
 -define(integer_pos,               ?int_range(1, pos_inf)).
 -define(integer_non_neg,           ?int_range(0, pos_inf)).
 -define(integer_neg,               ?int_range(neg_inf, -1)).
+
+-type opaques() :: [erl_type()] | 'universe'.
+
+-type record_key()   :: {'record', atom()}.
+-type type_key()     :: {'type' | 'opaque', mfa()}.
+-type record_value() :: [{atom(), erl_parse:abstract_expr(), erl_type()}].
+-type type_value()   :: {{module(), {file:name(), erl_anno:line()},
+                          erl_parse:abstract_type(), ArgNames :: [atom()]},
+                         erl_type()}.
+-type type_table() :: dict:dict(record_key() | type_key(),
+                                record_value() | type_value()).
+
+-opaque var_table() :: #{atom() => erl_type()}.
 
 %%-----------------------------------------------------------------------------
 %% Unions
@@ -361,7 +399,7 @@
 -define(tuple_union(T),      ?union([?none,?none,?none,?none,?none,?none,T,?none,?none,?none])).
 -define(matchstate_union(T), ?union([?none,?none,?none,?none,?none,?none,?none,T,?none,?none])).
 -define(opaque_union(T),     ?union([?none,?none,?none,?none,?none,?none,?none,?none,T,?none])).
--define(remote_union(T),     ?union([?none,?none,?none,?none,?none,?none,?none,?none,?none,T])).
+-define(map_union(T),        ?union([?none,?none,?none,?none,?none,?none,?none,?none,?none,T])).
 -define(integer_union(T),    ?number_union(T)).
 -define(float_union(T),      ?number_union(T)).
 -define(nil_union(T),        ?list_union(T)).
@@ -384,8 +422,11 @@ t_any() ->
 
 -spec t_is_any(erl_type()) -> boolean().
 
-t_is_any(?any) -> true;
-t_is_any(_) -> false.
+t_is_any(Type) ->
+  do_opaque(Type, 'universe', fun is_any/1).
+
+is_any(?any) -> true;
+is_any(_) -> false.
 
 -spec t_none() -> erl_type().
 
@@ -407,16 +448,25 @@ t_opaque(Mod, Name, Args, Struct) ->
   O = #opaque{mod = Mod, name = Name, args = Args, struct = Struct},
   ?opaque(set_singleton(O)).
 
+-spec t_is_opaque(erl_type(), [erl_type()]) -> boolean().
+
+t_is_opaque(?opaque(_) = Type, Opaques) ->
+  not is_opaque_type(Type, Opaques);
+t_is_opaque(_Type, _Opaques) -> false.
+
 -spec t_is_opaque(erl_type()) -> boolean().
 
 t_is_opaque(?opaque(_)) -> true;
 t_is_opaque(_) -> false.
 
--spec t_has_opaque_subtype(erl_type()) -> boolean().
+-spec t_has_opaque_subtype(erl_type(), opaques()) -> boolean().
 
-t_has_opaque_subtype(?union(Ts)) ->
+t_has_opaque_subtype(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun has_opaque_subtype/1).
+
+has_opaque_subtype(?union(Ts)) ->
   lists:any(fun t_is_opaque/1, Ts);
-t_has_opaque_subtype(T) ->
+has_opaque_subtype(T) ->
   t_is_opaque(T).
 
 -spec t_opaque_structure(erl_type()) -> erl_type().
@@ -424,74 +474,54 @@ t_has_opaque_subtype(T) ->
 t_opaque_structure(?opaque(Elements)) ->
   t_sup([Struct || #opaque{struct = Struct} <- ordsets:to_list(Elements)]).
 
--spec t_opaque_module(erl_type()) -> module().
-
-t_opaque_module(?opaque(Elements)) ->
-  case ordsets:size(Elements) of
-    1 ->
-      [#opaque{mod = Module}] = ordsets:to_list(Elements),
-      Module;
-    _ -> throw({error, "Unexpected multiple opaque types"})
-  end.
-
-%% This only makes sense if we know that Type matches Opaque
--spec t_opaque_matching_structure(erl_type(), erl_type()) -> erl_type().
-
-t_opaque_matching_structure(Type, Opaque) ->
-  OpaqueStruct = t_opaque_structure(Opaque),
-  case OpaqueStruct of
-    ?union(L1) ->
-      case Type of
-	?union(_L2) -> OpaqueStruct;
-	_OtherType -> t_opaque_matching_structure_list(Type, L1)
-      end;
-    ?tuple_set(_Set1) = TupleSet ->
-      case Type of
-	?tuple_set(_Set2) -> OpaqueStruct;
-	_ -> t_opaque_matching_structure_list(Type, t_tuple_subtypes(TupleSet))
-      end;
-    _Other -> OpaqueStruct
-  end.
-
-t_opaque_matching_structure_list(Type, List) ->
-  NewList = [t_inf(Element, Type) || Element <- List],
-  Results = [NotNone || NotNone <- NewList, NotNone =/= ?none],
-  case Results of
-    [] -> ?none;
-    [First|_] -> First
-  end.
-
 -spec t_contains_opaque(erl_type()) -> boolean().
 
-t_contains_opaque(?any)                     -> false;
-t_contains_opaque(?none)                    -> false;
-t_contains_opaque(?unit)                    -> false;
-t_contains_opaque(?atom(_Set))              -> false;
-t_contains_opaque(?bitstr(_Unit, _Base))    -> false;
-t_contains_opaque(?float)                   -> false;
-t_contains_opaque(?function(Domain, Range)) ->
-  t_contains_opaque(Domain) orelse t_contains_opaque(Range);
-t_contains_opaque(?identifier(_Types))      -> false;
-t_contains_opaque(?integer(_Types))         -> false;
-t_contains_opaque(?int_range(_From, _To))   -> false;
-t_contains_opaque(?int_set(_Set))           -> false;
-t_contains_opaque(?list(Type, _, _))        -> t_contains_opaque(Type);
-t_contains_opaque(?matchstate(_P, _Slots))  -> false;
-t_contains_opaque(?nil)                     -> false;
-t_contains_opaque(?number(_Set, _Tag))      -> false;
-t_contains_opaque(?opaque(_))               -> true;
-t_contains_opaque(?product(Types))          -> list_contains_opaque(Types);
-t_contains_opaque(?tuple(?any, _, _))       -> false;
-t_contains_opaque(?tuple(Types, _, _))      -> list_contains_opaque(Types);
-t_contains_opaque(?tuple_set(_Set) = T)     ->
-  list_contains_opaque(t_tuple_subtypes(T));
-t_contains_opaque(?union(List))             -> list_contains_opaque(List);
-t_contains_opaque(?var(_Id))                -> false.
+t_contains_opaque(Type) ->
+  t_contains_opaque(Type, []).
 
--spec list_contains_opaque([erl_type()]) -> boolean().
+%% Returns 'true' iff there is an opaque type that is *not* one of
+%% the types of the second argument.
 
-list_contains_opaque(List) ->
-  lists:any(fun t_contains_opaque/1, List).
+-spec t_contains_opaque(erl_type(), [erl_type()]) -> boolean().
+
+t_contains_opaque(?any, _Opaques) -> false;
+t_contains_opaque(?none, _Opaques) -> false;
+t_contains_opaque(?unit, _Opaques) -> false;
+t_contains_opaque(?atom(_Set), _Opaques) -> false;
+t_contains_opaque(?bitstr(_Unit, _Base), _Opaques) -> false;
+t_contains_opaque(?float, _Opaques) -> false;
+t_contains_opaque(?function(Domain, Range), Opaques) ->
+  t_contains_opaque(Domain, Opaques)
+  orelse t_contains_opaque(Range, Opaques);
+t_contains_opaque(?identifier(_Types), _Opaques) -> false;
+t_contains_opaque(?integer(_Types), _Opaques) -> false;
+t_contains_opaque(?int_range(_From, _To), _Opaques) -> false;
+t_contains_opaque(?int_set(_Set), _Opaques) -> false;
+t_contains_opaque(?list(Type, Tail, _), Opaques) ->
+  t_contains_opaque(Type, Opaques) orelse t_contains_opaque(Tail, Opaques);
+t_contains_opaque(?map(_, _, _) = Map, Opaques) ->
+  list_contains_opaque(map_all_types(Map), Opaques);
+t_contains_opaque(?matchstate(_P, _Slots), _Opaques) -> false;
+t_contains_opaque(?nil, _Opaques) -> false;
+t_contains_opaque(?number(_Set, _Tag), _Opaques) -> false;
+t_contains_opaque(?opaque(_)=T, Opaques) ->
+  not is_opaque_type(T, Opaques)
+  orelse t_contains_opaque(t_opaque_structure(T));
+t_contains_opaque(?product(Types), Opaques) ->
+  list_contains_opaque(Types, Opaques);
+t_contains_opaque(?tuple(?any, _, _), _Opaques) -> false;
+t_contains_opaque(?tuple(Types, _, _), Opaques) ->
+  list_contains_opaque(Types, Opaques);
+t_contains_opaque(?tuple_set(_Set) = T, Opaques) ->
+  list_contains_opaque(t_tuple_subtypes(T), Opaques);
+t_contains_opaque(?union(List), Opaques) ->
+  list_contains_opaque(List, Opaques);
+t_contains_opaque(?var(_Id), _Opaques) -> false.
+
+-spec list_contains_opaque([erl_type()], [erl_type()]) -> boolean().
+
+list_contains_opaque(List, Opaques) ->
+  lists:any(fun(E) -> t_contains_opaque(E, Opaques) end, List).
 
 %% t_find_opaque_mismatch/2 of two types should only be used if their
 %% t_inf is t_none() due to some opaque type violation.
@@ -499,36 +529,51 @@ list_contains_opaque(List) ->
 %% The first argument of the function is the pattern and its second
 %% argument the type we are matching against the pattern.
 
--spec t_find_opaque_mismatch(erl_type(), erl_type()) -> 'error' | {'ok', erl_type(), erl_type()}.
+-spec t_find_opaque_mismatch(erl_type(), erl_type(), [erl_type()]) ->
+                                'error' | {'ok', erl_type(), erl_type()}.
 
-t_find_opaque_mismatch(T1, T2) ->
-  t_find_opaque_mismatch(T1, T2, T2).
+t_find_opaque_mismatch(T1, T2, Opaques) ->
+  t_find_opaque_mismatch(T1, T2, T2, Opaques).
 
-t_find_opaque_mismatch(?any, _Type, _TopType) -> error;
-t_find_opaque_mismatch(?none, _Type, _TopType) -> error;
-t_find_opaque_mismatch(?list(T1, _, _), ?list(T2, _, _), TopType) ->
-  t_find_opaque_mismatch(T1, T2, TopType);
-t_find_opaque_mismatch(_T1, ?opaque(_) = T2, TopType) -> {ok, TopType, T2};
-t_find_opaque_mismatch(?product(T1), ?product(T2), TopType) ->
-  t_find_opaque_mismatch_ordlists(T1, T2, TopType);
-t_find_opaque_mismatch(?tuple(T1, Arity, _), ?tuple(T2, Arity, _), TopType) ->
-  t_find_opaque_mismatch_ordlists(T1, T2, TopType);
-t_find_opaque_mismatch(?tuple(_, _, _) = T1, ?tuple_set(_) = T2, TopType) ->
+t_find_opaque_mismatch(?any, _Type, _TopType, _Opaques) -> error;
+t_find_opaque_mismatch(?none, _Type, _TopType, _Opaques) -> error;
+t_find_opaque_mismatch(?list(T1, Tl1, _), ?list(T2, Tl2, _), TopType, Opaques) ->
+  t_find_opaque_mismatch_ordlists([T1, Tl1], [T2, Tl2], TopType, Opaques);
+t_find_opaque_mismatch(T1, ?opaque(_) = T2, TopType, Opaques) ->
+  case is_opaque_type(T2, Opaques) of
+    false -> {ok, TopType, T2};
+    true ->
+      t_find_opaque_mismatch(T1, t_opaque_structure(T2), TopType, Opaques)
+  end;
+t_find_opaque_mismatch(?opaque(_) = T1, T2, TopType, Opaques) ->
+  %% The generated message is somewhat misleading:
+  case is_opaque_type(T1, Opaques) of
+    false -> {ok, TopType, T1};
+    true ->
+      t_find_opaque_mismatch(t_opaque_structure(T1), T2, TopType, Opaques)
+  end;
+t_find_opaque_mismatch(?product(T1), ?product(T2), TopType, Opaques) ->
+  t_find_opaque_mismatch_ordlists(T1, T2, TopType, Opaques);
+t_find_opaque_mismatch(?tuple(T1, Arity, _), ?tuple(T2, Arity, _),
+                       TopType, Opaques) ->
+  t_find_opaque_mismatch_ordlists(T1, T2, TopType, Opaques);
+t_find_opaque_mismatch(?tuple(_, _, _) = T1, ?tuple_set(_) = T2,
+                       TopType, Opaques) ->
   Tuples1 = t_tuple_subtypes(T1),
   Tuples2 = t_tuple_subtypes(T2),
-  t_find_opaque_mismatch_lists(Tuples1, Tuples2, TopType);
-t_find_opaque_mismatch(T1, ?union(U2), TopType) ->
-  t_find_opaque_mismatch_lists([T1], U2, TopType);
-t_find_opaque_mismatch(_T1, _T2, _TopType) -> error.
+  t_find_opaque_mismatch_lists(Tuples1, Tuples2, TopType, Opaques);
+t_find_opaque_mismatch(T1, ?union(U2), TopType, Opaques) ->
+  t_find_opaque_mismatch_lists([T1], U2, TopType, Opaques);
+t_find_opaque_mismatch(_T1, _T2, _TopType, _Opaques) -> error.
 
-t_find_opaque_mismatch_ordlists(L1, L2, TopType) ->
+t_find_opaque_mismatch_ordlists(L1, L2, TopType, Opaques) ->
   List = lists:zipwith(fun(T1, T2) ->
-			   t_find_opaque_mismatch(T1, T2, TopType)
+			   t_find_opaque_mismatch(T1, T2, TopType, Opaques)
 		       end, L1, L2),
   t_find_opaque_mismatch_list(List).
 
-t_find_opaque_mismatch_lists(L1, L2, _TopType) ->
-  List = [t_find_opaque_mismatch(T1, T2, T2) || T1 <- L1, T2 <- L2],
+t_find_opaque_mismatch_lists(L1, L2, _TopType, Opaques) ->
+  List = [t_find_opaque_mismatch(T1, T2, T2, Opaques) || T1 <- L1, T2 <- L2],
   t_find_opaque_mismatch_list(List).
 
 t_find_opaque_mismatch_list([]) -> error;
@@ -538,7 +583,167 @@ t_find_opaque_mismatch_list([H|T]) ->
     error -> t_find_opaque_mismatch_list(T)
   end.
 
--spec t_opaque_from_records(dict()) -> [erl_type()].
+-spec t_find_unknown_opaque(erl_type(), erl_type(), opaques()) ->
+                               [pos_integer()].
+
+%% The nice thing about using two types and t_inf() as compared to
+%% calling t_contains_opaque/2 is that the traversal stops when
+%% there is a mismatch which means that unknown opaque types "below"
+%% the mismatch are not found.
+t_find_unknown_opaque(_T1, _T2, 'universe') -> [];
+t_find_unknown_opaque(T1, T2, Opaques) ->
+  try t_inf(T1, T2, {match, Opaques}) of
+    _ -> []
+  catch throw:{pos, Ns} -> Ns
+  end.
+
+-spec t_decorate_with_opaque(erl_type(), erl_type(), [erl_type()]) -> erl_type().
+
+%% The first argument can contain opaque types. The second argument
+%% is assumed to be taken from the contract.
+
+t_decorate_with_opaque(T1, T2, Opaques) ->
+  case t_is_equal(T1, T2) orelse not t_contains_opaque(T2) of
+    true -> T1;
+    false ->
+      T = t_inf(T1, T2),
+      case t_contains_opaque(T) of
+        false -> T1;
+        true ->
+          R = decorate(T1, T, Opaques),
+          ?debug(case catch t_is_equal(t_unopaque(R), t_unopaque(T1)) of
+                   true -> ok;
+                   false ->
+                     io:format("T1 = ~p,\n", [T1]),
+                     io:format("T2 = ~p,\n", [T2]),
+                     io:format("O = ~p,\n", [Opaques]),
+                     io:format("erl_types:t_decorate_with_opaque(T1,T2,O).\n"),
+                     throw({error, "Failed to handle opaque types"})
+                 end),
+          R
+      end
+  end.
+
+decorate(Type, ?none, _Opaques) -> Type;
+decorate(?function(Domain, Range), ?function(D, R), Opaques) ->
+  ?function(decorate(Domain, D, Opaques), decorate(Range, R, Opaques));
+decorate(?list(Types, Tail, Size), ?list(Ts, Tl, _Sz), Opaques) ->
+  ?list(decorate(Types, Ts, Opaques), decorate(Tail, Tl, Opaques), Size);
+decorate(?product(Types), ?product(Ts), Opaques) ->
+  ?product(list_decorate(Types, Ts, Opaques));
+decorate(?tuple(_, _, _)=T, ?tuple(?any, _, _), _Opaques) -> T;
+decorate(?tuple(?any, _, _)=T, ?tuple(_, _, _), _Opaques) -> T;
+decorate(?tuple(Types, Arity, Tag), ?tuple(Ts, Arity, _), Opaques) ->
+  ?tuple(list_decorate(Types, Ts, Opaques), Arity, Tag);
+decorate(?tuple_set(List), ?tuple(_, Arity, _) = T, Opaques) ->
+  decorate_tuple_sets(List, [{Arity, [T]}], Opaques);
+decorate(?tuple_set(List), ?tuple_set(L), Opaques) ->
+  decorate_tuple_sets(List, L, Opaques);
+decorate(?union(List), T, Opaques) when T =/= ?any ->
+  ?union(L) = force_union(T),
+  union_decorate(List, L, Opaques);
+decorate(?opaque(_)=T, _, _Opaques) -> T;
+decorate(T, ?union(L), Opaques) when T =/= ?any ->
+  ?union(List) = force_union(T),
+  union_decorate(List, L, Opaques);
+decorate(Type, ?opaque(_)=T, Opaques) ->
+  decorate_with_opaque(Type, T, Opaques);
+decorate(Type, _T, _Opaques) -> Type.
+
+%% Note: it is important that #opaque.struct is a subtype of the
+%% opaque type.
+decorate_with_opaque(Type, ?opaque(Set2), Opaques) ->
+  case decoration(set_to_list(Set2), Type, Opaques, [], false) of
+    {[], false} -> Type;
+    {List, All} when List =/= [] ->
+      NewType = ?opaque(ordsets:from_list(List)),
+      case All of
+        true -> NewType;
+        false -> t_sup(NewType, Type)
+      end
+  end.
+
+decoration([#opaque{struct = S} = Opaque|OpaqueTypes], Type, Opaques,
+           NewOpaqueTypes0, All) ->
+  IsOpaque = is_opaque_type2(Opaque, Opaques),
+  I = t_inf(Type, S),
+  case not IsOpaque orelse t_is_none(I) of
+    true -> decoration(OpaqueTypes, Type, Opaques, NewOpaqueTypes0, All);
+    false ->
+      NewOpaque = Opaque#opaque{struct = decorate(I, S, Opaques)},
+      NewAll = All orelse t_is_equal(I, Type),
+      NewOpaqueTypes = [NewOpaque|NewOpaqueTypes0],
+      decoration(OpaqueTypes, Type, Opaques, NewOpaqueTypes, NewAll)
+  end;
+decoration([], _Type, _Opaques, NewOpaqueTypes, All) ->
+  {NewOpaqueTypes, All}.
+
+-spec list_decorate([erl_type()], [erl_type()], opaques()) -> [erl_type()].
+
+list_decorate(List, L, Opaques) ->
+  [decorate(Elem, E, Opaques) || {Elem, E} <- lists:zip(List, L)].
+
+union_decorate(U1, U2, Opaques) ->
+  Union = union_decorate(U1, U2, Opaques, 0, []),
+  [A,B,F,I,L,N,T,M,_,Map] = U1,
+  [_,_,_,_,_,_,_,_,Opaque,_] = U2,
+  List = [A,B,F,I,L,N,T,M,Map],
+  DecList = [Dec ||
+              E <- List,
+              not t_is_none(E),
+              not t_is_none(Dec = decorate(E, Opaque, Opaques))],
+  t_sup([Union|DecList]).
+
+union_decorate([?none|Left1], [_|Left2], Opaques, N, Acc) ->
+  union_decorate(Left1, Left2, Opaques, N, [?none|Acc]);
+union_decorate([T1|Left1], [?none|Left2], Opaques, N, Acc) ->
+  union_decorate(Left1, Left2, Opaques, N+1, [T1|Acc]);
+union_decorate([T1|Left1], [T2|Left2], Opaques, N, Acc) ->
+  union_decorate(Left1, Left2, Opaques, N+1, [decorate(T1, T2, Opaques)|Acc]);
+union_decorate([], [], _Opaques, N, Acc) ->
+  if N =:= 0 -> ?none;
+     N =:= 1 ->
+      [Type] = [T || T <- Acc, T =/= ?none],
+      Type;
+     N >= 2  -> ?union(lists:reverse(Acc))
+  end.
+
+decorate_tuple_sets(List, L, Opaques) ->
+  decorate_tuple_sets(List, L, Opaques, []).
+
+decorate_tuple_sets([{Arity, Tuples}|List], [{Arity, Ts}|L], Opaques, Acc) ->
+  DecTs = decorate_tuples_in_sets(Tuples, Ts, Opaques),
+  decorate_tuple_sets(List, L, Opaques, [{Arity, DecTs}|Acc]);
+decorate_tuple_sets([ArTup|List], L, Opaques, Acc) ->
+  decorate_tuple_sets(List, L, Opaques, [ArTup|Acc]);
+decorate_tuple_sets([], _L, _Opaques, Acc) ->
+  ?tuple_set(lists:reverse(Acc)).
+
+decorate_tuples_in_sets([?tuple(Elements, _, ?any)], Ts, Opaques) ->
+  NewList = [list_decorate(Elements, Es, Opaques) || ?tuple(Es, _, _) <- Ts],
+  case t_sup([t_tuple(Es) || Es <- NewList]) of
+    ?tuple_set([{_Arity, Tuples}]) -> Tuples;
+    ?tuple(_, _, _)=Tuple -> [Tuple]
+  end;
+decorate_tuples_in_sets(Tuples, Ts, Opaques) ->
+  decorate_tuples_in_sets(Tuples, Ts, Opaques, []).
+
+decorate_tuples_in_sets([?tuple(Elements, Arity, Tag1) = T1|Tuples] = L1,
+                        [?tuple(Es, Arity, Tag2)|Ts] = L2, Opaques, Acc) ->
+  if
+    Tag1 < Tag2   -> decorate_tuples_in_sets(Tuples, L2, Opaques, [T1|Acc]);
+    Tag1 > Tag2   -> decorate_tuples_in_sets(L1, Ts, Opaques, Acc);
+    Tag1 =:= Tag2 ->
+      NewElements = list_decorate(Elements, Es, Opaques),
+      NewAcc = [?tuple(NewElements, Arity, Tag1)|Acc],
+      decorate_tuples_in_sets(Tuples, Ts, Opaques, NewAcc)
+  end;
+decorate_tuples_in_sets([T1|Tuples], L2, Opaques, Acc) ->
+  decorate_tuples_in_sets(Tuples, L2, Opaques, [T1|Acc]);
+decorate_tuples_in_sets([], _L, _Opaques, Acc) ->
+  lists:reverse(Acc).
+
+-spec t_opaque_from_records(type_table()) -> [erl_type()].
 
 t_opaque_from_records(RecDict) ->
   OpaqueRecDict =
@@ -549,53 +754,17 @@ t_opaque_from_records(RecDict) ->
 		    end
 		end, RecDict),
   OpaqueTypeDict =
-    dict:map(fun({opaque, Name, _Arity}, {Module, Type, ArgNames}) ->
-		 case ArgNames of
-		   [] ->
-		     t_opaque(Module, Name, [], t_from_form(Type, RecDict));
-		   _ ->
-		     throw({error,"Polymorphic opaque types not supported yet"})
-		 end
+    dict:map(fun({opaque, Name, _Arity},
+                 {{Module, _FileLine, _Form, ArgNames}, _Type}) ->
+                 %% Args = args_to_types(ArgNames),
+                 %% List = lists:zip(ArgNames, Args),
+                 %% TmpVarTab = maps:to_list(List),
+                 %% Rep = t_from_form(Type, RecDict, TmpVarTab),
+                 Rep = t_any(), % not used for anything right now
+                 Args = [t_any() || _ <- ArgNames],
+                 t_opaque(Module, Name, Args, Rep)
 	     end, OpaqueRecDict),
   [OpaqueType || {_Key, OpaqueType} <- dict:to_list(OpaqueTypeDict)].
-
--spec t_opaque_match_atom(erl_type(), [erl_type()]) -> [erl_type()].
-
-t_opaque_match_atom(?atom(_) = Atom,  Opaques) ->
-  case t_atom_vals(Atom) of
-    unknown -> [];
-    _  -> [O || O <- Opaques, t_inf(Atom, O, opaque) =/= ?none,
-		t_opaque_atom_vals(t_opaque_structure(O)) =/= unknown]
-  end;
-t_opaque_match_atom(_, _) -> [].
-
--spec t_opaque_atom_vals(erl_type()) -> 'unknown' | [atom(),...].
-
-t_opaque_atom_vals(OpaqueStruct) ->
-  case OpaqueStruct of
-    ?atom(_) -> t_atom_vals(OpaqueStruct);
-    ?union([Atom,_,_,_,_,_,_,_,_,_]) -> t_atom_vals(Atom);
-    _ -> unknown
-  end.
-	  
--spec t_opaque_match_record(erl_type(), [erl_type()]) -> [erl_type()].
-
-t_opaque_match_record(?tuple([?atom(_) = Tag|_Fields], _, _) = Rec, Opaques) ->
-  [O || O <- Opaques, t_inf(Rec, O, opaque) =/= ?none,
-	lists:member(Tag, t_opaque_tuple_tags(t_opaque_structure(O)))];
-t_opaque_match_record(_, _) -> [].
-
--spec t_opaque_tuple_tags(erl_type()) -> [erl_type()].
-
-t_opaque_tuple_tags(OpaqueStruct) ->
-  case OpaqueStruct of
-    ?tuple([?atom(_) = Tag|_Fields], _, _) -> [Tag];
-    ?tuple_set(_) = TupleSet ->
-      Tuples = t_tuple_subtypes(TupleSet),
-      lists:flatten([t_opaque_tuple_tags(T) || T <- Tuples]);
-    ?union([_,_,_,_,_,_,Tuples,_,_,_]) -> t_opaque_tuple_tags(Tuples);
-    _ -> []
-  end.
 
 %% Decompose opaque instances of type arg2 to structured types, in arg1
 %% XXX: Same as t_unopaque
@@ -605,9 +774,10 @@ t_struct_from_opaque(?function(Domain, Range), Opaques) ->
   ?function(t_struct_from_opaque(Domain, Opaques),
 	    t_struct_from_opaque(Range, Opaques));
 t_struct_from_opaque(?list(Types, Term, Size), Opaques) ->
-  ?list(t_struct_from_opaque(Types, Opaques), Term, Size);
+  ?list(t_struct_from_opaque(Types, Opaques),
+        t_struct_from_opaque(Term, Opaques), Size);
 t_struct_from_opaque(?opaque(_) = T, Opaques) ->
-  case lists:member(T, Opaques) of
+  case is_opaque_type(T, Opaques) of
     true  -> t_opaque_structure(T);
     false -> T
   end;
@@ -627,163 +797,9 @@ t_struct_from_opaque(Type, _Opaques) -> Type.
 list_struct_from_opaque(Types, Opaques) ->
   [t_struct_from_opaque(Type, Opaques) || Type <- Types].
 
--spec t_unopaque_on_mismatch(erl_type(), erl_type(), [erl_type()]) -> erl_type().
-
-t_unopaque_on_mismatch(GenType, Type, Opaques) ->
-  case t_inf(GenType, Type) of
-    ?none ->
-      Unopaqued = t_unopaque(Type, Opaques),
-      %% XXX: Unions might be a problem, must investigate.
-      case t_inf(GenType, Unopaqued) of
-	?none -> Type;
-	_ -> Unopaqued
-      end;
-     _ -> Type
-  end.
-
--spec module_builtin_opaques(module()) -> [erl_type()].
-
-module_builtin_opaques(Module) ->
-  [O || O <- all_opaque_builtins(), t_opaque_module(O) =:= Module].
-
 %%-----------------------------------------------------------------------------
-%% Remote types: these types are used for preprocessing;
-%% they should never reach the analysis stage.
 
--spec t_remote(atom(), atom(), [erl_type()]) -> erl_type().
-
-t_remote(Mod, Name, Args) ->
-  ?remote(set_singleton(#remote{mod = Mod, name = Name, args = Args})).
-
--spec t_is_remote(erl_type()) -> boolean().
-
-t_is_remote(?remote(_)) -> true;
-t_is_remote(_) -> false.
-
--spec t_solve_remote(erl_type(), set(), dict()) -> erl_type().
-
-t_solve_remote(Type, ExpTypes, Records) ->
-  {RT, _RR} = t_solve_remote(Type, ExpTypes, Records, []),
-  RT.
-
-t_solve_remote(?function(Domain, Range), ET, R, C) ->
-  {RT1, RR1} = t_solve_remote(Domain, ET, R, C),
-  {RT2, RR2} = t_solve_remote(Range, ET, R, C),
-  {?function(RT1, RT2), RR1 ++ RR2};
-t_solve_remote(?list(Types, Term, Size), ET, R, C) ->
-  {RT, RR} = t_solve_remote(Types, ET, R, C),
-  {?list(RT, Term, Size), RR};
-t_solve_remote(?product(Types), ET, R, C) ->
-  {RL, RR} = list_solve_remote(Types, ET, R, C),
-  {?product(RL), RR};
-t_solve_remote(?opaque(Set), ET, R, C) ->
-  List = ordsets:to_list(Set),
-  {NewList, RR} = opaques_solve_remote(List, ET, R, C),
-  {?opaque(ordsets:from_list(NewList)), RR};
-t_solve_remote(?tuple(?any, _, _) = T, _ET, _R, _C) -> {T, []};
-t_solve_remote(?tuple(Types, _Arity, _Tag), ET, R, C)  ->
-  {RL, RR} = list_solve_remote(Types, ET, R, C),
-  {t_tuple(RL), RR};
-t_solve_remote(?tuple_set(Set), ET, R, C) ->
-  {NewTuples, RR} = tuples_solve_remote(Set, ET, R, C),
-  {t_sup(NewTuples), RR};
-t_solve_remote(?remote(Set), ET, R, C) ->
-  RemoteList = ordsets:to_list(Set),
-  {RL, RR} = list_solve_remote_type(RemoteList, ET, R, C),
-  {t_sup(RL), RR};
-t_solve_remote(?union(List), ET, R, C) ->
-  {RL, RR} = list_solve_remote(List, ET, R, C),
-  {t_sup(RL), RR};
-t_solve_remote(T, _ET, _R, _C) -> {T, []}.
-
-t_solve_remote_type(#remote{mod = RemMod, name = Name, args = Args} = RemType,
-                    ET, R, C) ->
-  ArgsLen = length(Args),
-  case dict:find(RemMod, R) of
-    error ->
-      self() ! {self(), ext_types, {RemMod, Name, ArgsLen}},
-      {t_any(), []};
-    {ok, RemDict} ->
-      MFA = {RemMod, Name, ArgsLen},
-      case sets:is_element(MFA, ET) of
-        true ->
-          case lookup_type(Name, ArgsLen, RemDict) of
-            {type, {_Mod, Type, ArgNames}} ->
-              {NewType, NewCycle, NewRR} =
-                case can_unfold_more(RemType, C) of
-                  true ->
-                    List = lists:zip(ArgNames, Args),
-                    TmpVarDict = dict:from_list(List),
-                    {t_from_form(Type, RemDict, TmpVarDict), [RemType|C], []};
-                  false ->
-		    {t_any(), C, [RemType]}
-                end,
-              {RT, RR} = t_solve_remote(NewType, ET, R, NewCycle),
-              RetRR = NewRR ++ RR,
-              RT1 =
-                case lists:member(RemType, RetRR) of
-                  true -> t_limit(RT, ?REC_TYPE_LIMIT);
-                  false -> RT
-                end,
-              {RT1, RetRR};
-            {opaque, {Mod, Type, ArgNames}} ->
-              List = lists:zip(ArgNames, Args),
-              TmpVarDict = dict:from_list(List),
-              {Rep, NewCycle, NewRR} =
-                case can_unfold_more(RemType, C) of
-                  true ->
-		    {t_from_form(Type, RemDict, TmpVarDict), [RemType|C], []};
-                  false ->
-		    {t_any(), C, [RemType]}
-                end,
-              {NewRep, RR} = t_solve_remote(Rep, ET, R, NewCycle),
-              RetRR = NewRR ++ RR,
-              RT1 =
-                case lists:member(RemType, RetRR) of
-                  true -> t_limit(NewRep, ?REC_TYPE_LIMIT);
-                  false -> NewRep
-                end,
-              {t_from_form({opaque, -1, Name, {Mod, Args, RT1}},
-                           RemDict, TmpVarDict),
-               RetRR};
-            error ->
-              Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
-                                  [RemMod, Name]),
-              throw({error, Msg})
-          end;
-        false ->
-          self() ! {self(), ext_types, {RemMod, Name, ArgsLen}},
-          {t_any(), []}
-      end
-  end.
-
-list_solve_remote([], _ET, _R, _C) ->
-  {[], []};
-list_solve_remote([Type|Types], ET, R, C) ->
-  {RT, RR1} = t_solve_remote(Type, ET, R, C),
-  {RL, RR2} = list_solve_remote(Types, ET, R, C),
-  {[RT|RL], RR1 ++ RR2}.
-
-list_solve_remote_type([], _ET, _R, _C) ->
-  {[], []};
-list_solve_remote_type([Type|Types], ET, R, C) ->
-  {RT, RR1} = t_solve_remote_type(Type, ET, R, C),
-  {RL, RR2} = list_solve_remote_type(Types, ET, R, C),
-  {[RT|RL], RR1 ++ RR2}.
-
-opaques_solve_remote([], _ET, _R, _C) ->
-  {[], []};
-opaques_solve_remote([#opaque{struct = Struct} = Remote|Tail], ET, R, C) ->
-  {RT, RR1} = t_solve_remote(Struct, ET, R, C),
-  {LOp, RR2} = opaques_solve_remote(Tail, ET, R, C),
-  {[Remote#opaque{struct = RT}|LOp], RR1 ++ RR2}.
-
-tuples_solve_remote([], _ET, _R, _C) ->
-  {[], []};
-tuples_solve_remote([{_Sz, Tuples}|Tail], ET, R, C) ->
-  {RL, RR1} = list_solve_remote(Tuples, ET, R, C),
-  {LSzTpls, RR2} = tuples_solve_remote(Tail, ET, R, C),
-  {RL ++ LSzTpls, RR1 ++ RR2}.
+-type mod_records() :: dict:dict(module(), type_table()).
 
 %%-----------------------------------------------------------------------------
 %% Unit type. Signals non termination.
@@ -826,40 +842,75 @@ t_atoms(List) when is_list(List) ->
 
 -spec t_atom_vals(erl_type()) -> 'unknown' | [atom(),...].
 
-t_atom_vals(?atom(?any)) -> unknown;
-t_atom_vals(?atom(Set)) -> set_to_list(Set);
-t_atom_vals(Other) ->
+t_atom_vals(Type) ->
+  t_atom_vals(Type, 'universe').
+
+-spec t_atom_vals(erl_type(), opaques()) -> 'unknown' | [atom(),...].
+
+t_atom_vals(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun atom_vals/1).
+
+atom_vals(?atom(?any)) -> unknown;
+atom_vals(?atom(Set)) -> set_to_list(Set);
+atom_vals(?opaque(_)) -> unknown;
+atom_vals(Other) ->
   ?atom(_) = Atm = t_inf(t_atom(), Other),
-  t_atom_vals(Atm).
+  atom_vals(Atm).
 
 -spec t_is_atom(erl_type()) -> boolean().
 
-t_is_atom(?atom(_)) -> true;
-t_is_atom(_) -> false.
+t_is_atom(Type) ->
+  t_is_atom(Type, 'universe').
 
--spec t_is_atom(atom(), erl_type()) -> boolean().
+-spec t_is_atom(erl_type(), opaques()) -> boolean().
 
-t_is_atom(Atom, ?atom(?any)) when is_atom(Atom) -> false;
-t_is_atom(Atom, ?atom(Set)) when is_atom(Atom) -> set_is_singleton(Atom, Set);
-t_is_atom(Atom, _) when is_atom(Atom) -> false.
+t_is_atom(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_atom1/1).
+
+is_atom1(?atom(_)) -> true;
+is_atom1(_) -> false.
+
+-spec t_is_any_atom(atom(), erl_type()) -> boolean().
+
+t_is_any_atom(Atom, SomeAtomsType) ->
+  t_is_any_atom(Atom, SomeAtomsType, 'universe').
+
+-spec t_is_any_atom(atom(), erl_type(), opaques()) -> boolean().
+
+t_is_any_atom(Atom, SomeAtomsType, Opaques) ->
+  do_opaque(SomeAtomsType, Opaques,
+            fun(AtomsType) -> is_any_atom(Atom, AtomsType) end).
+
+is_any_atom(Atom, ?atom(?any)) when is_atom(Atom) -> false;
+is_any_atom(Atom, ?atom(Set)) when is_atom(Atom) ->
+  set_is_singleton(Atom, Set);
+is_any_atom(Atom, _) when is_atom(Atom) -> false.
 
 %%------------------------------------
+
+-spec t_is_boolean(erl_type()) -> boolean().
+
+t_is_boolean(Type) ->
+  t_is_boolean(Type, 'universe').
+
+-spec t_is_boolean(erl_type(), opaques()) -> boolean().
+
+t_is_boolean(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_boolean/1).
 
 -spec t_boolean() -> erl_type().
 
 t_boolean() ->
   ?atom(set_from_list([false, true])).
 
--spec t_is_boolean(erl_type()) -> boolean().
-
-t_is_boolean(?atom(?any)) -> false;
-t_is_boolean(?atom(Set)) ->
+is_boolean(?atom(?any)) -> false;
+is_boolean(?atom(Set)) ->
   case set_size(Set) of
     1 -> set_is_element(true, Set) orelse set_is_element(false, Set);
     2 -> set_is_element(true, Set) andalso set_is_element(false, Set);
     N when is_integer(N), N > 2 -> false
   end;
-t_is_boolean(_) -> false.
+is_boolean(_) -> false.
 
 %%-----------------------------------------------------------------------------
 %% Binaries
@@ -872,9 +923,17 @@ t_binary() ->
 
 -spec t_is_binary(erl_type()) -> boolean().
 
-t_is_binary(?bitstr(U, B)) -> 
+t_is_binary(Type) ->
+  t_is_binary(Type, 'universe').
+
+-spec t_is_binary(erl_type(), opaques()) -> boolean().
+
+t_is_binary(Type, Opaques) ->
+    do_opaque(Type, Opaques, fun is_binary/1).
+
+is_binary(?bitstr(U, B)) ->
   ((U rem 8) =:= 0) andalso ((B rem 8) =:= 0);
-t_is_binary(_) -> false.
+is_binary(_) -> false.
 
 %%-----------------------------------------------------------------------------
 %% Bitstrings
@@ -921,19 +980,27 @@ t_bitstr_concat_1([], Acc) ->
 t_bitstr_concat(T1, T2) ->
   T1p = t_inf(t_bitstr(), T1),
   T2p = t_inf(t_bitstr(), T2),
-  bitstr_concat(T1p, T2p).
+  bitstr_concat(t_unopaque(T1p), t_unopaque(T2p)).
 
 -spec t_bitstr_match(erl_type(), erl_type()) -> erl_type().
 
 t_bitstr_match(T1, T2) ->
   T1p = t_inf(t_bitstr(), T1),
   T2p = t_inf(t_bitstr(), T2),
-  bitstr_match(T1p, T2p).
+  bitstr_match(t_unopaque(T1p), t_unopaque(T2p)).
 
 -spec t_is_bitstr(erl_type()) -> boolean().
 
-t_is_bitstr(?bitstr(_, _)) -> true;
-t_is_bitstr(_) -> false.
+t_is_bitstr(Type) ->
+  t_is_bitstr(Type, 'universe').
+
+-spec t_is_bitstr(erl_type(), opaques()) -> boolean().
+
+t_is_bitstr(Type, Opaques) ->
+    do_opaque(Type, Opaques, fun is_bitstr/1).
+
+is_bitstr(?bitstr(_, _)) -> true;
+is_bitstr(_) -> false.
 
 %%-----------------------------------------------------------------------------
 %% Matchstates
@@ -1044,27 +1111,59 @@ t_fun(Arity, Range) when is_integer(Arity), 0 =< Arity, Arity =< 255 ->
 
 -spec t_fun_args(erl_type()) -> 'unknown' | [erl_type()].
 
-t_fun_args(?function(?any, _)) ->
+t_fun_args(Type) ->
+  t_fun_args(Type, 'universe').
+
+-spec t_fun_args(erl_type(), opaques()) -> 'unknown' | [erl_type()].
+
+t_fun_args(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun fun_args/1).
+
+fun_args(?function(?any, _)) ->
   unknown;
-t_fun_args(?function(?product(Domain), _)) when is_list(Domain) ->
+fun_args(?function(?product(Domain), _)) when is_list(Domain) ->
   Domain.
 
 -spec t_fun_arity(erl_type()) -> 'unknown' | non_neg_integer().
 
-t_fun_arity(?function(?any, _)) ->
+t_fun_arity(Type) ->
+  t_fun_arity(Type, 'universe').
+
+-spec t_fun_arity(erl_type(), opaques()) -> 'unknown' | non_neg_integer().
+
+t_fun_arity(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun fun_arity/1).
+
+fun_arity(?function(?any, _)) ->
   unknown;
-t_fun_arity(?function(?product(Domain), _)) ->
+fun_arity(?function(?product(Domain), _)) ->
   length(Domain).
 
 -spec t_fun_range(erl_type()) -> erl_type().
 
-t_fun_range(?function(_, Range)) ->
+t_fun_range(Type) ->
+  t_fun_range(Type, 'universe').
+
+-spec t_fun_range(erl_type(), opaques()) -> erl_type().
+
+t_fun_range(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun fun_range/1).
+
+fun_range(?function(_, Range)) ->
   Range.
 
 -spec t_is_fun(erl_type()) -> boolean().
 
-t_is_fun(?function(_, _)) -> true;
-t_is_fun(_) -> false.
+t_is_fun(Type) ->
+  t_is_fun(Type, 'universe').
+
+-spec t_is_fun(erl_type(), opaques()) -> boolean().
+
+t_is_fun(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_fun/1).
+
+is_fun(?function(_, _)) -> true;
+is_fun(_) -> false.
 
 %%-----------------------------------------------------------------------------
 %% Identifiers. Includes ports, pids and refs.
@@ -1091,9 +1190,17 @@ t_port() ->
 
 -spec t_is_port(erl_type()) -> boolean().
 
-t_is_port(?identifier(?any)) -> false;
-t_is_port(?identifier(Set)) -> set_is_singleton(?port_qual, Set);
-t_is_port(_) -> false.
+t_is_port(Type) ->
+  t_is_port(Type, 'universe').
+
+-spec t_is_port(erl_type(), opaques()) -> boolean().
+
+t_is_port(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_port1/1).
+
+is_port1(?identifier(?any)) -> false;
+is_port1(?identifier(Set)) -> set_is_singleton(?port_qual, Set);
+is_port1(_) -> false.
 
 %%------------------------------------
 
@@ -1104,9 +1211,17 @@ t_pid() ->
 
 -spec t_is_pid(erl_type()) -> boolean().
 
-t_is_pid(?identifier(?any)) -> false;
-t_is_pid(?identifier(Set)) -> set_is_singleton(?pid_qual, Set);
-t_is_pid(_) -> false.
+t_is_pid(Type) ->
+  t_is_pid(Type, 'universe').
+
+-spec t_is_pid(erl_type(), opaques()) -> boolean().
+
+t_is_pid(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_pid1/1).
+
+is_pid1(?identifier(?any)) -> false;
+is_pid1(?identifier(Set)) -> set_is_singleton(?pid_qual, Set);
+is_pid1(_) -> false.
 
 %%------------------------------------
 
@@ -1117,9 +1232,17 @@ t_reference() ->
 
 -spec t_is_reference(erl_type()) -> boolean().
 
-t_is_reference(?identifier(?any)) -> false;
-t_is_reference(?identifier(Set)) -> set_is_singleton(?reference_qual, Set);
-t_is_reference(_) -> false.
+t_is_reference(Type) ->
+  t_is_reference(Type, 'universe').
+
+-spec t_is_reference(erl_type(), opaques()) -> boolean().
+
+t_is_reference(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_reference1/1).
+
+is_reference1(?identifier(?any)) -> false;
+is_reference1(?identifier(Set)) -> set_is_singleton(?reference_qual, Set);
+is_reference1(_) -> false.
 
 %%-----------------------------------------------------------------------------
 %% Numbers are divided into floats, integers, chars and bytes.
@@ -1137,21 +1260,38 @@ t_number(X) when is_integer(X) ->
 
 -spec t_is_number(erl_type()) -> boolean().
 
-t_is_number(?number(_, _)) -> true;
-t_is_number(_) -> false.
+t_is_number(Type) ->
+  t_is_number(Type, 'universe').
+
+-spec t_is_number(erl_type(), opaques()) -> boolean().
+
+t_is_number(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_number/1).
+
+is_number(?number(_, _)) -> true;
+is_number(_) -> false.
 
 %% Currently, the type system collapses all floats to ?float and does
 %% not keep any information about their values. As a result, the list
 %% that this function returns contains only integers.
+
 -spec t_number_vals(erl_type()) -> 'unknown' | [integer(),...].
 
-t_number_vals(?int_set(?any)) -> unknown;
-t_number_vals(?int_set(Set)) -> set_to_list(Set);
-t_number_vals(?number(_, _)) -> unknown;
-t_number_vals(Other) ->
+t_number_vals(Type) ->
+  t_number_vals(Type, 'universe').
+
+-spec t_number_vals(erl_type(), opaques()) -> 'unknown' | [integer(),...].
+
+t_number_vals(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun number_vals/1).
+
+number_vals(?int_set(Set)) -> set_to_list(Set);
+number_vals(?number(_, _)) -> unknown;
+number_vals(?opaque(_)) -> unknown;
+number_vals(Other) ->
   Inf = t_inf(Other, t_number()),
   false = t_is_none(Inf), % sanity check
-  t_number_vals(Inf).
+  number_vals(Inf).
 
 %%------------------------------------
 
@@ -1162,8 +1302,16 @@ t_float() ->
 
 -spec t_is_float(erl_type()) -> boolean().
 
-t_is_float(?float) -> true;
-t_is_float(_) -> false.
+t_is_float(Type) ->
+  t_is_float(Type, 'universe').
+
+-spec t_is_float(erl_type(), opaques()) -> boolean().
+
+t_is_float(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_float1/1).
+
+is_float1(?float) -> true;
+is_float1(_) -> false.
 
 %%------------------------------------
 
@@ -1184,8 +1332,16 @@ t_integers(List) when is_list(List) ->
 
 -spec t_is_integer(erl_type()) -> boolean().
 
-t_is_integer(?integer(_)) -> true;
-t_is_integer(_) -> false.
+t_is_integer(Type) ->
+  t_is_integer(Type, 'universe').
+
+-spec t_is_integer(erl_type(), opaques()) -> boolean().
+
+t_is_integer(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_integer1/1).
+
+is_integer1(?integer(_)) -> true;
+is_integer1(_) -> false.
 
 %%------------------------------------
 
@@ -1249,7 +1405,7 @@ t_cons(Hd, ?nil) ->
 t_cons(Hd, ?list(Contents, Termination, _)) ->
   ?nonempty_list(t_sup(Contents, Hd), Termination);
 t_cons(Hd, Tail) ->
-  case t_inf(Tail, t_maybe_improper_list()) of
+  case cons_tail(t_inf(Tail, t_maybe_improper_list())) of
     ?list(Contents, Termination, _Size) ->
       %% Collapse the list part of the termination but keep the
       %% non-list part intact.
@@ -1261,18 +1417,45 @@ t_cons(Hd, Tail) ->
     ?unit -> ?none
   end.
 
+cons_tail(Type) ->
+  do_opaque(Type, 'universe', fun(T) -> T end).
+
 -spec t_is_cons(erl_type()) -> boolean().
 
-t_is_cons(?nonempty_list(_, _)) -> true;
-t_is_cons(_) -> false.  
+t_is_cons(Type) ->
+  t_is_cons(Type, 'universe').
+
+-spec t_is_cons(erl_type(), opaques()) -> boolean().
+
+t_is_cons(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_cons/1).
+
+is_cons(?nonempty_list(_, _)) -> true;
+is_cons(_) -> false.
 
 -spec t_cons_hd(erl_type()) -> erl_type().
 
-t_cons_hd(?nonempty_list(Contents, _Termination)) -> Contents.
+t_cons_hd(Type) ->
+  t_cons_hd(Type, 'universe').
+
+-spec t_cons_hd(erl_type(), opaques()) -> erl_type().
+
+t_cons_hd(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun cons_hd/1).
+
+cons_hd(?nonempty_list(Contents, _Termination)) -> Contents.
 
 -spec t_cons_tl(erl_type()) -> erl_type().
 
-t_cons_tl(?nonempty_list(_Contents, Termination) = T) ->
+t_cons_tl(Type) ->
+  t_cons_tl(Type, 'universe').
+
+-spec t_cons_tl(erl_type(), opaques()) -> erl_type().
+
+t_cons_tl(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun cons_tl/1).
+
+cons_tl(?nonempty_list(_Contents, Termination) = T) ->
   t_sup(Termination, T).
 
 -spec t_nil() -> erl_type().
@@ -1282,8 +1465,16 @@ t_nil() ->
 
 -spec t_is_nil(erl_type()) -> boolean().
 
-t_is_nil(?nil) -> true;
-t_is_nil(_) -> false.
+t_is_nil(Type) ->
+  t_is_nil(Type, 'universe').
+
+-spec t_is_nil(erl_type(), opaques()) -> boolean().
+
+t_is_nil(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_nil/1).
+
+is_nil(?nil) -> true;
+is_nil(_) -> false.
 
 -spec t_list() -> erl_type().
 
@@ -1299,8 +1490,21 @@ t_list(Contents) ->
 
 -spec t_list_elements(erl_type()) -> erl_type().
 
-t_list_elements(?list(Contents, _, _)) -> Contents;
-t_list_elements(?nil) -> ?none.
+t_list_elements(Type) ->
+  t_list_elements(Type, 'universe').
+
+-spec t_list_elements(erl_type(), opaques()) -> erl_type().
+
+t_list_elements(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun list_elements/1).
+
+list_elements(?list(Contents, _, _)) -> Contents;
+list_elements(?nil) -> ?none.
+
+-spec t_list_termination(erl_type(), opaques()) -> erl_type().
+
+t_list_termination(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun t_list_termination/1).
 
 -spec t_list_termination(erl_type()) -> erl_type().
 
@@ -1349,15 +1553,23 @@ t_maybe_improper_list() ->
 t_maybe_improper_list(_Content, ?unit) -> ?none;
 t_maybe_improper_list(?unit, _Termination) -> ?none;
 t_maybe_improper_list(Content, Termination) ->
-  %% Safety check
-  true = t_is_subtype(t_nil(), Termination),
+  %% Safety check: would be nice to have but does not work with remote types
+  %% true = t_is_subtype(t_nil(), Termination),
   ?list(Content, Termination, ?unknown_qual).
 
 -spec t_is_maybe_improper_list(erl_type()) -> boolean().
 
-t_is_maybe_improper_list(?list(_, _, _)) -> true;
-t_is_maybe_improper_list(?nil) -> true;
-t_is_maybe_improper_list(_) -> false.
+t_is_maybe_improper_list(Type) ->
+  t_is_maybe_improper_list(Type, 'universe').
+
+-spec t_is_maybe_improper_list(erl_type(), opaques()) -> boolean().
+
+t_is_maybe_improper_list(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_maybe_improper_list/1).
+
+is_maybe_improper_list(?list(_, _, _)) -> true;
+is_maybe_improper_list(?nil) -> true;
+is_maybe_improper_list(_) -> false.
 
 %% %% Should only be used if you know what you are doing. See t_cons/2
 %% -spec t_improper_list(erl_type(), erl_type()) -> erl_type().
@@ -1365,15 +1577,375 @@ t_is_maybe_improper_list(_) -> false.
 %% t_improper_list(?unit, _Termination) -> ?none;
 %% t_improper_list(_Content, ?unit) -> ?none;
 %% t_improper_list(Content, Termination) ->
-%%   %% Safety check
-%%   false = t_is_subtype(t_nil(), Termination),
+%%   %% Safety check: would be nice to have but does not work with remote types
+%%   %% false = t_is_subtype(t_nil(), Termination),
 %%   ?list(Content, Termination, ?any).  
+
+-spec lift_list_to_pos_empty(erl_type(), opaques()) -> erl_type().
+
+lift_list_to_pos_empty(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun lift_list_to_pos_empty/1).
 
 -spec lift_list_to_pos_empty(erl_type()) -> erl_type().
 
 lift_list_to_pos_empty(?nil) -> ?nil;
 lift_list_to_pos_empty(?list(Content, Termination, _)) -> 
   ?list(Content, Termination, ?unknown_qual).
+
+%%-----------------------------------------------------------------------------
+%% Maps
+%%
+%% Representation:
+%%  ?map(Pairs, DefaultKey, DefaultValue)
+%%
+%% Pairs is a sorted dictionary of types with a mandatoriness tag on each pair
+%% (t_map_dict()). DefaultKey and DefaultValue are plain types.
+%%
+%% A map M belongs to this type iff
+%%   For each pair {KT, mandatory, VT} in Pairs, there exists a pair {K, V} in M
+%%     such that K \in KT and V \in VT.
+%%   For each pair {KT, optional, VT} in Pairs, either there exists no key K in
+%%     M s.t. K in KT, or there exists a pair {K, V} in M such that K \in KT and
+%%     V \in VT.
+%%   For each remaining pair {K, V} in M (where remaining means that there is no
+%%     key KT in Pairs s.t. K \in KT), K \in DefaultKey and V \in DefaultValue.
+%%
+%% Invariants:
+%%  * The keys in Pairs are singleton types.
+%%  * The values of Pairs must not be unit, and may only be none if the
+%%      mandatoriness tag  is 'optional'.
+%%  * Optional must contain no pair {K,V} s.t. K is a subtype of DefaultKey and
+%%    V is equal to DefaultKey.
+%%  * DefaultKey must be the empty type iff DefaultValue is the empty type.
+%%  * DefaultKey must not be a singleton type.
+%%  * For every key K in Pairs, DefaultKey - K must not be representable; i.e.
+%%    t_subtract(DefaultKey, K) must return DefaultKey.
+%%  * For every pair {K, 'optional', ?none} in Pairs, K must be a subtype of
+%%    DefaultKey.
+%%  * Pairs must be sorted and not contain any duplicate keys.
+%%
+%% These invariants ensure that equal map types are represented by equal terms.
+
+-define(mand, mandatory).
+-define(opt, optional).
+
+-type t_map_mandatoriness() :: ?mand | ?opt.
+-type t_map_pair() :: {erl_type(), t_map_mandatoriness(), erl_type()}.
+-type t_map_dict() :: [t_map_pair()].
+
+-spec t_map() -> erl_type().
+
+t_map() ->
+  t_map([], t_any(), t_any()).
+
+-spec t_map([{erl_type(), erl_type()}]) -> erl_type().
+
+t_map(L) ->
+  lists:foldl(fun t_map_put/2, t_map(), L).
+
+-spec t_map(t_map_dict(), erl_type(), erl_type()) -> erl_type().
+
+t_map(Pairs0, DefK0, DefV0) ->
+  DefK1 = lists:foldl(fun({K,_,_},Acc)->t_subtract(Acc,K)end, DefK0, Pairs0),
+  {DefK2, DefV1} =
+    case t_is_none_or_unit(DefK1) orelse t_is_none_or_unit(DefV0) of
+      true  -> {?none, ?none};
+      false -> {DefK1, DefV0}
+    end,
+  {Pairs1, DefK, DefV}
+    = case is_singleton_type(DefK2) of
+	true  -> {mapdict_insert({DefK2, ?opt, DefV1}, Pairs0), ?none, ?none};
+	false -> {Pairs0,                                       DefK2, DefV1}
+      end,
+  Pairs = normalise_map_optionals(Pairs1, DefK, DefV),
+  %% Validate invariants of the map representation.
+  %% Since we needed to iterate over the arguments in order to normalise anyway,
+  %% we might as well save us some future pain and do this even without
+  %% define(DEBUG, true).
+  try
+    validate_map_elements(Pairs)
+  catch error:badarg ->      error(badarg,      [Pairs0,DefK0,DefV0]);
+	error:{badarg, E} -> error({badarg, E}, [Pairs0,DefK0,DefV0])
+  end,
+  ?map(Pairs, DefK, DefV).
+
+normalise_map_optionals([], _, _) -> [];
+normalise_map_optionals([E={K,?opt,?none}|T], DefK, DefV) ->
+  Diff = t_subtract(DefK, K),
+  case t_is_subtype(K, DefK) andalso DefK =:= Diff of
+    true -> [E|normalise_map_optionals(T, DefK, DefV)];
+    false -> normalise_map_optionals(T, Diff, DefV)
+  end;
+normalise_map_optionals([E={K,?opt,V}|T], DefK, DefV) ->
+  case t_is_equal(V, DefV) andalso t_is_subtype(K, DefK) of
+    true -> normalise_map_optionals(T, DefK, DefV);
+    false -> [E|normalise_map_optionals(T, DefK, DefV)]
+  end;
+normalise_map_optionals([E|T], DefK, DefV) ->
+  [E|normalise_map_optionals(T, DefK, DefV)].
+
+validate_map_elements([{_,?mand,?none}|_]) -> error({badarg, none_in_mand});
+validate_map_elements([{K1,_,_}|Rest=[{K2,_,_}|_]]) ->
+  case is_singleton_type(K1) andalso K1 < K2 of
+    false -> error(badarg);
+    true -> validate_map_elements(Rest)
+  end;
+validate_map_elements([{K,_,_}]) ->
+  case is_singleton_type(K) of
+    false -> error(badarg);
+    true -> true
+  end;
+validate_map_elements([]) -> true.
+
+-spec t_is_map(erl_type()) -> boolean().
+
+t_is_map(Type) ->
+  t_is_map(Type, 'universe').
+
+-spec t_is_map(erl_type(), opaques()) -> boolean().
+
+t_is_map(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_map1/1).
+
+is_map1(?map(_, _, _)) -> true;
+is_map1(_) -> false.
+
+-spec t_map_entries(erl_type()) -> t_map_dict().
+
+t_map_entries(M) ->
+  t_map_entries(M, 'universe').
+
+-spec t_map_entries(erl_type(), opaques()) -> t_map_dict().
+
+t_map_entries(M, Opaques) ->
+  do_opaque(M, Opaques, fun map_entries/1).
+
+map_entries(?map(Pairs,_,_)) ->
+  Pairs.
+
+-spec t_map_def_key(erl_type()) -> erl_type().
+
+t_map_def_key(M) ->
+  t_map_def_key(M, 'universe').
+
+-spec t_map_def_key(erl_type(), opaques()) -> erl_type().
+
+t_map_def_key(M, Opaques) ->
+  do_opaque(M, Opaques, fun map_def_key/1).
+
+map_def_key(?map(_,DefK,_)) ->
+  DefK.
+
+-spec t_map_def_val(erl_type()) -> erl_type().
+
+t_map_def_val(M) ->
+  t_map_def_val(M, 'universe').
+
+-spec t_map_def_val(erl_type(), opaques()) -> erl_type().
+
+t_map_def_val(M, Opaques) ->
+  do_opaque(M, Opaques, fun map_def_val/1).
+
+map_def_val(?map(_,_,DefV)) ->
+  DefV.
+
+-spec mapdict_store(t_map_pair(), t_map_dict()) -> t_map_dict().
+
+mapdict_store(E={K,_,_}, [{K,_,_}|T]) -> [E|T];
+mapdict_store(E1={K1,_,_}, [E2={K2,_,_}|T]) when K1 > K2 ->
+  [E2|mapdict_store(E1, T)];
+mapdict_store(E={_,_,_}, T) -> [E|T].
+
+-spec mapdict_insert(t_map_pair(), t_map_dict()) -> t_map_dict().
+
+mapdict_insert(E={K,_,_}, D=[{K,_,_}|_]) -> error(badarg, [E, D]);
+mapdict_insert(E1={K1,_,_}, [E2={K2,_,_}|T]) when K1 > K2 ->
+  [E2|mapdict_insert(E1, T)];
+mapdict_insert(E={_,_,_}, T) -> [E|T].
+
+%% Merges the pairs of two maps together. Missing pairs become (?opt, DefV) or
+%% (?opt, ?none), depending on whether K \in DefK.
+-spec map_pairwise_merge(fun((erl_type(),
+			      t_map_mandatoriness(), erl_type(),
+			      t_map_mandatoriness(), erl_type())
+			     -> t_map_pair() | false),
+			 erl_type(), erl_type()) -> t_map_dict().
+map_pairwise_merge(F, ?map(APairs, ADefK, ADefV),
+		       ?map(BPairs, BDefK, BDefV)) ->
+  map_pairwise_merge(F, APairs, ADefK, ADefV, BPairs, BDefK, BDefV).
+
+map_pairwise_merge(_, [], _, _, [], _, _) -> [];
+map_pairwise_merge(F, As0, ADefK, ADefV, Bs0, BDefK, BDefV) ->
+  {K1, AMNess1, AV1, As1, BMNess1, BV1, Bs1} =
+    case {As0, Bs0} of
+      {[{K,AMNess,AV}|As], [{K, BMNess,BV}|Bs]} ->
+	{K, AMNess, AV, As, BMNess, BV, Bs};
+      {[{K,AMNess,AV}|As], [{BK,_,     _ }|_]=Bs} when K < BK ->
+        {K, AMNess, AV, As, ?opt, mapmerge_otherv(K, BDefK, BDefV), Bs};
+      {As,                 [{K, BMNess,BV}|Bs]} ->
+        {K, ?opt, mapmerge_otherv(K, ADefK, ADefV), As, BMNess, BV, Bs};
+      {[{K,AMNess,AV}|As], []=Bs} ->
+        {K, AMNess, AV, As, ?opt, mapmerge_otherv(K, BDefK, BDefV), Bs}
+    end,
+  MK = K1, %% Rename to make clear that we are matching below
+  case F(K1, AMNess1, AV1, BMNess1, BV1) of
+    false ->         map_pairwise_merge(F,As1,ADefK,ADefV,Bs1,BDefK,BDefV);
+    {MK,_,_}=M -> [M|map_pairwise_merge(F,As1,ADefK,ADefV,Bs1,BDefK,BDefV)]
+  end.
+
+%% Folds over the pairs in two maps simultaneously in reverse key order. Missing
+%% pairs become (?opt, DefV) or (?opt, ?none), depending on whether K \in DefK.
+-spec map_pairwise_merge_foldr(fun((erl_type(),
+				    t_map_mandatoriness(), erl_type(),
+				    t_map_mandatoriness(), erl_type(),
+				    Acc) -> Acc),
+			       Acc, erl_type(), erl_type()) -> Acc.
+
+map_pairwise_merge_foldr(F, AccIn, ?map(APairs, ADefK, ADefV),
+			 ?map(BPairs, BDefK, BDefV)) ->
+  map_pairwise_merge_foldr(F, AccIn, APairs, ADefK, ADefV, BPairs, BDefK, BDefV).
+
+map_pairwise_merge_foldr(_, Acc,   [],  _,     _,     [],  _,     _) -> Acc;
+map_pairwise_merge_foldr(F, AccIn, As0, ADefK, ADefV, Bs0, BDefK, BDefV) ->
+  {K1, AMNess1, AV1, As1, BMNess1, BV1, Bs1} =
+    case {As0, Bs0} of
+      {[{K,AMNess,AV}|As], [{K,BMNess,BV}|Bs]} ->
+	{K, AMNess, AV, As, BMNess, BV, Bs};
+      {[{K,AMNess,AV}|As], [{BK,_,     _ }|_]=Bs} when K < BK ->
+	{K, AMNess, AV, As, ?opt, mapmerge_otherv(K, BDefK, BDefV), Bs};
+      {As,                 [{K,BMNess,BV}|Bs]} ->
+        {K, ?opt, mapmerge_otherv(K, ADefK, ADefV), As, BMNess, BV, Bs};
+      {[{K,AMNess,AV}|As], []=Bs} ->
+        {K, AMNess, AV, As, ?opt, mapmerge_otherv(K, BDefK, BDefV), Bs}
+    end,
+  F(K1, AMNess1, AV1, BMNess1, BV1,
+    map_pairwise_merge_foldr(F,AccIn,As1,ADefK,ADefV,Bs1,BDefK,BDefV)).
+
+%% By observing that a missing pair in a map is equivalent to an optional pair,
+%% with ?none or DefV value, depending on whether K \in DefK, we can simplify
+%% merging by denormalising the map pairs temporarily, removing all 'false'
+%% cases, at the cost of the creation of more tuples:
+mapmerge_otherv(K, ODefK, ODefV) ->
+  case t_inf(K, ODefK) of
+    ?none      -> ?none;
+    _KOrOpaque -> ODefV
+  end.
+
+-spec t_map_put({erl_type(), erl_type()}, erl_type()) -> erl_type().
+
+t_map_put(KV, Map) ->
+  t_map_put(KV, Map, 'universe').
+
+-spec t_map_put({erl_type(), erl_type()}, erl_type(), opaques()) -> erl_type().
+
+t_map_put(KV, Map, Opaques) ->
+  do_opaque(Map, Opaques, fun(UM) -> map_put(KV, UM, Opaques) end).
+
+%% Key and Value are *not* unopaqued, but the map is
+map_put(_, ?none, _) -> ?none;
+map_put({Key, Value}, ?map(Pairs,DefK,DefV), Opaques) ->
+  case t_is_none_or_unit(Key) orelse t_is_none_or_unit(Value) of
+    true -> ?none;
+    false ->
+      case is_singleton_type(Key) of
+	true ->
+	  t_map(mapdict_store({Key, ?mand, Value}, Pairs), DefK, DefV);
+	false ->
+	  t_map([{K, MNess, case t_is_none(t_inf(K, Key, Opaques)) of
+			      true -> V;
+			      false -> t_sup(V, Value)
+			    end} || {K, MNess, V} <- Pairs],
+		t_sup(DefK, Key),
+		t_sup(DefV, Value))
+      end
+  end.
+
+-spec t_map_update({erl_type(), erl_type()}, erl_type()) -> erl_type().
+
+t_map_update(KV, Map) ->
+  t_map_update(KV, Map, 'universe').
+
+-spec t_map_update({erl_type(), erl_type()}, erl_type(), opaques()) -> erl_type().
+
+t_map_update(_, ?none, _) -> ?none;
+t_map_update(KV={Key, _}, M, Opaques) ->
+  case t_is_subtype(t_atom('true'), t_map_is_key(Key, M, Opaques)) of
+    false -> ?none;
+    true -> t_map_put(KV, M, Opaques)
+  end.
+
+-spec t_map_get(erl_type(), erl_type()) -> erl_type().
+
+t_map_get(Key, Map) ->
+  t_map_get(Key, Map, 'universe').
+
+-spec t_map_get(erl_type(), erl_type(), opaques()) -> erl_type().
+
+t_map_get(Key, Map, Opaques) ->
+  do_opaque(Map, Opaques,
+	    fun(UM) ->
+		do_opaque(Key, Opaques, fun(UK) -> map_get(UK, UM) end)
+	    end).
+
+map_get(_, ?none) -> ?none;
+map_get(Key, ?map(Pairs, DefK, DefV)) ->
+  DefRes =
+    case t_do_overlap(DefK, Key) of
+      false -> t_none();
+      true -> DefV
+    end,
+  case is_singleton_type(Key) of
+    false ->
+      lists:foldl(fun({K, _, V}, Res) ->
+		      case t_do_overlap(K, Key) of
+			false -> Res;
+			true -> t_sup(Res, V)
+		      end
+		  end, DefRes, Pairs);
+    true ->
+      case lists:keyfind(Key, 1, Pairs) of
+	false -> DefRes;
+	{_, _, ValType} -> ValType
+      end
+  end.
+
+-spec t_map_is_key(erl_type(), erl_type()) -> erl_type().
+
+t_map_is_key(Key, Map) ->
+  t_map_is_key(Key, Map, 'universe').
+
+-spec t_map_is_key(erl_type(), erl_type(), opaques()) -> erl_type().
+
+t_map_is_key(Key, Map, Opaques) ->
+  do_opaque(Map, Opaques,
+	    fun(UM) ->
+		do_opaque(Key, Opaques, fun(UK) -> map_is_key(UK, UM) end)
+	    end).
+
+map_is_key(_, ?none) -> ?none;
+map_is_key(Key, ?map(Pairs, DefK, _DefV)) ->
+  case is_singleton_type(Key) of
+    true ->
+      case lists:keyfind(Key, 1, Pairs) of
+	{Key, ?mand, _}     -> t_atom(true);
+	{Key, ?opt,  ?none} -> t_atom(false);
+	{Key, ?opt,  _}     -> t_boolean();
+	false ->
+	  case t_do_overlap(DefK, Key) of
+	    false -> t_atom(false);
+	    true -> t_boolean()
+	  end
+      end;
+    false ->
+      case t_do_overlap(DefK, Key)
+	orelse lists:any(fun({_,_,?none}) -> false;
+			    ({K,_,_}) -> t_do_overlap(K, Key)
+			 end, Pairs)
+      of
+	true -> t_boolean();
+	false -> t_atom(false)
+      end
+  end.
 
 %%-----------------------------------------------------------------------------
 %% Tuples
@@ -1386,6 +1958,8 @@ t_tuple() ->
 
 -spec t_tuple(non_neg_integer() | [erl_type()]) -> erl_type().
 
+t_tuple(N) when is_integer(N), N > ?MAX_TUPLE_SIZE  ->
+  t_tuple();
 t_tuple(N) when is_integer(N) ->
   ?tuple(lists:duplicate(N, ?any), N, ?any);
 t_tuple(List) ->
@@ -1404,32 +1978,77 @@ t_tuple(List) ->
 
 -spec get_tuple_tags([erl_type()]) -> [erl_type(),...].
 
-get_tuple_tags([?atom(?any)|_]) -> [?any];
-get_tuple_tags([?atom(Set)|_]) ->
+get_tuple_tags([Tag|_]) ->
+  do_opaque(Tag, 'universe', fun tuple_tags/1);
+get_tuple_tags(_) -> [?any].
+
+tuple_tags(?atom(?any)) -> [?any];
+tuple_tags(?atom(Set)) ->
   case set_size(Set) > ?TUPLE_TAG_LIMIT of
     true -> [?any];
     false -> [t_atom(A) || A <- set_to_list(Set)]
   end;
-get_tuple_tags(_) -> [?any].
+tuple_tags(_) -> [?any].
 
 %% to be used for a tuple with known types for its arguments (not ?any)
 -spec t_tuple_args(erl_type()) -> [erl_type()].
 
-t_tuple_args(?tuple(Args, _, _)) when is_list(Args) -> Args.
+t_tuple_args(Type) ->
+  t_tuple_args(Type, 'universe').
+
+%% to be used for a tuple with known types for its arguments (not ?any)
+-spec t_tuple_args(erl_type(), opaques()) -> [erl_type()].
+
+t_tuple_args(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun tuple_args/1).
+
+tuple_args(?tuple(Args, _, _)) when is_list(Args) -> Args.
 
 %% to be used for a tuple with a known size (not ?any)
 -spec t_tuple_size(erl_type()) -> non_neg_integer().
 
-t_tuple_size(?tuple(_, Size, _)) when is_integer(Size) -> Size.
+t_tuple_size(Type) ->
+  t_tuple_size(Type, 'universe').
+
+%% to be used for a tuple with a known size (not ?any)
+-spec t_tuple_size(erl_type(), opaques()) -> non_neg_integer().
+
+t_tuple_size(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun tuple_size1/1).
+
+tuple_size1(?tuple(_, Size, _)) when is_integer(Size) -> Size.
 
 -spec t_tuple_sizes(erl_type()) -> 'unknown' | [non_neg_integer(),...].
 
-t_tuple_sizes(?tuple(?any, ?any, ?any)) -> unknown;
-t_tuple_sizes(?tuple(_, Size, _)) when is_integer(Size) -> [Size];
-t_tuple_sizes(?tuple_set(List)) -> [Size || {Size, _} <- List].
+t_tuple_sizes(Type) ->
+  do_opaque(Type, 'universe', fun tuple_sizes/1).
+
+tuple_sizes(?tuple(?any, ?any, ?any)) -> unknown;
+tuple_sizes(?tuple(_, Size, _)) when is_integer(Size) -> [Size];
+tuple_sizes(?tuple_set(List)) -> [Size || {Size, _} <- List].
+
+-spec t_tuple_subtypes(erl_type(), opaques()) ->
+         'unknown' | [erl_type(),...].
+
+t_tuple_subtypes(Type, Opaques) ->
+  Fun = fun(?tuple_set(List)) ->
+            t_tuple_subtypes_tuple_list(List, Opaques);
+           (?opaque(_)) -> unknown;
+           (T) -> t_tuple_subtypes(T)
+        end,
+  do_opaque(Type, Opaques, Fun).
+
+t_tuple_subtypes_tuple_list(List, Opaques) ->
+  lists:append([t_tuple_subtypes_list(Tuples, Opaques) ||
+                 {_Size, Tuples} <- List]).
+
+t_tuple_subtypes_list(List, Opaques) ->
+  ListOfLists = [t_tuple_subtypes(E, Opaques) || E <- List, E =/= ?none],
+  lists:append([L || L <- ListOfLists, L =/= 'unknown']).
 
 -spec t_tuple_subtypes(erl_type()) -> 'unknown' | [erl_type(),...].
 
+%% XXX. Not the same as t_tuple_subtypes(T, 'universe')...
 t_tuple_subtypes(?tuple(?any, ?any, ?any)) -> unknown;
 t_tuple_subtypes(?tuple(_, _, _) = T) -> [T];
 t_tuple_subtypes(?tuple_set(List)) ->
@@ -1437,9 +2056,17 @@ t_tuple_subtypes(?tuple_set(List)) ->
 
 -spec t_is_tuple(erl_type()) -> boolean().
 
-t_is_tuple(?tuple(_, _, _)) -> true;
-t_is_tuple(?tuple_set(_)) -> true;
-t_is_tuple(_) -> false.
+t_is_tuple(Type) ->
+  t_is_tuple(Type, 'universe').
+
+-spec t_is_tuple(erl_type(), opaques()) -> boolean().
+
+t_is_tuple(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_tuple1/1).
+
+is_tuple1(?tuple(_, _, _)) -> true;
+is_tuple1(?tuple_set(_)) -> true;
+is_tuple1(_) -> false.
 
 %%-----------------------------------------------------------------------------
 %% Non-primitive types, including some handy syntactic sugar types
@@ -1449,16 +2076,6 @@ t_is_tuple(_) -> false.
 
 t_bitstrlist() ->
   t_iolist(1, t_bitstr()).
-
--spec t_constant() -> erl_type().
-
-t_constant() ->
-  t_sup([t_number(), t_identifier(), t_atom(), t_fun(), t_binary()]).
-
--spec t_is_constant(erl_type()) -> boolean().
-
-t_is_constant(X) ->
-  t_is_subtype(X, t_constant()).
 
 -spec t_arity() -> erl_type().
 
@@ -1509,7 +2126,7 @@ t_mfa() ->
 -spec t_module() -> erl_type().
 
 t_module() ->
-  t_sup(t_atom(), t_parameterized_module()).
+  t_atom().
 
 -spec t_node() -> erl_type().
 
@@ -1535,95 +2152,10 @@ t_iolist(N, T) when N > 0 ->
 t_iolist(0, T) ->
   t_maybe_improper_list(t_any(), t_sup(T, t_nil())).
 
--spec t_parameterized_module() -> erl_type().
-
-t_parameterized_module() ->
-  t_tuple().
-
 -spec t_timeout() -> erl_type().
 
 t_timeout() ->
   t_sup(t_non_neg_integer(), t_atom('infinity')).
-
-%%-----------------------------------------------------------------------------
-%% Some built-in opaque types
-%%
-
--spec t_array() -> erl_type().
-
-t_array() ->
-  t_opaque(array, array, [],
-	   t_tuple([t_atom('array'),
-		    t_non_neg_integer(), t_non_neg_integer(),
-		    t_any(), t_any()])).
-
--spec t_dict() -> erl_type().
-
-t_dict() ->
-  t_opaque(dict, dict, [],
-	   t_tuple([t_atom('dict'),
-		    t_non_neg_integer(), t_non_neg_integer(),
-		    t_non_neg_integer(), t_non_neg_integer(),
-		    t_non_neg_integer(), t_non_neg_integer(),
-		    t_tuple(), t_tuple()])).
-
--spec t_digraph() -> erl_type().
-
-t_digraph() ->
-  t_opaque(digraph, digraph, [],
-	   t_tuple([t_atom('digraph'),
-		    t_sup(t_atom(), t_tid()),
-		    t_sup(t_atom(), t_tid()),
-		    t_sup(t_atom(), t_tid()),
-		    t_boolean()])).
-
--spec t_gb_set() -> erl_type().
-
-t_gb_set() ->
-  t_opaque(gb_sets, gb_set, [],
-	   t_tuple([t_non_neg_integer(), t_sup(t_atom('nil'), t_tuple(3))])).
-
--spec t_gb_tree() -> erl_type().
-
-t_gb_tree() ->
-  t_opaque(gb_trees, gb_tree, [],
-	   t_tuple([t_non_neg_integer(), t_sup(t_atom('nil'), t_tuple(4))])).
-
--spec t_queue() -> erl_type().
-
-t_queue() ->
-  t_opaque(queue, queue, [], t_tuple([t_list(), t_list()])).
-
--spec t_set() -> erl_type().
-
-t_set() ->
-  t_opaque(sets, set, [],
-	   t_tuple([t_atom('set'), t_non_neg_integer(), t_non_neg_integer(),
-		    t_pos_integer(), t_non_neg_integer(), t_non_neg_integer(),
-		    t_non_neg_integer(), t_tuple(), t_tuple()])).
-
--spec t_tid() -> erl_type().
-
-t_tid() ->
-  t_opaque(ets, tid, [], t_integer()).
-
--spec all_opaque_builtins() -> [erl_type(),...].
-
-all_opaque_builtins() ->
-  [t_array(), t_dict(), t_digraph(), t_gb_set(),
-   t_gb_tree(), t_queue(), t_set(), t_tid()].
-
--spec is_opaque_builtin(atom(), atom()) -> boolean().
-
-is_opaque_builtin(array, array) -> true;
-is_opaque_builtin(dict, dict) -> true;
-is_opaque_builtin(digraph, digraph) -> true;
-is_opaque_builtin(gb_sets, gb_set) -> true;
-is_opaque_builtin(gb_trees, gb_tree) -> true;
-is_opaque_builtin(queue, queue) -> true;
-is_opaque_builtin(sets, set) -> true;
-is_opaque_builtin(ets, tid) -> true;
-is_opaque_builtin(_, _) -> false.
 
 %%------------------------------------
 
@@ -1672,8 +2204,14 @@ t_has_var(?tuple(Elements, _, _)) ->
   t_has_var_list(Elements);
 t_has_var(?tuple_set(_) = T) ->
   t_has_var_list(t_tuple_subtypes(T));
-%% t_has_var(?union(_) = U) ->
-%% exit(lists:flatten(io_lib:format("Union happens in t_has_var/1 ~p\n",[U])));
+t_has_var(?map(_, DefK, _)= Map) ->
+  t_has_var_list(map_all_values(Map)) orelse
+    t_has_var(DefK);
+t_has_var(?opaque(Set)) ->
+  %% Assume variables in 'args' are also present i 'struct'
+  t_has_var_list([O#opaque.struct || O <- set_to_list(Set)]);
+t_has_var(?union(List)) ->
+  t_has_var_list(List);
 t_has_var(_) -> false.
 
 -spec t_has_var_list([erl_type()]) -> boolean().
@@ -1696,17 +2234,28 @@ t_collect_vars(?function(Domain, Range), Acc) ->
 t_collect_vars(?list(Contents, Termination, _), Acc) ->
   ordsets:union(t_collect_vars(Contents, Acc), t_collect_vars(Termination, []));
 t_collect_vars(?product(Types), Acc) ->
-  lists:foldl(fun(T, TmpAcc) -> t_collect_vars(T, TmpAcc) end, Acc, Types);
+  t_collect_vars_list(Types, Acc);
 t_collect_vars(?tuple(?any, ?any, ?any), Acc) ->
   Acc;
 t_collect_vars(?tuple(Types, _, _), Acc) ->
-  lists:foldl(fun(T, TmpAcc) -> t_collect_vars(T, TmpAcc) end, Acc, Types);
+  t_collect_vars_list(Types, Acc);
 t_collect_vars(?tuple_set(_) = TS, Acc) ->
-  lists:foldl(fun(T, TmpAcc) -> t_collect_vars(T, TmpAcc) end, Acc, 
-	      t_tuple_subtypes(TS));
+  t_collect_vars_list(t_tuple_subtypes(TS), Acc);
+t_collect_vars(?map(_, DefK, _) = Map, Acc0) ->
+  Acc = t_collect_vars_list(map_all_values(Map), Acc0),
+  t_collect_vars(DefK, Acc);
+t_collect_vars(?opaque(Set), Acc) ->
+  %% Assume variables in 'args' are also present i 'struct'
+  t_collect_vars_list([O#opaque.struct || O <- set_to_list(Set)], Acc);
+t_collect_vars(?union(List), Acc) ->
+  t_collect_vars_list(List, Acc);
 t_collect_vars(_, Acc) ->
   Acc.
 
+t_collect_vars_list([T|Ts], Acc0) ->
+  Acc = t_collect_vars(T, Acc0),
+  t_collect_vars_list(Ts, Acc);
+t_collect_vars_list([], Acc) -> Acc.
 
 %%=============================================================================
 %%
@@ -1729,6 +2278,15 @@ t_from_term(T) when is_function(T) ->
   {arity, Arity} = erlang:fun_info(T, arity),
   t_fun(Arity, t_any());
 t_from_term(T) when is_integer(T) ->   t_integer(T);
+t_from_term(T) when is_map(T) ->
+  Pairs = [{t_from_term(K), ?mand, t_from_term(V)}
+	   || {K, V} <- maps:to_list(T)],
+  {Stons, Rest} = lists:partition(fun({K,_,_}) -> is_singleton_type(K) end,
+				  Pairs),
+  {DefK, DefV}
+    = lists:foldl(fun({K,_,V},{AK,AV}) -> {t_sup(K,AK), t_sup(V,AV)} end,
+		  {t_none(), t_none()}, Rest),
+  t_map(lists:keysort(1, Stons), DefK, DefV);
 t_from_term(T) when is_pid(T) ->       t_pid();
 t_from_term(T) when is_port(T) ->      t_port();
 t_from_term(T) when is_reference(T) -> t_reference();
@@ -1826,15 +2384,31 @@ t_is_bitwidth(_) -> false.
 
 -spec number_min(erl_type()) -> rng_elem().
 
-number_min(?int_range(From, _)) -> From;
-number_min(?int_set(Set)) -> set_min(Set);
-number_min(?number(?any, _Tag)) -> neg_inf.
+number_min(Type) ->
+  number_min(Type, 'universe').
+
+-spec number_min(erl_type(), opaques()) -> rng_elem().
+
+number_min(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun number_min2/1).
+
+number_min2(?int_range(From, _)) -> From;
+number_min2(?int_set(Set)) -> set_min(Set);
+number_min2(?number(?any, _Tag)) -> neg_inf.
 
 -spec number_max(erl_type()) -> rng_elem().
 
-number_max(?int_range(_, To)) -> To;
-number_max(?int_set(Set)) -> set_max(Set);
-number_max(?number(?any, _Tag)) -> pos_inf.
+number_max(Type) ->
+  number_max(Type, 'universe').
+
+-spec number_max(erl_type(), opaques()) -> rng_elem().
+
+number_max(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun number_max2/1).
+
+number_max2(?int_range(_, To)) -> To;
+number_max2(?int_set(Set)) -> set_max(Set);
+number_max2(?number(?any, _Tag)) -> pos_inf.
 
 %% -spec int_range(rgn_elem(), rng_elem()) -> erl_type().
 %%
@@ -1886,14 +2460,19 @@ expand_range_from_set(Range = ?int_range(From, To), Set) ->
 
 -spec t_sup([erl_type()]) -> erl_type().
 
-t_sup([?any|_]) ->
-  ?any;
-t_sup([H1, H2|T]) ->
-  t_sup([t_sup(H1, H2)|T]);
-t_sup([H]) ->
-  subst_all_vars_to_any(H);
-t_sup([]) ->
-  ?none.
+t_sup([]) -> ?none;
+t_sup(Ts) ->
+  case lists:any(fun is_any/1, Ts) of
+    true -> ?any;
+    false ->
+      t_sup1(Ts, [])
+  end.
+
+t_sup1([H1, H2|T], L) ->
+  t_sup1(T, [t_sup(H1, H2)|L]);
+t_sup1([T], []) -> subst_all_vars_to_any(T);
+t_sup1(Ts, L) ->
+  t_sup1(Ts++L, []).
 
 -spec t_sup(erl_type(), erl_type()) -> erl_type().
 
@@ -1916,14 +2495,12 @@ t_sup(?function(Domain1, Range1), ?function(Domain2, Range2)) ->
 t_sup(?identifier(Set1), ?identifier(Set2)) ->
   ?identifier(set_union(Set1, Set2));
 t_sup(?opaque(Set1), ?opaque(Set2)) ->
-  ?opaque(set_union_no_limit(Set1, Set2));
+  sup_opaque(set_to_list(ordsets:union(Set1, Set2)));
 %%Disallow unions with opaque types
 %%t_sup(T1=?opaque(_,_,_), T2) ->
 %%  io:format("Debug: t_sup executed with args ~w and ~w~n",[T1, T2]), ?none;
 %%t_sup(T1, T2=?opaque(_,_,_)) ->
 %%  io:format("Debug: t_sup executed with args ~w and ~w~n",[T1, T2]), ?none;
-t_sup(?remote(Set1), ?remote(Set2)) ->
-  ?remote(set_union_no_limit(Set1, Set2));
 t_sup(?matchstate(Pres1, Slots1), ?matchstate(Pres2, Slots2)) ->
   ?matchstate(t_sup(Pres1, Pres2), t_sup(Slots1, Slots2));
 t_sup(?nil, ?nil) -> ?nil;
@@ -1999,10 +2576,38 @@ t_sup(?tuple_set(List1), T2 = ?tuple(_, Arity, _)) ->
   sup_tuple_sets(List1, [{Arity, [T2]}]);
 t_sup(?tuple(_, Arity, _) = T1, ?tuple_set(List2)) ->
   sup_tuple_sets([{Arity, [T1]}], List2);
+t_sup(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B) ->
+  Pairs =
+    map_pairwise_merge(
+      fun(K, MNess, V1, MNess, V2) -> {K, MNess, t_sup(V1, V2)};
+	 (K, _,     V1, _,     V2) -> {K, ?opt,  t_sup(V1, V2)}
+      end, A, B),
+  t_map(Pairs, t_sup(ADefK, BDefK), t_sup(ADefV, BDefV));
 t_sup(T1, T2) ->
   ?union(U1) = force_union(T1),
   ?union(U2) = force_union(T2),
   sup_union(U1, U2).
+
+sup_opaque([]) -> ?none;
+sup_opaque(List) ->
+  L = sup_opaq(List),
+  ?opaque(ordsets:from_list(L)).
+
+sup_opaq(L0) ->
+  L1 = [{{Mod,Name,Args}, T} ||
+         #opaque{mod = Mod, name = Name, args = Args}=T <- L0],
+  F = family(L1),
+  [supl(Ts) || {_, Ts} <- F].
+
+supl([O]) -> O;
+supl(Ts) -> supl(Ts, t_none()).
+
+supl([#opaque{struct = S}=O|L], S0) ->
+  S1 = t_sup(S, S0),
+  case L =:= [] of
+    true -> O#opaque{struct = S1};
+    false -> supl(L, S1)
+  end.
 
 -spec t_sup_lists([erl_type()], [erl_type()]) -> [erl_type()].
 
@@ -2094,9 +2699,9 @@ force_union(T = ?function(_, _)) ->   ?function_union(T);
 force_union(T = ?identifier(_)) ->    ?identifier_union(T);
 force_union(T = ?list(_, _, _)) ->    ?list_union(T);
 force_union(T = ?nil) ->              ?list_union(T);
-force_union(T = ?number(_,_)) ->      ?number_union(T);
+force_union(T = ?number(_, _)) ->     ?number_union(T);
 force_union(T = ?opaque(_)) ->        ?opaque_union(T);
-force_union(T = ?remote(_)) ->        ?remote_union(T);
+force_union(T = ?map(_,_,_)) ->       ?map_union(T);
 force_union(T = ?tuple(_, _, _)) ->   ?tuple_union(T);
 force_union(T = ?tuple_set(_)) ->     ?tuple_union(T);
 force_union(T = ?matchstate(_, _)) -> ?matchstate_union(T);
@@ -2131,18 +2736,26 @@ t_elements(?number(_, _) = T) ->
     ?int_set(Set) ->
       [t_integer(I) || I <- Set]
   end;
-t_elements(?opaque(_) = T) -> [T];
+t_elements(?opaque(_) = T) ->
+  do_elements(T);
+t_elements(?map(_,_,_) = T) -> [T];
 t_elements(?tuple(_, _, _) = T) -> [T];
 t_elements(?tuple_set(_) = TS) ->
   case t_tuple_subtypes(TS) of
     unknown -> [];
     Elems -> Elems
   end;
-t_elements(?union(List)) ->
-  lists:append([t_elements(T) || T <- List]);
+t_elements(?union(_) = T) ->
+  do_elements(T);
 t_elements(?var(_)) -> [?any].  %% yes, vars exist -- what else to do here?
 %% t_elements(T) ->
 %%   io:format("T_ELEMENTS => ~p\n", [T]).
+
+do_elements(Type0) ->
+  case do_opaque(Type0, 'universe', fun(T) -> T end) of
+    ?union(List) -> lists:append([t_elements(T) || T <- List]);
+    Type -> t_elements(Type)
+  end.
 
 %%-----------------------------------------------------------------------------
 %% Infimum
@@ -2161,74 +2774,95 @@ t_inf([]) -> ?none.
 -spec t_inf(erl_type(), erl_type()) -> erl_type().
 
 t_inf(T1, T2) ->
-  t_inf(T1, T2, structured).
+  t_inf(T1, T2, 'universe').
 
--type t_inf_mode() :: 'opaque' | 'structured'.
--spec t_inf(erl_type(), erl_type(), t_inf_mode()) -> erl_type().
+%% 'match' should be used from t_find_unknown_opaque() only
+-type t_inf_opaques() :: opaques() | {'match', [erl_type() | 'universe']}.
 
-t_inf(?var(_), ?var(_), _Mode) -> ?any;
-t_inf(?var(_), T, _Mode) -> subst_all_vars_to_any(T);
-t_inf(T, ?var(_), _Mode) -> subst_all_vars_to_any(T);
-t_inf(?any, T, _Mode) -> subst_all_vars_to_any(T);
-t_inf(T, ?any, _Mode) -> subst_all_vars_to_any(T);
-t_inf(?none, _, _Mode) -> ?none;
-t_inf(_, ?none, _Mode) -> ?none;
-t_inf(?unit, _, _Mode) -> ?unit;	% ?unit cases should appear below ?none
-t_inf(_, ?unit, _Mode) -> ?unit;
-t_inf(T, T, _Mode) -> subst_all_vars_to_any(T);
+-spec t_inf(erl_type(), erl_type(), t_inf_opaques()) -> erl_type().
+
+t_inf(?var(_), ?var(_), _Opaques) -> ?any;
+t_inf(?var(_), T, _Opaques) -> subst_all_vars_to_any(T);
+t_inf(T, ?var(_), _Opaques) -> subst_all_vars_to_any(T);
+t_inf(?any, T, _Opaques) -> subst_all_vars_to_any(T);
+t_inf(T, ?any, _Opaques) -> subst_all_vars_to_any(T);
+t_inf(?none, _, _Opaques) -> ?none;
+t_inf(_, ?none, _Opaques) -> ?none;
+t_inf(?unit, _, _Opaques) -> ?unit;	% ?unit cases should appear below ?none
+t_inf(_, ?unit, _Opaques) -> ?unit;
+t_inf(T, T, _Opaques) -> subst_all_vars_to_any(T);
 t_inf(?atom(Set1), ?atom(Set2), _) ->
   case set_intersection(Set1, Set2) of
     ?none ->  ?none;
     NewSet -> ?atom(NewSet)
   end;
-t_inf(?bitstr(U1, B1), ?bitstr(0, B2), _Mode) ->
+t_inf(?bitstr(U1, B1), ?bitstr(0, B2), _Opaques) ->
   if B2 >= B1 andalso (B2-B1) rem U1 =:= 0 -> t_bitstr(0, B2);
      true -> ?none
   end;
-t_inf(?bitstr(0, B1), ?bitstr(U2, B2), _Mode) ->
+t_inf(?bitstr(0, B1), ?bitstr(U2, B2), _Opaques) ->
   if B1 >= B2 andalso (B1-B2) rem U2 =:= 0 -> t_bitstr(0, B1);
      true -> ?none
   end;
-t_inf(?bitstr(U1, B1), ?bitstr(U1, B1), _Mode) ->
+t_inf(?bitstr(U1, B1), ?bitstr(U1, B1), _Opaques) ->
   t_bitstr(U1, B1);
-t_inf(?bitstr(U1, B1), ?bitstr(U2, B2), _Mode) when U2 > U1 ->
+t_inf(?bitstr(U1, B1), ?bitstr(U2, B2), _Opaques) when U2 > U1 ->
   inf_bitstr(U2, B2, U1, B1);
-t_inf(?bitstr(U1, B1), ?bitstr(U2, B2), _Mode) ->
+t_inf(?bitstr(U1, B1), ?bitstr(U2, B2), _Opaques) ->
   inf_bitstr(U1, B1, U2, B2);
-t_inf(?function(Domain1, Range1), ?function(Domain2, Range2), Mode) ->
-  case t_inf(Domain1, Domain2, Mode) of
+t_inf(?function(Domain1, Range1), ?function(Domain2, Range2), Opaques) ->
+  case t_inf(Domain1, Domain2, Opaques) of
     ?none -> ?none;
-    Domain -> ?function(Domain, t_inf(Range1, Range2, Mode))
+    Domain -> ?function(Domain, t_inf(Range1, Range2, Opaques))
   end;
-t_inf(?identifier(Set1), ?identifier(Set2), _Mode) ->
+t_inf(?identifier(Set1), ?identifier(Set2), _Opaques) ->
   case set_intersection(Set1, Set2) of
     ?none -> ?none;
     Set -> ?identifier(Set)
   end;
-t_inf(?matchstate(Pres1, Slots1), ?matchstate(Pres2, Slots2), _Mode) ->
+t_inf(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B, _Opaques) ->
+  %% Because it simplifies the anonymous function, we allow Pairs to temporarily
+  %% contain mandatory pairs with none values, since all such cases should
+  %% result in a none result.
+  Pairs =
+    map_pairwise_merge(
+      %% For optional keys in both maps, when the infinimum is none, we have
+      %% essentially concluded that K must not be a key in the map.
+      fun(K, ?opt, V1, ?opt, V2) -> {K, ?opt, t_inf(V1, V2)};
+	 %% When a key is optional in one map, but mandatory in another, it
+	 %% becomes mandatory in the infinumum
+	 (K, _, V1, _, V2) -> {K, ?mand, t_inf(V1, V2)}
+      end, A, B),
+  %% If the infinimum of any mandatory values is ?none, the entire map infinimum
+  %% is ?none.
+  case lists:any(fun({_,?mand,?none})->true; ({_,_,_}) -> false end, Pairs) of
+    true -> t_none();
+    false -> t_map(Pairs, t_inf(ADefK, BDefK), t_inf(ADefV, BDefV))
+  end;
+t_inf(?matchstate(Pres1, Slots1), ?matchstate(Pres2, Slots2), _Opaques) ->
   ?matchstate(t_inf(Pres1, Pres2), t_inf(Slots1, Slots2));
-t_inf(?nil, ?nil, _Mode) -> ?nil;
-t_inf(?nil, ?nonempty_list(_, _), _Mode) ->
+t_inf(?nil, ?nil, _Opaques) -> ?nil;
+t_inf(?nil, ?nonempty_list(_, _), _Opaques) ->
   ?none;
-t_inf(?nonempty_list(_, _), ?nil, _Mode) ->
+t_inf(?nonempty_list(_, _), ?nil, _Opaques) ->
   ?none;
-t_inf(?nil, ?list(_Contents, Termination, _), Mode) ->
-  t_inf(?nil, Termination, Mode);
-t_inf(?list(_Contents, Termination, _), ?nil, Mode) ->
-  t_inf(?nil, Termination, Mode);
+t_inf(?nil, ?list(_Contents, Termination, _), Opaques) ->
+  t_inf(?nil, t_unopaque(Termination), Opaques);
+t_inf(?list(_Contents, Termination, _), ?nil, Opaques) ->
+  t_inf(?nil, t_unopaque(Termination), Opaques);
 t_inf(?list(Contents1, Termination1, Size1),
-      ?list(Contents2, Termination2, Size2), Mode) ->  
-  case t_inf(Termination1, Termination2, Mode) of
+      ?list(Contents2, Termination2, Size2), Opaques) ->
+  case t_inf(Termination1, Termination2, Opaques) of
     ?none -> ?none;
     Termination ->
-      case t_inf(Contents1, Contents2, Mode) of
-	?none -> 
+      case t_inf(Contents1, Contents2, Opaques) of
+	?none ->
 	  %% If none of the lists are nonempty, then the infimum is nil.
 	  case (Size1 =:= ?unknown_qual) andalso (Size2 =:= ?unknown_qual) of
 	    true -> t_nil();
 	    false -> ?none
 	  end;
-	Contents -> 
+	Contents ->
 	  Size =
 	    case {Size1, Size2} of
 	      {?unknown_qual, ?unknown_qual} -> ?unknown_qual;
@@ -2239,7 +2873,7 @@ t_inf(?list(Contents1, Termination1, Size1),
 	  ?list(Contents, Termination, Size)
       end
   end;
-t_inf(?number(_, _) = T1, ?number(_, _) = T2, _Mode) ->
+t_inf(?number(_, _) = T1, ?number(_, _) = T2, _Opaques) ->
   case {T1, T2} of
     {T, T}                            -> T;
     {_, ?number(?any, ?unknown_qual)} -> T1;
@@ -2248,16 +2882,16 @@ t_inf(?number(_, _) = T1, ?number(_, _) = T2, _Mode) ->
     {?integer(_), ?float}             -> ?none;
     {?integer(?any), ?integer(_)}     -> T2;
     {?integer(_), ?integer(?any)}     -> T1;
-    {?int_set(Set1), ?int_set(Set2)}  -> 
+    {?int_set(Set1), ?int_set(Set2)}  ->
       case set_intersection(Set1, Set2) of
 	?none -> ?none;
 	Set -> ?int_set(Set)
       end;
-    {?int_range(From1, To1), ?int_range(From2, To2)} -> 
+    {?int_range(From1, To1), ?int_range(From2, To2)} ->
       t_from_range(max(From1, From2), min(To1, To2));
     {Range = ?int_range(_, _), ?int_set(Set)} ->
       %% io:format("t_inf range, set args ~p ~p ~n", [T1, T2]),
-      Ans2 = 
+      Ans2 =
 	case set_filter(fun(X) -> in_range(X, Range) end, Set) of
 	  ?none -> ?none;
 	  NewSet -> ?int_set(NewSet)
@@ -2270,198 +2904,376 @@ t_inf(?number(_, _) = T1, ?number(_, _) = T2, _Mode) ->
 	NewSet -> ?int_set(NewSet)
       end
   end;
-t_inf(?product(Types1), ?product(Types2), Mode) ->
+t_inf(?product(Types1), ?product(Types2), Opaques) ->
   L1 = length(Types1),
   L2 = length(Types2),
-  if L1 =:= L2 -> ?product(t_inf_lists(Types1, Types2, Mode));
+  if L1 =:= L2 -> ?product(t_inf_lists(Types1, Types2, Opaques));
      true -> ?none
   end;
-t_inf(?product(_), _, _Mode) ->
+t_inf(?product(_), _, _Opaques) ->
   ?none;
-t_inf(_, ?product(_), _Mode) ->
+t_inf(_, ?product(_), _Opaques) ->
   ?none;
-t_inf(?tuple(?any, ?any, ?any), ?tuple(_, _, _) = T, _Mode) ->
+t_inf(?tuple(?any, ?any, ?any), ?tuple(_, _, _) = T, _Opaques) ->
   subst_all_vars_to_any(T);
-t_inf(?tuple(_, _, _) = T, ?tuple(?any, ?any, ?any), _Mode) ->
+t_inf(?tuple(_, _, _) = T, ?tuple(?any, ?any, ?any), _Opaques) ->
   subst_all_vars_to_any(T);
-t_inf(?tuple(?any, ?any, ?any), ?tuple_set(_) = T, _Mode) ->
+t_inf(?tuple(?any, ?any, ?any), ?tuple_set(_) = T, _Opaques) ->
   subst_all_vars_to_any(T);
-t_inf(?tuple_set(_) = T, ?tuple(?any, ?any, ?any), _Mode) ->
+t_inf(?tuple_set(_) = T, ?tuple(?any, ?any, ?any), _Opaques) ->
   subst_all_vars_to_any(T);
-t_inf(?tuple(Elements1, Arity, _Tag1), ?tuple(Elements2, Arity, _Tag2), Mode) ->
-  case t_inf_lists_strict(Elements1, Elements2, Mode) of
+t_inf(?tuple(Elements1, Arity, _Tag1), ?tuple(Elements2, Arity, _Tag2), Opaques) ->
+  case t_inf_lists_strict(Elements1, Elements2, Opaques) of
     bottom -> ?none;
     NewElements -> t_tuple(NewElements)
   end;
-t_inf(?tuple_set(List1), ?tuple_set(List2), Mode) ->
-  inf_tuple_sets(List1, List2, Mode);
-t_inf(?tuple_set(List), ?tuple(_, Arity, _) = T, Mode) ->
-  inf_tuple_sets(List, [{Arity, [T]}], Mode);
-t_inf(?tuple(_, Arity, _) = T, ?tuple_set(List), Mode) ->
-  inf_tuple_sets(List, [{Arity, [T]}], Mode);
+t_inf(?tuple_set(List1), ?tuple_set(List2), Opaques) ->
+  inf_tuple_sets(List1, List2, Opaques);
+t_inf(?tuple_set(List), ?tuple(_, Arity, _) = T, Opaques) ->
+  inf_tuple_sets(List, [{Arity, [T]}], Opaques);
+t_inf(?tuple(_, Arity, _) = T, ?tuple_set(List), Opaques) ->
+  inf_tuple_sets(List, [{Arity, [T]}], Opaques);
 %% be careful: here and in the next clause T can be ?opaque
-t_inf(?union(U1), T, Mode) ->
+t_inf(?union(U1), T, Opaques) ->
   ?union(U2) = force_union(T),
-  inf_union(U1, U2, Mode);
-t_inf(T, ?union(U2), Mode) ->
+  inf_union(U1, U2, Opaques);
+t_inf(T, ?union(U2), Opaques) ->
   ?union(U1) = force_union(T),
-  inf_union(U1, U2, Mode);
+  inf_union(U1, U2, Opaques);
+t_inf(?opaque(Set1), ?opaque(Set2), Opaques) ->
+  inf_opaque(Set1, Set2, Opaques);
+t_inf(?opaque(_) = T1, T2, Opaques) ->
+  inf_opaque1(T2, T1, 1, Opaques);
+t_inf(T1, ?opaque(_) = T2, Opaques) ->
+  inf_opaque1(T1, T2, 2, Opaques);
 %% and as a result, the cases for ?opaque should appear *after* ?union
-t_inf(?opaque(Set1) = T1, ?opaque(Set2) = T2, Mode) ->
-  case set_intersection(Set1, Set2) of
-    ?none ->
-      case Mode =:= opaque of
-	true ->
-	  Struct1 = t_opaque_structure(T1),
-	  case t_inf(Struct1, T2) of
-	    ?none ->
-	      Struct2 = t_opaque_structure(T2),
-	      case t_inf(Struct2, T1) of
-		?none -> ?none;
-		_ -> T2
-	      end;
-	    _ -> T1
-	  end;
-	false -> ?none
-      end;
-    NewSet -> ?opaque(NewSet)
-  end;
-t_inf(?opaque(_) = T1, T2, opaque) ->
-  case t_inf(t_opaque_structure(T1), T2, structured) of
-    ?none -> ?none;
-    _Type -> T1
-  end;
-t_inf(T1, ?opaque(_) = T2, opaque) ->
-  case t_inf(T1, t_opaque_structure(T2), structured) of
-    ?none -> ?none;
-    _Type -> T2
-  end;
 t_inf(#c{}, #c{}, _) ->
   ?none.
+
+inf_opaque1(T1, ?opaque(Set2)=T2, Pos, Opaques) ->
+  case Opaques =:= 'universe' orelse inf_is_opaque_type(T2, Pos, Opaques) of
+    false -> ?none;
+    true ->
+      List2 = set_to_list(Set2),
+      case inf_collect(T1, List2, Opaques, []) of
+        [] -> ?none;
+        OpL -> ?opaque(ordsets:from_list(OpL))
+      end
+  end.
+
+inf_is_opaque_type(T, Pos, {match, Opaques}) ->
+  is_opaque_type(T, Opaques) orelse throw({pos, [Pos]});
+inf_is_opaque_type(T, _Pos, Opaques) ->
+  is_opaque_type(T, Opaques).
+
+inf_collect(T1, [T2|List2], Opaques, OpL) ->
+  #opaque{struct = S2} = T2,
+  case t_inf(T1, S2, Opaques) of
+    ?none -> inf_collect(T1, List2, Opaques, OpL);
+    Inf ->
+      Op = T2#opaque{struct = Inf},
+      inf_collect(T1, List2, Opaques, [Op|OpL])
+  end;
+inf_collect(_T1, [], _Opaques, OpL) ->
+  OpL.
+
+combine(S, T1, T2) ->
+  #opaque{mod = Mod1, name = Name1, args = Args1} = T1,
+  #opaque{mod = Mod2, name = Name2, args = Args2} = T2,
+  Comb1 = comb(Mod1, Name1, Args1, S, T1),
+  case is_compat_opaque_names({Mod1, Name1, Args1}, {Mod2, Name2, Args2}) of
+    true  -> Comb1;
+    false -> Comb1 ++ comb(Mod2, Name2, Args2, S, T2)
+  end.
+
+comb(Mod, Name, Args, S, T) ->
+  case can_combine_opaque_names(Mod, Name, Args, S) of
+    true ->
+      ?opaque(Set) = S,
+      Set;
+    false ->
+      [T#opaque{struct = S}]
+  end.
+
+can_combine_opaque_names(Mod1, Name1, Args1,
+               ?opaque([#opaque{mod = Mod2, name = Name2, args = Args2}])) ->
+  is_compat_opaque_names({Mod1, Name1, Args1}, {Mod2, Name2, Args2});
+can_combine_opaque_names(_, _, _, _) -> false.
+
+%% Combining two lists this way can be very time consuming...
+%% Note: two parameterized opaque types are not the same if their
+%% actual parameters differ
+inf_opaque(Set1, Set2, Opaques) ->
+  List1 = inf_look_up(Set1, Opaques),
+  List2 = inf_look_up(Set2, Opaques),
+  List0 = [combine(Inf, T1, T2) ||
+            {Is1, ModNameArgs1, T1} <- List1,
+            {Is2, ModNameArgs2, T2} <- List2,
+            not t_is_none(Inf = inf_opaque_types(Is1, ModNameArgs1, T1,
+                                                 Is2, ModNameArgs2, T2,
+                                                 Opaques))],
+  List = lists:sort(lists:append(List0)),
+  sup_opaque(List).
+
+%% Optimization: do just one lookup.
+inf_look_up(Set, Opaques) ->
+  [{Opaques =:= 'universe' orelse inf_is_opaque_type2(T, Opaques),
+    {M, N, Args}, T} ||
+    #opaque{mod = M, name = N, args = Args} = T <- set_to_list(Set)].
+
+inf_is_opaque_type2(T, {match, Opaques}) ->
+  is_opaque_type2(T, Opaques);
+inf_is_opaque_type2(T, Opaques) ->
+  is_opaque_type2(T, Opaques).
+
+inf_opaque_types(IsOpaque1, ModNameArgs1, T1,
+                 IsOpaque2, ModNameArgs2, T2, Opaques) ->
+  #opaque{struct = S1}=T1,
+  #opaque{struct = S2}=T2,
+  case
+    Opaques =:= 'universe' orelse
+    is_compat_opaque_names(ModNameArgs1, ModNameArgs2)
+  of
+    true -> t_inf(S1, S2, Opaques);
+    false ->
+      case {IsOpaque1, IsOpaque2} of
+        {true, true}  -> t_inf(S1, S2, Opaques);
+        {true, false} -> t_inf(S1, ?opaque(set_singleton(T2)), Opaques);
+        {false, true} -> t_inf(?opaque(set_singleton(T1)), S2, Opaques);
+        {false, false} when element(1, Opaques) =:= match ->
+          throw({pos, [1, 2]});
+        {false, false} -> t_none()
+      end
+  end.
+
+is_compat_opaque_names(ModNameArgs, ModNameArgs) -> true;
+is_compat_opaque_names({Mod,Name,Args1}, {Mod,Name,Args2}) ->
+  is_compat_args(Args1, Args2);
+is_compat_opaque_names(_, _) -> false.
+
+is_compat_args([A1|Args1], [A2|Args2]) ->
+  is_compat_arg(A1, A2) andalso is_compat_args(Args1, Args2);
+is_compat_args([], []) -> true;
+is_compat_args(_, _) -> false.
+
+is_compat_arg(A1, A2) ->
+  is_specialization(A1, A2) orelse is_specialization(A2, A1).
+
+-spec is_specialization(erl_type(), erl_type()) -> boolean().
+
+%% Returns true if the first argument is a specialization of the
+%% second argument in the sense that every type is a specialization of
+%% any(). For example, {_,_} is a specialization of any(), but not of
+%% tuple(). Does not handle variables, but any() and unions (sort of).
+
+is_specialization(T, T) -> true;
+is_specialization(_, ?any) -> true;
+is_specialization(?any, _) -> false;
+is_specialization(?function(Domain1, Range1), ?function(Domain2, Range2)) ->
+  (is_specialization(Domain1, Domain2) andalso
+   is_specialization(Range1, Range2));
+is_specialization(?list(Contents1, Termination1, Size1),
+                  ?list(Contents2, Termination2, Size2)) ->
+  (Size1 =:= Size2 andalso
+   is_specialization(Contents1, Contents2) andalso
+   is_specialization(Termination1, Termination2));
+is_specialization(?product(Types1), ?product(Types2)) ->
+  specialization_list(Types1, Types2);
+is_specialization(?tuple(?any, ?any, ?any), ?tuple(_, _, _)) -> false;
+is_specialization(?tuple(_, _, _), ?tuple(?any, ?any, ?any)) -> false;
+is_specialization(?tuple(Elements1, Arity, _), 
+                  ?tuple(Elements2, Arity, _)) when Arity =/= ?any ->
+  specialization_list(Elements1, Elements2);
+is_specialization(?tuple_set([{Arity, List}]), 
+                  ?tuple(Elements2, Arity, _)) when Arity =/= ?any ->
+  specialization_list(sup_tuple_elements(List), Elements2);
+is_specialization(?tuple(Elements1, Arity, _),
+                  ?tuple_set([{Arity, List}])) when Arity =/= ?any ->
+  specialization_list(Elements1, sup_tuple_elements(List));
+is_specialization(?tuple_set(List1), ?tuple_set(List2)) ->
+  try
+    specialization_list_list([sup_tuple_elements(T) || {_Arity, T} <- List1],
+                             [sup_tuple_elements(T) || {_Arity, T} <- List2])
+  catch _:_ -> false
+  end;
+is_specialization(?union(List1)=T1, ?union(List2)=T2) ->
+  case specialization_union2(T1, T2) of
+    {yes, Type1, Type2} -> is_specialization(Type1, Type2);
+    no -> specialization_list(List1, List2)
+  end;
+is_specialization(?union(List), T2) ->
+  case unify_union(List) of
+      {yes, Type} -> is_specialization(Type, T2);
+      no -> false
+  end;
+is_specialization(T1, ?union(List)) ->
+  case unify_union(List) of
+      {yes, Type} -> is_specialization(T1, Type);
+      no -> false
+  end;
+is_specialization(?opaque(_) = T1, T2) ->
+  is_specialization(t_opaque_structure(T1), T2);
+is_specialization(T1, ?opaque(_) = T2) ->
+  is_specialization(T1, t_opaque_structure(T2));
+is_specialization(?var(_), _) -> exit(error);
+is_specialization(_, ?var(_)) -> exit(error);
+is_specialization(?none, _) -> false;
+is_specialization(_, ?none) -> false;
+is_specialization(?unit, _) -> false;
+is_specialization(_, ?unit) -> false;
+is_specialization(#c{}, #c{}) -> false.
+
+specialization_list_list(LL1, LL2) ->
+  length(LL1) =:= length(LL2) andalso specialization_list_list1(LL1, LL2).
+
+specialization_list_list1([], []) -> true;
+specialization_list_list1([L1|LL1], [L2|LL2]) ->
+  specialization_list(L1, L2) andalso specialization_list_list1(LL1, LL2).
+
+specialization_list(L1, L2) ->
+  length(L1) =:= length(L2) andalso specialization_list1(L1, L2).
+
+specialization_list1([], []) -> true;
+specialization_list1([T1|L1], [T2|L2]) ->
+  is_specialization(T1, T2) andalso specialization_list1(L1, L2).
+
+specialization_union2(?union(List1)=T1, ?union(List2)=T2) ->
+  case {unify_union(List1), unify_union(List2)} of
+    {{yes, Type1}, {yes, Type2}} -> {yes, Type1, Type2};
+    {{yes, Type1}, no} -> {yes, Type1, T2};
+    {no, {yes, Type2}} -> {yes, T1, Type2};
+    {no, no} -> no
+  end.
 
 -spec t_inf_lists([erl_type()], [erl_type()]) -> [erl_type()].
 
 t_inf_lists(L1, L2) ->
-  t_inf_lists(L1, L2, structured).
+  t_inf_lists(L1, L2, 'universe').
 
--spec t_inf_lists([erl_type()], [erl_type()], t_inf_mode()) -> [erl_type()].
+-spec t_inf_lists([erl_type()], [erl_type()], t_inf_opaques()) -> [erl_type()].
 
-t_inf_lists(L1, L2, Mode) ->
-  t_inf_lists(L1, L2, [], Mode).
+t_inf_lists(L1, L2, Opaques) ->
+  t_inf_lists(L1, L2, [], Opaques).
 
--spec t_inf_lists([erl_type()], [erl_type()], [erl_type()], t_inf_mode()) -> [erl_type()].
+-spec t_inf_lists([erl_type()], [erl_type()], [erl_type()], [erl_type()]) -> [erl_type()].
 
-t_inf_lists([T1|Left1], [T2|Left2], Acc, Mode) ->
-  t_inf_lists(Left1, Left2, [t_inf(T1, T2, Mode)|Acc], Mode);
-t_inf_lists([], [], Acc, _Mode) ->
+t_inf_lists([T1|Left1], [T2|Left2], Acc, Opaques) ->
+  t_inf_lists(Left1, Left2, [t_inf(T1, T2, Opaques)|Acc], Opaques);
+t_inf_lists([], [], Acc, _Opaques) ->
   lists:reverse(Acc).
 
 %% Infimum of lists with strictness.
 %% If any element is the ?none type, the value 'bottom' is returned.
 
--spec t_inf_lists_strict([erl_type()], [erl_type()], t_inf_mode()) -> 'bottom' | [erl_type()].
+-spec t_inf_lists_strict([erl_type()], [erl_type()], [erl_type()]) -> 'bottom' | [erl_type()].
 
-t_inf_lists_strict(L1, L2, Mode) ->
-  t_inf_lists_strict(L1, L2, [], Mode).
+t_inf_lists_strict(L1, L2, Opaques) ->
+  t_inf_lists_strict(L1, L2, [], Opaques).
 
--spec t_inf_lists_strict([erl_type()], [erl_type()], [erl_type()], t_inf_mode()) -> 'bottom' | [erl_type()].
+-spec t_inf_lists_strict([erl_type()], [erl_type()], [erl_type()], [erl_type()]) -> 'bottom' | [erl_type()].
 
-t_inf_lists_strict([T1|Left1], [T2|Left2], Acc, Mode) ->
-  case t_inf(T1, T2, Mode) of
+t_inf_lists_strict([T1|Left1], [T2|Left2], Acc, Opaques) ->
+  case t_inf(T1, T2, Opaques) of
     ?none -> bottom;
-    T -> t_inf_lists_strict(Left1, Left2, [T|Acc], Mode)
+    T -> t_inf_lists_strict(Left1, Left2, [T|Acc], Opaques)
   end;
-t_inf_lists_strict([], [], Acc, _Mode) ->
+t_inf_lists_strict([], [], Acc, _Opaques) ->
   lists:reverse(Acc).
 
--spec t_inf_lists_masked([erl_type()], [erl_type()], [t_inf_mode()]) -> [erl_type()].
-
-t_inf_lists_masked(List1, List2, Mask) ->
-  List = lists:zip3(List1, List2, Mask),
-  [t_inf(T1, T2, Mode) || {T1, T2, Mode} <- List].
-
-inf_tuple_sets(L1, L2, Mode) ->
-  case inf_tuple_sets(L1, L2, [], Mode) of
+inf_tuple_sets(L1, L2, Opaques) ->
+  case inf_tuple_sets(L1, L2, [], Opaques) of
     [] -> ?none;
     [{_Arity, [?tuple(_, _, _) = OneTuple]}] -> OneTuple;
     List -> ?tuple_set(List)
   end.
 
-inf_tuple_sets([{Arity, Tuples1}|Ts1], [{Arity, Tuples2}|Ts2], Acc, Mode) ->
-  case inf_tuples_in_sets(Tuples1, Tuples2, Mode) of
-    [] -> inf_tuple_sets(Ts1, Ts2, Acc, Mode);
+inf_tuple_sets([{Arity, Tuples1}|Ts1], [{Arity, Tuples2}|Ts2], Acc, Opaques) ->
+  case inf_tuples_in_sets(Tuples1, Tuples2, Opaques) of
+    [] -> inf_tuple_sets(Ts1, Ts2, Acc, Opaques);
     [?tuple_set([{Arity, NewTuples}])] ->
-      inf_tuple_sets(Ts1, Ts2, [{Arity, NewTuples}|Acc], Mode);
-    NewTuples -> inf_tuple_sets(Ts1, Ts2, [{Arity, NewTuples}|Acc], Mode)
+      inf_tuple_sets(Ts1, Ts2, [{Arity, NewTuples}|Acc], Opaques);
+    NewTuples -> inf_tuple_sets(Ts1, Ts2, [{Arity, NewTuples}|Acc], Opaques)
   end;
-inf_tuple_sets([{Arity1, _}|Ts1] = L1, [{Arity2, _}|Ts2] = L2, Acc, Mode) ->
-  if Arity1 < Arity2 -> inf_tuple_sets(Ts1, L2, Acc, Mode);
-     Arity1 > Arity2 -> inf_tuple_sets(L1, Ts2, Acc, Mode)
+inf_tuple_sets([{Arity1, _}|Ts1] = L1, [{Arity2, _}|Ts2] = L2, Acc, Opaques) ->
+  if Arity1 < Arity2 -> inf_tuple_sets(Ts1, L2, Acc, Opaques);
+     Arity1 > Arity2 -> inf_tuple_sets(L1, Ts2, Acc, Opaques)
   end;
-inf_tuple_sets([], _, Acc, _Mode) -> lists:reverse(Acc);
-inf_tuple_sets(_, [], Acc, _Mode) -> lists:reverse(Acc).
-      
-inf_tuples_in_sets([?tuple(Elements1, _, ?any)], L2, Mode) ->
-  NewList = [t_inf_lists_strict(Elements1, Elements2, Mode)
+inf_tuple_sets([], _, Acc, _Opaques) -> lists:reverse(Acc);
+inf_tuple_sets(_, [], Acc, _Opaques) -> lists:reverse(Acc).
+
+inf_tuples_in_sets([?tuple(Elements1, _, ?any)], L2, Opaques) ->
+  NewList = [t_inf_lists_strict(Elements1, Elements2, Opaques)
 	     || ?tuple(Elements2, _, _) <- L2],
   [t_tuple(Es) || Es <- NewList, Es =/= bottom];
-inf_tuples_in_sets(L1, [?tuple(Elements2, _, ?any)], Mode) ->
-  NewList = [t_inf_lists_strict(Elements1, Elements2, Mode)
+inf_tuples_in_sets(L1, [?tuple(Elements2, _, ?any)], Opaques) ->
+  NewList = [t_inf_lists_strict(Elements1, Elements2, Opaques)
 	     || ?tuple(Elements1, _, _) <- L1],
   [t_tuple(Es) || Es <- NewList, Es =/= bottom];
-inf_tuples_in_sets(L1, L2, Mode) ->
-  inf_tuples_in_sets(L1, L2, [], Mode).
+inf_tuples_in_sets(L1, L2, Opaques) ->
+  inf_tuples_in_sets2(L1, L2, [], Opaques).
 
-inf_tuples_in_sets([?tuple(Elements1, Arity, Tag)|Ts1],
-		   [?tuple(Elements2, Arity, Tag)|Ts2], Acc, Mode) ->
-  case t_inf_lists_strict(Elements1, Elements2, Mode) of
-    bottom -> inf_tuples_in_sets(Ts1, Ts2, Acc, Mode);
+inf_tuples_in_sets2([?tuple(Elements1, Arity, Tag)|Ts1],
+                    [?tuple(Elements2, Arity, Tag)|Ts2], Acc, Opaques) ->
+  case t_inf_lists_strict(Elements1, Elements2, Opaques) of
+    bottom -> inf_tuples_in_sets2(Ts1, Ts2, Acc, Opaques);
     NewElements ->
-      inf_tuples_in_sets(Ts1, Ts2, [?tuple(NewElements, Arity, Tag)|Acc], Mode)
+      inf_tuples_in_sets2(Ts1, Ts2, [?tuple(NewElements, Arity, Tag)|Acc],
+                          Opaques)
   end;
-inf_tuples_in_sets([?tuple(_, _, Tag1)|Ts1] = L1,
-		   [?tuple(_, _, Tag2)|Ts2] = L2, Acc, Mode) ->
-  if Tag1 < Tag2 -> inf_tuples_in_sets(Ts1, L2, Acc, Mode);
-     Tag1 > Tag2 -> inf_tuples_in_sets(L1, Ts2, Acc, Mode)
+inf_tuples_in_sets2([?tuple(_, _, Tag1)|Ts1] = L1,
+                    [?tuple(_, _, Tag2)|Ts2] = L2, Acc, Opaques) ->
+  if Tag1 < Tag2 -> inf_tuples_in_sets2(Ts1, L2, Acc, Opaques);
+     Tag1 > Tag2 -> inf_tuples_in_sets2(L1, Ts2, Acc, Opaques)
   end;
-inf_tuples_in_sets([], _, Acc, _Mode) -> lists:reverse(Acc);
-inf_tuples_in_sets(_, [], Acc, _Mode) -> lists:reverse(Acc).
+inf_tuples_in_sets2([], _, Acc, _Opaques) -> lists:reverse(Acc);
+inf_tuples_in_sets2(_, [], Acc, _Opaques) -> lists:reverse(Acc).
 
-inf_union(U1, U2, opaque) ->
-%%---------------------------------------------------------------------
-%%                          Under Testing
-%%----------------------------------------------------------------------
-%%   OpaqueFun = 
-%%     fun(Union1, Union2) ->
-%% 	[_,_,_,_,_,_,_,_,Opaque,_] = Union1,
-%% 	[A,B,F,I,L,N,T,M,_,_R] = Union2,
-%% 	List = [A,B,F,I,L,N,T,M],
-%%         case [T || T <- List, t_inf(T, Opaque, opaque) =/= ?none] of
-%% 	  [] -> ?none;
-%% 	  _  -> Opaque
-%% 	end
-%%     end,
-%%   O1 = OpaqueFun(U1, U2),
-%%   O2 = OpaqueFun(U2, U1),
-%%   Union = inf_union(U1, U2, 0, [], opaque),
-%%   t_sup([O1, O2, Union]);
-  inf_union(U1, U2, 0, [], opaque);
-inf_union(U1, U2, OtherMode) ->
-  inf_union(U1, U2, 0, [], OtherMode).
+inf_union(U1, U2, Opaques) ->
+  OpaqueFun =
+    fun(Union1, Union2, InfFun) ->
+	[_,_,_,_,_,_,_,_,Opaque,_] = Union1,
+        [A,B,F,I,L,N,T,M,_,Map] = Union2,
+        List = [A,B,F,I,L,N,T,M,Map],
+        inf_union_collect(List, Opaque, InfFun, [], [])
+    end,
+  {O1, ThrowList1} =
+    OpaqueFun(U1, U2, fun(E, Opaque) -> t_inf(Opaque, E, Opaques) end),
+  {O2, ThrowList2}
+    = OpaqueFun(U2, U1, fun(E, Opaque) -> t_inf(E, Opaque, Opaques) end),
+  {Union, ThrowList3} = inf_union(U1, U2, 0, [], [], Opaques),
+  ThrowList = lists:merge3(ThrowList1, ThrowList2, ThrowList3),
+  case t_sup([O1, O2, Union]) of
+    ?none when ThrowList =/= [] -> throw({pos, lists:usort(ThrowList)});
+    Sup -> Sup
+  end.
 
-inf_union([?none|Left1], [?none|Left2], N, Acc, Mode) ->
-  inf_union(Left1, Left2, N, [?none|Acc], Mode);
-inf_union([T1|Left1], [T2|Left2], N, Acc, Mode) ->
-  case t_inf(T1, T2, Mode) of
-    ?none -> inf_union(Left1, Left2, N, [?none|Acc], Mode);
-    T     -> inf_union(Left1, Left2, N+1, [T|Acc], Mode)
+inf_union_collect([], _Opaque, _InfFun, InfList, ThrowList) ->
+  {t_sup(InfList), lists:usort(ThrowList)};
+inf_union_collect([?none|L], Opaque, InfFun, InfList, ThrowList) ->
+  inf_union_collect(L, Opaque, InfFun, [?none|InfList], ThrowList);
+inf_union_collect([E|L], Opaque, InfFun, InfList, ThrowList) ->
+  try InfFun(E, Opaque)of
+    Inf ->
+      inf_union_collect(L, Opaque, InfFun, [Inf|InfList], ThrowList)
+  catch throw:{pos, Ns} ->
+      inf_union_collect(L, Opaque, InfFun, InfList, Ns ++ ThrowList)
+  end.
+
+inf_union([?none|Left1], [?none|Left2], N, Acc, ThrowList, Opaques) ->
+  inf_union(Left1, Left2, N, [?none|Acc], ThrowList, Opaques);
+inf_union([T1|Left1], [T2|Left2], N, Acc, ThrowList, Opaques) ->
+  try t_inf(T1, T2, Opaques) of
+    ?none -> inf_union(Left1, Left2, N, [?none|Acc], ThrowList, Opaques);
+    T     -> inf_union(Left1, Left2, N+1, [T|Acc], ThrowList, Opaques)
+  catch throw:{pos, Ns} ->
+      inf_union(Left1, Left2, N, [?none|Acc], Ns ++ ThrowList, Opaques)
   end;
-inf_union([], [], N, Acc, _Mode) ->
-  if N =:= 0 -> ?none;
+inf_union([], [], N, Acc, ThrowList, _Opaques) ->
+  if N =:= 0 -> {?none, ThrowList};
      N =:= 1 ->
       [Type] = [T || T <- Acc, T =/= ?none],
-      Type;
-     N >= 2  -> ?union(lists:reverse(Acc))
+      {Type, ThrowList};
+     N >= 2  -> {?union(lists:reverse(Acc)), ThrowList}
   end.
 
 inf_bitstr(U1, B1, U2, B2) ->
@@ -2489,77 +3301,33 @@ findfirst(N1, N2, U1, B1, U2, B2) ->
 %%-----------------------------------------------------------------------------
 %% Substitution of variables
 %%
-%% Dialyzer versions prior to R15B used a dict data structure to map variables
-%% to types. Hans Bolinder suggested the use of lists of Key-Value pairs for
-%% this data structure and measurements showed a non-trivial speedup when using
-%% them for operations within this module (e.g. in t_unify/2). However, there
-%% is code outside erl_types that still passes a dict() in the 2nd argument.
-%% So, for the time being, this module provides a t_subst/2 function for these
-%% external calls and a clone of it (t_subst_kv/2) which is used from all calls
-%% from within this module. This code duplication needs to be eliminated at
-%% some point.
 
--spec t_subst(erl_type(), dict()) -> erl_type().
+-type subst_table() :: #{any() => erl_type()}.
 
-t_subst(T, Dict) ->
+-spec t_subst(erl_type(), subst_table()) -> erl_type().
+
+t_subst(T, Map) ->
   case t_has_var(T) of
-    true -> t_subst_dict(T, Dict);
+    true -> t_subst_aux(T, Map);
     false -> T
   end.
-
-t_subst_dict(?var(Id), Dict) ->
-  case dict:find(Id, Dict) of
-    error -> ?any;
-    {ok, Type} -> Type
-  end;
-t_subst_dict(?list(Contents, Termination, Size), Dict) ->
-  case t_subst_dict(Contents, Dict) of
-    ?none -> ?none;
-    NewContents ->
-      %% Be careful here to make the termination collapse if necessary.
-      case t_subst_dict(Termination, Dict) of
-	?nil -> ?list(NewContents, ?nil, Size);
-	?any -> ?list(NewContents, ?any, Size);
-	Other ->
-	  ?list(NewContents2, NewTermination, _) = t_cons(NewContents, Other),
-	  ?list(NewContents2, NewTermination, Size)
-      end
-  end;
-t_subst_dict(?function(Domain, Range), Dict) ->
-  ?function(t_subst_dict(Domain, Dict), t_subst_dict(Range, Dict));
-t_subst_dict(?product(Types), Dict) ->
-  ?product([t_subst_dict(T, Dict) || T <- Types]);
-t_subst_dict(?tuple(?any, ?any, ?any) = T, _Dict) ->
-  T;
-t_subst_dict(?tuple(Elements, _Arity, _Tag), Dict) ->
-  t_tuple([t_subst_dict(E, Dict) || E <- Elements]);
-t_subst_dict(?tuple_set(_) = TS, Dict) ->
-  t_sup([t_subst_dict(T, Dict) || T <- t_tuple_subtypes(TS)]);
-t_subst_dict(T, _Dict) ->
-  T.
 
 -spec subst_all_vars_to_any(erl_type()) -> erl_type().
 
 subst_all_vars_to_any(T) ->
-  t_subst_kv(T, []).
+  t_subst(T, #{}).
 
-t_subst_kv(T, KVMap) ->
-  case t_has_var(T) of
-    true -> t_subst_aux(T, KVMap);
-    false -> T
-  end.
-
-t_subst_aux(?var(Id), VarMap) ->
-  case lists:keyfind(Id, 1, VarMap) of
-    false -> ?any;
-    {Id, Type} -> Type
+t_subst_aux(?var(Id), Map) ->
+  case maps:find(Id, Map) of
+    error -> ?any;
+    {ok, Type} -> Type
   end;
-t_subst_aux(?list(Contents, Termination, Size), VarMap) ->
-  case t_subst_aux(Contents, VarMap) of
+t_subst_aux(?list(Contents, Termination, Size), Map) ->
+  case t_subst_aux(Contents, Map) of
     ?none -> ?none;
     NewContents ->
       %% Be careful here to make the termination collapse if necessary.
-      case t_subst_aux(Termination, VarMap) of
+      case t_subst_aux(Termination, Map) of
 	?nil -> ?list(NewContents, ?nil, Size);
 	?any -> ?list(NewContents, ?any, Size);
 	Other ->
@@ -2567,19 +3335,29 @@ t_subst_aux(?list(Contents, Termination, Size), VarMap) ->
 	  ?list(NewContents2, NewTermination, Size)
       end
   end;
-t_subst_aux(?function(Domain, Range), VarMap) ->
-  ?function(t_subst_aux(Domain, VarMap), t_subst_aux(Range, VarMap));
-t_subst_aux(?product(Types), VarMap) ->
-  ?product([t_subst_aux(T, VarMap) || T <- Types]);
-t_subst_aux(?tuple(?any, ?any, ?any) = T, _VarMap) ->
+t_subst_aux(?function(Domain, Range), Map) ->
+  ?function(t_subst_aux(Domain, Map), t_subst_aux(Range, Map));
+t_subst_aux(?product(Types), Map) ->
+  ?product([t_subst_aux(T, Map) || T <- Types]);
+t_subst_aux(?tuple(?any, ?any, ?any) = T, _Map) ->
   T;
-t_subst_aux(?tuple(Elements, _Arity, _Tag), VarMap) ->
-  t_tuple([t_subst_aux(E, VarMap) || E <- Elements]);
-t_subst_aux(?tuple_set(_) = TS, VarMap) ->
-  t_sup([t_subst_aux(T, VarMap) || T <- t_tuple_subtypes(TS)]);
-t_subst_aux(T, _VarMap) ->
+t_subst_aux(?tuple(Elements, _Arity, _Tag), Map) ->
+  t_tuple([t_subst_aux(E, Map) || E <- Elements]);
+t_subst_aux(?tuple_set(_) = TS, Map) ->
+  t_sup([t_subst_aux(T, Map) || T <- t_tuple_subtypes(TS)]);
+t_subst_aux(?map(Pairs, DefK, DefV), Map) ->
+  t_map([{K, MNess, t_subst_aux(V, Map)} || {K, MNess, V} <- Pairs],
+	t_subst_aux(DefK, Map), t_subst_aux(DefV, Map));
+t_subst_aux(?opaque(Es), Map) ->
+  List = [Opaque#opaque{args = [t_subst_aux(Arg, Map) || Arg <- Args],
+                        struct = t_subst_aux(S, Map)} ||
+           Opaque = #opaque{args = Args, struct = S} <- set_to_list(Es)],
+  ?opaque(ordsets:from_list(List));
+t_subst_aux(?union(List), Map) ->
+  ?union([t_subst_aux(E, Map) || E <- List]);
+t_subst_aux(T, _Map) ->
   T.
-	      
+
 %%-----------------------------------------------------------------------------
 %% Unification
 %%
@@ -2589,112 +3367,169 @@ t_subst_aux(T, _VarMap) ->
 -spec t_unify(erl_type(), erl_type()) -> t_unify_ret().
 
 t_unify(T1, T2) ->
-  t_unify(T1, T2, []).
+  {T, VarMap} = t_unify(T1, T2, #{}),
+  {t_subst(T, VarMap), lists:keysort(1, maps:to_list(VarMap))}.
 
--spec t_unify(erl_type(), erl_type(), [erl_type()]) -> t_unify_ret().
-
-t_unify(T1, T2, Opaques) ->
-  {T, VarMap} = t_unify(T1, T2, [], Opaques),
-  {t_subst_kv(T, VarMap), lists:keysort(1, VarMap)}.
-
-t_unify(?var(Id) = T, ?var(Id), VarMap, _Opaques) ->
+t_unify(?var(Id) = T, ?var(Id), VarMap) ->
   {T, VarMap};
-t_unify(?var(Id1) = T, ?var(Id2), VarMap, Opaques) ->
-  case lists:keyfind(Id1, 1, VarMap) of
-    false ->
-      case lists:keyfind(Id2, 1, VarMap) of
-	false -> {T, [{Id2, T} | VarMap]};
-	{Id2, Type} -> t_unify(T, Type, VarMap, Opaques)
+t_unify(?var(Id1) = T, ?var(Id2), VarMap) ->
+  case maps:find(Id1, VarMap) of
+    error ->
+      case maps:find(Id2, VarMap) of
+	error -> {T, VarMap#{Id2 => T}};
+	{ok, Type} -> t_unify(T, Type, VarMap)
       end;
-    {Id1, Type1} ->
-      case lists:keyfind(Id2, 1, VarMap) of
-	false -> {Type1, [{Id2, T} | VarMap]};
-	{Id2, Type2} -> t_unify(Type1, Type2, VarMap, Opaques)
+    {ok, Type1} ->
+      case maps:find(Id2, VarMap) of
+	error -> {Type1, VarMap#{Id2 => T}};
+	{ok, Type2} -> t_unify(Type1, Type2, VarMap)
       end
   end;
-t_unify(?var(Id), Type, VarMap, Opaques) ->
-  case lists:keyfind(Id, 1, VarMap) of
-    false -> {Type, [{Id, Type} | VarMap]};
-    {Id, VarType} -> t_unify(VarType, Type, VarMap, Opaques)
+t_unify(?var(Id), Type, VarMap) ->
+  case maps:find(Id, VarMap) of
+    error -> {Type, VarMap#{Id => Type}};
+    {ok, VarType} -> t_unify(VarType, Type, VarMap)
   end;
-t_unify(Type, ?var(Id), VarMap, Opaques) ->
-  case lists:keyfind(Id, 1, VarMap) of
-    false -> {Type, [{Id, Type} | VarMap]};
-    {Id, VarType} -> t_unify(VarType, Type, VarMap, Opaques)
+t_unify(Type, ?var(Id), VarMap) ->
+  case maps:find(Id, VarMap) of
+    error -> {Type, VarMap#{Id => Type}};
+    {ok, VarType} -> t_unify(VarType, Type, VarMap)
   end;
-t_unify(?function(Domain1, Range1), ?function(Domain2, Range2), VarMap, Opaques) ->
-  {Domain, VarMap1} = t_unify(Domain1, Domain2, VarMap, Opaques),
-  {Range, VarMap2} = t_unify(Range1, Range2, VarMap1, Opaques),
+t_unify(?function(Domain1, Range1), ?function(Domain2, Range2), VarMap) ->
+  {Domain, VarMap1} = t_unify(Domain1, Domain2, VarMap),
+  {Range, VarMap2} = t_unify(Range1, Range2, VarMap1),
   {?function(Domain, Range), VarMap2};
 t_unify(?list(Contents1, Termination1, Size), 
-	?list(Contents2, Termination2, Size), VarMap, Opaques) ->
-  {Contents, VarMap1} = t_unify(Contents1, Contents2, VarMap, Opaques),
-  {Termination, VarMap2} = t_unify(Termination1, Termination2, VarMap1, Opaques),
+	?list(Contents2, Termination2, Size), VarMap) ->
+  {Contents, VarMap1} = t_unify(Contents1, Contents2, VarMap),
+  {Termination, VarMap2} = t_unify(Termination1, Termination2, VarMap1),
   {?list(Contents, Termination, Size), VarMap2};
-t_unify(?product(Types1), ?product(Types2), VarMap, Opaques) ->
-  {Types, VarMap1} = unify_lists(Types1, Types2, VarMap, Opaques),
+t_unify(?product(Types1), ?product(Types2), VarMap) ->
+  {Types, VarMap1} = unify_lists(Types1, Types2, VarMap),
   {?product(Types), VarMap1};
-t_unify(?tuple(?any, ?any, ?any) = T, ?tuple(?any, ?any, ?any), VarMap, _Opaques) ->
+t_unify(?tuple(?any, ?any, ?any) = T, ?tuple(?any, ?any, ?any), VarMap) ->
   {T, VarMap};
 t_unify(?tuple(Elements1, Arity, _), 
-	?tuple(Elements2, Arity, _), VarMap, Opaques) when Arity =/= ?any ->
-  {NewElements, VarMap1} = unify_lists(Elements1, Elements2, VarMap, Opaques),
+	?tuple(Elements2, Arity, _), VarMap) when Arity =/= ?any ->
+  {NewElements, VarMap1} = unify_lists(Elements1, Elements2, VarMap),
   {t_tuple(NewElements), VarMap1};
 t_unify(?tuple_set([{Arity, _}]) = T1, 
-	?tuple(_, Arity, _) = T2, VarMap, Opaques) when Arity =/= ?any ->
-  unify_tuple_set_and_tuple(T1, T2, VarMap, Opaques);
+	?tuple(_, Arity, _) = T2, VarMap) when Arity =/= ?any ->
+  unify_tuple_set_and_tuple1(T1, T2, VarMap);
 t_unify(?tuple(_, Arity, _) = T1,
-	?tuple_set([{Arity, _}]) = T2, VarMap, Opaques) when Arity =/= ?any ->
-  unify_tuple_set_and_tuple(T2, T1, VarMap, Opaques);
-t_unify(?tuple_set(List1), ?tuple_set(List2), VarMap, Opaques) ->
-  {Tuples, NewVarMap} =
-    unify_lists(lists:append([T || {_Arity, T} <- List1]), 
-		lists:append([T || {_Arity, T} <- List2]), VarMap, Opaques),
-  {t_sup(Tuples), NewVarMap};
-t_unify(?opaque(Elements) = T, ?opaque(Elements), VarMap, _Opaques) ->
+	?tuple_set([{Arity, _}]) = T2, VarMap) when Arity =/= ?any ->
+  unify_tuple_set_and_tuple2(T1, T2, VarMap);
+t_unify(?tuple_set(List1) = T1, ?tuple_set(List2) = T2, VarMap) ->
+  try
+    unify_lists(lists:append([T || {_Arity, T} <- List1]),
+                lists:append([T || {_Arity, T} <- List2]), VarMap)
+  of
+    {Tuples, NewVarMap} -> {t_sup(Tuples), NewVarMap}
+  catch _:_ -> throw({mismatch, T1, T2})
+  end;
+t_unify(?map(_, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B, VarMap0) ->
+  {DefK, VarMap1} = t_unify(ADefK, BDefK, VarMap0),
+  {DefV, VarMap2} = t_unify(ADefV, BDefV, VarMap1),
+  {Pairs, VarMap} =
+    map_pairwise_merge_foldr(
+      fun(K, MNess, V1, MNess, V2, {Pairs0, VarMap3}) ->
+	  %% We know that the keys unify and do not contain variables, or they
+	  %% would not be singletons
+	  %% TODO: Should V=?none (known missing keys) be handled special?
+	  {V, VarMap4} = t_unify(V1, V2, VarMap3),
+	  {[{K,MNess,V}|Pairs0], VarMap4};
+	 (K, _, V1, _, V2, {Pairs0, VarMap3}) ->
+	  %% One mandatory and one optional; what should be done in this case?
+	  {V, VarMap4} = t_unify(V1, V2, VarMap3),
+	  {[{K,?mand,V}|Pairs0], VarMap4}
+      end, {[], VarMap2}, A, B),
+  {t_map(Pairs, DefK, DefV), VarMap};
+t_unify(?opaque(_) = T1, ?opaque(_) = T2, VarMap) ->
+  t_unify(t_opaque_structure(T1), t_opaque_structure(T2), VarMap);
+t_unify(T1, ?opaque(_) = T2, VarMap) ->
+  t_unify(T1, t_opaque_structure(T2), VarMap);
+t_unify(?opaque(_) = T1, T2, VarMap) ->
+  t_unify(t_opaque_structure(T1), T2, VarMap);
+t_unify(T, T, VarMap) ->
   {T, VarMap};
-t_unify(?opaque(_) = T1, ?opaque(_) = T2, _VarMap, _Opaques) ->
-  throw({mismatch, T1, T2});
-t_unify(Type, ?opaque(_) = OpType, VarMap, Opaques) ->
-  t_unify_with_opaque(Type, OpType, VarMap, Opaques);
-t_unify(?opaque(_) = OpType, Type, VarMap, Opaques) ->
-  t_unify_with_opaque(Type, OpType, VarMap, Opaques);
-t_unify(T, T, VarMap, _Opaques) ->
-  {T, VarMap};
-t_unify(T1, T2, _, _) ->
+t_unify(?union(_)=T1, ?union(_)=T2, VarMap) ->
+  {Type1, Type2} = unify_union2(T1, T2),
+  t_unify(Type1, Type2, VarMap);
+t_unify(?union(_)=T1, T2, VarMap) ->
+  t_unify(unify_union1(T1, T1, T2), T2, VarMap);
+t_unify(T1, ?union(_)=T2, VarMap) ->
+  t_unify(T1, unify_union1(T2, T1, T2), VarMap);
+t_unify(T1, T2, _) ->
   throw({mismatch, T1, T2}).
 
-t_unify_with_opaque(Type, OpType, VarMap, Opaques) ->
-  case lists:member(OpType, Opaques) of
-    true ->
-      Struct = t_opaque_structure(OpType),
-      try t_unify(Type, Struct, VarMap, Opaques) of
-	{_T, VarMap1} -> {OpType, VarMap1}
-      catch
-	throw:{mismatch, _T1, _T2} ->
-	  case t_inf(OpType, Type, opaque) of
-	    ?none -> throw({mismatch, Type, OpType});
-	    _ -> {OpType, VarMap}
-	  end
-      end;
-    false ->
-      throw({mismatch, Type, OpType})
+unify_union2(?union(List1)=T1, ?union(List2)=T2) ->
+  case {unify_union(List1), unify_union(List2)} of
+    {{yes, Type1}, {yes, Type2}} -> {Type1, Type2};
+    {{yes, Type1}, no} -> {Type1, T2};
+    {no, {yes, Type2}} -> {T1, Type2};
+    {no, no} -> throw({mismatch, T1, T2})
   end.
 
-unify_tuple_set_and_tuple(?tuple_set([{Arity, List}]), 
-			  ?tuple(Elements2, Arity, _), VarMap, Opaques) ->
+unify_union1(?union(List), T1, T2) ->
+  case unify_union(List) of
+    {yes, Type} -> Type;
+    no -> throw({mismatch, T1, T2})
+  end.
+
+unify_union(List) ->
+  [A,B,F,I,L,N,T,M,O,Map] = List,
+  if O =:= ?none -> no;
+    true ->
+      S = t_opaque_structure(O),
+      {yes, t_sup([A,B,F,I,L,N,T,M,S,Map])}
+  end.
+
+-spec is_opaque_type(erl_type(), [erl_type()]) -> boolean().
+
+%% An opaque type is a union of types. Returns true iff any of the type
+%% names (Module and Name) of the first argument (the opaque type to
+%% check) occurs in any of the opaque types of the second argument.
+is_opaque_type(?opaque(Elements), Opaques) ->
+  lists:any(fun(Opaque) -> is_opaque_type2(Opaque, Opaques) end, Elements).
+
+is_opaque_type2(#opaque{mod = Mod1, name = Name1, args = Args1}, Opaques) ->
+  F1 = fun(?opaque(Es)) ->
+           F2 = fun(#opaque{mod = Mod, name = Name, args = Args}) ->
+                    is_type_name(Mod1, Name1, Args1, Mod, Name, Args)
+                end,
+           lists:any(F2, Es)
+       end,
+  lists:any(F1, Opaques).
+
+is_type_name(Mod, Name, Args1, Mod, Name, Args2) ->
+  length(Args1) =:= length(Args2);
+is_type_name(_Mod1, _Name1, _Args1, _Mod2, _Name2, _Args2) ->
+  false.
+
+%% Two functions since t_unify is not symmetric.
+unify_tuple_set_and_tuple1(?tuple_set([{Arity, List}]),
+                           ?tuple(Elements2, Arity, _), VarMap) ->
   %% Can only work if the single tuple has variables at correct places.
   %% Collapse the tuple set.
-  {NewElements, VarMap1} = unify_lists(sup_tuple_elements(List), Elements2, VarMap, Opaques),
+  {NewElements, VarMap1} =
+    unify_lists(sup_tuple_elements(List), Elements2, VarMap),
   {t_tuple(NewElements), VarMap1}.
 
-unify_lists(L1, L2, VarMap, Opaques) ->
-  unify_lists(L1, L2, VarMap, [], Opaques).
+unify_tuple_set_and_tuple2(?tuple(Elements2, Arity, _),
+                           ?tuple_set([{Arity, List}]), VarMap) ->
+  %% Can only work if the single tuple has variables at correct places.
+  %% Collapse the tuple set.
+  {NewElements, VarMap1} =
+    unify_lists(Elements2, sup_tuple_elements(List), VarMap),
+  {t_tuple(NewElements), VarMap1}.
 
-unify_lists([T1|Left1], [T2|Left2], VarMap, Acc, Opaques) ->
-  {NewT, NewVarMap} = t_unify(T1, T2, VarMap, Opaques),
-  unify_lists(Left1, Left2, NewVarMap, [NewT|Acc], Opaques);
-unify_lists([], [], VarMap, Acc, _Opaques) ->
+unify_lists(L1, L2, VarMap) ->
+  unify_lists(L1, L2, VarMap, []).
+
+unify_lists([T1|Left1], [T2|Left2], VarMap, Acc) ->
+  {NewT, NewVarMap} = t_unify(T1, T2, VarMap),
+  unify_lists(Left1, Left2, NewVarMap, [NewT|Acc]);
+unify_lists([], [], VarMap, Acc) ->
   {lists:reverse(Acc), VarMap}.
 
 %%t_assign_variables_to_subtype(T1, T2) ->
@@ -2812,7 +3647,7 @@ t_subtract_list(T, []) ->
 -spec t_subtract(erl_type(), erl_type()) -> erl_type().
 
 t_subtract(_, ?any) -> ?none;
-t_subtract(_, ?var(_)) -> ?none;
+t_subtract(T, ?var(_)) -> T;
 t_subtract(?any, _) -> ?any;
 t_subtract(?var(_) = T, _) -> T;
 t_subtract(T, ?unit) -> T;
@@ -2836,11 +3671,12 @@ t_subtract(?identifier(Set1), ?identifier(Set2)) ->
     ?none -> ?none;
     Set -> ?identifier(Set)
   end;
-t_subtract(?opaque(Set1), ?opaque(Set2)) ->
-  case set_subtract(Set1, Set2) of
-    ?none -> ?none;
-    Set -> ?opaque(Set)
-  end;
+t_subtract(?opaque(_)=T1, ?opaque(_)=T2) ->
+  opaque_subtract(T1, t_opaque_structure(T2));
+t_subtract(?opaque(_)=T1, T2) ->
+  opaque_subtract(T1, T2);
+t_subtract(T1, ?opaque(_)=T2) ->
+  t_subtract(T1, t_opaque_structure(T2));
 t_subtract(?matchstate(Pres1, Slots1), ?matchstate(Pres2, _Slots2)) ->
   Pres = t_subtract(Pres1, Pres2),
   case t_is_none(Pres) of
@@ -2964,6 +3800,50 @@ t_subtract(?product(Elements1) = T1, ?product(Elements2)) ->
 	_ -> T1
       end
   end;
+t_subtract(?map(APairs, ADefK, ADefV) = A, ?map(_, BDefK, BDefV) = B) ->
+  case t_is_subtype(ADefK, BDefK) andalso t_is_subtype(ADefV, BDefV) of
+    false -> A;
+    true ->
+      %% We fold over the maps to produce a list of constraints, where
+      %% constraints are additional key-value pairs to put in Pairs. Only one
+      %% constraint need to be applied to produce a type that excludes the
+      %% right-hand-side type, so if more than one constraint is produced, we
+      %% just return the left-hand-side argument.
+      %%
+      %% Each case of the fold may either conclude that
+      %%  * The arguments constrain A at least as much as B, i.e. that A so far
+      %%    is a subtype of B. In that case they return false
+      %%  * That for the particular arguments, A being a subtype of B does not
+      %%    hold, but the infinimum of A and B is nonempty, and by narrowing a
+      %%    pair in A, we can create a type that excludes some elements in the
+      %%    infinumum. In that case, they will return that pair.
+      %%  * That for the particular arguments, A being a subtype of B does not
+      %%    hold, and either the infinumum of A and B is empty, or it is not
+      %%    possible with the current representation to create a type that
+      %%    excludes elements from B without also excluding elements that are
+      %%    only in A. In that case, it will return the pair from A unchanged.
+      case
+	map_pairwise_merge(
+	  %% If V1 is a subtype of V2, the case that K does not exist in A
+	  %% remain.
+	  fun(K, ?opt, V1, ?mand, V2) -> {K, ?opt, t_subtract(V1, V2)};
+	     (K, _,    V1, _,     V2) ->
+	      %% If we subtract an optional key, that leaves a mandatory key
+	      case t_subtract(V1, V2) of
+		?none -> false;
+		Partial -> {K, ?mand, Partial}
+	      end
+	  end, A, B)
+      of
+	  %% We produce a list of keys that are constrained. As only one of
+	  %% these should apply at a time, we can't represent the difference if
+	  %% more than one constraint is produced. If we applied all of them,
+	  %% that would make an underapproximation, which we must not do.
+	  [] -> ?none; %% A is a subtype of B
+	  [E] -> t_map(mapdict_store(E, APairs), ADefK, ADefV);
+	  _ -> A
+      end
+  end;
 t_subtract(?product(P1), _) ->
   ?product(P1);
 t_subtract(T, ?product(_)) ->
@@ -2974,6 +3854,17 @@ t_subtract(T1, T2) ->
   ?union(U1) = force_union(T1),
   ?union(U2) = force_union(T2),
   subtract_union(U1, U2).
+
+-spec opaque_subtract(erl_type(), erl_type()) -> erl_type().
+
+opaque_subtract(?opaque(Set1), T2) ->
+  List = [T1#opaque{struct = Sub} ||
+           #opaque{struct = S1}=T1 <- set_to_list(Set1),
+           not t_is_none(Sub = t_subtract(S1, T2))],
+  case List of
+    [] -> ?none;
+    _ -> ?opaque(ordsets:from_list(List))
+  end.
 
 -spec t_subtract_lists([erl_type()], [erl_type()]) -> [erl_type()].
 
@@ -2990,7 +3881,18 @@ t_subtract_lists([], [], Acc) ->
 -spec subtract_union([erl_type(),...], [erl_type(),...]) -> erl_type().
 
 subtract_union(U1, U2) ->
-  subtract_union(U1, U2, 0, []).
+  [A1,B1,F1,I1,L1,N1,T1,M1,O1,Map1] = U1,
+  [A2,B2,F2,I2,L2,N2,T2,M2,O2,Map2] = U2,
+  List1 = [A1,B1,F1,I1,L1,N1,T1,M1,?none,Map1],
+  List2 = [A2,B2,F2,I2,L2,N2,T2,M2,?none,Map2],
+  Sub1 = subtract_union(List1, List2, 0, []),
+  O = if O1 =:= ?none -> O1;
+         true -> t_subtract(O1, ?union(U2))
+      end,
+  Sub2 = if O2 =:= ?none -> Sub1;
+            true -> t_subtract(Sub1, t_opaque_structure(O2))
+         end,
+  t_sup(O, Sub2).
 
 -spec subtract_union([erl_type()], [erl_type()], non_neg_integer(), [erl_type()]) -> erl_type().
 
@@ -3051,27 +3953,46 @@ t_is_equal(_, _) -> false.
 
 t_is_subtype(T1, T2) ->
   Inf = t_inf(T1, T2),
-  t_is_equal(T1, Inf).
+  subtype_is_equal(T1, Inf).
+
+%% The subtype relation has to behave correctly irrespective of opaque
+%% types.
+subtype_is_equal(T, T)   -> true;
+subtype_is_equal(T1, T2) ->
+  t_is_equal(case t_contains_opaque(T1) of
+               true  -> t_unopaque(T1);
+               false -> T1
+             end,
+             case t_contains_opaque(T2) of
+               true  -> t_unopaque(T2);
+               false -> T2
+             end).
 
 -spec t_is_instance(erl_type(), erl_type()) -> boolean().
 
+%% XXX. To be removed.
 t_is_instance(ConcreteType, Type) ->
   t_is_subtype(ConcreteType, t_unopaque(Type)).
+
+-spec t_do_overlap(erl_type(), erl_type()) -> boolean().
+
+t_do_overlap(TypeA, TypeB) ->
+  not (t_is_none_or_unit(t_inf(TypeA, TypeB))).
 
 -spec t_unopaque(erl_type()) -> erl_type().
 
 t_unopaque(T) ->
   t_unopaque(T, 'universe').
 
--spec t_unopaque(erl_type(), 'universe' | [erl_type()]) -> erl_type().
+-spec t_unopaque(erl_type(), opaques()) -> erl_type().
 
 t_unopaque(?opaque(_) = T, Opaques) ->
-  case Opaques =:= universe orelse lists:member(T, Opaques) of
+  case Opaques =:= 'universe' orelse is_opaque_type(T, Opaques) of
     true -> t_unopaque(t_opaque_structure(T), Opaques);
-    false -> T  % XXX: needs revision for parametric opaque data types
+    false -> T
   end;
 t_unopaque(?list(ElemT, Termination, Sz), Opaques) ->
-  ?list(t_unopaque(ElemT, Opaques), Termination, Sz);
+  ?list(t_unopaque(ElemT, Opaques), t_unopaque(Termination, Opaques), Sz);
 t_unopaque(?tuple(?any, _, _) = T, _) -> T;
 t_unopaque(?tuple(ArgTs, Sz, Tag), Opaques) when is_list(ArgTs) ->
   NewArgTs = [t_unopaque(A, Opaques) || A <- ArgTs],
@@ -3080,14 +4001,25 @@ t_unopaque(?tuple_set(Set), Opaques) ->
   NewSet = [{Sz, [t_unopaque(T, Opaques) || T <- Tuples]}
 	    || {Sz, Tuples} <- Set],
   ?tuple_set(NewSet);
-t_unopaque(?union([A,B,F,I,L,N,T,M,O,R]), Opaques) ->
+t_unopaque(?product(Types), Opaques) ->
+  ?product([t_unopaque(T, Opaques) || T <- Types]);
+t_unopaque(?function(Domain, Range), Opaques) ->
+  ?function(t_unopaque(Domain, Opaques), t_unopaque(Range, Opaques));
+t_unopaque(?union([A,B,F,I,L,N,T,M,O,Map]), Opaques) ->
   UL = t_unopaque(L, Opaques),
   UT = t_unopaque(T, Opaques),
-  UO = case O of
-	 ?none -> [];
-	 ?opaque(Os) -> [t_unopaque(S, Opaques) || #opaque{struct = S} <- Os]
-       end,
-  t_sup([?union([A,B,F,I,UL,N,UT,M,?none,R])|UO]);
+  UF = t_unopaque(F, Opaques),
+  UM = t_unopaque(M, Opaques),
+  UMap = t_unopaque(Map, Opaques),
+  {OF,UO} = case t_unopaque(O, Opaques) of
+              ?opaque(_) = O1 -> {O1, []};
+              Type -> {?none, [Type]}
+            end,
+  t_sup([?union([A,B,UF,I,UL,N,UT,UM,OF,UMap])|UO]);
+t_unopaque(?map(Pairs,DefK,DefV), Opaques) ->
+  t_map([{K, MNess, t_unopaque(V, Opaques)} || {K, MNess, V} <- Pairs],
+	t_unopaque(DefK, Opaques),
+	t_unopaque(DefV, Opaques));
 t_unopaque(T, _) ->
   T.
 
@@ -3133,6 +4065,22 @@ t_limit_k(?product(Elements), K) ->
   ?product([t_limit_k(X, K - 1) || X <- Elements]);
 t_limit_k(?union(Elements), K) ->
   ?union([t_limit_k(X, K) || X <- Elements]);
+t_limit_k(?opaque(Es), K) ->
+  List = [begin
+            NewS = t_limit_k(S, K),
+            Opaque#opaque{struct = NewS}
+          end || #opaque{struct = S} = Opaque <- set_to_list(Es)],
+  ?opaque(ordsets:from_list(List));
+t_limit_k(?map(Pairs0, DefK0, DefV0), K) ->
+  Fun = fun({EK, MNess, EV}, {Exact, DefK1, DefV1}) ->
+	    LV = t_limit_k(EV, K - 1),
+	    case t_limit_k(EK, K - 1) of
+	      EK -> {[{EK,MNess,LV}|Exact], DefK1, DefV1};
+	      LK -> {Exact, t_sup(LK, DefK1), t_sup(LV, DefV1)}
+	    end
+	end,
+  {Pairs, DefK2, DefV2} = lists:foldr(Fun, {[], DefK0, DefV0}, Pairs0),
+  t_map(Pairs, t_limit_k(DefK2, K - 1), t_limit_k(DefV2, K - 1));
 t_limit_k(T, _K) -> T.
 
 %%============================================================================
@@ -3141,7 +4089,7 @@ t_limit_k(T, _K) -> T.
 %%
 %%============================================================================
 
--spec t_abstract_records(erl_type(), dict()) -> erl_type().
+-spec t_abstract_records(erl_type(), type_table()) -> erl_type().
 
 t_abstract_records(?list(Contents, Termination, Size), RecDict) ->
   case t_abstract_records(Contents, RecDict) of
@@ -3166,15 +4114,17 @@ t_abstract_records(?union(Types), RecDict) ->
 t_abstract_records(?tuple(?any, ?any, ?any) = T, _RecDict) ->
   T;
 t_abstract_records(?tuple(Elements, Arity, ?atom(_) = Tag), RecDict) ->
-  [TagAtom] = t_atom_vals(Tag),
+  [TagAtom] = atom_vals(Tag),
   case lookup_record(TagAtom, Arity - 1, RecDict) of
     error -> t_tuple([t_abstract_records(E, RecDict) || E <- Elements]);
-    {ok, Fields} -> t_tuple([Tag|[T || {_Name, T} <- Fields]])
+    {ok, Fields} -> t_tuple([Tag|[T || {_Name, _Abstr, T} <- Fields]])
   end;
 t_abstract_records(?tuple(Elements, _Arity, _Tag), RecDict) ->
   t_tuple([t_abstract_records(E, RecDict) || E <- Elements]);
 t_abstract_records(?tuple_set(_) = Tuples, RecDict) ->
   t_sup([t_abstract_records(T, RecDict) || T <- t_tuple_subtypes(Tuples)]);
+t_abstract_records(?opaque(_)=Type, RecDict) ->
+  t_abstract_records(t_opaque_structure(Type), RecDict);
 t_abstract_records(T, _RecDict) -> 
   T.
 
@@ -3197,6 +4147,17 @@ t_map(Fun, ?tuple(Elements, _Arity, _Tag)) ->
   Fun(t_tuple([t_map(Fun, E) || E <- Elements]));
 t_map(Fun, ?tuple_set(_) = Tuples) ->
   Fun(t_sup([t_map(Fun, T) || T <- t_tuple_subtypes(Tuples)]));
+t_map(Fun, ?opaque(Set)) ->
+  L = [Opaque#opaque{struct = NewS} ||
+        #opaque{struct = S} = Opaque <- set_to_list(Set),
+        not t_is_none(NewS = t_map(Fun, S))],
+  Fun(case L of
+        [] -> ?none;
+        _ -> ?opaque(ordsets:from_list(L))
+      end);
+t_map(Fun, ?map(Pairs,DefK,DefV)) ->
+  %% TODO:
+  Fun(t_map(Pairs, Fun(DefK), Fun(DefV)));
 t_map(Fun, T) ->
   Fun(T).
 
@@ -3211,7 +4172,7 @@ t_map(Fun, T) ->
 t_to_string(T) ->
   t_to_string(T, dict:new()).
 
--spec t_to_string(erl_type(), dict()) -> string().
+-spec t_to_string(erl_type(), type_table()) -> string().
 
 t_to_string(?any, _RecDict) ->
   "any()";
@@ -3238,11 +4199,11 @@ t_to_string(?bitstr(8, 0), _RecDict) ->
 t_to_string(?bitstr(1, 0), _RecDict) ->
   "bitstring()";
 t_to_string(?bitstr(0, B), _RecDict) ->
-  lists:flatten(io_lib:format("<<_:~w>>", [B]));
+  flat_format("<<_:~w>>", [B]);
 t_to_string(?bitstr(U, 0), _RecDict) ->
-  lists:flatten(io_lib:format("<<_:_*~w>>", [U]));
+  flat_format("<<_:_*~w>>", [U]);
 t_to_string(?bitstr(U, B), _RecDict) ->
-  lists:flatten(io_lib:format("<<_:~w,_:_*~w>>", [B, U]));
+  flat_format("<<_:~w,_:_*~w>>", [B, U]);
 t_to_string(?function(?any, ?any), _RecDict) ->
   "fun()";
 t_to_string(?function(?any, Range), RecDict) ->
@@ -3254,18 +4215,16 @@ t_to_string(?identifier(Set), _RecDict) ->
   case Set of
     ?any -> "identifier()";
     _ ->
-      string:join([io_lib:format("~w()", [T]) || T <- set_to_list(Set)], " | ")
+      string:join([flat_format("~w()", [T]) || T <- set_to_list(Set)], " | ")
   end;
-t_to_string(?opaque(Set), _RecDict) ->
-  string:join([case is_opaque_builtin(Mod, Name) of
-		 true  -> io_lib:format("~w()", [Name]);
-		 false -> io_lib:format("~w:~w()", [Mod, Name])
-	       end
-	       || #opaque{mod = Mod, name = Name} <- set_to_list(Set)],
+t_to_string(?opaque(Set), RecDict) ->
+  string:join([opaque_type(Mod, Name, Args, S, RecDict) ||
+                #opaque{mod = Mod, name = Name, struct = S, args = Args}
+                  <- set_to_list(Set)],
 	      " | ");
 t_to_string(?matchstate(Pres, Slots), RecDict) ->
-  io_lib:format("ms(~s,~s)", [t_to_string(Pres, RecDict),
-			      t_to_string(Slots,RecDict)]);
+  flat_format("ms(~s,~s)", [t_to_string(Pres, RecDict),
+                            t_to_string(Slots,RecDict)]);
 t_to_string(?nil, _RecDict) ->
   "[]";
 t_to_string(?nonempty_list(Contents, Termination), RecDict) ->
@@ -3281,7 +4240,9 @@ t_to_string(?nonempty_list(Contents, Termination), RecDict) ->
       case Contents =:= ?any of
 	true -> ok;
 	false ->
-	  erlang:error({illegal_list, ?nonempty_list(Contents, Termination)})
+          %% XXX. See comment below.
+          %% erlang:error({illegal_list, ?nonempty_list(Contents, Termination)})
+          ok
       end,
       "nonempty_maybe_improper_list()";
     _ ->
@@ -3304,11 +4265,14 @@ t_to_string(?list(Contents, Termination, ?unknown_qual), RecDict) ->
       end;
     ?any ->
       %% Just a safety check.      
+      %% XXX. Types such as "maybe_improper_list(integer(), any())"
+      %% are OK, but cannot be printed!?
       case Contents =:= ?any of
 	true -> ok;
 	false ->
-	  L = ?list(Contents, Termination, ?unknown_qual),
-	  erlang:error({illegal_list, L})
+          ok
+          %% L = ?list(Contents, Termination, ?unknown_qual),
+          %% erlang:error({illegal_list, L})
       end,
       "maybe_improper_list()";
     _ -> 
@@ -3329,27 +4293,33 @@ t_to_string(?integer_pos, _RecDict) -> "pos_integer()";
 t_to_string(?integer_non_neg, _RecDict) -> "non_neg_integer()";
 t_to_string(?integer_neg, _RecDict) -> "neg_integer()";
 t_to_string(?int_range(From, To), _RecDict) ->
-  lists:flatten(io_lib:format("~w..~w", [From, To]));
+  flat_format("~w..~w", [From, To]);
 t_to_string(?integer(?any), _RecDict) -> "integer()";
 t_to_string(?float, _RecDict) -> "float()";
 t_to_string(?number(?any, ?unknown_qual), _RecDict) -> "number()";
 t_to_string(?product(List), RecDict) -> 
   "<" ++ comma_sequence(List, RecDict) ++ ">";
-t_to_string(?remote(Set), RecDict) ->
-  string:join([case Args =:= [] of
-		 true  -> io_lib:format("~w:~w()", [Mod, Name]);
-		 false ->
-		   ArgString = comma_sequence(Args, RecDict),
-		   io_lib:format("~w:~w(~s)", [Mod, Name, ArgString])
-	       end
-	       || #remote{mod = Mod, name = Name, args = Args} <-
-		    set_to_list(Set)],
-	      " | ");
+t_to_string(?map([],?any,?any), _RecDict) -> "map()";
+t_to_string(?map(Pairs0,DefK,DefV), RecDict) ->
+  {Pairs, ExtraEl} =
+    case {DefK, DefV} of
+      {?none, ?none} -> {Pairs0, []};
+      _ -> {Pairs0 ++ [{DefK,?opt,DefV}], []}
+    end,
+  Tos = fun(T) -> case T of
+		    ?any -> "_";
+		    _ -> t_to_string(T, RecDict)
+		  end end,
+  StrMand = [{Tos(K),Tos(V)}||{K,?mand,V}<-Pairs],
+  StrOpt  = [{Tos(K),Tos(V)}||{K,?opt,V}<-Pairs],
+  "#{" ++ string:join([K ++ ":=" ++ V||{K,V}<-StrMand]
+		      ++ [K ++ "=>" ++ V||{K,V}<-StrOpt]
+		      ++ ExtraEl, ", ") ++ "}";
 t_to_string(?tuple(?any, ?any, ?any), _RecDict) -> "tuple()";
 t_to_string(?tuple(Elements, _Arity, ?any), RecDict) ->   
   "{" ++ comma_sequence(Elements, RecDict) ++ "}";
 t_to_string(?tuple(Elements, Arity, Tag), RecDict) ->
-  [TagAtom] = t_atom_vals(Tag),
+  [TagAtom] = atom_vals(Tag),
   case lookup_record(TagAtom, Arity-1, RecDict) of
     error -> "{" ++ comma_sequence(Elements, RecDict) ++ "}";
     {ok, FieldNames} ->
@@ -3360,41 +4330,43 @@ t_to_string(?tuple_set(_) = T, RecDict) ->
 t_to_string(?union(Types), RecDict) ->
   union_sequence([T || T <- Types, T =/= ?none], RecDict);
 t_to_string(?var(Id), _RecDict) when is_atom(Id) ->
-  io_lib:format("~s", [atom_to_list(Id)]);
+  flat_format("~s", [atom_to_list(Id)]);
 t_to_string(?var(Id), _RecDict) when is_integer(Id) ->
-  io_lib:format("var(~w)", [Id]).
+  flat_format("var(~w)", [Id]).
+
 
 record_to_string(Tag, [_|Fields], FieldNames, RecDict) ->
   FieldStrings = record_fields_to_string(Fields, FieldNames, RecDict, []),
   "#" ++ atom_to_string(Tag) ++ "{" ++ string:join(FieldStrings, ",") ++ "}".
 
-record_fields_to_string([F|Fs], [{FName, _DefType}|FDefs], RecDict, Acc) ->
+record_fields_to_string([F|Fs], [{FName, _Abstr, DefType}|FDefs],
+                        RecDict, Acc) ->
   NewAcc =
-    case t_is_any(F) orelse t_is_atom('undefined', F) of
+    case
+      t_is_equal(F, t_any()) orelse
+      (t_is_any_atom('undefined', F) andalso
+       not t_is_none(t_inf(F, DefType)))
+    of
       true -> Acc;
       false ->
 	StrFV = atom_to_string(FName) ++ "::" ++ t_to_string(F, RecDict),
-	%% ActualDefType = t_subtract(DefType, t_atom('undefined')),
-	%% Str = case t_is_any(ActualDefType) of
-	%% 	  true -> StrFV;
-	%% 	  false -> StrFV ++ "::" ++ t_to_string(ActualDefType, RecDict)
-	%%	end,
 	[StrFV|Acc]
     end,
   record_fields_to_string(Fs, FDefs, RecDict, NewAcc);
 record_fields_to_string([], [], _RecDict, Acc) ->
   lists:reverse(Acc).
 
--spec record_field_diffs_to_string(erl_type(), dict()) -> string().
+-spec record_field_diffs_to_string(erl_type(), type_table()) -> string().
 
 record_field_diffs_to_string(?tuple([_|Fs], Arity, Tag), RecDict) ->
-  [TagAtom] = t_atom_vals(Tag),
+  [TagAtom] = atom_vals(Tag),
   {ok, FieldNames} = lookup_record(TagAtom, Arity-1, RecDict),
   %% io:format("RecCElems = ~p\nRecTypes = ~p\n", [Fs, FieldNames]),
   FieldDiffs = field_diffs(Fs, FieldNames, RecDict, []),
   string:join(FieldDiffs, " and ").
 
-field_diffs([F|Fs], [{FName, DefType}|FDefs], RecDict, Acc) ->
+field_diffs([F|Fs], [{FName, _Abstr, DefType}|FDefs], RecDict, Acc) ->
+  %% Don't care about opaqueness for now.
   NewAcc =
     case not t_is_none(t_inf(F, DefType)) of
       true -> Acc;
@@ -3417,419 +4389,752 @@ union_sequence(Types, RecDict) ->
   List = [t_to_string(T, RecDict) || T <- Types], 
   string:join(List, " | ").
 
+-ifdef(DEBUG).
+opaque_type(Mod, Name, _Args, S, RecDict) ->
+  ArgsString = comma_sequence(_Args, RecDict),
+  String = t_to_string(S, RecDict),
+  opaque_name(Mod, Name, ArgsString) ++ "[" ++ String ++ "]".
+-else.
+opaque_type(Mod, Name, Args, _S, RecDict) ->
+  ArgsString = comma_sequence(Args, RecDict),
+  opaque_name(Mod, Name, ArgsString).
+-endif.
+
+opaque_name(Mod, Name, Extra) ->
+  S = mod_name(Mod, Name),
+  flat_format("~s(~s)", [S, Extra]).
+
+mod_name(Mod, Name) ->
+  flat_format("~w:~w", [Mod, Name]).
+
 %%=============================================================================
 %% 
 %% Build a type from parse forms.
 %%
 %%=============================================================================
 
--spec t_from_form(parse_form()) -> erl_type().
+-type type_names() :: [type_key() | record_key()].
 
-t_from_form(Form) ->
-  t_from_form(Form, dict:new()).
+-type mta()   :: {module(), atom(), arity()}.
+-type mra()   :: {module(), atom(), arity()}.
+-type site()  :: {'type', mta()} | {'spec', mfa()} | {'record', mra()}.
+-type cache_key() :: {module(), atom(), expand_depth(),
+                      [erl_type()], type_names()}.
+-opaque cache() :: #{cache_key() => {erl_type(), expand_limit()}}.
 
--spec t_from_form(parse_form(), dict()) -> erl_type().
+-spec t_from_form(parse_form(), sets:set(mfa()), site(), mod_records(),
+                  var_table(), cache()) -> {erl_type(), cache()}.
 
-t_from_form(Form, RecDict) ->
-  t_from_form(Form, RecDict, dict:new()).
+t_from_form(Form, ExpTypes, Site, RecDict, VarTab, Cache) ->
+  t_from_form1(Form, ExpTypes, Site, RecDict, VarTab, Cache).
 
--spec t_from_form(parse_form(), dict(), dict()) -> erl_type().
+%% Replace external types with with none().
+-spec t_from_form_without_remote(parse_form(), site(), type_table()) ->
+                                    {erl_type(), cache()}.
 
-t_from_form(Form, RecDict, VarDict) ->
-  {T, _R} = t_from_form(Form, [], false, RecDict, VarDict),
-  T.
+t_from_form_without_remote(Form, Site, TypeTable) ->
+  Module = site_module(Site),
+  RecDict = dict:from_list([{Module, TypeTable}]),
+  ExpTypes = replace_by_none,
+  VarTab = var_table__new(),
+  Cache = cache__new(),
+  t_from_form1(Form, ExpTypes, Site, RecDict, VarTab, Cache).
 
--type type_names() :: [{'type' | 'opaque' | 'record', atom()}].
--spec t_from_form(parse_form(), type_names(), boolean(), dict(), dict()) ->
-                     {erl_type(), type_names()}.
+%% REC_TYPE_LIMIT is used for limiting the depth of recursive types.
+%% EXPAND_LIMIT is used for limiting the size of types by
+%% limiting the number of elements of lists within one type form.
+%% EXPAND_DEPTH is used in conjunction with EXPAND_LIMIT to make the
+%% types balanced (unions will otherwise collapse to any()) by limiting
+%% the depth the same way as t_limit/2 does.
 
-t_from_form({var, _L, '_'}, _TypeNames, _InOpaque, _RecDict, _VarDict) ->
-  {t_any(), []};
-t_from_form({var, _L, Name}, _TypeNames, _InOpaque, _RecDict, VarDict) ->
-  case dict:find(Name, VarDict) of
-    error -> {t_var(Name), []};
-    {ok, Val} -> {Val, []}
-  end;
-t_from_form({ann_type, _L, [_Var, Type]}, TypeNames, InOpaque, RecDict,
-            VarDict) ->
-  t_from_form(Type, TypeNames, InOpaque, RecDict, VarDict);
-t_from_form({paren_type, _L, [Type]}, TypeNames, InOpaque, RecDict,
-            VarDict) ->
-  t_from_form(Type, TypeNames, InOpaque, RecDict, VarDict);
-t_from_form({remote_type, _L, [{atom, _, Module}, {atom, _, Type}, Args]},
-	    TypeNames, InOpaque, RecDict, VarDict) ->
-  {L, R} = list_from_form(Args, TypeNames, InOpaque, RecDict, VarDict),
-  {t_remote(Module, Type, L), R};
-t_from_form({atom, _L, Atom}, _TypeNames, _InOpaque, _RecDict, _VarDict) ->
-  {t_atom(Atom), []};
-t_from_form({integer, _L, Int}, _TypeNames, _InOpaque, _RecDict, _VarDict) ->
-  {t_integer(Int), []};
-t_from_form({op, _L, _Op, _Arg} = Op, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  case erl_eval:partial_eval(Op) of
-    {integer, _, Val} ->
-      {t_integer(Val), []};
-    _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Op])})
-  end;
-t_from_form({op, _L, _Op, _Arg1, _Arg2} = Op, _TypeNames, _InOpaque,
-            _RecDict, _VarDict) ->
-  case erl_eval:partial_eval(Op) of
-    {integer, _, Val} ->
-      {t_integer(Val), []};
-    _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Op])})
-  end;
-t_from_form({type, _L, any, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_any(), []};
-t_from_form({type, _L, arity, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_arity(), []};
-t_from_form({type, _L, array, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_array(), []};
-t_from_form({type, _L, atom, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_atom(), []};
-t_from_form({type, _L, binary, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_binary(), []};
-t_from_form({type, _L, binary, [Base, Unit]} = Type,
-	    _TypeNames, _InOpaque, _RecDict, _VarDict) ->
-  case {erl_eval:partial_eval(Base), erl_eval:partial_eval(Unit)} of
-    {{integer, _, B}, {integer, _, U}} when B >= 0, U >= 0 ->
-      {t_bitstr(U, B), []};
-    _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Type])})
-  end;
-t_from_form({type, _L, bitstring, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_bitstr(), []};
-t_from_form({type, _L, bool, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_boolean(), []};	% XXX: Temporarily
-t_from_form({type, _L, boolean, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_boolean(), []};
-t_from_form({type, _L, byte, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_byte(), []};
-t_from_form({type, _L, char, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_char(), []};
-t_from_form({type, _L, dict, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_dict(), []};
-t_from_form({type, _L, digraph, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_digraph(), []};
-t_from_form({type, _L, float, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_float(), []};
-t_from_form({type, _L, function, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_fun(), []};
-t_from_form({type, _L, 'fun', []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_fun(), []};
-t_from_form({type, _L, 'fun', [{type, _, any}, Range]}, TypeNames,
-            InOpaque, RecDict, VarDict) ->
-  {T, R} = t_from_form(Range, TypeNames, InOpaque, RecDict, VarDict),
-  {t_fun(T), R};
-t_from_form({type, _L, 'fun', [{type, _, product, Domain}, Range]},
-            TypeNames, InOpaque, RecDict, VarDict) ->
-  {L, R1} = list_from_form(Domain, TypeNames, InOpaque, RecDict, VarDict),
-  {T, R2} = t_from_form(Range, TypeNames, InOpaque, RecDict, VarDict),
-  {t_fun(L, T), R1 ++ R2};
-t_from_form({type, _L, gb_set, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_gb_set(), []};
-t_from_form({type, _L, gb_tree, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_gb_tree(), []};
-t_from_form({type, _L, identifier, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_identifier(), []};
-t_from_form({type, _L, integer, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_integer(), []};
-t_from_form({type, _L, iodata, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_iodata(), []};
-t_from_form({type, _L, iolist, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_iolist(), []};
-t_from_form({type, _L, list, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_list(), []};
-t_from_form({type, _L, list, [Type]}, TypeNames, InOpaque, RecDict,
-            VarDict) ->
-  {T, R} = t_from_form(Type, TypeNames, InOpaque, RecDict, VarDict),
-  {t_list(T), R};
-t_from_form({type, _L, mfa, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_mfa(), []};
-t_from_form({type, _L, module, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_module(), []};
-t_from_form({type, _L, nil, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_nil(), []};
-t_from_form({type, _L, neg_integer, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_neg_integer(), []};
-t_from_form({type, _L, non_neg_integer, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_non_neg_integer(), []};
-t_from_form({type, _L, no_return, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_unit(), []};
-t_from_form({type, _L, node, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_node(), []};
-t_from_form({type, _L, none, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_none(), []};
-t_from_form({type, _L, nonempty_list, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_nonempty_list(), []};
-t_from_form({type, _L, nonempty_list, [Type]}, TypeNames, InOpaque, RecDict,
-            VarDict) ->
-  {T, R} = t_from_form(Type, TypeNames, InOpaque, RecDict, VarDict),
-  {t_nonempty_list(T), R};
-t_from_form({type, _L, nonempty_improper_list, [Cont, Term]}, TypeNames,
-            InOpaque, RecDict, VarDict) ->
-  {T1, R1} = t_from_form(Cont, TypeNames, InOpaque, RecDict, VarDict),
-  {T2, R2} = t_from_form(Term, TypeNames, InOpaque, RecDict, VarDict),
-  {t_cons(T1, T2), R1 ++ R2};
-t_from_form({type, _L, nonempty_maybe_improper_list, []}, _TypeNames,
-            _InOpaque, _RecDict, _VarDict) ->
-  {t_cons(?any, ?any), []};
-t_from_form({type, _L, nonempty_maybe_improper_list, [Cont, Term]},
-            TypeNames, InOpaque, RecDict, VarDict) ->
-  {T1, R1} = t_from_form(Cont, TypeNames, InOpaque, RecDict, VarDict),
-  {T2, R2} = t_from_form(Term, TypeNames, InOpaque, RecDict, VarDict),
-  {t_cons(T1, T2), R1 ++ R2};
-t_from_form({type, _L, nonempty_string, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_nonempty_string(), []};
-t_from_form({type, _L, number, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_number(), []};
-t_from_form({type, _L, pid, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_pid(), []};
-t_from_form({type, _L, port, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_port(), []};
-t_from_form({type, _L, pos_integer, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_pos_integer(), []};
-t_from_form({type, _L, maybe_improper_list, []}, _TypeNames, _InOpaque,
-            _RecDict, _VarDict) ->
-  {t_maybe_improper_list(), []};
-t_from_form({type, _L, maybe_improper_list, [Content, Termination]},
-            TypeNames, InOpaque, RecDict, VarDict) ->
-  {T1, R1} = t_from_form(Content, TypeNames, InOpaque, RecDict, VarDict),
-  {T2, R2} = t_from_form(Termination, TypeNames, InOpaque, RecDict, VarDict),
-  {t_maybe_improper_list(T1, T2), R1 ++ R2};
-t_from_form({type, _L, product, Elements}, TypeNames, InOpaque, RecDict,
-            VarDict) ->
-  {L, R} = list_from_form(Elements, TypeNames, InOpaque, RecDict, VarDict),
-  {t_product(L), R};
-t_from_form({type, _L, queue, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_queue(), []};
-t_from_form({type, _L, range, [From, To]} = Type,
-	    _TypeNames, _InOpaque, _RecDict, _VarDict) ->
-  case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
-    {{integer, _, FromVal}, {integer, _, ToVal}} ->
-      {t_from_range(FromVal, ToVal), []};
-    _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Type])})
-  end;
-t_from_form({type, _L, record, [Name|Fields]}, TypeNames, InOpaque, RecDict,
-            VarDict) ->
-  record_from_form(Name, Fields, TypeNames, InOpaque, RecDict, VarDict);
-t_from_form({type, _L, reference, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_reference(), []};
-t_from_form({type, _L, set, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_set(), []};
-t_from_form({type, _L, string, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_string(), []};
-t_from_form({type, _L, term, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_any(), []};
-t_from_form({type, _L, tid, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_tid(), []};
-t_from_form({type, _L, timeout, []}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_timeout(), []};
-t_from_form({type, _L, tuple, any}, _TypeNames, _InOpaque, _RecDict,
-            _VarDict) ->
-  {t_tuple(), []};
-t_from_form({type, _L, tuple, Args}, TypeNames, InOpaque, RecDict, VarDict) ->
-  {L, R} = list_from_form(Args, TypeNames, InOpaque, RecDict, VarDict),
-  {t_tuple(L), R};
-t_from_form({type, _L, union, Args}, TypeNames, InOpaque, RecDict, VarDict) ->
-  {L, R} = list_from_form(Args, TypeNames, InOpaque, RecDict, VarDict),
-  {t_sup(L), R};
-t_from_form({type, _L, Name, Args}, TypeNames, InOpaque, RecDict, VarDict) ->
-  ArgsLen = length(Args),
-  case lookup_type(Name, ArgsLen, RecDict) of
-    {type, {_Module, Type, ArgNames}} ->
-      case can_unfold_more({type, Name}, TypeNames) of
-        true ->
-          List = lists:zipwith(
-                   fun(ArgName, ArgType) ->
-                       {Ttemp, _R} = t_from_form(ArgType, TypeNames,
-                                                 InOpaque, RecDict,
-                                                 VarDict),
-                       {ArgName, Ttemp}
-                   end,
-                   ArgNames, Args),
-          TmpVarDict = dict:from_list(List),
-          {T, R} = t_from_form(Type, [{type, Name}|TypeNames], InOpaque,
-                               RecDict, TmpVarDict),
-          case lists:member({type, Name}, R) of
-            true -> {t_limit(T, ?REC_TYPE_LIMIT), R};
-            false -> {T, R}
-          end;
-        false -> {t_any(), [{type, Name}]}
-      end;
-    {opaque, {Module, Type, ArgNames}} ->
-      {Rep, Rret} =
-        case can_unfold_more({opaque, Name}, TypeNames) of
-          true ->
-            List = lists:zipwith(
-                     fun(ArgName, ArgType) ->
-                         {Ttemp, _R} = t_from_form(ArgType, TypeNames,
-                                                   InOpaque, RecDict,
-                                                   VarDict),
-                         {ArgName, Ttemp}
-                     end,
-                     ArgNames, Args),
-            TmpVarDict = dict:from_list(List),
-            {T, R} = t_from_form(Type, [{opaque, Name}|TypeNames], true,
-                                 RecDict, TmpVarDict),
-            case lists:member({opaque, Name}, R) of
-              true -> {t_limit(T, ?REC_TYPE_LIMIT), R};
-              false -> {T, R}
-            end;
-          false -> {t_any(), [{opaque, Name}]}
-        end,
-      Tret =
-        case InOpaque of
-          true -> Rep;
-          false ->
-            t_from_form({opaque, -1, Name, {Module, Args, Rep}},
-                        RecDict, VarDict)
-          end,
-      {Tret, Rret};
-    error ->
-      Msg = io_lib:format("Unable to find type ~w/~w\n", [Name, ArgsLen]),
-      throw({error, Msg})
-  end;
-t_from_form({opaque, _L, Name, {Mod, Args, Rep}}, _TypeNames, _InOpaque,
-            _RecDict, _VarDict) ->
-  case Args of
-    [] -> {t_opaque(Mod, Name, Args, Rep), []};
-    _ -> throw({error, "Polymorphic opaque types not supported yet"})
+-type expand_limit() :: integer().
+
+-type expand_depth() :: integer().
+
+-record(from_form, {site   :: site(),
+                    xtypes :: sets:set(mfa()) | 'replace_by_none',
+                    mrecs  :: mod_records(),
+                    vtab   :: var_table(),
+                    tnames :: type_names()}).
+
+-spec t_from_form1(parse_form(), sets:set(mfa()) | 'replace_by_none',
+                   site(), mod_records(), var_table(), cache()) ->
+                      {erl_type(), cache()}.
+
+t_from_form1(Form, ET, Site, MR, V, C) ->
+  TypeNames = initial_typenames(Site),
+  State = #from_form{site   = Site,
+                     xtypes = ET,
+                     mrecs  = MR,
+                     vtab   = V,
+                     tnames = TypeNames},
+  L = ?EXPAND_LIMIT,
+  {T1, L1, C1} = from_form(Form, State, ?EXPAND_DEPTH, L, C),
+  if
+    L1 =< 0 ->
+      from_form_loop(Form, State, 1, L, C1);
+    true ->
+       {T1, C1}
   end.
 
-record_from_form({atom, _, Name}, ModFields, TypeNames, InOpaque, RecDict,
-                 VarDict) ->
-  case can_unfold_more({record, Name}, TypeNames) of
+initial_typenames({type, _MTA}=Site) -> [Site];
+initial_typenames({spec, _MFA}) -> [];
+initial_typenames({record, _MRA}) -> [].
+
+from_form_loop(Form, State, D, Limit, C) ->
+  {T1, L1, C1} = from_form(Form, State, D, Limit, C),
+  Delta = Limit - L1,
+  if
+    %% Save some time by assuming next depth will exceed the limit.
+    Delta * 8 > Limit ->
+      {T1, C1};
     true ->
-      case lookup_record(Name, RecDict) of
-        {ok, DeclFields} ->
-          TypeNames1 = [{record, Name}|TypeNames],
-          AreTyped = [is_erl_type(FieldType)
-                      || {_FieldName, FieldType} <- DeclFields],
-          {DeclFields1, R1} =
-            case lists:all(fun(Elem) -> Elem end, AreTyped) of
-              true -> {DeclFields, []};
-              false -> fields_from_form(DeclFields, TypeNames1, InOpaque,
-                                        RecDict, dict:new())
+      D1 = D + 1,
+      from_form_loop(Form, State, D1, Limit, C1)
+  end.
+
+-spec from_form(parse_form(),
+                #from_form{},
+                expand_depth(),
+                expand_limit(),
+                cache()) -> {erl_type(), expand_limit(), cache()}.
+
+%% If there is something wrong with parse_form()
+%% throw({error, io_lib:chars()} is called;
+%% for unknown remote types
+%% self() ! {self(), ext_types, {RemMod, Name, ArgsLen}}
+%% is called, unless 'replace_by_none' is given.
+%%
+%% It is assumed that site_module(S) can be found in MR.
+
+from_form(_, _S, D, L, C) when D =< 0 ; L =< 0 ->
+  {t_any(), L, C};
+from_form({var, _L, '_'}, _S, _D, L, C) ->
+  {t_any(), L, C};
+from_form({var, _L, Name}, S, _D, L, C) ->
+  V = S#from_form.vtab,
+  case maps:find(Name, V) of
+    error -> {t_var(Name), L, C};
+    {ok, Val} -> {Val, L, C}
+  end;
+from_form({ann_type, _L, [_Var, Type]}, S, D, L, C) ->
+  from_form(Type, S, D, L, C);
+from_form({paren_type, _L, [Type]}, S, D, L, C) ->
+  from_form(Type, S, D, L, C);
+from_form({remote_type, _L, [{atom, _, Module}, {atom, _, Type}, Args]},
+	    S, D, L, C) ->
+  remote_from_form(Module, Type, Args, S, D, L, C);
+from_form({atom, _L, Atom}, _S, _D, L, C) ->
+  {t_atom(Atom), L, C};
+from_form({integer, _L, Int}, _S, _D, L, C) ->
+  {t_integer(Int), L, C};
+from_form({op, _L, _Op, _Arg} = Op, _S, _D, L, C) ->
+  case erl_eval:partial_eval(Op) of
+    {integer, _, Val} ->
+      {t_integer(Val), L, C};
+    _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Op])})
+  end;
+from_form({op, _L, _Op, _Arg1, _Arg2} = Op, _S, _D, L, C) ->
+  case erl_eval:partial_eval(Op) of
+    {integer, _, Val} ->
+      {t_integer(Val), L, C};
+    _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Op])})
+  end;
+from_form({type, _L, any, []}, _S, _D, L, C) ->
+  {t_any(), L, C};
+from_form({type, _L, arity, []}, _S, _D, L, C) ->
+  {t_arity(), L, C};
+from_form({type, _L, atom, []}, _S, _D, L, C) ->
+  {t_atom(), L, C};
+from_form({type, _L, binary, []}, _S, _D, L, C) ->
+  {t_binary(), L, C};
+from_form({type, _L, binary, [Base, Unit]} = Type, _S, _D, L, C) ->
+  case {erl_eval:partial_eval(Base), erl_eval:partial_eval(Unit)} of
+    {{integer, _, B}, {integer, _, U}} when B >= 0, U >= 0 ->
+      {t_bitstr(U, B), L, C};
+    _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Type])})
+  end;
+from_form({type, _L, bitstring, []}, _S, _D, L, C) ->
+  {t_bitstr(), L, C};
+from_form({type, _L, bool, []}, _S, _D, L, C) ->
+  {t_boolean(), L, C};	% XXX: Temporarily
+from_form({type, _L, boolean, []}, _S, _D, L, C) ->
+  {t_boolean(), L, C};
+from_form({type, _L, byte, []}, _S, _D, L, C) ->
+  {t_byte(), L, C};
+from_form({type, _L, char, []}, _S, _D, L, C) ->
+  {t_char(), L, C};
+from_form({type, _L, float, []}, _S, _D, L, C) ->
+  {t_float(), L, C};
+from_form({type, _L, function, []}, _S, _D, L, C) ->
+  {t_fun(), L, C};
+from_form({type, _L, 'fun', []}, _S, _D, L, C) ->
+  {t_fun(), L, C};
+from_form({type, _L, 'fun', [{type, _, any}, Range]}, S, D, L, C) ->
+  {T, L1, C1} = from_form(Range, S, D - 1, L - 1, C),
+  {t_fun(T), L1, C1};
+from_form({type, _L, 'fun', [{type, _, product, Domain}, Range]},
+          S, D, L, C) ->
+  {Dom1, L1, C1} = list_from_form(Domain, S, D, L, C),
+  {Ran1, L2, C2} = from_form(Range, S, D, L1, C1),
+  {t_fun(Dom1, Ran1), L2, C2};
+from_form({type, _L, identifier, []}, _S, _D, L, C) ->
+  {t_identifier(), L, C};
+from_form({type, _L, integer, []}, _S, _D, L, C) ->
+  {t_integer(), L, C};
+from_form({type, _L, iodata, []}, _S, _D, L, C) ->
+  {t_iodata(), L, C};
+from_form({type, _L, iolist, []}, _S, _D, L, C) ->
+  {t_iolist(), L, C};
+from_form({type, _L, list, []}, _S, _D, L, C) ->
+  {t_list(), L, C};
+from_form({type, _L, list, [Type]}, S, D, L, C) ->
+  {T, L1, C1} = from_form(Type, S, D - 1, L - 1, C),
+  {t_list(T), L1, C1};
+from_form({type, _L, map, any}, S, D, L, C) ->
+  builtin_type(map, t_map(), S, D, L, C);
+from_form({type, _L, map, List}, S, D0, L, C) ->
+  {Pairs1, L5, C5} =
+    fun PairsFromForm(_, L1, C1) when L1 =< 0 -> {[{?any,?opt,?any}], L1, C1};
+	PairsFromForm([], L1, C1) -> {[], L1, C1};
+	PairsFromForm([{type, _, Oper, [KF, VF]}|T], L1, C1) ->
+        D = D0 - 1,
+	{Key, L2, C2} = from_form(KF, S, D, L1, C1),
+	{Val, L3, C3} = from_form(VF, S, D, L2, C2),
+	{Pairs0, L4, C4} = PairsFromForm(T, L3 - 1, C3),
+	case Oper of
+	  map_field_assoc -> {[{Key,?opt, Val}|Pairs0], L4, C4};
+	  map_field_exact -> {[{Key,?mand,Val}|Pairs0], L4, C4}
+	end
+    end(List, L, C),
+  try
+    {Pairs, DefK, DefV} = map_from_form(Pairs1, [], [], [], ?none, ?none),
+    {t_map(Pairs, DefK, DefV), L5, C5}
+  catch none -> {t_none(), L5, C5}
+  end;
+from_form({type, _L, mfa, []}, _S, _D, L, C) ->
+  {t_mfa(), L, C};
+from_form({type, _L, module, []}, _S, _D, L, C) ->
+  {t_module(), L, C};
+from_form({type, _L, nil, []}, _S, _D, L, C) ->
+  {t_nil(), L, C};
+from_form({type, _L, neg_integer, []}, _S, _D, L, C) ->
+  {t_neg_integer(), L, C};
+from_form({type, _L, non_neg_integer, []}, _S, _D, L, C) ->
+  {t_non_neg_integer(), L, C};
+from_form({type, _L, no_return, []}, _S, _D, L, C) ->
+  {t_unit(), L, C};
+from_form({type, _L, node, []}, _S, _D, L, C) ->
+  {t_node(), L, C};
+from_form({type, _L, none, []}, _S, _D, L, C) ->
+  {t_none(), L, C};
+from_form({type, _L, nonempty_list, []}, _S, _D, L, C) ->
+  {t_nonempty_list(), L, C};
+from_form({type, _L, nonempty_list, [Type]}, S, D, L, C) ->
+  {T, L1, C1} = from_form(Type, S, D, L - 1, C),
+  {t_nonempty_list(T), L1, C1};
+from_form({type, _L, nonempty_improper_list, [Cont, Term]}, S, D, L, C) ->
+  {T1, L1, C1} = from_form(Cont, S, D, L - 1, C),
+  {T2, L2, C2} = from_form(Term, S, D, L1, C1),
+  {t_cons(T1, T2), L2, C2};
+from_form({type, _L, nonempty_maybe_improper_list, []}, _S, _D, L, C) ->
+  {t_cons(?any, ?any), L, C};
+from_form({type, _L, nonempty_maybe_improper_list, [Cont, Term]},
+          S, D, L, C) ->
+  {T1, L1, C1} = from_form(Cont, S, D, L - 1, C),
+  {T2, L2, C2} = from_form(Term, S, D, L1, C1),
+  {t_cons(T1, T2), L2, C2};
+from_form({type, _L, nonempty_string, []}, _S, _D, L, C) ->
+  {t_nonempty_string(), L, C};
+from_form({type, _L, number, []}, _S, _D, L, C) ->
+  {t_number(), L, C};
+from_form({type, _L, pid, []}, _S, _D, L, C) ->
+  {t_pid(), L, C};
+from_form({type, _L, port, []}, _S, _D, L, C) ->
+  {t_port(), L, C};
+from_form({type, _L, pos_integer, []}, _S, _D, L, C) ->
+  {t_pos_integer(), L, C};
+from_form({type, _L, maybe_improper_list, []}, _S, _D, L, C) ->
+  {t_maybe_improper_list(), L, C};
+from_form({type, _L, maybe_improper_list, [Content, Termination]},
+          S, D, L, C) ->
+  {T1, L1, C1} = from_form(Content, S, D, L - 1, C),
+  {T2, L2, C2} = from_form(Termination, S, D, L1, C1),
+  {t_maybe_improper_list(T1, T2), L2, C2};
+from_form({type, _L, product, Elements}, S, D, L, C) ->
+  {Lst, L1, C1} = list_from_form(Elements, S, D - 1, L, C),
+  {t_product(Lst), L1, C1};
+from_form({type, _L, range, [From, To]} = Type, _S, _D, L, C) ->
+  case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
+    {{integer, _, FromVal}, {integer, _, ToVal}} ->
+      {t_from_range(FromVal, ToVal), L, C};
+    _ -> throw({error, io_lib:format("Unable to evaluate type ~w\n", [Type])})
+  end;
+from_form({type, _L, record, [Name|Fields]}, S, D, L, C) ->
+  record_from_form(Name, Fields, S, D, L, C);
+from_form({type, _L, reference, []}, _S, _D, L, C) ->
+  {t_reference(), L, C};
+from_form({type, _L, string, []}, _S, _D, L, C) ->
+  {t_string(), L, C};
+from_form({type, _L, term, []}, _S, _D, L, C) ->
+  {t_any(), L, C};
+from_form({type, _L, timeout, []}, _S, _D, L, C) ->
+  {t_timeout(), L, C};
+from_form({type, _L, tuple, any}, _S, _D, L, C) ->
+  {t_tuple(), L, C};
+from_form({type, _L, tuple, Args}, S, D, L, C) ->
+  {Lst, L1, C1} = list_from_form(Args, S, D - 1, L, C),
+  {t_tuple(Lst), L1, C1};
+from_form({type, _L, union, Args}, S, D, L, C) ->
+  {Lst, L1, C1} = list_from_form(Args, S, D, L, C),
+  {t_sup(Lst), L1, C1};
+from_form({user_type, _L, Name, Args}, S, D, L, C) ->
+  type_from_form(Name, Args, S, D, L, C);
+from_form({type, _L, Name, Args}, S, D, L, C) ->
+  %% Compatibility: modules compiled before Erlang/OTP 18.0.
+  type_from_form(Name, Args, S, D, L, C);
+from_form({opaque, _L, Name, {Mod, Args, Rep}}, _S, _D, L, C) ->
+  %% XXX. To be removed.
+  {t_opaque(Mod, Name, Args, Rep), L, C}.
+
+builtin_type(Name, Type, S, D, L, C) ->
+  #from_form{site = Site, mrecs = MR} = S,
+  M = site_module(Site),
+  case dict:find(M, MR) of
+    {ok, R} ->
+      case lookup_type(Name, 0, R) of
+        {_, {{_M, _FL, _F, _A}, _T}} ->
+          type_from_form(Name, [], S, D, L, C);
+        error ->
+          {Type, L, C}
+      end;
+    error ->
+      {Type, L, C}
+  end.
+
+type_from_form(Name, Args, S, D, L, C) ->
+  #from_form{site = Site, mrecs = MR, tnames = TypeNames} = S,
+  ArgsLen = length(Args),
+  Module = site_module(Site),
+  TypeName = {type, {Module, Name, ArgsLen}},
+  case can_unfold_more(TypeName, TypeNames) of
+    true ->
+      {ok, R} = dict:find(Module, MR),
+      type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames,
+                      S, D, L, C);
+    false ->
+      {t_any(), L, C}
+  end.
+
+type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, S, D, L, C) ->
+  case lookup_type(Name, ArgsLen, R) of
+    {Tag, {{Module, _FileName, Form, ArgNames}, Type}} ->
+      NewTypeNames = [TypeName|TypeNames],
+      S1 = S#from_form{tnames = NewTypeNames},
+      {ArgTypes, L1, C1} = list_from_form(Args, S1, D, L, C),
+      CKey = cache_key(Module, Name, ArgTypes, TypeNames, D),
+      case cache_find(CKey, C) of
+        {CachedType, DeltaL} ->
+          {CachedType, L1 - DeltaL, C};
+        error ->
+          List = lists:zip(ArgNames, ArgTypes),
+          TmpV = maps:from_list(List),
+          S2 = S1#from_form{site = TypeName, vtab = TmpV},
+          Fun = fun(DD, LL) -> from_form(Form, S2, DD, LL, C1) end,
+          {NewType, L3, C3} =
+            case Tag of
+              type ->
+                recur_limit(Fun, D, L1, TypeName, TypeNames);
+              opaque ->
+                {Rep, L2, C2} = recur_limit(Fun, D, L1, TypeName, TypeNames),
+                Rep1 = choose_opaque_type(Rep, Type),
+                Rep2 = case cannot_have_opaque(Rep1, TypeName, TypeNames) of
+                         true -> Rep1;
+                         false ->
+                           ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
+                           t_opaque(Module, Name, ArgTypes2, Rep1)
+                       end,
+                {Rep2, L2, C2}
             end,
-          {GetModRec, R2} = get_mod_record(ModFields, DeclFields1,
-                                           TypeNames1, InOpaque,
-                                           RecDict, VarDict),
-          case GetModRec of
-            {error, FieldName} ->
-              throw({error, io_lib:format("Illegal declaration of #~w{~w}\n",
-                                          [Name, FieldName])});
-            {ok, NewFields} ->
-              {t_tuple(
-                 [t_atom(Name)|[Type || {_FieldName, Type} <- NewFields]]),
-               R1 ++ R2}
-          end;
+          C4 = cache_put(CKey, NewType, L1 - L3, C3),
+          {NewType, L3, C4}
+      end;
+    error ->
+      Msg = io_lib:format("Unable to find type ~w/~w\n",
+                          [Name, ArgsLen]),
+      throw({error, Msg})
+  end.
+
+remote_from_form(RemMod, Name, Args, S, D, L, C) ->
+  #from_form{xtypes = ET, mrecs = MR, tnames = TypeNames} = S,
+  if
+    ET =:= replace_by_none ->
+      {t_none(), L, C};
+    true ->
+      ArgsLen = length(Args),
+      MFA = {RemMod, Name, ArgsLen},
+      case dict:find(RemMod, MR) of
+        error ->
+          self() ! {self(), ext_types, MFA},
+          {t_any(), L, C};
+        {ok, RemDict} ->
+          case sets:is_element(MFA, ET) of
+            true ->
+              RemType = {type, MFA},
+              case can_unfold_more(RemType, TypeNames) of
+                true ->
+                  remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict,
+                                    RemType, TypeNames, S, D, L, C);
+                false ->
+                  {t_any(), L, C}
+              end;
+            false ->
+              self() ! {self(), ext_types, {RemMod, Name, ArgsLen}},
+              {t_any(), L, C}
+          end
+      end
+  end.
+
+remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
+                  S, D, L, C) ->
+  case lookup_type(Name, ArgsLen, RemDict) of
+    {Tag, {{Mod, _FileLine, Form, ArgNames}, Type}} ->
+      NewTypeNames = [RemType|TypeNames],
+      S1 = S#from_form{tnames = NewTypeNames},
+      {ArgTypes, L1, C1} = list_from_form(Args, S1, D, L, C),
+      CKey = cache_key(RemMod, Name, ArgTypes, TypeNames, D),
+      %% case error of
+      case cache_find(CKey, C) of
+        {CachedType, DeltaL} ->
+          {CachedType, L - DeltaL, C};
+        error ->
+          List = lists:zip(ArgNames, ArgTypes),
+          TmpVarTab = maps:from_list(List),
+          S2 = S1#from_form{site = RemType, vtab = TmpVarTab},
+          Fun = fun(DD, LL) -> from_form(Form, S2, DD, LL, C1) end,
+          {NewType, L3, C3} =
+            case Tag of
+              type ->
+                recur_limit(Fun, D, L1, RemType, TypeNames);
+              opaque ->
+                {NewRep, L2, C2} = recur_limit(Fun, D, L1, RemType, TypeNames),
+                NewRep1 = choose_opaque_type(NewRep, Type),
+                NewRep2 =
+                  case cannot_have_opaque(NewRep1, RemType, TypeNames) of
+                    true -> NewRep1;
+                    false ->
+                      ArgTypes2 = subst_all_vars_to_any_list(ArgTypes),
+                      t_opaque(Mod, Name, ArgTypes2, NewRep1)
+                  end,
+                {NewRep2, L2, C2}
+            end,
+          C4 = cache_put(CKey, NewType, L1 - L3, C3),
+          {NewType, L3, C4}
+      end;
+    error ->
+      Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
+                          [RemMod, Name]),
+      throw({error, Msg})
+  end.
+
+subst_all_vars_to_any_list(Types) ->
+  [subst_all_vars_to_any(Type) || Type <- Types].
+
+%% Opaque types (both local and remote) are problematic when it comes
+%% to the limits (TypeNames, D, and L). The reason is that if any() is
+%% substituted for a more specialized subtype of an opaque type, the
+%% property stated along with decorate_with_opaque() (the type has to
+%% be a subtype of the declared type) no longer holds.
+%%
+%% The less than perfect remedy: if the opaque type created from a
+%% form is not a subset of the declared type, the declared type is
+%% used instead, effectively bypassing the limits, and potentially
+%% resulting in huge types.
+choose_opaque_type(Type, DeclType) ->
+  case
+    t_is_subtype(subst_all_vars_to_any(Type),
+                 subst_all_vars_to_any(DeclType))
+  of
+    true -> Type;
+    false -> DeclType
+  end.
+
+record_from_form({atom, _, Name}, ModFields, S, D0, L0, C) ->
+  #from_form{site = Site, mrecs = MR, tnames = TypeNames} = S,
+  RecordType = {record, Name},
+  case can_unfold_more(RecordType, TypeNames) of
+    true ->
+      M = site_module(Site),
+      {ok, R} = dict:find(M, MR),
+      case lookup_record(Name, R) of
+        {ok, DeclFields} ->
+          NewTypeNames = [RecordType|TypeNames],
+          Site1 = {record, {M, Name, length(DeclFields)}},
+          S1 = S#from_form{site = Site1, tnames = NewTypeNames},
+          Fun = fun(D, L) ->
+                    {GetModRec, L1, C1} =
+                      get_mod_record(ModFields, DeclFields, S1, D, L, C),
+                    case GetModRec of
+                      {error, FieldName} ->
+                        throw({error,
+                               io_lib:format("Illegal declaration of #~w{~w}\n",
+                                             [Name, FieldName])});
+                      {ok, NewFields} ->
+                        S2 = S1#from_form{vtab = var_table__new()},
+                        {NewFields1, L2, C2} =
+                          fields_from_form(NewFields, S2, D, L1, C1),
+                        Rec = t_tuple(
+                                [t_atom(Name)|[Type
+                                               || {_FieldName, Type} <- NewFields1]]),
+                        {Rec, L2, C2}
+                    end
+                end,
+          recur_limit(Fun, D0, L0, RecordType, TypeNames);
         error ->
           throw({error, io_lib:format("Unknown record #~w{}\n", [Name])})
       end;
-    false -> {t_any(), []}
+    false ->
+       {t_any(), L0, C}
   end.
 
-get_mod_record([], DeclFields, _TypeNames, _InOpaque, _RecDict,
-               _VarDict) ->
-  {{ok, DeclFields}, []};
-get_mod_record(ModFields, DeclFields, TypeNames, InOpaque, RecDict,
-               VarDict) ->
-  DeclFieldsDict = orddict:from_list(DeclFields),
-  {ModFieldsDict, R} = build_field_dict(ModFields, TypeNames, InOpaque,
-                                        RecDict, VarDict),
-  case get_mod_record(DeclFieldsDict, ModFieldsDict, []) of
-    {error, _FieldName} = Error -> {Error, R};
-    {ok, FinalOrdDict} ->
-      {{ok, [{FieldName, orddict:fetch(FieldName, FinalOrdDict)}
-             || {FieldName, _} <- DeclFields]},
-       R}
+get_mod_record([], DeclFields, _S, _D, L, C) ->
+  {{ok, DeclFields}, L, C};
+get_mod_record(ModFields, DeclFields, S, D, L, C) ->
+  DeclFieldsDict = lists:keysort(1, DeclFields),
+  {ModFieldsDict, L1, C1} = build_field_dict(ModFields, S, D, L, C),
+  case get_mod_record_types(DeclFieldsDict, ModFieldsDict, []) of
+    {error, _FieldName} = Error -> {Error, L1, C1};
+    {ok, FinalKeyDict} ->
+      Fields = [lists:keyfind(FieldName, 1, FinalKeyDict)
+             || {FieldName, _, _} <- DeclFields],
+      {{ok, Fields}, L1, C1}
   end.
 
-build_field_dict(FieldTypes, TypeNames, InOpaque, RecDict, VarDict) ->
-  build_field_dict(FieldTypes, TypeNames, InOpaque, RecDict, VarDict, []).
+build_field_dict(FieldTypes, S, D, L, C) ->
+  build_field_dict(FieldTypes, S, D, L, C, []).
 
-build_field_dict([{type, _, field_type, [{atom, _, Name}, Type]}|Left], 
-		 TypeNames, InOpaque, RecDict, VarDict, Acc) ->
-  {T, R1} = t_from_form(Type, TypeNames, InOpaque, RecDict, VarDict),
-  NewAcc = [{Name, T}|Acc],
-  {D, R2} = build_field_dict(Left, TypeNames, InOpaque, RecDict, VarDict,
-                             NewAcc),
-  {D, R1 ++ R2};
-build_field_dict([], _TypeNames, _InOpaque, _RecDict, _VarDict, Acc) ->
-  {orddict:from_list(Acc), []}.
+build_field_dict([{type, _, field_type, [{atom, _, Name}, Type]}|Left],
+		 S, D, L, C, Acc) ->
+  {T, L1, C1} = from_form(Type, S, D, L - 1, C),
+  NewAcc = [{Name, Type, T}|Acc],
+  build_field_dict(Left, S, D, L1, C1, NewAcc);
+build_field_dict([], _S, _D, L, C, Acc) ->
+  {lists:keysort(1, Acc), L, C}.
 
-get_mod_record([{FieldName, DeclType}|Left1], 
-	       [{FieldName, ModType}|Left2], Acc) ->
-  case t_is_var(ModType) orelse t_is_remote(ModType) orelse
-    t_is_subtype(ModType, DeclType) of
-    false -> {error, FieldName};
-    true -> get_mod_record(Left1, Left2, [{FieldName, ModType}|Acc])
-  end;
-get_mod_record([{FieldName1, _DeclType} = DT|Left1], 
-	       [{FieldName2, _ModType}|_] = List2, 
-	       Acc) when FieldName1 < FieldName2 ->
-  get_mod_record(Left1, List2, [DT|Acc]);
-get_mod_record(DeclFields, [], Acc) ->
-  {ok, orddict:from_list(Acc ++ DeclFields)};
-get_mod_record(_, [{FieldName2, _ModType}|_], _Acc) ->
+get_mod_record_types([{FieldName, _Abstr, _DeclType}|Left1],
+                     [{FieldName, TypeForm, ModType}|Left2],
+                     Acc) ->
+  get_mod_record_types(Left1, Left2, [{FieldName, TypeForm, ModType}|Acc]);
+get_mod_record_types([{FieldName1, _Abstr, _DeclType} = DT|Left1],
+                     [{FieldName2, _FormType, _ModType}|_] = List2,
+                     Acc) when FieldName1 < FieldName2 ->
+  get_mod_record_types(Left1, List2, [DT|Acc]);
+get_mod_record_types(Left1, [], Acc) ->
+  {ok, lists:keysort(1, Left1++Acc)};
+get_mod_record_types(_, [{FieldName2, _FormType, _ModType}|_], _Acc) ->
   {error, FieldName2}.
 
-fields_from_form([], _TypeNames, _InOpaque, _RecDict, _VarDict) ->
-  {[], []};
-fields_from_form([{Name, Type}|Tail], TypeNames, InOpaque, RecDict,
-                 VarDict) ->
-  {T, R1} = t_from_form(Type, TypeNames, InOpaque, RecDict, VarDict),
-  {F, R2} = fields_from_form(Tail, TypeNames, InOpaque, RecDict, VarDict),
-  {[{Name, T}|F], R1 ++ R2}.
+%% It is important to create a limited version of the record type
+%% since nested record types can otherwise easily result in huge
+%% terms.
+fields_from_form([], _S, _D, L, C) ->
+  {[], L, C};
+fields_from_form([{Name, Abstr, _Type}|Tail], S, D, L, C) ->
+  {T, L1, C1} = from_form(Abstr, S, D, L, C),
+  {F, L2, C2} = fields_from_form(Tail, S, D, L1, C1),
+  {[{Name, T}|F], L2, C2}.
 
-list_from_form([], _TypeNames, _InOpaque, _RecDict, _VarDict) ->
-  {[], []};
-list_from_form([H|Tail], TypeNames, InOpaque, RecDict, VarDict) ->
-  {T, R1} = t_from_form(H, TypeNames, InOpaque, RecDict, VarDict),
-  {L, R2} = list_from_form(Tail, TypeNames, InOpaque, RecDict, VarDict),
-  {[T|L], R1 ++ R2}.
+list_from_form([], _S, _D, L, C) ->
+  {[], L, C};
+list_from_form([H|Tail], S, D, L, C) ->
+  {H1, L1, C1} = from_form(H, S, D, L - 1, C),
+  {T1, L2, C2} = list_from_form(Tail, S, D, L1, C1),
+  {[H1|T1], L2, C2}.
+
+%% Sorts, combines non-singleton pairs, and applies precendence and
+%% mandatoriness rules.
+map_from_form([], ShdwPs, MKs, Pairs, DefK, DefV) ->
+  verify_possible(MKs, ShdwPs),
+  {promote_to_mand(MKs, Pairs), DefK, DefV};
+map_from_form([{SKey,MNess,Val}|SPairs], ShdwPs0, MKs0, Pairs0, DefK0, DefV0) ->
+  Key = lists:foldl(fun({K,_},S)->t_subtract(S,K)end, SKey, ShdwPs0),
+  ShdwPs = case Key of ?none -> ShdwPs0; _ -> [{Key,Val}|ShdwPs0] end,
+  MKs = case MNess of ?mand -> [SKey|MKs0]; ?opt -> MKs0 end,
+  if MNess =:= ?mand, SKey =:= ?none -> throw(none);
+     true -> ok
+  end,
+  {Pairs, DefK, DefV} =
+    case is_singleton_type(Key) of
+      true ->
+	MNess1 = case Val =:= ?none of true -> ?opt; false -> MNess end,
+	{mapdict_insert({Key,MNess1,Val}, Pairs0), DefK0, DefV0};
+      false ->
+	case Key =:= ?none orelse Val =:= ?none of
+	  true  -> {Pairs0, DefK0,             DefV0};
+	  false -> {Pairs0, t_sup(DefK0, Key), t_sup(DefV0, Val)}
+	end
+    end,
+  map_from_form(SPairs, ShdwPs, MKs, Pairs, DefK, DefV).
+
+%% Verifies that all mandatory keys are possible, throws 'none' otherwise
+verify_possible(MKs, ShdwPs) ->
+  lists:foreach(fun(M) -> verify_possible_1(M, ShdwPs) end, MKs).
+
+verify_possible_1(M, ShdwPs) ->
+  case lists:any(fun({K,_}) -> t_inf(M, K) =/= ?none end, ShdwPs) of
+    true -> ok;
+    false -> throw(none)
+  end.
+
+-spec promote_to_mand([erl_type()], t_map_dict()) -> t_map_dict().
+
+promote_to_mand(_, []) -> [];
+promote_to_mand(MKs, [E={K,_,V}|T]) ->
+  [case lists:any(fun(M) -> t_is_equal(K,M) end, MKs) of
+     true -> {K, ?mand, V};
+     false -> E
+   end|promote_to_mand(MKs, T)].
+
+-define(RECUR_EXPAND_LIMIT, 10).
+-define(RECUR_EXPAND_DEPTH, 2).
+
+%% If more of the limited resources is spent on the non-recursive
+%% forms, more warnings are found. And the analysis is also a bit
+%% faster.
+%%
+%% Setting REC_TYPE_LIMIT to 1 would work also work well.
+
+recur_limit(Fun, D, L, _, _) when L =< ?RECUR_EXPAND_DEPTH,
+                                  D =< ?RECUR_EXPAND_LIMIT ->
+  Fun(D, L);
+recur_limit(Fun, D, L, TypeName, TypeNames) ->
+  case is_recursive(TypeName, TypeNames) of
+    true ->
+      {T, L1, C1} = Fun(?RECUR_EXPAND_DEPTH, ?RECUR_EXPAND_LIMIT),
+      {T, L - L1, C1};
+    false ->
+      Fun(D, L)
+  end.
+
+-spec t_check_record_fields(parse_form(), sets:set(mfa()), site(),
+                            mod_records(), var_table(), cache()) -> cache().
+
+t_check_record_fields(Form, ExpTypes, Site, RecDict, VarTable, Cache) ->
+  State = #from_form{site   = Site,
+                     xtypes = ExpTypes,
+                     mrecs  = RecDict,
+                     vtab   = VarTable,
+                     tnames = []},
+  check_record_fields(Form, State, Cache).
+
+-spec check_record_fields(parse_form(), #from_form{}, cache()) -> cache().
+
+%% If there is something wrong with parse_form()
+%% throw({error, io_lib:chars()} is called.
+
+check_record_fields({var, _L, _}, _S, C) -> C;
+check_record_fields({ann_type, _L, [_Var, Type]}, S, C) ->
+  check_record_fields(Type, S, C);
+check_record_fields({paren_type, _L, [Type]}, S, C) ->
+  check_record_fields(Type, S, C);
+check_record_fields({remote_type, _L, [{atom, _, _}, {atom, _, _}, Args]},
+                    S, C) ->
+  list_check_record_fields(Args, S, C);
+check_record_fields({atom, _L, _}, _S, C) -> C;
+check_record_fields({integer, _L, _}, _S, C) -> C;
+check_record_fields({op, _L, _Op, _Arg}, _S, C) -> C;
+check_record_fields({op, _L, _Op, _Arg1, _Arg2}, _S, C) -> C;
+check_record_fields({type, _L, tuple, any}, _S, C) -> C;
+check_record_fields({type, _L, map, any}, _S, C) -> C;
+check_record_fields({type, _L, binary, [_Base, _Unit]}, _S, C) -> C;
+check_record_fields({type, _L, 'fun', [{type, _, any}, Range]}, S, C) ->
+  check_record_fields(Range, S, C);
+check_record_fields({type, _L, range, [_From, _To]}, _S, C) -> C;
+check_record_fields({type, _L, record, [Name|Fields]}, S, C) ->
+  check_record(Name, Fields, S, C);
+check_record_fields({type, _L, _, Args}, S, C) ->
+  list_check_record_fields(Args, S, C);
+check_record_fields({user_type, _L, _Name, Args}, S, C) ->
+  list_check_record_fields(Args, S, C).
+
+check_record({atom, _, Name}, ModFields, S, C) ->
+  #from_form{site = Site, mrecs = MR} = S,
+  M = site_module(Site),
+  {ok, R} = dict:find(M, MR),
+  {ok, DeclFields} = lookup_record(Name, R),
+  case check_fields(Name, ModFields, DeclFields, S, C) of
+    {error, FieldName} ->
+       throw({error, io_lib:format("Illegal declaration of #~w{~w}\n",
+                                   [Name, FieldName])});
+    C1 -> C1
+  end.
+
+check_fields(RecName, [{type, _, field_type, [{atom, _, Name}, Abstr]}|Left],
+             DeclFields, S, C) ->
+  #from_form{site = Site0, xtypes = ET, mrecs = MR, vtab = V} = S,
+  M = site_module(Site0),
+  Site = {record, {M, RecName, length(DeclFields)}},
+  {Type, C1} = t_from_form(Abstr, ET, Site, MR, V, C),
+  {Name, _, DeclType} = lists:keyfind(Name, 1, DeclFields),
+  TypeNoVars = subst_all_vars_to_any(Type),
+  case t_is_subtype(TypeNoVars, DeclType) of
+    false -> {error, Name};
+    true -> check_fields(RecName, Left, DeclFields, S, C1)
+  end;
+check_fields(_RecName, [], _Decl, _S, C) ->
+  C.
+
+list_check_record_fields([], _S, C) ->
+  C;
+list_check_record_fields([H|Tail], S, C) ->
+  C1 = check_record_fields(H, S, C),
+  list_check_record_fields(Tail, S, C1).
+
+site_module({_, {Module, _, _}}) ->
+  Module.
+
+-spec cache__new() -> cache().
+
+cache__new() ->
+  maps:new().
+
+-spec cache_key(module(), atom(), [erl_type()],
+                type_names(), expand_depth()) -> cache_key().
+
+%% If TypeNames is left out from the key, the cache is smaller, and
+%% the form-to-type translation is faster. But it would be a shame if,
+%% for example, any() is used, where a more complex type should be
+%% used. There is also a slight risk of creating unnecessarily big
+%% types.
+
+cache_key(Module, Name, ArgTypes, TypeNames, D) ->
+  {Module, Name, D, ArgTypes, TypeNames}.
+
+-spec cache_find(cache_key(), cache()) ->
+                    {erl_type(), expand_limit()} | 'error'.
+
+cache_find(Key, Cache) ->
+  case maps:find(Key, Cache) of
+    {ok, Value} ->
+      Value;
+    error ->
+      error
+  end.
+
+-spec cache_put(cache_key(), erl_type(), expand_limit(), cache()) -> cache().
+
+cache_put(_Key, _Type, DeltaL, Cache) when DeltaL < 0 ->
+  %% The type is truncated; do not reuse it.
+  Cache;
+cache_put(Key, Type, DeltaL, Cache) ->
+  maps:put(Key, {Type, DeltaL}, Cache).
+
+-spec t_var_names([erl_type()]) -> [atom()].
+
+t_var_names([{var, _, Name}|L]) when L =/= '_' ->
+  [Name|t_var_names(L)];
+t_var_names([]) ->
+  [].
 
 -spec t_form_to_string(parse_form()) -> string().
 
@@ -3851,10 +5156,10 @@ t_form_to_string({op, _L, _Op, _Arg1, _Arg2} = Op) ->
 t_form_to_string({ann_type, _L, [Var, Type]}) ->
   t_form_to_string(Var) ++ "::" ++ t_form_to_string(Type);
 t_form_to_string({paren_type, _L, [Type]}) ->
-  io_lib:format("(~s)", [t_form_to_string(Type)]);
+  flat_format("(~s)", [t_form_to_string(Type)]);
 t_form_to_string({remote_type, _L, [{atom, _, Mod}, {atom, _, Name}, Args]}) ->
   ArgString = "(" ++ string:join(t_form_to_string_list(Args), ",") ++ ")",
-  io_lib:format("~w:~w", [Mod, Name]) ++ ArgString;
+  flat_format("~w:~w", [Mod, Name]) ++ ArgString;
 t_form_to_string({type, _L, arity, []}) -> "arity()";
 t_form_to_string({type, _L, binary, []}) -> "binary()";
 t_form_to_string({type, _L, binary, [Base, Unit]} = Type) ->
@@ -3865,9 +5170,9 @@ t_form_to_string({type, _L, binary, [Base, Unit]} = Type) ->
 	{0, 0} -> "<<>>";
 	{8, 0} -> "binary()";
 	{1, 0} -> "bitstring()";
-	{0, B} -> lists:flatten(io_lib:format("<<_:~w>>", [B]));
-	{U, 0} -> lists:flatten(io_lib:format("<<_:_*~w>>", [U]));
-	{U, B} -> lists:flatten(io_lib:format("<<_:~w,_:_*~w>>", [B, U]))
+	{0, B} -> flat_format("<<_:~w>>", [B]);
+	{U, 0} -> flat_format("<<_:_*~w>>", [U]);
+	{U, B} -> flat_format("<<_:~w,_:_*~w>>", [B, U])
       end;
     _ -> io_lib:format("Badly formed bitstr type ~w", [Type])
   end;
@@ -3882,6 +5187,13 @@ t_form_to_string({type, _L, iodata, []}) -> "iodata()";
 t_form_to_string({type, _L, iolist, []}) -> "iolist()";
 t_form_to_string({type, _L, list, [Type]}) -> 
   "[" ++ t_form_to_string(Type) ++ "]";
+t_form_to_string({type, _L, map, any}) -> "map()";
+t_form_to_string({type, _L, map, Args}) ->
+  "#{" ++ string:join(t_form_to_string_list(Args), ",") ++ "}";
+t_form_to_string({type, _L, map_field_assoc, [Key, Val]}) ->
+  t_form_to_string(Key) ++ "=>" ++ t_form_to_string(Val);
+t_form_to_string({type, _L, map_field_exact, [Key, Val]}) ->
+  t_form_to_string(Key) ++ ":=" ++ t_form_to_string(Val);
 t_form_to_string({type, _L, mfa, []}) -> "mfa()";
 t_form_to_string({type, _L, module, []}) -> "module()";
 t_form_to_string({type, _L, node, []}) -> "node()";
@@ -3893,16 +5205,16 @@ t_form_to_string({type, _L, product, Elements}) ->
 t_form_to_string({type, _L, range, [From, To]} = Type) ->
   case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
     {{integer, _, FromVal}, {integer, _, ToVal}} ->
-      io_lib:format("~w..~w", [FromVal, ToVal]);
-    _ -> io_lib:format("Badly formed type ~w",[Type])
+      flat_format("~w..~w", [FromVal, ToVal]);
+    _ -> flat_format("Badly formed type ~w",[Type])
   end;
 t_form_to_string({type, _L, record, [{atom, _, Name}]}) ->
-  io_lib:format("#~w{}", [Name]);
+  flat_format("#~w{}", [Name]);
 t_form_to_string({type, _L, record, [{atom, _, Name}|Fields]}) ->
   FieldString = string:join(t_form_to_string_list(Fields), ","),
-  io_lib:format("#~w{~s}", [Name, FieldString]);
+  flat_format("#~w{~s}", [Name, FieldString]);
 t_form_to_string({type, _L, field_type, [{atom, _, Name}, Type]}) ->
-  io_lib:format("~w::~s", [Name, t_form_to_string(Type)]);
+  flat_format("~w::~s", [Name, t_form_to_string(Type)]);
 t_form_to_string({type, _L, term, []}) -> "term()";
 t_form_to_string({type, _L, timeout, []}) -> "timeout()";
 t_form_to_string({type, _L, tuple, any}) -> "tuple()";
@@ -3911,12 +5223,28 @@ t_form_to_string({type, _L, tuple, Args}) ->
 t_form_to_string({type, _L, union, Args}) ->
   string:join(t_form_to_string_list(Args), " | ");
 t_form_to_string({type, _L, Name, []} = T) ->
-  try t_to_string(t_from_form(T))
+   try
+     M = mod,
+     D0 = dict:new(),
+     MR = dict:from_list([{M, D0}]),
+     Site = {type, {M,Name,0}},
+     V = var_table__new(),
+     C = cache__new(),
+     State = #from_form{site   = Site,
+                        xtypes = sets:new(),
+                        mrecs  = MR,
+                        vtab   = V,
+                        tnames = []},
+     {T1, _, _} = from_form(T, State, _Deep=1000, _ALot=1000000, C),
+     t_to_string(T1)
   catch throw:{error, _} -> atom_to_string(Name) ++ "()"
   end;
-t_form_to_string({type, _L, Name, List}) -> 
-  io_lib:format("~w(~s)",
-		[Name, string:join(t_form_to_string_list(List), ",")]).
+t_form_to_string({user_type, _L, Name, List}) ->
+  flat_format("~w(~s)",
+              [Name, string:join(t_form_to_string_list(List), ",")]);
+t_form_to_string({type, L, Name, List}) ->
+  %% Compatibility: modules compiled before Erlang/OTP 18.0.
+  t_form_to_string({user_type, L, Name, List}).
 
 t_form_to_string_list(List) ->
   t_form_to_string_list(List, []).
@@ -3929,7 +5257,7 @@ t_form_to_string_list([], Acc) ->
 -spec atom_to_string(atom()) -> string().
 
 atom_to_string(Atom) ->
-  lists:flatten(io_lib:format("~w", [Atom])).
+  flat_format("~w", [Atom]).
 
 %%=============================================================================
 %% 
@@ -3958,14 +5286,14 @@ is_erl_type(?unit) -> true;
 is_erl_type(#c{}) -> true;
 is_erl_type(_) -> false.
 
--spec lookup_record(atom(), dict()) ->
-        'error' | {'ok', [{atom(), parse_form() | erl_type()}]}.
+-spec lookup_record(atom(), type_table()) ->
+        'error' | {'ok', [{atom(), parse_form(), erl_type()}]}.
 
 lookup_record(Tag, RecDict) when is_atom(Tag) ->
   case dict:find({record, Tag}, RecDict) of
-    {ok, [{_Arity, Fields}]} ->
+    {ok, {_FileLine, [{_Arity, Fields}]}} ->
       {ok, Fields};
-    {ok, List} when is_list(List) ->
+    {ok, {_FileLine, List}} when is_list(List) ->
       %% This will have to do, since we do not know which record we
       %% are looking for.
       error;
@@ -3973,15 +5301,17 @@ lookup_record(Tag, RecDict) when is_atom(Tag) ->
       error
   end.
 
--spec lookup_record(atom(), arity(), dict()) -> 'error' | {'ok', [{atom(), erl_type()}]}.
+-spec lookup_record(atom(), arity(), type_table()) ->
+        'error' | {'ok', [{atom(), parse_form(), erl_type()}]}.
 
 lookup_record(Tag, Arity, RecDict) when is_atom(Tag) ->
   case dict:find({record, Tag}, RecDict) of
-    {ok, [{Arity, Fields}]} -> {ok, Fields};
-    {ok, OrdDict} -> orddict:find(Arity, OrdDict);
+    {ok, {_FileLine, [{Arity, Fields}]}} -> {ok, Fields};
+    {ok, {_FileLine, OrdDict}} -> orddict:find(Arity, OrdDict);
     error -> error
   end.
 
+-spec lookup_type(_, _, _) -> {'type' | 'opaque', type_value()} | 'error'.
 lookup_type(Name, Arity, RecDict) ->
   case dict:find({type, Name, Arity}, RecDict) of
     error ->
@@ -3992,14 +5322,109 @@ lookup_type(Name, Arity, RecDict) ->
     {ok, Found} -> {type, Found}
   end.
 
--spec type_is_defined('type' | 'opaque', atom(), arity(), dict()) -> boolean().
+-spec type_is_defined('type' | 'opaque', atom(), arity(), type_table()) ->
+        boolean().
 
 type_is_defined(TypeOrOpaque, Name, Arity, RecDict) ->
   dict:is_key({TypeOrOpaque, Name, Arity}, RecDict).
 
+cannot_have_opaque(Type, TypeName, TypeNames) ->
+  t_is_none(Type) orelse is_recursive(TypeName, TypeNames).
+
+is_recursive(TypeName, TypeNames) ->
+  lists:member(TypeName, TypeNames).
+
 can_unfold_more(TypeName, TypeNames) ->
   Fun = fun(E, Acc) -> case E of TypeName -> Acc + 1; _ -> Acc end end,
   lists:foldl(Fun, 0, TypeNames) < ?REC_TYPE_LIMIT.
+
+-spec do_opaque(erl_type(), opaques(), fun((_) -> T)) -> T.
+
+%% Probably a little faster than calling t_unopaque/2.
+%% Unions that are due to opaque types are unopaqued.
+do_opaque(?opaque(_) = Type, Opaques, Pred) ->
+  case Opaques =:= 'universe' orelse is_opaque_type(Type, Opaques) of
+    true -> do_opaque(t_opaque_structure(Type), Opaques, Pred);
+    false -> Pred(Type)
+  end;
+do_opaque(?union(List) = Type, Opaques, Pred) ->
+  [A,B,F,I,L,N,T,M,O,Map] = List,
+  if O =:= ?none -> Pred(Type);
+    true ->
+      case Opaques =:= 'universe' orelse is_opaque_type(O, Opaques) of
+        true ->
+          S = t_opaque_structure(O),
+          do_opaque(t_sup([A,B,F,I,L,N,T,M,S,Map]), Opaques, Pred);
+        false -> Pred(Type)
+      end
+  end;
+do_opaque(Type, _Opaques, Pred) ->
+  Pred(Type).
+
+map_all_values(?map(Pairs,_,DefV)) ->
+  [DefV|[V || {V, _, _} <- Pairs]].
+
+map_all_keys(?map(Pairs,DefK,_)) ->
+  [DefK|[K || {_, _, K} <- Pairs]].
+
+map_all_types(M) ->
+  map_all_keys(M) ++ map_all_values(M).
+
+%% Tests if a type has exactly one possible value.
+-spec t_is_singleton(erl_type()) -> boolean().
+
+t_is_singleton(Type) ->
+  t_is_singleton(Type, 'universe').
+
+-spec t_is_singleton(erl_type(), opaques()) -> boolean().
+
+t_is_singleton(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun is_singleton_type/1).
+
+%% Incomplete; not all representable singleton types are included.
+is_singleton_type(?nil) -> true;
+is_singleton_type(?atom(?any)) -> false;
+is_singleton_type(?atom(Set)) ->
+  ordsets:size(Set) =:= 1;
+is_singleton_type(?int_range(V, V)) -> true;
+is_singleton_type(?int_set(Set)) ->
+  ordsets:size(Set) =:= 1;
+is_singleton_type(?tuple(Types, Arity, _)) when is_integer(Arity) ->
+  lists:all(fun is_singleton_type/1, Types);
+is_singleton_type(?tuple_set([{Arity, [OnlyTuple]}])) when is_integer(Arity) ->
+  is_singleton_type(OnlyTuple);
+is_singleton_type(?map(Pairs, ?none, ?none)) ->
+  lists:all(fun({_,MNess,V}) -> MNess =:= ?mand andalso is_singleton_type(V)
+	    end, Pairs);
+is_singleton_type(_) ->
+  false.
+
+%% Returns the only possible value of a singleton type.
+-spec t_singleton_to_term(erl_type(), opaques()) -> term().
+
+t_singleton_to_term(Type, Opaques) ->
+  do_opaque(Type, Opaques, fun singleton_type_to_term/1).
+
+singleton_type_to_term(?nil) -> [];
+singleton_type_to_term(?atom(Set)) when Set =/= ?any ->
+  case ordsets:size(Set) of
+    1 -> hd(ordsets:to_list(Set));
+    _ -> error(badarg)
+  end;
+singleton_type_to_term(?int_range(V, V)) -> V;
+singleton_type_to_term(?int_set(Set)) ->
+  case ordsets:size(Set) of
+    1 -> hd(ordsets:to_list(Set));
+    _ -> error(badarg)
+  end;
+singleton_type_to_term(?tuple(Types, Arity, _)) when is_integer(Arity) ->
+  lists:map(fun singleton_type_to_term/1, Types);
+singleton_type_to_term(?tuple_set([{Arity, [OnlyTuple]}]))
+  when is_integer(Arity) ->
+  singleton_type_to_term(OnlyTuple);
+singleton_type_to_term(?map(Pairs, ?none, ?none)) ->
+  maps:from_list([{singleton_type_to_term(K), singleton_type_to_term(V)}
+		  || {K,?mand,V} <- Pairs]).
 
 %% -----------------------------------
 %% Set
@@ -4021,10 +5446,6 @@ set_union(S1, S2)  ->
     S when length(S) =< ?SET_LIMIT -> S;
     _ -> ?any
   end.
-
-set_union_no_limit(?any, _) -> ?any;
-set_union_no_limit(_, ?any) -> ?any;
-set_union_no_limit(S1, S2)  -> ordsets:union(S1, S2).
 
 %% The intersection and subtraction can return ?none. 
 %% This should always be handled right away since ?none is not a valid set.
@@ -4067,7 +5488,7 @@ set_size(Set) ->
 set_to_string(Set) ->
   L = [case is_atom(X) of
 	 true -> io_lib:write_string(atom_to_list(X), $'); % stupid emacs '
-	 false -> io_lib:format("~w", [X])
+	 false -> flat_format("~w", [X])
        end || X <- set_to_list(Set)],
   string:join(L, " | ").
 
@@ -4075,6 +5496,9 @@ set_min([H|_]) -> H.
 
 set_max(Set) ->
   hd(lists:reverse(Set)).
+
+flat_format(F, S) ->
+  lists:flatten(io_lib:format(F, S)).
 
 %%=============================================================================
 %% 
@@ -4130,6 +5554,22 @@ handle_base(Unit, Pos) when Pos >= 0 ->
 handle_base(Unit, Neg) ->
   (Unit+(Neg rem Unit)) rem Unit.
   
+family(L) ->
+  R = sofs:relation(L),
+  F = sofs:relation_to_family(R),
+  sofs:to_external(F).
+
+%%=============================================================================
+%%
+%% Interface functions for abstract data types defined in this module
+%%
+%%=============================================================================
+
+-spec var_table__new() -> var_table().
+
+var_table__new() ->
+  maps:new().
+
 %%=============================================================================
 %% Consistency-testing function(s) below
 %%=============================================================================

@@ -2,18 +2,19 @@
  * %CopyrightBegin%
 
  *
- * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -37,7 +38,8 @@
 
 #if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
 #    define ERTS_SMP_REQ_PROC_MAIN_LOCK(P) \
-        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN)
+        if ((P)) erts_proc_lc_require_lock((P), ERTS_PROC_LOCK_MAIN,	\
+					   __FILE__, __LINE__)
 #    define ERTS_SMP_UNREQ_PROC_MAIN_LOCK(P) \
         if ((P)) erts_proc_lc_unrequire_lock((P), ERTS_PROC_LOCK_MAIN)
 #else
@@ -57,6 +59,7 @@
  * TODO: check PCB consistency at native BIF calls
  */
 int hipe_modeswitch_debug = 0;
+extern BeamInstr beam_exit[];
 
 #define HIPE_DEBUG 0
 
@@ -106,7 +109,7 @@ static const char *code_str(unsigned code)
 static void __noreturn
 hipe_abort(const char *expr, const char *file, unsigned line)
 {
-    erl_exit(1, "ASSERTION FAILED, file %s, line %u: %s\r\n", file, line, expr);
+    erts_exit(ERTS_ERROR_EXIT, "ASSERTION FAILED, file %s, line %u: %s\r\n", file, line, expr);
 }
 
 #define HIPE_ASSERT3(expr, file, line) \
@@ -139,7 +142,6 @@ void hipe_check_pcb(Process *p, const char *file, unsigned line)
 #endif	/* HIPE_DEBUG > 0 */
 
 /* ensure that at least nwords words are available on the native stack */
-static void hipe_check_nstack(Process *p, unsigned nwords);
 
 #if defined(__sparc__)
 #include "hipe_sparc_glue.h"
@@ -158,7 +160,7 @@ static void hipe_check_nstack(Process *p, unsigned nwords);
 Uint hipe_beam_pc_return[1];	/* needed in hipe_debug.c */
 Uint hipe_beam_pc_throw[1];	/* needed in hipe_debug.c */
 Uint hipe_beam_pc_resume[1];	/* needed by hipe_set_timeout() */
-static Eterm hipe_beam_catch_throw;
+Eterm hipe_beam_catch_throw;
 
 void hipe_mode_switch_init(void)
 {
@@ -172,6 +174,33 @@ void hipe_mode_switch_init(void)
 	make_catch(beam_catches_cons(hipe_beam_pc_throw, BEAM_CATCHES_NIL));
 
     hipe_mfa_info_table_init();
+
+#if (defined(__i386__) || defined(__x86_64__)) && defined(__linux__)
+    /* Verify that the offset of c-p->hipe does not change.
+       The ErLLVM hipe backend depends on it being in a specific
+       position. Kostis et al has promised to fix this in upstream
+       llvm by OTP 20, so it should be possible to remove these asserts
+       after that. */
+    ERTS_CT_ASSERT(sizeof(ErtsPTabElementCommon) ==
+                   (sizeof(Eterm) +                   /* id */
+                    sizeof(((ErtsPTabElementCommon*)0)->refc) +
+                    sizeof(ErtsTracer) +              /* tracer */
+                    sizeof(Uint) +                    /* trace_flags */
+                    sizeof(erts_smp_atomic_t) +       /* timer */
+                    sizeof(((ErtsPTabElementCommon*)0)->u)));
+
+    ERTS_CT_ASSERT(offsetof(Process, hipe) ==
+                   (sizeof(ErtsPTabElementCommon) +   /* common */
+                    sizeof(Eterm*) +                  /* htop */
+                    sizeof(Eterm*) +                  /* stop */
+                    sizeof(Eterm*) +                  /* heap */
+                    sizeof(Eterm*) +                  /* hend */
+                    sizeof(Uint) +                    /* heap_sz */
+                    sizeof(Uint) +                    /* min_heap_size */
+                    sizeof(Uint) +                    /* min_vheap_size */
+                    sizeof(volatile unsigned long))); /* fp_exception */
+#endif
+
 }
 
 void hipe_set_call_trap(Uint *bfun, void *nfun, int is_closure)
@@ -187,13 +216,20 @@ void hipe_set_call_trap(Uint *bfun, void *nfun, int is_closure)
 static __inline__ void
 hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
 {
-    /* ensure that at least 2 words are available on the BEAM stack */
-    if ((p->stop - 2) < p->htop) {
-	DPRINTF("calling gc to increase BEAM stack size");
-	p->fcalls -= erts_garbage_collect(p, 2, reg, arity);
+    if (&p->stop[1] < p->hend && p->stop[1] == hipe_beam_catch_throw) {
+	/* Trap frame already reserved */
+	ASSERT(p->stop[0] == NIL);
     }
-    p->stop -= 2;
-    p->stop[1] = hipe_beam_catch_throw;
+    else {
+	ASSERT(!(p->flags & F_DISABLE_GC));
+	if ((p->stop - 2) < p->htop) {
+	    DPRINTF("calling gc to increase BEAM stack size");
+	    erts_garbage_collect(p, 2, reg, arity);
+	    ASSERT(!((p->stop - 2) < p->htop));
+	}
+	p->stop -= 2;
+	p->stop[1] = hipe_beam_catch_throw;
+    }
     p->stop[0] = make_cp(p->cp);
     ++p->catches;
     p->cp = hipe_beam_pc_return;
@@ -201,6 +237,7 @@ hipe_push_beam_trap_frame(Process *p, Eterm reg[], unsigned arity)
 
 static __inline__ void hipe_pop_beam_trap_frame(Process *p)
 {
+    ASSERT(p->stop[1] == hipe_beam_catch_throw);
     p->cp = cp_val(p->stop[0]);
     --p->catches;
     p->stop += 2;
@@ -209,15 +246,37 @@ static __inline__ void hipe_pop_beam_trap_frame(Process *p)
 Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 {
     unsigned result;
-#if NR_ARG_REGS > 5
-    /* When NR_ARG_REGS > 5, we need to protect the process' input
-       reduction count (which BEAM stores in def_arg_reg[5]) from
-       being clobbered by the arch glue code. */
     Eterm reds_in = p->def_arg_reg[5];
-#endif
-#if NR_ARG_REGS > 4
-    Eterm o_reds = p->def_arg_reg[4];
-#endif
+    /*
+     * Process is in the normal case scheduled out when reduction
+     * count reach zero. When "save calls" is enabled reduction
+     * count is subtracted with CONTEXT_REDS, i.e. initial reduction
+     * count will be zero or less and process is scheduled out
+     * when -CONTEXT_REDS is reached.
+     *
+     * HiPE does not support the "save calls" feature, so we switch
+     * to using a positive reduction counter when executing in
+     * hipe mode, but need to restore the "save calls" when
+     * returning to beam. We also need to hide the save calls buffer
+     * from BIFs. We do that by moving the saved calls buf to
+     * suspended saved calls buf.
+     *
+     * Beam has initial reduction count in stored in p->def_arg_reg[5].
+     *
+     * Beam expects -neg_o_reds to be found in p->def_arg_reg[4]
+     * on return to beam.
+     */
+
+    {
+	struct saved_calls *scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
+	if (scb) {
+	    reds_in += CONTEXT_REDS;
+	    p->fcalls += CONTEXT_REDS;
+	    ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(p, scb);
+	}
+    }
+
+    p->flags |= F_HIPE_MODE; /* inform bifs where we are comming from... */
 
     p->i = NULL;
     /* Set current_function to undefined. stdlib hibernate tests rely on it. */
@@ -231,14 +290,14 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  /* BEAM calls a native code function */
 	  unsigned arity = cmd >> 8;
 
-	  /* p->hipe.ncallee set in beam_emu */
+	  /* p->hipe.u.ncallee set in beam_emu */
 	  if (p->cp == hipe_beam_pc_return) {
 	    /* Native called BEAM, which now tailcalls native. */
 	    hipe_pop_beam_trap_frame(p);
 	    result = hipe_tailcall_to_native(p, arity, reg);
 	    break;
 	  }
-	  DPRINTF("calling %#lx/%u", (long)p->hipe.ncallee, arity);
+	  DPRINTF("calling %#lx/%u", (long)p->hipe.u.ncallee, arity);
 	  result = hipe_call_to_native(p, arity, reg);
 	  break;
       }
@@ -256,18 +315,18 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  arity -= funp->num_free;	/* arity == #formals */
 	  reg[arity] = fun;
 	  ++arity;	/* correct for having added the closure */
-	  /* HIPE_ASSERT(p->hipe.ncallee == (void(*)(void))funp->native_address); */
+	  /* HIPE_ASSERT(p->hipe.u.ncallee == (void(*)(void))funp->native_address); */
 
 	  /* just like a normal call from now on */
 
-	  /* p->hipe.ncallee set in beam_emu */
+	  /* p->hipe.u.ncallee set in beam_emu */
 	  if (p->cp == hipe_beam_pc_return) {
 	      /* Native called BEAM, which now tailcalls native. */
 	      hipe_pop_beam_trap_frame(p);
 	      result = hipe_tailcall_to_native(p, arity, reg);
 	      break;
 	  }
-	  DPRINTF("calling %#lx/%u", (long)p->hipe.ncallee, arity);
+	  DPRINTF("calling %#lx/%u", (long)p->hipe.u.ncallee, arity);
 	  result = hipe_call_to_native(p, arity, reg);
 	  break;
       }
@@ -307,7 +366,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  break;
       }
       default:
-	erl_exit(1, "hipe_mode_switch: cmd %#x\r\n", cmd);
+	erts_exit(ERTS_ERROR_EXIT, "hipe_mode_switch: cmd %#x\r\n", cmd);
     }
  do_return_from_native:
     DPRINTF("result == %#x (%s)", result, code_str(result));
@@ -370,13 +429,13 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  if (is_recursive)
 	      hipe_push_beam_trap_frame(p, reg, p->arity);
 	  
-	  result = HIPE_MODE_SWITCH_RES_CALL;
+	  result = HIPE_MODE_SWITCH_RES_CALL_BEAM;
 	  break;
       }
-      case HIPE_MODE_SWITCH_RES_CALL: {
+      case HIPE_MODE_SWITCH_RES_CALL_EXPORTED: {
 	  /* Native code calls or tailcalls BEAM.
 	   *
-	   * p->i is the callee's BEAM code
+	   * p->hipe.u.callee_exp is the callee's export entry
 	   * p->arity is the callee's arity
 	   * p->def_arg_reg[] contains the register parameters
 	   * p->hipe.nsp[] contains the stacked parameters
@@ -396,15 +455,15 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	   * F(A1, ..., AN, FV1, ..., FVM, Closure)
 	   *  (Where Ai is argument i and FVj is free variable j)
 	   *
-	   * p->hipe.closure contains the closure
+	   * p->hipe.u.closure contains the closure
 	   * p->def_arg_reg[] contains the register parameters
 	   * p->hipe.nsp[] contains the stacked parameters
 	   */
 	  ErlFunThing *closure;
 	  unsigned num_free, arity, i, is_recursive;
 
-	  HIPE_ASSERT(is_fun(p->hipe.closure));
-	  closure = (ErlFunThing*)fun_val(p->hipe.closure);
+	  HIPE_ASSERT(is_fun(p->hipe.u.closure));
+	  closure = (ErlFunThing*)fun_val(p->hipe.u.closure);
 	  num_free = closure->num_free;
 	  arity = closure->fe->arity;
 
@@ -434,10 +493,10 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      p->i = closure->fe->address;
 
 	      /* Change result code to the faster plain CALL type. */
-	      result = HIPE_MODE_SWITCH_RES_CALL;
+	      result = HIPE_MODE_SWITCH_RES_CALL_BEAM;
 	  }
 	  /* Append the closure as the last parameter. Don't increment arity. */
-	  reg[arity] = p->hipe.closure;
+	  reg[arity] = p->hipe.u.closure;
 
 	  if (is_recursive) {
 	      /* BEAM called native, which now calls BEAM.
@@ -472,12 +531,25 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
       do_schedule:
 	  {
-#if !(NR_ARG_REGS > 5)
-	      int reds_in = p->def_arg_reg[5];
+	      struct saved_calls *scb;
+
+	      scb = ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(p, NULL);
+	      if (scb)
+		  ERTS_PROC_SET_SAVED_CALLS_BUF(p, scb);
+
+              /* The process may have died while it was executing,
+                 if so we return out from native code to the interpreter */
+              if (erts_smp_atomic32_read_nob(&p->state) & ERTS_PSFLG_EXITING)
+                  p->i = beam_exit;
+#ifdef DEBUG
+	      ASSERT(p->debug_reds_in == reds_in);
 #endif
+	      p->flags &= ~F_HIPE_MODE;
+
 	      ERTS_SMP_UNREQ_PROC_MAIN_LOCK(p);
-	      p = schedule(p, reds_in - p->fcalls);
+	      p = erts_schedule(NULL, p, reds_in - p->fcalls);
 	      ERTS_SMP_REQ_PROC_MAIN_LOCK(p);
+	      ASSERT(!(p->flags & F_HIPE_MODE));
 #ifdef ERTS_SMP
 	      p->hipe_smp.have_receive_locks = 0;
 	      reg = p->scheduler_data->x_reg_array;
@@ -492,30 +564,34 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 		  reg[i] = argp[i];
 	  }
 	  {
-#if !(NR_ARG_REGS > 5)
-	      Eterm reds_in;
-#endif
-#if !(NR_ARG_REGS > 4)
-	      Eterm o_reds;
-#endif
+	      struct saved_calls *scb;
 
 	      reds_in = p->fcalls;
-	      o_reds = 0;
-	      if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
-		  o_reds = reds_in;
-		  reds_in = 0;
-		  p->fcalls = 0;
-	      }
-	      p->def_arg_reg[4] = o_reds;
 	      p->def_arg_reg[5] = reds_in;
+#ifdef DEBUG
+	      p->debug_reds_in = reds_in;
+#endif
 	      if (p->i == hipe_beam_pc_resume) {
+		  p->flags |= F_HIPE_MODE; /* inform bifs where we are comming from... */
+		  scb = ERTS_PROC_SET_SAVED_CALLS_BUF(p, NULL);
+		  if (scb)
+		      ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(p, scb);
 		  p->i = NULL;
 		  p->arity = 0;
 		  goto do_resume;
 	      }
+
+	      scb = ERTS_PROC_GET_SAVED_CALLS_BUF(p);
+	      if (!scb)
+		  p->def_arg_reg[4] = 0;
+	      else {
+		  p->def_arg_reg[4] = CONTEXT_REDS;
+		  p->fcalls = -CONTEXT_REDS + reds_in;
+	      }
 	  }
+
 	  HIPE_CHECK_PCB(p);
-	  result = HIPE_MODE_SWITCH_RES_CALL;
+	  result = HIPE_MODE_SWITCH_RES_CALL_BEAM;
 	  p->def_arg_reg[3] = result;
 	  return p;
       }
@@ -543,7 +619,7 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  address = hipe_get_remote_na(mfa[0], mfa[1], arity);
 	  if (!address)
 		  goto do_apply_fail;
-	  p->hipe.ncallee = (void(*)(void)) address;
+	  p->hipe.u.ncallee = (void(*)(void)) address;
 	  result = hipe_tailcall_to_native(p, arity, reg);
 	  goto do_return_from_native;
       do_apply_fail:
@@ -551,16 +627,31 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	  goto do_throw_to_native;
       }
       default:
-	erl_exit(1, "hipe_mode_switch: result %#x\r\n", result);
+	erts_exit(ERTS_ERROR_EXIT, "hipe_mode_switch: result %#x\r\n", result);
     }
+
+    {
+	struct saved_calls *scb = ERTS_PROC_SET_SUSPENDED_SAVED_CALLS_BUF(p, NULL);
+	if (!scb)
+	    p->def_arg_reg[4] = 0;
+	else {
+	    p->def_arg_reg[4] = CONTEXT_REDS;
+	    p->fcalls -= CONTEXT_REDS;
+	    ERTS_PROC_SET_SAVED_CALLS_BUF(p, scb);
+	}
+    }
+
     HIPE_CHECK_PCB(p);
     p->def_arg_reg[3] = result;
-#if NR_ARG_REGS > 4
-    p->def_arg_reg[4] = o_reds;
-#endif
 #if NR_ARG_REGS > 5
+    /*
+     * When NR_ARG_REGS > 5, we need to protect the process' input
+     * reduction count (which BEAM stores in def_arg_reg[5]) from
+     * being clobbered by the arch glue code.
+     */
     p->def_arg_reg[5] = reds_in;
 #endif
+    p->flags &= ~F_HIPE_MODE;
     return p;
 }
 
@@ -573,7 +664,6 @@ static unsigned hipe_next_nstack_size(unsigned size)
 }
 
 #if 0 && defined(HIPE_NSTACK_GROWS_UP)
-#define hipe_nstack_avail(p)	((p)->hipe.nstend - (p)->hipe.nsp)
 void hipe_inc_nstack(Process *p)
 {
     Eterm *old_nstack = p->hipe.nstack;
@@ -597,7 +687,6 @@ void hipe_inc_nstack(Process *p)
 #endif
 
 #if defined(HIPE_NSTACK_GROWS_DOWN)
-#define hipe_nstack_avail(p)	((unsigned)((p)->hipe.nsp - (p)->hipe.nstack))
 void hipe_inc_nstack(Process *p)
 {
     unsigned old_size = p->hipe.nstend - p->hipe.nstack;
@@ -627,12 +716,6 @@ void hipe_empty_nstack(Process *p)
     p->hipe.nsp = NULL;
     p->hipe.nstack = NULL;
     p->hipe.nstend = NULL;
-}
-
-static void hipe_check_nstack(Process *p, unsigned nwords)
-{
-    while (hipe_nstack_avail(p) < nwords)
-	hipe_inc_nstack(p);
 }
 
 void hipe_set_closure_stub(ErlFunEntry *fe, unsigned num_free)

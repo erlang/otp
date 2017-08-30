@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2013</year>
+      <year>2004</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -30,6 +31,330 @@
   </header>
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
+
+<section><title>Runtime_Tools 1.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug in dbg:trace_port/2 that could cause the trace ip
+	    driver to produce faulty error reports "...(re)selected
+	    before stop_select was called for driver trace_ip_drv".</p>
+          <p>
+	    Own Id: OTP-13576 Aux Id: ERL-119 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add microstate accounting</p>
+          <p>
+	    Microstate accounting is a way to track which state the
+	    different threads within ERTS are in. The main usage area
+	    is to pin point performance bottlenecks by checking which
+	    states the threads are in and then from there figuring
+	    out why and where to optimize.</p>
+          <p>
+	    Since checking whether microstate accounting is on or off
+	    is relatively expensive only a few of the states are
+	    enabled by default and more states can be enabled through
+	    configure.</p>
+          <p>
+	    There is a convenience module called msacc that has been
+	    added to runtime_tools that can assist in gathering and
+	    interpreting the data from Microstate accounting.</p>
+          <p>
+	    For more information see <seealso
+	    marker="erts:erlang#statistics_microstate_accounting">erlang:statistics(microstate_accounting,
+	    _)</seealso> and the <seealso
+	    marker="runtime_tools:msacc">msacc</seealso> module in
+	    runtime_tools.</p>
+          <p>
+	    Own Id: OTP-12345</p>
+        </item>
+        <item>
+          <p>
+	    Update observer GUI to support tracing on ports, and to
+	    set matchspecs for send/receive. This required some minor
+	    bugfixes in runtime_tools/dbg.</p>
+          <p>
+	    Own Id: OTP-13481</p>
+        </item>
+        <item>
+          <p>
+	    Update dbg and ttb to work with a tracer module as tracer
+	    and tracing on ports.</p>
+          <p>
+	    Own Id: OTP-13500</p>
+        </item>
+        <item>
+          <p>
+	    Updated dbg to accept the new trace options
+	    <c>monotonic_timestamp</c> and
+	    <c>strict_monotonic_timestamp</c>.</p>
+          <p>
+	    Own Id: OTP-13502</p>
+        </item>
+        <item>
+          <p>
+	    Introduce LTTng tracing via Erlang tracing.</p>
+          <p>
+	    For LTTng to be enabled OTP needs to be built with
+	    configure option <c>--with-dynamic-trace=lttng</c>.</p>
+	    <p>The dynamic trace module <c>dyntrace</c> is now
+	    capable to be used as a LTTng sink for Erlang tracing.
+	    For a list of all tracepoints, see <seealso
+	    marker="runtime_tools:LTTng">Runtime Tools User's
+	    Guide</seealso> .</p>
+	    <p>This feature also introduces an incompatible change in
+	    trace tags. The trace tags <c>gc_start</c> and
+	    <c>gc_end</c> has been split into <c>gc_minor_start</c>,
+	    <c>gc_minor_end</c> and <c>gc_major_start</c>,
+	    <c>gc_major_end</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13532</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.9.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p><c>dbg:trace_client()</c> now uses a read buffer to
+	    speed up reading of trace files.</p>
+          <p>
+	    Own Id: OTP-13279</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.9.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Clarified dbg:stop documentation</p>
+          <p>
+	    Own Id: OTP-13078</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <c>trace_file_drv</c> did not handle <c>EINTR</c>
+	    correct which caused it to fail when the runtime system
+	    received a signal.</p>
+          <p>
+	    Own Id: OTP-12890 Aux Id: seq12885 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change license text from Erlang Public License to Apache
+	    Public License v2</p>
+          <p>
+	    Own Id: OTP-12845</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The trace process started by <c>dbg</c> would not always
+	    terminate when <c>dbg:stop/0</c> was called.</p>
+          <p>
+	    Own Id: OTP-12517</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>nif_version</c> to <c>erlang:system_info/1</c> in
+	    order to get the NIF API version of the runtime system in
+	    a way similar to <c>driver_version</c>.</p>
+          <p>
+	    Own Id: OTP-12298</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The documentation for the return value of
+	    dbg:{stop,stop_clear} functions are now correct (Thanks
+	    to Luca Favatella)</p>
+          <p>
+	    Own Id: OTP-11603</p>
+        </item>
+        <item>
+          <p>
+	    Fix DTrace build on Illumos. (Thanks to Ryan Zezeski.)</p>
+          <p>
+	    Own Id: OTP-11622</p>
+        </item>
+        <item>
+          <p>
+	    Do not turn off scheduler_wall_time, as it can interfere
+	    with other applications usage.</p>
+          <p>
+	    Own Id: OTP-11693 Aux Id: seq12528 </p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Allow install path to have unicode characters.</p>
+          <p>
+	    Own Id: OTP-10877</p>
+        </item>
+        <item>
+          <p>
+	    The <c>erts_alloc_config</c> tool has been updated to
+	    produce configurations that better fit todays SMP support
+	    in the VM.</p>
+          <p>
+	    Own Id: OTP-11662</p>
+        </item>
+        <item>
+          <p>
+	    The <seealso
+	    marker="kernel:app"><c>app</c></seealso>-file key
+	    <seealso
+	    marker="kernel:app#runtime_dependencies"><c>runtime_dependencies</c></seealso>
+	    has been introduced.</p>
+          <p>
+	    Runtime dependencies have been added to all app-files in
+	    OTP. Note that these may not be completely correct during
+	    OTP 17, but this is actively being worked on.</p>
+          <p>
+	    The function <seealso
+	    marker="runtime_tools:system_information#sanity_check/0"><c>system_information:sanity_check/0</c></seealso>
+	    will verify all declared runtime dependencies in the
+	    system when called.</p>
+          <p>
+	    Own Id: OTP-11773</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Observer did not produce correct result when ERTS
+	    internal memory allocators had been disabled.</p>
+          <p>
+	    Own Id: OTP-11520</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.8.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The process trace flag 'silent' is now allowed in call to
+	    dbg:p/2.</p>
+          <p>
+	    Own Id: OTP-11222</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Introduced functionality for inspection of system and
+	    build configuration.</p>
+          <p>
+	    Own Id: OTP-11196</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Runtime_Tools 1.8.11</title>
 
@@ -69,7 +394,7 @@
         <item>
           <p>
 	    Fix Table Viewer refresh crash on no more existing ets
-	    tables (Thanks to Peti Gömori)</p>
+	    tables (Thanks to Peti GÃ¶mori)</p>
           <p>
 	    Own Id: OTP-10635</p>
         </item>

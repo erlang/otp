@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -22,14 +23,12 @@
 -include_lib("sasl/src/systools.hrl").
 -export([all/0,groups/0,init_per_group/2,end_per_group/2, 
 	 syntax_check/1, translate/1, translate_app/1,
-	 translate_emulator_restarts/1]).
+	 translate_emulator_restarts/1,
+	 translate_add_delete_module/1]).
 
-%%-----------------------------------------------------------------
-%% erl -compile systools_rc_SUITE @i ../src/ @i ../../test_server/include/
-%% c(systools_rc_SUITE, [{i, "../src"}, {i, "../../test_server/include"}]).
-%%-----------------------------------------------------------------
 all() -> 
-    [syntax_check, translate, translate_app, translate_emulator_restarts].
+    [syntax_check, translate, translate_app, translate_emulator_restarts,
+     translate_add_delete_module].
 
 groups() -> 
     [].
@@ -436,25 +435,19 @@ translate(Config) when is_list(Config) ->
 
 translate_app(Config) when is_list(Config) ->
     PreApps =
-	[#application{name = test,
-		      description = "TEST",
-		      vsn = "1.0",
-		      modules = [foo,bar,baz],
-		      regs = [],
-		      mod = {sasl, []}},
+	[Test = #application{name = test,
+			     description = "TEST",
+			     vsn = "1.0",
+			     modules = [foo,bar,baz],
+			     regs = [],
+			     mod = {sasl, []}},
 	 #application{name = pelle,
 		      description = "PELLE",
 		      vsn = "1.0",
 		      modules = [pelle, kalle],
 		      regs = [],
 		      mod = {pelle, []}}],
-    Apps =
-	[#application{name = test,
-		      description = "TEST",
-		      vsn = "1.0",
-		      modules = [foo,bar,baz],
-		      regs = [],
-		      mod = {sasl, []}}],
+    Apps = [Test],
     %% Simple translation (1)
     Up1 = [{add_module, foo},
 	   {add_module, bar}],
@@ -475,6 +468,56 @@ translate_app(Config) when is_list(Config) ->
      {load,{baz,brutal_purge,brutal_purge}},
      {apply,{application,start,[test,permanent]}}] = X2,
 
+    %% Translate add_application with different restart types
+    %%  permanent
+    Up2_1 = [{add_application, test, permanent}],
+    {ok, X2_1} = systools_rc:translate_scripts([Up2_1], Apps, []),
+    [{load_object_code,{test,"1.0",[foo,bar,baz]}},
+     point_of_no_return,
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{bar,brutal_purge,brutal_purge}},
+     {load,{baz,brutal_purge,brutal_purge}},
+     {apply,{application,start,[test,permanent]}}] = X2_1,
+
+    %%  transient
+    Up2_2 = [{add_application, test, transient}],
+    {ok, X2_2} = systools_rc:translate_scripts([Up2_2], Apps, []),
+    [{load_object_code,{test,"1.0",[foo,bar,baz]}},
+     point_of_no_return,
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{bar,brutal_purge,brutal_purge}},
+     {load,{baz,brutal_purge,brutal_purge}},
+     {apply,{application,start,[test,transient]}}] = X2_2,
+
+    %%  temporary
+    Up2_3 = [{add_application, test, temporary}],
+    {ok, X2_3} = systools_rc:translate_scripts([Up2_3], Apps, []),
+    [{load_object_code,{test,"1.0",[foo,bar,baz]}},
+     point_of_no_return,
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{bar,brutal_purge,brutal_purge}},
+     {load,{baz,brutal_purge,brutal_purge}},
+     {apply,{application,start,[test,temporary]}}] = X2_3,
+
+    %%  load
+    Up2_4 = [{add_application, test, load}],
+    {ok, X2_4} = systools_rc:translate_scripts([Up2_4], Apps, []),
+    [{load_object_code,{test,"1.0",[foo,bar,baz]}},
+     point_of_no_return,
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{bar,brutal_purge,brutal_purge}},
+     {load,{baz,brutal_purge,brutal_purge}},
+     {apply,{application,load,[test]}}] = X2_4,
+
+    %%  none
+    Up2_5 = [{add_application, test, none}],
+    {ok, X2_5} = systools_rc:translate_scripts([Up2_5], Apps, []),
+    [{load_object_code,{test,"1.0",[foo,bar,baz]}},
+     point_of_no_return,
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{bar,brutal_purge,brutal_purge}},
+     {load,{baz,brutal_purge,brutal_purge}}] = X2_5,
+
     %% Simple translation (3)
     Up3 = [{remove_application, pelle}],
     {ok, X3} = systools_rc:translate_scripts([Up3], Apps, PreApps),
@@ -484,6 +527,102 @@ translate_app(Config) when is_list(Config) ->
      {remove,{kalle,brutal_purge,brutal_purge}},
      {purge,[pelle,kalle]},
      {apply,{application,unload,[pelle]}}] = X3,
+
+    %% Simple translation (4)
+    Up4 = [{restart_application, test}],
+    {ok, X4} = systools_rc:translate_scripts([Up4], Apps, PreApps),
+    [{load_object_code,{test,"1.0",[foo,bar,baz]}},
+     point_of_no_return,
+     {apply,{application,stop,[test]}},
+     {remove,{foo,brutal_purge,brutal_purge}},
+     {remove,{bar,brutal_purge,brutal_purge}},
+     {remove,{baz,brutal_purge,brutal_purge}},
+     {purge,[foo,bar,baz]},
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{bar,brutal_purge,brutal_purge}},
+     {load,{baz,brutal_purge,brutal_purge}},
+     {apply,{application,start,[test,permanent]}}] = X4,
+
+    %% Translate restart_application with different restart types
+    %%  permanent
+    {ok, X4_1} = systools_rc:translate_scripts([Up4],
+					       [Test#application{type=permanent}],
+					       [Test]),
+    [{load_object_code,{test,"1.0",[foo,bar,baz]}},
+     point_of_no_return,
+     {apply,{application,stop,[test]}},
+     {remove,{foo,brutal_purge,brutal_purge}},
+     {remove,{bar,brutal_purge,brutal_purge}},
+     {remove,{baz,brutal_purge,brutal_purge}},
+     {purge,[foo,bar,baz]},
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{bar,brutal_purge,brutal_purge}},
+     {load,{baz,brutal_purge,brutal_purge}},
+     {apply,{application,start,[test,permanent]}}] = X4_1,
+
+    %%  transient
+    {ok, X4_2} = systools_rc:translate_scripts([Up4],
+					       [Test#application{type=transient}],
+					       [Test]),
+    [{load_object_code,{test,"1.0",[foo,bar,baz]}},
+     point_of_no_return,
+     {apply,{application,stop,[test]}},
+     {remove,{foo,brutal_purge,brutal_purge}},
+     {remove,{bar,brutal_purge,brutal_purge}},
+     {remove,{baz,brutal_purge,brutal_purge}},
+     {purge,[foo,bar,baz]},
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{bar,brutal_purge,brutal_purge}},
+     {load,{baz,brutal_purge,brutal_purge}},
+     {apply,{application,start,[test,transient]}}] = X4_2,
+
+    %%  temporary
+    {ok, X4_3} = systools_rc:translate_scripts([Up4],
+					       [Test#application{type=temporary}],
+					       [Test]),
+    [{load_object_code,{test,"1.0",[foo,bar,baz]}},
+     point_of_no_return,
+     {apply,{application,stop,[test]}},
+     {remove,{foo,brutal_purge,brutal_purge}},
+     {remove,{bar,brutal_purge,brutal_purge}},
+     {remove,{baz,brutal_purge,brutal_purge}},
+     {purge,[foo,bar,baz]},
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{bar,brutal_purge,brutal_purge}},
+     {load,{baz,brutal_purge,brutal_purge}},
+     {apply,{application,start,[test,temporary]}}] = X4_3,
+
+    %%  load
+    {ok, X4_4} = systools_rc:translate_scripts([Up4],
+					       [Test#application{type=load}],
+					       [Test]),
+    [{load_object_code,{test,"1.0",[foo,bar,baz]}},
+     point_of_no_return,
+     {apply,{application,stop,[test]}},
+     {remove,{foo,brutal_purge,brutal_purge}},
+     {remove,{bar,brutal_purge,brutal_purge}},
+     {remove,{baz,brutal_purge,brutal_purge}},
+     {purge,[foo,bar,baz]},
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{bar,brutal_purge,brutal_purge}},
+     {load,{baz,brutal_purge,brutal_purge}},
+     {apply,{application,load,[test]}}] = X4_4,
+
+    %%  none
+    {ok, X4_5} = systools_rc:translate_scripts([Up4],
+					       [Test#application{type=none}],
+					       [Test]),
+    [{load_object_code,{test,"1.0",[foo,bar,baz]}},
+     point_of_no_return,
+     {apply,{application,stop,[test]}},
+     {remove,{foo,brutal_purge,brutal_purge}},
+     {remove,{bar,brutal_purge,brutal_purge}},
+     {remove,{baz,brutal_purge,brutal_purge}},
+     {purge,[foo,bar,baz]},
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{bar,brutal_purge,brutal_purge}},
+     {load,{baz,brutal_purge,brutal_purge}}] = X4_5,
+
     ok.
 
 
@@ -565,5 +704,61 @@ translate_emulator_restarts(_Config) ->
     {ok, X6} = systools_rc:translate_scripts([Up6], Apps, []),
     [point_of_no_return,
      restart_emulator] = X6,
+
+    ok.
+
+translate_add_delete_module(_Config) ->
+    PreApps =
+	[#application{name = test,
+		      description = "TEST",
+		      vsn = "0.1",
+		      modules = [foo,bar,baz,old_mod],
+		      regs = [],
+		      mod = {sasl, []}}],
+    Apps =
+	[#application{name = test,
+		      description = "TEST",
+		      vsn = "1.0",
+		      modules = [foo,bar,baz,new_mod],
+		      regs = [],
+		      mod = {sasl, []}}],
+    S1 = [
+	  {delete_module, old_mod},
+	  {add_module, new_mod},
+	  {load_module, foo}
+	 ],
+    {ok, X1} = systools_rc:translate_scripts([S1], Apps, PreApps),
+    [{load_object_code,{test,"1.0",[new_mod,foo]}},
+     point_of_no_return,
+     {remove,{old_mod,brutal_purge,brutal_purge}},
+     {purge,[old_mod]},
+     {load,{new_mod,brutal_purge,brutal_purge}},
+     {load,{foo,brutal_purge,brutal_purge}}] = X1,
+
+    S2 = [
+	  {delete_module, old_mod},
+	  {add_module, new_mod, [foo]},
+	  {load_module, foo}
+	 ],
+    {ok, X2} = systools_rc:translate_scripts([S2], Apps, PreApps),
+    [{load_object_code,{test,"1.0",[new_mod,foo]}},
+     point_of_no_return,
+     {remove,{old_mod,brutal_purge,brutal_purge}},
+     {purge,[old_mod]},
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{new_mod,brutal_purge,brutal_purge}}] = X2,
+
+    S3 = [
+	  {delete_module, old_mod, [new_mod]},
+	  {add_module, new_mod, [foo]},
+	  {load_module, foo}
+	 ],
+    {ok, X3} = systools_rc:translate_scripts([S3], Apps, PreApps),
+    [{load_object_code,{test,"1.0",[new_mod,foo]}},
+     point_of_no_return,
+     {load,{foo,brutal_purge,brutal_purge}},
+     {load,{new_mod,brutal_purge,brutal_purge}},
+     {remove,{old_mod,brutal_purge,brutal_purge}},
+     {purge,[old_mod]}] = X3,
 
     ok.

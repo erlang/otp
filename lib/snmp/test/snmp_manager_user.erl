@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %% 
@@ -30,7 +31,7 @@
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 
 
@@ -109,7 +110,18 @@ start_link(Parent, Id) ->
     proc_lib:start_link(?MODULE, main, [true, Parent, self(), Id]).
 
 stop() ->
-    cast(stop).
+    MRef = erlang:monitor(process, ?SERVER),
+    cast(stop),
+    receive {'DOWN', MRef, _, _, Info} ->
+	    case Info of
+		noproc ->
+		    ok;
+		noconnection ->
+		    ok;
+		normal ->
+		    ok
+	    end
+    end.
 
 info() ->
     call(info).
@@ -681,6 +693,15 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    Parent ! {async_event, TargetName, {report, SnmpReport}}, 
 	    loop(S);
 
+	{handle_invalid_result, _Pid, In, Out} ->
+	    d("loop -> received invalid result callback from manager for "
+	      "~n   In:  ~p", 
+	      "~n   Out: ~p", [In, Out]),
+	    info("received invalid result message: "
+		 "~n   In:  ~p"
+		 "~n   Out: ~p", [In, Out]),
+	    loop(S);
+
 	{'EXIT', Parent, Reason} ->
 	    d("received exit signal from parent: ~n~p", [Reason]),
 	    info("received exit signal from parent: ~n~p", [Reason]),
@@ -770,7 +791,7 @@ handle_pdu(TargetName, ReqId, SnmpResponse, UserPid) ->
  
 handle_trap(TargetName, SnmpTrap, UserPid) ->
     UserPid ! {handle_trap, self(), TargetName, SnmpTrap},
-    ok.
+    ignore.
  
 handle_inform(TargetName, SnmpInform, UserPid) ->
     UserPid ! {handle_inform, self(), TargetName, SnmpInform},
@@ -778,12 +799,12 @@ handle_inform(TargetName, SnmpInform, UserPid) ->
 	{handle_inform_no_response, TargetName} ->
 	    no_reply;
 	{handle_inform_response, TargetName} ->
-	    ok
+	    ignore
     end.
 
 handle_report(TargetName, SnmpReport, UserPid) ->
     UserPid ! {handle_report, self(), TargetName, SnmpReport},
-    ok.
+    ignore.
 
 
 %%----------------------------------------------------------------------

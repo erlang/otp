@@ -1,24 +1,25 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 -module(old_crypto_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2,
@@ -186,7 +187,9 @@ ldd_program() ->
 		    case os:find_executable("otool") of
 			false -> none;
 			Otool -> Otool ++ " -L"
-		    end
+		    end;
+		_ ->
+		    none
 	    end;
  	Ldd when is_list(Ldd) -> Ldd
     end.
@@ -1887,47 +1890,11 @@ ec(Config) when is_list(Config) ->
 
 ec_do() ->
     %% test for a name curve
-    {D2_pub, D2_priv} = crypto:generate_key(ecdh, sect113r2),
-    PrivECDH = [D2_priv, sect113r2],
-    PubECDH = [D2_pub, sect113r2],
+    NamedCurve = hd(crypto:ec_curves()),
+    {D2_pub, D2_priv} = crypto:generate_key(ecdh, NamedCurve),
+    PrivECDH = [D2_priv, NamedCurve],
+    PubECDH = [D2_pub, NamedCurve],
     %%TODO: find a published test case for a EC key
-
-    %% test for a full specified curve and public key,
-    %% taken from csca-germany_013_self_signed_cer.pem
-    PubKey = <<16#04, 16#4a, 16#94, 16#49, 16#81, 16#77, 16#9d, 16#df,
-	       16#1d, 16#a5, 16#e7, 16#c5, 16#27, 16#e2, 16#7d, 16#24,
-	       16#71, 16#a9, 16#28, 16#eb, 16#4d, 16#7b, 16#67, 16#75,
-	       16#ae, 16#09, 16#0a, 16#51, 16#45, 16#19, 16#9b, 16#d4,
-	       16#7e, 16#a0, 16#81, 16#e5, 16#5e, 16#d4, 16#a4, 16#3f,
-	       16#60, 16#7c, 16#6a, 16#50, 16#ee, 16#36, 16#41, 16#8a,
-	       16#87, 16#ff, 16#cd, 16#a6, 16#10, 16#39, 16#ca, 16#95,
-	       16#76, 16#7d, 16#ae, 16#ca, 16#c3, 16#44, 16#3f, 16#e3, 16#2c>>,
-    <<P:264/integer>> = <<16#00, 16#a9, 16#fb, 16#57, 16#db, 16#a1, 16#ee, 16#a9,
-                          16#bc, 16#3e, 16#66, 16#0a, 16#90, 16#9d, 16#83, 16#8d,
-			  16#72, 16#6e, 16#3b, 16#f6, 16#23, 16#d5, 16#26, 16#20,
-			  16#28, 16#20, 16#13, 16#48, 16#1d, 16#1f, 16#6e, 16#53, 16#77>>,
-    <<A:256/integer>> = <<16#7d, 16#5a, 16#09, 16#75, 16#fc, 16#2c, 16#30, 16#57,
-			  16#ee, 16#f6, 16#75, 16#30, 16#41, 16#7a, 16#ff, 16#e7,
-			  16#fb, 16#80, 16#55, 16#c1, 16#26, 16#dc, 16#5c, 16#6c,
-			  16#e9, 16#4a, 16#4b, 16#44, 16#f3, 16#30, 16#b5, 16#d9>>,
-    <<B:256/integer>> = <<16#26, 16#dc, 16#5c, 16#6c, 16#e9, 16#4a, 16#4b, 16#44,
-			  16#f3, 16#30, 16#b5, 16#d9, 16#bb, 16#d7, 16#7c, 16#bf,
-			  16#95, 16#84, 16#16, 16#29, 16#5c, 16#f7, 16#e1, 16#ce,
-			  16#6b, 16#cc, 16#dc, 16#18, 16#ff, 16#8c, 16#07, 16#b6>>,
-    BasePoint = <<16#04, 16#8b, 16#d2, 16#ae, 16#b9, 16#cb, 16#7e, 16#57,
-		  16#cb, 16#2c, 16#4b, 16#48, 16#2f, 16#fc, 16#81, 16#b7,
-		  16#af, 16#b9, 16#de, 16#27, 16#e1, 16#e3, 16#bd, 16#23,
-		  16#c2, 16#3a, 16#44, 16#53, 16#bd, 16#9a, 16#ce, 16#32,
-		  16#62, 16#54, 16#7e, 16#f8, 16#35, 16#c3, 16#da, 16#c4,
-		  16#fd, 16#97, 16#f8, 16#46, 16#1a, 16#14, 16#61, 16#1d,
-		  16#c9, 16#c2, 16#77, 16#45, 16#13, 16#2d, 16#ed, 16#8e,
-		  16#54, 16#5c, 16#1d, 16#54, 16#c7, 16#2f, 16#04, 16#69, 16#97>>,
-    <<Order:264/integer>> = <<16#00, 16#a9, 16#fb, 16#57, 16#db, 16#a1, 16#ee, 16#a9,
-			      16#bc, 16#3e, 16#66, 16#0a, 16#90, 16#9d, 16#83, 16#8d,
-			      16#71, 16#8c, 16#39, 16#7a, 16#a3, 16#b5, 16#61, 16#a6,
-			      16#f7, 16#90, 16#1e, 16#0e, 16#82, 16#97, 16#48, 16#56, 16#a7>>,
-    CoFactor = 1,
-    Curve = {{prime_field,P},{A,B,none},BasePoint, Order,CoFactor},
 
     Msg = <<99,234,6,64,190,237,201,99,80,248,58,40,70,45,149,218,5,246,242,63>>,
     Sign = crypto:sign(ecdsa, sha, Msg, PrivECDH),
@@ -2101,8 +2068,8 @@ exor_test(Config) when is_list(Config) ->
     B = <<1, 2, 3, 4, 5, 6, 7, 8, 9, 10>>,
     Z1 = zero_bin(B),
     Z1 = crypto:exor(B, B),
-    B1 = crypto:rand_bytes(100),
-    B2 = crypto:rand_bytes(100),
+    B1 = crypto:strong_rand_bytes(100),
+    B2 = crypto:strong_rand_bytes(100),
     Z2 = zero_bin(B1),
     Z2 = crypto:exor(B1, B1),
     Z2 = crypto:exor(B2, B2),

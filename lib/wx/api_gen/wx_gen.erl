@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -25,7 +26,7 @@
 
 -include_lib("xmerl/include/xmerl.hrl").
 
--import(lists, [foldl/3,foldr/3,reverse/1, keysearch/3, map/2, filter/2]).
+-import(lists, [foldl/3,foldr/3,reverse/1,keysearch/3,map/2,filter/2,droplast/1]).
 -import(proplists, [get_value/2,get_value/3]).
 
 -compile(export_all).
@@ -69,7 +70,7 @@ gen_code() ->
 gen_xml() ->
 %%     {ok, Defs} = file:consult("wxapi.conf"),
     
-%%     Rel = reverse(tl(reverse(os:cmd("wx-config --release")))),
+%%     Rel = droplast(os:cmd("wx-config --release")),
 %%     Dir = " /usr/include/wx-" ++ Rel ++ "/wx/",
 %%     Files0 = [Dir ++ File || {class, File, _, _, _} <- Defs],
 %%     Files1 = [Dir ++ File || {doxygen, File} <- Defs],
@@ -172,7 +173,7 @@ parse_defs([], Acc) -> reverse(Acc).
 meta_info(C=#class{name=CName,methods=Ms0}) ->
     Ms = lists:append(Ms0),
     HaveConstructor = lists:keymember(constructor, #method.method_type, Ms),
-    case lists:keysearch(destructor, #method.method_type, Ms) of
+    case keysearch(destructor, #method.method_type, Ms) of
 	false when HaveConstructor -> 
 	    Dest = #method{name = "destroy", id = next_id(func_id),
 			   method_type = destructor, params = [this(CName)]},
@@ -288,7 +289,7 @@ parse_attr1([{{attr,_}, #xmlElement{content=C, attributes=Attrs}}|R], AttrList0,
 parse_attr1([{_Id,_}|R],AttrList,Info, Res) ->
     parse_attr1(R,AttrList,Info, Res);
 parse_attr1([],Left,_, Res) ->
-    {lists:reverse(Res), Left}.
+    {reverse(Res), Left}.
 
 attr_acc(#param{name=N}, List) ->
     Name = list_to_atom(N),
@@ -704,6 +705,8 @@ parse_type2(["unsigned"|R],Info,Opts,T=#type{mod=Mod}) ->
     parse_type2(R,Info,Opts,T#type{mod=[unsigned|Mod]});
 parse_type2(["int"|R],Info,Opts,  T) -> 
     parse_type2(R,Info,Opts,T#type{name=int,base=int});
+parse_type2(["wxByte"|R],Info,Opts,  T) ->
+    parse_type2(R,Info,Opts,T#type{name=int,base=int});
 parse_type2(["char"|R],Info,Opts,  T) -> 
     parse_type2(R,Info,Opts,T#type{name="char",base=int});
 parse_type2([N="size_t"|R], Info, Opts,  T) -> 
@@ -743,7 +746,14 @@ parse_type2([N="wxTreeItemData"|R],Info,Opts,T) ->
     parse_type2(R,Info,Opts,T#type{name="wxETreeItemData",base={term,N}});
 parse_type2([N="wxClientData"|R],Info,Opts,T) -> 
     parse_type2(R,Info,Opts,T#type{name="wxeErlTerm",base={term,N}});
-parse_type2([N="wxChar"|R],Info,Opts,T) -> 
+parse_type2([N="wxChar",{by_ref,_}|R],Info,Opts,T = #type{mod=[const]}) ->
+    case get(current_class) of
+	"wxLocale" -> %% Special since changed between 2.8 and 3.0
+	    parse_type2(R,Info,Opts,T#type{name="wxeLocaleC",base=string});
+	_ ->
+	    parse_type2(R,Info,Opts,T#type{name=N,base=int,single=false})
+    end;
+parse_type2([N="wxChar"|R],Info,Opts,T) ->
     parse_type2(R,Info,Opts,T#type{name=N,base=int});
 parse_type2(["wxUint32"|R],Info,Opts,T=#type{mod=Mod}) -> 
     parse_type2(R,Info,Opts,T#type{name=int,base=int,mod=[unsigned|Mod]});
@@ -763,14 +773,19 @@ parse_type2([N="wxGridCellCoordsArray"|R],Info,Opts,T) ->
     parse_type2(R,Info,Opts,T#type{name=N,base={comp,"wxGridCellCoords",
 						[{int,"R"},{int,"C"}]},
 				   single=array});
+parse_type2([N="wxAuiPaneInfoArray"|R],Info,Opts,T) ->
+    parse_type2(R,Info,Opts,T#type{name=N,base={class,"wxAuiPaneInfo"},
+				   single=array});
+
 parse_type2([N="wxRect"|R],Info,Opts,T) -> 
     parse_type2(R,Info,Opts,T#type{name=N,base={comp,N,[{int,"X"},{int,"Y"},
 							{int,"W"},{int,"H"}]}});
 parse_type2([N="wxColour"|R],Info,Opts,T) -> 
     parse_type2(R,Info,Opts,T#type{name=N,
 				   base={comp,N,[{int,"R"},{int,"G"},{int,"B"},{int,"A"}]}});
-parse_type2([N="wxColor"|R],Info,Opts,T) -> 
-    parse_type2(R,Info,Opts,T#type{name="wxColour",
+parse_type2(["wxColor"|R],Info,Opts,T) ->
+    N = "wxColour",
+    parse_type2(R,Info,Opts,T#type{name=N,
 				   base={comp,N,[{int,"R"},{int,"G"},{int,"B"},{int,"A"}]}});
 
 parse_type2([N="wxPoint2DDouble"|R],Info,Opts,T) -> 
@@ -994,7 +1009,7 @@ erl_skip_opt2([F={_,{N,In,_},M=#method{where=Where}}|Ms],Acc1,Acc2,Check) ->
 		[] ->
 		    erl_skip_opt2(Ms,[F|Acc1],[M#method{where=erl_no_opt}|Acc2],[]);
 		_  ->
-		    Skipped = reverse(tl(reverse(In))),
+		    Skipped = droplast(In),
 		    T = fun({_,{_,Args,_},_}) -> true =:= types_differ(Skipped,Args) end,
 		    case lists:all(T, Check) of
 			true ->
@@ -1188,7 +1203,7 @@ translate_constants(Enums, NotConsts0, Skip0) ->
 
 create_consts([{{enum, Name},Enum = #enum{vals=Vals}}|R], Skip, NotConsts, Acc0) ->
     CC = fun(What, Acc) ->
-		 create_const(What, Skip, NotConsts, Acc)
+		 create_const(What, Name, Skip, NotConsts, Acc)
 	 end,
     Acc = case Vals of
 	      undefined -> 
@@ -1202,17 +1217,17 @@ create_consts([{{enum, Name},Enum = #enum{vals=Vals}}|R], Skip, NotConsts, Acc0)
     create_consts(R, Skip, NotConsts, Acc);
 create_consts([],_,_,Acc) -> Acc.
 
-create_const({Name, Val}, Skip, NotConsts, Acc) ->
+create_const({Name, Val}, EnumName, Skip, NotConsts, Acc) ->
     case gb_sets:is_member(Name, Skip) of
 	true -> Acc;
 	false ->
-	    case gb_sets:is_member(Name, NotConsts) of
+	    case gb_sets:is_member(Name, NotConsts) orelse
+		gb_sets:is_member(EnumName, NotConsts)
+	    of
 		true ->
 		    [#const{name=Name,val=next_id(const),is_const=false}|Acc];
 		false ->
 		    [#const{name=Name,val=Val,is_const=true}|Acc]
-%% 		false ->
-%% 		    [#const{name=Name,val=Val}|Acc]
 	    end
     end.
 
@@ -1274,6 +1289,7 @@ parse_enums([File|Files], Parsed) ->
 	    %%io:format("Parse Enums in ~s ~n", [FileName]),
 	    case xmerl_scan:file(FileName, [{space, normalize}]) of 
 		{error, enoent} ->
+		    %% io:format("Ignore ~p~n", [FileName]),
 		    parse_enums(Files, gb_sets:add(File,Parsed));
 		{Doc, _} ->		    
 		    ES = "./compounddef/sectiondef/memberdef[@kind=\"enum\"]",
@@ -1350,12 +1366,16 @@ extract_enum3([#xmlElement{name=name,content=[#xmlText{value=Name}]}|R], Id, Acc
     end;
 
 extract_enum3([#xmlElement{name=initializer,content=Cs}|_],_Id,[{Name,_}|Acc]) ->
-    String = extract_def2(Cs),
+    String = case extract_def2(Cs) of
+		 "= " ++ Str0 -> Str0;  %% Doxygen 1.8.3.1 keeps the '=' sign
+		 "=" ++ Str0 -> Str0;  %% Doxygen 1.8.3.1 keeps the '=' sign
+		 Str0 -> Str0
+	     end,
     Val0 = gen_util:tokens(String,"<& "),
     try
 	case Val0 of
 	    ["0x" ++ Val1] ->
-		Val = http_util:hexlist_to_integer(Val1),
+		Val = list_to_integer(Val1, 16),
 		{[{Name, Val}|Acc], Val+1};
 	    ["1", "<<", Shift] ->
 		Val = 1 bsl list_to_integer(Shift),
@@ -1411,7 +1431,7 @@ extract_def([#xmlElement{name=param}|_],Name,_) ->
 extract_def([#xmlElement{name=initializer,content=Cs}|_R],N,Skip) ->
     Val0 = extract_def2(Cs),
     case Val0 of
-	"0x" ++ Val1 -> {N, http_util:hexlist_to_integer(Val1)};
+	"0x" ++ Val1 -> {N, list_to_integer(Val1, 16)};
 	_ ->
 	    try
 		Val = list_to_integer(Val0),
@@ -1433,7 +1453,7 @@ extract_def(_,N,_) ->
     throw(N).
 
 extract_def2([#xmlText{value=Val}|R]) ->
-    strip_comment(string:strip(Val)) ++ extract_def2(R);
+    string:strip(strip_comment(Val)) ++ extract_def2(R);
 extract_def2([#xmlElement{content=Cs}|R]) ->
     extract_def2(Cs) ++ extract_def2(R);
 extract_def2([]) -> [].

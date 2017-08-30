@@ -1,18 +1,19 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%----------------------------------------------------------------------
@@ -86,7 +87,15 @@
 	  file_type = normal,       % Can be normal, dtd and entity
 	  current_location,         % Location of the currently parsed XML entity
 	  entity,                   % Parsed XML entity
-	  skip_external_dtd = false % If true the external DTD is skipped during parsing
+	  skip_external_dtd = false,% If true the external DTD is skipped during parsing
+	  input_type                % Source type: file | stream. 
+                                    % This field is a preparation for an fix in R17 of a bug in 
+                                    % the conformance against the standard.
+                                    % Today a file which contains two XML documents will be considered 
+                                    % well-formed and the second is placed in the rest part of the 
+                                    % return tuple, according to the conformance tests this should fail.
+                                    % In the future this will fail if xmerl_sax_aprser:file/2 is used but 
+                                    % left to the user in the xmerl_sax_aprser:stream/2 case.
 	 }).
 
 

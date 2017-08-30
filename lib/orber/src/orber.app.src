@@ -103,7 +103,9 @@
                 orber_iiop_pm, orber_env]},
   {applications, [stdlib, kernel, mnesia]},
   {env, []},
-  {mod, {orber, []}}
+  {mod, {orber, []}},
+  {runtime_dependencies, ["stdlib-2.5","ssl-5.3.4","mnesia-4.12","kernel-3.0",
+			  "inets-5.10","erts-7.0"]}
 ]}.
 
 

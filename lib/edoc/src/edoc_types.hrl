@@ -155,3 +155,7 @@
 %% @type t_paren() = #t_paren{a = list(), type = type()}
 
 -record(t_paren, {a=[], type}).		% parentheses
+
+-record(t_map, {a=[], types=[]}).
+-record(t_map_field, {a=[], assoc_type, k_type, v_type}).
+

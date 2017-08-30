@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% 
@@ -39,7 +40,7 @@
 
 	 get_req/2, get_next_req/1,
 
-	 config/5,
+	 config/5, config/6,
 	 delete_files/1, 
 	 copy_file/2, 
 	 update_usm/2, 
@@ -68,7 +69,7 @@
 -export([wait/5, run/4]).
 
 -include_lib("kernel/include/file.hrl").
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 -define(SNMP_USE_V3, true).
 -include_lib("snmp/include/snmp_types.hrl").
@@ -139,31 +140,31 @@ init_all(Config) when is_list(Config) ->
     SuiteTopDir = ?config(snmp_suite_top_dir, Config),
     ?DBG("init_all -> SuiteTopDir ~p", [SuiteTopDir]),
 
-    AgentDir = filename:join(SuiteTopDir, "agent/"), 
+    AgentDir = join(SuiteTopDir, "agent/"), 
     ?line ok = file:make_dir(AgentDir),
     ?DBG("init_all -> AgentDir ~p", [AgentDir]),
 
-    AgentDbDir = filename:join(AgentDir, "db/"), 
+    AgentDbDir = join(AgentDir, "db/"), 
     ?line ok   = file:make_dir(AgentDbDir),
     ?DBG("init_all -> AgentDbDir ~p", [AgentDbDir]),
 
-    AgentLogDir = filename:join(AgentDir, "log/"), 
+    AgentLogDir = join(AgentDir, "log/"), 
     ?line ok    = file:make_dir(AgentLogDir),
     ?DBG("init_all -> AgentLogDir ~p", [AgentLogDir]),
 
-    AgentConfDir = filename:join(AgentDir, "conf/"), 
+    AgentConfDir = join(AgentDir, "conf/"), 
     ?line ok     = file:make_dir(AgentConfDir),
     ?DBG("init_all -> AgentConfDir ~p", [AgentConfDir]),
 
-    MgrDir   = filename:join(SuiteTopDir, "mgr/"), 
+    MgrDir   = join(SuiteTopDir, "mgr/"), 
     ?line ok = file:make_dir(MgrDir),
     ?DBG("init_all -> MgrDir ~p", [MgrDir]),
 
-    SaDir    = filename:join(SuiteTopDir, "sa/"), 
+    SaDir    = join(SuiteTopDir, "sa/"), 
     ?line ok = file:make_dir(SaDir),
     ?DBG("init_all -> SaDir ~p", [SaDir]),
 
-    SaDbDir  = filename:join(SaDir, "db/"), 
+    SaDbDir  = join(SaDir, "db/"), 
     ?line ok = file:make_dir(SaDbDir),
     ?DBG("init_all -> SaDbDir ~p", [SaDbDir]),
 
@@ -183,11 +184,11 @@ init_all(Config) when is_list(Config) ->
     
     ?DBG("init_all -> application mnesia: set_env dir",[]),
     ?line application_controller:set_env(mnesia, dir, 
-					 filename:join(AgentDbDir, "Mnesia1")),
+					 join(AgentDbDir, "Mnesia1")),
 
     ?DBG("init_all -> application mnesia: set_env dir on node ~p",[SaNode]),
     ?line rpc:call(SaNode, application_controller, set_env, 
-		   [mnesia, dir,  filename:join(SaDir, "Mnesia2")]),
+		   [mnesia, dir,  join(SaDir, "Mnesia2")]),
 
     ?DBG("init_all -> create mnesia schema",[]),
     ?line ok = mnesia:create_schema([SaNode, node()]),
@@ -232,13 +233,14 @@ init_case(Config) when is_list(Config) ->
     MgrNode    = ?config(snmp_mgr,    Config),
     MasterNode = ?config(snmp_master, Config),
     %% MasterNode = node(),
-
+    IpFamily  = proplists:get_value(ipfamily, Config, inet),
+    
     SaHost         = ?HOSTNAME(SaNode),
     MgrHost        = ?HOSTNAME(MgrNode),
     MasterHost     = ?HOSTNAME(MasterNode),
-    {ok, MasterIP} = snmp_misc:ip(MasterHost),
-    {ok, MIP}      = snmp_misc:ip(MgrHost),
-    {ok, SIP}      = snmp_misc:ip(SaHost),
+    {ok, MasterIP} = snmp_misc:ip(MasterHost, IpFamily),
+    {ok, MIP}      = snmp_misc:ip(MgrHost, IpFamily),
+    {ok, SIP}      = snmp_misc:ip(SaHost, IpFamily),
 
 
     put(mgr_node,    MgrNode),
@@ -250,10 +252,11 @@ init_case(Config) when is_list(Config) ->
     put(mip,         tuple_to_list(MIP)),
     put(masterip,    tuple_to_list(MasterIP)),
     put(sip,         tuple_to_list(SIP)),
+    put(ipfamily,    IpFamily),
     
     MibDir = ?config(mib_dir, Config),
     put(mib_dir, MibDir),
-    StdM = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
+    StdM = join(code:priv_dir(snmp), "mibs") ++ "/",
     put(std_mib_dir, StdM),
 
     MgrDir = ?config(mgr_dir, Config),
@@ -299,10 +302,10 @@ call(N,M,F,A) ->
 		 "~n   Loc: ~p", [Rn, Loc]),
 	    put(test_server_loc, Loc),
 	    exit(Rn);
-	{done, Ret, Zed} -> 
+	{done, Ret, _Zed} -> 
 	    ?DBG("call -> done:"
 		 "~n   Ret: ~p"
-		 "~n   Zed: ~p", [Ret, Zed]),
+		 "~n   Zed: ~p", [Ret, _Zed]),
 	    case Ret of
 		{error, Reason} ->
 		    exit(Reason);
@@ -338,10 +341,10 @@ run(Mod, Func, Args, Opts) ->
     CtxEngineID = snmp_misc:get_option(context_engine_id, Opts, EngineID),
     Community = snmp_misc:get_option(community, Opts, "all-rights"),
     ?DBG("run -> start crypto app",[]),
-    Crypto = ?CRYPTO_START(),
-    ?DBG("run -> Crypto: ~p", [Crypto]),
+    _CryptoRes = ?CRYPTO_START(),
+    ?DBG("run -> Crypto: ~p", [_CryptoRes]),
     catch snmp_test_mgr:stop(), % If we had a running mgr from a failed case
-    StdM = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
+    StdM = join(code:priv_dir(snmp), "mibs") ++ "/",
     Vsn = get(vsn), 
     ?DBG("run -> config:"
 	   "~n   M:           ~p"
@@ -358,6 +361,7 @@ run(Mod, Func, Args, Opts) ->
 			      {packet_server_debug,true},
 			      {debug,true},
 			      {agent, get(master_host)}, 
+			      {ipfamily, get(ipfamily)},
 			      {agent_udp, 4000},
 			      {trap_udp, 5000},
 			      {recbuf,65535},
@@ -676,9 +680,9 @@ stop_agent(Config) when is_list(Config) ->
 	(catch process_info(Sup)),
 	(catch process_info(Par))]),
     
-    Info = agent_info(Sup),
+    _Info = agent_info(Sup),
     ?DBG("stop_agent -> Agent info: "
-	 "~n   ~p", [Info]),
+	 "~n   ~p", [_Info]),
     
     stop_sup(Sup, Par),
 
@@ -763,7 +767,7 @@ start_subagent(SaNode, RegTree, Mib) ->
     MA = whereis(snmp_master_agent),
     ?DBG("start_subagent -> MA: ~p", [MA]),
     MibDir = get(mib_dir),
-    Mib1   = join(MibDir,Mib),
+    Mib1   = join(MibDir, Mib),
     Mod    = snmpa_supervisor,
     Func   = start_sub_agent,
     Args   = [MA, RegTree, [Mib1]], 
@@ -800,28 +804,25 @@ mibs(StdMibDir,MibDir) ->
      join(MibDir, "Test2.bin"),
      join(MibDir, "TestTrapv2.bin")].
 
-join(D,F) ->
-    filename:join(D,F).
-
 
 %% --- various mib load/unload functions ---
 
 load_master(Mib) ->
     ?DBG("load_master -> entry with"
 	"~n   Mib: ~p", [Mib]),
-    snmpa:unload_mibs(snmp_master_agent, [Mib]),	% Unload for safety
-    ok = snmpa:load_mibs(snmp_master_agent, [get(mib_dir) ++ Mib]).
+    snmpa:unload_mib(snmp_master_agent, Mib),	% Unload for safety
+    ok = snmpa:load_mib(snmp_master_agent, join(get(mib_dir), Mib)).
 
 load_master_std(Mib) ->
     ?DBG("load_master_std -> entry with"
 	"~n   Mib: ~p", [Mib]),
-    snmpa:unload_mibs(snmp_master_agent, [Mib]),	% Unload for safety
-    ok = snmpa:load_mibs(snmp_master_agent, [get(std_mib_dir) ++ Mib]).
+    snmpa:unload_mib(snmp_master_agent, Mib),	% Unload for safety
+    ok = snmpa:load_mibs(snmp_master_agent, join(get(std_mib_dir), Mib)).
 
 unload_master(Mib) ->
     ?DBG("unload_master -> entry with"
 	"~n   Mib: ~p", [Mib]),
-    ok = snmpa:unload_mibs(snmp_master_agent, [Mib]).
+    ok = snmpa:unload_mib(snmp_master_agent, Mib).
 
 loaded_mibs() ->
     ?DBG("loaded_mibs -> entry",[]),
@@ -1306,10 +1307,10 @@ get_req(Id, Vars) ->
 	{ok, Val} ->
 	    ?DBG("get_req -> response: ~p",[Val]),
 	    Val;
-	{error, _, {ExpFmt, ExpArg}, {ActFmt, ActArg}} ->
+	{error, _, {_ExpFmt, ExpArg}, {_ActFmt, ActArg}} ->
 	    ?DBG("get_req -> error for ~p: "
-		 "~n   " ++ ExpFmt ++ 
-		 "~n   " ++ ActFmt, 
+		 "~n   " ++ _ExpFmt ++ 
+		 "~n   " ++ _ActFmt, 
 		 [Id] ++ ExpArg ++ ActArg),
 	    exit({unexpected_response, ExpArg, ActArg});
 	Error ->
@@ -1371,27 +1372,46 @@ stop_node(Node) ->
 %%%-----------------------------------------------------------------
 
 config(Vsns, MgrDir, AgentConfDir, MIp, AIp) ->
+    config(Vsns, MgrDir, AgentConfDir, MIp, AIp, inet).
+
+config(Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily) ->
     ?LOG("config -> entry with"
-	 "~n   Vsns:         ~p" 
-	 "~n   MgrDir:       ~p" 
-	 "~n   AgentConfDir: ~p" 
-	 "~n   MIp:          ~p" 
-	 "~n   AIp:          ~p", 
-	 [Vsns, MgrDir, AgentConfDir, MIp, AIp]),
-    ?line snmp_config:write_agent_snmp_files(AgentConfDir, Vsns, 
-					     MIp, ?TRAP_UDP, AIp, 4000, 
- 					     "test"),
+	 "~n   Vsns:         ~p"
+	 "~n   MgrDir:       ~p"
+	 "~n   AgentConfDir: ~p"
+	 "~n   MIp:          ~p"
+	 "~n   AIp:          ~p"
+	 "~n   IpFamily:     ~p",
+	 [Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily]),
+    ?line {Domain, ManagerAddr} =
+	case IpFamily of
+	    inet6 ->
+		Ipv6Domain = transportDomainUdpIpv6,
+		AgentIpv6Addr = {AIp, 4000},
+		ManagerIpv6Addr = {MIp, ?TRAP_UDP},
+		?line ok =
+		    snmp_config:write_agent_snmp_files(
+		      AgentConfDir, Vsns,
+		      Ipv6Domain, ManagerIpv6Addr, AgentIpv6Addr, "test"),
+		{Ipv6Domain, ManagerIpv6Addr};
+	    _ ->
+		?line ok =
+		    snmp_config:write_agent_snmp_files(
+		      AgentConfDir, Vsns, MIp, ?TRAP_UDP, AIp, 4000, "test"),
+		{snmpUDPDomain, {MIp, ?TRAP_UDP}}
+	  end,
+
     ?line case update_usm(Vsns, AgentConfDir) of
 	      true ->
-		  ?line copy_file(filename:join(AgentConfDir, "usm.conf"),
-				  filename:join(MgrDir, "usm.conf")),
+		  ?line copy_file(join(AgentConfDir, "usm.conf"),
+				  join(MgrDir, "usm.conf")),
 		  ?line update_usm_mgr(Vsns, MgrDir);
 	      false ->
 		  ?line ok
 	  end,
     ?line update_community(Vsns, AgentConfDir),
     ?line update_vacm(Vsns, AgentConfDir),
-    ?line write_target_addr_conf(AgentConfDir, MIp, ?TRAP_UDP, Vsns),
+    ?line write_target_addr_conf(AgentConfDir, Domain, ManagerAddr, Vsns),
     ?line write_target_params_conf(AgentConfDir, Vsns),
     ?line write_notify_conf(AgentConfDir),
     ok.
@@ -1403,9 +1423,9 @@ delete_files(Config) ->
 delete_files(_AgentFiles, []) ->
     ok;
 delete_files(AgentDir, [DirName|DirNames]) ->
-    Dir = filename:join(AgentDir, DirName),
+    Dir = join(AgentDir, DirName),
     {ok, Files} = file:list_dir(Dir),
-    lists:foreach(fun(FName) -> file:delete(filename:join(Dir, FName)) end,
+    lists:foreach(fun(FName) -> file:delete(join(Dir, FName)) end,
 		  Files),
     delete_files(AgentDir, DirNames).
 
@@ -1481,19 +1501,19 @@ update_usm_mgr(Vsns, Dir) ->
     end.
 
 rewrite_usm_mgr(Dir, ShaKey, DesKey) -> 
-    ?line ok = file:rename(filename:join(Dir,"usm.conf"),
-			   filename:join(Dir,"usm.old")),
+    ?line ok = file:rename(join(Dir,"usm.conf"),
+			   join(Dir,"usm.old")),
     Conf = [{"agentEngine", "newUser", "newUser", zeroDotZero, 
 	     usmHMACSHAAuthProtocol, "", "", 
 	     usmDESPrivProtocol, "", "", "", ShaKey, DesKey}, 
 	    {"mgrEngine", "newUser", "newUser", zeroDotZero, 
 	     usmHMACSHAAuthProtocol, "", "", 
 	     usmDESPrivProtocol, "", "", "", ShaKey, DesKey}], 
-    ok = snmp_config:write_agent_usm_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_usm_config(Dir, "", Conf).
 
 reset_usm_mgr(Dir) ->
-    ?line ok = file:rename(filename:join(Dir,"usm.old"),
-			   filename:join(Dir,"usm.conf")).
+    ?line ok = file:rename(join(Dir,"usm.old"),
+			   join(Dir,"usm.conf")).
 
 
 update_community([v3], _Dir) -> 
@@ -1515,30 +1535,31 @@ update_vacm(_Vsn, Dir) ->
     
     
 write_community_conf(Dir, Conf) ->
-    snmp_config:write_agent_community_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_community_config(Dir, "", Conf).
 
 write_target_addr_conf(Dir, Conf) ->
-    snmp_config:write_agent_target_addr_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_target_addr_config(Dir, "", Conf).
 
-write_target_addr_conf(Dir, ManagerIp, UDP, Vsns) -> 
-    snmp_config:write_agent_snmp_target_addr_conf(Dir, ManagerIp, UDP, Vsns).
+write_target_addr_conf(Dir, Ip_or_Domain, Port_or_Addr, Vsns) ->
+    ?line ok =
+	snmp_config:write_agent_snmp_target_addr_conf(
+	  Dir, Ip_or_Domain, Port_or_Addr, Vsns).
 
 rewrite_target_addr_conf(Dir, NewPort) -> 
     ?DBG("rewrite_target_addr_conf -> entry with"
 	 "~n   NewPort: ~p", [NewPort]),
-    TAFile = filename:join(Dir, "target_addr.conf"),
+    TAFile = join(Dir, "target_addr.conf"),
     case file:read_file_info(TAFile) of
 	{ok, _} -> 
 	    ok;
-	{error, R} -> 
+	{error, _R} -> 
 	    ?ERR("failure reading file info of "
-		 "target address config file: ~p",[R]),
+		 "target address config file: ~p", [_R]),
 	    ok  
     end,
 
     ?line [TrapAddr|Addrs] = 
-	snmp_conf:read(TAFile, 
-		       fun(R) -> rewrite_target_addr_conf_check(R) end),
+	snmp_conf:read(TAFile, fun rewrite_target_addr_conf_check/1),
 
     ?DBG("rewrite_target_addr_conf -> TrapAddr: ~p",[TrapAddr]),
 
@@ -1546,8 +1567,8 @@ rewrite_target_addr_conf(Dir, NewPort) ->
     
     ?DBG("rewrite_target_addr_conf -> NewAddrs: ~p",[NewAddrs]),
 
-    ?line ok = file:rename(filename:join(Dir,"target_addr.conf"),
-			   filename:join(Dir,"target_addr.old")),
+    ?line ok = file:rename(join(Dir,"target_addr.conf"),
+			   join(Dir,"target_addr.old")),
 
     ?line ok = snmp_config:write_agent_target_addr_config(Dir, "", NewAddrs).
 
@@ -1565,8 +1586,8 @@ rewrite_target_addr_conf2(_NewPort,O) ->
     O.
 
 reset_target_addr_conf(Dir) ->
-    ?line ok = file:rename(filename:join(Dir, "target_addr.old"),
-			   filename:join(Dir, "target_addr.conf")).
+    ?line ok = file:rename(join(Dir, "target_addr.old"),
+			   join(Dir, "target_addr.conf")).
 
 write_target_params_conf(Dir, Vsns) -> 
     F = fun(v1) -> {"target_v1", v1,  v1,  "all-rights", noAuthNoPriv};
@@ -1574,28 +1595,28 @@ write_target_params_conf(Dir, Vsns) ->
 	   (v3) -> {"target_v3", v3,  usm, "all-rights", noAuthNoPriv}
 	end,
     Conf = [F(Vsn) || Vsn <- Vsns],
-    snmp_config:write_agent_target_params_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_target_params_config(Dir, "", Conf).
 
 rewrite_target_params_conf(Dir, SecName, SecLevel) 
   when is_list(SecName) andalso is_atom(SecLevel) -> 
-    ?line ok = file:rename(filename:join(Dir,"target_params.conf"),
-			   filename:join(Dir,"target_params.old")),
+    ?line ok = file:rename(join(Dir,"target_params.conf"),
+			   join(Dir,"target_params.old")),
     Conf = [{"target_v3", v3, usm, SecName, SecLevel}],
-    snmp_config:write_agent_target_params_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_target_params_config(Dir, "", Conf).
 
 reset_target_params_conf(Dir) ->
-    ?line ok = file:rename(filename:join(Dir,"target_params.old"),
-			   filename:join(Dir,"target_params.conf")).
+    ?line ok = file:rename(join(Dir,"target_params.old"),
+			   join(Dir,"target_params.conf")).
 
 write_notify_conf(Dir) -> 
     Conf = [{"standard trap",   "std_trap",   trap}, 
 	    {"standard inform", "std_inform", inform}],
-    snmp_config:write_agent_notify_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_notify_config(Dir, "", Conf).
 
 write_view_conf(Dir) -> 
     Conf = [{2, [1,3,6], included, null},
 	    {2, ?tDescr_instance, excluded, null}], 
-    snmp_config:write_agent_view_config(Dir, "", Conf).
+    ?line ok = snmp_config:write_agent_view_config(Dir, "", Conf).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1647,6 +1668,9 @@ regs() ->
 rpc(Node, F, A) ->
     rpc:call(Node, snmpa, F, A).
 
+
+join(Dir, File) ->
+    filename:join(Dir, File).
 
 %% await_pdu(To) ->
 %%     await_response(To, pdu).

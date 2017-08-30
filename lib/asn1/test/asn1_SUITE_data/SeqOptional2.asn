@@ -15,10 +15,10 @@ SeqOpt1Imp ::= SEQUENCE
   bool1 [1] BOOLEAN OPTIONAL,
   int1  INTEGER,
   seq1  [2] SeqIn OPTIONAL,
-  seq2  [2] SeqIn OPTIONAL,
+  seq2  [3] SeqIn OPTIONAL,
   ...,
-  int2  [3] SeqIn,
-  int3  [3] SeqIn
+  int2  [4] SeqIn,
+  int3  [5] SeqIn
 }
 
 SeqOpt1Exp ::= SEQUENCE 

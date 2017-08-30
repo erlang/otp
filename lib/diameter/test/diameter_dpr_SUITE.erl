@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -32,6 +33,7 @@
 %% testcases
 -export([start/1,
          connect/1,
+         send_dpr/1,
          remove_transport/1,
          stop_service/1,
          check/1,
@@ -41,6 +43,7 @@
 -export([disconnect/5]).
 
 -include("diameter.hrl").
+-include("diameter_gen_base_rfc6733.hrl").
 
 %% ===========================================================================
 
@@ -51,9 +54,6 @@
 -define(CLIENT, "CLIENT").
 -define(SERVER, "SERVER").
 
--define(DICT_COMMON, ?DIAMETER_DICT_COMMON).
--define(APP_ID, ?DICT_COMMON:id()).
-
 %% Config for diameter:start_service/2.
 -define(SERVICE(Host),
         [{'Origin-Host', Host},
@@ -61,9 +61,10 @@
          {'Host-IP-Address', [?ADDR]},
          {'Vendor-Id', hd(Host)},  %% match this in disconnect/5
          {'Product-Name', "OTP/diameter"},
-         {'Acct-Application-Id', [?APP_ID]},
+         {'Acct-Application-Id', [0]},
          {restrict_connections, false},
-         {application, [{dictionary, ?DICT_COMMON},
+         {application, [{dictionary, diameter_gen_base_rfc6733},
+                        {alias, common},
                         {module, #diameter_callback{_ = false}}]}]).
 
 %% Disconnect reasons that diameter passes as the first argument of a
@@ -73,11 +74,13 @@
 %% Valid values for Disconnect-Cause.
 -define(CAUSES, [0, rebooting, 1, busy, 2, goaway]).
 
-%% Establish one client connection for element of this list,
-%% configured with disconnect/5 as disconnect_cb and returning the
-%% specified value.
+%% Establish one client connection for each element of this list,
+%% configured with disconnect/5, disconnect_cb returning the specified
+%% value.
 -define(RETURNS,
-        [[close, {dpr, [{cause, invalid}]}], [ignore, close], []]
+        [[close, {dpr, [{cause, invalid}]}],
+         [ignore, close],
+         []]
         ++ [[{dpr, [{timeout, 5000}, {cause, T}]}] || T <- ?CAUSES]).
 
 %% ===========================================================================
@@ -86,7 +89,7 @@ suite() ->
     [{timetrap, {seconds, 60}}].
 
 all() ->
-    [{group, R} || R <- ?REASONS].
+    [start, send_dpr, stop | [{group, R} || R <- ?REASONS]].
 
 %% The group determines how transports are terminated: by remove_transport,
 %% stop_service or application stop.
@@ -111,6 +114,22 @@ start(_Config) ->
     ok = diameter:start_service(?SERVER, ?SERVICE(?SERVER)),
     ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT)).
 
+send_dpr(_Config) ->
+    LRef = ?util:listen(?SERVER, tcp),
+    Ref = ?util:connect(?CLIENT, tcp, LRef, [{dpa_timeout, 10000}]),
+    #diameter_base_DPA{'Result-Code' = 2001}
+        = diameter:call(?CLIENT,
+                        common,
+                        ['DPR', {'Origin-Host', "CLIENT.erlang.org"},
+                                {'Origin-Realm', "erlang.org"},
+                                {'Disconnect-Cause', 0}]),
+    ok =  receive  %% endure the transport dies on DPA
+              #diameter_event{service = ?CLIENT, info = {down, Ref, _, _}} ->
+                  ok
+          after 5000 ->
+                  erlang:process_info(self(), messages)
+          end.
+
 connect(Config) ->
     Pid = spawn(fun init/0),  %% process for disconnect_cb to bang
     Grp = group(Config),
@@ -129,8 +148,8 @@ stop_service(Config) ->
     service == group(Config)
         andalso (ok = diameter:stop_service(?CLIENT)).
 
-%% Check for callbacks and stop the service. (Not the other way around
-%% for the timing reason explained below.)
+%% Check for callbacks before diameter:stop/0, not the other way around
+%% for the timing reason explained below.
 check(Config) ->
     Grp = group(Config),
     [Pid | Refs] = ?util:read_priv(Config, config),

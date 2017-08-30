@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -779,6 +780,7 @@ find_repository() ->
 
 'Repository__get_def_kind'(Objref) ->
     orber_ifr_repository:'_get_def_kind'(Objref).
+-spec 'Repository_destroy'(_) -> no_return().
 'Repository_destroy'(Objref) ->
     orber_ifr_repository:destroy(Objref).
 'Repository_lookup'(Objref,Search_name) ->
@@ -1404,6 +1406,7 @@ find_repository() ->
     orber_ifr_orb:create_wstring_tc(Bound).
 'ORB_create_sequence_tc'(Bound,Element_type) ->
     orber_ifr_orb:create_sequence_tc(Bound,Element_type).
+-spec 'ORB_create_recursive_sequence_tc'(_,_) -> no_return().
 'ORB_create_recursive_sequence_tc'(Bound,Offset) ->
     orber_ifr_orb:create_recursive_sequence_tc(Bound,Offset).
 'ORB_create_array_tc'(Length,Element_type) ->

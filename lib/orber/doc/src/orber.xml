@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2011</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -356,8 +357,8 @@
         <v>Type = normal | ssl</v>
         <v>Port = integer() > 0</v>
         <v>ConfigurationParameters = [{Key, Value}]</v>
-        <v>Key = flags | iiop_in_connection_timeout | iiop_max_fragments | iiop_max_in_requests | interceptors | iiop_port | iiop_ssl_port | ssl_server_options</v>
-        <v>Value = as described in the User's Guide</v>
+        <v>Key = flags | ip_family | iiop_in_connection_timeout | iiop_max_fragments | iiop_max_in_requests | interceptors | iiop_port | iiop_ssl_port | ssl_server_options</v>
+        <v>Value = as described in the User's Guide or below</v>
         <v>Result = {ok, Ref} | {error, Reason} | {'EXCEPTION', #'BAD_PARAM'{}}</v>
         <v>Ref = #Ref</v>
         <v>Reason = string()</v>
@@ -383,6 +384,9 @@
           <item><em>flags</em> - currently it is only possible to override the global
            setting for the <c>Use Current Interface in IOR</c> and 
           <c>Exclude CodeSet Component</c> flags.</item>
+	  <item><em>ip_family</em> - can be set to <c>inet</c> or <c>inet6</c> and is 
+	  used to get a listen interface that uses another IP version than the default
+	  set with flags at startup.</item>
           <item><em>iiop_port</em> - requires that <c>Use Current Interface in IOR</c>
            is activated and the supplied <c>Type</c> is <c>normal</c>. If so,
            exported IOR:s will contain the IIOP port defined by this configuration
@@ -390,7 +394,7 @@
           <item><em>iiop_ssl_port</em> - almost equivalent to <c>iiop_port</c>.
            The difference is that <c>Type</c> shall be <c>ssl</c> and that
            exported IOR:s will contain the IIOP via SSL port defined by this configuration
-           parameter.</item>
+           parameter.</item>	
         </list>
         <p>If it is not possible to add a listener based on the supplied interface
           and port, the error message is one of the ones described in <c>inet</c>

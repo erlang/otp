@@ -1,9 +1,0 @@
-BadValueSet  DEFINITIONS ::=
-BEGIN
-
-Int INTEGER ::= {1|2|3}
-
-Int2 INTEGER ::= {
-    1,2,3}
-
-END

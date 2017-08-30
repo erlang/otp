@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2012. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -29,16 +30,34 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
+
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#include <limits.h>
+#include <fcntl.h>
+#endif
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+#include <kvm.h>
+#include <sys/user.h>
+#endif
 
 #if defined(__sun__)
 #include <kstat.h>
 #endif
 
-#include <sys/sysinfo.h>
+#if (defined(__APPLE__) && defined(__MACH__))
+#include <mach/mach.h>
+#endif
+
 #include <errno.h>
 
+#if defined(__sun__) || defined(__linux__)
+#include <sys/sysinfo.h>
+#endif
+
 #if defined(__linux__)
-#include <string.h>  /* strlen */
 
 #define PROCSTAT "/proc/stat"
 #define BUFFERSIZE (256)
@@ -57,6 +76,17 @@ typedef struct {
 } cpu_t;
 
 #endif
+
+#if (defined(__APPLE__) && defined(__MACH__))
+#define CU_OSX_VALUES (5)
+#endif
+
+#if defined(__FreeBSD__)
+#include <sys/resource.h>
+#include <sys/sysctl.h>
+#define CU_BSD_VALUES (6)
+#endif
+
 
 #define FD_IN		(0)
 #define FD_OUT		(1)
@@ -120,10 +150,17 @@ typedef struct {
 
 static void util_measure(unsigned int **result_vec, int *result_sz);
 
+#if defined(__sun__)
 static unsigned int misc_measure(char* name);
-static void send(unsigned int data);
+#endif
+static void sendi(unsigned int data);
 static void sendv(unsigned int data[], int ints);
 static void error(char* err_msg);
+
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
+static void bsd_count_procs(void);
+static void bsd_loadavg(int);
+#endif
 
 #if defined(__sun__)
 static kstat_ctl_t *kstat_ctl;
@@ -135,12 +172,18 @@ static int processors_online() {
 }
 #endif
 
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__)
+void getsysctl(const char *, void *, size_t);
+#endif
+
 int main(int argc, char** argv) {
   char cmd;
   int rc;
   int sz;
   unsigned int *rv;
+#if defined(__linux__) || (defined(__APPLE__) && defined(__MACH__)) ||defined(__FreeBSD__)
   unsigned int no_of_cpus = 0;
+#endif
 
 #if defined(__sun__)
   kstat_ctl = kstat_open();
@@ -151,7 +194,21 @@ int main(int argc, char** argv) {
 #if defined(__linux__)
     no_of_cpus = processors_online(); 
     if ( (rv = (unsigned int*)malloc(sizeof(unsigned int)*(2 + 2*no_of_cpus*CU_VALUES))) == NULL) {
-	error("cpu_cup: malloc error");
+	error("cpu_sup: malloc error");
+    }
+#endif
+
+#if (defined(__APPLE__) && defined(__MACH__))
+    getsysctl("hw.ncpu", &no_of_cpus, sizeof(int));
+    if ( (rv = (unsigned int*)malloc(sizeof(unsigned int)*(2 + 2*no_of_cpus*CU_OSX_VALUES))) == NULL) {
+	error("cpu_sup: malloc error");
+    }
+#endif
+
+#if defined(__FreeBSD__)
+    getsysctl("hw.ncpu", &no_of_cpus, sizeof(int));
+    if ( (rv = (unsigned int*)malloc(sizeof(unsigned int)*(2 + 2*no_of_cpus*CU_BSD_VALUES))) == NULL) {
+	error("cpu_sup: malloc error");
     }
 #endif
 
@@ -168,20 +225,104 @@ int main(int argc, char** argv) {
       error("Erlang has closed");
     
     switch(cmd) {
-    case PING:		send(4711);					break;
+    case PING:		sendi(4711);					break;
 #if defined(__sun__)
-    case NPROCS:	send(misc_measure("nproc"));			break;
-    case AVG1:		send(misc_measure("avenrun_1min"));		break;
-    case AVG5:		send(misc_measure("avenrun_5min"));		break;
-    case AVG15:		send(misc_measure("avenrun_15min"));		break;
+    case NPROCS:	sendi(misc_measure("nproc"));			break;
+    case AVG1:		sendi(misc_measure("avenrun_1min"));		break;
+    case AVG5:		sendi(misc_measure("avenrun_5min"));		break;
+    case AVG15:		sendi(misc_measure("avenrun_15min"));		break;
+#elif defined(__OpenBSD__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__) || defined(__DragonFly__)
+    case NPROCS:	bsd_count_procs();				break;
+    case AVG1:		bsd_loadavg(0);					break;
+    case AVG5:		bsd_loadavg(1);					break;
+    case AVG15:		bsd_loadavg(2);					break;
 #endif
+#if defined(__sun__) || defined(__linux__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__)
     case UTIL:		util_measure(&rv,&sz); 	sendv(rv, sz);		break;
+#endif
     case QUIT:		free((void*)rv); return 0;
     default:		error("Bad command");				break;
     }
   }
-  return 0; /* supress warnings */
+  return 0; /* suppress warnings */
 }
+
+/* ---------------------------- *
+ *     BSD stat functions 	*
+ * ---------------------------- */
+#if defined(__OpenBSD__) || (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__) || defined(__DragonFly__)
+
+static void bsd_loadavg(int idx) {
+    double avgs[3];
+    if (getloadavg(avgs, 3) < 0) {
+	error(strerror(errno));
+	return;
+    }
+    sendi((unsigned int)(avgs[idx] * 256));
+}
+
+#endif
+
+#if defined(__OpenBSD__)
+
+static void bsd_count_procs(void) {
+    int err, nproc;
+    size_t len = sizeof(nproc);
+    int mib[] = { CTL_KERN, KERN_NPROCS };
+
+    err = sysctl(mib, sizeof(mib) / sizeof(mib[0]), &nproc, &len, NULL, 0);
+    if (err) {
+	error(strerror(errno));
+	return;
+    }
+
+    sendi((unsigned int)nproc);
+}
+
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
+
+static void bsd_count_procs(void) {
+    kvm_t *kd;
+    struct kinfo_proc *kp;
+    char err[_POSIX2_LINE_MAX];
+    int cnt = 0;
+
+    if ((kd = kvm_open(NULL, "/dev/null", NULL, O_RDONLY, err)) == NULL) {
+	error(err);
+	return;
+    }
+
+#if defined(KERN_PROC_PROC)
+    if ((kp = kvm_getprocs(kd, KERN_PROC_PROC, 0, &cnt)) == NULL) {
+#else
+    if ((kp = kvm_getprocs(kd, KERN_PROC_ALL, 0, &cnt)) == NULL) {
+#endif
+	error(strerror(errno));
+	return;
+    }
+
+    (void)kvm_close(kd);
+    sendi((unsigned int)cnt);
+}
+
+#elif (defined(__APPLE__) && defined(__MACH__))
+
+static void bsd_count_procs(void) {
+    int err;
+    size_t len = 0;
+    int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };
+
+    err = sysctl(mib, sizeof(mib) / sizeof(mib[0]), NULL, &len, NULL, 0);
+    if (err) {
+	error(strerror(errno));
+	return;
+    }
+
+    sendi((unsigned int)(len / sizeof(struct kinfo_proc)));
+}
+
+#endif
+
 /* ---------------------------- *
  *     Linux stat functions 	*
  * ---------------------------- */
@@ -288,10 +429,10 @@ static unsigned int misc_measure(char* name) {
   if(!entry)
     return -1;
   
-  if(entry->data_type != KSTAT_DATA_ULONG)
+  if(entry->data_type != KSTAT_DATA_UINT32)
     return -1;
 
-  return entry->value.ul;
+  return entry->value.ui32;
 }
 
 
@@ -412,10 +553,133 @@ static void util_measure(unsigned int **result_vec, int *result_sz) {
 #endif
 
 /* ---------------------------- *
+ *     OSX util functions      *
+ * ---------------------------- */
+
+#if (defined(__APPLE__) && defined(__MACH__))
+
+static void util_measure(unsigned int **result_vec, int *result_sz) {
+    natural_t no_of_cpus;
+    processor_info_array_t info_array;
+    mach_msg_type_number_t info_count;
+    mach_port_t host_port;
+    kern_return_t error;
+    processor_cpu_load_info_data_t *cpu_load_info = NULL;
+    unsigned int *rv = NULL;
+    int i;
+
+    host_port = mach_host_self();
+    error = host_processor_info(host_port, PROCESSOR_CPU_LOAD_INFO,
+                                &no_of_cpus, &info_array, &info_count);
+    if (error != KERN_SUCCESS) {
+      *result_sz = 0;
+      return;
+    }
+    mach_port_deallocate(mach_task_self(), host_port);
+    cpu_load_info = (processor_cpu_load_info_data_t *) info_array;
+
+    rv = *result_vec; 
+    rv[0] = no_of_cpus;
+    rv[1] = CU_OSX_VALUES;
+    ++rv; /* first value is number of cpus */
+    ++rv; /* second value is number of entries */
+
+    for (i = 0; i < no_of_cpus; ++i) {
+        rv[0] = CU_CPU_ID;    rv[1] = i;
+        rv[2] = CU_USER;      rv[3] = cpu_load_info[i].cpu_ticks[CPU_STATE_USER];
+        rv[4] = CU_NICE_USER; rv[5] = cpu_load_info[i].cpu_ticks[CPU_STATE_NICE];
+        rv[6] = CU_KERNEL;    rv[7] = cpu_load_info[i].cpu_ticks[CPU_STATE_SYSTEM];
+        rv[8] = CU_IDLE;      rv[9] = cpu_load_info[i].cpu_ticks[CPU_STATE_IDLE];
+        rv += CU_OSX_VALUES*2;
+    }	
+
+    *result_sz = 2 + 2*CU_OSX_VALUES * no_of_cpus;
+
+    error = vm_deallocate(mach_task_self(), (vm_address_t)info_array,
+                        info_count * sizeof(int));
+    if (error != KERN_SUCCESS)
+      *result_sz = 0;
+}
+#endif
+
+/* ---------------------------- *
+ *  Utils for OSX and FreeBSD 	*
+ * ---------------------------- */
+
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__)
+
+#define EXIT_WITH(msg) (rich_error(msg, __FILE__, __LINE__))
+#define RICH_BUFLEN    (213)  /* left in error(char*) */
+
+void rich_error(const char *reason, const char *file, const int line) {
+    char buf[RICH_BUFLEN];
+    snprintf(buf, RICH_BUFLEN, "%s (%s:%i)", reason, file, line);
+    error(buf);
+}
+#undef RICH_BUFLEN
+
+void getsysctl(const char *name, void *ptr, size_t len)
+{
+    size_t gotlen = len;
+    if (sysctlbyname(name, ptr, &gotlen, NULL, 0) != 0) {
+	EXIT_WITH("sysctlbyname failed");
+    }
+    if (gotlen != len) {
+	EXIT_WITH("sysctlbyname: unexpected length");
+    }
+}
+#endif
+
+
+/* ---------------------------- *
+ *     FreeBSD stat functions 	*
+ * ---------------------------- */
+
+#if defined(__FreeBSD__)
+
+static void util_measure(unsigned int **result_vec, int *result_sz) {
+    int no_of_cpus;
+    size_t size_cpu_times;
+    unsigned long *cpu_times;
+    unsigned int *rv = NULL;
+    int i;
+
+    getsysctl("hw.ncpu", &no_of_cpus, sizeof(int));
+    /* Header constant CPUSTATES = #long values per cpu. */
+    size_cpu_times = sizeof(long) * CPUSTATES * no_of_cpus;
+    cpu_times = malloc(size_cpu_times);
+    if (!cpu_times) {
+	EXIT_WITH("badalloc");
+    }
+    getsysctl("kern.cp_times", cpu_times, size_cpu_times);
+
+    rv = *result_vec;
+    rv[0] = no_of_cpus;
+    rv[1] = CU_BSD_VALUES;
+    ++rv; /* first value is number of cpus */
+    ++rv; /* second value is number of entries */
+
+    for (i = 0; i < no_of_cpus; ++i) {
+        int offset = i * CPUSTATES;
+	rv[ 0] = CU_CPU_ID;    rv[ 1] = i;
+	rv[ 2] = CU_USER;      rv[ 3] = cpu_times[CP_USER + offset];
+	rv[ 4] = CU_NICE_USER; rv[ 5] = cpu_times[CP_NICE + offset];
+	rv[ 6] = CU_KERNEL;    rv[ 7] = cpu_times[CP_SYS + offset];
+	rv[ 8] = CU_IDLE;      rv[ 9] = cpu_times[CP_IDLE + offset];
+	rv[10] = CU_HARD_IRQ;  rv[11] = cpu_times[CP_INTR + offset];
+	rv += CU_BSD_VALUES*2;
+    }
+
+    *result_sz = 2 + 2*CU_BSD_VALUES * no_of_cpus;
+}
+#endif
+
+
+/* ---------------------------- *
  *	 Generic functions 	*
  * ---------------------------- */
 
-static void send(unsigned int data) { sendv(&data, 1); }
+static void sendi(unsigned int data) { sendv(&data, 1); }
 
 static void sendv(unsigned int data[], int ints) {
     static unsigned char *buf = NULL;
@@ -469,8 +733,7 @@ static void error(char* err_msg) {
   buffer[i++] = '\n';
 
   /* try to use one write only */
-  if(write(FD_ERR, buffer, i));
+  if(write(FD_ERR, buffer, i))
+     ;
   exit(-1);
 }
-
-

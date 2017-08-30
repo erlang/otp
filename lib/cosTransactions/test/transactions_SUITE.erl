@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -28,9 +29,9 @@
 -include_lib("cosTransactions/include/CosTransactions.hrl").
 -include("etrap_test_lib.hrl").
  
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
--define(default_timeout, ?t:minutes(20)).
+-define(default_timeout, test_server:minutes(20)).
 
 
 %%-----------------------------------------------------------------
@@ -62,19 +63,16 @@ end_per_group(_GroupName, Config) ->
 
 cases() -> 
     [etrap_api, resource_api, app_test].
-
-
 	
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.
 %%-----------------------------------------------------------------
-
 init_per_testcase(_Case, Config) ->
     Path = code:which(?MODULE),
     code:add_pathz(filename:join(filename:dirname(Path), "idl_output")),
     'oe_CosTransactions':'oe_register'(), 
     'oe_etrap_test':'oe_register'(), 
-    ?line Dog=test_server:timetrap(?default_timeout),
+    Dog=test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
 
@@ -83,7 +81,7 @@ end_per_testcase(_Case, Config) ->
     'oe_CosTransactions':'oe_unregister'(), 
     Path = code:which(?MODULE),
     code:del_path(filename:join(filename:dirname(Path), "idl_output")),
-    Dog = ?config(watchdog, Config),
+    Dog = proplists:get_value(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     ok.
 
@@ -109,8 +107,6 @@ end_per_suite(Config) ->
 %%-----------------------------------------------------------------
 %%  Tests app file
 %%-----------------------------------------------------------------
-app_test(doc) -> [];
-app_test(suite) -> [];
 app_test(_Config) ->
     ok=test_server:app_test(cosTransactions),
     ok.
@@ -118,12 +114,10 @@ app_test(_Config) ->
 %%-----------------------------------------------------------------
 %%  API tests 
 %%-----------------------------------------------------------------
-etrap_api(doc) -> ["ETraP_Server tests", ""];
-etrap_api(suite) -> [];
 etrap_api(_Config) ->
-    ?line ?match(ok, application:start(cosTransactions),
+    ?match(ok, application:start(cosTransactions),
 		 "Starting the cosTransactions application"),
-    ?line TrFac = cosTransactions:start_factory(),
+    TrFac = cosTransactions:start_factory(),
     %% Start a new transaction:
     %%      RootCoord
     %%      /       \
@@ -138,28 +132,28 @@ etrap_api(_Config) ->
 
 
     %%------ Test CosTransactions::Coordinator ------
-    ?line ?match(true, 
+    ?match(true, 
 		 'CosTransactions_Coordinator':is_same_transaction(Coord, Coord),
 		 "'CosTransactions_Coordinator':is_same_transaction"),
-    ?line ?match(false, 
+    ?match(false, 
 		 'CosTransactions_Coordinator':is_same_transaction(Coord, SubCoord1),
 		 "'CosTransactions_Coordinator':is_same_transaction"),
-    ?line ?match(true, 
+    ?match(true, 
 		 'CosTransactions_Coordinator':is_descendant_transaction(Coord, Coord),
 		 "'CosTransactions_Coordinator':is_descendant_transaction"),
-    ?line ?match(false, 
+    ?match(false, 
 		 'CosTransactions_Coordinator':is_descendant_transaction(Coord, SubCoord1),
 		 "'CosTransactions_Coordinator':is_descendant_transaction"),
-    ?line ?match(true, 
+    ?match(true, 
 		 'CosTransactions_Coordinator':is_descendant_transaction(SubCoord1, Coord),
 		 "'CosTransactions_Coordinator':is_descendant_transaction"),
-    ?line ?match(false, 
+    ?match(false, 
 		 'CosTransactions_Coordinator':is_descendant_transaction(SubCoord1, SubCoord2),
 		 "'CosTransactions_Coordinator':is_descendant_transaction"),
-    ?line ?match(true, 
+    ?match(true, 
 		 'CosTransactions_Coordinator':is_top_level_transaction(Coord),
 		 "'CosTransactions_Coordinator':is_top_level_transaction"),
-    ?line ?match(false, 
+    ?match(false, 
 		 'CosTransactions_Coordinator':is_top_level_transaction(SubCoord2),
 		 "'CosTransactions_Coordinator':is_top_level_transaction"),
 
@@ -168,31 +162,31 @@ etrap_api(_Config) ->
     RootHash2 = 'CosTransactions_Coordinator':hash_top_level_tran(SubCoord1),
     RootHash3 = 'CosTransactions_Coordinator':hash_top_level_tran(Coord),
     _SubHash   = 'CosTransactions_Coordinator':hash_transaction(SubCoord2),
-    ?line ?match(RootHash, RepeatHash,
+    ?match(RootHash, RepeatHash,
 		 "'CosTransactions_Coordinator':hash_transaction"),
-    ?line ?match(RootHash, RootHash2,
+    ?match(RootHash, RootHash2,
 		 "'CosTransactions_Coordinator':hash_top_level_tran"),
-    ?line ?match(RootHash, RootHash3,
+    ?match(RootHash, RootHash3,
 		 "'CosTransactions_Coordinator':hash_top_level_tran"),
-%    ?line ?match_inverse(RootHash, SubHash,
+%    ?match_inverse(RootHash, SubHash,
 %		 "'CosTransactions_Coordinator':hash_transaction"),
 
-    ?line ?match('StatusActive', 
+    ?match('StatusActive', 
 		 'CosTransactions_Coordinator':get_status(Coord),
 		 "'CosTransactions_Coordinator':get_status"),
-    ?line ?match('StatusActive', 
+    ?match('StatusActive', 
 		 'CosTransactions_Coordinator':get_status(SubCoord1),
 		 "'CosTransactions_Coordinator':get_status"),
-    ?line ?match('StatusActive', 
+    ?match('StatusActive', 
 		 'CosTransactions_Coordinator':get_parent_status(Coord),
 		 "'CosTransactions_Coordinator':get_parent_status"),
-    ?line ?match('StatusActive', 
+    ?match('StatusActive', 
 		 'CosTransactions_Coordinator':get_parent_status(SubCoord1),
 		 "'CosTransactions_Coordinator':get_parent_status"),
-    ?line ?match('StatusActive', 
+    ?match('StatusActive', 
 		 'CosTransactions_Coordinator':get_top_level_status(Coord),
 		 "'CosTransactions_Coordinator':get_top_level_status"),
-    ?line ?match('StatusActive', 
+    ?match('StatusActive', 
 		 'CosTransactions_Coordinator':get_top_level_status(SubCoord1),
 		 "'CosTransactions_Coordinator':get_top_level_status"),
 
@@ -208,21 +202,21 @@ etrap_api(_Config) ->
     _RC1 = 'CosTransactions_Coordinator':register_resource(SubCoord1, O1),
 %    'CosTransactions_Coordinator':register_synchronization(SubCoord1, O1),
 
-    ?line ?match('VoteCommit',
+    ?match('VoteCommit',
 		 'CosTransactions_Resource':prepare(SubCoord1),
 		 "'CosTransactions_Coordinator':prepare"),
     %% The Transaction are no longer in 'StatusActive' state. No new
     %% "members" allowed.
-    ?line ?match('StatusPrepared',
+    ?match('StatusPrepared',
 		 'CosTransactions_Coordinator':get_status(SubCoord1),
 		 "'CosTransactions_Coordinator':get_status"),
-%    ?line ?match({'EXCEPTION', ?tr_inactive},
+%    ?match({'EXCEPTION', ?tr_inactive},
 %		 'CosTransactions_Coordinator':register_synchronization(SubCoord1, O1),
 %		 "'CosTransactions_Coordinator':register_synchronization"),
-    ?line ?match({'EXCEPTION', ?tr_inactive},
+    ?match({'EXCEPTION', ?tr_inactive},
 		 'CosTransactions_Coordinator':register_resource(SubCoord1, O1),
 		 "'CosTransactions_Coordinator':register_resource"),
-    ?line ?match({'EXCEPTION', ?tr_inactive},
+    ?match({'EXCEPTION', ?tr_inactive},
 		 'CosTransactions_Coordinator':create_subtransaction(SubCoord1),
 		 "'CosTransactions_Coordinator':create_subtransaction"),
 
@@ -235,108 +229,106 @@ etrap_api(_Config) ->
     catch corba:dispose(Coord),
     catch corba:dispose(O1),
 
-    ?line cosTransactions:stop_factory(TrFac),
-    ?line application:stop(cosTransactions),
+    cosTransactions:stop_factory(TrFac),
+    application:stop(cosTransactions),
     ok.
 
 %%-----------------------------------------------------------------
 %%  API tests 
 %%-----------------------------------------------------------------
-resource_api(doc) -> ["cosTransactions API tests", ""];
-resource_api(suite) -> [];
 resource_api(_Config) ->
-    ?line ?match(ok, application:start(cosTransactions),
+    ?match(ok, application:start(cosTransactions),
 		 "Starting the cosTransactions application"),
-    ?line TrFac = cosTransactions:start_factory([{typecheck, true}]),
+    TrFac = cosTransactions:start_factory([{typecheck, true}]),
 
-    ?line ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{completion_status=?COMPLETED_YES}},
+    ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{completion_status=?COMPLETED_YES}},
 		 run(TrFac, 0, {?nop, ?nop, ?nop, ?prepare_rollback}),
 		 "TESTCASE #1: Prepare rollback Resource 4"),
-    ?line ?match({'EXCEPTION', ?tr_mixed},
+    ?match({'EXCEPTION', ?tr_mixed},
 		 run(TrFac, 0, {?nop, ?nop, ?commit_mix, ?nop}),
 		 "TESTCASE #2: Heuristic Mixed exception Resource 3"),
-    ?line ?match(ok, 
+    ?match(ok, 
 		 run(TrFac, 0, {?nop, ?nop, ?nop, ?nop}),
 		 "TESTCASE #3: Normal completion. No errors."),
-    ?line ?match(ok,
+    ?match(ok,
 		 run(TrFac, 0, {?nop, ?nop, ?nop, ?commit_cm}),
 		 "TESTCASE #4: Heuristic Commit Exception Resource 4"),
-    ?line ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{completion_status=?COMPLETED_YES}},
+    ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{completion_status=?COMPLETED_YES}},
 		 run(TrFac, 0, {?nop, ?rollback_rb, ?nop, ?prepare_rollback}),
 		 "TESTCASE #5: Heuristic Rollbac Resource 2, Resource 4 reply 'VoteRollback'"),
-    ?line ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{completion_status=?COMPLETED_YES}},
+    ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{completion_status=?COMPLETED_YES}},
 		 run(TrFac, 0, {?nop, ?nop, ?prepare_rollback, ?rollback_rb}),
 		 "TESTCASE #6: Heuristic Rollbac Resource 4, Resource 3 reply 'VoteRollback'"),
-    ?line ?match(ok,
+    ?match(ok,
 		 run(TrFac, 0, {?nop, ?nop, ?commit_delay, ?nop}),
 		 "TESTCASE #7: Resource 3 delay during commit. No timeout."),
-    ?line ?match(ok,
+    ?match(ok,
 		 run(TrFac, 0, {?nop, ?nop, ?prepare_delay, ?nop}),
 		 "TESTCASE #8: Resource 3 delay during prepare. No timeout."),
-    ?line ?match(ok,
+    ?match(ok,
 		 run(TrFac, ?TIMEOUT, {?nop, ?commit_delay, ?nop, ?nop}),
 		 "TESTCASE #9: Resource 3 delay during commit. Timeout."),
-    ?line ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{completion_status=?COMPLETED_YES}},
+    ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{completion_status=?COMPLETED_YES}},
 		 run(TrFac, ?TIMEOUT, {?nop, ?prepare_delay, ?nop, ?nop}),
 		 "TESTCASE #10: Resource 3 delay during prepare. Timeout."),
     case ?is_debug_compiled of
 	true ->
 	    %% Testing the Coordinators (root and sub).
-	    ?line ?match(ok,
+	    ?match(ok,
 			 run(TrFac, 0, {?nop, ?nop, ?nop, ?nop, [?nop, ?nop,?crash_transient(commit), ?nop]}),
 			 "TESTCASE #11: SubCoord 3 crash transient during commit."),
-	    ?line ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{}},
+	    ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{}},
 			 run(TrFac, 0, {?nop, ?nop, ?nop, ?nop, [?nop, ?nop,?crash_transient(send_prepare), ?nop]}),
 			 "TESTCASE #12: SubCoord 3 crash transient during send prepare."),
-	    ?line ?match({'EXCEPTION', ?tr_hazard},
+	    ?match({'EXCEPTION', ?tr_hazard},
 			 run(TrFac, 0, {?nop, ?nop, ?nop, ?nop, [?nop, ?nop,?crash_permanent(commit), ?nop]}),
 			 "TESTCASE #13: SubCoord 3 crash permanent during commit."),
-	    ?line ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{}},
+	    ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{}},
 			 run(TrFac, 0, {?nop, ?nop, ?nop, ?nop, [?nop, ?nop,?crash_permanent(send_prepare), ?nop]}),
 			 "TESTCASE #14: SubCoord 3 crash permanent during prepare."),
-	    ?line ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{}},
+	    ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{}},
 			 run(TrFac, 0, {?nop, ?nop, ?nop, ?nop, [?nop, ?crash_transient(send_prepare), ?crash_transient(commit), ?nop]}),
 			 "TESTCASE #15: SubCoord 2 crash transient during prepare. SubCoord 3 crash transient during commit"),
-	    ?line ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{completion_status=?COMPLETED_YES}},
+	    ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{completion_status=?COMPLETED_YES}},
 			 run(TrFac, 0, {?nop, ?nop, ?nop, ?nop, [?crash_transient(send_prepare), ?nop, ?nop, ?nop]}),
 			 "TESTCASE #16: RootCoord crash transient during send prepare."),
-	    ?line ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{}},
+	    ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{}},
 			 run(TrFac, 0, {?nop, ?nop, ?nop, ?nop, [?nop, ?crash_transient(prepare1), ?nop, ?nop]}),
 			 "TESTCASE #17: SubCoord 1 crash transient during prepare1."),
-	    ?line ?match({'EXCEPTION', ?tr_mixed}, 
+	    ?match({'EXCEPTION', ?tr_mixed}, 
 			 run(TrFac, 0, {?nop, ?prepare_mix, ?nop, ?nop, [?nop, ?nop, ?crash_transient(prepare2), ?nop]}),
 			 "TESTCASE #18: SubCoord 3 crash transient during prepare2. Resource 2 raise Heuristic Mixed during prepare"),
-	    ?line ?match({'EXCEPTION', ?tr_mixed},
+	    ?match({'EXCEPTION', ?tr_mixed},
 			 run(TrFac, 0, {?nop, ?commit_mix, ?nop, ?nop, [?nop, ?nop, ?crash_transient(commit2), ?nop]}),
 			 "TESTCASE #19: Resource 2 raise Heurist mixed during commit. SubCoord crash transient commit2"),
-	    ?line ?match({'EXCEPTION', ?tr_mixed},
+	    ?match({'EXCEPTION', ?tr_mixed},
 			 run(TrFac, 0, {?nop, ?rollback_cm, ?nop, ?prepare_rollback, [?nop, ?crash_transient(rollback2), ?nop, ?nop]}),
 			 "TESTCASE #20: Resource 2 raise Heuristic Commit during rollback. Resource 4 'VoteRollback'. SubCoord 2 crash transient rollback2."),
-	    ?line ?match({'EXCEPTION', ?tr_mixed},
+	    ?match({'EXCEPTION', ?tr_mixed},
 			 run(TrFac, 0, {?nop, ?nop, ?nop, ?commit_mix, [?nop, ?nop, ?crash_transient(send_forget1), ?nop]}),
 			 "TESTCASE #21: Resource 4 raise Heuristic Mixed during commit. SubCoord 2 crash transient send_forget1."),
-	    ?line ?match({'EXCEPTION', ?tr_mixed}, 
+	    ?match({'EXCEPTION', ?tr_mixed}, 
 			 run(TrFac, 0, {?nop, ?nop, ?nop, ?commit_mix, [?crash_transient(send_forget1), ?nop, ?nop, ?nop]}),
 			 "TESTCASE #22: Resource 4 raise Heuristic Mixed during commit. Root Coord crash transient send_forget1."),
-	    ?line ?match({'EXCEPTION', ?tr_mixed}, 
+	    ?match({'EXCEPTION', ?tr_mixed}, 
 			 run(TrFac, 0, {?nop, ?nop, ?nop, ?commit_mix, [?crash_transient(send_forget3), ?nop, ?crash_transient(send_forget1), ?nop]}),
 			 "TESTCASE #23: Resource 4 raise Heuristic Mixed during commit. Root Coord crash transient send_forget3. SubCoord 3 crash transient send_forget1."),
-		 ?line ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{completion_status=?COMPLETED_YES}},
+		 ?match({'EXCEPTION', #'TRANSACTION_ROLLEDBACK'{completion_status=?COMPLETED_YES}},
 			 run(TrFac, ?TIMEOUT, {?nop, ?nop, ?nop, ?nop, [?delay_transient(root_delay, ?TIMEOUT*2), ?nop, ?nop, ?nop]}),
 			 "TESTCASE #24: Delay RootCoord. Timeout."),
 	    %% Testing the Terminator.
-	    ?line ?match({'EXCEPTION', ?tr_mixed},
+	    ?match({'EXCEPTION', ?tr_mixed},
 			 run(TrFac, ?TIMEOUT, {?nop, ?prepare_mix, ?nop, ?nop, [?nop, ?nop, ?nop, ?crash_transient(commit_heuristic1)]}),
 			 "TESTCASE #25: Terminator crash transient after received and logged Heuristic mix."),
-	    ?line ?match(ok,
+	    ?match(ok,
 			 run(TrFac, ?TIMEOUT, {?nop, ?nop, ?nop, ?nop, [?nop, ?nop, ?nop, ?crash_transient(commit_ok2)]}),
 			 "TESTCASE #26: Terminator crash transient after received and logged 'ok'.");
 	_ ->
 	    ok
     end,
 
-    ?line cosTransactions:stop_factory(TrFac),
-    ?line application:stop(cosTransactions),
+    cosTransactions:stop_factory(TrFac),
+    application:stop(cosTransactions),
     ok.
  
 %%-----------------------------------------------------------------
@@ -388,8 +380,6 @@ run(TrFac, Time, Spec) ->
     catch corba:dispose(O3),
     catch corba:dispose(O4),
     Reply.
-
-
 
 start_resources({A1, A2, A3, A4})->
     start_resources({A1, A2, A3, A4, ?no_context});

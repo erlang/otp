@@ -1,24 +1,25 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
       <year>1996</year>
-      <year>2013</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
-  The contents of this file are subject to the Erlang Public License,
-  Version 1.1, (the "License"); you may not use this file except in
-  compliance with the License. You should have received a copy of the
-  Erlang Public License along with this software. If not, it can be
-  retrieved online at http://www.erlang.org/.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
 
-  Software distributed under the License is distributed on an "AS IS"
-  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-  the License for the specific language governing rights and limitations
-  under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
@@ -30,12 +31,27 @@
     <rev></rev>
   </header>
   <module>unicode</module>
-  <modulesummary>Functions for converting Unicode characters</modulesummary>
+  <modulesummary>Functions for converting Unicode characters.</modulesummary>
   <description>
-  <p>This module contains functions for converting between different character representations. Basically it converts between ISO-latin-1 characters and Unicode ditto, but it can also convert between different Unicode encodings (like UTF-8, UTF-16 and UTF-32).</p>
-  <p>The default Unicode encoding in Erlang is in binaries UTF-8, which is also the format in which built in functions and libraries in OTP expect to find binary Unicode data. In lists, Unicode data is encoded as integers, each integer representing one character and encoded simply as the Unicode codepoint for the character.</p> 
-  <p>Other Unicode encodings than integers representing codepoints or UTF-8 in binaries are referred to as &quot;external encodings&quot;. The ISO-latin-1 encoding is in binaries and lists referred to as latin1-encoding.</p>
-  <p>It is recommended to only use external encodings for communication with external entities where this is required. When working inside the Erlang/OTP environment, it is recommended to keep binaries in UTF-8 when representing Unicode characters. Latin1 encoding is supported both for backward compatibility and for communication with external entities not supporting Unicode character sets.</p>
+  <p>This module contains functions for converting between different character 
+    representations. It converts between ISO Latin-1 characters and Unicode
+    characters, but it can also convert between different Unicode encodings
+    (like UTF-8, UTF-16, and UTF-32).</p>
+  <p>The default Unicode encoding in Erlang is in binaries UTF-8, which is also
+    the format in which built-in functions and libraries in OTP expect to find
+    binary Unicode data. In lists, Unicode data is encoded as integers, each
+    integer representing one character and encoded simply as the Unicode code
+    point for the character.</p> 
+  <p>Other Unicode encodings than integers representing code points or UTF-8
+    in binaries are referred to as &quot;external encodings&quot;. The ISO
+    Latin-1 encoding
+    is in binaries and lists referred to as latin1-encoding.</p>
+  <p>It is recommended to only use external encodings for communication with
+    external entities where this is required. When working inside the
+    Erlang/OTP environment, it is recommended to keep binaries in UTF-8 when
+    representing Unicode characters. ISO Latin-1 encoding is supported both
+    for backward compatibility and for communication 
+    with external entities not supporting Unicode character sets.</p>
   </description>
 
   <datatypes>
@@ -48,7 +64,8 @@
     <datatype>
       <name name="unicode_binary"/>
       <desc>
-        <p>A <c>binary()</c> with characters encoded in the UTF-8 coding standard.</p>
+        <p>A <c>binary()</c> with characters encoded in the UTF-8 coding
+          standard.</p>
       </desc>
     </datatype>
     <datatype>
@@ -60,8 +77,8 @@
     <datatype>
       <name name="external_unicode_binary"/>
       <desc>
-        <p>A <c>binary()</c> with characters coded in a user specified Unicode
-           encoding other than UTF-8 (UTF-16 or UTF-32).</p>
+        <p>A <c>binary()</c> with characters coded in a user-specified Unicode
+          encoding other than UTF-8 (that is, UTF-16 or UTF-32).</p>
       </desc>
     </datatype>
     <datatype>
@@ -72,23 +89,23 @@
     </datatype>
     <datatype>
       <name name="latin1_binary"/>
-      <desc><p>A <c>binary()</c> with characters coded in ISO-latin-1.</p>
+      <desc><p>A <c>binary()</c> with characters coded in ISO Latin-1.</p>
       </desc>
     </datatype>
     <datatype>
       <name name="latin1_char"/>
-      <desc><p>An <c>integer()</c> representing valid latin1
+      <desc><p>An <c>integer()</c> representing a valid ISO Latin-1
          character (0-255).</p>
       </desc>
     </datatype>
     <datatype>
       <name name="latin1_chardata"/>
-      <desc><p>The same as <c>iodata()</c>.</p>
+      <desc><p>Same as <c>iodata()</c>.</p>
       </desc>
     </datatype>
     <datatype>
       <name name="latin1_charlist"/>
-      <desc><p>The same as <c>iolist()</c>.</p>
+      <desc><p>Same as <c>iolist()</c>.</p>
       </desc>
     </datatype>
   </datatypes>
@@ -99,197 +116,224 @@
       <fsummary>Identify UTF byte order marks in a binary.</fsummary>
       <type name="endian"/>
       <type_desc variable="Bin">
-        A <c>binary()</c> such that <c>byte_size(<anno>Bin</anno>) >= 4</c>.
+        A <c>binary()</c> such that <c>byte_size(<anno>Bin</anno>) &gt;= 4</c>.
       </type_desc>
       <desc>
-
-      <p>Check for a UTF byte order mark (BOM) in the beginning of a
-      binary.  If the supplied binary <c><anno>Bin</anno></c> begins with a valid
-      byte order mark for either UTF-8, UTF-16 or UTF-32, the function
-      returns the encoding identified along with the length of the BOM
-      in bytes.</p>
-
-      <p>If no BOM is found, the function returns <c>{latin1,0}</c></p>
+        <p>Checks for a UTF Byte Order Mark (BOM) in the beginning of a
+          binary. If the supplied binary <c><anno>Bin</anno></c> begins with a
+          valid BOM for either UTF-8, UTF-16, or UTF-32, the function
+          returns the encoding identified along with the BOM length
+          in bytes.</p>
+        <p>If no BOM is found, the function returns <c>{latin1,0}</c>.</p>
       </desc>
     </func>
-    <func>
-      <name name="characters_to_list" arity="1"/>
-      <fsummary>Convert a collection of characters to list of Unicode characters</fsummary>
-      <desc>
-      <p>Same as <c>characters_to_list(<anno>Data</anno>, unicode)</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="characters_to_list" arity="2"/>
-      <fsummary>Convert a collection of characters to list of Unicode characters</fsummary>
-      <desc>
 
-      <p>Converts a possibly deep list of integers and
-      binaries into a list of integers representing Unicode
-      characters. The binaries in the input may have characters
-      encoded as latin1 (0 - 255, one character per byte), in which
-      case the <c><anno>InEncoding</anno></c> parameter should be given as
-      <c>latin1</c>, or have characters encoded as one of the
-      UTF-encodings, which is given as the <c><anno>InEncoding</anno></c>
-      parameter. Only when the <c><anno>InEncoding</anno></c> is one of the UTF
-      encodings, integers in the list are allowed to be grater than
-      255.</p>
-      
-      <p>If <c><anno>InEncoding</anno></c> is <c>latin1</c>, the <c><anno>Data</anno></c> parameter
-      corresponds to the <c>iodata()</c> type, but for <c>unicode</c>,
-      the <c><anno>Data</anno></c> parameter can contain integers greater than 255
-      (Unicode characters beyond the ISO-latin-1 range), which would
-      make it invalid as <c>iodata()</c>.</p>
-
-      <p>The purpose of the function is mainly to be able to convert
-      combinations of Unicode characters into a pure Unicode
-      string in list representation for further processing. For
-      writing the data to an external entity, the reverse function
-      <seealso
-      marker="#characters_to_binary/3"><c>characters_to_binary/3</c></seealso>
-      comes in handy.</p>
- 
-      <p>The option <c>unicode</c> is an alias for <c>utf8</c>, as this is the
-      preferred encoding for Unicode characters in
-      binaries. <c>utf16</c> is an alias for <c>{utf16,big}</c> and
-      <c>utf32</c> is an alias for <c>{utf32,big}</c>. The <c>big</c>
-      and <c>little</c> atoms denote big or little endian
-      encoding.</p> 
-
-      <p>If for some reason, the data cannot be converted, either
-      because of illegal Unicode/latin1 characters in the list, or
-      because of invalid UTF encoding in any binaries, an error
-      tuple is returned. The error tuple contains the tag
-      <c>error</c>, a list representing the characters that could be
-      converted before the error occurred and a representation of the
-      characters including and after the offending integer/bytes. The
-      last part is mostly for debugging as it still constitutes a
-      possibly deep and/or mixed list, not necessarily of the same
-      depth as the original data. The error occurs when traversing the
-      list and whatever is left to decode is simply returned as is.</p>
-
-      <p>However, if the input <c><anno>Data</anno></c> is a pure binary, the third
-      part of the error tuple is guaranteed to be a binary as
-      well.</p>
-
-      <p>Errors occur for the following reasons:</p>
-      <list type="bulleted">
-
-           <item>Integers out of range - If <c><anno>InEncoding</anno></c> is
-	   <c>latin1</c>, an error occurs whenever an integer greater
-	   than 255 is found in the lists. If <c><anno>InEncoding</anno></c> is
-	   of a Unicode type, an error occurs whenever an integer
-	   <list type="bulleted">
-	     <item>greater than <c>16#10FFFF</c>
-	     (the maximum Unicode character),</item>
-	     <item>in the range <c>16#D800</c> to <c>16#DFFF</c>
-	       (invalid range reserved for UTF-16 surrogate pairs)</item>
-	   </list>
-	   is found.
-	   </item>
-
-	   <item>UTF encoding incorrect - If <c><anno>InEncoding</anno></c> is
-	   one of the UTF types, the bytes in any binaries have to be valid
-	   in that encoding. Errors can occur for various
-	   reasons, including &quot;pure&quot; decoding errors 
-	   (like the upper
-	   bits of the bytes being wrong), the bytes are decoded to a
-	   too large number, the bytes are decoded to a code-point in the 
-	   invalid Unicode
-	   range, or encoding is &quot;overlong&quot;, meaning that a
-	   number should have been encoded in fewer bytes. The
-	   case of a truncated UTF is handled specially, see the
-	   paragraph about incomplete binaries below. If
-	   <c><anno>InEncoding</anno></c> is <c>latin1</c>, binaries are always valid
-	   as long as they contain whole bytes,
-	   as each byte falls into the valid ISO-latin-1 range.</item>
-
-      </list>	   
-
-      <p>A special type of error is when no actual invalid integers or
-      bytes are found, but a trailing <c>binary()</c> consists of too
-      few bytes to decode the last character. This error might occur
-      if bytes are read from a file in chunks or binaries in other
-      ways are split on non UTF character boundaries. In this case an
-      <c>incomplete</c> tuple is returned instead of the <c>error</c>
-      tuple. It consists of the same parts as the <c>error</c> tuple, but
-      the tag is <c>incomplete</c> instead of <c>error</c> and the
-      last element is always guaranteed to be a binary consisting of
-      the first part of a (so far) valid UTF character.</p>
-
-      <p>If one UTF characters is split over two consecutive
-      binaries in the <c><anno>Data</anno></c>, the conversion succeeds. This means
-      that a character can be decoded from a range of binaries as long
-      as the whole range is given as input without errors
-      occurring. Example:</p>
-
-<code>
-     decode_data(Data) ->
-         case unicode:characters_to_list(Data,unicode) of
-             {incomplete,Encoded, Rest} ->
-	           More = get_some_more_data(),
-		   Encoded ++ decode_data([Rest, More]);
-	     {error,Encoded,Rest} ->
-	           handle_error(Encoded,Rest);
-             List ->
-	           List
-         end.
-</code>
-      <p>Bit-strings that are not whole bytes are however not allowed,
-      so a UTF character has to be split along 8-bit boundaries to
-      ever be decoded.</p>
-
-      <p>If any parameters are of the wrong type, the list structure
-      is invalid (a number as tail) or the binaries do not contain
-      whole bytes (bit-strings), a <c>badarg</c> exception is
-      thrown.</p>
- 
-      </desc>
-    </func>
     <func>
      <name name="characters_to_binary" arity="1"/>
-      <fsummary>Convert a collection of characters to a UTF-8 binary</fsummary>
+      <fsummary>Convert a collection of characters to a UTF-8 binary.</fsummary>
       <desc>
-      <p>Same as <c>characters_to_binary(<anno>Data</anno>, unicode, unicode)</c>.</p>
+        <p>Same as <c>characters_to_binary(<anno>Data</anno>, unicode,
+          unicode)</c>.</p>
       </desc>
     </func>
+
     <func>    
      <name name="characters_to_binary" arity="2"/>
-      <fsummary>Convert a collection of characters to a UTF-8 binary</fsummary>
-
+      <fsummary>Convert a collection of characters to a UTF-8 binary.</fsummary>
       <desc>
-      <p>Same as <c>characters_to_binary(<anno>Data</anno>, <anno>InEncoding</anno>, unicode)</c>.</p>
-      </desc>
-    </func>    
-    <func>
-      <name name="characters_to_binary" arity="3"/>
-      <fsummary>Convert a collection of characters to a UTF-8 binary</fsummary>
-      <desc>
-
-      <p>Behaves as <seealso marker="#characters_to_list/2">
-      <c>characters_to_list/2</c></seealso>, but produces an binary
-      instead of a Unicode list. The
-      <c><anno>InEncoding</anno></c> defines how input is to be interpreted if
-      binaries are present in the <c>Data</c>, while
-      <c><anno>OutEncoding</anno></c> defines in what format output is to be
-      generated.</p>
-
-      <p>The option <c>unicode</c> is an alias for <c>utf8</c>, as this is the
-      preferred encoding for Unicode characters in
-      binaries. <c>utf16</c> is an alias for <c>{utf16,big}</c> and
-      <c>utf32</c> is an alias for <c>{utf32,big}</c>. The <c>big</c>
-      and <c>little</c> atoms denote big or little endian
-      encoding.</p> 
-
-      <p>Errors and exceptions occur as in <seealso
-      marker="#characters_to_list/2">
-      <c>characters_to_list/2</c></seealso>, but the second element
-      in the <c>error</c> or
-      <c>incomplete</c> tuple will be a <c>binary()</c> and not a
-      <c>list()</c>.</p>
-
+        <p>Same as <c>characters_to_binary(<anno>Data</anno>, 
+          <anno>InEncoding</anno>, unicode)</c>.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="characters_to_binary" arity="3"/>
+      <fsummary>Convert a collection of characters to a UTF-8 binary.</fsummary>
+      <desc>
+        <p>Behaves as <seealso marker="#characters_to_list/2">
+          <c>characters_to_list/2</c></seealso>, but produces a binary
+          instead of a Unicode list.</p>
+        <p><c><anno>InEncoding</anno></c> defines how input is to be interpreted
+          if binaries are present in <c>Data</c></p>
+        <p><c><anno>OutEncoding</anno></c> defines in what format output is to
+          be generated.</p>
+        <p>Options:</p>
+        <taglist>
+          <tag><c>unicode</c></tag>
+          <item>
+            <p>An alias for <c>utf8</c>, as this is the preferred encoding for 
+              Unicode characters in binaries.</p>
+          </item>
+          <tag><c>utf16</c></tag>
+          <item>
+            <p>An alias for <c>{utf16,big}</c>.</p>
+          </item>
+          <tag><c>utf32</c></tag>
+          <item>
+            <p>An alias for <c>{utf32,big}</c>.</p>
+          </item>
+        </taglist>
+        <p>The atoms <c>big</c> and <c>little</c> denote big- or little-endian
+          encoding.</p>
+        <p>Errors and exceptions occur as in
+          <seealso marker="#characters_to_list/2">
+          <c>characters_to_list/2</c></seealso>, but the second element
+          in tuple <c>error</c> or <c>incomplete</c> is a <c>binary()</c>
+          and not a <c>list()</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="characters_to_list" arity="1"/>
+      <fsummary>Convert a collection of characters to a list of Unicode
+        characters.</fsummary>
+      <desc>
+        <p>Same as <c>characters_to_list(<anno>Data</anno>, unicode)</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="characters_to_list" arity="2"/>
+      <fsummary>Convert a collection of characters to a list of Unicode
+        characters.</fsummary>
+      <desc>
+        <p>Converts a possibly deep list of integers and
+          binaries into a list of integers representing Unicode
+          characters. The binaries in the input can have characters
+          encoded as one of the following:</p>
+        <list type="bulleted">
+          <item>
+            <p>ISO Latin-1 (0-255, one character per byte). Here,
+              case parameter <c><anno>InEncoding</anno></c> is to be specified
+              as <c>latin1</c>.</p>
+          </item>
+          <item>
+            <p>One of the UTF-encodings, which is specified as parameter 
+              <c><anno>InEncoding</anno></c>.</p>
+          </item>
+        </list>
+        <p>Only when <c><anno>InEncoding</anno></c> is one of the UTF
+          encodings, integers in the list are allowed to be &gt; 255.</p>
+        <p>If <c><anno>InEncoding</anno></c> is <c>latin1</c>, parameter
+          <c><anno>Data</anno></c> corresponds to the <c>iodata()</c> type,
+          but for <c>unicode</c>, parameter <c><anno>Data</anno></c> can
+          contain integers &gt; 255
+          (Unicode characters beyond the ISO Latin-1 range), which
+          makes it invalid as <c>iodata()</c>.</p>
+        <p>The purpose of the function is mainly to convert
+          combinations of Unicode characters into a pure Unicode
+          string in list representation for further processing. For
+          writing the data to an external entity, the reverse function
+          <seealso marker="#characters_to_binary/3">
+          <c>characters_to_binary/3</c></seealso>
+          comes in handy.</p>
+        <p>Option <c>unicode</c> is an alias for <c>utf8</c>, as this is the
+          preferred encoding for Unicode characters in
+          binaries. <c>utf16</c> is an alias for <c>{utf16,big}</c> and
+          <c>utf32</c> is an alias for <c>{utf32,big}</c>. The atoms <c>big</c>
+          and <c>little</c> denote big- or little-endian encoding.</p> 
+        <p>If the data cannot be converted, either
+          because of illegal Unicode/ISO Latin-1 characters in the list, 
+          or because of invalid UTF encoding in any binaries, an error
+          tuple is returned. The error tuple contains the tag
+          <c>error</c>, a list representing the characters that could be
+          converted before the error occurred and a representation of the
+          characters including and after the offending integer/bytes. The
+          last part is mostly for debugging, as it still constitutes a
+          possibly deep or mixed list, or both, not necessarily of the same
+          depth as the original data. The error occurs when traversing the
+          list and whatever is left to decode is returned "as is".</p>
+        <p>However, if the input <c><anno>Data</anno></c> is a pure binary,
+          the third part of the error tuple is guaranteed to be a binary as
+          well.</p>
+        <p>Errors occur for the following reasons:</p>
+        <list type="bulleted">
+          <item>
+            <p>Integers out of range.</p>
+            <p>If <c><anno>InEncoding</anno></c> is <c>latin1</c>, 
+              an error occurs whenever an integer &gt; 255 is found
+              in the lists.</p>
+            <p>If <c><anno>InEncoding</anno></c> is of a Unicode type,
+              an error occurs whenever either of the following is found:</p>
+            <list type="bulleted">
+              <item>
+                <p>An integer &gt; 16#10FFFF
+                  (the maximum Unicode character)</p>
+              </item>
+	      <item>
+                <p>An integer in the range 16#D800 to 16#DFFF (invalid range
+                  reserved for UTF-16 surrogate pairs)</p>
+              </item>
+            </list>
+	  </item>
+          <item>
+            <p>Incorrect UTF encoding.</p>
+            <p>If <c><anno>InEncoding</anno></c> is one of the UTF types,
+              the bytes in any binaries must be valid in that encoding.</p>
+            <p>Errors can occur for various reasons, including the
+              following:</p>
+            <list type="bulleted">
+              <item>
+                <p>&quot;Pure&quot; decoding errors 
+	          (like the upper bits of the bytes being wrong).</p>
+              </item>
+              <item>
+                <p>The bytes are decoded to a too large number.</p>
+              </item> 
+              <item>
+                <p>The bytes are decoded to a code point in the invalid
+	          Unicode range.</p>
+              </item>
+              <item>
+                <p>Encoding is &quot;overlong&quot;, meaning that a number
+                  should have been encoded in fewer bytes.</p>
+              </item>
+            </list>
+            <p>The case of a truncated UTF is handled specially, see the
+              paragraph about incomplete binaries below.</p>
+            <p>If <c><anno>InEncoding</anno></c> is <c>latin1</c>, binaries are
+              always valid as long as they contain whole bytes,
+              as each byte falls into the valid ISO Latin-1 range.</p>
+          </item>
+        </list>
+        <p>A special type of error is when no actual invalid integers or
+          bytes are found, but a trailing <c>binary()</c> consists of too
+          few bytes to decode the last character. This error can occur
+          if bytes are read from a file in chunks or if binaries in other
+          ways are split on non-UTF character boundaries. An <c>incomplete</c>
+          tuple is then returned instead of the <c>error</c> tuple.
+          It consists of the same parts as the <c>error</c> tuple, but
+          the tag is <c>incomplete</c> instead of <c>error</c> and the
+          last element is always guaranteed to be a binary consisting of
+          the first part of a (so far) valid UTF character.</p>
+        <p>If one UTF character is split over two consecutive binaries in
+          the <c><anno>Data</anno></c>, the conversion succeeds. This means
+          that a character can be decoded from a range of binaries as long
+          as the whole range is specified as input without errors occurring.</p>
+        <p><em>Example:</em></p>
+        <code>
+decode_data(Data) ->
+   case unicode:characters_to_list(Data,unicode) of
+      {incomplete,Encoded, Rest} ->
+            More = get_some_more_data(),
+            Encoded ++ decode_data([Rest, More]);
+      {error,Encoded,Rest} ->
+            handle_error(Encoded,Rest);
+      List ->
+            List
+   end.</code>
+        <p>However, bit strings that are not whole bytes are not allowed,
+          so a UTF character must be split along 8-bit boundaries to
+          ever be decoded.</p>
+        <p>A <c>badarg</c> exception is thrown for the following cases:</p>
+        <list type="bulleted">
+          <item>Any parameters are of the wrong type.</item>
+          <item>The list structure is invalid (a number as tail).</item>
+          <item>The binaries do not contain whole bytes (bit strings).</item>
+        </list>
+      </desc>
+    </func>
+
     <func>
       <name name="encoding_to_bom" arity="1"/>
       <fsummary>Create a binary UTF byte order mark from encoding.</fsummary>
@@ -297,20 +341,15 @@
         A <c>binary()</c> such that <c>byte_size(<anno>Bin</anno>) >= 4</c>.
       </type_desc>
       <desc>
-
-      <p>Create a UTF byte order mark (BOM) as a binary from the
-      supplied <c><anno>InEncoding</anno></c>. The BOM is, if supported at all,
-      expected to be placed first in UTF encoded files or
-      messages.</p>
-
-      <p>The function returns <c>&lt;&lt;&gt;&gt;</c> for the
-      <c>latin1</c> encoding as there is no BOM for ISO-latin-1.</p>
-
-      <p>It can be noted that the BOM for UTF-8 is seldom used, and it
-      is really not a <em>byte order</em> mark. There are obviously no
-      byte order issues with UTF-8, so the BOM is only there to
-      differentiate UTF-8 encoding from other UTF formats.</p>
-
+        <p>Creates a UTF Byte Order Mark (BOM) as a binary from the
+          supplied <c><anno>InEncoding</anno></c>. The BOM is, if supported at
+          all, expected to be placed first in UTF encoded files or messages.</p>
+        <p>The function returns <c>&lt;&lt;&gt;&gt;</c> for
+          <c>latin1</c> encoding, as there is no BOM for ISO Latin-1.</p>
+        <p>Notice that the BOM for UTF-8 is seldom used, and it
+          is really not a <em>byte order</em> mark. There are obviously no
+          byte order issues with UTF-8, so the BOM is only there to
+          differentiate UTF-8 encoding from other UTF formats.</p>
       </desc>
     </func>
   </funcs>

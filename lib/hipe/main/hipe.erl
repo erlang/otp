@@ -2,18 +2,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -199,14 +200,17 @@
 	 compile/4,
 	 compile_core/4,
  	 file/1,
- 	 file/2,
+	 file/2,
+	 get_llvm_version/0,
+	 llvm_support_available/0,
 	 load/1,
 	 help/0,
 	 help_hiper/0,
 	 help_options/0,
 	 help_option/1,
 	 help_debug_options/0,
-	 version/0]).
+	 version/0,
+	 erts_checksum/0]).
 
 -ifndef(DEBUG).
 -define(DEBUG,true).
@@ -214,6 +218,7 @@
 
 -include("hipe.hrl").
 -include("../../compiler/src/beam_disasm.hrl").
+-include("../rtl/hipe_literals.hrl").
 
 %%-------------------------------------------------------------------
 %% Basic type declaration for exported functions of the 'hipe' module
@@ -444,16 +449,16 @@ compile(Name, File, Opts0) when is_atom(Name) ->
     true ->
       case filename:find_src(filename:rootname(File, ".beam")) of
 	{error, _} ->
-	  ?error_msg("Cannot find source code for ~p.",[File]),
+	  ?error_msg("Cannot find source code for ~p.", [File]),
 	  ?EXIT({cant_find_source_code});
 	{Source, CompOpts} ->
 	  CoreOpts = [X || X = {core_transform, _} <- Opts],
-	  %%io:format("Using: ~w\n", [CoreOpts]),
+	  %% io:format("Using: ~w\n", [CoreOpts]),
 	  case compile:file(Source, CoreOpts ++ [to_core, binary|CompOpts]) of
 	    {ok, _, Core} ->
 	      compile_core(Name, Core, File, Opts);
 	    Error ->
-	      ?error_msg("Error compiling ~p:\n~p.",[File, Error]),
+	      ?error_msg("Error compiling ~p:\n~p.", [File, Error]),
 	      ?EXIT({cant_compile_source_code})
 	  end
       end;
@@ -465,7 +470,7 @@ compile(Name, File, Opts0) when is_atom(Name) ->
 	{ok, _, Core} ->
 	  compile_core(Name, Core, File, Opts);
 	Error ->
-	  ?error_msg("Error compiling ~p:\n~p\n",[Source, Error]),
+	  ?error_msg("Error compiling ~p:\n~p\n", [Source, Error]),
 	  ?EXIT({cant_compile_source_code, Error})
       end;
     Other when Other =:= false; Other =:= undefined ->
@@ -568,8 +573,7 @@ file(File, Options) when is_atom(File) ->
 disasm(File) ->
   case beam_disasm:file(File) of
     #beam_file{labeled_exports = LabeledExports,
-	       compile_info = CompInfo,
-	       code = BeamCode} ->
+	       compile_info = CompInfo, code = BeamCode} ->
       CompOpts = proplists:get_value(options, CompInfo, []),
       HCompOpts = case lists:keyfind(hipe, 1, CompOpts) of
 		    {hipe, L} when is_list(L) -> L;
@@ -592,16 +596,16 @@ fix_beam_exports([], Exports) ->
   Exports.
 
 get_beam_icode(Mod, {BeamCode, Exports}, File, Options) ->
-  ?option_time({ok, Icode} =
-	       (catch {ok, hipe_beam_to_icode:module(BeamCode, Options)}),
-	       "BEAM-to-Icode", Options),
+  {ok, Icode} =
+    ?option_time((catch {ok, hipe_beam_to_icode:module(BeamCode, Options)}),
+	         "BEAM-to-Icode", Options),
   BeamBin = get_beam_code(File),
   {{Mod, Exports, Icode}, BeamBin}.
 
 get_core_icode(Mod, Core, File, Options) ->
-  ?option_time({ok, Icode} =
-	       (catch {ok, cerl_to_icode:module(Core, Options)}),
-	       "BEAM-to-Icode", Options),
+  {ok, Icode} =
+    ?option_time((catch {ok, cerl_to_icode:module(Core, Options)}),
+		 "BEAM-to-Icode", Options),
   NeedBeamCode = not proplists:get_bool(load, Options),
   BeamBin = 
     case NeedBeamCode of
@@ -614,7 +618,7 @@ get_core_icode(Mod, Core, File, Options) ->
 get_beam_code(Bin) when is_binary(Bin) -> Bin;
 get_beam_code(FileName) ->
   case erl_prim_loader:get_file(FileName) of
-    {ok,Bin,_} ->
+    {ok, Bin, _} ->
       Bin;
     error ->
       ?EXIT(no_beam_file)
@@ -648,7 +652,19 @@ run_compiler_1(DisasmFun, IcodeFun, Options) ->
 			    %% The full option expansion is not done
 			    %% until the DisasmFun returns.
 			    {Code, CompOpts} = DisasmFun(Options),
-			    Opts = expand_options(Options ++ CompOpts),
+			    Opts0 = expand_options(Options ++ CompOpts,
+                                                   get(hipe_target_arch)),
+                            Opts =
+                             case proplists:get_bool(to_llvm, Opts0) andalso
+                                 not llvm_support_available() of
+                               true ->
+                                 ?error_msg("No LLVM version 3.4 or greater "
+                                            "found in $PATH; aborting "
+                                            "native code compilation.\n", []),
+                                 ?EXIT(cant_find_required_llvm_version);
+                               false ->
+                                 Opts0
+                             end,
 			    check_options(Opts),
 			    ?when_option(verbose, Options,
 					 ?debug_msg("Options: ~p.\n",[Opts])),
@@ -748,7 +764,8 @@ finalize(OrigList, Mod, Exports, WholeModule, Opts) ->
 finalize_fun(MfaIcodeList, Exports, Opts) ->
   case proplists:get_value(concurrent_comp, Opts) of
     FalseVal when (FalseVal =:= undefined) orelse (FalseVal =:= false) ->
-      [finalize_fun_sequential(MFAIcode, Opts, #comp_servers{})
+      NoServers = #comp_servers{pp_server = none, range = none, type = none},
+      [finalize_fun_sequential(MFAIcode, Opts, NoServers)
        || {_MFA, _Icode} = MFAIcode <- MfaIcodeList];
     TrueVal when (TrueVal =:= true) orelse (TrueVal =:= debug) ->
       finalize_fun_concurrent(MfaIcodeList, Exports, Opts)
@@ -821,7 +838,9 @@ finalize_fun_sequential({MFA, Icode}, Opts, Servers) ->
 		   ?debug_msg("Compiled ~w in ~.2f s\n", [MFA,(T2-T1)/1000])),
       {MFA, Code};
     {rtl, LinearRtl} ->
-      {MFA, LinearRtl}
+      {MFA, LinearRtl};
+    {llvm_binary, Binary} ->
+      {MFA, Binary}
   catch
     error:Error ->
       ?when_option(verbose, Opts, ?debug_untagged_msg("\n", [])),
@@ -881,8 +900,7 @@ do_load(Mod, Bin, BeamBinOrPath) when is_binary(BeamBinOrPath);
       code:load_native_sticky(Mod, Bin, Beam);
     false ->
       %% Normal loading of a whole module
-      Architecture = erlang:system_info(hipe_architecture),
-      ChunkName = hipe_unified_loader:chunk_name(Architecture),
+      ChunkName = hipe_unified_loader:chunk_name(HostArch),
       {ok, _, Chunks0} = beam_lib:all_chunks(BeamBinOrPath),
       Chunks = [{ChunkName, Bin}|lists:keydelete(ChunkName, 1, Chunks0)],
       {ok, BeamPlusNative} = beam_lib:build_module(Chunks),
@@ -890,21 +908,27 @@ do_load(Mod, Bin, BeamBinOrPath) when is_binary(BeamBinOrPath);
   end.
 
 assemble(CompiledCode, Closures, Exports, Options) ->
-  case get(hipe_target_arch) of
-    ultrasparc ->
-      hipe_sparc_assemble:assemble(CompiledCode, Closures, Exports, Options);
-    powerpc ->
-      hipe_ppc_assemble:assemble(CompiledCode, Closures, Exports, Options);
-    ppc64 ->
-      hipe_ppc_assemble:assemble(CompiledCode, Closures, Exports, Options);
-    arm ->
-      hipe_arm_assemble:assemble(CompiledCode, Closures, Exports, Options);
-    x86 ->
-      hipe_x86_assemble:assemble(CompiledCode, Closures, Exports, Options);
-    amd64 ->
-      hipe_amd64_assemble:assemble(CompiledCode, Closures, Exports, Options);
-    Arch ->
-      ?EXIT({executing_on_an_unsupported_architecture, Arch})
+  case proplists:get_bool(to_llvm, Options) of
+    false ->
+      case get(hipe_target_arch) of
+        ultrasparc ->
+          hipe_sparc_assemble:assemble(CompiledCode, Closures, Exports, Options);
+        powerpc ->
+          hipe_ppc_assemble:assemble(CompiledCode, Closures, Exports, Options);
+        ppc64 ->
+          hipe_ppc_assemble:assemble(CompiledCode, Closures, Exports, Options);
+        arm ->
+          hipe_arm_assemble:assemble(CompiledCode, Closures, Exports, Options);
+        x86 ->
+          hipe_x86_assemble:assemble(CompiledCode, Closures, Exports, Options);
+        amd64 ->
+          hipe_amd64_assemble:assemble(CompiledCode, Closures, Exports, Options);
+        Arch ->
+          ?EXIT({executing_on_an_unsupported_architecture, Arch})
+      end;
+    true ->
+      %% Merge already compiled code (per MFA) to a single binary.
+      hipe_llvm_merge:finalize(CompiledCode, Closures, Exports)
   end.
 
 %% --------------------------------------------------------------------
@@ -913,9 +937,9 @@ assemble(CompiledCode, Closures, Exports, Options) ->
 %% but can be overridden by passing an option {target, Target}.
 
 set_architecture(Options) ->
-  put(hipe_host_arch, erlang:system_info(hipe_architecture)),
-  put(hipe_target_arch,
-      proplists:get_value(target, Options, get(hipe_host_arch))),
+  HostArch = erlang:system_info(hipe_architecture),
+  put(hipe_host_arch, HostArch),
+  put(hipe_target_arch, proplists:get_value(target, Options, HostArch)),
   ok.
 
 %% This sets up some globally accessed stuff that are needed by the
@@ -923,7 +947,7 @@ set_architecture(Options) ->
 %% Therefore, this expands the current set of options for local use.
 
 pre_init(Opts) ->
-  Options = expand_options(Opts),
+  Options = expand_options(Opts, get(hipe_target_arch)),
   %% Initialise some counters used for measurements and benchmarking. If
   %% the option 'measure_regalloc' is given the compilation will return
   %% a keylist with the counter values.
@@ -1011,6 +1035,12 @@ post(Res, Icode, Options) ->
 version() ->
   ?VERSION_STRING().
 
+%% @doc Returns checksum identifying the target runtime system.
+-spec erts_checksum() -> integer().
+
+erts_checksum() ->
+  ?HIPE_ERTS_CHECKSUM.
+
 %% --------------------------------------------------------------------
 %% D O C U M E N T A T I O N   -   H E L P 
 %% --------------------------------------------------------------------
@@ -1041,6 +1071,8 @@ help() ->
     "     Prints a description of debug options.\n" ++
     "   version() ->\n" ++
     "     Returns the HiPE version as a string'.\n" ++
+    "   erts_checksum() ->\n" ++
+    "     Returns a checksum identifying the target runtime system.\n" ++
     "\n" ++
     " For HiPE developers only:\n" ++
     "  Use `help_hiper()' for information about HiPE's low-level interface\n",
@@ -1085,10 +1117,10 @@ help_hiper() ->
 -spec help_options() -> 'ok'.
 
 help_options() ->
-  set_architecture([]), %% needed for target-specific option expansion
-  O1 = expand_options([o1]),
-  O2 = expand_options([o2]),
-  O3 = expand_options([o3]),
+  HostArch = erlang:system_info(hipe_architecture),
+  O1 = expand_options([o1], HostArch),
+  O2 = expand_options([o2], HostArch),
+  O3 = expand_options([o3], HostArch),
   io:format("HiPE Compiler Options\n" ++
 	    " Boolean-valued options generally have corresponding " ++
 	    "aliases `no_...',\n" ++
@@ -1114,7 +1146,7 @@ help_options() ->
 	    [ordsets:from_list([verbose, debug, time, load, pp_beam,
 				pp_icode, pp_rtl, pp_native, pp_asm,
 				timeout]),
-	     expand_options([pp_all]),
+	     expand_options([pp_all], HostArch),
 	     O1 -- [o1],
 	     (O2 -- O1) -- [o2],
 	     (O3 -- O2) -- [o3]]),
@@ -1133,6 +1165,9 @@ option_text(caller_save_spill_restore) ->
   "Activates caller save register spills and restores";
 option_text(debug) ->
   "Outputs internal debugging information during compilation";
+option_text(icode_call_elim) ->
+  "Performs call elimination of BIFs that are side-effect free\n" ++
+  "only on some argument types";
 option_text(icode_range) ->
   "Performs integer range analysis on the Icode level";
 option_text(icode_ssa_check) ->
@@ -1212,8 +1247,8 @@ option_text(Opt) when is_atom(Opt) ->
 -spec help_option(comp_option()) -> 'ok'.
 
 help_option(Opt) ->
-  set_architecture([]), %% needed for target-specific option expansion
-  case expand_options([Opt]) of
+  HostArch = erlang:system_info(hipe_architecture),
+  case expand_options([Opt], HostArch) of
     [Opt] ->
       Name = if is_atom(Opt) -> Opt;
 		tuple_size(Opt) =:= 2 -> element(1, Opt)
@@ -1286,6 +1321,7 @@ opt_keys() ->
      get_called_modules,
      split_arith,
      split_arith_unsafe,
+     icode_call_elim,
      icode_inline_bifs,
      icode_ssa_check,
      icode_ssa_copy_prop,
@@ -1330,6 +1366,11 @@ opt_keys() ->
      timeregalloc,
      timers,
      to_rtl,
+     to_llvm, % Use the LLVM backend for compilation.
+     llvm_save_temps, % Save the LLVM intermediate files in the current
+                      % directory; useful for debugging.
+     llvm_llc, % Specify llc optimization-level: o1, o2, o3, undefined.
+     llvm_opt, % Specify opt optimization-level: o1, o2, o3, undefined.
      use_indexing,
      use_inline_atom_search,
      use_callgraph,
@@ -1339,11 +1380,11 @@ opt_keys() ->
      %% verbose_spills,
      x87].
 
-%% Definitions: 
+%% Definitions:
 
-o1_opts() ->
+o1_opts(TargetArch) ->
   Common = [inline_fp, pmatch, peephole],
-  case get(hipe_target_arch) of
+  case TargetArch of
     ultrasparc ->
       Common;
     powerpc ->
@@ -1360,48 +1401,22 @@ o1_opts() ->
       ?EXIT({executing_on_an_unsupported_architecture,Arch})
   end.
 
-o2_opts() ->
+o2_opts(TargetArch) ->
   Common = [icode_ssa_const_prop, icode_ssa_copy_prop, % icode_ssa_struct_reuse,
-	    icode_type, icode_inline_bifs, rtl_lcm,
+	    icode_type, icode_inline_bifs, icode_call_elim, rtl_lcm,
 	    rtl_ssa, rtl_ssa_const_prop,
-	    spillmin_color, use_indexing, remove_comments, 
-	    concurrent_comp, binary_opt | o1_opts()],
-  case get(hipe_target_arch) of
-    ultrasparc ->
-      Common;
-    powerpc ->
-      Common;
-    ppc64 ->
-      Common;
-    arm ->
-      Common;
-    x86 ->
-      Common;
-      % [rtl_ssapre | Common];
-    amd64 ->
-      [icode_range | Common]; % range analysis is effective on 64 bits
-    Arch ->
-      ?EXIT({executing_on_an_unsupported_architecture,Arch})
-  end.
+	    spillmin_color, use_indexing, remove_comments,
+	    concurrent_comp, binary_opt | o1_opts(TargetArch)],
+  case TargetArch of
+    T when T =:= amd64 orelse T =:= ppc64 -> % 64-bit targets
+      [icode_range | Common];
+    _ ->      % T \in [arm, powerpc, ultrasparc, x86]
+      Common  % [rtl_ssapre | Common];
+    end.
 
-o3_opts() ->
-  Common = [icode_range, {regalloc,coalescing} | o2_opts()],
-  case get(hipe_target_arch) of
-    ultrasparc ->
-      Common;
-    powerpc ->
-      Common;
-    ppc64 ->
-      Common;
-    arm ->
-      Common;
-    x86 ->
-      Common;
-    amd64 ->
-      Common;
-    Arch ->
-      ?EXIT({executing_on_an_unsupported_architecture,Arch})
-  end.
+o3_opts(TargetArch) ->
+  %% no point checking for target architecture since this is checked in 'o1'
+  [icode_range, {regalloc,coalescing} | o2_opts(TargetArch)].
 
 %% Note that in general, the normal form for options should be positive.
 %% This is a good programming convention, so that tests in the code say
@@ -1418,6 +1433,7 @@ opt_negations() ->
    {no_icode_inline_bifs, icode_inline_bifs},
    {no_icode_range, icode_range},
    {no_icode_split_arith, icode_split_arith},
+   {no_icode_call_elim, icode_call_elim},
    {no_icode_ssa_check, icode_ssa_check},
    {no_icode_ssa_copy_prop, icode_ssa_copy_prop},
    {no_icode_ssa_const_prop, icode_ssa_const_prop},
@@ -1464,14 +1480,29 @@ opt_aliases() ->
 opt_basic_expansions() ->
   [{pp_all, [pp_beam, pp_icode, pp_rtl, pp_native]}].
 
-opt_expansions() ->
-  [{o1, o1_opts()},
-   {o2, o2_opts()},
-   {o3, o3_opts()},
+opt_expansions(TargetArch) ->
+  [{o1, o1_opts(TargetArch)},
+   {o2, o2_opts(TargetArch)},
+   {o3, o3_opts(TargetArch)},
+   {to_llvm, llvm_opts(o3, TargetArch)},
+   {{to_llvm, o0}, llvm_opts(o0, TargetArch)},
+   {{to_llvm, o1}, llvm_opts(o1, TargetArch)},
+   {{to_llvm, o2}, llvm_opts(o2, TargetArch)},
+   {{to_llvm, o3}, llvm_opts(o3, TargetArch)},
    {x87, [x87, inline_fp]},
-   {inline_fp, case get(hipe_target_arch) of %% XXX: Temporary until x86
-		 x86 -> [x87, inline_fp];    %%       has sse2
+   {inline_fp, case TargetArch of  %% XXX: Temporary until x86 has sse2
+		 x86 -> [x87, inline_fp];
 		 _ -> [inline_fp] end}].
+
+llvm_opts(O, TargetArch) ->
+  Base = [to_llvm, {llvm_opt, O}, {llvm_llc, O}],
+  case TargetArch of
+    %% A llvm bug present in 3.4 through (at least) 3.8 miscompiles x86
+    %% functions that have floats are spilled to stack by clobbering the process
+    %% pointer (ebp) trying to realign the stack pointer.
+    x86 -> [no_inline_fp | Base];
+      _ -> Base
+  end.
 
 %% This expands "basic" options, which may be tested early and cannot be
 %% in conflict with options found in the source code.
@@ -1490,18 +1521,19 @@ expand_kt2(Opts) ->
 					[{use_callgraph, fixpoint}, core, 
 					 {core_transform, cerl_typean}]}]}]).
 
-%% Note that set_architecture/1 must be called first, and that the given
+%% Note that the given
 %% list should contain the total set of options, since things like 'o2'
 %% are expanded here. Basic expansions are processed here also, since
 %% this function is called from the help functions.
 
--spec expand_options(comp_options()) -> comp_options().
+-spec expand_options(comp_options(), hipe_architecture()) -> comp_options().
 
-expand_options(Opts) ->
+expand_options(Opts, TargetArch) ->
   proplists:normalize(Opts, [{negations, opt_negations()},
 			     {aliases, opt_aliases()},
 			     {expand, opt_basic_expansions()},
-			     {expand, opt_expansions()}]).
+			     {expand, opt_expansions(TargetArch)},
+			     {negations, opt_negations()}]).
 
 -spec check_options(comp_options()) -> 'ok'.
 
@@ -1514,6 +1546,33 @@ check_options(Opts) ->
     L ->
       ?WARNING_MSG("Unknown options: ~p.\n", [L]),
       ok
+  end.
+
+-spec llvm_support_available() -> boolean().
+
+llvm_support_available() ->
+  get_llvm_version() >= {3,4}.
+
+-type llvm_version() :: {Major :: integer(), Minor :: integer()}.
+
+-spec get_llvm_version() -> llvm_version() | {0, 0}.
+get_llvm_version() ->
+  OptStr = os:cmd("opt -version"),
+  SubStr = "LLVM version ", N = length(SubStr),
+  case string:str(OptStr, SubStr) of
+     0 -> % No opt available
+       {0, 0};
+     S ->
+       case string:tokens(string:sub_string(OptStr, S + N), ".") of
+	 [MajorS, MinorS | _] ->
+	   case {string:to_integer(MajorS), string:to_integer(MinorS)} of
+	     {{Major, ""}, {Minor, _}}
+	       when is_integer(Major), is_integer(Minor) ->
+	       {Major, Minor};
+	     _ -> {0, 0}
+	   end;
+	 _ -> {0, 0} %XXX: Assumes no revision numbers in versioning
+       end
   end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

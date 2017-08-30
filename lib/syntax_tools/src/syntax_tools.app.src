@@ -11,7 +11,11 @@
 	     erl_syntax_lib,
 	     erl_tidy,
 	     igor,
+             merl,
+             merl_transform,
 	     prettypr]},
   {registered,[]},
   {applications, [stdlib]},
-  {env, []}]}.
+  {env, []},
+  {runtime_dependencies,
+   ["compiler-7.0","erts-8.0","kernel-5.0","stdlib-3.0"]}]}.

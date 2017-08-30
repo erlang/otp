@@ -1,55 +1,56 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 %%
 -module(test_special_decode_performance).
 
--export([go/1,loop2/4,loop1/5]).
+-export([go/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 go(all) ->
     {Time_S_s,Time_S_e,Time_S_c}=go(10000,'PartialDecSeq'),
     {Time_MGC_s,Time_MGC_e,Time_MGC_c}=go(10000,'MEDIA-GATEWAY-CONTROL'),
-    ?line do_comment({Time_S_s,Time_MGC_s},
+    do_comment({Time_S_s,Time_MGC_s},
 		     {Time_S_e,Time_MGC_e},
 		     {Time_S_c,Time_MGC_c}).
 
 go(N,Mod) ->
     {Type,Val} = val(Mod),
     {ok,B} = Mod:encode(Type, Val),
-    ?line go(Mod,B,N).
+    go(Mod,B,N).
 
 go(Mod,Bin,N) ->
-    ?line FsS = get_selective_funcs(Mod),
-    ?line FsE = get_exclusive_funcs(Mod),
-    ?line io:format("~nSize of value for module ~p: ~p bytes.~n~n",[Mod,size(Bin)]),
-    ?line Time_s=go1(selective,Mod,FsS,Bin,N,0),
-    ?line Time_e=go1(exclusive,Mod,FsE,Bin,N,0),
-    ?line Time_c=go1(common,Mod,[decode],Bin,N,0),
-    ?line {Time_s/length(FsS),Time_e/length(FsE),Time_c}.
+    FsS = get_selective_funcs(Mod),
+    FsE = get_exclusive_funcs(Mod),
+    io:format("~nSize of value for module ~p: ~p bytes.~n~n",[Mod,size(Bin)]),
+    Time_s=go1(selective,Mod,FsS,Bin,N,0),
+    Time_e=go1(exclusive,Mod,FsE,Bin,N,0),
+    Time_c=go1(common,Mod,[decode],Bin,N,0),
+    {Time_s/length(FsS),Time_e/length(FsE),Time_c}.
 
 go1(_,_,[],_,_,AccTime) ->
-    ?line AccTime;
+    AccTime;
 %% go1 for common decode
 go1(common,Mod,_,Bin,N,_) ->
-    ?line TT=get_top_type(Mod),
-    ?line {Time,Result}=timer:tc(?MODULE,loop1,[Mod,decode,TT,Bin,N]),
+    TT=get_top_type(Mod),
+    {Time,Result} = timer:tc(fun() -> loop1(Mod, decode, TT, Bin, N) end),
     case Result of
 	{ok,_R1} ->
 	    io:format("common Decode ~p:decode, ~p times on time ~p~n",
@@ -59,7 +60,7 @@ go1(common,Mod,_,Bin,N,_) ->
     end,
     Time;
 go1(Dec,Mod,[F|Fs],Bin,N,AccTime) ->
-    ?line {Time,Result}=timer:tc(?MODULE,loop2,[Mod,F,Bin,N]),
+    {Time,Result}=timer:tc(fun() -> loop2(Mod, F, Bin, N) end),
     case Result of
 	{ok,_R1} ->
 	    io:format("~p Decode ~p:~p, ~p times on time ~p~n",[Dec,Mod,F,N,Time]);

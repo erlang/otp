@@ -1,24 +1,25 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
       <year>2007</year>
-      <year>2013</year>
+      <year>2015</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
-  The contents of this file are subject to the Erlang Public License,
-  Version 1.1, (the "License"); you may not use this file except in
-  compliance with the License. You should have received a copy of the
-  Erlang Public License along with this software. If not, it can be
-  retrieved online at http://www.erlang.org/.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
 
-  Software distributed under the License is distributed on an "AS IS"
-  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-  the License for the specific language governing rights and limitations
-  under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
@@ -126,9 +127,8 @@
     However, only characters that can be encoded using Latin1 (ISO-8859-1)
     are currently supported in atoms. The support for UTF-8 encoded atoms
     in the external format has been implemented in order to be able to support
-    all Unicode characters in atoms in <em>some future release</em>. Full
-    support for Unicode atoms will not happen before OTP-R18, and might
-    be introduced even later than that. Until full Unicode support for
+    all Unicode characters in atoms in <em>some future release</em>.
+    Until full Unicode support for
     atoms has been introduced, it is an <em>error</em> to pass atoms containing
     characters that cannot be encoded in Latin1, and <em>the behavior is
     undefined</em>.</p>
@@ -150,10 +150,10 @@
     </note>
   </section>
 
-  <marker id="distribution_header"/>
   <section>  
     <title>Distribution header</title>
     <p>
+      <marker id="distribution_header"/>
       As of erts version 5.7.2 the old atom cache protocol was
       dropped and a new one was introduced. This atom cache protocol
       introduced the distribution header. Nodes with erts versions
@@ -570,6 +570,33 @@
 	  with the exception that <c>Arity</c> is an 
 	  unsigned 4 byte integer in big endian format.
 	</p>
+    </section>
+
+    <section>
+      <marker id="MAP_EXT"/>
+      <title>MAP_EXT</title>
+
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">4</cell>
+	    <cell align="center">N</cell>
+	  </row>
+	  <row>
+	    <cell align="center">116</cell>
+	    <cell align="center">Arity</cell>
+	    <cell align="center">Pairs</cell>
+	  </row>
+	<tcaption></tcaption></table>
+	<p>
+	  <c>MAP_EXT</c> encodes a map. The <c>Arity</c> field is an unsigned
+	  4 byte integer in big endian format that determines the number of
+	  key-value pairs in the map. Key and value pairs (<c>Ki => Vi</c>)
+	  are encoded in the <c>Pairs</c> section in the following order:
+	  <c>K1, V1, K2, V2,..., Kn, Vn</c>.
+	  Duplicate keys are <em>not allowed</em> within the same map.
+	</p>
+	<p><em>Since: </em>OTP 17.0</p>
     </section>
 
     <section>
@@ -1014,10 +1041,10 @@
 	  </row>
 	<tcaption></tcaption></table>
 	<p>
-	  This term represents a bitstring whose length in bits is not a 
-	  multiple of 8 (created using the bit syntax in R12B and later).
+	  This term represents a bitstring whose length in bits does
+	  not have to be a multiple of 8.
 	  The <c>Len</c> field is an unsigned 4 byte integer (big endian).
-	  The <c>Bits</c> field is the number of bits that are used 
+	  The <c>Bits</c> field is the number of bits (1-8) that are used
 	  in the last byte in the data field, 
 	  counting from the most significant bit towards the least
 	  significant.

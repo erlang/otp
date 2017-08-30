@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -115,8 +116,8 @@ maybe_dets_close(Db) ->
     
 
 %%--------------------------------------------------------------------
-%% Func: insert(CookieDb) -> ok
-%% Purpose: Close the cookie db
+%% Func: insert(CookieDb, Cookie) -> ok
+%% Purpose: insert cookies into the cookie db
 %%--------------------------------------------------------------------
 
 %% If no persistent cookie database is defined we
@@ -334,8 +335,23 @@ add_domain(Str, #http_cookie{domain_default = true}) ->
 add_domain(Str, #http_cookie{domain = Domain}) ->
     Str ++ "; $Domain=" ++  Domain.
 
+is_set_cookie_valid("") ->
+    %% an empty Set-Cookie header is not valid
+    false;
+is_set_cookie_valid([$=|_]) ->
+    %% a Set-Cookie header without name is not valid
+    false;
+is_set_cookie_valid(SetCookieHeader) ->
+    %% a Set-Cookie header without name/value is not valid
+    case string:chr(SetCookieHeader, $=) of
+        0 -> false;
+        _ -> true
+    end.
+
 parse_set_cookies(CookieHeaders, DefaultPathDomain) ->
-    SetCookieHeaders = [Value || {"set-cookie", Value} <- CookieHeaders], 
+    %% filter invalid Set-Cookie headers
+    SetCookieHeaders = [Value || {"set-cookie", Value} <- CookieHeaders,
+                                 is_set_cookie_valid(Value)],
     Cookies = [parse_set_cookie(SetCookieHeader, DefaultPathDomain) || 
 		  SetCookieHeader <- SetCookieHeaders],
     %% print_cookies("Parsed Cookies", Cookies),
@@ -347,6 +363,8 @@ parse_set_cookie(CookieHeader, {DefaultPath, DefaultDomain}) ->
     Name            = string:substr(CookieHeader, 1, Pos - 1),
     {Value, Attrs}  = 
 	case string:substr(CookieHeader, Pos + 1) of
+	    [] ->
+		{"", ""};
 	    [$;|ValueAndAttrs] ->
 		{"", string:tokens(ValueAndAttrs, ";")};
 	    ValueAndAttrs ->

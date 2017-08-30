@@ -23,12 +23,14 @@ MODULES= \
 	dummy_via \
 	edlin_expand_SUITE \
 	epp_SUITE \
+	erl_anno_SUITE \
 	erl_eval_SUITE \
 	erl_expand_records_SUITE \
 	erl_internal_SUITE \
 	erl_lint_SUITE \
 	erl_pp_SUITE \
 	erl_scan_SUITE \
+	error_logger_h_SUITE \
 	escript_SUITE \
 	ets_SUITE \
 	ets_tough_SUITE \
@@ -44,6 +46,7 @@ MODULES= \
 	gen_event_SUITE \
 	gen_fsm_SUITE \
 	gen_server_SUITE \
+	gen_statem_SUITE \
 	id_transform_SUITE \
 	io_SUITE \
 	io_proto_SUITE \
@@ -53,6 +56,7 @@ MODULES= \
 	proc_lib_SUITE \
 	qlc_SUITE \
 	queue_SUITE \
+	rand_SUITE \
 	random_SUITE \
 	re_SUITE \
 	run_pcre_tests \
@@ -73,6 +77,8 @@ MODULES= \
 	supervisor_SUITE \
 	supervisor_bridge_SUITE \
 	sys_SUITE \
+	sys_sp1 \
+	sys_sp2 \
 	tar_SUITE \
 	timer_SUITE \
 	timer_simple_SUITE \
@@ -83,7 +89,8 @@ MODULES= \
 	zip_SUITE \
 	random_unicode_list \
 	random_iolist \
-	error_logger_forwarder
+	error_logger_forwarder \
+	maps_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -101,8 +108,8 @@ RELSYSDIR = $(RELEASE_PATH)/stdlib_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS +=
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include \
-		-I$(ERL_TOP)/lib/kernel/include
+ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/include \
+		-I$(ERL_TOP)/lib/stdlib/include
 
 EBIN = .
 

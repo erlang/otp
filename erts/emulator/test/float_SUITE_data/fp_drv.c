@@ -1,13 +1,14 @@
-/* ``The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved via the world wide web at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+/* ``Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * The Initial Developer of the Original Code is Ericsson AB. Portions
  * created by Ericsson are Copyright 2008, Ericsson AB. All Rights
@@ -17,6 +18,7 @@
  */
 
 #if defined(DEBUG) || 0
+#  include <stdio.h>
 #  define PRINTF(X) printf X
 #else
 #  define PRINTF(X)
@@ -29,9 +31,14 @@
 #if defined (__GNUC__)
 int _finite(double x);
 #endif
-#ifndef finite
-#define finite _finite
+#ifndef isfinite
+#define isfinite _finite
 #endif
+#elif !defined(HAVE_ISFINITE) && defined(HAVE_FINITE)
+/* If not windows and we do not have isfinite */
+#define isfinite finite
+#elif !defined(HAVE_ISFINITE)
+# error "No finite function found!"
 #endif
 #include "erl_driver.h"
 
@@ -79,21 +86,21 @@ do_test(void *unused)
     x = 3.23e133;
     y = 3.57e257;
     z = x*y;
-    if (finite(z))
+    if (isfinite(z))
 	return "is finite (1)";
 
     x = 5.0;
     y = 0.0;
     z = x/y;
-    if (finite(z))
+    if (isfinite(z))
 	return "is finite (2)";
 
     z = log(-1.0);
-    if (finite(z))
+    if (isfinite(z))
 	return "is finite (3)";
 
     z = log(0.0);
-    if (finite(z))
+    if (isfinite(z))
 	return "is finite (4)";
 
     return "ok";

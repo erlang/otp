@@ -1,6 +1,6 @@
 %% =====================================================================
 %% Header file for EDoc
-%% 
+%%
 %% Copyright (C) 2001-2004 Richard Carlsson
 %%
 %% This library is free software; you can redistribute it and/or modify
@@ -25,9 +25,7 @@
 
 -define(APPLICATION, edoc).
 -define(INFO_FILE, "edoc-info").
--define(PACKAGE_FILE, "package.edoc").
 -define(OVERVIEW_FILE, "overview.edoc").
--define(PACKAGE_SUMMARY, "package-summary").
 -define(DEFAULT_SOURCE_SUFFIX, ".erl").
 -define(DEFAULT_FILE_SUFFIX, ".html").
 -define(DEFAULT_DOCLET, edoc_doclet).
@@ -65,13 +63,10 @@
 %% Environment for generating documentation data
 
 -record(env, {module = [],
-	      package = [],
 	      root = "",
 	      file_suffix,
-	      package_summary,
 	      apps,
 	      modules,
-	      packages,
 	      app_default,
 	      macros = [],
 	      includes = []

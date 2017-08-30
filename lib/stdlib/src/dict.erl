@@ -1,19 +1,19 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -37,10 +37,12 @@
 -module(dict).
 
 %% Standard interface.
--export([new/0,is_key/2,to_list/1,from_list/1,size/1]).
+-export([new/0,is_key/2,to_list/1,from_list/1,size/1,is_empty/1]).
 -export([fetch/2,find/2,fetch_keys/1,erase/2]).
 -export([store/3,append/3,append_list/3,update/3,update/4,update_counter/3]).
 -export([fold/3,map/2,filter/2,merge/3]).
+
+-export_type([dict/0, dict/2]).
 
 %% Low-level interface.
 %%-export([get_slot/2,get_bucket/2,on_bucket/3,fold_dict/3,
@@ -54,6 +56,8 @@
 -define(exp_size, (?seg_size * ?expand_load)).
 -define(con_size, (?seg_size * ?contract_load)).
 
+-type segs(_Key, _Value) :: tuple().
+
 %% Define a hashtable.  The default values are the standard ones.
 -record(dict,
 	{size=0		      :: non_neg_integer(),   	% Number of elements
@@ -63,14 +67,13 @@
 	 exp_size=?exp_size   :: non_neg_integer(),   	% Size to expand at
 	 con_size=?con_size   :: non_neg_integer(),   	% Size to contract at
 	 empty		      :: tuple(),		% Empty segment
-	 segs		      :: tuple()	      	% Segments
+	 segs		      :: segs(_, _)	      	% Segments
 	}).
-%% A declaration equivalent to the following one is hard-coded in erl_types.
-%% That declaration contains hard-coded information about the #dict{}
-%% structure and the types of its fields.  So, please make sure that any
-%% changes to its structure are also propagated to erl_types.erl.
-%%
-%% -opaque dict() :: #dict{}.
+
+
+-type dict() :: dict(_, _).
+
+-opaque dict(Key, Value) :: #dict{segs :: segs(Key, Value)}.
 
 -define(kv(K,V), [K|V]).			% Key-Value pair format
 %%-define(kv(K,V), {K,V}).			% Key-Value pair format
@@ -82,8 +85,7 @@ new() ->
     #dict{empty=Empty,segs={Empty}}.
 
 -spec is_key(Key, Dict) -> boolean() when
-      Key :: term(),
-      Dict :: dict().
+      Dict :: dict(Key, Value :: term()).
 
 is_key(Key, D) ->
     Slot = get_slot(D, Key),
@@ -95,15 +97,15 @@ find_key(K, [_|Bkt]) -> find_key(K, Bkt);
 find_key(_, []) -> false.
 
 -spec to_list(Dict) -> List when
-      Dict :: dict(),
-      List :: [{Key :: term(), Value :: term()}].
+      Dict :: dict(Key, Value),
+      List :: [{Key, Value}].
 
 to_list(D) ->
     fold(fun (Key, Val, List) -> [{Key,Val}|List] end, [], D).
 
 -spec from_list(List) -> Dict when
-      List :: [{Key :: term(), Value :: term()}],
-      Dict :: dict().
+      Dict :: dict(Key, Value),
+      List :: [{Key, Value}].
 
 from_list(L) ->
     lists:foldl(fun ({K,V}, D) -> store(K, V, D) end, new(), L).
@@ -113,10 +115,13 @@ from_list(L) ->
 
 size(#dict{size=N}) when is_integer(N), N >= 0 -> N. 
 
+-spec is_empty(Dict) -> boolean() when
+      Dict :: dict().
+
+is_empty(#dict{size=N}) -> N =:= 0.
+
 -spec fetch(Key, Dict) -> Value when
-      Key :: term(),
-      Dict :: dict(),
-      Value :: term().
+      Dict :: dict(Key, Value).
 
 fetch(Key, D) ->
     Slot = get_slot(D, Key),
@@ -131,9 +136,7 @@ fetch_val(K, [_|Bkt]) -> fetch_val(K, Bkt);
 fetch_val(_, []) -> throw(badarg).
 
 -spec find(Key, Dict) -> {'ok', Value} | 'error' when
-      Key :: term(),
-      Dict :: dict(),
-      Value :: term().
+      Dict :: dict(Key, Value).
 
 find(Key, D) ->
     Slot = get_slot(D, Key),
@@ -145,16 +148,16 @@ find_val(K, [_|Bkt]) -> find_val(K, Bkt);
 find_val(_, []) -> error.
 
 -spec fetch_keys(Dict) -> Keys when
-      Dict :: dict(),
-      Keys :: [term()].
+      Dict :: dict(Key, Value :: term()),
+      Keys :: [Key].
 
 fetch_keys(D) ->
     fold(fun (Key, _Val, Keys) -> [Key|Keys] end, [], D).
 
 -spec erase(Key, Dict1) -> Dict2 when
-      Key :: term(),
-      Dict1 :: dict(),
-      Dict2 :: dict().
+      Dict1 :: dict(Key, Value),
+      Dict2 :: dict(Key, Value).
+
 %%  Erase all elements with key Key.
 
 erase(Key, D0) -> 
@@ -170,10 +173,8 @@ erase_key(Key, [E|Bkt0]) ->
 erase_key(_, []) -> {[],0}.
 
 -spec store(Key, Value, Dict1) -> Dict2 when
-      Key :: term(),
-      Value :: term(),
-      Dict1 :: dict(),
-      Dict2 :: dict().
+      Dict1 :: dict(Key, Value),
+      Dict2 :: dict(Key, Value).
 
 store(Key, Val, D0) ->
     Slot = get_slot(D0, Key),
@@ -190,10 +191,8 @@ store_bkt_val(Key, New, [Other|Bkt0]) ->
 store_bkt_val(Key, New, []) -> {[?kv(Key,New)],1}.
 
 -spec append(Key, Value, Dict1) -> Dict2 when
-      Key :: term(),
-      Value :: term(),
-      Dict1 :: dict(),
-      Dict2 :: dict().
+      Dict1 :: dict(Key, Value),
+      Dict2 :: dict(Key, Value).
 
 append(Key, Val, D0) ->
     Slot = get_slot(D0, Key),
@@ -210,10 +209,9 @@ append_bkt(Key, Val, [Other|Bkt0]) ->
 append_bkt(Key, Val, []) -> {[?kv(Key,[Val])],1}.
 
 -spec append_list(Key, ValList, Dict1) -> Dict2 when
-      Key :: term(),
-      ValList :: [Value :: term()],
-      Dict1 :: dict(),
-      Dict2 :: dict().
+      Dict1 :: dict(Key, Value),
+      Dict2 :: dict(Key, Value),
+      ValList :: [Value].
 
 append_list(Key, L, D0) ->
     Slot = get_slot(D0, Key),
@@ -284,10 +282,9 @@ app_list_bkt(Key, L, []) -> {[?kv(Key,L)],1}.
 %%     {[Other|Bkt1],Dc}.
 
 -spec update(Key, Fun, Dict1) -> Dict2 when
-      Key :: term(),
-      Fun :: fun((Value1 :: term()) -> Value2 :: term()),
-      Dict1 :: dict(),
-      Dict2 :: dict().
+      Dict1 :: dict(Key, Value),
+      Dict2 :: dict(Key, Value),
+      Fun :: fun((Value1 :: Value) -> Value2 :: Value).
 
 update(Key, F, D0) ->
     Slot = get_slot(D0, Key),
@@ -307,11 +304,10 @@ update_bkt(_Key, _F, []) ->
     throw(badarg).
 
 -spec update(Key, Fun, Initial, Dict1) -> Dict2 when
-      Key :: term(),
-      Initial :: term(),
-      Fun :: fun((Value1 :: term()) -> Value2 :: term()),
-      Dict1 :: dict(),
-      Dict2 :: dict().
+      Dict1 :: dict(Key, Value),
+      Dict2 :: dict(Key, Value),
+      Fun :: fun((Value1 :: Value) -> Value2 :: Value),
+      Initial :: Value.
 
 update(Key, F, Init, D0) ->
     Slot = get_slot(D0, Key),
@@ -327,16 +323,17 @@ update_bkt(Key, F, I, [Other|Bkt0]) ->
 update_bkt(Key, F, I, []) when is_function(F, 1) -> {[?kv(Key,I)],1}.
 
 -spec update_counter(Key, Increment, Dict1) -> Dict2 when
-      Key :: term(),
-      Increment :: number(),
-      Dict1 :: dict(),
-      Dict2 :: dict().
+      Dict1 :: dict(Key, Value),
+      Dict2 :: dict(Key, Value),
+      Increment :: number().
 
 update_counter(Key, Incr, D0) when is_number(Incr) ->
     Slot = get_slot(D0, Key),
     {D1,Ic} = on_bucket(fun (B0) -> counter_bkt(Key, Incr, B0) end,
 			D0, Slot),
     maybe_expand(D1, Ic).
+
+-dialyzer({no_improper_lists, counter_bkt/3}).
 
 counter_bkt(Key, I, [?kv(Key,Val)|Bkt]) ->
     {[?kv(Key,Val+I)|Bkt],0};
@@ -347,36 +344,35 @@ counter_bkt(Key, I, []) -> {[?kv(Key,I)],1}.
 
 -spec fold(Fun, Acc0, Dict) -> Acc1 when
       Fun :: fun((Key, Value, AccIn) -> AccOut),
-      Key :: term(),
-      Value :: term(),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
-      Dict :: dict().
+      Dict :: dict(Key, Value),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc.
+
 %%  Fold function Fun over all "bags" in Table and return Accumulator.
 
 fold(F, Acc, D) -> fold_dict(F, Acc, D).
 
 -spec map(Fun, Dict1) -> Dict2 when
-      Fun :: fun((Key :: term(), Value1 :: term()) -> Value2 :: term()),
-      Dict1 :: dict(),
-      Dict2 :: dict().
+      Fun :: fun((Key, Value1) -> Value2),
+      Dict1 :: dict(Key, Value1),
+      Dict2 :: dict(Key, Value2).
 
 map(F, D) -> map_dict(F, D).
 
 -spec filter(Pred, Dict1) -> Dict2 when
-      Pred :: fun((Key :: term(), Value :: term()) -> boolean()),
-      Dict1 :: dict(),
-      Dict2 :: dict().
+      Pred :: fun((Key , Value) -> boolean()),
+      Dict1 :: dict(Key, Value),
+      Dict2 :: dict(Key, Value).
 
 filter(F, D) -> filter_dict(F, D).
 
 -spec merge(Fun, Dict1, Dict2) -> Dict3 when
-      Fun :: fun((Key :: term(), Value1 :: term(), Value2 :: term()) -> Value :: term()),
-      Dict1 :: dict(),
-      Dict2 :: dict(),
-      Dict3 :: dict().
+      Fun :: fun((Key, Value1, Value2) -> Value),
+      Dict1 :: dict(Key, Value1),
+      Dict2 :: dict(Key, Value2),
+      Dict3 :: dict(Key, Value).
 
 merge(F, D1, D2) when D1#dict.size < D2#dict.size ->
     fold_dict(fun (K, V1, D) ->
@@ -387,7 +383,7 @@ merge(F, D1, D2) ->
 		      update(K, fun (V1) -> F(K, V1, V2) end, V2, D)
 	      end, D1, D2).
 
-
+
 %% get_slot(Hashdb, Key) -> Slot.
 %%  Get the slot.  First hash on the new range, if we hit a bucket
 %%  which has not been split use the unsplit buddy bucket.
@@ -424,6 +420,8 @@ on_bucket(F, T, Slot) ->
 %%  could have implemented map and filter using fold but these are
 %%  faster.  We hope!
 
+fold_dict(F, Acc, #dict{size=0}) when is_function(F, 3) ->
+    Acc;
 fold_dict(F, Acc, D) ->
     Segs = D#dict.segs,
     fold_segs(F, Acc, Segs, tuple_size(Segs)).
@@ -441,6 +439,8 @@ fold_bucket(F, Acc, [?kv(Key,Val)|Bkt]) ->
     fold_bucket(F, F(Key, Val, Acc), Bkt);
 fold_bucket(F, Acc, []) when is_function(F, 3) -> Acc.
 
+map_dict(F, #dict{size=0} = Dict) when is_function(F, 2) ->
+    Dict;
 map_dict(F, D) ->
     Segs0 = tuple_to_list(D#dict.segs),
     Segs1 = map_seg_list(F, Segs0),
@@ -460,6 +460,8 @@ map_bucket(F, [?kv(Key,Val)|Bkt]) ->
     [?kv(Key,F(Key, Val))|map_bucket(F, Bkt)];
 map_bucket(F, []) when is_function(F, 2) -> [].
 
+filter_dict(F, #dict{size=0} = Dict) when is_function(F, 2) ->
+    Dict;
 filter_dict(F, D) ->
     Segs0 = tuple_to_list(D#dict.segs),
     {Segs1,Fc} = filter_seg_list(F, Segs0, [], 0),

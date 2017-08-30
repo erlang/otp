@@ -1,23 +1,24 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html">wxSlider</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html">wxSlider</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
@@ -34,10 +35,10 @@
   setRange/3,setThumbLength/2,setValue/2]).
 
 %% inherited exports
--export([cacheBestSize/2,captureMouse/1,center/1,center/2,centerOnParent/1,
-  centerOnParent/2,centre/1,centre/2,centreOnParent/1,centreOnParent/2,
-  clearBackground/1,clientToScreen/2,clientToScreen/3,close/1,close/2,
-  connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
+-export([cacheBestSize/2,canSetTransparent/1,captureMouse/1,center/1,center/2,
+  centerOnParent/1,centerOnParent/2,centre/1,centre/2,centreOnParent/1,
+  centreOnParent/2,clearBackground/1,clientToScreen/2,clientToScreen/3,
+  close/1,close/2,connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
   destroyChildren/1,disable/1,disconnect/1,disconnect/2,disconnect/3,
   enable/1,enable/2,findWindow/2,fit/1,fitInside/1,freeze/1,getAcceleratorTable/1,
   getBackgroundColour/1,getBackgroundStyle/1,getBestSize/1,getCaret/1,
@@ -49,24 +50,25 @@
   getScrollRange/2,getScrollThumb/2,getSize/1,getSizer/1,getTextExtent/2,
   getTextExtent/3,getToolTip/1,getUpdateRegion/1,getVirtualSize/1,getWindowStyleFlag/1,
   getWindowVariant/1,hasCapture/1,hasScrollbar/2,hasTransparentBackground/1,
-  hide/1,inheritAttributes/1,initDialog/1,invalidateBestSize/1,isEnabled/1,
-  isExposed/2,isExposed/3,isExposed/5,isRetained/1,isShown/1,isTopLevel/1,
-  layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,move/2,
-  move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,navigate/1,
-  navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,popEventHandler/2,
-  popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
-  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,
-  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
-  setAcceleratorTable/2,setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,
-  setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
+  hide/1,inheritAttributes/1,initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,
+  isEnabled/1,isExposed/2,isExposed/3,isExposed/5,isRetained/1,isShown/1,
+  isTopLevel/1,layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,
+  move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
+  navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,
+  popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,
+  refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,removeChild/2,
+  reparent/2,screenToClient/1,screenToClient/2,scrollLines/2,scrollPages/2,
+  scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,setAutoLayout/2,
+  setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,setClientSize/2,
+  setClientSize/3,setContainingSizer/2,setCursor/2,setDoubleBuffered/2,
   setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,setFont/2,
   setForegroundColour/2,setHelpText/2,setId/2,setLabel/2,setMaxSize/2,
   setMinSize/2,setName/2,setOwnBackgroundColour/2,setOwnFont/2,setOwnForegroundColour/2,
   setPalette/2,setScrollPos/3,setScrollPos/4,setScrollbar/5,setScrollbar/6,
   setSize/2,setSize/3,setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,
   setSizeHints/4,setSizer/2,setSizer/3,setSizerAndFit/2,setSizerAndFit/3,
-  setThemeEnabled/2,setToolTip/2,setVirtualSize/2,setVirtualSize/3,
-  setVirtualSizeHints/2,setVirtualSizeHints/3,setVirtualSizeHints/4,
+  setThemeEnabled/2,setToolTip/2,setTransparent/2,setVirtualSize/2,
+  setVirtualSize/3,setVirtualSizeHints/2,setVirtualSizeHints/3,setVirtualSizeHints/4,
   setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,shouldInheritColours/1,
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
@@ -79,7 +81,7 @@ parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxSlider() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxsliderwxslider">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxsliderwxslider">external documentation</a>.
 -spec new() -> wxSlider().
 new() ->
   wxe_util:construct(?wxSlider_new_0,
@@ -93,13 +95,13 @@ new(Parent,Id,Value,MinValue,MaxValue)
  when is_record(Parent, wx_ref),is_integer(Id),is_integer(Value),is_integer(MinValue),is_integer(MaxValue) ->
   new(Parent,Id,Value,MinValue,MaxValue, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxsliderwxslider">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxsliderwxslider">external documentation</a>.
 -spec new(Parent, Id, Value, MinValue, MaxValue, [Option]) -> wxSlider() when
 	Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Value,MinValue,MaxValue, Options)
  when is_integer(Id),is_integer(Value),is_integer(MinValue),is_integer(MaxValue),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -120,13 +122,13 @@ create(This,Parent,Id,Value,MinValue,MaxValue)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_integer(Value),is_integer(MinValue),is_integer(MaxValue) ->
   create(This,Parent,Id,Value,MinValue,MaxValue, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxslidercreate">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidercreate">external documentation</a>.
 -spec create(This, Parent, Id, Value, MinValue, MaxValue, [Option]) -> boolean() when
 	This::wxSlider(), Parent::wxWindow:wxWindow(), Id::integer(), Value::integer(), MinValue::integer(), MaxValue::integer(),
-	Option :: {pos, {X::integer(), Y::integer()}}
-		 | {size, {W::integer(), H::integer()}}
-		 | {style, integer()}
-		 | {validator, wx:wx_object()}.
+	Option :: {'pos', {X::integer(), Y::integer()}}
+		 | {'size', {W::integer(), H::integer()}}
+		 | {'style', integer()}
+		 | {'validator', wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Value,MinValue,MaxValue, Options)
  when is_integer(Id),is_integer(Value),is_integer(MinValue),is_integer(MaxValue),is_list(Options) ->
   ?CLASS(ThisT,wxSlider),
@@ -140,7 +142,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Va
   wxe_util:call(?wxSlider_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,Value:32/?UI,MinValue:32/?UI,MaxValue:32/?UI, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxslidergetlinesize">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidergetlinesize">external documentation</a>.
 -spec getLineSize(This) -> integer() when
 	This::wxSlider().
 getLineSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -148,7 +150,7 @@ getLineSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSlider_GetLineSize,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxslidergetmax">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidergetmax">external documentation</a>.
 -spec getMax(This) -> integer() when
 	This::wxSlider().
 getMax(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -156,7 +158,7 @@ getMax(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSlider_GetMax,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxslidergetmin">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidergetmin">external documentation</a>.
 -spec getMin(This) -> integer() when
 	This::wxSlider().
 getMin(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -164,7 +166,7 @@ getMin(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSlider_GetMin,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxslidergetpagesize">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidergetpagesize">external documentation</a>.
 -spec getPageSize(This) -> integer() when
 	This::wxSlider().
 getPageSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -172,7 +174,7 @@ getPageSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSlider_GetPageSize,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxslidergetthumblength">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidergetthumblength">external documentation</a>.
 -spec getThumbLength(This) -> integer() when
 	This::wxSlider().
 getThumbLength(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -180,7 +182,7 @@ getThumbLength(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSlider_GetThumbLength,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxslidergetvalue">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidergetvalue">external documentation</a>.
 -spec getValue(This) -> integer() when
 	This::wxSlider().
 getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -188,8 +190,8 @@ getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxSlider_GetValue,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxslidersetlinesize">external documentation</a>.
--spec setLineSize(This, LineSize) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetlinesize">external documentation</a>.
+-spec setLineSize(This, LineSize) -> 'ok' when
 	This::wxSlider(), LineSize::integer().
 setLineSize(#wx_ref{type=ThisT,ref=ThisRef},LineSize)
  when is_integer(LineSize) ->
@@ -197,8 +199,8 @@ setLineSize(#wx_ref{type=ThisT,ref=ThisRef},LineSize)
   wxe_util:cast(?wxSlider_SetLineSize,
   <<ThisRef:32/?UI,LineSize:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxslidersetpagesize">external documentation</a>.
--spec setPageSize(This, PageSize) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetpagesize">external documentation</a>.
+-spec setPageSize(This, PageSize) -> 'ok' when
 	This::wxSlider(), PageSize::integer().
 setPageSize(#wx_ref{type=ThisT,ref=ThisRef},PageSize)
  when is_integer(PageSize) ->
@@ -206,8 +208,8 @@ setPageSize(#wx_ref{type=ThisT,ref=ThisRef},PageSize)
   wxe_util:cast(?wxSlider_SetPageSize,
   <<ThisRef:32/?UI,PageSize:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxslidersetrange">external documentation</a>.
--spec setRange(This, MinValue, MaxValue) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetrange">external documentation</a>.
+-spec setRange(This, MinValue, MaxValue) -> 'ok' when
 	This::wxSlider(), MinValue::integer(), MaxValue::integer().
 setRange(#wx_ref{type=ThisT,ref=ThisRef},MinValue,MaxValue)
  when is_integer(MinValue),is_integer(MaxValue) ->
@@ -215,8 +217,8 @@ setRange(#wx_ref{type=ThisT,ref=ThisRef},MinValue,MaxValue)
   wxe_util:cast(?wxSlider_SetRange,
   <<ThisRef:32/?UI,MinValue:32/?UI,MaxValue:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxslidersetthumblength">external documentation</a>.
--spec setThumbLength(This, LenPixels) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetthumblength">external documentation</a>.
+-spec setThumbLength(This, LenPixels) -> 'ok' when
 	This::wxSlider(), LenPixels::integer().
 setThumbLength(#wx_ref{type=ThisT,ref=ThisRef},LenPixels)
  when is_integer(LenPixels) ->
@@ -224,8 +226,8 @@ setThumbLength(#wx_ref{type=ThisT,ref=ThisRef},LenPixels)
   wxe_util:cast(?wxSlider_SetThumbLength,
   <<ThisRef:32/?UI,LenPixels:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxslider.html#wxslidersetvalue">external documentation</a>.
--spec setValue(This, Value) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxslider.html#wxslidersetvalue">external documentation</a>.
+-spec setValue(This, Value) -> 'ok' when
 	This::wxSlider(), Value::integer().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
  when is_integer(Value) ->
@@ -234,7 +236,7 @@ setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
   <<ThisRef:32/?UI,Value:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxSlider()) -> ok.
+-spec destroy(This::wxSlider()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSlider),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
@@ -245,6 +247,14 @@ setLabel(This,Label) -> wxControl:setLabel(This,Label).
 %% @hidden
 getLabel(This) -> wxControl:getLabel(This).
  %% From wxWindow
+%% @hidden
+setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
+%% @hidden
+isDoubleBuffered(This) -> wxWindow:isDoubleBuffered(This).
+%% @hidden
+canSetTransparent(This) -> wxWindow:canSetTransparent(This).
+%% @hidden
+setTransparent(This,Alpha) -> wxWindow:setTransparent(This,Alpha).
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden

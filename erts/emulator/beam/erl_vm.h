@@ -1,26 +1,25 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2012. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
 
 #ifndef __ERL_VM_H__
 #define __ERL_VM_H__
-
-/* #define ERTS_OPCODE_COUNTER_SUPPORT */
 
 /* FORCE_HEAP_FRAGS:
  * Debug provocation to make HAlloc always create heap fragments (if allowed)
@@ -41,15 +40,6 @@
 #define MAX_ARG 255	        /* Max number of arguments allowed */
 #define MAX_REG 1024            /* Max number of x(N) registers used */
 
-/* Scheduler stores data for temporary heaps if
-   !HEAP_ON_C_STACK. Macros (*TmpHeap*) in global.h selects if we put temporary
-   heap data on the C stack or if we use the buffers in the scheduler data. */
-#define TMP_HEAP_SIZE 128            /* Number of Eterm in the schedulers
-				        small heap for transient heap data */
-#define CMP_TMP_HEAP_SIZE       32   /* cmp wants its own tmp-heap... */
-#define ERL_ARITH_TMP_HEAP_SIZE 4    /* as does erl_arith... */
-#define BEAM_EMU_TMP_HEAP_SIZE  2    /* and beam_emu... */
-
 /*
  * The new arithmetic operations need some extra X registers in the register array.
  * so does the gc_bif's (i_gc_bif3 need 3 extra).
@@ -60,6 +50,7 @@
 
 #define H_DEFAULT_SIZE  233        /* default (heap + stack) min size */
 #define VH_DEFAULT_SIZE  32768     /* default virtual (bin) heap min size (words) */
+#define H_DEFAULT_MAX_SIZE 0       /* default max heap size is off */
 
 #define CP_SIZE 1
 
@@ -80,7 +71,7 @@
 #  ifdef CHECK_FOR_HOLES
 #    define INIT_HEAP_MEM(p,sz) erts_set_hole_marker(HEAP_TOP(p), (sz))
 #  else
-#    define INIT_HEAP_MEM(p,sz) memset(HEAP_TOP(p),DEBUG_BAD_BYTE,(sz)*sizeof(Eterm*))
+#    define INIT_HEAP_MEM(p,sz) memset(HEAP_TOP(p),0x01,(sz)*sizeof(Eterm*))
 #  endif
 #else
 #  define INIT_HEAP_MEM(p,sz) ((void)0)
@@ -98,7 +89,7 @@
  * failing that, in a heap fragment.
  */
 #define HAllocX(p, sz, xtra)		                              \
-    (ASSERT_EXPR((sz) >= 0),					      \
+  (ASSERT((sz) >= 0),					              \
      ErtsHAllocLockCheck(p),					      \
      (IS_FORCE_HEAP_FRAGS || (((HEAP_LIMIT(p) - HEAP_TOP(p)) < (sz))) \
       ? erts_heap_alloc((p),(sz),(xtra))                              \
@@ -119,12 +110,8 @@
 #define HeapWordsLeft(p) (HEAP_LIMIT(p) - HEAP_TOP(p))
 
 #if defined(DEBUG) || defined(CHECK_FOR_HOLES)
-#if HALFWORD_HEAP
-# define ERTS_HOLE_MARKER (0xaf5e78ccU)
-#else
-# define ERTS_HOLE_MARKER (((0xaf5e78ccUL << 24) << 8) | 0xaf5e78ccUL)
-#endif
-#endif
+# define ERTS_HOLE_MARKER (((0xdeadbeef << 24) << 8) | 0xdeadbeef)
+#endif /* egil: 32-bit ? */
 
 /*
  * Allocate heap memory on the ordinary heap, NEVER in a heap
@@ -135,14 +122,14 @@
  */
 #ifdef CHECK_FOR_HOLES
 # define HeapOnlyAlloc(p, sz)					\
-    (ASSERT_EXPR((sz) >= 0),					\
-     (ASSERT_EXPR(((HEAP_LIMIT(p) - HEAP_TOP(p)) >= (sz))),	\
+    (ASSERT((sz) >= 0),					        \
+     (ASSERT(((HEAP_LIMIT(p) - HEAP_TOP(p)) >= (sz))),	        \
       (erts_set_hole_marker(HEAP_TOP(p), (sz)),			\
        (HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz)))))
 #else
 # define HeapOnlyAlloc(p, sz)					\
-    (ASSERT_EXPR((sz) >= 0),					\
-     (ASSERT_EXPR(((HEAP_LIMIT(p) - HEAP_TOP(p)) >= (sz))),	\
+    (ASSERT((sz) >= 0),					        \
+     (ASSERT(((HEAP_LIMIT(p) - HEAP_TOP(p)) >= (sz))),	        \
       (HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz))))
 #endif
 
@@ -155,6 +142,7 @@
 typedef struct op_entry {
    char* name;			/* Name of instruction. */
    Uint32 mask[3];		/* Signature mask. */
+   unsigned involves_r;		/* Needs special attention when matching. */
    int sz;			/* Number of loaded words. */
    char* pack;			/* Instructions for packing engine. */
    char* sign;			/* Signature string. */
@@ -173,11 +161,13 @@ extern int num_instructions;	/* Number of instruction in opc[]. */
 
 extern int H_MIN_SIZE;		/* minimum (heap + stack) */
 extern int BIN_VH_MIN_SIZE;	/* minimum virtual (bin) heap */
+extern int H_MAX_SIZE;          /* maximum (heap + stack) */
+extern int H_MAX_FLAGS;         /* maximum heap flags  */
 
 extern int erts_atom_table_size;/* Atom table size */
+extern int erts_pd_initial_size;/* Initial Process dictionary table size */
 
 #define ORIG_CREATION 0
-#define INTERNAL_CREATION 255
 
 /* macros for extracting bytes from uint16's */
 

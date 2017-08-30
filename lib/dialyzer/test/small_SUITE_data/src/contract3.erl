@@ -18,16 +18,23 @@ t(X, Y, Z) ->
         (atom()|list()) -> atom().
 
 t1(X) ->
-  foo:bar(X).
+  f(X).
 
 -spec t2(atom(), integer()) -> integer();
         (atom(), list()) -> atom().
 
 t2(X, Y) ->
-  foo:bar(X, Y).
+  g(X, Y).
 
 -spec t3(atom(), integer(), list()) -> integer();
         (X, integer(), list()) -> X.
 
 t3(X, Y, Z) ->
   X.
+
+%% dummy functions below
+
+f(X) -> X.
+
+g(X, Y) when is_atom(X), is_integer(Y) -> Y;
+g(X, Y) when is_atom(X), is_list(Y) -> X.

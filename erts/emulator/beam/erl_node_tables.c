@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -36,20 +37,23 @@ erts_smp_rwmtx_t erts_node_table_rwmtx;
 
 DistEntry *erts_hidden_dist_entries;
 DistEntry *erts_visible_dist_entries;
-DistEntry *erts_not_connected_dist_entries;
+DistEntry *erts_not_connected_dist_entries; /* including erts_this_dist_entry */
 Sint erts_no_of_hidden_dist_entries;
 Sint erts_no_of_visible_dist_entries;
-Sint erts_no_of_not_connected_dist_entries;
+Sint erts_no_of_not_connected_dist_entries; /* including erts_this_dist_entry */
 
 DistEntry *erts_this_dist_entry;
 ErlNode *erts_this_node;
 char erts_this_node_sysname_BUFFER[256],
     *erts_this_node_sysname = "uninitialized yet";
 
-static Uint node_entries;
-static Uint dist_entries;
+static Uint node_entries = 0;
+static Uint dist_entries = 0;
 
 static int references_atoms_need_init = 1;
+
+static ErtsMonotonicTime orig_node_tab_delete_delay;
+static ErtsMonotonicTime node_tab_delete_delay;
 
 /* -- The distribution table ---------------------------------------------- */
 
@@ -86,9 +90,6 @@ dist_table_alloc(void *dep_tmpl)
     DistEntry *dep;
     erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
-
-    if(((DistEntry *) dep_tmpl) == erts_this_dist_entry)
-	return dep_tmpl;
 
     sysname = ((DistEntry *) dep_tmpl)->sysname;
     chnl_nr = make_small((Uint) atom_val(sysname));
@@ -128,7 +129,9 @@ dist_table_alloc(void *dep_tmpl)
 
     /* Link in */
 
-    /* All new dist entries are "not connected" */
+    /* All new dist entries are "not connected".
+     * erts_this_dist_entry is also always included among "not connected"
+     */
     dep->next = erts_not_connected_dist_entries;
     if(erts_not_connected_dist_entries) {
 	ASSERT(erts_not_connected_dist_entries->prev == NULL);
@@ -144,9 +147,6 @@ static void
 dist_table_free(void *vdep)
 {
     DistEntry *dep = (DistEntry *) vdep;
-
-    if(dep == erts_this_dist_entry)
-	return;
 
     ASSERT(is_nil(dep->cid));
     ASSERT(dep->nlinks == NULL);
@@ -182,7 +182,7 @@ dist_table_free(void *vdep)
 #endif
     erts_free(ERTS_ALC_T_DIST_ENTRY, (void *) dep);
 
-    ASSERT(dist_entries > 1);
+    ASSERT(dist_entries > 0);
     dist_entries--;
 }
 
@@ -290,21 +290,46 @@ DistEntry *erts_find_dist_entry(Eterm sysname)
     return res;
 }
 
-void erts_delete_dist_entry(DistEntry *dep)
+static void try_delete_dist_entry(void *vdep)
+{
+    DistEntry *dep = (DistEntry *) vdep;
+    erts_aint_t refc;
+
+    erts_smp_rwmtx_rwlock(&erts_dist_table_rwmtx);
+    /*
+     * Another thread might have looked up this dist entry after
+     * we decided to delete it (refc became zero). If so, the other
+     * thread incremented refc twice. Once for the new reference
+     * and once for this thread.
+     *
+     * If refc reach -1, no one has used the entry since we
+     * set up the timer. Delete the entry.
+     *
+     * If refc reach 0, the entry is currently not in use
+     * but has been used since we set up the timer. Set up a
+     * new timer.
+     *
+     * If refc > 0, the entry is in use. Keep the entry.
+     */
+    refc = erts_refc_dectest(&dep->refc, -1);
+    if (refc == -1)
+	(void) hash_erase(&erts_dist_table, (void *) dep);
+    erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
+
+    if (refc == 0)
+	erts_schedule_delete_dist_entry(dep);
+}
+
+void erts_schedule_delete_dist_entry(DistEntry *dep)
 {
     ASSERT(dep != erts_this_dist_entry);
-    if(dep != erts_this_dist_entry) {
-	erts_smp_rwmtx_rwlock(&erts_dist_table_rwmtx);
-	/*
-	 * Another thread might have looked up this dist entry after
-	 * we decided to delete it (refc became zero). If so, the other
-	 * thread incremented refc twice. Once for the new reference
-	 * and once for this thread. Therefore, delete dist entry if
-	 * refc is 0 or -1 after a decrement.
-	 */
-	if (erts_refc_dectest(&dep->refc, -1) <= 0)
-	    (void) hash_erase(&erts_dist_table, (void *) dep);
-	erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
+    if (dep != erts_this_dist_entry) {
+	if (node_tab_delete_delay == 0)
+	    try_delete_dist_entry((void *) dep);
+	else if (node_tab_delete_delay > 0)
+	    erts_start_timer_callback(node_tab_delete_delay,
+				      try_delete_dist_entry,
+				      (void *) dep);
     }
 }
 
@@ -340,8 +365,7 @@ erts_dist_table_size(void)
 
     ASSERT(dist_entries == (erts_no_of_visible_dist_entries
 			    + erts_no_of_hidden_dist_entries
-			    + erts_no_of_not_connected_dist_entries
-			    + 1 /* erts_this_dist_entry */));
+			    + erts_no_of_not_connected_dist_entries));
 #endif
 
     res = (hash_table_sz(&erts_dist_table)
@@ -473,31 +497,7 @@ node_table_hash(void *venp)
     Uint32 cre = ((ErlNode *) venp)->creation;
     HashValue h = atom_tab(atom_val(((ErlNode *) venp)->sysname))->slot.bucket.hvalue;
 
-    h *= PRIME0;
-    h += cre & 0xff;
-
-#if MAX_CREATION >= (1 << 8)
-    h *= PRIME1;
-    h += (cre >> 8) & 0xff;
-#endif
-
-#if MAX_CREATION >= (1 << 16)
-    h *= PRIME2;
-    h += (cre >> 16) & 0xff;
-#endif
-
-#if MAX_CREATION >= (1 << 24)
-    h *= PRIME3;
-    h += (cre >> 24) & 0xff;
-#endif
-
-#if 0
-/* XXX Problems in older versions of GCC */
- #if MAX_CREATION >= (1UL << 32)
- #error "MAX_CREATION larger than size of expected creation storage (Uint32)"
- #endif
-#endif
-    return h;
+    return (h + cre) * PRIME0;
 }
 
 static int
@@ -513,9 +513,6 @@ static void*
 node_table_alloc(void *venp_tmpl)
 {
     ErlNode *enp;
-
-    if(((ErlNode *) venp_tmpl) == erts_this_node)
-	return venp_tmpl;
 
     enp = (ErlNode *) erts_alloc(ERTS_ALC_T_NODE_ENTRY, sizeof(ErlNode));
 
@@ -534,8 +531,7 @@ node_table_free(void *venp)
 {
     ErlNode *enp = (ErlNode *) venp;
 
-    if(enp == erts_this_node)
-	return;
+    ERTS_SMP_LC_ASSERT(enp != erts_this_node || erts_thr_progress_is_blocking());
 
     erts_deref_dist_entry(enp->dist_entry);
 #ifdef DEBUG
@@ -543,7 +539,7 @@ node_table_free(void *venp)
 #endif
     erts_free(ERTS_ALC_T_NODE_ENTRY, venp);
 
-    ASSERT(node_entries > 1);
+    ASSERT(node_entries > 0);
     node_entries--;
 }
 
@@ -556,14 +552,14 @@ erts_node_table_size(void)
 #endif
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
-	erts_smp_rwmtx_rwlock(&erts_node_table_rwmtx);
+	erts_smp_rwmtx_rlock(&erts_node_table_rwmtx);
 #ifdef DEBUG
     hash_get_info(&hi, &erts_node_table);
     ASSERT(node_entries == hi.objs);
 #endif
     res = hash_table_sz(&erts_node_table) + node_entries*sizeof(ErlNode);
     if (lock)
-	erts_smp_rwmtx_rwunlock(&erts_node_table_rwmtx);
+	erts_smp_rwmtx_runlock(&erts_node_table_rwmtx);
     return res;
 }
 
@@ -572,14 +568,14 @@ erts_node_table_info(int to, void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
-	erts_smp_rwmtx_rwlock(&erts_node_table_rwmtx);
+	erts_smp_rwmtx_rlock(&erts_node_table_rwmtx);
     hash_info(to, to_arg, &erts_node_table);
     if (lock)
-	erts_smp_rwmtx_rwunlock(&erts_node_table_rwmtx);
+	erts_smp_rwmtx_runlock(&erts_node_table_rwmtx);
 }
 
 
-ErlNode *erts_find_or_insert_node(Eterm sysname, Uint creation)
+ErlNode *erts_find_or_insert_node(Eterm sysname, Uint32 creation)
 {
     ErlNode *res;
     ErlNode ne;
@@ -609,21 +605,46 @@ ErlNode *erts_find_or_insert_node(Eterm sysname, Uint creation)
     return res;
 }
 
-void erts_delete_node(ErlNode *enp)
+static void try_delete_node(void *venp)
+{
+    ErlNode *enp = (ErlNode *) venp;
+    erts_aint_t refc;
+
+    erts_smp_rwmtx_rwlock(&erts_node_table_rwmtx);
+    /*
+     * Another thread might have looked up this node after we
+     * decided to delete it (refc became zero). If so, the other
+     * thread incremented refc twice. Once for the new reference
+     * and once for this thread.
+     *
+     * If refc reach -1, no one has used the entry since we
+     * set up the timer. Delete the entry.
+     *
+     * If refc reach 0, the entry is currently not in use
+     * but has been used since we set up the timer. Set up a
+     * new timer.
+     *
+     * If refc > 0, the entry is in use. Keep the entry.
+     */
+    refc = erts_refc_dectest(&enp->refc, -1);
+    if (refc == -1)
+	(void) hash_erase(&erts_node_table, (void *) enp);
+    erts_smp_rwmtx_rwunlock(&erts_node_table_rwmtx);
+
+    if (refc == 0)
+	erts_schedule_delete_node(enp);
+}
+
+void erts_schedule_delete_node(ErlNode *enp)
 {
     ASSERT(enp != erts_this_node);
-    if(enp != erts_this_node) {
-	erts_smp_rwmtx_rwlock(&erts_node_table_rwmtx);
-	/*
-	 * Another thread might have looked up this node after we
-	 * decided to delete it (refc became zero). If so, the other
-	 * thread incremented refc twice. Once for the new reference
-	 * and once for this thread. Therefore, delete node if refc
-	 * is 0 or -1 after a decrement.
-	 */
-	if (erts_refc_dectest(&enp->refc, -1) <= 0)
-	    (void) hash_erase(&erts_node_table, (void *) enp);
-	erts_smp_rwmtx_rwunlock(&erts_node_table_rwmtx);
+    if (enp != erts_this_node) {
+	if (node_tab_delete_delay == 0)
+	    try_delete_node((void *) enp);
+	else if (node_tab_delete_delay > 0)
+	    erts_start_timer_callback(node_tab_delete_delay,
+				      try_delete_node,
+				      (void *) enp);
     }
 }
 
@@ -651,7 +672,7 @@ static void print_node(void *venp, void *vpndp)
 	erts_print(pndp->to, pndp->to_arg, " %d", enp->creation);
 #ifdef DEBUG
 	erts_print(pndp->to, pndp->to_arg, " (refc=%ld)",
-		   erts_refc_read(&enp->refc, 1));
+		   erts_refc_read(&enp->refc, 0));
 #endif
 	pndp->no_sysname++;
     }
@@ -674,13 +695,13 @@ void erts_print_node_info(int to,
     pnd.no_total = 0;
 
     if (lock)
-	erts_smp_rwmtx_rwlock(&erts_node_table_rwmtx);
+	erts_smp_rwmtx_rlock(&erts_node_table_rwmtx);
     hash_foreach(&erts_node_table, print_node, (void *) &pnd);
     if (pnd.no_sysname != 0) {
 	erts_print(to, to_arg, "\n");
     }
     if (lock)
-	erts_smp_rwmtx_rwunlock(&erts_node_table_rwmtx);
+	erts_smp_rwmtx_runlock(&erts_node_table_rwmtx);
 
     if(no_sysname)
 	*no_sysname = pnd.no_sysname;
@@ -693,44 +714,69 @@ void erts_print_node_info(int to,
 void
 erts_set_this_node(Eterm sysname, Uint creation)
 {
-    erts_smp_rwmtx_rwlock(&erts_node_table_rwmtx);
-    erts_smp_rwmtx_rwlock(&erts_dist_table_rwmtx);
+    ERTS_SMP_LC_ASSERT(erts_thr_progress_is_blocking());
+    ASSERT(erts_refc_read(&erts_this_dist_entry->refc, 2));
 
-    (void) hash_erase(&erts_dist_table, (void *) erts_this_dist_entry);
-    erts_this_dist_entry->sysname = sysname;
-    erts_this_dist_entry->creation = creation;
-    (void) hash_put(&erts_dist_table, (void *) erts_this_dist_entry);
+    if (erts_refc_dectest(&erts_this_node->refc, 0) == 0)
+        try_delete_node(erts_this_node);
 
-    (void) hash_erase(&erts_node_table, (void *) erts_this_node);
-    erts_this_node->sysname = sysname;
-    erts_this_node->creation = creation;
+    if (erts_refc_dectest(&erts_this_dist_entry->refc, 0) == 0)
+        try_delete_dist_entry(erts_this_dist_entry);
+
+    erts_this_node = NULL; /* to make sure refc is bumped for this node */
+    erts_this_node = erts_find_or_insert_node(sysname, creation);
+    erts_this_dist_entry = erts_this_node->dist_entry;
+
+    erts_refc_inc(&erts_this_dist_entry->refc, 2);
+
     erts_this_node_sysname = erts_this_node_sysname_BUFFER;
-    erts_snprintf(erts_this_node_sysname, sizeof(erts_this_node_sysname),
-                  "%T", sysname);
-    (void) hash_put(&erts_node_table, (void *) erts_this_node);
-
-    erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
-    erts_smp_rwmtx_rwunlock(&erts_node_table_rwmtx);
-
+    erts_snprintf(erts_this_node_sysname, sizeof(erts_this_node_sysname_BUFFER),
+		  "%T", sysname);
 }
 
-void erts_init_node_tables(void)
+Uint
+erts_delayed_node_table_gc(void)
+{
+    if (node_tab_delete_delay < 0)
+	return (Uint) ERTS_NODE_TAB_DELAY_GC_INFINITY;
+    if (node_tab_delete_delay == 0)
+	return (Uint) 0;
+    return (Uint) ((node_tab_delete_delay-1)/1000 + 1);
+}
+
+void erts_init_node_tables(int dd_sec)
 {
     erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     HashFunctions f;
+    ErlNode node_tmpl;
+
+    if (dd_sec == ERTS_NODE_TAB_DELAY_GC_INFINITY)
+	node_tab_delete_delay = (ErtsMonotonicTime) -1;
+    else
+	node_tab_delete_delay = ((ErtsMonotonicTime) dd_sec)*1000;
+
+    orig_node_tab_delete_delay = node_tab_delete_delay;
 
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
     rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-    f.hash  = (H_FUN)			dist_table_hash;
-    f.cmp   = (HCMP_FUN)		dist_table_cmp;
-    f.alloc = (HALLOC_FUN)		dist_table_alloc;
-    f.free  = (HFREE_FUN)		dist_table_free;
+    erts_smp_rwmtx_init_opt(&erts_node_table_rwmtx, &rwmtx_opt, "node_table");
+    erts_smp_rwmtx_init_opt(&erts_dist_table_rwmtx, &rwmtx_opt, "dist_table");
 
-    erts_this_dist_entry = erts_alloc(ERTS_ALC_T_DIST_ENTRY, sizeof(DistEntry));
-    dist_entries = 1;
-
+    f.hash       = (H_FUN)		dist_table_hash;
+    f.cmp        = (HCMP_FUN)		dist_table_cmp;
+    f.alloc      = (HALLOC_FUN)		dist_table_alloc;
+    f.free       = (HFREE_FUN)		dist_table_free;
+    f.meta_alloc = (HMALLOC_FUN) 	erts_alloc;
+    f.meta_free  = (HMFREE_FUN) 	erts_free;
+    f.meta_print = (HMPRINT_FUN) 	erts_print;
     hash_init(ERTS_ALC_T_DIST_TABLE, &erts_dist_table, "dist_table", 11, f);
+
+    f.hash  = (H_FUN)      			node_table_hash;
+    f.cmp   = (HCMP_FUN)   			node_table_cmp;
+    f.alloc = (HALLOC_FUN) 			node_table_alloc;
+    f.free  = (HFREE_FUN)  			node_table_free;
+    hash_init(ERTS_ALC_T_NODE_TABLE, &erts_node_table, "node_table", 11, f);
 
     erts_hidden_dist_entries				= NULL;
     erts_visible_dist_entries				= NULL;
@@ -739,68 +785,22 @@ void erts_init_node_tables(void)
     erts_no_of_visible_dist_entries			= 0;
     erts_no_of_not_connected_dist_entries		= 0;
 
-    erts_this_dist_entry->next				= NULL;
-    erts_this_dist_entry->prev				= NULL;
-    erts_refc_init(&erts_this_dist_entry->refc, 1); /* erts_this_node */
+    node_tmpl.sysname = am_Noname;
+    node_tmpl.creation = 0;
+    erts_this_node = hash_put(&erts_node_table, &node_tmpl);
+     /* +1 for erts_this_node */
+    erts_refc_init(&erts_this_node->refc, 1);
 
-    erts_smp_rwmtx_init_opt_x(&erts_this_dist_entry->rwmtx,
-			      &rwmtx_opt,
-			      "dist_entry",
-			      make_small(ERST_INTERNAL_CHANNEL_NO));
-    erts_this_dist_entry->sysname			= am_Noname;
-    erts_this_dist_entry->cid				= NIL;
-    erts_this_dist_entry->connection_id			= 0;
-    erts_this_dist_entry->status			= 0;
-    erts_this_dist_entry->flags				= 0;
-    erts_this_dist_entry->version			= 0;
+    ASSERT(erts_this_node->dist_entry != NULL);
+    erts_this_dist_entry = erts_this_node->dist_entry;
+    /* +1 for erts_this_dist_entry */
+    /* +1 for erts_this_node->dist_entry */
+    erts_refc_init(&erts_this_dist_entry->refc, 2);
 
-    erts_smp_mtx_init_x(&erts_this_dist_entry->lnk_mtx,
-			"dist_entry_links",
-			make_small(ERST_INTERNAL_CHANNEL_NO));
-    erts_this_dist_entry->node_links			= NULL;
-    erts_this_dist_entry->nlinks			= NULL;
-    erts_this_dist_entry->monitors			= NULL;
 
-    erts_smp_mtx_init_x(&erts_this_dist_entry->qlock,
-			"dist_entry_out_queue",
-			make_small(ERST_INTERNAL_CHANNEL_NO));
-    erts_this_dist_entry->qflgs				= 0;
-    erts_this_dist_entry->qsize				= 0;
-    erts_this_dist_entry->out_queue.first		= NULL;
-    erts_this_dist_entry->out_queue.last		= NULL;
-    erts_this_dist_entry->suspended			= NULL;
-
-    erts_this_dist_entry->finalized_out_queue.first	= NULL;
-    erts_this_dist_entry->finalized_out_queue.last	= NULL;
-    erts_smp_atomic_init_nob(&erts_this_dist_entry->dist_cmd_scheduled, 0);
-    erts_port_task_handle_init(&erts_this_dist_entry->dist_cmd);
-    erts_this_dist_entry->send				= NULL;
-    erts_this_dist_entry->cache				= NULL;
-
-    (void) hash_put(&erts_dist_table, (void *) erts_this_dist_entry);
-
-    f.hash  = (H_FUN)      			node_table_hash;
-    f.cmp   = (HCMP_FUN)   			node_table_cmp;
-    f.alloc = (HALLOC_FUN) 			node_table_alloc;
-    f.free  = (HFREE_FUN)  			node_table_free;
-
-    hash_init(ERTS_ALC_T_NODE_TABLE, &erts_node_table, "node_table", 11, f);
-
-    erts_this_node = erts_alloc(ERTS_ALC_T_NODE_ENTRY, sizeof(ErlNode));
-    node_entries = 1;
-
-    erts_refc_init(&erts_this_node->refc, 1); /* The system itself */
-    erts_this_node->sysname			= am_Noname;
-    erts_this_node->creation			= 0;
-    erts_this_node->dist_entry			= erts_this_dist_entry;
     erts_this_node_sysname = erts_this_node_sysname_BUFFER;
-    erts_snprintf(erts_this_node_sysname, sizeof(erts_this_node_sysname),
+    erts_snprintf(erts_this_node_sysname, sizeof(erts_this_node_sysname_BUFFER),
                   "%T", erts_this_node->sysname);
-
-    (void) hash_put(&erts_node_table, (void *) erts_this_node);
-
-    erts_smp_rwmtx_init_opt(&erts_node_table_rwmtx, &rwmtx_opt, "node_table");
-    erts_smp_rwmtx_init_opt(&erts_dist_table_rwmtx, &rwmtx_opt, "dist_table");
 
     references_atoms_need_init = 1;
 }
@@ -847,6 +847,7 @@ static Eterm AM_dist_references;
 static Eterm AM_node_references;
 static Eterm AM_system;
 static Eterm AM_timer;
+static Eterm AM_delayed_delete_timer;
 
 static void setup_reference_table(void);
 static Eterm reference_table_term(Uint **hpp, Uint *szp);
@@ -881,8 +882,10 @@ typedef struct dist_referrer_ {
     int heap_ref;
     int node_ref;
     int ctrl_ref;
+    int system_ref;
     Eterm id;
     Uint creation;
+    Uint id_heap[ID_HEAP_SIZE];
 } DistReferrer;
 
 typedef struct {
@@ -931,6 +934,7 @@ erts_get_node_and_dist_references(struct process *proc)
 	INIT_AM(node_references);
 	INIT_AM(timer);
 	INIT_AM(system);
+	INIT_AM(delayed_delete_timer);
 	references_atoms_need_init = 0;
     }
 
@@ -988,17 +992,25 @@ insert_dist_referrer(ReferredDist *referred_dist,
 					  sizeof(DistReferrer));
 	drp->next = referred_dist->referrers;
 	referred_dist->referrers = drp;
-	drp->id = id;
+	if(IS_CONST(id))
+	    drp->id = id;
+	else {
+	    Uint *hp = &drp->id_heap[0];
+	    ASSERT(is_tuple(id));
+	    drp->id = copy_struct(id, size_object(id), &hp, NULL);
+	}
 	drp->creation = creation;
 	drp->heap_ref = 0;
 	drp->node_ref = 0;
 	drp->ctrl_ref = 0;
+	drp->system_ref = 0;
     }
 
     switch (type) {
     case NODE_REF:	drp->node_ref++;	break;
     case CTRL_REF:	drp->ctrl_ref++;	break;
     case HEAP_REF:	drp->heap_ref++;	break;
+    case SYSTEM_REF:	drp->system_ref++;	break;
     default:		ASSERT(0);
     }
 }
@@ -1017,7 +1029,7 @@ insert_dist_entry(DistEntry *dist, int type, Eterm id, Uint creation)
     }
 
     if(!rdp)
-	erl_exit(1,
+	erts_exit(ERTS_ERROR_EXIT,
 		 "Reference to non-existing distribution table entry found!\n");
 
     insert_dist_referrer(rdp, type, id, creation);
@@ -1078,7 +1090,7 @@ insert_node(ErlNode *node, int type, Eterm id)
     }
 
     if (!rnp)
-	erl_exit(1, "Reference to non-existing node table entry found!\n");
+	erts_exit(ERTS_ERROR_EXIT, "Reference to non-existing node table entry found!\n");
 
     insert_node_referrer(rnp, type, id);
 }
@@ -1124,23 +1136,11 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 			break;
 		    }
 		if (insert_bin) {
-#if HALFWORD_HEAP
-		    UWord val = (UWord) u.pb->val;
-		    DeclareTmpHeapNoproc(id_heap,BIG_UINT_HEAP_SIZE*2); /* extra place allocated */
-#else
 		    DeclareTmpHeapNoproc(id_heap,BIG_UINT_HEAP_SIZE);
-#endif
 		    Uint *hp = &id_heap[0];
 		    InsertedBin *nib;
-#if HALFWORD_HEAP
-		    int actual_need = BIG_UWORD_HEAP_SIZE(val);
-		    ASSERT(actual_need <= (BIG_UINT_HEAP_SIZE*2));
-		    UseTmpHeapNoproc(actual_need);
-		    a.id = erts_bld_uword(&hp, NULL, (UWord) val);
-#else
 		    UseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
 		    a.id = erts_bld_uint(&hp, NULL, (Uint) u.pb->val);
-#endif
 		    erts_match_prog_foreach_offheap(u.pb->val,
 						    insert_offheap2,
 						    (void *) &a);
@@ -1148,11 +1148,7 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    nib->bin_val = u.pb->val;
 		    nib->next = inserted_bins;
 		    inserted_bins = nib;
-#if HALFWORD_HEAP
-		    UnUseTmpHeapNoproc(actual_need);
-#else
 		    UnUseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
-#endif
 		}
 	    }		
 	    break;
@@ -1261,6 +1257,33 @@ insert_sys_msg(Eterm from, Eterm to, Eterm msg, ErlHeapFragment *bp)
 #endif
 
 static void
+insert_delayed_delete_node(void *state,
+			   ErtsMonotonicTime timeout_pos,
+			   void *vnp)
+{
+    DeclareTmpHeapNoproc(heap,3);
+    UseTmpHeapNoproc(3);
+    insert_node((ErlNode *) vnp,
+		SYSTEM_REF,
+		TUPLE2(&heap[0], AM_system, AM_delayed_delete_timer));
+    UnUseTmpHeapNoproc(3);
+}
+
+static void
+insert_delayed_delete_dist_entry(void *state,
+				 ErtsMonotonicTime timeout_pos,
+				 void *vdep)
+{
+    DeclareTmpHeapNoproc(heap,3);
+    UseTmpHeapNoproc(3);
+    insert_dist_entry((DistEntry *) vdep,
+		      SYSTEM_REF,
+		      TUPLE2(&heap[0], AM_system, AM_delayed_delete_timer),
+		      0);
+    UnUseTmpHeapNoproc(3);
+}
+
+static void
 setup_reference_table(void)
 {
     ErlHeapFragment *hfp;
@@ -1288,11 +1311,22 @@ setup_reference_table(void)
     /* Go through the hole system, and build a table of all references
        to ErlNode and DistEntry structures */
 
+    erts_debug_callback_timer_foreach(try_delete_node,
+				      insert_delayed_delete_node,
+				      NULL);
+    erts_debug_callback_timer_foreach(try_delete_dist_entry,
+				      insert_delayed_delete_dist_entry,
+				      NULL);
+
     UseTmpHeapNoproc(3);
     insert_node(erts_this_node,
 		SYSTEM_REF,
 		TUPLE2(&heap[0], AM_system, am_undefined));
 
+    insert_dist_entry(erts_this_dist_entry,
+                      SYSTEM_REF,
+                      TUPLE2(&heap[0], AM_system, am_undefined),
+                      erts_this_node->creation);
     UnUseTmpHeapNoproc(3);
 
     max = erts_ptab_max(&erts_proc);
@@ -1300,67 +1334,55 @@ setup_reference_table(void)
     for (i = 0; i < max; i++) {
 	Process *proc = erts_pix2proc(i);
 	if (proc) {
-	    ErlMessage *msg;
+	    int mli;
+	    ErtsMessage *msg_list[] = {
+		proc->msg.first,
+#ifdef ERTS_SMP
+		proc->msg_inq.first,
+#endif
+		proc->msg_frag};
 
 	    /* Insert Heap */
 	    insert_offheap(&(proc->off_heap),
 			   HEAP_REF,
 			   proc->common.id);
-	    /* Insert message buffers */
+	    /* Insert heap fragments buffers */
 	    for(hfp = proc->mbuf; hfp; hfp = hfp->next)
 		insert_offheap(&(hfp->off_heap),
 			       HEAP_REF,
 			       proc->common.id);
-	    /* Insert msg msg buffers */
-	    for (msg = proc->msg.first; msg; msg = msg->next) {
-		ErlHeapFragment *heap_frag = NULL;
-		if (msg->data.attached) {
-		    if (is_value(ERL_MESSAGE_TERM(msg)))
-			heap_frag = msg->data.heap_frag;
-		    else {
-			if (msg->data.dist_ext->dep)
-			    insert_dist_entry(msg->data.dist_ext->dep,
-					      HEAP_REF, proc->common.id, 0);
-			if (is_not_nil(ERL_MESSAGE_TOKEN(msg)))
-			    heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
+
+	    /* Insert msg buffers */
+	    for (mli = 0; mli < sizeof(msg_list)/sizeof(msg_list[0]); mli++) {
+		ErtsMessage *msg;
+		for (msg = msg_list[mli]; msg; msg = msg->next) {
+		    ErlHeapFragment *heap_frag = NULL;
+		    if (msg->data.attached) {
+			if (msg->data.attached == ERTS_MSG_COMBINED_HFRAG)
+			    heap_frag = &msg->hfrag;
+			else if (is_value(ERL_MESSAGE_TERM(msg)))
+			    heap_frag = msg->data.heap_frag;
+			else {
+			    if (msg->data.dist_ext->dep)
+				insert_dist_entry(msg->data.dist_ext->dep,
+						  HEAP_REF, proc->common.id, 0);
+			    if (is_not_nil(ERL_MESSAGE_TOKEN(msg)))
+				heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
+			}
+		    }
+		    while (heap_frag) {
+			insert_offheap(&(heap_frag->off_heap),
+				       HEAP_REF,
+				       proc->common.id);
+			heap_frag = heap_frag->next;
 		    }
 		}
-		if (heap_frag)
-		    insert_offheap(&(heap_frag->off_heap),
-				   HEAP_REF,
-				   proc->common.id);
 	    }
-#ifdef ERTS_SMP
-	    for (msg = proc->msg_inq.first; msg; msg = msg->next) {
-		ErlHeapFragment *heap_frag = NULL;
-		if (msg->data.attached) {
-		    if (is_value(ERL_MESSAGE_TERM(msg)))
-			heap_frag = msg->data.heap_frag;
-		    else {
-			if (msg->data.dist_ext->dep)
-			    insert_dist_entry(msg->data.dist_ext->dep,
-					      HEAP_REF, proc->common.id, 0);
-			if (is_not_nil(ERL_MESSAGE_TOKEN(msg)))
-			    heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
-		    }
-		}
-		if (heap_frag)
-		    insert_offheap(&(heap_frag->off_heap),
-				   HEAP_REF,
-				   proc->common.id);
-	    }
-#endif
 	    /* Insert links */
 	    if (ERTS_P_LINKS(proc))
 		insert_links(ERTS_P_LINKS(proc), proc->common.id);
 	    if (ERTS_P_MONITORS(proc))
 		insert_monitors(ERTS_P_MONITORS(proc), proc->common.id);
-	    /* Insert controller */
-	    {
-		DistEntry *dep = ERTS_PROC_GET_DIST_ENTRY(proc);
-		if (dep)
-		    insert_dist_entry(dep, CTRL_REF, proc->common.id, 0);
-	    }
 	}
     }
     
@@ -1469,7 +1491,7 @@ setup_reference_table(void)
     erts_db_foreach_table(insert_ets_table, NULL);
 
     /* Insert all bif timers */
-    erts_bif_timer_foreach(insert_bif_timer, NULL);
+    erts_debug_bif_timer_foreach(insert_bif_timer, NULL);
 
     /* Insert node table (references to dist) */
     hash_foreach(&erts_node_table, insert_erl_node, NULL);
@@ -1601,7 +1623,7 @@ reference_table_term(Uint **hpp, Uint *szp)
 
 	tup = MK_2TUP(referred_nodes[i].node->sysname,
 		      MK_UINT(referred_nodes[i].node->creation));
-	tup = MK_3TUP(tup, MK_UINT(erts_refc_read(&referred_nodes[i].node->refc, 1)), nril);
+	tup = MK_3TUP(tup, MK_UINT(erts_refc_read(&referred_nodes[i].node->refc, 0)), nril);
 	nl = MK_CONS(tup, nl);
     }
 
@@ -1624,6 +1646,10 @@ reference_table_term(Uint **hpp, Uint *szp)
 		tup = MK_2TUP(AM_heap, MK_UINT(drp->heap_ref));
 		drl = MK_CONS(tup, drl);
 	    }
+	    if(drp->system_ref) {
+		tup = MK_2TUP(AM_system, MK_UINT(drp->system_ref));
+		drl = MK_CONS(tup, drl);
+	    }
 
 	    if (is_internal_pid(drp->id)) {
 		ASSERT(!drp->node_ref);
@@ -1632,6 +1658,14 @@ reference_table_term(Uint **hpp, Uint *szp)
 	    else if(is_internal_port(drp->id)) {
 		ASSERT(drp->ctrl_ref && !drp->node_ref);
 		tup = MK_2TUP(AM_port, drp->id);
+	    }
+	    else if (is_tuple(drp->id)) {
+		Eterm *t;
+		ASSERT(drp->system_ref && !drp->node_ref
+		       && !drp->ctrl_ref && !drp->heap_ref);
+		t = tuple_val(drp->id);
+		ASSERT(2 == arityval(t[0]));
+		tup = MK_2TUP(t[1], t[2]);
 	    }
 	    else {
 		ASSERT(!drp->ctrl_ref && drp->node_ref);
@@ -1650,7 +1684,7 @@ reference_table_term(Uint **hpp, Uint *szp)
 
 	/* DistList = [{Dist, Refc, ReferenceIdList}] */
 	tup = MK_3TUP(referred_dists[i].dist->sysname,
-		      MK_UINT(erts_refc_read(&referred_dists[i].dist->refc, 1)),
+		      MK_UINT(erts_refc_read(&referred_dists[i].dist->refc, 0)),
 		      dril);
 	dl = MK_CONS(tup, dl);
     }
@@ -1705,3 +1739,15 @@ delete_reference_table(void)
     }
 }
 
+void
+erts_debug_test_node_tab_delayed_delete(Sint64 millisecs)
+{
+    erts_smp_thr_progress_block();
+
+    if (millisecs < 0)
+	node_tab_delete_delay = orig_node_tab_delete_delay;
+    else
+	node_tab_delete_delay = millisecs;
+
+    erts_smp_thr_progress_unblock();
+}

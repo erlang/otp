@@ -2,18 +2,19 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2002-2011. All Rights Reserved.
+# Copyright Ericsson AB 2002-2016. All Rights Reserved.
 # 
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
-# 
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 # 
 # %CopyrightEnd%
 # 
@@ -241,7 +242,7 @@ for x in $SOURCES; do
     if [ $PREPROCESSING = true ]; then
 	output_flag="-E"
     else
-	output_flag="-c -Fo`cmd //C echo ${output_filename}`"
+	output_flag="-FS -c -Fo`cmd //C echo ${output_filename}`"
     fi
     params="$COMMON_CFLAGS $MD $DEBUG_FLAGS $OPTIMIZE_FLAGS \
 	    $CMD ${output_flag} $MPATH"
@@ -249,6 +250,8 @@ for x in $SOURCES; do
 	echo cc.sh "$SAVE" >>$CC_SH_DEBUG_LOG
 	echo cl.exe $params >>$CC_SH_DEBUG_LOG
     fi
+    # MSYS2 (currently) converts the paths wrong, avoid it
+    export MSYS2_ARG_CONV_EXCL=-FoC
     eval cl.exe $params >$MSG_FILE 2>$ERR_FILE
     RES=$?
     if test $PREPROCESSING = false; then
@@ -265,7 +268,7 @@ for x in $SOURCES; do
 		echo
 		echo 
 		after_sed=`date '+%s'`
-		echo Made dependencises for $x':' `expr $after_sed '-' $start_time` 's' >&2
+		echo Made dependencies for $x':' `expr $after_sed '-' $start_time` 's' >&2
 	    fi 
 	else
 	    cat $MSG_FILE
@@ -273,6 +276,7 @@ for x in $SOURCES; do
     fi
     rm -f $ERR_FILE $MSG_FILE
     if [ $RES != 0 ]; then
+	echo Failed: cl.exe $params
 	rm -rf $TMPOBJDIR
 	exit $RES
     fi
@@ -311,7 +315,10 @@ if [ $LINKING = true ]; then
 	    stdlib="-lLIBMTD";;
     esac
     # And finally call the next script to do the linking...
-    params="$out_spec $LINKCMD $stdlib" 
+    params="$out_spec $LINKCMD $stdlib"
+    if [ "X$CC_SH_DEBUG_LOG" != "X" ]; then
+	echo ld.sh $ACCUM_OBJECTS $params
+    fi
     eval ld.sh $ACCUM_OBJECTS $params
     RES=$?
 fi

@@ -3,18 +3,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -54,8 +55,11 @@
 -spec postorder(cfg()) -> [icode_lbl()].
 -spec reverse_postorder(cfg()) -> [icode_lbl()].
 
--spec is_visited(icode_lbl(), gb_set()) -> boolean().
--spec visit(icode_lbl(), gb_set()) -> gb_set().
+-spec params(cfg()) -> hipe_icode:params().
+-spec params_update(cfg(), hipe_icode:params()) -> cfg().
+
+-spec is_visited(icode_lbl(), gb_sets:set()) -> boolean().
+-spec visit(icode_lbl(), gb_sets:set()) -> gb_sets:set().
 
 -spec bb(cfg(), icode_lbl()) -> 'not_found' | bb().
 -spec bb_add(cfg(), icode_lbl(), bb()) -> cfg().

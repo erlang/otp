@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -41,8 +42,7 @@
  */
 
 /* for -Wmissing-prototypes :-( */
-extern Eterm hipe_check_process_code_2(BIF_ALIST_2);
-extern Eterm hipe_garbage_collect_1(BIF_ALIST_1);
+extern Eterm hipe_erts_internal_check_process_code_2(BIF_ALIST_2);
 extern Eterm hipe_show_nstack_1(BIF_ALIST_1);
 
 /* Used when a BIF can trigger a stack walk. */
@@ -51,22 +51,12 @@ static __inline__ void hipe_set_narity(Process *p, unsigned int arity)
     p->hipe.narity = arity;
 }
 
-Eterm hipe_check_process_code_2(BIF_ALIST_2)
+Eterm hipe_erts_internal_check_process_code_2(BIF_ALIST_2)
 {
     Eterm ret;
 
     hipe_set_narity(BIF_P, 2);
-    ret = check_process_code_2(BIF_P, BIF__ARGS);
-    hipe_set_narity(BIF_P, 0);
-    return ret;
-}
-
-Eterm hipe_garbage_collect_1(BIF_ALIST_1)
-{
-    Eterm ret;
-
-    hipe_set_narity(BIF_P, 1);
-    ret = garbage_collect_1(BIF_P, BIF__ARGS);
+    ret = erts_internal_check_process_code_2(BIF_P, BIF__ARGS);
     hipe_set_narity(BIF_P, 0);
     return ret;
 }
@@ -90,7 +80,7 @@ Eterm hipe_show_nstack_1(BIF_ALIST_1)
 void hipe_gc(Process *p, Eterm need)
 {
     hipe_set_narity(p, 1);
-    p->fcalls -= erts_garbage_collect(p, unsigned_val(need), NULL, 0);
+    erts_garbage_collect(p, unsigned_val(need), NULL, 0);
     hipe_set_narity(p, 0);
 }
 
@@ -103,9 +93,6 @@ BIF_RETTYPE hipe_set_timeout(BIF_ALIST_1)
 {
     Process* p = BIF_P;
     Eterm timeout_value = BIF_ARG_1;
-#if !defined(ARCH_64)
-    Uint time_val;
-#endif
     /* XXX: This should be converted to follow BEAM conventions,
      * but that requires some compiler changes.
      *
@@ -113,7 +100,8 @@ BIF_RETTYPE hipe_set_timeout(BIF_ALIST_1)
      * p->def_arg_reg[0] and p->i are both defined and used.
      * If a message arrives, BEAM resumes at p->i.
      * If a timeout fires, BEAM resumes at p->def_arg_reg[0].
-     * (See set_timer() and timeout_proc() in erl_process.c.)
+     * (See erts_set_proc_timer() and proc_timeout_common() in
+     * erl_hl_timer.c.)
      *
      * Here we set p->def_arg_reg[0] to hipe_beam_pc_resume.
      * Assuming our caller invokes suspend immediately after
@@ -146,28 +134,21 @@ BIF_RETTYPE hipe_set_timeout(BIF_ALIST_1)
      */
     if (p->flags & (F_INSLPQUEUE | F_TIMO))
 	return NIL;	/* caller had better call nbif_suspend ASAP! */
-    if (is_small(timeout_value) && signed_val(timeout_value) >= 0 &&
-#if defined(ARCH_64)
-	(unsigned_val(timeout_value) >> 32) == 0
-#else
-	1
-#endif
-	) {
-	set_timer(p, unsigned_val(timeout_value));
-    } else if (timeout_value == am_infinity) {
+
+    if (timeout_value == am_infinity) {
 	/* p->flags |= F_TIMO; */	/* XXX: nbif_suspend_msg_timeout */
-#if !defined(ARCH_64)
-    } else if (term_to_Uint(timeout_value, &time_val)) {
-	set_timer(p, time_val);
-#endif
-    } else {
+    }
+    else {
+	int tres = erts_set_proc_timer_term(p, timeout_value);
+	if (tres != 0) { /* Wrong time */
 #ifdef ERTS_SMP
-	if (p->hipe_smp.have_receive_locks) {
-	    p->hipe_smp.have_receive_locks = 0;
-	    erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	}
+	    if (p->hipe_smp.have_receive_locks) {
+		p->hipe_smp.have_receive_locks = 0;
+		erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
+	    }
 #endif
-	BIF_ERROR(p, EXC_TIMEOUT_VALUE);
+	    BIF_ERROR(p, EXC_TIMEOUT_VALUE);
+	}
     }
     return NIL;	/* caller had better call nbif_suspend ASAP! */
 }
@@ -176,13 +157,22 @@ BIF_RETTYPE hipe_set_timeout(BIF_ALIST_1)
  */
 void hipe_select_msg(Process *p)
 {
-    ErlMessage *msgp;
+    ErtsMessage *msgp;
 
     msgp = PEEK_MESSAGE(p);
     UNLINK_MESSAGE(p, msgp);	/* decrements global 'erts_proc_tot_mem' variable */
     JOIN_MESSAGE(p);
-    CANCEL_TIMER(p);		/* calls erl_cancel_timer() */
-    free_message(msgp);
+    CANCEL_TIMER(p);		/* calls erts_cancel_proc_timer() */
+    erts_save_message_in_proc(p, msgp);
+    p->flags &= ~F_DELAY_GC;
+    if (ERTS_IS_GC_DESIRED(p)) {
+	/*
+	 * We want to GC soon but we leave a few
+	 * reductions giving the message some time
+	 * to turn into garbage.
+	 */
+	ERTS_VBUMP_LEAVE_REDS(p, 5);
+    }
 }
 
 void hipe_fclearerror_error(Process *p)
@@ -190,7 +180,7 @@ void hipe_fclearerror_error(Process *p)
 #if !defined(NO_FPE_SIGNALS)
     erts_fp_check_init_error(&p->fp_exception);
 #else
-    erl_exit(ERTS_ABORT_EXIT, "Emulated FPE not cleared by HiPE");
+    erts_exit(ERTS_ABORT_EXIT, "Emulated FPE not cleared by HiPE");
 #endif
 }
 
@@ -341,8 +331,6 @@ char *hipe_bs_allocate(int len)
     Binary *bptr;
 
     bptr = erts_bin_nrml_alloc(len);
-    bptr->flags = 0;
-    bptr->orig_size = len;
     erts_smp_atomic_init_nob(&bptr->refc, 1);
     return bptr->orig_bytes;
 }
@@ -352,7 +340,6 @@ Binary *hipe_bs_reallocate(Binary* oldbptr, int newsize)
     Binary *bptr;
 
     bptr = erts_bin_realloc(oldbptr, newsize);
-    bptr->orig_size = newsize;
     return bptr;
 }
 
@@ -526,12 +513,25 @@ int hipe_bs_validate_unicode_retract(ErlBinMatchBuffer* mb, Eterm arg)
     return 1;
 }
 
+BIF_RETTYPE hipe_is_divisible(BIF_ALIST_2)
+{
+    /* Arguments are Eterm-sized unsigned integers */
+    Uint dividend = BIF_ARG_1;
+    Uint divisor = BIF_ARG_2;
+    if (dividend % divisor) {
+	BIF_ERROR(BIF_P, BADARG);
+    } else {
+	return NIL;
+    }
+}
+
 /* This is like the loop_rec_fr BEAM instruction
  */
 Eterm hipe_check_get_msg(Process *c_p)
 {
-    Eterm ret;
-    ErlMessage *msgp;
+    ErtsMessage *msgp;
+
+    c_p->flags |= F_DELAY_GC;
 
  next_message:
 
@@ -553,25 +553,29 @@ Eterm hipe_check_get_msg(Process *c_p)
 	    /* XXX: BEAM doesn't need this */
 	    c_p->hipe_smp.have_receive_locks = 1;
 #endif
+	    c_p->flags &= ~F_DELAY_GC;
 	    return THE_NON_VALUE;
 #ifdef ERTS_SMP
 	}
 #endif
     }
-    ErtsMoveMsgAttachmentIntoProc(msgp, c_p, c_p->stop, HEAP_TOP(c_p),
-				  c_p->fcalls, (void) 0, (void) 0);
-    ret = ERL_MESSAGE_TERM(msgp);
-    if (is_non_value(ret)) {
+
+    if (is_non_value(ERL_MESSAGE_TERM(msgp))
+	&& !erts_decode_dist_message(c_p, ERTS_PROC_LOCK_MAIN, msgp, 0)) {
 	/*
 	 * A corrupt distribution message that we weren't able to decode;
 	 * remove it...
 	 */
 	ASSERT(!msgp->data.attached);
 	UNLINK_MESSAGE(c_p, msgp);
-	free_message(msgp);
+	msgp->next = NULL;
+	erts_cleanup_messages(msgp);
 	goto next_message;
     }
-    return ret;
+
+    ASSERT(is_value(ERL_MESSAGE_TERM(msgp)));
+
+    return ERL_MESSAGE_TERM(msgp);
 }
 
 /*
@@ -597,7 +601,7 @@ void hipe_clear_timeout(Process *c_p)
     }
 #endif
     if (IS_TRACED_FL(c_p, F_TRACE_RECEIVE)) {
-	trace_receive(c_p, am_timeout);
+	trace_receive(c_p, am_clock_service, am_timeout, NULL);
     }
     c_p->flags &= ~F_TIMO;
     JOIN_MESSAGE(c_p);

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -31,7 +32,7 @@
 
 -module(cerl_pmatch).
 
--define(NO_UNUSED, true).
+%%-define(NO_UNUSED, true).
 
 -export([clauses/2]).
 -ifndef(NO_UNUSED).
@@ -59,6 +60,8 @@
 %% @see transform/2
 
 -ifndef(NO_UNUSED).
+-spec core_transform(cerl:c_module(), [_]) -> cerl:c_module().
+
 core_transform(M, Opts) ->
     cerl:to_records(transform(cerl:from_records(M), Opts)).
 -endif.	% NO_UNUSED
@@ -76,6 +79,8 @@ core_transform(M, Opts) ->
 %% @see core_transform/2
 
 -ifndef(NO_UNUSED).
+-spec transform(cerl:cerl(), [_]) -> cerl:cerl().
+
 transform(M, _Opts) ->
   expr(M, env__empty()).
 -endif.	% NO_UNUSED
@@ -109,7 +114,7 @@ transform(M, _Opts) ->
 %% @see expr/2
 %% @see transform/2
 
--spec clauses([cerl:cerl()], rec_env:environment()) -> 
+-spec clauses([cerl:cerl(),...], rec_env:environment()) ->
           {cerl:cerl(), [cerl:cerl()]}.
 
 clauses(Cs, Env) ->
@@ -226,12 +231,9 @@ match_typegroup(T, V, Vs, Gs, Else, Env) ->
 		       Else, Env),
     typetest_clause(T, V, Body, Env).
 
-match_congroup({?binary_id, Segs}, Vs, Cs, _Else, Env) -> 
-    Ref = get_unique(),
-    Guard = cerl:c_primop(cerl:c_atom(set_label), [cerl:c_int(Ref)]),
-    NewElse = cerl:c_primop(cerl:c_atom(goto_label), [cerl:c_int(Ref)]),
-    Body = match(Vs, Cs, NewElse, Env),
-    cerl:c_clause([make_pat(?binary_id, Segs)], Guard, Body);
+match_congroup({?binary_id, Segs}, Vs, Cs, Else, Env) ->
+    Body = match(Vs, Cs, Else, Env),
+    cerl:c_clause([make_pat(?binary_id, Segs)], Body);
 
 match_congroup({D, A}, Vs, Cs, Else, Env) ->
     Vs1 = new_vars(A, Env),
@@ -406,8 +408,19 @@ make_let(Vs, A, B) ->
 %% @see rec_env
 
 -ifndef(NO_UNUSED).
+-spec expr(cerl:cerl(), rec_env:environment()) -> cerl:cerl().
+
 expr(E, Env) ->
     case cerl:type(E) of
+        binary ->
+            Es = expr_list(cerl:binary_segments(E), Env),
+            cerl:update_c_binary(E, Es);
+        bitstr ->
+            V = expr(cerl:bitstr_val(E), Env),
+            Sz = expr(cerl:bitstr_size(E), Env),
+            Unit = expr(cerl:bitstr_unit(E), Env),
+            Type = expr(cerl:bitstr_type(E), Env),
+            cerl:update_c_bitstr(E, V, Sz, Unit, Type, cerl:bitstr_flags(E));
  	literal ->
 	    E;
 	var ->
@@ -576,16 +589,6 @@ is_simple(E) ->
 	_ -> false
     end.
 
-
-get_unique() ->
-  case get(unique_label) of
-    undefined ->
-      put(unique_label, 1),
-      0;
-    N ->
-      put(unique_label, N+1),
-      N
-  end.
 
 %% ---------------------------------------------------------------------
 %% Abstract datatype: environment()

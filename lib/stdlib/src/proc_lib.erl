@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -29,8 +30,10 @@
 	 start/3, start/4, start/5, start_link/3, start_link/4, start_link/5,
 	 hibernate/3,
 	 init_ack/1, init_ack/2,
-	 init_p/3,init_p/5,format/1,format/2,initial_call/1,
-         translate_initial_call/1]).
+	 init_p/3,init_p/5,format/1,format/2,format/3,
+	 initial_call/1,
+         translate_initial_call/1,
+	 stop/1, stop/3]).
 
 %% Internal exports.
 -export([wake_up/3]).
@@ -40,12 +43,19 @@
 %%-----------------------------------------------------------------------------
 
 -type priority_level() :: 'high' | 'low' | 'max' | 'normal'.
+-type max_heap_size()  :: non_neg_integer() |
+                          #{ size => non_neg_integer(),
+                             kill => true,
+                             error_logger => true}.
 -type spawn_option()   :: 'link'
                         | 'monitor'
                         | {'priority', priority_level()}
+                        | {'max_heap_size', max_heap_size()}
                         | {'min_heap_size', non_neg_integer()}
                         | {'min_bin_vheap_size', non_neg_integer()}
-                        | {'fullsweep_after', non_neg_integer()}.
+                        | {'fullsweep_after', non_neg_integer()}
+                        | {'message_queue_data',
+                             'off_heap' | 'on_heap' | 'mixed' }.
 
 -type dict_or_pid()    :: pid()
                         | (ProcInfo :: [_])
@@ -216,10 +226,8 @@ ensure_link(SpawnOpts) ->
 
 init_p(Parent, Ancestors, Fun) when is_function(Fun) ->
     put('$ancestors', [Parent|Ancestors]),
-    {module,Mod} = erlang:fun_info(Fun, module),
-    {name,Name} = erlang:fun_info(Fun, name),
-    {arity,Arity} = erlang:fun_info(Fun, arity),
-    put('$initial_call', {Mod,Name,Arity}),
+    Mfa = erlang:fun_info_mfa(Fun),
+    put('$initial_call', Mfa),
     try
 	Fun()
     catch
@@ -471,16 +479,12 @@ trans_init(gen,init_it,[gen_server,_,_,supervisor_bridge,[Module|_],_]) ->
     {supervisor_bridge,Module,1};
 trans_init(gen,init_it,[gen_server,_,_,_,supervisor_bridge,[Module|_],_]) ->
     {supervisor_bridge,Module,1};
-trans_init(gen,init_it,[gen_server,_,_,Module,_,_]) ->
-    {Module,init,1};
-trans_init(gen,init_it,[gen_server,_,_,_,Module|_]) ->
-    {Module,init,1};
-trans_init(gen,init_it,[gen_fsm,_,_,Module,_,_]) ->
-    {Module,init,1};
-trans_init(gen,init_it,[gen_fsm,_,_,_,Module|_]) ->
-    {Module,init,1};
 trans_init(gen,init_it,[gen_event|_]) ->
     {gen_event,init_it,6};
+trans_init(gen,init_it,[_GenMod,_,_,Module,_,_]) when is_atom(Module) ->
+    {Module,init,1};
+trans_init(gen,init_it,[_GenMod,_,_,_,Module|_]) when is_atom(Module) ->
+    {Module,init,1};
 trans_init(M, F, A) when is_atom(M), is_atom(F) ->
     {M,F,length(A)}.
 
@@ -700,53 +704,118 @@ format(CrashReport) ->
       CrashReport :: [term()],
       Encoding :: latin1 | unicode | utf8.
 
-format([OwnReport,LinkReport], Encoding) ->
-    OwnFormat = format_report(OwnReport, Encoding),
-    LinkFormat = format_report(LinkReport, Encoding),
+format(CrashReport, Encoding) ->
+    format(CrashReport, Encoding, unlimited).
+
+-spec format(CrashReport, Encoding, Depth) -> string() when
+      CrashReport :: [term()],
+      Encoding :: latin1 | unicode | utf8,
+      Depth :: unlimited | pos_integer().
+
+format([OwnReport,LinkReport], Encoding, Depth) ->
+    Extra = {Encoding,Depth},
+    OwnFormat = format_report(OwnReport, Extra),
+    LinkFormat = format_report(LinkReport, Extra),
     Str = io_lib:format("  crasher:~n~ts  neighbours:~n~ts",
                         [OwnFormat, LinkFormat]),
     lists:flatten(Str).
 
-format_report(Rep, Enc) when is_list(Rep) ->
-    format_rep(Rep,Enc);
-format_report(Rep, Enc) ->
+format_report(Rep, Extra) when is_list(Rep) ->
+    format_rep(Rep, Extra);
+format_report(Rep, {Enc,_}) ->
     io_lib:format("~"++modifier(Enc)++"p~n", [Rep]).
 
-format_rep([{initial_call,InitialCall}|Rep], Enc) ->
-    [format_mfa(InitialCall)|format_rep(Rep, Enc)];
-format_rep([{error_info,{Class,Reason,StackTrace}}|Rep], Enc) ->
-    [format_exception(Class, Reason, StackTrace, Enc)|format_rep(Rep, Enc)];
-format_rep([{Tag,Data}|Rep], Enc) ->
-    [format_tag(Tag, Data)|format_rep(Rep, Enc)];
-format_rep(_, _Enc) ->
+format_rep([{initial_call,InitialCall}|Rep], {_Enc,Depth}=Extra) ->
+    [format_mfa(InitialCall, Depth)|format_rep(Rep, Extra)];
+format_rep([{error_info,{Class,Reason,StackTrace}}|Rep], Extra) ->
+    [format_exception(Class, Reason, StackTrace, Extra)|format_rep(Rep, Extra)];
+format_rep([{Tag,Data}|Rep], Extra) ->
+    [format_tag(Tag, Data, Extra)|format_rep(Rep, Extra)];
+format_rep(_, _Extra) ->
     [].
 
-format_exception(Class, Reason, StackTrace, Enc) ->
-    PF = pp_fun(Enc),
+format_exception(Class, Reason, StackTrace, {Enc,_}=Extra) ->
+    PF = pp_fun(Extra),
     StackFun = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
     %% EI = "    exception: ",
     EI = "    ",
     [EI, lib:format_exception(1+length(EI), Class, Reason, 
                               StackTrace, StackFun, PF, Enc), "\n"].
 
-format_mfa({M,F,Args}=StartF) ->
+format_mfa({M,F,Args}=StartF, Depth) ->
     try
 	A = length(Args),
 	["    initial call: ",atom_to_list(M),$:,atom_to_list(F),$/,
 	 integer_to_list(A),"\n"]
     catch
 	error:_ ->
-	    format_tag(initial_call, StartF)
+	    format_tag(initial_call, StartF, Depth)
     end.
 
-pp_fun(Enc) ->
-    P = modifier(Enc) ++ "p",
+pp_fun({Enc,Depth}) ->
+    {Letter,Tl} = case Depth of
+		      unlimited -> {"p",[]};
+		      _ -> {"P",[Depth]}
+		  end,
+    P = modifier(Enc) ++ Letter,
     fun(Term, I) -> 
-            io_lib:format("~." ++ integer_to_list(I) ++ P, [Term])
+            io_lib:format("~." ++ integer_to_list(I) ++ P, [Term|Tl])
     end.
 
-format_tag(Tag, Data) ->
-    io_lib:format("    ~p: ~80.18p~n", [Tag, Data]).
+format_tag(Tag, Data, {_Enc,Depth}) ->
+    case Depth of
+	unlimited ->
+	    io_lib:format("    ~p: ~80.18p~n", [Tag, Data]);
+	_ ->
+	    io_lib:format("    ~p: ~80.18P~n", [Tag, Data, Depth])
+    end.
 
 modifier(latin1) -> "";
 modifier(_) -> "t".
+
+
+%%% -----------------------------------------------------------
+%%% Stop a process and wait for it to terminate
+%%% -----------------------------------------------------------
+-spec stop(Process) -> 'ok' when
+      Process :: pid() | RegName | {RegName,node()},
+      RegName :: atom().
+stop(Process) ->
+    stop(Process, normal, infinity).
+
+-spec stop(Process, Reason, Timeout) -> 'ok' when
+      Process :: pid() | RegName | {RegName,node()},
+      RegName :: atom(),
+      Reason :: term(),
+      Timeout :: timeout().
+stop(Process, Reason, Timeout) ->
+    {Pid, Mref} = erlang:spawn_monitor(do_stop(Process, Reason)),
+    receive
+	{'DOWN', Mref, _, _, Reason} ->
+	    ok;
+	{'DOWN', Mref, _, _, {noproc,{sys,terminate,_}}} ->
+	    exit(noproc);
+	{'DOWN', Mref, _, _, CrashReason} ->
+	    exit(CrashReason)
+    after Timeout ->
+	    exit(Pid, kill),
+	    receive
+		{'DOWN', Mref, _, _, _} ->
+		    exit(timeout)
+	    end
+    end.
+
+-spec do_stop(Process, Reason) -> Fun when
+      Process :: pid() | RegName | {RegName,node()},
+      RegName :: atom(),
+      Reason :: term(),
+      Fun :: fun(() -> no_return()).
+do_stop(Process, Reason) ->
+    fun() ->
+	    Mref = erlang:monitor(process, Process),
+	    ok = sys:terminate(Process, Reason, infinity),
+	    receive
+		{'DOWN', Mref, _, _, ExitReason} ->
+		    exit(ExitReason)
+	    end
+    end.

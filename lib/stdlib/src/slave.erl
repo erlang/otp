@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -128,7 +129,7 @@ relay1(Pid) ->
 %%	    {error, {already_running, Name@Host}}
 
 -spec start(Host) -> {ok, Node} | {error, Reason} when
-      Host :: atom(),
+      Host :: inet:hostname(),
       Node :: node(),
       Reason :: timeout | no_rsh | {already_running, Node}.
 
@@ -138,8 +139,8 @@ start(Host) ->
     start(Host, Name, [], no_link).
 
 -spec start(Host, Name) -> {ok, Node} | {error, Reason} when
-      Host :: atom(),
-      Name :: atom(),
+      Host :: inet:hostname(),
+      Name :: atom() | string(),
       Node :: node(),
       Reason :: timeout | no_rsh | {already_running, Node}.
 
@@ -147,8 +148,8 @@ start(Host, Name) ->
     start(Host, Name, []).
 
 -spec start(Host, Name, Args) -> {ok, Node} | {error, Reason} when
-      Host :: atom(),
-      Name :: atom(),
+      Host :: inet:hostname(),
+      Name :: atom() | string(),
       Args :: string(),
       Node :: node(),
       Reason :: timeout | no_rsh | {already_running, Node}.
@@ -157,7 +158,7 @@ start(Host, Name, Args) ->
     start(Host, Name, Args, no_link).
 
 -spec start_link(Host) -> {ok, Node} | {error, Reason} when
-      Host :: atom(),
+      Host :: inet:hostname(),
       Node :: node(),
       Reason :: timeout | no_rsh | {already_running, Node}.
 
@@ -167,8 +168,8 @@ start_link(Host) ->
     start(Host, Name, [], self()).
 
 -spec start_link(Host, Name) -> {ok, Node} | {error, Reason} when
-      Host :: atom(),
-      Name :: atom(),
+      Host :: inet:hostname(),
+      Name :: atom() | string(),
       Node :: node(),
       Reason :: timeout | no_rsh | {already_running, Node}.
 
@@ -176,8 +177,8 @@ start_link(Host, Name) ->
     start_link(Host, Name, []).
 
 -spec start_link(Host, Name, Args) -> {ok, Node} | {error, Reason} when
-      Host :: atom(),
-      Name :: atom(),
+      Host :: inet:hostname(),
+      Name :: atom() | string(),
       Args :: string(),
       Node :: node(),
       Reason :: timeout | no_rsh | {already_running, Node}.
@@ -210,7 +211,6 @@ start(Host0, Name, Args, LinkTo, Prog) ->
       Node :: node().
 
 stop(Node) ->
-%    io:format("stop(~p)~n", [Node]),
     rpc:call(Node, erlang, halt, []),
     ok.
 
@@ -229,7 +229,6 @@ wait_for_slave(Parent, Host, Name, Node, Args, LinkTo, Prog) ->
     Waiter = register_unique_name(0),
     case mk_cmd(Host, Name, Args, Waiter, Prog) of
 	{ok, Cmd} ->
-%%	    io:format("Command: ~ts~n", [Cmd]),
 	    open_port({spawn, Cmd}, [stream]),
 	    receive
 		{SlavePid, slave_started} ->
@@ -289,7 +288,8 @@ register_unique_name(Number) ->
 %% If the node should run on the local host, there is
 %% no need to use rsh.
 
-mk_cmd(Host, Name, Args, Waiter, Prog) ->
+mk_cmd(Host, Name, Args, Waiter, Prog0) ->
+    Prog = quote_progname(Prog0),
     BasicCmd = lists:concat([Prog,
 			     " -detached -noinput -master ", node(),
 			     " ", long_or_short(), Name, "@", Host,
@@ -307,6 +307,31 @@ mk_cmd(Host, Name, Args, Waiter, Prog) ->
 		Other ->
 		    Other
 	    end
+    end.
+
+%% This is an attempt to distinguish between spaces in the program
+%% path and spaces that separate arguments. The program is quoted to
+%% allow spaces in the path.
+%%
+%% Arguments could exist either if the executable is excplicitly given
+%% (through start/5) or if the -program switch to beam is used and
+%% includes arguments (typically done by cerl in OTP test environment
+%% in order to ensure that slave/peer nodes are started with the same
+%% emulator and flags as the test node. The return from lib:progname()
+%% could then typically be '/<full_path_to>/cerl -gcov').
+quote_progname(Progname) ->
+    do_quote_progname(string:tokens(to_list(Progname)," ")).
+
+do_quote_progname([Prog]) ->
+    "\""++Prog++"\"";
+do_quote_progname([Prog,Arg|Args]) ->
+    case os:find_executable(Prog) of
+	false ->
+	    do_quote_progname([Prog++" "++Arg | Args]);
+	_ ->
+	    %% this one has an executable - we assume the rest are arguments
+	    "\""++Prog++"\""++
+		lists:flatten(lists:map(fun(X) -> [" ",X] end, [Arg|Args]))
     end.
 
 %% Give the user an opportunity to run another program,

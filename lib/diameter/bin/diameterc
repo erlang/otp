@@ -4,18 +4,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -50,13 +51,10 @@ usage() ->
       "      -i dir    = set an include directory for inherited beams~n"
       "      -E        = no .erl output~n"
       "      -H        = no .hrl output~n"
-      "      -d        = write intermediate files (.spec and .forms)~n",
+      "      -d        = write intermediate files (.D and .F)~n",
       [?MODULE]).
 
 main(Args) ->
-    %% Add the ebin directory relative to the script path.
-    BinDir = filename:dirname(escript:script_name()),
-    code:add_path(filename:join([BinDir, "..", "ebin"])),
     halt(gen(Args)).
 
 gen(Args) ->
@@ -72,25 +70,18 @@ gen(Args) ->
             1
     end.
 
-compile(#argv{file = File, options = Opts} = A) ->
-    try diameter_dict_util:parse({path, File}, Opts) of
-        {ok, Spec} ->
-            maybe_output(A, Spec, Opts, spec), %% the spec file
-            maybe_output(A, Spec, Opts, erl),  %% the erl file
-            maybe_output(A, Spec, Opts, hrl),  %% The hrl file
+compile(#argv{file = File, options = Opts, output = Out}) ->
+    try diameter_make:codec({path, File}, Opts ++ Out) of
+        ok ->
             0;
         {error, Reason} ->
-            error_msg(diameter_dict_util:format_error(Reason), []),
+            error_msg(diameter_make:format_error(Reason), []),
             1
     catch
         error: Reason ->
             error_msg("ERROR: ~p~n  ~p", [Reason, erlang:get_stacktrace()]),
             2
     end.
-
-maybe_output(#argv{file = File, output = Output}, Spec, Opts, Mode) ->
-    lists:member(Mode, Output)
-        andalso diameter_codegen:from_dict(File, Spec, Opts, Mode).
 
 error_msg({Fmt, Args}) ->
     error_msg(Fmt, Args).
@@ -119,8 +110,9 @@ arg(["-o", Dir | Args], #argv{options = Opts} = A) ->
     true = dir_exists(Dir),
     arg(Args, A#argv{options = [{outdir, Dir} | Opts]});
 
-arg(["-i", Dir | Args], #argv{options = Opts} = A) ->
-    arg(Args, A#argv{options = Opts ++ [{include, Dir}]});
+arg(["-i", Dir | Args], #argv{} = A) ->
+    code:add_patha(Dir), %% Set path here instead of passing an include
+    arg(Args, A);        %% option so it's set before calling diameter_make.
 
 arg(["--name", Name | Args], #argv{options = Opts} = A) ->
     arg(Args, A#argv{options = [{name, Name} | Opts]});
@@ -137,9 +129,8 @@ arg(["-E" | Args], #argv{output = Output} = A) ->
 arg(["-H" | Args], #argv{output = Output} = A) ->
     arg(Args, A#argv{output = lists:delete(hrl, Output)});
 
-arg(["-d" | Args], #argv{options = Opts, output = Output} = A) ->
-    arg(Args, A#argv{options = [debug | Opts],
-                     output = [spec | Output]});
+arg(["-d" | Args], #argv{output = Output} = A) ->
+    arg(Args, A#argv{output = [parse, forms | Output -- [parse, forms]]});
 
 arg([[$- = M, C, H | T] | Args], A)  %% clustered options
   when C /= $i, C /= $o, C /= $- ->

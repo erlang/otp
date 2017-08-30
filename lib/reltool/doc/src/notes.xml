@@ -1,24 +1,25 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
       <year>2009</year>
-      <year>2013</year>
+      <year>2016</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
-  The contents of this file are subject to the Erlang Public License,
-  Version 1.1, (the "License"); you may not use this file except in
-  compliance with the License. You should have received a copy of the
-  Erlang Public License along with this software. If not, it can be
-  retrieved online at http://www.erlang.org/.
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+ 
+      http://www.apache.org/licenses/LICENSE-2.0
 
-  Software distributed under the License is distributed on an "AS IS"
-  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-  the License for the specific language governing rights and limitations
-  under the License.
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
 
   The Initial Developer of the Original Code is Ericsson AB.
       </legalnotice>
@@ -37,7 +38,119 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.6.4</title>
+  <section><title>Reltool 0.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Modify the code as motivated by a change of the
+	    Erlang Parser (<c>undefined</c> is no longer
+	    automatically inserted to the type of record fields
+	    without an initializer). </p>
+          <p>
+	    Own Id: OTP-13033 Aux Id: OTP-12719 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Change license text from Erlang Public License to Apache
+	    Public License v2</p>
+          <p>
+	    Own Id: OTP-12845</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.6.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a minor typo in an error message from
+	    reltool_server.</p>
+          <p>
+	    Own Id: OTP-11977</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    When adding a regexp to a filter in reltool using
+	    {add,Regexp}, and the existing regexp was undefined,
+	    reltool would crash since it got an improper list. This
+	    has been corrected. (Thanks to Håkan Mattsson)</p>
+          <p>
+	    Own Id: OTP-11591</p>
+        </item>
+        <item>
+          <p>
+	    Adapted reltool test server to common test usage of
+	    tc_status. (Note that this code is not used by OTP daily
+	    test runs.) (Thanks to Håkan Mattsson)</p>
+          <p>
+	    Own Id: OTP-11592</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.6.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The encoding of the <c>notes.xml</c> file has been
+	    changed from latin1 to utf-8 to avoid future merge
+	    problems.</p>
+          <p>
+	    Own Id: OTP-11310</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.6.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -61,7 +174,7 @@
 	    even if the application was explicitly excluded in the
 	    config. This has been changed and will only produce a
 	    warning. If the application is not explicitly excluded it
-	    will still cause reltool to fail. Thanks to H�kan
+	    will still cause reltool to fail. Thanks to Håkan
 	    Mattsson!</p>
           <p>
 	    Own Id: OTP-10988</p>
@@ -98,7 +211,6 @@
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
-          <p>
 	    <list> <item> If <c>incl_cond</c> was set to
 	    <c>derived</c> on module level, then reltool_server would
 	    crash with a <c>case_clause</c>. This has been corrected.
@@ -129,7 +241,7 @@
 	    implemented in reltool. </item> <item> Instead of only
 	    looking at the directory name, reltool now first looks
 	    for a <c>.app</c> file in order to figure out the name of
-	    an application. </item> </list></p>
+	    an application. </item> </list>
           <p>
 	    Own Id: OTP-10012 Aux Id: kunagi-171 [82] </p>
         </item>
@@ -176,7 +288,6 @@
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
-          <p>
 	    Miscellaneous corrections: <list> <item> Start of reltool
 	    GUI would sometimes crash with a badmatch in
 	    reltool_sys_win:do_init. This has been corrected. </item>
@@ -215,7 +326,7 @@
 	    and when generating target system. </item> <item> Title
 	    of dependecies column in app and mod window is changed
 	    from "Modules used by others" to "Modules using this".
-	    </item> </list></p>
+	    </item> </list>
           <p>
 	    Own Id: OTP-9792</p>
         </item>
@@ -242,7 +353,7 @@
         </item>
         <item>
           <p>
-	    Some bug fixes related to the handling of escripts:
+	    Some bug fixes related to the handling of escripts:</p>
 	    <list> <item> Reltool could not handle escripts with
 	    inlined applications. This has been corrected. Inlined
 	    applications will be visible in the GUI, but not possible
@@ -261,7 +372,7 @@
 	    another escript, for which the name sorts before the
 	    existing one, would cause reltool to fail saying
 	    "Application name clash". This has been corrected.
-	    </item> </list></p>
+	    </item> </list>
           <p>
 	    Own Id: OTP-9968</p>
         </item>

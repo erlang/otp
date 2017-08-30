@@ -1,18 +1,19 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2012-2013. All Rights Reserved.
+# Copyright Ericsson AB 2012-2016. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -88,7 +89,7 @@ $(TARGET_FILES): $(HRL_FILES)
 # Special Build Targets
 # ----------------------------------------------------
 $(ASN1_HRL): ../asn1/$(ASN1_FILES)
-	$(asn_verbose)$(ERLC) -o $(EBIN) -bber $(ERL_COMPILE_FLAGS) ../asn1/ELDAPv3.asn1
+	$(asn_verbose)$(ERLC) -o $(EBIN) +legacy_erlang_types -bber $(ERL_COMPILE_FLAGS) ../asn1/ELDAPv3.asn1
 
 # ----------------------------------------------------
 # Release Target
@@ -97,7 +98,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
-	$(INSTALL_DATA) $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DATA) $(ASN1_HRL) $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src"
 	$(INSTALL_DATA) $(ERL_FILES) "$(RELSYSDIR)/src"
 	$(INSTALL_DIR) "$(RELSYSDIR)/asn1"

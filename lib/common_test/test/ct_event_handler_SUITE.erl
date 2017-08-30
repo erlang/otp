@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -29,6 +30,7 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/src/ct_util.hrl").
 
 %-include_lib("common_test/include/ct_event.hrl").
 
@@ -59,7 +61,7 @@ end_per_testcase(TestCase, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [start_stop, results].
+    [start_stop, results, event_mgrs].
 
 groups() -> 
     [].
@@ -156,24 +158,39 @@ results(Config) when is_list(Config) ->
     TestEvents =
 	[{eh_A,start_logging,{'DEF','RUNDIR'}},
 	 {eh_A,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-	 {eh_A,start_info,{1,1,3}},
+	 {eh_A,start_info,{1,1,5}},
 	 {eh_A,tc_start,{eh_11_SUITE,init_per_suite}},
 	 {eh_A,tc_done,{eh_11_SUITE,init_per_suite,ok}},
-	 {eh_A,tc_start,{eh_11_SUITE,tc1}},
-	 {eh_A,tc_done,{eh_11_SUITE,tc1,ok}},
-	 {eh_A,test_stats,{1,0,{0,0}}},
-	 {eh_A,tc_start,{eh_11_SUITE,tc2}},
-	 {eh_A,tc_done,{eh_11_SUITE,tc2,{skipped,"Skipped"}}},
-	 {eh_A,test_stats,{1,0,{1,0}}},
-	 {eh_A,tc_start,{eh_11_SUITE,tc3}},
-	 {eh_A,tc_done,{eh_11_SUITE,tc3,{failed,{error,'Failing'}}}},
-	 {eh_A,test_stats,{1,1,{1,0}}},
+	 [{eh_A,tc_start,{eh_11_SUITE,{init_per_group,g1,[]}}},
+	  {eh_A,tc_done,{eh_11_SUITE,{init_per_group,g1,[]},ok}},
+	  {eh_A,tc_start,{eh_11_SUITE,tc1}},
+	  {eh_A,tc_done,{eh_11_SUITE,tc1,ok}},
+	  {eh_A,test_stats,{1,0,{0,0}}},
+	  {eh_A,tc_start,{eh_11_SUITE,tc2}},
+	  {eh_A,tc_done,{eh_11_SUITE,tc2,ok}},
+	  {eh_A,test_stats,{2,0,{0,0}}},
+	  {eh_A,tc_start,{eh_11_SUITE,tc3}},
+	  {eh_A,tc_done,{eh_11_SUITE,tc3,{skipped,"Skip"}}},
+	  {eh_A,test_stats,{2,0,{1,0}}},
+	  {eh_A,tc_start,{eh_11_SUITE,tc4}},
+	  {eh_A,tc_done,{eh_11_SUITE,tc4,{skipped,"Skipped"}}},
+	  {eh_A,test_stats,{2,0,{2,0}}},
+	  {eh_A,tc_start,{eh_11_SUITE,tc5}},
+	  {eh_A,tc_done,{eh_11_SUITE,tc5,{failed,{error,'Failing'}}}},
+	  {eh_A,test_stats,{2,1,{2,0}}},
+	  {eh_A,tc_start,{eh_11_SUITE,{end_per_group,g1,[]}}},
+	  {eh_A,tc_done,{eh_11_SUITE,{end_per_group,g1,[]},ok}}],
 	 {eh_A,tc_start,{eh_11_SUITE,end_per_suite}},
 	 {eh_A,tc_done,{eh_11_SUITE,end_per_suite,ok}},
 	 {eh_A,test_done,{'DEF','STOP_TIME'}},
 	 {eh_A,stop_logging,[]}],
 
     ok = ct_test_support:verify_events(TestEvents++TestEvents, Events, Config).
+
+
+event_mgrs(_) ->
+    ?CT_EVMGR_REF = ct:get_event_mgr_ref(),
+    ?CT_MEVMGR_REF = ct_master:get_event_mgr_ref().
 
 
 %%%-----------------------------------------------------------------

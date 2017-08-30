@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -118,7 +119,7 @@ void epmd_call(EpmdVars *g,int what)
     if (!g->silent) {
 	rval = erts_snprintf(buf, OUTBUF_SIZE,
 			     "epmd: up and running on port %d with data:\n", j);
-	write(1, buf, rval);
+	fwrite(buf, 1, rval, stdout);
     }
     while(1) {
 	if ((rval = read(fd,buf,OUTBUF_SIZE)) <= 0)  {
@@ -126,7 +127,7 @@ void epmd_call(EpmdVars *g,int what)
 	    epmd_cleanup_exit(g,0);
 	}
 	if (!g->silent)
-	    write(1, buf, rval); /* Potentially UTF-8 encoded */
+	    fwrite(buf, 1, rval, stdout); /* Potentially UTF-8 encoded */
     }
 }
 
@@ -135,19 +136,33 @@ void epmd_call(EpmdVars *g,int what)
 static int conn_to_epmd(EpmdVars *g)
 {
     struct EPMD_SOCKADDR_IN address;
+    size_t salen = 0;
     int connect_sock;
-    
-    connect_sock = socket(FAMILY, SOCK_STREAM, 0);
+    unsigned short sport = g->port;
+
+#if defined(EPMD6)
+    SET_ADDR6(address, in6addr_loopback, sport);
+    salen = sizeof(struct sockaddr_in6);
+
+    connect_sock = socket(AF_INET6, SOCK_STREAM, 0);
+    if (connect_sock>=0) {
+
+    if (connect(connect_sock, (struct sockaddr*)&address, salen) == 0)
+	return connect_sock;
+
+    close(connect_sock);
+    }
+#endif
+    SET_ADDR(address, htonl(INADDR_LOOPBACK), sport);
+    salen = sizeof(struct sockaddr_in);
+
+    connect_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (connect_sock<0)
 	goto error;
 
-    { /* store port number in unsigned short */
-      unsigned short sport = g->port;
-      SET_ADDR(address, EPMD_ADDR_LOOPBACK, sport);
-    }
-
-    if (connect(connect_sock, (struct sockaddr*)&address, sizeof address) < 0) 
+    if (connect(connect_sock, (struct sockaddr*)&address, salen) < 0)
 	goto error;
+
     return connect_sock;
 
  error:

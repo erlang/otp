@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -51,6 +52,7 @@
 	 force_load_table/1,
 	 async_dump_log/1,
 	 sync_dump_log/1,
+	 snapshot_dcd/1,
 	 connect_nodes/1,
          connect_nodes/2,
 	 wait_for_schema_commit_lock/0,
@@ -76,7 +78,7 @@
 	 change_table_majority/1,
 	 del_active_replica/2,
 	 wait_for_tables/2,
-	 get_network_copy/2,
+	 get_network_copy/3,
 	 merge_schema/0,
 	 start_remote_sender/4,
 	 schedule_late_disc_load/2
@@ -139,7 +141,8 @@ max_loaders() ->
 -record(block_controller, {owner}).
 
 -record(dump_log, {initiated_by,
-		   opt_reply_to
+		   opt_reply_to,
+		   operation = dump_log
 		  }).
 
 -record(net_load, {table,
@@ -184,7 +187,7 @@ max_loaders() ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', Reason} -> mnesia_lib:other_val(Var, Reason);
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
 	Value -> Value
     end.
 
@@ -198,7 +201,17 @@ sync_dump_log(InitBy) ->
     call({sync_dump_log, InitBy}).
 
 async_dump_log(InitBy) ->
-    ?SERVER_NAME ! {async_dump_log, InitBy}.
+    ?SERVER_NAME ! {async_dump_log, InitBy},
+    ok.
+
+snapshot_dcd(Tables) when is_list(Tables) ->
+    case [T || T <- Tables,
+	       mnesia_lib:storage_type_at_node(node(), T) =/= disc_copies] of
+	[] ->
+	    call({snapshot_dcd, Tables});
+	BadTabs ->
+	    {error, {not_disc_copies, BadTabs}}
+    end.
 
 %% Wait for tables to be active
 %% If needed, we will wait for Mnesia to start
@@ -229,9 +242,7 @@ do_wait_for_tables(Tabs, Timeout) ->
     end.
 
 reply_wait(Tabs) ->
-    case catch mnesia_lib:active_tables() of
-	{'EXIT', _} ->
-	    {error, {node_not_running, node()}};
+    try mnesia_lib:active_tables() of
 	Active when is_list(Active) ->
 	    case Tabs -- Active of
 		[] ->
@@ -239,6 +250,7 @@ reply_wait(Tabs) ->
 		BadTabs ->
 		    {timeout, BadTabs}
 	    end
+    catch exit:_ -> {error, {node_not_running, node()}}
     end.
 
 wait_for_tables_init(From, Tabs) ->
@@ -249,13 +261,12 @@ wait_for_tables_init(From, Tabs) ->
     exit(normal).
 
 wait_for_init(From, Tabs, Init) ->
-    case catch link(Init) of
-	{'EXIT', _} ->
-	    %% Mnesia is not started
-	    {error, {node_not_running, node()}};
+    try link(Init) of
 	true when is_pid(Init) ->
 	    cast({sync_tabs, Tabs, self()}),
 	    rec_tabs(Tabs, Tabs, From, Init)
+    catch error:_ -> %% Mnesia is not started
+	    {error, {node_not_running, node()}}
     end.
 
 sync_reply(Waiter, Tab) ->
@@ -293,13 +304,19 @@ update(Fun) ->
 
 
 mnesia_down(Node) ->
-    case cast({mnesia_down, Node}) of
-	{error, _} -> mnesia_monitor:mnesia_down(?SERVER_NAME, Node);
-	_Pid ->  ok
+    case whereis(?SERVER_NAME) of
+	undefined -> mnesia_monitor:mnesia_down(?SERVER_NAME, Node);
+	Pid -> gen_server:cast(Pid, {mnesia_down, Node})
     end.
+
 wait_for_schema_commit_lock() ->
-    link(whereis(?SERVER_NAME)),
-    unsafe_call(wait_for_schema_commit_lock).
+    try
+	Pid = whereis(?SERVER_NAME),
+	link(Pid), %% Keep the link until release_schema_commit_lock
+	gen_server:call(Pid, wait_for_schema_commit_lock, infinity)
+    catch _:_ ->
+	    mnesia:abort({node_not_running, node()})
+    end.
 
 block_controller() ->
     call(block_controller).
@@ -312,20 +329,20 @@ release_schema_commit_lock() ->
     unlink(whereis(?SERVER_NAME)).
 
 %% Special for preparation of add table copy
-get_network_copy(Tab, Cs) ->
+get_network_copy(Tid, Tab, Cs) ->
 %   We can't let the controller queue this one
 %   because that may cause a deadlock between schema_operations
 %   and initial tableloadings which both takes schema locks.
 %   But we have to get copier_done msgs when the other side
 %   goes down.
     call({add_other, self()}),
-    Reason = {dumper,add_table_copy},
+    Reason = {dumper,{add_table_copy, Tid}},
     Work = #net_load{table = Tab,reason = Reason,cstruct = Cs},
     %% I'll need this cause it's linked trough the subscriber
     %% might be solved by using monitor in subscr instead.
     process_flag(trap_exit, true),
     Load = load_table_fun(Work),
-    Res = (catch Load()),
+    Res = ?CATCH(Load()),
     process_flag(trap_exit, false),
     call({del_other, self()}),
     case Res of
@@ -368,6 +385,8 @@ force_load_table(Tab) when is_atom(Tab), Tab /= schema ->
 	    do_force_load_table(Tab);
 	disc_only_copies ->
 	    do_force_load_table(Tab);
+        {ext, _, _} ->
+            do_force_load_table(Tab);
 	unknown ->
 	    set({Tab, load_by_force}, true),
 	    cast({force_load_updated, Tab}),
@@ -467,7 +486,7 @@ connect_nodes2(Father, Ns, UserFun) ->
     process_flag(trap_exit, true),
     Res = try_merge_schema(New, [], UserFun),
     Msg = {schema_is_merged, [], late_merge, []},
-    multicall([node()|Ns], Msg),
+    _ = multicall([node()|Ns], Msg),
     After = val({current, db_nodes}),
     Father ! {?MODULE, self(), Res, mnesia_lib:intersect(Ns,After)},
     unlink(Father),
@@ -548,18 +567,12 @@ schema_is_merged() ->
 
 cast(Msg) ->
     case whereis(?SERVER_NAME) of
-	undefined ->{error, {node_not_running, node()}};
+	undefined -> ok;
 	Pid ->  gen_server:cast(Pid, Msg)
     end.
 
 abcast(Nodes, Msg) ->
     gen_server:abcast(Nodes, ?SERVER_NAME, Msg).
-
-unsafe_call(Msg) ->
-    case whereis(?SERVER_NAME) of
-	undefined -> {error, {node_not_running, node()}};
-	Pid -> gen_server:call(Pid, Msg, infinity)
-    end.
 
 call(Msg) ->
     case whereis(?SERVER_NAME) of
@@ -580,11 +593,8 @@ call(Msg) ->
     end.
 
 remote_call(Node, Func, Args) ->
-    case catch gen_server:call({?MODULE, Node}, {Func, Args, self()}, infinity) of
-	{'EXIT', Error} ->
-	    {error, Error};
-	Else ->
-	    Else
+    try gen_server:call({?MODULE, Node}, {Func, Args, self()}, infinity)
+    catch exit:Error -> {error, Error}
     end.
 
 multicall(Nodes, Msg) ->
@@ -645,6 +655,15 @@ handle_call({sync_dump_log, InitBy}, From, State) ->
     State2 = add_worker(Worker, State),
     noreply(State2);
 
+handle_call({snapshot_dcd, Tables}, From, State) ->
+    Worker = #dump_log{initiated_by = user,
+		       opt_reply_to = From,
+		       operation = fun() ->
+					   mnesia_dumper:snapshot_dcd(Tables)
+				   end},
+    State2 = add_worker(Worker, State),
+    noreply(State2);
+
 handle_call(wait_for_schema_commit_lock, From, State) ->
     Worker = #schema_commit_lock{owner = From},
     State2 = add_worker(Worker, State),
@@ -656,7 +675,7 @@ handle_call(block_controller, From, State) ->
     noreply(State2);
 
 handle_call({update,Fun}, From, State) ->
-    Res = (catch Fun()),
+    Res = ?CATCH(Fun()),
     reply(From, Res),
     noreply(State);
 
@@ -758,7 +777,7 @@ handle_call({net_load, Tab, Cs}, From, State) ->
 	    true ->
 		Worker = #net_load{table = Tab,
 				   opt_reply_to = From,
-				   reason = {dumper,add_table_copy},
+				   reason = {dumper,{add_table_copy, unknown}},
 				   cstruct = Cs
 				  },
 		add_worker(Worker, State);
@@ -1163,11 +1182,11 @@ handle_info(Done = #loader_done{worker_pid=WPid, table_name=Tab}, State0) ->
 		    Done#loader_done.needs_announce == true,
 		    Done#loader_done.needs_reply == true ->
 			i_have_tab(Tab),
-			%% Should be {dumper,add_table_copy} only
+			%% Should be {dumper,{add_table_copy, _}} only
 			reply(Done#loader_done.reply_to,
 			      Done#loader_done.reply);
 		    Done#loader_done.needs_reply == true ->
-			%% Should be {dumper,add_table_copy} only
+			%% Should be {dumper,{add_table_copy,_}} only
 			reply(Done#loader_done.reply_to,
 			      Done#loader_done.reply);
 		    Done#loader_done.needs_announce == true, Tab == schema ->
@@ -1206,7 +1225,14 @@ handle_info(Done = #loader_done{worker_pid=WPid, table_name=Tab}, State0) ->
 			{value,{_,Worker}} = lists:keysearch(WPid,1,get_loaders(State0)),
 			add_loader(Tab,Worker,State1);
 		    _ ->
-			State1
+			DelState = State1#state{late_loader_queue=gb_trees:delete_any(Tab, LateQueue0)},
+			case ?catch_val({Tab, storage_type}) of
+			    ram_copies ->
+				cast({disc_load, Tab, ram_only}),
+				DelState;
+			    _ ->
+				DelState
+			end
 		end
 	end,
     State3 = opt_start_worker(State2),
@@ -1228,7 +1254,7 @@ handle_info(#sender_done{worker_pid=Pid, worker_res=Res}, State)  ->
     end;
 
 handle_info({'EXIT', Pid, R}, State) when Pid == State#state.supervisor ->
-    catch set(mnesia_status, stopping),
+    ?SAFE(set(mnesia_status, stopping)),
     case State#state.dumper_pid of
 	undefined ->
 	    dbg_out("~p was ~p~n", [?SERVER_NAME, R]),
@@ -1452,9 +1478,9 @@ orphan_tables([], _, _, LocalOrphans, RemoteMasters) ->
 
 node_has_tabs([Tab | Tabs], Node, State) when Node /= node() ->
     State2 =
-	case catch update_whereabouts(Tab, Node, State) of
-	    State1 = #state{} -> State1;
-	    {'EXIT', R} ->  %% Tab was just deleted?
+	try update_whereabouts(Tab, Node, State) of
+	    State1 = #state{} -> State1
+	catch exit:R -> %% Tab was just deleted?
 		case ?catch_val({Tab, cstruct}) of
 		    {'EXIT', _} -> State; % yes
 		    _ ->  erlang:error(R)
@@ -1509,8 +1535,8 @@ update_whereabouts(Tab, Node, State) ->
 	Storage == unknown ->
 	    %% No own copy, continue to read remotely
 	    add_active_replica(Tab, Node),
-	    NodeST = mnesia_lib:storage_type_at_node(Node, Tab),
-	    ReadST = mnesia_lib:storage_type_at_node(Read, Tab),
+	    NodeST = mnesia_lib:semantics(mnesia_lib:storage_type_at_node(Node, Tab), storage),
+	    ReadST = mnesia_lib:semantics(mnesia_lib:storage_type_at_node(Read, Tab), storage),
 	    if   %% Avoid reading from disc_only_copies
 		NodeST == disc_only_copies ->
 		    ignore;
@@ -1564,6 +1590,7 @@ last_consistent_replica(Tab, Downs) ->
     Ram = Cs#cstruct.ram_copies,
     Disc = Cs#cstruct.disc_copies,
     DiscOnly = Cs#cstruct.disc_only_copies,
+    Ext = Cs#cstruct.external_copies,
     BetterCopies0 = mnesia_lib:remote_copy_holders(Cs) -- Downs,
     BetterCopies = BetterCopies0 -- Ram,
     AccessMode = Cs#cstruct.access_mode,
@@ -1596,7 +1623,7 @@ last_consistent_replica(Tab, Downs) ->
 	    false;
 	Storage == ram_copies ->
 	    if
-		Disc == [], DiscOnly == [] ->
+		Disc == [], DiscOnly == [], Ext == [] ->
 		    %% Nobody has copy on disc
 		    {true, {Tab, ram_only}};
 		true ->
@@ -1740,22 +1767,17 @@ change_table_majority(Cs) ->
 
 update_where_to_wlock(Tab) ->
     WNodes = val({Tab, where_to_write}),
-    Majority = case catch val({Tab, majority}) of
-		   true -> true;
-		   _    -> false
-	       end,
+    Majority = ?catch_val({Tab, majority}) == true,
     set({Tab, where_to_wlock}, {WNodes, Majority}).
 
 %% node To now has tab loaded, but this must be undone
 %% This code is rpc:call'ed from the tab_copier process
 %% when it has *not* released it's table lock
 unannounce_add_table_copy(Tab, To) ->
-    catch del_active_replica(Tab, To),
-    case catch val({Tab , where_to_read}) of
-	To ->
-	    mnesia_lib:set_remote_where_to_read(Tab);
-	_ ->
-	    ignore
+    ?SAFE(del_active_replica(Tab, To)),
+    try To = val({Tab , where_to_read}),
+	 mnesia_lib:set_remote_where_to_read(Tab)
+    catch _:_ -> ignore
     end.
 
 user_sync_tab(Tab) ->
@@ -1789,7 +1811,7 @@ sync_and_block_table_whereabouts(Tab, ToNode, RemoteS, AccessMode) when Tab /= s
 	    true -> Current -- [ToNode];
 	    false -> Current
 	end,
-    remote_call(ToNode, block_table, [Tab]),
+    _ = remote_call(ToNode, block_table, [Tab]),
     [remote_call(Node, add_active_replica, [Tab, ToNode, RemoteS, AccessMode]) ||
 	Node <- [ToNode | Ns]],
     ok.
@@ -1846,6 +1868,11 @@ info([Tab | Tail]) ->
 			dets:info(Tab, size),
 			dets:info(Tab, file_size),
 			"bytes on disc");
+        {ext, Alias, Mod} ->
+            info_format(Tab,
+                        Mod:info(Alias, Tab, size),
+                        Mod:info(Alias, Tab, memory),
+                        "words of mem");
 	_ ->
 	    info_format(Tab,
 			?ets_info(Tab, size),
@@ -2081,7 +2108,12 @@ start_remote_sender(Node, Tab, Receiver, Storage) ->
 
 dump_and_reply(ReplyTo, Worker) ->
     %% No trap_exit, die intentionally instead
-    Res = mnesia_dumper:opt_dump_log(Worker#dump_log.initiated_by),
+    Res = case Worker#dump_log.operation of
+	      dump_log ->
+		  mnesia_dumper:opt_dump_log(Worker#dump_log.initiated_by);
+	      F when is_function(F, 0) ->
+		  F()
+	  end,
     ReplyTo ! #dumper_done{worker_pid = self(),
 			   worker_res = Res},
     unlink(ReplyTo),
@@ -2124,6 +2156,10 @@ load_table_fun(#net_load{cstruct=Cs, table=Tab, reason=Reason, opt_reply_to=Repl
 			reply_to = ReplyTo,
 			reply = {loaded, ok}
 		       },
+    AddTableCopy = case Reason of
+		       {dumper,{add_table_copy,_}} -> true;
+		       _ -> false
+		   end,
     if
 	ReadNode == node() ->
 	    %% Already loaded locally
@@ -2133,7 +2169,7 @@ load_table_fun(#net_load{cstruct=Cs, table=Tab, reason=Reason, opt_reply_to=Repl
 		    Res = mnesia_loader:disc_load_table(Tab, load_local_content),
 		    Done#loader_done{reply = Res, needs_announce = true, needs_sync = true}
 	    end;
-	AccessMode == read_only, Reason /= {dumper,add_table_copy} ->
+	AccessMode == read_only, not AddTableCopy ->
 	    fun() -> disc_load_table(Tab, Reason, ReplyTo) end;
 	true ->
 	    fun() ->

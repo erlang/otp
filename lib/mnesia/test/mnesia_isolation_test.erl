@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -38,7 +39,7 @@ groups() ->
     [{locking, [],
       [no_conflict, simple_queue_conflict,
        advanced_queue_conflict, simple_deadlock_conflict,
-       advanced_deadlock_conflict, lock_burst,
+       advanced_deadlock_conflict, schema_deadlock, lock_burst,
        {group, sticky_locks}, {group, unbound_locking},
        {group, admin_conflict}, nasty]},
      {sticky_locks, [], [basic_sticky_functionality]},
@@ -147,20 +148,32 @@ simple_queue_conflict(Config) when is_list(Config) ->
     fun_loop(Fun, AllSharedLocks, OneExclusiveLocks), 
     ok.
 
-wait_for_lock(Pid, _Nodes, 0) ->
+wait_for_lock(Pid, Nodes, Retry) ->
+    wait_for_lock(Pid, Nodes, Retry, queue).
+
+wait_for_lock(Pid, _Nodes, 0, queue) ->
     Queue = mnesia:system_info(lock_queue),
     ?error("Timeout while waiting for lock on Pid ~p in queue ~p~n", [Pid, Queue]);
-wait_for_lock(Pid, Nodes, N) ->
-    rpc:multicall(Nodes, sys, get_status, [mnesia_locker]), 
-    List = [rpc:call(Node, mnesia, system_info, [lock_queue]) || Node <- Nodes],
+wait_for_lock(Pid, _Nodes, 0, held) ->
+    Held = mnesia:system_info(held_locks),
+    ?error("Timeout while waiting for lock on Pid ~p (held) ~p~n", [Pid, Held]);
+wait_for_lock(Pid, Nodes, N, Where) ->
+    rpc:multicall(Nodes, sys, get_status, [mnesia_locker]),
+    List = case Where of
+	       queue ->
+		   [rpc:call(Node, mnesia, system_info, [lock_queue]) || Node <- Nodes];
+	       held ->
+		   [rpc:call(Node, mnesia, system_info, [held_locks]) || Node <- Nodes]
+           end,
     Q = lists:append(List),
-    check_q(Pid, Q, Nodes, N).
+    check_q(Pid, Q, Nodes, N, Where).
 
-check_q(Pid, [{_Oid, _Op, Pid, _Tid, _WFT} | _Tail], _N, _Count) -> ok;
-check_q(Pid, [_ | Tail], N, Count) -> check_q(Pid, Tail, N, Count);
-check_q(Pid, [], N, Count) ->
-    timer:sleep(500),
-    wait_for_lock(Pid, N, Count - 1).
+check_q(Pid, [{_Oid, _Op, Pid, _Tid, _WFT} | _Tail], _N, _Count, _Where) -> ok;
+check_q(Pid, [{_Oid, _Op, {tid,_,Pid}} | _Tail], _N, _Count, _Where) -> ok;
+check_q(Pid, [_ | Tail], N, Count, Where) -> check_q(Pid, Tail, N, Count, Where);
+check_q(Pid, [], N, Count, Where) ->
+    timer:sleep(200),
+    wait_for_lock(Pid, N, Count - 1, Where).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -268,6 +281,43 @@ advanced_deadlock_conflict(Config) when is_list(Config) ->
     ?match([], mnesia:system_info(held_locks)), 
     ?match([], mnesia:system_info(lock_queue)), 
     ok.
+
+%%  Verify (and regression test) deadlock in del_table_copy(schema, Node)
+schema_deadlock(Config) when is_list(Config) ->
+    Ns = [Node1, Node2] = ?acquire_nodes(2, Config),
+    ?match({atomic, ok}, mnesia:create_table(a, [{disc_copies, Ns}])),
+    ?match({atomic, ok}, mnesia:create_table(b, [{disc_copies, Ns}])),
+
+    Tester = self(),
+
+    Deadlocker = fun() ->
+			 mnesia:write({a,1,1}),  %% grab write lock on A
+			 receive
+			     continue ->
+				 mnesia:write({b,1,1}), %% grab write lock on B
+				 end_trans
+			 end
+		 end,
+
+    ?match(stopped, rpc:call(Node2, mnesia, stop, [])),
+    timer:sleep(500), %% Let Node1 reconfigure
+    sys:get_status(mnesia_monitor),
+
+    DoingTrans = spawn_link(fun() ->  Tester ! {self(),mnesia:transaction(Deadlocker)} end),
+    wait_for_lock(DoingTrans, [Node1], 10, held),
+    %% Will grab write locks on schema, a, and b
+    DoingSchema = spawn_link(fun() -> Tester ! {self(), mnesia:del_table_copy(schema, Node2)} end),
+    timer:sleep(500), %% Let schema trans start, and try to grab locks
+    DoingTrans ! continue,
+
+    ?match(ok, receive {DoingTrans,  {atomic, end_trans}} -> ok after 5000 -> timeout end),
+    ?match(ok, receive {DoingSchema,  {atomic, ok}} -> ok after 5000 -> timeout end),
+
+    sys:get_status(whereis(mnesia_locker)), % Explicit sync, release locks is async
+    ?match([], mnesia:system_info(held_locks)),
+    ?match([], mnesia:system_info(lock_queue)),
+    ok.
+
 
 one_oid(Tab) -> {Tab, 1}.
 other_oid(Tab) -> {Tab, 2}.
@@ -1126,7 +1176,9 @@ update_shared(Tab, Me, Acc) ->
 	0 -> 
 	    case mnesia:transaction(Update) of
 		{atomic, {ok,Term,W2}} ->
-		    io:format("~p:~p:(~p,~p) ~w@~w~n", [erlang:now(),node(),Me,Acc,Term,W2]),
+		    io:format("~p:~p:(~p,~p) ~w@~w~n",
+			      [erlang:unique_integer([monotonic,positive]),
+			       node(),Me,Acc,Term,W2]),
 		    update_shared(Tab, Me, Acc+1);
 		Else -> 
 		    ?error("Trans failed on ~p with ~p~n"
@@ -1584,7 +1636,8 @@ write_shadows(Config) when is_list(Config) ->
 
 		  ?match([RecA2], mnesia:read({Tab, a})), 
 		  ?match([RecA2], mnesia:wread({Tab, a})), 
-		  ?match([RecA2], mnesia:match_object(PatA2)), 		  %% delete shadow old but not new write - is the new value visable
+		   ?match([],      mnesia:match_object(PatA1)), %% delete shadow old but not new write
+		   ?match([RecA2], mnesia:match_object(PatA2)), %% is the new value visable
 
 		  ?match([a], mnesia:all_keys(Tab)), 
 		  ?match([RecA2], mnesia:index_match_object(PatA2, ValPos)), 
@@ -1643,6 +1696,7 @@ delete_shadows(Config) when is_list(Config) ->
 
 		  ?match([RecA2], mnesia:read({Tab, a})), 
 		  ?match([RecA2], mnesia:wread({Tab, a})), 
+		  ?match([],  mnesia:match_object(PatA1)),
 		  ?match([RecA2], mnesia:match_object(PatA2)), 
 		  ?match([a], mnesia:all_keys(Tab)), 
 		  ?match([RecA2], mnesia:index_match_object(PatA2, ValPos)), 

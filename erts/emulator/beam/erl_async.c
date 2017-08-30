@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -27,6 +28,7 @@
 #include "erl_thr_queue.h"
 #include "erl_async.h"
 #include "dtrace-wrapper.h"
+#include "lttng-wrapper.h"
 
 #define ERTS_MAX_ASYNC_READY_CALLS_IN_SEQ 20
 
@@ -175,7 +177,7 @@ erts_init_async(void)
 	ErtsThrQInit_t qinit = ERTS_THR_Q_INIT_DEFAULT;
 #endif
 	erts_thr_opts_t thr_opts = ERTS_THR_OPTS_DEFAULT_INITER;
-	char *ptr;
+	char *ptr, thr_name[16];
 	size_t tot_size = 0;
 	int i;
 
@@ -226,8 +228,13 @@ erts_init_async(void)
 	thr_opts.suggested_stack_size
 	    = erts_async_thread_suggested_stack_size;
 
+	thr_opts.name = thr_name;
+
 	for (i = 0; i < erts_async_max_threads; i++) {
 	    ErtsAsyncQ *aq = async_q(i);
+
+            erts_snprintf(thr_opts.name, 16, "async_%d", i+1);
+
 	    erts_thr_create(&aq->thr_id, async_main, (void*) aq, &thr_opts);
 	}
 
@@ -275,11 +282,19 @@ static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
 #endif
 
     erts_thr_q_enqueue(&q->thr_q, a);
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+    if (LTTNG_ENABLED(aio_pool_put)) {
+        lttng_decl_portbuf(port_str);
+        lttng_portid_to_str(a->port, port_str);
+        LTTNG2(aio_pool_put, port_str, -1);
+    }
+#endif
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(aio_pool_add)) {
         DTRACE_CHARBUF(port_str, 16);
 
-        erts_snprintf(port_str, sizeof(port_str), "%T", a->port);
+        erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
+                      "%T", a->port);
         /* DTRACE TODO: Get the queue length from erts_thr_q_enqueue() ? */
         len = -1;
         DTRACE2(aio_pool_add, port_str, len);
@@ -310,11 +325,20 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 	    if (saved_fin_deq)
 		erts_thr_q_append_finalize_dequeue_data(&a->q.fin_deq, &fin_deq);
 #endif
+#ifdef USE_LTTNG_VM_TRACEPOINTS
+            if (LTTNG_ENABLED(aio_pool_get)) {
+                lttng_decl_portbuf(port_str);
+                int length = erts_thr_q_length_dirty(q);
+                lttng_portid_to_str(a->port, port_str);
+                LTTNG2(aio_pool_get, port_str, length);
+            }
+#endif
 #ifdef USE_VM_PROBES
             if (DTRACE_ENABLED(aio_pool_get)) {
                 DTRACE_CHARBUF(port_str, 16);
 
-                erts_snprintf(port_str, sizeof(port_str), "%T", a->port);
+                erts_snprintf(port_str, sizeof(DTRACE_CHARBUF_NAME(port_str)),
+                              "%T", a->port);
                 /* DTRACE TODO: Get the length from erts_thr_q_dequeue() ? */
                 len = -1;
                 DTRACE2(aio_pool_get, port_str, len);
@@ -392,13 +416,19 @@ static ERTS_INLINE void call_async_ready(ErtsAsync *a)
 				     ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
 #endif
     if (!p) {
-	if (a->async_free)
+	if (a->async_free) {
+            ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_PORT);
 	    a->async_free(a->async_data);
+            ERTS_MSACC_POP_STATE();
+        }
     }
     else {
 	if (async_ready(p, a->async_data)) {
-	    if (a->async_free)
+	    if (a->async_free) {
+                ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_PORT);
 		a->async_free(a->async_data);
+                ERTS_MSACC_POP_STATE();
+            }
 	}
 #if ERTS_USE_ASYNC_READY_Q
 	erts_port_release(p);
@@ -452,6 +482,8 @@ static erts_tse_t *async_thread_init(ErtsAsyncQ *aq)
 {
     ErtsThrQInit_t qinit = ERTS_THR_Q_INIT_DEFAULT;
     erts_tse_t *tse = erts_tse_fetch();
+    ERTS_DECLARE_DUMMY(Uint no);
+
 #ifdef ERTS_SMP
     ErtsThrPrgrCallbacks callbacks;
 
@@ -475,9 +507,11 @@ static erts_tse_t *async_thread_init(ErtsAsyncQ *aq)
 
     /* Inform main thread that we are done initializing... */
     erts_mtx_lock(&async->init.data.mtx);
-    async->init.data.no_initialized++;
+    no = async->init.data.no_initialized++;
     erts_cnd_signal(&async->init.data.cnd);
     erts_mtx_unlock(&async->init.data.mtx);
+
+    erts_msacc_init_thread("async", no, 0);
 
     return tse;
 }
@@ -486,6 +520,7 @@ static void *async_main(void* arg)
 {
     ErtsAsyncQ *aq = (ErtsAsyncQ *) arg;
     erts_tse_t *tse = async_thread_init(aq);
+    ERTS_MSACC_DECLARE_CACHE();
 
     while (1) {
 	ErtsThrQPrepEnQ_t *prep_enq;
@@ -493,11 +528,14 @@ static void *async_main(void* arg)
 	if (is_nil(a->port))
 	    break; /* Time to die */
 
+        ERTS_MSACC_UPDATE_CACHE();
+
 #if ERTS_ASYNC_PRINT_JOB
 	erts_fprintf(stderr, "<- %ld\n", a->async_id);
 #endif
-
+        ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_PORT);
 	a->async_invoke(a->async_data);
+        ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_OTHER);
 
 	async_reply(a, prep_enq);
     }
@@ -583,12 +621,26 @@ int erts_async_ready_clean(void *varq, void *val)
 #endif
 
 /*
+** Generate a fair async key prom an ErlDrvPort
+** The port data gives a fair distribution grom port pointer
+** to unsigned integer - to be used in key for driver_async below.
+*/
+unsigned int driver_async_port_key(ErlDrvPort port)
+{
+    ErlDrvTermData td = driver_mk_port(port);
+    if (td == (ErlDrvTermData) NIL) {
+	return 0;
+    }
+    return (unsigned int) (UWord) internal_port_data(td);
+}
+
+/*
 ** Schedule async_invoke on a worker thread
 ** NOTE will be syncrounous when threads are unsupported
 ** return values:
 **  0  completed 
 **  -1 error
-**  N  handle value (used with async_cancel)
+**  N  handle value
 **  arguments:
 **      ix             driver index 
 **      key            pointer to secedule queue (NULL means round robin)
@@ -606,10 +658,13 @@ long driver_async(ErlDrvPort ix, unsigned int* key,
     unsigned int qix;
 #if ERTS_USE_ASYNC_READY_Q
     Uint sched_id;
+    ERTS_MSACC_PUSH_STATE();
 
     sched_id = erts_get_scheduler_id();
     if (!sched_id)
 	sched_id = 1;
+#else
+    ERTS_MSACC_PUSH_STATE();
 #endif
 
     prt = erts_drvport2port(ix);
@@ -662,34 +717,19 @@ long driver_async(ErlDrvPort ix, unsigned int* key,
 	return id;
     }
 #endif
-
+    
+    ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_PORT);
     (*a->async_invoke)(a->async_data);
+    ERTS_MSACC_POP_STATE();
 
     if (async_ready(prt, a->async_data)) {
-	if (a->async_free != NULL)
+	if (a->async_free != NULL) {
+            ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_PORT);
 	    (*a->async_free)(a->async_data);
+            ERTS_MSACC_POP_STATE();
+        }
     }
     erts_free(ERTS_ALC_T_ASYNC, (void *) a);
 
     return id;
 }
-
-int driver_async_cancel(unsigned int id)
-{
-    /*
-     * Not supported anymore. Always fail (which is backward
-     * compatible).
-     *
-     * This functionality could be implemented again. However,
-     * it is (and always has been) completely useless since
-     * it doesn't give you any guarantees whatsoever. The user
-     * needs to (and always have had to) synchronize in his/her
-     * own code in order to get any guarantees.
-     */
-    return 0;
-}
-
-
-
-
-

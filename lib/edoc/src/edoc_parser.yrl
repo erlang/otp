@@ -1,4 +1,3 @@
-%% -*- coding: utf-8 -*-
 %% ========================== -*-Erlang-*- =============================
 %% EDoc type specification grammar for the Yecc parser generator,
 %% adapted from Sven-Olof Nyström's type specification parser.
@@ -29,15 +28,16 @@
 Nonterminals
 start spec func_type utype_list utype_tuple utypes utype ptypes ptype
 nutype function_name where_defs defs defs2 def typedef etype
-throws qname ref aref mref lref pref var_list vars fields field
+throws qname ref aref mref lref var_list vars fields field
+utype_map utype_map_fields utype_map_field
 futype_list bin_base_type bin_unit_type.
 
 Terminals
 atom float integer var an_var string start_spec start_typedef start_throws
 start_ref
 
-'(' ')' ',' '.' '->' '{' '}' '[' ']' '|' '+' ':' '::' '=' '/' '//' '*'
-'#' 'where' '<<' '>>' '..' '...'.
+'(' ')' ',' '.' '=>' ':=' '->' '{' '}' '[' ']' '|' '+' ':' '::' '=' '/' '//'
+'*' '#' 'where' '<<' '>>' '..' '...'.
 
 Rootsymbol start.
 
@@ -70,6 +70,19 @@ utype_list -> '(' utypes ')' : {lists:reverse('$2'), tok_line('$1')}.
 futype_list -> utype_list : '$1'.
 futype_list -> '(' '...' ')' : {[#t_var{name = '...'}], tok_line('$1')}.
 
+utype_map -> '#' '{' utype_map_fields '}' : lists:reverse('$3').
+
+utype_map_fields -> '$empty' : [].
+utype_map_fields -> utype_map_field : ['$1'].
+utype_map_fields -> utype_map_fields ',' utype_map_field : ['$3' | '$1'].
+
+utype_map_field -> utype '=>' utype : #t_map_field{assoc_type = assoc,
+                                                   k_type = '$1',
+                                                   v_type = '$3'}.
+utype_map_field -> utype ':=' utype : #t_map_field{assoc_type = exact,
+                                                   k_type = '$1',
+                                                   v_type = '$3'}.
+
 utype_tuple -> '{' utypes '}' : lists:reverse('$2').
 
 %% Produced in reverse order.
@@ -92,9 +105,10 @@ ptype -> var : #t_var{name = tok_val('$1')}.
 ptype -> atom : #t_atom{val = tok_val('$1')}.
 ptype -> integer: #t_integer{val = tok_val('$1')}.
 ptype -> integer '..' integer: #t_integer_range{from = tok_val('$1'),
-                                                   to = tok_val('$3')}.
+                                                  to = tok_val('$3')}.
 ptype -> float: #t_float{val = tok_val('$1')}.
 ptype -> utype_tuple : #t_tuple{types = '$1'}.
+ptype -> utype_map : #t_map{types = '$1'}.
 ptype -> '[' ']' : #t_nil{}.
 ptype -> '[' utype ']' : #t_list{type = '$2'}.
 ptype -> '[' utype ',' '...' ']' : #t_nonempty_list{type = '$2'}.
@@ -198,13 +212,10 @@ typedef -> atom var_list '=' utype where_defs:
 ref -> aref: '$1'.
 ref -> mref: '$1'.
 ref -> lref: '$1'.
-ref -> pref: '$1'.
 
 aref -> '//' atom:
     edoc_refs:app(tok_val('$2')).
 aref -> '//' atom '/' mref:
-    edoc_refs:app(tok_val('$2'), '$4').
-aref -> '//' atom '/' pref:
     edoc_refs:app(tok_val('$2'), '$4').
 
 mref -> qname ':' atom '/' integer:
@@ -213,9 +224,6 @@ mref -> qname ':' atom '(' ')':
     edoc_refs:type(qname('$1'), tok_val('$3')).
 mref -> qname:
     edoc_refs:module(qname('$1')).
-
-pref -> qname '.' '*':
-    edoc_refs:package(qname('$1')).
 
 lref -> atom '/' integer:
     edoc_refs:function(tok_val('$1'), tok_val('$3')).
@@ -335,7 +343,7 @@ build_def(S, P, As, T) ->
                                   args = lists:reverse(As)},
                    type = T};
         false ->
-            return_error(element(2, P), "variable expected after '('")
+            return_error(tok_line(P), "variable expected after '('")
     end.
 
 all_vars([#t_var{} | As]) ->
@@ -390,7 +398,7 @@ parse_typedef_1(S, L) ->
 
 %% @doc Parses a <a
 %% href="overview-summary.html#References">reference</a> to a module,
-%% package, function, type, or application
+%% function, type, or application
 
 parse_ref(S, L) ->
     case edoc_scanner:string(S, L) of
@@ -449,7 +457,7 @@ parse_throws(S, L) ->
 
 %% ---------------------------------------------------------------------
 
--spec throw_error(term(), erl_scan:line()) -> no_return().
+-spec throw_error(term(), erl_anno:line()) -> no_return().
 
 throw_error({parse_spec, E}, L) ->
     throw_error({"specification", E}, L);
@@ -463,3 +471,5 @@ throw_error(parse_param, L) ->
     throw({error, L, "missing parameter name"});
 throw_error({Where, E}, L) when is_list(Where) ->
     throw({error,L,{"unknown error parsing ~ts: ~P.",[Where,E,15]}}).
+
+%% vim: ft=erlang

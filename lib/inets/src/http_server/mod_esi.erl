@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -95,43 +96,44 @@ do(ModData) ->
 %% Description: See httpd(3) ESWAPI CALLBACK FUNCTIONS
 %%-------------------------------------------------------------------------
 load("ErlScriptAlias " ++ ErlScriptAlias, []) ->
-    case inets_regexp:split(ErlScriptAlias," ") of
-	{ok, [ErlName | StrModules]} ->
+    try re:split(ErlScriptAlias," ", [{return, list}]) of
+	[ErlName | StrModules] ->
 	    Modules = lists:map(fun(Str) -> 
-					list_to_atom(httpd_conf:clean(Str)) 
+					list_to_atom(string:strip(Str)) 
 				end, StrModules),
-	    {ok, [], {erl_script_alias, {ErlName, Modules}}};
-	{ok, _} ->
-	    {error, ?NICE(httpd_conf:clean(ErlScriptAlias) ++
-			 " is an invalid ErlScriptAlias")}
+	    {ok, [], {erl_script_alias, {ErlName, Modules}}}
+    catch _:_ ->
+	    {error, ?NICE(string:strip(ErlScriptAlias) ++
+			      " is an invalid ErlScriptAlias")}
     end;
 load("EvalScriptAlias " ++ EvalScriptAlias, []) ->
-    case inets_regexp:split(EvalScriptAlias, " ") of
-	{ok, [EvalName | StrModules]} ->
+    try re:split(EvalScriptAlias, " ",  [{return, list}]) of
+	[EvalName | StrModules] ->
 	    Modules = lists:map(fun(Str) -> 
-					list_to_atom(httpd_conf:clean(Str)) 
+					list_to_atom(string:strip(Str)) 
 				end, StrModules),
-	    {ok, [], {eval_script_alias, {EvalName, Modules}}};
-	{ok, _} ->
-	    {error, ?NICE(httpd_conf:clean(EvalScriptAlias) ++
-			  " is an invalid EvalScriptAlias")}
+	    {ok, [], {eval_script_alias, {EvalName, Modules}}}
+    catch 
+	_:_ ->
+	    {error, ?NICE(string:strip(EvalScriptAlias) ++
+			      " is an invalid EvalScriptAlias")}
     end;
 load("ErlScriptTimeout " ++ Timeout, [])->
-    case catch list_to_integer(httpd_conf:clean(Timeout)) of
+    case catch list_to_integer(string:strip(Timeout)) of
 	TimeoutSec when is_integer(TimeoutSec)  ->
 	   {ok, [], {erl_script_timeout, TimeoutSec * 1000}};
 	_ ->
-	   {error, ?NICE(httpd_conf:clean(Timeout) ++
+	   {error, ?NICE(string:strip(Timeout) ++
 			 " is an invalid ErlScriptTimeout")}
     end;
 load("ErlScriptNoCache " ++ CacheArg, [])->
-    case catch list_to_atom(httpd_conf:clean(CacheArg)) of
+    case catch list_to_atom(string:strip(CacheArg)) of
         true ->
 	    {ok, [], {erl_script_nocache, true}};
 	false ->
 	   {ok, [], {erl_script_nocache, false}};
 	_ ->
-	   {error, ?NICE(httpd_conf:clean(CacheArg)++
+	   {error, ?NICE(string:strip(CacheArg)++
 			 " is an invalid ErlScriptNoCache directive")}
     end.
 
@@ -223,8 +225,8 @@ match_esi_script(_, [], _) ->
     no_match;
 match_esi_script(RequestURI, [{Alias,Modules} | Rest], AliasType) ->
     AliasMatchStr = alias_match_str(Alias, AliasType),
-    case inets_regexp:first_match(RequestURI, AliasMatchStr) of
-	{match, 1, Length} ->
+    case re:run(RequestURI, AliasMatchStr, [{capture, first}]) of
+	{match, [{0, Length}]} ->
 	    {string:substr(RequestURI, Length + 1), Modules};
 	nomatch ->
 	    match_esi_script(RequestURI, Rest, AliasType)
@@ -279,6 +281,15 @@ erl(#mod{request_uri  = ReqUri,
     {proceed,[{status,{501,{"DELETE", ReqUri, Version},
 		       ?NICE("Erl mechanism doesn't support method DELETE")}}|
 	      Data]};
+
+erl(#mod{request_uri  = ReqUri, 
+	 method       = "PATCH",
+         http_version = Version, 
+	 data         = Data}, _ESIBody, _Modules) ->
+    ?hdrt("erl", [{method, patch}]),
+    {proceed, [{status,{501,{"PATCH", ReqUri, Version},
+			?NICE("Erl mechanism doesn't support method PATCH")}}|
+	       Data]};
 
 erl(#mod{method      = "POST", 
 	 entity_body = Body} = ModData, ESIBody, Modules) ->
@@ -375,7 +386,6 @@ erl_scheme_webpage_chunk(Mod, Func, Env, Input, ModData) ->
 	    end),
  
     Response = deliver_webpage_chunk(ModData, Pid), 
-  
     process_flag(trap_exit,false),
     Response.
 
@@ -417,7 +427,6 @@ deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid, Timeout) ->
 	    ?hdrv("deliver_webpage_chunk - timeout", []),
 	    send_headers(ModData, 504, [{"connection", "close"}]),
 	    httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket),
-	    process_flag(trap_exit,false),
 	    {proceed,[{response, {already_sent, 200, 0}} | ModData#mod.data]}
     end.
 
@@ -440,12 +449,11 @@ receive_headers(Timeout) ->
     end.
 
 send_headers(ModData, StatusCode, HTTPHeaders) ->
-    ExtraHeaders = httpd_response:cache_headers(ModData),
+    ExtraHeaders = httpd_response:cache_headers(ModData, erl_script_nocache),
     httpd_response:send_header(ModData, StatusCode, 
 			       ExtraHeaders ++ HTTPHeaders).
 
 handle_body(_, #mod{method = "HEAD"} = ModData, _, _, Size, _) ->
-    process_flag(trap_exit,false),
     {proceed, [{response, {already_sent, 200, Size}} | ModData#mod.data]};
 
 handle_body(Pid, ModData, Body, Timeout, Size, IsDisableChunkedSend) ->
@@ -453,33 +461,53 @@ handle_body(Pid, ModData, Body, Timeout, Size, IsDisableChunkedSend) ->
     httpd_response:send_chunk(ModData, Body, IsDisableChunkedSend),
     receive 
 	{esi_data, Data} when is_binary(Data) ->
-	    ?hdrt("handle_body - received binary data (esi)", []),
 	    handle_body(Pid, ModData, Data, Timeout, Size + byte_size(Data),
 			IsDisableChunkedSend);
 	{esi_data, Data} ->
-	    ?hdrt("handle_body - received data (esi)", []),
 	    handle_body(Pid, ModData, Data, Timeout, Size + length(Data),
 			IsDisableChunkedSend);
 	{ok, Data} ->
-	    ?hdrt("handle_body - received data (ok)", []),
 	    handle_body(Pid, ModData, Data, Timeout, Size + length(Data),
 			IsDisableChunkedSend);
 	{'EXIT', Pid, normal} when is_pid(Pid) ->
-	    ?hdrt("handle_body - exit:normal", []),
 	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),
 	    {proceed, [{response, {already_sent, 200, Size}} | 
 		       ModData#mod.data]};
 	{'EXIT', Pid, Reason} when is_pid(Pid) ->
-	    ?hdrv("handle_body - exit", [{reason, Reason}]),
-	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),
-	    exit({mod_esi_linked_process_died, Pid, Reason})
-
+	    Error = lists:flatten(io_lib:format("mod_esi process failed with reason ~p", [Reason])),
+	    httpd_util:error_log(ModData#mod.config_db, Error),
+	    httpd_response:send_final_chunk(ModData, 
+					    [{"Warning", "199 inets server - body maybe incomplete, "
+					      "internal server error"}],
+					    IsDisableChunkedSend),
+	    done
     after Timeout ->
-	    ?hdrv("handle_body - timeout", []),
-	    process_flag(trap_exit,false),
-	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),
-	    exit({mod_esi_linked_process_timeout, Pid})
+	    kill_esi_delivery_process(Pid),
+	    httpd_response:send_final_chunk(ModData, [{"Warning", "199 inets server - "
+						       "body maybe incomplete, timed out"}],
+					    IsDisableChunkedSend),
+	    done
     end.
+
+kill_esi_delivery_process(Pid) -> 
+    exit(Pid, kill),
+    receive 
+	{'EXIT', Pid, killed} ->	
+	    %% Clean message queue
+	    receive
+		{esi_data, _} ->
+		    ok
+	    after 0 ->
+		    ok
+	    end,
+	    receive
+		{ok, _} ->
+		    ok
+	    after 0 ->
+		    ok
+	    end
+    end.    
+	
 
 erl_script_timeout(Db) ->
     httpd_util:lookup(Db, erl_script_timeout, ?DEFAULT_ERL_TIMEOUT).
@@ -566,9 +594,9 @@ generate_webpage(ESIBody) ->
 is_authorized(_ESIBody, [all]) ->
     true;
 is_authorized(ESIBody, Modules) ->
-    case inets_regexp:match(ESIBody, "^[^\:(%3A)]*") of
-	{match, Start, Length} ->
-	    lists:member(list_to_atom(string:substr(ESIBody, Start, Length)),
+    case re:run(ESIBody, "^[^\:(%3A)]*", [{capture, first}]) of
+	{match, [{Start, Length}]} ->
+	    lists:member(list_to_atom(string:substr(ESIBody, Start+1, Length)),
 			 Modules);
 	nomatch ->
 	    false

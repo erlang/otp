@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -42,7 +43,7 @@
 #define DEFAULT_PROGNAME "erl"
 
 #ifdef __WIN32__
-#define INI_FILENAME "erl.ini"
+#define INI_FILENAME L"erl.ini"
 #define INI_SECTION "erlang"
 #define DIRSEP "\\"
 #define PATHSEP ";"
@@ -64,6 +65,7 @@
 static const char plusM_au_allocs[]= {
     'u',	/* all alloc_util allocators */
     'B',	/* binary_alloc		*/
+    'I',	/* literal_alloc	*/
     'D',	/* std_alloc		*/
     'E',	/* ets_alloc		*/
     'F',	/* fix_alloc		*/
@@ -72,6 +74,8 @@ static const char plusM_au_allocs[]= {
     'R',	/* driver_alloc		*/
     'S',	/* sl_alloc		*/
     'T',	/* temp_alloc		*/
+    'X',	/* exec_alloc		*/
+    'Z',        /* test_alloc           */
     '\0'
 };
 
@@ -103,16 +107,24 @@ static char *plusM_other_switches[] = {
     "ea",
     "ummc",
     "uycs",
+    "usac",
     "im",
     "is",
     "it",
+    "lpm",
     "Mamcbf",
     "Mrmcbf",
     "Mmcs",
+    "Mscs",
+    "Mscrfsd",
+    "Msco",
+    "Mscrpm",
     "Ye",
     "Ym",
     "Ytp",
     "Ytt",
+    "Iscs",
+    "Xscs",
     NULL
 };
 
@@ -122,6 +134,7 @@ static char *pluss_val_switches[] = {
     "bwt",
     "cl",
     "ct",
+    "ecio",
     "fwi",
     "tbt",
     "wct",
@@ -129,12 +142,18 @@ static char *pluss_val_switches[] = {
     "ws",
     "ss",
     "pp",
+    "ub",
     NULL
 };
 /* +h arguments with values */
 static char *plush_val_switches[] = {
     "ms",
     "mbs",
+    "pds",
+    "max",
+    "maxk",
+    "maxel",
+    "mqd",
     "",
     NULL
 };
@@ -148,6 +167,8 @@ static char *plusr_val_switches[] = {
 /* +z arguments with values */
 static char *plusz_val_switches[] = {
     "dbbl",
+    "dntgc",
+    "ebwt",
     NULL
 };
 
@@ -174,6 +195,7 @@ static char *plusz_val_switches[] = {
 #endif
 
 void usage(const char *switchname);
+static void usage_format(char *format, ...);
 void start_epmd(char *epmd);
 void error(char* format, ...);
 
@@ -706,7 +728,7 @@ int main(int argc, char **argv)
 		     * on itself here.  We'll avoid doing that.
 		     */
 		    if (strcmp(argv[i], "-make") == 0) {
-			add_args("-noshell", "-noinput", "-s", "make", "all", NULL);
+			add_args("-noshell", "-noinput", "-s", "make", "all_or_nothing", NULL);
 			add_Eargs("-B");
 			haltAfterwards = 1;
 			i = argc; /* Skip rest of command line */
@@ -774,6 +796,24 @@ int main(int argc, char **argv)
 			    get_start_erl_data((char *) NULL);
 		    }
 #endif
+		    else if (strcmp(argv[i], "-start_epmd") == 0) {
+			if (i+1 >= argc)
+			    usage("-start_epmd");
+
+			if (strcmp(argv[i+1], "true") == 0) {
+			    /* The default */
+			    no_epmd = 0;
+			}
+			else if (strcmp(argv[i+1], "false") == 0) {
+			    no_epmd = 1;
+			}
+			else
+			    usage_format("Expected boolean argument for \'-start_epmd\'.\n");
+
+			add_arg(argv[i]);
+			add_arg(argv[i+1]);
+			i++;
+		    }
 		    else
 			add_arg(argv[i]);
 		
@@ -799,17 +839,43 @@ int main(int argc, char **argv)
 		  case 'a':
 		  case 'A':
 		  case 'b':
+		  case 'C':
+		  case 'e':
 		  case 'i':
 		  case 'n':
 		  case 'P':
 		  case 'Q':
-		  case 'S':
 		  case 't':
 		  case 'T':
 		  case 'R':
 		  case 'W':
 		  case 'K':
 		      if (argv[i][2] != '\0')
+			  goto the_default;
+		      if (i+1 >= argc)
+			  usage(argv[i]);
+		      argv[i][0] = '-';
+		      add_Eargs(argv[i]);
+		      add_Eargs(argv[i+1]);
+		      i++;
+		      break;
+		  case 'S':
+		      if (argv[i][2] == 'P') {
+			  if (argv[i][3] != '\0')
+			      goto the_default;
+		      }
+		      else if (argv[i][2] == 'D') {
+			  char* type = argv[i]+3;
+			  if (strncmp(type, "cpu", 3) != 0 &&
+			      strncmp(type, "Pcpu", 4) != 0 &&
+			      strncmp(type, "io", 2) != 0)
+			      usage(argv[i]);
+			  if ((argv[i][3] == 'c' && argv[i][6] != '\0') ||
+			      (argv[i][3] == 'P' && argv[i][7] != '\0') ||
+			      (argv[i][3] == 'i' && argv[i][5] != '\0'))
+			      goto the_default;
+		      }
+		      else if (argv[i][2] != '\0')
 			  goto the_default;
 		      if (i+1 >= argc)
 			  usage(argv[i]);
@@ -842,6 +908,19 @@ int main(int argc, char **argv)
 			    usage(argv[i]);
 			  }
 			}
+		      }
+		      add_Eargs(argv[i]);
+		      break;
+		  case 'c':
+		      argv[i][0] = '-';
+		      if (argv[i][2] == '\0' && i+1 < argc) {
+			  if (sys_strcmp(argv[i+1], "true") == 0
+			      || sys_strcmp(argv[i+1], "false") == 0) {
+			      add_Eargs(argv[i]);
+			      add_Eargs(argv[i+1]);
+			      i++;
+			      break;
+			  }
 		      }
 		      add_Eargs(argv[i]);
 		      break;
@@ -1113,14 +1192,16 @@ usage_aux(void)
 	  "]"
 #endif
 	  "] "
-	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] "
-	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c] "
-	  "[+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
+	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] [-start_epmd BOOLEAN] "
+	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c [BOOLEAN]] "
+	  "[+C MODE] [+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
 	  "[+l] [+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+Q MAX_PORTS] "
 	  "[+R COMPAT_REL] "
 	  "[+r] [+rg READER_GROUPS_LIMIT] [+s SCHEDULER_OPTION] "
-	  "[+S NO_SCHEDULERS:NO_SCHEDULERS_ONLINE] [+T LEVEL] [+V] [+v] "
-	  "[+W<i|w>] [+z MISC_OPTION] [args ...]\n");
+	  "[+S NO_SCHEDULERS:NO_SCHEDULERS_ONLINE] "
+	  "[+SP PERCENTAGE_SCHEDULERS:PERCENTAGE_SCHEDULERS_ONLINE] "
+	  "[+T LEVEL] [+V] [+v] "
+	  "[+W<i|w|e>] [+z MISC_OPTION] [args ...]\n");
   exit(1);
 }
 
@@ -1174,11 +1255,14 @@ start_epmd(char *epmd)
 	strcat(epmd, arg1);
     }
     {
-	STARTUPINFO start;
+	wchar_t wcepmd[MAXPATHLEN+100];
+	STARTUPINFOW start;
 	PROCESS_INFORMATION pi;
 	memset(&start, 0, sizeof (start));
 	start.cb = sizeof (start);
-	if (!CreateProcess(NULL, epmd, NULL, NULL, FALSE, 
+	MultiByteToWideChar(CP_UTF8, 0, epmd, -1, wcepmd, MAXPATHLEN+100);
+
+	if (!CreateProcessW(NULL, wcepmd, NULL, NULL, FALSE, 
 			       CREATE_DEFAULT_ERROR_MODE | DETACHED_PROCESS,
 			       NULL, NULL, &start, &pi))
 	    result = -1;
@@ -1372,53 +1456,49 @@ static void get_start_erl_data(char *file)
 }
 
 
-static char *replace_filename(char *path, char *new_base) 
+static wchar_t *replace_filename(wchar_t *path, wchar_t *new_base) 
 {
-    int plen = strlen(path);
-    char *res = emalloc((plen+strlen(new_base)+1)*sizeof(char));
-    char *p;
+    int plen = wcslen(path);
+    wchar_t *res = (wchar_t *) emalloc((plen+wcslen(new_base)+1)*sizeof(wchar_t));
+    wchar_t *p;
 
-    strcpy(res,path);
-    for (p = res+plen-1 ;p >= res && *p != '\\'; --p)
+    wcscpy(res,path);
+    for (p = res+plen-1 ;p >= res && *p != L'\\'; --p)
         ;
-    *(p+1) ='\0';
-    strcat(res,new_base);
+    *(p+1) =L'\0';
+    wcscat(res,new_base);
     return res;
 }
 
-static char *path_massage(char *long_path)
+static char *path_massage(wchar_t *long_path)
 {
      char *p;
-
-     p = emalloc(MAX_PATH+1);
-     strcpy(p, long_path);
-     GetShortPathName(p, p, MAX_PATH);
+     int len;
+     len = WideCharToMultiByte(CP_UTF8, 0, long_path, -1, NULL, 0, NULL, NULL);
+     p = emalloc(len*sizeof(char));
+     WideCharToMultiByte(CP_UTF8, 0, long_path, -1, p, len, NULL, NULL);
      return p;
 }
     
 static char *do_lookup_in_section(InitSection *inis, char *name, 
-				  char *section, char *filename, int is_path)
+				  char *section, wchar_t *filename, int is_path)
 {
     char *p = lookup_init_entry(inis, name);
 
     if (p == NULL) {
-	error("Could not find key %s in section %s of file %s",
+	error("Could not find key %s in section %s of file %S",
 	      name,section,filename);
     }
 
-    if (is_path) {
-	return path_massage(p);
-    } else {
-	return strsave(p);
-    }
+    return strsave(p);
 }
 
-
+// Setup bindir, rootdir and progname as utf8 buffers
 static void get_parameters(int argc, char** argv)
 {
-    char *p;
-    char buffer[MAX_PATH];
-    char *ini_filename;
+    wchar_t *p;
+    wchar_t buffer[MAX_PATH];
+    wchar_t *ini_filename;
     HANDLE module = GetModuleHandle(NULL); /* This might look strange, but we want the erl.ini 
 					      that resides in the same dir as erl.exe, not 
 					      an erl.ini in our directory */
@@ -1429,34 +1509,35 @@ static void get_parameters(int argc, char** argv)
         error("Cannot GetModuleHandle()");
     }
 
-    if (GetModuleFileName(module,buffer,MAX_PATH) == 0) {
+    if (GetModuleFileNameW(module,buffer,MAX_PATH) == 0) {
         error("Could not GetModuleFileName");
     }
 
     ini_filename = replace_filename(buffer,INI_FILENAME);
 
     if ((inif = load_init_file(ini_filename)) == NULL) {
+	wchar_t wbindir[MAX_PATH];
+	wchar_t wrootdir[MAX_PATH];
+
 	/* Assume that the path is absolute and that
 	   it does not contain any symbolic link */
-	
-	char buffer[MAX_PATH];
-	
+
 	/* Determine bindir */
-	if (GetEnvironmentVariable("ERLEXEC_DIR", buffer, MAX_PATH) == 0) {
-	    strcpy(buffer, ini_filename);
-	    for (p = buffer+strlen(buffer)-1; p >= buffer && *p != '\\'; --p)
+	if (GetEnvironmentVariableW(L"ERLEXEC_DIR", buffer, MAX_PATH) == 0) {
+	    wcscpy(buffer, ini_filename);
+	    for (p = buffer+wcslen(buffer)-1; p >= buffer && *p != L'\\'; --p)
 		;
-	    *p ='\0';
+	    *p = L'\0';
 	}
 	bindir = path_massage(buffer);
 
 	/* Determine rootdir */
-	for (p = buffer+strlen(buffer)-1; p >= buffer && *p != '\\'; --p)
+	for (p = buffer+wcslen(buffer)-1; p >= buffer && *p != L'\\'; --p)
 	    ;
 	p--;
-	for (;p >= buffer && *p != '\\'; --p)
+	for (;p >= buffer && *p != L'\\'; --p)
 	    ;
-	*p ='\0';
+	*p =L'\0';
 	rootdir = path_massage(buffer);
 
 	/* Hardcoded progname */
@@ -1968,7 +2049,7 @@ initial_argv_massage(int *argc, char ***argv)
 
     vix = 0;
 
-    av = build_args_from_env("ERL_" OTP_SYSTEM_VERSION "_FLAGS");
+    av = build_args_from_env("ERL_OTP" OTP_SYSTEM_VERSION "_FLAGS");
     if (av)
 	avv[vix++].argv = av;
 

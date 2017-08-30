@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -23,8 +24,6 @@
 -export([module/2]).
 
 -import(lists, [reverse/1,reverse/2,foldl/3,mapfoldl/3,map/2]).
-
--define(MAXREG, 1024).
 
 -record(st,
 	{next,					%Next label number.
@@ -126,44 +125,48 @@ bopt_block(Reg, Fail, OldIs, [{block,Bl0}|Acc0], St0) ->
 		%% There was a reference to a boolean expression
 		%% from inside a protected block (try/catch), to
 		%% a boolean expression outside.
-		  throw:protected_barrier ->
+		throw:protected_barrier ->
 		    failed;
 
-		  %% The 'xor' operator was used. We currently don't
-		  %% find it worthwile to translate 'xor' operators
-		  %% (the code would be clumsy).
-		  throw:'xor' ->
+		%% The 'xor' operator was used. We currently don't
+		%% find it worthwile to translate 'xor' operators
+		%% (the code would be clumsy).
+		throw:'xor' ->
 		    failed;
 
-		  %% The block does not contain a boolean expression,
-		  %% but only a call to a guard BIF.
-		  %% For instance: ... when element(1, T) ->
- 		  throw:not_boolean_expr ->
+		%% The block does not contain a boolean expression,
+		%% but only a call to a guard BIF.
+		%% For instance: ... when element(1, T) ->
+		throw:not_boolean_expr ->
  		    failed;
 
-		  %% The block contains a 'move' instruction that could
-		  %% not be handled.
- 		  throw:move ->
- 		    failed;
-
-		  %% The optimization is not safe. (A register
-		  %% used by the instructions following the
-		  %% optimized code is either not assigned a
-		  %% value at all or assigned a different value.)
-		  throw:all_registers_not_killed ->
+		%% The optimization is not safe. (A register
+		%% used by the instructions following the
+		%% optimized code is either not assigned a
+		%% value at all or assigned a different value.)
+		throw:all_registers_not_killed ->
 		    failed;
-		  throw:registers_used ->
+		throw:registers_used ->
 		    failed;
 
-		  %% A protected block refered to the value
-		  %% returned by another protected block,
-		  %% probably because the Core Erlang code
-		  %% used nested try/catches in the guard.
-		  %% (v3_core never produces nested try/catches
-		  %% in guards, so it must have been another
-		  %% Core Erlang translator.)
-		  throw:protected_violation ->
+		%% A protected block refered to the value
+		%% returned by another protected block,
+		%% probably because the Core Erlang code
+		%% used nested try/catches in the guard.
+		%% (v3_core never produces nested try/catches
+		%% in guards, so it must have been another
+		%% Core Erlang translator.)
+		throw:protected_violation ->
+		    failed;
+
+		%% Failed to work out the live registers for a GC
+		%% BIF. For example, if the number of live registers
+		%% needed to be 4 because {x,3} was a source register,
+		%% but {x,2} was not known to be initialized, this
+		%% exception would be thrown.
+		throw:gc_bif_alloc_failure ->
 		    failed
+
 	    end
     end.
 
@@ -205,37 +208,14 @@ ensure_opt_safe(Bl, NewCode, OldIs, Fail, PrecedingCode, St) ->
 	false -> throw(all_registers_not_killed);
 	true -> ok
     end,
-    Same = assigned_same_value(Bl, NewCode),
     MustBeUnused = ordsets:subtract(ordsets:union(NotSet, NewDst),
-				    ordsets:union(MustBeKilled, Same)),
+				    MustBeKilled),
     case none_used(MustBeUnused, OldIs, Fail, St) of
 	false -> throw(registers_used);
 	true -> ok
     end,
     ok.
 
-%% assigned_same_value(OldCode, NewCodeReversed) -> [DestinationRegs]
-%%  Return an ordset with a list of all y registers that are always
-%%  assigned the same value in the old and new code. Currently, we
-%%  are very conservative in that we only consider identical move
-%%  instructions in the same order.
-%%
-assigned_same_value(Old, New) ->
-    case reverse(New) of
-	[{block,Bl}|_] ->
-	    assigned_same_value(Old, Bl, []);
-	_ ->
-	    ordsets:new()
-    end.
-
-assigned_same_value([{set,[{y,_}=D],[S],move}|T1],
-		    [{set,[{y,_}=D],[S],move}|T2], Acc) ->
-    assigned_same_value(T1, T2, [D|Acc]);
-assigned_same_value(_, _, Acc) ->
-    ordsets:from_list(Acc).
-
-update_fail_label([{set,_,_,move}=I|Is], Fail, Acc) ->
-    update_fail_label(Is, Fail, [I|Acc]);
 update_fail_label([{set,Ds,As,{bif,N,{f,_}}}|Is], Fail, Acc) ->
     update_fail_label(Is, Fail, [{set,Ds,As,{bif,N,{f,Fail}}}|Acc]);
 update_fail_label([{set,Ds,As,{alloc,Regs,{gc_bif,N,{f,_}}}}|Is], Fail, Acc) ->
@@ -258,9 +238,9 @@ extend_block(BlAcc0, Fail, [{block,Is0}|OldAcc]) ->
     end;
 extend_block(BlAcc, _, OldAcc) -> {BlAcc,OldAcc}.
 
-extend_block_1([{set,[_],_,{bif,_,{f,Fail}}}=I|Is], Fail, Acc) ->
+extend_block_1([{set,[{x,_}],_,{bif,_,{f,Fail}}}=I|Is], Fail, Acc) ->
     extend_block_1(Is, Fail, [I|Acc]);
-extend_block_1([{set,[_],As,{bif,Bif,_}}=I|Is]=Is0, Fail, Acc) ->
+extend_block_1([{set,[{x,_}],As,{bif,Bif,_}}=I|Is]=Is0, Fail, Acc) ->
     case safe_bool_op(Bif, length(As)) of
 	false -> {Acc,reverse(Is0)};
 	true -> extend_block_1(Is, Fail, [I|Acc])
@@ -304,8 +284,6 @@ split_block_1(Is, Fail, ProhibitFailLabel) ->
 	    end
     end.
 
-split_block_2([{set,_,_,move}=I|Is], Fail, Acc) ->
-    split_block_2(Is, Fail, [I|Acc]);
 split_block_2([{set,[_],_,{bif,_,{f,Fail}}}=I|Is], Fail, Acc) ->
     split_block_2(Is, Fail, [I|Acc]);
 split_block_2([{set,[_],_,{alloc,_,{gc_bif,_,{f,Fail}}}}=I|Is], Fail, Acc) ->
@@ -317,6 +295,8 @@ split_block_2(Is0, _, Acc) ->
 split_block_label_used([{set,[_],_,{bif,_,{f,Fail}}}|_], Fail) ->
     true;
 split_block_label_used([{set,[_],_,{alloc,_,{gc_bif,_,{f,Fail}}}}|_], Fail) ->
+    true;
+split_block_label_used([{set,[_],_,{alloc,_,{put_map,_,{f,Fail}}}}|_], Fail) ->
     true;
 split_block_label_used([_|Is], Fail) ->
     split_block_label_used(Is, Fail);
@@ -331,8 +311,8 @@ dst_regs([{set,[D],_,{bif,_,{f,_}}}|Is], Acc) ->
     dst_regs(Is, [D|Acc]);
 dst_regs([{set,[D],_,{alloc,_,{gc_bif,_,{f,_}}}}|Is], Acc) ->
     dst_regs(Is, [D|Acc]);
-dst_regs([{set,[D],_,move}|Is], Acc) ->
-    dst_regs(Is, [D|Acc]);
+dst_regs([{protected,_,Bl,_}|Is], Acc) ->
+    dst_regs(Bl, dst_regs(Is, Acc));
 dst_regs([_|Is], Acc) ->
     dst_regs(Is, Acc);
 dst_regs([], Acc) -> ordsets:from_list(Acc).
@@ -391,17 +371,14 @@ bopt_tree([{set,_,_,{bif,'xor',_}}|_], _, _) ->
     throw('xor');
 bopt_tree([{protected,[Dst],Code,_}|Is], Forest0, Pre) ->
     ProtForest0 = gb_trees:from_orddict([P || {_,any}=P <- gb_trees:to_list(Forest0)]),
-    {ProtPre,[{_,ProtTree}]} = bopt_tree(Code, ProtForest0, []),
-    Prot = {prot,ProtPre,ProtTree},
-    Forest = gb_trees:enter(Dst, Prot, Forest0),
-    bopt_tree(Is, Forest, Pre);    
-bopt_tree([{set,[Dst],[Src],move}=Move|Is], Forest, Pre) ->
-    case {Src,Dst} of
-	{{tmp,_},_} -> throw(move);
-	{_,{tmp,_}} -> throw(move);
-	_ -> ok
-    end,
-    bopt_tree(Is, Forest, [Move|Pre]);
+    case bopt_tree(Code, ProtForest0, []) of
+        {ProtPre,[{_,ProtTree}]} ->
+            Prot = {prot,ProtPre,ProtTree},
+            Forest = gb_trees:enter(Dst, Prot, Forest0),
+            bopt_tree(Is, Forest, Pre);
+        _Res ->
+            throw(not_boolean_expr)
+    end;
 bopt_tree([{set,[Dst],As,{bif,N,_}}=Bif|Is], Forest0, Pre) ->
     Ar = length(As),
     case safe_bool_op(N, Ar) of
@@ -425,13 +402,17 @@ bopt_tree([], Forest, Pre) ->
 safe_bool_op(N, Ar) ->
     erl_internal:new_type_test(N, Ar) orelse erl_internal:comp_op(N, Ar).
 
+bopt_bool_args([V0,V0], Forest0) ->
+    {V,Forest} = bopt_bool_arg(V0, Forest0),
+    {[V,V],Forest};
 bopt_bool_args(As, Forest) ->
     mapfoldl(fun bopt_bool_arg/2, Forest, As).
 
 bopt_bool_arg({T,_}=R, Forest) when T =:= x; T =:= y; T =:= tmp ->
-    Val = case gb_trees:get(R, Forest) of
-	      any -> {test,is_eq_exact,fail,[R,{atom,true}]};
-	      Val0 -> Val0
+    Val = case gb_trees:lookup(R, Forest) of
+	      {value,any} -> {test,is_eq_exact,fail,[R,{atom,true}]};
+	      {value,Val0} -> Val0;
+              none -> throw(mixed)
 	  end,
     {Val,gb_trees:delete(R, Forest)};
 bopt_bool_arg(Term, Forest) ->
@@ -522,7 +503,9 @@ bopt_cg({prot,Pre0,Tree}, Fail, Rs0, Acc, St0) ->
 bopt_cg({atom,true}, _Fail, _Rs, Acc, St) ->
     {Acc,St};
 bopt_cg({atom,false}, Fail, _Rs, Acc, St) ->
-    {[{jump,{f,Fail}}|Acc],St}.
+    {[{jump,{f,Fail}}|Acc],St};
+bopt_cg(_, _, _, _, _) ->
+    throw(not_boolean_expr).
 
 bopt_cg_not({'and',As0}) ->
     As = [bopt_cg_not(A) || A <- As0],
@@ -535,7 +518,9 @@ bopt_cg_not({'not',Arg}) ->
 bopt_cg_not({test,Test,Fail,As}) ->
     {inverted_test,Test,Fail,As};
 bopt_cg_not({atom,Bool}) when is_boolean(Bool) ->
-    {atom,not Bool}.
+    {atom,not Bool};
+bopt_cg_not(_) ->
+    throw(not_boolean_expr).
 
 bopt_cg_not_not({'and',As}) ->
     {'and',[bopt_cg_not_not(A) || A <- As]};
@@ -565,10 +550,6 @@ free_variables(Is) ->
     E = gb_sets:empty(),
     free_vars_1(Is, E, E, E).
 
-free_vars_1([{set,Ds,As,move}|Is], F0, N0, A) ->
-    F = gb_sets:union(F0, gb_sets:difference(var_list(As), N0)),
-    N = gb_sets:union(N0, var_list(Ds)),
-    free_vars_1(Is, F, N, A);
 free_vars_1([{set,Ds,As,{bif,_,_}}|Is], F0, N0, A) ->
     F = gb_sets:union(F0, gb_sets:difference(var_list(As), N0)),
     N = gb_sets:union(N0, var_list(Ds)),
@@ -608,8 +589,6 @@ free_vars_regs(X) -> [{x,X-1}|free_vars_regs(X-1)].
 rename_regs(Is, Regs) ->
     rename_regs(Is, Regs, []).
 
-rename_regs([{set,_,_,move}=I|Is], Regs, Acc) ->
-    rename_regs(Is, Regs, [I|Acc]);
 rename_regs([{set,[Dst0],Ss0,{alloc,_,Info}}|Is], Regs0, Acc) ->
     Live = live_regs(Regs0),
     Ss = rename_sources(Ss0, Regs0),
@@ -651,10 +630,16 @@ put_reg_1(V, [], I) -> [{I,V}].
 fetch_reg(V, [{I,V}|_]) -> {x,I};
 fetch_reg(V, [_|SRs]) -> fetch_reg(V, SRs).
 
-live_regs(Regs) ->
-    foldl(fun ({I,_}, _) ->
-		  I
-	  end, -1, Regs)+1.
+live_regs([{_,reserved}|_]) ->
+    %% We are not sure that this register is initialized, so we must
+    %% abort the optimization.
+    throw(gc_bif_alloc_failure);
+live_regs([{I,_}]) ->
+    I+1;
+live_regs([{_,_}|Regs]) ->
+    live_regs(Regs);
+live_regs([]) ->
+    0.
 
     
 %%%
@@ -707,8 +692,7 @@ ssa_assign({x,_}=R, #ssa{sub=Sub0}=Ssa0) ->
 	    Sub1 = gb_trees:update(R, NewReg, Sub0),
 	    Sub = gb_trees:insert(NewReg, NewReg, Sub1),
 	    Ssa#ssa{sub=Sub}
-    end;
-ssa_assign(_, Ssa) -> Ssa.
+    end.
 
 ssa_sub_list(List, Sub) ->
     [ssa_sub(E, Sub) || E <- List].
@@ -758,6 +742,9 @@ is_not_used(R, Is, Label, #st{ll=Ll}) ->
 initialized_regs(Is) ->
     initialized_regs(Is, ordsets:new()).
 
+initialized_regs([{set,Dst,_Src,{alloc,Live,_}}|_], Regs0) ->
+    Regs = add_init_regs(free_vars_regs(Live), Regs0),
+    add_init_regs(Dst, Regs);
 initialized_regs([{set,Dst,Src,_}|Is], Regs) ->
     initialized_regs(Is, add_init_regs(Dst, add_init_regs(Src, Regs)));
 initialized_regs([{test,_,_,Src}|Is], Regs) ->

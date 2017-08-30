@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2015. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -31,10 +32,16 @@
 #endif
 
 #include <stdlib.h>
+#include "ethread_inline.h"
 #include "erl_errno.h"
 
 #if defined(DEBUG)
 #  define ETHR_DEBUG
+#endif
+
+#if defined(__PPC__) || defined (__POWERPC)
+/* OSE compiler should be fixed! */
+#define __ppc__
 #endif
 
 #if defined(ETHR_DEBUG)
@@ -46,21 +53,18 @@
 #  endif
 #endif
 
-#undef ETHR_INLINE
-#if defined(__GNUC__)
-#  define ETHR_INLINE __inline__
-#elif defined(__WIN32__)
-#  define ETHR_INLINE __forceinline
-#endif
 #if defined(ETHR_DEBUG) || !defined(ETHR_INLINE) || ETHR_XCHK \
-    || (defined(__GNUC__) && defined(ERTS_MIXED_CYGWIN_VC))
+    || (defined(__GNUC__) && defined(ERTS_MIXED_CYGWIN_VC)) \
+    || (defined(__GNUC__) && defined(ERTS_MIXED_MSYS_VC))
 #  undef ETHR_INLINE
 #  define ETHR_INLINE 
+#  undef ETHR_FORCE_INLINE
+#  define ETHR_FORCE_INLINE
 #  undef ETHR_TRY_INLINE_FUNCS
 #endif
 
 /* Assume 64-byte cache line size */
-#define ETHR_CACHE_LINE_SIZE 64
+#define ETHR_CACHE_LINE_SIZE ASSUMED_CACHE_LINE_SIZE
 #define ETHR_CACHE_LINE_MASK (ETHR_CACHE_LINE_SIZE - 1)
 
 #define ETHR_CACHE_LINE_ALIGN_SIZE(SZ) \
@@ -106,6 +110,10 @@ int ethr_assert_failed(const char *file, int line, const char *func, char *a);
 
 #if defined(__linux__) && !defined(_GNU_SOURCE)
 #error "_GNU_SOURCE not defined. Please, compile all files with -D_GNU_SOURCE."
+#endif
+
+#ifdef ETHR_HAVE_PTHREAD_SETNAME_NP_1
+#define _DARWIN_C_SOURCE
 #endif
 
 #if defined(ETHR_NEED_NPTL_PTHREAD_H)
@@ -256,19 +264,6 @@ ETHR_PROTO_NORETURN__ ethr_fatal_error__(const char *file,
 					 const char *func,
 					 int err);
 
-#if !defined(__GNUC__)
-#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) 0
-#elif !defined(__GNUC_MINOR__)
-#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
-  ((__GNUC__ << 24) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
-#elif !defined(__GNUC_PATCHLEVEL__)
-#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
-  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12)) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
-#else
-#  define ETHR_AT_LEAST_GCC_VSN__(MAJ, MIN, PL) \
-  (((__GNUC__ << 24) | (__GNUC_MINOR__ << 12) | __GNUC_PATCHLEVEL__) >= (((MAJ) << 24) | ((MIN) << 12) | (PL)))
-#endif
-
 #if !ETHR_AT_LEAST_GCC_VSN__(2, 96, 0)
 #define __builtin_expect(X, Y) (X)
 #endif
@@ -283,14 +278,40 @@ ETHR_PROTO_NORETURN__ ethr_fatal_error__(const char *file,
      || (defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_AMD64))))
 #  define ETHR_X86_RUNTIME_CONF__
 
-#  define ETHR_X86_RUNTIME_CONF_HAVE_DW_CMPXCHG__ \
-  (__builtin_expect(ethr_runtime__.conf.have_dw_cmpxchg != 0, 1))
-#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_DW_CMPXCHG__ \
-  (__builtin_expect(ethr_runtime__.conf.have_dw_cmpxchg == 0, 0))
-#  define ETHR_X86_RUNTIME_CONF_HAVE_SSE2__ \
-  (__builtin_expect(ethr_runtime__.conf.have_sse2 != 0, 1))
-#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_SSE2__ \
-  (__builtin_expect(ethr_runtime__.conf.have_sse2 == 0, 0))
+#  define ETHR_X86_RUNTIME_CONF_HAVE_META(feature)              \
+    (__builtin_expect(ethr_runtime__.conf.have_##feature != 0, 1))
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_META(feature)           \
+    (__builtin_expect(ethr_runtime__.conf.have_##feature == 0, 0))
+
+#  define ETHR_X86_RUNTIME_CONF_HAVE_DW_CMPXCHG__       \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(dw_cmpxchg)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_DW_CMPXCHG__    \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(dw_cmpxchg)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_SSE2__     \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(sse2)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_SSE2__  \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(sse2)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_RDTSCP__   \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(rdtscp)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_RDTSCP__        \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(rdtscp)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_CONSTANT_TSC__     \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(constant_tsc)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_CONSTANT_TSC__   \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(nonstop_tsc)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NONSTOP_TSC__     \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(nonstop_tsc)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_NONSTOP_TSC__   \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(nonstop_tsc)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_TSC_RELIABLE__     \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(tsc_reliable)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_TSC_RELIABLE_TSC__   \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(tsc_reliable)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NONSTOP_TSC_S3__     \
+    ETHR_X86_RUNTIME_CONF_HAVE_META(nonstop_tsc_s3)
+#  define ETHR_X86_RUNTIME_CONF_HAVE_NO_NONSTOP_TSC_S3__        \
+    ETHR_X86_RUNTIME_CONF_HAVE_NO_META(nonstop_tsc_s3)
+
 #endif
 
 #if (defined(__GNUC__) \
@@ -309,6 +330,11 @@ typedef struct {
 #if defined(ETHR_X86_RUNTIME_CONF__)
     int have_dw_cmpxchg;
     int have_sse2;
+    int have_rdtscp;
+    int have_constant_tsc;
+    int have_tsc_reliable;
+    int have_nonstop_tsc;
+    int have_nonstop_tsc_s3;
 #endif
 #if defined(ETHR_PPC_RUNTIME_CONF__)
     int have_lwsync;
@@ -351,8 +377,11 @@ extern ethr_runtime_t ethr_runtime__;
 #          include "sparc64/ethread.h"
 #        endif
 #      endif
-#      include "gcc/ethread.h"
+#      if ETHR_HAVE_GCC___ATOMIC_BUILTINS
+#        include "gcc/ethread.h"
+#      endif
 #      include "libatomic_ops/ethread.h"
+#      include "gcc/ethread.h"
 #    endif
 #  elif defined(ETHR_HAVE_LIBATOMIC_OPS)
 #    include "libatomic_ops/ethread.h"
@@ -360,6 +389,10 @@ extern ethr_runtime_t ethr_runtime__;
 #    include "win/ethread.h"
 #  endif
 #endif /* !ETHR_DISABLE_NATIVE_IMPLS */
+
+#if !defined(ETHR_HAVE_NATIVE_ATOMIC32) && !defined(ETHR_HAVE_NATIVE_ATOMIC64) && !defined(ETHR_DISABLE_NATIVE_IMPLS) && defined(ETHR_SMP_REQUIRE_NATIVE_IMPLS)
+#error "No native ethread implementation found. If you want to use fallbacks you have to disable native ethread support with configure."
+#endif
 
 #include "ethr_atomics.h" /* The atomics API */
 
@@ -409,8 +442,10 @@ extern ethr_runtime_t ethr_runtime__;
 #  endif
 #endif
 
-#ifdef VALGRIND  /* mutex as fallback for spinlock for VALGRIND */
+#if defined(VALGRIND)
+/* mutex as fallback for spinlock for VALGRIND. */
 #  undef ETHR_HAVE_NATIVE_SPINLOCKS
+#  undef ETHR_HAVE_NATIVE_RWSPINLOCKS
 #else
 #  include "ethr_optimized_fallbacks.h"
 #endif
@@ -454,10 +489,10 @@ typedef struct {
 typedef struct {
     int detached;			/* boolean (default false) */
     int suggested_stack_size;		/* kilo words (default sys dependent) */
+    char *name;                         /* max 14 char long (default no-name) */
 } ethr_thr_opts;
 
-#define ETHR_THR_OPTS_DEFAULT_INITER {0, -1}
-
+#define ETHR_THR_OPTS_DEFAULT_INITER {0, -1, NULL}
 
 #if !defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 #  define ETHR_NEED_SPINLOCK_PROTOTYPES__
@@ -472,9 +507,11 @@ int ethr_thr_join(ethr_tid, void **);
 int ethr_thr_detach(ethr_tid);
 void ethr_thr_exit(void *);
 ethr_tid ethr_self(void);
+int ethr_getname(ethr_tid, char *, size_t);
+void ethr_setname(char *);
 int ethr_equal_tids(ethr_tid, ethr_tid);
 
-int ethr_tsd_key_create(ethr_tsd_key *);
+int ethr_tsd_key_create(ethr_tsd_key *,char *);
 int ethr_tsd_key_delete(ethr_tsd_key);
 int ethr_tsd_set(ethr_tsd_key, void *);
 void *ethr_tsd_get(ethr_tsd_key);
@@ -483,6 +520,7 @@ void *ethr_tsd_get(ethr_tsd_key);
 #include <signal.h>
 int ethr_sigmask(int how, const sigset_t *set, sigset_t *oset);
 int ethr_sigwait(const sigset_t *set, int *sig);
+int ethr_kill(const ethr_tid tid, const int sig);
 #endif
 
 void ethr_compiler_barrier(void);
@@ -566,7 +604,7 @@ typedef struct ethr_ts_event_ ethr_ts_event; /* Needed by ethr_mutex.h */
 
 #if defined(ETHR_WIN32_THREADS)
 #  include "win/ethr_event.h"
-#else
+#elif defined(ETHR_PTHREADS)
 #  include "pthread/ethr_event.h"
 #endif
 
@@ -693,7 +731,7 @@ static ETHR_INLINE int
 ETHR_INLINE_FUNC_NAME_(ethr_rwlock_destroy)(ethr_rwlock_t *lock)
 {
 #ifdef ETHR_HAVE_NATIVE_RWSPINLOCKS
-    return 0;
+    return ethr_native_rwlock_destroy(lock);
 #else
     return ethr_rwmutex_destroy((ethr_rwmutex *) lock);
 #endif

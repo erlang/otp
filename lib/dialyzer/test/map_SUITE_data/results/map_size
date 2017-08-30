@@ -1,0 +1,13 @@
+
+map_size.erl:11: The pattern 1 can never match the type 0
+map_size.erl:13: Function t2/0 has no local return
+map_size.erl:15: Function p/1 has no local return
+map_size.erl:15: Guard test 1 =:= 0 can never succeed
+map_size.erl:17: Function t3/0 has no local return
+map_size.erl:21: The pattern 4 can never match the type 1 | 2 | 3
+map_size.erl:23: Function t4/0 has no local return
+map_size.erl:24: The pattern 0 can never match the type 1 | 2 | 3
+map_size.erl:26: Function t5/1 has no local return
+map_size.erl:5: Function t1/0 has no local return
+map_size.erl:7: The pattern 1 can never match the type 0
+map_size.erl:9: Function e1/0 has no local return

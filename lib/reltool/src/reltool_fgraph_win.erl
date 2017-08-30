@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 
@@ -219,8 +220,8 @@ graph_add_node_unsure(Key, State, G = #graph{ vs = Vs }) ->
 graph_add_node(Key, Color, G = #graph{ vs = Vs}) ->
     Q  = 20.0,   % repulsive force
     M  = 0.5,    % mass
-    P  = {float(450 + random:uniform(100)),
-	  float(450 + random:uniform(100))},
+    P  = {float(450 + rand:uniform(100)),
+	  float(450 + rand:uniform(100))},
     G#graph{ vs = reltool_fgraph:add(Key,
 				     #fg_v{ p = P, m = M, q = Q, color = Color},
 				     Vs)}.
@@ -252,10 +253,10 @@ ticker_init(Pid) ->
 ticker_loop(Pid, Time) ->
     receive after Time ->
         Pid ! {self(), redraw},
-        T0 = now(),
+        T0 = erlang:monotonic_time(),
         receive {Pid, ok} -> ok end,
-        T1 = now(),
-        D = timer:now_diff(T1, T0)/1000,
+        T1 = erlang:monotonic_time(),
+        D = erlang:convert_time_unit(T1-T0, native, milli_seconds),
         case round(40 - D) of
             Ms when Ms < 0 ->
                 %io:format("ticker: wait is   0 ms [fg ~7s ms] [fps ~7s]~n",

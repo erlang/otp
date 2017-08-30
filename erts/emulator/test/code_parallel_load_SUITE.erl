@@ -1,66 +1,52 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 
 -module(code_parallel_load_SUITE).
--export([
-	all/0,
-	suite/0,
-	init_per_suite/1,
-	end_per_suite/1,
-	init_per_testcase/2,
-	end_per_testcase/2
-    ]).
+-export([all/0,
+         suite/0,
+         init_per_testcase/2,
+         end_per_testcase/2]).
 
--export([
-	multiple_load_check_purge_repeat/1,
-	many_load_distributed_only_once/1
-    ]).
+-export([multiple_load_check_purge_repeat/1,
+         many_load_distributed_only_once/1]).
 
 -define(model,       code_parallel_load_SUITE_model).
 -define(interval,    50).
 -define(number_of_processes, 160).
 -define(passes, 4).
 
+-include_lib("common_test/include/ct.hrl").
 
--include_lib("test_server/include/test_server.hrl").
-
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() ->
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap, {minutes, 4}}].
 
 all() ->
-    [
-	multiple_load_check_purge_repeat,
-	many_load_distributed_only_once
-    ].
-
-
-init_per_suite(Config) ->
-    Config.
-
-end_per_suite(_Config) ->
-    ok.
+    [ multiple_load_check_purge_repeat,
+      many_load_distributed_only_once ].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    Dog=?t:timetrap(?t:minutes(3)),
-    [{watchdog, Dog}|Config].
+    Config.
 
 end_per_testcase(_Func, Config) ->
-    SConf = ?config(save_config, Config),
+    SConf = proplists:get_value(save_config, Config),
     Pids  = proplists:get_value(purge_pids, SConf),
 
     case check_old_code(?model) of
@@ -71,9 +57,7 @@ end_per_testcase(_Func, Config) ->
 	true -> check_and_purge_processes_code(Pids, ?model);
 	_ ->    ok
     end,
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
-
+    ok.
 
 multiple_load_check_purge_repeat(_Conf) ->
     Ts    = [v1,v2,v3,v4,v5,v6],
@@ -159,32 +143,46 @@ setup_checkers(_,0) -> [];
 setup_checkers(T,N) -> [spawn_link(fun() -> ?model:check(T) end) | setup_checkers(T, N-1)].
 
 check_and_purge_processes_code(Pids, M) ->
-    check_and_purge_processes_code(Pids, M, []).
-check_and_purge_processes_code([], M, []) ->
+    Tag = make_ref(),
+    N = request_cpc(Pids, M, Tag),
+    ok = handle_cpc_responses(N, Tag, M),
     erlang:purge_module(M),
-    ok;
-check_and_purge_processes_code([], M, Pending) ->
-    io:format("Processes ~w are still executing old code - retrying.~n", [Pending]),
-    check_and_purge_processes_code(Pending, M, []);
-check_and_purge_processes_code([Pid|Pids], M, Pending) ->
-    case erlang:check_process_code(Pid, M) of
-	false ->
-	    check_and_purge_processes_code(Pids, M, Pending);
-	true ->
-	    check_and_purge_processes_code(Pids, M, [Pid|Pending])
-    end.
+    ok.
 
+request_cpc(Pid, M, Tag) when is_pid(Pid) ->
+    erlang:check_process_code(Pid, M, [{async, {Tag, Pid}}]),
+    1;
+request_cpc(Pids, M, Tag) when is_list(Pids) ->
+    request_cpc(Pids, M, Tag, 0).
+
+request_cpc([], _M, _Tag, N) ->
+    N;
+request_cpc([Pid|Pids], M, Tag, N) ->
+    request_cpc(Pids, M, Tag, N + request_cpc(Pid, M, Tag)).
+
+handle_cpc_responses(0, _Tag, _Module) ->
+    ok;
+handle_cpc_responses(N, Tag, Module) ->
+    receive
+	{check_process_code, {Tag, _Pid}, false} ->
+	    handle_cpc_responses(N-1, Tag, Module);
+	{check_process_code, {Tag, Pid}, true} ->
+	    1 = request_cpc(Pid, Module, Tag),
+	    handle_cpc_responses(N, Tag, Module)
+    end.
 
 generate(Module, Attributes, FunStrings) ->
     FunForms = function_forms(FunStrings),
     Forms    = [
-	{attribute,1,module,Module},
-	{attribute,2,export,[FA || {FA,_} <- FunForms]}
-    ] ++ [{attribute, 3, A, V}|| {A, V} <- Attributes] ++
+	{attribute,a(1),module,Module},
+	{attribute,a(2),export,[FA || {FA,_} <- FunForms]}
+    ] ++ [{attribute, a(3), A, V}|| {A, V} <- Attributes] ++
     [ Function || {_, Function} <- FunForms],
     {ok, Module, Bin} = compile:forms(Forms),
     Bin.
 
+a(L) ->
+    erl_anno:new(L).
 
 function_forms([]) -> [];
 function_forms([S|Ss]) ->

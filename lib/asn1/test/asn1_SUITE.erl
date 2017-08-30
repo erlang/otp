@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -27,13 +28,15 @@
 
 -compile(export_all).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%------------------------------------------------------------------------------
 %% Suite definition
 %%------------------------------------------------------------------------------
 
-suite() -> [{ct_hooks, [ts_install_cth]}].
+suite() ->
+    [{ct_hooks, [ts_install_cth]},
+     {timetrap,{minutes,60}}].
 
 all() ->
     [{group, compile},
@@ -50,27 +53,27 @@ all() ->
      {group, performance}].
 
 groups() ->
-    [{compile, parallel([]),
-      [c_syntax,
-       c_string,
-       c_implicit_before_choice,
+    Parallel = asn1_test_lib:parallel(),
+    [{compile, Parallel,
+      [c_string,
        constraint_equivalence]},
 
-     {ber, parallel([]),
+     {ber, Parallel,
       [ber_choiceinseq,
        % Uses 'SOpttest'
-       ber_optional]},
+       ber_optional,
+       tagdefault_automatic]},
 
      {app_test, [], [{asn1_app_test, all}]},
 
      {appup_test, [], [{asn1_appup_test, all}]},
 
-     {parallel, parallel([]),
+     {parallel, Parallel,
       [cover,
+       xref,
        {group, ber},
        % Uses 'P-Record', 'Constraints', 'MEDIA-GATEWAY-CONTROL'...
        {group, [], [parse,
-                    test_driver_load,
                     test_undecoded_rest,
                     specialized_decodes,
                     special_decode_performance,
@@ -83,38 +86,25 @@ groups() ->
        {group, [], [testPrim,
                     rtUI,
                     testPrimStrings,
-                    testInvokeMod,
                     per,
                     ber_other,
 		    der,
-                    h323test,
-                    per_GeneralString]},
+                    h323test]},
+       testExtensibilityImplied,
        testChoPrim,
        testChoExtension,
        testChoOptional,
-       testChoOptionalImplicitTag,
        testChoRecursive,
        testChoTypeRefCho,
        testChoTypeRefPrim,
        testChoTypeRefSeq,
        testChoTypeRefSet,
        testMultipleLevels,
-       testDef,
        testOpt,
        testSeqDefault,
        % Uses 'External'
-       {group, [], [testChoExternal,
-                    testPrimExternal,
-                    testSeqExtension,
-                    testSeqExternal,
-                    testSeqOfExternal,
-                    testSeqOfTag,
-                    testSeqTag,
-                    testSetExtension,
-                    testSetExternal,
-                    testSetOfExternal,
-                    testSetOfTag,
-                    testSetTag]},
+       {group, [], [testExternal,
+                    testSeqExtension]},
        testSeqOptional,
        testSeqPrim,
        testSeqTypeRefCho,
@@ -143,25 +133,23 @@ groups() ->
        % Uses 'Constructed'
        {group, [], [constructed,
                     ber_decode_error]},
-       % Uses 'SeqSetIndefinite'
-       {group, [], [testSeqIndefinite,
-                    testSetIndefinite]},
+       testSeqSetIndefinite,
        testChoiceIndefinite,
        per_open_type,
        testInfObjectClass,
-       testParameterizedInfObj,
+       testUniqueObjectSets,
+       testInfObjExtract,
+       testParam,
+       testFragmented,
        testMergeCompile,
        testobj,
        testDeepTConstr,
-       testExport,
        testImport,
-       % Uses 'ParamBasic'
-       {group, [], [testParamBasic,
-                    testDER]},
+       testDER,
+       testDEFAULT,
        testMvrasn6,
        testContextSwitchingTypes,
        testOpenTypeImplicitTag,
-       duplicate_tags,
        testROSE,
        testINSTANCE_OF,
        testTCAP,
@@ -172,29 +160,24 @@ groups() ->
        testNortel,
        % Uses 'PKCS7', 'InformationFramework'
        {group, [], [test_WS_ParamClass,
-		    test_modified_x420,
-                    testX420]},
-       testTcapsystem,
-       testNBAPsystem,
-       testS1AP,
+		    test_modified_x420]},
+       %% Don't run all these at the same time.
+       {group, [],
+	[testTcapsystem,
+	 testNBAPsystem,
+	 testS1AP,
+	 testRfcs]},
        test_compile_options,
        testDoubleEllipses,
        test_x691,
        ticket_6143,
-       test_OTP_9688]},
+       test_OTP_9688,
+       testValueTest]},
 
      {performance, [],
       [testTimer_ber,
        testTimer_per,
-       testTimer_uper,
-       smp]}].
-
-parallel(Options) ->
-    case erlang:system_info(smp_support) andalso
-         erlang:system_info(schedulers) > 1 of
-        true  -> [parallel|Options];
-        false -> Options
-    end.
+       testTimer_uper]}].
 
 %%------------------------------------------------------------------------------
 %% Init/end
@@ -213,18 +196,15 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(Func, Config) ->
-    CaseDir = filename:join(?config(priv_dir, Config), Func),
+    CaseDir = filename:join(proplists:get_value(priv_dir, Config), Func),
     ok = filelib:ensure_dir(filename:join([CaseDir, dummy_file])),
     true = code:add_patha(CaseDir),
-
-    Dog = case Func of
-              testX420 -> ct:timetrap({minutes, 90});
-              _        -> ct:timetrap({minutes, 60})
-          end,
-    [{case_dir, CaseDir}, {watchdog, Dog}|Config].
+    [{case_dir, CaseDir}|Config].
 
 end_per_testcase(_Func, Config) ->
-    code:del_path(?config(case_dir, Config)).
+    CaseDir = proplists:get_value(case_dir, Config),
+    asn1_test_lib:rm_dirs([CaseDir]),
+    code:del_path(CaseDir).
 
 %%------------------------------------------------------------------------------
 %% Test runners
@@ -262,7 +242,7 @@ opts(Rule) when is_atom(Rule) -> [];
 opts({_Rule, Opts})         -> Opts.
 
 run_case(Config, Fun, Rule, Opts) ->
-    CaseDir = ?config(case_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     Dir = filename:join([CaseDir, join(Rule, Opts)]),
     ok = filelib:ensure_dir(filename:join([Dir, dummy_file])),
     replace_path(CaseDir, Dir),
@@ -283,13 +263,6 @@ replace_path(PathA, PathB) ->
 
 join(Rule, Opts) ->
     string:join([atom_to_list(Rule)|lists:map(fun atom_to_list/1, Opts)], "_").
-
-case_dir([], _Dir) ->
-    exit(no_case_dir);
-case_dir([{case_dir, _}|Config], Dir) ->
-    [{case_dir, Dir}|Config];
-case_dir([C|Config], Opt) ->
-    [C|case_dir(Config, Opt)].
 
 %%------------------------------------------------------------------------------
 %% Test cases
@@ -319,7 +292,15 @@ cover(_) ->
 
 testPrim(Config) -> test(Config, fun testPrim/3).
 testPrim(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["Prim", "Real"], Config, [Rule|Opts]),
+    Files = ["Prim","Real"],
+    asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
+    do_test_prim(Rule, false),
+    asn1_test_lib:compile_all(Files, Config, [no_ok_wrapper,Rule|Opts]),
+    do_test_prim(Rule, true).
+
+do_test_prim(Rule, NoOkWrapper) ->
+    io:format("No ok wrapper: ~p\n", [NoOkWrapper]),
+    put(no_ok_wrapper, NoOkWrapper),
     testPrim:bool(Rule),
     testPrim:int(Rule),
     testPrim:enum(Rule),
@@ -340,37 +321,67 @@ testCompactBitString(Config, Rule, Opts) ->
 			  [Rule, compact_bit_string|Opts]),
     testCompactBitString:otp_4869(Rule).
 
-testPrimStrings(Config) -> test(Config, fun testPrimStrings/3).
+testPrimStrings(Config) ->
+    test(Config, fun testPrimStrings/3, [ber,{ber,[der]},per,uper]).
 testPrimStrings(Config, Rule, Opts) ->
+    LegacyOpts = [legacy_erlang_types|Opts],
+    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
+			      [Rule|LegacyOpts]),
+    testPrimStrings_cases(Rule, LegacyOpts),
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config, [Rule|Opts]),
-    testPrimStrings_cases(Rule),
+    testPrimStrings_cases(Rule, Opts),
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
 			      [legacy_bit_string,Rule|Opts]),
-    testPrimStrings:bit_string(Rule),
+    testPrimStrings:bit_string(Rule, Opts),
     asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
 			      [compact_bit_string,Rule|Opts]),
-    testPrimStrings:bit_string(Rule),
+    testPrimStrings:bit_string(Rule, Opts),
     testPrimStrings:more_strings(Rule).
 
-testPrimStrings_cases(Rule) ->
-    testPrimStrings:bit_string(Rule),
+testPrimStrings_cases(Rule, Opts) ->
+    testPrimStrings:bit_string(Rule, Opts),
     testPrimStrings:octet_string(Rule),
     testPrimStrings:numeric_string(Rule),
     testPrimStrings:other_strings(Rule),
     testPrimStrings:universal_string(Rule),
     testPrimStrings:bmp_string(Rule),
     testPrimStrings:times(Rule),
-    testPrimStrings:utf8_string(Rule).
+    testPrimStrings:utf8_string(Rule),
+    testPrimStrings:fragmented(Rule).
 
-testPrimExternal(Config) -> test(Config, fun testPrimExternal/3).
-testPrimExternal(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "PrimExternal"], Config,
-                              [Rule|Opts]),
+testExternal(Config) -> test(Config, fun testExternal/3).
+testExternal(Config, Rule, Opts) ->
+    asn1_test_lib:compile_all(["External",
+			       "ChoExternal",
+			       "PrimExternal",
+			       "SeqExternal",
+			       "SeqOfExternal",
+			       "SeqOfTag",
+			       "SeqTag",
+			       "SetExtension",
+			       "SetExternal",
+			       "SetOfExternal",
+			       "SetOfTag",
+			       "SetTag"],
+			      Config, [Rule|Opts]),
+    testChoExternal:external(Rule),
     testPrimExternal:external(Rule),
-    asn1_test_lib:compile_all(["PrimStrings", "BitStr"], Config,
-			      [Rule|Opts]),
-    testPrimStrings_cases(Rule),
-    testPrimStrings:more_strings(Rule).
+    testSeqExternal:main(Rule),
+    testSeqOfExternal:main(Rule),
+    testSeqOfTag:main(Rule),
+    testSeqTag:main(Rule),
+    testSetExtension:main(Rule),
+    testSetExternal:main(Rule),
+    testSetOfExternal:main(Rule),
+    testSetOfTag:main(Rule),
+    testSetTag:main(Rule).
+
+testExtensibilityImplied(Config) ->
+    test(Config, fun testExtensibilityImplied/3).
+testExtensibilityImplied(Config, Rule, Opts) ->
+    asn1_test_lib:compile("ExtensibilityImplied", Config,
+			  [Rule,no_ok_wrapper|Opts]),
+    testExtensibilityImplied:main().
 
 testChoPrim(Config) -> test(Config, fun testChoPrim/3).
 testChoPrim(Config, Rule, Opts) ->
@@ -383,23 +394,11 @@ testChoExtension(Config, Rule, Opts) ->
     asn1_test_lib:compile("ChoExtension", Config, [Rule|Opts]),
     testChoExtension:extension(Rule).
 
-testChoExternal(Config) -> test(Config, fun testChoExternal/3).
-testChoExternal(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "ChoExternal"], Config, [Rule|Opts]),
-    testChoExternal:external(Rule).
-
 testChoOptional(Config) -> test(Config, fun testChoOptional/3).
 testChoOptional(Config, Rule, Opts) ->
-    asn1_test_lib:compile("ChoOptional", Config, [Rule|Opts]),
-    testChoOptional:optional(Rule).
-
-testChoOptionalImplicitTag(Config) ->
-    test(Config, fun testChoOptionalImplicitTag/3,
-	 [ber]).
-testChoOptionalImplicitTag(Config, Rule, Opts) ->
-    %% Only meaningful for ber & co
-    asn1_test_lib:compile("ChoOptionalImplicitTag", Config, [Rule|Opts]),
-    testChoOptionalImplicitTag:optional(Rule).
+    asn1_test_lib:compile_all(["ChoOptional",
+			       "ChoOptionalImplicitTag"], Config, [Rule|Opts]),
+    testChoOptional:run().
 
 testChoRecursive(Config) -> test(Config, fun testChoRecursive/3).
 testChoRecursive(Config, Rule, Opts) ->
@@ -431,10 +430,16 @@ testMultipleLevels(Config, Rule, Opts) ->
     asn1_test_lib:compile("MultipleLevels", Config, [Rule|Opts]),
     testMultipleLevels:main(Rule).
 
-testDef(Config) -> test(Config, fun testDef/3).
-testDef(Config, Rule, Opts) ->
-    asn1_test_lib:compile("Def", Config, [Rule|Opts]),
-    testDef:main(Rule).
+testDEFAULT(Config) ->
+    test(Config, fun testDEFAULT/3, [ber,{ber,[der]},per,uper]).
+testDEFAULT(Config, Rule, Opts) ->
+    asn1_test_lib:compile_all(["Def","Default"], Config, [Rule|Opts]),
+    testDef:main(Rule),
+    testSeqSetDefaultVal:main(Rule, Opts),
+    asn1_test_lib:compile_all(["Def","Default"], Config,
+			      [legacy_erlang_types,Rule|Opts]),
+    testDef:main(Rule),
+    testSeqSetDefaultVal:main(Rule, Opts).
 
 testOpt(Config) -> test(Config, fun testOpt/3).
 testOpt(Config, Rule, Opts) ->
@@ -452,20 +457,15 @@ testSeqDefault(Config, Rule, Opts) ->
     asn1_test_lib:compile("SeqDefault", Config, [Rule|Opts]),
     testSeqDefault:main(Rule).
 
-testSeqExtension(Config) -> test(Config, fun testSeqExtension/3).
+testSeqExtension(Config) -> test(Config, fun testSeqExtension/3, [ber,uper]).
 testSeqExtension(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(["External",
 			       "SeqExtension",
 			       "SeqExtension2"],
 			      Config,
                               [Rule|Opts]),
-    DataDir = ?config(data_dir, Config),
+    DataDir = proplists:get_value(data_dir, Config),
     testSeqExtension:main(Rule, DataDir, [Rule|Opts]).
-
-testSeqExternal(Config) -> test(Config, fun testSeqExternal/3).
-testSeqExternal(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SeqExternal"], Config, [Rule|Opts]),
-    testSeqExternal:main(Rule).
 
 testSeqOptional(Config) -> test(Config, fun testSeqOptional/3).
 testSeqOptional(Config, Rule, Opts) ->
@@ -482,11 +482,6 @@ testSeq2738(Config) -> test(Config, fun testSeq2738/3).
 testSeq2738(Config, Rule, Opts) ->
     asn1_test_lib:compile("Seq2738", Config, [Rule|Opts]),
     testSeq2738:main(Rule).
-
-testSeqTag(Config) -> test(Config, fun testSeqTag/3).
-testSeqTag(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SeqTag"], Config, [Rule|Opts]),
-    testSeqTag:main(Rule).
 
 testSeqTypeRefCho(Config) -> test(Config, fun testSeqTypeRefCho/3).
 testSeqTypeRefCho(Config, Rule, Opts) ->
@@ -528,37 +523,10 @@ testSeqOfIndefinite(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     testSeqOfIndefinite:main().
 
-testSeqOfExternal(Config) -> test(Config, fun testSeqOfExternal/3).
-testSeqOfExternal(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SeqOfExternal"], Config,
-                              [Rule|Opts]),
-    testSeqOfExternal:main(Rule).
-
-testSeqOfTag(Config) -> test(Config, fun testSeqOfTag/3).
-testSeqOfTag(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SeqOfTag"], Config, [Rule|Opts]),
-    testSeqOfTag:main(Rule).
-
 testSetDefault(Config) -> test(Config, fun testSetDefault/3).
 testSetDefault(Config, Rule, Opts) ->
     asn1_test_lib:compile("SetDefault", Config, [Rule|Opts]),
     testSetDefault:main(Rule).
-
-testParamBasic(Config) -> test(Config, fun testParamBasic/3).
-testParamBasic(Config, Rule, Opts) ->
-    asn1_test_lib:compile("ParamBasic", Config, [Rule|Opts]),
-    testParamBasic:main(Rule).
-
-testSetExtension(Config) -> test(Config, fun testSetExtension/3).
-testSetExtension(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SetExtension"], Config,
-                              [Rule|Opts]),
-    testSetExtension:main(Rule).
-
-testSetExternal(Config) -> test(Config, fun testSetExternal/3).
-testSetExternal(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SetExternal"], Config, [Rule|Opts]),
-    testSetExternal:main(Rule).
 
 testSetOptional(Config) -> test(Config, fun testSetOptional/3).
 testSetOptional(Config, Rule, Opts) ->
@@ -570,11 +538,6 @@ testSetPrim(Config) -> test(Config, fun testSetPrim/3).
 testSetPrim(Config, Rule, Opts) ->
     asn1_test_lib:compile("SetPrim", Config, [Rule|Opts]),
     testSetPrim:main(Rule).
-
-testSetTag(Config) -> test(Config, fun testSetTag/3).
-testSetTag(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SetTag"], Config, [Rule|Opts]),
-    testSetTag:main(Rule).
 
 testSetTypeRefCho(Config) -> test(Config, fun testSetTypeRefCho/3).
 testSetTypeRefCho(Config, Rule, Opts) ->
@@ -606,52 +569,23 @@ testSetOfCho(Config, Rule, Opts) ->
     asn1_test_lib:compile("SetOfCho", Config, [Rule|Opts]),
     testSetOfCho:main(Rule).
 
-testSetOfExternal(Config) -> test(Config, fun testSetOfExternal/3).
-testSetOfExternal(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SetOfExternal"], Config,
-                              [Rule|Opts]),
-    testSetOfExternal:main(Rule).
-
-testSetOfTag(Config) -> test(Config, fun testSetOfTag/3).
-testSetOfTag(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["External", "SetOfTag"], Config, [Rule|Opts]),
-    testSetOfTag:main(Rule).
-
-c_syntax(Config) ->
-    DataDir = ?config(data_dir, Config),
-    [{error, _} = asn1ct:compile(filename:join(DataDir, F))
-     || F <-["Syntax",
-             "BadTypeEnding",
-             "BadValueAssignment1",
-             "BadValueAssignment2",
-             "BadValueSet",
-             "ChoiceBadExtension",
-             "EnumerationBadExtension",
-             "Example",
-             "Export1",
-             "MissingEnd",
-             "SequenceBadComma",
-             "SequenceBadComponentName",
-             "SequenceBadComponentType",
-             "SeqBadComma"]].
-
 c_string(Config) ->
     test(Config, fun c_string/3).
 c_string(Config, Rule, Opts) ->
     asn1_test_lib:compile("String", Config, [Rule|Opts]),
     asn1ct:test('String').
 
-c_implicit_before_choice(Config) ->
-    test(Config, fun c_implicit_before_choice/3, [ber]).
-c_implicit_before_choice(Config, Rule, Opts) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
-    {error, _R2} = asn1ct:compile(filename:join(DataDir, "CCSNARG3"),
-                                  [Rule, {outdir, CaseDir}|Opts]).
-
 constraint_equivalence(Config) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
+    constraint_equivalence_abs(Config),
+    test(Config, fun constraint_equivalence/3).
+
+constraint_equivalence(Config, Rule, Opts) ->
+    M = 'ConstraintEquivalence',
+    asn1_test_lib:compile(M, Config, [Rule|Opts]).
+
+constraint_equivalence_abs(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    CaseDir = proplists:get_value(case_dir, Config),
     Asn1Spec = "ConstraintEquivalence",
     Asn1Src = filename:join(DataDir, Asn1Spec),
     ok = asn1ct:compile(Asn1Src, [abs,{outdir,CaseDir}]),
@@ -693,12 +627,22 @@ ber_other(Config, Rule, Opts) ->
 der(Config) ->
     asn1_test_lib:compile_all(ber_modules(), Config, [der]).
 
-module_test(M, Config, Rule, Opts) ->
-    asn1_test_lib:compile(M, Config, [Rule|Opts]),
-    case asn1ct:test(list_to_atom(M), [{i, ?config(case_dir, Config)}]) of
-        ok    -> ok;
-        Error ->
-            erlang:error({test_failed, M, Opts, Error})
+module_test(M0, Config, Rule, Opts) ->
+    asn1_test_lib:compile(M0, Config, [Rule|Opts]),
+    case list_to_atom(M0) of
+	'LDAP' ->
+	    %% Because of the recursive definition of 'Filter' in
+	    %% the LDAP module, the construction of a sample
+	    %% value for 'Filter' is not guaranteed to terminate.
+	    ok;
+	M ->
+	    TestOpts = [{i, proplists:get_value(case_dir, Config)}],
+	    case asn1ct:test(M, TestOpts) of
+		ok ->
+		    ok;
+		Error ->
+		    erlang:error({test_failed, M, Opts, Error})
+	    end
     end.
 
 
@@ -714,10 +658,20 @@ ber_optional(Config, Rule, Opts) ->
     V = {'S', {'A', 10, asn1_NOVALUE, asn1_NOVALUE},
               {'B', asn1_NOVALUE, asn1_NOVALUE, asn1_NOVALUE},
               {'C', asn1_NOVALUE, 111, asn1_NOVALUE}},
-    {ok, B} = asn1_wrapper:encode('SOpttest', 'S', V),
-    Bytes = lists:flatten(B),
-    V2 = asn1_wrapper:decode('SOpttest', 'S', Bytes),
-    V = element(2, V2).
+    asn1_test_lib:roundtrip('SOpttest', 'S', V).
+
+tagdefault_automatic(Config) ->
+    test(Config, fun tagdefault_automatic/3, [ber]).
+tagdefault_automatic(Config, Rule, Opts) ->
+    asn1_test_lib:compile("TAGDEFAULT-AUTOMATIC", Config, [Rule|Opts]),
+    << 48,8,128,2,100,101,129,2,110,111 >> =
+	asn1_test_lib:roundtrip_enc('TAGDEFAULT-AUTOMATIC', 'Tagged', {'Tagged', << 100,101 >>, << 110,111 >>}),
+    << 48,8,128,2,100,101,129,2,110,111 >> =
+	asn1_test_lib:roundtrip_enc('TAGDEFAULT-AUTOMATIC', 'Untagged', {'Untagged', << 100,101 >>, << 110,111 >>}),
+    << 48,8,4,2,100,101,130,2,110,111 >> =
+	asn1_test_lib:roundtrip_enc('TAGDEFAULT-AUTOMATIC', 'Mixed', {'Mixed', << 100,101 >>, << 110,111 >>}),
+
+    ok.
 
 %% records used by test-case default
 -record('Def1', {bool0,
@@ -728,14 +682,16 @@ ber_optional(Config, Rule, Opts) ->
 default(Config) -> test(Config, fun default/3).
 default(Config, Rule, Opts) ->
     asn1_test_lib:compile("Def", Config, [Rule|Opts]),
-    {ok, Bytes1} = asn1_wrapper:encode('Def', 'Def1', #'Def1'{bool0 = true}),
-    {ok, {'Def1', true, false, false, false}} =
-        asn1_wrapper:decode('Def', 'Def1', lists:flatten(Bytes1)),
-
-    {ok, Bytes2} = asn1_wrapper:encode('Def', 'Def1', #'Def1'{bool0 = true,
-                                                              bool2 = false}),
-    {ok, {'Def1', true, false, false, false}} =
-        asn1_wrapper:decode('Def', 'Def1', lists:flatten(Bytes2)).
+    asn1_test_lib:roundtrip('Def',
+			    'Def1',
+			    #'Def1'{bool0=true},
+			    #'Def1'{bool0=true,bool1=false,
+				    bool2=false,bool3=false}),
+    asn1_test_lib:roundtrip('Def',
+			    'Def1',
+			    #'Def1'{bool0=true,bool2=false},
+			    #'Def1'{bool0=true,bool1=false,
+				    bool2=false,bool3=false}).
 
 value_test(Config) -> test(Config, fun value_test/3).
 value_test(Config, Rule, Opts) ->
@@ -747,12 +703,13 @@ constructed(Config) ->
     test(Config, fun constructed/3, [ber]).
 constructed(Config, Rule, Opts) ->
     asn1_test_lib:compile("Constructed", Config, [Rule|Opts]),
-    {ok, B} = asn1_wrapper:encode('Constructed', 'S', {'S', false}),
-    [40, 3, 1, 1, 0] = lists:flatten(B),
-    {ok, B1} = asn1_wrapper:encode('Constructed', 'S2', {'S2', false}),
-    [40, 5, 48, 3, 1, 1, 0] = lists:flatten(B1),
-    {ok, B2} = asn1_wrapper:encode('Constructed', 'I', 10),
-    [136, 1, 10] = lists:flatten(B2).
+    <<40,3,1,1,0>> =
+	asn1_test_lib:roundtrip_enc('Constructed', 'S', {'S',false}),
+    <<40,5,48,3,1,1,0>> =
+	asn1_test_lib:roundtrip_enc('Constructed', 'S2', {'S2',false}),
+    <<136,1,10>> =
+	asn1_test_lib:roundtrip_enc('Constructed', 'I', 10),
+    ok.
 
 ber_decode_error(Config) ->
     test(Config, fun ber_decode_error/3, [ber]).
@@ -767,14 +724,6 @@ h323test(Config, Rule, Opts) ->
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
     h323test:run(Rule).
 
-per_GeneralString(Config) ->
-    test(Config, fun per_GeneralString/3, [per]).
-per_GeneralString(Config, Rule, Opts) ->
-    asn1_test_lib:compile("MULTIMEDIA-SYSTEM-CONTROL", Config, [Rule|Opts]),
-    UI = [109, 64, 1, 57],
-    {ok, _V} = asn1_wrapper:decode('MULTIMEDIA-SYSTEM-CONTROL',
-                                   'MultimediaSystemControlMessage', UI).
-
 per_open_type(Config) -> test(Config, fun per_open_type/3, [per]).
 per_open_type(Config, Rule, Opts) ->
     asn1_test_lib:compile("OpenType", Config, [Rule|Opts]),
@@ -784,24 +733,17 @@ testConstraints(Config) -> test(Config, fun testConstraints/3).
 testConstraints(Config, Rule, Opts) ->
     asn1_test_lib:compile("Constraints", Config, [Rule|Opts]),
     asn1_test_lib:compile("LargeConstraints", Config, [Rule|Opts]),
-    testConstraints:int_constraints(Rule).
+    testConstraints:int_constraints(Rule),
+    case Rule of
+	ber -> ok;
+	_ -> testConstraints:refed_NNL_name(Rule)
+    end.
 
-
-testSeqIndefinite(Config) ->
-    test(Config, fun testSeqIndefinite/3, [ber]).
-
-testSeqIndefinite(Config, Rule, Opts) ->
+testSeqSetIndefinite(Config) ->
+    test(Config, fun testSeqSetIndefinite/3, [ber]).
+testSeqSetIndefinite(Config, Rule, Opts) ->
     asn1_test_lib:compile("SeqSetIndefinite", Config, [Rule|Opts]),
-    testSeqIndefinite:main(Rule).
-
-
-testSetIndefinite(Config) ->
-    test(Config, fun testSetIndefinite/3, [ber]).
-
-testSetIndefinite(Config, Rule, Opts) ->
-    asn1_test_lib:compile("SeqSetIndefinite", Config, [Rule|Opts]),
-    testSetIndefinite:main(Rule).
-
+    testSeqSetIndefinite:main().
 
 testChoiceIndefinite(Config) ->
     test(Config, fun testChoiceIndefinite/3, [ber]).
@@ -823,12 +765,32 @@ testInfObjectClass(Config, Rule, Opts) ->
     testInfObjectClass:main(Rule),
     testInfObj:main(Rule).
 
-testParameterizedInfObj(Config) ->
-    test(Config, fun testParameterizedInfObj/3).
-testParameterizedInfObj(Config, Rule, Opts) ->
-    Files = ["Param","Param2"],
+testUniqueObjectSets(Config) -> test(Config, fun testUniqueObjectSets/3).
+testUniqueObjectSets(Config, Rule, Opts) ->
+    CaseDir = proplists:get_value(case_dir, Config),
+    testUniqueObjectSets:main(CaseDir, Rule, Opts).
+
+testInfObjExtract(Config) -> test(Config, fun testInfObjExtract/3).
+testInfObjExtract(Config, Rule, Opts) ->
+    asn1_test_lib:compile("InfObjExtract", Config, [Rule|Opts]),
+    testInfObjExtract:main().
+
+testParam(Config) ->
+    test(Config, fun testParam/3, [ber,{ber,[der]},per,uper]).
+testParam(Config, Rule, Opts) ->
+    Files = ["ParamBasic","Param","Param2"],
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
-    testParameterizedInfObj:main(Config, Rule).
+    testParamBasic:main(Rule),
+    testParameterizedInfObj:main(Config, Rule),
+    asn1_test_lib:compile("Param", Config,
+			  [legacy_erlang_types,Rule|Opts]),
+    testParameterizedInfObj:param(Rule).
+
+testFragmented(Config) ->
+    test(Config, fun testFragmented/3).
+testFragmented(Config, Rule, Opts) ->
+    asn1_test_lib:compile("Fragmented", Config, [Rule|Opts]),
+    testFragmented:main(Rule).
 
 testMergeCompile(Config) -> test(Config, fun testMergeCompile/3).
 testMergeCompile(Config, Rule, Opts) ->
@@ -840,7 +802,8 @@ testMergeCompile(Config, Rule, Opts) ->
 
 testobj(Config) -> test(Config, fun testobj/3).
 testobj(Config, Rule, Opts) ->
-    asn1_test_lib:compile("RANAP", Config, [Rule|Opts]),
+    asn1_test_lib:compile("RANAP", Config, [legacy_erlang_types,
+					    Rule|Opts]),
     asn1_test_lib:compile_erlang("testobj", Config, []),
     ok = testobj:run(),
     ok = testParameterizedInfObj:ranap(Rule).
@@ -851,28 +814,20 @@ testDeepTConstr(Config, Rule, Opts) ->
                               [Rule|Opts]),
     testDeepTConstr:main(Rule).
 
-testInvokeMod(Config) -> test(Config, fun testInvokeMod/3).
-testInvokeMod(Config, Rule, Opts) ->
-    asn1_test_lib:compile("PrimStrings", Config, [Rule|Opts]),
-    {ok, _Result2} = 'PrimStrings':encode('Bs1', [1, 0, 1, 0]).
-
-testExport(Config) ->
-    {error, _} =
-	asn1ct:compile(filename:join(?config(data_dir, Config),
-				     "IllegalExport"),
-		       [{outdir, ?config(case_dir, Config)}]).
-
 testImport(Config) ->
     test(Config, fun testImport/3).
 testImport(Config, Rule, Opts) ->
-    {error, _} = asn1ct:compile(filename:join(?config(data_dir, Config),
-                                              "ImportsFrom"),
-                                [Rule, {outdir, ?config(priv_dir, Config)}
-                                 |Opts]).
+    Files = ["ImportsFrom","ImportsFrom2","ImportsFrom3",
+	     "Importing","Exporting"],
+    asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
+    42 = 'ImportsFrom':i(),
+    testImporting:main(),
+    ok.
 
 testMegaco(Config) -> test(Config, fun testMegaco/3).
 testMegaco(Config, Rule, Opts) ->
-    {ok, Module1, Module2} = testMegaco:compile(Config, Rule, Opts),
+    {ok, Module1, Module2} = testMegaco:compile(Config, Rule,
+						[legacy_erlang_types|Opts]),
     ok = testMegaco:main(Module1, Config),
     ok = testMegaco:main(Module2, Config).
 
@@ -890,9 +845,13 @@ testContextSwitchingTypes(Config, Rule, Opts) ->
 
 testTypeValueNotation(Config) -> test(Config, fun testTypeValueNotation/3).
 testTypeValueNotation(Config, Rule, Opts) ->
-    asn1_test_lib:compile_all(["SeqTypeRefPrim", "ValueTest"], Config,
-                              [Rule|Opts]),
+    asn1_test_lib:compile("SeqTypeRefPrim", Config, [Rule|Opts]),
     testTypeValueNotation:main(Rule, Opts).
+
+testValueTest(Config) -> test(Config, fun testValueTest/3).
+testValueTest(Config, Rule, Opts) ->
+    asn1_test_lib:compile("ValueTest", Config, [Rule|Opts]),
+    testValueTest:main().
 
 testOpenTypeImplicitTag(Config) ->
     test(Config, fun testOpenTypeImplicitTag/3).
@@ -900,18 +859,13 @@ testOpenTypeImplicitTag(Config, Rule, Opts) ->
     asn1_test_lib:compile("OpenTypeImplicitTag", Config, [Rule|Opts]),
     testOpenTypeImplicitTag:main(Rule).
 
-duplicate_tags(Config) ->
-    DataDir = ?config(data_dir, Config),
-    CaseDir = ?config(case_dir, Config),
-    {error, [{error, {type, _, _, 'SeqOpt1Imp',
-			     {asn1, {duplicates_of_the_tags, _}}}}]} =
-	asn1ct:compile(filename:join(DataDir, "SeqOptional2"),
-		       [abs, {outdir, CaseDir}]).
-
 rtUI(Config) -> test(Config, fun rtUI/3).
 rtUI(Config, Rule, Opts) ->
     asn1_test_lib:compile("Prim", Config, [Rule|Opts]),
-    {ok, _} = asn1rt:info('Prim').
+    _ = 'Prim':info(),
+    Rule = 'Prim':encoding_rule(),
+    io:format("Default BIT STRING format: ~p\n",
+	      ['Prim':bit_string_format()]).
 
 testROSE(Config) -> test(Config, fun testROSE/3).
 testROSE(Config, Rule, Opts) ->
@@ -939,11 +893,7 @@ testDER(Config) ->
     test(Config, fun testDER/3, [ber]).
 testDER(Config, Rule, Opts) ->
     asn1_test_lib:compile("DERSpec", Config, [Rule, der|Opts]),
-    testDER:test(),
-    asn1_test_lib:compile("ParamBasic", Config, [Rule, der|Opts]),
-    testParamBasic:main(der),
-    asn1_test_lib:compile("Default", Config, [Rule, der|Opts]),
-    testSeqSetDefaultVal:main(Rule).
+    testDER:test().
 
 specialized_decodes(Config) ->
     test(Config, fun specialized_decodes/3, [ber]).
@@ -954,7 +904,8 @@ specialized_decodes(Config, Rule, Opts) ->
                                "PartialDecMyHTTP.asn",
                                "MEDIA-GATEWAY-CONTROL.asn",
                                "P-Record"],
-                              Config, [Rule, asn1config|Opts]),
+                              Config,
+			      [Rule,legacy_erlang_types,asn1config|Opts]),
     test_partial_incomplete_decode:test(Config),
     test_selective_decode:test().
 
@@ -964,13 +915,6 @@ special_decode_performance(Config, Rule, Opts) ->
     Files = ["MEDIA-GATEWAY-CONTROL", "PartialDecSeq"],
     asn1_test_lib:compile_all(Files, Config, [Rule, asn1config|Opts]),
     test_special_decode_performance:go(all).
-
-
-test_driver_load(Config) ->
-    test(Config, fun test_driver_load/3, [per]).
-test_driver_load(Config, Rule, Opts) ->
-    asn1_test_lib:compile("P-Record", Config, [Rule|Opts]),
-    test_driver_load:test(5).
 
 test_ParamTypeInfObj(Config) ->
     asn1_test_lib:compile("IN-CS-1-Datatypes", Config, [ber]).
@@ -989,7 +933,7 @@ test_Defed_ObjectIdentifier(Config, Rule, Opts) ->
 testSelectionType(Config) -> test(Config, fun testSelectionType/3).
 testSelectionType(Config, Rule, Opts) ->
     asn1_test_lib:compile("SelectionType", Config, [Rule|Opts]),
-    {ok, _}  = testSelectionTypes:test().
+    testSelectionTypes:test().
 
 testSSLspecs(Config) ->
     test(Config, fun testSSLspecs/3, [ber]).
@@ -1006,10 +950,14 @@ testNortel(Config, Rule, Opts) ->
 
 test_undecoded_rest(Config) -> test(Config, fun test_undecoded_rest/3).
 test_undecoded_rest(Config, Rule, Opts) ->
+    do_test_undecoded_rest(Config, Rule, Opts),
+    do_test_undecoded_rest(Config, Rule, [no_ok_wrapper|Opts]),
+    do_test_undecoded_rest(Config, Rule, [undec_rest|Opts]),
+    do_test_undecoded_rest(Config, Rule, [no_ok_wrapper,undec_rest|Opts]).
+
+do_test_undecoded_rest(Config, Rule, Opts) ->
     asn1_test_lib:compile("P-Record", Config, [Rule|Opts]),
-    ok = test_undecoded_rest:test([], Config),
-    asn1_test_lib:compile("P-Record", Config, [Rule,undec_rest|Opts]),
-    test_undecoded_rest:test(undec_rest, Config).
+    test_undecoded_rest:test(Opts, Config).
 
 testTcapsystem(Config) ->
     test(Config, fun testTcapsystem/3).
@@ -1029,15 +977,40 @@ testS1AP(Config, Rule, Opts) ->
 	    "S1AP-IEs",
 	    "S1AP-PDU-Contents",
 	    "S1AP-PDU-Descriptions"],
-    asn1_test_lib:compile_all(S1AP, Config, [Rule|Opts]).
+    asn1_test_lib:compile_all(S1AP, Config, [Rule|Opts]),
+
+    %% OTP-7876.
+    case Rule of
+	per ->
+	    Enc = <<0,2,64,49,0,0,5,0,0,0,4,128,106,56,197,0,8,0,3,64,2,134,0,
+		    100,64,8,0,66,240,153,0,7,192,16,0,67,64,6,0,66,240,153,70,
+		    1,0,107,64,5,0,0,0,0,0>>,
+	    {ok,{initiatingMessage,_}} = 'S1AP-PDU-Descriptions':decode('S1AP-PDU', Enc);
+	uper ->
+	    ok;
+	ber ->
+	    ok
+    end.
+
+testRfcs() ->
+    [{timetrap,{minutes,90}}].
+
+testRfcs(Config) ->  test(Config, fun testRfcs/3, [{ber,[der]}]).
+testRfcs(Config, Rule, Opts) ->
+    case erlang:system_info(system_architecture) of
+	"sparc-sun-solaris2.10" ->
+	    {skip,"Too slow for an old Sparc"};
+	_ ->
+	    testRfcs:compile(Config, Rule, Opts),
+	    testRfcs:test()
+    end.
 
 test_compile_options(Config) ->
     ok = test_compile_options:wrong_path(Config),
     ok = test_compile_options:path(Config),
     ok = test_compile_options:noobj(Config),
     ok = test_compile_options:record_name_prefix(Config),
-    ok = test_compile_options:verbose(Config),
-    ok = test_compile_options:warnings_as_errors(Config).
+    ok = test_compile_options:verbose(Config).
 
 testDoubleEllipses(Config) -> test(Config, fun testDoubleEllipses/3).
 testDoubleEllipses(Config, Rule, Opts) ->
@@ -1061,24 +1034,39 @@ testX420(Config) ->
 	"sparc-sun-solaris2.10" ->
 	    {skip,"Too slow for an old Sparc"};
 	_ ->
-	    test(Config, fun testX420/3, [ber])
+	    Rule = ber,
+	    testX420:compile(Rule, [der], Config),
+	    ok = testX420:ticket7759(Rule, Config)
     end.
-testX420(Config, Rule, Opts) ->
-    testX420:compile(Rule, [der|Opts], Config),
-    ok = testX420:ticket7759(Rule, Config),
-    testX420:compile(Rule, Opts, Config).
 
 test_x691(Config) ->
     test(Config, fun test_x691/3, [per, uper]).
 test_x691(Config, Rule, Opts) ->
     Files = ["P-RecordA1", "P-RecordA2", "P-RecordA3"],
     asn1_test_lib:compile_all(Files, Config, [Rule|Opts]),
-    test_x691:cases(Rule, case Rule of
-                              uper -> unaligned;
-                              _ -> aligned
-                          end),
-    asn1_test_lib:ticket_7708(Config, []),
-    asn1_test_lib:ticket_7763(Config).
+    test_x691:cases(Rule),
+
+    %% OTP-7708.
+    asn1_test_lib:compile("EUTRA-extract-55", Config,
+			  [legacy_erlang_types,Rule|Opts]),
+
+    %% OTP-7763.
+    Val = {'Seq',15,lists:duplicate(8, 0),[0],lists:duplicate(28, 0),15,true},
+    CompactVal = {'Seq',15,{0,<<0>>},{7,<<0>>},{4,<<0,0,0,0>>},15,true},
+    {ok,Bin} = 'EUTRA-extract-55':encode('Seq', Val),
+    {ok,Bin} = 'EUTRA-extract-55':encode('Seq', CompactVal),
+
+    %% OTP-7678.
+    asn1_test_lib:compile("UPERDefault", Config, [Rule|Opts]),
+    DefVal = 'UPERDefault':seq(),
+    {ok,DefBin} = 'UPERDefault':encode('Seq', DefVal),
+    {ok,DefVal} = 'UPERDefault':decode('Seq', DefBin),
+    case Rule of
+	uper -> <<0,6,0>> = DefBin;
+	_ -> ok
+    end,
+
+    ok.
 
 ticket_6143(Config) ->
     ok = test_compile_options:ticket_6143(Config).
@@ -1110,6 +1098,7 @@ test_modules() ->
      "CommonDataTypes",
      "Constraints",
      "ContextSwitchingTypes",
+     "CoverParser",
      "DS-EquipmentUser-CommonFunctionOrig-TransmissionPath",
      "Enum",
      "From",
@@ -1144,10 +1133,12 @@ test_modules() ->
      "Def",
      "Opt",
      "ELDAPv3",
-     "LDAP"].
+     "LDAP",
+     "SeqOptional2",
+     "CCSNARG3"].
 
 test_OTP_9688(Config) ->
-    PrivDir = ?config(case_dir, Config),
+    PrivDir = proplists:get_value(case_dir, Config),
     Data = "
 OTP-9688 DEFINITIONS ::= BEGIN
 
@@ -1166,31 +1157,27 @@ END
     ok = asn1ct:compile(File, [{outdir, PrivDir}]).
 
 
-timer_compile(Config, Rule, Opts) ->
+timer_compile(Config, Rule) ->
     asn1_test_lib:compile_all(["H235-SECURITY-MESSAGES", "H323-MESSAGES"],
-                              Config, [Rule|Opts]).
+                              Config, [no_ok_wrapper,Rule]).
 
 testTimer_ber(Config) ->
-    timer_compile(Config,ber,[]),
-    testTimer:go(Config,ber).
+    timer_compile(Config, ber),
+    testTimer:go().
 
 testTimer_per(Config) ->
-    timer_compile(Config,per,[]),
-    testTimer:go(Config,per).
+    timer_compile(Config, per),
+    testTimer:go().
 
 testTimer_uper(Config) ->
-    timer_compile(Config,uper,[]),
-    {comment,_} = testTimer:go(Config,uper).
+    timer_compile(Config, uper),
+    testTimer:go().
 
 %% Test of multiple-line comment, OTP-8043
-testComment(suite) -> [];
 testComment(Config) ->
     asn1_test_lib:compile("Comment", Config, []),
-    {ok,Enc} = asn1_wrapper:encode('Comment','Seq',{'Seq',12,true}),
-    {ok,{'Seq',12,true}} = asn1_wrapper:decode('Comment','Seq',Enc),
-    ok.
+    asn1_test_lib:roundtrip('Comment', 'Seq', {'Seq',12,true}).
 
-testName2Number(suite) -> [];
 testName2Number(Config) ->
     N2NOptions = [{n2n,Type} || Type <- ['CauseMisc', 'CauseProtocol',
                                          'CauseRadioNetwork',
@@ -1224,75 +1211,66 @@ testName2Number(Config) ->
 
 ticket_7407(Config) ->
     asn1_test_lib:compile("EUTRA-extract-7407", Config, [uper]),
-    asn1_test_lib:ticket_7407_code(true),
+    ticket_7407_code(true),
+    asn1_test_lib:compile("EUTRA-extract-7407", Config, [uper,no_final_padding]),
+    ticket_7407_code(false).
 
-    asn1_test_lib:compile("EUTRA-extract-7407", Config,
-                          [uper, no_final_padding]),
-    asn1_test_lib:ticket_7407_code(false).
+ticket_7407_code(FinalPadding) ->
+    Msg1 = {Type1,_} = eutra1(msg),
+    {ok,B1} = 'EUTRA-extract-7407':encode(Type1, Msg1),
+    B1 = eutra1(result, FinalPadding),
 
-smp(suite) -> [];
-smp(Config)  ->
-    case erlang:system_info(smp_support) of
-        true ->
-            NumOfProcs = erlang:system_info(schedulers),
-            io:format("smp starting ~p workers\n",[NumOfProcs]),
-
-            Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
-            ok = testNBAPsystem:compile(Config, [per]),
-
-            enc_dec(NumOfProcs,Msg,2),
-
-            N = 10000,
-
-            {Time1,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
-            {Time1S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
-
-            ok = testNBAPsystem:compile(Config, [ber]),
-            {Time3,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
-
-            {Time3S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
-
-            {comment,lists:flatten(
-                       io_lib:format(
-                         "Encode/decode time parallell with ~p cores: ~p [microsecs]~n"
-                         "Encode/decode time sequential: ~p [microsecs]",
-                         [NumOfProcs,Time1+Time3,Time1S+Time3S]))};
-        false ->
-            {skipped,"No smp support"}
-    end.
-
-enc_dec(1, Msg, N) ->
-    worker_loop(N, Msg);
-enc_dec(NumOfProcs,Msg, N) ->
-    pforeach(fun(_) ->
-                     worker_loop(N, Msg)
-             end, [I || I <- lists:seq(1,NumOfProcs)]).
-
-worker_loop(0, _Msg) ->
-    ok;
-worker_loop(N, Msg) ->
-    {ok,B}=asn1_wrapper:encode('NBAP-PDU-Discriptions',
-                                     'NBAP-PDU',
-                                     Msg),
-    {ok,_Msg}=asn1_wrapper:decode('NBAP-PDU-Discriptions',
-                                        'NBAP-PDU',
-                                        B),
-    worker_loop(N - 1, Msg).
-
-
-pforeach(Fun, List) ->
-    pforeach(Fun, List, []).
-pforeach(Fun, [], [{Pid,Ref}|Pids]) ->
-    receive
-        {'DOWN', Ref, process, Pid, normal} ->
-            pforeach(Fun, [], Pids)
-    end;
-pforeach(Fun, [H|T], Pids) ->
-    Pid = spawn(fun() -> Fun(H) end),
-    Ref = erlang:monitor(process, Pid),
-    pforeach(Fun, T, [{Pid, Ref}|Pids]);
-pforeach(_Fun,[],[]) ->
+    Msg2 = {Type2,_} = eutra2(msg),
+    {ok,B2} = 'EUTRA-extract-7407':encode(Type2, Msg2),
+    B2 = eutra2(result, FinalPadding),
     ok.
+
+eutra1(msg) ->
+    {'BCCH-BCH-Message',
+     {'MasterInformationBlock',<<2#0101:4>>,<<2#1010:4>>,
+      {'PHICH-Configuration',short,ffs},<<2#10100000>>}}.
+
+eutra1(result, true) ->
+    <<90,80,0>>;
+eutra1(result, false) ->
+    <<90,80,0:1>>.
+
+eutra2(msg) ->
+    {'BCCH-DL-SCH-Message',
+     {c1,
+      {systemInformation1,
+       {'SystemInformationBlockType1',
+	{'SystemInformationBlockType1_cellAccessRelatedInformation',
+	 [{'SystemInformationBlockType1_cellAccessRelatedInformation_plmn-IdentityList_SEQOF',
+	   {'PLMN-Identity'},true},
+	  {'SystemInformationBlockType1_cellAccessRelatedInformation_plmn-IdentityList_SEQOF',
+	   {'PLMN-Identity'},false},
+	  {'SystemInformationBlockType1_cellAccessRelatedInformation_plmn-IdentityList_SEQOF',
+	   {'PLMN-Identity'},true}],
+	 {'TrackingAreaCode'},
+	 {'CellIdentity'},
+	 false,
+	 true,
+	 true,
+	 true
+	},
+	{'SystemInformationBlockType1_cellSelectionInfo',-50},
+	24,
+	[{'SystemInformationBlockType1_schedulinInformation_SEQOF',
+	  {'SystemInformationBlockType1_schedulinInformation_SEQOF_si-MessageType'},
+	  ms320,
+	  {'SystemInformationBlockType1_schedulinInformation_SEQOF_sib-MappingInfo'}}],
+	0
+       }
+      }
+     }
+    }.
+
+eutra2(result, true) ->
+%% 55 5C A5 E0
+    <<85,92,165,224>>;
+eutra2(result, false) ->
+    <<85,92,165,14:4>>.
 
 -record('InitiatingMessage',{procedureCode,criticality,value}).
 -record('Iu-ReleaseCommand',{first,second}).
@@ -1308,3 +1286,17 @@ ticket7904(Config) ->
 
     {ok,_} = 'RANAPextract1':encode('InitiatingMessage', Val1),
     {ok,_} = 'RANAPextract1':encode('InitiatingMessage', Val1).
+
+xref(_Config) ->
+    xref:start(s),
+    xref:set_default(s, [{verbose,false},{warnings,false},{builtins,true}]),
+    Test = filename:dirname(code:which(?MODULE)),
+    {ok,_PMs} = xref:add_directory(s, Test),
+    UnusedExports = "X - XU - asn1_appup_test - asn1_app_test - \".*_SUITE\" : Mod",
+    case xref:q(s, UnusedExports) of
+	{ok,[]} ->
+	    ok;
+	{ok,[_|_]=Res} ->
+	    io:format("Exported, but unused: ~p\n", [Res]),
+	    ?t:fail()
+    end.

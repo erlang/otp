@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -21,9 +22,6 @@
 -module(test_records).
 
 -export(['check_record_names_OTP-5812'/1]).
-
-%-include("test_server.hrl").
-%-include_lib("test_server/include/test_server.hrl").
 
 -define(line,put(test_server_loc,{?MODULE,?LINE}),).
 
@@ -47,19 +45,19 @@ check_record_names({initiatingMessage,
 					 transactionID = _TransactionID,
 					 value = Value}}) ->
     
-    ?line ok = check_record_ProcedureID(ProcedureID),
-    ?line ok = check_record_Value(Value).
+    ok = check_record_ProcedureID(ProcedureID),
+    ok = check_record_Value(Value).
 
 check_record_ProcedureID(#'ProcedureID'{}) ->
     ok;
 check_record_ProcedureID(_) -> false.
 
 check_record_Value(#'ResourceStatusIndication'{protocolIEs = ProtocolIEs}) ->
-    ?line ok = check_record_ProtocolIEs(ProtocolIEs);
+    ok = check_record_ProtocolIEs(ProtocolIEs);
 check_record_Value(_) -> false.
 
 check_record_ProtocolIEs([#'ProtocolIE-Field'{value =IndicationType}|_]) ->
-    ?line ok = check_record_NFResourceStatusInd(IndicationType);
+    ok = check_record_NFResourceStatusInd(IndicationType);
 check_record_ProtocolIEs(_) -> false.
 
 check_record_NFResourceStatusInd({'no-Failure',#'No-Failure-ResourceStatusInd'{'local-Cell-InformationList'=[LCIPF]}}) ->
@@ -67,13 +65,13 @@ check_record_NFResourceStatusInd({'no-Failure',#'No-Failure-ResourceStatusInd'{'
 check_record_NFResourceStatusInd(_) -> false.
 
 'check_record_NFResourceStatusInd_ProtocolIE-Field'(#'ProtocolIE-Field'{value=LCI}) ->
-    ?line ok = check_record_LCInfoResourceStatusInd(LCI);
+    ok = check_record_LCInfoResourceStatusInd(LCI);
 'check_record_NFResourceStatusInd_ProtocolIE-Field'(_) -> false.
 
 check_record_LCInfoResourceStatusInd(#'Local-Cell-InformationItem-ResourceStatusInd'{commonChannelsCapacityConsumptionLaw=[CCCCL],dedicatedChannelsCapacityConsumptionLaw=[DCCCL],'iE-Extensions' = [LCIRE]}) ->
-    ?line ok = check_record_CCCCL(CCCCL),
-    ?line ok = check_record_DCCCL(DCCCL),
-    ?line ok = check_record_LCIRE(LCIRE).
+    ok = check_record_CCCCL(CCCCL),
+    ok = check_record_DCCCL(DCCCL),
+    ok = check_record_LCIRE(LCIRE).
 
 check_record_CCCCL(#'CommonChannelsCapacityConsumptionLaw_SEQOF'{}) -> 
     ok;

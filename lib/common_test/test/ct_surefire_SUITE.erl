@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -48,8 +49,11 @@
 %% there will be clashes with logging processes etc).
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config1 = ct_test_support:init_per_suite(Config),
-    Config1.
+    DataDir = ?config(data_dir,Config),
+    Hook = "fail_pre_init_per_suite.erl",
+    io:format("Compiling ~p: ~p~n",
+        [Hook, compile:file(Hook,[{outdir,DataDir},debug_info])]),
+    ct_test_support:init_per_suite([{path_dirs,[DataDir]}|Config]).
 
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
@@ -68,7 +72,8 @@ all() ->
      absolute_path,
      relative_path,
      url,
-     logdir
+     logdir,
+     fail_pre_init_per_suite
     ].
 
 %%--------------------------------------------------------------------
@@ -106,6 +111,14 @@ logdir(Config) when is_list(Config) ->
     Path = "logdir.xml",
     run(logdir,[{cth_surefire,[{path,Path}]}],Path,Config,[{logdir,MyLogDir}]).
 
+fail_pre_init_per_suite(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir,Config),
+    Suites = [filename:join(DataDir,"pass_SUITE"),
+              filename:join(DataDir,"fail_SUITE")],
+    Path = "fail_pre_init_per_suite.xml",
+    run(fail_pre_init_per_suite,[fail_pre_init_per_suite,
+        {cth_surefire,[{path,Path}]}],Path,Config,[],Suites).
+
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
@@ -114,6 +127,8 @@ run(Case,CTHs,Report,Config) ->
 run(Case,CTHs,Report,Config,ExtraOpts) ->
     DataDir = ?config(data_dir, Config),
     Suite = filename:join(DataDir, "surefire_SUITE"),
+    run(Case,CTHs,Report,Config,ExtraOpts,Suite).
+run(Case,CTHs,Report,Config,ExtraOpts,Suite) ->
     {Opts,ERPid} = setup([{suite,Suite},{ct_hooks,CTHs},{label,Case}|ExtraOpts],
 			 Config),
     ok = execute(Case, Opts, ERPid, Config),
@@ -141,7 +156,6 @@ setup(Test, Config) ->
 execute(Name, Opts, ERPid, Config) ->
     ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
-
     ct_test_support:log_events(Name,
 			       reformat(Events, ?eh),
 			       ?config(priv_dir, Config),
@@ -165,10 +179,30 @@ events_to_check(_, 0) ->
 events_to_check(Test, N) ->
     test_events(Test) ++ events_to_check(Test, N-1).
 
-test_events(_) ->
-    [{?eh,start_logging,'_'},
-     {?eh,start_info,{1,1,9}},
-     {?eh,tc_start,{surefire_SUITE,init_per_suite}},
+test_suite_events(fail_SUITE, TestStat) ->
+     [{?eh,tc_start,{ct_framework,init_per_suite}},
+     {?eh,tc_done,{ct_framework,init_per_suite,
+                   {failed,{error,pre_init_per_suite}}}},
+     {?eh,tc_auto_skip,
+      {fail_SUITE,test_case,
+       {failed,{ct_framework,init_per_suite,{failed,pre_init_per_suite}}}}},
+     {?eh,test_stats,TestStat},
+     {?eh,tc_auto_skip,
+      {ct_framework,end_per_suite,
+       {failed,{ct_framework,init_per_suite,{failed,pre_init_per_suite}}}}}].
+
+test_suite_events(fail_SUITE) ->
+    test_suite_events(fail_SUITE, {0,0,{0,1}});
+test_suite_events(pass_SUITE) ->
+     [{?eh,tc_start,{ct_framework,init_per_suite}},
+     {?eh,tc_done,{ct_framework,init_per_suite,ok}},
+     {?eh,tc_start,{pass_SUITE,test_case}},
+     {?eh,tc_done,{pass_SUITE,test_case,ok}},
+     {?eh,test_stats,{1,0,{0,0}}},
+     {?eh,tc_start,{ct_framework,end_per_suite}},
+     {?eh,tc_done,{ct_framework,end_per_suite,ok}}];
+test_suite_events(_) ->
+    [{?eh,tc_start,{surefire_SUITE,init_per_suite}},
      {?eh,tc_done,{surefire_SUITE,init_per_suite,ok}},
      {?eh,tc_start,{surefire_SUITE,tc_ok}},
      {?eh,tc_done,{surefire_SUITE,tc_ok,ok}},
@@ -182,7 +216,7 @@ test_events(_) ->
      {?eh,test_stats,{1,1,{1,0}}},
      {?eh,tc_start,{surefire_SUITE,tc_autoskip_require}},
      {?eh,tc_done,{surefire_SUITE,tc_autoskip_require,
-		   {skipped,{require_failed,'_'}}}},
+		   {auto_skipped,{require_failed,'_'}}}},
      {?eh,test_stats,{1,1,{1,1}}},
      [{?eh,tc_start,{surefire_SUITE,{init_per_group,g,[]}}},
       {?eh,tc_done,{surefire_SUITE,{init_per_group,g,[]},ok}},
@@ -198,26 +232,35 @@ test_events(_) ->
       {?eh,test_stats,{2,2,{2,1}}},
       {?eh,tc_start,{surefire_SUITE,tc_autoskip_require}},
       {?eh,tc_done,{surefire_SUITE,tc_autoskip_require,
-		    {skipped,{require_failed,'_'}}}},
+		    {auto_skipped,{require_failed,'_'}}}},
       {?eh,test_stats,{2,2,{2,2}}},
       {?eh,tc_start,{surefire_SUITE,{end_per_group,g,[]}}},
       {?eh,tc_done,{surefire_SUITE,{end_per_group,g,[]},ok}}],
      [{?eh,tc_start,{surefire_SUITE,{init_per_group,g_fail,[]}}},
       {?eh,tc_done,{surefire_SUITE,{init_per_group,g_fail,[]},
 		    {failed,{error,all_cases_should_be_skipped}}}},
-      {?eh,tc_auto_skip,{surefire_SUITE,tc_ok,
+      {?eh,tc_auto_skip,{surefire_SUITE,{tc_ok,g_fail},
 			 {failed,
 			  {surefire_SUITE,init_per_group,
 			   {'EXIT',all_cases_should_be_skipped}}}}},
       {?eh,test_stats,{2,2,{2,3}}},
-      {?eh,tc_auto_skip,{surefire_SUITE,end_per_group,
+      {?eh,tc_auto_skip,{surefire_SUITE,{end_per_group,g_fail},
 			 {failed,
 			  {surefire_SUITE,init_per_group,
 			   {'EXIT',all_cases_should_be_skipped}}}}}],
      {?eh,tc_start,{surefire_SUITE,end_per_suite}},
-     {?eh,tc_done,{surefire_SUITE,end_per_suite,ok}},
-     {?eh,stop_logging,[]}].
+     {?eh,tc_done,{surefire_SUITE,end_per_suite,ok}}].
 
+test_events(fail_pre_init_per_suite) ->
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,start_info,{2,2,2}}] ++
+     test_suite_events(pass_SUITE) ++
+     test_suite_events(fail_SUITE, {1,0,{0,1}}) ++
+     [{?eh,stop_logging,[]}];
+test_events(Test) ->
+    [{?eh,start_logging,'_'}, {?eh,start_info,{1,1,9}}] ++
+    test_suite_events(Test) ++
+    [{?eh,stop_logging,[]}].
 
 %%%-----------------------------------------------------------------
 %%% Check generated xml log files
@@ -250,9 +293,9 @@ do_check_xml(Case,[Xml|Xmls]) ->
     {E,_} = xmerl_scan:file(Xml),
     Expected = events_to_result(lists:flatten(test_events(Case))),
     ParseResult = testsuites(Case,E),
-    ct:log("Expecting: ~p~n",[[Expected]]),
+    ct:log("Expecting: ~p~n",[Expected]),
     ct:log("Actual   : ~p~n",[ParseResult]),
-    [Expected] = ParseResult,
+    Expected = ParseResult,
     do_check_xml(Case,Xmls);
 do_check_xml(_,[]) ->
     ok.
@@ -264,7 +307,8 @@ testsuites(Case,#xmlElement{name=testsuites,content=TS}) ->
     testsuite(Case,TS).
 
 testsuite(Case,[#xmlElement{name=testsuite,content=TC,attributes=A}|TS]) ->
-    {ET,EF,ES} = events_to_numbers(lists:flatten(test_events(Case))),
+    TestSuiteEvents = test_suite_events(get_ts_name(A)),
+    {ET,EF,ES} = events_to_numbers(lists:flatten(TestSuiteEvents)),
     {T,E,F,S} = get_numbers_from_attrs(A,false,false,false,false),
     ct:log("Expecting total:~p, error:~p, failure:~p, skipped:~p~n",[ET,0,EF,ES]),
     ct:log("Actual    total:~p, error:~p, failure:~p, skipped:~p~n",[T,E,F,S]),
@@ -317,17 +361,36 @@ failed_or_skipped([]) ->
 %% Testsuites = [Testsuite]
 %% Testsuite = [Testcase]
 %% Testcase = [] | [f] | [s], indicating ok, failed and skipped respectively
-events_to_result([{?eh,tc_done,{_Suite,_Case,R}}|E]) ->
-    [result(R)|events_to_result(E)];
-events_to_result([{?eh,tc_auto_skip,_}|E]) ->
-    [[s]|events_to_result(E)];
-events_to_result([_|E]) ->
-    events_to_result(E);
-events_to_result([]) ->
-    [].
+events_to_result(E) ->
+    events_to_result(E, []).
+
+events_to_result([{?eh,tc_auto_skip,{_Suite,init_per_suite,_}}|E], Result) ->
+    {Suite,Rest} = events_to_result1(E),
+    events_to_result(Rest, [[[s]|Suite]|Result]);
+events_to_result([{?eh,tc_done,{_Suite,init_per_suite,R}}|E], Result) ->
+    {Suite,Rest} = events_to_result1(E),
+    events_to_result(Rest, [[result(R)|Suite]|Result]);
+events_to_result([_|E], Result) ->
+    events_to_result(E, Result);
+events_to_result([], Result) ->
+    Result.
+
+events_to_result1([{?eh,tc_auto_skip,{_Suite, end_per_suite,_}}|E]) ->
+    {[[s]],E};
+events_to_result1([{?eh,tc_done,{_Suite, end_per_suite,R}}|E]) ->
+    {[result(R)],E};
+events_to_result1([{?eh,tc_done,{_Suite,_Case,R}}|E]) ->
+    {Suite,Rest} = events_to_result1(E),
+    {[result(R)|Suite],Rest};
+events_to_result1([{?eh,tc_auto_skip,_}|E]) ->
+    {Suite,Rest} = events_to_result1(E),
+    {[[s]|Suite],Rest};
+events_to_result1([_|E]) ->
+    events_to_result1(E).
 
 result(ok) ->[];
 result({skipped,_}) -> [s];
+result({auto_skipped,_}) -> [s];
 result({failed,_}) -> [f].
 
 %% Using the expected events' last test_stats element to produce the
@@ -372,3 +435,7 @@ del_files(Dir,[F0|Fs] ) ->
     end;
 del_files(_,[]) ->
     ok.
+
+get_ts_name(Attributes) ->
+    {_,name,_,_,_,_,_,_,Name,_} = lists:keyfind(name, 2, Attributes),
+    list_to_atom(Name).

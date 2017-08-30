@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -21,7 +22,7 @@
 
 -export([main/1]).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -record('Seq1',{bool1, int1, seq1 = asn1_DEFAULT}).
 -record('Seq2',{seq2 = asn1_DEFAULT, bool2, int2}).
@@ -83,6 +84,32 @@ main(_Rules) ->
     roundtrip('Seq4', #'Seq4'{seq43=SeqIn3},
 	      #'Seq4'{seq41=[],seq42=[],
 		      seq43=SeqIn3}),
+
+    roundtrip('Seq5', {'Seq5',true,[],77}),
+    roundtrip('Seq5', {'Seq5',true,[<<"">>],77}),
+    roundtrip('Seq5', {'Seq5',true,[<<"a">>],77}),
+    roundtrip('Seq5', {'Seq5',true,[<<"ab">>],77}),
+    roundtrip('Seq5', {'Seq5',true,[<<"abc">>],77}),
+
+    roundtrip('Seq6', {'Seq6',[],[],101}),
+    roundtrip('Seq6', {'Seq6',[],[7],101}),
+    roundtrip('Seq6', {'Seq6',[],[1,7],101}),
+    roundtrip('Seq6', {'Seq6',[1],[],101}),
+    roundtrip('Seq6', {'Seq6',[2],[7],101}),
+    roundtrip('Seq6', {'Seq6',[3],[1,7],101}),
+
+    roundtrip('Seq8', {'Seq8',[],37}),
+
+    roundtrip('Seq9', {'Seq9',true,[],97}),
+    roundtrip('Seq9', {'Seq9',true,[<<"">>],97}),
+    roundtrip('Seq9', {'Seq9',true,[<<"x">>],97}),
+    roundtrip('Seq9', {'Seq9',true,[<<"xy">>],97}),
+    roundtrip('Seq9', {'Seq9',true,[<<"xyz">>],97}),
+
+    roundtrip('Seq10', {'Seq10',true,[<<"">>],97}),
+    roundtrip('Seq10', {'Seq10',true,[<<"a">>],97}),
+    roundtrip('Seq10', {'Seq10',true,[<<"a">>,<<"b">>],97}),
+    roundtrip('Seq10', {'Seq10',true,[<<"a">>,<<"b">>,<<"c">>],97}),
     
     roundtrip('SeqEmp', #'SeqEmp'{seq1=[#'Empty'{}]}),
 
@@ -123,15 +150,9 @@ roundtrip(T, V) ->
     roundtrip(T, V, V).
 
 roundtrip(Type, Val, Expected) ->
-    M = 'SeqOf',
-    {ok,Enc} = M:encode(Type, Val),
-    {ok,Expected} = M:decode(Type, Enc),
-    ok.
+    asn1_test_lib:roundtrip('SeqOf', Type, Val, Expected).
 
 xroundtrip(T1, T2, Val) ->
-    M = 'XSeqOf',
-    {ok,Enc} = M:encode(T1, Val),
-    {ok,Enc} = M:encode(T2, Val),
-    {ok,Val} = M:decode(T1, Enc),
-    {ok,Val} = M:decode(T2, Enc),
+    Enc = asn1_test_lib:roundtrip_enc('XSeqOf', T1, Val),
+    Enc = asn1_test_lib:roundtrip_enc('XSeqOf', T2, Val),
     ok.

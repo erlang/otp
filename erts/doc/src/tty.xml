@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2010</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -47,12 +48,16 @@
   <section>
     <title>Normal Mode</title>
     <p>In normal mode keystrokes from the user are collected and interpreted by <c><![CDATA[tty]]></c>. Most of the <em>emacs</em> line editing commands are supported. The following is a complete list of the supported line editing commands.<br></br></p>
-    <p><em>Note:</em>	The notation <c><![CDATA[C-a]]></c> means pressing the control key and the letter <c><![CDATA[a]]></c> simultaneously. <c><![CDATA[M-f]]></c> means pressing the <c><![CDATA[ESC]]></c> key followed by the letter <c><![CDATA[f]]></c>. 
+    <p><em>Note:</em>	The notation <c><![CDATA[C-a]]></c> means pressing the control key and the letter <c><![CDATA[a]]></c> simultaneously. <c><![CDATA[M-f]]></c> means pressing the <c><![CDATA[ESC]]></c> key followed by the letter <c><![CDATA[f]]></c>. <c><![CDATA[Home]]></c> and <c><![CDATA[End]]></c> represent the keys with the same name on the keyboard, whereas <c><![CDATA[Left]]></c> and <c><![CDATA[Right]]></c> represent the corresponding arrow keys.
       </p>
     <table>
       <row>
         <cell align="left" valign="middle"><em>Key Sequence</em></cell>
         <cell align="left" valign="middle"><em>Function</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Home</cell>
+        <cell align="left" valign="middle">Beginning of line</cell>
       </row>
       <row>
         <cell align="left" valign="middle">C-a</cell>
@@ -61,6 +66,10 @@
       <row>
         <cell align="left" valign="middle">C-b</cell>
         <cell align="left" valign="middle">Backward character</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-Left</cell>
+        <cell align="left" valign="middle">Backward word</cell>
       </row>
       <row>
         <cell align="left" valign="middle">M-b</cell>
@@ -75,12 +84,20 @@
         <cell align="left" valign="middle">Delete word</cell>
       </row>
       <row>
+        <cell align="left" valign="middle">End</cell>
+        <cell align="left" valign="middle">End of line</cell>
+      </row>
+      <row>
         <cell align="left" valign="middle">C-e</cell>
         <cell align="left" valign="middle">End of line</cell>
       </row>
       <row>
         <cell align="left" valign="middle">C-f</cell>
         <cell align="left" valign="middle">Forward character</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-Right</cell>
+        <cell align="left" valign="middle">Forward word</cell>
       </row>
       <row>
         <cell align="left" valign="middle">M-f</cell>
@@ -93,6 +110,10 @@
       <row>
         <cell align="left" valign="middle">C-k</cell>
         <cell align="left" valign="middle">Kill line</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-u</cell>
+        <cell align="left" valign="middle">Backward kill line</cell>
       </row>
       <row>
         <cell align="left" valign="middle">C-l</cell>
@@ -109,6 +130,10 @@
       <row>
         <cell align="left" valign="middle">C-t</cell>
         <cell align="left" valign="middle">Transpose characters</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">C-w</cell>
+        <cell align="left" valign="middle">Backward kill word</cell>
       </row>
       <row>
         <cell align="left" valign="middle">C-y</cell>

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -24,14 +25,15 @@
 
 -include("asn1_records.hrl").
 
--export([decode_class/1, decode_type/1]).
+-export([decode_class/1]).
 -export([gen_encode/2,gen_encode/3,gen_decode/2,gen_decode/3]).
 -export([gen_encode_prim/4]).
--export([gen_dec_prim/7]).
+-export([gen_dec_prim/3]).
 -export([gen_objectset_code/2, gen_obj_code/3]).
 -export([encode_tag_val/3]).
 -export([gen_inc_decode/2,gen_decode_selected/3]).
 -export([extaddgroup2sequence/1]).
+-export([dialyzer_suppressions/1]).
 
 -import(asn1ct_gen, [emit/1,demit/1]).
 
@@ -64,6 +66,23 @@
 %%===============================================================================
 %%===============================================================================
 %%===============================================================================
+
+dialyzer_suppressions(_) ->
+    case asn1ct:use_legacy_types() of
+	false -> ok;
+	true -> suppress({ber,encode_bit_string,4})
+    end,
+    suppress({ber,decode_selective,2}),
+    emit(["    ok.",nl]).
+
+suppress({M,F,A}=MFA) ->
+    case asn1ct_func:is_used(MFA) of
+	false ->
+	    ok;
+	true ->
+	    Args = [lists:concat(["element(",I,", Arg)"]) || I <- lists:seq(1, A)],
+	    emit(["    ",{call,M,F,Args},com,nl])
+    end.
 
 %%===============================================================================
 %% encode #{typedef, {pos, name, typespec}}
@@ -163,6 +182,12 @@ gen_encode_user(Erules, #typedef{}=D, Wrapper) ->
 
 gen_encode_prim(_Erules, #type{}=D, DoTag, Value) ->
     BitStringConstraint = get_size_constraint(D#type.constraint),
+    MaxBitStrSize = case BitStringConstraint of
+			[] -> none;
+			{_,'MAX'} -> none;
+			{_,Max} -> Max;
+			Max when is_integer(Max) -> Max
+		    end,
     asn1ct_name:new(enumval),
     Type = case D#type.def of
 	       'OCTET STRING'    -> restricted_string;
@@ -196,12 +221,42 @@ gen_encode_prim(_Erules, #type{}=D, DoTag, Value) ->
 	    emit(["case ",Value," of",nl]),
 	    emit_enc_enumerated_cases(NamedNumberList,DoTag);
 	'REAL' ->
-	    emit([{call,ber,encode_tags,
-		   [DoTag,{call,real_common,ber_encode_real,[Value]}]}]);
+	    asn1ct_name:new(realval),
+	    asn1ct_name:new(realsize),
+	    emit(["begin",nl,
+		  {curr,realval}," = ",
+		  {call,real_common,ber_encode_real,[Value]},com,nl,
+		  {curr,realsize}," = ",
+		  {call,erlang,byte_size,[{curr,realval}]},com,nl,
+		  {call,ber,encode_tags,
+		   [DoTag,{curr,realval},{curr,realsize}]},nl,
+		  "end"]);
+	{'BIT STRING',[]} ->
+	    case asn1ct:use_legacy_types() of
+		false when MaxBitStrSize =:= none ->
+		    call(encode_unnamed_bit_string, [Value,DoTag]);
+		false ->
+		    call(encode_unnamed_bit_string,
+			 [{asis,MaxBitStrSize},Value,DoTag]);
+		true ->
+		    call(encode_bit_string,
+			 [{asis,BitStringConstraint},Value,
+			  {asis,[]},DoTag])
+	    end;
 	{'BIT STRING',NamedNumberList} ->
-	    call(encode_bit_string,
-		 [{asis,BitStringConstraint},Value,
-		  {asis,NamedNumberList},DoTag]);
+	    case asn1ct:use_legacy_types() of
+		false when MaxBitStrSize =:= none ->
+		    call(encode_named_bit_string,
+			 [Value,{asis,NamedNumberList},DoTag]);
+		false ->
+		    call(encode_named_bit_string,
+			 [{asis,MaxBitStrSize},Value,
+			  {asis,NamedNumberList},DoTag]);
+		true ->
+		    call(encode_bit_string,
+			 [{asis,BitStringConstraint},Value,
+			  {asis,NamedNumberList},DoTag])
+	    end;
 	'NULL' ->
 	    call(encode_null, [Value,DoTag]);
 	'OBJECT IDENTIFIER' ->
@@ -224,14 +279,34 @@ emit_enc_enumerated_cases(L, Tags) ->
     emit_enc_enumerated_cases(L, Tags, noext).
 
 emit_enc_enumerated_cases([{EnumName,EnumVal}|T], Tags, Ext) ->
+    {Bytes,Len} = encode_integer(EnumVal),
     emit([{asis,EnumName}," -> ",
-	  {call,ber,encode_enumerated,[EnumVal,Tags]},";",nl]),
+	  {call,ber,encode_tags,[Tags,{asis,Bytes},Len]},";",nl]),
     emit_enc_enumerated_cases(T, Tags, Ext);
 emit_enc_enumerated_cases([], _Tags, _Ext) ->
     %% FIXME: Should extension be handled?
     emit([{curr,enumval}," -> exit({error,{asn1, {enumerated_not_in_range,",{curr, enumval},"}}})"]),
     emit([nl,"end"]).
 
+encode_integer(Val) ->
+    Bytes =
+	if
+	    Val >= 0 ->
+		encode_integer_pos(Val, []);
+	    true ->
+		encode_integer_neg(Val, [])
+	end,
+    {Bytes,length(Bytes)}.
+
+encode_integer_pos(0, [B|_Acc]=L) when B < 128 ->
+    L;
+encode_integer_pos(N, Acc) ->
+    encode_integer_pos((N bsr 8), [N band 16#ff| Acc]).
+
+encode_integer_neg(-1, [B1|_T]=L) when B1 > 127 ->
+    L;
+encode_integer_neg(N, Acc) ->
+    encode_integer_neg(N bsr 8, [N band 16#ff|Acc]).
 
 %%===============================================================================
 %%===============================================================================
@@ -309,15 +384,11 @@ gen_decode_selected_type(_Erules,TypeDef) ->
     case asn1ct_gen:type(InnerType) of
 	'ASN1_OPEN_TYPE' ->
 	    asn1ct_name:new(len),
-	    gen_dec_prim(ber, Def#type{def='ASN1_OPEN_TYPE'}, 
-			 BytesVar,Tag, [] , 
-			 ?PRIMITIVE,"OptOrMand");
-%	    emit({";",nl});
+	    gen_dec_prim(Def#type{def='ASN1_OPEN_TYPE'},
+			 BytesVar, Tag);
 	{primitive,bif} ->
 	    asn1ct_name:new(len),
-	    gen_dec_prim(ber, Def, BytesVar,Tag,[] , 
-			 ?PRIMITIVE,"OptOrMand");
-%	    emit([";",nl]);
+	    gen_dec_prim(Def, BytesVar, Tag);
 	{constructed,bif} ->
 	    TopType = case TypeDef#typedef.name of
 			  A when is_atom(A) -> [A];
@@ -431,14 +502,12 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
     case asn1ct_gen:type(InnerType) of
 	'ASN1_OPEN_TYPE' ->
 	    asn1ct_name:new(len),
-	    gen_dec_prim(ber, Def#type{def='ASN1_OPEN_TYPE'}, 
-			 BytesVar,{string,"TagIn"}, [] , 
-			 ?PRIMITIVE,"OptOrMand"),
+	    gen_dec_prim(Def#type{def='ASN1_OPEN_TYPE'},
+			 BytesVar, {string,"TagIn"}),
 	    emit({".",nl,nl});
 	{primitive,bif} ->
 	    asn1ct_name:new(len),
-	    gen_dec_prim(ber, Def, BytesVar,{string,"TagIn"},[] , 
-			 ?PRIMITIVE,"OptOrMand"),
+	    gen_dec_prim(Def, BytesVar, {string,"TagIn"}),
 	    emit([".",nl,nl]);
 	{constructed,bif} ->
 	    asn1ct:update_namelist(D#typedef.name),
@@ -451,19 +520,11 @@ gen_decode_user(Erules,D) when is_record(D,typedef) ->
     end.
 
 
-gen_dec_prim(_Erules, Att, BytesVar, DoTag, _TagIn, _Form, _OptOrMand) ->
+gen_dec_prim(Att, BytesVar, DoTag) ->
     Typename = Att#type.def,
-%% Currently not used for BER replaced with [] as place holder
-%%    Constraint = Att#type.constraint,
-%% Constraint = [],
     Constraint = get_size_constraint(Att#type.constraint),
     IntConstr = int_constr(Att#type.constraint),
-    AsBin = case get(binary_strings) of
-		true -> "_as_bin";
-		_ -> ""
-	    end,
     NewTypeName = case Typename of
-		      'OCTET STRING'    -> restricted_string;
 		      'NumericString'   -> restricted_string;
 		      'TeletexString'   -> restricted_string;
 		      'T61String'       -> restricted_string;
@@ -476,85 +537,40 @@ gen_dec_prim(_Erules, Att, BytesVar, DoTag, _TagIn, _Form, _OptOrMand) ->
 		      'ObjectDescriptor'-> restricted_string;
 		      'UTCTime'         -> restricted_string;
 		      'GeneralizedTime' -> restricted_string;
+		      'OCTET STRING'    ->
+			  case asn1ct:use_legacy_types() of
+			      true -> restricted_string;
+			      false -> Typename
+			  end;
 		      _                 -> Typename
 		  end,
-    case NewTypeName of
-	'BOOLEAN'->
-	    emit(["decode_boolean(",BytesVar,","]),
-	    need(decode_boolean, 2);
-	'INTEGER' ->
-	    case IntConstr of
-		[] ->
-		    emit(["decode_integer(",BytesVar,","]),
-		    need(decode_integer, 2);
-		{_,_} ->
-		    emit(["decode_integer(",BytesVar,",",
-			  {asis,IntConstr},","]),
-		    need(decode_integer, 3)
-	    end;
-	{'INTEGER',NamedNumberList} ->
-	    case IntConstr of
-		[] ->
-		    emit(["decode_named_integer(",BytesVar,",",
-			  {asis,NamedNumberList},","]),
-		    need(decode_named_integer, 3);
-		{_,_} ->
-		    emit(["decode_named_integer(",BytesVar,",",
-			  {asis,IntConstr},",",
-			  {asis,NamedNumberList},","]),
-		    need(decode_named_integer, 4)
-	    end;
-	{'ENUMERATED',NamedNumberList} ->
-	    emit(["decode_enumerated(",BytesVar,",",
-		  {asis,NamedNumberList},","]),
-	    need(decode_enumerated, 3);
-	'REAL' ->
-	    ok;
-	{'BIT STRING',_NamedNumberList} ->
-	    ok;
-	'NULL' ->
-	    emit(["decode_null(",BytesVar,","]),
-	    need(decode_null, 2);
-	'OBJECT IDENTIFIER' ->
-	    emit(["decode_object_identifier(",BytesVar,","]),
-	    need(decode_object_identifier, 2);
-	'RELATIVE-OID' ->
-	    emit(["decode_relative_oid(",BytesVar,","]),
-	    need(decode_relative_oid, 2);
-	restricted_string ->
-	    emit(["decode_restricted_string",AsBin,"(",BytesVar,","]),
-	    case Constraint of
-		[] ->
-		    need(decode_restricted_string, 2);
-		_ ->
-		    emit([{asis,Constraint},","]),
-		    need(decode_restricted_string, 3)
-	    end;
-	'UniversalString' ->
-	    emit(["decode_universal_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},","]),
-	    need(decode_universal_string, 3);
-	'UTF8String' ->
-	    emit(["decode_UTF8_string",AsBin,"(",
-		  BytesVar,","]),
-	    need(decode_UTF8_string, 2);
-	'BMPString' ->
-	    emit(["decode_BMP_string",AsBin,"(",
-		  BytesVar,",",{asis,Constraint},","]),
-	    need(decode_BMP_string, 3);
-	'ASN1_OPEN_TYPE' ->
-	    emit(["decode_open_type_as_binary(",
-		  BytesVar,","]),
-	    need(decode_open_type_as_binary, 2)
-    end,
-
     TagStr = case DoTag of
 		 {string,Tag1} -> Tag1;
 		 _ when is_list(DoTag) -> {asis,DoTag}
 	     end,
     case NewTypeName of
-	{'BIT STRING',NNL} ->
-	    gen_dec_bit_string(BytesVar, Constraint, NNL, TagStr);
+	'BOOLEAN'->
+	    call(decode_boolean, [BytesVar,TagStr]);
+	'INTEGER' ->
+	    check_constraint(decode_integer, [BytesVar,TagStr],
+			     IntConstr,
+			     identity,
+			     identity);
+	{'INTEGER',NNL} ->
+	    check_constraint(decode_integer,
+			     [BytesVar,TagStr],
+			     IntConstr,
+			     identity,
+			     fun(Val) ->
+				     asn1ct_name:new(val),
+				     emit([{curr,val}," = "]),
+				     Val(),
+				     emit([com,nl,
+					   {call,ber,number2name,
+					    [{curr,val},{asis,NNL}]}])
+			     end);
+	{'ENUMERATED',NNL} ->
+	    gen_dec_enumerated(BytesVar, NNL, TagStr);
 	'REAL' ->
 	    asn1ct_name:new(tmpbuf),
 	    emit(["begin",nl,
@@ -562,8 +578,36 @@ gen_dec_prim(_Erules, Att, BytesVar, DoTag, _TagIn, _Form, _OptOrMand) ->
 		  {call,ber,match_tags,[BytesVar,TagStr]},com,nl,
 		  {call,real_common,decode_real,[{curr,tmpbuf}]},nl,
 		  "end",nl]);
-	_ ->
-	    emit([TagStr,")"])
+	{'BIT STRING',NNL} ->
+	    gen_dec_bit_string(BytesVar, Constraint, NNL, TagStr);
+	'NULL' ->
+	    call(decode_null, [BytesVar,TagStr]);
+	'OBJECT IDENTIFIER' ->
+	    call(decode_object_identifier, [BytesVar,TagStr]);
+	'RELATIVE-OID' ->
+	    call(decode_relative_oid, [BytesVar,TagStr]);
+	'OCTET STRING' ->
+	    check_constraint(decode_octet_string, [BytesVar,TagStr],
+			     Constraint, {erlang,byte_size}, identity);
+	restricted_string ->
+	    check_constraint(decode_restricted_string, [BytesVar,TagStr],
+			     Constraint,
+			     {erlang,byte_size},
+			     fun(Val) ->
+				     emit("binary_to_list("),
+				     Val(),
+				     emit(")")
+			     end);
+	'UniversalString' ->
+	    check_constraint(decode_universal_string, [BytesVar,TagStr],
+			     Constraint, {erlang,length}, identity);
+	'UTF8String' ->
+	    call(decode_UTF8_string, [BytesVar,TagStr]);
+	'BMPString' ->
+	    check_constraint(decode_BMP_string, [BytesVar,TagStr],
+			     Constraint, {erlang,length}, identity);
+	'ASN1_OPEN_TYPE' ->
+	    call(decode_open_type_as_binary, [BytesVar,TagStr])
     end.
 
 %% Simplify an integer constraint so that we can efficiently test it.
@@ -579,7 +623,7 @@ int_constr(C) ->
 	[{'ValueRange',{_,_}=Range}] ->
 	    Range;
 	[{'SingleValue',Sv}] ->
-	    {Sv,Sv};
+	    Sv;
 	[] ->
 	    []
     end.
@@ -590,15 +634,107 @@ gen_dec_bit_string(BytesVar, _Constraint, [_|_]=NNL, TagStr) ->
 gen_dec_bit_string(BytesVar, Constraint, [], TagStr) ->
     case asn1ct:get_bit_string_format() of
 	compact ->
-	    call(decode_compact_bit_string,
-		 [BytesVar,{asis,Constraint},TagStr]);
+	    check_constraint(decode_compact_bit_string,
+			     [BytesVar,TagStr],
+			     Constraint,
+			     {ber,compact_bit_string_size},
+			     identity);
 	legacy ->
-	    call(decode_legacy_bit_string,
-		 [BytesVar,{asis,Constraint},TagStr]);
+	    check_constraint(decode_native_bit_string,
+			     [BytesVar,TagStr],
+			     Constraint,
+			     {erlang,bit_size},
+			     fun(Val) ->
+				     asn1ct_name:new(val),
+				     emit([{curr,val}," = "]),
+				     Val(),
+				     emit([com,nl,
+					   {call,ber,native_to_legacy_bit_string,
+					    [{curr,val}]}])
+			     end);
 	bitstring ->
-	    call(decode_native_bit_string,
-		 [BytesVar,{asis,Constraint},TagStr])
+	    check_constraint(decode_native_bit_string,
+			     [BytesVar,TagStr],
+			     Constraint,
+			     {erlang,bit_size},
+			     identity)
     end.
+
+check_constraint(F, Args, Constr, PreConstr0, ReturnVal0) ->
+    PreConstr = case PreConstr0 of
+		    identity ->
+			fun(V) -> V end;
+		    {Mod,Name} ->
+			fun(V) ->
+				asn1ct_name:new(c),
+				emit([{curr,c}," = ",
+				      {call,Mod,Name,[V]},com,nl]),
+				{curr,c}
+			end
+		end,
+    ReturnVal = case ReturnVal0 of
+		    identity ->	fun(Val) -> Val() end;
+		    _ -> ReturnVal0
+		end,
+    case Constr of
+	[] when ReturnVal0 =:= identity ->
+	    %% No constraint, no complications.
+	    call(F, Args);
+	[] ->
+	    %% No constraint, but the return value could consist
+	    %% of more than one statement.
+	    emit(["begin",nl]),
+	    ReturnVal(fun() -> call(F, Args) end),
+	    emit([nl,
+		  "end",nl]);
+	_ ->
+	    %% There is a constraint.
+	    asn1ct_name:new(val),
+	    emit(["begin",nl,
+		  {curr,val}," = ",{call,ber,F,Args},com,nl]),
+	    PreVal0 = asn1ct_gen:mk_var(asn1ct_name:curr(val)),
+	    PreVal = PreConstr(PreVal0),
+	    emit("if "),
+	    case Constr of
+		{Min,Max} ->
+		    emit([{asis,Min}," =< ",PreVal,", ",
+			  PreVal," =< ",{asis,Max}]);
+		Sv when is_integer(Sv) ->
+		    emit([PreVal," =:= ",{asis,Sv}])
+	    end,
+	    emit([" ->",nl]),
+	    ReturnVal(fun() -> emit(PreVal0) end),
+	    emit([";",nl,
+		  "true ->",nl,
+		  "exit({error,{asn1,bad_range}})",nl,
+		  "end",nl,
+		 "end"])
+    end.
+
+gen_dec_enumerated(BytesVar, NNL0, TagStr) ->
+    asn1ct_name:new(enum),
+    emit(["case ",
+	  {call,ber,decode_integer,[BytesVar,TagStr]},
+	  " of",nl]),
+    NNL = case NNL0 of
+	      {L1,L2} ->
+		  L1 ++ L2 ++ [accept];
+	      [_|_] ->
+		  NNL0 ++ [error]
+	  end,
+    gen_dec_enumerated_1(NNL),
+    emit("end").
+
+gen_dec_enumerated_1([accept]) ->
+    asn1ct_name:new(default),
+    emit([{curr,default}," -> {asn1_enum,",{curr,default},"}",nl]);
+gen_dec_enumerated_1([error]) ->
+    asn1ct_name:new(default),
+    emit([{curr,default}," -> exit({error,{asn1,{illegal_enumerated,",
+	  {curr,default},"}}})",nl]);
+gen_dec_enumerated_1([{V,K}|T]) ->
+    emit([{asis,K}," -> ",{asis,V},";",nl]),
+    gen_dec_enumerated_1(T).
 
     
 %% Object code generating for encoding and decoding
@@ -637,9 +773,6 @@ gen_encode_objectfields(ClassName,[{typefield,Name,OptOrMand}|Rest],
 % 	  ", Val, RestPrimFieldName) ->",nl]),
     MaybeConstr=
 	case {get_object_field(Name,ObjectFields),OptOrMand} of
-	    {false,'MANDATORY'} -> %% this case is illegal
-		exit({error,{asn1,{"missing mandatory field in object",
-				   ObjName}}});
 	    {false,'OPTIONAL'} ->
 		EmitFuncClause("Val"),
 		emit(["   {Val,0}"]),
@@ -672,9 +805,6 @@ gen_encode_objectfields(ClassName,[{objectfield,Name,_,_,OptOrMand}|Rest],
 %     emit(["'enc_",ObjName,"'(",{asis,Name},
 % 	  ", Val,[H|T]) ->",nl]),
     case {get_object_field(Name,ObjectFields),OptOrMand} of
-	{false,'MANDATORY'} ->
-	    exit({error,{asn1,{"missing mandatory field in object",
-			       ObjName}}});
 	{false,'OPTIONAL'} ->
 	    EmitFuncClause("_,_"),
 	    emit(["  exit({error,{'use of missing field in object', ",{asis,Name},
@@ -807,9 +937,6 @@ gen_decode_objectfields(ClassName,[{typefield,Name,OptOrMand}|Rest],
 % 	  ", Bytes, RestPrimFieldName) ->",nl]),
     MaybeConstr=
 	case {get_object_field(Name,ObjectFields),OptOrMand} of
-	    {false,'MANDATORY'} -> %% this case is illegal
-		exit({error,{asn1,{"missing mandatory field in object",
-				   ObjName}}});
 	    {false,'OPTIONAL'} ->
 		EmitFuncClause(" Bytes"),
 		emit(["   Bytes"]),
@@ -844,9 +971,6 @@ gen_decode_objectfields(ClassName,[{objectfield,Name,_,_,OptOrMand}|Rest],
 % 	  ", Bytes,[H|T]) ->",nl]),
 %     emit_tlv_format("Bytes"),
     case {get_object_field(Name,ObjectFields),OptOrMand} of
-	{false,'MANDATORY'} ->
-	    exit({error,{asn1,{"missing mandatory field in object",
-			       ObjName}}});
 	{false,'OPTIONAL'} ->
 	    EmitFuncClause("_,_"),
 	    emit(["  exit({error,{'illegal use of missing field in object', ",{asis,Name},
@@ -956,9 +1080,8 @@ gen_decode_field_call(ObjName,FieldName,Bytes,Type) ->
     Tag = [(decode_class(X#tag.class) bsl 10) + X#tag.number || 
 	      X <- OTag],
     case Type#typedef.name of
-	{primitive,bif} -> %%tag should be the primitive tag
-	    gen_dec_prim(ber,Def,Bytes,Tag,"TagIn",?PRIMITIVE,
-			 opt_or_default),
+	{primitive,bif} ->
+	    gen_dec_prim(Def, Bytes, Tag),
 	    [];
 	{constructed,bif} ->
 	    emit({"   'dec_",ObjName,'_',FieldName,
@@ -986,8 +1109,7 @@ gen_decode_default_call(ClassName,FieldName,Bytes,Type) ->
 						      FieldName])),
 		      typespec=Type}];
 	{primitive,bif} ->
-	    gen_dec_prim(ber,Type,Bytes,Tag,"TagIn",
-			 ?PRIMITIVE,opt_or_default),
+	    gen_dec_prim(Type, Bytes, Tag),
 	    [];
 	#'Externaltypereference'{module=CurrentMod,type=Etype} ->
 	    emit(["   'dec_",Etype,"'(",Bytes, " ,",{asis,Tag},")",nl]),
@@ -1072,36 +1194,35 @@ gen_objset_enc(_,_,{unique,undefined},_,_,_,_,_) ->
 gen_objset_enc(Erules, ObjSetName, UniqueName,
 	       [{ObjName,Val,Fields}|T], ClName, ClFields,
 	       NthObj,Acc)->
-    emit(["'getenc_",ObjSetName,"'(",{asis,UniqueName},",",{asis,Val},
-	  ") ->",nl]),
     CurrMod = get(currmod),
     {InternalFunc,NewNthObj}=
 	case ObjName of
 	    {no_mod,no_name} ->
-		gen_inlined_enc_funs(Fields,ClFields,ObjSetName,NthObj);
+		gen_inlined_enc_funs(Fields, ClFields, ObjSetName, Val, NthObj);
 	    {CurrMod,Name} ->
-		emit({"    fun 'enc_",Name,"'/3"}),
+		emit(["'getenc_",ObjSetName,"'(",{asis,Val},") ->",nl,
+		      "    fun 'enc_",Name,"'/3;",nl]),
 		{[],NthObj};
 	    {ModuleName,Name} ->
+		emit(["'getenc_",ObjSetName,"'(",{asis,Val},") ->",nl]),
 		emit_ext_fun(enc,ModuleName,Name),
+		emit([";",nl]),
 		{[],NthObj};
 	    _ ->
-		emit({"    fun 'enc_",ObjName,"'/3"}),
+		emit(["'getenc_",ObjSetName,"'(",{asis,Val},") ->",nl,
+		      "    fun 'enc_",ObjName,"'/3;",nl]),
 		{[],NthObj}
 	end,
-    emit({";",nl}),
     gen_objset_enc(Erules, ObjSetName, UniqueName, T, ClName, ClFields,
 		   NewNthObj, InternalFunc ++ Acc);
 %% See X.681 Annex E for the following case
 gen_objset_enc(_,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
 	       _ClFields,_NthObj,Acc) ->
-    emit({"'getenc_",ObjSetName,"'(_, _) ->",nl}),
-    emit({indent(3),"fun(_, Val, _RestPrimFieldName) ->",nl}),
-    emit({indent(6),"Len = case Val of",nl,indent(9),
-	  "Bin when is_binary(Bin) -> byte_size(Bin);",nl,indent(9),
- 	  "_ -> length(Val)",nl,indent(6),"end,"}),
-    emit({indent(6),"{Val,Len}",nl}),
-    emit({indent(3),"end.",nl,nl}),
+    emit(["'getenc_",ObjSetName,"'(_) ->",nl,
+	  indent(2),"fun(_, Val, _RestPrimFieldName) ->",nl]),
+    emit_enc_open_type(4),
+    emit([nl,
+	  indent(2),"end.",nl,nl]),
     Acc;
 gen_objset_enc(_, ObjSetName, UniqueName, [], _, _, _, Acc) ->
     emit_default_getenc(ObjSetName, UniqueName),
@@ -1113,19 +1234,20 @@ emit_ext_fun(EncDec,ModuleName,Name) ->
 	  Name,"'(T,V,O) end"]).
     
 emit_default_getenc(ObjSetName,UniqueName) ->
-    emit(["'getenc_",ObjSetName,"'(",{asis,UniqueName},", ErrV) ->",nl]),
+    emit(["'getenc_",ObjSetName,"'(ErrV) ->",nl]),
     emit([indent(3),"fun(C,V,_) -> exit({'Type not compatible with table constraint',{component,C},{value,V}, {unique_name_and_value,",{asis,UniqueName},", ErrV}}) end"]).
 
 %% gen_inlined_enc_funs for each object iterates over all fields of a
 %% class, and for each typefield it checks if the object has that
 %% field and emits the proper code.
-gen_inlined_enc_funs(Fields, [{typefield,_,_}|_]=T, ObjSetName, NthObj) ->
-    emit([indent(3),"fun(Type, Val, _RestPrimFieldName) ->",nl,
+gen_inlined_enc_funs(Fields, [{typefield,_,_}|_]=T, ObjSetName, Val, NthObj) ->
+    emit(["'getenc_",ObjSetName,"'(",{asis,Val},") ->",nl,
+	  indent(3),"fun(Type, Val, _RestPrimFieldName) ->",nl,
 	  indent(6),"case Type of",nl]),
     gen_inlined_enc_funs1(Fields, T, ObjSetName, [], NthObj, []);
-gen_inlined_enc_funs(Fields,[_|Rest],ObjSetName,NthObj) ->
-    gen_inlined_enc_funs(Fields,Rest,ObjSetName,NthObj);
-gen_inlined_enc_funs(_,[],_,NthObj) ->
+gen_inlined_enc_funs(Fields, [_|Rest], ObjSetName, Val, NthObj) ->
+    gen_inlined_enc_funs(Fields, Rest, ObjSetName, Val, NthObj);
+gen_inlined_enc_funs(_, [], _, _, NthObj) ->
     {[],NthObj}.
 
 gen_inlined_enc_funs1(Fields, [{typefield,Name,_}|Rest], ObjSetName,
@@ -1163,13 +1285,8 @@ gen_inlined_enc_funs1(Fields, [{typefield,Name,_}|Rest], ObjSetName,
 		%% were no type in the table and we therefore generate
 		%% code that returns the input for application
 		%% treatment.
-		emit([indent(9),{asis,Name}," ->",nl,
-		      indent(12),"Len = case Val of",nl,
-		      indent(15),"Bin when is_binary(Bin) -> "
-		      "byte_size(Bin);",nl,
-		      indent(15),"_ -> length(Val)",nl,
-		      indent(12),"end,",nl,
-		      indent(12),"{Val,Len}"]),
+		emit([indent(9),{asis,Name}," ->",nl]),
+		emit_enc_open_type(11),
 		{Acc0,0}
 	end,
     gen_inlined_enc_funs1(Fields, Rest, ObjSetName, Sep, NthObj+NAdd, Acc);
@@ -1177,8 +1294,27 @@ gen_inlined_enc_funs1(Fields,[_|Rest], ObjSetName, Sep, NthObj, Acc)->
     gen_inlined_enc_funs1(Fields, Rest, ObjSetName, Sep, NthObj, Acc);
 gen_inlined_enc_funs1(_, [], _, _, NthObj, Acc) ->
     emit([nl,indent(6),"end",nl,
-	  indent(3),"end"]),
+	  indent(3),"end;",nl]),
     {Acc,NthObj}.
+
+emit_enc_open_type(I) ->
+    Indent = indent(I),
+    S = [Indent,          "case Val of",nl,
+	 Indent,indent(2),"{asn1_OPENTYPE,Bin} when is_binary(Bin) ->",nl,
+	 Indent,indent(4),"{Bin,byte_size(Bin)}"|
+	 case asn1ct:use_legacy_types() of
+	     false ->
+		 [nl,
+		  Indent,"end"];
+	     true ->
+		 [";",nl,
+		  Indent,indent(2),"Bin when is_binary(Bin) ->",nl,
+		  Indent,indent(4),"{Bin,byte_size(Bin)};",nl,
+		  Indent,indent(2),"_ ->",nl,
+		  Indent,indent(4),"{Val,length(Val)}",nl,
+		  Indent,          "end"]
+	 end],
+    emit(S).
 
 emit_inner_of_fun(TDef=#typedef{name={ExtMod,Name},typespec=Type},
 		  InternalDefFunName) ->
@@ -1240,38 +1376,34 @@ gen_objset_dec(_,_,{unique,undefined},_,_,_,_) ->
     ok;
 gen_objset_dec(Erules, ObjSName, UniqueName, [{ObjName,Val,Fields}|T],
 	       ClName, ClFields, NthObj)->
-    emit(["'getdec_",ObjSName,"'(",{asis,UniqueName},",",
-	  {asis,Val},") ->",nl]),
     CurrMod = get(currmod),
     NewNthObj=
 	case ObjName of
 	    {no_mod,no_name} ->
-		gen_inlined_dec_funs(Fields,ClFields,ObjSName,NthObj);
+		gen_inlined_dec_funs(Fields,ClFields,ObjSName,Val,NthObj);
 	    {CurrMod,Name} ->
-		emit(["    fun 'dec_",Name,"'/3"]),
+		emit(["'getdec_",ObjSName,"'(",{asis,Val},") ->",nl,
+		      "    fun 'dec_",Name,"'/3;", nl]),
 		NthObj;
 	    {ModuleName,Name} ->
+		emit(["'getdec_",ObjSName,"'(",{asis,Val},") ->",nl]),
 		emit_ext_fun(dec,ModuleName,Name),
+		emit([";",nl]),
 		NthObj;
 	    _ ->
-		emit(["    fun 'dec_",ObjName,"'/3"]),
+		emit(["'getdec_",ObjSName,"'(",{asis,Val},") ->",nl,
+		      "    fun 'dec_",ObjName,"'/3;", nl]),
 		NthObj
 	end,
-    emit([";",nl]),
     gen_objset_dec(Erules, ObjSName, UniqueName, T, ClName,
 		   ClFields, NewNthObj);
 gen_objset_dec(_,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
 	       _ClFields,_NthObj) ->
-    emit(["'getdec_",ObjSetName,"'(_, _) ->",nl]),
+    emit(["'getdec_",ObjSetName,"'(_) ->",nl]),
     emit([indent(2),"fun(_,Bytes, _RestPrimFieldName) ->",nl]),
-    
-    emit([indent(4),"case Bytes of",nl,
-	  indent(6),"Bin when is_binary(Bin) -> ",nl,
-	  indent(8),"Bin;",nl,
-	  indent(6),"_ ->",nl,
-	  indent(8),{call,ber,ber_encode,["Bytes"]},nl,
-	  indent(4),"end",nl]),
-    emit([indent(2),"end.",nl,nl]),
+    emit_dec_open_type(4),
+    emit([nl,
+	  indent(2),"end.",nl,nl]),
     ok;
 gen_objset_dec(_, ObjSetName, UniqueName, [], _, _, _) ->
     emit_default_getdec(ObjSetName, UniqueName),
@@ -1279,13 +1411,18 @@ gen_objset_dec(_, ObjSetName, UniqueName, [], _, _, _) ->
     ok.
 
 emit_default_getdec(ObjSetName,UniqueName) ->
-    emit(["'getdec_",ObjSetName,"'(",{asis,UniqueName},", ErrV) ->",nl]),
+    emit(["'getdec_",ObjSetName,"'(ErrV) ->",nl]),
     emit([indent(2), "fun(C,V,_) -> exit({{component,C},{value,V},{unique_name_and_value,",{asis,UniqueName},", ErrV}}) end"]).
 
-gen_inlined_dec_funs(Fields, ClFields, ObjSetName, NthObj) ->
+gen_inlined_dec_funs(Fields, [{typefield,_,_}|_]=ClFields, ObjSetName, Val, NthObj) ->
+    emit(["'getdec_",ObjSetName,"'(",{asis,Val},") ->",nl]),
     emit([indent(3),"fun(Type, Bytes, _RestPrimFieldName) ->",nl,
 	  indent(6),"case Type of",nl]),
-    gen_inlined_dec_funs1(Fields, ClFields, ObjSetName, "", NthObj).
+    gen_inlined_dec_funs1(Fields, ClFields, ObjSetName, "", NthObj);
+gen_inlined_dec_funs(Fields, [_|ClFields], ObjSetName, Val, NthObj) ->
+    gen_inlined_dec_funs(Fields, ClFields, ObjSetName, Val, NthObj);
+gen_inlined_dec_funs(_, _, _, _,NthObj) ->
+    NthObj.
 
 gen_inlined_dec_funs1(Fields, [{typefield,Name,Prop}|Rest],
 		      ObjSetName, Sep0, NthObj) ->
@@ -1318,12 +1455,8 @@ gen_inlined_dec_funs1(Fields, [{typefield,Name,Prop}|Rest],
 		end,
 		0;
 	    false ->
-		emit([indent(9),{asis,Name}," ->",nl,
-		      indent(12),"Len = case Bytes of",nl,
-		      indent(15),"B when is_binary(B) -> byte_size(B);",nl,
-		      indent(15),"_ -> length(Bytes)",nl,
-		      indent(12),"end,",nl,
-		      indent(12),"{Bytes,[],Len}"]),
+		emit([indent(9),{asis,Name}," ->",nl]),
+		emit_dec_open_type(11),
 		0
     end,
     gen_inlined_dec_funs1(Fields, Rest, ObjSetName, Sep, NthObj+N);
@@ -1331,10 +1464,31 @@ gen_inlined_dec_funs1(Fields, [_|Rest], ObjSetName, Sep, NthObj)->
     gen_inlined_dec_funs1(Fields, Rest, ObjSetName, Sep, NthObj);
 gen_inlined_dec_funs1(_, [], _, _, NthObj) ->
     emit([nl,indent(6),"end",nl,
-	  indent(3),"end"]),
+	  indent(3),"end;",nl]),
     NthObj.
 
-emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type},Prop,
+emit_dec_open_type(I) ->
+    Indent = indent(I),
+    S = case asn1ct:use_legacy_types() of
+	    false ->
+		[Indent,          "case Bytes of",nl,
+		 Indent,indent(2),"Bin when is_binary(Bin) -> ",nl,
+		 Indent,indent(4),"{asn1_OPENTYPE,Bin};",nl,
+		 Indent,indent(2),"_ ->",nl,
+		 Indent,indent(4),"{asn1_OPENTYPE,",
+		 {call,ber,ber_encode,["Bytes"]},"}",nl,
+		 Indent,          "end"];
+	    true ->
+		[Indent,          "case Bytes of",nl,
+		 Indent,indent(2),"Bin when is_binary(Bin) -> ",nl,
+		 Indent,indent(4),"Bin;",nl,
+		 Indent,indent(2),"_ ->",nl,
+		 Indent,indent(4),{call,ber,ber_encode,["Bytes"]},nl,
+		 Indent,          "end"]
+	end,
+    emit(S).
+
+emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type}, _Prop,
 		     InternalDefFunName) ->
     OTag = Type#type.tag,
 %%    Tag = [X#tag{class=decode_class(X#tag.class)}|| X <- OTag],
@@ -1342,8 +1496,7 @@ emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type},Prop,
     case {ExtName,Name} of
 	{primitive,bif} ->
 	    emit(indent(12)),
-	    gen_dec_prim(ber,Type,"Bytes",Tag,"TagIn",
-			 ?PRIMITIVE,Prop),
+	    gen_dec_prim(Type, "Bytes", Tag),
 	    0;
 	{constructed,bif} ->
 	    emit([indent(12),"'dec_",
@@ -1360,7 +1513,7 @@ emit_inner_of_decfun(#typedef{name={ExtName,Name},typespec=Type},Prop,
 emit_inner_of_decfun(#typedef{name=Name},_Prop,_) ->
     emit([indent(12),"'dec_",Name,"'(Bytes)"]),
     0;
-emit_inner_of_decfun(Type,Prop,_) when is_record(Type,type) ->
+emit_inner_of_decfun(#type{}=Type, _Prop, _) ->
     OTag = Type#type.tag,
 %%    Tag = [X#tag{class=decode_class(X#tag.class)}|| X <- OTag],
     Tag = [(decode_class(X#tag.class) bsl 10) + X#tag.number || X <- OTag],
@@ -1371,8 +1524,7 @@ emit_inner_of_decfun(Type,Prop,_) when is_record(Type,type) ->
     case WhatKind of
 	{primitive,bif} -> 
 	    emit([indent(9),Def," ->",nl,indent(12)]),
-	    gen_dec_prim(ber,Type,"Bytes",Tag,"TagIn",
-			 ?PRIMITIVE,Prop);
+	    gen_dec_prim(Type, "Bytes", Tag);
 	#'Externaltypereference'{module=CurrMod,type=T} ->
 	    emit([indent(9),T," ->",nl,indent(12),"'dec_",T,
 %		  "'(Bytes, ",Prop,")"]);
@@ -1406,39 +1558,6 @@ decode_class('CONTEXT') ->
     ?CONTEXT;
 decode_class('PRIVATE') ->
     ?PRIVATE.
-
-decode_type('BOOLEAN') -> 1;
-decode_type('INTEGER') -> 2;
-decode_type('BIT STRING') -> 3; 
-decode_type('OCTET STRING') -> 4; 
-decode_type('NULL') -> 5;
-decode_type('OBJECT IDENTIFIER') -> 6;
-decode_type('ObjectDescriptor') -> 7;
-decode_type('EXTERNAL') -> 8;
-decode_type('REAL') -> 9;
-decode_type('ENUMERATED') -> 10;
-decode_type('EMBEDDED_PDV') -> 11;
-decode_type('UTF8String') -> 12;
-decode_type('RELATIVE-OID') -> 13;
-decode_type('SEQUENCE') -> 16;
-decode_type('SEQUENCE OF') -> 16;
-decode_type('SET') -> 17;
-decode_type('SET OF') -> 17;
-decode_type('NumericString') -> 18;  
-decode_type('PrintableString') -> 19;  
-decode_type('TeletexString') -> 20;  
-decode_type('T61String') -> 20;
-decode_type('VideotexString') -> 21;  
-decode_type('IA5String') -> 22;  
-decode_type('UTCTime') -> 23;  
-decode_type('GeneralizedTime') -> 24;  
-decode_type('GraphicString') -> 25;  
-decode_type('VisibleString') -> 26;  
-decode_type('GeneralString') -> 27;  
-decode_type('UniversalString') -> 28;  
-decode_type('BMPString') -> 30;
-decode_type('CHOICE') -> 'CHOICE'; % choice gets the tag from the actual alternative  
-decode_type(Else) -> exit({error,{asn1,{unrecognized_type,Else}}}).
 
 mkfuncname(#'Externaltypereference'{module=Mod,type=EType}, DecOrEnc) ->
     CurrMod = get(currmod),
@@ -1509,6 +1628,3 @@ extaddgroup2sequence(ExtList) when is_list(ExtList) ->
 
 call(F, Args) ->
     asn1ct_func:call(ber, F, Args).
-
-need(F, Arity) ->
-    asn1ct_func:need({ber,F,Arity}).

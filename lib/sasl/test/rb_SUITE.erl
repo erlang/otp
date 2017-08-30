@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -362,11 +363,28 @@ start_stop_log(Config) ->
     StdioResult = [_|_] = capture(fun() -> rb:show(1) end),
     {ok,<<>>} = file:read_file(OutFile),
 
-    %% Start log and check that show is printed to log and not to standad_io
+    %% Start log and check that show is printed to log and not to standard_io
     ok = rb:start_log(OutFile),
     [] = capture(fun() -> rb:show(1) end),
     {ok,Bin} = file:read_file(OutFile),
     true = (Bin =/= <<>>),
+
+    %% Start log with atom standard_io and check that show is printed to standard_io
+    ok = rb:stop_log(),
+    ok = file:write_file(OutFile,[]),
+    ok = rb:start_log(standard_io),
+    StdioResult = [_|_] = capture(fun() -> rb:show(1) end),
+    {ok,<<>>} = file:read_file(OutFile),
+
+    %% Start log and check that show is printed to iodevice log and not to standard_io
+    ok = rb:stop_log(),
+    ok = file:write_file(OutFile,[]),
+    {ok, IoOutFile} = file:open(OutFile,[write]),
+    ok = rb:start_log(IoOutFile),
+    [] = capture(fun() -> rb:show(1) end),
+    {ok,Bin} = file:read_file(OutFile),
+    true = (Bin =/= <<>>),
+    ok = file:close(IoOutFile),
 
     %% Stop log and check that show is printed to standard_io and not to log
     ok = rb:stop_log(),
@@ -374,6 +392,19 @@ start_stop_log(Config) ->
     StdioResult = capture(fun() -> rb:show(1) end),
     {ok,<<>>} = file:read_file(OutFile),
 
+    %% Start log and check that list is printed to log and not to standard_io
+    ok = file:write_file(OutFile,[]),
+    ok = rb:start_log(OutFile),
+    [] = capture(fun() -> rb:log_list() end),
+    {ok,Bin2} = file:read_file(OutFile),
+    true = (Bin2 =/= <<>>),
+
+    %% Stop log and check that list is printed to standard_io and not to log
+    ok = rb:stop_log(),
+    ok = file:write_file(OutFile,[]),
+    StdioResult2 = capture(fun() -> rb:log_list() end),
+    {ok,<<>>} = file:read_file(OutFile),
+    
     %% Test that standard_io is used if log file can not be opened
     ok = rb:start_log(filename:join(nonexistingdir,"newfile.txt")),
     StdioResult = capture(fun() -> rb:show(1) end),

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -43,9 +44,11 @@
 -export([script_options/1, normal_script/1, unicode_script/1,
 	 unicode_script/2, no_mod_vsn_script/1,
 	 wildcard_script/1, variable_script/1, no_sasl_script/1,
+	 no_dot_erlang_script/1,
 	 abnormal_script/1, src_tests_script/1, crazy_script/1,
 	 included_script/1, included_override_script/1,
 	 included_fail_script/1, included_bug_script/1, exref_script/1,
+	 duplicate_modules_script/1,
 	 otp_3065_circular_dependenies/1, included_and_used_sort_script/1]).
 -export([tar_options/1, normal_tar/1, no_mod_vsn_tar/1, system_files_tar/1,
 	 system_files_tar/2, invalid_system_files_tar/1,
@@ -59,6 +62,7 @@
 -export([otp_6226_outdir/1]).
 -export([init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
+-export([delete_tree/1]).
 
 -import(lists, [foldl/3]).
 
@@ -78,9 +82,11 @@ groups() ->
     [{script, [],
       [script_options, normal_script, unicode_script, no_mod_vsn_script,
        wildcard_script, variable_script, abnormal_script,
-       no_sasl_script, src_tests_script, crazy_script,
+       no_sasl_script, no_dot_erlang_script,
+       src_tests_script, crazy_script,
        included_script, included_override_script,
        included_fail_script, included_bug_script, exref_script,
+       duplicate_modules_script,
        otp_3065_circular_dependenies, included_and_used_sort_script]},
      {tar, [],
       [tar_options, normal_tar, no_mod_vsn_tar, system_files_tar,
@@ -137,9 +143,9 @@ compile_source(File) ->
     ok = file:write_file(OutFileTemp, Code),
     file:rename(OutFileTemp, OutFile).
 
-end_per_suite(Conf) when is_list(Conf) ->
-    %% Nothing.
-    Conf.
+end_per_suite(Config) when is_list(Config) ->
+    rh_test_lib:clean_dir(?privdir),
+    Config.
 
 init_per_testcase(link_tar, Config) ->
     case os:type() of
@@ -299,6 +305,11 @@ unicode_script(Config) when is_list(Config) ->
     %% 3. path (directory name where unicode_app.tgz is extracted)
     true = lists:member({path,[P1]},Instr),
 
+    %% If all is good, delete the unicode dir to avoid lingering files
+    %% on windows.
+    rpc:call(Node,code,add_pathz,[filename:dirname(code:which(?MODULE))]),
+    rpc:call(Node,?MODULE,delete_tree,[UnicodeLibDir]),
+
     ok.
 
 unicode_script(cleanup,Config) ->
@@ -447,6 +458,34 @@ no_sasl_script(Config) when is_list(Config) ->
 
     {ok, _ , []} =
 	systools:make_script(LatestName,[{path, P},silent, no_warn_sasl]),
+
+    ok = file:set_cwd(OldDir),
+    ok.
+
+%% make_script: Create script with no_dot_erlang. Check script contents.
+no_dot_erlang_script(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(latest1_no_sasl,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = [fname([DataDir, d_normal, lib])],
+    P = [fname([LibDir, '*', ebin]),
+	 fname([DataDir, lib, kernel, ebin]),
+	 fname([DataDir, lib, stdlib, ebin]),
+	 fname([DataDir, lib, sasl, ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    {ok, _ , []} =
+	systools:make_script(LatestName,[{path, P},silent, no_warn_sasl]),
+    {ok, [{_, _, LoadDotErlang}]} = read_script_file(LatestName),
+    [erlangrc] = [E || {apply, {c, E, []}} <- LoadDotErlang],
+
+    {ok, _ , []} =
+	systools:make_script(LatestName,[{path, P},silent, no_warn_sasl, no_dot_erlang]),
+    {ok, [{_, _, DoNotLoadDotErlang}]} = read_script_file(LatestName),
+    [] = [E || {apply, {c, E, []}} <- DoNotLoadDotErlang],
 
     ok = file:set_cwd(OldDir),
     ok.
@@ -785,6 +824,33 @@ no_hipe({ok, Value}) ->
 	_Arch ->
 	    {ok, Value}
     end.
+
+%% duplicate_modules_script: Check that make_script rejects two
+%% applications providing the same module.
+duplicate_modules_script(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(duplicate_modules,Config),
+
+    DataDir = filename:absname(?copydir),
+
+    ok = file:set_cwd(LatestDir),
+    LibDir = fname([DataDir, d_duplicate_modules, lib]),
+    P = [fname([LibDir, 'app1-1.0', ebin]),
+	 fname([LibDir, 'app2-1.0', ebin])],
+
+    %% Check wrong app vsn
+    error = systools:make_script(LatestName, [{path, P}]),
+    {error,
+      systools_make,
+      {duplicate_modules, [
+          {{myapp,app1,_}, {myapp,app2,_}}
+        ]
+      }
+    } = systools:make_script(LatestName, [silent, {path, P}]),
+
+    ok = file:set_cwd(OldDir),
+    ok.
 
 %% tar_options: Check illegal tar options.
 tar_options(Config) when is_list(Config) ->
@@ -1550,9 +1616,19 @@ no_sasl_relup(Config) when is_list(Config) ->
 
 %% make_relup: Check that application start type is used in relup
 app_start_type_relup(Config) when is_list(Config) ->
+    %% This might fail if some applications are not available, if so
+    %% skip the test case.
+    try create_script(latest_app_start_type2,Config) of
+	{Dir2,Name2} ->
+	    app_start_type_relup(Dir2,Name2,Config)
+    catch throw:{error,Reason} ->
+	    {skip,Reason}
+    end.
+
+app_start_type_relup(Dir2,Name2,Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Dir1,Name1} = create_script(latest_app_start_type1,Config),
-    {Dir2,Name2} = create_script(latest_app_start_type2,Config),
+
     Release1 = filename:join(Dir1,Name1),
     Release2 = filename:join(Dir2,Name2),
 
@@ -1564,25 +1640,21 @@ app_start_type_relup(Config) when is_list(Config) ->
     %% ?t:format("Dn: ~p",[DownInstructions]),
     [{load_object_code, {mnesia, _, _}},
      {load_object_code, {runtime_tools, _, _}},
-     {load_object_code, {webtool, _, _}},
      {load_object_code, {snmp, _, _}},
      {load_object_code, {xmerl, _, _}},
      point_of_no_return
      | UpInstructionsT] = UpInstructions,
     true = lists:member({apply,{application,start,[mnesia,permanent]}}, UpInstructionsT),
     true = lists:member({apply,{application,start,[runtime_tools,transient]}}, UpInstructionsT),
-    true = lists:member({apply,{application,start,[webtool,temporary]}}, UpInstructionsT),
     true = lists:member({apply,{application,load,[snmp]}}, UpInstructionsT),
     false = lists:any(fun({apply,{application,_,[xmerl|_]}}) -> true; (_) -> false end, UpInstructionsT),
     [point_of_no_return | DownInstructionsT] = DownInstructions,
     true = lists:member({apply,{application,stop,[mnesia]}}, DownInstructionsT),
     true = lists:member({apply,{application,stop,[runtime_tools]}}, DownInstructionsT),
-    true = lists:member({apply,{application,stop,[webtool]}}, DownInstructionsT),
     true = lists:member({apply,{application,stop,[snmp]}}, DownInstructionsT),
     true = lists:member({apply,{application,stop,[xmerl]}}, DownInstructionsT),
     true = lists:member({apply,{application,unload,[mnesia]}}, DownInstructionsT),
     true = lists:member({apply,{application,unload,[runtime_tools]}}, DownInstructionsT),
-    true = lists:member({apply,{application,unload,[webtool]}}, DownInstructionsT),
     true = lists:member({apply,{application,unload,[snmp]}}, DownInstructionsT),
     true = lists:member({apply,{application,unload,[xmerl]}}, DownInstructionsT),
     ok.
@@ -1924,12 +1996,12 @@ otp_6226_outdir(Config) when is_list(Config) ->
     ok = file:delete(Relup),
 
     %% d) absolute but incorrect path
-    {error,_,{file_problem,{"relup",enoent}}} =
+    {error,_,{file_problem,{"relup",{open,enoent}}}} =
 	systools:make_relup(LatestName,[LatestName1],[LatestName1],
 			    [{outdir,Outdir2},{path,P},silent]),
 
     %% e) relative but incorrect path
-    {error,_,{file_problem,{"relup",enoent}}} =
+    {error,_,{file_problem,{"relup",{open,enoent}}}} =
 	systools:make_relup(LatestName,[LatestName1],[LatestName1],
 			    [{outdir,"./outdir2"},{path,P},silent]),
 
@@ -2131,7 +2203,6 @@ create_script(latest_app_start_type1,Config) ->
 create_script(latest_app_start_type2,Config) ->
     OtherApps = [{mnesia,current,permanent},
 		 {runtime_tools,current,transient},
-		 {webtool,current,temporary},
 		 {snmp,current,load},
 		 {xmerl,current,none}],
     Apps = core_apps(current) ++ OtherApps,
@@ -2150,7 +2221,10 @@ create_script(current_all_future_sasl,Config) ->
     do_create_script(current_all_future_sasl,Config,current,Apps);
 create_script({unicode,RelVsn},Config) ->
     Apps = core_apps(current) ++ [{ua,"1.0"}],
-    do_create_script(unicode,RelVsn,Config,current,Apps).
+    do_create_script(unicode,RelVsn,Config,current,Apps);
+create_script(duplicate_modules,Config) ->
+    Apps = core_apps(current) ++ [{app1,"1.0"},{app2,"1.0"}],
+    do_create_script(duplicate_modules,Config,current,Apps).
 
 
 do_create_script(Id,Config,ErtsVsn,AppVsns) ->
@@ -2174,9 +2248,13 @@ app_vsns(AppVsns) ->
     [{App,app_vsn(App,Vsn)} || {App,Vsn} <- AppVsns] ++
 	[{App,app_vsn(App,Vsn),Type} || {App,Vsn,Type} <- AppVsns].
 app_vsn(App,current) ->
-    application:load(App),
-    {ok,Vsn} = application:get_key(App,vsn),
-    Vsn;
+    case application:load(App) of
+	Ok when Ok==ok; Ok=={error,{already_loaded,App}} ->
+	    {ok,Vsn} = application:get_key(App,vsn),
+	    Vsn;
+	Error ->
+	    throw(Error)
+    end;
 app_vsn(_App,Vsn) ->
     Vsn.
 

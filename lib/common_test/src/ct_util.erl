@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -37,7 +38,7 @@
 	 save_suite_data_async/3, save_suite_data_async/2,
 	 read_suite_data/1, 
 	 delete_suite_data/0, delete_suite_data/1, match_delete_suite_data/1,
-	 delete_testdata/0, delete_testdata/1,
+	 delete_testdata/0, delete_testdata/1, match_delete_testdata/1,
 	 set_testdata/1, get_testdata/1, get_testdata/2,
 	 set_testdata_async/1, update_testdata/2, update_testdata/3,
 	 set_verbosity/1, get_verbosity/1]).
@@ -77,6 +78,8 @@
 -record(suite_data, {key,name,value}).
 
 %%%-----------------------------------------------------------------
+start() ->
+    start(normal, ".", ?default_verbosity).
 %%% @spec start(Mode) -> Pid | exit(Error)
 %%%       Mode = normal | interactive
 %%%       Pid = pid()
@@ -91,9 +94,6 @@
 %%% <code>ct_util_server</code>.</p>
 %%%
 %%% @see ct
-start() ->
-    start(normal, ".", ?default_verbosity).
-
 start(LogDir) when is_list(LogDir) ->
     start(normal, LogDir, ?default_verbosity);
 start(Mode) ->
@@ -131,14 +131,14 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
     create_table(?suite_table,#suite_data.key),
 
     create_table(?verbosity_table,1),
-    [ets:insert(?verbosity_table,{Cat,Lvl}) || {Cat,Lvl} <- Verbosity],
+    _ = [ets:insert(?verbosity_table,{Cat,Lvl}) || {Cat,Lvl} <- Verbosity],
 
     {ok,StartDir} = file:get_cwd(),
     case file:set_cwd(LogDir) of
 	ok -> ok;
 	E -> exit(E)
     end,
-    DoExit = fun(Reason) -> file:set_cwd(StartDir), exit(Reason) end,
+    DoExit = fun(Reason) -> ok = file:set_cwd(StartDir), exit(Reason) end,
     Opts = case read_opts() of
 	       {ok,Opts1} ->
 		   Opts1;
@@ -169,7 +169,7 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
     end,
 
     %% add user event handlers
-    case lists:keysearch(event_handler,1,Opts) of
+    _ = case lists:keysearch(event_handler,1,Opts) of
 	{value,{_,Handlers}} ->
 	    Add = fun({H,Args}) ->
 			  case catch gen_event:add_handler(?CT_EVMGR_REF,H,Args) of
@@ -187,6 +187,7 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 	false ->
 	    ok
     end,
+
     {StartTime,TestLogDir} = ct_logs:init(Mode, Verbosity),
 
     ct_event:notify(#event{name=test_start,
@@ -194,16 +195,30 @@ do_start(Parent, Mode, LogDir, Verbosity) ->
 			   data={StartTime,
 				 lists:flatten(TestLogDir)}}),
     %% Initialize ct_hooks
-    try ct_hooks:init(Opts) of
+    _ = try ct_hooks:init(Opts) of
 	ok ->
 	    Parent ! {self(),started};
 	{fail,CTHReason} ->
-	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
+	    ErrorInfo = if is_atom(CTHReason) ->
+				io_lib:format("{~p,~p}",
+					      [CTHReason,
+					       erlang:get_stacktrace()]);
+			   true ->
+				CTHReason
+			end,
+	    ct_logs:tc_print('Suite Callback',ErrorInfo,[]),
 	    self() ! {{stop,{self(),{user_error,CTHReason}}},
 		      {Parent,make_ref()}}
     catch
 	_:CTHReason ->
-	    ct_logs:tc_print('Suite Callback',CTHReason,[]),
+	    ErrorInfo = if is_atom(CTHReason) ->
+				io_lib:format("{~p,~p}",
+					      [CTHReason,
+					       erlang:get_stacktrace()]);
+			   true ->
+				CTHReason
+			end,
+	    ct_logs:tc_print('Suite Callback',ErrorInfo,[]),
 	    self() ! {{stop,{self(),{user_error,CTHReason}}},
 		      {Parent,make_ref()}}
     end,
@@ -213,7 +228,8 @@ create_table(TableName,KeyPos) ->
     create_table(TableName,set,KeyPos).
 create_table(TableName,Type,KeyPos) ->
     catch ets:delete(TableName),
-    ets:new(TableName,[Type,named_table,public,{keypos,KeyPos}]).
+    _ = ets:new(TableName,[Type,named_table,public,{keypos,KeyPos}]),
+    ok.
 
 read_opts() ->
     case file:consult(ct_run:variables_file_name("./")) of
@@ -256,6 +272,9 @@ delete_testdata() ->
 delete_testdata(Key) ->
     call({delete_testdata, Key}).
 
+match_delete_testdata(KeyPat) ->
+    call({match_delete_testdata, KeyPat}).
+
 update_testdata(Key, Fun) ->
     update_testdata(Key, Fun, []).
 
@@ -286,14 +305,23 @@ get_start_dir() ->
 %% handle verbosity outside ct_util_server (let the client read
 %% the verbosity table) to avoid possible deadlock situations
 set_verbosity(Elem = {_Category,_Level}) ->
-    ets:insert(?verbosity_table, Elem),
-    ok.
+    try ets:insert(?verbosity_table, Elem) of
+	_ ->
+	    ok
+    catch
+	_:Reason ->
+	    {error,Reason}
+    end.
+	
 get_verbosity(Category) ->
-    case ets:lookup(?verbosity_table, Category) of
+    try ets:lookup(?verbosity_table, Category) of
 	[{Category,Level}] -> 
 	    Level;
 	_ ->
 	    undefined
+    catch
+	_:Reason ->
+	    {error,Reason}
     end.
 
 loop(Mode,TestData,StartDir) ->
@@ -338,7 +366,25 @@ loop(Mode,TestData,StartDir) ->
 	{{delete_testdata,Key},From} ->
 	    TestData1 = lists:keydelete(Key,1,TestData),
 	    return(From,ok),
-	    loop(From,TestData1,StartDir);	
+	    loop(From,TestData1,StartDir);
+	{{match_delete_testdata,{Key1,Key2}},From} ->
+	    %% handles keys with 2 elements
+	    TestData1 =
+		lists:filter(fun({Key,_}) when not is_tuple(Key) ->
+				     true;
+				({Key,_}) when tuple_size(Key) =/= 2 ->
+				     true;
+				({{_,KeyB},_}) when Key1 == '_' ->
+				     KeyB =/= Key2; 
+				({{KeyA,_},_}) when Key2 == '_' ->
+				     KeyA =/= Key1; 
+				(_) when Key1 == '_' ; Key2 == '_' ->
+				     false;
+				(_) ->
+				     true
+			     end, TestData),
+	    return(From,ok),
+	    loop(From,TestData1,StartDir);
 	{{set_testdata,New = {Key,_Val}},From} ->
 	    TestData1 = lists:keydelete(Key,1,TestData),
 	    return(From,ok),
@@ -358,9 +404,18 @@ loop(Mode,TestData,StartDir) ->
 	    TestData1 =
 		case lists:keysearch(Key,1,TestData) of
 		    {value,{Key,Val}} ->
-			NewVal = Fun(Val),
-			return(From,NewVal),
-			[{Key,NewVal}|lists:keydelete(Key,1,TestData)];
+			try Fun(Val) of
+			    '$delete' ->
+				return(From,deleted),
+				lists:keydelete(Key,1,TestData);
+			    NewVal ->
+				return(From,NewVal),
+				[{Key,NewVal}|lists:keydelete(Key,1,TestData)]
+			catch
+			    _:Error ->
+				return(From,{error,Error}),
+				TestData
+			end;
 		    _ ->
 			case lists:member(create,Opts) of
 			    true ->
@@ -383,23 +438,43 @@ loop(Mode,TestData,StartDir) ->
 	    return(From,StartDir),
 	    loop(From,TestData,StartDir);
 	{{stop,Info},From} ->
+	    test_server_io:reset_state(),
+	    {MiscIoName,MiscIoDivider,MiscIoFooter} =
+		proplists:get_value(misc_io_log,TestData),
+	    {ok,MiscIoFd} = file:open(MiscIoName,
+				      [append,{encoding,utf8}]),
+	    io:put_chars(MiscIoFd, MiscIoDivider),
+	    test_server_io:set_fd(unexpected_io, MiscIoFd),
+
 	    Time = calendar:local_time(),
 	    ct_event:sync_notify(#event{name=test_done,
 					node=node(),
 					data=Time}),
-	    Callbacks = ets:lookup_element(?suite_table,
-					   ct_hooks,
-					   #suite_data.value),
+	    Callbacks =
+		try ets:lookup_element(?suite_table,
+				       ct_hooks,
+				       #suite_data.value) of
+		    CTHMods -> CTHMods
+		catch
+		    %% this is because ct_util failed in init
+		    error:badarg -> []
+		end,
 	    ct_hooks:terminate(Callbacks),
+
 	    close_connections(ets:tab2list(?conn_table)),
 	    ets:delete(?conn_table),
 	    ets:delete(?board_table),
 	    ets:delete(?suite_table),
 	    ets:delete(?verbosity_table),
+
+	    io:put_chars(MiscIoFd, "\n</pre>\n"++MiscIoFooter),
+	    test_server_io:stop([unexpected_io]),
+	    test_server_io:finish(),
+
 	    ct_logs:close(Info, StartDir),
 	    ct_event:stop(),
 	    ct_config:stop(),
-	    file:set_cwd(StartDir),
+	    ok = file:set_cwd(StartDir),
 	    return(From, Info);
 	{Ref, _Msg} when is_reference(Ref) ->
 	    %% This clause is used when doing cast operations.
@@ -412,6 +487,8 @@ loop(Mode,TestData,StartDir) ->
 	{'EXIT',Pid,Reason} ->
 	    case ets:lookup(?conn_table,Pid) of
 		[#conn{address=A,callback=CB}] ->
+		    ErrorStr = io_lib:format("~tp", [Reason]),
+		    ErrorHtml = ct_logs:escape_chars(ErrorStr),
 		    %% A connection crashed - remove the connection but don't die
 		    ct_logs:tc_log_async(ct_error_notify,
 					 ?MAX_IMPORTANCE,
@@ -419,8 +496,8 @@ loop(Mode,TestData,StartDir) ->
 					 "Connection process died: "
 					 "Pid: ~w, Address: ~p, "
 					 "Callback: ~w\n"
-					 "Reason: ~p\n\n",
-					 [Pid,A,CB,Reason]),
+					 "Reason: ~ts\n\n",
+					 [Pid,A,CB,ErrorHtml]),
 		    catch CB:close(Pid),
 		    %% in case CB:close failed to do this:
 		    unregister_connection(Pid),
@@ -429,7 +506,7 @@ loop(Mode,TestData,StartDir) ->
 		    %% Let process crash in case of error, this shouldn't happen!
 		    io:format("\n\nct_util_server got EXIT "
 			      "from ~w: ~p\n\n", [Pid,Reason]),
-		    file:set_cwd(StartDir),
+		    ok = file:set_cwd(StartDir),
 		    exit(Reason)
 	    end
     end.
@@ -670,8 +747,14 @@ reset_silent_connections() ->
 %%% @see ct
 stop(Info) ->
     case whereis(ct_util_server) of
-	undefined -> ok;
-	_ -> call({stop,Info})
+	undefined -> 
+	    ok;
+	CtUtilPid ->
+	    Ref = monitor(process, CtUtilPid),
+	    call({stop,Info}),
+	    receive
+		{'DOWN',Ref,_,_,_} -> ok
+	    end
     end.
 
 %%%-----------------------------------------------------------------
@@ -953,10 +1036,12 @@ call(Msg, Timeout) ->
     end.
 
 return({To,Ref},Result) ->
-    To ! {Ref, Result}.
+    To ! {Ref, Result},
+    ok.
 
 cast(Msg) ->
-    ct_util_server ! {Msg, {ct_util_server, make_ref()}}.
+    ct_util_server ! {Msg, {ct_util_server, make_ref()}},
+    ok.
 
 seconds(T) ->
     test_server:seconds(T).
@@ -992,7 +1077,7 @@ abs_name2([],Acc) ->
 open_url(iexplore, Args, URL) ->
     {ok,R} = win32reg:open([read]),
     ok = win32reg:change_key(R,"applications\\iexplore.exe\\shell\\open\\command"),
-    case win32reg:values(R) of
+    _ = case win32reg:values(R) of
 	{ok, Paths} ->
 	    Path = proplists:get_value(default, Paths),
 	    [Cmd | _] = string:tokens(Path, "%"),

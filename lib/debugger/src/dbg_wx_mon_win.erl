@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -43,7 +44,7 @@
 -record(moduleInfo, {module, menubtn}).
 -record(procInfo, {pid, row}).
 -record(breakInfo, {point, status, break}).
--record(break, {mb, smi, emi, dimi, demi}).  %% BUGBUG defined in dbg_ui_win
+-record(break, {mb, smi, emi, dimi, demi}).
 -record(winInfo, {window,       % gsobj()
 		  grid,         % gsobj()
 		  row,          % int() Last row in grid
@@ -76,13 +77,6 @@
 init() ->
     dbg_wx_win:init().
 
-%%--------------------------------------------------------------------
-%% create_win(GS, Title, Menus) -> #winInfo{}
-%%   GS = gsobj()
-%%   Title = string()
-%%   Menus = [menu()]  See dbg_ui_win.erl
-%%--------------------------------------------------------------------
-
 -define(GRID,1000).
 
 -define(PAD, 5).
@@ -113,31 +107,31 @@ create_win_batch(Title, Menus) ->
     Hlb = 200,
     Listbox = wxListBox:new(Panel, ?wxID_ANY, [{size,{?Wf,Hlb}},
 					       {style,?wxLB_SINGLE}]),
-    wxSizer:add(LeftSz,Listbox,[{proportion,1},{border,3},{flag,?wxEXPAND}]),
+    _ = wxSizer:add(LeftSz,Listbox,[{proportion,1},{border,3},{flag,?wxEXPAND}]),
     wxListBox:connect(Listbox, command_listbox_doubleclicked),
     wxListBox:connect(Listbox, right_down),
 
     SBox = wxStaticBox:new(Panel, ?wxID_ANY, "Auto Attach:"),
     SBS  = wxStaticBoxSizer:new(SBox, ?wxVERTICAL),
     Fbtn = wxCheckBox:new(Panel, ?autoId, "First Call"),
-    wxSizer:add(SBS,Fbtn),
+    _ = wxSizer:add(SBS,Fbtn),
     Bbtn = wxCheckBox:new(Panel, ?autoId, "On Break"),
-    wxSizer:add(SBS,Bbtn),
+    _ = wxSizer:add(SBS,Bbtn),
     Ebtn = wxCheckBox:new(Panel, ?autoId, "On Exit"),
-    wxSizer:add(SBS,Ebtn),
+    _ = wxSizer:add(SBS,Ebtn),
     wxFrame:connect(Panel, command_checkbox_clicked),
-    wxSizer:add(LeftSz,SBS, [{flag,?wxEXPAND}]),
+    _ = wxSizer:add(LeftSz,SBS, [{flag,?wxEXPAND}]),
 
     SLabel = wxStaticText:new(Panel, ?wxID_ANY, "Stack Trace:\n On (with tail)"), 
-    wxSizer:add(LeftSz,SLabel),
+    _ = wxSizer:add(LeftSz,SLabel),
     BLabel = wxStaticText:new(Panel, ?wxID_ANY, "Back Trace Size:\n 50000"), 
-    wxSizer:add(LeftSz,BLabel),
+    _ = wxSizer:add(LeftSz,BLabel),
     
     StringsBox = wxStaticBox:new(Panel, ?wxID_ANY, "Strings:"),
     StringsBS  = wxStaticBoxSizer:new(StringsBox, ?wxVERTICAL),
     Stringsbtn = wxCheckBox:new(Panel, ?stringsId, ?STRTEXT),
-    wxSizer:add(StringsBS,Stringsbtn),
-    wxSizer:add(LeftSz,StringsBS, [{flag,?wxEXPAND}]),
+    _ = wxSizer:add(StringsBS,Stringsbtn),
+    _ = wxSizer:add(LeftSz,StringsBS, [{flag,?wxEXPAND}]),
 
     %% Create list_crtl / grid
     Grid = wxListCtrl:new(Panel, [{winid, ?GRID},
@@ -175,12 +169,12 @@ create_win_batch(Title, Menus) ->
     wxWindow:setFocus(Grid),
 
     %% Put it in the window
-    wxSizer:add(MainSz, LeftSz, [{border, 3}, {flag,?wxALL bor ?wxEXPAND}]),
-    wxSizer:add(MainSz, Grid,   [{border, 3}, {flag,?wxALL bor ?wxEXPAND}, 
+    _ = wxSizer:add(MainSz, LeftSz, [{border, 3}, {flag,?wxALL bor ?wxEXPAND}]),
+    _ = wxSizer:add(MainSz, Grid,   [{border, 3}, {flag,?wxALL bor ?wxEXPAND}, 
 				 {proportion, 1}]),
 
     wxWindow:setSizer(Panel,MainSz),
-    wxSizer:fit(MainSz, Win),
+    _ = wxSizer:fit(MainSz, Win),
     wxSizer:setSizeHints(MainSz,Win),
     
     IconFile = dbg_wx_win:find_icon("erlang_bug.png"),
@@ -624,8 +618,6 @@ handle_event(#wx{userData=Data,
 	     _WinInfo) ->
     Data;
 handle_event(_Event, _WinInfo) ->
-%% FIXME
-    io:format("Ev: ~p~n",[_Event]),
     ignore.
 
 %%====================================================================

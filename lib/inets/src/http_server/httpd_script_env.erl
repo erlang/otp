@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -60,6 +61,19 @@ which_port(#mod{config_db = ConfigDb}) ->
 which_peername(#mod{init_data = #init_data{peername = {_, RemoteAddr}}}) ->
     RemoteAddr.
 
+which_peercert(#mod{socket_type = {Type, _}, socket = Socket}) when Type == essl;
+								    Type == ssl ->
+    case ssl:peercert(Socket) of
+	{ok, Cert} ->
+	    Cert;
+	{error, no_peercert} -> 
+	    no_peercert;
+	_  ->
+	    undefined
+    end;
+which_peercert(_) -> %% Not an ssl connection
+    undefined.
+
 which_resolve(#mod{init_data = #init_data{resolve = Resolve}}) ->
     Resolve.
 
@@ -77,6 +91,7 @@ create_basic_elements(esi, ModData) ->
      {server_port,       which_port(ModData)},
      {request_method,    which_method(ModData)},
      {remote_addr,       which_peername(ModData)},
+     {peer_cert,         which_peercert(ModData)},
      {script_name,       which_request_uri(ModData)}];
 
 create_basic_elements(cgi, ModData) ->
@@ -103,7 +118,7 @@ create_http_header_elements(ScriptType, [{Name, [Value | _] = Values } |
 
 create_http_header_elements(ScriptType, [{Name, Value} | Headers], Acc) 
   when is_list(Value) ->
-    {ok, NewName, _} = inets_regexp:gsub(Name,"-","_"),
+    NewName = re:replace(Name,"-","_", [{return,list}, global]),
     Element = http_env_element(ScriptType, NewName, Value),
     create_http_header_elements(ScriptType, Headers, [Element | Acc]).
 

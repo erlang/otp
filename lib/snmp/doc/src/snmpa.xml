@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2012</year>
+      <year>2004</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -245,29 +246,75 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
           This function is used to convert to the old (pre-4.4) info 
           format. </p>
 
+        <marker id="load_mib"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>load_mib(Mib) -> ok | {error, Reason}</name>
+      <name>load_mib(Agent, Mib) -> ok | {error, Reason}</name>
+      <fsummary>Load single MIB into the agent</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>MibName = string()</v>
+        <v>Reason = already_loaded | term()</v>
+      </type>
+      <desc>
+        <p>Load a single <c>Mib</c> into an agent. The <c>MibName</c> 
+	is the name of the Mib, including the path to where the compiled 
+	mib is found. For example: </p>
+	<code type="none">
+          Dir = code:priv_dir(my_app) ++ "/mibs/",
+          snmpa:load_mib(snmp_master_agent, Dir ++ "MY-MIB").
+        </code>
+
         <marker id="load_mibs"></marker>
       </desc>
     </func>
 
     <func>
       <name>load_mibs(Mibs) -> ok | {error, Reason}</name>
-      <name>load_mibs(Agent,Mibs) -> ok | {error, Reason}</name>
+      <name>load_mibs(Mibs, Force) -> ok | {error, Reason}</name>
+      <name>load_mibs(Agent, Mibs) -> ok | {error, Reason}</name>
+      <name>load_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
       <fsummary>Load MIBs into the agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
         <v>Mibs = [MibName]</v>
+        <v>Force = boolean()</v>
         <v>MibName = string()</v>
-        <v>Reason = term()</v>
+        <v>Reason = {'load aborted at', MibName, InternalReason}</v>
+        <v>InternalReason = already_loaded | term()</v>
       </type>
       <desc>
-        <p>Loads <c>Mibs</c> into an agent.  If the agent cannot load
-          all MIBs, it will indicate where loading was aborted.  The
-          <c>MibName</c> is the name of the Mib, including the path to
-          where the compiled mib is found.  For example,</p>
-        <code type="none">
+        <p>Load <c>Mibs</c> into an agent.  If the agent cannot load all 
+	MIBs (the default value of the <c>Force</c> argument is <c>false</c>), 
+	it will indicate where loading was aborted. The <c>MibName</c> 
+	is the name of the Mib, including the path to where the compiled 
+	mib is found. For example,</p>
+	<code type="none">
           Dir = code:priv_dir(my_app) ++ "/mibs/",
           snmpa:load_mibs(snmp_master_agent, [Dir ++ "MY-MIB"]).
         </code>
+	<p>If <c>Force = true</c> then the agent will continue attempting
+	to load each mib even after failing to load a previous mib. Use with 
+	care. </p>
+
+        <marker id="unload_mib"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>unload_mib(Mib) -> ok | {error, Reason}</name>
+      <name>unload_mib(Agent, Mib) -> ok | {error, Reason}</name>
+      <fsummary>Unload single MIB from the agent</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+        <v>MibName = string()</v>
+        <v>Reason = not_loaded | term()</v>
+      </type>
+      <desc>
+        <p>Unload a single <c>Mib</c> from an agent. </p>
 
         <marker id="unload_mibs"></marker>
       </desc>
@@ -275,16 +322,25 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 
     <func>
       <name>unload_mibs(Mibs) -> ok | {error, Reason}</name>
-      <name>unload_mibs(Agent,Mibs) -> ok | {error, Reason}</name>
+      <name>unload_mibs(Mibs, Force) -> ok | {error, Reason}</name>
+      <name>unload_mibs(Agent, Mibs) -> ok | {error, Reason}</name>
+      <name>unload_mibs(Agent, Mibs, Force) -> ok | {error, Reason}</name>
       <fsummary>Unload MIBs from the agent</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
         <v>Mibs = [MibName]</v>
+        <v>Force = boolean()</v>
         <v>MibName = string()</v>
+        <v>Reason = {'unload aborted at', MibName, InternalReason}</v>
+        <v>InternalReason = not_loaded | term()</v>
       </type>
       <desc>
-        <p>Unloads MIBs into an agent.  If it cannot unload all MIBs,
-          it will indicate where unloading was aborted. </p>
+        <p>Unload <c>Mibs</c> from an agent. If it cannot unload all MIBs
+	(the default value of the <c>Force</c> argument is <c>false</c>),
+	it will indicate where unloading was aborted. </p>
+	<p>If <c>Force = true</c> then the agent will continue attempting
+	to unload each mib even after failing to unload a previous mib. 
+	Use with care. </p>
 
         <marker id="which_mibs"></marker>
       </desc>
@@ -502,32 +558,39 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 
     <func>
       <name>log_to_txt(LogDir)</name>
-      <name>log_to_txt(LogDir, Mibs)</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile) -> ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) ->  ok | {error, Reason}</name>
-      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->  ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Block | Mibs)</name>
+      <name>log_to_txt(LogDir, Mibs, Block | OutFile) -> ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, Block | LogName) ->  ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, Block | LogFile) ->  ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block | Start) ->  ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start)  -> ok | {error, Reason}</name>
       <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop)  -> ok | {error, Reason}</name>
+      <name>log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop)  -> ok | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
         <v>Mibs = [MibName]</v>
         <v>MibName = string()</v>
+        <v>Block = boolean()</v>
         <v>OutFile = string()</v>
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
-        <v>Start = Stop = null | datetime() | {local_time,datetime()} |  {universal_time,datetime()} </v>
+        <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
         <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
         <v>disk_log_open_error() = {LogName, term()}</v>
         <v>file_open_error() = {OutFile, term()}</v>
       </type>
       <desc>
         <p>Converts an Audit Trail Log to a readable text file. 
-          <c>OutFile</c> defaults to "./snmpa_log.txt". 
-          <c>LogName</c> defaults to "snmpa_log". 
-          <c>LogFile</c> defaults to "snmpa.log". 
-          See <seealso marker="snmp#log_to_txt">snmp:log_to_txt</seealso> 
-          for more info.</p>
+	<c>OutFile</c> defaults to "./snmpa_log.txt". 
+	<c>LogName</c> defaults to "snmpa_log". 
+	<c>LogFile</c> defaults to "snmpa.log". </p>
+	<p>The <c>Block</c> option indicates if the log should be blocked
+	during conversion. This could be usefull when converting large 
+	logs (when otherwise the log could wrap during conversion). 
+	Defaults to <c>true</c>. </p>
+	<p>See <seealso marker="snmp#log_to_txt">snmp:log_to_txt</seealso> 
+	for more info.</p>
 
         <marker id="log_to_io"></marker>
       </desc>
@@ -535,19 +598,22 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 
     <func>
       <name>log_to_io(LogDir) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName) ->  ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile) -> ok | {error, Reason}</name>
-      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start) -> ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Block | Mibs) ->  ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, Block | LogName) ->  ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, Block | LogFile) -> ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block | Start) -> ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) -> ok | {error, Reason}</name>
       <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> ok | {error, Reason}</name>
       <fsummary>Convert an Audit Trail Log to text format</fsummary>
       <type>
         <v>LogDir = string()</v>
         <v>Mibs = [MibName]</v>
         <v>MibName = string()</v>
+        <v>Block = boolean()</v>
         <v>LogName = string()</v>
         <v>LogFile = string()</v>
-        <v>Start = Stop = null | datetime() | {local_time,datetime()} |  {universal_time,datetime()} </v>
+        <v>Start = Stop = null | calendar:datetime() | {local_time, calendar:datetime()} | {universal_time, calendar:datetime()} </v>
         <v>Reason = disk_log_open_error() | file_open_error() | term()</v>
         <v>disk_log_open_error() = {LogName, term()}</v>
         <v>file_open_error() = {OutFile, term()}</v>
@@ -556,8 +622,12 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
         <p>Converts an Audit Trail Log to a readable format and 
 	prints it on stdio. 
 	<c>LogName</c> defaults to "snmpa_log". 
-	<c>LogFile</c> defaults to "snmpa.log". 
-	See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
+	<c>LogFile</c> defaults to "snmpa.log".</p>
+	<p>The <c>Block</c> option indicates if the log should be blocked
+	during conversion. This could be usefull when converting large 
+	logs (when otherwise the log could wrap during conversion). 
+	Defaults to <c>true</c>. </p>
+	<p>See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
 	for more info.</p>
 
         <marker id="change_log_size"></marker>

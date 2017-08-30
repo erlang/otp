@@ -1,19 +1,19 @@
-%% -*- coding: utf-8 -*-
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -61,6 +61,7 @@
 -module(io_lib).
 
 -export([fwrite/2,fread/2,fread/3,format/2]).
+-export([scan_format/2,unscan_format/1,build_text/1]).
 -export([print/1,print/4,indentation/2]).
 
 -export([write/1,write/2,write/3,nl/0,format_prompt/1,format_prompt/2]).
@@ -83,7 +84,8 @@
 -export([write_unicode_string/1, write_unicode_char/1,
          deep_unicode_char_list/1]).
 
--export_type([chars/0, latin1_string/0, continuation/0, fread_error/0]).
+-export_type([chars/0, latin1_string/0, continuation/0,
+              fread_error/0, fread_item/0, format_spec/0]).
 
 %%----------------------------------------------------------------------
 
@@ -106,6 +108,20 @@
                      | 'string'
                      | 'unsigned'.
 
+-type fread_item() :: string() | atom() | integer() | float().
+
+-type format_spec() ::
+        #{
+           control_char := char(),
+           args         := [any()],
+           width        := 'none' | integer(),
+           adjust       := 'left' | 'right',
+           precision    := 'none' | integer(),
+           pad_char     := char(),
+           encoding     := 'unicode' | 'latin1',
+           strings      := boolean()
+         }.
+
 %%----------------------------------------------------------------------
 
 %% Interface calls to sub-modules.
@@ -120,7 +136,7 @@ fwrite(Format, Args) ->
 -spec fread(Format, String) -> Result when
       Format :: string(),
       String :: string(),
-      Result :: {'ok', InputList :: [term()], LeftOverChars :: string()}
+      Result :: {'ok', InputList :: [fread_item()], LeftOverChars :: string()}
               | {'more', RestFormat :: string(),
                  Nchars :: non_neg_integer(),
                  InputStack :: chars()}
@@ -135,7 +151,7 @@ fread(Chars, Format) ->
       Format :: string(),
       Return :: {'more', Continuation1 :: continuation()}
               | {'done', Result, LeftOverChars :: string()},
-      Result :: {'ok', InputList :: [term()]}
+      Result :: {'ok', InputList :: [fread_item()]}
               | 'eof'
               | {'error', {'fread', What :: fread_error()}}.
 
@@ -153,6 +169,31 @@ format(Format, Args) ->
 	Other ->
 	    Other
     end.
+
+-spec scan_format(Format, Data) -> FormatList when
+      Format :: io:format(),
+      Data :: [term()],
+      FormatList :: [char() | format_spec()].
+
+scan_format(Format, Args) ->
+    try io_lib_format:scan(Format, Args)
+    catch
+        _:_ -> erlang:error(badarg, [Format, Args])
+    end.
+
+-spec unscan_format(FormatList) -> {Format, Data} when
+      FormatList :: [char() | format_spec()],
+      Format :: io:format(),
+      Data :: [term()].
+
+unscan_format(FormatList) ->
+    io_lib_format:unscan(FormatList).
+
+-spec build_text(FormatList) -> chars() when
+      FormatList :: [char() | format_spec()].
+
+build_text(FormatList) ->
+    io_lib_format:build(FormatList).
 
 -spec print(Term) -> chars() when
       Term :: term().
@@ -247,6 +288,8 @@ write([H|T], D) ->
     end;
 write(F, _D) when is_function(F) ->
     erlang:fun_to_list(F);
+write(Term, D) when is_map(Term) ->
+    write_map(Term, D);
 write(T, D) when is_tuple(T) ->
     if
 	D =:= 1 -> "{...}";
@@ -272,6 +315,18 @@ write_port(Port) ->
 
 write_ref(Ref) ->
     erlang:ref_to_list(Ref).
+
+write_map(Map, D) when is_integer(D) ->
+    [$#,${,write_map_body(maps:to_list(Map), D),$}].
+
+write_map_body(_, 0) -> "...";
+write_map_body([],_) -> [];
+write_map_body([{K,V}],D) -> write_map_assoc(K,V,D);
+write_map_body([{K,V}|KVs], D) ->
+    [write_map_assoc(K,V,D),$, | write_map_body(KVs,D-1)].
+
+write_map_assoc(K,V,D) ->
+    [write(K,D - 1),"=>",write(V,D-1)].
 
 write_binary(B, D) when is_integer(D) ->
     [$<,$<,write_binary_body(B, D),$>,$>].
@@ -580,7 +635,7 @@ printable_unicode_list(_) -> false.		%Everything else is false
 
 nl() ->
     "\n".
-
+
 %%
 %% Utilities for collecting characters in input files
 %%

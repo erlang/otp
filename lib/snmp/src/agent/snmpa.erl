@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -39,8 +40,10 @@
 	 enum_to_int/2, enum_to_int/3,
 
 	 info/0, info/1, old_info_format/1, 
-	 load_mibs/1, load_mibs/2, 
-	 unload_mibs/1, unload_mibs/2, 
+	 load_mib/1, load_mib/2, 
+	 load_mibs/1, load_mibs/2, load_mibs/3, 
+	 unload_mib/1, unload_mib/2, 
+	 unload_mibs/1, unload_mibs/2, unload_mibs/3, 
 	 which_mibs/0, which_mibs/1, 
 	 whereis_mib/1, whereis_mib/2, 
 	 dump_mibs/0, dump_mibs/1,
@@ -83,11 +86,10 @@
 -export([add_agent_caps/2, del_agent_caps/1, get_agent_caps/0]).
 
 %% Audit Trail Log functions
--export([log_to_txt/1, 
-	 log_to_txt/2, log_to_txt/3, log_to_txt/4, 
-	 log_to_txt/5, log_to_txt/6, log_to_txt/7, 
-	 log_to_io/1,  log_to_io/2,  log_to_io/3, 
-	 log_to_io/4,  log_to_io/5,  log_to_io/6, 
+-export([log_to_txt/1, log_to_txt/2, log_to_txt/3, log_to_txt/4, 
+	 log_to_txt/5, log_to_txt/6, log_to_txt/7, log_to_txt/8, 
+	 log_to_io/1,  log_to_io/2,  log_to_io/3,  log_to_io/4, 
+	 log_to_io/5,  log_to_io/6,  log_to_io/7, 
 	 log_info/0, 
 	 change_log_size/1,
 	 get_log_type/0,    get_log_type/1, 
@@ -128,7 +130,8 @@
 -include("snmpa_internal.hrl").
 -include_lib("snmp/include/snmp_types.hrl"). % type of me needed. 
 
--define(DISCO_EXTRA_INFO, undefined).
+-define(DISCO_EXTRA_INFO,  undefined).
+-define(ATL_BLOCK_DEFAULT, true).
 
 
 %%-----------------------------------------------------------------
@@ -300,18 +303,74 @@ backup(Agent, BackupDir) ->
 dump_mibs()     -> snmpa_agent:dump_mibs(snmp_master_agent).
 dump_mibs(File) -> snmpa_agent:dump_mibs(snmp_master_agent, File).
 
+
+load_mib(Mib) ->
+    load_mib(snmp_master_agent, Mib).
+
+-spec load_mib(Agent :: pid() | atom(), Mib :: string()) ->
+    ok | {error, Reason :: already_loaded | term()}.
+
+load_mib(Agent, Mib) ->
+    case load_mibs(Agent, [Mib]) of
+	{error, {'load aborted at', Mib, Reason}} ->
+	    {error, Reason};
+	Else ->
+	    Else
+    end.
+
 load_mibs(Mibs) ->
-    load_mibs(snmp_master_agent, Mibs).
+    load_mibs(snmp_master_agent, Mibs, false).
 load_mibs(Agent, Mibs) when is_list(Mibs) -> 
-    snmpa_agent:load_mibs(Agent, Mibs).
+    snmpa_agent:load_mibs(Agent, Mibs, false);
+load_mibs(Mibs, Force) 
+  when is_list(Mibs) andalso ((Force =:= true) orelse (Force =:= false)) ->
+    load_mibs(snmp_master_agent, Mibs, Force).
+
+-spec load_mibs(Agent :: pid() | atom(), 
+		Mibs  :: [MibName :: string()], 
+		Force :: boolean()) ->
+    ok | {error, {'load aborted at', MibName :: string(), InternalReason :: already_loaded | term()}}.
+
+load_mibs(Agent, Mibs, Force) 
+  when is_list(Mibs) andalso ((Force =:= true) orelse (Force =:= false)) -> 
+    snmpa_agent:load_mibs(Agent, Mibs, Force).
+
+
+unload_mib(Mib) ->
+    unload_mib(snmp_master_agent, Mib).
+
+-spec unload_mib(Agent :: pid() | atom(), Mib :: string()) ->
+    ok | {error, Reason :: not_loaded | term()}.
+
+unload_mib(Agent, Mib) ->
+    case unload_mibs(Agent, [Mib]) of
+	{error, {'unload aborted at', Mib, Reason}} ->
+	    {error, Reason};
+	Else ->
+	    Else
+    end.
 
 unload_mibs(Mibs) ->
-    unload_mibs(snmp_master_agent, Mibs).
+    unload_mibs(snmp_master_agent, Mibs, false).
 unload_mibs(Agent, Mibs) when is_list(Mibs) -> 
-    snmpa_agent:unload_mibs(Agent, Mibs).
+    snmpa_agent:unload_mibs(Agent, Mibs);
+unload_mibs(Mibs, Force) 
+  when is_list(Mibs) andalso ((Force =:= true) orelse (Force =:= false)) ->
+    unload_mibs(snmp_master_agent, Mibs, Force).
+
+-spec unload_mibs(Agent :: pid() | atom(), 
+		  Mibs  :: [MibName :: string()], 
+		  Force :: boolean()) ->
+    ok | {error, {'unload aborted at', MibName :: string(), InternalReason :: not_loaded | term()}}.
+
+unload_mibs(Agent, Mibs, Force) 
+  when is_list(Mibs) andalso ((Force =:= true) orelse (Force =:= false)) ->
+    snmpa_agent:unload_mibs(Agent, Mibs, Force).
+
 
 which_mibs()      -> which_mibs(snmp_master_agent).
 which_mibs(Agent) -> snmpa_agent:which_mibs(Agent).
+
 
 whereis_mib(Mib) ->
     whereis_mib(snmp_master_agent, Mib).
@@ -814,43 +873,207 @@ get_agent_caps() ->
 %%% Audit Trail Log functions 
 %%%-----------------------------------------------------------------
 
+-spec log_to_txt(LogDir :: snmp:dir()) ->
+    snmp:void().
+
 log_to_txt(LogDir) -> 
     log_to_txt(LogDir, []).
-log_to_txt(LogDir, Mibs) -> 
+
+-spec log_to_txt(LogDir :: snmp:dir(), 
+		 Block  :: boolean()) ->
+    snmp:void();
+                (LogDir :: snmp:dir(), 
+		 Mibs   :: [snmp:mib_name()]) ->
+    snmp:void().
+
+log_to_txt(LogDir, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    Mibs    = [], 
     OutFile = "snmpa_log.txt",       
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile).
-log_to_txt(LogDir, Mibs, OutFile) -> 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
+
+log_to_txt(LogDir, Mibs) -> 
+    Block   = ?ATL_BLOCK_DEFAULT, 
+    OutFile = "snmpa_log.txt",       
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile).
-log_to_txt(LogDir, Mibs, OutFile, LogName) -> 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
+
+-spec log_to_txt(LogDir :: snmp:dir(), 
+		 Mibs   :: [snmp:mib_name()], 
+		 Block  :: boolean()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    OutFile = "snmpa_log.txt", 
+    LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile).
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
+log_to_txt(LogDir, Mibs, OutFile) -> 
+    Block   = ?ATL_BLOCK_DEFAULT, 
+    LogName = ?audit_trail_log_name, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 Block   :: boolean()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    LogName = ?audit_trail_log_name, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
+log_to_txt(LogDir, Mibs, OutFile, LogName) -> 
+    Block   = ?ATL_BLOCK_DEFAULT, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 Block   :: boolean()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile) -> 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile).
+    Block = ?ATL_BLOCK_DEFAULT, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Block   :: boolean()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Start   :: snmp_log:log_time()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block);
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) -> 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start).
+    Block = ?ATL_BLOCK_DEFAULT, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Block   :: boolean(), 
+		 Start   :: snmp_log:log_time()) ->
+    snmp:void();
+                (LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Start   :: snmp_log:log_time(), 
+		 Stop    :: snmp_log:log_time()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start);
+
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> 
-    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop).
+    Block = ?ATL_BLOCK_DEFAULT, 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
+
+-spec log_to_txt(LogDir  :: snmp:dir(), 
+		 Mibs    :: [snmp:mib_name()], 
+		 OutFile :: file:filename(), 
+		 LogName :: string(), 
+		 LogFile :: string(), 
+		 Block   :: boolean(), 
+		 Start   :: snmp_log:log_time(), 
+		 Stop    :: snmp_log:log_time()) ->
+    snmp:void().
+
+log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop) -> 
+    snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Block, Start, Stop).
 
 
 log_to_io(LogDir) -> 
     log_to_io(LogDir, []).
-log_to_io(LogDir, Mibs) -> 
+
+log_to_io(LogDir, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    Mibs    = [], 
     LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
-    snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
-log_to_io(LogDir, Mibs, LogName) -> 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
+log_to_io(LogDir, Mibs) -> 
+    Block   = ?ATL_BLOCK_DEFAULT, 
+    LogName = ?audit_trail_log_name, 
     LogFile = ?audit_trail_log_file, 
-    snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
+
+log_to_io(LogDir, Mibs, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    LogName = ?audit_trail_log_name, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
+log_to_io(LogDir, Mibs, LogName) -> 
+    Block   = ?ATL_BLOCK_DEFAULT, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
+
+log_to_io(LogDir, Mibs, LogName, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName, LogFile) -> 
-    snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
+    Block = ?ATL_BLOCK_DEFAULT, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block).
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block);
 log_to_io(LogDir, Mibs, LogName, LogFile, Start) -> 
-    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Start).
+    Block = ?ATL_BLOCK_DEFAULT, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start).
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start) 
+  when ((Block =:= true) orelse (Block =:= false)) -> 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start);
 log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> 
-    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop).
+    Block = ?ATL_BLOCK_DEFAULT, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
+
+log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop) -> 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Block, Start, Stop).
 
 
 log_info() ->

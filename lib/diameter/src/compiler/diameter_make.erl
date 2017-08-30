@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -30,38 +31,58 @@
 
 -module(diameter_make).
 
--export([codec/1,
-         codec/2,
-         dict/1,
-         dict/2,
+-export([codec/2,
+         codec/1,
          format/1,
-         reformat/1]).
+         flatten/1,
+         format_error/1]).
 
 -export_type([opt/0]).
 
+-include("diameter_vsn.hrl").
+
+%% Options passed to codec/2.
 -type opt() :: {include|outdir|name|prefix|inherits, string()}
+             | return
              | verbose
-             | debug.
+             | parse  %% internal parsed form
+             | forms  %% abstract format for compile:forms/1,2
+             | erl
+             | hrl.
+
+%% Internal parsed format with a version tag.
+-type parsed() :: list().
+
+%% Literal dictionary or path. A NL of CR identifies the former.
+-type dict() :: iolist()
+              | binary()
+              | parsed().  %% as returned by codec/2
+
+%% Name of a literal dictionary if otherwise unspecified.
+-define(DEFAULT_DICT_FILE, "dictionary.dia").
 
 %% ===========================================================================
 
 %% codec/1-2
 %%
-%% Parse a dictionary file and generate a codec module.
+%% Parse a dictionary file and generate a codec module. Input
+%% dictionary can be either a path or the dictionary itself: the
+%% occurrence of \n or \r in the argument is used to distinguish the
+%% two.
 
--spec codec(Path, [opt()])
+-spec codec(File, [opt()])
    -> ok
+    | {ok, list()}   %% with option 'return', one element for each output
     | {error, Reason}
- when Path :: string(),
+ when File :: dict()
+            | {path, file:name_all()},
       Reason :: string().
 
 codec(File, Opts) ->
-    case dict(File, Opts) of
-        {ok, Dict} ->
-            make(File,
-                 Opts,
-                 Dict,
-                 [spec || _ <- [1], lists:member(debug, Opts)] ++ [erl, hrl]);
+    {Dict, Path} = identify(File),
+    case parse(Dict, Opts) of
+        {ok, ParseD} ->
+            make(Path, default(Opts), ParseD);
         {error, _} = E ->
             E
     end.
@@ -69,63 +90,186 @@ codec(File, Opts) ->
 codec(File) ->
     codec(File, []).
 
-%% dict/2
-%%
-%% Parse a dictionary file and return the orddict that a codec module
-%% returns from dict/0.
-
--spec dict(string(), [opt()])
-   -> {ok, orddict:orddict()}
-    | {error, string()}.
-
-dict(Path, Opts) ->
-    case diameter_dict_util:parse({path, Path}, Opts) of
-        {ok, _} = Ok ->
-            Ok;
-        {error = E, Reason} ->
-            {E, diameter_dict_util:format_error(Reason)}
-    end.
-
-dict(File) ->
-    dict(File, []).
-
 %% format/1
 %%
-%% Turn an orddict returned by dict/1-2 back into a dictionary file
-%% in the form of an iolist().
+%% Turn an orddict returned by dict/1-2 back into a dictionary.
 
--spec format(orddict:orddict())
+-spec format(parsed())
    -> iolist().
 
-format(Dict) ->
+format([?VERSION | Dict]) ->
     diameter_dict_util:format(Dict).
 
-%% reformat/1
+%% flatten/1
 %%
-%% Parse a dictionary file and return its formatted equivalent.
+%% Reconstitute a dictionary without @inherits.
 
--spec reformat(File)
-   -> {ok, iolist()}
-    | {error, Reason}
- when File :: string(),
-      Reason :: string().
+-spec flatten(parsed())
+   -> parsed().
 
-reformat(File) ->
-    case dict(File) of
-        {ok, Dict} ->
-            {ok, format(Dict)};
-        {error, _} = No ->
-            No
+flatten([?VERSION = V | Dict]) ->
+    [V | lists:foldl(fun flatten/2,
+                     Dict,
+                     [avp_vendor_id,
+                      custom_types,
+                      codecs,
+                      [avp_types, import_avps],
+                      [grouped, import_groups],
+                      [enum, import_enums]])].
+
+%% format_error/1
+
+format_error(T) ->
+    diameter_dict_util:format_error(T).
+
+%% ===========================================================================
+
+%% flatten/2
+
+flatten([_,_] = Keys, Dict) ->
+    [Values, Imports] = [orddict:fetch(K, Dict) || K <- Keys],
+    Vs = lists:append([Values | [V || {_Mod, V} <- Imports]]),
+    lists:foldl(fun({K,V},D) -> orddict:store(K,V,D) end,
+                Dict,
+                lists:zip([inherits | Keys], [[], Vs, []]));
+
+%% Inherited avp's setting the 'V' flag get their value either from
+%% @avp_vendor_id in the inheriting dictionary or from @vendor in the
+%% *inherited* (not inheriting) dictionary: add the latter to
+%% @avp_vendor_id as required.
+flatten(avp_vendor_id = Key, Dict) ->
+    Def = orddict:find(vendor, Dict),
+    ModD = imports(Dict),
+    Vids = orddict:fetch(Key, Dict),
+    Avps = lists:append([As || {_,As} <- Vids]),
+    orddict:store(Key,
+                  dict:fold(fun(M, As, A) -> vid(M, As -- Avps, Def, A) end,
+                            Vids,
+                            ModD),
+                  Dict);
+
+%% Import @codecs and @custom_types from inherited dictionaries as
+%% required.
+flatten(Key, Dict) ->
+    ImportAvps = orddict:fetch(import_avps, Dict),
+    ImportItems = [{M, As}
+                   || {Mod, Avps} <- ImportAvps,
+                      [_|D] <- [Mod:dict()],
+                      {M,As0} <- orddict:fetch(Key, D),
+                      F <- [fun(A) -> lists:keymember(A, 1, Avps) end],
+                      [_|_] = As <- [lists:filter(F, As0)]],
+    orddict:store(Key,
+                  lists:foldl(fun merge/2,
+                              orddict:fetch(Key, Dict),
+                              ImportItems),
+                  Dict).
+
+%% merge/2
+
+merge({Mod, _Avps} = T, Acc) ->
+    merge(lists:keyfind(Mod, 1, Acc), T, Acc).
+
+merge({Mod, Avps}, {Mod, As}, Acc) ->
+    lists:keyreplace(Mod, 1, Acc, {Mod, Avps ++ As});
+merge(false, T, Acc) ->
+    [T | Acc].
+
+%% imports/1
+%%
+%% Return a module() -> [AVP] dict of inherited AVP's setting the V flag.
+
+imports(Dict) ->
+    lists:foldl(fun imports/2,
+                dict:new(),
+                orddict:fetch(import_avps, Dict)).
+
+imports({Mod, Avps}, Dict) ->
+    dict:store(Mod,
+               [A || {A,_,_,Fs} <- Avps, lists:member($V, Fs)],
+               Dict).
+
+%% vid/4
+
+vid(_, [], _, Acc) ->
+    Acc;
+vid(Mod, Avps, Def, Acc) ->
+    v(Mod:vendor_id(), Avps, Def, Acc).
+
+v(Vid, _, {ok, {Vid, _}}, Acc) -> %% same id as inheriting dictionary's
+    Acc;
+v(Vid, Avps, _, Acc) ->
+    case lists:keyfind(Vid, 1, Acc) of
+        {Vid, As} ->
+            lists:keyreplace(Vid, 1, Acc, {Vid, As ++ Avps});
+        false ->
+            [{Vid, Avps} | Acc]
     end.
 
 %% ===========================================================================
 
-make(_, _, _, []) ->
+parse({dict, ParseD}, _) ->
+    {ok, ParseD};
+parse(File, Opts) ->
+    diameter_dict_util:parse(File, Opts).
+
+default(Opts) ->
+    def(modes(Opts), Opts).
+
+def([], Opts) ->
+    [erl, hrl | Opts];
+def(_, Opts) ->
+    Opts.
+
+modes(Opts) ->
+    lists:filter(fun is_mode/1, Opts).
+
+is_mode(T) ->
+    lists:member(T, [erl, hrl, parse, forms]).
+
+identify([Vsn | [T|_] = ParseD])
+  when is_tuple(T) ->
+    ?VERSION == Vsn orelse erlang:error({version, {Vsn, ?VERSION}}),
+    {{dict, ParseD}, ?DEFAULT_DICT_FILE};
+identify({path, File} = T) ->
+    {T, File};
+identify(File) ->
+    case is_path([File]) of
+        true  -> {{path, File}, File};
+        false -> {File, ?DEFAULT_DICT_FILE}
+    end.
+
+%% Interpret anything containing \n or \r as a literal dictionary.
+
+is_path([<<C,B/binary>> | T]) ->
+    is_path([C, B | T]);
+
+is_path([[C|L] | T]) ->
+    is_path([C, L | T]);
+
+is_path([C|_])
+  when $\n == C;
+       $\r == C ->
+    false;
+
+is_path([_|T]) ->
+    is_path(T);
+
+is_path([]) ->
+    true.
+
+make(File, Opts, Dict) ->
+    ok(lists:foldl(fun(M,A) -> [make(File, Opts, Dict, M) | A] end,
+                   [],
+                   modes(Opts))).
+
+ok([ok|_]) ->
     ok;
-make(File, Opts, Dict, [Mode | Rest]) ->
+ok([_|_] = L) ->
+    {ok, lists:reverse(L)}.
+
+make(File, Opts, Dict, Mode) ->
     try
-        ok = diameter_codegen:from_dict(File, Dict, Opts, Mode),
-        make(File, Opts, Dict, Rest)
+        diameter_codegen:from_dict(File, Dict, Opts, Mode)
     catch
         error: Reason ->
             erlang:error({Reason, Mode, erlang:get_stacktrace()})

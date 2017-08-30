@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2012</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -28,9 +29,9 @@
     <rev>A</rev>
   </header>
   <module>gen_udp</module>
-  <modulesummary>Interface to UDP sockets</modulesummary>
+  <modulesummary>Interface to UDP sockets.</modulesummary>
   <description>
-    <p>The <c>gen_udp</c> module provides functions for communicating
+    <p>This module provides functions for communicating
       with sockets using the UDP protocol.</p>
   </description>
 
@@ -42,163 +43,152 @@
       <name name="option_name"/>
     </datatype>
     <datatype>
-      <name><marker id="type-socket">socket()</marker></name>
+      <name>socket()</name>
       <desc>
-        <p>As returned by open/1,2.</p>
+        <p>As returned by
+          <seealso marker="#open/1"><c>open/1,2</c></seealso>.</p>
       </desc>
     </datatype>
   </datatypes>
 
   <funcs>
     <func>
-      <name name="open" arity="1"/>
-      <name name="open" arity="2"/>
-      <fsummary>Associate a UDP port number with the process calling it</fsummary>
+      <name name="close" arity="1"/>
+      <fsummary>Close a UDP socket.</fsummary>
       <desc>
-        <p>Associates a UDP port number (<c><anno>Port</anno></c>) with the calling
-          process.</p>
-        <p>The available options are:</p>
-        <taglist>
-          <tag><c>list</c></tag>
-          <item>
-            <p>Received <c>Packet</c> is delivered as a list.</p>
-          </item>
-          <tag><c>binary</c></tag>
-          <item>
-            <p>Received <c>Packet</c> is delivered as a binary.</p>
-          </item>
-          <tag><c>{ip, ip_address()}</c></tag>
-          <item>
-            <p>If the host has several network interfaces, this option
-              specifies which one to use.</p>
-          </item>
-
-		  <tag><c>{ifaddr, ip_address()}</c></tag>
-          <item>
-			  <p>Same as <c>{ip, ip_address()}</c>. If the host has several network interfaces, this option
-              specifies which one to use.</p>
-		  </item>
-
-
-          <tag><c>{fd, integer() >= 0}</c></tag>
-          <item>
-            <p>If a socket has somehow been opened without using
-              <c>gen_udp</c>, use this option to pass the file
-              descriptor for it.</p>
-          </item>
-          <tag><c>inet6</c></tag>
-          <item>
-            <p>Set up the socket for IPv6.</p>
-          </item>
-          <tag><c>inet</c></tag>
-          <item>
-            <p>Set up the socket for IPv4.</p>
-          </item>
-
-		  <tag><c>{udp_module, module()}</c></tag>
-		  <item> <p>
-				  Override which callback module is used. Defaults to
-				  <c>inet_udp</c> for IPv4 and <c>inet6_udp</c> for IPv6.
-			  </p>
-		  </item>
-
-          <tag><c>{multicast_if, Address}</c></tag>
-          <item>
-			  <p>Set the local device for a multicast socket.</p>
-          </item>
- 
-          <tag><c>{multicast_loop, true | false}</c></tag>
-          <item>
-			  <p>
-				  When <c>true</c> sent multicast packets will be looped back to the local
-				  sockets.
-			  </p>
-          </item>
-
-          <tag><c>{multicast_ttl, Integer}</c></tag>
-          <item>
-			  <p>
-				  The <c>multicast_ttl</c> option changes the time-to-live (TTL) for
-				  outgoing multicast datagrams in order to control the scope of the 
-				  multicasts.
-			  </p>
-			  <p>
-				  Datagrams with a TTL of 1 are not forwarded beyond the local
-				  network.
-				  <br />Default: 1
-			  </p>
-          </item>
-
-		  <tag><c>{add_membership, {MultiAddress, InterfaceAddress}}</c></tag>
-          <item>
-			  <p>Join a multicast group. </p>
-          </item>
-
-		  <tag><c>{drop_membership, {MultiAddress, InterfaceAddress}}</c></tag>
-          <item>
-			  <p>Leave multicast group.</p>
-          </item>
-
-          <tag><c>Opt</c></tag>
-          <item>
-            <p>See
-              <seealso marker="inet#setopts/2">inet:setopts/2</seealso>.</p>
-          </item>
-        </taglist>
-        <p>The returned socket <c><anno>Socket</anno></c> is used to send packets
-          from this port with <c>send/4</c>. When UDP packets arrive at
-          the opened port, they are delivered as messages:</p>
-        <code type="none">
-{udp, Socket, IP, InPortNo, Packet}</code>
-        <p>Note that arriving UDP packets that are longer than
-          the receive buffer option specifies, might be truncated
-          without warning.</p>
-        <p><c>IP</c> and <c>InPortNo</c> define the address from which
-          <c>Packet</c> came. <c>Packet</c> is a list of bytes if
-          the option <c>list</c> was specified. <c>Packet</c> is a
-          binary if the option <c>binary</c> was specified.</p>
-        <p>Default value for the receive buffer option is
-          <c>{recbuf, 8192}</c>.</p>
-        <p>If <c><anno>Port</anno> == 0</c>, the underlying OS assigns a free UDP
-          port, use <c>inet:port/1</c> to retrieve it.</p>
+        <p>Closes a UDP socket.</p>
       </desc>
     </func>
-    <func>
-      <name name="send" arity="4"/>
-      <fsummary>Send a packet</fsummary>
-      <desc>
-        <p>Sends a packet to the specified address and port.
-          The <c><anno>Address</anno></c> argument can be either a hostname, or an
-          IP address.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="recv" arity="2"/>
-      <name name="recv" arity="3"/>
-      <fsummary>Receive a packet from a passive socket</fsummary>
-      <desc>
-        <p>This function receives a packet from a socket in passive
-          mode.</p>
-        <p>The optional <c><anno>Timeout</anno></c> parameter specifies a timeout in
-          milliseconds. The default value is <c>infinity</c>.</p>
-      </desc>
-    </func>
+
     <func>
       <name name="controlling_process" arity="2"/>
-      <fsummary>Change controlling process of a socket</fsummary>
+      <fsummary>Change controlling process of a socket.</fsummary>
       <desc>
         <p>Assigns a new controlling process <c><anno>Pid</anno></c> to
-          <c><anno>Socket</anno></c>. The controlling process is the process which
-          receives messages from the socket. If called by any other
+          <c><anno>Socket</anno></c>. The controlling process is the process
+          that receives messages from the socket. If called by any other
           process than the current controlling process,
           <c>{error, not_owner}</c> is returned.</p>
       </desc>
     </func>
+
     <func>
-      <name name="close" arity="1"/>
-      <fsummary>Close a UDP socket</fsummary>
+      <name name="open" arity="1"/>
+      <name name="open" arity="2"/>
+      <fsummary>Associate a UDP port number with the process calling it.</fsummary>
       <desc>
-        <p>Closes a UDP socket.</p>
+        <p>Associates a UDP port number (<c><anno>Port</anno></c>) with the
+          calling process.</p>
+        <p>The following options are available:</p>
+        <taglist>
+          <tag><c>list</c></tag>
+          <item><p>Received <c>Packet</c> is delivered as a list.</p></item>
+          <tag><c>binary</c></tag>
+          <item><p>Received <c>Packet</c> is delivered as a binary.</p></item>
+          <tag><c>{ip, Address}</c></tag>
+          <item><p>If the host has many network interfaces, this option
+            specifies which one to use.</p></item>
+          <tag><c>{ifaddr, Address}</c></tag>
+          <item><p>Same as <c>{ip, Address}</c>. If the host has many
+            network interfaces, this option specifies which one to
+            use.</p></item>
+          <tag><c>{fd, integer() >= 0}</c></tag>
+          <item><p>If a socket has somehow been opened without using
+            <c>gen_udp</c>, use this option to pass the file descriptor
+            for it. If <c><anno>Port</anno></c> is not set to <c>0</c> and/or
+            <c>{ip, ip_address()}</c> is combined with this option, the
+            <c>fd</c> is bound to the specified interface and port after it is
+            being opened. If these options are not specified, it is assumed that
+            the <c>fd</c> is already bound appropriately.</p></item>
+          <tag><c>inet6</c></tag>
+          <item><p>Sets up the socket for IPv6.</p></item>
+          <tag><c>inet</c></tag>
+          <item><p>Sets up the socket for IPv4.</p></item>
+	  <tag><c>local</c></tag>
+	  <item>
+            <p>
+	      Sets up a Unix Domain Socket. See
+	      <seealso marker="inet#type-local_address">
+		<c>inet:local_address()</c>
+	      </seealso>
+	    </p>
+          </item>
+          <tag><c>{udp_module, module()}</c></tag>
+          <item><p>Overrides which callback module is used. Defaults to
+            <c>inet_udp</c> for IPv4 and <c>inet6_udp</c> for IPv6.</p></item>
+          <tag><c>{multicast_if, Address}</c></tag>
+          <item><p>Sets the local device for a multicast socket.</p></item>
+          <tag><c>{multicast_loop, true | false}</c></tag>
+          <item><p>When <c>true</c>, sent multicast packets are looped back to
+            the local sockets.</p></item>
+          <tag><c>{multicast_ttl, Integer}</c></tag>
+          <item><p>Option <c>multicast_ttl</c> changes the time-to-live (TTL)
+            for outgoing multicast datagrams to control the scope of the
+            multicasts.</p>
+            <p>Datagrams with a TTL of 1 are not forwarded beyond the local
+              network. Defaults to <c>1</c>.</p></item>
+          <tag><c>{add_membership, {MultiAddress, InterfaceAddress}}</c></tag>
+          <item><p>Joins a multicast group.</p></item>
+          <tag><c>{drop_membership, {MultiAddress, InterfaceAddress}}</c></tag>
+          <item><p>Leaves a multicast group.</p></item>
+          <tag><c>Opt</c></tag>
+          <item><p>See
+            <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>.
+            </p></item>
+        </taglist>
+        <p>The returned socket <c><anno>Socket</anno></c> is used to send
+          packets from this port with
+          <seealso marker="#send/4"><c>send/4</c></seealso>.
+          When UDP packets arrive
+          at the opened port, if the socket is in an active mode, the packets
+          are delivered as messages to the controlling process:</p>
+        <code type="none">
+{udp, Socket, IP, InPortNo, Packet}</code>
+        <p>If the socket is not in an active mode, data can be
+          retrieved through the
+          <seealso marker="#recv/2"><c>recv/2,3</c></seealso> calls.
+          Notice that arriving UDP packets that are longer than
+          the receive buffer option specifies can be truncated
+          without warning.</p>
+        <p>When a socket in <c>{active, N}</c> mode (see
+          <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>
+          for details), transitions to passive (<c>{active, false}</c>) mode,
+          the controlling process is notified by a message of the following
+          form:</p>
+        <code type="none">
+{udp_passive, Socket}</code>
+        <p><c>IP</c> and <c>InPortNo</c> define the address from which
+          <c>Packet</c> comes. <c>Packet</c> is a list of bytes if
+          option <c>list</c> is specified. <c>Packet</c> is a
+          binary if option <c>binary</c> is specified.</p>
+        <p>Default value for the receive buffer option is
+          <c>{recbuf, 8192}</c>.</p>
+        <p>If <c><anno>Port</anno> == 0</c>, the underlying OS assigns a free
+          UDP port, use
+          <seealso marker="inet#port/1"><c>inet:port/1</c></seealso>
+          to retrieve it.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="recv" arity="2"/>
+      <name name="recv" arity="3"/>
+      <fsummary>Receive a packet from a passive socket.</fsummary>
+      <desc>
+        <p>Receives a packet from a socket in passive mode. Optional parameter
+          <c><anno>Timeout</anno></c> specifies a time-out in milliseconds.
+          Defaults to <c>infinity</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="4"/>
+      <fsummary>Send a packet.</fsummary>
+      <desc>
+        <p>
+	  Sends a packet to the specified address and port. Argument
+          <c><anno>Address</anno></c> can be a hostname or a socket address.
+	</p>
       </desc>
     </func>
   </funcs>

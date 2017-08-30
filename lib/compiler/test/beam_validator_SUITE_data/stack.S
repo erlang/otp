@@ -1,10 +1,10 @@
 {module, stack}.  %% version = 0
 
-{exports, [{a,2},{b,2},{c,2},{d,2},{e,2}]}.
+{exports, [{a,2},{b,2},{c,2},{d,2},{e,2},{bad_1,0},{bad_2,0},{foo,0}]}.
 
 {attributes, []}.
 
-{labels, 21}.
+{labels, 17}.
 
 
 {function, a, 2, 2}.

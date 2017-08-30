@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2013</year>
+      <year>1999</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -29,6 +30,380 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
+
+<section><title>Crypto 3.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Refactor <c>crypto</c> to use the EVP interface of
+	    OpenSSL, which is the recommended interface that also
+	    enables access to hardware acceleration for some
+	    operations.</p>
+          <p>
+	    Own Id: OTP-12217</p>
+        </item>
+        <item>
+          <p>
+	    Add support for 192-bit keys for the <c>aes_cbc</c>
+	    cipher.</p>
+          <p>
+	    Own Id: OTP-13206 Aux Id: pr 832 </p>
+        </item>
+        <item>
+          <p>
+	    Add support for 192-bit keys for <c>aes_ecb</c>.</p>
+          <p>
+	    Own Id: OTP-13207 Aux Id: pr829 </p>
+        </item>
+        <item>
+          <p>
+	    Deprecate the function <c>crypto:rand_bytes</c> and make
+	    sure that <c>crypto:strong_rand_bytes</c> is used in all
+	    places that are cryptographically significant.</p>
+          <p>
+	    Own Id: OTP-13214</p>
+        </item>
+        <item>
+          <p>
+	    Enable AES-GCM encryption/decryption to change the tag
+	    length between 1 to 16 bytes.</p>
+          <p>
+	    Own Id: OTP-13483 Aux Id: PR-998 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 3.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix bug for <c>aes_ecb</c> block crypto when data is
+	    larger than 16 bytes.</p>
+          <p>
+	    Own Id: OTP-13249</p>
+        </item>
+        <item>
+          <p>
+	    Improve portability of ECC tests in Crypto and SSL for
+	    "exotic" OpenSSL versions.</p>
+          <p>
+	    Own Id: OTP-13311</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 3.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Small documentation fixes</p>
+          <p>
+	    Own Id: OTP-13017</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 3.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make <c>crypto:ec_curves/0</c> return empty list if
+	    elliptic curve is not supported at all.</p>
+          <p>
+	    Own Id: OTP-12944</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Enhance crypto:generate_key to calculate ECC public keys
+	    from private key.</p>
+          <p>
+	    Own Id: OTP-12394</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>crypto:generate_key</c> for <c>ecdh</c>
+	    that could cause VM crash for faulty input.</p>
+          <p>
+	    Own Id: OTP-12733</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Use the EVP API for AES-CBC crypto to enables the use of
+	    hardware acceleration for AES-CBC crypto on newer Intel
+	    CPUs (AES-NI), among other platforms.</p>
+          <p>
+	    Own Id: OTP-12380</p>
+        </item>
+        <item>
+          <p>
+	    Add AES ECB block encryption.</p>
+          <p>
+	    Own Id: OTP-12403</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 3.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Extend block_encrypt/decrypt for aes_cfb8 and aes_cfb128
+	    to accept keys of length 128, 192 and 256 bits. Before
+	    only 128 bit keys were accepted.</p>
+          <p>
+	    Own Id: OTP-12467</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 3.4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add configure option --with-ssl-incl=PATH to support
+	    OpenSSL installations with headers and libraries at
+	    different places.</p>
+          <p>
+	    Own Id: OTP-12215 Aux Id: seq12700 </p>
+        </item>
+        <item>
+          <p>
+	    Add configure option --with-ssl-rpath to control which
+	    runtime library path to use for dynamic linkage toward
+	    OpenSSL.</p>
+          <p>
+	    Own Id: OTP-12316 Aux Id: seq12753 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 3.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make <c>crypto</c> verify major version number of OpenSSL
+	    header files and runtime library. Loading of
+	    <c>crypto</c> will fail if there is a version mismatch.</p>
+          <p>
+	    Own Id: OTP-12146 Aux Id: seq12700 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix memory leak in <c>crypto:hmac_init/upgrade/final</c>
+	    functions for all data and in <c>crypto:hmac/3/4</c> for
+	    data larger than 20000 bytes. Bug exists since OTP 17.0.</p>
+          <p>
+	    Own Id: OTP-11953</p>
+        </item>
+        <item>
+          <p>
+	    Fix memory leak in <c>crypto</c> for elliptic curve.</p>
+          <p>
+	    Own Id: OTP-11999</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add <c>aes_cfb8</c> cypher to <c>crypto:block_encrypt</c>
+	    and <c>block_decrypt</c>.</p>
+          <p>
+	    Own Id: OTP-11911</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix memory leaks and invalid deallocations in
+	    <c>mod_pow</c>, <c>mod_exp</c> and
+	    <c>generate_key(srp,...)</c> when bad arguments are
+	    passed. (Thanks to Florian Zumbiehi)</p>
+          <p>
+	    Own Id: OTP-11550</p>
+        </item>
+        <item>
+          <p>
+	    Correction of the word 'ChipherText' throughout the
+	    documentation (Thanks to Andrew Tunnell-Jones)</p>
+          <p>
+	    Own Id: OTP-11609</p>
+        </item>
+        <item>
+          <p>
+	    Fix fatal bug when using a hmac context variable in more
+	    than one call to <c>hmac_update</c> or <c>hmac_final</c>.
+	    The reuse of hmac contexts has never worked as the
+	    underlying OpenSSL implementation does not support it. It
+	    is now documented as having undefined behaviour, but it
+	    does not crash or corrupt the VM anymore.</p>
+          <p>
+	    Own Id: OTP-11724</p>
+        </item>
+        <item>
+          <p>
+	    Crypto handles out-of-memory with a controlled abort
+	    instead of crash/corruption. (Thanks to Florian Zumbiehi)</p>
+          <p>
+	    Own Id: OTP-11725</p>
+        </item>
+        <item>
+          <p>
+	    Application upgrade (appup) files are corrected for the
+	    following applications: </p>
+          <p>
+	    <c>asn1, common_test, compiler, crypto, debugger,
+	    dialyzer, edoc, eldap, erl_docgen, et, eunit, gs, hipe,
+	    inets, observer, odbc, os_mon, otp_mibs, parsetools,
+	    percept, public_key, reltool, runtime_tools, ssh,
+	    syntax_tools, test_server, tools, typer, webtool, wx,
+	    xmerl</c></p>
+          <p>
+	    A new test utility for testing appup files is added to
+	    test_server. This is now used by most applications in
+	    OTP.</p>
+          <p>
+	    (Thanks to Tobias Schlager)</p>
+          <p>
+	    Own Id: OTP-11744</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    By giving --enable-static-{nifs,drivers} to configure it
+	    is now possible to statically linking of nifs and drivers
+	    to the main Erlang VM binary. At the moment only the asn1
+	    and crypto nifs of the Erlang/OTP nifs and drivers have
+	    been prepared to be statically linked. For more details
+	    see the Installation Guide in the System documentation.</p>
+          <p>
+	    Own Id: OTP-11258</p>
+        </item>
+        <item>
+          <p>
+	    Add IGE mode for AES cipher in crypto (Thanks to Yura
+	    Beznos).</p>
+          <p>
+	    Own Id: OTP-11522</p>
+        </item>
+        <item>
+          <p>
+	    Moved elliptic curve definition from the crypto
+	    NIF/OpenSSL into Erlang code, adds the RFC-5639 brainpool
+	    curves and makes TLS use them (RFC-7027).</p>
+          <p>
+	    Thanks to Andreas Schultz</p>
+          <p>
+	    Own Id: OTP-11578</p>
+        </item>
+        <item>
+          <p>
+	    Remove all obsolete application processes from crypto and
+	    make it into a pure library application.</p>
+          <p>
+	    Own Id: OTP-11619</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix uninitialized pointers in crypto (Thanks to Anthony
+	    Ramine)</p>
+          <p>
+	    Own Id: OTP-11510</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Refactor ecdsa cipher to simplify code and improve
+	    performance.</p>
+          <p>
+	    Own Id: OTP-11320</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Crypto 3.0</title>
 

@@ -24,6 +24,8 @@ BEGIN
                         friday(5),saturday(6),sunday(7)}
   SingleEnumVal ::= ENUMERATED {true}
   SingleEnumValExt ::= ENUMERATED {true, ...}
+  NegEnumVal ::= ENUMERATED {neg(-1), ..., zero(0)}
+  EnumVal128 ::= ENUMERATED {val(128)}
 
   ObjId ::= OBJECT IDENTIFIER
   
@@ -58,4 +60,11 @@ BEGIN
     e BOOLEAN,
     magic INTEGER
   }
+
+  Longitude ::= INTEGER {
+        oneMicrodegreeEast(10),
+        oneMicrodegreeWest(-10),
+        unavailable(1800000001)
+  } (-1799999999..1800000001)
+
 END

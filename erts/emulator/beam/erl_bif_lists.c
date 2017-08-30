@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2011. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -39,32 +40,93 @@ static BIF_RETTYPE append(Process* p, Eterm A, Eterm B)
     Eterm list;
     Eterm copy;
     Eterm last;
-    size_t need;
-    Eterm* hp;
-    int i;
+    Eterm* hp = NULL;
+    Sint i;
 
-    if ((i = list_length(A)) < 0) {
-	BIF_ERROR(p, BADARG);
-    }
-    if (i == 0) {
-	BIF_RET(B);
-    } else if (is_nil(B)) {
-	BIF_RET(A);
-    }
-
-    need = 2*i;
-    hp = HAlloc(p, need);
     list = A;
+
+    if (is_nil(list)) {
+        BIF_RET(B);
+    }
+
+    if (is_not_list(list)) {
+        BIF_ERROR(p, BADARG);
+    }
+
+    /* optimistic append on heap first */
+
+    if ((i = HeapWordsLeft(p) / 2) < 4) {
+        goto list_tail;
+    }
+
+    hp   = HEAP_TOP(p);
     copy = last = CONS(hp, CAR(list_val(list)), make_list(hp+2));
     list = CDR(list_val(list));
-    hp += 2;
-    i--;
-    while(i--) {
-	Eterm* listp = list_val(list);
-	last = CONS(hp, CAR(listp), make_list(hp+2));
-	list = CDR(listp);
-	hp += 2;
+    hp  += 2;
+    i   -= 2; /* don't use the last 2 words (extra i--;) */
+
+    while(i-- && is_list(list)) {
+        Eterm* listp = list_val(list);
+        last = CONS(hp, CAR(listp), make_list(hp+2));
+        list = CDR(listp);
+        hp += 2;
     }
+
+    /* A is proper and B is NIL return A as-is, don't update HTOP */
+
+    if (is_nil(list) && is_nil(B)) {
+        BIF_RET(A);
+    }
+
+    if (is_nil(list)) {
+        HEAP_TOP(p) = hp;
+        CDR(list_val(last)) = B;
+        BIF_RET(copy);
+    }
+
+list_tail:
+
+    if ((i = erts_list_length(list)) < 0) {
+        BIF_ERROR(p, BADARG);
+    }
+
+    /* remaining list was proper and B is NIL */
+    if (is_nil(B)) {
+        BIF_RET(A);
+    }
+
+    if (hp) {
+        /* Note: fall through case, already written
+         * on the heap.
+         * The last 2 words of the heap is not written yet
+         */
+        Eterm *hp_save = hp;
+        ASSERT(i != 0);
+        HEAP_TOP(p) = hp + 2;
+        if (i == 1) {
+            hp[0] = CAR(list_val(list));
+            hp[1] = B;
+            BIF_RET(copy);
+        }
+        hp   = HAlloc(p, 2*(i - 1));
+        last = CONS(hp_save, CAR(list_val(list)), make_list(hp));
+    } else {
+        hp   = HAlloc(p, 2*i);
+        copy = last = CONS(hp, CAR(list_val(list)), make_list(hp+2));
+        hp  += 2;
+    }
+
+    list = CDR(list_val(list));
+    i--;
+
+    ASSERT(i > -1);
+    while(i--) {
+        Eterm* listp = list_val(list);
+        last = CONS(hp, CAR(listp), make_list(hp+2));
+        list = CDR(listp);
+        hp  += 2;
+    }
+
     CDR(list_val(last)) = B;
     BIF_RET(copy);
 }
@@ -98,14 +160,14 @@ static Eterm subtract(Process* p, Eterm A, Eterm B)
     Eterm small_vec[SMALL_VEC_SIZE];	/* Preallocated memory for small lists */
     Eterm* vec_p;
     Eterm* vp;
-    int     i;
-    int     n;
-    int     m;
+    Sint i;
+    Sint n;
+    Sint m;
     
-    if ((n = list_length(A)) < 0) {
+    if ((n = erts_list_length(A)) < 0) {
 	BIF_ERROR(p, BADARG);
     }
-    if ((m = list_length(B)) < 0) {
+    if ((m = erts_list_length(B)) < 0) {
 	BIF_ERROR(p, BADARG);
     }
     
@@ -390,7 +452,7 @@ keyfind(int Bif, Process* p, Eterm Key, Eterm Pos, Eterm List)
 		Eterm *tuple_ptr = tuple_val(term);
 		if (pos <= arityval(*tuple_ptr)) {
 		    Eterm element = tuple_ptr[pos];
-		    if (CMP(Key, element) == 0) {
+		    if (CMP_EQ(Key, element)) {
 			return term;
 		    }
 		}

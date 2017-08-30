@@ -1,4 +1,3 @@
-%% -*- coding: utf-8 -*-
 %% This library is free software; you can redistribute it and/or modify
 %% it under the terms of the GNU Lesser General Public License as
 %% published by the Free Software Foundation; either version 2 of the
@@ -57,7 +56,11 @@
 	{
 	  name :: chars(),
 	  description :: chars(),
-	  result :: ok | {failed, tuple()} | {aborted, tuple()} | {skipped, term()},
+	  result :: ok
+                  | {failed, tuple()}
+                  | {aborted, tuple()}
+                  | {skipped, term()}
+                  | undefined,
 	  time :: integer(),
 	  output :: binary()
 	 }).
@@ -174,7 +177,7 @@ handle_cancel(group, Data, St) ->
                        setup_failed -> "fixture setup ";
                        cleanup_failed -> "fixture cleanup "
                    end
-                ++ io_lib:format("~p", [proplists:get_value(id, Data)]),
+                ++ io_lib:format("~w", [proplists:get_value(id, Data)]),
             Desc = format_desc(proplists:get_value(desc, Data)),
             TestCase = #testcase{
               name = Name, description = Desc,
@@ -204,9 +207,9 @@ handle_cancel(test, Data, St) ->
 		     testcases=[TestCase|TestSuite#testsuite.testcases] },
     St#state{testsuites=store_suite(NewTestSuite, TestSuites)}.
 
-format_name({Module, Function, Arity}, Line) ->
-    lists:flatten([atom_to_list(Module), ":", atom_to_list(Function), "/",
-		   integer_to_list(Arity), "_", integer_to_list(Line)]).
+format_name({Module, Function, _Arity}, Line) ->
+    lists:flatten([atom_to_list(Module), ":", integer_to_list(Line), " ",
+                   atom_to_list(Function)]).
 format_desc(undefined) ->
     "";
 format_desc(Desc) when is_binary(Desc) ->
@@ -280,7 +283,7 @@ write_report_to(TestSuite, FileDescriptor) ->
 %% Write the XML header.
 %% ----------------------------------------------------------------------------
 write_header(FileDescriptor) ->
-    file:write(FileDescriptor, [<<"<?xml version=\"1.0\" encoding=\"UTF-8\" ?>">>, ?NEWLINE]).
+    io:format(FileDescriptor, "~ts~ts", [<<"<?xml version=\"1.0\" encoding=\"UTF-8\" ?>">>, ?NEWLINE]).
 
 %% ----------------------------------------------------------------------------
 %% Write the testsuite start tag, with attributes describing the statistics
@@ -304,7 +307,7 @@ write_start_tag(
         <<"\" time=\"">>, format_time(Time),
         <<"\" name=\"">>, escape_attr(Name),
         <<"\">">>, ?NEWLINE],
-    file:write(FileDescriptor, StartTag).
+    io:format(FileDescriptor, "~ts", [StartTag]).
 
 %% ----------------------------------------------------------------------------
 %% Recursive function to write the test cases.
@@ -318,7 +321,7 @@ write_testcases([TestCase| Tail], FileDescriptor) ->
 %% Write the testsuite end tag.
 %% ----------------------------------------------------------------------------
 write_end_tag(FileDescriptor) ->
-    file:write(FileDescriptor, [<<"</testsuite>">>, ?NEWLINE]).
+    io:format(FileDescriptor, "~ts~ts", [<<"</testsuite>">>, ?NEWLINE]).
 
 %% ----------------------------------------------------------------------------
 %% Write a test case, as a testcase tag.
@@ -335,17 +338,16 @@ write_testcase(
         FileDescriptor) ->
     DescriptionAttr = case Description of
 			  [] -> [];
-			  _ -> [<<" description=\"">>, escape_attr(Description), <<"\"">>]
+			  _ -> [<<" (">>, escape_attr(Description), <<")">>]
 		      end,
     StartTag = [
         ?INDENT, <<"<testcase time=\"">>, format_time(Time),
-        <<"\" name=\"">>, escape_attr(Name), <<"\"">>,
-        DescriptionAttr],
+        <<"\" name=\"">>, escape_attr(Name), DescriptionAttr, <<"\"">>],
     ContentAndEndTag = case {Result, Output} of
         {ok, <<>>} -> [<<"/>">>, ?NEWLINE];
         _ -> [<<">">>, ?NEWLINE, format_testcase_result(Result), format_testcase_output(Output), ?INDENT, <<"</testcase>">>, ?NEWLINE]
     end,
-    file:write(FileDescriptor, [StartTag, ContentAndEndTag]).
+    io:format(FileDescriptor, "~ts~ts", [StartTag, ContentAndEndTag]).
 
 %% ----------------------------------------------------------------------------
 %% Format the result of the test.
@@ -428,7 +430,7 @@ escape_suitename([Char | Tail], Acc) -> escape_suitename(Tail, [Char | Acc]).
 %% Replace < with &lt;, > with &gt; and & with &amp;
 %% ----------------------------------------------------------------------------
 escape_text(Text) when is_binary(Text) -> escape_text(binary_to_list(Text));
-escape_text(Text) -> escape_xml(lists:flatten(Text), [], false).
+escape_text(Text) -> escape_xml(to_utf8(lists:flatten(Text)), [], false).
 
 
 %% ----------------------------------------------------------------------------
@@ -436,7 +438,7 @@ escape_text(Text) -> escape_xml(lists:flatten(Text), [], false).
 %% Replace < with &lt;, > with &gt; and & with &amp;
 %% ----------------------------------------------------------------------------
 escape_attr(Text) when is_binary(Text) -> escape_attr(binary_to_list(Text));
-escape_attr(Text) -> escape_xml(lists:flatten(Text), [], true).
+escape_attr(Text) -> escape_xml(to_utf8(lists:flatten(Text)), [], true).
 
 escape_xml([], Acc, _ForAttr) -> lists:reverse(Acc);
 escape_xml([$< | Tail], Acc, ForAttr) -> escape_xml(Tail, [$;, $t, $l, $& | Acc], ForAttr);
@@ -444,3 +446,17 @@ escape_xml([$> | Tail], Acc, ForAttr) -> escape_xml(Tail, [$;, $t, $g, $& | Acc]
 escape_xml([$& | Tail], Acc, ForAttr) -> escape_xml(Tail, [$;, $p, $m, $a, $& | Acc], ForAttr);
 escape_xml([$" | Tail], Acc, true) -> escape_xml(Tail, [$;, $t, $o, $u, $q, $& | Acc], true); % "
 escape_xml([Char | Tail], Acc, ForAttr) when is_integer(Char) -> escape_xml(Tail, [Char | Acc], ForAttr).
+
+%% the input may be utf8 or latin1; the resulting list is unicode
+to_utf8(Desc) when is_binary(Desc) ->
+	case unicode:characters_to_list(Desc) of
+		{_,_,_} -> unicode:characters_to_list(Desc, latin1);
+		X -> X
+	end;
+to_utf8(Desc) when is_list(Desc) ->
+	try
+		to_utf8(list_to_binary(Desc))
+	catch
+		_:_ ->
+			Desc
+	end.

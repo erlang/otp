@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% 
@@ -25,27 +26,24 @@
 
 -module(percept).
 -behaviour(application).
--export([
-	profile/1, 
-	profile/2, 
-	profile/3,
-	stop_profile/0, 
-	start_webserver/0, 
-	start_webserver/1, 
-	stop_webserver/0, 
-	stop_webserver/1, 
-	analyze/1,
-	% Application behaviour
-	start/2, 
-	stop/1]).
+-export([profile/1,
+         profile/2,
+         profile/3,
+         stop_profile/0,
+         start_webserver/0,
+         start_webserver/1,
+         stop_webserver/0,
+         stop_webserver/1,
+         analyze/1,
+         % Application behaviour
+         start/2,
+         stop/1]).
 
 
 -include("percept.hrl").
 
 %%==========================================================================
-%%
-%% 		Type definitions 
-%%
+%% Type definitions
 %%==========================================================================
 
 %% @type percept_option() = procs | ports | exclusive
@@ -53,9 +51,7 @@
 -type percept_option() :: 'procs' | 'ports' | 'exclusive' | 'scheduler'.
 
 %%==========================================================================
-%%
-%% 		Application callback functions
-%%
+%% Application callback functions
 %%==========================================================================
 
 %% @spec start(Type, Args) -> {started, Hostname, Port} | {error, Reason} 
@@ -75,9 +71,7 @@ stop(_State) ->
     stop_webserver(0).
 
 %%==========================================================================
-%%
-%% 		Interface functions
-%%
+%% Interface functions
 %%==========================================================================
 
 %% @spec profile(Filename::string()) -> {ok, Port} | {already_started, Port}
@@ -157,11 +151,11 @@ start_webserver() ->
 	{'started', string(), pos_integer()} | {'error', any()}.
 
 start_webserver(Port) when is_integer(Port) ->
-    application:load(percept),
+    ok = ensure_loaded(percept),
     case whereis(percept_httpd) of
 	undefined ->
 	    {ok, Config} = get_webserver_config("percept", Port),
-	    inets:start(),
+	    ok = application:ensure_started(inets),
 	    case inets:start(httpd, Config) of
 		{ok, Pid} ->
 		    AssignedPort = find_service_port_from_pid(inets:services_info(), Pid),
@@ -216,16 +210,14 @@ stop_webserver(Port) ->
     do_stop(Port,[]).
 
 %%==========================================================================
-%%
-%% 		Auxiliary functions 
-%%
+%% Auxiliary functions
 %%==========================================================================
 
 %% parse_and_insert
 
 parse_and_insert(Filename, DB) ->
     io:format("Parsing: ~p ~n", [Filename]),
-    T0 = erlang:now(),
+    T0 = erlang:monotonic_time(milli_seconds),
     Pid = dbg:trace_client(file, Filename, mk_trace_parser(self())),
     Ref = erlang:monitor(process, Pid), 
     parse_and_insert_loop(Filename, Pid, Ref, DB, T0).
@@ -238,8 +230,8 @@ parse_and_insert_loop(Filename, Pid, Ref, DB, T0) ->
     	{parse_complete, {Pid, Count}} ->
 	    receive {'DOWN', Ref, process, Pid, normal} -> ok after 0 -> ok end,
 	    DB ! {action, consolidate},
-	    T1 = erlang:now(),
-	    io:format("Parsed ~p entries in ~p s.~n", [Count, ?seconds(T1, T0)]),
+            T1 = erlang:monotonic_time(milli_seconds),
+	    io:format("Parsed ~w entries in ~w ms.~n", [Count, T1 - T0]),
     	    io:format("    ~p created processes.~n", [length(percept_db:select({information, procs}))]),
      	    io:format("    ~p opened ports.~n", [length(percept_db:select({information, ports}))]),
 	    ok;
@@ -319,10 +311,6 @@ get_webserver_config(Servername, Port) when is_list(Servername), is_integer(Port
 	{alias,{"/images/", filename:join([Root, "images"]) ++ "/"}},
 	{alias,{"/css/", filename:join([Root, "css"]) ++ "/"}},
 	
-	% Logs
-	%{transfer_log, filename:join([Path, "logs", "transfer.log"])},
-	%{error_log, filename:join([Path, "logs", "error.log"])},
-	
 	% Configs
 	{default_type,"text/plain"},
 	{directory_index,["index.html"]},
@@ -331,15 +319,19 @@ get_webserver_config(Servername, Port) when is_list(Servername), is_integer(Port
 	          mod_esi,
 	          mod_actions,
 	          mod_cgi,
-	          mod_include,
 	          mod_dir,
 	          mod_get,
 	          mod_head
-	%          mod_log,
-	%          mod_disk_log
 	]},
 	{com_type,ip_comm},
 	{server_name, Servername},
 	{bind_address, any},
 	{port, Port}],
     {ok, Config}.
+
+ensure_loaded(App) ->
+    case application:load(App) of
+        ok -> ok;
+        {error,{already_loaded,App}} -> ok;
+        Error -> Error
+    end.

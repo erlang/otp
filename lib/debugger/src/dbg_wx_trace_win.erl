@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -122,7 +123,8 @@
 %%   GS = term()
 %%--------------------------------------------------------------------
 init() ->
-    dbg_wx_win:init().
+    _ = dbg_wx_win:init(),
+    ok.
 
 stop(#winInfo{window=Win}) ->
     (catch wxFrame:destroy(Win)),
@@ -148,29 +150,29 @@ create_win(Parent, Title, Windows, Menus) ->
 		
 		Sizer = wxBoxSizer:new(?wxVERTICAL),
 		Code = code_area(Panel),
-		wxSizer:add(Sizer, Code#sub.win, 
+		_ = wxSizer:add(Sizer, Code#sub.win, 
 			    [{proportion,1}, {border, 2}, 
 			     {flag, ?wxEXPAND bor ?wxDOWN}]),
 		wxSizer:setVirtualSizeHints(Sizer, Code#sub.win),
 
 		ExpandWithBorder = [{border, 3},{flag,?wxEXPAND bor ?wxALL}],
 		Search = search_area(Panel),
-		wxSizer:add(Sizer, Search#sub.win, ExpandWithBorder),
+		_ = wxSizer:add(Sizer, Search#sub.win, ExpandWithBorder),
 		Bs     = button_area(Panel),
-		wxSizer:add(Sizer, Bs#sub.win, ExpandWithBorder),
+		_ = wxSizer:add(Sizer, Bs#sub.win, ExpandWithBorder),
 
 		InfoArea = wxBoxSizer:new(?wxHORIZONTAL),
 		wxSizer:setMinSize(InfoArea, {100, ?EVAL_H}),
 		Eval  = eval_area(Panel),
-		wxSizer:add(InfoArea, Eval#sub.win, [{proportion,1},{flag,?wxEXPAND}]),
+		_ = wxSizer:add(InfoArea, Eval#sub.win, [{proportion,1},{flag,?wxEXPAND}]),
 		Bind  = bind_area(Panel),		
-		wxSizer:add(InfoArea, Bind#sub.win, 
+		_ = wxSizer:add(InfoArea, Bind#sub.win, 
 			    [{proportion,1},{border, 2}, 
 			     {flag,?wxEXPAND bor ?wxLEFT}]),
-		wxSizer:add(Sizer, InfoArea, ExpandWithBorder),
+		_ = wxSizer:add(Sizer, InfoArea, ExpandWithBorder),
 		
 		Trace = trace_area(Panel),
-		wxSizer:add(Sizer, Trace#sub.win, ExpandWithBorder),
+		_ = wxSizer:add(Sizer, Trace#sub.win, ExpandWithBorder),
 		SB    = wxFrame:createStatusBar(Win,[]),
 
 		%% Note id and lastId to get the event when it dragged is complete
@@ -191,7 +193,7 @@ create_win(Parent, Title, Windows, Menus) ->
 		
 		Wi = show_windows(enable_windows(Wi0,Windows)),
 		wxWindow:setSizer(Panel, Sizer),
-		wxSizer:fit(Sizer, Win),
+		_ = wxSizer:fit(Sizer, Win),
 		wxSizer:setSizeHints(Sizer,Win),
 
 		IconFile = dbg_wx_win:find_icon("erlang_bug.png"),
@@ -229,11 +231,11 @@ get_window(WinInfo) ->
 %%--------------------------------------------------------------------
 configure(Wi=#winInfo{window=Win,m_szr={Panel,Sizer}}) ->
     wx:batch(fun() ->
-		     show_windows(Wi),
+		     _ = show_windows(Wi),
 		     wxSizer:layout(Sizer),
 		     %%wxWindow:setSizerAndFit(Panel,Sizer),
 		     wxWindow:setSizer(Panel, Sizer),
-		     wxSizer:fit(Sizer, Win),
+		     _ = wxSizer:fit(Sizer, Win),
 		     wxSizer:setSizeHints(Sizer,Win),		
 		     Wi
 	     end).
@@ -241,10 +243,10 @@ configure(Wi=#winInfo{window=Win,m_szr={Panel,Sizer}}) ->
 configure(Wi0=#winInfo{window=Win,m_szr={Panel,Sizer}}, Windows) ->
     wx:batch(fun() -> 
 		     Wi = enable_windows(Wi0, Windows),
-		     show_windows(Wi),
+		     _ = show_windows(Wi),
 		     wxSizer:layout(Sizer),
 		     wxWindow:setSizer(Panel, Sizer),
-		     wxSizer:fit(Sizer, Win),
+		     _ = wxSizer:fit(Sizer, Win),
 		     wxSizer:setSizeHints(Sizer,Win),		
 		     Wi
 	     end).
@@ -347,7 +349,7 @@ add_break(WinInfo, Menu, {{Mod,Line},[Status|_Options]}=Break) ->
     case WinInfo#winInfo.editor of
 	{Mod, Editor} ->
 	    dbg_wx_code:add_break_to_code(Editor, Line, Status);
-	_ -> ignore
+	_ -> ok
     end,
     add_break_to_menu(WinInfo, Menu, Break).
 
@@ -371,7 +373,7 @@ update_break(WinInfo, {{Mod,Line},[Status|_Options]}=Break) ->
     case WinInfo#winInfo.editor of
 	{Mod, Editor} ->
 	    dbg_wx_code:add_break_to_code(Editor, Line, Status);
-	_ -> ignore
+	_ -> ok
     end,
     update_break_in_menu(WinInfo, Break).
 
@@ -928,7 +930,7 @@ button_area(Parent) ->
 		       B=wxButton:new(Parent, Button, 
 				      [{label,dbg_wx_win:to_string(Name)}]),
 		       Id = wxWindow:getId(B),
-		       wxSizer:add(Sz,B, []),
+		       _ = wxSizer:add(Sz,B, []),
 		       wxButton:connect(B, command_button_clicked, [{id,Id}])
 	       end, buttons()),
     #sub{name='Button Area', win=Sz}.
@@ -937,22 +939,22 @@ button_area(Parent) ->
 
 search_area(Parent) ->
     HSz = wxBoxSizer:new(?wxHORIZONTAL),
-    wxSizer:add(HSz, wxStaticText:new(Parent, ?wxID_ANY, "Find:"), 
+    _ = wxSizer:add(HSz, wxStaticText:new(Parent, ?wxID_ANY, "Find:"), 
 		[{flag,?wxALIGN_CENTER_VERTICAL}]),
     TC1 = wxTextCtrl:new(Parent, ?SEARCH_ENTRY, [{style, ?wxTE_PROCESS_ENTER}]), 
-    wxSizer:add(HSz, TC1,  [{proportion,3}, {flag, ?wxEXPAND}]),
+    _ = wxSizer:add(HSz, TC1,  [{proportion,3}, {flag, ?wxEXPAND}]),
     Nbtn = wxRadioButton:new(Parent, ?wxID_ANY, "Next"),
     wxRadioButton:setValue(Nbtn, true),
-    wxSizer:add(HSz,Nbtn,[{flag,?wxALIGN_CENTER_VERTICAL}]),
+    _ = wxSizer:add(HSz,Nbtn,[{flag,?wxALIGN_CENTER_VERTICAL}]),
     Pbtn = wxRadioButton:new(Parent, ?wxID_ANY, "Previous"),
-    wxSizer:add(HSz,Pbtn,[{flag,?wxALIGN_CENTER_VERTICAL}]),
+    _ = wxSizer:add(HSz,Pbtn,[{flag,?wxALIGN_CENTER_VERTICAL}]),
     Cbtn = wxCheckBox:new(Parent, ?wxID_ANY, "Match Case"),
-    wxSizer:add(HSz,Cbtn,[{flag,?wxALIGN_CENTER_VERTICAL}]),
-    wxSizer:add(HSz, 15,15, [{proportion,1}, {flag, ?wxEXPAND}]),
-    wxSizer:add(HSz, wxStaticText:new(Parent, ?wxID_ANY, "Goto Line:"), 
+    _ = wxSizer:add(HSz,Cbtn,[{flag,?wxALIGN_CENTER_VERTICAL}]),
+    _ = wxSizer:add(HSz, 15,15, [{proportion,1}, {flag, ?wxEXPAND}]),
+    _ = wxSizer:add(HSz, wxStaticText:new(Parent, ?wxID_ANY, "Goto Line:"), 
 		[{flag,?wxALIGN_CENTER_VERTICAL}]),
     TC2 = wxTextCtrl:new(Parent, ?GOTO_ENTRY, [{style, ?wxTE_PROCESS_ENTER}]), 
-    wxSizer:add(HSz, TC2,  [{proportion,0}, {flag, ?wxEXPAND}]),
+    _ = wxSizer:add(HSz, TC2,  [{proportion,0}, {flag, ?wxEXPAND}]),
     wxTextCtrl:connect(TC1, command_text_updated),
     wxTextCtrl:connect(TC1, command_text_enter),
     wxTextCtrl:connect(TC1, kill_focus),
@@ -968,14 +970,14 @@ eval_area(Parent) ->
     VSz = wxBoxSizer:new(?wxVERTICAL),
     HSz = wxBoxSizer:new(?wxHORIZONTAL),
     
-    wxSizer:add(HSz, wxStaticText:new(Parent, ?wxID_ANY, "Evaluator:"), 
+    _ = wxSizer:add(HSz, wxStaticText:new(Parent, ?wxID_ANY, "Evaluator:"), 
 		[{flag,?wxALIGN_CENTER_VERTICAL}]),
     TC = wxTextCtrl:new(Parent, ?EVAL_ENTRY, [{style, ?wxTE_PROCESS_ENTER}]), 
-    wxSizer:add(HSz, TC,  [{proportion,1}, {flag, ?wxEXPAND}]),
-    wxSizer:add(VSz, HSz, [{flag, ?wxEXPAND}]),
+    _ = wxSizer:add(HSz, TC,  [{proportion,1}, {flag, ?wxEXPAND}]),
+    _ = wxSizer:add(VSz, HSz, [{flag, ?wxEXPAND}]),
     TL = wxTextCtrl:new(Parent, ?EVAL_LOG, [{style, ?wxTE_DONTWRAP bor 
 					  ?wxTE_MULTILINE bor ?wxTE_READONLY}]), 
-    wxSizer:add(VSz, TL, [{proportion,5}, {flag, ?wxEXPAND}]),
+    _ = wxSizer:add(VSz, TL, [{proportion,5}, {flag, ?wxEXPAND}]),
     
     wxTextCtrl:connect(TC, command_text_enter),
     #sub{name='Evaluator Area', win=VSz, in=TC, out=TL}.

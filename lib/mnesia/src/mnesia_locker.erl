@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -21,13 +22,13 @@
 -module(mnesia_locker).
 
 -export([
-	 get_held_locks/0,
+	 get_held_locks/0, get_held_locks/1,
 	 get_lock_queue/0,
 	 global_lock/5,
 	 ixrlock/5,
 	 init/1,
-	 mnesia_down/2,
 	 release_tid/1,
+	 mnesia_down/2,
 	 async_release_tid/2,
 	 send_release_tid/2,
 	 receive_release_tid_acc/2,
@@ -84,7 +85,7 @@ init(Parent) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
     ?ets_new_table(mnesia_held_locks, [ordered_set, private, named_table]),
-    ?ets_new_table(mnesia_tid_locks, [bag, private, named_table]),
+    ?ets_new_table(mnesia_tid_locks, [ordered_set, private, named_table]),
     ?ets_new_table(mnesia_sticky_locks, [set, private, named_table]),
     ?ets_new_table(mnesia_lock_queue, [bag, private, named_table, {keypos, 2}]),
 
@@ -98,12 +99,13 @@ init(Parent) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_);
+	{'EXIT', _} -> mnesia_lib:other_val(Var);
 	_VaLuE_ -> _VaLuE_
     end.
 
 reply(From, R) ->
-    From ! {?MODULE, node(), R}.
+    From ! {?MODULE, node(), R},
+    true. %% Quiets dialyzer
 
 l_request(Node, X, Store) ->
     {?MODULE, Node} ! {self(), X},
@@ -130,12 +132,28 @@ send_release_tid(Nodes, Tid) ->
 receive_release_tid_acc([Node | Nodes], Tid) ->
     receive
 	{?MODULE, Node, {tid_released, Tid}} ->
-	    receive_release_tid_acc(Nodes, Tid);
-	{mnesia_down, Node} ->
 	    receive_release_tid_acc(Nodes, Tid)
+    after 0 ->
+	    receive
+		{?MODULE, Node, {tid_released, Tid}} ->
+		    receive_release_tid_acc(Nodes, Tid);
+		{mnesia_down, Node} ->
+		    receive_release_tid_acc(Nodes, Tid)
+	    end
     end;
 receive_release_tid_acc([], _Tid) ->
     ok.
+
+mnesia_down(Node, Pending) ->
+    case whereis(?MODULE) of
+	undefined -> {error, node_not_running};
+	Pid ->
+	    Ref = make_ref(),
+	    Pid ! {{self(), Ref}, {release_remote_non_pending, Node, Pending}},
+	    receive   %% No need to wait for anything else if process dies we die soon
+		{Ref,ok} -> ok
+	    end
+    end.
 
 loop(State) ->
     receive
@@ -213,9 +231,14 @@ loop(State) ->
 	    reply(From, {tid_released, Tid}),
 	    loop(State);
 
-	{release_remote_non_pending, Node, Pending} ->
+	{{From, Ref},{release_remote_non_pending, Node, Pending}} ->
 	    release_remote_non_pending(Node, Pending),
-	    mnesia_monitor:mnesia_down(?MODULE, Node),
+	    From ! {Ref, ok},
+	    loop(State);
+
+	{From, {is_locked, Oid}} ->
+	    Held = ?ets_lookup(mnesia_held_locks, Oid),
+	    reply(From, Held),
 	    loop(State);
 
 	{'EXIT', Pid, _} when Pid == State#state.supervisor ->
@@ -236,13 +259,13 @@ loop(State) ->
     end.
 
 set_lock(Tid, Oid, Op, []) ->
-    ?ets_insert(mnesia_tid_locks, {Tid, Oid, Op}),
+    ?ets_insert(mnesia_tid_locks, {{Tid, Oid, Op}}),
     ?ets_insert(mnesia_held_locks, {Oid, Op, [{Op, Tid}]});
 set_lock(Tid, Oid, read, [{Oid, Prev, Items}]) ->
-    ?ets_insert(mnesia_tid_locks, {Tid, Oid, read}),
+    ?ets_insert(mnesia_tid_locks, {{Tid, Oid, read}}),
     ?ets_insert(mnesia_held_locks, {Oid, Prev, [{read, Tid}|Items]});
 set_lock(Tid, Oid, write, [{Oid, _Prev, Items}]) ->
-    ?ets_insert(mnesia_tid_locks, {Tid, Oid, write}),
+    ?ets_insert(mnesia_tid_locks, {{Tid, Oid, write}}),
     ?ets_insert(mnesia_held_locks, {Oid, write, [{write, Tid}|Items]});
 set_lock(Tid, Oid, Op, undefined) ->
     set_lock(Tid, Oid, Op, ?ets_lookup(mnesia_held_locks, Oid)).
@@ -258,7 +281,8 @@ try_sticky_lock(Tid, Op, Pid, {Tab, _} = Oid) ->
 	    try_lock(Tid, Op, Pid, Oid);
 	[{_,N}] ->
 	    Req = {Pid, {Op, Tid, Oid}},
-	    Pid ! {?MODULE, node(), {switch, N, Req}}
+	    Pid ! {?MODULE, node(), {switch, N, Req}},
+	    true
     end.
 
 try_lock(Tid, read_write, Pid, Oid) ->
@@ -281,7 +305,7 @@ try_lock(Tid, Op, SimpleOp, Lock, Pid, Oid) ->
 	    ?ets_insert(mnesia_lock_queue,
 			#queue{oid = Oid, tid = Tid, op = Op,
 			       pid = Pid, lucky = Lucky}),
-	    ?ets_insert(mnesia_tid_locks, {Tid, Oid, {queued, Op}})
+	    ?ets_insert(mnesia_tid_locks, {{Tid, Oid, {queued, Op}}})
     end.
 
 grant_lock(Tid, read, Lock, Oid = {Tab, Key}, Default)
@@ -480,7 +504,7 @@ set_read_lock_on_all_keys(Tid, From, Tab, IxKey, Pos) ->
 	    ?ets_insert(mnesia_lock_queue,
 			#queue{oid = Oid, tid = Tid, op = Op,
 			       pid = From, lucky = Lucky}),
-	    ?ets_insert(mnesia_tid_locks, {Tid, Oid, {queued, Op}})
+	    ?ets_insert(mnesia_tid_locks, {{Tid, Oid, {queued, Op}}})
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -496,7 +520,8 @@ release_remote_non_pending(Node, Pending) ->
     %% running at the failed node and also simply remove all
     %% queue'd requests back to the failed node
 
-    AllTids = ?ets_match(mnesia_tid_locks, {'$1', '_', '_'}),
+    AllTids0 = ?ets_match(mnesia_tid_locks, {{'$1', '_', '_'}}),
+    AllTids  = lists:usort(AllTids0),
     Tids = [T || [T] <- AllTids, Node == node(T#tid.pid), not lists:member(T, Pending)],
     do_release_tids(Tids).
 
@@ -507,9 +532,10 @@ do_release_tids([]) ->
     ok.
 
 do_release_tid(Tid) ->
-    Locks = ?ets_lookup(mnesia_tid_locks, Tid),
+    Objects = ets:select(mnesia_tid_locks, [{{{Tid, '_', '_'}}, [], ['$_']}]),
+    Locks = lists:map(fun({L}) -> L end, Objects),
     ?dbg("Release ~p ~p ~n", [Tid, Locks]),
-    ?ets_delete(mnesia_tid_locks, Tid),
+    [?ets_delete(mnesia_tid_locks, L) || L <- Locks],
     release_locks(Locks),
     %% Removed queued locks which has had locks
     UniqueLocks = keyunique(lists:sort(Locks),[]),
@@ -652,19 +678,6 @@ ix_read_res(Tab,IxKey,Pos) ->
 
 %% ********************* end server code ********************
 %% The following code executes at the client side of a transactions
-
-mnesia_down(N, Pending) ->
-    case whereis(?MODULE) of
-	undefined ->
-	    %% Takes care of mnesia_down's in early startup
-	    mnesia_monitor:mnesia_down(?MODULE, N);
-	Pid ->
-	    %% Syncronously call needed in order to avoid
-	    %% race with mnesia_tm's coordinator processes
-	    %% that may restart and acquire new locks.
-	    %% mnesia_monitor ensures the sync.
-	    Pid ! {release_remote_non_pending, N, Pending}
-    end.
 
 %% Aquire a write lock, but do a read, used by
 %% mnesia:wread/1
@@ -975,8 +988,14 @@ sticky_flush(Ns=[Node | Tail], Store) ->
 flush_remaining([], _SkipNode, Res) ->
     del_debug(),
     exit(Res);
-flush_remaining([SkipNode | Tail ], SkipNode, Res) ->
-    flush_remaining(Tail, SkipNode, Res);
+flush_remaining(Ns=[SkipNode | Tail ], SkipNode, Res) ->
+    add_debug(Ns),
+    receive
+	{?MODULE, SkipNode, _} ->
+	    flush_remaining(Tail, SkipNode, Res)
+    after 0 ->
+	    flush_remaining(Tail, SkipNode, Res)
+    end;
 flush_remaining(Ns=[Node | Tail], SkipNode, Res) ->
     add_debug(Ns),
     receive
@@ -988,13 +1007,11 @@ flush_remaining(Ns=[Node | Tail], SkipNode, Res) ->
 
 opt_lookup_in_client(lookup_in_client, Oid, Lock) ->
     {Tab, Key} = Oid,
-    case catch mnesia_lib:db_get(Tab, Key) of
-	{'EXIT', _} ->
+    try mnesia_lib:db_get(Tab, Key)
+    catch error:_ ->
 	    %% Table has been deleted from this node,
 	    %% restart the transaction.
-	    #cyclic{op = read, lock = Lock, oid = Oid, lucky = nowhere};
-	Val ->
-	    Val
+	    #cyclic{op = read, lock = Lock, oid = Oid, lucky = nowhere}
     end;
 opt_lookup_in_client(Val, _Oid, _Lock) ->
     Val.
@@ -1126,11 +1143,10 @@ send_requests([], _X) ->
 
 rec_requests([Node | Nodes], Oid, Store) ->
     Res = l_req_rec(Node, Store),
-    case catch rlock_get_reply(Node, Store, Oid, Res) of
-	{'EXIT', Reason} ->
-	    flush_remaining(Nodes, Node, Reason);
-	_ ->
-	    rec_requests(Nodes, Oid, Store)
+    try rlock_get_reply(Node, Store, Oid, Res) of
+	_ -> rec_requests(Nodes, Oid, Store)
+    catch _:Reason ->
+	    flush_remaining(Nodes, Node, Reason)
     end;
 rec_requests([], _Oid, _Store) ->
     ok.
@@ -1139,6 +1155,19 @@ get_held_locks() ->
     ?MODULE ! {get_table, self(), mnesia_held_locks},
     Locks = receive {mnesia_held_locks, Ls} -> Ls after 5000 -> [] end,
     rewrite_locks(Locks, []).
+
+%% Mnesia internal usage only
+get_held_locks(Tab) when is_atom(Tab) ->
+    Oid = {Tab, ?ALL},
+    ?MODULE ! {self(), {is_locked, Oid}},
+    receive
+	{?MODULE, _Node, Locks} ->
+	    case Locks of
+		[] -> [];
+		[{Oid, _Prev, What}] -> What
+	    end
+    end.
+
 
 rewrite_locks([{Oid, _, Ls}|Locks], Acc0) ->
     Acc = rewrite_locks(Ls, Oid, Acc0),

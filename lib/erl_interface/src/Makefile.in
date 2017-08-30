@@ -1,18 +1,19 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2012. All Rights Reserved.
+# Copyright Ericsson AB 1997-2016. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -39,6 +40,16 @@ include ../vsn.mk
 include $(TARGET)/eidefs.mk
 
 include $(ERL_TOP)/make/output.mk
+
+EBINDIR=../ebin
+
+APP_FILE= erl_interface.app
+APP_SRC= $(APP_FILE).src
+APP_TARGET= $(EBINDIR)/$(APP_FILE)
+
+APPUP_FILE= erl_interface.appup
+APPUP_SRC= $(APPUP_FILE).src
+APPUP_TARGET= $(EBINDIR)/$(APPUP_FILE)
 
 USING_MINGW=@MIXED_CYGWIN_MINGW@
 USING_MSYS_VC==@MIXED_MSYS_VC@
@@ -115,11 +126,7 @@ else
 WARNFLAGS = @WFLAGS@
 endif
 
-ifneq ($(findstring ose,$(TARGET)),ose)
 CFLAGS = @LIB_CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS)
-else
-CFLAGS = @CFLAGS@ $(INCFLAGS)
-endif
 PROG_CFLAGS = @CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS) -Ilegacy
 
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
@@ -199,12 +206,8 @@ MDD_ERLLIB = $(OBJDIR)/$(LIBPRE)erl_interface_mdd$(LIBEXT)
 #  Specify targets to build
 ###########################################################################
 
-ifneq ($(findstring ose,$(TARGET)),ose)
 EXE_TARGETS = \
 	$(ERL_CALL)
-else
-EXE_TARGETS = 
-endif
 
 ifeq ($(USING_VC),yes)
 
@@ -212,7 +215,9 @@ ifeq ($(USING_VC),yes)
 
 TARGETS = \
 	$(OBJ_TARGETS) \
-	$(EXE_TARGETS)
+	$(EXE_TARGETS) \
+	$(APP_TARGET)  \
+	$(APPUP_TARGET)
 
 OBJ_TARGETS = \
 	$(MT_EILIB) \
@@ -241,7 +246,9 @@ else
 ifeq ($USING_MINGW,yes)
 TARGETS = \
 	$(OBJ_TARGETS) \
-	$(EXE_TARGETS)
+	$(EXE_TARGETS) \
+	$(APP_TARGET)  \
+	$(APPUP_TARGET)
 
 OBJ_TARGETS = \
 	$(MD_EILIB) \
@@ -259,7 +266,9 @@ ifdef THR_DEFS
 
 TARGETS = \
 	$(OBJ_TARGETS) \
-	$(EXE_TARGETS)
+	$(EXE_TARGETS) \
+	$(APP_TARGET)  \
+	$(APPUP_TARGET)
 
 OBJ_TARGETS = \
 	$(ST_EILIB) \
@@ -281,7 +290,9 @@ else
 
 TARGETS = \
 	$(OBJ_TARGETS) \
-	$(EXE_TARGETS)
+	$(EXE_TARGETS) \
+	$(APP_TARGET)  \
+	$(APPUP_TARGET)
 
 OBJ_TARGETS = \
 	$(ST_EILIB) \
@@ -461,44 +472,6 @@ ERLSOURCES = \
 
 SOURCES = $(EISOURCES) $(ERLSOURCES)
 
-OSE_EISOURCES =  \
-	$(DECODESRC) \
-	$(ENCODESRC) \
-	misc/ei_decode_term.c \
-	misc/ei_format.c \
-	misc/ei_locking.c \
-	misc/ei_malloc.c \
-	misc/ei_printterm.c \
-	misc/ei_pthreads.c \
-	misc/ei_trace.c \
-	misc/ei_x_encode.c \
-	misc/eimd5.c \
-	misc/get_type.c \
-	misc/show_msg.c \
-	misc/ei_compat.c \
-	registry/hash_dohash.c \
-	registry/hash_foreach.c \
-	registry/hash_freetab.c \
-	registry/hash_insert.c \
-	registry/hash_isprime.c \
-	registry/hash_lookup.c \
-	registry/hash_newtab.c \
-	registry/hash_remove.c \
-	registry/hash_resize.c \
-	registry/hash_rlookup.c
-
-OSE_ERLSOURCES = \
-	legacy/decode_term.c \
-	legacy/encode_term.c \
-	legacy/erl_error.c \
-	legacy/erl_eterm.c \
-	legacy/erl_fix_alloc.c \
-	legacy/erl_format.c \
-	legacy/erl_malloc.c \
-	legacy/erl_marshal.c
-
-OSE_SOURCES = $(OSE_EISOURCES) $(OSE_ERLSOURCES)
-
 NEVERUSED = \
 	whereis.c \
 	ei_send.c \
@@ -513,13 +486,8 @@ ERLCALL = \
 # Note that encode/decode_term.c defines ei functions that is
 # located in the erl_interface library, not ei library.
 
-ifneq ($(findstring ose,$(TARGET)),ose)
 ST_EIOBJECTS  = $(addprefix $(ST_OBJDIR)/,$(notdir $(EISOURCES:.c=.o)))
 ST_ERLOBJECTS = $(addprefix $(ST_OBJDIR)/,$(notdir $(ERLSOURCES:.c=.o)))
-else
-ST_EIOBJECTS  = $(addprefix $(ST_OBJDIR)/,$(notdir $(OSE_EISOURCES:.c=.o)))
-ST_ERLOBJECTS = $(addprefix $(ST_OBJDIR)/,$(notdir $(OSE_ERLSOURCES:.c=.o)))
-endif
 MT_EIOBJECTS  = $(addprefix $(MT_OBJDIR)/,$(notdir $(EISOURCES:.c=.o)))
 MT_ERLOBJECTS = $(addprefix $(MT_OBJDIR)/,$(notdir $(ERLSOURCES:.c=.o)))
 MD_EIOBJECTS  = $(addprefix $(MD_OBJDIR)/,$(notdir $(EISOURCES:.c=.o)))
@@ -547,6 +515,8 @@ clean:
 	rm -f $(MDD_EIOBJECTS) $(MDD_ERLOBJECTS) $(MDD_EILIB) $(MDD_ERLLIB)
 	rm -f $(ERL_CALL)
 	rm -f $(FAKE_TARGETS)
+	rm -f $(APP_TARGET)
+	rm -f $(APPUP_TARGET)
 
 distclean: clean
 	rm -f config.h config.log config.status configure
@@ -559,14 +529,6 @@ distclean: clean
 # FIXME depend on $(TARGET)/Makefile ???
 
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-$(TARGET)/config.h:
-	$(gen_verbose)
-	$(V_at)echo "/* Generated by Makefile */" > $@
-	$(V_at)echo "#define HAVE_STRERROR 1" >> $@
-	$(V_at)echo "#define HAVE_SOCKLEN_T 1" >> $@
-endif
-
-ifeq ($(findstring ose,$(TARGET)),ose)
 $(TARGET)/config.h:
 	$(gen_verbose)
 	$(V_at)echo "/* Generated by Makefile */" > $@
@@ -597,11 +559,16 @@ $(MDD_OBJDIR)/%.o: %.c
 #  Create directories
 ###########################################################################
 
-_create_dirs := $(shell mkdir -p $(BINDIR) $(OBJDIR) $(ST_OBJDIR) $(MT_OBJDIR) $(MD_OBJDIR) $(MDD_OBJDIR))
+_create_dirs := $(shell mkdir -p $(EBINDIR) $(BINDIR) $(OBJDIR) $(ST_OBJDIR) $(MT_OBJDIR) $(MD_OBJDIR) $(MDD_OBJDIR))
 
 ###########################################################################
 #  Special rules
 ###########################################################################
+
+$(APP_TARGET): $(APP_SRC) ../vsn.mk
+	$(vsn_verbose)sed -e 's;%VSN%;$(ERL_INTERFACE_VSN);' $< > $@
+$(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
+	$(vsn_verbose)sed -e 's;%VSN%;$(ERL_INTERFACE_VSN);' $< > $@
 
 ifeq ($(TARGET),win32)
 
@@ -693,9 +660,6 @@ $(ST_OBJDIR)/erl_start.o: prog/erl_start.c
 	$(V_CC) $(CFLAGS) -c $< -o $@
 
 else
-ifeq ($(findstring ose,$(TARGET)),ose)
-$(ERL_CALL):
-else
 ifdef THR_DEFS
 $(ERL_CALL): $(ERLCALL) ../include/ei.h $(MT_EILIB)
 	$(ld_verbose)$(PURIFY) $(CC) $(PROG_CFLAGS) $(THR_DEFS) $(LDFLAGS) -o $@ $(ERLCALL) \
@@ -704,7 +668,6 @@ else
 $(ERL_CALL): $(ERLCALL) ../include/ei.h $(ST_EILIB)
 	$(ld_verbose)$(PURIFY) $(CC) $(PROG_CFLAGS) $(LDFLAGS) -o $@ $(ERLCALL) \
 		-L$(OBJDIR) -lei $(LIBS)
-endif
 endif
 endif
 endif
@@ -857,6 +820,7 @@ release: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
 	$(INSTALL_DIR) "$(RELSYSDIR)/lib"
 	$(INSTALL_DIR) "$(RELSYSDIR)/bin"
+	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/auxdir"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/connect"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/decode"
@@ -866,8 +830,14 @@ release: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/misc"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/prog"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/registry"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/include"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/lib"
+	$(INSTALL_DATA) $(APP_TARGET)  "$(RELSYSDIR)/ebin/$(APP_FILE)"
+	$(INSTALL_DATA) $(APPUP_TARGET)  "$(RELSYSDIR)/ebin/$(APPUP_FILE)"
 	$(INSTALL_DATA) $(HEADERS)     "$(RELSYSDIR)/include"
+	$(INSTALL_DATA) $(HEADERS)     "$(RELEASE_PATH)/usr/include"
 	$(INSTALL_DATA) $(OBJ_TARGETS) "$(RELSYSDIR)/lib"
+	$(INSTALL_DATA) $(OBJ_TARGETS) "$(RELEASE_PATH)/usr/lib"
 ifneq ($(EXE_TARGETS),)
 	$(INSTALL_PROGRAM) $(EXE_TARGETS) "$(RELSYSDIR)/bin"
 endif

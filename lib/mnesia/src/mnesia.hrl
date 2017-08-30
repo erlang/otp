@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -35,11 +36,16 @@
 -define(ets_last(Tab), ets:last(Tab)).
 -define(ets_prev(Tab, Key), ets:prev(Tab, Key)).
 -define(ets_slot(Tab, Pos), ets:slot(Tab, Pos)).
--define(ets_new_table(Tab, Props), ets:new(Tab, Props)).
+-define(ets_new_table(Tab, Props), _ = ets:new(Tab, Props)).
 -define(ets_delete_table(Tab), ets:delete(Tab)).
 -define(ets_fixtable(Tab, Bool), ets:fixtable(Tab, Bool)).
 
--define(catch_val(Var), (catch ?ets_lookup_element(mnesia_gvar, Var, 2))).
+
+-define(SAFE(OP), try (OP) catch error:_ -> ok end).
+-define(CATCH(OP), try (OP) catch _:_Reason -> {'EXIT', _Reason} end).
+
+-define(catch_val(Var), (try ?ets_lookup_element(mnesia_gvar, Var, 2)
+			 catch error:_ -> {'EXIT', {badarg, []}} end)).
 
 %% It's important that counter is first, since we compare tid's
 
@@ -53,13 +59,16 @@
          up_stores = [],  %% list of upper layer stores for nested trans
          level = 1}).     %% transaction level
 
--define(unique_cookie, {erlang:now(), node()}).
+-define(unique_cookie, {{erlang:monotonic_time() + erlang:time_offset(),
+			 erlang:unique_integer(),1},
+			node()}).
 
 -record(cstruct, {name,                            % Atom
 		  type = set,                      % set | bag
 		  ram_copies = [],                 % [Node]
 		  disc_copies = [],                % [Node]
 		  disc_only_copies = [],           % [Node]
+                  external_copies = [],            % [{{Alias,Mod},[Node]}]
 		  load_order = 0,                  % Integer
 		  access_mode = read_write,        % read_write | read_only
 		  majority = false,                % true | false
@@ -95,7 +104,7 @@
 		 ram_copies = [],
 		 disc_copies = [],
 		 disc_only_copies = [],
-		 snmp = [],
+		 ext = [],
 		 schema_ops = []
 		}).
 

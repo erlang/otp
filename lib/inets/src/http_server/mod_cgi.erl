@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -95,24 +96,24 @@ do(ModData) ->
 %%                           or cache                                 
 %%                                                                             
 load("ScriptNoCache " ++ CacheArg, [])->
-    case catch list_to_atom(httpd_conf:clean(CacheArg)) of
+    case catch list_to_atom(string:strip(CacheArg)) of
         true ->
 	    {ok, [], {script_nocache, true}};
 	false ->
 	   {ok, [], {script_nocache, false}};
 	_ ->
-	   {error, ?NICE(httpd_conf:clean(CacheArg)++
+	   {error, ?NICE(string:strip(CacheArg)++
 			 " is an invalid ScriptNoCache directive")}
     end;
 %% ScriptTimeout Seconds, The number of seconds that the server       
 %%                        maximum will wait for the script to         
 %%                        generate a part of the document   
 load("ScriptTimeout " ++ Timeout, [])->
-    case catch list_to_integer(httpd_conf:clean(Timeout)) of
+    case catch list_to_integer(string:strip(Timeout)) of
 	TimeoutSec when is_integer(TimeoutSec)  ->
 	   {ok, [], {script_timeout,TimeoutSec*1000}};
 	_ ->
-	   {error, ?NICE(httpd_conf:clean(Timeout)++
+	   {error, ?NICE(string:strip(Timeout)++
 			 " is an invalid ScriptTimeout")}
     end.
 
@@ -131,9 +132,9 @@ store({script_nocache, Value} = Conf, _)
     {ok, Conf};
 store({script_nocache, Value}, _) ->
     {error, {wrong_type, {script_nocache, Value}}};
-store({script_timeout, Value} = Conf, _) 
+store({script_timeout, Value}, _) 
   when is_integer(Value), Value >= 0 ->
-    {ok, Conf};
+    {ok, {script_timeout, Value * 1000}};
 store({script_timeout, Value}, _) ->
     {error, {wrong_type, {script_timeout, Value}}}.
 	
@@ -238,7 +239,7 @@ send_request_body_to_script(ModData, Port) ->
     end.	
 	   
 deliver_webpage(#mod{config_db = Db} = ModData, Port) ->
-    Timeout = cgi_timeout(Db),    
+    Timeout = script_timeout(Db),    
     case receive_headers(Port, httpd_cgi, parse_headers, 
 			 [<<>>, [], []], Timeout) of
 	{Headers, Body} ->
@@ -295,7 +296,7 @@ receive_headers(Port, Module, Function, Args, Timeout) ->
       end.
 
 send_headers(ModData, {StatusCode, _}, HTTPHeaders) ->
-    ExtraHeaders = httpd_response:cache_headers(ModData),
+    ExtraHeaders = httpd_response:cache_headers(ModData, script_nocache),
     httpd_response:send_header(ModData, StatusCode, 
 			       ExtraHeaders ++ HTTPHeaders).
 
@@ -336,13 +337,15 @@ script_elements(#mod{method = "GET"}, {PathInfo, QueryString}) ->
     [{query_string, QueryString}, {path_info, PathInfo}];
 script_elements(#mod{method = "POST", entity_body = Body}, _) ->
     [{entity_body, Body}];
+script_elements(#mod{method = "PATCH", entity_body = Body}, _) ->
+    [{entity_body, Body}];
 script_elements(#mod{method = "PUT", entity_body = Body}, _) ->
     [{entity_body, Body}];
 script_elements(_, _) ->
     [].
 
-cgi_timeout(Db) ->
-    httpd_util:lookup(Db, cgi_timeout, ?DEFAULT_CGI_TIMEOUT).
+script_timeout(Db) ->
+    httpd_util:lookup(Db, script_timeout, ?DEFAULT_CGI_TIMEOUT).
 
 %% Convert error to printable string
 %%

@@ -1,89 +1,164 @@
-<?xml version="1.0" encoding="iso-8859-1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE appref SYSTEM "appref.dtd">
 
 <appref>
   <header>
     <copyright>
-      <year>1999</year><year>2013</year>
+      <year>1999</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
     <title>ssl</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
     <file>ssl_app.sgml</file>
   </header>
   <app>ssl</app>
-  <appsummary>The SSL application provides secure communication over
+  <appsummary>The ssl application provides secure communication over
   sockets.</appsummary>
+
+  <description>
+    <p>
+      The ssl application is an implementation of the SSL/TLS protocol in Erlang.
+    </p>
+    <list type="bulleted">
+      <item>Supported SSL/TLS-versions are SSL-3.0, TLS-1.0,
+      TLS-1.1, and TLS-1.2.</item>
+      <item>For security reasons SSL-2.0 is not supported.</item>
+      <item>For security reasons SSL-3.0 is no longer supported by default,
+      but can be configured.</item>
+      <item>For security reasons DES cipher suites are no longer supported by default,
+      but can be configured.</item>
+      <item> Renegotiation Indication Extension <url href="http://www.ietf.org/rfc/rfc5746.txt">RFC 5746</url> is supported
+      </item>
+      <item>Ephemeral Diffie-Hellman cipher suites are supported,
+      but not Diffie Hellman Certificates cipher suites.</item>
+      <item>Elliptic Curve cipher suites are supported if the Crypto 
+      application supports it and named curves are used.
+      </item>
+      <item>Export cipher suites are not supported as the
+      U.S. lifted its export restrictions in early 2000.</item>
+      <item>IDEA cipher suites are not supported as they have
+      become deprecated by the latest TLS specification so it is not 
+      motivated to implement them.</item>
+      <item>Compression is not supported.</item>
+      <item>CRL validation is supported.</item>
+      <item>Policy certificate extensions are not supported.</item>
+      <item>'Server Name Indication' extension
+      (<url href="http://www.ietf.org/rfc/rfc6066.txt">RFC 6066</url>) is supported.</item>
+      <item>Application Layer Protocol Negotiation (ALPN) and its successor Next Protocol Negotiation (NPN)
+      are supported. </item>
+      <item>It is possible to use Pre-Shared Key (PSK) and Secure Remote Password (SRP)
+      cipher suites, but they are not enabled by default.
+      </item>
+    </list>
+   </description>
 
   <section>
     <title>DEPENDENCIES</title>
-    <p>The ssl application uses the Erlang applications public_key and
-    crypto to handle public keys and encryption, hence these
-    applications needs to be loaded for the ssl application to work. In
-    an embedded environment that means they need to be started with
-    application:start/[1,2] before the ssl application is started.
-    </p>
+    <p>The SSL application uses the <c>public_key</c> and
+    Crypto application to handle public keys and encryption, hence
+    these applications must be loaded for the SSL application to work. 
+    In an embedded environment this means they must be started with
+    <c>application:start/[1,2]</c> before the SSL application is 
+    started.</p>
   </section>
 
   <section>
-    <title>ENVIRONMENT</title>
-    <p>The following application environment configuration parameters
-    are defined for the SSL application. See <seealso
-    marker="kernel:application">application(3)</seealso>for more
-    information about configuration parameters.
-      </p>
-    <p>Note that the environment parameters can be set on the command line,
-      for instance,</p>
-    <p><c>erl ... -ssl protocol_version '[sslv3, tlsv1]' ...</c>.
-      </p>
+    <title>CONFIGURATION</title>
+    <p>The application environment configuration parameters in this section 
+    are defined for the SSL application. For more information 
+    about configuration parameters, see the 
+    <seealso marker="kernel:application">application(3)</seealso>
+    manual page in Kernel.</p>
+
+    <p>The environment parameters can be set on the command line,
+    for example:</p>
+
+    <p><c>erl -ssl protocol_version "['tlsv1.2', 'tlsv1.1']"</c></p>
+
     <taglist>
-      <tag><c><![CDATA[protocol_version = [sslv3|tlsv1] <optional>]]></c>.</tag>
-      <item>
-	<p>Protocol that will be supported by started clients and
-	servers. If this option is not set it will default to all
-	protocols currently supported by the erlang ssl application.
-	Note that this option may be overridden by the version option
-	to ssl:connect/[2,3] and ssl:listen/2.
-	</p>
-      </item>
+      <tag><c>protocol_version = </c><seealso marker="ssl#type-protocol">ssl:protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
+      <item><p>Protocol supported by started clients and
+      servers. If this option is not set, it defaults to all
+      protocols currently supported by the SSL application.
+      This option can be overridden by the version option
+      to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
 
       <tag><c><![CDATA[session_lifetime = integer() <optional>]]></c></tag>
-      <item>
-	<p>The lifetime of session data in seconds. 
-	</p>
-      </item>
+      <item><p>Maximum lifetime of the session data in seconds. Defaults to 24 hours which is the maximum
+      recommended lifetime by <url href="http://www.ietf.org/rfc/5246rfc.txt">RFC 5246</url>. However
+      sessions may be invalidated earlier due to the maximum limitation of the session cache table.
+      </p></item>
 
-        <tag><c><![CDATA[session_cb = atom() <optional>]]></c></tag>
-      <item>
-        <p>
-	  Name of session cache callback module that implements
-	  the ssl_session_cache_api behavior, defaults to
-	  ssl_session_cache.erl.
-          </p>
-      </item>
+      <tag><c><![CDATA[session_cb = atom() <optional>]]></c></tag>
+      <item><p>Name of the session cache callback module that implements
+      the <c>ssl_session_cache_api</c> behavior. Defaults to
+      <c>ssl_session_cache</c>.</p></item>
 
-      <tag><c><![CDATA[session_cb_init_args = list() <optional>]]></c></tag>
+      <tag><c><![CDATA[session_cb_init_args = proplist:proplist() <optional>]]></c></tag>
+
+      <item><p>List of extra user-defined arguments to the <c>init</c> function
+      in the session cache callback module. Defaults to <c>[]</c>.</p></item>
+
+      <tag><c><![CDATA[session_cache_client_max = integer() <optional>]]></c><br/></tag>
+      <item><p>Limits the growth of the clients session cache, that is
+      how many sessions towards servers that are cached to be used by
+      new client connections.  If the maximum number of sessions is
+      reached, the current cache entries will be invalidated
+      regardless of their remaining lifetime. Defaults to
+      1000.</p></item>
+
+      <tag> <c><![CDATA[session_cache_server_max = integer() <optional>]]></c></tag>
+      <item><p>Limits the growth of the servers session cache, that is
+      how many client sessions are cached by the server. If the
+      maximum number of sessions is reached, the current cache entries
+      will be invalidated regardless of their remaining
+      lifetime. Defaults to 1000.</p></item>
+      
+      <tag><c><![CDATA[ssl_pem_cache_clean = integer() <optional>]]></c></tag>
       <item>
 	<p>
-	  List of arguments to the init function in session cache
-	  callback module, defaults to [].
+	  Number of milliseconds between PEM cache validations. Defaults to 2 minutes.
+	</p>
+	<seealso
+	    marker="ssl#clear_pem_cache-0">ssl:clear_pem_cache/0</seealso>
+	
+      </item>
+      <tag><c><![CDATA[alert_timeout = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Number of milliseconds between sending of a fatal alert and
+	  closing the connection. Waiting a little while improves the
+	  peers chances to properly receiving the alert so it may
+	  shutdown gracefully. Defaults to 5000 milliseconds.   
 	</p>
       </item>
-
     </taglist>
+  </section>
+
+  <section>
+    <title>ERROR LOGGER AND EVENT HANDLERS</title>
+    <p>The SSL application uses the default <seealso
+    marker="kernel:error_logger">OTP error logger</seealso> to log
+    unexpected errors and TLS alerts. The logging of TLS alerts may be
+    turned off with the <c>log_alert</c> option. </p>
   </section>
 
   <section>

@@ -1,26 +1,26 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2012</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
-
     <title>gen_tcp</title>
     <prepared>tony@erix.ericsson.se</prepared>
     <docno></docno>
@@ -28,13 +28,13 @@
     <rev>A</rev>
   </header>
   <module>gen_tcp</module>
-  <modulesummary>Interface to TCP/IP sockets</modulesummary>
+  <modulesummary>Interface to TCP/IP sockets.</modulesummary>
   <description>
-    <p>The <c>gen_tcp</c> module provides functions for communicating
+    <p>This module provides functions for communicating
       with sockets using the TCP/IP protocol.</p>
-    <p>The following code fragment provides a simple example of 
+    <p>The following code fragment is a simple example of
       a client connecting to a server at port 5678, transferring a
-      binary and closing the connection:</p>
+      binary, and closing the connection:</p>
     <code type="none">
 client() ->
     SomeHostInNet = "localhost", % to make it runnable on one machine
@@ -42,8 +42,8 @@ client() ->
                                  [binary, {packet, 0}]),
     ok = gen_tcp:send(Sock, "Some Data"),
     ok = gen_tcp:close(Sock).</code>
-    <p>At the other end a server is listening on port 5678, accepts
-      the connection and receives the binary:</p>
+    <p>At the other end, a server is listening on port 5678, accepts
+      the connection, and receives the binary:</p>
     <code type="none">
 server() ->
     {ok, LSock} = gen_tcp:listen(5678, [binary, {packet, 0}, 
@@ -60,7 +60,8 @@ do_recv(Sock, Bs) ->
         {error, closed} ->
             {ok, list_to_binary(Bs)}
     end.</code>
-    <p>For more examples, see the <seealso marker="#examples">examples</seealso> section.</p>
+    <p>For more examples, see section
+      <seealso marker="#examples">Examples</seealso>.</p>
   </description>
 
   <datatypes>
@@ -77,9 +78,10 @@ do_recv(Sock, Bs) ->
       <name name="listen_option"/>
     </datatype>
     <datatype>
-      <name><marker id="type-socket">socket()</marker></name>
-      <desc>
-        <p>As returned by accept/1,2 and connect/3,4.</p>
+      <name>socket()</name>
+      <desc><p>As returned by
+        <seealso marker="#accept/1"><c>accept/1,2</c></seealso> and
+        <seealso marker="#connect/3"><c>connect/3,4</c></seealso>.</p>
         <marker id="connect"></marker>
       </desc>
     </datatype>
@@ -87,194 +89,43 @@ do_recv(Sock, Bs) ->
 
   <funcs>
     <func>
-      <name name="connect" arity="3"/>
-      <name name="connect" arity="4"/>
-      <fsummary>Connect to a TCP port</fsummary>
-      <desc>
-        <p>Connects to a server on TCP port <c><anno>Port</anno></c> on the host
-          with IP address <c><anno>Address</anno></c>. The <c><anno>Address</anno></c> argument
-          can be either a hostname, or an IP address.</p>
-        <p>The available options are:</p>
-        <taglist>
-         <tag><c>{ip, ip_address()}</c></tag>
-          <item>
-            <p>If the host has several network interfaces, this option
-              specifies which one to use.</p>
-          </item>
-
-		  <tag><c>{ifaddr, ip_address()}</c></tag>
-          <item>
-			  <p>Same as <c>{ip, ip_address()}</c>. If the host has several network interfaces, this option
-              specifies which one to use.</p>
-		  </item>
-
-          <tag><c>{fd, integer() >= 0}</c></tag>
-          <item>
-            <p>If a socket has somehow been connected without using
-              <c>gen_tcp</c>, use this option to pass the file
-              descriptor for it.</p>
-          </item>
-
-          <tag><c>inet</c></tag>
-          <item>
-            <p>Set up the socket for IPv4.</p>
-          </item>
-
-		  <tag><c>inet6</c></tag>
-		  <item>
-            <p>Set up the socket for IPv6.</p>
-          </item>
-
-          <tag><c>{port, Port}</c></tag>
-          <item>
-            <p>Specify which local port number to use.</p>
-          </item>
-
-		  <tag><c>{tcp_module, module()}</c></tag>
-		  <item> <p>
-				  Override which callback module is used. Defaults to
-				  <c>inet_tcp</c> for IPv4 and <c>inet6_tcp</c> for IPv6.
-			  </p>
-		  </item>
-
-          <tag><c>Opt</c></tag>
-          <item>
-            <p>See
-              <seealso marker="inet#setopts/2">inet:setopts/2</seealso>.</p>
-          </item>
-        </taglist>
-        <p>Packets can be sent to the returned socket <c><anno>Socket</anno></c>
-          using <c>send/2</c>. Packets sent from the peer are delivered
-          as messages:</p>
-        <code type="none">
-{tcp, Socket, Data}</code>
-        <p>If the socket is closed, the following message is delivered:</p>
-        <code type="none">
-{tcp_closed, Socket}</code>
-        <p>If an error occurs on the socket, the following message is
-          delivered:</p>
-        <code type="none">
-{tcp_error, Socket, Reason}</code>
-        <p>unless <c>{active, false}</c> is specified in the option list
-          for the socket, in which case packets are retrieved by
-          calling <c>recv/2</c>.</p>
-        <p>The optional <c><anno>Timeout</anno></c> parameter specifies a timeout in
-          milliseconds. The default value is <c>infinity</c>.</p>
-        <note>
-          <p>The default values for options given to <c>connect</c> can
-            be affected by the Kernel configuration parameter
-            <c>inet_default_connect_options</c>. See
-            <seealso marker="inet">inet(3)</seealso> for details.</p>
-        </note>
-      </desc>
-    </func>
-    <func>
-      <name name="listen" arity="2"/>
-      <fsummary>Set up a socket to listen on a port</fsummary>
-      <desc>
-        <p>Sets up a socket to listen on the port <c><anno>Port</anno></c> on
-          the local host.</p>
-        <p>If <c><anno>Port</anno> == 0</c>, the underlying OS assigns an available
-          port number, use <c>inet:port/1</c> to retrieve it.</p>
-        <p>The available options are:</p>
-        <taglist>
-          <tag><c>list</c></tag>
-          <item>
-            <p>Received <c>Packet</c> is delivered as a list.</p>
-          </item>
-          <tag><c>binary</c></tag>
-          <item>
-            <p>Received <c>Packet</c> is delivered as a binary.</p>
-          </item>
-          <tag><c>{backlog, B}</c></tag>
-          <item>
-            <p><c>B</c> is an integer &gt;= 0. The backlog value defaults
-              to 5. The backlog value defines the maximum length that
-              the queue of pending connections may grow to.</p>
-          </item>
-          <tag><c>{ip, ip_address()}</c></tag>
-          <item>
-            <p>If the host has several network interfaces, this option
-              specifies which one to listen on.</p>
-          </item>
-          <tag><c>{port, Port}</c></tag>
-          <item>
-            <p>Specify which local port number to use.</p>
-          </item>
-          <tag><c>{fd, Fd}</c></tag>
-          <item>
-            <p>If a socket has somehow been connected without using
-              <c>gen_tcp</c>, use this option to pass the file
-              descriptor for it.</p>
-          </item>
-
-		  <tag><c>{ifaddr, ip_address()}</c></tag>
-          <item>
-			  <p>Same as <c>{ip, ip_address()}</c>. If the host has several network interfaces, this option
-              specifies which one to use.</p>
-		  </item>
-
-          <tag><c>inet6</c></tag>
-          <item>
-            <p>Set up the socket for IPv6.</p>
-          </item>
-          <tag><c>inet</c></tag>
-          <item>
-            <p>Set up the socket for IPv4.</p>
-          </item>
-
-		  <tag><c>{tcp_module, module()}</c></tag>
-		  <item> <p>
-				  Override which callback module is used. Defaults to
-				  <c>inet_tcp</c> for IPv4 and <c>inet6_tcp</c> for IPv6.
-			  </p>
-		  </item>
-
-          <tag><c>Opt</c></tag>
-          <item>
-            <p>See
-              <seealso marker="inet#setopts/2">inet:setopts/2</seealso>.</p>
-          </item>
-        </taglist>
-        <p>The returned socket <c><anno>ListenSocket</anno></c> can only be used in
-          calls to <c>accept/1,2</c>.</p>
-        <note>
-          <p>The default values for options given to <c>listen</c> can
-            be affected by the Kernel configuration parameter
-            <c>inet_default_listen_options</c>. See
-            <seealso marker="inet">inet(3)</seealso> for details.</p>
-        </note>
-      </desc>
-    </func>
-    <func>
       <name name="accept" arity="1"/>
       <name name="accept" arity="2"/>
-      <fsummary>Accept an incoming connection request on a listen socket</fsummary>
-      <type_desc variable="ListenSocket">Returned by <c>listen/2</c>.
+      <fsummary>Accept an incoming connection request on a listening socket.</fsummary>
+      <type_desc variable="ListenSocket">Returned by
+        <seealso marker="#listen/2"><c>listen/2</c></seealso>.
       </type_desc>
       <desc>
-        <p>Accepts an incoming connection request on a listen socket.
-          <c><anno>Socket</anno></c> must be a socket returned from <c>listen/2</c>.
-          <c><anno>Timeout</anno></c> specifies a timeout value in ms, defaults to
-          <c>infinity</c>.</p>
-        <p>Returns <c>{ok, <anno>Socket</anno>}</c> if a connection is established,
-          or <c>{error, closed}</c> if <c><anno>ListenSocket</anno></c> is closed,
-          or <c>{error, timeout}</c> if no connection is established
-          within the specified time,
-          or <c>{error, system_limit}</c> if all available ports in the
-          Erlang emulator are in use. May also return a POSIX error
-          value if something else goes wrong, see inet(3) for possible
-          error values.</p>
+        <p>Accepts an incoming connection request on a listening socket.
+          <c><anno>Socket</anno></c> must be a socket returned from
+          <seealso marker="#listen/2"><c>listen/2</c></seealso>.
+          <c><anno>Timeout</anno></c> specifies a time-out value in
+          milliseconds. Defaults to <c>infinity</c>.</p>
+        <p>Returns:</p>
+        <list type="bulleted">
+          <item><p><c>{ok, <anno>Socket</anno>}</c> if a connection is
+            established</p></item>
+          <item><p><c>{error, closed}</c> if <c><anno>ListenSocket</anno></c>
+            is closed</p></item>
+          <item><p><c>{error, timeout}</c> if no connection is established
+            within the specified time</p></item>
+          <item><p><c>{error, system_limit}</c> if all available ports in the
+            Erlang emulator are in use</p></item>
+          <item><p>A POSIX error value if something else goes wrong, see
+            <seealso marker="inet"><c>inet(3)</c></seealso> for possible
+            error values</p></item>
+        </list>
         <p>Packets can be sent to the returned socket <c><anno>Socket</anno></c>
-          using <c>send/2</c>. Packets sent from the peer are delivered
-          as messages:</p>
+          using
+          <seealso marker="#send/2"><c>send/2</c></seealso>.
+          Packets sent from the peer are delivered as messages (unless
+          <c>{active, false}</c> is specified in the option list for the
+          listening socket, in which case packets are retrieved by calling
+          <seealso marker="#recv/2"><c>recv/2</c></seealso>):</p>
         <code type="none">
 {tcp, Socket, Data}</code>
-        <p>unless <c>{active, false}</c> was specified in the option
-          list for the listen socket, in which case packets are
-          retrieved by calling <c>recv/2</c>.</p>
         <note>
-          <p>It is worth noting that the <c>accept</c> call does
+          <p>The <c>accept</c> call does
             <em>not</em> have to be issued from the socket owner
             process. Using version 5.5.3 and higher of the emulator,
             multiple simultaneous accept calls can be issued from
@@ -283,67 +134,228 @@ do_recv(Sock, Bs) ->
         </note>
       </desc>
     </func>
-    <func>
-      <name name="send" arity="2"/>
-      <fsummary>Send a packet</fsummary>
-      <desc>
-        <p>Sends a packet on a socket. </p>
-        <p>There is no <c>send</c> call with timeout option, you use the
-          <c>send_timeout</c> socket option if timeouts are
-          desired.  See the <seealso marker="#examples">examples</seealso> section.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="recv" arity="2"/>
-      <name name="recv" arity="3"/>
-      <fsummary>Receive a packet from a passive socket</fsummary>
-      <type_desc variable="HttpPacket">See the description of
-         <c>HttpPacket</c> in <seealso marker="erts:erlang#decode_packet/3">
-         erlang:decode_packet/3</seealso>.
-      </type_desc>
-      <desc>
-        <p>This function receives a packet from a socket in passive
-          mode. A closed socket is indicated by a return value
-          <c>{error, closed}</c>.</p>
-        <p>The <c><anno>Length</anno></c> argument is only meaningful when
-          the socket is in <c>raw</c> mode and denotes the number of
-          bytes to read. If <c><anno>Length</anno></c> = 0, all available bytes are
-          returned. If <c><anno>Length</anno></c> &gt; 0, exactly <c><anno>Length</anno></c>
-          bytes are returned, or an error; possibly discarding less
-          than <c><anno>Length</anno></c> bytes of data when the socket gets closed
-          from the other side.</p>
-        <p>The optional <c><anno>Timeout</anno></c> parameter specifies a timeout in
-          milliseconds. The default value is <c>infinity</c>.</p>
-      </desc>
-    </func>
-    <func>
-      <name name="controlling_process" arity="2"/>
-      <fsummary>Change controlling process of a socket</fsummary>
-      <desc>
-        <p>Assigns a new controlling process <c><anno>Pid</anno></c> to
-          <c><anno>Socket</anno></c>. The controlling process is the process which
-          receives messages from the socket. If called by any other
-          process than the current controlling process,
-          <c>{error, not_owner}</c> is returned.</p>
-      </desc>
-    </func>
+
     <func>
       <name name="close" arity="1"/>
-      <fsummary>Close a TCP socket</fsummary>
+      <fsummary>Close a TCP socket.</fsummary>
       <desc>
         <p>Closes a TCP socket.</p>
       </desc>
     </func>
+
+    <func>
+      <name name="connect" arity="3"/>
+      <name name="connect" arity="4"/>
+      <fsummary>Connect to a TCP port.</fsummary>
+      <desc>
+        <p>Connects to a server on TCP port <c><anno>Port</anno></c> on the host
+          with IP address <c><anno>Address</anno></c>. Argument
+          <c><anno>Address</anno></c> can be a hostname or an IP address.</p>
+        <p>The following options are available:</p>
+        <taglist>
+          <tag><c>{ip, Address}</c></tag>
+          <item><p>If the host has many network interfaces, this option
+            specifies which one to use.</p></item>
+          <tag><c>{ifaddr, Address}</c></tag>
+          <item><p>Same as <c>{ip, Address}</c>. If the host has many
+            network interfaces, this option specifies which one to use.</p>
+          </item>
+          <tag><c>{fd, integer() >= 0}</c></tag>
+          <item><p>If a socket has somehow been connected without using
+            <c>gen_tcp</c>, use this option to pass the file descriptor
+            for it. If <c>{ip, Address}</c> and/or
+            <c>{port, port_number()}</c> is combined with this option,  the
+            <c>fd</c> is bound to the specified interface and port before
+            connecting. If these options are not specified, it is assumed that
+            the <c>fd</c> is already bound appropriately.</p></item>
+          <tag><c>inet</c></tag>
+          <item><p>Sets up the socket for IPv4.</p></item>
+          <tag><c>inet6</c></tag>
+          <item><p>Sets up the socket for IPv6.</p></item>
+	  <tag><c>local</c></tag>
+	  <item>
+            <p>
+	      Sets up a Unix Domain Socket. See
+	      <seealso marker="inet#type-local_address">
+		<c>inet:local_address()</c>
+	      </seealso>
+	    </p>
+          </item>
+          <tag><c>{port, Port}</c></tag>
+          <item><p>Specifies which local port number to use.</p></item>
+          <tag><c>{tcp_module, module()}</c></tag>
+          <item><p>Overrides which callback module is used. Defaults to
+            <c>inet_tcp</c> for IPv4 and <c>inet6_tcp</c> for IPv6.</p></item>
+          <tag><c>Opt</c></tag>
+          <item><p>See
+            <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>.</p>
+          </item>
+        </taglist>
+        <p>Packets can be sent to the returned socket <c><anno>Socket</anno></c>
+          using <seealso marker="#send/2"><c>send/2</c></seealso>.
+          Packets sent from the peer are delivered as messages:</p>
+        <code type="none">
+{tcp, Socket, Data}</code>
+        <p>If the socket is in <c>{active, N}</c> mode (see
+          <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>
+          for details) and its message counter drops to <c>0</c>, the following
+          message is delivered to indicate that the
+          socket has transitioned to passive (<c>{active, false}</c>) mode:</p>
+        <code type="none">
+{tcp_passive, Socket}</code>
+        <p>If the socket is closed, the following message is delivered:</p>
+        <code type="none">
+{tcp_closed, Socket}</code>
+        <p>If an error occurs on the socket, the following message is delivered
+          (unless <c>{active, false}</c> is specified in the option list for
+          the socket, in which case packets are retrieved by calling
+          <seealso marker="#recv/2"><c>recv/2</c></seealso>):</p>
+        <code type="none">
+{tcp_error, Socket, Reason}</code>
+        <p>The optional <c><anno>Timeout</anno></c> parameter specifies a
+          time-out in milliseconds. Defaults to <c>infinity</c>.</p>
+        <note>
+          <p>The default values for options specified to <c>connect</c> can
+            be affected by the <c>Kernel</c> configuration parameter
+            <c>inet_default_connect_options</c>. For details, see
+            <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="controlling_process" arity="2"/>
+      <fsummary>Change controlling process of a socket.</fsummary>
+      <desc>
+        <p>Assigns a new controlling process <c><anno>Pid</anno></c> to
+          <c><anno>Socket</anno></c>. The controlling process is the process
+          that receives messages from the socket. If called by any other
+          process than the current controlling process,
+          <c>{error, not_owner}</c> is returned.</p>
+          <p>If the socket is set in active mode, this function
+          will transfer any messages in the mailbox of the caller
+          to the new controlling process.
+          If any other process is interacting with the socket while
+          the transfer is happening, the transfer may not work correctly
+          and messages may remain in the caller's mailbox. For instance
+          changing the sockets active mode before the transfere is complete
+          may cause this.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="listen" arity="2"/>
+      <fsummary>Set up a socket to listen on a port.</fsummary>
+      <desc>
+        <p>Sets up a socket to listen on port <c><anno>Port</anno></c> on
+          the local host.</p>
+        <p>If <c><anno>Port</anno> == 0</c>, the underlying OS assigns an
+          available port number, use
+          <seealso marker="inet#port/1"><c>inet:port/1</c></seealso>
+          to retrieve it.</p>
+        <p>The following options are available:</p>
+        <taglist>
+          <tag><c>list</c></tag>
+          <item><p>Received <c>Packet</c> is delivered as a list.</p></item>
+          <tag><c>binary</c></tag>
+          <item><p>Received <c>Packet</c> is delivered as a binary.</p></item>
+          <tag><c>{backlog, B}</c></tag>
+          <item><p><c>B</c> is an integer &gt;= <c>0</c>. The backlog value
+            defines the maximum length that the queue of pending connections
+            can grow to. Defaults to <c>5</c>.</p></item>
+          <tag><c>{ip, Address}</c></tag>
+          <item><p>If the host has many network interfaces, this option
+            specifies which one to listen on.</p></item>
+          <tag><c>{port, Port}</c></tag>
+          <item><p>Specifies which local port number to use.</p></item>
+          <tag><c>{fd, Fd}</c></tag>
+          <item><p>If a socket has somehow been connected without using
+            <c>gen_tcp</c>, use this option to pass the file
+            descriptor for it.</p></item>
+          <tag><c>{ifaddr, Address}</c></tag>
+          <item><p>Same as <c>{ip, Address}</c>. If the host has many
+            network interfaces, this option specifies which one to use.</p>
+          </item>
+          <tag><c>inet6</c></tag>
+          <item><p>Sets up the socket for IPv6.</p></item>
+          <tag><c>inet</c></tag>
+          <item><p>Sets up the socket for IPv4.</p></item>
+          <tag><c>{tcp_module, module()}</c></tag>
+          <item><p>Overrides which callback module is used. Defaults to
+            <c>inet_tcp</c> for IPv4 and <c>inet6_tcp</c> for IPv6.</p></item>
+          <tag><c>Opt</c></tag>
+          <item><p>See
+            <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>.
+            </p></item>
+        </taglist>
+        <p>The returned socket <c><anno>ListenSocket</anno></c> can only be
+          used in calls to
+          <seealso marker="#accept/1"><c>accept/1,2</c></seealso>.</p>
+        <note>
+          <p>The default values for options specified to <c>listen</c> can
+            be affected by the <c>Kernel</c> configuration parameter
+            <c>inet_default_listen_options</c>. For details, see
+            <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="recv" arity="2"/>
+      <name name="recv" arity="3"/>
+      <fsummary>Receive a packet from a passive socket.</fsummary>
+      <type_desc variable="HttpPacket">See the description of
+        <c>HttpPacket</c> in
+        <seealso marker="erts:erlang#decode_packet/3"><c>erlang:decode_packet/3</c></seealso>
+      in <c>ERTS</c>.
+      </type_desc>
+      <desc>
+        <p>Receives a packet from a socket in passive
+          mode. A closed socket is indicated by return value
+          <c>{error, closed}</c>.</p>
+        <p>Argument <c><anno>Length</anno></c> is only meaningful when
+          the socket is in <c>raw</c> mode and denotes the number of
+          bytes to read. If <c><anno>Length</anno></c> is <c>0</c>, all
+          available bytes are returned.
+          If <c><anno>Length</anno></c> &gt; <c>0</c>, exactly
+          <c><anno>Length</anno></c> bytes are returned, or an error;
+          possibly discarding less than <c><anno>Length</anno></c> bytes of
+          data when the socket is closed from the other side.</p>
+        <p>The optional <c><anno>Timeout</anno></c> parameter specifies a
+          time-out in milliseconds. Defaults to <c>infinity</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send" arity="2"/>
+      <fsummary>Send a packet.</fsummary>
+      <desc>
+        <p>Sends a packet on a socket.</p>
+        <p>There is no <c>send</c> call with a time-out option, use socket
+          option <c>send_timeout</c> if time-outs are desired. See section
+          <seealso marker="#examples">Examples</seealso>.</p>
+      </desc>
+    </func>
+
     <func>
       <name name="shutdown" arity="2"/>
-      <fsummary>Immediately close a socket</fsummary>
+      <fsummary>Asynchronously close a socket.</fsummary>
       <desc>
-        <p>Immediately close a socket in one or two directions.</p>
-        <p><c><anno>How</anno> == write</c> means closing the socket for writing,
-          reading from it is still possible.</p>
-        <p>To be able to handle that the peer has done a shutdown on
-          the write side, the <c>{exit_on_close, false}</c> option
-          is useful.</p>
+        <p>Closes a socket in one or two directions.</p>
+        <p><c><anno>How</anno> == write</c> means closing the socket for
+          writing, reading from it is still possible.</p>
+        <p>If <c><anno>How</anno> == read</c> or there is no outgoing
+          data buffered in the <c><anno>Socket</anno></c> port,
+          the socket is shut down immediately and any error encountered
+          is returned in <c><anno>Reason</anno></c>.</p>
+        <p>If there is data buffered in the socket port, the attempt
+          to shutdown the socket is postponed until that data is written to the
+          kernel socket send buffer. If any errors are encountered, the socket
+          is closed and <c>{error, closed}</c> is returned on the next
+          <seealso marker="#recv/2"><c>recv/2</c></seealso> or
+          <seealso marker="#send/2"><c>send/2</c></seealso>.</p>
+        <p>Option <c>{exit_on_close, false}</c> is useful if the peer has done
+          a shutdown on the write side.</p>
       </desc>
     </func>
   </funcs>
@@ -351,14 +363,14 @@ do_recv(Sock, Bs) ->
   <section>
     <title>Examples</title>
     <marker id="examples"></marker>
-    <p>The following example illustrates usage of the {active,once}
-      option and multiple accepts by implementing a server as a
-      number of worker processes doing accept on one single listen
-      socket. The start/2 function takes the number of worker
-      processes as well as a port number to listen for incoming
-      connections on. If <c>LPort</c> is specified as <c>0</c>, an
-      ephemeral portnumber is used, why the start function returns
-      the actual portnumber allocated:</p>
+    <p>The following example illustrates use of option
+    <c>{active,once}</c> and multiple accepts by implementing a server
+    as a number of worker processes doing accept on a single listening
+    socket. Function <c>start/2</c> takes the number of worker
+    processes and the port number on which to listen for incoming
+    connections. If <c>LPort</c> is specified as <c>0</c>, an
+    ephemeral port number is used, which is why the start function
+    returns the actual port number allocated:</p>
     <code type="none">
 start(Num,LPort) ->
     case gen_tcp:listen(LPort,[{active, false},{packet,2}]) of
@@ -397,7 +409,7 @@ loop(S) ->
             io:format("Socket ~w closed [~w]~n",[S,self()]),
             ok
     end.</code>
-    <p>A simple client could look like this:</p>
+    <p>Example of a simple client:</p>
     <code type="none">
 client(PortNo,Message) ->
     {ok,Sock} = gen_tcp:connect("localhost",PortNo,[{active,false},
@@ -406,30 +418,29 @@ client(PortNo,Message) ->
     A = gen_tcp:recv(Sock,0),
     gen_tcp:close(Sock),
     A.</code>
-    <p>The fact that the <c>send</c> call does not accept a timeout
-      option, is because timeouts on send is handled through the socket
+    <p>The <c>send</c> call does not accept a time-out
+      option because time-outs on send is handled through socket
       option <c>send_timeout</c>. The behavior of a send operation with
-      no receiver is in a very high degree defined by the underlying TCP
-      stack, as well as the network infrastructure. If one wants to write
-      code that handles a hanging receiver that might eventually cause
-      the sender to hang on a <c>send</c> call, one writes code like
-      the following.</p>
-    <p>Consider a process that receives data from a client process that
-      is to be forwarded to a server on the network. The process has
-      connected to the server via TCP/IP and does not get any acknowledge
-      for each message it sends, but has to rely on the send timeout
-      option to detect that the other end is unresponsive. We could use
-      the <c>send_timeout</c> option when connecting:</p>
+      no receiver is mainly defined by the underlying TCP
+      stack and the network infrastructure. To write
+      code that handles a hanging receiver that can eventually cause
+      the sender to hang on a <c>send</c> do like the following.</p>
+    <p>Consider a process that receives data from a client process
+      to be forwarded to a server on the network. The process is
+      connected to the server through TCP/IP and does not get any acknowledge
+      for each message it sends, but has to rely on the send time-out
+      option to detect that the other end is unresponsive. Option
+      <c>send_timeout</c> can be used when connecting:</p>
     <code type="none">
-    ...
-    {ok,Sock} = gen_tcp:connect(HostAddress, Port,
-                                [{active,false},
-                                 {send_timeout, 5000},
-                                 {packet,2}]),
-                    loop(Sock), % See below
-    ...    </code>
-    <p>In the loop where requests are handled, we can now detect send
-      timeouts:</p>
+...
+{ok,Sock} = gen_tcp:connect(HostAddress, Port,
+                            [{active,false},
+                             {send_timeout, 5000},
+                             {packet,2}]),
+                loop(Sock), % See below
+...</code>
+    <p>In the loop where requests are handled, send time-outs can now be
+      detected:</p>
     <code type="none">
 loop(Sock) ->
     receive
@@ -453,11 +464,11 @@ loop(Sock) ->
                     Client ! {self(), data_sent},
                     loop(Sock)
             end
-    end.    </code>
-    <p>Usually it would suffice to detect timeouts on receive, as most
+    end.</code>
+    <p>Usually it suffices to detect time-outs on receive, as most
       protocols include some sort of acknowledgment from the server,
-      but if the protocol is strictly one way, the <c>send_timeout</c>
-      option comes in handy!</p>
+      but if the protocol is strictly one way, option <c>send_timeout</c>
+      comes in handy.</p>
   </section>
 </erlref>
 

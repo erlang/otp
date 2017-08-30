@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -22,7 +23,9 @@
 -define(SEQ_TRACE_SEND, 1).       %(1 << 0)
 -define(SEQ_TRACE_RECEIVE, 2).    %(1 << 1)
 -define(SEQ_TRACE_PRINT, 4).      %(1 << 2)
--define(SEQ_TRACE_TIMESTAMP, 8).  %(1 << 3)
+-define(SEQ_TRACE_NOW_TIMESTAMP, 8). %(1 << 3)
+-define(SEQ_TRACE_STRICT_MON_TIMESTAMP, 16). %(1 << 4)
+-define(SEQ_TRACE_MON_TIMESTAMP, 32). %(1 << 5)
 
 -export([set_token/1,
 	 set_token/2,
@@ -36,7 +39,7 @@
 
 %%---------------------------------------------------------------------------
 
--type flag()       :: 'send' | 'receive' | 'print' | 'timestamp'.
+-type flag()       :: 'send' | 'receive' | 'print' | 'timestamp' | 'monotonic_timestamp' | 'strict_monotonic_timestamp'.
 -type component()  :: 'label' | 'serial' | flag().
 -type value()      :: (Integer :: non_neg_integer())
                     | {Previous :: non_neg_integer(),
@@ -103,14 +106,24 @@ reset_trace() ->
 
 %% reset_trace(Pid) -> % this might be a useful function too
 
--type tracer() :: (Pid :: pid()) | port() | 'false'.
+-type tracer() :: (Pid :: pid()) | port() |
+                  (TracerModule :: {module(), term()}) |
+                  'false'.
 
 -spec set_system_tracer(Tracer) -> OldTracer when
       Tracer :: tracer(),
       OldTracer :: tracer().
 
-set_system_tracer(Pid) ->
-    erlang:system_flag(sequential_tracer, Pid).
+set_system_tracer({Module, State} = Tracer) ->
+    case erlang:module_loaded(Module) of
+        false ->
+            Module:enabled(trace_status, erlang:self(), State);
+        true ->
+            ok
+    end,
+    erlang:system_flag(sequential_tracer, Tracer);
+set_system_tracer(Tracer) ->
+    erlang:system_flag(sequential_tracer, Tracer).
 
 -spec get_system_tracer() -> Tracer when
       Tracer :: tracer().
@@ -125,7 +138,7 @@ get_system_tracer() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 set_token2([{Type,Val}|T]) ->
-    erlang:seq_trace(Type, Val),
+    _ = erlang:seq_trace(Type, Val),
     set_token2(T);
 set_token2([]) ->
     ok.
@@ -134,5 +147,9 @@ decode_flags(Flags) ->
     Print = (Flags band ?SEQ_TRACE_PRINT) > 0,
     Send = (Flags band ?SEQ_TRACE_SEND) > 0,
     Rec = (Flags band ?SEQ_TRACE_RECEIVE) > 0,
-    Ts = (Flags band ?SEQ_TRACE_TIMESTAMP) > 0,
-    [{print,Print},{send,Send},{'receive',Rec},{timestamp,Ts}].
+    NowTs = (Flags band ?SEQ_TRACE_NOW_TIMESTAMP) > 0,
+    StrictMonTs = (Flags band ?SEQ_TRACE_STRICT_MON_TIMESTAMP) > 0,
+    MonTs = (Flags band ?SEQ_TRACE_MON_TIMESTAMP) > 0,
+    [{print,Print},{send,Send},{'receive',Rec},{timestamp,NowTs},
+     {strict_monotonic_timestamp, StrictMonTs},
+     {monotonic_timestamp, MonTs}].

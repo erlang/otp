@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -86,6 +87,8 @@
 	 foldr/3, sparse_foldl/3, sparse_foldr/3, fix/1, relax/1, is_fix/1,
 	 resize/1, resize/2]).
 
+-export_type([array/0, array/1]).
+
 %%-define(TEST,1).
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
@@ -144,18 +147,28 @@
 
 %%--------------------------------------------------------------------------
 
+-type element_tuple(T) ::
+        {T, T, T, T, T, T, T, T, T, T}
+      | {element_tuple(T), element_tuple(T), element_tuple(T),
+         element_tuple(T), element_tuple(T), element_tuple(T),
+         element_tuple(T), element_tuple(T), element_tuple(T),
+         element_tuple(T), non_neg_integer()}.
+
+-type elements(T) :: non_neg_integer()
+                   | element_tuple(T)
+                   | nil(). % kill reference, for GC
+
 -record(array, {size :: non_neg_integer(),	%% number of defined entries
 		max  :: non_neg_integer(),	%% maximum number of entries
 						%% in current tree
 		default,	%% the default value (usually 'undefined')
-		elements	%% the tuple tree
+                elements :: elements(_)         %% the tuple tree
 	       }).
-%% A declaration equivalent to the following one is hard-coded in erl_types.
-%% That declaration contains hard-coded information about the #array{}
-%% structure and the types of its fields.  So, please make sure that any
-%% changes to its structure are also propagated to erl_types.erl.
-%%
-%% -opaque array() :: #array{}.
+
+-type array() :: array(term()).
+
+-opaque array(Type) ::
+          #array{default :: Type, elements :: elements(Type)}.
 
 %%
 %% Types
@@ -164,13 +177,13 @@
 -type array_indx() :: non_neg_integer().
 
 -type array_opt()  :: {'fixed', boolean()} | 'fixed'
-                    | {'default', Value :: term()}
+                    | {'default', Type :: term()}
                     | {'size', N :: non_neg_integer()}
                     | (N :: non_neg_integer()).
 -type array_opts() :: array_opt() | [array_opt()].
 
--type indx_pair()  :: {Index :: array_indx(), Value :: term()}.
--type indx_pairs() :: [indx_pair()].
+-type indx_pair(Type)  :: {Index :: array_indx(), Type}.
+-type indx_pairs(Type) :: [indx_pair(Type)].
 
 %%--------------------------------------------------------------------------
 
@@ -321,7 +334,7 @@ size(_) -> erlang:error(badarg).
 %%
 %% @see new/2
 
--spec default(Array :: array()) -> term().
+-spec default(Array :: array(Type)) -> Value :: Type.
 
 default(#array{default = D}) -> D;
 default(_) -> erlang:error(badarg).
@@ -404,7 +417,7 @@ new_test_() ->
 %% automatically upon insertion; see also {@link set/3}.
 %% @see relax/1
 
--spec fix(Array :: array()) -> array().
+-spec fix(Array :: array(Type)) -> array(Type).
 
 fix(#array{}=A) ->
     A#array{max = 0}.
@@ -452,7 +465,7 @@ fix_test_() ->
 %% fix/1}.)
 %% @see fix/1
 
--spec relax(Array :: array()) -> array().
+-spec relax(Array :: array(Type)) -> array(Type).
 
 relax(#array{size = N}=A) ->
     A#array{max = find_max(N-1, ?LEAFSIZE)}.
@@ -477,7 +490,8 @@ relax_test_() ->
 %% integer, the call fails with reason `badarg'. If the given array has
 %% fixed size, the resulting array will also have fixed size.
 
--spec resize(Size :: non_neg_integer(), Array :: array()) -> array().
+-spec resize(Size :: non_neg_integer(), Array :: array(Type)) ->
+                    array(Type).
 
 resize(Size, #array{size = N, max = M, elements = E}=A)
   when is_integer(Size), Size >= 0 ->
@@ -508,7 +522,7 @@ resize(_Size, _) ->
 %% @see resize/2
 %% @see sparse_size/1
 
--spec resize(Array :: array()) -> array().
+-spec resize(Array :: array(Type)) -> array(Type).
 
 resize(Array) ->
     resize(sparse_size(Array), Array).
@@ -558,7 +572,7 @@ resize_test_() ->
 %% @see get/2
 %% @see reset/2
 
--spec set(I :: array_indx(), Value :: term(), Array :: array()) -> array().
+-spec set(I :: array_indx(), Value :: Type, Array :: array(Type)) -> array(Type).
 
 set(I, Value, #array{size = N, max = M, default = D, elements = E}=A)
   when is_integer(I), I >= 0 ->
@@ -621,7 +635,7 @@ expand(I, _S, X, D) ->
  
 %% @see set/3
 
--spec get(I :: array_indx(), Array :: array()) -> term().
+-spec get(I :: array_indx(), Array :: array(Type)) -> Value :: Type.
 
 get(I, #array{size = N, max = M, elements = E, default = D})
   when is_integer(I), I >= 0 ->
@@ -661,7 +675,7 @@ get_1(I, E, _D) ->
 
 %% TODO: a reset_range function
 
--spec reset(I :: array_indx(), Array :: array()) -> array().
+-spec reset(I :: array_indx(), Array :: array(Type)) -> array(Type).
 
 reset(I, #array{size = N, max = M, default = D, elements = E}=A) 
     when is_integer(I), I >= 0 ->
@@ -747,7 +761,7 @@ set_get_test_() ->
 %% @see from_list/2
 %% @see sparse_to_list/1
 
--spec to_list(Array :: array()) -> list().
+-spec to_list(Array :: array(Type)) -> list(Value :: Type).
 
 to_list(#array{size = 0}) ->
     [];
@@ -820,7 +834,7 @@ to_list_test_() ->
 %%
 %% @see to_list/1
 
--spec sparse_to_list(Array :: array()) -> list().
+-spec sparse_to_list(Array :: array(Type)) -> list(Value :: Type).
 
 sparse_to_list(#array{size = 0}) ->
     [];
@@ -887,7 +901,7 @@ sparse_to_list_test_() ->
 
 %% @equiv from_list(List, undefined)
 
--spec from_list(List :: list()) -> array().
+-spec from_list(List :: list(Value :: Type)) -> array(Type).
 
 from_list(List) ->
     from_list(List, undefined).
@@ -899,7 +913,7 @@ from_list(List) ->
 %% @see new/2
 %% @see to_list/1
 
--spec from_list(List :: list(), Default :: term()) -> array().
+-spec from_list(List :: list(Value :: Type), Default :: term()) -> array(Type).
 
 from_list([], Default) ->
     new({default,Default});
@@ -998,7 +1012,7 @@ from_list_test_() ->
 %% @see from_orddict/2
 %% @see sparse_to_orddict/1
 
--spec to_orddict(Array :: array()) -> indx_pairs().
+-spec to_orddict(Array :: array(Type)) -> indx_pairs(Value :: Type).
 
 to_orddict(#array{size = 0}) ->
     [];
@@ -1035,16 +1049,16 @@ to_orddict_3(N, R, D, L, E, S) ->
  		 to_orddict_2(element(N, E), R, D, L),
  		 E, S).
 
--spec push_pairs(non_neg_integer(), array_indx(), term(), indx_pairs()) ->
-	  indx_pairs().
+-spec push_pairs(non_neg_integer(), array_indx(), term(), indx_pairs(Type)) ->
+	  indx_pairs(Type).
 
 push_pairs(0, _I, _E, L) ->
     L;
 push_pairs(N, I, E, L) ->
     push_pairs(N-1, I-1, E, [{I, E} | L]).
 
--spec push_tuple_pairs(non_neg_integer(), array_indx(), term(), indx_pairs()) ->
-	  indx_pairs().
+-spec push_tuple_pairs(non_neg_integer(), array_indx(), term(), indx_pairs(Type)) ->
+	  indx_pairs(Type).
 
 push_tuple_pairs(0, _I, _T, L) ->
     L;
@@ -1090,7 +1104,7 @@ to_orddict_test_() ->
 %% 
 %% @see to_orddict/1
 
--spec sparse_to_orddict(Array :: array()) -> indx_pairs().
+-spec sparse_to_orddict(Array :: array(Type)) -> indx_pairs(Value :: Type).
 
 sparse_to_orddict(#array{size = 0}) ->
     [];
@@ -1128,7 +1142,7 @@ sparse_to_orddict_3(N, R, D, L, E, S) ->
  		 E, S).
 
 -spec sparse_push_tuple_pairs(non_neg_integer(), array_indx(),
-			      _, _, indx_pairs()) -> indx_pairs().
+			      _, _, indx_pairs(Type)) -> indx_pairs(Type).
 
 sparse_push_tuple_pairs(0, _I, _D, _T, L) ->
     L;
@@ -1170,7 +1184,7 @@ sparse_to_orddict_test_() ->
 
 %% @equiv from_orddict(Orddict, undefined)
 
--spec from_orddict(Orddict :: indx_pairs()) -> array().
+-spec from_orddict(Orddict :: indx_pairs(Value :: Type)) -> array(Type).
 
 from_orddict(Orddict) ->
     from_orddict(Orddict, undefined).
@@ -1184,7 +1198,8 @@ from_orddict(Orddict) ->
 %% @see new/2
 %% @see to_orddict/1
 
--spec from_orddict(Orddict :: indx_pairs(), Default :: term()) -> array().
+-spec from_orddict(Orddict :: indx_pairs(Value :: Type), Default :: Type) ->
+                          array(Type).
 
 from_orddict([], Default) ->
     new({default,Default});
@@ -1379,8 +1394,8 @@ from_orddict_test_() ->
 %% @see foldr/3
 %% @see sparse_map/2
 
--spec map(Function, Array :: array()) -> array() when
-      Function :: fun((Index :: array_indx(), Value :: _) -> _).
+-spec map(Function, Array :: array(Type1)) -> array(Type2) when
+      Function :: fun((Index :: array_indx(), Type1) -> Type2).
 
 map(Function, Array=#array{size = N, elements = E, default = D})
   when is_function(Function, 2) ->
@@ -1471,8 +1486,8 @@ map_test_() ->
 %%
 %% @see map/2
 
--spec sparse_map(Function, Array :: array()) -> array() when
-      Function :: fun((Index :: array_indx(), Value :: _) -> _).
+-spec sparse_map(Function, Array :: array(Type1)) -> array(Type2) when
+      Function :: fun((Index :: array_indx(), Type1) -> Type2).
 
 sparse_map(Function, Array=#array{size = N, elements = E, default = D})
   when is_function(Function, 2) ->
@@ -1567,8 +1582,8 @@ sparse_map_test_() ->
 %% @see map/2
 %% @see sparse_foldl/3
 
--spec foldl(Function, InitialAcc :: A, Array :: array()) -> B when
-      Function :: fun((Index :: array_indx(), Value :: _, Acc :: A) -> B).
+-spec foldl(Function, InitialAcc :: A, Array :: array(Type)) -> B when
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
 foldl(Function, A, #array{size = N, elements = E, default = D})
   when is_function(Function, 3) ->
@@ -1640,8 +1655,8 @@ foldl_test_() ->
 %% @see foldl/3
 %% @see sparse_foldr/3
 
--spec sparse_foldl(Function, InitialAcc :: A, Array :: array()) -> B when
-      Function :: fun((Index :: array_indx(), Value :: _, Acc :: A) -> B).
+-spec sparse_foldl(Function, InitialAcc :: A, Array :: array(Type)) -> B when
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
 sparse_foldl(Function, A, #array{size = N, elements = E, default = D})
   when is_function(Function, 3) ->
@@ -1717,8 +1732,8 @@ sparse_foldl_test_() ->
 %% @see foldl/3
 %% @see map/2
 
--spec foldr(Function, InitialAcc :: A, Array :: array()) -> B when
-      Function :: fun((Index :: array_indx(), Value :: _, Acc :: A) -> B).
+-spec foldr(Function, InitialAcc :: A, Array :: array(Type)) -> B when
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
 foldr(Function, A, #array{size = N, elements = E, default = D})
   when is_function(Function, 3) ->
@@ -1796,8 +1811,8 @@ foldr_test_() ->
 %% @see foldr/3
 %% @see sparse_foldl/3
 
--spec sparse_foldr(Function, InitialAcc :: A, Array :: array()) -> B when
-      Function :: fun((Index :: array_indx(), Value :: _, Acc :: A) -> B).
+-spec sparse_foldr(Function, InitialAcc :: A, Array :: array(Type)) -> B when
+      Function :: fun((Index :: array_indx(), Value :: Type, Acc :: A) -> B).
 
 sparse_foldr(Function, A, #array{size = N, elements = E, default = D})
   when is_function(Function, 3) ->

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -86,7 +87,7 @@ add_to_work_list(F, {Fs,Used}=Sets) ->
 	false -> {[F|Fs],sets:add_element(F, Used)}
     end.
 
-
+
 %%%
 %%% Coalesce adjacent labels. Renumber all labels to eliminate gaps.
 %%% This cleanup will slightly reduce file size and slightly speed up loading.
@@ -140,7 +141,7 @@ renumber_labels([{bif,is_record,{f,_},
     renumber_labels(Is, Acc, St);
 renumber_labels([{test,is_record,{f,_}=Fail,
 		  [Term,{atom,Tag}=TagAtom,{integer,Arity}]}|Is0], Acc, St) ->
-    Tmp = {x,1023},
+    Tmp = {x,1022},
     Is = case is_record_tuple(Term, Tag, Arity) of
 	     yes ->
 		 Is0;
@@ -184,30 +185,16 @@ function_replace([{function,Name,Arity,Entry,Asm0}|Fs], Dict, Acc) ->
     function_replace(Fs, Dict, [{function,Name,Arity,Entry,Asm}|Acc]);
 function_replace([], _, Acc) -> Acc.
 
-replace([{test,bs_match_string=Op,{f,Lbl},[Ctx,Bin0]}|Is], Acc, D) ->
-    Bits = bit_size(Bin0),
-    Bin = case Bits rem 8 of
-	      0 -> Bin0;
-	      Rem -> <<Bin0/bitstring,0:(8-Rem)>>
-	  end,
-    I = {test,Op,{f,label(Lbl, D)},[Ctx,Bits,{string,binary_to_list(Bin)}]},
-    replace(Is, [I|Acc], D);
 replace([{test,Test,{f,Lbl},Ops}|Is], Acc, D) ->
     replace(Is, [{test,Test,{f,label(Lbl, D)},Ops}|Acc], D);
 replace([{test,Test,{f,Lbl},Live,Ops,Dst}|Is], Acc, D) ->
     replace(Is, [{test,Test,{f,label(Lbl, D)},Live,Ops,Dst}|Acc], D);
 replace([{select,I,R,{f,Fail0},Vls0}|Is], Acc, D) ->
-    Vls1 = map(fun ({f,L}) -> {f,label(L, D)};
-		   (Other) -> Other end, Vls0),
+    Vls = map(fun ({f,L}) -> {f,label(L, D)};
+		   (Other) -> Other
+	      end, Vls0),
     Fail = label(Fail0, D),
-    case redundant_values(Vls1, Fail, []) of
-	[] ->
-	    %% Oops, no choices left. The loader will not accept that.
-	    %% Convert to a plain jump.
-	    replace(Is, [{jump,{f,Fail}}|Acc], D);
-	Vls ->
-	    replace(Is, [{select,I,R,{f,Fail},Vls}|Acc], D)
-    end;
+    replace(Is, [{select,I,R,{f,Fail},Vls}|Acc], D);
 replace([{'try',R,{f,Lbl}}|Is], Acc, D) ->
     replace(Is, [{'try',R,{f,label(Lbl, D)}}|Acc], D);
 replace([{'catch',R,{f,Lbl}}|Is], Acc, D) ->
@@ -234,6 +221,11 @@ replace([{bs_init,{f,Lbl},Info,Live,Ss,Dst}|Is], Acc, D) when Lbl =/= 0 ->
     replace(Is, [{bs_init,{f,label(Lbl, D)},Info,Live,Ss,Dst}|Acc], D);
 replace([{bs_put,{f,Lbl},Info,Ss}|Is], Acc, D) when Lbl =/= 0 ->
     replace(Is, [{bs_put,{f,label(Lbl, D)},Info,Ss}|Acc], D);
+replace([{put_map=I,{f,Lbl},Op,Src,Dst,Live,List}|Is], Acc, D)
+  when Lbl =/= 0 ->
+    replace(Is, [{I,{f,label(Lbl, D)},Op,Src,Dst,Live,List}|Acc], D);
+replace([{get_map_elements=I,{f,Lbl},Src,List}|Is], Acc, D) when Lbl =/= 0 ->
+    replace(Is, [{I,{f,label(Lbl, D)},Src,List}|Acc], D);
 replace([I|Is], Acc, D) ->
     replace(Is, [I|Acc], D);
 replace([], Acc, _) -> Acc.
@@ -243,12 +235,6 @@ label(Old, D) ->
 	{value,Val} -> Val;
 	none -> throw({error,{undefined_label,Old}})
     end.
-	    
-redundant_values([_,{f,Fail}|Vls], Fail, Acc) ->
-    redundant_values(Vls, Fail, Acc);
-redundant_values([Val,Lbl|Vls], Fail, Acc) ->
-    redundant_values(Vls, Fail, [Lbl,Val|Acc]);
-redundant_values([], _, Acc) -> reverse(Acc).
 
 %%%
 %%% Final fixup of bs_start_match2/5,bs_save2/bs_restore2 instructions for

@@ -2,29 +2,32 @@ changecom(`/*', `*/')dnl
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2012. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
 
 
+#`define ASM'
 include(`hipe/hipe_arm_asm.m4')
 #`include' "config.h"
 #`include' "hipe_literals.h"
 
 	.text
 	.p2align 2
+	.arm
 
 `#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
 #  define CALL_BIF(F)	ldr r14, =F; str r14, [r0, #P_BIF_CALLEE]; bl hipe_debug_bif_wrapper
@@ -40,9 +43,10 @@ define(TEST_GOT_MBUF,`ldr r1, [P, #P_MBUF]	/* `TEST_GOT_MBUF' */
  * standard_bif_interface_1(nbif_name, cbif_name)
  * standard_bif_interface_2(nbif_name, cbif_name)
  * standard_bif_interface_3(nbif_name, cbif_name)
+ * standard_bif_interface_4(nbif_name, cbif_name)
  * standard_bif_interface_0(nbif_name, cbif_name)
  *
- * Generate native interface for a BIF with 1-3 parameters and
+ * Generate native interface for a BIF with 0-4 parameters and
  * standard failure mode.
  */
 define(standard_bif_interface_1,
@@ -127,6 +131,39 @@ $1:
 	RESTORE_CONTEXT_BIF
 	beq	nbif_3_simple_exception
 	NBIF_RET(3)
+	.ltorg
+	.size	$1, .-$1
+	.type	$1, %function
+#endif')
+
+define(standard_bif_interface_4,
+`
+#ifndef HAVE_$1
+#`define' HAVE_$1
+	.global	$1
+$1:
+	/* Set up C argument registers. */
+	mov	r0, P
+	NBIF_ARG(r1,4,0)
+	NBIF_ARG(r2,4,1)
+	NBIF_ARG(r3,4,2)
+	NBIF_ARG(r4,4,3)
+
+	/* Save caller-save registers and call the C function. */
+	SAVE_CONTEXT_BIF
+	str	r1, [r0, #P_ARG0]	/* Store BIF__ARGS in def_arg_reg[] */
+	str	r2, [r0, #P_ARG1]
+	str	r3, [r0, #P_ARG2]
+	str	r4, [r0, #P_ARG3]
+	add	r1, r0, #P_ARG0
+	CALL_BIF($2)
+	TEST_GOT_MBUF(4)
+
+	/* Restore registers. Check for exception. */
+	cmp	r0, #THE_NON_VALUE
+	RESTORE_CONTEXT_BIF
+	beq	nbif_4_simple_exception
+	NBIF_RET(4)
 	.ltorg
 	.size	$1, .-$1
 	.type	$1, %function
@@ -391,7 +428,14 @@ $1:
 	mov	r0, P
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(0)
+#else
 	QUICK_CALL_RET($2,0)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -407,7 +451,14 @@ $1:
 	NBIF_ARG(r1,1,0)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(1)
+#else
 	QUICK_CALL_RET($2,1)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -424,7 +475,14 @@ $1:
 	NBIF_ARG(r2,2,1)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(2)
+#else
 	QUICK_CALL_RET($2,2)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -442,7 +500,14 @@ $1:
 	NBIF_ARG(r3,3,2)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(3)
+#else
 	QUICK_CALL_RET($2,3)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -466,7 +531,14 @@ $1:
 	NBIF_ARG(r3,5,2)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(5)
+#else
 	QUICK_CALL_RET($2,5)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -488,9 +560,16 @@ define(noproc_primop_interface_0,
 #`define' HAVE_$1
 	.global	$1
 $1:
-	/* XXX: this case is always trivial; how to suppress the branch? */
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(0)
+#else
+	/* XXX: this case is always trivial; how to suppress the branch? */
 	QUICK_CALL_RET($2,0)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -505,7 +584,14 @@ $1:
 	NBIF_ARG(r0,1,0)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(1)
+#else
 	QUICK_CALL_RET($2,1)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -521,7 +607,14 @@ $1:
 	NBIF_ARG(r1,2,1)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(2)
+#else
 	QUICK_CALL_RET($2,2)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -538,7 +631,14 @@ $1:
 	NBIF_ARG(r2,3,2)
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(3)
+#else
 	QUICK_CALL_RET($2,3)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -558,7 +658,14 @@ $1:
 	str	r4, [sp, #0]
 
 	/* Perform a quick save;call;restore;ret sequence. */
+#ifdef __thumb__
+	SAVE_CONTEXT_QUICK
+	bl	$2
+	RESTORE_CONTEXT_QUICK
+	NBIF_RET(5)
+#else
 	QUICK_CALL_RET($2,5)
+#endif
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')

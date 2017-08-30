@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -54,7 +55,7 @@ static BIF_RETTYPE finalize_list_to_list(Process *p,
 					 Uint num_processed_bytes,
 					 Uint num_bytes_to_process, 
 					 Uint num_resulting_chars, 
-					 int state, int left,
+					 int state, Sint left,
 					 Eterm tail);
 static BIF_RETTYPE characters_to_utf8_trap(BIF_ALIST_3);
 static BIF_RETTYPE characters_to_list_trap_1(BIF_ALIST_3);
@@ -172,12 +173,13 @@ static ERTS_INLINE int allowed_iterations(Process *p)
     else
 	return tmp;
 }
-static ERTS_INLINE int cost_to_proc(Process *p, int cost)
+
+static ERTS_INLINE void cost_to_proc(Process *p, Sint cost)
 {
-    int x = (cost / LOOP_FACTOR);
+    Sint x = (cost / LOOP_FACTOR);
     BUMP_REDS(p,x);
-    return x;
 }
+
 static ERTS_INLINE int simple_loops_to_common(int cost)
 {
     int factor = (LOOP_FACTOR_SIMPLE / LOOP_FACTOR);
@@ -242,14 +244,15 @@ static int utf8_len(byte first)
     return -1;
 }
 
-static int copy_utf8_bin(byte *target, byte *source, Uint size, 
-			 byte *leftover, int *num_leftovers, 
-			 byte **err_pos, Uint *characters) {
-    int copied = 0;
+static Uint copy_utf8_bin(byte *target, byte *source, Uint size,
+			  byte *leftover, int *num_leftovers,
+			  byte **err_pos, Uint *characters)
+{
+    Uint copied = 0;
     if (leftover != NULL && *num_leftovers) {
 	int need = utf8_len(leftover[0]);
 	int from_source = need - (*num_leftovers);
-	int c;
+	Uint c;
 	byte *tmp_err_pos = NULL;
 	ASSERT(need > 0);
 	ASSERT(from_source > 0);
@@ -501,8 +504,8 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 }
     
     
-static Eterm do_build_utf8(Process *p, Eterm ioterm, int *left, int latin1,
-			   byte *target, int *pos, Uint *characters, int *err, 
+static Eterm do_build_utf8(Process *p, Eterm ioterm, Sint *left, int latin1,
+			   byte *target, Uint *pos, Uint *characters, int *err,
 			   byte *leftover, int *num_leftovers)
 {
     int c;
@@ -572,7 +575,7 @@ static Eterm do_build_utf8(Process *p, Eterm ioterm, int *left, int latin1,
 	}
 
 	if (!latin1) {
-	    int num;
+	    Uint num;
 	    byte *err_pos = NULL;
 	    num = copy_utf8_bin(target + (*pos), bytes, 
 				size, leftover, num_leftovers,&err_pos,characters);
@@ -803,7 +806,7 @@ static int check_leftovers(byte *source, int size)
 	
 	 
 
-static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,int pos,
+static BIF_RETTYPE build_utf8_return(Process *p,Eterm bin,Uint pos,
 			       Eterm rest_term,int err,
 			       byte *leftover,int num_leftovers,Eterm latin1)
 {
@@ -858,8 +861,8 @@ static BIF_RETTYPE characters_to_utf8_trap(BIF_ALIST_3)
 #endif
     byte* bytes;
     Eterm rest_term;
-    int left, sleft;
-    int pos;
+    Sint left, sleft;
+    Uint pos;
     int err;
     byte leftover[4]; /* used for temp buffer too, 
 			 otherwise 3 bytes would have been enough */
@@ -873,7 +876,7 @@ static BIF_RETTYPE characters_to_utf8_trap(BIF_ALIST_3)
     real_bin = binary_val(BIF_ARG_1);
     ASSERT(*real_bin == HEADER_PROC_BIN);
 #endif
-    pos = (int) binary_size(BIF_ARG_1);
+    pos = binary_size(BIF_ARG_1);
     bytes = binary_bytes(BIF_ARG_1);
     sleft = left = allowed_iterations(BIF_P);
     err = 0;
@@ -933,9 +936,9 @@ BIF_RETTYPE unicode_characters_to_binary_2(BIF_ALIST_2)
     int latin1;
     Eterm bin;
     byte *bytes;
-    int pos;
+    Uint pos;
     int err;
-    int left, sleft;
+    Sint left, sleft;
     Eterm rest_term, subject;
     byte leftover[4]; /* used for temp buffer too, o
 			 therwise 3 bytes would have been enough */
@@ -998,7 +1001,7 @@ BIF_RETTYPE unicode_characters_to_binary_2(BIF_ALIST_2)
 	    byte *t = NULL;
 	    Uint sz = binary_size(bin);
 	    byte *by = erts_get_aligned_binary_bytes(bin,&t);
-	    int i;
+	    Uint i;
 	    erts_printf("<<");
 	    for (i = 0;i < sz; ++i) {
 		erts_printf((i == sz -1) ? "0x%X" : "0x%X, ", (unsigned) by[i]);
@@ -1006,7 +1009,7 @@ BIF_RETTYPE unicode_characters_to_binary_2(BIF_ALIST_2)
 	    erts_printf(">>: ");
 	    erts_free_aligned_binary_bytes(t);
 	}
-	erts_printf("%d - %d = %d\n",sleft,left,sleft - left);
+	erts_printf("%ld - %ld = %ld\n", sleft, left, sleft - left);
     }
 #endif
     cost_to_proc(BIF_P, sleft - left); 
@@ -1014,10 +1017,10 @@ BIF_RETTYPE unicode_characters_to_binary_2(BIF_ALIST_2)
 			     leftover,num_leftovers,BIF_ARG_2);
 }
 
-static BIF_RETTYPE build_list_return(Process *p, byte *bytes, int pos, Uint characters,
+static BIF_RETTYPE build_list_return(Process *p, byte *bytes, Uint pos, Uint characters,
 				     Eterm rest_term, int err,
 				     byte *leftover, int num_leftovers,
-				     Eterm latin1, int left)
+				     Eterm latin1, Sint left)
 {
     Eterm *hp;
     
@@ -1069,11 +1072,11 @@ static BIF_RETTYPE characters_to_list_trap_1(BIF_ALIST_3)
 {
     RestartContext *rc;
     byte* bytes;
-    int pos;
+    Uint pos;
     Uint characters;
     int err;
     Eterm rest_term;
-    int left, sleft;
+    Sint left, sleft;
 
     int latin1 = 0;
     byte leftover[4]; /* used for temp buffer too, 
@@ -1106,9 +1109,9 @@ BIF_RETTYPE unicode_characters_to_list_2(BIF_ALIST_2)
     int latin1;
     Uint characters = 0;
     byte *bytes;
-    int pos;
+    Uint pos;
     int err;
-    int left, sleft;
+    Sint left, sleft;
     Eterm rest_term;
     byte leftover[4]; /* used for temp buffer too, o
 			 therwise 3 bytes would have been enough */
@@ -1476,6 +1479,9 @@ static Eterm do_utf8_to_list_normalize(Process *p, Uint num, byte *bytes, Uint s
     Uint16 savepoints[4];
     int numpoints = 0;
 
+    if (num == 0)
+	return NIL;
+
     ASSERT(num > 0);
 
     hp = HAlloc(p,num * 2); /* May be to much */
@@ -1537,7 +1543,7 @@ static BIF_RETTYPE finalize_list_to_list(Process *p,
 					 Uint num_processed_bytes,
 					 Uint num_bytes_to_process, 
 					 Uint num_resulting_chars, 
-					 int state, int left,
+					 int state, Sint left,
 					 Eterm tail) 
 {
     Uint num_built; /* characters */
@@ -1981,9 +1987,21 @@ BIF_RETTYPE binary_to_existing_atom_2(BIF_ALIST_2)
  * string routines, that will certainly fail on some OS.
  */
 
-char *erts_convert_filename_to_native(Eterm name, char *statbuf, size_t statbuf_size, ErtsAlcType_t alloc_type, int allow_empty, int allow_atom, Sint *used)
+char *erts_convert_filename_to_native(Eterm name, char *statbuf, size_t statbuf_size,
+				      ErtsAlcType_t alloc_type, int allow_empty,
+				      int allow_atom, Sint *used)
 {
     int encoding = erts_get_native_filename_encoding();
+    return erts_convert_filename_to_encoding(name, statbuf, statbuf_size, alloc_type,
+					     allow_empty, allow_atom, encoding,
+					     used, 0);
+}
+
+char *erts_convert_filename_to_encoding(Eterm name, char *statbuf, size_t statbuf_size,
+					ErtsAlcType_t alloc_type, int allow_empty,
+					int allow_atom, int encoding, Sint *used,
+					Uint extra)
+{
     char* name_buf = NULL;
 
     if ((allow_atom && is_atom(name)) || 
@@ -1995,13 +2013,14 @@ char *erts_convert_filename_to_native(Eterm name, char *statbuf, size_t statbuf_
 	}
 	if (encoding == ERL_FILENAME_WIN_WCHAR) {
 	    need += 2;
+	    extra *= 2;
 	} else {
 	    ++need;
 	}
 	if (used) 
-	    *used = (Sint) need;
-	if (need > statbuf_size) {
-	    name_buf = (char *) erts_alloc(alloc_type, need);
+	    *used = need;
+	if (need+extra > statbuf_size) {
+	    name_buf = (char *) erts_alloc(alloc_type, need+extra);
 	} else {
 	    name_buf = statbuf;
 	}
@@ -2013,58 +2032,77 @@ char *erts_convert_filename_to_native(Eterm name, char *statbuf, size_t statbuf_
     } else if (is_binary(name)) {
 	byte *temp_alloc = NULL;
 	byte *bytes;
-	byte *err_pos;
-	Uint size,num_chars;
+	Uint size;
 	
 	size = binary_size(name);
 	bytes = erts_get_aligned_binary_bytes(name, &temp_alloc);
+
 	if (encoding != ERL_FILENAME_WIN_WCHAR) {
 	    /*Add 0 termination only*/
 	    if (used) 
 		*used = (Sint) size+1;
-	    if (size+1 > statbuf_size) {
-		name_buf = (char *) erts_alloc(alloc_type, size+1);
+	    if (size+1+extra > statbuf_size) {
+		name_buf = (char *) erts_alloc(alloc_type, size+1+extra);
 	    } else {
 		name_buf = statbuf;
 	    }
 	    memcpy(name_buf,bytes,size);
 	    name_buf[size]=0;
-	} else if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK || 
-		   erts_get_user_requested_filename_encoding() ==  ERL_FILENAME_LATIN1) {
-	    byte *p;
-	    /* What to do now? Maybe latin1, so just take byte for byte instead */
-	    if (used) 
-		*used = (Sint) (size+1)*2;
-	    if ((size+1)*2 > statbuf_size) {
-		name_buf = (char *) erts_alloc(alloc_type, (size+1)*2);
-	    } else {
-		name_buf = statbuf;
-	    }
-	    p = (byte *) name_buf;
-	    while (size--) {
-		*p++ = *bytes++;
-		*p++ = 0;
-	    }
-	    *p++ = 0;
-	    *p++ = 0;
-	} else { /* WIN_WCHAR and valid UTF8 */
-	    if (used) 
-		*used = (Sint) (num_chars+1)*2;
-	    if ((num_chars+1)*2 > statbuf_size) {
-		name_buf = (char *) erts_alloc(alloc_type, (num_chars+1)*2);
-	    } else {
-		name_buf = statbuf;
-	    }
-	    erts_copy_utf8_to_utf16_little((byte *) name_buf, bytes, num_chars);
-	    name_buf[num_chars*2] = 0;
-	    name_buf[num_chars*2+1] = 0;
-	}
+	} else {
+            name_buf = erts_convert_filename_to_wchar(bytes, size,
+                                                      statbuf, statbuf_size,
+                                                      alloc_type, used, extra);
+        }
 	erts_free_aligned_binary_bytes(temp_alloc);
     } else {
 	return NULL;
     }
     return name_buf;
 }
+
+char* erts_convert_filename_to_wchar(byte* bytes, Uint size,
+                                     char *statbuf, size_t statbuf_size,
+                                     ErtsAlcType_t alloc_type, Sint* used,
+                                     Uint extra_wchars)
+{
+    byte *err_pos;
+    Uint num_chars;
+    char* name_buf = NULL;
+    Sint need;
+    char *p;
+
+    if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK ||
+        erts_get_user_requested_filename_encoding() ==  ERL_FILENAME_LATIN1) {
+
+        /* What to do now? Maybe latin1, so just take byte for byte instead */
+        need = (Sint) (size + extra_wchars + 1) * 2;
+        if (need > statbuf_size) {
+            name_buf = (char *) erts_alloc(alloc_type, need);
+        } else {
+            name_buf = statbuf;
+        }
+        p = name_buf;
+        while (size--) {
+            *p++ = *bytes++;
+            *p++ = 0;
+        }
+    } else { /* WIN_WCHAR and valid UTF8 */
+        need = (Sint) (num_chars + extra_wchars + 1) * 2;
+        if (need > statbuf_size) {
+            name_buf = (char *) erts_alloc(alloc_type, need);
+        } else {
+            name_buf = statbuf;
+        }
+        erts_copy_utf8_to_utf16_little((byte *) name_buf, bytes, num_chars);
+        p = name_buf + num_chars*2;
+    }
+    *p++ = 0;
+    *p++ = 0;
+    if (used)
+        *used = p - name_buf;
+    return name_buf;
+}
+
 
 static int filename_len_16bit(byte *str) 
 {
@@ -2091,6 +2129,8 @@ Eterm erts_convert_native_to_filename(Process *p, byte *bytes)
 	mac = 1;
     case ERL_FILENAME_UTF8:
 	size = strlen((char *) bytes);
+	if (size == 0)
+	    return NIL;
 	if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK) {
 	    goto noconvert;
 	}
@@ -2145,16 +2185,31 @@ Sint erts_native_filename_need(Eterm ioterm, int encoding)
 	ap = atom_tab(atom_val(ioterm));
 	switch (encoding) {
 	case ERL_FILENAME_LATIN1:
-	    need = ap->len;
+	    need = ap->latin1_chars;  /* May be -1 */
 	    break;
 	case ERL_FILENAME_UTF8_MAC:
 	case ERL_FILENAME_UTF8:
-	    for (i = 0; i < ap->len; i++) {
-		need += (ap->name[i] >= 0x80) ? 2 : 1;
-	    }
+	    need = ap->len;
 	    break;
 	case ERL_FILENAME_WIN_WCHAR:
-	    need = 2*(ap->len);
+            if (ap->latin1_chars >= 0) {
+		need = 2* ap->latin1_chars;
+            }
+	    else {
+		for (i = 0; i < ap->len; ) {
+                    if (ap->name[i] < 0x80) {
+			i++;
+                    } else if (ap->name[i] < 0xE0) {
+			i += 2;
+                    } else if (ap->name[i] < 0xF0) {
+			i += 3;
+                    } else {
+			need = -1;
+			break;
+		    }
+		    need += 2;
+		}
+	    }
 	    break;
 	default:
 	    need = -1;
@@ -2284,26 +2339,36 @@ void erts_native_filename_put(Eterm ioterm, int encoding, byte *p)
 	switch (encoding) {
 	case ERL_FILENAME_LATIN1:
 	    for (i = 0; i < ap->len; i++) {
-		*p++ = ap->name[i];
+		if (ap->name[i] < 0x80) {
+		    *p++ = ap->name[i];
+		} else {
+		    ASSERT(ap->name[i] < 0xC4);
+		    *p++ = ((ap->name[i] & 3) << 6) | (ap->name[i+1] & 0x3F);
+		    i++;
+		}
 	    }
 	    break;
 	case ERL_FILENAME_UTF8_MAC:
 	case ERL_FILENAME_UTF8:
-	    for (i = 0; i < ap->len; i++) {
-		if(ap->name[i] < 0x80) {
-		    *p++ = ap->name[i];
-		} else {
-		    *p++ = (((ap->name[i]) >> 6) | ((byte) 0xC0));
-		    *p++ = (((ap->name[i]) & 0x3F) | ((byte) 0x80));
-		}
-	    }
+	    sys_memcpy(p, ap->name, ap->len);
 	    break;
 	case ERL_FILENAME_WIN_WCHAR:
 	    for (i = 0; i < ap->len; i++) {
 		/* Little endian */
-		*p++ = ap->name[i];
-		*p++ = 0;
-	    }
+                if (ap->name[i] < 0x80) {
+		    *p++ = ap->name[i];
+		    *p++ = 0;
+                } else if (ap->name[i] < 0xE0) {
+		    *p++ = ((ap->name[i] & 3) << 6) | (ap->name[i+1] & 0x3F);
+		    *p++ = ((ap->name[i] & 0x1C) >> 2);
+		    i++;
+                } else {
+		    ASSERT(ap->name[i] < 0xF0);
+		    *p++ = ((ap->name[i+1] & 3) << 6) | (ap->name[i+2] & 0x3C);
+		    *p++ = ((ap->name[i] & 0xF) << 4) | ((ap->name[i+1] & 0x3C) >> 2);
+		    i += 2;
+		}
+            }
 	    break;
 	default:
 	    ASSERT(0);
@@ -2444,7 +2509,7 @@ void erts_copy_utf8_to_utf16_little(byte *target, byte *bytes, int num_chars)
 		((Uint) (bytes[3] & ((byte) 0x3F)));
 	    bytes += 4;
 	} else {
-	    erl_exit(1,"Internal unicode error in prim_file:internal_name2native/1");
+	    erts_exit(ERTS_ERROR_EXIT,"Internal unicode error in prim_file:internal_name2native/1");
 	}
 	*target++ = (byte) (unipoint & 0xFF);
 	*target++ = (byte) ((unipoint >> 8) & 0xFF);

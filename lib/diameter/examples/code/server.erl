@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -34,21 +35,17 @@
 
 -module(server).
 
--include_lib("diameter/include/diameter.hrl").
--include_lib("diameter/include/diameter_gen_base_rfc3588.hrl").
-
 -export([start/1,    %% start a service
+         start/2,    %%
          listen/2,   %% add a listening transport
          stop/1]).   %% stop a service
 
-%% Convenience functions using the default service name, ?SVC_NAME.
+%% Convenience functions using the default service name.
 -export([start/0,
          listen/1,
          stop/0]).
 
--define(SVC_NAME,     ?MODULE).
--define(APP_ALIAS,    ?MODULE).
--define(CALLBACK_MOD, server_cb).
+-define(DEF_SVC_NAME, ?MODULE).
 
 %% The service configuration. In a server supporting multiple Diameter
 %% applications each application may have its own, although they could all
@@ -57,32 +54,46 @@
                         {'Origin-Realm', "example.com"},
                         {'Vendor-Id', 193},
                         {'Product-Name', "Server"},
-                        {'Auth-Application-Id', [?DIAMETER_APP_ID_COMMON]},
-                        {application, [{alias, ?APP_ALIAS},
-                                       {dictionary, ?DIAMETER_DICT_COMMON},
-                                       {module, ?CALLBACK_MOD}]}]).
+                        {'Auth-Application-Id', [0]},
+                        {restrict_connections, false},
+                        {string_decode, false},
+                        {application, [{alias, common},
+                                       {dictionary, diameter_gen_base_rfc6733},
+                                       {module, server_cb}]}]).
 
 %% start/1
 
 start(Name)
   when is_atom(Name) ->
-    peer:start(Name, ?SERVICE(Name)).
+    start(Name, []);
+
+start(Opts)
+  when is_list(Opts) ->
+    start(?DEF_SVC_NAME, Opts).
+
+%% start/0
 
 start() ->
-    start(?SVC_NAME).
+    start(?DEF_SVC_NAME).
+
+%% start/2
+
+start(Name, Opts) ->
+    node:start(Name, Opts ++ [T || {K,_} = T <- ?SERVICE(Name),
+                                   false == lists:keymember(K, 1, Opts)]).
 
 %% listen/2
 
 listen(Name, T) ->
-    peer:listen(Name, T).
+    node:listen(Name, T).
 
 listen(T) ->
-    listen(?SVC_NAME, T).
+    listen(?DEF_SVC_NAME, T).
 
 %% stop/1
 
 stop(Name) ->
-    peer:stop(Name).
+    node:stop(Name).
 
 stop() ->
-    stop(?SVC_NAME).
+    stop(?DEF_SVC_NAME).

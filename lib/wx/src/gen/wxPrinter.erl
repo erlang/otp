@@ -1,23 +1,24 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprinter.html">wxPrinter</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprinter.html">wxPrinter</a>.
 %% @type wxPrinter().  An object reference, The representation is internal
 %% and can be changed without notice. It can't be used for comparsion
 %% stored on disc or distributed for use on other nodes.
@@ -41,9 +42,9 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 new() ->
   new([]).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprinter.html#wxprinterwxprinter">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprinter.html#wxprinterwxprinter">external documentation</a>.
 -spec new([Option]) -> wxPrinter() when
-	Option :: {data, wxPrintDialogData:wxPrintDialogData()}.
+	Option :: {'data', wxPrintDialogData:wxPrintDialogData()}.
 new(Options)
  when is_list(Options) ->
   MOpts = fun({data, #wx_ref{type=DataT,ref=DataRef}}, Acc) ->   ?CLASS(DataT,wxPrintDialogData),[<<1:32/?UI,DataRef:32/?UI>>|Acc];
@@ -52,7 +53,7 @@ new(Options)
   wxe_util:construct(?wxPrinter_new,
   <<BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprinter.html#wxprintercreateabortwindow">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprinter.html#wxprintercreateabortwindow">external documentation</a>.
 -spec createAbortWindow(This, Parent, Printout) -> wxWindow:wxWindow() when
 	This::wxPrinter(), Parent::wxWindow:wxWindow(), Printout::wxPrintout:wxPrintout().
 createAbortWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=PrintoutT,ref=PrintoutRef}) ->
@@ -62,7 +63,7 @@ createAbortWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=Paren
   wxe_util:call(?wxPrinter_CreateAbortWindow,
   <<ThisRef:32/?UI,ParentRef:32/?UI,PrintoutRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprinter.html#wxprintergetabort">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprinter.html#wxprintergetabort">external documentation</a>.
 -spec getAbort(This) -> boolean() when
 	This::wxPrinter().
 getAbort(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -70,14 +71,14 @@ getAbort(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPrinter_GetAbort,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprinter.html#wxprintergetlasterror">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprinter.html#wxprintergetlasterror">external documentation</a>.
 %%<br /> Res = ?wxPRINTER_NO_ERROR | ?wxPRINTER_CANCELLED | ?wxPRINTER_ERROR
 -spec getLastError() -> wx:wx_enum().
 getLastError() ->
   wxe_util:call(?wxPrinter_GetLastError,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprinter.html#wxprintergetprintdialogdata">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprinter.html#wxprintergetprintdialogdata">external documentation</a>.
 -spec getPrintDialogData(This) -> wxPrintDialogData:wxPrintDialogData() when
 	This::wxPrinter().
 getPrintDialogData(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -93,10 +94,10 @@ print(This,Parent,Printout)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_record(Printout, wx_ref) ->
   print(This,Parent,Printout, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprinter.html#wxprinterprint">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprinter.html#wxprinterprint">external documentation</a>.
 -spec print(This, Parent, Printout, [Option]) -> boolean() when
 	This::wxPrinter(), Parent::wxWindow:wxWindow(), Printout::wxPrintout:wxPrintout(),
-	Option :: {prompt, boolean()}.
+	Option :: {'prompt', boolean()}.
 print(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=PrintoutT,ref=PrintoutRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxPrinter),
@@ -108,7 +109,7 @@ print(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},#wx_re
   wxe_util:call(?wxPrinter_Print,
   <<ThisRef:32/?UI,ParentRef:32/?UI,PrintoutRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprinter.html#wxprinterprintdialog">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprinter.html#wxprinterprintdialog">external documentation</a>.
 -spec printDialog(This, Parent) -> wxDC:wxDC() when
 	This::wxPrinter(), Parent::wxWindow:wxWindow().
 printDialog(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}) ->
@@ -117,8 +118,8 @@ printDialog(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef})
   wxe_util:call(?wxPrinter_PrintDialog,
   <<ThisRef:32/?UI,ParentRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprinter.html#wxprinterreporterror">external documentation</a>.
--spec reportError(This, Parent, Printout, Message) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprinter.html#wxprinterreporterror">external documentation</a>.
+-spec reportError(This, Parent, Printout, Message) -> 'ok' when
 	This::wxPrinter(), Parent::wxWindow:wxWindow(), Printout::wxPrintout:wxPrintout(), Message::unicode:chardata().
 reportError(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=PrintoutT,ref=PrintoutRef},Message)
  when is_list(Message) ->
@@ -129,7 +130,7 @@ reportError(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},
   wxe_util:cast(?wxPrinter_ReportError,
   <<ThisRef:32/?UI,ParentRef:32/?UI,PrintoutRef:32/?UI,(byte_size(Message_UC)):32/?UI,(Message_UC)/binary, 0:(((8- ((0+byte_size(Message_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprinter.html#wxprintersetup">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprinter.html#wxprintersetup">external documentation</a>.
 -spec setup(This, Parent) -> boolean() when
 	This::wxPrinter(), Parent::wxWindow:wxWindow().
 setup(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}) ->
@@ -139,7 +140,7 @@ setup(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}) ->
   <<ThisRef:32/?UI,ParentRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPrinter()) -> ok.
+-spec destroy(This::wxPrinter()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrinter),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

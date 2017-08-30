@@ -116,5 +116,7 @@
   {registered, [cosNotificationSup, oe_cosNotificationFactory]},
   {applications, [orber, stdlib, kernel]},
   {env, []},
-  {mod, {cosNotificationApp, []}}
+  {mod, {cosNotificationApp, []}},
+  {runtime_dependencies, ["stdlib-2.5","orber-3.6.27","kernel-3.0","erts-7.0",
+			  "cosTime-1.1.14","cosEvent-2.1.15"]}
 ]}.

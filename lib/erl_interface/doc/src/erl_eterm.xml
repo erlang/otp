@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE cref SYSTEM "cref.dtd">
 
 <cref>
   <header>
     <copyright>
-      <year>1996</year><year>2013</year>
+      <year>1996</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
-    
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
     
     </legalnotice>
 
@@ -77,10 +78,12 @@
       </p>
     <taglist>
       <tag><c><![CDATA[char *ERL_ATOM_PTR(t)]]></c></tag>
+      <item/>
       <tag><c><![CDATA[char *ERL_ATOM_PTR_UTF8(t)]]></c></tag>
       <item>A string representing atom <c><![CDATA[t]]></c>.
       </item>
       <tag><c><![CDATA[int ERL_ATOM_SIZE(t)]]></c></tag>
+      <item/>
       <tag><c><![CDATA[int ERL_ATOM_SIZE_UTF8(t)]]></c></tag>
       <item>The length (in bytes) of atom t.</item>
       <tag><c><![CDATA[void *ERL_BIN_PTR(t)]]></c></tag>
@@ -94,6 +97,7 @@
       <tag><c><![CDATA[double ERL_FLOAT_VALUE(t)]]></c></tag>
       <item>The floating point value of <c><![CDATA[t]]></c>.</item>
       <tag><c><![CDATA[ETERM *ERL_PID_NODE(t)]]></c></tag>
+      <item/>
       <tag><c><![CDATA[ETERM *ERL_PID_NODE_UTF8(t)]]></c></tag>
       <item>The Node in pid <c><![CDATA[t]]></c>.</item>
       <tag><c><![CDATA[int ERL_PID_NUMBER(t)]]></c></tag>
@@ -107,6 +111,7 @@
       <tag><c><![CDATA[int ERL_PORT_CREATION(t)]]></c></tag>
       <item>The creation number in port <c><![CDATA[t]]></c>.</item>
       <tag><c><![CDATA[ETERM *ERL_PORT_NODE(t)]]></c></tag>
+      <item/>
       <tag><c><![CDATA[ETERM *ERL_PORT_NODE_UTF8(t)]]></c></tag>
       <item>The node in port <c><![CDATA[t]]></c>.</item>
       <tag><c><![CDATA[int ERL_REF_NUMBER(t)]]></c></tag>
@@ -371,9 +376,11 @@ iohead ::= Binary
         <p><c><![CDATA[f]]></c> is a value to be converted to an Erlang float.</p>
         <p></p>
         <p>The function returns an Erlang float object with the value
-          specified in <c><![CDATA[f]]></c>.</p>
+            specified in <c><![CDATA[f]]></c> or <c><![CDATA[NULL]]></c> if
+            <c><![CDATA[f]]></c> is not finite.
+        </p>
         <p><c><![CDATA[ERL_FLOAT_VALUE(t)]]></c> can be used to retrieve the
-          value from an Erlang float.</p>
+            value from an Erlang float.</p>
       </desc>
     </func>
     <func>

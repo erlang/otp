@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -45,9 +46,11 @@ start_link() ->
 init([]) ->    
     SessionCertManager = session_and_cert_manager_child_spec(),
     ConnetionManager = connection_manager_child_spec(),
+    ListenOptionsTracker = listen_options_tracker_child_spec(), 
     ProxyServer = proxy_server_child_spec(),
 
-    {ok, {{one_for_all, 10, 3600}, [SessionCertManager, ConnetionManager,
+    {ok, {{one_for_all, 10, 3600}, [SessionCertManager, ConnetionManager, 
+				    ListenOptionsTracker,
 				    ProxyServer]}}.
 
 %%--------------------------------------------------------------------
@@ -65,10 +68,10 @@ session_and_cert_manager_child_spec() ->
 
 connection_manager_child_spec() ->
     Name = ssl_connection_dist,  
-    StartFunc = {ssl_connection_sup, start_link_dist, []},
+    StartFunc = {tls_connection_sup, start_link_dist, []},
     Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [ssl_connection],
+    Shutdown = infinity,
+    Modules = [tls_connection_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
@@ -81,3 +84,11 @@ proxy_server_child_spec() ->
     Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
+listen_options_tracker_child_spec() ->
+    Name = ssl_socket_dist,  
+    StartFunc = {ssl_listen_tracker_sup, start_link_dist, []},
+    Restart = permanent, 
+    Shutdown = 4000,
+    Modules = [ssl_socket],
+    Type = supervisor,
+    {Name, StartFunc, Restart, Shutdown, Type, Modules}.

@@ -1,23 +1,24 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellchoiceeditor.html">wxGridCellChoiceEditor</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellchoiceeditor.html">wxGridCellChoiceEditor</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxGridCellEditor}
 %% </p>
@@ -34,6 +35,8 @@
   parent_class/1,reset/1,setSize/2,show/2,show/3,startingClick/1,startingKey/2]).
 
 -export_type([wxGridCellChoiceEditor/0]).
+-compile([{nowarn_deprecated_function, {wxGridCellEditor,endEdit,4}},{nowarn_deprecated_function, {wxGridCellEditor,paintBackground,3}}]).
+
 %% @hidden
 parent_class(wxGridCellEditor) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
@@ -47,10 +50,10 @@ new(Choices)
  when is_list(Choices) ->
   new(Choices, []).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellchoiceeditor.html#wxgridcellchoiceeditorwxgridcellchoiceeditor">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellchoiceeditor.html#wxgridcellchoiceeditorwxgridcellchoiceeditor">external documentation</a>.
 -spec new(Choices, [Option]) -> wxGridCellChoiceEditor() when
 	Choices::[unicode:chardata()],
-	Option :: {allowOthers, boolean()}.
+	Option :: {'allowOthers', boolean()}.
 new(Choices, Options)
  when is_list(Choices),is_list(Options) ->
   Choices_UCA = [unicode:characters_to_binary([ChoicesTemp,0]) || 
@@ -61,8 +64,8 @@ new(Choices, Options)
   wxe_util:construct(?wxGridCellChoiceEditor_new,
   <<(length(Choices_UCA)):32/?UI, (<< <<(byte_size(UC_Str)):32/?UI, UC_Str/binary>>|| UC_Str <- Choices_UCA>>)/binary, 0:(((8- ((4 + lists:sum([byte_size(S)+4||S<-Choices_UCA])) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellchoiceeditor.html#wxgridcellchoiceeditorsetparameters">external documentation</a>.
--spec setParameters(This, Params) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxgridcellchoiceeditor.html#wxgridcellchoiceeditorsetparameters">external documentation</a>.
+-spec setParameters(This, Params) -> 'ok' when
 	This::wxGridCellChoiceEditor(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
  when is_list(Params) ->
@@ -72,7 +75,7 @@ setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
   <<ThisRef:32/?UI,(byte_size(Params_UC)):32/?UI,(Params_UC)/binary, 0:(((8- ((0+byte_size(Params_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGridCellChoiceEditor()) -> ok.
+-spec destroy(This::wxGridCellChoiceEditor()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellChoiceEditor),
   wxe_util:destroy(?wxGridCellChoiceEditor_destroy,Obj),

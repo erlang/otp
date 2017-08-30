@@ -2,7 +2,7 @@
 *      Perl-Compatible Regular Expressions       *
 *************************************************/
 
-/* This file was automatically written by the make_latin1_table auxiliary
+/* This file was automatically written by the dftables auxiliary
 program. It contains character tables that are used when no external
 tables are passed to PCRE by the application that calls it. The tables
 are used only for characters whose code values are less than 256.
@@ -13,14 +13,14 @@ library and dead code stripping is activated. This leads to link errors.
 Pulling in the header ensures that the array gets flagged as "someone
 outside this compilation unit might reference this" and so it will always
 be supplied to the linker. */
-
+/* %ExternalCopyright% */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
 #include "pcre_internal.h"
 
-const unsigned char _erts_pcre_default_tables[] = {
+const pcre_uint8 PRIV(default_tables)[] = {
 
 /* This table is a lower casing table. */
 

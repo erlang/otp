@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -53,6 +54,7 @@
 	 db_erase_tab/2,
 	 db_first/1,
 	 db_first/2,
+	 db_foldl/3, db_foldl/4, db_foldl/6,
 	 db_last/1,
 	 db_last/2,
 	 db_fixtable/3,
@@ -114,7 +116,7 @@
 	 lock_table/1,
 	 mkcore/1,
 	 not_active_here/1,
-	 other_val/2,
+         other_val/1,
          overload_read/0,
          overload_read/1,
          overload_set/2,
@@ -134,6 +136,7 @@
 	 set_local_content_whereabouts/1,
 	 set_remote_where_to_read/1,
 	 set_remote_where_to_read/2,
+	 semantics/2,
 	 show/1,
 	 show/2,
 	 sort_commit/1,
@@ -143,6 +146,7 @@
 	 tab2tmp/1,
 	 tab2dcd/1,
 	 tab2dcl/1,
+	 tab2logtmp/1,
 	 to_list/1,
 	 union/2,
 	 uniq/1,
@@ -150,6 +154,8 @@
 	 unset/1,
 	 %% update_counter/2,
 	 val/1,
+	 validate_key/2,
+	 validate_record/2,
 	 vcore/0,
 	 vcore/1,
 	 verbose/2,
@@ -296,11 +302,7 @@ active_here(Tab) ->
 not_active_here(Tab) ->
     not active_here(Tab).
 
-exists(Fname) ->
-    case file:open(Fname, [raw,read]) of
-	{ok, F} ->file:close(F), true;
-	_ -> false
-    end.
+exists(Fname) -> filelib:is_regular(Fname).
 
 dir() -> mnesia_monitor:get_env(dir).
 
@@ -322,22 +324,47 @@ tab2dcd(Tab) ->  %% Disc copies data
 tab2dcl(Tab) ->  %% Disc copies log
     dir(lists:concat([Tab, ".DCL"])).
 
+tab2logtmp(Tab) ->  %% Disc copies log
+    dir(lists:concat([Tab, ".LOGTMP"])).
+
 storage_type_at_node(Node, Tab) ->
     search_key(Node, [{disc_copies, val({Tab, disc_copies})},
 		      {ram_copies, val({Tab, ram_copies})},
-		      {disc_only_copies, val({Tab, disc_only_copies})}]).
+		      {disc_only_copies, val({Tab, disc_only_copies})}|
+		      wrap_external(val({Tab, external_copies}))]).
 
 cs_to_storage_type(Node, Cs) ->
     search_key(Node, [{disc_copies, Cs#cstruct.disc_copies},
 		      {ram_copies, Cs#cstruct.ram_copies},
-		      {disc_only_copies, Cs#cstruct.disc_only_copies}]).
+		      {disc_only_copies, Cs#cstruct.disc_only_copies} |
+                      wrap_external(Cs#cstruct.external_copies)]).
+
+-define(native(T), T==ram_copies; T==disc_copies; T==disc_only_copies).
+
+semantics({ext,Alias,Mod}, Item) ->
+    Mod:semantics(Alias, Item);
+semantics({Alias,Mod}, Item) ->
+    Mod:semantics(Alias, Item);
+semantics(Type, storage) when ?native(Type) ->
+    Type;
+semantics(Type, types) when ?native(Type) ->
+    [set, ordered_set, bag];
+semantics(disc_only_copies, index_types) ->
+    [bag];
+semantics(Type, index_types) when ?native(Type) ->
+    [bag, ordered];
+semantics(_, _) ->
+    undefined.
+
+
+wrap_external(L) ->
+    [{{ext,Alias,Mod},Ns} || {{Alias,Mod},Ns} <- L].
 
 schema_cs_to_storage_type(Node, Cs) ->
     case cs_to_storage_type(Node, Cs) of
 	unknown when Cs#cstruct.name == schema -> ram_copies;
 	Other -> Other
     end.
-
 
 search_key(Key, [{Val, List} | Tail]) ->
     case lists:member(Key, List) of
@@ -346,6 +373,33 @@ search_key(Key, [{Val, List} | Tail]) ->
     end;
 search_key(_Key, []) ->
     unknown.
+
+validate_key(Tab, Key) ->
+    case ?catch_val({Tab, record_validation}) of
+	{RecName, Arity, Type} ->
+	    {RecName, Arity, Type};
+	{RecName, Arity, Type, Alias, Mod} ->
+	    %% external type
+	    Mod:validate_key(Alias, Tab, RecName, Arity, Type, Key);
+	{'EXIT', _} ->
+	    mnesia:abort({no_exists, Tab})
+    end.
+
+
+validate_record(Tab, Obj) ->
+    case ?catch_val({Tab, record_validation}) of
+	{RecName, Arity, Type}
+	  when tuple_size(Obj) == Arity, RecName == element(1, Obj) ->
+	    {RecName, Arity, Type};
+	{RecName, Arity, Type, Alias, Mod}
+	  when tuple_size(Obj) == Arity, RecName == element(1, Obj) ->
+	    %% external type
+	    Mod:validate_record(Alias, Tab, RecName, Arity, Type, Obj);
+	{'EXIT', _} ->
+	    mnesia:abort({no_exists, Tab});
+	_ ->
+	    mnesia:abort({bad_type, Obj})
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% ops, we've got some global variables here :-)
@@ -382,8 +436,8 @@ search_key(_Key, []) ->
 
 val(Var) ->
     case ?catch_val(Var) of
-	{'EXIT', _ReASoN_} -> mnesia_lib:other_val(Var, _ReASoN_); 
-	_VaLuE_ -> _VaLuE_ 
+	{'EXIT', _} -> other_val(Var);
+	_VaLuE_ -> _VaLuE_
     end.
 
 set(Var, Val) ->
@@ -392,32 +446,31 @@ set(Var, Val) ->
 unset(Var) ->
     ?ets_delete(mnesia_gvar, Var).
 
-other_val(Var, Other) ->
+other_val(Var) ->
+    case other_val_1(Var) of
+        error -> pr_other(Var);
+        Val -> Val
+    end.
+
+other_val_1(Var) ->
     case Var of
 	{_, where_to_read} -> nowhere;
 	{_, where_to_write} -> [];
 	{_, active_replicas} -> [];
-	_ ->
-	    pr_other(Var, Other)
+	_ -> error
     end.
 
--spec pr_other(_,_) -> no_return().
-
-pr_other(Var, Other) ->
-    Why = 
+-spec pr_other(_) -> no_return().
+pr_other(Var) ->
+    Why =
 	case is_running() of
 	    no -> {node_not_running, node()};
 	    _ -> {no_exists, Var}
 	end,
     verbose("~p (~p) val(mnesia_gvar, ~w) -> ~p ~p ~n",
 	    [self(), process_info(self(), registered_name),
-	     Var, Other, Why]),
-    case Other of
-	{badarg, [{ets, lookup_element, _, _}|_]} ->
-	    exit(Why);
-	_ ->
-	    erlang:error(Why)
-    end.
+	     Var, Why, erlang:get_stacktrace()]),
+    mnesia:abort(Why).
 
 %% Some functions for list valued variables
 add(Var, Val) ->
@@ -553,9 +606,15 @@ read_counter(Name) ->
     ?ets_lookup_element(mnesia_stats, Name, 2).
 
 cs_to_nodes(Cs) ->
+    ext_nodes(Cs#cstruct.external_copies) ++
     Cs#cstruct.disc_only_copies ++
     Cs#cstruct.disc_copies ++
     Cs#cstruct.ram_copies.
+
+ext_nodes(Ext) ->
+    lists:flatmap(fun({_, Ns}) ->
+			  Ns
+		  end, Ext).
 
 overload_types() ->
     [mnesia_tm, mnesia_dump_log].
@@ -596,7 +655,7 @@ coredump(CrashInfo) ->
     Core = mkcore(CrashInfo),
     Out = core_file(),
     important("Writing Mnesia core to file: ~p...~p~n", [Out, CrashInfo]),
-    file:write_file(Out, Core),
+    _ = file:write_file(Out, Core),
     Out.
 
 core_file() ->
@@ -620,7 +679,7 @@ mkcore(CrashInfo) ->
     Core = [
 	    CrashInfo,
 	    {time, {date(), time()}},
-	    {self, catch process_info(self())},
+	    {self, proc_dbg_info(self())},
 	    {nodes, catch rpc:multicall(Nodes, ?MODULE, get_node_number, [])},
 	    {applications, catch lists:sort(application:loaded_applications())},
 	    {flags, catch init:get_arguments()},
@@ -697,7 +756,7 @@ relatives() ->
     Info = fun(Name) ->
 		   case whereis(Name) of
 		       undefined -> false;
-		       Pid -> {true, {Name, Pid, catch process_info(Pid)}}
+		       Pid -> {true, {Name, Pid, proc_dbg_info(Pid)}}
 		   end
 	   end,
     lists:zf(Info, mnesia:ms()).
@@ -706,14 +765,14 @@ workers({workers, Loaders, Senders, Dumper}) ->
     Info = fun({Pid, {send_table, Tab, _Receiver, _St}}) ->
 		   case Pid of
 		       undefined -> false;
-		       Pid -> {true, {Pid, Tab, catch process_info(Pid)}}
+		       Pid -> {true, {Pid, Tab, proc_dbg_info(Pid)}}
 		   end;
 	      ({Pid, What}) when is_pid(Pid) ->
-		   {true, {Pid, What, catch process_info(Pid)}};
+		   {true, {Pid, What, proc_dbg_info(Pid)}};
 	      ({Name, Pid}) ->
 		   case Pid of
 		       undefined -> false;
-		       Pid -> {true, {Name, Pid, catch process_info(Pid)}}
+		       Pid -> {true, {Name, Pid, proc_dbg_info(Pid)}}
 		   end
 	   end,
     SInfo = lists:zf(Info, Senders),
@@ -727,12 +786,20 @@ locking_procs(LockList) when is_list(LockList) ->
 		   Pid = Tid#tid.pid,
 		   case node(Pid) == node() of
 		       true -> 
-			   {true, {Pid, catch process_info(Pid)}};
+			   {true, {Pid, proc_dbg_info(Pid)}};
 		       _ ->
 			   false
 		   end
 	   end,
     lists:zf(Info, UT).
+
+proc_dbg_info(Pid) ->
+    try
+	[process_info(Pid, current_stacktrace)|
+	 process_info(Pid)]
+    catch _:R ->
+	    [{process_info,crashed,R}]
+    end.
 
 view() ->
     Bin = mkcore({crashinfo, {"view only~n", []}}),
@@ -744,7 +811,7 @@ view(File) ->
 	true ->
 	    view(File, dat);
 	false ->
-	    case suffix([".LOG", ".BUP", ".ETS"], File) of
+	    case suffix([".LOG", ".BUP", ".ETS", ".LOGTMP"], File) of
 		true ->
 		    view(File, log);
 		false ->
@@ -806,9 +873,9 @@ vcore(File) ->
 
 vcore_elem({schema_file, {ok, B}}) ->
     Fname = "/tmp/schema.DAT",
-    file:write_file(Fname, B),
-    dets:view(Fname),
-    file:delete(Fname);
+    _ = file:write_file(Fname, B),
+    _ = dets:view(Fname),
+    _ = file:delete(Fname);
 
 vcore_elem({logfile, {ok, BinList}}) ->
     Fun = fun({F, Info}) ->
@@ -896,7 +963,7 @@ dirty_rpc_error_tag(Reason) ->
     end.
 
 fatal(Format, Args) ->
-    catch set(mnesia_status, stopping),
+    ?SAFE(catch set(mnesia_status, stopping)),
     Core = mkcore({crashinfo, {Format, Args}}),
     report_fatal(Format, Args, Core),
     timer:sleep(10000), % Enough to write the core dump to disc?
@@ -908,7 +975,7 @@ report_fatal(Format, Args) ->
 
 report_fatal(Format, Args, Core) ->
     report_system_event({mnesia_fatal, Format, Args, Core}),
-    catch exit(whereis(mnesia_monitor), fatal).
+    ?SAFE(exit(whereis(mnesia_monitor), fatal)).
 
 %% We sleep longer and longer the more we try
 %% Made some testing and came up with the following constants
@@ -918,19 +985,7 @@ random_time(Retries, _Counter0) ->
     UpperLimit = 500,
     Dup = Retries * Retries,
     MaxIntv = trunc(UpperLimit * (1-(50/((Dup)+50)))),
-    
-    case get(random_seed) of
-	undefined ->
-	    {X, Y, Z} = erlang:now(), %% time()
-	    random:seed(X, Y, Z),
-	    Time = Dup + random:uniform(MaxIntv),
-	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
-	    Time;
-	_ ->
-	    Time = Dup + random:uniform(MaxIntv),
-	    %%	    dbg_out("---random_test rs ~w max ~w val ~w---~n", [Retries, MaxIntv, Time]),
-	    Time	    
-    end.
+    Dup + rand:uniform(MaxIntv).
 
 report_system_event(Event0) ->
     Event = {mnesia_system_event, Event0},
@@ -958,20 +1013,17 @@ report_system_event({'EXIT', Reason}, Event) ->
 	    unlink(Pid),
 
             %% We get an exit signal if server dies
-            receive
-                {'EXIT', Pid, _Reason} ->
-                    {error, {node_not_running, node()}}
-            after 0 ->
-		    gen_event:stop(mnesia_event),
-                    ok
+            receive {'EXIT', Pid, _Reason} -> ok
+            after 0 -> gen_event:stop(mnesia_event)
             end;
 
 	Error ->
 	    Msg = "Mnesia(~p): Cannot report event ~p: ~p (~p)~n",
 	    error_logger:format(Msg, [node(), Event, Reason, Error])
-    end;
+    end,
+    ok;
 report_system_event(_Res, _Event) ->
-    ignore.
+    ok.
 
 %% important messages are reported regardless of debug level
 important(Format, Args) ->
@@ -1007,7 +1059,7 @@ dbg_out(Format, Args) ->
 
 %% Keep the last 10 debug print outs
 save(DbgInfo) ->
-    catch save2(DbgInfo).
+    ?SAFE(save2(DbgInfo)).
 
 save2(DbgInfo) ->
     Key = {'$$$_report', current_pos},
@@ -1025,8 +1077,8 @@ copy_file(From, To) ->
 	    case file:open(To, [raw, binary, write]) of
 		{ok, T} ->
 		    Res = copy_file_loop(F, T, 8000),
-		    file:close(F),
-		    file:close(T),
+		    ok = file:close(F),
+		    ok = file:close(T),
 		    Res;
 		{error, Reason} ->
 		    {error, Reason}
@@ -1038,7 +1090,7 @@ copy_file(From, To) ->
 copy_file_loop(F, T, ChunkSize) ->
     case file:read(F, ChunkSize) of
 	{ok, Bin} ->
-	    file:write(T, Bin),
+	    ok = file:write(T, Bin),
 	    copy_file_loop(F, T, ChunkSize);
 	eof ->
 	    ok;
@@ -1055,18 +1107,24 @@ db_get(Tab, Key) ->
     db_get(val({Tab, storage_type}), Tab, Key).
 db_get(ram_copies, Tab, Key) -> ?ets_lookup(Tab, Key);
 db_get(disc_copies, Tab, Key) -> ?ets_lookup(Tab, Key);
-db_get(disc_only_copies, Tab, Key) -> dets:lookup(Tab, Key).
+db_get(disc_only_copies, Tab, Key) -> dets:lookup(Tab, Key);
+db_get({ext, Alias, Mod}, Tab, Key) ->
+    Mod:lookup(Alias, Tab, Key).
 
 db_init_chunk(Tab) ->
     db_init_chunk(val({Tab, storage_type}), Tab, 1000).
 db_init_chunk(Tab, N) ->
     db_init_chunk(val({Tab, storage_type}), Tab, N).
 
+db_init_chunk({ext, Alias, Mod}, Tab, N) ->
+    Mod:select(Alias, Tab, [{'_', [], ['$_']}], N);
 db_init_chunk(disc_only_copies, Tab, N) ->
     dets:select(Tab, [{'_', [], ['$_']}], N);
 db_init_chunk(_, Tab, N) ->
     ets:select(Tab, [{'_', [], ['$_']}], N).
 
+db_chunk({ext, _Alias, Mod}, State) ->
+    Mod:select(State);
 db_chunk(disc_only_copies, State) ->
     dets:select(State);
 db_chunk(_, State) ->
@@ -1077,46 +1135,82 @@ db_put(Tab, Val) ->
 
 db_put(ram_copies, Tab, Val) -> ?ets_insert(Tab, Val), ok;
 db_put(disc_copies, Tab, Val) -> ?ets_insert(Tab, Val), ok;
-db_put(disc_only_copies, Tab, Val) -> dets:insert(Tab, Val).
+db_put(disc_only_copies, Tab, Val) -> dets:insert(Tab, Val);
+db_put({ext, Alias, Mod}, Tab, Val) ->
+    Mod:insert(Alias, Tab, Val).
 
 db_match_object(Tab, Pat) ->
     db_match_object(val({Tab, storage_type}), Tab, Pat).
 db_match_object(Storage, Tab, Pat) ->
     db_fixtable(Storage, Tab, true),
-    Res = catch_match_object(Storage, Tab, Pat),
-    db_fixtable(Storage, Tab, false),
-    case Res of
-	{'EXIT', Reason} -> exit(Reason);
-	_ -> Res
+    try
+	case Storage of
+	    disc_only_copies -> dets:match_object(Tab, Pat);
+	    {ext, Alias, Mod} -> Mod:select(Alias, Tab, [{Pat, [], ['$_']}]);
+	    _ -> ets:match_object(Tab, Pat)
+	end
+    after
+	db_fixtable(Storage, Tab, false)
     end.
 
-catch_match_object(disc_only_copies, Tab, Pat) ->
-    catch dets:match_object(Tab, Pat);
-catch_match_object(_, Tab, Pat) ->
-    catch ets:match_object(Tab, Pat).
+db_foldl(Fun, Acc, Tab) ->
+    db_foldl(val({Tab, storage_type}), Fun, Acc, Tab).
+
+db_foldl(Storage, Fun, Acc, Tab) ->
+    Limit = mnesia_monitor:get_env(fold_chunk_size),
+    db_foldl(Storage, Fun, Acc, Tab, [{'_', [], ['$_']}], Limit).
+
+db_foldl(ram_copies, Fun, Acc, Tab, Pat, Limit) ->
+    mnesia_lib:db_fixtable(ram_copies, Tab, true),
+    try select_foldl(db_select_init(ram_copies, Tab, Pat, Limit),
+		     Fun, Acc, ram_copies)
+    after
+	mnesia_lib:db_fixtable(ram_copies, Tab, false)
+    end;
+db_foldl(Storage, Fun, Acc, Tab, Pat, Limit) ->
+    select_foldl(mnesia_lib:db_select_init(Storage, Tab, Pat, Limit), Fun, Acc, Storage).
+
+select_foldl({Objs, Cont}, Fun, Acc, Storage) ->
+    select_foldl(mnesia_lib:db_select_cont(Storage, Cont, []),
+	      Fun, lists:foldl(Fun, Acc, Objs), Storage);
+select_foldl('$end_of_table', _, Acc, _) ->
+    Acc.
 
 db_select(Tab, Pat) ->
     db_select(val({Tab, storage_type}), Tab, Pat).
 
 db_select(Storage, Tab, Pat) ->
     db_fixtable(Storage, Tab, true),
-    Res = catch_select(Storage, Tab, Pat),
-    db_fixtable(Storage, Tab, false),
-    case Res of
-	{'EXIT', Reason} -> exit(Reason);
-	_ -> Res
+    try
+	case Storage of
+	    disc_only_copies -> dets:select(Tab, Pat);
+	    {ext, Alias, Mod} -> Mod:select(Alias, Tab, Pat);
+	    _ -> ets:select(Tab, Pat)
+	end
+    after
+	db_fixtable(Storage, Tab, false)
     end.
 
-catch_select(disc_only_copies, Tab, Pat) ->
-    catch dets:select(Tab, Pat);
-catch_select(_, Tab, Pat) ->
-    catch ets:select(Tab, Pat).
-
+db_select_init({ext, Alias, Mod}, Tab, Pat, Limit) ->
+    case Mod:select(Alias, Tab, Pat, Limit) of
+	{Matches, Continuation} when is_list(Matches) ->
+	    {Matches, {Alias, Continuation}};
+	R ->
+	    R
+    end;
 db_select_init(disc_only_copies, Tab, Pat, Limit) ->
     dets:select(Tab, Pat, Limit);
 db_select_init(_, Tab, Pat, Limit) ->
     ets:select(Tab, Pat, Limit).
 
+db_select_cont({ext, Alias, Mod}, Cont0, Ms) ->
+    Cont = Mod:repair_continuation(Cont0, Ms),
+    case Mod:select(Cont) of
+	{Matches, Continuation} when is_list(Matches) ->
+	    {Matches, {Alias, Continuation}};
+	R ->
+	    R
+    end;
 db_select_cont(disc_only_copies, Cont0, Ms) ->
     Cont = dets:repair_continuation(Cont0, Ms),
     dets:select(Cont);
@@ -1133,13 +1227,18 @@ db_fixtable(disc_copies, Tab, Bool) ->
 db_fixtable(dets, Tab, Bool) ->
     dets:safe_fixtable(Tab, Bool);
 db_fixtable(disc_only_copies, Tab, Bool) ->
-    dets:safe_fixtable(Tab, Bool).
+    dets:safe_fixtable(Tab, Bool);
+db_fixtable({ext, Alias, Mod}, Tab, Bool) ->
+    Mod:fixtable(Alias, Tab, Bool).
 
 db_erase(Tab, Key) ->
     db_erase(val({Tab, storage_type}), Tab, Key).
 db_erase(ram_copies, Tab, Key) -> ?ets_delete(Tab, Key), ok;
 db_erase(disc_copies, Tab, Key) -> ?ets_delete(Tab, Key), ok;
-db_erase(disc_only_copies, Tab, Key) -> dets:delete(Tab, Key).
+db_erase(disc_only_copies, Tab, Key) -> dets:delete(Tab, Key);
+db_erase({ext, Alias, Mod}, Tab, Key) ->
+    Mod:delete(Alias, Tab, Key),
+    ok.
 
 db_match_erase(Tab, '_') ->
     db_delete_all(val({Tab, storage_type}),Tab);
@@ -1147,7 +1246,10 @@ db_match_erase(Tab, Pat) ->
     db_match_erase(val({Tab, storage_type}), Tab, Pat).
 db_match_erase(ram_copies, Tab, Pat) -> ?ets_match_delete(Tab, Pat), ok;
 db_match_erase(disc_copies, Tab, Pat) -> ?ets_match_delete(Tab, Pat), ok;
-db_match_erase(disc_only_copies, Tab, Pat) -> dets:match_delete(Tab, Pat).
+db_match_erase(disc_only_copies, Tab, Pat) -> dets:match_delete(Tab, Pat);
+db_match_erase({ext, Alias, Mod}, Tab, Pat) ->
+    Mod:match_delete(Alias, Tab, Pat),
+    ok.
 
 db_delete_all(ram_copies, Tab) ->       ets:delete_all_objects(Tab);
 db_delete_all(disc_copies, Tab) ->      ets:delete_all_objects(Tab);
@@ -1157,31 +1259,41 @@ db_first(Tab) ->
     db_first(val({Tab, storage_type}), Tab).
 db_first(ram_copies, Tab) -> ?ets_first(Tab);
 db_first(disc_copies, Tab) -> ?ets_first(Tab);
-db_first(disc_only_copies, Tab) -> dets:first(Tab).
+db_first(disc_only_copies, Tab) -> dets:first(Tab);
+db_first({ext, Alias, Mod}, Tab) ->
+    Mod:first(Alias, Tab).
 
 db_next_key(Tab, Key) ->
     db_next_key(val({Tab, storage_type}), Tab, Key).
 db_next_key(ram_copies, Tab, Key) -> ?ets_next(Tab, Key);
 db_next_key(disc_copies, Tab, Key) -> ?ets_next(Tab, Key);
-db_next_key(disc_only_copies, Tab, Key) -> dets:next(Tab, Key).
+db_next_key(disc_only_copies, Tab, Key) -> dets:next(Tab, Key);
+db_next_key({ext, Alias, Mod}, Tab, Key) ->
+    Mod:next(Alias, Tab, Key).
 
 db_last(Tab) ->
     db_last(val({Tab, storage_type}), Tab).
 db_last(ram_copies, Tab) -> ?ets_last(Tab);
 db_last(disc_copies, Tab) -> ?ets_last(Tab);
-db_last(disc_only_copies, Tab) -> dets:first(Tab). %% Dets don't have order
+db_last(disc_only_copies, Tab) -> dets:first(Tab); %% Dets don't have order
+db_last({ext, Alias, Mod}, Tab) ->
+    Mod:last(Alias, Tab).
 
 db_prev_key(Tab, Key) ->
     db_prev_key(val({Tab, storage_type}), Tab, Key).
 db_prev_key(ram_copies, Tab, Key) -> ?ets_prev(Tab, Key);
 db_prev_key(disc_copies, Tab, Key) -> ?ets_prev(Tab, Key);
-db_prev_key(disc_only_copies, Tab, Key) -> dets:next(Tab, Key). %% Dets don't have order
+db_prev_key(disc_only_copies, Tab, Key) -> dets:next(Tab, Key); %% Dets don't have order
+db_prev_key({ext, Alias, Mod}, Tab, Key) ->
+    Mod:prev(Alias, Tab, Key).
 
 db_slot(Tab, Pos) ->
     db_slot(val({Tab, storage_type}), Tab, Pos).
 db_slot(ram_copies, Tab, Pos) -> ?ets_slot(Tab, Pos);
 db_slot(disc_copies, Tab, Pos) -> ?ets_slot(Tab, Pos);
-db_slot(disc_only_copies, Tab, Pos) -> dets:slot(Tab, Pos).
+db_slot(disc_only_copies, Tab, Pos) -> dets:slot(Tab, Pos);
+db_slot({ext, Alias, Mod}, Tab, Pos) ->
+    Mod:slot(Alias, Tab, Pos).
 
 db_update_counter(Tab, C, Val) ->
     db_update_counter(val({Tab, storage_type}), Tab, C, Val).
@@ -1190,13 +1302,16 @@ db_update_counter(ram_copies, Tab, C, Val) ->
 db_update_counter(disc_copies, Tab, C, Val) ->
     ?ets_update_counter(Tab, C, Val);
 db_update_counter(disc_only_copies, Tab, C, Val) ->
-    dets:update_counter(Tab, C, Val).
+    dets:update_counter(Tab, C, Val);
+db_update_counter({ext, Alias, Mod}, Tab, C, Val) ->
+    Mod:update_counter(Alias, Tab, C, Val).
 
 db_erase_tab(Tab) ->
     db_erase_tab(val({Tab, storage_type}), Tab).
 db_erase_tab(ram_copies, Tab) -> ?ets_delete_table(Tab);
 db_erase_tab(disc_copies, Tab) -> ?ets_delete_table(Tab);
-db_erase_tab(disc_only_copies, _Tab) -> ignore.
+db_erase_tab(disc_only_copies, _Tab) -> ignore;
+db_erase_tab({ext, _Alias, _Mod}, _Tab) -> ignore.
 
 %% assuming that Tab is a valid ets-table
 dets_to_ets(Tabname, Tab, File, Type, Rep, Lock) ->
@@ -1205,7 +1320,7 @@ dets_to_ets(Tabname, Tab, File, Type, Rep, Lock) ->
 			{keypos, 2}, {repair, Rep}]) of
 	{ok, Tabname} ->
 	    Res = dets:to_ets(Tabname, Tab),
-	    Close(Tabname),
+	    ok = Close(Tabname),
 	    trav_ret(Res, Tab);
 	Other ->
 	    Other
@@ -1255,7 +1370,7 @@ dets_sync_open(Tab, Args) ->
     end.
 
 dets_sync_close(Tab) ->
-    catch dets:close(Tab),
+    ?SAFE(dets:close(Tab)),
     unlock_table(Tab),
     ok.
 
@@ -1291,7 +1406,7 @@ readable_indecies(Tab) ->
 
 scratch_debug_fun() ->
     dbg_out("scratch_debug_fun(): ~p~n", [?DEBUG_TAB]),
-    (catch ?ets_delete_table(?DEBUG_TAB)),
+    ?SAFE(?ets_delete_table(?DEBUG_TAB)),
     ?ets_new_table(?DEBUG_TAB, [set, public, named_table, {keypos, 2}]).
 
 activate_debug_fun(FunId, Fun, InitialContext, File, Line) ->
@@ -1304,43 +1419,45 @@ activate_debug_fun(FunId, Fun, InitialContext, File, Line) ->
     update_debug_info(Info).
 
 update_debug_info(Info) ->
-    case catch ?ets_insert(?DEBUG_TAB, Info) of
-	{'EXIT', _} ->
+    try ?ets_insert(?DEBUG_TAB, Info),
+	 ok
+    catch error:_ ->
 	    scratch_debug_fun(),
-	    ?ets_insert(?DEBUG_TAB, Info);
-	_ ->
-	    ok
+	    ?ets_insert(?DEBUG_TAB, Info)
     end,
     dbg_out("update_debug_info(~p)~n", [Info]),
     ok.
 
 deactivate_debug_fun(FunId, _File, _Line) ->
-    catch ?ets_delete(?DEBUG_TAB, FunId),
+    ?SAFE(?ets_delete(?DEBUG_TAB, FunId)),
     ok.
 
 eval_debug_fun(FunId, EvalContext, EvalFile, EvalLine) ->
-    case catch ?ets_lookup(?DEBUG_TAB, FunId) of
-	[] ->
-	    ok;
-	[Info] ->
-	    OldContext = Info#debug_info.context,
-	    dbg_out("~s(~p): ~w "
-		    "activated in ~s(~p)~n  "
-		    "eval_debug_fun(~w, ~w)~n",
-		    [filename:basename(EvalFile), EvalLine, Info#debug_info.id,
-		     filename:basename(Info#debug_info.file), Info#debug_info.line,
-		     OldContext, EvalContext]),
-	    Fun = Info#debug_info.function,
-	    NewContext = Fun(OldContext, EvalContext),
-	    
-	    case catch ?ets_lookup(?DEBUG_TAB, FunId) of
-		[Info] when NewContext /= OldContext ->
-		    NewInfo = Info#debug_info{context = NewContext},
-		    update_debug_info(NewInfo);
-		_ ->
-		    ok
-	    end;
-	{'EXIT', _} -> ok    
+    try 
+	case ?ets_lookup(?DEBUG_TAB, FunId) of
+	    [] ->
+		ok;
+	    [Info] ->
+		OldContext = Info#debug_info.context,
+		dbg_out("~s(~p): ~w "
+			"activated in ~s(~p)~n  "
+			"eval_debug_fun(~w, ~w)~n",
+			[filename:basename(EvalFile), EvalLine, Info#debug_info.id,
+			 filename:basename(Info#debug_info.file), Info#debug_info.line,
+			 OldContext, EvalContext]),
+		Fun = Info#debug_info.function,
+		NewContext = Fun(OldContext, EvalContext),
+
+		case ?ets_lookup(?DEBUG_TAB, FunId) of
+		    [Info] when NewContext /= OldContext ->
+			NewInfo = Info#debug_info{context = NewContext},
+			update_debug_info(NewInfo);
+		    _ ->
+			ok
+		end
+	end
+    catch error ->
+	    ok
     end.
 	
 -ifdef(debug).

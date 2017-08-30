@@ -3,7 +3,7 @@ BEGIN
 
 CallCentreServiceNotificationArg ::= SEQUENCE {
    scriptInformation      [0] ScriptToScriptInformation,
-   eventInformation       [1] IMPLICIT EventInformation OPTIONAL
+   eventInformation       [1] EventInformation OPTIONAL
     
    
 }

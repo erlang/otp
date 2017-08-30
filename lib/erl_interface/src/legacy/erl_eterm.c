@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2013. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -26,6 +27,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#if defined(HAVE_ISFINITE)
+#include <math.h>
+#endif
 
 #include "ei_locking.h"
 #include "ei_resolve.h"
@@ -124,6 +128,15 @@ ETERM *erl_mk_ulonglong (unsigned long long i)
 ETERM *erl_mk_float (double d)
 {
     ETERM *ep;
+
+#if defined(HAVE_ISFINITE)
+    /* Erlang does not handle Inf and NaN, so we return an error
+     * rather than letting the Erlang VM complain about a bad external
+     * term. */
+    if(!isfinite(d)) {
+        return NULL;
+    }
+#endif
 
     ep = erl_alloc_eterm(ERL_FLOAT);
     ERL_COUNT(ep) = 1;
@@ -272,12 +285,12 @@ ETERM *erl_mk_pid(const char *node,
 	erl_errno = ENOMEM;
 	return NULL;
     }
-    erl_mk_pid_helper(ep, number, serial, creation);
+    erl_mk_pid_helper(ep, number, serial, creation & 0x03);
     return ep;
 }
 
 void erl_mk_pid_helper(ETERM *ep, unsigned int number, 
-		       unsigned int serial, unsigned char creation)
+		       unsigned int serial, unsigned int creation)
 {
     ERL_PID_NUMBER(ep)   = number & 0x7fff; /* 15 bits */
     if (ei_internal_use_r9_pids_ports()) {
@@ -286,7 +299,7 @@ void erl_mk_pid_helper(ETERM *ep, unsigned int number,
     else {
 	ERL_PID_SERIAL(ep)   = serial & 0x1fff;  /* 13 bits */
     }
-    ERL_PID_CREATION(ep) = creation & 0x03; /* 2 bits */
+    ERL_PID_CREATION(ep) = creation; /* 32 bits */
 }
 
 /*
@@ -313,7 +326,7 @@ ETERM *erl_mk_port(const char *node,
     return ep;
 }
 
-void erl_mk_port_helper(ETERM* ep, unsigned number, unsigned char creation)
+void erl_mk_port_helper(ETERM* ep, unsigned number, unsigned int creation)
 {
     if (ei_internal_use_r9_pids_ports()) {
 	ERL_PORT_NUMBER(ep)   = number & 0x3ffff; /* 18 bits */
@@ -321,7 +334,7 @@ void erl_mk_port_helper(ETERM* ep, unsigned number, unsigned char creation)
     else {
 	ERL_PORT_NUMBER(ep)   = number & 0x0fffffff; /* 18 bits */
     }
-    ERL_PORT_CREATION(ep) = creation & 0x03; /* 2 bits */
+    ERL_PORT_CREATION(ep) = creation; /* 32 bits */
 }
 
 /*
@@ -331,7 +344,7 @@ ETERM *__erl_mk_reference (ETERM* t,
 			   const char *node,
 			   size_t len,
 			   unsigned int n[],
-			   unsigned char creation)
+			   unsigned int creation)
 {
     if (t == NULL) {
 	if (node == NULL) return NULL;
@@ -350,7 +363,7 @@ ETERM *__erl_mk_reference (ETERM* t,
     ERL_REF_NUMBERS(t)[0]   = n[0] & 0x3ffff; /* 18 bits */
     ERL_REF_NUMBERS(t)[1]   = n[1];
     ERL_REF_NUMBERS(t)[2]   = n[2];
-    ERL_REF_CREATION(t) = creation & 0x03; /* 2 bits */
+    ERL_REF_CREATION(t) = creation; /* 32 bits */
 
     return t;
 }
@@ -686,7 +699,7 @@ int erl_length(const ETERM *ep)
     return n;
 }
 
-
+
 /***********************************************************************
  * I o l i s t   f u n c t i o n s
  *

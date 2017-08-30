@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -46,7 +47,7 @@
 -spec parse(File, Opts)
    -> {ok, orddict:orddict()}
     | {error, term()}
- when File :: {path, string()}
+ when File :: {path, file:name_all()}
             | iolist()
             | binary(),
       Opts :: list().
@@ -155,6 +156,8 @@ fmt(grouped_avp_has_wrong_type) ->
     "Grouped AVP ~s at line ~p defined with type ~s at line ~p";
 fmt(grouped_avp_not_defined) ->
     "Grouped AVP ~s on line ~p not defined in @avp_types";
+fmt(grouped_avp_not_grouped) ->
+    "Grouped AVP ~s on line ~p not defined in @grouped";
 fmt(grouped_vendor_id_without_flag) ->
     "Grouped AVP ~s at line ~p has vendor id "
     "but definition at line ~p does not specify V flag";
@@ -264,6 +267,9 @@ io(K, Id)
 
 io(vendor = K, {Id, Name}) ->
     [?NL, section(K) | [[?SP, tok(X)] || X <- [Id, Name]]];
+
+io(_, []) ->
+    [];
 
 io(avp_types = K, Body) ->
     [?NL, ?NL, section(K), ?NL, [body(K,A) || A <- Body]];
@@ -398,9 +404,9 @@ read(File) ->
     {ok, iolist_to_binary([File])}.
 
 make_dict(Parse, Opts) ->
-    make_orddict(pass4(pass3(pass2(pass1(reset(make_dict(Parse),
-                                               Opts))),
-                             Opts))).
+    Dict = pass3(pass2(pass1(reset(make_dict(Parse), Opts))), Opts),
+    ok = examine(Dict),
+    make_orddict(Dict).
 
 %% make_orddict/1
 
@@ -726,8 +732,8 @@ no_messages_without_id(Dict) ->
 
 %% explode/4
 %%
-%% {avp_vendor_id, AvpName}                 -> [Lineno, Id::integer()]
-%% {custom_types|codecs|inherits,  AvpName} -> [Lineno, Mod::string()]
+%% {avp_vendor_id, AvpName}    -> [Lineno, Id::integer()]
+%% {custom|inherits,  AvpName} -> [Lineno, Mod::string()]
 
 explode({_, Line, AvpName}, Dict, {_, _, X} = T, K) ->
     true = K /= avp_vendor_id orelse is_uint32(T, [K]),
@@ -1089,7 +1095,7 @@ explode_avps([{_, Line, Name} | Toks], Dict) ->
     Vid = avp_vendor_id(Flags, Name, Line, Dict),
 
     %% An AVP is uniquely defined by its AVP code and vendor id (if any).
-    %% Ensure there are no duplicate.
+    %% Ensure there are no duplicates.
     store_new({avp_types, {Code, Vid}},
               [Line, Name],
               Dict,
@@ -1165,7 +1171,7 @@ import_avps(Dict, Opts) ->
     Import = inherit(Dict, Opts),
     report(imported, Import),
 
-    %% pass4/1 tests that all referenced AVP's are either defined
+    %% examine/1 tests that all referenced AVP's are either defined
     %% or imported.
 
     dict:store(import_avps,
@@ -1273,21 +1279,21 @@ dict(Mod) ->
     end.
 
 %% ===========================================================================
-%% pass4/1
+%% examine/1
 %%
 %% Sanity checks.
 
-pass4(Dict) ->
-    dict:fold(fun(K, V, _) -> p4(K, V, Dict) end, ok, Dict),
-    Dict.
+examine(Dict) ->
+    dict:fold(fun(K, V, _) -> x(K, V, Dict) end, ok, Dict),
+    ok.
 
 %% Ensure enum AVP's have type Enumerated.
-p4({enum, Name}, [Line | _], Dict)
+x({enum, Name}, [Line | _], Dict)
   when is_list(Name) ->
     true = is_enumerated_avp(Name, Dict, Line);
 
 %% Ensure all referenced AVP's are either defined locally or imported.
-p4({K, {Name, AvpName}}, [Line | _], Dict)
+x({K, {Name, AvpName}}, [Line | _], Dict)
   when (K == grouped orelse K == messages),
        is_list(Name),
        is_list(AvpName),
@@ -1295,13 +1301,21 @@ p4({K, {Name, AvpName}}, [Line | _], Dict)
     true = avp_is_defined(AvpName, Dict, Line);
 
 %% Ditto.
-p4({K, AvpName}, [Line | _], Dict)
+x({K, AvpName}, [Line | _], Dict)
   when K == avp_vendor_id;
-       K == custom_types;
-       K == codecs ->
+       K == custom ->
     true = avp_is_defined(AvpName, Dict, Line);
 
-p4(_, _, _) ->
+%% Ensure that all local AVP's of type Grouped are also present in @grouped.
+x({avp_types, Name}, [Line | Toks], Dict)
+  when 0 < Line, is_list(Name) ->
+    [{number, _, _Code}, {word, _, Type}, {word, _, _Flags}] = Toks,
+    "Grouped" == Type
+        andalso error == dict:find({grouped, Name}, Dict)
+        andalso ?RETURN(grouped_avp_not_grouped, [Name, Line]),
+    ok;
+
+x(_, _, _) ->
     ok.
 
 %% has_enumerated_type/3

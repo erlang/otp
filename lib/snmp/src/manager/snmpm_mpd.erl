@@ -1,18 +1,19 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% 
@@ -21,7 +22,7 @@
 
 -export([init/1, 
 
-	 process_msg/7,
+	 process_msg/7, process_msg/6,
 	 generate_msg/5, generate_response_msg/4,
 
 	 next_msg_id/0, 
@@ -67,8 +68,9 @@
 %%%-----------------------------------------------------------------
 init(Vsns) ->
     ?vdebug("init -> entry with ~p", [Vsns]),
-    {A,B,C} = erlang:now(),
-    random:seed(A,B,C),
+    random:seed(erlang:phash2([node()]),
+                erlang:monotonic_time(),
+                erlang:unique_integer()),
     snmpm_config:cre_counter(msg_id, random:uniform(2147483647)),
     snmpm_config:cre_counter(req_id, random:uniform(2147483647)),
     init_counters(),
@@ -92,8 +94,10 @@ reset(#state{v3 = V3}) ->
 %% Purpose: This is the main Message Dispatching function. (see
 %%          section 4.2.1 in rfc2272)
 %%-----------------------------------------------------------------
-process_msg(Msg, Domain, Addr, Port, State, NoteStore, Logger) ->
+process_msg(Msg, Domain, Ip, Port, State, NoteStore, Logger) ->
+    process_msg(Msg, Domain, {Ip, Port}, State, NoteStore, Logger).
 
+process_msg(Msg, Domain, Addr, State, NoteStore, Logger) ->
     inc(snmpInPkts),
 
     case (catch snmp_pdus:dec_message_only(binary_to_list(Msg))) of
@@ -102,17 +106,17 @@ process_msg(Msg, Domain, Addr, Port, State, NoteStore, Logger) ->
 	#message{version = 'version-1', vsn_hdr = Community, data = Data} 
 	  when State#state.v1 =:= true ->
 	    HS = ?empty_msg_size + length(Community),
-	    process_v1_v2c_msg('version-1', NoteStore, Msg, 
-			       Domain, Addr, Port, 
-			       Community, Data, HS, Logger);
+	    process_v1_v2c_msg(
+	      'version-1', NoteStore, Msg, Domain, Addr,
+	      Community, Data, HS, Logger);
 
 	%% Version 2
 	#message{version = 'version-2', vsn_hdr = Community, data = Data}
 	  when State#state.v2c =:= true ->
 	    HS = ?empty_msg_size + length(Community),
-	    process_v1_v2c_msg('version-2', NoteStore, Msg, 
-			       Domain, Addr, Port, 
-			       Community, Data, HS, Logger);
+	    process_v1_v2c_msg(
+	      'version-2', NoteStore, Msg, Domain, Addr,
+	      Community, Data, HS, Logger);
 	     
 	%% Version 3
 	#message{version = 'version-3', vsn_hdr = H, data = Data}
@@ -122,7 +126,7 @@ process_msg(Msg, Domain, Addr, Port, State, NoteStore, Logger) ->
 		"~n   msgFlags:    ~p"
 		"~n   msgSecModel: ~p",
 		[H#v3_hdr.msgID,H#v3_hdr.msgFlags,H#v3_hdr.msgSecurityModel]),
-	    process_v3_msg(NoteStore, Msg, H, Data, Addr, Port, Logger);
+	    process_v3_msg(NoteStore, Msg, H, Data, Addr, Logger);
 
 	%% Crap
 	{'EXIT', {bad_version, Vsn}} ->
@@ -148,32 +152,27 @@ process_msg(Msg, Domain, Addr, Port, State, NoteStore, Logger) ->
 %%-----------------------------------------------------------------
 %% Handles a Community based message (v1 or v2c).
 %%-----------------------------------------------------------------
-process_v1_v2c_msg(Vsn, _NoteStore, Msg, Domain, 
-		   Addr, Port, 
-		   Community, Data, HS, Log) ->
+process_v1_v2c_msg(
+  Vsn, _NoteStore, Msg, Domain, Addr, Community, Data, HS, Log) ->
 
     ?vdebug("process_v1_v2c_msg -> entry with"
 	    "~n   Vsn:       ~p"
 	    "~n   Domain:    ~p"
 	    "~n   Addr:      ~p"
-	    "~n   Port:      ~p"
 	    "~n   Community: ~p"
-	    "~n   HS:        ~p", [Vsn, Domain, Addr, Port, Community, HS]),
-    
+	    "~n   HS:        ~p", [Vsn, Domain, Addr, Community, HS]),
+
     {TDomain, TAddress} = 
 	try 
-	    begin
-		TD = snmp_conf:mk_tdomain(Domain), 
-		TA = snmp_conf:mk_taddress(Domain, Addr, Port),
-		{TD, TA}
-	    end
+	    {snmp_conf:mk_tdomain(Domain),
+	     snmp_conf:mk_taddress(Domain, Addr)}
 	catch 
 	    throw:{error, TReason} ->
 		throw({discarded, {badarg, Domain, TReason}})
 	end,
 
     Max      = get_max_message_size(),
-    AgentMax = get_agent_max_message_size(Addr, Port),
+    AgentMax = get_agent_max_message_size(Domain, Addr),
     PduMS    = pdu_ms(Max, AgentMax, HS),
 
     ?vtrace("process_v1_v2c_msg -> PduMS: ~p", [PduMS]),
@@ -213,13 +212,12 @@ sec_model('version-2') -> ?SEC_V2C.
 %% Handles a SNMPv3 Message, following the procedures in rfc2272,
 %% section 4.2 and 7.2
 %%-----------------------------------------------------------------
-process_v3_msg(NoteStore, Msg, Hdr, Data, Addr, Port, Log) ->
+process_v3_msg(NoteStore, Msg, Hdr, Data, Address, Log) ->
+    ?vdebug(
+       "process_v3_msg -> entry with~n"
+       "   Hdr:     ~p~n"
+       "   Address: ~p", [Hdr, Address]),
 
-    ?vdebug("process_v3_msg -> entry with"
-	    "~n   Hdr:  ~p"
-	    "~n   Addr: ~p"
-	    "~n   Port: ~p", [Hdr, Addr, Port]),
-    
     %% 7.2.3
     #v3_hdr{msgID                 = MsgID, 
 	    msgMaxSize            = MMS, 
@@ -352,8 +350,8 @@ process_v3_msg(NoteStore, Msg, Hdr, Data, Addr, Port, Log) ->
 		    %% 4.2.2.1.1 - we don't handle proxys yet => we only 
 		    %% handle CtxEngineID to ourselves
 		    %% Check that we actually know of an agent with this
-		    %% CtxEngineID and Addr/Port
-		    case is_known_engine_id(CtxEngineID, Addr, Port) of
+		    %% CtxEngineID and Address
+		    case is_known_engine_id(CtxEngineID, Address) of
 			true ->
 			    ?vtrace("and the agent EngineID (~p) "
 				    "is know to us", [CtxEngineID]),
@@ -866,14 +864,23 @@ get_max_message_size() ->
     end.
 
 %% The the MMS of the agent
-get_agent_max_message_size(Addr, Port) ->
-    case snmpm_config:get_agent_engine_max_message_size(Addr, Port) of
+get_agent_max_message_size(Domain, Addr) ->
+    case snmpm_config:get_agent_engine_max_message_size(Domain, Addr) of
 	{ok, MMS} ->
 	    MMS;
 	_Error ->
-	    ?vlog("unknown agent: ~w:~w", [Addr, Port]),
+	    ?vlog("unknown agent: ~s",
+		  [snmp_conf:mk_addr_string({Domain, Addr})]),
 	    get_max_message_size()
     end.
+%% get_agent_max_message_size(Addr, Port) ->
+%%     case snmpm_config:get_agent_engine_max_message_size(Addr, Port) of
+%% 	{ok, MMS} ->
+%% 	    MMS;
+%% 	_Error ->
+%% 	    ?vlog("unknown agent: ~w:~w", [Addr, Port]),
+%% 	    get_max_message_size()
+%%     end.
 
 %% Get "our" (manager) engine id
 get_engine_id() ->
@@ -888,16 +895,8 @@ get_engine_id() ->
 get_agent_engine_id(Name) ->
     snmpm_config:get_agent_engine_id(Name).
 
-is_known_engine_id(EngineID, Addr, Port) ->
+is_known_engine_id(EngineID, {Addr, Port}) ->
     snmpm_config:is_known_engine_id(EngineID, Addr, Port).
-
-% get_agent_engine_id(Addr, Port) ->
-%     case snmpm_config:get_agent_engine_id(Addr, Port) of
-% 	{ok, Id} ->
-% 	    Id;
-% 	_Error ->
-% 	    ""
-%     end.
 
 
 %%-----------------------------------------------------------------

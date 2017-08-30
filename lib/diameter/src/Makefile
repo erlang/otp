@@ -1,18 +1,19 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2013. All Rights Reserved.
+# Copyright Ericsson AB 2010-2016. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 
@@ -41,7 +42,7 @@ INCDIR = ../include
 ABS_EBIN := $(shell cd $(EBIN) && pwd)
 
 # Where make should look for dependencies.
-VPATH = .:base:compiler:transport:gen
+VPATH = .:base:compiler:transport:gen:info
 
 # ----------------------------------------------------
 # Target specs
@@ -55,13 +56,13 @@ DICT_ERLS    = $(DICT_MODULES:%=%.erl)
 DICT_HRLS    = $(DICT_MODULES:%=%.hrl)
 
 # Modules to build before compiling dictionaries.
-COMPILER_MODULES = $(notdir $(filter compiler/%, $(CT_MODULES))) \
-                   $(DICT_YRL)
+COMPILER_MODULES = $(notdir $(CT_MODULES)) $(DICT_YRL)
 
 # All handwritten modules from which a depend.mk is generated.
 MODULES = \
 	$(RT_MODULES) \
-	$(CT_MODULES)
+	$(CT_MODULES) \
+	$(INFO_MODULES)
 
 # Modules whose names are inserted into the app file.
 APP_MODULES = \
@@ -72,6 +73,7 @@ APP_MODULES = \
 TARGET_MODULES = \
 	$(APP_MODULES) \
 	$(CT_MODULES) \
+	$(INFO_MODULES) \
 	$(DICT_YRL:%=gen/%)
 
 # What to build for the 'opt' target.
@@ -147,14 +149,19 @@ gen/$(DICT_YRL).erl: compiler/$(DICT_YRL).yrl
 	$(ERLC) -Werror -o $(@D) $<
 
 # Generate the app file.
-$(APP_TARGET): $(APP_SRC) ../vsn.mk modules.mk
+$(APP_TARGET): $(APP_SRC) ../vsn.mk modules.mk app.sed
 	$(gen_verbose) \
 	M=`echo $(notdir $(APP_MODULES)) | tr ' ' ,`; \
+	C=`echo $(COMPILER_MODULES) | tr ' ' ,`; \
+	I=`echo $(notdir $(INFO_MODULES)) | tr ' ' ,`; \
 	R=`echo $(REGISTERED) | tr ' ' ,`; \
 	sed -e 's;%VSN%;$(VSN);' \
 	    -e "s;%MODULES%;$$M;" \
+	    -e "s;%COMPILER%;$$C;" \
+	    -e "s;%INFO%;$$I;" \
 	    -e "s;%REGISTERED%;$$R;" \
-	  $< > $@
+	  $< \
+	| sed -f app.sed > $@
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	$(vsn_verbose) \
@@ -176,6 +183,8 @@ info:
 	@$(call list,RT_MODULES)
 	@echo
 	@$(call list,CT_MODULES)
+	@echo
+	@$(call list,INFO_MODULES)
 	@echo
 	@$(call list,TARGET_MODULES)
 	@echo
@@ -216,7 +225,7 @@ dialyze: opt $(PLT)
 	         -Wno_improper_lists \
 	         $(EBIN)/diameter_gen_base_rfc3588.$(EMULATOR) \
 	         $(patsubst %, $(EBIN)/%.$(EMULATOR), \
-                          $(notdir $(RT_MODULES) $(CT_MODULES)))
+	                $(notdir $(RT_MODULES) $(CT_MODULES) $(INFO_MODULES)))
 # Omit all but the common dictionary module since these
 # (diameter_gen_relay in particular) generate warning depending on how
 # much of the included diameter_gen.hrl they use.

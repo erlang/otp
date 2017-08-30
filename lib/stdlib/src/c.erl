@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -27,7 +28,7 @@
 	 lc_batch/0, lc_batch/1,
 	 i/3,pid/3,m/0,m/1,
 	 bt/1, q/0,
-	 erlangrc/0,erlangrc/1,bi/1, flush/0, regs/0,
+	 erlangrc/0,erlangrc/1,bi/1, flush/0, regs/0, uptime/0,
 	 nregs/0,pwd/0,ls/0,ls/1,cd/1,memory/1,memory/0, xm/1]).
 
 -export([display_info/1]).
@@ -65,6 +66,7 @@ help() ->
 		   "q()        -- quit - shorthand for init:stop()\n"
 		   "regs()     -- information about registered processes\n"
 		   "nregs()    -- information about all registered processes\n"
+		   "uptime()   -- print node uptime\n"
 		   "xm(M)      -- cross reference check a module\n"
 		   "y(File)    -- generate a Yecc parser\n">>).
 
@@ -330,12 +332,17 @@ choice(F) ->
     end.
 
 get_line(P, Default) ->
-    case io:get_line(P) of
+    case line_string(io:get_line(P)) of
 	"\n" ->
 	    Default;
 	L ->
 	    L
     end.
+
+%% If the standard input is set to binary mode
+%% convert it to a list so we can properly match.
+line_string(Binary) when is_binary(Binary) -> unicode:characters_to_list(Binary);
+line_string(Other) -> Other.
 
 mfa_string(Fun) when is_function(Fun) ->
     {module,M} = erlang:fun_info(Fun, module),
@@ -450,7 +457,7 @@ m() ->
     foreach(fun ({Mod,File}) -> mformat(Mod, File) end, sort(code:all_loaded())).
 
 mformat(A1, A2) ->
-    format("~-20s  ~s\n", [A1,A2]).
+    format("~-20s  ~ts\n", [A1,A2]).
 
 %% erlangrc(Home)
 %%  Try to run a ".erlang" file, first in the current directory
@@ -504,9 +511,12 @@ m(M) ->
     {exports,E} = lists:keyfind(exports, 1, L),
     Time = get_compile_time(L),
     COpts = get_compile_options(L),
-    format("Module ~w compiled: ",[M]), print_time(Time),
-    format("Compiler options:  ~p~n", [COpts]),
+    format("Module: ~w~n", [M]),
+    print_md5(L),
+    format("Compiled: "),
+    print_time(Time),
     print_object_file(M),
+    format("Compiler options:  ~p~n", [COpts]),
     format("Exports: ~n",[]), print_exports(keysort(1, E)).
 
 print_object_file(Mod) ->
@@ -515,6 +525,12 @@ print_object_file(Mod) ->
 	    format("Object file: ~ts\n", [File]);
 	_ ->
 	    ignore
+    end.
+
+print_md5(L) ->
+    case lists:keyfind(md5, 1, L) of
+        {md5,<<MD5:128>>} -> io:format("MD5: ~.16b~n",[MD5]);
+        _ -> ok
     end.
 
 get_compile_time(L) ->
@@ -564,8 +580,8 @@ split_print_exports([{F1, A1}|T1], [{F2, A2} | T2]) ->
 split_print_exports([], []) -> ok.
 
 print_time({Year,Month,Day,Hour,Min,_Secs}) ->
-    format("Date: ~s ~w ~w, ", [month(Month),Day,Year]),
-    format("Time: ~.2.0w.~.2.0w~n", [Hour,Min]);
+    format("~s ~w ~w, ", [month(Month),Day,Year]),
+    format("~.2.0w:~.2.0w~n", [Hour,Min]);
 print_time(notime) ->
     format("No compile time info available~n",[]).
 
@@ -694,7 +710,7 @@ pwd() ->
       Dir :: file:name().
 
 cd(Dir) ->
-    file:set_cwd(Dir),
+    _ = file:set_cwd(Dir),
     pwd().
 
 %% ls()
@@ -716,7 +732,7 @@ ls(Dir) ->
 	{error, enotdir} ->
 	    ls_print([Dir]);
 	{error, Error} ->
-	    format("~s\n", [file:format_error(Error)])
+	    format("~ts\n", [file:format_error(Error)])
     end.
 
 ls_print([]) -> ok;
@@ -758,6 +774,26 @@ memory() -> erlang:memory().
                Size :: non_neg_integer().
 
 memory(TypeSpec) -> erlang:memory(TypeSpec).
+
+%%
+%% uptime/0
+%%
+
+-spec uptime() -> 'ok'.
+
+uptime() ->
+    io:format("~s~n", [uptime(get_uptime())]).
+
+uptime({D, {H, M, S}}) ->
+    lists:flatten(
+      [[ io_lib:format("~p days, ", [D]) || D > 0 ],
+       [ io_lib:format("~p hours, ", [H]) || D+H > 0 ],
+       [ io_lib:format("~p minutes and ", [M]) || D+H+M > 0 ],
+       io_lib:format("~p seconds", [S])]).
+
+get_uptime() ->
+    {UpTime, _} = erlang:statistics(wall_clock),
+    calendar:seconds_to_daystime(UpTime div 1000).
 
 %%
 %% Cross Reference Check

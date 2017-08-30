@@ -2,19 +2,12 @@
 <!-- EDoc DTD Version 0.3 -->
 
 <!ELEMENT overview (title, description?, author*, copyright?, version?,
-                    since?, see*, reference*, todo?, packages, modules)>
+                    since?, see*, reference*, todo?, modules)>
 <!ATTLIST overview
   root CDATA #IMPLIED
   encoding CDATA #IMPLIED>
 
 <!ELEMENT title (#PCDATA)>
-
-<!ELEMENT package (description?, author*, copyright?, version?,
-		   since?, deprecated?, see*, reference*, todo?,
-		   modules)>
-<!ATTLIST package
-  name CDATA #REQUIRED
-  root CDATA #IMPLIED>
 
 <!ELEMENT modules (module+)>
 
@@ -110,7 +103,7 @@
 <!ATTLIST type name CDATA #IMPLIED>
 
 <!ELEMENT union (typevar | atom | integer | float | nil | list | tuple |
-                 fun | record | abstype)+>
+                 fun | record | map | abstype)+>
 
 <!ELEMENT typevar EMPTY>
 <!ATTLIST typevar name CDATA #REQUIRED>
@@ -135,6 +128,10 @@
 <!ELEMENT record (atom, field*)>
 
 <!ELEMENT field (atom, type)>
+
+<!ELEMENT map (map_field)*>
+
+<!ELEMENT map_field (type, type)>
 
 <!ELEMENT abstype (erlangName, type*)>
 <!ATTLIST abstype

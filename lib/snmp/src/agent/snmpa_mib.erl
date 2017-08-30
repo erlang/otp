@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -26,7 +27,7 @@
 %% External exports
 -export([start_link/3, stop/1, 
 	 lookup/2, next/3, which_mib/2, which_mibs/1, whereis_mib/2, 
-	 load_mibs/2, unload_mibs/2, 
+	 load_mibs/3, unload_mibs/3, 
 	 register_subagent/3, unregister_subagent/2, info/1, info/2, 
 	 verbosity/2, dump/1, dump/2,
 	 backup/2,
@@ -38,6 +39,10 @@
 	 update_cache_age/2,
 	 which_cache_size/1
 	]).
+
+%% <BACKWARD-COMPAT>
+-export([load_mibs/2, unload_mibs/2]).
+%% </BACKWARD-COMPAT>
 
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
@@ -182,19 +187,32 @@ next(MibServer, Oid, MibView) ->
 %%----------------------------------------------------------------------
 %% Purpose: Loads mibs into the mib process.
 %% Args: Mibs is a list of Filenames (compiled mibs).
+%%       Force is a boolean
 %% Returns: ok | {error, Reason}
 %%----------------------------------------------------------------------
+
+%% <BACKWARD-COMPAT>
 load_mibs(MibServer, Mibs) ->
-    call(MibServer, {load_mibs, Mibs}).
+    load_mibs(MibServer, Mibs, false).
+%% </BACKWARD-COMPAT>
+
+load_mibs(MibServer, Mibs, Force) ->
+    call(MibServer, {load_mibs, Mibs, Force}).
 
 
 %%----------------------------------------------------------------------
 %% Purpose: Loads mibs into the mib process.
 %% Args: Mibs is a list of Filenames (compiled mibs).
+%%       Force is a boolean
 %% Returns: ok | {error, Reason}
 %%----------------------------------------------------------------------
+%% <BACKWARD-COMPAT>
 unload_mibs(MibServer, Mibs) ->
-    call(MibServer, {unload_mibs, Mibs}).
+    unload_mibs(MibServer, Mibs, false).
+%% </BACKWARD-COMPAT>
+
+unload_mibs(MibServer, Mibs, Force) ->
+    call(MibServer, {unload_mibs, Mibs, Force}).
 
 
 %%----------------------------------------------------------------------
@@ -323,10 +341,6 @@ do_init(Prio, Mibs, Opts) ->
 %% Returns: {ok, NewMibData} | {'aborted at', Mib, NewData, Reason}
 %% Args: Operation is load_mib | unload_mib.
 %%----------------------------------------------------------------------
-mib_operations(Mod, Operation, Mibs, Data, MeOverride, TeOverride) ->
-    mib_operations(Mod, Operation, Mibs, Data, MeOverride, TeOverride, false). 
-
-
 mib_operations(_Mod, _Operation, [], Data, _MeOverride, _TeOverride, _Force) ->
     {ok, Data};
 mib_operations(Mod, Operation, [Mib|Mibs], Data0, MeOverride, TeOverride, Force) ->
@@ -451,18 +465,23 @@ handle_call({next, Oid, MibView}, _From,
     ?vdebug("next -> Reply: ~p", [Reply]), 
     {reply, Reply, NewState};
 
-handle_call({load_mibs, Mibs}, _From, 
+%% <BACKWARD-COMPAT>
+handle_call({load_mibs, Mibs}, From, State) ->
+    handle_call({load_mibs, Mibs, false}, From, State);
+%% </BACKWARD-COMPAT>
+
+handle_call({load_mibs, Mibs, Force}, _From, 
 	    #state{data         = Data, 
 		   teo          = TeOverride, 
 		   meo          = MeOverride,
 		   cache        = Cache, 
 		   data_mod     = Mod} = State) ->
-    ?vlog("load mibs ~p",[Mibs]),    
+    ?vlog("[~w] load mibs ~p", [Force, Mibs]),    
     %% Invalidate cache
     NewCache = maybe_invalidate_cache(Cache),
     {NData, Reply} = 
 	case (catch mib_operations(Mod, load_mib, Mibs, Data,
-				   MeOverride, TeOverride)) of
+				   MeOverride, TeOverride, Force)) of
 	    {'aborted at', Mib, NewData, Reason} ->
 		?vlog("aborted at ~p for reason ~p",[Mib,Reason]),    
 		{NewData, {error, {'load aborted at', Mib, Reason}}};
@@ -472,19 +491,24 @@ handle_call({load_mibs, Mibs}, _From,
     Mod:sync(NData),
     {reply, Reply, State#state{data = NData, cache = NewCache}};
 
-handle_call({unload_mibs, Mibs}, _From, 
+%% <BACKWARD-COMPAT>
+handle_call({unload_mibs, Mibs}, From, State) ->
+    handle_call({unload_mibs, Mibs, false}, From, State);
+%% </BACKWARD-COMPAT>
+
+handle_call({unload_mibs, Mibs, Force}, _From, 
 	    #state{data         = Data, 
 		   teo          = TeOverride, 
 		   meo          = MeOverride,
 		   cache        = Cache, 
 		   data_mod     = Mod} = State) ->
-    ?vlog("unload mibs ~p",[Mibs]),    
+    ?vlog("[~w] unload mibs ~p", [Force, Mibs]),    
     %% Invalidate cache
     NewCache = maybe_invalidate_cache(Cache),
     %% Unload mib(s)
     {NData, Reply} = 
 	case (catch mib_operations(Mod, unload_mib, Mibs, Data,
-				   MeOverride, TeOverride)) of
+				   MeOverride, TeOverride, Force)) of
 	    {'aborted at', Mib, NewData, Reason} ->
 		?vlog("aborted at ~p for reason ~p", [Mib,Reason]),    
 		{NewData, {error, {'unload aborted at', Mib, Reason}}};

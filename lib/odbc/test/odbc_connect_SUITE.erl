@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -25,7 +26,6 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
 -include("odbc_test.hrl").
 
 -define(MAX_SEQ_TIMEOUTS, 10).
@@ -47,7 +47,7 @@ all() ->
     case odbc_test_lib:odbc_check() of
 	ok ->
 	    [not_exist_db, commit, rollback, not_explicit_commit,
-	     no_c_node, port_dies, control_process_dies,
+	     no_c_executable, port_dies, control_process_dies,
 	     {group, client_dies}, connect_timeout, timeout,
 	     many_timeouts, timeout_reset, disconnect_on_timeout,
 	     connection_closed, disable_scrollable_cursors,
@@ -77,6 +77,8 @@ end_per_group(_GroupName, Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) when is_list(Config) ->
+    file:write_file(filename:join([proplists:get_value(priv_dir,Config),
+				   "..","..","..","ignore_core_files"]),""),
     case odbc_test_lib:skip() of
 	true ->
 	    {skip, "ODBC not supported"};
@@ -117,7 +119,16 @@ end_per_suite(_Config) ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
+init_per_testcase(connect_port_timeout, Config) ->
+    odbc:stop(),
+    application:load(odbc),
+    application:set_env(odbc, port_timeout, 0),
+    odbc:start(),
+    init_per_testcase_common(Config);
 init_per_testcase(_TestCase, Config) ->
+    init_per_testcase_common(Config).
+
+init_per_testcase_common(Config) ->
     test_server:format("ODBCINI = ~p~n", [os:getenv("ODBCINI")]),
     Dog = test_server:timetrap(?default_timeout),
     Temp = lists:keydelete(connection_ref, 1, Config),
@@ -132,7 +143,16 @@ init_per_testcase(_TestCase, Config) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
+
+end_per_testcase(connect_port_timeout, Config) ->
+    application:unset_env(odbc, port_timeout),
+    odbc:stop(),
+    odbc:start(),
+    end_per_testcase_common(Config);
 end_per_testcase(_TestCase, Config) ->
+    end_per_testcase_common(Config).
+
+end_per_testcase_common(Config) ->
     Table = ?config(tableName, Config),
     {ok, Ref} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
     Result = odbc:sql_query(Ref, "DROP TABLE " ++ Table),
@@ -246,28 +266,31 @@ not_exist_db(_Config)  ->
     test_server:sleep(100).
 
 %%-------------------------------------------------------------------------
-no_c_node(doc) ->
+no_c_executable(doc) ->
     "Test what happens if the port-program can not be found";
-no_c_node(suite) -> [];
-no_c_node(_Config) ->
+no_c_executable(suite) -> [];
+no_c_executable(_Config) ->
     process_flag(trap_exit, true),
     Dir = filename:nativename(filename:join(code:priv_dir(odbc), 
 					    "bin")),
     FileName1 = filename:nativename(os:find_executable("odbcserver", 
 						       Dir)),
     FileName2 = filename:nativename(filename:join(Dir, "odbcsrv")),
-    ok = file:rename(FileName1, FileName2),
-    Result = 
-	case catch odbc:connect(?RDBMS:connection_string(),
-				odbc_test_lib:platform_options()) of
-	    {error, port_program_executable_not_found} ->
-		ok;
-	    Else ->
-		Else
-	end,
-
-    ok = file:rename(FileName2, FileName1), 
-    ok = Result.
+    case file:rename(FileName1, FileName2) of
+	ok ->
+	    Result = 
+		case catch odbc:connect(?RDBMS:connection_string(),
+					odbc_test_lib:platform_options()) of
+		    {error, port_program_executable_not_found} ->
+			ok;
+		    Else ->
+			Else
+		end,
+	    ok = file:rename(FileName2, FileName1), 
+	    ok = Result;
+	_ ->
+	    {skip, "File permission issues"}
+    end.
 %%------------------------------------------------------------------------
 
 port_dies(doc) ->
@@ -417,6 +440,18 @@ connect_timeout(Config) when is_list(Config) ->
     %% Need to return ok here "{'EXIT',timeout} return value" will
     %% be interpreted as that the testcase has timed out.
     ok.
+
+%%-------------------------------------------------------------------------
+connect_port_timeout(doc) ->
+    ["Test the timeout for the port program to connect back to the odbc "
+     "application within the connect function."];
+connect_port_timeout(suite) -> [];
+connect_port_timeout(Config) when is_list(Config) ->
+    %% Application environment var 'port_timeout' has been set to 0 by
+    %% init_per_testcase/2.
+    {error,timeout} = odbc:connect(?RDBMS:connection_string(),
+                                   odbc_test_lib:platform_options()).
+
 %%-------------------------------------------------------------------------
 timeout(doc) ->
     ["Test that timeouts don't cause unwanted behavior sush as receiving"

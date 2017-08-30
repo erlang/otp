@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 -module(observer_sys_wx).
@@ -37,7 +38,6 @@
 	 parent_notebook,
 	 panel, sizer,
 	 menubar,
-	 alloc,
 	 fields,
 	 timer}).
 
@@ -48,148 +48,88 @@ start_link(Notebook, Parent) ->
 
 init([Notebook, Parent]) ->
     SysInfo = observer_backend:sys_info(),
-    AllocInfo = proplists:get_value(alloc_info, SysInfo, []),
-    {Info, Stat} = info_fields(),
+    {Sys, Mem, Cpu, Stats} = info_fields(),
     Panel = wxPanel:new(Notebook),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
-    TopSizer = wxBoxSizer:new(?wxHORIZONTAL),
-    {FPanel0, _FSizer0, Fields0} =
-	observer_lib:display_info(Panel, observer_lib:fill_info(Info, SysInfo)),
-    {FPanel1, _FSizer1, Fields1} =
-	observer_lib:display_info(Panel, observer_lib:fill_info(Stat, SysInfo)),
-    wxSizer:add(TopSizer, FPanel0, [{flag, ?wxEXPAND}, {proportion, 1}]),
-    wxSizer:add(TopSizer, FPanel1, [{flag, ?wxEXPAND}, {proportion, 1}]),
+    HSizer0 = wxBoxSizer:new(?wxHORIZONTAL),
+    {FPanel0, _FSizer0, Fields0} = observer_lib:display_info(Panel, observer_lib:fill_info(Sys, SysInfo)),
+    {FPanel1, _FSizer1, Fields1} = observer_lib:display_info(Panel, observer_lib:fill_info(Mem, SysInfo)),
+    wxSizer:add(HSizer0, FPanel0, [{flag, ?wxEXPAND}, {proportion, 1}]),
+    wxSizer:add(HSizer0, FPanel1, [{flag, ?wxEXPAND}, {proportion, 1}]),
+
+    HSizer1 = wxBoxSizer:new(?wxHORIZONTAL),
+    {FPanel2, _FSizer2, Fields2} = observer_lib:display_info(Panel, observer_lib:fill_info(Cpu, SysInfo)),
+    {FPanel3, _FSizer3, Fields3} = observer_lib:display_info(Panel, observer_lib:fill_info(Stats, SysInfo)),
+    wxSizer:add(HSizer1, FPanel2, [{flag, ?wxEXPAND}, {proportion, 1}]),
+    wxSizer:add(HSizer1, FPanel3, [{flag, ?wxEXPAND}, {proportion, 1}]),
+
     BorderFlags = ?wxLEFT bor ?wxRIGHT,
-    MemoryInfo = create_mem_info(Panel, AllocInfo),
-    wxSizer:add(Sizer, TopSizer, [{flag, ?wxEXPAND bor BorderFlags bor ?wxTOP},
-				  {proportion, 0}, {border, 5}]),
-    wxSizer:add(Sizer, MemoryInfo, [{flag, ?wxEXPAND bor BorderFlags bor ?wxBOTTOM},
-				    {proportion, 1}, {border, 5}]),
+    wxSizer:add(Sizer, HSizer0, [{flag, ?wxEXPAND bor BorderFlags bor ?wxTOP},
+				 {proportion, 0}, {border, 5}]),
+    wxSizer:add(Sizer, HSizer1, [{flag, ?wxEXPAND bor BorderFlags bor ?wxBOTTOM},
+				 {proportion, 0}, {border, 5}]),
     wxPanel:setSizer(Panel, Sizer),
     Timer = observer_lib:start_timer(10),
     {Panel, #sys_wx_state{parent=Parent,
 			  parent_notebook=Notebook,
-			  panel=Panel, sizer=Sizer, alloc=MemoryInfo,
-			  timer=Timer, fields=Fields0 ++ Fields1}}.
+			  panel=Panel, sizer=Sizer,
+			  timer=Timer, fields=Fields0 ++ Fields1++Fields2++Fields3}}.
 
 create_sys_menu(Parent) ->
     View = {"View", [#create_menu{id = ?ID_REFRESH, text = "Refresh\tCtrl-R"},
 		     #create_menu{id = ?ID_REFRESH_INTERVAL, text = "Refresh interval"}]},
     observer_wx:create_menus(Parent, [View]).
 
-update_syspage(#sys_wx_state{node = Node, fields=Fields, sizer=Sizer, alloc=AllocCtrl}) ->
+update_syspage(#sys_wx_state{node = undefined}) -> ignore;
+update_syspage(#sys_wx_state{node = Node, fields=Fields, sizer=Sizer}) ->
     SysInfo = observer_wx:try_rpc(Node, observer_backend, sys_info, []),
-    AllocInfo = proplists:get_value(alloc_info, SysInfo, []),
-    {Info, Stat} = info_fields(),
-    observer_lib:update_info(Fields, observer_lib:fill_info(Info, SysInfo) ++
-				 observer_lib:fill_info(Stat, SysInfo)),
-    update_alloc(AllocCtrl, AllocInfo),
+    {Sys, Mem, Cpu, Stats} = info_fields(),
+    observer_lib:update_info(Fields,
+			     observer_lib:fill_info(Sys, SysInfo) ++
+				 observer_lib:fill_info(Mem, SysInfo) ++
+				 observer_lib:fill_info(Cpu, SysInfo) ++
+				 observer_lib:fill_info(Stats, SysInfo)),
     wxSizer:layout(Sizer).
 
-create_mem_info(Panel, Fields) ->
-    Style = ?wxLC_REPORT bor ?wxLC_SINGLE_SEL bor ?wxLC_HRULES bor ?wxLC_VRULES,
-    Grid = wxListCtrl:new(Panel, [{style, Style}]),
-    Li = wxListItem:new(),
-    AddListEntry = fun({Name, Align, DefSize}, Col) ->
-			   wxListItem:setText(Li, Name),
-			   wxListItem:setAlign(Li, Align),
-			   wxListCtrl:insertColumn(Grid, Col, Li),
-			   wxListCtrl:setColumnWidth(Grid, Col, DefSize),
-			   Col + 1
-		   end,
-    ListItems = [{"Allocator Type",  ?wxLIST_FORMAT_LEFT,  200},
-		 {"Block size (kB)",  ?wxLIST_FORMAT_RIGHT, 150},
-		 {"Carrier size (kB)",?wxLIST_FORMAT_RIGHT, 150}],
-    lists:foldl(AddListEntry, 0, ListItems),
-    wxListItem:destroy(Li),
-    update_alloc(Grid, Fields),
-    Grid.
-
-update_alloc(Grid, AllocInfo) ->
-    Fields = alloc_info(AllocInfo, [], 0, 0, true),
-    wxListCtrl:deleteAllItems(Grid),
-    Update = fun({Name, BS, CS}, Row) ->
-		     wxListCtrl:insertItem(Grid, Row, ""),
-		     wxListCtrl:setItem(Grid, Row, 0, observer_lib:to_str(Name)),
-		     wxListCtrl:setItem(Grid, Row, 1, observer_lib:to_str(BS div 1024)),
-		     wxListCtrl:setItem(Grid, Row, 2, observer_lib:to_str(CS div 1024)),
-		     Row + 1
-	     end,
-    lists:foldl(Update, 0, Fields),
-    Fields.
-
-alloc_info([{Type,Instances}|Allocators],TypeAcc,TotalBS,TotalCS,IncludeTotal) ->
-    {BS,CS,NewTotalBS,NewTotalCS,NewIncludeTotal} =
-	sum_alloc_instances(Instances,0,0,TotalBS,TotalCS),
-    alloc_info(Allocators,[{Type,BS,CS}|TypeAcc],NewTotalBS,NewTotalCS,
-	       IncludeTotal andalso NewIncludeTotal);
-alloc_info([],TypeAcc,TotalBS,TotalCS,IncludeTotal) ->
-    Types = [X || X={_,BS,CS} <- TypeAcc, (BS>0 orelse CS>0)],
-    case IncludeTotal of
-	true ->
-	    [{total,TotalBS,TotalCS} | lists:reverse(Types)];
-	false ->
-	    lists:reverse(Types)
-    end.
-
-sum_alloc_instances(false,BS,CS,TotalBS,TotalCS) ->
-    {BS,CS,TotalBS,TotalCS,false};
-sum_alloc_instances([{_,_,Data}|Instances],BS,CS,TotalBS,TotalCS) ->
-    {NewBS,NewCS,NewTotalBS,NewTotalCS} =
-	sum_alloc_one_instance(Data,BS,CS,TotalBS,TotalCS),
-    sum_alloc_instances(Instances,NewBS,NewCS,NewTotalBS,NewTotalCS);
-sum_alloc_instances([],BS,CS,TotalBS,TotalCS) ->
-    {BS,CS,TotalBS,TotalCS,true}.
-
-sum_alloc_one_instance([{sbmbcs,[{blocks_size,BS,_,_},{carriers_size,CS,_,_}]}|
-			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
-    sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS,TotalCS);
-sum_alloc_one_instance([{_,[{blocks_size,BS,_,_},{carriers_size,CS,_,_}]}|
-			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
-    sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS+BS,TotalCS+CS);
-sum_alloc_one_instance([{_,[{blocks_size,BS},{carriers_size,CS}]}|
-			Rest],OldBS,OldCS,TotalBS,TotalCS) ->
-    sum_alloc_one_instance(Rest,OldBS+BS,OldCS+CS,TotalBS+BS,TotalCS+CS);
-sum_alloc_one_instance([_|Rest],BS,CS,TotalBS,TotalCS) ->
-    sum_alloc_one_instance(Rest,BS,CS,TotalBS,TotalCS);
-sum_alloc_one_instance([],BS,CS,TotalBS,TotalCS) ->
-    {BS,CS,TotalBS,TotalCS}.
-
 info_fields() ->
-    Info = [{"System and Architecture",
+    Sys = [{"System and Architecture",
 	     [{"System Version", otp_release},
-	      {"Erts Version", version},
+	      {"ERTS Version", version},
 	      {"Compiled for", system_architecture},
 	      {"Emulator Wordsize", wordsize_external},
 	      {"Process Wordsize", wordsize_internal},
-	      {"Smp Support",  smp_support},
+	      {"SMP Support",  smp_support},
 	      {"Thread Support",  threads},
 	      {"Async thread pool size",  thread_pool_size}
-	     ]},
-	    {"CPU's and Threads",
-	     [{"System Logical CPU's", logical_processors},
-	      {"Erlang Logical CPU's", logical_processors_online},
-	      {"Used Logical CPU's", logical_processors_available}
-	     ]}
-	   ],
-    Stat = [{"Memory Usage", right,
-	     [{"Total", {bytes, total}},
-	      {"Processes", {bytes, processes}},
-	      {"Atoms", {bytes, atom}},
-	      {"Binaries", {bytes, binary}},
-	      {"Code", {bytes, code}},
-	      {"Ets", {bytes, ets}}
-	     ]},
-	    {"Statistics", right,
-	     [{"Up time", {time_ms, uptime}},
-	      {"Max Processes", process_limit},
-	      {"Processes", process_count},
-	      {"Run Queue", run_queue},
-	      {"IO Input",  {bytes, io_input}},
-	      {"IO Output", {bytes, io_output}}
-	     ]}
-	   ],
-    {Info, Stat}.
+	     ]}],
+
+    Cpu = [{"CPU's and Threads",
+	    [{"Logical CPU's", logical_processors},
+	     {"Online Logical CPU's", logical_processors_online},
+	     {"Available Logical CPU's", logical_processors_available},
+	     {"Schedulers", schedulers},
+	     {"Online schedulers", schedulers_online},
+	     {"Available schedulers", schedulers_available}
+	    ]}
+	  ],
+    Mem = [{"Memory Usage", right,
+	    [{"Total", {bytes, total}},
+	     {"Processes", {bytes, processes}},
+	     {"Atoms", {bytes, atom}},
+	     {"Binaries", {bytes, binary}},
+	     {"Code", {bytes, code}},
+	     {"ETS", {bytes, ets}}
+	    ]}],
+    Stats = [{"Statistics", right,
+	      [{"Up time", {time_ms, uptime}},
+	       {"Max Processes", process_limit},
+	       {"Processes", process_count},
+	       {"Run Queue", run_queue},
+	       {"IO Input",  {bytes, io_input}},
+	       {"IO Output", {bytes, io_output}}
+	      ]}
+	    ],
+    {Sys, Mem, Cpu, Stats}.
 
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

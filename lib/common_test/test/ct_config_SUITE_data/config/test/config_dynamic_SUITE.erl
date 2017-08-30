@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -35,7 +36,7 @@
 %% which will return the list with the following variables:
 %% localtime = the erlang:localtime() result in list [{date, Date}, {time, Time}]
 %% node = erlang:node() - can be compared in the testcase
-%% now = erlang:now() - easier to compare than localtime()
+%% now = os:timestamp() - easier to compare than localtime()
 %% config_server_pid - pid of the config server, should NOT change!
 %% config_server_vsn - .19
 %% config_server_iteration - a number of iteration config_server's loop done
@@ -72,8 +73,8 @@ test_get_known_variable(_)->
 % localtime will be updated in 5 seconds, check that
 test_localtime_update(_)->
     Seconds = 5,
-    LT1 = ct:get_config(localtime),
-    timer:sleep(Seconds*1000),
+    LT1 = ct:reload_config(localtime),
+    timer:sleep(Seconds*1000), % don't want scaling of this timer
     LT2 = ct:reload_config(localtime),
     case is_diff_ok(LT1, LT2, Seconds) of
 	{false, Actual, Exp}->
@@ -136,6 +137,11 @@ my_dt_to_datetime([{date, D},{time, T}])->
 is_diff_ok(DT1, DT2, Seconds)->
     GS1 = calendar:datetime_to_gregorian_seconds(my_dt_to_datetime(DT1)),
     GS2 = calendar:datetime_to_gregorian_seconds(my_dt_to_datetime(DT2)),
+    ct:log("Checking diff~n"
+	   "DT1: ~p, gregorian seconds: ~p~n"
+	   "DT2: ~p, gregorian seconds: ~p~n"
+	   "Diff: ~p",
+	   [DT1,GS1,DT2,GS2,GS2-GS1]),
     if
 	GS2-GS1 > Seconds+Seconds/2;
 	GS2-GS1 < Seconds-Seconds/2->

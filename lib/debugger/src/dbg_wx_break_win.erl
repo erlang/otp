@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -64,18 +65,18 @@ create_win(Parent, Pos, function, Mod, _Line) ->
 			    {choices, IntStrs}]),
     
     Expand = [{border, 5}, {flag,?wxLEFT bor ?wxRIGHT bor ?wxEXPAND}],
-    wxSizer:add(MainS, Label, [{border,5},
+    _ = wxSizer:add(MainS, Label, [{border,5},
 			       {flag,?wxTOP bor ?wxLEFT bor ?wxRIGHT}]),
-    wxSizer:add(MainS, Text, Expand),
+    _ = wxSizer:add(MainS, Text, Expand),
     FunLabel = wxStaticText:new(Win, ?wxID_ANY, "Function:"),
     LB = wxListBox:new(Win, ?wxID_ANY, [{size,{-1, 100}},{style,?wxLB_MULTIPLE}]),
-    wxSizer:add(MainS, FunLabel, Expand),
-    wxSizer:add(MainS, LB, [{proportion,1}|Expand]),
+    _ = wxSizer:add(MainS, FunLabel, Expand),
+    _ = wxSizer:add(MainS, LB, [{proportion,1}|Expand]),
     wxSizer:setMinSize(MainS, 300, 400),
     OK = wxDialog:createStdDialogButtonSizer(Win, ?wxOK bor ?wxCANCEL),
-    wxSizer:add(MainS, OK, [{border,5},{flag,?wxALL}]),
+    _ = wxSizer:add(MainS, OK, [{border,5},{flag,?wxALL}]),
     wxDialog:setSizer(Win,MainS),
-    wxSizer:fit(MainS, Win),
+    _ = wxSizer:fit(MainS, Win),
     wxSizer:setSizeHints(MainS,Win),
     wxComboBox:setFocus(Text),
     wxDialog:connect(Win,    command_button_clicked),
@@ -109,11 +110,11 @@ create_win(Parent, Pos, Type, Mod, Line) ->
     IntStrs = [atom_to_list(M) || M <- Int],
     ModT  = wxComboBox:new(Win, ?wxID_ANY, [{choices,IntStrs}]),
     ModSz = create_label_of_control(Win, "Module:", ModT, Mod),
-    wxSizer:add(MainS,ModSz,[{flag, ?wxEXPAND}]),
+    _ = wxSizer:add(MainS,ModSz,[{flag, ?wxEXPAND}]),
     %% Create rest of text input fields
     Add = fun({IType, Label, Def}) ->
 		  {Sz, Text} = create_sizer_with_text(Win, Label, Def),
-		  wxSizer:add(MainS, Sz, [{flag, ?wxEXPAND}]),
+		  _ = wxSizer:add(MainS, Sz, [{flag, ?wxEXPAND}]),
 		  {Text, IType}
 	  end,
     Inputs = case Type of
@@ -128,15 +129,15 @@ create_win(Parent, Pos, Type, Mod, Line) ->
     Entries = wx:map(Add, Inputs),    
     %% Create and add radio box
     {TriggerBox,Trigger} = create_trigger_box(Win),
-    wxSizer:add(MainS, TriggerBox, [{border,5},{flag,?wxALL bor ?wxEXPAND}]),
+    _ = wxSizer:add(MainS, TriggerBox, [{border,5},{flag,?wxALL bor ?wxEXPAND}]),
 
-    wxSizer:addStretchSpacer(MainS),
+    _ = wxSizer:addStretchSpacer(MainS),
     %% Put it together
     OK = wxDialog:createStdDialogButtonSizer(Win, ?wxOK bor ?wxCANCEL),
-    wxSizer:add(MainS, OK, [{border,5},{flag,?wxALL}]),
+    _ = wxSizer:add(MainS, OK, [{border,5},{flag,?wxALL}]),
     wxSizer:setMinSize(MainS, 300, -1),
     wxDialog:setSizer(Win,MainS),
-    wxSizer:fit(MainS, Win),
+    _ = wxSizer:fit(MainS, Win),
     wxSizer:setSizeHints(MainS,Win),
     wxComboBox:setFocus(ModT),
     wxDialog:connect(Win, command_button_clicked),
@@ -242,8 +243,8 @@ create_label_of_control(Parent, Label, Control, Def) ->
     Text  = wxStaticText:new(Parent, ?wxID_ANY, Label),
     Border = {border, 5},
     Flag   = ?wxRIGHT bor ?wxLEFT bor ?wxALIGN_CENTRE_VERTICAL,
-    wxSizer:add(Sizer, Text, [{proportion,1}, {flag,Flag}, Border]),
-    wxSizer:add(Sizer, Control, [{proportion,3}, {flag,Flag bor ?wxEXPAND}, Border]),
+    _ = wxSizer:add(Sizer, Text, [{proportion,1}, {flag,Flag}, Border]),
+    _ = wxSizer:add(Sizer, Control, [{proportion,3}, {flag,Flag bor ?wxEXPAND}, Border]),
     wxControl:setLabel(Control, dbg_wx_win:to_string(Def)),
     Sizer.
     
@@ -251,11 +252,11 @@ create_trigger_box(Win) ->
     SBox = wxStaticBox:new(Win, ?wxID_ANY, "Trigger Action:"),
     SBS  = wxStaticBoxSizer:new(SBox, ?wxVERTICAL),
     Ebtn = wxRadioButton:new(Win, ?wxID_ANY, "Enable"),
-    wxSizer:add(SBS,Ebtn),
+    _ = wxSizer:add(SBS,Ebtn),
     Dibtn = wxRadioButton:new(Win, ?wxID_ANY, "Disable"),
-    wxSizer:add(SBS,Dibtn),
+    _ = wxSizer:add(SBS,Dibtn),
     Debtn = wxRadioButton:new(Win, ?wxID_ANY, "Delete"),
-    wxSizer:add(SBS,Debtn),
+    _ = wxSizer:add(SBS,Debtn),
     wxRadioButton:setValue(Ebtn, true),
     {SBS, [{Ebtn,enable},{Dibtn,disable},{Debtn,delete}]}.
 

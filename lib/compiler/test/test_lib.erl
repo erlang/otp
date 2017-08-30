@@ -1,27 +1,30 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
 -module(test_lib).
 
--include("test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 -compile({no_auto_import,[binary_part/2]}).
--export([recompile/1,parallel/0,uniq/0,opt_opts/1,get_data_dir/1,
-	 smoke_disasm/1,p_run/2,binary_part/2]).
+-export([id/1,recompile/1,parallel/0,uniq/0,opt_opts/1,get_data_dir/1,
+	 is_cloned_mod/1,smoke_disasm/1,p_run/2,binary_part/2]).
+
+id(I) -> I.
 
 recompile(Mod) when is_atom(Mod) ->
     case whereis(cover_server) of
@@ -44,24 +47,26 @@ smoke_disasm(File) when is_list(File) ->
     Res = beam_disasm:file(File),
     {beam_file,_Mod} = {element(1, Res),element(2, Res)}.
 
+%% If we are running cover, we don't want to run test cases that
+%% invokes the compiler in parallel, as doing so would probably
+%% be slower than running them sequentially.
+
 parallel() ->
-    case ?t:is_cover() orelse erlang:system_info(schedulers) =:= 1 of
+    case test_server:is_cover() orelse erlang:system_info(schedulers) =:= 1 of
 	true -> [];
 	false -> [parallel]
     end.
 
 uniq() ->
-    U0 = erlang:ref_to_list(make_ref()),
-    U1 = re:replace(U0, "^#Ref", ""),
-    U = re:replace(U1, "[^[A-Za-z0-9_]+", "_", [global]),
-    re:replace(U, "_*$", "", [{return,list}]).
+    U = erlang:unique_integer([positive]),
+    "_" ++ integer_to_list(U).
 
 %% Retrieve the "interesting" compiler options (options for optimization
 %% and compatibility) for the given module.
 
 opt_opts(Mod) ->
     Comp = Mod:module_info(compile),
-    {value,{options,Opts}} = lists:keysearch(options, 1, Comp),
+    {options,Opts} = lists:keyfind(options, 1, Comp),
     lists:filter(fun(no_copt) -> true;
 		    (no_postopt) -> true;
 		    (no_float_opt) -> true;
@@ -80,24 +85,41 @@ opt_opts(Mod) ->
 %% This function retrieves the path to the original data directory.
 
 get_data_dir(Config) ->
-    Data0 = ?config(data_dir, Config),
+    Data0 = proplists:get_value(data_dir, Config),
     Opts = [{return,list}],
     Data1 = re:replace(Data0, "_no_opt_SUITE", "_SUITE", Opts),
     Data = re:replace(Data1, "_post_opt_SUITE", "_SUITE", Opts),
     re:replace(Data, "_inline_SUITE", "_SUITE", Opts).
 
+is_cloned_mod(Mod) ->
+    is_cloned_mod_1(atom_to_list(Mod)).
+
+%% Test whether Mod is a cloned module.
+
+is_cloned_mod_1("no_opt_SUITE") -> true;
+is_cloned_mod_1("post_opt_SUITE") -> true;
+is_cloned_mod_1("inline_SUITE") -> true;
+is_cloned_mod_1([_|T]) -> is_cloned_mod_1(T);
+is_cloned_mod_1([]) -> false.
+
 %% p_run(fun(Data) -> ok|error, List) -> ok
 %%  Will fail the test case if there were any errors.
 
 p_run(Test, List) ->
-    N = case ?t:is_cover() of
+    S = erlang:system_info(schedulers),
+    N = case test_server:is_cover() of
 	    false ->
-		erlang:system_info(schedulers);
+		S + 1;
 	    true ->
-		%% Cover is running. Using more than one process
-		%% will probably only slow down compilation.
-		1
+		%% Cover is running. Using too many processes
+		%% could slow us down. Measurements on my computer
+		%% showed that using 4 parallel processes was
+		%% slightly faster than using 3. Using more than
+		%% 4 would not buy us much and could actually be
+		%% slower.
+		min(S, 4)
 	end,
+    io:format("p_run: ~p parallel processes\n", [N]),
     p_run_loop(Test, List, N, [], 0, 0).
 
 p_run_loop(_, [], _, [], Errors, Ws) ->
@@ -108,7 +130,8 @@ p_run_loop(_, [], _, [], Errors, Ws) ->
 		1 -> {comment,"1 warning"};
 		N -> {comment,integer_to_list(N)++" warnings"}
 	    end;
-	N -> ?t:fail({N,errors})
+	N ->
+	    ct:fail({N,errors})
     end;
 p_run_loop(Test, [H|T], N, Refs, Errors, Ws) when length(Refs) < N ->
     {_,Ref} = erlang:spawn_monitor(fun() -> exit(Test(H)) end),

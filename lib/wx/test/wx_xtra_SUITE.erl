@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%%-------------------------------------------------------------------
@@ -44,7 +45,7 @@ end_per_testcase(Func,Config) ->
     wx_test_lib:end_per_testcase(Func,Config).
 
 %% SUITE specification
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [{ct_hooks,[ts_install_cth]}, {timetrap,{minutes,2}}].
 
 all() -> 
     [destroy_app, multiple_add_in_sizer, app_dies,
@@ -129,15 +130,19 @@ app_dies(_Config) ->
 
 app_dies2(Test, N) ->
     spawn_link(fun() -> Test(N) end),
-    receive 
-	{'EXIT', _, {oops, last}} -> ok;
-	{'EXIT', _, {oops, _}} -> app_dies2(Test, N+1)
+    receive
+	{'EXIT', _, {oops, Server, What}} ->
+	    Ref = erlang:monitor(process, Server),
+	    receive {'DOWN', Ref, _, _, _} -> ok end,
+	    timer:sleep(100),
+	    What =/= last andalso app_dies2(Test, N+1)
     end.
 
 oops(Die, Line) when (Die =:= last) orelse (Die =< Line) ->
-    timer:sleep(300),
+    timer:sleep(200),
     ?log(" Exits at line ~p~n",[Line]),
-    exit({oops, Die});
+    Server = element(3, wx:get_env()),
+    exit({oops, Server, Die});
 oops(_,_) -> ok.
 
 

@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2015. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -33,9 +34,6 @@
 %% Values only as multiple values/variables/patterns.
 %% Return same number of values as requested
 %% Correct number of arguments
-%%
-%% Checks to add:
-%%
 %% Consistency of values/variables
 %% Consistency of function return values/calls.
 %%
@@ -68,14 +66,14 @@
                   | {'undefined_function', fa(), fa()}
                   | {'tail_segment_not_at_end', fa()}.
 
--type error()    :: {module(), err_desc()}.
+-type error()    :: {'none', module(), err_desc()}.
 -type warning()  :: {module(), term()}.
 
 %%-----------------------------------------------------------------------
 %% Define the lint state record.
 
 -record(lint, {module       :: module(),		% Current module
-	       func         :: fa(),			% Current function
+	       func         :: fa() | 'undefined',	% Current function
 	       errors  = [] :: [error()],		% Errors
 	       warnings= [] :: [warning()]}).		% Warnings
 
@@ -162,7 +160,7 @@ return_status(St) ->
 %% add_warning(ErrorDescriptor, State) -> State'
 %%  Note that we don't use line numbers here.
 
-add_error(E, St) -> St#lint{errors=[{?MODULE,E}|St#lint.errors]}.
+add_error(E, St) -> St#lint{errors=[{none,?MODULE,E}|St#lint.errors]}.
 
 %%add_warning(W, St) -> St#lint{warnings=[{none,core_lint,W}|St#lint.warnings]}.
 
@@ -176,7 +174,7 @@ check_exports(Es, St) ->
     end.
 
 check_attrs(As, St) ->
-    case all(fun ({#c_literal{},V}) -> core_lib:is_literal(V);
+    case all(fun ({#c_literal{},#c_literal{}}) -> true;
 		 (_) -> false
 	     end, As) of
 	true -> St;
@@ -211,7 +209,7 @@ functions(Fs, Def, St0) ->
 function({#c_var{name={_,_}},B}, Def, St) ->
     %% Body must be a fun!
     case B of
-	#c_fun{} -> expr(B, Def, any, St);
+	#c_fun{} -> expr(B, Def, 1, St);
 	_ -> add_error({illegal_expr,St#lint.func}, St)
     end.
 
@@ -247,26 +245,43 @@ gbody(E, Def, Rt, St0) ->
 	false -> St1
     end.
 
-gexpr(#c_var{name=N}, Def, _Rt, St) when is_atom(N); is_integer(N) ->
-    expr_var(N, Def, St);
-gexpr(#c_literal{}, _Def, _Rt, St) -> St;
-gexpr(#c_cons{hd=H,tl=T}, Def, _Rt, St) ->
-    gexpr_list([H,T], Def, St);
-gexpr(#c_tuple{es=Es}, Def, _Rt, St) ->
-    gexpr_list(Es, Def, St);
-gexpr(#c_binary{segments=Ss}, Def, _Rt, St) ->
-    gbitstr_list(Ss, Def, St);
+gexpr(#c_var{name=N}, Def, Rt, St) when is_atom(N); is_integer(N) ->
+    return_match(Rt, 1, expr_var(N, Def, St));
+gexpr(#c_literal{}, _Def, Rt, St) ->
+    return_match(Rt, 1, St);
+gexpr(#c_cons{hd=H,tl=T}, Def, Rt, St) ->
+    return_match(Rt, 1, gexpr_list([H,T], Def, St));
+gexpr(#c_tuple{es=Es}, Def, Rt, St) ->
+    return_match(Rt, 1, gexpr_list(Es, Def, St));
+gexpr(#c_map{es=Es}, Def, Rt, St) ->
+    return_match(Rt, 1, gexpr_list(Es, Def, St));
+gexpr(#c_map_pair{key=K,val=V}, Def, Rt, St) ->
+    return_match(Rt, 1, gexpr_list([K,V], Def, St));
+gexpr(#c_binary{segments=Ss}, Def, Rt, St) ->
+    return_match(Rt, 1, gbitstr_list(Ss, Def, St));
 gexpr(#c_seq{arg=Arg,body=B}, Def, Rt, St0) ->
-    St1 = gexpr(Arg, Def, any, St0),		%Ignore values
-    gbody(B, Def, Rt, St1);
+    St1 = gexpr(Arg, Def, 1, St0),
+    return_match(Rt, 1, gbody(B, Def, Rt, St1));
 gexpr(#c_let{vars=Vs,arg=Arg,body=B}, Def, Rt, St0) ->
     St1 = gbody(Arg, Def, let_varcount(Vs), St0), %This is a guard body
     {Lvs,St2} = variable_list(Vs, St1),
     gbody(B, union(Lvs, Def), Rt, St2);
-gexpr(#c_call{module=#c_literal{val=erlang},
-	      name=#c_literal{},
-	      args=As}, Def, 1, St) ->
-    gexpr_list(As, Def, St);
+gexpr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=is_record},
+              args=[Arg,#c_literal{val=Tag},#c_literal{val=Size}]},
+      Def, Rt, St) when is_atom(Tag), is_integer(Size) ->
+    return_match(Rt, 1, gexpr(Arg, Def, 1, St));
+gexpr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=is_record}},
+      _Def, Rt, St) ->
+    return_match(Rt, 1, add_error({illegal_guard,St#lint.func}, St));
+gexpr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=Name},args=As},
+      Def, Rt, St0) when is_atom(Name) ->
+    St1 = return_match(Rt, 1, St0),
+    case is_guard_bif(Name, length(As)) of
+        true ->
+            gexpr_list(As, Def, St1);
+        false ->
+            add_error({illegal_guard,St1#lint.func}, St1)
+    end;
 gexpr(#c_primop{name=#c_literal{val=A},args=As}, Def, _Rt, St0) when is_atom(A) ->
     gexpr_list(As, Def, St0);
 gexpr(#c_try{arg=E,vars=[#c_var{name=X}],body=#c_var{name=X},
@@ -278,6 +293,7 @@ gexpr(#c_case{arg=Arg,clauses=Cs}, Def, Rt, St0) ->
     St1 = gbody(Arg, Def, PatCount, St0),
     clauses(Cs, Def, PatCount, Rt, St1);
 gexpr(_Core, _, _, St) ->
+    %%io:fwrite("clint gexpr: ~p~n", [_Core]),
     add_error({illegal_guard,St#lint.func}, St).
 
 %% gexpr_list([Expr], Defined, State) -> State.
@@ -293,21 +309,35 @@ gbitstr_list(Es, Def, St0) ->
 gbitstr(#c_bitstr{val=V,size=S}, Def, St) ->
     gexpr_list([V,S], Def, St).
 
+%% is_guard_bif(Name, Arity) -> Boolean.
+
+is_guard_bif(Name, Arity) ->
+    erl_internal:guard_bif(Name, Arity)
+        orelse erl_internal:arith_op(Name, Arity)
+        orelse erl_internal:bool_op(Name, Arity)
+        orelse erl_internal:comp_op(Name, Arity).
+
 %% expr(Expr, Defined, RetCount, State) -> State.
 
-expr(#c_var{name={_,_}=FA}, Def, _Rt, St) ->
-    expr_fname(FA, Def, St);
-expr(#c_var{name=N}, Def, _Rt, St) -> expr_var(N, Def, St);
-expr(#c_literal{}, _Def, _Rt, St) -> St;
-expr(#c_cons{hd=H,tl=T}, Def, _Rt, St) ->
-    expr_list([H,T], Def, St);
-expr(#c_tuple{es=Es}, Def, _Rt, St) ->
-    expr_list(Es, Def, St);
-expr(#c_binary{segments=Ss}, Def, _Rt, St) ->
-    bitstr_list(Ss, Def, St);
+expr(#c_var{name={_,_}=FA}, Def, Rt, St) ->
+    return_match(Rt, 1, expr_fname(FA, Def, St));
+expr(#c_var{name=N}, Def, Rt, St) ->
+    return_match(Rt, 1, expr_var(N, Def, St));
+expr(#c_literal{}, _Def, Rt, St) ->
+    return_match(Rt, 1, St);
+expr(#c_cons{hd=H,tl=T}, Def, Rt, St) ->
+    return_match(Rt, 1, expr_list([H,T], Def, St));
+expr(#c_tuple{es=Es}, Def, Rt, St) ->
+    return_match(Rt, 1, expr_list(Es, Def, St));
+expr(#c_map{es=Es}, Def, Rt, St) ->
+    return_match(Rt, 1, expr_list(Es, Def, St));
+expr(#c_map_pair{key=K,val=V}, Def, Rt, St) ->
+    return_match(Rt, 1, expr_list([K,V], Def, St));
+expr(#c_binary{segments=Ss}, Def, Rt, St) ->
+    return_match(Rt, 1, bitstr_list(Ss, Def, St));
 expr(#c_fun{vars=Vs,body=B}, Def, Rt, St0) ->
     {Vvs,St1} = variable_list(Vs, St0),
-    return_match(Rt, 1, body(B, union(Vvs, Def), any, St1));
+    return_match(Rt, 1, body(B, union(Vvs, Def), 1, St1));
 expr(#c_seq{arg=Arg,body=B}, Def, Rt, St0) ->
     St1 = expr(Arg, Def, 1, St0),
     body(B, Def, Rt, St1);
@@ -333,15 +363,26 @@ expr(#c_receive{clauses=Cs,timeout=T,action=A}, Def, Rt, St0) ->
     St1 = expr(T, Def, 1, St0),
     St2 = body(A, Def, Rt, St1),
     clauses(Cs, Def, 1, Rt, St2);
-expr(#c_apply{op=Op,args=As}, Def, _Rt, St0) ->
+expr(#c_apply{op=Op,args=As}, Def, Rt, St0) ->
     St1 = apply_op(Op, Def, length(As), St0),
-    expr_list(As, Def, St1);
+    return_match(Rt, 1, expr_list(As, Def, St1));
+expr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=Name},args=As},
+     Def, Rt, St0) when is_atom(Name) ->
+    St1 = expr_list(As, Def, St0),
+    case erl_bifs:is_exit_bif(erlang, Name, length(As)) of
+        true -> St1;
+        false -> return_match(Rt, 1, St1)
+    end;
 expr(#c_call{module=M,name=N,args=As}, Def, _Rt, St0) ->
     St1 = expr(M, Def, 1, St0),
     St2 = expr(N, Def, 1, St1),
     expr_list(As, Def, St2);
-expr(#c_primop{name=#c_literal{val=A},args=As}, Def, _Rt, St0) when is_atom(A) ->
-    expr_list(As, Def, St0);
+expr(#c_primop{name=#c_literal{val=A},args=As}, Def, Rt, St0) when is_atom(A) ->
+    St1 = expr_list(As, Def, St0),
+    case A of
+        match_fail -> St1;
+        _ -> return_match(Rt, 1, St1)
+    end;
 expr(#c_catch{body=B}, Def, Rt, St) ->
     return_match(Rt, 1, body(B, Def, 1, St));
 expr(#c_try{arg=A,vars=Vs,body=B,evars=Evs,handler=H}, Def, Rt, St0) ->
@@ -355,7 +396,7 @@ expr(#c_try{arg=A,vars=Vs,body=B,evars=Evs,handler=H}, Def, Rt, St0) ->
     {Ens,St5} = variable_list(Evs, St4),
     body(H, union(Ens, Def), Rt, St5);
 expr(_Other, _, _, St) ->
-    %%io:fwrite("clint: ~p~n", [_Other]),
+    %%io:fwrite("clint expr: ~p~n", [_Other]),
     add_error({illegal_expr,St#lint.func}, St).
 
 %% expr_list([Expr], Defined, State) -> State.
@@ -454,13 +495,19 @@ pattern(#c_cons{hd=H,tl=T}, Def, Ps, St) ->
     pattern_list([H,T], Def, Ps, St);
 pattern(#c_tuple{es=Es}, Def, Ps, St) ->
     pattern_list(Es, Def, Ps, St);
+pattern(#c_map{es=Es}, Def, Ps, St) ->
+    pattern_list(Es, Def, Ps, St);
+pattern(#c_map_pair{op=#c_literal{val=exact},key=K,val=V},Def,Ps,St) ->
+    pattern_list([K,V],Def,Ps,St);
 pattern(#c_binary{segments=Ss}, Def, Ps, St0) ->
     St = pat_bin_tail_check(Ss, St0),
     pat_bin(Ss, Def, Ps, St);
 pattern(#c_alias{var=V,pat=P}, Def, Ps, St0) ->
     {Vvs,St1} = variable(V, Ps, St0),
     pattern(P, Def, union(Vvs, Ps), St1);
-pattern(_, _, Ps, St) -> {Ps,add_error({not_pattern,St#lint.func}, St)}.
+pattern(_Other, _, Ps, St) ->
+    %%io:fwrite("clint pattern: ~p~n", [_Other]),
+    {Ps,add_error({not_pattern,St#lint.func}, St)}.
 
 pat_var(N, _Def, Ps, St) ->
     case is_element(N, Ps) of

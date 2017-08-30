@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -190,8 +191,9 @@ parse_define([#xmlElement{name=initializer,content=Contents}|_R],Def,_Os) ->
     try
 	case Val0 of
 	    "0x" ++ Val1 ->
-		_ = http_util:hexlist_to_integer(Val1),
-		Def#def{val=Val1, type=hex};
+		Val2 = strip_type_cast(Val1),
+		_ = list_to_integer(Val2, 16),
+		Def#def{val=Val2, type=hex};
 	    _ ->
 		Val = list_to_integer(Val0),
 		Def#def{val=Val, type=int}
@@ -212,6 +214,15 @@ extract_def2([#xmlText{value=Val}|R]) ->
 extract_def2([#xmlElement{content=Cs}|R]) ->
     extract_def2(Cs) ++ extract_def2(R);
 extract_def2([]) -> [].
+
+strip_type_cast(Int) ->
+    lists:reverse(strip_type_cast2(lists:reverse(Int))).
+
+strip_type_cast2("u"++Rest) -> Rest; %% unsigned
+strip_type_cast2("lu"++Rest) -> Rest; %% unsigned  long
+strip_type_cast2("llu"++Rest) -> Rest; %% unsigned long long
+strip_type_cast2(Rest) -> Rest.
+
 
 strip_comment("/*" ++ Rest) ->
     strip_comment_until_end(Rest);

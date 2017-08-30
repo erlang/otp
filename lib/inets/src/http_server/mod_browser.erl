@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -97,9 +98,9 @@ getBrowser1(Info) ->
 
 getBrowser(AgentString) ->
     LAgentString = http_util:to_lower(AgentString),
-    case inets_regexp:first_match(LAgentString,"^[^ ]*") of
-	{match,Start,Length} ->
-	    Browser = lists:sublist(LAgentString,Start,Length),
+    case re:run(LAgentString,"^[^ ]*", [{capture, first}]) of
+	{match,[{Start,Length}]} ->
+	    Browser = lists:sublist(LAgentString,Start+1,Length),
 	    case browserType(Browser) of
 		{mozilla,Vsn} ->
 		    {getMozilla(LAgentString,
@@ -163,8 +164,8 @@ operativeSystem(OpString,[{RetVal,RegExps}|Rest]) ->
 controlOperativeSystem(_OpString,[]) ->
     false;
 controlOperativeSystem(OpString,[Regexp|Regexps]) ->
-    case inets_regexp:match(OpString,Regexp) of
-	{match,_,_} ->
+    case re:run(OpString,Regexp, [{capture, none}]) of
+	match ->
 	    true;
 	nomatch ->
 	    controlOperativeSystem(OpString,Regexps)
@@ -181,18 +182,19 @@ controlOperativeSystem(OpString,[Regexp|Regexps]) ->
 getMozilla(_AgentString,[],Default) ->
     Default;
 getMozilla(AgentString,[{Agent,AgentRegExp}|Rest],Default) ->
-    case inets_regexp:match(AgentString,AgentRegExp) of
-	{match,_,_} ->
+    case re:run(AgentString,AgentRegExp, [{capture, none}]) of
+	match ->
 	    {Agent,getMozVersion(AgentString,AgentRegExp)};
 	nomatch ->
 	    getMozilla(AgentString,Rest,Default)
     end.
 
 getMozVersion(AgentString, AgentRegExp) ->
-    case inets_regexp:match(AgentString,AgentRegExp++"[0-9\.\ \/]*") of
-	{match,Start,Length} when length(AgentRegExp) < Length ->
+    case re:run(AgentString,AgentRegExp++"[0-9\.\ \/]*", 
+		[{capture, first}]) of
+	{match, [{Start,Length}]} when length(AgentRegExp) < Length ->
 	    %% Ok we got the number split it out
-	    RealStart  = Start+length(AgentRegExp),
+	    RealStart  = Start+1+length(AgentRegExp),
 	    RealLength = Length-length(AgentRegExp),
 	    VsnString  = string:substr(AgentString,RealStart,RealLength),
 	    %% case string:strip(VsnString,both,$\ ) of

@@ -6,7 +6,8 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 
 MODULES= \
-	syntax_tools_SUITE
+	syntax_tools_SUITE \
+	merl_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -25,7 +26,7 @@ RELSYSDIR = $(RELEASE_PATH)/syntax_tools_test
 # ----------------------------------------------------
 
 ERL_MAKE_FLAGS += 
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
+ERL_COMPILE_FLAGS +=
 
 EBIN = .
 
@@ -61,5 +62,6 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) $(EMAKEFILE) $(ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) syntax_tools.spec syntax_tools.cover "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
+	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:

@@ -1,23 +1,24 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE comref SYSTEM "comref.dtd">
 
 <comref>
   <header>
     <copyright>
-      <year>2007</year><year>2013</year>
+      <year>2007</year><year>2015</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
-      The contents of this file are subject to the Erlang Public License,
-      Version 1.1, (the "License"); you may not use this file except in
-      compliance with the License. You should have received a copy of the
-      Erlang Public License along with this software. If not, it can be
-      retrieved online at http://www.erlang.org/.
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
 
-      Software distributed under the License is distributed on an "AS IS"
-      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-      the License for the specific language governing rights and limitations
-      under the License.
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
 
     </legalnotice>
 
@@ -44,6 +45,7 @@
         <p><c>escript</c> runs a script written in Erlang.</p>
         <p>Here follows an example.</p>
         <pre>
+$ <input>chmod u+x factorial</input>
 $ <input>cat factorial</input>
 #!/usr/bin/env escript
 %% -*- erlang -*-
@@ -66,12 +68,13 @@ usage() ->
 
 fac(0) -> 1;
 fac(N) -> N * fac(N-1).
-$ <input>factorial 5</input>
+$ <input>./factorial 5</input>
 factorial 5 = 120
-$ <input>factorial</input>
+$ <input>./factorial</input>
 usage: factorial integer
-$ <input>factorial five</input>
-usage: factorial integer        </pre>
+$ <input>./factorial five</input>
+usage: factorial integer
+        </pre>
         <p>The header of the Erlang script in the example differs from
         a normal Erlang module.  The first line is intended to be the
         interpreter line, which invokes <c>escript</c>. However if you
@@ -89,6 +92,18 @@ $ <input>escript factorial 5</input>        </pre>
         <p>If there is a comment selecting the <seealso
           marker="stdlib:epp#encoding">encoding</seealso> it can be
           located on the second line.</p>
+
+        <note><p>
+          The encoding specified by the above mentioned comment
+          applies to the script itself. The encoding of the
+          I/O-server, however, has to be set explicitly like this:</p>
+<code>io:setopts([{encoding, unicode}])</code>
+          <p>The default encoding of the I/O-server for <c>standard_io</c>
+          is <c>latin1</c>
+          since the script runs in a non-interactive terminal
+          (see <seealso marker="stdlib:unicode_usage#unicode_options_summary">
+          Using Unicode in Erlang</seealso>).
+        </p></note>
 
 	<p>On the third line (or second line depending on the presence
           of the Emacs directive), it is possible to give arguments to
@@ -139,8 +154,9 @@ halt(1).</pre>
 -include_lib("kernel/include/file.hrl").</pre>
         <p>to include the record definitions for the records used by the
           <c>file:read_link_info/1</c> function. You can also select
-          encoding here, but if there is a valid encoding comment on
-          the second line it takes precedence.</p>
+          encoding by including a encoding comment here, but if there
+          is a valid encoding comment on the second line it takes
+          precedence.</p>
 
         <p>The script will be checked for syntactic and semantic
           correctness before being run. If there are warnings (such as
@@ -161,7 +177,7 @@ halt(1).</pre>
           If much of the execution takes place in interpreted code it
           may be worthwhile to compile it, even though the compilation
           itself will take a little while. It is also possible to supply
-	  <c>native</c> instead of compile, this will compile the script 
+	  <c>native</c> instead of <c>compile</c>, this will compile the script
 	  using the native flag, again depending on the characteristics 
 	  of the escript this could or could not be worth while.</p>
 
@@ -221,8 +237,13 @@ factorial 5 = 120
         <v>EmuArgs = string() | 'undefined'</v>
         <v>Body = {source, SourceCode}
                 | {beam, BeamCode}
-	        | {archive, ZipArchive}</v>
-        <v>SourceCode = BeamCode = ZipArchive = binary()</v>
+                | {archive, ZipArchive}
+                | {archive, ZipFiles, ZipOptions}</v>
+        <v>SourceCode = BeamCode = file:filename() | binary()</v>
+        <v>ZipArchive = <seealso marker="stdlib:zip#type-filename">zip:filename()</seealso> | binary()</v>
+        <v>ZipFiles = [ZipFile]</v>
+        <v>ZipFile = file:filename() | {file:filename(), binary()} | {file:filename(), binary(), file:file_info()}</v>
+        <v>ZipOptions = [<seealso marker="stdlib:zip#type-create_option">zip:create_option()</seealso>]</v>
       </type>
       <desc>
         <p>The <marker id="create_2"></marker> <c>create/2</c>
@@ -237,7 +258,7 @@ factorial 5 = 120
         can either be returned as a binary or written to file.</p>
 
 	<p>As an example of how the function can be used, we create an
-	interpreted escript which uses emu_args to set some emulator
+	interpreted escript which uses <c>emu_args</c> to set some emulator
 	flag. In this case it happens to disable the smp_support. We
 	do also extract the different sections from the newly created
 	script:</p>

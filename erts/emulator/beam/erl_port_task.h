@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -77,6 +78,8 @@ extern erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
 #define ERTS_PTS_FLG_HAVE_NS_TASKS		(((erts_aint32_t) 1) <<  8)
 #define ERTS_PTS_FLG_PARALLELISM		(((erts_aint32_t) 1) <<  9)
 #define ERTS_PTS_FLG_FORCE_SCHED		(((erts_aint32_t) 1) << 10)
+#define ERTS_PTS_FLG_EXITING			(((erts_aint32_t) 1) << 11)
+#define ERTS_PTS_FLG_EXEC_IMM			(((erts_aint32_t) 1) << 12)
 
 #define ERTS_PTS_FLGS_BUSY \
     (ERTS_PTS_FLG_BUSY_PORT | ERTS_PTS_FLG_BUSY_PORT_Q)
@@ -86,7 +89,9 @@ extern erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
      | ERTS_PTS_FLG_HAVE_BUSY_TASKS		\
      | ERTS_PTS_FLG_HAVE_TASKS			\
      | ERTS_PTS_FLG_EXEC			\
-     | ERTS_PTS_FLG_FORCE_SCHED)
+     | ERTS_PTS_FLG_EXEC_IMM			\
+     | ERTS_PTS_FLG_FORCE_SCHED			\
+     | ERTS_PTS_FLG_EXITING)
 
 #define ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_HIGH			8192
 #define ERTS_PORT_TASK_DEFAULT_BUSY_PORT_Q_LOW			4096
@@ -135,6 +140,7 @@ ERTS_GLB_INLINE void erts_port_task_fini_sched(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE void erts_port_task_sched_lock(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE void erts_port_task_sched_unlock(ErtsPortTaskSched *ptsp);
 ERTS_GLB_INLINE int erts_port_task_sched_lock_is_locked(ErtsPortTaskSched *ptsp);
+ERTS_GLB_INLINE void erts_port_task_sched_enter_exiting_state(ErtsPortTaskSched *ptsp);
 
 #ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
 ERTS_GLB_INLINE int erts_port_task_have_outstanding_io_tasks(void);
@@ -151,7 +157,7 @@ erts_port_task_handle_init(ErtsPortTaskHandle *pthp)
 ERTS_GLB_INLINE int
 erts_port_task_is_scheduled(ErtsPortTaskHandle *pthp)
 {
-    return ((void *) erts_smp_atomic_read_nob(pthp)) != NULL;
+    return ((void *) erts_smp_atomic_read_acqb(pthp)) != NULL;
 }
 
 ERTS_GLB_INLINE void erts_port_task_pre_init_sched(ErtsPortTaskSched *ptsp,
@@ -182,11 +188,13 @@ erts_port_task_init_sched(ErtsPortTaskSched *ptsp, Eterm instr_id)
     ptsp->taskq.in.last = NULL;
     erts_smp_atomic32_init_nob(&ptsp->flags, 0);
 #ifdef ERTS_SMP
+    erts_mtx_init_x(&ptsp->mtx, lock_str, instr_id,
 #ifdef ERTS_ENABLE_LOCK_COUNT
-    if (!(erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK))
-	lock_str = NULL;
+		    (erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK)
+#else
+		    1
 #endif
-    erts_mtx_init_x(&ptsp->mtx, lock_str, instr_id);
+		    );
 #endif
 }
 
@@ -225,6 +233,12 @@ erts_port_task_fini_sched(ErtsPortTaskSched *ptsp)
 #endif
 }
 
+ERTS_GLB_INLINE void
+erts_port_task_sched_enter_exiting_state(ErtsPortTaskSched *ptsp)
+{
+    erts_smp_atomic32_read_bor_nob(&ptsp->flags, ERTS_PTS_FLG_EXITING);
+}
+
 #ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
 
 ERTS_GLB_INLINE int
@@ -255,6 +269,8 @@ int erts_port_task_schedule(Eterm,
 void erts_port_task_free_port(Port *);
 int erts_port_is_scheduled(Port *);
 ErtsProc2PortSigData *erts_port_task_alloc_p2p_sig_data(void);
+ErtsProc2PortSigData *erts_port_task_alloc_p2p_sig_data_extra(size_t extra, void **extra_ptr);
+void erts_port_task_free_p2p_sig_data(ErtsProc2PortSigData *sigdp);
 
 #ifdef ERTS_SMP
 void erts_enqueue_port(ErtsRunQueue *rq, Port *pp);

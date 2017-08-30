@@ -1,18 +1,19 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2012. All Rights Reserved.
+# Copyright Ericsson AB 2008-2016. All Rights Reserved.
 #
-# The contents of this file are subject to the Erlang Public License,
-# Version 1.1, (the "License"); you may not use this file except in
-# compliance with the License. You should have received a copy of the
-# Erlang Public License along with this software. If not, it can be
-# retrieved online at http://www.erlang.org/.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# Software distributed under the License is distributed on an "AS IS"
-# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-# the License for the specific language governing rights and limitations
-# under the License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 # %CopyrightEnd%
 #
@@ -37,20 +38,19 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = public_key.xml
-XML_REF6_FILES =
+XML_REF6_FILES = public_key_app.xml
 
 XML_PART_FILES = part.xml part_notes.xml
 XML_CHAPTER_FILES = \
 	introduction.xml \
-	public_key_records.xml \
-	cert_records.xml \
+        public_key_records.xml \
 	using_public_key.xml \
 	notes.xml
 
 BOOK_FILES = book.xml
 
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
-            $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
+             $(XML_REF6_FILES) $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
 
 GIF_FILES = note.gif
 
@@ -67,9 +67,11 @@ EXTRA_FILES = \
 	$(DEFAULT_GIF_FILES) \
 	$(DEFAULT_HTML_FILES) \
 	$(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html) \
+	$(XML_REF6_FILES:%.xml=$(HTMLDIR)/%.html) \
 	$(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
 
 MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
+MAN6_FILES = $(XML_REF6_FILES:%_app.xml=$(MAN6DIR)/%.6)
 
 HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
@@ -98,10 +100,11 @@ html: gifs $(HTML_REF_MAN_FILE)
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
 	rm -f $(MAN3DIR)/*
+	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~
 
-man: $(MAN3_FILES)
+man: $(MAN3_FILES) $(MAN6_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
@@ -122,6 +125,8 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
 	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man6"
+	$(INSTALL_DATA) $(MAN6DIR)/* "$(RELEASE_PATH)/man/man6"
 release_spec:
 
 info:

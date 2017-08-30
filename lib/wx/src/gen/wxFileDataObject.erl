@@ -1,23 +1,24 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledataobject.html">wxFileDataObject</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledataobject.html">wxFileDataObject</a>.
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxDataObject}
 %% </p>
@@ -38,14 +39,14 @@ parent_class(wxDataObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxFileDataObject() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledataobject.html#wxfiledataobjectwxfiledataobject">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledataobject.html#wxfiledataobjectwxfiledataobject">external documentation</a>.
 -spec new() -> wxFileDataObject().
 new() ->
   wxe_util:construct(?wxFileDataObject_new,
   <<>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledataobject.html#wxfiledataobjectaddfile">external documentation</a>.
--spec addFile(This, Filename) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledataobject.html#wxfiledataobjectaddfile">external documentation</a>.
+-spec addFile(This, Filename) -> 'ok' when
 	This::wxFileDataObject(), Filename::unicode:chardata().
 addFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
  when is_list(Filename) ->
@@ -54,7 +55,7 @@ addFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
   wxe_util:cast(?wxFileDataObject_AddFile,
   <<ThisRef:32/?UI,(byte_size(Filename_UC)):32/?UI,(Filename_UC)/binary, 0:(((8- ((0+byte_size(Filename_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledataobject.html#wxfiledataobjectgetfilenames">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxfiledataobject.html#wxfiledataobjectgetfilenames">external documentation</a>.
 -spec getFilenames(This) -> [unicode:charlist()] when
 	This::wxFileDataObject().
 getFilenames(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -63,7 +64,7 @@ getFilenames(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFileDataObject()) -> ok.
+-spec destroy(This::wxFileDataObject()) -> 'ok'.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFileDataObject),
   wxe_util:destroy(?wxFileDataObject_destroy,Obj),

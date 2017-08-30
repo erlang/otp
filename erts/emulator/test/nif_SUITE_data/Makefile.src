@@ -4,8 +4,7 @@ NIF_LIBS = nif_SUITE.1@dll@ \
            nif_mod.2@dll@ \
            nif_mod.3@dll@
 
-all: $(NIF_LIBS) basic@dll@ rwlock@dll@ tsd@dll@
-
+all: $(NIF_LIBS) basic@dll@ rwlock@dll@ tsd@dll@ echo_drv@dll@
 
 @SHLIB_RULES@
 

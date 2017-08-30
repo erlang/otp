@@ -1,23 +1,24 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreeevent.html">wxTreeEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreeevent.html">wxTreeEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
 %% <dd><em>command_tree_begin_drag</em>, <em>command_tree_begin_rdrag</em>, <em>command_tree_begin_label_edit</em>, <em>command_tree_end_label_edit</em>, <em>command_tree_delete_item</em>, <em>command_tree_get_info</em>, <em>command_tree_set_info</em>, <em>command_tree_item_expanded</em>, <em>command_tree_item_expanding</em>, <em>command_tree_item_collapsed</em>, <em>command_tree_item_collapsing</em>, <em>command_tree_sel_changed</em>, <em>command_tree_sel_changing</em>, <em>command_tree_key_down</em>, <em>command_tree_item_activated</em>, <em>command_tree_item_right_click</em>, <em>command_tree_item_middle_click</em>, <em>command_tree_end_drag</em>, <em>command_tree_state_image_click</em>, <em>command_tree_item_gettooltip</em>, <em>command_tree_item_menu</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxTree(). #wxTree{}} event record type.
@@ -50,7 +51,7 @@ parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxTreeEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreeevent.html#wxtreeeventgetkeycode">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreeevent.html#wxtreeeventgetkeycode">external documentation</a>.
 -spec getKeyCode(This) -> integer() when
 	This::wxTreeEvent().
 getKeyCode(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -58,7 +59,7 @@ getKeyCode(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreeEvent_GetKeyCode,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreeevent.html#wxtreeeventgetitem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreeevent.html#wxtreeeventgetitem">external documentation</a>.
 -spec getItem(This) -> integer() when
 	This::wxTreeEvent().
 getItem(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -66,7 +67,7 @@ getItem(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreeEvent_GetItem,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreeevent.html#wxtreeeventgetkeyevent">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreeevent.html#wxtreeeventgetkeyevent">external documentation</a>.
 -spec getKeyEvent(This) -> wxKeyEvent:wxKeyEvent() when
 	This::wxTreeEvent().
 getKeyEvent(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -74,7 +75,7 @@ getKeyEvent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreeEvent_GetKeyEvent,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreeevent.html#wxtreeeventgetlabel">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreeevent.html#wxtreeeventgetlabel">external documentation</a>.
 -spec getLabel(This) -> unicode:charlist() when
 	This::wxTreeEvent().
 getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -82,7 +83,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreeEvent_GetLabel,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreeevent.html#wxtreeeventgetolditem">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreeevent.html#wxtreeeventgetolditem">external documentation</a>.
 -spec getOldItem(This) -> integer() when
 	This::wxTreeEvent().
 getOldItem(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -90,7 +91,7 @@ getOldItem(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreeEvent_GetOldItem,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreeevent.html#wxtreeeventgetpoint">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreeevent.html#wxtreeeventgetpoint">external documentation</a>.
 -spec getPoint(This) -> {X::integer(), Y::integer()} when
 	This::wxTreeEvent().
 getPoint(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -98,7 +99,7 @@ getPoint(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreeEvent_GetPoint,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreeevent.html#wxtreeeventiseditcancelled">external documentation</a>.
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreeevent.html#wxtreeeventiseditcancelled">external documentation</a>.
 -spec isEditCancelled(This) -> boolean() when
 	This::wxTreeEvent().
 isEditCancelled(#wx_ref{type=ThisT,ref=ThisRef}) ->
@@ -106,8 +107,8 @@ isEditCancelled(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxTreeEvent_IsEditCancelled,
   <<ThisRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreeevent.html#wxtreeeventsettooltip">external documentation</a>.
--spec setToolTip(This, ToolTip) -> ok when
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxtreeevent.html#wxtreeeventsettooltip">external documentation</a>.
+-spec setToolTip(This, ToolTip) -> 'ok' when
 	This::wxTreeEvent(), ToolTip::unicode:chardata().
 setToolTip(#wx_ref{type=ThisT,ref=ThisRef},ToolTip)
  when is_list(ToolTip) ->

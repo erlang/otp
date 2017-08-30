@@ -1,20 +1,23 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
+%% 
+%% AES: RFC 3826
 %% 
 
 -module(snmp_usm).
@@ -24,7 +27,7 @@
 -export([passwd2localized_key/3, localize_key/3]).
 -export([auth_in/4, auth_out/4, set_msg_auth_params/3]).
 -export([des_encrypt/3, des_decrypt/3]).
--export([aes_encrypt/3, aes_decrypt/5]).
+-export([aes_encrypt/5, aes_decrypt/5]).
 
 
 -define(SNMP_USE_V3, true).
@@ -41,6 +44,9 @@
 -define(twelwe_zeros, [0,0,0,0,0,0,0,0,0,0,0,0]).
 
 -define(i32(Int), (Int bsr 24) band 255, (Int bsr 16) band 255, (Int bsr 8) band 255, Int band 255).
+
+-define(BLOCK_CIPHER_AES, aes_cfb128).
+-define(BLOCK_CIPHER_DES, des_cbc).
 
 
 %%-----------------------------------------------------------------
@@ -210,7 +216,8 @@ des_encrypt(PrivKey, Data, SaltFun) ->
     IV = list_to_binary(snmp_misc:str_xor(PreIV, Salt)),
     TailLen = (8 - (length(Data) rem 8)) rem 8,
     Tail = mk_tail(TailLen),
-    EncData = crypto:block_encrypt(des_cbc, DesKey, IV, [Data,Tail]),
+    EncData = crypto:block_encrypt(?BLOCK_CIPHER_DES, 
+				   DesKey, IV, [Data,Tail]),
     {ok, binary_to_list(EncData), Salt}.
 
 des_decrypt(PrivKey, MsgPrivParams, EncData) 
@@ -224,7 +231,8 @@ des_decrypt(PrivKey, MsgPrivParams, EncData)
     Salt = MsgPrivParams,
     IV = list_to_binary(snmp_misc:str_xor(PreIV, Salt)),
     %% Whatabout errors here???  E.g. not a mulitple of 8!
-    Data = binary_to_list(crypto:block_decrypt(des_cbc, DesKey, IV, EncData)),
+    Data = binary_to_list(crypto:block_decrypt(?BLOCK_CIPHER_DES, 
+					       DesKey, IV, EncData)),
     Data2 = snmp_pdus:strip_encrypted_scoped_pdu_data(Data),
     {ok, Data2};
 des_decrypt(PrivKey, BadMsgPrivParams, EncData) ->
@@ -236,13 +244,12 @@ des_decrypt(PrivKey, BadMsgPrivParams, EncData) ->
     throw({error, {bad_msgPrivParams, PrivKey, BadMsgPrivParams, EncData}}).
     
 
-aes_encrypt(PrivKey, Data, SaltFun) ->
+aes_encrypt(PrivKey, Data, SaltFun, EngineBoots, EngineTime) ->
     AesKey = PrivKey,
     Salt = SaltFun(),
-    EngineBoots = snmp_framework_mib:get_engine_boots(),
-    EngineTime = snmp_framework_mib:get_engine_time(),
     IV = list_to_binary([?i32(EngineBoots), ?i32(EngineTime) | Salt]),
-    EncData = crypto:block_encrypt(aes_cbf128, AesKey, IV, Data),
+    EncData = crypto:block_encrypt(?BLOCK_CIPHER_AES, 
+				   AesKey, IV, Data),
     {ok, binary_to_list(EncData), Salt}.
 
 aes_decrypt(PrivKey, MsgPrivParams, EncData, EngineBoots, EngineTime)
@@ -251,7 +258,8 @@ aes_decrypt(PrivKey, MsgPrivParams, EncData, EngineBoots, EngineTime)
     Salt = MsgPrivParams,
     IV = list_to_binary([?i32(EngineBoots), ?i32(EngineTime) | Salt]),
     %% Whatabout errors here???  E.g. not a mulitple of 8!
-    Data = binary_to_list(crypto:block_decrypt(aes_cbf128, AesKey, IV, EncData)),
+    Data = binary_to_list(crypto:block_decrypt(?BLOCK_CIPHER_AES, 
+					       AesKey, IV, EncData)),
     Data2 = snmp_pdus:strip_encrypted_scoped_pdu_data(Data),
     {ok, Data2}.
 

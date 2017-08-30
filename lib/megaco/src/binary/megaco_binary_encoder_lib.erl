@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -66,7 +67,7 @@ version_of(_EC, Binary, 3, [AsnModV1, AsnModV2, AsnModV3])
 version_of([], _Binary, Err) ->
     {error, {decode_failed, lists:reverse(Err)}};
 version_of([AsnMod|AsnMods], Binary, Errs) when is_atom(AsnMod) ->
-    case (catch asn1rt:decode(AsnMod, 'MegacoMessage', Binary)) of
+    case (catch AsnMod:decode('MegacoMessage', Binary)) of
 	{ok, M} ->
 	    V = (M#'MegacoMessage'.mess)#'Message'.version,
 	    {ok, V};
@@ -82,14 +83,14 @@ version_of([AsnMod|AsnMods], Binary, Errs) when is_atom(AsnMod) ->
 
 encode_message([native], MegaMsg, AsnMod, _TransMod, binary) 
   when is_record(MegaMsg, 'MegacoMessage') ->
-    asn1rt:encode(AsnMod, 'MegacoMessage', MegaMsg);
+    AsnMod:encode('MegacoMessage', MegaMsg);
 encode_message(EC, MegaMsg, AsnMod, TransMod, binary) 
   when is_list(EC) andalso is_record(MegaMsg, 'MegacoMessage') ->
     case (catch TransMod:tr_message(MegaMsg, encode, EC)) of
 	{'EXIT', Reason} ->
 	    {error, Reason};
 	MegaMsg2 ->
-	    asn1rt:encode(AsnMod, 'MegacoMessage', MegaMsg2)
+	    AsnMod:encode('MegacoMessage', MegaMsg2)
     end;
 encode_message(EC, MegaMsg, AsnMod, TransMod, io_list) ->
     case encode_message(EC, MegaMsg, AsnMod, TransMod, binary) of
@@ -276,7 +277,7 @@ decode_message_dynamic(_EC, _BadBin, _Mods, _Type) ->
 
 
 decode_message(EC, Bin, AsnMod, TransMod, _) ->
-    case asn1rt:decode(AsnMod, 'MegacoMessage', Bin) of
+    case AsnMod:decode('MegacoMessage', Bin) of
 	{ok, MegaMsg} ->
 	    case EC of
 		[native] ->

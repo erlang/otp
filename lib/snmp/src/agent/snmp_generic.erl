@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -414,7 +415,12 @@ table_check_status(NameDb, Col, ?'RowStatus_createAndGo', RowIndex, Cols) ->
 	    % side effect free and we only use the result temporary.
 	    case catch snmpa_local_db:table_construct_row(
 			 NameDb, RowIndex, ?'RowStatus_createAndGo', Cols) of
-		{'EXIT', _} ->
+		{'EXIT', _Reason} ->
+		    ?vtrace(
+		       "failed construct row (createAndGo): "
+		       " n   Reason: ~p"
+		       " n   Stack:  ~p",
+		       [_Reason, erlang:get_stacktrace()]),
 		    {noCreation, Col}; % Bad RowIndex
 		Row ->
 		    case lists:member(noinit, tuple_to_list(Row)) of
@@ -431,7 +437,12 @@ table_check_status(NameDb, Col, ?'RowStatus_createAndWait', RowIndex, Cols) ->
 	false ->
 	    case catch snmpa_local_db:table_construct_row(
 			 NameDb, RowIndex, ?'RowStatus_createAndGo', Cols) of
-		{'EXIT', _} ->
+		{'EXIT', _Reason} ->
+		    ?vtrace(
+		       "failed construct row (createAndWait): "
+		       " n   Reason: ~p"
+		       " n   Stack:  ~p",
+		       [_Reason, erlang:get_stacktrace()]),
 		    {noCreation, Col}; % Bad RowIndex
 		_Row ->
 		    {noError, 0}
@@ -711,7 +722,19 @@ find_col(Col, [_H | T]) -> find_col(Col, T).
 
 
 try_apply(nofunc, _) -> {noError, 0};
-try_apply(F, Args) -> apply(F, Args).
+try_apply(F, Args) -> maybe_verbose_apply(F, Args).
+
+maybe_verbose_apply(M, Args) ->
+    case get(verbosity) of
+        false ->
+            apply(M, Args);
+        _ ->
+            ?vlog("~n   apply: ~w,~p~n", [M,Args]),
+            Res = apply(M,Args),
+            ?vlog("~n   returned: ~p", [Res]),
+            Res
+    end.
+
 
 table_info({Name, _Db}) ->
     case snmpa_symbolic_store:table_info(Name) of

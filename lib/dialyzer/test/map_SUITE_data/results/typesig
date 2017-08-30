@@ -1,0 +1,5 @@
+
+typesig.erl:5: Function t1/0 has no local return
+typesig.erl:5: The call typesig:test(#{'a':=1}) will never return since it differs in the 1st argument from the success typing arguments: (#{'a':={number()}, _=>_})
+typesig.erl:6: Function t2/0 has no local return
+typesig.erl:6: The call typesig:test(#{'a':={'b'}}) will never return since it differs in the 1st argument from the success typing arguments: (#{'a':={number()}, _=>_})

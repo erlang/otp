@@ -1,0 +1,1150 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2010</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ct_ssh</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>ct_ssh.xml</file>
+  </header>
+  <module>ct_ssh</module>
+  <modulesummary>SSH/SFTP client module.</modulesummary>
+
+<description>
+
+    <p>SSH/SFTP client module.</p>
+
+    <p>This module uses application <c>SSH</c>, which provides detailed
+      information about, for example, functions, types, and options.</p>
+
+    <p>Argument <c>Server</c> in the SFTP functions is only to be used for
+      SFTP sessions that have been started on existing SSH connections
+      (that is, when the original connection type is <c>ssh</c>). Whenever
+      the connection type is <c>sftp</c>, use the SSH connection reference
+      only.</p>
+
+    <p>The following options are valid for specifying an SSH/SFTP
+      connection (that is, can be used as configuration elements):</p>
+
+    <pre>
+ [{ConnType, Addr},
+  {port, Port},
+  {user, UserName}
+  {password, Pwd}
+  {user_dir, String}
+  {public_key_alg, PubKeyAlg}
+  {connect_timeout, Timeout}
+  {key_cb, KeyCallbackMod}]</pre>
+
+    <p><c>ConnType = ssh | sftp</c>.</p>
+
+    <p>For other types, see
+      <seealso marker="ssh:ssh"><c>ssh:ssh(3)</c></seealso>.</p>
+
+    <p>All time-out parameters in <c>ct_ssh</c> functions are values in
+      milliseconds.</p>
+
+  </description>
+
+  <section>
+    <title>Data Types</title>
+    <marker id="types"/>
+    <taglist>
+      <tag><c>connection() = handle() | target_name()</c></tag>
+      <item><marker id="type-connection"/>
+        <p>For <c>target_name</c>, see module
+          <seealso marker="ct"><c>ct</c></seealso>.</p></item>
+
+      <tag><c>handle() = handle()</c></tag>
+      <item><marker id="type-handle"/>
+        <p>Handle for a specific SSH/SFTP connection, see module
+          <seealso marker="ct"><c>ct</c></seealso>.</p></item>
+
+      <tag><c>ssh_sftp_return() = term()</c></tag>
+      <item><marker id="type-ssh_sftp_return"/>
+        <p>Return value from an
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp</c></seealso>
+            function.</p></item>
+    </taglist>
+  </section>
+
+  <funcs>
+    <func>
+      <name>apread(SSH, Handle, Position, Length) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="apread-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>apread(SSH, Server, Handle, Position, Length) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="apread-5"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>apwrite(SSH, Handle, Position, Data) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="apwrite-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>apwrite(SSH, Server, Handle, Position, Data) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="apwrite-5"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>aread(SSH, Handle, Len) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="aread-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>aread(SSH, Server, Handle, Len) -&gt; Result</name>
+      <fsummary>For inforamtion and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="aread-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>awrite(SSH, Handle, Data) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="awrite-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>awrite(SSH, Server, Handle, Data) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="awrite-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>close(SSH, Handle) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="close-2"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>close(SSH, Server, Handle) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="close-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>connect(KeyOrName) -&gt; {ok, Handle} | {error, Reason}</name>
+      <fsummary>Equivalent to connect(KeyOrName, host, []).</fsummary>
+      <desc><marker id="connect-1"/>
+        <p>Equivalent to
+          <seealso marker="#connect-3"><c>ct_ssh:connect(KeyOrName, host,
+          [])</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>connect(KeyOrName, ConnType) -&gt; {ok, Handle} | {error, Reason}</name>
+      <fsummary>Equivalent to connect(KeyOrName, ConnType, []).</fsummary>
+      <desc><marker id="connect-2"/>
+        <p>Equivalent to
+          <seealso marker="#connect-3"><c>ct_ssh:connect(KeyOrName, ConnType,
+          [])</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>connect(KeyOrName, ConnType, ExtraOpts) -&gt; {ok, Handle} | {error, Reason}</name>
+      <fsummary>Opens an SSH or SFTP connection using the information
+        associated with KeyOrName.</fsummary>
+      <type>
+        <v>KeyOrName = Key | Name</v>
+        <v>Key = atom()</v>
+        <v>Name = target_name()</v>
+        <v>ConnType = ssh | sftp | host</v>
+        <v>ExtraOpts = ssh_connect_options()</v>
+        <v>Handle = handle()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="connect-3"/>
+        <p>Opens an SSH or SFTP connection using the information associated
+          with <c>KeyOrName</c>.</p>
+
+        <p>If <c>Name</c> (an alias name for <c>Key</c>) is used to identify
+          the connection, this name can be used as connection reference for
+          subsequent calls. Only one open connection at a time associated
+          with <c>Name</c> is possible. If <c>Key</c> is used, the returned
+          handle must be used for subsequent calls (multiple connections can
+          be opened using the configuration data specified by <c>Key</c>).</p>
+
+        <p>For information on how to create a new <c>Name</c>, see
+          <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+
+        <p>For <c>target_name</c>, see module
+          <seealso marker="ct"><c>ct</c></seealso>.</p>
+
+        <p><c>ConnType</c> always overrides the type specified in the
+          address tuple in the configuration data (and in <c>ExtraOpts</c>).
+          So it is possible to, for example, open an SFTP connection
+          directly using data originally specifying an SSH connection. Value
+          <c>host</c> means that the connection type specified by the host
+          option (either in the configuration data or in <c>ExtraOpts</c>)
+          is used.</p>
+
+        <p><c>ExtraOpts</c> (optional) are extra SSH options to be added to
+          the configuration data for <c>KeyOrName</c>. The extra options
+          override any existing options with the same key in the
+          configuration data. For details on valid SSH options, see
+          application <seealso marker="ssh:index"><c>SSH</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>del_dir(SSH, Name) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="del_dir-2"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>del_dir(SSH, Server, Name) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="del_dir-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>delete(SSH, Name) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="delete-2"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>delete(SSH, Server, Name) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="delete-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>disconnect(SSH) -&gt; ok | {error, Reason}</name>
+      <fsummary>Closes an SSH/SFTP connection.</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="disconnect-1"/>
+        <p>Closes an SSH/SFTP connection.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>exec(SSH, Command) -&gt; {ok, Data} | {error, Reason}</name>
+      <fsummary>Equivalent to exec(SSH, Command, DefaultTimeout).</fsummary>
+      <desc><marker id="exec-2"/>
+        <p>Equivalent to
+          <seealso marker="#exec-3"><c>ct_ssh:exec(SSH, Command,
+          DefaultTimeout)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>exec(SSH, Command, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
+      <fsummary>Requests server to perform Command.</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Command = string()</v>
+        <v>Timeout = integer()</v>
+        <v>Data = list()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="exec-3"/>
+        <p>Requests server to perform <c>Command</c>. A session channel is
+          opened automatically for the request. <c>Data</c> is received from
+          the server as a result of the command.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>exec(SSH, ChannelId, Command, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
+      <fsummary>Requests server to perform Command.</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>ChannelId = integer()</v>
+        <v>Command = string()</v>
+        <v>Timeout = integer()</v>
+        <v>Data = list()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="exec-4"/>
+        <p>Requests server to perform <c>Command</c>. A previously opened
+          session channel is used for the request. <c>Data</c> is received
+          from the server as a result of the command.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>get_file_info(SSH, Handle) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="get_file_info-2"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>get_file_info(SSH, Server, Handle) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="get_file_info-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>list_dir(SSH, Path) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="list_dir-2"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>list_dir(SSH, Server, Path) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="list_dir-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>make_dir(SSH, Name) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="make_dir-2"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>make_dir(SSH, Server, Name) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="make_dir-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>make_symlink(SSH, Name, Target) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="make_symlink-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>make_symlink(SSH, Server, Name, Target) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="make_symlink-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>open(SSH, File, Mode) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="open-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>open(SSH, Server, File, Mode) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="open-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>opendir(SSH, Path) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="opendir-2"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>opendir(SSH, Server, Path) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="opendir-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>position(SSH, Handle, Location) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="position-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>position(SSH, Server, Handle, Location) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="position-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>pread(SSH, Handle, Position, Length) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="pread-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>pread(SSH, Server, Handle, Position, Length) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="pread-5"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>pwrite(SSH, Handle, Position, Data) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="pwrite-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>pwrite(SSH, Server, Handle, Position, Data) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="pwrite-5"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>read(SSH, Handle, Len) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="read-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>read(SSH, Server, Handle, Len) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="read-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>read_file(SSH, File) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="read_file-2"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>read_file(SSH, Server, File) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="read_file-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>read_file_info(SSH, Name) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="read_file_info-2"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>read_file_info(SSH, Server, Name) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="read_file_info-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>read_link(SSH, Name) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="read_link-2"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>read_link(SSH, Server, Name) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="read_link-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>read_link_info(SSH, Name) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="read_link_info-2"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>read_link_info(SSH, Server, Name) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="read_link_info-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>receive_response(SSH, ChannelId) -&gt; {ok, Data} | {error, Reason}</name>
+      <fsummary>Equivalent to receive_response(SSH, ChannelId,
+        close).</fsummary>
+      <desc><marker id="receive_response-2"/>
+        <p>Equivalent to
+          <seealso marker="#receive_response-3"><c>ct_ssh:receive_response(SSH,
+ChannelId, close)</c></seealso>.</p>
+      </desc>
+    </func>
+
+     <func>
+       <name>receive_response(SSH, ChannelId, End) -&gt; {ok, Data} | {error, Reason}</name>
+      <fsummary>Equivalent to receive_response(SSH, ChannelId, End,
+        DefaultTimeout).</fsummary>
+      <desc><marker id="receive_response-3"/>
+        <p>Equivalent to
+          <seealso marker="#receive_response-4"><c>ct_ssh:receive_response(SSH,
+ChannelId, End, DefaultTimeout)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>receive_response(SSH, ChannelId, End, Timeout) -&gt; {ok, Data} | {timeout, Data} | {error, Reason}</name>
+      <fsummary>Receives expected data from server on the specified session
+        channel.</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>ChannelId = integer()</v>
+        <v>End = Fun | close | timeout</v>
+        <v>Timeout = integer()</v>
+        <v>Data = list()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="receive_response-4"/>
+        <p>Receives expected data from server on the specified session
+          channel.</p>
+
+        <p>If <c>End == close</c>, data is returned to the caller when the
+          channel is closed by the server. If a time-out occurs before this
+          happens, the function returns <c>{timeout,Data}</c> (where
+          <c>Data</c> is the data received so far).</p>
+        <p>If <c>End == timeout</c>, a time-out is expected and
+          <c>{ok,Data}</c> is returned both in the case of a time-out and
+          when the channel is closed.</p>
+
+        <p>If <c>End</c> is a fun, this fun is called with one argument, the
+          data value in a received <c>ssh_cm</c> message (see
+          <seealso marker="ssh:ssh_connection"><c>ssh:ssh_connection(3)</c></seealso>.
+          The fun is to return either <c>true</c> to end the receiving
+          operation (and have the so far collected data returned) or
+          <c>false</c> to wait for more data from the server. Even if a fun
+          is supplied, the function returns immediately if the server closes
+          the channel).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>rename(SSH, OldName, NewName) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="rename-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>rename(SSH, Server, OldName, NewName) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="rename-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>send(SSH, ChannelId, Data) -&gt; ok | {error, Reason}</name>
+      <fsummary>Equivalent to send(SSH, ChannelId, 0, Data,
+        DefaultTimeout).</fsummary>
+      <desc><marker id="send-3"/>
+        <p>Equivalent to <seealso marker="#send-5"><c>ct_ssh:send(SSH,
+          ChannelId, 0, Data, DefaultTimeout)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>send(SSH, ChannelId, Data, Timeout) -&gt; ok | {error, Reason}</name>
+      <fsummary>Equivalent to send(SSH, ChannelId, 0, Data, Timeout).</fsummary>
+      <desc><marker id="send-4"/>
+        <p>Equivalent to <seealso marker="#send-5"><c>ct_ssh:send(SSH,
+          ChannelId, 0, Data, Timeout)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>send(SSH, ChannelId, Type, Data, Timeout) -&gt; ok | {error, Reason}</name>
+      <fsummary>Sends data to server on specified session channel.</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>ChannelId = integer()</v>
+        <v>Type = integer()</v>
+        <v>Data = list()</v>
+        <v>Timeout = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="send-5"/>
+        <p>Sends data to server on specified session channel.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>send_and_receive(SSH, ChannelId, Data) -&gt; {ok, Data} | {error, Reason}</name>
+      <fsummary>Equivalent to send_and_receive(SSH, ChannelId, Data,
+        close).</fsummary>
+      <desc><marker id="send_and_receive-3"/>
+        <p>Equivalent to
+          <seealso marker="#send_and_receive-4"><c>ct_ssh:send_and_receive(SSH,
+            ChannelId, Data, close)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>send_and_receive(SSH, ChannelId, Data, End) -&gt; {ok, Data} | {error, Reason}</name>
+      <fsummary>Equivalent to send_and_receive(SSH, ChannelId, 0, Data, End,
+        DefaultTimeout).</fsummary>
+      <desc><marker id="send_and_receive-4"/>
+        <p>Equivalent to
+          <seealso marker="#send_and_receive-6"><c>ct_ssh;send_and_receive(SSH,
+ChannelId, 0, Data, End, DefaultTimeout)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>send_and_receive(SSH, ChannelId, Data, End, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
+      <fsummary>Equivalent to send_and_receive(SSH, ChannelId, 0, Data, End,
+        Timeout).</fsummary>
+      <desc><marker id="send_and_receive-5"/>
+        <p>Equivalent to
+          <seealso marker="#send_and_receive-6"><c>ct_ssh:send_and_receive(SSH,
+ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>send_and_receive(SSH, ChannelId, Type, Data, End, Timeout) -&gt; {ok, Data} | {error, Reason}</name>
+      <fsummary>Sends data to server on specified session channel and waits
+        to receive the server response.</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>ChannelId = integer()</v>
+        <v>Type = integer()</v>
+        <v>Data = list()</v>
+        <v>End = Fun | close | timeout</v>
+        <v>Timeout = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="send_and_receive-6"/>
+        <p>Sends data to server on specified session channel and waits to
+          receive the server response.</p>
+
+        <p>For details on argument <c>End</c>, see
+          <seealso marker="#receive_response-4"><c>ct_ssh:receive_response/4</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>session_close(SSH, ChannelId) -&gt; ok | {error, Reason}</name>
+      <fsummary>Closes an SSH session channel.</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>ChannelId = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="session_close-2"/>
+        <p>Closes an SSH session channel.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>session_open(SSH) -&gt; {ok, ChannelId} | {error, Reason}</name>
+      <fsummary>Equivalent to session_open(SSH, DefaultTimeout).</fsummary>
+      <desc><marker id="session_open-1"/>
+        <p>Equivalent to
+          <seealso marker="#session_open-2"><c>ct_ssh:session_open(SSH,
+          DefaultTimeout)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>session_open(SSH, Timeout) -&gt; {ok, ChannelId} | {error, Reason}</name>
+      <fsummary>Opens a channel for an SSH session.</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Timeout = integer()</v>
+        <v>ChannelId = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="session_open-2"/>
+        <p>Opens a channel for an SSH session.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>sftp_connect(SSH) -&gt; {ok, Server} | {error, Reason}</name>
+      <fsummary>Starts an SFTP session on an already existing SSH
+        connection.</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Server = pid()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="sftp_connect-1"/>
+        <p>Starts an SFTP session on an already existing SSH connection.
+          <c>Server</c> identifies the new session and must be specified
+          whenever SFTP requests are to be sent.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>subsystem(SSH, ChannelId, Subsystem) -&gt; Status | {error, Reason}</name>
+      <fsummary>Equivalent to subsystem(SSH, ChannelId, Subsystem,
+        DefaultTimeout).</fsummary>
+      <desc><marker id="subsystem-3"/>
+        <p>Equivalent to
+          <seealso marker="#subsystem-4"><c>ct_ssh:subsystem(SSH, ChannelId,
+            Subsystem, DefaultTimeout)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>subsystem(SSH, ChannelId, Subsystem, Timeout) -&gt; Status | {error, Reason}</name>
+      <fsummary>Sends a request to execute a predefined subsystem.</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>ChannelId = integer()</v>
+        <v>Subsystem = string()</v>
+        <v>Timeout = integer()</v>
+        <v>Status = success | failure</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="subsystem-4"/>
+        <p>Sends a request to execute a predefined subsystem.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>write(SSH, Handle, Data) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="write-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>write(SSH, Server, Handle, Data) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="write-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>write_file(SSH, File, Iolist) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="write_file-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>write_file(SSH, Server, File, Iolist) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="write_file-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>write_file_info(SSH, Name, Info) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="write_file_info-3"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>write_file_info(SSH, Server, Name, Info) -&gt; Result</name>
+      <fsummary>For information and other types, see ssh_sftp(3).</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>Result = ssh_sftp_return() | {error, Reason}</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="write_file_info-4"/>
+        <p>For information and other types, see
+          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>
+
+

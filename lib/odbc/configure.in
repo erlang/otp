@@ -1,18 +1,19 @@
 dnl
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 2005-2013. All Rights Reserved.
+dnl Copyright Ericsson AB 2005-2016. All Rights Reserved.
 dnl
-dnl The contents of this file are subject to the Erlang Public License,
-dnl Version 1.1, (the "License"); you may not use this file except in
-dnl compliance with the License. You should have received a copy of the
-dnl Erlang Public License along with this software. If not, it can be
-dnl retrieved online at http://www.erlang.org/.
+dnl Licensed under the Apache License, Version 2.0 (the "License");
+dnl you may not use this file except in compliance with the License.
+dnl You may obtain a copy of the License at
 dnl
-dnl Software distributed under the License is distributed on an "AS IS"
-dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-dnl the License for the specific language governing rights and limitations
-dnl under the License.
+dnl     http://www.apache.org/licenses/LICENSE-2.0
+dnl
+dnl Unless required by applicable law or agreed to in writing, software
+dnl distributed under the License is distributed on an "AS IS" BASIS,
+dnl WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+dnl See the License for the specific language governing permissions and
+dnl limitations under the License.
 dnl
 dnl %CopyrightEnd%
 dnl
@@ -72,6 +73,16 @@ AC_CHECK_TOOL(LD, ld, '$(CC)')
 
 AC_SUBST(LD)
 
+_search_path=/bin:/usr/bin:/usr/local/bin:$PATH
+
+AC_PATH_PROG(RM, rm, false, $_search_path)
+if test "$ac_cv_path_RM" = false; then
+  AC_MSG_ERROR([No 'rm' command found])
+fi
+
+_search_path=
+
+
 # Sockets
 #--------------------------------------------------------------------
 #	Check for the existence of the -lsocket and -lnsl libraries.
@@ -105,6 +116,12 @@ AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"]))
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([fcntl.h netdb.h stdlib.h string.h sys/socket.h winsock2.h])
+AC_CHECK_HEADERS([windows.h])
+AC_CHECK_HEADERS([sql.h sqlext.h], [odbc_required_headers=yes], [odbc_required_headers=no],
+[[#ifdef HAVE_WINDOWS_H
+     # include <windows.h>
+     #endif
+     ]])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -121,7 +138,7 @@ dnl Checks for library functions.
 AC_CHECK_FUNCS([memset socket])
 	
 # ODBC 
-/bin/rm -f "$ERL_TOP/lib/odbc/SKIP"
+$RM -f "$ERL_TOP/lib/odbc/SKIP"
 
 LM_CHECK_THR_LIB
 AC_SUBST(THR_DEFS)
@@ -130,7 +147,7 @@ AC_SUBST(THR_LIBS)
 odbc_lib_link_success=no
 AC_SUBST(TARGET_FLAGS)
     case $host_os in
-        darwin*)
+        darwin1[[0-4]].*|darwin[[0-9]].*)
                 TARGET_FLAGS="-DUNIX"
 	        if test ! -d "$with_odbc" || test "$with_odbc" = "yes"; then
 		    ODBC_LIB= -L"/usr/lib"
@@ -203,6 +220,10 @@ AC_SUBST(TARGET_FLAGS)
 	  ;;
 esac
 
+if test $odbc_required_headers = no;  then
+    AC_MSG_WARN(["ODBC library - header check failed"])
+    echo "ODBC library - header check failed" > $ERL_TOP/lib/odbc/SKIP
+fi
 if test $odbc_lib_link_success = no;  then
     AC_MSG_WARN(["ODBC library - link check failed"])
     echo "ODBC library - link check failed" > $ERL_TOP/lib/odbc/SKIP
@@ -217,5 +238,25 @@ if test "x$GCC" = xyes; then
     # Treat certain GCC warnings as errors
     LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
 fi
+
+dnl ----------------------------------------------------------------------
+dnl Enable -fsanitize= flags.
+dnl ----------------------------------------------------------------------
+
+m4_define(DEFAULT_SANITIZERS, [address,undefined])
+AC_ARG_ENABLE(
+    sanitizers,
+    AS_HELP_STRING(
+        [--enable-sanitizers@<:@=comma-separated list of sanitizers@:>@],
+	    [Default=DEFAULT_SANITIZERS]),
+[
+case "$enableval" in
+    no) sanitizers= ;;
+    yes) sanitizers="-fsanitize=DEFAULT_SANITIZERS" ;;
+    *) sanitizers="-fsanitize=$enableval" ;;
+esac
+CFLAGS="$CFLAGS $sanitizers"
+LDFLAGS="$LDFLAGS $sanitizers"
+])
 
 AC_OUTPUT(c_src/$host/Makefile:c_src/Makefile.in)

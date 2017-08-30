@@ -7,16 +7,17 @@
 %%
 %% Copyright Ericsson AB 2010-2013. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -38,7 +39,7 @@
 %%% Created : 25 Feb 2010 by Rickard Green
 %%%-------------------------------------------------------------------
 
--define(MAX_HEADING, 3).
+-define(MAX_HEADING, 6).
 
 -define(DELAYED_COPYRIGHT_IX, 0).
 -define(DELAYED_TOC_IX, 1).
@@ -79,7 +80,6 @@
 	       copyright = false,
 	       copyright_data = [],
 	       have_h1 = false,
-	       smarker_ix = false,
 	       toc = [],
 	       ifile,
 	       ofile}).
@@ -334,6 +334,8 @@ text(Line) ->
 
 text("%ERTS-VSN%" ++ Cs, Acc) ->
     text(Cs, ["@ERTS_VSN@"|Acc]);
+text("%OTP-VSN%" ++ Cs, Acc) ->
+    text(Cs, ["@OTP_VSN@"|Acc]);
 text("%OTP-REL%" ++ Cs, Acc) ->
     text(Cs, ["@OTP_REL@"|Acc]);
 
@@ -357,15 +359,17 @@ put_text(#state{c = CTag, emphasis = EmTag} = S, Line) ->
 
 put_text(S, "%ERTS-VSN%"++Cs, CTag, EmTag, Acc) ->
     put_text(S, Cs, CTag, EmTag, ["@ERTS_VSN@"|Acc]);
+put_text(S, "%OTP-VSN%"++Cs, CTag, EmTag, Acc) ->
+    put_text(S, Cs, CTag, EmTag, ["@OTP_VSN@"|Acc]);
 put_text(S, "%OTP-REL%"++Cs, CTag, EmTag, Acc) ->
     put_text(S, Cs, CTag, EmTag, ["@OTP_REL@"|Acc]);
 
 put_text(S, [$\\,C|Cs], no, EmTag, Acc) ->
     put_text(S, Cs, no, EmTag, [C|Acc]);
 put_text(S, [C,C|Cs], no, b, Acc) when C == $*; C == $_ ->
-    put_text(S, Cs, no, no, ["</b>"|Acc]);
+    put_text(S, Cs, no, no, ["</strong>"|Acc]);
 put_text(S, [C,C|Cs], no, no, Acc) when C == $*; C == $_ ->
-    put_text(S, Cs, no, b, ["<b>"|Acc]);
+    put_text(S, Cs, no, b, ["<strong>"|Acc]);
 put_text(S, [C|Cs], no, em, Acc) when C == $*; C == $_ ->
     put_text(S, Cs, no, no, ["</em>"|Acc]);
 put_text(S, [C|Cs], no, no, Acc) when C == $*; C == $_ ->
@@ -560,6 +564,8 @@ code(Line) ->
 
 code("%ERTS-VSN%" ++ Cs, Acc) ->
     code(Cs, ["@ERTS_VSN@"|Acc]);
+code("%OTP-VSN%" ++ Cs, Acc) ->
+    code(Cs, ["@OTP_VSN@"|Acc]);
 code("%OTP-REL%" ++ Cs, Acc) ->
     code(Cs, ["@OTP_REL@"|Acc]);
 
@@ -607,8 +613,7 @@ strip_lvls(_N, Str) ->
 put_title(S, 1, Title) ->
     header(chk_h1(1, S#state{h = 1, mlist = [top]}), Title);
 put_title(#state{mlist = MList0,
-		 toc = TOC,
-		 smarker_ix = SMarkerIX} = S0, H, Title) ->
+		 toc = TOC} = S0, H, Title) ->
     TitleStr = text(Title),
     MList1 = [mk_lvl_marker(Title) | MList0],
     Marker = mk_marker(MList1),
@@ -619,12 +624,10 @@ put_title(#state{mlist = MList0,
 				"<seealso marker=\"#",Marker,"\">",
 				TitleStr,"</seealso>",nl()],
 			 h = H,
-			 mlist = MList1,
-			 smarker_ix = false}),
-    true = is_integer(SMarkerIX),
-    S2 = write_delayed(S1, SMarkerIX, ["<marker id=\"", Marker, "\"/>",nl()]),
+			 mlist = MList1}),
+    S2 = put_chars(S1, ["<marker id=\"", Marker, "\"/>",nl()]),
     {STag, ETag} = case H > ?MAX_HEADING of
-		       true -> {"<p><b>", "</b></p>"};
+		       true -> {"<p><strong>", "</strong></p>"};
 		       false -> {"<title>", "</title>"}
 		   end,
     put_chars(S2, [STag, TitleStr, ETag, nl()]).
@@ -694,15 +697,10 @@ sections_change(H, OldH, #state{mlist = [_|ML], toc = TOC} = S0) ->
 
 begin_section(1, S) ->
     put_line(S, "<chapter>");
-begin_section(H, #state{delayed_array_ix = IX} = S0) when H > ?MAX_HEADING ->
-    false = S0#state.smarker_ix,
-    true = is_integer(IX),
-    put_delayed(S0#state{smarker_ix = IX, delayed_array_ix = IX+1}, IX);
-begin_section(H, #state{delayed_array_ix = IX} = S0)  when H > 1 ->
-    false = S0#state.smarker_ix,
-    true = is_integer(IX),
-    S1 = put_delayed(S0#state{smarker_ix = IX, delayed_array_ix = IX+1}, IX),
-    put_line(S1, "<section>");
+begin_section(H, S) when H > ?MAX_HEADING ->
+    S;
+begin_section(H, S0)  when H > 1 ->
+    put_line(S0, "<section>");
 begin_section(_H, S)  ->
     S.
 
@@ -772,7 +770,7 @@ create_toc(#state{toc = TOC} = S) ->
 	{value,{"true",[]}} ->
 	    write_delayed(S,
 			  ?DELAYED_TOC_IX,
-			  ["<p><b>Table of Contents</b></p>", nl(), TOC]);
+			  ["<p><strong>Table of Contents</strong></p>", nl(), TOC]);
 	_ ->
 	    write_delayed(S, ?DELAYED_TOC_IX, "")
     end.
@@ -793,16 +791,17 @@ parse_crd([], From, To, Holder, Legal) ->
      end,
      case Legal of
 	 [] ->
-	     ["The contents of this file are subject to the Erlang Public License,", nl(),
-	      "Version 1.1, (the \"License\"); you may not use this file except in", nl(),
-	      "compliance with the License. You should have received a copy of the", nl(),
-	      "Erlang Public License along with this software. If not, it can be", nl(),
-	      "retrieved online at http://www.erlang.org/.", nl(),
-	      nl(),
-	      "Software distributed under the License is distributed on an \"AS IS\"", nl(),
-	      "basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See", nl(),
-	      "the License for the specific language governing rights and limitations", nl(),
-	      "under the License.", nl()];
+             ["Licensed under the Apache License, Version 2.0 (the \"License\");", nl(),
+              "you may not use this file except in compliance with the License.", nl(),
+              "You may obtain a copy of the License at", nl(),
+              nl(),
+              "    http://www.apache.org/licenses/LICENSE-2.0", nl(),
+              nl(),
+              "Unless required by applicable law or agreed to in writing, software", nl(),
+              "distributed under the License is distributed on an \"AS IS\" BASIS,", nl(),
+              "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.", nl(),
+              "See the License for the specific language governing permissions and", nl(),
+              "limitations under the License.", nl()];
 	 _ -> Legal
      end};
 parse_crd([Line|Lines], OldFrom, OldTo, OldHolder, Legal) ->
@@ -978,10 +977,10 @@ chg_bq_lvl(Lvl, #state{bq_lvl = Lvl} = S) ->
     S;
 chg_bq_lvl(NewLvl, #state{bq_lvl = Lvl} = S) when NewLvl > Lvl ->
     chg_bq_lvl(NewLvl,
-	       put_line(end_p(end_code(S#state{bq_lvl = Lvl+1})), "<blockquote>"));
+	       put_line(end_p(end_code(S#state{bq_lvl = Lvl+1})), "<quote>"));
 chg_bq_lvl(NewLvl, #state{bq_lvl = Lvl} = S) ->
     chg_bq_lvl(NewLvl,
-	       put_line(end_p(end_code(S#state{bq_lvl = Lvl-1})), "</blockquote>")).
+	       put_line(end_p(end_code(S#state{bq_lvl = Lvl-1})), "</quote>")).
 
 %%
 %% Resolve link

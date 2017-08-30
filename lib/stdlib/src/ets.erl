@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
 %%
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
 %% %CopyrightEnd%
 %%
@@ -53,10 +54,8 @@
                       | {tab(),integer(),integer(),binary(),list(),integer()}
                       | {tab(),_,_,integer(),binary(),list(),integer(),integer()}.
 
-%% a similar definition is also in erl_types
 -opaque tid()      :: integer().
 
-%% these ones are also defined in erl_bif_types
 -type match_pattern() :: atom() | tuple().
 -type match_spec()    :: [{match_pattern(), [_], [_]}].
 
@@ -73,7 +72,8 @@
          rename/2, safe_fixtable/2, select/1, select/2, select/3,
          select_count/2, select_delete/2, select_reverse/1,
          select_reverse/2, select_reverse/3, setopts/2, slot/2,
-         update_counter/3, update_element/3]).
+         take/2,
+         update_counter/3, update_counter/4, update_element/3]).
 
 -spec all() -> [Tab] when
       Tab :: tab().
@@ -135,7 +135,9 @@ give_away(_, _, _) ->
                  | {owner, pid()}
                  | {protection, access()}
                  | {size, non_neg_integer()}
-                 | {type, type()}.
+                 | {type, type()}
+		 | {write_concurrency, boolean()}
+		 | {read_concurrency, boolean()}.
 
 info(_) ->
     erlang:nif_error(undef).
@@ -144,7 +146,8 @@ info(_) ->
       Tab :: tab(),
       Item :: compressed | fixed | heir | keypos | memory
             | name | named_table | node | owner | protection
-            | safe_fixed | size | stats | type,
+            | safe_fixed | safe_fixed_monotonic_time | size | stats | type
+	    | write_concurrency | read_concurrency,
       Value :: term().
 
 info(_, _) ->
@@ -402,6 +405,14 @@ setopts(_, _) ->
 slot(_, _) ->
     erlang:nif_error(undef).
 
+-spec take(Tab, Key) -> [Object] when
+      Tab :: tab(),
+      Key :: term(),
+      Object :: tuple().
+
+take(_, _) ->
+    erlang:nif_error(undef).
+
 -spec update_counter(Tab, Key, UpdateOp) -> Result when
       Tab :: tab(),
       Key :: term(),
@@ -427,6 +438,38 @@ slot(_, _) ->
       Result :: integer().
 
 update_counter(_, _, _) ->
+    erlang:nif_error(undef).
+
+-spec update_counter(Tab, Key, UpdateOp, Default) -> Result when
+                        Tab :: tab(),
+                        Key :: term(),
+                        UpdateOp :: {Pos, Incr}
+                                  | {Pos, Incr, Threshold, SetValue},
+                        Pos :: integer(),
+                        Incr :: integer(),
+                        Threshold :: integer(),
+                        SetValue :: integer(),
+                        Result :: integer(),
+                        Default :: tuple();
+                    (Tab, Key, [UpdateOp], Default) -> [Result] when
+                        Tab :: tab(),
+                        Key :: term(),
+                        UpdateOp :: {Pos, Incr}
+                                  | {Pos, Incr, Threshold, SetValue},
+                        Pos :: integer(),
+                        Incr :: integer(),
+                        Threshold :: integer(),
+                        SetValue :: integer(),
+                        Result :: integer(),
+                        Default :: tuple();
+                    (Tab, Key, Incr, Default) -> Result when
+                        Tab :: tab(),
+                        Key :: term(),
+                        Incr :: integer(),
+                        Result :: integer(),
+                        Default :: tuple().
+
+update_counter(_, _, _, _) ->
     erlang:nif_error(undef).
 
 -spec update_element(Tab, Key, ElementSpec :: {Pos, Value}) -> boolean() when
@@ -507,7 +550,7 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
                 Else ->
                     Else
             end;
-        false ->
+        _ ->
             exit({badarg,{?MODULE,fun2ms,
                           [function,called,with,real,'fun',
                            should,be,transformed,with,
@@ -697,7 +740,8 @@ do_filter(Tab, Key, F, A, Ack) ->
 -record(filetab_options,
 	{
 	  object_count = false :: boolean(),
-	  md5sum       = false :: boolean()     
+	  md5sum       = false :: boolean(),
+	  sync         = false :: boolean()
 	 }).
 
 -spec tab2file(Tab, Filename) -> 'ok' | {'error', Reason} when
@@ -712,14 +756,14 @@ tab2file(Tab, File) ->
       Tab :: tab(),
       Filename :: file:name(),
       Options :: [Option],
-      Option :: {'extended_info', [ExtInfo]},
+      Option :: {'extended_info', [ExtInfo]} | {'sync', boolean()},
       ExtInfo :: 'md5sum' | 'object_count',
       Reason :: term().
 
 tab2file(Tab, File, Options) ->
     try
 	{ok, FtOptions} = parse_ft_options(Options),
-	file:delete(File),
+	_ = file:delete(File),
 	case file:read_file_info(File) of
 	    {error, enoent} -> ok;
 	    _ -> throw(eaccess)
@@ -750,14 +794,18 @@ tab2file(Tab, File, Options) ->
 		    {fun(Oldstate,Termlist) ->
 			     {NewState,BinList} = 
 				 md5terms(Oldstate,Termlist),
-			     disk_log:blog_terms(Name,BinList),
-			     NewState
+                             case disk_log:blog_terms(Name,BinList) of
+                                 ok -> NewState;
+                                 {error, Reason2} -> throw(Reason2)
+                             end
 		     end,
 		     erlang:md5_init()};
 		false ->
 		    {fun(_,Termlist) ->
-			     disk_log:log_terms(Name,Termlist),
-			     true
+                             case disk_log:log_terms(Name,Termlist) of
+                                 ok -> true;
+                                 {error, Reason2} -> throw(Reason2)
+                             end
 		     end, 
 		     true}
 	    end,
@@ -789,19 +837,28 @@ tab2file(Tab, File, Options) ->
 		List ->
 		    LogFun(NewState1,[['$end_of_table',List]])
 	    end,
+	    case FtOptions#filetab_options.sync of
+	        true ->
+		    case disk_log:sync(Name) of
+		        ok -> ok;
+			{error, Reason2} -> throw(Reason2)
+		    end;
+                false ->
+		    ok
+            end,
 	    disk_log:close(Name)
 	catch
 	    throw:TReason ->
-		disk_log:close(Name),
-		file:delete(File),
+		_ = disk_log:close(Name),
+		_ = file:delete(File),
 		throw(TReason);
 	    exit:ExReason ->
-		disk_log:close(Name),
-		file:delete(File),
+		_ = disk_log:close(Name),
+		_ = file:delete(File),
 		exit(ExReason);
 	    error:ErReason ->
-		disk_log:close(Name),
-		file:delete(File),
+		_ = disk_log:close(Name),
+		_ = file:delete(File),
 	        erlang:raise(error,ErReason,erlang:get_stacktrace())
 	end
     catch
@@ -841,23 +898,24 @@ md5terms(State, [H|T]) ->
     {FinState, [B|TL]}.
 
 parse_ft_options(Options) when is_list(Options) ->
-    {Opt,Rest} = case (catch lists:keytake(extended_info,1,Options)) of
-		     false -> 
-			 {[],Options};
-		     {value,{extended_info,L},R} when is_list(L) ->
-			 {L,R}
-		 end,
-    case Rest of
-	[] ->
-	    parse_ft_info_options(#filetab_options{}, Opt);
-	Other ->
-	    throw({unknown_option, Other})
-    end;
-parse_ft_options(Malformed) ->
+    {ok, parse_ft_options(Options, #filetab_options{}, false)}.
+
+parse_ft_options([], FtOpt, _) ->
+    FtOpt;
+parse_ft_options([{sync,true} | Rest], FtOpt, EI) ->
+    parse_ft_options(Rest, FtOpt#filetab_options{sync = true}, EI);
+parse_ft_options([{sync,false} | Rest], FtOpt, EI) ->
+    parse_ft_options(Rest, FtOpt, EI);
+parse_ft_options([{extended_info,L} | Rest], FtOpt0, false) ->
+    FtOpt1 = parse_ft_info_options(FtOpt0, L),
+    parse_ft_options(Rest, FtOpt1, true);
+parse_ft_options([Other | _], _, _) ->
+    throw({unknown_option, Other});
+parse_ft_options(Malformed, _, _) ->
     throw({malformed_option, Malformed}).
 
 parse_ft_info_options(FtOpt,[]) ->
-    {ok,FtOpt};
+    FtOpt;
 parse_ft_info_options(FtOpt,[object_count | T]) ->
     parse_ft_info_options(FtOpt#filetab_options{object_count = true}, T);
 parse_ft_info_options(FtOpt,[md5sum | T]) ->
@@ -892,25 +950,32 @@ file2tab(File, Opts) ->
     try
 	{ok,Verify,TabArg} = parse_f2t_opts(Opts,false,[]),
 	Name = make_ref(),
-	{ok, Major, Minor, FtOptions, MD5State, FullHeader, DLContext} = 
+        {ok, Name} =
 	    case disk_log:open([{name, Name}, 
 				{file, File}, 
 				{mode, read_only}]) of
 		{ok, Name} ->
-		    get_header_data(Name,Verify);
+                    {ok, Name};
 		{repaired, Name, _,_} -> %Uh? cannot happen?
 		    case Verify of
 			true ->
-			    disk_log:close(Name),
+			    _ = disk_log:close(Name),
 			    throw(badfile);
 			false ->
-			    get_header_data(Name,Verify)
+                            {ok, Name}
 		    end;
 		{error, Other1} ->
 		    throw({read_error, Other1});
 		Other2 ->
 		    throw(Other2)
 	    end,
+	{ok, Major, Minor, FtOptions, MD5State, FullHeader, DLContext} =
+            try get_header_data(Name, Verify)
+            catch
+                badfile ->
+                    _ = disk_log:close(Name),
+                    throw(badfile)
+            end,
 	try
 	    if  
 		Major > ?MAJOR_F2T_VERSION -> 
@@ -974,7 +1039,7 @@ file2tab(File, Opts) ->
 		    erlang:raise(error,ErReason,erlang:get_stacktrace())
 	    end
 	after
-	    disk_log:close(Name)
+	    _ = disk_log:close(Name)
 	end
     catch
 	throw:TReason2 ->
@@ -1244,18 +1309,30 @@ create_tab(I, TabArg) ->
     {name, Name} = lists:keyfind(name, 1, I),
     {type, Type} = lists:keyfind(type, 1, I),
     {protection, P} = lists:keyfind(protection, 1, I),
-    {named_table, Val} = lists:keyfind(named_table, 1, I),
     {keypos, _Kp} = Keypos = lists:keyfind(keypos, 1, I),
     {size, Sz} = lists:keyfind(size, 1, I),
-    Comp = case lists:keyfind(compressed, 1, I) of
-	{compressed, true} -> [compressed];
-	{compressed, false} -> [];
-	false -> []
-    end,
+    L1 = [Type, P, Keypos],
+    L2 = case lists:keyfind(named_table, 1, I) of
+             {named_table, true} -> [named_table | L1];
+	     {named_table, false} -> L1
+	 end,
+    L3 = case lists:keyfind(compressed, 1, I) of
+	     {compressed, true} -> [compressed | L2];
+	     {compressed, false} -> L2;
+	     false -> L2
+	 end,
+    L4 = case lists:keyfind(write_concurrency, 1, I) of
+	     {write_concurrency, _}=Wcc -> [Wcc | L3];
+	     _ -> L3
+	 end,
+    L5 = case lists:keyfind(read_concurrency, 1, I) of
+	     {read_concurrency, _}=Rcc -> [Rcc | L4];
+	     false -> L4
+	 end,
     case TabArg of
         [] ->
 	    try
-		Tab = ets:new(Name, [Type, P, Keypos] ++ named_table(Val) ++ Comp),
+		Tab = ets:new(Name, L5),
 		{ok, Tab, Sz}
 	    catch _:_ ->
 		throw(cannot_create_table)
@@ -1264,8 +1341,6 @@ create_tab(I, TabArg) ->
             {ok, TabArg, Sz}
     end.
 
-named_table(true) -> [named_table];
-named_table(false) -> [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% tabfile_info/1 reads the head information in an ets table dumped to
@@ -1293,20 +1368,30 @@ named_table(false) -> [].
 tabfile_info(File) when is_list(File) ; is_atom(File) ->
     try
 	Name = make_ref(),
-	{ok, Major, Minor, _FtOptions, _MD5State, FullHeader, _DLContext} = 
+        {ok, Name} =
 	    case disk_log:open([{name, Name}, 
 				{file, File}, 
 				{mode, read_only}]) of
 		{ok, Name} ->
-		    get_header_data(Name,false);
+                    {ok, Name};
 		{repaired, Name, _,_} -> %Uh? cannot happen?
-		    get_header_data(Name,false);
+		    {ok, Name};
 		{error, Other1} ->
 		    throw({read_error, Other1});
 		Other2 ->
 		    throw(Other2)
 	    end,
-	disk_log:close(Name),
+	{ok, Major, Minor, _FtOptions, _MD5State, FullHeader, _DLContext} =
+            try get_header_data(Name, false)
+            catch
+                badfile ->
+                    _ = disk_log:close(Name),
+                    throw(badfile)
+            end,
+        case disk_log:close(Name) of
+            ok -> ok;
+            {error, Reason} -> throw(Reason)
+        end,
 	{value, N} = lists:keysearch(name, 1, FullHeader),
 	{value, Type} = lists:keysearch(type, 1, FullHeader),
 	{value, P} = lists:keysearch(protection, 1, FullHeader),
@@ -1594,12 +1679,17 @@ choice(Height, Width, P, Mode, Tab, Key, Turn, Opos) ->
     end.
 
 get_line(P, Default) ->
-    case io:get_line(P) of
+    case line_string(io:get_line(P)) of
 	"\n" ->
 	    Default;
 	L ->
 	    L
     end.
+
+%% If the standard input is set to binary mode
+%% convert it to a list so we can properly match.
+line_string(Binary) when is_binary(Binary) -> unicode:characters_to_list(Binary);
+line_string(Other) -> Other.
 
 nonl(S) -> string:strip(S, right, $\n).
 

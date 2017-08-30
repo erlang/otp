@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2016. All Rights Reserved.
  *
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
  * %CopyrightEnd%
  */
@@ -376,8 +377,14 @@ TESTCASE(test_ei_decode_ulong)
       EI_DECODE_2     (decode_ulong,  11, unsigned long,  ll(0x8000000000000000));
       EI_DECODE_2     (decode_ulong,  11, unsigned long,  ll(0xffffffffffffffff));
     } else {
-      EI_DECODE_2     (decode_ulong,  7, unsigned long,  0x80000000);
-      EI_DECODE_2     (decode_ulong,  7, unsigned long,  0xffffffff);
+        if (sizeof(void*) > 4) {
+            /* Windows */
+            EI_DECODE_2_FAIL(decode_ulong,  11, unsigned long,  ll(0x8000000000000000));
+            EI_DECODE_2_FAIL(decode_ulong,  11, unsigned long,  ll(0xffffffffffffffff));
+        } else {
+            EI_DECODE_2     (decode_ulong,  7, unsigned long,  0x80000000);
+            EI_DECODE_2     (decode_ulong,  7, unsigned long,  0xffffffff);
+        }
     }
 
     EI_DECODE_2_FAIL(decode_ulong,  9, unsigned long,  ll(0x7fffffffffff));
@@ -603,9 +610,9 @@ TESTCASE(test_ei_decode_misc)
 /*
     EI_DECODE_0(decode_version);
 */
-    EI_DECODE_2(decode_double, 32, double, 0.0);
-    EI_DECODE_2(decode_double, 32, double, -1.0);
-    EI_DECODE_2(decode_double, 32, double, 1.0);
+    EI_DECODE_2(decode_double, 9, double, 0.0);
+    EI_DECODE_2(decode_double, 9, double, -1.0);
+    EI_DECODE_2(decode_double, 9, double, 1.0);
 
     EI_DECODE_2(decode_boolean, 8, int, 0);
     EI_DECODE_2(decode_boolean, 7, int, 1);

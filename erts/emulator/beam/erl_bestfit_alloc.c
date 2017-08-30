@@ -1,18 +1,19 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2003-2013. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2016. All Rights Reserved.
  * 
- * The contents of this file are subject to the Erlang Public License,
- * Version 1.1, (the "License"); you may not use this file except in
- * compliance with the License. You should have received a copy of the
- * Erlang Public License along with this software. If not, it can be
- * retrieved online at http://www.erlang.org/.
- * 
- * Software distributed under the License is distributed on an "AS IS"
- * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
- * the License for the specific language governing rights and limitations
- * under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  * 
  * %CopyrightEnd%
  */
@@ -74,9 +75,6 @@
 #define SET_BLACK(N)		(((RBTree_t *) (N))->flags &= ~RED_FLG)
 
 #define BF_BLK_SZ(B)            MBC_FBLK_SZ(&(B)->hdr)
-
-#undef ASSERT
-#define ASSERT ASSERT_EXPR
 
 #if 1
 #define RBT_ASSERT	ASSERT
@@ -942,7 +940,7 @@ info_options(Allctr_t *allctr,
     if (hpp || szp) {
 	
 	if (!atoms_initialized)
-	    erl_exit(1, "%s:%d: Internal error: Atoms not initialized",
+	    erts_exit(ERTS_ERROR_EXIT, "%s:%d: Internal error: Atoms not initialized",
 		     __FILE__, __LINE__);;
 
 	res = NIL;
@@ -966,15 +964,17 @@ UWord
 erts_bfalc_test(UWord op, UWord a1, UWord a2)
 {
     switch (op) {
-    case 0x200:	return (UWord) ((BFAllctr_t *) a1)->address_order;
+    case 0x200:	return (UWord) ((BFAllctr_t *) a1)->address_order; /* IS_AOBF */
     case 0x201:	return (UWord) ((BFAllctr_t *) a1)->mbc_root;
     case 0x202:	return (UWord) ((RBTree_t *) a1)->parent;
     case 0x203:	return (UWord) ((RBTree_t *) a1)->left;
     case 0x204:	return (UWord) ((RBTree_t *) a1)->right;
-    case 0x205:	return (UWord) ((RBTreeList_t *) a1)->next;
+    case 0x205:	return (UWord) LIST_NEXT(a1);
     case 0x206:	return (UWord) IS_BLACK((RBTree_t *) a1);
     case 0x207:	return (UWord) IS_TREE_NODE((RBTree_t *) a1);
     case 0x208:	return (UWord) 1; /* IS_BF_ALGO */
+    case 0x20a: return (UWord) !((BFAllctr_t *) a1)->address_order; /* IS_BF */
+    case 0x20b:	return (UWord) LIST_PREV(a1);
     default:	ASSERT(0); return ~((UWord) 0);
     }
 }

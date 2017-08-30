@@ -1,18 +1,19 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2013. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
 %% 
-%% The contents of this file are subject to the Erlang Public License,
-%% Version 1.1, (the "License"); you may not use this file except in
-%% compliance with the License. You should have received a copy of the
-%% Erlang Public License along with this software. If not, it can be
-%% retrieved online at http://www.erlang.org/.
-%% 
-%% Software distributed under the License is distributed on an "AS IS"
-%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-%% the License for the specific language governing rights and limitations
-%% under the License.
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %% 
 %% %CopyrightEnd%
 %%
@@ -61,8 +62,8 @@
                       | 'op_exact_eqeq_2' | 'suspend_msg_timeout'.
 
 -type icode_type_test()	:: 'atom' | 'bignum' | 'binary' | 'bitstr' | 'boolean'
-                         | 'cons' | 'fixnum' | 'float'
-                         | 'function' | 'function2' | 'integer' | 'list' | 'nil'
+                         | 'cons' | 'fixnum' | 'float'  | 'function'
+                         | 'function2' | 'integer' | 'list' | 'map' | 'nil'
                          | 'number' | 'pid' | 'port' | 'reference' | 'tuple'
                          | {'atom', atom()} | {'integer', integer()}
                          | {'record', atom(), non_neg_integer()}
@@ -107,7 +108,6 @@
 				   fail_label :: icode_lbl(),
 				   length     :: non_neg_integer(),
 				   cases      :: [icode_switch_case()]}).
-
 
 -record(icode_type, {test        :: icode_type_test(),
 		     args        :: [icode_term_arg()],
@@ -169,14 +169,16 @@
 %%---------------------------------------------------------------------
 
 -record(icode, {'fun'		:: mfa(),
-		params		:: [icode_var()],
+		params		:: hipe_icode:params(),
+		%% TODO: merge is_closure and closure_arity into one field
 		is_closure	:: boolean(),
-		closure_arity	:: arity(),
+		closure_arity = none	:: 'none' | arity(),
 		is_leaf 	:: boolean(),
 		code = []	:: icode_instrs(),
 		data		:: hipe_consttab(),
 		var_range	:: {non_neg_integer(), non_neg_integer()},
 		label_range	:: {icode_lbl(), icode_lbl()},
 		info = []       :: icode_info()}).
+-type icode() :: #icode{}.
 
 %%---------------------------------------------------------------------
