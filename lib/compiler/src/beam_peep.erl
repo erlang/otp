@@ -89,15 +89,37 @@ peep([{gc_bif,_,_,_,_,Dst}=I|Is], SeenTests0, Acc) ->
 peep([{jump,{f,L}},{label,L}=I|Is], _, Acc) ->
     %% Sometimes beam_jump has missed this optimization.
     peep(Is, gb_sets:empty(), [I|Acc]);
-peep([{select,Op,R,F,Vls0}|Is], _, Acc) ->
+peep([{select,Op,R,F,Vls0}|Is], SeenTests0, Acc0) ->
     case prune_redundant_values(Vls0, F) of
 	[] ->
 	    %% No values left. Must convert to plain jump.
 	    I = {jump,F},
-	    peep(Is, gb_sets:empty(), [I|Acc]);
+	    peep([I|Is], gb_sets:empty(), Acc0);
+        [{atom,_}=Value,Lbl] when Op =:= select_val ->
+            %% Single value left. Convert to regular test and pop redundant tests.
+            Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
+            case Acc0 of
+                [{test,is_atom,F,[R]}|Acc] ->
+                    peep(Is1, SeenTests0, Acc);
+                _ ->
+                    peep(Is1, SeenTests0, Acc0)
+            end;
+        [{integer,_}=Value,Lbl] when Op =:= select_val ->
+            %% Single value left. Convert to regular test and pop redundant tests.
+            Is1 = [{test,is_eq_exact,F,[R,Value]},{jump,Lbl}|Is],
+            case Acc0 of
+                [{test,is_integer,F,[R]}|Acc] ->
+                    peep(Is1, SeenTests0, Acc);
+                _ ->
+                    peep(Is1, SeenTests0, Acc0)
+            end;
+        [Arity,Lbl] when Op =:= select_tuple_arity ->
+            %% Single value left. Convert to regular test
+            Is1 = [{test,test_arity,F,[R,Arity]},{jump,Lbl}|Is],
+            peep(Is1, SeenTests0, Acc0);
 	[_|_]=Vls ->
 	    I = {select,Op,R,F,Vls},
-	    peep(Is, gb_sets:empty(), [I|Acc])
+	    peep(Is, gb_sets:empty(), [I|Acc0])
     end;
 peep([{test,Op,_,Ops}=I|Is], SeenTests0, Acc) ->
     case beam_utils:is_pure_test(I) of
