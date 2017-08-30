@@ -1693,7 +1693,7 @@ choice(Height, Width, P, Mode, Tab, Key, Turn, Opos) ->
 		  end,
 	    choice(Height, Width, P, Mode, Tab, Key, Turn, Opos);
 	[$/|Regexp]   -> %% from regexp
-	    case re:compile(nonl(Regexp)) of
+	    case re:compile(nonl(Regexp),[unicode]) of
 		{ok,Re} ->
 		    re_search(Height, Width, Tab, ets:first(Tab), Re, 1, 1);
 		{error,{ErrorString,_Pos}} ->
