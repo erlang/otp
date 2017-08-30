@@ -175,6 +175,18 @@ server_loop(Iport, Oport, Curr, User, Gr, {Resp, IOQ} = IOQueue) ->
 	{Iport,eof} ->
 	    Curr ! {self(),eof},
 	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
+
+        %% We always handle geometry and unicode requests
+        {Requester,tty_geometry} ->
+            Requester ! {self(),tty_geometry,get_tty_geometry(Iport)},
+            server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
+        {Requester,get_unicode_state} ->
+            Requester ! {self(),get_unicode_state,get_unicode_state(Iport)},
+            server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
+        {Requester,set_unicode_state, Bool} ->
+            Requester ! {self(),set_unicode_state,set_unicode_state(Iport,Bool)},
+            server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
+
         Req when element(1,Req) =:= User orelse element(1,Req) =:= Curr,
                  tuple_size(Req) =:= 2 orelse tuple_size(Req) =:= 3 ->
             %% We match {User|Curr,_}|{User|Curr,_,_}
@@ -224,21 +236,16 @@ server_loop(Iport, Oport, Curr, User, Gr, {Resp, IOQ} = IOQueue) ->
 		_ ->				% not current, just remove it
 		    server_loop(Iport, Oport, Curr, User, gr_del_pid(Gr, Pid), IOQueue)
 	    end;
+        {Requester, {put_chars_sync, _, _, Reply}} ->
+            %% We need to ack the Req otherwise originating process will hang forever
+            %% Do discard the output to non visible shells (as was done previously)
+            Requester ! {reply, Reply},
+            server_loop(Iport, Oport, Curr, User, Gr, IOQueue);
 	_X ->
-	    %% Ignore unknown messages.
-	    server_loop(Iport, Oport, Curr, User, Gr, IOQueue)
+            %% Ignore unknown messages.
+            server_loop(Iport, Oport, Curr, User, Gr, IOQueue)
     end.
 
-%% We always handle geometry and unicode requests
-handle_req({Curr,tty_geometry},Iport,_Oport,IOQueue) ->
-    Curr ! {self(),tty_geometry,get_tty_geometry(Iport)},
-    IOQueue;
-handle_req({Curr,get_unicode_state},Iport,_Oport,IOQueue) ->
-    Curr ! {self(),get_unicode_state,get_unicode_state(Iport)},
-    IOQueue;
-handle_req({Curr,set_unicode_state, Bool},Iport,_Oport,IOQueue) ->
-    Curr ! {self(),set_unicode_state,set_unicode_state(Iport,Bool)},
-    IOQueue;
 handle_req(next,Iport,Oport,{false,IOQ}=IOQueue) ->
     case queue:out(IOQ) of
         {empty,_} ->
