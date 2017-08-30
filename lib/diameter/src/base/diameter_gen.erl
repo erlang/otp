@@ -287,7 +287,7 @@ decode(Bin, Code, Vid, DataLen, Pad, M, P, Name, Mod, Fmt, Strict, Opts0,
        Idx, AM0) ->
     case Bin of
         <<Data:DataLen/binary, _:Pad/binary, T/binary>> ->
-            {NameT, AvpName, Arity, {I, AM}}
+            {NameT, Field, Arity, {I, AM}}
                 = incr(Name, Code, Vid, M, Mod, Strict, Opts0, AM0),
 
             Opts = setopts(NameT, Name, M, Opts0),
@@ -305,9 +305,9 @@ decode(Bin, Code, Vid, DataLen, Pad, M, P, Name, Mod, Fmt, Strict, Opts0,
 
             Dec = decode(Data, Name, NameT, Mod, Opts, Avp),         %% decode
             Acc = decode(T, Name, Mod, Fmt, Strict, Opts, Idx+1, AM),%% recurse
-            acc(Acc, Dec, I, Name, AvpName, Arity, Strict, Mod, Opts);
+            acc(Acc, Dec, I, Name, Field, Arity, Strict, Mod, Opts);
         _ ->
-            {NameT, _AvpName, _Arity, {_, AM}}
+            {NameT, _Field, _Arity, {_, AM}}
                 = incr(Name, Code, Vid, M, Mod, Strict, Opts0, AM0),
 
             Avp = #diameter_avp{code = Code,
@@ -586,8 +586,8 @@ set_failed(_, Opts) ->
 
 %% acc/9
 
-acc([AM | Acc], As, I, Name, AvpName, Arity, Strict, Mod, Opts) ->
-    [AM | acc1(Acc, As, I, Name, AvpName, Arity, Strict, Mod, Opts)].
+acc([AM | Acc], As, I, Name, Field, Arity, Strict, Mod, Opts) ->
+    [AM | acc1(Acc, As, I, Name, Field, Arity, Strict, Mod, Opts)].
 
 %% acc1/9
 
@@ -602,12 +602,12 @@ acc1(Acc, {RC, As, Avp}, _, _, _, _, _, _, _) ->
     [[As | Avps], [{RC, Avp} | Failed] | Rec];
 
 %% Grouped AVP ...
-acc1([Avps | Acc], [Avp|_] = As, I, Name, AvpName, Arity, Strict, Mod, Opts) ->
-    [[As|Avps] | acc2(Acc, Avp, I, Name, AvpName, Arity, Strict, Mod, Opts)];
+acc1([Avps | Acc], [Avp|_] = As, I, Name, Field, Arity, Strict, Mod, Opts) ->
+    [[As|Avps] | acc2(Acc, Avp, I, Name, Field, Arity, Strict, Mod, Opts)];
 
 %% ... or not.
-acc1([Avps | Acc], Avp, I, Name, AvpName, Arity, Strict, Mod, Opts) ->
-    [[Avp|Avps] | acc2(Acc, Avp, I, Name, AvpName, Arity, Strict, Mod, Opts)].
+acc1([Avps | Acc], Avp, I, Name, Field, Arity, Strict, Mod, Opts) ->
+    [[Avp|Avps] | acc2(Acc, Avp, I, Name, Field, Arity, Strict, Mod, Opts)].
 
 %% acc2/9
 
@@ -617,22 +617,22 @@ acc2(Acc, Avp, _, _, 'AVP', 0, _, _, _) ->
     [[{rc(Avp), Avp} | Failed] | Rec];
 
 %% Relaxed arities.
-acc2(Acc, Avp, _, _, AvpName, Arity, Strict, Mod, _)
+acc2(Acc, Avp, _, _, Field, Arity, Strict, Mod, _)
   when Strict /= decode ->
-    pack(Arity, AvpName, Avp, Mod, Acc);
+    pack(Arity, Field, Avp, Mod, Acc);
 
 %% No maximum arity.
-acc2(Acc, Avp, _, _, AvpName, {_,'*'} = Arity, _, Mod, _) ->
-    pack(Arity, AvpName, Avp, Mod, Acc);
+acc2(Acc, Avp, _, _, Field, {_,'*'} = Arity, _, Mod, _) ->
+    pack(Arity, Field, Avp, Mod, Acc);
 
 %% Or check.
-acc2(Acc, Avp, I, _, AvpName, Arity, _, Mod, _) ->
+acc2(Acc, Avp, I, _, Field, Arity, _, Mod, _) ->
     Mx = max_arity(Arity),
     if Mx =< I ->
             [Failed | Rec] = Acc,
             [[{5009, Avp} | Failed] | Rec];
        true ->
-            pack(Arity, AvpName, Avp, Mod, Acc)
+            pack(Arity, Field, Avp, Mod, Acc)
     end.
 
 %% 3588/6733:
