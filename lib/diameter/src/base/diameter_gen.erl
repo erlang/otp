@@ -326,9 +326,14 @@ decode(Bin, Code, Vid, DataLen, Pad, M, P, Name, Mod, Fmt, Strict, Opts0,
 
 incr(Name, Code, Vid, M, Mod, Strict, Opts, AM0) ->
     NameT = Mod:avp_name(Code, Vid), %% {AvpName, Type} | 'AVP'
-    AvpName = field(NameT),
-    Arity = avp_arity(Name, AvpName, Mod, Opts, M),
-    {NameT, AvpName, Arity, incr(AvpName, Arity, Strict, AM0)}.
+    Field = field(NameT),            %% AvpName | 'AVP'
+    Arity = avp_arity(Name, Field, Mod, Opts, M),
+    if 0 == Arity, 'AVP' /= Field ->
+            A = pack_arity(Name, Field, Opts, Mod, M),
+            {NameT, 'AVP', A, incr('AVP', A, Strict, AM0)};
+       true ->
+            {NameT, Field, Arity, incr(Field, Arity, Strict, AM0)}
+    end.
 
 %% Data is a truncated header if command_code = undefined, otherwise
 %% payload bytes. The former is padded to the length of a header if
@@ -345,9 +350,8 @@ setopts({_, Type}, Name, M, Opts) ->
 
 %% incr/4
 
-incr(F, A, SA, AM)
-  when F == 'AVP';
-       A == ?ANY;
+incr(_, A, SA, AM)
+  when A == ?ANY;
        A == 0;
        SA /= decode ->
     {undefined, AM};
@@ -611,12 +615,6 @@ acc1([Avps | Acc], Avp, I, Name, AvpName, Arity, Strict, Mod, Opts) ->
 acc2(Acc, Avp, _, _, 'AVP', 0, _, _, _) ->
     [Failed | Rec] = Acc,
     [[{rc(Avp), Avp} | Failed] | Rec];
-
-%% No AVP of this name: try to pack as 'AVP'.
-acc2(Acc, Avp, I, Name, AvpName, 0, Strict, Mod, Opts) ->
-    M = Avp#diameter_avp.is_mandatory,
-    Arity = pack_arity(Name, AvpName, Opts, Mod, M),
-    acc2(Acc, Avp, I, Name, 'AVP', Arity, Strict, Mod, Opts);
 
 %% Relaxed arities.
 acc2(Acc, Avp, _, _, AvpName, Arity, Strict, Mod, _)
