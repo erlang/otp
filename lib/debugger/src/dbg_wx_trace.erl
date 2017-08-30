@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -524,7 +524,8 @@ gui_cmd({edit, {Var, Value}}, State) ->
 	cancel ->
 	    State;
 	{Var, Term} ->
-	    Cmd = atom_to_list(Var)++"="++io_lib:format("~w", [Term]),
+            %% The space after "=" is needed for handling "B= <<1>>".
+	    Cmd = atom_to_list(Var)++"= "++io_lib:format("~w", [Term]),
 	    gui_cmd({user_command, lists:flatten(Cmd)}, State)
     end.
 
@@ -818,11 +819,14 @@ gui_show_module(Win, Mod, Line, _Cm, Pid, How) ->
 
 gui_load_module(Win, Mod, _Pid) ->
     dbg_wx_trace_win:display(Win,{text, "Loading module..."}),
-    %% Contents = int:contents(Mod, Pid),
-    {ok, Contents} = dbg_iserver:call({raw_contents, Mod, any}),
-    Win2 = dbg_wx_trace_win:show_code(Win, Mod, Contents),
-    dbg_wx_trace_win:display(Win,{text, ""}),
-    Win2.
+    case dbg_iserver:call({raw_contents, Mod, any}) of
+	{ok, Contents} ->
+	    Win2 = dbg_wx_trace_win:show_code(Win, Mod, Contents),
+	    dbg_wx_trace_win:display(Win,{text, ""}),
+	    Win2;
+	not_found ->
+	    dbg_wx_trace_win:show_no_code(Win)
+    end.
 
 gui_update_bindings(Win,Meta) ->
     Bs = int:meta(Meta, bindings, nostack),

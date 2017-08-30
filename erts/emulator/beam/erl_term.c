@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,42 @@ erts_set_literal_tag(Eterm *term, Eterm *hp_start, Eterm hsz)
 #endif
 }
 
+void
+erts_term_init(void)
+{
+#ifdef ERTS_ORDINARY_REF_MARKER
+    /* Ordinary and magic references of same size... */
+
+    ErtsRefThing ref_thing;
+
+    ERTS_CT_ASSERT(ERTS_ORDINARY_REF_MARKER == ~((Uint32)0));
+    ref_thing.m.header = ERTS_REF_THING_HEADER;
+    ref_thing.m.mb = (ErtsMagicBinary *) ~((UWord) 3);
+    ref_thing.m.next = (struct erl_off_heap_header *) ~((UWord) 3);
+    if (ref_thing.o.marker == ERTS_ORDINARY_REF_MARKER)
+        ERTS_INTERNAL_ERROR("Cannot differentiate between magic and ordinary references");
+
+    ERTS_CT_ASSERT(offsetof(ErtsORefThing,marker) != 0);
+    ERTS_CT_ASSERT(sizeof(ErtsORefThing) == sizeof(ErtsMRefThing));
+#  ifdef ERTS_MAGIC_REF_THING_HEADER
+#    error Magic ref thing header should not have been defined...
+#  endif
+
+#else
+    /* Ordinary and magic references of different sizes... */
+
+#  ifndef ERTS_MAGIC_REF_THING_HEADER
+#    error Magic ref thing header should have been defined...
+#  endif
+    ERTS_CT_ASSERT(sizeof(ErtsORefThing) != sizeof(ErtsMRefThing));
+
+#endif
+
+    ERTS_CT_ASSERT(ERTS_REF_THING_SIZE*sizeof(Eterm) == sizeof(ErtsORefThing));
+    ERTS_CT_ASSERT(ERTS_MAGIC_REF_THING_SIZE*sizeof(Eterm) == sizeof(ErtsMRefThing));
+
+}
+
 /*
  * XXX: define NUMBER_CODE() here when new representation is used
  */
@@ -95,8 +131,8 @@ ET_DEFINE_CHECKED(Eterm*,tuple_val,Wterm,is_tuple);
 ET_DEFINE_CHECKED(struct erl_node_*,internal_pid_node,Eterm,is_internal_pid);
 ET_DEFINE_CHECKED(struct erl_node_*,internal_port_node,Eterm,is_internal_port);
 ET_DEFINE_CHECKED(Eterm*,internal_ref_val,Wterm,is_internal_ref);
-ET_DEFINE_CHECKED(Uint,internal_ref_data_words,Wterm,is_internal_ref);
-ET_DEFINE_CHECKED(Uint32*,internal_ref_data,Wterm,is_internal_ref);
+ET_DEFINE_CHECKED(Uint32*,internal_magic_ref_numbers,Wterm,is_internal_magic_ref);
+ET_DEFINE_CHECKED(Uint32*,internal_ordinary_ref_numbers,Wterm,is_internal_ordinary_ref);
 ET_DEFINE_CHECKED(struct erl_node_*,internal_ref_node,Eterm,is_internal_ref);
 ET_DEFINE_CHECKED(Eterm*,external_val,Wterm,is_external);
 ET_DEFINE_CHECKED(Uint,external_data_words,Wterm,is_external);

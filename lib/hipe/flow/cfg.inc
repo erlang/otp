@@ -2,10 +2,6 @@
 %% -*- erlang-indent-level: 2 -*-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -17,8 +13,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -32,6 +26,8 @@
 %%  bb(CFG, Label) - returns the basic block named 'Label' from the CFG.
 %%  bb_add(CFG, Label, NewBB) - makes NewBB the basic block associated
 %%       with Label.
+%%  map_bbs(Fun, CFG) - map over all code without changing control flow.
+%%  fold_bbs(Fun, Acc, CFG) - fold over the basic blocks in a CFG.
 %%  succ(Map, Label) - returns a list of successors of basic block 'Label'.
 %%  pred(Map, Label) - returns the predecessors of basic block 'Label'.
 %%  fallthrough(CFG, Label) - returns fall-through successor of basic 
@@ -89,6 +85,7 @@
 -define(BREADTH_ORDER,true). % for linear scan
 -define(PARAMS_NEEDED,true).
 -define(START_LABEL_UPDATE_NEEDED,true).
+-define(MAP_FOLD_NEEDED,true).
 -endif.
 
 %%=====================================================================
@@ -215,7 +212,7 @@ info_update(CFG, I) ->
 -ifndef(GEN_CFG).
 
 -spec other_entrypoints(cfg()) -> [cfg_lbl()].
-%% @doc Returns a list of labels that are refered to from the data section.
+%% @doc Returns a list of labels that are referred to from the data section.
 
 other_entrypoints(CFG) ->
   hipe_consttab:referred_labels(data(CFG)).
@@ -307,11 +304,7 @@ redirect_phis([I|Rest], OldPred, NewPred, Acc) ->
 %% @doc  Adds a new basic block to a CFG (or updates an existing block).
 bb_add(CFG, Label, NewBB) ->
   %% Asserting that the NewBB is a legal basic block
-  Last = hipe_bb:last(NewBB),
-  case is_branch(Last) of
-    true  -> ok;
-    false -> throw({?MODULE, {"Basic block ends without branch", Last}})
-  end,
+  Last = assert_bb(NewBB),
   %% The order of the elements from branch_successors/1 is
   %% significant. It determines the basic block order when the CFG is
   %% converted to linear form. That order may have been tuned for
@@ -339,11 +332,53 @@ bb_add(CFG, Label, NewBB) ->
 		    HT2, OldSucc -- Succ),
   CFG#cfg{table = HT3}.
 
+-ifdef(MAP_FOLD_NEEDED).
+-spec map_bbs(fun((cfg_lbl(), hipe_bb:bb()) -> hipe_bb:bb()), cfg()) -> cfg().
+%% @doc  Map over the code in a CFG without changing any control flow.
+map_bbs(Fun, CFG = #cfg{table=HT0}) ->
+    HT = gb_trees:map(
+	   fun(Lbl, {OldBB, OldSucc, OldPred}) ->
+		   NewBB = Fun(Lbl, OldBB),
+		   %% Assert preconditions
+		   NewLast = assert_bb(NewBB),
+		   OldSucc = remove_duplicates(branch_successors(NewLast)),
+		   {NewBB, OldSucc, OldPred}
+	   end, HT0),
+    CFG#cfg{table=HT}.
+
+-spec fold_bbs(fun((cfg_lbl(), hipe_bb:bb(), Acc) -> Acc), Acc, cfg()) -> Acc.
+%% @doc  Fold over the basic blocks in a CFG in unspecified order.
+fold_bbs(Fun, InitAcc, #cfg{table=HT}) ->
+    gb_trees_fold(fun(Lbl, {BB, _, _}, Acc) -> Fun(Lbl, BB, Acc) end,
+		  InitAcc, HT).
+
+gb_trees_fold(Fun, InitAcc, Tree) ->
+    gb_trees_fold_1(Fun, InitAcc, gb_trees:iterator(Tree)).
+
+gb_trees_fold_1(Fun, InitAcc, Iter0) ->
+    case gb_trees:next(Iter0) of
+	none -> InitAcc;
+	{Key, Value, Iter} ->
+	    gb_trees_fold_1(Fun, Fun(Key, Value, InitAcc), Iter)
+    end.
+-endif. % MAP_FOLD_NEEDED
+
+assert_bb(BB) ->
+    assert_bb_is(hipe_bb:code(BB)).
+
+assert_bb_is([Last]) ->
+    true = is_branch(Last),
+    Last;
+assert_bb_is([I|Is]) ->
+    false = is_branch(I),
+    false = is_label(I),
+    assert_bb_is(Is).
+
 remove_pred(HT, FromL, PredL) ->
   case gb_trees:lookup(FromL, HT) of
     {value, {Block, Succ, Preds}} ->
       Code = hipe_bb:code(Block),
-      NewCode = remove_pred_from_phis(Code, PredL, []),
+      NewCode = remove_pred_from_phis(PredL, Code),
       NewBlock = hipe_bb:code_update(Block, NewCode),      
       gb_trees:update(FromL, {NewBlock,Succ,lists:delete(PredL,Preds)}, HT);
     none ->
@@ -374,20 +409,20 @@ add_pred(HT, ToL, PredL) ->
 -ifdef(CFG_CAN_HAVE_PHI_NODES).
 %% phi-instructions in a removed block's successors must be aware of
 %% the change.
-remove_pred_from_phis(List = [I|Left], Label, Acc) ->
+remove_pred_from_phis(Label, List = [I|Left]) ->
   case is_phi(I) of
-    true -> 
-      NewAcc = [phi_remove_pred(I, Label)|Acc],
-      remove_pred_from_phis(Left, Label, NewAcc);
+    true ->
+      NewI = phi_remove_pred(I, Label),
+      [NewI | remove_pred_from_phis(Label, Left)];
     false ->
-      lists:reverse(Acc) ++ List
+      List
   end;
-remove_pred_from_phis([], _Label, Acc) ->
-  lists:reverse(Acc).
+remove_pred_from_phis(_Label, []) ->
+  [].
 -else.
 %% this is used for code representations like those of back-ends which
 %% do not have phi-nodes.
-remove_pred_from_phis(Code, _Label, _Acc) ->
+remove_pred_from_phis(_Label, Code) ->
   Code.
 -endif.
 
@@ -927,24 +962,52 @@ merge(BB, BB2, BB2_Label) ->
 
 remove_unreachable_code(CFG) ->
   Start = start_label(CFG),
-  Reachable = find_reachable([Start], CFG, gb_sets:from_list([Start])),
-  %% Reachable is an ordset: it comes from gb_sets:to_list/1.
-  %% So use ordset:subtract instead of '--' below.
-  Labels = ordsets:from_list(labels(CFG)),
-  case ordsets:subtract(Labels, Reachable) of
-    [] ->
-      CFG;
+  %% No unreachable block will make another block reachable, so no fixpoint
+  %% looping is required
+  Reachable = find_reachable([], [Start], CFG, #{Start=>[]}),
+  case [L || L <- labels(CFG), not maps:is_key(L, Reachable)] of
+    [] -> CFG;
     Remove ->
-      NewCFG = lists:foldl(fun(X, Acc) -> bb_remove(Acc, X) end, CFG, Remove),
-      remove_unreachable_code(NewCFG)
+      HT0 = CFG#cfg.table,
+      HT1 = lists:foldl(fun gb_trees:delete/2, HT0, Remove),
+      ReachableP = fun(Lbl) -> maps:is_key(Lbl, Reachable) end,
+      HT = gb_trees:map(fun(_,B)->prune_preds(B, ReachableP)end, HT1),
+      CFG#cfg{table=HT}
   end.
 
-find_reachable([Label|Left], CFG, Acc) ->
-  NewAcc = gb_sets:add(Label, Acc),
-  Succ = succ(CFG, Label),
-  find_reachable([X || X <- Succ, not gb_sets:is_member(X, Acc)] ++ Left,
-		 CFG, NewAcc);
-find_reachable([], _CFG, Acc) ->
-  gb_sets:to_list(Acc).
+find_reachable([], [], _CFG, Acc) -> Acc;
+find_reachable([Succ|Succs], Left, CFG, Acc) ->
+  case Acc of
+    #{Succ := _} -> find_reachable(Succs, Left, CFG, Acc);
+    #{} -> find_reachable(Succs, [Succ|Left], CFG, Acc#{Succ => []})
+  end;
+find_reachable([], [Label|Left], CFG, Acc) ->
+  find_reachable(succ(CFG, Label), Left, CFG, Acc).
 
+%% Batch prune unreachable predecessors. Asymptotically faster than deleting
+%% unreachable blocks one at a time with bb_remove, at least when
+%% CFG_CAN_HAVE_PHI_NODES is undefined. Otherwise a phi_remove_preds might be
+%% needed to achieve that.
+prune_preds(B={Block, Succ, Preds}, ReachableP) ->
+  case lists:partition(ReachableP, Preds) of
+    {_, []} -> B;
+    {NewPreds, Unreach} ->
+      NewCode = remove_preds_from_phis(Unreach, hipe_bb:code(Block)),
+      {hipe_bb:code_update(Block, NewCode), Succ, NewPreds}
+  end.
+
+-ifdef(CFG_CAN_HAVE_PHI_NODES).
+remove_preds_from_phis(_, []) -> [];
+remove_preds_from_phis(Preds, List=[I|Left]) ->
+  case is_phi(I) of
+    false -> List;
+    true ->
+      NewI = lists:foldl(fun(L,IA)->phi_remove_pred(IA,L)end,
+			 I, Preds),
+      [NewI | remove_preds_from_phis(Preds, Left)]
+  end.
+-else.
+remove_preds_from_phis(_, Code) -> Code.
 -endif.
+
+-endif. %% -ifdef(REMOVE_UNREACHABLE_CODE)

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@
 -export([open/3, open_tar/3, opendir/2, close/2, readdir/2, pread/4, read/3,
          open/4, open_tar/4, opendir/3, close/3, readdir/3, pread/5, read/4,
 	 apread/4, aread/3, pwrite/4, write/3, apwrite/4, awrite/3,
-	 pwrite/5, write/4, 
+	 pwrite/5, write/4,
 	 position/3, real_path/2, read_file_info/2, get_file_info/2,
 	 position/4, real_path/3, read_file_info/3, get_file_info/3,
 	 write_file_info/3, read_link_info/2, read_link/2, make_symlink/3,
@@ -52,7 +52,7 @@
 %% TODO: Should be placed elsewhere ssh_sftpd should not call functions in ssh_sftp!
 -export([info_to_attr/1, attr_to_info/1]).
 
--record(state, 
+-record(state,
 	{
 	  xf,
 	  rep_buf = <<>>,
@@ -64,7 +64,7 @@
 
 -record(fileinf,
 	{
-	  handle, 
+	  handle,
 	  offset,
 	  size,
 	  mode
@@ -81,7 +81,7 @@
 	  enc_text_buf = <<>>,	 % Encrypted text
 	  plain_text_buf = <<>>	 % Decrypted text
 	}).
-	  
+
 -define(FILEOP_TIMEOUT, infinity).
 
 -define(NEXT_REQID(S),
@@ -98,20 +98,16 @@ start_channel(Cm) when is_pid(Cm) ->
 start_channel(Socket) when is_port(Socket) ->
     start_channel(Socket, []);
 start_channel(Host) when is_list(Host) ->
-    start_channel(Host, []).					 
+    start_channel(Host, []).
 
-start_channel(Socket, Options) when is_port(Socket) ->
-    Timeout =
-	%% A mixture of ssh:connect and ssh_sftp:start_channel:
-	case proplists:get_value(connect_timeout, Options, undefined) of
-	    undefined ->
-		proplists:get_value(timeout, Options, infinity);
-	    TO ->
-		TO
-	end,
-    case ssh:connect(Socket, Options, Timeout) of
-	{ok,Cm} -> 
-	    case start_channel(Cm, Options) of
+start_channel(Socket, UserOptions) when is_port(Socket) ->
+    {SshOpts, _ChanOpts, SftpOpts} = handle_options(UserOptions),
+    Timeout =   % A mixture of ssh:connect and ssh_sftp:start_channel:
+        proplists:get_value(connect_timeout, SshOpts,
+                            proplists:get_value(timeout, SftpOpts, infinity)),
+    case ssh:connect(Socket, SshOpts, Timeout) of
+	{ok,Cm} ->
+	    case start_channel(Cm, UserOptions) of
 		{ok, Pid} ->
 		    {ok, Pid, Cm};
 		Error ->
@@ -120,17 +116,17 @@ start_channel(Socket, Options) when is_port(Socket) ->
 	Error ->
 	    Error
     end;
-start_channel(Cm, Opts) when is_pid(Cm) ->
-    Timeout = proplists:get_value(timeout, Opts, infinity),
-    {_, ChanOpts, SftpOpts} = handle_options(Opts, [], [], []),
+start_channel(Cm, UserOptions) when is_pid(Cm) ->
+    Timeout = proplists:get_value(timeout, UserOptions, infinity),
+    {_SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
     case ssh_xfer:attach(Cm, [], ChanOpts) of
-	{ok, ChannelId, Cm} -> 
-	    case ssh_channel:start(Cm, ChannelId, 
+	{ok, ChannelId, Cm} ->
+	    case ssh_channel:start(Cm, ChannelId,
 				   ?MODULE, [Cm, ChannelId, SftpOpts]) of
 		{ok, Pid} ->
 		    case wait_for_version_negotiation(Pid, Timeout) of
 			ok ->
-			    {ok, Pid}; 
+			    {ok, Pid};
 			TimeOut ->
 			    TimeOut
 		    end;
@@ -143,15 +139,17 @@ start_channel(Cm, Opts) when is_pid(Cm) ->
 	    Error
     end;
 
-start_channel(Host, Opts) ->
-    start_channel(Host, 22, Opts).
-start_channel(Host, Port, Opts) ->
-    {SshOpts, ChanOpts, SftpOpts} = handle_options(Opts, [], [], []),
-    Timeout = proplists:get_value(timeout, SftpOpts, infinity),
+start_channel(Host, UserOptions) ->
+    start_channel(Host, 22, UserOptions).
+
+start_channel(Host, Port, UserOptions) ->
+    {SshOpts, ChanOpts, SftpOpts} = handle_options(UserOptions),
+    Timeout =   % A mixture of ssh:connect and ssh_sftp:start_channel:
+        proplists:get_value(connect_timeout, SshOpts,
+                            proplists:get_value(timeout, SftpOpts, infinity)),
     case ssh_xfer:connect(Host, Port, SshOpts, ChanOpts, Timeout) of
 	{ok, ChannelId, Cm} ->
-	    case ssh_channel:start(Cm, ChannelId, ?MODULE, [Cm, 
-							    ChannelId, SftpOpts]) of
+	    case ssh_channel:start(Cm, ChannelId, ?MODULE, [Cm,ChannelId,SftpOpts]) of
 		{ok, Pid} ->
 		    case wait_for_version_negotiation(Pid, Timeout) of
 			ok ->
@@ -165,7 +163,7 @@ start_channel(Host, Port, Opts) ->
 		    {error, ignore}
 	    end;
 	Error ->
-	    Error	    
+	    Error
     end.
 
 stop_channel(Pid) ->
@@ -174,12 +172,12 @@ stop_channel(Pid) ->
 	    OldValue = process_flag(trap_exit, true),
 	    link(Pid),
 	    exit(Pid, ssh_sftp_stop_channel),
-	    receive 
+	    receive
 		{'EXIT', Pid, normal} ->
 		    ok
 	    after 5000 ->
 		    exit(Pid, kill),
-		    receive 
+		    receive
 			{'EXIT', Pid, killed} ->
 			    ok
 		    end
@@ -209,9 +207,9 @@ open_tar(Pid, File, Mode, FileOpTimeout) ->
 	    erl_tar:init(Pid, write,
 			 fun(write, {_,Data}) ->
 				 write_to_remote_tar(Pid, Handle, to_bin(Data), FileOpTimeout);
-			    (position, {_,Pos}) -> 
+			    (position, {_,Pos}) ->
 				 position(Pid, Handle, Pos, FileOpTimeout);
-			    (close, _) -> 
+			    (close, _) ->
 				 close(Pid, Handle, FileOpTimeout)
 			 end);
 	{true,false,[{crypto,{CryptoInitFun,CryptoEncryptFun,CryptoEndFun}}]} ->
@@ -245,9 +243,9 @@ open_tar(Pid, File, Mode, FileOpTimeout) ->
 	    erl_tar:init(Pid, read,
 			 fun(read2, {_,Len}) ->
 				 read_repeat(Pid, Handle, Len, FileOpTimeout);
-			    (position, {_,Pos}) -> 
+			    (position, {_,Pos}) ->
 				 position(Pid, Handle, Pos, FileOpTimeout);
-			    (close, _) -> 
+			    (close, _) ->
 				 close(Pid, Handle, FileOpTimeout)
 			 end);
 	{false,true,[{crypto,{CryptoInitFun,CryptoDecryptFun}}]} ->
@@ -258,9 +256,9 @@ open_tar(Pid, File, Mode, FileOpTimeout) ->
 	    erl_tar:init(Pid, read,
 			 fun(read2, {_,Len}) ->
 				 read_buf(Pid, SftpHandle, BufHandle, Len, FileOpTimeout);
-			    (position, {_,Pos}) -> 
+			    (position, {_,Pos}) ->
 				 position_buf(Pid, SftpHandle, BufHandle, Pos, FileOpTimeout);
-			    (close, _) -> 
+			    (close, _) ->
 				 call(Pid, {erase_bufinf,BufHandle}, FileOpTimeout),
 				 close(Pid, SftpHandle, FileOpTimeout)
                          end);
@@ -292,16 +290,16 @@ pread(Pid, Handle, Offset, Len, FileOpTimeout) ->
 read(Pid, Handle, Len) ->
     read(Pid, Handle, Len, ?FILEOP_TIMEOUT).
 read(Pid, Handle, Len, FileOpTimeout) ->
-    call(Pid, {read,false,Handle, Len}, FileOpTimeout).    
+    call(Pid, {read,false,Handle, Len}, FileOpTimeout).
 
-%% TODO this ought to be a cast! Is so in all practial meaning
+%% TODO this ought to be a cast! Is so in all practical meaning
 %% even if it is obscure!
 apread(Pid, Handle, Offset, Len) ->
     call(Pid, {pread,true,Handle, Offset, Len}, infinity).
 
 %% TODO this ought to be a cast! 
 aread(Pid, Handle, Len) ->
-    call(Pid, {read,true,Handle, Len}, infinity).    
+    call(Pid, {read,true,Handle, Len}, infinity).
 
 pwrite(Pid, Handle, Offset, Data) ->
     pwrite(Pid, Handle, Offset, Data, ?FILEOP_TIMEOUT).
@@ -313,12 +311,12 @@ write(Pid, Handle, Data) ->
 write(Pid, Handle, Data, FileOpTimeout) ->
     call(Pid, {write,false,Handle,Data}, FileOpTimeout).
 
-%% TODO this ought to be a cast! Is so in all practial meaning
+%% TODO this ought to be a cast! Is so in all practical meaning
 %% even if it is obscure!
 apwrite(Pid, Handle, Offset, Data) ->
     call(Pid, {pwrite,true,Handle,Offset,Data}, infinity).
 
-%% TODO this ought to be a cast!  Is so in all practial meaning
+%% TODO this ought to be a cast!  Is so in all practical meaning
 %% even if it is obscure!
 awrite(Pid, Handle, Data) ->
     call(Pid, {write,true,Handle,Data}, infinity).
@@ -367,7 +365,7 @@ make_symlink(Pid, Name, Target) ->
     make_symlink(Pid, Name, Target, ?FILEOP_TIMEOUT).
 make_symlink(Pid, Name, Target, FileOpTimeout) ->
     call(Pid, {make_symlink,false, Name, Target}, FileOpTimeout).
- 
+
 rename(Pid, FromFile, ToFile) ->
     rename(Pid, FromFile, ToFile, ?FILEOP_TIMEOUT).
 rename(Pid, FromFile, ToFile, FileOpTimeout) ->
@@ -411,8 +409,8 @@ list_dir(Pid, Name, FileOpTimeout) ->
 	    close(Pid, Handle, FileOpTimeout),
 	    case Res of
 		{ok, List} ->
-		    NList = lists:foldl(fun({Nm, _Info},Acc) -> 
-					  [Nm|Acc] end, 
+		    NList = lists:foldl(fun({Nm, _Info},Acc) ->
+					  [Nm|Acc] end,
 				  [], List),
 		    {ok,NList};
 		Error -> Error
@@ -482,7 +480,7 @@ write_file_loop(Pid, Handle, Pos, Bin, Remain, PacketSz, FileOpTimeout) ->
 	    <<_:Pos/binary, Data:PacketSz/binary, _/binary>> = Bin,
 	    case write(Pid, Handle, Data, FileOpTimeout) of
 		ok ->
-		    write_file_loop(Pid, Handle, 
+		    write_file_loop(Pid, Handle,
 				    Pos+PacketSz, Bin, Remain-PacketSz,
 				    PacketSz, FileOpTimeout);
 		Error ->
@@ -510,7 +508,7 @@ init([Cm, ChannelId, Options]) ->
 	    Xf = #ssh_xfer{cm = Cm,
 			       channel = ChannelId},
 	    {ok, #state{xf = Xf,
-			req_id = 0, 
+			req_id = 0,
 			rep_buf = <<>>,
 			inf = new_inf(),
 			opts = Options}};
@@ -519,7 +517,7 @@ init([Cm, ChannelId, Options]) ->
 	Error ->
 	    {stop, {shutdown, Error}}
     end.
-    
+
 %%--------------------------------------------------------------------
 %% Function: handle_call/3
 %% Description: Handling call messages
@@ -541,7 +539,7 @@ handle_call({{timeout, Timeout}, wait_for_version_negotiation}, From,
 
 handle_call({_, wait_for_version_negotiation}, _, State) ->
     {reply, ok, State};
-	    
+
 handle_call({{timeout, infinity}, Msg}, From, State) ->
     do_handle_call(Msg, From, State);
 handle_call({{timeout, Timeout}, Msg}, From,  #state{req_id = Id} = State) ->
@@ -555,13 +553,13 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 do_handle_call({get_bufinf,BufHandle}, _From, S=#state{inf=I0}) ->
-    {reply, dict:find(BufHandle,I0), S};
+    {reply, maps:find(BufHandle,I0), S};
 
 do_handle_call({put_bufinf,BufHandle,B}, _From, S=#state{inf=I0}) ->
-    {reply, ok, S#state{inf=dict:store(BufHandle,B,I0)}};
+    {reply, ok, S#state{inf=maps:put(BufHandle,B,I0)}};
 
 do_handle_call({erase_bufinf,BufHandle}, _From, S=#state{inf=I0}) ->
-    {reply, ok, S#state{inf=dict:erase(BufHandle,I0)}};
+    {reply, ok, S#state{inf=maps:remove(BufHandle,I0)}};
 
 do_handle_call({open, Async,FileName,Mode}, From, #state{xf = XF} = State) ->
     {Access,Flags,Attrs} = open_mode(XF#ssh_xfer.vsn, Mode),
@@ -636,7 +634,7 @@ do_handle_call({pread,Async,Handle,At,Length}, From, State) ->
 					binary -> {{ok,Data}, State2};
 					text -> {{ok,binary_to_list(Data)}, State2}
 				    end;
-			       (Rep, State2) -> 
+			       (Rep, State2) ->
 				    {Rep, State2}
 			    end);
 	Error ->
@@ -777,7 +775,7 @@ do_handle_call(recv_window, _From, State) ->
 do_handle_call(stop, _From, State) ->
     {stop, shutdown, ok, State};
 
-do_handle_call(Call, _From, State) ->    
+do_handle_call(Call, _From, State) ->
     {reply, {error, bad_call, Call, State}, State}.
 
 %%--------------------------------------------------------------------
@@ -785,13 +783,13 @@ do_handle_call(Call, _From, State) ->
 %%                        
 %% Description: Handles channel messages
 %%--------------------------------------------------------------------
-handle_ssh_msg({ssh_cm, _ConnectionManager, 
-		{data, _ChannelId, 0, Data}}, #state{rep_buf = Data0} = 
+handle_ssh_msg({ssh_cm, _ConnectionManager,
+		{data, _ChannelId, 0, Data}}, #state{rep_buf = Data0} =
 	       State0) ->
     State = handle_reply(State0, <<Data0/binary,Data/binary>>),
     {ok, State};
 
-handle_ssh_msg({ssh_cm, _ConnectionManager, 
+handle_ssh_msg({ssh_cm, _ConnectionManager,
 		{data, _ChannelId, 1, Data}}, State) ->
     error_logger:format("ssh: STDERR: ~s\n", [binary_to_list(Data)]),
     {ok, State};
@@ -803,7 +801,7 @@ handle_ssh_msg({ssh_cm, _, {signal, _, _}}, State) ->
     %% Ignore signals according to RFC 4254 section 6.9.
     {ok, State};
 
-handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, _, Error, _}}, 
+handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, _, Error, _}},
 	       State0) ->
     State = reply_all(State0, {error, Error}),
     {stop, ChannelId,  State};
@@ -823,7 +821,7 @@ handle_msg({ssh_channel_up, _, _}, #state{opts = Options, xf = Xf} = State) ->
     {ok, State};
 
 %% Version negotiation timed out
-handle_msg({timeout, undefined, From}, 
+handle_msg({timeout, undefined, From},
 	   #state{xf = #ssh_xfer{channel = ChannelId}} = State) ->
     ssh_channel:reply(From, {error, timeout}),
     {stop, ChannelId, State};
@@ -839,12 +837,12 @@ handle_msg({timeout, Id, From}, #state{req_list = ReqList0} = State) ->
     end;
 
 %% Connection manager goes down
-handle_msg({'DOWN', _Ref, _Type, _Process, _},  
+handle_msg({'DOWN', _Ref, _Type, _Process, _},
 	   #state{xf = #ssh_xfer{channel = ChannelId}} = State) ->
     {stop, ChannelId, State};
- 
+
 %% Stopped by user
-handle_msg({'EXIT', _, ssh_sftp_stop_channel}, 
+handle_msg({'EXIT', _, ssh_sftp_stop_channel},
 	   #state{xf = #ssh_xfer{channel = ChannelId}} = State) ->
     {stop, ChannelId, State};
 
@@ -865,6 +863,9 @@ terminate(_Reason, State) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+handle_options(UserOptions) ->
+    handle_options(UserOptions, [], [], []).
+
 handle_options([], Sftp, Chan, Ssh) ->
     {Ssh, Chan, Sftp};
 handle_options([{timeout, _} = Opt | Rest], Sftp, Chan, Ssh) ->
@@ -883,10 +884,10 @@ call(Pid, Msg, TimeOut) ->
 
 handle_reply(State, <<?UINT32(Len),Reply:Len/binary,Rest/binary>>) ->
     do_handle_reply(State, Reply, Rest);
-handle_reply(State, Data) -> 
+handle_reply(State, Data) ->
      State#state{rep_buf = Data}.
 
-do_handle_reply(#state{xf = Xf} = State, 
+do_handle_reply(#state{xf = Xf} = State,
 		<<?SSH_FXP_VERSION, ?UINT32(Version), BinExt/binary>>, Rest) ->
     Ext = ssh_xfer:decode_ext(BinExt),
     case Xf#ssh_xfer.vsn of
@@ -899,7 +900,7 @@ do_handle_reply(#state{xf = Xf} = State,
 		    ok
 	    end,
 	    ssh_channel:reply(From, ok)
-    end,    
+    end,
     State#state{xf = Xf#ssh_xfer{vsn = Version, ext = Ext}, rep_buf = Rest};
 
 do_handle_reply(State0, Data, Rest) ->
@@ -919,9 +920,9 @@ handle_req_reply(State0, {_, ReqID, _} = XfReply) ->
 	    List = lists:keydelete(ReqID, 1, State0#state.req_list),
 	    State1 = State0#state { req_list = List },
 	    case catch Fun(xreply(XfReply),State1) of
-		{'EXIT', _} -> 
+		{'EXIT', _} ->
 		    State1;
-		State -> 
+		State ->
 		    State
 	    end
     end.
@@ -998,15 +999,15 @@ reply_all(State, Reply) ->
 make_reply(ReqID, true, From, State) ->
     {reply, {async, ReqID},
      update_request_info(ReqID, State,
-			 fun(Reply,State1) -> 
+			 fun(Reply,State1) ->
 				 async_reply(ReqID,Reply,From,State1)
 			 end)};
 
 make_reply(ReqID, false, From, State) ->
     {noreply, 
      update_request_info(ReqID, State,
-			 fun(Reply,State1) -> 
-				 sync_reply(Reply, From, State1) 
+			 fun(Reply,State1) ->
+				 sync_reply(Reply, From, State1)
 			 end)}.
 
 make_reply_post(ReqID, true, From, State, PostFun) ->
@@ -1062,25 +1063,16 @@ attr_to_info(A) when is_record(A, ssh_xfer_attr) ->
       gid    = A#ssh_xfer_attr.group}.
 
 
-%% Added workaround for sftp timestam problem. (Timestamps should be
-%% in UTC but they where not) .  The workaround uses a deprecated
-%% function i calandar.  This will work as expected most of the time
-%% but has problems for the same reason as
-%% calendar:local_time_to_universal_time/1. We consider it better that
-%% the timestamps work as expected most of the time instead of none of
-%% the time. Hopfully the file-api will be updated so that we can
-%% solve this problem in a better way in the future.
-
 unix_to_datetime(undefined) ->
     undefined;
 unix_to_datetime(UTCSecs) ->
-    UTCDateTime = 
+    UTCDateTime =
 	calendar:gregorian_seconds_to_datetime(UTCSecs + 62167219200),
     erlang:universaltime_to_localtime(UTCDateTime).
 
 datetime_to_unix(undefined) ->
     undefined;
-datetime_to_unix(LocalDateTime) ->    
+datetime_to_unix(LocalDateTime) ->
     UTCDateTime = erlang:localtime_to_universaltime(LocalDateTime),
     calendar:datetime_to_gregorian_seconds(UTCDateTime) - 62167219200.
 
@@ -1128,11 +1120,11 @@ open_mode3(Modes) ->
 	 end,
     {[], Fl, A}.
 
-%% accessors for inf dict
-new_inf() -> dict:new().
+%% accessors for inf map
+new_inf() -> #{}.
 
 add_new_handle(Handle, FileMode, Inf) ->
-    dict:store(Handle, #fileinf{offset=0, size=0, mode=FileMode}, Inf).
+    maps:put(Handle, #fileinf{offset=0, size=0, mode=FileMode}, Inf).
 
 update_size(Handle, NewSize, State) ->
     OldSize = get_size(Handle, State),
@@ -1152,27 +1144,24 @@ update_offset(Handle, NewOffset, State0) ->
 %% access size and offset for handle
 put_size(Handle, Size, State) ->
     Inf0 = State#state.inf,
-    case dict:find(Handle, Inf0) of
+    case maps:find(Handle, Inf0) of
 	{ok, FI} ->
-	    State#state{inf=dict:store(Handle, FI#fileinf{size=Size}, Inf0)};
+	    State#state{inf=maps:put(Handle, FI#fileinf{size=Size}, Inf0)};
 	_ ->
-	    State#state{inf=dict:store(Handle, #fileinf{size=Size,offset=0},
-				       Inf0)}
+	    State#state{inf=maps:put(Handle, #fileinf{size=Size,offset=0}, Inf0)}
     end.
 
 put_offset(Handle, Offset, State) ->
     Inf0 = State#state.inf,
-    case dict:find(Handle, Inf0) of
+    case maps:find(Handle, Inf0) of
 	{ok, FI} ->
-	    State#state{inf=dict:store(Handle, FI#fileinf{offset=Offset},
-				       Inf0)};
+	    State#state{inf=maps:put(Handle, FI#fileinf{offset=Offset}, Inf0)};
 	_ ->
-	    State#state{inf=dict:store(Handle, #fileinf{size=Offset,
-							offset=Offset}, Inf0)}
+	    State#state{inf=maps:put(Handle, #fileinf{size=Offset, offset=Offset}, Inf0)}
     end.
 
 get_size(Handle, State) ->
-    case dict:find(Handle, State#state.inf) of
+    case maps:find(Handle, State#state.inf) of
 	{ok, FI} ->
 	    FI#fileinf.size;
 	_ ->
@@ -1180,11 +1169,11 @@ get_size(Handle, State) ->
     end.
 
 %% get_offset(Handle, State) ->
-%%     {ok, FI} = dict:find(Handle, State#state.inf),
+%%     {ok, FI} = maps:find(Handle, State#state.inf),
 %%     FI#fileinf.offset.
 
 get_mode(Handle, State) ->
-    case dict:find(Handle, State#state.inf) of
+    case maps:find(Handle, State#state.inf) of
 	{ok, FI} ->
 	    FI#fileinf.mode;
 	_ ->
@@ -1192,14 +1181,14 @@ get_mode(Handle, State) ->
     end.
 
 erase_handle(Handle, State) ->
-    FI = dict:erase(Handle, State#state.inf),
+    FI = maps:remove(Handle, State#state.inf),
     State#state{inf = FI}.
 
 %%
 %% Caluclate a integer offset
 %%
 lseek_position(Handle, Pos, State) ->
-    case dict:find(Handle, State#state.inf) of
+    case maps:find(Handle, State#state.inf) of
 	{ok, #fileinf{offset=O, size=S}} ->
 	    lseek_pos(Pos, O, S);
 	_ ->
@@ -1229,7 +1218,7 @@ lseek_pos({cur, Offset}, CurOffset, _CurSize)
        true ->
 	    {ok, NewOffset}
     end;
-lseek_pos({eof, Offset}, _CurOffset, CurSize) 
+lseek_pos({eof, Offset}, _CurOffset, CurSize)
   when is_integer(Offset) andalso -(?SSH_FILEXFER_LARGEFILESIZE) =< Offset andalso
        Offset < ?SSH_FILEXFER_LARGEFILESIZE ->
     NewOffset = CurSize + Offset,
@@ -1239,7 +1228,7 @@ lseek_pos({eof, Offset}, _CurOffset, CurSize)
 	    {ok, NewOffset}
     end;
 lseek_pos(_, _, _) ->
-    {error, einval}. 
+    {error, einval}.
 
 %%%================================================================
 %%%
@@ -1277,13 +1266,13 @@ position_buf(Pid, SftpHandle, BufHandle, Pos, FileOpTimeout) ->
     case Pos of
 	{cur,0} when Mode==write ->
 	    {ok,Size+size(Buf0)};
-	
+
 	{cur,0} when Mode==read ->
 	    {ok,Size};
-	
+
 	_ when Mode==read, is_integer(Pos) ->
 	    Skip = Pos-Size,
-	    if 
+	    if
 		Skip < 0 ->
 		    {error, cannot_rewind};
 		Skip == 0 ->
@@ -1318,7 +1307,7 @@ read_buf(Pid, SftpHandle, BufHandle, WantedLen, FileOpTimeout) ->
 	    eof
       end.
 
-do_the_read_buf(_Pid, _SftpHandle, WantedLen, _Packet, _FileOpTimeout, 
+do_the_read_buf(_Pid, _SftpHandle, WantedLen, _Packet, _FileOpTimeout,
 		B=#bufinf{plain_text_buf=PlainBuf0,
 			  size = Size})
     when size(PlainBuf0) >= WantedLen ->
@@ -1327,7 +1316,7 @@ do_the_read_buf(_Pid, _SftpHandle, WantedLen, _Packet, _FileOpTimeout,
     {ok,ResultBin,B#bufinf{plain_text_buf=PlainBuf,
 			   size = Size + WantedLen}};
 
-do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, 
+do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,
 		B0=#bufinf{plain_text_buf = PlainBuf0,
 			   enc_text_buf = EncBuf0,
 			   chunksize = undefined
@@ -1335,12 +1324,12 @@ do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,
   when size(EncBuf0) > 0 ->
     %% We have (at least) one decodable byte waiting for decodeing.
     {ok,DecodedBin,B} = apply_crypto(EncBuf0, B0),
-    do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, 
+    do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,
 		    B#bufinf{plain_text_buf = <<PlainBuf0/binary, DecodedBin/binary>>,
 			     enc_text_buf = <<>>
 			    });
-    
-do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, 
+
+do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,
 		B0=#bufinf{plain_text_buf = PlainBuf0,
 			   enc_text_buf = EncBuf0,
 			   chunksize = ChunkSize0
@@ -1349,11 +1338,11 @@ do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,
     %% We have (at least) one chunk of decodable bytes waiting for decodeing.
     <<ToDecode:ChunkSize0/binary, EncBuf/binary>> = EncBuf0,
     {ok,DecodedBin,B} = apply_crypto(ToDecode, B0),
-    do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, 
+    do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout,
 		    B#bufinf{plain_text_buf = <<PlainBuf0/binary, DecodedBin/binary>>,
 			     enc_text_buf = EncBuf
 			    });
-    
+
 do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, B=#bufinf{enc_text_buf = EncBuf0}) ->
     %% We must read more bytes and append to the buffer of encoded bytes.
     case read(Pid, SftpHandle, Packet, FileOpTimeout) of
@@ -1370,7 +1359,7 @@ do_the_read_buf(Pid, SftpHandle, WantedLen, Packet, FileOpTimeout, B=#bufinf{enc
 write_buf(Pid, SftpHandle, BufHandle, PlainBin, FileOpTimeout) ->
     {ok,{_Window,Packet}} = send_window(Pid, FileOpTimeout),
     {ok,B0=#bufinf{plain_text_buf=PTB}}  = call(Pid, {get_bufinf,BufHandle}, FileOpTimeout),
-    case do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout, 
+    case do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
 			  B0#bufinf{plain_text_buf = <<PTB/binary,PlainBin/binary>>}) of
 	{ok, B} ->
 	    call(Pid, {put_bufinf,BufHandle,B}, FileOpTimeout),
@@ -1379,7 +1368,7 @@ write_buf(Pid, SftpHandle, BufHandle, PlainBin, FileOpTimeout) ->
 	    {error,Error}
     end.
 
-do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout, 
+do_the_write_buf(Pid, SftpHandle, Packet, FileOpTimeout,
 		 B=#bufinf{enc_text_buf = EncBuf0,
 			   size = Size})
   when size(EncBuf0) >= Packet ->
@@ -1421,9 +1410,9 @@ do_the_write_buf(_Pid, _SftpHandle, _Packet, _FileOpTimeout, B) ->
 apply_crypto(In, B=#bufinf{crypto_state = CState0,
 			   crypto_fun = F}) ->
     case F(In,CState0) of
-	{ok,EncodedBin,CState} -> 
+	{ok,EncodedBin,CState} ->
 	    {ok, EncodedBin, B#bufinf{crypto_state=CState}};
-	{ok,EncodedBin,CState,ChunkSize} -> 
+	{ok,EncodedBin,CState,ChunkSize} ->
 	    {ok, EncodedBin, B#bufinf{crypto_state=CState,
 				      chunksize=ChunkSize}}
     end.

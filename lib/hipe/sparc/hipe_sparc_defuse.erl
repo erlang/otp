@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,14 +11,12 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_sparc_defuse).
 -export([insn_def_all/1, insn_use_all/1]).
 -export([insn_def_gpr/1, insn_use_gpr/1]).
 -export([insn_def_fpr/1, insn_use_fpr/1]).
+-export([insn_defs_all_gpr/1, insn_defs_all_fpr/1]).
 -include("hipe_sparc.hrl").
 
 %%%
@@ -45,10 +39,17 @@ insn_def_gpr(I) ->
     #pseudo_call{} -> call_clobbered_gpr();
     #pseudo_move{dst=Dst} -> [Dst];
     #pseudo_set{dst=Dst} -> [Dst];
+    #pseudo_spill_move{temp=Temp, dst=Dst} -> [Temp, Dst];
     #pseudo_tailcall_prepare{} -> tailcall_clobbered_gpr();
     #rdy{dst=Dst} -> [Dst];
     #sethi{dst=Dst} -> [Dst];
     _ -> []
+  end.
+
+insn_defs_all_gpr(I) ->
+  case I of
+    #pseudo_call{} -> true;
+    _ -> false
   end.
 
 call_clobbered_gpr() ->
@@ -72,6 +73,7 @@ insn_use_gpr(I) ->
       funv_use(FunV, arity_use_gpr(Arity));
     #pseudo_move{src=Src} -> [Src];
     #pseudo_ret{} -> [hipe_sparc:mk_rv()];
+    #pseudo_spill_move{src=Src} -> [Src];
     #pseudo_tailcall{funv=FunV,arity=Arity,stkargs=StkArgs} ->
       addsrcs(StkArgs, addtemps(tailcall_clobbered_gpr(), funv_use(FunV, arity_use_gpr(Arity))));
     #store{src=Src,base=Base,disp=Disp} ->
@@ -112,7 +114,14 @@ insn_def_fpr(I) ->
     #fp_unary{dst=Dst} -> [Dst];
     #pseudo_fload{dst=Dst} -> [Dst];
     #pseudo_fmove{dst=Dst} -> [Dst];
+    #pseudo_spill_fmove{temp=Temp, dst=Dst} -> [Temp, Dst];
     _ -> []
+  end.
+
+insn_defs_all_fpr(I) ->
+  case I of
+    #pseudo_call{} -> true;
+    _ -> false
   end.
 
 call_clobbered_fpr() ->
@@ -124,6 +133,7 @@ insn_use_fpr(I) ->
     #fp_unary{src=Src} -> [Src];
     #pseudo_fmove{src=Src} -> [Src];
     #pseudo_fstore{src=Src} -> [Src];
+    #pseudo_spill_fmove{src=Src} -> [Src];
     _ -> []
   end.
 

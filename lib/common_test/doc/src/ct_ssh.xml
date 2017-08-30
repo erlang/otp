@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2016</year>
+      <year>2010</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -64,7 +64,7 @@
     <p><c>ConnType = ssh | sftp</c>.</p>
 
     <p>For other types, see
-      <seealso marker="ssh:ssh"><c>ssh:ssh(3)</c></seealso>.</p>
+      <seealso marker="ssh:ssh"><c>ssh(3)</c></seealso>.</p>
 
     <p>All time-out parameters in <c>ct_ssh</c> functions are values in
       milliseconds.</p>
@@ -88,7 +88,7 @@
       <tag><c>ssh_sftp_return() = term()</c></tag>
       <item><marker id="type-ssh_sftp_return"/>
         <p>Return value from an
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp</c></seealso>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp</c></seealso>
             function.</p></item>
     </taglist>
   </section>
@@ -104,7 +104,7 @@
       </type>
       <desc><marker id="apread-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -118,7 +118,7 @@
       </type>
       <desc><marker id="apread-5"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -132,7 +132,7 @@
       </type>
       <desc><marker id="apwrite-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -146,7 +146,7 @@
       </type>
       <desc><marker id="apwrite-5"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -160,7 +160,7 @@
       </type>
       <desc><marker id="aread-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -174,7 +174,7 @@
       </type>
       <desc><marker id="aread-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -188,7 +188,7 @@
       </type>
       <desc><marker id="awrite-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -202,7 +202,7 @@
       </type>
       <desc><marker id="awrite-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -216,7 +216,7 @@
       </type>
       <desc><marker id="close-2"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -230,7 +230,7 @@
       </type>
       <desc><marker id="close-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -310,7 +310,7 @@
       </type>
       <desc><marker id="del_dir-2"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -324,7 +324,7 @@
       </type>
       <desc><marker id="del_dir-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -338,7 +338,7 @@
       </type>
       <desc><marker id="delete-2"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -352,7 +352,7 @@
       </type>
       <desc><marker id="delete-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -423,7 +423,7 @@
       </type>
       <desc><marker id="get_file_info-2"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -437,7 +437,7 @@
       </type>
       <desc><marker id="get_file_info-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -451,7 +451,7 @@
       </type>
       <desc><marker id="list_dir-2"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -465,7 +465,7 @@
       </type>
       <desc><marker id="list_dir-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -479,7 +479,7 @@
       </type>
       <desc><marker id="make_dir-2"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -493,7 +493,7 @@
       </type>
       <desc><marker id="make_dir-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -507,7 +507,7 @@
       </type>
       <desc><marker id="make_symlink-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -521,7 +521,7 @@
       </type>
       <desc><marker id="make_symlink-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -535,7 +535,7 @@
       </type>
       <desc><marker id="open-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -549,7 +549,7 @@
       </type>
       <desc><marker id="open-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -563,7 +563,7 @@
       </type>
       <desc><marker id="opendir-2"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -577,7 +577,7 @@
       </type>
       <desc><marker id="opendir-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -591,7 +591,7 @@
       </type>
       <desc><marker id="position-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -605,7 +605,7 @@
       </type>
       <desc><marker id="position-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -619,7 +619,7 @@
       </type>
       <desc><marker id="pread-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -633,7 +633,7 @@
       </type>
       <desc><marker id="pread-5"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -647,7 +647,7 @@
       </type>
       <desc><marker id="pwrite-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -661,7 +661,7 @@
       </type>
       <desc><marker id="pwrite-5"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -675,7 +675,7 @@
       </type>
       <desc><marker id="read-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -689,7 +689,7 @@
       </type>
       <desc><marker id="read-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -703,7 +703,7 @@
       </type>
       <desc><marker id="read_file-2"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -717,7 +717,7 @@
       </type>
       <desc><marker id="read_file-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -731,7 +731,7 @@
       </type>
       <desc><marker id="read_file_info-2"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -745,7 +745,7 @@
       </type>
       <desc><marker id="read_file_info-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -759,7 +759,7 @@
       </type>
       <desc><marker id="read_link-2"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -773,7 +773,7 @@
       </type>
       <desc><marker id="read_link-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -787,7 +787,7 @@
       </type>
       <desc><marker id="read_link_info-2"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -801,7 +801,7 @@
       </type>
       <desc><marker id="read_link_info-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -853,7 +853,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
 
         <p>If <c>End</c> is a fun, this fun is called with one argument, the
           data value in a received <c>ssh_cm</c> message (see
-          <seealso marker="ssh:ssh_connection"><c>ssh:ssh_connection(3)</c></seealso>.
+          <seealso marker="ssh:ssh_connection"><c>ssh_connection(3)</c></seealso>.
           The fun is to return either <c>true</c> to end the receiving
           operation (and have the so far collected data returned) or
           <c>false</c> to wait for more data from the server. Even if a fun
@@ -872,7 +872,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
       </type>
       <desc><marker id="rename-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -886,7 +886,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
       </type>
       <desc><marker id="rename-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1034,6 +1034,33 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
     </func>
 
     <func>
+      <name>shell(SSH, ChannelId) -&gt; ok | {error, Reason}</name>
+      <fsummary>Equivalent to shell(SSH, ChannelId, DefaultTimeout).</fsummary>
+      <desc><marker id="shell-2"/>
+        <p>Equivalent to
+          <seealso marker="#shell-3"><c>ct_ssh:shell(SSH, ChannelId,
+            DefaultTimeout)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>shell(SSH, ChannelId, Timeout) -&gt; ok | {error, Reason}</name>
+      <fsummary>Requests that the user default shell is executed at the
+        server end.</fsummary>
+      <type>
+        <v>SSH = connection()</v>
+        <v>ChannelId = integer()</v>
+        <v>Timeout = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc><marker id="shell-3"/>
+        <p>Requests that the user default shell (typically defined in
+          <c>/etc/passwd</c> in Unix systems) is executed at the
+          server end.</p>
+      </desc>
+    </func>
+
+    <func>
       <name>subsystem(SSH, ChannelId, Subsystem) -&gt; Status | {error, Reason}</name>
       <fsummary>Equivalent to subsystem(SSH, ChannelId, Subsystem,
         DefaultTimeout).</fsummary>
@@ -1070,7 +1097,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
       </type>
       <desc><marker id="write-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1084,7 +1111,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
       </type>
       <desc><marker id="write-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1098,7 +1125,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
       </type>
       <desc><marker id="write_file-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1112,7 +1139,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
       </type>
       <desc><marker id="write_file-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1126,7 +1153,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
       </type>
       <desc><marker id="write_file_info-3"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1140,7 +1167,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
       </type>
       <desc><marker id="write_file_info-4"/>
         <p>For information and other types, see
-          <seealso marker="ssh:ssh_sftp"><c>ssh:ssh_sftp(3)</c></seealso>.</p>
+          <seealso marker="ssh:ssh_sftp"><c>ssh_sftp(3)</c></seealso>.</p>
       </desc>
     </func>
   </funcs>

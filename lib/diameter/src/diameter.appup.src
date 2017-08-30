@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -49,7 +49,10 @@
   {"1.10",    [{restart_application, diameter}]},  %% 18.0
   {"1.11",    [{restart_application, diameter}]},  %% 18.1
   {"1.11.1",  [{restart_application, diameter}]},  %% 18.2
-  {"1.11.2",  [{restart_application, diameter}]}   %% 18.3
+  {"1.11.2",  [{restart_application, diameter}]},  %% 18.3
+  {"1.12",    [{restart_application, diameter}]},  %% 19.0
+  {"1.12.1",  [{restart_application, diameter}]},  %% 19.1
+  {"1.12.2",  [{restart_application, diameter}]}   %% 19.3
  ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -80,6 +83,9 @@
   {"1.10",    [{restart_application, diameter}]},
   {"1.11",    [{restart_application, diameter}]},
   {"1.11.1",  [{restart_application, diameter}]},
-  {"1.11.2",  [{restart_application, diameter}]}
+  {"1.11.2",  [{restart_application, diameter}]},
+  {"1.12",    [{restart_application, diameter}]},
+  {"1.12.1",  [{restart_application, diameter}]},
+  {"1.12.2",  [{restart_application, diameter}]}
  ]
 }.

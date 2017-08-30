@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 %%
 -module(lc_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 basic/1,deeply_nested/1,no_generator/1,
@@ -32,11 +32,11 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
+all() ->
     test_lib:recompile(?MODULE),
     [{group,p}].
 
-groups() -> 
+groups() ->
     [{p,test_lib:parallel(),
       [basic,
        deeply_nested,
@@ -214,6 +214,7 @@ shadow(Config) when is_list(Config) ->
     ok.
 
 effect(Config) when is_list(Config) ->
+    ct:timetrap({minutes,10}),
     [{42,{a,b,c}}] =
 	do_effect(fun(F, L) ->
 			  [F({V1,V2}) ||
@@ -226,7 +227,7 @@ effect(Config) when is_list(Config) ->
 	lc_SUITE ->
 	    _ = [{'EXIT',{badarg,_}} =
 		     (catch binary_to_atom(<<C/utf8>>, utf8)) ||
-		    C <- lists:seq(16#10000, 16#FFFFF)];
+		    C <- lists:seq(16#FF10000, 16#FFFFFFF)];
 	_ ->
 	    ok
     end,
@@ -240,7 +241,7 @@ do_effect(Lc, L) ->
     lists:reverse(erase(?MODULE)).
 
 id(I) -> I.
-    
+
 fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Args,_}|_]}}) -> ok;
 fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Arity,_}|_]}})
   when length(Args) =:= Arity ->

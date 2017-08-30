@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,8 +34,7 @@
 
 %%--------------------------------------------------------------------
 %% External exports
--export([subsystem_spec/1,
-	 listen/1, listen/2, listen/3, stop/1]).
+-export([subsystem_spec/1]).
 
 -export([init/1, handle_ssh_msg/2, handle_msg/2, terminate/2]).
 
@@ -76,29 +75,6 @@
 subsystem_spec(Options) ->
     {"sftp", {?MODULE, Options}}.
 
-%%% DEPRECATED START %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%--------------------------------------------------------------------
-%% Function: listen() -> Pid | {error,Error}
-%% Description: Starts the server
-%%--------------------------------------------------------------------
-listen(Port) ->
-    listen(any, Port, []).
-listen(Port, Options) ->
-    listen(any, Port, Options).
-listen(Addr, Port, Options) ->
-    SubSystems = [subsystem_spec(Options)],
-    ssh:daemon(Addr, Port, [{subsystems, SubSystems} |Options]).
-
-%%--------------------------------------------------------------------
-%% Function: stop(Pid) -> ok
-%% Description: Stops the listener
-%%--------------------------------------------------------------------
-stop(Pid) ->
-    ssh:stop_listener(Pid).
-
-
-%%% DEPRECATED END %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%====================================================================
 %% subsystem callbacks
@@ -664,29 +640,25 @@ open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
     do_open(ReqId, State, Path, Flags).
 
 do_open(ReqId, State0, Path, Flags) ->
-    #state{file_handler = FileMod, file_state = FS0, root = Root, xf = #ssh_xfer{vsn = Vsn}} = State0,
-    XF = State0#state.xf,
-    F = [binary | Flags],
-    {IsDir, _FS1} = FileMod:is_dir(Path, FS0),
+    #state{file_handler = FileMod, file_state = FS0, xf = #ssh_xfer{vsn = Vsn}} = State0,
+    AbsPath = relate_file_name(Path, State0),
+    {IsDir, _FS1} = FileMod:is_dir(AbsPath, FS0),
     case IsDir of 
 	true when Vsn > 5 ->
 	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
-    				    ?SSH_FX_FILE_IS_A_DIRECTORY, "File is a directory");
+				    ?SSH_FX_FILE_IS_A_DIRECTORY, "File is a directory"),
+	    State0;
 	true ->
 	    ssh_xfer:xf_send_status(State0#state.xf, ReqId,
-    				    ?SSH_FX_FAILURE, "File is a directory");
+				    ?SSH_FX_FAILURE, "File is a directory"),
+	    State0;
 	false ->
-	    AbsPath = case Root of
-			  "" ->
-			      Path;
-			  _ ->
-			      relate_file_name(Path, State0)  
-		      end,
-	    {Res, FS1} = FileMod:open(AbsPath, F, FS0),
+	    OpenFlags = [binary | Flags],
+	    {Res, FS1} = FileMod:open(AbsPath, OpenFlags, FS0),
 	    State1 = State0#state{file_state = FS1},
 	    case Res of
 		{ok, IoDevice} ->
-		    add_handle(State1, XF, ReqId, file, {Path,IoDevice});
+		    add_handle(State1, State0#state.xf, ReqId, file, {Path,IoDevice});
 		{error, Error} ->
 		    ssh_xfer:xf_send_status(State1#state.xf, ReqId,
 					    ssh_xfer:encode_erlang_status(Error)),
@@ -742,6 +714,10 @@ resolve_symlinks_2([], State, _LinkCnt, AccPath) ->
     {{ok, AccPath}, State}.
 
 
+%% The File argument is always in a user visible file system, i.e.
+%% is under Root and is relative to CWD or Root, if starts with "/".
+%% The result of the function is always an absolute path in a
+%% "backend" file system.
 relate_file_name(File, State) ->
     relate_file_name(File, State, _Canonicalize=true).
 
@@ -749,19 +725,20 @@ relate_file_name(File, State, Canonicalize) when is_binary(File) ->
     relate_file_name(unicode:characters_to_list(File), State, Canonicalize);
 relate_file_name(File, #state{cwd = CWD, root = ""}, Canonicalize) ->
     relate_filename_to_path(File, CWD, Canonicalize);
-relate_file_name(File, #state{root = Root}, Canonicalize) ->
-    case is_within_root(Root, File) of
-	true ->
-	    File;
-	false ->
-	    RelFile = make_relative_filename(File),
-	    NewFile = relate_filename_to_path(RelFile, Root, Canonicalize),
-	    case is_within_root(Root, NewFile) of
-		true ->
-		    NewFile;
-		false ->
-		    Root
-	    end
+relate_file_name(File, #state{cwd = CWD, root = Root}, Canonicalize) ->
+    CWD1 = case is_within_root(Root, CWD) of
+	       true  -> CWD;
+	       false -> Root
+	   end,
+    AbsFile = case make_relative_filename(File) of
+		  File ->
+		       relate_filename_to_path(File, CWD1, Canonicalize);
+		  RelFile ->
+		       relate_filename_to_path(RelFile, Root, Canonicalize)
+	      end,
+    case is_within_root(Root, AbsFile) of
+	true  -> AbsFile;
+	false -> Root
     end.
 
 is_within_root(Root, File) ->

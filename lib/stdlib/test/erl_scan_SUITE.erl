@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -772,10 +772,9 @@ unicode() ->
         erl_scan:string([1089]),
     {error,{{1,1},erl_scan,{illegal,character}},{1,2}} =
         erl_scan:string([1089], {1,1}),
-    {error,{1,erl_scan,{illegal,atom}},1} =
-        erl_scan:string("'a"++[1089]++"b'", 1),
-    {error,{{1,1},erl_scan,{illegal,atom}},{1,6}} =
-        erl_scan:string("'a"++[1089]++"b'", {1,1}),
+    {error,{{1,3},erl_scan,{illegal,character}},{1,4}} =
+        erl_scan:string("'a" ++ [999999999] ++ "c'", {1,1}),
+
     test("\"a"++[1089]++"b\""),
     {ok,[{char,1,1}],1} =
         erl_scan_string([$$,$\\,$^,1089], 1),
@@ -786,8 +785,8 @@ unicode() ->
         erl_scan:format_error(Error),
     {error,{{1,1},erl_scan,_},{1,11}} =
         erl_scan:string("\"qa\\x{aaa}",{1,1}),
-    {error,{{1,1},erl_scan,{illegal,atom}},{1,12}} =
-        erl_scan:string("'qa\\x{aaa}'",{1,1}),
+    {error,{{1,1},erl_scan,_},{1,11}} =
+        erl_scan:string("'qa\\x{aaa}",{1,1}),
 
     {ok,[{char,1,1089}],1} =
         erl_scan_string([$$,1089], 1),
@@ -904,10 +903,10 @@ more_chars() ->
 %% OTP-10302. Unicode characters scanner/parser.
 otp_10302(Config) when is_list(Config) ->
     %% From unicode():
-    {error,{1,erl_scan,{illegal,atom}},1} =
-        erl_scan:string("'a"++[1089]++"b'", 1),
-    {error,{{1,1},erl_scan,{illegal,atom}},{1,12}} =
-        erl_scan:string("'qa\\x{aaa}'",{1,1}),
+    {ok,[{atom,1,'aсb'}],1} =
+        erl_scan_string("'a"++[1089]++"b'", 1),
+    {ok,[{atom,{1,1},'qaપ'}],{1,12}} =
+        erl_scan_string("'qa\\x{aaa}'",{1,1}),
 
     {ok,[{char,1,1089}],1} = erl_scan_string([$$,1089], 1),
     {ok,[{char,1,1089}],1} = erl_scan_string([$$,$\\,1089],1),

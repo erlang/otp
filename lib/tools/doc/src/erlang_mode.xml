@@ -252,7 +252,14 @@
        behavior</item>
       <item>gen_event - skeleton for the OTP gen_event behavior</item>
       <item>gen_fsm - skeleton for the OTP gen_fsm behavior</item>
-      <item>gen_statem - skeleton for the OTP gen_statem behavior</item>
+      <item>
+	gen_statem (StateName/3) - skeleton for the OTP gen_statem behavior
+	using state name functions
+      </item>
+      <item>
+	gen_statem (handle_event/4) - skeleton for the OTP gen_statem behavior
+	using one state function
+      </item>
       <item>Library module - skeleton for a module that does not
        implement a process.</item>
       <item>Corba callback - skeleton for a Corba callback module.</item>

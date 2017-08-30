@@ -21,7 +21,7 @@
 
 <copyright>
 <year>2011</year>
-<year>2016</year>
+<year>2017</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -94,12 +94,12 @@ in this module.</p>
 
 <taglist>
 
-<tag><c>Address()</c></tag>
-<tag><c>DiameterIdentity()</c></tag>
-<tag><c>Grouped()</c></tag>
-<tag><c>OctetString()</c></tag>
-<tag><c>Time()</c></tag>
-<tag><c>Unsigned32()</c></tag>
+<tag><c>Address()</c></tag><item/>
+<tag><c>DiameterIdentity()</c></tag><item/>
+<tag><c>Grouped()</c></tag><item/>
+<tag><c>OctetString()</c></tag><item/>
+<tag><c>Time()</c></tag><item/>
+<tag><c>Unsigned32()</c></tag><item/>
 <tag><c>UTF8String()</c></tag>
 <item>
 <p>
@@ -159,8 +159,7 @@ Has one the following types.</p>
 <p>
 Unique identifier for the application in the scope of the
 service.
-Defaults to the value of the <c>dictionary</c> option if
-unspecified.</p>
+Defaults to the value of the <c>dictionary</c> option.</p>
 </item>
 
 <tag><c>{dictionary, atom()}</c></tag>
@@ -187,7 +186,7 @@ Initial callback state.
 The prevailing state is passed to some
 &man_app;
 callbacks, which can then return a new state.
-Defaults to the value of the <c>alias</c> option if unspecified.</p>
+Defaults to the value of the <c>alias</c> option.</p>
 </item>
 
 <tag><c>{call_mutates_state, true|false}</c></tag>
@@ -195,7 +194,7 @@ Defaults to the value of the <c>alias</c> option if unspecified.</p>
 <p>
 Whether or not the &app_pick_peer;
 application callback can modify the application state.
-Defaults to <c>false</c> if unspecified.</p>
+Defaults to <c>false</c>.</p>
 
 <warning>
 <p>
@@ -228,7 +227,7 @@ question is as if a callback had taken place and returned
 <c>{error, failure}</c>.</p>
 
 <p>
-Defaults to <c>discard</c> if unspecified.</p>
+Defaults to <c>discard</c>.</p>
 </item>
 
 <tag><c>{request_errors, answer_3xxx|answer|callback}</c></tag>
@@ -249,7 +248,7 @@ place and its return value determines the answer sent to the peer, if
 any.</p>
 
 <p>
-Defaults to <c>answer_3xxx</c> if unspecified.</p>
+Defaults to <c>answer_3xxx</c>.</p>
 
 <note>
 <p>
@@ -301,6 +300,17 @@ corresponding list of filters.
 Defaults to <c>none</c>.</p>
 </item>
 
+<tag><c>{peer, &app_peer_ref;}</c></tag>
+<item>
+<p>
+Peer to which the request in question can be sent, preempting the
+selection of peers having advertised support for the Diameter
+application in question.
+Multiple options can be specified, and their order is
+respected in the candidate lists passed to a subsequent
+&app_pick_peer; callback.</p>
+</item>
+
 <tag><c>{timeout, &dict_Unsigned32;}</c></tag>
 <item>
 <p>
@@ -339,8 +349,8 @@ Has one of the following types.</p>
 
 <taglist>
 
-<tag><c>{'Origin-Host', &dict_DiameterIdentity;}</c></tag>
-<tag><c>{'Origin-Realm', &dict_DiameterIdentity;}</c></tag>
+<tag><c>{'Origin-Host', &dict_DiameterIdentity;}</c></tag><item/>
+<tag><c>{'Origin-Realm', &dict_DiameterIdentity;}</c></tag><item/>
 <tag><c>{'Host-IP-Address', [&dict_Address;]}</c></tag>
 <item>
 <p>
@@ -352,8 +362,8 @@ question communicates an address list as described in
 &man_transport;</p>
 </item>
 
-<tag><c>{'Vendor-Id', &dict_Unsigned32;}</c></tag>
-<tag><c>{'Product-Name', &dict_UTF8String;}</c></tag>
+<tag><c>{'Vendor-Id', &dict_Unsigned32;}</c></tag><item/>
+<tag><c>{'Product-Name', &dict_UTF8String;}</c></tag><item/>
 <tag><c>{'Origin-State-Id', &dict_Unsigned32;}</c></tag>
 <item>
 <p>
@@ -366,8 +376,8 @@ can be used as to retrieve a value that is computed when the diameter
 application is started.</p>
 </item>
 
-<tag><c>{'Supported-Vendor-Id', [&dict_Unsigned32;]}</c></tag>
-<tag><c>{'Auth-Application-Id', [&dict_Unsigned32;]}</c></tag>
+<tag><c>{'Supported-Vendor-Id', [&dict_Unsigned32;]}</c></tag><item/>
+<tag><c>{'Auth-Application-Id', [&dict_Unsigned32;]}</c></tag><item/>
 <tag><c>{'Inband-Security-Id', [&dict_Unsigned32;]}</c></tag>
 <item>
 <p>
@@ -377,9 +387,9 @@ If 1 (TLS) is specified then TLS is selected if the CER/CEA received
 from the peer offers it.</p>
 </item>
 
-<tag><c>{'Acct-Application-Id', [&dict_Unsigned32;]}</c></tag>
-<tag><c>{'Vendor-Specific-Application-Id', [&dict_Grouped;]}</c></tag>
-<tag><c>{'Firmware-Revision', &dict_Unsigned32;}</c></tag>
+<tag><c>{'Acct-Application-Id', [&dict_Unsigned32;]}</c></tag><item/>
+<tag><c>{'Vendor-Specific-Application-Id', [&dict_Grouped;]}</c></tag><item/>
+<tag><c>{'Firmware-Revision', &dict_Unsigned32;}</c></tag><item/>
 
 </taglist>
 
@@ -567,9 +577,8 @@ Can have one of the following types.</p>
 
 <taglist>
 
-<tag><c>start</c></tag>
+<tag><c>start</c></tag><item/>
 <tag><c>stop</c></tag>
-
 <item>
 <p>
 The service is being started or stopped.
@@ -578,8 +587,8 @@ No event follows a <c>stop</c> event, and this event
 implies the termination of all transport processes.</p>
 </item>
 
-<tag><c>{up, Ref, Peer, Config, Pkt}</c></tag>
-<tag><c>{up, Ref, Peer, Config}</c></tag>
+<tag><c>{up, Ref, Peer, Config, Pkt}</c></tag><item/>
+<tag><c>{up, Ref, Peer, Config}</c></tag><item/>
 <tag><c>{down, Ref, Peer, Config}</c></tag>
 <item>
 <pre>
@@ -788,8 +797,8 @@ be matched by corresponding &capability; configuration, of
 
 </item>
 
-<marker id="incoming_maxlen"/>
-<tag><c>{incoming_maxlen, 0..16777215}</c></tag>
+<tag>
+<marker id="incoming_maxlen"/><c>{incoming_maxlen, 0..16777215}</c></tag>
 <item>
 <p>
 Bound on the expected size of incoming Diameter messages.
@@ -917,8 +926,8 @@ Options <c>monitor</c> and <c>link</c> are ignored.</p>
 Defaults to the empty list.</p>
 </item>
 
-<marker id="strict_mbit"/>
-<tag><c>{strict_mbit, boolean()}</c></tag>
+<tag>
+<marker id="strict_mbit"/><c>{strict_mbit, boolean()}</c></tag>
 <item>
 <p>
 Whether or not to regard an AVP setting the M-bit as erroneous when
@@ -935,7 +944,7 @@ Defaults to <c>true</c>.</p>
 <p>
 RFC 6733 is unclear about the semantics of the M-bit.
 One the one hand, the CCF specification in section 3.2 documents AVP
-in a command grammar as meaning <b>any</b> arbitrary AVP; on the
+in a command grammar as meaning <em>any</em> arbitrary AVP; on the
 other hand, 1.3.4 states that AVPs setting the M-bit cannot be added
 to an existing command: the modified command must instead be
 placed in a new Diameter application.</p>
@@ -945,7 +954,7 @@ allowing arbitrary AVPs setting the M-bit in a command makes its
 interpretation implementation-dependent, since there's no
 guarantee that all implementations will understand the same set of
 arbitrary AVPs in the context of a given command.
-However, interpreting <c>AVP</c> in a command grammar as <b>any</b>
+However, interpreting <c>AVP</c> in a command grammar as any
 AVP, regardless of M-bit, renders 1.3.4 meaningless, since the receiver
 can simply ignore any AVP it thinks isn't relevant, regardless of the
 sender's intent.</p>
@@ -960,8 +969,8 @@ occur in the message in question.</p>
 
 </item>
 
-<marker id="string_decode"/>
-<tag><c>{string_decode, boolean()}</c></tag>
+<tag>
+<marker id="string_decode"/><c>{string_decode, boolean()}</c></tag>
 <item>
 <p>
 Whether or not to decode AVPs of type &dict_OctetString; and its
@@ -1031,8 +1040,9 @@ Option passed to &add_transport;.
 Has one of the following types.</p>
 
 <taglist>
-<marker id="applications"/>
-<tag><c>{applications, [&application_alias;]}</c></tag>
+
+<tag>
+<marker id="applications"/><c>{applications, [&application_alias;]}</c></tag>
 <item>
 <p>
 Diameter applications to which the transport should be restricted.
@@ -1050,8 +1060,8 @@ implies having to set matching *-Application-Id AVPs in a
 
 </item>
 
-<marker id="capabilities"/>
-<tag><c>{capabilities, [&capability;]}</c></tag>
+<tag>
+<marker id="capabilities"/><c>{capabilities, [&capability;]}</c></tag>
 <item>
 <p>
 AVPs used to construct outgoing CER/CEA messages.
@@ -1064,8 +1074,8 @@ may be particularly appropriate for Inband-Security-Id, in case
 TLS is desired over TCP as implemented by &man_tcp;.</p>
 </item>
 
-<marker id="capabilities_cb"/>
-<tag><c>{capabilities_cb, &evaluable;}</c></tag>
+<tag>
+<marker id="capabilities_cb"/><c>{capabilities_cb, &evaluable;}</c></tag>
 <item>
 <p>
 Callback invoked upon reception of CER/CEA during capabilities
@@ -1112,8 +1122,8 @@ case the corresponding callbacks are applied until either all return
 <c>ok</c> or one does not.</p>
 </item>
 
-<marker id="capx_timeout"/>
-<tag><c>{capx_timeout, &dict_Unsigned32;}</c></tag>
+<tag>
+<marker id="capx_timeout"/><c>{capx_timeout, &dict_Unsigned32;}</c></tag>
 <item>
 <p>
 Number of milliseconds after which a transport process having an
@@ -1127,8 +1137,8 @@ For a listening transport, the peer determines the timing.</p>
 Defaults to 10000.</p>
 </item>
 
-<marker id="connect_timer"/>
-<tag><c>{connect_timer, Tc}</c></tag>
+<tag>
+<marker id="connect_timer"/><c>{connect_timer, Tc}</c></tag>
 <item>
 <pre>
 Tc = &dict_Unsigned32;
@@ -1158,9 +1168,8 @@ Defaults to 30000 for a connecting transport and 60000 for a listening
 transport.</p>
 </item>
 
-<marker id="disconnect_cb"/>
-<tag><c>{disconnect_cb, &evaluable;}</c></tag>
-
+<tag>
+<marker id="disconnect_cb"/><c>{disconnect_cb, &evaluable;}</c></tag>
 <item>
 <p>
 Callback invoked prior to terminating the transport process of a
@@ -1236,8 +1245,8 @@ configured them.</p>
 Defaults to a single callback returning <c>dpr</c>.</p>
 </item>
 
-<marker id="dpa_timeout"/>
-<tag><c>{dpa_timeout, &dict_Unsigned32;}</c></tag>
+<tag>
+<marker id="dpa_timeout"/><c>{dpa_timeout, &dict_Unsigned32;}</c></tag>
 <item>
 <p>
 Number of milliseconds after which a transport connection is
@@ -1247,8 +1256,8 @@ terminated following an outgoing DPR if DPA is not received.</p>
 Defaults to 1000.</p>
 </item>
 
-<marker id="dpr_timeout"/>
-<tag><c>{dpr_timeout, &dict_Unsigned32;}</c></tag>
+<tag>
+<marker id="dpr_timeout"/><c>{dpr_timeout, &dict_Unsigned32;}</c></tag>
 <item>
 <p>
 Number of milliseconds after which a transport connection is
@@ -1259,8 +1268,8 @@ connection.</p>
 Defaults to 5000.</p>
 </item>
 
-<marker id="length_errors"/>
-<tag><c>{length_errors, exit|handle|discard}</c></tag>
+<tag>
+<marker id="length_errors"/><c>{length_errors, exit|handle|discard}</c></tag>
 <item>
 <p>
 How to deal with errors in the Message Length field of the
@@ -1308,8 +1317,8 @@ the same peer.</p>
 
 </item>
 
-<marker id="spawn_opt"/>
-<tag><c>{spawn_opt, [term()]}</c></tag>
+<tag>
+<marker id="spawn_opt"/><c>{spawn_opt, [term()]}</c></tag>
 <item>
 <p>
 Options passed to &spawn_opt; when spawning a process for an
@@ -1320,15 +1329,15 @@ Options <c>monitor</c> and <c>link</c> are ignored.</p>
 Defaults to the list configured on the service if not specified.</p>
 </item>
 
-<marker id="transport_config"/>
-<tag><c>{transport_config, term()}</c></tag>
+<tag>
+<marker id="transport_config"/><c>{transport_config, term()}</c></tag><item/>
 <tag><c>{transport_config, term(), &dict_Unsigned32; | infinity}</c></tag>
 <item>
 <p>
 Term passed as the third argument to the &transport_start; function of
 the relevant &transport_module; in order to
 start a transport process.
-Defaults to the empty list if unspecified.</p>
+Defaults to the empty list.</p>
 
 <p>
 The 3-tuple form additionally specifies an interval, in milliseconds,
@@ -1349,12 +1358,12 @@ request a connection with one peer over SCTP or another
 To listen on both SCTP and TCP, define one transport for each.</p>
 </item>
 
-<marker id="transport_module"/>
-<tag><c>{transport_module, atom()}</c></tag>
+<tag>
+<marker id="transport_module"/><c>{transport_module, atom()}</c></tag>
 <item>
 <p>
 Module implementing a transport process as defined in &man_transport;.
-Defaults to <c>diameter_tcp</c> if unspecified.</p>
+Defaults to <c>diameter_tcp</c>.</p>
 
 <p>
 Multiple <c>transport_module</c> and &transport_config;
@@ -1369,8 +1378,9 @@ modules in order until one establishes a connection within the
 corresponding timeout (see below) or all fail.</p>
 </item>
 
-<marker id="watchdog_config"/>
-<tag><c>{watchdog_config, [{okay|suspect, non_neg_integer()}]}</c></tag>
+<tag>
+<marker id="watchdog_config"/><c>{watchdog_config,
+                       [{okay|suspect, non_neg_integer()}]}</c></tag>
 <item>
 <p>
 Configuration that alters the behaviour of the watchdog
@@ -1393,8 +1403,8 @@ misbehaving nodes during test.</p>
 </warning>
 </item>
 
-<marker id="watchdog_timer"/>
-<tag><c>{watchdog_timer, TwInit}</c></tag>
+<tag>
+<marker id="watchdog_timer"/><c>{watchdog_timer, TwInit}</c></tag>
 <item>
 <pre>
 TwInit = &dict_Unsigned32;
@@ -1412,7 +1422,7 @@ the callback.</p>
 
 <p>
 An integer value must be at least 6000 as required by RFC 3539.
-Defaults to 30000 if unspecified.</p>
+Defaults to 30000.</p>
 </item>
 
 </taglist>
@@ -1422,10 +1432,10 @@ Unrecognized options are silently ignored but are returned unmodified
 by &service_info; and can be referred to
 in predicate functions passed to &remove_transport;.</p>
 
-<marker id="transport_ref"/>
 </item>
 
-<tag><c>transport_ref() = reference()</c></tag>
+<tag>
+<marker id="transport_ref"/><c>transport_ref() = reference()</c></tag>
 <item>
 <p>
 Reference returned by &add_transport; that
@@ -1682,17 +1692,17 @@ returned.</p>
 
 <taglist>
 
-<tag><c>'Origin-Host'</c></tag>
-<tag><c>'Origin-Realm'</c></tag>
-<tag><c>'Vendor-Id'</c></tag>
-<tag><c>'Product-Name'</c></tag>
-<tag><c>'Origin-State-Id'</c></tag>
-<tag><c>'Host-IP-Address'</c></tag>
-<tag><c>'Supported-Vendor'</c></tag>
-<tag><c>'Auth-Application-Id'</c></tag>
-<tag><c>'Inband-Security-Id'</c></tag>
-<tag><c>'Acct-Application-Id'</c></tag>
-<tag><c>'Vendor-Specific-Application-Id'</c></tag>
+<tag><c>'Origin-Host'</c></tag><item/>
+<tag><c>'Origin-Realm'</c></tag><item/>
+<tag><c>'Vendor-Id'</c></tag><item/>
+<tag><c>'Product-Name'</c></tag><item/>
+<tag><c>'Origin-State-Id'</c></tag><item/>
+<tag><c>'Host-IP-Address'</c></tag><item/>
+<tag><c>'Supported-Vendor'</c></tag><item/>
+<tag><c>'Auth-Application-Id'</c></tag><item/>
+<tag><c>'Inband-Security-Id'</c></tag><item/>
+<tag><c>'Acct-Application-Id'</c></tag><item/>
+<tag><c>'Vendor-Specific-Application-Id'</c></tag><item/>
 <tag><c>'Firmware-Revision'</c></tag>
 <item>
 <p>

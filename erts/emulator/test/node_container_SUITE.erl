@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,12 +45,12 @@
          ets_refc/1,
          match_spec_refc/1,
          timer_refc/1,
-         otp_4715/1,
          pid_wrap/1,
          port_wrap/1,
          bad_nc/1,
          unique_pid/1,
-         iter_max_procs/1]).
+         iter_max_procs/1,
+         magic_ref/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -61,8 +61,8 @@ all() ->
     [term_to_binary_to_term_eq, round_trip_eq, cmp, ref_eq,
      node_table_gc, dist_link_refc, dist_monitor_refc,
      node_controller_refc, ets_refc, match_spec_refc,
-     timer_refc, otp_4715, pid_wrap, port_wrap, bad_nc,
-     unique_pid, iter_max_procs].
+     timer_refc, pid_wrap, port_wrap, bad_nc,
+     unique_pid, iter_max_procs, magic_ref].
 
 init_per_suite(Config) ->
     Config.
@@ -152,7 +152,7 @@ ttbtteq_do_remote(RNode) ->
 %%
 %% Test case: round_trip_eq
 %%
-%% Tests that node containers that are sent beteen nodes stay equal to themselves.
+%% Tests that node containers that are sent between nodes stay equal to themselves.
 round_trip_eq(Config) when is_list(Config) ->
     ThisNode = {node(), erlang:system_info(creation)},
     NodeFirstName = get_nodefirstname(),
@@ -683,35 +683,6 @@ timer_refc(Config) when is_list(Config) ->
     nc_refc_check(node()),
     ok.
 
-otp_4715(Config) when is_list(Config) ->
-    case test_server:is_release_available("r9b") of
-        true -> otp_4715_1(Config);
-        false -> {skip,"No R9B found"}
-    end.
-
-otp_4715_1(Config) ->
-    case erlang:system_info(compat_rel) of
-        9 ->
-            run_otp_4715(Config);
-        _ ->
-            Pa = filename:dirname(code:which(?MODULE)),
-            test_server:run_on_shielded_node(fun () ->
-                                                     run_otp_4715(Config)
-                                             end,
-                                             "+R9 -pa " ++ Pa)
-    end.
-
-run_otp_4715(Config) when is_list(Config) ->
-    erts_debug:set_internal_state(available_internal_state, true),
-    PidList = [mk_pid({a@b, 1}, 4710, 2),
-               mk_pid({a@b, 1}, 4712, 1),
-               mk_pid({c@b, 1}, 4711, 1),
-               mk_pid({b@b, 3}, 4711, 1),
-               mk_pid({b@b, 2}, 4711, 1)],
-
-    R9Sorted = old_mod:sort_on_old_node(PidList),
-    R9Sorted = lists:sort(PidList).
-
 pid_wrap(Config) when is_list(Config) -> pp_wrap(pid).
 
 port_wrap(Config) when is_list(Config) ->
@@ -889,9 +860,45 @@ chk_max_proc_line_until(NoMoreTests, Res) ->
               chk_max_proc_line_until(NoMoreTests, Res)
     end.
 
+magic_ref(Config) when is_list(Config) ->
+    {MRef0, Addr0} = erts_debug:set_internal_state(make, magic_ref),
+    true = is_reference(MRef0),
+    {Addr0, 1, true} = erts_debug:get_internal_state({magic_ref,MRef0}),
+    MRef1 = binary_to_term(term_to_binary(MRef0)),
+    {Addr0, 2, true} = erts_debug:get_internal_state({magic_ref,MRef1}),
+    MRef0 = MRef1,
+    Me = self(),
+    {Pid, Mon} = spawn_opt(fun () ->
+				   receive
+				       {Me, MRef} ->
+					   Me ! {self(), erts_debug:get_internal_state({magic_ref,MRef})}
+				   end
+			   end,
+			   [link, monitor]),
+    Pid ! {self(), MRef0},
+    receive
+	{Pid, Info} ->
+	    {Addr0, 3, true} = Info
+    end,
+    receive
+	{'DOWN', Mon, process, Pid, _} ->
+	    ok
+    end,
+    {Addr0, 2, true} = erts_debug:get_internal_state({magic_ref,MRef0}),
+    id(MRef0),
+    id(MRef1),
+    MRefExt = term_to_binary(erts_debug:set_internal_state(make, magic_ref)),
+    garbage_collect(),
+    {MRef2, _Addr2} = binary_to_term(MRefExt),
+    true = is_reference(MRef2),
+    true = erts_debug:get_internal_state({magic_ref,MRef2}),
+    ok.
 %%
 %% -- Internal utils ---------------------------------------------------------
 %%
+
+id(X) ->
+    X.
 
 -define(ND_REFS, erts_debug:get_internal_state(node_and_dist_references)).
 
@@ -1092,7 +1099,7 @@ wait_until(Pred) ->
 get_nodefirstname_string() ->
     atom_to_list(?MODULE)
     ++ "-"
-    ++ integer_to_list(erlang:system_time(seconds))
+    ++ integer_to_list(erlang:system_time(second))
     ++ "-"
     ++ integer_to_list(erlang:unique_integer([positive])).
 

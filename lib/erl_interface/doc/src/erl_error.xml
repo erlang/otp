@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>erl_error</title>
@@ -28,61 +28,66 @@
     <docno></docno>
     <approved>Bjarne D&auml;cker</approved>
     <checked>Torbj&ouml;rn T&ouml;rnkvist</checked>
-    <date>961014</date>
+    <date>1996-10-14</date>
     <rev>A</rev>
-    <file>erl_error.sgml</file>
+    <file>erl_error.xml</file>
   </header>
   <lib>erl_error</lib>
-  <libsummary>Error Print Routines</libsummary>
+  <libsummary>Error print routines.</libsummary>
   <description>
     <p>This module contains some error printing routines taken
-      from <em>Advanced Programming in the UNIX Environment</em> 
-      by W. Richard Stevens. </p>
+      from "Advanced Programming in the UNIX Environment"
+      by W. Richard Stevens.</p>
+
     <p>These functions are all called in the same manner as
-      <c><![CDATA[printf()]]></c>, i.e. with a string containing format specifiers
-      followed by a list of corresponding arguments. All output from
-      these functions is to <c><![CDATA[stderr]]></c>.</p>
+      <c>printf()</c>, that is, with a string containing format
+      specifiers followed by a list of corresponding arguments. All output from
+      these functions is to <c>stderr</c>.</p>
   </description>
+
   <funcs>
     <func>
       <name><ret>void</ret><nametext>erl_err_msg(FormatStr, ... )</nametext></name>
-      <fsummary>Non-fatal error, and not system call error</fsummary>
+      <fsummary>Non-fatal error, and not system call error.</fsummary>
       <type>
         <v>const char *FormatStr;</v>
       </type>
       <desc>
         <p>The message provided by the caller is printed. This
-          function is simply a wrapper for <c><![CDATA[fprintf()]]></c>.</p>
+          function is simply a wrapper for <c>fprintf()</c>.</p>
       </desc>
     </func>
+
     <func>
       <name><ret>void</ret><nametext>erl_err_quit(FormatStr, ... )</nametext></name>
-      <fsummary>Fatal error, but not system call error</fsummary>
+      <fsummary>Fatal error, but not system call error.</fsummary>
       <type>
         <v>const char *FormatStr;</v>
       </type>
       <desc>
         <p>Use this function when a fatal error has occurred that
-          is not due to a system call. The message provided by the
-          caller is printed and the process terminates with an exit
-          value of 1. The function does not return.</p>
+          is not because of a system call. The message provided by the
+          caller is printed and the process terminates with exit
+          value <c>1</c>. This function does not return.</p>
       </desc>
     </func>
+
     <func>
       <name><ret>void</ret><nametext>erl_err_ret(FormatStr, ... )</nametext></name>
-      <fsummary>Non-fatal system call error</fsummary>
+      <fsummary>Non-fatal system call error.</fsummary>
       <type>
         <v>const char *FormatStr;</v>
       </type>
       <desc>
         <p>Use this function after a failed system call. The message
           provided by the caller is printed followed by a string
-          describing the reason for failure. </p>
+          describing the reason for failure.</p>
       </desc>
     </func>
+
     <func>
       <name><ret>void</ret><nametext>erl_err_sys(FormatStr, ... )</nametext></name>
-      <fsummary>Fatal system call error</fsummary>
+      <fsummary>Fatal system call error.</fsummary>
       <type>
         <v>const char *FormatStr;</v>
       </type>
@@ -90,7 +95,7 @@
         <p>Use this function after a failed system call. The message
           provided by the caller is printed followed by a string
           describing the reason for failure, and the process
-          terminates with an exit value of 1. The function does not
+          terminates with exit value <c>1</c>. This function does not
           return.</p>
       </desc>
     </func>
@@ -98,40 +103,43 @@
 
   <section>
     <title>Error Reporting</title>
-    <p>Most functions in erl_interface report failures to the caller by
-      returning some otherwise meaningless value (typically <c><![CDATA[NULL]]></c>
+    <p>Most functions in <c>Erl_Interface</c> report failures to the caller by
+      returning some otherwise meaningless value (typically
+      <c>NULL</c>
       or a negative number). As this only tells you that things did not
-      go well, you will have to examine the error code in
-      <c><![CDATA[erl_errno]]></c> if you want to find out more about the failure.</p>
+      go well, examine the error code in <c>erl_errno</c> if you
+      want to find out more about the failure.</p>
   </section>
+
   <funcs>
     <func>
       <name><ret>volatile int</ret><nametext>erl_errno</nametext></name>
-      <fsummary>The variable <c><![CDATA[erl_errno]]></c>contains the erl_interface error number. You can change the value if you wish. </fsummary>
+      <fsummary>Variable <c>erl_errno</c> contains the
+        Erl_Interface error number. You can change the value if you wish.
+      </fsummary>
       <desc>
-        <p><c><![CDATA[erl_errno]]></c> is initially (at program startup) zero and
-          is then set by many erl_interface functions on failure to a
-          non-zero error code to indicate what kind of error it
-          encountered. A successful function call might change
-          <c><![CDATA[erl_errno]]></c> (by calling some other function that
-          fails), but no function will ever set it to zero. This means
-          that you cannot use <c><![CDATA[erl_errno]]></c> to see <em>if</em> a
+        <p><c>erl_errno</c> is initially (at program startup) zero
+          and is then set by many <c>Erl_Interface</c> functions on failure to
+          a non-zero error code to indicate what kind of error it
+          encountered. A successful function call can change
+          <c>erl_errno</c> (by calling some other function that
+          fails), but no function does never set it to zero. This means
+          that you cannot use <c>erl_errno</c> to see <em>if</em> a
           function call failed. Instead, each function reports failure
           in its own way (usually by returning a negative number or
-          <c><![CDATA[NULL]]></c>), in which case you can examine <c><![CDATA[erl_errno]]></c>
-          for details.</p>
-        <p><c><![CDATA[erl_errno]]></c> uses the error codes defined in your
-          system's <c><![CDATA[<errno.h>]]></c>.</p>
+          <c>NULL</c>), in which case you can examine
+          <c>erl_errno</c> for details.</p>
+        <p><c>erl_errno</c> uses the error codes defined in your
+          system's <c>&lt;errno.h&gt;</c>.</p>
         <note>
-          <p>Actually, <c><![CDATA[erl_errno]]></c> is a "modifiable lvalue" (just
-            like ISO C defines <c><![CDATA[errno]]></c> to be) rather than a
-            variable. This means it might be implemented as a macro
-            (expanding to, e.g., <c><![CDATA[*_erl_errno()]]></c>). For reasons of
-            thread- (or task-)safety, this is exactly what we do on most
-            platforms.</p>
+          <p><c>erl_errno</c> is a "modifiable lvalue" (just
+            like ISO C defines <c>errno</c> to be) rather than a
+            variable. This means it can be implemented as a macro
+            (expanding to, for example, <c>*_erl_errno()</c>).
+            For reasons of thread safety (or task safety), this is exactly what
+            we do on most platforms.</p>
         </note>
       </desc>
     </func>
   </funcs>
 </cref>
-

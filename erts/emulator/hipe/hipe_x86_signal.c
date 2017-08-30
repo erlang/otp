@@ -2,7 +2,7 @@
  * %CopyrightBegin%
 
  *
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@
 #endif
 #include "hipe_signal.h"
 
-#if __GLIBC__ == 2 && (__GLIBC_MINOR__ >= 3)
+#if defined(__GLIBC__) && __GLIBC__ == 2 && (__GLIBC_MINOR__ >= 3)
 /*
  * __libc_sigaction() is the core routine.
  * Without libpthread, sigaction() and __sigaction() are both aliases
@@ -267,7 +267,7 @@ void hipe_thread_signal_init(void)
 {
     /* Stack don't really need to be cache aligned.
        We use it to suppress false leak report from valgrind */
-    hipe_sigaltstack(erts_alloc_permanent_cache_aligned(ERTS_ALC_T_HIPE, SIGSTKSZ));
+    hipe_sigaltstack(erts_alloc_permanent_cache_aligned(ERTS_ALC_T_HIPE_LL, SIGSTKSZ));
 }
 #endif
 

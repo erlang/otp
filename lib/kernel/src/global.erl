@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -58,14 +58,18 @@
 %%% In certain places in the server, calling io:format hangs everything,
 %%% so we'd better use erlang:display/1.
 %%% my_tracer is used in testsuites
--define(trace(_), ok).
 
+%% uncomment this if tracing is wanted
+%%-define(DEBUG, true).
+-ifdef(DEBUG).
+-define(trace(T), erlang:display({format, node(), cs(), T})).
+  cs() ->
+     {_Big, Small, Tiny} = erlang:timestamp(),
+     (Small rem 100) * 100 + (Tiny div 10000).
 %-define(trace(T), (catch my_tracer ! {node(), {line,?LINE}, T})).
-
-%-define(trace(T), erlang:display({format, node(), cs(), T})).
-%cs() ->
-%    {_Big, Small, Tiny} = now(),
-%    (Small rem 100) * 100 + (Tiny div 10000).
+-else.
+-define(trace(_), ok).
+-endif.
 
 %% These are the protocol versions:
 %% Vsn 1 is the original protocol.
@@ -443,7 +447,8 @@ info() ->
 init([]) ->
     process_flag(trap_exit, true),
     _ = ets:new(global_locks, [set, named_table, protected]),
-    _ = ets:new(global_names, [set, named_table, protected]),
+    _ = ets:new(global_names, [set, named_table, protected,
+                               {read_concurrency, true}]),
     _ = ets:new(global_names_ext, [set, named_table, protected]),
 
     _ = ets:new(global_pid_names, [bag, named_table, protected]),

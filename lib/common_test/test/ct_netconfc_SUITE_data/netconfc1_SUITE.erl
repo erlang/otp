@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -102,7 +102,9 @@ all() ->
 	     receive_one_event,
 	     receive_multiple_events,
 	     receive_event_and_rpc,
-	     receive_event_and_rpc_in_chunks
+	     receive_event_and_rpc_in_chunks,
+             multiple_channels,
+             kill_session_same_connection
 	    ]
     end.
 
@@ -124,7 +126,7 @@ end_per_testcase(_Case, _Config) ->
     ok.
 
 init_per_suite(Config) ->
-    (catch code:load_file(crypto)),
+    code:ensure_loaded(crypto),
     case {ssh:start(),code:is_loaded(crypto)} of
 	{Ok,{file,_}} when Ok==ok; Ok=={error,{already_started,ssh}} ->
 	    ct:log("ssh started",[]),
@@ -498,10 +500,11 @@ kill_session(Config) ->
 
     ?NS:hello(2),
     ?NS:expect(2,hello),
-    {ok,_OtherClient} = open(SshDir),
+    {ok,OtherClient} = open(SshDir),
 
     ?NS:expect_do_reply('kill-session',{kill,2},ok),
     ?ok = ct_netconfc:kill_session(Client,2),
+    {error,_}=ct_netconfc:get(OtherClient,{server,[{xmlns,"myns"}],[]}),
 
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
@@ -1179,13 +1182,73 @@ receive_event_and_rpc_in_chunks(Config) ->
     ?ok = ct_netconfc:close_session(Client),
     ok.
 
+multiple_channels(Config) ->
+    SshDir = ?config(ssh_dir,Config),
+    SshOpts = ?DEFAULT_SSH_OPTS(SshDir),
+    {ok,Conn} = ct_netconfc:connect(SshOpts),
+    ?NS:hello(1),
+    ?NS:expect(hello),
+    {ok,Client1} = ct_netconfc:session(Conn),
+    ?NS:hello(2),
+    ?NS:expect(2,hello),
+    {ok,Client2} = ct_netconfc:session(Conn),
+    ?NS:hello(3),
+    ?NS:expect(3,hello),
+    {ok,Client3} = ct_netconfc:session(Conn),
+
+    Data = [{server,[{xmlns,"myns"}],[{name,[],["myserver"]}]}],
+    ?NS:expect_reply(1,'get',{data,Data}),
+    {ok,Data} = ct_netconfc:get(Client1,{server,[{xmlns,"myns"}],[]}),
+    ?NS:expect_reply(2,'get',{data,Data}),
+    {ok,Data} = ct_netconfc:get(Client2,{server,[{xmlns,"myns"}],[]}),
+    ?NS:expect_reply(3,'get',{data,Data}),
+    {ok,Data} = ct_netconfc:get(Client3,{server,[{xmlns,"myns"}],[]}),
+
+    ?NS:expect_do_reply(2,'close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client2),
+
+    ?NS:expect_reply(1,'get',{data,Data}),
+    {ok,Data} = ct_netconfc:get(Client1,{server,[{xmlns,"myns"}],[]}),
+    {error,no_such_client}=ct_netconfc:get(Client2,{server,[{xmlns,"myns"}],[]}),
+    ?NS:expect_reply(3,'get',{data,Data}),
+    {ok,Data} = ct_netconfc:get(Client3,{server,[{xmlns,"myns"}],[]}),
+
+    ?NS:expect_do_reply(1,'close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client1),
+    ?NS:expect_do_reply(3,'close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client3),
+
+    ?ok = ct_netconfc:disconnect(Conn),
+    ok.
+
+kill_session_same_connection(Config) ->
+    SshDir = ?config(ssh_dir,Config),
+    SshOpts = ?DEFAULT_SSH_OPTS(SshDir),
+    {ok,Conn} = ct_netconfc:connect(SshOpts),
+    ?NS:hello(1),
+    ?NS:expect(hello),
+    {ok,Client1} = ct_netconfc:session(Conn),
+    ?NS:hello(2),
+    ?NS:expect(2,hello),
+    {ok,Client2} = ct_netconfc:session(Conn),
+
+    ?NS:expect_do_reply('kill-session',{kill,2},ok),
+    ?ok = ct_netconfc:kill_session(Client1,2),
+    timer:sleep(1000),
+    {error,no_such_client}=ct_netconfc:get(Client2,{server,[{xmlns,"myns"}],[]}),
+
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(Client1),
+
+    ok.
+
 %%%-----------------------------------------------------------------
 
 break(_Config) ->
-    test_server:break("break test case").
+    ct:break("break test case").
 
 br() ->
-    test_server:break("").
+    ct:break("").
 
 %%%-----------------------------------------------------------------
 %% Open a netconf session which is not specified in a config file

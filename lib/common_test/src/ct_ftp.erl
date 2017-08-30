@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,19 +119,19 @@ open(KeyOrName) ->
 	_ ->
 	    case ct:get_config(KeyOrName) of
 		undefined ->
-		    log(heading(open,KeyOrName),"Failed: ~p\n",
+		    log(heading(open,KeyOrName),"Failed: ~tp\n",
 			[{not_available,KeyOrName}]),
 		    {error,{not_available,KeyOrName}};
 		_ ->
 		    case ct:get_config({KeyOrName,username}) of
 			undefined ->
-			    log(heading(open,KeyOrName),"Failed: ~p\n",
+			    log(heading(open,KeyOrName),"Failed: ~tp\n",
 				[{not_available,{KeyOrName,username}}]),
 			    {error,{not_available,{KeyOrName,username}}};
 			Username ->
 			    case ct:get_config({KeyOrName,password}) of
 				undefined ->
-				    log(heading(open,KeyOrName),"Failed: ~p\n",
+				    log(heading(open,KeyOrName),"Failed: ~tp\n",
 					[{not_available,{KeyOrName,password}}]),
 				    {error,{not_available,{KeyOrName,password}}};
 				Password ->
@@ -145,7 +145,7 @@ open(KeyOrName,Username,Password) ->
     log(heading(open,KeyOrName),"",[]),
     case ct:get_config({KeyOrName,ftp}) of
 	undefined ->
-	    log(heading(open,KeyOrName),"Failed: ~p\n",
+	    log(heading(open,KeyOrName),"Failed: ~tp\n",
 		[{not_available,{KeyOrName,ftp}}]),
 	    {error,{not_available,{KeyOrName,ftp}}};
 	Addr ->
@@ -284,7 +284,7 @@ init(KeyOrName,{IP,Port},{Username,Password}) ->
     case ftp_connect(IP,Port,Username,Password) of
 	{ok,FtpPid} ->
 	    log(heading(init,KeyOrName), 
-		"Opened ftp connection:\nIP: ~p\nUsername: ~p\nPassword: ~p\n",
+		"Opened ftp connection:\nIP: ~tp\nUsername: ~tp\nPassword: ~p\n",
 		[IP,Username,lists:duplicate(length(Password),$*)]),
 	    {ok,FtpPid,#state{ftp_pid=FtpPid,target_name=KeyOrName}};
 	Error ->
@@ -308,28 +308,28 @@ ftp_connect(IP,Port,Username,Password) ->
 %% @hidden
 handle_msg({send,LocalFile,RemoteFile},State) ->
     log(heading(send,State#state.target_name),
-	"LocalFile: ~p\nRemoteFile: ~p\n",[LocalFile,RemoteFile]),
+	"LocalFile: ~tp\nRemoteFile: ~tp\n",[LocalFile,RemoteFile]),
     Result = ftp:send(State#state.ftp_pid,LocalFile,RemoteFile),
     {Result,State};
 handle_msg({recv,RemoteFile,LocalFile},State) ->
     log(heading(recv,State#state.target_name),
-	"RemoteFile: ~p\nLocalFile: ~p\n",[RemoteFile,LocalFile]),
+	"RemoteFile: ~tp\nLocalFile: ~tp\n",[RemoteFile,LocalFile]),
     Result = ftp:recv(State#state.ftp_pid,RemoteFile,LocalFile),
     {Result,State};
 handle_msg({cd,Dir},State) ->
-    log(heading(cd,State#state.target_name),"Dir: ~p\n",[Dir]),
+    log(heading(cd,State#state.target_name),"Dir: ~tp\n",[Dir]),
     Result = ftp:cd(State#state.ftp_pid,Dir),
     {Result,State};
 handle_msg({ls,Dir},State) ->
-    log(heading(ls,State#state.target_name),"Dir: ~p\n",[Dir]),
+    log(heading(ls,State#state.target_name),"Dir: ~tp\n",[Dir]),
     Result = ftp:ls(State#state.ftp_pid,Dir),
     {Result,State};
 handle_msg({type,Type},State) ->
-    log(heading(type,State#state.target_name),"Type: ~p\n",[Type]),
+    log(heading(type,State#state.target_name),"Type: ~tp\n",[Type]),
     Result = ftp:type(State#state.ftp_pid,Type),
     {Result,State};
 handle_msg({delete,File},State) ->
-    log(heading(delete,State#state.target_name),"Delete file: ~p\n",[File]),
+    log(heading(delete,State#state.target_name),"Delete file: ~tp\n",[File]),
     Result = ftp:delete(State#state.ftp_pid,File),
     {Result,State}.
 
@@ -368,7 +368,7 @@ call(Pid,Msg) ->
 
 
 heading(Function,Name) ->
-    io_lib:format("ct_ftp:~w ~p",[Function,Name]).
+    io_lib:format("ct_ftp:~tw ~tp",[Function,Name]).
 
 log(Heading,Str,Args) ->
     ct_gen_conn:log(Heading,Str,Args).

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -182,15 +182,7 @@ i_jump_on_val x f I I
 i_jump_on_val y f I I
 
 %macro: get_list GetList -pack
-get_list x x x
-get_list x x y
-get_list x y x
-get_list x y y
-
-get_list y x x
-get_list y x y
-get_list y y x
-get_list y y y
+get_list xy xy xy
 
 # The following get_list instructions using x(0) are frequently used.
 get_list r x x
@@ -218,12 +210,10 @@ set_tuple_element s d P
 # Get tuple element
 
 %macro: i_get_tuple_element GetTupleElement -pack
-i_get_tuple_element x P x
-i_get_tuple_element y P x
+i_get_tuple_element xy P x
 
 %cold
-i_get_tuple_element x P y
-i_get_tuple_element y P y
+i_get_tuple_element xy P y
 %hot
 
 %macro: i_get_tuple_element2 GetTupleElement2 -pack
@@ -270,11 +260,7 @@ system_limit j
 move C=cxy x==0 | jump Lbl => move_jump Lbl C
 
 %macro: move_jump MoveJump -nonext
-move_jump f n
-move_jump f c
-move_jump f x
-move_jump f y
-
+move_jump f ncxy
 
 # Movement to and from the stack is common
 # Try to pack as much as we can into one instruction
@@ -326,12 +312,10 @@ swap_temp R1 R2 Tmp | line Loc | call_ext_last Live Addr D | \
   is_killed(Tmp, Live) => swap R1 R2 | line Loc | call_ext_last Live Addr D
 
 %macro: swap_temp SwapTemp -pack
-swap_temp x x x
-swap_temp x y x
+swap_temp x xy x
 
 %macro: swap Swap -pack
-swap x x
-swap x y
+swap x xy
 
 move Src=x D1=x | move Src=x D2=x => move_dup Src D1 D2
 move Src=x SD=x | move SD=x D=x   => move_dup Src SD D
@@ -381,10 +365,7 @@ move_shift x y x
 move_shift x x y
 
 %macro: move_dup MoveDup -pack
-move_dup x x x
-move_dup x x y
-move_dup y x x
-move_dup y x y
+move_dup xy x xy
 
 %macro: move2_par Move2Par -pack
 
@@ -409,7 +390,7 @@ move3 x x x x x x
 move S=n D=y => init D
 move S=c D=y => move S x | move x D
 
-%macro:move Move -pack -gen_dest
+%macro:move Move -pack
 move x x
 move x y
 move y x
@@ -483,8 +464,7 @@ i_is_ne_exact_literal f y c
 
 is_eq_exact Lbl Y=y X=x => is_eq_exact Lbl X Y
 %macro: is_eq_exact EqualExact -fail_action -pack
-is_eq_exact f x x
-is_eq_exact f x y
+is_eq_exact f x xy
 is_eq_exact f s s
 
 %macro: is_lt IsLessThan -fail_action
@@ -538,7 +518,7 @@ i_put_tuple y I
 #
 put_list Const=c n Dst => move Const x | put_list x n Dst
 
-%macro:put_list PutList -pack -gen_dest
+%macro:put_list PutList -pack
 
 put_list x n x
 put_list y n x
@@ -620,6 +600,18 @@ test_heap Need u==1 | put_list Y=y x==0 x==0 => test_heap_1_put_list Need Y
 %macro: test_heap_1_put_list TestHeapPutList -pack
 test_heap_1_put_list I y
 
+#
+# is_tagged_tuple Fail=f Src=rxy Arity Atom=a
+#
+
+is_tagged_tuple Fail Literal=q Arity Atom => \
+    move Literal x | is_tagged_tuple Fail x Arity Atom
+is_tagged_tuple Fail=f c Arity Atom  => jump Fail
+
+%macro:is_tagged_tuple IsTaggedTuple -fail_action
+
+is_tagged_tuple f rxy A a
+
 # Test tuple & arity (head)
 
 is_tuple Fail Literal=q => move Literal x | is_tuple Fail x
@@ -628,21 +620,16 @@ is_tuple Fail=f S=xy | test_arity Fail=f S=xy Arity => is_tuple_of_arity Fail S 
 
 %macro:is_tuple_of_arity IsTupleOfArity -fail_action
 
-is_tuple_of_arity f r A
-is_tuple_of_arity f x A
-is_tuple_of_arity f y A
+is_tuple_of_arity f rxy A
 
 %macro: is_tuple IsTuple -fail_action
-is_tuple f r
-is_tuple f x
-is_tuple f y
+is_tuple f rxy
 
 test_arity Fail Literal=q Arity => move Literal x | test_arity Fail x Arity
 test_arity Fail=f c Arity => jump Fail
 
 %macro: test_arity IsArity -fail_action
-test_arity f x A
-test_arity f y A
+test_arity f xy A
 
 get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
    get_tuple_element Reg=x P3 D3=x | \
@@ -667,8 +654,7 @@ is_integer Fail=f S=x | allocate Need Regs => is_integer_allocate Fail S Need Re
 is_integer_allocate f x I I
 
 %macro: is_integer IsInteger -fail_action
-is_integer f x
-is_integer f y
+is_integer f xy
 
 is_list Fail=f n =>
 is_list Fail Literal=q => move Literal x | is_list Fail x
@@ -682,8 +668,7 @@ is_list f y
 is_nonempty_list Fail=f S=x | allocate Need Rs => is_nonempty_list_allocate Fail S Need Rs
 
 %macro:is_nonempty_list_allocate IsNonemptyListAllocate -fail_action -pack
-is_nonempty_list_allocate f r I t
-is_nonempty_list_allocate f x I t
+is_nonempty_list_allocate f rx I t
 
 is_nonempty_list F=f x==0 | test_heap I1 I2 => is_non_empty_list_test_heap F I1 I2
 
@@ -694,12 +679,10 @@ is_nonempty_list Fail=f S=x | get_list S D1=x D2=x => \
   is_nonempty_list_get_list Fail S D1 D2
 
 %macro: is_nonempty_list_get_list IsNonemptyListGetList -fail_action -pack
-is_nonempty_list_get_list f r x x
-is_nonempty_list_get_list f x x x
+is_nonempty_list_get_list f rx x x
 
 %macro: is_nonempty_list IsNonemptyList -fail_action
-is_nonempty_list f x
-is_nonempty_list f y
+is_nonempty_list f xy
 
 %macro: is_atom IsAtom -fail_action
 is_atom f x
@@ -721,8 +704,7 @@ is_nil Fail=f n =>
 is_nil Fail=f qia => jump Fail
 
 %macro: is_nil IsNil -fail_action
-is_nil f x
-is_nil f y
+is_nil f xy
 
 is_binary Fail Literal=q => move Literal x | is_binary Fail x
 is_binary Fail=f c => jump Fail
@@ -770,8 +752,7 @@ is_boolean Fail=f ac => jump Fail
 
 %cold
 %macro: is_boolean IsBoolean -fail_action
-is_boolean f x
-is_boolean f y
+is_boolean f xy
 %hot
 
 is_function2 Fail=f acq Arity => jump Fail
@@ -792,24 +773,23 @@ allocate_init t I y
 #################################################################
 
 #
-# The BIFs erts_internal:check_process_code/2 must be called like a function,
+# The BIFs erts_internal:check_process_code/1 must be called like a function,
 # to ensure that c_p->i (program counter) is set correctly (an ordinary
 # BIF call doesn't set it).
 #
 
-call_ext u==2 Bif=u$bif:erts_internal:check_process_code/2 => i_call_ext Bif
-call_ext_last u==2 Bif=u$bif:erts_internal:check_process_code/2 D => i_call_ext_last Bif D
-call_ext_only u==2 Bif=u$bif:erts_internal:check_process_code/2 => i_call_ext_only Bif
+call_ext u==1 Bif=u$bif:erts_internal:check_process_code/1 => i_call_ext Bif
+call_ext_last u==1 Bif=u$bif:erts_internal:check_process_code/1 D => i_call_ext_last Bif D
+call_ext_only u==1 Bif=u$bif:erts_internal:check_process_code/1 => i_call_ext_only Bif
 
 #
-# The BIFs erlang:garbage_collect/0 must be called like a function,
+# The BIFs erts_internal:garbage_collect/1 must be called like a function,
 # to allow them to invoke the garbage collector. (The stack pointer must
 # be saved and p->arity must be zeroed, which is not done on ordinary BIF calls.)
 #
-
-call_ext u==0 Bif=u$bif:erlang:garbage_collect/0 => i_call_ext Bif
-call_ext_last u==0 Bif=u$bif:erlang:garbage_collect/0 D => i_call_ext_last Bif D
-call_ext_only u==0 Bif=u$bif:erlang:garbage_collect/0 => i_call_ext_only Bif
+call_ext u==1 Bif=u$bif:erts_internal:garbage_collect/1 => i_call_ext Bif
+call_ext_last u==1 Bif=u$bif:erts_internal:garbage_collect/1 D => i_call_ext_last Bif D
+call_ext_only u==1 Bif=u$bif:erts_internal:garbage_collect/1 => i_call_ext_only Bif
 
 #
 # put/2 and erase/1 must be able to do garbage collection, so we must call
@@ -1066,8 +1046,7 @@ i_get_hash c I d
 i_get s d
 
 %macro: self Self
-self x
-self y
+self xy
 
 %macro: node Node
 node x
@@ -1078,8 +1057,7 @@ node y
 i_fast_element j x I d
 i_fast_element j y I d
 
-i_element j x s d
-i_element j y s d
+i_element j xy s d
 
 bif1 f b s d
 bif1_body b s d
@@ -1098,8 +1076,7 @@ i_move_call c f
 %macro:move_call MoveCall -arg_f -size -nonext
 move_call/2
 
-move_call x f
-move_call y f
+move_call xy f
 
 move S=c x==0 | call_last Ar P=f D => i_move_call_last P D S
 move S x==0 | call_last Ar P=f D => move_call_last S P D
@@ -1109,8 +1086,7 @@ i_move_call_last f P c
 %macro:move_call_last MoveCallLast -arg_f -nonext -pack
 
 move_call_last/3
-move_call_last x f Q
-move_call_last y f Q
+move_call_last xy f Q
 
 move S=c x==0 | call_only Ar P=f => i_move_call_only P S
 move S=x x==0 | call_only Ar P=f => move_call_only S P
@@ -1154,8 +1130,7 @@ i_make_fun I t
 %hot
 
 %macro: is_function IsFunction -fail_action
-is_function f x
-is_function f y
+is_function f xy
 is_function Fail=f c => jump Fail
 
 func_info M F A => i_func_info u M F A
@@ -1167,8 +1142,7 @@ func_info M F A => i_func_info u M F A
 %cold
 bs_start_match2 Fail=f ica X Y D => jump Fail
 bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Bin Fail X Y D
-i_bs_start_match2 x f I I d
-i_bs_start_match2 y f I I d
+i_bs_start_match2 xy f I I d
 
 bs_save2 Reg Index => gen_bs_save(Reg, Index)
 i_bs_save2 x I
@@ -1196,9 +1170,9 @@ i_bs_get_integer_32 x f I d
 bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-%macro: i_bs_get_binary_imm2 BsGetBinaryImm_2 -fail_action -gen_dest
-%macro: i_bs_get_binary2 BsGetBinary_2 -fail_action -gen_dest
-%macro: i_bs_get_binary_all2 BsGetBinaryAll_2 -fail_action -gen_dest
+%macro: i_bs_get_binary_imm2 BsGetBinaryImm_2 -fail_action
+%macro: i_bs_get_binary2 BsGetBinary_2 -fail_action
+%macro: i_bs_get_binary_all2 BsGetBinaryAll_2 -fail_action
 
 i_bs_get_binary_imm2 f x I I I d
 i_bs_get_binary2 f x I s I d
@@ -1211,7 +1185,7 @@ bs_get_float2 Fail=f Ms=x Live=u Sz=s Unit=u Flags=u Dst=d => \
 
 bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
-%macro: i_bs_get_float2 BsGetFloat2 -fail_action -gen_dest
+%macro: i_bs_get_float2 BsGetFloat2 -fail_action
 i_bs_get_float2 f x I s I d
 
 # Miscellanous
@@ -1223,8 +1197,7 @@ bs_skip_bits2 Fail=f Ms=x Sz=sq Unit=u Flags=u => \
 i_bs_skip_bits_imm2 f x I
 
 %macro: i_bs_skip_bits2 BsSkipBits2 -fail_action
-i_bs_skip_bits2 f x x I
-i_bs_skip_bits2 f x y I
+i_bs_skip_bits2 f x xy I
 
 %macro: i_bs_skip_bits_all2 BsSkipBitsAll2 -fail_action
 i_bs_skip_bits_all2 f x I 
@@ -1289,8 +1262,7 @@ bs_init2 Fail Sz Words=u==0 Regs Flags Dst => \
 bs_init2 Fail Sz Words Regs Flags Dst => \
   i_bs_init_fail_heap Sz Words Fail Regs Dst
 
-i_bs_init_fail x j I d
-i_bs_init_fail y j I d
+i_bs_init_fail xy j I d
 
 i_bs_init_fail_heap s I j I d
 
@@ -1311,8 +1283,7 @@ bs_init_bits Fail Sz Words=u==0 Regs Flags Dst => \
 bs_init_bits Fail Sz Words Regs Flags Dst => \
   i_bs_init_bits_fail_heap Sz Words Fail Regs Dst
 
-i_bs_init_bits_fail x j I d
-i_bs_init_bits_fail y j I d
+i_bs_init_bits_fail xy j I d
 
 i_bs_init_bits_fail_heap s I j I d
 
@@ -1480,8 +1451,7 @@ is_map Fail Lit=q | literal_is_map(Lit) =>
 is_map Fail cq => jump Fail
 
 %macro: is_map IsMap -fail_action
-is_map f x
-is_map f y
+is_map f xy
 
 ## Transform has_map_fields #{ K1 := _, K2 := _ } to has_map_elements
 
@@ -1501,16 +1471,10 @@ i_get_map_element Fail Src=xy Key=y Dst => \
     move Key x | i_get_map_element Fail Src x Dst
 
 %macro: i_get_map_element_hash GetMapElementHash -fail_action
-i_get_map_element_hash f x c I x
-i_get_map_element_hash f y c I x
-i_get_map_element_hash f x c I y
-i_get_map_element_hash f y c I y
+i_get_map_element_hash f xy c I xy
 
 %macro: i_get_map_element GetMapElement -fail_action
-i_get_map_element f x x x
-i_get_map_element f y x x
-i_get_map_element f x x y
-i_get_map_element f y x y
+i_get_map_element f xy x xy
 
 #
 # Convert the plus operations to a generic plus instruction.
@@ -1576,12 +1540,9 @@ gc_bif2 Fail Live u$bif:erlang:bxor/2 S1 S2 Dst => \
 
 gc_bif1 Fail I u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src I Dst
 
-i_increment r I I d
-i_increment x I I d
-i_increment y I I d
+i_increment rxy I I d
 
-i_plus j I x x d
-i_plus j I x y d
+i_plus j I x xy d
 i_plus j I s s d
 
 i_minus j I x x d

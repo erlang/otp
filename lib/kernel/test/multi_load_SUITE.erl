@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -144,14 +144,14 @@ prep_magic([H|T]) ->
 prep_magic(Tuple) when is_tuple(Tuple) ->
     L = prep_magic(tuple_to_list(Tuple)),
     list_to_tuple(L);
-prep_magic(Bin) when is_binary(Bin) ->
-    try erlang:has_prepared_code_on_load(Bin) of
+prep_magic(Ref) when is_reference(Ref) ->
+    try erlang:has_prepared_code_on_load(Ref) of
 	false ->
-	    %% Create a different kind of magic binary.
+	    %% Create a different kind of magic ref.
 	    ets:match_spec_compile([{'_',[true],['$_']}])
     catch
 	_:_ ->
-	    Bin
+	    Ref
     end;
 prep_magic(Other) ->
     Other.

@@ -47,5 +47,6 @@
       </p>
   </description>
   <xi:include href="licenses.xml"/>
+  <xi:include href="fips.xml"/>
 </part>
 

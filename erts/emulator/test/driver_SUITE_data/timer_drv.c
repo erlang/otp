@@ -1,5 +1,13 @@
 #include <stdio.h>
 #include "erl_driver.h"
+#ifdef __WIN32__
+#  include <windows.h>
+#else
+#  include <sys/time.h>
+#  include <sys/types.h>
+#  include <sys/select.h>
+#  include <unistd.h>
+#endif
 
 #define get_int32(s) ((((unsigned char*) (s))[0] << 24) | \
                       (((unsigned char*) (s))[1] << 16) | \
@@ -17,6 +25,7 @@ static ErlDrvData timer_start(ErlDrvPort, char*);
 static void timer_stop(ErlDrvData);
 static void timer_read(ErlDrvData, char*, ErlDrvSizeT);
 static void timer(ErlDrvData);
+static void ms_sleep(int ms);
 
 static ErlDrvEntry timer_driver_entry =
 {
@@ -75,9 +84,7 @@ static void timer_read(ErlDrvData p, char *buf, ErlDrvSizeT len)
 	reply[0] = CANCELLED;
 	driver_output(port, reply, 1);
     } else if (buf[0] == DELAY_START_TIMER) {
-#ifndef __WIN32__
-	sleep(1);
-#endif
+	ms_sleep(1000);
 	driver_set_timer(port, get_int32(buf + 1));
     }
 }
@@ -94,4 +101,35 @@ static void timer(ErlDrvData port)
     /*   fprintf(stderr, "[timer_drv] timer timed out\n"); */
     reply[0] = TIMER;
     driver_output((ErlDrvPort)port, reply, 1);
+}
+
+static void
+ms_sleep(int ms)
+{
+    /* Important that we do not return too early... */
+    ErlDrvTime time, timeout_time;
+
+    time = erl_drv_monotonic_time(ERL_DRV_USEC);
+
+    timeout_time = time + ((ErlDrvTime) ms)*1000;
+
+    while (time < timeout_time) {
+	ErlDrvTime timeout = timeout_time - time;
+
+#ifdef __WIN32__
+	Sleep((DWORD) (timeout / 1000));
+#else
+	{
+	    struct timeval tv;
+
+	    tv.tv_sec = (long) timeout / (1000*1000);
+	    tv.tv_usec = (long) timeout % (1000*1000);
+
+	    select(0, NULL, NULL, NULL, &tv);
+	}
+#endif
+
+	time = erl_drv_monotonic_time(ERL_DRV_USEC);
+    }
+
 }

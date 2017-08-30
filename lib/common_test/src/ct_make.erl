@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ read_emakefile(Emakefile,Opts) ->
 	    Mods = [filename:rootname(F) ||  F <- filelib:wildcard("*.erl")],
 	    [{Mods, Opts}];
 	{error,Other} ->
-	    io:format("make: Trouble reading 'Emakefile':~n~p~n",[Other]),
+	    io:format("make: Trouble reading 'Emakefile':~n~tp~n",[Other]),
 	    error
     end.
 
@@ -151,7 +151,7 @@ get_opts_from_emakefile(Mods,Emakefile,Opts) ->
 	{error,enoent} ->
 	    [{Mods, Opts}];
 	{error,Other} ->
-	    io:format("make: Trouble reading 'Emakefile':~n~p~n",[Other]),
+	    io:format("make: Trouble reading 'Emakefile':~n~tp~n",[Other]),
 	    error
     end.
 
@@ -342,5 +342,7 @@ check_includes2(Epp, File, ObjMTime) ->
 	    epp:close(Epp),
 	    false;
 	{error, _Error} ->
+	    check_includes2(Epp, File, ObjMTime);
+	{warning, _Warning} ->
 	    check_includes2(Epp, File, ObjMTime)
     end.

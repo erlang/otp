@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -347,7 +347,17 @@ accept_opts(L, S) ->
     case getopts(L, [active, nodelay, keepalive, delay_send, priority, tos]) of
 	{ok, Opts} ->
 	    case setopts(S, Opts) of
-		ok -> {ok, S};
+		ok ->
+		    case getopts(L, [tclass]) of
+			{ok, []} ->
+			    {ok, S};
+			{ok, TClassOpts} ->
+			    case setopts(S, TClassOpts) of
+				ok ->
+				    {ok, S};
+				Error -> close(S), Error
+			    end
+		    end;
 		Error -> close(S), Error
 	    end;
 	Error ->
@@ -1196,6 +1206,7 @@ enc_opt(sndbuf)          -> ?INET_OPT_SNDBUF;
 enc_opt(recbuf)          -> ?INET_OPT_RCVBUF;
 enc_opt(priority)        -> ?INET_OPT_PRIORITY;
 enc_opt(tos)             -> ?INET_OPT_TOS;
+enc_opt(tclass)          -> ?INET_OPT_TCLASS;
 enc_opt(nodelay)         -> ?TCP_OPT_NODELAY;
 enc_opt(multicast_if)    -> ?UDP_OPT_MULTICAST_IF;
 enc_opt(multicast_ttl)   -> ?UDP_OPT_MULTICAST_TTL;
@@ -1223,6 +1234,7 @@ enc_opt(netns)           -> ?INET_LOPT_NETNS;
 enc_opt(show_econnreset) -> ?INET_LOPT_TCP_SHOW_ECONNRESET;
 enc_opt(line_delimiter)  -> ?INET_LOPT_LINE_DELIM;
 enc_opt(raw)             -> ?INET_OPT_RAW;
+enc_opt(bind_to_device)  -> ?INET_OPT_BIND_TO_DEVICE;
 % Names of SCTP opts:
 enc_opt(sctp_rtoinfo)	 	   -> ?SCTP_OPT_RTOINFO;
 enc_opt(sctp_associnfo)	 	   -> ?SCTP_OPT_ASSOCINFO;
@@ -1255,6 +1267,7 @@ dec_opt(?INET_OPT_SNDBUF)         -> sndbuf;
 dec_opt(?INET_OPT_RCVBUF)         -> recbuf;
 dec_opt(?INET_OPT_PRIORITY)       -> priority;
 dec_opt(?INET_OPT_TOS)            -> tos;
+dec_opt(?INET_OPT_TCLASS)         -> tclass;
 dec_opt(?TCP_OPT_NODELAY)         -> nodelay;
 dec_opt(?UDP_OPT_MULTICAST_IF)    -> multicast_if;
 dec_opt(?UDP_OPT_MULTICAST_TTL)   -> multicast_ttl;
@@ -1282,6 +1295,7 @@ dec_opt(?INET_LOPT_NETNS)           -> netns;
 dec_opt(?INET_LOPT_TCP_SHOW_ECONNRESET) -> show_econnreset;
 dec_opt(?INET_LOPT_LINE_DELIM)      -> line_delimiter;
 dec_opt(?INET_OPT_RAW)              -> raw;
+dec_opt(?INET_OPT_BIND_TO_DEVICE) -> bind_to_device;
 dec_opt(I) when is_integer(I)     -> undefined.
 
 
@@ -1329,6 +1343,7 @@ type_opt_1(sndbuf)          -> int;
 type_opt_1(recbuf)          -> int;
 type_opt_1(priority)        -> int;
 type_opt_1(tos)             -> int;
+type_opt_1(tclass)          -> int;
 type_opt_1(nodelay)         -> bool;
 type_opt_1(ipv6_v6only)     -> bool;
 %% multicast
@@ -1382,6 +1397,7 @@ type_opt_1(packet_size)     -> uint;
 type_opt_1(read_packets)    -> uint;
 type_opt_1(netns)           -> binary;
 type_opt_1(show_econnreset) -> bool;
+type_opt_1(bind_to_device)  -> binary;
 %% 
 %% SCTP options (to be set). If the type is a record type, the corresponding
 %% record signature is returned, otherwise, an "elementary" type tag 
@@ -2401,13 +2417,13 @@ get_addrs([F|Addrs]) ->
     {Addr,Rest} = get_addr(F, Addrs),
     [Addr|get_addrs(Rest)].
 
-get_addr(?INET_AF_LOCAL, [0]) ->
-    {{local,<<>>},[]};
 get_addr(?INET_AF_LOCAL, [N|Addr]) ->
     {A,Rest} = lists:split(N, Addr),
     {{local,iolist_to_binary(A)},Rest};
+get_addr(?INET_AF_UNSPEC, Rest) ->
+    {{unspec,<<>>},Rest};
 get_addr(?INET_AF_UNDEFINED, Rest) ->
-    {{undefined,0},Rest};
+    {{undefined,<<>>},Rest};
 get_addr(Family, [P1,P0|Addr]) ->
     {IP,Rest} = get_ip(Family, Addr),
     {{IP,?u16(P1, P0)},Rest}.

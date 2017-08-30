@@ -1,10 +1,6 @@
 %% -*- Erlang -*-
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -16,8 +12,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -49,6 +43,10 @@
 -endif.
 
 -include("../flow/cfg.hrl").
+-include("../main/hipe.hrl").
+
+-opaque liveness() :: map().
+-export_type([liveness/0]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -72,7 +70,7 @@
 %% The generic liveness analysis
 %%
 
--spec analyze(cfg()) -> gb_trees:tree().
+-spec analyze(cfg()) -> liveness().
 
 -ifdef(HIPE_LIVENESS_CALC_LARGEST_LIVESET).
 analyze(CFG) ->
@@ -188,6 +186,7 @@ update_livein(Label, NewLiveIn, Liveness) ->
 %%
 %% LiveOut for a block is the union of the successors LiveIn
 %%
+-spec liveout(liveness(), _) -> [_].
 
 liveout(Liveness, L) ->
   Succ = successors(L, Liveness),
@@ -210,7 +209,7 @@ successors(L, Liveness) ->
   {_GK, _LiveIn, Successors} = liveness_lookup(L, Liveness),
   Successors.
 
--spec livein(gb_trees:tree(), _) -> [_].
+-spec livein(liveness(), _) -> [_].
 
 livein(Liveness, L) ->
   {_GK, LiveIn, _Successors} = liveness_lookup(L, Liveness),
@@ -292,18 +291,15 @@ strip([{_,Y}|Xs]) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
-liveness_init(List) ->
-  liveness_init(List, gb_trees:empty()).
+-compile({inline, [liveness_lookup/2, liveness_update/3]}).
 
-liveness_init([{Lbl, Data}|Left], Acc) ->
-  liveness_init(Left, gb_trees:insert(Lbl, Data, Acc));
-liveness_init([], Acc) ->
-  Acc.
-  
+liveness_init(List) ->
+  maps:from_list(List).
+
 liveness_lookup(Label, Liveness) ->
-  gb_trees:get(Label, Liveness).
+  maps:get(Label, Liveness).
 liveness_update(Label, Val, Liveness) ->
-  gb_trees:update(Label, Val, Liveness).
+  maps:update(Label, Val, Liveness).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -325,7 +325,8 @@ int erl_call(int argc, char **argv)
       initWinSock();
 #endif
 
-      if (gethostname(h_hostname, EI_MAXHOSTNAMELEN) < 0) {
+      /* gethostname requires len to be max(hostname) + 1 */
+      if (gethostname(h_hostname, EI_MAXHOSTNAMELEN+1) < 0) {
 	  fprintf(stderr,"erl_call: failed to get host name: %d\n", errno);
 	  exit(1);
       }

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ all() ->
 %% Basic start_timer/3 functionality
 start_timer_1(Config) when is_list(Config) ->
     Ref1 = erlang:start_timer(1000, self(), plopp),
-    ok   = get(1100, {timeout, Ref1, plopp}),
+    ok   = get(1400, {timeout, Ref1, plopp}),
 
     false = erlang:read_timer(Ref1),
     false = erlang:cancel_timer(Ref1),
@@ -83,12 +83,12 @@ start_timer_1(Config) when is_list(Config) ->
     Ref2  = erlang:start_timer(1000, self(), plapp),
     Left2 = erlang:cancel_timer(Ref2),
     UpperLimit = 1000,
-    true = (Left2 > 900) and (Left2 =< UpperLimit),
+    true = (Left2 > 600) and (Left2 =< UpperLimit),
     empty = get_msg(),
     false = erlang:cancel_timer(Ref2),
 
     Ref3 = erlang:start_timer(1000, self(), plopp),
-    no_message = get(900, {timeout, Ref3, plopp}),
+    no_message = get(600, {timeout, Ref3, plopp}),
     ok.
 
 %% Basic send_after/3 functionality
@@ -488,23 +488,39 @@ registered_process(Config) when is_list(Config) ->
 
 same_time_yielding(Config) when is_list(Config) ->
     Mem = mem(),
+    Ref = make_ref(),
     SchdlrsOnln = erlang:system_info(schedulers_online),
-    Tmo = erlang:monotonic_time(milli_seconds) + 3000,
+    Tmo = erlang:monotonic_time(millisecond) + 3000,
     Tmrs = lists:map(fun (I) ->
                              process_flag(scheduler, (I rem SchdlrsOnln) + 1),
-                             erlang:start_timer(Tmo, self(), hej, [{abs, true}])
+                             erlang:start_timer(Tmo, self(), Ref, [{abs, true}])
                      end,
                      lists:seq(1, (?TIMEOUT_YIELD_LIMIT*3+1)*SchdlrsOnln)),
     true = mem_larger_than(Mem),
-    lists:foreach(fun (Tmr) -> receive {timeout, Tmr, hej} -> ok end end, Tmrs),
-    Done = erlang:monotonic_time(milli_seconds),
+    receive_all_timeouts(length(Tmrs), Ref),
+    Done = erlang:monotonic_time(millisecond),
     true = Done >= Tmo,
+    MsAfterTmo = Done - Tmo,
+    io:format("Done ~p ms after Tmo\n", [MsAfterTmo]),
     case erlang:system_info(build_type) of
-        opt -> true = Done < Tmo + 200;
-        _ -> true = Done < Tmo + 1000
+        opt ->
+            true = MsAfterTmo < 200;
+        _ ->
+            true = MsAfterTmo < 1000
     end,
     Mem = mem(),
     ok.
+
+%% Read out all timeouts in receive queue order. This is efficient
+%% even if there are very many messages.
+
+receive_all_timeouts(0, _Ref) ->
+    ok;
+receive_all_timeouts(N, Ref) ->
+    receive
+        {timeout, _Tmr, Ref} ->
+            receive_all_timeouts(N-1, Ref)
+    end.
 
 same_time_yielding_with_cancel(Config) when is_list(Config) ->
     same_time_yielding_with_cancel_test(false, false).
@@ -517,10 +533,10 @@ same_time_yielding_with_cancel_other(Config) when is_list(Config) ->
 
 do_cancel_tmrs(Tmo, Tmrs, Tester) ->
     BeginCancel = erlang:convert_time_unit(Tmo,
-                                           milli_seconds,
-                                           micro_seconds) - 100,
+                                           millisecond,
+                                           microsecond) - 100,
     busy_wait_until(fun () ->
-                            erlang:monotonic_time(micro_seconds) >= BeginCancel
+                            erlang:monotonic_time(microsecond) >= BeginCancel
                     end),
     lists:foreach(fun (Tmr) ->
                           erlang:cancel_timer(Tmr,
@@ -535,7 +551,7 @@ do_cancel_tmrs(Tmo, Tmrs, Tester) ->
 same_time_yielding_with_cancel_test(Other, Accessor) ->
     Mem = mem(),
     SchdlrsOnln = erlang:system_info(schedulers_online),
-    Tmo = erlang:monotonic_time(milli_seconds) + 3000,
+    Tmo = erlang:monotonic_time(millisecond) + 3000,
     Tester = self(),
     Cancelor = case Other of
                    false ->
@@ -656,7 +672,7 @@ get_msg() ->
 start_slave() ->
     Pa = filename:dirname(code:which(?MODULE)),
     Name = atom_to_list(?MODULE)
-    ++ "-" ++ integer_to_list(erlang:system_time(seconds))
+    ++ "-" ++ integer_to_list(erlang:system_time(second))
     ++ "-" ++ integer_to_list(erlang:unique_integer([positive])),
     {ok, Node} = test_server:start_node(Name, slave, [{args, "-pa " ++ Pa}]),
     Node.

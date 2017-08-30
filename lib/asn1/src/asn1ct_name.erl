@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@
 %%
 -module(asn1ct_name).
 
-%%-compile(export_all).
 -export([start/0,
 	 curr/1,
 	 clear/0,
@@ -44,7 +43,6 @@ start() ->
     end.
 
 name_server_loop({Ref, Parent} = Monitor,Vars) ->
-%%    io:format("name -- ~w~n",[Vars]),
     receive
 	{_From,clear} ->
 	    name_server_loop(Monitor, []);

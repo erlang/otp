@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -171,8 +171,8 @@ reload_config(KeyOrName) ->
 
 process_default_configs(Opts) ->
     lists:flatmap(fun({config,[_|_] = FileOrFiles}) ->
-			  case {io_lib:printable_list(FileOrFiles),
-				io_lib:printable_list(hd(FileOrFiles))} of
+			  case {io_lib:printable_unicode_list(FileOrFiles),
+				io_lib:printable_unicode_list(hd(FileOrFiles))} of
 			      {false,true} ->
 				  FileOrFiles;
 			      {true,false} ->

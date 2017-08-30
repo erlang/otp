@@ -92,7 +92,7 @@ EXAMPLE_FILES= multitrace.erl
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 
 PRIVDIR= ../priv
-WEBTOOLFILES= $(PRIVDIR)/crashdump_viewer.tool $(PRIVDIR)/erlang_observer.png
+PNGFILES= $(PRIVDIR)/erlang_observer.png
 BINDIR= $(PRIVDIR)/bin
 ifeq ($(findstring win32,$(TARGET)),win32)
 WIN32_EXECUTABLES= $(BINDIR)/etop.bat $(BINDIR)/cdv.bat
@@ -103,10 +103,6 @@ EXECUTABLES= \
 	$(BINDIR)/etop \
 	$(BINDIR)/cdv \
 	$(WIN32_EXECUTABLES)
-CDVDIR= $(PRIVDIR)/crashdump_viewer
-GIF_FILES= \
-	$(CDVDIR)/collapsd.gif \
-	$(CDVDIR)/exploded.gif
 
 APP_FILE= observer.app
 
@@ -163,9 +159,7 @@ release_spec: opt
 	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/bin"
 	$(INSTALL_SCRIPT) $(EXECUTABLES) "$(RELSYSDIR)/priv/bin"
-	$(INSTALL_DIR) "$(RELSYSDIR)/priv/crashdump_viewer"
-	$(INSTALL_DATA) $(WEBTOOLFILES) "$(RELSYSDIR)/priv"
-	$(INSTALL_DATA) $(GIF_FILES) "$(RELSYSDIR)/priv/crashdump_viewer"
+	$(INSTALL_DATA) $(PNGFILES) "$(RELSYSDIR)/priv"
 
 release_docs_spec:
 

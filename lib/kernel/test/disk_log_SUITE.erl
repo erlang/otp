@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -421,7 +421,7 @@ halt_ro_alog(Conf) when is_list(Conf) ->
 halt_ro_alog_wait_notify(Log, T) ->
     Term = term_to_binary(T),
     receive
-	{disk_log, _, Log,{read_only, Term}} ->
+	{disk_log, _, Log,{read_only, [Term]}} ->
 	    ok;
 	Other ->
 	    Other
@@ -449,7 +449,7 @@ halt_ro_balog(Conf) when is_list(Conf) ->
 halt_ro_balog_wait_notify(Log, T) ->
     Term = list_to_binary(T),
     receive
-	{disk_log, _, Log,{read_only, Term}} ->
+	{disk_log, _, Log,{read_only, [Term]}} ->
 	    ok;
 	Other ->
 	    Other
@@ -1385,15 +1385,15 @@ blocked_notif(Conf) when is_list(Conf) ->
     "The requested operation" ++ _ = format_error(Error1),
     ok = disk_log:blog(n, B),
     ok = disk_log:alog(n, B),
-    rec(1, {disk_log, node(), n, {format_external, term_to_binary(B)}}),
+    rec(1, {disk_log, node(), n, {format_external, [term_to_binary(B)]}}),
     ok = disk_log:alog_terms(n, [B,B,B,B]),
     rec(1, {disk_log, node(), n, {format_external,
 				  lists:map(fun term_to_binary/1, [B,B,B,B])}}),
     ok = disk_log:block(n, false),
     ok = disk_log:alog(n, B),
-    rec(1, {disk_log, node(), n, {blocked_log, term_to_binary(B)}}),
+    rec(1, {disk_log, node(), n, {blocked_log, [term_to_binary(B)]}}),
     ok = disk_log:balog(n, B),
-    rec(1, {disk_log, node(), n, {blocked_log, list_to_binary(B)}}),
+    rec(1, {disk_log, node(), n, {blocked_log, [list_to_binary(B)]}}),
     ok = disk_log:balog_terms(n, [B,B,B,B]),
     disk_log:close(n),
     rec(1, {disk_log, node(), n, {blocked_log,
@@ -2493,6 +2493,7 @@ error_repair(Conf) when is_list(Conf) ->
     del(File, No),
     ok = file:del_dir(Dir),
 
+    error_logger:add_report_handler(?MODULE, self()),
     %% repair a file
     P1 = pps(),
     {ok, n} = disk_log:open([{name, n}, {file, File}, {type, wrap},
@@ -2509,6 +2510,8 @@ error_repair(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     true = (P1 == pps()),
     del(File, No),
+    receive {info_msg, _, "disk_log: repairing" ++ _, _} -> ok
+    after 1000 -> ct:fail(failed) end,
 
     %% yet another repair
     P2 = pps(),
@@ -2525,6 +2528,8 @@ error_repair(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     true = (P2 == pps()),
     del(File, No),
+    receive {info_msg, _, "disk_log: repairing" ++ _, _} -> ok
+    after 1000 -> ct:fail(failed) end,
 
     %% Repair, large term
     Big = term_to_binary(lists:duplicate(66000,$a)),
@@ -2540,6 +2545,8 @@ error_repair(Conf) when is_list(Conf) ->
     ok = disk_log:close(n),
     Got = Big,
     del(File, No),
+    receive {info_msg, _, "disk_log: repairing" ++ _, _} -> ok
+    after 1000 -> ct:fail(failed) end,
 
     %% A term a little smaller than a chunk, then big terms.
     BigSmall = mk_bytes(1024*64-8-12),
@@ -2560,6 +2567,8 @@ error_repair(Conf) when is_list(Conf) ->
                        {type, halt}, {format, internal}]),
     ok = disk_log:close(n),
     file:delete(File),
+    receive {info_msg, _, "disk_log: repairing" ++ _, _} -> ok
+    after 1000 -> ct:fail(failed) end,
 
     %% The header is recovered.
     {ok,n} =
@@ -2573,12 +2582,13 @@ error_repair(Conf) when is_list(Conf) ->
     crash(File, 30),
     {repaired,n,{recovered,3},{badbytes,16}} =
         disk_log:open([{name, n}, {file, File}, {type, halt},
-		       {format, internal},{repair,true},
+		       {format, internal},{repair,true}, {quiet, true},
 		       {head_func, {?MODULE, head_fun, [{ok,"head"}]}}]),
     ["head",'of',terms] = get_all_terms(n),
     ok = disk_log:close(n),
-
+    error_logger:delete_report_handler(?MODULE),
     file:delete(File),
+    {messages, []} = process_info(self(), messages),
 
     ok.
 
@@ -4666,7 +4676,7 @@ other_groups(Conf) when is_list(Conf) ->
 
     ok.
 
--define(MAX, 16384). % MAX in disk_log_1.erl
+-define(MAX, ?MAX_FWRITE_CACHE). % as in disk_log_1.erl
 %% Evil cases such as closed file descriptor port.
 evil(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
@@ -4690,7 +4700,7 @@ evil(Conf) when is_list(Conf) ->
                                      {size,?MAX+50},{format,external}]),
     [Fd] = erlang:ports() -- Ports0,
     {B,_} = x_mk_bytes(30),
-    ok = disk_log:blog(Log, <<0:(?MAX+1)/unit:8>>),
+    ok = disk_log:blog(Log, <<0:(?MAX-1)/unit:8>>),
     exit(Fd, kill),
     {error, {file_error,_,einval}} = disk_log:blog_terms(Log, [B,B]),
     ok= disk_log:close(Log),
@@ -5006,6 +5016,9 @@ init(Tester) ->
     
 handle_event({error_report, _GL, {Pid, crash_report, Report}}, Tester) ->
     Tester ! {crash_report, Pid, Report},
+    {ok, Tester};
+handle_event({info_msg, _GL, {Pid, F,A}}, Tester) ->
+    Tester ! {info_msg, Pid, F, A},
     {ok, Tester};
 handle_event(_Event, State) ->
     {ok, State}.

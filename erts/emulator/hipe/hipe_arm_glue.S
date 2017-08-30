@@ -342,6 +342,7 @@ nbif_4_gc_after_bif:
 	str	r1, [P, #P_NARITY]
 	str	TEMP_LR, [P, #P_NRA]
 	str	NSP, [P, #P_NSP]
+	SET_GC_SAFE(TEMP_LR)
 	mov	TEMP_LR, lr
 	mov	r3, #0			/* Pass 0 in arity */
 	mov	r2, #0			/* Pass NULL in regs */
@@ -349,6 +350,7 @@ nbif_4_gc_after_bif:
 	mov	r0, P
 	bl	erts_gc_after_bif_call
 	mov	lr, TEMP_LR
+	SET_GC_UNSAFE(TEMP_LR)
 	ldr	TEMP_LR, [P, #P_NRA]
 	mov	r1, #0
 	str	r1, [P, #P_NARITY]
@@ -404,6 +406,7 @@ nbif_4_simple_exception:
 	str	NSP, [P, #P_NSP]
 	str	TEMP_LR, [P, #P_NRA]
 	str	r1, [P, #P_NARITY]
+	SET_GC_SAFE(r0)
 	/* find and prepare to invoke the handler */
 	mov	r0, P
 	bl	hipe_handle_exception	/* Note: hipe_handle_exception() conses */
@@ -423,6 +426,7 @@ nbif_4_simple_exception:
 	str	NSP, [P, #P_NSP]
 	str	r1, [P, #P_NARITY]
 	str	TEMP_LR, [P, #P_NRA]
+	SET_GC_SAFE(NSP)
 	b	.nosave_exit
 
 /*

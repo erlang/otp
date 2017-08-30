@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2014-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -272,6 +272,10 @@ system_flag(Flag, Value) ->
 %%
 
 integer_time_unit(native) -> 1000*1000;
+integer_time_unit(nanosecond) -> 1000*1000*1000;
+integer_time_unit(microsecond) -> 1000*1000;
+integer_time_unit(millisecond) -> 1000;
+integer_time_unit(second) -> 1;
 integer_time_unit(nano_seconds) -> 1000*1000*1000;
 integer_time_unit(micro_seconds) -> 1000*1000;
 integer_time_unit(milli_seconds) -> 1000;

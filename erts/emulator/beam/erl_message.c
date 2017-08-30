@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -167,14 +167,16 @@ erts_cleanup_offheap(ErlOffHeap *offheap)
     for (u.hdr = offheap->first; u.hdr; u.hdr = u.hdr->next) {
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case REFC_BINARY_SUBTAG:
-	    if (erts_refc_dectest(&u.pb->val->refc, 0) == 0) {
-		erts_bin_free(u.pb->val);
-	    }
+            erts_bin_release(u.pb->val);
 	    break;
 	case FUN_SUBTAG:
-	    if (erts_refc_dectest(&u.fun->fe->refc, 0) == 0) {
+	    if (erts_smp_refc_dectest(&u.fun->fe->refc, 0) == 0) {
 		erts_erase_fun_entry(u.fun->fe);		    
 	    }
+	    break;
+	case REF_SUBTAG:
+	    ASSERT(is_magic_ref_thing(u.hdr));
+            erts_bin_release((Binary *)u.mref->mb);
 	    break;
 	default:
 	    ASSERT(is_external_header(u.hdr->thing_word));
@@ -193,7 +195,7 @@ free_message_buffer(ErlHeapFragment* bp)
 
 	erts_cleanup_offheap(&bp->off_heap);
 	ERTS_HEAP_FREE(ERTS_ALC_T_HEAP_FRAG, (void *) bp,
-		       ERTS_HEAP_FRAG_SIZE(bp->size));	
+		       ERTS_HEAP_FRAG_SIZE(bp->alloc_size));	
 	bp = next_bp;
     }while (bp != NULL);
 }
@@ -285,9 +287,11 @@ erts_queue_dist_message(Process *rcvr,
     if (!(rcvr_locks & ERTS_PROC_LOCK_MSGQ)) {
 	if (erts_smp_proc_trylock(rcvr, ERTS_PROC_LOCK_MSGQ) == EBUSY) {
 	    ErtsProcLocks need_locks = ERTS_PROC_LOCK_MSGQ;
-	    if (rcvr_locks & ERTS_PROC_LOCK_STATUS) {
-		erts_smp_proc_unlock(rcvr, ERTS_PROC_LOCK_STATUS);
-		need_locks |= ERTS_PROC_LOCK_STATUS;
+            ErtsProcLocks unlocks =
+                rcvr_locks & ERTS_PROC_LOCKS_HIGHER_THAN(ERTS_PROC_LOCK_MSGQ);
+	    if (unlocks) {
+		erts_smp_proc_unlock(rcvr, unlocks);
+		need_locks |= unlocks;
 	    }
 	    erts_smp_proc_lock(rcvr, need_locks);
 	}
@@ -406,7 +410,7 @@ queue_messages(Process* receiver,
 	    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))
 		goto exiting;
 
-            need_locks = receiver_locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+            need_locks = receiver_locks & ERTS_PROC_LOCKS_HIGHER_THAN(ERTS_PROC_LOCK_MSGQ);
 	    if (need_locks) {
 		erts_smp_proc_unlock(receiver, need_locks);
 	    }
@@ -696,10 +700,10 @@ erts_send_message(Process* sender,
     erts_aint32_t receiver_state;
 #ifdef SHCOPY_SEND
     erts_shcopy_t info;
+#else
+    erts_literal_area_t litarea;
+    INITIALIZE_LITERAL_PURGE_AREA(litarea);
 #endif
-    BM_STOP_TIMER(system);
-    BM_MESSAGE(message,sender,receiver);
-    BM_START_TIMER(send);
 
 #ifdef USE_VM_PROBES
     *sender_name = *receiver_name = '\0';
@@ -720,7 +724,6 @@ erts_send_message(Process* sender,
 #ifdef USE_VM_PROBES
 	Uint dt_utag_size = 0;
 #endif
-        BM_SWAP_TIMER(send,size);
 
         /* SHCOPY corrupts the heap between
          * copy_shared_calculate, and
@@ -729,7 +732,7 @@ erts_send_message(Process* sender,
          */
         if (have_seqtrace(stoken)) {
 	    seq_trace_update_send(sender);
-	    seq_trace_output(stoken, message, SEQ_TRACE_SEND, 
+	    seq_trace_output(stoken, message, SEQ_TRACE_SEND,
 			     receiver->common.id, sender);
 	    seq_trace_size = 6; /* TUPLE5 */
 	}
@@ -745,10 +748,8 @@ erts_send_message(Process* sender,
         INITIALIZE_SHCOPY(info);
         msize = copy_shared_calculate(message, &info);
 #else
-        msize = size_object(message);
+        msize = size_object_litopt(message, &litarea);
 #endif
-        BM_SWAP_TIMER(size,send);
-
         mp = erts_alloc_message_heap_state(receiver,
                                            &receiver_state,
                                            receiver_locks,
@@ -760,15 +761,13 @@ erts_send_message(Process* sender,
                                            &hp,
                                            &ohp);
 
-        BM_SWAP_TIMER(send,copy);
-
 #ifdef SHCOPY_SEND
 	if (is_not_immed(message))
             message = copy_shared_perform(message, msize, &info, &hp, ohp);
         DESTROY_SHCOPY(info);
 #else
 	if (is_not_immed(message))
-            message = copy_struct(message, msize, &hp, ohp);
+            message = copy_struct_litopt(message, msize, &hp, ohp, &litarea);
 #endif
 	if (is_immed(stoken))
 	    token = stoken;
@@ -792,9 +791,6 @@ erts_send_message(Process* sender,
 		    msize, tok_label, tok_lastcnt, tok_serial);
         }
 #endif
-        BM_MESSAGE_COPIED(msize);
-        BM_SWAP_TIMER(copy,send);
-
     } else {
         Eterm *hp;
 
@@ -803,32 +799,26 @@ erts_send_message(Process* sender,
 	    msize = 0;
 	}
 	else {
-	    BM_SWAP_TIMER(send,size);
 #ifdef SHCOPY_SEND
             INITIALIZE_SHCOPY(info);
             msize = copy_shared_calculate(message, &info);
 #else
-            msize = size_object(message);
+            msize = size_object_litopt(message, &litarea);
 #endif
-	    BM_SWAP_TIMER(size,send);
-
 	    mp = erts_alloc_message_heap_state(receiver,
 					       &receiver_state,
 					       receiver_locks,
 					       msize,
 					       &hp,
 					       &ohp);
-	    BM_SWAP_TIMER(send,copy);
 #ifdef SHCOPY_SEND
             if (is_not_immed(message))
                 message = copy_shared_perform(message, msize, &info, &hp, ohp);
             DESTROY_SHCOPY(info);
 #else
             if (is_not_immed(message))
-                message = copy_struct(message, msize, &hp, ohp);
+                message = copy_struct_litopt(message, msize, &hp, ohp, &litarea);
 #endif
-	    BM_MESSAGE_COPIED(msz);
-	    BM_SWAP_TIMER(copy,send);
 	}
 #ifdef USE_VM_PROBES
         DTRACE6(message_send, sender_name, receiver_name,
@@ -846,8 +836,6 @@ erts_send_message(Process* sender,
 			mp, message,
                         sender->common.id);
 
-    BM_SWAP_TIMER(send,system);
-    
     return res;
 }
 
@@ -1017,8 +1005,8 @@ erts_move_messages_off_heap(Process *c_p)
 	hp = hfrag->mem;
 	if (is_not_immed(ERL_MESSAGE_TERM(mp)))
 	    ERL_MESSAGE_TERM(mp) = copy_struct(ERL_MESSAGE_TERM(mp),
-					       msg_sz, &hp,
-					       &hfrag->off_heap);
+                                               msg_sz, &hp,
+                                               &hfrag->off_heap);
 	if (is_not_immed(ERL_MESSAGE_TOKEN(mp)))
 	    ERL_MESSAGE_TOKEN(mp) = copy_struct(ERL_MESSAGE_TOKEN(mp),
 						token_sz, &hp,
@@ -1860,4 +1848,21 @@ void erts_factory_undo(ErtsHeapFactory* factory)
     factory->hp = NULL;
     factory->heap_frags = NULL;
 #endif
+}
+
+Uint
+erts_mbuf_size(Process *p)
+{
+    Uint sz = 0;
+    ErlHeapFragment* bp;
+    ErtsMessage* mp;
+
+    for (bp = p->mbuf; bp; bp = bp->next)
+	sz += bp->used_size;
+
+    for (mp = p->msg_frag; mp; mp = mp->next)
+	for (bp = erts_message_to_heap_frag(mp); bp; bp = bp->next)
+	    sz += bp->used_size;
+
+    return sz;
 }

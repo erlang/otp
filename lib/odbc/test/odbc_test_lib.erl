@@ -61,13 +61,13 @@ odbc_check() ->
     end.
 
 check_row_count(Count, Count) ->
-    test_server:format("Correct row count Count: ~p~n", [Count]),   
+    ct:pal("Correct row count Count: ~p~n", [Count]),   
     true;
 check_row_count(_, undefined) ->
-    test_server:format("Undefined row count ~n", []),  
+    ct:pal("Undefined row count ~n", []),  
     true;
 check_row_count(Expected, Count) ->
-    test_server:format("Incorrect row count Expected ~p Got ~p~n",
+    ct:pal("Incorrect row count Expected ~p Got ~p~n",
 		       [Expected, Count]),   
     false.
 

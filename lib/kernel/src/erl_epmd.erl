@@ -103,6 +103,10 @@ names(EpmdAddr) ->
 
 register_node(Name, PortNo) ->
     register_node(Name, PortNo, inet).
+register_node(Name, PortNo, inet_tcp) ->
+    register_node(Name, PortNo, inet);
+register_node(Name, PortNo, inet6_tcp) ->
+    register_node(Name, PortNo, inet6);
 register_node(Name, PortNo, Family) ->
     gen_server:call(erl_epmd, {register, Name, PortNo, Family}, infinity).
 
@@ -400,8 +404,6 @@ best_version(Low, High) ->
 %%% We silently assume that the low's are not greater than the high's.
 %%% We should report if the intervals don't overlap.
 select_best_version(L1, _H1, _L2, H2) when L1 > H2 ->
-    0;
-select_best_version(_L1, H1, L2, _H2) when L2 > H1 ->
     0;
 select_best_version(_L1, H1, L2, _H2) when L2 > H1 ->
     0;

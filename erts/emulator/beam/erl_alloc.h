@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,11 +69,11 @@ void *erts_sys_aligned_realloc(UWord alignment, void *ptr, UWord size, UWord old
 void erts_sys_aligned_free(UWord alignment, void *ptr);
 #endif
 
-Eterm erts_memory(int *, void *, void *, Eterm);
-Eterm erts_allocated_areas(int *, void *, void *);
+Eterm erts_memory(fmtfn_t *, void *, void *, Eterm);
+Eterm erts_allocated_areas(fmtfn_t *, void *, void *);
 
 Eterm erts_alloc_util_allocators(void *proc);
-void erts_allocator_info(int, void *);
+void erts_allocator_info(fmtfn_t, void *);
 Eterm erts_allocator_options(void *proc);
 
 struct process;
@@ -172,13 +172,6 @@ __decl_noreturn void erts_realloc_n_enomem(ErtsAlcType_t,void*,Uint)
      __noreturn;
 __decl_noreturn void erts_alc_fatal_error(int,int,ErtsAlcType_t,...)	
      __noreturn;
-
-/* --- DO *NOT* USE THESE DEPRECATED FUNCTIONS ---    Instead use:       */
-void *safe_alloc(Uint)               __deprecated; /* erts_alloc()       */
-void *safe_realloc(void *, Uint)     __deprecated; /* erts_realloc()     */
-void  sys_free(void *)               __deprecated; /* erts_free()        */
-void *sys_alloc(Uint )               __deprecated; /* erts_alloc_fnf()   */
-void *sys_realloc(void *, Uint)      __deprecated; /* erts_realloc_fnf() */
 
 #undef ERTS_HAVE_IS_IN_LITERAL_RANGE
 #if defined(ARCH_32) || defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)

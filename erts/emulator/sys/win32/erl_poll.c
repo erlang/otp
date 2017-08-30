@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2007-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2007-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -842,9 +842,9 @@ event_happened:
 	    ASSERT(WAIT_OBJECT_0 < i && i < WAIT_OBJECT_0+w->active_events);
 	    notify_io_ready(ps);
 
-	    /* 
-	     * The main thread wont start working on our arrays untill we're
-	     * stopped, so we can work in peace although the main thread runs 
+	    /*
+	     * The main thread wont start working on our arrays until we're
+	     * stopped, so we can work in peace although the main thread runs
 	     */
 	    ASSERT(i >= WAIT_OBJECT_0+1);
 	    i -= WAIT_OBJECT_0;

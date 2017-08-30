@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2016</year>
+      <year>2017</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -85,7 +85,7 @@
           </item>
           <item>
             <p>If the emulator needs to be restarted after upgrading or
-              downgrading, that is, if the <c>ERTS</c> version differs
+              downgrading, that is, if the ERTS version differs
               between <c>Name.rel</c> and <c>Name2.rel</c></p>
           </item>
         </list>
@@ -201,10 +201,10 @@
           between the applications. Where there are no dependencies,
           the order in the <c>.rel</c> file is kept.</p>
         <p>The function fails if the mandatory
-          applications <c>Kernel</c> and <c>STDLIB</c> are not
+          applications Kernel and STDLIB are not
           included in the <c>.rel</c> file and have start
           type <c>permanent</c> (which is default).</p>
-        <p>If <c>SASL</c> is not included as an application in
+        <p>If SASL is not included as an application in
           the <c>.rel</c> file, a warning is issued because such a
           release cannot be used in an upgrade. To turn off this
           warning, add option <c>no_warn_sasl</c>.</p>
@@ -268,7 +268,7 @@
       <fsummary>Creates a release package.</fsummary>
       <type>
         <v>Name = string()</v>
-        <v>Opt = {dirs,[IncDir]} | {path,[Dir]} | {variables,[Var]} | {var_tar,VarTar} | {erts,Dir} | src_tests | exref | {exref,[App]} | silent | {outdir,Dir}</v>
+        <v>Opt = {dirs,[IncDir]} | {path,[Dir]} | {variables,[Var]} | {var_tar,VarTar} | {erts,Dir} | src_tests | exref | {exref,[App]} | silent | {outdir,Dir} | | no_warn_sasl | warnings_as_errors</v>
         <v>&nbsp;Dir = string()</v>
         <v>&nbsp;IncDir = src | include | atom()</v>
         <v>&nbsp;Var = {VarName,PreFix}</v>
@@ -297,6 +297,10 @@
           directory unless <c>Name</c> contains a path. If option
           <c>{outdir,Dir}</c> is specified, it is located in <c>Dir</c>
           instead.</p>
+        <p>If SASL is not included as an application in
+          the <c>.rel</c> file, a warning is issued because such a
+          release cannot be used in an upgrade. To turn off this
+          warning, add option <c>no_warn_sasl</c>.</p>
         <p>By default, the release package contains the directories
           <c>lib/App-Vsn/ebin</c> and <c>lib/App-Vsn/priv</c> for each
           included application. If more directories are to be included,

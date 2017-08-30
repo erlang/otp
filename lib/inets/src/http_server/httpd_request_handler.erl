@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,18 +37,19 @@
 -include("httpd_internal.hrl").
 
 -define(HANDSHAKE_TIMEOUT, 5000).
+
 -record(state, {mod,     %% #mod{}
 		manager, %% pid()
 		status,  %% accept | busy | blocked
 		mfa,     %% {Module, Function, Args} 
 		max_keep_alive_request = infinity, %% integer() | infinity
-		response_sent = false, %% true | false 
-		timeout,  %% infinity | integer() > 0
-		timer,     %% ref() - Request timer
-		headers,  %% #http_request_h{}
+		response_sent = false :: boolean(),
+		timeout,   %% infinity | integer() > 0
+		timer      :: 'undefined' | reference(), % Request timer
+		headers,   %% #http_request_h{}
 		body,      %% binary()
 		data,      %% The total data received in bits, checked after 10s
-		byte_limit  %% Bit limit per second before kick out
+		byte_limit %% Bit limit per second before kick out
 	       }).
 
 %%====================================================================
@@ -240,9 +241,9 @@ handle_info({tcp_closed, _}, State) ->
 handle_info({ssl_closed, _}, State) ->
     {stop, normal, State};
 handle_info({tcp_error, _, _} = Reason, State) ->
-    {stop, Reason, State};
+    {stop, {shutdown, Reason}, State};
 handle_info({ssl_error, _, _} = Reason, State) ->
-    {stop, Reason, State};
+    {stop, {shutdown, Reason}, State};
 
 %% Timeouts
 handle_info(timeout, #state{mfa = {_, parse, _}} = State) ->

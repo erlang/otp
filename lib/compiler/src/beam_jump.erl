@@ -23,7 +23,7 @@
 
 -export([module/2,
 	 is_unreachable_after/1,is_exit_instruction/1,
-	 remove_unused_labels/1,is_label_used_in/2]).
+	 remove_unused_labels/1]).
 
 %%% The following optimisations are done:
 %%%
@@ -130,6 +130,11 @@
 
 -import(lists, [reverse/1,reverse/2,foldl/3]).
 
+-type instruction() :: beam_utils:instruction().
+
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
     Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
@@ -155,9 +160,7 @@ share(Is0) ->
     Is = eliminate_fallthroughs(Is0, []),
     share_1(Is, #{}, [], []).
 
-share_1([{label,_}=Lbl|Is], Dict, [], Acc) ->
-    share_1(Is, Dict, [], [Lbl|Acc]);
-share_1([{label,L}=Lbl|Is], Dict0, Seq, Acc) ->
+share_1([{label,L}=Lbl|Is], Dict0, [_|_]=Seq, Acc) ->
     case maps:find(Seq, Dict0) of
 	error ->
 	    Dict = maps:put(Seq, L, Dict0),
@@ -167,10 +170,16 @@ share_1([{label,L}=Lbl|Is], Dict0, Seq, Acc) ->
     end;
 share_1([{func_info,_,_,_}=I|Is], _, [], Acc) ->
     reverse(Is, [I|Acc]);
+share_1([{'catch',_,_}=I|Is], Dict0, Seq, Acc) ->
+    Dict = clean_non_sharable(Dict0),
+    share_1(Is, Dict, [I|Seq], Acc);
 share_1([{'try',_,_}=I|Is], Dict0, Seq, Acc) ->
     Dict = clean_non_sharable(Dict0),
     share_1(Is, Dict, [I|Seq], Acc);
 share_1([{try_case,_}=I|Is], Dict0, Seq, Acc) ->
+    Dict = clean_non_sharable(Dict0),
+    share_1(Is, Dict, [I|Seq], Acc);
+share_1([{catch_end,_}=I|Is], Dict0, Seq, Acc) ->
     Dict = clean_non_sharable(Dict0),
     share_1(Is, Dict, [I|Seq], Acc);
 share_1([I|Is], Dict, Seq, Acc) ->
@@ -182,18 +191,18 @@ share_1([I|Is], Dict, Seq, Acc) ->
     end.
 
 clean_non_sharable(Dict) ->
-    %% We are passing in or out of a 'try' block. Remove
-    %% sequences that should not shared over the boundaries
-    %% of a 'try' block. Since the end of the sequence must match,
-    %% the only possible match between a sequence outside and
-    %% a sequence inside the 'try' block is a sequence that ends
-    %% with an instruction that causes an exception. Any sequence
-    %% that causes an exception must contain a line/1 instruction.
+    %% We are passing in or out of a 'catch' or 'try' block. Remove
+    %% sequences that should not be shared over the boundaries of the
+    %% block. Since the end of the sequence must match, the only
+    %% possible match between a sequence outside and a sequence inside
+    %% the 'catch'/'try' block is a sequence that ends with an
+    %% instruction that causes an exception. Any sequence that causes
+    %% an exception must contain a line/1 instruction.
     maps:filter(fun(K, _V) -> sharable_with_try(K) end, Dict).
 
 sharable_with_try([{line,_}|_]) ->
     %% This sequence may cause an exception and may potentially
-    %% match a sequence on the other side of the 'try' block
+    %% match a sequence on the other side of the 'catch'/'try' block
     %% boundary.
     false;
 sharable_with_try([_|Is]) ->
@@ -202,21 +211,18 @@ sharable_with_try([]) -> true.
 
 %% Eliminate all fallthroughs. Return the result reversed.
 
-eliminate_fallthroughs([I,{label,L}=Lbl|Is], Acc) ->
-    case is_unreachable_after(I) orelse is_label(I) of
+eliminate_fallthroughs([{label,L}=Lbl|Is], [I|_]=Acc) ->
+    case is_unreachable_after(I) of
 	false ->
 	    %% Eliminate fallthrough.
-	    eliminate_fallthroughs(Is, [Lbl,{jump,{f,L}},I|Acc]);
+	    eliminate_fallthroughs(Is, [Lbl,{jump,{f,L}}|Acc]);
 	true ->
-	    eliminate_fallthroughs(Is, [Lbl,I|Acc])
+	    eliminate_fallthroughs(Is, [Lbl|Acc])
     end;
 eliminate_fallthroughs([I|Is], Acc) ->
     eliminate_fallthroughs(Is, [I|Acc]);
 eliminate_fallthroughs([], Acc) -> Acc.
 
-is_label({label,_}) -> true;
-is_label(_) -> false.
-    
 %%%
 %%% (2) Move short code sequences ending in an instruction that causes an exit
 %%% to the end of the function.
@@ -268,9 +274,9 @@ extract_seq_1(_, _) -> no.
 
 -record(st,
 	{
-	  entry,		     %Entry label (must not be moved).
-	  mlbl,			     %Moved labels.
-	  labels :: cerl_sets:set()  %Set of referenced labels.
+	  entry :: beam_asm:label(), %Entry label (must not be moved).
+	  mlbl :: #{beam_asm:label() := [beam_asm:label()]}, %Moved labels.
+	  labels :: cerl_sets:set()         %Set of referenced labels.
 	}).
 
 opt(Is0, CLabel) ->
@@ -452,6 +458,8 @@ is_label_used(L, St) ->
 %% is_unreachable_after(Instruction) -> boolean()
 %%  Test whether the code after Instruction is unreachable.
 
+-spec is_unreachable_after(instruction()) -> boolean().
+
 is_unreachable_after({func_info,_M,_F,_A}) -> true;
 is_unreachable_after(return) -> true;
 is_unreachable_after({jump,_Lbl}) -> true;
@@ -464,6 +472,8 @@ is_unreachable_after(I) -> is_exit_instruction(I).
 %%  Test whether the instruction Instruction always
 %%  causes an exit/failure.
 
+-spec is_exit_instruction(instruction()) -> boolean().
+
 is_exit_instruction({call_ext,_,{extfunc,M,F,A}}) ->
     erl_bifs:is_exit_bif(M, F, A);
 is_exit_instruction(if_end) -> true;
@@ -472,39 +482,11 @@ is_exit_instruction({try_case_end,_}) -> true;
 is_exit_instruction({badmatch,_}) -> true;
 is_exit_instruction(_) -> false.
 
-%% is_label_used_in(LabelNumber, [Instruction]) -> boolean()
-%%  Check whether the label is used in the instruction sequence
-%%  (including inside blocks).
-
-is_label_used_in(Lbl, Is) ->
-    is_label_used_in_1(Is, Lbl, cerl_sets:new()).
-
-is_label_used_in_1([{block,Block}|Is], Lbl, Empty) ->
-    lists:any(fun(I) -> is_label_used_in_block(I, Lbl) end, Block)
-	orelse is_label_used_in_1(Is, Lbl, Empty);
-is_label_used_in_1([I|Is], Lbl, Empty) ->
-    Used = ulbl(I, Empty),
-    cerl_sets:is_element(Lbl, Used) orelse is_label_used_in_1(Is, Lbl, Empty);
-is_label_used_in_1([], _, _) -> false.
-
-is_label_used_in_block({set,_,_,Info}, Lbl) ->
-    case Info of
-        {bif,_,{f,F}} -> F =:= Lbl;
-        {alloc,_,{gc_bif,_,{f,F}}} -> F =:= Lbl;
-        {alloc,_,{put_map,_,{f,F}}} -> F =:= Lbl;
-        {get_map_elements,{f,F}} -> F =:= Lbl;
-        {try_catch,_,{f,F}} -> F =:= Lbl;
-        {alloc,_,_} -> false;
-        {put_tuple,_} -> false;
-        {get_tuple_element,_} -> false;
-        {set_tuple_element,_} -> false;
-        {line,_} -> false;
-        _ when is_atom(Info) -> false
-    end.
-
 %% remove_unused_labels(Instructions0) -> Instructions
 %%  Remove all unused labels. Also remove unreachable
 %%  instructions following labels that are removed.
+
+-spec remove_unused_labels([instruction()]) -> [instruction()].
 
 remove_unused_labels(Is) ->
     Used0 = initial_labels(Is),

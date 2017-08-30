@@ -168,7 +168,7 @@ static Block_t *	get_free_block		(Allctr_t *, Uint,
 static void		link_free_block		(Allctr_t *, Block_t *);
 static void		unlink_free_block	(Allctr_t *, Block_t *);
 static void		update_last_aux_mbc	(Allctr_t *, Carrier_t *);
-static Eterm		info_options		(Allctr_t *, char *, int *,
+static Eterm		info_options		(Allctr_t *, char *, fmtfn_t *,
 						 void *, Uint **, Uint *);
 static void		init_atoms		(void);
 
@@ -551,7 +551,7 @@ add_2tup(Uint **hpp, Uint *szp, Eterm *lp, Eterm el1, Eterm el2)
 static Eterm
 info_options(Allctr_t *allctr,
 	     char *prefix,
-	     int *print_to_p,
+	     fmtfn_t *print_to_p,
 	     void *print_to_arg,
 	     Uint **hpp,
 	     Uint *szp)

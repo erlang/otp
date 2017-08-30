@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -175,6 +175,14 @@ ERL_NIF_API_FUNC_DECL(size_t, enif_binary_to_term, (ErlNifEnv *env, const unsign
 ERL_NIF_API_FUNC_DECL(int, enif_port_command, (ErlNifEnv *env, const ErlNifPort* to_port, ErlNifEnv *msg_env, ERL_NIF_TERM msg));
 ERL_NIF_API_FUNC_DECL(int,enif_thread_type,(void));
 ERL_NIF_API_FUNC_DECL(int,enif_snprintf,(char * buffer, size_t size, const char *format, ...));
+ERL_NIF_API_FUNC_DECL(int,enif_select,(ErlNifEnv* env, ErlNifEvent e, enum ErlNifSelectFlags flags, void* obj, const ErlNifPid* pid, ERL_NIF_TERM ref));
+ERL_NIF_API_FUNC_DECL(ErlNifResourceType*,enif_open_resource_type_x,(ErlNifEnv*, const char* name_str, const ErlNifResourceTypeInit*, ErlNifResourceFlags flags, ErlNifResourceFlags* tried));
+ERL_NIF_API_FUNC_DECL(int, enif_monitor_process,(ErlNifEnv*,void* obj,const ErlNifPid*,ErlNifMonitor *monitor));
+ERL_NIF_API_FUNC_DECL(int, enif_demonitor_process,(ErlNifEnv*,void* obj,const ErlNifMonitor *monitor));
+ERL_NIF_API_FUNC_DECL(int, enif_compare_monitors,(const ErlNifMonitor*,const ErlNifMonitor*));
+ERL_NIF_API_FUNC_DECL(ErlNifUInt64,enif_hash,(ErlNifHash type, ERL_NIF_TERM term, ErlNifUInt64 salt));
+ERL_NIF_API_FUNC_DECL(int, enif_whereis_pid, (ErlNifEnv *env, ERL_NIF_TERM name, ErlNifPid *pid));
+ERL_NIF_API_FUNC_DECL(int, enif_whereis_port, (ErlNifEnv *env, ERL_NIF_TERM name, ErlNifPort *port));
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
@@ -332,6 +340,14 @@ ERL_NIF_API_FUNC_DECL(int,enif_snprintf,(char * buffer, size_t size, const char 
 #  define enif_port_command ERL_NIF_API_FUNC_MACRO(enif_port_command)
 #  define enif_thread_type ERL_NIF_API_FUNC_MACRO(enif_thread_type)
 #  define enif_snprintf ERL_NIF_API_FUNC_MACRO(enif_snprintf)
+#  define enif_select ERL_NIF_API_FUNC_MACRO(enif_select)
+#  define enif_open_resource_type_x ERL_NIF_API_FUNC_MACRO(enif_open_resource_type_x)
+#  define enif_monitor_process ERL_NIF_API_FUNC_MACRO(enif_monitor_process)
+#  define enif_demonitor_process ERL_NIF_API_FUNC_MACRO(enif_demonitor_process)
+#  define enif_compare_monitors ERL_NIF_API_FUNC_MACRO(enif_compare_monitors)
+#  define enif_hash ERL_NIF_API_FUNC_MACRO(enif_hash)
+#  define enif_whereis_pid ERL_NIF_API_FUNC_MACRO(enif_whereis_pid)
+#  define enif_whereis_port ERL_NIF_API_FUNC_MACRO(enif_whereis_port)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

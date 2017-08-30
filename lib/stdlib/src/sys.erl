@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -525,7 +525,7 @@ debug_cmd({log_to_file, false}, Debug) ->
     {ok, NDebug};
 debug_cmd({log_to_file, FileName}, Debug) ->
     NDebug = close_log_file(Debug),
-    case file:open(FileName, [write]) of
+    case file:open(FileName, [write,{encoding,utf8}]) of
 	{ok, Fd} ->
 	    {ok, install_debug(log_to_file, Fd, NDebug)};
 	_Error ->
@@ -648,7 +648,7 @@ debug_options([{log, N} | T], Debug) when is_integer(N), N > 0 ->
 debug_options([statistics | T], Debug) ->
     debug_options(T, install_debug(statistics, init_stat(), Debug));
 debug_options([{log_to_file, FileName} | T], Debug) ->
-    case file:open(FileName, [write]) of
+    case file:open(FileName, [write,{encoding,utf8}]) of
 	{ok, Fd} ->
 	    debug_options(T, install_debug(log_to_file, Fd, Debug));
 	_Error ->

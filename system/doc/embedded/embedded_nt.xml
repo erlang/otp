@@ -62,7 +62,7 @@
       <p>For Windows NT running on standard PCs with ISA and/or PCI bus,
         an extension card with a hardware watchdog can be installed.</p>
       <p>For more information, see the <c>heart(3)</c> manual page in
-        <c>kernel</c>.</p>
+        Kernel.</p>
     </section>
   </section>
 
@@ -72,7 +72,7 @@
       to install the Erlang process as a Windows system service.
       This service can start after Windows NT has booted.</p>
     <p>For more information, see the <c>erlsrv</c> manual page
-      in <c>erts</c>.</p>
+      in ERTS.</p>
   </section>
 </chapter>
 

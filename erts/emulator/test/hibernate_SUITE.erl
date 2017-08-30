@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -349,7 +349,7 @@ clean_dict() ->
     lists:foreach(fun ({Key, _}) -> erase(Key) end, Dict).
 
 %%
-%% Wake up and then immediatly bif trap with a lengthy computation.
+%% Wake up and then immediately bif trap with a lengthy computation.
 %%
 
 wake_up_and_bif_trap(Config) when is_list(Config) ->

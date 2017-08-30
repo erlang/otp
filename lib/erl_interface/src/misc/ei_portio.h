@@ -21,7 +21,7 @@
  */
 #ifndef _EI_PORTIO_H
 #define _EI_PORTIO_H
-#if !defined(__WIN32__) || !defined(VXWORKS)
+#if !defined(__WIN32__) && !defined(VXWORKS)
 #ifdef HAVE_WRITEV
 /* Declaration of struct iovec *iov should be visible in this scope. */
 #include <sys/uio.h>

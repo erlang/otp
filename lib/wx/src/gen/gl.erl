@@ -283,7 +283,7 @@
 call(Op, Args) ->
     Port = get(opengl_port), 
     _ = erlang:port_control(Port,Op,Args),
-    rec().
+    rec(Op).
     
 %% @hidden
 cast(Op, Args) ->
@@ -292,11 +292,15 @@ cast(Op, Args) ->
     ok.
     
 %% @hidden
-rec() ->
-    receive 
+rec(Op) ->
+    receive
         {'_egl_result_', Res} -> Res;
-        {'_egl_error_',  Op, Res} -> error({error,Res,Op})
-    end. 
+        {'_egl_error_',  Op, Res} -> error({error,Res,Op});
+        {'_egl_error_', Other, Res} ->
+                Err = io_lib:format("~p in op: ~p", [Res, Other]),
+               error_logger:error_report([{gl, error}, {message, lists:flatten(Err)}]),
+               rec(Op)
+    end.
 
 %% @hidden
 send_bin(Bin) when is_binary(Bin) ->
@@ -2949,8 +2953,9 @@ callList(List) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCallLists.xml">external</a> documentation.
 -spec callLists(Lists) -> 'ok' when Lists :: [integer()].
 callLists(Lists) ->
-  cast(5108, <<(length(Lists)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Lists>>)/binary,0:(((1+length(Lists)) rem 2)*32)>>).
+  ListsLen = length(Lists),
+  cast(5108, <<ListsLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Lists>>)/binary,0:(((1+ListsLen) rem 2)*32)>>).
 
 %% @doc set the display-list base for 
 %%
@@ -6945,8 +6950,9 @@ genTextures(N) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteTextures.xml">external</a> documentation.
 -spec deleteTextures(Textures) -> 'ok' when Textures :: [integer()].
 deleteTextures(Textures) ->
-  cast(5272, <<(length(Textures)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Textures>>)/binary,0:(((1+length(Textures)) rem 2)*32)>>).
+  TexturesLen = length(Textures),
+  cast(5272, <<TexturesLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Textures>>)/binary,0:(((1+TexturesLen) rem 2)*32)>>).
 
 %% @doc Bind a named texture to a texturing target
 %%
@@ -7026,9 +7032,11 @@ bindTexture(Target,Texture) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPrioritizeTextures.xml">external</a> documentation.
 -spec prioritizeTextures(Textures, Priorities) -> 'ok' when Textures :: [integer()],Priorities :: [clamp()].
 prioritizeTextures(Textures,Priorities) ->
-  cast(5274, <<(length(Textures)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Textures>>)/binary,0:(((1+length(Textures)) rem 2)*32),(length(Priorities)):?GLuint,
-        (<< <<C:?GLclampf>> || C <- Priorities>>)/binary,0:(((1+length(Priorities)) rem 2)*32)>>).
+  TexturesLen = length(Textures),
+  PrioritiesLen = length(Priorities),
+  cast(5274, <<TexturesLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Textures>>)/binary,0:(((1+TexturesLen) rem 2)*32),PrioritiesLen:?GLuint,
+        (<< <<C:?GLclampf>> || C <- Priorities>>)/binary,0:(((1+PrioritiesLen) rem 2)*32)>>).
 
 %% @doc Determine if textures are loaded in texture memory
 %%
@@ -7052,8 +7060,9 @@ prioritizeTextures(Textures,Priorities) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glAreTexturesResident.xml">external</a> documentation.
 -spec areTexturesResident(Textures) -> {0|1,Residences :: [0|1]} when Textures :: [integer()].
 areTexturesResident(Textures) ->
-  call(5275, <<(length(Textures)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Textures>>)/binary,0:(((1+length(Textures)) rem 2)*32)>>).
+  TexturesLen = length(Textures),
+  call(5275, <<TexturesLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Textures>>)/binary,0:(((1+TexturesLen) rem 2)*32)>>).
 
 %% @doc Determine if a name corresponds to a texture
 %%
@@ -9650,11 +9659,19 @@ blendFuncSeparate(SfactorRGB,DfactorRGB,SfactorAlpha,DfactorAlpha) ->
 %% 
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultiDrawArrays.xml">external</a> documentation.
--spec multiDrawArrays(Mode, First, Count) -> 'ok' when Mode :: enum(),First :: [integer()],Count :: [integer()].
+-spec multiDrawArrays(Mode, First, Count) -> 'ok' when Mode :: enum(),First :: [integer()]|mem(),Count :: [integer()]|mem().
+multiDrawArrays(Mode,First,Count) when  is_list(First), is_list(Count) ->
+  FirstLen = length(First),
+  CountLen = length(Count),
+  cast(5395, <<Mode:?GLenum,FirstLen:?GLuint,
+        (<< <<C:?GLint>> || C <- First>>)/binary,0:(((FirstLen) rem 2)*32),CountLen:?GLuint,
+        (<< <<C:?GLsizei>> || C <- Count>>)/binary,0:(((1+CountLen) rem 2)*32)>>);
 multiDrawArrays(Mode,First,Count) ->
-  cast(5395, <<Mode:?GLenum,(length(First)):?GLuint,
-        (<< <<C:?GLint>> || C <- First>>)/binary,0:(((length(First)) rem 2)*32),(length(Count)):?GLuint,
-        (<< <<C:?GLsizei>> || C <- Count>>)/binary,0:(((1+length(Count)) rem 2)*32)>>).
+  send_bin(First),
+  FirstLen = byte_size(if is_binary(First) -> First; is_tuple(First) -> element(2, First) end) div 4,
+  send_bin(Count),
+  CountLen = byte_size(if is_binary(Count) -> Count; is_tuple(Count) -> element(2, Count) end) div 4,
+  cast(5396, <<Mode:?GLenum,FirstLen:?GLint,CountLen:?GLsizei>>).
 
 %% @doc Specify point parameters
 %%
@@ -9671,26 +9688,26 @@ multiDrawArrays(Mode,First,Count) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPointParameter.xml">external</a> documentation.
 -spec pointParameterf(Pname, Param) -> 'ok' when Pname :: enum(),Param :: float().
 pointParameterf(Pname,Param) ->
-  cast(5396, <<Pname:?GLenum,Param:?GLfloat>>).
+  cast(5397, <<Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc 
 %% See {@link pointParameterf/2}
 -spec pointParameterfv(Pname, Params) -> 'ok' when Pname :: enum(),Params :: tuple().
 pointParameterfv(Pname,Params) ->
-  cast(5397, <<Pname:?GLenum,(size(Params)):?GLuint,
+  cast(5398, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link pointParameterf/2}
 -spec pointParameteri(Pname, Param) -> 'ok' when Pname :: enum(),Param :: integer().
 pointParameteri(Pname,Param) ->
-  cast(5398, <<Pname:?GLenum,Param:?GLint>>).
+  cast(5399, <<Pname:?GLenum,Param:?GLint>>).
 
 %% @doc 
 %% See {@link pointParameterf/2}
 -spec pointParameteriv(Pname, Params) -> 'ok' when Pname :: enum(),Params :: tuple().
 pointParameteriv(Pname,Params) ->
-  cast(5399, <<Pname:?GLenum,(size(Params)):?GLuint,
+  cast(5400, <<Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((0+size(Params)) rem 2)*32)>>).
 
 %% @doc Set the current fog coordinates
@@ -9702,7 +9719,7 @@ pointParameteriv(Pname,Params) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFogCoord.xml">external</a> documentation.
 -spec fogCoordf(Coord) -> 'ok' when Coord :: float().
 fogCoordf(Coord) ->
-  cast(5400, <<Coord:?GLfloat>>).
+  cast(5401, <<Coord:?GLfloat>>).
 
 %% @equiv fogCoordf(Coord)
 -spec fogCoordfv(Coord) -> 'ok' when Coord :: {Coord :: float()}.
@@ -9712,7 +9729,7 @@ fogCoordfv({Coord}) ->  fogCoordf(Coord).
 %% See {@link fogCoordf/1}
 -spec fogCoordd(Coord) -> 'ok' when Coord :: float().
 fogCoordd(Coord) ->
-  cast(5401, <<Coord:?GLdouble>>).
+  cast(5402, <<Coord:?GLdouble>>).
 
 %% @equiv fogCoordd(Coord)
 -spec fogCoorddv(Coord) -> 'ok' when Coord :: {Coord :: float()}.
@@ -9743,10 +9760,10 @@ fogCoorddv({Coord}) ->  fogCoordd(Coord).
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFogCoordPointer.xml">external</a> documentation.
 -spec fogCoordPointer(Type, Stride, Pointer) -> 'ok' when Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 fogCoordPointer(Type,Stride,Pointer) when  is_integer(Pointer) ->
-  cast(5402, <<Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
+  cast(5403, <<Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
 fogCoordPointer(Type,Stride,Pointer) ->
   send_bin(Pointer),
-  cast(5403, <<Type:?GLenum,Stride:?GLsizei>>).
+  cast(5404, <<Type:?GLenum,Stride:?GLsizei>>).
 
 %% @doc Set the current secondary color
 %%
@@ -9780,7 +9797,7 @@ fogCoordPointer(Type,Stride,Pointer) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSecondaryColor.xml">external</a> documentation.
 -spec secondaryColor3b(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 secondaryColor3b(Red,Green,Blue) ->
-  cast(5404, <<Red:?GLbyte,Green:?GLbyte,Blue:?GLbyte>>).
+  cast(5405, <<Red:?GLbyte,Green:?GLbyte,Blue:?GLbyte>>).
 
 %% @equiv secondaryColor3b(Red,Green,Blue)
 -spec secondaryColor3bv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
@@ -9790,7 +9807,7 @@ secondaryColor3bv({Red,Green,Blue}) ->  secondaryColor3b(Red,Green,Blue).
 %% See {@link secondaryColor3b/3}
 -spec secondaryColor3d(Red, Green, Blue) -> 'ok' when Red :: float(),Green :: float(),Blue :: float().
 secondaryColor3d(Red,Green,Blue) ->
-  cast(5405, <<Red:?GLdouble,Green:?GLdouble,Blue:?GLdouble>>).
+  cast(5406, <<Red:?GLdouble,Green:?GLdouble,Blue:?GLdouble>>).
 
 %% @equiv secondaryColor3d(Red,Green,Blue)
 -spec secondaryColor3dv(V) -> 'ok' when V :: {Red :: float(),Green :: float(),Blue :: float()}.
@@ -9800,7 +9817,7 @@ secondaryColor3dv({Red,Green,Blue}) ->  secondaryColor3d(Red,Green,Blue).
 %% See {@link secondaryColor3b/3}
 -spec secondaryColor3f(Red, Green, Blue) -> 'ok' when Red :: float(),Green :: float(),Blue :: float().
 secondaryColor3f(Red,Green,Blue) ->
-  cast(5406, <<Red:?GLfloat,Green:?GLfloat,Blue:?GLfloat>>).
+  cast(5407, <<Red:?GLfloat,Green:?GLfloat,Blue:?GLfloat>>).
 
 %% @equiv secondaryColor3f(Red,Green,Blue)
 -spec secondaryColor3fv(V) -> 'ok' when V :: {Red :: float(),Green :: float(),Blue :: float()}.
@@ -9810,7 +9827,7 @@ secondaryColor3fv({Red,Green,Blue}) ->  secondaryColor3f(Red,Green,Blue).
 %% See {@link secondaryColor3b/3}
 -spec secondaryColor3i(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 secondaryColor3i(Red,Green,Blue) ->
-  cast(5407, <<Red:?GLint,Green:?GLint,Blue:?GLint>>).
+  cast(5408, <<Red:?GLint,Green:?GLint,Blue:?GLint>>).
 
 %% @equiv secondaryColor3i(Red,Green,Blue)
 -spec secondaryColor3iv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
@@ -9820,7 +9837,7 @@ secondaryColor3iv({Red,Green,Blue}) ->  secondaryColor3i(Red,Green,Blue).
 %% See {@link secondaryColor3b/3}
 -spec secondaryColor3s(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 secondaryColor3s(Red,Green,Blue) ->
-  cast(5408, <<Red:?GLshort,Green:?GLshort,Blue:?GLshort>>).
+  cast(5409, <<Red:?GLshort,Green:?GLshort,Blue:?GLshort>>).
 
 %% @equiv secondaryColor3s(Red,Green,Blue)
 -spec secondaryColor3sv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
@@ -9830,7 +9847,7 @@ secondaryColor3sv({Red,Green,Blue}) ->  secondaryColor3s(Red,Green,Blue).
 %% See {@link secondaryColor3b/3}
 -spec secondaryColor3ub(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 secondaryColor3ub(Red,Green,Blue) ->
-  cast(5409, <<Red:?GLubyte,Green:?GLubyte,Blue:?GLubyte>>).
+  cast(5410, <<Red:?GLubyte,Green:?GLubyte,Blue:?GLubyte>>).
 
 %% @equiv secondaryColor3ub(Red,Green,Blue)
 -spec secondaryColor3ubv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
@@ -9840,7 +9857,7 @@ secondaryColor3ubv({Red,Green,Blue}) ->  secondaryColor3ub(Red,Green,Blue).
 %% See {@link secondaryColor3b/3}
 -spec secondaryColor3ui(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 secondaryColor3ui(Red,Green,Blue) ->
-  cast(5410, <<Red:?GLuint,Green:?GLuint,Blue:?GLuint>>).
+  cast(5411, <<Red:?GLuint,Green:?GLuint,Blue:?GLuint>>).
 
 %% @equiv secondaryColor3ui(Red,Green,Blue)
 -spec secondaryColor3uiv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
@@ -9850,7 +9867,7 @@ secondaryColor3uiv({Red,Green,Blue}) ->  secondaryColor3ui(Red,Green,Blue).
 %% See {@link secondaryColor3b/3}
 -spec secondaryColor3us(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 secondaryColor3us(Red,Green,Blue) ->
-  cast(5411, <<Red:?GLushort,Green:?GLushort,Blue:?GLushort>>).
+  cast(5412, <<Red:?GLushort,Green:?GLushort,Blue:?GLushort>>).
 
 %% @equiv secondaryColor3us(Red,Green,Blue)
 -spec secondaryColor3usv(V) -> 'ok' when V :: {Red :: integer(),Green :: integer(),Blue :: integer()}.
@@ -9883,10 +9900,10 @@ secondaryColor3usv({Red,Green,Blue}) ->  secondaryColor3us(Red,Green,Blue).
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSecondaryColorPointer.xml">external</a> documentation.
 -spec secondaryColorPointer(Size, Type, Stride, Pointer) -> 'ok' when Size :: integer(),Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 secondaryColorPointer(Size,Type,Stride,Pointer) when  is_integer(Pointer) ->
-  cast(5412, <<Size:?GLint,Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
+  cast(5413, <<Size:?GLint,Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
 secondaryColorPointer(Size,Type,Stride,Pointer) ->
   send_bin(Pointer),
-  cast(5413, <<Size:?GLint,Type:?GLenum,Stride:?GLsizei>>).
+  cast(5414, <<Size:?GLint,Type:?GLenum,Stride:?GLsizei>>).
 
 %% @doc Specify the raster position in window coordinates for pixel operations
 %%
@@ -9929,7 +9946,7 @@ secondaryColorPointer(Size,Type,Stride,Pointer) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWindowPos.xml">external</a> documentation.
 -spec windowPos2d(X, Y) -> 'ok' when X :: float(),Y :: float().
 windowPos2d(X,Y) ->
-  cast(5414, <<X:?GLdouble,Y:?GLdouble>>).
+  cast(5415, <<X:?GLdouble,Y:?GLdouble>>).
 
 %% @equiv windowPos2d(X,Y)
 -spec windowPos2dv(V) -> 'ok' when V :: {X :: float(),Y :: float()}.
@@ -9939,7 +9956,7 @@ windowPos2dv({X,Y}) ->  windowPos2d(X,Y).
 %% See {@link windowPos2d/2}
 -spec windowPos2f(X, Y) -> 'ok' when X :: float(),Y :: float().
 windowPos2f(X,Y) ->
-  cast(5415, <<X:?GLfloat,Y:?GLfloat>>).
+  cast(5416, <<X:?GLfloat,Y:?GLfloat>>).
 
 %% @equiv windowPos2f(X,Y)
 -spec windowPos2fv(V) -> 'ok' when V :: {X :: float(),Y :: float()}.
@@ -9949,7 +9966,7 @@ windowPos2fv({X,Y}) ->  windowPos2f(X,Y).
 %% See {@link windowPos2d/2}
 -spec windowPos2i(X, Y) -> 'ok' when X :: integer(),Y :: integer().
 windowPos2i(X,Y) ->
-  cast(5416, <<X:?GLint,Y:?GLint>>).
+  cast(5417, <<X:?GLint,Y:?GLint>>).
 
 %% @equiv windowPos2i(X,Y)
 -spec windowPos2iv(V) -> 'ok' when V :: {X :: integer(),Y :: integer()}.
@@ -9959,7 +9976,7 @@ windowPos2iv({X,Y}) ->  windowPos2i(X,Y).
 %% See {@link windowPos2d/2}
 -spec windowPos2s(X, Y) -> 'ok' when X :: integer(),Y :: integer().
 windowPos2s(X,Y) ->
-  cast(5417, <<X:?GLshort,Y:?GLshort>>).
+  cast(5418, <<X:?GLshort,Y:?GLshort>>).
 
 %% @equiv windowPos2s(X,Y)
 -spec windowPos2sv(V) -> 'ok' when V :: {X :: integer(),Y :: integer()}.
@@ -9969,7 +9986,7 @@ windowPos2sv({X,Y}) ->  windowPos2s(X,Y).
 %% See {@link windowPos2d/2}
 -spec windowPos3d(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 windowPos3d(X,Y,Z) ->
-  cast(5418, <<X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
+  cast(5419, <<X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @equiv windowPos3d(X,Y,Z)
 -spec windowPos3dv(V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float()}.
@@ -9979,7 +9996,7 @@ windowPos3dv({X,Y,Z}) ->  windowPos3d(X,Y,Z).
 %% See {@link windowPos2d/2}
 -spec windowPos3f(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 windowPos3f(X,Y,Z) ->
-  cast(5419, <<X:?GLfloat,Y:?GLfloat,Z:?GLfloat>>).
+  cast(5420, <<X:?GLfloat,Y:?GLfloat,Z:?GLfloat>>).
 
 %% @equiv windowPos3f(X,Y,Z)
 -spec windowPos3fv(V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float()}.
@@ -9989,7 +10006,7 @@ windowPos3fv({X,Y,Z}) ->  windowPos3f(X,Y,Z).
 %% See {@link windowPos2d/2}
 -spec windowPos3i(X, Y, Z) -> 'ok' when X :: integer(),Y :: integer(),Z :: integer().
 windowPos3i(X,Y,Z) ->
-  cast(5420, <<X:?GLint,Y:?GLint,Z:?GLint>>).
+  cast(5421, <<X:?GLint,Y:?GLint,Z:?GLint>>).
 
 %% @equiv windowPos3i(X,Y,Z)
 -spec windowPos3iv(V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
@@ -9999,7 +10016,7 @@ windowPos3iv({X,Y,Z}) ->  windowPos3i(X,Y,Z).
 %% See {@link windowPos2d/2}
 -spec windowPos3s(X, Y, Z) -> 'ok' when X :: integer(),Y :: integer(),Z :: integer().
 windowPos3s(X,Y,Z) ->
-  cast(5421, <<X:?GLshort,Y:?GLshort,Z:?GLshort>>).
+  cast(5422, <<X:?GLshort,Y:?GLshort,Z:?GLshort>>).
 
 %% @equiv windowPos3s(X,Y,Z)
 -spec windowPos3sv(V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
@@ -10020,7 +10037,7 @@ windowPos3sv({X,Y,Z}) ->  windowPos3s(X,Y,Z).
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenQueries.xml">external</a> documentation.
 -spec genQueries(N) -> [integer()] when N :: integer().
 genQueries(N) ->
-  call(5422, <<N:?GLsizei>>).
+  call(5423, <<N:?GLsizei>>).
 
 %% @doc Delete named query objects
 %%
@@ -10034,8 +10051,9 @@ genQueries(N) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteQueries.xml">external</a> documentation.
 -spec deleteQueries(Ids) -> 'ok' when Ids :: [integer()].
 deleteQueries(Ids) ->
-  cast(5423, <<(length(Ids)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Ids>>)/binary,0:(((1+length(Ids)) rem 2)*32)>>).
+  IdsLen = length(Ids),
+  cast(5424, <<IdsLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Ids>>)/binary,0:(((1+IdsLen) rem 2)*32)>>).
 
 %% @doc Determine if a name corresponds to a query object
 %%
@@ -10049,7 +10067,7 @@ deleteQueries(Ids) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsQuery.xml">external</a> documentation.
 -spec isQuery(Id) -> 0|1 when Id :: integer().
 isQuery(Id) ->
-  call(5424, <<Id:?GLuint>>).
+  call(5425, <<Id:?GLuint>>).
 
 %% @doc Delimit the boundaries of a query object
 %%
@@ -10116,20 +10134,20 @@ isQuery(Id) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginQuery.xml">external</a> documentation.
 -spec beginQuery(Target, Id) -> 'ok' when Target :: enum(),Id :: integer().
 beginQuery(Target,Id) ->
-  cast(5425, <<Target:?GLenum,Id:?GLuint>>).
+  cast(5426, <<Target:?GLenum,Id:?GLuint>>).
 
 %% @doc 
 %% See {@link beginQuery/2}
 -spec endQuery(Target) -> 'ok' when Target :: enum().
 endQuery(Target) ->
-  cast(5426, <<Target:?GLenum>>).
+  cast(5427, <<Target:?GLenum>>).
 
 %% @doc glGetQuery
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetQuery.xml">external</a> documentation.
 -spec getQueryiv(Target, Pname) -> integer() when Target :: enum(),Pname :: enum().
 getQueryiv(Target,Pname) ->
-  call(5427, <<Target:?GLenum,Pname:?GLenum>>).
+  call(5428, <<Target:?GLenum,Pname:?GLenum>>).
 
 %% @doc Return parameters of a query object
 %%
@@ -10149,13 +10167,13 @@ getQueryiv(Target,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetQueryObject.xml">external</a> documentation.
 -spec getQueryObjectiv(Id, Pname) -> integer() when Id :: integer(),Pname :: enum().
 getQueryObjectiv(Id,Pname) ->
-  call(5428, <<Id:?GLuint,Pname:?GLenum>>).
+  call(5429, <<Id:?GLuint,Pname:?GLenum>>).
 
 %% @doc 
 %% See {@link getQueryObjectiv/2}
 -spec getQueryObjectuiv(Id, Pname) -> integer() when Id :: integer(),Pname :: enum().
 getQueryObjectuiv(Id,Pname) ->
-  call(5429, <<Id:?GLuint,Pname:?GLenum>>).
+  call(5430, <<Id:?GLuint,Pname:?GLenum>>).
 
 %% @doc Bind a named buffer object
 %%
@@ -10238,7 +10256,7 @@ getQueryObjectuiv(Id,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindBuffer.xml">external</a> documentation.
 -spec bindBuffer(Target, Buffer) -> 'ok' when Target :: enum(),Buffer :: integer().
 bindBuffer(Target,Buffer) ->
-  cast(5430, <<Target:?GLenum,Buffer:?GLuint>>).
+  cast(5431, <<Target:?GLenum,Buffer:?GLuint>>).
 
 %% @doc Delete named buffer objects
 %%
@@ -10253,8 +10271,9 @@ bindBuffer(Target,Buffer) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteBuffers.xml">external</a> documentation.
 -spec deleteBuffers(Buffers) -> 'ok' when Buffers :: [integer()].
 deleteBuffers(Buffers) ->
-  cast(5431, <<(length(Buffers)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Buffers>>)/binary,0:(((1+length(Buffers)) rem 2)*32)>>).
+  BuffersLen = length(Buffers),
+  cast(5432, <<BuffersLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Buffers>>)/binary,0:(((1+BuffersLen) rem 2)*32)>>).
 
 %% @doc Generate buffer object names
 %%
@@ -10272,7 +10291,7 @@ deleteBuffers(Buffers) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenBuffers.xml">external</a> documentation.
 -spec genBuffers(N) -> [integer()] when N :: integer().
 genBuffers(N) ->
-  call(5432, <<N:?GLsizei>>).
+  call(5433, <<N:?GLsizei>>).
 
 %% @doc Determine if a name corresponds to a buffer object
 %%
@@ -10287,7 +10306,7 @@ genBuffers(N) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsBuffer.xml">external</a> documentation.
 -spec isBuffer(Buffer) -> 0|1 when Buffer :: integer().
 isBuffer(Buffer) ->
-  call(5433, <<Buffer:?GLuint>>).
+  call(5434, <<Buffer:?GLuint>>).
 
 %% @doc Creates and initializes a buffer object's data store
 %%
@@ -10325,10 +10344,10 @@ isBuffer(Buffer) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBufferData.xml">external</a> documentation.
 -spec bufferData(Target, Size, Data, Usage) -> 'ok' when Target :: enum(),Size :: integer(),Data :: offset()|mem(),Usage :: enum().
 bufferData(Target,Size,Data,Usage) when  is_integer(Data) ->
-  cast(5434, <<Target:?GLenum,0:32,Size:?GLsizeiptr,Data:?GLuint,Usage:?GLenum>>);
+  cast(5435, <<Target:?GLenum,0:32,Size:?GLsizeiptr,Data:?GLuint,Usage:?GLenum>>);
 bufferData(Target,Size,Data,Usage) ->
   send_bin(Data),
-  cast(5435, <<Target:?GLenum,0:32,Size:?GLsizeiptr,Usage:?GLenum>>).
+  cast(5436, <<Target:?GLenum,0:32,Size:?GLsizeiptr,Usage:?GLenum>>).
 
 %% @doc Updates a subset of a buffer object's data store
 %%
@@ -10341,10 +10360,10 @@ bufferData(Target,Size,Data,Usage) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBufferSubData.xml">external</a> documentation.
 -spec bufferSubData(Target, Offset, Size, Data) -> 'ok' when Target :: enum(),Offset :: integer(),Size :: integer(),Data :: offset()|mem().
 bufferSubData(Target,Offset,Size,Data) when  is_integer(Data) ->
-  cast(5436, <<Target:?GLenum,0:32,Offset:?GLintptr,Size:?GLsizeiptr,Data:?GLuint>>);
+  cast(5437, <<Target:?GLenum,0:32,Offset:?GLintptr,Size:?GLsizeiptr,Data:?GLuint>>);
 bufferSubData(Target,Offset,Size,Data) ->
   send_bin(Data),
-  cast(5437, <<Target:?GLenum,0:32,Offset:?GLintptr,Size:?GLsizeiptr>>).
+  cast(5438, <<Target:?GLenum,0:32,Offset:?GLintptr,Size:?GLsizeiptr>>).
 
 %% @doc Returns a subset of a buffer object's data store
 %%
@@ -10358,7 +10377,7 @@ bufferSubData(Target,Offset,Size,Data) ->
 -spec getBufferSubData(Target, Offset, Size, Data) -> 'ok' when Target :: enum(),Offset :: integer(),Size :: integer(),Data :: mem().
 getBufferSubData(Target,Offset,Size,Data) ->
   send_bin(Data),
-  call(5438, <<Target:?GLenum,0:32,Offset:?GLintptr,Size:?GLsizeiptr>>).
+  call(5439, <<Target:?GLenum,0:32,Offset:?GLintptr,Size:?GLsizeiptr>>).
 
 %% @doc Return parameters of a buffer object
 %%
@@ -10382,7 +10401,7 @@ getBufferSubData(Target,Offset,Size,Data) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetBufferParameteriv.xml">external</a> documentation.
 -spec getBufferParameteriv(Target, Pname) -> integer() when Target :: enum(),Pname :: enum().
 getBufferParameteriv(Target,Pname) ->
-  call(5439, <<Target:?GLenum,Pname:?GLenum>>).
+  call(5440, <<Target:?GLenum,Pname:?GLenum>>).
 
 %% @doc Set the RGB blend equation and the alpha blend equation separately
 %%
@@ -10424,7 +10443,7 @@ getBufferParameteriv(Target,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendEquationSeparate.xml">external</a> documentation.
 -spec blendEquationSeparate(ModeRGB, ModeAlpha) -> 'ok' when ModeRGB :: enum(),ModeAlpha :: enum().
 blendEquationSeparate(ModeRGB,ModeAlpha) ->
-  cast(5440, <<ModeRGB:?GLenum,ModeAlpha:?GLenum>>).
+  cast(5441, <<ModeRGB:?GLenum,ModeAlpha:?GLenum>>).
 
 %% @doc Specifies a list of color buffers to be drawn into
 %%
@@ -10464,8 +10483,9 @@ blendEquationSeparate(ModeRGB,ModeAlpha) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawBuffers.xml">external</a> documentation.
 -spec drawBuffers(Bufs) -> 'ok' when Bufs :: [enum()].
 drawBuffers(Bufs) ->
-  cast(5441, <<(length(Bufs)):?GLuint,
-        (<< <<C:?GLenum>> || C <- Bufs>>)/binary,0:(((1+length(Bufs)) rem 2)*32)>>).
+  BufsLen = length(Bufs),
+  cast(5442, <<BufsLen:?GLuint,
+        (<< <<C:?GLenum>> || C <- Bufs>>)/binary,0:(((1+BufsLen) rem 2)*32)>>).
 
 %% @doc Set front and/or back stencil test actions
 %%
@@ -10526,7 +10546,7 @@ drawBuffers(Bufs) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilOpSeparate.xml">external</a> documentation.
 -spec stencilOpSeparate(Face, Sfail, Dpfail, Dppass) -> 'ok' when Face :: enum(),Sfail :: enum(),Dpfail :: enum(),Dppass :: enum().
 stencilOpSeparate(Face,Sfail,Dpfail,Dppass) ->
-  cast(5442, <<Face:?GLenum,Sfail:?GLenum,Dpfail:?GLenum,Dppass:?GLenum>>).
+  cast(5443, <<Face:?GLenum,Sfail:?GLenum,Dpfail:?GLenum,Dppass:?GLenum>>).
 
 %% @doc Set front and/or back function and reference value for stencil testing
 %%
@@ -10589,7 +10609,7 @@ stencilOpSeparate(Face,Sfail,Dpfail,Dppass) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilFuncSeparate.xml">external</a> documentation.
 -spec stencilFuncSeparate(Face, Func, Ref, Mask) -> 'ok' when Face :: enum(),Func :: enum(),Ref :: integer(),Mask :: integer().
 stencilFuncSeparate(Face,Func,Ref,Mask) ->
-  cast(5443, <<Face:?GLenum,Func:?GLenum,Ref:?GLint,Mask:?GLuint>>).
+  cast(5444, <<Face:?GLenum,Func:?GLenum,Ref:?GLint,Mask:?GLuint>>).
 
 %% @doc Control the front and/or back writing of individual bits in the stencil planes
 %%
@@ -10607,7 +10627,7 @@ stencilFuncSeparate(Face,Func,Ref,Mask) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilMaskSeparate.xml">external</a> documentation.
 -spec stencilMaskSeparate(Face, Mask) -> 'ok' when Face :: enum(),Mask :: integer().
 stencilMaskSeparate(Face,Mask) ->
-  cast(5444, <<Face:?GLenum,Mask:?GLuint>>).
+  cast(5445, <<Face:?GLenum,Mask:?GLuint>>).
 
 %% @doc Attaches a shader object to a program object
 %%
@@ -10631,7 +10651,7 @@ stencilMaskSeparate(Face,Mask) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glAttachShader.xml">external</a> documentation.
 -spec attachShader(Program, Shader) -> 'ok' when Program :: integer(),Shader :: integer().
 attachShader(Program,Shader) ->
-  cast(5445, <<Program:?GLuint,Shader:?GLuint>>).
+  cast(5446, <<Program:?GLuint,Shader:?GLuint>>).
 
 %% @doc Associates a generic vertex attribute index with a named attribute variable
 %%
@@ -10668,7 +10688,8 @@ attachShader(Program,Shader) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindAttribLocation.xml">external</a> documentation.
 -spec bindAttribLocation(Program, Index, Name) -> 'ok' when Program :: integer(),Index :: integer(),Name :: string().
 bindAttribLocation(Program,Index,Name) ->
-  cast(5446, <<Program:?GLuint,Index:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 1) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  cast(5447, <<Program:?GLuint,Index:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 1) rem 8)) rem 8)>>).
 
 %% @doc Compiles a shader object
 %%
@@ -10688,7 +10709,7 @@ bindAttribLocation(Program,Index,Name) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompileShader.xml">external</a> documentation.
 -spec compileShader(Shader) -> 'ok' when Shader :: integer().
 compileShader(Shader) ->
-  cast(5447, <<Shader:?GLuint>>).
+  cast(5448, <<Shader:?GLuint>>).
 
 %% @doc Creates a program object
 %%
@@ -10711,7 +10732,7 @@ compileShader(Shader) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCreateProgram.xml">external</a> documentation.
 -spec createProgram() -> integer().
 createProgram() ->
-  call(5448, <<>>).
+  call(5449, <<>>).
 
 %% @doc Creates a shader object
 %%
@@ -10734,7 +10755,7 @@ createProgram() ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCreateShader.xml">external</a> documentation.
 -spec createShader(Type) -> integer() when Type :: enum().
 createShader(Type) ->
-  call(5449, <<Type:?GLenum>>).
+  call(5450, <<Type:?GLenum>>).
 
 %% @doc Deletes a program object
 %%
@@ -10755,7 +10776,7 @@ createShader(Type) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteProgram.xml">external</a> documentation.
 -spec deleteProgram(Program) -> 'ok' when Program :: integer().
 deleteProgram(Program) ->
-  cast(5450, <<Program:?GLuint>>).
+  cast(5451, <<Program:?GLuint>>).
 
 %% @doc Deletes a shader object
 %%
@@ -10774,7 +10795,7 @@ deleteProgram(Program) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteShader.xml">external</a> documentation.
 -spec deleteShader(Shader) -> 'ok' when Shader :: integer().
 deleteShader(Shader) ->
-  cast(5451, <<Shader:?GLuint>>).
+  cast(5452, <<Shader:?GLuint>>).
 
 %% @doc Detaches a shader object from a program object to which it is attached
 %%
@@ -10789,7 +10810,7 @@ deleteShader(Shader) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDetachShader.xml">external</a> documentation.
 -spec detachShader(Program, Shader) -> 'ok' when Program :: integer(),Shader :: integer().
 detachShader(Program,Shader) ->
-  cast(5452, <<Program:?GLuint,Shader:?GLuint>>).
+  cast(5453, <<Program:?GLuint,Shader:?GLuint>>).
 
 %% @doc Enable or disable a generic vertex attribute array
 %%
@@ -10804,13 +10825,13 @@ detachShader(Program,Shader) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEnableVertexAttribArray.xml">external</a> documentation.
 -spec disableVertexAttribArray(Index) -> 'ok' when Index :: integer().
 disableVertexAttribArray(Index) ->
-  cast(5453, <<Index:?GLuint>>).
+  cast(5454, <<Index:?GLuint>>).
 
 %% @doc 
 %% See {@link disableVertexAttribArray/1}
 -spec enableVertexAttribArray(Index) -> 'ok' when Index :: integer().
 enableVertexAttribArray(Index) ->
-  cast(5454, <<Index:?GLuint>>).
+  cast(5455, <<Index:?GLuint>>).
 
 %% @doc Returns information about an active attribute variable for the specified program object
 %%
@@ -10868,7 +10889,7 @@ enableVertexAttribArray(Index) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveAttrib.xml">external</a> documentation.
 -spec getActiveAttrib(Program, Index, BufSize) -> {Size :: integer(),Type :: enum(),Name :: string()} when Program :: integer(),Index :: integer(),BufSize :: integer().
 getActiveAttrib(Program,Index,BufSize) ->
-  call(5455, <<Program:?GLuint,Index:?GLuint,BufSize:?GLsizei>>).
+  call(5456, <<Program:?GLuint,Index:?GLuint,BufSize:?GLsizei>>).
 
 %% @doc Returns information about an active uniform variable for the specified program object
 %%
@@ -11015,7 +11036,7 @@ getActiveAttrib(Program,Index,BufSize) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveUniform.xml">external</a> documentation.
 -spec getActiveUniform(Program, Index, BufSize) -> {Size :: integer(),Type :: enum(),Name :: string()} when Program :: integer(),Index :: integer(),BufSize :: integer().
 getActiveUniform(Program,Index,BufSize) ->
-  call(5456, <<Program:?GLuint,Index:?GLuint,BufSize:?GLsizei>>).
+  call(5457, <<Program:?GLuint,Index:?GLuint,BufSize:?GLsizei>>).
 
 %% @doc Returns the handles of the shader objects attached to a program object
 %%
@@ -11035,7 +11056,7 @@ getActiveUniform(Program,Index,BufSize) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetAttachedShaders.xml">external</a> documentation.
 -spec getAttachedShaders(Program, MaxCount) -> [integer()] when Program :: integer(),MaxCount :: integer().
 getAttachedShaders(Program,MaxCount) ->
-  call(5457, <<Program:?GLuint,MaxCount:?GLsizei>>).
+  call(5458, <<Program:?GLuint,MaxCount:?GLsizei>>).
 
 %% @doc Returns the location of an attribute variable
 %%
@@ -11059,7 +11080,8 @@ getAttachedShaders(Program,MaxCount) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetAttribLocation.xml">external</a> documentation.
 -spec getAttribLocation(Program, Name) -> integer() when Program :: integer(),Name :: string().
 getAttribLocation(Program,Name) ->
-  call(5458, <<Program:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 5) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  call(5459, <<Program:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 5) rem 8)) rem 8)>>).
 
 %% @doc Returns a parameter from a program object
 %%
@@ -11130,7 +11152,7 @@ getAttribLocation(Program,Name) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgram.xml">external</a> documentation.
 -spec getProgramiv(Program, Pname) -> integer() when Program :: integer(),Pname :: enum().
 getProgramiv(Program,Pname) ->
-  call(5459, <<Program:?GLuint,Pname:?GLenum>>).
+  call(5460, <<Program:?GLuint,Pname:?GLenum>>).
 
 %% @doc Returns the information log for a program object
 %%
@@ -11155,7 +11177,7 @@ getProgramiv(Program,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramInfoLog.xml">external</a> documentation.
 -spec getProgramInfoLog(Program, BufSize) -> string() when Program :: integer(),BufSize :: integer().
 getProgramInfoLog(Program,BufSize) ->
-  call(5460, <<Program:?GLuint,BufSize:?GLsizei>>).
+  call(5461, <<Program:?GLuint,BufSize:?GLsizei>>).
 
 %% @doc Returns a parameter from a shader object
 %%
@@ -11186,7 +11208,7 @@ getProgramInfoLog(Program,BufSize) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetShader.xml">external</a> documentation.
 -spec getShaderiv(Shader, Pname) -> integer() when Shader :: integer(),Pname :: enum().
 getShaderiv(Shader,Pname) ->
-  call(5461, <<Shader:?GLuint,Pname:?GLenum>>).
+  call(5462, <<Shader:?GLuint,Pname:?GLenum>>).
 
 %% @doc Returns the information log for a shader object
 %%
@@ -11209,7 +11231,7 @@ getShaderiv(Shader,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetShaderInfoLog.xml">external</a> documentation.
 -spec getShaderInfoLog(Shader, BufSize) -> string() when Shader :: integer(),BufSize :: integer().
 getShaderInfoLog(Shader,BufSize) ->
-  call(5462, <<Shader:?GLuint,BufSize:?GLsizei>>).
+  call(5463, <<Shader:?GLuint,BufSize:?GLsizei>>).
 
 %% @doc Returns the source code string from a shader object
 %%
@@ -11229,7 +11251,7 @@ getShaderInfoLog(Shader,BufSize) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetShaderSource.xml">external</a> documentation.
 -spec getShaderSource(Shader, BufSize) -> string() when Shader :: integer(),BufSize :: integer().
 getShaderSource(Shader,BufSize) ->
-  call(5463, <<Shader:?GLuint,BufSize:?GLsizei>>).
+  call(5464, <<Shader:?GLuint,BufSize:?GLsizei>>).
 
 %% @doc Returns the location of a uniform variable
 %%
@@ -11262,7 +11284,8 @@ getShaderSource(Shader,BufSize) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformLocation.xml">external</a> documentation.
 -spec getUniformLocation(Program, Name) -> integer() when Program :: integer(),Name :: string().
 getUniformLocation(Program,Name) ->
-  call(5464, <<Program:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 5) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  call(5465, <<Program:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 5) rem 8)) rem 8)>>).
 
 %% @doc Returns the value of a uniform variable
 %%
@@ -11288,13 +11311,13 @@ getUniformLocation(Program,Name) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniform.xml">external</a> documentation.
 -spec getUniformfv(Program, Location) -> matrix() when Program :: integer(),Location :: integer().
 getUniformfv(Program,Location) ->
-  call(5465, <<Program:?GLuint,Location:?GLint>>).
+  call(5466, <<Program:?GLuint,Location:?GLint>>).
 
 %% @doc 
 %% See {@link getUniformfv/2}
 -spec getUniformiv(Program, Location) -> {integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer()} when Program :: integer(),Location :: integer().
 getUniformiv(Program,Location) ->
-  call(5466, <<Program:?GLuint,Location:?GLint>>).
+  call(5467, <<Program:?GLuint,Location:?GLint>>).
 
 %% @doc Return a generic vertex attribute parameter
 %%
@@ -11361,19 +11384,19 @@ getUniformiv(Program,Location) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetVertexAttrib.xml">external</a> documentation.
 -spec getVertexAttribdv(Index, Pname) -> {float(),float(),float(),float()} when Index :: integer(),Pname :: enum().
 getVertexAttribdv(Index,Pname) ->
-  call(5467, <<Index:?GLuint,Pname:?GLenum>>).
+  call(5468, <<Index:?GLuint,Pname:?GLenum>>).
 
 %% @doc 
 %% See {@link getVertexAttribdv/2}
 -spec getVertexAttribfv(Index, Pname) -> {float(),float(),float(),float()} when Index :: integer(),Pname :: enum().
 getVertexAttribfv(Index,Pname) ->
-  call(5468, <<Index:?GLuint,Pname:?GLenum>>).
+  call(5469, <<Index:?GLuint,Pname:?GLenum>>).
 
 %% @doc 
 %% See {@link getVertexAttribdv/2}
 -spec getVertexAttribiv(Index, Pname) -> {integer(),integer(),integer(),integer()} when Index :: integer(),Pname :: enum().
 getVertexAttribiv(Index,Pname) ->
-  call(5469, <<Index:?GLuint,Pname:?GLenum>>).
+  call(5470, <<Index:?GLuint,Pname:?GLenum>>).
 
 %% @doc Determines if a name corresponds to a program object
 %%
@@ -11385,7 +11408,7 @@ getVertexAttribiv(Index,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsProgram.xml">external</a> documentation.
 -spec isProgram(Program) -> 0|1 when Program :: integer().
 isProgram(Program) ->
-  call(5470, <<Program:?GLuint>>).
+  call(5471, <<Program:?GLuint>>).
 
 %% @doc Determines if a name corresponds to a shader object
 %%
@@ -11397,7 +11420,7 @@ isProgram(Program) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsShader.xml">external</a> documentation.
 -spec isShader(Shader) -> 0|1 when Shader :: integer().
 isShader(Shader) ->
-  call(5471, <<Shader:?GLuint>>).
+  call(5472, <<Shader:?GLuint>>).
 
 %% @doc Links a program object
 %%
@@ -11517,7 +11540,7 @@ isShader(Shader) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLinkProgram.xml">external</a> documentation.
 -spec linkProgram(Program) -> 'ok' when Program :: integer().
 linkProgram(Program) ->
-  cast(5472, <<Program:?GLuint>>).
+  cast(5473, <<Program:?GLuint>>).
 
 %% @doc Replaces the source code in a shader object
 %%
@@ -11535,8 +11558,9 @@ linkProgram(Program) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glShaderSource.xml">external</a> documentation.
 -spec shaderSource(Shader, String) -> 'ok' when Shader :: integer(),String :: iolist().
 shaderSource(Shader,String) ->
- StringTemp = list_to_binary([[Str|[0]] || Str <- String ]),
-  cast(5473, <<Shader:?GLuint,(length(String)):?GLuint,(size(StringTemp)):?GLuint,(StringTemp)/binary,0:((8-((size(StringTemp)+0) rem 8)) rem 8)>>).
+  StringTemp = list_to_binary([[Str|[0]] || Str <- String ]),
+  StringLen = length(String),
+  cast(5474, <<Shader:?GLuint,StringLen:?GLuint,(size(StringTemp)):?GLuint,(StringTemp)/binary,0:((8-((size(StringTemp)+0) rem 8)) rem 8)>>).
 
 %% @doc Installs a program object as part of current rendering state
 %%
@@ -11577,7 +11601,7 @@ shaderSource(Shader,String) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUseProgram.xml">external</a> documentation.
 -spec useProgram(Program) -> 'ok' when Program :: integer().
 useProgram(Program) ->
-  cast(5474, <<Program:?GLuint>>).
+  cast(5475, <<Program:?GLuint>>).
 
 %% @doc Specify the value of a uniform variable for the current program object
 %%
@@ -11645,125 +11669,136 @@ useProgram(Program) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUniform.xml">external</a> documentation.
 -spec uniform1f(Location, V0) -> 'ok' when Location :: integer(),V0 :: float().
 uniform1f(Location,V0) ->
-  cast(5475, <<Location:?GLint,V0:?GLfloat>>).
+  cast(5476, <<Location:?GLint,V0:?GLfloat>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform2f(Location, V0, V1) -> 'ok' when Location :: integer(),V0 :: float(),V1 :: float().
 uniform2f(Location,V0,V1) ->
-  cast(5476, <<Location:?GLint,V0:?GLfloat,V1:?GLfloat>>).
+  cast(5477, <<Location:?GLint,V0:?GLfloat,V1:?GLfloat>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform3f(Location, V0, V1, V2) -> 'ok' when Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float().
 uniform3f(Location,V0,V1,V2) ->
-  cast(5477, <<Location:?GLint,V0:?GLfloat,V1:?GLfloat,V2:?GLfloat>>).
+  cast(5478, <<Location:?GLint,V0:?GLfloat,V1:?GLfloat,V2:?GLfloat>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform4f(Location, V0, V1, V2, V3) -> 'ok' when Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float(),V3 :: float().
 uniform4f(Location,V0,V1,V2,V3) ->
-  cast(5478, <<Location:?GLint,V0:?GLfloat,V1:?GLfloat,V2:?GLfloat,V3:?GLfloat>>).
+  cast(5479, <<Location:?GLint,V0:?GLfloat,V1:?GLfloat,V2:?GLfloat,V3:?GLfloat>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform1i(Location, V0) -> 'ok' when Location :: integer(),V0 :: integer().
 uniform1i(Location,V0) ->
-  cast(5479, <<Location:?GLint,V0:?GLint>>).
+  cast(5480, <<Location:?GLint,V0:?GLint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform2i(Location, V0, V1) -> 'ok' when Location :: integer(),V0 :: integer(),V1 :: integer().
 uniform2i(Location,V0,V1) ->
-  cast(5480, <<Location:?GLint,V0:?GLint,V1:?GLint>>).
+  cast(5481, <<Location:?GLint,V0:?GLint,V1:?GLint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform3i(Location, V0, V1, V2) -> 'ok' when Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer().
 uniform3i(Location,V0,V1,V2) ->
-  cast(5481, <<Location:?GLint,V0:?GLint,V1:?GLint,V2:?GLint>>).
+  cast(5482, <<Location:?GLint,V0:?GLint,V1:?GLint,V2:?GLint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform4i(Location, V0, V1, V2, V3) -> 'ok' when Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer(),V3 :: integer().
 uniform4i(Location,V0,V1,V2,V3) ->
-  cast(5482, <<Location:?GLint,V0:?GLint,V1:?GLint,V2:?GLint,V3:?GLint>>).
+  cast(5483, <<Location:?GLint,V0:?GLint,V1:?GLint,V2:?GLint,V3:?GLint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform1fv(Location, Value) -> 'ok' when Location :: integer(),Value :: [float()].
 uniform1fv(Location,Value) ->
-  cast(5483, <<Location:?GLint,(length(Value)):?GLuint,
-        (<< <<C:?GLfloat>> || C <- Value>>)/binary,0:(((length(Value)) rem 2)*32)>>).
+  ValueLen = length(Value),
+  cast(5484, <<Location:?GLint,ValueLen:?GLuint,
+        (<< <<C:?GLfloat>> || C <- Value>>)/binary,0:(((ValueLen) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform2fv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{float(),float()}].
 uniform2fv(Location,Value) ->
-  cast(5484, <<Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5485, <<Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform3fv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{float(),float(),float()}].
 uniform3fv(Location,Value) ->
-  cast(5485, <<Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5486, <<Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform4fv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{float(),float(),float(),float()}].
 uniform4fv(Location,Value) ->
-  cast(5486, <<Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5487, <<Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform1iv(Location, Value) -> 'ok' when Location :: integer(),Value :: [integer()].
 uniform1iv(Location,Value) ->
-  cast(5487, <<Location:?GLint,(length(Value)):?GLuint,
-        (<< <<C:?GLint>> || C <- Value>>)/binary,0:(((length(Value)) rem 2)*32)>>).
+  ValueLen = length(Value),
+  cast(5488, <<Location:?GLint,ValueLen:?GLuint,
+        (<< <<C:?GLint>> || C <- Value>>)/binary,0:(((ValueLen) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform2iv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{integer(),integer()}].
 uniform2iv(Location,Value) ->
-  cast(5488, <<Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5489, <<Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLint,V2:?GLint>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform3iv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{integer(),integer(),integer()}].
 uniform3iv(Location,Value) ->
-  cast(5489, <<Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5490, <<Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLint,V2:?GLint,V3:?GLint>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform4iv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{integer(),integer(),integer(),integer()}].
 uniform4iv(Location,Value) ->
-  cast(5490, <<Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5491, <<Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix2fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float()}].
 uniformMatrix2fv(Location,Transpose,Value) ->
-  cast(5491, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5492, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix3fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix3fv(Location,Transpose,Value) ->
-  cast(5492, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5493, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix4fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix4fv(Location,Transpose,Value) ->
-  cast(5493, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5494, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat,V10:?GLfloat,V11:?GLfloat,V12:?GLfloat,V13:?GLfloat,V14:?GLfloat,V15:?GLfloat,V16:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12,V13,V14,V15,V16} <- Value>>)/binary>>).
 
 %% @doc Validates a program object
@@ -11791,7 +11826,7 @@ uniformMatrix4fv(Location,Transpose,Value) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glValidateProgram.xml">external</a> documentation.
 -spec validateProgram(Program) -> 'ok' when Program :: integer().
 validateProgram(Program) ->
-  cast(5494, <<Program:?GLuint>>).
+  cast(5495, <<Program:?GLuint>>).
 
 %% @doc Specifies the value of a generic vertex attribute
 %%
@@ -11866,7 +11901,7 @@ validateProgram(Program) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttrib.xml">external</a> documentation.
 -spec vertexAttrib1d(Index, X) -> 'ok' when Index :: integer(),X :: float().
 vertexAttrib1d(Index,X) ->
-  cast(5495, <<Index:?GLuint,0:32,X:?GLdouble>>).
+  cast(5496, <<Index:?GLuint,0:32,X:?GLdouble>>).
 
 %% @equiv vertexAttrib1d(Index,X)
 -spec vertexAttrib1dv(Index :: integer(),V) -> 'ok' when V :: {X :: float()}.
@@ -11876,7 +11911,7 @@ vertexAttrib1dv(Index,{X}) ->  vertexAttrib1d(Index,X).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib1f(Index, X) -> 'ok' when Index :: integer(),X :: float().
 vertexAttrib1f(Index,X) ->
-  cast(5496, <<Index:?GLuint,X:?GLfloat>>).
+  cast(5497, <<Index:?GLuint,X:?GLfloat>>).
 
 %% @equiv vertexAttrib1f(Index,X)
 -spec vertexAttrib1fv(Index :: integer(),V) -> 'ok' when V :: {X :: float()}.
@@ -11886,7 +11921,7 @@ vertexAttrib1fv(Index,{X}) ->  vertexAttrib1f(Index,X).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib1s(Index, X) -> 'ok' when Index :: integer(),X :: integer().
 vertexAttrib1s(Index,X) ->
-  cast(5497, <<Index:?GLuint,X:?GLshort>>).
+  cast(5498, <<Index:?GLuint,X:?GLshort>>).
 
 %% @equiv vertexAttrib1s(Index,X)
 -spec vertexAttrib1sv(Index :: integer(),V) -> 'ok' when V :: {X :: integer()}.
@@ -11896,7 +11931,7 @@ vertexAttrib1sv(Index,{X}) ->  vertexAttrib1s(Index,X).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib2d(Index, X, Y) -> 'ok' when Index :: integer(),X :: float(),Y :: float().
 vertexAttrib2d(Index,X,Y) ->
-  cast(5498, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble>>).
+  cast(5499, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble>>).
 
 %% @equiv vertexAttrib2d(Index,X,Y)
 -spec vertexAttrib2dv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float()}.
@@ -11906,7 +11941,7 @@ vertexAttrib2dv(Index,{X,Y}) ->  vertexAttrib2d(Index,X,Y).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib2f(Index, X, Y) -> 'ok' when Index :: integer(),X :: float(),Y :: float().
 vertexAttrib2f(Index,X,Y) ->
-  cast(5499, <<Index:?GLuint,X:?GLfloat,Y:?GLfloat>>).
+  cast(5500, <<Index:?GLuint,X:?GLfloat,Y:?GLfloat>>).
 
 %% @equiv vertexAttrib2f(Index,X,Y)
 -spec vertexAttrib2fv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float()}.
@@ -11916,7 +11951,7 @@ vertexAttrib2fv(Index,{X,Y}) ->  vertexAttrib2f(Index,X,Y).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib2s(Index, X, Y) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer().
 vertexAttrib2s(Index,X,Y) ->
-  cast(5500, <<Index:?GLuint,X:?GLshort,Y:?GLshort>>).
+  cast(5501, <<Index:?GLuint,X:?GLshort,Y:?GLshort>>).
 
 %% @equiv vertexAttrib2s(Index,X,Y)
 -spec vertexAttrib2sv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer()}.
@@ -11926,7 +11961,7 @@ vertexAttrib2sv(Index,{X,Y}) ->  vertexAttrib2s(Index,X,Y).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib3d(Index, X, Y, Z) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float().
 vertexAttrib3d(Index,X,Y,Z) ->
-  cast(5501, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
+  cast(5502, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @equiv vertexAttrib3d(Index,X,Y,Z)
 -spec vertexAttrib3dv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float()}.
@@ -11936,7 +11971,7 @@ vertexAttrib3dv(Index,{X,Y,Z}) ->  vertexAttrib3d(Index,X,Y,Z).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib3f(Index, X, Y, Z) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float().
 vertexAttrib3f(Index,X,Y,Z) ->
-  cast(5502, <<Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat>>).
+  cast(5503, <<Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat>>).
 
 %% @equiv vertexAttrib3f(Index,X,Y,Z)
 -spec vertexAttrib3fv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float()}.
@@ -11946,7 +11981,7 @@ vertexAttrib3fv(Index,{X,Y,Z}) ->  vertexAttrib3f(Index,X,Y,Z).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib3s(Index, X, Y, Z) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer().
 vertexAttrib3s(Index,X,Y,Z) ->
-  cast(5503, <<Index:?GLuint,X:?GLshort,Y:?GLshort,Z:?GLshort>>).
+  cast(5504, <<Index:?GLuint,X:?GLshort,Y:?GLshort,Z:?GLshort>>).
 
 %% @equiv vertexAttrib3s(Index,X,Y,Z)
 -spec vertexAttrib3sv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer()}.
@@ -11956,25 +11991,25 @@ vertexAttrib3sv(Index,{X,Y,Z}) ->  vertexAttrib3s(Index,X,Y,Z).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4Nbv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4Nbv(Index,{V1,V2,V3,V4}) ->
-  cast(5504, <<Index:?GLuint,V1:?GLbyte,V2:?GLbyte,V3:?GLbyte,V4:?GLbyte>>).
+  cast(5505, <<Index:?GLuint,V1:?GLbyte,V2:?GLbyte,V3:?GLbyte,V4:?GLbyte>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4Niv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4Niv(Index,{V1,V2,V3,V4}) ->
-  cast(5505, <<Index:?GLuint,V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>>).
+  cast(5506, <<Index:?GLuint,V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4Nsv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4Nsv(Index,{V1,V2,V3,V4}) ->
-  cast(5506, <<Index:?GLuint,V1:?GLshort,V2:?GLshort,V3:?GLshort,V4:?GLshort>>).
+  cast(5507, <<Index:?GLuint,V1:?GLshort,V2:?GLshort,V3:?GLshort,V4:?GLshort>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4Nub(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
 vertexAttrib4Nub(Index,X,Y,Z,W) ->
-  cast(5507, <<Index:?GLuint,X:?GLubyte,Y:?GLubyte,Z:?GLubyte,W:?GLubyte>>).
+  cast(5508, <<Index:?GLuint,X:?GLubyte,Y:?GLubyte,Z:?GLubyte,W:?GLubyte>>).
 
 %% @equiv vertexAttrib4Nub(Index,X,Y,Z,W)
 -spec vertexAttrib4Nubv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
@@ -11984,25 +12019,25 @@ vertexAttrib4Nubv(Index,{X,Y,Z,W}) ->  vertexAttrib4Nub(Index,X,Y,Z,W).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4Nuiv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4Nuiv(Index,{V1,V2,V3,V4}) ->
-  cast(5508, <<Index:?GLuint,V1:?GLuint,V2:?GLuint,V3:?GLuint,V4:?GLuint>>).
+  cast(5509, <<Index:?GLuint,V1:?GLuint,V2:?GLuint,V3:?GLuint,V4:?GLuint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4Nusv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4Nusv(Index,{V1,V2,V3,V4}) ->
-  cast(5509, <<Index:?GLuint,V1:?GLushort,V2:?GLushort,V3:?GLushort,V4:?GLushort>>).
+  cast(5510, <<Index:?GLuint,V1:?GLushort,V2:?GLushort,V3:?GLushort,V4:?GLushort>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4bv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4bv(Index,{V1,V2,V3,V4}) ->
-  cast(5510, <<Index:?GLuint,V1:?GLbyte,V2:?GLbyte,V3:?GLbyte,V4:?GLbyte>>).
+  cast(5511, <<Index:?GLuint,V1:?GLbyte,V2:?GLbyte,V3:?GLbyte,V4:?GLbyte>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4d(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 vertexAttrib4d(Index,X,Y,Z,W) ->
-  cast(5511, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
+  cast(5512, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @equiv vertexAttrib4d(Index,X,Y,Z,W)
 -spec vertexAttrib4dv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
@@ -12012,7 +12047,7 @@ vertexAttrib4dv(Index,{X,Y,Z,W}) ->  vertexAttrib4d(Index,X,Y,Z,W).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4f(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 vertexAttrib4f(Index,X,Y,Z,W) ->
-  cast(5512, <<Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat,W:?GLfloat>>).
+  cast(5513, <<Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat,W:?GLfloat>>).
 
 %% @equiv vertexAttrib4f(Index,X,Y,Z,W)
 -spec vertexAttrib4fv(Index :: integer(),V) -> 'ok' when V :: {X :: float(),Y :: float(),Z :: float(),W :: float()}.
@@ -12022,13 +12057,13 @@ vertexAttrib4fv(Index,{X,Y,Z,W}) ->  vertexAttrib4f(Index,X,Y,Z,W).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4iv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4iv(Index,{V1,V2,V3,V4}) ->
-  cast(5513, <<Index:?GLuint,V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>>).
+  cast(5514, <<Index:?GLuint,V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4s(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
 vertexAttrib4s(Index,X,Y,Z,W) ->
-  cast(5514, <<Index:?GLuint,X:?GLshort,Y:?GLshort,Z:?GLshort,W:?GLshort>>).
+  cast(5515, <<Index:?GLuint,X:?GLshort,Y:?GLshort,Z:?GLshort,W:?GLshort>>).
 
 %% @equiv vertexAttrib4s(Index,X,Y,Z,W)
 -spec vertexAttrib4sv(Index :: integer(),V) -> 'ok' when V :: {X :: integer(),Y :: integer(),Z :: integer(),W :: integer()}.
@@ -12038,19 +12073,19 @@ vertexAttrib4sv(Index,{X,Y,Z,W}) ->  vertexAttrib4s(Index,X,Y,Z,W).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4ubv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4ubv(Index,{V1,V2,V3,V4}) ->
-  cast(5515, <<Index:?GLuint,V1:?GLubyte,V2:?GLubyte,V3:?GLubyte,V4:?GLubyte>>).
+  cast(5516, <<Index:?GLuint,V1:?GLubyte,V2:?GLubyte,V3:?GLubyte,V4:?GLubyte>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4uiv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4uiv(Index,{V1,V2,V3,V4}) ->
-  cast(5516, <<Index:?GLuint,V1:?GLuint,V2:?GLuint,V3:?GLuint,V4:?GLuint>>).
+  cast(5517, <<Index:?GLuint,V1:?GLuint,V2:?GLuint,V3:?GLuint,V4:?GLuint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttrib4usv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttrib4usv(Index,{V1,V2,V3,V4}) ->
-  cast(5517, <<Index:?GLuint,V1:?GLushort,V2:?GLushort,V3:?GLushort,V4:?GLushort>>).
+  cast(5518, <<Index:?GLuint,V1:?GLushort,V2:?GLushort,V3:?GLushort,V4:?GLushort>>).
 
 %% @doc Define an array of generic vertex attribute data
 %%
@@ -12094,51 +12129,57 @@ vertexAttrib4usv(Index,{V1,V2,V3,V4}) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribPointer.xml">external</a> documentation.
 -spec vertexAttribPointer(Index, Size, Type, Normalized, Stride, Pointer) -> 'ok' when Index :: integer(),Size :: integer(),Type :: enum(),Normalized :: 0|1,Stride :: integer(),Pointer :: offset()|mem().
 vertexAttribPointer(Index,Size,Type,Normalized,Stride,Pointer) when  is_integer(Pointer) ->
-  cast(5518, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Normalized:?GLboolean,0:24,Stride:?GLsizei,Pointer:?GLuint>>);
+  cast(5519, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Normalized:?GLboolean,0:24,Stride:?GLsizei,Pointer:?GLuint>>);
 vertexAttribPointer(Index,Size,Type,Normalized,Stride,Pointer) ->
   send_bin(Pointer),
-  cast(5519, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Normalized:?GLboolean,0:24,Stride:?GLsizei>>).
+  cast(5520, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Normalized:?GLboolean,0:24,Stride:?GLsizei>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix2x3fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 uniformMatrix2x3fv(Location,Transpose,Value) ->
-  cast(5520, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5521, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix3x2fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 uniformMatrix3x2fv(Location,Transpose,Value) ->
-  cast(5521, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5522, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix2x4fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix2x4fv(Location,Transpose,Value) ->
-  cast(5522, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5523, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix4x2fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix4x2fv(Location,Transpose,Value) ->
-  cast(5523, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5524, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix3x4fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix3x4fv(Location,Transpose,Value) ->
-  cast(5524, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5525, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat,V10:?GLfloat,V11:?GLfloat,V12:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix4x3fv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix4x3fv(Location,Transpose,Value) ->
-  cast(5525, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5526, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat,V10:?GLfloat,V11:?GLfloat,V12:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
 
 %% @doc glColorMaski
@@ -12146,39 +12187,39 @@ uniformMatrix4x3fv(Location,Transpose,Value) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorMaski.xml">external</a> documentation.
 -spec colorMaski(Index, R, G, B, A) -> 'ok' when Index :: integer(),R :: 0|1,G :: 0|1,B :: 0|1,A :: 0|1.
 colorMaski(Index,R,G,B,A) ->
-  cast(5526, <<Index:?GLuint,R:?GLboolean,G:?GLboolean,B:?GLboolean,A:?GLboolean>>).
+  cast(5527, <<Index:?GLuint,R:?GLboolean,G:?GLboolean,B:?GLboolean,A:?GLboolean>>).
 
 %% @doc 
 %% See {@link getBooleanv/1}
 -spec getBooleani_v(Target, Index) -> [0|1] when Target :: enum(),Index :: integer().
 getBooleani_v(Target,Index) ->
-  call(5527, <<Target:?GLenum,Index:?GLuint>>).
+  call(5528, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc 
 %% See {@link getBooleanv/1}
 -spec getIntegeri_v(Target, Index) -> [integer()] when Target :: enum(),Index :: integer().
 getIntegeri_v(Target,Index) ->
-  call(5528, <<Target:?GLenum,Index:?GLuint>>).
+  call(5529, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc 
 %% See {@link enable/1}
 -spec enablei(Target, Index) -> 'ok' when Target :: enum(),Index :: integer().
 enablei(Target,Index) ->
-  cast(5529, <<Target:?GLenum,Index:?GLuint>>).
+  cast(5530, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glEnablei
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEnablei.xml">external</a> documentation.
 -spec disablei(Target, Index) -> 'ok' when Target :: enum(),Index :: integer().
 disablei(Target,Index) ->
-  cast(5530, <<Target:?GLenum,Index:?GLuint>>).
+  cast(5531, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glIsEnabledi
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsEnabledi.xml">external</a> documentation.
 -spec isEnabledi(Target, Index) -> 0|1 when Target :: enum(),Index :: integer().
 isEnabledi(Target,Index) ->
-  call(5531, <<Target:?GLenum,Index:?GLuint>>).
+  call(5532, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc Start transform feedback operation
 %%
@@ -12206,13 +12247,13 @@ isEnabledi(Target,Index) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginTransformFeedback.xml">external</a> documentation.
 -spec beginTransformFeedback(PrimitiveMode) -> 'ok' when PrimitiveMode :: enum().
 beginTransformFeedback(PrimitiveMode) ->
-  cast(5532, <<PrimitiveMode:?GLenum>>).
+  cast(5533, <<PrimitiveMode:?GLenum>>).
 
 %% @doc 
 %% See {@link beginTransformFeedback/1}
 -spec endTransformFeedback() -> 'ok'.
 endTransformFeedback() ->
-  cast(5533, <<>>).
+  cast(5534, <<>>).
 
 %% @doc Bind a range within a buffer object to an indexed buffer target
 %%
@@ -12231,7 +12272,7 @@ endTransformFeedback() ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindBufferRange.xml">external</a> documentation.
 -spec bindBufferRange(Target, Index, Buffer, Offset, Size) -> 'ok' when Target :: enum(),Index :: integer(),Buffer :: integer(),Offset :: integer(),Size :: integer().
 bindBufferRange(Target,Index,Buffer,Offset,Size) ->
-  cast(5534, <<Target:?GLenum,Index:?GLuint,Buffer:?GLuint,0:32,Offset:?GLintptr,Size:?GLsizeiptr>>).
+  cast(5535, <<Target:?GLenum,Index:?GLuint,Buffer:?GLuint,0:32,Offset:?GLintptr,Size:?GLsizeiptr>>).
 
 %% @doc Bind a buffer object to an indexed buffer target
 %%
@@ -12246,7 +12287,7 @@ bindBufferRange(Target,Index,Buffer,Offset,Size) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindBufferBase.xml">external</a> documentation.
 -spec bindBufferBase(Target, Index, Buffer) -> 'ok' when Target :: enum(),Index :: integer(),Buffer :: integer().
 bindBufferBase(Target,Index,Buffer) ->
-  cast(5535, <<Target:?GLenum,Index:?GLuint,Buffer:?GLuint>>).
+  cast(5536, <<Target:?GLenum,Index:?GLuint,Buffer:?GLuint>>).
 
 %% @doc Specify values to record in transform feedback buffers
 %%
@@ -12284,8 +12325,9 @@ bindBufferBase(Target,Index,Buffer) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTransformFeedbackVaryings.xml">external</a> documentation.
 -spec transformFeedbackVaryings(Program, Varyings, BufferMode) -> 'ok' when Program :: integer(),Varyings :: iolist(),BufferMode :: enum().
 transformFeedbackVaryings(Program,Varyings,BufferMode) ->
- VaryingsTemp = list_to_binary([[Str|[0]] || Str <- Varyings ]),
-  cast(5536, <<Program:?GLuint,(length(Varyings)):?GLuint,(size(VaryingsTemp)):?GLuint,(VaryingsTemp)/binary,0:((8-((size(VaryingsTemp)+0) rem 8)) rem 8),BufferMode:?GLenum>>).
+  VaryingsTemp = list_to_binary([[Str|[0]] || Str <- Varyings ]),
+  VaryingsLen = length(Varyings),
+  cast(5537, <<Program:?GLuint,VaryingsLen:?GLuint,(size(VaryingsTemp)):?GLuint,(VaryingsTemp)/binary,0:((8-((size(VaryingsTemp)+0) rem 8)) rem 8),BufferMode:?GLenum>>).
 
 %% @doc Retrieve information about varying variables selected for transform feedback
 %%
@@ -12318,7 +12360,7 @@ transformFeedbackVaryings(Program,Varyings,BufferMode) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetTransformFeedbackVarying.xml">external</a> documentation.
 -spec getTransformFeedbackVarying(Program, Index, BufSize) -> {Size :: integer(),Type :: enum(),Name :: string()} when Program :: integer(),Index :: integer(),BufSize :: integer().
 getTransformFeedbackVarying(Program,Index,BufSize) ->
-  call(5537, <<Program:?GLuint,Index:?GLuint,BufSize:?GLsizei>>).
+  call(5538, <<Program:?GLuint,Index:?GLuint,BufSize:?GLsizei>>).
 
 %% @doc specify whether data read via 
 %%
@@ -12333,7 +12375,7 @@ getTransformFeedbackVarying(Program,Index,BufSize) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClampColor.xml">external</a> documentation.
 -spec clampColor(Target, Clamp) -> 'ok' when Target :: enum(),Clamp :: enum().
 clampColor(Target,Clamp) ->
-  cast(5538, <<Target:?GLenum,Clamp:?GLenum>>).
+  cast(5539, <<Target:?GLenum,Clamp:?GLenum>>).
 
 %% @doc Start conditional rendering
 %%
@@ -12365,84 +12407,84 @@ clampColor(Target,Clamp) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginConditionalRender.xml">external</a> documentation.
 -spec beginConditionalRender(Id, Mode) -> 'ok' when Id :: integer(),Mode :: enum().
 beginConditionalRender(Id,Mode) ->
-  cast(5539, <<Id:?GLuint,Mode:?GLenum>>).
+  cast(5540, <<Id:?GLuint,Mode:?GLenum>>).
 
 %% @doc 
 %% See {@link beginConditionalRender/2}
 -spec endConditionalRender() -> 'ok'.
 endConditionalRender() ->
-  cast(5540, <<>>).
+  cast(5541, <<>>).
 
 %% @doc glVertexAttribIPointer
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribIPointer.xml">external</a> documentation.
 -spec vertexAttribIPointer(Index, Size, Type, Stride, Pointer) -> 'ok' when Index :: integer(),Size :: integer(),Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 vertexAttribIPointer(Index,Size,Type,Stride,Pointer) when  is_integer(Pointer) ->
-  cast(5541, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
+  cast(5542, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
 vertexAttribIPointer(Index,Size,Type,Stride,Pointer) ->
   send_bin(Pointer),
-  cast(5542, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Stride:?GLsizei>>).
+  cast(5543, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Stride:?GLsizei>>).
 
 %% @doc 
 %% See {@link getVertexAttribdv/2}
 -spec getVertexAttribIiv(Index, Pname) -> {integer(),integer(),integer(),integer()} when Index :: integer(),Pname :: enum().
 getVertexAttribIiv(Index,Pname) ->
-  call(5543, <<Index:?GLuint,Pname:?GLenum>>).
+  call(5544, <<Index:?GLuint,Pname:?GLenum>>).
 
 %% @doc glGetVertexAttribI
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetVertexAttribI.xml">external</a> documentation.
 -spec getVertexAttribIuiv(Index, Pname) -> {integer(),integer(),integer(),integer()} when Index :: integer(),Pname :: enum().
 getVertexAttribIuiv(Index,Pname) ->
-  call(5544, <<Index:?GLuint,Pname:?GLenum>>).
+  call(5545, <<Index:?GLuint,Pname:?GLenum>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttribI1i(Index, X) -> 'ok' when Index :: integer(),X :: integer().
 vertexAttribI1i(Index,X) ->
-  cast(5545, <<Index:?GLuint,X:?GLint>>).
+  cast(5546, <<Index:?GLuint,X:?GLint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttribI2i(Index, X, Y) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer().
 vertexAttribI2i(Index,X,Y) ->
-  cast(5546, <<Index:?GLuint,X:?GLint,Y:?GLint>>).
+  cast(5547, <<Index:?GLuint,X:?GLint,Y:?GLint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttribI3i(Index, X, Y, Z) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer().
 vertexAttribI3i(Index,X,Y,Z) ->
-  cast(5547, <<Index:?GLuint,X:?GLint,Y:?GLint,Z:?GLint>>).
+  cast(5548, <<Index:?GLuint,X:?GLint,Y:?GLint,Z:?GLint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttribI4i(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
 vertexAttribI4i(Index,X,Y,Z,W) ->
-  cast(5548, <<Index:?GLuint,X:?GLint,Y:?GLint,Z:?GLint,W:?GLint>>).
+  cast(5549, <<Index:?GLuint,X:?GLint,Y:?GLint,Z:?GLint,W:?GLint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttribI1ui(Index, X) -> 'ok' when Index :: integer(),X :: integer().
 vertexAttribI1ui(Index,X) ->
-  cast(5549, <<Index:?GLuint,X:?GLuint>>).
+  cast(5550, <<Index:?GLuint,X:?GLuint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttribI2ui(Index, X, Y) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer().
 vertexAttribI2ui(Index,X,Y) ->
-  cast(5550, <<Index:?GLuint,X:?GLuint,Y:?GLuint>>).
+  cast(5551, <<Index:?GLuint,X:?GLuint,Y:?GLuint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttribI3ui(Index, X, Y, Z) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer().
 vertexAttribI3ui(Index,X,Y,Z) ->
-  cast(5551, <<Index:?GLuint,X:?GLuint,Y:?GLuint,Z:?GLuint>>).
+  cast(5552, <<Index:?GLuint,X:?GLuint,Y:?GLuint,Z:?GLuint>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttribI4ui(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: integer(),Y :: integer(),Z :: integer(),W :: integer().
 vertexAttribI4ui(Index,X,Y,Z,W) ->
-  cast(5552, <<Index:?GLuint,X:?GLuint,Y:?GLuint,Z:?GLuint,W:?GLuint>>).
+  cast(5553, <<Index:?GLuint,X:?GLuint,Y:?GLuint,Z:?GLuint,W:?GLuint>>).
 
 %% @equiv vertexAttribI1i(Index,X)
 -spec vertexAttribI1iv(Index :: integer(),V) -> 'ok' when V :: {X :: integer()}.
@@ -12480,31 +12522,31 @@ vertexAttribI4uiv(Index,{X,Y,Z,W}) ->  vertexAttribI4ui(Index,X,Y,Z,W).
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttribI4bv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttribI4bv(Index,{V1,V2,V3,V4}) ->
-  cast(5553, <<Index:?GLuint,V1:?GLbyte,V2:?GLbyte,V3:?GLbyte,V4:?GLbyte>>).
+  cast(5554, <<Index:?GLuint,V1:?GLbyte,V2:?GLbyte,V3:?GLbyte,V4:?GLbyte>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttribI4sv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttribI4sv(Index,{V1,V2,V3,V4}) ->
-  cast(5554, <<Index:?GLuint,V1:?GLshort,V2:?GLshort,V3:?GLshort,V4:?GLshort>>).
+  cast(5555, <<Index:?GLuint,V1:?GLshort,V2:?GLshort,V3:?GLshort,V4:?GLshort>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttribI4ubv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttribI4ubv(Index,{V1,V2,V3,V4}) ->
-  cast(5555, <<Index:?GLuint,V1:?GLubyte,V2:?GLubyte,V3:?GLubyte,V4:?GLubyte>>).
+  cast(5556, <<Index:?GLuint,V1:?GLubyte,V2:?GLubyte,V3:?GLubyte,V4:?GLubyte>>).
 
 %% @doc 
 %% See {@link vertexAttrib1d/2}
 -spec vertexAttribI4usv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 vertexAttribI4usv(Index,{V1,V2,V3,V4}) ->
-  cast(5556, <<Index:?GLuint,V1:?GLushort,V2:?GLushort,V3:?GLushort,V4:?GLushort>>).
+  cast(5557, <<Index:?GLuint,V1:?GLushort,V2:?GLushort,V3:?GLushort,V4:?GLushort>>).
 
 %% @doc 
 %% See {@link getUniformfv/2}
 -spec getUniformuiv(Program, Location) -> {integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer()} when Program :: integer(),Location :: integer().
 getUniformuiv(Program,Location) ->
-  call(5557, <<Program:?GLuint,Location:?GLint>>).
+  call(5558, <<Program:?GLuint,Location:?GLint>>).
 
 %% @doc Bind a user-defined varying out variable to a fragment shader color number
 %%
@@ -12531,7 +12573,8 @@ getUniformuiv(Program,Location) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindFragDataLocation.xml">external</a> documentation.
 -spec bindFragDataLocation(Program, Color, Name) -> 'ok' when Program :: integer(),Color :: integer(),Name :: string().
 bindFragDataLocation(Program,Color,Name) ->
-  cast(5558, <<Program:?GLuint,Color:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 1) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  cast(5559, <<Program:?GLuint,Color:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 1) rem 8)) rem 8)>>).
 
 %% @doc Query the bindings of color numbers to user-defined varying out variables
 %%
@@ -12544,65 +12587,70 @@ bindFragDataLocation(Program,Color,Name) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetFragDataLocation.xml">external</a> documentation.
 -spec getFragDataLocation(Program, Name) -> integer() when Program :: integer(),Name :: string().
 getFragDataLocation(Program,Name) ->
-  call(5559, <<Program:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 5) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  call(5560, <<Program:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 5) rem 8)) rem 8)>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform1ui(Location, V0) -> 'ok' when Location :: integer(),V0 :: integer().
 uniform1ui(Location,V0) ->
-  cast(5560, <<Location:?GLint,V0:?GLuint>>).
+  cast(5561, <<Location:?GLint,V0:?GLuint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform2ui(Location, V0, V1) -> 'ok' when Location :: integer(),V0 :: integer(),V1 :: integer().
 uniform2ui(Location,V0,V1) ->
-  cast(5561, <<Location:?GLint,V0:?GLuint,V1:?GLuint>>).
+  cast(5562, <<Location:?GLint,V0:?GLuint,V1:?GLuint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform3ui(Location, V0, V1, V2) -> 'ok' when Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer().
 uniform3ui(Location,V0,V1,V2) ->
-  cast(5562, <<Location:?GLint,V0:?GLuint,V1:?GLuint,V2:?GLuint>>).
+  cast(5563, <<Location:?GLint,V0:?GLuint,V1:?GLuint,V2:?GLuint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform4ui(Location, V0, V1, V2, V3) -> 'ok' when Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer(),V3 :: integer().
 uniform4ui(Location,V0,V1,V2,V3) ->
-  cast(5563, <<Location:?GLint,V0:?GLuint,V1:?GLuint,V2:?GLuint,V3:?GLuint>>).
+  cast(5564, <<Location:?GLint,V0:?GLuint,V1:?GLuint,V2:?GLuint,V3:?GLuint>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform1uiv(Location, Value) -> 'ok' when Location :: integer(),Value :: [integer()].
 uniform1uiv(Location,Value) ->
-  cast(5564, <<Location:?GLint,(length(Value)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Value>>)/binary,0:(((length(Value)) rem 2)*32)>>).
+  ValueLen = length(Value),
+  cast(5565, <<Location:?GLint,ValueLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Value>>)/binary,0:(((ValueLen) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform2uiv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{integer(),integer()}].
 uniform2uiv(Location,Value) ->
-  cast(5565, <<Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5566, <<Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLuint,V2:?GLuint>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform3uiv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{integer(),integer(),integer()}].
 uniform3uiv(Location,Value) ->
-  cast(5566, <<Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5567, <<Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLuint,V2:?GLuint,V3:?GLuint>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform4uiv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{integer(),integer(),integer(),integer()}].
 uniform4uiv(Location,Value) ->
-  cast(5567, <<Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5568, <<Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLuint,V2:?GLuint,V3:?GLuint,V4:?GLuint>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link texParameterf/3}
 -spec texParameterIiv(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: tuple().
 texParameterIiv(Target,Pname,Params) ->
-  cast(5568, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
+  cast(5569, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @doc glTexParameterI
@@ -12610,21 +12658,21 @@ texParameterIiv(Target,Pname,Params) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexParameterI.xml">external</a> documentation.
 -spec texParameterIuiv(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: tuple().
 texParameterIuiv(Target,Pname,Params) ->
-  cast(5569, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
+  cast(5570, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
       (<< <<C:?GLuint>> ||C <- tuple_to_list(Params)>>)/binary,0:(((1+size(Params)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link getTexParameterfv/2}
 -spec getTexParameterIiv(Target, Pname) -> {integer(),integer(),integer(),integer()} when Target :: enum(),Pname :: enum().
 getTexParameterIiv(Target,Pname) ->
-  call(5570, <<Target:?GLenum,Pname:?GLenum>>).
+  call(5571, <<Target:?GLenum,Pname:?GLenum>>).
 
 %% @doc glGetTexParameterI
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetTexParameterI.xml">external</a> documentation.
 -spec getTexParameterIuiv(Target, Pname) -> {integer(),integer(),integer(),integer()} when Target :: enum(),Pname :: enum().
 getTexParameterIuiv(Target,Pname) ->
-  call(5571, <<Target:?GLenum,Pname:?GLenum>>).
+  call(5572, <<Target:?GLenum,Pname:?GLenum>>).
 
 %% @doc Clear individual buffers of the currently bound draw framebuffer
 %%
@@ -12657,21 +12705,21 @@ getTexParameterIuiv(Target,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearBuffer.xml">external</a> documentation.
 -spec clearBufferiv(Buffer, Drawbuffer, Value) -> 'ok' when Buffer :: enum(),Drawbuffer :: integer(),Value :: tuple().
 clearBufferiv(Buffer,Drawbuffer,Value) ->
-  cast(5572, <<Buffer:?GLenum,Drawbuffer:?GLint,(size(Value)):?GLuint,
+  cast(5573, <<Buffer:?GLenum,Drawbuffer:?GLint,(size(Value)):?GLuint,
       (<< <<C:?GLint>> ||C <- tuple_to_list(Value)>>)/binary,0:(((1+size(Value)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link clearBufferiv/3}
 -spec clearBufferuiv(Buffer, Drawbuffer, Value) -> 'ok' when Buffer :: enum(),Drawbuffer :: integer(),Value :: tuple().
 clearBufferuiv(Buffer,Drawbuffer,Value) ->
-  cast(5573, <<Buffer:?GLenum,Drawbuffer:?GLint,(size(Value)):?GLuint,
+  cast(5574, <<Buffer:?GLenum,Drawbuffer:?GLint,(size(Value)):?GLuint,
       (<< <<C:?GLuint>> ||C <- tuple_to_list(Value)>>)/binary,0:(((1+size(Value)) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link clearBufferiv/3}
 -spec clearBufferfv(Buffer, Drawbuffer, Value) -> 'ok' when Buffer :: enum(),Drawbuffer :: integer(),Value :: tuple().
 clearBufferfv(Buffer,Drawbuffer,Value) ->
-  cast(5574, <<Buffer:?GLenum,Drawbuffer:?GLint,(size(Value)):?GLuint,
+  cast(5575, <<Buffer:?GLenum,Drawbuffer:?GLint,(size(Value)):?GLuint,
       (<< <<C:?GLfloat>> ||C <- tuple_to_list(Value)>>)/binary,0:(((1+size(Value)) rem 2)*32)>>).
 
 %% @doc glClearBufferfi
@@ -12679,30 +12727,30 @@ clearBufferfv(Buffer,Drawbuffer,Value) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearBufferfi.xml">external</a> documentation.
 -spec clearBufferfi(Buffer, Drawbuffer, Depth, Stencil) -> 'ok' when Buffer :: enum(),Drawbuffer :: integer(),Depth :: float(),Stencil :: integer().
 clearBufferfi(Buffer,Drawbuffer,Depth,Stencil) ->
-  cast(5575, <<Buffer:?GLenum,Drawbuffer:?GLint,Depth:?GLfloat,Stencil:?GLint>>).
+  cast(5576, <<Buffer:?GLenum,Drawbuffer:?GLint,Depth:?GLfloat,Stencil:?GLint>>).
 
 %% @doc 
 %% See {@link getString/1}
 -spec getStringi(Name, Index) -> string() when Name :: enum(),Index :: integer().
 getStringi(Name,Index) ->
-  call(5576, <<Name:?GLenum,Index:?GLuint>>).
+  call(5577, <<Name:?GLenum,Index:?GLuint>>).
 
 %% @doc glDrawArraysInstance
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawArraysInstance.xml">external</a> documentation.
 -spec drawArraysInstanced(Mode, First, Count, Primcount) -> 'ok' when Mode :: enum(),First :: integer(),Count :: integer(),Primcount :: integer().
 drawArraysInstanced(Mode,First,Count,Primcount) ->
-  cast(5577, <<Mode:?GLenum,First:?GLint,Count:?GLsizei,Primcount:?GLsizei>>).
+  cast(5578, <<Mode:?GLenum,First:?GLint,Count:?GLsizei,Primcount:?GLsizei>>).
 
 %% @doc glDrawElementsInstance
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsInstance.xml">external</a> documentation.
 -spec drawElementsInstanced(Mode, Count, Type, Indices, Primcount) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer().
 drawElementsInstanced(Mode,Count,Type,Indices,Primcount) when  is_integer(Indices) ->
-  cast(5578, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei>>);
+  cast(5579, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei>>);
 drawElementsInstanced(Mode,Count,Type,Indices,Primcount) ->
   send_bin(Indices),
-  cast(5579, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Primcount:?GLsizei>>).
+  cast(5580, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Primcount:?GLsizei>>).
 
 %% @doc Attach the storage for a buffer object to the active buffer texture
 %%
@@ -12770,7 +12818,7 @@ drawElementsInstanced(Mode,Count,Type,Indices,Primcount) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexBuffer.xml">external</a> documentation.
 -spec texBuffer(Target, Internalformat, Buffer) -> 'ok' when Target :: enum(),Internalformat :: enum(),Buffer :: integer().
 texBuffer(Target,Internalformat,Buffer) ->
-  cast(5580, <<Target:?GLenum,Internalformat:?GLenum,Buffer:?GLuint>>).
+  cast(5581, <<Target:?GLenum,Internalformat:?GLenum,Buffer:?GLuint>>).
 
 %% @doc Specify the primitive restart index
 %%
@@ -12792,20 +12840,20 @@ texBuffer(Target,Internalformat,Buffer) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPrimitiveRestartIndex.xml">external</a> documentation.
 -spec primitiveRestartIndex(Index) -> 'ok' when Index :: integer().
 primitiveRestartIndex(Index) ->
-  cast(5581, <<Index:?GLuint>>).
+  cast(5582, <<Index:?GLuint>>).
 
 %% @doc 
 %% See {@link getBooleanv/1}
 -spec getInteger64i_v(Target, Index) -> [integer()] when Target :: enum(),Index :: integer().
 getInteger64i_v(Target,Index) ->
-  call(5582, <<Target:?GLenum,Index:?GLuint>>).
+  call(5583, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glGetBufferParameteri64v
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetBufferParameteri64v.xml">external</a> documentation.
 -spec getBufferParameteri64v(Target, Pname) -> [integer()] when Target :: enum(),Pname :: enum().
 getBufferParameteri64v(Target,Pname) ->
-  call(5583, <<Target:?GLenum,Pname:?GLenum>>).
+  call(5584, <<Target:?GLenum,Pname:?GLenum>>).
 
 %% @doc Attach a level of a texture object as a logical buffer to the currently bound framebuffer object
 %%
@@ -12862,7 +12910,7 @@ getBufferParameteri64v(Target,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFramebufferTexture.xml">external</a> documentation.
 -spec framebufferTexture(Target, Attachment, Texture, Level) -> 'ok' when Target :: enum(),Attachment :: enum(),Texture :: integer(),Level :: integer().
 framebufferTexture(Target,Attachment,Texture,Level) ->
-  cast(5584, <<Target:?GLenum,Attachment:?GLenum,Texture:?GLuint,Level:?GLint>>).
+  cast(5585, <<Target:?GLenum,Attachment:?GLenum,Texture:?GLuint,Level:?GLint>>).
 
 %% @doc Modify the rate at which generic vertex attributes advance during instanced rendering
 %%
@@ -12878,7 +12926,7 @@ framebufferTexture(Target,Attachment,Texture,Level) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribDivisor.xml">external</a> documentation.
 -spec vertexAttribDivisor(Index, Divisor) -> 'ok' when Index :: integer(),Divisor :: integer().
 vertexAttribDivisor(Index,Divisor) ->
-  cast(5585, <<Index:?GLuint,Divisor:?GLuint>>).
+  cast(5586, <<Index:?GLuint,Divisor:?GLuint>>).
 
 %% @doc Specifies minimum rate at which sample shaing takes place
 %%
@@ -12899,107 +12947,112 @@ vertexAttribDivisor(Index,Divisor) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMinSampleShading.xml">external</a> documentation.
 -spec minSampleShading(Value) -> 'ok' when Value :: clamp().
 minSampleShading(Value) ->
-  cast(5586, <<Value:?GLclampf>>).
+  cast(5587, <<Value:?GLclampf>>).
 
 %% @doc 
 %% See {@link blendEquation/1}
 -spec blendEquationi(Buf, Mode) -> 'ok' when Buf :: integer(),Mode :: enum().
 blendEquationi(Buf,Mode) ->
-  cast(5587, <<Buf:?GLuint,Mode:?GLenum>>).
+  cast(5588, <<Buf:?GLuint,Mode:?GLenum>>).
 
 %% @doc 
 %% See {@link blendEquationSeparate/2}
 -spec blendEquationSeparatei(Buf, ModeRGB, ModeAlpha) -> 'ok' when Buf :: integer(),ModeRGB :: enum(),ModeAlpha :: enum().
 blendEquationSeparatei(Buf,ModeRGB,ModeAlpha) ->
-  cast(5588, <<Buf:?GLuint,ModeRGB:?GLenum,ModeAlpha:?GLenum>>).
+  cast(5589, <<Buf:?GLuint,ModeRGB:?GLenum,ModeAlpha:?GLenum>>).
 
 %% @doc glBlendFunci
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendFunci.xml">external</a> documentation.
 -spec blendFunci(Buf, Src, Dst) -> 'ok' when Buf :: integer(),Src :: enum(),Dst :: enum().
 blendFunci(Buf,Src,Dst) ->
-  cast(5589, <<Buf:?GLuint,Src:?GLenum,Dst:?GLenum>>).
+  cast(5590, <<Buf:?GLuint,Src:?GLenum,Dst:?GLenum>>).
 
 %% @doc 
 %% See {@link blendFuncSeparate/4}
 -spec blendFuncSeparatei(Buf, SrcRGB, DstRGB, SrcAlpha, DstAlpha) -> 'ok' when Buf :: integer(),SrcRGB :: enum(),DstRGB :: enum(),SrcAlpha :: enum(),DstAlpha :: enum().
 blendFuncSeparatei(Buf,SrcRGB,DstRGB,SrcAlpha,DstAlpha) ->
-  cast(5590, <<Buf:?GLuint,SrcRGB:?GLenum,DstRGB:?GLenum,SrcAlpha:?GLenum,DstAlpha:?GLenum>>).
+  cast(5591, <<Buf:?GLuint,SrcRGB:?GLenum,DstRGB:?GLenum,SrcAlpha:?GLenum,DstAlpha:?GLenum>>).
 
 %% @doc glLoadTransposeMatrixARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadTransposeMatrixARB.xml">external</a> documentation.
 -spec loadTransposeMatrixfARB(M) -> 'ok' when M :: matrix().
 loadTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
-  cast(5591, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
+  cast(5592, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
 loadTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
-  cast(5591, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,0:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,0:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,0:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,1:?GLfloat>>).
+  cast(5592, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,0:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,0:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,0:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,1:?GLfloat>>).
 
 %% @doc glLoadTransposeMatrixARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadTransposeMatrixARB.xml">external</a> documentation.
 -spec loadTransposeMatrixdARB(M) -> 'ok' when M :: matrix().
 loadTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
-  cast(5592, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
+  cast(5593, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
 loadTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
-  cast(5592, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,0:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,0:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,0:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,1:?GLdouble>>).
+  cast(5593, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,0:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,0:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,0:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,1:?GLdouble>>).
 
 %% @doc glMultTransposeMatrixARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultTransposeMatrixARB.xml">external</a> documentation.
 -spec multTransposeMatrixfARB(M) -> 'ok' when M :: matrix().
 multTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
-  cast(5593, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
+  cast(5594, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
 multTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
-  cast(5593, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,0:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,0:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,0:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,1:?GLfloat>>).
+  cast(5594, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,0:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,0:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,0:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,1:?GLfloat>>).
 
 %% @doc glMultTransposeMatrixARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultTransposeMatrixARB.xml">external</a> documentation.
 -spec multTransposeMatrixdARB(M) -> 'ok' when M :: matrix().
 multTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
-  cast(5594, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
+  cast(5595, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
 multTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
-  cast(5594, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,0:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,0:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,0:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,1:?GLdouble>>).
+  cast(5595, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,0:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,0:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,0:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,1:?GLdouble>>).
 
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
 -spec weightbvARB(Weights) -> 'ok' when Weights :: [integer()].
 weightbvARB(Weights) ->
-  cast(5595, <<(length(Weights)):?GLuint,
-        (<< <<C:?GLbyte>> || C <- Weights>>)/binary,0:((8-((length(Weights)+ 4) rem 8)) rem 8)>>).
+  WeightsLen = length(Weights),
+  cast(5596, <<WeightsLen:?GLuint,
+        (<< <<C:?GLbyte>> || C <- Weights>>)/binary,0:((8-((WeightsLen+ 4) rem 8)) rem 8)>>).
 
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
 -spec weightsvARB(Weights) -> 'ok' when Weights :: [integer()].
 weightsvARB(Weights) ->
-  cast(5596, <<(length(Weights)):?GLuint,
-        (<< <<C:?GLshort>> || C <- Weights>>)/binary,0:((8-((length(Weights)*2+ 4) rem 8)) rem 8)>>).
+  WeightsLen = length(Weights),
+  cast(5597, <<WeightsLen:?GLuint,
+        (<< <<C:?GLshort>> || C <- Weights>>)/binary,0:((8-((WeightsLen*2+ 4) rem 8)) rem 8)>>).
 
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
 -spec weightivARB(Weights) -> 'ok' when Weights :: [integer()].
 weightivARB(Weights) ->
-  cast(5597, <<(length(Weights)):?GLuint,
-        (<< <<C:?GLint>> || C <- Weights>>)/binary,0:(((1+length(Weights)) rem 2)*32)>>).
+  WeightsLen = length(Weights),
+  cast(5598, <<WeightsLen:?GLuint,
+        (<< <<C:?GLint>> || C <- Weights>>)/binary,0:(((1+WeightsLen) rem 2)*32)>>).
 
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
 -spec weightfvARB(Weights) -> 'ok' when Weights :: [float()].
 weightfvARB(Weights) ->
-  cast(5598, <<(length(Weights)):?GLuint,
-        (<< <<C:?GLfloat>> || C <- Weights>>)/binary,0:(((1+length(Weights)) rem 2)*32)>>).
+  WeightsLen = length(Weights),
+  cast(5599, <<WeightsLen:?GLuint,
+        (<< <<C:?GLfloat>> || C <- Weights>>)/binary,0:(((1+WeightsLen) rem 2)*32)>>).
 
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
 -spec weightdvARB(Weights) -> 'ok' when Weights :: [float()].
 weightdvARB(Weights) ->
-  cast(5599, <<(length(Weights)):?GLuint,0:32,
+  WeightsLen = length(Weights),
+  cast(5600, <<WeightsLen:?GLuint,0:32,
         (<< <<C:?GLdouble>> || C <- Weights>>)/binary>>).
 
 %% @doc glWeightARB
@@ -13007,175 +13060,183 @@ weightdvARB(Weights) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
 -spec weightubvARB(Weights) -> 'ok' when Weights :: [integer()].
 weightubvARB(Weights) ->
-  cast(5600, <<(length(Weights)):?GLuint,
-        (<< <<C:?GLubyte>> || C <- Weights>>)/binary,0:((8-((length(Weights)+ 4) rem 8)) rem 8)>>).
+  WeightsLen = length(Weights),
+  cast(5601, <<WeightsLen:?GLuint,
+        (<< <<C:?GLubyte>> || C <- Weights>>)/binary,0:((8-((WeightsLen+ 4) rem 8)) rem 8)>>).
 
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
 -spec weightusvARB(Weights) -> 'ok' when Weights :: [integer()].
 weightusvARB(Weights) ->
-  cast(5601, <<(length(Weights)):?GLuint,
-        (<< <<C:?GLushort>> || C <- Weights>>)/binary,0:((8-((length(Weights)*2+ 4) rem 8)) rem 8)>>).
+  WeightsLen = length(Weights),
+  cast(5602, <<WeightsLen:?GLuint,
+        (<< <<C:?GLushort>> || C <- Weights>>)/binary,0:((8-((WeightsLen*2+ 4) rem 8)) rem 8)>>).
 
 %% @doc glWeightARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
 -spec weightuivARB(Weights) -> 'ok' when Weights :: [integer()].
 weightuivARB(Weights) ->
-  cast(5602, <<(length(Weights)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Weights>>)/binary,0:(((1+length(Weights)) rem 2)*32)>>).
+  WeightsLen = length(Weights),
+  cast(5603, <<WeightsLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Weights>>)/binary,0:(((1+WeightsLen) rem 2)*32)>>).
 
 %% @doc glVertexBlenARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexBlenARB.xml">external</a> documentation.
 -spec vertexBlendARB(Count) -> 'ok' when Count :: integer().
 vertexBlendARB(Count) ->
-  cast(5603, <<Count:?GLint>>).
+  cast(5604, <<Count:?GLint>>).
 
 %% @doc glCurrentPaletteMatrixARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCurrentPaletteMatrixARB.xml">external</a> documentation.
 -spec currentPaletteMatrixARB(Index) -> 'ok' when Index :: integer().
 currentPaletteMatrixARB(Index) ->
-  cast(5604, <<Index:?GLint>>).
+  cast(5605, <<Index:?GLint>>).
 
 %% @doc glMatrixIndexARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMatrixIndexARB.xml">external</a> documentation.
 -spec matrixIndexubvARB(Indices) -> 'ok' when Indices :: [integer()].
 matrixIndexubvARB(Indices) ->
-  cast(5605, <<(length(Indices)):?GLuint,
-        (<< <<C:?GLubyte>> || C <- Indices>>)/binary,0:((8-((length(Indices)+ 4) rem 8)) rem 8)>>).
+  IndicesLen = length(Indices),
+  cast(5606, <<IndicesLen:?GLuint,
+        (<< <<C:?GLubyte>> || C <- Indices>>)/binary,0:((8-((IndicesLen+ 4) rem 8)) rem 8)>>).
 
 %% @doc glMatrixIndexARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMatrixIndexARB.xml">external</a> documentation.
 -spec matrixIndexusvARB(Indices) -> 'ok' when Indices :: [integer()].
 matrixIndexusvARB(Indices) ->
-  cast(5606, <<(length(Indices)):?GLuint,
-        (<< <<C:?GLushort>> || C <- Indices>>)/binary,0:((8-((length(Indices)*2+ 4) rem 8)) rem 8)>>).
+  IndicesLen = length(Indices),
+  cast(5607, <<IndicesLen:?GLuint,
+        (<< <<C:?GLushort>> || C <- Indices>>)/binary,0:((8-((IndicesLen*2+ 4) rem 8)) rem 8)>>).
 
 %% @doc glMatrixIndexARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMatrixIndexARB.xml">external</a> documentation.
 -spec matrixIndexuivARB(Indices) -> 'ok' when Indices :: [integer()].
 matrixIndexuivARB(Indices) ->
-  cast(5607, <<(length(Indices)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Indices>>)/binary,0:(((1+length(Indices)) rem 2)*32)>>).
+  IndicesLen = length(Indices),
+  cast(5608, <<IndicesLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Indices>>)/binary,0:(((1+IndicesLen) rem 2)*32)>>).
 
 %% @doc glProgramStringARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramStringARB.xml">external</a> documentation.
 -spec programStringARB(Target, Format, String) -> 'ok' when Target :: enum(),Format :: enum(),String :: string().
 programStringARB(Target,Format,String) ->
-  cast(5608, <<Target:?GLenum,Format:?GLenum,(list_to_binary([String|[0]]))/binary,0:((8-((length(String)+ 1) rem 8)) rem 8)>>).
+  StringLen = length(String),
+  cast(5609, <<Target:?GLenum,Format:?GLenum,(list_to_binary([String|[0]]))/binary,0:((8-((StringLen+ 1) rem 8)) rem 8)>>).
 
 %% @doc glBindProgramARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindProgramARB.xml">external</a> documentation.
 -spec bindProgramARB(Target, Program) -> 'ok' when Target :: enum(),Program :: integer().
 bindProgramARB(Target,Program) ->
-  cast(5609, <<Target:?GLenum,Program:?GLuint>>).
+  cast(5610, <<Target:?GLenum,Program:?GLuint>>).
 
 %% @doc glDeleteProgramsARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteProgramsARB.xml">external</a> documentation.
 -spec deleteProgramsARB(Programs) -> 'ok' when Programs :: [integer()].
 deleteProgramsARB(Programs) ->
-  cast(5610, <<(length(Programs)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Programs>>)/binary,0:(((1+length(Programs)) rem 2)*32)>>).
+  ProgramsLen = length(Programs),
+  cast(5611, <<ProgramsLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Programs>>)/binary,0:(((1+ProgramsLen) rem 2)*32)>>).
 
 %% @doc glGenProgramsARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenProgramsARB.xml">external</a> documentation.
 -spec genProgramsARB(N) -> [integer()] when N :: integer().
 genProgramsARB(N) ->
-  call(5611, <<N:?GLsizei>>).
+  call(5612, <<N:?GLsizei>>).
 
 %% @doc glProgramEnvParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramEnvParameterARB.xml">external</a> documentation.
 -spec programEnvParameter4dARB(Target, Index, X, Y, Z, W) -> 'ok' when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 programEnvParameter4dARB(Target,Index,X,Y,Z,W) ->
-  cast(5612, <<Target:?GLenum,Index:?GLuint,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
+  cast(5613, <<Target:?GLenum,Index:?GLuint,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @doc glProgramEnvParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramEnvParameterARB.xml">external</a> documentation.
 -spec programEnvParameter4dvARB(Target, Index, Params) -> 'ok' when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
 programEnvParameter4dvARB(Target,Index,{P1,P2,P3,P4}) ->
-  cast(5613, <<Target:?GLenum,Index:?GLuint,P1:?GLdouble,P2:?GLdouble,P3:?GLdouble,P4:?GLdouble>>).
+  cast(5614, <<Target:?GLenum,Index:?GLuint,P1:?GLdouble,P2:?GLdouble,P3:?GLdouble,P4:?GLdouble>>).
 
 %% @doc glProgramEnvParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramEnvParameterARB.xml">external</a> documentation.
 -spec programEnvParameter4fARB(Target, Index, X, Y, Z, W) -> 'ok' when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 programEnvParameter4fARB(Target,Index,X,Y,Z,W) ->
-  cast(5614, <<Target:?GLenum,Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat,W:?GLfloat>>).
+  cast(5615, <<Target:?GLenum,Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat,W:?GLfloat>>).
 
 %% @doc glProgramEnvParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramEnvParameterARB.xml">external</a> documentation.
 -spec programEnvParameter4fvARB(Target, Index, Params) -> 'ok' when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
 programEnvParameter4fvARB(Target,Index,{P1,P2,P3,P4}) ->
-  cast(5615, <<Target:?GLenum,Index:?GLuint,P1:?GLfloat,P2:?GLfloat,P3:?GLfloat,P4:?GLfloat>>).
+  cast(5616, <<Target:?GLenum,Index:?GLuint,P1:?GLfloat,P2:?GLfloat,P3:?GLfloat,P4:?GLfloat>>).
 
 %% @doc glProgramLocalParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramLocalParameterARB.xml">external</a> documentation.
 -spec programLocalParameter4dARB(Target, Index, X, Y, Z, W) -> 'ok' when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 programLocalParameter4dARB(Target,Index,X,Y,Z,W) ->
-  cast(5616, <<Target:?GLenum,Index:?GLuint,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
+  cast(5617, <<Target:?GLenum,Index:?GLuint,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @doc glProgramLocalParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramLocalParameterARB.xml">external</a> documentation.
 -spec programLocalParameter4dvARB(Target, Index, Params) -> 'ok' when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
 programLocalParameter4dvARB(Target,Index,{P1,P2,P3,P4}) ->
-  cast(5617, <<Target:?GLenum,Index:?GLuint,P1:?GLdouble,P2:?GLdouble,P3:?GLdouble,P4:?GLdouble>>).
+  cast(5618, <<Target:?GLenum,Index:?GLuint,P1:?GLdouble,P2:?GLdouble,P3:?GLdouble,P4:?GLdouble>>).
 
 %% @doc glProgramLocalParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramLocalParameterARB.xml">external</a> documentation.
 -spec programLocalParameter4fARB(Target, Index, X, Y, Z, W) -> 'ok' when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 programLocalParameter4fARB(Target,Index,X,Y,Z,W) ->
-  cast(5618, <<Target:?GLenum,Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat,W:?GLfloat>>).
+  cast(5619, <<Target:?GLenum,Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat,W:?GLfloat>>).
 
 %% @doc glProgramLocalParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramLocalParameterARB.xml">external</a> documentation.
 -spec programLocalParameter4fvARB(Target, Index, Params) -> 'ok' when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
 programLocalParameter4fvARB(Target,Index,{P1,P2,P3,P4}) ->
-  cast(5619, <<Target:?GLenum,Index:?GLuint,P1:?GLfloat,P2:?GLfloat,P3:?GLfloat,P4:?GLfloat>>).
+  cast(5620, <<Target:?GLenum,Index:?GLuint,P1:?GLfloat,P2:?GLfloat,P3:?GLfloat,P4:?GLfloat>>).
 
 %% @doc glGetProgramEnvParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramEnvParameterARB.xml">external</a> documentation.
 -spec getProgramEnvParameterdvARB(Target, Index) -> {float(),float(),float(),float()} when Target :: enum(),Index :: integer().
 getProgramEnvParameterdvARB(Target,Index) ->
-  call(5620, <<Target:?GLenum,Index:?GLuint>>).
+  call(5621, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glGetProgramEnvParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramEnvParameterARB.xml">external</a> documentation.
 -spec getProgramEnvParameterfvARB(Target, Index) -> {float(),float(),float(),float()} when Target :: enum(),Index :: integer().
 getProgramEnvParameterfvARB(Target,Index) ->
-  call(5621, <<Target:?GLenum,Index:?GLuint>>).
+  call(5622, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glGetProgramLocalParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramLocalParameterARB.xml">external</a> documentation.
 -spec getProgramLocalParameterdvARB(Target, Index) -> {float(),float(),float(),float()} when Target :: enum(),Index :: integer().
 getProgramLocalParameterdvARB(Target,Index) ->
-  call(5622, <<Target:?GLenum,Index:?GLuint>>).
+  call(5623, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glGetProgramLocalParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramLocalParameterARB.xml">external</a> documentation.
 -spec getProgramLocalParameterfvARB(Target, Index) -> {float(),float(),float(),float()} when Target :: enum(),Index :: integer().
 getProgramLocalParameterfvARB(Target,Index) ->
-  call(5623, <<Target:?GLenum,Index:?GLuint>>).
+  call(5624, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glGetProgramStringARB
 %%
@@ -13183,176 +13244,180 @@ getProgramLocalParameterfvARB(Target,Index) ->
 -spec getProgramStringARB(Target, Pname, String) -> 'ok' when Target :: enum(),Pname :: enum(),String :: mem().
 getProgramStringARB(Target,Pname,String) ->
   send_bin(String),
-  call(5624, <<Target:?GLenum,Pname:?GLenum>>).
+  call(5625, <<Target:?GLenum,Pname:?GLenum>>).
 
 %% @doc glGetBufferParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetBufferParameterARB.xml">external</a> documentation.
 -spec getBufferParameterivARB(Target, Pname) -> [integer()] when Target :: enum(),Pname :: enum().
 getBufferParameterivARB(Target,Pname) ->
-  call(5625, <<Target:?GLenum,Pname:?GLenum>>).
+  call(5626, <<Target:?GLenum,Pname:?GLenum>>).
 
 %% @doc glDeleteObjectARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteObjectARB.xml">external</a> documentation.
 -spec deleteObjectARB(Obj) -> 'ok' when Obj :: integer().
 deleteObjectARB(Obj) ->
-  cast(5626, <<Obj:?GLhandleARB>>).
+  cast(5627, <<Obj:?GLhandleARB>>).
 
 %% @doc glGetHandleARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetHandleARB.xml">external</a> documentation.
 -spec getHandleARB(Pname) -> integer() when Pname :: enum().
 getHandleARB(Pname) ->
-  call(5627, <<Pname:?GLenum>>).
+  call(5628, <<Pname:?GLenum>>).
 
 %% @doc glDetachObjectARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDetachObjectARB.xml">external</a> documentation.
 -spec detachObjectARB(ContainerObj, AttachedObj) -> 'ok' when ContainerObj :: integer(),AttachedObj :: integer().
 detachObjectARB(ContainerObj,AttachedObj) ->
-  cast(5628, <<ContainerObj:?GLhandleARB,AttachedObj:?GLhandleARB>>).
+  cast(5629, <<ContainerObj:?GLhandleARB,AttachedObj:?GLhandleARB>>).
 
 %% @doc glCreateShaderObjectARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCreateShaderObjectARB.xml">external</a> documentation.
 -spec createShaderObjectARB(ShaderType) -> integer() when ShaderType :: enum().
 createShaderObjectARB(ShaderType) ->
-  call(5629, <<ShaderType:?GLenum>>).
+  call(5630, <<ShaderType:?GLenum>>).
 
 %% @doc glShaderSourceARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glShaderSourceARB.xml">external</a> documentation.
 -spec shaderSourceARB(ShaderObj, String) -> 'ok' when ShaderObj :: integer(),String :: iolist().
 shaderSourceARB(ShaderObj,String) ->
- StringTemp = list_to_binary([[Str|[0]] || Str <- String ]),
-  cast(5630, <<ShaderObj:?GLhandleARB,(length(String)):?GLuint,(size(StringTemp)):?GLuint,(StringTemp)/binary,0:((8-((size(StringTemp)+4) rem 8)) rem 8)>>).
+  StringTemp = list_to_binary([[Str|[0]] || Str <- String ]),
+  StringLen = length(String),
+  cast(5631, <<ShaderObj:?GLhandleARB,StringLen:?GLuint,(size(StringTemp)):?GLuint,(StringTemp)/binary,0:((8-((size(StringTemp)+4) rem 8)) rem 8)>>).
 
 %% @doc glCompileShaderARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompileShaderARB.xml">external</a> documentation.
 -spec compileShaderARB(ShaderObj) -> 'ok' when ShaderObj :: integer().
 compileShaderARB(ShaderObj) ->
-  cast(5631, <<ShaderObj:?GLhandleARB>>).
+  cast(5632, <<ShaderObj:?GLhandleARB>>).
 
 %% @doc glCreateProgramObjectARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCreateProgramObjectARB.xml">external</a> documentation.
 -spec createProgramObjectARB() -> integer().
 createProgramObjectARB() ->
-  call(5632, <<>>).
+  call(5633, <<>>).
 
 %% @doc glAttachObjectARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glAttachObjectARB.xml">external</a> documentation.
 -spec attachObjectARB(ContainerObj, Obj) -> 'ok' when ContainerObj :: integer(),Obj :: integer().
 attachObjectARB(ContainerObj,Obj) ->
-  cast(5633, <<ContainerObj:?GLhandleARB,Obj:?GLhandleARB>>).
+  cast(5634, <<ContainerObj:?GLhandleARB,Obj:?GLhandleARB>>).
 
 %% @doc glLinkProgramARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLinkProgramARB.xml">external</a> documentation.
 -spec linkProgramARB(ProgramObj) -> 'ok' when ProgramObj :: integer().
 linkProgramARB(ProgramObj) ->
-  cast(5634, <<ProgramObj:?GLhandleARB>>).
+  cast(5635, <<ProgramObj:?GLhandleARB>>).
 
 %% @doc glUseProgramObjectARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUseProgramObjectARB.xml">external</a> documentation.
 -spec useProgramObjectARB(ProgramObj) -> 'ok' when ProgramObj :: integer().
 useProgramObjectARB(ProgramObj) ->
-  cast(5635, <<ProgramObj:?GLhandleARB>>).
+  cast(5636, <<ProgramObj:?GLhandleARB>>).
 
 %% @doc glValidateProgramARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glValidateProgramARB.xml">external</a> documentation.
 -spec validateProgramARB(ProgramObj) -> 'ok' when ProgramObj :: integer().
 validateProgramARB(ProgramObj) ->
-  cast(5636, <<ProgramObj:?GLhandleARB>>).
+  cast(5637, <<ProgramObj:?GLhandleARB>>).
 
 %% @doc glGetObjectParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetObjectParameterARB.xml">external</a> documentation.
 -spec getObjectParameterfvARB(Obj, Pname) -> float() when Obj :: integer(),Pname :: enum().
 getObjectParameterfvARB(Obj,Pname) ->
-  call(5637, <<Obj:?GLhandleARB,Pname:?GLenum>>).
+  call(5638, <<Obj:?GLhandleARB,Pname:?GLenum>>).
 
 %% @doc glGetObjectParameterARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetObjectParameterARB.xml">external</a> documentation.
 -spec getObjectParameterivARB(Obj, Pname) -> integer() when Obj :: integer(),Pname :: enum().
 getObjectParameterivARB(Obj,Pname) ->
-  call(5638, <<Obj:?GLhandleARB,Pname:?GLenum>>).
+  call(5639, <<Obj:?GLhandleARB,Pname:?GLenum>>).
 
 %% @doc glGetInfoLogARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetInfoLogARB.xml">external</a> documentation.
 -spec getInfoLogARB(Obj, MaxLength) -> string() when Obj :: integer(),MaxLength :: integer().
 getInfoLogARB(Obj,MaxLength) ->
-  call(5639, <<Obj:?GLhandleARB,MaxLength:?GLsizei>>).
+  call(5640, <<Obj:?GLhandleARB,MaxLength:?GLsizei>>).
 
 %% @doc glGetAttachedObjectsARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetAttachedObjectsARB.xml">external</a> documentation.
 -spec getAttachedObjectsARB(ContainerObj, MaxCount) -> [integer()] when ContainerObj :: integer(),MaxCount :: integer().
 getAttachedObjectsARB(ContainerObj,MaxCount) ->
-  call(5640, <<ContainerObj:?GLhandleARB,MaxCount:?GLsizei>>).
+  call(5641, <<ContainerObj:?GLhandleARB,MaxCount:?GLsizei>>).
 
 %% @doc glGetUniformLocationARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformLocationARB.xml">external</a> documentation.
 -spec getUniformLocationARB(ProgramObj, Name) -> integer() when ProgramObj :: integer(),Name :: string().
 getUniformLocationARB(ProgramObj,Name) ->
-  call(5641, <<ProgramObj:?GLhandleARB,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 1) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  call(5642, <<ProgramObj:?GLhandleARB,(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 1) rem 8)) rem 8)>>).
 
 %% @doc glGetActiveUniformARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveUniformARB.xml">external</a> documentation.
 -spec getActiveUniformARB(ProgramObj, Index, MaxLength) -> {Size :: integer(),Type :: enum(),Name :: string()} when ProgramObj :: integer(),Index :: integer(),MaxLength :: integer().
 getActiveUniformARB(ProgramObj,Index,MaxLength) ->
-  call(5642, <<ProgramObj:?GLhandleARB,Index:?GLuint,MaxLength:?GLsizei>>).
+  call(5643, <<ProgramObj:?GLhandleARB,Index:?GLuint,MaxLength:?GLsizei>>).
 
 %% @doc glGetUniformARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformARB.xml">external</a> documentation.
 -spec getUniformfvARB(ProgramObj, Location) -> matrix() when ProgramObj :: integer(),Location :: integer().
 getUniformfvARB(ProgramObj,Location) ->
-  call(5643, <<ProgramObj:?GLhandleARB,Location:?GLint>>).
+  call(5644, <<ProgramObj:?GLhandleARB,Location:?GLint>>).
 
 %% @doc glGetUniformARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformARB.xml">external</a> documentation.
 -spec getUniformivARB(ProgramObj, Location) -> {integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer()} when ProgramObj :: integer(),Location :: integer().
 getUniformivARB(ProgramObj,Location) ->
-  call(5644, <<ProgramObj:?GLhandleARB,Location:?GLint>>).
+  call(5645, <<ProgramObj:?GLhandleARB,Location:?GLint>>).
 
 %% @doc glGetShaderSourceARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetShaderSourceARB.xml">external</a> documentation.
 -spec getShaderSourceARB(Obj, MaxLength) -> string() when Obj :: integer(),MaxLength :: integer().
 getShaderSourceARB(Obj,MaxLength) ->
-  call(5645, <<Obj:?GLhandleARB,MaxLength:?GLsizei>>).
+  call(5646, <<Obj:?GLhandleARB,MaxLength:?GLsizei>>).
 
 %% @doc glBindAttribLocationARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindAttribLocationARB.xml">external</a> documentation.
 -spec bindAttribLocationARB(ProgramObj, Index, Name) -> 'ok' when ProgramObj :: integer(),Index :: integer(),Name :: string().
 bindAttribLocationARB(ProgramObj,Index,Name) ->
-  cast(5646, <<ProgramObj:?GLhandleARB,Index:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 5) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  cast(5647, <<ProgramObj:?GLhandleARB,Index:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 5) rem 8)) rem 8)>>).
 
 %% @doc glGetActiveAttribARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveAttribARB.xml">external</a> documentation.
 -spec getActiveAttribARB(ProgramObj, Index, MaxLength) -> {Size :: integer(),Type :: enum(),Name :: string()} when ProgramObj :: integer(),Index :: integer(),MaxLength :: integer().
 getActiveAttribARB(ProgramObj,Index,MaxLength) ->
-  call(5647, <<ProgramObj:?GLhandleARB,Index:?GLuint,MaxLength:?GLsizei>>).
+  call(5648, <<ProgramObj:?GLhandleARB,Index:?GLuint,MaxLength:?GLsizei>>).
 
 %% @doc glGetAttribLocationARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetAttribLocationARB.xml">external</a> documentation.
 -spec getAttribLocationARB(ProgramObj, Name) -> integer() when ProgramObj :: integer(),Name :: string().
 getAttribLocationARB(ProgramObj,Name) ->
-  call(5648, <<ProgramObj:?GLhandleARB,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 1) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  call(5649, <<ProgramObj:?GLhandleARB,(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 1) rem 8)) rem 8)>>).
 
 %% @doc Determine if a name corresponds to a renderbuffer object
 %%
@@ -13367,7 +13432,7 @@ getAttribLocationARB(ProgramObj,Name) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsRenderbuffer.xml">external</a> documentation.
 -spec isRenderbuffer(Renderbuffer) -> 0|1 when Renderbuffer :: integer().
 isRenderbuffer(Renderbuffer) ->
-  call(5649, <<Renderbuffer:?GLuint>>).
+  call(5650, <<Renderbuffer:?GLuint>>).
 
 %% @doc Bind a renderbuffer to a renderbuffer target
 %%
@@ -13380,7 +13445,7 @@ isRenderbuffer(Renderbuffer) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindRenderbuffer.xml">external</a> documentation.
 -spec bindRenderbuffer(Target, Renderbuffer) -> 'ok' when Target :: enum(),Renderbuffer :: integer().
 bindRenderbuffer(Target,Renderbuffer) ->
-  cast(5650, <<Target:?GLenum,Renderbuffer:?GLuint>>).
+  cast(5651, <<Target:?GLenum,Renderbuffer:?GLuint>>).
 
 %% @doc Delete renderbuffer objects
 %%
@@ -13402,8 +13467,9 @@ bindRenderbuffer(Target,Renderbuffer) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteRenderbuffers.xml">external</a> documentation.
 -spec deleteRenderbuffers(Renderbuffers) -> 'ok' when Renderbuffers :: [integer()].
 deleteRenderbuffers(Renderbuffers) ->
-  cast(5651, <<(length(Renderbuffers)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Renderbuffers>>)/binary,0:(((1+length(Renderbuffers)) rem 2)*32)>>).
+  RenderbuffersLen = length(Renderbuffers),
+  cast(5652, <<RenderbuffersLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Renderbuffers>>)/binary,0:(((1+RenderbuffersLen) rem 2)*32)>>).
 
 %% @doc Generate renderbuffer object names
 %%
@@ -13421,7 +13487,7 @@ deleteRenderbuffers(Renderbuffers) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenRenderbuffers.xml">external</a> documentation.
 -spec genRenderbuffers(N) -> [integer()] when N :: integer().
 genRenderbuffers(N) ->
-  call(5652, <<N:?GLsizei>>).
+  call(5653, <<N:?GLsizei>>).
 
 %% @doc Establish data storage, format and dimensions of a renderbuffer object's image
 %%
@@ -13442,7 +13508,7 @@ genRenderbuffers(N) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glRenderbufferStorage.xml">external</a> documentation.
 -spec renderbufferStorage(Target, Internalformat, Width, Height) -> 'ok' when Target :: enum(),Internalformat :: enum(),Width :: integer(),Height :: integer().
 renderbufferStorage(Target,Internalformat,Width,Height) ->
-  cast(5653, <<Target:?GLenum,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei>>).
+  cast(5654, <<Target:?GLenum,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei>>).
 
 %% @doc Retrieve information about a bound renderbuffer object
 %%
@@ -13470,7 +13536,7 @@ renderbufferStorage(Target,Internalformat,Width,Height) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetRenderbufferParameter.xml">external</a> documentation.
 -spec getRenderbufferParameteriv(Target, Pname) -> integer() when Target :: enum(),Pname :: enum().
 getRenderbufferParameteriv(Target,Pname) ->
-  call(5654, <<Target:?GLenum,Pname:?GLenum>>).
+  call(5655, <<Target:?GLenum,Pname:?GLenum>>).
 
 %% @doc Determine if a name corresponds to a framebuffer object
 %%
@@ -13484,7 +13550,7 @@ getRenderbufferParameteriv(Target,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsFramebuffer.xml">external</a> documentation.
 -spec isFramebuffer(Framebuffer) -> 0|1 when Framebuffer :: integer().
 isFramebuffer(Framebuffer) ->
-  call(5655, <<Framebuffer:?GLuint>>).
+  call(5656, <<Framebuffer:?GLuint>>).
 
 %% @doc Bind a framebuffer to a framebuffer target
 %%
@@ -13502,7 +13568,7 @@ isFramebuffer(Framebuffer) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindFramebuffer.xml">external</a> documentation.
 -spec bindFramebuffer(Target, Framebuffer) -> 'ok' when Target :: enum(),Framebuffer :: integer().
 bindFramebuffer(Target,Framebuffer) ->
-  cast(5656, <<Target:?GLenum,Framebuffer:?GLuint>>).
+  cast(5657, <<Target:?GLenum,Framebuffer:?GLuint>>).
 
 %% @doc Delete framebuffer objects
 %%
@@ -13517,8 +13583,9 @@ bindFramebuffer(Target,Framebuffer) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteFramebuffers.xml">external</a> documentation.
 -spec deleteFramebuffers(Framebuffers) -> 'ok' when Framebuffers :: [integer()].
 deleteFramebuffers(Framebuffers) ->
-  cast(5657, <<(length(Framebuffers)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Framebuffers>>)/binary,0:(((1+length(Framebuffers)) rem 2)*32)>>).
+  FramebuffersLen = length(Framebuffers),
+  cast(5658, <<FramebuffersLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Framebuffers>>)/binary,0:(((1+FramebuffersLen) rem 2)*32)>>).
 
 %% @doc Generate framebuffer object names
 %%
@@ -13536,7 +13603,7 @@ deleteFramebuffers(Framebuffers) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenFramebuffers.xml">external</a> documentation.
 -spec genFramebuffers(N) -> [integer()] when N :: integer().
 genFramebuffers(N) ->
-  call(5658, <<N:?GLsizei>>).
+  call(5659, <<N:?GLsizei>>).
 
 %% @doc Check the completeness status of a framebuffer
 %%
@@ -13587,25 +13654,25 @@ genFramebuffers(N) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCheckFramebufferStatus.xml">external</a> documentation.
 -spec checkFramebufferStatus(Target) -> enum() when Target :: enum().
 checkFramebufferStatus(Target) ->
-  call(5659, <<Target:?GLenum>>).
+  call(5660, <<Target:?GLenum>>).
 
 %% @doc 
 %% See {@link framebufferTexture/4}
 -spec framebufferTexture1D(Target, Attachment, Textarget, Texture, Level) -> 'ok' when Target :: enum(),Attachment :: enum(),Textarget :: enum(),Texture :: integer(),Level :: integer().
 framebufferTexture1D(Target,Attachment,Textarget,Texture,Level) ->
-  cast(5660, <<Target:?GLenum,Attachment:?GLenum,Textarget:?GLenum,Texture:?GLuint,Level:?GLint>>).
+  cast(5661, <<Target:?GLenum,Attachment:?GLenum,Textarget:?GLenum,Texture:?GLuint,Level:?GLint>>).
 
 %% @doc 
 %% See {@link framebufferTexture/4}
 -spec framebufferTexture2D(Target, Attachment, Textarget, Texture, Level) -> 'ok' when Target :: enum(),Attachment :: enum(),Textarget :: enum(),Texture :: integer(),Level :: integer().
 framebufferTexture2D(Target,Attachment,Textarget,Texture,Level) ->
-  cast(5661, <<Target:?GLenum,Attachment:?GLenum,Textarget:?GLenum,Texture:?GLuint,Level:?GLint>>).
+  cast(5662, <<Target:?GLenum,Attachment:?GLenum,Textarget:?GLenum,Texture:?GLuint,Level:?GLint>>).
 
 %% @doc 
 %% See {@link framebufferTexture/4}
 -spec framebufferTexture3D(Target, Attachment, Textarget, Texture, Level, Zoffset) -> 'ok' when Target :: enum(),Attachment :: enum(),Textarget :: enum(),Texture :: integer(),Level :: integer(),Zoffset :: integer().
 framebufferTexture3D(Target,Attachment,Textarget,Texture,Level,Zoffset) ->
-  cast(5662, <<Target:?GLenum,Attachment:?GLenum,Textarget:?GLenum,Texture:?GLuint,Level:?GLint,Zoffset:?GLint>>).
+  cast(5663, <<Target:?GLenum,Attachment:?GLenum,Textarget:?GLenum,Texture:?GLuint,Level:?GLint,Zoffset:?GLint>>).
 
 %% @doc Attach a renderbuffer as a logical buffer to the currently bound framebuffer object
 %%
@@ -13637,7 +13704,7 @@ framebufferTexture3D(Target,Attachment,Textarget,Texture,Level,Zoffset) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFramebufferRenderbuffer.xml">external</a> documentation.
 -spec framebufferRenderbuffer(Target, Attachment, Renderbuffertarget, Renderbuffer) -> 'ok' when Target :: enum(),Attachment :: enum(),Renderbuffertarget :: enum(),Renderbuffer :: integer().
 framebufferRenderbuffer(Target,Attachment,Renderbuffertarget,Renderbuffer) ->
-  cast(5663, <<Target:?GLenum,Attachment:?GLenum,Renderbuffertarget:?GLenum,Renderbuffer:?GLuint>>).
+  cast(5664, <<Target:?GLenum,Attachment:?GLenum,Renderbuffertarget:?GLenum,Renderbuffer:?GLuint>>).
 
 %% @doc Retrieve information about attachments of a bound framebuffer object
 %%
@@ -13733,7 +13800,7 @@ framebufferRenderbuffer(Target,Attachment,Renderbuffertarget,Renderbuffer) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetFramebufferAttachmentParameter.xml">external</a> documentation.
 -spec getFramebufferAttachmentParameteriv(Target, Attachment, Pname) -> integer() when Target :: enum(),Attachment :: enum(),Pname :: enum().
 getFramebufferAttachmentParameteriv(Target,Attachment,Pname) ->
-  call(5664, <<Target:?GLenum,Attachment:?GLenum,Pname:?GLenum>>).
+  call(5665, <<Target:?GLenum,Attachment:?GLenum,Pname:?GLenum>>).
 
 %% @doc Generate mipmaps for a specified texture target
 %%
@@ -13753,7 +13820,7 @@ getFramebufferAttachmentParameteriv(Target,Attachment,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenerateMipmap.xml">external</a> documentation.
 -spec generateMipmap(Target) -> 'ok' when Target :: enum().
 generateMipmap(Target) ->
-  cast(5665, <<Target:?GLenum>>).
+  cast(5666, <<Target:?GLenum>>).
 
 %% @doc Copy a block of pixels from the read framebuffer to the draw framebuffer
 %%
@@ -13795,7 +13862,7 @@ generateMipmap(Target) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlitFramebuffer.xml">external</a> documentation.
 -spec blitFramebuffer(SrcX0, SrcY0, SrcX1, SrcY1, DstX0, DstY0, DstX1, DstY1, Mask, Filter) -> 'ok' when SrcX0 :: integer(),SrcY0 :: integer(),SrcX1 :: integer(),SrcY1 :: integer(),DstX0 :: integer(),DstY0 :: integer(),DstX1 :: integer(),DstY1 :: integer(),Mask :: integer(),Filter :: enum().
 blitFramebuffer(SrcX0,SrcY0,SrcX1,SrcY1,DstX0,DstY0,DstX1,DstY1,Mask,Filter) ->
-  cast(5666, <<SrcX0:?GLint,SrcY0:?GLint,SrcX1:?GLint,SrcY1:?GLint,DstX0:?GLint,DstY0:?GLint,DstX1:?GLint,DstY1:?GLint,Mask:?GLbitfield,Filter:?GLenum>>).
+  cast(5667, <<SrcX0:?GLint,SrcY0:?GLint,SrcX1:?GLint,SrcY1:?GLint,DstX0:?GLint,DstY0:?GLint,DstX1:?GLint,DstY1:?GLint,Mask:?GLbitfield,Filter:?GLenum>>).
 
 %% @doc Establish data storage, format, dimensions and sample count of a renderbuffer object's image
 %%
@@ -13819,19 +13886,19 @@ blitFramebuffer(SrcX0,SrcY0,SrcX1,SrcY1,DstX0,DstY0,DstX1,DstY1,Mask,Filter) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glRenderbufferStorageMultisample.xml">external</a> documentation.
 -spec renderbufferStorageMultisample(Target, Samples, Internalformat, Width, Height) -> 'ok' when Target :: enum(),Samples :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer().
 renderbufferStorageMultisample(Target,Samples,Internalformat,Width,Height) ->
-  cast(5667, <<Target:?GLenum,Samples:?GLsizei,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei>>).
+  cast(5668, <<Target:?GLenum,Samples:?GLsizei,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei>>).
 
 %% @doc 
 %% See {@link framebufferTexture/4}
 -spec framebufferTextureLayer(Target, Attachment, Texture, Level, Layer) -> 'ok' when Target :: enum(),Attachment :: enum(),Texture :: integer(),Level :: integer(),Layer :: integer().
 framebufferTextureLayer(Target,Attachment,Texture,Level,Layer) ->
-  cast(5668, <<Target:?GLenum,Attachment:?GLenum,Texture:?GLuint,Level:?GLint,Layer:?GLint>>).
+  cast(5669, <<Target:?GLenum,Attachment:?GLenum,Texture:?GLuint,Level:?GLint,Layer:?GLint>>).
 
 %% @doc 
 %% See {@link framebufferTexture/4}
 -spec framebufferTextureFaceARB(Target, Attachment, Texture, Level, Face) -> 'ok' when Target :: enum(),Attachment :: enum(),Texture :: integer(),Level :: integer(),Face :: enum().
 framebufferTextureFaceARB(Target,Attachment,Texture,Level,Face) ->
-  cast(5669, <<Target:?GLenum,Attachment:?GLenum,Texture:?GLuint,Level:?GLint,Face:?GLenum>>).
+  cast(5670, <<Target:?GLenum,Attachment:?GLenum,Texture:?GLuint,Level:?GLint,Face:?GLenum>>).
 
 %% @doc Indicate modifications to a range of a mapped buffer
 %%
@@ -13845,7 +13912,7 @@ framebufferTextureFaceARB(Target,Attachment,Texture,Level,Face) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFlushMappedBufferRange.xml">external</a> documentation.
 -spec flushMappedBufferRange(Target, Offset, Length) -> 'ok' when Target :: enum(),Offset :: integer(),Length :: integer().
 flushMappedBufferRange(Target,Offset,Length) ->
-  cast(5670, <<Target:?GLenum,0:32,Offset:?GLintptr,Length:?GLsizeiptr>>).
+  cast(5671, <<Target:?GLenum,0:32,Offset:?GLintptr,Length:?GLsizeiptr>>).
 
 %% @doc Bind a vertex array object
 %%
@@ -13860,7 +13927,7 @@ flushMappedBufferRange(Target,Offset,Length) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindVertexArray.xml">external</a> documentation.
 -spec bindVertexArray(Array) -> 'ok' when Array :: integer().
 bindVertexArray(Array) ->
-  cast(5671, <<Array:?GLuint>>).
+  cast(5672, <<Array:?GLuint>>).
 
 %% @doc Delete vertex array objects
 %%
@@ -13873,8 +13940,9 @@ bindVertexArray(Array) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteVertexArrays.xml">external</a> documentation.
 -spec deleteVertexArrays(Arrays) -> 'ok' when Arrays :: [integer()].
 deleteVertexArrays(Arrays) ->
-  cast(5672, <<(length(Arrays)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Arrays>>)/binary,0:(((1+length(Arrays)) rem 2)*32)>>).
+  ArraysLen = length(Arrays),
+  cast(5673, <<ArraysLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Arrays>>)/binary,0:(((1+ArraysLen) rem 2)*32)>>).
 
 %% @doc Generate vertex array object names
 %%
@@ -13892,7 +13960,7 @@ deleteVertexArrays(Arrays) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenVertexArrays.xml">external</a> documentation.
 -spec genVertexArrays(N) -> [integer()] when N :: integer().
 genVertexArrays(N) ->
-  call(5673, <<N:?GLsizei>>).
+  call(5674, <<N:?GLsizei>>).
 
 %% @doc Determine if a name corresponds to a vertex array object
 %%
@@ -13906,7 +13974,7 @@ genVertexArrays(N) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsVertexArray.xml">external</a> documentation.
 -spec isVertexArray(Array) -> 0|1 when Array :: integer().
 isVertexArray(Array) ->
-  call(5674, <<Array:?GLuint>>).
+  call(5675, <<Array:?GLuint>>).
 
 %% @doc Retrieve the index of a named uniform block
 %%
@@ -13933,16 +14001,18 @@ isVertexArray(Array) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformIndices.xml">external</a> documentation.
 -spec getUniformIndices(Program, UniformNames) -> [integer()] when Program :: integer(),UniformNames :: iolist().
 getUniformIndices(Program,UniformNames) ->
- UniformNamesTemp = list_to_binary([[Str|[0]] || Str <- UniformNames ]),
-  call(5675, <<Program:?GLuint,(length(UniformNames)):?GLuint,(size(UniformNamesTemp)):?GLuint,(UniformNamesTemp)/binary,0:((8-((size(UniformNamesTemp)+0) rem 8)) rem 8)>>).
+  UniformNamesTemp = list_to_binary([[Str|[0]] || Str <- UniformNames ]),
+  UniformNamesLen = length(UniformNames),
+  call(5676, <<Program:?GLuint,UniformNamesLen:?GLuint,(size(UniformNamesTemp)):?GLuint,(UniformNamesTemp)/binary,0:((8-((size(UniformNamesTemp)+0) rem 8)) rem 8)>>).
 
 %% @doc glGetActiveUniforms
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveUniforms.xml">external</a> documentation.
 -spec getActiveUniformsiv(Program, UniformIndices, Pname) -> [integer()] when Program :: integer(),UniformIndices :: [integer()],Pname :: enum().
 getActiveUniformsiv(Program,UniformIndices,Pname) ->
-  call(5676, <<Program:?GLuint,(length(UniformIndices)):?GLuint,
-        (<< <<C:?GLuint>> || C <- UniformIndices>>)/binary,0:(((length(UniformIndices)) rem 2)*32),Pname:?GLenum>>).
+  UniformIndicesLen = length(UniformIndices),
+  call(5677, <<Program:?GLuint,UniformIndicesLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- UniformIndices>>)/binary,0:(((UniformIndicesLen) rem 2)*32),Pname:?GLenum>>).
 
 %% @doc Query the name of an active uniform
 %%
@@ -13971,7 +14041,7 @@ getActiveUniformsiv(Program,UniformIndices,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveUniformName.xml">external</a> documentation.
 -spec getActiveUniformName(Program, UniformIndex, BufSize) -> string() when Program :: integer(),UniformIndex :: integer(),BufSize :: integer().
 getActiveUniformName(Program,UniformIndex,BufSize) ->
-  call(5677, <<Program:?GLuint,UniformIndex:?GLuint,BufSize:?GLsizei>>).
+  call(5678, <<Program:?GLuint,UniformIndex:?GLuint,BufSize:?GLsizei>>).
 
 %% @doc Retrieve the index of a named uniform block
 %%
@@ -13995,7 +14065,8 @@ getActiveUniformName(Program,UniformIndex,BufSize) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformBlockIndex.xml">external</a> documentation.
 -spec getUniformBlockIndex(Program, UniformBlockName) -> integer() when Program :: integer(),UniformBlockName :: string().
 getUniformBlockIndex(Program,UniformBlockName) ->
-  call(5678, <<Program:?GLuint,(list_to_binary([UniformBlockName|[0]]))/binary,0:((8-((length(UniformBlockName)+ 5) rem 8)) rem 8)>>).
+  UniformBlockNameLen = length(UniformBlockName),
+  call(5679, <<Program:?GLuint,(list_to_binary([UniformBlockName|[0]]))/binary,0:((8-((UniformBlockNameLen+ 5) rem 8)) rem 8)>>).
 
 %% @doc Query information about an active uniform block
 %%
@@ -14048,7 +14119,7 @@ getUniformBlockIndex(Program,UniformBlockName) ->
 -spec getActiveUniformBlockiv(Program, UniformBlockIndex, Pname, Params) -> 'ok' when Program :: integer(),UniformBlockIndex :: integer(),Pname :: enum(),Params :: mem().
 getActiveUniformBlockiv(Program,UniformBlockIndex,Pname,Params) ->
   send_bin(Params),
-  call(5679, <<Program:?GLuint,UniformBlockIndex:?GLuint,Pname:?GLenum>>).
+  call(5680, <<Program:?GLuint,UniformBlockIndex:?GLuint,Pname:?GLenum>>).
 
 %% @doc Retrieve the name of an active uniform block
 %%
@@ -14077,7 +14148,7 @@ getActiveUniformBlockiv(Program,UniformBlockIndex,Pname,Params) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveUniformBlockName.xml">external</a> documentation.
 -spec getActiveUniformBlockName(Program, UniformBlockIndex, BufSize) -> string() when Program :: integer(),UniformBlockIndex :: integer(),BufSize :: integer().
 getActiveUniformBlockName(Program,UniformBlockIndex,BufSize) ->
-  call(5680, <<Program:?GLuint,UniformBlockIndex:?GLuint,BufSize:?GLsizei>>).
+  call(5681, <<Program:?GLuint,UniformBlockIndex:?GLuint,BufSize:?GLsizei>>).
 
 %% @doc Assign a binding point to an active uniform block
 %%
@@ -14097,7 +14168,7 @@ getActiveUniformBlockName(Program,UniformBlockIndex,BufSize) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUniformBlockBinding.xml">external</a> documentation.
 -spec uniformBlockBinding(Program, UniformBlockIndex, UniformBlockBinding) -> 'ok' when Program :: integer(),UniformBlockIndex :: integer(),UniformBlockBinding :: integer().
 uniformBlockBinding(Program,UniformBlockIndex,UniformBlockBinding) ->
-  cast(5681, <<Program:?GLuint,UniformBlockIndex:?GLuint,UniformBlockBinding:?GLuint>>).
+  cast(5682, <<Program:?GLuint,UniformBlockIndex:?GLuint,UniformBlockBinding:?GLuint>>).
 
 %% @doc Copy part of the data store of a buffer object to the data store of another buffer object
 %%
@@ -14123,7 +14194,7 @@ uniformBlockBinding(Program,UniformBlockIndex,UniformBlockBinding) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyBufferSubData.xml">external</a> documentation.
 -spec copyBufferSubData(ReadTarget, WriteTarget, ReadOffset, WriteOffset, Size) -> 'ok' when ReadTarget :: enum(),WriteTarget :: enum(),ReadOffset :: integer(),WriteOffset :: integer(),Size :: integer().
 copyBufferSubData(ReadTarget,WriteTarget,ReadOffset,WriteOffset,Size) ->
-  cast(5682, <<ReadTarget:?GLenum,WriteTarget:?GLenum,ReadOffset:?GLintptr,WriteOffset:?GLintptr,Size:?GLsizeiptr>>).
+  cast(5683, <<ReadTarget:?GLenum,WriteTarget:?GLenum,ReadOffset:?GLintptr,WriteOffset:?GLintptr,Size:?GLsizeiptr>>).
 
 %% @doc Render primitives from array data with a per-element offset
 %%
@@ -14137,10 +14208,10 @@ copyBufferSubData(ReadTarget,WriteTarget,ReadOffset,WriteOffset,Size) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsBaseVertex.xml">external</a> documentation.
 -spec drawElementsBaseVertex(Mode, Count, Type, Indices, Basevertex) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Basevertex :: integer().
 drawElementsBaseVertex(Mode,Count,Type,Indices,Basevertex) when  is_integer(Indices) ->
-  cast(5683, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Basevertex:?GLint>>);
+  cast(5684, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Basevertex:?GLint>>);
 drawElementsBaseVertex(Mode,Count,Type,Indices,Basevertex) ->
   send_bin(Indices),
-  cast(5684, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Basevertex:?GLint>>).
+  cast(5685, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Basevertex:?GLint>>).
 
 %% @doc Render primitives from array data with a per-element offset
 %%
@@ -14159,10 +14230,10 @@ drawElementsBaseVertex(Mode,Count,Type,Indices,Basevertex) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawRangeElementsBaseVertex.xml">external</a> documentation.
 -spec drawRangeElementsBaseVertex(Mode, Start, End, Count, Type, Indices, Basevertex) -> 'ok' when Mode :: enum(),Start :: integer(),End :: integer(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Basevertex :: integer().
 drawRangeElementsBaseVertex(Mode,Start,End,Count,Type,Indices,Basevertex) when  is_integer(Indices) ->
-  cast(5685, <<Mode:?GLenum,Start:?GLuint,End:?GLuint,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Basevertex:?GLint>>);
+  cast(5686, <<Mode:?GLenum,Start:?GLuint,End:?GLuint,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Basevertex:?GLint>>);
 drawRangeElementsBaseVertex(Mode,Start,End,Count,Type,Indices,Basevertex) ->
   send_bin(Indices),
-  cast(5686, <<Mode:?GLenum,Start:?GLuint,End:?GLuint,Count:?GLsizei,Type:?GLenum,Basevertex:?GLint>>).
+  cast(5687, <<Mode:?GLenum,Start:?GLuint,End:?GLuint,Count:?GLsizei,Type:?GLenum,Basevertex:?GLint>>).
 
 %% @doc Render multiple instances of a set of primitives from array data with a per-element offset
 %%
@@ -14176,10 +14247,10 @@ drawRangeElementsBaseVertex(Mode,Start,End,Count,Type,Indices,Basevertex) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsInstancedBaseVertex.xml">external</a> documentation.
 -spec drawElementsInstancedBaseVertex(Mode, Count, Type, Indices, Primcount, Basevertex) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer(),Basevertex :: integer().
 drawElementsInstancedBaseVertex(Mode,Count,Type,Indices,Primcount,Basevertex) when  is_integer(Indices) ->
-  cast(5687, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei,Basevertex:?GLint>>);
+  cast(5688, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei,Basevertex:?GLint>>);
 drawElementsInstancedBaseVertex(Mode,Count,Type,Indices,Primcount,Basevertex) ->
   send_bin(Indices),
-  cast(5688, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Primcount:?GLsizei,Basevertex:?GLint>>).
+  cast(5689, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Primcount:?GLsizei,Basevertex:?GLint>>).
 
 %% @doc Specifiy the vertex to be used as the source of data for flat shaded varyings
 %%
@@ -14213,7 +14284,7 @@ drawElementsInstancedBaseVertex(Mode,Count,Type,Indices,Primcount,Basevertex) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProvokingVertex.xml">external</a> documentation.
 -spec provokingVertex(Mode) -> 'ok' when Mode :: enum().
 provokingVertex(Mode) ->
-  cast(5689, <<Mode:?GLenum>>).
+  cast(5690, <<Mode:?GLenum>>).
 
 %% @doc Create a new sync object and insert it into the GL command stream
 %%
@@ -14237,7 +14308,7 @@ provokingVertex(Mode) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFenceSync.xml">external</a> documentation.
 -spec fenceSync(Condition, Flags) -> integer() when Condition :: enum(),Flags :: integer().
 fenceSync(Condition,Flags) ->
-  call(5690, <<Condition:?GLenum,Flags:?GLbitfield>>).
+  call(5691, <<Condition:?GLenum,Flags:?GLbitfield>>).
 
 %% @doc Determine if a name corresponds to a sync object
 %%
@@ -14248,7 +14319,7 @@ fenceSync(Condition,Flags) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsSync.xml">external</a> documentation.
 -spec isSync(Sync) -> 0|1 when Sync :: integer().
 isSync(Sync) ->
-  call(5691, <<Sync:?GLsync>>).
+  call(5692, <<Sync:?GLsync>>).
 
 %% @doc Delete a sync object
 %%
@@ -14265,7 +14336,7 @@ isSync(Sync) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteSync.xml">external</a> documentation.
 -spec deleteSync(Sync) -> 'ok' when Sync :: integer().
 deleteSync(Sync) ->
-  cast(5692, <<Sync:?GLsync>>).
+  cast(5693, <<Sync:?GLsync>>).
 
 %% @doc Block and wait for a sync object to become signaled
 %%
@@ -14291,7 +14362,7 @@ deleteSync(Sync) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClientWaitSync.xml">external</a> documentation.
 -spec clientWaitSync(Sync, Flags, Timeout) -> enum() when Sync :: integer(),Flags :: integer(),Timeout :: integer().
 clientWaitSync(Sync,Flags,Timeout) ->
-  call(5693, <<Sync:?GLsync,Flags:?GLbitfield,0:32,Timeout:?GLuint64>>).
+  call(5694, <<Sync:?GLsync,Flags:?GLbitfield,0:32,Timeout:?GLuint64>>).
 
 %% @doc Instruct the GL server to block until the specified sync object becomes signaled
 %%
@@ -14313,13 +14384,13 @@ clientWaitSync(Sync,Flags,Timeout) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWaitSync.xml">external</a> documentation.
 -spec waitSync(Sync, Flags, Timeout) -> 'ok' when Sync :: integer(),Flags :: integer(),Timeout :: integer().
 waitSync(Sync,Flags,Timeout) ->
-  cast(5694, <<Sync:?GLsync,Flags:?GLbitfield,0:32,Timeout:?GLuint64>>).
+  cast(5695, <<Sync:?GLsync,Flags:?GLbitfield,0:32,Timeout:?GLuint64>>).
 
 %% @doc 
 %% See {@link getBooleanv/1}
 -spec getInteger64v(Pname) -> [integer()] when Pname :: enum().
 getInteger64v(Pname) ->
-  call(5695, <<Pname:?GLenum>>).
+  call(5696, <<Pname:?GLenum>>).
 
 %% @doc Query the properties of a sync object
 %%
@@ -14354,7 +14425,7 @@ getInteger64v(Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetSync.xml">external</a> documentation.
 -spec getSynciv(Sync, Pname, BufSize) -> [integer()] when Sync :: integer(),Pname :: enum(),BufSize :: integer().
 getSynciv(Sync,Pname,BufSize) ->
-  call(5696, <<Sync:?GLsync,Pname:?GLenum,BufSize:?GLsizei>>).
+  call(5697, <<Sync:?GLsync,Pname:?GLenum,BufSize:?GLsizei>>).
 
 %% @doc Establish the data storage, format, dimensions, and number of samples of a multisample texture's image
 %%
@@ -14382,7 +14453,7 @@ getSynciv(Sync,Pname,BufSize) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexImage2DMultisample.xml">external</a> documentation.
 -spec texImage2DMultisample(Target, Samples, Internalformat, Width, Height, Fixedsamplelocations) -> 'ok' when Target :: enum(),Samples :: integer(),Internalformat :: integer(),Width :: integer(),Height :: integer(),Fixedsamplelocations :: 0|1.
 texImage2DMultisample(Target,Samples,Internalformat,Width,Height,Fixedsamplelocations) ->
-  cast(5697, <<Target:?GLenum,Samples:?GLsizei,Internalformat:?GLint,Width:?GLsizei,Height:?GLsizei,Fixedsamplelocations:?GLboolean>>).
+  cast(5698, <<Target:?GLenum,Samples:?GLsizei,Internalformat:?GLint,Width:?GLsizei,Height:?GLsizei,Fixedsamplelocations:?GLboolean>>).
 
 %% @doc Establish the data storage, format, dimensions, and number of samples of a multisample texture's image
 %%
@@ -14410,7 +14481,7 @@ texImage2DMultisample(Target,Samples,Internalformat,Width,Height,Fixedsampleloca
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexImage3DMultisample.xml">external</a> documentation.
 -spec texImage3DMultisample(Target, Samples, Internalformat, Width, Height, Depth, Fixedsamplelocations) -> 'ok' when Target :: enum(),Samples :: integer(),Internalformat :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Fixedsamplelocations :: 0|1.
 texImage3DMultisample(Target,Samples,Internalformat,Width,Height,Depth,Fixedsamplelocations) ->
-  cast(5698, <<Target:?GLenum,Samples:?GLsizei,Internalformat:?GLint,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei,Fixedsamplelocations:?GLboolean>>).
+  cast(5699, <<Target:?GLenum,Samples:?GLsizei,Internalformat:?GLint,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei,Fixedsamplelocations:?GLboolean>>).
 
 %% @doc Retrieve the location of a sample
 %%
@@ -14428,7 +14499,7 @@ texImage3DMultisample(Target,Samples,Internalformat,Width,Height,Depth,Fixedsamp
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetMultisample.xml">external</a> documentation.
 -spec getMultisamplefv(Pname, Index) -> {float(),float()} when Pname :: enum(),Index :: integer().
 getMultisamplefv(Pname,Index) ->
-  call(5699, <<Pname:?GLenum,Index:?GLuint>>).
+  call(5700, <<Pname:?GLenum,Index:?GLuint>>).
 
 %% @doc Set the value of a sub-word of the sample mask
 %%
@@ -14443,57 +14514,65 @@ getMultisamplefv(Pname,Index) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSampleMaski.xml">external</a> documentation.
 -spec sampleMaski(Index, Mask) -> 'ok' when Index :: integer(),Mask :: integer().
 sampleMaski(Index,Mask) ->
-  cast(5700, <<Index:?GLuint,Mask:?GLbitfield>>).
+  cast(5701, <<Index:?GLuint,Mask:?GLbitfield>>).
 
 %% @doc glNamedStringARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glNamedStringARB.xml">external</a> documentation.
 -spec namedStringARB(Type, Name, String) -> 'ok' when Type :: enum(),Name :: string(),String :: string().
 namedStringARB(Type,Name,String) ->
-  cast(5701, <<Type:?GLenum,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 5) rem 8)) rem 8),(list_to_binary([String|[0]]))/binary,0:((8-((length(String)+ 1) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  StringLen = length(String),
+  cast(5702, <<Type:?GLenum,(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 5) rem 8)) rem 8),(list_to_binary([String|[0]]))/binary,0:((8-((StringLen+ 1) rem 8)) rem 8)>>).
 
 %% @doc glDeleteNamedStringARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteNamedStringARB.xml">external</a> documentation.
 -spec deleteNamedStringARB(Name) -> 'ok' when Name :: string().
 deleteNamedStringARB(Name) ->
-  cast(5702, <<(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 1) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  cast(5703, <<(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 1) rem 8)) rem 8)>>).
 
 %% @doc glCompileShaderIncludeARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompileShaderIncludeARB.xml">external</a> documentation.
 -spec compileShaderIncludeARB(Shader, Path) -> 'ok' when Shader :: integer(),Path :: iolist().
 compileShaderIncludeARB(Shader,Path) ->
- PathTemp = list_to_binary([[Str|[0]] || Str <- Path ]),
-  cast(5703, <<Shader:?GLuint,(length(Path)):?GLuint,(size(PathTemp)):?GLuint,(PathTemp)/binary,0:((8-((size(PathTemp)+0) rem 8)) rem 8)>>).
+  PathTemp = list_to_binary([[Str|[0]] || Str <- Path ]),
+  PathLen = length(Path),
+  cast(5704, <<Shader:?GLuint,PathLen:?GLuint,(size(PathTemp)):?GLuint,(PathTemp)/binary,0:((8-((size(PathTemp)+0) rem 8)) rem 8)>>).
 
 %% @doc glIsNamedStringARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsNamedStringARB.xml">external</a> documentation.
 -spec isNamedStringARB(Name) -> 0|1 when Name :: string().
 isNamedStringARB(Name) ->
-  call(5704, <<(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 1) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  call(5705, <<(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 1) rem 8)) rem 8)>>).
 
 %% @doc glGetNamedStringARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetNamedStringARB.xml">external</a> documentation.
 -spec getNamedStringARB(Name, BufSize) -> string() when Name :: string(),BufSize :: integer().
 getNamedStringARB(Name,BufSize) ->
-  call(5705, <<(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 1) rem 8)) rem 8),BufSize:?GLsizei>>).
+  NameLen = length(Name),
+  call(5706, <<(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 1) rem 8)) rem 8),BufSize:?GLsizei>>).
 
 %% @doc glGetNamedStringARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetNamedStringARB.xml">external</a> documentation.
 -spec getNamedStringivARB(Name, Pname) -> integer() when Name :: string(),Pname :: enum().
 getNamedStringivARB(Name,Pname) ->
-  call(5706, <<(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 1) rem 8)) rem 8),Pname:?GLenum>>).
+  NameLen = length(Name),
+  call(5707, <<(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 1) rem 8)) rem 8),Pname:?GLenum>>).
 
 %% @doc glBindFragDataLocationIndexe
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindFragDataLocationIndexe.xml">external</a> documentation.
 -spec bindFragDataLocationIndexed(Program, ColorNumber, Index, Name) -> 'ok' when Program :: integer(),ColorNumber :: integer(),Index :: integer(),Name :: string().
 bindFragDataLocationIndexed(Program,ColorNumber,Index,Name) ->
-  cast(5707, <<Program:?GLuint,ColorNumber:?GLuint,Index:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 5) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  cast(5708, <<Program:?GLuint,ColorNumber:?GLuint,Index:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 5) rem 8)) rem 8)>>).
 
 %% @doc Query the bindings of color indices to user-defined varying out variables
 %%
@@ -14504,7 +14583,8 @@ bindFragDataLocationIndexed(Program,ColorNumber,Index,Name) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetFragDataIndex.xml">external</a> documentation.
 -spec getFragDataIndex(Program, Name) -> integer() when Program :: integer(),Name :: string().
 getFragDataIndex(Program,Name) ->
-  call(5708, <<Program:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 5) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  call(5709, <<Program:?GLuint,(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 5) rem 8)) rem 8)>>).
 
 %% @doc Generate sampler object names
 %%
@@ -14522,7 +14602,7 @@ getFragDataIndex(Program,Name) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenSamplers.xml">external</a> documentation.
 -spec genSamplers(Count) -> [integer()] when Count :: integer().
 genSamplers(Count) ->
-  call(5709, <<Count:?GLsizei>>).
+  call(5710, <<Count:?GLsizei>>).
 
 %% @doc Delete named sampler objects
 %%
@@ -14535,8 +14615,9 @@ genSamplers(Count) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteSamplers.xml">external</a> documentation.
 -spec deleteSamplers(Samplers) -> 'ok' when Samplers :: [integer()].
 deleteSamplers(Samplers) ->
-  cast(5710, <<(length(Samplers)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Samplers>>)/binary,0:(((1+length(Samplers)) rem 2)*32)>>).
+  SamplersLen = length(Samplers),
+  cast(5711, <<SamplersLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Samplers>>)/binary,0:(((1+SamplersLen) rem 2)*32)>>).
 
 %% @doc Determine if a name corresponds to a sampler object
 %%
@@ -14549,7 +14630,7 @@ deleteSamplers(Samplers) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsSampler.xml">external</a> documentation.
 -spec isSampler(Sampler) -> 0|1 when Sampler :: integer().
 isSampler(Sampler) ->
-  call(5711, <<Sampler:?GLuint>>).
+  call(5712, <<Sampler:?GLuint>>).
 
 %% @doc Bind a named sampler to a texturing target
 %%
@@ -14566,7 +14647,7 @@ isSampler(Sampler) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindSampler.xml">external</a> documentation.
 -spec bindSampler(Unit, Sampler) -> 'ok' when Unit :: integer(),Sampler :: integer().
 bindSampler(Unit,Sampler) ->
-  cast(5712, <<Unit:?GLuint,Sampler:?GLuint>>).
+  cast(5713, <<Unit:?GLuint,Sampler:?GLuint>>).
 
 %% @doc Set sampler parameters
 %%
@@ -14712,42 +14793,46 @@ bindSampler(Unit,Sampler) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSamplerParameter.xml">external</a> documentation.
 -spec samplerParameteri(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: integer().
 samplerParameteri(Sampler,Pname,Param) ->
-  cast(5713, <<Sampler:?GLuint,Pname:?GLenum,Param:?GLint>>).
+  cast(5714, <<Sampler:?GLuint,Pname:?GLenum,Param:?GLint>>).
 
 %% @doc 
 %% See {@link samplerParameteri/3}
 -spec samplerParameteriv(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: [integer()].
 samplerParameteriv(Sampler,Pname,Param) ->
-  cast(5714, <<Sampler:?GLuint,Pname:?GLenum,(length(Param)):?GLuint,
-        (<< <<C:?GLint>> || C <- Param>>)/binary,0:(((1+length(Param)) rem 2)*32)>>).
+  ParamLen = length(Param),
+  cast(5715, <<Sampler:?GLuint,Pname:?GLenum,ParamLen:?GLuint,
+        (<< <<C:?GLint>> || C <- Param>>)/binary,0:(((1+ParamLen) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link samplerParameteri/3}
 -spec samplerParameterf(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: float().
 samplerParameterf(Sampler,Pname,Param) ->
-  cast(5715, <<Sampler:?GLuint,Pname:?GLenum,Param:?GLfloat>>).
+  cast(5716, <<Sampler:?GLuint,Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc 
 %% See {@link samplerParameteri/3}
 -spec samplerParameterfv(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: [float()].
 samplerParameterfv(Sampler,Pname,Param) ->
-  cast(5716, <<Sampler:?GLuint,Pname:?GLenum,(length(Param)):?GLuint,
-        (<< <<C:?GLfloat>> || C <- Param>>)/binary,0:(((1+length(Param)) rem 2)*32)>>).
+  ParamLen = length(Param),
+  cast(5717, <<Sampler:?GLuint,Pname:?GLenum,ParamLen:?GLuint,
+        (<< <<C:?GLfloat>> || C <- Param>>)/binary,0:(((1+ParamLen) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link samplerParameteri/3}
 -spec samplerParameterIiv(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: [integer()].
 samplerParameterIiv(Sampler,Pname,Param) ->
-  cast(5717, <<Sampler:?GLuint,Pname:?GLenum,(length(Param)):?GLuint,
-        (<< <<C:?GLint>> || C <- Param>>)/binary,0:(((1+length(Param)) rem 2)*32)>>).
+  ParamLen = length(Param),
+  cast(5718, <<Sampler:?GLuint,Pname:?GLenum,ParamLen:?GLuint,
+        (<< <<C:?GLint>> || C <- Param>>)/binary,0:(((1+ParamLen) rem 2)*32)>>).
 
 %% @doc glSamplerParameterI
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSamplerParameterI.xml">external</a> documentation.
 -spec samplerParameterIuiv(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: [integer()].
 samplerParameterIuiv(Sampler,Pname,Param) ->
-  cast(5718, <<Sampler:?GLuint,Pname:?GLenum,(length(Param)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Param>>)/binary,0:(((1+length(Param)) rem 2)*32)>>).
+  ParamLen = length(Param),
+  cast(5719, <<Sampler:?GLuint,Pname:?GLenum,ParamLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Param>>)/binary,0:(((1+ParamLen) rem 2)*32)>>).
 
 %% @doc Return sampler parameter values
 %%
@@ -14794,26 +14879,26 @@ samplerParameterIuiv(Sampler,Pname,Param) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetSamplerParameter.xml">external</a> documentation.
 -spec getSamplerParameteriv(Sampler, Pname) -> [integer()] when Sampler :: integer(),Pname :: enum().
 getSamplerParameteriv(Sampler,Pname) ->
-  call(5719, <<Sampler:?GLuint,Pname:?GLenum>>).
+  call(5720, <<Sampler:?GLuint,Pname:?GLenum>>).
 
 %% @doc 
 %% See {@link getSamplerParameteriv/2}
 -spec getSamplerParameterIiv(Sampler, Pname) -> [integer()] when Sampler :: integer(),Pname :: enum().
 getSamplerParameterIiv(Sampler,Pname) ->
-  call(5720, <<Sampler:?GLuint,Pname:?GLenum>>).
+  call(5721, <<Sampler:?GLuint,Pname:?GLenum>>).
 
 %% @doc 
 %% See {@link getSamplerParameteriv/2}
 -spec getSamplerParameterfv(Sampler, Pname) -> [float()] when Sampler :: integer(),Pname :: enum().
 getSamplerParameterfv(Sampler,Pname) ->
-  call(5721, <<Sampler:?GLuint,Pname:?GLenum>>).
+  call(5722, <<Sampler:?GLuint,Pname:?GLenum>>).
 
 %% @doc glGetSamplerParameterI
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetSamplerParameterI.xml">external</a> documentation.
 -spec getSamplerParameterIuiv(Sampler, Pname) -> [integer()] when Sampler :: integer(),Pname :: enum().
 getSamplerParameterIuiv(Sampler,Pname) ->
-  call(5722, <<Sampler:?GLuint,Pname:?GLenum>>).
+  call(5723, <<Sampler:?GLuint,Pname:?GLenum>>).
 
 %% @doc Record the GL time into a query object after all previous commands have reached the GL server but have not yet necessarily executed.
 %%
@@ -14828,21 +14913,21 @@ getSamplerParameterIuiv(Sampler,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glQueryCounter.xml">external</a> documentation.
 -spec queryCounter(Id, Target) -> 'ok' when Id :: integer(),Target :: enum().
 queryCounter(Id,Target) ->
-  cast(5723, <<Id:?GLuint,Target:?GLenum>>).
+  cast(5724, <<Id:?GLuint,Target:?GLenum>>).
 
 %% @doc glGetQueryObjecti64v
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetQueryObjecti64v.xml">external</a> documentation.
 -spec getQueryObjecti64v(Id, Pname) -> integer() when Id :: integer(),Pname :: enum().
 getQueryObjecti64v(Id,Pname) ->
-  call(5724, <<Id:?GLuint,Pname:?GLenum>>).
+  call(5725, <<Id:?GLuint,Pname:?GLenum>>).
 
 %% @doc glGetQueryObjectui64v
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetQueryObjectui64v.xml">external</a> documentation.
 -spec getQueryObjectui64v(Id, Pname) -> integer() when Id :: integer(),Pname :: enum().
 getQueryObjectui64v(Id,Pname) ->
-  call(5725, <<Id:?GLuint,Pname:?GLenum>>).
+  call(5726, <<Id:?GLuint,Pname:?GLenum>>).
 
 %% @doc Render primitives from array data, taking parameters from memory
 %%
@@ -14872,10 +14957,10 @@ getQueryObjectui64v(Id,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawArraysIndirect.xml">external</a> documentation.
 -spec drawArraysIndirect(Mode, Indirect) -> 'ok' when Mode :: enum(),Indirect :: offset()|mem().
 drawArraysIndirect(Mode,Indirect) when  is_integer(Indirect) ->
-  cast(5726, <<Mode:?GLenum,Indirect:?GLuint>>);
+  cast(5727, <<Mode:?GLenum,Indirect:?GLuint>>);
 drawArraysIndirect(Mode,Indirect) ->
   send_bin(Indirect),
-  cast(5727, <<Mode:?GLenum>>).
+  cast(5728, <<Mode:?GLenum>>).
 
 %% @doc Render indexed primitives from array data, taking parameters from memory
 %%
@@ -14912,131 +14997,144 @@ drawArraysIndirect(Mode,Indirect) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsIndirect.xml">external</a> documentation.
 -spec drawElementsIndirect(Mode, Type, Indirect) -> 'ok' when Mode :: enum(),Type :: enum(),Indirect :: offset()|mem().
 drawElementsIndirect(Mode,Type,Indirect) when  is_integer(Indirect) ->
-  cast(5728, <<Mode:?GLenum,Type:?GLenum,Indirect:?GLuint>>);
+  cast(5729, <<Mode:?GLenum,Type:?GLenum,Indirect:?GLuint>>);
 drawElementsIndirect(Mode,Type,Indirect) ->
   send_bin(Indirect),
-  cast(5729, <<Mode:?GLenum,Type:?GLenum>>).
+  cast(5730, <<Mode:?GLenum,Type:?GLenum>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform1d(Location, X) -> 'ok' when Location :: integer(),X :: float().
 uniform1d(Location,X) ->
-  cast(5730, <<Location:?GLint,0:32,X:?GLdouble>>).
+  cast(5731, <<Location:?GLint,0:32,X:?GLdouble>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform2d(Location, X, Y) -> 'ok' when Location :: integer(),X :: float(),Y :: float().
 uniform2d(Location,X,Y) ->
-  cast(5731, <<Location:?GLint,0:32,X:?GLdouble,Y:?GLdouble>>).
+  cast(5732, <<Location:?GLint,0:32,X:?GLdouble,Y:?GLdouble>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform3d(Location, X, Y, Z) -> 'ok' when Location :: integer(),X :: float(),Y :: float(),Z :: float().
 uniform3d(Location,X,Y,Z) ->
-  cast(5732, <<Location:?GLint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
+  cast(5733, <<Location:?GLint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform4d(Location, X, Y, Z, W) -> 'ok' when Location :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 uniform4d(Location,X,Y,Z,W) ->
-  cast(5733, <<Location:?GLint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
+  cast(5734, <<Location:?GLint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform1dv(Location, Value) -> 'ok' when Location :: integer(),Value :: [float()].
 uniform1dv(Location,Value) ->
-  cast(5734, <<Location:?GLint,0:32,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5735, <<Location:?GLint,0:32,ValueLen:?GLuint,0:32,
         (<< <<C:?GLdouble>> || C <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform2dv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{float(),float()}].
 uniform2dv(Location,Value) ->
-  cast(5735, <<Location:?GLint,0:32,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5736, <<Location:?GLint,0:32,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform3dv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{float(),float(),float()}].
 uniform3dv(Location,Value) ->
-  cast(5736, <<Location:?GLint,0:32,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5737, <<Location:?GLint,0:32,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniform4dv(Location, Value) -> 'ok' when Location :: integer(),Value :: [{float(),float(),float(),float()}].
 uniform4dv(Location,Value) ->
-  cast(5737, <<Location:?GLint,0:32,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5738, <<Location:?GLint,0:32,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix2dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float()}].
 uniformMatrix2dv(Location,Transpose,Value) ->
-  cast(5738, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5739, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix3dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix3dv(Location,Transpose,Value) ->
-  cast(5739, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5740, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix4dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix4dv(Location,Transpose,Value) ->
-  cast(5740, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5741, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble,V10:?GLdouble,V11:?GLdouble,V12:?GLdouble,V13:?GLdouble,V14:?GLdouble,V15:?GLdouble,V16:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12,V13,V14,V15,V16} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix2x3dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 uniformMatrix2x3dv(Location,Transpose,Value) ->
-  cast(5741, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5742, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix2x4dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix2x4dv(Location,Transpose,Value) ->
-  cast(5742, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5743, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix3x2dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 uniformMatrix3x2dv(Location,Transpose,Value) ->
-  cast(5743, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5744, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix3x4dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix3x4dv(Location,Transpose,Value) ->
-  cast(5744, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5745, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble,V10:?GLdouble,V11:?GLdouble,V12:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix4x2dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix4x2dv(Location,Transpose,Value) ->
-  cast(5745, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5746, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link uniform1f/2}
 -spec uniformMatrix4x3dv(Location, Transpose, Value) -> 'ok' when Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 uniformMatrix4x3dv(Location,Transpose,Value) ->
-  cast(5746, <<Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5747, <<Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble,V10:?GLdouble,V11:?GLdouble,V12:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link getUniformfv/2}
 -spec getUniformdv(Program, Location) -> matrix() when Program :: integer(),Location :: integer().
 getUniformdv(Program,Location) ->
-  call(5747, <<Program:?GLuint,Location:?GLint>>).
+  call(5748, <<Program:?GLuint,Location:?GLint>>).
 
 %% @doc Retrieve the location of a subroutine uniform of a given shader stage within a program
 %%
@@ -15055,7 +15153,8 @@ getUniformdv(Program,Location) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetSubroutineUniformLocation.xml">external</a> documentation.
 -spec getSubroutineUniformLocation(Program, Shadertype, Name) -> integer() when Program :: integer(),Shadertype :: enum(),Name :: string().
 getSubroutineUniformLocation(Program,Shadertype,Name) ->
-  call(5748, <<Program:?GLuint,Shadertype:?GLenum,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 1) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  call(5749, <<Program:?GLuint,Shadertype:?GLenum,(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 1) rem 8)) rem 8)>>).
 
 %% @doc Retrieve the index of a subroutine uniform of a given shader stage within a program
 %%
@@ -15075,7 +15174,8 @@ getSubroutineUniformLocation(Program,Shadertype,Name) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetSubroutineIndex.xml">external</a> documentation.
 -spec getSubroutineIndex(Program, Shadertype, Name) -> integer() when Program :: integer(),Shadertype :: enum(),Name :: string().
 getSubroutineIndex(Program,Shadertype,Name) ->
-  call(5749, <<Program:?GLuint,Shadertype:?GLenum,(list_to_binary([Name|[0]]))/binary,0:((8-((length(Name)+ 1) rem 8)) rem 8)>>).
+  NameLen = length(Name),
+  call(5750, <<Program:?GLuint,Shadertype:?GLenum,(list_to_binary([Name|[0]]))/binary,0:((8-((NameLen+ 1) rem 8)) rem 8)>>).
 
 %% @doc Query the name of an active shader subroutine uniform
 %%
@@ -15096,7 +15196,7 @@ getSubroutineIndex(Program,Shadertype,Name) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveSubroutineUniformName.xml">external</a> documentation.
 -spec getActiveSubroutineUniformName(Program, Shadertype, Index, Bufsize) -> string() when Program :: integer(),Shadertype :: enum(),Index :: integer(),Bufsize :: integer().
 getActiveSubroutineUniformName(Program,Shadertype,Index,Bufsize) ->
-  call(5750, <<Program:?GLuint,Shadertype:?GLenum,Index:?GLuint,Bufsize:?GLsizei>>).
+  call(5751, <<Program:?GLuint,Shadertype:?GLenum,Index:?GLuint,Bufsize:?GLsizei>>).
 
 %% @doc Query the name of an active shader subroutine
 %%
@@ -15114,7 +15214,7 @@ getActiveSubroutineUniformName(Program,Shadertype,Index,Bufsize) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveSubroutineName.xml">external</a> documentation.
 -spec getActiveSubroutineName(Program, Shadertype, Index, Bufsize) -> string() when Program :: integer(),Shadertype :: enum(),Index :: integer(),Bufsize :: integer().
 getActiveSubroutineName(Program,Shadertype,Index,Bufsize) ->
-  call(5751, <<Program:?GLuint,Shadertype:?GLenum,Index:?GLuint,Bufsize:?GLsizei>>).
+  call(5752, <<Program:?GLuint,Shadertype:?GLenum,Index:?GLuint,Bufsize:?GLsizei>>).
 
 %% @doc Load active subroutine uniforms
 %%
@@ -15128,8 +15228,9 @@ getActiveSubroutineName(Program,Shadertype,Index,Bufsize) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUniformSubroutines.xml">external</a> documentation.
 -spec uniformSubroutinesuiv(Shadertype, Indices) -> 'ok' when Shadertype :: enum(),Indices :: [integer()].
 uniformSubroutinesuiv(Shadertype,Indices) ->
-  cast(5752, <<Shadertype:?GLenum,(length(Indices)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Indices>>)/binary,0:(((length(Indices)) rem 2)*32)>>).
+  IndicesLen = length(Indices),
+  cast(5753, <<Shadertype:?GLenum,IndicesLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Indices>>)/binary,0:(((IndicesLen) rem 2)*32)>>).
 
 %% @doc Retrieve the value of a subroutine uniform of a given shader stage of the current program
 %%
@@ -15142,7 +15243,7 @@ uniformSubroutinesuiv(Shadertype,Indices) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformSubroutine.xml">external</a> documentation.
 -spec getUniformSubroutineuiv(Shadertype, Location) -> {integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer()} when Shadertype :: enum(),Location :: integer().
 getUniformSubroutineuiv(Shadertype,Location) ->
-  call(5753, <<Shadertype:?GLenum,Location:?GLint>>).
+  call(5754, <<Shadertype:?GLenum,Location:?GLint>>).
 
 %% @doc Retrieve properties of a program object corresponding to a specified shader stage
 %%
@@ -15174,7 +15275,7 @@ getUniformSubroutineuiv(Shadertype,Location) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramStage.xml">external</a> documentation.
 -spec getProgramStageiv(Program, Shadertype, Pname) -> integer() when Program :: integer(),Shadertype :: enum(),Pname :: enum().
 getProgramStageiv(Program,Shadertype,Pname) ->
-  call(5754, <<Program:?GLuint,Shadertype:?GLenum,Pname:?GLenum>>).
+  call(5755, <<Program:?GLuint,Shadertype:?GLenum,Pname:?GLenum>>).
 
 %% @doc Specifies the parameters for patch primitives
 %%
@@ -15201,14 +15302,15 @@ getProgramStageiv(Program,Shadertype,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPatchParameter.xml">external</a> documentation.
 -spec patchParameteri(Pname, Value) -> 'ok' when Pname :: enum(),Value :: integer().
 patchParameteri(Pname,Value) ->
-  cast(5755, <<Pname:?GLenum,Value:?GLint>>).
+  cast(5756, <<Pname:?GLenum,Value:?GLint>>).
 
 %% @doc 
 %% See {@link patchParameteri/2}
 -spec patchParameterfv(Pname, Values) -> 'ok' when Pname :: enum(),Values :: [float()].
 patchParameterfv(Pname,Values) ->
-  cast(5756, <<Pname:?GLenum,(length(Values)):?GLuint,
-        (<< <<C:?GLfloat>> || C <- Values>>)/binary,0:(((length(Values)) rem 2)*32)>>).
+  ValuesLen = length(Values),
+  cast(5757, <<Pname:?GLenum,ValuesLen:?GLuint,
+        (<< <<C:?GLfloat>> || C <- Values>>)/binary,0:(((ValuesLen) rem 2)*32)>>).
 
 %% @doc Bind a transform feedback object
 %%
@@ -15231,7 +15333,7 @@ patchParameterfv(Pname,Values) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindTransformFeedback.xml">external</a> documentation.
 -spec bindTransformFeedback(Target, Id) -> 'ok' when Target :: enum(),Id :: integer().
 bindTransformFeedback(Target,Id) ->
-  cast(5757, <<Target:?GLenum,Id:?GLuint>>).
+  cast(5758, <<Target:?GLenum,Id:?GLuint>>).
 
 %% @doc Delete transform feedback objects
 %%
@@ -15244,8 +15346,9 @@ bindTransformFeedback(Target,Id) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteTransformFeedbacks.xml">external</a> documentation.
 -spec deleteTransformFeedbacks(Ids) -> 'ok' when Ids :: [integer()].
 deleteTransformFeedbacks(Ids) ->
-  cast(5758, <<(length(Ids)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Ids>>)/binary,0:(((1+length(Ids)) rem 2)*32)>>).
+  IdsLen = length(Ids),
+  cast(5759, <<IdsLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Ids>>)/binary,0:(((1+IdsLen) rem 2)*32)>>).
 
 %% @doc Reserve transform feedback object names
 %%
@@ -15256,7 +15359,7 @@ deleteTransformFeedbacks(Ids) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenTransformFeedbacks.xml">external</a> documentation.
 -spec genTransformFeedbacks(N) -> [integer()] when N :: integer().
 genTransformFeedbacks(N) ->
-  call(5759, <<N:?GLsizei>>).
+  call(5760, <<N:?GLsizei>>).
 
 %% @doc Determine if a name corresponds to a transform feedback object
 %%
@@ -15271,7 +15374,7 @@ genTransformFeedbacks(N) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsTransformFeedback.xml">external</a> documentation.
 -spec isTransformFeedback(Id) -> 0|1 when Id :: integer().
 isTransformFeedback(Id) ->
-  call(5760, <<Id:?GLuint>>).
+  call(5761, <<Id:?GLuint>>).
 
 %% @doc Pause transform feedback operations
 %%
@@ -15284,7 +15387,7 @@ isTransformFeedback(Id) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPauseTransformFeedback.xml">external</a> documentation.
 -spec pauseTransformFeedback() -> 'ok'.
 pauseTransformFeedback() ->
-  cast(5761, <<>>).
+  cast(5762, <<>>).
 
 %% @doc Resume transform feedback operations
 %%
@@ -15297,7 +15400,7 @@ pauseTransformFeedback() ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glResumeTransformFeedback.xml">external</a> documentation.
 -spec resumeTransformFeedback() -> 'ok'.
 resumeTransformFeedback() ->
-  cast(5762, <<>>).
+  cast(5763, <<>>).
 
 %% @doc Render primitives using a count derived from a transform feedback object
 %%
@@ -15311,7 +15414,7 @@ resumeTransformFeedback() ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawTransformFeedback.xml">external</a> documentation.
 -spec drawTransformFeedback(Mode, Id) -> 'ok' when Mode :: enum(),Id :: integer().
 drawTransformFeedback(Mode,Id) ->
-  cast(5763, <<Mode:?GLenum,Id:?GLuint>>).
+  cast(5764, <<Mode:?GLenum,Id:?GLuint>>).
 
 %% @doc Render primitives using a count derived from a specifed stream of a transform feedback object
 %%
@@ -15329,14 +15432,14 @@ drawTransformFeedback(Mode,Id) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawTransformFeedbackStream.xml">external</a> documentation.
 -spec drawTransformFeedbackStream(Mode, Id, Stream) -> 'ok' when Mode :: enum(),Id :: integer(),Stream :: integer().
 drawTransformFeedbackStream(Mode,Id,Stream) ->
-  cast(5764, <<Mode:?GLenum,Id:?GLuint,Stream:?GLuint>>).
+  cast(5765, <<Mode:?GLenum,Id:?GLuint,Stream:?GLuint>>).
 
 %% @doc glBeginQueryIndexe
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginQueryIndexe.xml">external</a> documentation.
 -spec beginQueryIndexed(Target, Index, Id) -> 'ok' when Target :: enum(),Index :: integer(),Id :: integer().
 beginQueryIndexed(Target,Index,Id) ->
-  cast(5765, <<Target:?GLenum,Index:?GLuint,Id:?GLuint>>).
+  cast(5766, <<Target:?GLenum,Index:?GLuint,Id:?GLuint>>).
 
 %% @doc Delimit the boundaries of a query object on an indexed target
 %%
@@ -15413,7 +15516,7 @@ beginQueryIndexed(Target,Index,Id) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginQueryIndexed.xml">external</a> documentation.
 -spec endQueryIndexed(Target, Index) -> 'ok' when Target :: enum(),Index :: integer().
 endQueryIndexed(Target,Index) ->
-  cast(5766, <<Target:?GLenum,Index:?GLuint>>).
+  cast(5767, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc Return parameters of an indexed query object target
 %%
@@ -15431,7 +15534,7 @@ endQueryIndexed(Target,Index) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetQueryIndexed.xml">external</a> documentation.
 -spec getQueryIndexediv(Target, Index, Pname) -> integer() when Target :: enum(),Index :: integer(),Pname :: enum().
 getQueryIndexediv(Target,Index,Pname) ->
-  call(5767, <<Target:?GLenum,Index:?GLuint,Pname:?GLenum>>).
+  call(5768, <<Target:?GLenum,Index:?GLuint,Pname:?GLenum>>).
 
 %% @doc Release resources consumed by the implementation's shader compiler
 %%
@@ -15443,7 +15546,7 @@ getQueryIndexediv(Target,Index,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glReleaseShaderCompiler.xml">external</a> documentation.
 -spec releaseShaderCompiler() -> 'ok'.
 releaseShaderCompiler() ->
-  cast(5768, <<>>).
+  cast(5769, <<>>).
 
 %% @doc Load pre-compiled shader binaries
 %%
@@ -15465,9 +15568,10 @@ releaseShaderCompiler() ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glShaderBinary.xml">external</a> documentation.
 -spec shaderBinary(Shaders, Binaryformat, Binary) -> 'ok' when Shaders :: [integer()],Binaryformat :: enum(),Binary :: binary().
 shaderBinary(Shaders,Binaryformat,Binary) ->
+  ShadersLen = length(Shaders),
   send_bin(Binary),
-  cast(5769, <<(length(Shaders)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Shaders>>)/binary,0:(((1+length(Shaders)) rem 2)*32),Binaryformat:?GLenum>>).
+  cast(5770, <<ShadersLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Shaders>>)/binary,0:(((1+ShadersLen) rem 2)*32),Binaryformat:?GLenum>>).
 
 %% @doc Retrieve the range and precision for numeric formats supported by the shader compiler
 %%
@@ -15492,20 +15596,20 @@ shaderBinary(Shaders,Binaryformat,Binary) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetShaderPrecisionFormat.xml">external</a> documentation.
 -spec getShaderPrecisionFormat(Shadertype, Precisiontype) -> {Range :: {integer(),integer()},Precision :: integer()} when Shadertype :: enum(),Precisiontype :: enum().
 getShaderPrecisionFormat(Shadertype,Precisiontype) ->
-  call(5770, <<Shadertype:?GLenum,Precisiontype:?GLenum>>).
+  call(5771, <<Shadertype:?GLenum,Precisiontype:?GLenum>>).
 
 %% @doc 
 %% See {@link depthRange/2}
 -spec depthRangef(N, F) -> 'ok' when N :: clamp(),F :: clamp().
 depthRangef(N,F) ->
-  cast(5771, <<N:?GLclampf,F:?GLclampf>>).
+  cast(5772, <<N:?GLclampf,F:?GLclampf>>).
 
 %% @doc glClearDepthf
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearDepthf.xml">external</a> documentation.
 -spec clearDepthf(D) -> 'ok' when D :: clamp().
 clearDepthf(D) ->
-  cast(5772, <<D:?GLclampf>>).
+  cast(5773, <<D:?GLclampf>>).
 
 %% @doc Return a binary representation of a program object's compiled and linked executable source
 %%
@@ -15526,7 +15630,7 @@ clearDepthf(D) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramBinary.xml">external</a> documentation.
 -spec getProgramBinary(Program, BufSize) -> {BinaryFormat :: enum(),Binary :: binary()} when Program :: integer(),BufSize :: integer().
 getProgramBinary(Program,BufSize) ->
-  call(5773, <<Program:?GLuint,BufSize:?GLsizei>>).
+  call(5774, <<Program:?GLuint,BufSize:?GLsizei>>).
 
 %% @doc Load a program object with a program binary
 %%
@@ -15554,7 +15658,7 @@ getProgramBinary(Program,BufSize) ->
 -spec programBinary(Program, BinaryFormat, Binary) -> 'ok' when Program :: integer(),BinaryFormat :: enum(),Binary :: binary().
 programBinary(Program,BinaryFormat,Binary) ->
   send_bin(Binary),
-  cast(5774, <<Program:?GLuint,BinaryFormat:?GLenum>>).
+  cast(5775, <<Program:?GLuint,BinaryFormat:?GLenum>>).
 
 %% @doc Specify a parameter for a program object
 %%
@@ -15579,7 +15683,7 @@ programBinary(Program,BinaryFormat,Binary) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramParameter.xml">external</a> documentation.
 -spec programParameteri(Program, Pname, Value) -> 'ok' when Program :: integer(),Pname :: enum(),Value :: integer().
 programParameteri(Program,Pname,Value) ->
-  cast(5775, <<Program:?GLuint,Pname:?GLenum,Value:?GLint>>).
+  cast(5776, <<Program:?GLuint,Pname:?GLenum,Value:?GLint>>).
 
 %% @doc Bind stages of a program object to a program pipeline
 %%
@@ -15604,7 +15708,7 @@ programParameteri(Program,Pname,Value) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUseProgramStages.xml">external</a> documentation.
 -spec useProgramStages(Pipeline, Stages, Program) -> 'ok' when Pipeline :: integer(),Stages :: integer(),Program :: integer().
 useProgramStages(Pipeline,Stages,Program) ->
-  cast(5776, <<Pipeline:?GLuint,Stages:?GLbitfield,Program:?GLuint>>).
+  cast(5777, <<Pipeline:?GLuint,Stages:?GLbitfield,Program:?GLuint>>).
 
 %% @doc Set the active program object for a program pipeline object
 %%
@@ -15616,15 +15720,16 @@ useProgramStages(Pipeline,Stages,Program) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glActiveShaderProgram.xml">external</a> documentation.
 -spec activeShaderProgram(Pipeline, Program) -> 'ok' when Pipeline :: integer(),Program :: integer().
 activeShaderProgram(Pipeline,Program) ->
-  cast(5777, <<Pipeline:?GLuint,Program:?GLuint>>).
+  cast(5778, <<Pipeline:?GLuint,Program:?GLuint>>).
 
 %% @doc glCreateShaderProgramv
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCreateShaderProgramv.xml">external</a> documentation.
 -spec createShaderProgramv(Type, Strings) -> integer() when Type :: enum(),Strings :: iolist().
 createShaderProgramv(Type,Strings) ->
- StringsTemp = list_to_binary([[Str|[0]] || Str <- Strings ]),
-  call(5778, <<Type:?GLenum,(length(Strings)):?GLuint,(size(StringsTemp)):?GLuint,(StringsTemp)/binary,0:((8-((size(StringsTemp)+0) rem 8)) rem 8)>>).
+  StringsTemp = list_to_binary([[Str|[0]] || Str <- Strings ]),
+  StringsLen = length(Strings),
+  call(5779, <<Type:?GLenum,StringsLen:?GLuint,(size(StringsTemp)):?GLuint,(StringsTemp)/binary,0:((8-((size(StringsTemp)+0) rem 8)) rem 8)>>).
 
 %% @doc Bind a program pipeline to the current context
 %%
@@ -15646,7 +15751,7 @@ createShaderProgramv(Type,Strings) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindProgramPipeline.xml">external</a> documentation.
 -spec bindProgramPipeline(Pipeline) -> 'ok' when Pipeline :: integer().
 bindProgramPipeline(Pipeline) ->
-  cast(5779, <<Pipeline:?GLuint>>).
+  cast(5780, <<Pipeline:?GLuint>>).
 
 %% @doc Delete program pipeline objects
 %%
@@ -15660,8 +15765,9 @@ bindProgramPipeline(Pipeline) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteProgramPipelines.xml">external</a> documentation.
 -spec deleteProgramPipelines(Pipelines) -> 'ok' when Pipelines :: [integer()].
 deleteProgramPipelines(Pipelines) ->
-  cast(5780, <<(length(Pipelines)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Pipelines>>)/binary,0:(((1+length(Pipelines)) rem 2)*32)>>).
+  PipelinesLen = length(Pipelines),
+  cast(5781, <<PipelinesLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Pipelines>>)/binary,0:(((1+PipelinesLen) rem 2)*32)>>).
 
 %% @doc Reserve program pipeline object names
 %%
@@ -15672,7 +15778,7 @@ deleteProgramPipelines(Pipelines) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenProgramPipelines.xml">external</a> documentation.
 -spec genProgramPipelines(N) -> [integer()] when N :: integer().
 genProgramPipelines(N) ->
-  call(5781, <<N:?GLsizei>>).
+  call(5782, <<N:?GLsizei>>).
 
 %% @doc Determine if a name corresponds to a program pipeline object
 %%
@@ -15687,7 +15793,7 @@ genProgramPipelines(N) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsProgramPipeline.xml">external</a> documentation.
 -spec isProgramPipeline(Pipeline) -> 0|1 when Pipeline :: integer().
 isProgramPipeline(Pipeline) ->
-  call(5782, <<Pipeline:?GLuint>>).
+  call(5783, <<Pipeline:?GLuint>>).
 
 %% @doc Retrieve properties of a program pipeline object
 %%
@@ -15725,7 +15831,7 @@ isProgramPipeline(Pipeline) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramPipeline.xml">external</a> documentation.
 -spec getProgramPipelineiv(Pipeline, Pname) -> integer() when Pipeline :: integer(),Pname :: enum().
 getProgramPipelineiv(Pipeline,Pname) ->
-  call(5783, <<Pipeline:?GLuint,Pname:?GLenum>>).
+  call(5784, <<Pipeline:?GLuint,Pname:?GLenum>>).
 
 %% @doc Specify the value of a uniform variable for a specified program object
 %%
@@ -15792,334 +15898,368 @@ getProgramPipelineiv(Pipeline,Pname) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramUniform.xml">external</a> documentation.
 -spec programUniform1i(Program, Location, V0) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer().
 programUniform1i(Program,Location,V0) ->
-  cast(5784, <<Program:?GLuint,Location:?GLint,V0:?GLint>>).
+  cast(5785, <<Program:?GLuint,Location:?GLint,V0:?GLint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform1iv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [integer()].
 programUniform1iv(Program,Location,Value) ->
-  cast(5785, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
-        (<< <<C:?GLint>> || C <- Value>>)/binary,0:(((1+length(Value)) rem 2)*32)>>).
+  ValueLen = length(Value),
+  cast(5786, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,
+        (<< <<C:?GLint>> || C <- Value>>)/binary,0:(((1+ValueLen) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform1f(Program, Location, V0) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float().
 programUniform1f(Program,Location,V0) ->
-  cast(5786, <<Program:?GLuint,Location:?GLint,V0:?GLfloat>>).
+  cast(5787, <<Program:?GLuint,Location:?GLint,V0:?GLfloat>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform1fv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [float()].
 programUniform1fv(Program,Location,Value) ->
-  cast(5787, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
-        (<< <<C:?GLfloat>> || C <- Value>>)/binary,0:(((1+length(Value)) rem 2)*32)>>).
+  ValueLen = length(Value),
+  cast(5788, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,
+        (<< <<C:?GLfloat>> || C <- Value>>)/binary,0:(((1+ValueLen) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform1d(Program, Location, V0) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float().
 programUniform1d(Program,Location,V0) ->
-  cast(5788, <<Program:?GLuint,Location:?GLint,V0:?GLdouble>>).
+  cast(5789, <<Program:?GLuint,Location:?GLint,V0:?GLdouble>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform1dv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [float()].
 programUniform1dv(Program,Location,Value) ->
-  cast(5789, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5790, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,0:32,
         (<< <<C:?GLdouble>> || C <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform1ui(Program, Location, V0) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer().
 programUniform1ui(Program,Location,V0) ->
-  cast(5790, <<Program:?GLuint,Location:?GLint,V0:?GLuint>>).
+  cast(5791, <<Program:?GLuint,Location:?GLint,V0:?GLuint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform1uiv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [integer()].
 programUniform1uiv(Program,Location,Value) ->
-  cast(5791, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Value>>)/binary,0:(((1+length(Value)) rem 2)*32)>>).
+  ValueLen = length(Value),
+  cast(5792, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Value>>)/binary,0:(((1+ValueLen) rem 2)*32)>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform2i(Program, Location, V0, V1) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer().
 programUniform2i(Program,Location,V0,V1) ->
-  cast(5792, <<Program:?GLuint,Location:?GLint,V0:?GLint,V1:?GLint>>).
+  cast(5793, <<Program:?GLuint,Location:?GLint,V0:?GLint,V1:?GLint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform2iv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{integer(),integer()}].
 programUniform2iv(Program,Location,Value) ->
-  cast(5793, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5794, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLint,V2:?GLint>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform2f(Program, Location, V0, V1) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float().
 programUniform2f(Program,Location,V0,V1) ->
-  cast(5794, <<Program:?GLuint,Location:?GLint,V0:?GLfloat,V1:?GLfloat>>).
+  cast(5795, <<Program:?GLuint,Location:?GLint,V0:?GLfloat,V1:?GLfloat>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform2fv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{float(),float()}].
 programUniform2fv(Program,Location,Value) ->
-  cast(5795, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5796, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform2d(Program, Location, V0, V1) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float().
 programUniform2d(Program,Location,V0,V1) ->
-  cast(5796, <<Program:?GLuint,Location:?GLint,V0:?GLdouble,V1:?GLdouble>>).
+  cast(5797, <<Program:?GLuint,Location:?GLint,V0:?GLdouble,V1:?GLdouble>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform2dv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{float(),float()}].
 programUniform2dv(Program,Location,Value) ->
-  cast(5797, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5798, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform2ui(Program, Location, V0, V1) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer().
 programUniform2ui(Program,Location,V0,V1) ->
-  cast(5798, <<Program:?GLuint,Location:?GLint,V0:?GLuint,V1:?GLuint>>).
+  cast(5799, <<Program:?GLuint,Location:?GLint,V0:?GLuint,V1:?GLuint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform2uiv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{integer(),integer()}].
 programUniform2uiv(Program,Location,Value) ->
-  cast(5799, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5800, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLuint,V2:?GLuint>> || {V1,V2} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform3i(Program, Location, V0, V1, V2) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer().
 programUniform3i(Program,Location,V0,V1,V2) ->
-  cast(5800, <<Program:?GLuint,Location:?GLint,V0:?GLint,V1:?GLint,V2:?GLint>>).
+  cast(5801, <<Program:?GLuint,Location:?GLint,V0:?GLint,V1:?GLint,V2:?GLint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform3iv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{integer(),integer(),integer()}].
 programUniform3iv(Program,Location,Value) ->
-  cast(5801, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5802, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLint,V2:?GLint,V3:?GLint>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform3f(Program, Location, V0, V1, V2) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float().
 programUniform3f(Program,Location,V0,V1,V2) ->
-  cast(5802, <<Program:?GLuint,Location:?GLint,V0:?GLfloat,V1:?GLfloat,V2:?GLfloat>>).
+  cast(5803, <<Program:?GLuint,Location:?GLint,V0:?GLfloat,V1:?GLfloat,V2:?GLfloat>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform3fv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{float(),float(),float()}].
 programUniform3fv(Program,Location,Value) ->
-  cast(5803, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5804, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform3d(Program, Location, V0, V1, V2) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float().
 programUniform3d(Program,Location,V0,V1,V2) ->
-  cast(5804, <<Program:?GLuint,Location:?GLint,V0:?GLdouble,V1:?GLdouble,V2:?GLdouble>>).
+  cast(5805, <<Program:?GLuint,Location:?GLint,V0:?GLdouble,V1:?GLdouble,V2:?GLdouble>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform3dv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{float(),float(),float()}].
 programUniform3dv(Program,Location,Value) ->
-  cast(5805, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5806, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform3ui(Program, Location, V0, V1, V2) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer().
 programUniform3ui(Program,Location,V0,V1,V2) ->
-  cast(5806, <<Program:?GLuint,Location:?GLint,V0:?GLuint,V1:?GLuint,V2:?GLuint>>).
+  cast(5807, <<Program:?GLuint,Location:?GLint,V0:?GLuint,V1:?GLuint,V2:?GLuint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform3uiv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{integer(),integer(),integer()}].
 programUniform3uiv(Program,Location,Value) ->
-  cast(5807, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5808, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLuint,V2:?GLuint,V3:?GLuint>> || {V1,V2,V3} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform4i(Program, Location, V0, V1, V2, V3) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer(),V3 :: integer().
 programUniform4i(Program,Location,V0,V1,V2,V3) ->
-  cast(5808, <<Program:?GLuint,Location:?GLint,V0:?GLint,V1:?GLint,V2:?GLint,V3:?GLint>>).
+  cast(5809, <<Program:?GLuint,Location:?GLint,V0:?GLint,V1:?GLint,V2:?GLint,V3:?GLint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform4iv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{integer(),integer(),integer(),integer()}].
 programUniform4iv(Program,Location,Value) ->
-  cast(5809, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5810, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform4f(Program, Location, V0, V1, V2, V3) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float(),V3 :: float().
 programUniform4f(Program,Location,V0,V1,V2,V3) ->
-  cast(5810, <<Program:?GLuint,Location:?GLint,V0:?GLfloat,V1:?GLfloat,V2:?GLfloat,V3:?GLfloat>>).
+  cast(5811, <<Program:?GLuint,Location:?GLint,V0:?GLfloat,V1:?GLfloat,V2:?GLfloat,V3:?GLfloat>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform4fv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{float(),float(),float(),float()}].
 programUniform4fv(Program,Location,Value) ->
-  cast(5811, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5812, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform4d(Program, Location, V0, V1, V2, V3) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: float(),V1 :: float(),V2 :: float(),V3 :: float().
 programUniform4d(Program,Location,V0,V1,V2,V3) ->
-  cast(5812, <<Program:?GLuint,Location:?GLint,V0:?GLdouble,V1:?GLdouble,V2:?GLdouble,V3:?GLdouble>>).
+  cast(5813, <<Program:?GLuint,Location:?GLint,V0:?GLdouble,V1:?GLdouble,V2:?GLdouble,V3:?GLdouble>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform4dv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{float(),float(),float(),float()}].
 programUniform4dv(Program,Location,Value) ->
-  cast(5813, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5814, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform4ui(Program, Location, V0, V1, V2, V3) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer(),V1 :: integer(),V2 :: integer(),V3 :: integer().
 programUniform4ui(Program,Location,V0,V1,V2,V3) ->
-  cast(5814, <<Program:?GLuint,Location:?GLint,V0:?GLuint,V1:?GLuint,V2:?GLuint,V3:?GLuint>>).
+  cast(5815, <<Program:?GLuint,Location:?GLint,V0:?GLuint,V1:?GLuint,V2:?GLuint,V3:?GLuint>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniform4uiv(Program, Location, Value) -> 'ok' when Program :: integer(),Location :: integer(),Value :: [{integer(),integer(),integer(),integer()}].
 programUniform4uiv(Program,Location,Value) ->
-  cast(5815, <<Program:?GLuint,Location:?GLint,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5816, <<Program:?GLuint,Location:?GLint,ValueLen:?GLuint,
         (<< <<V1:?GLuint,V2:?GLuint,V3:?GLuint,V4:?GLuint>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix2fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float()}].
 programUniformMatrix2fv(Program,Location,Transpose,Value) ->
-  cast(5816, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5817, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix3fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix3fv(Program,Location,Transpose,Value) ->
-  cast(5817, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5818, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix4fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix4fv(Program,Location,Transpose,Value) ->
-  cast(5818, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5819, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat,V10:?GLfloat,V11:?GLfloat,V12:?GLfloat,V13:?GLfloat,V14:?GLfloat,V15:?GLfloat,V16:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12,V13,V14,V15,V16} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix2dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float()}].
 programUniformMatrix2dv(Program,Location,Transpose,Value) ->
-  cast(5819, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5820, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble>> || {V1,V2,V3,V4} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix3dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix3dv(Program,Location,Transpose,Value) ->
-  cast(5820, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5821, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix4dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix4dv(Program,Location,Transpose,Value) ->
-  cast(5821, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5822, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble,V10:?GLdouble,V11:?GLdouble,V12:?GLdouble,V13:?GLdouble,V14:?GLdouble,V15:?GLdouble,V16:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12,V13,V14,V15,V16} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix2x3fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 programUniformMatrix2x3fv(Program,Location,Transpose,Value) ->
-  cast(5822, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5823, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix3x2fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 programUniformMatrix3x2fv(Program,Location,Transpose,Value) ->
-  cast(5823, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5824, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix2x4fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix2x4fv(Program,Location,Transpose,Value) ->
-  cast(5824, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5825, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix4x2fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix4x2fv(Program,Location,Transpose,Value) ->
-  cast(5825, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5826, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix3x4fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix3x4fv(Program,Location,Transpose,Value) ->
-  cast(5826, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5827, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat,V10:?GLfloat,V11:?GLfloat,V12:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix4x3fv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix4x3fv(Program,Location,Transpose,Value) ->
-  cast(5827, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,(length(Value)):?GLuint,
+  ValueLen = length(Value),
+  cast(5828, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:24,ValueLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat,V5:?GLfloat,V6:?GLfloat,V7:?GLfloat,V8:?GLfloat,V9:?GLfloat,V10:?GLfloat,V11:?GLfloat,V12:?GLfloat>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix2x3dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 programUniformMatrix2x3dv(Program,Location,Transpose,Value) ->
-  cast(5828, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5829, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix3x2dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float()}].
 programUniformMatrix3x2dv(Program,Location,Transpose,Value) ->
-  cast(5829, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5830, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble>> || {V1,V2,V3,V4,V5,V6} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix2x4dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix2x4dv(Program,Location,Transpose,Value) ->
-  cast(5830, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5831, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix4x2dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix4x2dv(Program,Location,Transpose,Value) ->
-  cast(5831, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5832, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix3x4dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix3x4dv(Program,Location,Transpose,Value) ->
-  cast(5832, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5833, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble,V10:?GLdouble,V11:?GLdouble,V12:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
 
 %% @doc 
 %% See {@link programUniform1i/3}
 -spec programUniformMatrix4x3dv(Program, Location, Transpose, Value) -> 'ok' when Program :: integer(),Location :: integer(),Transpose :: 0|1,Value :: [{float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float(),float()}].
 programUniformMatrix4x3dv(Program,Location,Transpose,Value) ->
-  cast(5833, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,(length(Value)):?GLuint,0:32,
+  ValueLen = length(Value),
+  cast(5834, <<Program:?GLuint,Location:?GLint,Transpose:?GLboolean,0:56,ValueLen:?GLuint,0:32,
         (<< <<V1:?GLdouble,V2:?GLdouble,V3:?GLdouble,V4:?GLdouble,V5:?GLdouble,V6:?GLdouble,V7:?GLdouble,V8:?GLdouble,V9:?GLdouble,V10:?GLdouble,V11:?GLdouble,V12:?GLdouble>> || {V1,V2,V3,V4,V5,V6,V7,V8,V9,V10,V11,V12} <- Value>>)/binary>>).
 
 %% @doc Validate a program pipeline object against current GL state
@@ -16140,7 +16280,7 @@ programUniformMatrix4x3dv(Program,Location,Transpose,Value) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glValidateProgramPipeline.xml">external</a> documentation.
 -spec validateProgramPipeline(Pipeline) -> 'ok' when Pipeline :: integer().
 validateProgramPipeline(Pipeline) ->
-  cast(5834, <<Pipeline:?GLuint>>).
+  cast(5835, <<Pipeline:?GLuint>>).
 
 %% @doc Retrieve the info log string from a program pipeline object
 %%
@@ -16157,35 +16297,35 @@ validateProgramPipeline(Pipeline) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramPipelineInfoLog.xml">external</a> documentation.
 -spec getProgramPipelineInfoLog(Pipeline, BufSize) -> string() when Pipeline :: integer(),BufSize :: integer().
 getProgramPipelineInfoLog(Pipeline,BufSize) ->
-  call(5835, <<Pipeline:?GLuint,BufSize:?GLsizei>>).
+  call(5836, <<Pipeline:?GLuint,BufSize:?GLsizei>>).
 
 %% @doc glVertexAttribL
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribL.xml">external</a> documentation.
 -spec vertexAttribL1d(Index, X) -> 'ok' when Index :: integer(),X :: float().
 vertexAttribL1d(Index,X) ->
-  cast(5836, <<Index:?GLuint,0:32,X:?GLdouble>>).
+  cast(5837, <<Index:?GLuint,0:32,X:?GLdouble>>).
 
 %% @doc glVertexAttribL
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribL.xml">external</a> documentation.
 -spec vertexAttribL2d(Index, X, Y) -> 'ok' when Index :: integer(),X :: float(),Y :: float().
 vertexAttribL2d(Index,X,Y) ->
-  cast(5837, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble>>).
+  cast(5838, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble>>).
 
 %% @doc glVertexAttribL
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribL.xml">external</a> documentation.
 -spec vertexAttribL3d(Index, X, Y, Z) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float().
 vertexAttribL3d(Index,X,Y,Z) ->
-  cast(5838, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
+  cast(5839, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @doc glVertexAttribL
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribL.xml">external</a> documentation.
 -spec vertexAttribL4d(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 vertexAttribL4d(Index,X,Y,Z,W) ->
-  cast(5839, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
+  cast(5840, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @equiv vertexAttribL1d(Index,X)
 -spec vertexAttribL1dv(Index :: integer(),V) -> 'ok' when V :: {X :: float()}.
@@ -16208,24 +16348,25 @@ vertexAttribL4dv(Index,{X,Y,Z,W}) ->  vertexAttribL4d(Index,X,Y,Z,W).
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribLPointer.xml">external</a> documentation.
 -spec vertexAttribLPointer(Index, Size, Type, Stride, Pointer) -> 'ok' when Index :: integer(),Size :: integer(),Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 vertexAttribLPointer(Index,Size,Type,Stride,Pointer) when  is_integer(Pointer) ->
-  cast(5840, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
+  cast(5841, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
 vertexAttribLPointer(Index,Size,Type,Stride,Pointer) ->
   send_bin(Pointer),
-  cast(5841, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Stride:?GLsizei>>).
+  cast(5842, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Stride:?GLsizei>>).
 
 %% @doc glGetVertexAttribL
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetVertexAttribL.xml">external</a> documentation.
 -spec getVertexAttribLdv(Index, Pname) -> {float(),float(),float(),float()} when Index :: integer(),Pname :: enum().
 getVertexAttribLdv(Index,Pname) ->
-  call(5842, <<Index:?GLuint,Pname:?GLenum>>).
+  call(5843, <<Index:?GLuint,Pname:?GLenum>>).
 
 %% @doc glViewportArrayv
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glViewportArrayv.xml">external</a> documentation.
 -spec viewportArrayv(First, V) -> 'ok' when First :: integer(),V :: [{float(),float(),float(),float()}].
 viewportArrayv(First,V) ->
-  cast(5843, <<First:?GLuint,(length(V)):?GLuint,
+  VLen = length(V),
+  cast(5844, <<First:?GLuint,VLen:?GLuint,
         (<< <<V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat>> || {V1,V2,V3,V4} <- V>>)/binary>>).
 
 %% @doc Set a specified viewport
@@ -16265,20 +16406,21 @@ viewportArrayv(First,V) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glViewportIndexed.xml">external</a> documentation.
 -spec viewportIndexedf(Index, X, Y, W, H) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),W :: float(),H :: float().
 viewportIndexedf(Index,X,Y,W,H) ->
-  cast(5844, <<Index:?GLuint,X:?GLfloat,Y:?GLfloat,W:?GLfloat,H:?GLfloat>>).
+  cast(5845, <<Index:?GLuint,X:?GLfloat,Y:?GLfloat,W:?GLfloat,H:?GLfloat>>).
 
 %% @doc 
 %% See {@link viewportIndexedf/5}
 -spec viewportIndexedfv(Index, V) -> 'ok' when Index :: integer(),V :: {float(),float(),float(),float()}.
 viewportIndexedfv(Index,{V1,V2,V3,V4}) ->
-  cast(5845, <<Index:?GLuint,V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat>>).
+  cast(5846, <<Index:?GLuint,V1:?GLfloat,V2:?GLfloat,V3:?GLfloat,V4:?GLfloat>>).
 
 %% @doc glScissorArrayv
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glScissorArrayv.xml">external</a> documentation.
 -spec scissorArrayv(First, V) -> 'ok' when First :: integer(),V :: [{integer(),integer(),integer(),integer()}].
 scissorArrayv(First,V) ->
-  cast(5846, <<First:?GLuint,(length(V)):?GLuint,
+  VLen = length(V),
+  cast(5847, <<First:?GLuint,VLen:?GLuint,
         (<< <<V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>> || {V1,V2,V3,V4} <- V>>)/binary>>).
 
 %% @doc glScissorIndexe
@@ -16286,21 +16428,22 @@ scissorArrayv(First,V) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glScissorIndexe.xml">external</a> documentation.
 -spec scissorIndexed(Index, Left, Bottom, Width, Height) -> 'ok' when Index :: integer(),Left :: integer(),Bottom :: integer(),Width :: integer(),Height :: integer().
 scissorIndexed(Index,Left,Bottom,Width,Height) ->
-  cast(5847, <<Index:?GLuint,Left:?GLint,Bottom:?GLint,Width:?GLsizei,Height:?GLsizei>>).
+  cast(5848, <<Index:?GLuint,Left:?GLint,Bottom:?GLint,Width:?GLsizei,Height:?GLsizei>>).
 
 %% @doc glScissorIndexe
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glScissorIndexe.xml">external</a> documentation.
 -spec scissorIndexedv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 scissorIndexedv(Index,{V1,V2,V3,V4}) ->
-  cast(5848, <<Index:?GLuint,V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>>).
+  cast(5849, <<Index:?GLuint,V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>>).
 
 %% @doc glDepthRangeArrayv
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthRangeArrayv.xml">external</a> documentation.
 -spec depthRangeArrayv(First, V) -> 'ok' when First :: integer(),V :: [{clamp(),clamp()}].
 depthRangeArrayv(First,V) ->
-  cast(5849, <<First:?GLuint,0:32,(length(V)):?GLuint,0:32,
+  VLen = length(V),
+  cast(5850, <<First:?GLuint,0:32,VLen:?GLuint,0:32,
         (<< <<V1:?GLclampd,V2:?GLclampd>> || {V1,V2} <- V>>)/binary>>).
 
 %% @doc glDepthRangeIndexe
@@ -16308,48 +16451,50 @@ depthRangeArrayv(First,V) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthRangeIndexe.xml">external</a> documentation.
 -spec depthRangeIndexed(Index, N, F) -> 'ok' when Index :: integer(),N :: clamp(),F :: clamp().
 depthRangeIndexed(Index,N,F) ->
-  cast(5850, <<Index:?GLuint,0:32,N:?GLclampd,F:?GLclampd>>).
+  cast(5851, <<Index:?GLuint,0:32,N:?GLclampd,F:?GLclampd>>).
 
 %% @doc 
 %% See {@link getBooleanv/1}
 -spec getFloati_v(Target, Index) -> [float()] when Target :: enum(),Index :: integer().
 getFloati_v(Target,Index) ->
-  call(5851, <<Target:?GLenum,Index:?GLuint>>).
+  call(5852, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc 
 %% See {@link getBooleanv/1}
 -spec getDoublei_v(Target, Index) -> [float()] when Target :: enum(),Index :: integer().
 getDoublei_v(Target,Index) ->
-  call(5852, <<Target:?GLenum,Index:?GLuint>>).
+  call(5853, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glDebugMessageControlARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDebugMessageControlARB.xml">external</a> documentation.
 -spec debugMessageControlARB(Source, Type, Severity, Ids, Enabled) -> 'ok' when Source :: enum(),Type :: enum(),Severity :: enum(),Ids :: [integer()],Enabled :: 0|1.
 debugMessageControlARB(Source,Type,Severity,Ids,Enabled) ->
-  cast(5853, <<Source:?GLenum,Type:?GLenum,Severity:?GLenum,(length(Ids)):?GLuint,
-        (<< <<C:?GLuint>> || C <- Ids>>)/binary,0:(((length(Ids)) rem 2)*32),Enabled:?GLboolean>>).
+  IdsLen = length(Ids),
+  cast(5854, <<Source:?GLenum,Type:?GLenum,Severity:?GLenum,IdsLen:?GLuint,
+        (<< <<C:?GLuint>> || C <- Ids>>)/binary,0:(((IdsLen) rem 2)*32),Enabled:?GLboolean>>).
 
 %% @doc glDebugMessageInsertARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDebugMessageInsertARB.xml">external</a> documentation.
 -spec debugMessageInsertARB(Source, Type, Id, Severity, Buf) -> 'ok' when Source :: enum(),Type :: enum(),Id :: integer(),Severity :: enum(),Buf :: string().
 debugMessageInsertARB(Source,Type,Id,Severity,Buf) ->
-  cast(5854, <<Source:?GLenum,Type:?GLenum,Id:?GLuint,Severity:?GLenum,(list_to_binary([Buf|[0]]))/binary,0:((8-((length(Buf)+ 1) rem 8)) rem 8)>>).
+  BufLen = length(Buf),
+  cast(5855, <<Source:?GLenum,Type:?GLenum,Id:?GLuint,Severity:?GLenum,(list_to_binary([Buf|[0]]))/binary,0:((8-((BufLen+ 1) rem 8)) rem 8)>>).
 
 %% @doc glGetDebugMessageLogARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetDebugMessageLogARB.xml">external</a> documentation.
 -spec getDebugMessageLogARB(Count, Bufsize) -> {integer(),Sources :: [enum()],Types :: [enum()],Ids :: [integer()],Severities :: [enum()],MessageLog :: [string()]} when Count :: integer(),Bufsize :: integer().
 getDebugMessageLogARB(Count,Bufsize) ->
-  call(5855, <<Count:?GLuint,Bufsize:?GLsizei>>).
+  call(5856, <<Count:?GLuint,Bufsize:?GLsizei>>).
 
 %% @doc glGetGraphicsResetStatusARB
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetGraphicsResetStatusARB.xml">external</a> documentation.
 -spec getGraphicsResetStatusARB() -> enum().
 getGraphicsResetStatusARB() ->
-  call(5856, <<>>).
+  call(5857, <<>>).
 
 %% @doc Draw multiple instances of a range of elements with offset applied to instanced attributes
 %%
@@ -16372,7 +16517,7 @@ getGraphicsResetStatusARB() ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawArraysInstancedBaseInstance.xml">external</a> documentation.
 -spec drawArraysInstancedBaseInstance(Mode, First, Count, Primcount, Baseinstance) -> 'ok' when Mode :: enum(),First :: integer(),Count :: integer(),Primcount :: integer(),Baseinstance :: integer().
 drawArraysInstancedBaseInstance(Mode,First,Count,Primcount,Baseinstance) ->
-  cast(5857, <<Mode:?GLenum,First:?GLint,Count:?GLsizei,Primcount:?GLsizei,Baseinstance:?GLuint>>).
+  cast(5858, <<Mode:?GLenum,First:?GLint,Count:?GLsizei,Primcount:?GLsizei,Baseinstance:?GLuint>>).
 
 %% @doc Draw multiple instances of a set of elements with offset applied to instanced attributes
 %%
@@ -16395,10 +16540,10 @@ drawArraysInstancedBaseInstance(Mode,First,Count,Primcount,Baseinstance) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsInstancedBaseInstance.xml">external</a> documentation.
 -spec drawElementsInstancedBaseInstance(Mode, Count, Type, Indices, Primcount, Baseinstance) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer(),Baseinstance :: integer().
 drawElementsInstancedBaseInstance(Mode,Count,Type,Indices,Primcount,Baseinstance) when  is_integer(Indices) ->
-  cast(5858, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei,Baseinstance:?GLuint>>);
+  cast(5859, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei,Baseinstance:?GLuint>>);
 drawElementsInstancedBaseInstance(Mode,Count,Type,Indices,Primcount,Baseinstance) ->
   send_bin(Indices),
-  cast(5859, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Primcount:?GLsizei,Baseinstance:?GLuint>>).
+  cast(5860, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Primcount:?GLsizei,Baseinstance:?GLuint>>).
 
 %% @doc Render multiple instances of a set of primitives from array data with a per-element offset
 %%
@@ -16419,31 +16564,31 @@ drawElementsInstancedBaseInstance(Mode,Count,Type,Indices,Primcount,Baseinstance
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsInstancedBaseVertexBaseInstance.xml">external</a> documentation.
 -spec drawElementsInstancedBaseVertexBaseInstance(Mode, Count, Type, Indices, Primcount, Basevertex, Baseinstance) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer(),Basevertex :: integer(),Baseinstance :: integer().
 drawElementsInstancedBaseVertexBaseInstance(Mode,Count,Type,Indices,Primcount,Basevertex,Baseinstance) when  is_integer(Indices) ->
-  cast(5860, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei,Basevertex:?GLint,Baseinstance:?GLuint>>);
+  cast(5861, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei,Basevertex:?GLint,Baseinstance:?GLuint>>);
 drawElementsInstancedBaseVertexBaseInstance(Mode,Count,Type,Indices,Primcount,Basevertex,Baseinstance) ->
   send_bin(Indices),
-  cast(5861, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Primcount:?GLsizei,Basevertex:?GLint,Baseinstance:?GLuint>>).
+  cast(5862, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Primcount:?GLsizei,Basevertex:?GLint,Baseinstance:?GLuint>>).
 
 %% @doc glDrawTransformFeedbackInstance
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawTransformFeedbackInstance.xml">external</a> documentation.
 -spec drawTransformFeedbackInstanced(Mode, Id, Primcount) -> 'ok' when Mode :: enum(),Id :: integer(),Primcount :: integer().
 drawTransformFeedbackInstanced(Mode,Id,Primcount) ->
-  cast(5862, <<Mode:?GLenum,Id:?GLuint,Primcount:?GLsizei>>).
+  cast(5863, <<Mode:?GLenum,Id:?GLuint,Primcount:?GLsizei>>).
 
 %% @doc glDrawTransformFeedbackStreamInstance
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawTransformFeedbackStreamInstance.xml">external</a> documentation.
 -spec drawTransformFeedbackStreamInstanced(Mode, Id, Stream, Primcount) -> 'ok' when Mode :: enum(),Id :: integer(),Stream :: integer(),Primcount :: integer().
 drawTransformFeedbackStreamInstanced(Mode,Id,Stream,Primcount) ->
-  cast(5863, <<Mode:?GLenum,Id:?GLuint,Stream:?GLuint,Primcount:?GLsizei>>).
+  cast(5864, <<Mode:?GLenum,Id:?GLuint,Stream:?GLuint,Primcount:?GLsizei>>).
 
 %% @doc glGetInternalformat
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetInternalformat.xml">external</a> documentation.
 -spec getInternalformativ(Target, Internalformat, Pname, BufSize) -> [integer()] when Target :: enum(),Internalformat :: enum(),Pname :: enum(),BufSize :: integer().
 getInternalformativ(Target,Internalformat,Pname,BufSize) ->
-  call(5864, <<Target:?GLenum,Internalformat:?GLenum,Pname:?GLenum,BufSize:?GLsizei>>).
+  call(5865, <<Target:?GLenum,Internalformat:?GLenum,Pname:?GLenum,BufSize:?GLsizei>>).
 
 %% @doc Bind a level of a texture to an image unit
 %%
@@ -16505,7 +16650,7 @@ getInternalformativ(Target,Internalformat,Pname,BufSize) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindImageTexture.xml">external</a> documentation.
 -spec bindImageTexture(Unit, Texture, Level, Layered, Layer, Access, Format) -> 'ok' when Unit :: integer(),Texture :: integer(),Level :: integer(),Layered :: 0|1,Layer :: integer(),Access :: enum(),Format :: enum().
 bindImageTexture(Unit,Texture,Level,Layered,Layer,Access,Format) ->
-  cast(5865, <<Unit:?GLuint,Texture:?GLuint,Level:?GLint,Layered:?GLboolean,0:24,Layer:?GLint,Access:?GLenum,Format:?GLenum>>).
+  cast(5866, <<Unit:?GLuint,Texture:?GLuint,Level:?GLint,Layered:?GLboolean,0:24,Layer:?GLint,Access:?GLenum,Format:?GLenum>>).
 
 %% @doc Defines a barrier ordering memory transactions
 %%
@@ -16632,7 +16777,7 @@ bindImageTexture(Unit,Texture,Level,Layered,Layer,Access,Format) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMemoryBarrier.xml">external</a> documentation.
 -spec memoryBarrier(Barriers) -> 'ok' when Barriers :: integer().
 memoryBarrier(Barriers) ->
-  cast(5866, <<Barriers:?GLbitfield>>).
+  cast(5867, <<Barriers:?GLbitfield>>).
 
 %% @doc Simultaneously specify storage for all levels of a one-dimensional texture
 %%
@@ -16665,7 +16810,7 @@ memoryBarrier(Barriers) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexStorage1D.xml">external</a> documentation.
 -spec texStorage1D(Target, Levels, Internalformat, Width) -> 'ok' when Target :: enum(),Levels :: integer(),Internalformat :: enum(),Width :: integer().
 texStorage1D(Target,Levels,Internalformat,Width) ->
-  cast(5867, <<Target:?GLenum,Levels:?GLsizei,Internalformat:?GLenum,Width:?GLsizei>>).
+  cast(5868, <<Target:?GLenum,Levels:?GLsizei,Internalformat:?GLenum,Width:?GLsizei>>).
 
 %% @doc Simultaneously specify storage for all levels of a two-dimensional or one-dimensional array texture
 %%
@@ -16710,7 +16855,7 @@ texStorage1D(Target,Levels,Internalformat,Width) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexStorage2D.xml">external</a> documentation.
 -spec texStorage2D(Target, Levels, Internalformat, Width, Height) -> 'ok' when Target :: enum(),Levels :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer().
 texStorage2D(Target,Levels,Internalformat,Width,Height) ->
-  cast(5868, <<Target:?GLenum,Levels:?GLsizei,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei>>).
+  cast(5869, <<Target:?GLenum,Levels:?GLsizei,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei>>).
 
 %% @doc Simultaneously specify storage for all levels of a three-dimensional, two-dimensional array or cube-map array texture
 %%
@@ -16753,19 +16898,19 @@ texStorage2D(Target,Levels,Internalformat,Width,Height) ->
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexStorage3D.xml">external</a> documentation.
 -spec texStorage3D(Target, Levels, Internalformat, Width, Height, Depth) -> 'ok' when Target :: enum(),Levels :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Depth :: integer().
 texStorage3D(Target,Levels,Internalformat,Width,Height,Depth) ->
-  cast(5869, <<Target:?GLenum,Levels:?GLsizei,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei>>).
+  cast(5870, <<Target:?GLenum,Levels:?GLsizei,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei>>).
 
 %% @doc glDepthBoundsEXT
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthBoundsEXT.xml">external</a> documentation.
 -spec depthBoundsEXT(Zmin, Zmax) -> 'ok' when Zmin :: clamp(),Zmax :: clamp().
 depthBoundsEXT(Zmin,Zmax) ->
-  cast(5870, <<Zmin:?GLclampd,Zmax:?GLclampd>>).
+  cast(5871, <<Zmin:?GLclampd,Zmax:?GLclampd>>).
 
 %% @doc glStencilClearTagEXT
 %%
 %% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilClearTagEXT.xml">external</a> documentation.
 -spec stencilClearTagEXT(StencilTagBits, StencilClearTag) -> 'ok' when StencilTagBits :: integer(),StencilClearTag :: integer().
 stencilClearTagEXT(StencilTagBits,StencilClearTag) ->
-  cast(5871, <<StencilTagBits:?GLsizei,StencilClearTag:?GLuint>>).
+  cast(5872, <<StencilTagBits:?GLsizei,StencilClearTag:?GLuint>>).
 

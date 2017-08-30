@@ -30,7 +30,7 @@
     <file>part.xml</file>
   </header>
   <description>
-    <p>The System Architecture Support Libraries <c>SASL</c> application
+    <p>The System Architecture Support Libraries SASL application
       provides support for alarm handling, release handling, and
       related functions.</p>
   </description>

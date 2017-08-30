@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,6 +95,8 @@
 #define ERTS_LCNT_LO_READ       (((Uint16) 1) << 6)
 #define ERTS_LCNT_LO_WRITE      (((Uint16) 1) << 7)
 
+#define ERTS_LCNT_LT_DISABLE    (((Uint16) 1) << 8)
+
 #define ERTS_LCNT_LO_READ_WRITE ( ERTS_LCNT_LO_READ  \
                                 | ERTS_LCNT_LO_WRITE )
 
@@ -129,7 +131,7 @@ typedef struct {
 
 typedef struct erts_lcnt_lock_stats_s {
     /* "tries" and "colls" needs to be atomic since
-     * trylock busy does not aquire a lock and there
+     * trylock busy does not acquire a lock and there
      * is no post action to rectify the situation
      */
 
@@ -148,13 +150,13 @@ typedef struct erts_lcnt_lock_stats_s {
 typedef struct erts_lcnt_lock_s {
     char *name;            /* lock name */
     Uint16 flag;           /* lock type */
-    Eterm id;              /* id if possible */ 
+    Eterm id;              /* id if possible */
 
 #ifdef DEBUG
     ethr_atomic_t flowstate;
 #endif
 
-    /* lock states */    
+    /* lock states */
     ethr_atomic_t w_state; /* 0 not taken, otherwise n threads waiting */
     ethr_atomic_t r_state; /* 0 not taken, > 0 -> writes will wait */
 
@@ -204,7 +206,6 @@ void erts_lcnt_thread_exit_handler(void);
 /* list operations (local)  */
 erts_lcnt_lock_list_t *erts_lcnt_list_init(void);
 
-void erts_lcnt_list_clear( erts_lcnt_lock_list_t *list);
 void erts_lcnt_list_insert(erts_lcnt_lock_list_t *list, erts_lcnt_lock_t *lock);
 void erts_lcnt_list_delete(erts_lcnt_lock_list_t *list, erts_lcnt_lock_t *lock);
 

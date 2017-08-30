@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2015</year>
+      <year>2000</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -162,9 +162,9 @@ int main() {
       the include files <c>erl_interface.h</c> and <c>ei.h</c>, and
       also to the libraries <c>erl_interface</c> and <c>ei</c>:</p>
     <pre>
-unix> <input>gcc -o extprg -I/usr/local/otp/lib/erl_interface-3.2.1/include \\ </input>
-<input>      -L/usr/local/otp/lib/erl_interface-3.2.1/lib \\ </input>
-<input>      complex.c erl_comm.c ei.c -lerl_interface -lei</input></pre>
+unix> <input>gcc -o extprg -I/usr/local/otp/lib/erl_interface-3.9.2/include \\ </input>
+<input>      -L/usr/local/otp/lib/erl_interface-3.9.2/lib \\ </input>
+<input>      complex.c erl_comm.c ei.c -lerl_interface -lei -lpthread</input></pre>
     <p>In Erlang/OTP R5B and later versions of OTP, the <c>include</c>
       and <c>lib</c> directories are situated under
       <c>OTPROOT/lib/erl_interface-VSN</c>, where <c>OTPROOT</c> is
@@ -184,7 +184,7 @@ Eshell V4.9.1.2 (abort with ^G)
 {ok,complex2}</pre>
     <p><em>Step 3.</em> Run the example:</p>
     <pre>
-2> <input>complex2:start("extprg").</input>
+2> <input>complex2:start("./extprg").</input>
 &lt;0.34.0>
 3> <input>complex2:foo(3).</input>
 4

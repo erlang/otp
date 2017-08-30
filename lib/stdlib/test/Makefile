@@ -52,6 +52,7 @@ MODULES= \
 	io_proto_SUITE \
 	lists_SUITE \
 	log_mf_h_SUITE \
+	math_SUITE \
 	ms_transform_SUITE \
 	proc_lib_SUITE \
 	qlc_SUITE \
@@ -83,6 +84,7 @@ MODULES= \
 	timer_SUITE \
 	timer_simple_SUITE \
 	unicode_SUITE \
+	unicode_util_SUITE \
 	win32reg_SUITE \
 	y2k_SUITE \
 	select_SUITE \

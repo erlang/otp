@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -86,11 +86,11 @@
       an <c>ebin</c> directory are ignored.</p>
     <p>All application directories found in the additional directories
       appears before the standard OTP applications, except for the
-      <c>Kernel</c> and <c>STDLIB</c> applications, which are placed before
+      Kernel and STDLIB applications, which are placed before
       any additional applications. In other words, modules found in any
       of the additional library directories override modules with
-      the same name in OTP, except for modules in <c>Kernel</c> and
-      <c>STDLIB</c>.</p>
+      the same name in OTP, except for modules in Kernel and
+      STDLIB.</p>
     <p>Environment variable <c>ERL_LIBS</c> (if defined) is to contain
       a colon-separated (for Unix-like systems) or semicolon-separated
       (for Windows) list of additional libraries.</p>
@@ -151,7 +151,7 @@ zip:create("mnesia-4.4.7.ez",
      <c>$OTPROOT/lib/mnesia.ez/mnesia/ebin</c> or
      <c>$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.</p>
 
-    <p>The code server uses module <c>erl_prim_loader</c> in <c>ERTS</c>
+    <p>The code server uses module <c>erl_prim_loader</c> in ERTS
      (possibly through <c>erl_boot_server</c>) to read code files from
      archives. However, the functions in <c>erl_prim_loader</c> can also be
      used by other applications to read files from archives. For
@@ -258,7 +258,7 @@ zip:create("mnesia-4.4.7.ez",
     both strings and atoms, but a future release will probably only allow
     the arguments that are documented.</p>
 
-    <p>As from Erlang/OTP R12B, functions in this module generally fail with an
+    <p>Functions in this module generally fail with an
     exception if they are passed an incorrect type (for example, an integer or a tuple
     where an atom is expected). An error tuple is returned if the argument type
     is correct, but there are some other errors (for example, a non-existing directory
@@ -382,9 +382,14 @@ zip:create("mnesia-4.4.7.ez",
       <name name="add_pathsa" arity="1"/>
       <fsummary>Add directories to the beginning of the code path.</fsummary>
       <desc>
-        <p>Adds the directories in <c><anno>Dirs</anno></c> to the beginning of
-          the code path. If a <c><anno>Dir</anno></c> exists, it is removed
-          from the old position in the code path.</p>
+	<p>Traverses <c><anno>Dirs</anno></c> and adds
+	  each <c><anno>Dir</anno></c> to the beginning of the code
+	  path. This means that the order of <c><anno>Dirs</anno></c>
+	  is reversed in the resulting code path. For example, if you
+	  add <c>[Dir1,Dir2]</c>, the resulting path will
+	  be <c>[Dir2,Dir1|OldCodePath]</c>.</p>
+	<p>If a <c><anno>Dir</anno></c> already exists in the code
+	  path, it is removed from the old position.</p>
 	<p>Always returns <c>ok</c>, regardless of the validity of each
           individual <c><anno>Dir</anno></c>.</p>
       </desc>
@@ -651,6 +656,11 @@ ok = code:finish_loading(Prepared),
         <p>Purges the code for <c><anno>Module</anno></c>, that is, removes code
           marked as old. If some processes still linger in the old code,
           these processes are killed before the code is removed.</p>
+	<note><p>As of ERTS version 9.0, a process is only considered
+	to be lingering in the code if it has direct references to the code.
+	For more information see documentation of
+	<seealso marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>,
+	which is used in order to determine this.</p></note>
         <p>Returns <c>true</c> if successful and any process is needed to
           be killed, otherwise <c>false</c>.</p>
       </desc>
@@ -661,6 +671,11 @@ ok = code:finish_loading(Prepared),
       <desc>
         <p>Purges the code for <c><anno>Module</anno></c>, that is, removes code
           marked as old, but only if no processes linger in it.</p>
+	<note><p>As of ERTS version 9.0, a process is only considered
+	to be lingering in the code if it has direct references to the code.
+	For more information see documentation of
+	<seealso marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>,
+	which is used in order to determine this.</p></note>
         <p>Returns <c>false</c> if the module cannot be purged because
           of processes lingering in old code, otherwise <c>true</c>.</p>
       </desc>
@@ -678,9 +693,9 @@ ok = code:finish_loading(Prepared),
         <p>Normally, <c><anno>Loaded</anno></c> is the absolute filename
           <c>Filename</c> from which the code is obtained. If the module
           is preloaded (see
-          <seealso marker="sasl:script"><c>sasl:script(4)</c></seealso>),
+          <seealso marker="sasl:script"><c>script(4)</c></seealso>),
           <c>Loaded==preloaded</c>. If the module is Cover-compiled (see
-          <seealso marker="tools:cover"><c>tools:cover(3)</c></seealso>),
+          <seealso marker="tools:cover"><c>cover(3)</c></seealso>),
           <c>Loaded==cover_compiled</c>.</p>
       </desc>
     </func>
@@ -881,6 +896,48 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       <desc>
         <p>Searches all directories in the code path for module names with
           identical names and writes a report to <c>stdout</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="module_status" arity="1"/>
+      <fsummary>Return the status of the module in relation to object file on disk.</fsummary>
+      <desc>
+	<p>Returns:</p>
+	<taglist>
+	<tag><c>not_loaded</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is not currently loaded.</p></item>
+        <tag><c>loaded</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is loaded and the object file
+	exists and contains the same code.</p></item>
+	<tag><c>removed</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is loaded but no
+	corresponding object file can be found in the code path.</p></item>
+        <tag><c>modified</c></tag>
+	<item><p>If <c><anno>Module</anno></c> is loaded but the object file
+	contains code with a different MD5 checksum.</p></item>
+	</taglist>
+        <p>Preloaded modules are always reported as <c>loaded</c>, without
+        inspecting the contents on disk. Cover compiled modules will always
+        be reported as <c>modified</c> if an object file exists, or as
+        <c>removed</c> otherwise. Modules whose load path is an empty string
+        (which is the convention for auto-generated code) will only be
+        reported as <c>loaded</c> or <c>not_loaded</c>.</p>
+        <p>For modules that have native code loaded (see
+        <seealso marker="#is_module_native/1"><c>is_module_native/1</c></seealso>),
+        the MD5 sum of the native code in the object file is used for the
+        comparison, if it exists; the Beam code in the file is ignored.
+        Reversely, for modules that do not currently have native code
+        loaded, any native code in the file will be ignored.</p>
+        <p>See also <seealso marker="#modified_modules/0"><c>modified_modules/0</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="modified_modules" arity="0"/>
+      <fsummary>Return a list of all modules modified on disk.</fsummary>
+      <desc>
+        <p>Returns the list of all currently loaded modules for which
+        <seealso marker="#module_status/1"><c>module_status/1</c></seealso>
+        returns <c>modified</c>. See also <seealso marker="#all_loaded/0"><c>all_loaded/0</c></seealso>.</p>
       </desc>
     </func>
     <func>

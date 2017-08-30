@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,14 +27,7 @@
 
 -export([start/4, stop/1, get_conn_pid/1, check_opts/1]).
 -export([call/2, call/3, return/2, do_within_time/2]).
--export([log/3, start_log/1, cont_log/2, end_log/0]).
-
-%%----------------------------------------------------------------------
-%% Exported types
-%%----------------------------------------------------------------------
--export_type([server_id/0,
-	      target_name/0,
-	      key_or_name/0]).
+-export([log/3, start_log/1, cont_log/2, cont_log_no_timestamp/2, end_log/0]).
 
 -ifdef(debug).
 -define(dbg,true).
@@ -53,18 +46,6 @@
 		  conn_pid,
 		  cb_state,
 		  ct_util_server}).
-
-%%------------------------------------------------------------------
-%% Type declarations
-%%------------------------------------------------------------------
--type server_id() :: atom().
-%% A `ServerId' which exists in a configuration file.
--type target_name() :: atom().
-%% A name which is associated to a `server_id()' via a
-%% `require' statement or a call to {@link ct:require/2} in the
-%% test suite.
--type key_or_name() :: server_id() | target_name().
-
 
 %%%-----------------------------------------------------------------
 %%% @spec start(Address,InitData,CallbackMod,Opts) ->
@@ -175,6 +156,14 @@ cont_log(Format,Args) ->
     log(cont_log,[Format,Args]).
 
 %%%-----------------------------------------------------------------
+%%% @spec cont_log_no_timestamp(Format,Args) -> ok
+%%%
+%%% @doc Log activities on the current connection (tool-internal use only).
+%%% @see ct_logs:cont_log/2
+cont_log_no_timestamp(Format,Args) ->
+    log(cont_log_no_timestamp,[Format,Args]).
+
+%%%-----------------------------------------------------------------
 %%% @spec end_log() -> ok
 %%%
 %%% @doc Log activities on the current connection (tool-internal use only).
@@ -258,7 +247,7 @@ do_start(Opts) ->
 	    Error;
 	{'DOWN',MRef,process,_,Reason} ->
 	    log("ct_gen_conn:start",
-		"Connection process died: ~p\n",
+		"Connection process died: ~tp\n",
 		[Reason]),
 	    {error,{connection_process_died,Reason}}
     end.
@@ -338,7 +327,7 @@ loop(Opts) ->
 	    case Opts#gen_opts.reconnect of
 		true ->
 		    log("Connection down!\nOpening new!",
-			"Reason: ~p\nAddress: ~p\n",
+			"Reason: ~tp\nAddress: ~tp\n",
 			[Reason,Opts#gen_opts.address]),
 		    case reconnect(Opts) of
 			{ok, NewPid, NewState} ->
@@ -349,12 +338,12 @@ loop(Opts) ->
 			Error ->
 			    ct_util:unregister_connection(self()),
 			    log("Reconnect failed. Giving up!",
-				"Reason: ~p\n",
+				"Reason: ~tp\n",
 				[Error])
 		    end;
 		false ->
 		    ct_util:unregister_connection(self()),
-		    log("Connection closed!","Reason: ~p\n",[Reason])
+		    log("Connection closed!","Reason: ~tp\n",[Reason])
 	    end;
 	{'EXIT',Pid,Reason} ->
 	    case Opts#gen_opts.ct_util_server of
@@ -365,8 +354,9 @@ loop(Opts) ->
 	    end;
 	{stop, From} ->
 	    ct_util:unregister_connection(self()),
-	    (Opts#gen_opts.callback):terminate(Opts#gen_opts.conn_pid,
-					       Opts#gen_opts.cb_state),
+            ConnPid = Opts#gen_opts.conn_pid,
+            unlink(ConnPid),
+	    (Opts#gen_opts.callback):terminate(ConnPid,Opts#gen_opts.cb_state),
 	    return(From,ok),
 	    ok;
 	{{retry,{Error,_Name,CPid,_Msg}}, From} when 
@@ -403,8 +393,9 @@ loop(Opts) ->
 		    loop(Opts#gen_opts{cb_state=NewState});
 		{stop,Reply,NewState} ->
 		    ct_util:unregister_connection(self()),
-		    (Opts#gen_opts.callback):terminate(Opts#gen_opts.conn_pid,
-						       NewState),
+                    ConnPid = Opts#gen_opts.conn_pid,
+                    unlink(ConnPid),
+		    (Opts#gen_opts.callback):terminate(ConnPid,NewState),
 		    return(From,Reply)
 	    end;
 	Msg when Opts#gen_opts.forward==true ->
@@ -414,8 +405,9 @@ loop(Opts) ->
 		    loop(Opts#gen_opts{cb_state=NewState});
 		{stop,NewState} ->
 		    ct_util:unregister_connection(self()),
-		    (Opts#gen_opts.callback):terminate(Opts#gen_opts.conn_pid,
-						       NewState)
+                    ConnPid = Opts#gen_opts.conn_pid,
+                    unlink(ConnPid),
+		    (Opts#gen_opts.callback):terminate(ConnPid,NewState)
 	    end
     end.
 

@@ -33,6 +33,20 @@
     <file>notes.xml</file>
   </header>
 
+  <section><title>Orber 3.8.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix some dialyzer warnings</p>
+          <p>
+	    Own Id: OTP-14006</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
 
   <section><title>Orber 3.8.2</title>
 

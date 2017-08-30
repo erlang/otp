@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -88,7 +88,8 @@ real_requests()->
      stream_through_mfa,
      streaming_error,
      inet_opts,
-     invalid_headers
+     invalid_headers,
+     invalid_body
     ].
 
 only_simulated() ->
@@ -107,6 +108,7 @@ only_simulated() ->
      tolerate_missing_CR,
      userinfo,
      bad_response,
+     timeout_redirect,
      internal_server_error,
      invalid_http,
      invalid_chunk_size,
@@ -125,7 +127,9 @@ only_simulated() ->
      redirect_see_other,
      redirect_temporary_redirect,
      port_in_host_header,
-     relaxed
+     redirect_port_in_host_header,
+     relaxed,
+     multipart_chunks
     ].
 
 misc() ->
@@ -160,21 +164,17 @@ init_per_group(misc = Group, Config) ->
     ok = httpc:set_options([{ipfamily, Inet}]),
     Config;
 
+
 init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https->
-    ct:timetrap({seconds, 30}),
-    start_apps(Group),
-    StartSsl = try ssl:start()
+    catch crypto:stop(),
+    try crypto:start() of
+        ok ->
+            ct:timetrap({seconds, 30}),
+            start_apps(Group),
+            do_init_per_group(Group, Config0)
     catch
-	Error:Reason ->
-	    {skip, lists:flatten(io_lib:format("Failed to start apps for https Error=~p Reason=~p", [Error, Reason]))}
-    end,
-    case StartSsl of
-	{error, {already_started, _}} ->
-	    do_init_per_group(Group, Config0);
-	ok ->
-	    do_init_per_group(Group, Config0);
-	_ ->
-	    StartSsl
+        _:_ ->
+            {skip, "Crypto did not start"}
     end;
 
 init_per_group(Group, Config0) ->
@@ -500,10 +500,11 @@ redirect_multiple_choises(Config) when is_list(Config) ->
 	httpc:request(get, {URL300, []}, [{autoredirect, false}], []).
 %%-------------------------------------------------------------------------
 redirect_moved_permanently() ->
-    [{doc, "If the 301 status code is received in response to a request other "
-      "than GET or HEAD, the user agent MUST NOT automatically redirect the request "
-      "unless it can be confirmed by the user, since this might change "
-      "the conditions under which the request was issued."}].
+    [{doc, "The server SHOULD generate a Location header field in the response "
+      "containing a preferred URI reference for the new permanent URI.  The user "
+      "agent MAY use the Location field value for automatic redirection.  The server's " 
+      "response payload usually contains a short hypertext note with a "
+      "hyperlink to the new URI(s)."}].
 redirect_moved_permanently(Config) when is_list(Config) ->
 
     URL301 = url(group_name(Config), "/301.html", Config),
@@ -514,15 +515,16 @@ redirect_moved_permanently(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], []}}
 	= httpc:request(head, {URL301, []}, [], []),
 
-    {ok, {{_,301,_}, [_ | _], [_|_]}}
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL301, [],"text/plain", "foobar"},
 			[], []).
 %%-------------------------------------------------------------------------
 redirect_found() ->
-    [{doc," If the 302 status code is received in response to a request other "
-      "than GET or HEAD, the user agent MUST NOT automatically redirect the "
-      "request unless it can be confirmed by the user, since this might change "
-      "the conditions under which the request was issued."}].
+    [{doc, "The server SHOULD generate a Location header field in the response "
+      "containing a URI reference for the different URI.  The user agent MAY "
+      "use the Location field value for automatic redirection.  The server's "
+      "response payload usually contains a short hypertext note with a "
+      "hyperlink to the different URI(s)."}].
 redirect_found(Config) when is_list(Config) ->
 
     URL302 = url(group_name(Config), "/302.html", Config),
@@ -533,14 +535,14 @@ redirect_found(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], []}}
 	= httpc:request(head, {URL302, []}, [], []),
 
-    {ok, {{_,302,_}, [_ | _], [_|_]}}
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL302, [],"text/plain", "foobar"},
 			[], []).
 %%-------------------------------------------------------------------------
 redirect_see_other() ->
     [{doc, "The different URI SHOULD be given by the Location field in the response. "
       "Unless the request method was HEAD, the entity of the response SHOULD contain a short "
-      "hypertext note with a hyperlink to the new URI(s). "}].
+      "hypertext note with a hyperlink to the new URI(s)."}].
 redirect_see_other(Config) when is_list(Config) ->
 
     URL303 =  url(group_name(Config), "/303.html", Config),
@@ -556,10 +558,11 @@ redirect_see_other(Config) when is_list(Config) ->
 			[], []).
 %%-------------------------------------------------------------------------
 redirect_temporary_redirect() ->
-    [{doc," If the 307 status code is received in response to a request other "
-      "than GET or HEAD, the user agent MUST NOT automatically redirect the request "
-      "unless it can be confirmed by the user, since this might change "
-      "the conditions under which the request was issued."}].
+    [{doc, "The server SHOULD generate a Location header field in the response "
+      "containing a URI reference for the different URI.  The user agent MAY "
+      "use the Location field value for automatic redirection.  The server's "
+      "response payload usually contains a short hypertext note with a "
+      "hyperlink to the different URI(s)."}].
 redirect_temporary_redirect(Config) when is_list(Config) ->
 
     URL307 =  url(group_name(Config), "/307.html", Config),
@@ -570,7 +573,7 @@ redirect_temporary_redirect(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], []}}
 	= httpc:request(head, {URL307, []}, [], []),
 
-    {ok, {{_,307,_}, [_ | _], [_|_]}}
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL307, [],"text/plain", "foobar"},
 			[], []).
 
@@ -781,6 +784,14 @@ bad_response(Config) when is_list(Config) ->
     {error, Reason} = httpc:request(URL1),
 
     ct:print("Wrong Statusline: ~p~n", [Reason]).
+%%-------------------------------------------------------------------------
+
+timeout_redirect() ->
+    [{doc, "Test that timeout works for redirects, check ERL-420."}].
+timeout_redirect(Config) when is_list(Config) ->
+    URL = url(group_name(Config), "/redirect_to_missing_crlf.html", Config),
+    {error, timeout} = httpc:request(get, {URL, []}, [{timeout, 400}], []).
+
 %%-------------------------------------------------------------------------
 
 internal_server_error(doc) ->
@@ -997,9 +1008,24 @@ invalid_headers(Config) ->
     Request  = {url(group_name(Config), "/dummy.html", Config), [{"cookie", undefined}]},
     {error, _} = httpc:request(get, Request, [], []).
 
+%%-------------------------------------------------------------------------
+
+invalid_body(Config) ->
+    URL = url(group_name(Config), "/dummy.html", Config),
+    try 
+	httpc:request(post, {URL, [], <<"text/plain">>, "foobar"},
+		      [], []),
+	ct:fail(accepted_invalid_input)
+    catch 
+	error:function_clause ->
+	    ok
+    end.
+
+%%-------------------------------------------------------------------------
 remote_socket_close(Config) when is_list(Config) ->
     URL = url(group_name(Config), "/just_close.html", Config),
     {error, socket_closed_remotely} = httpc:request(URL).
+
 
 %%-------------------------------------------------------------------------
 
@@ -1099,7 +1125,20 @@ port_in_host_header(Config) when is_list(Config) ->
     Request = {url(group_name(Config), "/ensure_host_header_with_port.html", Config), []},
     {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
     inets_test_lib:check_body(Body).
+%%-------------------------------------------------------------------------
+redirect_port_in_host_header(Config) when is_list(Config) ->
 
+    Request = {url(group_name(Config), "/redirect_ensure_host_header_with_port.html", Config), []},
+    {ok, {{_, 200, _}, _, Body}} = httpc:request(get, Request, [], []),
+    inets_test_lib:check_body(Body).
+
+%%-------------------------------------------------------------------------
+multipart_chunks(Config) when is_list(Config) ->
+    Request = {url(group_name(Config), "/multipart_chunks.html", Config), []},
+    {ok, Ref} = httpc:request(get, Request, [], [{sync, false}, {stream, self}]),
+    ok = receive_stream_n(Ref, 10),
+    httpc:cancel_request(Ref).
+    
 %%-------------------------------------------------------------------------
 timeout_memory_leak() ->
     [{doc, "Check OTP-8739"}].
@@ -1395,7 +1434,7 @@ dummy_server(Caller, SocketType, Inet, Extra) ->
     end.
 
 dummy_server_init(Caller, ip_comm, Inet, _) ->
-    BaseOpts = [binary, {packet, 0}, {reuseaddr,true}, {active, false}], 
+    BaseOpts = [binary, {packet, 0}, {reuseaddr,true}, {keepalive, true}, {active, false}], 
     {ok, ListenSocket} = gen_tcp:listen(0, [Inet | BaseOpts]),
     {ok, Port} = inet:port(ListenSocket),
     Caller ! {port, Port},
@@ -1677,6 +1716,12 @@ handle_uri(_,"/ensure_host_header_with_port.html",_,Headers,_,_) ->
 	    "HTTP/1.1 500 Internal Server Error\r\n" ++
 		"Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
     end;
+handle_uri(_,"/redirect_ensure_host_header_with_port.html",Port,_,Socket,_) ->
+    NewUri = url_start(Socket) ++
+	integer_to_list(Port) ++ "/ensure_host_header_with_port.html",
+    "HTTP/1.1 302 Found \r\n" ++
+	"Location:" ++ NewUri ++  "\r\n" ++
+	"Content-Length:0\r\n\r\n";
 
 handle_uri(_,"/300.html",Port,_,Socket,_) ->
     NewUri = url_start(Socket) ++
@@ -1879,6 +1924,16 @@ handle_uri(_,"/missing_crlf.html",_,_,_,_) ->
 	"Content-Length:32\r\n" ++
 	"<HTML><BODY>foobar</BODY></HTML>";
 
+handle_uri(_,"/redirect_to_missing_crlf.html",Port,_,Socket,_) ->
+    NewUri = url_start(Socket) ++
+	integer_to_list(Port) ++ "/missing_crlf.html",
+    Body = "<HTML><BODY><a href=" ++ NewUri ++
+	">New place</a></BODY></HTML>",
+    "HTTP/1.1 303 See Other \r\n" ++
+	"Location:" ++ NewUri ++  "\r\n" ++
+	"Content-Length:" ++ integer_to_list(length(Body))
+	++ "\r\n\r\n" ++ Body;
+
 handle_uri(_,"/wrong_statusline.html",_,_,_,_) ->
     "ok 200 HTTP/1.1\r\n\r\n" ++
 	"Content-Length:32\r\n\r\n" ++
@@ -1965,6 +2020,16 @@ handle_uri(_,"/missing_CR.html",_,_,_,_) ->
 	"Content-Length:32\r\n\n" ++
 	"<HTML><BODY>foobar</BODY></HTML>";
 
+handle_uri(_,"/multipart_chunks.html",_,_,Socket,_) ->
+    Head = "HTTP/1.1 200 ok\r\n" ++
+	"Transfer-Encoding:chunked\r\n" ++
+	"Date: " ++ httpd_util:rfc1123_date() ++ "\r\n"
+	"Connection: Keep-Alive\r\n" ++
+	"Content-Type: multipart/x-mixed-replace; boundary=chunk_boundary\r\n" ++
+	"\r\n",
+    send(Socket, Head),
+    send_multipart_chunks(Socket),
+    http_chunk:encode_last();
 handle_uri("HEAD",_,_,_,_,_) ->
     "HTTP/1.1 200 ok\r\n" ++
 	"Content-Length:0\r\n\r\n";
@@ -2260,4 +2325,22 @@ otp_8739_dummy_server_main(_Parent, ListenSocket) ->
 	    end;
 	Error ->
 	    exit(Error)
+    end.
+
+send_multipart_chunks(Socket) ->
+    send(Socket, http_chunk:encode("--chunk_boundary\r\n")),
+    send(Socket, http_chunk:encode("Content-Type: text/plain\r\nContent-Length: 4\r\n\r\n")),
+    send(Socket, http_chunk:encode("test\r\n")),
+    ct:sleep(500),
+    send_multipart_chunks(Socket).
+
+receive_stream_n(_, 0) ->
+    ok;
+receive_stream_n(Ref, N) ->
+    receive
+	{http, {Ref, stream_start, _}} ->
+	    receive_stream_n(Ref, N);
+	{http, {Ref,stream, Data}} ->
+	    ct:pal("Data:  ~p", [Data]),
+	    receive_stream_n(Ref, N-1)
     end.

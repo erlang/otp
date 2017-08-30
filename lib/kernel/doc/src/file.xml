@@ -79,7 +79,7 @@
     <seealso marker="#list_dir_all"><c>list_dir_all/1</c></seealso> and
     <seealso marker="#read_link_all"><c>read_link_all/1</c></seealso>.</p>
 
-    <p>See also section <seealso marker="stdlib:unicode_usage#notes-about-raw-filenames">Notes About Raw Filenames</seealso> in the <c>STDLIB</c> User´s Giude.</p>
+    <p>See also section <seealso marker="stdlib:unicode_usage#notes-about-raw-filenames">Notes About Raw Filenames</seealso> in the STDLIB User's Guide.</p>
 
   </description>
 
@@ -277,7 +277,7 @@ f.txt:  {person, "kalle", 25}.
 {ok,[{person,"kalle",25},{person,"pelle",30}]}</pre>
         <p>The encoding of <c><anno>Filename</anno></c> can be set
           by a comment, as described in
-	  <seealso marker="stdlib:epp#encoding"><c>stdlib:epp(3)</c></seealso>.</p>
+	  <seealso marker="stdlib:epp#encoding"><c>epp(3)</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -445,7 +445,7 @@ f.txt:  {person, "kalle", 25}.
         </taglist>
         <p>The encoding of <c><anno>Filename</anno></c> can be set
           by a comment, as described in
-	  <seealso marker="stdlib:epp#encoding"><c>stdlib:epp(3)</c></seealso>.</p>
+	  <seealso marker="stdlib:epp#encoding"><c>epp(3)</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -455,7 +455,7 @@ f.txt:  {person, "kalle", 25}.
         <p>The same as <c>eval/1</c>, but the variable bindings
           <c><anno>Bindings</anno></c> are used in the evaluation. For information
 	  about the variable bindings, see
-          <seealso marker="stdlib:erl_eval"><c>stdlib:erl_eval(3)</c></seealso>.</p>
+          <seealso marker="stdlib:erl_eval"><c>erl_eval(3)</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -830,7 +830,7 @@ f.txt:  {person, "kalle", 25}.
 	    this module (<c>file</c>) for reading and writing data as the interfaces
 	    provided here work with byte-oriented data. Using other (Unicode)
 	    encodings makes the
-	    <seealso marker="stdlib:io"><c>stdlib:io(3)</c></seealso> functions
+	    <seealso marker="stdlib:io"><c>io(3)</c></seealso> functions
 	    <c>get_chars</c>, <c>get_line</c>, and <c>put_chars</c> more suitable,
 	    as they can work with the full Unicode range.</p>
 	    <p>If data is sent to an <c>io_device()</c> in a format that cannot be
@@ -847,7 +847,7 @@ f.txt:  {person, "kalle", 25}.
 	    that is,
 	    <seealso marker="#read/2"><c>read/2</c></seealso> are
 	    returned "as is". If module
-	    <seealso marker="stdlib:io"><c>stdlib:io(3)</c></seealso> is used for
+	    <seealso marker="stdlib:io"><c>io(3)</c></seealso> is used for
 	    writing, the file can only cope with Unicode characters up to code point
 	    255 (the ISO Latin-1 range).</p>
 	    </item>
@@ -861,7 +861,7 @@ f.txt:  {person, "kalle", 25}.
 	    the file lies beyond the ISO Latin-1 range (0..255), but failure occurs
 	    if the data contains Unicode code points beyond that range. The file is
 	    best read with the functions in the Unicode aware module
-	    <seealso marker="stdlib:io"><c>stdlib:io(3)</c></seealso>.</p>
+	    <seealso marker="stdlib:io"><c>io(3)</c></seealso>.</p>
 	    <p>Bytes written to the file by any means are translated to UTF-8 encoding
 	    before being stored on the disk file.</p>
 	    </item>
@@ -891,7 +891,7 @@ f.txt:  {person, "kalle", 25}.
 	    So a file can be analyzed in latin1 encoding for, for example, a BOM,
 	    positioned beyond the BOM and then be set for the right encoding before
 	    further reading. For functions identifying BOMs, see module
-	    <seealso marker="stdlib:unicode"><c>stdlib:unicode(3)</c></seealso>. </p>
+	    <seealso marker="stdlib:unicode"><c>unicode(3)</c></seealso>. </p>
 	    <p>This option is not allowed on <c>raw</c> files.</p>
           </item>
           <tag><c>ram</c></tag>
@@ -932,7 +932,7 @@ f.txt:  {person, "kalle", 25}.
           closed and the process itself is terminated.
           An <c><anno>IoDevice</anno></c> returned from this call can be used
           as an argument to the I/O functions (see
-          <seealso marker="stdlib:io"><c>stdlib:io(3)</c></seealso>).</p>
+          <seealso marker="stdlib:io"><c>io(3)</c></seealso>).</p>
         <note>
           <p>In previous versions of <c>file</c>, modes were specified
             as one of the atoms <c>read</c>, <c>write</c>, or
@@ -1055,7 +1055,7 @@ f.txt:  {person, "kalle", 25}.
         </taglist>
         <p>The encoding of <c><anno>Filename</anno></c> can be set
           by a comment as described in
-	  <seealso marker="stdlib:epp#encoding"><c>stdlib:epp(3)</c></seealso>.</p>
+	  <seealso marker="stdlib:epp#encoding"><c>epp(3)</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -1128,7 +1128,7 @@ f.txt:  {person, "kalle", 25}.
         </taglist>
         <p>The encoding of <c><anno>Filename</anno></c> can be set
           by a comment as described in
-	  <seealso marker="stdlib:epp#encoding"><c>stdlib:epp(3)</c></seealso>.</p>
+	  <seealso marker="stdlib:epp#encoding"><c>epp(3)</c></seealso>.</p>
    </desc>
     </func>
     <func>
@@ -1389,7 +1389,7 @@ f.txt:  {person, "kalle", 25}.
           <c>{ok, <anno>FileInfo</anno>}</c> if successful, otherwise
           <c>{error, <anno>Reason</anno>}</c>. <c><anno>FileInfo</anno></c>
           is a record
-          <c>file_info</c>, defined in the <c>Kernel</c> include file
+          <c>file_info</c>, defined in the Kernel include file
           <c>file.hrl</c>. Include the following directive in the module
           from which the function is called:</p>
         <code type="none">
@@ -1477,8 +1477,8 @@ f.txt:  {person, "kalle", 25}.
               <tag><c>16#400</c></tag>
               <item><p>set group id on execution</p></item>
             </taglist>
-            <p>On Unix platforms, the following bits
-              can also be set:</p>
+            <p>On Unix platforms, other bits than those listed above
+		may be set.</p>
           </item>
           <tag><c>links = integer() >= 0</c></tag>
           <item>
@@ -1552,7 +1552,7 @@ f.txt:  {person, "kalle", 25}.
 	  raw line-oriented reading.</p>
 	  <p>If <c>encoding</c> is set to something else than <c>latin1</c>, the
 	  <c>read_line/1</c> call fails if the data contains characters larger than 255,
-	  why module <seealso marker="stdlib:io"><c>stdlib:io(3)</c></seealso> is to be
+	  why module <seealso marker="stdlib:io"><c>io(3)</c></seealso> is to be
 	  preferred when reading such a file.</p>
 	  <p>The function returns:</p>
         <taglist>
@@ -1970,7 +1970,7 @@ f.txt:  {person, "kalle", 25}.
         <p>Changes file information. Returns <c>ok</c> if successful,
           otherwise <c>{error, <anno>Reason</anno>}</c>.
           <c><anno>FileInfo</anno></c> is a record
-          <c>file_info</c>, defined in the <c>Kernel</c> include file
+          <c>file_info</c>, defined in the Kernel include file
           <c>file.hrl</c>. Include the following directive in the module
           from which the function is called:</p>
         <code type="none">
@@ -2042,8 +2042,8 @@ f.txt:  {person, "kalle", 25}.
               <tag><c>16#400</c></tag>
               <item><p>Set group id on execution</p></item>
             </taglist>
-            <p>On Unix platforms, the following bits
-              can also be set.</p>
+            <p>On Unix platforms, other bits than those listed above
+		may be set.</p>
           </item>
           <tag><c>uid = integer() >= 0</c></tag>
           <item>

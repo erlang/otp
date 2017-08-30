@@ -51,7 +51,6 @@
 #ifndef WANT_NONBLOCKING
 #  define WANT_NONBLOCKING
 #endif
-#define ERTS_WANT_GOT_SIGUSR1
 
 #include "erl_poll.h"
 #if ERTS_POLL_USE_KQUEUE
@@ -75,6 +74,7 @@
 #include "erl_driver.h"
 #include "erl_alloc.h"
 #include "erl_msacc.h"
+#include "erl_misc_utils.h"
 
 #if !defined(ERTS_POLL_USE_EPOLL) \
     && !defined(ERTS_POLL_USE_DEVPOLL)  \
@@ -2132,16 +2132,19 @@ get_timeout(ErtsPollSet ps,
 		if (timeout > (ErtsMonotonicTime) INT_MAX)
 		    timeout = (ErtsMonotonicTime) INT_MAX;
 		save_timeout_time += ERTS_MSEC_TO_MONOTONIC(timeout);
+		timeout -= ERTS_PREMATURE_TIMEOUT(timeout, 1000);
 		break;
 	    case 1000000:
 		/* Round up to nearest even micro second */
 		timeout = ERTS_MONOTONIC_TO_USEC(diff_time - 1) + 1;
 		save_timeout_time += ERTS_USEC_TO_MONOTONIC(timeout);
+		timeout -= ERTS_PREMATURE_TIMEOUT(timeout, 1000*1000);
 		break;
 	    case 1000000000:
 		/* Round up to nearest even nano second */
 		timeout = ERTS_MONOTONIC_TO_NSEC(diff_time - 1) + 1;
 		save_timeout_time += ERTS_NSEC_TO_MONOTONIC(timeout);
+		timeout -= ERTS_PREMATURE_TIMEOUT(timeout, 1000*1000*1000);
 		break;
 	    default:
 		ERTS_INTERNAL_ERROR("Invalid resolution");
@@ -2452,7 +2455,15 @@ ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet ps,
     }
 #endif
 
-    res = check_fd_events(ps, to, no_fds);
+    while (1) {
+	res = check_fd_events(ps, to, no_fds);
+	if (res != 0)
+	    break;
+	if (to == ERTS_POLL_NO_TIMEOUT)
+	    break;
+	if (erts_get_monotonic_time(NULL) >= timeout_time)
+	    break;
+    }
 
     woke_up(ps);
 

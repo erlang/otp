@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,10 +46,10 @@
 #include <signal.h>
 #include <setjmp.h>
 
-#if HAVE_SYS_SOCKETIO_H
+#ifdef HAVE_SYS_SOCKETIO_H
 #   include <sys/socketio.h>
 #endif
-#if HAVE_SYS_SOCKIO_H
+#ifdef HAVE_SYS_SOCKIO_H
 #   include <sys/sockio.h>
 #endif
 
@@ -282,7 +282,7 @@ ERTS_GLB_INLINE ErtsSysPerfCounter erts_sys_perf_counter(void);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-ERTS_GLB_INLINE ErtsSysPerfCounter
+ERTS_GLB_FORCE_INLINE ErtsSysPerfCounter
 erts_sys_perf_counter()
 {
     return (*erts_sys_time_data__.r.o.perf_counter)();
@@ -322,6 +322,7 @@ extern SIGFUNC sys_signal(int, SIGFUNC);
 extern void sys_sigrelease(int);
 extern void sys_sigblock(int);
 extern void sys_init_suspend_handler(void);
+extern void erts_sys_unix_later_init(void);
 
 /*
  * Handling of floating point exceptions.

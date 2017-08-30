@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,15 +23,26 @@
 -module(gc_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("eunit/include/eunit.hrl").
+
 -export([all/0, suite/0]).
 
--export([grow_heap/1, grow_stack/1, grow_stack_heap/1, max_heap_size/1]).
+-export([
+    grow_heap/1,
+    grow_stack/1,
+    grow_stack_heap/1,
+    max_heap_size/1,
+    minor_major_gc_option_async/1,
+    minor_major_gc_option_self/1
+]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [grow_heap, grow_stack, grow_stack_heap, max_heap_size].
+    [grow_heap, grow_stack, grow_stack_heap, max_heap_size,
+    minor_major_gc_option_self,
+    minor_major_gc_option_async].
 
 
 %% Produce a growing list of elements,
@@ -189,4 +200,93 @@ long_receive() ->
     receive
     after 10000 ->
             ok
+    end.
+
+minor_major_gc_option_self(_Config) ->
+    %% Try as major, the test process will self-trigger GC
+    check_gc_tracing_around(
+        fun(Pid, Ref) ->
+            Pid ! {gc, Ref, major}
+        end, [gc_major_start, gc_major_end]),
+
+    %% Try as minor, the test process will self-trigger GC
+    check_gc_tracing_around(
+        fun(Pid, Ref) ->
+            Pid ! {gc, Ref, minor}
+        end, [gc_minor_start, gc_minor_end]).
+
+minor_major_gc_option_async(_Config) ->
+    %% Try with default option, must be major GC
+    check_gc_tracing_around(
+        fun(Pid, _Ref) ->
+            erlang:garbage_collect(Pid, [])
+        end, [gc_major_start, gc_major_end]),
+
+    %% Try with the 'major' type
+    check_gc_tracing_around(
+        fun(Pid, _Ref) ->
+            erlang:garbage_collect(Pid, [{type, major}])
+        end, [gc_major_start, gc_major_end]),
+
+    %% Try with 'minor' option, once
+    check_gc_tracing_around(
+        fun(Pid, _Ref) ->
+            erlang:garbage_collect(Pid, [{type, minor}])
+        end, [gc_minor_start, gc_minor_end]),
+
+    %% Try with 'minor' option, once, async
+    check_gc_tracing_around(
+        fun(Pid, Ref) ->
+            ?assertEqual(async,
+                erlang:garbage_collect(Pid, [{type, minor}, {async, Ref}])),
+
+            receive
+                {garbage_collect, Ref, true} ->
+                    ok
+            after 10000 ->
+                ct:fail("Did not receive a completion notification on async GC")
+            end
+        end, [gc_minor_start, gc_minor_end]).
+
+%% Traces garbage collection around the given operation, and fails the test if
+%% it results in any unexpected messages or if the expected trace tags are not
+%% received.
+check_gc_tracing_around(Fun, ExpectedTraceTags) ->
+    Ref = erlang:make_ref(),
+    Pid = spawn(
+        fun Endless() ->
+            receive
+                {gc, Ref, Type} ->
+                    erlang:garbage_collect(self(), [{type, Type}])
+            after 100 ->
+                ok
+            end,
+            Endless()
+        end),
+    erlang:garbage_collect(Pid, []),
+    erlang:trace(Pid, true, [garbage_collection]),
+    Fun(Pid, Ref),
+    expect_trace_messages(Pid, ExpectedTraceTags),
+    erlang:trace(Pid, false, [garbage_collection]),
+    erlang:exit(Pid, kill),
+    check_no_unexpected_messages().
+
+%% Ensures that trace messages with the provided tags have all been received
+%% within a reasonable timeframe.
+expect_trace_messages(_Pid, []) ->
+    ok;
+expect_trace_messages(Pid, [Tag | TraceTags]) ->
+    receive
+        {trace, Pid, Tag, _Data} ->
+            expect_trace_messages(Pid, TraceTags)
+    after 4000 ->
+        ct:fail("Didn't receive tag ~p within 4000ms", [Tag])
+    end.
+
+check_no_unexpected_messages() ->
+    receive
+        Anything ->
+            ct:fail("Unexpected message: ~p", [Anything])
+    after 0 ->
+        ok
     end.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,12 +20,12 @@
 -module(observer_lib).
 
 -export([get_wx_parent/1,
-	 display_info_dialog/1, display_yes_no_dialog/1,
+	 display_info_dialog/2, display_yes_no_dialog/1,
 	 display_progress_dialog/2, destroy_progress_dialog/0,
 	 wait_for_progress/0, report_progress/1,
 	 user_term/3, user_term_multiline/3,
-	 interval_dialog/4, start_timer/1, stop_timer/1,
-	 display_info/2, fill_info/2, update_info/2, to_str/1,
+	 interval_dialog/4, start_timer/1, start_timer/2, stop_timer/1, timer_config/1,
+	 display_info/2, display_info/3, fill_info/2, update_info/2, to_str/1,
 	 create_menus/3, create_menu_item/3,
 	 create_attrs/0,
 	 set_listctrl_col_size/2,
@@ -90,6 +90,12 @@ stop_timer(Timer = {true, _}) -> Timer;
 stop_timer(Timer = {_, Intv}) ->
     setup_timer(false, Timer),
     {true, Intv}.
+
+start_timer(#{interval:=Intv}, _Def) ->
+    setup_timer(true, {false, Intv});
+start_timer(_, Def) ->
+    setup_timer(true, {false, Def}).
+
 start_timer(Intv) when is_integer(Intv) ->
     setup_timer(true, {true, Intv});
 start_timer(Timer) ->
@@ -105,10 +111,15 @@ setup_timer(Bool, {Timer, Old}) ->
     timer:cancel(Timer),
     setup_timer(Bool, {false, Old}).
 
-display_info_dialog(Str) ->
-    display_info_dialog("",Str).
-display_info_dialog(Title,Str) ->
-    Dlg = wxMessageDialog:new(wx:null(), Str, [{caption,Title}]),
+timer_config({_, Interval}) ->
+    #{interval=>Interval};
+timer_config(#{}=Config) ->
+    Config.
+
+display_info_dialog(Parent,Str) ->
+    display_info_dialog(Parent,"",Str).
+display_info_dialog(Parent,Title,Str) ->
+    Dlg = wxMessageDialog:new(Parent, Str, [{caption,Title}]),
     wxMessageDialog:showModal(Dlg),
     wxMessageDialog:destroy(Dlg),
     ok.
@@ -124,6 +135,11 @@ display_info(Frame, Info) ->
     Panel = wxPanel:new(Frame),
     wxWindow:setBackgroundStyle(Panel, ?wxBG_STYLE_SYSTEM),
     Sizer = wxBoxSizer:new(?wxVERTICAL),
+    InfoFs = display_info(Panel, Sizer, Info),
+    wxWindow:setSizerAndFit(Panel, Sizer),
+    {Panel, Sizer, InfoFs}.
+
+display_info(Panel, Sizer, Info) ->
     wxSizer:addSpacer(Sizer, 5),
     Add = fun(BoxInfo) ->
 		  case create_box(Panel, BoxInfo) of
@@ -136,9 +152,7 @@ display_info(Frame, Info) ->
 			  []
 		  end
 	  end,
-    InfoFs = [Add(I) || I <- Info],
-    wxWindow:setSizerAndFit(Panel, Sizer),
-    {Panel, Sizer, InfoFs}.
+    [Add(I) || I <- Info].
 
 fill_info([{dynamic, Key}|Rest], Data)
   when is_atom(Key); is_function(Key) ->
@@ -159,13 +173,13 @@ fill_info([{Str,Attrib,Key}|Rest], Data) when is_atom(Key); is_function(Key) ->
 	Value -> [{Str,Attrib,Value} | fill_info(Rest, Data)]
     end;
 fill_info([{Str, {Format, Key}}|Rest], Data)
-  when is_atom(Key); is_function(Key), is_atom(Format) ->
+  when is_atom(Key); is_function(Key) ->
     case get_value(Key, Data) of
 	undefined -> [undefined | fill_info(Rest, Data)];
 	Value -> [{Str, {Format, Value}} | fill_info(Rest, Data)]
     end;
 fill_info([{Str, Attrib, {Format, Key}}|Rest], Data)
-  when is_atom(Key); is_function(Key), is_atom(Format) ->
+  when is_atom(Key); is_function(Key) ->
     case get_value(Key, Data) of
 	undefined -> [undefined | fill_info(Rest, Data)];
 	Value -> [{Str, Attrib, {Format, Value}} | fill_info(Rest, Data)]
@@ -238,6 +252,8 @@ to_str({bytes, B}) ->
 	KB >  0 -> integer_to_list(KB) ++ " kB";
 	true -> integer_to_list(B) ++ " B"
     end;
+to_str({{words,WSz}, Sz}) ->
+    to_str({bytes, WSz*Sz});
 to_str({time_ms, MS}) ->
     S = MS div 1000,
     Min = S div 60,
@@ -254,6 +270,11 @@ to_str({func, {F,A}}) when is_atom(F), is_integer(A) ->
     lists:concat([F, "/", A]);
 to_str({func, {F,'_'}}) when is_atom(F) ->
     atom_to_list(F);
+to_str({inet, Addr}) ->
+    case inet:ntoa(Addr) of
+        {error,einval} -> to_str(Addr);
+        AddrStr -> AddrStr
+    end;
 to_str({{format,Fun},Value}) when is_function(Fun) ->
     Fun(Value);
 to_str({A, B}) when is_atom(A), is_atom(B) ->
@@ -453,14 +474,16 @@ create_box(Parent, Data) ->
 				 link_entry(Panel,Value);
 			     _ ->
 				 Value = to_str(Value0),
-				 case length(Value) > 100 of
-				     true ->
-					 Shown = lists:sublist(Value, 80),
+                                 case string:sub_word(lists:sublist(Value, 80),1,$\n) of
+                                     Value ->
+                                         %% Short string, no newlines - show all
+					 wxStaticText:new(Panel, ?wxID_ANY, Value);
+                                     Shown ->
+                                         %% Long or with newlines,
+                                         %% use tooltip to show all
 					 TCtrl = wxStaticText:new(Panel, ?wxID_ANY, [Shown,"..."]),
 					 wxWindow:setToolTip(TCtrl,wxToolTip:new(Value)),
-					 TCtrl;
-				     false ->
-					 wxStaticText:new(Panel, ?wxID_ANY, Value)
+					 TCtrl
 				 end
 			 end,
 		     wxSizer:add(Line, 10, 0), % space of size 10 horisontally
@@ -613,12 +636,12 @@ user_term_multiline(Parent, Title, Default) ->
 
 parse_string(Str) ->
     try
-	Tokens = case erl_scan:string(Str) of
+	Tokens = case erl_scan:string(Str, 1, [text]) of
 		     {ok, Ts, _} -> Ts;
 		     {error, {_SLine, SMod, SError}, _} ->
 			 throw(io_lib:format("~s", [SMod:format_error(SError)]))
 		 end,
-	case erl_parse:parse_term(Tokens) of
+	case lib:extended_parse_term(Tokens) of
 	    {error, {_PLine, PMod, PError}} ->
 		throw(io_lib:format("~s", [PMod:format_error(PError)]));
 	    Res -> Res
@@ -714,7 +737,7 @@ progress_loop(Title,PD,Caller) ->
 		if is_list(Reason) -> Reason;
 		   true -> file:format_error(Reason)
 		end,
-	    display_info_dialog("Crashdump Viewer Error",FailMsg),
+	    display_info_dialog(PD,"Crashdump Viewer Error",FailMsg),
 	    Caller ! error,
 	    unregister(?progress_handler),
 	    unlink(Caller);

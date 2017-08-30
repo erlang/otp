@@ -1,18 +1,23 @@
 %% =====================================================================
-%% This library is free software; you can redistribute it and/or modify
-%% it under the terms of the GNU Lesser General Public License as
-%% published by the Free Software Foundation; either version 2 of the
-%% License, or (at your option) any later version.
+%% Licensed under the Apache License, Version 2.0 (the "License"); you may
+%% not use this file except in compliance with the License. You may obtain
+%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 %%
-%% This library is distributed in the hope that it will be useful, but
-%% WITHOUT ANY WARRANTY; without even the implied warranty of
-%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-%% Lesser General Public License for more details.
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
-%% You should have received a copy of the GNU Lesser General Public
-%% License along with this library; if not, write to the Free Software
-%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-%% USA
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
 %%
 %% @private
 %% @copyright 2001-2003 Richard Carlsson
@@ -213,14 +218,16 @@ filter_tags([#tag{name = N, line = L} = T | Ts], Tags, Where, Ts1) ->
 	true ->
 	    filter_tags(Ts, Tags, Where, [T | Ts1]);
 	false ->
-	    [warning(L, Where, "tag @~s not recognized.", [N]) ||
-                Where =/= no],
+	    case Where of
+		no -> ok;
+		_ -> warning(L, Where, "tag @~s not recognized.", [N])
+	    end,
 	    filter_tags(Ts, Tags, Where, Ts1)
     end;
 filter_tags([], _, _, Ts) ->
     lists:reverse(Ts).
 
-%% Check occurrances of tags.
+%% Check occurrences of tags.
 
 check_tags(Ts, Allow, Single, Where) ->
     check_tags(Ts, Allow, Single, Where, false, sets:new()).
@@ -451,7 +458,7 @@ check_type(#tag{line = L, data = Data}, P0, Ls, Ts) ->
 check_type(#t_def{type = Type}, P, Ls, Ts) ->
     check_type(Type, P, Ls, Ts);
 check_type(#t_type{name = Name, args = Args}, P, Ls, Ts) ->
-    _ = check_used_type(Name, Args, P, Ls),
+    check_used_type(Name, Args, P, Ls),
     check_types3(Args++Ts, P, Ls);
 check_type(#t_var{}, P, Ls, Ts) ->
     check_types3(Ts, P, Ls);
@@ -503,7 +510,8 @@ check_used_type(#t_name{name = N, module = Mod}=Name, Args, P, LocalTypes) ->
         false ->
             #parms{warn = W, line = L, file = File} = P,
             %% true = ets:insert(DT, TypeName),
-            [type_warning(L, File, "missing type", N, NArgs) || W]
+            _ = [type_warning(L, File, "missing type", N, NArgs) || W],
+	    ok
     end.
 
 type_warning(Line, File, S, N, NArgs) ->

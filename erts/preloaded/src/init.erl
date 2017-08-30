@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -205,7 +205,7 @@ boot(BootArgs) ->
 
     {Start0,Flags,Args} = parse_boot_args(BootArgs),
     %% We don't get to profile parsing of BootArgs
-    case get_flag(profile_boot, Flags, false) of
+    case b2a(get_flag(profile_boot, Flags, false)) of
         false -> ok;
         true  -> debug_profile_start()
     end,
@@ -263,21 +263,30 @@ boot(Start,Flags,Args) ->
     boot_loop(BootPid,State).
 
 %%% Convert a term to a printable string, if possible.
-to_string(X) when is_list(X) ->			% assume string
+to_string(X, D) when is_list(X), D < 4 ->			% assume string
     F = flatten(X, []),
     case printable_list(F) of
-	true ->  F;
-	false -> ""
+	true when length(F) > 0 ->  F;
+	_false ->
+            List = [to_string(E, D+1) || E <- X],
+            flatten(["[",join(List),"]"], [])
     end;
-to_string(X) when is_atom(X) ->
+to_string(X, _D) when is_list(X) ->
+    "[_]";
+to_string(X, _D) when is_atom(X) ->
     atom_to_list(X);
-to_string(X) when is_pid(X) ->
+to_string(X, _D) when is_pid(X) ->
     pid_to_list(X);
-to_string(X) when is_float(X) ->
+to_string(X, _D) when is_float(X) ->
     float_to_list(X);
-to_string(X) when is_integer(X) ->
+to_string(X, _D) when is_integer(X) ->
     integer_to_list(X);
-to_string(_X) ->
+to_string(X, D) when is_tuple(X), D < 4 ->
+    List = [to_string(E, D+1) || E <- tuple_to_list(X)],
+    flatten(["{",join(List),"}"], []);
+to_string(X, _D) when is_tuple(X) ->
+    "{_}";
+to_string(_X, _D) ->
     "".						% can't do anything with it
 
 %% This is an incorrect and narrow definition of printable characters.
@@ -291,6 +300,13 @@ printable_list([$\t|T]) -> printable_list(T);
 printable_list([]) -> true;
 printable_list(_) ->  false.
 
+join([] = T) ->
+    T;
+join([_Elem] = T) ->
+    T;
+join([Elem|T]) ->
+    [Elem,","|join(T)].
+
 flatten([H|T], Tail) when is_list(H) ->
     flatten(H, flatten(T, Tail));
 flatten([H|T], Tail) ->
@@ -299,7 +315,7 @@ flatten([], Tail) ->
     Tail.
 
 things_to_string([X|Rest]) ->
-    " (" ++ to_string(X) ++ ")" ++ things_to_string(Rest);
+    " (" ++ to_string(X, 0) ++ ")" ++ things_to_string(Rest);
 things_to_string([]) ->
     "".
 
@@ -307,9 +323,8 @@ halt_string(String, List) ->
     String ++ things_to_string(List).
 
 %% String = string()
-%% List = [string() | atom() | pid() | number()]
-%% Any other items in List, such as tuples, are ignored when creating
-%% the string used as argument to erlang:halt/1.
+%% List = [string() | atom() | pid() | number() | list() | tuple()]
+%% Items in List are truncated if found to be too large
 -spec crash(_, _) -> no_return().
 crash(String, List) ->
     halt(halt_string(String, List)).
@@ -423,9 +438,6 @@ loop(State) ->
 	    Loaded = State#state.loaded, %% boot_loop but is handled here 
 	    From ! {init,Loaded},        %% anyway.
 	    loop(State);
-	{From, {ensure_loaded, _}} ->
-	    From ! {init, not_allowed},
-	    loop(State);
 	Msg ->
 	    loop(handle_msg(Msg,State))
     end.
@@ -465,6 +477,8 @@ do_handle_msg(Msg,State) ->
 		    From ! {init,ok},
 		    {new_state,State#state{subscribed = [Pid|Subscribed]}}
 	    end;
+	{From, {ensure_loaded, _}} ->
+	    From ! {init, not_allowed};
 	X ->
 	    case whereis(user) of
 		undefined ->
@@ -670,20 +684,12 @@ unload(_) ->
     do_unload(sub([heart|erlang:pre_loaded()],erlang:loaded())).
 
 do_unload([M|Mods]) ->
-    catch erts_internal:purge_module(M),
+    catch erlang:purge_module(M),
     catch erlang:delete_module(M),
-    catch erts_internal:purge_module(M),
+    catch erlang:purge_module(M),
     do_unload(Mods);
 do_unload([]) ->
-    purge_all_hipe_refs(),
     ok.
-
-purge_all_hipe_refs() ->
-    case erlang:system_info(hipe_architecture) of
-	undefined -> ok;
-	_ -> hipe_bifs:remove_refs_from(all)
-    end.
-
 
 sub([H|T],L) -> sub(T,del(H,L));
 sub([],L)    -> L.
@@ -783,7 +789,7 @@ do_boot(Init,Flags,Start) ->
     (catch erlang:system_info({purify, "Node: " ++ atom_to_list(node())})),
 
     start_em(Start),
-    case get_flag(profile_boot,Flags,false) of
+    case b2a(get_flag(profile_boot,Flags,false)) of
         false -> ok;
         true  ->
             debug_profile_format_mfas(debug_profile_mfas()),
@@ -933,15 +939,15 @@ load_rest([], _) ->
 prepare_loading_fun() ->
     fun(Mod, FullName, Beam) ->
 	    case erlang:prepare_loading(Mod, Beam) of
-		Prepared when is_binary(Prepared) ->
+		{error,_}=Error ->
+		    Error;
+		Prepared ->
 		    case erlang:has_prepared_code_on_load(Prepared) of
 			true ->
 			    {ok,{on_load,Beam,FullName}};
 			false ->
 			    {ok,{prepared,Prepared,FullName}}
-		    end;
-		{error,_}=Error ->
-		    Error
+		    end
 	    end
     end.
 
@@ -1085,7 +1091,7 @@ start_it({eval,Bin}) ->
     {ok,Ts,_} = erl_scan:string(Str),
     Ts1 = case reverse(Ts) of
 	      [{dot,_}|_] -> Ts;
-	      TsR -> reverse([{dot,1} | TsR])
+	      TsR -> reverse([{dot,erl_anno:new(1)} | TsR])
 	  end,
     {ok,Expr} = erl_parse:parse_exprs(Ts1),
     {value, _Value, _Bs} = erl_eval:exprs(Expr, erl_eval:new_bindings()),

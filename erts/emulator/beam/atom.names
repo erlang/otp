@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2016. All Rights Reserved.
+# Copyright Ericsson AB 1996-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,12 +59,16 @@ atom nocatch
 atom undefined_function
 atom undefined_lambda
 
+# Secret internal atom that can never be found by string lookup
+# and should never leak out to be seen by the user.
+atom ErtsSecretAtom='3RT$'
 
 # All other atoms.  Try to keep the order alphabetic.
 #
 atom DOWN='DOWN'
 atom UP='UP'
 atom EXIT='EXIT'
+atom abort
 atom aborted
 atom abs_path
 atom absoluteURI
@@ -72,6 +76,8 @@ atom ac
 atom accessor
 atom active
 atom active_tasks
+atom active_tasks_all
+atom alive
 atom all
 atom all_but_first
 atom all_names
@@ -165,6 +171,7 @@ atom commandv
 atom compact
 atom compat_rel
 atom compile
+atom complete
 atom compressed
 atom config_h
 atom convert_time_unit
@@ -176,6 +183,7 @@ atom const
 atom context_switches
 atom control
 atom copy
+atom copy_literals
 atom counters
 atom cpu
 atom cpu_timestamp
@@ -188,14 +196,21 @@ atom current_stacktrace
 atom data
 atom debug_flags
 atom decimals
+atom default
 atom delay_trap
 atom dexit
 atom depth
 atom dgroup_leader
 atom dictionary
+atom dirty_bif_exception
+atom dirty_bif_result
+atom dirty_bif_trap
 atom dirty_cpu
 atom dirty_cpu_schedulers_online
+atom dirty_execution
 atom dirty_io
+atom dirty_nif_exception
+atom dirty_nif_finalizer
 atom disable_trace
 atom disabled
 atom discard
@@ -232,9 +247,12 @@ atom Eq='=:='
 atom Eqeq='=='
 atom erl_tracer
 atom erlang
+atom erl_signal_server
 atom ERROR='ERROR'
 atom error_handler
 atom error_logger
+atom erts_code_purger
+atom erts_debug
 atom erts_internal
 atom ets
 atom ETS_TRANSFER='ETS-TRANSFER'
@@ -297,6 +315,7 @@ atom global
 atom Gt='>'
 atom grun
 atom group_leader
+atom handle
 atom have_dt_utag
 atom heap_block_size
 atom heap_size
@@ -361,6 +380,8 @@ atom long_schedule
 atom low
 atom Lt='<'
 atom machine
+atom magic_ref
+atom major
 atom match
 atom match_limit
 atom match_limit_recursion
@@ -384,10 +405,13 @@ atom merge_trap
 atom meta
 atom meta_match_spec
 atom micro_seconds
+atom microsecond
 atom microstate_accounting
 atom milli_seconds
+atom millisecond
 atom min_heap_size
 atom min_bin_vheap_size
+atom minor
 atom minor_version
 atom Minus='-'
 atom module
@@ -402,11 +426,13 @@ atom more
 atom multi_scheduling
 atom multiline
 atom nano_seconds
+atom nanosecond
 atom name
 atom named_table
 atom namelist
 atom native
 atom native_addresses
+atom need_gc
 atom Neq='=/='
 atom Neqeq='/='
 atom net_kernel
@@ -485,6 +511,7 @@ atom pause
 atom pending
 atom pending_driver
 atom pending_process
+atom pending_purge_lambda
 atom pending_reload
 atom permanent
 atom pid
@@ -494,6 +521,8 @@ atom port_count
 atom port_limit
 atom port_op
 atom positive
+atom prepare
+atom prepare_on_load
 atom print
 atom priority
 atom private
@@ -539,6 +568,7 @@ atom return_to
 atom return_trace
 atom run_queue
 atom run_queue_lengths
+atom run_queue_lengths_all
 atom runnable
 atom runnable_ports
 atom runnable_procs
@@ -548,13 +578,17 @@ atom running_procs
 atom runtime
 atom safe
 atom save_calls
-atom scheduler 
+atom scheduler
 atom scheduler_id
+atom scheduler_wall_time
+atom scheduler_wall_time_all
 atom schedulers_online
 atom scheme
 atom scientific
 atom scope
+atom second
 atom seconds
+atom send
 atom send_to_non_existing_process
 atom sensitive
 atom sequential_tracer
@@ -572,6 +606,19 @@ atom set_tcw
 atom set_tcw_fake
 atom separate
 atom shared
+atom sighup
+atom sigterm
+atom sigusr1
+atom sigusr2
+atom sigill
+atom sigchld
+atom sigabrt
+atom sigalrm
+atom sigstop
+atom sigint
+atom sigsegv
+atom sigtstp
+atom sigquit
 atom silent
 atom size
 atom sl_alloc
@@ -611,8 +658,10 @@ atom Times='*'
 atom timestamp
 atom total
 atom total_active_tasks
+atom total_active_tasks_all
 atom total_heap_size
 atom total_run_queue_lengths
+atom total_run_queue_lengths_all
 atom tpkt
 atom trace trace_ts traced
 atom trace_control_word
@@ -647,11 +696,11 @@ atom value
 atom values
 atom version
 atom visible
+atom wait
 atom waiting
 atom wall_clock
 atom warning
 atom warning_msg
-atom scheduler_wall_time
 atom wordsize
 atom write_concurrency
 atom xor

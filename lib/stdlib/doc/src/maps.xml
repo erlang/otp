@@ -160,7 +160,7 @@ val1
         <p><em>Example:</em></p>
         <code type="none">
 > Map = #{"42" => value}.
-#{"42"> => value}
+#{"42" => value}
 > maps:is_key("42",Map).
 true
 > maps:is_key(value,Map).

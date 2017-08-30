@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ init_per_testcase(_Case, Config) ->
     wait_deallocations(),
     Config.
 
-end_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, _Config) ->
     ok.
 
 wait_deallocations() ->
@@ -443,7 +443,7 @@ hammer_ets_rwlock_test(XOpts, UW, C, N, NP, SC) ->
                                                                               {'DOWN', M, process, P, _} -> ok
                                                                           end
                                                                   end, Ps),
-                                                    Res = (Stop-Start)/erlang:convert_time_unit(1,seconds,native),
+                                                    Res = (Stop-Start)/erlang:convert_time_unit(1,second,native),
                                                     Caller ! {?MODULE, self(), Res}
                                             end,
                                         TP = spawn_link(T),

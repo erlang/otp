@@ -44,6 +44,8 @@
 -define(I,  signed-native).
 -define(F,  float-native).
 
+-define(is_chardata(String), (is_list(String) orelse is_binary(String))).
+
 -define(WXE_IDENTIFIER, wx_env).
 -define(BATCH_BEGIN,    0).
 -define(BATCH_END,      1).

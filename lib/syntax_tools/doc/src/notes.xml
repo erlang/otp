@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2007</year><year>2016</year>
+      <year>2007</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,71 @@
   </header>
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
+
+<section><title>Syntax_Tools 2.1.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Miscellaneous updates due to atoms containing
+	    arbitrary Unicode characters. </p>
+          <p>
+	    Own Id: OTP-14285</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 2.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The address to the FSF in the license header has been
+	    updated.</p>
+          <p>
+	    Own Id: OTP-14084</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Syntax_Tools 2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug where <c>erl_tidy</c> crashed on the tilde
+	    character when printing to standard output. </p>
+          <p>
+	    Own Id: OTP-13725 Aux Id: ERL-151, PR-1071 </p>
+        </item>
+        <item>
+	    <p><c>merl_transform</c> could get into an infinite loop
+	    when syntactically incorrect text was passed to a
+	    <c>merl:qquote/2,3</c> call.</p>
+          <p>
+	    Own Id: OTP-13755</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Improve types and specs in OTP documentation generated
+	    from Erlang source files. </p>
+          <p>
+	    Own Id: OTP-13720 Aux Id: ERL-120 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Syntax_Tools 2.0</title>
 

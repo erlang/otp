@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,10 +40,11 @@
 #include "erl_bif_unique.h"
 #include "erl_map.h"
 #include "erl_msacc.h"
+#include "erl_bif_table.h"
 
 #if ERTS_ENABLE_MSACC
 
-static Eterm erts_msacc_gather_stats(ErtsMsAcc *msacc, Eterm **hpp, Uint *szp);
+static Eterm erts_msacc_gather_stats(ErtsMsAcc *msacc, ErtsHeapFactory *factory);
 static void erts_msacc_reset(ErtsMsAcc *msacc);
 static ErtsMsAcc* get_msacc(void);
 
@@ -52,7 +53,9 @@ erts_tsd_key_t ERTS_WRITE_UNLIKELY(erts_msacc_key);
 #else
 ErtsMsAcc *ERTS_WRITE_UNLIKELY(erts_msacc) = NULL;
 #endif
+#ifndef ERTS_MSACC_ALWAYS_ON
 int ERTS_WRITE_UNLIKELY(erts_msacc_enabled);
+#endif
 
 static Eterm *erts_msacc_state_atoms = NULL;
 static erts_rwmtx_t msacc_mutex;
@@ -60,6 +63,12 @@ static ErtsMsAcc *msacc_managed = NULL;
 #ifdef USE_THREADS
 static ErtsMsAcc *msacc_unmanaged = NULL;
 static Uint msacc_unmanaged_count = 0;
+#endif
+
+#if ERTS_MSACC_STATE_COUNT < MAP_SMALL_MAP_LIMIT
+#define DEFAULT_MSACC_MSG_SIZE (3 + 1 + ERTS_MSACC_STATE_COUNT * 2 + 3 + ERTS_REF_THING_SIZE)
+#else
+#define DEFAULT_MSACC_MSG_SIZE (3 + ERTS_MSACC_STATE_COUNT * 3 + 3 + ERTS_REF_THING_SIZE)
 #endif
 
 /* we have to split initiation as atoms are not inited in early init */
@@ -88,7 +97,8 @@ void erts_msacc_init(void) {
 void erts_msacc_init_thread(char *type, int id, int managed) {
     ErtsMsAcc *msacc;
 
-    msacc = erts_alloc(ERTS_ALC_T_MSACC, sizeof(ErtsMsAcc));
+    msacc = erts_alloc(ERTS_ALC_T_MSACC, sizeof(ErtsMsAcc) +
+                       sizeof(ErtsMsAccPerfCntr) * ERTS_MSACC_STATE_COUNT);
 
     msacc->type = strdup(type);
     msacc->id = make_small(id);
@@ -122,86 +132,87 @@ void erts_msacc_init_thread(char *type, int id, int managed) {
 #endif
 }
 
+#ifdef ERTS_MSACC_EXTENDED_STATES
+
+void erts_msacc_set_bif_state(ErtsMsAcc *__erts_msacc_cache, Eterm mod, void *fn) {
+
+#ifdef ERTS_MSACC_EXTENDED_BIFS
+#define BIF_LIST(Mod,Func,Arity,BifFuncAddr,FuncAddr,Num)	       \
+    if (fn == &BifFuncAddr) {                                             \
+        ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATIC_STATE_COUNT + Num); \
+    } else
+#include "erl_bif_list.h"
+#undef BIF_LIST
+    { /* The last else in the macro expansion,
+         this happens for internal bifs, i.e. traps etc */
+        ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
+    }
+#else
+    if (mod == am_ets) {
+        ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_ETS);
+    } else {
+        ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_BIF);
+    }
+#endif
+}
+
+#endif
+
 /*
  * Creates a structure looking like this
  * #{ type => scheduler, id => 1, counters => #{ State1 => Counter1 ... StateN => CounterN}}
  */
 static
-Eterm erts_msacc_gather_stats(ErtsMsAcc *msacc, Eterm **hpp, Uint *szp) {
+Eterm erts_msacc_gather_stats(ErtsMsAcc *msacc, ErtsHeapFactory *factory) {
+    Uint sz = 0;
+    Eterm *hp, cvs[ERTS_MSACC_STATE_COUNT];
+    Eterm key, state_map;
     int i;
-    Eterm *hp;
-    Eterm key, state_key, state_map;
-    Eterm res = THE_NON_VALUE;
-    flatmap_t *map;
+    flatmap_t *map; 
 
-    if (szp) {
-      *szp += MAP_HEADER_FLATMAP_SZ + 1 + 2*(3);
-      *szp += MAP_HEADER_FLATMAP_SZ + 1 + 2*(ERTS_MSACC_STATE_COUNT);
-      for (i = 0; i < ERTS_MSACC_STATE_COUNT; i++) {
-          (void)erts_bld_sint64(NULL,szp,(Sint64)msacc->perf_counters[i]);
+    hp = erts_produce_heap(factory, 4, 0);
+    key = TUPLE3(hp,am_counters,am_id,am_type);
+
+    for (i = 0; i < ERTS_MSACC_STATE_COUNT; i++) {
+        cvs[i] = erts_bld_sint64(NULL, &sz,(Sint64)msacc->counters[i].pc);
 #ifdef ERTS_MSACC_STATE_COUNTERS
-          (void)erts_bld_uint64(NULL,szp,msacc->state_counters[i]);
-          *szp += 3; /* tuple to put state+perf counter in */
+        erts_bld_uint64(NULL,&sz,msacc->counters[i].sc);
+        sz += 3;
 #endif
-      }
     }
 
-    if (hpp) {
-        Eterm counters[ERTS_MSACC_STATE_COUNT];
-        hp = *hpp;
-        for (i = 0; i < ERTS_MSACC_STATE_COUNT; i++) {
-            Eterm counter = erts_bld_sint64(&hp,NULL,(Sint64)msacc->perf_counters[i]);
+    hp = erts_produce_heap(factory, sz, 0);
+
+    for (i = 0; i < ERTS_MSACC_STATE_COUNT; i++) {
+        cvs[i] = erts_bld_sint64(&hp,NULL,(Sint64)msacc->counters[i].pc);
 #ifdef ERTS_MSACC_STATE_COUNTERS
-            Eterm counter__ = erts_bld_uint64(&hp,NULL,msacc->state_counters[i]);
-            counters[i] = TUPLE2(hp,counter,counter__);
-            hp += 3;
-#else
-            counters[i] = counter;
+        Eterm counter__ = erts_bld_uint64(&hp,NULL,msacc->counters[i].sc);
+        cvs[i] = TUPLE2(hp,cvs[i],counter__);
+        hp += 3;
 #endif
-        }
-
-      key = TUPLE3(hp,am_counters,am_id,am_type);
-      hp += 4;
-
-      state_key = make_tuple(hp);
-      hp[0] = make_arityval(ERTS_MSACC_STATE_COUNT);
-      
-      for (i = 0; i < ERTS_MSACC_STATE_COUNT; i++)
-        hp[1+i] = erts_msacc_state_atoms[i];
-      hp += 1 + ERTS_MSACC_STATE_COUNT;
-
-      map = (flatmap_t*)hp;
-      hp += MAP_HEADER_FLATMAP_SZ;
-      map->thing_word = MAP_HEADER_FLATMAP;
-      map->size = ERTS_MSACC_STATE_COUNT;
-      map->keys = state_key;
-      for (i = 0; i < ERTS_MSACC_STATE_COUNT; i++)
-            hp[i] = counters[i];
-      hp += ERTS_MSACC_STATE_COUNT;
-      state_map = make_flatmap(map);
-
-      map = (flatmap_t*)hp;
-      hp += MAP_HEADER_FLATMAP_SZ;
-      map->thing_word = MAP_HEADER_FLATMAP;
-      map->size = 3;
-      map->keys = key;
-      hp[0] = state_map;
-      hp[1] = msacc->id;
-      hp[2] = am_atom_put(msacc->type,strlen(msacc->type));
-      hp += 3;
-
-      *hpp = hp;
-      res = make_flatmap(map);
     }
 
-    return res;
+    state_map = erts_map_from_ks_and_vs(factory, erts_msacc_state_atoms, cvs,
+                                        ERTS_MSACC_STATE_COUNT);
+
+    hp = erts_produce_heap(factory, MAP_HEADER_FLATMAP_SZ + 3, 0);
+    map = (flatmap_t*)hp;
+    hp += MAP_HEADER_FLATMAP_SZ;
+    map->thing_word = MAP_HEADER_FLATMAP;
+    map->size = 3;
+    map->keys = key;
+    hp[0] = state_map;
+    hp[1] = msacc->id;
+    hp[2] = am_atom_put(msacc->type,strlen(msacc->type));
+
+    return make_flatmap(map);
 }
 
 typedef struct {
     int action;
     Process *proc;
     Eterm ref;
-    Eterm ref_heap[REF_THING_SIZE];
+    Eterm ref_heap[ERTS_REF_THING_SIZE];
     Uint req_sched;
     erts_smp_atomic32_t refc;
 } ErtsMSAccReq;
@@ -222,40 +233,31 @@ static void send_reply(ErtsMsAcc *msacc, ErtsMSAccReq *msaccrp) {
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
     Process *rp = msaccrp->proc;
     ErtsMessage *msgp = NULL;
-    Eterm **hpp, *hp;
+    Eterm *hp;
     Eterm ref_copy = NIL, msg;
-    Uint sz, *szp;
-    ErlOffHeap *ohp = NULL;
     ErtsProcLocks rp_locks = (esdp && msaccrp->req_sched == esdp->no
                               ? ERTS_PROC_LOCK_MAIN : 0);
+    ErtsHeapFactory factory;
 
-    sz = 0;
-    hpp = NULL;
-    szp = &sz;
+    if (msaccrp->action == ERTS_MSACC_GATHER) {
 
-    if (msacc->unmanaged) erts_mtx_lock(&msacc->mtx);
+        msgp = erts_factory_message_create(&factory, rp, &rp_locks, DEFAULT_MSACC_MSG_SIZE);
 
-    while (1) {
-	if (hpp)
-            ref_copy = STORE_NC(hpp, ohp, msaccrp->ref);
-	else
-            *szp += REF_THING_SIZE;
+        if (msacc->unmanaged) erts_mtx_lock(&msacc->mtx);
 
-	if (msaccrp->action != ERTS_MSACC_GATHER)
-            msg = ref_copy;
-	else {
-            msg = erts_msacc_gather_stats(msacc, hpp, szp);
-            msg = erts_bld_tuple(hpp, szp, 2, ref_copy, msg);
-	}
-	if (hpp)
-            break;
+        hp = erts_produce_heap(&factory, ERTS_REF_THING_SIZE + 3 /* tuple */, 0);
+        ref_copy = STORE_NC(&hp, &msgp->hfrag.off_heap, msaccrp->ref);
+        msg = erts_msacc_gather_stats(msacc, &factory);
+        msg = TUPLE2(hp, ref_copy, msg);
 
-	msgp = erts_alloc_message_heap(rp, &rp_locks, sz, &hp, &ohp);
-        hpp = &hp;
-	szp = NULL;
+        if (msacc->unmanaged) erts_mtx_unlock(&msacc->mtx);
+
+        erts_factory_close(&factory);
+    } else {
+        ErlOffHeap *ohp = NULL;
+        msgp = erts_alloc_message_heap(rp, &rp_locks, ERTS_REF_THING_SIZE, &hp, &ohp);
+        msg = STORE_NC(&hp, &msgp->hfrag.off_heap, msaccrp->ref);
     }
-
-    if (msacc->unmanaged) erts_mtx_unlock(&msacc->mtx);
 
     erts_queue_message(rp, rp_locks, msgp, msg, am_system);
 
@@ -308,9 +310,9 @@ static void erts_msacc_reset(ErtsMsAcc *msacc) {
   if (msacc->unmanaged) erts_mtx_lock(&msacc->mtx);
 
   for (i = 0; i < ERTS_MSACC_STATE_COUNT; i++) {
-      msacc->perf_counters[i] = 0;
+      msacc->counters[i].pc = 0;
 #ifdef ERTS_MSACC_STATE_COUNTERS
-      msacc->state_counters[i] = 0;
+      msacc->counters[i].sc = 0;
 #endif
   }
 
@@ -415,7 +417,7 @@ erts_msacc_request(Process *c_p, int action, Eterm *threads)
                 ErtsSysPerfCounter perf_counter;
                 /* if enabled update stats */
                 perf_counter = erts_sys_perf_counter();
-                unmanaged[i]->perf_counters[unmanaged[i]->state] +=
+                unmanaged[i]->counters[unmanaged[i]->state].pc +=
                     perf_counter - unmanaged[i]->perf_counter;
                 unmanaged[i]->perf_counter = perf_counter;
             }
@@ -454,7 +456,7 @@ erts_msacc_request(Process *c_p, int action, Eterm *threads)
         for (msacc = msacc_unmanaged; msacc != NULL; msacc = msacc->next) {
             erts_mtx_lock(&msacc->mtx);
             perf_counter = erts_sys_perf_counter();
-            msacc->perf_counters[msacc->state] += perf_counter - msacc->perf_counter;
+            msacc->counters[msacc->state].pc += perf_counter - msacc->perf_counter;
             msacc->perf_counter = 0;
             erts_mtx_unlock(&msacc->mtx);
         }

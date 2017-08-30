@@ -39,7 +39,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 -spec getOption(Name) -> unicode:charlist() when
 	Name::unicode:chardata().
 getOption(Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxSystemOptions_GetOption,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
@@ -48,7 +48,7 @@ getOption(Name)
 -spec getOptionInt(Name) -> integer() when
 	Name::unicode:chardata().
 getOptionInt(Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxSystemOptions_GetOptionInt,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
@@ -57,7 +57,7 @@ getOptionInt(Name)
 -spec hasOption(Name) -> boolean() when
 	Name::unicode:chardata().
 hasOption(Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxSystemOptions_HasOption,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
@@ -66,7 +66,7 @@ hasOption(Name)
 -spec isFalse(Name) -> boolean() when
 	Name::unicode:chardata().
 isFalse(Name)
- when is_list(Name) ->
+ when ?is_chardata(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxSystemOptions_IsFalse,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
@@ -81,12 +81,12 @@ isFalse(Name)
       (Name, Value) -> 'ok' when
 	Name::unicode:chardata(), Value::unicode:chardata().
 setOption(Name,Value)
- when is_list(Name),is_integer(Value) ->
+ when ?is_chardata(Name),is_integer(Value) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:cast(?wxSystemOptions_SetOption_2_0,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8,Value:32/?UI>>);
 setOption(Name,Value)
- when is_list(Name),is_list(Value) ->
+ when ?is_chardata(Name),?is_chardata(Value) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   Value_UC = unicode:characters_to_binary([Value,0]),
   wxe_util:cast(?wxSystemOptions_SetOption_2_1,

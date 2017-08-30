@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 two/1,test1/1,fail/1,float_bin/1,in_guard/1,in_catch/1,
 	 nasty_literals/1,coerce_to_float/1,side_effect/1,
-	 opt/1,otp_7556/1,float_arith/1,otp_8054/1]).
+	 opt/1,otp_7556/1,float_arith/1,otp_8054/1,
+         cover/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -45,7 +46,7 @@ groups() ->
     [{p,[parallel],
       [two,test1,fail,float_bin,in_guard,in_catch,
        nasty_literals,side_effect,opt,otp_7556,float_arith,
-       otp_8054]}].
+       otp_8054,cover]}].
 
 
 init_per_suite(Config) ->
@@ -552,3 +553,19 @@ otp_8054_1([H|T], Bin) ->
 	end,
     otp_8054_1(T, Bin);
 otp_8054_1([], Bin) -> Bin.
+
+-define(LONG_STRING,
+        "3lz7Q4au2i3DJWNlNhWuzmvA7gYWGXG+LAPtgtlEO2VGSxRqL2WOoHW"
+        "QxORTQfJw17mNEU8i87UKvEPbo9YY8ppiM7vfaG88TTyfEzgUMTgY3I"
+        "vsikMBELPz2AayVz5aaMh9PBFTZ4DkBIFxURBUKHho4Vgt7IzYnWNgn"
+        "3ON5D9VS89TPANK5/PwSUoMQYZ2fk5VLbq7D1ExlnCScvTDnF/WHMQ3"
+        "m2GUcQWb+ajfOf3bnP7EX4f1Q3d/1Soe6lEpf1KN/5S7A/ugjMhy4+H"
+        "Zuo1J1J6CCwEVZ/wDc79OpDPPj/qOGhDK73F8DaMcynZ91El+01vfTn"
+        "uUxNFUHLpuoQ==").
+
+cover(Config) ->
+    %% Cover handling of a huge partially literal string.
+    L = length(Config),
+    Bin = id(<<L:32,?LONG_STRING>>),
+    <<L:32,?LONG_STRING>> = Bin,
+    ok.

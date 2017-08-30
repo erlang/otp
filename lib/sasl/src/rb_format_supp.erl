@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,13 +94,15 @@ print(Date, Report, Device) ->
 					       [{header, Header}]),
 		    io:format(Device, Format, Args);
 		{Type, _GL, TypeReport} ->
-		    io:format(Device, "~nInfo type <~w> ~s~n",
+                    Modifier = misc_supp:modifier(Device),
+		    io:format(Device, "~nInfo type <~"++Modifier++"w> ~s~n",
 			      [Type, Date]),
-		    io:format(Device, "~p", [TypeReport]);
+		    io:format(Device, "~"++Modifier++"p", [TypeReport]);
 		_ -> 
+                    Modifier = misc_supp:modifier(Device),
 		    io:format("~nPrinting info of unknown type... ~s~n",
 			      [Date]),
-		    io:format(Device, "~p", [Report])
+		    io:format(Device, "~"++Modifier++"p", [Report])
 %	    end
     end.
 

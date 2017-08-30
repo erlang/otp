@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -250,7 +250,7 @@ loop(State) ->
 	{'EXIT',Pid,Reason} ->
 	    case State#state.test_runner of
 		Pid ->
-		    io:format("Test run error: ~p\n",[Reason]),
+		    io:format("Test run error: ~tp\n",[Reason]),
 		    loop(State);
 		_ ->
 		    loop(State)
@@ -551,7 +551,7 @@ case_select(Dir,Suite,Case,N) ->
 	    true = code:add_pathz(Dir),
 	    case catch apply(Suite,all,[]) of
 		{'EXIT',Reason} ->
-		    io:format("\n~p\n",[Reason]),
+		    io:format("\n~tp\n",[Reason]),
 		    red(["COULD NOT READ TESTCASES!!",br(),
 			 "See erlang shell for info"]);
 		{skip,_Reason} ->

@@ -24,9 +24,12 @@
 -import(lists, [reverse/1,reverse/2,splitwith/2,sort/1]).
 
 -record(st,
-	{safe,					%Safe labels.
-	 lbl					%Code at each label.
+	{safe :: gb_sets:set(beam_asm:label()), %Safe labels.
+	 lbl :: beam_utils:code_index()         %Code at each label.
 	 }).
+
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
 
 module({Mod,Exp,Attr,Fs0,Lc}, _Opts) ->
     Fs = [function(F) || F <- Fs0],
@@ -230,7 +233,7 @@ safe_labels([], Acc) -> gb_sets:from_list(Acc).
 
 frame_layout(Is, Kills, #st{safe=Safe,lbl=D}) ->
     N = frame_size(Is, Safe),
-    IsKilled = fun(R) -> beam_utils:is_killed(R, Is, D) end,
+    IsKilled = fun(R) -> beam_utils:is_not_used(R, Is, D) end,
     {N,frame_layout_1(Kills, 0, N, IsKilled, [])}.
 
 frame_layout_1([{kill,{y,Y}}=I|Ks], Y, N, IsKilled, Acc) ->

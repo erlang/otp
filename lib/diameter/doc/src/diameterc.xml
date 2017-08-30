@@ -11,7 +11,7 @@
 <comref>
 <header>
 <copyright>
-<year>2011</year><year>2013</year>
+<year>2011</year><year>2016</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -79,14 +79,14 @@ Write generated source to the specified directory.
 Defaults to the current working directory.</p>
 </item>
 
-<tag><![CDATA[-E]]></tag>
+<tag><![CDATA[-E]]></tag><item/>
 <tag><![CDATA[-H]]></tag>
 <item>
 <p>
 Suppress erl and hrl generation, respectively.</p>
 </item>
 
-<tag><![CDATA[--name <name>]]></tag>
+<tag><![CDATA[--name <name>]]></tag><item/>
 <tag><![CDATA[--prefix <prefix>]]></tag>
 <item>
 <p>

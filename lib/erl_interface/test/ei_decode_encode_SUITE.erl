@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -125,7 +125,7 @@ test_ei_decode_encode(Config) when is_list(Config) ->
 % We read two packets for each test, the ei_decode_encode and ei_x_decode_encode  version....
 
 send_rec(P, Term) when is_port(P) ->
-    P ! {self(), {command, term_to_binary(Term)}},
+    P ! {self(), {command, term_to_binary(Term, [{minor_version, 2}])}},
     {_B,Term} = get_buf_and_term(P).
 
 
@@ -170,7 +170,6 @@ get_binary(P) ->
 
 -define(VERSION_MAGIC,       131).
 
--define(ATOM_EXT,            100).
 -define(REFERENCE_EXT,       101).
 -define(PORT_EXT,            102).
 -define(PID_EXT,             103).

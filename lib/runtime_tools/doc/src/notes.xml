@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,106 @@
   </header>
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
+
+<section><title>Runtime_Tools 1.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add compile option <c>-compile(no_native)</c> in modules
+	    with <c>on_load</c> directive which is not yet supported
+	    by HiPE.</p>
+          <p>
+	    Own Id: OTP-14316 Aux Id: PR-1390 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Miscellaneous updates due to atoms containing
+	    arbitrary Unicode characters. </p>
+          <p>
+	    Own Id: OTP-14285</p>
+        </item>
+        <item>
+	    <p> Sockets can now be bound to device (SO_BINDTODEVICE)
+	    on platforms where it is supported. </p> <p> This has
+	    been implemented e.g to support VRF-Lite under Linux; see
+	    <url
+	    href="https://www.kernel.org/doc/Documentation/networking/vrf.txt">
+	    VRF </url>, and GitHub pull request <url
+	    href="https://github.com/erlang/otp/pull/1326">#1326</url>.
+	    </p>
+          <p>
+	    Own Id: OTP-14357 Aux Id: PR-1326 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    etop erroneously reported the average scheduler
+	    utilization since the tool was first started instead of
+	    the scheduler utilization since last update. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-14090 Aux Id: seq13232 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add option <c>queue_size</c> to ttb:tracer/2. This sets
+	    the maximum queue size for the IP trace driver which is
+	    used when tracing to shell and/or <c>{local,File}</c>.</p>
+          <p>
+	    The default value for <c>queue_size</c> is specified by
+	    <c>dbg</c>, and it is now changed from 50 to 200.</p>
+          <p>
+	    Own Id: OTP-13829 Aux Id: seq13171 </p>
+        </item>
+        <item>
+          <p>
+	    The port information page is updated to show more
+	    information per port.</p>
+          <p>
+	    Own Id: OTP-13948 Aux Id: ERL-272 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Runtime_Tools 1.10.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Correct some minor documentation issues. </p>
+          <p>
+	    Own Id: OTP-13891</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Runtime_Tools 1.10</title>
 
@@ -668,7 +768,7 @@
 	    also been extended. </item><item> The <c>configure</c>
 	    scripts of <c>erl_interface</c> and <c>odbc</c> now
 	    search for thread libraries and thread library quirks the
-	    same way as <c>erts</c> do. </item><item> The
+	    same way as ERTS do. </item><item> The
 	    <c>configure</c> script of the <c>odbc</c> application
 	    now also looks for odbc libraries in <c>lib64</c> and
 	    <c>lib/64</c> directories when building on a 64-bit

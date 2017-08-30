@@ -1914,7 +1914,7 @@ so_priority(Config) when is_list(Config) ->
 %% Accept test utilities (suites are below)
 
 millis() ->
-    erlang:monotonic_time(milli_seconds).
+    erlang:monotonic_time(millisecond).
 	
 collect_accepts(0,_) -> [];
 collect_accepts(N,Tmo) ->

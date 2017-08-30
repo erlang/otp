@@ -1,9 +1,5 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
 %%%
 %%% x86 pretty-printer
 
@@ -171,7 +165,7 @@ pp_insn(Dev, I, Pre) ->
     #pseudo_tailcall{'fun'=Fun, arity=Arity, stkargs=StkArgs, linkage=Linkage} ->
       io:format(Dev, "\tpseudo_tailcall ", []),
       pp_fun(Dev, Fun),
-      io:format(Dev, "~w (", [Arity]),
+      io:format(Dev, " ~w (", [Arity]),
       pp_args(Dev, StkArgs),
       io:format(Dev, ") ~w\n", [Linkage]);
     #pseudo_tailcall_prepare{} ->
@@ -184,6 +178,12 @@ pp_insn(Dev, I, Pre) ->
       io:format(Dev, "\tret $~s\n", [to_hex(NPop)]);
     #shift{shiftop=ShiftOp, src=Src, dst=Dst} ->
       io:format(Dev, "\t~s ", [alu_op_name(ShiftOp)]),
+      pp_src(Dev, Src),
+      io:format(Dev, ", ", []),
+      pp_dst(Dev, Dst),
+      io:format(Dev, "\n", []);
+    #test{src=Src, dst=Dst} ->
+      io:format(Dev, "\ttest ", []),
       pp_src(Dev, Src),
       io:format(Dev, ", ", []),
       pp_dst(Dev, Dst),

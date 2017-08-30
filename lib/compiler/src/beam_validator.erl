@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,6 +32,10 @@
 -import(lists, [reverse/1,foldl/3,foreach/2,dropwhile/2]).
 
 %% To be called by the compiler.
+
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
   when is_atom(Mod), is_list(Exp), is_list(Attr), is_integer(Lc) ->
     case validate(Mod, Fs) of
@@ -619,17 +623,17 @@ valfun_4({test,bs_skip_utf16,{f,Fail},[Ctx,Live,_]}, Vst) ->
 valfun_4({test,bs_skip_utf32,{f,Fail},[Ctx,Live,_]}, Vst) ->
     validate_bs_skip_utf(Fail, Ctx, Live, Vst);
 valfun_4({test,bs_get_integer2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, Dst, Vst);
+    validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
 valfun_4({test,bs_get_float2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, Dst, Vst);
+    validate_bs_get(Fail, Ctx, Live, {float, []}, Dst, Vst);
 valfun_4({test,bs_get_binary2,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, Dst, Vst);
+    validate_bs_get(Fail, Ctx, Live, term, Dst, Vst);
 valfun_4({test,bs_get_utf8,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, Dst, Vst);
+    validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
 valfun_4({test,bs_get_utf16,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, Dst, Vst);
+    validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
 valfun_4({test,bs_get_utf32,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Fail, Ctx, Live, Dst, Vst);
+    validate_bs_get(Fail, Ctx, Live, {integer, []}, Dst, Vst);
 valfun_4({bs_save2,Ctx,SavePoint}, Vst) ->
     bsm_save(Ctx, SavePoint, Vst);
 valfun_4({bs_restore2,Ctx,SavePoint}, Vst) ->
@@ -649,6 +653,9 @@ valfun_4({test,is_nonempty_list,{f,Lbl},[Cons]}, Vst) ->
 valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
     assert_type(tuple, Tuple, Vst),
     set_type_reg({tuple,Sz}, Tuple, branch_state(Lbl, Vst));
+valfun_4({test,is_tagged_tuple,{f,Lbl},[Src,Sz,_Atom]}, Vst) ->
+    validate_src([Src], Vst),
+    set_type_reg({tuple, Sz}, Src, branch_state(Lbl, Vst));
 valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
     assert_type(map, Src, Vst),
     assert_unique_map_keys(List),
@@ -787,12 +794,12 @@ verify_put_map(Fail, Src, Dst, Live, List, Vst0) ->
 %%
 %% Common code for validating bs_get* instructions.
 %%
-validate_bs_get(Fail, Ctx, Live, Dst, Vst0) ->
+validate_bs_get(Fail, Ctx, Live, Type, Dst, Vst0) ->
     bsm_validate_context(Ctx, Vst0),
     verify_live(Live, Vst0),
     Vst1 = prune_x_regs(Live, Vst0),
     Vst = branch_state(Fail, Vst1),
-    set_type_reg(term, Dst, Vst).
+    set_type_reg(Type, Dst, Vst).
 
 %%
 %% Common code for validating bs_skip_utf* instructions.
@@ -808,9 +815,11 @@ validate_bs_skip_utf(Fail, Ctx, Live, Vst0) ->
 %% A possibility for garbage collection must not occur between setelement/3 and
 %% set_tuple_element/3.
 %%
+%% Note that #vst.current will be 'none' if the instruction is unreachable.
+%%
 val_dsetel({move,_,_}, Vst) ->
     Vst;
-val_dsetel({call_ext,3,{extfunc,erlang,setelement,3}}, #vst{current=St}=Vst) ->
+val_dsetel({call_ext,3,{extfunc,erlang,setelement,3}}, #vst{current=#st{}=St}=Vst) ->
     Vst#vst{current=St#st{setelem=true}};
 val_dsetel({set_tuple_element,_,_,_}, #vst{current=#st{setelem=false}}) ->
     error(illegal_context_for_set_tuple_element);
@@ -907,7 +916,7 @@ all_ms_in_x_regs(Live0, Vst) ->
 
 ms_in_y_regs(Id, #vst{current=#st{y=Ys0}}) ->
     Ys = gb_trees:to_list(Ys0),
-    [Y || {Y,#ms{id=OtherId}} <- Ys, OtherId =:= Id].
+    [{y,Y} || {Y,#ms{id=OtherId}} <- Ys, OtherId =:= Id].
 
 verify_call_match_context(Lbl, Ctx, #vst{ft=Ft}) ->
     case gb_trees:lookup(Lbl, Ft) of
@@ -1506,7 +1515,9 @@ bif_type(abs, [Num], Vst) ->
 bif_type(float, _, _) -> {float,[]};
 bif_type('/', _, _) -> {float,[]};
 %% Integer operations.
+bif_type(ceil, [_], _) -> {integer,[]};
 bif_type('div', [_,_], _) -> {integer,[]};
+bif_type(floor, [_], _) -> {integer,[]};
 bif_type('rem', [_,_], _) -> {integer,[]};
 bif_type(length, [_], _) -> {integer,[]};
 bif_type(size, [_], _) -> {integer,[]};
@@ -1640,6 +1651,9 @@ return_type_math(log10, 1) -> {float,[]};
 return_type_math(sqrt, 1) -> {float,[]};
 return_type_math(atan2, 2) -> {float,[]};
 return_type_math(pow, 2) -> {float,[]};
+return_type_math(ceil, 1) -> {float,[]};
+return_type_math(floor, 1) -> {float,[]};
+return_type_math(fmod, 2) -> {float,[]};
 return_type_math(pi, 0) -> {float,[]};
 return_type_math(F, A) when is_atom(F), is_integer(A), A >= 0 -> term.
 

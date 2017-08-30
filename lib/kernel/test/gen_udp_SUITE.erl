@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -717,9 +717,9 @@ implicit_inet6(Config) when is_list(Config) ->
 
 implicit_inet6(Host, Addr) ->
     Active = {active,false},
-    case gen_udp:open(0, [inet6,Active]) of
+    Loopback = {0,0,0,0,0,0,0,1},
+    case gen_udp:open(0, [inet6,Active,{ip, Loopback}]) of
 	{ok,S1} ->
-	    Loopback = {0,0,0,0,0,0,0,1},
 	    io:format("~s ~p~n", ["::1",Loopback]),
 	    implicit_inet6(S1, Active, Loopback),
 	    ok = gen_udp:close(S1),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@
 %% This one is used when we takeover from the simple error_logger.
 init({[], {error_logger, Buf}}) ->
     User = set_group_leader(),
-    Depth = get_depth(),
+    Depth = error_logger:get_format_depth(),
     State = #st{user=User,prev_handler=error_logger,depth=Depth},
     write_events(State, Buf),
     {ok, State};
@@ -56,17 +56,9 @@ init({[], {error_logger_tty_h, PrevHandler}}) ->
 %% This one is used when we are started directly.
 init([]) ->
     User = set_group_leader(),
-    Depth = get_depth(),
+    Depth = error_logger:get_format_depth(),
     {ok, #st{user=User,prev_handler=[],depth=Depth}}.
 
-get_depth() ->
-    case application:get_env(kernel, error_logger_format_depth) of
-	{ok, Depth} when is_integer(Depth) ->
-	    max(10, Depth);
-	undefined ->
-	    unlimited
-    end.
-    
 handle_event({_Type, GL, _Msg}, State) when node(GL) =/= node() ->
     {ok, State};
 handle_event(Event, State) ->
@@ -128,13 +120,12 @@ write_events(State, [Ev|Es]) ->
 write_events(_State, []) ->
     ok.
 
-do_write_event(State, {Time0, Event}) ->
+do_write_event(State, {Time, Event}) ->
     case parse_event(Event) of
 	ignore ->
 	    ok;
-	{Head,Pid,FormatList} ->
-	    Time = maybe_utc(Time0),
-	    Header = write_time(Time, Head),
+	{Title,Pid,FormatList} ->
+	    Header = header(Time, Title),
 	    Body = format_body(State, FormatList),
 	    AtNode = if
 			 node(Pid) =/= node() ->
@@ -142,7 +133,7 @@ do_write_event(State, {Time0, Event}) ->
 			 true ->
 			     []
 		     end,
-	    Str = [Header,Body,AtNode],
+	    Str = [Header,AtNode,Body],
 	    case State#st.io_mod of
 		io_lib ->
 		    Str;
@@ -197,21 +188,6 @@ parse_event({warning_report, _GL, {Pid, std_warning, Args}}) ->
     {"WARNING REPORT",Pid,format_term(Args)};
 parse_event(_) -> ignore.
 
-maybe_utc(Time) ->
-    UTC = case application:get_env(sasl, utc_log) of
-              {ok, Val} -> Val;
-              undefined ->
-                  %% Backwards compatible:
-                  case application:get_env(stdlib, utc_log) of
-                      {ok, Val} -> Val;
-                      undefined -> false
-                  end
-          end,
-    maybe_utc(Time, UTC).
-
-maybe_utc(Time, true) -> {utc, Time};
-maybe_utc(Time, _) -> {local, calendar:universal_time_to_local_time(Time)}.
-
 format_term(Term) when is_list(Term) ->
     case string_p(Term) of
 	true ->
@@ -255,12 +231,29 @@ string_p1([H|T]) when is_list(H) ->
 string_p1([]) -> true;
 string_p1(_) ->  false.
 
-write_time({utc,{{Y,Mo,D},{H,Mi,S}}},Type) ->
-    io_lib:format("~n=~s==== ~p-~s-~p::~s:~s:~s UTC ===~n",
-		  [Type,D,month(Mo),Y,t(H),t(Mi),t(S)]);
-write_time({local, {{Y,Mo,D},{H,Mi,S}}},Type) ->
-    io_lib:format("~n=~s==== ~p-~s-~p::~s:~s:~s ===~n",
-		  [Type,D,month(Mo),Y,t(H),t(Mi),t(S)]).
+get_utc_config() ->
+    %% SASL utc_log configuration overrides stdlib config
+    %% in order to have uniform timestamps in log messages
+    case application:get_env(sasl, utc_log) of
+        {ok, Val} -> Val;
+        undefined ->
+            case application:get_env(stdlib, utc_log) of
+                {ok, Val} -> Val;
+                undefined -> false
+            end
+    end.
+
+header(Time, Title) ->
+    case get_utc_config() of
+        true ->
+            header(Time, Title, "UTC ");
+        _ ->
+            header(calendar:universal_time_to_local_time(Time), Title, "")
+    end.
+
+header({{Y,Mo,D},{H,Mi,S}}, Title, UTC) ->
+    io_lib:format("~n=~s==== ~p-~s-~p::~s:~s:~s ~s===~n",
+                 [Title,D,month(Mo),Y,t(H),t(Mi),t(S),UTC]).
 
 t(X) when is_integer(X) ->
     t1(integer_to_list(X));
@@ -281,8 +274,3 @@ month(9) -> "Sep";
 month(10) -> "Oct";
 month(11) -> "Nov";
 month(12) -> "Dec".
-
-
-
-
-

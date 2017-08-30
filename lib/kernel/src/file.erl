@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -397,25 +397,36 @@ write_file(Name, Bin) ->
       Modes :: [mode()],
       Reason :: posix() | badarg | terminated | system_limit.
 
-write_file(Name, Bin, ModeList) when is_list(ModeList) ->
-    case make_binary(Bin) of
-	B when is_binary(B) ->
-	    case open(Name, [binary, write | 
-			     lists:delete(binary, 
-					  lists:delete(write, ModeList))]) of
-		{ok, Handle} ->
-		    case write(Handle, B) of
-			ok ->
-			    close(Handle);
-			E1 ->
-			    _ = close(Handle),
-			    E1
-		    end;
-		E2 ->
-		    E2
-	    end;
-	E3 ->
-	    E3
+write_file(Name, IOData, ModeList) when is_list(ModeList) ->
+    case lists:member(raw, ModeList) of
+        true ->
+          %% For backwards compatibility of error messages
+            try iolist_size(IOData) of
+                _Size -> do_write_file(Name, IOData, ModeList)
+            catch
+                error:Error -> {error, Error}
+            end;
+        false ->
+            case make_binary(IOData) of
+                Bin when is_binary(Bin) ->
+                    do_write_file(Name, Bin, ModeList);
+                Error ->
+                    Error
+            end
+    end.
+
+do_write_file(Name, IOData, ModeList) ->
+    case open(Name, [binary, write | ModeList]) of
+        {ok, Handle} ->
+            case write(Handle, IOData) of
+                ok ->
+                    close(Handle);
+                E1 ->
+                    _ = close(Handle),
+                    E1
+            end;
+        E2 ->
+            E2
     end.
 
 %% Obsolete, undocumented, local node only, don't use!.
@@ -1413,7 +1424,7 @@ path_open_first([Path|Rest], Name, Mode, LastError) ->
 	    case open(FileName, Mode) of
 		{ok, Fd} ->
 		    {ok, Fd, FileName};
-		{error, enoent} ->
+		{error, Reason} when Reason =:= enoent; Reason =:= enotdir ->
 		    path_open_first(Rest, Name, Mode, LastError);
 		Error ->
 		    Error

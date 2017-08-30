@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2016</year>
+      <year>2017</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -38,7 +38,69 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.7.1</title>
+  <section><title>Reltool 0.7.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The User's Guide examples are updated after removal
+	    of support for Dets files created with Erlang/OTP R7 and
+	    earlier. </p>
+          <p>
+	    Own Id: OTP-14422 Aux Id: OTP-13830 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.7.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed xml issues in old release notes</p>
+          <p>
+	    Own Id: OTP-14269</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.7.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Dependencies specified in .app files would earlier only
+	    be followed for applications that are included in a 'rel'
+	    spec in the reltool config. For other applications, only
+	    xref would decide the dependencies.</p>
+          <p>
+	    Some dependency chains would even be missed for
+	    applications that are included in a 'rel' spec in the
+	    reltool config. E.g.</p>
+
+	    <list> <item>Application x has y as included application,
+	    and y in turn has z as included application. Then z is
+	    not included. </item> <item>Application x has y in its
+	    'applications' tag in the .app file, and y in turn has z
+	    as included application. Then z is not included.</item>
+	    </list>
+          <p>
+	    These bugs are now corrected.</p>
+          <p>
+	    Own Id: OTP-11993</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.7.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>
@@ -546,8 +608,8 @@
             <p>The handling of applications included in releases has
             been improved. Applications that are required to be
             started before other applications in a release are now
-            automatically included in the release. The <c>kernel</c>
-            and <c>stdlib</c> applications are always included as
+            automatically included in the release. The Kernel
+            and STDLIB applications are always included as
             they are mandatory.</p>
             <p>Applications that are (explicitly or implicitly)
             included in a release are now automatically included as

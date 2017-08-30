@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@
 -define(MAX_DATA_SIZE, 16384).
 
 % This is the allowed delay when testing the driver timer functionality
--define(delay, 100).
+-define(delay, 400).
 
 -define(heap_binary_size, 64).
 
@@ -127,7 +127,7 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     0 = element(1, erts_debug:get_internal_state(check_io_debug)),
     [{testcase, Case}|Config].
 
-end_per_testcase(Case, Config) ->
+end_per_testcase(Case, _Config) ->
     erlang:display({end_per_testcase, Case}),
     0 = element(1, erts_debug:get_internal_state(check_io_debug)),
     ok.
@@ -401,7 +401,7 @@ try_timeouts(Port, Timeout) ->
                 true ->
                     try_timeouts(Port, Timeout div 2)
             end
-    after Timeout + ?delay ->
+    after Timeout + 100*?delay ->
               ct:fail("driver failed to timeout")
     end.
 
@@ -437,7 +437,7 @@ try_cancel(Port, Timeout) ->
                           Timeout == 0 -> ok;
                           true -> try_cancel(Port, Timeout div 2)
                       end
-              after ?delay ->
+              after 100*?delay ->
                         ct:fail("No message from driver")
               end
     end.
@@ -452,11 +452,7 @@ timer_delay(Config) when is_list(Config) ->
     TimeBefore = erlang:monotonic_time(),
     Timeout0 = 350,
     erlang:port_command(Port, <<?DELAY_START_TIMER,Timeout0:32>>),
-    Timeout = Timeout0 +
-    case os:type() of
-        {win32,_} -> 0;			%Driver doesn't sleep on Windows.
-        _ -> 1000
-    end,
+    Timeout = Timeout0 + 1000,
     receive
         {Port,{data,[?TIMER]}} ->
             Elapsed = erl_millisecs() - erl_millisecs(TimeBefore),
@@ -505,7 +501,7 @@ try_change_timer(Port, Timeout) ->
                 true ->
                     try_timeouts(Port, Timeout div 2)
             end
-    after Timeout + ?delay ->
+    after Timeout + 100*?delay ->
               ct:fail("driver failed to timeout")
     end.
 
@@ -1754,12 +1750,6 @@ thread_mseg_alloc_cache_clean(Config) when is_list(Config) ->
             ok
     end.
 
-mseg_alloc_cci(MsegAllocInfo) ->
-    {value,{options, OL}}
-    = lists:keysearch(options, 1, MsegAllocInfo),
-    {value,{cci,CCI}} = lists:keysearch(cci,1,OL),
-    CCI.
-
 mseg_alloc_ccc() ->
     mseg_alloc_ccc(mseg_inst_info(0)).
 
@@ -2427,7 +2417,7 @@ erl_millisecs() ->
     erl_millisecs(erlang:monotonic_time()).
 
 erl_millisecs(MonotonicTime) ->
-    (1000*MonotonicTime)/erlang:convert_time_unit(1,seconds,native).
+    (1000*MonotonicTime)/erlang:convert_time_unit(1,second,native).
 
 %% Start/stop drivers.
 start_driver(Config, Name, Binary) ->
@@ -2481,7 +2471,7 @@ start_node(Config) when is_list(Config) ->
                         ++ "-"
                         ++ atom_to_list(proplists:get_value(testcase, Config))
                         ++ "-"
-                        ++ integer_to_list(erlang:system_time(seconds))
+                        ++ integer_to_list(erlang:system_time(second))
                         ++ "-"
                         ++ integer_to_list(erlang:unique_integer([positive]))),
     test_server:start_node(Name, slave, [{args, "-pa "++Pa}]).

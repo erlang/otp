@@ -21,6 +21,7 @@
 #  include "config.h"
 #endif
 
+#define ERTS_WANT_MEM_MAPPERS
 #include "sys.h"
 #include "erl_process.h"
 #include "erl_smp.h"
@@ -358,10 +359,9 @@ char* erts_literals_start;
 UWord erts_literals_size;
 #endif
 
-#ifdef ERTS_ALC_A_EXEC
+#ifdef ERTS_HAVE_EXEC_MMAPPER
 ErtsMemMapper erts_exec_mmapper;
 #endif
-
 
 
 #define ERTS_MMAP_SIZE_SC_SA_INC(SZ) 						\
@@ -1878,7 +1878,7 @@ erts_mremap(ErtsMemMapper* mm,
 	    return NULL;
 	}
 
-#if ERTS_HAVE_OS_MREMAP || ERTS_HAVE_GENUINE_OS_MMAP
+#if defined(ERTS_HAVE_OS_MREMAP) || defined(ERTS_HAVE_GENUINE_OS_MMAP)
 	superaligned = (ERTS_MMAPFLG_SUPERALIGNED & flags);
 
 	if (superaligned) {
@@ -1898,7 +1898,7 @@ erts_mremap(ErtsMemMapper* mm,
 	    }
 	}
 
-#if ERTS_HAVE_GENUINE_OS_MMAP
+#ifdef ERTS_HAVE_GENUINE_OS_MMAP
 	if (asize < old_size
 	    && (!superaligned
 		|| ERTS_IS_SUPERALIGNED(ptr))) {
@@ -1913,7 +1913,7 @@ erts_mremap(ErtsMemMapper* mm,
 	    return ptr;
 	}
 #endif
-#if ERTS_HAVE_OS_MREMAP
+#ifdef ERTS_HAVE_OS_MREMAP
 	if (superaligned)
 	    return remap_move(mm, flags, new_ptr, old_size, sizep);
 	else {
@@ -2390,7 +2390,7 @@ add_2tup(Uint **hpp, Uint *szp, Eterm *lp, Eterm el1, Eterm el2)
 }
 
 Eterm erts_mmap_info(ErtsMemMapper* mm,
-                     int *print_to_p,
+                     fmtfn_t *print_to_p,
                      void *print_to_arg,
                      Eterm** hpp, Uint* szp,
                      struct erts_mmap_info_struct* emis)
@@ -2431,7 +2431,7 @@ Eterm erts_mmap_info(ErtsMemMapper* mm,
 
 
     if (print_to_p) {
-        int to = *print_to_p;
+        fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
         if (mm->supercarrier) {
             const char* prefix = "supercarrier ";
@@ -2485,7 +2485,7 @@ Eterm erts_mmap_info(ErtsMemMapper* mm,
 
 Eterm erts_mmap_info_options(ErtsMemMapper* mm,
                              char *prefix,
-                             int *print_to_p,
+                             fmtfn_t *print_to_p,
                              void *print_to_arg,
                              Uint **hpp,
                              Uint *szp)
@@ -2496,7 +2496,7 @@ Eterm erts_mmap_info_options(ErtsMemMapper* mm,
     Eterm res = THE_NON_VALUE;
 
     if (print_to_p) {
-        int to = *print_to_p;
+        fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
         erts_print(to, arg, "%sscs: %bpu\n", prefix, scs);
         if (mm->supercarrier) {

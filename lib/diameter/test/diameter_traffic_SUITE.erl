@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,8 @@
 -export([suite/0,
          all/0,
          groups/0,
+         init_per_suite/1,
+         end_per_suite/1,
          init_per_group/2,
          end_per_group/2,
          init_per_testcase/2,
@@ -90,7 +92,6 @@
          send_multiple_filters_2/1,
          send_multiple_filters_3/1,
          send_anything/1,
-         outstanding/1,
          remove_transports/1,
          empty/1,
          stop_services/1,
@@ -105,6 +106,9 @@
          handle_answer/6, handle_answer/7,
          handle_error/6,
          handle_request/3]).
+
+%% diameter_{tcp,sctp} callbacks
+-export([message/3]).
 
 -include("diameter.hrl").
 -include("diameter_gen_base_rfc3588.hrl").
@@ -145,21 +149,29 @@
 
 %% Whether to decode stringish Diameter types to strings, or leave
 %% them as binary.
--define(STRING_DECODES, [true, false]).
+-define(STRING_DECODES, [false, true]).
 
 %% Which transport protocol to use.
 -define(TRANSPORTS, [tcp, sctp]).
 
+%% Send from a dedicated process?
+-define(SENDERS, [true, false]).
+
+%% Message callbacks from diameter_{tcp,sctp}?
+-define(CALLBACKS, [true, false]).
+
 -record(group,
         {transport,
+         strings,
          client_service,
          client_encoding,
          client_dict0,
-         client_strings,
+         client_sender,
          server_service,
          server_encoding,
          server_container,
-         server_strings}).
+         server_sender,
+         server_throttle}).
 
 %% Not really what we should be setting unless the message is sent in
 %% the common application but diameter doesn't care.
@@ -190,8 +202,7 @@
          {'Acct-Application-Id', [?DIAMETER_APP_ID_ACCOUNTING]},
          {restrict_connections, false},
          {string_decode, Decode},
-         {incoming_maxlen, 1 bsl 21},
-         {spawn_opt, [{min_heap_size, 5000}]}
+         {incoming_maxlen, 1 bsl 21}
          | [{application, [{dictionary, D},
                            {module, ?MODULE},
                            {answer_errors, callback}]}
@@ -243,78 +254,127 @@ suite() ->
     [{timetrap, {seconds, 10}}].
 
 all() ->
-    [start, result_codes, {group, traffic}, outstanding, empty, stop].
+    [start, result_codes, {group, traffic}, empty, stop].
 
 groups() ->
-    Ts = tc(),
-    Sctp = ?util:have_sctp(),
-    [{?util:name([R,D,A,C]), [parallel], Ts} || R <- ?ENCODINGS,
-                                                D <- ?RFCS,
-                                                A <- ?ENCODINGS,
-                                                C <- ?CONTAINERS]
+    [{P, [P], Ts} || Ts <- [tc(tc())], P <- [shuffle, parallel]]
         ++
-        [{?util:name([T,R,D,A,C,SD,CD]),
+        [{?util:name([T,R,D,A,C,S,SS,ST,CS]),
           [],
-          [start_services,
-           add_transports,
-           result_codes,
-           {group, ?util:name([R,D,A,C])},
-           remove_transports,
-           stop_services]}
+          [{group, if S -> shuffle; not S -> parallel end}]}
          || T <- ?TRANSPORTS,
-            T /= sctp orelse Sctp,
             R <- ?ENCODINGS,
             D <- ?RFCS,
             A <- ?ENCODINGS,
             C <- ?CONTAINERS,
-            SD <- ?STRING_DECODES,
-            CD <- ?STRING_DECODES]
+            S <- ?STRING_DECODES,
+            SS <- ?SENDERS,
+            ST <- ?CALLBACKS,
+            CS <- ?SENDERS]
         ++
-        [{traffic, [], [{group, ?util:name([T,R,D,A,C,SD,CD])}
-                        || T <- ?TRANSPORTS,
-                           T /= sctp orelse Sctp,
-                           R <- ?ENCODINGS,
-                           D <- ?RFCS,
-                           A <- ?ENCODINGS,
-                           C <- ?CONTAINERS,
-                           SD <- ?STRING_DECODES,
-                           CD <- ?STRING_DECODES]}].
+        [{T, [], groups([[T,R,D,A,C,S,SS,ST,CS]
+                         || R <- ?ENCODINGS,
+                            D <- ?RFCS,
+                            A <- ?ENCODINGS,
+                            C <- ?CONTAINERS,
+                            S <- ?STRING_DECODES,
+                            SS <- ?SENDERS,
+                            ST <- ?CALLBACKS,
+                            CS <- ?SENDERS,
+                            SS orelse CS])}  %% avoid deadlock
+         || T <- ?TRANSPORTS]
+        ++
+        [{traffic, [], [{group, T} || T <- ?TRANSPORTS]}].
+
+%groups(_) ->  %% debug
+%    Name = [sctp,record,rfc6733,record,pkt,false,false,false,false],
+%    [{group, ?util:name(Name)}];
+groups(Names) ->
+    [{group, ?util:name(L)} || L <- Names].
+
+%tc([N|_]) ->  %% debug
+%    [N];
+tc(L) ->
+    L.
+
+%% --------------------
+
+init_per_suite(Config) ->
+    [{sctp, ?util:have_sctp()} | Config].
+
+end_per_suite(_Config) ->
+    ok.
+
+%% --------------------
+
+init_per_group(Name, Config)
+  when Name == shuffle;
+       Name == parallel ->
+    start_services(Config),
+    add_transports(Config);
+
+init_per_group(sctp = Name, Config) ->
+    {_, Sctp} = lists:keyfind(Name, 1, Config),
+    if Sctp ->
+            Config;
+       true ->
+            {skip, Name}
+    end;
 
 init_per_group(Name, Config) ->
     case ?util:name(Name) of
-        [T,R,D,A,C,SD,CD] ->
+        [T,R,D,A,C,S,SS,ST,CS] ->
             G = #group{transport = T,
+                       strings = S,
                        client_service = [$C|?util:unique_string()],
                        client_encoding = R,
                        client_dict0 = dict0(D),
-                       client_strings = CD,
+                       client_sender = CS,
                        server_service = [$S|?util:unique_string()],
                        server_encoding = A,
                        server_container = C,
-                       server_strings = SD},
-            [{group, G} | Config];
+                       server_sender = SS,
+                       server_throttle = ST},
+            %% Limit the number of testcase, since the number of
+            %% groups is large.
+            All = ?util:scramble(tc()),
+            TCs = lists:sublist(All, rand:uniform(32)),
+            [{group, G}, {runlist, TCs} | Config];
         _ ->
             Config
     end.
 
+end_per_group(Name, Config)
+  when Name == shuffle;
+       Name == parallel ->
+    remove_transports(Config),
+    stop_services(Config);
+
 end_per_group(_, _) ->
     ok.
 
+%% --------------------
+
 %% Skip testcases that can reasonably fail under SCTP.
 init_per_testcase(Name, Config) ->
-    case [skip || #group{transport = sctp}
-                      <- [proplists:get_value(group, Config)],
-                  send_maxlen == Name
-                      orelse send_long == Name]
+    TCs = proplists:get_value(runlist, Config, []),
+    Run = [] == TCs orelse lists:member(Name, TCs),
+    case [G || #group{transport = sctp} = G
+                   <- [proplists:get_value(group, Config)]]
     of
-        [skip] ->
+        [_] when Name == send_maxlen;
+                 Name == send_long ->
             {skip, sctp};
-        [] ->
+        _ when not Run ->
+            {skip, random};
+        _ ->
             [{testcase, Name} | Config]
     end.
 
 end_per_testcase(_, _) ->
     ok.
+
+%% --------------------
 
 %% Testcases to run when services are started and connections
 %% established.
@@ -380,28 +440,34 @@ start(_Config) ->
     ok = diameter:start().
 
 start_services(Config) ->
-    #group{client_service = CN,
-           client_strings = CD,
-           server_service = SN,
-           server_strings = SD}
+    #group{strings = S,
+           client_service = CN,
+           server_service = SN}
         = group(Config),
-    ok = diameter:start_service(SN, ?SERVICE(SN, SD)),
+    ok = diameter:start_service(SN, ?SERVICE(SN, S)),
     ok = diameter:start_service(CN, [{sequence, ?CLIENT_MASK}
-                                     | ?SERVICE(CN, CD)]).
+                                     | ?SERVICE(CN, S)]).
 
 add_transports(Config) ->
     #group{transport = T,
            client_service = CN,
-           server_service = SN}
-        = group(Config), 
+           client_sender = CS,
+           server_service = SN,
+           server_sender = SS,
+           server_throttle = ST}
+        = group(Config),
     LRef = ?util:listen(SN,
-                        T,
+                        [T,
+                         {sender, SS},
+                         {message_cb, ST andalso {?MODULE, message, [4]}}
+                         | [{packet, hd(?util:scramble([false, raw]))}
+                            || T == sctp andalso CS]],
                         [{capabilities_cb, fun capx/2},
                          {pool_size, 8},
-                         {spawn_opt, [{min_heap_size, 8096}]},
-                         {applications, apps(rfc3588)}]),
+                         {applications, apps(rfc3588)}]
+                        ++ [{spawn_opt, {erlang, spawn, []}} || CS]),
     Cs = [?util:connect(CN,
-                        T,
+                        [T, {sender, CS}],
                         LRef,
                         [{id, Id},
                          {capabilities, [{'Origin-State-Id', origin(Id)}]},
@@ -417,11 +483,6 @@ add_transports(Config) ->
 apps(D0) ->
     D = dict0(D0),
     [acct(D), D].
-
-%% Ensure there are no outstanding requests in request table.
-outstanding(_Config) ->
-    [] = [T || T <- ets:tab2list(diameter_request),
-               is_atom(element(1,T))].
 
 remove_transports(Config) ->
     #group{client_service = CN,
@@ -692,14 +753,14 @@ send_unexpected_mandatory(Config) ->
 %% Send something long that will be fragmented by TCP.
 send_long(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
-                  {'User-Name', [lists:duplicate(1 bsl 20, $X)]}],
+                  {'User-Name', [binary:copy(<<$X>>, 1 bsl 20)]}],
     ['STA', {'Session-Id', _}, {'Result-Code', ?SUCCESS} | _]
         = call(Config, Req).
 
 %% Send something longer than the configure incoming_maxlen.
 send_maxlen(Config) ->
     Req = ['STR', {'Termination-Cause', ?LOGOUT},
-                  {'User-Name', [lists:duplicate(1 bsl 21, $X)]}],
+                  {'User-Name', [binary:copy(<<$X>>, 1 bsl 21)]}],
     {timeout, _} = call(Config, Req).
 
 %% Send something for which pick_peer finds no suitable peer.
@@ -878,7 +939,7 @@ group(Config) ->
     #group{} = proplists:get_value(group, Config).
 
 string(V, Config) ->
-    #group{client_strings = B} = group(Config),
+    #group{strings = B} = group(Config),
     decode(V,B).
 
 decode(S, true)
@@ -998,7 +1059,7 @@ pick_peer(Peers, _, [$C|_], _State, {send_detach, Group}, _, {_,_}) ->
 find(#group{client_service = CN,
             server_encoding = A,
             server_container = C},
-     Peers) ->
+     [_|_] = Peers) ->
     Id = {A,C},
     [P] = [P || P <- Peers, id(Id, P, CN)],
     {ok, P}.
@@ -1432,3 +1493,33 @@ request(#diameter_base_STR{'Session-Id' = SId},
 %% send_error/send_timeout
 request(#diameter_base_RAR{}, _Caps) ->
     receive after 2000 -> {protocol_error, ?TOO_BUSY} end.
+
+%% message/3
+%%
+%% Limit the number of messages received. More can be received if read
+%% in the same packet.
+
+message(recv = D, {[_], Bin}, N) ->
+    message(D, Bin, N);
+message(Dir, #diameter_packet{bin = Bin}, N) ->
+    message(Dir, Bin, N);
+
+%% incoming request
+message(recv, <<_:32, 1, _/bits>> = Bin, N) ->
+    [Bin, 1 < N, fun ?MODULE:message/3, N-1];
+
+%% incoming answer
+message(recv, Bin, _) ->
+    [Bin];
+
+%% outgoing
+message(send, Bin, _) ->
+    [Bin];
+
+%% sent request
+message(ack, <<_:32, 1, _/bits>>, _) ->
+    [];
+
+%% sent answer or discarded request
+message(ack, _, N) ->
+    [0 =< N, fun ?MODULE:message/3, N+1].

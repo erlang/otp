@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -92,12 +92,10 @@ init_per_group(tcp = N, Config) ->
     [{group, N} | Config];
 
 init_per_group(sctp = N, Config) ->
-    case gen_sctp:open() of
-        {ok, Sock} ->
-            gen_sctp:close(Sock),
+    case ?util:have_sctp() of
+        true ->
             [{group, N} | Config];
-        {error, E} when E == eprotonosupport;
-                        E == esocktnosupport -> %% fail on any other reason
+        false->
             {skip, no_sctp}
     end.
 

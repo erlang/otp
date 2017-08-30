@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -583,38 +583,38 @@ init_per_group(event_tests_mt = GroupName, Config) ->
       GroupName, 
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
 init_per_group(ipv6_mt = GroupName, Config) ->
+    {ok, Hostname0} = inet:gethostname(),
     case ct:require(ipv6_hosts) of
 	ok ->
-	    case gen_udp:open(0, [inet6]) of
-		{ok, S} ->
-		    ok = gen_udp:close(S),
+	    case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
+		true ->
 		    ipv6_init(
 		      snmp_test_lib:init_group_top_dir(
 			GroupName,
 			[{manager_net_if_module, snmpm_net_if_mt}
 			 | Config]));
-		{error, _} ->
-		    {skip, "Host seems to not support IPv6"}
+		false ->
+		    {skip, "Host does not support IPv6"}
 	    end;
 	_ ->
-	    {skip, "Host does not support IPV6"}
+	    {skip, "Test config ipv6_hosts is missing"}
     end;
 init_per_group(ipv6 = GroupName, Config) -> 
+    {ok, Hostname0} = inet:gethostname(),
     case ct:require(ipv6_hosts) of
 	ok ->
-	    case gen_udp:open(0, [inet6]) of
-		{ok, S} ->
-		    ok = gen_udp:close(S),
+	    case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
+		true ->
 		    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
-		{error, _} ->
-		    {skip, "Host seems to not support IPv6"}
+		false ->
+		    {skip, "Host does not support IPv6"}
 	    end;
 	_ ->
-	    {skip, "Host does not support IPV6"}
+	    {skip, "Test config ipv6_hosts is missing"}
     end;
 init_per_group(GroupName, Config) ->
     snmp_test_lib:init_group_top_dir(GroupName, Config).
-   
+
 end_per_group(_GroupName, Config) ->
     %% Do we really need to do this?
     lists:keydelete(snmp_group_top_dir, 1, Config).
@@ -1760,7 +1760,7 @@ do_simple_sync_get2(Node, TargetName, Oids, Get, PostVerify)
 	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
-    %% The order should be the same, so no need to seach 
+    %% The order should be the same, so no need to search
     ?line ok = case Reply of
 		   {noError, 0, [#varbind{oid   = ?sysObjectID_instance,
 					  value = SysObjectID}, 
@@ -2709,7 +2709,7 @@ do_simple_set2(Node, TargetName, VAVs, Set, PostVerify) ->
 	 "~n   Rem:   ~w", [Reply, _Rem]),
 
     %% verify that the operation actually worked:
-    %% The order should be the same, so no need to seach 
+    %% The order should be the same, so no need to search
     %% The value we get should be exactly the same as we sent
     ?line ok = case Reply of
 		   {noError, 0, [#varbind{oid   = ?sysName_instance,
@@ -5118,10 +5118,10 @@ inform_swarm_collector(N) ->
 
 %% Note that we need to deal with re-transmissions!
 %% That is, the agent did not receive the ack in time,
-%% and therefor did a re-transmit. This means that we 
-%% expect to receive more inform's then we actually 
-%% sent. So for sucess we assume: 
-%% 
+%% and therefor did a re-transmit. This means that we
+%% expect to receive more inform's then we actually
+%% sent. So for success we assume:
+%%
 %%     SentAckCnt =  N
 %%     RespCnt    =  N
 %%     RecvCnt    >= N

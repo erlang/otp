@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@
 #ifndef __PROCESS_H__
 #define __PROCESS_H__
 
+#include "sys.h"
+
 #undef ERTS_INCLUDE_SCHEDULER_INTERNALS
 #if (defined(ERL_PROCESS_C__) \
      || defined(ERL_PORT_TASK_C__) \
@@ -36,8 +38,6 @@
 #endif
 
 typedef struct process Process;
-
-#include "sys.h"
 
 #define ERTS_PROCESS_LOCK_ONLY_PROC_LOCK_TYPE__
 #include "erl_process_lock.h" /* Only pull out important types... */
@@ -63,6 +63,9 @@ typedef struct process Process;
 #define ERTS_ONLY_INCLUDE_TRACE_FLAGS
 #include "erl_trace.h"
 #undef ERTS_ONLY_INCLUDE_TRACE_FLAGS
+#define ERTS_ONLY_SCHED_SPEC_ETS_DATA
+#include "erl_db.h"
+#undef ERTS_ONLY_SCHED_SPEC_ETS_DATA
 
 #ifdef HIPE
 #include "hipe_process.h"
@@ -93,10 +96,6 @@ struct ErtsNodesMonitor_;
 #define ERTS_HEAP_FREE(Type, Ptr, Size)					\
      erts_free((Type), (Ptr))
 
-#define INITIAL_MOD 0
-#define INITIAL_FUN 1
-#define INITIAL_ARI 2
-
 #include "export.h"
 
 struct saved_calls {
@@ -111,13 +110,18 @@ extern int erts_eager_check_io;
 extern int erts_sched_compact_load;
 extern int erts_sched_balance_util;
 extern Uint erts_no_schedulers;
+extern Uint erts_no_total_schedulers;
 #ifdef ERTS_DIRTY_SCHEDULERS
 extern Uint erts_no_dirty_cpu_schedulers;
 extern Uint erts_no_dirty_io_schedulers;
 #endif
 extern Uint erts_no_run_queues;
 extern int erts_sched_thread_suggested_stack_size;
-#define ERTS_SCHED_THREAD_MIN_STACK_SIZE 4	/* Kilo words */
+#ifdef ERTS_DIRTY_SCHEDULERS
+extern int erts_dcpu_sched_thread_suggested_stack_size;
+extern int erts_dio_sched_thread_suggested_stack_size;
+#endif
+#define ERTS_SCHED_THREAD_MIN_STACK_SIZE 20	/* Kilo words */
 #define ERTS_SCHED_THREAD_MAX_STACK_SIZE 8192	/* Kilo words */
 
 #ifdef ERTS_SMP
@@ -173,8 +177,14 @@ extern int erts_sched_thread_suggested_stack_size;
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 6))
 #define ERTS_RUNQ_FLG_EXEC \
   (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 7))
+#define ERTS_RUNQ_FLG_MSB_EXEC \
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 8))
+#define ERTS_RUNQ_FLG_MISC_OP \
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 9))
+#define ERTS_RUNQ_FLG_HALTING \
+  (((Uint32) 1) << (ERTS_RUNQ_FLG_BASE2 + 10))
 
-#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 8)
+#define ERTS_RUNQ_FLG_MAX (ERTS_RUNQ_FLG_BASE2 + 11)
 
 #define ERTS_RUNQ_FLGS_MIGRATION_QMASKS	\
   (ERTS_RUNQ_FLGS_EMIGRATE_QMASK	\
@@ -265,8 +275,9 @@ typedef enum {
 #define ERTS_SSI_FLG_TSE_SLEEPING 	(((erts_aint32_t) 1) << 2)
 #define ERTS_SSI_FLG_WAITING		(((erts_aint32_t) 1) << 3)
 #define ERTS_SSI_FLG_SUSPENDED	 	(((erts_aint32_t) 1) << 4)
+#define ERTS_SSI_FLG_MSB_EXEC	 	(((erts_aint32_t) 1) << 5)
 
-#define ERTS_SSI_FLGS_MAX                                       5
+#define ERTS_SSI_FLGS_MAX                                       6
 
 #define ERTS_SSI_FLGS_SLEEP_TYPE			\
  (ERTS_SSI_FLG_TSE_SLEEPING|ERTS_SSI_FLG_POLL_SLEEPING)
@@ -277,7 +288,8 @@ typedef enum {
 #define ERTS_SSI_FLGS_ALL				\
  (ERTS_SSI_FLGS_SLEEP					\
   | ERTS_SSI_FLG_WAITING				\
-  | ERTS_SSI_FLG_SUSPENDED)
+  | ERTS_SSI_FLG_SUSPENDED                              \
+  | ERTS_SSI_FLG_MSB_EXEC)
 
 /*
  * Keep ERTS_SSI_AUX_WORK flags ordered in expected frequency
@@ -307,6 +319,7 @@ typedef enum {
     ERTS_SSI_AUX_WORK_PENDING_EXITERS_IX,
     ERTS_SSI_AUX_WORK_SET_TMO_IX,
     ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX,
+    ERTS_SSI_AUX_WORK_YIELD_IX,
     ERTS_SSI_AUX_WORK_REAP_PORTS_IX,
     ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED_IX, /* SHOULD be last flag index */
 
@@ -343,6 +356,8 @@ typedef enum {
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_SET_TMO_IX)
 #define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK \
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK_IX)
+#define ERTS_SSI_AUX_WORK_YIELD \
+    (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_YIELD_IX)
 #define ERTS_SSI_AUX_WORK_REAP_PORTS \
     (((erts_aint32_t) 1) << ERTS_SSI_AUX_WORK_REAP_PORTS_IX)
 #define ERTS_SSI_AUX_WORK_DEBUG_WAIT_COMPLETED \
@@ -395,6 +410,12 @@ typedef struct {
     Process* first;
     Process* last;
 } ErtsRunPrioQueue;
+
+typedef enum {
+    ERTS_SCHED_NORMAL,
+    ERTS_SCHED_DIRTY_CPU,
+    ERTS_SCHED_DIRTY_IO
+} ErtsSchedType;
 
 typedef struct ErtsSchedulerData_ ErtsSchedulerData;
 
@@ -481,7 +502,6 @@ struct ErtsRunQueue_ {
     erts_smp_atomic32_t len;
     int wakeup_other;
     int wakeup_other_reds;
-    int halt_in_progress;
 
     struct {
 	ErtsProcList *pending_exiters;
@@ -540,13 +560,15 @@ do {								\
 } while (0)
 
 typedef struct {
-    int need; /* "+sbu true" or scheduler_wall_time enabled */
+    union {
+        erts_atomic32_t mod; /* on dirty schedulers */
+        int need; /* "+sbu true" or scheduler_wall_time enabled */
+    } u;
     int enabled;
     Uint64 start;
     struct {
 	Uint64 total;
 	Uint64 start;
-	int currently;
     } working;
 } ErtsSchedWallTime;
 
@@ -601,6 +623,10 @@ typedef struct {
     } delayed_wakeup;
 #endif
     struct {
+        ErtsEtsAllYieldData ets_all;
+        /* Other yielding operations... */
+    } yield;
+    struct {
 	struct {
 	    erts_aint32_t flags;
 	    void (*callback)(void *);
@@ -609,19 +635,16 @@ typedef struct {
     } debug;
 } ErtsAuxWorkData;
 
+#define ERTS_SCHED_AUX_YIELD_DATA(ESDP, NAME) \
+    (&(ESDP)->aux_work_data.yield.NAME)
+void erts_notify_new_aux_yield_work(ErtsSchedulerData *esdp);
+
 #ifdef ERTS_DIRTY_SCHEDULERS
 typedef enum {
     ERTS_DIRTY_CPU_SCHEDULER,
     ERTS_DIRTY_IO_SCHEDULER
 } ErtsDirtySchedulerType;
 
-typedef union {
-    struct {
-	ErtsDirtySchedulerType type: 1;
-	Uint num: sizeof(Uint)*8 - 1;
-    } s;
-    Uint no;
-} ErtsDirtySchedId;
 #endif
 
 struct ErtsSchedulerData_ {
@@ -645,9 +668,10 @@ struct ErtsSchedulerData_ {
 #endif
     ErtsSchedulerSleepInfo *ssi;
     Process *current_process;
+    ErtsSchedType type;
     Uint no;			/* Scheduler number for normal schedulers */
 #ifdef ERTS_DIRTY_SCHEDULERS
-    ErtsDirtySchedId dirty_no;  /* Scheduler number for dirty schedulers */
+    Uint dirty_no;  /* Scheduler number for dirty schedulers */
     Process *dirty_shadow_process;
 #endif
     Port *current_port;
@@ -675,7 +699,7 @@ struct ErtsSchedulerData_ {
     ErtsSchedWallTime sched_wall_time;
     ErtsGCInfo gc_info;
     ErtsPortTaskHandle nosuspend_port_task_handle;
-
+    ErtsEtsTables ets_tables;
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
     erts_alloc_verify_func_t verify_unused_temp_alloc;
     Allctr_t *verify_unused_temp_alloc_data;
@@ -809,14 +833,16 @@ erts_smp_reset_max_len(ErtsRunQueue *rq, ErtsRunQueueInfo *rqi)
 #define ERTS_PSD_CALL_TIME_BP			3
 #define ERTS_PSD_DELAYED_GC_TASK_QS		4
 #define ERTS_PSD_NIF_TRAP_EXPORT		5
-#define ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF	6
+#define ERTS_PSD_ETS_OWNED_TABLES               6
+#define ERTS_PSD_ETS_FIXED_TABLES               7
+#define ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF	8
 
-#define ERTS_PSD_SIZE				7
+#define ERTS_PSD_SIZE				9
 
 #if !defined(HIPE)
 #  undef ERTS_PSD_SUSPENDED_SAVED_CALLS_BUF
 #  undef ERTS_PSD_SIZE
-#  define ERTS_PSD_SIZE 6
+#  define ERTS_PSD_SIZE 8
 #endif
 
 typedef struct {
@@ -841,8 +867,14 @@ typedef struct {
 #define ERTS_PSD_DELAYED_GC_TASK_QS_GET_LOCKS ERTS_PROC_LOCK_MAIN
 #define ERTS_PSD_DELAYED_GC_TASK_QS_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
-#define ERTS_PSD_NIF_TRAP_EXPORT_GET_LOCKS ((ErtsProcLocks) 0)
-#define ERTS_PSD_NIF_TRAP_EXPORT_SET_LOCKS ((ErtsProcLocks) 0)
+#define ERTS_PSD_NIF_TRAP_EXPORT_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_NIF_TRAP_EXPORT_SET_LOCKS ERTS_PROC_LOCK_MAIN
+
+#define ERTS_PSD_ETS_OWNED_TABLES_GET_LOCKS ERTS_PROC_LOCK_STATUS
+#define ERTS_PSD_ETS_OWNED_TABLES_SET_LOCKS ERTS_PROC_LOCK_STATUS
+
+#define ERTS_PSD_ETS_FIXED_TABLES_GET_LOCKS ERTS_PROC_LOCK_MAIN
+#define ERTS_PSD_ETS_FIXED_TABLES_SET_LOCKS ERTS_PROC_LOCK_MAIN
 
 typedef struct {
     ErtsProcLocks get_locks;
@@ -945,9 +977,11 @@ struct process {
     Eterm* stop;		/* Stack top */
     Eterm* heap;		/* Heap start */
     Eterm* hend;		/* Heap end */
+    Eterm* abandoned_heap;
     Uint heap_sz;		/* Size of heap in words */
     Uint min_heap_size;         /* Minimum size of heap (in words). */
     Uint min_vheap_size;        /* Minimum size of virtual heap (in words). */
+    Uint max_heap_size;         /* Maximum size of heap (in words). */
 
 #if !defined(NO_FPE_SIGNALS) || defined(HIPE)
     volatile unsigned long fp_exception;
@@ -958,16 +992,6 @@ struct process {
        to enable smaller & faster addressing modes on the x86. */
     struct hipe_process_state hipe;
 #endif
-
-    /*
-     * Moved to after "struct hipe_process_state hipe", as a temporary fix for
-     * LLVM hard-coding offsetof(struct process, hipe.nstack) (sic!)
-     * (see void X86FrameLowering::adjustForHiPEPrologue(...) in
-     * lib/Target/X86/X86FrameLowering.cpp).
-     *
-     * Used to be below "Eterm* hend".
-     */
-    Eterm* abandoned_heap;
 
     /*
      * Saved x registers.
@@ -989,8 +1013,7 @@ struct process {
     Uint32 rcount;		/* suspend count */
     int  schedule_count;	/* Times left to reschedule a low prio process */
     Uint reds;			/* No of reductions for this process  */
-    Eterm group_leader;		/* Pid in charge
-				   (can be boxed) */
+    Eterm group_leader;		/* Pid in charge (can be boxed) */
     Uint flags;			/* Trap exit, etc (no trace flags anymore) */
     Eterm fvalue;		/* Exit & Throw value (failure reason) */
     Uint freason;		/* Reason for detected failure */
@@ -1007,9 +1030,6 @@ struct process {
     ErlMessageQueue msg;	/* Message queue */
 
     ErtsBifTimers *bif_timers;	/* Bif timers aiming at this process */
-#ifdef ERTS_BTM_ACCESSOR_SUPPORT
-    ErtsBifTimers *accessor_bif_timers;	/* Accessor bif timers */
-#endif
 
     ProcDict  *dictionary;       /* Process dictionary, may be NULL */
 
@@ -1023,15 +1043,16 @@ struct process {
 #endif
     union {
 	void *terminate;
-	BeamInstr initial[3];	/* Initial module(0), function(1), arity(2), often used instead
-				   of pointer to funcinfo instruction, hence the BeamInstr datatype */
+	ErtsCodeMFA initial;	/* Initial module(0), function(1), arity(2),
+                                   often used instead of pointer to funcinfo
+                                   instruction. */
     } u;
-    BeamInstr* current;		/* Current Erlang function, part of the funcinfo:
+    ErtsCodeMFA* current;	/* Current Erlang function, part of the funcinfo:
 				 * module(0), function(1), arity(2)
 				 * (module and functions are tagged atoms;
-				 * arity an untagged integer). BeamInstr * because it references code
+				 * arity an untagged integer).
 				 */
-    
+
     /*
      * Information mainly for post-mortem use (erl crash dump).
      */
@@ -1048,7 +1069,6 @@ struct process {
     Eterm *old_hend;            /* Heap pointers for generational GC. */
     Eterm *old_htop;
     Eterm *old_heap;
-    Uint max_heap_size;         /* Maximum size of heap (in words). */
     Uint16 gen_gcs;		/* Number of (minor) generational GCs. */
     Uint16 max_gen_gcs;		/* Max minor gen GCs before fullsweep. */
     ErlOffHeap off_heap;	/* Off-heap data updated by copy_struct(). */
@@ -1063,6 +1083,9 @@ struct process {
     Uint64 bin_old_vheap;	/* Virtual old heap size for binaries */
 
     ErtsProcSysTaskQs *sys_task_qs;
+#ifdef ERTS_DIRTY_SCHEDULERS
+    ErtsProcSysTask *dirty_sys_tasks;
+#endif
 
     erts_smp_atomic32_t state;  /* Process state flags (see ERTS_PSFLG_*) */
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -1329,10 +1352,13 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp);
 ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
 {
     ErlHeapFragment* hf = MBUF(p);
+    Uint sz;
 
     ASSERT(hf!=NULL && (hp - hf->mem < hf->alloc_size));
 
-    hf->used_size = hp - hf->mem;
+    sz = hp - hf->mem;
+    p->mbuf_sz -= hf->used_size - sz;
+    hf->used_size = sz;
 }	
 #endif /* inline */
 
@@ -1384,14 +1410,19 @@ extern int erts_system_profile_ts_type;
 #define F_FORCE_GC           (1 << 10) /* Force gc at process in-scheduling */
 #define F_DISABLE_GC         (1 << 11) /* Disable GC (see below) */
 #define F_OFF_HEAP_MSGQ      (1 << 12) /* Off heap msg queue */
-#define F_ON_HEAP_MSGQ       (1 << 13) /* Off heap msg queue */
+#define F_ON_HEAP_MSGQ       (1 << 13) /* On heap msg queue */
 #define F_OFF_HEAP_MSGQ_CHNG (1 << 14) /* Off heap msg queue changing */
 #define F_ABANDONED_HEAP_USE (1 << 15) /* Have usage of abandoned heap */
 #define F_DELAY_GC           (1 << 16) /* Similar to disable GC (see below) */
 #define F_SCHDLR_ONLN_WAITQ  (1 << 17) /* Process enqueued waiting to change schedulers online */
 #define F_HAVE_BLCKD_NMSCHED (1 << 18) /* Process has blocked normal multi-scheduling */
-#define F_HIPE_MODE          (1 << 19)
+#define F_HIPE_MODE          (1 << 19) /* Process is executing in HiPE mode */
 #define F_DELAYED_DEL_PROC   (1 << 20) /* Delay delete process (dirty proc exit case) */
+#define F_DIRTY_CLA          (1 << 21) /* Dirty copy literal area scheduled */
+#define F_DIRTY_GC_HIBERNATE (1 << 22) /* Dirty GC hibernate scheduled */
+#define F_DIRTY_MAJOR_GC     (1 << 23) /* Dirty major GC scheduled */
+#define F_DIRTY_MINOR_GC     (1 << 24) /* Dirty minor GC scheduled */
+#define F_HIBERNATED         (1 << 25) /* Hibernated */
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
@@ -1511,24 +1542,29 @@ extern int erts_system_profile_ts_type;
     } while (0)
 
 #if defined(ERTS_DIRTY_SCHEDULERS) && defined(ERTS_SMP)
-#define ERTS_NUM_DIRTY_RUNQS 2
+#define ERTS_NUM_DIRTY_CPU_RUNQS 1
+#define ERTS_NUM_DIRTY_IO_RUNQS 1
 #else
-#define ERTS_NUM_DIRTY_RUNQS 0
+#define ERTS_NUM_DIRTY_CPU_RUNQS 0
+#define ERTS_NUM_DIRTY_IO_RUNQS 0
 #endif
 
+#define ERTS_NUM_DIRTY_RUNQS (ERTS_NUM_DIRTY_CPU_RUNQS+ERTS_NUM_DIRTY_IO_RUNQS)
+
 #define ERTS_RUNQ_IX(IX)						\
-  (ASSERT(0 <= (IX) && (IX) < erts_no_run_queues),			\
+  (ASSERT(0 <= (IX) && (IX) < erts_no_run_queues+ERTS_NUM_DIRTY_RUNQS), \
    &erts_aligned_run_queues[(IX)].runq)
 #ifdef ERTS_DIRTY_SCHEDULERS
 #define ERTS_RUNQ_IX_IS_DIRTY(IX)					\
-  (-(ERTS_NUM_DIRTY_RUNQS) <= (IX) && (IX) < 0)
+  (ASSERT(0 <= (IX) && (IX) < erts_no_run_queues+ERTS_NUM_DIRTY_RUNQS), \
+   (erts_no_run_queues <= (IX)))
 #define ERTS_DIRTY_RUNQ_IX(IX)						\
   (ASSERT(ERTS_RUNQ_IX_IS_DIRTY(IX)),					\
    &erts_aligned_run_queues[(IX)].runq)
-#define ERTS_DIRTY_CPU_RUNQ (&erts_aligned_run_queues[-1].runq)
-#define ERTS_DIRTY_IO_RUNQ  (&erts_aligned_run_queues[-2].runq)
-#define ERTS_RUNQ_IS_DIRTY_CPU_RUNQ(RQ) ((RQ)->ix == -1)
-#define ERTS_RUNQ_IS_DIRTY_IO_RUNQ(RQ) ((RQ)->ix == -2)
+#define ERTS_DIRTY_CPU_RUNQ (&erts_aligned_run_queues[erts_no_run_queues].runq)
+#define ERTS_DIRTY_IO_RUNQ  (&erts_aligned_run_queues[erts_no_run_queues+1].runq)
+#define ERTS_RUNQ_IS_DIRTY_CPU_RUNQ(RQ) ((RQ) == ERTS_DIRTY_CPU_RUNQ)
+#define ERTS_RUNQ_IS_DIRTY_IO_RUNQ(RQ) ((RQ) == ERTS_DIRTY_IO_RUNQ)
 #else
 #define ERTS_RUNQ_IX_IS_DIRTY(IX) 0
 #endif
@@ -1542,23 +1578,13 @@ extern int erts_system_profile_ts_type;
 #define ERTS_DIRTY_IO_SCHEDULER_IX(IX)					\
   (ASSERT(0 <= (IX) && (IX) < erts_no_dirty_io_schedulers),		\
    &erts_aligned_dirty_io_scheduler_data[(IX)].esd)
-#define ERTS_DIRTY_SCHEDULER_NO(ESDP)					\
-  ((ESDP)->dirty_no.s.num)
-#define ERTS_DIRTY_SCHEDULER_TYPE(ESDP)					\
-  ((ESDP)->dirty_no.s.type)
-#ifdef ERTS_SMP
 #define ERTS_SCHEDULER_IS_DIRTY(ESDP)					\
-  ((ESDP)->dirty_no.s.num != 0)
+  ((ESDP)->type != ERTS_SCHED_NORMAL)
 #define ERTS_SCHEDULER_IS_DIRTY_CPU(ESDP)				\
-    ((ESDP)->dirty_no.s.type == 0)
+    ((ESDP)->type == ERTS_SCHED_DIRTY_CPU)
 #define ERTS_SCHEDULER_IS_DIRTY_IO(ESDP)				\
-    ((ESDP)->dirty_no.s.type == 1)
-#else
-#define ERTS_SCHEDULER_IS_DIRTY(ESDP) 0
-#define ERTS_SCHEDULER_IS_DIRTY_CPU(ESDP) 0
-#define ERTS_SCHEDULER_IS_DIRTY_IO(ESDP) 0
-#endif
-#else
+    ((ESDP)->type == ERTS_SCHED_DIRTY_IO)
+#else /* !ERTS_DIRTY_SCHEDULERS */
 #define ERTS_RUNQ_IX_IS_DIRTY(IX) 0
 #define ERTS_SCHEDULER_IS_DIRTY(ESDP) 0
 #define ERTS_SCHEDULER_IS_DIRTY_CPU(ESDP) 0
@@ -1573,20 +1599,19 @@ void erts_init_scheduling(int, int
 			  , int, int, int
 #endif
 			  );
-
+#ifdef ERTS_DIRTY_SCHEDULERS
+void erts_execute_dirty_system_task(Process *c_p);
+#endif
 int erts_set_gc_state(Process *c_p, int enable);
-Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable);
+Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable,
+                                   int dirty_cpu, int want_dirty_io);
 Eterm erts_system_check_request(Process *c_p);
 Eterm erts_gc_info_request(Process *c_p);
 Uint64 erts_get_proc_interval(void);
 Uint64 erts_ensure_later_proc_interval(Uint64);
 Uint64 erts_step_proc_interval(void);
 
-int erts_setup_nif_gc(Process* proc, Eterm** objv, int* nobj); /* see erl_nif.c */
-void erts_destroy_nif_export(void *); /* see erl_nif.c */
-
 ErtsProcList *erts_proclist_create(Process *);
-ErtsProcList *erts_proclist_copy(ErtsProcList *);
 void erts_proclist_destroy(ErtsProcList *);
 
 ERTS_GLB_INLINE int erts_proclist_same(ErtsProcList *, Process *);
@@ -1680,7 +1705,7 @@ ERTS_GLB_INLINE ErtsProcList *erts_proclist_fetch_first(ErtsProcList **list)
 	return NULL;
     else {
 	ErtsProcList *res = *list;
-	if (res == *list)
+	if (res->next == *list)
 	    *list = NULL;
 	else
 	    *list = res->next;
@@ -1768,7 +1793,9 @@ void erts_schedule_thr_prgr_later_cleanup_op(void (*)(void *),
 					     ErtsThrPrgrLaterOp *,
 					     UWord);
 void erts_schedule_complete_off_heap_message_queue_change(Eterm pid);
-void erts_schedule_flush_trace_messages(Eterm pid);
+struct db_fixation;
+void erts_schedule_ets_free_fixation(Eterm pid, struct db_fixation*);
+void erts_schedule_flush_trace_messages(Process *proc, int force_on_proc);
 int erts_flush_trace_messages(Process *c_p, ErtsProcLocks locks);
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
@@ -1809,12 +1836,13 @@ void erts_schedule_multi_misc_aux_work(int ignore_self,
 				       void (*func)(void *),
 				       void *arg);
 erts_aint32_t erts_set_aux_work_timeout(int, erts_aint32_t, int);
+void erts_aux_work_timeout_late_init(ErtsSchedulerData *esdp);
 void erts_sched_notify_check_cpu_bind(void);
 Uint erts_active_schedulers(void);
 void erts_init_process(int, int, int);
 Eterm erts_process_state2status(erts_aint32_t);
 Eterm erts_process_status(Process *, Eterm);
-Uint erts_run_queues_len(Uint *, int, int);
+Uint erts_run_queues_len(Uint *, int, int, int);
 void erts_add_to_runq(Process *);
 Eterm erts_bound_schedulers_term(Process *c_p);
 Eterm erts_get_cpu_topology_term(Process *c_p, Eterm which);
@@ -1835,12 +1863,12 @@ void erts_cleanup_empty_process(Process* p);
 #ifdef DEBUG
 void erts_debug_verify_clean_empty_process(Process* p);
 #endif
-void erts_stack_dump(int to, void *to_arg, Process *);
-void erts_limited_stack_trace(int to, void *to_arg, Process *);
-void erts_program_counter_info(int to, void *to_arg, Process *);
-void erts_print_scheduler_info(int to, void *to_arg, ErtsSchedulerData *esdp);
-void erts_dump_extended_process_state(int to, void *to_arg, erts_aint32_t psflg);
-void erts_dump_process_state(int to, void *to_arg, erts_aint32_t psflg);
+void erts_stack_dump(fmtfn_t to, void *to_arg, Process *);
+void erts_limited_stack_trace(fmtfn_t to, void *to_arg, Process *);
+void erts_program_counter_info(fmtfn_t to, void *to_arg, Process *);
+void erts_print_scheduler_info(fmtfn_t to, void *to_arg, ErtsSchedulerData *esdp);
+void erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
+void erts_dump_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg);
 
 Eterm erts_get_process_priority(Process *p);
 Eterm erts_set_process_priority(Process *p, Eterm prio);
@@ -1876,7 +1904,7 @@ void erts_handle_pending_exit(Process *, ErtsProcLocks);
 #define ERTS_PROC_PENDING_EXIT(P) 0
 #endif
 
-void erts_deep_process_dump(int, void *);
+void erts_deep_process_dump(fmtfn_t, void *);
 
 Eterm erts_get_reader_groups_map(Process *c_p);
 Eterm erts_debug_reader_groups_map(Process *c_p, int groups);
@@ -1921,6 +1949,8 @@ ErtsSchedulerData *erts_get_scheduler_data(void)
 void erts_schedule_process(Process *, erts_aint32_t, ErtsProcLocks);
 
 ERTS_GLB_INLINE void erts_proc_notify_new_message(Process *p, ErtsProcLocks locks);
+ERTS_GLB_INLINE void erts_schedule_dirty_sys_execution(Process *c_p);
+
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE void
 erts_proc_notify_new_message(Process *p, ErtsProcLocks locks)
@@ -1930,6 +1960,34 @@ erts_proc_notify_new_message(Process *p, ErtsProcLocks locks)
     if (!(state & ERTS_PSFLG_ACTIVE))
 	erts_schedule_process(p, state, locks);
 }
+
+ERTS_GLB_INLINE void
+erts_schedule_dirty_sys_execution(Process *c_p)
+{
+    erts_aint32_t a, n, e;
+
+    a = erts_smp_atomic32_read_nob(&c_p->state);
+
+    /*
+     * Only a currently executing process schedules
+     * itself for dirty-sys execution...
+     */
+
+    ASSERT(a & (ERTS_PSFLG_RUNNING|ERTS_PSFLG_RUNNING_SYS));
+
+    /* Don't set dirty-active-sys if we are about to exit... */
+
+    while (!(a & (ERTS_PSFLG_DIRTY_ACTIVE_SYS
+                  | ERTS_PSFLG_EXITING
+                  | ERTS_PSFLG_PENDING_EXIT))) {
+        e = a;
+        n = a | ERTS_PSFLG_DIRTY_ACTIVE_SYS;
+        a = erts_smp_atomic32_cmpxchg_mb(&c_p->state, n, e);
+        if (a == e)
+            break; /* dirty-active-sys set */
+    }
+}
+
 #endif
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
@@ -2474,10 +2532,35 @@ erts_get_atom_cache_map(Process *c_p)
 }
 #endif
 
-Process *erts_pid2proc_suspend(Process *,
-			       ErtsProcLocks,
-			       Eterm,
-			       ErtsProcLocks);
+#ifdef __WIN32__
+/*
+ * Don't want erts_time2reds() inlined in beam_emu.c on windows since
+ * it is compiled with gcc which fails on it. Implementation is in
+ * erl_process.c on windows.
+ */
+#  define ERTS_TIME2REDS_IMPL__ erts_time2reds__
+#else
+#  define ERTS_TIME2REDS_IMPL__ erts_time2reds
+#endif
+
+ERTS_GLB_INLINE Sint64 ERTS_TIME2REDS_IMPL__(ErtsMonotonicTime start,
+					     ErtsMonotonicTime end);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE Sint64
+ERTS_TIME2REDS_IMPL__(ErtsMonotonicTime start, ErtsMonotonicTime end)
+{
+    ErtsMonotonicTime time = end - start;
+    ASSERT(time >= 0);
+    time = ERTS_MONOTONIC_TO_USEC(time);
+    if (time == 0)
+	return (Sint64) 1; /* At least one reduction */
+    /* Currently two reductions per micro second */
+    time *= (CONTEXT_REDS-1)/1000 + 1;
+    return (Sint64) time;
+}
+#endif
+
 #ifdef ERTS_SMP
 
 Process *erts_pid2proc_not_running(Process *,
@@ -2518,8 +2601,6 @@ extern int erts_disable_proc_not_running_opt;
 #endif
 
 void erts_smp_notify_inc_runq(ErtsRunQueue *runq);
-
-void erts_interupt_aux_thread_timed(ErtsMonotonicTime timeout_time);
 
 #ifdef ERTS_SMP
 void erts_sched_finish_poke(ErtsSchedulerSleepInfo *, erts_aint32_t);

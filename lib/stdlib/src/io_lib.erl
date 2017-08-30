@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@
 %% Most of the code here is derived from the original prolog versions and
 %% from similar code written by Joe Armstrong and myself.
 %%
-%% This module has been split into seperate modules:
+%% This module has been split into separate modules:
 %% io_lib        - basic write and utilities
 %% io_lib_format - formatted output
 %% io_lib_fread  - formatted input
@@ -68,8 +68,8 @@
 -export([write_atom/1,write_string/1,write_string/2,write_latin1_string/1,
          write_latin1_string/2, write_char/1, write_latin1_char/1]).
 
--export([write_string_as_latin1/1, write_string_as_latin1/2,
-         write_char_as_latin1/1]).
+-export([write_atom_as_latin1/1, write_string_as_latin1/1,
+         write_string_as_latin1/2, write_char_as_latin1/1]).
 
 -export([quote_atom/2, char_list/1, latin1_char_list/1,
 	 deep_char_list/1, deep_latin1_char_list/1,
@@ -83,6 +83,8 @@
 %% The following functions were used by Yecc's include-file.
 -export([write_unicode_string/1, write_unicode_char/1,
          deep_unicode_char_list/1]).
+
+-export([limit_term/2]).
 
 -export_type([chars/0, latin1_string/0, continuation/0,
               fread_error/0, fread_item/0, format_spec/0]).
@@ -268,47 +270,61 @@ write(Term, D, false) ->
 
 -spec write(Term, Depth) -> chars() when
       Term :: term(),
+      Depth :: depth();
+           (Term, Options) -> chars() when
+      Term :: term(),
+      Options :: [Option],
+      Option :: {'depth', Depth}
+              | {'encoding', 'latin1' | 'utf8' | 'unicode'},
       Depth :: depth().
 
-write(_Term, 0) -> "...";
-write(Term, _D) when is_integer(Term) -> integer_to_list(Term);
-write(Term, _D) when is_float(Term) -> io_lib_format:fwrite_g(Term);
-write(Atom, _D) when is_atom(Atom) -> write_atom(Atom);
-write(Term, _D) when is_port(Term) -> write_port(Term);
-write(Term, _D) when is_pid(Term) -> pid_to_list(Term);
-write(Term, _D) when is_reference(Term) -> write_ref(Term);
-write(<<_/bitstring>>=Term, D) -> write_binary(Term, D);
-write([], _D) -> "[]";
-write({}, _D) -> "{}";
-write([H|T], D) ->
+write(Term, Options) when is_list(Options) ->
+    Depth = get_option(depth, Options, -1),
+    Encoding = get_option(encoding, Options, epp:default_encoding()),
+    write1(Term, Depth, Encoding);
+write(Term, Depth) ->
+    write1(Term, Depth, latin1).
+
+write1(_Term, 0, _E) -> "...";
+write1(Term, _D, _E) when is_integer(Term) -> integer_to_list(Term);
+write1(Term, _D, _E) when is_float(Term) -> io_lib_format:fwrite_g(Term);
+write1(Atom, _D, latin1) when is_atom(Atom) -> write_atom_as_latin1(Atom);
+write1(Atom, _D, _E) when is_atom(Atom) -> write_atom(Atom);
+write1(Term, _D, _E) when is_port(Term) -> write_port(Term);
+write1(Term, _D, _E) when is_pid(Term) -> pid_to_list(Term);
+write1(Term, _D, _E) when is_reference(Term) -> write_ref(Term);
+write1(<<_/bitstring>>=Term, D, _E) -> write_binary(Term, D);
+write1([], _D, _E) -> "[]";
+write1({}, _D, _E) -> "{}";
+write1([H|T], D, E) ->
     if
 	D =:= 1 -> "[...]";
 	true ->
-	    [$[,[write(H, D-1)|write_tail(T, D-1, $|)],$]]
+	    [$[,[write1(H, D-1, E)|write_tail(T, D-1, E, $|)],$]]
     end;
-write(F, _D) when is_function(F) ->
+write1(F, _D, _E) when is_function(F) ->
     erlang:fun_to_list(F);
-write(Term, D) when is_map(Term) ->
-    write_map(Term, D);
-write(T, D) when is_tuple(T) ->
+write1(Term, D, E) when is_map(Term) ->
+    write_map(Term, D, E);
+write1(T, D, E) when is_tuple(T) ->
     if
 	D =:= 1 -> "{...}";
 	true ->
 	    [${,
-	     [write(element(1, T), D-1)|
-              write_tail(tl(tuple_to_list(T)), D-1, $,)],
+	     [write1(element(1, T), D-1, E)|
+              write_tail(tl(tuple_to_list(T)), D-1, E, $,)],
 	     $}]
     end.
 
 %% write_tail(List, Depth, CharacterBeforeDots)
 %%  Test the terminating case first as this looks better with depth.
 
-write_tail([], _D, _S) -> "";
-write_tail(_, 1, S) -> [S | "..."];
-write_tail([H|T], D, S) ->
-    [$,,write(H, D-1)|write_tail(T, D-1, S)];
-write_tail(Other, D, S) ->
-    [S,write(Other, D-1)].
+write_tail([], _D, _E, _S) -> "";
+write_tail(_, 1, _E, S) -> [S | "..."];
+write_tail([H|T], D, E, S) ->
+    [$,,write1(H, D-1, E)|write_tail(T, D-1, E, S)];
+write_tail(Other, D, E, S) ->
+    [S,write1(Other, D-1, E)].
 
 write_port(Port) ->
     erlang:port_to_list(Port).
@@ -316,17 +332,17 @@ write_port(Port) ->
 write_ref(Ref) ->
     erlang:ref_to_list(Ref).
 
-write_map(Map, D) when is_integer(D) ->
-    [$#,${,write_map_body(maps:to_list(Map), D),$}].
+write_map(Map, D, E) when is_integer(D) ->
+    [$#,${,write_map_body(maps:to_list(Map), D, E),$}].
 
-write_map_body(_, 0) -> "...";
-write_map_body([],_) -> [];
-write_map_body([{K,V}],D) -> write_map_assoc(K,V,D);
-write_map_body([{K,V}|KVs], D) ->
-    [write_map_assoc(K,V,D),$, | write_map_body(KVs,D-1)].
+write_map_body(_, 0, _E) -> "...";
+write_map_body([], _, _E) -> [];
+write_map_body([{K,V}], D, E) -> write_map_assoc(K, V, D, E);
+write_map_body([{K,V}|KVs], D, E) ->
+    [write_map_assoc(K, V, D, E),$, | write_map_body(KVs, D-1, E)].
 
-write_map_assoc(K,V,D) ->
-    [write(K,D - 1),"=>",write(V,D-1)].
+write_map_assoc(K, V, D, E) ->
+    [write1(K, D - 1, E),"=>",write1(V, D-1, E)].
 
 write_binary(B, D) when is_integer(D) ->
     [$<,$<,write_binary_body(B, D),$>,$>].
@@ -344,6 +360,18 @@ write_binary_body(B, _D) ->
     <<X:L>> = B,
     [integer_to_list(X),$:,integer_to_list(L)].
 
+get_option(Key, TupleList, Default) ->
+    case lists:keyfind(Key, 1, TupleList) of
+	false -> Default;
+	{Key, Value} -> Value;
+	_ -> Default
+    end.
+
+%%% There are two functions to write Unicode atoms:
+%%% - they both escape control characters < 160;
+%%% - write_atom() never escapes characters >= 160;
+%%% - write_atom_as_latin1() also escapes characters >= 255.
+
 %% write_atom(Atom) -> [Char]
 %%  Generate the list of characters needed to print an atom.
 
@@ -351,17 +379,26 @@ write_binary_body(B, _D) ->
       Atom :: atom().
 
 write_atom(Atom) ->
+    write_possibly_quoted_atom(Atom, fun write_string/2).
+
+-spec write_atom_as_latin1(Atom) -> latin1_string() when
+      Atom :: atom().
+
+write_atom_as_latin1(Atom) ->
+    write_possibly_quoted_atom(Atom, fun write_string_as_latin1/2).
+
+write_possibly_quoted_atom(Atom, PFun) ->
     Chars = atom_to_list(Atom),
     case quote_atom(Atom, Chars) of
 	true ->
-	    write_string(Chars, $');   %'
+            PFun(Chars, $');   %'
 	false ->
 	    Chars
     end.
 
 %% quote_atom(Atom, CharList)
 %%  Return 'true' if atom with chars in CharList needs to be quoted, else
-%%  return 'false'.
+%%  return 'false'. Notice that characters >= 160 are always quoted.
 
 -spec quote_atom(atom(), chars()) -> boolean().
 
@@ -876,3 +913,116 @@ binrev(L) ->
 
 binrev(L, T) ->
     list_to_binary(lists:reverse(L, T)).
+
+-spec limit_term(term(), non_neg_integer()) -> term().
+
+%% The intention is to mimic the depth limitation of io_lib:write()
+%% and io_lib_pretty:print(). The leaves ('...') should never be
+%% seen when printed with the same depth. Bitstrings are never
+%% truncated, which is OK as long as they are not sent to other nodes.
+limit_term(Term, Depth) ->
+    try test_limit(Term, Depth) of
+        ok -> Term
+    catch
+        throw:limit ->
+            limit(Term, Depth)
+    end.
+
+limit(_, 0) -> '...';
+limit([H|T]=L, D) ->
+    if
+	D =:= 1 -> '...';
+	true ->
+            case printable_list(L) of
+                true -> L;
+                false ->
+                    [limit(H, D-1)|limit_tail(T, D-1)]
+            end
+    end;
+limit(Term, D) when is_map(Term) ->
+    limit_map(Term, D);
+limit({}=T, _D) -> T;
+limit(T, D) when is_tuple(T) ->
+    if
+	D =:= 1 -> '...';
+	true ->
+            list_to_tuple([limit(element(1, T), D-1)|
+                           limit_tail(tl(tuple_to_list(T)), D-1)])
+    end;
+limit(<<_/bitstring>>=Term, D) -> limit_bitstring(Term, D);
+limit(Term, _D) -> Term.
+
+limit_tail([], _D) -> [];
+limit_tail(_, 1) -> ['...'];
+limit_tail([H|T], D) ->
+    [limit(H, D-1)|limit_tail(T, D-1)];
+limit_tail(Other, D) ->
+    limit(Other, D-1).
+
+%% Cannot limit maps properly since there is no guarantee that
+%% maps:from_list() creates a map with the same internal ordering of
+%% the selected associations as in Map.
+limit_map(Map, D) ->
+    maps:from_list(erts_internal:maps_to_list(Map, D)).
+%%     maps:from_list(limit_map_body(erts_internal:maps_to_list(Map, D), D)).
+
+%% limit_map_body(_, 0) -> [{'...', '...'}];
+%% limit_map_body([], _) -> [];
+%% limit_map_body([{K,V}], D) -> [limit_map_assoc(K, V, D)];
+%% limit_map_body([{K,V}|KVs], D) ->
+%%     [limit_map_assoc(K, V, D) | limit_map_body(KVs, D-1)].
+
+%% limit_map_assoc(K, V, D) ->
+%%     {limit(K, D-1), limit(V, D-1)}.
+
+limit_bitstring(B, _D) -> B. %% Keeps all printable binaries.
+
+test_limit(_, 0) -> throw(limit);
+test_limit([H|T]=L, D) when is_integer(D) ->
+    if
+	D =:= 1 -> throw(limit);
+	true ->
+            case printable_list(L) of
+                true -> ok;
+                false ->
+                    test_limit(H, D-1),
+                    test_limit_tail(T, D-1)
+            end
+    end;
+test_limit(Term, D) when is_map(Term) ->
+    test_limit_map(Term, D);
+test_limit({}, _D) -> ok;
+test_limit(T, D) when is_tuple(T) ->
+    test_limit_tuple(T, 1, tuple_size(T), D);
+test_limit(<<_/bitstring>>=Term, D) -> test_limit_bitstring(Term, D);
+test_limit(_Term, _D) -> ok.
+
+test_limit_tail([], _D) -> ok;
+test_limit_tail(_, 1) -> throw(limit);
+test_limit_tail([H|T], D) ->
+    test_limit(H, D-1),
+    test_limit_tail(T, D-1);
+test_limit_tail(Other, D) ->
+    test_limit(Other, D-1).
+
+test_limit_tuple(_T, I, Sz, _D) when I > Sz -> ok;
+test_limit_tuple(_, _, _, 1) -> throw(limit);
+test_limit_tuple(T, I, Sz, D) ->
+    test_limit(element(I, T), D-1),
+    test_limit_tuple(T, I+1, Sz, D-1).
+
+test_limit_map(_Map, _D) -> ok.
+%%     test_limit_map_body(erts_internal:maps_to_list(Map, D), D).
+
+%% test_limit_map_body(_, 0) -> throw(limit);
+%% test_limit_map_body([], _) -> ok;
+%% test_limit_map_body([{K,V}], D) -> test_limit_map_assoc(K, V, D);
+%% test_limit_map_body([{K,V}|KVs], D) ->
+%%     test_limit_map_assoc(K, V, D),
+%%     test_limit_map_body(KVs, D-1).
+
+%% test_limit_map_assoc(K, V, D) ->
+%%     test_limit(K, D-1),
+%%     test_limit(V, D-1).
+
+test_limit_bitstring(_, _) -> ok.

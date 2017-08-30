@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ local_to_univ_utc(Config) when is_list(Config) ->
     end.
 
 
-%% Tests conversion from univeral to local time.
+%% Tests conversion from universal to local time.
 
 univ_to_local(Config) when is_list(Config) ->
     test_univ_to_local(test_data()).
@@ -295,12 +295,12 @@ timestamp(Config) when is_list(Config) ->
 
 os_system_time_offset() ->
     erlang:convert_time_unit(os:system_time() - erlang:monotonic_time(),
-			     native, micro_seconds).
+			     native, microsecond).
 
 had_time_warp(Secs) ->
     had_time_warp(os_system_time_offset(), Secs).
 
-had_time_warp(OrigOffs, 0) ->
+had_time_warp(_OrigOffs, 0) ->
     false;
 had_time_warp(OrigOffs, N) ->
     receive after 1000 -> ok end,
@@ -488,12 +488,12 @@ check_time_warp_mode(Config, TimeCorrection, TimeWarpMode) ->
     MonotonicTimeUnit = rpc:call(Node,
 				       erlang,
 				       convert_time_unit,
-				       [1, seconds, native]),
+				       [1, second, native]),
     UpMilliSeconds = erlang:convert_time_unit(MonotonicTime - StartTime,
 					      MonotonicTimeUnit,
-					      milli_seconds),
+					      millisecond),
     io:format("UpMilliSeconds=~p~n", [UpMilliSeconds]),
-    End = erlang:monotonic_time(milli_seconds),
+    End = erlang:monotonic_time(millisecond),
     stop_node(Node),
     try
 	true = (UpMilliSeconds > (98*MonotonicityTimeout) div 100),
@@ -810,10 +810,10 @@ do_check_erlang_timestamp(Done, Mon, TO) ->
     MaxMon = erlang:monotonic_time(),
     TsMin = erlang:convert_time_unit(MinMon+TO,
 				     native,
-				     micro_seconds),
+				     microsecond),
     TsMax = erlang:convert_time_unit(MaxMon+TO,
 				     native,
-				     micro_seconds),
+				     microsecond),
     TsTime = (MegaSec*1000000+Sec)*1000000+MicroSec,
     case (TsMin =< TsTime) andalso (TsTime =< TsMax) of
 	true ->
@@ -992,9 +992,6 @@ bad_dates() ->
 
      {{1996, 4, 30}, {12, 0, -1}},		% Sec
      {{1996, 4, 30}, {12, 0, 60}}].
-
-start_node(Config) ->
-    start_node(Config, "").
 
 start_node(Config, Args) ->
     TestCase = proplists:get_value(testcase, Config),

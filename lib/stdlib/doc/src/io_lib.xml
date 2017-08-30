@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -147,7 +147,7 @@
           format string (that is, <c>~ts</c> or <c>~tc</c>), the resulting list
           can contain characters beyond the ISO Latin-1 character range
           (that is, numbers &gt; 255). If so, the
-          result is not an ordinary Erlang <c>string()</c>, but can well be
+          result is still an ordinary Erlang <c>string()</c>, and can well be
           used in any context where Unicode data is allowed.</p>
       </desc>
     </func>
@@ -356,7 +356,8 @@
 
     <func>
       <name name="write" arity="1"/>
-      <name name="write" arity="2"/>
+      <name name="write" arity="2" clause_i="1"/>
+      <name name="write" arity="2" clause_i="2"/>
       <fsummary>Write a term.</fsummary>
       <desc>
         <p>Returns a character list that represents <c><anno>Term</anno></c>.
@@ -380,6 +381,16 @@
       <desc>
         <p>Returns the list of characters needed to print atom
           <c><anno>Atom</anno></c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="write_atom_as_latin1" arity="1"/>
+      <fsummary>Write an atom.</fsummary>
+      <desc>
+        <p>Returns the list of characters needed to print atom
+          <c><anno>Atom</anno></c>. Non-Latin-1 characters
+          are escaped.</p>
       </desc>
     </func>
 

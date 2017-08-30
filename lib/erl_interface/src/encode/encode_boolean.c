@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,12 +32,12 @@ int ei_encode_boolean(char *buf, int *index, int p)
   val = p ? "true" : "false";
   len = strlen(val);
 
-  if (!buf) s += 3;
+  if (!buf) s += 2;
   else {
-    put8(s,ERL_ATOM_EXT);
-    put16be(s,len);
+      put8(s, ERL_SMALL_ATOM_UTF8_EXT);
+      put8(s, len);
 
-    memmove(s,val,len); /* unterminated string */
+      memcpy(s,val,len); /* unterminated string */
   }
   s += len;
 

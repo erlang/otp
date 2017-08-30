@@ -102,7 +102,7 @@ is_proc_alive(Process *p)
     return !ERTS_PROC_IS_EXITING(p);
 }
 
-void register_info(int to, void *to_arg)
+void register_info(fmtfn_t to, void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
@@ -272,13 +272,13 @@ erts_whereis_name_to_id(Process *c_p, Eterm name)
     int ix;
     HashBucket* b;
 #ifdef ERTS_SMP
-    ErtsProcLocks c_p_locks = c_p ? ERTS_PROC_LOCK_MAIN : 0;
-
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    if (c_p) ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
-#endif
-
+    ErtsProcLocks c_p_locks = 0;
+    if (c_p) {
+        c_p_locks = ERTS_PROC_LOCK_MAIN;
+        ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(c_p);
+    }
     reg_safe_read_lock(c_p, &c_p_locks);
+
     if (c_p && !c_p_locks)
         erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 #endif

@@ -170,14 +170,14 @@ loop(State) ->
 	    end;
 
 	%% If test_set_sticky fails, we send this to all nodes
-	%% after aquiring a real write lock on Oid
+	%% after acquiring a real write lock on Oid
 
 	{stick, {Tab, _}, N} ->
 	    ?ets_insert(mnesia_sticky_locks, {Tab, N}),
 	    loop(State);
 
 	%% The caller which sends this message, must have first
-	%% aquired a write lock on the entire table
+	%% acquired a write lock on the entire table
 	{unstick, Tab} ->
 	    ?ets_delete(mnesia_sticky_locks, Tab),
 	    loop(State);
@@ -738,11 +738,11 @@ dirty_sticky_lock(Tab, Key, Nodes, Lock) ->
 sticky_wlock_table(Tid, Store, Tab) ->
     sticky_lock(Tid, Store, {Tab, ?ALL}, write).
 
-%% aquire a wlock on Oid
+%% acquire a wlock on Oid
 %% We store a {Tabname, write, Tid} in all locktables
 %% on all nodes containing a copy of Tabname
 %% We also store an item {{locks, Tab, Key}, write} in the
-%% local store when we have aquired the lock.
+%% local store when we have acquired the lock.
 %%
 wlock(Tid, Store, Oid) ->
     {Tab, Key} = Oid,

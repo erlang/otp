@@ -24,8 +24,37 @@
  *
  */
 
-#ifndef __DB_H__
-#define __DB_H__
+#ifndef ERTS_DB_SCHED_SPEC_TYPES__
+#define ERTS_DB_SCHED_SPEC_TYPES__
+
+union db_table;
+typedef union db_table DbTable;
+
+typedef struct ErtsEtsAllReq_ ErtsEtsAllReq;
+
+typedef struct {
+    ErtsEtsAllReq *next;
+    ErtsEtsAllReq *prev;
+} ErtsEtsAllReqList;
+
+typedef struct {
+    ErtsEtsAllReq *ongoing;
+    ErlHeapFragment *hfrag;
+    DbTable *tab;
+    ErtsEtsAllReq *queue;
+} ErtsEtsAllYieldData;
+
+typedef struct {
+    Uint count;
+    DbTable *clist;
+} ErtsEtsTables;
+
+#endif /* ERTS_DB_SCHED_SPEC_TYPES__ */
+
+#ifndef ERTS_ONLY_SCHED_SPEC_ETS_DATA
+
+#ifndef ERL_DB_H__
+#define ERL_DB_H__
 
 #include "sys.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
@@ -45,6 +74,12 @@ typedef struct {
     DbTableCommon common;
     ErtsThrPrgrLaterOp data;
 } DbTableRelease;
+
+struct ErtsSchedulerData_;
+int erts_handle_yielded_ets_all_request(struct ErtsSchedulerData_ *esdp,
+                                        ErtsEtsAllYieldData *eadp);
+
+void erts_ets_sched_spec_data_init(struct ErtsSchedulerData_ *esdp);
 
 /*
  * So, the structure for a database table, NB this is only
@@ -74,7 +109,8 @@ typedef enum {
 
 void init_db(ErtsDbSpinCount);
 int erts_db_process_exiting(Process *, ErtsProcLocks);
-void db_info(int, void *, int);
+int erts_db_execute_free_fixation(Process*, DbFixation*);
+void db_info(fmtfn_t, void *, int);
 void erts_db_foreach_table(void (*)(DbTable *, void *), void *);
 void erts_db_foreach_offheap(DbTable *,
 			     void (*func)(ErlOffHeap *, void *),
@@ -86,14 +122,14 @@ extern int erts_ets_realloc_always_moves;  /* set in erl_init */
 extern int erts_ets_always_compress;  /* set in erl_init */
 extern Export ets_select_delete_continue_exp;
 extern Export ets_select_count_continue_exp;
+extern Export ets_select_replace_continue_exp;
 extern Export ets_select_continue_exp;
 extern erts_smp_atomic_t erts_ets_misc_mem_size;
 
 Eterm erts_ets_colliding_names(Process*, Eterm name, Uint cnt);
-
 Uint erts_db_get_max_tabs(void);
 
-#endif
+#endif /* ERL_DB_H__ */
 
 #if defined(ERTS_WANT_DB_INTERNAL__) && !defined(ERTS_HAVE_DB_INTERNAL__)
 #define ERTS_HAVE_DB_INTERNAL__
@@ -267,7 +303,6 @@ erts_db_free_nt(ErtsAlcType_t type, void *ptr, Uint size)
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#undef ERTS_DB_ALC_MEM_UPDATE_
-
 #endif /* #if defined(ERTS_WANT_DB_INTERNAL__) && !defined(ERTS_HAVE_DB_INTERNAL__) */
 
+#endif /* !ERTS_ONLY_SCHED_SPEC_ETS_DATA */

@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -28,7 +22,6 @@
 
 -record(alu, {dst, src1, op, src2}).
 -record(alub, {dst, src1, op, src2, 'cond', true_label, false_label, p}).
--record(branch, {src1, src2, 'cond', true_label, false_label, p}).
 -record(call, {dstlist, 'fun', arglist, type, continuation,
     failcontinuation, normalcontinuation = []}).
 -record(comment, {text}).

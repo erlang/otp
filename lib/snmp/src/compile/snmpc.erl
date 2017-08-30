@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ compile(Input, _Output, Options) ->
         {ok, _} ->
             ok;
         {error, Reason} ->
-            io:format("~p", [Reason]),
+            io:format("~tp", [Reason]),
             error
     end.
 
@@ -126,7 +126,14 @@ compile(FileName) ->
 %%----------------------------------------------------------------------
 
 compile(FileName, Options) when is_list(FileName) ->
-    true = snmpc_misc:is_string(FileName),
+    case snmpc_misc:check_file(FileName) of
+	true ->
+	    compile_1(FileName, Options);
+	false ->
+	    {error, {invalid_file, FileName}}
+    end.
+
+compile_1(FileName, Options) ->
     DefOpts = [{deprecated,  true},
 	       {group_check, true},
 	       {i,           ["./"]},

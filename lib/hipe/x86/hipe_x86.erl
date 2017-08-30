@@ -1,8 +1,3 @@
-%%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,8 +9,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %% representation of 2-address pseudo-amd64 code
 
@@ -37,7 +30,7 @@
 	 mk_imm_from_addr/2,
 	 mk_imm_from_atom/1,
 	 is_imm/1,
-	 %% imm_value/1,
+	 imm_value/1,
 
 	 mk_mem/3,
 	 %% is_mem/1,
@@ -174,6 +167,12 @@
 
      mk_pseudo_spill/1,
 
+	 mk_pseudo_spill_fmove/3,
+	 is_pseudo_spill_fmove/1,
+
+	 mk_pseudo_spill_move/3,
+	 is_pseudo_spill_move/1,
+
 	 mk_pseudo_tailcall/4,
 	 %% is_pseudo_tailcall/1,
 	 pseudo_tailcall_fun/1,
@@ -201,7 +200,7 @@
 	 shift_src/1,
 	 shift_dst/1,
 
-	 %% mk_test/2,
+	 mk_test/2,
 	 test_src/1,
 	 test_dst/1,
 
@@ -216,6 +215,10 @@
 	 %% defun_label_range/1,
 
 	 %% highest_temp/1
+	]).
+
+%% Other utilities
+-export([neg_cc/1
 	]).
 
 %%%
@@ -241,7 +244,7 @@ mk_imm_from_addr(Addr, Type) ->
 mk_imm_from_atom(Atom) ->
     mk_imm(Atom).
 is_imm(X) -> case X of #x86_imm{} -> true; _ -> false end.
-%% imm_value(#x86_imm{value=Value}) -> Value.
+imm_value(#x86_imm{value=Value}) -> Value.
 
 mk_mem(Base, Off, Type) -> #x86_mem{base=Base, off=Off, type=Type}.
 %% is_mem(X) -> case X of #x86_mem{} -> true; _ -> false end.
@@ -305,7 +308,7 @@ mk_cmp(Src, Dst) -> #cmp{src=Src, dst=Dst}.
 cmp_src(#cmp{src=Src}) -> Src.
 cmp_dst(#cmp{dst=Dst}) -> Dst.
 
-%% mk_test(Src, Dst) -> #test{src=Src, dst=Dst}.
+mk_test(Src, Dst) -> #test{src=Src, dst=Dst}.
 test_src(#test{src=Src}) -> Src.
 test_dst(#test{dst=Dst}) -> Dst.
 
@@ -427,6 +430,14 @@ mk_pseudo_jcc_simple(Cc, TrueLabel, FalseLabel, Pred) ->
 
 mk_pseudo_spill(List) ->
     #pseudo_spill{args=List}.
+
+mk_pseudo_spill_fmove(Src, Temp, Dst) ->
+    #pseudo_spill_fmove{src=Src, temp=Temp, dst=Dst}.
+is_pseudo_spill_fmove(I) -> is_record(I, pseudo_spill_fmove).
+
+mk_pseudo_spill_move(Src, Temp, Dst) ->
+    #pseudo_spill_move{src=Src, temp=Temp, dst=Dst}.
+is_pseudo_spill_move(I) -> is_record(I, pseudo_spill_move).
 
 mk_pseudo_tailcall(Fun, Arity, StkArgs, Linkage) ->
     check_linkage(Linkage),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 
 -export([all/0, suite/0]).
 -export([hd_test/1,tl_test/1,t_length/1,t_list_to_pid/1,
-	 t_list_to_float/1,t_list_to_integer/1]).
+         t_list_to_port/1,t_list_to_float/1,t_list_to_integer/1]).
 
 
 suite() ->
@@ -32,7 +32,7 @@ suite() ->
 
 
 all() -> 
-    [hd_test, tl_test, t_length, t_list_to_pid,
+    [hd_test, tl_test, t_length, t_list_to_pid, t_list_to_port,
      t_list_to_float, t_list_to_integer].
 
 %% Tests list_to_integer and string:to_integer
@@ -47,9 +47,9 @@ t_list_to_integer(Config) when is_list(Config) ->
     {12373281903728109372810937209817320981321,"ABC"} = string:to_integer("12373281903728109372810937209817320981321ABC"),
     {-12373281903728109372810937209817320981321,"ABC"} = string:to_integer("-12373281903728109372810937209817320981321ABC"),
     {12,[345]} = string:to_integer([$1,$2,345]),
-    {12,[a]} = string:to_integer([$1,$2,a]),
+    {error, badarg} = string:to_integer([$1,$2,a]),
     {error,no_integer} = string:to_integer([$A]),
-    {error,not_a_list} = string:to_integer($A),
+    {error,badarg} = string:to_integer($A),
     ok.
 
 %% Test hd/1 with correct and incorrect arguments.
@@ -106,10 +106,25 @@ t_list_to_pid(Config) when is_list(Config) ->
         {'EXIT', {badarg, _}} ->
             ok;
         Res ->
-            ct:fail("list_to_pid/1 with incorrect arg succeeded.~nResult: ~p", [Res])
+            ct:fail("list_to_pid/1 with incorrect arg succeeded.~n"
+                    "Result: ~p", [Res])
     end,
     ok.
 
+%% Test list_to_port/1 with correct and incorrect arguments.
+
+t_list_to_port(Config) when is_list(Config) ->
+    Me = hd(erlang:ports()),
+    MyListedPid = port_to_list(Me),
+    Me = list_to_port(MyListedPid),
+    case catch list_to_port(id("Incorrect list")) of
+        {'EXIT', {badarg, _}} ->
+            ok;
+        Res ->
+            ct:fail("list_to_port/1 with incorrect arg succeeded.~n"
+                    "Result: ~p", [Res])
+    end,
+    ok.
 
 %% Test list_to_float/1 with correct and incorrect arguments.
 

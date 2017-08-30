@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,17 +40,17 @@
 
 #define OUR_NIL	_make_header(0,_TAG_HEADER_FLOAT)
 
-static void dump_process_info(int to, void *to_arg, Process *p);
-static void dump_element(int to, void *to_arg, Eterm x);
-static void dump_dist_ext(int to, void *to_arg, ErtsDistExternal *edep);
-static void dump_element_nl(int to, void *to_arg, Eterm x);
-static int stack_element_dump(int to, void *to_arg, Eterm* sp,
+static void dump_process_info(fmtfn_t to, void *to_arg, Process *p);
+static void dump_element(fmtfn_t to, void *to_arg, Eterm x);
+static void dump_dist_ext(fmtfn_t to, void *to_arg, ErtsDistExternal *edep);
+static void dump_element_nl(fmtfn_t to, void *to_arg, Eterm x);
+static int stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp,
 			      int yreg);
-static void stack_trace_dump(int to, void *to_arg, Eterm* sp);
-static void print_function_from_pc(int to, void *to_arg, BeamInstr* x);
-static void heap_dump(int to, void *to_arg, Eterm x);
-static void dump_binaries(int to, void *to_arg, Binary* root);
-static void dump_externally(int to, void *to_arg, Eterm term);
+static void stack_trace_dump(fmtfn_t to, void *to_arg, Eterm* sp);
+static void print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x);
+static void heap_dump(fmtfn_t to, void *to_arg, Eterm x);
+static void dump_binaries(fmtfn_t to, void *to_arg, Binary* root);
+static void dump_externally(fmtfn_t to, void *to_arg, Eterm term);
 
 static Binary* all_binaries;
 
@@ -60,7 +60,7 @@ extern BeamInstr beam_continue_exit[];
 
 
 void
-erts_deep_process_dump(int to, void *to_arg)
+erts_deep_process_dump(fmtfn_t to, void *to_arg)
 {
     int i, max = erts_ptab_max(&erts_proc);
 
@@ -90,8 +90,11 @@ Uint erts_process_memory(Process *p, int incl_msg_inq) {
   erts_doforall_links(ERTS_P_LINKS(p), &erts_one_link_size, &size);
   erts_doforall_monitors(ERTS_P_MONITORS(p), &erts_one_mon_size, &size);
   size += (p->heap_sz + p->mbuf_sz) * sizeof(Eterm);
+  if (p->abandoned_heap)
+      size += (p->hend - p->heap) * sizeof(Eterm);
   if (p->old_hend && p->old_heap)
     size += (p->old_hend - p->old_heap) * sizeof(Eterm);
+
 
   size += p->msg.len * sizeof(ErtsMessage);
 
@@ -117,7 +120,7 @@ Uint erts_process_memory(Process *p, int incl_msg_inq) {
 }
 
 static void
-dump_process_info(int to, void *to_arg, Process *p)
+dump_process_info(fmtfn_t to, void *to_arg, Process *p)
 {
     Eterm* sp;
     ErtsMessage* mp;
@@ -176,7 +179,7 @@ dump_process_info(int to, void *to_arg, Process *p)
 }
 
 static void
-dump_dist_ext(int to, void *to_arg, ErtsDistExternal *edep)
+dump_dist_ext(fmtfn_t to, void *to_arg, ErtsDistExternal *edep)
 {
     if (!edep)
 	erts_print(to, to_arg, "D0:E0:");
@@ -210,7 +213,7 @@ dump_dist_ext(int to, void *to_arg, ErtsDistExternal *edep)
 }
 
 static void
-dump_element(int to, void *to_arg, Eterm x)
+dump_element(fmtfn_t to, void *to_arg, Eterm x)
 {
     if (is_list(x)) {
 	erts_print(to, to_arg, "H" PTR_FMT, list_val(x));
@@ -240,14 +243,14 @@ dump_element(int to, void *to_arg, Eterm x)
 }
 
 static void
-dump_element_nl(int to, void *to_arg, Eterm x)
+dump_element_nl(fmtfn_t to, void *to_arg, Eterm x)
 {
     dump_element(to, to_arg, x);
     erts_putc(to, to_arg, '\n');
 }
 
 static void
-stack_trace_dump(int to, void *to_arg, Eterm *sp) {
+stack_trace_dump(fmtfn_t to, void *to_arg, Eterm *sp) {
     Eterm x = *sp;
     if (is_CP(x)) {
         erts_print(to, to_arg, "%p:", sp);
@@ -258,7 +261,7 @@ stack_trace_dump(int to, void *to_arg, Eterm *sp) {
 }
 
 void
-erts_limited_stack_trace(int to, void *to_arg, Process *p)
+erts_limited_stack_trace(fmtfn_t to, void *to_arg, Process *p)
 {
     Eterm* sp;
 
@@ -304,7 +307,7 @@ erts_limited_stack_trace(int to, void *to_arg, Process *p)
 }
 
 static int
-stack_element_dump(int to, void *to_arg, Eterm* sp, int yreg)
+stack_element_dump(fmtfn_t to, void *to_arg, Eterm* sp, int yreg)
 {
     Eterm x = *sp;
 
@@ -332,10 +335,10 @@ stack_element_dump(int to, void *to_arg, Eterm* sp, int yreg)
 }
 
 static void
-print_function_from_pc(int to, void *to_arg, BeamInstr* x)
+print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x)
 {
-    BeamInstr* addr = find_function_from_pc(x);
-    if (addr == NULL) {
+    ErtsCodeMFA* cmfa = find_function_from_pc(x);
+    if (cmfa == NULL) {
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");
         } else if (x == beam_continue_exit) {
@@ -347,12 +350,13 @@ print_function_from_pc(int to, void *to_arg, BeamInstr* x)
         }
     } else {
 	erts_print(to, to_arg, "%T:%T/%bpu + %bpu",
-		   addr[0], addr[1], addr[2], ((x-addr)-2) * sizeof(Eterm));
+		   cmfa->module, cmfa->function, cmfa->arity,
+                   (x-(BeamInstr*)cmfa) * sizeof(Eterm));
     }
 }
 
 static void
-heap_dump(int to, void *to_arg, Eterm x)
+heap_dump(fmtfn_t to, void *to_arg, Eterm x)
 {
     DeclareTmpHeapNoproc(last,1);
     Eterm* next = last;
@@ -443,8 +447,8 @@ heap_dump(int to, void *to_arg, Eterm x)
 			ProcBin* pb = (ProcBin *) binary_val(x);
 			Binary* val = pb->val;
 
-			if (erts_smp_atomic_xchg_nob(&val->refc, 0) != 0) {
-			    val->flags = (UWord) all_binaries;
+			if (erts_atomic_xchg_nob(&val->intern.refc, 0) != 0) {
+			    val->intern.flags = (UWord) all_binaries;
 			    all_binaries = val;
 			}
 			erts_print(to, to_arg,
@@ -512,7 +516,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 }
 
 static void
-dump_binaries(int to, void *to_arg, Binary* current)
+dump_binaries(fmtfn_t to, void *to_arg, Binary* current)
 {
     while (current) {
 	long i;
@@ -525,12 +529,12 @@ dump_binaries(int to, void *to_arg, Binary* current)
 	    erts_print(to, to_arg, "%02X", bytes[i]);
 	}
 	erts_putc(to, to_arg, '\n');
-	current = (Binary *) current->flags;
+	current = (Binary *) current->intern.flags;
     }
 }
 
 static void
-dump_externally(int to, void *to_arg, Eterm term)
+dump_externally(fmtfn_t to, void *to_arg, Eterm term)
 {
     byte sbuf[1024]; /* encode and hope for the best ... */
     byte* s; 
@@ -573,7 +577,7 @@ dump_externally(int to, void *to_arg, Eterm term)
     }
 }
 
-void erts_dump_process_state(int to, void *to_arg, erts_aint32_t psflg)
+void erts_dump_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg)
 {
     char *s;
     switch (erts_process_state2status(psflg)) {
@@ -591,7 +595,7 @@ void erts_dump_process_state(int to, void *to_arg, erts_aint32_t psflg)
 }
 
 void
-erts_dump_extended_process_state(int to, void *to_arg, erts_aint32_t psflg) {
+erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg) {
 
     int i;
 

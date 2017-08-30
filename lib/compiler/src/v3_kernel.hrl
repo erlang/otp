@@ -58,7 +58,7 @@
 -record(k_seq, {anno=[],arg,body}).
 -record(k_put, {anno=[],arg,ret=[]}).
 -record(k_bif, {anno=[],op,args,ret=[]}).
--record(k_test, {anno=[],op,args}).
+-record(k_test, {anno=[],op,args,inverted=false}).
 -record(k_call, {anno=[],op,args,ret=[]}).
 -record(k_enter, {anno=[],op,args}).
 -record(k_receive, {anno=[],var,body,timeout,action,ret=[]}).
@@ -66,6 +66,7 @@
 -record(k_receive_next, {anno=[]}).
 -record(k_try, {anno=[],arg,vars,body,evars,handler,ret=[]}).
 -record(k_try_enter, {anno=[],arg,vars,body,evars,handler}).
+-record(k_protected, {anno=[],arg,ret=[]}).
 -record(k_catch, {anno=[],body,ret=[]}).
 
 -record(k_guard_match, {anno=[],vars,body,ret=[]}).

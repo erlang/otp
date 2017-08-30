@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
--export([call/1, block_call/1, multicall/1, multicall_timeout/1, 
+-export([off_heap/1,
+         call/1, block_call/1, multicall/1, multicall_timeout/1,
 	 multicall_dies/1, multicall_node_dies/1,
 	 called_dies/1, called_node_dies/1, 
 	 called_throws/1, call_benchmark/1, async_call/1]).
@@ -35,7 +36,7 @@ suite() ->
      {timetrap,{minutes,2}}].
 
 all() -> 
-    [call, block_call, multicall, multicall_timeout,
+    [off_heap, call, block_call, multicall, multicall_timeout,
      multicall_dies, multicall_node_dies, called_dies,
      called_node_dies, called_throws, call_benchmark,
      async_call].
@@ -55,6 +56,13 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+off_heap(_Config) ->
+    %% The rex server process may receive a huge amount of
+    %% messages. Make sure that they are stored off heap to
+    %% avoid exessive GCs.
+    MQD = message_queue_data,
+    {MQD,off_heap} = process_info(whereis(rex), MQD),
+    ok.
 
 
 %% Test different rpc calls.

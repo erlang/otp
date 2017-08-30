@@ -23,39 +23,21 @@
 
 -module(mnesia_sup).
 
--behaviour(application).
 -behaviour(supervisor).
 
--export([start/0, start/2, init/1, stop/1, start_event/0, kill/0]).
+-export([start_link/1, init/1, start_event/0, kill/0]).
+
+start_link(Args) ->
+    supervisor:start_link({local,?MODULE}, ?MODULE, [Args]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% application and suprvisor callback functions
+%% supervisor callback functions
 
-start(normal, Args) ->
-    SupName = {local,?MODULE},
-    case supervisor:start_link(SupName, ?MODULE, [Args]) of
-	{ok, Pid} ->
-	    {ok, Pid, {normal, Args}};
-	Error -> 
-	    Error
-    end;
-start(_, _) ->
-    {error, badarg}.
-
-start() ->
-    SupName = {local,?MODULE},
-    supervisor:start_link(SupName, ?MODULE, []).
-
-stop(_StartArgs) ->
-    ok.
-
-init([]) -> % Supervisor
-    init();
-init([[]]) -> % Application
+init([[]]) ->
     init();
 init(BadArg) ->
     {error, {badarg, BadArg}}.
-    
+
 init() ->
     Flags = {one_for_all, 0, 3600}, % Should be rest_for_one policy
 
@@ -124,4 +106,3 @@ ensure_dead(Name) ->
 	    timer:sleep(10),
 	    ensure_dead(Name)
     end.
-

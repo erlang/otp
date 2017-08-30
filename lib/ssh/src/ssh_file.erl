@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -75,17 +75,9 @@ host_key(Algorithm, Opts) ->
     Password = proplists:get_value(identity_pass_phrase(Algorithm), Opts, ignore),
     case decode(File, Password) of
 	{ok,Key} ->
-	    case {Key,Algorithm} of
-		{#'RSAPrivateKey'{}, 'ssh-rsa'} -> {ok,Key};
-		{#'DSAPrivateKey'{}, 'ssh-dss'} -> {ok,Key};
-		{#'ECPrivateKey'{parameters = {namedCurve, ?'secp256r1'}}, 'ecdsa-sha2-nistp256'} -> {ok,Key};
-		{#'ECPrivateKey'{parameters = {namedCurve, ?'secp384r1'}}, 'ecdsa-sha2-nistp384'} -> {ok,Key};
-		{#'ECPrivateKey'{parameters = {namedCurve, ?'secp521r1'}}, 'ecdsa-sha2-nistp521'} -> {ok,Key};
-		_ -> 
-		    {error,bad_keytype_in_file}
-	    end;
-	Other ->
-	    Other
+            check_key_type(Key, Algorithm);
+	{error,DecodeError} ->
+            {error,DecodeError}
     end.
 
 is_auth_key(Key, User,Opts) ->
@@ -109,12 +101,25 @@ is_host_key(Key, PeerName, Algorithm, Opts) ->
 user_key(Algorithm, Opts) ->
     File = file_name(user, identity_key_filename(Algorithm), Opts),
     Password = proplists:get_value(identity_pass_phrase(Algorithm), Opts, ignore),
-    decode(File, Password).
+    case decode(File, Password) of
+        {ok, Key} ->
+            check_key_type(Key, Algorithm);
+        Error ->
+            Error
+    end.
 
 
 %% Internal functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+check_key_type(Key, Algorithm) ->
+    case ssh_transport:valid_key_sha_alg(Key,Algorithm) of
+        true -> {ok,Key};
+        false -> {error,bad_keytype_in_file}
+    end.
 
 file_base_name('ssh-rsa'            ) -> "ssh_host_rsa_key";
+file_base_name('rsa-sha2-256'       ) -> "ssh_host_rsa_key";
+file_base_name('rsa-sha2-384'       ) -> "ssh_host_rsa_key";
+file_base_name('rsa-sha2-512'       ) -> "ssh_host_rsa_key";
 file_base_name('ssh-dss'            ) -> "ssh_host_dsa_key";
 file_base_name('ecdsa-sha2-nistp256') -> "ssh_host_ecdsa_key";
 file_base_name('ecdsa-sha2-nistp384') -> "ssh_host_ecdsa_key";
@@ -192,8 +197,8 @@ lookup_user_key(Key, User, Opts) ->
 ssh_dir({remoteuser, User}, Opts) ->
     case proplists:get_value(user_dir_fun, Opts) of
 	undefined ->
-	    case proplists:get_value(user_dir, Opts) of
-		undefined ->
+	    case proplists:get_value(user_dir, Opts, false) of
+		false ->
 		    default_user_dir();
 		Dir ->
 		    Dir
@@ -221,6 +226,8 @@ file_name(Type, Name, Opts) ->
 
 
 %% in: "host" out: "host,1.2.3.4.
+add_ip(IP) when is_tuple(IP) ->
+    ssh_connection:encode_ip(IP);
 add_ip(Host)                                                             ->
     case inet:getaddr(Host, inet) of
 	{ok, Addr} ->
@@ -251,12 +258,18 @@ do_lookup_host_key(KeyToMatch, Host, Alg, Opts) ->
 
 identity_key_filename('ssh-dss'            ) -> "id_dsa";
 identity_key_filename('ssh-rsa'            ) -> "id_rsa";
+identity_key_filename('rsa-sha2-256'       ) -> "id_rsa";
+identity_key_filename('rsa-sha2-384'       ) -> "id_rsa";
+identity_key_filename('rsa-sha2-512'       ) -> "id_rsa";
 identity_key_filename('ecdsa-sha2-nistp256') -> "id_ecdsa";
 identity_key_filename('ecdsa-sha2-nistp384') -> "id_ecdsa";
 identity_key_filename('ecdsa-sha2-nistp521') -> "id_ecdsa".
 
 identity_pass_phrase("ssh-dss"       ) -> dsa_pass_phrase;
 identity_pass_phrase("ssh-rsa"       ) -> rsa_pass_phrase;
+identity_pass_phrase("rsa-sha2-256"  ) -> rsa_pass_phrase;
+identity_pass_phrase("rsa-sha2-384"  ) -> rsa_pass_phrase;
+identity_pass_phrase("rsa-sha2-512"  ) -> rsa_pass_phrase;
 identity_pass_phrase("ecdsa-sha2-"++_) -> ecdsa_pass_phrase;
 identity_pass_phrase(P) when is_atom(P) -> 
     identity_pass_phrase(atom_to_list(P)).

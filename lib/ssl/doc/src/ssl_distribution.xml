@@ -43,7 +43,7 @@
       Erlang node distributed, <c>net_kernel</c> uses this module to
       set up listen ports and connections.</p>
 
-      <p>In the SSL application, an exra distribution
+      <p>In the SSL application, an extra distribution
       module, <c>inet_tls_dist</c>, can be used as an
       alternative. All distribution connections will use SSL and
       all participating Erlang nodes in a distributed system must use
@@ -71,8 +71,8 @@
   <section>
     <title>Building Boot Scripts Including the ssl Application</title>
     <p>Boot scripts are built using the <c>systools</c> utility in the
-      <c>sasl</c> application. For more information on <c>systools</c>,
-      see the <c>sasl</c> documentation. This is only an example of
+      SASL application. For more information on <c>systools</c>,
+      see the SASL documentation. This is only an example of
       what can be done.</p>
 
       <p>The simplest boot script possible includes only the Kernel 

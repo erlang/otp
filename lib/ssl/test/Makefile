@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2016. All Rights Reserved.
+# Copyright Ericsson AB 1999-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,7 +56,8 @@ MODULES = \
 	ssl_upgrade_SUITE\
 	ssl_sni_SUITE \
 	make_certs\
-	erl_make_certs
+	erl_make_certs\
+        x509_test
 
 
 ERL_FILES = $(MODULES:%=%.erl)

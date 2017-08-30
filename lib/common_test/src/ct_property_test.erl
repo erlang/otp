@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -134,7 +134,7 @@ mk_ct_return(Other, Tool) ->
     try lists:last(hd(Tool:counterexample()))
     of
 	{set,{var,_},{call,M,F,Args}} ->
-	    {fail, io_lib:format("~p:~p/~p returned bad result",[M,F,length(Args)])}
+	    {fail, io_lib:format("~p:~tp/~p returned bad result",[M,F,length(Args)])}
     catch
 	_:_ ->
 	    {fail, Other}
@@ -174,7 +174,7 @@ compile_tests(Path, ToolModule) ->
     BeamFiles = [F || F<-FileNames,
 		      filename:extension(F) == ".beam"],
     _ = [file:delete(F) || F<-BeamFiles],
-    ct:pal("Compiling in ~p:~n  Deleted ~p~n  MacroDefs=~p",[Path,BeamFiles,MacroDefs]),
+    ct:pal("Compiling in ~tp:~n  Deleted ~p~n  MacroDefs=~p",[Path,BeamFiles,MacroDefs]),
     Result = make:all([load|MacroDefs]),
     ok = file:set_cwd(Cwd),
     Result.

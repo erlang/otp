@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ stop() ->
 	{error,Reason} ->
 	    ct_master_logs:log("Error",
 			       "No response from CT Master Event.\n"
-			       "Reason = ~p\n"
+			       "Reason = ~tp\n"
 			       "Terminating now!\n",[Reason]),
 	    %% communication with event manager fails, kill it
 	    catch exit(whereis(?CT_MEVMGR_REF), kill);
@@ -135,7 +135,7 @@ handle_event(#event{name=start_logging,node=Node,data=RunDir},State) ->
 
 handle_event(#event{name=Name,node=Node,data=Data},State) ->
     print("~n=== ~w ===~n", [?MODULE]),
-    print("~w on ~w: ~p~n", [Name,Node,Data]),
+    print("~tw on ~w: ~tp~n", [Name,Node,Data]),
     {ok,State}.
 
 %%--------------------------------------------------------------------

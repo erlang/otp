@@ -31,7 +31,7 @@
     <rev>%VSN%</rev>
   </header>
   <description>
-    <p><c>Reltool</c> is a release management tool. It analyses a given
+    <p>Reltool is a release management tool. It analyses a given
      Erlang/OTP installation and determines various dependencies
      between applications. The <c>graphical</c> frontend depicts the
      dependencies and enables interactive customization of a

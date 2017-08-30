@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,9 +32,12 @@
 	 call_remote_n1/1, call_remote_n2/1, call_remote_n3/1, spec_init/1,
 	 spec_init_local_registered_parent/1, 
 	 spec_init_global_registered_parent/1,
-	 otp_5854/1, hibernate/1, otp_7669/1, call_format_status/1,
+	 otp_5854/1, hibernate/1, auto_hibernate/1, otp_7669/1, call_format_status/1,
 	 error_format_status/1, terminate_crash_format/1,
-	 get_state/1, replace_state/1, call_with_huge_message_queue/1
+	 get_state/1, replace_state/1, call_with_huge_message_queue/1,
+	 undef_handle_call/1, undef_handle_cast/1, undef_handle_info/1,
+	 undef_init/1, undef_code_change/1, undef_terminate1/1,
+	 undef_terminate2/1, undef_in_terminate/1, undef_in_handle_info/1
 	]).
 
 -export([stop1/1, stop2/1, stop3/1, stop4/1, stop5/1, stop6/1, stop7/1,
@@ -50,7 +53,7 @@
 
 %% The gen_server behaviour
 -export([init/1, handle_call/3, handle_cast/2,
-	 handle_info/2, terminate/2, format_status/2]).
+	 handle_info/2, code_change/3, terminate/2, format_status/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -62,15 +65,20 @@ all() ->
      call_remote3, call_remote_n1, call_remote_n2,
      call_remote_n3, spec_init,
      spec_init_local_registered_parent,
-     spec_init_global_registered_parent, otp_5854, hibernate,
+     spec_init_global_registered_parent, otp_5854, hibernate, auto_hibernate,
      otp_7669,
      call_format_status, error_format_status, terminate_crash_format,
      get_state, replace_state,
-     call_with_huge_message_queue].
+     call_with_huge_message_queue, {group, undef_callbacks},
+     undef_in_terminate, undef_in_handle_info].
 
 groups() -> 
     [{stop, [],
-      [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]}].
+      [stop1, stop2, stop3, stop4, stop5, stop6, stop7, stop8, stop9, stop10]},
+     {undef_callbacks, [],
+      [undef_handle_call, undef_handle_cast, undef_handle_info,
+       undef_init, undef_code_change, undef_terminate1, undef_terminate2]}].
+
 
 init_per_suite(Config) ->
     Config.
@@ -78,6 +86,11 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(undef_callbacks, Config) ->
+    DataDir = ?config(data_dir, Config),
+    Server = filename:join(DataDir, "oc_server.erl"),
+    {ok, oc_server} = compile:file(Server),
+    Config;
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -93,6 +106,7 @@ init_per_testcase(Case, Config) when Case == call_remote1;
 				     Case == call_remote_n3 ->
     {ok,N} = start_node(hubba),
     [{node,N} | Config];
+
 init_per_testcase(_Case, Config) ->
     Config.
 
@@ -375,12 +389,14 @@ crash(Config) when is_list(Config) ->
     %% from gen_server.
     {ok,Pid4} = gen_server:start(?MODULE, {state,state4}, []),
     {'EXIT',{crashed,_}} = (catch gen_server:call(Pid4, crash)),
+    ClientPid = self(),
     receive
 	{error,_GroupLeader4,{Pid4,
 			      "** Generic server"++_,
 			      [Pid4,crash,{formatted, state4},
 			       {crashed,[{?MODULE,handle_call,3,_}
-					 |_Stacktrace]}]}} ->
+					 |_Stacktrace]},
+			       ClientPid, [_|_] = _ClientStack]}} ->
 	    ok;
 	Other4a ->
 	    io:format("Unexpected: ~p", [Other4a]),
@@ -388,7 +404,7 @@ crash(Config) when is_list(Config) ->
     end,
     receive
 	{error_report,_,{Pid4,crash_report,[List4|_]}} ->
-	    {exit,crashed,_} = proplists:get_value(error_info, List4),
+	    {exit,crashed,[{?MODULE, handle_call, 3, _}|_]} = proplists:get_value(error_info, List4),
 	    Pid4 = proplists:get_value(pid, List4);
 	Other4 ->
 	    io:format("Unexpected: ~p", [Other4]),
@@ -714,6 +730,58 @@ hibernate(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFl),
     ok.
 
+auto_hibernate(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+    HibernateAfterTimeout = 100,
+    State = {auto_hibernate_state},
+    {ok, Pid} =
+        gen_server:start_link({local, my_test_name_auto_hibernate},
+            gen_server_SUITE, {state,State}, [{hibernate_after, HibernateAfterTimeout}]),
+    %% After init test
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Get state test
+    State = sys:get_state(my_test_name_auto_hibernate),
+    is_in_erlang_hibernate(Pid),
+    %% Call test
+    ok = gen_server:call(my_test_name_auto_hibernate, started_p),
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Cast test
+    ok = gen_server:cast(my_test_name_auto_hibernate, {self(),handle_cast}),
+    receive
+        {Pid, handled_cast} ->
+            ok
+    after 1000 ->
+        ct:fail(cast)
+    end,
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Info test
+    Pid ! {self(),handle_info},
+    receive
+        {Pid, handled_info} ->
+            ok
+    after 1000 ->
+        ct:fail(info)
+    end,
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(Pid),
+
+    ok = gen_server:call(my_test_name_auto_hibernate, stop),
+    receive
+        {'EXIT', Pid, stopped} ->
+            ok
+    after 5000 ->
+        ct:fail(gen_server_did_not_die)
+    end,
+    process_flag(trap_exit, OldFl),
+    ok.
+
 is_in_erlang_hibernate(Pid) ->
     receive after 1 -> ok end,
     is_in_erlang_hibernate_1(200, Pid).
@@ -729,6 +797,23 @@ is_in_erlang_hibernate_1(N, Pid) ->
 	_ ->
 	    receive after 10 -> ok end,
 	    is_in_erlang_hibernate_1(N-1, Pid)
+    end.
+
+is_not_in_erlang_hibernate(Pid) ->
+    receive after 1 -> ok end,
+    is_not_in_erlang_hibernate_1(200, Pid).
+
+is_not_in_erlang_hibernate_1(0, Pid) ->
+    io:format("~p\n", [erlang:process_info(Pid, current_function)]),
+    ct:fail(not_in_erlang_hibernate_3);
+is_not_in_erlang_hibernate_1(N, Pid) ->
+    {current_function,MFA} = erlang:process_info(Pid, current_function),
+    case MFA of
+        {erlang,hibernate,3} ->
+            receive after 10 -> ok end,
+            is_not_in_erlang_hibernate_1(N-1, Pid);
+        _ ->
+            ok
     end.
 
 %% --------------------------------------
@@ -1115,12 +1200,14 @@ error_format_status(Config) when is_list(Config) ->
 	{'EXIT', Pid, crashed} ->
 	    ok
     end,
+    ClientPid = self(),
     receive
 	{error,_GroupLeader,{Pid,
 			     "** Generic server"++_,
 			     [Pid,crash,{formatted, State},
 			      {crashed,[{?MODULE,handle_call,3,_}
-					|_Stacktrace]}]}} ->
+					|_Stacktrace]},
+			       ClientPid, [_|_] = _ClientStack]}} ->
 	    ok;
 	Other ->
 	    io:format("Unexpected: ~p", [Other]),
@@ -1138,12 +1225,14 @@ terminate_crash_format(Config) when is_list(Config) ->
     {ok, Pid} = gen_server:start_link(?MODULE, {state, State}, []),
     gen_server:call(Pid, stop),
     receive {'EXIT', Pid, {crash, terminate}} -> ok end,
+    ClientPid = self(),
     receive
 	{error,_GroupLeader,{Pid,
 			     "** Generic server"++_,
 			     [Pid,stop, {formatted, State},
-			      {{crash, terminate},[{?MODULE,terminate,2,_}
-						   |_Stacktrace]}]}} ->
+			      {{crash, terminate},
+			       [{?MODULE,terminate,2,_}|_Stacktrace]},
+			       ClientPid, [_|_] = _ClientStack]}} ->
 	    ok;
 	Other ->
 	    io:format("Unexpected: ~p", [Other]),
@@ -1252,6 +1341,141 @@ echo_loop() ->
 	{'$gen_call',{Pid,Ref},Msg} ->
 	    Pid ! {Ref,Msg},
 	    echo_loop()
+    end.
+
+%% Test the default implementation of terminate if the callback module
+%% does not export it
+undef_terminate1(Config) when is_list(Config) ->
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    MRef = monitor(process, Server),
+    ok = gen_server:stop(Server),
+    ok = verify_down_reason(MRef, Server, normal).
+
+%% Test the default implementation of terminate if the callback module
+%% does not export it
+undef_terminate2(Config) when is_list(Config) ->
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    MRef = monitor(process, Server),
+    ok = gen_server:stop(Server, {error, test}, infinity),
+    ok = verify_down_reason(MRef, Server, {error, test}).
+
+%% Start should return an undef error if init isn't implemented
+undef_init(_Config) ->
+    {error, {undef, [{oc_init_server, init, [_], _}|_]}} =
+        gen_server:start(oc_init_server, [], []),
+    process_flag(trap_exit, true),
+    {error, {undef, [{oc_init_server, init, [_], _}|_]}} =
+        (catch gen_server:start_link(oc_init_server, [], [])),
+    receive
+        {'EXIT', Server,
+         {undef, [{oc_init_server, init, [_], _}|_]}} when is_pid(Server) ->
+            ok
+    after 1000 ->
+        ct:fail(expected_exit_msg)
+    end.
+
+%% The upgrade should fail if code_change is expected in the callback module
+%% but not exported, but the server should continue with the old code
+undef_code_change(Config) when is_list(Config) ->
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    {error, {'EXIT', {undef, [{oc_server, code_change, [_, _, _], _}|_]}}}
+        = fake_upgrade(Server, ?MODULE),
+    true = is_process_alive(Server).
+
+%% The server should crash if the handle_call callback is
+%% not exported in the callback module
+undef_handle_call(_Config) ->
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    try
+        gen_server:call(Server, call_msg),
+        ct:fail(should_crash)
+    catch exit:{{undef, [{oc_server, handle_call, _, _}|_]},
+                {gen_server, call, _}} ->
+        ok
+    end.
+
+%% The server should crash if the handle_cast callback is
+%% not exported in the callback module
+undef_handle_cast(_Config) ->
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    MRef = monitor(process, Server),
+    gen_server:cast(Server, cast_msg),
+    verify_undef_down(MRef, Server, oc_server, handle_cast),
+    ok.
+
+%% The server should log but not crash if the handle_info callback is
+%% calling an undefined function
+undef_handle_info(Config) when is_list(Config) ->
+    error_logger_forwarder:register(),
+    {ok, Server} = gen_server:start(oc_server, [], []),
+    Server ! hej,
+    wait_until_processed(Server, hej, 10),
+    true = is_process_alive(Server),
+    receive
+        {warning_msg, _GroupLeader,
+         {Server, "** Undefined handle_info in " ++ _, [oc_server, hej]}} ->
+            ok;
+        Other ->
+            io:format("Unexpected: ~p", [Other]),
+            ct:fail(failed)
+    end.
+
+%% Test that the default implementation of terminate isn't catching the
+%% wrong undef error
+undef_in_terminate(Config) when is_list(Config) ->
+    State = {undef_in_terminate, {oc_server, terminate}},
+    {ok, Server} = gen_server:start(?MODULE, {state, State}, []),
+    try
+        gen_server:stop(Server),
+        ct:fail(failed)
+    catch
+        exit:{undef, [{oc_server, terminate, [], _}|_]} ->
+            ok
+    end.
+
+%% Test that the default implementation of handle_info isn't catching the
+%% wrong undef error
+undef_in_handle_info(Config) when is_list(Config) ->
+     {ok, Server} = gen_server:start(?MODULE, [], []),
+     MRef = monitor(process, Server),
+     Server ! {call_undef_fun, ?MODULE, handle_info},
+     verify_undef_down(MRef, Server, ?MODULE, handle_info),
+     ok.
+
+verify_down_reason(MRef, Server, Reason) ->
+    receive
+        {'DOWN', MRef, process, Server, Reason} ->
+            ok
+    after 5000 ->
+        ct:fail(failed)
+    end.
+
+verify_undef_down(MRef, Pid, Mod, Fun) ->
+    ok = receive
+        {'DOWN', MRef, process, Pid,
+         {undef, [{Mod, Fun, _, _}|_]}} ->
+            ok
+    after 5000 ->
+        ct:fail(should_crash)
+    end.
+
+fake_upgrade(Pid, Mod) ->
+    sys:suspend(Pid),
+    sys:replace_state(Pid, fun(State) -> {new, State} end),
+    Ret = sys:change_code(Pid, Mod, old_vsn, []),
+    ok = sys:resume(Pid),
+    Ret.
+
+wait_until_processed(_Pid, _Message, 0) ->
+    ct:fail(not_processed);
+wait_until_processed(Pid, Message, N) ->
+    {messages, Messages} = erlang:process_info(Pid, messages),
+    case lists:member(Message, Messages) of
+        true ->
+            timer:sleep(100),
+            wait_until_processed(Pid, Message, N-1);
+        false ->
+            ok
     end.
 
 %%--------------------------------------------------------------
@@ -1377,6 +1601,9 @@ handle_call(stop_shutdown, _From, State) ->
     {stop,shutdown,State};
 handle_call(shutdown_reason, _From, _State) ->
     exit({shutdown,reason});
+handle_call({call_undef_fun, Mod, Fun}, _From, State) ->
+    Mod:Fun(),
+    {reply, ok, State};
 handle_call(stop_shutdown_reason, _From, State) ->
     {stop,{shutdown,stop_reason},State}.
 
@@ -1390,6 +1617,9 @@ handle_cast(hibernate_now, _State) ->
 handle_cast(hibernate_later, _State) ->
     timer:send_after(1000,self(),hibernate_now),
     {noreply, []};
+handle_cast({call_undef_fun, Mod, Fun}, State) ->
+    Mod:Fun(),
+    {noreply, State};
 handle_cast({From, stop}, State) ->
     io:format("BAZ"),
     {stop, {From,stopped}, State}.
@@ -1414,6 +1644,9 @@ handle_info(timeout, {delayed_cast, From}) ->
 handle_info(timeout, {delayed_info, From}) ->
     From ! {self(), delayed_info},
     {noreply, []};
+handle_info({call_undef_fun, Mod, Fun}, State) ->
+    Mod:Fun(),
+    {noreply, State};
 handle_info({From, handle_info}, _State) ->
     From ! {self(), handled_info},
     {noreply, []};
@@ -1427,6 +1660,12 @@ handle_info({From, stop}, State) ->
 handle_info(_Info, State) ->
     {noreply, State}.
 
+code_change(_OldVsn,
+            {new, {undef_in_code_change, {Mod, Fun}}} = State,
+            _Extra) ->
+    Mod:Fun(),
+    {ok, State}.
+
 terminate({From, stopped}, _State) ->
     io:format("FOOBAR"),
     From ! {self(), stopped},
@@ -1436,6 +1675,9 @@ terminate({From, stopped_info}, _State) ->
     ok;
 terminate(_, crash_terminate) ->
     exit({crash, terminate});
+terminate(_, {undef_in_terminate, {Mod, Fun}}) ->
+    Mod:Fun(),
+    ok;
 terminate(_Reason, _State) ->
     ok.
 

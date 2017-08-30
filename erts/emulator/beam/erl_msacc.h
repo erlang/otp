@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2014-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2016. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 #define ERL_MSACC_H__
 
 /* Can be enabled/disabled via configure */
-#if ERTS_ENABLE_MSACC == 2
+#if defined(ERTS_ENABLE_MSACC) && ERTS_ENABLE_MSACC == 2
 #define ERTS_MSACC_EXTENDED_STATES 1
 #endif
 
@@ -34,6 +34,10 @@
 /* Uncomment this to make msacc to always be on,
    this reduces overhead a little bit when profiling */
 /* #define ERTS_MSACC_ALWAYS_ON 1 */
+
+/* Uncomment this to keep individual stats for all
+   of the bifs when extended states is enabled */
+/* #define ERTS_MSACC_EXTENDED_BIFS 1 */
 
 #define ERTS_MSACC_DISABLE 0
 #define ERTS_MSACC_ENABLE  1
@@ -62,7 +66,7 @@
 
 #define ERTS_MSACC_STATE_COUNT 7
 
-#if ERTS_MSACC_STATE_STRINGS && ERTS_ENABLE_MSACC
+#if defined(ERTS_MSACC_STATE_STRINGS) && defined(ERTS_ENABLE_MSACC)
 static char *erts_msacc_states[] = {
     "aux",
     "check_io",
@@ -92,9 +96,15 @@ static char *erts_msacc_states[] = {
 #define ERTS_MSACC_STATE_SLEEP     13
 #define ERTS_MSACC_STATE_TIMERS    14
 
-#define ERTS_MSACC_STATE_COUNT 15
+#define ERTS_MSACC_STATIC_STATE_COUNT 15
 
-#if ERTS_MSACC_STATE_STRINGS
+#ifdef ERTS_MSACC_EXTENDED_BIFS
+#define ERTS_MSACC_STATE_COUNT (ERTS_MSACC_STATIC_STATE_COUNT + BIF_SIZE)
+#else
+#define ERTS_MSACC_STATE_COUNT ERTS_MSACC_STATIC_STATE_COUNT
+#endif
+
+#ifdef ERTS_MSACC_STATE_STRINGS
 static char *erts_msacc_states[] = {
     "alloc",
     "aux",
@@ -111,22 +121,26 @@ static char *erts_msacc_states[] = {
     "send",
     "sleep",
     "timers"
+#ifdef ERTS_MSACC_EXTENDED_BIFS
+#define BIF_LIST(Mod,Func,Arity,BifFuncAddr,FuncAddr,Num)	\
+        ,"bif_" #Mod "_" #Func "_" #Arity
+#include "erl_bif_list.h"
+#undef BIF_LIST
+#endif
 };
 #endif
 
 #endif
 
 typedef struct erl_msacc_t_ ErtsMsAcc;
+typedef struct erl_msacc_p_cnt_t_ {
+    ErtsSysPerfCounter pc;
+#ifdef ERTS_MSACC_STATE_COUNTERS
+    Uint64 sc;
+#endif
+} ErtsMsAccPerfCntr;
 
 struct erl_msacc_t_ {
-
-    /* the the values below are protected by mtx iff unmanaged = 1 */
-    ErtsSysPerfCounter perf_counter;
-    ErtsSysPerfCounter perf_counters[ERTS_MSACC_STATE_COUNT];
-#ifdef ERTS_MSACC_STATE_COUNTERS
-    Uint64 state_counters[ERTS_MSACC_STATE_COUNT];
-#endif
-    Uint state;
 
     /* protected by msacc_mutex in erl_msacc.c, and should be constant */
     int unmanaged;
@@ -135,11 +149,15 @@ struct erl_msacc_t_ {
     erts_tid_t tid;
     Eterm id;
     char *type;
+
+    /* the the values below are protected by mtx iff unmanaged = 1 */
+    ErtsSysPerfCounter perf_counter;
+    Uint state;
+    ErtsMsAccPerfCntr counters[];
+
 };
 
-#if ERTS_ENABLE_MSACC
-
-#define ERTS_MSACC_INLINE ERTS_GLB_INLINE
+#ifdef ERTS_ENABLE_MSACC
 
 #ifdef USE_THREADS
 extern erts_tsd_key_t erts_msacc_key;
@@ -276,20 +294,20 @@ void erts_msacc_init_thread(char *type, int id, int liberty);
 #define ERTS_MSACC_PUSH_AND_SET_STATE_M(state)                    \
     ERTS_MSACC_PUSH_STATE_M(); ERTS_MSACC_SET_STATE_CACHED_M(state)
 
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 void erts_msacc_set_state_um__(ErtsMsAcc *msacc,Uint state,int increment);
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 void erts_msacc_set_state_m__(ErtsMsAcc *msacc,Uint state,int increment);
 
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 Uint erts_msacc_get_state_um__(ErtsMsAcc *msacc);
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 Uint erts_msacc_get_state_m__(ErtsMsAcc *msacc);
 
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 Uint erts_msacc_get_state_um__(ErtsMsAcc *msacc) {
     Uint state;
     if (msacc->unmanaged)
@@ -300,12 +318,12 @@ Uint erts_msacc_get_state_um__(ErtsMsAcc *msacc) {
     return state;
 }
 
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 Uint erts_msacc_get_state_m__(ErtsMsAcc *msacc) {
     return msacc->state;
 }
 
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 void erts_msacc_set_state_um__(ErtsMsAcc *msacc, Uint new_state, int increment) {
     if (ERTS_UNLIKELY(msacc->unmanaged)) {
         erts_mtx_lock(&msacc->mtx);
@@ -322,7 +340,7 @@ void erts_msacc_set_state_um__(ErtsMsAcc *msacc, Uint new_state, int increment) 
         erts_mtx_unlock(&msacc->mtx);
 }
 
-ERTS_MSACC_INLINE
+ERTS_GLB_INLINE
 void erts_msacc_set_state_m__(ErtsMsAcc *msacc, Uint new_state, int increment) {
     ErtsSysPerfCounter prev_perf_counter;
     Sint64 diff;
@@ -334,9 +352,9 @@ void erts_msacc_set_state_m__(ErtsMsAcc *msacc, Uint new_state, int increment) {
     msacc->perf_counter = erts_sys_perf_counter();
     diff = msacc->perf_counter - prev_perf_counter;
     ASSERT(diff >= 0);
-    msacc->perf_counters[msacc->state] += diff;
+    msacc->counters[msacc->state].pc += diff;
 #ifdef ERTS_MSACC_STATE_COUNTERS
-    msacc->state_counters[new_state] += increment;
+    msacc->counters[new_state].sc += increment;
 #endif
     msacc->state = new_state;
 }
@@ -364,7 +382,7 @@ void erts_msacc_set_state_m__(ErtsMsAcc *msacc, Uint new_state, int increment) {
 #define ERTS_MSACC_SET_STATE_CACHED_M(state)
 #define ERTS_MSACC_POP_STATE_M()
 #define ERTS_MSACC_PUSH_AND_SET_STATE_M(state)
-
+#define ERTS_MSACC_SET_BIF_STATE_CACHED_X(Mod,Addr)
 
 #endif /* ERTS_ENABLE_MSACC */
 
@@ -385,8 +403,12 @@ void erts_msacc_set_state_m__(ErtsMsAcc *msacc, Uint new_state, int increment) {
 #define ERTS_MSACC_SET_STATE_CACHED_M_X(state)
 #define ERTS_MSACC_POP_STATE_M_X()
 #define ERTS_MSACC_PUSH_AND_SET_STATE_M_X(state)
+#define ERTS_MSACC_PUSH_AND_SET_STATE_CACHED_M_X(state)
+#define ERTS_MSACC_SET_BIF_STATE_CACHED_X(Mod,Addr)
 
 #else
+
+void erts_msacc_set_bif_state(ErtsMsAcc *msacc, Eterm mod, void *addr);
 
 #define ERTS_MSACC_PUSH_STATE_X() ERTS_MSACC_PUSH_STATE()
 #define ERTS_MSACC_POP_STATE_X() ERTS_MSACC_POP_STATE()
@@ -403,6 +425,9 @@ void erts_msacc_set_state_m__(ErtsMsAcc *msacc, Uint new_state, int increment) {
 #define ERTS_MSACC_SET_STATE_CACHED_M_X(state) ERTS_MSACC_SET_STATE_CACHED_M(state)
 #define ERTS_MSACC_POP_STATE_M_X() ERTS_MSACC_POP_STATE_M()
 #define ERTS_MSACC_PUSH_AND_SET_STATE_M_X(state) ERTS_MSACC_PUSH_AND_SET_STATE_M(state)
+#define ERTS_MSACC_SET_BIF_STATE_CACHED_X(Mod,Addr)       \
+    if (ERTS_MSACC_IS_ENABLED_CACHED_X())               \
+        erts_msacc_set_bif_state(__erts_msacc_cache, Mod, Addr)
 
 #endif /* !ERTS_MSACC_EXTENDED_STATES */
 

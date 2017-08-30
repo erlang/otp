@@ -315,6 +315,15 @@ case wxWindow_Disable: { // wxWindow::Disable
  rt.addBool(Result);
  break;
 }
+#if wxCHECK_VERSION(2,8,10)
+case wxWindow_DragAcceptFiles: { // wxWindow::DragAcceptFiles
+ wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ bool * accept = (bool *) bp; bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->DragAcceptFiles(*accept);
+ break;
+}
+#endif
 case wxWindow_Enable: { // wxWindow::Enable
  bool enable=true;
  wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
@@ -1704,6 +1713,15 @@ case wxWindow_SetDoubleBuffered: { // wxWindow::SetDoubleBuffered
  bool * on = (bool *) bp; bp += 4;
  if(!This) throw wxe_badarg(0);
  This->SetDoubleBuffered(*on);
+ break;
+}
+#endif
+#if wxCHECK_VERSION(2,9,5)
+case wxWindow_GetContentScaleFactor: { // wxWindow::GetContentScaleFactor
+ wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ double Result = This->GetContentScaleFactor();
+ rt.addFloat(Result);
  break;
 }
 #endif
@@ -32047,6 +32065,28 @@ case wxDCOverlay_Clear: { // wxDCOverlay::Clear
  wxDCOverlay *This = (wxDCOverlay *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->Clear();
+ break;
+}
+case wxDropFilesEvent_GetPosition: { // wxDropFilesEvent::GetPosition
+ wxDropFilesEvent *This = (wxDropFilesEvent *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxPoint Result = This->GetPosition();
+ rt.add(Result);
+ break;
+}
+case wxDropFilesEvent_GetNumberOfFiles: { // wxDropFilesEvent::GetNumberOfFiles
+ wxDropFilesEvent *This = (wxDropFilesEvent *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetNumberOfFiles();
+ rt.addInt(Result);
+ break;
+}
+case wxDropFilesEvent_GetFiles: { // wxDropFilesEvent::GetFiles
+ wxDropFilesEvent *This = (wxDropFilesEvent *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxString * Result = (wxString*)This->GetFiles();
+ wxArrayString tmpArrayStr(This->m_noFiles, Result);
+ rt.add(tmpArrayStr);
  break;
 }
   default: {

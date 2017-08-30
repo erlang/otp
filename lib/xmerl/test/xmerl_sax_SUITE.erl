@@ -2,7 +2,7 @@
 %%----------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@
 %%======================================================================
 %% External functions
 %%======================================================================
-
 %%----------------------------------------------------------------------
 %% Initializations
 %%----------------------------------------------------------------------
@@ -42,12 +41,15 @@ all() ->
     [{group, bugs}].
 
 groups() ->
-    [{bugs, [], [ticket_8213, ticket_8214, ticket_11551]}].
+    [{bugs, [], [ticket_8213, ticket_8214, ticket_11551, 
+                 fragmented_xml_directive,
+                 old_dom_event_fun_endDocument_bug, 
+                 event_fun_endDocument_error_test,
+                 event_fun_startDocument_error_test]}].
 
-%%----------------------------------------------------------------------
+%%======================================================================
 %% Tests
-%%----------------------------------------------------------------------
-
+%%======================================================================
 %%----------------------------------------------------------------------
 %% Test Case 
 %% ID: ticket_8213
@@ -55,7 +57,6 @@ groups() ->
 ticket_8213(_Config) -> 
     {ok,ok,[]} = xmerl_sax_parser:stream("<elem/>", [{event_fun, fun (_E,_,_) -> ok end}]),
     ok.
-
 
 %%----------------------------------------------------------------------
 %% Test Case 
@@ -85,17 +86,80 @@ ticket_11551(_Config) ->
 <a>hej</a>
 <?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>">>,
-    {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream1, []),
+    {ok, undefined, <<"\n<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream1, []),
     Stream2= <<"<?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>
 
 
 <?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>">>,
-    {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream2, []),
+    {ok, undefined, <<"\n\n\n<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream2, []),
     Stream3= <<"<a>hej</a>
 
 <?xml version=\"1.0\" encoding=\"utf-8\" ?>
 <a>hej</a>">>,
-    {ok, undefined, <<"<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream3, []),
+    {ok, undefined, <<"\n\n<?xml",  _/binary>>} = xmerl_sax_parser:stream(Stream3, []),
     ok.
+
+%%----------------------------------------------------------------------
+%% Test Case 
+%% ID: fragmented_xml_directive
+%% Test of fragmented xml directive by reading one byte per continuation ca
+fragmented_xml_directive(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Name = filename:join(DataDir, "test_data_1.xml"),
+    {ok, Fd} =  file:open(Name, [raw, read,binary]),
+    Cf = fun cf_fragmented_xml_directive/1,
+    {ok, undefined, _} = xmerl_sax_parser:stream(<<>>, 
+                                                 [{continuation_fun, Cf}, 
+                                                  {continuation_state, Fd}]),
+    ok.
+
+%%----------------------------------------------------------------------
+%% Test Case 
+%% ID: old_dom_event_fun_endDocument_bug
+%%     The old_dom backend previous generateded an uncatched exception
+%%     instead of the correct fatal_error from the parser.
+old_dom_event_fun_endDocument_bug(_Config) ->
+    %% Stream contains bad characters, 
+    {fatal_error, _, _, _, _} = 
+        xmerl_sax_parser:stream([60,63,120,109,108,32,118,101,114,115,105,111,110,61,39,49,46,48,39,32,101,110,99,111,100,105,110,103,61,39,117,116,102,45,56,39,63,62,60,
+                                 99,111,109,109,97,110,100,62,60,104,101,97,100,101,114,62,60,116,114,97,110,115,97,99,116,105,111,110,73,100,62,49,60,47,116,114,97,110,
+                                 115,97,99,116,105,111,110,73,100,62,60,47,104,101,97,100,101,114,62,60,98,111,100,121,62,95,226,130,172,59,60,60,47,98,111,100,121,62,60,
+                                 47,99,111,109,109,97,110,100,62,60,47,120,49,95,49,62],
+                                [{event_fun,fun xmerl_sax_old_dom:event/3},
+                                 {event_state,xmerl_sax_old_dom:initial_state()}]),
+    ok.
+
+%%----------------------------------------------------------------------
+%% Test Case 
+%% ID: event_fun_endDocument_error_test
+event_fun_endDocument_error_test(_Config) ->
+    Stream = <<"<?xml version=\"1.0\" encoding=\"utf-8\"?><a>hej</a>">>,
+    Ef = fun(endDocument, _ , _) ->  throw({event_error, "endDocument error"});
+            (_, _, S) -> S
+         end,
+    {event_error, _, _, _, _} = xmerl_sax_parser:stream(Stream, [{event_fun, Ef}]),
+    ok.
+
+%%----------------------------------------------------------------------
+%% Test Case 
+%% ID: event_fun_startDocument_error_test
+event_fun_startDocument_error_test(_Config) ->
+    Stream = <<"<?xml version=\"1.0\" encoding=\"utf-8\"?><a>hej</a>">>,
+    Ef = fun(startDocument, _ , _) ->  throw({event_error, "endDocument error"});
+            (_, _, S) -> S
+         end,
+    {event_error, _, _, _, _} = xmerl_sax_parser:stream(Stream, [{event_fun, Ef}]),
+    ok.
+
+%%======================================================================
+%% Internal functions
+%%======================================================================
+cf_fragmented_xml_directive(IoDevice) ->
+    case file:read(IoDevice, 1) of
+	eof ->
+	    {<<>>, IoDevice};
+	{ok, FileBin} ->
+	    {FileBin, IoDevice}
+    end.

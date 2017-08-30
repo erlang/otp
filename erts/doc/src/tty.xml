@@ -22,7 +22,7 @@
 
     </legalnotice>
 
-    <title>tty - A command line interface</title>
+    <title>tty - A Command-Line Interface</title>
     <prepared>ETX/B/SFP C. Granbom</prepared>
     <responsible></responsible>
     <docno></docno>
@@ -32,24 +32,48 @@
     <rev>A</rev>
     <file>tty.xml</file>
   </header>
-  <p><c><![CDATA[tty]]></c> is a simple command line interface program where keystrokes are collected and interpreted. Completed lines are sent to the shell for interpretation. There is a simple history mechanism, which saves previous lines. These can be edited before sending them to the shell.
-    <c><![CDATA[tty]]></c> is started when Erlang is started with the command:<br></br></p>
-  <p><em>erl</em></p>
-  <p><c><![CDATA[tty]]></c> operates in one of two modes:<br></br></p>
+  <p><c><![CDATA[tty]]></c> is a simple command-line interface program where
+    keystrokes are collected and interpreted. Completed lines are sent to the
+    shell for interpretation. A simple history mechanism saves previous lines,
+    which can be edited before sending them to the shell. <c><![CDATA[tty]]></c>
+    is started when Erlang is started with the following command:</p>
+
+  <pre>
+erl</pre>
+
+  <p><c><![CDATA[tty]]></c> operates in one of two modes:</p>
+
   <list type="bulleted">
     <item>
-      <p><em>normal mode</em>, in which lines of text can be edited and sent to the shell.</p>
+      <p>Normal mode, in which text lines can be edited and sent to the
+      shell.</p>
     </item>
     <item>
-      <p><em>shell break</em> mode, which allows the user to kill the current shell, start multiple shells etc. Shell break mode is started by typing <em>Control G</em>.</p>
+      <p>Shell break mode, which allows the user to kill the current shell,
+        start multiple shells, and so on.</p>
     </item>
   </list>
 
   <section>
     <title>Normal Mode</title>
-    <p>In normal mode keystrokes from the user are collected and interpreted by <c><![CDATA[tty]]></c>. Most of the <em>emacs</em> line editing commands are supported. The following is a complete list of the supported line editing commands.<br></br></p>
-    <p><em>Note:</em>	The notation <c><![CDATA[C-a]]></c> means pressing the control key and the letter <c><![CDATA[a]]></c> simultaneously. <c><![CDATA[M-f]]></c> means pressing the <c><![CDATA[ESC]]></c> key followed by the letter <c><![CDATA[f]]></c>. <c><![CDATA[Home]]></c> and <c><![CDATA[End]]></c> represent the keys with the same name on the keyboard, whereas <c><![CDATA[Left]]></c> and <c><![CDATA[Right]]></c> represent the corresponding arrow keys.
-      </p>
+    <p>In normal mode keystrokes from the user are collected and interpreted by
+      <c><![CDATA[tty]]></c>. Most of the <em>Emacs</em> line-editing commands
+      are supported. The following is a complete list of the supported
+      line-editing commands.</p>
+
+    <p>Typographic conventions:</p>
+
+    <list type="bulleted">
+      <item><c>C-a</c> means pressing the <em>Ctrl</em> key and the letter
+        <c>a</c> simultaneously.</item>
+      <item><c>M-f</c> means pressing the <em>Esc</em> key and the letter
+        <c>f</c> in sequence.</item>
+      <item><c>Home</c> and <c>End</c> represent the keys with the same
+        name on the keyboard.</item>
+      <item><c>Left</c> and <c>Right</c> represent the corresponding arrow
+        keys.</item>
+    </list>
+
     <table>
       <row>
         <cell align="left" valign="middle"><em>Key Sequence</em></cell>
@@ -121,11 +145,13 @@
       </row>
       <row>
         <cell align="left" valign="middle">C-n</cell>
-        <cell align="left" valign="middle">Fetch next line from the history buffer</cell>
+        <cell align="left" valign="middle">Fetch next line from the history
+          buffer</cell>
       </row>
       <row>
         <cell align="left" valign="middle">C-p</cell>
-        <cell align="left" valign="middle">Fetch previous line from the history buffer</cell>
+        <cell align="left" valign="middle">Fetch previous line from the history
+          buffer</cell>
       </row>
       <row>
         <cell align="left" valign="middle">C-t</cell>
@@ -139,23 +165,18 @@
         <cell align="left" valign="middle">C-y</cell>
         <cell align="left" valign="middle">Insert previously killed text</cell>
       </row>
-      <tcaption>tty text editing</tcaption>
+      <tcaption>tty Text Editing</tcaption>
     </table>
   </section>
 
   <section>
     <title>Shell Break Mode</title>
-    <p><em>tty</em> enters <em>shell</em> break mode when you type <em>Control G</em>. In this mode you can:<br></br></p>
+    <p>In this mode the following can be done:</p>
+
     <list type="bulleted">
-      <item>
-        <p>Kill or suspend the current shell</p>
-      </item>
-      <item>
-        <p>Connect to a suspended shell</p>
-      </item>
-      <item>
-        <p>Start a new shell</p>
-      </item>
+      <item>Kill or suspend the current shell</item>
+      <item>Connect to a suspended shell</item>
+      <item>Start a new shell</item>
     </list>
   </section>
 </chapter>

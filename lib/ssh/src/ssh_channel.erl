@@ -93,10 +93,15 @@ call(ChannelPid, Msg, TimeOute) ->
     catch 
  	exit:{noproc, _} ->
  	    {error, closed};
+	exit:{normal, _} ->
+	    {error, closed};
+	exit:{shutdown, _} ->
+	    {error, closed};
+	exit:{{shutdown, _}, _} ->
+	    {error, closed};
  	exit:{timeout, _} ->
  	    {error, timeout}
     end.
-
 
 cast(ChannelPid, Msg) ->
     gen_server:cast(ChannelPid, Msg).
@@ -256,7 +261,7 @@ handle_info({ssh_cm, _, _} = Msg, #state{cm = ConnectionManager,
 	    adjust_window(Msg),
 	    {noreply, State#state{channel_state = ChannelState}, Timeout};
 	{stop, ChannelId, ChannelState} ->
-	    ssh_connection:close(ConnectionManager, ChannelId),
+	    catch ssh_connection:close(ConnectionManager, ChannelId),
 	    {stop, normal, State#state{close_sent = true,
 				       channel_state = ChannelState}}
     end;

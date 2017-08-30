@@ -736,10 +736,23 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
 	;;
   esac
 
+  clock_gettime_lib=""
+  AC_CHECK_LIB(rt, clock_gettime, [clock_gettime_lib="-lrt"])
+
+  save_LIBS="$LIBS"
+  LIBS="$LIBS $clock_gettime_lib"
+
+  if test "$LD_MAY_BE_WEAK" != "no"; then
+     trust_test="#error May not be there due to weak linking"
+  else
+     trust_test=""
+  fi
+
   AC_CACHE_CHECK([for clock_gettime(CLOCK_MONOTONIC_RAW, _)], erl_cv_clock_gettime_monotonic_raw,
   [
-       AC_TRY_COMPILE([
+       AC_TRY_LINK([
 #include <time.h>
+$trust_test
 		      ],
 		      [
     struct timespec ts;
@@ -755,8 +768,9 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
   AC_CACHE_CHECK([for clock_gettime() with ${check_msg}monotonic clock type], erl_cv_clock_gettime_monotonic_$1,
   [
      for clock_type in $prefer_resolution_clock_gettime_monotonic $default_resolution_clock_gettime_monotonic $high_resolution_clock_gettime_monotonic $low_resolution_clock_gettime_monotonic; do
-       AC_TRY_COMPILE([
+       AC_TRY_LINK([
 #include <time.h>
+$trust_test
 		      ],
 		      [
     struct timespec ts;
@@ -771,7 +785,15 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
      done
   ])
 
-  AC_CHECK_FUNCS([clock_getres clock_get_attributes gethrtime])
+  LIBS="$save_LIBS"
+
+  if test "$LD_MAY_BE_WEAK" != "no"; then
+     check_for_clock_getres=
+  else
+     check_for_clock_getres=clock_getres
+  fi
+
+  AC_CHECK_FUNCS([$check_for_clock_getres clock_get_attributes gethrtime])
   
   AC_CACHE_CHECK([for mach clock_get_time() with monotonic clock type], erl_cv_mach_clock_get_time_monotonic,
   [
@@ -840,7 +862,7 @@ AC_DEFUN(ERL_MONOTONIC_CLOCK,
 	    break
 	  fi
       done
-      AC_CHECK_LIB(rt, clock_gettime, [erl_monotonic_clock_lib="-lrt"])
+      erl_monotonic_clock_lib=$clock_gettime_lib
       ;;
     mach_clock_get_time)
       erl_monotonic_clock_id=SYSTEM_CLOCK
@@ -879,11 +901,24 @@ AC_DEFUN(ERL_WALL_CLOCK,
 	;;
   esac
 
+  clock_gettime_lib=""
+  AC_CHECK_LIB(rt, clock_gettime, [clock_gettime_lib="-lrt"])
+
+  save_LIBS="$LIBS"
+  LIBS="$LIBS $clock_gettime_lib"
+
+  if test "$LD_MAY_BE_WEAK" != "no"; then
+     trust_test="#error May not be there due to weak linking"
+  else
+     trust_test=""
+  fi
+
   AC_CACHE_CHECK([for clock_gettime() with ${check_msg}wall clock type], erl_cv_clock_gettime_wall_$1,
   [
      for clock_type in $prefer_resolution_clock_gettime_wall $default_resolution_clock_gettime_wall $high_resolution_clock_gettime_wall $low_resolution_clock_gettime_wall; do
-       AC_TRY_COMPILE([
+       AC_TRY_LINK([
 #include <time.h>
+$trust_test
 		      ],
 		      [
     struct timespec ts;
@@ -898,7 +933,15 @@ AC_DEFUN(ERL_WALL_CLOCK,
      done
   ])
 
-  AC_CHECK_FUNCS([clock_getres clock_get_attributes gettimeofday])
+  LIBS="$save_LIBS"
+
+  if test "$LD_MAY_BE_WEAK" != "no"; then
+     check_for_clock_getres=
+  else
+     check_for_clock_getres=clock_getres
+  fi
+
+  AC_CHECK_FUNCS([$check_for_clock_getres clock_get_attributes gettimeofday])
   
   AC_CACHE_CHECK([for mach clock_get_time() with wall clock type], erl_cv_mach_clock_get_time_wall,
   [
@@ -919,6 +962,7 @@ AC_DEFUN(ERL_WALL_CLOCK,
 			erl_cv_mach_clock_get_time_wall=no)
   ])
 
+  erl_wall_clock_lib=
   erl_wall_clock_low_resolution=no
   erl_wall_clock_id=
   case $1-$erl_cv_clock_gettime_wall_$1-$erl_cv_mach_clock_get_time_wall-$ac_cv_func_gettimeofday-$host_os in
@@ -932,6 +976,7 @@ AC_DEFUN(ERL_WALL_CLOCK,
       ;;
     *-CLOCK_*-*-*-*)
       erl_wall_clock_func=clock_gettime
+      erl_wall_clock_lib=$clock_gettime_lib
       erl_wall_clock_id=$erl_cv_clock_gettime_wall_$1
       for low_res_id in $low_resolution_clock_gettime_wall; do
       	  if test $erl_wall_clock_id = $low_res_id; then
@@ -1479,6 +1524,13 @@ ETHR_LIB_NAME=
 
 ethr_modified_default_stack_size=
 
+AC_ARG_WITH(threadnames,
+AS_HELP_STRING([--with-threadnames], [use pthread_setname to set the thread names (default)])
+AS_HELP_STRING([--without-threadnames],
+               [do not set any thread names]),
+[],
+[with_threadnames=yes])
+
 dnl Name of lib where ethread implementation is located
 ethr_lib_name=ethread
 
@@ -1659,6 +1711,25 @@ case "$THR_LIB_NAME" in
 			AC_DEFINE(ETHR_TIME_WITH_SYS_TIME, 1, \
 [Define if you can safely include both <sys/time.h> and <time.h>.]))
 
+	AC_MSG_CHECKING([for usable PTHREAD_STACK_MIN])
+	pthread_stack_min=no
+	AC_TRY_COMPILE([
+#include <limits.h>
+#if defined(ETHR_NEED_NPTL_PTHREAD_H)
+#include <nptl/pthread.h>
+#elif defined(ETHR_HAVE_MIT_PTHREAD_H)
+#include <pthread/mit/pthread.h>
+#elif defined(ETHR_HAVE_PTHREAD_H)
+#include <pthread.h>
+#endif
+			], 
+			[return PTHREAD_STACK_MIN;],
+			[pthread_stack_min=yes])
+
+	AC_MSG_RESULT([$pthread_stack_min])
+	test $pthread_stack_min != yes || {
+	     AC_DEFINE(ETHR_HAVE_USABLE_PTHREAD_STACK_MIN, 1, [Define if you can use PTHREAD_STACK_MIN])
+	}
 
 	dnl
 	dnl Check for functions
@@ -1680,7 +1751,7 @@ case "$THR_LIB_NAME" in
 	    AC_DEFINE(ETHR_HAVE_SCHED_YIELD, 1, [Define if you have the sched_yield() function.])
 	    AC_MSG_CHECKING([whether sched_yield() returns an int])
 	    sched_yield_ret_int=no
-	    AC_TRY_COMPILE([
+	    AC_TRY_LINK([
 				#ifdef ETHR_HAVE_SCHED_H
 				#include <sched.h>
 				#endif
@@ -1699,7 +1770,7 @@ case "$THR_LIB_NAME" in
 	    AC_DEFINE(ETHR_HAVE_PTHREAD_YIELD, 1, [Define if you have the pthread_yield() function.])
 	    AC_MSG_CHECKING([whether pthread_yield() returns an int])
 	    pthread_yield_ret_int=no
-	    AC_TRY_COMPILE([
+	    AC_TRY_LINK([
 				#if defined(ETHR_NEED_NPTL_PTHREAD_H)
 				#include <nptl/pthread.h>
 				#elif defined(ETHR_HAVE_MIT_PTHREAD_H)
@@ -1850,12 +1921,12 @@ case "$THR_LIB_NAME" in
                     [pthread_setname_np("name");],
                     pthread_setname=darwin)
         AC_MSG_RESULT([$pthread_setname])
-        case $pthread_setname in
-             linux) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_2, 1,
+        case $with_threadnames-$pthread_setname in
+             yes-linux) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_2, 1,
                           [Define if you have linux style pthread_setname_np]);;
-             bsd) AC_DEFINE(ETHR_HAVE_PTHREAD_SET_NAME_NP_2, 1,
+             yes-bsd) AC_DEFINE(ETHR_HAVE_PTHREAD_SET_NAME_NP_2, 1,
                           [Define if you have bsd style pthread_set_name_np]);;
-             darwin) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_1, 1,
+             yes-darwin) AC_DEFINE(ETHR_HAVE_PTHREAD_SETNAME_NP_1, 1,
                           [Define if you have darwin style pthread_setname_np]);;
              *) ;;
 	esac
@@ -2436,7 +2507,13 @@ if test $erl_monotonic_clock_low_resolution = yes; then
   AC_DEFINE(ERTS_HAVE_LOW_RESOLUTION_OS_MONOTONIC_LOW, [1], [Define if you have a low resolution OS monotonic clock])
 fi
 
-xrtlib="$erl_monotonic_clock_lib"
+xrtlib=
+if test "$erl_monotonic_clock_lib" != ""; then
+   xrtlib="$erl_monotonic_clock_lib"
+fi
+if test "$erl_wall_clock_lib" != ""; then
+   xrtlib="$erl_wall_clock_lib"
+fi
 if test "x$erl_monotonic_clock_id" != "x"; then
     AC_DEFINE_UNQUOTED(MONOTONIC_CLOCK_ID_STR, ["$erl_monotonic_clock_id"], [Define as a string of monotonic clock id to use])
     AC_DEFINE_UNQUOTED(MONOTONIC_CLOCK_ID, [$erl_monotonic_clock_id], [Define to monotonic clock id to use])

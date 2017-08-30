@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2016</year>
+      <year>1999</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -27,6 +27,346 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+
+<section><title>SSL 8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ECDH-ECDSA key exchange supported, was accidently
+	    dismissed in earlier versions.</p>
+          <p>
+	    Own Id: OTP-14421</p>
+        </item>
+        <item>
+          <p>
+	    Correct close semantics for active once connections. This
+	    was a timing dependent bug the resulted in the close
+	    message not always reaching the ssl user process.</p>
+          <p>
+	    Own Id: OTP-14443</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    TLS-1.2 clients will now always send hello messages on
+	    its own format, as opposed to earlier versions that will
+	    send the hello on the lowest supported version, this is a
+	    change supported by the latest RFC.</p>
+          <p>
+	    This will make interoperability with some newer servers
+	    smoother. Potentially, but unlikely, this could cause a
+	    problem with older servers if they do not adhere to the
+	    RFC and ignore unknown extensions.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-13820</p>
+        </item>
+        <item>
+          <p>
+	    Allow Erlang/OTP to use OpenSSL in FIPS-140 mode, in
+	    order to satisfy specific security requirements (mostly
+	    by different parts of the US federal government). </p>
+          <p>
+	    See the new crypto users guide "FIPS mode" chapter about
+	    building and using the FIPS support which is disabled by
+	    default.</p>
+          <p>
+	    (Thanks to dszoboszlay and legoscia)</p>
+          <p>
+	    Own Id: OTP-13921 Aux Id: PR-1180 </p>
+        </item>
+        <item>
+          <p>
+	    Implemented DTLS cookie generation, required by spec,
+	    instead of using a hardcoded value.</p>
+          <p>
+	    Own Id: OTP-14076</p>
+        </item>
+        <item>
+          <p>
+	    Implement sliding window replay protection of DTLS
+	    records.</p>
+          <p>
+	    Own Id: OTP-14077</p>
+        </item>
+        <item>
+          <p>
+	    TLS client processes will by default call
+	    public_key:pkix_verify_hostname/2 to verify the hostname
+	    of the connection with the server certificates specified
+	    hostname during certificate path validation. The user may
+	    explicitly disables it. Also if the hostname can not be
+	    derived from the first argument to connect or is not
+	    supplied by the server name indication option, the check
+	    will not be performed.</p>
+          <p>
+	    Own Id: OTP-14197</p>
+        </item>
+        <item>
+          <p>
+	    Extend connection_information/[1,2] . The values
+	    session_id, master_secret, client_random and
+	    server_random can no be accessed by
+	    connection_information/2. Note only session_id will be
+	    added to connection_information/1. The rational is that
+	    values concerning the connection security should have to
+	    be explicitly requested.</p>
+          <p>
+	    Own Id: OTP-14291</p>
+        </item>
+        <item>
+          <p>
+	    Chacha cipher suites are currently not tested enough to
+	    be most preferred ones</p>
+          <p>
+	    Own Id: OTP-14382</p>
+        </item>
+        <item>
+          <p>
+	    Basic support for DTLS that been tested together with
+	    OpenSSL.</p>
+          <p>
+	    Test by providing the option {protocol, dtls} to the ssl
+	    API functions connect and listen.</p>
+          <p>
+	    Own Id: OTP-14388</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 8.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Remove debug printout</p>
+          <p>
+	    Own Id: OTP-14396</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 8.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct active once emulation, for TLS. Now all data
+	    received by the connection process will be delivered
+	    through active once, even when the active once arrives
+	    after that the gen_tcp socket is closed by the peer.</p>
+          <p>
+	    Own Id: OTP-14300</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 8.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrected termination behavior, that caused a PEM cache
+	    bug and sometimes resulted in connection failures.</p>
+          <p>
+	    Own Id: OTP-14100</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug that could hang ssl connection processes when
+	    failing to require more data for very large handshake
+	    packages. Add option max_handshake_size to mitigate DoS
+	    attacks.</p>
+          <p>
+	    Own Id: OTP-14138</p>
+        </item>
+        <item>
+          <p>
+	    Improved support for CRL handling that could fail to work
+	    as intended when an id-ce-extKeyUsage was present in the
+	    certificate. Also improvements where needed to
+	    distributionpoint handling so that all revocations
+	    actually are found and not deemed to be not determinable.</p>
+          <p>
+	    Own Id: OTP-14141</p>
+        </item>
+        <item>
+          <p>
+	    A TLS handshake might accidentally match old sslv2 format
+	    and ssl application would incorrectly aborted TLS
+	    handshake with ssl_v2_client_hello_no_supported. Parsing
+	    was altered to avoid this problem.</p>
+          <p>
+	    Own Id: OTP-14222</p>
+        </item>
+        <item>
+          <p>
+	    Correct default cipher list to prefer AES 128 before 3DES</p>
+          <p>
+	    Own Id: OTP-14235</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Move PEM cache to a dedicated process, to avoid making
+	    the SSL manager process a bottleneck. This improves
+	    scalability of TLS connections.</p>
+          <p>
+	    Own Id: OTP-13874</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    List of possible anonymous suites, never supported by
+	    default, where incorrect for some TLS versions.</p>
+          <p>
+	    Own Id: OTP-13926</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Experimental version of DTLS. It is runnable but not
+	    complete and cannot be considered reliable for production
+	    usage.</p>
+          <p>
+	    Own Id: OTP-12982</p>
+        </item>
+        <item>
+          <p>
+	    Add API options to handle ECC curve selection.</p>
+          <p>
+	    Own Id: OTP-13959</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 8.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A timing related bug in event handling could cause
+	    interoperability problems between an erlang TLS server
+	    and some TLS clients, especially noticed with Firefox as
+	    TLS client.</p>
+          <p>
+	    Own Id: OTP-13917</p>
+        </item>
+        <item>
+          <p>
+	    Correct ECC curve selection, the error could cause the
+	    default to always be selected.</p>
+          <p>
+	    Own Id: OTP-13918</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 8.0.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correctly formed handshake messages received out of order
+	    will now correctly fail the connection with unexpected
+	    message.</p>
+          <p>
+	    Own Id: OTP-13853</p>
+	</item>
+
+	<item>
+	  <p>Correct handling of signature algorithm selection</p>
+          <p>
+	    Own Id: OTP-13711</p>
+        </item>
+
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    ssl application now behaves gracefully also on partially
+	    incorrect input from peer.</p>
+          <p>
+	    Own Id: OTP-13834</p>
+        </item>
+        <item>
+          <p>
+	    Add application environment configuration
+	    bypass_pem_cache. This can be used as a workaround for
+	    the current implementation of the PEM-cache that has
+	    proven to be a bottleneck.</p>
+          <p>
+	    Own Id: OTP-13883</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 8.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The TLS/SSL protocol version selection for the SSL server
+	    has been corrected to follow RFC 5246 Appendix E.1
+	    especially in case where the list of supported versions
+	    has gaps. Now the server selects the highest protocol
+	    version it supports that is not higher than what the
+	    client supports.</p>
+          <p>
+	    Own Id: OTP-13753 Aux Id: seq13150 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>SSL 8.0</title>
 

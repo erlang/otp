@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2717,7 +2717,7 @@ BOOL close_mesq(MesQ *q)
 	LeaveCriticalSection(&(q->crit));
 	return FALSE;
     }
-    /* Noone else is supposed to use this object any more */
+    /* No one else is supposed to use this object any more */
     LeaveCriticalSection(&(q->crit));
     DeleteCriticalSection(&(q->crit));
     CloseHandle(q->data_present);

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,19 +33,29 @@ main(Rule) ->
     roundtrip('Seq', Val),
     
     %% OTP-5783
-    {error,{asn1,{'Type not compatible with table constraint',
-		  {component,'ArgumentType'},
-		  {value,_},_}}} = 'InfClass':encode('Seq', {'Seq',12,13,1}),
+    {'Type not compatible with table constraint',
+     {component,'ArgumentType'},
+     {value,_},_} = enc_error('Seq', {'Seq',12,13,1}),
     Bytes2 = case Rule of
 		 ber ->
 		     <<48,9,2,1,12,2,1,11,2,1,1>>;
 		 _ ->
 		     <<1,12,1,11,1,1>>
 	     end,
-    {error,{asn1,{'Type not compatible with table constraint',
-		  {{component,_},
-		   {value,_B},_}}}} = 'InfClass':decode('Seq', Bytes2),
+    {'Type not compatible with table constraint',
+     {{component,_},
+      {value,_B},_}} = dec_error('Seq', Bytes2),
     ok.
 
 roundtrip(T, V) ->
     asn1_test_lib:roundtrip('InfClass', T, V).
+
+enc_error(T, V) ->
+    {error,{asn1,{Reason,Stk}}} = 'InfClass':encode(T, V),
+    [{_,_,_,_}|_] = Stk,
+    Reason.
+
+dec_error(T, Bin) ->
+    {error,{asn1,{Reason,Stk}}} = 'InfClass':decode(T, Bin),
+    [{_,_,_,_}|_] = Stk,
+    Reason.

@@ -1,9 +1,5 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -15,10 +11,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
-%%%
-
 
 %%%--------------------------------------------------------------------
 %%% Basic Values:
@@ -95,6 +87,7 @@
 -record(pseudo_call_prepare, {nrstkargs}).
 -record(pseudo_li, {dst, imm}).
 -record(pseudo_move, {dst, src}).
+-record(pseudo_spill_move, {dst, temp, src}).
 -record(pseudo_tailcall, {func, arity, stkargs, linkage}).
 -record(pseudo_tailcall_prepare, {}).
 -record(store, {stop, src, disp, base}).	% non-indexed, non-update form
@@ -107,6 +100,7 @@
 -record(fp_binary, {fp_binop, dst, src1, src2}).
 -record(fp_unary, {fp_unop, dst, src}).
 -record(pseudo_fmove, {dst, src}).
+-record(pseudo_spill_fmove, {dst, temp, src}).
 
 %%% Function definitions.
 

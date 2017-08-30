@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2009</year><year>2016</year>
+      <year>2009</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,67 @@
   </header>
   <p>This document describes the changes made to the wxErlang
     application.</p>
+
+<section><title>Wx 1.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix a livelock that could be caused by <c>wx:batch/1</c>.</p>
+          <p>
+	    Own Id: OTP-14289</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Allow string arguments to be binaries as specified, i.e.
+	    unicode:chardata().</p>
+          <p>
+	    Own Id: OTP-13934 Aux Id: ERL-270 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add wxWindow:dragAcceptFiles/2 and wxDropFilesEvent to
+	    support simple drag and drop from file browser.</p>
+          <p>
+	    Own Id: OTP-13933</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 1.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Increased the stacksize for the wx thread. The default
+	    stacksize on Windows is 1MB which is not enough if the
+	    user created many nested dialogs.</p>
+          <p>
+	    Own Id: OTP-13816</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Wx 1.7</title>
 

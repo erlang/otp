@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,7 +43,6 @@ init([]) ->
 	       worker_spec(mnesia_recover, timer:minutes(3), [gen_server]),
 	       worker_spec(mnesia_tm, timer:seconds(30), ProcLib),
 	       supervisor_spec(mnesia_checkpoint_sup),
-	       supervisor_spec(mnesia_snmp_sup),
 	       worker_spec(mnesia_controller, timer:seconds(3), [gen_server]),
 	       worker_spec(mnesia_late_loader, timer:seconds(3), ProcLib)
 	      ],

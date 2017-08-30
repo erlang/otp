@@ -31,17 +31,17 @@
     <app>sasl</app>
     <appsummary>The SASL application</appsummary>
     <description>
-    <p>The <c>SASL</c> application provides the following services:</p>
+    <p>The SASL application provides the following services:</p>
     <list type="bulleted">
       <item><c>alarm_handler</c></item>
       <item><c>rb</c></item>
       <item><c>release_handler</c></item>
       <item><c>systools</c></item>
     </list>
-    <p>The <c>SASL</c> application also includes <c>error_logger</c> event
-      handlers for formatting <c>SASL</c> error and crash reports.</p>
+    <p>The SASL application also includes <c>error_logger</c> event
+      handlers for formatting SASL error and crash reports.</p>
     <note>
-       <p>The <c>SASL</c> application in OTP has nothing to do with
+       <p>The SASL application in OTP has nothing to do with
           "Simple Authentication and Security Layer" (RFC 4422).</p>
     </note>
   </description>
@@ -49,7 +49,7 @@
   <section>
     <title>Error Logger Event Handlers</title>
     <p>The following error logger event handlers are used by
-      the <c>SASL</c> application.</p>
+      the SASL application.</p>
     <taglist>
       <tag><c>sasl_report_tty_h</c></tag>
       <item>
@@ -57,7 +57,7 @@
         reports</em>, and <em>progress reports</em> to <c>stdio</c>.
         This error logger event handler uses
 	<seealso marker="kernel:kernel_app#error_logger_format_depth">error_logger_format_depth</seealso>
-	in the <c>Kernel</c> application to limit how much detail is
+	in the Kernel application to limit how much detail is
         printed in crash and supervisor reports.</p>
       </item>
       <tag><c>sasl_report_file_h</c></tag>
@@ -66,7 +66,7 @@
         report</em>, and <em>progress report</em> to a single file.
         This error logger event handler uses
 	<seealso marker="kernel:kernel_app#error_logger_format_depth">error_logger_format_depth</seealso>
-	in the <c>Kernel</c> application to limit the details
+	in the Kernel application to limit the details
         printed in crash and supervisor reports.</p>
       </item>
       <tag><c>log_mf_h</c></tag>
@@ -75,9 +75,9 @@
           error logger to disk. Multiple files and log rotation are
           used. For efficiency reasons, each event is written as a
           binary. For more information about this handler,
-          see <seealso marker="stdlib:log_mf_h">the <c>STDLIB</c> Reference
+          see <seealso marker="stdlib:log_mf_h">the STDLIB Reference
           Manual</seealso>.</p>
-        <p>To activate this event handler, three <c>SASL</c>
+        <p>To activate this event handler, three SASL
           configuration parameters must be set,
           <c>error_logger_mf_dir</c>, <c>error_logger_mf_maxbytes</c>,
           and <c>error_logger_mf_maxfiles</c>. The next section provides
@@ -88,9 +88,9 @@
 
   <section>
     <title>Configuration</title>
-    <p>The following configuration parameters are defined for the <c>SASL</c>
+    <p>The following configuration parameters are defined for the SASL
       application. For more information about configuration parameters, see
-      <seealso marker="kernel:app"><c>app(4)</c></seealso> in <c>Kernel</c>.</p>
+      <seealso marker="kernel:app"><c>app(4)</c></seealso> in Kernel.</p>
     <p>All configuration parameters are optional.</p>
     <taglist>
       <tag><c><![CDATA[sasl_error_logger = Value ]]></c></tag>
@@ -112,7 +112,7 @@
             Use <c>[append]</c> to have the <c>FileName</c> open in append mode.
             <c>FileName</c> is a string.</p></item>
           <tag><c>false</c></tag>
-          <item><p>No <c>SASL</c> error logger handler is installed.</p></item>
+          <item><p>No SASL error logger handler is installed.</p></item>
         </taglist>
       </item>
       <tag><c><![CDATA[errlog_type = error | progress | all ]]></c></tag>

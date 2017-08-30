@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,10 +51,10 @@
 -type tab()        :: atom() | tid().
 -type type()       :: set | ordered_set | bag | duplicate_bag.
 -type continuation() :: '$end_of_table'
-                      | {tab(),integer(),integer(),binary(),list(),integer()}
-                      | {tab(),_,_,integer(),binary(),list(),integer(),integer()}.
+                      | {tab(),integer(),integer(),comp_match_spec(),list(),integer()}
+                      | {tab(),_,_,integer(),comp_match_spec(),list(),integer(),integer()}.
 
--opaque tid()      :: integer().
+-opaque tid()      :: reference().
 
 -type match_pattern() :: atom() | tuple().
 -type match_spec()    :: [{match_pattern(), [_], [_]}].
@@ -70,15 +70,33 @@
          match_object/2, match_object/3, match_spec_compile/1,
          match_spec_run_r/3, member/2, new/2, next/2, prev/2,
          rename/2, safe_fixtable/2, select/1, select/2, select/3,
-         select_count/2, select_delete/2, select_reverse/1,
+         select_count/2, select_delete/2, select_replace/2, select_reverse/1,
          select_reverse/2, select_reverse/3, setopts/2, slot/2,
          take/2,
          update_counter/3, update_counter/4, update_element/3]).
+
+%% internal exports
+-export([internal_request_all/0]).
 
 -spec all() -> [Tab] when
       Tab :: tab().
 
 all() ->
+    receive_all(ets:internal_request_all(),
+                erlang:system_info(schedulers),
+                []).
+
+receive_all(_Ref, 0, All) ->
+    All;
+receive_all(Ref, N, All) ->
+    receive
+        {Ref, SchedAll} ->
+            receive_all(Ref, N-1, SchedAll ++ All)
+    end.
+
+-spec internal_request_all() -> reference().
+
+internal_request_all() ->
     erlang:nif_error(undef).
 
 -spec delete(Tab) -> true when
@@ -232,20 +250,20 @@ match(_) ->
 match_object(_, _) ->
     erlang:nif_error(undef).
 
--spec match_object(Tab, Pattern, Limit) -> {[Match], Continuation} |
+-spec match_object(Tab, Pattern, Limit) -> {[Object], Continuation} |
                                            '$end_of_table' when
       Tab :: tab(),
       Pattern :: match_pattern(),
       Limit :: pos_integer(),
-      Match :: [term()],
+      Object :: tuple(),
       Continuation :: continuation().
 
 match_object(_, _, _) ->
     erlang:nif_error(undef).
 
--spec match_object(Continuation) -> {[Match], Continuation} |
+-spec match_object(Continuation) -> {[Object], Continuation} |
                                     '$end_of_table' when
-      Match :: [term()],
+      Object :: tuple(),
       Continuation :: continuation().
 
 match_object(_) ->
@@ -359,6 +377,14 @@ select_count(_, _) ->
       NumDeleted :: non_neg_integer().
 
 select_delete(_, _) ->
+    erlang:nif_error(undef).
+
+-spec select_replace(Tab, MatchSpec) -> NumReplaced when
+      Tab :: tab(),
+      MatchSpec :: match_spec(),
+      NumReplaced :: non_neg_integer().
+
+select_replace(_, _) ->
     erlang:nif_error(undef).
 
 -spec select_reverse(Tab, MatchSpec) -> [Match] when
@@ -488,7 +514,7 @@ update_element(_, _, _) ->
 
 %%% End of BIFs
 
--opaque comp_match_spec() :: binary().  %% this one is REALLY opaque
+-opaque comp_match_spec() :: reference().
 
 -spec match_spec_run(List, CompiledMatchSpec) -> list() when
       List :: [tuple()],
@@ -505,28 +531,28 @@ match_spec_run(List, CompiledMS) ->
 repair_continuation('$end_of_table', _) ->
     '$end_of_table';
 %% ordered_set
-repair_continuation(Untouched = {Table,Lastkey,EndCondition,N2,Bin,L2,N3,N4}, MS)
+repair_continuation(Untouched = {Table,Lastkey,EndCondition,N2,MSRef,L2,N3,N4}, MS)
   when %% (is_atom(Table) or is_integer(Table)),
        is_integer(N2),
-       byte_size(Bin) =:= 0,
+      %% is_reference(MSRef),
        is_list(L2),
        is_integer(N3),
        is_integer(N4) ->
-    case ets:is_compiled_ms(Bin) of
+    case ets:is_compiled_ms(MSRef) of
 	true ->
 	    Untouched;
 	false ->
 	    {Table,Lastkey,EndCondition,N2,ets:match_spec_compile(MS),L2,N3,N4}
     end;
 %% set/bag/duplicate_bag
-repair_continuation(Untouched = {Table,N1,N2,Bin,L,N3}, MS)
+repair_continuation(Untouched = {Table,N1,N2,MSRef,L,N3}, MS)
   when %% (is_atom(Table) or is_integer(Table)),
        is_integer(N1),
        is_integer(N2),
-       byte_size(Bin) =:= 0,
+      %% is_reference(MSRef),
        is_list(L),
        is_integer(N3) ->
-    case ets:is_compiled_ms(Bin) of
+    case ets:is_compiled_ms(MSRef) of
 	true ->
 	    Untouched;
 	false ->

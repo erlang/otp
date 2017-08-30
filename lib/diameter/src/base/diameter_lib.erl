@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -37,7 +37,6 @@
          ipaddr/1,
          spawn_opts/2,
          wait/1,
-         fold_tuple/3,
          fold_n/3,
          for_n/2,
          log/4]).
@@ -299,8 +298,28 @@ spawn_opts(server, Opts) ->
 spawn_opts(worker, Opts) ->
     opts(5000, Opts).
 
-opts(HeapSize, Opts) ->
-    [{min_heap_size, HeapSize} | lists:keydelete(min_heap_size, 1, Opts)].
+%% These setting are historical rather than useful. In particular, the
+%% server setting can bloat many processes unnecessarily. Let them be
+%% disabled with -diameter min_heap_size false.
+
+opts(Def, Opts) ->
+    Key = min_heap_size,
+    case getenv(Key, Def) of
+        N when is_integer(N), 0 =< N ->
+            [{Key, N} | lists:keydelete(Key, 1, Opts)];
+        _ ->
+            Opts
+    end.
+
+%% getenv/1
+
+getenv(Key, Def) ->
+    case application:get_env(Key) of
+        {ok, T} ->
+            T;
+        undefined ->
+            Def
+    end.
 
 %% ---------------------------------------------------------------------------
 %% # wait/1
@@ -319,36 +338,6 @@ down(Pid)
 down(MRef)
   when is_reference(MRef) ->
     receive {'DOWN', MRef, process, _, _} = T -> T end.
-
-%% ---------------------------------------------------------------------------
-%% # fold_tuple/3
-%% ---------------------------------------------------------------------------
-
--spec fold_tuple(N, T0, T)
-   -> tuple()
- when N  :: pos_integer(),
-      T0 :: tuple(),
-      T  :: tuple()
-          | undefined.
-
-%% Replace fields in T0 by those of T starting at index N, unless the
-%% new value is 'undefined'.
-%%
-%% eg. fold_tuple(2, Hdr, #diameter_header{end_to_end_id = 42})
-
-fold_tuple(_, T, undefined) ->
-    T;
-
-fold_tuple(N, T0, T1) ->
-    {_, T} = lists:foldl(fun(V, {I,_} = IT) -> {I+1, ft(V, IT)} end,
-                         {N, T0},
-                         lists:nthtail(N-1, tuple_to_list(T1))),
-    T.
-
-ft(undefined, {_, T}) ->
-    T;
-ft(Value, {Idx, T}) ->
-    setelement(Idx, T, Value).
 
 %% ---------------------------------------------------------------------------
 %% # fold_n/3

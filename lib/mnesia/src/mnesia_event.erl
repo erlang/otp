@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -114,7 +114,8 @@ handle_table_event({Oper, Record, TransId}, State) ->
 handle_system_event({mnesia_checkpoint_activated, _Checkpoint}, State) ->
     {ok, State};
 
-handle_system_event({mnesia_checkpoint_deactivated, _Checkpoint}, State) ->
+handle_system_event({mnesia_checkpoint_deactivated, Checkpoint}, State) ->
+    report_error("Checkpoint '~p' has been deactivated, last table copy deleted.\n",[Checkpoint]),
     {ok, State};
 
 handle_system_event({mnesia_up, Node}, State) ->

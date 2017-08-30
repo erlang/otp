@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +36,8 @@
 
 -export([schedulers_alive/1, node_container_refc_check/1,
 	 long_timers/1, pollset_size/1,
-	 check_io_debug/1, get_check_io_info/0]).
+	 check_io_debug/1, get_check_io_info/0,
+         leaked_processes/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -44,7 +45,10 @@ suite() ->
 
 all() -> 
     [schedulers_alive, node_container_refc_check,
-     long_timers, pollset_size, check_io_debug].
+     long_timers, pollset_size, check_io_debug,
+     %% Make sure that the leaked_processes/1 is always
+     %% run last.
+     leaked_processes].
 
 %%%
 %%% The test cases -------------------------------------------------------------
@@ -68,8 +72,8 @@ schedulers_alive(Config) when is_list(Config) ->
               enabled ->
                   io:format("Testing blocking process exit~n"),
                   BF = fun () ->
-                               blocked = erlang:system_flag(multi_scheduling,
-                                                            block),
+                               blocked_normal = erlang:system_flag(multi_scheduling,
+								   block_normal),
                                Master ! {self(), blocking},
                                receive after infinity -> ok end
                        end,
@@ -77,21 +81,21 @@ schedulers_alive(Config) when is_list(Config) ->
                   Mon = erlang:monitor(process, Blocker),
                   receive {Blocker, blocking} -> ok end,
                   [Blocker]
-                  = erlang:system_info(multi_scheduling_blockers),
+                  = erlang:system_info(normal_multi_scheduling_blockers),
                   unlink(Blocker),
                   exit(Blocker, kill),
                   receive {'DOWN', Mon, _, _, _} -> ok end,
                   enabled = erlang:system_info(multi_scheduling),
-                  [] = erlang:system_info(multi_scheduling_blockers),
+                  [] = erlang:system_info(normal_multi_scheduling_blockers),
                   ok
           end,
           io:format("Testing blocked~n"),
-          erlang:system_flag(multi_scheduling, block),
+          erlang:system_flag(multi_scheduling, block_normal),
           case erlang:system_info(multi_scheduling) of
               enabled ->
                   ct:fail(multi_scheduling_enabled);
-              blocked ->
-                  [Master] = erlang:system_info(multi_scheduling_blockers);
+              blocked_normal ->
+                  [Master] = erlang:system_info(normal_multi_scheduling_blockers);
               disabled -> ok
           end,
           Ps = lists:map(
@@ -109,8 +113,8 @@ schedulers_alive(Config) when is_list(Config) ->
                                 unlink(P),
                                 exit(P, bang)
                         end, Ps),
-          case erlang:system_flag(multi_scheduling, unblock) of
-              blocked -> ct:fail(multi_scheduling_blocked);
+          case erlang:system_flag(multi_scheduling, unblock_normal) of
+              blocked_normal -> ct:fail(multi_scheduling_blocked);
               disabled -> ok;
               enabled -> ok
           end,
@@ -191,7 +195,13 @@ node_container_refc_check(Config) when is_list(Config) ->
     ok.
 
 long_timers(Config) when is_list(Config) ->
-    ok = long_timers_test:check_result().
+    case long_timers_test:check_result() of
+	ok -> ok;
+	high_cpu -> {comment, "Ignored failures due to high CPU utilization"};
+	missing_cpu_info -> {comment, "Ignored failures due to missing CPU utilization information"};
+	Fail -> ct:fail(Fail)
+    end.
+	    
 
 pollset_size(Config) when is_list(Config) ->
     Name = pollset_size_testcase_initial_state_holder,
@@ -220,7 +230,7 @@ pollset_size(Config) when is_list(Config) ->
 				 "Pollset size information not available"}
 		  end;
 	      false ->
-		  %% Somtimes we have fewer descriptors in the
+		  %% Sometimes we have fewer descriptors in the
 		  %% pollset at the end than when we started, but
 		  %% that is ok as long as there are at least 2
 		  %% descriptors (dist listen socket and
@@ -279,6 +289,31 @@ has_gethost([P|T]) ->
 has_gethost([]) ->
     false.
 
+leaked_processes(Config) when is_list(Config) ->
+    %% Replace the defualt timetrap with a timetrap with
+    %% known pid.
+    test_server:timetrap_cancel(),
+    Dog = test_server:timetrap(test_server:minutes(5)),
+
+    Name = leaked_processes__process_holder,
+    Name ! {get_initial_processes, self()},
+    receive
+        {initial_processes, Initial0} -> ok
+    end,
+    Initial = ordsets:from_list(Initial0),
+
+    KnownPids = ordsets:from_list([self(),Dog]),
+    Now0 = ordsets:from_list(processes()),
+    Now = ordsets:subtract(Now0, KnownPids),
+    Leaked = ordsets:subtract(Now, Initial),
+
+    _ = [begin
+             Info = process_info(P) ++ process_info(P, [current_stacktrace]),
+             io:format("~p: ~p\n", [P,Info])
+         end || P <- Leaked],
+    Comment = lists:flatten(io_lib:format("~p process(es)",
+                                          [length(Leaked)])),
+    {comment, Comment}.
 
 %%
 %% Internal functions...

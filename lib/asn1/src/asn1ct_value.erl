@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,18 +19,17 @@
 %%
 %%
 -module(asn1ct_value).
--compile([{nowarn_deprecated_function,{asn1rt,utf8_list_to_binary,1}}]).
 
 %%  Generate Erlang values for ASN.1 types.
 %%  The value is randomized within it's constraints
 
 -include("asn1_records.hrl").
-%-compile(export_all).
 
 -export([from_type/2]).
 
-%% Generate examples of values ******************************
-%%****************************************x
+%%****************************************
+%% Generate examples of values
+%%****************************************
 
 
 from_type(M,Typename) ->
@@ -65,7 +64,11 @@ from_type(M,Typename,Type) when is_record(Type,type) ->
 	    end;
 	{constructed,bif} when Typename == ['EXTERNAL'] ->
 	    Val=from_type_constructed(M,Typename,InnerType,Type),
-	    asn1ct_eval_ext:transform_to_EXTERNAL1994(Val);
+            T = case M:maps() of
+                    false -> transform_to_EXTERNAL1994;
+                    true -> transform_to_EXTERNAL1994_maps
+                end,
+            asn1ct_eval_ext:T(Val);
 	{constructed,bif} ->
 	    from_type_constructed(M,Typename,InnerType,Type)
     end;
@@ -89,9 +92,6 @@ get_inner(T) when is_tuple(T) ->
 	Other ->
 	    Other
     end.
-%%get_inner(T) when is_tuple(T) -> element(1,T).
-
-
 
 from_type_constructed(M,Typename,InnerType,D) when is_record(D,type) ->
     case InnerType of
@@ -108,9 +108,7 @@ from_type_constructed(M,Typename,InnerType,D) when is_record(D,type) ->
 	'SET OF' ->
 	    {_,Type} = D#type.def,
 	    NameSuffix = asn1ct_gen:constructed_suffix(InnerType,Type#type.def),
-	    get_sequence_of(M,Typename,D,NameSuffix);
-	_ ->
-	    exit({nyi,InnerType})
+	    get_sequence_of(M,Typename,D,NameSuffix)
     end.
 
 get_sequence(M,Typename,Type) ->
@@ -119,11 +117,13 @@ get_sequence(M,Typename,Type) ->
 	    #'SEQUENCE'{components=Cl} -> {'SEQUENCE',Cl};
 	    #'SET'{components=Cl} -> {'SET',to_textual_order(Cl)}
 	end,
-    case get_components(M,Typename,CompList) of
-        [] ->
-            {list_to_atom(asn1ct_gen:list2rname(Typename))};
-        C ->
-            list_to_tuple([list_to_atom(asn1ct_gen:list2rname(Typename))|C])
+    Cs = get_components(M, Typename, CompList),
+    case M:maps() of
+        false ->
+            RecordTag = list_to_atom(asn1ct_gen:list2rname(Typename)),
+            list_to_tuple([RecordTag|[Val || {_,Val} <- Cs]]);
+        true ->
+            maps:from_list(Cs)
     end.
 
 get_components(M,Typename,{Root,Ext}) ->
@@ -131,9 +131,9 @@ get_components(M,Typename,{Root,Ext}) ->
 
 %% Should enhance this *** HERE *** with proper handling of extensions
 
-get_components(M,Typename,[H|T]) ->
-    [from_type(M,Typename,H)|
-    get_components(M,Typename,T)];
+get_components(M, Typename, [H|T]) ->
+    #'ComponentType'{name=Name} = H,
+    [{Name,from_type(M, Typename, H)}|get_components(M, Typename, T)];
 get_components(_,_,[]) ->
     [].
 
@@ -142,7 +142,8 @@ get_choice(M,Typename,Type) ->
     case TCompList of
 	[] -> 
 	    {asn1_EMPTY,asn1_EMPTY};
-	{CompList,ExtList} -> % Should be enhanced to handle extensions too
+	{CompList,ExtList} ->
+            %% should be enhanced to handle extensions too.
 	    CList = CompList ++ ExtList,
 	    C = lists:nth(random(length(CList)),CList),
 	    {C#'ComponentType'.name,from_type(M,Typename,C)};
@@ -242,14 +243,6 @@ from_type_prim(M, D) ->
 			_ ->
 			    {2#11111111,2,2}
 		    end;
-%% 		    Sign1 = random_sign(integer),
-%% 		    Sign2 = random_sign(integer),
-%% 		    {Sign1*random(10000),2,Sign2*random(1028)};
-%% 		2 ->
-%% 		    %% base 10 tuple format
-%% 		    Sign1 = random_sign(integer),
-%% 		    Sign2 = random_sign(integer),
-%% 		    {Sign1*random(10000),10,Sign2*random(1028)};
 		_ ->
 		    %% base 10 string format, NR3 format
 		    case random(2) of
@@ -292,12 +285,12 @@ from_type_prim(M, D) ->
 	'BMPString' ->
 	    adjust_list(size_random(C),c_string(C,"BMPString"));
 	'UTF8String' ->
-	    {ok,Res}=asn1rt:utf8_list_to_binary(adjust_list(random(50),[$U,$T,$F,$8,$S,$t,$r,$i,$n,$g,16#ffff,16#fffffff,16#ffffff,16#fffff,16#fff])),
-	    Res;
+            L = adjust_list(random(50),
+                            [$U,$T,$F,$8,$S,$t,$r,$i,$n,$g,
+                             16#ffff,16#ffee,16#10ffff,16#ffff,16#fff]),
+	    unicode:characters_to_binary(L);
 	'UniversalString' ->
-	    adjust_list(size_random(C),c_string(C,"UniversalString"));
-	XX ->
-	    exit({asn1_error,nyi,XX})
+	    adjust_list(size_random(C),c_string(C,"UniversalString"))
     end.
 
 c_string(C,Default) ->
@@ -335,22 +328,6 @@ random_unnamed_bit_string(M, C) ->
 	    PadLen = (8 - (bit_size(BitString) band 7)) band 7,
 	    {PadLen,<<BitString/bitstring,0:PadLen>>}
     end.
-
-%% FIXME:
-%% random_sign(integer) ->
-%%     case random(2) of
-%% 	2 ->
-%% 	    -1;
-%% 	_ ->
-%% 	    1
-%%     end;
-%% random_sign(string) ->
-%%     case random(2) of
-%% 	2 ->
-%% 	    "-";
-%% 	_ ->
-%% 	    ""
-%%     end.
 
 random(Upper) ->
     rand:uniform(Upper).
@@ -402,13 +379,6 @@ c_random(VRange,Single) ->
 	    S;
 	{_,S} when is_list(S) ->
 	    lists:nth(random(length(S)),S)
-%%	{S1,S2} ->
-%%	    io:format("asn1ct_value: hejsan hoppsan~n");
-%%	_ ->
-%%	    io:format("asn1ct_value: hejsan hoppsan 2~n")
-%%	    io:format("asn1ct_value: c_random/2: S1 = ~w~n"
-%%		      "S2 = ~w,~n",[S1,S2])
-%%	    exit(self(),goodbye)
     end.
 
 adjust_list(Len,Orig) ->

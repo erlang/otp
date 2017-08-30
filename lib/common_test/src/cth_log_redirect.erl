@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,10 +28,10 @@
 %% CTH Callbacks
 -export([id/1, init/2,
 	 pre_init_per_suite/3, pre_end_per_suite/3, post_end_per_suite/4,
-	 pre_init_per_group/3, post_init_per_group/4,
-	 pre_end_per_group/3, post_end_per_group/4,
-	 pre_init_per_testcase/3, post_init_per_testcase/4,
-	 pre_end_per_testcase/3, post_end_per_testcase/4]).
+	 pre_init_per_group/4, post_init_per_group/5,
+	 pre_end_per_group/4, post_end_per_group/5,
+	 pre_init_per_testcase/4, post_init_per_testcase/5,
+	 pre_end_per_testcase/4, post_end_per_testcase/5]).
 
 %% Event handler Callbacks
 -export([init/1,
@@ -71,11 +71,11 @@ post_end_per_suite(_Suite, Config, Return, State) ->
     set_curr_func(undefined, Config),
     {Return, State}.
 
-pre_init_per_group(Group, Config, State) ->
+pre_init_per_group(_Suite, Group, Config, State) ->
     set_curr_func({group,Group,init_per_group}, Config),
     {Config, State}.
 
-post_init_per_group(Group, Config, Result, tc_log_async) when is_list(Config) ->
+post_init_per_group(_Suite, Group, Config, Result, tc_log_async) when is_list(Config) ->
     case lists:member(parallel,proplists:get_value(
 				 tc_group_properties,Config,[])) of
 	true ->
@@ -83,33 +83,33 @@ post_init_per_group(Group, Config, Result, tc_log_async) when is_list(Config) ->
 	false ->
 	    {Result, tc_log_async}
     end;
-post_init_per_group(_Group, _Config, Result, State) ->
+post_init_per_group(_Suite, _Group, _Config, Result, State) ->
     {Result, State}.
 
-pre_init_per_testcase(TC, Config, State) ->
+pre_init_per_testcase(_Suite, TC, Config, State) ->
     set_curr_func(TC, Config),
     {Config, State}.
 
-post_init_per_testcase(_TC, _Config, Return, State) ->
+post_init_per_testcase(_Suite, _TC, _Config, Return, State) ->
     {Return, State}.
 
-pre_end_per_testcase(_TC, Config, State) ->
+pre_end_per_testcase(_Suite, _TC, Config, State) ->
     {Config, State}.
 
-post_end_per_testcase(_TC, _Config, Result, State) ->
+post_end_per_testcase(_Suite, _TC, _Config, Result, State) ->
     %% Make sure that the event queue is flushed
     %% before ending this test case.
     gen_event:call(error_logger, ?MODULE, flush, 300000),
     {Result, State}.
 
-pre_end_per_group(Group, Config, {tc_log, Group}) ->
+pre_end_per_group(_Suite, Group, Config, {tc_log, Group}) ->
     set_curr_func({group,Group,end_per_group}, Config),
     {Config, set_log_func(tc_log_async)};
-pre_end_per_group(Group, Config, State) ->
+pre_end_per_group(_Suite, Group, Config, State) ->
     set_curr_func({group,Group,end_per_group}, Config),
     {Config, State}.
 
-post_end_per_group(_Group, Config, Return, State) ->
+post_end_per_group(_Suite, _Group, Config, Return, State) ->
     set_curr_func({group,undefined}, Config),
     {Return, State}.
 
@@ -250,26 +250,26 @@ format_header(#eh_state{curr_suite = Suite,
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = undefined,
 			curr_func = TcOrConf}) ->
-    io_lib:format("System report during ~w:~w/1",
+    io_lib:format("System report during ~w:~tw/1",
 		  [Suite,TcOrConf]);
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = Group,
 			curr_func = Conf}) when Conf == init_per_group;
 						Conf == end_per_group ->
-    io_lib:format("System report during ~w:~w/2 for ~w",
+    io_lib:format("System report during ~w:~w/2 for ~tw",
 		  [Suite,Conf,Group]);
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = Group,
 			parallel_tcs = true}) ->
-    io_lib:format("System report during ~w in ~w",
+    io_lib:format("System report during ~tw in ~w",
 		  [Group,Suite]);
 
 format_header(#eh_state{curr_suite = Suite,
 			curr_group = Group,
 			curr_func = TC}) ->
-    io_lib:format("System report during ~w:~w/1 in ~w",
+    io_lib:format("System report during ~w:~tw/1 in ~tw",
 		  [Suite,TC,Group]).
 
 code_change(_OldVsn, State, _Extra) ->

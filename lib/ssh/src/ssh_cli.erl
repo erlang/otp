@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -208,8 +208,15 @@ handle_msg({Group, Req}, #state{group = Group, buf = Buf, pty = Pty,
     write_chars(ConnectionHandler, ChannelId, Chars),
     {ok, State#state{buf = NewBuf}};
 
-handle_msg({'EXIT', Group, _Reason}, #state{group = Group,
-					     channel = ChannelId} = State) ->
+handle_msg({'EXIT', Group, Reason}, #state{group = Group,
+					    cm = ConnectionHandler,
+					    channel = ChannelId} = State) ->
+    Status = case Reason of
+                 normal -> 0;
+                 _      -> -1
+             end,
+    ssh_connection:exit_status(ConnectionHandler, ChannelId, Status),
+    ssh_connection:send_eof(ConnectionHandler, ChannelId),
     {stop, ChannelId, State};
 
 handle_msg(_, State) ->
@@ -446,13 +453,19 @@ move_cursor(From, To, #ssh_pty{width=Width, term=Type}) ->
 %% %%% make sure that there is data to send
 %% %%% before calling ssh_connection:send
 write_chars(ConnectionHandler, ChannelId, Chars) ->
-    case erlang:iolist_size(Chars) of
-	0 ->
-	    ok;
-       _ ->
-	    ssh_connection:send(ConnectionHandler, ChannelId,
-				?SSH_EXTENDED_DATA_DEFAULT, Chars)
+    case has_chars(Chars) of
+        false -> ok;
+        true -> ssh_connection:send(ConnectionHandler,
+                                    ChannelId,
+                                    ?SSH_EXTENDED_DATA_DEFAULT,
+                                    Chars)
     end.
+
+has_chars([C|_]) when is_integer(C) -> true;
+has_chars([H|T]) when is_list(H) ; is_binary(H) -> has_chars(H) orelse has_chars(T);
+has_chars(<<_:8,_/binary>>) -> true;
+has_chars(_) -> false.
+    
 
 %%% tail, works with empty lists
 tl1([_|A]) -> A;
@@ -486,14 +499,12 @@ start_shell(ConnectionHandler, State) ->
 						  [peer, user]),
     ShellFun = case is_function(Shell) of
 		   true ->
-		       User = 
-			   proplists:get_value(user, ConnectionInfo),
+		       User = proplists:get_value(user, ConnectionInfo),
 		       case erlang:fun_info(Shell, arity) of
 			   {arity, 1} ->
 			       fun() -> Shell(User) end;
 			   {arity, 2} ->
-			       {_, PeerAddr} =
-				   proplists:get_value(peer, ConnectionInfo),
+			       {_, PeerAddr} = proplists:get_value(peer, ConnectionInfo),
 			       fun() -> Shell(User, PeerAddr) end;
 			   _ ->
 			       Shell
@@ -512,8 +523,7 @@ start_shell(ConnectionHandler, Cmd, #state{exec=Shell} = State) when is_function
 
     ConnectionInfo = ssh_connection_handler:connection_info(ConnectionHandler,
 						 [peer, user]),
-    User = 
-	proplists:get_value(user, ConnectionInfo),
+    User = proplists:get_value(user, ConnectionInfo),
     ShellFun = 
 	case erlang:fun_info(Shell, arity) of
 	    {arity, 1} ->
@@ -521,8 +531,7 @@ start_shell(ConnectionHandler, Cmd, #state{exec=Shell} = State) when is_function
 	    {arity, 2} ->
 		fun() -> Shell(Cmd, User) end;
 	    {arity, 3} ->
-		{_, PeerAddr} =
-		    proplists:get_value(peer, ConnectionInfo),
+		{_, PeerAddr} = proplists:get_value(peer, ConnectionInfo),
 		fun() -> Shell(Cmd, User, PeerAddr) end;
 	    _ ->
 		Shell

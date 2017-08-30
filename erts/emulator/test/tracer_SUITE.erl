@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2013. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -70,7 +70,7 @@ init_per_testcase(TC, Config) when TC =:= load; TC =:= reload ->
                                end
                        end),
     register(tracer_test_config, Pid),
-    Config;
+    common_init_per_testcase(Config);
 init_per_testcase(_, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     case catch tracer_test:enabled(trace_status, self(), self()) of
@@ -79,15 +79,51 @@ init_per_testcase(_, Config) ->
         _ ->
             tracer_test:load(DataDir)
     end,
+    common_init_per_testcase(Config).
+
+common_init_per_testcase(Config) ->
+    Killer = erlang:spawn(fun() -> killer_loop([]) end),
+    register(killer_process, Killer),
     Config.
 
 end_per_testcase(TC, _Config) when TC =:= load; TC =:= reload ->
     purge(),
     exit(whereis(tracer_test_config), kill),
-    ok;
+    kill_processes();
 end_per_testcase(_, _Config) ->
     purge(),
+    kill_processes().
+
+kill_processes() ->
+    killer_process ! {get_pids,self()},
+    receive
+        {pids_to_kill,Pids} -> ok
+    end,
+    _ = [begin
+             case erlang:is_process_alive(P) of
+                 true ->
+                     io:format("Killing ~p\n", [P]);
+                 false ->
+                     ok
+             end,
+             erlang:unlink(P),
+             exit(P, kill)
+         end || P <- Pids],
     ok.
+
+killer_loop(Pids) ->
+    receive
+        {add_pid,Pid} ->
+            killer_loop([Pid|Pids]);
+        {get_pids,To} ->
+            To ! {pids_to_kill,Pids}
+    end.
+
+kill_me(Pid) ->
+    killer_process ! {add_pid,Pid},
+    Pid.
+
+%%% Test cases follow.
 
 load(_Config) ->
     purge(),
@@ -112,7 +148,6 @@ unload(_Config) ->
                 end,
 
     Pid = erlang:spawn_link(fun() -> ServerFun(0, undefined) end),
-
 
     Tc = fun(N) ->
                  Pid ! {N, self()},
@@ -295,7 +330,7 @@ call_test(Arg) ->
 spawn(_Config) ->
 
     Tc = fun(Pid) ->
-                 Pid ! fun() -> erlang:spawn(lists,seq,[1,10]), ok end
+                 Pid ! fun() -> kill_me(erlang:spawn(lists,seq,[1,10])), ok end
          end,
 
     Expect =
@@ -355,6 +390,7 @@ unlink(_Config) ->
                                SPid = erlang:spawn(fun() -> receive _ -> ok end end),
                                erlang:link(SPid),
                                erlang:unlink(SPid),
+                               kill_me(SPid),
                                ok
                        end
          end,

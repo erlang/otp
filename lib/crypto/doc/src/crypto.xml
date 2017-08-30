@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2016</year>
+      <year>1999</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -41,6 +41,9 @@
         <p>Hmac functions - <url href="http://www.ietf.org/rfc/rfc2104.txt"> Keyed-Hashing for Message Authentication (RFC 2104) </url></p>
       </item>
       <item>
+        <p>Cmac functions - <url href="http://www.ietf.org/rfc/rfc4493.txt">The AES-CMAC Algorithm (RFC 4493)</url></p>
+      </item>
+      <item>
         <p>Block ciphers - <url href="http://csrc.nist.gov/groups/ST/toolkit/block_ciphers.html"> </url> DES and AES in
         Block Cipher Modes - <url href="http://csrc.nist.gov/groups/ST/toolkit/BCM/index.html"> ECB, CBC, CFB, OFB, CTR and GCM </url></p>
       </item>
@@ -74,7 +77,7 @@
 
     <code>rsa_private() = [key_value()] = [E, N, D] | [E, N, D, P1, P2, E1, E2, C] </code>
     <p>Where E is the public exponent, N is public modulus and D is
-    the private exponent.The longer key format contains redundant
+    the private exponent. The longer key format contains redundant
     information that will make the calculation faster. P1,P2 are first
     and second prime factors. E1,E2 are first and second exponents. C
     is the CRT coefficient. Terminology is taken from <url href="http://www.ietf.org/rfc/rfc3477.txt"> RFC 3447</url>.</p>
@@ -100,7 +103,7 @@
 
     <code>dh_private() = key_value() </code>
 
-    <code>dh_params() = [key_value()] = [P, G] </code>
+    <code>dh_params() = [key_value()] = [P, G] | [P, G, PrivateKeyBitLength]</code>
 
     <code>ecdh_public() = key_value() </code>
 
@@ -136,7 +139,7 @@
      <code>stream_cipher() = rc4 | aes_ctr </code>
 
      <code>block_cipher() =  aes_cbc | aes_cfb8 | aes_cfb128 | aes_ige256 | blowfish_cbc |
-     blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cbf | des_ede3 | rc2_cbc </code>
+     blowfish_cfb64 | des_cbc | des_cfb | des3_cbc | des3_cfb | des_ede3 | rc2_cbc </code>
 
      <code>aead_cipher() =  aes_gcm | chacha20_poly1305 </code>
 
@@ -161,7 +164,7 @@
      </p>
      <code> cipher_algorithms() = aes_cbc | aes_cfb8 | aes_cfb128 | aes_ctr | aes_gcm |
      aes_ige256 | blowfish_cbc | blowfish_cfb64 | chacha20_poly1305 | des_cbc | des_cfb |
-     des3_cbc | des3_cbf | des_ede3 | rc2_cbc | rc4 </code>
+     des3_cbc | des3_cfb | des_ede3 | rc2_cbc | rc4 </code>
      <code> public_key_algorithms() =   rsa |dss | ecdsa | dh | ecdh | ec_gf2m</code>
      <p>Note that ec_gf2m is not strictly a public key algorithm, but a restriction on what curves are supported
      with ecdsa and ecdh.
@@ -295,22 +298,32 @@
    <func>
       <name>generate_key(Type, Params) -> {PublicKey, PrivKeyOut} </name>
       <name>generate_key(Type, Params, PrivKeyIn) -> {PublicKey, PrivKeyOut} </name>
-      <fsummary>Generates a public keys of type <c>Type</c></fsummary>
+      <fsummary>Generates a public key of type <c>Type</c></fsummary>
       <type>
-	<v> Type = dh | ecdh | srp </v>
-	<v>Params = dh_params() | ecdh_params() | SrpUserParams | SrpHostParams </v>
+	<v> Type = dh | ecdh | rsa | srp </v>
+	<v>Params = dh_params() | ecdh_params() | RsaParams | SrpUserParams | SrpHostParams </v>
+	<v>RsaParams = {ModulusSizeInBits::integer(), PublicExponent::key_value()}</v>
 	<v>SrpUserParams = {user, [Generator::binary(), Prime::binary(), Version::atom()]}</v>
 	<v>SrpHostParams = {host, [Verifier::binary(), Generator::binary(), Prime::binary(), Version::atom()]}</v>
-	<v>PublicKey =  dh_public() | ecdh_public() | srp_public() </v>
+	<v>PublicKey =  dh_public() | ecdh_public() | rsa_public() | srp_public() </v>
 	<v>PrivKeyIn = undefined | dh_private() | ecdh_private() | srp_private() </v>
-	<v>PrivKeyOut =  dh_private() | ecdh_private() | srp_private() </v>
+	<v>PrivKeyOut =  dh_private() | ecdh_private() | rsa_private() | srp_private() </v>
       </type>
       <desc>
-	<p>Generates public keys of type <c>Type</c>.
-	See also <seealso marker="public_key:public_key#generate_key-1">public_key:generate_key/1</seealso>
-	May throw exception <c>low_entropy</c> in case the random generator
-	failed due to lack of secure "randomness".
-	</p>
+	<p>Generates a public key of type <c>Type</c>.
+	See also <seealso marker="public_key:public_key#generate_key-1">public_key:generate_key/1</seealso>.
+	May throw exception an exception of class <c>error</c>:
+        </p>
+        <list type="bulleted">
+          <item><c>badarg</c>: an argument is of wrong type or has an illegal value,</item>
+	  <item><c>low_entropy</c>: the random generator failed due to lack of secure "randomness",</item>
+          <item><c>computation_failed</c>: the computation fails of another reason than <c>low_entropy</c>.</item>
+        </list>
+	<note>
+	  <p>RSA key generation is only available if the runtime was
+	  built with dirty scheduler support. Otherwise, attempting to
+	  generate an RSA key will throw exception <c>error:notsup</c>.</p>
+	</note>
       </desc>
     </func>
 
@@ -454,6 +467,46 @@
     </func>
 
     <func>
+      <name>cmac(Type, Key, Data) -> Mac</name>
+      <name>cmac(Type, Key, Data, MacLength) -> Mac</name>
+      <fsummary>Calculates the Cipher-based Message Authentication Code.</fsummary>
+      <type>
+        <v>Type = block_cipher()</v>
+        <v>Key = iodata()</v>
+        <v>Data = iodata()</v>
+        <v>MacLength = integer()</v>
+        <v>Mac = binary()</v>
+      </type>
+      <desc>
+        <p>Computes a CMAC of type <c>Type</c> from <c>Data</c> using
+        <c>Key</c> as the authentication key.</p> <p><c>MacLength</c>
+        will limit the size of the resultant <c>Mac</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>info_fips() -> Status</name>
+      <fsummary>Provides information about the FIPS operating status.</fsummary>
+      <type>
+        <v>Status = enabled | not_enabled | not_supported</v>
+      </type>
+      <desc>
+        <p>Provides information about the FIPS operating status of
+        crypto and the underlying OpenSSL library. If crypto was built
+        with FIPS support this can be either <c>enabled</c> (when
+        running in FIPS mode) or <c>not_enabled</c>. For other builds
+        this value is always <c>not_supported</c>.</p>
+        <warning>
+          <p>In FIPS mode all non-FIPS compliant algorithms are
+          disabled and throw exception <c>not_supported</c>. Check
+          <seealso marker="#supports-0">supports</seealso> that in
+          FIPS mode returns the restricted list of available
+          algorithms.</p>
+        </warning>
+      </desc>
+    </func>
+
+    <func>
       <name>info_lib() -> [{Name,VerNum,VerStr}]</name>
       <fsummary>Provides information about the libraries used by crypto.</fsummary>
       <type>
@@ -468,7 +521,7 @@
         scheme. <c>VerStr</c> contains a text variant of the version.</p>
         <pre>
 > <input>info_lib().</input>
-[{&lt;&lt;"OpenSSL"&gt;&gt;,9469983,&lt;&lt;"OpenSSL 0.9.8a 11 Oct 2005"&gt;&gt;}]
+[{&lt;&lt;"OpenSSL"&gt;&gt;,269484095,&lt;&lt;"OpenSSL 1.1.0c  10 Nov 2016""&gt;&gt;}]
         </pre>
 	<note><p>
 	  From OTP R16 the <em>numeric version</em> represents the version of the OpenSSL
@@ -605,10 +658,11 @@
       </type>
       <desc>
         <p>Set the seed for PRNG to the given binary. This calls the
-	RAND_seed function from openssl. Only use this if the system
-	you are running on does not have enough "randomness" built in.
-	Normally this is when <seealso marker="#strong_rand_bytes/1">
-	strong_rand_bytes/1</seealso> returns <c>low_entropy</c></p>
+        RAND_seed function from openssl. Only use this if the system
+        you are running on does not have enough "randomness" built in.
+        Normally this is when
+        <seealso marker="#strong_rand_bytes/1">strong_rand_bytes/1</seealso>
+        throws <c>low_entropy</c></p>
       </desc>
     </func>
 
@@ -675,6 +729,43 @@
 	failed due to lack of secure "randomness".</p>
       </desc>
     </func>
+
+    <func>
+      <name>rand_seed() -> rand:state()</name>
+      <fsummary>Strong random number generation plugin state</fsummary>
+      <desc>
+	<p>
+          Creates state object for
+	  <seealso marker="stdlib:rand">random number generation</seealso>,
+          in order to generate cryptographically strong random numbers
+          (based on OpenSSL's <c>BN_rand_range</c>),
+          and saves it on process dictionary before returning it as well.
+          See also
+	  <seealso marker="stdlib:rand#seed-1">rand:seed/1</seealso>.
+	</p>
+        <p><em>Example</em></p>
+        <pre>
+_ = crypto:rand_seed(),
+_IntegerValue = rand:uniform(42), % [1; 42]
+_FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name>rand_seed_s() -> rand:state()</name>
+      <fsummary>Strong random number generation plugin state</fsummary>
+      <desc>
+	<p>
+          Creates state object for
+	  <seealso marker="stdlib:rand">random number generation</seealso>,
+          in order to generate cryptographically strongly random numbers
+          (based on OpenSSL's <c>BN_rand_range</c>).
+          See also
+	  <seealso marker="stdlib:rand#seed_s-1">rand:seed_s/1</seealso>.
+	</p>
+      </desc>
+    </func>
+
     <func>
       <name>stream_init(Type, Key) -> State</name>
       <fsummary></fsummary>

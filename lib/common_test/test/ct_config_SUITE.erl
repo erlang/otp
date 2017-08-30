@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -113,10 +113,14 @@ userconfig_static(Config) when is_list(Config) ->
              ["config_static_SUITE"]).
 
 userconfig_dynamic(Config) when is_list(Config) ->
-    run_test(config_dynamic_SUITE,
-	     Config,
-	     {userconfig, {config_driver, "config_server"}},
-             ["config_dynamic_SUITE"]).
+    case skip_dynamic() of
+	true -> {skip,"TimeWarpingOS"};
+	false ->
+	    run_test(config_dynamic_SUITE,
+		     Config,
+		     {userconfig, {config_driver, "config_server"}},
+		     ["config_dynamic_SUITE"])
+    end.
 
 testspec_legacy(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
@@ -147,16 +151,20 @@ testspec_static(Config) when is_list(Config) ->
     file:delete(filename:join(ConfigDir, "spec_static.spec")).
 
 testspec_dynamic(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    ConfigDir = ?config(config_dir, Config),
-    make_spec(DataDir, ConfigDir, "spec_dynamic.spec",
-	      [config_dynamic_SUITE],
-	      [{userconfig, {config_driver, "config_server"}}]),
-    run_test(config_dynamic_SUITE,
-	     Config,
-	     {spec, filename:join(ConfigDir, "spec_dynamic.spec")},
-             []),
-    file:delete(filename:join(ConfigDir, "spec_dynamic.spec")).
+    case skip_dynamic() of
+	true -> {skip,"TimeWarpingOS"};
+	false ->
+	    DataDir = ?config(data_dir, Config),
+	    ConfigDir = ?config(config_dir, Config),
+	    make_spec(DataDir, ConfigDir, "spec_dynamic.spec",
+		      [config_dynamic_SUITE],
+		      [{userconfig, {config_driver, "config_server"}}]),
+	    run_test(config_dynamic_SUITE,
+		     Config,
+		     {spec, filename:join(ConfigDir, "spec_dynamic.spec")},
+		     []),
+	    file:delete(filename:join(ConfigDir, "spec_dynamic.spec"))
+    end.
 
 
 
@@ -164,10 +172,10 @@ testspec_dynamic(Config) when is_list(Config) ->
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
 make_spec(DataDir, ConfigDir, Filename, Suites, Config)->
-    {ok, Fd} = file:open(filename:join(ConfigDir, Filename), [write]),
-    ok = file:write(Fd,
-		    io_lib:format("{suites, \"~sconfig/test/\", ~p}.~n", [DataDir, Suites])),
-    lists:foreach(fun(C)-> ok=file:write(Fd, io_lib:format("~p.~n", [C])) end, Config),
+    {ok, Fd} = file:open(filename:join(ConfigDir, Filename),
+                         [write, {encoding,utf8}]),
+    ok = io:format(Fd,"{suites, \"~tsconfig/test/\", ~p}.~n", [DataDir, Suites]),
+    lists:foreach(fun(C)-> ok=io:format(Fd, "~tp.~n", [C]) end, Config),
     ok = file:close(Fd).
 
 run_test(Name, Config, CTConfig, SuiteNames)->
@@ -197,6 +205,23 @@ setup_env(Test, Config, CTConfig) ->
 
 reformat_events(Events, EH) ->
     ct_test_support:reformat(Events, EH).
+
+
+%%%-----------------------------------------------------------------
+%%% Test related to 'localtime' will often fail if the test host is
+%%% time warping, so let's just skip the 'dynamic' tests then.
+skip_dynamic() ->
+    case os:getenv("TS_EXTRA_PLATFORM_LABEL") of
+	TSExtraPlatformLabel when is_list(TSExtraPlatformLabel) ->
+	    case string:str(TSExtraPlatformLabel,"TimeWarpingOS") of
+		0 -> false;
+		_ -> true
+	    end;
+	_ ->
+	    false
+    end.
+
+
 
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@
 
 canno(Cthing) -> element(2, Cthing).
 
--spec format(cerl:cerl()) -> iolist().
+-spec format(#k_mdef{}) -> iolist().
 
 format(Node) -> format(Node, #ctxt{}).
 
@@ -145,7 +145,7 @@ format_1(#k_local{name=N,arity=A}, Ctxt) ->
     "local " ++ format_fa_pair({N,A}, Ctxt);
 format_1(#k_remote{mod=M,name=N,arity=A}, _Ctxt) ->
     %% This is for our internal translator.
-    io_lib:format("remote ~s:~s/~w", [format(M),format(N),A]);
+    io_lib:format("remote ~ts:~ts/~w", [format(M),format(N),A]);
 format_1(#k_internal{name=N,arity=A}, Ctxt) ->
     "internal " ++ format_fa_pair({N,A}, Ctxt);
 format_1(#k_seq{arg=A,body=B}, Ctxt) ->
@@ -235,8 +235,13 @@ format_1(#k_bif{op=Op,args=As,ret=Rs}, Ctxt) ->
     [Txt,format_args(As, Ctxt1),
      format_ret(Rs, Ctxt1)
     ];
-format_1(#k_test{op=Op,args=As}, Ctxt) ->
-    Txt = ["test (",format(Op, ctxt_bump_indent(Ctxt, 6)),$)],
+format_1(#k_test{op=Op,args=As,inverted=Inverted}, Ctxt) ->
+    Txt = case Inverted of
+	      false ->
+		  ["test (",format(Op, ctxt_bump_indent(Ctxt, 6)),$)];
+	      true ->
+		  ["inverted_test (",format(Op, ctxt_bump_indent(Ctxt, 6)),$)]
+	  end,
     Ctxt1 = ctxt_bump_indent(Ctxt, 2),
     [Txt,format_args(As, Ctxt1)];
 format_1(#k_put{arg=A,ret=Rs}, Ctxt) ->
@@ -278,6 +283,15 @@ format_1(#k_try_enter{arg=A,vars=Vs,body=B,evars=Evs,handler=H}, Ctxt) ->
      format(H, Ctxt1),
      nl_indent(Ctxt),
      "end"
+    ];
+format_1(#k_protected{arg=A,ret=Rs}, Ctxt) ->
+    Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.body_indent),
+    ["protected",
+     nl_indent(Ctxt1),
+     format(A, Ctxt1),
+     nl_indent(Ctxt),
+     "end",
+     format_ret(Rs, ctxt_bump_indent(Ctxt, 1))
     ];
 format_1(#k_catch{body=B,ret=Rs}, Ctxt) ->
     Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.body_indent),

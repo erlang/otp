@@ -131,7 +131,8 @@ init([ListenAddr, ListenPort, PeerAddr, PeerPort | _Options]) ->
 	    S = #state{local_addr = ListenAddr,
 		       local_port = ListenPort,
 		       lpid = LPid,
-		       peer_addr = PeerAddr,
+		       peer_addr = ssh_test_lib:ntoa(
+                                     ssh_test_lib:mangle_connect_address(PeerAddr)),
 		       peer_port = PeerPort
 		      },
 	    {ok, S};
@@ -241,11 +242,11 @@ handle_info(stop, State) ->
     {stop, normal, State};
 
 handle_info({'DOWN', _Ref, _process, LPid, Reason}, S) when S#state.lpid == LPid ->
-    io:format("Acceptor has finished: ~p~n", [Reason]),
+    io:format("Acceptor in ~p has finished: ~p~n", [?MODULE,Reason]),
     {noreply, S};
 
 handle_info(_Info, State) ->
-    io:format("Unhandled info: ~p~n", [_Info]),
+    io:format("~p:~p Unhandled info: ~p~n", [?MODULE,?LINE,_Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------

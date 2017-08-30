@@ -30,8 +30,8 @@
     <file>part.xml</file>
   </header>
   <description>
-    <p>The Erlang Runtime System Application <em>ERTS</em>.</p>
   </description>
+  <xi:include href="introduction.xml"/>
   <xi:include href="communication.xml"/>
   <xi:include href="time_correction.xml"/>
   <xi:include href="match_spec.xml"/>

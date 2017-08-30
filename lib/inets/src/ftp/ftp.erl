@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,14 +100,21 @@
 	  ftp_extension = ?FTP_EXT_DEFAULT
 	 }).
 
+-record(recv_chunk_closing, {
+          dconn_closed = false,
+          pos_compl_received = false,
+          client_called_us = false
+         }).
+
 
 -type shortage_reason()  :: 'etnospc' | 'epnospc'.
 -type restriction_reason() :: 'epath' | 'efnamena' | 'elogin' | 'enotbinary'.
 -type common_reason() ::  'econn' | 'eclosed' | term().
 -type file_write_error_reason() :: term(). % See file:write for more info
 
-%%-define(DBG(F,A), 'n/a').
--define(DBG(F,A), io:format(F,A)).
+-define(DBG(F,A), 'n/a').
+%%-define(DBG(F,A), io:format(F,A)).
+%%-define(DBG(F,A), ct:pal("~p:~p " ++ if is_list(F) -> F; is_atom(F) -> atom_to_list(F) end, [?MODULE,?LINE|A])).
 
 %%%=========================================================================
 %%%  API - CLIENT FUNCTIONS
@@ -1095,7 +1102,7 @@ init(Options) ->
     erlang:monitor(process, Client),
 
     %% Make sure inet is started
-    inet_db:start(),
+    _ = inet_db:start(),
     
     %% Where are we
     {ok, Dir} = file:get_cwd(),
@@ -1105,15 +1112,17 @@ init(Options) ->
 	trace ->
 	    dbg:tracer(),
 	    dbg:p(all, [call]),
-	    dbg:tpl(ftp, [{'_', [], [{return_trace}]}]),
-	    dbg:tpl(ftp_response, [{'_', [], [{return_trace}]}]),
-	    dbg:tpl(ftp_progress, [{'_', [], [{return_trace}]}]);
+	    {ok, _} = dbg:tpl(ftp, [{'_', [], [{return_trace}]}]),
+	    {ok, _} = dbg:tpl(ftp_response, [{'_', [], [{return_trace}]}]),
+	    {ok, _} = dbg:tpl(ftp_progress, [{'_', [], [{return_trace}]}]),
+	    ok;
 	debug ->
 	    dbg:tracer(),
 	    dbg:p(all, [call]),
-	    dbg:tp(ftp, [{'_', [], [{return_trace}]}]),
-	    dbg:tp(ftp_response, [{'_', [], [{return_trace}]}]),
-	    dbg:tp(ftp_progress, [{'_', [], [{return_trace}]}]); 
+	    {ok, _} = dbg:tp(ftp, [{'_', [], [{return_trace}]}]),
+	    {ok, _} = dbg:tp(ftp_response, [{'_', [], [{return_trace}]}]),
+	    {ok, _} = dbg:tp(ftp_progress, [{'_', [], [{return_trace}]}]),
+	    ok; 
 	_ ->
 	    %% Keep silent
 	    ok
@@ -1295,8 +1304,7 @@ handle_call({_,{rmdir, Dir}}, From, #state{chunk = false} = State) ->
     activate_ctrl_connection(State),
     {noreply, State#state{client = From}};
 
-handle_call({_,{type, Type}}, From,  #state{chunk = false} 
-	    = State) ->  
+handle_call({_,{type, Type}}, From, #state{chunk = false} = State) ->  
     case Type of
 	ascii ->
 	    send_ctrl_message(State, mk_cmd("TYPE A", [])),
@@ -1340,6 +1348,25 @@ handle_call({_,{recv_chunk_start, RemoteFile}}, From, #state{chunk = false}
 
 handle_call({_, recv_chunk}, _, #state{chunk = false} = State) ->
     {reply, {error, "ftp:recv_chunk_start/2 not called"}, State}; 
+
+handle_call({_, recv_chunk}, _From, #state{chunk = true,
+                                           caller = #recv_chunk_closing{dconn_closed       = true,
+                                                                        pos_compl_received = true
+                                                                       }
+                                          } = State0) ->
+    %% The ftp:recv_chunk call was the last event we waited for, finnish and clean up
+    ?DBG("recv_chunk_closing ftp:recv_chunk, last event",[]),
+    activate_ctrl_connection(State0),
+    {reply, ok, State0#state{caller = undefined,
+                             chunk = false,
+                             client = undefined}};
+    
+handle_call({_, recv_chunk}, From, #state{chunk = true,
+                                          caller = #recv_chunk_closing{} = R
+                                         } = State) ->
+    %% Waiting for more, don't care what
+    ?DBG("recv_chunk_closing ftp:recv_chunk, get more",[]),
+    {noreply, State#state{client = From, caller = R#recv_chunk_closing{client_called_us=true}}};
 
 handle_call({_, recv_chunk}, From, #state{chunk = true} = State0) ->
     State = activate_data_connection(State0),
@@ -1454,7 +1481,7 @@ handle_info({Trpt, Socket, Data},
 	    #state{dsock = {Trpt,Socket},
 		   caller = {recv_file, Fd}} = State0) when Trpt==tcp;Trpt==ssl ->    
     ?DBG('L~p --data ~p ----> ~s~p~n',[?LINE,Socket,Data,State0]),
-    file_write(binary_to_list(Data), Fd),
+    ok = file_write(binary_to_list(Data), Fd),
     progress_report({binary, Data}, State0),
     State = activate_data_connection(State0),
     {noreply, State};
@@ -1473,24 +1500,29 @@ handle_info({Trpt, Socket, Data}, #state{dsock = {Trpt,Socket}} = State0) when T
 				  Data/binary>>}};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
-					 caller = {recv_file, Fd}} 
-	    = State) when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+				  caller = {recv_file, Fd}} = State)
+  when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
     file_close(Fd),
     progress_report({transfer_size, 0}, State),
     activate_ctrl_connection(State),
+    ?DBG("Data channel close",[]),
     {noreply, State#state{dsock = undefined, data = <<>>}};
 
-handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, client = From,
-					 caller = recv_chunk} 
-	    = State) when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
-    gen_server:reply(From, ok),
-    {noreply, State#state{dsock = undefined, client = undefined,
-			  data = <<>>, caller = undefined,
-			  chunk = false}};
+handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket},
+                                  client = Client,
+				  caller = recv_chunk} = State)
+  when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+    ?DBG("Data channel close recv_chunk",[]),
+    activate_ctrl_connection(State),
+    {noreply, State#state{dsock = undefined,
+                          caller = #recv_chunk_closing{dconn_closed     =  true,
+                                                       client_called_us =  Client =/= undefined}
+                         }};
 
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, caller = recv_bin, 
 					 data = Data} = State)
   when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+    ?DBG("Data channel close",[]),
     activate_ctrl_connection(State),
     {noreply, State#state{dsock = undefined, data = <<>>, 
 			  caller = {recv_bin, Data}}};
@@ -1498,6 +1530,7 @@ handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, caller = recv_bin,
 handle_info({Cls, Socket}, #state{dsock = {Trpt,Socket}, data = Data,
 					 caller = {handle_dir_result, Dir}} 
 	    = State) when {Cls,Trpt}=={tcp_closed,tcp} ; {Cls,Trpt}=={ssl_closed,ssl} ->
+    ?DBG("Data channel close",[]),
     activate_ctrl_connection(State),
     {noreply, State#state{dsock = undefined, 
 			  caller = {handle_dir_result, Dir, Data},
@@ -1599,13 +1632,13 @@ terminate(normal, State) ->
     %% If terminate reason =/= normal the progress reporting process will
     %% be killed by the exit signal.
     progress_report(stop, State), 
-    do_termiante({error, econn}, State);
+    do_terminate({error, econn}, State);
 terminate(Reason, State) -> 
     Report = io_lib:format("Ftp connection closed due to: ~p~n", [Reason]),
     error_logger:error_report(Report),
-    do_termiante({error, eclosed}, State).
+    do_terminate({error, eclosed}, State).
 
-do_termiante(ErrorMsg, State) ->
+do_terminate(ErrorMsg, State) ->
     close_data_connection(State),
     close_ctrl_connection(State),
     case State#state.client of
@@ -2044,6 +2077,30 @@ handle_ctrl_result({pos_prel, _}, #state{client = From,
     end;
 
 %%--------------------------------------------------------------------------
+%% File handling - chunk_transfer complete
+
+handle_ctrl_result({pos_compl, _}, #state{client = From,
+                                          caller = #recv_chunk_closing{dconn_closed       = true,
+                                                                       client_called_us   = true,
+                                                                       pos_compl_received = false
+                                                                      }}
+		   = State0) when From =/= undefined ->
+    %% The pos_compl was the last event we waited for, finnish and clean up
+    ?DBG("recv_chunk_closing pos_compl, last event",[]),
+    gen_server:reply(From, ok),
+    activate_ctrl_connection(State0),
+    {noreply, State0#state{caller = undefined,
+                           chunk = false,
+                           client = undefined}};
+
+handle_ctrl_result({pos_compl, _}, #state{caller = #recv_chunk_closing{}=R}
+		   = State0) ->
+    %% Waiting for more, don't care what
+    ?DBG("recv_chunk_closing pos_compl, wait more",[]),
+    {noreply, State0#state{caller = R#recv_chunk_closing{pos_compl_received=true}}};
+
+
+%%--------------------------------------------------------------------------
 %% File handling - recv_file
 handle_ctrl_result({pos_prel, _}, #state{caller = {recv_file, _}} = State0) ->
     case accept_data_connection(State0) of
@@ -2099,7 +2156,7 @@ handle_ctrl_result({pos_prel, _}, #state{caller = {transfer_data, Bin}}
 
 %%--------------------------------------------------------------------------
 %% Default
-handle_ctrl_result({Status, Lines}, #state{client = From} = State) 
+handle_ctrl_result({Status, _Lines}, #state{client = From} = State) 
   when From =/= undefined ->
     ctrl_result_response(Status, State, {error, Status}).
 
@@ -2220,16 +2277,16 @@ setup_data_connection(#state{mode   = active,
 	    {ok, Port} = inet:port(LSock),
 	    case FtpExt of
 	    	false ->
-			    {IP1, IP2, IP3, IP4} = IP,
-			    {Port1, Port2} = {Port div 256, Port rem 256},
-			    send_ctrl_message(State, 
-					      mk_cmd("PORT ~w,~w,~w,~w,~w,~w",
-						     [IP1, IP2, IP3, IP4, Port1, Port2]));
-			true -> 
-			    IpAddress = inet_parse:ntoa(IP),
-			    Cmd = mk_cmd("EPRT |1|~s|~p|", [IpAddress, Port]),
-			    send_ctrl_message(State, Cmd)
-		end,	        
+		    {IP1, IP2, IP3, IP4} = IP,
+		    {Port1, Port2} = {Port div 256, Port rem 256},
+		    send_ctrl_message(State, 
+				      mk_cmd("PORT ~w,~w,~w,~w,~w,~w",
+					     [IP1, IP2, IP3, IP4, Port1, Port2]));
+		true ->
+		    IpAddress = inet_parse:ntoa(IP),
+		    Cmd = mk_cmd("EPRT |1|~s|~p|", [IpAddress, Port]),
+		    send_ctrl_message(State, Cmd)
+	    end,	        
 	    activate_ctrl_connection(State),
 	    {noreply, State#state{caller = {setup_data_connection, 
 					    {LSock, Caller}}}}
@@ -2337,7 +2394,7 @@ accept_data_connection(#state{mode = passive} = State) ->
 send_ctrl_message(_S=#state{csock = Socket, verbose = Verbose}, Message) ->
     verbose(lists:flatten(Message),Verbose,send),
     ?DBG('<--ctrl ~p ---- ~s~p~n',[Socket,Message,_S]),
-    send_message(Socket, Message).
+    _ = send_message(Socket, Message).
 
 send_data_message(_S=#state{dsock = Socket}, Message) ->
     ?DBG('<==data ~p ==== ~s~n~p~n',[Socket,Message,_S]),
@@ -2358,24 +2415,34 @@ send_message({tcp, Socket}, Message) ->
 send_message({ssl, Socket}, Message) ->
     ssl:send(Socket, Message).
 
-activate_ctrl_connection(#state{csock = Socket, ctrl_data = {<<>>, _, _}}) ->
-    activate_connection(Socket);
-activate_ctrl_connection(#state{csock = Socket}) ->
+activate_ctrl_connection(#state{csock = CSock, ctrl_data = {<<>>, _, _}}) ->
+    activate_connection(CSock);
+activate_ctrl_connection(#state{csock = CSock}) ->
+    activate_connection(CSock),
     %% We have already received at least part of the next control message,
     %% that has been saved in ctrl_data, process this first.
-    self() ! {tcp, unwrap_socket(Socket), <<>>}.
+    self() ! {socket_type(CSock), unwrap_socket(CSock), <<>>},
+    ok.
 
-unwrap_socket({tcp,Socket}) -> Socket;
-unwrap_socket({ssl,Socket}) -> Socket;
-unwrap_socket(Socket) -> Socket.
-    
-
-activate_data_connection(#state{dsock = Socket} = State) ->
-    activate_connection(Socket),
+activate_data_connection(#state{dsock = DSock} = State) ->
+    activate_connection(DSock),
     State.
 
-activate_connection({tcp, Socket}) ->  inet:setopts(Socket, [{active, once}]);
-activate_connection({ssl, Socket}) ->  ssl:setopts(Socket, [{active, once}]).
+activate_connection(Socket) ->
+    ignore_return_value(
+      case socket_type(Socket) of
+          tcp -> inet:setopts(unwrap_socket(Socket), [{active, once}]);
+          ssl -> ssl:setopts(unwrap_socket(Socket), [{active, once}])
+      end).
+
+
+ignore_return_value(_) -> ok.
+
+unwrap_socket({tcp,Socket}) -> Socket;
+unwrap_socket({ssl,Socket}) -> Socket.
+    
+socket_type({tcp,_Socket}) -> tcp;
+socket_type({ssl,_Socket}) -> ssl.
 
 close_ctrl_connection(#state{csock = undefined}) -> ok;
 close_ctrl_connection(#state{csock = Socket}) -> close_connection(Socket).
@@ -2383,16 +2450,16 @@ close_ctrl_connection(#state{csock = Socket}) -> close_connection(Socket).
 close_data_connection(#state{dsock = undefined}) -> ok;
 close_data_connection(#state{dsock = Socket}) -> close_connection(Socket).
 
-close_connection({lsock,Socket}) ->  gen_tcp:close(Socket);
-close_connection({tcp, Socket}) -> gen_tcp:close(Socket);
-close_connection({ssl, Socket}) -> ssl:close(Socket).
+close_connection({lsock,Socket}) -> ignore_return_value( gen_tcp:close(Socket) );
+close_connection({tcp, Socket})  -> ignore_return_value( gen_tcp:close(Socket) );
+close_connection({ssl, Socket})  -> ignore_return_value( ssl:close(Socket) ).
 
-%%  ------------ FILE HANDELING  ----------------------------------------   
+%%  ------------ FILE HANDLING  ----------------------------------------   
 send_file(#state{tls_upgrading_data_connection = {true, CTRL, _}} = State, Fd) ->
     {noreply, State#state{tls_upgrading_data_connection = {true, CTRL, ?MODULE, send_file, Fd}}};
 send_file(State, Fd) ->
     case file_read(Fd) of
-	{ok, N, Bin} when N > 0->
+	{ok, N, Bin} when N > 0 ->
 	    send_data_message(State, Bin),
 	    progress_report({binary, Bin}, State),
 	    send_file(State, Fd);
@@ -2412,7 +2479,7 @@ file_open(File, Option) ->
   file:open(File, [raw, binary, Option]).
 
 file_close(Fd) ->
-  file:close(Fd).
+    ignore_return_value( file:close(Fd) ).
 
 file_read(Fd) ->				
     case file:read(Fd, ?FILE_BUFSIZE) of
@@ -2504,7 +2571,7 @@ progress_report(stop, #state{progress = ProgressPid}) ->
     ftp_progress:stop(ProgressPid);
 progress_report({binary, Data}, #state{progress = ProgressPid}) ->
     ftp_progress:report(ProgressPid, {transfer_size, size(Data)});
-progress_report(Report,  #state{progress = ProgressPid}) ->
+progress_report(Report, #state{progress = ProgressPid}) ->
     ftp_progress:report(ProgressPid, Report).
 
 

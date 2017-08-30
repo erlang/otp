@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ do_gen_server_crash(Config) ->
     error_logger:logfile(close),
 
     check_file(KernelLog, 70000, 150000),
-    check_file(SaslLog, 50000, 100000),
+    check_file(SaslLog, 100000, 150000),
 
     ok.
 

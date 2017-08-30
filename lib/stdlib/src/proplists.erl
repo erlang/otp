@@ -1,8 +1,3 @@
-%%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,14 +10,8 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% %CopyrightEnd%
-%%
-%% =====================================================================
-%% Support functions for property lists
-%%
-%% Copyright (C) 2000-2003 Richard Carlsson
-%% ---------------------------------------------------------------------
-%%
+%% @copyright 2000-2003 Richard Carlsson
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @doc Support functions for property lists.
 %%
 %% <p>Property lists are ordinary lists containing entries in the form
@@ -94,7 +83,7 @@ property(Key, Value) ->
 
 %% ---------------------------------------------------------------------
 
-%% @doc Unfolds all occurences of atoms in <code>ListIn</code> to tuples
+%% @doc Unfolds all occurrences of atoms in <code>ListIn</code> to tuples
 %% <code>{Atom, true}</code>.
 %%
 %% @see compact/1

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -913,8 +913,6 @@ mnesia_read(State) ->
     case mnesia:wread({oe_CosPropertyService, ?get_DBKey(State)}) of
 	[#oe_CosPropertyService{properties = X}] ->
 	    X;
-        {atomic, []} ->
-            {'EXCEPTION', #'OBJECT_NOT_EXIST'{completion_status=?COMPLETED_NO}};
         _Other ->
 	    {'EXCEPTION', #'INTERNAL'{completion_status=?COMPLETED_NO}}
     end.

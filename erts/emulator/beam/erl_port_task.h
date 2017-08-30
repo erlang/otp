@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -188,13 +188,13 @@ erts_port_task_init_sched(ErtsPortTaskSched *ptsp, Eterm instr_id)
     ptsp->taskq.in.last = NULL;
     erts_smp_atomic32_init_nob(&ptsp->flags, 0);
 #ifdef ERTS_SMP
-    erts_mtx_init_x(&ptsp->mtx, lock_str, instr_id,
 #ifdef ERTS_ENABLE_LOCK_COUNT
-		    (erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK)
+    erts_mtx_init_x_opt(&ptsp->mtx, lock_str, instr_id,
+			((erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK)
+			 ? 0 : ERTS_LCNT_LT_DISABLE));
 #else
-		    1
+    erts_mtx_init_x(&ptsp->mtx, lock_str, instr_id);
 #endif
-		    );
 #endif
 }
 
@@ -267,7 +267,6 @@ int erts_port_task_schedule(Eterm,
 			    ErtsPortTaskType,
 			    ...);
 void erts_port_task_free_port(Port *);
-int erts_port_is_scheduled(Port *);
 ErtsProc2PortSigData *erts_port_task_alloc_p2p_sig_data(void);
 ErtsProc2PortSigData *erts_port_task_alloc_p2p_sig_data_extra(size_t extra, void **extra_ptr);
 void erts_port_task_free_p2p_sig_data(ErtsProc2PortSigData *sigdp);

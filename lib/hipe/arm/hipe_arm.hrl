@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 %%%--------------------------------------------------------------------
 %%% Basic Values:
@@ -108,6 +101,7 @@
 -record(pseudo_call_prepare, {nrstkargs}).
 -record(pseudo_li, {dst, imm, label}).	% pre-generated label for use by the assembler
 -record(pseudo_move, {dst, src}).
+-record(pseudo_spill_move, {dst, temp, src}).
 -record(pseudo_switch, {jtab, index, labels}).
 -record(pseudo_tailcall, {funv, arity, stkargs, linkage}).
 -record(pseudo_tailcall_prepare, {}).

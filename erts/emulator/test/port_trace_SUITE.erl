@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@
 -define(ECHO_DRV_REMOTE_SEND_TERM, 15).
 
 suite() -> [{ct_hooks,[ts_install_cth]},
-            {timetrap, {seconds, 30}}].
+            {timetrap, {minutes, 2}}].
 
 all() ->
     [port_specs, ports, open_close,

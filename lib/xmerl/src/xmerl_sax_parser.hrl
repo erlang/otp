@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -88,14 +88,7 @@
 	  current_location,         % Location of the currently parsed XML entity
 	  entity,                   % Parsed XML entity
 	  skip_external_dtd = false,% If true the external DTD is skipped during parsing
-	  input_type                % Source type: file | stream. 
-                                    % This field is a preparation for an fix in R17 of a bug in 
-                                    % the conformance against the standard.
-                                    % Today a file which contains two XML documents will be considered 
-                                    % well-formed and the second is placed in the rest part of the 
-                                    % return tuple, according to the conformance tests this should fail.
-                                    % In the future this will fail if xmerl_sax_aprser:file/2 is used but 
-                                    % left to the user in the xmerl_sax_aprser:stream/2 case.
+	  input_type                % Source type: file | stream
 	 }).
 
 

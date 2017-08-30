@@ -649,7 +649,7 @@ guard_test(#param{def=Def}) when Def =/= none -> skip;
 guard_test(#param{where=c})  -> skip;
 guard_test(#param{in=In}) when In == false -> skip;
 guard_test(#param{name=N, type=#type{base=string}}) ->
-    "is_list(" ++ erl_arg_name(N) ++")";
+    "?is_chardata(" ++ erl_arg_name(N) ++")";
 guard_test(#param{name=N, type=#type{name="wxArtClient"}}) ->
     "is_list(" ++ erl_arg_name(N) ++")";
 guard_test(#param{name=N, type=#type{name="wxArrayString"}}) ->
@@ -801,8 +801,13 @@ doc_arg_type(_, _) -> skip.
 doc_arg_type2(T) ->
     doc_arg_type2(T, in).
 
-doc_arg_type2(T=#type{single=Single}, Out) when Single =:= array; Single =:= list ->
-    "[" ++ doc_arg_type3(T, Out) ++ "]";
+doc_arg_type2(T=#type{single=Single}, Out) ->
+    case Single of
+        array -> "[" ++ doc_arg_type3(T, Out) ++ "]";
+        list -> "[" ++ doc_arg_type3(T, Out) ++ "]";
+        {list, _} -> "[" ++ doc_arg_type3(T, Out) ++ "]";
+        true -> doc_arg_type3(T, Out)
+    end;
 doc_arg_type2(T, Out) ->
     doc_arg_type3(T, Out).
 
@@ -1207,7 +1212,7 @@ gen_event_recs() ->
     w("-type wx() :: #wx{}. %% wx event record ~n",[]),
     w("%% Here comes the definitions of all event records.~n"
       "%% they contain the event type and possible some extra information.~n~n",[]),
-    Events = [build_event_rec(C) || {_,C=#class{event=Evs}} <- get(), Evs =/= false],
+    Events = [build_event_rec(C) || {_,C=#class{event=Evs}} <- lists:sort(get()), Evs =/= false],
     EventSubTypes = [Type || {_Rec, Type} <- Events],
     EventRecs = [Rec || {Rec, _Type} <- Events],
     w("-type event() :: ~s.~n",

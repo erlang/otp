@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -131,7 +131,7 @@ handshake_other_started(#hs_data{request_type=ReqType}=HSData0) ->
 			     other_version=Version,
 			     other_node=Node,
 			     other_started=true},
-    check_dflag_xnc(HSData),
+    check_dflags(HSData),
     is_allowed(HSData),
     ?debug({"MD5 connection from ~p (V~p)~n",
 	    [Node, HSData#hs_data.other_version]}),
@@ -143,7 +143,11 @@ handshake_other_started(#hs_data{request_type=ReqType}=HSData0) ->
     ChallengeB = recv_challenge_reply(HSData, ChallengeA, MyCookie),
     send_challenge_ack(HSData, gen_digest(ChallengeB, HisCookie)),
     ?debug({dist_util, self(), accept_connection, Node}),
-    connection(HSData).
+    connection(HSData);
+
+handshake_other_started(OldHsData) when element(1,OldHsData) =:= hs_data ->
+    handshake_other_started(convert_old_hsdata(OldHsData)).
+
 
 %%
 %% check if connecting node is allowed to connect
@@ -164,27 +168,24 @@ is_allowed(#hs_data{other_node = Node,
 %% Check that both nodes can handle the same types of extended
 %% node containers. If they can not, abort the connection.
 %%
-check_dflag_xnc(#hs_data{other_node = Node,
-			 other_flags = OtherFlags,
-			 other_started = OtherStarted} = HSData) ->
-    XRFlg = ?DFLAG_EXTENDED_REFERENCES,
-    XPPFlg = case erlang:system_info(compat_rel) of
-		 R when R >= 10 ->
-		     ?DFLAG_EXTENDED_PIDS_PORTS;
-		 _ ->
-		     0
-	     end,
-    ReqXncFlags = XRFlg bor XPPFlg,
-    case OtherFlags band ReqXncFlags =:= ReqXncFlags of
-	true ->
-	    ok;
-	false ->
-	    What = case {OtherFlags band XRFlg =:= XRFlg,
-			 OtherFlags band XPPFlg =:= XPPFlg} of
-		       {false, false} -> "references, pids and ports";
-		       {true, false} -> "pids and ports";
-		       {false, true} -> "references"
-		   end,
+check_dflags(#hs_data{other_node = Node,
+                      other_flags = OtherFlags,
+                      other_started = OtherStarted} = HSData) ->
+
+    Mandatory = [{?DFLAG_EXTENDED_REFERENCES, "EXTENDED_REFERENCES"},
+                 {?DFLAG_EXTENDED_PIDS_PORTS, "EXTENDED_PIDS_PORTS"},
+                 {?DFLAG_UTF8_ATOMS, "UTF8_ATOMS"}],
+    Missing = lists:filtermap(fun({Bit, Str}) ->
+                                      case Bit band OtherFlags of
+                                          Bit -> false;
+                                          0 -> {true, Str}
+                                      end
+                              end,
+                              Mandatory),
+    case Missing of
+        [] ->
+            ok;
+        _ ->
 	    case OtherStarted of
 		true ->
 		    send_status(HSData, not_allowed),
@@ -195,9 +196,9 @@ check_dflag_xnc(#hs_data{other_node = Node,
 		    How = "aborted"
 	    end,
 	    error_msg("** ~w: Connection attempt ~s node ~w ~s "
-		      "since it cannot handle extended ~s. "
-		      "**~n", [node(), Dir, Node, How, What]),
-	    ?shutdown2(Node, {check_dflag_xnc_failed, What})
+		      "since it cannot handle ~p."
+		      "**~n", [node(), Dir, Node, How, Missing]),
+	    ?shutdown2(Node, {check_dflags_failed, Missing})
     end.
 
 
@@ -323,14 +324,27 @@ handshake_we_started(#hs_data{request_type=ReqType,
     NewHSData = HSData#hs_data{this_flags = ThisFlags,
 			       other_flags = OtherFlags, 
 			       other_started = false}, 
-    check_dflag_xnc(NewHSData),
+    check_dflags(NewHSData),
     MyChallenge = gen_challenge(),
     {MyCookie,HisCookie} = get_cookies(Node),
     send_challenge_reply(NewHSData,MyChallenge,
 			 gen_digest(ChallengeA,HisCookie)),
     reset_timer(NewHSData#hs_data.timer),
     recv_challenge_ack(NewHSData, MyChallenge, MyCookie),
-    connection(NewHSData).
+    connection(NewHSData);
+
+handshake_we_started(OldHsData) when element(1,OldHsData) =:= hs_data ->
+    handshake_we_started(convert_old_hsdata(OldHsData)).
+
+convert_old_hsdata({hs_data, KP, ON, TN, S, T, TF, A, OV, OF, OS, FS, FR,
+		    FS_PRE, FS_POST, FG, FA, MFT, MFG, RT}) ->
+    #hs_data{
+       kernel_pid = KP, other_node = ON, this_node = TN, socket = S, timer = T,
+       this_flags = TF, allowed = A, other_version = OV, other_flags = OF,
+       other_started = OS, f_send = FS, f_recv = FR, f_setopts_pre_nodeup = FS_PRE,
+       f_setopts_post_nodeup = FS_POST, f_getll = FG, f_address = FA,
+       mf_tick = MFT, mf_getstat = MFG, request_type = RT}.
+
 
 %% --------------------------------------------------------------
 %% The connection has been established.
@@ -350,15 +364,15 @@ connection(#hs_data{other_node = Node,
 	    mark_nodeup(HSData,Address),
 	    case FPostNodeup(Socket) of
 		ok ->
-		    con_loop(HSData#hs_data.kernel_pid, 
-			     Node, 
-			     Socket, 
-			     Address,
-			     HSData#hs_data.this_node, 
-			     PType,
-			     #tick{},
-			     HSData#hs_data.mf_tick,
-			     HSData#hs_data.mf_getstat);
+		    con_loop({HSData#hs_data.kernel_pid,
+			      Node,
+			      Socket,
+			      PType,
+			      HSData#hs_data.mf_tick,
+			      HSData#hs_data.mf_getstat,
+			      HSData#hs_data.mf_setopts,
+			      HSData#hs_data.mf_getopts},
+			     #tick{});
 		_ ->
 		    ?shutdown2(Node, connection_setup_failed)
 	    end;
@@ -454,8 +468,8 @@ mark_nodeup(#hs_data{kernel_pid = Kernel,
 	    ?shutdown(Node)
     end.
 
-con_loop(Kernel, Node, Socket, TcpAddress,
-	 MyNode, Type, Tick, MFTick, MFGetstat) ->
+con_loop({Kernel, Node, Socket, Type, MFTick, MFGetstat, MFSetOpts, MFGetOpts}=ConData,
+	 Tick) ->
     receive
 	{tcp_closed, Socket} ->
 	    ?shutdown2(Node, connection_closed);
@@ -468,15 +482,12 @@ con_loop(Kernel, Node, Socket, TcpAddress,
 		_ ->
 		    ignore_it
 	    end,
-	    con_loop(Kernel, Node, Socket, TcpAddress, MyNode, Type,
-		     Tick, MFTick, MFGetstat);
+	    con_loop(ConData, Tick);
 	{Kernel, tick} ->
 	    case send_tick(Socket, Tick, Type, 
 			   MFTick, MFGetstat) of
 		{ok, NewTick} ->
-		    con_loop(Kernel, Node, Socket, TcpAddress,
-			     MyNode, Type, NewTick, MFTick,  
-			     MFGetstat);
+		    con_loop(ConData, NewTick);
 		{error, not_responding} ->
  		    error_msg("** Node ~p not responding **~n"
  			      "** Removing (timedout) connection **~n",
@@ -489,13 +500,24 @@ con_loop(Kernel, Node, Socket, TcpAddress,
 	    case MFGetstat(Socket) of
 		{ok, Read, Write, _} ->
 		    From ! {self(), get_status, {ok, Read, Write}},
-		    con_loop(Kernel, Node, Socket, TcpAddress, 
-			     MyNode, 
-			     Type, Tick, 
-			     MFTick, MFGetstat);
+		    con_loop(ConData, Tick);
 		_ ->
 		    ?shutdown2(Node, get_status_failed)
-	    end
+	    end;
+	{From, Ref, {setopts, Opts}} ->
+	    Ret = case MFSetOpts of
+		      undefined -> {error, enotsup};
+		      _ -> MFSetOpts(Socket, Opts)
+		  end,
+	    From ! {Ref, Ret},
+	    con_loop(ConData, Tick);
+	{From, Ref, {getopts, Opts}} ->
+	    Ret = case MFGetOpts of
+		      undefined -> {error, enotsup};
+		      _ -> MFGetOpts(Socket, Opts)
+		  end,
+	    From ! {Ref, Ret},
+	    con_loop(ConData, Tick)
     end.
 
 
@@ -550,11 +572,24 @@ recv_name(#hs_data{socket = Socket, f_recv = Recv}) ->
 	    ?shutdown(no_node)
     end.
 
-get_name([$n,VersionA, VersionB, Flag1, Flag2, Flag3, Flag4 | OtherNode]) ->
-    {?u32(Flag1, Flag2, Flag3, Flag4), list_to_atom(OtherNode), 
-     ?u16(VersionA,VersionB)};
+get_name([$n,VersionA, VersionB, Flag1, Flag2, Flag3, Flag4 | OtherNode] = Data) ->
+    case is_valid_name(OtherNode) of
+        true ->
+            {?u32(Flag1, Flag2, Flag3, Flag4), list_to_atom(OtherNode), 
+             ?u16(VersionA,VersionB)};
+        false ->
+            ?shutdown(Data)
+    end;
 get_name(Data) ->
     ?shutdown(Data).
+
+is_valid_name(OtherNodeName) ->
+    case string:lexemes(OtherNodeName,"@") of
+        [_OtherNodeName,_OtherNodeHost] ->
+            true;
+        _else ->
+            false
+    end.
 
 publish_type(Flags) ->
     case Flags band ?DFLAG_PUBLISHED of

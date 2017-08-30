@@ -200,7 +200,7 @@
 	<seealso marker="app"><c>app(4)</c></seealso>.</p>
         <p>If <c><anno>Distributed</anno> == {<anno>Application</anno>,[<anno>Time</anno>,]<anno>Nodes</anno>}</c>,
           the application becomes distributed. The argument overrides
-          the value for the application in the <c>Kernel</c> configuration
+          the value for the application in the Kernel configuration
           parameter <c>distributed</c>. <c><anno>Application</anno></c> must be
           the application name (same as in the first argument).
           If a node crashes and <c><anno>Time</anno></c> is specified,
@@ -221,7 +221,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           the application is to be started at <c>cp2@cave</c>
           or <c>cp3@cave</c>.</p>
         <p>If <c>Distributed == default</c>, the value for
-          the application in the <c>Kernel</c> configuration parameter
+          the application in the Kernel configuration parameter
           <c>distributed</c> is used.</p>
       </desc>
     </func>
@@ -267,7 +267,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           started, <c>Application</c> is started as well.</p>
         <p>By default, all applications are loaded with permission
           <c>true</c> on all nodes. The permission can be configured
-          using the <c>Kernel</c> configuration parameter <c>permissions</c>.</p>
+          using the Kernel configuration parameter <c>permissions</c>.</p>
       </desc>
     </func>
     <func>

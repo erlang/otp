@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2016</year>
+      <year>2002</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,7 +33,258 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.3</title>
+  <section><title>Inets 6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    httpd_util:rfc1123_date/1 gracefully handle invalid DST
+	    dates by returning the original time in the expected
+	    rfc1123 format.</p>
+          <p>
+	    Own Id: OTP-14394</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add unicode binary support to http_uri functions</p>
+          <p>
+	    Own Id: OTP-14404</p>
+        </item>
+        <item>
+          <p>
+	    httpc - Change timeout handling so the redirects cause a
+	    new timer to be set. This means that a simple redirected
+	    request could return after 2*timeout milliseconds.</p>
+          <p>
+	    Own Id: OTP-14429</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The close of a chunked file reception crashed in a
+	    certain timing sequence.</p>
+          <p>
+	    Own Id: OTP-14391 Aux Id: seq13306 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added missing release note for inets-6.3.7</p>
+          <p>
+	    Own Id: OTP-14383</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a bug in ftp that made further operations after a
+	    recv_chunk operation impossible.</p>
+          <p>
+	    Own Id: OTP-14242</p>
+        </item>
+
+        <item>
+          <p>Make default port, 80 and 443, implicit in automatic redirection.
+	  </p>
+          <p> Own Id: OTP-14301
+	  </p>
+        </item>        
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Chunk size decoding could fail. The symptom was that
+	    chunk decoding sometimes failed depending on timing of
+	    the received stream. If chunk size was split into two
+	    different packets decoding would fail.</p>
+          <p>
+	    Own Id: OTP-13571 Aux Id: ERL-116 </p>
+        </item>
+        <item>
+          <p>
+	    Prevent httpc user process to hang if httpc_handler
+	    process terminates unexpectedly</p>
+          <p>
+	    Own Id: OTP-14091</p>
+        </item>
+        <item>
+          <p>
+	    Correct Host header, to include port number, when
+	    redirecting requests.</p>
+          <p>
+	    Own Id: OTP-14097</p>
+        </item>
+        <item>
+          <p>
+	    Shutdown gracefully on connection or TLS handshake errors</p>
+          <p>
+	    Own Id: OTP-14173 Aux Id: seq13262 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct misstakes in ftp client introduced in inets-6.3.4</p>
+          <p>
+	    Own Id: OTP-14203 Aux Id: OTP-13982 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixes a bug that makes the ftp client end up in bad state
+	    if there is a multi line response from the server and the
+	    response number is in the message being sent.</p>
+          <p>
+	    Own Id: OTP-13960 Aux Id: PR1196 </p>
+        </item>
+        <item>
+          <p>
+	    The ftp client could stop consuming messages when the
+	    multiline response handling was corrected.</p>
+          <p>
+	    Own Id: OTP-13967</p>
+        </item>
+        <item>
+          <p>
+	    Fix keep-alive https through proxy connections so that
+	    all requests, following the first one, will run as
+	    expected instead of failing.</p>
+          <p>
+	    Own Id: OTP-14041</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug from commit
+	    fdfda2fab0921d409789174556582db28141448e that could make
+	    listing of group members in mod_auth callbacks fail.</p>
+          <p>
+	    Own Id: OTP-14082</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Update behavior of httpc:request to match RFC-7231</p>
+          <p>
+	    Own Id: OTP-13902</p>
+        </item>
+        <item>
+          <p>
+	    Fixed dialyzer warnings as well as some white-space
+	    issues. Thanks to Kostis.</p>
+          <p>
+	    Own Id: OTP-13982 Aux Id: PR-1207 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The legacy option 'inet6fb4' for inets had stopped
+	    working. This bug has now been corrected. Fix by Edwin
+	    Fine in bugs.erlang.org ERL-200 and Github PR#1132.</p>
+          <p>
+	    Own Id: OTP-13776 Aux Id: ERL-200 PR-1132 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    PUT and DELETE support has been added to mod_esi</p>
+          <p>
+	    Own Id: OTP-13688 Aux Id: seq13149 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A debug message was accidently left enabled in the ftp
+	    client.</p>
+          <p>
+	    Own Id: OTP-13712 Aux Id: seq13143 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
@@ -185,6 +436,21 @@
 
 </section>
 
+  <section><title>Inets 6.1.1.1</title>
+  
+   <section><title>Fixed Bugs and Malfunctions</title>
+     <list>
+       <item>
+         <p>
+         Mend ipv6_host_with_brackets option in httpc</p>
+         <p>
+         Own Id: OTP-13417</p>
+       </item>
+     </list>
+   </section>
+  
+  </section>
+  
 <section><title>Inets 6.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -591,7 +857,7 @@
       <list>
         <item>
           <p>
-	    Gracefully handle invalid content-lenght headers instead
+	    Gracefully handle invalid content-length headers instead
 	    of crashing in list_to_integer.</p>
           <p>
 	    Own Id: OTP-12429</p>

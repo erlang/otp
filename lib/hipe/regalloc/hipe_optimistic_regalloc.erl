@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%-----------------------------------------------------------------------
 %% File    : hipe_optimistic_regalloc.erl
@@ -29,7 +23,7 @@
 %%-----------------------------------------------------------------------
 
 -module(hipe_optimistic_regalloc).
--export([regalloc/5]).
+-export([regalloc/7]).
 
 -ifndef(DEBUG).
 %%-define(DEBUG,true).
@@ -74,20 +68,22 @@
 %%   SpillLimit  -- Temporaris with numbers higher than this have
 %%                  infinit spill cost. 
 %%                  Consider changing this to a set.
-%%   Target      -- The module containing the target-specific functions.
+%%   TgtMod      -- The module containing the target-specific functions.
+%%   TgtCtx      -- Context data for TgtMod
 %%
 %% Returns:
 %%   Coloring    -- A coloring for specified CFG
-%%   SpillIndex0 -- A new spill index
+%%   SpillIndex2 -- A new spill index
 %%-----------------------------------------------------------------------
 -ifdef(COMPARE_ITERATED_OPTIMISTIC).
-regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
-  ?debug_msg("optimistic ~w\n",[Target]),
+regalloc(CFG, Liveness, SpillIndex, SpillLimit, TgtMod, TgtCtx, _Options) ->
+  Target = {TgtMod, TgtCtx},
+  ?debug_msg("optimistic ~w\n",[TgtMod]),
   ?debug_msg("CFG: ~p\n",[CFG]),
   %% Build interference graph
   ?debug_msg("Build IG\n",[]),
-  IG_O = hipe_ig:build(CFG, Target),
-  IG = hipe_ig:build(CFG, Target),
+  IG_O = hipe_ig:build(CFG, Liveness, TgtMod, TgtCtx),
+  IG = hipe_ig:build(CFG, Liveness, TgtMod, TgtCtx),
   ?debug_msg("adjlist: ~p\n",[hipe_ig:adj_list(IG)]),
   ?debug_msg("IG:\n",[]),
   ?print_adjacent(IG),
@@ -98,9 +94,9 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   SavedAdjList = hipe_ig:adj_list(IG),
 
   ?debug_msg("Init\n",[]),
-  No_temporaries = Target:number_of_temporaries(CFG),
+  No_temporaries = number_of_temporaries(CFG, Target),
   ?debug_msg("Coalescing RA: num_temps = ~p~n", [No_temporaries]),
-  Allocatable = Target:allocatable(),
+  Allocatable = allocatable(Target),
   K = length(Allocatable),
   All_colors = colset_from_list(Allocatable),
   ?debug_msg("K: ~w~nAll_colors: ~p\n",[K, All_colors]), 
@@ -113,11 +109,13 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   ?mov_print_memberships(Move_sets),
 
   ?debug_msg("Build Worklist\n",[]),
-  Worklists_O = hipe_reg_worklists:new(IG_O, Target, CFG, Move_sets_O, K, No_temporaries),
+  Worklists_O = hipe_reg_worklists:new(IG_O, TgtMod, TgtCtx, CFG, Move_sets_O,
+				       K, No_temporaries),
   ?debug_msg("Worklists:\n ~p\n", [Worklists_O]),
   ?reg_print_memberships(Worklists_O),
 
-  Worklists = hipe_reg_worklists:new(IG, Target, CFG, K, No_temporaries),
+  Worklists = hipe_reg_worklists:new(IG, TgtMod, TgtCtx, CFG, K,
+				     No_temporaries),
   ?debug_msg("New Worklists:\n ~p\n", [Worklists]),
   ?reg_print_memberships(Worklists),
 
@@ -175,10 +173,10 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
 
   ?debug_msg("Init node sets\n",[]),
   Node_sets = hipe_node_sets:new(),
-  %% ?debug_msg("NodeSet: ~w\n NonAlloc ~w\n",[Node_sets,Target:non_alloc(CFG)]),
+  %% ?debug_msg("NodeSet: ~w\n NonAlloc ~w\n",[Node_sets,non_alloc(CFG,Target)]),
   ?debug_msg("Default coloring\n",[]),
   {Color0,Node_sets1} = 
-    defaultColoring(Target:all_precoloured(),
+    defaultColoring(all_precoloured(Target),
 		    initColor(No_temporaries), Node_sets, Target),
   ?debug_msg("Color0\n",[]),
   ?print_colors(No_temporaries, Color0),
@@ -199,9 +197,10 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   ?debug_msg("Nodes:~w\nNodes2:~w\nNo_temporaries:~w\n",[Node_sets,Node_sets2,No_temporaries]),
 
   ?debug_msg("Build mapping _N ~w\n",[Node_sets2]),
-  Coloring = build_namelist(Node_sets2,SpillIndex,Alias2,Color1),
+  {Coloring,SpillIndex2} =
+    build_namelist(Node_sets2,SpillIndex,Alias2,Color1),
   ?debug_msg("Coloring ~p\n",[Coloring]),
-  SortedColoring = { sort_stack(element(1, Coloring)), element(2, Coloring)},
+  SortedColoring = {sort_stack(Coloring), SpillIndex2},
   ?debug_msg("SortedColoring ~p\n",[SortedColoring]),
   %%Coloring.
   ?debug_msg("----------------------Assign colors _O\n",[]),
@@ -217,14 +216,15 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   SortedColoring_O = {sort_stack(element(1, Coloring_O)), element(2, Coloring_O)},
   ?debug_msg("SortedColoring_O ~p\n",[SortedColoring_O]),
   sanity_compare(SortedColoring_O, SortedColoring),
-  Coloring.
+  {Coloring,SpillIndex2}.
 -else.
-regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
-  ?debug_msg("optimistic ~w\n",[Target]),
+regalloc(CFG, Liveness, SpillIndex, SpillLimit, TgtMod, TgtCtx, _Options) ->
+  Target = {TgtMod, TgtCtx},
+  ?debug_msg("optimistic ~w\n",[TgtMod]),
   ?debug_msg("CFG: ~p\n",[CFG]),
   %% Build interference graph
   ?debug_msg("Build IG\n",[]),
-  IG = hipe_ig:build(CFG, Target),
+  IG = hipe_ig:build(CFG, Liveness, TgtMod, TgtCtx),
   ?debug_msg("adjlist: ~p\n",[hipe_ig:adj_list(IG)]),
   ?debug_msg("IG:\n",[]),
   ?print_adjacent(IG),
@@ -235,9 +235,9 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   SavedAdjList = hipe_ig:adj_list(IG),
 
   ?debug_msg("Init\n",[]),
-  No_temporaries = Target:number_of_temporaries(CFG),
+  No_temporaries = number_of_temporaries(CFG, Target),
   ?debug_msg("Coalescing RA: num_temps = ~p~n", [No_temporaries]),
-  Allocatable = Target:allocatable(),
+  Allocatable = allocatable(Target),
   K = length(Allocatable),
   All_colors = colset_from_list(Allocatable),
   ?debug_msg("K: ~w~nAll_colors: ~p\n",[K, All_colors]), 
@@ -250,7 +250,8 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
 
   ?debug_msg("Build Worklist\n",[]),
 
-  Worklists = hipe_reg_worklists:new(IG, Target, CFG, K, No_temporaries),
+  Worklists = hipe_reg_worklists:new(IG, TgtMod, TgtCtx, CFG, K,
+				     No_temporaries),
   ?debug_msg("New Worklists:\n ~p\n", [Worklists]),
   ?reg_print_memberships(Worklists),
 
@@ -292,10 +293,10 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
 
   ?debug_msg("Init node sets\n",[]),
   Node_sets = hipe_node_sets:new(),
-  %% ?debug_msg("NodeSet: ~w\n NonAlloc ~w\n",[Node_sets,Target:non_alloc(CFG)]),
+  %% ?debug_msg("NodeSet: ~w\n NonAlloc ~w\n",[Node_sets,non_alloc(CFG,Target)]),
   ?debug_msg("Default coloring\n",[]),
   {Color0,Node_sets1} = 
-    defaultColoring(Target:all_precoloured(),
+    defaultColoring(all_precoloured(Target),
 		    initColor(No_temporaries), Node_sets, Target),
   ?debug_msg("Color0\n",[]),
   ?print_colors(No_temporaries, Color0),
@@ -316,9 +317,9 @@ regalloc(CFG, SpillIndex, SpillLimit, Target, _Options) ->
   ?debug_msg("Nodes:~w\nNodes2:~w\nNo_temporaries:~w\n",[Node_sets,Node_sets2,No_temporaries]),
 
   ?debug_msg("Build mapping _N ~w\n",[Node_sets2]),
-  Coloring = build_namelist(Node_sets2,SpillIndex,Alias2,Color1),
+  {Coloring, SpillIndex2} = build_namelist(Node_sets2,SpillIndex,Alias2,Color1),
   ?debug_msg("Coloring ~p\n",[Coloring]),
-  Coloring.
+  {Coloring,SpillIndex2}.
 -endif.
 
 %%----------------------------------------------------------------------
@@ -834,7 +835,8 @@ sort_stack_split(Pivot, [H|T], Smaller, Bigger) ->
 %%                       been coalesced, this mapping shows the alias for that 
 %%                       node.
 %%   AllColors       --  This is an ordset containing all the available colors
-%%   Target          --  The module containing the target-specific functions.
+%%   Target          --  The module containing the target-specific functions,
+%%                       along with its context data.
 %%
 %% Returns:
 %%   Color          --  A mapping from nodes to their respective color.
@@ -874,7 +876,7 @@ assignColors(Worklists, Stack, NodeSets, Color, No_Temporaries,
 	false -> % Color case
 	  Col = colset_smallest(OkColors),
 	  NodeSets1 = hipe_node_sets:add_colored(Node, NodeSets),
-	  Color1 = setColor(Node, Target:physical_name(Col), Color),
+	  Color1 = setColor(Node, physical_name(Col,Target), Color),
 	  ?debug_msg("Color case. Assigning color ~p to node.~n", [Col]),
 	  assignColors(Worklists, Stack1, NodeSets1, Color1, No_Temporaries, SavedAdjList, SavedSpillCosts, IG, Alias, AllColors, Target)
       end
@@ -902,7 +904,8 @@ assignColors(Worklists, Stack, NodeSets, Color, No_Temporaries,
 %%   Alias           --  This is a mapping from nodes to nodes. If a node has 
 %%                       been coalesced, this mapping shows the alias for that 
 %%                       node.
-%%   Target          --  The module containing the target-specific functions.
+%%   Target          --  The module containing the target-specific functions,
+%%                       along with its context data.
 %%
 %% Returns:
 %%   Alias           --  The restored aliases after the uncoalescing.
@@ -1006,7 +1009,7 @@ colorSplit([], _Col, NodeSets, Color, _Target) ->
 colorSplit([Node|Nodes], Col, NodeSets, Color, Target) ->
   ?debug_msg("  Coloring node ~p with color ~p.~n", [Node, Col]),
   NodeSets1 = hipe_node_sets:add_colored(Node, NodeSets),
-  Color1 = setColor(Node, Target:physical_name(Col), Color),
+  Color1 = setColor(Node, physical_name(Col,Target), Color),
   colorSplit(Nodes, Col, NodeSets1, Color1, Target).
 
 %% Place non-colorable nodes in a split at the bottom of the SelectStack.
@@ -1035,7 +1038,8 @@ enqueueSplit([Node|Nodes], IG, Stack) ->
 %%                      node.
 %%   AllColors      --  This is an ordset containing all the available colors
 %%
-%%   Target         --  The module containing the target-specific functions.
+%%   Target         --  The module containing the target-specific functions,
+%%                      along with its context data.
 %%
 %% Returns:
 %%   Color          --  A mapping from nodes to their respective color.
@@ -1065,7 +1069,7 @@ assignColors_O(Stack,NodeSets,Color,Alias,AllColors,Target) ->
 	false -> % Colour case
 	  Col = colset_smallest(OkColors),
 	  NodeSets1 = hipe_node_sets:add_colored(Node, NodeSets),
-	  Color1 = setColor(Node, Target:physical_name(Col), Color),
+	  Color1 = setColor(Node, physical_name(Col,Target), Color),
 	  assignColors_O(Stack1, NodeSets1, Color1, Alias, AllColors, Target)
       end
   end.
@@ -1079,7 +1083,8 @@ assignColors_O(Stack,NodeSets,Color,Alias,AllColors,Target) ->
 %%   Regs           -- The list of registers to be default colored
 %%   Color          -- The color mapping that shall be changed
 %%   NodeSets       -- The node sets that shall be updated
-%%   Target         -- The module containing the target-specific functions.
+%%   Target         -- The module containing the target-specific functions,
+%%                     along with its context data.
 %%
 %% Returns:
 %%   NewColor       -- The updated color mapping
@@ -1089,7 +1094,7 @@ assignColors_O(Stack,NodeSets,Color,Alias,AllColors,Target) ->
 defaultColoring([], Color, NodeSets, _Target) ->
   {Color,NodeSets};
 defaultColoring([Reg|Regs], Color, NodeSets, Target) ->
-  Color1 = setColor(Reg,Target:physical_name(Reg), Color),
+  Color1 = setColor(Reg,physical_name(Reg,Target), Color),
   NodeSets1 = hipe_node_sets:add_colored(Reg, NodeSets),
   defaultColoring(Regs, Color1, NodeSets1, Target).
 
@@ -1283,7 +1288,7 @@ coalesce(Moves, IG, Worklists, Alias, K, Target) ->
       ?debug_msg("Testing nodes ~p and ~p for coalescing~n",[Dest,Source]),
       Alias_src = getAlias(Source, Alias),
       Alias_dst = getAlias(Dest, Alias),
-      {U,V} = case Target:is_precoloured(Alias_dst) of
+      {U,V} = case is_precoloured(Alias_dst, Target) of
 		true -> {Alias_dst, Alias_src};
 		false -> {Alias_src, Alias_dst}
 	      end,
@@ -1293,13 +1298,13 @@ coalesce(Moves, IG, Worklists, Alias, K, Target) ->
 	  %% drop coalesced move Move
 	  {Moves0, IG, Alias, Worklists};
 	_ ->
-	  case (Target:is_precoloured(V) orelse
+	  case (is_precoloured(V, Target) orelse
 		hipe_ig:nodes_are_adjacent(U, V, IG)) of 
 	    true ->
 	      %% drop constrained move Move
 	      {Moves0, IG, Alias, Worklists};
 	    false ->
-	      case (case Target:is_precoloured(U) of
+	      case (case is_precoloured(U, Target) of
 		      true ->
 			AdjV = hipe_ig:node_adj_list(V, IG),
 			all_adjacent_ok(AdjV, U, Worklists, IG, K, Target);
@@ -1350,7 +1355,7 @@ coalesce_O(Moves, IG, Worklists, Alias, K, Target) ->
       ?debug_msg("Testing nodes ~p and ~p for coalescing~n",[Dest,Source]),
       Alias_src = getAlias(Source, Alias),
       Alias_dst = getAlias(Dest, Alias),
-      {U,V} = case Target:is_precoloured(Alias_dst) of
+      {U,V} = case is_precoloured(Alias_dst, Target) of
 		true -> {Alias_dst, Alias_src};
 		false -> {Alias_src, Alias_dst}
 	      end,
@@ -1361,7 +1366,7 @@ coalesce_O(Moves, IG, Worklists, Alias, K, Target) ->
 	  Worklists1 = add_worklist(Worklists, U, K, Moves1, IG, Target),
 	  {Moves1, IG, Worklists1, Alias};
 	 _ ->
-	  case (Target:is_precoloured(V) orelse
+	  case (is_precoloured(V, Target) orelse
 		hipe_ig:nodes_are_adjacent(U, V, IG)) of 
 	    true ->
 	      Moves1 = Moves0, % drop constrained move Move
@@ -1369,7 +1374,7 @@ coalesce_O(Moves, IG, Worklists, Alias, K, Target) ->
 	      Worklists2 = add_worklist(Worklists1, V, K, Moves1, IG, Target),
 	      {Moves1, IG, Worklists2, Alias};
 	    false ->
-	      case (case Target:is_precoloured(U) of
+	      case (case is_precoloured(U, Target) of
 		      true ->
 			AdjV = hipe_ig:node_adj_list(V, IG),
 			all_adjacent_ok(AdjV, U, Worklists, IG, K, Target);
@@ -1405,7 +1410,8 @@ coalesce_O(Moves, IG, Worklists, Alias, K, Target) ->
 %%   K             -- Number of registers
 %%   Moves         -- Current move information
 %%   IG            -- Interference graph
-%%   Target        -- The containing the target-specific functions
+%%   Target        -- The containing the target-specific functions, along with
+%%                    its context data.
 %%   
 %% Returns:
 %%   Worklists (updated)
@@ -1413,7 +1419,7 @@ coalesce_O(Moves, IG, Worklists, Alias, K, Target) ->
 
 -ifdef(COMPARE_ITERATED_OPTIMISTIC).
 add_worklist(Worklists, U, K, Moves, IG, Target) ->
-  case (not(Target:is_precoloured(U))
+  case (not(is_precoloured(U, Target))
 	andalso not(hipe_moves:move_related(U, Moves))
 	andalso (hipe_ig:is_trivially_colourable(U, K, IG))) of
     true ->
@@ -1524,12 +1530,12 @@ combine(U, V, IG, Alias, Worklists, K, Target) ->
 
 combine_edges([], _U, IG, _Worklists, _K, _Target) ->
   IG;
-combine_edges([T|Ts], U, IG, Worklists, K, Target) ->
+combine_edges([T|Ts], U, IG, Worklists, K, Target={TgtMod,TgtCtx}) ->
   case hipe_reg_worklists:member_stack_or_coalesced(T, Worklists) of
     true -> combine_edges(Ts, U, IG, Worklists, K, Target);
     _ ->
-      IG1 = hipe_ig:add_edge(T, U, IG, Target),
-      IG2 = case Target:is_precoloured(T) of
+      IG1 = hipe_ig:add_edge(T, U, IG, TgtMod, TgtCtx),
+      IG2 = case is_precoloured(T, Target) of
 	      true -> IG1;
 	      false -> hipe_ig:dec_node_degree(T, IG1)
 	    end,
@@ -1559,7 +1565,7 @@ combine_edges([T|Ts], U, IG, Worklists, K, Target) ->
 -ifdef(COMPARE_ITERATED_OPTIMISTIC).
 combine_edges_O([], _U, IG, Worklists, Moves, _K, _Target) ->
   {IG, Worklists, Moves};
-combine_edges_O([T|Ts], U, IG, Worklists, Moves, K, Target) ->
+combine_edges_O([T|Ts], U, IG, Worklists, Moves, K, Target={TgtMod,TgtCtx}) ->
   case hipe_reg_worklists:member_stack_or_coalesced(T, Worklists) of
     true -> combine_edges_O(Ts, U, IG, Worklists, Moves, K, Target);
     _ ->
@@ -1576,7 +1582,7 @@ combine_edges_O([T|Ts], U, IG, Worklists, Moves, K, Target) ->
       %% worklist, and that's where decrement_degree() expects to find it.
       %% This issue is not covered in the published algorithm.
       OldDegree = hipe_ig:get_node_degree(T, IG),
-      IG1 = hipe_ig:add_edge(T, U, IG, Target),
+      IG1 = hipe_ig:add_edge(T, U, IG, TgtMod, TgtCtx),
       NewDegree = hipe_ig:get_node_degree(T, IG1),
       Worklists0 =
 	if NewDegree =:= K, OldDegree =:= K-1 ->
@@ -1609,7 +1615,8 @@ combine_edges_O([T|Ts], U, IG, Worklists, Moves, K, Target) ->
 %%   Alias          -- The Alias vector before undoing
 %%   SavedAdj       -- Saved adjacency list
 %%   IG             -- Interference graph
-%%   Target         -- The module containing the target-specific functions.
+%%   Target         -- The module containing the target-specific functions,
+%%                     along with its context data.
 %%   
 %% Returns:
 %%   list of primitive nodes, that is all nodes that were previously
@@ -1676,7 +1683,8 @@ findPrimitiveNodes(Node, N, Alias, PrimitiveNodes) ->
 %%   N             -- Node that should be uncoalesced
 %%   SavedAdj      -- Saved adjacency list
 %%   IG            -- Interference graph
-%%   Target        -- The module containing the target-specific functions.
+%%   Target        -- The module containing the target-specific functions, along
+%%                    with its context data.
 %%   
 %% Returns:
 %%   updated Interferece graph
@@ -1702,16 +1710,16 @@ fixAdj(N, SavedAdj, IG, Target) ->
 
 removeAdj([], _N, _IG, _Target) ->
   true;
-removeAdj([V| New], N, IG, Target) ->
-  hipe_ig:remove_edge(V, N, IG, Target),
+removeAdj([V| New], N, IG, Target={TgtMod,TgtCtx}) ->
+  hipe_ig:remove_edge(V, N, IG, TgtMod, TgtCtx),
   removeAdj(New, N, IG, Target).
 
 %%restoreAdj([], _N, IG, _Alias, _Target) ->
 %%  %%?debug_msg("adj_lists__after_restore_o ~n~p~n", [hipe_ig:adj_list(IG)]),
 %%  IG;
-%%restoreAdj([V| AdjToN], N, IG, Alias, Target) ->
+%%restoreAdj([V| AdjToN], N, IG, Alias, Target={TgtMod,TgtCtx}) ->
 %%  AliasToV = getAlias(V, Alias),
-%%  IG1 = hipe_ig:add_edge(N, AliasToV, IG, Target),
+%%  IG1 = hipe_ig:add_edge(N, AliasToV, IG, TgtMod, TgtCtx),
 %%  restoreAdj(AdjToN, N, IG1, Alias, Target).
 
 %% XXX This is probably a clumsy way of doing it
@@ -1744,7 +1752,8 @@ findNew([A| Adj], Saved, New) ->
 %%   R             -- Other node to test
 %%   IG            -- Interference graph
 %%   K             -- Number of registers
-%%   Target        -- The module containing the target-specific functions
+%%   Target        -- The module containing the target-specific functions, along
+%%                    with its context data.
 %%   
 %% Returns:
 %%   true iff coalescing is OK
@@ -1752,7 +1761,7 @@ findNew([A| Adj], Saved, New) ->
 
 ok(T, R, IG, K, Target) ->
   ((hipe_ig:is_trivially_colourable(T, K, IG))
-   orelse Target:is_precoloured(T)
+   orelse is_precoloured(T, Target)
    orelse hipe_ig:nodes_are_adjacent(T, R, IG)).
 
 %%----------------------------------------------------------------------
@@ -1765,7 +1774,8 @@ ok(T, R, IG, K, Target) ->
 %%   U             -- Node to test for coalescing
 %%   IG            -- Interference graph
 %%   K             -- Number of registers
-%%   Target        -- The module containing the target-specific functions
+%%   Target        -- The module containing the target-specific functions, along
+%%                    with its context data.
 %%   
 %% Returns:
 %%   true iff coalescing is OK for all nodes in the list
@@ -1923,7 +1933,7 @@ findCheapest([Node|Nodes], IG, Cost, Cheapest, SpillLimit) ->
 %% limit are extremely expensive.
 
 getCost(Node, IG, SpillLimit) ->
-  case Node > SpillLimit of
+  case Node >= SpillLimit of
     true -> inf;
     false ->
       SpillCost = hipe_ig:node_spill_cost(Node, IG),
@@ -2042,3 +2052,24 @@ freezeEm3(_U,V,_M,K,WorkLists,Moves,IG,_Alias) ->
       {WorkLists,Moves1}
   end.
 -endif.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% Interface to external functions.
+%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+all_precoloured({TgtMod,TgtCtx}) ->
+  TgtMod:all_precoloured(TgtCtx).
+
+allocatable({TgtMod,TgtCtx}) ->
+  TgtMod:allocatable(TgtCtx).
+
+is_precoloured(R, {TgtMod,TgtCtx}) ->
+  TgtMod:is_precoloured(R,TgtCtx).
+
+number_of_temporaries(CFG, {TgtMod,TgtCtx}) ->
+  TgtMod:number_of_temporaries(CFG, TgtCtx).
+
+physical_name(R, {TgtMod,TgtCtx}) ->
+  TgtMod:physical_name(R,TgtCtx).

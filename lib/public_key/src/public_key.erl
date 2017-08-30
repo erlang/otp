@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +48,9 @@
 	 pkix_issuer_id/2,
 	 pkix_normalize_name/1,
 	 pkix_path_validation/3,
+	 pkix_verify_hostname/2, pkix_verify_hostname/3,
 	 ssh_decode/2, ssh_encode/2,
+	 ssh_hostkey_fingerprint/1, ssh_hostkey_fingerprint/2,
 	 ssh_curvename2oid/1, oid2ssh_curvename/1,
 	 pkix_crls_validate/3,
 	 pkix_dist_point/1,
@@ -91,7 +93,8 @@
 -type public_crypt_options() :: [{rsa_pad, rsa_padding()}].
 -type rsa_digest_type()      :: 'md5' | 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type()      :: 'none' | 'sha'. %% None is for backwards compatibility
--type ecdsa_digest_type()       :: 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'.
+-type ecdsa_digest_type()    :: 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'.
+-type digest_type()          :: rsa_digest_type() |  dss_digest_type() | ecdsa_digest_type().
 -type crl_reason()           ::  unspecified | keyCompromise | cACompromise | affiliationChanged | superseded
 			       | cessationOfOperation | certificateHold | privilegeWithdrawn |  aACompromise.
 -type oid()                  :: tuple().
@@ -392,9 +395,15 @@ dh_gex_group(Min, N, Max, Groups) ->
     pubkey_ssh:dh_gex_group(Min, N, Max, Groups).
 
 %%--------------------------------------------------------------------
--spec generate_key(#'DHParameter'{} | {namedCurve, Name ::oid()} |
-		   #'ECParameters'{}) -> {Public::binary(), Private::binary()} |
-					    #'ECPrivateKey'{}.
+-spec generate_key(#'DHParameter'{}) ->
+                          {Public::binary(), Private::binary()};
+                  ({namedCurve, Name ::oid()}) ->
+                          #'ECPrivateKey'{};
+                  (#'ECParameters'{}) ->
+                          #'ECPrivateKey'{};
+                  ({rsa, Size::pos_integer(), PubExp::pos_integer()}) ->
+                          #'RSAPrivateKey'{}.
+
 %% Description: Generates a new keypair
 %%--------------------------------------------------------------------
 generate_key(#'DHParameter'{prime = P, base = G}) ->
@@ -402,7 +411,43 @@ generate_key(#'DHParameter'{prime = P, base = G}) ->
 generate_key({namedCurve, _} = Params) ->
     ec_generate_key(Params);
 generate_key(#'ECParameters'{} = Params) ->
-    ec_generate_key(Params).
+    ec_generate_key(Params);
+generate_key({rsa, ModulusSize, PublicExponent}) ->
+    case crypto:generate_key(rsa, {ModulusSize,PublicExponent}) of
+        {[E, N], [E, N, D, P, Q, D_mod_P_1, D_mod_Q_1, InvQ_mod_P]} ->
+            Nint = crypto:bytes_to_integer(N),
+            Eint = crypto:bytes_to_integer(E),
+            #'RSAPrivateKey'{version = 0, % Two-factor (I guess since otherPrimeInfos is not given)
+                             modulus = Nint,
+                             publicExponent = Eint,
+                             privateExponent = crypto:bytes_to_integer(D),
+                             prime1 = crypto:bytes_to_integer(P),
+                             prime2 = crypto:bytes_to_integer(Q),
+                             exponent1 = crypto:bytes_to_integer(D_mod_P_1),
+                             exponent2 = crypto:bytes_to_integer(D_mod_Q_1),
+                             coefficient = crypto:bytes_to_integer(InvQ_mod_P)};
+
+        {[E, N], [E, N, D]} -> % FIXME: what to set the other fields in #'RSAPrivateKey'?
+                               % Answer: Miller [Mil76]
+                               %   G.L. Miller. Riemann's hypothesis and tests for primality.
+                               %   Journal of Computer and Systems Sciences,
+                               %   13(3):300-307,
+                               %   1976.
+            Nint = crypto:bytes_to_integer(N),
+            Eint = crypto:bytes_to_integer(E),
+            #'RSAPrivateKey'{version = 0, % Two-factor (I guess since otherPrimeInfos is not given)
+                              modulus = Nint,
+                              publicExponent = Eint,
+                              privateExponent = crypto:bytes_to_integer(D),
+                              prime1 = '?',
+                              prime2 = '?',
+                              exponent1 = '?',
+                              exponent2 = '?',
+                              coefficient = '?'};
+        
+        Other ->
+            Other
+    end.
 
 %%--------------------------------------------------------------------
 -spec compute_key(#'ECPoint'{} , #'ECPrivateKey'{}) -> binary().
@@ -559,7 +604,7 @@ pkix_match_dist_point(#'CertificateList'{
 
 %%--------------------------------------------------------------------
 -spec pkix_sign(#'OTPTBSCertificate'{},
-		rsa_private_key() | dsa_private_key()) -> Der::binary().
+		rsa_private_key() | dsa_private_key() | ec_private_key()) -> Der::binary().
 %%
 %% Description: Sign a pkix x.509 certificate. Returns the corresponding
 %% der encoded 'Certificate'{}
@@ -761,6 +806,76 @@ pkix_crls_validate(OtpCert, DPAndCRLs0, Options) ->
     pkix_crls_validate(OtpCert, DPAndCRLs, DPAndCRLs,
 		       Options, pubkey_crl:init_revokation_state()).
 
+%--------------------------------------------------------------------
+-spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+			   ReferenceIDs :: [{uri_id | dns_id | oid(),  string()}]) -> boolean().
+
+-spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
+			   ReferenceIDs :: [{uri_id | dns_id | oid(),  string()}],
+			   Options :: proplists:proplist()) -> boolean().
+
+%% Description: Validates a hostname to RFC 6125
+%%--------------------------------------------------------------------
+pkix_verify_hostname(Cert, ReferenceIDs) ->
+    pkix_verify_hostname(Cert, ReferenceIDs, []).
+
+pkix_verify_hostname(BinCert, ReferenceIDs, Options)  when is_binary(BinCert) ->
+    pkix_verify_hostname(pkix_decode_cert(BinCert,otp), ReferenceIDs, Options);
+
+pkix_verify_hostname(Cert = #'OTPCertificate'{tbsCertificate = TbsCert}, ReferenceIDs0, Opts) ->
+    MatchFun = proplists:get_value(match_fun,     Opts, undefined),
+    FailCB   = proplists:get_value(fail_callback, Opts, fun(_Cert) -> false end),
+    FqdnFun  = proplists:get_value(fqdn_fun,      Opts, fun verify_hostname_extract_fqdn_default/1),
+
+    ReferenceIDs = [{T,to_string(V)} || {T,V} <- ReferenceIDs0],
+    PresentedIDs =
+	try lists:keyfind(?'id-ce-subjectAltName',
+			  #'Extension'.extnID,
+			  TbsCert#'OTPTBSCertificate'.extensions)
+	of
+	    #'Extension'{extnValue = ExtVals} ->
+		[{T,to_string(V)} || {T,V} <- ExtVals];
+	    false ->
+		[]
+	catch
+	    _:_ -> []
+	end,
+    %% PresentedIDs example: [{dNSName,"ewstest.ericsson.com"}, {dNSName,"www.ericsson.com"}]}
+    case PresentedIDs of
+	[] ->
+	    %% Fallback to CN-ids [rfc6125, ch6]
+	    case TbsCert#'OTPTBSCertificate'.subject of
+		{rdnSequence,RDNseq} ->
+		    PresentedCNs =
+			[{cn, to_string(V)}
+			 || ATVs <- RDNseq, % RDNseq is list-of-lists
+			    #'AttributeTypeAndValue'{type = ?'id-at-commonName',
+						     value = {_T,V}} <- ATVs
+						% _T = kind of string (teletexString etc)
+			],
+		    %% Example of PresentedCNs:  [{cn,"www.ericsson.se"}]
+		    %% match ReferenceIDs to PresentedCNs
+		    verify_hostname_match_loop(verify_hostname_fqnds(ReferenceIDs, FqdnFun),
+					       PresentedCNs,
+					       MatchFun, FailCB, Cert);
+		
+		_ ->
+		    false
+	    end;
+	_ ->
+	    %% match ReferenceIDs to PresentedIDs
+	    case verify_hostname_match_loop(ReferenceIDs, PresentedIDs,
+					    MatchFun, FailCB, Cert) of
+		false ->
+		    %% Try to extract DNS-IDs from URIs etc
+		    DNS_ReferenceIDs =
+			[{dns_id,X} || X <- verify_hostname_fqnds(ReferenceIDs, FqdnFun)],
+		    verify_hostname_match_loop(DNS_ReferenceIDs, PresentedIDs,
+					       MatchFun, FailCB, Cert);
+		true ->
+		    true
+	    end
+    end.
 
 %%--------------------------------------------------------------------
 -spec ssh_decode(binary(), public_key | ssh_file()) -> [{public_key(), Attributes::list()}]
@@ -785,6 +900,7 @@ ssh_decode(SshBin, Type) when is_binary(SshBin),
 %%--------------------------------------------------------------------
 -spec ssh_encode([{public_key(), Attributes::list()}], ssh_file()) -> binary()
 	      ; (public_key(), ssh2_pubkey) -> binary()
+	      ; ({public_key(),atom()}, ssh2_pubkey) -> binary()
 	      .
 %%
 %% Description: Encodes a list of ssh file entries (public keys and
@@ -817,6 +933,51 @@ ssh_curvename2oid(<<"nistp521">>) ->  ?'secp521r1'.
 oid2ssh_curvename(?'secp256r1') -> <<"nistp256">>;
 oid2ssh_curvename(?'secp384r1') -> <<"nistp384">>;
 oid2ssh_curvename(?'secp521r1') -> <<"nistp521">>.
+
+%%--------------------------------------------------------------------
+-spec ssh_hostkey_fingerprint(public_key()) -> string().
+-spec ssh_hostkey_fingerprint( digest_type(),  public_key()) ->  string()
+                           ; ([digest_type()], public_key())   -> [string()]
+                           .
+
+ssh_hostkey_fingerprint(Key) ->
+    sshfp_string(md5, public_key:ssh_encode(Key,ssh2_pubkey) ).
+
+ssh_hostkey_fingerprint(HashAlgs, Key) when is_list(HashAlgs) ->
+    EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
+    [sshfp_full_string(HashAlg,EncKey) || HashAlg <- HashAlgs];
+ssh_hostkey_fingerprint(HashAlg, Key) when is_atom(HashAlg) ->
+    EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
+    sshfp_full_string(HashAlg, EncKey).
+
+
+sshfp_string(HashAlg, EncodedKey) ->
+    %% Other HashAlgs than md5 will be printed with
+    %% other formats than hextstr by
+    %%    ssh-keygen -E <alg> -lf <file>
+    fp_fmt(sshfp_fmt(HashAlg), crypto:hash(HashAlg, EncodedKey)).
+
+sshfp_full_string(HashAlg, EncKey) ->
+    lists:concat([sshfp_alg_name(HashAlg),
+		  [$: | sshfp_string(HashAlg, EncKey)]
+		 ]).
+
+sshfp_alg_name(sha) -> "SHA1";
+sshfp_alg_name(Alg) -> string:to_upper(atom_to_list(Alg)).
+
+sshfp_fmt(md5) -> hexstr;
+sshfp_fmt(_) -> b64.
+
+fp_fmt(hexstr, Bin) ->
+    lists:flatten(string:join([io_lib:format("~2.16.0b",[C1]) || <<C1>> <= Bin], ":"));
+fp_fmt(b64, Bin) ->
+    %% This function clause *seems* to be
+    %%    [C || C<-base64:encode_to_string(Bin), C =/= $=]
+    %% but I am not sure. Must be checked.
+    B64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",
+    BitsInLast = 8*size(Bin) rem 6,
+    Padding = (6-BitsInLast) rem 6, % Want BitsInLast = [1:5] to map to padding [5:1] and 0 -> 0
+    [lists:nth(C+1,B64Chars) || <<C:6>> <= <<Bin/binary,0:Padding>> ].
 
 %%--------------------------------------------------------------------
 -spec short_name_hash({rdnSequence, [#'AttributeTypeAndValue'{}]}) ->
@@ -992,19 +1153,16 @@ do_pkix_crls_validate(OtpCert, [{DP, CRL, DeltaCRL} | Rest],  All, Options, Revo
     end.
 
 sort_dp_crls(DpsAndCrls, FreshCB) ->
-    Sorted = do_sort_dp_crls(DpsAndCrls, dict:new()),
-    sort_crls(Sorted, FreshCB, []).
+    sort_crls(maps:to_list(lists:foldl(fun group_dp_crls/2,
+                                       #{},
+                                       DpsAndCrls)),
+              FreshCB, []).
 
-do_sort_dp_crls([], Dict) ->
-    dict:to_list(Dict);
-do_sort_dp_crls([{DP, CRL} | Rest], Dict0) ->
-    Dict = try dict:fetch(DP, Dict0) of
-	       _ ->
-		   dict:append(DP, CRL, Dict0)
-	   catch _:_ ->
-		   dict:store(DP, [CRL], Dict0)
-	   end,
-    do_sort_dp_crls(Rest, Dict).
+group_dp_crls({DP,CRL}, M) ->
+    case M of
+        #{DP := CRLs} -> M#{DP := [CRL|CRLs]};
+        _ -> M#{DP => [CRL]}
+    end.
 
 sort_crls([], _, Acc) ->
     Acc;
@@ -1083,8 +1241,11 @@ ec_curve_spec( #'ECParameters'{fieldID = FieldId, curve = PCurve, base = Base, o
 	     FieldId#'FieldID'.parameters},
     Curve = {PCurve#'Curve'.a, PCurve#'Curve'.b, none},
     {Field, Curve, Base, Order, CoFactor};
-ec_curve_spec({namedCurve, OID}) ->
-    pubkey_cert_records:namedCurves(OID).
+ec_curve_spec({namedCurve, OID}) when is_tuple(OID), is_integer(element(1,OID)) ->
+    ec_curve_spec({namedCurve,  pubkey_cert_records:namedCurves(OID)});
+ec_curve_spec({namedCurve, Name}) when is_atom(Name) ->
+    crypto:ec_curve(Name).
+
 
 ec_key({PubKey, PrivateKey}, Params) ->
     #'ECPrivateKey'{version = 1,
@@ -1163,3 +1324,96 @@ ascii_to_lower(String) ->
           end)>>
        ||
         <<C>> <= iolist_to_binary(String) >>.
+
+%%%----------------------------------------------------------------
+%%% pkix_verify_hostname help functions
+verify_hostname_extract_fqdn_default({dns_id,S}) ->
+    S;
+verify_hostname_extract_fqdn_default({uri_id,URI}) ->
+    {ok,{https,_,Host,_,_,_}} = http_uri:parse(URI),
+    Host.
+
+
+verify_hostname_fqnds(L, FqdnFun) ->
+    [E || E0 <- L,
+	  E <- [try case FqdnFun(E0) of
+			default -> verify_hostname_extract_fqdn_default(E0);
+                        undefined -> undefined; % will make the "is_list(E)" test fail
+			Other -> Other
+		    end
+		catch _:_-> undefined % will make the "is_list(E)" test fail
+		end],
+	  is_list(E),
+	  E =/= "",
+	  {error,einval} == inet:parse_address(E)
+    ].
+
+
+-define(srvName_OID, {1,3,6,1,4,1,434,2,2,1,37,0}).
+
+verify_hostname_match_default(Ref, Pres) ->
+    verify_hostname_match_default0(to_lower_ascii(Ref), to_lower_ascii(Pres)).
+
+verify_hostname_match_default0(FQDN=[_|_], {cn,FQDN}) -> 
+    not lists:member($*, FQDN);
+verify_hostname_match_default0(FQDN=[_|_], {cn,Name=[_|_]}) -> 
+    [F1|Fs] = string:tokens(FQDN, "."),
+    [N1|Ns] = string:tokens(Name, "."),
+    match_wild(F1,N1) andalso Fs==Ns;
+verify_hostname_match_default0({dns_id,R}, {dNSName,P}) ->
+    R==P;
+verify_hostname_match_default0({uri_id,R}, {uniformResourceIdentifier,P}) ->
+    R==P;
+verify_hostname_match_default0({srv_id,R}, {T,P}) when T == srvName ;
+                                                       T == ?srvName_OID ->
+    R==P;
+verify_hostname_match_default0(_, _) ->
+    false.
+
+
+match_wild(A,     [$*|B]) -> match_wild_suffixes(A, B);
+match_wild([C|A], [ C|B]) -> match_wild(A, B);
+match_wild([],        []) -> true;
+match_wild(_,          _) -> false.
+
+%% Match the parts after the only wildcard by comparing them from the end
+match_wild_suffixes(A, B) -> match_wild_sfx(lists:reverse(A), lists:reverse(B)).
+
+match_wild_sfx([$*|_],      _) -> false; % Bad name (no wildcards alowed)
+match_wild_sfx(_,      [$*|_]) -> false; % Bad pattern (no more wildcards alowed)
+match_wild_sfx([A|Ar], [A|Br]) -> match_wild_sfx(Ar, Br);
+match_wild_sfx(Ar,         []) -> not lists:member($*, Ar); % Chk for bad name (= wildcards)
+match_wild_sfx(_,           _) -> false.
+    
+
+verify_hostname_match_loop(Refs0, Pres0, undefined, FailCB, Cert) ->
+    Pres = lists:map(fun to_lower_ascii/1, Pres0),
+    Refs = lists:map(fun to_lower_ascii/1, Refs0),
+    lists:any(
+      fun(R) ->
+	      lists:any(fun(P) ->
+                                verify_hostname_match_default(R,P) orelse FailCB(Cert)
+			end, Pres)
+      end, Refs);
+verify_hostname_match_loop(Refs, Pres, MatchFun, FailCB, Cert) ->
+    lists:any(
+      fun(R) ->
+	      lists:any(fun(P) ->
+				(case MatchFun(R,P) of
+				     default -> verify_hostname_match_default(R,P);
+				     Bool -> Bool
+				 end) orelse FailCB(Cert)
+			end,
+			Pres)
+      end,
+      Refs).
+
+
+to_lower_ascii(S) when is_list(S) -> lists:map(fun to_lower_ascii/1, S);
+to_lower_ascii({T,S}) -> {T, to_lower_ascii(S)};
+to_lower_ascii(C) when $A =< C,C =< $Z -> C + ($a-$A);
+to_lower_ascii(C) -> C.
+
+to_string(S) when is_list(S) -> S;
+to_string(B) when is_binary(B) -> binary_to_list(B).
+

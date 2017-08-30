@@ -1,6 +1,6 @@
-#!/usr/bin/env escript
+#!@ENV@ escript
 %% -*- erlang -*-
-%%! -smp disable
+%%!
 
 %%
 %% %CopyrightBegin%

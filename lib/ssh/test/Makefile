@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2016. All Rights Reserved.
+# Copyright Ericsson AB 2004-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ MODULES= \
 	ssh_options_SUITE \
 	ssh_renegotiate_SUITE \
 	ssh_basic_SUITE \
-	ssh_benchmark_SUITE \
+	ssh_bench_SUITE \
 	ssh_connection_SUITE \
 	ssh_protocol_SUITE \
 	ssh_sftp_SUITE \
@@ -50,9 +50,11 @@ MODULES= \
 	ssh_key_cb_options \
 	ssh_trpt_test_lib \
 	ssh_echo_server \
+	ssh_bench_dev_null \
 	ssh_peername_sockname_server \
 	ssh_test_cli \
-	ssh_relay
+	ssh_relay \
+	ssh_eqc_event_handler
 
 HRL_FILES_NEEDED_IN_TEST= \
 	$(ERL_TOP)/lib/ssh/test/ssh_test_lib.hrl \

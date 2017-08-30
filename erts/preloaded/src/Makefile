@@ -44,7 +44,9 @@ PRE_LOADED_ERL_MODULES = \
 	erts_code_purger \
 	erlang \
 	erts_internal \
-	erl_tracer
+	erl_tracer \
+	erts_literal_area_collector \
+	erts_dirty_process_code_checker
 
 PRE_LOADED_BEAM_MODULES = \
 	prim_eval
@@ -71,7 +73,7 @@ KERNEL_SRC=$(ERL_TOP)/lib/kernel/src
 KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/include
 STDLIB_INCLUDE=$(ERL_TOP)/lib/stdlib/include
 
-ERL_COMPILE_FLAGS += +warn_obsolete_guard +debug_info -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
+ERL_COMPILE_FLAGS += +debug_info -I$(KERNEL_SRC) -I$(KERNEL_INCLUDE)
 
 debug opt: $(TARGET_FILES) 
 

@@ -4,7 +4,7 @@
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2006</year><year>2016</year>
+      <year>2006</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -25,12 +25,12 @@
     <title>Dialyzer Reference Manual</title>
     <prepared></prepared>
     <docno></docno>
-    <date></date>
+    <date>2016-09-19</date>
     <rev></rev>
   </header>
   <description>
-    <p><em>Dialyzer</em> is a static analysis tool that identifies software discrepancies such as type errors, unreachable code, unnecessary tests, etc in single Erlang modules or entire (sets of) applications.</p>
   </description>
   <xi:include href="dialyzer.xml"/>
+  <xi:include href="typer.xml"/>
 </application>
 

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2015</year>
+      <year>2000</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -161,8 +161,8 @@ decode([Int]) -> Int.</pre>
     <title>Running the Example</title>
     <p><em>Step 1.</em> Compile the C code:</p>
     <pre>
-unix> <input>gcc -o exampledrv -fpic -shared complex.c port_driver.c</input>
-windows> <input>cl -LD -MD -Fe exampledrv.dll complex.c port_driver.c</input></pre>
+unix> <input>gcc -o example_drv.so -fpic -shared complex.c port_driver.c</input>
+windows> <input>cl -LD -MD -Fe example_drv.dll complex.c port_driver.c</input></pre>
     <p><em>Step 2.</em> Start Erlang and compile the Erlang code:</p>
     <pre>
 > <input>erl</input>

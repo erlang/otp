@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@
 
 %% 1)
 %%
-%% Connections are now always set up symetrically with respect to
+%% Connections are now always set up symmetrically with respect to
 %% publication. If connecting node doesn't send DFLAG_PUBLISHED
 %% the other node wont send DFLAG_PUBLISHED. If the connecting
 %% node send DFLAG_PUBLISHED but the other node doesn't send
@@ -56,10 +56,14 @@
 -define(DFLAG_HIDDEN_ATOM_CACHE,16#40).
 -define(DFLAG_NEW_FUN_TAGS,16#80).
 -define(DFLAG_EXTENDED_PIDS_PORTS,16#100).
+-define(DFLAG_UTF8_ATOMS, 16#10000).
 
 %% From R9 and forward extended references is compulsory
 %% From R10 and forward extended pids and ports are compulsory
--define(COMPULSORY_DFLAGS, (?DFLAG_EXTENDED_REFERENCES bor ?DFLAG_EXTENDED_PIDS_PORTS)).
+%% From R20 and forward UTF8 atoms are compulsory
+-define(COMPULSORY_DFLAGS, (?DFLAG_EXTENDED_REFERENCES bor
+                            ?DFLAG_EXTENDED_PIDS_PORTS bor
+                            ?DFLAG_UTF8_ATOMS)).
 
 
 -define(shutdown(X), exit(X)).

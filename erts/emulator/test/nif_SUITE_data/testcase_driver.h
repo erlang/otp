@@ -20,7 +20,7 @@
 #ifndef TESTCASE_DRIVER_H__
 #define TESTCASE_DRIVER_H__
 
-#include "erl_nif.h"
+#include <erl_nif.h>
 #include <stdlib.h>
 #include <stdio.h>
 

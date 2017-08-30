@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_node).
--compile(r12).
+-compile(r16).
 
 %%%
 %%% The same compiled code for this module must be possible to load
-%%% in R12B and later.
+%%% in R16B and later.
 %%%
 
 %% Test Controller interface
@@ -237,23 +237,23 @@ print_trc(Out,{trace_ts,P,call,{M,F,A},C,Ts},N) ->
     io:format(Out,
 	      "~w: ~s~n"
 	      "Process   : ~w~n"
-	      "Call      : ~w:~w/~w~n"
-	      "Arguments : ~p~n"
-	      "Caller    : ~w~n~n",
+	      "Call      : ~w:~tw/~w~n"
+	      "Arguments : ~tp~n"
+	      "Caller    : ~tw~n~n",
 	      [N,ts(Ts),P,M,F,length(A),A,C]);
 print_trc(Out,{trace_ts,P,call,{M,F,A},Ts},N) ->
     io:format(Out,
 	      "~w: ~s~n"
 	      "Process   : ~w~n"
-	      "Call      : ~w:~w/~w~n"
-	      "Arguments : ~p~n~n",
+	      "Call      : ~w:~tw/~w~n"
+	      "Arguments : ~tp~n~n",
 	      [N,ts(Ts),P,M,F,length(A),A]);
 print_trc(Out,{trace_ts,P,return_from,{M,F,A},R,Ts},N) ->
     io:format(Out,
 	      "~w: ~s~n"
 	      "Process      : ~w~n"
-	      "Return from  : ~w:~w/~w~n"
-	      "Return value : ~p~n~n",
+	      "Return from  : ~w:~tw/~w~n"
+	      "Return value : ~tp~n~n",
 	      [N,ts(Ts),P,M,F,A,R]);
 print_trc(Out,{drop,X},N) ->
     io:format(Out,
@@ -263,7 +263,7 @@ print_trc(Out,Trace,N) ->
     Ts = element(size(Trace),Trace),
     io:format(Out,
 	      "~w: ~s~n"
-	      "Trace        : ~p~n~n",
+	      "Trace        : ~tp~n~n",
 	      [N,ts(Ts),Trace]).
 ts({_, _, Micro} = Now) ->
     {{Y,M,D},{H,Min,S}} = calendar:now_to_local_time(Now),
@@ -580,7 +580,7 @@ kill_node(SI) ->
 
 cast_to_list(X) when is_list(X) -> X;
 cast_to_list(X) when is_atom(X) -> atom_to_list(X);
-cast_to_list(X) -> lists:flatten(io_lib:format("~w", [X])).
+cast_to_list(X) -> lists:flatten(io_lib:format("~tw", [X])).
 
 
 %%% L contains elements of the forms

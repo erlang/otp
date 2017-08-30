@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -697,7 +697,7 @@ mixer(Config) when is_list(Config) ->
 named_down(Config) when is_list(Config) ->
     Name = list_to_atom(atom_to_list(?MODULE)
                         ++ "-named_down-"
-                        ++ integer_to_list(erlang:system_time(seconds))
+                        ++ integer_to_list(erlang:system_time(second))
                         ++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
     Prio = process_flag(priority,high),
     %% Spawn a bunch of high prio cpu bound processes to prevent
@@ -973,9 +973,6 @@ generate(_Fun, 0) ->
     [];
 generate(Fun, N) ->
     [Fun() | generate(Fun, N-1)].
-
-start_node(Config) ->
-    start_node(Config, "").
 
 start_node(Config, Args) ->
     TestCase = proplists:get_value(testcase, Config),

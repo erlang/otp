@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,7 +74,6 @@ file_keys(Dir,Num,FdList,FnList) ->
 %% Check that the distribution of files over async threads is fair
 async_dist(Config) when is_list(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
-    TestFile = filename:join(DataDir, "existing_file"),
     Dir = filename:dirname(code:which(?MODULE)),
     AsyncSizes = [7,10,100,255,256,64,63,65],
     Max = 0.5,

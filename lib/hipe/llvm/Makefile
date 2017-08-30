@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2016. All Rights Reserved.
+# Copyright Ericsson AB 2001-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -73,8 +73,7 @@ include ../native.mk
 ERL_COMPILE_FLAGS += -Werror +inline +warn_export_vars #+warn_missing_spec
 
 # if in 32 bit backend define BIT32 symbol
-ARCH = $(shell echo $(TARGET) | sed 's/^\(x86_64\)-.*/64bit/')
-ifneq ($(ARCH), 64bit)
+ifneq ($(BITS64),yes)
 ERL_COMPILE_FLAGS += -DBIT32
 endif
 

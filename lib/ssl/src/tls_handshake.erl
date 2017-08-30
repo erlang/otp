@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@
 %% Internal application API
 %%====================================================================
 %%--------------------------------------------------------------------
--spec client_hello(host(), inet:port_number(), #connection_states{},
+-spec client_hello(host(), inet:port_number(), ssl_record:connection_states(),
 		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
 			  #client_hello{}.
 %%
@@ -54,10 +54,9 @@ client_hello(Host, Port, ConnectionStates,
 			 } = SslOpts,
 	     Cache, CacheCb, Renegotiation, OwnCert) ->
     Version = tls_record:highest_protocol_version(Versions),
-    Pending = ssl_record:pending_connection_state(ConnectionStates, read),
-    SecParams = Pending#connection_state.security_parameters,
+    #{security_parameters := SecParams} = ssl_record:pending_connection_state(ConnectionStates, read),
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),     
-    Extensions = ssl_handshake:client_hello_extensions(Host, Version, 
+    Extensions = ssl_handshake:client_hello_extensions(Version, 
 						       AvailableCipherSuites,
 						       SslOpts, ConnectionStates, Renegotiation),
     CipherSuites = 
@@ -78,18 +77,18 @@ client_hello(Host, Port, ConnectionStates,
 
 %%--------------------------------------------------------------------
 -spec hello(#server_hello{} | #client_hello{}, #ssl_options{},
-	    #connection_states{} | {inet:port_number(), #session{}, db_handle(),
-				    atom(), #connection_states{}, 
+	    ssl_record:connection_states() | {inet:port_number(), #session{}, db_handle(),
+				    atom(), ssl_record:connection_states(), 
 				    binary() | undefined, ssl_cipher:key_algo()},
 	    boolean()) ->
 		   {tls_record:tls_version(), session_id(), 
-		    #connection_states{}, alpn | npn, binary() | undefined}|
+		    ssl_record:connection_states(), alpn | npn, binary() | undefined}|
 		   {tls_record:tls_version(), {resumed | new, #session{}}, 
-		    #connection_states{}, binary() | undefined, 
+		    ssl_record:connection_states(), binary() | undefined, 
 		    #hello_extensions{}, {ssl_cipher:hash(), ssl_cipher:sign_algo()} | undefined} |
 		   #alert{}.
 %%
-%% Description: Handles a recieved hello message
+%% Description: Handles a received hello message
 %%--------------------------------------------------------------------
 hello(#server_hello{server_version = Version, random = Random,
 		    cipher_suite = CipherSuite,
@@ -109,19 +108,25 @@ hello(#client_hello{client_version = ClientVersion,
 		    cipher_suites = CipherSuites} = Hello,
       #ssl_options{versions = Versions} = SslOpts,
       Info, Renegotiation) ->
-    Version = ssl_handshake:select_version(tls_record, ClientVersion, Versions),
-    case ssl_cipher:is_fallback(CipherSuites) of
+    try
+	Version = ssl_handshake:select_version(tls_record, ClientVersion, Versions),
+	case ssl_cipher:is_fallback(CipherSuites) of
 	true -> 
-	    Highest = tls_record:highest_protocol_version(Versions),
-	    case tls_record:is_higher(Highest, Version) of
-		true ->
-		    ?ALERT_REC(?FATAL, ?INAPPROPRIATE_FALLBACK);
-		false ->				     
-		    handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
-	    end;
-	false ->
-	    handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
-    end.
+		Highest = tls_record:highest_protocol_version(Versions),
+		case tls_record:is_higher(Highest, Version) of
+		    true ->
+			?ALERT_REC(?FATAL, ?INAPPROPRIATE_FALLBACK);
+		    false ->				     
+			handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
+		end;
+	    false ->
+		handle_client_hello(Version, Hello, SslOpts, Info, Renegotiation)
+	end
+    catch
+	_:_ ->
+	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, malformed_handshake_data)
+    end.  
+
 %%--------------------------------------------------------------------
 -spec encode_handshake(tls_handshake(), tls_record:tls_version()) -> iolist().
 %%     
@@ -155,13 +160,15 @@ handle_client_hello(Version, #client_hello{session_id = SugesstedId,
 					   extensions = #hello_extensions{elliptic_curves = Curves,
 									  signature_algs = ClientHashSigns} = HelloExt},
 		    #ssl_options{versions = Versions,
-				 signature_algs = SupportedHashSigns} = SslOpts,
+				 signature_algs = SupportedHashSigns,
+				 eccs = SupportedECCs,
+				 honor_ecc_order = ECCOrder} = SslOpts,
 		    {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert, _}, Renegotiation) ->
     case tls_record:is_acceptable_version(Version, Versions) of
 	true ->
 	    AvailableHashSigns = ssl_handshake:available_signature_algs(
 				   ClientHashSigns, SupportedHashSigns, Cert, Version),
-	    ECCCurve = ssl_handshake:select_curve(Curves, ssl_handshake:supported_ecc(Version)),
+	    ECCCurve = ssl_handshake:select_curve(Curves, SupportedECCs, ECCOrder),
 	    {Type, #session{cipher_suite = CipherSuite} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites, AvailableHashSigns, Compressions,
 					       Port, Session0#session{ecc = ECCCurve}, Version,
@@ -185,37 +192,33 @@ handle_client_hello(Version, #client_hello{session_id = SugesstedId,
     end.
 
 get_tls_handshake_aux(Version, <<?BYTE(Type), ?UINT24(Length),
-				 Body:Length/binary,Rest/binary>>, #ssl_options{v2_hello_compatible = V2Hello} = Opts,  Acc) ->
+				 Body:Length/binary,Rest/binary>>, 
+                      #ssl_options{v2_hello_compatible = V2Hello} = Opts,  Acc) ->
     Raw = <<?BYTE(Type), ?UINT24(Length), Body/binary>>,
-    Handshake = decode_handshake(Version, Type, Body, V2Hello),
-    get_tls_handshake_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc]);
+    try decode_handshake(Version, Type, Body, V2Hello) of
+	Handshake ->
+	    get_tls_handshake_aux(Version, Rest, Opts, [{Handshake,Raw} | Acc])
+    catch
+	_:_ ->
+	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, handshake_decode_error))
+    end;
 get_tls_handshake_aux(_Version, Data, _, Acc) ->
     {lists:reverse(Acc), Data}.
 
 decode_handshake(_, ?HELLO_REQUEST, <<>>, _) ->
     #hello_request{};
 
-%% Client hello v2.
-%% The server must be able to receive such messages, from clients that
-%% are willing to use ssl v3 or higher, but have ssl v2 compatibility.
-decode_handshake(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor),
-					    ?UINT16(CSLength), ?UINT16(0),
-					    ?UINT16(CDLength),
-					    CipherSuites:CSLength/binary,
-					    ChallengeData:CDLength/binary>>, true) ->
-    #client_hello{client_version = {Major, Minor},
-		  random = ssl_v2:client_random(ChallengeData, CDLength),
-		  session_id = 0,
-		  cipher_suites =  ssl_handshake:decode_suites('3_bytes', CipherSuites),
-		  compression_methods = [?NULL],
-		  extensions = #hello_extensions{}
-		 };
-decode_handshake(_Version, ?CLIENT_HELLO, <<?BYTE(_), ?BYTE(_),
-					    ?UINT16(CSLength), ?UINT16(0),
-					    ?UINT16(CDLength),
-					    _CipherSuites:CSLength/binary,
-					    _ChallengeData:CDLength/binary>>, false) ->
-    throw(?ALERT_REC(?FATAL, ?PROTOCOL_VERSION, ssl_v2_client_hello_no_supported));
+decode_handshake(_Version, ?CLIENT_HELLO, Bin, true) ->
+    try decode_hello(Bin) of
+        Hello ->
+            Hello
+    catch
+        _:_ ->
+            decode_v2_hello(Bin)
+    end;
+decode_handshake(_Version, ?CLIENT_HELLO, Bin, false) ->
+    decode_hello(Bin);
+
 decode_handshake(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 					    ?BYTE(SID_length), Session_ID:SID_length/binary,
 					    ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
@@ -232,9 +235,39 @@ decode_handshake(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:3
        compression_methods = Comp_methods,
        extensions = DecodedExtensions
       };
-
 decode_handshake(Version, Tag, Msg, _) ->
     ssl_handshake:decode_handshake(Version, Tag, Msg).
+
+
+decode_hello(<<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
+               ?BYTE(SID_length), Session_ID:SID_length/binary,
+               ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
+               ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
+               Extensions/binary>>) ->
+    DecodedExtensions = ssl_handshake:decode_hello_extensions({client, Extensions}),
+    
+    #client_hello{
+       client_version = {Major,Minor},
+       random = Random,
+       session_id = Session_ID,
+       cipher_suites = ssl_handshake:decode_suites('2_bytes', CipherSuites),
+       compression_methods = Comp_methods,
+       extensions = DecodedExtensions
+      }.
+%% The server must be able to receive such messages, from clients that
+%% are willing to use ssl v3 or higher, but have ssl v2 compatibility.
+decode_v2_hello(<<?BYTE(Major), ?BYTE(Minor),
+                  ?UINT16(CSLength), ?UINT16(0),
+                  ?UINT16(CDLength),
+                  CipherSuites:CSLength/binary,
+                  ChallengeData:CDLength/binary>>) ->
+    #client_hello{client_version = {Major, Minor},
+		  random = ssl_v2:client_random(ChallengeData, CDLength),
+		  session_id = 0,
+		  cipher_suites =  ssl_handshake:decode_suites('3_bytes', CipherSuites),
+		  compression_methods = [?NULL],
+		  extensions = #hello_extensions{}
+		 }.
 
 enc_handshake(#hello_request{}, _Version) ->
     {?HELLO_REQUEST, <<>>};

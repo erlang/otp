@@ -88,6 +88,12 @@
           to retrieve the value of evaluating <c>apply(<anno>Module</anno>,
           <anno>Function</anno>, <anno>Args</anno>)</c> on node
           <c><anno>Node</anno></c>.</p>
+        <note>
+          <p><seealso marker="#yield/1"><c>yield/1</c></seealso> and
+            <seealso marker="#nb_yield/1"><c>nb_yield/1,2</c></seealso>
+            must be called by the same process from which this function
+            was made otherwise they will never yield correctly.</p>
+        </note>
       </desc>
     </func>
 
@@ -299,6 +305,11 @@
           the tuple <c>{value, <anno>Val</anno>}</c> when the computation is
           finished, or <c>timeout</c> when <c><anno>Timeout</anno></c>
           milliseconds has elapsed.</p>
+        <note>
+          <p>This function must be called by the same process from which
+            <seealso marker="#async_call/4"><c>async_call/4</c></seealso>
+            was made otherwise it will only return <c>timeout</c>.</p>
+        </note>
       </desc>
     </func>
 
@@ -320,7 +331,7 @@
       <fsummary>Information about a process.</fsummary>
       <desc>
         <p>Location transparent version of the BIF
-          <seealso marker="erts:erlang#process_info/1"><c>erlang:process_info/1</c></seealso> in <c>ERTS</c>.</p>
+          <seealso marker="erts:erlang#process_info/1"><c>erlang:process_info/1</c></seealso> in ERTS.</p>
       </desc>
     </func>
 
@@ -330,7 +341,7 @@
       <fsummary>Information about a process.</fsummary>
       <desc>
         <p>Location transparent version of the BIF
-          <seealso marker="erts:erlang#process_info/2"><c>erlang:process_info/2</c></seealso> in <c>ERTS</c>.</p>
+          <seealso marker="erts:erlang#process_info/2"><c>erlang:process_info/2</c></seealso> in ERTS.</p>
       </desc>
     </func>
 
@@ -407,6 +418,11 @@
           If the answer is available, it is
           returned immediately. Otherwise, the calling process is
           suspended until the answer arrives from <c>Node</c>.</p>
+        <note>
+          <p>This function must be called by the same process from which
+            <seealso marker="#async_call/4"><c>async_call/4</c></seealso>
+            was made otherwise it will never return.</p>
+        </note>
       </desc>
     </func>
   </funcs>

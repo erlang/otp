@@ -29,7 +29,7 @@
 -endif.
 
 -ifdef(dist_trace).
--define(trace(Fmt,Args), io:format("~p ~p:~s",[erlang:now(),node(),lists:flatten(io_lib:format(Fmt, Args))])).
+-define(trace(Fmt,Args), io:format("~p ~p:~s",[erlang:timestamp(),node(),lists:flatten(io_lib:format(Fmt, Args))])).
 % Use the one below for config-file (early boot) connection tracing
 %-define(trace(Fmt,Args), erlang:display([erlang:now(),node(),lists:flatten(io_lib:format(Fmt, Args))])).
 -define(trace_factor,8).
@@ -63,7 +63,7 @@
 	  f_getll,               %% Get low level port or pid.
 	  f_address,         %% The address of the "socket", 
 	                     %% generated from Socket,Node
-	  %% These two are used in the tick loop,
+	  %% These three are used in the tick loop,
 	  %% so they are not fun's to avoid holding old code.
 	  mf_tick,           %% Takes the socket as parameters and
 	                     %% sends a tick, this is no fun, it
@@ -74,7 +74,11 @@
 			     %% {ok, RecvCnt, SendCnt, SendPend} for
 	                     %% a given socket. This is a {M,F}, 
 	                     %% returning {error, Reason on failure}
-	  request_type = normal
+	  request_type = normal,
+
+	  %% New in kernel-5.1 (OTP 19.1):
+	  mf_setopts,        %% netkernel:setopts on active connection
+	  mf_getopts         %% netkernel:getopts on active connection
 }).
 	  
 

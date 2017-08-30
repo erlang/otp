@@ -1397,10 +1397,18 @@ static void assert_print(char* str, int line)
 static void assert_failed(ErlDrvPort port, char* str, int line)
 {
     char buf[30];
+    size_t bufsz = sizeof(buf);
+
     assert_print(str,line);
-    snprintf(buf,sizeof(buf),"failed_at_line_%d",line);
-    driver_failure_atom(port,buf);
-    /*abort();*/
+
+    if (erl_drv_getenv("ERL_ABORT_ON_FAILURE", buf, &bufsz) == 0
+        && (strcmp("true", buf) == 0 || strcmp("yes", buf) == 0)) {
+        abort();
+    }
+    else {
+        snprintf(buf,sizeof(buf),"failed_at_line_%d",line);
+        driver_failure_atom(port,buf);
+    }
 }
 
 #define my_driver_select(PORT,FD,MODE,ON) \

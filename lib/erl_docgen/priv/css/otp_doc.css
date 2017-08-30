@@ -1,34 +1,39 @@
 /* standard OTP style sheet */
 body {
-  background: white;
-  font-family: Verdana, Arial, Helvetica, sans-serif;
+  background: #fefefe;
+  color: #1a1a1a;
+  font-family: sans-serif;
   margin: 0;
   padding: 0;
   border: 0;
   overflow: scroll;
   height: 100%;
   max-height: 100%;
+  line-height: 1.2em;
+  font-size: 16px;
 }
 
-th            { font-family: Verdana, Arial, Helvetica, sans-serif }
-td            { font-family: Verdana, Arial, Helvetica, sans-serif }
-p             { font-family: Verdana, Arial, Helvetica, sans-serif }
+h1, h2, h3, h4, h5, h6{
+ line-height: 1.2em;
+}
 
-.header       { background: #222; color: #fff }
+p             { max-width: 42em }
+
+.header       { background: #222; color: #fefefe }
 .top          { background: #efe }
 .otp          { background: #efe }
 .erlang       { background: #ffe }
 .otp2         { background: #efe }
 .app          { background: #ffe }
 
-a:link         { color: blue; text-decoration: none }
-a:active       { color: blue; text-decoration: none }
-a:visited      { color: blue; text-decoration: none }
+a:link         { color: #1862ab; text-decoration: none }
+a:active       { color: #1c7cd6; text-decoration: none }
+a:visited      { color: #1b6ec2; text-decoration: none }
 
 #container {
   width: 100%;
   margin: 0;
-  background-color: #fff;
+  background-color: #fefefe;
 }
 
 #leftnav {
@@ -41,11 +46,12 @@ a:visited      { color: blue; text-decoration: none }
   overflow:auto;
   margin: 0;
   padding: 1px;
-  border-right: 1px solid red;
+  border-right: 1px solid #ccc;
 }
 
 #content {
   margin-left: 340px; /* set left value to WidthOfFrameDiv */
+  max-width: 42em;
 }
 
 .frontpage 
@@ -61,66 +67,67 @@ a:visited      { color: blue; text-decoration: none }
 .footer 
 {
   margin: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
+  text-align: center;
 }
 
-span.bold_code   { font-family: Courier, monospace; font-weight: bold }
-span.code        { font-family: Courier, monospace; font-weight: normal }
+.bold_code   { font-family: mono, Courier, monospace; font-weight: bold }
+.code        {
+ font-family: mono, Courier, monospace;
+ font-weight: normal;
+ background-color: #f3f3f3;
+}
 
 .note, .warning, .do, .dont {
-  border: solid black 1px;
-  margin: 1em 3em;
+  border: 1px solid #495057;
+  margin: 1em 0;
 }
 .note .label {
-  background: #30d42a;
-  color: white;
+  background-color: #2b8a3e;
+  color: #fefefe;
   font-weight: bold;
-  padding: 5px 10px;
+  padding: 0.5em 1em;
 }
 .note .content {
-  background: #eafeea;
-  color: black;
+  background: #f8f9fa;
   line-height: 120%;
-  font-size: 90%;
-  padding: 5px 10px;
+  font-size: 0.9em;
+  padding: 0.5em 1em;
 }
 .warning .label {
-  background: #C00;
-  color: white;
+  background: #c92a2a;
+  color: #fefefe;
   font-weight: bold;
-  padding: 5px 10px;
+  padding: 0.5em 1em;
 }
 .warning .content {
-  background: #FFF0F0;
-  color: black;
+  background-color: #f8f9fa;
   line-height: 120%;
-  font-size: 90%;
-  padding: 5px 10px;
+  font-size: 0.9em;
+  padding: 0.5em 1em;
 }
 .do .label {
-  background: #30d42a;
-  color: white;
+  background-color: #2b8a3e;
+  color: #fefefe;
   font-weight: bold;
-  padding: 5px 10px;
+  padding: 0.5em 1em;
 }
 .do .content {
-  background: #eafeea;
-  color: black;
+  background: #f8f9fa;
   line-height: 120%;
-  font-size: 90%;
-  padding: 5px 10px;
+  font-size: 0.9em;
+  padding: 0.5em 1em;
 }
 .dont .label {
-  background: #C00;
-  color: white;
+  background: #c92a2a;
+  color: #fefefe;
   font-weight: bold;
-  padding: 5px 10px;
+  padding: 0.5em 1em;
 }
 .dont .content {
-  background: #FFF0F0;
-  color: black;
+  background-color: #f8f9fa;
   line-height: 120%;
-  font-size: 90%;
-  padding: 5px 10px;
+  font-size: 0.9em;
+  padding: 0.5em 1em;
 }
 
 .quote {
@@ -128,19 +135,134 @@ span.code        { font-family: Courier, monospace; font-weight: normal }
 }
 
 .example {
-  background-color:#eeeeff;
-  padding: 0px 10px;
+  background-color:#f1f3f5;
+  border: 1px solid #dee2e6;
+  padding: 0.5em 1em;
+  margin: 1em 0;
+  font-size: 0.7em;
 }
 .extrafrontpageinfo {
   color: #C00;
   font-weight: bold;
-  font-size: 120%;
+  font-size: 1.2em;
 }
 
-pre          { font-family: Courier, monospace; font-weight: normal }
+pre {
+ font-family: mono, Courier, monospace;
+ font-weight: normal;
+ margin: 0;
+}
 
-.REFBODY     { margin-left: 13mm }
 
-.REFTYPES    { margin-left: 8mm }
+.exports-body, .data-types-body, .REFBODY{
+ margin-left: 2em;
+}
+.REFTYPES    { margin-left: 1.5em }
 
 footer       { }
+
+.erlang-logo-wrapper{
+ text-align: center;
+ margin-bottom: 1em;
+}
+
+.main-title{
+ text-align: center;
+}
+
+.main-description{
+ text-align: center;
+ margin: 2em 0;
+ font-size: 1.5em;
+ line-height: 1.5em;
+}
+
+.doc-table-wrapper, .doc-image-wrapper{
+ width: 100%;
+}
+
+.doc-image-wrapper{
+ text-align: center;
+}
+
+.doc-table, .doc-image{
+ min-width: 50%;
+ margin: 0 auto;
+ font-size: 0.7em;
+}
+
+.doc-table-caption, .doc-image-caption{
+ margin-top: 1em;
+ font-style: italic;
+ text-align: center;
+}
+
+table {
+ border-collapse: collapse;
+ min-width: 50%;
+ margin: 1em;
+}
+
+table, th, td {
+ border: 1px solid #666;
+}
+
+th, td {
+ padding: 0.5em;
+ text-align: left;
+}
+
+tr:hover {
+ background-color: #f5f5f5;
+}
+
+tr:nth-child(even) {
+ background-color: #f2f2f2;
+}
+
+th {
+ background-color: #777;
+ color: #fefefe;
+}
+
+.section-title, .section-subtitle, .section-version{
+ text-align: center;
+ margin: 0;
+}
+
+.section-title{
+ font-weight: bold;
+}
+
+.section-version{
+ font-size: small;
+}
+
+.expand-collapse-items{
+ font-size: small;
+}
+
+h3>a{
+ color: #1a1a1a !important;
+}
+
+hr{
+  border: 0;
+  border-top: 1px solid #aaa;
+}
+
+.section-links, .panel-sections, .expand-collapse-items{
+ padding: 0 1em;
+}
+
+.section-links, .panel-sections{
+ margin-top: 0;
+}
+
+a > .code {
+ color: #1862ab;
+}
+
+.func-types-title{
+ font-size: 1em;
+}

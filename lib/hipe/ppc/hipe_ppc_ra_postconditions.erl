@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_ppc_ra_postconditions).
 
@@ -25,17 +18,13 @@
 
 -include("hipe_ppc.hrl").
 
-check_and_rewrite(Defun, Coloring, Allocator) ->
-  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_ppc_specific),
-  check_and_rewrite2(Defun, TempMap, Allocator).
+check_and_rewrite(CFG, Coloring, Allocator) ->
+  TempMap = hipe_temp_map:cols2tuple(Coloring, hipe_ppc_specific, no_context),
+  check_and_rewrite2(CFG, TempMap, Allocator).
 
-check_and_rewrite2(Defun, TempMap, Allocator) ->
+check_and_rewrite2(CFG, TempMap, Allocator) ->
   Strategy = strategy(Allocator),
-  #defun{code=Code0} = Defun,
-  {Code1,DidSpill} = do_insns(Code0, TempMap, Strategy, [], false),
-  VarRange = {0, hipe_gensym:get_var(ppc)},
-  {Defun#defun{code=Code1, var_range=VarRange},
-   DidSpill}.
+  do_bbs(hipe_ppc_cfg:labels(CFG), TempMap, Strategy, CFG, false).
 
 strategy(Allocator) ->
   case Allocator of
@@ -43,6 +32,13 @@ strategy(Allocator) ->
     'linearscan' -> 'fixed';
     'naive' -> 'fixed'
   end.
+
+do_bbs([], _, _, CFG, DidSpill) -> {CFG, DidSpill};
+do_bbs([Lbl|Lbls], TempMap, Strategy, CFG0, DidSpill0) ->
+  Code0 = hipe_bb:code(BB = hipe_ppc_cfg:bb(CFG0, Lbl)),
+  {Code, DidSpill} = do_insns(Code0, TempMap, Strategy, [], DidSpill0),
+  CFG = hipe_ppc_cfg:bb_add(CFG0, Lbl, hipe_bb:code_update(BB, Code)),
+  do_bbs(Lbls, TempMap, Strategy, CFG, DidSpill).
 
 do_insns([I|Insns], TempMap, Strategy, Accum, DidSpill0) ->
   {NewIs, DidSpill1} = do_insn(I, TempMap, Strategy),
@@ -61,6 +57,7 @@ do_insn(I, TempMap, Strategy) ->
     #mtspr{} -> do_mtspr(I, TempMap, Strategy);
     #pseudo_li{} -> do_pseudo_li(I, TempMap, Strategy);
     #pseudo_move{} -> do_pseudo_move(I, TempMap, Strategy);
+    #pseudo_spill_move{} -> do_pseudo_spill_move(I, TempMap, Strategy);
     #store{} -> do_store(I, TempMap, Strategy);
     #storex{} -> do_storex(I, TempMap, Strategy);
     #unary{} -> do_unary(I, TempMap, Strategy);
@@ -121,17 +118,24 @@ do_pseudo_li(I=#pseudo_li{dst=Dst}, TempMap, Strategy) ->
 
 do_pseudo_move(I=#pseudo_move{dst=Dst,src=Src}, TempMap, Strategy) ->
   %% Either Dst or Src (but not both) may be a pseudo temp.
-  %% pseudo_move and pseudo_tailcall are special cases: in
-  %% all other instructions, all temps must be non-pseudos
-  %% after register allocation.
-  case temp_is_spilled(Dst, TempMap) of
-    true -> % Src must not be a pseudo
-      {FixSrc,NewSrc,DidSpill} = fix_src1(Src, TempMap, Strategy),
-      NewI = I#pseudo_move{src=NewSrc},
-      {FixSrc ++ [NewI], DidSpill};
+  %% pseudo_move, pseudo_spill_move, and pseudo_tailcall are
+  %% special cases: in all other instructions, all temps
+  %% must be non-pseudos after register allocation.
+  case temp_is_spilled(Src, TempMap)
+    andalso temp_is_spilled(Dst, TempMap)
+  of
+    true -> % Turn into pseudo_spill_move
+      Temp = clone(Src, temp1(Strategy)),
+      NewI = #pseudo_spill_move{dst=Dst,temp=Temp,src=Src},
+      {[NewI], true};
     _ ->
       {[I], false}
   end.
+
+do_pseudo_spill_move(I=#pseudo_spill_move{temp=Temp}, TempMap, _Strategy) ->
+  %% Temp is above the low water mark and must not have been spilled
+  false = temp_is_spilled(Temp, TempMap),
+  {[I], false}.
 
 do_store(I=#store{src=Src,base=Base}, TempMap, Strategy) ->
   {FixSrc,NewSrc,DidSpill1} = fix_src1(Src, TempMap, Strategy),

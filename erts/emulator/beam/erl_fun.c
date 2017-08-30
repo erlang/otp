@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,9 @@
 static Hash erts_fun_table;
 
 #include "erl_smp.h"
+#ifdef HIPE
+# include "hipe_mode_switch.h"
+#endif
 
 static erts_smp_rwmtx_t erts_fun_table_lock;
 
@@ -49,8 +52,8 @@ static void fun_free(ErlFunEntry* obj);
  * to unloaded_fun[]. The -1 in unloaded_fun[0] will be interpreted
  * as an illegal arity when attempting to call a fun.
  */
-static BeamInstr unloaded_fun_code[3] = {NIL, -1, 0};
-static BeamInstr* unloaded_fun = unloaded_fun_code + 2;
+static BeamInstr unloaded_fun_code[4] = {NIL, NIL, -1, 0};
+static BeamInstr* unloaded_fun = unloaded_fun_code + 3;
 
 void
 erts_init_fun_table(void)
@@ -74,7 +77,7 @@ erts_init_fun_table(void)
 }
 
 void
-erts_fun_info(int to, void *to_arg)
+erts_fun_info(fmtfn_t to, void *to_arg)
 {
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
@@ -110,9 +113,9 @@ erts_put_fun_entry(Eterm mod, int uniq, int index)
     fe = (ErlFunEntry *) hash_put(&erts_fun_table, (void*) &template);
     sys_memset(fe->uniq, 0, sizeof(fe->uniq));
     fe->index = 0;
-    refc = erts_refc_inctest(&fe->refc, 0);
+    refc = erts_smp_refc_inctest(&fe->refc, 0);
     if (refc < 2) /* New or pending delete */
-	erts_refc_inc(&fe->refc, 1);
+	erts_smp_refc_inc(&fe->refc, 1);
     erts_fun_write_unlock();
     return fe;
 }
@@ -134,9 +137,9 @@ erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
     sys_memcpy(fe->uniq, uniq, sizeof(fe->uniq));
     fe->index = index;
     fe->arity = arity;
-    refc = erts_refc_inctest(&fe->refc, 0);
+    refc = erts_smp_refc_inctest(&fe->refc, 0);
     if (refc < 2) /* New or pending delete */
-	erts_refc_inc(&fe->refc, 1);
+	erts_smp_refc_inc(&fe->refc, 1);
     erts_fun_write_unlock();
     return fe;
 }
@@ -161,9 +164,9 @@ erts_get_fun_entry(Eterm mod, int uniq, int index)
     erts_fun_read_lock();
     ret = (ErlFunEntry *) hash_get(&erts_fun_table, (void*) &template);
     if (ret) {
-	erts_aint_t refc = erts_refc_inctest(&ret->refc, 1);
+	erts_aint_t refc = erts_smp_refc_inctest(&ret->refc, 1);
 	if (refc < 2) /* Pending delete */
-	    erts_refc_inc(&ret->refc, 1);
+	    erts_smp_refc_inc(&ret->refc, 1);
     }
     erts_fun_read_unlock();
     return ret;
@@ -184,7 +187,7 @@ erts_erase_fun_entry(ErlFunEntry* fe)
      * We have to check refc again since someone might have looked up
      * the fun entry and incremented refc after last check.
      */
-    if (erts_refc_dectest(&fe->refc, -1) <= 0)
+    if (erts_smp_refc_dectest(&fe->refc, -1) <= 0)
 #endif
     {
 	if (fe->address != unloaded_fun)
@@ -199,14 +202,13 @@ erts_erase_fun_entry(ErlFunEntry* fe)
 }
 
 void
-erts_cleanup_funs_on_purge(BeamInstr* start, BeamInstr* end)
+erts_fun_purge_prepare(BeamInstr* start, BeamInstr* end)
 {
     int limit;
     HashBucket** bucket;
-    ErlFunEntry* to_delete = NULL;
     int i;
 
-    erts_fun_write_lock();
+    erts_fun_read_lock();
     limit = erts_fun_table.size;
     bucket = erts_fun_table.bucket;
     for (i = 0; i < limit; i++) {
@@ -217,26 +219,69 @@ erts_cleanup_funs_on_purge(BeamInstr* start, BeamInstr* end)
 	    BeamInstr* addr = fe->address;
 
 	    if (start <= addr && addr < end) {
+		fe->pend_purge_address = addr;
+		ERTS_SMP_WRITE_MEMORY_BARRIER;
 		fe->address = unloaded_fun;
-		if (erts_refc_dectest(&fe->refc, 0) == 0) {
-		    fe->address = (void *) to_delete;
-		    to_delete = fe;
-		}
+#ifdef HIPE
+                fe->pend_purge_native_address = fe->native_address;
+                hipe_set_closure_stub(fe);
+#endif
+		erts_purge_state_add_fun(fe);
 	    }
 	    b = b->next;
 	}
     }
-
-    while (to_delete != NULL) {
-	ErlFunEntry* next = (ErlFunEntry *) to_delete->address;
-	erts_erase_fun_entry_unlocked(to_delete);
-	to_delete = next;
-    }
-    erts_fun_write_unlock();
+    erts_fun_read_unlock();
 }
 
 void
-erts_dump_fun_entries(int to, void *to_arg)
+erts_fun_purge_abort_prepare(ErlFunEntry **funs, Uint no)
+{
+    Uint ix;
+
+    for (ix = 0; ix < no; ix++) {
+	ErlFunEntry *fe = funs[ix];
+	if (fe->address == unloaded_fun) {
+	    fe->address = fe->pend_purge_address;
+#ifdef HIPE
+            fe->native_address = fe->pend_purge_native_address;
+#endif
+        }
+    }
+}
+
+void
+erts_fun_purge_abort_finalize(ErlFunEntry **funs, Uint no)
+{
+    Uint ix;
+
+    for (ix = 0; ix < no; ix++) {
+	funs[ix]->pend_purge_address = NULL;
+#ifdef HIPE
+        funs[ix]->pend_purge_native_address = NULL;
+#endif
+    }
+}
+
+void
+erts_fun_purge_complete(ErlFunEntry **funs, Uint no)
+{
+    Uint ix;
+
+    for (ix = 0; ix < no; ix++) {
+	ErlFunEntry *fe = funs[ix];
+	fe->pend_purge_address = NULL;
+#ifdef HIPE
+        fe->pend_purge_native_address = NULL;
+#endif
+	if (erts_smp_refc_dectest(&fe->refc, 0) == 0)
+	    erts_erase_fun_entry(fe);
+    }
+    ERTS_SMP_WRITE_MEMORY_BARRIER;
+}
+
+void
+erts_dump_fun_entries(fmtfn_t to, void *to_arg)
 {
     int limit;
     HashBucket** bucket;
@@ -261,7 +306,7 @@ erts_dump_fun_entries(int to, void *to_arg)
 #ifdef HIPE
 	    erts_print(to, to_arg, "Native_address: %p\n", fe->native_address);
 #endif
-	    erts_print(to, to_arg, "Refc: %ld\n", erts_refc_read(&fe->refc, 1));
+	    erts_print(to, to_arg, "Refc: %ld\n", erts_smp_refc_read(&fe->refc, 1));
 	    b = b->next;
 	}
     }
@@ -292,10 +337,12 @@ fun_alloc(ErlFunEntry* template)
     obj->old_uniq = template->old_uniq;
     obj->old_index = template->old_index;
     obj->module = template->module;
-    erts_refc_init(&obj->refc, -1);
+    erts_smp_refc_init(&obj->refc, -1);
     obj->address = unloaded_fun;
+    obj->pend_purge_address = NULL;
 #ifdef HIPE
     obj->native_address = NULL;
+    obj->pend_purge_native_address = NULL;
 #endif
     return obj;
 }

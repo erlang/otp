@@ -27,7 +27,8 @@
 -export([get_arguments/1, get_argument/1, boot_var/1, restart/1,
 	 many_restarts/0, many_restarts/1,
 	 get_plain_arguments/1,
-	 reboot/1, stop_status/1, stop/1, get_status/1, script_id/1]).
+	 reboot/1, stop_status/1, stop/1, get_status/1, script_id/1,
+	 find_system_processes/0]).
 -export([boot1/1, boot2/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -355,12 +356,16 @@ wait_for(N,Node,EHPid) ->
 restart(Config) when is_list(Config) ->
     Args = args(),
 
+    Pa = " -pa " ++ filename:dirname(code:which(?MODULE)),
+
     %% Currently test_server:start_node cannot be used. The restarted
     %% node immediately halts due to the implementation of
     %% test_server:start_node.
-    {ok, Node} = loose_node:start(init_test, Args, ?DEFAULT_TIMEOUT_SEC),
+    {ok, Node} = loose_node:start(init_test, Args ++ Pa, ?DEFAULT_TIMEOUT_SEC),
     %% Ok, the node is up, now the real test test begins.
     erlang:monitor_node(Node, true),
+    SysProcs0 = rpc:call(Node, ?MODULE, find_system_processes, []),
+    [InitPid, PurgerPid, LitCollectorPid, DirtyCodePid] = SysProcs0,
     InitPid = rpc:call(Node, erlang, whereis, [init]),
     PurgerPid = rpc:call(Node, erlang, whereis, [erts_code_purger]),
     Procs = rpc:call(Node, erlang, processes, []),
@@ -375,6 +380,9 @@ restart(Config) when is_list(Config) ->
     end,
     ok = wait_restart(30, Node),
 
+    SysProcs1 = rpc:call(Node, ?MODULE, find_system_processes, []),
+    [InitPid1, PurgerPid1, LitCollectorPid1, DirtyCodePid1] = SysProcs1,
+
     %% Still the same init process!
     InitPid1 = rpc:call(Node, erlang, whereis, [init]),
     InitP = pid_to_list(InitPid),
@@ -385,8 +393,24 @@ restart(Config) when is_list(Config) ->
     PurgerP = pid_to_list(PurgerPid),
     PurgerP = pid_to_list(PurgerPid1),
 
+    %% and same literal area collector process!
+    case LitCollectorPid of
+	undefined -> undefined = LitCollectorPid1;
+	_ ->
+	    LitCollectorP = pid_to_list(LitCollectorPid),
+	    LitCollectorP = pid_to_list(LitCollectorPid1)
+    end,
+
+    %% and same dirty process code checker process!
+    case DirtyCodePid of
+	undefined -> undefined = DirtyCodePid1;
+	_ ->
+	    DirtyCodeP = pid_to_list(DirtyCodePid),
+	    DirtyCodeP = pid_to_list(DirtyCodePid1)
+    end,
+
     NewProcs0 = rpc:call(Node, erlang, processes, []),
-    NewProcs = NewProcs0 -- [InitPid1, PurgerPid1],
+    NewProcs = NewProcs0 -- SysProcs1,
     case check_processes(NewProcs, MaxPid) of
 	true ->
 	    ok;
@@ -405,6 +429,37 @@ restart(Config) when is_list(Config) ->
     end,
     loose_node:stop(Node),
     ok.
+
+-record(sys_procs, {init,
+		    code_purger,
+		    literal_collector,
+		    dirty_proc_checker}).
+
+find_system_processes() ->
+    find_system_procs(processes(), #sys_procs{}).
+
+find_system_procs([], SysProcs) ->
+    [SysProcs#sys_procs.init,
+     SysProcs#sys_procs.code_purger,
+     SysProcs#sys_procs.literal_collector,
+     SysProcs#sys_procs.dirty_proc_checker];
+find_system_procs([P|Ps], SysProcs) ->
+    case process_info(P, initial_call) of
+	{initial_call,{otp_ring0,start,2}} ->
+	    undefined = SysProcs#sys_procs.init,
+	    find_system_procs(Ps, SysProcs#sys_procs{init = P});
+	{initial_call,{erts_code_purger,start,0}} ->
+	    undefined = SysProcs#sys_procs.code_purger,
+	    find_system_procs(Ps, SysProcs#sys_procs{code_purger = P});
+	{initial_call,{erts_literal_area_collector,start,0}} ->
+	    undefined = SysProcs#sys_procs.literal_collector,
+	    find_system_procs(Ps, SysProcs#sys_procs{literal_collector = P});
+	{initial_call,{erts_dirty_process_code_checker,start,0}} ->
+	    undefined = SysProcs#sys_procs.dirty_proc_checker,
+	    find_system_procs(Ps, SysProcs#sys_procs{dirty_proc_checker = P});
+	_ ->
+	    find_system_procs(Ps, SysProcs)
+    end.
 
 wait_restart(0, _Node) ->
     ct:fail(not_restarted);

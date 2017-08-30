@@ -362,12 +362,12 @@ point_of_no_return</pre>
       system is restarted.</p>
     <pre>
 restart_new_emulator</pre>
-    <p>This instruction is used when the application <c>ERTS</c>,
-      <c>Kernel</c>, <c>STDLIB</c>, or <c>SASL</c> is
+    <p>This instruction is used when the application ERTS,
+      Kernel, STDLIB, or SASL is
       upgraded. It shuts down the current emulator and starts a new
       one. All processes are terminated gracefully, and the new
-      version of <c>ERTS</c>, <c>Kernel</c>, <c>STDLIB</c>, and
-      <c>SASL</c> are used when the emulator restarts.
+      version of ERTS, Kernel, STDLIB, and
+      SASL are used when the emulator restarts.
       Only one <c>restart_new_emulator</c> instruction is allowed
       in the <c>relup</c> file, and it must be placed first.
       <seealso marker="systools#make_relup/3"><c>systools:make_relup/3,4</c></seealso>
@@ -385,7 +385,7 @@ restart_new_emulator</pre>
     <warning>
       <p>As stated earlier, instruction <c>restart_new_emulator</c>
         causes the emulator to be restarted with new versions of
-        <c>ERTS</c>, <c>Kernel</c>, <c>STDLIB</c>, and <c>SASL</c>.
+        ERTS>, Kernel, STDLIB, and SASL.
         However, all other applications do at startup run their old
         versions in this new emulator. This is usually no problem,
         but every now and then incompatible changes occur to the

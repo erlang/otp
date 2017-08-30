@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -616,7 +616,7 @@ setup_and_execute(TCName, TestSpec, Config) ->
 
     FullSpecFile = ct_test_support:join_abs_dirs(?config(net_dir, Opts),
 						 SpecFile),
-    io:format("~nTest spec created here~n~n<a href=\"file://~s\">~s</a>~n",
+    io:format("~nTest spec created here~n~n<a href=\"file://~ts\">~ts</a>~n",
 	      [FullSpecFile,FullSpecFile]),
 
     ok = ct_test_support:run(Opts, Config),
@@ -638,8 +638,8 @@ setup_and_execute(TCName, TestSpec, Config) ->
 create_spec_file(SpecDir, TCName, TestSpec) ->
     FileName = filename:join(SpecDir,
 			     atom_to_list(TCName)++".spec"),
-    {ok,Dev} = file:open(FileName, [write]),
-    [io:format(Dev, "~p.~n", [Term]) || Term <- TestSpec],
+    {ok,Dev} = file:open(FileName, [write,{encoding,utf8}]),
+    [io:format(Dev, "~tp.~n", [Term]) || Term <- TestSpec],
     file:close(Dev),
     FileName.
 

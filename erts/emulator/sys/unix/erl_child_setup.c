@@ -54,6 +54,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <sys/wait.h>
 
 #define WANT_NONBLOCKING
@@ -74,15 +75,22 @@
 
 //#define HARD_DEBUG
 #ifdef HARD_DEBUG
-#define DEBUG_PRINT(fmt, ...) fprintf(stderr, fmt "\r\n", ##__VA_ARGS__)
+#define DEBUG_PRINT(fmt, ...) fprintf(stderr, "%d:" fmt "\r\n", getpid(), ##__VA_ARGS__)
 #else
 #define DEBUG_PRINT(fmt, ...)
 #endif
 
-#define ABORT(fmt, ...) do {                                            \
-        fprintf(stderr, "erl_child_setup: " fmt "\r\n", ##__VA_ARGS__); \
-        abort();                                                        \
-    } while(0)
+static char abort_reason[200]; /* for core dump inspection */
+
+static void ABORT(const char* fmt, ...)
+{
+    va_list arglist;
+    va_start(arglist, fmt);
+    vsprintf(abort_reason, fmt, arglist);
+    fprintf(stderr, "erl_child_setup: %s\r\n", abort_reason);
+    va_end(arglist);
+    abort();
+}
 
 #ifdef DEBUG
 void
@@ -123,12 +131,13 @@ static int sigchld_pipe[2];
 static int
 start_new_child(int pipes[])
 {
+    int errln = -1;
     int size, res, i, pos = 0;
     char *buff, *o_buff;
 
-    char *cmd, *wd, **new_environ, **args = NULL;
+    char *cmd, *cwd, *wd, **new_environ, **args = NULL;
 
-    Sint cnt, flags;
+    Sint32 cnt, flags;
 
     /* only child executes here */
 
@@ -137,6 +146,7 @@ start_new_child(int pipes[])
     } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
 
     if (res <= 0) {
+        errln = __LINE__;
         goto child_error;
     }
 
@@ -148,10 +158,12 @@ start_new_child(int pipes[])
         if ((res = read(pipes[0], buff + pos, size - pos)) < 0) {
             if (errno == ERRNO_BLOCK || errno == EINTR)
                 continue;
+            errln = __LINE__;
             goto child_error;
         }
         if (res == 0) {
             errno = EPIPE;
+            errln = __LINE__;
             goto child_error;
         }
         pos += res;
@@ -160,12 +172,16 @@ start_new_child(int pipes[])
     o_buff = buff;
 
     flags = get_int32(buff);
-    buff += sizeof(Sint32);
+    buff += sizeof(flags);
 
     DEBUG_PRINT("flags = %d", flags);
 
     cmd = buff;
     buff += strlen(buff) + 1;
+
+    cwd = buff;
+    buff += strlen(buff) + 1;
+
     if (*buff == '\0') {
         wd = NULL;
     } else {
@@ -177,10 +193,10 @@ start_new_child(int pipes[])
     DEBUG_PRINT("wd = %s", wd);
 
     cnt = get_int32(buff);
-    buff += sizeof(Sint32);
+    buff += sizeof(cnt);
     new_environ = malloc(sizeof(char*)*(cnt + 1));
 
-    DEBUG_PRINT("env_len = %ld", cnt);
+    DEBUG_PRINT("env_len = %d", cnt);
     for (i = 0; i < cnt; i++, buff++) {
         new_environ[i] = buff;
         while(*buff != '\0') buff++;
@@ -190,7 +206,7 @@ start_new_child(int pipes[])
     if (o_buff + size != buff) {
         /* This is a spawn executable call */
         cnt = get_int32(buff);
-        buff += sizeof(Sint32);
+        buff += sizeof(cnt);
         args = malloc(sizeof(char*)*(cnt + 1));
         for (i = 0; i < cnt; i++, buff++) {
             args[i] = buff;
@@ -201,7 +217,12 @@ start_new_child(int pipes[])
 
     if (o_buff + size != buff) {
         errno = EINVAL;
-        goto child_error;
+        errln = __LINE__;
+        fprintf(stderr,"erl_child_setup: failed with protocol "
+                "error %d on line %d", errno, errln);
+        /* we abort here as it is most likely a symptom of an
+           emulator/erl_child_setup bug */
+        abort();
     }
 
     DEBUG_PRINT("read ack");
@@ -213,12 +234,32 @@ start_new_child(int pipes[])
             ASSERT(res == sizeof(proto));
         }
     } while(res < 0 && (errno == EINTR || errno == ERRNO_BLOCK));
+
     if (res < 1) {
         errno = EPIPE;
+        errln = __LINE__;
         goto child_error;
     }
 
-    DEBUG_PRINT("Do that forking business: '%s'\n",cmd);
+    DEBUG_PRINT("Set cwd to: '%s'",cwd);
+
+    if (chdir(cwd) < 0) {
+        /* This is not good, it probably means that the cwd of
+           beam is invalid. We ignore it and try anyways as
+           the child might now need a cwd or the chdir below
+           could take us to a valid directory.
+        */
+    }
+
+    DEBUG_PRINT("Set wd to: '%s'",wd);
+
+    if (wd && chdir(wd) < 0) {
+        int err = errno;
+        fprintf(stderr,"spawn: Could not cd to %s\r\n", wd);
+        _exit(err);
+    }
+
+    DEBUG_PRINT("Do that forking business: '%s'",cmd);
 
     /* When the dup2'ing below is done, only
        fd's 0, 1, 2 and maybe 3, 4 should survive the
@@ -228,25 +269,34 @@ start_new_child(int pipes[])
     if (flags & FORKER_FLAG_USE_STDIO) {
         /* stdin for process */
         if (flags & FORKER_FLAG_DO_WRITE &&
-            dup2(pipes[0], 0) < 0)
+            dup2(pipes[0], 0) < 0) {
+            errln = __LINE__;
             goto child_error;
+        }
         /* stdout for process */
         if (flags & FORKER_FLAG_DO_READ &&
-            dup2(pipes[1], 1) < 0)
+            dup2(pipes[1], 1) < 0) {
+            errln = __LINE__;
             goto child_error;
+        }
     }
     else {	/* XXX will fail if pipes[0] == 4 (unlikely..) */
-        if (flags & FORKER_FLAG_DO_READ && dup2(pipes[1], 4) < 0)
+        if (flags & FORKER_FLAG_DO_READ && dup2(pipes[1], 4) < 0) {
+            errln = __LINE__;
             goto child_error;
-        if (flags & FORKER_FLAG_DO_WRITE && dup2(pipes[0], 3) < 0)
+        }
+        if (flags & FORKER_FLAG_DO_WRITE && dup2(pipes[0], 3) < 0) {
+            errln = __LINE__;
             goto child_error;
+        }
     }
 
-    if (dup2(pipes[2], 2) < 0)
+    /* we do the dup2 of stderr last so that errors
+       in child_error will be printed to stderr */
+    if (dup2(pipes[2], 2) < 0) {
+        errln = __LINE__;
         goto child_error;
-
-    if (wd && chdir(wd) < 0)
-        goto child_error;
+    }
 
 #if defined(USE_SETPGRP_NOARGS)		/* SysV */
     (void) setpgrp();
@@ -268,9 +318,14 @@ start_new_child(int pipes[])
     } else {
         execle(SHELL, "sh", "-c", cmd, (char *) NULL, new_environ);
     }
+
+    DEBUG_PRINT("exec error: %d",errno);
+    _exit(errno);
+
 child_error:
-    DEBUG_PRINT("exec error: %d\r\n",errno);
-    _exit(128 + errno);
+    fprintf(stderr,"erl_child_setup: failed with error %d on line %d\r\n",
+            errno, errln);
+    _exit(errno);
 }
 
 
@@ -293,7 +348,7 @@ child_error:
  * for posterity. */
 
 static void handle_sigchld(int sig) {
-    int buff[2], res;
+    int buff[2], res, __preverrno = errno;
 
     sys_sigblock(SIGCHLD);
 
@@ -307,6 +362,16 @@ static void handle_sigchld(int sig) {
     }
 
     sys_sigrelease(SIGCHLD);
+
+    /* We save and restore the original errno as otherwise
+       the thread we are running in may end up with an
+       unexpected errno. An example of when this happened
+       was when the select in main had gotten an EINTR but
+       before the errno was checked the signal handler
+       was called and set errno to ECHILD from waitpid
+       which caused erl_child_setup to abort as it does
+       not expect ECHILD to be set after select */
+    errno = __preverrno;
 }
 
 #if defined(__ANDROID__)
@@ -368,7 +433,7 @@ main(int argc, char *argv[])
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
     if (sigaction(SIGCHLD, &sa, 0) == -1) {
-        perror(0);
+        perror(NULL);
         exit(1);
     }
 
@@ -461,7 +526,7 @@ main(int argc, char *argv[])
 
             proto.action = ErtsSysForkerProtoAction_SigChld;
             proto.u.sigchld.error_number = ibuff[1];
-            DEBUG_PRINT("send %s to %d", buff, uds_fd);
+            DEBUG_PRINT("send sigchld to %d (errno = %d)", uds_fd, ibuff[1]);
             if (write(uds_fd, &proto, sizeof(proto)) < 0) {
                 if (errno == EINTR)
                     continue;

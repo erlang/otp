@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>EI Library Reference</title>
@@ -30,12 +30,12 @@
     <file>ref_man_ei.xml</file>
   </header>
   <description>
-    <p>The <c><![CDATA[ei]]></c> library is a <c><![CDATA[C]]></c> interface library for
-      communication with <c><![CDATA[Erlang]]></c>.</p>
+    <p>The <c>ei</c> library is a <c>C</c> interface library for
+      communication with <c>Erlang</c>.</p>
     <note>
-      <p>By default, the <c><![CDATA[ei]]></c> library is only guaranteed
+      <p>By default, the <c>ei</c> library is only guaranteed
         to be compatible with other Erlang/OTP components from the same
-        release as the <c><![CDATA[ei]]></c> library itself. See the documentation of the
+        release as the <c>ei</c> library itself. See the documentation of the
         <seealso marker="ei#ei_set_compat_rel">ei_set_compat_rel()</seealso>
         function on how to communicate with Erlang/OTP components from earlier
         releases.</p>
@@ -45,4 +45,3 @@
   <xi:include href="ei_connect.xml"/>
   <xi:include href="registry.xml"/>
 </application>
-

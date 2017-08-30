@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -111,12 +111,15 @@
 %%    <dd>Set to 'true' if xmerl should add to elements missing attributes
 %%    with a defined default value (default 'false').</dd>
 %% </dl>
+%% @type xmlElement() = #xmlElement{}.
+%% The record definition is found in xmerl.hrl.
+%% @type xmlDocument() = #xmlDocument{}.
+%% The record definition is found in xmerl.hrl.
 %% @type document() = xmlElement() | xmlDocument(). <p>
 %% The document returned by <tt>xmerl_scan:string/[1,2]</tt> and
 %% <tt>xmerl_scan:file/[1,2]</tt>. The type of the returned record depends on
 %% the value of the document option passed to the function.
 %% </p>
-
 
 -module(xmerl_scan).
 -vsn('0.20').
@@ -471,8 +474,8 @@ event(_X, S) ->
 %% into multiple objects (in which case {Acc',Pos',S'} should be returned.)
 %% If {Acc',S'} is returned, Pos will be incremented by 1 by default.
 %% Below is an example of an acceptable operation
-acc(X = #xmlText{value = Text}, Acc, S) ->
-    {[X#xmlText{value = Text}|Acc], S};
+acc(#xmlText{value = Text}, [X = #xmlText{value = AccText}], S) ->
+    {[X#xmlText{value = AccText ++ Text}], S};
 acc(X, Acc, S) ->
     {[X|Acc], S}.
 
@@ -2222,16 +2225,18 @@ processed_whole_element(S=#xmerl_scanner{hook_fun = _Hook,
     AllAttrs =
 	case S#xmerl_scanner.default_attrs of
 	    true ->
-		[ #xmlAttribute{name = AttName,
-				parents = [{Name, Pos} | Parents],
-				language = Lang,
-				nsinfo = NSI,
-				namespace = Namespace,
-				value = AttValue,
-				normalized = true} ||
-		  {AttName, AttValue} <- get_default_attrs(S, Name),
-		  AttValue =/= no_value,
-		  not lists:keymember(AttName, #xmlAttribute.name, Attrs) ];
+            DefaultAttrs =
+                [ #xmlAttribute{name = AttName,
+                                parents = [{Name, Pos} | Parents],
+                                language = Lang,
+                                nsinfo = NSI,
+                                namespace = Namespace,
+                                value = AttValue,
+                                normalized = true} ||
+                  {AttName, AttValue} <- get_default_attrs(S, Name),
+                  AttValue =/= no_value,
+                  not lists:keymember(AttName, #xmlAttribute.name, Attrs) ],
+            lists:append(Attrs, DefaultAttrs);
 	    false ->
 		Attrs
 	end,
@@ -2304,7 +2309,9 @@ expanded_name(Name, [], #xmlNamespace{default = URI}, S) ->
 expanded_name(Name, N = {"xmlns", Local}, #xmlNamespace{nodes = Ns}, S) ->
     {_, Value} = lists:keyfind(Local, 1, Ns),
     case Name of
-	'xmlns:xml' when Value =/= 'http://www.w3.org/XML/1998/namespace' ->
+	'xmlns:xml' when Value =:= 'http://www.w3.org/XML/1998/namespace' ->
+	    N;
+        'xmlns:xml' when Value =/= 'http://www.w3.org/XML/1998/namespace' ->
 	    ?fatal({xml_prefix_cannot_be_redeclared, Value}, S);
 	'xmlns:xmlns' ->
 	    ?fatal({xmlns_prefix_cannot_be_declared, Value}, S);
@@ -2318,6 +2325,8 @@ expanded_name(Name, N = {"xmlns", Local}, #xmlNamespace{nodes = Ns}, S) ->
 		    N
 	    end
     end;
+expanded_name(_Name, {"xml", Local}, _NS, _S) ->
+    {'http://www.w3.org/XML/1998/namespace', list_to_atom(Local)};
 expanded_name(_Name, {Prefix, Local}, #xmlNamespace{nodes = Ns}, S) ->
     case lists:keysearch(Prefix, 1, Ns) of
 	{value, {_, URI}} ->
@@ -2327,9 +2336,6 @@ expanded_name(_Name, {Prefix, Local}, #xmlNamespace{nodes = Ns}, S) ->
 	    %% must be declared
 	    ?fatal({namespace_prefix_not_declared, Prefix}, S)
     end.
-
-
-
 
 keyreplaceadd(K, Pos, [H|T], Obj) when K == element(Pos, H) ->
     [Obj|T];

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,7 +50,7 @@
 
 -export([analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1]).
 
--export([format_error/1, otp_7423/1, otp_7831/1, otp_10192/1]).
+-export([format_error/1, otp_7423/1, otp_7831/1, otp_10192/1, otp_13708/1]).
 
 -import(lists, [append/2, flatten/1, keysearch/3, member/2, sort/1, usort/1]).
 
@@ -82,18 +82,18 @@ groups() ->
        fun_mfa_r14, fun_mfa_vars, qlc]},
      {analyses, [],
       [analyze, basic, md, q, variables, unused_locals]},
-     {misc, [], [format_error, otp_7423, otp_7831, otp_10192]}].
+     {misc, [], [format_error, otp_7423, otp_7831, otp_10192, otp_13708]}].
 
 
 init_per_suite(Conf) when is_list(Conf) ->
     DataDir = ?datadir,
     PrivDir = ?privdir,
     CopyDir = fname(PrivDir, "datacopy"),
+    ok = file:make_dir(CopyDir),
     TarFile = fname(PrivDir, "datacopy.tgz"),
-    {ok, Tar} = erl_tar:open(TarFile, [write, compressed]),
-    ok = erl_tar:add(Tar, DataDir, CopyDir, [compressed]),
-    ok = erl_tar:close(Tar),
-    ok = erl_tar:extract(TarFile, [compressed]),
+    ok = file:set_cwd(DataDir),
+    ok = erl_tar:create(TarFile, ["."], [compressed]),
+    ok = erl_tar:extract(TarFile, [compressed, {cwd,CopyDir}]),
     ok = file:delete(TarFile),
     [{copy_dir, CopyDir}|Conf].
 
@@ -1222,6 +1222,9 @@ read2(Conf) when is_list(Conf) ->
               f() ->
                   %% Duplicated unresolved calls are ignored:
                   (f())(foo,bar),(f())(foo,bar). % POS1
+
+              %% Warning forms must be ignored.
+              -warning(must_not_crash).
              ">>,
     ok = file:write_file(File, Test),
     {ok, read2} = compile:file(File, [debug_info,{outdir,Dir}]),
@@ -2392,6 +2395,19 @@ otp_10192(Conf) when is_list(Conf) ->
     {ok, []} = xref:add_directory(s, Dir),
     xref:stop(s),
     ok.
+
+%% OTP-10192. Allow filenames with character codes greater than 126.
+otp_13708(Conf) when is_list(Conf) ->
+    {ok, _} = start(s),
+    ok = xref:set_default(s, [{verbose, true}]),
+    {ok, []} = xref:q(s,"E"),
+    xref:stop(s),
+
+    CopyDir = ?copydir,
+    Dir = fname(CopyDir,"lib_test"),
+    {ok, _} = start(s),
+    ok = xref:set_library_path(s, [Dir], [{verbose, true}]),
+    xref:stop(s).
 
 %%%
 %%% Utilities

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -610,11 +610,16 @@ convert_list([{N, T, _O}|Rest], HowMany, Counter, Acc) ->
 %% Returns    : 
 %%----------------------------------------------------------------------
 destroy(OE_THIS, OE_State) ->
-    case corba:get_subobject_key(OE_THIS) of
-	<<131,100,0,9,117,110,100,101,102,105,110,101,100>> ->
-	    %% undefined binary.
-	    corba:raise(#'NO_PERMISSION'{completion_status=?COMPLETED_NO});
-	SubobjKey ->
+    SubobjKey = corba:get_subobject_key(OE_THIS),
+    try begin
+            true = (byte_size(SubobjKey) < 20),
+            undefined = binary_to_term(SubobjKey)
+        end
+    of
+        _ ->
+            corba:raise(#'NO_PERMISSION'{completion_status=?COMPLETED_NO})
+    catch
+        error:_ ->  %% Not atom 'undefined', carry on...
 	    _DF = 
 		fun() ->
 			case mnesia:wread({orber_CosNaming, SubobjKey}) of
@@ -624,12 +629,7 @@ destroy(OE_THIS, OE_State) ->
 				orber:dbg("[~p] ~p:destroy(~p);~n"
 					  "DB access returned ~p", 
 					  [?LINE, ?MODULE, SubobjKey, Other], ?DEBUG_LEVEL),
-				{'EXCEPTION', #'CosNaming_NamingContext_NotEmpty'{}};
-			    Other ->
-				orber:dbg("[~p] ~p:destroy(~p);~n"
-					  "DB access returned ~p", 
-					  [?LINE, ?MODULE, SubobjKey, Other], ?DEBUG_LEVEL),
-				{'EXCEPTION', #'INTERNAL'{completion_status=?COMPLETED_NO}}
+				{'EXCEPTION', #'CosNaming_NamingContext_NotEmpty'{}}
 			end
 		end,
 	    case mnesia:transaction(_DF) of 

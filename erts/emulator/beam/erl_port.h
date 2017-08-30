@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -369,7 +369,7 @@ Eterm erts_request_io_bytes(Process *c_p);
 #define ERTS_PORT_REDS_INFO		(CONTEXT_REDS/100)
 #define ERTS_PORT_REDS_TERMINATE	(CONTEXT_REDS/50)
 
-void print_port_info(Port *, int, void *);
+void print_port_info(Port *, fmtfn_t, void *);
 void erts_port_free(Port *);
 #ifndef ERTS_SMP
 void erts_port_cleanup(Port *);
@@ -733,7 +733,7 @@ erts_thr_drvport2port(ErlDrvPort drvport, int lock_pdl)
     if (lock_pdl && prt->port_data_lock)
 	driver_pdl_lock(prt->port_data_lock);
 
-#if ERTS_ENABLE_LOCK_CHECK
+#ifdef ERTS_ENABLE_LOCK_CHECK
     if (!ERTS_IS_CRASH_DUMPING) {
 	if (erts_lc_is_emu_thr()) {
 	    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
@@ -987,16 +987,6 @@ typedef enum {
     ERTS_PORT_OP_DROPPED,
     ERTS_PORT_OP_DONE
 } ErtsPortOpResult;
-
-ErtsPortOpResult
-erts_schedule_proc2port_signal(Process *,
-			       Port *,
-			       Eterm,
-			       Eterm *,
-			       ErtsProc2PortSigData *,
-			       int,
-			       ErtsPortTaskHandle *,
-			       ErtsProc2PortSigCallback);
 
 int erts_deliver_port_exit(Port *, Eterm, Eterm, int, int);
 

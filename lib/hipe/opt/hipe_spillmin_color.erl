@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %% ===========================================================================
 %%@doc
@@ -41,7 +35,7 @@
 
 -module(hipe_spillmin_color).
 
--export([stackalloc/6]).
+-export([stackalloc/8]).
 
 %%-ifndef(DO_ASSERT).
 %%-define(DO_ASSERT, true).
@@ -66,13 +60,17 @@
 %%  where Location is {spill,M}.
 %% {spill,M} denotes the Mth spilled node
 
--spec stackalloc(#cfg{}, [_], non_neg_integer(),
-		 comp_options(), module(), hipe_temp_map()) ->
+-type target_context() :: any().
+
+-spec stackalloc(#cfg{}, _, [_], non_neg_integer(),
+		 comp_options(), module(), target_context(), hipe_temp_map()) ->
                                 {hipe_spill_map(), non_neg_integer()}.
 
-stackalloc(CFG, _StackSlots, SpillIndex, _Options, Target, TempMap) ->
+stackalloc(CFG, Live, _StackSlots, SpillIndex, _Options, TargetMod,
+	   TargetContext, TempMap) ->
+  Target = {TargetMod, TargetContext},
   ?report2("building IG~n", []),
-  {IG, NumNodes} = build_ig(CFG, Target, TempMap),
+  {IG, NumNodes} = build_ig(CFG, Live, Target, TempMap),
   {Cols, MaxColors} = 
     color_heuristic(IG, 0, NumNodes, NumNodes, NumNodes, Target, 1),
   SortedCols = lists:sort(Cols),
@@ -121,7 +119,7 @@ color_heuristic(IG, Min, Max, Safe, MaxNodes, Target, MaxDepth) ->
       end;
     _ ->
       %% This can be increased from 2, and by this the heuristic can be
-      %% exited earlier, but the same can be achived by decreasing the
+      %% exited earlier, but the same can be achieved by decreasing the
       %% recursion depth. This should not be decreased below 2.
       case (Max - Min) < 2 of
         true ->
@@ -167,10 +165,14 @@ remap_temp_map0(Cols, [_Y|Ys], SpillIndex) ->
 %% Returns {Interference_graph, Number_Of_Nodes}
 %%
 
-build_ig(CFG, Target, TempMap) ->
-  try build_ig0(CFG, Target, TempMap)
-  catch error:Rsn -> exit({regalloc, build_ig, Rsn})
-  end.
+build_ig(CFG, Live, Target, TempMap) ->
+  TempMapping = map_spilled_temporaries(TempMap),
+  TempMappingTable = setup_ets(TempMapping),
+  NumSpilled = length(TempMapping),
+  IG = build_ig_bbs(labels(CFG, Target), CFG, Live, empty_ig(NumSpilled),
+		    Target, TempMap, TempMappingTable),
+  ets:delete(TempMappingTable),
+  {normalize_ig(IG), NumSpilled}.
 
 %% Creates an ETS table consisting of the keys given in List, with the values
 %% being an integer which is the position of the key in List.
@@ -184,16 +186,6 @@ setup_ets0([], Table, _N) ->
 setup_ets0([X|Xs], Table, N) ->
   ets:insert(Table, {X, N}),
   setup_ets0(Xs, Table, N+1).
-
-build_ig0(CFG, Target, TempMap) ->
-  Live = Target:analyze(CFG),
-  TempMapping = map_spilled_temporaries(TempMap),
-  TempMappingTable = setup_ets(TempMapping),
-  NumSpilled = length(TempMapping),
-  IG = build_ig_bbs(Target:labels(CFG), CFG, Live, empty_ig(NumSpilled),
-		    Target, TempMap, TempMappingTable),
-  ets:delete(TempMappingTable),
-  {normalize_ig(IG), NumSpilled}.
 
 build_ig_bbs([], _CFG, _Live, IG, _Target, _TempMap, _TempMapping) ->
   IG;
@@ -215,16 +207,26 @@ build_ig_bb([X|Xs], LiveOut, IG, Target, TempMap, TempMapping) ->
     build_ig_bb(Xs, LiveOut, IG, Target, TempMap, TempMapping),
   build_ig_instr(X, Live, NewIG, Target, TempMap, TempMapping).
 
-build_ig_instr(X, Live, IG, Target, TempMap, TempMapping) ->
+build_ig_instr(X, Live0, IG0, Target, TempMap, TempMapping) ->
   {Def, Use} = def_use(X, Target, TempMap),
-  ?report3("Live ~w\n~w : Def: ~w Use ~w\n",[Live, X, Def,Use]),
+  ?report3("Live ~w\n~w : Def: ~w Use ~w\n",[Live0, X, Def,Use]),
   DefListMapped = list_map(Def, TempMapping, []),
   UseListMapped = list_map(Use, TempMapping, []),
   DefSetMapped = ordsets:from_list(DefListMapped),
   UseSetMapped = ordsets:from_list(UseListMapped),
-  NewIG = interference_arcs(DefListMapped, ordsets:to_list(Live), IG),
-  NewLive = ordsets:union(UseSetMapped, ordsets:subtract(Live, DefSetMapped)),
-  {NewLive, NewIG}.
+  {Live1, IG1} =
+    analyze_move(X, Live0, IG0, Target, DefSetMapped, UseSetMapped),
+  IG = interference_arcs(DefListMapped, ordsets:to_list(Live1), IG1),
+  Live = ordsets:union(UseSetMapped, ordsets:subtract(Live1, DefSetMapped)),
+  {Live, IG}.
+
+analyze_move(X, Live0, IG0, Target, DefSetMapped, UseSetMapped) ->
+  case {is_spill_move(X, Target), DefSetMapped, UseSetMapped} of
+    {true, [Dst], [Src]} ->
+      {ordsets:del_element(Src, Live0), add_move(Src, Dst, IG0)};
+    {_, _, _} ->
+      {Live0, IG0}
+  end.
 
 %% Given a list of Keys and an ets-table returns a list of the elements 
 %% in Mapping corresponding to the Keys and appends Acc to this list.
@@ -274,15 +276,6 @@ i_arcs(X, [Y|Ys], IG) ->
 %%     throw an exception (the caller should retry with more stack slots)
 
 color(IG, StackSlots, NumNodes, Target) ->
-  try
-    color_0(IG, StackSlots, NumNodes, Target)
-  catch
-    error:Rsn ->
-      ?error_msg("Coloring failed with ~p~n", [Rsn]),
-      ?EXIT(Rsn)
-  end.
-
-color_0(IG, StackSlots, NumNodes, Target) -> 
   ?report("simplification of IG~n", []),
   K = ordsets:size(StackSlots),
   Nodes = list_ig(IG),
@@ -385,7 +378,8 @@ select_colors([{X,colorable}|Xs], IG, Cols, PhysRegs) ->
 
 select_color(X, IG, Cols, PhysRegs) ->
   UsedColors = get_colors(neighbors(X, IG), Cols),
-  Reg = select_unused_color(UsedColors, PhysRegs),
+  Preferences = get_colors(move_connected(X, IG), Cols),
+  Reg = select_unused_color(UsedColors, Preferences, PhysRegs),
   {Reg, set_color(X, Reg, Cols)}.
 
 %%%%%%%%%%%%%%%%%%%%
@@ -399,10 +393,14 @@ get_colors([X|Xs], Cols) ->
       [R|get_colors(Xs, Cols)]
   end.
 
-select_unused_color(UsedColors, PhysRegs) ->
+select_unused_color(UsedColors, Preferences, PhysRegs) ->
   Summary = ordsets:from_list(UsedColors),
-  AvailRegs = ordsets:to_list(ordsets:subtract(PhysRegs, Summary)),
-  hd(AvailRegs).
+  case ordsets:subtract(ordsets:from_list(Preferences), Summary) of
+    [PreferredColor|_] -> PreferredColor;
+    _ ->
+      AvailRegs = ordsets:to_list(ordsets:subtract(PhysRegs, Summary)),
+      hd(AvailRegs)
+  end.
 
 push_colored(X, Stk) ->
   [{X, colorable} | Stk].
@@ -459,7 +457,11 @@ init_stackslots(NumSlots, Acc) ->
 %%
 %% Note: later on, we may wish to add 'move-related' support.
 
--record(ig_info, {neighbors = [] :: [_], degree = 0 :: non_neg_integer()}).
+-record(ig_info, {
+	  neighbors = []      :: [_],
+	  degree = 0          :: non_neg_integer(),
+	  move_connected = [] :: [_]
+	 }).
 
 empty_ig(NumNodes) ->
   hipe_vectors:new(NumNodes, #ig_info{}).
@@ -470,14 +472,27 @@ degree(Info) ->
 neighbors(Info) ->
   Info#ig_info.neighbors.
 
+move_connected(Info) ->
+  Info#ig_info.move_connected.
+
 add_edge(X, X, IG) -> IG;
 add_edge(X, Y, IG) ->
   add_arc(X, Y, add_arc(Y, X, IG)).
+
+add_move(X, X, IG) -> IG;
+add_move(X, Y, IG) ->
+  add_move_arc(X, Y, add_move_arc(Y, X, IG)).
 
 add_arc(X, Y, IG) ->
   Info = hipe_vectors:get(IG, X),
   Old = neighbors(Info),
   New = Info#ig_info{neighbors = [Y|Old]},
+  hipe_vectors:set(IG,X,New).
+
+add_move_arc(X, Y, IG) ->
+  Info = hipe_vectors:get(IG, X),
+  Old = move_connected(Info),
+  New = Info#ig_info{move_connected = [Y|Old]},
   hipe_vectors:set(IG,X,New).
 
 normalize_ig(IG) ->
@@ -489,13 +504,18 @@ normalize_ig(-1, IG) ->
 normalize_ig(I, IG) ->
   Info = hipe_vectors:get(IG, I),
   N = ordsets:from_list(neighbors(Info)),
-  NewInfo = Info#ig_info{neighbors = N, degree = length(N)},
+  M = ordsets:subtract(ordsets:from_list(move_connected(Info)), N),
+  NewInfo = Info#ig_info{neighbors = N, degree = length(N), move_connected = M},
   NewIG = hipe_vectors:set(IG, I, NewInfo),
   normalize_ig(I-1, NewIG).
 
 neighbors(X, IG) ->
   Info = hipe_vectors:get(IG, X),
   Info#ig_info.neighbors.
+
+move_connected(X, IG) ->
+  Info = hipe_vectors:get(IG, X),
+  Info#ig_info.move_connected.
 
 decrement_degree(X, IG) ->
   Info = hipe_vectors:get(IG, X),
@@ -540,18 +560,24 @@ is_visited(X, Vis) ->
 %% *** INTERFACES TO OTHER MODULES ***
 %%
 
-liveout(CFG, L, Target) ->
-  ordsets:from_list(reg_names(Target:liveout(CFG, L), Target)).
+labels(CFG, {TgtMod,TgtCtx}) ->
+  TgtMod:labels(CFG, TgtCtx).
 
-bb(CFG, L, Target) ->
-   hipe_bb:code(Target:bb(CFG, L)).
+liveout(CFG, L, Target={TgtMod,TgtCtx}) ->
+  ordsets:from_list(reg_names(TgtMod:liveout(CFG, L, TgtCtx), Target)).
 
-def_use(X, Target, TempMap) ->
-  Defines = [Y || Y <- reg_names(Target:defines(X), Target), 
+bb(CFG, L, {TgtMod,TgtCtx}) ->
+   hipe_bb:code(TgtMod:bb(CFG, L, TgtCtx)).
+
+def_use(X, Target={TgtMod,TgtCtx}, TempMap) ->
+  Defines = [Y || Y <- reg_names(TgtMod:defines(X,TgtCtx), Target),
 		  hipe_temp_map:is_spilled(Y, TempMap)],
-  Uses = [Z || Z <- reg_names(Target:uses(X), Target), 
+  Uses = [Z || Z <- reg_names(TgtMod:uses(X,TgtCtx), Target),
 	       hipe_temp_map:is_spilled(Z, TempMap)],
   {Defines, Uses}.
 
-reg_names(Regs, Target) ->
-  [Target:reg_nr(X) || X <- Regs].
+reg_names(Regs, {TgtMod,TgtCtx}) ->
+  [TgtMod:reg_nr(X,TgtCtx) || X <- Regs].
+
+is_spill_move(Instr, {TgtMod,TgtCtx}) ->
+  TgtMod:is_spill_move(Instr, TgtCtx).

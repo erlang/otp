@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,11 +55,11 @@ static erts_lcnt_thread_data_t *lcnt_thread_data[2048];
 /* local functions */
 
 static ERTS_INLINE void lcnt_lock(void) {
-    ethr_mutex_lock(&lcnt_data_lock); 
+    ethr_mutex_lock(&lcnt_data_lock);
 }
 
 static ERTS_INLINE void lcnt_unlock(void) {
-    ethr_mutex_unlock(&lcnt_data_lock); 
+    ethr_mutex_unlock(&lcnt_data_lock);
 }
 
 const int log2_tab64[64] = {
@@ -159,7 +159,7 @@ static erts_lcnt_thread_data_t *lcnt_thread_data_alloc(void) {
     lcnt_thread_data[eltd->id] = eltd;
 
     return eltd;
-} 
+}
 
 static erts_lcnt_thread_data_t *lcnt_get_thread_data(void) {
     return (erts_lcnt_thread_data_t *)ethr_tsd_get(lcnt_thr_data_key);
@@ -254,9 +254,9 @@ void erts_lcnt_init() {
     /* init lock */
     if (ethr_mutex_init(&lcnt_data_lock) != 0) abort();
 
-    /* init tsd */    
+    /* init tsd */
     lcnt_n_thr = 0;
-    ethr_tsd_key_create(&lcnt_thr_data_key,"lcnt_data");
+    ethr_tsd_key_create(&lcnt_thr_data_key, "lcnt_data");
 
     lcnt_lock();
 
@@ -274,11 +274,11 @@ void erts_lcnt_init() {
 
     lcnt_unlock();
 
-    /* set start timer and zero statistics */
-    erts_lcnt_clear_counters();
 }
 
 void erts_lcnt_late_init() {
+    /* set start timer and zero statistics */
+    erts_lcnt_clear_counters();
     erts_thr_install_exit_handler(erts_lcnt_thread_exit_handler);
 }
 
@@ -299,22 +299,16 @@ erts_lcnt_lock_list_t *erts_lcnt_list_init(void) {
     return list;
 }
 
-/* only do this on the list with the deleted locks! */
-void erts_lcnt_list_clear(erts_lcnt_lock_list_t *list) {
-    erts_lcnt_lock_t *lock = NULL,
-                     *next = NULL;
+static void lcnt_list_free(erts_lcnt_lock_t *head) {
+    erts_lcnt_lock_t *lock, *next;
 
-    lock = list->head;
+    lock = head;
 
     while(lock != NULL) {
         next = lock->next;
         free(lock);
         lock = next;
     }
-
-    list->head = NULL;
-    list->tail = NULL;
-    list->n    = 0;
 }
 
 void erts_lcnt_list_insert(erts_lcnt_lock_list_t *list, erts_lcnt_lock_t *lock) {
@@ -352,14 +346,17 @@ void erts_lcnt_list_delete(erts_lcnt_lock_list_t *list, erts_lcnt_lock_t *lock) 
 
 /* interface to erl_threads.h */
 /* only lock on init and destroy, all others should use atomics */
-void erts_lcnt_init_lock(erts_lcnt_lock_t *lock, char *name, Uint16 flag ) { 
+void erts_lcnt_init_lock(erts_lcnt_lock_t *lock, char *name, Uint16 flag ) {
     erts_lcnt_init_lock_x(lock, name, flag, NIL);
 }
 
-void erts_lcnt_init_lock_x(erts_lcnt_lock_t *lock, char *name, Uint16 flag, Eterm id) { 
+void erts_lcnt_init_lock_x(erts_lcnt_lock_t *lock, char *name, Uint16 flag, Eterm id) {
     int i;
-    if (name == NULL) { ERTS_LCNT_CLEAR_FLAG(lock); return; }
-    lcnt_lock();
+
+    if (flag & ERTS_LCNT_LT_DISABLE) {
+        ERTS_LCNT_CLEAR_FLAG(lock);
+        return;
+    }
 
     lock->next = NULL;
     lock->prev = NULL;
@@ -379,10 +376,14 @@ void erts_lcnt_init_lock_x(erts_lcnt_lock_t *lock, char *name, Uint16 flag, Eter
         lcnt_clear_stats(&lock->stats[i]);
     }
 
+    lcnt_lock();
     erts_lcnt_list_insert(erts_lcnt_data->current_locks, lock);
     lcnt_unlock();
 }
-/* init empty, instead of zero struct */
+
+/* init empty, instead of zero struct
+ * used by process locks probes
+ */
 void erts_lcnt_init_lock_empty(erts_lcnt_lock_t *lock) {
     lock->next = NULL;
     lock->prev = NULL;
@@ -444,7 +445,7 @@ void erts_lcnt_lock_opt(erts_lcnt_lock_t *lock, Uint16 option) {
     }
 
     /* we cannot acquire w_lock if either w or r are taken */
-    /* we cannot acquire r_lock if w_lock is taken */	
+    /* we cannot acquire r_lock if w_lock is taken */
 
     if ((w_state > 0) || (r_state > 0)) {
         eltd->lock_in_conflict = 1;
@@ -561,7 +562,7 @@ void erts_lcnt_unlock(erts_lcnt_lock_t *lock) {
     if (ERTS_LCNT_IS_LOCK_INVALID(lock)) return;
 #ifdef DEBUG
     {
-        erts_aint_t w_state;  
+        erts_aint_t w_state;
         erts_aint_t flowstate;
 
         /* flowstate */
@@ -647,7 +648,7 @@ Uint16 erts_lcnt_set_rt_opt(Uint16 opt) {
     return prev;
 }
 
-Uint16 erts_lcnt_clear_rt_opt(Uint16 opt) {			
+Uint16 erts_lcnt_clear_rt_opt(Uint16 opt) {
     Uint16 prev;
     prev = (erts_lcnt_rt_options & opt);
     erts_lcnt_rt_options &= ~opt;
@@ -672,12 +673,17 @@ void erts_lcnt_clear_counters(void) {
         lock->n_stats = 1;
     }
 
-    /* empty deleted locks in lock list */
-    erts_lcnt_list_clear(erts_lcnt_data->deleted_locks);
+    lock = erts_lcnt_data->deleted_locks->head;
+    erts_lcnt_data->deleted_locks->head = NULL;
+    erts_lcnt_data->deleted_locks->tail = NULL;
+    erts_lcnt_data->deleted_locks->n = 0;
 
     lcnt_time(&timer_start);
 
     lcnt_unlock();
+
+    /* free deleted locks */
+    lcnt_list_free(lock);
 }
 
 erts_lcnt_data_t *erts_lcnt_get_data(void) {

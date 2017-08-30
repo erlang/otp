@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -383,7 +383,7 @@ check_icky(Mod) ->
 		ok
 	end,
 
-	_ = make_icky_dir(Mod, treat_icky(<<"åäö_dir">>)),
+	_ = make_icky_dir(Mod, treat_icky(<<"åäö_dir"/utf8>>)),
 	if 
 	    UniMode and (OS =/= win32) ->
 		{error,enoent} = Mod:set_cwd("åäö_dir");

@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,10 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
-%% %CopyrightEnd%
-%%
-
 
 -module(hipe_ppc_assemble).
 -export([assemble/4]).
@@ -40,7 +32,7 @@ assemble(CompiledCode, Closures, Exports, Options) ->
 	  || {MFA, Defun} <- CompiledCode],
   %%
   {ConstAlign,ConstSize,ConstMap,RefsFromConsts} =
-    hipe_pack_constants:pack_constants(Code, hipe_rtl_arch:word_size()),
+    hipe_pack_constants:pack_constants(Code),
   %%
   {CodeSize,CodeBinary,AccRefs,LabelMap,ExportMap} =
     encode(translate(Code, ConstMap), Options),
@@ -175,7 +167,8 @@ do_slwi_opnds(Dst, Src1, {uimm,N}) when is_integer(N), 0 =< N, N < 32 ->
   {Dst, Src1, {sh,N}, {mb,0}, {me,31-N}}.
 
 do_srwi_opnds(Dst, Src1, {uimm,N}) when is_integer(N), 0 =< N, N < 32 ->
-  {Dst, Src1, {sh,32-N}, {mb,N}, {me,31}}.
+  %% SH should be 0 (not 32) when N is 0
+  {Dst, Src1, {sh,(32-N) band 31}, {mb,N}, {me,31}}.
 
 do_srawi_src2({uimm,N}) when  is_integer(N), 0 =< N, N < 32 -> {sh,N}.
 
@@ -184,7 +177,8 @@ do_sldi_opnds(Dst, Src1, {uimm,N}) when is_integer(N), 0 =< N, N < 64 ->
   {Dst, Src1, {sh6,N}, {me6,63-N}}.
 
 do_srdi_opnds(Dst, Src1, {uimm,N}) when is_integer(N), 0 =< N, N < 64 ->
-  {Dst, Src1, {sh6,64-N}, {mb6,N}}.
+  %% SH should be 0 (not 64) when N is 0
+  {Dst, Src1, {sh6,(64-N) band 63}, {mb6,N}}.
 
 do_sradi_src2({uimm,N}) when is_integer(N), 0 =< N, N < 64 -> {sh6,N}.
 
@@ -246,6 +240,7 @@ do_load(I) ->
     case LdOp of
       'ld' -> do_disp_ds(Disp);
       'ldu' -> do_disp_ds(Disp);
+      'lwa' -> do_disp_ds(Disp);
       _ -> do_disp(Disp)
     end,
   NewBase = do_reg(Base),

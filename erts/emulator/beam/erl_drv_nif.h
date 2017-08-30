@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,21 @@ typedef enum {
     ERL_DIRTY_JOB_IO_BOUND  = 2
 } ErlDirtyJobFlags;
 
+/* Values for enif_select AND mode arg for driver_select() */
+enum ErlNifSelectFlags {
+    ERL_NIF_SELECT_READ      = (1 << 0),
+    ERL_NIF_SELECT_WRITE     = (1 << 1),
+    ERL_NIF_SELECT_STOP      = (1 << 2)
+};
+
+/*
+ * A driver monitor
+ */
+typedef struct {
+    unsigned char data[sizeof(void *)*4];
+} ErlDrvMonitor;
+
+
 #ifdef SIZEOF_CHAR
 #  define SIZEOF_CHAR_SAVED__ SIZEOF_CHAR
 #  undef SIZEOF_CHAR
@@ -68,10 +83,6 @@ typedef enum {
 #ifdef SIZEOF_LONG_LONG
 #  define SIZEOF_LONG_LONG_SAVED__ SIZEOF_LONG_LONG
 #  undef SIZEOF_LONG_LONG
-#endif
-#ifdef HALFWORD_HEAP_EMULATOR
-#  define HALFWORD_HEAP_EMULATOR_SAVED__ HALFWORD_HEAP_EMULATOR
-#  undef HALFWORD_HEAP_EMULATOR
 #endif
 #include "erl_int_sizes_config.h"
 #if defined(SIZEOF_CHAR_SAVED__) && SIZEOF_CHAR_SAVED__ != SIZEOF_CHAR

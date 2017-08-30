@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -591,7 +591,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 			     (((unsigned char*) (s))[1] << 8) | \
 			     (((unsigned char*) (s))[0]))
 
-#ifdef HAVE_SYS_UN_H
+#if defined(HAVE_SYS_UN_H) || defined(SO_BINDTODEVICE)
 
 /* strnlen doesn't exist everywhere */
 static size_t my_strnlen(const char *s, size_t maxlen)
@@ -600,14 +600,6 @@ static size_t my_strnlen(const char *s, size_t maxlen)
     while (i < maxlen && s[i] != '\0')
         i++;
     return i;
-}
-
-/* Check that some character in the buffer != '\0' */
-static int is_nonzero(const char *s, size_t n)
-{
-    size_t i;
-    for (i = 0;  i < n;  i++) if (s[i] != '\0') return !0;
-    return 0;
 }
 
 #endif
@@ -728,7 +720,7 @@ static int is_nonzero(const char *s, size_t n)
 #define TCP_ADDF_PENDING_SHUTDOWN \
 		(TCP_ADDF_PENDING_SHUT_WR | TCP_ADDF_PENDING_SHUT_RDWR)
 #define TCP_ADDF_SHOW_ECONNRESET   64 /* Tell user about incoming RST */
-#define TCP_ADDF_DELAYED_ECONNRESET 128 /* An ECONNRESET error occured on send or shutdown */
+#define TCP_ADDF_DELAYED_ECONNRESET 128 /* An ECONNRESET error occurred on send or shutdown */
 #define TCP_ADDF_SHUTDOWN_WR_DONE 256 /* A shutdown(sock, SHUT_WR) or SHUT_RDWR was made */
 #define TCP_ADDF_LINGER_ZERO 	  512 /* Discard driver queue on port close */
 
@@ -777,6 +769,8 @@ static int is_nonzero(const char *s, size_t n)
 #define INET_LOPT_NETNS             38  /* Network namespace pathname */
 #define INET_LOPT_TCP_SHOW_ECONNRESET 39  /* tell user about incoming RST */
 #define INET_LOPT_LINE_DELIM        40  /* Line delimiting char */
+#define INET_OPT_TCLASS             41  /* IPv6 transport class */
+#define INET_OPT_BIND_TO_DEVICE     42  /* get/set network device the socket is bound to */
 /* SCTP options: a separate range, from 100: */
 #define SCTP_OPT_RTOINFO		100
 #define SCTP_OPT_ASSOCINFO		101
@@ -1330,8 +1324,10 @@ static ErlDrvTermData am_reuseaddr;
 static ErlDrvTermData am_dontroute;
 static ErlDrvTermData am_priority;
 static ErlDrvTermData am_tos;
+static ErlDrvTermData am_tclass;
 static ErlDrvTermData am_ipv6_v6only;
 static ErlDrvTermData am_netns;
+static ErlDrvTermData am_bind_to_device;
 #endif
 
 static char str_eafnosupport[] = "eafnosupport";
@@ -3720,8 +3716,10 @@ static void inet_init_sctp(void) {
     INIT_ATOM(dontroute);
     INIT_ATOM(priority);
     INIT_ATOM(tos);
+    INIT_ATOM(tclass);
     INIT_ATOM(ipv6_v6only);
     INIT_ATOM(netns);
+    INIT_ATOM(bind_to_device);
     
     /* Option names */
     INIT_ATOM(sctp_rtoinfo);
@@ -4015,13 +4013,30 @@ static char* inet_set_address(int family, inet_address* dst,
         int n;
         if (*len == 0) return str_einval;
 	n = *((unsigned char*)(*src)); /* Length field */
-	if ((*len < 1+n) || (sizeof(dst->sal.sun_path) < n+1)) {
+	if (*len < 1+n) return str_einval;
+	if (n +
+#ifdef __linux__
+            /* Make sure the address gets zero terminated
+             * except when the first byte is \0 because then it is
+             * sort of zero terminated although the zero termination
+             * comes before the address...
+             * This fix handles Linux's nonportable
+             * abstract socket address extension.
+             */
+            ((*len) > 1 && (*src)[1] == '\0' ? 0 : 1)
+#else
+            1
+#endif
+            > sizeof(dst->sal.sun_path)) {
 	    return str_einval;
 	}
 	sys_memzero((char*)dst, sizeof(struct sockaddr_un));
 	dst->sal.sun_family = family;
 	sys_memcpy(dst->sal.sun_path, (*src)+1, n);
 	*len = offsetof(struct sockaddr_un, sun_path) + n;
+#ifndef NO_SA_LEN
+        dst->sal.sun_len = *len;
+#endif
 	*src += 1 + n;
 	return NULL;
     }
@@ -4129,8 +4144,8 @@ static char *inet_set_faddress(int family, inet_address* dst,
 
 /* Get a inaddr structure
 ** src = inaddr structure
-** *len is the lenght of structure
 ** dst is filled with [F,P1,P0,X1,....] 
+** *len is the length of structure
 ** where F is the family code (coded)
 ** and *len is the length of dst on return 
 ** (suitable to deliver to erlang)
@@ -4166,15 +4181,16 @@ static int inet_get_address(char* dst, inet_address* src, unsigned int* len)
         if (*len < offsetof(struct sockaddr_un, sun_path)) return -1;
         n = *len - offsetof(struct sockaddr_un, sun_path);
         if (255 < n) return -1;
-	/* Portability fix: Assume that the address is a zero terminated
-	 * string, except when the first byte is \0 i.e the
-	 * string length is 0.  Then use the reported length instead.
-	 * This fix handles Linux's abstract socket address
-	 * nonportable extension.
-	 */
         m = my_strnlen(src->sal.sun_path, n);
-	if ((m == 0) && is_nonzero(src->sal.sun_path, n))
-	    m = n;
+#ifdef __linux__
+	/* Assume that the address is a zero terminated string,
+         * except when the first byte is \0 i.e the string length is 0,
+         * then use the reported length instead.
+	 * This fix handles Linux's nonportable
+         * abstract socket address extension.
+	 */
+	if (m == 0)  m = n;
+#endif
         dst[0] = INET_AF_LOCAL;
         dst[1] = (char) ((unsigned char) m);
         sys_memcpy(dst+2, src->sal.sun_path, m);
@@ -4231,15 +4247,16 @@ inet_address_to_erlang(char *dst, inet_address **src, SOCKLEN_T sz) {
 	if (sz < offsetof(struct sockaddr_un, sun_path)) return -1;
 	n = sz - offsetof(struct sockaddr_un, sun_path);
 	if (255 < n) return -1;
-	/* Portability fix: Assume that the address is a zero terminated
-	 * string, except when the first byte is \0 i.e the
-	 * string length is 0.  Then use the reported length instead.
-	 * This fix handles Linux's abstract socket address
-	 * nonportable extension.
-	 */
         m = my_strnlen((*src)->sal.sun_path, n);
-	if ((m == 0) && is_nonzero((*src)->sal.sun_path, n))
-	    m = n;
+#ifdef __linux__
+	/* Assume that the address is a zero terminated string,
+         * except when the first byte is \0 i.e the string length is 0,
+         * Then use the reported length instead.
+	 * This fix handles Linux's nonportable
+         * abstract socket address extension.
+	 */
+	if (m == 0)  m = n;
+#endif
 	if (dst) {
 	    dst[0] = INET_AF_LOCAL;
 	    dst[1] = (char) ((unsigned char) m);
@@ -5943,6 +5960,9 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
     int ival;
     char* arg_ptr;
     int arg_sz;
+#ifdef SO_BINDTODEVICE
+    char ifname[IFNAMSIZ];
+#endif
     enum PacketParseType old_htype = desc->htype;
     int old_active = desc->active;
     int propagate; /* Set to 1 if failure to set this option
@@ -6228,6 +6248,15 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 #else
 	    continue;
 #endif
+#if defined(IPV6_TCLASS) && defined(SOL_IPV6)
+	case INET_OPT_TCLASS:
+	    proto = SOL_IPV6;
+	    type = IPV6_TCLASS;
+	    propagate = 1;
+	    DEBUGF(("inet_set_opts(%ld): s=%d, IPV6_TCLASS=%d\r\n",
+		    (long)desc->port, desc->s, ival));
+	    break;
+#endif
 
 	case TCP_OPT_NODELAY:
 	    proto = IPPROTO_TCP; 
@@ -6318,6 +6347,29 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    ptr += arg_sz;
 	    len -= arg_sz;
 	    break;
+
+#ifdef SO_BINDTODEVICE
+	case INET_OPT_BIND_TO_DEVICE:
+	    if (ival < 0) return -1;
+	    if (len < ival) return -1;
+	    if (ival > sizeof(ifname)) {
+		return -1;
+	    }
+	    memcpy(ifname, ptr, ival);
+	    ifname[ival] = '\0';
+	    ptr += ival;
+	    len -= ival;
+
+	    proto = SOL_SOCKET;
+	    type = SO_BINDTODEVICE;
+	    arg_ptr = (char*)&ifname;
+	    arg_sz = sizeof(ifname);
+	    propagate = 1; /* We do want to know if this fails */
+
+	    DEBUGF(("inet_set_opts(%ld): s=%d, SO_BINDTODEVICE=%s\r\n",
+		    (long)desc->port, desc->s, ifname));
+	    break;
+#endif
 
 	default:
 	    return -1;
@@ -6450,6 +6502,9 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	struct sctp_event_subscribe es;
 #	ifdef SCTP_DELAYED_ACK_TIME
 	struct sctp_assoc_value     av; /* Not in SOLARIS10 */
+#	endif
+#	ifdef SO_BINDTODEVICE
+	char ifname[IFNAMSIZ];
 #	endif
     }
     arg;
@@ -6661,6 +6716,19 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    continue; /* Option not supported -- ignore it */
 #	endif
 
+#       if defined(IPV6_TCLASS) && defined(SOL_IPV6)
+	case INET_OPT_TCLASS:
+	{
+	    arg.ival= get_int32 (curr);	  curr += 4;
+	    proto   = SOL_IPV6;
+	    type    = IPV6_TCLASS;
+	    arg_ptr = (char*) (&arg.ival);
+	    arg_sz  = sizeof  ( arg.ival);
+	    break;
+	}
+#	endif
+
+
 	case INET_OPT_IPV6_V6ONLY:
 #       if HAVE_DECL_IPV6_V6ONLY
 	{
@@ -6676,6 +6744,23 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 #       else
 	    continue; /* Option not supported -- ignore it */
 #       endif
+
+#ifdef SO_BINDTODEVICE
+	case INET_OPT_BIND_TO_DEVICE:
+	    arg_sz = get_int32(curr);			curr += 4;
+	    CHKLEN(curr, arg_sz);
+	    if (arg_sz >= sizeof(arg.ifname))
+		return -1;
+	    memcpy(arg.ifname, curr, arg_sz);
+	    arg.ifname[arg_sz] = '\0';
+	    curr += arg_sz;
+
+	    proto   = SOL_SOCKET;
+	    type    = SO_BINDTODEVICE;
+	    arg_ptr = (char*) (&arg.ifname);
+	    arg_sz  = sizeof  ( arg.ifname);
+	    break;
+#endif
 
 	case SCTP_OPT_AUTOCLOSE:
 	{
@@ -6942,6 +7027,9 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
     ErlDrvSizeT dest_used = 0;
     ErlDrvSizeT dest_allocated = destlen;
     char *orig_dest = *dest;
+#ifdef SO_BINDTODEVICE
+    char ifname[IFNAMSIZ];
+#endif
 
     /* Ptr is a name parameter */ 
 #define RETURN_ERROR()				\
@@ -7162,6 +7250,15 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    put_int32(0, ptr);
 	    continue;
 #endif
+	case INET_OPT_TCLASS:
+#if defined(IPV6_TCLASS) && defined(SOL_IPV6)
+	    proto = SOL_IPV6;
+	    type = IPV6_TCLASS;
+	    break;
+#else
+	    TRUNCATE_TO(0,ptr);
+	    continue;
+#endif
 	case INET_OPT_REUSEADDR: 
 	    type = SO_REUSEADDR; 
 	    break;
@@ -7268,6 +7365,26 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 		put_int32(arg_sz,ptr);
 		continue;
 	    }
+
+#ifdef SO_BINDTODEVICE
+	case INET_OPT_BIND_TO_DEVICE:
+	    arg_sz = sizeof(ifname);
+	    TRUNCATE_TO(0,ptr);
+	    PLACE_FOR(5 + arg_sz,ptr);
+	    arg_ptr = ptr + 5;
+	    if (IS_SOCKET_ERROR(sock_getopt(desc->s,SOL_SOCKET,SO_BINDTODEVICE,
+						arg_ptr,&arg_sz))) {
+		    TRUNCATE_TO(0,ptr);
+		    continue;
+		}
+	    arg_sz = my_strnlen(arg_ptr, arg_sz);
+	    TRUNCATE_TO(arg_sz + 5,ptr);
+	    *ptr++ = opt;
+	    put_int32(arg_sz,ptr);
+	    ptr += arg_sz;
+	    continue;
+#endif
+
 	default:
 	    RETURN_ERROR();
 	}
@@ -7549,6 +7666,25 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    i = LOAD_TUPLE	(spec, i, 2);
 	    break;
 	}
+
+#ifdef SO_BINDTODEVICE
+	/* The following option returns a binary:   */
+	case INET_OPT_BIND_TO_DEVICE: {
+	    char ifname[IFNAMSIZ];
+	    unsigned int  sz = sizeof(ifname);
+
+	    if (sock_getopt(desc->s, SOL_SOCKET, SO_BINDTODEVICE,
+			    &ifname, &sz) < 0) continue;
+	    /* Fill in the response: */
+	    PLACE_FOR(spec, i,
+		      LOAD_ATOM_CNT + LOAD_BUF2BINARY_CNT + LOAD_TUPLE_CNT);
+	    i = LOAD_ATOM (spec, i, am_bind_to_device);
+	    i = LOAD_BUF2BINARY(spec, i, ifname, my_strnlen(ifname, sz));
+	    i = LOAD_TUPLE (spec, i, 2);
+	    break;
+	}
+#endif
+
 	/* The following options just return an integer value: */
 	case INET_OPT_RCVBUF   :
 	case INET_OPT_SNDBUF   :
@@ -7556,6 +7692,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	case INET_OPT_DONTROUTE:
 	case INET_OPT_PRIORITY :
 	case INET_OPT_TOS      :
+	case INET_OPT_TCLASS   :
 	case INET_OPT_IPV6_V6ONLY:
 	case SCTP_OPT_AUTOCLOSE:
 	case SCTP_OPT_MAXSEG   :
@@ -7623,6 +7760,19 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 		type   = IP_TOS;
 		is_int = 1;
 		tag    = am_tos;
+		break;
+#	    else
+		/* Not supported -- ignore */
+		continue;
+#	    endif
+	    }
+	    case INET_OPT_TCLASS:
+	    {
+#           if defined(IPV6_TCLASS) && defined(SOL_IPV6)
+		proto  = SOL_IPV6;
+		type   = IPV6_TCLASS;
+		is_int = 1;
+		tag    = am_tclass;
 		break;
 #	    else
 		/* Not supported -- ignore */
@@ -8297,10 +8447,10 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
     return (ErlDrvData)desc;
 }
 
-
-#ifndef MAXHOSTNAMELEN
-#define MAXHOSTNAMELEN 256
-#endif
+/* MAXHOSTNAMELEN could be 64 or 255 depending
+on the platform. Instead, use INET_MAXHOSTNAMELEN
+which is always 255 across all platforms */
+#define INET_MAXHOSTNAMELEN 255
 
 /*
 ** common TCP/UDP/SCTP control command
@@ -8477,13 +8627,14 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
     }
 	
     case INET_REQ_GETHOSTNAME: { /* get host name */
-	char tbuf[MAXHOSTNAMELEN];
+	char tbuf[INET_MAXHOSTNAMELEN + 1];
 
 	DEBUGF(("inet_ctl(%ld): GETHOSTNAME\r\n", (long)desc->port)); 
 	if (len != 0)
 	    return ctl_error(EINVAL, rbuf, rsize);
 
-	if (IS_SOCKET_ERROR(sock_hostname(tbuf, MAXHOSTNAMELEN)))
+        /* gethostname requires len to be max(hostname) + 1 */
+	if (IS_SOCKET_ERROR(sock_hostname(tbuf, INET_MAXHOSTNAMELEN + 1)))
 	    return ctl_error(sock_errno(), rbuf, rsize);
 	return ctl_reply(INET_REP_OK, tbuf, strlen(tbuf), rbuf, rsize);
     }
@@ -8536,6 +8687,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	else {
 	    ptr = &peer;
             sz = sizeof(peer);
+            sys_memzero((char *) &peer, sz);
 	    if (IS_SOCKET_ERROR
 		(sock_peer
 		 (desc->s, (struct sockaddr*)ptr, &sz)))
@@ -10338,6 +10490,9 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
 	set_busy_port(desc->inet.port, 0);
     }
 
+    tcp_clear_output(desc);
+    tcp_clear_input(desc);
+
     /*
      * We used to handle "expected errors" differently from unexpected ones.
      * Now we handle all errors in the same way (unless the show_econnreset
@@ -10360,8 +10515,6 @@ static int tcp_send_or_shutdown_error(tcp_descriptor* desc, int err)
 	else
 	    desc_close(INETP(desc));
     } else {
-	tcp_clear_output(desc);
-	tcp_clear_input(desc);
 	tcp_close_check(desc);
 	erl_inet_close(INETP(desc));
 
@@ -10686,10 +10839,11 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 
 #ifndef SO_ERROR
 	{
-	    int sz = sizeof(desc->inet.remote);
-	    int code = sock_peer(desc->inet.s,
-				 (struct sockaddr*) &desc->inet.remote, &sz);
-
+	    int sz, code;
+            sz = sizeof(desc->inet.remote);
+            sys_memzero((char *) &desc->inet.remote, sz);
+	    code = sock_peer(desc->inet.s,
+                             (struct sockaddr*) &desc->inet.remote, &sz);
 	    if (IS_SOCKET_ERROR(code)) {
 		desc->inet.state = INET_STATE_OPEN;  /* restore state */
 		ret =  async_error(INETP(desc), sock_errno());
@@ -11407,6 +11561,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	VALGRIND_MAKE_MEM_DEFINED(mhdr.msg_control, mhdr.msg_controllen); /*suppress "uninitialised bytes"*/
 	mhdr.msg_flags          = 0;            /* Not used with "sendmsg"   */
 	
+	inet_output_count(desc, data_len);
 	/* Now do the actual sending. NB: "flags" in "sendmsg" itself are NOT
 	   used: */
 	code = sock_sendmsg(desc->s, &mhdr, 0);

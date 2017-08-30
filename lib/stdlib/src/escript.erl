@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -281,11 +281,12 @@ start(EscriptOptions) ->
         end
     catch
         throw:Str ->
-            io:format("escript: ~s\n", [Str]),
+            io:format("escript: ~ts\n", [Str]),
             my_halt(127);
         _:Reason ->
-            io:format("escript: Internal error: ~p\n", [Reason]),
-            io:format("~p\n", [erlang:get_stacktrace()]),
+            Stk = erlang:get_stacktrace(),
+            io:format("escript: Internal error: ~tp\n", [Reason]),
+            io:format("~tp\n", [Stk]),
             my_halt(127)
     end.
 
@@ -481,46 +482,49 @@ find_first_body_line(Fd, HeaderSz0, LineNo, KeepFirst, Sections) ->
     %% Look for special comment on second line
     Line2 = get_line(Fd),
     {ok, HeaderSz2} = file:position(Fd, cur),
-    case classify_line(Line2) of
-	emu_args ->
-	    %% Skip special comment on second line
-	    Line3 = get_line(Fd),
-	    {HeaderSz2, LineNo + 2, Fd,
-	     Sections#sections{type = guess_type(Line3),
-			       comment = undefined,
-			       emu_args = Line2}};
-	Line2Type ->
-	    %% Look for special comment on third line
-	    Line3 = get_line(Fd),
-	    {ok, HeaderSz3} = file:position(Fd, cur),
-	    Line3Type = classify_line(Line3),
-	    if
-		Line3Type =:= emu_args ->
-		    %% Skip special comment on third line
-		    Line4 = get_line(Fd),
-		    {HeaderSz3, LineNo + 3, Fd,
-		     Sections#sections{type = guess_type(Line4),
-				       comment = Line2,
-				       emu_args = Line3}};
-		Sections#sections.shebang =:= undefined,
-		KeepFirst =:= true ->
-		    %% No shebang. Use the entire file
-		    {HeaderSz0, LineNo, Fd,
-		     Sections#sections{type = guess_type(Line2)}};
-		Sections#sections.shebang =:= undefined ->
-		    %% No shebang. Skip the first line
-		    {HeaderSz1, LineNo, Fd,
-		     Sections#sections{type = guess_type(Line2)}};
-		Line2Type =:= comment ->
-		    %% Skip shebang on first line and comment on second
-		    {HeaderSz2, LineNo + 2, Fd,
-		     Sections#sections{type = guess_type(Line3),
-				       comment = Line2}};
-		true ->
-		    %% Just skip shebang on first line
-		    {HeaderSz1, LineNo + 1, Fd,
-		     Sections#sections{type = guess_type(Line2)}}
-	    end
+    if
+        Sections#sections.shebang =:= undefined,
+        KeepFirst =:= true ->
+            %% No shebang. Use the entire file
+            {HeaderSz0, LineNo, Fd,
+             Sections#sections{type = guess_type(Line2)}};
+        Sections#sections.shebang =:= undefined ->
+            %% No shebang. Skip the first line
+            {HeaderSz1, LineNo, Fd,
+             Sections#sections{type = guess_type(Line2)}};
+        true ->
+            case classify_line(Line2) of
+                emu_args ->
+                    %% Skip special comment on second line
+                    Line3 = get_line(Fd),
+                    {HeaderSz2, LineNo + 2, Fd,
+                     Sections#sections{type = guess_type(Line3),
+                                       comment = undefined,
+                                       emu_args = Line2}};
+                comment ->
+                    %% Look for special comment on third line
+                    Line3 = get_line(Fd),
+                    {ok, HeaderSz3} = file:position(Fd, cur),
+                    Line3Type = classify_line(Line3),
+                    if
+                        Line3Type =:= emu_args ->
+                            %% Skip special comment on third line
+                            Line4 = get_line(Fd),
+                            {HeaderSz3, LineNo + 3, Fd,
+                             Sections#sections{type = guess_type(Line4),
+                                               comment = Line2,
+                                               emu_args = Line3}};
+                        true ->
+                            %% Skip shebang on first line and comment on second
+                            {HeaderSz2, LineNo + 2, Fd,
+                             Sections#sections{type = guess_type(Line3),
+                                               comment = Line2}}
+                    end;
+                _ ->
+                    %% Just skip shebang on first line
+                    {HeaderSz1, LineNo + 1, Fd,
+                     Sections#sections{type = guess_type(Line2)}}
+            end
     end.
 
 classify_line(Line) ->
@@ -626,8 +630,7 @@ parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly) ->
                     {error, _} ->
                         epp_parse_file2(Epp, S2, [FileForm], OptModRes);
                     {eof, LastLine} ->
-                        Anno = anno(LastLine),
-                        S#state{forms_or_bin = [FileForm, {eof, Anno}]}
+                        S#state{forms_or_bin = [FileForm, {eof, LastLine}]}
                 end,
             ok = epp:close(Epp),
             ok = file:close(Fd),
@@ -725,8 +728,7 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
                       [S#state.file,Ln,Mod:format_error(Args)]),
             epp_parse_file(Epp, S#state{n_errors = S#state.n_errors + 1}, [Form | Forms]);
         {eof, LastLine} ->
-            Anno = anno(LastLine),
-            S#state{forms_or_bin = lists:reverse([{eof, Anno} | Forms])}
+            S#state{forms_or_bin = lists:reverse([{eof, LastLine} | Forms])}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

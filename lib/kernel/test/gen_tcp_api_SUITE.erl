@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@
 	 t_local_basic/1, t_local_unbound/1, t_local_fdopen/1,
 	 t_local_fdopen_listen/1, t_local_fdopen_listen_unbound/1,
 	 t_local_fdopen_connect/1, t_local_fdopen_connect_unbound/1,
-	 t_local_abstract/1]).
+	 t_local_abstract/1, t_accept_inet6_tclass/1]).
 
 -export([getsockfd/0,closesockfd/1]).
 
@@ -50,6 +50,7 @@ all() ->
     [{group, t_accept}, {group, t_connect}, {group, t_recv},
      t_shutdown_write, t_shutdown_both, t_shutdown_error,
      t_shutdown_async, t_fdopen, t_fdconnect, t_implicit_inet6,
+     t_accept_inet6_tclass,
      {group, t_local}].
 
 groups() -> 
@@ -301,9 +302,9 @@ t_implicit_inet6(Config) when is_list(Config) ->
     end.
 
 t_implicit_inet6(Host, Addr) ->
-    case gen_tcp:listen(0, [inet6]) of
+    Loopback = {0,0,0,0,0,0,0,1},
+    case gen_tcp:listen(0, [inet6, {ip,Loopback}]) of
 	{ok,S1} ->
-	    Loopback = {0,0,0,0,0,0,0,1},
 	    io:format("~s ~p~n", ["::1",Loopback]),
 	    implicit_inet6(S1, Loopback),
 	    ok = gen_tcp:close(S1),
@@ -520,6 +521,24 @@ local_handshake(S, SAddr, C, CAddr) ->
     CData = ok(gen_tcp:recv(S, length(CData))),
     SData = ok(gen_tcp:recv(C, length(SData))),
     ok.
+
+t_accept_inet6_tclass(Config) when is_list(Config) ->
+    TClassOpt = {tclass,8#56 bsl 2}, % Expedited forwarding
+    Loopback = {0,0,0,0,0,0,0,1},
+    case gen_tcp:listen(0, [inet6, {ip, Loopback}, TClassOpt]) of
+	{ok,L} ->
+	    LPort = ok(inet:port(L)),
+	    Sa = ok(gen_tcp:connect(Loopback, LPort, [])),
+	    Sb = ok(gen_tcp:accept(L)),
+	    [TClassOpt] = ok(inet:getopts(Sb, [tclass])),
+	    ok = gen_tcp:close(Sb),
+	    ok = gen_tcp:close(Sa),
+	    ok = gen_tcp:close(L),
+	    ok;
+	{error,_} ->
+	    {skip,"IPv6 TCLASS not supported"}
+    end.
+
 
 %%% Utilities
 

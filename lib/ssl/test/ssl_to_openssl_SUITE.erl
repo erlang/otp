@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,9 @@ all() ->
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'}
+     {group, 'sslv3'},
+     {group, 'dtlsv1.2'},
+     {group, 'dtlsv1'}
     ].
 
 groups() ->
@@ -50,12 +52,17 @@ groups() ->
      {'tlsv1.2', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
      {'tlsv1.1', [], all_versions_tests() ++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
      {'tlsv1', [], all_versions_tests()++ alpn_tests() ++ npn_tests() ++ sni_server_tests()},
-     {'sslv3', [], all_versions_tests()}].
+     {'sslv3', [], all_versions_tests()},
+     {'dtlsv1.2', [], dtls_all_versions_tests()},
+     {'dtlsv1', [], dtls_all_versions_tests()}
+    ].
 
 basic_tests() ->
     [basic_erlang_client_openssl_server,
      basic_erlang_server_openssl_client,
-     expired_session].
+     expired_session,
+     ssl2_erlang_server_openssl_client_comp
+    ].
 
 all_versions_tests() ->
     [
@@ -74,7 +81,26 @@ all_versions_tests() ->
      ciphers_dsa_signed_certs,
      erlang_client_bad_openssl_server,
      expired_session,
-     ssl2_erlang_server_openssl_client].
+     ssl2_erlang_server_openssl_client
+    ].
+dtls_all_versions_tests() ->
+    [
+     %%erlang_client_openssl_server,
+     erlang_server_openssl_client,
+     %%erlang_client_openssl_server_dsa_cert,
+     erlang_server_openssl_client_dsa_cert,
+     erlang_server_openssl_client_reuse_session
+     %%erlang_client_openssl_server_renegotiate,
+     %%erlang_client_openssl_server_nowrap_seqnum,
+     %%erlang_server_openssl_client_nowrap_seqnum,
+     %%erlang_client_openssl_server_no_server_ca_cert,
+     %%erlang_client_openssl_server_client_cert,
+     %%erlang_server_openssl_client_client_cert
+     %%ciphers_rsa_signed_certs,
+     %%ciphers_dsa_signed_certs,
+     %%erlang_client_bad_openssl_server,
+     %%expired_session
+    ].
 
 alpn_tests() ->
     [erlang_client_alpn_openssl_server_alpn,
@@ -116,7 +142,7 @@ init_per_suite(Config0) ->
 	    catch crypto:stop(),
 	    try crypto:start() of
 		ok ->
-		    ssl:start(),
+		    ssl_test_lib:clean_start(),
 		    {ok,  _} = make_certs:all(proplists:get_value(data_dir, Config0),
 					      proplists:get_value(priv_dir, Config0)),
 		    Config1 = ssl_test_lib:make_dsa_cert(Config0),
@@ -141,13 +167,18 @@ init_per_group(basic, Config) ->
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) of
 	true ->
-	    case ssl_test_lib:check_sane_openssl_version(GroupName) of
-		true ->
-		    ssl_test_lib:init_tls_version(GroupName, Config);
-		false ->
-		    {skip, openssl_does_not_support_version}
-	    end;
-	_ ->
+            case ssl_test_lib:supports_ssl_tls_version(GroupName) of
+                true ->
+                    case ssl_test_lib:check_sane_openssl_version(GroupName) of
+                        true ->
+                            ssl_test_lib:init_tls_version(GroupName, Config);
+                        false ->
+                            {skip, openssl_does_not_support_version}
+                    end;
+                false ->
+                    {skip, openssl_does_not_support_version}
+            end; 
+        _ ->
 	    ssl:start(),
 	    Config
     end.
@@ -180,7 +211,8 @@ special_init(TestCase, Config)
     {ok, Version} = application:get_env(ssl, protocol_version),
     check_sane_openssl_renegotaite(Config, Version);
 
-special_init(ssl2_erlang_server_openssl_client, Config) ->
+special_init(Case, Config) when Case == ssl2_erlang_server_openssl_client;
+				Case == ssl2_erlang_server_openssl_client_comp ->
     case ssl_test_lib:supports_ssl_tls_version(sslv2) of
 	true ->
 	     Config;
@@ -280,7 +312,8 @@ basic_erlang_client_openssl_server(Config) when is_list(Config) ->
 
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args), 
 
-    ssl_test_lib:wait_for_openssl_server(Port),
+
+    ssl_test_lib:wait_for_openssl_server(Port, tls),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
@@ -353,7 +386,7 @@ erlang_client_openssl_server(Config) when is_list(Config) ->
 	
     OpensslPort =  ssl_test_lib:portable_open_port(Exe, Args), 
 
-    ssl_test_lib:wait_for_openssl_server(Port),
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
@@ -427,7 +460,7 @@ erlang_client_openssl_server_dsa_cert(Config) when is_list(Config) ->
 
     OpensslPort =  ssl_test_lib:portable_open_port(Exe, Args), 
 
-    ssl_test_lib:wait_for_openssl_server(Port),
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
@@ -547,7 +580,7 @@ erlang_client_openssl_server_renegotiate(Config) when is_list(Config) ->
     
     OpensslPort =  ssl_test_lib:portable_open_port(Exe, Args), 
 
-    ssl_test_lib:wait_for_openssl_server(Port),
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
@@ -596,7 +629,7 @@ erlang_client_openssl_server_nowrap_seqnum(Config) when is_list(Config) ->
     
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),
 
-    ssl_test_lib:wait_for_openssl_server(Port),
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
@@ -677,7 +710,7 @@ erlang_client_openssl_server_no_server_ca_cert(Config) when is_list(Config) ->
     
     OpensslPort =  ssl_test_lib:portable_open_port(Exe, Args), 
  
-    ssl_test_lib:wait_for_openssl_server(Port),
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
@@ -720,7 +753,7 @@ erlang_client_openssl_server_client_cert(Config) when is_list(Config) ->
     
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),   
 
-    ssl_test_lib:wait_for_openssl_server(Port),
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
@@ -830,7 +863,7 @@ ciphers_dsa_signed_certs() ->
     [{doc,"Test cipher suites that uses dsa certs"}].
 ciphers_dsa_signed_certs(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
-    Ciphers = ssl_test_lib:dsa_suites(),
+    Ciphers = ssl_test_lib:dsa_suites(tls_record:protocol_version(Version)),
     run_suites(Ciphers, Version, Config, dsa).
 
 %%--------------------------------------------------------------------
@@ -852,7 +885,7 @@ erlang_client_bad_openssl_server(Config) when is_list(Config) ->
  	"-cert", CertFile, "-key", KeyFile],
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args), 
     
-    ssl_test_lib:wait_for_openssl_server(Port),
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
     
     Client0 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					 {host, Hostname},
@@ -907,7 +940,7 @@ expired_session(Config) when is_list(Config) ->
     
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args), 
 
-    ssl_test_lib:wait_for_openssl_server(Port),
+    ssl_test_lib:wait_for_openssl_server(Port, tls),
     
     Client0 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
@@ -951,11 +984,39 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
 
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
+					      {from, self()}, 
+					      {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Exe = "openssl",
+    Args = ["s_client", "-connect", "localhost:" ++ integer_to_list(Port), 
+	"-ssl2", "-msg"],
+    
+    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),  
+    
+    ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
+    consume_port_exit(OpenSslPort),
+    ssl_test_lib:check_result(Server, {error, {tls_alert, "handshake failure"}}),
+    process_flag(trap_exit, false).
+%%--------------------------------------------------------------------
+ssl2_erlang_server_openssl_client_comp() ->
+    [{doc,"Test that ssl v2 clients are rejected"}].
+
+ssl2_erlang_server_openssl_client_comp(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    V2Compat = proplists:get_value(v2_hello_compatible, Config), 
+
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    
     Data = "From openssl to erlang",
 
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
-			   {options, ServerOpts}]),
+			   {options, [{v2_hello_compatible, V2Compat} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     
     Exe = "openssl",
@@ -966,20 +1027,7 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
     true = port_command(OpenSslPort, Data),
     
     ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
-    receive
-	{'EXIT', OpenSslPort, _} = Exit ->
-	    ct:log("Received: ~p ~n", [Exit]),
-	    ok
-    end,
-    receive 
-	{'EXIT', _, _} = UnkownExit ->
-	    Msg = lists:flatten(io_lib:format("Received: ~p ~n", [UnkownExit])),
-	    ct:log(Msg),
-	    ct:comment(Msg),
-	    ok
-    after 0 ->
-	    ok
-    end,		
+    consume_port_exit(OpenSslPort),
     ssl_test_lib:check_result(Server, {error, {tls_alert, "protocol version"}}),
     process_flag(trap_exit, false).
 
@@ -1264,7 +1312,7 @@ client_check_result(Port, DataExpected, DataReceived) ->
                 _ ->
                     client_check_result(Port, DataExpected, NewData)
             end
-    after 3000 ->
+    after 20000 ->
 	    ct:fail({"Time out on openSSL Client", {expected, DataExpected},
 		     {got, DataReceived}})   
     end.
@@ -1351,7 +1399,7 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
 
     OpenSslPort =  ssl_test_lib:portable_open_port(Exe, Args), 
 
-    ssl_test_lib:wait_for_openssl_server(Port),
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
 
     ConnectionInfo = {ok, {Version, CipherSuite}},
 
@@ -1421,7 +1469,7 @@ start_erlang_client_and_openssl_server_with_opts(Config, ErlangClientOpts, Opens
 		   
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
 
-    ssl_test_lib:wait_for_openssl_server(Port),
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
                     {host, Hostname},
@@ -1457,7 +1505,7 @@ start_erlang_client_and_openssl_server_for_alpn_negotiation(Config, Data, Callba
     Args = ["s_server", "-msg", "-alpn", "http/1.1,spdy/2", "-accept", integer_to_list(Port), ssl_test_lib:version_flag(Version),
 	    "-cert", CertFile, "-key", KeyFile],
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
-    ssl_test_lib:wait_for_openssl_server(Port),
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
                     {host, Hostname},
@@ -1526,7 +1574,7 @@ start_erlang_client_and_openssl_server_for_alpn_npn_negotiation(Config, Data, Ca
 
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
 
-    ssl_test_lib:wait_for_openssl_server(Port),
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
                     {host, Hostname},
@@ -1591,7 +1639,7 @@ start_erlang_client_and_openssl_server_for_npn_negotiation(Config, Data, Callbac
 	    "-cert", CertFile, "-key", KeyFile],
     OpensslPort = ssl_test_lib:portable_open_port(Exe, Args),  
 
-    ssl_test_lib:wait_for_openssl_server(Port),
+    ssl_test_lib:wait_for_openssl_server(Port, proplists:get_value(protocol, Config)),
 
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
                     {host, Hostname},
@@ -1800,3 +1848,9 @@ openssl_client_args(false, Hostname, Port, ServerName) ->
 openssl_client_args(true, Hostname, Port, ServerName) ->
     ["s_client",  "-no_ssl2", "-connect", Hostname ++ ":" ++ 
 	 integer_to_list(Port), "-servername", ServerName].
+
+consume_port_exit(OpenSSLPort) ->
+    receive    	
+        {'EXIT', OpenSSLPort, _} ->
+            ok
+    end.

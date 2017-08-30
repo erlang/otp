@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -61,7 +61,14 @@
 	 unexpectedfun_option_client/1, 
 	 unexpectedfun_option_server/1, 
 	 user_dir_option/1, 
-	 connectfun_disconnectfun_server/1
+	 connectfun_disconnectfun_server/1,
+	 hostkey_fingerprint_check/1,
+	 hostkey_fingerprint_check_md5/1,
+	 hostkey_fingerprint_check_sha/1,
+	 hostkey_fingerprint_check_sha256/1,
+	 hostkey_fingerprint_check_sha384/1,
+	 hostkey_fingerprint_check_sha512/1,
+	 hostkey_fingerprint_check_list/1
 	]).
 
 %%% Common test callbacks
@@ -100,6 +107,13 @@ all() ->
      disconnectfun_option_client,
      unexpectedfun_option_server,
      unexpectedfun_option_client,
+     hostkey_fingerprint_check,
+     hostkey_fingerprint_check_md5,
+     hostkey_fingerprint_check_sha,
+     hostkey_fingerprint_check_sha256,
+     hostkey_fingerprint_check_sha384,
+     hostkey_fingerprint_check_sha512,
+     hostkey_fingerprint_check_list,
      id_string_no_opt_client,
      id_string_own_string_client,
      id_string_random_client,
@@ -136,6 +150,7 @@ init_per_group(hardening_tests, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_dsa(DataDir, PrivDir),
+    ssh_test_lib:setup_rsa(DataDir, PrivDir),
     Config;
 init_per_group(dir_options, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -540,10 +555,18 @@ connectfun_disconnectfun_server(Config) ->
 		{disconnect,Ref,R} ->
 		    ct:log("Disconnect result: ~p",[R]),
 		    ssh:stop_daemon(Pid)
-	    after 2000 ->
+	    after 10000 ->
+		    receive
+			X -> ct:log("received ~p",[X])
+		    after 0 -> ok
+		    end,
 		    {fail, "No disconnectfun action"}
 	    end
-    after 2000 ->
+    after 10000 ->
+	    receive
+		X -> ct:log("received ~p",[X])
+	    after 0 -> ok
+	    end,
 	    {fail, "No connectfun action"}
     end.
 
@@ -649,7 +672,7 @@ disconnectfun_option_server(Config) ->
 	    ct:log("Server detected disconnect: ~p",[Reason]),
 	    ssh:stop_daemon(Pid),
 	    ok
-    after 3000 ->
+    after 5000 ->
 	    receive
 		X -> ct:log("received ~p",[X])
 	    after 0 -> ok
@@ -772,6 +795,106 @@ unexpectedfun_option_client(Config) ->
 	    ssh:stop_daemon(Pid),
 	    {fail,timeout}
     end.
+
+%%--------------------------------------------------------------------
+hostkey_fingerprint_check(Config) ->
+    do_hostkey_fingerprint_check(Config, old).
+
+hostkey_fingerprint_check_md5(Config) ->
+    do_hostkey_fingerprint_check(Config, md5).
+
+hostkey_fingerprint_check_sha(Config) ->
+    do_hostkey_fingerprint_check(Config, sha).
+
+hostkey_fingerprint_check_sha256(Config) ->
+    do_hostkey_fingerprint_check(Config, sha256).
+
+hostkey_fingerprint_check_sha384(Config) ->
+    do_hostkey_fingerprint_check(Config, sha384).
+
+hostkey_fingerprint_check_sha512(Config) ->
+    do_hostkey_fingerprint_check(Config, sha512).
+
+hostkey_fingerprint_check_list(Config) ->
+    do_hostkey_fingerprint_check(Config, [sha,md5,sha256]).
+
+%%%----
+do_hostkey_fingerprint_check(Config, HashAlg) ->
+    case supported_hash(HashAlg) of
+	true ->
+	    really_do_hostkey_fingerprint_check(Config, HashAlg);
+	false ->
+	    {skip,{unsupported_hash,HashAlg}}
+    end.
+
+supported_hash(old) -> true;
+supported_hash(HashAlg) ->
+    Hs = if is_atom(HashAlg) -> [HashAlg];
+            is_list(HashAlg) -> HashAlg
+         end,
+    [] == (Hs -- proplists:get_value(hashs, crypto:supports(), [])).
+
+
+really_do_hostkey_fingerprint_check(Config, HashAlg) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDirServer = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDirServer),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    UserDirClient = 
+	ssh_test_lib:create_random_dir(Config), % Ensure no 'known_hosts' disturbs
+
+    %% All host key fingerprints.  Trust that public_key has checked the ssh_hostkey_fingerprint
+    %% function since that function is used by the ssh client...
+    FPs0 = [case HashAlg of
+	       old -> public_key:ssh_hostkey_fingerprint(Key);
+	       _ -> public_key:ssh_hostkey_fingerprint(HashAlg, Key)
+	   end
+	   || FileCandidate <- begin
+				   {ok,KeyFileCands} = file:list_dir(SysDir),
+				   KeyFileCands
+			       end,
+	      nomatch =/= re:run(FileCandidate, ".*\\.pub", []),
+	      {Key,_Cmnts} <- begin
+				  {ok,Bin} = file:read_file(filename:join(SysDir, FileCandidate)),
+				  try public_key:ssh_decode(Bin, public_key)
+				  catch
+				      _:_ -> []
+				  end
+			      end],
+    FPs = if is_atom(HashAlg) -> FPs0;
+             is_list(HashAlg) -> lists:concat(FPs0)
+          end,
+    ct:log("Fingerprints(~p) = ~p",[HashAlg,FPs]),
+
+    %% Start daemon with the public keys that we got fingerprints from
+    {Pid, Host0, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDirServer},
+					     {password, "morot"}]),
+    Host = ssh_test_lib:ntoa(Host0),
+    FP_check_fun = fun(PeerName, FP) ->
+			   ct:log("PeerName = ~p, FP = ~p",[PeerName,FP]),
+			   HostCheck = ssh_test_lib:match_ip(Host, PeerName),
+			   FPCheck = 
+                               if is_atom(HashAlg) -> lists:member(FP, FPs);
+                                  is_list(HashAlg) -> lists:all(fun(FP1) -> lists:member(FP1,FPs) end,
+                                                                FP)
+                               end,
+			   ct:log("check ~p == ~p (~p) and ~n~p~n in ~p (~p)~n",
+				  [PeerName,Host,HostCheck,FP,FPs,FPCheck]),
+			   HostCheck and FPCheck
+		   end,
+    
+    ssh_test_lib:connect(Host, Port, [{silently_accept_hosts,
+				       case HashAlg of
+					   old -> FP_check_fun;
+					   _ -> {HashAlg, FP_check_fun}
+				       end},
+				      {user, "foo"},
+				      {password, "morot"},
+				      {user_dir, UserDirClient},
+				      {user_interaction, false}]),
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 %%% Test connect_timeout option in ssh:connect/4
@@ -929,20 +1052,20 @@ id_string_random_client(Config) ->
 %%--------------------------------------------------------------------
 id_string_no_opt_server(Config) ->
     {_Server, Host, Port} = ssh_test_lib:std_daemon(Config, []),
-    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
+    {ok,S1}=ssh_test_lib:gen_tcp_connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-Erlang/"++Vsn} = gen_tcp:recv(S1, 0, 2000),
     true = expected_ssh_vsn(Vsn).
 
 %%--------------------------------------------------------------------
 id_string_own_string_server(Config) ->
     {_Server, Host, Port} = ssh_test_lib:std_daemon(Config, [{id_string,"Olle"}]),
-    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
+    {ok,S1}=ssh_test_lib:gen_tcp_connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-Olle\r\n"} = gen_tcp:recv(S1, 0, 2000).
 
 %%--------------------------------------------------------------------
 id_string_random_server(Config) ->
     {_Server, Host, Port} = ssh_test_lib:std_daemon(Config, [{id_string,random}]),
-    {ok,S1}=gen_tcp:connect(Host,Port,[{active,false},{packet,line}]),
+    {ok,S1}=ssh_test_lib:gen_tcp_connect(Host,Port,[{active,false},{packet,line}]),
     {ok,"SSH-2.0-"++Rnd} = gen_tcp:recv(S1, 0, 2000),
     case Rnd of
 	"Erlang"++_ -> ct:log("Id=~p",[Rnd]),
@@ -963,18 +1086,25 @@ ssh_connect_negtimeout(Config, Parallel) ->
     ct:log("Parallel: ~p",[Parallel]),
 
     {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
-					      {parallel_login, Parallel},
-					      {negotiation_timeout, NegTimeOut},
-					      {failfun, fun ssh_test_lib:failfun/2}]),
-    
-    {ok,Socket} = gen_tcp:connect(Host, Port, []),
+                                               {parallel_login, Parallel},
+                                               {negotiation_timeout, NegTimeOut},
+                                               {failfun, fun ssh_test_lib:failfun/2}]),
+
+    {ok,Socket} = ssh_test_lib:gen_tcp_connect(Host, Port, []),
 
     Factor = 2,
     ct:log("And now sleeping ~p*NegTimeOut (~p ms)...", [Factor, round(Factor * NegTimeOut)]),
     ct:sleep(round(Factor * NegTimeOut)),
     
     case inet:sockname(Socket) of
-	{ok,_} -> ct:fail("Socket not closed");
+	{ok,_} -> 
+	    %% Give it another chance...
+	    ct:log("Sleep more...",[]),
+	    ct:sleep(round(Factor * NegTimeOut)),
+	    case inet:sockname(Socket) of
+		{ok,_} -> ct:fail("Socket not closed");
+		{error,_} -> ok
+	    end;
 	{error,_} -> ok
     end.
 
@@ -1003,7 +1133,7 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
     ct:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
-    Shell = ssh_test_lib:start_shell(Port, IO, UserDir),
+    Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir}]),
     receive
 	Error = {'EXIT', _, _} ->
 	    ct:log("~p",[Error]),

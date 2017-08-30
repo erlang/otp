@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -115,7 +115,7 @@ connect(ClientProt, ServerProt) ->
     %% 'up' events. (Although it's likely.)
     sleep(),
     {9,5} = count("server", LRef, accept), %% 5 connections + 4 accepting
-    %% Ensure ther are still the expected number of accepting transports
+    %% Ensure there are still the expected number of accepting transports
     %% after stopping the client service.
     ok = diameter:stop_service("client"),
     sleep(),

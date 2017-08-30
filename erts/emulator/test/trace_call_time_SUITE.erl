@@ -294,7 +294,7 @@ combo(Config) when is_list(Config) ->
     T0 = erlang:monotonic_time(),
     with_bif(Nbc),
     T1 = erlang:monotonic_time(),
-    TimeB = erlang:convert_time_unit(T1-T0, native, micro_seconds),
+    TimeB = erlang:convert_time_unit(T1-T0, native, microsecond),
     %%
 
     List = collect(100),
@@ -655,13 +655,13 @@ execute(Pids, Mfa) when is_list(Pids) ->
     [P  ! {self(), execute, Mfa} || P <- Pids],
     As = [receive {P, answer, Answer} -> Answer end || P <- Pids],
     T1 = erlang:monotonic_time(),
-    {As, erlang:convert_time_unit(T1-T0, native, micro_seconds)};
+    {As, erlang:convert_time_unit(T1-T0, native, microsecond)};
 execute(P, Mfa) ->
     T0 = erlang:monotonic_time(),
     P  ! {self(), execute, Mfa},
     A  = receive {P, answer, Answer} -> Answer end,
     T1 = erlang:monotonic_time(),
-    {A, erlang:convert_time_unit(T1-T0, native, micro_seconds)}.
+    {A, erlang:convert_time_unit(T1-T0, native, microsecond)}.
 
 
 

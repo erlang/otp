@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -302,20 +302,12 @@ smaller_valid_uniqint(Int, UinqintInfo) ->
             smaller_valid_uniqint(Cand, UinqintInfo)
     end.
 
-int32_to_bigendian_list(Int) ->
-    0 = Int bsr 32,
-    [(Int bsr 24) band 16#ff,
-     (Int bsr 16) band 16#ff,
-     (Int bsr 8) band 16#ff,
-     Int band 16#ff].
-
 mk_uniqint(Int, #uniqint_info {min_int = MinInt,
                                sched_bits = SchedBits} = _UinqintInfo) ->
     Int1 = Int - MinInt,
     ThrId = Int1 band ((1 bsl SchedBits) - 1),
     Value = (Int1 bsr SchedBits) band ((1 bsl 64) - 1),
     0 = Int1 bsr (SchedBits + 64),
-    NodeName = atom_to_list(node()),
     Make = {make_unique_integer, ThrId, Value},
     %% erlang:display(Make),
     Res = erts_debug:get_internal_state(Make),

@@ -1,8 +1,4 @@
 %% -*- erlang-indent-level: 2 -*-
-%%-----------------------------------------------------------------------
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
-%% %CopyrightEnd%
-%%
 
 -module(dialyzer_worker).
 
@@ -63,10 +56,14 @@ launch(Mode, Job, InitData, Coordinator) ->
 
 %%--------------------------------------------------------------------
 
-init(#state{job = SCC, mode = Mode, init_data = InitData} = State) when
+init(#state{job = SCC, mode = Mode, init_data = InitData,
+            coordinator = Coordinator} = State) when
     Mode =:= 'typesig'; Mode =:= 'dataflow' ->
-  DependsOn = dialyzer_succ_typings:find_depends_on(SCC, InitData),
-  ?debug("Deps ~p: ~p\n",[SCC, DependsOn]),
+  DependsOnSCCs = dialyzer_succ_typings:find_depends_on(SCC, InitData),
+  ?debug("~w: Deps ~p: ~p\n", [self(), SCC, DependsOnSCCs]),
+  Pids = dialyzer_coordinator:sccs_to_pids(DependsOnSCCs, Coordinator),
+  ?debug("~w: PidsDeps ~p\n", [self(), Pids]),
+  DependsOn = [{Pid, erlang:monitor(process, Pid)} || Pid <- Pids],
   loop(updating, State#state{depends_on = DependsOn});
 init(#state{mode = Mode} = State) when
     Mode =:= 'compile'; Mode =:= 'warnings' ->
@@ -74,7 +71,7 @@ init(#state{mode = Mode} = State) when
 
 loop(updating, #state{mode = Mode} = State) when
     Mode =:= 'typesig'; Mode =:= 'dataflow' ->
-  ?debug("Update: ~p\n",[State#state.job]),
+  ?debug("~w: Update: ~p\n", [self(), State#state.job]),
   NextStatus =
     case waits_more_success_typings(State) of
       true -> waiting;
@@ -83,11 +80,11 @@ loop(updating, #state{mode = Mode} = State) when
   loop(NextStatus, State);
 loop(waiting, #state{mode = Mode} = State) when
     Mode =:= 'typesig'; Mode =:= 'dataflow' ->
-  ?debug("Wait: ~p\n",[State#state.job]),
+  ?debug("~w: Wait: ~p\n", [self(), State#state.job]),
   NewState = wait_for_success_typings(State),
   loop(updating, NewState);
 loop(running, #state{mode = 'compile'} = State) ->
-  dialyzer_coordinator:request_activation(State#state.coordinator),
+  request_activation(State),
   ?debug("Compile: ~s\n",[State#state.job]),
   Result =
     case start_compilation(State) of
@@ -99,51 +96,28 @@ loop(running, #state{mode = 'compile'} = State) ->
     end,
   report_to_coordinator(Result, State);
 loop(running, #state{mode = 'warnings'} = State) ->
-  dialyzer_coordinator:request_activation(State#state.coordinator),
+  request_activation(State),
   ?debug("Warning: ~s\n",[State#state.job]),
   Result = collect_warnings(State),
   report_to_coordinator(Result, State);
 loop(running, #state{mode = Mode} = State) when
     Mode =:= 'typesig'; Mode =:= 'dataflow' ->
   request_activation(State),
-  ?debug("Run: ~p\n",[State#state.job]),
+  ?debug("~w: Run: ~p\n", [self(), State#state.job]),
   NotFixpoint = do_work(State),
-  ok = broadcast_done(State),
   report_to_coordinator(NotFixpoint, State).
 
 waits_more_success_typings(#state{depends_on = Depends}) ->
   Depends =/= [].
 
-broadcast_done(#state{job = SCC, init_data = InitData,
-		      coordinator = Coordinator}) ->
-  RequiredBy = dialyzer_succ_typings:find_required_by(SCC, InitData),
-  {Callers, Unknown} =
-    dialyzer_coordinator:sccs_to_pids(RequiredBy, Coordinator),
-  send_done(Callers, SCC),
-  continue_broadcast_done(Unknown, SCC, Coordinator).
-
-send_done(Callers, SCC) ->
-  ?debug("Sending ~p: ~p\n",[SCC, Callers]),
-  SendSTFun = fun(PID) -> PID ! {done, SCC} end,
-  lists:foreach(SendSTFun, Callers).
-
-continue_broadcast_done([], _SCC, _Coordinator) -> ok;
-continue_broadcast_done(Rest, SCC, Coordinator) ->
-  %% This time limit should be greater than the time required
-  %% by the coordinator to spawn all processes.
-  timer:sleep(500),
-  {Callers, Unknown} = dialyzer_coordinator:sccs_to_pids(Rest, Coordinator),
-  send_done(Callers, SCC),
-  continue_broadcast_done(Unknown, SCC, Coordinator).
-
 wait_for_success_typings(#state{depends_on = DependsOn} = State) ->
   receive
-    {done, SCC} ->
-      ?debug("GOT ~p: ~p\n",[State#state.job, SCC]),
-      State#state{depends_on = DependsOn -- [SCC]}
+    {'DOWN', Ref, process, Pid, _Info} ->
+      ?debug("~w: ~p got DOWN: ~p\n", [self(), State#state.job, Pid]),
+      State#state{depends_on = DependsOn -- [{Pid, Ref}]}
   after
     5000 ->
-      ?debug("Still Waiting ~p: ~p\n",[State#state.job, DependsOn]),
+      ?debug("~w: Still Waiting ~p:\n   ~p\n",  [self(), State#state.job, DependsOn]),
       State
   end.
 
@@ -157,7 +131,7 @@ do_work(#state{mode = Mode, job = Job, init_data = InitData}) ->
   end.
 
 report_to_coordinator(Result, #state{job = Job, coordinator = Coordinator}) ->
-  ?debug("Done: ~p\n",[Job]),
+  ?debug("~w: Done: ~p\n",[self(), Job]),
   dialyzer_coordinator:job_done(Job, Result, Coordinator).
 
 start_compilation(#state{job = Job, init_data = InitData}) ->

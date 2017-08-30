@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -866,18 +866,18 @@ list2cs(List, ExtTypes) when is_list(List) ->
     is_list(DetsOpts) orelse mnesia:abort({badarg, Name, {dets, DetsOpts}}),
     [CheckProp(Prop, BadDetsOpts) || Prop <- DetsOpts],
 
-    case lists:keymember(mnesia, 1, application:which_applications()) of
-        true ->
-            Keys = check_keys(Name, List),
-            check_duplicates(Name, Keys);
-        false ->
+    case whereis(mnesia_controller) of
+        undefined ->
             %% check_keys/2 cannot be executed when mnesia is not
             %% running, due to it not being possible to read what ext
             %% backends are loaded.
-            %%% this doesn't work - disabled for now:
-	    %%%Keys = check_keys(Name, List, record_info(fields, cstruct)),
-	    %%%check_duplicates(Name, Keys)
-            ignore
+            %% this doesn't work - disabled for now:
+            %%Keys = check_keys(Name, List, record_info(fields, cstruct)),
+            %%check_duplicates(Name, Keys)
+            ignore;
+        Pid when is_pid(Pid) ->
+            Keys = check_keys(Name, List),
+            check_duplicates(Name, Keys)
     end,
 
     Cs0 = #cstruct{name = Name,
@@ -1941,7 +1941,7 @@ make_change_table_copy_type(Tab, Node, ToS) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% change index functions ....
-%% Pos is allready added by 1 in both of these functions
+%% Pos is already added by 1 in both of these functions
 
 add_table_index(Tab, Pos) ->
     schema_transaction(fun() -> do_add_table_index(Tab, Pos) end).

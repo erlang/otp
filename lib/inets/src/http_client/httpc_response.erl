@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,27 +110,30 @@ result(Response = {{_, 300, _}, _, _},
     redirect(Response, Request);
 
 result(Response = {{_, Code, _}, _, _}, 
-       Request = #request{settings = 
-			  #http_options{autoredirect = true},
-			  method = head}) when (Code =:= 301) orelse
-					       (Code =:= 302) orelse
-					       (Code =:= 303) orelse
-					       (Code =:= 307) ->
+       Request = #request{settings =
+              #http_options{autoredirect = true},
+              method = post}) when (Code =:= 301) orelse
+                           (Code =:= 302) orelse
+                           (Code =:= 303) ->
+    redirect(Response, Request#request{method = get});
+result(Response = {{_, Code, _}, _, _}, 
+       Request = #request{settings =
+              #http_options{autoredirect = true},
+              method = post}) when (Code =:= 307) ->
     redirect(Response, Request);
 result(Response = {{_, Code, _}, _, _}, 
        Request = #request{settings = 
 			  #http_options{autoredirect = true},
-			  method = get}) when (Code =:= 301) orelse 
-					      (Code =:= 302) orelse 
-					      (Code =:= 303) orelse 
-					      (Code =:= 307) ->
-    redirect(Response, Request);
-result(Response = {{_, 303, _}, _, _},
-       Request = #request{settings =
-			  #http_options{autoredirect = true},
-			  method = post}) ->
-    redirect(Response, Request#request{method = get});
-
+			  method = Method}) when (Code =:= 301) orelse
+					       (Code =:= 302) orelse
+					       (Code =:= 303) orelse
+					       (Code =:= 307) ->
+    case lists:member(Method, [get, head, options, trace]) of
+    true ->
+        redirect(Response, Request);
+    false ->
+        transparent(Response, Request)
+    end;
 
 result(Response = {{_,503,_}, _, _}, Request) ->
     status_service_unavailable(Response, Request);
@@ -359,8 +362,9 @@ redirect(Response = {StatusLine, Headers, Body}, Request) ->
 		    {ok, error(Request, Reason), Data};
 		%% Automatic redirection
 		{ok, {Scheme, _, Host, Port, Path,  Query}} -> 
+		    HostPort = http_request:normalize_host(Scheme, Host, Port),
 		    NewHeaders = 
-			(Request#request.headers)#http_request_h{host = Host},
+			(Request#request.headers)#http_request_h{host = HostPort},
 		    NewRequest = 
 			Request#request{redircount = 
 					Request#request.redircount+1,
@@ -431,7 +435,7 @@ format_response({StatusLine, Headers, Body}) ->
     Length = list_to_integer(Headers#http_response_h.'content-length'),
     {NewBody, Data} = 
 	case Length of
-	    -1 -> % When no lenght indicator is provided
+	    -1 -> % When no length indicator is provided
 		{Body, <<>>};
 	    Length when (Length =< size(Body)) ->
 		<<BodyThisReq:Length/binary, Next/binary>> = Body,

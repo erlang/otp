@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 
 -export_type([cp/0]).
 
--opaque cp() :: {'am' | 'bm', binary()}.
+-opaque cp() :: {'am' | 'bm', reference()}.
 -type part() :: {Start :: non_neg_integer(), Length :: integer()}.
 
 %%% BIFs.

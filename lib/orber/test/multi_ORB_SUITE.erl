@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -135,12 +135,11 @@ cases() ->
      setup_multi_connection_timeout_api,
      setup_multi_connection_timeout_attempts_api,
      setup_multi_connection_timeout_random_api,
-     ssl_1_multi_orber_api,
      ssl_1_multi_orber_generation_3_api,
-     ssl_2_multi_orber_api,
      ssl_2_multi_orber_generation_3_api,
-     ssl_reconfigure_api,
      ssl_reconfigure_generation_3_api].
+
+% ssl_1_multi_orber_api,ssl_2_multi_orber_api,ssl_reconfigure_api,
 
 %%-----------------------------------------------------------------
 %% Init and cleanup functions.

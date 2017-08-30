@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -38,7 +38,8 @@
 	 no_partition/1,calling_a_binary/1,binary_in_map/1,
 	 match_string_opt/1,select_on_integer/1,
 	 map_and_binary/1,unsafe_branch_caching/1,
-	 bad_literals/1,good_literals/1,constant_propagation/1]).
+	 bad_literals/1,good_literals/1,constant_propagation/1,
+	 parse_xml/1,get_payload/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -69,7 +70,8 @@ groups() ->
        no_partition,calling_a_binary,binary_in_map,
        match_string_opt,select_on_integer,
        map_and_binary,unsafe_branch_caching,
-       bad_literals,good_literals,constant_propagation]}].
+       bad_literals,good_literals,constant_propagation,parse_xml,
+       get_payload]}].
 
 
 init_per_suite(Config) ->
@@ -768,6 +770,11 @@ multiple_uses(Config) when is_list(Config) ->
     {344,62879,345,<<245,159,1,89>>} = multiple_uses_1(<<1,88,245,159,1,89>>),
     true = multiple_uses_2(<<0,0,197,18>>),
     <<42,43>> = multiple_uses_3(<<0,0,42,43>>, fun id/1),
+
+    ok = first_after(<<>>, 42),
+    <<1>> = first_after(<<1,2,3>>, 0),
+    <<2>> = first_after(<<1,2,3>>, 1),
+
     ok.
 
 multiple_uses_1(<<X:16,Tail/binary>>) ->
@@ -788,6 +795,24 @@ multiple_uses_match(<<Y:16,Z:16>>) ->
 
 multiple_uses_cmp(<<Y:16>>, <<Y:16>>) -> true;
 multiple_uses_cmp(<<_:16>>, <<_:16>>) -> false.
+
+first_after(Data, Offset) ->
+    case byte_size(Data) > Offset of
+	false ->
+	    {First, Rest} = {ok, ok},
+	    ok;
+	true ->
+	    <<_:Offset/binary, Rest/binary>> = Data,
+	    %% 'Rest' saved in y(0) before the call.
+            {First, _} = match_first(Data, Rest),
+            %% When beam_bsm sees the code, the following line
+            %% which uses y(0) has been optimized away.
+	    {First, Rest} = {First, Rest},
+	    First
+    end.
+
+match_first(_, <<First:1/binary, Rest/binary>>) ->
+    {First, Rest}.
 
 zero_label(Config) when is_list(Config) ->
     <<"nosemouth">> = read_pols(<<"FACE","nose","mouth">>),
@@ -863,27 +888,40 @@ matching_and_andalso(Config) when is_list(Config) ->
     {'EXIT',{function_clause,_}} = (catch matching_and_andalso_1(<<1,2,3>>, blurf)),
     {'EXIT',{function_clause,_}} = (catch matching_and_andalso_1(<<1,2,3>>, 19)),
 
-    {"abc",<<"xyz">>} = matching_and_andalso_2("abc", <<"-xyz">>),
-    {"abc",<<"">>} = matching_and_andalso_2("abc", <<($a-1)>>),
-    {"abc",<<"">>} = matching_and_andalso_2("abc", <<($z+1)>>),
-    {"abc",<<"">>} = matching_and_andalso_2("abc", <<($A-1)>>),
-    {"abc",<<"">>} = matching_and_andalso_2("abc", <<($Z+1)>>),
-    error = matching_and_andalso_2([], <<>>),
-    error = matching_and_andalso_2([], <<$A>>),
-    error = matching_and_andalso_2([], <<$Z>>),
-    error = matching_and_andalso_2([], <<$a>>),
-    error = matching_and_andalso_2([], <<$z>>),
+    {"abc",<<"xyz">>} = matching_and_andalso_23("abc", <<"-xyz">>),
+    {"abc",<<"">>} = matching_and_andalso_23("abc", <<($a-1)>>),
+    {"abc",<<"">>} = matching_and_andalso_23("abc", <<($z+1)>>),
+    {"abc",<<"">>} = matching_and_andalso_23("abc", <<($A-1)>>),
+    {"abc",<<"">>} = matching_and_andalso_23("abc", <<($Z+1)>>),
+    error = matching_and_andalso_23([], <<>>),
+    error = matching_and_andalso_23([], <<$A>>),
+    error = matching_and_andalso_23([], <<$Z>>),
+    error = matching_and_andalso_23([], <<$a>>),
+    error = matching_and_andalso_23([], <<$z>>),
     ok.
 
 matching_and_andalso_1(<<Bitmap/binary>>, K)
   when is_integer(K) andalso size(Bitmap) >= K andalso 0 < K ->
     ok.
 
+matching_and_andalso_23(Datetime, Bin) ->
+    Res = matching_and_andalso_2(Datetime, Bin),
+    Res = matching_and_andalso_3(Datetime, Bin),
+    Res.
+
 matching_and_andalso_2(Datetime, <<H,T/binary>>)
   when not ((H >= $a) andalso (H =< $z)) andalso
        not ((H >= $A) andalso (H =< $Z)) ->
     {Datetime,T};
 matching_and_andalso_2(_, _) -> error.
+
+%% Contrived example to ensure we cover the handling of 'call' instructions
+%% in v3_codegen:bsm_rename_ctx/4.
+matching_and_andalso_3(Datetime, <<H,T/binary>>)
+  when not ((abs(H) >= $a) andalso (abs(H) =< $z)) andalso
+       not ((abs(H) >= $A) andalso (abs(H) =< $Z)) ->
+    {Datetime,T};
+matching_and_andalso_3(_, _) -> error.
 
 %% Thanks to Tomas Stejskal.
 otp_7188(Config) when is_list(Config) ->
@@ -1451,6 +1489,40 @@ constant_propagation_c() ->
 	    X
     end.
 
+parse_xml(_Config) ->
+    <<"<?xmlX">> = do_parse_xml(<<"<?xmlX">>),
+    <<" ">> = do_parse_xml(<<"<?xml ">>),
+    ok.
+
+do_parse_xml(<<"<?xml"/utf8,Rest/binary>> = Bytes) ->
+    %% Delayed sub-binary creation is not safe. A buggy (development)
+    %% version of check_liveness_everywhere() in beam_utils would turn
+    %% on the optimization.
+    Rest1 = case is_next_char_whitespace(Rest) of
+		false ->
+		    Bytes;
+		true ->
+		    id(Rest)
+	    end,
+    id(Rest1).
+
+is_next_char_whitespace(<<C/utf8,_/binary>>) ->
+    C =:= $\s.
+
+-record(ext_header,
+        {this_hdr = 17,
+         ext_hdr_opts}).
+
+get_payload(Config) ->
+    <<3445:48>> = do_get_payload(#ext_header{ext_hdr_opts = <<3445:48>>}),
+    {'EXIT',_} = (catch do_get_payload(#ext_header{})),
+    ok.
+
+do_get_payload(ExtHdr) ->
+    _ = ExtHdr#ext_header.this_hdr,
+    ExtHdrOptions = ExtHdr#ext_header.ext_hdr_opts,
+    <<_:13,_:35>> = ExtHdr#ext_header.ext_hdr_opts,
+    ExtHdrOptions.
 
 check(F, R) ->
     R = F().

@@ -7,6 +7,7 @@
 	     ssh_app,
 	     ssh_acceptor,
 	     ssh_acceptor_sup,
+             ssh_options,
 	     ssh_auth,
 	     ssh_message,
 	     ssh_bits,
@@ -41,11 +42,10 @@
   {env, []},
   {mod, {ssh_app, []}},
   {runtime_dependencies, [
-			  "crypto-3.3",
+			  "crypto-3.7.3",
 			  "erts-6.0",
 			  "kernel-3.0",
-			  "public_key-1.1",
-			  "stdlib-3.0"
+			  "public_key-1.4",
+			  "stdlib-3.3"
 			 ]}]}.
-
 

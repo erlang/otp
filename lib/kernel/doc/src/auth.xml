@@ -47,7 +47,7 @@
       <desc>
         <p>Use
           <seealso marker="erts:erlang#erlang:get_cookie/0"><c>erlang:get_cookie()</c></seealso>
-          in <c>ERTS</c> instead.</p>
+          in ERTS instead.</p>
       </desc>
     </func>
     <func>
@@ -59,7 +59,7 @@
       <desc>
         <p>Use
           <seealso marker="erts:erlang#erlang:set_cookie/2"><c>erlang:set_cookie(node(), <anno>Cookie</anno>)</c>
-	  in <c>ERTS</c></seealso> instead.</p>
+	  in ERTS</seealso> instead.</p>
       </desc>
     </func>
     <func>

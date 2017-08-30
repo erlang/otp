@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2014</year><year>2015</year>
+      <year>2014</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,9 +32,9 @@
 
   <section>
     <title>Character Set</title>
-    <p>Since Erlang 4.8/OTP R5A, the syntax of Erlang tokens is extended to
-      allow the use of the full ISO-8859-1 (Latin-1) character set. This
-      is noticeable in the following ways:</p>
+    <p>The syntax of Erlang tokens allow the use of the full
+    ISO-8859-1 (Latin-1) character set. This is noticeable in the
+    following ways:</p>
     <list type="bulleted">
       <item>
         <p>All the Latin-1 printable characters can be used and are
@@ -102,13 +102,16 @@
       <tcaption>Character Classes</tcaption>
     </table>
     <p>In Erlang/OTP R16B the syntax of Erlang tokens was extended to
-       handle Unicode. The support is limited to
-       string literals and comments. Atoms, module names, and
-       function names are restricted to the ISO-Latin-1 range.
+       handle Unicode. The support was limited to
+       string literals and comments.
        More about the usage of Unicode in Erlang source files
        can be found in <seealso
        marker="stdlib:unicode_usage#unicode_in_erlang">STDLIB's User's
        Guide</seealso>.</p>
+       <p>From Erlang/OTP 20, atoms and function names are also allowed
+       to contain Unicode characters outside the ISO-Latin-1 range.
+       Module names, application names, and node names are still
+       restricted to the ISO-Latin-1 range.</p>
   </section>
   <section>
     <title>Source File Encoding</title>

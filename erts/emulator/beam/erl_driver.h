@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,11 +76,10 @@ typedef struct {
 #  endif
 #endif
 
-/* Values for mode arg to driver_select() */
-#define ERL_DRV_READ  (1 << 0)
-#define ERL_DRV_WRITE (1 << 1)
-#define ERL_DRV_USE   (1 << 2)
-#define ERL_DRV_USE_NO_CALLBACK (ERL_DRV_USE | (1 << 3))
+#define ERL_DRV_READ  ((int)ERL_NIF_SELECT_READ)
+#define ERL_DRV_WRITE ((int)ERL_NIF_SELECT_WRITE)
+#define ERL_DRV_USE   ((int)ERL_NIF_SELECT_STOP)
+#define ERL_DRV_USE_NO_CALLBACK (ERL_DRV_USE | (ERL_DRV_USE  << 1))
 
 /* Old deprecated */
 #define DO_READ  ERL_DRV_READ
@@ -175,13 +174,6 @@ struct erl_drv_event_data {
 };
 #endif
 typedef struct erl_drv_event_data *ErlDrvEventData; /* Event data */
-
-/*
- * A driver monitor
- */
-typedef struct {
-    unsigned char data[sizeof(void *)*4];
-} ErlDrvMonitor;
 
 typedef struct {
     unsigned long megasecs;

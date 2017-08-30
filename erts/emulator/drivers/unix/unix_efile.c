@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -79,11 +79,10 @@
  * Macros for testing file types.
  */
 
-#define ISDIR(st) (((st).st_mode & S_IFMT) == S_IFDIR)
-#define ISREG(st) (((st).st_mode & S_IFMT) == S_IFREG)
-#define ISDEV(st) \
-  (((st).st_mode&S_IFMT) == S_IFCHR || ((st).st_mode&S_IFMT) == S_IFBLK)
-#define ISLNK(st) (((st).st_mode & S_IFLNK) == S_IFLNK)
+#define ISDIR(st) (S_ISDIR((st).st_mode))
+#define ISREG(st) (S_ISREG((st).st_mode))
+#define ISDEV(st) (S_ISCHR((st).st_mode) || S_ISBLK((st).st_mode))
+#define ISLNK(st) (S_ISLNK((st).st_mode))
 #ifdef NO_UMASK
 #define FILE_MODE 0644
 #define DIR_MODE  0755
@@ -366,33 +365,6 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
     int fd;
     int mode;			/* Open mode. */
 
-    if (stat(name, &statbuf) < 0) {
-	/* statbuf is undefined: if the caller depends on it,
-	   i.e. invoke_read_file(), fail the call immediately */
-	if (pSize && flags == EFILE_MODE_READ)
-	    return check_error(-1, errInfo);
-    } else if (!ISREG(statbuf)) {
-	/*
-	 * For UNIX only, here is some ugly code to allow
-	 * /dev/null to be opened as a file.
-	 *
-	 * Assumption: The i-node number for /dev/null cannot be zero.
-	 */
-	static ino_t dev_null_ino = 0;
-
-	if (dev_null_ino == 0) {
-	    struct stat nullstatbuf;
-	    
-	    if (stat("/dev/null", &nullstatbuf) >= 0) {
-		dev_null_ino = nullstatbuf.st_ino;
-	    }
-	}
-	if (!(dev_null_ino && statbuf.st_ino == dev_null_ino)) {
-	    errno = EISDIR;
-	    return check_error(-1, errInfo);
-	}
-    }
-
     switch (flags & (EFILE_MODE_READ|EFILE_MODE_WRITE)) {
     case EFILE_MODE_READ:
 	mode = O_RDONLY;
@@ -411,16 +383,13 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
 	return check_error(-1, errInfo);
     }
 
-
     if (flags & EFILE_MODE_APPEND) {
 	mode &= ~O_TRUNC;
 	mode |= O_APPEND;
     }
-
     if (flags & EFILE_MODE_EXCL) {
 	mode |= O_EXCL;
     }
-
     if (flags & EFILE_MODE_SYNC) {
 #ifdef O_SYNC
 	mode |= O_SYNC;
@@ -430,15 +399,52 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
 #endif
     }
 
-    fd = open(name, mode, FILE_MODE);
+#ifdef HAVE_FSTAT
+    while (((fd = open(name, mode, FILE_MODE)) < 0) && (errno == EINTR));
+    if (!check_error(fd, errInfo)) return 0;
+#endif
 
-    if (!check_error(fd, errInfo))
-	return 0;
+    if (
+#ifdef HAVE_FSTAT
+        fstat(fd, &statbuf) < 0
+#else
+        stat(name, &statbuf) < 0
+#endif
+        ) {
+        /* statbuf is undefined: if the caller depends on it,
+           i.e. invoke_read_file(), fail the call immediately */
+        if (pSize && flags == EFILE_MODE_READ) {
+            check_error(-1, errInfo);
+#ifdef HAVE_FSTAT
+            efile_closefile(fd);
+#endif
+            return 0;
+        }
+    }
+    else if (! ISREG(statbuf)) {
+        struct stat nullstatbuf;
+	/*
+	 * For UNIX only, here is some ugly code to allow
+	 * /dev/null to be opened as a file.
+	 */
+        if ( (stat("/dev/null", &nullstatbuf) < 0)
+             || (statbuf.st_ino != nullstatbuf.st_ino)
+             || (statbuf.st_dev != nullstatbuf.st_dev) ) {
+#ifdef HAVE_FSTAT
+            efile_closefile(fd);
+#endif
+	    errno = EISDIR;
+	    return check_error(-1, errInfo);
+        }
+    }
+
+#ifndef HAVE_FSTAT
+    while (((fd = open(name, mode, FILE_MODE)) < 0) && (errno == EINTR));
+    if (!check_error(fd, errInfo)) return 0;
+#endif
 
     *pfd = fd;
-    if (pSize) {
-	*pSize = statbuf.st_size;
-    }
+    if (pSize) *pSize = statbuf.st_size;
     return 1;
 }
 
@@ -460,7 +466,7 @@ efile_may_openfile(Efile_error* errInfo, char *name) {
 void
 efile_closefile(int fd)
 {
-    close(fd);
+    while((close(fd) < 0) && (errno == EINTR));
 }
 
 int
@@ -963,17 +969,21 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	fdrec.sfv_len = SENDFILE_CHUNK_SIZE;
       else
 	fdrec.sfv_len = *nbytes;
+
       retval = sendfilev(out_fd, &fdrec, 1, &len);
 
-      /* Sometimes sendfilev can return -1 and still send data. 
-         When that happens we just pretend that no error happend. */
-      if (retval != -1 || errno == EAGAIN || errno == EINTR ||
-	  len != 0) {
+      if (retval == -1 && errno == EINVAL) {
+          /* On some solaris versions (I've seen it on SunOS 5.10),
+             using a sfv_len larger then a filesize will result in
+             a -1 && errno == EINVAL return. We translate this so
+             a successful send of the data.*/
+          retval = len;
+      }
+
+      if (retval != -1 || errno == EAGAIN || errno == EINTR) {
         *offset += len;
 	*nbytes -= len;
 	written += len;
-	if (errno != EAGAIN && errno != EINTR && len != 0)
-	  retval = len;
       }
     } while (len == SENDFILE_CHUNK_SIZE);
 #elif defined(__DARWIN__)

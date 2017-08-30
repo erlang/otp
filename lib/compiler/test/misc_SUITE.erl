@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -161,11 +161,12 @@ md5_1(Beam) ->
 %% Cover some code that handles internal errors.
 
 silly_coverage(Config) when is_list(Config) ->
-    %% sys_core_fold, sys_core_setel, v3_kernel
+    %% sys_core_fold, sys_core_bsm, sys_core_setel, v3_kernel
     BadCoreErlang = {c_module,[],
 		     name,[],[],
 		     [{{c_var,[],{foo,2}},seriously_bad_body}]},
     expect_error(fun() -> sys_core_fold:module(BadCoreErlang, []) end),
+    expect_error(fun() -> sys_core_bsm:module(BadCoreErlang, []) end),
     expect_error(fun() -> sys_core_dsetel:module(BadCoreErlang, []) end),
     expect_error(fun() -> v3_kernel:module(BadCoreErlang, []) end),
 
@@ -229,14 +230,6 @@ silly_coverage(Config) when is_list(Config) ->
 		      {label,2}|non_proper_list]}],99},
     expect_error(fun() -> beam_except:module(ExceptInput, []) end),
 
-    %% beam_bool
-    BoolInput = {?MODULE,[{foo,0}],[],
-		  [{function,foo,0,2,
-		    [{label,1},
-		     {func_info,{atom,?MODULE},{atom,foo},0},
-		     {label,2}|non_proper_list]}],99},
-    expect_error(fun() -> beam_bool:module(BoolInput, []) end),
-
     %% beam_dead. This is tricky. Our function must look OK to
     %% beam_utils:clean_labels/1, but must crash beam_dead.
     DeadInput = {?MODULE,[{foo,0}],[],
@@ -287,6 +280,23 @@ silly_coverage(Config) when is_list(Config) ->
 		       {call_ext,0,{extfunc,erlang,make_ref,0}},
 		       {block,[a|b]}]}],0},
     expect_error(fun() -> beam_receive:module(ReceiveInput, []) end),
+
+    %% beam_record.
+    RecordInput = {?MODULE,[{foo,0}],[],
+		    [{function,foo,1,2,
+		      [{label,1},
+		       {func_info,{atom,?MODULE},{atom,foo},1},
+                       {label,2},
+                       {test,is_tuple,{f,1},[{x,0}]},
+                       {test,test_arity,{f,1},[{x,0},3]},
+                       {block,[{set,[{x,1}],[{x,0}],{get_tuple_element,0}}]},
+                       {test,is_eq_exact,{f,1},[{x,1},{atom,bar}]},
+                       {block,[{set,[{x,2}],[{x,0}],{get_tuple_element,1}}|a]},
+                       {test,is_eq_exact,{f,1},[{x,2},{integer,1}]},
+                       {block,[{set,[{x,0}],[{atom,ok}],move}]},
+                       return]}],0},
+
+    expect_error(fun() -> beam_record:module(RecordInput, []) end),
 
     BeamZInput = {?MODULE,[{foo,0}],[],
 		  [{function,foo,0,2,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -377,6 +377,7 @@ call(SvcName, App, Message) ->
     | {capabilities, [capability()]}
     | {capabilities_cb, evaluable()}
     | {capx_timeout, 'Unsigned32'()}
+    | {capx_strictness, boolean()}
     | {disconnect_cb, evaluable()}
     | {dpr_timeout, 'Unsigned32'()}
     | {dpa_timeout, 'Unsigned32'()}
@@ -405,4 +406,5 @@ call(SvcName, App, Message) ->
    :: {extra, list()}
     | {filter, peer_filter()}
     | {timeout, 'Unsigned32'()}
+    | {peer, peer_ref()}
     | detach.

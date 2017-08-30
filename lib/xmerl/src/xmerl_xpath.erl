@@ -43,13 +43,27 @@
 %% </pre>
 %%
 %% @type nodeEntity() =
-%%      xmlElement()
-%%    | xmlAttribute()
-%%    | xmlText() 
-%%    | xmlPI()
-%%    | xmlComment()
-%%    | xmlNsNode()
-%%    | xmlDocument()
+%%      #xmlElement{}
+%%    | #xmlAttribute{}
+%%    | #xmlText{} 
+%%    | #xmlPI{}
+%%    | #xmlComment{}
+%%    | #xmlNsNode{}
+%%    | #xmlDocument{}
+%%
+%% @type docNodes() =   #xmlElement{}
+%%    | #xmlAttribute{}
+%%    | #xmlText{} 
+%%    | #xmlPI{}
+%%    | #xmlComment{}
+%%    | #xmlNsNode{}
+%%
+%% @type docEntity() =  #xmlDocument{} | [docNodes()]
+%%
+%% @type xPathString() = string()
+%%
+%% @type parentList() = [{atom(), integer()}]
+%%
 %% @type option_list(). <p>Options allows to customize the behaviour of the
 %%     XPath scanner.
 %% </p>
@@ -115,7 +129,7 @@ string(Str, Doc, Options) ->
 %%   Parents = parentList()
 %%   Doc     = nodeEntity()
 %%   Options = option_list()
-%%   Scalar  = xmlObj
+%%   Scalar  = #xmlObj{}
 %% @doc Extracts the nodes from the parsed XML tree according to XPath.
 %%   xmlObj is a record with fields type and value,
 %%   where type is boolean | number | string

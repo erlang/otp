@@ -201,7 +201,7 @@
       <desc>
         <p>Removes a driver monitor in much the same way as 
           <seealso marker="erts:erlang#erlang:demonitor/1"><c>erlang:demonitor/1</c></seealso>
-	  in <c>ERTS</c>
+	  in ERTS
 	  does with process monitors. For details about how to create
 	  driver monitors, see
 	  <seealso marker="#monitor/2"><c>monitor/2</c></seealso>,
@@ -431,7 +431,7 @@
         <p>Creates a driver monitor and works in many
           ways as
 	  <seealso marker="erts:erlang#erlang:monitor/2"><c>erlang:monitor/2</c></seealso>
-	  in <c>ERTS</c>,
+	  in ERTS,
           does for processes. When a driver changes state, the monitor
           results in a monitor message that is sent to the calling
           process. <c><anno>MonitorRef</anno></c> returned by this function is
@@ -745,7 +745,7 @@
             <p>This parameter is the name of the driver
 	      to be used in subsequent calls to function
 	      <seealso marker="erts:erlang#open_port/2"><c>erlang:open_port</c></seealso>
-	      in <c>ERTS</c>.
+	      in ERTS.
 	      The name can be specified as an <c>iolist()</c> or
               an <c>atom()</c>. The name specified when loading is used
               to find the object file (with the help of <c><anno>Path</anno></c>

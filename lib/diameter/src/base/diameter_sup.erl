@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@
 
 -define(TABLES, [{diameter_sequence, [set]},
                  {diameter_service,  [set, {keypos, 3}]},
-                 {diameter_request,  [bag]},
+                 {diameter_request,  [set]},
                  {diameter_config,   [bag, {keypos, 2}]}]).
 
 %% start_link/0

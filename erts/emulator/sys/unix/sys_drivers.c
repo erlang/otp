@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -204,6 +204,7 @@ erl_sys_late_init(void)
 #ifdef ERTS_SMP
     erts_mtx_unlock(port->lock);
 #endif
+    erts_sys_unix_later_init(); /* Need to be called after forker has been started */
 }
 
 /* II. Prototypes */
@@ -554,7 +555,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
     ErtsSysDriverData *dd;
     char *cmd_line;
     char wd_buff[MAXPATHLEN+1];
-    char *wd;
+    char *wd, *cwd;
     int ifd[2], ofd[2], stderrfd;
 
     if (pipe(ifd) < 0) return ERL_DRV_ERROR_ERRNO;
@@ -631,23 +632,21 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
 	return ERL_DRV_ERROR_ERRNO;
     }
 
-    if (opts->wd == NULL) {
-        if ((wd = getcwd(wd_buff, MAXPATHLEN+1)) == NULL) {
-            /* on some OSs this call opens a fd in the
-               background which means that this can
-               return EMFILE */
-            int err = errno;
-            close_pipes(ifd, ofd);
-            erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
-            if (new_environ != environ)
-                erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
-            erts_smp_rwmtx_runlock(&environ_rwmtx);
-            errno = err;
-            return ERL_DRV_ERROR_ERRNO;
-        }
-    } else {
-        wd = opts->wd;
+    if ((cwd = getcwd(wd_buff, MAXPATHLEN+1)) == NULL) {
+        /* on some OSs this call opens a fd in the
+           background which means that this can
+           return EMFILE */
+        int err = errno;
+        close_pipes(ifd, ofd);
+        erts_free(ERTS_ALC_T_TMP, (void *) cmd_line);
+        if (new_environ != environ)
+            erts_free(ERTS_ALC_T_ENVIRONMENT, (void *) new_environ);
+        erts_smp_rwmtx_runlock(&environ_rwmtx);
+        errno = err;
+        return ERL_DRV_ERROR_ERRNO;
     }
+
+    wd = opts->wd;
 
     {
         struct iovec *io_vector;
@@ -659,6 +658,8 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
             | (opts->exit_status ? FORKER_FLAG_EXIT_STATUS : 0)
             | (opts->read_write & DO_READ ? FORKER_FLAG_DO_READ : 0)
             | (opts->read_write & DO_WRITE ? FORKER_FLAG_DO_WRITE : 0);
+
+        if (wd) iov_len++;
 
         /* count number of elements in environment */
         while(new_environ[env_len] != NULL)
@@ -688,6 +689,10 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
             return ERL_DRV_ERROR_ERRNO;
         }
 
+        /*
+         * Whitebox test port_SUITE:pipe_limit_env
+         * assumes this command payload format.
+         */
         io_vector[i].iov_base = (void*)&buffsz;
         io_vector[i++].iov_len = sizeof(buffsz);
 
@@ -700,9 +705,15 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
         io_vector[i++].iov_len = len;
         buffsz += len;
 
-        io_vector[i].iov_base = wd;
+        io_vector[i].iov_base = cwd;
         io_vector[i].iov_len = strlen(io_vector[i].iov_base) + 1;
         buffsz += io_vector[i++].iov_len;
+
+        if (wd) {
+            io_vector[i].iov_base = wd;
+            io_vector[i].iov_len = strlen(io_vector[i].iov_base) + 1;
+            buffsz += io_vector[i++].iov_len;
+        }
 
         io_vector[i].iov_base = nullbuff;
         io_vector[i++].iov_len = 1;
@@ -765,9 +776,14 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name,
         if (res < (buffsz + sizeof(buffsz))) {
             /* we only wrote part of the command payload. Enqueue the rest. */
             for (i = 0; i < iov_len; i++) {
-                driver_enq(port_num, io_vector[i].iov_base, io_vector[i].iov_len);
+                if (res >= io_vector[i].iov_len)
+                    res -= io_vector[i].iov_len;
+                else {
+                    driver_enq(port_num, io_vector[i].iov_base + res,
+                               io_vector[i].iov_len - res);
+                    res = 0;
+                }
             }
-            driver_deq(port_num, res);
             driver_select(port_num, ofd[1], ERL_DRV_WRITE|ERL_DRV_USE, 1);
         }
 

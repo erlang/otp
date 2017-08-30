@@ -1636,6 +1636,11 @@ trace_handler({trace_ts, Pid, gc_major_start, _Func, TS} = Trace, Table, _, Dump
     dump_stack(Dump, get(Pid), Trace),
     trace_gc_start(Table, Pid, TS),
     TS;
+    
+trace_handler({trace_ts, Pid, gc_start, _Func, TS} = Trace, Table, _, Dump) ->
+    dump_stack(Dump, get(Pid), Trace),
+    trace_gc_start(Table, Pid, TS),
+    TS;
 
 %%
 %% gc_end
@@ -1648,6 +1653,12 @@ trace_handler({trace_ts, Pid, gc_major_end, _Func, TS} = Trace, Table, _, Dump) 
     dump_stack(Dump, get(Pid), Trace),
     trace_gc_end(Table, Pid, TS),
     TS;
+    
+trace_handler({trace_ts, Pid, gc_end, _Func, TS} = Trace, Table, _, Dump) ->
+    dump_stack(Dump, get(Pid), Trace),
+    trace_gc_end(Table, Pid, TS),
+    TS;
+    
 %%
 %% link
 trace_handler({trace_ts, Pid, link, _OtherPid, TS} = Trace,
@@ -1687,6 +1698,12 @@ trace_handler({trace_ts, Pid, unregister, _Name, TS} = Trace,
 %%
 %% send
 trace_handler({trace_ts, Pid, send, _OtherPid, _Msg, TS} = Trace,
+	      _Table, _, Dump) ->
+    dump_stack(Dump, get(Pid), Trace),
+    TS;
+%%
+%% send_to_non_existing_process
+trace_handler({trace_ts, Pid, send_to_non_existing_process, _OtherPid, _Msg, TS} = Trace,
 	      _Table, _, Dump) ->
     dump_stack(Dump, get(Pid), Trace),
     TS;

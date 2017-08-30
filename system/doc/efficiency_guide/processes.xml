@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -146,14 +146,14 @@ loop() ->
     <section>
       <title>Constant Pool</title>
 
-      <p>Constant Erlang terms (also called <em>literals</em>) are now
+      <p>Constant Erlang terms (also called <em>literals</em>) are
       kept in constant pools; each loaded module has its own pool.
-      The following function does no longer build the tuple every time
+      The following function does not build the tuple every time
       it is called (only to have it discarded the next time the garbage
       collector was run), but the tuple is located in the module's
       constant pool:</p>
 
-    <p><em>DO</em> (in R12B and later)</p>
+    <p><em>DO</em></p>
       <code type="erl">
 days_in_month(M) ->
     element(M, {31,28,31,30,31,30,31,31,30,31,30,31}).</code>
@@ -222,7 +222,7 @@ kilo_byte(N, Acc) ->
 
       <pre>
 4> <input>T = ets:new(tab, []).</input>
-17
+#Ref&lt;0.1662103692.2407923716.214181>
 5> <input>ets:insert(T, {key,efficiency_guide:kilo_byte()}).</input>
 true
 6> <input>erts_debug:size(element(2, hd(ets:lookup(T, key)))).</input>
@@ -235,9 +235,7 @@ true
       return the same value. Sharing has been lost.</p>
 
       <p>In a future Erlang/OTP release, it might be implemented a
-      way to (optionally) preserve sharing. There are no plans to make
-      preserving of sharing the default behaviour, as that would
-      penalize the vast majority of Erlang applications.</p>
+      way to (optionally) preserve sharing.</p>
     </section>
   </section>
 
@@ -261,10 +259,6 @@ true
     The estone benchmark, for example, is entirely sequential. So is
     the most common implementation of the "ring benchmark"; usually one process
     is active, while the others wait in a <c>receive</c> statement.</p>
-
-    <p>The <seealso marker="percept:percept">percept</seealso> application
-    can be used to profile your application to see how much potential (or lack
-    thereof) it has for concurrency.</p>
   </section>
 </chapter>
 

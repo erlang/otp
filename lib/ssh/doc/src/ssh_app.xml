@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>2012</year><year>2015</year>
+      <year>2012</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -109,7 +109,7 @@
   </section>
  <section>
     <title>Host Keys</title>
-    <p>RSA and DSA host keys are supported and are
+    <p>RSA, DSA and ECDSA host keys are supported and are
        expected to be found in files named <c>ssh_host_rsa_key</c>,
        <c>ssh_host_dsa_key</c> and <c>ssh_host_ecdsa_key</c>.
        </p>
@@ -146,7 +146,10 @@
 	  <item>diffie-hellman-group-exchange-sha1</item>
 	  <item>diffie-hellman-group-exchange-sha256</item>
 	  <item>diffie-hellman-group14-sha1</item>
-	  <item>diffie-hellman-group1-sha1</item>
+	  <item>diffie-hellman-group14-sha256</item>
+	  <item>diffie-hellman-group16-sha512</item>
+	  <item>diffie-hellman-group18-sha512</item>
+	  <item>(diffie-hellman-group1-sha1, retired: can be enabled with the <c>preferred_algorithms</c> option)</item>
 	</list>
       </item>
 
@@ -158,6 +161,8 @@
 	  <item>ecdsa-sha2-nistp521</item>
 	  <item>ssh-rsa</item>
 	  <item>ssh-dss</item>
+	  <item>rsa-sha2-256</item>
+	  <item>rsa-sha2-512</item>
 	</list>
       </item>
 
@@ -173,20 +178,22 @@
       <tag>Encryption algorithms (ciphers)</tag>
       <item>
 	<list type="bulleted">
-	  <item>aes128-gcm@openssh.com (AEAD_AES_128_GCM)</item>
-          <item>aes256-gcm@openssh.com (AEAD_AES_256_GCM)</item>
+          <item>aes128-gcm@openssh.com</item>
+          <item>aes256-gcm@openssh.com</item>
 	  <item>aes128-ctr</item>
 	  <item>aes192-ctr</item>
 	  <item>aes256-ctr</item>
 	  <item>aes128-cbc</item>
 	  <item>3des-cbc</item>
+	  <item>(AEAD_AES_128_GCM, not enabled per default)</item>
+          <item>(AEAD_AES_256_GCM, not enabled per default)</item>
 	</list>
+	<p>See the text at the description of <seealso marker="#rfc5647_note">the rfc 5647 further down</seealso>
+	for more information regarding AEAD_AES_*_GCM.
+	</p>
 	<p>Following the internet de-facto standard, the cipher and mac algorithm AEAD_AES_128_GCM is selected when the 
 	cipher aes128-gcm@openssh.com is negotiated. The cipher and mac algorithm AEAD_AES_256_GCM is selected when the
 	cipher aes256-gcm@openssh.com is negotiated.
-	</p>
-	<p>See the text at the description of <seealso marker="#rfc5647_note">the rfc 5647 further down</seealso>
-	for more information.
 	</p>
       </item>
 	
@@ -203,7 +210,7 @@
   <section>
     <title>Unicode support</title>
     <p>Unicode filenames are supported if the emulator and the underlaying OS support it. See section DESCRIPTION in the
-      <seealso marker="kernel:file">file</seealso> manual page in <c>kernel</c> for information about this subject.
+      <seealso marker="kernel:file">file</seealso> manual page in Kernel for information about this subject.
     </p>
     <p>The shell and the cli both support unicode.
     </p>
@@ -232,7 +239,11 @@
       </item>
 
       <item><url href="https://tools.ietf.org/html/rfc4253">RFC 4253</url>, The Secure Shell (SSH) Transport Layer Protocol.
-       <p></p>
+      <p>Except</p>
+      <list type="bulleted">
+	<item>8.1.  diffie-hellman-group1-sha1. Disabled by default, can be enabled with the <c>preferred_algorithms</c> option.</item>
+      </list>
+      <p/>
       </item>
 
       <item><url href="https://tools.ietf.org/html/rfc4254">RFC 4254</url>, The Secure Shell (SSH) Connection Protocol.
@@ -305,6 +316,30 @@
       the Secure Shell (SSH) Transport Layer Protocol
       <p>Comment: Defines hmac-sha2-256 and hmac-sha2-512
       </p>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-kex-sha2">Draft-ietf-curdle-ssh-kex-sha2 (work in progress)</url>, Key Exchange (KEX) Method Updates and Recommendations for Secure Shell (SSH).
+      <p>Deviations:</p>
+      <list type="bulleted">
+	<item>The <c>diffie-hellman-group1-sha1</c> is not enabled by default, but is still supported and can be enabled
+	with the option <c>preferred-algorithms</c></item>
+	<item>The questionable sha1-based algorithms <c>diffie-hellman-group-exchange-sha1</c> and
+	<c>diffie-hellman-group14-sha1</c> are still enabled by default for compatibility with ancient clients and servers.
+	They can be disabled with the option <c>preferred-algorithms</c></item>
+      </list>
+      <p/>
+      </item>
+
+      <item><url href="https://tools.ietf.org/html/draft-ietf-curdle-rsa-sha2">Draft-ietf-curdle-rsa-sha2 (work in progress)</url>, Use of RSA Keys with SHA-2 256 and 512 in Secure Shell (SSH).
+      </item>
+      
+      <item><url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ext-info">Draft-ietf-curdle-ssh-ext-info (work in progress)</url>, Extension Negotiation in Secure Shell (SSH).
+      <p>Implemented are:</p>
+      <list type="bulleted">
+	<item>The Extension Negotiation Mechanism</item>
+	<item>The extension <c>server-sig-algs</c></item>
+      </list>
+      <p/>
       </item>
       
     </list>

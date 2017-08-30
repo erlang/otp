@@ -61,13 +61,13 @@
 	<tag><c>{server_port, integer()}</c></tag>
 	<item><p>Servers port number.</p></item>
 	
-	<tag><c>{request_method, "GET | "PUT" | "DELETE | "POST" | "PATCH"}</c></tag>
+	<tag><c>{request_method, "GET | "PUT" | "DELETE" | "POST" | "PATCH"}</c></tag>
 	<item><p>HTTP request method.</p></item>
 		
 	<tag><c>{remote_adress, inet:ip_address()} </c></tag>
 	<item><p>The clients ip address.</p></item>
 
-	<tag><c>{peer_cert, undefined | no_peercert | DER:binary()</c></tag>
+	<tag><c>{peer_cert, undefined | no_peercert | DER:binary()}</c></tag>
 	<item>
 	  <p>For TLS connections where client certificates are used this will
 	  be an ASN.1 DER-encoded X509-certificate as an Erlang binary.

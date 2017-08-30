@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -36,7 +36,7 @@
       the <seealso marker="doc/design_principles:des_princ">
       OTP Design Principles</seealso>. Specifically, the functions in this
       module are used by the OTP standard behaviors (for example,
-      <c>gen_server</c>, <c>gen_fsm</c>, and <c>gen_statem</c>)
+      <c>gen_server</c> and <c>gen_statem</c>)
       when starting new processes. The functions
       can also be used to start <em>special processes</em>, user-defined
       processes that comply to the OTP design principles. For an example,
@@ -59,12 +59,18 @@
     <p>When a process that is started using <c>proc_lib</c> terminates
       abnormally (that is, with another exit reason than <c>normal</c>,
       <c>shutdown</c>, or <c>{shutdown,Term}</c>), a <em>crash report</em>
-      is generated, which is written to terminal by the default <c>SASL</c>
+      is generated, which is written to terminal by the default SASL
       event handler. That is, the crash report is normally only visible
-      if the <c>SASL</c> application is started; see
+      if the SASL application is started; see
       <seealso marker="sasl:sasl_app"><c>sasl(6)</c></seealso> and section
       <seealso marker="sasl:error_logging">SASL Error Logging</seealso>
       in the SASL User's Guide.</p>
+
+    <p>Unlike in "plain Erlang", <c>proc_lib</c> processes will not generate
+      <em>error reports</em>, which are written to the terminal by the
+      emulator and do not require SASL to be started. All exceptions are
+      converted to <em>exits</em> which are ignored by the default
+      <c>error_logger</c> handler.</p>
 
     <p>The crash report contains the previously stored information, such
       as ancestors and initial function, the termination reason, and

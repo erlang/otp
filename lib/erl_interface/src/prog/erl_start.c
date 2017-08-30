@@ -17,7 +17,6 @@
  * 
  * %CopyrightEnd%
  *
-
  */
 
 /* An exception from using eidef.h, use config.h directly */
@@ -45,7 +44,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <netinet/tcp.h> 
+#include <netinet/tcp.h>
 #include <symLib.h>
 #include <sysSymTbl.h>
 #include <sysLib.h>
@@ -117,9 +116,9 @@ static int unique_id(void);
 static unsigned long spawn_erlang_epmd(ei_cnode *ec,
 				       char *alive,
 				       Erl_IpAddr adr,
-				       int flags, 
-				       char *erl_or_epmd, 
-				       char *args[], 
+				       int flags,
+				       char *erl_or_epmd,
+				       char *args[],
 				       int port,
 				       int is_erlang);
 #else
@@ -161,10 +160,10 @@ int erl_start_sys(ei_cnode *ec, char *alive, Erl_IpAddr adr, int flags,
     r = ERL_SYS_ERROR;
     goto done;
   }
-  
+
   memset(&addr,0,sizeof(addr));
-  addr.sin_family = AF_INET;              
-  addr.sin_addr.s_addr = htonl(INADDR_ANY); 
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = htonl(INADDR_ANY);
   addr.sin_port = 0;
 
   if (bind(sockd,(struct sockaddr *)&addr,sizeof(addr))<0) {
@@ -179,12 +178,12 @@ int erl_start_sys(ei_cnode *ec, char *alive, Erl_IpAddr adr, int flags,
   listen(sockd,5);
 
 #if defined(VXWORKS) || defined(__WIN32__)
-  if((pid = spawn_erlang_epmd(ec,alive,adr,flags,erl,args,port,1)) 
+  if((pid = spawn_erlang_epmd(ec,alive,adr,flags,erl,args,port,1))
       == 0)
      return ERL_SYS_ERROR;
   timeout.tv_usec = 0;
   timeout.tv_sec = 10; /* ignoring ERL_START_TIME */
-  if((r = wait_for_erlang(sockd,unique_id(),&timeout)) 
+  if((r = wait_for_erlang(sockd,unique_id(),&timeout))
      == ERL_TIMEOUT) {
 #if defined(VXWORKS)
       taskDelete((int) pid);
@@ -262,7 +261,7 @@ done:
 static int unique_id(void){
 #if defined(VXWORKS)
     return taskIdSelf();
-#else 
+#else
     return (int) GetCurrentThreadId();
 #endif
 }
@@ -285,7 +284,7 @@ static int enquote_args(char **oargs, char ***qargs){
     for(len=0;oargs[len] != NULL; ++len)
 	;
     args = malloc(sizeof(char *) * (len + 1));
-    
+
     for(i = 0; i < len; ++i){
 	qwhole = strchr(oargs[i],' ') != NULL;
 	extra = qwhole * 2;
@@ -337,16 +336,16 @@ static  FUNCPTR lookup_function(char *symname){
 static unsigned long spawn_erlang_epmd(ei_cnode *ec,
 				       char *alive,
 				       Erl_IpAddr adr,
-				       int flags, 
-				       char *erl_or_epmd, 
-				       char *args[], 
+				       int flags,
+				       char *erl_or_epmd,
+				       char *args[],
 				       int port,
 				       int is_erlang)
 {
 #if defined(VXWORKS)
     FUNCPTR erlfunc;
 #else /* Windows */
-    STARTUPINFO sinfo; 
+    STARTUPINFO sinfo;
     SECURITY_ATTRIBUTES sa;
     PROCESS_INFORMATION pinfo;
 #endif
@@ -364,7 +363,7 @@ static unsigned long spawn_erlang_epmd(ei_cnode *ec,
     if(is_erlang){
 	get_addr(ei_thishostname(ec), &myaddr);
 #if defined(VXWORKS)
-     	inet_ntoa_b(myaddr, iaddrbuf);
+        inet_ntoa_b(myaddr, iaddrbuf);
 #else /* Windows */
 	if((ptr = inet_ntoa(myaddr)) == NULL)
 	    return 0;
@@ -372,7 +371,7 @@ static unsigned long spawn_erlang_epmd(ei_cnode *ec,
 	    strcpy(iaddrbuf,ptr);
 #endif
     }
-    if ((flags & ERL_START_REMOTE) || 
+    if ((flags & ERL_START_REMOTE) ||
 	(is_erlang && (hisaddr->s_addr != myaddr.s_addr))) {
 	return 0;
     } else {
@@ -382,19 +381,17 @@ static unsigned long spawn_erlang_epmd(ei_cnode *ec,
 #if !defined(VXWORKS)
 	/* On VxWorks, we dont actually run a command,
 	   we call start_erl() */
-	if(!erl_or_epmd) 
+	if(!erl_or_epmd)
 #endif
 	    erl_or_epmd = (is_erlang) ? DEF_ERL_COMMAND :
 	    DEF_EPMD_COMMAND;
 	if(is_erlang){
 	    name_format = (flags & ERL_START_LONG) ? ERL_NAME_FMT :
 		ERL_SNAME_FMT;
-	    cmdlen += 
+	    cmdlen +=
 		strlen(erl_or_epmd) + (*erl_or_epmd != '\0') +
 		strlen(name_format) + 1 + strlen(alive) +
-		strlen(ERL_REPLY_FMT) + 1 + strlen(iaddrbuf) +  
-	            2 * FORMATTED_INT_LEN +
-		1;
+		strlen(ERL_REPLY_FMT) + 1 + strlen(iaddrbuf) + 2 * FORMATTED_INT_LEN + 1;
 	    ptr = cmdbuf = malloc(cmdlen);
 	    if(*erl_or_epmd != '\0')
 		ptr += sprintf(ptr,"%s ",erl_or_epmd);
@@ -484,11 +481,11 @@ static unsigned long spawn_erlang_epmd(ei_cnode *ec,
  * arguments we use here.
  */
 static int exec_erlang(ei_cnode *ec,
-		       char *alive, 
+		       char *alive,
 		       Erl_IpAddr adr,
-		       int flags, 
-		       char *erl, 
-		       char *args[], 
+		       int flags,
+		       char *erl,
+		       char *args[],
 		       int port)
 {
 #if !defined(__WIN32__) && !defined(VXWORKS) 
@@ -498,8 +495,11 @@ static int exec_erlang(ei_cnode *ec,
   char argbuf[BUFSIZ];
   struct in_addr myaddr;
   struct in_addr *hisaddr = (struct in_addr *)adr;
-  
-  get_addr(ei_thishostname(ec), &myaddr);
+
+  if (!get_addr(ei_thishostname(ec), &myaddr)) {
+      fprintf(stderr,"erl_call: failed to find hostname\r\n");
+      return ERL_SYS_ERROR;
+  }
 
   /* on this host? */
   /* compare ip addresses, unless forced by flag setting to use rsh */
@@ -525,8 +525,8 @@ static int exec_erlang(ei_cnode *ec,
 
   /* *must* be noinput or node (seems to) hang... */
   /* long or short names? */
-  sprintf(&argbuf[len], "-noinput %s %s ", 
-	  ((flags & ERL_START_LONG) ? "-name" : "-sname"), 
+  sprintf(&argbuf[len], "-noinput %s %s ",
+	  ((flags & ERL_START_LONG) ? "-name" : "-sname"),
 	  alive);
   len = strlen(argbuf);
 
@@ -572,7 +572,7 @@ static int exec_erlang(ei_cnode *ec,
       fprintf(stderr,"\n\n===== Log started ======\n%s \n",ctime(&t));
       fprintf(stderr,"erl_call: %s %s %s\n",argv[0],argv[1],argv[2]);
     }
-  }     
+  }
 
   /* start the system */
   execvp(argv[0], argv);
@@ -609,7 +609,7 @@ static void gettimeofday(struct timeval *now, void *dummy){
     now->tv_usec = ((ctick - (now->tv_sec * rate))*1000000)/rate;
 }
 #endif
-       
+
 
 /* wait for the remote system to reply */
 /*
@@ -648,7 +648,7 @@ static int wait_for_erlang(int sockd, int magic, struct timeval *timeout)
 	  "will timeout at %ld.%06ld\n",
 	  now.tv_sec,now.tv_usec,stop_time.tv_sec,stop_time.tv_usec);
 #endif
-  
+
   while (1) {
     FD_ZERO(&rdset);
     FD_SET(sockd,&rdset);
@@ -662,7 +662,7 @@ static int wait_for_erlang(int sockd, int magic, struct timeval *timeout)
       to.tv_sec--;
     }
     if (to.tv_sec < 0) return ERL_TIMEOUT;
-    
+
 #ifdef DEBUG
     fprintf(stderr,"erl_call: debug remaining to timeout: %ld.%06ld\n",
 	    to.tv_sec,to.tv_usec);
@@ -690,7 +690,7 @@ static int wait_for_erlang(int sockd, int magic, struct timeval *timeout)
       if (FD_ISSET(sockd,&rdset)) {
 	if ((fd = accept(sockd,(struct sockaddr *)&peer,&len)) < 0)
 	  return ERL_SYS_ERROR;
-	
+
 	/* now get sign-on message and terminate it */
 #if defined(__WIN32__)
 	if ((n=recv(fd,buf,16,0)) >= 0) buf[n]=0x0;
@@ -703,7 +703,6 @@ static int wait_for_erlang(int sockd, int magic, struct timeval *timeout)
 	fprintf(stderr,"erl_call: debug got %d, expected %d\n",
 		atoi(buf),magic);
 #endif
-      
 	if (atoi(buf) == magic) return 0; /* success */
       } /* if FD_SET */
     } /* switch */

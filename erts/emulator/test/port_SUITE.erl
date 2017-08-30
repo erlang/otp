@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -83,6 +83,7 @@
     bad_port_messages/1,
     basic_ping/1,
     cd/1,
+    cd_relative/1,
     close_deaf_port/1,
     count_fds/1,
     dying_port/1,
@@ -91,6 +92,7 @@
     exit_status/1,
     exit_status_multi_scheduling_block/1,
     huge_env/1,
+    pipe_limit_env/1,
     input_only/1,
     iter_max_ports/1,
     line/1,
@@ -102,6 +104,7 @@
     mon_port_name_demonitor/1,
     mon_port_named/1,
     mon_port_origin_dies/1,
+    mon_port_owner_dies/1,
     mon_port_pid_demonitor/1,
     mon_port_remote_on_remote/1,
     mon_port_driver_die/1,
@@ -137,7 +140,7 @@
     win_massive_client/1
 ]).
 
--export([do_iter_max_ports/2]).
+-export([do_iter_max_ports/2, relative_cd/0]).
 
 %% Internal exports.
 -export([tps/3]).
@@ -150,7 +153,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {seconds, 10}}].
+     {timetrap, {minutes, 1}}].
 
 all() ->
     [otp_6224, {group, stream}, basic_ping, slow_writes,
@@ -158,7 +161,7 @@ all() ->
      {group, multiple_packets}, parallell, dying_port,
      port_program_with_path, open_input_file_port,
      open_output_file_port, name1, env, huge_env, bad_env, cd,
-     bad_args,
+     cd_relative, pipe_limit_env, bad_args,
      exit_status, iter_max_ports, count_fds, t_exit, {group, tps}, line,
      stderr_to_stdout, otp_3906, otp_4389, win_massive,
      mix_up_ports, otp_5112, otp_5119,
@@ -171,6 +174,7 @@ all() ->
      mon_port_remote_on_remote,
      mon_port_bad_remote_on_local,
      mon_port_origin_dies,
+     mon_port_owner_dies,
      mon_port_named,
      mon_port_bad_named,
      mon_port_pid_demonitor,
@@ -972,21 +976,21 @@ try_bad_env(Env) ->
 %% Test that we can handle a very very large environment gracefully.
 huge_env(Config) when is_list(Config) ->
     ct:timetrap({minutes, 2}),
-    Vars = case os:type() of
-               {win32,_} -> 500;
-               _ ->
-                   %% We create a huge environment,
-                   %% 20000 variables is about 25MB
-                   %% which seems to be the limit on Linux.
-                   20000
-           end,
+    {Vars, Cmd} = case os:type() of
+                      {win32,_} -> {500, "cmd /q /c ls"};
+                      _ ->
+                          %% We create a huge environment,
+                          %% 20000 variables is about 25MB
+                          %% which seems to be the limit on Linux.
+                          {20000, "ls"}
+                  end,
     Env = [{[$a + I div (25*25*25*25) rem 25,
              $a + I div (25*25*25) rem 25,
              $a + I div (25*25) rem 25,
              $a+I div 25 rem 25, $a+I rem 25],
             lists:duplicate(100,$a+I rem 25)}
            || I <- lists:seq(1,Vars)],
-    try erlang:open_port({spawn,"ls"},[exit_status, {env, Env}]) of
+    try erlang:open_port({spawn,Cmd},[exit_status, {env, Env}]) of
         P ->
             receive
                 {P, {exit_status,N}} = M ->
@@ -1002,6 +1006,58 @@ huge_env(Config) when is_list(Config) ->
               ct:fail("Open port failed ~p:~p",[E,R])
     end.
 
+%% Test to spawn program with command payload buffer
+%% just around pipe capacity (9f779819f6bda734c5953468f7798)
+pipe_limit_env(Config) when is_list(Config) ->
+    Cmd = case os:type() of
+              {win32,_} -> "cmd /q /c true";
+              _ -> "true"
+          end,
+    CmdSize = command_payload_size(Cmd),
+    Limits = [4096, 16384, 65536], % Try a couple of common pipe buffer sizes
+
+    lists:foreach(fun(Lim) ->
+			  lists:foreach(fun(L) -> pipe_limit_env_do(L, Cmd, CmdSize)
+					end, lists:seq(Lim-5, Lim+5))
+		  end, Limits),
+    ok.
+
+pipe_limit_env_do(Bytes, Cmd, CmdSize) ->
+    case env_of_bytes(Bytes-CmdSize) of
+	[] -> skip;
+	Env ->
+	    try erlang:open_port({spawn,Cmd},[exit_status, {env, Env}]) of
+		P ->
+		    receive
+			{P, {exit_status,N}} ->
+			    %% Bug caused exit_status 150 (EINVAL+128)
+			    0 = N
+		    end
+	    catch E:R ->
+		    %% Have to catch the error here, as printing the stackdump
+		    %% in the ct log is way to heavy for some test machines.
+		    ct:fail("Open port failed ~p:~p",[E,R])
+	    end
+    end.
+
+%% environ format: KEY=VALUE\0
+env_of_bytes(Bytes) when Bytes > 3 ->
+    [{"X",lists:duplicate(Bytes-3, $x)}];
+env_of_bytes(_) -> [].
+
+%% White box assumption about payload written to pipe
+%% for Cmd and current environment (see spawn_start in sys_driver.c)
+command_payload_size(Cmd) ->
+    EnvSize = lists:foldl(fun(E,Acc) -> length(E) + 1 + Acc end,
+			  0, os:getenv()),
+    {ok, PWD} = file:get_cwd(),
+    (4                      % buffsz
+     + 4                    % flags
+     + 5 + length(Cmd) + 1  % "exec $Cmd"
+     + length(PWD) + 1      % $PWD
+     + 1                    % nullbuff
+     + 4                    % env_len
+     + EnvSize).
 
 %%  Test bad 'args' options.
 bad_args(Config) when is_list(Config) ->
@@ -1036,8 +1092,7 @@ cd(Config)  when is_list(Config) ->
     Cmd = Program ++ " -pz " ++ DataDir ++
     " -noshell -s port_test pwd -s erlang halt",
     _ = open_port({spawn, Cmd},
-                  [{cd, TestDir},
-                   {line, 256}]),
+                  [{cd, TestDir}, {line, 256}]),
     receive
         {_, {data, {eol, String}}} ->
             case filename_equal(String, TestDir) of
@@ -1063,7 +1118,74 @@ cd(Config)  when is_list(Config) ->
         Other3 ->
             ct:fail({env, Other3})
     end,
-    ok.
+
+    InvalidDir = filename:join(DataDir, "invaliddir"),
+    try open_port({spawn, Cmd},
+                  [{cd, InvalidDir}, exit_status, {line, 256}]) of
+        _ ->
+            receive
+                {_, {exit_status, _}} ->
+                    ok;
+                Other4 ->
+                    ct:fail({env, Other4})
+            end
+    catch error:eacces ->
+            %% This happens on Windows
+            ok
+    end,
+
+    %% Check that there are no lingering messages
+    receive
+        Other5 ->
+            ct:fail({env, Other5})
+    after 10 ->
+            ok
+    end.
+
+%% Test that an emulator that has set it's cwd to
+%% something other then when it started, can use
+%% relative {cd,"./"} to open port and that cd will
+%% be relative the new cwd and not the original
+cd_relative(Config) ->
+
+    Program = atom_to_list(lib:progname()),
+    DataDir = proplists:get_value(data_dir, Config),
+    TestDir = filename:join(DataDir, "dir"),
+
+    Cmd = Program ++ " -pz " ++ filename:dirname(code:where_is_file("port_SUITE.beam")) ++
+    " -noshell -s port_SUITE relative_cd -s erlang halt",
+
+    _ = open_port({spawn, Cmd}, [{line, 256}, {cd, TestDir}]),
+
+    receive
+        {_, {data, {eol, String}}} ->
+            case filename_equal(String, TestDir) of
+                true ->
+                    ok;
+                false ->
+                    ct:fail({cd_relative, String})
+            end;
+        Other ->
+            ct:fail(Other)
+    end.
+
+relative_cd() ->
+
+    Program = atom_to_list(lib:progname()),
+    ok = file:set_cwd(".."),
+    {ok, Cwd} = file:get_cwd(),
+
+    Cmd = Program ++ " -pz " ++ Cwd ++
+    " -noshell -s port_test pwd -s erlang halt",
+
+    _ = open_port({spawn, Cmd}, [{line, 256}, {cd, "./dir"}, exit_status]),
+
+    receive
+        {_, {data, {eol, String}}} ->
+            io:format("~s~n",[String]);
+        Other ->
+            io:format("ERROR: ~p~n",[Other])
+    end.
 
 filename_equal(A, B) ->
     case os:type() of
@@ -1867,7 +1989,7 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
     Parent = self(),
     io:format("SleepSecs = ~p~n", [SleepSecs]),
     PortProg = "sleep " ++ integer_to_list(SleepSecs),
-    Start = erlang:monotonic_time(micro_seconds),
+    Start = erlang:monotonic_time(microsecond),
     NoProcs = case NoSchedsOnln of
                   NProcs when NProcs < ?EXIT_STATUS_MSB_MAX_PROCS ->
                       NProcs;
@@ -1941,16 +2063,16 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
                              receive {P, started, SIds} -> SIds end
                      end,
                      Procs),
-    StartedTime = (erlang:monotonic_time(micro_seconds) - Start)/1000000,
+    StartedTime = (erlang:monotonic_time(microsecond) - Start)/1000000,
     io:format("StartedTime = ~p~n", [StartedTime]),
     true = StartedTime < SleepSecs,
-    erlang:system_flag(multi_scheduling, block),
+    erlang:system_flag(multi_scheduling, block_normal),
     lists:foreach(fun (P) -> receive {P, done} -> ok end end, Procs),
-    DoneTime = (erlang:monotonic_time(micro_seconds) - Start)/1000000,
+    DoneTime = (erlang:monotonic_time(microsecond) - Start)/1000000,
     io:format("DoneTime = ~p~n", [DoneTime]),
     true = DoneTime > SleepSecs,
     ok = verify_multi_scheduling_blocked(),
-    erlang:system_flag(multi_scheduling, unblock),
+    erlang:system_flag(multi_scheduling, unblock_normal),
     case {length(lists:usort(lists:flatten(SIds))), NoSchedsOnln} of
         {N, N} ->
             ok;
@@ -2009,7 +2131,7 @@ ping(Config, Sizes, HSize, CmdLine, Options) ->
 %% Sizes = Size of packets to generated.
 %% HSize = Header size: 1, 2, or 4
 %% CmdLine = Additional command line options.
-%% Options = Addtional port options.
+%% Options = Additional port options.
 
 expect_input(Config, Sizes, HSize, CmdLine, Options) ->
     expect_input1(Config, Sizes, {HSize, CmdLine, Options}, [], []).
@@ -2170,7 +2292,7 @@ maybe_to_list(List) ->
     List.
 
 format({Eol,List}) ->
-    io_lib:format("tuple<~w,~s>",[Eol, maybe_to_list(List)]);
+    io_lib:format("tuple<~w,~w>",[Eol, maybe_to_list(List)]);
 format(List) when is_list(List) ->
     case list_at_least(50, List) of
         true ->
@@ -2518,6 +2640,29 @@ mon_port_origin_dies(Config) ->
     ?assertMatch({proc_monitors, false, port_monitored_by, false},
                  port_is_monitored(Proc5, Port5)),
     Port5 ! {self(), {command, <<"1">>}}, % make port quit
+    ok.
+
+%% Port and Monitor owner dies before port is closed
+%% This testcase checks for a regression memory leak in erts
+%% when the controlling and monitoring process is the same process
+%% and the process dies
+mon_port_owner_dies(Config) ->
+    Self = self(),
+    Proc = spawn(fun() ->
+                         Port = create_port(Config, ["-h1", "-q"]),
+                         Self ! {test_started, Port},
+                         erlang:monitor(port, Port),
+                         receive stop -> ok end
+                  end),
+    erlang:monitor(process, Proc), % we want to sync with its death
+    Port = receive {test_started,P} -> P
+    after 1000 -> ?assert(false) end,
+    ?assertMatch({proc_monitors, true, port_monitored_by, true},
+                 port_is_monitored(Proc, Port)),
+    Proc ! stop,
+    %% receive from monitor
+    receive ExitP5 -> ?assertMatch({'DOWN', _, process, Proc, _}, ExitP5)
+    after 1000 -> ?assert(false) end,
     ok.
 
 %% Monitor a named port

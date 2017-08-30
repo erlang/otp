@@ -38,20 +38,20 @@
   <modulesummary>Dump support for registries in erl_interface.</modulesummary>
   <description>
     <p>This module is usually part of the <c>erl_interface</c>
-      application, but is currently part of the <c>Mnesia</c>
+      application, but is currently part of the Mnesia
       application.</p>
     <p>This module is mainly intended for internal use within OTP,
       but it has two functions that are exported for public use.</p>
     <p>On C-nodes, <c>erl_interface</c> has support for registry
       tables. These tables reside in RAM on the C-node, but can also
-      be dumped into <c>Mnesia</c> tables. By default, the dumping
+      be dumped into Mnesia tables. By default, the dumping
       of registry tables through <c>erl_interface</c> causes a
-      corresponding <c>Mnesia</c> table to be created with
+      corresponding Mnesia table to be created with
       <c>mnesia_registry:create_table/1</c>, if necessary.</p>
     <p>Tables that are created with these functions can be
-      administered as all other <c>Mnesia</c> tables. They can be
+      administered as all other Mnesia tables. They can be
       included in backups, replicas can be added, and so on.
-      The tables are normal <c>Mnesia</c> tables owned by the user
+      The tables are normal Mnesia tables owned by the user
       of the corresponding <c>erl_interface</c> registries.</p>
   </description>
 
@@ -68,7 +68,7 @@
           that is, <c>{ram_copies,[node()]}</c> or
           <c>{disc_copies,[node()]}</c>.</p>
         <p>This function is used by <c>erl_interface</c> to
-          create the <c>Mnesia</c> table if it does not already
+          create the Mnesia table if it does not already
           exist.</p>
       </desc>
     </func>

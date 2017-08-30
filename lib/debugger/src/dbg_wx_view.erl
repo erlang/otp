@@ -263,7 +263,11 @@ shortcut(_) -> false.
 
 gui_load_module(Win, Mod) ->
     dbg_wx_trace_win:display(Win,{text, "Loading module..."}),
-    {ok, Contents} = dbg_iserver:call({raw_contents, Mod, any}),
-    Win2 = dbg_wx_trace_win:show_code(Win, Mod, Contents),
-    dbg_wx_trace_win:display(Win,{text, ""}),
-    Win2.
+    case dbg_iserver:call({raw_contents, Mod, any}) of
+	{ok, Contents} ->
+	    Win2 = dbg_wx_trace_win:show_code(Win, Mod, Contents),
+	    dbg_wx_trace_win:display(Win,{text, ""}),
+	    Win2;
+	not_found ->
+	    dbg_wx_trace_win:show_no_code(Win)
+    end.

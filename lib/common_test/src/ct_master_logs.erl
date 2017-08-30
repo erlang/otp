@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,16 +110,16 @@ init(Parent,LogDir,Nodes) ->
 	    case copy_priv_files(PrivFilesSrc, PrivFilesDestTop) of
 		{error,Src1,Dest1,Reason1} ->
 		    io:format(user, "ERROR! "++
-			      "Priv file ~p could not be copied to ~p. "++
-			      "Reason: ~p~n",
+			      "Priv file ~tp could not be copied to ~tp. "++
+			      "Reason: ~tp~n",
 			      [Src1,Dest1,Reason1]),
 		    exit({priv_file_error,Dest1});
 		ok ->
 		    case copy_priv_files(PrivFilesSrc, PrivFilesDestRun) of
 			{error,Src2,Dest2,Reason2} ->
 			    io:format(user, "ERROR! "++
-				      "Priv file ~p could not be copied to ~p. "++
-				      "Reason: ~p~n",
+				      "Priv file ~tp could not be copied to ~tp. "++
+				      "Reason: ~tp~n",
 				      [Src2,Dest2,Reason2]),
 			    exit({priv_file_error,Dest2});
 			ok ->
@@ -170,7 +170,7 @@ loop(State) ->
 			case catch io:format(Fd,Str++"\n",Args) of
 			    {'EXIT',Reason} ->
 				io:format(Fd, 
-					  "Logging fails! Str: ~p, Args: ~p~n",
+					  "Logging fails! Str: ~tp, Args: ~tp~n",
 					  [Str,Args]),
 				exit({logging_failed,Reason}),
 				ok;

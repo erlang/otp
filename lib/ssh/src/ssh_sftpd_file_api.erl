@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@
 -callback list_dir(file:name(), State::term()) ->
     {{ok, Filenames::term()}, State::term()} | {{error, Reason::term()}, State::term()}.
 -callback make_dir(Dir::term(), State::term()) ->
-    {{ok, State::term()},State::term()} | {{error, Reason::term()}, State::term()}.
+    {ok, State::term()} | {{error, Reason::term()}, State::term()}.
 -callback make_symlink(Path2::term(), Path::term(), State::term()) ->
     {ok, State::term()} | {{error, Reason::term()}, State::term()}.
 -callback open(Path::term(), Flags::term(), State::term()) ->

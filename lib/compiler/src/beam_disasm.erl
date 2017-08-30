@@ -815,6 +815,9 @@ resolve_inst({is_tuple=I,Args0},_,_,_) ->
 resolve_inst({test_arity=I,Args0},_,_,_) ->
     [L|Args] = resolve_args(Args0),
     {test,I,L,Args};
+resolve_inst({is_tagged_tuple=I,Args0},_,_,_) ->
+    [F|Args] = resolve_args(Args0),
+    {test,I,F,Args};
 resolve_inst({select_val,Args},_,_,_) ->
     [Reg,FLbl,{{z,1},{u,_Len},List0}] = Args,
     List = resolve_args(List0),

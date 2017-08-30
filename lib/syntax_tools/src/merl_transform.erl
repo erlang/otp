@@ -9,6 +9,16 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
+%%
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @copyright 2012-2015 Richard Carlsson
 %% @doc Parse transform for merl. Enables the use of automatic metavariables
@@ -104,10 +114,15 @@ expand_qquote([Text, Env], T, Line) ->
     case erl_syntax:is_literal(Text) of
         true ->
             As = [Line, erl_syntax:concrete(Text)],
-            %% expand further if possible
-            expand(merl:qquote(Line, "merl:subst(_@tree, _@env)",
-                               [{tree, eval_call(Line, quote, As, T)},
-                                {env, Env}]));
+            case eval_call(Line, quote, As, failed) of
+                failed ->
+                    T;
+                T1 ->
+                    %% expand further if possible
+                    expand(merl:qquote(Line, "merl:subst(_@tree, _@env)",
+                                       [{tree, T1},
+                                        {env, Env}]))
+            end;
         false ->
             T
     end;

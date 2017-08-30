@@ -26,12 +26,14 @@
 -export([all/0, suite/0,
 	 display/1, display_huge/0,
 	 erl_bif_types/1,guard_bifs_in_erl_bif_types/1,
-	 shadow_comments/1,
+	 shadow_comments/1,list_to_utf8_atom/1,
 	 specs/1,improper_bif_stubs/1,auto_imports/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 binary_to_atom/1,binary_to_existing_atom/1,
 	 atom_to_binary/1,min_max/1, erlang_halt/1,
-	 is_builtin/1]).
+         erl_crash_dump_bytes/1,
+	 is_builtin/1, error_stacktrace/1,
+	 error_stacktrace_during_call_trace/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -41,9 +43,10 @@ all() ->
     [erl_bif_types, guard_bifs_in_erl_bif_types, shadow_comments,
      specs, improper_bif_stubs, auto_imports,
      t_list_to_existing_atom, os_env, otp_7526,
-     display,
+     display, list_to_utf8_atom,
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
-     min_max, erlang_halt, is_builtin].
+     erl_crash_dump_bytes, min_max, erlang_halt, is_builtin,
+     error_stacktrace, error_stacktrace_during_call_trace].
 
 %% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
@@ -336,6 +339,38 @@ check_stub({_,F,A}, B) ->
 	    ct:fail(invalid_body)
     end.
 
+list_to_utf8_atom(Config) when is_list(Config) ->
+    'hello' = atom_roundtrip("hello"),
+    'こんにちは' = atom_roundtrip("こんにちは"),
+
+    %% Test all edge cases.
+    _ = atom_roundtrip([16#80]),
+    _ = atom_roundtrip([16#7F]),
+    _ = atom_roundtrip([16#FF]),
+    _ = atom_roundtrip([16#100]),
+    _ = atom_roundtrip([16#7FF]),
+    _ = atom_roundtrip([16#800]),
+    _ = atom_roundtrip([16#D7FF]),
+    atom_badarg([16#D800]),
+    atom_badarg([16#DFFF]),
+    _ = atom_roundtrip([16#E000]),
+    _ = atom_roundtrip([16#FFFF]),
+    _ = atom_roundtrip([16#1000]),
+    _ = atom_roundtrip([16#10FFFF]),
+    atom_badarg([16#110000]),
+    ok.
+
+atom_roundtrip(String) ->
+    Atom = list_to_atom(String),
+    Atom = list_to_existing_atom(String),
+    String = atom_to_list(Atom),
+    Atom.
+
+atom_badarg(String) ->
+    {'EXIT',{badarg,_}} = (catch list_to_atom(String)),
+    {'EXIT',{badarg,_}} = (catch list_to_existing_atom(String)),
+    ok.
+
 t_list_to_existing_atom(Config) when is_list(Config) ->
     all = list_to_existing_atom("all"),
     ?MODULE = list_to_existing_atom(?MODULE_STRING),
@@ -426,6 +461,8 @@ binary_to_atom(Config) when is_list(Config) ->
     Long = lists:seq(0, 254),
     LongAtom = list_to_atom(Long),
     LongBin = list_to_binary(Long),
+    UnicodeLongAtom = list_to_atom([$é || _ <- lists:seq(0, 254)]),
+    UnicodeLongBin = << <<"é"/utf8>> || _ <- lists:seq(0, 254)>>,
 
     %% latin1
     '' = test_binary_to_atom(<<>>, latin1),
@@ -437,11 +474,16 @@ binary_to_atom(Config) when is_list(Config) ->
     '' = test_binary_to_atom(<<>>, utf8),
     HalfLongAtom = test_binary_to_atom(HalfLongBin, utf8),
     HalfLongAtom = test_binary_to_atom(HalfLongBin, unicode),
+    UnicodeLongAtom = test_binary_to_atom(UnicodeLongBin, utf8),
+    UnicodeLongAtom = test_binary_to_atom(UnicodeLongBin, unicode),
     [] = [C || C <- lists:seq(128, 255),
 		     begin
 			 list_to_atom([C]) =/=
 			     test_binary_to_atom(<<C/utf8>>, utf8)
 		     end],
+
+    <<"こんにちは"/utf8>> =
+	atom_to_binary(test_binary_to_atom(<<"こんにちは"/utf8>>, utf8), utf8),
 
     %% badarg failures.
     fail_binary_to_atom(atom),
@@ -463,11 +505,6 @@ binary_to_atom(Config) when is_list(Config) ->
     ?BADARG(binary_to_atom(id(<<16#C0,16#80>>), utf8)), %Overlong 0.
     <<B:1/binary, _/binary>> = id(<<194, 163>>), %Truncated character ERL-474
     ?BADARG(binary_to_atom(B, utf8)),
-
-    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(256, 16#D7FF)],
-    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#E000, 16#FFFD)],
-    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#10000, 16#8FFFF)],
-    [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#90000, 16#10FFFF)],
 
     %% system_limit failures.
     ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255>>), utf8)),
@@ -667,7 +704,7 @@ erlang_halt(Config) when is_list(Config) ->
                      [available_internal_state, true]),
     {badrpc,nodedown} = rpc:call(N4, erts_debug, set_internal_state,
                                  [broken_halt, "Validate correct crash dump"]),
-    ok = wait_until_stable_size(CrashDump,-1),
+    {ok,_} = wait_until_stable_size(CrashDump,-1),
     {ok, Bin} = file:read_file(CrashDump),
     case {string:str(binary_to_list(Bin),"\n=end\n"),
           string:str(binary_to_list(Bin),"\r\n=end\r\n")} of
@@ -684,10 +721,33 @@ wait_until_stable_size(File,PrevSz) ->
             wait_until_stable_size(File,PrevSz-1);
         {ok,#file_info{size = PrevSz }} when PrevSz /= -1 ->
             io:format("Crashdump file size was: ~p (~s)~n",[PrevSz,File]),
-            ok;
+            {ok,PrevSz};
         {ok,#file_info{size = NewSz }} ->
             wait_until_stable_size(File,NewSz)
     end.
+
+% Test erlang:halt with ERL_CRASH_DUMP_BYTES
+erl_crash_dump_bytes(Config) when is_list(Config) ->
+    Bytes = 1000,
+    CrashDump = do_limited_crash_dump(Config, Bytes),
+    {ok,ActualBytes} = wait_until_stable_size(CrashDump,-1),
+    true = ActualBytes < (Bytes + 100),
+
+    NoDump = do_limited_crash_dump(Config,0),
+    {error,enoent} = wait_until_stable_size(NoDump,-8),
+    ok.
+
+do_limited_crash_dump(Config, Bytes) ->
+    H = hostname(),
+    {ok,N} = slave:start(H, halt_node),
+    BytesStr = integer_to_list(Bytes),
+    CrashDump = filename:join(proplists:get_value(priv_dir,Config),
+                              "erl_crash." ++ BytesStr ++ ".dump"),
+    true = rpc:call(N, os, putenv, ["ERL_CRASH_DUMP",CrashDump]),
+    true = rpc:call(N, os, putenv, ["ERL_CRASH_DUMP_BYTES",BytesStr]),
+    {badrpc,nodedown} = rpc:call(N, erlang, halt, ["Testing ERL_CRASH_DUMP_BYTES"]),
+    CrashDump.
+
 
 is_builtin(_Config) ->
     Exp0 = [{M,F,A} || {M,_} <- code:all_loaded(),
@@ -704,6 +764,172 @@ is_builtin(_Config) ->
     _ = [false = erlang:is_builtin(M, F, A) || {M,F,A} <- NotBuiltin],
 
     ok.
+
+error_stacktrace(Config) when is_list(Config) ->
+    error_stacktrace_test().
+
+error_stacktrace_during_call_trace(Config) when is_list(Config) ->
+    Tracer = spawn_link(fun () ->
+				receive after infinity -> ok end
+			end),
+    Mprog = [{'_',[],[{exception_trace}]}],
+    erlang:trace_pattern({?MODULE,'_','_'}, Mprog, [local]),
+    1 = erlang:trace_pattern({erlang,error,2}, Mprog, [local]),
+    1 = erlang:trace_pattern({erlang,error,1}, Mprog, [local]),
+    erlang:trace(all, true, [call,return_to,timestamp,{tracer, Tracer}]),
+    try
+	error_stacktrace_test()
+    after
+	erlang:trace(all, false, [call,return_to,timestamp,{tracer, Tracer}]),
+	erlang:trace_pattern({erlang,error,2}, false, [local]),
+	erlang:trace_pattern({erlang,error,1}, false, [local]),
+	erlang:trace_pattern({?MODULE,'_','_'}, false, [local]),
+	unlink(Tracer),
+	exit(Tracer, kill),
+	Mon = erlang:monitor(process, Tracer),
+	receive
+	    {'DOWN', Mon, process, Tracer, _} -> ok
+	end
+    end,
+    ok.
+    
+
+error_stacktrace_test() ->
+    Types = [apply_const_last, apply_const, apply_last,
+	     apply, double_apply_const_last, double_apply_const,
+	     double_apply_last, double_apply, multi_apply_const_last,
+	     multi_apply_const, multi_apply_last, multi_apply,
+	     call_const_last, call_last, call_const, call],
+    lists:foreach(fun (Type) ->
+			  {Pid, Mon} = spawn_monitor(
+					 fun () ->
+						 stk([a,b,c,d], Type, error_2)
+					 end),
+			  receive
+			      {'DOWN', Mon, process, Pid, Reason} ->
+				  {oops, Stack} = Reason,
+%%				  io:format("Type: ~p Stack: ~p~n",
+%%					    [Type, Stack]),
+				  [{?MODULE, do_error_2, [Type], _},
+				   {?MODULE, stk, 3, _},
+				   {?MODULE, stk, 3, _}] = Stack
+			  end
+		  end,
+		  Types),
+    lists:foreach(fun (Type) ->
+			  {Pid, Mon} = spawn_monitor(
+					 fun () ->
+						 stk([a,b,c,d], Type, error_1)
+					 end),
+			  receive
+			      {'DOWN', Mon, process, Pid, Reason} ->
+				  {oops, Stack} = Reason,
+%%				  io:format("Type: ~p Stack: ~p~n",
+%%					    [Type, Stack]),
+				  [{?MODULE, do_error_1, 1, _},
+				   {?MODULE, stk, 3, _},
+				   {?MODULE, stk, 3, _}] = Stack
+			  end
+		  end,
+		  Types),
+    ok.
+
+stk([], Type, Func) ->
+    tail(Type, Func, jump),
+    ok;
+stk([_|L], Type, Func) ->
+    stk(L, Type, Func),
+    ok.
+
+tail(Type, Func, jump) ->
+    tail(Type, Func, do);
+tail(Type, error_1, do) ->
+    do_error_1(Type);
+tail(Type, error_2, do) ->
+    do_error_2(Type).
+
+do_error_2(apply_const_last) ->
+    erlang:apply(erlang, error, [oops, [apply_const_last]]);
+do_error_2(apply_const) ->
+    erlang:apply(erlang, error, [oops, [apply_const]]),
+    ok;
+do_error_2(apply_last) ->
+    erlang:apply(id(erlang), id(error), id([oops, [apply_last]]));
+do_error_2(apply) ->
+    erlang:apply(id(erlang), id(error), id([oops, [apply]])),
+    ok;
+do_error_2(double_apply_const_last) ->
+    erlang:apply(erlang, apply, [erlang, error, [oops, [double_apply_const_last]]]);
+do_error_2(double_apply_const) ->
+    erlang:apply(erlang, apply, [erlang, error, [oops, [double_apply_const]]]),
+    ok;
+do_error_2(double_apply_last) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(error), id([oops, [double_apply_last]])]);
+do_error_2(double_apply) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(error), id([oops, [double_apply]])]),
+    ok;
+do_error_2(multi_apply_const_last) ->
+    erlang:apply(erlang, apply, [erlang, apply, [erlang, apply, [erlang, error, [oops, [multi_apply_const_last]]]]]);
+do_error_2(multi_apply_const) ->
+    erlang:apply(erlang, apply, [erlang, apply, [erlang, apply, [erlang, error, [oops, [multi_apply_const]]]]]),
+    ok;
+do_error_2(multi_apply_last) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(error), id([oops, [multi_apply_last]])]]]);
+do_error_2(multi_apply) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(error), id([oops, [multi_apply]])]]]),
+    ok;
+do_error_2(call_const_last) ->
+    erlang:error(oops, [call_const_last]);
+do_error_2(call_last) ->
+    erlang:error(id(oops), id([call_last]));
+do_error_2(call_const) ->
+    erlang:error(oops, [call_const]),
+    ok;
+do_error_2(call) ->
+    erlang:error(id(oops), id([call])).
+
+
+do_error_1(apply_const_last) ->
+    erlang:apply(erlang, error, [oops]);
+do_error_1(apply_const) ->
+    erlang:apply(erlang, error, [oops]),
+    ok;
+do_error_1(apply_last) ->
+    erlang:apply(id(erlang), id(error), id([oops]));
+do_error_1(apply) ->
+    erlang:apply(id(erlang), id(error), id([oops])),
+    ok;
+do_error_1(double_apply_const_last) ->
+    erlang:apply(erlang, apply, [erlang, error, [oops]]);
+do_error_1(double_apply_const) ->
+    erlang:apply(erlang, apply, [erlang, error, [oops]]),
+    ok;
+do_error_1(double_apply_last) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(error), id([oops])]);
+do_error_1(double_apply) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(error), id([oops])]),
+    ok;
+do_error_1(multi_apply_const_last) ->
+    erlang:apply(erlang, apply, [erlang, apply, [erlang, apply, [erlang, error, [oops]]]]);
+do_error_1(multi_apply_const) ->
+    erlang:apply(erlang, apply, [erlang, apply, [erlang, apply, [erlang, error, [oops]]]]),
+    ok;
+do_error_1(multi_apply_last) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(error), id([oops])]]]);
+do_error_1(multi_apply) ->
+    erlang:apply(id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(apply), [id(erlang), id(error), id([oops])]]]),
+    ok;
+do_error_1(call_const_last) ->
+    erlang:error(oops);
+do_error_1(call_last) ->
+    erlang:error(id(oops));
+do_error_1(call_const) ->
+    erlang:error(oops),
+    ok;
+do_error_1(call) ->
+    erlang:error(id(oops)).
+
+
 
 
 %% Helpers

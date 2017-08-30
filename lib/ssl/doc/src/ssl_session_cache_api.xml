@@ -4,14 +4,14 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2015</year>
+      <year>1999</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -62,8 +62,8 @@
     </taglist>
 
   </section>
-  
-  <funcs>   
+
+  <funcs>
 
     <func>
       <name>delete(Cache, Key) -> _</name>
@@ -134,7 +134,7 @@
          </p>
       </desc>
     </func>
-    
+
     <func>
       <name>select_session(Cache, PartialKey) -> [session()]</name>
       <fsummary>Selects sessions that can be reused.</fsummary>
@@ -146,6 +146,21 @@
       <desc>
 	<p>Selects sessions that can be reused. Is to be callable
 	from any process.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>size(Cache) -> integer()</name>
+      <fsummary>Returns the number of sessions in the cache.</fsummary>
+      <type>
+	<v>Cache = cache_ref()</v>
+      </type>
+      <desc>
+	<p>Returns the number of sessions in the cache. If size
+	exceeds the maximum number of sessions, the current cache
+	entries will be invalidated regardless of their remaining
+	lifetime. Is to be callable from any process.
 	</p>
       </desc>
     </func>
@@ -178,7 +193,7 @@
 	</p>
       </desc>
     </func>
-    
-  </funcs> 
-  
+
+  </funcs>
+
 </erlref>

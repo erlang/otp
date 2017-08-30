@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,10 +19,15 @@
 %%
 -module(ets_tough_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,ex1/1]).
--export([init/1,terminate/2,handle_call/3,handle_info/2]).
+	 init_per_group/2,end_per_group/2,
+         ex1/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
--compile([export_all]).
+
+%% gen_server behavior.
+-behavior(gen_server).
+-export([init/1,terminate/2,handle_call/3,handle_cast/2,
+         handle_info/2,code_change/3]).
+
 -include_lib("common_test/include/ct.hrl").
 
 suite() ->
@@ -235,33 +240,6 @@ random_element(T) ->
     I = rand:uniform(tuple_size(T)),
     element(I,T).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-show_table(N) ->
-    FileName = ["etsdump.",integer_to_list(N)],
-    case file:open(FileName,read) of
-	{ok,Fd} ->
-	    show_entries(Fd);
-	_ ->
-	    error
-    end.
-
-show_entries(Fd) ->
-    case phys_read_len(Fd) of
-	{ok,Len} ->
-	    case phys_read_entry(Fd,Len) of
-		{ok,ok} ->
-		    ok;
-		{ok,{Key,Val}} ->
-		    io:format("~w\n",[{Key,Val}]),
-		    show_entries(Fd);
-		_ ->
-		    error
-	    end;
-	_ ->
-	    error
-    end.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -377,20 +355,6 @@ dget_class(ServerPid,Class,Condition) ->
 
 derase_class(ServerPid,Class) ->
     gen_server:call(ServerPid,{handle_delete_class,Class}, infinity).
-
-%%% dmodify(ServerPid,Application) -> ok
-%%%
-%%% Applies a function on every instance in the database.
-%%% The user provided function must always return one of the
-%%% terms {ok,NewItem}, true, or false.
-%%% Aug 96, this is only used to reset all timestamp values
-%%% in the database.
-%%% The function is supplied as Application = {Mod, Fun, ExtraArgs},
-%%% where the instance will be prepended to ExtraArgs before each
-%%% call is made.
-
-dmodify(ServerPid,Application) ->
-    gen_server:call(ServerPid,{handle_dmodify,Application}, infinity).
 
 %%% ddump_first(ServerPid,DumpDir) -> {dump_more,Ticket} | already_dumping
 %%%
@@ -643,8 +607,14 @@ handle_call(stop,_From,Admin) ->
     ?ets_delete(Admin), % Make sure table is gone before reply is sent.
     {stop, normal, ok, []}.
 
+handle_cast(_Req, Admin) ->
+    {noreply, Admin}.
+
 handle_info({'EXIT',_Pid,_Reason},Admin) ->
     {stop,normal,Admin}.
+
+code_change(_OldVsn, StateData, _Extra) ->
+    {ok, StateData}.
 
 handle_delete(Class, Key, Admin) ->
     handle_call({handle_delete,Class,Key},from,Admin).

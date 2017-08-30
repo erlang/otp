@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,26 +21,35 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
+	 init_per_group/2,end_per_group/2, init_per_testcase/2,
+         end_per_testcase/2]).
 -export([start/1, add_handler/1, add_sup_handler/1,
 	 delete_handler/1, swap_handler/1, swap_sup_handler/1,
-	 notify/1, sync_notify/1, call/1, info/1, hibernate/1,
+	 notify/1, sync_notify/1, call/1, info/1, hibernate/1, auto_hibernate/1,
 	 call_format_status/1, call_format_status_anon/1,
-         error_format_status/1, get_state/1, replace_state/1]).
+         error_format_status/1, get_state/1, replace_state/1,
+         start_opt/1,
+         undef_init/1, undef_handle_call/1, undef_handle_event/1,
+         undef_handle_info/1, undef_code_change/1, undef_terminate/1,
+         undef_in_terminate/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [start, {group, test_all}, hibernate,
+all() ->
+    [start, {group, test_all}, hibernate, auto_hibernate,
      call_format_status, call_format_status_anon, error_format_status,
-     get_state, replace_state].
+     get_state, replace_state,
+     start_opt, {group, undef_callbacks}, undef_in_terminate].
 
-groups() -> 
+groups() ->
     [{test_all, [],
       [add_handler, add_sup_handler, delete_handler,
        swap_handler, swap_sup_handler, notify, sync_notify,
-       call, info]}].
+       call, info]},
+     {undef_callbacks, [],
+      [undef_init, undef_handle_call, undef_handle_event, undef_handle_info,
+       undef_code_change, undef_terminate]}].
 
 init_per_suite(Config) ->
     Config.
@@ -48,16 +57,47 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(undef_callbacks, Config) ->
+    DataDir = ?config(data_dir, Config),
+    Event1 = filename:join(DataDir, "oc_event.erl"),
+    {ok, oc_event} = compile:file(Event1),
+    Config;
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(Case, Config) when Case == undef_handle_call;
+                                     Case == undef_handle_info;
+                                     Case == undef_handle_event;
+                                     Case == undef_code_change;
+                                     Case == undef_terminate ->
+    {ok, Pid} = oc_event:start(),
+    [{event_pid, Pid}|Config];
+init_per_testcase(undef_init, Config) ->
+    {ok, Pid} = gen_event:start({local, oc_init_event}),
+    [{event_pid, Pid}|Config];
+init_per_testcase(_Case, Config) ->
+    Config.
+
+end_per_testcase(Case, Config) when Case == undef_init;
+                                    Case == undef_handle_call;
+                                    Case == undef_handle_info;
+                                    Case == undef_handle_event;
+                                    Case == undef_code_change;
+                                    Case == undef_terminate ->
+    Pid = ?config(event_pid, Config),
+    gen_event:stop(Pid);
+end_per_testcase(_Case, _Config) ->
+    ok.
 
 %% --------------------------------------
 %% Start an event manager.
 %% --------------------------------------
+
+-define(LMGR, {local, my_dummy_name}).
+-define(GMGR, {global, my_dummy_name}).
 
 start(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
@@ -72,40 +112,36 @@ start(Config) when is_list(Config) ->
     [] = gen_event:which_handlers(Pid1),
     ok = gen_event:stop(Pid1),
 
-    {ok, Pid2} = gen_event:start({local, my_dummy_name}),
+    {ok, Pid2} = gen_event:start(?LMGR),
     [] = gen_event:which_handlers(my_dummy_name),
     [] = gen_event:which_handlers(Pid2),
     ok = gen_event:stop(my_dummy_name),
 
-    {ok, Pid3} = gen_event:start_link({local, my_dummy_name}),
+    {ok, Pid3} = gen_event:start_link(?LMGR),
     [] = gen_event:which_handlers(my_dummy_name),
     [] = gen_event:which_handlers(Pid3),
     ok = gen_event:stop(my_dummy_name),
 
-    {ok, Pid4} = gen_event:start_link({global, my_dummy_name}),
-    [] = gen_event:which_handlers({global, my_dummy_name}),
+    {ok, Pid4} = gen_event:start_link(?GMGR),
+    [] = gen_event:which_handlers(?GMGR),
     [] = gen_event:which_handlers(Pid4),
-    ok = gen_event:stop({global, my_dummy_name}),
+    ok = gen_event:stop(?GMGR),
 
     {ok, Pid5} = gen_event:start_link({via, dummy_via, my_dummy_name}),
     [] = gen_event:which_handlers({via, dummy_via, my_dummy_name}),
     [] = gen_event:which_handlers(Pid5),
     ok = gen_event:stop({via, dummy_via, my_dummy_name}),
 
-    {ok, _} = gen_event:start_link({local, my_dummy_name}),
-    {error, {already_started, _}} =
-	gen_event:start_link({local, my_dummy_name}),
-    {error, {already_started, _}} =
-	gen_event:start({local, my_dummy_name}),
+    {ok, _} = gen_event:start_link(?LMGR),
+    {error, {already_started, _}} = gen_event:start_link(?LMGR),
+    {error, {already_started, _}} = gen_event:start(?LMGR),
     ok = gen_event:stop(my_dummy_name),
 
-    {ok, Pid6} = gen_event:start_link({global, my_dummy_name}),
-    {error, {already_started, _}} =
-	gen_event:start_link({global, my_dummy_name}),
-    {error, {already_started, _}} =
-	gen_event:start({global, my_dummy_name}),
+    {ok, Pid6} = gen_event:start_link(?GMGR),
+    {error, {already_started, _}} = gen_event:start_link(?GMGR),
+    {error, {already_started, _}} = gen_event:start(?GMGR),
 
-    ok = gen_event:stop({global, my_dummy_name}, shutdown, 10000),
+    ok = gen_event:stop(?GMGR, shutdown, 10000),
     receive
 	{'EXIT', Pid6, shutdown} -> ok
     after 10000 ->
@@ -113,10 +149,8 @@ start(Config) when is_list(Config) ->
     end,
 
     {ok, Pid7} = gen_event:start_link({via, dummy_via, my_dummy_name}),
-    {error, {already_started, _}} =
-	gen_event:start_link({via, dummy_via, my_dummy_name}),
-    {error, {already_started, _}} =
-	gen_event:start({via, dummy_via, my_dummy_name}),
+    {error, {already_started, _}} = gen_event:start_link({via, dummy_via, my_dummy_name}),
+    {error, {already_started, _}} = gen_event:start({via, dummy_via, my_dummy_name}),
 
     exit(Pid7, shutdown),
     receive
@@ -128,6 +162,83 @@ start(Config) when is_list(Config) ->
     process_flag(trap_exit, OldFl),
     ok.
 
+start_opt(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    dummy_via:reset(),
+
+    {ok, Pid0} = gen_event:start([]), %anonymous
+    [] = gen_event:which_handlers(Pid0),
+    ok = gen_event:stop(Pid0),
+
+    {ok, Pid1} = gen_event:start_link([]), %anonymous
+    [] = gen_event:which_handlers(Pid1),
+    ok = gen_event:stop(Pid1),
+
+    {ok, Pid2} = gen_event:start(?LMGR, []),
+    [] = gen_event:which_handlers(my_dummy_name),
+    [] = gen_event:which_handlers(Pid2),
+    ok = gen_event:stop(my_dummy_name),
+
+    {ok, Pid3} = gen_event:start_link(?LMGR, []),
+    [] = gen_event:which_handlers(my_dummy_name),
+    [] = gen_event:which_handlers(Pid3),
+    ok = gen_event:stop(my_dummy_name),
+
+    {ok, Pid4} = gen_event:start_link(?GMGR, []),
+    [] = gen_event:which_handlers(?GMGR),
+    [] = gen_event:which_handlers(Pid4),
+    ok = gen_event:stop(?GMGR),
+
+    {ok, Pid5} = gen_event:start_link({via, dummy_via, my_dummy_name}, []),
+    [] = gen_event:which_handlers({via, dummy_via, my_dummy_name}),
+    [] = gen_event:which_handlers(Pid5),
+    ok = gen_event:stop({via, dummy_via, my_dummy_name}),
+
+    {ok, _} = gen_event:start_link(?LMGR, []),
+    {error, {already_started, _}} = gen_event:start_link(?LMGR, []),
+    {error, {already_started, _}} = gen_event:start(?LMGR, []),
+    ok = gen_event:stop(my_dummy_name),
+
+    {ok, Pid7} = gen_event:start_link(?GMGR),
+    {error, {already_started, _}} = gen_event:start_link(?GMGR, []),
+    {error, {already_started, _}} = gen_event:start(?GMGR, []),
+
+    ok = gen_event:stop(?GMGR, shutdown, 10000),
+    receive
+	{'EXIT', Pid7, shutdown} -> ok
+    after 10000 ->
+	    ct:fail(exit_gen_event)
+    end,
+
+    {ok, Pid8} = gen_event:start_link({via, dummy_via, my_dummy_name}),
+    {error, {already_started, _}} = gen_event:start_link({via, dummy_via, my_dummy_name}, []),
+    {error, {already_started, _}} = gen_event:start({via, dummy_via, my_dummy_name}, []),
+
+    exit(Pid8, shutdown),
+    receive
+	{'EXIT', Pid8, shutdown} -> ok
+    after 10000 ->
+	    ct:fail(exit_gen_event)
+    end,
+
+    %% test spawn_opt
+    MinHeapSz = 10000,
+    {ok, Pid9} = gen_event:start_link(?LMGR, [{spawn_opt, [{min_heap_size, MinHeapSz}]}]),
+    {error, {already_started, _}} = gen_event:start_link(?LMGR, []),
+    {error, {already_started, _}} = gen_event:start(?LMGR, []),
+    {heap_size, HeapSz} = erlang:process_info(Pid9, heap_size),
+    true = HeapSz > MinHeapSz,
+    ok = gen_event:stop(my_dummy_name),
+
+    %% test debug opt
+    {ok, _} = gen_event:start_link(?LMGR, [{debug,[debug]}]),
+    {error, {already_started, _}} = gen_event:start_link(?LMGR, []),
+    {error, {already_started, _}} = gen_event:start(?LMGR, []),
+    ok = gen_event:stop(my_dummy_name),
+
+    process_flag(trap_exit, OldFl),
+    ok.
 
 hibernate(Config) when is_list(Config) ->
     {ok,Pid} = gen_event:start({local, my_dummy_handler}),
@@ -193,6 +304,48 @@ hibernate(Config) when is_list(Config) ->
 
     ok = gen_event:stop(my_dummy_handler),
 
+    ok.
+
+auto_hibernate(Config) when is_list(Config) ->
+    HibernateAfterTimeout = 100,
+    State = {auto_hibernate_state},
+    {ok,Pid} = gen_event:start({local, auto_hibernate_handler}, [{hibernate_after, HibernateAfterTimeout}]),
+    %% After init test
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(Pid),
+    ok = gen_event:add_handler(auto_hibernate_handler, dummy_h, [State]),
+    %% Get state test
+    [{dummy_h,false,State}] = sys:get_state(Pid),
+    is_in_erlang_hibernate(Pid),
+    %% Call test
+    {ok, hejhopp} = gen_event:call(auto_hibernate_handler, dummy_h, hejsan),
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Event test
+    ok = gen_event:notify(auto_hibernate_handler, {self(), handle_event}),
+    receive
+        handled_event ->
+            ok
+    after 1000 ->
+        ct:fail(event)
+    end,
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(Pid),
+    %% Info test
+    Pid ! {self(), handle_info},
+    receive
+        handled_info ->
+            ok
+    after 1000 ->
+        ct:fail(info)
+    end,
+    is_not_in_erlang_hibernate(Pid),
+    timer:sleep(HibernateAfterTimeout),
+    is_in_erlang_hibernate(Pid),
+    ok = gen_event:stop(auto_hibernate_handler),
     ok.
 
 is_in_erlang_hibernate(Pid) ->
@@ -979,3 +1132,92 @@ replace_state(Config) when is_list(Config) ->
     ok = sys:resume(Pid),
     [{dummy1_h,false,NState3}] = sys:get_state(Pid),
     ok.
+
+%% No default provided for init, so it should fail
+undef_init(Config) ->
+    Pid = ?config(event_pid, Config),
+    {'EXIT', {undef, [{oc_init_event, init, [_], _}|_]}}
+        = gen_event:add_handler(Pid, oc_init_event, []),
+    ok.
+
+%% No default provided for init, so it should fail
+undef_handle_call(Config) when is_list(Config) ->
+    Pid = ?config(event_pid, Config),
+    {error, {'EXIT', {undef, [{oc_event, handle_call, _, _}|_]}}}
+        = gen_event:call(Pid, oc_event, call_msg),
+    [] = gen_event:which_handlers(Pid),
+    ok.
+
+%% No default provided for init, so it should fail
+undef_handle_event(Config) ->
+    Pid = ?config(event_pid, Config),
+    ok = gen_event:sync_notify(Pid, event_msg),
+    [] = gen_event:which_handlers(Pid),
+
+    gen_event:add_handler(oc_event, oc_event, []),
+    [oc_event] = gen_event:which_handlers(Pid),
+
+    ok = gen_event:notify(Pid, event_msg),
+    [] = gen_event:which_handlers(Pid),
+    ok.
+
+%% Defaulting to doing nothing with a log warning.
+undef_handle_info(Config) when is_list(Config) ->
+    error_logger_forwarder:register(),
+    Pid = ?config(event_pid, Config),
+    Pid ! hej,
+    wait_until_processed(Pid, hej, 10),
+    [oc_event] = gen_event:which_handlers(Pid),
+    receive
+        {warning_msg, _GroupLeader,
+         {Pid, "** Undefined handle_info in " ++ _, [oc_event, hej]}} ->
+            ok;
+        Other ->
+            io:format("Unexpected: ~p", [Other]),
+            ct:fail(failed)
+    end.
+
+wait_until_processed(_Pid, _Message, 0) ->
+    ct:fail(not_processed);
+wait_until_processed(Pid, Message, N) ->
+    {messages, Messages} = erlang:process_info(Pid, messages),
+    case lists:member(Message, Messages) of
+        true ->
+            timer:sleep(100),
+            wait_until_processed(Pid, Message, N-1);
+        false ->
+            ok
+    end.
+
+%% No default provided for init, so it should fail
+undef_code_change(Config) when is_list(Config) ->
+    Pid = ?config(event_pid, Config),
+    {error, {'EXIT', {undef, [{oc_event, code_change, [_, _, _], _}|_]}}} =
+        fake_upgrade(Pid, oc_event),
+    [oc_event] = gen_event:which_handlers(Pid),
+    ok.
+
+%% Defaulting to doing nothing. Test that it works when not defined.
+undef_terminate(Config) when is_list(Config) ->
+    Pid = ?config(event_pid, Config),
+    ok = gen_event:delete_handler(Pid, oc_event, []),
+    [] = gen_event:which_handlers(Pid),
+    ok.
+
+%% Test that the default implementation doesn't catch the wrong undef error
+undef_in_terminate(_Config) ->
+    {ok, Pid} = gen_event:start({local, dummy}),
+    State = {undef_in_terminate, {dummy_h, terminate}},
+    ok = gen_event:add_handler(Pid, dummy_h, {state, State}),
+    [dummy_h] = gen_event:which_handlers(Pid),
+    {'EXIT', {undef, [{dummy_h, terminate, [], []}|_]}}
+        = gen_event:delete_handler(Pid, dummy_h, []),
+    [] = gen_event:which_handlers(Pid),
+    ok.
+
+fake_upgrade(Pid, Mod) ->
+    sys:suspend(Pid),
+    sys:replace_state(Pid, fun(S) -> {new, S} end),
+    Ret = sys:change_code(Pid, Mod, old_vsn, []),
+    ok = sys:resume(Pid),
+    Ret.

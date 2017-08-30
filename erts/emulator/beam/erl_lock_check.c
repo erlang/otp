@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -89,6 +89,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"hipe_mfait_lock",			NULL			},
 #endif
     {	"nodes_monitors",			NULL			},
+#ifdef ERTS_SMP
+    {	"resource_monitors",			"address"	        },
+#endif
     {   "driver_list",                          NULL                    },
     {	"proc_link",				"pid"			},
     {	"proc_msgq",				"pid"			},
@@ -96,14 +99,13 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"dist_entry",				"address"		},
     {	"dist_entry_links",			"address"		},
     {   "code_write_permission",                NULL                    },
+    {	"purge_state",		      		NULL			},
+    {	"meta_name_tab",	         	"address"		},
+    {	"db_tab",				"address"		},
     {	"proc_status",				"pid"			},
     {	"proc_trace",				"pid"			},
     {   "ports_snapshot",                       NULL                    },
-    {	"meta_name_tab",	         	"address"		},
-    {	"meta_main_tab_slot",			"address"		},
-    {	"db_tab",				"address"		},
     {	"db_tab_fix",				"address"		},
-    {	"meta_main_tab_main",			NULL 			},
     {	"db_hash_slot",				"address"		},
     {	"node_table",				NULL			},
     {	"dist_table",				NULL			},
@@ -112,6 +114,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"export_tab",				NULL			},
     {	"fun_tab",				NULL			},
     {	"environ",				NULL			},
+    {	"release_literal_areas",		NULL			},
 #endif
     {	"efile_drv",				"address"		},
     {	"drv_ev_state_grow",			NULL,   		},
@@ -125,6 +128,8 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"run_queue",				"address"		},
 #ifdef ERTS_DIRTY_SCHEDULERS
     {   "dirty_run_queue_sleep_list",		"address"		},
+    {	"dirty_gc_info",			NULL			},
+    {	"dirty_break_point_index",		NULL			},
 #endif
     {	"process_table",			NULL			},
     {	"cpu_info",				NULL			},
@@ -152,6 +157,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"tracer_mtx", 				NULL			},
     {   "port_table",                           NULL                    },
 #endif
+    {	"magic_ref_table",			"address"		},
     {	"mtrace_op",				NULL			},
     {	"instr_x",				NULL			},
     {	"instr",				NULL			},

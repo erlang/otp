@@ -1,7 +1,7 @@
 /* 
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,20 @@
  * %CopyrightEnd%
  */
 
+#include <openssl/crypto.h>
+#ifdef NEED_EVP_COMPATIBILITY_FUNCTIONS
+# define CCB_FILE_LINE_ARGS
+#else
+# define CCB_FILE_LINE_ARGS , const char *file, int line
+#endif
+
 struct crypto_callbacks
 {
     size_t sizeof_me;
 
-    void* (*crypto_alloc)(size_t size);
-    void* (*crypto_realloc)(void* ptr, size_t size);
-    void (*crypto_free)(void* ptr);
+    void* (*crypto_alloc)(size_t size CCB_FILE_LINE_ARGS);
+    void* (*crypto_realloc)(void* ptr, size_t size CCB_FILE_LINE_ARGS);
+    void (*crypto_free)(void* ptr CCB_FILE_LINE_ARGS);
 
     /* openssl callbacks */
   #ifdef OPENSSL_THREADS

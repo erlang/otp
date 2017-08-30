@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,22 +35,27 @@ compile(Config, Erules, Options0) ->
     asn1_test_lib:compile_all(Specs, Config, [Erules,{i,CaseDir}|Options]).
 
 test() ->
-    {1,3,6,1,5,5,7,48,1,2} =
-	IdPkixOcspNonce =
-	'OCSP-2009':'id-pkix-ocsp-nonce'(),
-    roundtrip('OCSP-2009', 'OCSPRequest',
-	      {'OCSPRequest',
-	       {'TBSRequest',
-		0,
-		{rfc822Name,"name string"},
-		[{'Request',
-		  {'CertID',{'_',{2,9,3,4,5},asn1_NOVALUE},
-		   <<"POTATOHASH">>,<<"HASHBROWN">>,42},
-		  [{'_',IdPkixOcspNonce,true,<<34,159,16,57,199>>}]}],
-		asn1_NOVALUE},
-	       asn1_NOVALUE}),
-    otp_7759(),
-    ok.
+    M = 'OCSP-2009',
+    case M:maps() of
+        false ->
+            {1,3,6,1,5,5,7,48,1,2} =
+                IdPkixOcspNonce =
+                'OCSP-2009':'id-pkix-ocsp-nonce'(),
+            roundtrip('OCSP-2009', 'OCSPRequest',
+                      {'OCSPRequest',
+                       {'TBSRequest',
+                        0,
+                        {rfc822Name,"name string"},
+                        [{'Request',
+                          {'CertID',{'_',{2,9,3,4,5},asn1_NOVALUE},
+                           <<"POTATOHASH">>,<<"HASHBROWN">>,42},
+                          [{'_',IdPkixOcspNonce,true,<<34,159,16,57,199>>}]}],
+                        asn1_NOVALUE},
+                       asn1_NOVALUE}),
+            otp_7759(records);
+        true ->
+            otp_7759(maps)
+    end.
 
 roundtrip(Module, Type, Value0) ->
     Enc = Module:encode(Type, Value0),
@@ -58,7 +63,7 @@ roundtrip(Module, Type, Value0) ->
     asn1_test_lib:match_value(Value0, Value1),
     ok.
 
-otp_7759() ->
+otp_7759(Pack) ->
     %% The release note for asn-1.6.6 says:
     %%   Decode of an open_type when the value was empty tagged
     %%   type encoded with indefinite length failed.
@@ -66,10 +71,15 @@ otp_7759() ->
     Encoded = encoded_msg(),
     ContentInfo = Mod:decode('ContentInfo', Encoded),
     io:format("~p\n", [ContentInfo]),
-    {'ContentInfo',_Id,PKCS7_content} = ContentInfo,
-    X = Mod:decode('SignedData', PKCS7_content),
+    Content = case ContentInfo of
+                  {'ContentInfo',_Id,Content0} when Pack =:= records ->
+                      Content0;
+                  #{'content-type':=_,'pkcs7-content':=Content0}
+                    when Pack =:= maps ->
+                      Content0
+              end,
+    X = Mod:decode('SignedData', Content),
     io:format("~p\n", [X]),
-    io:nl(),
     ok.
 
 encoded_msg() ->

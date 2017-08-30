@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -364,7 +364,7 @@ monotonic_time() ->
     try erlang:monotonic_time() catch error:undef -> erlang:now() end.
 
 subtr(Before, After) when is_integer(Before), is_integer(After) ->
-    erlang:convert_time_unit(After-Before, native, micro_seconds);
+    erlang:convert_time_unit(After-Before, native, microsecond);
 subtr({_,_,_}=Before, {_,_,_}=After) ->
     timer:now_diff(After, Before).
 
@@ -708,7 +708,7 @@ alloc(I) ->
 
 %% Time to call bif's
 %% Lot's of element stuff which reflects the record code which
-%% is becomming more and more common
+%% is becoming more and more common
 bif_dispatch(0) ->
     0;
 bif_dispatch(I) ->

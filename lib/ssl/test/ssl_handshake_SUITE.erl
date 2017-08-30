@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 all() -> [decode_hello_handshake,
+          decode_hello_handshake_version_confusion,
 	  decode_single_hello_extension_correctly,
 	  decode_supported_elliptic_curves_hello_extension_correctly,
 	  decode_unknown_hello_extension_correctly,
@@ -60,7 +61,7 @@ init_per_testcase(ignore_hassign_extension_pre_tls_1_2, Config0) ->
 	ok ->
 	    case is_supported(sha512) of
 		true ->
-		    ssl:start(),
+		    ssl_test_lib:clean_start(),
 		    %% make rsa certs using oppenssl
 		    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
 					     proplists:get_value(priv_dir, Config0)),
@@ -105,6 +106,14 @@ decode_hello_handshake(_Config) ->
     {Hello, _Data} = hd(Records),
     #renegotiation_info{renegotiated_connection = <<0>>}
 	= (Hello#server_hello.extensions)#hello_extensions.renegotiation_info.
+
+
+decode_hello_handshake_version_confusion(_) -> 
+    HelloPacket = <<3,3,0,0,0,0,0,63,210,235,149,6,244,140,108,13,177,74,16,218,33,108,219,41,73,228,3,82,132,123,73,144,118,100,0,0,32,192,4,0,10,192,45,192,38,0,47,192,18,0,163,0,22,0,165,192,29,192,18,192,30,0,103,0,57,192,48,0,47,1,0>>,
+    Version = {3,3},
+    ClientHello = 1, 
+    Hello = tls_handshake:decode_handshake({3,3}, ClientHello, HelloPacket, false),
+    Hello = tls_handshake:decode_handshake({3,3}, ClientHello, HelloPacket, true).
 
 decode_single_hello_extension_correctly(_Config) -> 
     Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,

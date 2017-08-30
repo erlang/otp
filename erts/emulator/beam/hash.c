@@ -35,9 +35,9 @@
 static const int h_size_table[] = {
     2, 5, 11, 23, 47, 97, 197, 397, 797,  /* double upto here */
     1201,   1597,
-    2411,   3203, 
+    2411,   3203,
     4813,   6421,
-    9643,   12853, 
+    9643,   12853,
     19289,  25717,
     51437,
     102877,
@@ -49,8 +49,8 @@ static const int h_size_table[] = {
     6584983,
     13169977,
     26339969,
-    52679969, 
-    -1 
+    52679969,
+    -1
 };
 
 /*
@@ -69,7 +69,7 @@ void hash_get_info(HashInfo *hi, Hash *h)
     for (i = 0; i < size; i++) {
 	int depth = 0;
 	HashBucket* b = h->bucket[i];
-	
+
 	while (b != (HashBucket*) 0) {
 	    objects++;
 	    depth++;
@@ -95,7 +95,7 @@ void hash_get_info(HashInfo *hi, Hash *h)
 **
 */
 
-void hash_info(int to, void *arg, Hash* h)
+void hash_info(fmtfn_t to, void *arg, Hash* h)
 {
     HashInfo hi;
 
@@ -112,7 +112,7 @@ void hash_info(int to, void *arg, Hash* h)
 /*
  * Returns size of table in bytes. Stored objects not included.
  */
-int 
+int
 hash_table_sz(Hash *h)
 {
   int i;
@@ -190,7 +190,7 @@ void hash_delete(Hash* h)
 	HashBucket* b = h->bucket[i];
 	while (b != (HashBucket*) 0) {
 	    HashBucket* b_next = b->next;
-	    
+
 	    h->fun.free((void*) b);
 	    b = b_next;
 	}
@@ -250,7 +250,7 @@ void* hash_get(Hash* h, void* tmpl)
     HashValue hval = h->fun.hash(tmpl);
     int ix = hval % h->size;
     HashBucket* b = h->bucket[ix];
-	
+
     while(b != (HashBucket*) 0) {
 	if ((b->hvalue == hval) && (h->fun.cmp(tmpl, (void*)b) == 0))
 	    return (void*) b;
@@ -294,7 +294,7 @@ void* hash_erase(Hash* h, void* tmpl)
     int ix = hval % h->size;
     HashBucket* b = h->bucket[ix];
     HashBucket* prev = 0;
-	
+
     while(b != 0) {
 	if ((b->hvalue == hval) && (h->fun.cmp(tmpl, (void*)b) == 0)) {
 	    if (prev != 0)
@@ -326,7 +326,7 @@ hash_remove(Hash *h, void *tmpl)
     int ix = hval % h->size;
     HashBucket *b = h->bucket[ix];
     HashBucket *prev = NULL;
-	
+
     while (b) {
 	if ((b->hvalue == hval) && (h->fun.cmp(tmpl, (void*)b) == 0)) {
 	    if (prev)
@@ -355,4 +355,3 @@ void hash_foreach(Hash* h, void (*func)(void *, void *), void *func_arg2)
 	}
     }
 }
-

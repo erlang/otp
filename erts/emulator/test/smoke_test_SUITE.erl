@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,17 +66,10 @@ boot_combo(Config) when is_list(Config) ->
 			  ok
 		  end
 	  end,
-    SMPDisable = fun () -> false = erlang:system_info(smp_support) end,
     try
 	chk_boot(Config, "+Ktrue", NOOP),
 	chk_boot(Config, "+A42", A42),
-	chk_boot(Config, "-smp disable", SMPDisable),
 	chk_boot(Config, "+Ktrue +A42", A42),
-	chk_boot(Config, "-smp disable +A42",
-		 fun () -> SMPDisable(), A42() end),
-	chk_boot(Config, "-smp disable +Ktrue", SMPDisable),
-	chk_boot(Config, "-smp disable +Ktrue +A42",
-		 fun () -> SMPDisable(), A42() end),
 	%% A lot more combos could be implemented...
 	ok
     after
@@ -152,7 +145,7 @@ start_node(Config, Args) when is_list(Config) ->
 	      ++ "-"
 	      ++ atom_to_list(proplists:get_value(testcase, Config))
 	      ++ "-"
-	      ++ integer_to_list(erlang:system_time(seconds))
+	      ++ integer_to_list(erlang:system_time(second))
 	      ++ "-"
 	      ++ integer_to_list(erlang:unique_integer([positive]))),
     Opts = [{args, "-pa "++Pa++" "++Args}],

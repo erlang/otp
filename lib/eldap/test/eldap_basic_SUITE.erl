@@ -119,7 +119,10 @@ init_per_suite(Config) ->
      {ldaps_server,  LDAPS_server} | Config].
 
 end_per_suite(_Config) ->
-    ssl:stop().
+    try ssl:stop()
+    catch
+        _:_ -> ok
+    end.
 
 
 init_per_group(return_values, Config) ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,6 +32,8 @@
 %%	list_to_integer/1
 %%	round/1
 %%	trunc/1
+%%      floor/1
+%%      ceil/1
 %%	integer_to_binary/1
 %%	integer_to_binary/2
 %%	binary_to_integer/1
@@ -41,7 +43,7 @@
 	 t_float_to_string/1, t_integer_to_string/1,
 	 t_string_to_integer/1, t_list_to_integer_edge_cases/1,
 	 t_string_to_float_safe/1, t_string_to_float_risky/1,
-	 t_round/1, t_trunc/1
+	 t_round/1, t_trunc_and_friends/1
      ]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -49,7 +51,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [t_abs, t_float, t_float_to_string, t_integer_to_string,
      {group, t_string_to_float}, t_string_to_integer, t_round,
-     t_trunc, t_list_to_integer_edge_cases].
+     t_trunc_and_friends, t_list_to_integer_edge_cases].
 
 groups() ->
     [{t_string_to_float, [],
@@ -106,7 +108,7 @@ t_float(Config) when is_list(Config) ->
     4294967305.0 = float(id(4294967305)),
     -4294967305.0 = float(id(-4294967305)),
 
-    %% Extremly big bignums.
+    %% Extremely big bignums.
     Big = id(list_to_integer(id(lists:duplicate(2000, $1)))),
     {'EXIT', {badarg, _}} = (catch float(Big)),
 
@@ -293,32 +295,83 @@ t_round(Config) when is_list(Config) ->
     4294967297 = round(id(4294967296.9)),
     -4294967296 = -round(id(4294967296.1)),
     -4294967297 = -round(id(4294967296.9)),
+
+    6209607916799025 = round(id(6209607916799025.0)),
+    -6209607916799025 = round(id(-6209607916799025.0)),
     ok.
 
-t_trunc(Config) when is_list(Config) ->
-    0 = trunc(id(0.0)),
-    5 = trunc(id(5.3333)),
-    -10 = trunc(id(-10.978987)),
+%% Test trunc/1, floor/1, ceil/1, and round/1.
+t_trunc_and_friends(_Config) ->
+    MinusZero = 0.0 / (-1.0),
+    0 = trunc_and_friends(MinusZero),
+    0 = trunc_and_friends(0.0),
+    5 = trunc_and_friends(5.3333),
+    -10 = trunc_and_friends(-10.978987),
 
-    % The largest smallnum, converted to float (OTP-3722):
+    %% The largest smallnum, converted to float (OTP-3722):
     X = id((1 bsl 27) - 1),
-    F = id(X + 0.0),
+    F = X + 0.0,
     io:format("X = ~p/~w/~w, F = ~p/~w/~w, trunc(F) = ~p/~w/~w~n",
 	      [X, X, binary_to_list(term_to_binary(X)),
 	       F, F, binary_to_list(term_to_binary(F)),
-	       trunc(F), trunc(F), binary_to_list(term_to_binary(trunc(F)))]),
-    X = trunc(F),
-    X = trunc(F+1)-1,
-    X = trunc(F-1)+1,
-    X = -trunc(-F),
-    X = -trunc(-F-1)-1,
-    X = -trunc(-F+1)+1,
+	       trunc_and_friends(F),
+	       trunc_and_friends(F),
+	       binary_to_list(term_to_binary(trunc_and_friends(F)))]),
+    X = trunc_and_friends(F),
+    X = trunc_and_friends(F+1)-1,
+    X = trunc_and_friends(F-1)+1,
+    X = -trunc_and_friends(-F),
+    X = -trunc_and_friends(-F-1)-1,
+    X = -trunc_and_friends(-F+1)+1,
 
     %% Bignums.
-    4294967305 = trunc(id(4294967305.7)),
-    -4294967305 = trunc(id(-4294967305.7)),
+    4294967305 = trunc_and_friends(4294967305.7),
+    -4294967305 = trunc_and_friends(-4294967305.7),
+    18446744073709551616 = trunc_and_friends(float(1 bsl 64)),
+    -18446744073709551616 = trunc_and_friends(-float(1 bsl 64)),
+
+    %% Random.
+    t_trunc_and_friends_rand(100),
     ok.
 
+t_trunc_and_friends_rand(0) ->
+    ok;
+t_trunc_and_friends_rand(N) ->
+    F0 = rand:uniform() * math:pow(10, 50*rand:normal()),
+    F = case rand:uniform() of
+	    U when U < 0.5 -> -F0;
+	    _ -> F0
+	end,
+    _ = trunc_and_friends(F),
+    t_trunc_and_friends_rand(N-1).
+
+trunc_and_friends(F) ->
+    Trunc = trunc(F),
+    Floor = floor(F),
+    Ceil = ceil(F),
+    Round = round(F),
+
+    Trunc = trunc(Trunc),
+    Floor = floor(Floor),
+    Ceil = ceil(Ceil),
+    Round = round(Round),
+
+    Trunc = trunc(float(Trunc)),
+    Floor = floor(float(Floor)),
+    Ceil = ceil(float(Ceil)),
+    Round = round(float(Round)),
+
+    true = Floor =< Trunc andalso Trunc =< Ceil,
+    true = Ceil - Floor =< 1,
+    true = Round =:= Floor orelse Round =:= Ceil,
+
+    if
+	F < 0 ->
+	    Trunc = Ceil;
+	true ->
+	    Trunc = Floor
+    end,
+    Trunc.
 
 %% Tests integer_to_binary/1.
 

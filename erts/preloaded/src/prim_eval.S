@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@
 
 {attributes, []}.
 
-{labels, 10}.
+{labels, 14}.
 
 
 {function, 'receive', 2, 2}.
@@ -36,6 +36,9 @@
     {allocate,2,2}.
     {move,{x,1},{y,0}}.
     {move,{x,0},{y,1}}.
+    %% Call arg_reg_alloc() in order to ensure
+    %% that def_arg_reg[0] isn't clobbered
+    {call,0,{f,7}}.
   {label,3}.
     {loop_rec,{f,5},{x,0}}.
     {move,{y,1},{x,1}}.
@@ -53,19 +56,43 @@
     {deallocate,2}.
     return.
 
-
-{function, module_info, 0, 8}.
+{function, arg_reg_alloc, 0, 7}.
   {label,6}.
-    {func_info,{atom,prim_eval},{atom,module_info},0}.
+    {func_info,{atom,prim_eval},{atom,arg_reg_alloc},0}.
   {label,7}.
+    {allocate,0,0}.
+    {move,{integer,134217727},{x,0}}.
+    {call_ext,1,{extfunc,erlang,bump_reductions,1}}.
+    {move,{atom,true},{x,3}}.
+    {move,{atom,true},{x,4}}.
+    {move,{atom,true},{x,2}}.
+    {move,{atom,true},{x,5}}.
+    {move,{atom,true},{x,1}}.
+    {move,{atom,true},{x,6}}.
+    {move,{atom,true},{x,0}}.
+    {call_last,7,{f,9},0}.
+
+
+{function, arg_reg_alloc, 7, 9}.
+  {label,8}.
+    {func_info,{atom,prim_eval},{atom,arg_reg_alloc},7}.
+  {label,9}.
+    {move,{atom,ok},{x,0}}.
+    return.
+
+
+{function, module_info, 0, 11}.
+  {label,10}.
+    {func_info,{atom,prim_eval},{atom,module_info},0}.
+  {label,11}.
     {move,{atom,prim_eval},{x,0}}.
     {call_ext_only,1,{extfunc,erlang,get_module_info,1}}.
 
 
-{function, module_info, 1, 10}.
-  {label,8}.
+{function, module_info, 1, 13}.
+  {label,12}.
     {func_info,{atom,prim_eval},{atom,module_info},1}.
-  {label,9}.
+  {label,13}.
     {move,{x,0},{x,1}}.
     {move,{atom,prim_eval},{x,0}}.
     {call_ext_only,2,{extfunc,erlang,get_module_info,2}}.

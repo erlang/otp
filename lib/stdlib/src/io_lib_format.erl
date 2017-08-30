@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -257,15 +257,18 @@ indentation([], I) -> I.
 %%  This is the main dispatch function for the various formatting commands.
 %%  Field widths and precisions have already been calculated.
 
-control($w, [A], F, Adj, P, Pad, _Enc, _Str, _I) ->
-    term(io_lib:write(A, -1), F, Adj, P, Pad);
+control($w, [A], F, Adj, P, Pad, Enc, _Str, _I) ->
+    term(io_lib:write(A, [{depth,-1}, {encoding, Enc}]), F, Adj, P, Pad);
 control($p, [A], F, Adj, P, Pad, Enc, Str, I) ->
     print(A, -1, F, Adj, P, Pad, Enc, Str, I);
-control($W, [A,Depth], F, Adj, P, Pad, _Enc, _Str, _I) when is_integer(Depth) ->
-    term(io_lib:write(A, Depth), F, Adj, P, Pad);
+control($W, [A,Depth], F, Adj, P, Pad, Enc, _Str, _I) when is_integer(Depth) ->
+    term(io_lib:write(A, [{depth,Depth}, {encoding, Enc}]), F, Adj, P, Pad);
 control($P, [A,Depth], F, Adj, P, Pad, Enc, Str, I) when is_integer(Depth) ->
     print(A, Depth, F, Adj, P, Pad, Enc, Str, I);
-control($s, [A], F, Adj, P, Pad, _Enc, _Str, _I) when is_atom(A) ->
+control($s, [A], F, Adj, P, Pad, latin1, _Str, _I) when is_atom(A) ->
+    L = iolist_to_chars(atom_to_list(A)),
+    string(L, F, Adj, P, Pad);
+control($s, [A], F, Adj, P, Pad, unicode, _Str, _I) when is_atom(A) ->
     string(atom_to_list(A), F, Adj, P, Pad);
 control($s, [L0], F, Adj, P, Pad, latin1, _Str, _I) ->
     L = iolist_to_chars(L0),
@@ -332,7 +335,7 @@ base(B) when is_integer(B) ->
 term(T, none, _Adj, none, _Pad) -> T;
 term(T, none, Adj, P, Pad) -> term(T, P, Adj, P, Pad);
 term(T, F, Adj, P0, Pad) ->
-    L = lists:flatlength(T),
+    L = string:length(T),
     P = erlang:min(L, case P0 of none -> F; _ -> min(P0, F) end),
     if
 	L > P ->
@@ -343,7 +346,8 @@ term(T, F, Adj, P0, Pad) ->
 
 %% print(Term, Depth, Field, Adjust, Precision, PadChar, Encoding,
 %%       Indentation)
-%%  Print a term.
+%% Print a term. Field width sets maximum line length, Precision sets
+%% initial indentation.
 
 print(T, D, none, Adj, P, Pad, E, Str, I) ->
     print(T, D, 80, Adj, P, Pad, E, Str, I);
@@ -671,11 +675,11 @@ cdata_to_chars(B) when is_binary(B) ->
 
 string(S, none, _Adj, none, _Pad) -> S;
 string(S, F, Adj, none, Pad) ->
-    string_field(S, F, Adj, lists:flatlength(S), Pad);
+    string_field(S, F, Adj, string:length(S), Pad);
 string(S, none, _Adj, P, Pad) ->
-    string_field(S, P, left, lists:flatlength(S), Pad);
+    string_field(S, P, left, string:length(S), Pad);
 string(S, F, Adj, P, Pad) when F >= P ->
-    N = lists:flatlength(S),
+    N = string:length(S),
     if F > P ->
 	    if N > P ->
 		    adjust(flat_trunc(S, P), chars(Pad, F-P), Adj);
@@ -745,18 +749,7 @@ adjust(Data, Pad, right) -> [Pad|Data].
 %% Flatten and truncate a deep list to at most N elements.
 
 flat_trunc(List, N) when is_integer(N), N >= 0 ->
-    flat_trunc(List, N, [], []).
-
-flat_trunc(L, 0, _, R) when is_list(L) ->
-    lists:reverse(R);
-flat_trunc([H|T], N, S, R) when is_list(H) ->
-    flat_trunc(H, N, [T|S], R);
-flat_trunc([H|T], N, S, R) ->
-    flat_trunc(T, N-1, S, [H|R]);
-flat_trunc([], N, [H|S], R) ->
-    flat_trunc(H, N, S, R);
-flat_trunc([], _, [], R) ->
-    lists:reverse(R).
+    string:slice(List, 0, N).
 
 %% A deep version of string:chars/2,3
 

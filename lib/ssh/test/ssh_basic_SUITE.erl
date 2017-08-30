@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,11 +46,17 @@
 	 exec_key_differs2/1,
 	 exec_key_differs3/1,
 	 exec_key_differs_fail/1,
-	 idle_time/1,
+	 idle_time_client/1,
+	 idle_time_server/1,
 	 inet6_option/1,
 	 inet_option/1,
 	 internal_error/1,
-	 known_hosts/1,  
+	 known_hosts/1,
+	 login_bad_pwd_no_retry1/1,
+	 login_bad_pwd_no_retry2/1,
+	 login_bad_pwd_no_retry3/1,
+	 login_bad_pwd_no_retry4/1,
+	 login_bad_pwd_no_retry5/1,
 	 misc_ssh_options/1,
 	 openssh_zlib_basic_test/1,  
 	 packet_size_zero/1, 
@@ -62,7 +68,8 @@
 	 shell_unicode_string/1,
 	 ssh_info_print/1,
 	 key_callback/1,
-	 key_callback_options/1
+	 key_callback_options/1,
+	 shell_exit_status/1
 	]).
 
 %%% Common test callbacks
@@ -100,7 +107,9 @@ all() ->
      daemon_opt_fd,
      multi_daemon_opt_fd,
      packet_size_zero,
-     ssh_info_print
+     ssh_info_print,
+     {group, login_bad_pwd_no_retry},
+     shell_exit_status
     ].
 
 groups() ->
@@ -116,7 +125,13 @@ groups() ->
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
      {key_cb, [], [key_callback, key_callback_options]},
-     {internal_error, [], [internal_error]}
+     {internal_error, [], [internal_error]},
+     {login_bad_pwd_no_retry, [], [login_bad_pwd_no_retry1,
+				   login_bad_pwd_no_retry2,
+				   login_bad_pwd_no_retry3,
+				   login_bad_pwd_no_retry4,
+				   login_bad_pwd_no_retry5
+				  ]}
     ].
 
 
@@ -125,7 +140,7 @@ basic_tests() ->
      exec, exec_compressed, 
      shell, shell_no_unicode, shell_unicode_string,
      cli, known_hosts, 
-     idle_time, openssh_zlib_basic_test, 
+     idle_time_client, idle_time_server, openssh_zlib_basic_test, 
      misc_ssh_options, inet_option, inet6_option].
 
 
@@ -138,15 +153,27 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(dsa_key, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-    Config;
+    case lists:member('ssh-dss',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ssh_test_lib:setup_dsa(DataDir, PrivDir),
+            Config;
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
 init_per_group(rsa_key, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_rsa(DataDir, PrivDir),
-    Config;
+    case lists:member('ssh-rsa',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ssh_test_lib:setup_rsa(DataDir, PrivDir),
+            Config;
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
 init_per_group(ecdsa_sha2_nistp256_key, Config) ->
     case lists:member('ecdsa-sha2-nistp256',
 		      ssh_transport:default_algorithms(public_key)) of
@@ -181,15 +208,27 @@ init_per_group(ecdsa_sha2_nistp521_key, Config) ->
 	    {skip, unsupported_pub_key}
     end;
 init_per_group(rsa_pass_key, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_rsa_pass_pharse(DataDir, PrivDir, "Password"),
-    [{pass_phrase, {rsa_pass_phrase, "Password"}}| Config];
+    case lists:member('ssh-rsa',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ssh_test_lib:setup_rsa_pass_pharse(DataDir, PrivDir, "Password"),
+            [{pass_phrase, {rsa_pass_phrase, "Password"}}| Config];
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
 init_per_group(dsa_pass_key, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_dsa_pass_pharse(DataDir, PrivDir, "Password"),
-    [{pass_phrase, {dsa_pass_phrase, "Password"}}| Config];
+    case lists:member('ssh-dss',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ssh_test_lib:setup_dsa_pass_pharse(DataDir, PrivDir, "Password"),
+            [{pass_phrase, {dsa_pass_phrase, "Password"}}| Config];
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
 init_per_group(host_user_key_differs, Config) ->
     Data = proplists:get_value(data_dir, Config),
     Sys = filename:join(proplists:get_value(priv_dir, Config), system_rsa),
@@ -206,10 +245,16 @@ init_per_group(host_user_key_differs, Config) ->
     ssh_test_lib:setup_rsa_known_host(Sys, Usr),
     Config;
 init_per_group(key_cb, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-    Config;
+    case lists:member('ssh-rsa',
+		      ssh_transport:default_algorithms(public_key)) of
+	true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ssh_test_lib:setup_rsa(DataDir, PrivDir),
+            Config;
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
 init_per_group(internal_error, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -279,7 +324,7 @@ end_per_group(rsa_pass_key, Config) ->
     Config;
 end_per_group(key_cb, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_dsa(PrivDir),
+    ssh_test_lib:clean_rsa(PrivDir),
     Config;
 end_per_group(internal_error, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -301,9 +346,9 @@ init_per_testcase(TC, Config) when TC==shell_no_unicode ;
 			     {user_passwords, [{"foo", "bar"}]}]),
     ct:sleep(500),
     IO = ssh_test_lib:start_io_server(),
-    Shell = ssh_test_lib:start_shell(Port, IO, UserDir,
-				     [{silently_accept_hosts, true},
-				      {user,"foo"},{password,"bar"}]),
+    Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir},
+						{silently_accept_hosts, true},
+						{user,"foo"},{password,"bar"}]),
     ct:log("IO=~p, Shell=~p, self()=~p",[IO,Shell,self()]),
     ct:log("file:native_name_encoding() = ~p,~nio:getopts() = ~p",
 	   [file:native_name_encoding(),io:getopts()]),
@@ -329,14 +374,15 @@ end_per_testcase(TC, Config) when TC==shell_no_unicode ;
 				  TC==shell_unicode_string ->
     case proplists:get_value(sftpd, Config) of
 	{Pid, _, _} ->
-	    ssh:stop_daemon(Pid),
-	    ssh:stop();
+	    catch ssh:stop_daemon(Pid);
 	_ ->
-	    ssh:stop()
-    end;
+	    ok
+    end,
+    end_per_testcase(Config);
 end_per_testcase(_TestCase, Config) ->
     end_per_testcase(Config).
-end_per_testcase(_Config) ->    
+
+end_per_testcase(_Config) ->
     ssh:stop(),
     ok.
 
@@ -477,8 +523,8 @@ exec_compressed(Config) when is_list(Config) ->
     end.
 
 %%--------------------------------------------------------------------
-%%% Idle timeout test
-idle_time(Config) ->
+%%% Idle timeout test, client 
+idle_time_client(Config) ->
     SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
     UserDir = proplists:get_value(priv_dir, Config),
 
@@ -499,6 +545,28 @@ idle_time(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
+%%% Idle timeout test, server
+idle_time_server(Config) ->
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+                                             {idle_time, 2000},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    {ok, Id} = ssh_connection:session_channel(ConnectionRef, 1000),
+    ssh_connection:close(ConnectionRef, Id),
+    receive
+    after 10000 ->
+	    {error, closed} = ssh_connection:session_channel(ConnectionRef, 1000)
+    end,
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
 %%% Test that ssh:shell/2 works
 shell(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
@@ -510,7 +578,7 @@ shell(Config) when is_list(Config) ->
     ct:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
-    Shell = ssh_test_lib:start_shell(Port, IO, UserDir),
+    Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir}]),
     receive
 	{'EXIT', _, _} ->
 	    ct:fail(no_ssh_connection);  
@@ -544,14 +612,14 @@ exec_key_differs(Config, UserPKAlgs) ->
 	    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 						       {user_dir, SystemUserDir},
 						       {preferred_algorithms,
-							[{public_key,['ssh-rsa']}]}]),
+							[{public_key,['ssh-rsa'|UserPKAlgs]}]}]),
 	    ct:sleep(500),
 
 	    IO = ssh_test_lib:start_io_server(),
-	    Shell = ssh_test_lib:start_shell(Port, IO, UserDir,
-					     [{preferred_algorithms,[{public_key,['ssh-rsa']}]},
-					      {pref_public_key_algs,UserPKAlgs}
-					     ]),
+	    Shell = ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir},
+							{preferred_algorithms,[{public_key,['ssh-rsa']}]},
+							{pref_public_key_algs,UserPKAlgs}
+						       ]),
 
 
 	    receive
@@ -582,9 +650,10 @@ exec_key_differs_fail(Config) when is_list(Config) ->
     ct:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
-    ssh_test_lib:start_shell(Port, IO, UserDir,
-			     [{preferred_algorithms,[{public_key,['ssh-rsa']}]},
-			      {pref_public_key_algs,['ssh-dss']}]),
+    ssh_test_lib:start_shell(Port, IO, [{user_dir,UserDir},
+                                        {recv_ext_info, false},
+					{preferred_algorithms,[{public_key,['ssh-rsa']}]},
+					{pref_public_key_algs,['ssh-dss']}]),
     receive
 	{'EXIT', _, _} ->
 	    ok;  
@@ -674,7 +743,8 @@ known_hosts(Config) when is_list(Config) ->
     Lines = string:tokens(binary_to_list(Binary), "\n"),
     [Line] = Lines,
     [HostAndIp, Alg, _KeyData] = string:tokens(Line, " "),
-    [Host, _Ip] = string:tokens(HostAndIp, ","),
+    [StoredHost, _Ip] = string:tokens(HostAndIp, ","),
+    true = ssh_test_lib:match_ip(StoredHost, Host),
     "ssh-" ++ _ = Alg,
     ssh:stop_daemon(Pid).
 %%--------------------------------------------------------------------
@@ -735,7 +805,7 @@ key_callback_options(Config) when is_list(Config) ->
                                              {user_dir, UserDir},
                                              {failfun, fun ssh_test_lib:failfun/2}]),
 
-    {ok, PrivKey} = file:read_file(filename:join(UserDir, "id_dsa")),
+    {ok, PrivKey} = file:read_file(filename:join(UserDir, "id_rsa")),
 
     ConnectOpts = [{silently_accept_hosts, true},
                    {user_dir, NoPubKeyDir},
@@ -1090,6 +1160,96 @@ ssh_info_print(Config) ->
 
 
 %%--------------------------------------------------------------------
+%% Check that a basd pwd is not tried more times. Could cause lock-out
+%% on server
+
+login_bad_pwd_no_retry1(Config) ->
+    login_bad_pwd_no_retry(Config, "keyboard-interactive,password").
+
+login_bad_pwd_no_retry2(Config) ->
+    login_bad_pwd_no_retry(Config, "password,keyboard-interactive").
+
+login_bad_pwd_no_retry3(Config) ->
+    login_bad_pwd_no_retry(Config, "password,publickey,keyboard-interactive").
+
+login_bad_pwd_no_retry4(Config) ->
+    login_bad_pwd_no_retry(Config, "password,keyboard-interactive").
+
+login_bad_pwd_no_retry5(Config) ->
+    login_bad_pwd_no_retry(Config, "password,keyboard-interactive,password,password").
+
+
+login_bad_pwd_no_retry(Config, AuthMethods) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = proplists:get_value(data_dir, Config),
+
+    Parent = self(),
+    PwdFun = fun(_, _, _, undefined) -> {false, 1};
+		(_, _, _,         _) -> Parent ! retry_bad_pwd,
+					false
+	     end,
+
+    {DaemonRef, _Host, Port} = 
+	ssh_test_lib:daemon([{system_dir, SysDir},
+			     {user_dir, UserDir},
+			     {auth_methods, AuthMethods},
+			     {user_passwords, [{"foo","somepwd"}]},
+			     {pwdfun, PwdFun}
+			    ]),
+
+    ConnRes = ssh:connect("localhost", Port,
+			  [{silently_accept_hosts, true},
+			   {user, "foo"},
+			   {password, "badpwd"},
+			   {user_dir, UserDir},
+			   {user_interaction, false}]),
+
+    receive
+	retry_bad_pwd ->
+	    ssh:stop_daemon(DaemonRef),
+	    {fail, "Retry bad password"}
+    after 0 ->
+	    case ConnRes of
+		{error,"Unable to connect using the available authentication methods"} ->
+		    ssh:stop_daemon(DaemonRef),
+		    ok;
+		{ok,Conn} ->
+		    ssh:close(Conn),
+		    ssh:stop_daemon(DaemonRef),
+		    {fail, "Connect erroneosly succeded"}
+	    end
+    end.
+
+
+%%----------------------------------------------------------------------------
+%%% Test that when shell REPL exit with reason normal client receives status 0
+shell_exit_status(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+
+    ShellFun = fun (_User) -> spawn(fun() -> ok end) end,
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {user_dir, UserDir},
+                                             {user_passwords, [{"vego", "morot"}]},
+                                             {shell, ShellFun},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+        ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user_dir, UserDir},
+                                          {user, "vego"},
+                                          {password, "morot"},
+                                          {user_interaction, false}]),
+
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ok = ssh_connection:shell(ConnectionRef, ChannelId),
+    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
+    ssh:stop_daemon(Pid).
+
+
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 %% Due to timing the error message may or may not be delivered to
@@ -1098,7 +1258,7 @@ check_error("Invalid state") ->
     ok;
 check_error("Connection closed") ->
     ok;
-check_error("Selection of key exchange algorithm failed") ->
+check_error("Selection of key exchange algorithm failed"++_) ->
     ok;
 check_error(Error) ->
     ct:fail(Error).
@@ -1204,13 +1364,25 @@ new_do_shell(IO, N, Ops=[{Order,Arg}|More]) ->
 	    ct:log("Skip newline ~p",[_X]),
 	    new_do_shell(IO, N, Ops);
 	
-	<<Pfx:PfxSize/binary,P1,"> ">> when (P1-$0)==N -> 
+	<<P1,"> ">> when (P1-$0)==N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+	<<"(",Pfx:PfxSize/binary,")",P1,"> ">> when (P1-$0)==N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+	<<"('",Pfx:PfxSize/binary,"')",P1,"> ">> when (P1-$0)==N -> 
 	    new_do_shell_prompt(IO, N, Order, Arg, More);
 
-	<<Pfx:PfxSize/binary,P1,P2,"> ">> when (P1-$0)*10 + (P2-$0) == N -> 
+	<<P1,P2,"> ">> when (P1-$0)*10 + (P2-$0) == N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+	<<"(",Pfx:PfxSize/binary,")",P1,P2,"> ">> when (P1-$0)*10 + (P2-$0) == N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+	<<"('",Pfx:PfxSize/binary,"')",P1,P2,"> ">> when (P1-$0)*10 + (P2-$0) == N -> 
 	    new_do_shell_prompt(IO, N, Order, Arg, More);
 
-	<<Pfx:PfxSize/binary,P1,P2,P3,"> ">> when (P1-$0)*100 + (P2-$0)*10 + (P3-$0) == N -> 
+	<<P1,P2,P3,"> ">> when (P1-$0)*100 + (P2-$0)*10 + (P3-$0) == N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+	<<"(",Pfx:PfxSize/binary,")",P1,P2,P3,"> ">> when (P1-$0)*100 + (P2-$0)*10 + (P3-$0) == N -> 
+	    new_do_shell_prompt(IO, N, Order, Arg, More);
+	<<"('",Pfx:PfxSize/binary,"')",P1,P2,P3,"> ">> when (P1-$0)*100 + (P2-$0)*10 + (P3-$0) == N -> 
 	    new_do_shell_prompt(IO, N, Order, Arg, More);
 
 	Err when element(1,Err)==error ->
@@ -1246,7 +1418,7 @@ prompt_prefix() ->
     case node() of
 	nonode@nohost -> <<>>;
 	Node -> list_to_binary(
-		  lists:concat(["(",Node,")"]))
+                  atom_to_list(Node))
     end.
 	    
 

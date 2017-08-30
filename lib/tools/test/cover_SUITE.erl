@@ -1001,41 +1001,40 @@ otp_6115(Config) when is_list(Config) ->
     %% Cover compile f1, but not f2
     {ok, f1} = cover:compile(f1),
 
+    %% This test used to ensure that a process containing a
+    %% fun refering to cover compiled code was killed.
+    %% check_process_code may however ignore funs as of ERTS
+    %% version 8.1. The test has therefore been rewritten to
+    %% check that a process with a direct reference (in this
+    %% case a return address) to the code is killed.
+    %% 
     %% If f1 is cover compiled, a process P is started with a
-    %% reference to the fun created in start_fail/0, and cover:stop() is
-    %% called, then P should be killed.
-    %% This is because (the fun held by P) references the cover
+    %% direct reference to the f1, and cover:stop() is called,
+    %% then P should be killed.
+    %% This is because of the return address to the cover
     %% compiled code which should be *unloaded* when cover:stop() is
     %% called -- running cover compiled code when there is no cover
     %% server and thus no ets tables to bump counters in, makes no
     %% sense.
-    Pid1 = f1:start_a(),
-    Pid2 = f1:start_b(),
+    Pid = spawn(fun () -> f1:non_tail_call_f2_wait() end),
 
     %% Now stop cover
     cover:stop(),
 
     %% Ensure that f1 is loaded (and not cover compiled), and that
-    %% both Pid1 and Pid2 are dead.
+    %% both Pid is dead.
     case code:which(f1) of
         Beam when is_list(Beam) ->
             ok;
         Other ->
             ct:fail({"f1 is not reloaded", Other})
     end,
-    case process_info(Pid1) of
+    case process_info(Pid) of
         undefined ->
             ok;
-        _PI1 ->
-            RefToOldP1 = erlang:check_process_code(Pid1, f1),
-            ct:fail({"Pid1 still alive", RefToOldP1})
-    end,
-    case process_info(Pid2) of
-        undefined ->
-            ok;
-        _PI2 ->
-            RefToOldP2 = erlang:check_process_code(Pid1, f2),
-            ct:fail({"Pid2 still alive", RefToOldP2})
+        _PI ->
+            RefToOldP = erlang:check_process_code(Pid, f1),
+            ct:fail({"Pid still alive", RefToOldP})
     end,
 
     file:set_cwd(CWD),

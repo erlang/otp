@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2015</year>
+      <year>1997</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -455,7 +455,7 @@ text/plain	asc txt</pre>
 	directory. Several files can be given, in which case the server
 	returns the first it finds, for example:</p>
 	
-	<code>{directory_index, ["index.hml", "welcome.html"]}</code>
+	<code>{directory_index, ["index.html", "welcome.html"]}</code>
 	
 	<p>Access to http://your.server.org/docs/ would return
 	http://your.server.org/docs/index.html or
@@ -711,7 +711,7 @@ text/plain	asc txt</pre>
       <item>
 	<p>Sets the type of authentication database that is used for the
 	directory. The key difference between the different methods is
-	that dynamic data can be saved when <c>Mnesia</c> and <c>Dets</c> 
+	that dynamic data can be saved when Mnesia and Dets
 	are used.
 	This property is called <c>AuthDbType</c> in the Apache-like
 	configuration files.</p>
@@ -731,10 +731,10 @@ text/plain	asc txt</pre>
 	<code> ragnar:s7Xxv7
  edward:wwjau8 </code> 
 
-	<p>If the <c>Dets</c> storage method is used, the user database is
-	maintained by <c>Dets</c> and must not be edited by hand. Use the
+	<p>If the Dets storage method is used, the user database is
+	maintained by Dets and must not be edited by hand. Use the
 	API functions in module <c>mod_auth</c> to create/edit the user
-	database. This directive is ignored if the <c>Mnesia</c>
+	database. This directive is ignored if the Mnesia
 	storage method is used. For security reasons, ensure that
 	<c>auth_user_file</c> is stored outside the document tree of the web
 	server. If it is placed in the directory that it protects,
@@ -753,10 +753,10 @@ text/plain	asc txt</pre>
 	
 	<code>group1: bob joe ante</code>
           
-	<p>If the <c>Dets</c> storage method is used, the group database is
-	maintained by <c>Dets</c> and must not be edited by hand. Use the
+	<p>If the Dets storage method is used, the group database is
+	maintained by Dets and must not be edited by hand. Use the
 	API for module <c>mod_auth</c> to create/edit the group database.
-	This directive is ignored if the <c>Mnesia</c> storage method is used.
+	This directive is ignored if the Mnesia storage method is used.
 	For security reasons, ensure that the <c>auth_group_file</c> is
 	stored outside the document tree of the web server. If it is
 	placed in the directory that it protects, clients

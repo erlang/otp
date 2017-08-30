@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1997-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1997-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,6 +61,10 @@
 
 #define ERTS_DEFAULT_NO_ASYNC_THREADS	10
 
+#define ERTS_DEFAULT_SCHED_STACK_SIZE   128
+#define ERTS_DEFAULT_DCPU_SCHED_STACK_SIZE 40
+#define ERTS_DEFAULT_DIO_SCHED_STACK_SIZE 40
+
 /*
  * The variables below (prefixed with etp_) are for erts/etc/unix/etp-commands
  * only. Do not remove even though they aren't used elsewhere in the emulator!
@@ -111,12 +115,21 @@ const int etp_lock_check = 1;
 #else
 const int etp_lock_check = 0;
 #endif
-#ifdef WORDS_BIGENDIAN
-const int etp_big_endian = 1;
+const int etp_endianness = ERTS_ENDIANNESS;
+const Eterm etp_ref_header = ERTS_REF_THING_HEADER;
+#ifdef ERTS_MAGIC_REF_THING_HEADER
+const Eterm etp_magic_ref_header = ERTS_MAGIC_REF_THING_HEADER;
 #else
-const int etp_big_endian = 0;
+const Eterm etp_magic_ref_header = ERTS_REF_THING_HEADER;
 #endif
 const Eterm etp_the_non_value = THE_NON_VALUE;
+#ifdef ERTS_HOLE_MARKER
+const Eterm etp_hole_marker = ERTS_HOLE_MARKER;
+#else
+const Eterm etp_hole_marker = 0;
+#endif
+
+static int modified_sched_thread_suggested_stack_size = 0;
 
 /*
  * Note about VxWorks: All variables must be initialized by executable code,
@@ -296,30 +309,6 @@ void erl_error(char *fmt, va_list args)
 
 static int early_init(int *argc, char **argv);
 
-void
-erts_short_init(void)
-{
-    
-    int ncpu;
-    int time_correction;
-    ErtsTimeWarpMode time_warp_mode;
-
-    set_default_time_adj(&time_correction,
-			 &time_warp_mode);
-    ncpu = early_init(NULL, NULL);
-    erl_init(ncpu,
-	     ERTS_DEFAULT_MAX_PROCESSES,
-	     0,
-	     ERTS_DEFAULT_MAX_PORTS,
-	     0,
-	     0,
-	     time_correction,
-	     time_warp_mode,
-	     ERTS_NODE_TAB_DELAY_GC_DEFAULT,
-	     ERTS_DB_SPNCNT_NORMAL);
-    erts_initialized = 1;
-}
-
 static void
 erl_init(int ncpu,
 	 int proc_tab_sz,
@@ -332,8 +321,6 @@ erl_init(int ncpu,
 	 int node_tab_delete_delay,
 	 ErtsDbSpinCount db_spin_count)
 {
-    init_benchmarking();
-
     erts_bif_unique_init();
     erts_init_monitors();
     erts_init_time(time_correction, time_warp_mode);
@@ -384,6 +371,7 @@ erl_init(int ncpu,
     erts_init_unicode(); /* after RE to get access to PCRE unicode */
     erts_init_external();
     erts_init_map();
+    erts_beam_bif_load_init();
     erts_delay_trap = erts_export_put(am_erlang, am_delay_trap, 2);
     erts_late_init_process();
 #if HAVE_ERTS_MSEG
@@ -443,7 +431,7 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
 }
 
 static Eterm
-erl_system_process_otp(Eterm parent_pid, char* modname)
+erl_system_process_otp(Eterm parent_pid, char* modname, int off_heap_msgq)
 {
     Eterm start_mod;
     Process* parent;
@@ -459,6 +447,8 @@ erl_system_process_otp(Eterm parent_pid, char* modname)
     parent = erts_pid2proc(NULL, 0, parent_pid, ERTS_PROC_LOCK_MAIN);
 
     so.flags = erts_default_spo_flags|SPO_SYSTEM_PROC;
+    if (off_heap_msgq)
+        so.flags |= SPO_OFF_HEAP_MSGQ;
     res = erl_create_process(parent, start_mod, am_start, NIL, &so);
     erts_smp_proc_unlock(parent, ERTS_PROC_LOCK_MAIN);
     return res;
@@ -630,9 +620,22 @@ void erts_usage(void)
     erts_fprintf(stderr, "-swt val       set scheduler wakeup threshold, valid values are:\n");
     erts_fprintf(stderr, "               very_low|low|medium|high|very_high.\n");
     erts_fprintf(stderr, "-sss size      suggested stack size in kilo words for scheduler threads,\n");
-    erts_fprintf(stderr, "               valid range is [%d-%d]\n",
+    erts_fprintf(stderr, "               valid range is [%d-%d] (default %d)\n",
 		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
-		 ERTS_SCHED_THREAD_MAX_STACK_SIZE);
+		 ERTS_SCHED_THREAD_MAX_STACK_SIZE,
+                 ERTS_DEFAULT_SCHED_STACK_SIZE);
+#ifdef ERTS_DIRTY_SCHEDULERS
+    erts_fprintf(stderr, "-sssdcpu size  suggested stack size in kilo words for dirty CPU scheduler\n");
+    erts_fprintf(stderr, "               threads, valid range is [%d-%d] (default %d)\n",
+		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
+		 ERTS_SCHED_THREAD_MAX_STACK_SIZE,
+                 ERTS_DEFAULT_DCPU_SCHED_STACK_SIZE);
+    erts_fprintf(stderr, "-sssdio size   suggested stack size in kilo words for dirty IO scheduler\n");
+    erts_fprintf(stderr, "               threads, valid range is [%d-%d] (default %d)\n",
+		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
+		 ERTS_SCHED_THREAD_MAX_STACK_SIZE,
+                 ERTS_DEFAULT_DIO_SCHED_STACK_SIZE);
+#endif
     erts_fprintf(stderr, "-spp Bool      set port parallelism scheduling hint\n");
     erts_fprintf(stderr, "-S n1:n2       set number of schedulers (n1), and number of\n");
     erts_fprintf(stderr, "               schedulers online (n2), maximum for both\n");
@@ -768,6 +771,8 @@ early_init(int *argc, char **argv) /*
     H_MAX_SIZE = H_DEFAULT_MAX_SIZE;
     H_MAX_FLAGS = MAX_HEAP_SIZE_KILL|MAX_HEAP_SIZE_LOG;
 
+    erts_term_init();
+
     erts_initialized = 0;
 
     erts_use_sender_punish = 1;
@@ -796,9 +801,6 @@ early_init(int *argc, char **argv) /*
     erts_thr_progress_pre_init();
 #endif
 
-#ifdef ERTS_ENABLE_LOCK_CHECK
-    erts_lc_init();
-#endif
 #ifdef ERTS_SMP
     erts_smp_atomic32_init_nob(&erts_writing_erl_crash_dump, 0L);
     erts_tsd_key_create(&erts_is_crash_dumping_key,"erts_is_crash_dumping_key");
@@ -1128,8 +1130,12 @@ early_init(int *argc, char **argv) /*
 	}
 	if (dirty_cpu_scheds > schdlrs)
 	    dirty_cpu_scheds = schdlrs;
+        if (dirty_cpu_scheds < 1)
+            dirty_cpu_scheds = 1;
 	if (dirty_cpu_scheds_online > schdlrs_onln)
 	    dirty_cpu_scheds_online = schdlrs_onln;
+	if (dirty_cpu_scheds_online < 1)
+	    dirty_cpu_scheds_online = 1;
 #endif
     }
 
@@ -1142,6 +1148,8 @@ early_init(int *argc, char **argv) /*
     no_schedulers_online = schdlrs_onln;
 
     erts_no_schedulers = (Uint) no_schedulers;
+#else
+    erts_no_schedulers = 1;
 #endif
 #ifdef ERTS_DIRTY_SCHEDULERS
     erts_no_dirty_cpu_schedulers = no_dirty_cpu_schedulers = dirty_cpu_scheds;
@@ -1230,24 +1238,38 @@ early_init(int *argc, char **argv) /*
 }
 
 #ifndef ERTS_SMP
+
+void *erts_scheduler_stack_limit;
+
+
 static void set_main_stack_size(void)
 {
-    if (erts_sched_thread_suggested_stack_size > 0) {
+    char c;
+    UWord stacksize;
 # if HAVE_DECL_GETRLIMIT && HAVE_DECL_SETRLIMIT && HAVE_DECL_RLIMIT_STACK
-	struct rlimit rl;
-	int bytes = erts_sched_thread_suggested_stack_size * sizeof(Uint) * 1024;
-	if (getrlimit(RLIMIT_STACK, &rl) != 0 ||
-	    (rl.rlim_cur = bytes, setrlimit(RLIMIT_STACK, &rl) != 0)) {
-	    erts_fprintf(stderr, "failed to set stack size for scheduler "
-				 "thread to %d bytes\n", bytes);
-	    erts_usage();
-	}	    
-# else
-	erts_fprintf(stderr, "no OS support for dynamic stack size limit\n");
-	erts_usage();    
-# endif
+    struct rlimit rl;
+    int bytes;
+    stacksize = erts_sched_thread_suggested_stack_size * sizeof(Uint) * 1024;
+    /* Add some extra pages... neede by some systems... */
+    bytes = (int) stacksize + 3*erts_sys_get_page_size();
+    if (getrlimit(RLIMIT_STACK, &rl) != 0 ||
+        (rl.rlim_cur = bytes, setrlimit(RLIMIT_STACK, &rl) != 0)) {
+        erts_fprintf(stderr, "failed to set stack size for scheduler "
+                     "thread to %d bytes\n", bytes);
+        erts_usage();
     }
+# else
+    if (modified_sched_thread_suggested_stack_size) {
+	erts_fprintf(stderr, "no OS support for dynamic stack size limit\n");
+	erts_usage();
+    }
+    /* Be conservative and hope it is not more than 64 kWords... */
+    stacksize = 64*1024*sizeof(void *);
+# endif
+
+    erts_scheduler_stack_limit = erts_calc_stacklimit(&c, stacksize);
 }
+
 #endif
 
 void
@@ -1292,11 +1314,14 @@ erl_start(int argc, char **argv)
 	port_tab_sz_ignore_files = 1;
     }
 
-#if (defined(__APPLE__) && defined(__MACH__)) || defined(__DARWIN__)
     /*
-     * The default stack size on MacOS X is too small for pcre.
+     * A default stack size suitable for pcre which might use quite
+     * a lot of stack.
      */
-    erts_sched_thread_suggested_stack_size = 256;
+    erts_sched_thread_suggested_stack_size = ERTS_DEFAULT_SCHED_STACK_SIZE;
+#ifdef ERTS_DIRTY_SCHEDULERS
+    erts_dcpu_sched_thread_suggested_stack_size = ERTS_DEFAULT_DCPU_SCHED_STACK_SIZE;
+    erts_dio_sched_thread_suggested_stack_size = ERTS_DEFAULT_DIO_SCHED_STACK_SIZE;
 #endif
 
 #ifdef DEBUG
@@ -1916,10 +1941,47 @@ erl_start(int argc, char **argv)
 		VERBOSE(DEBUG_SYSTEM,
 			("scheduler wakeup threshold: %s\n", arg));
 	    }
+#ifdef ERTS_DIRTY_SCHEDULERS
+	    else if (has_prefix("ssdcpu", sub_param)) {
+		/* suggested stack size (Kilo Words) for dirty CPU scheduler threads */
+		arg = get_arg(sub_param+6, argv[i+1], &i);
+		erts_dcpu_sched_thread_suggested_stack_size = atoi(arg);
+
+		if ((erts_dcpu_sched_thread_suggested_stack_size
+		     < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
+		    || (erts_dcpu_sched_thread_suggested_stack_size >
+			ERTS_SCHED_THREAD_MAX_STACK_SIZE)) {
+		    erts_fprintf(stderr, "bad stack size for dirty CPU scheduler threads %s\n",
+				 arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM,
+			("suggested dirty CPU scheduler thread stack size %d kilo words\n",
+			 erts_dcpu_sched_thread_suggested_stack_size));
+	    }
+	    else if (has_prefix("ssdio", sub_param)) {
+		/* suggested stack size (Kilo Words) for dirty IO scheduler threads */
+		arg = get_arg(sub_param+5, argv[i+1], &i);
+		erts_dio_sched_thread_suggested_stack_size = atoi(arg);
+
+		if ((erts_dio_sched_thread_suggested_stack_size
+		     < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
+		    || (erts_dio_sched_thread_suggested_stack_size >
+			ERTS_SCHED_THREAD_MAX_STACK_SIZE)) {
+		    erts_fprintf(stderr, "bad stack size for dirty IO scheduler threads %s\n",
+				 arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM,
+			("suggested dirty IO scheduler thread stack size %d kilo words\n",
+			 erts_dio_sched_thread_suggested_stack_size));
+	    }
+#endif
 	    else if (has_prefix("ss", sub_param)) {
 		/* suggested stack size (Kilo Words) for scheduler threads */
 		arg = get_arg(sub_param+2, argv[i+1], &i);
 		erts_sched_thread_suggested_stack_size = atoi(arg);
+                modified_sched_thread_suggested_stack_size = 1;
 
 		if ((erts_sched_thread_suggested_stack_size
 		     < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
@@ -2224,11 +2286,19 @@ erl_start(int argc, char **argv)
 	init_break_handler();
     if (replace_intr)
 	erts_replace_intr();
-    sys_init_suspend_handler();
 #endif
 
     boot_argc = argc - i;  /* Number of arguments to init */
     boot_argv = &argv[i];
+
+    if (erts_sched_thread_suggested_stack_size < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
+        erts_sched_thread_suggested_stack_size = ERTS_SCHED_THREAD_MIN_STACK_SIZE;
+#ifdef ERTS_DIRTY_SCHEDULERS
+    if (erts_dcpu_sched_thread_suggested_stack_size < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
+        erts_dcpu_sched_thread_suggested_stack_size = ERTS_SCHED_THREAD_MIN_STACK_SIZE;
+    if (erts_dio_sched_thread_suggested_stack_size < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
+        erts_dio_sched_thread_suggested_stack_size = ERTS_SCHED_THREAD_MIN_STACK_SIZE;
+#endif
 
     erl_init(ncpu,
 	     proc_tab_sz,
@@ -2250,7 +2320,40 @@ erl_start(int argc, char **argv)
     otp_ring0_pid = erl_first_process_otp("otp_ring0", NULL, 0,
 					  boot_argc, boot_argv);
 
-    (void) erl_system_process_otp(otp_ring0_pid, "erts_code_purger");
+    {
+	/*
+	 * The erts_code_purger and the erts_literal_area_collector
+	 * system processes are *always* alive. If they terminate
+	 * they bring the whole VM down.
+	 */
+	Eterm pid;
+
+	pid = erl_system_process_otp(otp_ring0_pid, "erts_code_purger", !0);
+	erts_code_purger
+	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+						    internal_pid_index(pid));
+	ASSERT(erts_code_purger && erts_code_purger->common.id == pid);
+	erts_proc_inc_refc(erts_code_purger); 
+
+	pid = erl_system_process_otp(otp_ring0_pid, "erts_literal_area_collector", !0);
+	erts_literal_area_collector
+	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+						    internal_pid_index(pid));
+	ASSERT(erts_literal_area_collector
+	       && erts_literal_area_collector->common.id == pid);
+	erts_proc_inc_refc(erts_literal_area_collector);
+
+#ifdef ERTS_DIRTY_SCHEDULERS
+	pid = erl_system_process_otp(otp_ring0_pid, "erts_dirty_process_code_checker", !0);
+	erts_dirty_process_code_checker
+	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
+						    internal_pid_index(pid));
+	ASSERT(erts_dirty_process_code_checker
+	       && erts_dirty_process_code_checker->common.id == pid);
+	erts_proc_inc_refc(erts_dirty_process_code_checker);
+#endif
+
+    }
 
 #ifdef ERTS_SMP
     erts_start_schedulers();
@@ -2268,7 +2371,9 @@ erl_start(int argc, char **argv)
 #endif
 	set_main_stack_size();
 	erts_sched_init_time_sup(esdp);
-	process_main();
+        erts_ets_sched_spec_data_init(esdp);
+        erts_aux_work_timeout_late_init(esdp);
+	process_main(esdp->x_reg_array, esdp->f_reg_array);
     }
 #endif
 }
@@ -2340,24 +2445,34 @@ system_cleanup(int flush_async)
     erts_exit_flush_async();
 }
 
+static int erts_exit_code;
+
 static __decl_noreturn void __noreturn
 erts_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
 {
     system_cleanup(flush_async);
 
-    save_statistics();
-
     if (erts_mtrace_enabled)
 	erts_mtrace_exit((Uint32) n);
 
-    /* Produce an Erlang core dump if error */
+    if (fmt != NULL && *fmt != '\0')
+	erl_error(fmt, args2);	/* Print error message. */
+
+    erts_exit_code = n;
+
+    /* Produce an Erlang crash dump if error */
     if (((n == ERTS_ERROR_EXIT && erts_no_crash_dump == 0) || n == ERTS_DUMP_EXIT)
 	&& erts_initialized) {
 	erl_crash_dump_v((char*) NULL, 0, fmt, args1);
     }
 
-    if (fmt != NULL && *fmt != '\0')
-	  erl_error(fmt, args2);	/* Print error message. */
+    erts_exit_epilogue();
+}
+
+__decl_noreturn void __noreturn erts_exit_epilogue(void)
+{
+    int n = erts_exit_code;
+
     sys_tty_reset(n);
 
     if (n == ERTS_INTR_EXIT)

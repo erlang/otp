@@ -51,7 +51,7 @@
     <p>In command one, module <seealso marker="lists"><c>lists</c></seealso> is
       called. In command two, no module name is specified. The shell searches
       module <c>user_default</c> followed by module <c>shell_default</c> for
-      function <c>foo/1</c>.</p>
+      function <c>c/1</c>.</p>
 
     <p><c>shell_default</c> is intended for "system wide"
       customizations to the shell. <c>user_default</c> is intended for

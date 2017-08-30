@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Copyright (c) 2001 by Erik Johansson.  All Rights Reserved 
@@ -287,8 +281,8 @@ pp(Dev, Op) ->
 	  io:format(Dev, "bs_start_match<~w>", [Max]);
 	{{bs_start_match, Type}, Max} ->
 	  io:format(Dev, "bs_start_match<~w,~w>", [Type,Max]);
-	{bs_match_string, String, SizeInBytes} ->
-	  io:format(Dev, "bs_match_string<~w, ~w>", [String, SizeInBytes]);
+	{bs_match_string, String, SizeInBits} ->
+	  io:format(Dev, "bs_match_string<~w, ~w>", [String, SizeInBits]);
 	{bs_get_integer, Size, Flags} ->
 	  io:format(Dev, "bs_get_integer<~w, ~w>", [Size, Flags]);
 	{bs_get_float, Size, Flags} ->
@@ -596,10 +590,10 @@ type(Primop, Args) ->
 	erl_types:t_subtract(Type, erl_types:t_matchstate()),
 	erl_types:t_matchstate_slot(
 	  erl_types:t_inf(Type, erl_types:t_matchstate()), 0));
-    {hipe_bs_primop, {bs_match_string,_,Bytes}} ->
+    {hipe_bs_primop, {bs_match_string,_,Bits}} ->
       [MatchState] = Args,
       BinType = erl_types:t_matchstate_present(MatchState),
-      NewBinType = match_bin(erl_types:t_bitstr(0, Bytes*8), BinType),
+      NewBinType = match_bin(erl_types:t_bitstr(0, Bits), BinType),
       erl_types:t_matchstate_update_present(NewBinType, MatchState);
     {hipe_bs_primop, {bs_test_unit,Unit}} ->
       [MatchState] = Args,

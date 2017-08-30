@@ -23,6 +23,9 @@
 
 -import(lists, [reverse/1]).
 
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,Lc}, _Opts) ->
     Fs = [split_blocks(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
@@ -56,9 +59,6 @@ split_block([{set,[D],[S|Puts],{alloc,R,{put_map,Op,{f,Lbl}=Fail}}}|Is],
 	    Bl, Acc) when Lbl =/= 0 ->
     split_block(Is, [], [{put_map,Fail,Op,S,D,R,{list,Puts}}|
 			 make_block(Bl, Acc)]);
-split_block([{set,Ds,[S|Ss],{get_map_elements,Fail}}|Is], Bl, Acc) ->
-    Gets = beam_utils:join_even(Ss,Ds),
-    split_block(Is, [], [{get_map_elements,Fail,S,{list,Gets}}|make_block(Bl, Acc)]);
 split_block([{set,[R],[],{try_catch,Op,L}}|Is], Bl, Acc) ->
     split_block(Is, [], [{Op,R,L}|make_block(Bl, Acc)]);
 split_block([{set,[],[],{line,_}=Line}|Is], Bl, Acc) ->

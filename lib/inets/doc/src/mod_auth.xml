@@ -33,7 +33,7 @@
   <modulesummary>User authentication using text files, Dets, or Mnesia database.</modulesummary>
   <description>
     <p>This module provides for basic user authentication using
-    textual files, <c>Dets</c> databases, or <c>Mnesia</c> databases.</p>
+    textual files, Dets databases, or Mnesia databases.</p>
   </description>
 
   <funcs>

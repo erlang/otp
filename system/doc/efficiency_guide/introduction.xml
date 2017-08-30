@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -46,14 +46,6 @@
     to find out where the performance bottlenecks are and optimize only the
     bottlenecks. Let other code stay as clean as possible.</p>
 
-    <p>Fortunately, compiler and runtime optimizations introduced in
-    Erlang/OTP R12B makes it easier to write code that is both clean and
-    efficient. For example, the ugly workarounds needed in R11B and earlier
-    releases to get the most speed out of binary pattern matching are
-    no longer necessary. In fact, the ugly code is slower
-    than the clean code (because the clean code has become faster, not
-    because the uglier code has become slower).</p>
-    
     <p>This Efficiency Guide cannot really teach you how to write efficient
     code. It can give you a few pointers about what to avoid and what to use,
     and some understanding of how certain language features are implemented.

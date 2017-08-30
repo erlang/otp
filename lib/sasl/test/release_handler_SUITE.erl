@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1063,6 +1063,12 @@ otp_9395_check_and_purge(cleanup,_Conf) ->
 %% OTP-9395 - performance problems when there are MANY processes
 %% Upgrade which updates many modules (brutal_purge)
 otp_9395_update_many_mods(Conf) when is_list(Conf) ->
+
+    %% "nain" is very slow - it fails this test quite often due to a
+    %% long sys call
+    %% /proc/cpuinfo: "clock: 1249MHz"
+    inet:gethostname() == {ok,"nain"} andalso throw({skip,"slow test host"}),
+
     %% Set some paths
     PrivDir = priv_dir(Conf),
     Dir = filename:join(PrivDir,"otp_9395_update_many_mods"),
@@ -1162,6 +1168,12 @@ otp_9395_update_many_mods(cleanup,_Conf) ->
 %% OTP-9395 - performance problems when there are MANY processes
 %% Upgrade which removes many modules (brutal_purge)
 otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
+
+    %% "nain" is very slow - it fails this test quite often due to a
+    %% long sys call
+    %% /proc/cpuinfo: "clock: 1249MHz"
+    inet:gethostname() == {ok,"nain"} andalso throw({skip,"slow test host"}),
+
     %% Set some paths
     PrivDir = priv_dir(Conf),
     Dir = filename:join(PrivDir,"otp_9395_rm_many_mods"),
@@ -1920,7 +1932,7 @@ wait_nodes_up(Nodes, Tag) ->
 wait_nodes_up(Nodes0, Tag, Apps) ->
     ?t:format("wait_nodes_up(~p, ~p, ~p):",[Nodes0, Tag, Apps]),
     Nodes = fix_nodes(Nodes0),
-    wait_nodes_up(Nodes, Tag, lists:umerge(Apps,[kernel,stdlib,sasl]), 30).
+    wait_nodes_up(Nodes, Tag, lists:umerge(Apps,[kernel,stdlib,sasl]), 60).
 
 fix_nodes([{Node,InitPid}|Nodes]) ->
     [{Node,InitPid} | fix_nodes(Nodes)];
@@ -1962,7 +1974,7 @@ wait_nodes_up(Nodes, Tag, Apps, N) ->
 	    ?t:format("",[]),
 	    ok;
 	_ ->
-	    timer:sleep(1000),
+	    timer:sleep(2000),
 	    wait_nodes_up(Pang, Tag, Apps, N-1)
     end.
 

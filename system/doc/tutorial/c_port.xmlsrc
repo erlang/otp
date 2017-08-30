@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2015</year>
+      <year>2000</year><year>2016</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -98,11 +98,11 @@ loop(Port) ->
     {call, Caller, Msg} ->
       Port ! {self(), {command, encode(Msg)}},
       receive
-    {Port, {data, Data}} ->
+        {Port, {data, Data}} ->
           Caller ! {complex, decode(Data)}
       end,
       loop(Port)
- end.</pre>
+  end.</pre>
     <p>Assuming that both the arguments and the results from the C
       functions are less than 256, a simple encoding/decoding scheme
       is employed. In this scheme, <c>foo</c> is represented by byte

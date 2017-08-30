@@ -190,7 +190,7 @@ esac</pre>
         the onboard hardware watchdog can be activated,
 	provided a VME bus driver is added to the operating system
         (see also Installation Problems).</p>
-      <p>See also the <c>heart(3)</c> manual page in <c>kernel</c>.</p>
+      <p>See also the <c>heart(3)</c> manual page in Kernel.</p>
     </section>
 
     <section>
@@ -206,7 +206,7 @@ esac</pre>
       <pre>
         chown 0 /usr/sbin/reboot
         chmod 4755 /usr/sbin/reboot</pre>
-      <p>See also the <c>heart(3)</c> manual page in <c>kernel</c>.</p>
+      <p>See also the <c>heart(3)</c> manual page in Kernel.</p>
     </section>
 
     <section>
@@ -413,8 +413,8 @@ chown root mod_syslog]]></code>
     <section>
       <title>Related Documents</title>
       <p>See the <c>os_mon(3)</c> application,
-      the <c>application(3)</c> manual page in <c>kernel</c>,
-      and the <c>erl(1)</c> manual page in <c>erts</c>.</p>
+      the <c>application(3)</c> manual page in Kernel,
+      and the <c>erl(1)</c> manual page in ERTS.</p>
     </section>
   </section>
 
@@ -474,7 +474,7 @@ chown root mod_syslog]]></code>
         default, it must be called <c>start</c> and reside in
         <c><![CDATA[<ERL_INSTALL_DIR>/bin]]></c>. Another start
 	program can be used, by using configuration parameter
-	<c>start_prg</c> in application <c>sasl</c>.</p>
+	<c>start_prg</c> in application SASL.</p>
       <p>The start program must call <c>run_erl</c> as shown below.
         It must also take an optional parameter, which defaults to
         <c><![CDATA[<ERL_INSTALL_DIR>/releases/start_erl.data]]></c>.</p>
@@ -484,7 +484,7 @@ chown root mod_syslog]]></code>
       <p>The <c><![CDATA[<RELDIR>]]></c> directory is where new release
         packets are installed, and where the release handler keeps
 	information about releases. For more information, see the
-	<c>release_handler(3)</c> manual page in <c>sasl</c>.</p>
+	<c>release_handler(3)</c> manual page in SASL.</p>
       <p>The following script illustrates the default behaviour of the
         program:</p>
       <code type="none"><![CDATA[
@@ -624,7 +624,7 @@ export RELDIR
 exec $BINDIR/erlexec -boot $RELDIR/$VSN/start -config $RELDIR/$VSN/sys $*</code>
 
       <p>If a diskless and/or read-only client node with the
-        <c>sasl</c> configuration parameter <c>static_emulator</c> set
+        SASL configuration parameter <c>static_emulator</c> set
         to <c>true</c> is about to start, the <c>-boot</c> and
         <c>-config</c> flags must be changed.</p>
 	<p>As such a client cannot

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,18 +31,22 @@
 
 -export([await_port_send_result/3]).
 -export([cmp_term/2]).
--export([map_to_tuple_keys/1, term_type/1, map_hashmap_children/1]).
+-export([map_to_tuple_keys/1, term_type/1, map_hashmap_children/1,
+         maps_to_list/2]).
 -export([open_port/2, port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
 -export([system_check/1,
          gather_system_check_result/1]).
 
--export([request_system_task/3]).
+-export([request_system_task/3, request_system_task/4]).
+-export([garbage_collect/1]).
 
 -export([check_process_code/3]).
--export([copy_literals/2]).
--export([purge_module/1]).
+-export([check_dirty_process_code/2]).
+-export([is_process_executing_dirty/1]).
+-export([release_literal_area_switch/0]).
+-export([purge_module/2]).
 
 -export([flush_monitor_messages/3]).
 
@@ -58,7 +62,7 @@
 -export([trace/3, trace_pattern/3]).
 
 %% Auto import name clash
--export([check_process_code/2]).
+-export([check_process_code/1]).
 
 %%
 %% Await result of send to port
@@ -203,31 +207,45 @@ port_info(_Result, _Item) ->
 
 -spec request_system_task(Pid, Prio, Request) -> 'ok' when
       Prio :: 'max' | 'high' | 'normal' | 'low',
-      Request :: {'garbage_collect', term()}
-	       | {'check_process_code', term(), module(), non_neg_integer()},
+      Type :: 'major' | 'minor',
+      Request :: {'garbage_collect', term(), Type}
+	       | {'check_process_code', term(), module()}
+	       | {'copy_literals', term(), boolean()},
       Pid :: pid().
 
 request_system_task(_Pid, _Prio, _Request) ->
     erlang:nif_error(undefined).
 
--define(ERTS_CPC_ALLOW_GC, (1 bsl 0)).
--define(ERTS_CPC_COPY_LITERALS, (1 bsl 1)).
+-spec request_system_task(RequesterPid, TargetPid, Prio, Request) -> 'ok' | 'dirty_execution' when
+      Prio :: 'max' | 'high' | 'normal' | 'low',
+      Request :: {'garbage_collect', term()}
+	       | {'check_process_code', term(), module()}
+	       | {'copy_literals', term(), boolean()},
+      RequesterPid :: pid(),
+      TargetPid :: pid().
 
--spec check_process_code(Module, Flags) -> boolean() when
-      Module :: module(),
-      Flags :: non_neg_integer().
-check_process_code(_Module, _Flags) ->
+request_system_task(_RequesterPid, _TargetPid, _Prio, _Request) ->
+    erlang:nif_error(undefined).
+
+-spec garbage_collect(Mode) -> 'true' when Mode :: 'major' | 'minor'.
+
+garbage_collect(_Mode) ->
+    erlang:nif_error(undefined).
+
+-spec check_process_code(Module) -> boolean() when
+      Module :: module().
+check_process_code(_Module) ->
     erlang:nif_error(undefined).
 
 -spec check_process_code(Pid, Module, OptionList) -> CheckResult | async when
       Pid :: pid(),
       Module :: module(),
       RequestId :: term(),
-      Option :: {async, RequestId} | {allow_gc, boolean()} | {copy_literals, boolean()},
+      Option :: {async, RequestId} | {allow_gc, boolean()},
       OptionList :: [Option],
       CheckResult :: boolean() | aborted.
 check_process_code(Pid, Module, OptionList)  ->
-    {Async, Flags} = get_cpc_opts(OptionList, sync, ?ERTS_CPC_ALLOW_GC),
+    Async = get_cpc_opts(OptionList, sync),
     case Async of
 	{async, ReqId} ->
 	    {priority, Prio} = erlang:process_info(erlang:self(),
@@ -236,13 +254,12 @@ check_process_code(Pid, Module, OptionList)  ->
 					      Prio,
 					      {check_process_code,
 					       ReqId,
-					       Module,
-					       Flags}),
+					       Module}),
 	    async;
 	sync ->
 	    case Pid == erlang:self() of
 		true ->
-		    erts_internal:check_process_code(Module, Flags);
+		    erts_internal:check_process_code(Module);
 		false ->
 		    {priority, Prio} = erlang:process_info(erlang:self(),
 							   priority),
@@ -251,8 +268,7 @@ check_process_code(Pid, Module, OptionList)  ->
 						      Prio,
 						      {check_process_code,
 						       ReqId,
-						       Module,
-						       Flags}),
+						       Module}),
 		    receive
 			{check_process_code, ReqId, CheckResult} ->
 			    CheckResult
@@ -260,30 +276,35 @@ check_process_code(Pid, Module, OptionList)  ->
 	    end
     end.
 
-% gets async and flag opts and verify valid option list
-get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync, Flags) ->
-    get_cpc_opts(Options, AsyncTuple, Flags);
-get_cpc_opts([{allow_gc, AllowGC} | Options], Async, Flags) ->
-    get_cpc_opts(Options, Async, cpc_flags(Flags, ?ERTS_CPC_ALLOW_GC, AllowGC));
-get_cpc_opts([{copy_literals, CopyLit} | Options], Async, Flags) ->
-    get_cpc_opts(Options, Async, cpc_flags(Flags, ?ERTS_CPC_COPY_LITERALS, CopyLit));
-get_cpc_opts([], Async, Flags) ->
-    {Async, Flags}.
+% gets async opt and verify valid option list
+get_cpc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync) ->
+    get_cpc_opts(Options, AsyncTuple);
+get_cpc_opts([{allow_gc, AllowGC} | Options], Async) when AllowGC == true;
+							  AllowGC == false ->
+    get_cpc_opts(Options, Async);
+get_cpc_opts([], Async) ->
+    Async.
 
-cpc_flags(OldFlags, Bit, true) ->
-    OldFlags bor Bit;
-cpc_flags(OldFlags, Bit, false) ->
-    OldFlags band (bnot Bit).
-
--spec copy_literals(Module,Bool) -> 'true' | 'false' | 'aborted' when
-      Module :: module(),
-      Bool :: boolean().
-copy_literals(_Mod, _Bool) ->
+-spec check_dirty_process_code(Pid,Module) -> 'true' | 'false' when
+      Pid :: pid(),
+      Module :: module().
+check_dirty_process_code(_Pid,_Module) ->
     erlang:nif_error(undefined).
 
--spec purge_module(Module) -> boolean() when
-      Module :: module().
-purge_module(_Module) ->
+-spec is_process_executing_dirty(Pid) -> 'true' | 'false' when
+      Pid :: pid().
+is_process_executing_dirty(_Pid) ->
+    erlang:nif_error(undefined).
+
+-spec release_literal_area_switch() -> 'true' | 'false'.
+
+release_literal_area_switch() ->
+    erlang:nif_error(undefined).
+
+-spec purge_module(Module, Op) -> boolean() when
+      Module :: module(),
+      Op :: 'prepare' | 'prepare_on_load' | 'abort' | 'complete'.
+purge_module(_Module, _Op) ->
     erlang:nif_error(undefined).
 
 -spec system_check(Type) -> 'ok' when
@@ -348,6 +369,15 @@ map_hashmap_children(_M) ->
       Ref :: reference(),
       Multi :: boolean(),
       Res :: term().
+
+%% return a list of key value pairs, at most of length N
+-spec maps_to_list(M,N) -> Pairs when
+    M :: map(),
+    N :: integer(),
+    Pairs :: list().
+
+maps_to_list(_M, _N) ->
+    erlang:nif_error(undefined).
 
 %% erlang:demonitor(Ref, [flush]) traps to
 %% erts_internal:flush_monitor_messages(Ref, Res) when
@@ -416,10 +446,11 @@ microstate_accounting(Ref, Threads) ->
 trace(_PidSpec, _How, _FlagList) ->
     erlang:nif_error(undefined).
 
+-type match_variable() :: atom(). % Approximation of '$1' | '$2' | ...
 -type trace_pattern_mfa() ::
       {atom(),atom(),arity() | '_'} | on_load.
 -type trace_match_spec() ::
-      [{[term()] | '_' ,[term()],[term()]}].
+      [{[term()] | '_' | match_variable() ,[term()],[term()]}].
 
 -spec trace_pattern(MFA, MatchSpec, FlagList) -> non_neg_integer() when
       MFA :: trace_pattern_mfa(),

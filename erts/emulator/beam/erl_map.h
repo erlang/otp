@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2014-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ typedef struct flatmap_s {
 
 
 #define hashmap_size(x)               (((hashmap_head_t*) hashmap_val(x))->size)
-#define hashmap_make_hash(Key)        make_internal_hash(Key)
+#define hashmap_make_hash(Key)        make_internal_hash(Key, 0)
 
 #define hashmap_restore_hash(Heap,Lvl,Key) \
     (((Lvl) < 8) ? hashmap_make_hash(Key) >> (4*(Lvl)) : hashmap_make_hash(CONS(Heap, make_small((Lvl)>>3), (Key))) >> (4*((Lvl) & 7)))
@@ -98,10 +98,12 @@ Eterm* hashmap_iterator_prev(struct ErtsWStack_* s);
 int    hashmap_key_hash_cmp(Eterm* ap, Eterm* bp);
 Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n, int reject_dupkeys);
 
-#define erts_hashmap_from_ks_and_vs(P, KS, VS, N) \
-    erts_hashmap_from_ks_and_vs_extra((P), (KS), (VS), (N), THE_NON_VALUE, THE_NON_VALUE);
+#define erts_hashmap_from_ks_and_vs(F, KS, VS, N) \
+    erts_hashmap_from_ks_and_vs_extra((F), (KS), (VS), (N), THE_NON_VALUE, THE_NON_VALUE);
 
-Eterm  erts_hashmap_from_ks_and_vs_extra(Process *p, Eterm *ks, Eterm *vs, Uint n,
+Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n);
+Eterm  erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
+                                         Eterm *ks, Eterm *vs, Uint n,
 					 Eterm k, Eterm v);
 
 const Eterm *erts_maps_get(Eterm key, Eterm map);

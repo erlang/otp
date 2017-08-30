@@ -184,6 +184,8 @@ return_event_on:
 #include <errno.h>
 #include <string.h>
 
+#include "erl_misc_utils.h"
+
 #ifdef __DARWIN__
 
 struct ethr_event_fdsets___ {
@@ -346,12 +348,9 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
     ethr_sint32_t val;
     int res, ulres;
     int until_yield = ETHR_YIELD_AFTER_BUSY_LOOPS;
-    ethr_sint64_t time = 0; /* SHUT UP annoying faulty warning... */
+    ethr_sint64_t time = 0;
 #ifdef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
-    ethr_sint64_t start = 0; /* SHUT UP annoying faulty warning... */
-#endif
-#ifdef ETHR_HAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC
-    struct timespec cond_timeout;
+    ethr_sint64_t timeout_time = 0; /* SHUT UP annoying faulty warning... */
 #endif
 
     val = ethr_atomic32_read(&e->state);
@@ -365,30 +364,27 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
     if (timeout == 0)
 	return ETIMEDOUT;
     else {
-	time = timeout;
+#ifdef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
+	timeout_time = ethr_get_monotonic_time();
+	timeout_time += timeout;
+#endif
 	switch (e->fd[0]) {
 	case ETHR_EVENT_INVALID_FD__:
-#ifdef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
-	    start = ethr_get_monotonic_time();
-#endif
+	    time = timeout;
 	    setup_nonblocking_pipe(e);
 	    break;
 #ifdef ETHR_HAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC
 	case ETHR_EVENT_COND_TIMEDWAIT__:
-	    time += ethr_get_monotonic_time();
-	    cond_timeout.tv_sec = time / (1000*1000*1000);
-	    cond_timeout.tv_nsec = time % (1000*1000*1000);
+	    time = -1;
 	    if (spincount == 0)
 		goto set_event_off_waiter;
 	    break;
 #endif
 	default:
+	    time = timeout;
 	    /* Already initialized pipe... */
 	    if (spincount == 0)
 		goto set_select_timeout;
-#ifdef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
-	    start = ethr_get_monotonic_time();
-#endif
 	    break;
 	}
     }
@@ -418,6 +414,9 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 	|| e->fd[0] == ETHR_EVENT_COND_TIMEDWAIT__
 #endif
 	) {
+#ifdef ETHR_HAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC
+	struct timespec cond_timeout;
+#endif
 
     set_event_off_waiter:
 
@@ -446,9 +445,35 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 
 #ifdef ETHR_HAVE_PTHREAD_COND_TIMEDWAIT_MONOTONIC
 	    if (timeout > 0) {
+		if (time != timeout_time) {
+		    time = timeout_time;
+
+#if ERTS_USE_PREMATURE_TIMEOUT
+		    {
+			ethr_sint64_t rtmo;
+
+			rtmo = timeout_time - ethr_get_monotonic_time();
+			if (rtmo <= 0) {
+			    res = ETIMEDOUT;
+			    break;
+			}
+			time = timeout_time;
+			time -= ERTS_PREMATURE_TIMEOUT(rtmo, 1000*1000*1000);
+		    }
+#endif
+
+		    cond_timeout.tv_sec = time / (1000*1000*1000);
+		    cond_timeout.tv_nsec = time % (1000*1000*1000);
+		}
 		res = pthread_cond_timedwait(&e->cnd, &e->mtx, &cond_timeout);
-		if (res == EINTR || res == ETIMEDOUT)
+		if (res == EINTR
+		    || (res == ETIMEDOUT
+#if ERTS_USE_PREMATURE_TIMEOUT
+			&& time == timeout_time
+#endif
+			)) {
 		    break;
+		}
 	    }
 	    else
 #endif
@@ -477,7 +502,11 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 	struct timeval select_timeout;
 
 #ifdef ETHR_HAVE_ETHR_GET_MONOTONIC_TIME
-	time -= ethr_get_monotonic_time() - start;
+#if ERTS_USE_PREMATURE_TIMEOUT
+    restart_select:
+#endif
+
+	time = timeout_time - ethr_get_monotonic_time();
 	if (time <= 0)
 	    return ETIMEDOUT;
 #endif
@@ -491,6 +520,11 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 	 * for micro-seconds...
 	 */
 	time = ((time - 1) / 1000) + 1;
+
+#if defined(ETHR_HAVE_ETHR_GET_MONOTONIC_TIME) \
+    && ERTS_USE_PREMATURE_TIMEOUT
+	time -= ERTS_PREMATURE_TIMEOUT(time, 1000*1000);
+#endif
 
 	select_timeout.tv_sec = time / (1000*1000);
 	select_timeout.tv_usec = time % (1000*1000);
@@ -559,7 +593,11 @@ wait__(ethr_event *e, int spincount, ethr_sint64_t timeout)
 	val = ethr_atomic32_read(&e->state);
 	if (val == ETHR_EVENT_ON__)
 	    goto return_event_on;
-
+#if defined(ETHR_HAVE_ETHR_GET_MONOTONIC_TIME) \
+    && ERTS_USE_PREMATURE_TIMEOUT
+	if (res == ETIMEDOUT)
+	    goto restart_select; /* Verify timeout */
+#endif
     }
 
     return res;

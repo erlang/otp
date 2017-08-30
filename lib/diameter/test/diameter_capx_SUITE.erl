@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -384,7 +384,7 @@ load_dict(N) ->
     A3 = erl_anno:new(3),
     A4 = erl_anno:new(4),
     Forms = [{attribute, A1, module, Mod},
-             {attribute, A2, compile, [export_all]},
+             {attribute, A2, export, [{id,0}]},
              {function, A3, id, 0,
               [{clause, A4, [], [], [{integer, A4, N}]}]}],
     {ok, Mod, Bin, []} = compile:forms(Forms, [return]),
@@ -433,7 +433,7 @@ server_reject(Config, F, RC) ->
             ?fail({LRef, OH})
     end.
 
-%% cliient_closed/4
+%% client_closed/4
 
 client_closed(Config, Host, F, RC) ->
     true = diameter:subscribe(?CLIENT),

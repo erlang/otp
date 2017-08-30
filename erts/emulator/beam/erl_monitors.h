@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2004-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,8 +82,9 @@
 
 /* Type tags for monitors */
 #define MON_ORIGIN 1
-#define MON_TARGET 3
-#define MON_TIME_OFFSET 7
+#define MON_TARGET 2
+#define MON_NIF_TARGET 3
+#define MON_TIME_OFFSET 4
 
 /* Type tags for links */
 #define LINK_PID 1   /* ...Or port */
@@ -91,7 +92,7 @@
 
 /* Size of a monitor without heap, in words (fixalloc) */
 #define ERTS_MONITOR_SIZE ((sizeof(ErtsMonitor) - sizeof(Uint))/sizeof(Uint))
-#define ERTS_MONITOR_SH_SIZE (ERTS_MONITOR_SIZE + REF_THING_SIZE)
+#define ERTS_MONITOR_SH_SIZE (ERTS_MONITOR_SIZE + ERTS_REF_THING_SIZE)
 #define ERTS_LINK_SIZE ((sizeof(ErtsLink) - sizeof(Uint))/sizeof(Uint))
 #define ERTS_LINK_SH_SIZE ERTS_LINK_SIZE /* Size of fix-alloced links */
 
@@ -105,11 +106,15 @@ typedef struct erts_monitor_or_link {
 typedef struct erts_monitor {
     struct erts_monitor *left, *right; 
     Sint16 balance;
-    Uint16 type;  /* MON_ORIGIN | MON_TARGET | MON_TIME_OFFSET */
+    Uint16 type;  /* MON_ORIGIN | MON_TARGET | MON_NIF_TARGET | MON_TIME_OFFSET */
     Eterm ref;
-    Eterm pid;    /* In case of distributed named monitor, this is the
-		     nodename atom in MON_ORIGIN process, otherwise a pid or
-		     , in case of a MON_TARGET, a port */
+    union {
+        Eterm pid;  /* In case of distributed named monitor, this is the
+		     * nodename atom in MON_ORIGIN process, otherwise a pid or,
+		     * in case of a MON_TARGET, a port
+                     */
+        struct ErtsResource_* resource; /* MON_NIF_TARGET */
+    }u;
     Eterm name;   /* When monitoring a named process: atom() else [] */
     Uint heap[1]; /* Larger in reality */
 } ErtsMonitor;
@@ -144,7 +149,7 @@ Uint erts_tot_link_lh_size(void);
 
 /* Prototypes */
 void erts_destroy_monitor(ErtsMonitor *mon);
-void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, Eterm pid,
+void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, UWord entity,
 		      Eterm name);
 ErtsMonitor *erts_remove_monitor(ErtsMonitor **root, Eterm ref);
 ErtsMonitor *erts_lookup_monitor(ErtsMonitor *root, Eterm ref);

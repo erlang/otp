@@ -59,7 +59,7 @@
       <tag><c>Vsn = string()</c></tag>
         <item><p>Release version.</p></item>
       <tag><c>EVsn = string()</c></tag>
-        <item><p><c>ERTS</c> version the release is intended for.</p></item>
+        <item><p>ERTS version the release is intended for.</p></item>
       <tag><c>Application = atom()</c></tag>
         <item><p>Name of an application included in the release.</p></item>
       <tag><c>AppVsn = string()</c></tag>
@@ -82,8 +82,8 @@
           to the same value as in the application resource file.</p></item>
     </taglist>
     <note>
-      <p>The list of applications must contain the <c>Kernel</c> and
-        <c>STDLIB</c> applications.</p>
+      <p>The list of applications must contain the Kernel and
+        STDLIB applications.</p>
     </note>
   </section>
 

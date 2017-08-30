@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,15 +32,19 @@
 
 -define(TIMEOUT, 50000).
 
+%%%----------------------------------------------------------------
 connect(Port, Options) when is_integer(Port) ->
     connect(hostname(), Port, Options).
 
 connect(any, Port, Options) ->
     connect(hostname(), Port, Options);
 connect(Host, Port, Options) ->
-    {ok, ConnectionRef} = ssh:connect(Host, Port, Options),
+    R = ssh:connect(Host, Port, Options),
+    ct:log("~p:~p ssh:connect(~p, ~p, ~p)~n -> ~p",[?MODULE,?LINE,Host, Port, Options, R]),
+    {ok, ConnectionRef} = R,
     ConnectionRef.
 
+%%%----------------------------------------------------------------
 daemon(Options) ->
     daemon(any, 0, Options).
 
@@ -53,23 +57,57 @@ daemon(Host, Options) ->
 daemon(Host, Port, Options) ->
     ct:log("~p:~p Calling ssh:daemon(~p, ~p, ~p)",[?MODULE,?LINE,Host,Port,Options]),
     case ssh:daemon(Host, Port, Options) of
-	{ok, Pid} when Host == any ->
-	    ct:log("ssh:daemon ok (1)",[]),
-	    {Pid, hostname(), daemon_port(Port,Pid)};
 	{ok, Pid} ->
-	    ct:log("ssh:daemon ok (2)",[]),
-	    {Pid, Host, daemon_port(Port,Pid)};
+            {ok,L} = ssh:daemon_info(Pid),
+            ListenPort = proplists:get_value(port, L),
+            ListenIP = proplists:get_value(ip, L),
+	    {Pid, ListenIP, ListenPort};
 	Error ->
 	    ct:log("ssh:daemon error ~p",[Error]),
 	    Error
     end.
 
+%%%----------------------------------------------------------------
+daemon_port(Pid) -> daemon_port(0, Pid).
+    
+
 daemon_port(0, Pid) -> {ok,Dinf} = ssh:daemon_info(Pid),
 		       proplists:get_value(port, Dinf);
 daemon_port(Port, _) -> Port.
-    
+
+%%%----------------------------------------------------------------
+gen_tcp_connect(Host0, Port, Options) ->
+    Host = ssh_test_lib:ntoa(ssh_test_lib:mangle_connect_address(Host0)),
+    ct:log("~p:~p gen_tcp:connect(~p, ~p, ~p)~nHost0 = ~p",
+           [?MODULE,?LINE, Host, Port, Options, Host0]),
+    Result = gen_tcp:connect(Host, Port, Options),
+    ct:log("~p:~p Result = ~p", [?MODULE,?LINE, Result]),
+    Result.
+
+%%%----------------------------------------------------------------
+open_sshc(Host0, Port, OptStr) ->
+    open_sshc(Host0, Port, OptStr, "").
+
+open_sshc(Host0, Port, OptStr, ExecStr) ->
+    Cmd = open_sshc_cmd(Host0, Port, OptStr, ExecStr),
+    Result = os:cmd(Cmd),
+    ct:log("~p:~p Result = ~p", [?MODULE,?LINE, Result]),
+    Result.
 
 
+open_sshc_cmd(Host, Port, OptStr) ->
+    open_sshc_cmd(Host, Port, OptStr, "").
+
+open_sshc_cmd(Host0, Port, OptStr, ExecStr) ->
+    Host = ssh_test_lib:ntoa(ssh_test_lib:mangle_connect_address(Host0)),
+    Cmd = lists:flatten(["ssh -p ", integer_to_list(Port),
+                         " ", OptStr,
+                         " ", Host,
+                         " ", ExecStr]),
+    ct:log("~p:~p OpenSSH Cmd = ~p", [?MODULE,?LINE, Cmd]),
+    Cmd.
+
+%%%----------------------------------------------------------------
 std_daemon(Config, ExtraOpts) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
@@ -85,6 +123,7 @@ std_daemon1(Config, ExtraOpts) ->
 						   {failfun, fun ssh_test_lib:failfun/2}
 						   | ExtraOpts]).
 
+%%%----------------------------------------------------------------
 std_connect(Config, Host, Port, ExtraOpts) ->
     UserDir = proplists:get_value(priv_dir, Config),
     _ConnectionRef =
@@ -95,6 +134,7 @@ std_connect(Config, Host, Port, ExtraOpts) ->
 					  {user_interaction, false}
 					  | ExtraOpts]).
 
+%%%----------------------------------------------------------------
 std_simple_sftp(Host, Port, Config) ->
     std_simple_sftp(Host, Port, Config, []).
 
@@ -109,43 +149,49 @@ std_simple_sftp(Host, Port, Config, Opts) ->
     ok = ssh:close(ConnectionRef),
     Data == ReadData.
 
+%%%----------------------------------------------------------------
 std_simple_exec(Host, Port, Config) ->
     std_simple_exec(Host, Port, Config, []).
 
 std_simple_exec(Host, Port, Config, Opts) ->
+    ct:log("~p:~p std_simple_exec",[?MODULE,?LINE]),
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
+    ct:log("~p:~p connected! ~p",[?MODULE,?LINE,ConnectionRef]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    success = ssh_connection:exec(ConnectionRef, ChannelId, "23+21-2.", infinity),
-    Data = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"42\n">>}},
-    case ssh_test_lib:receive_exec_result(Data) of
-	expected ->
-	    ok;
-	Other ->
-	    ct:fail(Other)
-    end,
-    ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
-    ssh:close(ConnectionRef).
+    ct:log("~p:~p session_channel ok ~p",[?MODULE,?LINE,ChannelId]),
+    ExecResult = ssh_connection:exec(ConnectionRef, ChannelId, "23+21-2.", infinity),
+    ct:log("~p:~p exec ~p",[?MODULE,?LINE,ExecResult]),
+    case ExecResult of
+	success ->
+	    Expected = {ssh_cm, ConnectionRef, {data,ChannelId,0,<<"42\n">>}},
+	    case receive_exec_result(Expected) of
+		expected ->
+		    ok;
+		Other ->
+		    ct:fail(Other)
+	    end,
+	    receive_exec_end(ConnectionRef, ChannelId),
+	    ssh:close(ConnectionRef);
+	_ ->
+	    ct:fail(ExecResult)
+    end.
 
-
-start_shell(Port, IOServer, UserDir) ->
-    start_shell(Port, IOServer, UserDir, []).
-
-start_shell(Port, IOServer, UserDir, Options) ->
-    spawn_link(?MODULE, init_shell, [Port, IOServer, [{user_dir, UserDir}|Options]]).
-
+%%%----------------------------------------------------------------
 start_shell(Port, IOServer) ->
-    spawn_link(?MODULE, init_shell, [Port, IOServer, []]).
+    start_shell(Port, IOServer, []).
 
-init_shell(Port, IOServer, UserDir) ->
-    Host = hostname(),
-    Options = [{user_interaction, false}, {silently_accept_hosts,
-					   true}] ++ UserDir,
-    group_leader(IOServer, self()),
-    loop_shell(Host, Port, Options).
+start_shell(Port, IOServer, ExtraOptions) ->
+    spawn_link(
+      fun() ->
+	      Host = hostname(),
+	      Options = [{user_interaction, false},
+			 {silently_accept_hosts,true} | ExtraOptions],
+	      group_leader(IOServer, self()),
+	      ssh:shell(Host, Port, Options)
+      end).
 
-loop_shell(Host, Port, Options) ->
-    ssh:shell(Host, Port, Options).
 
+%%%----------------------------------------------------------------
 start_io_server() ->
     spawn_link(?MODULE, init_io_server, [self()]).
 
@@ -204,10 +250,19 @@ reply(TestCase, Result) ->
 %%ct:log("reply ~p sending ~p ! ~p",[self(), TestCase, Result]),
     TestCase ! Result.
 
-
-
+%%%----------------------------------------------------------------
 rcv_expected(Expect, SshPort, Timeout) ->
     receive
+	{SshPort, Recvd} when is_function(Expect) ->
+	    case Expect(Recvd) of
+		true ->
+		    ct:log("Got expected ~p from ~p",[Recvd,SshPort]),
+		    catch port_close(SshPort),
+		    rcv_lingering(50);
+		false ->
+		    ct:log("Got UNEXPECTED ~p~n",[Recvd]),
+		    rcv_expected(Expect, SshPort, Timeout)
+	    end;
 	{SshPort, Expect} ->
 	    ct:log("Got expected ~p from ~p",[Expect,SshPort]),
 	    catch port_close(SshPort),
@@ -445,8 +500,12 @@ setup_ecdsa_auth_keys(_Size, Dir, UserDir) ->
 setup_auth_keys(Keys, Dir) ->
     AuthKeys = public_key:ssh_encode(Keys, auth_keys),
     AuthKeysFile = filename:join(Dir, "authorized_keys"),
-    file:write_file(AuthKeysFile, AuthKeys).
+    ok = file:write_file(AuthKeysFile, AuthKeys),
+    AuthKeys.
 
+write_auth_keys(Keys, Dir) ->
+    AuthKeysFile = filename:join(Dir, "authorized_keys"),
+    file:write_file(AuthKeysFile, Keys).
 
 del_dirs(Dir) ->
     case file:list_dir(Dir) of
@@ -677,13 +736,16 @@ ssh_type() ->
 
 ssh_type1() ->
     try 
+        ct:log("~p:~p os:find_executable(\"ssh\")",[?MODULE,?LINE]),
 	case os:find_executable("ssh") of
 	    false -> 
 		ct:log("~p:~p Executable \"ssh\" not found",[?MODULE,?LINE]),
 		not_found;
-	    _ ->
+	    Path ->
+		ct:log("~p:~p Found \"ssh\" at ~p",[?MODULE,?LINE,Path]),
 		case os:cmd("ssh -V") of
-		    "OpenSSH" ++ _ ->
+		    Version = "OpenSSH" ++ _ ->
+                        ct:log("~p:~p Found OpenSSH  ~p",[?MODULE,?LINE,Version]),
 			openSSH;
 		    Str -> 
 			ct:log("ssh client ~p is unknown",[Str]),
@@ -767,3 +829,157 @@ open_port(Arg1, ExtraOpts) ->
 		      use_stdio,
 		      overlapped_io, hide %only affects windows
 		      | ExtraOpts]).
+
+%%%----------------------------------------------------------------
+%%% Sleeping
+
+%%% Milli sec
+sleep_millisec(Nms) -> receive after Nms -> ok end.
+
+%%% Micro sec
+sleep_microsec(Nus) ->
+   busy_wait(Nus, erlang:system_time(microsecond)).
+
+busy_wait(Nus, T0) ->
+    T = erlang:system_time(microsecond) - T0,
+    Tleft = Nus - T,
+    if
+	Tleft > 2000 -> 
+	    sleep_millisec((Tleft-1500) div 1000), % μs -> ms
+	    busy_wait(Nus,T0);
+	Tleft > 1 ->
+	    busy_wait(Nus, T0);
+	true ->
+	    T
+    end.
+
+%%%----------------------------------------------------------------
+%% get_kex_init - helper function to get key_exchange_init_msg
+
+get_kex_init(Conn) ->
+    Ref = make_ref(),
+    {ok,TRef} = timer:send_after(15000, {reneg_timeout,Ref}),
+    get_kex_init(Conn, Ref, TRef).
+
+get_kex_init(Conn, Ref, TRef) ->
+    %% First, validate the key exchange is complete (StateName == connected)
+    {State, S} = sys:get_state(Conn),
+    case expected_state(State) of
+	true ->
+	    timer:cancel(TRef),
+	    %% Next, walk through the elements of the #state record looking
+	    %% for the #ssh_msg_kexinit record. This method is robust against
+	    %% changes to either record. The KEXINIT message contains a cookie
+	    %% unique to each invocation of the key exchange procedure (RFC4253)
+	    SL = tuple_to_list(S),
+	    case lists:keyfind(ssh_msg_kexinit, 1, SL) of
+		false ->
+		    throw(not_found);
+		KexInit ->
+		    KexInit
+	    end;
+
+	false ->
+	    ct:log("Not in 'connected' state: ~p",[State]),
+	    receive
+		{reneg_timeout,Ref} -> 
+		    ct:log("S = ~p", [S]),
+		    ct:fail(reneg_timeout)
+	    after 0 ->
+		    timer:sleep(100), % If renegotiation is complete we do not
+				      % want to exit on the reneg_timeout
+		    get_kex_init(Conn, Ref, TRef)
+	    end
+    end.
+    
+expected_state({ext_info,_,_}) -> true;
+expected_state({connected,_}) -> true;
+expected_state(_) -> false.
+
+%%%----------------------------------------------------------------
+%%% Return a string with N random characters
+%%%
+random_chars(N) -> [crypto:rand_uniform($a,$z) || _<-lists:duplicate(N,x)].
+
+
+create_random_dir(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Name = filename:join(PrivDir, random_chars(15)),
+    case file:make_dir(Name) of
+	ok -> 
+	    Name;
+	{error,eexist} ->
+	    %% The Name already denotes an existing file system object, try again.
+	    %% The likelyhood of always generating an existing file name is low
+	    create_random_dir(Config)
+    end.
+
+%%%----------------------------------------------------------------
+match_ip(A, B) -> 
+    R = match_ip0(A,B) orelse match_ip0(B,A),      
+    ct:log("match_ip(~p, ~p) -> ~p",[A, B, R]),
+    R.
+
+match_ip0(A, A) ->
+    true;
+match_ip0(any, _) ->
+    true;
+match_ip0(A, B) ->
+    case match_ip1(A, B) of
+        true ->
+            true;
+        false when is_list(A) ->
+            case inet:parse_address(A) of
+                {ok,IPa} -> match_ip0(IPa, B);
+                _ -> false
+            end;
+        false when is_list(B) ->
+            case inet:parse_address(B) of
+                {ok,IPb} -> match_ip0(A, IPb);
+                _ -> false
+            end;
+        false ->
+            false
+    end.
+            
+match_ip1(any, _) -> true;
+match_ip1(loopback,  {127,_,_,_}) ->  true;
+match_ip1({0,0,0,0}, {127,_,_,_}) ->  true;
+match_ip1(loopback,          {0,0,0,0,0,0,0,1}) ->  true;
+match_ip1({0,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,1}) ->  true;
+match_ip1(_, _) -> false.
+
+%%%----------------------------------------------------------------
+mangle_connect_address(A) ->
+    mangle_connect_address(A, []).
+
+mangle_connect_address(A, SockOpts) ->
+    mangle_connect_address1(A, proplists:get_value(inet6,SockOpts,false)).
+
+loopback(true) -> {0,0,0,0,0,0,0,1};
+loopback(false) ->      {127,0,0,1}.
+
+mangle_connect_address1( loopback,     V6flg) -> loopback(V6flg);
+mangle_connect_address1(      any,     V6flg) -> loopback(V6flg);
+mangle_connect_address1({0,0,0,0},         _) -> loopback(false);
+mangle_connect_address1({0,0,0,0,0,0,0,0}, _) -> loopback(true);
+mangle_connect_address1(       IP,     _) when is_tuple(IP) -> IP;
+mangle_connect_address1(A, _) ->
+    case catch inet:parse_address(A) of
+        {ok,         {0,0,0,0}} -> loopback(false);
+        {ok, {0,0,0,0,0,0,0,0}} -> loopback(true);
+        _ -> A
+    end.
+
+%%%----------------------------------------------------------------
+ntoa(A) ->
+    try inet:ntoa(A)
+    of
+        {error,_} when is_atom(A) -> atom_to_list(A);
+        {error,_} when is_list(A) -> A;
+        S when is_list(S) -> S
+    catch
+        _:_ when is_atom(A) -> atom_to_list(A);
+        _:_ when is_list(A) -> A
+    end.
+    

@@ -34,7 +34,7 @@
 -define(PROCEED_RESPONSE(StatusCode, Info),
 	{proceed,
 	 [{response,{already_sent, StatusCode,
-		     httpd_util:key1search(Info#mod.data,content_lenght)}}]}).
+		     httpd_util:key1search(Info#mod.data,content_length)}}]}).
 
 
 -include("httpd.hrl").

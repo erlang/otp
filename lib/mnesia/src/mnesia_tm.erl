@@ -80,6 +80,7 @@ start() ->
 init(Parent) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
+    process_flag(message_queue_data, off_heap),
 
     %% Initialize the schema
     IgnoreFallback = mnesia_monitor:get_env(ignore_fallback_at_startup),
@@ -950,7 +951,7 @@ return_abort(Fun, Args, Reason)  ->
     if
 	Level == 1 ->
 	    mnesia_locker:async_release_tid(Nodes, Tid),
-	    ?MODULE ! {delete_transaction, Tid},
+	    ?SAFE(?MODULE ! {delete_transaction, Tid}),
 	    erase(mnesia_activity_state),
 	    flush_downs(),
 	    ?SAFE(unlink(whereis(?MODULE))),

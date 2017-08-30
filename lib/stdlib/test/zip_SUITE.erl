@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,8 +25,9 @@
          zip_to_binary/1,
          unzip_options/1, zip_options/1, list_dir_options/1, aliases/1,
          openzip_api/1, zip_api/1, open_leak/1, unzip_jar/1,
+	 unzip_traversal_exploit/1,
          compress_control/1,
-	 foldl/1]).
+	 foldl/1,fd_leak/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -38,7 +39,8 @@ all() ->
     [borderline, atomic, bad_zip, unzip_from_binary,
      unzip_to_binary, zip_to_binary, unzip_options,
      zip_options, list_dir_options, aliases, openzip_api,
-     zip_api, open_leak, unzip_jar, compress_control, foldl].
+     zip_api, open_leak, unzip_jar, compress_control, foldl,
+     unzip_traversal_exploit,fd_leak].
 
 groups() -> 
     [].
@@ -375,6 +377,52 @@ unzip_options(Config) when is_list(Config) ->
 
     %% Clean up and verify no more files.
     0 = delete_files([Subdir]),
+    ok.
+
+%% Test that unzip handles directory traversal exploit (OTP-13633)
+unzip_traversal_exploit(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    ZipName = filename:join(DataDir, "exploit.zip"),
+
+    %% $ zipinfo -1 test/zip_SUITE_data/exploit.zip 
+    %% clash.txt
+    %% ../clash.txt
+    %% ../above.txt
+    %% subdir/../in_root_dir.txt
+
+    %% create a temp directory
+    SubDir = filename:join(PrivDir, "exploit_test"),
+    ok = file:make_dir(SubDir),
+    
+    ClashFile = filename:join(SubDir,"clash.txt"),
+    AboveFile = filename:join(SubDir,"above.txt"),
+    RelativePathFile = filename:join(SubDir,"subdir/../in_root_dir.txt"),
+
+    %% unzip in SubDir
+    {ok, [ClashFile, ClashFile, AboveFile, RelativePathFile]} =
+	zip:unzip(ZipName, [{cwd,SubDir}]),
+
+    {ok,<<"This file will overwrite other file.\n">>} =
+	file:read_file(ClashFile),
+    {ok,_} = file:read_file(AboveFile),
+    {ok,_} = file:read_file(RelativePathFile),
+
+    %% clean up
+    delete_files([SubDir]),
+    
+     %% create the temp directory again
+    ok = file:make_dir(SubDir),
+
+    %% unzip in SubDir
+    {ok, [ClashFile, AboveFile, RelativePathFile]} =
+	zip:unzip(ZipName, [{cwd,SubDir},keep_old_files]),
+
+    {ok,<<"This is the original file.\n">>} =
+	file:read_file(ClashFile),
+   
+    %% clean up
+    delete_files([SubDir]),
     ok.
 
 %% Test unzip a jar file (OTP-7382).
@@ -834,3 +882,35 @@ foldl(Config) ->
     {error, enoent} = zip:foldl(ZipFun, [], File),
 
     ok.
+
+fd_leak(Config) ->
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+    DataDir = proplists:get_value(data_dir, Config),
+    Name = filename:join(DataDir, "bad_file_header.zip"),
+    BadExtract = fun() ->
+                         {error,bad_file_header} = zip:extract(Name),
+                         ok
+                 end,
+    do_fd_leak(BadExtract, 1),
+
+    BadCreate = fun() ->
+                        {error,enoent} = zip:zip("failed.zip",
+                                                 ["none"]),
+                        ok
+                end,
+    do_fd_leak(BadCreate, 1),
+
+    ok.
+
+do_fd_leak(_Bad, 10000) ->
+    ok;
+do_fd_leak(Bad, N) ->
+    try Bad() of
+        ok ->
+            do_fd_leak(Bad, N + 1)
+    catch
+        C:R ->
+            Stk = erlang:get_stacktrace(),
+            io:format("Bad error after ~p attempts\n", [N]),
+            erlang:raise(C, R, Stk)
+    end.

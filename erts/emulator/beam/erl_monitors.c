@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2004-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
  * key in the monitor case and the pid of the linked process as key in the 
  * link case. Lookups the order of the references is somewhat special. Local 
  * references are strictly smaller than remote references and are sorted 
- * by inlined comparision functionality. Remote references are handled by the
+ * by inlined comparison functionality. Remote references are handled by the
  * usual cmp function.
  * Each Monitor is tagged with different tags depending on which end of the 
  * monitor it is.
@@ -45,6 +45,7 @@
 #include "bif.h"
 #include "big.h"
 #include "erl_monitors.h"
+#include "erl_bif_unique.h"
 
 #define STACK_NEED 50
 #define MAX_MONITORS 0xFFFFFFFFUL
@@ -79,7 +80,24 @@ static ERTS_INLINE int cmp_mon_ref(Eterm ref1, Eterm ref2)
     b2 = boxed_val(ref2);
     if (is_ref_thing_header(*b1)) {
 	if (is_ref_thing_header(*b2)) {
-	    return memcmp(b1+1,b2+1,ERTS_REF_WORDS*sizeof(Uint));
+	    Uint32 *num1, *num2;
+	    if (is_ordinary_ref_thing(b1)) {
+		ErtsORefThing *rtp = (ErtsORefThing *) b1;
+		num1 = rtp->num;
+	    }
+	    else {
+		ErtsMRefThing *mrtp = (ErtsMRefThing *) b1;
+		num1 = mrtp->mb->refn;
+	    }
+	    if (is_ordinary_ref_thing(b2)) {
+		ErtsORefThing *rtp = (ErtsORefThing *) b2;
+		num2 = rtp->num;
+	    }
+	    else {
+		ErtsMRefThing *mrtp = (ErtsMRefThing *) b2;
+		num2 = mrtp->mb->refn;
+	    }
+	    return erts_internal_ref_number_cmp(num1, num2);
 	}
 	return -1;
     }
@@ -91,33 +109,34 @@ static ERTS_INLINE int cmp_mon_ref(Eterm ref1, Eterm ref2)
 	    
 #define CP_LINK_VAL(To, Hp, From)				\
 do {								\
-    if (IS_CONST(From))						\
+    if (is_immed(From))						\
 	(To) = (From);						\
     else {							\
 	Uint i__;						\
 	Uint len__;						\
 	ASSERT((Hp));						\
-	ASSERT(is_internal_ref((From)) || is_external((From)));	\
+	ASSERT(is_internal_ordinary_ref((From))                 \
+               || is_external((From)));                         \
 	(To) = make_boxed((Hp));				\
 	len__ = thing_arityval(*boxed_val((From))) + 1;		\
 	for(i__ = 0; i__ < len__; i__++)			\
 	    (*((Hp)++)) = boxed_val((From))[i__];		\
 	if (is_external((To))) {				\
 	    external_thing_ptr((To))->next = NULL;		\
-	    erts_refc_inc(&(external_thing_ptr((To))->node->refc), 2);\
+	    erts_smp_refc_inc(&(external_thing_ptr((To))->node->refc), 2);\
 	}							\
     }								\
 } while (0)
 
-static ErtsMonitor *create_monitor(Uint type, Eterm ref, Eterm pid, Eterm name)
+static ErtsMonitor *create_monitor(Uint type, Eterm ref, UWord entity, Eterm name)
 {
      Uint mon_size = ERTS_MONITOR_SIZE;
      ErtsMonitor *n;
      Eterm *hp;
 
      mon_size += NC_HEAP_SIZE(ref);
-     if (!IS_CONST(pid)) {
-	 mon_size += NC_HEAP_SIZE(pid);
+     if (type != MON_NIF_TARGET && is_not_immed(entity)) {
+	 mon_size += NC_HEAP_SIZE(entity);
      }
 
      if (mon_size <= ERTS_MONITOR_SH_SIZE) {
@@ -135,8 +154,11 @@ static ErtsMonitor *create_monitor(Uint type, Eterm ref, Eterm pid, Eterm name)
      n->type = (Uint16) type;
      n->balance = 0;            /* Always the same initial value */
      n->name = name; /* atom() or [] */
-     CP_LINK_VAL(n->ref, hp, ref); /*XXX Unneccesary check, never immediate*/
-     CP_LINK_VAL(n->pid, hp, pid);
+     CP_LINK_VAL(n->ref, hp, ref); /*XXX Unnecessary check, never immediate*/
+     if (type == MON_NIF_TARGET)
+         n->u.resource = (ErtsResource*)entity;
+     else
+         CP_LINK_VAL(n->u.pid, hp, (Eterm)entity);
 
      return n;
 }
@@ -147,7 +169,7 @@ static ErtsLink *create_link(Uint type, Eterm pid)
      ErtsLink *n;
      Eterm *hp;
 
-     if (!IS_CONST(pid)) {
+     if (is_not_immed(pid)) {
 	 lnk_size += NC_HEAP_SIZE(pid);
      }
 
@@ -206,16 +228,16 @@ void erts_destroy_monitor(ErtsMonitor *mon)
     Uint mon_size = ERTS_MONITOR_SIZE;
     ErlNode *node;
 
-    ASSERT(!IS_CONST(mon->ref));
+    ASSERT(is_not_immed(mon->ref));
     mon_size +=  NC_HEAP_SIZE(mon->ref);
     if (is_external(mon->ref)) {
 	node = external_thing_ptr(mon->ref)->node;
 	erts_deref_node_entry(node);
     }
-    if (!IS_CONST(mon->pid)) {
-	mon_size += NC_HEAP_SIZE(mon->pid);
-	if (is_external(mon->pid)) {
-	    node = external_thing_ptr(mon->pid)->node;
+    if (mon->type != MON_NIF_TARGET && is_not_immed(mon->u.pid)) {
+	mon_size += NC_HEAP_SIZE(mon->u.pid);
+	if (is_external(mon->u.pid)) {
+	    node = external_thing_ptr(mon->u.pid)->node;
 	    erts_deref_node_entry(node);
 	}
     }
@@ -234,7 +256,7 @@ void erts_destroy_link(ErtsLink *lnk)
 
     ASSERT(lnk->type == LINK_NODE || ERTS_LINK_ROOT(lnk) == NULL);
 
-    if (!IS_CONST(lnk->pid)) {
+    if (is_not_immed(lnk->pid)) {
 	lnk_size += NC_HEAP_SIZE(lnk->pid);
 	if (is_external(lnk->pid)) {
 	    node = external_thing_ptr(lnk->pid)->node;
@@ -329,7 +351,7 @@ static void insertion_rotation(int dstack[], int dpos,
     }
 }
 
-void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, Eterm pid, 
+void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, UWord entity, 
 		      Eterm name)
 {
     void *tstack[STACK_NEED];
@@ -339,12 +361,14 @@ void erts_add_monitor(ErtsMonitor **root, Uint type, Eterm ref, Eterm pid,
     int state = 0;
     ErtsMonitor **this = root;
     Sint c;
+
+    ASSERT(is_internal_ordinary_ref(ref) || is_external_ref(ref));
   
     dstack[0] = DIR_END;
     for (;;) {
 	if (!*this) { /* Found our place */
 	    state = 1;
-	    *this = create_monitor(type,ref,pid,name);
+	    *this = create_monitor(type,ref,entity,name);
 	    break;
 	} else if ((c = CMP_MON_REF(ref,(*this)->ref)) < 0) { 
 	    /* go left */
@@ -914,8 +938,12 @@ static void erts_dump_monitors(ErtsMonitor *root, int indent)
     if (root == NULL)
 	return;
     erts_dump_monitors(root->right,indent+2);
-    erts_printf("%*s[%b16d:%b16u:%T:%T:%T]\n", indent, "", root->balance,
-		root->type, root->ref, root->pid, root->name);
+    erts_printf("%*s[%b16d:%b16u:%T:%T", indent, "", root->balance,
+		root->type, root->ref, root->name);
+    if (root->type == MON_NIF_TARGET)
+	erts_printf(":%p]\n", root->u.resource);
+    else
+	erts_printf(":%T]\n", root->u.pid);
     erts_dump_monitors(root->left,indent+2);
 }
 
@@ -1030,7 +1058,7 @@ void erts_one_link_size(ErtsLink *lnk, void *vpu)
 {
     Uint *pu = vpu;
     *pu += ERTS_LINK_SIZE*sizeof(Uint);
-    if(!IS_CONST(lnk->pid))
+    if(is_not_immed(lnk->pid))
 	*pu += NC_HEAP_SIZE(lnk->pid)*sizeof(Uint);
     if (lnk->type != LINK_NODE && ERTS_LINK_ROOT(lnk) != NULL) {
 	erts_doforall_links(ERTS_LINK_ROOT(lnk),&erts_one_link_size,vpu);
@@ -1040,8 +1068,8 @@ void erts_one_mon_size(ErtsMonitor *mon, void *vpu)
 {
     Uint *pu = vpu;
     *pu += ERTS_MONITOR_SIZE*sizeof(Uint);
-    if(!IS_CONST(mon->pid))
-	*pu += NC_HEAP_SIZE(mon->pid)*sizeof(Uint);
-    if(!IS_CONST(mon->ref))
+    if(mon->type != MON_NIF_TARGET && is_not_immed(mon->u.pid))
+	*pu += NC_HEAP_SIZE(mon->u.pid)*sizeof(Uint);
+    if(is_not_immed(mon->ref))
 	*pu += NC_HEAP_SIZE(mon->ref)*sizeof(Uint);
 }

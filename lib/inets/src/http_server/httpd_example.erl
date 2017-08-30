@@ -20,7 +20,7 @@
 %%
 -module(httpd_example).
 -export([print/1]).
--export([get/2, post/2, yahoo/2, test1/2, get_bin/2, peer/2]).
+-export([get/2, put/2, post/2, yahoo/2, test1/2, get_bin/2, peer/2]).
 
 -export([newformat/3]).
 %% These are used by the inets test-suite
@@ -59,6 +59,11 @@ get(_Env,[]) ->
 get(Env,Input) ->
   default(Env,Input).
 
+put(Env,{Input,_Body}) ->
+    default(Env,Input);
+put(Env,Input) ->
+    default(Env,Input).
+
 get_bin(_Env,_Input) ->
     [list_to_binary(header()),
      list_to_binary(top("GET Example")),
@@ -94,7 +99,7 @@ default(Env,Input) ->
    io_lib:format("~p",[httpd:parse_query(Input)]),"\n",
    footer()].
 
-peer(Env, Input) ->
+peer(Env, _Input) ->
    Header = 
      case proplists:get_value(peer_cert, Env) of
        undefined ->
@@ -161,7 +166,7 @@ sleep(T) -> receive after T -> ok end.
 
 %% ------------------------------------------------------
 
-chunk_timeout(SessionID, _, StrInt) ->
+chunk_timeout(SessionID, _, _StrInt) ->
     mod_esi:deliver(SessionID, "Tranfer-Encoding:chunked/html\r\n\r\n"),
     mod_esi:deliver(SessionID, top("Test chunk encoding timeout")),
     timer:sleep(20000),

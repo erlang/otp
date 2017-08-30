@@ -1,0 +1,43 @@
+#!/bin/bash
+
+function progress {
+    local file=$1
+    ls=$(ls -l $file)
+    while [ true ]; do
+	sleep 10
+	new_ls=$(ls -l $file)
+	if [ "$new_ls" != "$ls" ]; then
+	    echo -n "."
+	fi
+        ls="$new_ls"
+    done
+}
+
+function do_and_log {
+    log="logs/latest-log.$$"
+    echo "" >$log
+    echo -n "$1..."
+    (progress $log) &
+    pid=$!
+    disown
+    if ./otp_build $2 $3 >$log 2>&1; then
+	kill $pid >/dev/null 2>&1
+        echo " done."
+    else
+	kill $pid >/dev/null 2>&1
+        echo " failed."
+        tail -n 200 $log
+        echo "*** Failed ***"
+        exit 1
+    fi
+}
+
+if [ ! -d "logs" ]; then
+    mkdir logs
+fi
+
+do_and_log "Autoconfing" autoconf
+do_and_log "Configuring" configure --enable-plain-emulator
+do_and_log "Building OTP" boot -a
+
+exit 0

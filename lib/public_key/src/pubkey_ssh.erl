@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -44,11 +44,6 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec decode(binary(), public_key | public_key:ssh_file()) -> 
-		    [{public_key:public_key(), Attributes::list()}]
-	  ; (binary(), ssh2_pubkey) ->  public_key:public_key()
-	  .
-%%
 %% Description: Decodes a ssh file-binary.
 %%--------------------------------------------------------------------
 decode(Bin, public_key)->
@@ -66,11 +61,6 @@ decode(Bin, Type) ->
     openssh_decode(Bin, Type).
 
 %%--------------------------------------------------------------------
--spec encode([{public_key:public_key(), Attributes::list()}], public_key:ssh_file()) ->
-		    binary()
-	  ; (public_key:public_key(), ssh2_pubkey) -> binary()
-	  .
-%%
 %% Description: Encodes a list of ssh file entries.
 %%--------------------------------------------------------------------
 encode(Bin, ssh2_pubkey) ->
@@ -81,10 +71,6 @@ encode(Entries, Type) ->
 				      end, Entries)).
 
 %%--------------------------------------------------------------------
--spec dh_gex_group(integer(), integer(), integer(), 
-		   undefined | [{integer(),[{integer(),integer()}]}]) ->
-			  {ok,{integer(),{integer(),integer()}}} | {error,any()} .
-%%
 %% Description: Returns Generator and Modulus given MinSize, WantedSize
 %%              and MaxSize
 %%--------------------------------------------------------------------
@@ -421,14 +407,22 @@ comma_list_encode([Option | Rest], []) ->
 comma_list_encode([Option | Rest], Acc) ->
     comma_list_encode(Rest, Acc ++ "," ++ Option).
 
+
 ssh2_pubkey_encode(#'RSAPublicKey'{modulus = N, publicExponent = E}) ->
-    TypeStr = <<"ssh-rsa">>,
-    StrLen = size(TypeStr),
+    ssh2_pubkey_encode({#'RSAPublicKey'{modulus = N, publicExponent = E}, 'ssh-rsa'});
+
+ssh2_pubkey_encode({Key, 'rsa-sha2-256'}) -> ssh2_pubkey_encode({Key, 'ssh-rsa'});
+ssh2_pubkey_encode({Key, 'rsa-sha2-512'}) -> ssh2_pubkey_encode({Key, 'ssh-rsa'});
+ssh2_pubkey_encode({#'RSAPublicKey'{modulus = N, publicExponent = E}, SignAlg}) ->
+    SignAlgName = list_to_binary(atom_to_list(SignAlg)),
+    StrLen = size(SignAlgName),
     EBin = mpint(E),
     NBin = mpint(N),
-    <<?UINT32(StrLen), TypeStr:StrLen/binary,
+    <<?UINT32(StrLen), SignAlgName:StrLen/binary,
       EBin/binary,
       NBin/binary>>;
+ssh2_pubkey_encode({{_,#'Dss-Parms'{}}=Key, _}) ->
+    ssh2_pubkey_encode(Key);
 ssh2_pubkey_encode({Y,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
     TypeStr = <<"ssh-dss">>,
     StrLen = size(TypeStr),
@@ -441,6 +435,8 @@ ssh2_pubkey_encode({Y,  #'Dss-Parms'{p = P, q = Q, g = G}}) ->
       QBin/binary,
       GBin/binary,
       YBin/binary>>;
+ssh2_pubkey_encode({{#'ECPoint'{},_}=Key, _}) ->
+    ssh2_pubkey_encode(Key);
 ssh2_pubkey_encode(Key={#'ECPoint'{point = Q}, {namedCurve,OID}}) ->
     TypeStr = key_type(Key),
     StrLen = size(TypeStr),
@@ -453,6 +449,8 @@ ssh2_pubkey_encode(Key={#'ECPoint'{point = Q}, {namedCurve,OID}}) ->
 ssh2_pubkey_decode(Bin = <<?UINT32(Len), Type:Len/binary, _/binary>>) ->
     ssh2_pubkey_decode(Type, Bin).
 
+ssh2_pubkey_decode(<<"rsa-sha2-256">>, Bin) -> ssh2_pubkey_decode(<<"ssh-rsa">>, Bin);
+ssh2_pubkey_decode(<<"rsa-sha2-512">>, Bin) -> ssh2_pubkey_decode(<<"ssh-rsa">>, Bin);
 ssh2_pubkey_decode(<<"ssh-rsa">>,
 		   <<?UINT32(Len),   _:Len/binary,
 		     ?UINT32(SizeE), E:SizeE/binary,
@@ -470,6 +468,7 @@ ssh2_pubkey_decode(<<"ssh-dss">>,
      #'Dss-Parms'{p = erlint(SizeP, P),
 		  q = erlint(SizeQ, Q),
 		  g = erlint(SizeG, G)}};
+
 ssh2_pubkey_decode(<<"ecdsa-sha2-",Id/binary>>,
 		   <<?UINT32(Len), ECDSA_SHA2_etc:Len/binary,
 		     ?UINT32(SizeId), Id:SizeId/binary,

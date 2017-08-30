@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -185,7 +185,7 @@ reset_state() ->
 init([]) ->
     process_flag(trap_exit, true),
     Empty = gb_trees:empty(),
-    {ok,Shared} = test_server_gl:start_link(),
+    {ok,Shared} = test_server_gl:start_link(self()),
     {ok,#st{fds=Empty,shared_gl=Shared,gls=gb_sets:empty(),
 	    io_buffering=gb_sets:empty(),
 	    buffered=Empty,
@@ -200,7 +200,7 @@ req(Req) ->
     gen_server:call(?MODULE, Req, infinity).
 
 handle_call({get_gl,false}, _From, #st{gls=Gls,gl_props=Props}=St) ->
-    {ok,Pid} = test_server_gl:start_link(),
+    {ok,Pid} = test_server_gl:start_link(self()),
     test_server_gl:set_props(Pid, Props),
     {reply,Pid,St#st{gls=gb_sets:insert(Pid, Gls)}};
 handle_call({get_gl,true}, _From, #st{shared_gl=Shared}=St) ->
@@ -285,7 +285,7 @@ handle_call(reset_state, _From, #st{fds=Fds,tags=Tags,gls=Gls,
 	    ok
     end,
     Empty = gb_trees:empty(),
-    {ok,Shared} = test_server_gl:start_link(),
+    {ok,Shared} = test_server_gl:start_link(self()),
     {reply,ok,#st{fds=Empty,shared_gl=Shared,gls=gb_sets:empty(),
 		  io_buffering=gb_sets:empty(),
 		  buffered=Empty,
@@ -359,7 +359,7 @@ handle_info(kill_group_leaders, #st{gls=Gls,stopping=From,
 		      end, St#st{phase=idle,pending_ops=[]}, Ops),
     {noreply,St1};
 handle_info(Other, St) ->
-    io:format("Ignoring: ~p\n", [Other]),
+    io:format("Ignoring: ~tp\n", [Other]),
     {noreply,St}.
 
 terminate(_, _) ->
@@ -395,7 +395,7 @@ do_output(Tag, Str, Phase, #st{fds=Fds}=St) ->
 	none when Phase /= started ->
 	    buffer;
 	none ->
-	    S = io_lib:format("\n*** ERROR: ~w, line ~w: No known '~p' log file\n",
+	    S = io_lib:format("\n*** ERROR: ~w, line ~w: No known '~tp' log file\n",
 			      [?MODULE,?LINE,Tag]),
 	    do_output(stdout, [S,Str], Phase, St);
 	{value,Fd} ->
@@ -407,7 +407,7 @@ do_output(Tag, Str, Phase, #st{fds=Fds}=St) ->
 		end
 	    catch _:Error ->
 		    S = io_lib:format("\n*** ERROR: ~w, line ~w: Error writing to "
-				      "log file '~p': ~p\n",
+				      "log file '~tp': ~tp\n",
 				      [?MODULE,?LINE,Tag,Error]),
 		    do_output(stdout, [S,Str], Phase, St)
 	    end

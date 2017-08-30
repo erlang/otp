@@ -78,7 +78,7 @@
         <p>Pseudo function that by means of a <c>parse_transform</c>
           translates the <em>literal</em><c>fun()</c> typed as parameter in
           the function call to a match specification as described in
-          the <c>match_spec</c> manual of <c>ERTS</c> users guide.
+          the <c>match_spec</c> manual of ERTS users guide.
           (with literal I mean that the <c>fun()</c> needs to
           textually be written as the parameter of the function, it
           cannot be held in a variable which in turn is passed to the 
@@ -954,7 +954,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           as the tuple <c>{drop, N}</c> where <c>N</c> is the number of consecutive messages
           dropped. In case of heavy tracing, drop's are likely to occur,
           and they surely occur if no client is reading the trace
-          messages.</p>
+          messages. The default value of <c>QueSize</c> is 200.</p>
       </desc>
     </func>
     <func>

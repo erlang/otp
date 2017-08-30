@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2016</year>
+      <year>1999</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -127,7 +127,7 @@
       <item><p><c>hostname() | ipaddress()</c></p></item>
 
       <tag><c>hostname() =</c></tag>
-      <item><p><c>string()</c></p></item>
+      <item><p><c>string() - DNS hostname</c></p></item>
 
       <tag><c>ip_address() =</c></tag>
       <item><p><c>{N1,N2,N3,N4} % IPv4 | {K1,K2,K3,K4,K5,K6,K7,K8} % IPv6
@@ -155,7 +155,7 @@
 
       <tag><c>cipher() =</c></tag>
       <item><p><c>rc4_128 | des_cbc | '3des_ede_cbc'
-      | aes_128_cbc | aes_256_cbc | aes_128_gcm | aes_256_gcm</c></p></item>
+      | aes_128_cbc | aes_256_cbc | aes_128_gcm | aes_256_gcm | chacha20_poly1305</c></p></item>
 
       <tag><c>hash() =</c></tag>
       <item><p><c>md5 | sha | sha224 | sha256 | sha348 | sha512</c></p></item>
@@ -170,6 +170,14 @@
       <tag><c>SNIfun::fun()</c></tag>
       <item><p><c>= fun(ServerName :: string()) -> [ssl_option()]</c></p></item>
 
+      <tag><c>named_curve() =</c></tag>
+      <item><p><c>sect571r1 | sect571k1 | secp521r1 | brainpoolP512r1
+       | sect409k1 | sect409r1 | brainpoolP384r1 | secp384r1
+       | sect283k1 | sect283r1 | brainpoolP256r1 | secp256k1 | secp256r1
+       | sect239k1 | sect233k1 | sect233r1 | secp224k1 | secp224r1
+       | sect193r1 | sect193r2 | secp192k1 | secp192r1 | sect163k1
+       | sect163r1 | sect163r2 | secp160k1 | secp160r1 | secp160r2</c></p></item>
+
     </taglist>
   </section>
 
@@ -180,6 +188,11 @@
     the server:</p>
     
     <taglist>
+
+      <tag><c>{protocol, tls | dtls}</c></tag>
+      <item><p>Choose TLS or DTLS protocol for the transport layer security.
+      Defaults to <c>tls</c> Introduced in OTP 20, DTLS support is considered
+      experimental in this release. DTLS over other transports than UDP are not yet supported.</p></item>
 
       <tag><c>{cert, public_key:der_encoded()}</c></tag>
       <item><p>The DER-encoded users certificate. If this option
@@ -217,6 +230,11 @@
       Anonymous cipher suites are supported for testing purposes
       only and are not be used when security matters.</p></item>
 
+      <tag><c>{eccs, [named_curve()]}</c></tag>
+      <item><p> Allows to specify the order of preference for named curves
+      and to restrict their usage when using a cipher suite supporting them.
+      </p></item>
+
       <tag><c>{secure_renegotiate, boolean()}</c></tag>
       <item><p>Specifies if to reject renegotiation attempt that does
       not live up to 
@@ -236,7 +254,7 @@
       be PEER, CA, ROOT-CA; if 2 the path can be PEER, CA, CA, 
       ROOT-CA, and so on. The default value is 1.</p></item>
 
-      <tag><c>{verify_fun, {Verifyfun :: fun(), InitialUserState ::
+      <tag><marker id="verify_fun"/><c>{verify_fun, {Verifyfun :: fun(), InitialUserState ::
       term()}}</c></tag>
       <item><p>The verification fun is to be defined as follows:</p>
 
@@ -411,6 +429,14 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
 	    </taglist>
 
 	  </item>
+
+	  <tag><c>max_handshake_size</c></tag>
+	  <item>
+	    <p>Integer (24 bits unsigned). Used to limit the size of
+	    valid TLS handshake packets to avoid DoS attacks.
+	    Defaults to 256*1024.</p>
+          </item>
+          
 	</taglist>
 
       </item>
@@ -561,15 +587,23 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <item><p>Specifies the username and password to use to authenticate
       to the server.</p></item>
 
-      <tag><c>{server_name_indication, hostname()}</c></tag>
-      <item><p>Can be specified when upgrading a TCP socket to a TLS
-        socket to use the TLS Server Name Indication extension.</p></item>
+      <tag><c>{server_name_indication, HostName :: hostname()}</c></tag>
+      <item><p>Specify the hostname to be used in TLS Server Name Indication extension.
+      Is usefull when upgrading a TCP socket to a TLS socket or if the hostname can not be 
+      derived from the Host argument to <seealso marker="ssl#connect-3">ssl:connect/3</seealso>.
+      Will also cause the client to preform host name verification of the peer certificate
+      <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname(PeerCert, [{dns_id, HostName}])</seealso>
+      </p> during the x509-path validation. If the check fails the error {bad_cert, hostname_check_failiure} will be
+      propagated to the path validation fun <seealso marker="#verify_fun">verify_fun</seealso>
+      </item>
 
 	<tag><c>{server_name_indication, disable}</c></tag>
       <item>
         <p>When starting a TLS connection without upgrade, the Server Name
-        Indication extension is sent if possible. This option can be
-        used to disable that behavior.</p>
+        Indication extension is sent if possible that is can be derived from the Host argument 
+        to <seealso marker="ssl#connect-3">ssl:connect/3</seealso>.  
+	This option can be used to disable that behavior.</p>
+	<note><p> Note that this also disables the default host name verification check of the peer certificate.</p></note>
       </item>
       <tag><c>{fallback, boolean()}</c></tag>
       <item>
@@ -751,6 +785,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
       (the default), use the client's preference.
       </item>
       
+      <tag><c>{honor_ecc_order, boolean()}</c></tag>
+      <item>If true, use the server's preference for ECC curve selection. If false
+      (the default), use the client's preference.
+      </item>
+
       <tag><c>{signature_algs, [{hash(), ecdsa | rsa | dsa}]}</c></tag>
       <item><p> The algorithms specified by
       this option will be the ones accepted by the server in a signature algorithm
@@ -801,6 +840,17 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	<c>cipher_suites(all)</c> are not used unless explicitly configured
 	by the user.</p>
     </desc>
+    </func>
+
+    <func>
+      <name>eccs() -></name>
+      <name>eccs(protocol()) -> [named_curve()]</name>
+      <fsummary>Returns a list of supported ECCs.</fsummary>
+
+      <desc><p>Returns a list of supported ECCs. <c>eccs()</c>
+      is equivalent to calling <c>eccs(Protocol)</c> with all
+      supported protocols and then deduplicating the output.</p>
+      </desc>
     </func>
 
     <func>
@@ -898,13 +948,14 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <fsummary>Returns all the connection information.
       </fsummary>
       <type>
-        <v>Item = protocol | cipher_suite | sni_hostname | atom()</v>
+        <v>Item = protocol | cipher_suite | sni_hostname | ecc | session_id | atom()</v>
 	<d>Meaningful atoms, not specified above, are the ssl option names.</d>
 	<v>Result = [{Item::atom(), Value::term()}]</v>
         <v>Reason = term()</v>
       </type>
-      <desc><p>Returns all relevant information about the connection, ssl options that
-      are undefined will be filtered out.</p>
+      <desc><p>Returns the most relevant information about the connection, ssl options that
+      are undefined will be filtered out. Note that values that affect the security of the
+      connection will only be returned if explicitly requested by connection_information/2.</p>
       </desc>
     </func>
 
@@ -915,8 +966,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </fsummary>
       <type>
 	<v>Items = [Item]</v>
-	<v>Item = protocol | cipher_suite | sni_hostname | atom()</v>
-	<d>Meaningful atoms, not specified above, are the ssl option names.</d>
+	<v>Item = protocol | cipher_suite | sni_hostname | ecc | session_id | client_random 
+          | server_random  | master_secret | atom()</v>
+	<d>Note that client_random, server_random  and master_secret are values
+        that affect the security of connection. Meaningful atoms, not specified above, are the ssl option names.</d>
 	<v>Result = [{Item::atom(), Value::term()}]</v>
         <v>Reason = term()</v>
       </type>

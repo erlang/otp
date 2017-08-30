@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,7 +34,8 @@
 
 %% Test cases
 -export([app_file/1, appup_file/1,
-	 basic/1, process_win/1, table_win/1
+	 basic/1, process_win/1, table_win/1,
+         port_win_when_tab_not_initiated/1
 	]).
 
 %% Default timetrap timeout (set in init_per_testcase)
@@ -49,7 +50,8 @@ groups() ->
     [{gui, [],
       [basic,
        process_win,
-       table_win
+       table_win,
+       port_win_when_tab_not_initiated
       ]
      }].
 
@@ -299,6 +301,17 @@ table_win(Config) when is_list(Config) ->
     observer:stop(),
     ok.
 
+%% Test PR-1296/OTP-14151
+%% Clicking a link to a port before the port tab has been activated the
+%% first time crashes observer.
+port_win_when_tab_not_initiated(Config) ->
+    {ok,Port} = gen_tcp:listen(0,[]),
+    ok = observer:start(),
+    Notebook = setup_whitebox_testing(),
+    observer ! {open_link,erlang:port_to_list(Port)},
+    timer:sleep(1000),
+    observer:stop(),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

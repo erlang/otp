@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -279,8 +279,8 @@
 %%----------------------------------------------------------------------
 %% Profile Body
 %%
-%% iiop_version: describes the version of IIOP that the agent at the 
-%%		specified adress is prepared to receive.
+%% iiop_version: describes the version of IIOP that the agent at the
+%%		specified address is prepared to receive.
 %% host: identifies the internet host to which the GIOP messages
 %%		for the specified object may be sent.
 %% port: contains the TCP?IP port number where the target agnet is listening

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2115,7 +2115,7 @@ call_RQprotected(Module, Obj, Func, Args, GroupID, RQCtx) ->
 			 sticky_write),
 	    Reply;
 	% retransmitted request
-	#ft_reply_retention{reply = Reply} ->
+	[#ft_reply_retention{reply = Reply}] ->
 	    Reply
     end.
 

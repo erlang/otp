@@ -258,7 +258,7 @@ make_command(Vars, Spec, State) ->
 
 run_batch(Vars, _Spec, State) ->
     process_flag(trap_exit, true),
-    Command = State#state.command ++ " -noinput -s erlang halt",
+    Command = State#state.command ++ " -noinput -eval \"erlang:halt(0,[{flush,false}]).\"",
     ts_lib:progress(Vars, 1, "Command: ~ts~n", [Command]),
     io:format(user, "Command: ~ts~n",[Command]),
     Port = open_port({spawn, Command}, [stream, in, eof, exit_status]),

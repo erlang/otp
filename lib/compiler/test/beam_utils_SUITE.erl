@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2015. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -283,6 +283,9 @@ coverage(_Config) ->
 
     {'EXIT',{function_clause,_}} = (catch town(overall, {{abc},alcohol})),
 
+    self() ! junk_message,
+    {"url",#{true:="url"}} = appointment(#{"resolution" => "url"}),
+
     ok.
 
 %% Cover check_liveness/3.
@@ -352,6 +355,9 @@ yellow(Hill) ->
     Hill,
     id(42).
 
+do(A, B) -> {A,B}.
+appointment(#{"resolution" := Url}) ->
+    do(receive _ -> Url end, #{true => Url}).
 
 %% The identity function.
 id(I) -> I.

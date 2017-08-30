@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2011</year><year>2016</year>
+      <year>2011</year><year>2017</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -43,7 +43,7 @@
     <seealso marker="ttb"><c>ttb</c></seealso>.
     </p>
 
-    <p>For detalis about how to get started, see the 
+    <p>For details about how to get started, see the
     <seealso marker="observer_ug"><c>User's Guide</c></seealso>.</p>
   </description>
   <funcs>

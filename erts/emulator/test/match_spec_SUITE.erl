@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {seconds, 30}}].
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     case test_server:is_native(match_spec_SUITE) of
@@ -427,13 +427,13 @@ silent_no_ms(Config) when is_list(Config) ->
               %%
               [{trace,Tracee,call,{?MODULE,f1,[start]}},
                {trace,Tracee,return_to,
-                {?MODULE,'-silent_no_ms/1-fun-2-',0}},
+                {?MODULE,'-silent_no_ms/1-fun-3-',0}},
                {trace,Tracee,call,{?MODULE,f2,[f,g]}},
                {trace,Tracee,return_to,
-                {?MODULE,'-silent_no_ms/1-fun-2-',0}},
+                {?MODULE,'-silent_no_ms/1-fun-3-',0}},
                {trace,Tracee,call,{erlang,integer_to_list,[2]}},
                {trace,Tracee,return_to,
-                {?MODULE,'-silent_no_ms/1-fun-2-',0}},
+                {?MODULE,'-silent_no_ms/1-fun-3-',0}},
                {trace,Tracee,call,{?MODULE,f2,[h,i]}},
                {trace,Tracee,return_to,{?MODULE,f3,2}}]
       end).
@@ -484,7 +484,7 @@ ms_trace2(Config) when is_list(Config) ->
               %%
               %% Expected: (no return_to for global call trace)
               %%
-              Origin = {match_spec_SUITE,'-ms_trace2/1-fun-0-',1},
+              Origin = {match_spec_SUITE,'-ms_trace2/1-fun-1-',1},
               [{trace_ts,Tracee,call,
                 {?MODULE,fn,
                  [[all],[call,return_to,{tracer,Tracer}]]},
@@ -574,7 +574,7 @@ ms_trace3(Config) when is_list(Config) ->
               %%
               %% Expected: (no return_to for global call trace)
               %%
-              Origin = {match_spec_SUITE,'-ms_trace3/1-fun-1-',2},
+              Origin = {match_spec_SUITE,'-ms_trace3/1-fun-2-',2},
               [{trace_ts,Controller,call,
                 {?MODULE,fn,[TraceeName,[all],
                              [call,return_to,send,'receive',
@@ -646,7 +646,7 @@ destructive_in_test_bif(Config) when is_list(Config) ->
 			       ([],[{'_',[],[{message,{get_tcw}}]}],trace),
     ok.
 
-%% Test that the comparision between boxed and small does not crash emulator
+%% Test that the comparison between boxed and small does not crash emulator
 boxed_and_small(Config) when is_list(Config) ->
     {ok, Node} = start_node(match_spec_suite_other),
     ok = rpc:call(Node,?MODULE,do_boxed_and_small,[]),

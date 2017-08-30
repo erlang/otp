@@ -22,6 +22,7 @@ autom4te.cache
 #
 /bootstrap/lib/compiler/egen
 /bootstrap/lib/stdlib/egen
+/lib/stdlib/src/unicode_util.erl
 
 # Compiler derivatives
 #
@@ -37,6 +38,7 @@ i386-pc-solaris[0-9]*.[0-9]*
 i386-unknown-freebsd[0-9]*.[0-9]*
 tile-tilera-linux-gnu
 powerpc-unknown-linux-gnu
+aarch64-unknown-linux-gnu
 i386-elf-ose
 powerpc-unknown-ose
 
@@ -143,6 +145,7 @@ JAVADOC-GENERATED
 
 /make/output.mk
 /make/emd2exml
+/make/make_emakefile
 
 # Created by "out_build update_primary"
 /bootstrap/primary_compiler/

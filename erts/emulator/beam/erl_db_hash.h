@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,22 +50,22 @@ typedef struct db_table_hash_fine_locks {
 typedef struct db_table_hash {
     DbTableCommon common;
 
-    erts_smp_atomic_t segtab;  /* The segment table (struct segment**) */
+    /* SMP: szm and nactive are write-protected by is_resizing or table write lock */
     erts_smp_atomic_t szm;     /* current size mask. */
-    
+    erts_smp_atomic_t nactive; /* Number of "active" slots */
+
+    erts_smp_atomic_t segtab;  /* The segment table (struct segment**) */
+    struct segment* first_segtab[1];
+
     /* SMP: nslots and nsegs are protected by is_resizing or table write lock */
     int nslots;       /* Total number of slots */
     int nsegs;        /* Size of segment table */
 
     /* List of slots where elements have been deleted while table was fixed */
     erts_smp_atomic_t fixdel;  /* (FixedDeletion*) */	
-    erts_smp_atomic_t nactive; /* Number of "active" slots */
-    erts_smp_atomic_t is_resizing; /* grow/shrink in progress */
 #ifdef ERTS_SMP
+    erts_smp_atomic_t is_resizing; /* grow/shrink in progress */
     DbTableHashFineLocks* locks;
-#endif
-#ifdef VALGRIND
-    struct ext_segment* top_ptr_to_segment_with_active_segtab;
 #endif
 } DbTableHash;
 
@@ -75,7 +75,7 @@ typedef struct db_table_hash {
 ** table types. The process is always an [in out] parameter.
 */
 void db_initialize_hash(void);
-void db_unfix_table_hash(DbTableHash *tb /* [in out] */);
+SWord db_unfix_table_hash(DbTableHash *tb);
 Uint db_kept_items_hash(DbTableHash *tb);
 
 /* Interface for meta pid table */
@@ -87,14 +87,6 @@ int db_put_hash(DbTable *tbl, Eterm obj, int key_clash_fail);
 int db_get_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret);
 
 int db_erase_hash(DbTable *tbl, Eterm key, Eterm *ret);
-
-int db_get_element_array(DbTable *tbl, 
-			 Eterm key,
-			 int ndex, 
-			 Eterm *ret,
-			 int *num_ret); 
-
-int db_erase_bag_exact2(DbTable *tbl, Eterm key, Eterm value);
 
 /* not yet in method table */
 int db_mark_all_deleted_hash(DbTable *tbl);
@@ -109,5 +101,6 @@ typedef struct {
 }DbHashStats;
 
 void db_calc_stats_hash(DbTableHash* tb, DbHashStats*);
+Eterm erts_ets_hash_sizeof_ext_segtab(void);
 
 #endif /* _DB_HASH_H */

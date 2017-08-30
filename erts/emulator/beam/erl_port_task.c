@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2006-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -936,7 +936,7 @@ enqueue_port(ErtsRunQueue *runq, Port *pp)
     erts_smp_inc_runq_len(runq, &runq->ports.info, ERTS_PORT_PRIO_LEVEL);
 
 #ifdef ERTS_SMP
-    if (runq->halt_in_progress)
+    if (ERTS_RUNQ_FLGS_GET_NOB(runq) & ERTS_RUNQ_FLG_HALTING)
 	erts_non_empty_runq(runq);
 #endif
 }
@@ -2159,13 +2159,6 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 #else
     pp->cleanup = 1;
 #endif
-}
-
-int
-erts_port_is_scheduled(Port *pp)
-{
-    erts_aint32_t flags = erts_smp_atomic32_read_acqb(&pp->sched.flags);
-    return (flags & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)) != 0;
 }
 
 #ifdef ERTS_SMP

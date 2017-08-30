@@ -60,19 +60,26 @@
 %%% data structures or passed to BIFs.
 %%%
 
+-type label() :: beam_asm:label().
+-type func_info() :: {beam_asm:reg(),boolean()}.
+
 -record(btb,
-	{f,					%Gbtrees for all functions.
-	 index,					%{Label,Code} index (for liveness).
-	 ok_br,					%Labels that are OK.
-	 must_not_save,				%Must not save position when
-						% optimizing (reaches
-						% bs_context_to_binary).
-	 must_save				%Must save position when optimizing.
+	{f :: gb_trees:tree(label(), func_info()),
+	 index :: beam_utils:code_index(), %{Label,Code} index (for liveness).
+	 ok_br=gb_sets:empty() :: gb_sets:set(label()), %Labels that are OK.
+	 must_not_save=false :: boolean(), %Must not save position when
+					   % optimizing (reaches
+                                           % bs_context_to_binary).
+	 must_save=false :: boolean() %Must save position when optimizing.
 	}).
 
+
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,Lc}, Opts) ->
-    D = #btb{f=btb_index(Fs0)},
-    Fs = [function(F, D) || F <- Fs0],
+    FIndex = btb_index(Fs0),
+    Fs = [function(F, FIndex) || F <- Fs0],
     Code = {Mod,Exp,Attr,Fs,Lc},
     case proplists:get_bool(bin_opt_info, Opts) of
 	true ->
@@ -92,10 +99,10 @@ format_error({no_bin_opt,Reason}) ->
 %%% Local functions.
 %%% 
 
-function({function,Name,Arity,Entry,Is}, D0) ->
+function({function,Name,Arity,Entry,Is}, FIndex) ->
     try
 	Index = beam_utils:index_labels(Is),
-	D = D0#btb{index=Index},
+	D = #btb{f=FIndex,index=Index},
 	{function,Name,Arity,Entry,btb_opt_1(Is, D, [])}
     catch
 	Class:Error ->
@@ -179,15 +186,14 @@ btb_gen_save(false, _, Acc) -> Acc.
 %%  a bs_context_to_binary instruction.
 %% 
 
-btb_reaches_match(Is, RegList, D0) ->
+btb_reaches_match(Is, RegList, D) ->
     try
 	Regs = btb_regs_from_list(RegList),
-	D = D0#btb{ok_br=gb_sets:empty(),must_not_save=false,must_save=false},
 	#btb{must_not_save=MustNotSave,must_save=MustSave} =
-	btb_reaches_match_1(Is, Regs, D),
-	case MustNotSave and MustSave of
+            btb_reaches_match_1(Is, Regs, D),
+	case MustNotSave andalso MustSave of
 	    true -> btb_error(must_and_must_not_save);
-	    _    -> {ok,MustSave}
+	    false -> {ok,MustSave}
 	end
     catch
 	throw:{error,_}=Error -> Error
@@ -205,8 +211,15 @@ btb_reaches_match_1(Is, Regs, D) ->
 btb_reaches_match_2([{block,Bl}|Is], Regs0, D) ->
     Regs = btb_reaches_match_block(Bl, Regs0),
     btb_reaches_match_1(Is, Regs, D);
-btb_reaches_match_2([{call,Arity,{f,Lbl}}|Is], Regs, D) ->
-    btb_call(Arity, Lbl, Regs, Is, D);
+btb_reaches_match_2([{call,Arity,{f,Lbl}}|Is], Regs0, D) ->
+    case is_tail_call(Is) of
+	true ->
+	    Regs1 = btb_kill_not_live(Arity, Regs0),
+	    Regs = btb_kill_yregs(Regs1),
+	    btb_tail_call(Lbl, Regs, D);
+	false ->
+	    btb_call(Arity, Lbl, Regs0, Is, D)
+    end;
 btb_reaches_match_2([{apply,Arity}|Is], Regs, D) ->
     btb_call(Arity+2, apply, Regs, Is, D);
 btb_reaches_match_2([{call_fun,Live}=I|Is], Regs, D) ->
@@ -360,6 +373,10 @@ btb_reaches_match_2([{line,_}|Is], Regs, D) ->
 btb_reaches_match_2([I|_], Regs, _) ->
     btb_error({btb_context_regs(Regs),I,not_handled}).
 
+is_tail_call([{deallocate,_}|_]) -> true;
+is_tail_call([return|_]) -> true;
+is_tail_call(_) -> false.
+
 btb_call(Arity, Lbl, Regs0, Is, D0) ->
     Regs = btb_kill_not_live(Arity, Regs0),
     case btb_are_x_registers_empty(Regs) of
@@ -369,15 +386,15 @@ btb_call(Arity, Lbl, Regs0, Is, D0) ->
 	    D = btb_tail_call(Lbl, Regs, D0),
 
 	    %% No problem so far (the called function can handle a
-	    %% match context). Now we must make sure that the rest
-	    %% of this function following the call does not attempt
-	    %% to use the match context in case there is a copy
-	    %% tucked away in a y register.
+	    %% match context). Now we must make sure that we don't
+	    %% have any copies of the match context tucked away in an
+	    %% y register.
 	    RegList = btb_context_regs(Regs),
-	    YRegs = [R || {y,_}=R <- RegList],
-	    case btb_are_all_unused(YRegs, Is, D) of
-		true -> D;
-		false -> btb_error({multiple_uses,RegList})
+	    case [R || {y,_}=R <- RegList] of
+		[] ->
+		    D;
+		[_|_] ->
+		    btb_error({multiple_uses,RegList})
 	    end;
 	true ->
 	    %% No match context in any x register. It could have been

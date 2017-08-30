@@ -65,9 +65,8 @@ parent).</p>
 
 <taglist>
 
-<marker id="message"/>
-
-<tag><c>message() = binary() | &codec_packet;</c></tag>
+<tag>
+<marker id="message"/><c>message() = binary() | &codec_packet;</c></tag>
 <item>
 <p>
 A Diameter message as passed over the transport interface.</p>
@@ -160,9 +159,9 @@ It should exit if its transport connection with its peer is lost.</p>
 </funcs>
 
 <!-- ===================================================================== -->
-<marker id="MESSAGES"/>
 
 <section>
+<marker id="MESSAGES"/>
 <title>MESSAGES</title>
 
 <p>
@@ -234,7 +233,7 @@ established a connection with the peer.
 Not sent if the transport process has <c>Type=connect</c>.</p>
 </item>
 
-<tag><c>{diameter, {self(), connected, Remote}}</c></tag>
+<tag><c>{diameter, {self(), connected, Remote}}</c></tag><item/>
 <tag><c>{diameter, {self(), connected, Remote, [LocalAddr]}}</c></tag>
 <item>
 <p>

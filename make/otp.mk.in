@@ -4,7 +4,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2013. All Rights Reserved.
+# Copyright Ericsson AB 1997-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,6 +46,10 @@ CROSS_COMPILING = @CROSS_COMPILING@
 #	Common macros
 # ----------------------------------------------------
 DEFAULT_TARGETS =  opt debug release release_docs clean docs
+
+DEFAULT_FLAVOR=@DEFAULT_FLAVOR@
+FLAVORS=@FLAVORS@
+TYPES=@TYPES@
 
 # Slash separated list of return values from $(origin VAR)
 # that are untrusted - set default in this file instead.
@@ -260,6 +264,7 @@ DEFAULT_GIF_FILES = $(HTMLDIR)/min_head.gif
 XSLTPROC = @XSLTPROC@
 FOP = @FOP@
 XMLLINT = @XMLLINT@
+CP = @CP@
 
 DOCGEN=$(ERL_TOP)/lib/erl_docgen
 FOP_CONFIG = $(DOCGEN)/priv/fop.xconf
@@ -270,6 +275,8 @@ endif
 SPECS_EXTRACTOR=$(DOCGEN)/priv/bin/specs_gen.escript
 # Extract specifications and types from Erlang source files (-spec, -type)
 $(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/%.erl
+	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/gen/%.erl
 	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
 
 

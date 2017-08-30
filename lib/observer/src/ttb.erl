@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -78,6 +78,11 @@ do_tracer(Nodes0,PI,Client,Traci) ->
 
 do_tracer(Clients,PI,Traci) ->
     Shell = proplists:get_value(shell, Traci, false),
+    IpPortSpec =
+	case proplists:get_value(queue_size, Traci) of
+	    undefined -> 0;
+	    QS -> {0,QS}
+	end,
     DefShell = fun(Trace) -> dbg:dhandler(Trace, standard_io) end,
     {ClientSucc,Succ} =
 	lists:foldl(
@@ -98,7 +103,7 @@ do_tracer(Clients,PI,Traci) ->
 				 [_,H] = string:tokens(atom_to_list(N),"@"),
 				 H
 			 end,
-		  case catch dbg:tracer(N,port,dbg:trace_port(ip,0)) of
+		  case catch dbg:tracer(N,port,dbg:trace_port(ip,IpPortSpec)) of
 		      {ok,N} ->
 			  {ok,Port} = dbg:trace_port_control(N,get_listen_port),
 			  {ok,T} = dbg:get_tracer(N),
@@ -160,6 +165,8 @@ opt([{resume,MSec}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{resume, {true, MSec}}|Traci]});
 opt([{flush,MSec}|O],{PI,Client,Traci}) ->
     opt(O,{PI,Client,[{flush, MSec}|Traci]});
+opt([{queue_size,QueueSize}|O],{PI,Client,Traci}) ->
+    opt(O,{PI,Client,[{queue_size,QueueSize}|Traci]});
 opt([],Opt) ->
     ensure_opt(Opt).
 
@@ -384,16 +391,16 @@ run_config(ConfigFile,N) ->
     
 print_func(M,F,A) ->
     Args = arg_list(A,[]),
-    io:format("~w:~w(~s) ->~n",[M,F,Args]).
+    io:format("~w:~tw(~ts) ->~n",[M,F,Args]).
 print_result(R) ->
-    io:format("~p~n~n",[R]).
+    io:format("~tp~n~n",[R]).
 
 arg_list([],[]) ->
     "";
 arg_list([A1],Acc) ->
-    Acc++io_lib:format("~w",[A1]);
+    Acc++io_lib:format("~tw",[A1]);
 arg_list([A1|A],Acc) ->
-    arg_list(A,Acc++io_lib:format("~w,",[A1])).
+    arg_list(A,Acc++io_lib:format("~tw,",[A1])).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1110,7 +1117,7 @@ get_fd(Out) ->
 	    Out;
 	_file ->
 	    file:delete(Out),
-	    case file:open(Out,[append]) of
+	    case file:open(Out,[append,{encoding,utf8}]) of
 		{ok,Fd} -> Fd;
 		Error -> exit(Error)
 	    end

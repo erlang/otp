@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -132,12 +132,10 @@
           <tag><c>debug_info</c></tag>
           <item>
             <marker id="debug_info"></marker>
-            <p>Includes debug information in the form of abstract code
-              (see
-              <seealso marker="erts:absform">The Abstract Format</seealso>
-              in ERTS User's Guide) in the compiled beam module. Tools
-	      such as <c>Debugger</c>, <c>Xref</c>, and <c>Cover</c> require 
-	      the debug information to be included.</p>
+            <p>Includes debug information in the form of <seealso marker="erts:absform">
+              Erlang Abstract Format</seealso> in the <c>debug_info</c>
+              chunk of the compiled beam module. Tools such as Debugger,
+              Xref, and Cover require the debug information to be included.</p>
 
             <p><em>Warning</em>: Source code can be reconstructed from
               the debug information. Use encrypted debug information
@@ -145,6 +143,21 @@
 
             <p>For details, see
               <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
+          </item>
+
+          <tag><c>{debug_info, {Backend, Data}}</c></tag>
+          <item>
+            <marker id="debug_info"></marker>
+            <p>Includes custom debug information in the form of a
+              <c>Backend</c> module with custom <c>Data</c> in the compiled beam module.
+              The given module must implement a <c>debug_info/4</c> function
+              and is responsible for generating different code representations,
+              as described in the <c>debug_info</c> under
+              <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
+
+            <p><em>Warning</em>: Source code can be reconstructed from
+              the debug information. Use encrypted debug information
+              (<c>encrypt_debug_info</c>) to prevent this.</p>
           </item>
 
           <tag><c>{debug_info_key,KeyString}</c></tag>
@@ -174,6 +187,14 @@
 
 	    <p>For details, see
               <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
+          </item>
+
+          <tag><c>deterministic</c></tag>
+          <item>
+            <p>Omit the <c>options</c> and <c>source</c> tuples in
+	    the list returned by <c>Module:module_info(compile)</c>.
+	    This option will make it easier to achieve reproducible builds.
+	    </p>
           </item>
 
           <tag><c>makedep</c></tag>
@@ -410,7 +431,7 @@ module.beam: module.erl \
 	  without module prefix to local or imported functions before
 	  trying with auto-imported BIFs. If the BIF is to be
 	  called, use the <c>erlang</c> module prefix in the call, not
-	  <c>{ no_auto_import,[{F,A}, ...]}</c>.</p>
+	  <c>{no_auto_import,[{F,A}, ...]}</c>.</p>
 	  </note>
 	  <p>If this option is written in the source code, as a 
 	  <c>-compile</c> directive, the syntax <c>F/A</c> can be used instead 
@@ -431,6 +452,15 @@ module.beam: module.erl \
 	    </p>
           </item>
 
+          <tag><c>{extra_chunks, [{binary(), binary()}]}</c></tag>
+          <item>
+            <p>Pass extra chunks to be stored in the <c>.beam</c> file.
+              The extra chunks must be a list of tuples with a four byte
+              binary as chunk name followed by a binary with the chunk contents.
+              See <seealso marker="stdlib:beam_lib">beam_lib</seealso> for
+              more information.
+	    </p>
+          </item>
         </taglist>
 
         <p>If warnings are turned on (option <c>report_warnings</c>
@@ -498,9 +528,11 @@ module.beam: module.erl \
 	    </warning>
           </item>
 
-	  <tag><c>warn_export_all</c></tag>
+	  <tag><c>nowarn_export_all</c></tag>
           <item>
-	      <p>Emits a warning if option <c>export_all</c> is also given.</p>
+	      <p>Turns off warnings for uses of the <c>export_all</c>
+	      option. Default is to emit a warning if option
+	      <c>export_all</c> is also given.</p>
           </item>
 
 	  <tag><c>warn_export_vars</c></tag>
@@ -544,7 +576,7 @@ module.beam: module.erl \
 	    compiler to be deprecated. Notice that the compiler does not know
 	      about attribute <c>-deprecated()</c>, but uses an
 	      assembled list of deprecated functions in Erlang/OTP. To
-	      do a more general check, the <c>Xref</c> tool can be used.
+	      do a more general check, the Xref tool can be used.
 	      See also
 	      <seealso marker="tools:xref#deprecated_function">xref(3)</seealso>
               and the function
@@ -568,13 +600,13 @@ module.beam: module.erl \
 	    to be deprecated.</p>
           </item>
 
-	  <tag><c>warn_obsolete_guard</c></tag>
+	  <tag><c>nowarn_obsolete_guard</c></tag>
           <item>
-            <p>Emits warnings for calls to old type testing BIFs, 
+            <p>Turns off warnings for calls to old type testing BIFs, 
 	    such as <c>pid/1</c> and <c>list/1</c>. See the
 	    <seealso marker="doc/reference_manual:expressions#guards">Erlang Reference Manual</seealso>
 	      for a complete list of type testing BIFs and their old
-	      equivalents. Default is to emit no warnings for calls to 
+	      equivalents. Default is to emit warnings for calls to
 	      old type testing BIFs.</p>
           </item>
 
@@ -596,6 +628,14 @@ module.beam: module.erl \
           <item>
             <p>Turns off warnings for unused record types. Default is to 
 	    emit warnings for unused locally defined record types.</p>
+          </item>
+
+	  <tag><c>nowarn_get_stacktrace</c></tag>
+          <item>
+            <p>Turns off warnings for using <c>get_stacktrace/0</c> in a context
+	    where it will probably not work in a future release. For example,
+	    by default there will be a warning if <c>get_stacktrace/0</c> is
+	    used following a <c>catch</c> expression.</p>
           </item>
         </taglist>
 
@@ -669,7 +709,7 @@ module.beam: module.erl \
       <fsummary>Compiles a list of forms.</fsummary>
       <desc>
         <p>Is the same as
-	  <c>forms(File, [verbose,report_errors,report_warnings])</c>.
+	  <c>forms(Forms, [verbose,report_errors,report_warnings])</c>.
 	</p>
       </desc>
     </func>
@@ -846,7 +886,7 @@ pi() -> 3.1416.
   <section>
     <title>Inlining of List Functions</title>
     <p>The compiler can also inline various list manipulation functions
-      from the module <c>list</c> in <c>STDLIB</c>.</p>
+      from the module <c>list</c> in STDLIB.</p>
 
     <p>This feature must be explicitly enabled with a compiler option or a
       <c>-compile()</c> attribute in the source module.</p>

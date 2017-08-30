@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -175,7 +175,7 @@ do_cover_compile(Modules) ->
     ok.
 
 warn_compile({error,{Reason,Module}}) ->
-    io:fwrite("\nWARNING: Could not cover compile ~ts: ~p\n",
+    io:fwrite("\nWARNING: Could not cover compile ~ts: ~tp\n",
 	      [Module,{error,Reason}]).
 
 %% Make sure all modules are loaded and unstick if sticky
@@ -189,7 +189,7 @@ prepare_cover_compile([M|Ms],Sticky) ->
 		{module,_} ->
 		    prepare_cover_compile([M|Ms],Sticky);
 		Error ->
-		    io:fwrite("\nWARNING: Could not load ~w: ~p\n",[M,Error]),
+		    io:fwrite("\nWARNING: Could not load ~w: ~tp\n",[M,Error]),
 		    prepare_cover_compile(Ms,Sticky)
 	    end;
 	{false,_} ->
@@ -359,10 +359,10 @@ stick_all_sticky(Node,Sticky) ->
 %% cover.
 
 run_test_case_apply({Mod,Func,Args,Name,RunInit,TimetrapData}) ->
-    case os:getenv("TS_RUN_VALGRIND") of
+    case is_valgrind() of
 	false ->
 	    ok;
-	_ ->
+	true ->
 	    os:putenv("VALGRIND_LOGFILE_INFIX",atom_to_list(Mod)++"."++
 		      atom_to_list(Func)++"-")
     end,
@@ -450,7 +450,7 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 			 exit(Pid, kill),
 			 %% here's the only place we know Reason, so we save
 			 %% it as a comment, potentially replacing user data
-			 Error = lists:flatten(io_lib:format("Aborted: ~p",
+			 Error = lists:flatten(io_lib:format("Aborted: ~tp",
 							     [Reason])),
 			 Error1 = lists:flatten([string:strip(S,left) ||
 						    S <- string:tokens(Error,
@@ -756,13 +756,13 @@ print_end_conf_result(Mod,Func,Conf,Cause,Error) ->
     Str2Print =
 	fun(NoHTML) when NoHTML == stdout; NoHTML == major ->
 		io_lib:format("WARNING! "
-			      "~w:end_per_testcase(~w, ~tp)"
+			      "~w:end_per_testcase(~tw, ~tp)"
 			      " ~s!\n\tReason: ~tp\n",
 			      [Mod,Func,Conf,Cause,Error]);		    
 	   (minor) ->
 		ErrorStr = test_server_ctrl:escape_chars(Error),
 		io_lib:format("WARNING! "
-			      "~w:end_per_testcase(~w, ~tp)"
+			      "~w:end_per_testcase(~tw, ~tp)"
 			      " ~s!\n\tReason: ~ts\n",
 			      [Mod,Func,Conf,Cause,ErrorStr])
 	end,
@@ -778,9 +778,9 @@ spawn_fw_call(Mod,IPTC={init_per_testcase,Func},CurrConf,Pid,
 		%% if init_per_testcase fails, the test case
 		%% should be skipped
 		try begin do_end_tc_call(Mod,IPTC, {Pid,Skip,[CurrConf]}, Why),
-			  do_init_tc_call(Mod,{end_per_testcase,Func},
+			  do_init_tc_call(Mod,{end_per_testcase_not_run,Func},
 					  [CurrConf],{ok,[CurrConf]}),
-			  do_end_tc_call(Mod,{end_per_testcase,Func}, 
+			  do_end_tc_call(Mod,{end_per_testcase_not_run,Func},
 					 {Pid,Skip,[CurrConf]}, Why) end of
 		    _ -> ok
 		catch
@@ -792,7 +792,7 @@ spawn_fw_call(Mod,IPTC={init_per_testcase,Func},CurrConf,Pid,
 			   _                       -> died
 		       end,
 		group_leader() ! {printout,12,
-				  "ERROR! ~w:init_per_testcase(~w, ~p)"
+				  "ERROR! ~w:init_per_testcase(~tw, ~tp)"
 				  " failed!\n\tReason: ~tp\n",
 				 [Mod,Func,CurrConf,Why]},
 		%% finished, report back
@@ -820,7 +820,7 @@ spawn_fw_call(Mod,EPTC={end_per_testcase,Func},EndConf,Pid,
 			{timetrap_timeout,TVal} ->
 			    group_leader() !
 				{printout,12,
-				 "WARNING! ~w:end_per_testcase(~w, ~p)"
+				 "WARNING! ~w:end_per_testcase(~tw, ~tp)"
 				 " failed!\n\tReason: timetrap timeout"
 				 " after ~w ms!\n", [Mod,Func,EndConf,TVal]},
 			    W = "<font color=\"red\">"
@@ -829,7 +829,7 @@ spawn_fw_call(Mod,EPTC={end_per_testcase,Func},EndConf,Pid,
 			_ ->
 			    group_leader() !
 				{printout,12,
-				 "WARNING! ~w:end_per_testcase(~w, ~p)"
+				 "WARNING! ~w:end_per_testcase(~tw, ~tp)"
 				 " failed!\n\tReason: ~tp\n",
 				 [Mod,Func,EndConf,Why]},
 			    W = "<font color=\"red\">"
@@ -859,7 +859,7 @@ spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo) ->
 		Comment =
 		    lists:flatten(
 		      io_lib:format("<font color=\"red\">"
-				    "WARNING! ~w:~w failed!</font>",
+				    "WARNING! ~w:~tw failed!</font>",
 				    [FwMod,FwFunc])),
 	    %% finished, report back
 	    SendTo ! {self(),fw_notify_done,
@@ -1151,14 +1151,14 @@ do_end_tc_call(Mod, IPTC={init_per_testcase,Func}, Res, Return) ->
 			 Args
 		 end,
 	     EPTCInitRes =
-		 case do_init_tc_call(Mod,{end_per_testcase,Func},
+		 case do_init_tc_call(Mod,{end_per_testcase_not_run,Func},
 				      IPTCEndRes,Return) of
 		     {ok,EPTCInitConfig} when is_list(EPTCInitConfig) ->
 			 {Return,EPTCInitConfig};
 		     _ ->
-			 Return
+                         {Return,IPTCEndRes}
 		 end,
-	     do_end_tc_call1(Mod, {end_per_testcase,Func},
+	     do_end_tc_call1(Mod, {end_per_testcase_not_run,Func},
 			     EPTCInitRes, Return);
 	 _Ok ->
 	     do_end_tc_call1(Mod, IPTC, Res, Return)
@@ -1341,7 +1341,7 @@ print_init_conf_result(Line,Cause,Reason) ->
     Str2Print =
 	fun(NoHTML) when NoHTML == stdout; NoHTML == major ->
 		io_lib:format("ERROR! init_per_testcase ~s!\n"
-				      "\tLocation: ~p\n\tReason: ~tp\n",
+				      "\tLocation: ~tp\n\tReason: ~tp\n",
 				      [Cause,Line,Reason]);
 	   (minor) ->
 		ReasonStr = test_server_ctrl:escape_chars(Reason),
@@ -1413,7 +1413,7 @@ print_end_tc_warning(EndFunc,Reason,Cause,Loc) ->
     Str2Print =
 	fun(NoHTML) when NoHTML == stdout; NoHTML == major ->
 		io_lib:format("WARNING: ~w ~s!\n"
-			      "Reason: ~tp\nLine: ~p\n",
+			      "Reason: ~tp\nLine: ~tp\n",
 			      [EndFunc,Cause,Reason,Loc]);
 	   (minor) ->
 		ReasonStr = test_server_ctrl:escape_chars(Reason),
@@ -1515,7 +1515,7 @@ lookup_config(Key,Config) ->
 	{value,{Key,Val}} ->
 	    Val;
 	_ ->
-	    io:format("Could not find element ~p in Config.~n",[Key]),
+	    io:format("Could not find element ~tp in Config.~n",[Key]),
 	    undefined
     end.
 
@@ -1600,7 +1600,7 @@ format(Detail, Format, Args) ->
     Str =
 	case catch io_lib:format(Format,Args) of
 	    {'EXIT',_} ->
-		io_lib:format("illegal format; ~p with args ~p.\n",
+		io_lib:format("illegal format; ~tp with args ~tp.\n",
 			      [Format,Args]);
 	    Valid -> Valid
 	end,
@@ -1732,7 +1732,7 @@ fail(Reason) ->
 
 cast_to_list(X) when is_list(X) -> X;
 cast_to_list(X) when is_atom(X) -> atom_to_list(X);
-cast_to_list(X) -> lists:flatten(io_lib:format("~p", [X])).
+cast_to_list(X) -> lists:flatten(io_lib:format("~tp", [X])).
 
 
 
@@ -1827,7 +1827,8 @@ timetrap_scale_factor() ->
 	{ 2, fun() -> has_lock_checking() end},
 	{ 3, fun() -> has_superfluous_schedulers() end},
 	{ 6, fun() -> is_debug() end},
-	{10, fun() -> is_cover() end}
+	{10, fun() -> is_cover() end},
+        {10, fun() -> is_valgrind() end}
     ]).
 
 timetrap_scale_factor(Scales) ->
@@ -1903,7 +1904,7 @@ ensure_timetrap(Config) ->
 		Garbage ->
 		    erase(test_server_default_timetrap),
 		    format("=== WARNING: garbage in "
-			   "test_server_default_timetrap: ~p~n",
+			   "test_server_default_timetrap: ~tp~n",
 			   [Garbage])
 	    end,
 	    DTmo = case lists:keysearch(default_timeout,1,Config) of
@@ -1932,7 +1933,7 @@ cancel_default_timetrap(true) ->
 	Garbage ->
 	    erase(test_server_default_timetrap),
 	    format("=== WARNING: garbage in "
-		   "test_server_default_timetrap: ~p~n",
+		   "test_server_default_timetrap: ~tp~n",
 		   [Garbage]),
 	    error
     end.
@@ -1941,7 +1942,7 @@ time_ms({hours,N}, _, _) -> hours(N);
 time_ms({minutes,N}, _, _) -> minutes(N);
 time_ms({seconds,N}, _, _) -> seconds(N);
 time_ms({Other,_N}, _, _) ->
-    format("=== ERROR: Invalid time specification: ~p. "
+    format("=== ERROR: Invalid time specification: ~tp. "
 	   "Should be seconds, minutes, or hours.~n", [Other]),
     exit({invalid_time_format,Other});
 time_ms(Ms, _, _) when is_integer(Ms) -> Ms;
@@ -2726,6 +2727,16 @@ has_superfluous_schedulers() ->
 is_commercial() ->
     case string:str(erlang:system_info(system_version), "source") of
 	Int when is_integer(Int), Int > 0 -> false;
+	_ -> true
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% is_valgrind() -> boolean()
+%%
+%% Returns true if valgrind is running, else false
+is_valgrind() ->
+    case os:getenv("TS_RUN_VALGRIND") of
+	false -> false;
 	_ -> true
     end.
 

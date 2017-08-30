@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -123,10 +123,9 @@ member(_Elem, []) ->
       or <c>receive</c> expression must be bound in all branches 
       to have a value outside the expression. Otherwise they
       are regarded as 'unsafe' outside the expression.</p>
-    <p>For the <c>try</c> expression introduced in 
-      Erlang 5.4/OTP R10B, variable scoping is limited so that
+    <p>For the <c>try</c> expression variable scoping is limited so that
       variables bound in the expression are always 'unsafe' outside 
-      the expression. This is to be improved.</p>
+      the expression.</p>
   </section>
 
   <section>
@@ -189,7 +188,6 @@ f([$p,$r,$e,$f,$i,$x | Str]) -> ...</pre>
       <pre>
 case {Value, Result} of
     {?THRESHOLD+1, ok} -> ...</pre>
-      <p>This feature was added in Erlang 5.0/OTP R7.</p>
     </section>
   </section>
 
@@ -1348,8 +1346,8 @@ catch
         ExceptionBodyN
 end</code>
     <p>This is an enhancement of
-      <seealso marker="#catch">catch</seealso> that appeared in
-      Erlang 5.4/OTP R10B. It gives the possibility to:</p>
+      <seealso marker="#catch">catch</seealso>.
+      It gives the possibility to:</p>
     <list type="bulleted">
       <item>Distinguish between different exception classes.</item>
       <item>Choose to handle only the desired ones.</item>
@@ -1541,7 +1539,16 @@ end</pre>
     <pre>
 1> <input>[X*2 || X &lt;- [1,2,3]].</input>
 [2,4,6]</pre>
-    <p>More examples are provoded in
+    <p>When there are no generators or bit string generators, a list comprehension
+    returns either a list with one element (the result of evaluating <c>Expr</c>)
+    if all filters are true or an empty list otherwise.</p>
+    <p><em>Example:</em></p>
+    <pre>
+1> <input>[2 || is_integer(2)].</input>
+[2]
+2> <input>[x || is_integer(x)].</input>
+[]</pre>
+    <p>More examples are provided in
     <seealso marker="doc/programming_examples:list_comprehensions">
     Programming Examples.</seealso></p>
 

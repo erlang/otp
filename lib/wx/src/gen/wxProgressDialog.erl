@@ -40,40 +40,40 @@
   centreOnScreen/2,clearBackground/1,clientToScreen/2,clientToScreen/3,
   close/1,close/2,connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
   createButtonSizer/2,createStdDialogButtonSizer/2,destroyChildren/1,
-  disable/1,disconnect/1,disconnect/2,disconnect/3,enable/1,enable/2,
-  endModal/2,findWindow/2,fit/1,fitInside/1,freeze/1,getAcceleratorTable/1,
-  getAffirmativeId/1,getBackgroundColour/1,getBackgroundStyle/1,getBestSize/1,
-  getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,getClientSize/1,
-  getContainingSizer/1,getCursor/1,getDropTarget/1,getEventHandler/1,
-  getExtraStyle/1,getFont/1,getForegroundColour/1,getGrandParent/1,
-  getHandle/1,getHelpText/1,getIcon/1,getIcons/1,getId/1,getLabel/1,getMaxSize/1,
-  getMinSize/1,getName/1,getParent/1,getPosition/1,getRect/1,getReturnCode/1,
-  getScreenPosition/1,getScreenRect/1,getScrollPos/2,getScrollRange/2,
-  getScrollThumb/2,getSize/1,getSizer/1,getTextExtent/2,getTextExtent/3,
-  getTitle/1,getToolTip/1,getUpdateRegion/1,getVirtualSize/1,getWindowStyleFlag/1,
-  getWindowVariant/1,hasCapture/1,hasScrollbar/2,hasTransparentBackground/1,
-  hide/1,iconize/1,iconize/2,inheritAttributes/1,initDialog/1,invalidateBestSize/1,
-  isActive/1,isDoubleBuffered/1,isEnabled/1,isExposed/2,isExposed/3,
-  isExposed/5,isFullScreen/1,isIconized/1,isMaximized/1,isModal/1,isRetained/1,
-  isShown/1,isTopLevel/1,layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,
-  makeModal/2,maximize/1,maximize/2,move/2,move/3,move/4,moveAfterInTabOrder/2,
-  moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
-  popEventHandler/1,popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,
-  raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,
-  removeChild/2,reparent/2,requestUserAttention/1,requestUserAttention/2,
-  screenToClient/1,screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,
-  scrollWindow/4,setAcceleratorTable/2,setAffirmativeId/2,setAutoLayout/2,
-  setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,setClientSize/2,
-  setClientSize/3,setContainingSizer/2,setCursor/2,setDoubleBuffered/2,
-  setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,setFont/2,
-  setForegroundColour/2,setHelpText/2,setIcon/2,setIcons/2,setId/2,setLabel/2,
-  setMaxSize/2,setMinSize/2,setName/2,setOwnBackgroundColour/2,setOwnFont/2,
-  setOwnForegroundColour/2,setPalette/2,setReturnCode/2,setScrollPos/3,
-  setScrollPos/4,setScrollbar/5,setScrollbar/6,setShape/2,setSize/2,
-  setSize/3,setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,setSizeHints/4,
-  setSizer/2,setSizer/3,setSizerAndFit/2,setSizerAndFit/3,setThemeEnabled/2,
-  setTitle/2,setToolTip/2,setTransparent/2,setVirtualSize/2,setVirtualSize/3,
-  setVirtualSizeHints/2,setVirtualSizeHints/3,setVirtualSizeHints/4,
+  disable/1,disconnect/1,disconnect/2,disconnect/3,dragAcceptFiles/2,
+  enable/1,enable/2,endModal/2,findWindow/2,fit/1,fitInside/1,freeze/1,
+  getAcceleratorTable/1,getAffirmativeId/1,getBackgroundColour/1,getBackgroundStyle/1,
+  getBestSize/1,getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,
+  getClientSize/1,getContainingSizer/1,getContentScaleFactor/1,getCursor/1,
+  getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,getForegroundColour/1,
+  getGrandParent/1,getHandle/1,getHelpText/1,getIcon/1,getIcons/1,getId/1,
+  getLabel/1,getMaxSize/1,getMinSize/1,getName/1,getParent/1,getPosition/1,
+  getRect/1,getReturnCode/1,getScreenPosition/1,getScreenRect/1,getScrollPos/2,
+  getScrollRange/2,getScrollThumb/2,getSize/1,getSizer/1,getTextExtent/2,
+  getTextExtent/3,getTitle/1,getToolTip/1,getUpdateRegion/1,getVirtualSize/1,
+  getWindowStyleFlag/1,getWindowVariant/1,hasCapture/1,hasScrollbar/2,
+  hasTransparentBackground/1,hide/1,iconize/1,iconize/2,inheritAttributes/1,
+  initDialog/1,invalidateBestSize/1,isActive/1,isDoubleBuffered/1,isEnabled/1,
+  isExposed/2,isExposed/3,isExposed/5,isFullScreen/1,isIconized/1,isMaximized/1,
+  isModal/1,isRetained/1,isShown/1,isTopLevel/1,layout/1,lineDown/1,lineUp/1,
+  lower/1,makeModal/1,makeModal/2,maximize/1,maximize/2,move/2,move/3,
+  move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,navigate/1,navigate/2,
+  pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,popEventHandler/2,
+  popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
+  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,requestUserAttention/1,
+  requestUserAttention/2,screenToClient/1,screenToClient/2,scrollLines/2,
+  scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
+  setAffirmativeId/2,setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,
+  setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
+  setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
+  setFont/2,setForegroundColour/2,setHelpText/2,setIcon/2,setIcons/2,
+  setId/2,setLabel/2,setMaxSize/2,setMinSize/2,setName/2,setOwnBackgroundColour/2,
+  setOwnFont/2,setOwnForegroundColour/2,setPalette/2,setReturnCode/2,
+  setScrollPos/3,setScrollPos/4,setScrollbar/5,setScrollbar/6,setShape/2,
+  setSize/2,setSize/3,setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,
+  setSizeHints/4,setSizer/2,setSizer/3,setSizerAndFit/2,setSizerAndFit/3,
+  setThemeEnabled/2,setTitle/2,setToolTip/2,setTransparent/2,setVirtualSize/2,
+  setVirtualSize/3,setVirtualSizeHints/2,setVirtualSizeHints/3,setVirtualSizeHints/4,
   setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,shouldInheritColours/1,
   show/1,show/2,showFullScreen/2,showFullScreen/3,showModal/1,thaw/1,
   transferDataFromWindow/1,transferDataToWindow/1,updateWindowUI/1,
@@ -93,7 +93,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 	Title::unicode:chardata(), Message::unicode:chardata().
 
 new(Title,Message)
- when is_list(Title),is_list(Message) ->
+ when ?is_chardata(Title),?is_chardata(Message) ->
   new(Title,Message, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxprogressdialog.html#wxprogressdialogwxprogressdialog">external documentation</a>.
@@ -103,7 +103,7 @@ new(Title,Message)
 		 | {'parent', wxWindow:wxWindow()}
 		 | {'style', integer()}.
 new(Title,Message, Options)
- when is_list(Title),is_list(Message),is_list(Options) ->
+ when ?is_chardata(Title),?is_chardata(Message),is_list(Options) ->
   Title_UC = unicode:characters_to_binary([Title,0]),
   Message_UC = unicode:characters_to_binary([Message,0]),
   MOpts = fun({maximum, Maximum}, Acc) -> [<<1:32/?UI,Maximum:32/?UI>>|Acc];
@@ -228,6 +228,8 @@ getIcons(This) -> wxTopLevelWindow:getIcons(This).
 %% @hidden
 getIcon(This) -> wxTopLevelWindow:getIcon(This).
  %% From wxWindow
+%% @hidden
+getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
 %% @hidden
 setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
 %% @hidden
@@ -542,6 +544,8 @@ findWindow(This,Winid) -> wxWindow:findWindow(This,Winid).
 enable(This, Options) -> wxWindow:enable(This, Options).
 %% @hidden
 enable(This) -> wxWindow:enable(This).
+%% @hidden
+dragAcceptFiles(This,Accept) -> wxWindow:dragAcceptFiles(This,Accept).
 %% @hidden
 disable(This) -> wxWindow:disable(This).
 %% @hidden

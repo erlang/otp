@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,5 +24,7 @@
 
 main(_) ->
     Data = {'Top',{short,"abc"},{long,"a long string follows here"}},
-    {ok,B} = 'MultipleLevels':encode('Top', Data),
-    {ok,Data} = 'MultipleLevels':decode('Top', iolist_to_binary(B)).
+    roundtrip('Top', Data).
+
+roundtrip(T, V) ->
+    asn1_test_lib:roundtrip('MultipleLevels', T, V).

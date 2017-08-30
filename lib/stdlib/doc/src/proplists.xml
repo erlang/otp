@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2002</year><year>2016</year>
+      <year>2002</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -344,7 +344,7 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
           with <c>{K2, true}</c>, thus changing the name of the option and
           simultaneously negating the value specified by
           <seealso marker="#get_bool/2">
-          <c>get_bool(Key, <anno>ListIn</anno></c></seealso>.
+          <c>get_bool(Key, <anno>ListIn</anno>)</c></seealso>.
           If the same <c>K1</c> occurs more than once in
           <c><anno>Negations</anno></c>, only the first occurrence is used.</p>
         <p>For example, <c>substitute_negations([{no_foo, foo}], L)</c>

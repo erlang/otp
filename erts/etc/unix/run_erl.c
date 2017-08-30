@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2015. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -240,6 +240,7 @@ int main(int argc, char **argv)
   int off_argv;
   int calculated_pipename = 0;
   int highest_pipe_num = 0;
+  int sleepy_child = 0;
 
   program_name = argv[0];
 
@@ -249,6 +250,11 @@ int main(int argc, char **argv)
   }
 
   init_outbuf();
+
+  if (!strcmp(argv[1],"-sleepy-child")) {  /* For test purpose only */
+      sleepy_child = 1;
+      ++i;
+  }
 
   if (!strcmp(argv[1],"-daemon")) {
       daemon_init();
@@ -392,6 +398,9 @@ int main(int argc, char **argv)
     exit(1);
   }
   if (childpid == 0) {
+      if (sleepy_child)
+	  sleep(1);
+
     /* Child */
     sf_close(mfd);
     /* disassociate from control terminal */
@@ -544,7 +553,7 @@ static void pass_on(pid_t childpid)
 		FD_ZERO(&readfds);
 		FD_ZERO(&writefds);
 	    } else {
-		/* Some error occured */
+		/* Some error occurred */
 		ERRNO_ERR0(LOG_ERR,"Error in select.");
 		exit(1);
 	    }
@@ -854,7 +863,7 @@ static int open_log(int log_num, int flags)
   if (write_all(lfd, buf, strlen(buf)) < 0)
       status("Error in writing to log.\n");
 
-#if USE_FSYNC
+#ifdef USE_FSYNC
   fsync(lfd);
 #endif
 
@@ -884,7 +893,7 @@ static void write_to_log(int* lfd, int* log_num, char* buf, int len)
     status("Error in writing to log.\n");
   }
 
-#if USE_FSYNC
+#ifdef USE_FSYNC
   fsync(*lfd);
 #endif
 }
@@ -904,20 +913,32 @@ static int create_fifo(char *name, int perm)
  * Find a master device, open and return fd and slave device name.
  */
 
+#ifdef HAVE_WORKING_POSIX_OPENPT
+   /*
+    * Use openpty() on OpenBSD even if we have posix_openpt()
+    * as there is a race when read from master pty returns 0
+    * if child has not yet opened slave pty.
+    * (maybe other BSD's have the same problem?)
+    */
+#  if !(defined(__OpenBSD__) && defined(HAVE_OPENPTY))
+#    define TRY_POSIX_OPENPT
+#  endif
+#endif
+
 static int open_pty_master(char **ptyslave, int *sfdp)
 {
   int mfd;
 
 /* Use the posix_openpt if working, as this guarantees creation of the 
    slave device properly. */
-#if defined(HAVE_WORKING_POSIX_OPENPT) || (defined(__sun) && defined(__SVR4))
-#  ifdef HAVE_WORKING_POSIX_OPENPT
-  if ((mfd = posix_openpt(O_RDWR)) >= 0) {
+#if defined(TRY_POSIX_OPENPT) || (defined(__sun) && defined(__SVR4))
+#  ifdef TRY_POSIX_OPENPT
+  mfd = posix_openpt(O_RDWR);
 #  elif defined(__sun) && defined(__SVR4)
   mfd = sf_open("/dev/ptmx", O_RDWR, 0);
+#  endif
 
   if (mfd >= 0) {
-#  endif
       if ((*ptyslave = ptsname(mfd)) != NULL &&
 	  grantpt(mfd) == 0 && 
 	  unlockpt(mfd) == 0) {

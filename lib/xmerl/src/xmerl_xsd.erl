@@ -49,6 +49,7 @@
 %%      <dd>It is possible by this option to provide a state with process
 %%          information from an earlier validation.</dd> 
 %% </dl>
+%% @type filename() = string()
 %% @end
 %%%-------------------------------------------------------------------
 -module(xmerl_xsd).
@@ -138,7 +139,7 @@ state2file(S=#xsd_state{schema_name=SN}) ->
 
 %% @spec state2file(State,FileName) -> ok | {error,Reason}
 %%       State = global_state()
-%%       FileName = filename()
+%%       FileName = string()
 %% @doc Saves the schema state with all information of the processed
 %% schema in a file. You can provide the file name for the saved
 %% state. FileName is saved with the <code>.xss</code> extension
@@ -153,7 +154,7 @@ state2file(S,FileName) when is_record(S,xsd_state) ->
 
 %% @spec file2state(FileName) -> {ok,State} | {error,Reason}
 %%       State = global_state()
-%%       FileName = filename()
+%%       FileName = string()
 %% @doc Reads the schema state with all information of the processed
 %% schema from a file created with <code>state2file/[1,2]</code>.  The
 %% format of this file is internal. The state can then be used
@@ -202,7 +203,7 @@ xmerl_xsd_vsn_check(S=#xsd_state{vsn=MD5_VSN}) ->
 process_validate(Schema,Xml) ->
     process_validate(Schema,Xml,[]).
 %% @spec process_validate(Schema,Element,Options) -> Result
-%%       Schema   = filename()
+%%       Schema   = string()
 %%       Element  = XmlElement
 %%       Options  = option_list()
 %%       Result   = {ValidXmlElement,State} | {error,Reason}
@@ -282,7 +283,7 @@ validate3(_,_,S) ->
 process_schema(Schema) ->
     process_schema(Schema,[]).
 %% @spec process_schema(Schema,Options) -> Result
-%%       Schema  = filename()
+%%       Schema  = string()
 %%       Result  = {ok,State} | {error,Reason}
 %%       State   = global_state()
 %%       Reason  = [ErrorReason] | ErrorReason
@@ -324,7 +325,7 @@ process_schema2({SE,_},State,_Schema) ->
 process_schemas(Schemas) ->
     process_schemas(Schemas,[]).
 %% @spec process_schemas(Schemas,Options) -> Result
-%%       Schemas  = [{NameSpace,filename()}|Schemas] | []
+%%       Schemas  = [{NameSpace,string()}|Schemas] | []
 %%       Result   = {ok,State} | {error,Reason}
 %%       Reason   = [ErrorReason] | ErrorReason
 %%       Options  = option_list()
@@ -5426,7 +5427,7 @@ add_key_once(Key,N,El,L) ->
 %%     {filename:join([[io_lib:format("/~w(~w)",[X,Y])||{X,Y}<-Parents],Type]),Pos}.
 
 %% @spec format_error(Errors) -> Result
-%%       Errors     = error_tuple() | [error_tuple()]
+%%       Errors     = tuple() | [tuple()]
 %%       Result       = string() | [string()]
 %% @doc Formats error descriptions to human readable strings.
 format_error(L) when is_list(L) -> 

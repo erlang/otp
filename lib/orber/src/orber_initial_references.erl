@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ install(Timeout, Options) ->
 		end,
     
     Wait = mnesia:wait_for_tables([orber_references], Timeout),
-    %% Check if any error has occured yet. If there are errors, return them.
+    %% Check if any error has occurred yet. If there are errors, return them.
     if
 	DB_Result == {atomic, ok},
 	Wait == ok ->

@@ -24,7 +24,7 @@
 	 pmatch/1,mixed/1,aliases/1,non_matching_aliases/1,
 	 match_in_call/1,untuplify/1,shortcut_boolean/1,letify_guard/1,
 	 selectify/1,underscore/1,match_map/1,map_vars_used/1,
-	 coverage/1,grab_bag/1]).
+	 coverage/1,grab_bag/1,literal_binary/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -40,7 +40,7 @@ groups() ->
        match_in_call,untuplify,
        shortcut_boolean,letify_guard,selectify,
        underscore,match_map,map_vars_used,coverage,
-       grab_bag]}].
+       grab_bag,literal_binary]}].
 
 
 init_per_suite(Config) ->
@@ -574,6 +574,23 @@ grab_bag_remove_failure([{stretch,_,Mi}=Stretch | Specs], Unit, _MaxFailure) ->
 	    ok
     end.
 
+%% Regression in 19.0, reported by Alexei Sholik
+literal_binary(_Config) ->
+    3 = literal_binary_match(bar, <<"y">>),
+
+    %% While we are at it, also test the remaining code paths
+    %% in literal_binary_match/2.
+    1 = literal_binary_match(bar, <<"x">>),
+    2 = literal_binary_match(foo, <<"x">>),
+    3 = literal_binary_match(foo, <<"y">>),
+    fail = literal_binary_match(bar, <<"z">>),
+    fail = literal_binary_match(foo, <<"z">>),
+    ok.
+
+literal_binary_match(bar, <<"x">>) -> 1;
+literal_binary_match(_, <<"x">>) -> 2;
+literal_binary_match(_, <<"y">>) -> 3;
+literal_binary_match(_, _) -> fail.
 
 
 id(I) -> I.

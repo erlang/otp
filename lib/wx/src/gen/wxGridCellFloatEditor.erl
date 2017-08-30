@@ -65,7 +65,7 @@ new(Options)
 -spec setParameters(This, Params) -> 'ok' when
 	This::wxGridCellFloatEditor(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
- when is_list(Params) ->
+ when ?is_chardata(Params) ->
   ?CLASS(ThisT,wxGridCellFloatEditor),
   Params_UC = unicode:characters_to_binary([Params,0]),
   wxe_util:cast(?wxGridCellFloatEditor_SetParameters,

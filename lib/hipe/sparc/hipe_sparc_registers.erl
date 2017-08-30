@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,9 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
-%%
 
 -module(hipe_sparc_registers).
 
@@ -85,6 +78,8 @@
 -define(I6, 30).
 -define(I7, 31).
 -define(LAST_PRECOLOURED,31).	% must handle both GRP and FPR ranges
+
+-define(RA, ?O7).
 
 -define(ARG0, ?O1).
 -define(ARG1, ?O2).
@@ -174,7 +169,7 @@ stack_pointer() -> ?STACK_POINTER.
 
 proc_pointer() -> ?PROC_POINTER.
 
-return_address() -> ?O7.
+return_address() -> ?RA.
 
 g0() -> ?G0.
 
@@ -247,6 +242,8 @@ is_arg(R) ->
     _ -> false
   end.
 
+%% Note: the fact that allocatable_gpr() is a subset of call_clobbered() is
+%% hard-coded in hipe_sparc_defuse:insn_defs_all_gpr/1
 call_clobbered() ->		% does the RA strip the type or not?
   [%% ?G0 is the non-allocatable constant zero
    {?G1,tagged},{?G1,untagged},
@@ -283,7 +280,9 @@ call_clobbered() ->		% does the RA strip the type or not?
   ].
 
 tailcall_clobbered() ->		% tailcall crapola needs one temp
-  [{?TEMP1,tagged},{?TEMP1,untagged}].
+  [{?TEMP1,tagged},{?TEMP1,untagged}
+  ,{?RA,tagged},{?RA,untagged}
+  ].
 
 live_at_return() ->
   [{?HEAP_POINTER,untagged},

@@ -23,7 +23,7 @@
 
 -module(shell_default).
 
--export([help/0,lc/1,c/1,c/2,nc/1,nl/1,l/1,i/0,pid/3,i/3,m/0,m/1,
+-export([help/0,lc/1,c/1,c/2,c/3,nc/1,nl/1,l/1,i/0,pid/3,i/3,m/0,m/1,lm/0,mm/0,
          memory/0,memory/1,uptime/0,
 	 erlangrc/1,bi/1, regs/0, flush/0,pwd/0,ls/0,ls/1,cd/1, 
          y/1, y/2,
@@ -72,6 +72,7 @@ bi(I) 		-> c:bi(I).
 bt(Pid)		-> c:bt(Pid).
 c(File) 	-> c:c(File).
 c(File, Opt)    -> c:c(File, Opt).
+c(File, Opt, Filter) -> c:c(File, Opt, Filter).
 cd(D)           -> c:cd(D).
 erlangrc(X) 	-> c:erlangrc(X).
 flush()         -> c:flush().
@@ -83,6 +84,8 @@ ls()            -> c:ls().
 ls(S)           -> c:ls(S).
 m() 		-> c:m().
 m(Mod) 		-> c:m(Mod).
+lm()            -> c:lm().
+mm()            -> c:mm().
 memory()        -> c:memory().
 memory(Type)    -> c:memory(Type).
 nc(X)     	-> c:nc(X).

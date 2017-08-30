@@ -26,7 +26,7 @@
 	 unused_multiple_values_error/1,unused_multiple_values/1,
 	 multiple_aliases/1,redundant_boolean_clauses/1,
 	 mixed_matching_clauses/1,unnecessary_building/1,
-	 no_no_file/1]).
+	 no_no_file/1,configuration/1,supplies/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -45,7 +45,7 @@ groups() ->
        unused_multiple_values_error,unused_multiple_values,
        multiple_aliases,redundant_boolean_clauses,
        mixed_matching_clauses,unnecessary_building,
-       no_no_file]}].
+       no_no_file,configuration,supplies]}].
 
 
 init_per_suite(Config) ->
@@ -498,5 +498,33 @@ experiment() ->
 	     end
     end,
     ok.
+
+
+%% Make sure we don't try to move a fun into a guard.
+configuration(_Config) ->
+    {'EXIT',_} = (catch configuration()),
+    ok.
+
+configuration() ->
+    [forgotten || Components <- enemy, is_tuple(fun art/0)].
+
+art() ->
+ creating.
+
+%% core_lint would complain after optimization. A call to error/1
+%% must not occur unconditionally in a guard.
+supplies(_Config) ->
+    case ?MODULE of
+	core_fold_inline_SUITE ->
+	    %% Other error behaviour when inlined.
+	    ok;
+	_ ->
+	    {'EXIT',{function_clause,_}} = (catch do_supplies(#{1 => <<1,2,3>>})),
+	    {'EXIT',{function_clause,_}} = (catch do_supplies(#{1 => a})),
+	    {'EXIT',{function_clause,_}} = (catch do_supplies(42)),
+	    ok
+    end.
+
+do_supplies(#{1 := Value}) when byte_size(Value), byte_size(kg) -> working.
 
 id(I) -> I.

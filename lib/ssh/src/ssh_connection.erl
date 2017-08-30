@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,8 +56,8 @@
 %%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
--spec session_channel(pid(), timeout()) -> {ok, channel_id()} | {error, timeout | closed}.
--spec session_channel(pid(), integer(), integer(), timeout()) -> {ok, channel_id()} | {error, timeout | closed}.
+-spec session_channel(connection_ref(), timeout()) -> {ok, channel_id()} | {error, timeout | closed}.
+-spec session_channel(connection_ref(), integer(), integer(), timeout()) -> {ok, channel_id()} | {error, timeout | closed}.
 
 %% Description: Opens a channel for a ssh session. A session is a
 %% remote execution of a program. The program may be a shell, an
@@ -81,7 +81,7 @@ session_channel(ConnectionHandler, InitialWindowSize,
     end.
 
 %%--------------------------------------------------------------------
--spec exec(pid(), channel_id(), string(), timeout()) -> 
+-spec exec(connection_ref(), channel_id(), string(), timeout()) -> 
 		  success | failure | {error, timeout | closed}.
 
 %% Description: Will request that the server start the
@@ -92,7 +92,7 @@ exec(ConnectionHandler, ChannelId, Command, TimeOut) ->
 				   true, [?string(Command)], TimeOut).
 
 %%--------------------------------------------------------------------
--spec shell(pid(), channel_id()) -> _.
+-spec shell(connection_ref(), channel_id()) -> _.
 
 %% Description: Will request that the user's default shell (typically
 %% defined in /etc/passwd in UNIX systems) be started at the other
@@ -102,7 +102,7 @@ shell(ConnectionHandler, ChannelId) ->
     ssh_connection_handler:request(ConnectionHandler, self(), ChannelId,
  				   "shell", false, <<>>, 0).
 %%--------------------------------------------------------------------
--spec subsystem(pid(), channel_id(), string(), timeout()) -> 
+-spec subsystem(connection_ref(), channel_id(), string(), timeout()) -> 
 		       success | failure | {error, timeout | closed}.
 %%
 %% Description: Executes a predefined subsystem.
@@ -112,11 +112,11 @@ subsystem(ConnectionHandler, ChannelId, SubSystem, TimeOut) ->
 				    ChannelId, "subsystem", 
 				    true, [?string(SubSystem)], TimeOut).
 %%--------------------------------------------------------------------
--spec send(pid(), channel_id(), iodata()) ->
+-spec send(connection_ref(), channel_id(), iodata()) ->
 		  ok | {error, closed}.
--spec send(pid(), channel_id(), integer()| iodata(), timeout() | iodata()) ->
+-spec send(connection_ref(), channel_id(), integer()| iodata(), timeout() | iodata()) ->
 		  ok | {error, timeout} | {error, closed}.
--spec send(pid(), channel_id(), integer(), iodata(), timeout()) ->
+-spec send(connection_ref(), channel_id(), integer(), iodata(), timeout()) ->
 		  ok | {error, timeout} | {error, closed}.
 %%
 %%
@@ -134,7 +134,7 @@ send(ConnectionHandler, ChannelId, Type, Data, TimeOut) ->
     ssh_connection_handler:send(ConnectionHandler, ChannelId,
 				Type, Data, TimeOut).
 %%--------------------------------------------------------------------
--spec send_eof(pid(), channel_id()) -> ok | {error, closed}.
+-spec send_eof(connection_ref(), channel_id()) -> ok | {error, closed}.
 %%
 %%
 %% Description: Sends eof on the channel <ChannelId>.
@@ -143,7 +143,7 @@ send_eof(ConnectionHandler, Channel) ->
     ssh_connection_handler:send_eof(ConnectionHandler, Channel).
 
 %%--------------------------------------------------------------------
--spec adjust_window(pid(), channel_id(), integer()) -> ok |  {error, closed}.
+-spec adjust_window(connection_ref(), channel_id(), integer()) -> ok |  {error, closed}.
 %%
 %%
 %% Description: Adjusts the ssh flowcontrol window.
@@ -152,7 +152,7 @@ adjust_window(ConnectionHandler, Channel, Bytes) ->
     ssh_connection_handler:adjust_window(ConnectionHandler, Channel, Bytes).
 
 %%--------------------------------------------------------------------
--spec setenv(pid(), channel_id(), string(), string(), timeout()) ->  
+-spec setenv(connection_ref(), channel_id(), string(), string(), timeout()) ->  
 		    success | failure | {error, timeout | closed}.
 %%
 %%
@@ -165,7 +165,7 @@ setenv(ConnectionHandler, ChannelId, Var, Value, TimeOut) ->
 
 
 %%--------------------------------------------------------------------
--spec close(pid(), channel_id()) -> ok.
+-spec close(connection_ref(), channel_id()) -> ok.
 %%
 %%
 %% Description: Sends a close message on the channel <ChannelId>.
@@ -174,7 +174,7 @@ close(ConnectionHandler, ChannelId) ->
     ssh_connection_handler:close(ConnectionHandler, ChannelId).
 
 %%--------------------------------------------------------------------
--spec reply_request(pid(), boolean(), success | failure, channel_id()) -> ok.
+-spec reply_request(connection_ref(), boolean(), success | failure, channel_id()) -> ok.
 %%
 %%
 %% Description: Send status replies to requests that want such replies.
@@ -185,9 +185,9 @@ reply_request(_,false, _, _) ->
     ok.
 
 %%--------------------------------------------------------------------
--spec ptty_alloc(pid(), channel_id(), proplists:proplist()) -> 
+-spec ptty_alloc(connection_ref(), channel_id(), proplists:proplist()) -> 
 			success | failiure | {error, closed}.
--spec ptty_alloc(pid(), channel_id(), proplists:proplist(), timeout()) -> 
+-spec ptty_alloc(connection_ref(), channel_id(), proplists:proplist(), timeout()) -> 
 			success | failiure | {error, timeout} | {error, closed}.
 
 %%
@@ -197,16 +197,16 @@ reply_request(_,false, _, _) ->
 ptty_alloc(ConnectionHandler, Channel, Options) ->
     ptty_alloc(ConnectionHandler, Channel, Options, infinity).
 ptty_alloc(ConnectionHandler, Channel, Options0, TimeOut) ->
-    Options = backwards_compatible(Options0, []),
-    {Width, PixWidth} = pty_default_dimensions(width, Options),
-    {Height, PixHeight} = pty_default_dimensions(height, Options),
+    TermData = backwards_compatible(Options0, []), % FIXME
+    {Width, PixWidth} = pty_default_dimensions(width, TermData),
+    {Height, PixHeight} = pty_default_dimensions(height, TermData),
     pty_req(ConnectionHandler, Channel,
-	    proplists:get_value(term, Options, os:getenv("TERM", ?DEFAULT_TERMINAL)),
-	    proplists:get_value(width, Options, Width),
-	    proplists:get_value(height, Options, Height),
-	    proplists:get_value(pixel_widh, Options, PixWidth),
-	    proplists:get_value(pixel_height, Options, PixHeight),
-	    proplists:get_value(pty_opts, Options, []), TimeOut
+	    proplists:get_value(term, TermData, os:getenv("TERM", ?DEFAULT_TERMINAL)),
+	    proplists:get_value(width, TermData, Width),
+	    proplists:get_value(height, TermData, Height),
+	    proplists:get_value(pixel_widh, TermData, PixWidth),
+	    proplists:get_value(pixel_height, TermData, PixHeight),
+	    proplists:get_value(pty_opts, TermData, []), TimeOut
 	   ).
 %%--------------------------------------------------------------------
 %% Not yet officialy supported! The following functions are part of the
@@ -287,6 +287,9 @@ handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId,
     
     ssh_channel:cache_update(Cache, Channel#channel{
 				     remote_id = RemoteId,
+				     recv_packet_size = max(32768, % rfc4254/5.2
+							    min(PacketSz, Channel#channel.recv_packet_size)
+							   ),
 				     send_window_size = WindowSz,
 				     send_packet_size = PacketSz}),
     {Reply, Connection} = reply_msg(Channel, Connection0, {open, ChannelId}),
@@ -414,7 +417,8 @@ handle_msg(#ssh_msg_channel_open{channel_type = "session" = Type,
 				 maximum_packet_size = PacketSz}, 
 	   #connection{options = SSHopts} = Connection0,
 	   server) ->
-    MinAcceptedPackSz = proplists:get_value(minimal_remote_max_packet_size, SSHopts, 0),
+    MinAcceptedPackSz =
+        ?GET_OPT(minimal_remote_max_packet_size, SSHopts),
     
     if 
 	MinAcceptedPackSz =< PacketSz ->
@@ -571,7 +575,6 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 		  PixWidth, PixHeight, decode_pty_opts(Modes)},
     
     Channel = ssh_channel:cache_lookup(Cache, ChannelId), 
-    
     handle_cli_msg(Connection, Channel,
 		   {pty, ChannelId, WantReply, PtyRequest});
 
@@ -688,7 +691,6 @@ handle_cli_msg(#connection{channel_cache = Cache} = Connection,
 	       #channel{user = undefined, 
 			remote_id = RemoteId,
 			local_id = ChannelId} = Channel0, Reply0) -> 
-    
     case (catch start_cli(Connection, ChannelId)) of
 	{ok, Pid} ->
 	    erlang:monitor(process, Pid),
@@ -816,7 +818,7 @@ start_channel(Cb, Id, Args, SubSysSup, Exec, Opts) ->
     ssh_channel_sup:start_child(ChannelSup, ChildSpec).
     
 assert_limit_num_channels_not_exceeded(ChannelSup, Opts) ->
-    MaxNumChannels = proplists:get_value(max_channels, Opts, infinity),
+    MaxNumChannels = ?GET_OPT(max_channels, Opts),
     NumChannels = length([x || {_,_,worker,[ssh_channel]} <- 
 				   supervisor:which_children(ChannelSup)]),
     if 
@@ -855,8 +857,8 @@ setup_session(#connection{channel_cache = Cache
 
 
 check_subsystem("sftp"= SsName, Options) ->
-    case proplists:get_value(subsystems, Options, no_subsys) of
-	no_subsys -> 	
+    case ?GET_OPT(subsystems, Options) of
+	no_subsys -> 	% FIXME: Can 'no_subsys' ever be matched?
 	    {SsName, {Cb, Opts}} = ssh_sftpd:subsystem_spec([]),
 	    {Cb, Opts};
 	SubSystems ->
@@ -864,7 +866,7 @@ check_subsystem("sftp"= SsName, Options) ->
     end;
 
 check_subsystem(SsName, Options) ->
-    Subsystems = proplists:get_value(subsystems, Options, []),
+    Subsystems = ?GET_OPT(subsystems, Options),
     case proplists:get_value(SsName, Subsystems, {none, []}) of
 	Fun when is_function(Fun) ->
 	    {Fun, []};
@@ -1019,12 +1021,13 @@ pty_req(ConnectionHandler, Channel, Term, Width, Height,
 				    ?uint32(PixWidth),?uint32(PixHeight),
 				    encode_pty_opts(PtyOpts)], TimeOut).
 
-pty_default_dimensions(Dimension, Options) ->
-    case proplists:get_value(Dimension, Options, 0) of
+pty_default_dimensions(Dimension, TermData) ->
+    case proplists:get_value(Dimension, TermData, 0) of
 	N when is_integer(N), N > 0 ->
 	    {N, 0};
 	_ ->
-	    case proplists:get_value(list_to_atom("pixel_" ++ atom_to_list(Dimension)), Options, 0) of
+            PixelDim = list_to_atom("pixel_" ++ atom_to_list(Dimension)),
+	    case proplists:get_value(PixelDim, TermData, 0) of
 		N when is_integer(N), N > 0 ->
 		    {0, N};
 		_ ->

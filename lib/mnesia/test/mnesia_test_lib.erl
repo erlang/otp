@@ -263,6 +263,7 @@ slave_start_link(Host, Name, Retries) ->
 	    Path = code:get_path(),
 	    ok = rpc:call(NewNode, file, set_cwd, [Cwd]),
 	    true = rpc:call(NewNode, code, set_path, [Path]),
+	    ok = rpc:call(NewNode, error_logger, tty, [false]),
 	    spawn_link(NewNode, ?MODULE, slave_sup, []),
 	    rpc:multicall([node() | nodes()], global, sync, []),
 	    {ok, NewNode};

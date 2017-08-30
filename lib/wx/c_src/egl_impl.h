@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2010-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ typedef long int int32_t;
 typedef long long int int64_t;
 typedef unsigned long long int uint64_t;
 #elif defined(WIN32) && defined(_MSC_VER)
-typedef long int int32_t;
+typedef __int32 int32_t;
 typedef __int64 int64_t;
 typedef unsigned __int64 uint64_t;
 #elif defined(WIN32) && defined(__GNUC__)

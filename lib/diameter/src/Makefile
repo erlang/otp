@@ -123,7 +123,7 @@ ERL_COMPILE_FLAGS += \
 # erl/hrl from dictionary file.
 gen/diameter_gen_%.erl gen/diameter_gen_%.hrl: dict/%.dia
 	$(dia_verbose) \
-	../bin/diameterc -o gen -i $(EBIN) $<
+	escript ../bin/diameterc -o gen -i $(EBIN) $<
 
 opt: $(TARGET_FILES)
 

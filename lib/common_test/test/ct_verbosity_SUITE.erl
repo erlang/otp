@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,8 +47,8 @@
 init_per_suite(Config) ->
     DataDir = ?config(data_dir, Config),
     EvH = filename:join(DataDir,"simple_evh.erl"),
-    ct:pal("Compiling ~s: ~p", [EvH,compile:file(EvH,[{outdir,DataDir},
-						      debug_info])]),
+    ct:pal("Compiling ~ts: ~p", [EvH,compile:file(EvH,[{outdir,DataDir},
+                                                       debug_info])]),
     ct_test_support:init_per_suite([{path_dirs,[DataDir]} | Config]).
 
 end_per_suite(Config) ->

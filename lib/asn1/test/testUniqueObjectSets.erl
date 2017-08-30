@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ seq_roundtrip(I, D0) ->
     M = 'UniqueObjectSets',
     try
 	{ok,Enc} = M:encode('Seq', {'Seq',I,D0}),
+        asn1_test_lib:map_roundtrip(M, 'Seq', Enc),
 	{ok,{'Seq',I,D}} = M:decode('Seq', Enc),
 	D
     catch C:E ->

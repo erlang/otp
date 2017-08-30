@@ -26,6 +26,9 @@
 
 -import(lists, [dropwhile/2]).
 
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_asm:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
     Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.

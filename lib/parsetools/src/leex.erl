@@ -1264,7 +1264,7 @@ pack_dfa([], _, Rs, PDFA) -> {PDFA,Rs}.
 %%      {Action, AcceptLength, CurrTokLen, RestChars, Line, State}.
 
 %% The return CurrTokLen is always the current number of characters
-%% scanned in the current token. The returns have the follwoing
+%% scanned in the current token. The returns have the following
 %% meanings:
 %% {Action, AcceptLength, RestChars, Line} -
 %%  The scanner has reached an accepting end-state, for example after
@@ -1281,7 +1281,7 @@ pack_dfa([], _, Rs, PDFA) -> {PDFA,Rs}.
 %%
 %% {reject, AcceptLength, CurrTokLen, RestChars, Line, State} -
 %% {Action, AcceptLength, CurrTokLen, RestChars, Line, State} -
-%%  The scanner has reached a non-accepting transistion state. If
+%%  The scanner has reached a non-accepting transition state. If
 %%  RestChars == [] we need to get more characters to continue.
 %%  Otherwise if 'reject' then no accepting state has been reached it
 %%  is an error. If we have an Action and AcceptLength then these are
@@ -1548,22 +1548,23 @@ out_action_code(File, XrlFile, {_A,Code,_Vars,Name,Args,ArgsChars}) ->
     L = erl_scan:line(hd(Code)),
     output_file_directive(File, XrlFile, L-2),
     io:fwrite(File, "~s(~s) ->~n", [Name, ArgsChars]),
-    io:fwrite(File, "    ~s\n", [pp_tokens(Code, L)]).
+    io:fwrite(File, "    ~ts\n", [pp_tokens(Code, L, File)]).
 
-%% pp_tokens(Tokens, Line) -> [char()].
+%% pp_tokens(Tokens, Line, File) -> [char()].
 %%  Prints the tokens keeping the line breaks of the original code.
 
-pp_tokens(Tokens, Line0) -> pp_tokens(Tokens, Line0, none).
+pp_tokens(Tokens, Line0, File) -> pp_tokens(Tokens, Line0, File, none).
     
-pp_tokens([], _Line0, _) -> [];
-pp_tokens([T | Ts], Line0, Prev) ->
+pp_tokens([], _Line0, _, _) -> [];
+pp_tokens([T | Ts], Line0, File, Prev) ->
     Line = erl_scan:line(T),
-    [pp_sep(Line, Line0, Prev, T), pp_symbol(T) | pp_tokens(Ts, Line, T)].
+    [pp_sep(Line, Line0, Prev, T),
+     pp_symbol(T, File) | pp_tokens(Ts, Line, File, T)].
 
-pp_symbol({var,_,Var}) -> atom_to_list(Var);
-pp_symbol({_,_,Symbol}) -> io_lib:fwrite("~p", [Symbol]);
-pp_symbol({dot, _}) -> ".";
-pp_symbol({Symbol, _}) -> atom_to_list(Symbol).
+pp_symbol({var,_,Var}, _) -> atom_to_list(Var);
+pp_symbol({_,_,Symbol}, File) -> format_symbol(Symbol, File);
+pp_symbol({dot, _}, _) -> ".";
+pp_symbol({Symbol, _}, _) -> atom_to_list(Symbol).
 
 pp_sep(Line, Line0, Prev, T) when Line > Line0 -> 
     ["\n    " | pp_sep(Line - 1, Line0, Prev, T)];
@@ -1586,6 +1587,8 @@ out_dfa_graph(St, DFA, DF) ->
     case file:open(St#leex.gfile, [write]) of
         {ok,Gfile} ->
             try
+                %% Set the same encoding as infile:
+                set_encoding(St, Gfile),
                 io:fwrite(Gfile, "digraph DFA {~n", []),
                 out_dfa_states(Gfile, DFA, DF),
                 out_dfa_edges(Gfile, DFA),
@@ -1620,17 +1623,17 @@ out_dfa_edges(File, DFA) ->
                                   end, orddict:new(), Pt),
                     foreach(fun (T) ->
                                     Crs = orddict:fetch(T, Tdict),
-                                    Edgelab = dfa_edgelabel(Crs),
-                                    io:fwrite(File, "  ~b -> ~b [label=\"~s\"];~n",
+                                    Edgelab = dfa_edgelabel(Crs, File),
+                                    io:fwrite(File, "  ~b -> ~b [label=\"~ts\"];~n",
                                               [S,T,Edgelab])
                             end, sort(orddict:fetch_keys(Tdict)))
             end, DFA).
 
-dfa_edgelabel([C]) when is_integer(C) -> quote(C);
-dfa_edgelabel(Cranges) ->
+dfa_edgelabel([C], File) when is_integer(C) -> quote(C, File);
+dfa_edgelabel(Cranges, File) ->
     %% io:fwrite("el: ~p\n", [Cranges]),
-    "[" ++ map(fun ({A,B}) -> [quote(A), "-", quote(B)];
-                   (C)     -> [quote(C)]
+    "[" ++ map(fun ({A,B}) -> [quote(A, File), "-", quote(B, File)];
+                   (C)     -> [quote(C, File)]
                end, Cranges) ++ "]".
 
 set_encoding(#leex{encoding = none}, File) ->
@@ -1649,33 +1652,50 @@ output_file_directive(File, Filename, Line) ->
 
 format_filename(Filename0, File) ->
     Filename = filename:flatten(Filename0),
-    case lists:keyfind(encoding, 1, io:getopts(File)) of
-        {encoding, unicode} -> io_lib:write_string(Filename);
-        _ ->                   io_lib:write_string_as_latin1(Filename)
+    case enc(File) of
+        unicode -> io_lib:write_string(Filename);
+        latin1  -> io_lib:write_string_as_latin1(Filename)
     end.
 
-quote($^)  -> "\\^";
-quote($.)  -> "\\.";
-quote($$)  -> "\\$";
-quote($-)  -> "\\-";
-quote($[)  -> "\\[";
-quote($])  -> "\\]";
-quote($\s) -> "\\\\s";
-quote($\") -> "\\\"";
-quote($\b) -> "\\\\b";
-quote($\f) -> "\\\\f";
-quote($\n) -> "\\\\n";
-quote($\r) -> "\\\\r";
-quote($\t) -> "\\\\t";
-quote($\e) -> "\\\\e";
-quote($\v) -> "\\\\v";
-quote($\d) -> "\\\\d";
-quote($\\) -> "\\\\";
-quote(C) when is_integer(C) ->
+format_symbol(Symbol, File) ->
+    Format = case enc(File) of
+                 latin1  -> "~p";
+                 unicode -> "~tp"
+             end,
+    io_lib:fwrite(Format, [Symbol]).
+
+enc(File) ->
+    case lists:keyfind(encoding, 1, io:getopts(File)) of
+	false -> latin1; % should never happen
+	{encoding, Enc} -> Enc
+    end.
+
+quote($^, _File)  -> "\\^";
+quote($., _File)  -> "\\.";
+quote($$, _File)  -> "\\$";
+quote($-, _File)  -> "\\-";
+quote($[, _File)  -> "\\[";
+quote($], _File)  -> "\\]";
+quote($\s, _File) -> "\\\\s";
+quote($\", _File) -> "\\\"";
+quote($\b, _File) -> "\\\\b";
+quote($\f, _File) -> "\\\\f";
+quote($\n, _File) -> "\\\\n";
+quote($\r, _File) -> "\\\\r";
+quote($\t, _File) -> "\\\\t";
+quote($\e, _File) -> "\\\\e";
+quote($\v, _File) -> "\\\\v";
+quote($\d, _File) -> "\\\\d";
+quote($\\, _File) -> "\\\\";
+quote(C, File) when is_integer(C) ->
     %% Must remove the $ and get the \'s right.
-    case io_lib:write_char(C) of
+    S = case enc(File) of
+            unicode -> io_lib:write_char(C);
+            latin1  -> io_lib:write_char_as_latin1(C)
+        end,
+    case S of
         [$$,$\\|Cs] -> "\\\\" ++ Cs;
         [$$|Cs] -> Cs
     end;
-quote(maxchar) ->
+quote(maxchar, _File) ->
     "MAXCHAR".

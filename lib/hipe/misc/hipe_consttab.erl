@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% @doc
@@ -69,9 +63,7 @@
 %%    A hipe_consttab is a tuple {Data, ReferedLabels, NextConstLabel}
 %% @type hipe_constlbl().
 %%   An abstract datatype for referring to data.
-%% @type element_type() = byte | word | ctab_array()
-%% @type ctab_array() = {ctab_array, Type::element_type(),
-%%                                   NoElements::pos_integer()}
+%% @type element_type() = byte | word
 %% @type block() = [integer() | label_ref()]
 %% @type label_ref() = {label, Label::code_label()}
 %% @type code_label() = hipe_sparc:label_name() | hipe_x86:label_name()
@@ -116,8 +108,7 @@
 -type label_ref()    :: {'label', code_label()}.
 -type block()	     :: [hipe_constlbl() | label_ref()].
 
--type ctab_array()   :: {'ctab_array', 'byte' | 'word', pos_integer()}.
--type element_type() :: 'byte' | 'word' | ctab_array().
+-type element_type() :: 'byte' | 'word'.
 
 -type sort_order()   :: term(). % XXX: FIXME
 
@@ -193,7 +184,7 @@ insert_block({ConstTab, RefToLabels, NextLabel}, ElementType, InitList) ->
   ReferredLabels = get_labels(InitList, []),
   NewRefTo = ReferredLabels ++ RefToLabels,
   {NewTa, Id} = insert_const({ConstTab, NewRefTo, NextLabel}, 
-			     block, word_size(), false,
+			     block, size_of(ElementType), false,
 			     {ElementType,InitList}),
   {insert_backrefs(NewTa, Id, ReferredLabels), Id}.
 
@@ -262,13 +253,9 @@ get_labels([], Acc) ->
   
 %% @spec size_of(element_type()) -> pos_integer()
 %% @doc Returns the size in bytes of an element_type.
-%%  The is_atom/1 guard in the clause handling arrays
-%%  constraints the argument to 'byte' | 'word'
 -spec size_of(element_type()) -> pos_integer().
 size_of(byte) -> 1;
-size_of(word) -> word_size();
-size_of({ctab_array,S,N}) when is_atom(S), is_integer(N), N > 0 ->
-    N * size_of(S).
+size_of(word) -> word_size().
 
 %% @spec decompose({element_type(), block()}) -> [byte()]
 %% @doc Turns a block into a list of bytes.

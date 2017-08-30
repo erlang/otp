@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -515,6 +515,9 @@ int ethr_tsd_key_create(ethr_tsd_key *,char *);
 int ethr_tsd_key_delete(ethr_tsd_key);
 int ethr_tsd_set(ethr_tsd_key, void *);
 void *ethr_tsd_get(ethr_tsd_key);
+
+void *ethr_get_stacklimit(void);
+int ethr_set_stacklimit(void *limit);
 
 #ifdef ETHR_HAVE_ETHR_SIG_FUNCS
 #include <signal.h>

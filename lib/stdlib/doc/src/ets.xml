@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2016</year>
+      <year>1996</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -49,13 +49,22 @@
       associated with each key. A <c>bag</c> or <c>duplicate_bag</c> table can
       have many objects associated with each key.</p>
 
-    <p>The number of tables stored at one Erlang node is limited.
-      The current default limit is about 1400 tables. The upper
-      limit can be increased by setting environment variable
-      <c>ERL_MAX_ETS_TABLES</c> before starting the Erlang runtime
-      system (that is, with option <c>-env</c> to
-      <c>erl</c>/<c>werl</c>). The actual limit can be slightly higher
-      than the one specified, but never lower.</p>
+   <note>
+     <p>
+       The number of tables stored at one Erlang node <em>used</em> to
+       be limited. This is no longer the case (except by memory usage).
+       The previous default limit was about 1400 tables and
+       could be increased by setting the environment variable
+       <c>ERL_MAX_ETS_TABLES</c> before starting the Erlang runtime
+       system. This hard limit has been removed, but it is currently
+       useful to set the <c>ERL_MAX_ETS_TABLES</c> anyway. It should be
+       set to an approximate of the maximum amount of tables used. This since
+       an internal table for named tables is sized using this value. If
+       large amounts of named tables are used and <c>ERL_MAX_ETS_TABLES</c>
+       hasn't been increased, the performance of named table lookup will
+       degrade.
+    </p>
+   </note>
 
     <p>Notice that there is no automatic garbage collection for tables.
       Even if there are no references to a table from any process, it
@@ -369,7 +378,7 @@
           variable that in turn is passed to the function.</p>
         <p>The parse transform is provided in the <c>ms_transform</c>
           module and the source <em>must</em> include
-          file <c>ms_transform.hrl</c> in <c>STDLIB</c> for this
+          file <c>ms_transform.hrl</c> in STDLIB for this
           pseudo function to work. Failing to include the hrl file in
           the source results in a runtime error, not a compile
           time error. The include file is easiest included by adding line
@@ -541,10 +550,6 @@ Error: fun containing local Erlang function calls
           <c><anno>Tab</anno></c> is
           not of the correct type, or if <c><anno>Item</anno></c> is not
           one of the allowed values, a <c>badarg</c> exception is raised.</p>
-        <warning>
-          <p>In Erlang/OTP R11B and earlier, this function would not fail but
-            return <c>undefined</c> for invalid values for <c>Item</c>.</p>
-        </warning>
           <p>In addition to the <c>{<anno>Item</anno>,<anno>Value</anno>}</c>
             pairs defined for <seealso marker="#info/1"><c>info/1</c></seealso>,
             the following items are allowed:</p>
@@ -1458,7 +1463,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
         specification returned <c>true</c>.</fsummary>
       <desc>
         <p>Matches the objects in table <c><anno>Tab</anno></c> using a
-          <seealso marker="#match_spec">match specificationc</seealso>. If the
+          <seealso marker="#match_spec">match specification</seealso>. If the
           match specification returns <c>true</c> for an object, that object
           considered a match and is counted. For any other result from
           the match specification the object is not considered a match and is
@@ -1491,6 +1496,45 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
             object deleted. So one cannot use the same match specification for
             looking up elements as for deleting them.</p>
         </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="select_replace" arity="2"/>
+      <fsummary>Match and replace objects atomically in an ETS table</fsummary>
+      <desc>
+        <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
+          <seealso marker="#match_spec">match specification</seealso>. For each
+          matched object, the existing object is replaced with
+          the match specification result.</p>
+	<p>The match-and-replace operation for each individual object is guaranteed to be
+	  <seealso marker="#concurrency">atomic and isolated</seealso>. The
+	  <c>select_replace</c> table iteration as a whole, like all other select functions,
+	  does not give such guarantees.</p>
+	<p>The match specifiction must be guaranteed to <em>retain the key</em>
+	  of any matched object. If not, <c>select_replace</c> will fail with <c>badarg</c>
+	  without updating any objects.</p>
+        <p>For the moment, due to performance and semantic constraints,
+          tables of type <c>bag</c> are not yet supported.</p>
+        <p>The function returns the total number of replaced objects.</p>
+        <p><em>Example</em></p>
+	<p>For all 2-tuples with a list in second position, add atom <c>'marker'</c> first in the list:</p>
+	<pre>
+1> <input>T = ets:new(x,[]), ets:insert(T, {key, [1, 2, 3]}).</input>
+true
+2> <input>MS = ets:fun2ms(fun({K, L}) when is_list(L) -> {K, [marker | L]} end).</input>
+[{{'$1','$2'},[{is_list,'$2'}],[{{'$1',[marker|'$2']}}]}]
+3> <input>ets:select_replace(T, MS).</input>
+1
+4> <input>ets:tab2list(T).</input>
+[{key,[marker,1,2,3]}]
+	</pre>
+	<p>A generic single object compare-and-swap operation:</p>
+        <pre>
+[Old] = ets:lookup(T, Key),
+New = update_object(Old),
+Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
+	</pre>
       </desc>
     </func>
 
@@ -1644,7 +1688,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
         </taglist>
         <p>Whenever option <c>extended_info</c> is used, it
           results in a file not readable by versions of ETS before
-          that in <c>STDLIB</c> 1.15.1</p>
+          that in STDLIB 1.15.1</p>
         <p>If option <c>sync</c> is set to <c>true</c>, it ensures that
           the content of the file is written to the disk before
           <c>tab2file</c> returns. Defaults to <c>{sync, false}</c>.</p>
@@ -1725,7 +1769,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
             <p>A tuple <c>{<anno>Major</anno>,<anno>Minor</anno>}</c>
               containing the major and
               minor version of the file format for ETS table dumps. This
-              version field was added beginning with <c>STDLIB</c> 1.5.1.
+              version field was added beginning with STDLIB 1.5.1.
               Files dumped with older versions return <c>{0,0}</c> in this
               field.</p>
           </item>

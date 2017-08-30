@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,9 +19,9 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
-    <title>Erl_Interface Command Reference</title>
+    <title>Erl_Interface Reference Manual</title>
     <prepared>Gordon Beaton</prepared>
     <docno></docno>
     <date>1998-11.30</date>
@@ -29,17 +29,6 @@
     <file>ref_man.xml</file>
   </header>
   <description>
-    <p>The <c>ei</c> and <c>erl_interface</c> are <c>C</c> interface libraries for
-      communication with <c>Erlang</c>.</p>
-    <note>
-      <p>By default, the <c>ei</c> and <c>erl_interface</c> libraries are only guaranteed
-        to be compatible with other Erlang/OTP components from the same
-        release as the libraries themself. See the documentation of the
-        <seealso marker="ei#ei_set_compat_rel">ei_set_compat_rel()</seealso> and
-        <seealso marker="erl_eterm#erl_set_compat_rel">erl_set_compat_rel()</seealso>
-        functions on how to communicate with Erlang/OTP components from earlier
-        releases.</p>
-    </note>
   </description>
   <xi:include href="ei.xml"/>
   <xi:include href="ei_connect.xml"/>
@@ -53,4 +42,3 @@
   <xi:include href="erl_marshal.xml"/>
   <xi:include href="erl_call.xml"/>
 </application>
-

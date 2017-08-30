@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -60,11 +60,15 @@ end_per_suite(_onfig) ->
 groups() -> 
     [{not_unicode, [], [{group,erlang_server},
 			{group,openssh_server},
+			{group,big_recvpkt_size},
 			sftp_nonexistent_subsystem]},
 
      {unicode, [], [{group,erlang_server},
 		    {group,openssh_server},
 		    sftp_nonexistent_subsystem]},
+
+     {big_recvpkt_size, [], [{group,erlang_server},
+			     {group,openssh_server}]},
 
      {erlang_server, [], [{group,write_read_tests},
 			  version_option,
@@ -148,6 +152,9 @@ init_per_group(unicode, Config) ->
 	_ ->
 	    {skip, "Not unicode file encoding"}
     end;
+
+init_per_group(big_recvpkt_size, Config) ->
+    [{pkt_sz,123456} | Config];
 
 init_per_group(erlang_server, Config) ->
     ct:comment("Begin ~p",[grps(Config)]),
@@ -257,7 +264,10 @@ init_per_testcase(Case, Config00) ->
     Dog = ct:timetrap(2 * ?default_timeout),
     User = proplists:get_value(user, Config0),
     Passwd = proplists:get_value(passwd, Config0),
-
+    PktSzOpt = case proplists:get_value(pkt_sz, Config0) of
+		   undefined -> [];
+		   Sz -> [{packet_size,Sz}]
+	       end,
     Config =
 	case proplists:get_value(group,Config2) of
 	    erlang_server ->
@@ -267,7 +277,9 @@ init_per_testcase(Case, Config00) ->
 					   [{user, User},
 					    {password, Passwd},
 					    {user_interaction, false},
-					    {silently_accept_hosts, true}]
+					    {silently_accept_hosts, true}
+					    | PktSzOpt
+					   ]
 					  ),
 		Sftp = {ChannelPid, Connection},
 		[{sftp, Sftp}, {watchdog, Dog} | Config2];
@@ -278,7 +290,9 @@ init_per_testcase(Case, Config00) ->
 		{ok, ChannelPid, Connection} = 
 		    ssh_sftp:start_channel(Host, 
 					   [{user_interaction, false},
-					    {silently_accept_hosts, true}]), 
+					    {silently_accept_hosts, true}
+					    | PktSzOpt
+					   ]),
 		Sftp = {ChannelPid, Connection},
 		[{sftp, Sftp}, {watchdog, Dog} | Config2]
 	end,
@@ -646,7 +660,7 @@ start_channel_sock(Config) ->
     {Host,Port} = proplists:get_value(peer, Config),
 
     %% Get a tcp socket
-    {ok, Sock} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok, Sock} = ssh_test_lib:gen_tcp_connect(Host, Port, [{active,false}]),
 
     %% and open one channel on one new Connection
     {ok, ChPid1, Conn} = ssh_sftp:start_channel(Sock, Opts),
@@ -1024,7 +1038,7 @@ oldprep(Config) ->
 
 prepare(Config0) ->
     PrivDir = proplists:get_value(priv_dir, Config0),
-    Dir = filename:join(PrivDir, random_chars(10)),
+    Dir = filename:join(PrivDir, ssh_test_lib:random_chars(10)),
     file:make_dir(Dir),
     Keys = [filename,
 	    testfile,
@@ -1043,8 +1057,6 @@ prepare(Config0) ->
     {ok,_} = file:copy(FilenameSrc, FilenameDst),
     [{sftp_priv_dir,Dir} | Config2].
 
-
-random_chars(N) -> [crypto:rand_uniform($a,$z) || _<-lists:duplicate(N,x)].
 
 foldl_keydelete(Keys, L) ->
     lists:foldl(fun(K,E) -> lists:keydelete(K,1,E) end, 

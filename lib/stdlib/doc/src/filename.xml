@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -356,10 +356,12 @@ true
         <p>Finds the source filename and compiler options for a module.
           The result can be fed to <seealso marker="compiler:compile#file/2">
           <c>compile:file/2</c></seealso> to compile the file again.</p>
-        <warning><p>It is not recommended to use this function. If possible,
-          use the <seealso marker="beam_lib"><c>beam_lib(3)</c></seealso>
-          module to extract the abstract code format from the Beam file and
-          compile that instead.</p></warning>
+        <warning>
+          <p>This function is deprecated. Use <seealso marker="filelib#find_source/1">
+            <c>filelib:find_source/1</c></seealso> instead for finding source files.</p>
+          <p>If possible, use the <seealso marker="beam_lib"><c>beam_lib(3)</c></seealso>
+          module to extract the compiler options and the abstract code
+          format from the Beam file and compile that instead.</p></warning>
         <p>Argument <c><anno>Beam</anno></c>, which can be a string or an atom,
           specifies either the module name or the path to the source
           code, with or without extension <c>".erl"</c>. In either
@@ -508,6 +510,33 @@ true
 23> <input>filename:rootname("/beam.src/foo.beam", ".erl").</input>
 "/beam.src/foo.beam"</pre>
       </desc>
+    </func>
+
+    <func>
+      <name name="safe_relative_path" arity="1"/>
+      <fsummary>Sanitize a relative path to avoid directory traversal attacks.</fsummary>
+      <desc>
+        <p>Sanitizes the relative path by eliminating ".." and "."
+        components to protect against directory traversal attacks.
+        Either returns the sanitized path name, or the atom
+        <c>unsafe</c> if the path is unsafe.
+        The path is considered unsafe in the following circumstances:</p>
+        <list type="bulleted">
+          <item><p>The path is not relative.</p></item>
+          <item><p>A ".." component would climb up above the root of
+          the relative path.</p></item>
+        </list>
+        <p><em>Examples:</em></p>
+        <pre>
+1> <input>filename:safe_relative_path("dir/sub_dir/..").</input>
+"dir"
+2> <input>filename:safe_relative_path("dir/..").</input>
+[]
+3> <input>filename:safe_relative_path("dir/../..").</input>
+unsafe
+4> <input>filename:safe_relative_path("/abs/path").</input>
+unsafe</pre>
+       </desc>
     </func>
 
     <func>

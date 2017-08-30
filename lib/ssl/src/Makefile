@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2015. All Rights Reserved.
+# Copyright Ericsson AB 1999-2016. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,8 +48,17 @@ MODULES= \
 	dtls \
 	ssl_alert \
 	ssl_app \
-	ssl_dist_sup\
 	ssl_sup \
+	ssl_admin_sup\
+	tls_connection_sup \
+        ssl_connection_sup \
+        ssl_listen_tracker_sup\
+	dtls_connection_sup \
+	dtls_udp_listener\
+	dtls_udp_sup \
+	ssl_dist_sup\
+        ssl_dist_admin_sup\
+        ssl_dist_connection_sup\
 	inet_tls_dist \
 	inet6_tls_dist \
 	ssl_certificate\
@@ -60,19 +69,18 @@ MODULES= \
 	dtls_connection \
 	ssl_config \
 	ssl_connection \
-	tls_connection_sup \
-	dtls_connection_sup \
 	tls_handshake \
 	dtls_handshake\
 	ssl_handshake\
 	ssl_manager \
 	ssl_session \
 	ssl_session_cache \
+	ssl_pem_cache \
 	ssl_crl\
 	ssl_crl_cache \
 	ssl_crl_hash_dir \
-	ssl_socket \
-	ssl_listen_tracker_sup \
+	tls_socket \
+	dtls_socket \
 	tls_record \
 	dtls_record \
 	ssl_record \

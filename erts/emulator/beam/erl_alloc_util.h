@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -178,10 +178,10 @@ void *	erts_alcu_realloc_mv_thr_pref(ErtsAlcType_t, void *, void *, Uint);
 void	erts_alcu_free_thr_pref(ErtsAlcType_t, void *, void *);
 #endif
 #endif
-Eterm	erts_alcu_au_info_options(int *, void *, Uint **, Uint *);
-Eterm	erts_alcu_info_options(Allctr_t *, int *, void *, Uint **, Uint *);
-Eterm	erts_alcu_sz_info(Allctr_t *, int, int, int *, void *, Uint **, Uint *);
-Eterm	erts_alcu_info(Allctr_t *, int, int, int *, void *, Uint **, Uint *);
+Eterm	erts_alcu_au_info_options(fmtfn_t *, void *, Uint **, Uint *);
+Eterm	erts_alcu_info_options(Allctr_t *, fmtfn_t *, void *, Uint **, Uint *);
+Eterm	erts_alcu_sz_info(Allctr_t *, int, int, fmtfn_t *, void *, Uint **, Uint *);
+Eterm	erts_alcu_info(Allctr_t *, int, int, fmtfn_t *, void *, Uint **, Uint *);
 void	erts_alcu_init(AlcUInit_t *);
 void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *,
 			       ErtsAlcUFixInfo_t *, int);
@@ -195,10 +195,6 @@ extern UWord erts_literal_vspace_map[];
 # define ERTS_VSPACE_WORD_BITS (sizeof(UWord)*8)
 #endif
 
-void* erts_alcu_mseg_alloc(Allctr_t*, Uint *size_p, Uint flags);
-void* erts_alcu_mseg_realloc(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
-void  erts_alcu_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags);
-
 #if HAVE_ERTS_MSEG
 # if defined(ARCH_32)
 void* erts_alcu_literal_32_mseg_alloc(Allctr_t*, Uint *size_p, Uint flags);
@@ -210,11 +206,14 @@ void* erts_alcu_mmapper_mseg_alloc(Allctr_t*, Uint *size_p, Uint flags);
 void* erts_alcu_mmapper_mseg_realloc(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
 void  erts_alcu_mmapper_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags);
 # endif
+
+# if defined(ERTS_ALC_A_EXEC) && !defined(ERTS_HAVE_EXEC_MMAPPER)
+void* erts_alcu_exec_mseg_alloc(Allctr_t*, Uint *size_p, Uint flags);
+void* erts_alcu_exec_mseg_realloc(Allctr_t*, void *seg, Uint old_size, Uint *new_size_p);
+void  erts_alcu_exec_mseg_dealloc(Allctr_t*, void *seg, Uint size, Uint flags);
+# endif
 #endif /* HAVE_ERTS_MSEG */
 
-void* erts_alcu_sys_alloc(Allctr_t*, Uint *size_p, int superalign);
-void* erts_alcu_sys_realloc(Allctr_t*, void *ptr, Uint *size_p, Uint old_size, int superalign);
-void  erts_alcu_sys_dealloc(Allctr_t*, void *ptr, Uint size, int superalign);
 #ifdef ARCH_32
 void* erts_alcu_literal_32_sys_alloc(Allctr_t*, Uint *size_p, int superalign);
 void* erts_alcu_literal_32_sys_realloc(Allctr_t*, void *ptr, Uint *size_p, Uint old_size, int superalign);
@@ -586,7 +585,7 @@ struct Allctr_t_ {
 						 Block_t *, Uint);
     void		(*link_free_block)	(Allctr_t *, Block_t *);
     void		(*unlink_free_block)	(Allctr_t *, Block_t *);
-    Eterm		(*info_options)		(Allctr_t *, char *, int *,
+    Eterm		(*info_options)		(Allctr_t *, char *, fmtfn_t *,
 						 void *, Uint **, Uint *);
 
     Uint		(*get_next_mbc_size)	(Allctr_t *);

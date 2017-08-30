@@ -4,14 +4,14 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>os</title>
@@ -152,6 +152,33 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
 	<p>On Unix platforms, the environment is set using UTF-8 encoding
 	  if Unicode filename translation is in effect. On Windows, the
 	  environment is set using wide character interfaces.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_signal" arity="2"/>
+      <fsummary>Enables or disables handling of OS signals.</fsummary>
+      <desc>
+          <p>Enables or disables OS signals.</p>
+          <p>Each signal my be set to one of the following options:</p>
+          <taglist>
+              <tag><c>ignore</c></tag>
+              <item>
+                  This signal will be ignored.
+              </item>
+
+              <tag><c>default</c></tag>
+              <item>
+                  This signal will use the default signal handler for the operating system.
+              </item>
+
+              <tag><c>handle</c></tag>
+              <item>
+                  This signal will notify
+                  <seealso marker="kernel_app#erl_signal_server"><c>erl_signal_server</c></seealso>
+                  when it is received by the Erlang runtime system.
+              </item>
+          </taglist>
       </desc>
     </func>
 
@@ -296,4 +323,3 @@ calendar:now_to_universal_time(TS),
     </func>
   </funcs>
 </erlref>
-

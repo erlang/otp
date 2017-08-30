@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ start(Drv, Shell, Options) ->
 server(Drv, Shell, Options) ->
     process_flag(trap_exit, true),
     edlin:init(),
-    put(line_buffer, proplists:get_value(line_buffer, Options, [])),
+    put(line_buffer, proplists:get_value(line_buffer, Options, group_history:load())),
     put(read_mode, list),
     put(user_drv, Drv),
     put(expand_fun,
@@ -783,6 +783,7 @@ save_line_buffer("\n", Lines) ->
 save_line_buffer(Line, [Line|_Lines]=Lines) ->
     save_line_buffer(Lines);
 save_line_buffer(Line, Lines) ->
+    group_history:add(Line),
     save_line_buffer([Line|Lines]).
 
 save_line_buffer(Lines) ->

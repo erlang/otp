@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -405,11 +405,11 @@ getRangeSize(Head)->
 	    {multiPart, BoundaryString};
 	_X1 ->
 	    case re:run(Head, ?CONTENT_RANGE "bytes=.*\r\n", [{capture, first}]) of
-		{match, [{Start, Lenght}]} ->
+		{match, [{Start, Length}]} ->
 		    %% Get the range data remove the fieldname and the
 		    %% end of line.
 		    RangeInfo = string:substr(Head, Start + 1 + 20, 
-					      Lenght - (20 +2)),
+					      Length - (20 +2)),
 		    rangeSize(string:strip(RangeInfo));
 		_X2 ->
 		    error

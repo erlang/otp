@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ config(priv_dir,_) ->
 init_per_testcase(_Case, Config) ->
     Config.
 
-end_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, _Config) ->
     shutdown(),
     ok.
 

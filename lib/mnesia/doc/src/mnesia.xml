@@ -37,7 +37,7 @@
   <description>
 
     <p>The following are some of the most important and attractive
-      capabilities provided by <c>Mnesia</c>:</p>
+      capabilities provided by Mnesia:</p>
     <list type="bulleted">
       <item>A relational/object hybrid data model that is suitable
        for telecommunications applications.
@@ -62,15 +62,15 @@
        reconfigured at runtime without stopping the system.
       </item>
     </list>
-    <p>This Reference Manual describes the <c>Mnesia</c> API. This
-      includes functions that define and manipulate <c>Mnesia</c>
+    <p>This Reference Manual describes the Mnesia API. This
+      includes functions that define and manipulate Mnesia
       tables.</p>
     <p>All functions in this Reference Manual can be used in any
       combination with queries using the list comprehension notation.
       For information about the query notation, see the
       <seealso marker="stdlib:qlc">qlc</seealso>
-      manual page in <c>STDLIB</c>.</p>
-    <p>Data in <c>Mnesia</c> is organized as a set of tables. Each table
+      manual page in STDLIB.</p>
+    <p>Data in Mnesia is organized as a set of tables. Each table
       has a name that must be an atom. Each table is made up of
       Erlang records. The user is responsible for the record
       definitions. Each table also has a set of properties. The
@@ -121,14 +121,14 @@
       <item>
         <p><c>index</c>. This is a list of attribute names, or
           integers, which specify the tuple positions on which
-          <c>Mnesia</c> is to build and maintain an extra index
+          Mnesia is to build and maintain an extra index
           table.</p>
       </item>
       <item>
         <p><c>local_content</c>. When an application requires
           tables whose contents are local to each node,
           <c>local_content</c> tables can be used. The table name
-          is known to all <c>Mnesia</c> nodes, but its content is
+          is known to all Mnesia nodes, but its content is
           unique on each node. This means that access to such a table
           must be done locally. Set field <c>local_content</c> to
           <c>true</c> to enable the <c>local_content</c>
@@ -143,7 +143,7 @@
         avoid inconsistencies because of network splits.</p>
       </item>
       <item>
-        <p><c>snmp</c>. Each (set-based) <c>Mnesia</c> table can be
+        <p><c>snmp</c>. Each (set-based) Mnesia table can be
           automatically turned into a Simple Network Management
           Protocol (SNMP) ordered table as well.
           This property specifies the types of the SNMP keys.</p>
@@ -174,7 +174,7 @@
       copy of each modified record during the transaction. During
       iteration, that is, <c>mnesia:fold[lr]/4</c>,
       <c>mnesia:next/2</c>, <c>mnesia:prev/2</c>, and
-      <c>mnesia:snmp_get_next_index/2</c>, <c>Mnesia</c>
+      <c>mnesia:snmp_get_next_index/2</c>, Mnesia
       compensates for every written or deleted record, which can
       reduce the performance.</p>
     <p>If possible, avoid writing or deleting records in the same
@@ -188,7 +188,7 @@
       <desc>
         <p>Makes the transaction silently
           return the tuple <c>{aborted, Reason}</c>.
-          Termination of a <c>Mnesia</c> transaction means that
+          Termination of a Mnesia transaction means that
           an exception is thrown to an enclosing <c>catch</c>.
           Thus, the expression <c>catch mnesia:abort(x)</c> does
           not terminate the transaction.</p>
@@ -324,7 +324,7 @@
           <c>mnesia:ets</c>. Argument <c>AccessMod</c>
           is the name of a callback module, which implements the
           <c>mnesia_access</c> behavior.</p>
-        <p><c>Mnesia</c> forwards calls to the following functions:</p>
+        <p>Mnesia forwards calls to the following functions:</p>
         <list type="bulleted">
           <item>mnesia:lock/2 (read_lock_table/1, write_lock_table/1)
           </item>
@@ -391,15 +391,15 @@
           </item>
         </list>
         <p><c>ActivityId</c> is a record that represents the identity
-          of the enclosing <c>Mnesia</c> activity. The first field
+          of the enclosing Mnesia activity. The first field
           (obtained with <c>element(1, ActivityId)</c>) contains an
           atom, which can be interpreted as the activity type:
           <c>ets</c>, <c>async_dirty</c>, <c>sync_dirty</c>, or
           <c>tid</c>. <c>tid</c> means that the activity is a
           transaction. The structure of the rest of the identity
-          record is internal to <c>Mnesia</c>.</p>
+          record is internal to Mnesia.</p>
         <p><c>Opaque</c> is an opaque data structure that is internal
-          to <c>Mnesia</c>.</p>
+          to Mnesia.</p>
       </desc>
     </func>
     <func>
@@ -458,7 +458,7 @@ mnesia:add_table_index(person, age)</code>
       <desc>
       <marker id="async_dirty"></marker>
         <p>Calls the <c>Fun</c> in a context that is not protected by
-          a transaction. The <c>Mnesia</c> function calls performed in
+          a transaction. The Mnesia function calls performed in
           the <c>Fun</c> are mapped to the corresponding dirty
           functions. This still involves logging, replication, and
           subscriptions, but there is no locking, local transaction
@@ -467,7 +467,7 @@ mnesia:add_table_index(person, age)</code>
           for normal <c>mnesia:dirty_*</c> operations, the operations
           are performed semi-asynchronously. For details, see
           <c>mnesia:activity/4</c> and the User's Guide.</p>
-        <p>The <c>Mnesia</c> tables can be manipulated without
+        <p>The Mnesia tables can be manipulated without
           using transactions. This has some serious disadvantages, but
           is considerably faster, as the transaction manager is not
           involved and no locks are set. A dirty operation does,
@@ -480,7 +480,7 @@ mnesia:add_table_index(person, age)</code>
           read records dirty than within a transaction.</p>
         <p>Depending on the application, it can be a good idea to use
           the dirty functions for certain operations. Almost all
-          <c>Mnesia</c> functions that can be called within
+          Mnesia functions that can be called within
           transactions have a dirty equivalent, which is much more
           efficient.</p>
         <p>However, notice that there is a risk that the database can
@@ -497,7 +497,7 @@ mnesia:add_table_index(person, age)</code>
       <fsummary>Backs up all tables in the database.</fsummary>
       <desc>
       <marker id="backup"></marker>
-        <p>Activates a new checkpoint covering all <c>Mnesia</c> tables,
+        <p>Activates a new checkpoint covering all Mnesia tables,
           including the schema, with maximum degree of redundancy, and
           performs a backup using <c>backup_checkpoint/2/3</c>. The
           default value of the backup callback module <c>BackupMod</c>
@@ -529,16 +529,16 @@ mnesia:add_table_index(person, age)</code>
         <taglist>
           <tag><c>extra_db_nodes</c></tag>
           <item>
-            <p><c>Value</c> is a list of nodes that <c>Mnesia</c>
+            <p><c>Value</c> is a list of nodes that Mnesia
               is to try to connect to. <c>ReturnValue</c> is those
-              nodes in <c>Value</c> that <c>Mnesia</c> is connected
+              nodes in <c>Value</c> that Mnesia is connected
               to.</p>
             <p>Notice that this function must only be used to connect
               to newly started RAM nodes (N.D.R.S.N.) with an empty
               schema. If, for example, this function is used after
               the network has been partitioned, it can lead to
               inconsistent tables.</p>
-            <p>Notice that <c>Mnesia</c> can be connected to other
+            <p>Notice that Mnesia can be connected to other
               nodes than those returned in <c>ReturnValue</c>.</p>
           </item>
           <tag><c>dc_dump_limit</c></tag>
@@ -548,7 +548,7 @@ mnesia:add_table_index(person, age)</code>
             Configuration Parameters</seealso>. <c>ReturnValue</c>
             is the new value. Notice that this configuration
             parameter is not persistent. It is lost when
-            <c>Mnesia</c> has stopped.</p>
+            Mnesia has stopped.</p>
           </item>
         </taglist>
       </desc>
@@ -562,9 +562,9 @@ mnesia:add_table_index(person, age)</code>
           <c>read_write</c> but it can also be set to the atom
           <c>read_only</c>. If <c>AccessMode</c> is set to
           <c>read_only</c>, updates to the table cannot be
-          performed. At startup, <c>Mnesia</c> always loads
+          performed. At startup, Mnesia always loads
           <c>read_only</c> tables locally regardless of when and if
-          <c>Mnesia</c> is terminated on other nodes.</p>
+          Mnesia is terminated on other nodes.</p>
       </desc>
     </func>
     <func>
@@ -620,13 +620,13 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
       <desc>
       <marker id="create_schema"></marker>
         <p>Creates a new database on disc. Various files are
-          created in the local <c>Mnesia</c> directory of each node.
+          created in the local Mnesia directory of each node.
           Notice that the directory must be unique for each node.
           Two nodes must never share the same directory. If possible,
           use a local disc device to improve performance.</p>
         <p><c>mnesia:create_schema/1</c> fails if any of the
           Erlang nodes given as <c>DiscNodes</c> are not alive, if
-          <c>Mnesia</c> is running on any of the nodes, or if any
+          Mnesia is running on any of the nodes, or if any
           of the nodes already have a schema. Use
           <c>mnesia:delete_schema/1</c> to get rid of old faulty
           schemas.</p>
@@ -638,10 +638,10 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
     </func>
     <func>
       <name>create_table(Name, TabDef) -> {atomic, ok} | {aborted, Reason}</name>
-      <fsummary>Creates a <c>Mnesia</c> table called <c>Name</c>with properties as described by argument <c>TabDef</c>.</fsummary>
+      <fsummary>Creates a Mnesia table called <c>Name</c>with properties as described by argument <c>TabDef</c>.</fsummary>
       <desc>
       <marker id="create_table"></marker>
-        <p>Creates a <c>Mnesia</c> table called
+        <p>Creates a Mnesia table called
           <c>Name</c> according to argument <c>TabDef</c>. This
           list must be a list of <c>{Item, Value}</c> tuples,
           where the following values are allowed:</p>
@@ -652,8 +652,8 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
               set to the atom <c>read_only</c>. If <c>AccessMode</c>
               is set to <c>read_only</c>, updates to the table
               cannot be performed.</p>
-            <p>At startup, <c>Mnesia</c> always loads <c>read_only</c>
-              table locally regardless of when and if <c>Mnesia</c> is
+            <p>At startup, Mnesia always loads <c>read_only</c>
+              table locally regardless of when and if Mnesia is
               terminated on other nodes. This argument returns the
               access mode of the table. The access mode can be
               <c>read_only</c> or <c>read_write</c>.</p>
@@ -693,7 +693,7 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
           <item>
             <p><c>{index, Intlist}</c>, where
               <c>Intlist</c> is a list of attribute names (atoms) or
-              record fields for which <c>Mnesia</c> is to build and
+              record fields for which Mnesia is to build and
               maintain an extra index table. The <c>qlc</c> query
               compiler <em>may</em> be able to optimize queries
               if there are indexes available.</p>
@@ -735,10 +735,10 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
               <c>mnesia:create_table/2</c>, the table is immediately
               accessible by SNMP. Therefore applications that use
               SNMP to manipulate and control the system can be
-              designed easily, since <c>Mnesia</c> provides a
+              designed easily, since Mnesia provides a
               direct mapping between the logical tables that make up
               an SNMP control application and the physical data that
-              makes up a <c>Mnesia</c> table.</p>
+              makes up a Mnesia table.</p>
           </item>
           <item>
             <p><c>{storage_properties, [{Backend, Properties}]</c>
@@ -746,7 +746,7 @@ mnesia:change_table_copy_type(person, node(), disc_copies)</code>
             <c>Backend</c> can currently be <c>ets</c> or <c>dets</c>.
             <c>Properties</c> is a list of options sent to the
             back end storage during table creation. <c>Properties</c>
-            cannot contain properties already used by <c>Mnesia</c>,
+            cannot contain properties already used by Mnesia,
             such as <c>type</c> or <c>named_table</c>.</p>
             <p>For example:</p>
             <code type="none">
@@ -776,7 +776,7 @@ mnesia:create_table(table, [{ram_copies, [node()]}, {disc_only_copies, nodes()},
 mnesia:create_table(person,
     [{ram_copies, [N1, N2]},
      {attributes, record_info(fields, person)}]).</code>
-        <p>If it is required that <c>Mnesia</c> must build and
+        <p>If it is required that Mnesia must build and
           maintain an extra index table on attribute <c>address</c>
           of all the <c>person</c> records that are inserted in the
           table, the following code would be issued:</p>
@@ -819,8 +819,8 @@ mnesia:create_table(person,
           When the last replica is deleted with this
           function, the table disappears entirely.</p>
         <p>This function can also be used to delete a replica of
-          the table named <c>schema</c>. The <c>Mnesia</c> node is
-          then removed. Notice that <c>Mnesia</c> must be
+          the table named <c>schema</c>. The Mnesia node is
+          then removed. Notice that Mnesia must be
           stopped on the node first.</p>
       </desc>
     </func>
@@ -891,9 +891,9 @@ mnesia:create_table(person,
           <c>mnesia:create_schema/1</c>.
           <c>mnesia:delete_schema/1</c> fails if any of the Erlang
           nodes given as <c>DiscNodes</c> are not alive, or if
-          <c>Mnesia</c> is running on any of the nodes.</p>
+          Mnesia is running on any of the nodes.</p>
         <p>After the database is deleted, it can still be possible
-          to start <c>Mnesia</c> as a disc-less node. This depends
+          to start Mnesia as a disc-less node. This depends
           on how configuration parameter <c>schema_location</c> is
           set.</p>
         <warning>
@@ -1100,7 +1100,7 @@ mnesia:create_table(person,
       <name>dirty_update_counter(Tab, Key, Incr) -> NewVal | exit({aborted, Reason})</name>
       <fsummary>Dirty update of a counter record.</fsummary>
       <desc>
-        <p><c>Mnesia</c> has no special counter records. However,
+        <p>Mnesia has no special counter records. However,
           records of the form <c>{Tab, Key, Integer}</c> can be used
           as (possibly disc-resident) counters when <c>Tab</c> is a
           <c>set</c>. This function updates a counter with a positive
@@ -1147,7 +1147,7 @@ mnesia:create_table(person,
       <desc>
       <marker id="dump_log"></marker>
         <p>Performs a user-initiated dump of the local log file.
-          This is usually not necessary, as <c>Mnesia</c> by default
+          This is usually not necessary, as Mnesia by default
           manages this automatically. See configuration parameters
           <seealso marker="#dump_log_time_threshold">dump_log_time_threshold</seealso>
           and
@@ -1172,7 +1172,7 @@ mnesia:create_table(person,
       <fsummary>Dumps local tables into a text file.</fsummary>
       <desc>
       <marker id="dump_to_textfile"></marker>
-        <p>Dumps all local tables of a <c>Mnesia</c> system into a
+        <p>Dumps all local tables of a Mnesia system into a
           text file, which can be edited (by a normal text editor)
           and then be reloaded with
           <c>mnesia:load_textfile/1</c>. Only use this function for
@@ -1182,10 +1182,10 @@ mnesia:create_table(person,
     </func>
     <func>
       <name>error_description(Error) -> String</name>
-      <fsummary>Returns a string describing a particular <c>Mnesia</c> error.</fsummary>
+      <fsummary>Returns a string describing a particular Mnesia error.</fsummary>
       <desc>
       <marker id="error_description"></marker>
-        <p>All <c>Mnesia</c> transactions, including all the schema
+        <p>All Mnesia transactions, including all the schema
           update functions, either return value <c>{atomic, Val}</c>
           or the tuple <c>{aborted, Reason}</c>. <c>Reason</c> can
           be either of the atoms in the following list. The
@@ -1264,8 +1264,8 @@ mnesia:create_table(person,
       <desc>
       <marker id="ets"></marker>
         <p>Calls the <c>Fun</c> in a raw context that is not protected by
-          a transaction. The <c>Mnesia</c> function call is performed in
-          the <c>Fun</c> and performed directly on the local <c>ets</c>
+          a transaction. The Mnesia function call is performed in
+          the <c>Fun</c> and performed directly on the local ETS
           tables on the assumption that the local storage type is
           <c>ram_copies</c> and the tables are not replicated to other
           nodes. Subscriptions are not triggered and checkpoints are
@@ -1321,13 +1321,13 @@ mnesia:create_table(person,
       <fsummary>Forces a table to be loaded into the system.</fsummary>
       <desc>
       <marker id="force_load_table"></marker>
-        <p>The <c>Mnesia</c> algorithm for table load can lead to a
+        <p>The Mnesia algorithm for table load can lead to a
           situation where a table cannot be loaded. This situation
-          occurs when a node is started and <c>Mnesia</c> concludes, or
+          occurs when a node is started and Mnesia concludes, or
           suspects, that another copy of the table was active after
           this local copy became inactive because of a system crash.</p>
         <p>If this situation is not acceptable, this function can be
-          used to override the strategy of the <c>Mnesia</c> table
+          used to override the strategy of the Mnesia table
           load algorithm. This can lead to a situation where some
           transaction effects are lost with an inconsistent database as
           result, but for some applications high availability is more
@@ -1402,9 +1402,9 @@ mnesia:create_table(person,
       <desc>
       <marker id="info"></marker>
         <p>Prints system information on the terminal.
-          This function can be used even if <c>Mnesia</c> is not
+          This function can be used even if Mnesia is not
           started. However, more information is displayed if
-          <c>Mnesia</c> is started.</p>
+          Mnesia is started.</p>
       </desc>
     </func>
     <func>
@@ -1431,7 +1431,7 @@ mnesia:create_table(person,
         <p>Installs a backup as fallback. The fallback is used to
           restore the database at the next startup. Installation of
           fallbacks requires Erlang to be operational on all the
-          involved nodes, but it does not matter if <c>Mnesia</c>
+          involved nodes, but it does not matter if Mnesia
           is running or not. The installation of the fallback fails
           if the local node is not one of the disc-resident nodes
           in the backup.</p>
@@ -1465,14 +1465,14 @@ mnesia:create_table(person,
             <p><c>{mnesia_dir, AlternateDir}</c>.
               This argument is only valid if the scope of the
               installation is <c>local</c>. Normally the installation
-              of a fallback is targeted to the <c>Mnesia</c> directory,
+              of a fallback is targeted to the Mnesia directory,
               as configured with configuration parameter
               <c>-mnesia dir</c>. But by explicitly supplying an
               <c>AlternateDir</c>, the fallback is installed there
-              regardless of the <c>Mnesia</c> directory configuration
+              regardless of the Mnesia directory configuration
               parameter setting. After installation of a fallback on
-              an alternative <c>Mnesia</c> directory, that directory
-              is fully prepared for use as an active <c>Mnesia</c>
+              an alternative Mnesia directory, that directory
+              is fully prepared for use as an active Mnesia
               directory.</p>
             <p>This is a dangerous feature that must be
               used with care. By unintentional mixing of directories,
@@ -1509,7 +1509,7 @@ mnesia:create_table(person,
       <marker id="load_textfile"></marker>
         <p>Loads a series of definitions and data found in the
           text file (generated with <c>mnesia:dump_to_textfile/1</c>)
-          into <c>Mnesia</c>. This function also starts <c>Mnesia</c>
+          into Mnesia. This function also starts Mnesia
           and possibly creates a new schema. This function is
           intended for educational purposes only. It is recommended
           to use other functions to deal with real backups.</p>
@@ -1558,7 +1558,7 @@ mnesia:create_table(person,
         </taglist>
         <p>Conflicting lock requests are automatically queued if there
           is no risk of a deadlock. Otherwise the transaction must be
-          terminated and executed again. <c>Mnesia</c> does this
+          terminated and executed again. Mnesia does this
           automatically as long as the upper limit of the maximum
           <c>retries</c> is not reached. For details, see
           <c>mnesia:transaction/3</c>.</p>
@@ -1726,19 +1726,19 @@ mnesia:create_table(person,
     </func>
     <func>
       <name>report_event(Event) -> ok</name>
-      <fsummary>Reports a user event to the <c>Mnesia</c> event handler.</fsummary>
+      <fsummary>Reports a user event to the Mnesia event handler.</fsummary>
       <desc>
       <marker id="report_event"></marker>
-        <p>When tracing a system of <c>Mnesia</c> applications it is
-          useful to be able to interleave <c>Mnesia</c> own events with
+        <p>When tracing a system of Mnesia applications it is
+          useful to be able to interleave Mnesia own events with
           application-related events that give information about the
           application context.</p>
         <p>Whenever the application begins a
-          new and demanding <c>Mnesia</c> task, or if it enters a new
+          new and demanding Mnesia task, or if it enters a new
           interesting phase in its execution, it can be a good idea to
           use <c>mnesia:report_event/1</c>. <c>Event</c> can be
           any term and generates a <c>{mnesia_user, Event}</c> event
-          for any processes that subscribe to <c>Mnesia</c> system
+          for any processes that subscribe to Mnesia system
           events.</p>
       </desc>
     </func>
@@ -1748,7 +1748,7 @@ mnesia:create_table(person,
       <desc>
       <marker id="restore"></marker>
         <p>With this function, tables can be restored online from a
-          backup without restarting <c>Mnesia</c>.
+          backup without restarting Mnesia.
           <c>Opaque</c> is forwarded to the backup module.
           <c>Args</c> is a list of the following tuples:</p>
         <list type="bulleted">
@@ -1873,7 +1873,7 @@ mnesia:create_table(person,
         <p>For a complete description of <c>select</c>, see the
           <seealso marker="erts:index">ERTS</seealso> User's Guide and the
           <seealso marker="stdlib:ets">ets</seealso> manual page in
-          <c>STDLIB</c>.</p>
+          STDLIB.</p>
         <p>For example, to find the names of all male persons older
           than 30 in table <c>Tab</c>:</p>
         <code type="none">
@@ -1920,10 +1920,10 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
     </func>
     <func>
       <name>set_debug_level(Level) -> OldLevel</name>
-      <fsummary>Changes the internal debug level of <c>Mnesia</c>.</fsummary>
+      <fsummary>Changes the internal debug level of Mnesia.</fsummary>
       <desc>
       <marker id="set_debug_level"></marker>
-        <p>Changes the internal debug level of <c>Mnesia</c>.
+        <p>Changes the internal debug level of Mnesia.
           For details, see
           <seealso marker="#configuration_parameters">Section
           Configuration Parameters</seealso>.</p>
@@ -1934,7 +1934,7 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       <fsummary>Sets the master nodes for all tables.</fsummary>
       <desc>
       <marker id="set_master_nodes_1"></marker>
-        <p>For each table <c>Mnesia</c> determines its replica nodes
+        <p>For each table Mnesia determines its replica nodes
           (<c>TabNodes</c>) and starts
           <c>mnesia:set_master_nodes(Tab, TabMasterNodes)</c>. where
           <c>TabMasterNodes</c> is the intersection of
@@ -1952,16 +1952,16 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
           that can have caused an inconsistent database, it can use the
           function <c>mnesia:set_master_nodes(Tab, MasterNodes)</c> to
           define from which nodes each table is to be loaded.
-          At startup, the <c>Mnesia</c> normal table load algorithm is
+          At startup, the Mnesia normal table load algorithm is
           bypassed and the table is loaded from one of the master nodes
-          defined for the table, regardless of when and if <c>Mnesia</c>
+          defined for the table, regardless of when and if Mnesia
           terminated on other nodes. <c>MasterNodes</c> can only
           contain nodes where the table has a replica. If the
           <c>MasterNodes</c> list is empty, the master node recovery
           mechanism for the particular table is reset, and the
           normal load mechanism is used at the next restart.</p>
         <p>The master node setting is always local. It can be
-          changed regardless if <c>Mnesia</c> is started or not.</p>
+          changed regardless if Mnesia is started or not.</p>
         <p>The database can also become inconsistent if
           configuration parameter <c>max_wait_for_decision</c> is used
           or if <c>mnesia:force_load_table/1</c> is used.</p>
@@ -1976,7 +1976,7 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
     </func>
     <func>
       <name>snmp_get_mnesia_key(Tab, RowIndex) -> {ok, Key} | undefined</name>
-      <fsummary>Gets the corresponding <c>Mnesia</c> key from an SNMP index.</fsummary>
+      <fsummary>Gets the corresponding Mnesia key from an SNMP index.</fsummary>
       <type>
         <v>Tab ::= atom()</v>
         <v>RowIndex ::= [integer()]</v>
@@ -1984,7 +1984,7 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
         <v>key() ::= integer() | string() | [integer()]</v>
       </type>
       <desc>
-        <p>Transforms an SNMP index to the corresponding <c>Mnesia</c>
+        <p>Transforms an SNMP index to the corresponding Mnesia
           key. If the SNMP table has multiple keys, the key is a tuple
           of the key columns.</p>
       </desc>
@@ -2020,7 +2020,7 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
     </func>
     <func>
       <name>snmp_open_table(Tab, SnmpStruct) -> {aborted, R} | {atomic, ok}</name>
-      <fsummary>Organizes a <c>Mnesia</c> table as an SNMP table.</fsummary>
+      <fsummary>Organizes a Mnesia table as an SNMP table.</fsummary>
       <type>
         <v>Tab ::= atom()</v>
         <v>SnmpStruct ::= [{key, type()}]</v>
@@ -2029,14 +2029,14 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       </type>
       <desc>
         <p>A direct one-to-one mapping can be established between
-          <c>Mnesia</c> tables and SNMP tables. Many telecommunication
+          Mnesia tables and SNMP tables. Many telecommunication
           applications are controlled and monitored by the SNMP
-          protocol. This connection between <c>Mnesia</c> and SNMP
+          protocol. This connection between Mnesia and SNMP
           makes it simple and convenient to achieve this mapping.</p>
         <p>Argument <c>SnmpStruct</c> is a list of SNMP
           information. Currently, the only information needed is
           information about the key types in the table. Multiple
-          keys cannot be handled in <c>Mnesia</c>, but many SNMP
+          keys cannot be handled in Mnesia, but many SNMP
           tables have multiple keys. Therefore, the following
           convention is used: if a table has multiple keys, these must
           always be stored as a tuple of the keys. Information about
@@ -2069,39 +2069,39 @@ mnesia:create_table(employee,
         <p>When a table is SNMP ordered, modifications are more
           expensive than usual, O(logN). Also, more memory is used.</p>
         <p>Notice that only the lexicographical SNMP ordering is
-          implemented in <c>Mnesia</c>, not the actual SNMP monitoring.</p>
+          implemented in Mnesia, not the actual SNMP monitoring.</p>
       </desc>
     </func>
     <func>
       <name>start() -> ok | {error, Reason}</name>
-      <fsummary>Starts a local <c>Mnesia</c> system.</fsummary>
+      <fsummary>Starts a local Mnesia system.</fsummary>
       <desc>
       <marker id="start"></marker>
-        <p>The startup procedure for a set of <c>Mnesia</c> nodes is a
-          fairly complicated operation. A <c>Mnesia</c> system consists
-          of a set of nodes, with <c>Mnesia</c> started locally on all
+        <p>The startup procedure for a set of Mnesia nodes is a
+          fairly complicated operation. A Mnesia system consists
+          of a set of nodes, with Mnesia started locally on all
           participating nodes. Normally, each node has a directory where
-          all the <c>Mnesia</c> files are written. This directory is
-          referred to as the <c>Mnesia</c> directory. <c>Mnesia</c> can
+          all the Mnesia files are written. This directory is
+          referred to as the Mnesia directory. Mnesia can
           also be started on disc-less nodes. For more information
           about disc-less nodes, see <c>mnesia:create_schema/1</c>
           and the User's Guide.</p>
-        <p>The set of nodes that makes up a <c>Mnesia</c> system is kept
-          in a schema. <c>Mnesia</c> nodes can be added to or removed
+        <p>The set of nodes that makes up a Mnesia system is kept
+          in a schema. Mnesia nodes can be added to or removed
           from the schema. The initial schema is normally created on
           disc with the function <c>mnesia:create_schema/1</c>. On
           disc-less nodes, a tiny default schema is generated each time
-          <c>Mnesia</c> is started. During the startup procedure,
-          <c>Mnesia</c> exchanges schema information between the nodes
+          Mnesia is started. During the startup procedure,
+          Mnesia exchanges schema information between the nodes
           to verify that the table definitions are compatible.</p>
         <p>Each schema has a unique cookie, which can be regarded as a
           unique schema identifier. The cookie must be the same on all
-          nodes where <c>Mnesia</c> is supposed to run. For details,
+          nodes where Mnesia is supposed to run. For details,
           see the User's Guide.</p>
-        <p>The schema file and all other files that <c>Mnesia</c>
-          needs are kept in the <c>Mnesia</c> directory. The
+        <p>The schema file and all other files that Mnesia
+          needs are kept in the Mnesia directory. The
           command-line option <c>-mnesia dir Dir</c> can be used to
-          specify the location of this directory to the <c>Mnesia</c>
+          specify the location of this directory to the Mnesia
           system. If no such command-line option is found, the name
           of the directory defaults to <c>Mnesia.Node</c>.</p>
         <p><c>application:start(mnesia)</c> can also be used.</p>
@@ -2109,10 +2109,10 @@ mnesia:create_table(employee,
     </func>
     <func>
       <name>stop() -> stopped</name>
-      <fsummary>Stops <c>Mnesia</c> locally.</fsummary>
+      <fsummary>Stops Mnesia locally.</fsummary>
       <desc>
       <marker id="stop"></marker>
-        <p>Stops <c>Mnesia</c> locally on the current node.</p>
+        <p>Stops Mnesia locally on the current node.</p>
         <p><c>application:stop(mnesia)</c> can also be used.</p>
       </desc>
     </func>
@@ -2132,7 +2132,7 @@ mnesia:create_table(employee,
       <desc>
       <marker id="sync_dirty"></marker>
         <p>Calls the <c>Fun</c> in a context that is not protected by
-          a transaction. The <c>Mnesia</c> function calls performed in
+          a transaction. The Mnesia function calls performed in
           the <c>Fun</c> are mapped to the corresponding dirty functions.
           It is performed in almost the same context as
           <c>mnesia:async_dirty/1,2</c>. The difference is that the
@@ -2167,10 +2167,10 @@ mnesia:create_table(employee,
     </func>
     <func>
       <name>system_info(InfoKey) -> Info | exit({aborted, Reason})</name>
-      <fsummary>Returns information about the <c>Mnesia</c> system.</fsummary>
+      <fsummary>Returns information about the Mnesia system.</fsummary>
       <desc>
       <marker id="system_info"></marker>
-        <p>Returns information about the <c>Mnesia</c> system, such as
+        <p>Returns information about the Mnesia system, such as
           transaction statistics, <c>db_nodes</c>, and configuration
           parameters. The valid keys are as follows:</p>
         <list type="bulleted">
@@ -2188,7 +2188,7 @@ mnesia:create_table(employee,
           </item>
           <item>
             <p><c>auto_repair</c>. Returns <c>true</c> or <c>false</c>
-              to indicate if <c>Mnesia</c> is configured to start the
+              to indicate if Mnesia is configured to start the
               auto-repair facility on corrupted disc files.</p>
           </item>
           <item>
@@ -2209,20 +2209,20 @@ mnesia:create_table(employee,
               in the list of nodes if they explicitly have been added
               to the schema, for example, with
               <c>mnesia:add_table_copy/3</c>. The function can be
-              started even if <c>Mnesia</c> is not yet running.</p>
+              started even if Mnesia is not yet running.</p>
           </item>
           <item>
             <p><c>debug</c>. Returns the current debug level of
-              <c>Mnesia</c>.</p>
+              Mnesia.</p>
           </item>
           <item>
-            <p><c>directory</c>. Returns the name of the <c>Mnesia</c>
-              directory. It can be called even if <c>Mnesia</c> is
+            <p><c>directory</c>. Returns the name of the Mnesia
+              directory. It can be called even if Mnesia is
               not yet running.</p>
           </item>
           <item>
             <p><c>dump_log_load_regulation</c>. Returns a boolean that
-              tells if <c>Mnesia</c> is configured to regulate the
+              tells if Mnesia is configured to regulate the
               dumper process load.</p>
             <p>This feature is temporary and will be removed in future
               releases.</p>
@@ -2233,9 +2233,9 @@ mnesia:create_table(employee,
           </item>
           <item>
             <p><c>dump_log_update_in_place</c>. Returns a boolean that
-              tells if <c>Mnesia</c> is configured to perform the
-              updates in the <c>dets</c> files directly, or if the
-              updates are to be performed in a copy of the <c>dets</c>
+              tells if Mnesia is configured to perform the
+              updates in the Dets files directly, or if the
+              updates are to be performed in a copy of the Dets
               files.</p>
           </item>
           <item>
@@ -2253,13 +2253,13 @@ mnesia:create_table(employee,
           </item>
           <item>
             <p><c>held_locks</c>. Returns a list of all
-              locks held by the local <c>Mnesia</c> lock manager.</p>
+              locks held by the local Mnesia lock manager.</p>
           </item>
           <item>
             <p><c>is_running</c>. Returns <c>yes</c> or <c>no</c> to
-              indicate if <c>Mnesia</c> is running. It can
+              indicate if Mnesia is running. It can
               also return <c>starting</c> or <c>stopping</c>. Can be
-              called even if <c>Mnesia</c> is not yet running.</p>
+              called even if Mnesia is not yet running.</p>
           </item>
           <item>
             <p><c>local_tables</c>. Returns a list
@@ -2272,7 +2272,7 @@ mnesia:create_table(employee,
           </item>
           <item>
             <p><c>log_version</c>. Returns the version
-              number of the <c>Mnesia</c> transaction log format.</p>
+              number of the Mnesia transaction log format.</p>
           </item>
           <item>
             <p><c>master_node_tables</c>. Returns a
@@ -2280,25 +2280,25 @@ mnesia:create_table(employee,
           </item>
           <item>
             <p><c>protocol_version</c>. Returns the version number of
-              the <c>Mnesia</c> inter-process communication protocol.</p>
+              the Mnesia inter-process communication protocol.</p>
           </item>
           <item>
             <p><c>running_db_nodes</c>. Returns a list of nodes where
-              <c>Mnesia</c> currently is running. This function can be
-              called even if <c>Mnesia</c> is not yet running, but it
+              Mnesia currently is running. This function can be
+              called even if Mnesia is not yet running, but it
               then has slightly different semantics.</p>
-            <p>If <c>Mnesia</c> is down on the local node, the function
+            <p>If Mnesia is down on the local node, the function
               returns those other <c>db_nodes</c> and
               <c>extra_db_nodes</c> that for the moment are
               operational.</p>
-            <p>If <c>Mnesia</c> is started, the function returns
-              those nodes that <c>Mnesia</c> on the local node is fully
-              connected to. Only those nodes that <c>Mnesia</c> has
+            <p>If Mnesia is started, the function returns
+              those nodes that Mnesia on the local node is fully
+              connected to. Only those nodes that Mnesia has
               exchanged schema information with are included as
               <c>running_db_nodes</c>. After the merge of schemas, the
-              local <c>Mnesia</c> system is fully operable and
+              local Mnesia system is fully operable and
               applications can perform access of remote replicas.
-              Before the schema merge, <c>Mnesia</c> only operates
+              Before the schema merge, Mnesia only operates
               locally. Sometimes there are more nodes included in the
               <c>running_db_nodes</c> list than all <c>db_nodes</c>
               and <c>extra_db_nodes</c> together.</p>
@@ -2322,17 +2322,17 @@ mnesia:create_table(employee,
           <item>
             <p><c>transaction_failures</c>. Returns a
               number that indicates how many transactions have
-              failed since <c>Mnesia</c> was started.</p>
+              failed since Mnesia was started.</p>
           </item>
           <item>
             <p><c>transaction_commits</c>. Returns a
               number that indicates how many transactions have
-              terminated successfully since <c>Mnesia</c> was started.</p>
+              terminated successfully since Mnesia was started.</p>
           </item>
           <item>
             <p><c>transaction_restarts</c>. Returns a
               number that indicates how many transactions have been
-              restarted since <c>Mnesia</c> was started.</p>
+              restarted since Mnesia was started.</p>
           </item>
           <item>
             <p><c>transaction_log_writes</c>.
@@ -2342,12 +2342,12 @@ mnesia:create_table(employee,
           </item>
           <item>
             <p><c>use_dir</c>. Returns a boolean that indicates if
-              the <c>Mnesia</c> directory is used or not. Can be
-              started even if <c>Mnesia</c> is not yet running.</p>
+              the Mnesia directory is used or not. Can be
+              started even if Mnesia is not yet running.</p>
           </item>
           <item>
             <p><c>version</c>. Returns the current
-              version number of <c>Mnesia</c>.</p>
+              version number of Mnesia.</p>
           </item>
         </list>
       </desc>
@@ -2359,13 +2359,13 @@ mnesia:create_table(employee,
       <marker id="table"></marker>
         <p>Returns a Query List Comprehension (QLC) query handle,
           see the <seealso marker="stdlib:qlc">qlc(3)</seealso>
-          manual page in <c>STDLIB</c>. The module <c>qlc</c>
-          implements a query language that can use <c>Mnesia</c>
+          manual page in STDLIB. The module <c>qlc</c>
+          implements a query language that can use Mnesia
           tables as sources of data. Calling
           <c>mnesia:table/1,2</c> is the means to make the
           <c>mnesia</c> table <c>Tab</c> usable to QLC.</p>
-        <p><c>Option</c> can contain <c>Mnesia</c>
-          options or QLC options. <c>Mnesia</c> recognizes the
+        <p><c>Option</c> can contain Mnesia
+          options or QLC options. Mnesia recognizes the
           following options (any other option is forwarded to
           QLC).</p>
         <list type="bulleted">
@@ -2374,7 +2374,7 @@ mnesia:create_table(employee,
           </item>
           <item><c>{n_objects,Number}</c>, where <c>n_objects</c>
             specifies (roughly) the number of objects returned
-            from <c>Mnesia</c> to QLC. Queries to remote tables
+            from Mnesia to QLC. Queries to remote tables
             can need a larger chunk to reduce network overhead.
             By default, <c>100</c> objects at a time are returned.
           </item>
@@ -2413,7 +2413,7 @@ mnesia:create_table(employee,
       <desc>
       <marker id="table_info"></marker>
         <p>The <c>table_info/2</c> function takes two arguments.
-          The first is the name of a <c>Mnesia</c> table.
+          The first is the name of a Mnesia table.
           The second is one of the following keys:</p>
         <list type="bulleted">
           <item>
@@ -2465,7 +2465,7 @@ mnesia:create_table(employee,
           </item>
           <item>
             <p><c>load_node</c>. Returns the name of
-              the node that <c>Mnesia</c> loaded the table from. The
+              the node that Mnesia loaded the table from. The
               structure of the returned value is unspecified, but
               can be useful for debugging purposes.</p>
           </item>
@@ -2476,7 +2476,7 @@ mnesia:create_table(employee,
           </item>
           <item>
             <p><c>load_reason</c>. Returns the
-              reason of why <c>Mnesia</c> decided to load the table.
+              reason of why Mnesia decided to load the table.
               The structure of the returned value is unspecified, but
               can be useful for debugging purposes.</p>
           </item>
@@ -2620,7 +2620,7 @@ raise(Name, Amount) ->
           several processes running on different nodes can concurrently
           execute the function <c>raise/2</c> without interfering
           with each other.</p>
-        <p>Since <c>Mnesia</c> detects deadlocks, a transaction can be
+        <p>Since Mnesia detects deadlocks, a transaction can be
           restarted any number of times. This function attempts a
           restart as specified in <c>Retries</c>. <c>Retries</c> must
           be an integer greater than 0 or the atom <c>infinity</c>.
@@ -2643,7 +2643,7 @@ raise(Name, Amount) ->
         <p><c>NewAttributeList</c> and <c>NewRecordName</c>
           specify the attributes and the new record type of the
           converted table. Table name always remains unchanged. If
-          <c>record_name</c> is changed, only the <c>Mnesia</c>
+          <c>record_name</c> is changed, only the Mnesia
           functions that use table identifiers work, for example,
           <c>mnesia:write/3</c> works, but not <c>mnesia:write/1</c>.</p>
       </desc>
@@ -2706,7 +2706,7 @@ raise(Name, Amount) ->
           distributed operation that is either performed on all
           nodes with disc resident schema, or none. Uninstallation of
           fallbacks requires Erlang to be operational on all
-          involved nodes, but it does not matter if <c>Mnesia</c> is
+          involved nodes, but it does not matter if Mnesia is
           running or not. Which nodes that are considered as
           disc-resident nodes is determined from the schema
           information in the local fallback.</p>
@@ -2792,28 +2792,28 @@ raise(Name, Amount) ->
   <section>
     <title>Configuration Parameters</title>
     <marker id="configuration_parameters"></marker>
-    <p><c>Mnesia</c> reads the following application configuration
+    <p>Mnesia reads the following application configuration
       parameters:</p>
     <list type="bulleted">
       <item>
         <p><c>-mnesia access_module Module</c>. The name of the
-          <c>Mnesia</c> activity access callback module. Default is
+          Mnesia activity access callback module. Default is
           <c>mnesia</c>.</p>
       </item>
       <item>
         <p><c>-mnesia auto_repair true | false</c>. This flag
-          controls if <c>Mnesia</c> automatically tries to repair
+          controls if Mnesia automatically tries to repair
           files that have not been properly closed. Default is
           <c>true</c>.</p>
       </item>
       <item>
         <p><c>-mnesia backup_module Module</c>. The name of the
-          <c>Mnesia</c> backup callback module. Default is
+          Mnesia backup callback module. Default is
           <c>mnesia_backup</c>.</p>
       </item>
       <item>
         <p><c>-mnesia debug Level</c>. Controls the debug level
-          of <c>Mnesia</c>. The possible values are as follows:</p>
+          of Mnesia. The possible values are as follows:</p>
         <taglist>
           <tag><c>none</c></tag>
           <item>
@@ -2825,7 +2825,7 @@ raise(Name, Amount) ->
               events generate <c>{mnesia_info, Format, Args}</c>
               system events. Processes can subscribe to these events with
               <c>mnesia:subscribe/1</c>. The events are always sent to
-              the <c>Mnesia</c> event handler.</p>
+              the Mnesia event handler.</p>
           </item>
           <tag><c>debug</c></tag>
           <item>
@@ -2834,15 +2834,15 @@ raise(Name, Amount) ->
               <c>{mnesia_info, Format, Args}</c> system events.
               Processes can subscribe to these events with
               <c>mnesia:subscribe/1</c>. The events are always sent to
-              the <c>Mnesia</c> event handler. On this debug level,
-              the <c>Mnesia</c> event handler starts subscribing to
+              the Mnesia event handler. On this debug level,
+              the Mnesia event handler starts subscribing to
               updates in the schema table.</p>
           </item>
           <tag><c>trace</c></tag>
           <item>
             <p>Activates all events at the debug level. On this
-              level, the <c>Mnesia</c> event handler starts subscribing
-              to updates on all <c>Mnesia</c> tables. This level is
+              level, the Mnesia event handler starts subscribing
+              to updates on all Mnesia tables. This level is
               intended only for debugging small toy systems, as many
               large events can be generated.</p>
           </item>
@@ -2856,7 +2856,7 @@ raise(Name, Amount) ->
       </item>
       <item>
         <p><c>-mnesia core_dir Directory</c>. The name of the
-          directory where <c>Mnesia</c> core files is stored, or
+          directory where Mnesia core files is stored, or
           false. Setting it implies that also RAM-only nodes
           generate a core file if a crash occurs.</p>
       </item>
@@ -2870,9 +2870,9 @@ raise(Name, Amount) ->
       </item>
       <item>
         <p><c>-mnesia dir Directory</c>. The name of the directory
-          where all <c>Mnesia</c> data is stored. The directory name
+          where all Mnesia data is stored. The directory name
           must be unique for the current node. Two nodes must never
-          share the the same <c>Mnesia</c> directory. The results
+          share the the same Mnesia directory. The results
           are unpredictable.</p>
       </item>
       <item>
@@ -2915,44 +2915,44 @@ raise(Name, Amount) ->
       </item>
       <item>
         <p><c>-mnesia event_module Module</c>. The name of the
-          <c>Mnesia</c> event handler callback module. Default is
+          Mnesia event handler callback module. Default is
           <c>mnesia_event</c>.</p>
       </item>
       <item>
         <p><c>-mnesia extra_db_nodes Nodes</c> specifies a list of
           nodes, in addition to the ones found in the schema, with
-          which <c>Mnesia</c> is also to establish contact. Default
+          which Mnesia is also to establish contact. Default
           is <c>[]</c> (empty list).</p>
       </item>
       <item>
         <p><c>-mnesia fallback_error_function {UserModule, UserFunc}</c>.
           Specifies a user-supplied callback function, which is
-          called if a fallback is installed and <c>Mnesia</c> goes
-          down on another node. <c>Mnesia</c> calls the function
+          called if a fallback is installed and Mnesia goes
+          down on another node. Mnesia calls the function
           with one argument, the name of the dying node, for example,
-          <c>UserModule:UserFunc(DyingNode)</c>. <c>Mnesia</c> must
+          <c>UserModule:UserFunc(DyingNode)</c>. Mnesia must
           be restarted, otherwise the database can be inconsistent.
-          The default behavior is to terminate <c>Mnesia</c>.</p>
+          The default behavior is to terminate Mnesia.</p>
       </item>
       <item>
         <p><c>-mnesia max_wait_for_decision Timeout</c>. Specifies
-          how long <c>Mnesia</c> waits for other nodes to share their
+          how long Mnesia waits for other nodes to share their
           knowledge about the outcome of an unclear transaction. By
           default, <c>Timeout</c> is set to the atom <c>infinity</c>.
-          This implies that if <c>Mnesia</c> upon startup detects
+          This implies that if Mnesia upon startup detects
           a "heavyweight transaction" whose outcome is unclear, the
-          local <c>Mnesia</c> waits until <c>Mnesia</c> is started
+          local Mnesia waits until Mnesia is started
           on some (in the worst case all) of the other nodes that were
           involved in the interrupted transaction. This is a rare
-          situation, but if it occurs, <c>Mnesia</c> does not guess if
+          situation, but if it occurs, Mnesia does not guess if
           the transaction on the other nodes was committed or
-          terminated. <c>Mnesia</c> waits until it knows the outcome
+          terminated. Mnesia waits until it knows the outcome
           and then acts accordingly.</p>
         <p>If <c>Timeout</c> is set to an integer value in
-          milliseconds, <c>Mnesia</c> forces "heavyweight transactions"
+          milliseconds, Mnesia forces "heavyweight transactions"
           to be finished, even if the outcome of the transaction for
           the moment is unclear. After <c>Timeout</c> milliseconds,
-          <c>Mnesia</c> commits or terminates the transaction and
+          Mnesia commits or terminates the transaction and
           continues with the startup. This can lead to a situation
           where the transaction is committed on some nodes and
           terminated on other nodes. If the transaction is a
@@ -2976,14 +2976,14 @@ raise(Name, Amount) ->
       </item>
       <item>
         <p><c>-mnesia schema_location Loc</c>. Controls where
-          <c>Mnesia</c> looks for its schema. Parameter
+          Mnesia looks for its schema. Parameter
           <c>Loc</c> can be one of the following atoms:</p>
         <taglist>
           <tag><c>disc</c></tag>
           <item>
             <p>Mandatory disc. The schema is assumed to be located
-              in the <c>Mnesia</c> directory. If the schema cannot
-              be found, <c>Mnesia</c> refuses to start. This is the
+              in the Mnesia directory. If the schema cannot
+              be found, Mnesia refuses to start. This is the
               old behavior.</p>
           </item>
           <tag><c>ram</c></tag>
@@ -3001,10 +3001,10 @@ raise(Name, Amount) ->
           <tag><c>opt_disc</c></tag>
           <item>
             <p>Optional disc. The schema can reside on disc or in
-              RAM. If the schema is found on disc, <c>Mnesia</c>
+              RAM. If the schema is found on disc, Mnesia
               starts as a disc-based node and the storage type of
               the schema table is <c>disc_copies</c>. If no schema is
-              found on disc, <c>Mnesia</c> starts as a disc-less node
+              found on disc, Mnesia starts as a disc-less node
               and the storage type of the schema table is
               <c>ram_copies</c>. Default value for the application
               parameter is <c>opt_disc</c>.</p>
@@ -3012,7 +3012,7 @@ raise(Name, Amount) ->
         </taglist>
       </item>
     </list>
-    <p>First, the <c>SASL</c> application parameters are checked,
+    <p>First, the SASL application parameters are checked,
       then the command-line flags are checked, and finally, the
       default value is chosen.</p>
   </section>

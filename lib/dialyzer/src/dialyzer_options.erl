@@ -1,8 +1,4 @@
 %% -*- erlang-indent-level: 2 -*-
-%%-----------------------------------------------------------------------
-%% %CopyrightBegin%
-%%
-%% Copyright Ericsson AB 2006-2015. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -16,16 +12,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 %%
-%% %CopyrightEnd%
-%%
-
-%%%----------------------------------------------------------------------
-%%% File    : dialyzer_options.erl
-%%% Authors : Richard Carlsson <richardc@it.uu.se>
-%%% Description : Provides a better way to start Dialyzer from a script.
-%%%
-%%% Created : 17 Oct 2004 by Richard Carlsson <richardc@it.uu.se>
-%%%----------------------------------------------------------------------
+%% @copyright 2004 Richard Carlsson
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
+%% @doc Provides a better way to start Dialyzer from a script.
 
 -module(dialyzer_options).
 
@@ -123,7 +112,7 @@ adapt_get_warnings(Opts = #options{analysis_type = Mode,
 -spec bad_option(string(), term()) -> no_return().
 
 bad_option(String, Term) ->
-  Msg = io_lib:format("~s: ~P", [String, Term, 25]),
+  Msg = io_lib:format("~ts: ~tP", [String, Term, 25]),
   throw({dialyzer_options_error, lists:flatten(Msg)}).
 
 build_options([{OptName, undefined}|Rest], Options) when is_atom(OptName) ->
@@ -288,6 +277,9 @@ assert_solvers([Term|_]) ->
 
 -spec build_warnings([atom()], dial_warn_tags()) -> dial_warn_tags().
 
+%% The warning options are checked by the code linter.
+%% The function erl_lint:is_module_dialyzer_option/1 must
+%% be updated if options are added or removed.
 build_warnings([Opt|Opts], Warnings) ->
   NewWarnings =
     case Opt of

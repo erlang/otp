@@ -1,9 +1,5 @@
-%% -*- erlang-indent-level: 2 -*-
+%%% -*- erlang-indent-level: 2 -*-
 %%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -15,11 +11,9 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
 %%%
 %%%-------------------------------------------------------------------
-%%% File    : hipe_rtl_binary_2.erl
+%%% File    : hipe_rtl_binary.erl
 %%% Author  : Per Gustafsson <pergu@it.uu.se>
 %%% Description : 
 %%%
@@ -106,10 +100,20 @@ create_lbls(0) ->
 %%------------------------------------------------------------------------------
 
 get_word_integer(Var, Register, SystemLimitLblName, FalseLblName) ->
-  [EndLbl] = create_lbls(1),
-  EndName = hipe_rtl:label_name(EndLbl),
-  get_word_integer(Var, Register,SystemLimitLblName,  FalseLblName, EndName, EndName,
-		   [EndLbl]).
+  case hipe_rtl:is_imm(Var) of
+    true ->
+      TaggedVal = hipe_rtl:imm_value(Var),
+      true = hipe_tagscheme:is_fixnum(TaggedVal),
+      Val = hipe_tagscheme:fixnum_val(TaggedVal),
+      if Val < 0 -> [hipe_rtl:mk_goto(FalseLblName)];
+	true -> [hipe_rtl:mk_move(Register, hipe_rtl:mk_imm(Val))]
+      end;
+    false ->
+      [EndLbl] = create_lbls(1),
+      EndName = hipe_rtl:label_name(EndLbl),
+      get_word_integer(Var, Register,SystemLimitLblName,  FalseLblName,
+		       EndName, EndName, [EndLbl])
+  end.
 
 get_word_integer(Var, Register, SystemLimitLblName, FalseLblName, TrueLblName,
 		 BigLblName, Tail) ->

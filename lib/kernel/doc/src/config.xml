@@ -4,7 +4,7 @@
 <fileref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -77,8 +77,8 @@
       to update the application configurations.</p>
     <p>This means that specifying another <c>.config</c> file, or more
       <c>.config</c> files, leads to inconsistent update of application
-      configurations. Therefore, in Erlang 5.4/OTP R10B, the syntax of
-      <c>sys.config</c> was extended to allow pointing out other
+      configurations. There is, however, a syntax for
+      <c>sys.config</c> that allows pointing out other
       <c>.config</c> files:</p>
     <code type="none">
 [{Application, [{Par, Val}]} | File].</code>

@@ -116,7 +116,7 @@ gl_api(Fs) ->
     w("call(Op, Args) ->~n", []),
     w("    Port = get(opengl_port), ~n", []),
     w("    _ = erlang:port_control(Port,Op,Args),~n", []),
-    w("    rec().~n", []),
+    w("    rec(Op).~n", []),
     w("    ~n", []),
     w("%% @hidden~n", []),
     w("cast(Op, Args) ->~n", []),
@@ -125,11 +125,15 @@ gl_api(Fs) ->
     w("    ok.~n", []),
     w("    ~n", []),
     w("%% @hidden~n", []),
-    w("rec() ->~n", []),
-    w("    receive ~n", []),
+    w("rec(Op) ->~n", []),
+    w("    receive~n", []),
     w("        {'_egl_result_', Res} -> Res;~n", []),
-    w("        {'_egl_error_',  Op, Res} -> error({error,Res,Op})~n", []),
-    w("    end. ~n", []),
+    w("        {'_egl_error_',  Op, Res} -> error({error,Res,Op});~n", []),
+    w("        {'_egl_error_', Other, Res} ->~n ", []),
+    w("               Err = io_lib:format(\"~~p in op: ~~p\", [Res, Other]),~n", []),
+    w("               error_logger:error_report([{gl, error}, {message, lists:flatten(Err)}]),~n", []),
+    w("               rec(Op)~n", []),
+    w("    end.~n", []),
     w("~n", []),
     w("%% @hidden~n", []),
     w("send_bin(Bin) when is_binary(Bin) ->~n", []),
@@ -492,6 +496,8 @@ doc_arg_type2(#type{base=string, single=list}) ->
     "iolist()";
 doc_arg_type2(T=#type{single={tuple,Sz}}) ->
     "{" ++ args(fun doc_arg_type3/1, ",", lists:duplicate(Sz,T)) ++ "}";
+doc_arg_type2(#type{base=guard_int, single=list}) ->
+    "[integer()]|mem()";
 doc_arg_type2(T=#type{single=list}) ->
     "[" ++ doc_arg_type3(T) ++ "]";
 doc_arg_type2(T=#type{single={list, _Max}}) ->
@@ -512,7 +518,9 @@ doc_arg_type3(#type{base=binary}) ->    "binary()";
 doc_arg_type3(#type{base=memory}) ->    "mem()".
 
 guard_test(As) ->
-    Str = args(fun(#arg{name=N,type=#type{base=guard_int}}) ->
+    Str = args(fun(#arg{name=N,type=#type{base=guard_int, single=list}}) ->
+		       " is_list("++erl_arg_name(N)++")";
+                   (#arg{name=N,type=#type{base=guard_int}}) ->
 		       " is_integer("++erl_arg_name(N)++")";
 		  (_) ->
 		       skip
@@ -522,6 +530,13 @@ guard_test(As) ->
 	Other -> " when " ++ Other
     end.
 
+pre_marshal([#arg{name=N,in=true, type=#type{base=binary, single=list}=T, alt=list_binary}=A|R]) ->
+    w("  send_bin(~s),~n", [erl_arg_name(N)]),
+    w("  ~sLen = byte_size(if is_binary(~s) -> ~s; is_tuple(~s) -> element(2, ~s) end) div 4,~n",
+      [erl_arg_name(N),erl_arg_name(N), erl_arg_name(N), erl_arg_name(N), erl_arg_name(N)]),
+    Type = T#type{base=int, by_val=true, single=true, ref=undefined},
+    Arg=A#arg{name=N++"Len", where=both, type=Type},
+    [Arg|pre_marshal(R)];
 pre_marshal([#arg{name=N,in=true,type=#type{base=binary}}|R]) ->
     w("  send_bin(~s),~n", [erl_arg_name(N)]),
     pre_marshal(R);
@@ -530,8 +545,18 @@ pre_marshal([#arg{name=N,type=#type{base=memory}}|R]) ->
     pre_marshal(R);
 pre_marshal([A=#arg{name=N,type=#type{base=string,single=list}}|R]) ->
     %% With null terminations
-    w(" ~sTemp = list_to_binary([[Str|[0]] || Str <- ~s ]),~n",
+    w("  ~sTemp = list_to_binary([[Str|[0]] || Str <- ~s ]),~n",
       [erl_arg_name(N), erl_arg_name(N)]),
+    w("  ~sLen = length(~s),~n",[erl_arg_name(N), erl_arg_name(N)]),
+    [A|pre_marshal(R)];
+pre_marshal([A=#arg{name=N,type=#type{base=string,single=true,ref={pointer,1}}}|R]) ->
+    w("  ~sLen = length(~s),~n",[erl_arg_name(N), erl_arg_name(N)]),
+    [A|pre_marshal(R)];
+pre_marshal([A=#arg{name=N,type=#type{single=list}}|R]) ->
+    w("  ~sLen = length(~s),~n",[erl_arg_name(N), erl_arg_name(N)]),
+    [A|pre_marshal(R)];
+pre_marshal([A=#arg{name=N,type=#type{single={tuple_list,_}}}|R]) ->
+    w("  ~sLen = length(~s),~n",[erl_arg_name(N), erl_arg_name(N)]),
     [A|pre_marshal(R)];
 pre_marshal([A|R]) ->
     [A|pre_marshal(R)];
@@ -583,9 +608,9 @@ marshal_arg(#type{size=BSz,name=Type,single={tuple,matrix12}},Name,A0) ->
     align(BSz,16,A0,All);
 
 marshal_arg(#type{size=Sz,name=Type,base=Base,single=list},Name,A0)
-  when Base =:= float; Base =:= int ->
+  when Base =:= float; Base =:= int; Base =:= guard_int ->
     KeepA = case Sz of 8 -> "0:32,"; _ -> "" end,
-    Str0 = "(length("++Name++")):?GLuint,"++KeepA++"\n"
+    Str0 = Name++"Len:?GLuint,"++KeepA++"\n"
 	"        (<< <<C:?"++Type++">> || C <- "++Name++">>)/binary",
     {Str,Align} = align(max([Sz,4]),A0,Str0),
     align_after(Sz,Align,0,1,Name,Str);
@@ -606,7 +631,7 @@ marshal_arg(#type{base=string,single=true,ref={pointer,1}},Name,A0) ->
 
 marshal_arg(#type{base=string,single=list,ref={pointer,2}},Name,A0) ->
     Str0 =
-	"(length("++Name++")):?GLuint,"
+	Name++"Len:?GLuint,"
         "(size("++Name ++ "Temp)):?GLuint,"
 	"(" ++ Name ++ "Temp)/binary",
     {Str,A} = align(4,A0,Str0),
@@ -620,7 +645,7 @@ marshal_arg(#type{size=Sz,name=Type,single={tuple_list,TSz}},Name,A0) ->
     TBin = args(fun(ElName) -> ElName ++ ":?" ++ Type end, ",", Names),
 
     KeepA = case Sz of 8 -> "0:32,"; 4 -> "" end,
-    Str0 = "(length("++Name++")):?GLuint,"++KeepA++"\n"
+    Str0 = Name++"Len:?GLuint,"++KeepA++"\n"
 	"        (<< <<"++TBin++">> || {"++TTup++"} <- "++Name++">>)/binary",
     align(Sz,A0,Str0);
 
@@ -656,19 +681,19 @@ align(8,_,7,Str) -> {"0:8," ++Str, 0}.
 align_after(8,0,_Add,_Multiplier,_Name,Str) -> {Str,0};
 align_after(4,0,Add,Mult,Name,Str) ->
     Extra = extra_align(Add,Mult),
-    Align = ",0:(((length("++Name++")"++Extra++") rem 2)*32)",
+    Align = ",0:((("++Name++"Len"++Extra++") rem 2)*32)",
     {Str ++ Align,0};
 align_after(4,4,Add,Mult,Name,Str) ->
     Extra = extra_align(Add,Mult),
-    Align = ",0:(((1+length("++Name++")"++Extra++") rem 2)*32)",
+    Align = ",0:(((1+"++Name++"Len"++Extra++") rem 2)*32)",
     {Str ++ Align,0};
 align_after(2,A,Add,Mult,Name,Str) when (A rem 2) =:= 0 ->
     Extra = extra_align(A+Add*2,Mult),
-    Align = ",0:((8-((length("++Name++")*2"++Extra++") rem 8)) rem 8)",
+    Align = ",0:((8-(("++Name++"Len*2"++Extra++") rem 8)) rem 8)",
     {Str ++ Align,0};
 align_after(1,A,Add,Mult,Name,Str) ->
     Extra = extra_align(A+Add,Mult),
-    Align = ",0:((8-((length("++Name++")"++Extra++") rem 8)) rem 8)",
+    Align = ",0:((8-(("++Name++"Len"++Extra++") rem 8)) rem 8)",
     {Str ++ Align,0};
 align_after(Sz,A,Add,Mult,Name,Str) ->
     io:format("~p ~p with ~p ~p ~s~n, ~p", [Sz,A,Add,Mult,Name,Str]),

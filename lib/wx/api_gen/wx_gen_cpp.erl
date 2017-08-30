@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -627,7 +627,7 @@ decode_arg(N,#type{name="wxArrayString"},Place,A0) ->
     w(" int * ~sLen = (int *) bp; bp += 4;~n", [N]),
     case Place of
 	arg -> w(" wxArrayString ~s;~n", [N]);
-	opt -> ignore %% Allready declared
+	opt -> ignore %% Already declared
     end,
     w(" int ~sASz = 0, * ~sTemp;~n", [N,N]),
     w(" for(int i=0; i < *~sLen; i++) {~n", [N]),
@@ -1079,6 +1079,13 @@ build_ret(Name,_,#type{base=string,single=true}) ->
     w(" rt.add(~s);~n",[Name]);
 build_ret(Name,_,#type{name="wxArrayString", single=array}) ->
     w(" rt.add(~s);~n", [Name]);
+build_ret(Name,_,#type{name="wxString", single={list,Variable}}) ->
+    Obj = case Name of
+              "ev->" ++ _ -> "ev";
+              _ -> "This"
+          end,
+    w(" wxArrayString tmpArrayStr(~s->~s, ~s);~n", [Obj,Variable,Name]),
+    w(" rt.add(tmpArrayStr);~n", []);
 build_ret(Name,In,T) ->
     ?error({nyi, Name,In, T}).
 
@@ -1309,7 +1316,8 @@ encode_events(Evs) ->
     w(" } else {~n"),
     w("   send_res =  rt.send();~n"),
     w("   if(cb->skip) event->Skip();~n"),
-    w("   if(app->recurse_level < 1) {~n"),
+    #class{id=MouseId} = lists:keyfind("wxMouseEvent", #class.name, Evs),
+    w("   if(app->recurse_level < 1 && Etype->cID != ~p) {~n", [MouseId]),
     w("     app->recurse_level++;~n"),
     w("     app->dispatch_cmds();~n"),
     w("     app->recurse_level--;~n"),

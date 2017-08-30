@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 
 -record(hostent,
 	{
-	 h_name		  :: inet:hostname(),	%% offical name of host
+	 h_name		  :: inet:hostname(),	%% official name of host
 	 h_aliases = []   :: [inet:hostname()],	%% alias list
 	 h_addrtype	  :: 'inet' | 'inet6',	%% host address type
 	 h_length	  :: non_neg_integer(),	%% length of address

@@ -128,7 +128,7 @@
       performance impact. Using <c>fprof</c> is just a matter of
       calling a few library functions, see the
       <seealso marker="tools:fprof">fprof</seealso> manual page in
-      <c>tools</c> .<c>fprof</c> was introduced in R8.</p>
+      Tools .<c>fprof</c> was introduced in R8.</p>
     </section>
 
     <section>
@@ -138,7 +138,7 @@
       and in which function calls this time has been spent. Time is
       shown as percentage of total time and absolute time. For more
       information, see the <seealso marker="tools:eprof">eprof</seealso>
-      manual page in <c>tools</c>.</p>
+      manual page in Tools.</p>
     </section>
 
     <section>
@@ -152,7 +152,7 @@
       optimization. Using <c>cover</c> is just a matter of calling a
       few library functions, see the
       <seealso marker="tools:cover">cover</seealso> manual page in
-      <c>tools</c>.</p>
+      Tools.</p>
     </section>
 
     <section>
@@ -165,7 +165,7 @@
       any modules to profile (compared with <c>cover</c>).
       For more information, see the
       <seealso marker="tools:cprof">cprof</seealso> manual page in
-      <c>tools</c>.</p>
+      Tools.</p>
     </section>
 
     <section>

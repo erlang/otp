@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2015</year>
+      <year>2003</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -42,6 +42,19 @@
     <p>The distribution mechanism is implemented using TCP/IP sockets.
       How to implement an alternative carrier is described in the
       <seealso marker="erts:alt_dist">ERTS User's Guide</seealso>.</p>
+    <warning>
+      <p>
+        Starting a distributed node without also specifying
+        <seealso marker="erts:erl#proto_dist"><c>-proto_dist inet_tls</c></seealso>
+        will expose the node to attacks that may give the attacker
+        complete access to the node and in extension the cluster.
+        When using un-secure distributed nodes, make sure that the
+        network is configured to keep potential attackers out.
+        See the <seealso marker="ssl:ssl_distribution">
+        Using SSL for Erlang Distribution</seealso> User's Guide
+        for details on how to setup a secure distributed node.
+      </p>
+    </warning>
   </section>
 
   <section>

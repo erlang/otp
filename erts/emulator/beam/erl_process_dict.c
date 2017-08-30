@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1999-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,10 +54,10 @@
 #define HASH_RANGE(PDict) ((PDict)->usedSlots)
 
 #define MAKE_HASH(Term)                                \
-    ((is_small(Term)) ? unsigned_val(Term) :           \
+    ((is_small(Term)) ? (Uint32) unsigned_val(Term) :  \
      ((is_atom(Term)) ?                                \
-      (atom_tab(atom_val(Term))->slot.bucket.hvalue) : \
-      make_internal_hash(Term)))
+      (Uint32) atom_val(Term) :                        \
+      make_internal_hash(Term, 0)))
 
 #define PD_SZ2BYTES(Sz) (sizeof(ProcDict) + ((Sz) - 1)*sizeof(Eterm))
 
@@ -156,7 +156,7 @@ erts_pd_set_initial_size(int size)
  * Called from break handler
  */
 void
-erts_dictionary_dump(int to, void *to_arg, ProcDict *pd)
+erts_dictionary_dump(fmtfn_t to, void *to_arg, ProcDict *pd)
 {
     unsigned int i;
 #ifdef DEBUG
@@ -196,8 +196,8 @@ erts_dictionary_dump(int to, void *to_arg, ProcDict *pd)
 }
 
 void
-erts_deep_dictionary_dump(int to, void *to_arg,
-			  ProcDict* pd, void (*cb)(int, void *, Eterm))
+erts_deep_dictionary_dump(fmtfn_t to, void *to_arg,
+			  ProcDict* pd, void (*cb)(fmtfn_t, void *, Eterm))
 {
     unsigned int i;
     Eterm t;
@@ -406,6 +406,11 @@ static void pd_hash_erase_all(Process *p)
 	PD_FREE(p->dictionary, PD_SZ2BYTES(p->dictionary->size));
 	p->dictionary = NULL;
     }
+}
+
+Uint32 erts_pd_make_hx(Eterm key)
+{
+    return MAKE_HASH(key);
 }
 
 Eterm erts_pd_hash_get_with_hx(Process *p, Uint32 hx, Eterm id)

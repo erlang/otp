@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE erlref SYSTEM "fileref.dtd" [
+<!DOCTYPE fileref SYSTEM "fileref.dtd" [
   <!ENTITY format
            '<seealso marker="#FILE_FORMAT">FILE FORMAT</seealso>'>
   <!ENTITY records
@@ -16,7 +16,8 @@
 <header>
 
 <copyright>
-<year>2011</year><year>2016</year>
+<year>2011</year>
+<year>2017</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -121,9 +122,8 @@ The order in which sections are specified is unimportant.</p>
 
 <taglist>
 
-<marker id="id"/>
-
-<tag><c>@id Number</c></tag>
+<tag>
+<marker id="id"/><c>@id Number</c></tag>
 <item>
 <p>
 Defines the integer Number as the Diameter Application Id of the
@@ -146,14 +146,13 @@ Example:</p>
 
 </item>
 
-<marker id="name"/>
-
-<tag><c>@name Mod</c></tag>
+<tag>
+<marker id="name"/><c>@name Mod</c></tag>
 <item>
 <p>
 Defines the name of the generated dictionary module.
 Can occur at most once and defaults to the name of the dictionary file
-minus any extension if unspecified.
+minus any extension.
 The section has empty content.</p>
 
 <p>
@@ -169,9 +168,8 @@ Example:</p>
 
 </item>
 
-<marker id="prefix"/>
-
-<tag><c>@prefix Name</c></tag>
+<tag>
+<marker id="prefix"/><c>@prefix Name</c></tag>
 <item>
 <p>
 Defines Name as the prefix to be added to record and constant names
@@ -194,9 +192,8 @@ Example:</p>
 
 </item>
 
-<marker id="vendor"/>
-
-<tag><c>@vendor Number Name</c></tag>
+<tag>
+<marker id="vendor"/><c>@vendor Number Name</c></tag>
 <item>
 <p>
 Defines the integer Number as the the default Vendor-Id of AVPs for
@@ -216,9 +213,8 @@ Example:</p>
 
 </item>
 
-<marker id="avp_vendor_id"/>
-
-<tag><c>@avp_vendor_id Number</c></tag>
+<tag>
+<marker id="avp_vendor_id"/><c>@avp_vendor_id Number</c></tag>
 <item>
 <p>
 Defines the integer Number as the Vendor-Id of the AVPs listed in the
@@ -238,9 +234,8 @@ Region-Set
 
 </item>
 
-<marker id="inherits"/>
-
-<tag><c>@inherits Mod</c></tag>
+<tag>
+<marker id="inherits"/><c>@inherits Mod</c></tag>
 <item>
 <p>
 Defines the name of a dictionary module containing AVP
@@ -274,9 +269,8 @@ Example:</p>
 </pre>
 </item>
 
-<marker id="avp_types"/>
-
-<tag><c>@avp_types</c></tag>
+<tag>
+<marker id="avp_types"/><c>@avp_types</c></tag>
 <item>
 <p>
 Defines the name, code, type and flags of individual AVPs.
@@ -308,18 +302,17 @@ The P flag has been deprecated by &the_rfc;.</p>
 
 </item>
 
-<marker id="custom_types"/>
-
-<tag><c>@custom_types Mod</c></tag>
+<tag>
+<marker id="custom_types"/><c>@custom_types Mod</c></tag>
 <item>
 <p>
 Specifies AVPs for which module Mod provides encode/decode functions.
 The section contents consists of AVP names.
-For each such name, <c>Mod:Name(encode|decode, Type, Data)</c> is
+For each such name, <c>Mod:Name(encode|decode, Type, Data, Opts)</c> is
 expected to provide encode/decode for values of the AVP, where Name is
 the name of the AVP, Type is it's type as declared in the
-<c>@avp_types</c> section of the dictionary and Data is the value to
-encode/decode.</p>
+<c>@avp_types</c> section of the dictionary, Data is the value to
+encode/decode, and Opts is a term that is passed through encode/decode.</p>
 
 <p>
 Example:</p>
@@ -331,14 +324,13 @@ Framed-IP-Address
 </pre>
 </item>
 
-<marker id="codecs"/>
-
-<tag><c>@codecs Mod</c></tag>
+<tag>
+<marker id="codecs"/><c>@codecs Mod</c></tag>
 <item>
 <p>
 Like <c>@custom_types</c> but requires the specified module to export
-<c>Mod:Type(encode|decode, Name, Data)</c> rather than
-<c>Mod:Name(encode|decode, Type, Data)</c>.</p>
+<c>Mod:Type(encode|decode, Name, Data, Opts)</c> rather than
+<c>Mod:Name(encode|decode, Type, Data, Opts)</c>.</p>
 
 <p>
 Example:</p>
@@ -350,9 +342,8 @@ Framed-IP-Address
 </pre>
 </item>
 
-<marker id="messages"/>
-
-<tag><c>@messages</c></tag>
+<tag>
+<marker id="messages"/><c>@messages</c></tag>
 <item>
 <p>
 Defines the messages of the application.
@@ -397,9 +388,8 @@ RTA ::= &lt; Diameter Header: 287, PXY >
 
 </item>
 
-<marker id="grouped"/>
-
-<tag><c>@grouped</c></tag>
+<tag>
+<marker id="grouped"/><c>@grouped</c></tag>
 <item>
 <p>
 Defines the contents of the AVPs of the application having type
@@ -424,9 +414,8 @@ Specifying a Vendor-Id in the definition of a grouped AVP is
 equivalent to specifying it with <c>@avp_vendor_id</c>.</p>
 </item>
 
-<marker id="enum"/>
-
-<tag><c>@enum Name</c></tag>
+<tag>
+<marker id="enum"/><c>@enum Name</c></tag>
 <item>
 <p>
 Defines values of AVP Name having type Enumerated.
@@ -452,9 +441,8 @@ REMOVE_SIP_SERVER        3
 </pre>
 </item>
 
-<marker id="end"/>
-
-<tag><c>@end</c></tag>
+<tag>
+<marker id="end"/><c>@end</c></tag>
 <item>
 <p>
 Causes parsing of the dictionary to terminate:

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     available_internal_state(true),
     [{testcase, Func}|Config].
 
-end_per_testcase(_Func, Config) ->
+end_per_testcase(_Func, _Config) ->
     ok.
 
 init_per_suite(Config) ->
@@ -484,7 +484,7 @@ repeat(Fun, N) when is_integer(N)  ->
 start_node(Config) ->
     Name = list_to_atom(atom_to_list(?MODULE)
 			++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
-			++ "-" ++ integer_to_list(erlang:system_time(seconds))
+			++ "-" ++ integer_to_list(erlang:system_time(second))
 			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
     Pa = filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).

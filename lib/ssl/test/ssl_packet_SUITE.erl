@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,9 +41,9 @@
 
 -define(MANY, 1000).
 -define(SOME, 50).
--define(BASE_TIMEOUT_SECONDS, 15).
--define(SOME_SCALE, 20).
--define(MANY_SCALE, 20).
+-define(BASE_TIMEOUT_SECONDS, 5).
+-define(SOME_SCALE, 2).
+-define(MANY_SCALE, 3).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -140,7 +140,7 @@ init_per_suite(Config) ->
     catch crypto:stop(),
     try crypto:start() of
 	ok ->
-	    ssl:start(),
+	    ssl_test_lib:clean_start(),
 	    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config),
 				     proplists:get_value(priv_dir, Config)),
 	    ssl_test_lib:cert_options(Config)
@@ -162,6 +162,7 @@ init_per_group(GroupName, Config) ->
 		    {skip, "Missing crypto support"}
 	    end;
 	_ ->
+	    ssl:stop(),
 	    ssl:start(),
 	    Config
     end.
@@ -276,6 +277,7 @@ packet_raw_active_once_many_small() ->
     [{doc,"Test packet option {packet, raw} in active once mode."}].
 
 packet_raw_active_once_many_small(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?MANY_SCALE}),
     Data = "Packet option is {packet, raw}",
     packet(Config, Data, send_raw, active_once_raw, ?MANY, raw, once).
 
@@ -392,6 +394,7 @@ packet_0_active_some_big() ->
     [{doc,"Test packet option {packet, 0} in active mode."}].
 
 packet_0_active_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send, active_raw, ?SOME, 0, true).
 
@@ -427,6 +430,7 @@ packet_2_active_some_big() ->
     [{doc,"Test packet option {packet, 2} in active mode"}].
 
 packet_2_active_some_big(Config) when is_list(Config) ->
+    ct:timetrap({seconds, ?BASE_TIMEOUT_SECONDS * ?SOME_SCALE}),
     Data = lists:append(lists:duplicate(100, "1234567890")),
     packet(Config, Data, send, active_packet, ?SOME, 2, true).
 
@@ -1900,6 +1904,31 @@ header_decode_two_bytes_one_sent_passive(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
+
+packet(Config, Data, Send, Recv, Quantity, Packet, Active) when Packet == 0;
+								Packet == raw ->
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, Send ,[Data, Quantity]}},
+					{options, [{nodelay, true},{packet, Packet} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, Recv, [Data, Quantity]}},
+					{options, [{active, Active}, {nodelay, true},
+						   {packet, Packet} |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client);
+
 packet(Config, Data, Send, Recv, Quantity, Packet, Active) ->
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
@@ -1944,14 +1973,14 @@ passive_recv_packet(Socket, _, 0) ->
 	    {error, timeout} = ssl:recv(Socket, 0, 500),
 	    ok;
 	Other ->
-	    {other, Other, ssl:session_info(Socket), 0}
+	    {other, Other, ssl:connection_information(Socket, [session_id, cipher_suite]), 0}
     end;
 passive_recv_packet(Socket, Data, N) ->
     case ssl:recv(Socket, 0) of
 	{ok, Data} -> 
 	    passive_recv_packet(Socket, Data, N-1);
 	Other ->
-	    {other, Other, ssl:session_info(Socket), N}
+	    {other, Other, ssl:connection_information(Socket, [session_id, cipher_suite]), N}
     end.
 
 send(Socket,_, 0) ->
@@ -1982,26 +2011,19 @@ active_once_raw(Socket, Data, N) ->
 
 active_once_raw(_, _, 0, _) ->
     ok;
-active_once_raw(Socket, Data, N, Acc) ->
-    receive 
-	{ssl, Socket, Byte} when length(Byte) == 1 ->
-	    ssl:setopts(Socket, [{active, once}]),
+active_once_raw(Socket, Data, N, Acc0) ->
+    case lists:prefix(Data, Acc0) of
+	true ->
+	    DLen = length(Data),   
+	    Start = DLen + 1,
+	    Len = length(Acc0) - DLen,    
+	    Acc = string:substr(Acc0, Start, Len),   
+	    active_once_raw(Socket, Data, N-1, Acc);
+	false ->	    
 	    receive 
-		{ssl, Socket, _} ->
+		{ssl, Socket, Info}  ->
 		    ssl:setopts(Socket, [{active, once}]),
-		    active_once_raw(Socket, Data, N-1, [])
-	    end;
-	{ssl, Socket, Data} ->
-	    ssl:setopts(Socket, [{active, once}]),
-	    active_once_raw(Socket, Data, N-1, []);
-	{ssl, Socket, Other} ->
-	    case Acc ++ Other of
-		Data ->
-		    ssl:setopts(Socket, [{active, once}]),
-		    active_once_raw(Socket, Data, N-1, []);
-		NewAcc ->
-		    ssl:setopts(Socket, [{active, once}]),
-		    active_once_raw(Socket, Data, N, NewAcc)
+		    active_once_raw(Socket, Data, N, Acc0 ++ Info)
 	    end
     end.
 
@@ -2010,7 +2032,7 @@ active_once_packet(Socket,_, 0) ->
 	{ssl, Socket, []} ->
 	    ok;
 	{ssl, Socket, Other} ->
-	    {other, Other, ssl:session_info(Socket), 0}
+	    {other, Other, ssl:connection_information(Socket,  [session_id, cipher_suite]), 0}
     end;
 active_once_packet(Socket, Data, N) ->
     receive 	
@@ -2055,7 +2077,7 @@ active_packet(Socket, _, 0) ->
 	{ssl, Socket, []} ->
 	    ok;
 	Other ->
-	    {other, Other, ssl:session_info(Socket), 0}
+	    {other, Other, ssl:connection_information(Socket,  [session_id, cipher_suite]), 0}
     end;
 active_packet(Socket, Data, N) ->
     receive 
@@ -2067,7 +2089,7 @@ active_packet(Socket, Data, N) ->
 	{ssl, Socket, Data} ->
 	    active_packet(Socket, Data, N -1);
 	Other ->
-	    {other, Other, ssl:session_info(Socket),N}
+	    {other, Other, ssl:connection_information(Socket,  [session_id, cipher_suite]),N}
     end.
 
 assert_packet_opt(Socket, Type) ->

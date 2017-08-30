@@ -30,7 +30,7 @@
     <file>part.sgml</file>
   </header>
   <description>
-    <p>The <c>Mnesia</c> application is a distributed Database Management
+    <p>The Mnesia application is a distributed Database Management
       System (DBMS), appropriate for telecommunications applications and other
       Erlang applications, which require continuous operation and exhibit soft
       real-time properties.</p>

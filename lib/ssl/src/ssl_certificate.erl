@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016 All Rights Reserved.
+%% Copyright Ericsson AB 2007-2017 All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ trusted_cert_and_path(CertChain, CertDbHandle, CertDbRef, PartialChainHandler) -
 		{ok, IssuerId} = public_key:pkix_issuer_id(OtpCert, self),
 		{self, IssuerId};
 	    false ->
-		other_issuer(OtpCert, BinCert, CertDbHandle)
+		other_issuer(OtpCert, BinCert, CertDbHandle, CertDbRef)
 	end,
     
     case SignedAndIssuerID of
@@ -125,21 +125,28 @@ file_to_crls(File, DbHandle) ->
 %% Description:  Validates ssl/tls specific extensions
 %%--------------------------------------------------------------------
 validate(_,{extension, #'Extension'{extnID = ?'id-ce-extKeyUsage',
-				    extnValue = KeyUse}}, {Role, _,_, _, _}) ->
+				    extnValue = KeyUse}}, UserState = {Role, _,_, _, _, _}) ->
     case is_valid_extkey_usage(KeyUse, Role) of
 	true ->
-	    {valid, Role};
+	    {valid, UserState};
 	false ->
 	    {fail, {bad_cert, invalid_ext_key_usage}}
     end;
-validate(_, {extension, _}, Role) ->
-    {unknown, Role};
+validate(_, {extension, _}, UserState) ->
+    {unknown, UserState};
 validate(_, {bad_cert, _} = Reason, _) ->
     {fail, Reason};
-validate(_, valid, Role) ->
-    {valid, Role};
-validate(_, valid_peer, Role) ->
-    {valid, Role}.
+validate(_, valid, UserState) ->
+    {valid, UserState};
+validate(Cert, valid_peer, UserState = {client, _,_, Hostname, _, _}) when Hostname =/= undefined ->
+    case public_key:pkix_verify_hostname(Cert, [{dns_id, Hostname}]) of
+        true ->
+            {valid, UserState};
+        false ->
+            {fail, {bad_cert, hostname_check_failed}}
+    end;
+validate(_, valid_peer, UserState) ->    
+   {valid, UserState}.
 
 %%--------------------------------------------------------------------
 -spec is_valid_key_usage(list(), term()) -> boolean().
@@ -200,7 +207,7 @@ certificate_chain(OtpCert, BinCert, CertDbHandle, CertsDbRef, Chain) ->
 	{_, true = SelfSigned} ->
 	    certificate_chain(CertDbHandle, CertsDbRef, Chain, ignore, ignore, SelfSigned);
 	{{error, issuer_not_found}, SelfSigned} ->
-	    case find_issuer(OtpCert, BinCert, CertDbHandle) of
+	    case find_issuer(OtpCert, BinCert, CertDbHandle, CertsDbRef) of
 		{ok, {SerialNr, Issuer}} ->
 		    certificate_chain(CertDbHandle, CertsDbRef, Chain,
 				      SerialNr, Issuer, SelfSigned);
@@ -232,7 +239,7 @@ certificate_chain(CertDbHandle, CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned
 	    {ok, undefined, lists:reverse(Chain)}		      
     end.
 
-find_issuer(OtpCert, BinCert, CertDbHandle) ->
+find_issuer(OtpCert, BinCert, CertDbHandle, CertsDbRef) ->
     IsIssuerFun =
 	fun({_Key, {_Der, #'OTPCertificate'{} = ErlCertCandidate}}, Acc) ->
 		case public_key:pkix_is_issuer(OtpCert, ErlCertCandidate) of
@@ -250,12 +257,24 @@ find_issuer(OtpCert, BinCert, CertDbHandle) ->
 		Acc
 	end,
 
-    try ssl_pkix_db:foldl(IsIssuerFun, issuer_not_found, CertDbHandle) of
-	issuer_not_found ->
-	    {error, issuer_not_found}
-    catch 
-	{ok, _IssuerId} = Return ->
-	    Return
+    if is_reference(CertsDbRef) -> % actual DB exists
+	try ssl_pkix_db:foldl(IsIssuerFun, issuer_not_found, CertDbHandle) of
+	    issuer_not_found ->
+		{error, issuer_not_found}
+	catch
+	    {ok, _IssuerId} = Return ->
+		Return
+	end;
+       is_tuple(CertsDbRef), element(1,CertsDbRef) =:= extracted -> % cache bypass byproduct
+	{extracted, CertsData} = CertsDbRef,
+	DB = [Entry || {decoded, Entry} <- CertsData],
+	try lists:foldl(IsIssuerFun, issuer_not_found, DB) of
+	    issuer_not_found ->
+		{error, issuer_not_found}
+	catch
+	    {ok, _IssuerId} = Return ->
+		Return
+	end
     end.
 
 is_valid_extkey_usage(KeyUse, client) ->
@@ -281,12 +300,12 @@ public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorith
 				      subjectPublicKey = Key}) ->
     {Key, Params}.
 
-other_issuer(OtpCert, BinCert, CertDbHandle) ->
+other_issuer(OtpCert, BinCert, CertDbHandle, CertDbRef) ->
     case public_key:pkix_issuer_id(OtpCert, other) of
 	{ok, IssuerId} ->
 	    {other, IssuerId};
 	{error, issuer_not_found} ->
-	    case find_issuer(OtpCert, BinCert, CertDbHandle) of
+	    case find_issuer(OtpCert, BinCert, CertDbHandle, CertDbRef) of
 		{ok, IssuerId} ->
 		    {other, IssuerId};
 		Other ->

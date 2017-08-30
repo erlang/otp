@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@
 -define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1]).
 -define(MIN_SUPPORTED_VERSIONS, ['tlsv1.1', tlsv1]).
 -define(ALL_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
--define(MIN_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2', dtlsv1]).
+-define(MIN_DATAGRAM_SUPPORTED_VERSIONS, [dtlsv1]).
 
 -define('24H_in_msec', 86400000).
 -define('24H_in_sec', 86400).
@@ -140,8 +140,11 @@
 	  crl_check                  :: boolean() | peer | best_effort, 
 	  crl_cache,
 	  signature_algs,
-	  v2_hello_compatible        :: boolean()
-	  }).
+	  eccs,
+	  honor_ecc_order            :: boolean(),
+	  v2_hello_compatible        :: boolean(),
+          max_handshake_size         :: integer()
+         }).
 
 -record(socket_options,
 	{
@@ -154,7 +157,8 @@
 
 -record(config, {ssl,               %% SSL parameters
 		 inet_user,         %% User set inet options
-		 emulated,          %% Emulated option list or "inherit_tracker" pid 
+		 emulated,          %% Emulated option list or "inherit_tracker" pid
+		 udp_handler,
 		 inet_ssl,          %% inet options for internal ssl socket
 		 transport_info,                 %% Callback info
 		 connection_cb

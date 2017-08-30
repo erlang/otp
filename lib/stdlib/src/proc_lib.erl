@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -232,7 +232,7 @@ init_p(Parent, Ancestors, Fun) when is_function(Fun) ->
 	Fun()
     catch
 	Class:Reason ->
-	    exit_p(Class, Reason)
+	    exit_p(Class, Reason, erlang:get_stacktrace())
     end.
 
 -spec init_p(pid(), [pid()], atom(), atom(), [term()]) -> term().
@@ -247,7 +247,7 @@ init_p_do_apply(M, F, A) ->
 	apply(M, F, A) 
     catch
 	Class:Reason ->
-	    exit_p(Class, Reason)
+	    exit_p(Class, Reason, erlang:get_stacktrace())
     end.
 
 -spec wake_up(atom(), atom(), [term()]) -> term().
@@ -257,21 +257,28 @@ wake_up(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
 	apply(M, F, A) 
     catch
 	Class:Reason ->
-	    exit_p(Class, Reason)
+	    exit_p(Class, Reason, erlang:get_stacktrace())
     end.
 
-exit_p(Class, Reason) ->
+exit_p(Class, Reason, Stacktrace) ->
     case get('$initial_call') of
 	{M,F,A} when is_atom(M), is_atom(F), is_integer(A) ->
 	    MFA = {M,F,make_dummy_args(A, [])},
-	    crash_report(Class, Reason, MFA),
-	    exit(Reason);
+	    crash_report(Class, Reason, MFA, Stacktrace),
+	    erlang:raise(exit, exit_reason(Class, Reason, Stacktrace), Stacktrace);
 	_ ->
 	    %% The process dictionary has been cleared or
 	    %% possibly modified.
-	    crash_report(Class, Reason, []),
-	    exit(Reason)
+	    crash_report(Class, Reason, [], Stacktrace),
+	    erlang:raise(exit, exit_reason(Class, Reason, Stacktrace), Stacktrace)
     end.
+
+exit_reason(error, Reason, Stacktrace) ->
+    {Reason, Stacktrace};
+exit_reason(exit, Reason, _Stacktrace) ->
+    Reason;
+exit_reason(throw, Reason, Stacktrace) ->
+    {{nocatch, Reason}, Stacktrace}.
 
 -spec start(Module, Function, Args) -> Ret when
       Module :: module(),
@@ -492,26 +499,28 @@ trans_init(M, F, A) when is_atom(M), is_atom(F) ->
 %% Generate a crash report.
 %% -----------------------------------------------------
 
-crash_report(exit, normal, _)       -> ok;
-crash_report(exit, shutdown, _)     -> ok;
-crash_report(exit, {shutdown,_}, _) -> ok;
-crash_report(Class, Reason, StartF) ->
-    OwnReport = my_info(Class, Reason, StartF),
+crash_report(exit, normal, _, _)       -> ok;
+crash_report(exit, shutdown, _, _)     -> ok;
+crash_report(exit, {shutdown,_}, _, _) -> ok;
+crash_report(Class, Reason, StartF, Stacktrace) ->
+    OwnReport = my_info(Class, Reason, StartF, Stacktrace),
     LinkReport = linked_info(self()),
     Rep = [OwnReport,LinkReport],
     error_logger:error_report(crash_report, Rep).
 
-my_info(Class, Reason, []) ->
-    my_info_1(Class, Reason);
-my_info(Class, Reason, StartF) ->
-    [{initial_call, StartF}|my_info_1(Class, Reason)].
+my_info(Class, Reason, [], Stacktrace) ->
+    my_info_1(Class, Reason, Stacktrace);
+my_info(Class, Reason, StartF, Stacktrace) ->
+    [{initial_call, StartF}|
+     my_info_1(Class, Reason, Stacktrace)].
 
-my_info_1(Class, Reason) ->
+my_info_1(Class, Reason, Stacktrace) ->
     [{pid, self()},
      get_process_info(self(), registered_name),         
-     {error_info, {Class,Reason,erlang:get_stacktrace()}}, 
+     {error_info, {Class,Reason,Stacktrace}},
      get_ancestors(self()),        
-     get_process_info(self(), messages),
+     get_process_info(self(), message_queue_len),
+     get_messages(self()),
      get_process_info(self(), links),
      get_cleaned_dictionary(self()),
      get_process_info(self(), trap_exit),
@@ -531,11 +540,48 @@ get_ancestors(Pid) ->
 	    {ancestors,[]}
     end.
 
+%% The messages and the dictionary are possibly limited too much if
+%% some error handles output the messages or the dictionary using ~P
+%% or ~W with depth greater than the depth used here (the depth of
+%% control characters P and W takes precedence over the depth set by
+%% application variable error_logger_format_depth). However, it is
+%% assumed that all report handlers call proc_lib:format().
+get_messages(Pid) ->
+    Messages = get_process_messages(Pid),
+    {messages, error_logger:limit_term(Messages)}.
+
+get_process_messages(Pid) ->
+    Depth = error_logger:get_format_depth(),
+    case Pid =/= self() orelse Depth =:= unlimited of
+        true ->
+            {messages, Messages} = get_process_info(Pid, messages),
+            Messages;
+        false ->
+            %% If there are more messages than Depth, garbage
+            %% collection can sometimes be avoided by collecting just
+            %% enough messages for the crash report. It is assumed the
+            %% process is about to die anyway.
+            receive_messages(Depth)
+    end.
+
+receive_messages(0) -> [];
+receive_messages(N) ->
+    receive
+        M ->
+            [M|receive_messages(N - 1)]
+    after 0 ->
+            []
+    end.
+
 get_cleaned_dictionary(Pid) ->
     case get_process_info(Pid,dictionary) of
-	{dictionary,Dict} -> {dictionary,clean_dict(Dict)};
+	{dictionary,Dict} -> {dictionary,cleaned_dict(Dict)};
 	_                 -> {dictionary,[]}
     end.
+
+cleaned_dict(Dict) ->
+    CleanDict = clean_dict(Dict),
+    error_logger:limit_term(CleanDict).
 
 clean_dict([{'$ancestors',_}|Dict]) ->
     clean_dict(Dict);
@@ -574,20 +620,24 @@ make_neighbour_reports1([P|Ps]) ->
 make_neighbour_reports1([]) ->
   [].
   
+%% Do not include messages or process dictionary, even if
+%% error_logger_format_depth is unlimited.
 make_neighbour_report(Pid) ->
   [{pid, Pid},
    get_process_info(Pid, registered_name),          
    get_initial_call(Pid),
    get_process_info(Pid, current_function),
    get_ancestors(Pid),
-   get_process_info(Pid, messages),
+   get_process_info(Pid, message_queue_len),
+   %% get_messages(Pid),
    get_process_info(Pid, links),
-   get_cleaned_dictionary(Pid),
+   %% get_cleaned_dictionary(Pid),
    get_process_info(Pid, trap_exit),
    get_process_info(Pid, status),
    get_process_info(Pid, heap_size),
    get_process_info(Pid, stack_size),
-   get_process_info(Pid, reductions)
+   get_process_info(Pid, reductions),
+   get_process_info(Pid, current_stacktrace)
   ].
  
 get_initial_call(Pid) ->
@@ -714,24 +764,37 @@ format(CrashReport, Encoding) ->
 
 format([OwnReport,LinkReport], Encoding, Depth) ->
     Extra = {Encoding,Depth},
-    OwnFormat = format_report(OwnReport, Extra),
-    LinkFormat = format_report(LinkReport, Extra),
+    MyIndent = "    ",
+    OwnFormat = format_report(OwnReport, MyIndent, Extra),
+    LinkFormat = format_link_report(LinkReport, MyIndent, Extra),
     Str = io_lib:format("  crasher:~n~ts  neighbours:~n~ts",
                         [OwnFormat, LinkFormat]),
     lists:flatten(Str).
 
-format_report(Rep, Extra) when is_list(Rep) ->
-    format_rep(Rep, Extra);
-format_report(Rep, {Enc,_}) ->
-    io_lib:format("~"++modifier(Enc)++"p~n", [Rep]).
+format_link_report([Link|Reps], Indent, Extra) ->
+    Rep = case Link of
+              {neighbour,Rep0} -> Rep0;
+              _ -> Link
+          end,
+    LinkIndent = ["  ",Indent],
+    [Indent,"neighbour:\n",format_report(Rep, LinkIndent, Extra)|
+     format_link_report(Reps, Indent, Extra)];
+format_link_report([], _, _) ->
+    [].
 
-format_rep([{initial_call,InitialCall}|Rep], {_Enc,Depth}=Extra) ->
-    [format_mfa(InitialCall, Depth)|format_rep(Rep, Extra)];
-format_rep([{error_info,{Class,Reason,StackTrace}}|Rep], Extra) ->
-    [format_exception(Class, Reason, StackTrace, Extra)|format_rep(Rep, Extra)];
-format_rep([{Tag,Data}|Rep], Extra) ->
-    [format_tag(Tag, Data, Extra)|format_rep(Rep, Extra)];
-format_rep(_, _Extra) ->
+format_report(Rep, Indent, Extra) when is_list(Rep) ->
+    format_rep(Rep, Indent, Extra);
+format_report(Rep, Indent, {Enc,Depth}) ->
+    io_lib:format("~s~"++modifier(Enc)++"P~n", [Indent, Rep, Depth]).
+
+format_rep([{initial_call,InitialCall}|Rep], Indent, Extra) ->
+    [format_mfa(Indent, InitialCall, Extra)|format_rep(Rep, Indent, Extra)];
+format_rep([{error_info,{Class,Reason,StackTrace}}|Rep], Indent, Extra) ->
+    [format_exception(Class, Reason, StackTrace, Extra)|
+     format_rep(Rep, Indent, Extra)];
+format_rep([{Tag,Data}|Rep], Indent, Extra) ->
+    [format_tag(Indent, Tag, Data, Extra)|format_rep(Rep, Indent, Extra)];
+format_rep(_, _, _Extra) ->
     [].
 
 format_exception(Class, Reason, StackTrace, {Enc,_}=Extra) ->
@@ -742,15 +805,20 @@ format_exception(Class, Reason, StackTrace, {Enc,_}=Extra) ->
     [EI, lib:format_exception(1+length(EI), Class, Reason, 
                               StackTrace, StackFun, PF, Enc), "\n"].
 
-format_mfa({M,F,Args}=StartF, Depth) ->
+format_mfa(Indent, {M,F,Args}=StartF, {Enc,_}=Extra) ->
     try
 	A = length(Args),
-	["    initial call: ",atom_to_list(M),$:,atom_to_list(F),$/,
+	[Indent,"initial call: ",atom_to_list(M),$:,to_string(F, Enc),$/,
 	 integer_to_list(A),"\n"]
     catch
 	error:_ ->
-	    format_tag(initial_call, StartF, Depth)
+	    format_tag(Indent, initial_call, StartF, Extra)
     end.
+
+to_string(A, latin1) ->
+    io_lib:write_atom_as_latin1(A);
+to_string(A, _) ->
+    io_lib:write_atom(A).
 
 pp_fun({Enc,Depth}) ->
     {Letter,Tl} = case Depth of
@@ -762,12 +830,12 @@ pp_fun({Enc,Depth}) ->
             io_lib:format("~." ++ integer_to_list(I) ++ P, [Term|Tl])
     end.
 
-format_tag(Tag, Data, {_Enc,Depth}) ->
+format_tag(Indent, Tag, Data, {_Enc,Depth}) ->
     case Depth of
 	unlimited ->
-	    io_lib:format("    ~p: ~80.18p~n", [Tag, Data]);
+	    io_lib:format("~s~p: ~80.18p~n", [Indent, Tag, Data]);
 	_ ->
-	    io_lib:format("    ~p: ~80.18P~n", [Tag, Data, Depth])
+            io_lib:format("~s~p: ~80.18P~n", [Indent, Tag, Data, Depth])
     end.
 
 modifier(latin1) -> "";

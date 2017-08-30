@@ -19,9 +19,11 @@
 %%
 -module(bif_SUITE).
 
+-include_lib("syntax_tools/include/merl.hrl").
+
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
-	 beam_validator/1]).
+	 beam_validator/1,trunc_and_friends/1,cover_safe_bifs/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -32,7 +34,9 @@ all() ->
 
 groups() ->
     [{p,[parallel],
-      [beam_validator
+      [beam_validator,
+       trunc_and_friends,
+       cover_safe_bifs
       ]}].
 
 init_per_suite(Config) ->
@@ -63,3 +67,56 @@ food(Curriculum) ->
      catch _ ->
 	     0
      end, Curriculum].
+
+%% Test trunc/1, round/1, floor/1, ceil/1.
+trunc_and_friends(_Config) ->
+    Bifs = [trunc,round,floor,ceil],
+    Fs = trunc_and_friends_1(Bifs),
+    Mod = ?FUNCTION_NAME,
+    Calls = [begin
+		 Atom = erl_syntax:function_name(N),
+		 ?Q("'@Atom'()")
+	     end || N <- Fs],
+    Tree = ?Q(["-module('@Mod@').",
+	       "-export([test/0]).",
+	       "test() -> _@Calls, ok.",
+	       "id(I) -> I."]) ++ Fs,
+    merl:print(Tree),
+    Opts = test_lib:opt_opts(?MODULE),
+    {ok,_Bin} = merl:compile_and_load(Tree, Opts),
+    Mod:test(),
+    ok.
+
+trunc_and_friends_1([F|Fs]) ->
+    Func = list_to_atom("f"++integer_to_list(length(Fs))),
+    [trunc_template(Func, F)|trunc_and_friends_1(Fs)];
+trunc_and_friends_1([]) -> [].
+
+trunc_template(Func, Bif) ->
+    Val = 42.77,
+    Res = erlang:Bif(Val),
+    FloatRes = float(Res),
+    ?Q("'@Func@'() ->
+        Var = id(_@Val@),
+        if _@Bif@(Var) =:= _@Res@ -> ok end,
+	if _@Bif@(Var) == _@FloatRes@ -> ok end,
+	if _@Bif@(Var) == _@Res@ -> ok end,
+        _@Res@ = _@Bif@(Var),
+        try begin _@Bif@(a), ok end
+        catch error:badarg -> ok end,
+        ok.").
+
+cover_safe_bifs(Config) ->
+    _ = get(),
+    _ = get_keys(a),
+    _ = group_leader(),
+    _ = is_alive(),
+    _ = min(Config, []),
+    _ = nodes(),
+    _ = erlang:ports(),
+    _ = pre_loaded(),
+    _ = processes(),
+    _ = registered(),
+    _ = term_to_binary(Config),
+
+    ok.

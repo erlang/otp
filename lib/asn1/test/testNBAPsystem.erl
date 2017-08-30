@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ compile(Config, Options) ->
 	     M <- ["NBAP-CommonDataTypes.asn",
 		   "NBAP-IEs.asn",
 		   "NBAP-PDU-Contents.asn",
-		   "NBAP-PDU-Discriptions.asn",
+		   "NBAP-PDU-Descriptions.asn",
 		   "NBAP-Constants.asn",
 		   "NBAP-Containers.asn"]],
     asn1_test_lib:compile_all(Fs, Config, Options),
@@ -98,16 +98,16 @@ test(_Erule,Config) ->
 
 ticket_5812(Config) ->
     Msg = v_5812(),
-    {ok,B2} = 'NBAP-PDU-Discriptions':encode('NBAP-PDU', Msg),
+    {ok,B2} = 'NBAP-PDU-Descriptions':encode('NBAP-PDU', Msg),
     V = <<0,28,74,0,3,48,0,0,1,0,123,64,41,0,0,0,126,64,35,95,208,2,89,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,145,0,1,205,0,0,0,0,2,98,64,1,128>>,
     ok = compare(V,B2),
-    {ok,Msg2} = 'NBAP-PDU-Discriptions':decode('NBAP-PDU', B2),
+    {ok,Msg2} = 'NBAP-PDU-Descriptions':decode('NBAP-PDU', B2),
     ok = check_record_names(Msg2,Config).
 
 enc_audit_req_msg() ->
     Msg = {initiatingMessage, audit_req_msg()},
-    {ok,B} = 'NBAP-PDU-Discriptions':encode('NBAP-PDU', Msg),
-    {ok,_Msg} = 'NBAP-PDU-Discriptions':decode('NBAP-PDU', B),
+    {ok,B} = 'NBAP-PDU-Descriptions':encode('NBAP-PDU', Msg),
+    {ok,_Msg} = 'NBAP-PDU-Descriptions':decode('NBAP-PDU', B),
     {initiatingMessage,
 	   #'InitiatingMessage'{value=#'AuditRequest'{protocolIEs=[{_,114,ignore,_}],
 						      protocolExtensions = asn1_NOVALUE}}} = _Msg,
@@ -116,8 +116,8 @@ enc_audit_req_msg() ->
     
 cell_setup_req_msg_test() ->
     Msg = {initiatingMessage, cell_setup_req_msg()},
-    {ok,B} = 'NBAP-PDU-Discriptions':encode('NBAP-PDU', Msg),
-    {ok,_Msg} = 'NBAP-PDU-Discriptions':decode('NBAP-PDU', B),
+    {ok,B} = 'NBAP-PDU-Descriptions':encode('NBAP-PDU', Msg),
+    {ok,_Msg} = 'NBAP-PDU-Descriptions':decode('NBAP-PDU', B),
     io:format("Msg: ~P~n~n_Msg: ~P~n",[Msg,15,_Msg,15]),
     ok.
     

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1119,9 +1119,186 @@ error:
     return NULL;
 }
 
-/* This is used when tracing */
-Eterm erts_match_set_lint(Process *p, Eterm matchexpr) {
-    return db_match_set_lint(p, matchexpr, DCOMP_TRACE);
+/*
+ * Compare a matching term 'a' with a constructing term 'b' for equality.
+ *
+ * Returns true if 'b' is guaranteed to always construct
+ * the same term as 'a' has matched.
+ */
+static int db_match_eq_body(Eterm a, Eterm b, int const_mode)
+{
+    DECLARE_ESTACK(s);
+    Uint arity;
+    Eterm *ap, *bp;
+    const Eterm CONST_MODE_OFF = THE_NON_VALUE;
+
+    while (1) {
+        switch(b & _TAG_PRIMARY_MASK) {
+        case TAG_PRIMARY_LIST:
+            if (!is_list(a))
+                return 0;
+            ESTACK_PUSH2(s, CDR(list_val(a)), CDR(list_val(b)));
+            a = CAR(list_val(a));
+            b = CAR(list_val(b));
+            continue; /* loop without pop */
+
+        case TAG_PRIMARY_BOXED:
+            if (is_tuple(b)) {
+                bp = tuple_val(b);
+                if (!const_mode) {
+                    if (bp[0] == make_arityval(1) && is_tuple(bp[1])) {
+                        b = bp[1]; /* double-tuple syntax */
+                    }
+                    else if (bp[0] == make_arityval(2) && bp[1] == am_const) {
+                        ESTACK_PUSH(s, CONST_MODE_OFF);
+                        const_mode = 1;   /* {const, term()} syntax */
+                        b = bp[2];
+                        continue; /* loop without pop */
+                    }
+                    else
+                        return 0; /* function call or invalid tuple syntax */
+                }
+                if (!is_tuple(a))
+                    return 0;
+
+                ap = tuple_val(a);
+                bp = tuple_val(b);
+                if (ap[0] != bp[0])
+                    return 0;
+                arity = arityval(ap[0]);
+                if (arity > 0) {
+                    a = *(++ap);
+                    b = *(++bp);
+                    while(--arity) {
+                        ESTACK_PUSH2(s, *(++ap), *(++bp));
+                    }
+                    continue; /* loop without pop */
+                }
+            }
+            else if (is_map(b)) {
+                /* We don't know what other pairs the matched map may contain */
+                return 0;
+            }
+            else if (!eq(a,b)) /* other boxed */
+                return 0;
+            break;
+
+        case TAG_PRIMARY_IMMED1:
+            if (a != b || a == am_Underscore || a == am_DollarDollar
+                || a == am_DollarUnderscore
+                || (const_mode && db_is_variable(a) >= 0)) {
+
+                return 0;
+            }
+            break;
+        default:
+            erts_exit(ERTS_ABORT_EXIT, "db_compare: "
+                      "Bad object on ESTACK: 0x%bex\n", b);
+        }
+
+pop_next:
+        if (ESTACK_ISEMPTY(s))
+            break; /* done */
+
+        b = ESTACK_POP(s);
+        if (b == CONST_MODE_OFF) {
+            ASSERT(const_mode);
+            const_mode = 0;
+            goto pop_next;
+        }
+        a = ESTACK_POP(s);
+    }
+
+    DESTROY_ESTACK(s);
+    return 1;
+}
+
+/* This is used by select_replace */
+int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body)
+{
+    Eterm match_key;
+    Eterm* body_list;
+    Eterm single_body_term;
+    Eterm* single_body_term_tpl;
+    Eterm single_body_subterm;
+    Eterm single_body_subterm_key;
+    Eterm* single_body_subterm_key_tpl;
+    int const_mode;
+
+    if (!is_list(body)) {
+        return 0;
+    }
+
+    body_list = list_val(body);
+    if (CDR(body_list) != NIL) {
+        return 0;
+    }
+
+    single_body_term = CAR(body_list);
+    if (single_body_term == am_DollarUnderscore) {
+        /* same tuple is returned */
+        return 1;
+    }
+
+    if (!is_tuple(single_body_term)) {
+        return 0;
+    }
+
+    match_key = db_getkey(keypos, match);
+    if (!is_value(match_key)) {
+        // can't get key out of match
+        return 0;
+    }
+
+    single_body_term_tpl = tuple_val(single_body_term);
+    if (single_body_term_tpl[0] == make_arityval(2) &&
+        single_body_term_tpl[1] == am_const) {
+        /* {const, {"ets-tuple constant"}} */
+        single_body_subterm = single_body_term_tpl[2];
+        const_mode = 1;
+    }
+    else if (*single_body_term_tpl == make_arityval(1)) {
+        /* {{"ets-tuple construction"}} */
+        single_body_subterm = single_body_term_tpl[1];
+        const_mode = 0;
+    }
+    else {
+        /* not a tuple construction */
+        return 0;
+    }
+
+    single_body_subterm_key = db_getkey(keypos, single_body_subterm);
+    if (!is_value(single_body_subterm_key)) {
+        // can't get key out of single body subterm
+        return 0;
+    }
+
+    if (db_match_eq_body(match_key, single_body_subterm_key, const_mode)) {
+        /* tuple with same key is returned */
+        return 1;
+    }
+
+    if (const_mode) {
+        /* constant key did not match */
+        return 0;
+    }
+
+    if (!is_tuple(single_body_subterm_key)) {
+        /* can't possibly be an element instruction */
+        return 0;
+    }
+
+    single_body_subterm_key_tpl = tuple_val(single_body_subterm_key);
+    if (single_body_subterm_key_tpl[0] == make_arityval(3) &&
+        single_body_subterm_key_tpl[1] == am_element &&
+        single_body_subterm_key_tpl[3] == am_DollarUnderscore &&
+        single_body_subterm_key_tpl[2] == make_small(keypos))
+    {
+        /* {element, KeyPos, '$_'} */
+        return 1;
+    }
+
+    return 0;
 }
 
 Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags) 
@@ -1702,17 +1879,18 @@ error: /* Here is were we land when compilation failed. */
 /*
 ** Free a match program (in a binary)
 */
-void erts_db_match_prog_destructor(Binary *bprog)
+int erts_db_match_prog_destructor(Binary *bprog)
 {
     MatchProg *prog;
     if (bprog == NULL)
-	return;
+	return 1;
     prog = Binary2MatchProg(bprog);
     if (prog->term_save != NULL) {
 	free_message_buffer(prog->term_save); 
     }
     if (prog->saved_program_buf != NULL)
 	free_message_buffer(prog->saved_program_buf);
+    return 1;
 }
 
 void
@@ -1769,7 +1947,7 @@ Eterm db_prog_match(Process *c_p,
     Eterm t;
     Eterm *esp;
     MatchVariable* variables;
-    BeamInstr *cp;
+    ErtsCodeMFA *cp;
     const UWord *pc = prog->text;
     Eterm *ehp;
     Eterm ret;
@@ -1834,7 +2012,8 @@ restart:
     do_catch = 0;
     fail_label = -1;
     build_proc = psp;
-    esdp->current_process = psp;
+    if (esdp)
+        esdp->current_process = psp;
 
 #ifdef DEBUG
     ASSERT(variables == mpsp->u.variables);
@@ -2171,7 +2350,7 @@ restart:
 		}
 	    }
 	    else {
-		*esp = term;
+		*esp++ = term;
 	    }
 	    break;
 	case matchPushArrayAsList:
@@ -2408,9 +2587,9 @@ restart:
 		ehp = HAllocX(build_proc, 4, HEAP_XTRA);
  		*esp++ = make_tuple(ehp);
 		ehp[0] = make_arityval(3);
-		ehp[1] = cp[0];
-		ehp[2] = cp[1];
-		ehp[3] = make_small((Uint) cp[2]);
+		ehp[1] = cp->module;
+		ehp[2] = cp->function;
+		ehp[3] = make_small((Uint) cp->arity);
 	    }
 	    break;
         case matchSilent:
@@ -2503,7 +2682,8 @@ restart:
 	    do_catch = 1;
 	    if (in_flags & ERTS_PAM_COPY_RESULT) {
 		build_proc = c_p;
-		esdp->current_process = c_p;
+                if (esdp)
+                    esdp->current_process = c_p;
 	    }
 	    break;
 	case matchHalt:
@@ -2544,14 +2724,6 @@ success:
 #undef FAIL_TERM
 }
 
-
-/*
- * Convert a match program to a "magic" binary to return up to erlang
- */
-Eterm db_make_mp_binary(Process *p, Binary *mp, Eterm **hpp)
-{
-    return erts_mk_magic_binary_term(hpp, &MSO(p), mp);
-}
 
 DMCErrInfo *db_new_dmc_err_info(void) 
 {
@@ -3101,15 +3273,17 @@ void db_cleanup_offheap_comp(DbTerm* obj)
 	}
 	switch (thing_subtag(u.hdr->thing_word)) {
 	case REFC_BINARY_SUBTAG:
-	    if (erts_refc_dectest(&u.pb->val->refc, 0) == 0) {
-		erts_bin_free(u.pb->val);
-	    }
+            erts_bin_release(u.pb->val);
 	    break;
 	case FUN_SUBTAG:
 	    ASSERT(u.pb != &tmp);
-	    if (erts_refc_dectest(&u.fun->fe->refc, 0) == 0) {
+	    if (erts_smp_refc_dectest(&u.fun->fe->refc, 0) == 0) {
 		erts_erase_fun_entry(u.fun->fe);
 	    }
+	    break;
+	case REF_SUBTAG:
+	    ASSERT(is_magic_ref_thing(u.hdr));
+            erts_bin_release((Binary *)u.mref->mb);
 	    break;
 	default:
 	    ASSERT(is_external_header(u.hdr->thing_word));
@@ -3264,13 +3438,6 @@ int db_has_variable(Eterm node) {
     }
     DESTROY_ESTACK(s);
     return 0;
-}
-
-int erts_db_is_compiled_ms(Eterm term)
-{
-    return (is_binary(term)
-	    && (thing_subtag(*binary_val(term)) == REFC_BINARY_SUBTAG)
-	    && IsMatchProgBinary((((ProcBin *) binary_val(term))->val)));
 }
 
 /* 
@@ -5170,6 +5337,7 @@ void db_free_tmp_uncompressed(DbTerm* obj)
 Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
 			     int all, DbTerm* obj, Eterm** hpp, Uint extra)
 {
+    enum erts_pam_run_flags flags;
     Uint32 dummy;
     Eterm res;
 
@@ -5177,9 +5345,13 @@ Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,
 	obj = db_alloc_tmp_uncompressed(tb, obj);
     }
 
+    flags = (hpp ?
+             ERTS_PAM_COPY_RESULT | ERTS_PAM_CONTIGUOUS_TUPLE :
+             ERTS_PAM_TMP_RESULT  | ERTS_PAM_CONTIGUOUS_TUPLE);
+
     res = db_prog_match(c_p, c_p,
                         bprog, make_tuple(obj->tpl), NULL, 0,
-			ERTS_PAM_COPY_RESULT|ERTS_PAM_CONTIGUOUS_TUPLE, &dummy);
+			flags, &dummy);
 
     if (is_value(res) && hpp!=NULL) {
 	*hpp = HAlloc(c_p, extra);
@@ -5289,24 +5461,35 @@ void db_match_dis(Binary *bp)
 	case matchEqRef:
 	    ++t;
 	    {
-		RefThing *rt = (RefThing *) t;
+		Uint32 *num;
 		int ri;
-		n = thing_arityval(rt->header);
-		erts_printf("EqRef\t(%d) {", (int) n);
+
+		if (is_ordinary_ref_thing(t)) {
+		    ErtsORefThing *rt = (ErtsORefThing *) t;
+		    num = rt->num;
+		    t += TermWords(ERTS_REF_THING_SIZE);
+		}
+		else {
+		    ErtsMRefThing *mrt = (ErtsMRefThing *) t;
+		    ASSERT(is_magic_ref_thing(t));
+		    num = mrt->mb->refn;
+		    t += TermWords(ERTS_MAGIC_REF_THING_SIZE);
+		}
+
+		erts_printf("EqRef\t(%d) {", (int) ERTS_REF_NUMBERS);
 		first = 1;
-		for (ri = 0; ri < n; ++ri) {
+		for (ri = 0; ri < ERTS_REF_NUMBERS; ++ri) {
 		    if (first)
 			first = 0;
 		    else
 			erts_printf(", ");
 #if defined(ARCH_64)
-		    erts_printf("0x%016bex", rt->data.ui[ri]);
+		    erts_printf("0x%016bex", num[ri]);
 #else
-		    erts_printf("0x%08bex", rt->data.ui[ri]);
+		    erts_printf("0x%08bex", num[ri]);
 #endif
 		}
 	    }
-	    t += TermWords(REF_THING_SIZE);
 	    erts_printf("}\n");
 	    break;
 	case matchEqBig:

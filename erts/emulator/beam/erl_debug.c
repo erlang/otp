@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,10 +60,10 @@ static const char dashes[PTR_SIZE+3] = {
 
 void pps(Process*, Eterm*);
 void ptd(Process*, Eterm);
-void paranoid_display(int, void*, Process*, Eterm);
+void paranoid_display(fmtfn_t, void*, Process*, Eterm);
 static int dcount;
 
-static int pdisplay1(int to, void *to_arg, Process* p, Eterm obj);
+static int pdisplay1(fmtfn_t to, void *to_arg, Process* p, Eterm obj);
 
 void ptd(Process* p, Eterm x) 
 {
@@ -77,14 +77,14 @@ void ptd(Process* p, Eterm x)
  */
 
 void
-paranoid_display(int to, void *to_arg, Process* p, Eterm obj)
+paranoid_display(fmtfn_t to, void *to_arg, Process* p, Eterm obj)
 {
     dcount = 100000;
     pdisplay1(to, to_arg, p, obj);
 }
 
 static int
-pdisplay1(int to, void *to_arg, Process* p, Eterm obj)
+pdisplay1(fmtfn_t to, void *to_arg, Process* p, Eterm obj)
 {
     int i, k;
     Eterm* nobj;
@@ -130,7 +130,7 @@ pdisplay1(int to, void *to_arg, Process* p, Eterm obj)
 	Uint32 *ref_num;
 	erts_print(to, to_arg, "#Ref<%lu", ref_channel_no(obj));
 	ref_num = ref_numbers(obj);
-	for (i = ref_no_of_numbers(obj)-1; i >= 0; i--)
+	for (i = ref_no_numbers(obj)-1; i >= 0; i--)
 	    erts_print(to, to_arg, ",%lu", ref_num[i]);
 	erts_print(to, to_arg, ">");
 	break;
@@ -201,7 +201,7 @@ pdisplay1(int to, void *to_arg, Process* p, Eterm obj)
 void
 pps(Process* p, Eterm* stop)
 {
-    int to = ERTS_PRINT_STDOUT;
+    fmtfn_t to = ERTS_PRINT_STDOUT;
     void *to_arg = NULL;
     Eterm* sp = STACK_START(p) - 1;
 

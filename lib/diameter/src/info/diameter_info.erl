@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -195,7 +195,7 @@ format(Tables, SFun, CFun)
 %%%
 %%% Description: Pretty-print records in a named tables as collected
 %%%              from local and remote nodes. Each table listing is
-%%%              preceeded by a banner.
+%%%              preceded by a banner.
 %%% ----------------------------------------------------------
 
 format(Local, Remote, SFun) ->

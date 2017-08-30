@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,11 +25,12 @@
 
 suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
-all() -> [{group, setup}, {group, payload}].
+all() -> [{group, setup}, {group, payload}, {group, pem_cache}].
 
 groups() ->
     [{setup, [{repeat, 3}], [setup_sequential, setup_concurrent]},
-     {payload, [{repeat, 3}], [payload_simple]}
+     {payload, [{repeat, 3}], [payload_simple]},
+     {pem_cache, [{repeat, 3}], [use_pem_cache, bypass_pem_cache]}
     ].
 
 init_per_group(_GroupName, Config) ->
@@ -49,9 +50,33 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_testcase(use_pem_cache, Conf) ->
+    case bypass_pem_cache_supported() of
+        false -> {skipped, "PEM cache bypass support required"};
+        true ->
+            application:set_env(ssl, bypass_pem_cache, false),
+            Conf
+    end;
+init_per_testcase(bypass_pem_cache, Conf) ->
+    case bypass_pem_cache_supported() of
+        false -> {skipped, "PEM cache bypass support required"};
+        true ->
+            application:set_env(ssl, bypass_pem_cache, true),
+            Conf
+    end;
 init_per_testcase(_Func, Conf) ->
     Conf.
 
+end_per_testcase(use_pem_cache, _Config) ->
+    case bypass_pem_cache_supported() of
+        false -> ok;
+        true -> application:set_env(ssl, bypass_pem_cache, false)
+    end;
+end_per_testcase(bypass_pem_cache, _Config) ->
+    case bypass_pem_cache_supported() of
+        false -> ok;
+        true -> application:set_env(ssl, bypass_pem_cache, false)
+    end;
 end_per_testcase(_Func, _Conf) ->
     ok.
 
@@ -63,7 +88,6 @@ end_per_testcase(_Func, _Conf) ->
 -define(FPROF_SERVER, false).
 -define(EPROF_CLIENT, false).
 -define(EPROF_SERVER, false).
--define(PERCEPT_SERVER, false).
 
 %% Current numbers gives roughly a testcase per minute on todays hardware..
 
@@ -93,6 +117,18 @@ payload_simple(Config) ->
 			   data=[{value, Result},
 				 {suite, "ssl"}, {name, "Payload simple"}]}),
     ok.
+
+use_pem_cache(_Config) ->
+    {ok, Result} = do_test(ssl, pem_cache, 100, 500, node()),
+    ct_event:notify(#event{name = benchmark_data,
+                           data=[{value, Result},
+                                 {suite, "ssl"}, {name, "Use PEM cache"}]}).
+
+bypass_pem_cache(_Config) ->
+    {ok, Result} = do_test(ssl, pem_cache, 100, 500, node()),
+    ct_event:notify(#event{name = benchmark_data,
+                           data=[{value, Result},
+                                 {suite, "ssl"}, {name, "Bypass PEM cache"}]}).
 
 
 ssl() ->
@@ -153,7 +189,6 @@ server_init(ssl, setup_connection, _, _, Server) ->
     ?FPROF_SERVER andalso start_profile(fprof, [whereis(ssl_manager), new]),
     %%?EPROF_SERVER andalso start_profile(eprof, [ssl_connection_sup, ssl_manager]),
     ?EPROF_SERVER andalso start_profile(eprof, [ssl_manager]),
-    ?PERCEPT_SERVER andalso percept:profile("/tmp/ssl_server.percept"),
     Server ! {self(), {init, Host, Port}},
     Test = fun(TSocket) ->
 		   ok = ssl:ssl_accept(TSocket),
@@ -162,6 +197,18 @@ server_init(ssl, setup_connection, _, _, Server) ->
     setup_server_connection(Socket, Test);
 server_init(ssl, payload, Loop, _, Server) ->
     {ok, Socket} = ssl:listen(0, ssl_opts(listen)),
+    {ok, {_Host, Port}} = ssl:sockname(Socket),
+    {ok, Host} = inet:gethostname(),
+    Server ! {self(), {init, Host, Port}},
+    Test = fun(TSocket) ->
+		   ok = ssl:ssl_accept(TSocket),
+		   Size = byte_size(msg()),
+		   server_echo(TSocket, Size, Loop),
+		   ssl:close(TSocket)
+	   end,
+    setup_server_connection(Socket, Test);
+server_init(ssl, pem_cache, Loop, _, Server) ->
+    {ok, Socket} = ssl:listen(0, ssl_opts(listen_der)),
     {ok, {_Host, Port}} = ssl:sockname(Socket),
     {ok, Host} = inet:gethostname(),
     Server ! {self(), {init, Host, Port}},
@@ -185,6 +232,11 @@ client_init(Master, ssl, payload, Host, Port) ->
     Master ! {self(), init},
     Size = byte_size(msg()),
     {Sock, Size};
+client_init(Master, ssl, pem_cache, Host, Port) ->
+    {ok, Sock} = ssl:connect(Host, Port, ssl_opts(connect_der)),
+    Master ! {self(), init},
+    Size = byte_size(msg()),
+    {Sock, Size};
 client_init(_Me, Type, Tc, Host, Port) ->
     io:format("No client init code for ~p ~p~n",[Type, Tc]),
     {Host, Port}.
@@ -193,7 +245,6 @@ setup_server_connection(LSocket, Test) ->
     receive quit ->
 	    ?FPROF_SERVER andalso stop_profile(fprof, "test_server_res.fprof"),
 	    ?EPROF_SERVER andalso stop_profile(eprof, "test_server_res.eprof"),
-	    ?PERCEPT_SERVER andalso stop_profile(percept, "/tmp/ssl_server.percept"),
 	    ok
     after 0 ->
 	    case ssl:transport_accept(LSocket, 2000) of
@@ -226,6 +277,13 @@ payload(Loop, ssl, D = {Socket, Size}) when Loop > 0 ->
     {ok, _} = ssl:recv(Socket, Size),
     payload(Loop-1, ssl, D);
 payload(_, _, {Socket, _}) ->
+    ssl:close(Socket).
+
+pem_cache(N, ssl, Data = {Socket, Size}) when N > 0 ->
+    ok = ssl:send(Socket, msg()),
+    {ok, _} = ssl:recv(Socket, Size),
+    pem_cache(N-1, ssl, Data);
+pem_cache(_, _, {Socket, _}) ->
     ssl:close(Socket).
 
 msg() ->
@@ -327,13 +385,6 @@ start_profile(fprof, Procs) ->
     fprof:trace([start, {procs, Procs}]),
     io:format("(F)Profiling ...",[]).
 
-stop_profile(percept, File) ->
-    percept:stop_profile(),
-    percept:analyze(File),
-    {started, _Host, Port} = percept:start_webserver(),
-    wx:new(),
-    wx_misc:launchDefaultBrowser("http://" ++ net_adm:localhost() ++ ":" ++ integer_to_list(Port)),
-    ok;
 stop_profile(eprof, File) ->
     profiling_stopped = eprof:stop_profiling(),
     eprof:log(File),
@@ -352,16 +403,49 @@ stop_profile(fprof, File) ->
 ssl_opts(listen) ->
     [{backlog, 500} | ssl_opts("server")];
 ssl_opts(connect) ->
-    [{verify, verify_peer}
-     | ssl_opts("client")];
+    [{verify, verify_peer} | ssl_opts("client")];
+ssl_opts(listen_der) ->
+    [{backlog, 500} | ssl_opts("server_der")];
+ssl_opts(connect_der) ->
+    [{verify, verify_peer} | ssl_opts("client_der")];
 ssl_opts(Role) ->
+    CertData = cert_data(Role),
+    Opts = [{active, false},
+            {depth, 2},
+            {reuseaddr, true},
+            {mode,binary},
+            {nodelay, true},
+            {ciphers, [{dhe_rsa,aes_256_cbc,sha}]}
+            |CertData],
+    case Role of
+        "client" ++ _ ->
+            [{server_name_indication, disable} | Opts];
+        "server" ++ _ ->
+            Opts
+    end.
+
+cert_data(Der) when Der =:= "server_der"; Der =:= "client_der" ->
+    [Role,_] = string:tokens(Der, "_"),
     Dir = filename:join([code:lib_dir(ssl), "examples", "certs", "etc"]),
-    [{active, false},
-     {depth, 2},
-     {reuseaddr, true},
-     {mode,binary},
-     {nodelay, true},
-     {ciphers, [{dhe_rsa,aes_256_cbc,sha}]},
-     {cacertfile, filename:join([Dir, Role, "cacerts.pem"])},
+    {ok, CaCert0} = file:read_file(filename:join([Dir, Role, "cacerts.pem"])),
+    {ok, Cert0} = file:read_file(filename:join([Dir, Role, "cert.pem"])),
+    {ok, Key0} = file:read_file(filename:join([Dir, Role, "key.pem"])),
+    [{_, Cert, _}] = public_key:pem_decode(Cert0),
+    CaCert1 = public_key:pem_decode(CaCert0),
+    CaCert = [CCert || {_, CCert, _} <- CaCert1],
+    [{KeyType, Key, _}] = public_key:pem_decode(Key0),
+    [{cert, Cert},
+     {cacerts, CaCert},
+     {key, {KeyType, Key}}];
+cert_data(Role) ->
+    Dir = filename:join([code:lib_dir(ssl), "examples", "certs", "etc"]),
+    [{cacertfile, filename:join([Dir, Role, "cacerts.pem"])},
      {certfile, filename:join([Dir, Role, "cert.pem"])},
      {keyfile, filename:join([Dir, Role, "key.pem"])}].
+
+bypass_pem_cache_supported() ->
+    %% This function is currently critical to support cache bypass
+    %% and did not exist in prior versions.
+    catch ssl_pkix_db:module_info(), % ensure module is loaded
+    erlang:function_exported(ssl_pkix_db, extract_trusted_certs, 1).
+

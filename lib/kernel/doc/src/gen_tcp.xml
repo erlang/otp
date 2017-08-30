@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -140,6 +140,23 @@ do_recv(Sock, Bs) ->
       <fsummary>Close a TCP socket.</fsummary>
       <desc>
         <p>Closes a TCP socket.</p>
+        <p>Note that in most implementations of TCP, doing a <c>close</c> does
+         not guarantee that any data sent is delivered to the recipient before
+         the close is detected at the remote side. If you want to guarantee
+         delivery of the data to the recipient there are two common ways to
+         achieve this.</p>
+         <list type="ordered">
+           <item><p>Use <seealso marker="#shutdown/2">
+             <c>gen_tcp:shutdown(Sock, write)</c></seealso> to signal that
+             no more data is to be sent and wait for the read side of the
+             socket to be closed.</p>
+           </item>
+           <item><p>Use the socket option <seealso marker="inet#packet">
+             <c>{packet, N}</c></seealso> (or something similar) to make
+             it possible for the receiver to close the connection when it
+             knowns it has received all the data.</p>
+           </item>
+         </list>
       </desc>
     </func>
 
@@ -216,7 +233,7 @@ do_recv(Sock, Bs) ->
           time-out in milliseconds. Defaults to <c>infinity</c>.</p>
         <note>
           <p>The default values for options specified to <c>connect</c> can
-            be affected by the <c>Kernel</c> configuration parameter
+            be affected by the Kernel configuration parameter
             <c>inet_default_connect_options</c>. For details, see
             <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
         </note>
@@ -231,7 +248,11 @@ do_recv(Sock, Bs) ->
           <c><anno>Socket</anno></c>. The controlling process is the process
           that receives messages from the socket. If called by any other
           process than the current controlling process,
-          <c>{error, not_owner}</c> is returned.</p>
+          <c>{error, not_owner}</c> is returned. If the process identified
+          by <c><anno>Pid</anno></c> is not an existing local pid,
+          <c>{error, badarg}</c> is returned. <c>{error, badarg}</c> may also
+          be returned in some cases when <c><anno>Socket</anno></c> is closed
+          during the execution of this function.</p>
           <p>If the socket is set in active mode, this function
           will transfer any messages in the mailbox of the caller
           to the new controlling process.
@@ -293,7 +314,7 @@ do_recv(Sock, Bs) ->
           <seealso marker="#accept/1"><c>accept/1,2</c></seealso>.</p>
         <note>
           <p>The default values for options specified to <c>listen</c> can
-            be affected by the <c>Kernel</c> configuration parameter
+            be affected by the Kernel configuration parameter
             <c>inet_default_listen_options</c>. For details, see
             <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
         </note>
@@ -307,7 +328,7 @@ do_recv(Sock, Bs) ->
       <type_desc variable="HttpPacket">See the description of
         <c>HttpPacket</c> in
         <seealso marker="erts:erlang#decode_packet/3"><c>erlang:decode_packet/3</c></seealso>
-      in <c>ERTS</c>.
+      in ERTS.
       </type_desc>
       <desc>
         <p>Receives a packet from a socket in passive

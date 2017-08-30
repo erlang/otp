@@ -25,6 +25,9 @@
 -export([module/2]).
 -import(lists, [reverse/1,reverse/2,foldl/3,member/2]).
 
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
     Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
@@ -58,13 +61,6 @@ blockify(Is) ->
 blockify([{loop_rec,{f,Fail},{x,0}},{loop_rec_end,_Lbl},{label,Fail}|Is], Acc) ->
     %% Useless instruction sequence.
     blockify(Is, Acc);
-blockify([{get_map_elements,F,S,{list,Gets}}|Is0], Acc) ->
-    %% A get_map_elements instruction is only safe at the beginning of
-    %% a block because of the failure label.
-    {Ss,Ds} = beam_utils:split_even(Gets),
-    I = {set,Ds,[S|Ss],{get_map_elements,F}},
-    {Block,Is} = collect_block(Is0, [I]),
-    blockify(Is, [{block,Block}|Acc]);
 blockify([I|Is0]=IsAll, Acc) ->
     case collect(I) of
 	error -> blockify(Is0, [I|Acc]);
@@ -159,14 +155,43 @@ find_fixpoint(OptFun, Is0) ->
     end.
 
 %% move_allocates(Is0) -> Is
-%%  Move allocate instructions upwards in the instruction stream, in the
-%%  hope of getting more possibilities for optimizing away moves later.
+%%  Move allocate instructions upwards in the instruction stream
+%%  (within the same block), in the hope of getting more possibilities
+%%  for optimizing away moves later.
 %%
-%%  NOTE: Moving allocation instructions is only safe because it is done
-%%  immediately after code generation so that we KNOW that if {x,X} is
-%%  initialized, all x registers with lower numbers are also initialized.
-%%  That assumption may not be true after other optimizations, such as
-%%  the beam_utils:live_opt/1 optimization.
+%%  For example, we can transform the following instructions:
+%%
+%%     get_tuple_element x(1) Element => x(2)
+%%     allocate_zero StackSize 3    %% x(0), x(1), x(2) are live
+%%
+%%  to the following instructions:
+%%
+%%     allocate_zero StackSize 2    %% x(0) and x(1) are live
+%%     get_tuple_element x(1) Element => x(2)
+%%
+%%  NOTE: Since the beam_reorder pass has been run, it is no longer
+%%  safe to assume that if x(N) is initialized, then all lower-numbered
+%%  x registers are also initialized.
+%%
+%%  For example, in general it is not safe to transform the following
+%%  instructions:
+%%
+%%     get_tuple_element x(0) Element => x(1)
+%%     allocate_zero StackSize 3    %x(0), x(1), x(2) are live
+%%
+%%  to the following instructions:
+%%
+%%     allocate_zero StackSize 3
+%%     get_tuple_element x(0) Element => x(1)
+%%
+%%  The transformation is safe if and only if x(1) has been
+%%  initialized previously. Unfortunately, beam_reorder may have moved
+%%  a get_tuple_element instruction so that x(1) is not always
+%%  initialized when this code is reached. To find whether or not x(1)
+%%  is initialized, we would need to analyze all code preceding these
+%%  two instructions (across branches). Since we currently don't have
+%%  any practical mechanism for doing that, we will have to
+%%  conservatively assume that the transformation is unsafe.
 
 move_allocates([{block,Bl0}|Is]) ->
     Bl = move_allocates_1(reverse(Bl0), []),
@@ -175,38 +200,26 @@ move_allocates([I|Is]) ->
     [I|move_allocates(Is)];
 move_allocates([]) -> [].
 
-move_allocates_1([{set,[],[],{alloc,_,_}=Alloc}|Is0], Acc0) ->
-    {Is,Acc} = move_allocates_2(Alloc, Is0, Acc0),
-    move_allocates_1(Is, Acc);
+move_allocates_1([I|Is], [{set,[],[],{alloc,Live0,Info}}|Acc]=Acc0) ->
+    case {alloc_may_pass(I),alloc_live_regs(I, Live0)} of
+	{false,_} ->
+	    move_allocates_1(Is, [I|Acc0]);
+	{true,not_possible} ->
+	    move_allocates_1(Is, [I|Acc0]);
+	{true,Live} when is_integer(Live) ->
+	    A = {set,[],[],{alloc,Live,Info}},
+	    move_allocates_1(Is, [A,I|Acc])
+    end;
 move_allocates_1([I|Is], Acc) ->
     move_allocates_1(Is, [I|Acc]);
-move_allocates_1([], Is) -> Is.
-
-move_allocates_2({alloc,Live,Info}, [{set,[],[],{alloc,Live0,Info0}}|Is], Acc) ->
-    Live = Live0,				% Assertion.
-    Alloc = {alloc,Live,combine_alloc(Info0, Info)},
-    move_allocates_2(Alloc, Is, Acc);
-move_allocates_2({alloc,Live,Info}=Alloc0, [I|Is]=Is0, Acc) ->
-    case alloc_may_pass(I) of
-	false ->
-	    {Is0,[{set,[],[],Alloc0}|Acc]};
-	true ->
-	    Alloc = {alloc,alloc_live_regs(I, Live),Info},
-	    move_allocates_2(Alloc, Is, [I|Acc])
-    end;
-move_allocates_2(Alloc, [], Acc) ->
-    {[],[{set,[],[],Alloc}|Acc]}.
+move_allocates_1([], Acc) -> Acc.
 
 alloc_may_pass({set,_,_,{alloc,_,_}}) -> false;
 alloc_may_pass({set,_,_,{set_tuple_element,_}}) -> false;
-alloc_may_pass({set,_,_,{get_map_elements,_}}) -> false;
 alloc_may_pass({set,_,_,put_list}) -> false;
 alloc_may_pass({set,_,_,put}) -> false;
 alloc_may_pass({set,_,_,_}) -> true.
     
-combine_alloc({_,Ns,Nh1,Init}, {_,nostack,Nh2,[]})  ->
-    {zero,Ns,beam_utils:combine_heap_needs(Nh1, Nh2),Init}.
-
 %% opt([Instruction]) -> [Instruction]
 %%  Optimize the instruction stream inside a basic block.
 
@@ -217,8 +230,6 @@ opt([{set,_,_,{line,_}}=Line1,
      {set,[D2],[{integer,Idx2},Reg],{bif,element,{f,0}}}=I2|Is])
   when Idx1 < Idx2, D1 =/= D2, D1 =/= Reg, D2 =/= Reg ->
     opt([Line2,I2,Line1,I1|Is]);
-opt([{set,[_|_],_Ss,{get_map_elements,_F}}=I|Is]) ->
-    [I|opt(Is)];
 opt([{set,Ds0,Ss,Op}|Is0]) ->
     {Ds,Is} = opt_moves(Ds0, Is0),
     [{set,Ds,Ss,Op}|opt(Is)];
@@ -393,10 +404,19 @@ eliminate_use_of_from_reg([I]=Is, From, _To, Acc) ->
 %% opt_alloc(Instructions) -> Instructions'
 %%  Optimises all allocate instructions.
 
+opt_alloc([{set,[],[],{alloc,Live0,Info0}},
+	   {set,[],[],{alloc,Live,Info}}|Is]) ->
+    Live = Live0,				%Assertion.
+    Alloc = combine_alloc(Info0, Info),
+    I = {set,[],[],{alloc,Live,Alloc}},
+    opt_alloc([I|Is]);
 opt_alloc([{set,[],[],{alloc,R,{_,Ns,Nh,[]}}}|Is]) ->
     [{set,[],[],opt_alloc(Is, Ns, Nh, R)}|Is];
 opt_alloc([I|Is]) -> [I|opt_alloc(Is)];
 opt_alloc([]) -> [].
+
+combine_alloc({_,Ns,Nh1,Init}, {_,nostack,Nh2,[]})  ->
+    {zero,Ns,beam_utils:combine_heap_needs(Nh1, Nh2),Init}.
 	
 %% opt_alloc(Instructions, FrameSize, HeapNeed, LivingRegs) -> [Instr]
 %%  Generates the optimal sequence of instructions for
@@ -445,13 +465,14 @@ count_ones(Bits, Acc) ->
 
 alloc_live_regs({set,Ds,Ss,_}, Regs0) ->
     Rset = x_live(Ss, x_dead(Ds, (1 bsl Regs0)-1)),
-    live_regs(Rset).
+    live_regs(0, Rset).
 
-live_regs(Regs) ->
-    live_regs_1(0, Regs).
-
-live_regs_1(N, 0) -> N;
-live_regs_1(N, Regs) -> live_regs_1(N+1, Regs bsr 1).
+live_regs(N, 0) ->
+    N;
+live_regs(N, Regs) when Regs band 1 =:= 1 ->
+    live_regs(N+1, Regs bsr 1);
+live_regs(_, _) ->
+    not_possible.
 
 x_dead([{x,N}|Rs], Regs) -> x_dead(Rs, Regs band (bnot (1 bsl N)));
 x_dead([_|Rs], Regs) -> x_dead(Rs, Regs);

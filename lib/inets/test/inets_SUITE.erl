@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -212,11 +212,19 @@ start_httpd(Config) when is_list(Config) ->
     Pids0 =  [ServicePid || {_, ServicePid} <- inets:services()],  
     true = lists:member(Pid0, Pids0),
     [_|_] = inets:services_info(),	
-
     inets:stop(httpd, Pid0),
     ct:sleep(500),
+    Pids1 =  [ServicePid || {_, ServicePid} <- inets:services()],
+    false = lists:member(Pid0, Pids1),
+    {ok, Pid0b} =
+	inets:start(httpd, [{port, 0}, {ipfamily, inet6fb4} | HttpdConf]),
+    Pids0b =  [ServicePid || {_, ServicePid} <- inets:services()],
+    true = lists:member(Pid0b, Pids0b),
+    [_|_] = inets:services_info(),
+    inets:stop(httpd, Pid0b),
+    ct:sleep(500),
     Pids1 =  [ServicePid || {_, ServicePid} <- inets:services()], 
-    false = lists:member(Pid0, Pids1),        
+    false = lists:member(Pid0b, Pids1),
     {ok, Pid1} = 
 	inets:start(httpd, [{port, 0}, {ipfamily, inet} | HttpdConf], 
 		    stand_alone),

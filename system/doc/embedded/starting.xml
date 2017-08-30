@@ -69,7 +69,7 @@
         default, it must be called <c>start</c> and reside in
         <c><![CDATA[<ERL_INSTALL_DIR>/bin]]></c>.  Another start program can be
         used, by using the configuration parameter <c>start_prg</c> in
-        the application <c>sasl</c>.</p>
+        application SASL.</p>
       <p>The start program must call <c>run_erl</c> as shown below.
         It must also take an optional parameter which defaults to
         <c><![CDATA[<ERL_INSTALL_DIR>/bin/start_erl.data]]></c>.
@@ -80,8 +80,8 @@
         </p>
       <p>The <c><![CDATA[<RELDIR>]]></c> directory is where new release packets
         are installed, and where the release handler keeps information
-        about releases.  See <c>release_handler(3)</c> in the
-        application <c>sasl</c> for further information.
+        about releases.  See <c>release_handler(3)</c> in
+        application SASL for further information.
         </p>
       <p>The following script illustrates the default behaviour of the
         program.
@@ -228,7 +228,7 @@ export PROGNAME
 export RELDIR
 
 exec $BINDIR/erlexec -boot $RELDIR/$VSN/start -config $RELDIR/$VSN/sys $*      </code>
-      <p>If a diskless and/or read-only client node with the <c>sasl</c>
+      <p>If a diskless and/or read-only client node with the SASL
         configuration parameter <c>static_emulator</c> set to <c>true</c>
         is about to start the <c>-boot</c> and <c>-config</c> flags must be
         changed. As such a client can not read a new <c>start_erl.data</c>

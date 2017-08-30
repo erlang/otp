@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -107,7 +107,7 @@ typedef struct dist_entry_ {
     HashBucket hash_bucket;     /* Hash bucket */
     struct dist_entry_ *next;	/* Next entry in dist_table (not sorted) */
     struct dist_entry_ *prev;	/* Previous entry in dist_table (not sorted) */
-    erts_refc_t refc;		/* Reference count */
+    erts_smp_refc_t refc;		/* Reference count */
 
     erts_smp_rwmtx_t rwmtx;     /* Protects all fields below until lck_mtx. */
     Eterm sysname;		/* name@host atom for efficiency */
@@ -149,7 +149,7 @@ typedef struct dist_entry_ {
 
 typedef struct erl_node_ {
   HashBucket hash_bucket;	/* Hash bucket */
-  erts_refc_t refc;		/* Reference count */
+  erts_smp_refc_t refc;		/* Reference count */
   Eterm	sysname;		/* name@host atom for efficiency */
   Uint32 creation;		/* Creation */
   DistEntry *dist_entry;	/* Corresponding dist entry */
@@ -179,7 +179,7 @@ DistEntry *erts_find_or_insert_dist_entry(Eterm);
 DistEntry *erts_find_dist_entry(Eterm);
 void erts_schedule_delete_dist_entry(DistEntry *);
 Uint erts_dist_table_size(void);
-void erts_dist_table_info(int, void *);
+void erts_dist_table_info(fmtfn_t, void *);
 void erts_set_dist_entry_not_connected(DistEntry *);
 void erts_set_dist_entry_connected(DistEntry *, Eterm, Uint);
 ErlNode *erts_find_or_insert_node(Eterm, Uint32);
@@ -187,8 +187,8 @@ void erts_schedule_delete_node(ErlNode *);
 void erts_set_this_node(Eterm, Uint);
 Uint erts_node_table_size(void);
 void erts_init_node_tables(int);
-void erts_node_table_info(int, void *);
-void erts_print_node_info(int, void *, Eterm, int*, int*);
+void erts_node_table_info(fmtfn_t, void *);
+void erts_print_node_info(fmtfn_t, void *, Eterm, int*, int*);
 Eterm erts_get_node_and_dist_references(struct process *);
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
 int erts_lc_is_de_rwlocked(DistEntry *);
@@ -210,7 +210,7 @@ ERTS_GLB_INLINE void
 erts_deref_dist_entry(DistEntry *dep)
 {
     ASSERT(dep);
-    if (erts_refc_dectest(&dep->refc, 0) == 0)
+    if (erts_smp_refc_dectest(&dep->refc, 0) == 0)
 	erts_schedule_delete_dist_entry(dep);
 }
 
@@ -218,7 +218,7 @@ ERTS_GLB_INLINE void
 erts_deref_node_entry(ErlNode *np)
 {
     ASSERT(np);
-    if (erts_refc_dectest(&np->refc, 0) == 0)
+    if (erts_smp_refc_dectest(&np->refc, 0) == 0)
 	erts_schedule_delete_node(np);
 }
 

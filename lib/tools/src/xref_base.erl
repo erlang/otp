@@ -746,7 +746,7 @@ read_a_module({Dir, BaseName}, AppName, Builtins, Verbose, Warnings, Mode) ->
 	    message(Warnings, no_debug_info, [File]),
 	    no;
 	{ok, M, Data, UnresCalls0}  ->
-	    message(Verbose, done, [File]),
+	    message(Verbose, done_file, [File]),
             %% Remove duplicates. Identical unresolved calls on the
             %% same line are counted as _one_ unresolved call.
             UnresCalls = usort(UnresCalls0),
@@ -809,7 +809,8 @@ abst(File, Builtins, _Mode = functions) ->
                   {exports,X0}, {attributes,A}]}} ->
 	    %% R9C-
             Forms0 = epp:interpret_file_attribute(Code),
-	    {_,_,Forms,_} = sys_pre_expand:module(Forms0, []),
+	    Forms1 = erl_expand_records:module(Forms0, []),
+	    Forms = erl_internal:add_predefined_functions(Forms1),
 	    X = mfa_exports(X0, A, M),
             D = deprecated(A, X, M),
 	    xref_reader:module(M, Forms, Builtins, X, D);
@@ -1842,6 +1843,8 @@ message(true, What, Arg) ->
 	set_up ->
 	    io:format("Setting up...", Arg);
 	done ->
+	    io:format("done~n", Arg);
+	done_file ->
 	    io:format("done reading ~ts~n", Arg);
 	error ->
 	    io:format("error~n", Arg);

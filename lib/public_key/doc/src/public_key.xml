@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2015</year>
+      <year>2017</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -331,13 +331,17 @@
   </func>   
   
   <func>
-    <name>generate_key(Params) -> {Public::binary(), Private::binary()}  | #'ECPrivateKey'{} </name>
+    <name>generate_key(Params) -> {Public::binary(), Private::binary()}  | #'ECPrivateKey'{} | #'RSAPrivateKey'{}</name>
     <fsummary>Generates a new keypair.</fsummary>
     <type>
-      <v>Params = #'DHParameter'{} |  {namedCurve, oid()} |  #'ECParameters'{}</v>
+      <v>Params = #'DHParameter'{} |  {namedCurve, oid()} |  #'ECParameters'{} 
+      | {rsa, Size::integer(), PubExp::integer} </v>
     </type>
   <desc>
-    <p>Generates a new keypair.</p>
+    <p>Generates a new keypair. Note that except for Diffie-Hellman
+    the public key is included in the private key structure. See also
+    <seealso marker="crypto:crypto#generate_key/2">crypto:generate_key/2</seealso>
+    </p>
   </desc>
   </func>
 
@@ -757,6 +761,39 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
   </func> 
 
   <func>
+    <name>pkix_verify_hostname(Cert, ReferenceIDs) -> boolean()</name>
+    <name>pkix_verify_hostname(Cert, ReferenceIDs, Opts) -> boolean()</name>
+    <fsummary>Verifies that a PKIX x.509 certificate <i>presented identifier</i> (e.g hostname) is
+    an expected one.</fsummary>
+    <type>
+      <v>Cert = der_encoded() | #'OTPCertificate'{} </v>
+      <v>ReferenceIDs = [ RefID ]</v>
+      <v>RefID = {IdType,string()}</v>
+      <v>IdType = dns_id | srv_id | uri_id</v>
+      <v>Opts = [ PvhOpt() ]</v>
+      <v>PvhOpt = [MatchOpt | FailCallBackOpt | FqdnExtractOpt]</v>
+      <v>MatchOpt = {fun(RefId | FQDN::string(), PresentedID) -> boolean() | default}</v>
+      <v>PresentedID = {dNSName,string()} | {uniformResourceIdentifier,string()}</v>
+      <v>FailCallBackOpt = {fail_callback, fun(#'OTPCertificate'{}) -> boolean()}</v>
+      <v>FqdnExtractOpt = {fqdn_fun, fun(RefID) -> FQDN::string() | default | undefined}</v>
+    </type>
+    <desc>
+      <p>This function checks that the <i>Presented Identifier</i> (e.g hostname) in a peer certificate
+      conforms with the Expected Identifier that the client wants to connect to.
+      This functions is intended to be added as an extra client check to the peer certificate when performing
+      <seealso marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_validation/3</seealso>
+      </p>
+      <p>See <url href="https://tools.ietf.org/html/rfc6125">RFC 6125</url>
+      for detailed information about hostname verification.
+      The <seealso marker="using_public_key#verify_hostname">User's Manual</seealso>
+      and
+      <seealso marker="using_public_key#verify_hostname_examples">code examples</seealso>
+      describes this function more detailed.
+      </p>
+    </desc>
+  </func>
+
+  <func>
     <name>sign(Msg, DigestType, Key) -> binary()</name>
     <fsummary>Creates a digital signature.</fsummary>
     <type>
@@ -818,6 +855,41 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     <p>Encodes a list of SSH file entries (public keys and attributes) to a binary. Possible
     attributes depend on the file type, see <seealso
     marker="#ssh_decode-2"> ssh_decode/2 </seealso>.</p>
+  </desc>
+  </func>
+
+  <func>
+    <name>ssh_hostkey_fingerprint(HostKey) -> string()</name>
+    <name>ssh_hostkey_fingerprint(DigestType, HostKey) -> string()</name>
+    <name>ssh_hostkey_fingerprint([DigestType], HostKey) -> [string()]</name>
+    <fsummary>Calculates a ssh fingerprint for a hostkey.</fsummary>
+    <type>
+      <v>Key = public_key()</v>
+      <v>DigestType = digest_type()</v>
+    </type>
+  <desc>
+    <p>Calculates a ssh fingerprint from a public host key as openssh does.</p>
+    <p>The algorithm in <c>ssh_hostkey_fingerprint/1</c> is md5 to be compatible with older
+    ssh-keygen commands. The string from the second variant is prepended by the algorithm name
+    in uppercase as in newer ssh-keygen commands.</p>
+    <p>Examples:</p>
+    <code>
+ 2> public_key:ssh_hostkey_fingerprint(Key).    
+ "f5:64:a6:c1:5a:cb:9f:0a:10:46:a2:5c:3e:2f:57:84"
+
+ 3> public_key:ssh_hostkey_fingerprint(md5,Key).
+ "MD5:f5:64:a6:c1:5a:cb:9f:0a:10:46:a2:5c:3e:2f:57:84"
+
+ 4> public_key:ssh_hostkey_fingerprint(sha,Key).
+ "SHA1:bSLY/C4QXLDL/Iwmhyg0PGW9UbY"
+
+ 5> public_key:ssh_hostkey_fingerprint(sha256,Key).
+ "SHA256:aZGXhabfbf4oxglxltItWeHU7ub3Dc31NcNw2cMJePQ"
+
+ 6> public_key:ssh_hostkey_fingerprint([sha,sha256],Key).
+ ["SHA1:bSLY/C4QXLDL/Iwmhyg0PGW9UbY",
+  "SHA256:aZGXhabfbf4oxglxltItWeHU7ub3Dc31NcNw2cMJePQ"]
+    </code>
   </desc>
   </func>
 

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,9 +110,6 @@ erts_init_bits(void)
 {
     ERTS_CT_ASSERT(offsetof(Binary,orig_bytes) % 8 == 0);
     ERTS_CT_ASSERT(offsetof(ErtsMagicBinary,u.aligned.data) % 8 == 0);
-    ERTS_CT_ASSERT(ERTS_MAGIC_BIN_BYTES_TO_ALIGN ==
-                   (offsetof(ErtsMagicBinary,u.aligned.data)
-                    - offsetof(ErtsMagicBinary,u.unaligned.data)));
     ERTS_CT_ASSERT(offsetof(ErtsBinary,driver.binary.orig_bytes)
                 == offsetof(Binary,orig_bytes));
 
@@ -1407,7 +1404,6 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	 * Allocate the binary data struct itself.
 	 */
 	bptr = erts_bin_nrml_alloc(bin_size);
-	erts_refc_init(&bptr->refc, 1);
 	erts_current_bin = (byte *) bptr->orig_bytes;
 
 	/*
@@ -1521,14 +1517,11 @@ erts_bs_private_append(Process* p, Eterm bin, Eterm build_size_term, Uint unit)
 	     * binary and copy the contents of the old binary into it.
 	     */
 	    Binary* bptr = erts_bin_nrml_alloc(new_size);
-	    erts_refc_init(&bptr->refc, 1);
 	    sys_memcpy(bptr->orig_bytes, binp->orig_bytes, binp->orig_size);
 	    pb->flags |= PB_IS_WRITABLE | PB_ACTIVE_WRITER;
 	    pb->val = bptr;
 	    pb->bytes = (byte *) bptr->orig_bytes;
-	    if (erts_refc_dectest(&binp->refc, 0) == 0) {
-		erts_bin_free(binp);
-	    }
+            erts_bin_release(binp);
 	}
     }
     erts_current_bin = pb->bytes;
@@ -1568,7 +1561,6 @@ erts_bs_init_writable(Process* p, Eterm sz)
      * Allocate the binary data struct itself.
      */
     bptr = erts_bin_nrml_alloc(bin_size);
-    erts_refc_init(&bptr->refc, 1);
     
     /*
      * Now allocate the ProcBin on the heap.
@@ -1644,7 +1636,7 @@ erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb)
     return LSB[0] | (LSB[1]<<8) | (LSB[2]<<16) | (LSB[3]<<24);
 }
 
-void
+static void
 erts_align_utf8_bytes(ErlBinMatchBuffer* mb, byte* buf)
 {
     Uint bits = mb->size - mb->offset;

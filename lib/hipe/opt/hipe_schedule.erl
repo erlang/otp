@@ -1,8 +1,3 @@
-%%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,8 +9,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -1344,10 +1337,10 @@ cd([{N,I}|Xs], DAG, PrevBr, PrevUnsafe, PrevOthers) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function    : cd_branch_to_other_deps
 %% Argument    : N   - index of branch
-%%               Ms  - list of indexes of "others" preceeding instrs
+%%               Ms  - list of indexes of "others" preceding instrs
 %%               DAG - dependence graph
 %% Returns     : DAG - new graph
-%% Description : Makes preceeding instrs fixed so they don't bypass a branch
+%% Description : Makes preceding instrs fixed so they don't bypass a branch
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 cd_branch_to_other_deps(_, [], DAG) ->
     DAG;

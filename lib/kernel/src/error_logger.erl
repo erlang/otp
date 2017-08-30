@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,6 +30,8 @@
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
+
+-export([get_format_depth/0, limit_term/1]).
 
 -define(buffer_size, 10).
 
@@ -360,8 +362,12 @@ init(Max) when is_integer(Max) ->
 %% go back.
 init({go_back, _PostState}) ->  
     {ok, {?buffer_size, 0, []}};
-init(_) ->  %% Start and just relay to other
-    {ok, []}.             %% node if node(GLeader) =/= node().
+init(_) ->
+    %% The error logger process may receive a huge amount of
+    %% messages. Make sure that they are stored off heap to
+    %% avoid exessive GCs.
+    process_flag(message_queue_data, off_heap),
+    {ok, []}.
 
 -spec handle_event(term(), state()) -> {'ok', state()}.
 
@@ -514,3 +520,21 @@ string_p1([H|T]) when is_list(H) ->
     end;
 string_p1([]) -> true;
 string_p1(_) ->  false.
+
+-spec limit_term(term()) -> term().
+
+limit_term(Term) ->
+    case get_format_depth() of
+        unlimited -> Term;
+        D -> io_lib:limit_term(Term, D)
+    end.
+
+-spec get_format_depth() -> 'unlimited' | pos_integer().
+
+get_format_depth() ->
+    case application:get_env(kernel, error_logger_format_depth) of
+	{ok, Depth} when is_integer(Depth) ->
+	    max(10, Depth);
+	undefined ->
+	    unlimited
+    end.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2015. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 
 %% Standard interface.
 -export([new/0,is_key/2,to_list/1,from_list/1,size/1,is_empty/1]).
--export([fetch/2,find/2,fetch_keys/1,erase/2]).
+-export([fetch/2,find/2,fetch_keys/1,erase/2,take/2]).
 -export([store/3,append/3,append_list/3,update/3,update/4,update_counter/3]).
 -export([fold/3,map/2,filter/2,merge/3]).
 
@@ -105,6 +105,23 @@ erase(Key, [{K,_}=E|Dict]) when Key > K ->
     [E|erase(Key, Dict)];
 erase(_Key, [{_K,_Val}|Dict]) -> Dict;		%Key == K
 erase(_, []) -> [].
+
+-spec take(Key, Orddict) -> {Value, Orddict1} | error when
+      Orddict :: orddict(Key, Value),
+      Orddict1 :: orddict(Key, Value),
+      Key :: term(),
+      Value :: term().
+
+take(Key, Dict) ->
+    take_1(Key, Dict, []).
+
+take_1(Key, [{K,_}|_], _Acc) when Key < K ->
+    error;
+take_1(Key, [{K,_}=P|D], Acc) when Key > K ->
+    take_1(Key, D, [P|Acc]);
+take_1(_Key, [{_K,Value}|D], Acc) ->
+    {Value,lists:reverse(Acc, D)};
+take_1(_, [], _) -> error.
 
 -spec store(Key, Value, Orddict1) -> Orddict2 when
       Orddict1 :: orddict(Key, Value),

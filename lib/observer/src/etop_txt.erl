@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,35 +22,34 @@
 
 %%-compile(export_all).
 -export([init/1,stop/1]).
--export([do_update/3]).
+-export([do_update/4]).
 
 -include("etop.hrl").
 -include("etop_defs.hrl").
 
--import(etop,[loadinfo/1,meminfo/2]).
-
--define(PROCFORM,"~-15w~-20s~8w~8w~8w~8w ~-20s~n").
+-import(etop,[loadinfo/2,meminfo/2]).
 
 stop(Pid) -> Pid ! stop.
 
 init(Config) ->
-    loop(Config).
+    loop(#etop_info{},Config).
 
-loop(Config) ->
-    Info = do_update(Config),
+loop(Prev,Config) ->
+    Info = do_update(Prev,Config),
     receive 
 	stop -> stopped;
-	{dump,Fd} -> do_update(Fd,Info,Config), loop(Config); 
-	{config,_,Config1} -> loop(Config1)
-    after Config#opts.intv -> loop(Config)
+	{dump,Fd} -> do_update(Fd,Info,Prev,Config), loop(Info,Config);
+	{config,_,Config1} -> loop(Info,Config1)
+    after Config#opts.intv -> loop(Info,Config)
     end.
 
-do_update(Config) ->
+do_update(Prev,Config) ->
     Info = etop:update(Config),
-    do_update(standard_io,Info,Config).
+    do_update(standard_io,Info,Prev,Config).
 
-do_update(Fd,Info,Config) ->
-    {Cpu,NProcs,RQ,Clock} = loadinfo(Info),
+do_update(Fd,Info,Prev,Config) ->
+    Encoding = encoding(Fd),
+    {Cpu,NProcs,RQ,Clock} = loadinfo(Info,Prev),
     io:nl(Fd),
     writedoubleline(Fd),
     case Info#etop_info.memi of
@@ -73,7 +72,7 @@ do_update(Fd,Info,Config) ->
     io:nl(Fd),
     writepinfo_header(Fd),
     writesingleline(Fd),
-    writepinfo(Fd,Info#etop_info.procinfo),
+    writepinfo(Fd,Info#etop_info.procinfo,Encoding),
     writedoubleline(Fd),
     io:nl(Fd),
     Info.
@@ -93,19 +92,37 @@ writepinfo(Fd,[#etop_proc_info{pid=Pid,
 			       runtime=Time,
 			       cf=MFA,
 			       mq=MQ}
-	       |T]) ->
-    io:fwrite(Fd,?PROCFORM,[Pid,to_list(Name),Time,Reds,Mem,MQ,formatmfa(MFA)]), 
-    writepinfo(Fd,T);
-writepinfo(_Fd,[]) ->
+	       |T],
+           Encoding) ->
+    io:fwrite(Fd,proc_format(Encoding),
+              [Pid,to_list(Name,Encoding),Time,Reds,Mem,MQ,
+               formatmfa(MFA,Encoding)]),
+    writepinfo(Fd,T,Encoding);
+writepinfo(_Fd,[],_) ->
     ok.
 
 
-formatmfa({M, F, A}) ->
+formatmfa({M, F, A},latin1) ->
     io_lib:format("~w:~w/~w",[M, F, A]);
-formatmfa(Other) ->
+formatmfa({M, F, A},_) ->
+    io_lib:format("~w:~tw/~w",[M, F, A]);
+formatmfa(Other,_) ->
     %% E.g. when running hipe - the current_function for some
     %% processes will be 'undefined'
     io_lib:format("~w",[Other]).
 
-to_list(Name) when is_atom(Name) -> atom_to_list(Name);
-to_list({_M,_F,_A}=MFA) -> formatmfa(MFA).
+to_list(Name,_) when is_atom(Name) -> atom_to_list(Name);
+to_list({_M,_F,_A}=MFA,Encoding) -> formatmfa(MFA,Encoding).
+
+encoding(Device) ->
+    case io:getopts(Device) of
+        List when is_list(List) ->
+            proplists:get_value(encoding,List,latin1);
+        _ ->
+            latin1
+    end.
+
+proc_format(latin1) ->
+    "~-15w~-20s~8w~8w~8w~8w ~-20s~n";
+proc_format(_) ->
+    "~-15w~-20ts~8w~8w~8w~8w ~-20ts~n".

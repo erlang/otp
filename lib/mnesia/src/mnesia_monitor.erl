@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -169,7 +169,7 @@ check_protocol([{Node, {accept, Mon, Version, Protocol}} | Tail], Protocols) ->
 	    verbose("Failed to connect with ~p. ~p protocols rejected. "
 		    "expected version = ~p, expected protocol = ~p~n",
 		    [Node, Protocols, Version, Protocol]),
-	    unlink(Mon), % Get rid of unneccessary link
+	    unlink(Mon), % Get rid of unnecessary link
 	    check_protocol(Tail, Protocols)
     end;
 check_protocol([{Node, {reject, _Mon, Version, Protocol}} | Tail], Protocols) ->

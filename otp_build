@@ -19,9 +19,6 @@
 # %CopyrightEnd%
 #
 
-# Expected autoconf version
-EXPECTED_AUTOCONF_VERSION=2.59
-
 # Global configuration variables
 #
 # NOTE: lazy_configure depends on '.' always being last directory
@@ -288,30 +285,6 @@ do_autoconf ()
         create_lib_configure_in
 	distribute_config_helpers
 
-        if target_contains win32; then
-	    # Select the correct autoconf on cygwin
-	    save_want_autoconf_ver=$WANT_AUTOCONF_VER
-	    WANT_AUTOCONF_VER=$EXPECTED_AUTOCONF_VERSION
-	    export WANT_AUTOCONF_VER
-	fi
-	exp_ac_vsn=$EXPECTED_AUTOCONF_VERSION
-	ac_vsn_blob=`autoconf --version`
-	ac_vsn=`echo x$ac_vsn_blob | sed "s|[^0-9]*\([0-9][^ \t\n]*\).*|\1|"`
-	case "$ac_vsn" in
-	    $exp_ac_vsn)
-		;;
-	    *)
-		echo "***************************************************" 1>&2
-		echo "***************************************************" 1>&2
-		echo "*** WARNING: System might fail to configure or"      1>&2
-		echo "***          might be erroneously configured"        1>&2
-		echo "***          since autoconf version $ac_vsn is used" 1>&2
-		echo "***          instead of version $exp_ac_vsn!"        1>&2
-		echo "***************************************************" 1>&2
-		echo "***************************************************" 1>&2
-		;;
-	esac
-
 	if [ ! -z "$OVERRIDE_CONFIGURE" ]; then
 	    echo "Autoconf disabled on target $TARGET, but is performed on host" >&2
 	    # We still use erts configure for erl_interface and VxWorks
@@ -337,6 +310,11 @@ do_autoconf ()
 		echo "=== cleaning $d/autom4te.cache"
 		rm -f "$d"/autom4te.cache/*
 	    }
+	    [ ! -f "$d/configure" ] || {
+		echo "=== cleaning $d/configure"
+		rm -f "$d"/configure
+	    }
+
 	    echo "=== running autoconf in $d"
 	    ( cd "$d" && autoconf ) || exit 1
 	    chdr=`cat "$file" | sed -n "s|.*\(AC_CONFIG_HEADER\).*|\1|p"`
@@ -346,11 +324,6 @@ do_autoconf ()
 	done
 
 	restore_vars OVERRIDE_TARGET TARGET
-
-        if target_contains win32; then
-	    WANT_AUTOCONF_VER=$save_want_autoconf_ver
-	    export WANT_AUTOCONF_VER
-	fi
 }
 
 run_configure ()
@@ -583,7 +556,6 @@ do_lazy_configure ()
 		CONFIGURE_DIR=$dir                                           \
 		EXTRA_CONFIGURE_DEPENDENCIES=$xc_dep                         \
 		EXTRA_CONFIG_STATUS_DEPENDENCIES=$xcs_dep                    \
-		EXPECTED_AUTOCONF_VERSION=$EXPECTED_AUTOCONF_VERSION         \
 		lazy_configure
 	    echo "=== Done configuring $dir"
 	    echo ""
@@ -613,7 +585,6 @@ do_lazy_configure_clean ()
 		MAKE="$MAKE" TARGET=$TARGET                                  \
 		ERL_TOP=$ERL_TOP                                             \
 		CONFIGURE_DIR=$dir                                           \
-		EXPECTED_AUTOCONF_VERSION=$EXPECTED_AUTOCONF_VERSION         \
 		lazy_configure_clean
 	    echo "=== Done cleaning configure in $dir"
 	    echo ""
@@ -644,7 +615,6 @@ do_lazy_configure_target_clean ()
 		MAKE="$MAKE" TARGET=$TARGET                                  \
 		ERL_TOP=$ERL_TOP                                             \
 		CONFIGURE_DIR=$dir                                           \
-		EXPECTED_AUTOCONF_VERSION=$EXPECTED_AUTOCONF_VERSION         \
 		lazy_configure_target_clean
 	    echo "=== Done target cleaning configure in $dir"
 	    echo ""

@@ -22,18 +22,37 @@
 
 -module(beam_utils).
 -export([is_killed_block/2,is_killed/3,is_killed_at/3,
-	 is_not_used/3,is_not_used_at/3,
+	 is_not_used/3,
 	 empty_label_index/0,index_label/3,index_labels/1,
 	 code_at/2,bif_to_test/3,is_pure_test/1,
 	 live_opt/1,delete_live_annos/1,combine_heap_needs/2,
-	 join_even/2,split_even/1]).
+	 split_even/1]).
+
+-export_type([code_index/0,module_code/0,instruction/0]).
 
 -import(lists, [member/2,sort/1,reverse/1,splitwith/2]).
 
+%% instruction() describes all instructions that are used during optimzation
+%% (from beam_a to beam_z).
+-type instruction() :: atom() | tuple().
+
+-type code_index() :: gb_trees:tree(beam_asm:label(), [instruction()]).
+
+-type int_function() :: {'function',beam_asm:function_name(),arity(),
+                         beam_asm:label(),[instruction()]}.
+
+-type module_code() ::
+        {module(),[_],[_],[int_function()],pos_integer()}.
+
+%% Internal types.
+-type fail() :: beam_asm:fail() | 'fail'.
+-type test() :: {'test',atom(),fail(),[beam_asm:src()]} |
+		{'test',atom(),fail(),integer(),list(),beam_asm:reg()}.
+-type result_cache() :: gb_trees:tree(beam_asm:label(), 'killed' | 'used').
+
 -record(live,
-	{bl,					%Block check fun.
-	 lbl,					%Label to code index.
-	 res}).					%Result cache for each label.
+	{lbl :: code_index(),            %Label to code index.
+	 res :: result_cache()}).        %Result cache for each label.
 
 
 %% is_killed_block(Register, [Instruction]) -> true|false
@@ -45,12 +64,18 @@
 %%  i.e. it is OK to enter the instruction sequence with Register
 %%  containing garbage.
 
-is_killed_block(R, Is) ->
-    case check_killed_block(R, Is) of
-	killed -> true;
-	used -> false;
-	transparent -> false
-    end.
+-spec is_killed_block(beam_asm:reg(), [instruction()]) -> boolean().
+
+is_killed_block({x,X}, [{set,_,_,{alloc,Live,_}}|_]) ->
+    X >= Live;
+is_killed_block(R, [{set,Ds,Ss,_Op}|Is]) ->
+    not member(R, Ss) andalso (member(R, Ds) orelse is_killed_block(R, Is));
+is_killed_block(R, [{'%live',_,Regs}|Is]) ->
+    case R of
+	{x,X} when (Regs bsr X) band 1 =:= 0 -> true;
+	_ -> is_killed_block(R, Is)
+    end;
+is_killed_block(_, []) -> false.
 
 %% is_killed(Register, [Instruction], State) -> true|false
 %%  Determine whether a register is killed by the instruction sequence.
@@ -62,21 +87,25 @@ is_killed_block(R, Is) ->
 %%  The state (constructed by index_instructions/1) is used to allow us
 %%  to determine the kill state across branches.
 
+-spec is_killed(beam_asm:reg(), [instruction()], code_index()) -> boolean().
+
 is_killed(R, Is, D) ->
-    St = #live{bl=check_killed_block_fun(),lbl=D,res=gb_trees:empty()},
+    St = #live{lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
 	{killed,_} -> true;
-	{used,_} -> false
+	{_,_} -> false
     end.
 
 %% is_killed_at(Reg, Lbl, State) -> true|false
 %%  Determine whether Reg is killed at label Lbl.
 
+-spec is_killed_at(beam_asm:reg(), beam_asm:label(), code_index()) -> boolean().
+
 is_killed_at(R, Lbl, D) when is_integer(Lbl) ->
-    St0 = #live{bl=check_killed_block_fun(),lbl=D,res=gb_trees:empty()},
+    St0 = #live{lbl=D,res=gb_trees:empty()},
     case check_liveness_at(R, Lbl, St0) of
 	{killed,_} -> true;
-	{used,_} -> false
+	{_,_} -> false
     end.
 
 %% is_not_used(Register, [Instruction], State) -> true|false
@@ -85,31 +114,21 @@ is_killed_at(R, Lbl, D) when is_integer(Lbl) ->
 %%  it MUST be initialized, but that its value does not matter).
 %%    The state is used to allow us to determine the usage state
 %%  across branches.
+
+-spec is_not_used(beam_asm:reg(), [instruction()], code_index()) -> boolean().
 
 is_not_used(R, Is, D) ->
-    St = #live{bl=fun check_used_block/3,lbl=D,res=gb_trees:empty()},
+    St = #live{lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
-	{killed,_} -> true;
-	{used,_} -> false
-    end.
-
-%% is_not_used(Register, [Instruction], State) -> true|false
-%%  Determine whether a register is never used in the instruction sequence
-%%  (it could still be referenced by an allocate instruction, meaning that
-%%  it MUST be initialized, but that its value does not matter).
-%%    The state is used to allow us to determine the usage state
-%%  across branches.
-
-is_not_used_at(R, Lbl, D) ->
-    St = #live{bl=fun check_used_block/3,lbl=D,res=gb_trees:empty()},
-    case check_liveness_at(R, Lbl, St) of
-	{killed,_} -> true;
-	{used,_} -> false
+	{used,_} -> false;
+	{_,_} -> true
     end.
 
 %% index_labels(FunctionIs) -> State
 %%  Index the instruction sequence so that we can quickly
 %%  look up the instruction following a specific label.
+
+-spec index_labels([instruction()]) -> code_index().
 
 index_labels(Is) ->
     index_labels_1(Is, []).
@@ -117,11 +136,16 @@ index_labels(Is) ->
 %% empty_label_index() -> State
 %%  Create an empty label index.
 
+-spec empty_label_index() -> code_index().
+
 empty_label_index() ->
     gb_trees:empty().
 
 %% index_label(Label, [Instruction], State) -> State
 %%  Add an index for a label.
+
+-spec index_label(beam_asm:label(), [instruction()], code_index()) ->
+   code_index().
 
 index_label(Lbl, Is0, Acc) ->
     Is = drop_labels(Is0),
@@ -131,11 +155,15 @@ index_label(Lbl, Is0, Acc) ->
 %% code_at(Label, State) -> [I].
 %%  Retrieve the code at the given label.
 
+-spec code_at(beam_asm:label(), code_index()) -> [instruction()].
+
 code_at(L, Ll) ->
     gb_trees:get(L, Ll).
 
 %% bif_to_test(Bif, [Op], Fail) -> {test,Test,Fail,[Op]}
 %%  Convert a BIF to a test. Fail if not possible.
+
+-spec bif_to_test(atom(), list(), fail()) -> test().
 
 bif_to_test(is_atom,     [_]=Ops, Fail) -> {test,is_atom,Fail,Ops};
 bif_to_test(is_boolean,  [_]=Ops, Fail) -> {test,is_boolean,Fail,Ops};
@@ -169,6 +197,9 @@ bif_to_test(is_record, [_,_,_]=Ops, Fail) -> {test,is_record,Fail,Ops}.
 %%  Return 'true' if the test instruction does not modify any
 %%  registers and/or bit syntax matching state.
 %%
+
+-spec is_pure_test(test()) -> boolean().
+
 is_pure_test({test,is_eq,_,[_,_]}) -> true;
 is_pure_test({test,is_ne,_,[_,_]}) -> true;
 is_pure_test({test,is_eq_exact,_,[_,_]}) -> true;
@@ -191,7 +222,9 @@ is_pure_test({test,Op,_,Ops}) ->
 %%  whose destination is a register that will not be used.
 %%  Also insert {'%live',Live,Regs} annotations at the beginning
 %%  and end of each block.
-%%
+
+-spec live_opt([instruction()]) -> [instruction()].
+
 live_opt(Is0) ->
     {[{label,Fail}|_]=Bef,[Fi|Is]} =
 	splitwith(fun({func_info,_,_,_}) -> false;
@@ -204,7 +237,9 @@ live_opt(Is0) ->
 
 %% delete_live_annos([Instruction]) -> [Instruction].
 %%  Delete all live annotations.
-%%
+
+-spec delete_live_annos([instruction()]) -> [instruction()].
+
 delete_live_annos([{block,Bl0}|Is]) ->
     case delete_live_annos(Bl0) of
 	[] -> delete_live_annos(Is);
@@ -219,6 +254,8 @@ delete_live_annos([]) -> [].
 %% combine_heap_needs(HeapNeed1, HeapNeed2) -> HeapNeed
 %%  Combine the heap need for two allocation instructions.
 
+-spec combine_heap_needs(term(), term()) -> term().
+
 combine_heap_needs({alloc,Alloc1}, {alloc,Alloc2}) ->
     {alloc,combine_alloc_lists(Alloc1, Alloc2)};
 combine_heap_needs({alloc,Alloc}, Words) when is_integer(Words) ->
@@ -231,13 +268,10 @@ combine_heap_needs(H1, H2) when is_integer(H1), is_integer(H2) ->
 %% split_even/1
 %% [1,2,3,4,5,6] -> {[1,3,5],[2,4,6]}
 
+-spec split_even(list()) -> {list(),list()}.
+
 split_even(Rs) -> split_even(Rs, [], []).
 
-%% join_even/1
-%% {[1,3,5],[2,4,6]} -> [1,2,3,4,5,6]
-
-join_even([], []) -> [];
-join_even([S|Ss], [D|Ds]) -> [S,D|join_even(Ss, Ds)].
 
 %%%
 %%% Local functions.
@@ -245,15 +279,19 @@ join_even([S|Ss], [D|Ds]) -> [S,D|join_even(Ss, Ds)].
 
 
 %% check_liveness(Reg, [Instruction], #live{}) ->
-%%                      {killed | used, #live{}}
+%%                      {killed | not_used | used, #live{}}
 %%  Find out whether Reg is used or killed in instruction sequence.
-%%  'killed' means that Reg is assigned a new value or killed by an
-%%  allocation instruction. 'used' means that Reg is used in some way.
+%%
+%%    killed - Reg is assigned or killed by an allocation instruction.
+%%    not_used - the value of Reg is not used, but Reg must not be garbage
+%%    used - Reg is used
 
-check_liveness(R, [{block,Blk}|Is], #live{bl=BlockCheck}=St0) ->
-    case BlockCheck(R, Blk, St0) of
-	{transparent,St} -> check_liveness(R, Is, St);
-	{Other,_}=Res when is_atom(Other) -> Res
+check_liveness(R, [{block,Blk}|Is], St0) ->
+    case check_liveness_block(R, Blk, St0) of
+	{transparent,St1} ->
+	    check_liveness(R, Is, St1);
+	{Other,_}=Res when is_atom(Other) ->
+	    Res
     end;
 check_liveness(R, [{label,_}|Is], St) ->
     check_liveness(R, Is, St);
@@ -263,8 +301,12 @@ check_liveness(R, [{test,_,{f,Fail},As}|Is], St0) ->
 	    {used,St0};
 	false ->
 	    case check_liveness_at(R, Fail, St0) of
-		{killed,St} -> check_liveness(R, Is, St);
-		{_,_}=Other -> Other
+		{killed,St1} ->
+		    check_liveness(R, Is, St1);
+		{not_used,St1} ->
+		    not_used(check_liveness(R, Is, St1));
+		{used,_}=Used ->
+		    Used
 	    end
     end;
 check_liveness(R, [{test,Op,Fail,Live,Ss,Dst}|Is], St) ->
@@ -334,7 +376,7 @@ check_liveness(R, [{call,Live,_}|Is], St) ->
     case R of
 	{x,X} when X < Live -> {used,St};
 	{x,_} -> {killed,St};
-	{y,_} -> check_liveness(R, Is, St)
+	{y,_} -> not_used(check_liveness(R, Is, St))
     end;
 check_liveness(R, [{call_ext,Live,_}=I|Is], St) ->
     case R of
@@ -345,7 +387,7 @@ check_liveness(R, [{call_ext,Live,_}=I|Is], St) ->
 	{y,_} ->
 	    case beam_jump:is_exit_instruction(I) of
 		false ->
-		    check_liveness(R, Is, St);
+		    not_used(check_liveness(R, Is, St));
 		true ->
 		    %% We must make sure we don't check beyond this
 		    %% instruction or we will fall through into random
@@ -357,43 +399,20 @@ check_liveness(R, [{call_fun,Live}|Is], St) ->
     case R of
 	{x,X} when X =< Live -> {used,St};
 	{x,_} -> {killed,St};
-	{y,_} -> check_liveness(R, Is, St)
+	{y,_} -> not_used(check_liveness(R, Is, St))
     end;
 check_liveness(R, [{apply,Args}|Is], St) ->
     case R of
 	{x,X} when X < Args+2 -> {used,St};
 	{x,_} -> {killed,St};
-	{y,_} -> check_liveness(R, Is, St)
+	{y,_} -> not_used(check_liveness(R, Is, St))
     end;
-check_liveness(R, [{bif,Op,{f,Fail},Ss,D}|Is], St0) ->
-    case check_liveness_fail(R, Op, Ss, Fail, St0) of
-	{killed,St} = Killed ->
-	    case member(R, Ss) of
-		true -> {used,St};
-		false when R =:= D -> Killed;
-		false -> check_liveness(R, Is, St)
-	    end;
-	Other ->
-	    Other
-    end;
-check_liveness(R, [{gc_bif,Op,{f,Fail},Live,Ss,D}|Is], St0) ->
-    case R of
-	{x,X} when X >= Live ->
-	    {killed,St0};
-	{x,_} ->
-	    {used,St0};
-	_ ->
-	    case check_liveness_fail(R, Op, Ss, Fail, St0) of
-		{killed,St}=Killed ->
-		    case member(R, Ss) of
-			true -> {used,St};
-			false when R =:= D -> Killed;
-			false -> check_liveness(R, Is, St)
-		    end;
-		Other ->
-		    Other
-	    end
-    end;
+check_liveness(R, [{bif,Op,Fail,Ss,D}|Is], St) ->
+    Set = {set,[D],Ss,{bif,Op,Fail}},
+    check_liveness(R, [{block,[Set]}|Is], St);
+check_liveness(R, [{gc_bif,Op,{f,Fail},Live,Ss,D}|Is], St) ->
+    Set = {set,[D],Ss,{alloc,Live,{gc_bif,Op,Fail}}},
+    check_liveness(R, [{block,[Set]}|Is], St);
 check_liveness(R, [{bs_put,{f,0},_,Ss}|Is], St) ->
     case member(R, Ss) of
 	true -> {used,St};
@@ -419,7 +438,7 @@ check_liveness(R, [{make_fun2,_,_,_,NumFree}|Is], St) ->
     case R of
 	{x,X} when X < NumFree -> {used,St};
 	{x,_} -> {killed,St};
-	_ -> check_liveness(R, Is, St)
+	{y,_} -> not_used(check_liveness(R, Is, St))
     end;
 check_liveness({x,_}=R, [{'catch',_,_}|Is], St) ->
     %% All x registers will be killed if an exception occurs.
@@ -488,18 +507,9 @@ check_liveness(R, [{get_map_elements,{f,Fail},S,{list,L}}|Is], St0) ->
 		    Other
 	    end
     end;
-check_liveness(R, [{put_map,{f,_},_,Src,_D,Live,{list,_}}|_], St0) ->
-    case R of
-	Src ->
-	    {used,St0};
-	{x,X} when X < Live ->
-	    {used,St0};
-	{x,_} ->
-	    {killed,St0};
-	{y,_} ->
-	    %% Conservatively mark it as used.
-	    {used,St0}
-    end;
+check_liveness(R, [{put_map,F,Op,S,D,Live,{list,Puts}}|Is], St) ->
+    Set = {set,[D],[S|Puts],{alloc,Live,{put_map,Op,F}}},
+    check_liveness(R, [{block,[Set]}||Is], St);
 check_liveness(R, [{test_heap,N,Live}|Is], St) ->
     I = {block,[{set,[],[],{alloc,Live,{nozero,nostack,N,[]}}}]},
     check_liveness(R, [I|Is], St);
@@ -512,16 +522,24 @@ check_liveness(R, [{get_list,S,D1,D2}|Is], St) ->
 check_liveness(_R, Is, St) when is_list(Is) ->
     %% Not implemented. Conservatively assume that the register is used.
     {used,St}.
-    
-check_liveness_everywhere(R, [{f,Lbl}|T], St0) ->
-    case check_liveness_at(R, Lbl, St0) of
-	{killed,St} -> check_liveness_everywhere(R, T, St);
-	{_,_}=Other -> Other
+
+check_liveness_everywhere(R, Lbls, St0) ->
+    check_liveness_everywhere_1(R, Lbls, killed, St0).
+
+check_liveness_everywhere_1(R, [{f,Lbl}|T], Res0, St0) ->
+    {Res1,St} = check_liveness_at(R, Lbl, St0),
+    Res = case Res1 of
+	      killed -> Res0;
+	      _ -> Res1
+	  end,
+    case Res of
+	used -> {used,St};
+	_ -> check_liveness_everywhere_1(R, T, Res, St)
     end;
-check_liveness_everywhere(R, [_|T], St) ->
-    check_liveness_everywhere(R, T, St);
-check_liveness_everywhere(_, [], St) ->
-    {killed,St}.
+check_liveness_everywhere_1(R, [_|T], Res, St) ->
+    check_liveness_everywhere_1(R, T, Res, St);
+check_liveness_everywhere_1(_, [], Res, St) ->
+    {Res,St}.
 
 check_liveness_at(R, Lbl, #live{lbl=Ll,res=ResMemorized}=St0) ->
     case gb_trees:lookup(Lbl, ResMemorized) of
@@ -535,56 +553,20 @@ check_liveness_at(R, Lbl, #live{lbl=Ll,res=ResMemorized}=St0) ->
 	    {Res,St#live{res=gb_trees:insert(Lbl, Res, St#live.res)}}
     end.
 
+not_used({killed,St}) -> {not_used,St};
+not_used({_,_}=Res) -> Res.
+
 check_liveness_ret(R, R, St) -> {used,St};
 check_liveness_ret(_, _, St) -> {killed,St}.
 
-check_liveness_fail(_, _, _, 0, St) ->
-    {killed,St};
-check_liveness_fail(R, Op, Args, Fail, St) ->
-    Arity = length(Args),
-    case erl_internal:comp_op(Op, Arity) orelse
-	erl_internal:new_type_test(Op, Arity) of
-	true -> {killed,St};
-	false -> check_liveness_at(R, Fail, St)
-    end.
-
-%% check_killed_block(Reg, [Instruction], State) -> killed | transparent | used
+%% check_liveness_block(Reg, [Instruction], State) ->
+%%     {killed | not_used | used | transparent,State'}
 %%  Finds out how Reg is used in the instruction sequence inside a block.
 %%  Returns one of:
-%%    killed - Reg is assigned a new value or killed by an allocation instruction
-%%    transparent - Reg is neither used nor killed
-%%    used - Reg is used or referenced by an allocation instruction.
-%%  
-%%    (Unknown instructions will cause an exception.)
-
-check_killed_block_fun() ->
-    fun(R, Is, St) -> {check_killed_block(R, Is),St} end.
-
-check_killed_block({x,X}, [{set,_,_,{alloc,Live,_}}|_]) ->
-    if 
-	X >= Live -> killed;
-	true -> used
-    end;
-check_killed_block(R, [{set,Ds,Ss,_Op}|Is]) ->
-    case member(R, Ss) of
-	true -> used;
-	false ->
-	    case member(R, Ds) of
-		true -> killed;
-		false -> check_killed_block(R, Is)
-	    end
-    end;
-check_killed_block(R, [{'%live',_,Regs}|Is]) ->
-    case R of
-	{x,X} when (Regs bsr X) band 1 =:= 0 -> killed;
-	_ -> check_killed_block(R, Is)
-    end;
-check_killed_block(_, []) -> transparent.
-
-%% check_used_block(Reg, [Instruction], State) -> killed | transparent | used
-%%  Finds out how Reg is used in the instruction sequence inside a block.
-%%  Returns one of:
-%%    killed - Reg is assigned a new value or killed by an allocation instruction
+%%    killed - Reg is assigned a new value or killed by an
+%%       allocation instruction
+%%    not_used - The value is not used, but the register is referenced
+%%       e.g. by an allocation instruction
 %%    transparent - Reg is neither used nor killed
 %%    used - Reg is explicitly used by an instruction
 %%
@@ -592,45 +574,64 @@ check_killed_block(_, []) -> transparent.
 %%
 %%  (Unknown instructions will cause an exception.)
 
-check_used_block({x,X}=R, [{set,Ds,Ss,{alloc,Live,Op}}|Is], St) ->
+check_liveness_block({x,X}=R, [{set,Ds,Ss,{alloc,Live,Op}}|Is], St0) ->
     if 
-	X >= Live -> {killed,St};
-	true -> check_used_block_1(R, Ss, Ds, Op, Is, St)
+	X >= Live ->
+	    {killed,St0};
+	true ->
+	    case check_liveness_block_1(R, Ss, Ds, Op, Is, St0) of
+		{killed,St} -> {not_used,St};
+		{transparent,St} -> {not_used,St};
+		{_,_}=Res -> Res
+	    end
     end;
-check_used_block(R, [{set,Ds,Ss,Op}|Is], St) ->
-    check_used_block_1(R, Ss, Ds, Op, Is, St);
-check_used_block(_, [], St) -> {transparent,St}.
+check_liveness_block({y,_}=R, [{set,Ds,Ss,{alloc,_Live,Op}}|Is], St) ->
+    check_liveness_block_1(R, Ss, Ds, Op, Is, St);
+check_liveness_block(R, [{set,Ds,Ss,Op}|Is], St) ->
+    check_liveness_block_1(R, Ss, Ds, Op, Is, St);
+check_liveness_block(_, [], St) -> {transparent,St}.
 
-check_used_block_1(R, Ss, Ds, Op, Is, St0) ->
+check_liveness_block_1(R, Ss, Ds, Op, Is, St0) ->
     case member(R, Ss) of
 	true ->
 	    {used,St0};
 	false ->
-	    case is_reg_used_at(R, Op, St0) of
-		{true,St} ->
-		    {used,St};
-		{false,St} ->
+	    case check_liveness_block_2(R, Op, Ss, St0) of
+		{killed,St} ->
 		    case member(R, Ds) of
 			true -> {killed,St};
-			false -> check_used_block(R, Is, St)
-		    end
+			false -> check_liveness_block(R, Is, St)
+		    end;
+		{not_used,St} ->
+		    not_used(case member(R, Ds) of
+				 true -> {killed,St};
+				 false -> check_liveness_block(R, Is, St)
+			     end);
+		{used,St} ->
+		    {used,St}
 	    end
     end.
 
-is_reg_used_at(R, {gc_bif,_,{f,Lbl}}, St) ->
-    is_reg_used_at_1(R, Lbl, St);
-is_reg_used_at(R, {bif,_,{f,Lbl}}, St) ->
-    is_reg_used_at_1(R, Lbl, St);
-is_reg_used_at(_, _, St) ->
-    {false,St}.
+check_liveness_block_2(R, {gc_bif,_Op,{f,Lbl}}, _Ss, St) ->
+    check_liveness_block_3(R, Lbl, St);
+check_liveness_block_2(R, {bif,Op,{f,Lbl}}, Ss, St) ->
+    Arity = length(Ss),
+    case erl_internal:comp_op(Op, Arity) orelse
+	erl_internal:new_type_test(Op, Arity) of
+	true ->
+	    {killed,St};
+	false ->
+	    check_liveness_block_3(R, Lbl, St)
+    end;
+check_liveness_block_2(R, {put_map,_Op,{f,Lbl}}, _Ss, St) ->
+    check_liveness_block_3(R, Lbl, St);
+check_liveness_block_2(_, _, _, St) ->
+    {killed,St}.
 
-is_reg_used_at_1(_, 0, St) ->
-    {false,St};
-is_reg_used_at_1(R, Lbl, St0) ->
-    case check_liveness_at(R, Lbl, St0) of
-	{killed,St} -> {false,St};
-	{used,St} -> {true,St}
-    end.
+check_liveness_block_3(_, 0, St) ->
+    {killed,St};
+check_liveness_block_3(R, Lbl, St0) ->
+    check_liveness_at(R, Lbl, St0).
 
 index_labels_1([{label,Lbl}|Is0], Acc) ->
     Is = drop_labels(Is0),
@@ -753,6 +754,11 @@ live_opt([timeout=I|Is], _, D, Acc) ->
     live_opt(Is, 0, D, [I|Acc]);
 live_opt([{wait,_}=I|Is], _, D, Acc) ->
     live_opt(Is, 0, D, [I|Acc]);
+live_opt([{get_map_elements,Fail,Src,{list,List}}=I|Is], Regs0, D, Acc) ->
+    {Ss,Ds} = split_even(List),
+    Regs1 = x_live([Src|Ss], x_dead(Ds, Regs0)),
+    Regs = live_join_label(Fail, D, Regs1),
+    live_opt(Is, Regs, D, [I|Acc]);
 
 %% Transparent instructions - they neither use nor modify x registers.
 live_opt([{deallocate,_}=I|Is], Regs, D, Acc) ->
@@ -812,6 +818,8 @@ live_opt_block([{set,Ds,Ss,Op}=I0|Is], Regs0, D, Acc) ->
 	_ ->
 	    live_opt_block(Is, Regs, D, [I|Acc])
     end;
+live_opt_block([{'%live',_,_}|Is], Regs, D, Acc) ->
+    live_opt_block(Is, Regs, D, Acc);
 live_opt_block([], Regs, _, Acc) -> {Acc,Regs}.
 
 live_join_labels([{f,L}|T], D, Regs0) when L =/= 0 ->

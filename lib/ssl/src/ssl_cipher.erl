@@ -1,7 +1,7 @@
 %
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -40,15 +40,16 @@
 	 ec_keyed_suites/0, anonymous_suites/1, psk_suites/1, srp_suites/0,
 	 rc4_suites/1, des_suites/1, openssl_suite/1, openssl_suite_name/1, filter/2, filter_suites/1,
 	 hash_algorithm/1, sign_algorithm/1, is_acceptable_hash/2, is_fallback/1,
-	 random_bytes/1]).
+	 random_bytes/1, calc_mac_hash/4,
+         is_stream_ciphersuite/1]).
 
 -export_type([cipher_suite/0,
 	      erl_cipher_suite/0, openssl_cipher_suite/0,
 	      hash/0, key_algo/0, sign_algo/0]).
 
--type cipher()            :: null |rc4_128 | idea_cbc | des40_cbc | des_cbc | '3des_ede_cbc' 
+-type cipher()            :: null |rc4_128 | des_cbc | '3des_ede_cbc' 
 			   | aes_128_cbc |  aes_256_cbc | aes_128_gcm | aes_256_gcm | chacha20_poly1305.
--type hash()              :: null | sha | md5 | sha224 | sha256 | sha384 | sha512.
+-type hash()              :: null | md5 | sha | sha224 | sha256 | sha384 | sha512.
 -type sign_algo()         :: rsa | dsa | ecdsa.
 -type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | ecdhe_ecdsa| ecdh_ecdsa | ecdh_rsa| srp_rsa| srp_dss | 
 			     psk | dhe_psk | rsa_psk | dh_anon | ecdh_anon | srp_anon.
@@ -156,7 +157,7 @@ cipher_aead(?CHACHA20_POLY1305, CipherState, SeqNo, AAD, Fragment, Version) ->
 aead_cipher(chacha20_poly1305, #cipher_state{key=Key} = CipherState, SeqNo, AAD0, Fragment, _Version) ->
     CipherLen = erlang:iolist_size(Fragment),
     AAD = <<AAD0/binary, ?UINT16(CipherLen)>>,
-    Nonce = <<SeqNo:64/integer>>,
+    Nonce = ?uint64(SeqNo),
     {Content, CipherTag} = crypto:block_encrypt(chacha20_poly1305, Key, Nonce, {AAD, Fragment}),
     {<<Content/binary, CipherTag/binary>>, CipherState};
 aead_cipher(Type, #cipher_state{key=Key, iv = IV0, nonce = Nonce} = CipherState, _SeqNo, AAD0, Fragment, _Version) ->
@@ -279,7 +280,7 @@ aead_ciphertext_to_state(chacha20_poly1305, SeqNo, _IV, AAD0, Fragment, _Version
     CipherLen = size(Fragment) - 16,
     <<CipherText:CipherLen/bytes, CipherTag:16/bytes>> = Fragment,
     AAD = <<AAD0/binary, ?UINT16(CipherLen)>>,
-    Nonce = <<SeqNo:64/integer>>,
+    Nonce = ?uint64(SeqNo),
     {Nonce, AAD, CipherText, CipherTag};
 aead_ciphertext_to_state(_, _SeqNo, <<Salt:4/bytes, _/binary>>, AAD0, Fragment, _Version) ->
     CipherLen = size(Fragment) - 24,
@@ -310,16 +311,21 @@ aead_decipher(Type, #cipher_state{key = Key, iv = IV} = CipherState,
 %%--------------------------------------------------------------------
 suites({3, 0}) ->
     ssl_v3:suites();
-suites({3, N}) ->
-    tls_v1:suites(N).
+suites({3, Minor}) ->
+    tls_v1:suites(Minor);
+suites({_, Minor}) ->
+    dtls_v1:suites(Minor).
 
-all_suites(Version) ->
+all_suites({3, _} = Version) ->
     suites(Version)
 	++ anonymous_suites(Version)
 	++ psk_suites(Version)
 	++ srp_suites()
         ++ rc4_suites(Version)
-        ++ des_suites(Version).
+        ++ des_suites(Version);
+all_suites(Version) ->
+    dtls_v1:all_suites(Version).
+
 %%--------------------------------------------------------------------
 -spec anonymous_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
 %%
@@ -333,21 +339,27 @@ anonymous_suites({3, N}) ->
 anonymous_suites(N)
   when N >= 3 ->
     [?TLS_DH_anon_WITH_AES_128_GCM_SHA256,
-     ?TLS_DH_anon_WITH_AES_256_GCM_SHA384
-    ] ++ anonymous_suites(0);
-
-anonymous_suites(_) ->
-    [?TLS_DH_anon_WITH_RC4_128_MD5,
-     ?TLS_DH_anon_WITH_DES_CBC_SHA,
-     ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
-     ?TLS_DH_anon_WITH_AES_128_CBC_SHA,
-     ?TLS_DH_anon_WITH_AES_256_CBC_SHA,
+     ?TLS_DH_anon_WITH_AES_256_GCM_SHA384,
      ?TLS_DH_anon_WITH_AES_128_CBC_SHA256,
      ?TLS_DH_anon_WITH_AES_256_CBC_SHA256,
-     ?TLS_ECDH_anon_WITH_RC4_128_SHA,
-     ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
      ?TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
-     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA].
+     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
+     ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DH_anon_WITH_RC4_128_MD5];
+
+anonymous_suites(2) ->
+    [?TLS_ECDH_anon_WITH_AES_128_CBC_SHA,
+     ?TLS_ECDH_anon_WITH_AES_256_CBC_SHA,
+     ?TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DH_anon_WITH_DES_CBC_SHA,
+     ?TLS_DH_anon_WITH_RC4_128_MD5];
+
+anonymous_suites(N)  when N == 0;
+			  N == 1 ->
+    [?TLS_DH_anon_WITH_RC4_128_MD5,
+     ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DH_anon_WITH_DES_CBC_SHA
+    ].
 
 %%--------------------------------------------------------------------
 -spec psk_suites(ssl_record:ssl_version() | integer()) -> [cipher_suite()].
@@ -1441,25 +1453,60 @@ filter_suites(Suites) ->
 			     is_acceptable_prf(Prf, Hashs)
 		 end, Suites).
 
-is_acceptable_keyexchange(KeyExchange, Algos)
-  when KeyExchange == ecdh_ecdsa;
-       KeyExchange == ecdhe_ecdsa;
-       KeyExchange == ecdh_rsa;
-       KeyExchange == ecdhe_rsa;
-       KeyExchange == ecdh_anon ->
+is_acceptable_keyexchange(KeyExchange, _Algos) when KeyExchange == psk;
+                                                    KeyExchange == null ->
+    true;
+is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == dh_anon;
+                                                   KeyExchange == dhe_psk ->
+    proplists:get_bool(dh, Algos);
+is_acceptable_keyexchange(dhe_dss, Algos) ->
+    proplists:get_bool(dh, Algos) andalso
+        proplists:get_bool(dss, Algos);
+is_acceptable_keyexchange(dhe_rsa, Algos) ->
+    proplists:get_bool(dh, Algos) andalso
+        proplists:get_bool(rsa, Algos);
+is_acceptable_keyexchange(ecdh_anon, Algos) ->
     proplists:get_bool(ecdh, Algos);
-is_acceptable_keyexchange(_, _) ->
-    true.
+is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == ecdh_ecdsa;
+                                                   KeyExchange == ecdhe_ecdsa ->
+    proplists:get_bool(ecdh, Algos) andalso
+        proplists:get_bool(ecdsa, Algos);
+is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == ecdh_rsa;
+                                                   KeyExchange == ecdhe_rsa ->
+    proplists:get_bool(ecdh, Algos) andalso
+        proplists:get_bool(rsa, Algos);
+is_acceptable_keyexchange(KeyExchange, Algos) when KeyExchange == rsa;
+                                                   KeyExchange == rsa_psk ->
+    proplists:get_bool(rsa, Algos);
+is_acceptable_keyexchange(srp_anon, Algos) ->
+    proplists:get_bool(srp, Algos);
+is_acceptable_keyexchange(srp_dss, Algos) ->
+    proplists:get_bool(srp, Algos) andalso
+        proplists:get_bool(dss, Algos);
+is_acceptable_keyexchange(srp_rsa, Algos) ->
+    proplists:get_bool(srp, Algos) andalso
+        proplists:get_bool(rsa, Algos);
+is_acceptable_keyexchange(_KeyExchange, _Algos) ->
+    false.
 
+is_acceptable_cipher(null, _Algos) ->
+    true;
+is_acceptable_cipher(rc4_128, Algos) ->
+    proplists:get_bool(rc4, Algos);
+is_acceptable_cipher(des_cbc, Algos) ->
+    proplists:get_bool(des_cbc, Algos);
+is_acceptable_cipher('3des_ede_cbc', Algos) ->
+    proplists:get_bool(des3_cbc, Algos);
+is_acceptable_cipher(aes_128_cbc, Algos) ->
+    proplists:get_bool(aes_cbc128, Algos);
+is_acceptable_cipher(aes_256_cbc, Algos) ->
+    proplists:get_bool(aes_cbc256, Algos);
 is_acceptable_cipher(Cipher, Algos)
   when Cipher == aes_128_gcm;
        Cipher == aes_256_gcm ->
     proplists:get_bool(aes_gcm, Algos);
-is_acceptable_cipher(Cipher, Algos)
-  when Cipher == chacha20_poly1305 ->
-    proplists:get_bool(Cipher, Algos);
-is_acceptable_cipher(_, _) ->
-    true.
+is_acceptable_cipher(Cipher, Algos) ->
+    proplists:get_bool(Cipher, Algos).
 
 is_acceptable_hash(null, _Algos) ->
     true;
@@ -1484,9 +1531,32 @@ is_fallback(CipherSuites)->
 random_bytes(N) ->
     crypto:strong_rand_bytes(N).
 
+calc_mac_hash(Type, Version,
+	      PlainFragment, #{sequence_number := SeqNo,
+			       mac_secret := MacSecret,
+			       security_parameters:=
+				   SecPars}) ->
+    Length = erlang:iolist_size(PlainFragment),
+    mac_hash(Version, SecPars#security_parameters.mac_algorithm,
+	     MacSecret, SeqNo, Type,
+	     Length, PlainFragment).
+
+is_stream_ciphersuite({_, rc4_128, _, _}) ->
+    true;
+is_stream_ciphersuite(_) ->
+    false.
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
+	 _Length, _Fragment) ->
+    <<>>;
+mac_hash({3, 0}, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
+    ssl_v3:mac_hash(MacAlg, MacSecret, SeqNo, Type, Length, Fragment);
+mac_hash({3, N} = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)  
+  when N =:= 1; N =:= 2; N =:= 3 ->
+    tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,
+		      Length, Fragment).
 
 bulk_cipher_algorithm(null) ->
     ?NULL;

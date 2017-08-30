@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,13 +29,14 @@
 
 -define(TIMEOUT, 50000).
 -define(SSH_DEFAULT_PORT, 22).
+-define(REKEY_DATA_TMO, 65000).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{seconds,20}}].
+    [{timetrap,{seconds,60}}].
 
 all() -> 
     case os:find_executable("ssh") of
@@ -55,10 +56,12 @@ groups() ->
 			  erlang_client_openssh_server_publickey_rsa,
 			  erlang_client_openssh_server_password,
 			  erlang_client_openssh_server_kexs,
-			  erlang_client_openssh_server_nonexistent_subsystem
+			  erlang_client_openssh_server_nonexistent_subsystem,
+			  erlang_client_openssh_server_renegotiate
 			 ]},
      {erlang_server, [], [erlang_server_openssh_client_public_key_dsa,
-			  erlang_server_openssh_client_public_key_rsa
+			  erlang_server_openssh_client_public_key_rsa,
+			  erlang_server_openssh_client_renegotiate
 			 ]}
     ].
 
@@ -104,6 +107,14 @@ init_per_testcase(erlang_server_openssh_client_public_key_rsa, Config) ->
     chk_key(sshc, 'ssh-rsa', ".ssh/id_rsa", Config);
 init_per_testcase(erlang_client_openssh_server_publickey_dsa, Config) ->
     chk_key(sshd, 'ssh-dss', ".ssh/id_dsa", Config);
+init_per_testcase(erlang_client_openssh_server_publickey_rsa, Config) ->
+    chk_key(sshd, 'ssh-rsa', ".ssh/id_rsa", Config);
+
+init_per_testcase(erlang_server_openssh_client_renegotiate, Config) ->
+    case os:type() of
+	{unix,_} -> ssh:start(), Config;
+	Type -> {skip, io_lib:format("Unsupported test on ~p",[Type])}
+    end;
 init_per_testcase(_TestCase, Config) ->
     ssh:start(),
     Config.
@@ -145,7 +156,7 @@ erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     IO = ssh_test_lib:start_io_server(),
     Shell = ssh_test_lib:start_shell(?SSH_DEFAULT_PORT, IO),
     IO ! {input, self(), "echo Hej\n"},
-    receive_hej(),
+    receive_data("Hej", undefined),
     IO ! {input, self(), "exit\n"},
     receive_logout(),
     receive_normal_exit(Shell).
@@ -314,76 +325,160 @@ erlang_client_openssh_server_setenv(Config) when is_list(Config) ->
 %% setenv not meaningfull on erlang ssh daemon!
 
 %%--------------------------------------------------------------------
-erlang_client_openssh_server_publickey_rsa() ->
-    [{doc, "Validate using rsa publickey."}].
-erlang_client_openssh_server_publickey_rsa(Config) when is_list(Config) ->
-    {ok,[[Home]]} = init:get_argument(home),
-    KeyFile =  filename:join(Home, ".ssh/id_rsa"),
-    case file:read_file(KeyFile) of
-	{ok, Pem} ->
-	    case public_key:pem_decode(Pem) of
-		[{_,_, not_encrypted}] ->
-		    ConnectionRef =
-			ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-					     [{public_key_alg, ssh_rsa},
-					      {user_interaction, false},
-					      silently_accept_hosts]),
-		    {ok, Channel} =
-			ssh_connection:session_channel(ConnectionRef, infinity),
-		    ok = ssh_connection:close(ConnectionRef, Channel),
-		    ok = ssh:close(ConnectionRef);
-		_ ->
-		    {skip, {error, "Has pass phrase can not be used by automated test case"}} 
-	    end;
-	_ ->
-	    {skip, "no ~/.ssh/id_rsa"}  
-    end.
-	
+erlang_client_openssh_server_publickey_rsa(Config) ->
+    erlang_client_openssh_server_publickey_X(Config, 'ssh-rsa').
+    
+erlang_client_openssh_server_publickey_dsa(Config) ->
+    erlang_client_openssh_server_publickey_X(Config, 'ssh-dss').
 
-%%--------------------------------------------------------------------
-erlang_client_openssh_server_publickey_dsa() ->
-    [{doc, "Validate using dsa publickey."}].
-erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
+
+erlang_client_openssh_server_publickey_X(Config, Alg) ->
     ConnectionRef =
-	ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-			     [{public_key_alg, ssh_dsa},
-			      {user_interaction, false},
-			      silently_accept_hosts]),
+        ssh_test_lib:connect(?SSH_DEFAULT_PORT,
+                             [{pref_public_key_algs, [Alg]},
+                              {user_interaction, false},
+                              {auth_methods, "publickey"},
+                              silently_accept_hosts]),
     {ok, Channel} =
-	ssh_connection:session_channel(ConnectionRef, infinity),
+        ssh_connection:session_channel(ConnectionRef, infinity),
     ok = ssh_connection:close(ConnectionRef, Channel),
     ok = ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
 erlang_server_openssh_client_public_key_dsa() ->
-    [{timetrap, {seconds,(?TIMEOUT div 1000)+10}},
-     {doc, "Validate using dsa publickey."}].
+    [{timetrap, {seconds,(?TIMEOUT div 1000)+10}}].
 erlang_server_openssh_client_public_key_dsa(Config) when is_list(Config) ->
-    erlang_server_openssh_client_public_key_X(Config, ssh_dsa).
+    erlang_server_openssh_client_public_key_X(Config, 'ssh-dss').
 
-erlang_server_openssh_client_public_key_rsa() ->
-    [{timetrap, {seconds,(?TIMEOUT div 1000)+10}},
-     {doc, "Validate using rsa publickey."}].
+erlang_server_openssh_client_public_key_rsa() -> 
+    [{timetrap, {seconds,(?TIMEOUT div 1000)+10}}].
 erlang_server_openssh_client_public_key_rsa(Config) when is_list(Config) ->
-    erlang_server_openssh_client_public_key_X(Config, ssh_rsa).
+    erlang_server_openssh_client_public_key_X(Config, 'ssh-rsa').
 
 
-erlang_server_openssh_client_public_key_X(Config, PubKeyAlg) ->
+erlang_server_openssh_client_public_key_X(Config, Alg) ->
     SystemDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
     KnownHosts = filename:join(PrivDir, "known_hosts"),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {public_key_alg, PubKeyAlg},
+                                             {preferred_algorithms,[{public_key, [Alg]}]},
+                                             {auth_methods, "publickey"},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
-
     ct:sleep(500),
 
-    Cmd = "ssh -p " ++ integer_to_list(Port) ++
-	" -o UserKnownHostsFile=" ++ KnownHosts ++
-	" " ++ Host ++ " 1+1.",
+    Cmd = ssh_test_lib:open_sshc_cmd(Host, Port,
+                                     [" -o UserKnownHostsFile=", KnownHosts,
+                                      " -o StrictHostKeyChecking=no"],
+                                     "1+1."),
     OpenSsh = ssh_test_lib:open_port({spawn, Cmd}),
     ssh_test_lib:rcv_expected({data,<<"2\n">>}, OpenSsh, ?TIMEOUT),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%% Test that the Erlang/OTP server can renegotiate with openSSH
+erlang_server_openssh_client_renegotiate(Config) ->
+    _PubKeyAlg = ssh_rsa,
+    SystemDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
+    ct:sleep(500),
+
+    RenegLimitK = 3,
+    DataFile = filename:join(PrivDir, "renegotiate_openssh_client.data"),
+    Data =  lists:duplicate(trunc(1.1*RenegLimitK*1024), $a),
+    ok = file:write_file(DataFile, Data),
+
+    Cmd = ssh_test_lib:open_sshc_cmd(Host, Port,
+                                     [" -o UserKnownHostsFile=", KnownHosts,
+                                      " -o StrictHostKeyChecking=no",
+                                      " -o RekeyLimit=",integer_to_list(RenegLimitK),"K"]),
+
+
+    OpenSsh = ssh_test_lib:open_port({spawn, Cmd++" < "++DataFile}),
+
+    Expect = fun({data,R}) -> 
+		     try
+			 NonAlphaChars = [C || C<-lists:seq(1,255), 
+					       not lists:member(C,lists:seq($a,$z)),
+					       not lists:member(C,lists:seq($A,$Z))
+					 ],
+			 Lines = string:tokens(binary_to_list(R), NonAlphaChars),
+			 lists:any(fun(L) -> length(L)>1 andalso lists:prefix(L, Data) end,
+				   Lines)
+		     catch
+			 _:_ -> false
+		     end;
+
+		({exit_status,E}) when E=/=0 ->
+		     ct:log("exit_status ~p",[E]),
+		     throw({skip,"exit status"});
+
+		(_) ->
+		     false
+	     end,
+    
+    try 
+	ssh_test_lib:rcv_expected(Expect, OpenSsh, ?TIMEOUT)
+    of
+	_ ->
+	    %% Unfortunately we can't check that there has been a renegotiation, just trust OpenSSH.
+	    ssh:stop_daemon(Pid)
+    catch
+	throw:{skip,R} -> {skip,R}
+    end.
+
+%%--------------------------------------------------------------------
+erlang_client_openssh_server_renegotiate(_Config) ->
+    process_flag(trap_exit, true),
+    IO = ssh_test_lib:start_io_server(),
+    Ref = make_ref(),
+    Parent = self(),
+
+    Shell = 
+	spawn_link(
+	  fun() ->
+		  Host = ssh_test_lib:hostname(),
+		  Options = [{user_interaction, false},
+			     {silently_accept_hosts,true}],
+		  group_leader(IO, self()),
+		  {ok, ConnRef} = ssh:connect(Host, ?SSH_DEFAULT_PORT, Options),
+                  ct:log("Parent = ~p, IO = ~p, Shell = ~p, ConnRef = ~p~n",[Parent, IO, self(), ConnRef]),
+		  case ssh_connection:session_channel(ConnRef, infinity) of
+		      {ok,ChannelId}  ->
+			  success = ssh_connection:ptty_alloc(ConnRef, ChannelId, []),
+			  Args = [{channel_cb, ssh_shell},
+				  {init_args,[ConnRef, ChannelId]},
+				  {cm, ConnRef}, {channel_id, ChannelId}],
+			  {ok, State} = ssh_channel:init([Args]),
+			  Parent ! {ok, Ref, ConnRef},
+			  ssh_channel:enter_loop(State);
+		      Error ->
+			  Parent ! {error, Ref, Error}
+		  end,
+		  receive
+		      nothing -> ok
+		  end
+	  end),
+
+    receive
+	{error, Ref, Error} ->
+	    ct:fail("Error=~p",[Error]);
+	{ok, Ref, ConnectionRef} ->
+	    IO ! {input, self(), "echo Hej1\n"},
+	    receive_data("Hej1", ConnectionRef),
+	    Kex1 = ssh_test_lib:get_kex_init(ConnectionRef),
+	    ssh_connection_handler:renegotiate(ConnectionRef),
+	    IO ! {input, self(), "echo Hej2\n"},
+	    receive_data("Hej2", ConnectionRef),
+	    Kex2 = ssh_test_lib:get_kex_init(ConnectionRef),
+	    IO ! {input, self(), "exit\n"},
+	    receive_logout(),
+	    receive_normal_exit(Shell),
+	    true = (Kex1 =/= Kex2)
+    end.
 
 %%--------------------------------------------------------------------
 erlang_client_openssh_server_password() ->
@@ -440,27 +535,30 @@ erlang_client_openssh_server_nonexistent_subsystem(Config) when is_list(Config) 
 %%--------------------------------------------------------------------
 %%% Internal functions -----------------------------------------------
 %%--------------------------------------------------------------------
-receive_hej() ->
+receive_data(Data, Conn) ->
     receive
-	<<"Hej", _binary>> = Hej ->
-	    ct:log("Expected result: ~p~n", [Hej]);
-	<<"Hej\n", _binary>> = Hej ->
-	    ct:log("Expected result: ~p~n", [Hej]);
-	<<"Hej\r\n", _/binary>> = Hej ->
-	    ct:log("Expected result: ~p~n", [Hej]);
-	Info ->
-	    Lines = binary:split(Info, [<<"\r\n">>], [global]),
-	    case lists:member(<<"Hej">>, Lines) of
+	Info when is_binary(Info) ->
+	    Lines = string:tokens(binary_to_list(Info), "\r\n "),
+	    case lists:member(Data, Lines) of
 		true ->
-		    ct:log("Expected result found in lines: ~p~n", [Lines]),
+		    ct:log("Expected result ~p found in lines: ~p~n", [Data,Lines]),
 		    ok;
 		false ->
 		    ct:log("Extra info: ~p~n", [Info]),
-		    receive_hej()
-	    end
-    after 
-	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.
+		    receive_data(Data, Conn)
+	    end;
+	Other ->
+	    ct:log("Unexpected: ~p",[Other]),
+	    receive_data(Data, Conn)
+    after
+	30000 ->
+             {State, _} = case Conn of
+                              undefined -> {'??','??'};
+                              _ -> sys:get_state(Conn)
+                          end,
+            ct:log("timeout ~p:~p~nExpect ~p~nState = ~p",[?MODULE,?LINE,Data,State]),
+            ct:fail("timeout ~p:~p",[?MODULE,?LINE])
+    end.	
 
 receive_logout() ->
     receive

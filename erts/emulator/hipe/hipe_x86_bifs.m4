@@ -32,9 +32,9 @@ include(`hipe/hipe_x86_asm.m4')
 #endif'
 
 `#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
-#  define CALL_BIF(F)	movl $CSYM(F), P_BIF_CALLEE(P); call CSYM(hipe_debug_bif_wrapper) 
+#  define CALL_BIF(F)	movl $CSYM(nbif_impl_##F), P_BIF_CALLEE(P); call CSYM(hipe_debug_bif_wrapper) 
 #else
-#  define CALL_BIF(F)	call	CSYM(F)
+#  define CALL_BIF(F)	call	CSYM(nbif_impl_##F)
 #endif'
 
 define(TEST_GOT_MBUF,`movl P_MBUF(P), %edx	/* `TEST_GOT_MBUF' */
@@ -666,15 +666,12 @@ noproc_primop_interface_0(nbif_handle_fp_exception, erts_restore_fpu)
 #endif /* NO_FPE_SIGNALS */
 
 /*
- * Implement gc_bif_interface_0 as nofail_primop_interface_0.
+ * Implement gc_bif_interface_N as standard_bif_interface_N.
  */
-define(gc_bif_interface_0,`nofail_primop_interface_0($1, $2)')
-
-/*
- * Implement gc_bif_interface_N as standard_bif_interface_N (N=1,2).
- */
+define(gc_bif_interface_0,`standard_bif_interface_0($1, $2)')
 define(gc_bif_interface_1,`standard_bif_interface_1($1, $2)')
 define(gc_bif_interface_2,`standard_bif_interface_2($1, $2)')
+define(gc_bif_interface_3,`standard_bif_interface_3($1, $2)')
 
 /*
  * Implement gc_nofail_primop_interface_1 as nofail_primop_interface_1.

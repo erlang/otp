@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@
 	 await_sched_wall_time_modifications/2,
 	 gather_gc_info_result/1]).
 
--deprecated([hash/2, now/0]).
+-deprecated([now/0]).
 
 %% Get rid of autoimports of spawn to avoid clashes with ourselves.
 -compile({no_auto_import,[spawn_link/1]}).
@@ -59,6 +59,7 @@
 
 -export_type([timestamp/0]).
 -export_type([time_unit/0]).
+-export_type([deprecated_time_unit/0]).
 
 -type ext_binary() :: binary().
 -type timestamp() :: {MegaSecs :: non_neg_integer(),
@@ -67,12 +68,24 @@
 
 -type time_unit() ::
 	pos_integer()
-      | 'seconds'
+      | 'second'
+      | 'millisecond'
+      | 'microsecond'
+      | 'nanosecond'
+      | 'native'
+      | 'perf_counter'
+      | deprecated_time_unit().
+
+%% Deprecated symbolic units...
+-type deprecated_time_unit() ::
+      'seconds'
       | 'milli_seconds'
       | 'micro_seconds'
-      | 'nano_seconds'
-      | 'native'
-      | 'perf_counter'.
+      | 'nano_seconds'.
+
+-opaque prepared_code() :: reference().
+
+-export_type([prepared_code/0]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Native code BIF stubs and their types
@@ -91,7 +104,8 @@
 -export([binary_to_list/3, binary_to_term/1, binary_to_term/2]).
 -export([bit_size/1, bitsize/1, bitstring_to_list/1]).
 -export([bump_reductions/1, byte_size/1, call_on_load_function/1]).
--export([cancel_timer/1, cancel_timer/2, check_old_code/1, check_process_code/2,
+-export([cancel_timer/1, cancel_timer/2, ceil/1,
+	 check_old_code/1, check_process_code/2,
 	 check_process_code/3, crc32/1]).
 -export([crc32/2, crc32_combine/3, date/0, decode_packet/3]).
 -export([delete_element/2]).
@@ -100,13 +114,13 @@
 -export([error/1, error/2, exit/1, exit/2, external_size/1]).
 -export([external_size/2, finish_after_on_load/2, finish_loading/1, float/1]).
 -export([float_to_binary/1, float_to_binary/2,
-	 float_to_list/1, float_to_list/2]).
+	 float_to_list/1, float_to_list/2, floor/1]).
 -export([fun_info/2, fun_info_mfa/1, fun_to_list/1, function_exported/3]).
 -export([garbage_collect/0, garbage_collect/1, garbage_collect/2]).
 -export([garbage_collect_message_area/0, get/0, get/1, get_keys/0, get_keys/1]).
 -export([get_module_info/1, get_stacktrace/0, group_leader/0]).
 -export([group_leader/2]).
--export([halt/0, halt/1, halt/2, hash/2,
+-export([halt/0, halt/1, halt/2,
 	 has_prepared_code_on_load/1, hibernate/3]).
 -export([insert_element/3]).
 -export([integer_to_binary/1, integer_to_list/1]).
@@ -115,7 +129,7 @@
 -export([list_to_atom/1, list_to_binary/1]).
 -export([list_to_bitstring/1, list_to_existing_atom/1, list_to_float/1]).
 -export([list_to_integer/1, list_to_integer/2]).
--export([list_to_pid/1, list_to_tuple/1, loaded/0]).
+-export([list_to_pid/1, list_to_port/1, list_to_ref/1, list_to_tuple/1, loaded/0]).
 -export([localtime/0, make_ref/0]).
 -export([map_size/1, match_spec_test/3, md5/1, md5_final/1]).
 -export([md5_init/0, md5_update/2, module_loaded/1, monitor/2]).
@@ -465,6 +479,13 @@ cancel_timer(_TimerRef) ->
 cancel_timer(_TimerRef, _Options) ->
     erlang:nif_error(undefined).
 
+%% ceil/1
+%% Shadowed by erl_bif_types: erlang:ceil/1
+-spec ceil(Number) -> integer() when
+      Number :: number().
+ceil(_) ->
+    erlang:nif_error(undef).
+
 %% check_old_code/1
 -spec check_old_code(Module) -> boolean() when
       Module :: module().
@@ -774,9 +795,9 @@ external_size(_Term, _Options) ->
     erlang:nif_error(undefined).
 
 %% finish_loading/2
--spec erlang:finish_loading(PreparedCodeBinaries) -> ok | Error when
-      PreparedCodeBinaries :: [PreparedCodeBinary],
-      PreparedCodeBinary :: binary(),
+-spec erlang:finish_loading(PreparedCodeList) -> ok | Error when
+      PreparedCodeList :: [PreparedCode],
+      PreparedCode :: prepared_code(),
       ModuleList :: [module()],
       Error :: {not_purged,ModuleList} | {on_load,ModuleList}.
 finish_loading(_List) ->
@@ -828,6 +849,13 @@ float_to_list(_Float) ->
 float_to_list(_Float, _Options) ->
     erlang:nif_error(undefined).
 
+%% floor/1
+%% Shadowed by erl_bif_types: erlang:floor/1
+-spec floor(Number) -> integer() when
+      Number :: number().
+floor(_) ->
+    erlang:nif_error(undef).
+
 %% fun_info/2
 -spec erlang:fun_info(Fun, Item) -> {Item, Info} when
       Fun :: function(),
@@ -862,7 +890,7 @@ function_exported(_Module, _Function, _Arity) ->
 %% garbage_collect/0
 -spec garbage_collect() -> true.
 garbage_collect() ->
-    erlang:nif_error(undefined).
+    erts_internal:garbage_collect(major).
 
 %% garbage_collect/1
 -spec garbage_collect(Pid) -> GCResult when
@@ -875,36 +903,39 @@ garbage_collect(Pid) ->
 	error:Error -> erlang:error(Error, [Pid])
     end.
 
+-record(gcopt, {
+    async = sync :: sync | {async, _},
+    type = major % default major, can also be minor
+    }).
+
 %% garbage_collect/2
 -spec garbage_collect(Pid, OptionList) -> GCResult | async when
       Pid :: pid(),
       RequestId :: term(),
-      Option :: {async, RequestId},
+      Option :: {async, RequestId} | {type, 'major' | 'minor'},
       OptionList :: [Option],
       GCResult :: boolean().
 garbage_collect(Pid, OptionList)  ->
     try
-	Async = get_gc_opts(OptionList, sync),
-	case Async of
+	GcOpts = get_gc_opts(OptionList, #gcopt{}),
+	case GcOpts#gcopt.async of
 	    {async, ReqId} ->
 		{priority, Prio} = erlang:process_info(erlang:self(),
 						       priority),
-		erts_internal:request_system_task(Pid,
-						  Prio,
-						  {garbage_collect, ReqId}),
+		erts_internal:request_system_task(
+                    Pid, Prio, {garbage_collect, ReqId, GcOpts#gcopt.type}),
 		async;
 	    sync ->
 		case Pid == erlang:self() of
 		    true ->
-			erlang:garbage_collect();
+			erts_internal:garbage_collect(GcOpts#gcopt.type);
 		    false ->
 			{priority, Prio} = erlang:process_info(erlang:self(),
 							       priority),
 			ReqId = erlang:make_ref(),
-			erts_internal:request_system_task(Pid,
-							  Prio,
-							  {garbage_collect,
-							   ReqId}),
+			erts_internal:request_system_task(
+                            Pid, Prio,
+                            {garbage_collect, ReqId, GcOpts#gcopt.type}),
 			receive
 			    {garbage_collect, ReqId, GCResult} ->
 				GCResult
@@ -916,10 +947,12 @@ garbage_collect(Pid, OptionList)  ->
     end.
 
 % gets async opt and verify valid option list
-get_gc_opts([{async, _ReqId} = AsyncTuple | Options], _OldAsync) ->
-    get_gc_opts(Options, AsyncTuple);
-get_gc_opts([], Async) ->
-    Async.
+get_gc_opts([{async, _ReqId} = AsyncTuple | Options], GcOpt = #gcopt{}) ->
+    get_gc_opts(Options, GcOpt#gcopt{ async = AsyncTuple });
+get_gc_opts([{type, T} | Options], GcOpt = #gcopt{}) ->
+    get_gc_opts(Options, GcOpt#gcopt{ type = T });
+get_gc_opts([], GcOpt) ->
+    GcOpt.
 
 %% garbage_collect_message_area/0
 -spec erlang:garbage_collect_message_area() -> boolean().
@@ -954,9 +987,10 @@ get_keys(_Val) ->
     erlang:nif_error(undefined).
 
 %% get_module_info/1
--spec erlang:get_module_info(P1) -> [{atom(), [{atom(), term()}]}] when
-      P1 :: atom().
-get_module_info(_P1) ->
+-spec erlang:get_module_info(Module) -> [{Item, term()}] when
+      Item :: module | exports | attributes | compile | native | md5,
+      Module :: atom().
+get_module_info(_Module) ->
     erlang:nif_error(undefined).
 
 %% get_stacktrace/0
@@ -998,16 +1032,9 @@ halt(Status) ->
 halt(_Status, _Options) ->
     erlang:nif_error(undefined).
 
-%% hash/2
--spec erlang:hash(Term, Range) -> pos_integer() when
-      Term :: term(),
-      Range :: pos_integer().
-hash(_Term, _Range) ->
-    erlang:nif_error(undefined).
-
 %% has_prepared_code_on_load/1
 -spec erlang:has_prepared_code_on_load(PreparedCode) -> boolean() when
-      PreparedCode :: binary().
+      PreparedCode :: prepared_code().
 has_prepared_code_on_load(_PreparedCode) ->
     erlang:nif_error(undefined).
 
@@ -1131,6 +1158,18 @@ list_to_integer(_String,_Base) ->
 -spec list_to_pid(String) -> pid() when
       String :: string().
 list_to_pid(_String) ->
+    erlang:nif_error(undefined).
+
+%% list_to_port/1
+-spec list_to_port(String) -> port() when
+      String :: string().
+list_to_port(_String) ->
+    erlang:nif_error(undefined).
+ 
+%% list_to_ref/1
+-spec list_to_ref(String) -> reference() when
+      String :: string().
+list_to_ref(_String) ->
     erlang:nif_error(undefined).
 
 %% list_to_tuple/1
@@ -1304,7 +1343,7 @@ pid_to_list(_Pid) ->
     erlang:nif_error(undefined).
 
 %% port_to_list/1
--spec erlang:port_to_list(Port) -> string() when
+-spec port_to_list(Port) -> string() when
       Port :: port().
 port_to_list(_Port) ->
     erlang:nif_error(undefined).
@@ -1365,19 +1404,33 @@ convert_time_unit(Time, FromUnit, ToUnit) ->
 	FU = case FromUnit of
 		 native -> erts_internal:time_unit();
                  perf_counter -> erts_internal:perf_counter_unit();
+		 nanosecond -> 1000*1000*1000;
+		 microsecond -> 1000*1000;
+		 millisecond -> 1000;
+		 second -> 1;
+
+		 %% Deprecated symbolic units...
 		 nano_seconds -> 1000*1000*1000;
 		 micro_seconds -> 1000*1000;
 		 milli_seconds -> 1000;
 		 seconds -> 1;
+
 		 _ when FromUnit > 0 -> FromUnit
 	     end,
 	TU = case ToUnit of
 		 native -> erts_internal:time_unit();
                  perf_counter -> erts_internal:perf_counter_unit();
+		 nanosecond -> 1000*1000*1000;
+		 microsecond -> 1000*1000;
+		 millisecond -> 1000;
+		 second -> 1;
+
+		 %% Deprecated symbolic units...
 		 nano_seconds -> 1000*1000*1000;
 		 micro_seconds -> 1000*1000;
 		 milli_seconds -> 1000;
 		 seconds -> 1;
+
 		 _ when ToUnit > 0 -> ToUnit
 	     end,
 	case Time < 0 of
@@ -1410,7 +1463,7 @@ timestamp() ->
 -spec erlang:prepare_loading(Module, Code) -> PreparedCode | {error, Reason} when
       Module :: module(),
       Code :: binary(),
-      PreparedCode :: binary(),
+      PreparedCode :: prepared_code(),
       Reason :: bad_file.
 prepare_loading(_Module, _Code) ->
     erlang:nif_error(undefined).
@@ -1500,7 +1553,7 @@ read_timer(_TimerRef, _Options) ->
     erlang:nif_error(undefined).
 
 %% ref_to_list/1
--spec erlang:ref_to_list(Ref) -> string() when
+-spec ref_to_list(Ref) -> string() when
       Ref :: reference().
 ref_to_list(_Ref) ->
     erlang:nif_error(undefined).
@@ -1839,10 +1892,12 @@ element(_N, _Tuple) ->
     erlang:nif_error(undefined).
 
 %% Not documented
+-type module_info_key() :: attributes | compile | exports | functions | md5
+                         | module | native | native_addresses.
 -spec erlang:get_module_info(Module, Item) -> ModuleInfo when
       Module :: atom(),
-      Item :: module | exports | functions | attributes | compile | native_addresses | md5,
-      ModuleInfo :: atom() | [] | [{atom(), arity()}] | [{atom(), term()}] | [{atom(), arity(), integer()}].
+      Item :: module_info_key(),
+      ModuleInfo :: term().
 get_module_info(_Module, _Item) ->
     erlang:nif_error(undefined).
 
@@ -1968,8 +2023,8 @@ load_module(Mod, Code) ->
     case erlang:prepare_loading(Mod, Code) of
 	{error,_}=Error ->
 	    Error;
-	Bin when erlang:is_binary(Bin) ->
-	    case erlang:finish_loading([Bin]) of
+	Prep when erlang:is_reference(Prep) ->
+	    case erlang:finish_loading([Prep]) of
 		ok ->
 		    {module,Mod};
 		{Error,[Mod]} ->
@@ -2251,6 +2306,8 @@ spawn_opt(_Tuple) ->
 
 -spec statistics(active_tasks) -> [ActiveTasks] when
       ActiveTasks :: non_neg_integer();
+		(active_tasks_all) -> [ActiveTasks] when
+      ActiveTasks :: non_neg_integer();
 		(context_switches) -> {ContextSwitches,0} when
       ContextSwitches :: non_neg_integer();
                 (exact_reductions) -> {Total_Exact_Reductions,
@@ -2278,8 +2335,10 @@ spawn_opt(_Tuple) ->
       Total_Reductions :: non_neg_integer(),
       Reductions_Since_Last_Call :: non_neg_integer();
                 (run_queue) -> non_neg_integer();
-                (run_queue_lengths) -> [RunQueueLenght] when
-      RunQueueLenght :: non_neg_integer();
+                (run_queue_lengths) -> [RunQueueLength] when
+      RunQueueLength :: non_neg_integer();
+                (run_queue_lengths_all) -> [RunQueueLength] when
+      RunQueueLength :: non_neg_integer();
                 (runtime) -> {Total_Run_Time, Time_Since_Last_Call} when
       Total_Run_Time :: non_neg_integer(),
       Time_Since_Last_Call :: non_neg_integer();
@@ -2287,10 +2346,18 @@ spawn_opt(_Tuple) ->
       SchedulerId :: pos_integer(),
       ActiveTime  :: non_neg_integer(),
       TotalTime   :: non_neg_integer();
+                (scheduler_wall_time_all) -> [{SchedulerId, ActiveTime, TotalTime}] | undefined when
+      SchedulerId :: pos_integer(),
+      ActiveTime  :: non_neg_integer(),
+      TotalTime   :: non_neg_integer();
 		(total_active_tasks) -> ActiveTasks when
+      ActiveTasks :: non_neg_integer(); 
+		(total_active_tasks_all) -> ActiveTasks when
       ActiveTasks :: non_neg_integer();
-                (total_run_queue_lengths) -> TotalRunQueueLenghts when
-      TotalRunQueueLenghts :: non_neg_integer();
+                (total_run_queue_lengths) -> TotalRunQueueLengths when
+      TotalRunQueueLengths :: non_neg_integer();
+                (total_run_queue_lengths_all) -> TotalRunQueueLengths when
+      TotalRunQueueLengths :: non_neg_integer();
                 (wall_clock) -> {Total_Wallclock_Time,
                                  Wallclock_Time_Since_Last_Call} when
       Total_Wallclock_Time :: non_neg_integer(),
@@ -2385,10 +2452,11 @@ term_to_binary(_Term, _Options) ->
 tl(_List) ->
     erlang:nif_error(undefined).
 
+-type match_variable() :: atom(). % Approximation of '$1' | '$2' | ...
 -type trace_pattern_mfa() ::
       {atom(),atom(),arity() | '_'} | on_load.
 -type trace_match_spec() ::
-      [{[term()] | '_' ,[term()],[term()]}].
+      [{[term()] | '_' | match_variable() ,[term()],[term()]}].
 
 -spec erlang:trace_pattern(MFA, MatchSpec) -> non_neg_integer() when
       MFA :: trace_pattern_mfa() | send | 'receive',
@@ -2485,6 +2553,8 @@ tuple_to_list(_Tuple) ->
       Alloc :: atom();
          ({allocator_sizes, Alloc}) -> [_] when %% More or less anything
       Alloc :: atom();
+         (atom_count) -> pos_integer();
+         (atom_limit) -> pos_integer();
          (build_type) -> opt | debug | purify | quantify | purecov |
                          gcov | valgrind | gprof | lcnt | frmptr;
          (c_compiler_used) -> {atom(), term()};
@@ -3965,6 +4035,7 @@ sched_wall_time(Ref, N, undefined) ->
 sched_wall_time(Ref, N, Acc) ->
     receive
 	{Ref, undefined} -> sched_wall_time(Ref, N-1, undefined);
+	{Ref, SWTL} when erlang:is_list(SWTL) -> sched_wall_time(Ref, N-1, Acc ++ SWTL);
 	{Ref, SWT} -> sched_wall_time(Ref, N-1, [SWT|Acc])
     end.
 

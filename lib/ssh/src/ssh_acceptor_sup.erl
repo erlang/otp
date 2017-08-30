@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 
 -include("ssh.hrl").
 
--export([start_link/1, start_child/2, stop_child/4]).
+-export([start_link/4, start_child/5, stop_child/4]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -41,20 +41,19 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link(Servers) ->
-    supervisor:start_link(?MODULE, [Servers]).
+start_link(Address, Port, Profile, Options) ->
+    supervisor:start_link(?MODULE, [Address, Port, Profile, Options]).
 
-start_child(AccSup, ServerOpts) ->
-    Spec = child_spec(ServerOpts),    
+start_child(AccSup, Address, Port, Profile, Options) ->
+    Spec = child_spec(Address, Port, Profile, Options),
     case supervisor:start_child(AccSup, Spec) of
 	{error, already_present} ->
-	    Address = proplists:get_value(address, ServerOpts),
-	    Port = proplists:get_value(port, ServerOpts),
-	    Profile = proplists:get_value(profile,  
-					  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
+            %% Is this ever called?
 	    stop_child(AccSup, Address, Port, Profile),
 	    supervisor:start_child(AccSup, Spec);
 	Reply ->
+            %% Reply = {ok,SystemSupPid} when the user calls ssh:daemon
+            %% after having called ssh:stop_listening
 	    Reply
     end.
 
@@ -70,35 +69,29 @@ stop_child(AccSup, Address, Port, Profile) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init([ServerOpts]) ->
-    RestartStrategy = one_for_one,
-    MaxR = 10,
-    MaxT = 3600,
-    Children = [child_spec(ServerOpts)],
-    {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
+init([Address, Port, Profile, Options]) ->
+    %% Initial start of ssh_acceptor_sup for this port or new start after
+    %% ssh:stop_daemon
+    SupFlags = #{strategy  => one_for_one, 
+                 intensity =>   10,
+                 period    => 3600
+                },
+    ChildSpecs = [child_spec(Address, Port, Profile, Options)],
+    {ok, {SupFlags,ChildSpecs}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-child_spec(ServerOpts) ->
-    Address = proplists:get_value(address, ServerOpts),
-    Port = proplists:get_value(port, ServerOpts),
-    Timeout = proplists:get_value(timeout, ServerOpts, ?DEFAULT_TIMEOUT),
-    Profile = proplists:get_value(profile,  proplists:get_value(ssh_opts, ServerOpts), ?DEFAULT_PROFILE),
-    Name = id(Address, Port, Profile),
-    SocketOpts = proplists:get_value(socket_opts, ServerOpts),
-    StartFunc = {ssh_acceptor, start_link, [Port, Address, SocketOpts, ServerOpts, Timeout]},
-    Restart = transient, 
-    Shutdown = brutal_kill,
-    Modules = [ssh_acceptor],
-    Type = worker,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+child_spec(Address, Port, Profile, Options) ->
+    Timeout = ?GET_INTERNAL_OPT(timeout, Options, ?DEFAULT_TIMEOUT),
+    #{id       => id(Address, Port, Profile),
+      start    => {ssh_acceptor, start_link, [Port, Address, Options, Timeout]},
+      restart  => transient,
+      shutdown => 5500, %brutal_kill,
+      type     => worker,
+      modules  => [ssh_acceptor]
+     }.
 
 id(Address, Port, Profile) ->
-    case is_list(Address) of
-	true ->
-	    {ssh_acceptor_sup, any, Port, Profile};
-	false ->
-	    {ssh_acceptor_sup, Address, Port, Profile}
-    end.
+    {ssh_acceptor_sup, Address, Port, Profile}.
 

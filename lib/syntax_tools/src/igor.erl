@@ -1,18 +1,23 @@
 %% =====================================================================
-%% This library is free software; you can redistribute it and/or modify
-%% it under the terms of the GNU Lesser General Public License as
-%% published by the Free Software Foundation; either version 2 of the
-%% License, or (at your option) any later version.
+%% Licensed under the Apache License, Version 2.0 (the "License"); you may
+%% not use this file except in compliance with the License. You may obtain
+%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 %%
-%% This library is distributed in the hope that it will be useful, but
-%% WITHOUT ANY WARRANTY; without even the implied warranty of
-%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-%% Lesser General Public License for more details.
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
-%% You should have received a copy of the GNU Lesser General Public
-%% License along with this library; if not, write to the Free Software
-%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-%% USA
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
 %%
 %% @copyright 1998-2014 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
@@ -151,7 +156,8 @@ default_printer(Tree, Options) ->
 %% @spec parse_transform(Forms::[syntaxTree()], Options::[term()]) ->
 %%           [syntaxTree()]
 %%
-%%         syntaxTree() = erl_syntax:syntaxTree()
+%% @type syntaxTree() = erl_syntax:syntaxTree(). An abstract syntax
+%% tree. See the {@link erl_syntax} module for details.
 %%
 %% @doc Allows Igor to work as a component of the Erlang compiler.
 %% Including the term `{parse_transform, igor}' in the
@@ -212,7 +218,7 @@ merge(Name, Files) ->
 %% @spec merge(Name::atom(), Files::[filename()], Options::[term()]) ->
 %%           [filename()]
 %%
-%%	    filename() = file:filename()
+%% @type filename() = file:filename()
 %%
 %% @doc Merges source code files to a single file. `Name'
 %% specifies the name of the resulting module - not the name of the
@@ -367,6 +373,7 @@ merge_files(Name, Files, Options) ->
 %% @spec merge_files(Name::atom(), Sources::[Forms],
 %%                   Files::[filename()], Options::[term()]) ->
 %%           {syntaxTree(), [stubDescriptor()]}
+%%
 %%     Forms = syntaxTree() | [syntaxTree()]
 %%
 %% @doc Merges source code files and syntax trees to a single syntax
@@ -410,7 +417,7 @@ merge_files(Name, Files, Options) ->
 %%
 %%     <dd>Specifies a list of rules for associating object files with
 %%     source files, to be passed to the function
-%%     `filename:find_src/2'. This can be used to change the
+%%     `filelib:find_source/2'. This can be used to change the
 %%     way Igor looks for source files. If this option is not specified,
 %%     the default system rules are used. The first occurrence of this
 %%     option completely overrides any later in the option list.</dd>
@@ -455,7 +462,7 @@ merge_files(Name, Files, Options) ->
 %% @see merge/3
 %% @see merge_files/3
 %% @see merge_sources/3
-%% @see //stdlib/filename:find_src/2
+%% @see //stdlib/filelib:find_source/2
 %% @see epp_dodger
 
 -spec merge_files(atom(), erl_syntax:forms(), [file:filename()], [option()]) ->
@@ -2739,8 +2746,8 @@ read_module(Name, Options) ->
 		    %% It seems that we have no file - go on anyway,
 		    %% just to get a decent error message.
 		    read_module_1(Name, Options);
-		{Name1, _} ->
-		    read_module_1(Name1 ++ ".erl", Options)
+		{ok, Name1} ->
+		    read_module_1(Name1, Options)
 	    end
     end.
 
@@ -2800,9 +2807,9 @@ check_forms([], _) ->
     ok.
 
 find_src(Name, undefined) ->
-    filename:find_src(filename(Name));
+    filelib:find_source(filename(Name));
 find_src(Name, Rules) ->
-    filename:find_src(filename(Name), Rules).
+    filelib:find_source(filename(Name), Rules).
 
 %% file_type(filename()) -> {value, Type} | none
 

@@ -24,7 +24,7 @@
  * Author: Rickard Green
  */
 
-#include "erl_nif.h"
+#include <erl_nif.h>
 
 #ifdef __WIN32__
 #  ifndef WIN32_LEAN_AND_MEAN

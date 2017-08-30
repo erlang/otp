@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@
 %%
 
 -module(binary_SUITE).
--compile({nowarn_deprecated_function, {erlang,hash,2}}).
 
 %% Tests binaries and the BIFs:
 %%	list_to_binary/1
@@ -392,7 +391,6 @@ test_hash(List) ->
     Bin = list_to_binary(List),
     Sbin = make_sub_binary(List),
     Unaligned = make_unaligned_sub_binary(Sbin),
-    test_hash_1(Bin, Sbin, Unaligned, fun erlang:hash/2),
     test_hash_1(Bin, Sbin, Unaligned, fun erlang:phash/2),
     test_hash_1(Bin, Sbin, Unaligned, fun erlang:phash2/2).
 
@@ -1013,7 +1011,7 @@ ordering(Config) when is_list(Config) ->
 
     ok.
 
-%% Test that comparisions between binaries with different alignment work.
+%% Test that comparison between binaries with different alignment work.
 unaligned_order(Config) when is_list(Config) ->
     L = lists:seq(0, 7),
     [test_unaligned_order(I, J) || I <- L, J <- L], 
@@ -1363,17 +1361,19 @@ do_trapping(N, Bif, ArgFun) ->
     io:format("N=~p: Do ~p ~s gc.\n", [N, Bif, case N rem 2 of 0 -> "with"; 1 -> "without" end]),
     Pid = spawn(?MODULE,trapping_loop,[Bif, ArgFun, 1000, self()]),
     receive ok -> ok end,
-    receive after 100 -> ok end,
     Ref = make_ref(),
     case N rem 2 of
-	0 -> erlang:garbage_collect(Pid, [{async,Ref}]),
-	     receive after 100 -> ok end;
+	0 ->
+            erlang:garbage_collect(Pid, [{async,Ref}]),
+            receive after 1 -> ok end;
 	1 -> void
     end,
-    exit(Pid,kill),
+    exit(Pid, kill),
     case N rem 2 of
-	0 -> receive {garbage_collect, Ref, _} -> ok end;
-	1 -> void
+	0 ->
+            receive {garbage_collect, Ref, _} -> ok end;
+	1 ->
+            void
     end,
     receive after 1 -> ok end,
     do_trapping(N-1, Bif, ArgFun).

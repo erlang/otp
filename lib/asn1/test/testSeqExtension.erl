@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@
 -record('SeqExt4',{bool, int}).
 -record('SeqExt5',{name, shoesize}).
 -record('SeqExt6',{i1,i2,i3,i4,i5,i6,i7}).
+-record('SeqExt7',{a=asn1_NOVALUE,b=asn1_NOVALUE,c}).
 -record('SuperSeq',{s1,s2,s3,s4,s5,s6,i}).
 
 main(Erule, DataDir, Opts) ->
@@ -45,7 +46,34 @@ main(Erule, DataDir, Opts) ->
     roundtrip('SeqExt4', #'SeqExt4'{bool=true,int=12345}),
     roundtrip('SeqExt4', #'SeqExt4'{bool=false,int=123456}),
 
+    case Erule of
+        ber ->
+            %% BER currently does not handle Extension Addition Groups
+            %% correctly.
+            ok;
+        _ ->
+            v_roundtrip3('SeqExt5', #'SeqExt5'{name=asn1_NOVALUE,
+                                               shoesize=asn1_NOVALUE},
+                         Erule, #{per=>"00",
+                                  uper=>"00"}),
+            v_roundtrip3('SeqExt7', #'SeqExt7'{c=asn1_NOVALUE},
+                         Erule, #{per=>"00",
+                                  uper=>"00"})
+    end,
     roundtrip('SeqExt5', #'SeqExt5'{name = <<"Arne">>,shoesize=47}),
+
+    v_roundtrip3('SeqExt7', #'SeqExt7'{c=false},
+                 Erule, #{per=>"80800100",
+                          uper=>"80808000"}),
+    v_roundtrip3('SeqExt7', #'SeqExt7'{c=true},
+                 Erule, #{per=>"80800120",
+                          uper=>"80809000"}),
+    v_roundtrip3('SeqExt7', #'SeqExt7'{a=777,b = <<16#AA>>,c=false},
+                 Erule, #{per=>"808006C0 030901AA 00",
+                          uper=>"8082E061 20354000"}),
+    v_roundtrip3('SeqExt7', #'SeqExt7'{a=8888,c=false},
+                 Erule, #{per=>"80800480 22B800",
+                          uper=>"8081C457 0000"}),
 
     %% Encode a value with this version of the specification.
     BigInt = 128638468966,
@@ -106,6 +134,7 @@ main(Erule, DataDir, Opts) ->
     v_roundtrip2(Erule, 'SeqExt130',
 		 list_to_tuple(['SeqExt130'|
 				lists:duplicate(129, asn1_NOVALUE)++[199]])),
+
     ok.
 
 roundtrip(Type, Value) ->
@@ -117,6 +146,15 @@ v_roundtrip2(Erule, Type, Value) ->
 
 roundtrip2(Type, Value) ->
     asn1_test_lib:roundtrip_enc('SeqExtension2', Type, Value).
+
+v_roundtrip3(Type, Value, Erule, Map) ->
+    case maps:find(Erule, Map) of
+        {ok,Hex} ->
+            Encoded = asn1_test_lib:hex_to_bin(Hex),
+            Encoded = asn1_test_lib:roundtrip_enc('SeqExtension', Type, Value);
+        error ->
+            asn1_test_lib:roundtrip('SeqExtension', Type, Value)
+    end.
 
 v(ber, 'SeqExt66') ->  "30049F41 017D";
 v(per, 'SeqExt66') ->  "C0420000 00000000 00004001 FA";

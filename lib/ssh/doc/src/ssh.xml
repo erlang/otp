@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2015</year>
+      <year>2004</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -153,7 +153,7 @@
 	  <item>
 	  <p>IP version to use.</p>
 	  </item>
-          <tag><c><![CDATA[{user_dir, string()}]]></c></tag>
+          <tag><marker id="opt_user_dir"></marker><c><![CDATA[{user_dir, string()}]]></c></tag>
 	  <item>
 	    <p>Sets the user directory, that is, the directory containing
 	    <c>ssh</c> configuration files for the user, such as
@@ -175,12 +175,48 @@
 	    supplied with this option.
 	    </p>
 	  </item>
-          <tag><c><![CDATA[{silently_accept_hosts, boolean()}]]></c></tag>
+          <tag>
+            <c><![CDATA[{silently_accept_hosts, boolean()}]]></c> <br/>
+            <c><![CDATA[{silently_accept_hosts, CallbackFun}]]></c> <br/>
+            <c><![CDATA[{silently_accept_hosts, {HashAlgoSpec, CallbackFun} }]]></c> <br/>
+            <br/>
+	    <c><![CDATA[HashAlgoSpec = crypto:digest_type() | [ crypto:digest_type() ] ]]></c><br/>
+	    <c><![CDATA[CallbackFun = fun(PeerName, FingerPrint) -> boolean()]]></c><br/>
+	    <c><![CDATA[PeerName = string()]]></c><br/>
+	    <c><![CDATA[FingerPrint = string() | [ string() ] ]]></c>
+	  </tag>
 	  <item>
-	    <p>When <c>true</c>, hosts are added to the
-	    file <c><![CDATA[known_hosts]]></c> without asking the user.
-	    Defaults to <c>false</c>.
-	    </p>
+            <p>This option guides the <c>connect</c> function how to act when the connected server presents a Host 
+            Key that the client has not seen before. The default is to ask the user with a question on stdio of whether to
+            accept or reject the new Host Key.
+            See also the option <seealso marker="#opt_user_dir"><c>user_dir</c></seealso>
+            for the path to the file <c>known_hosts</c> where previously accepted Host Keys are recorded.
+            </p>
+            <p>The option can be given in three different forms as seen above:</p>
+	    <list>
+	      <item>The value is a <c>boolean()</c>.  The value <c>true</c> will make the client accept any unknown
+              Host Key without any user interaction.  The value <c>false</c> keeps the default behaviour of asking the
+              the user on stdio.
+              </item>
+              <item>A <c>CallbackFun</c> will be called and the boolean return value <c>true</c> will make the client
+              accept the Host Key. A return value of <c>false</c> will make the client to reject the Host Key and therefore
+              also the connection will be closed. The arguments to the fun are:
+              <list type="bulleted">
+	        <item><c>PeerName</c> - a string with the name or address of the remote host.</item>
+                <item><c>FingerPrint</c> - the fingerprint of the Host Key as 
+                <seealso marker="public_key:public_key#ssh_hostkey_fingerprint-1">public_key:ssh_hostkey_fingerprint/1</seealso>
+                calculates it.
+                </item>
+              </list>
+              </item>
+              <item>A tuple <c>{HashAlgoSpec, CallbackFun}</c>. The <c>HashAlgoSpec</c> specifies which hash algorithm
+                shall be used to calculate the fingerprint used in the call of the <c>CallbackFun</c>. The <c>HashALgoSpec</c>
+                is either an atom or a list of atoms as the first argument in
+                <seealso marker="public_key:public_key#ssh_hostkey_fingerprint-2">public_key:ssh_hostkey_fingerprint/2</seealso>.
+                If it is a list of hash algorithm names, the <c>FingerPrint</c> argument in the <c>CallbackFun</c> will be 
+                a list of fingerprints in the same order as the corresponding name in the <c>HashAlgoSpec</c> list.
+              </item>
+            </list>
 	  </item>
 	  <tag><c><![CDATA[{user_interaction, boolean()}]]></c></tag>
 	  <item>
@@ -190,7 +226,7 @@
 	    supplying a password. Defaults to <c>true</c>.
 	    Even if user interaction is allowed it can be
 	    suppressed by other options, such as <c>silently_accept_hosts</c>
-	    and <c>password</c>. However, those optins are not always desirable
+	    and <c>password</c>. However, those options are not always desirable
 	    to use from a security point of view.</p>
 	  </item>
 
@@ -207,28 +243,15 @@
 	    <p><c>Peer</c> is in the format of <c>{Host,Port}</c>.</p>
 	  </item>
 
-	  <tag><c><![CDATA[{public_key_alg, 'ssh-rsa' | 'ssh-dss'}]]></c></tag>
-	  <item>
-	    <note>
-	      <p>This option will be removed in OTP 20, but is kept for compatibility. It is ignored if
-	      the preferred <c>pref_public_key_algs</c> option is used.</p>
-	    </note>
-            <p>Sets the preferred public key algorithm to use for user
-	    authentication. If the preferred algorithm fails,
-	    the other algorithm is tried. If <c>{public_key_alg, 'ssh-rsa'}</c> is set, it is translated
-	    to <c>{pref_public_key_algs, ['ssh-rsa','ssh-dss']}</c>.  If it is 
-	    <c>{public_key_alg, 'ssh-dss'}</c>, it is translated
-	    to <c>{pref_public_key_algs, ['ssh-dss','ssh-rsa']}</c>.
-	    </p>
-	  </item>
-
 	  <tag><c><![CDATA[{pref_public_key_algs, list()}]]></c></tag>
 	  <item>
             <p>List of user (client) public key algorithms to try to use.</p>
-	    <p>The default value is 
-	    <c><![CDATA[['ssh-rsa','ssh-dss','ecdsa-sha2-nistp256','ecdsa-sha2-nistp384','ecdsa-sha2-nistp521'] ]]></c>
+	    <p>The default value is the <c>public_key</c> entry in 
+	    <seealso marker="#default_algorithms/0">ssh:default_algorithms/0</seealso>.
 	    </p>
-	    <p>If there is no public key of a specified type available, the corresponding entry is ignored.</p>
+	    <p>If there is no public key of a specified type available, the corresponding entry is ignored.
+	    Note that the available set is dependent on the underlying cryptolib and current user's public keys.
+	    </p>
 	  </item>
 
 	  <tag><c><![CDATA[{preferred_algorithms, algs_list()}]]></c></tag>
@@ -272,6 +295,15 @@
 	    connection. For <c>gen_tcp</c> the time is in milli-seconds and the default value is
 	    <c>infinity</c>.</p>
 	  </item>
+
+	  <tag><c><![CDATA[{auth_methods, string()}]]></c></tag>
+	  <item>
+	    <p>Comma-separated string that determines which
+	    authentication methods that the client shall support and
+	    in which order they are tried. Defaults to
+	    <c><![CDATA["publickey,keyboard-interactive,password"]]></c></p>
+          </item>
+
 	  <tag><c><![CDATA[{user, string()}]]></c></tag>
           <item>
 	    <p>Provides a username. If this option is not given, <c>ssh</c>
@@ -279,6 +311,7 @@
 	    <c><![CDATA[USER]]></c> on UNIX,
 	    <c><![CDATA[USERNAME]]></c> on Windows).</p>
           </item>
+
 	  <tag><c><![CDATA[{password, string()}]]></c></tag>
           <item>
 	    <p>Provides a password for password authentication.
@@ -286,6 +319,30 @@
 	    password, if the password authentication method is
 	    attempted.</p>
           </item>
+
+	  <!--tag><c><![CDATA[{send_ext_info, boolean()}]]></c></tag>
+          <item>
+	    <p>Send a list of extensions to the server if the server has asked for it.  See 
+	    <url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ext-info">Draft-ietf-curdle-ssh-ext-info (work in progress)</url> for details.
+	    </p>
+	    <p>Currently the client do not react on any extensions.
+	    </p>
+	    <p>Default value is <c>true</c>.
+	    </p>
+          </item-->
+
+	  <tag><c><![CDATA[{recv_ext_info, boolean()}]]></c></tag>
+          <item>
+	    <p>Tell the server that the client accepts extension negotiation.  See 
+	    <url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ext-info">Draft-ietf-curdle-ssh-ext-info (work in progress)</url> for details.
+	    </p>
+	    <p>Currently implemented extension is <c>server-sig-algs</c> which is the list of the server's preferred
+	    user's public key algorithms.
+	    </p>
+	    <p>Default value is <c>true</c>.
+	    </p>
+          </item>
+
 	  <tag><c><![CDATA[{key_cb, key_cb()}]]></c></tag>
 	  <item>
 	    <p>Module implementing the behaviour <seealso
@@ -295,6 +352,7 @@
 	    module via the options passed to it under the key 'key_cb_private'.
 	    </p>
 	  </item>
+
 	  <tag><c><![CDATA[{quiet_mode, atom() = boolean()}]]></c></tag>
 	  <item>
 	    <p>If <c>true</c>, the client does not print anything on authorization.</p>
@@ -358,7 +416,7 @@
       on the given port.</fsummary>
       <type>
         <v>Port = integer()</v>
-	<v>HostAddress = ip_address() | any</v>
+	<v>HostAddress = ip_address() | any | loopback</v>
 	<v>Options = [{Option, Value}]</v>
         <v>Option = atom()</v>
 	<v>Value = term()</v>
@@ -369,6 +427,26 @@
         <p>Starts a server listening for SSH connections on the given
         port. If the <c>Port</c> is 0, a random free port is selected. See
 	<seealso marker="#daemon_info/1">daemon_info/1</seealso> about how to find the selected port number.</p>
+
+	<p>Please note that by historical reasons both the <c>HostAddress</c> argument and the inet socket option
+	<c>ip</c> set the listening address. This is a source of possible inconsistent settings.</p>
+
+	<p>The rules for handling the two address passing options are:</p>
+	<list>
+	  <item>if <c>HostAddress</c> is an IP-address, that IP-address is the listening address.
+	  An 'ip'-option will be discarded if present.</item>
+
+	  <item>if <c>HostAddress</c> is <c>loopback</c>, the listening address
+	  is <c>loopback</c> and an loopback address will be choosen by the underlying layers.
+	  An 'ip'-option will be discarded if present.</item>
+
+	  <item>if <c>HostAddress</c> is <c>any</c> and no 'ip'-option is present, the listening address is
+	  <c>any</c> and the socket will listen to all addresses</item>
+
+	  <item>if <c>HostAddress</c> is <c>any</c> and an 'ip'-option is present, the listening address is
+	  set to the value of the 'ip'-option</item>
+	</list>
+
 	<p>Options:</p>
         <taglist>
 	  <tag><c><![CDATA[{inet, inet | inet6}]]></c></tag>
@@ -425,6 +503,7 @@
 	    authentication methods that the server is to support and
 	    in what order they are tried. Defaults to
 	    <c><![CDATA["publickey,keyboard-interactive,password"]]></c></p>
+	    <p>Note that the client is free to use any order and to exclude methods.</p>
           </item>
 
 	  <tag><c><![CDATA[{auth_method_kb_interactive_data, PromptTexts}]]></c>
@@ -629,6 +708,27 @@
 	    </p>
 	  </item>
 
+	  <tag><c><![CDATA[{send_ext_info, boolean()}]]></c></tag>
+          <item>
+	    <p>Send a list of extensions to the client if the client has asked for it. See 
+	    <url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ext-info">Draft-ietf-curdle-ssh-ext-info (work in progress)</url> for details.
+	    </p>
+	    <p>Currently implemented extension is sending <c>server-sig-algs</c> which is the list of the server's preferred
+	    user's public key algorithms.
+	    </p>
+	    <p>Default value is <c>true</c>.
+	    </p>
+          </item>
+
+	  <!--tag><c><![CDATA[{recv_ext_info, boolean()}]]></c></tag>
+          <item>
+	    <p>Tell the client that the server accepts extension negotiation.  See 
+	    <url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ext-info">Draft-ietf-curdle-ssh-ext-info (work in progress)</url> for details.
+	    </p>
+	    <p>Default value is <c>true</c>.
+	    </p>
+          </item-->
+
 	  <tag><c><![CDATA[{key_cb, key_cb()}]]></c></tag>
 	  <item>
 	    <p>Module implementing the behaviour <seealso
@@ -678,6 +778,12 @@
 	    <p><c>Peer</c> is in the format of <c>{Host,Port}</c>.</p>
 	  </item>
 
+	  <tag><c><![CDATA[{idle_time, integer()}]]></c></tag>
+	  <item>
+	  <p>Sets a time-out on a connection when no channels are active.
+	  Defaults to <c>infinity</c>.</p>
+	  </item>
+
 	  <tag><c><![CDATA[{ssh_msg_debug_fun, fun(ConnectionRef::ssh_connection_ref(), AlwaysDisplay::boolean(), Msg::binary(), LanguageTag::binary()) -> _}]]></c></tag>
 	  <item>
 	    <p>Provide a fun to implement your own logging of the SSH message SSH_MSG_DEBUG. The last three parameters are from the message, see RFC4253, section 11.3. The <c>ConnectionRef</c> is the reference to the connection on which the message arrived. The return value from the fun is not checked.</p>
@@ -690,9 +796,10 @@
     </func>
 
     <func>
-      <name>daemon_info(Daemon) -> {ok, [{port,Port}]} | {error,Error}</name>
+      <name>daemon_info(Daemon) -> {ok, [DaemonInfo]} | {error,Error}</name>
       <fsummary>Get info about a daemon</fsummary>
       <type>
+	<v>DaemonInfo = {port,Port::pos_integer()} | {listen_address, any|ip_address()} | {profile,atom()}</v>
         <v>Port = integer()</v>
 	<v>Error = bad_daemon_ref</v>
       </type>
@@ -756,7 +863,7 @@
         <p>Utility function that starts the applications <c>crypto</c>, <c>public_key</c>,
 	and <c>ssh</c>. Default type is <c>temporary</c>.
 	For more information, see the <seealso marker="kernel:application">application(3)</seealso>
-	manual page in <c>kernel</c>.</p>
+	manual page in Kernel.</p>
       </desc>
     </func>
 
@@ -769,7 +876,7 @@
       <desc>
         <p>Stops the <c>ssh</c> application.
 	For more information, see the <seealso marker="kernel:application">application(3)</seealso>
-	manual page in <c>kernel</c>.</p>
+	manual page in Kernel.</p>
       </desc>
     </func>
     

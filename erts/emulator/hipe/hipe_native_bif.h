@@ -74,27 +74,27 @@ AEXTERN(void,nbif_select_msg,(Process*));
 AEXTERN(Eterm,nbif_cmp_2,(void));
 AEXTERN(Eterm,nbif_eq_2,(void));
 
-BIF_RETTYPE hipe_nonclosure_address(BIF_ALIST_2);
-BIF_RETTYPE hipe_conv_big_to_float(BIF_ALIST_1);
+BIF_RETTYPE nbif_impl_hipe_nonclosure_address(NBIF_ALIST_2);
+BIF_RETTYPE nbif_impl_hipe_conv_big_to_float(NBIF_ALIST_1);
 void hipe_fclearerror_error(Process*);
 void hipe_select_msg(Process*);
 void hipe_gc(Process*, Eterm);
-BIF_RETTYPE hipe_set_timeout(BIF_ALIST_1);
+BIF_RETTYPE nbif_impl_hipe_set_timeout(NBIF_ALIST_1);
 void hipe_handle_exception(Process*);
-BIF_RETTYPE hipe_rethrow(BIF_ALIST_2);
+BIF_RETTYPE nbif_impl_hipe_rethrow(NBIF_ALIST_2);
 char *hipe_bs_allocate(int);
 Binary *hipe_bs_reallocate(Binary*, int);
 int hipe_bs_put_small_float(Process*, Eterm, Uint, byte*, unsigned, unsigned);
 void hipe_bs_put_bits(Eterm, Uint, byte*, unsigned, unsigned);
 Eterm hipe_bs_utf8_size(Eterm);
-BIF_RETTYPE hipe_bs_put_utf8(BIF_ALIST_3);
+BIF_RETTYPE nbif_impl_hipe_bs_put_utf8(NBIF_ALIST_3);
 Eterm hipe_bs_utf16_size(Eterm);
-BIF_RETTYPE hipe_bs_put_utf16be(BIF_ALIST_3);
-BIF_RETTYPE hipe_bs_put_utf16le(BIF_ALIST_3);
-BIF_RETTYPE hipe_bs_validate_unicode(BIF_ALIST_1);
+BIF_RETTYPE nbif_impl_hipe_bs_put_utf16be(NBIF_ALIST_3);
+BIF_RETTYPE nbif_impl_hipe_bs_put_utf16le(NBIF_ALIST_3);
+BIF_RETTYPE nbif_impl_hipe_bs_validate_unicode(NBIF_ALIST_1);
 struct erl_bin_match_buffer;
 int hipe_bs_validate_unicode_retract(struct erl_bin_match_buffer*, Eterm);
-BIF_RETTYPE hipe_is_divisible(BIF_ALIST_2);
+BIF_RETTYPE nbif_impl_hipe_is_divisible(NBIF_ALIST_2);
 
 #ifdef NO_FPE_SIGNALS
 AEXTERN(void,nbif_emulate_fpe,(Process*));
@@ -129,7 +129,7 @@ void hipe_atomic_inc(int*);
 void hipe_clear_timeout(Process*);
 #endif
 
-#define BIF_LIST(M,F,A,C,I)	AEXTERN(Eterm,nbif_##C,(void));
+#define BIF_LIST(M,F,A,B,C,I)	AEXTERN(Eterm,nbif_##C,(void));
 #include "erl_bif_list.h"
 #undef BIF_LIST
 

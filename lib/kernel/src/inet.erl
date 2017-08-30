@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -75,6 +75,7 @@
 -export_type([address_family/0, hostent/0, hostname/0, ip4_address/0,
               ip6_address/0, ip_address/0, port_number/0,
 	      local_address/0, socket_address/0, returned_non_ip_address/0,
+	      socket_setopt/0, socket_getopt/0,
 	      posix/0, socket/0, stat_option/0]).
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
@@ -676,7 +677,7 @@ parse_strict_address(Addr) ->
 %% Return a list of available options
 options() ->
     [
-     tos, priority, reuseaddr, keepalive, dontroute, linger,
+     tos, tclass, priority, reuseaddr, keepalive, dontroute, linger,
      broadcast, sndbuf, recbuf, nodelay, ipv6_v6only,
      buffer, header, active, packet, deliver, mode,
      multicast_if, multicast_ttl, multicast_loop,
@@ -697,11 +698,11 @@ stats() ->
 %% Available options for tcp:connect
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 connect_options() ->
-    [tos, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
+    [tos, tclass, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
      header, active, packet, packet_size, buffer, mode, deliver, line_delimiter,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send, raw,
-     show_econnreset].
+     show_econnreset, bind_to_device].
     
 connect_options(Opts, Mod) ->
     BaseOpts = 
@@ -765,11 +766,11 @@ con_add(Name, Val, #connect_opts{} = R, Opts, AllOpts) ->
 %% Available options for tcp:listen
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 listen_options() ->
-    [tos, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
+    [tos, tclass, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
      header, active, packet, buffer, mode, deliver, backlog, ipv6_v6only,
      exit_on_close, high_watermark, low_watermark, high_msgq_watermark,
      low_msgq_watermark, send_timeout, send_timeout_close, delay_send,
-     packet_size, raw, show_econnreset].
+     packet_size, raw, show_econnreset, bind_to_device].
 
 listen_options(Opts, Mod) ->
     BaseOpts = 
@@ -845,11 +846,11 @@ tcp_module_1(Opts, Address) ->
 %% Available options for udp:open
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 udp_options() ->
-    [tos, priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode, 
+    [tos, tclass, priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode,
      deliver, ipv6_v6only,
      broadcast, dontroute, multicast_if, multicast_ttl, multicast_loop,
      add_membership, drop_membership, read_packets,raw,
-     high_msgq_watermark, low_msgq_watermark].
+     high_msgq_watermark, low_msgq_watermark, bind_to_device].
 
 
 udp_options(Opts, Mod) ->
@@ -916,8 +917,9 @@ udp_module(Opts) ->
 %  (*) passing of open FDs ("fdopen") is not supported.
 sctp_options() ->
 [   % The following are generic inet options supported for SCTP sockets:
-    mode, active, buffer, tos, priority, dontroute, reuseaddr, linger, sndbuf,
+    mode, active, buffer, tos, tclass, priority, dontroute, reuseaddr, linger, sndbuf,
     recbuf, ipv6_v6only, high_msgq_watermark, low_msgq_watermark,
+    bind_to_device,
 
     % Other options are SCTP-specific (though they may be similar to their
     % TCP and UDP counter-parts):
@@ -1053,7 +1055,6 @@ binary2filename(Bin) ->
 	    %% depending on emulator flag instead.
 	    Bin
     end.
-
 
 translate_ip(any,      inet) -> {0,0,0,0};
 translate_ip(loopback, inet) -> {127,0,0,1};

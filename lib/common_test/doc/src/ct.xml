@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2010</year><year>2016</year>
+      <year>2010</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -70,17 +70,69 @@
     <marker id="types"/>
     <taglist>
 
-      <tag><c>handle() = pid()</c></tag>
-        <item><marker id="type-handle"/>
-          <p>The identity (handle) of a connection.</p></item>
+      <tag>
+	<marker id="type-handle"/>
+	<c>handle() = pid()</c>
+      </tag>
+      <item>
+        <p>The identity (handle) of a connection.</p>
+      </item>
 
-      <tag><c>target_name() = atom()</c></tag>
-        <item><marker id="type-target_name"/>
-          <p>A name and association to configuration data introduced
-            through a require statement, or a call to
-            <seealso marker="#require-2"><c>ct:require/2</c></seealso>,
-            for example,
-            <c>ct:require(mynodename,{node,[telnet]})</c>.</p></item>
+      <tag>
+	<marker id="type-config_key"/>
+	<c>config_key() = atom()</c>
+      </tag>
+      <item>
+	<p>A configuration key which exists in a configuration file</p>
+      </item>
+
+      <tag>
+	<marker id="type-target_name"/><c>target_name() = atom()</c>
+      </tag>
+      <item>
+        <p>A name and association to configuration data introduced
+          through a require statement, or a call to
+          <seealso marker="#require-2"><c>ct:require/2</c></seealso>,
+          for example,
+          <c>ct:require(mynodename,{node,[telnet]})</c>.</p>
+      </item>
+
+      <tag>
+	<marker id="type-key_or_name"/>
+	<c>key_or_name() = config_key() | target_name()</c>
+      </tag>
+      <item/>
+
+      <tag>
+	<marker id="type-conn_log_options"/>
+	<c>conn_log_options() = [conn_log_option()]</c>
+      </tag>
+      <item>
+	<p>Options that can be given to the <c>cth_conn_log</c> hook,
+	  which is used for logging of NETCONF and Telnet
+	  connections. See
+	  <seealso marker="ct_netconfc#Logging">ct_netconfc</seealso>
+	  or <seealso marker="ct_telnet#Logging">ct_telnet</seealso>
+	  for description and examples of how to use this hook.</p>
+      </item>
+
+      <tag>
+	<marker id="type-conn_log_option"/>
+	<c>conn_log_option() = {log_type,conn_log_type()} | {hosts,[key_or_name()]}</c>
+      </tag>
+      <item/>
+
+      <tag>
+	<marker id="type-conn_log_type"/>
+	<c>conn_log_type() = raw | pretty | html | silent</c>
+      </tag>
+      <item/>
+
+      <tag>
+	<marker id="type-conn_log_mod"/>
+	<c>conn_log_mod() = ct_netconfc | ct_telnet</c>
+      </tag>
+      <item/>
 
     </taglist>
   </section>
@@ -620,6 +672,21 @@
     </func>
 
     <func>
+      <name>get_verbosity(Category) -&gt; Level | undefined</name>
+      <fsummary>Read the verbosity level for a logging category.</fsummary>
+      <type>
+        <v>Category = default | atom()</v>
+        <v>Level = integer()</v>
+      </type>
+      <desc><marker id="get_verbosity-1"/>
+        <p>This function returns the verbosity level for the specified logging
+	category. See the <seealso marker="write_test_chapter#logging">
+	User's Guide</seealso> for details. Use the value <c>default</c> to read
+	the general verbosity level.</p>
+      </desc>
+    </func>
+
+    <func>
       <name>install(Opts) -&gt; ok | {error, Reason}</name>
       <fsummary>Installs configuration files and event handlers.</fsummary>
       <type>
@@ -725,7 +792,7 @@
         <v>Format = string()</v>
         <v>FormatArgs = list()</v>
         <v>Opts = [Opt]</v>
-	<v>Opt = no_css | esc_chars</v>
+	<v>Opt = {heading,string()} | no_css | esc_chars</v>
       </type>
       <desc><marker id="log-5"/>
         <p>Prints from a test case to the log file.</p>
@@ -777,59 +844,77 @@
           caught by any installed event manager.</p>
 
         <p>See also
-          <seealso marker="stdlib:gen_event"><c>stdlib:gen_event(3)</c></seealso>.</p>
+          <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name>pal(Format) -&gt; ok</name>
-      <fsummary>Equivalent to pal(default, 50, Format, []).</fsummary>
+      <fsummary>Equivalent to pal(default, 50, Format, [], []).</fsummary>
       <desc><marker id="pal-1"/>
         <p>Equivalent to
-          <seealso marker="#pal-4"><c>ct:pal(default, 50, Format,
-            [])</c></seealso>.</p>
+          <seealso marker="#pal-5"><c>ct:pal(default, 50, Format,
+            [], [])</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name>pal(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
-        FormatArgs).</fsummary>
+        FormatArgs, []).</fsummary>
       <type>
         <v>X1 = Category | Importance | Format</v>
         <v>X2 = Format | FormatArgs</v>
       </type>
       <desc><marker id="pal-2"/>
-        <p>Equivalent to <seealso marker="#pal-4"><c>ct:pal(Category,
-          Importance, Format, FormatArgs)</c></seealso>.</p>
+        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
+          Importance, Format, FormatArgs, [])</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name>pal(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to pal(Category, Importance, Format,
-        FormatArgs).</fsummary>
+        FormatArgs, Opts).</fsummary>
       <type>
         <v>X1 = Category | Importance</v>
         <v>X2 = Importance | Format</v>
-        <v>X3 = Format | FormatArgs</v>
+        <v>X3 = Format | FormatArgs | Opts</v>
       </type>
       <desc><marker id="pal-3"/>
-        <p>Equivalent to <seealso marker="#pal-4"><c>ct:pal(Category,
-          Importance, Format, FormatArgs)</c></seealso>.</p>
+        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name>pal(Category, Importance, Format, FormatArgs) -&gt; ok</name>
+      <name>pal(X1, X2, X3, X4) -&gt; ok</name>
+      <fsummary>Equivalent to pal(Category, Importance, Format,
+        FormatArgs, Opts).</fsummary>
+      <type>
+        <v>X1 = Category | Importance</v>
+        <v>X2 = Importance | Format</v>
+        <v>X3 = Format | FormatArgs</v>
+	<v>X4 = FormatArgs | Opts</v>
+      </type>
+      <desc><marker id="pal-4"/>
+        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>pal(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints and logs from a test case.</fsummary>
       <type>
         <v>Category = atom()</v>
         <v>Importance = integer()</v>
         <v>Format = string()</v>
         <v>FormatArgs = list()</v>
+        <v>Opts = [Opt]</v>
+	<v>Opt = {heading,string()} | no_css</v>
       </type>
-      <desc><marker id="pal-4"/>
+      <desc><marker id="pal-5"/>
         <p>Prints and logs from a test case.</p>
 
         <p>This function is meant for printing a string from a test case,
@@ -873,52 +958,70 @@
 
     <func>
       <name>print(Format) -&gt; ok</name>
-      <fsummary>Equivalent to print(default, 50, Format, []).</fsummary>
+      <fsummary>Equivalent to print(default, 50, Format, [], []).</fsummary>
       <desc><marker id="print-1"/>
-        <p>Equivalent to <seealso marker="#print-4"><c>ct:print(default,
-        50, Format, [])</c></seealso>.</p>
+        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(default,
+        50, Format, [], [])</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name>print(X1, X2) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
-        FormatArgs).</fsummary>
+        FormatArgs, []).</fsummary>
       <type>
         <v>X1 = Category | Importance | Format</v>
         <v>X2 = Format | FormatArgs</v>
       </type>
       <desc><marker id="print-2"/>
-        <p>Equivalent to <seealso marker="#print-4"><c>ct:print(Category,
-          Importance, Format, FormatArgs)</c></seealso>.</p>
+        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
+          Importance, Format, FormatArgs, [])</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
       <name>print(X1, X2, X3) -&gt; ok</name>
       <fsummary>Equivalent to print(Category, Importance, Format,
-        FormatArgs).</fsummary>
+        FormatArgs, Opts).</fsummary>
       <type>
         <v>X1 = Category | Importance</v>
         <v>X2 = Importance | Format</v>
-        <v>X3 = Format | FormatArgs</v>
+        <v>X3 = Format | FormatArgs | Opts</v>
       </type>
       <desc><marker id="print-3"/>
-        <p>Equivalent to <seealso marker="#print-4"><c>ct:print(Category,
-          Importance, Format, FormatArgs)</c></seealso>.</p>
+        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
       </desc>
     </func>
 
     <func>
-      <name>print(Category, Importance, Format, FormatArgs) -&gt; ok</name>
+      <name>print(X1, X2, X3, X4) -&gt; ok</name>
+      <fsummary>Equivalent to print(Category, Importance, Format,
+        FormatArgs, Opts).</fsummary>
+      <type>
+        <v>X1 = Category | Importance</v>
+        <v>X2 = Importance | Format</v>
+        <v>X3 = Format | FormatArgs</v>
+	<v>X4 = FormatArgs | Opts</v>
+      </type>
+      <desc><marker id="print-4"/>
+        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
+          Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>print(Category, Importance, Format, FormatArgs, Opts) -&gt; ok</name>
       <fsummary>Prints from a test case to the console.</fsummary>
       <type>
         <v>Category = atom()</v>
         <v>Importance = integer()</v>
         <v>Format = string()</v>
         <v>FormatArgs = list()</v>
+        <v>Opts = [Opt]</v>
+	<v>Opt = {heading,string()}</v>
       </type>
-      <desc><marker id="print-4"/>
+      <desc><marker id="print-5"/>
         <p>Prints from a test case to the console.</p>
 
         <p>This function is meant for printing a string from a test case to
@@ -1139,7 +1242,7 @@
         Opts.</fsummary>
       <type>
         <v>Opts = [OptTuples]</v>
-        <v>OptTuples = {dir, TestDirs} | {suite, Suites} | {group, Groups} | {testcase, Cases} | {spec, TestSpecs} | {join_specs, Bool} | {label, Label} | {config, CfgFiles} | {userconfig, UserConfig} | {allow_user_terms, Bool} | {logdir, LogDir} | {silent_connections, Conns} | {stylesheet, CSSFile} | {cover, CoverSpecFile} | {cover_stop, Bool} | {step, StepOpts} | {event_handler, EventHandlers} | {include, InclDirs} | {auto_compile, Bool} | {abort_if_missing_suites, Bool} | {create_priv_dir, CreatePrivDir} | {multiply_timetraps, M} | {scale_timetraps, Bool} | {repeat, N} | {duration, DurTime} | {until, StopTime} | {force_stop, ForceStop} | {decrypt, DecryptKeyOrFile} | {refresh_logs, LogDir} | {logopts, LogOpts} | {verbosity, VLevels} | {basic_html, Bool} | {esc_chars, Bool} | {ct_hooks, CTHs} | {enable_builtin_hooks, Bool} | {release_shell, Bool}</v>
+        <v>OptTuples = {dir, TestDirs} | {suite, Suites} | {group, Groups} | {testcase, Cases} | {spec, TestSpecs} | {join_specs, Bool} | {label, Label} | {config, CfgFiles} | {userconfig, UserConfig} | {allow_user_terms, Bool} | {logdir, LogDir} | {silent_connections, Conns} | {stylesheet, CSSFile} | {cover, CoverSpecFile} | {cover_stop, Bool} | {step, StepOpts} | {event_handler, EventHandlers} | {include, InclDirs} | {auto_compile, Bool} | {abort_if_missing_suites, Bool} | {create_priv_dir, CreatePrivDir} | {multiply_timetraps, M} | {scale_timetraps, Bool} | {repeat, N} | {duration, DurTime} | {until, StopTime} | {force_stop, ForceStop} | {decrypt, DecryptKeyOrFile} | {refresh_logs, LogDir} | {logopts, LogOpts} | {verbosity, VLevels} | {basic_html, Bool} | {esc_chars, Bool} | {keep_logs,KeepSpec} | {ct_hooks, CTHs} | {enable_builtin_hooks, Bool} | {release_shell, Bool}</v>
         <v>TestDirs = [string()] | string()</v>
         <v>Suites = [string()] | [atom()] | string() | atom()</v>
         <v>Cases = [atom()] | atom()</v>
@@ -1175,6 +1278,7 @@
         <v>VLevels = VLevel | [{Category, VLevel}]</v>
         <v>VLevel = integer()</v>
         <v>Category = atom()</v>
+	<v>KeepSpec = all | pos_integer()</v>
         <v>CTHs = [CTHModule | {CTHModule, CTHInitArgs}]</v>
         <v>CTHModule = atom()</v>
         <v>CTHInitArgs = term()</v>
@@ -1225,6 +1329,21 @@
     </func>
 
     <func>
+      <name>set_verbosity(Category, Level) -&gt; ok</name>
+      <fsummary>Set the verbosity level for a logging category.</fsummary>
+      <type>
+        <v>Category = default | atom()</v>
+        <v>Level = integer()</v>
+      </type>
+      <desc><marker id="set_verbosity-2"/>
+        <p>Use this function to set, or modify, the verbosity level for a logging
+	category. See the <seealso marker="write_test_chapter#logging">
+	User's Guide</seealso> for details. Use the value <c>default</c> to set the
+	general verbosity level.</p>
+      </desc>
+    </func>
+
+    <func>
       <name>sleep(Time) -&gt; ok</name>
       <fsummary>This function, similar to timer:sleep/1, suspends the
         test case for a specified time.</fsummary>
@@ -1236,7 +1355,7 @@
         <v>Millisecs = integer() | float()</v>
       </type>
       <desc><marker id="sleep-1"/>
-        <p>This function, similar to <c>timer:sleep/1</c> in <c>STDLIB</c>, 
+        <p>This function, similar to <c>timer:sleep/1</c> in STDLIB,
           suspends the test case for a specified time.
           However, this function also multiplies <c>Time</c> with the
           <c>multiply_timetraps</c> value (if set) and under certain
@@ -1330,7 +1449,7 @@
           caught by any installed event manager.</p>
 
         <p>See also
-          <seealso marker="stdlib:gen_event"><c>stdlib:gen_event(3)</c></seealso>.
+          <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>.
         </p>
       </desc>
     </func>

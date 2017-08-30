@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2003-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2003-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,8 @@ int wmain(int argc, wchar_t **argv)
     InitSection *ini_section;
     HANDLE module = GetModuleHandle(NULL);
     wchar_t *binaries[] = { L"erl.exe", L"werl.exe", L"erlc.exe",
-			    L"dialyzer.exe", L"typer.exe",
+			    L"dialyzer.exe",
+			    L"typer.exe",
 			    L"escript.exe", L"ct_run.exe", NULL };
     wchar_t *scripts[] = { L"start_clean.boot", L"start_sasl.boot", L"no_dot_erlang.boot", NULL };
     wchar_t fromname[MAX_PATH];

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2015-2015. All Rights Reserved.
+ * Copyright Ericsson AB 2015-2017. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
  * 
  * %CopyrightEnd%
  *
- * This file defines the interface inbetween erts and child_setup.
+ * This file defines the interface between erts and child_setup.
  */
 
 #ifndef _ERL_UNIX_FORKER_H

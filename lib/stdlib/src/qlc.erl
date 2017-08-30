@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -635,14 +635,25 @@ string_to_handle(Str, Options, Bindings) when is_list(Str) ->
         badarg ->
             erlang:error(badarg, [Str, Options, Bindings]);
         [Unique, Cache, MaxLookup, Join, Lookup] ->
-            case erl_scan:string(Str) of
+            case erl_scan:string(Str, 1, [text]) of
                 {ok, Tokens, _} ->
-                    case erl_parse:parse_exprs(Tokens) of
-                        {ok, [Expr]} ->
-                            case qlc_pt:transform_expression(Expr, Bindings) of
+                    ScanRes =
+                        case lib:extended_parse_exprs(Tokens) of
+                            {ok, [Expr0], SBs} ->
+                                {ok, Expr0, SBs};
+                            {ok, _ExprList, _SBs} ->
+                                erlang:error(badarg,
+                                             [Str, Options, Bindings]);
+                            E ->
+                                E
+                        end,
+                    case ScanRes of
+                        {ok, Expr, XBs} ->
+                            Bs1 = merge_binding_structs(Bindings, XBs),
+                            case qlc_pt:transform_expression(Expr, Bs1) of
                                 {ok, {call, _, _QlcQ,  Handle}} ->
                                     {value, QLC_lc, _} = 
-                                        erl_eval:exprs(Handle, Bindings),
+                                        erl_eval:exprs(Handle, Bs1),
                                     O = #qlc_opt{unique = Unique, 
                                                  cache = Cache,
                                                  max_lookup = MaxLookup, 
@@ -652,8 +663,6 @@ string_to_handle(Str, Options, Bindings) when is_list(Str) ->
                                 {not_ok, [{error, Error} | _]} ->
                                     error(Error)
                             end;
-                        {ok, _ExprList} ->
-                            erlang:error(badarg, [Str, Options, Bindings]);
                         {error, ErrorInfo} ->
                             error(ErrorInfo)
                     end;
@@ -769,6 +778,10 @@ all_selections([{I,Cs} | ICs]) ->
 %%%
 %%% Local functions
 %%%
+
+merge_binding_structs(Bs1, Bs2) ->
+    lists:foldl(fun({N, V}, Bs) -> erl_eval:add_binding(N, V, Bs)
+                end, Bs1, erl_eval:bindings(Bs2)).
 
 aux_name1(Name, N, AllNames) ->
     SN = name_suffix(Name, N),
@@ -1180,9 +1193,12 @@ abstract1({table, {M, F, As0}}, _NElements, _Depth, Anno)
 abstract1({table, TableDesc}, _NElements, _Depth, _A) ->
     case io_lib:deep_char_list(TableDesc) of
         true ->
-            {ok, Tokens, _} = erl_scan:string(lists:flatten(TableDesc++".")),
-            {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
-            Expr;
+            {ok, Tokens, _} =
+                erl_scan:string(lists:flatten(TableDesc++"."), 1, [text]),
+            {ok, Es, Bs} =
+                lib:extended_parse_exprs(Tokens),
+            [Expr] = lib:subst_values_for_vars(Es, Bs),
+            special(Expr);
         false -> % abstract expression
             TableDesc
     end;
@@ -1209,6 +1225,15 @@ abstract1({list, L}, NElements, Depth, _A) when NElements =:= infinity;
     abstract_term(depth(L, Depth), 1);
 abstract1({list, L}, NElements, Depth, _A) ->
     abstract_term(depth(lists:sublist(L, NElements), Depth) ++ '...', 1).
+
+special({value, _, Thing}) ->
+    abstract_term(Thing);
+special(Tuple) when is_tuple(Tuple) ->
+    list_to_tuple(special(tuple_to_list(Tuple)));
+special([E|Es]) ->
+    [special(E)|special(Es)];
+special(Expr) ->
+    Expr.
 
 depth(List, infinity) ->
     List;
@@ -1292,6 +1317,10 @@ abstr_term(Fun, Line) when is_function(Fun) ->
     end;
 abstr_term(PPR, Line) when is_pid(PPR); is_port(PPR); is_reference(PPR) ->
     {special, Line, lists:flatten(io_lib:write(PPR))};    
+abstr_term(Map, Line) when is_map(Map) ->
+    {map,Line,
+     [{map_field_assoc,Line,abstr_term(K, Line),abstr_term(V, Line)} ||
+         {K,V} <- maps:to_list(Map)]};
 abstr_term(Simple, Line) ->
     erl_parse:abstract(Simple, erl_anno:line(Line)).
 
@@ -1363,8 +1392,10 @@ next_loop(Pid, L, N) when N =/= 0 ->
         {caught, throw, Error, [?THROWN_ERROR | _]} ->
             Error;
         {caught, Class, Reason, Stacktrace} ->
-            _ = (catch erlang:error(foo)),
-            erlang:raise(Class, Reason, Stacktrace ++ erlang:get_stacktrace());
+            CurrentStacktrace = try erlang:error(foo)
+                                catch error:_ -> erlang:get_stacktrace()
+                                end,
+            erlang:raise(Class, Reason, Stacktrace ++ CurrentStacktrace);
         error ->
             erlang:error({qlc_cursor_pid_no_longer_exists, Pid})
     end;

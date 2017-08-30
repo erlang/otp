@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -793,13 +793,13 @@ update_cpu_info(Config) when is_list(Config) ->
     io:format("START - Affinity mask: ~p - Schedulers online: ~p - Scheduler bindings: ~p~n",
 		    [OldAff, OldOnline, erlang:system_info(scheduler_bindings)]),
     case {erlang:system_info(logical_processors_available), OldAff} of
-	      {Avail, _} when Avail == unknown; OldAff == unknown ->
+	      {Avail, _} when Avail == unknown; OldAff == unknown; OldAff == 1 ->
 		  %% Nothing much to test; just a smoke test
 		  case erlang:system_info(update_cpu_info) of
 		      unchanged -> ok;
 		      changed -> ok
 		  end;
-	      _ ->
+	      {_Avail, _} ->
 		  try
 		      adjust_schedulers_online(),
 		      case erlang:system_info(schedulers_online) of
@@ -807,21 +807,31 @@ update_cpu_info(Config) when is_list(Config) ->
 			      %% Nothing much to test; just a smoke test
 			      ok;
 			  Onln0 ->
-			      %% unset least significant bit
-			      Aff = (OldAff band (OldAff - 1)),
-			      set_affinity_mask(Aff),
-			      Onln1 = Onln0 - 1,
-			      case adjust_schedulers_online() of
-					{Onln0, Onln1} ->
-					    Onln1 = erlang:system_info(schedulers_online),
-					    receive after 500 -> ok end,
-					    io:format("TEST - Affinity mask: ~p - Schedulers online: ~p - Scheduler bindings: ~p~n",
-							    [Aff, Onln1, erlang:system_info(scheduler_bindings)]),
-					    unchanged = adjust_schedulers_online(),
-					    ok;
-					Fail ->
-					    ct:fail(Fail)
-				    end
+			      Cpus = bits_in_mask(OldAff),
+			      RmCpus = case Cpus > Onln0 of
+					   true -> Cpus - Onln0 + 1;
+					   false -> Onln0 - Cpus + 1
+				       end,
+			      Onln1 = Cpus - RmCpus,
+			      case Onln1 > 0 of
+				  false ->
+				      %% Nothing much to test; just a smoke test
+				      ok;
+				  true ->
+				      Aff = restrict_affinity_mask(OldAff, RmCpus),
+				      set_affinity_mask(Aff),
+				      case adjust_schedulers_online() of
+					  {Onln0, Onln1} ->
+					      Onln1 = erlang:system_info(schedulers_online),
+					      receive after 500 -> ok end,
+					      io:format("TEST - Affinity mask: ~p - Schedulers online: ~p - Scheduler bindings: ~p~n",
+							[Aff, Onln1, erlang:system_info(scheduler_bindings)]),
+					      unchanged = adjust_schedulers_online(),
+					      ok;
+					  Fail ->
+					      ct:fail(Fail)
+				      end
+			      end
 		      end
 		  after
 		      set_affinity_mask(OldAff),
@@ -835,13 +845,49 @@ update_cpu_info(Config) when is_list(Config) ->
 		  end
 	  end.
 
+bits_in_mask(Mask) ->
+    bits_in_mask(Mask, 0, 0).
+
+bits_in_mask(0, _Shift, N) ->
+    N;
+bits_in_mask(Mask, Shift, N) ->
+    case Mask band (1 bsl Shift) of
+	0 -> bits_in_mask(Mask, Shift+1, N);
+	_ -> bits_in_mask(Mask band (bnot (1 bsl Shift)),
+			  Shift+1, N+1)
+    end.
+
+restrict_affinity_mask(Mask, N) ->
+    try
+	restrict_affinity_mask(Mask, 0, N)
+    catch
+	throw : Reason ->
+	    exit({Reason, Mask, N})
+    end.
+
+restrict_affinity_mask(Mask, _Shift, 0) ->
+    Mask;
+restrict_affinity_mask(0, _Shift, _N) ->
+    throw(overresticted_affinity_mask);
+restrict_affinity_mask(Mask, Shift, N) ->
+    case Mask band (1 bsl Shift) of
+	0 -> restrict_affinity_mask(Mask, Shift+1, N);
+	_ -> restrict_affinity_mask(Mask band (bnot (1 bsl Shift)),
+				    Shift+1, N-1)
+    end.
+
 adjust_schedulers_online() ->
     case erlang:system_info(update_cpu_info) of
 	unchanged ->
 	    unchanged;
 	changed ->
 	    Avail = erlang:system_info(logical_processors_available),
-	    {erlang:system_flag(schedulers_online, Avail), Avail}
+	    Scheds = erlang:system_info(schedulers),
+	    SOnln = case Avail > Scheds of
+	    	    	 true -> Scheds;
+			 false -> Avail
+		    end,
+	    {erlang:system_flag(schedulers_online, SOnln), SOnln}
     end.
 
 read_affinity(Data) ->
@@ -1041,12 +1087,8 @@ scheduler_threads(Config) when is_list(Config) ->
     {Sched, SchedOnln, _} = get_sstate(Config, ""),
     %% Configure half the number of both the scheduler threads and
     %% the scheduler threads online.
-    {HalfSched, HalfSchedOnln} = case SmpSupport of
-                                     false -> {1,1};
-                                     true ->
-                                         {Sched div 2,
-                                          SchedOnln div 2}
-                                 end,
+    {HalfSched, HalfSchedOnln} = {lists:max([1,Sched div 2]),
+                                  lists:max([1,SchedOnln div 2])},
     {HalfSched, HalfSchedOnln, _} = get_sstate(Config, "+SP 50:50"),
     %% Use +S to configure 4x the number of scheduler threads and
     %% 4x the number of scheduler threads online, but alter that
@@ -1072,39 +1114,38 @@ scheduler_threads(Config) when is_list(Config) ->
     {Sched, HalfSchedOnln, _} = get_sstate(Config, "+SP:50"),
     %% Configure 2x scheduler threads only
     {TwiceSched, SchedOnln, _} = get_sstate(Config, "+SP 200"),
-    %% Test resetting the scheduler counts
-    ResetCmd = "+S "++FourSched++":"++FourSchedOnln++" +S 0:0",
-    {Sched, SchedOnln, _} = get_sstate(Config, ResetCmd),
-    %% Test negative +S settings, but only for SMP-enabled emulators
-    case SmpSupport of
-        false -> ok;
-        true ->
-            SchedMinus1 = Sched-1,
-            SchedOnlnMinus1 = SchedOnln-1,
-            {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1"),
-            {Sched, SchedOnlnMinus1, _} = get_sstate(Config, "+S :-1"),
-            {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1:-1")
-    end,
-    ok.
-
-dirty_scheduler_threads(Config) when is_list(Config) ->
-    SmpSupport = erlang:system_info(smp_support),
-    try
-	erlang:system_info(dirty_cpu_schedulers),
-	dirty_scheduler_threads_test(Config, SmpSupport)
-    catch
-	error:badarg ->
-	    {skipped, "No dirty scheduler support"}
+    case {erlang:system_info(logical_processors),
+	  erlang:system_info(logical_processors_available)} of
+	{LProc, LProcAvail} when is_integer(LProc), is_integer(LProcAvail) ->
+	    %% Test resetting the scheduler counts
+	    ResetCmd = "+S "++FourSched++":"++FourSchedOnln++" +S 0:0",
+	    {LProc, LProcAvail, _} = get_sstate(Config, ResetCmd),
+	    %% Test negative +S settings, but only for SMP-enabled emulators
+	    case {SmpSupport, LProc > 1, LProcAvail > 1} of
+		{true, true, true} ->
+		    SchedMinus1 = LProc-1,
+		    SchedOnlnMinus1 = LProcAvail-1,
+		    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1"),
+		    {LProc, SchedOnlnMinus1, _} = get_sstate(Config, "+S :-1"),
+		    {SchedMinus1, SchedOnlnMinus1, _} = get_sstate(Config, "+S -1:-1"),
+		    ok;
+		_ ->
+		    {comment, "Skipped reduced amount of schedulers test due to too few logical processors"}
+	    end;
+	_ -> %% Skipped when missing info about logical processors...
+	    {comment, "Skipped reset amount of schedulers test, and reduced amount of schedulers test due to too unknown amount of logical processors"}
     end.
 
-dirty_scheduler_threads_test(Config, SmpSupport) ->
+dirty_scheduler_threads(Config) when is_list(Config) ->
+    case erlang:system_info(dirty_cpu_schedulers) of
+        0 -> {skipped, "No dirty scheduler support"};
+        _ -> dirty_scheduler_threads_test(Config)
+    end.
+
+dirty_scheduler_threads_test(Config) ->
     {Sched, SchedOnln, _} = get_dsstate(Config, ""),
-    {HalfSched, HalfSchedOnln} = case SmpSupport of
-                                     false -> {1,1};
-                                     true ->
-                                         {Sched div 2,
-                                          SchedOnln div 2}
-                                 end,
+    {HalfSched, HalfSchedOnln} = {lists:max([1,Sched div 2]),
+                                  lists:max([1,SchedOnln div 2])},
     Cmd1 = "+SDcpu "++integer_to_list(HalfSched)++":"++
 	integer_to_list(HalfSchedOnln),
     {HalfSched, HalfSchedOnln, _} = get_dsstate(Config, Cmd1),
@@ -1312,11 +1353,33 @@ scheduler_suspend_test(Config, Schedulers) ->
                                         true ->
                                             ok
                                     end,
-                                    erlang:system_info(schedulers_state)
+                                    until(fun () ->
+						  {_A, B, C} = erlang:system_info(
+								 schedulers_state),
+                                              B == C
+                                          end,
+                                          erlang:monotonic_time()
+                                          + erlang:convert_time_unit(1,
+								     seconds,
+								     native)),
+				    erlang:system_info(schedulers_state)
                             end]),
     stop_node(Node),
     ok.
-    
+
+until(Pred, MaxTime) ->
+    case Pred() of
+	true ->
+	    true;
+	false ->
+	    case erlang:monotonic_time() > MaxTime of
+		true ->
+		    false;
+		false ->
+		    receive after 100 -> ok end,
+		    until(Pred, MaxTime)
+	    end
+    end.
 
 sst0_loop(0) ->
     ok;
@@ -1345,12 +1408,9 @@ sst2_loop(N) ->
     sst2_loop(N-1).
 
 sst3_loop(S, N) ->
-    try erlang:system_info(dirty_cpu_schedulers) of
-	DS ->
-	    sst3_loop_with_dirty_schedulers(S, DS, N)
-    catch
-	error:badarg ->
-	    sst3_loop_normal_schedulers_only(S, N)
+    case erlang:system_info(dirty_cpu_schedulers) of
+        0 -> sst3_loop_normal_schedulers_only(S, N);
+	DS -> sst3_loop_with_dirty_schedulers(S, DS, N)
     end.
 
 sst3_loop_normal_schedulers_only(_S, 0) ->
@@ -1978,10 +2038,10 @@ do_it(Tracer, Low, Normal, High, Max) ->
 do_it(Tracer, Low, Normal, High, Max, RedsPerSchedLimit) ->
     OldPrio = process_flag(priority, max),
     go_work(Low, Normal, High, Max),
-    StartWait = erlang:monotonic_time(milli_seconds),
+    StartWait = erlang:monotonic_time(millisecond),
     %% Give the emulator a chance to balance the load...
     wait_balance(5),
-    EndWait = erlang:monotonic_time(milli_seconds),
+    EndWait = erlang:monotonic_time(millisecond),
     BalanceWait = EndWait-StartWait,
     erlang:display({balance_wait, BalanceWait}),
     Timeout = (15 - 4)*60*1000 - BalanceWait,
@@ -2181,7 +2241,7 @@ start_node(Config, Args) when is_list(Config) ->
 			++ "-"
 			++ atom_to_list(proplists:get_value(testcase, Config))
 			++ "-"
-			++ integer_to_list(erlang:system_time(seconds))
+			++ integer_to_list(erlang:system_time(second))
 			++ "-"
 			++ integer_to_list(erlang:unique_integer([positive]))),
     test_server:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).

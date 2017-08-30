@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap, {seconds, 10}}].
+     {timetrap, {minutes, 1}}].
 
 all() -> 
     [ddll_test, errors, reference_count, kill_port,
@@ -805,7 +805,7 @@ reference_count(Config) when is_list(Config) ->
 
     Pid1 ! {self(), die},
     test_server:sleep(200),   % Give time to unload.
-    % Verify that the driver was automaticly unloaded when the
+    % Verify that the driver was automatically unloaded when the
     % process died.
     {error, not_loaded}=erl_ddll:unload_driver(echo_drv),
     ok.

@@ -9,13 +9,11 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 %% Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 %% AB. All Rights Reserved.''
-%% 
-%%     $Id$
-%%
+
 -module(syntax_tools_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
@@ -27,14 +25,14 @@
 %% Test cases
 -export([app_test/1,appup_test/1,smoke_test/1,revert/1,revert_map/1,
 	t_abstract_type/1,t_erl_parse_type/1,t_epp_dodger/1,
-	t_comment_scan/1,t_igor/1]).
+	t_comment_scan/1,t_igor/1,t_erl_tidy/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app_test,appup_test,smoke_test,revert,revert_map,
     t_abstract_type,t_erl_parse_type,t_epp_dodger,
-    t_comment_scan,t_igor].
+    t_comment_scan,t_igor,t_erl_tidy].
 
 groups() -> 
     [].
@@ -235,6 +233,12 @@ t_igor(Config) when is_list(Config) ->
     ["n.erl",_]=R2 = igor:merge(n,[FileTypeSpecs,Empty],[{outdir,PrivDir}]),
     io:format("igor:merge/3 = ~p~n", [R2]),
 
+    ok.
+
+t_erl_tidy(Config) when is_list(Config) ->
+    DataDir   = ?config(data_dir, Config),
+    File  = filename:join(DataDir,"erl_tidy_tilde.erl"),
+    ok = erl_tidy:file(File, [{stdout, true}]),
     ok.
 
 test_comment_scan([],_) -> ok;

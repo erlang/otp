@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2014</year><year>2017</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>FIPS mode</title>
+    <prepared>D&aacute;niel Szoboszlay</prepared>
+    <docno></docno>
+    <date>2014-05-12</date>
+    <rev>A</rev>
+    <file>fips.xml</file>
+  </header>
+  <p>
+    <marker id="fips"></marker>
+    This chapter describes FIPS mode support in the crypto application.
+  </p>
+
+  <section>
+    <title>Background</title>
+    <p>OpenSSL can be built to provide FIPS 140-2 validated
+    cryptographic services. It is not the OpenSSL application that is
+    validated, but a special software component called the OpenSSL
+    FIPS Object Module. However applications do not use this Object
+    Module directly, but through the regular API of the OpenSSL
+    library.</p>
+    <p>The crypto application supports using OpenSSL in FIPS mode. In
+    this scenario only the validated algorithms provided by the Object
+    Module are accessible, other algorithms usually available in
+    OpenSSL (like md5) or implemented in the Erlang code (like SRP)
+    are disabled.</p>
+  </section>
+
+  <section>
+    <title>Enabling FIPS mode</title>
+    <list type="ordered">
+      <item>
+        <p>Build or install the FIPS Object Module and a FIPS enabled
+        OpenSSL library.</p>
+        <p>You should read and precisely follow the instructions of
+        the <url
+        href="http://csrc.nist.gov/groups/STM/cmvp/documents/140-1/140sp/140sp1747.pdf">Security
+        Policy</url> and <url
+        href="https://www.openssl.org/docs/fips/UserGuide-2.0.pdf">User
+        Guide</url>.</p>
+        <warning><p>It is very easy to build a working OpenSSL FIPS
+        Object Module and library from the source. However it <em>does
+        not</em> qualify as FIPS 140-2 validated if the numerous
+        restrictions in the Security Policy are not properly
+        followed.</p></warning>
+      </item>
+      <item>
+        <p>Configure and build Erlang/OTP with FIPS support:</p>
+        <pre>
+$ <input>cd $ERL_TOP</input>
+$ <input>./otp_build configure --enable-fips</input>
+...
+checking for FIPS_mode_set... yes
+...
+$ <input>make</input>
+        </pre>
+        <p>If <c>FIPS_mode_set</c> returns <c>no</c> the OpenSSL
+        library is not FIPS enabled and crypto won't support FIPS mode
+        either.</p>
+      </item>
+      <item>
+        <p>Set the <c>fips_mode</c> configuration setting of the
+        crypto application to <c>true</c> <em>before loading the
+        crypto module</em>.</p>
+        <p>The best place is in the <c>sys.config</c> system
+        configuration file of the release.</p>
+      </item>
+      <item>
+        Start and use the crypto application as usual. However take
+        care to avoid the non-FIPS validated algorithms, they will all
+        throw exception <c>not_supported</c>.
+      </item>
+    </list>
+    <p>Entering and leaving FIPS mode on a node already running crypto
+    is not supported. The reason is that OpenSSL is designed to
+    prevent an application requesting FIPS mode to end up accidentally
+    running in non-FIPS mode. If entering FIPS mode fails (e.g. the
+    Object Module is not found or is compromised) any subsequent use
+    of the OpenSSL API would terminate the emulator.</p>
+    <p>An on-the-fly FIPS mode change would thus have to be performed
+    in a critical section protected from any concurrently running
+    crypto operations. Furthermore in case of failure all crypto calls
+    would have to be disabled from the Erlang or nif code. This would
+    be too much effort put into this not too important feature.</p>
+  </section>
+
+  <section>
+    <title>Incompatibilities with regular builds</title>
+    <p>The Erlang API of the crypto application is identical
+    regardless of building with or without FIPS support. However the
+    nif code internally uses a different OpenSSL API.</p>
+    <p>This means that the context (an opaque type) returned from
+    streaming crypto functions (<c>hash_(init|update|final)</c>,
+    <c>hmac_(init|update|final)</c> and
+    <c>stream_(init|encrypt|decrypt)</c>) is different and
+    incompatible with regular builds when compiling crypto with FIPS
+    support.</p>
+  </section>
+
+  <section>
+    <title>Common caveats</title>
+    <p>In FIPS mode non-validated algorithms are disabled. This may
+    cause some unexpected problems in application relying on
+    crypto.</p>
+    <warning><p>Do not try to work around these problems by using
+    alternative implementations of the missing algorithms! An
+    application can only claim to be using a FIPS 140-2 validated
+    cryptographic module if it uses it exclusively for every
+    cryptographic operation.</p></warning>
+
+    <section>
+      <title>Restrictions on key sizes</title>
+      <p>Although public key algorithms are supported in FIPS mode
+      they can only be used with secure key sizes. The Security Policy
+      requires the following minimum values:
+      </p>
+      <taglist>
+        <tag>RSA</tag><item>1024 bit</item>
+        <tag>DSS</tag><item>1024 bit</item>
+        <tag>EC algorithms</tag><item>160 bit</item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>Restrictions on elliptic curves</title>
+      <p>The Erlang API allows using arbitrary curve parameters, but
+      in FIPS mode only those allowed by the Security Policy shall be
+      used.</p>
+    </section>
+
+    <section>
+      <title>Avoid md5 for hashing</title>
+      <p>Md5 is a popular choice as a hash function, but it is not
+      secure enough to be validated. Try to use sha instead wherever
+      possible.</p>
+      <p>For exceptional, non-cryptographic use cases one may consider
+      switching to <c>erlang:md5/1</c> as well.</p>
+    </section>
+
+    <section>
+      <title>Certificates and encrypted keys</title>
+      <p>As md5 is not available in FIPS mode it is only possible to
+      use certificates that were signed using sha hashing. When
+      validating an entire certificate chain all certificates
+      (including the root CA's) must comply with this rule.</p>
+      <p>For similar dependency on the md5 and des algorithms most
+      encrypted private keys in PEM format do not work
+      either. However, the PBES2 encryption scheme allows the use of
+      stronger FIPS verified algorithms which is a viable
+      alternative.</p>
+    </section>
+
+    <section>
+      <title>SNMP v3 limitations</title>
+      <p>It is only possible to use <c>usmHMACSHAAuthProtocol</c> and
+      <c>usmAesCfb128Protocol</c> for authentication and privacy
+      respectively in FIPS mode. The snmp application however won't
+      restrict selecting disabled protocols in any way, and using them
+      would result in run time crashes.</p>
+    </section>
+
+    <section>
+      <title>TLS 1.2 is required</title>
+      <p>All SSL and TLS versions prior to TLS 1.2 use a combination
+      of md5 and sha1 hashes in the handshake for various purposes:</p>
+      <list>
+        <item>Authenticating the integrity of the handshake
+        messages.</item>
+        <item>In the exchange of DH parameters in cipher suites
+        providing non-anonymous PFS (perfect forward secrecy).</item>
+        <item>In the PRF (pseud-random function) to generate keying
+        materials in cipher suites not using PFS.</item>
+      </list>
+      <p>OpenSSL handles these corner cases in FIPS mode, however the
+      Erlang crypto and ssl applications are not prepared for them and
+      therefore you are limited to TLS 1.2 in FIPS mode.</p>
+      <p>On the other hand it worth mentioning that at least all
+      cipher suites that would rely on non-validated algorithms are
+      automatically disabled in FIPS mode.</p>
+      <note><p>Certificates using weak (md5) digests may also cause
+      problems in TLS. Although TLS 1.2 has an extension for
+      specifying which type of signatures are accepted, and in FIPS
+      mode the ssl application will use it properly, most TLS
+      implementations ignore this extension and simply send whatever
+      certificates they were configured with.</p></note>
+    </section>
+
+  </section>
+</chapter>

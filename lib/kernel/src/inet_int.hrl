@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -153,6 +153,8 @@
 -define(INET_LOPT_NETNS,          38).
 -define(INET_LOPT_TCP_SHOW_ECONNRESET, 39).
 -define(INET_LOPT_LINE_DELIM,     40).
+-define(INET_OPT_TCLASS,          41).
+-define(INET_OPT_BIND_TO_DEVICE,  42).
 % Specific SCTP options: separate range:
 -define(SCTP_OPT_RTOINFO,	 	100).
 -define(SCTP_OPT_ASSOCINFO,	 	101).

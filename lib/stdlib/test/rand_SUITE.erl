@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,13 +18,19 @@
 %% %CopyrightEnd%
 
 -module(rand_SUITE).
--export([all/0, suite/0,groups/0]).
+-compile({nowarn_deprecated_function,[{random,seed,1},
+                                      {random,uniform_s,1},
+                                      {random,uniform_s,2}]}).
+
+-export([all/0, suite/0, groups/0, group/1]).
 
 -export([interval_int/1, interval_float/1, seed/1,
          api_eq/1, reference/1,
 	 basic_stats_uniform_1/1, basic_stats_uniform_2/1,
+	 basic_stats_standard_normal/1,
 	 basic_stats_normal/1,
-	 plugin/1, measure/1]).
+	 plugin/1, measure/1,
+	 reference_jump_state/1, reference_jump_procdict/1]).
 
 -export([test/0, gen/1]).
 
@@ -41,27 +47,40 @@ all() ->
      api_eq,
      reference,
      {group, basic_stats},
-     plugin, measure].
+     plugin, measure,
+     {group, reference_jump}
+    ].
 
 groups() ->
     [{basic_stats, [parallel],
-      [basic_stats_uniform_1, basic_stats_uniform_2, basic_stats_normal]}].
+      [basic_stats_uniform_1, basic_stats_uniform_2,
+       basic_stats_standard_normal]},
+     {reference_jump, [parallel],
+      [reference_jump_state, reference_jump_procdict]}].
+
+group(basic_stats) ->
+    %% valgrind needs a lot of time
+    [{timetrap,{minutes,10}}];
+group(reference_jump) ->
+    %% valgrind needs a lot of time
+    [{timetrap,{minutes,10}}].
 
 %% A simple helper to test without test_server during dev
 test() ->
     Tests = all(),
-    lists:foreach(fun(Test) ->
-			  try
-			      ok = ?MODULE:Test([]),
-			      io:format("~p: ok~n", [Test])
-			  catch _:Reason ->
-				  io:format("Failed: ~p: ~p ~p~n",
-					    [Test, Reason, erlang:get_stacktrace()])
-			  end
-		  end, Tests).
+    lists:foreach(
+      fun (Test) ->
+              try
+                  ok = ?MODULE:Test([]),
+                  io:format("~p: ok~n", [Test])
+              catch _:Reason ->
+                      io:format("Failed: ~p: ~p ~p~n",
+                                [Test, Reason, erlang:get_stacktrace()])
+              end
+      end, Tests).
 
 algs() ->
-    [exs64, exsplus, exs1024].
+    [exs64, exsplus, exsp, exrop, exs1024, exs1024s].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -210,17 +229,17 @@ interval_float_1(0) -> ok;
 interval_float_1(N) ->
     X = rand:uniform(),
     if
-	0.0 < X, X < 1.0 ->
+	0.0 =< X, X < 1.0 ->
 	    ok;
 	true ->
-	    io:format("X=~p 0<~p<1.0~n", [X,X]),
+	    io:format("X=~p 0=<~p<1.0~n", [X,X]),
 	    exit({X, rand:export_seed()})
     end,
     interval_float_1(N-1).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Check if exs64 algorithm generates the proper sequence.
+%% Check if each algorithm generates the proper sequence.
 reference(Config) when is_list(Config) ->
     [reference_1(Alg) || Alg <- algs()],
     ok.
@@ -230,33 +249,39 @@ reference_1(Alg) ->
     Testval = gen(Alg),
     case Refval =:= Testval of
         true -> ok;
+        false when Refval =:= not_implemented ->
+            exit({not_implemented,Alg});
         false ->
 	    io:format("Failed: ~p~n",[Alg]),
 	    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
 	    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
-	    ok
+	    exit(wrong_value)
     end.
 
 gen(Algo) ->
-    Seed = case Algo of
-	       exsplus -> %% Printed with orig 'C' code and this seed
-		   rand:seed_s({exsplus, [12345678|12345678]});
-	       exs64 -> %% Printed with orig 'C' code and this seed
-		   rand:seed_s({exs64, 12345678});
-	       exs1024 -> %% Printed with orig 'C' code and this seed
-		   rand:seed_s({exs1024, {lists:duplicate(16, 12345678), []}});
-	       _ ->
-		   rand:seed(Algo, {100, 200, 300})
-	   end,
-    gen(?LOOP, Seed, []).
+    State =
+        case Algo of
+            exs64 -> %% Printed with orig 'C' code and this seed
+                rand:seed_s({exs64, 12345678});
+            _ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
+                %% Printed with orig 'C' code and this seed
+                rand:seed_s({Algo, [12345678|12345678]});
+            _ when Algo =:= exs1024; Algo =:= exs1024s ->
+                %% Printed with orig 'C' code and this seed
+                rand:seed_s({Algo, {lists:duplicate(16, 12345678), []}});
+            _ ->
+                rand:seed(Algo, {100, 200, 300})
+        end,
+    Max = range(State),
+    gen(?LOOP, State, Max, []).
 
-gen(N, State0 = {#{max:=Max}, _}, Acc) when N > 0 ->
+gen(N, State0, Max, Acc) when N > 0 ->
     {Random, State} = rand:uniform_s(Max, State0),
     case N rem (?LOOP div 100) of
-	0 -> gen(N-1, State, [Random|Acc]);
-	_ -> gen(N-1, State, Acc)
+	0 -> gen(N-1, State, Max, [Random|Acc]);
+	_ -> gen(N-1, State, Max, Acc)
     end;
-gen(_, _, Acc) -> lists:reverse(Acc).
+gen(_, _, _, Acc) -> lists:reverse(Acc).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This just tests the basics so we have not made any serious errors
@@ -267,22 +292,46 @@ gen(_, _, Acc) -> lists:reverse(Acc).
 %% Check that the algorithms generate sound values.
 
 basic_stats_uniform_1(Config) when is_list(Config) ->
-    ct:timetrap({minutes,6}), %% valgrind needs a lot of time
+    ct:timetrap({minutes,15}), %% valgrind needs a lot of time
     [basic_uniform_1(?LOOP, rand:seed_s(Alg), 0.0, array:new([{default, 0}]))
      || Alg <- algs()],
     ok.
 
 basic_stats_uniform_2(Config) when is_list(Config) ->
-    ct:timetrap({minutes,6}), %% valgrind needs a lot of time
+    ct:timetrap({minutes,15}), %% valgrind needs a lot of time
     [basic_uniform_2(?LOOP, rand:seed_s(Alg), 0, array:new([{default, 0}]))
      || Alg <- algs()],
     ok.
 
-basic_stats_normal(Config) when is_list(Config) ->
+basic_stats_standard_normal(Config) when is_list(Config) ->
     ct:timetrap({minutes,6}), %% valgrind needs a lot of time
-    io:format("Testing normal~n",[]),
-    [basic_normal_1(?LOOP, rand:seed_s(Alg), 0, 0) || Alg <- algs()],
+    io:format("Testing standard normal~n",[]),
+    IntendedMean = 0,
+    IntendedVariance = 1,
+    [basic_normal_1(?LOOP, IntendedMean, IntendedVariance,
+                    rand:seed_s(Alg), 0, 0)
+     || Alg <- algs()],
     ok.
+
+basic_stats_normal(Config) when is_list(Config) ->
+    IntendedMeans = [-1.0e6, -50, -math:pi(), -math:exp(-1),
+                     0.12345678, math:exp(1), 100, 1.0e6],
+    IntendedVariances = [1.0e-6, math:exp(-1), 1, math:pi(), 1.0e6],
+    IntendedMeanVariancePairs =
+        [{Mean, Variance} || Mean <- IntendedMeans,
+                             Variance <- IntendedVariances],
+
+    ct:timetrap({minutes, 6 * length(IntendedMeanVariancePairs)}), %% valgrind needs a lot of time
+    lists:foreach(
+      fun ({IntendedMean, IntendedVariance}) ->
+              ct:pal(
+                "Testing normal(~.2f, ~.2f)~n",
+                [float(IntendedMean), float(IntendedVariance)]),
+              [basic_normal_1(?LOOP, IntendedMean, IntendedVariance,
+                              rand:seed_s(Alg), 0, 0)
+               || Alg <- algs()]
+      end,
+      IntendedMeanVariancePairs).
 
 basic_uniform_1(N, S0, Sum, A0) when N > 0 ->
     {X,S} = rand:uniform_s(S0),
@@ -291,11 +340,11 @@ basic_uniform_1(N, S0, Sum, A0) when N > 0 ->
     basic_uniform_1(N-1, S, Sum+X, A);
 basic_uniform_1(0, {#{type:=Alg}, _}, Sum, A) ->
     AverN = Sum / ?LOOP,
-    io:format("~.10w: Average: ~.4f~n", [Alg, AverN]),
+    io:format("~.12w: Average: ~.4f~n", [Alg, AverN]),
     Counters = array:to_list(A),
     Min = lists:min(Counters),
     Max = lists:max(Counters),
-    io:format("~.10w: Min: ~p Max: ~p~n", [Alg, Min, Max]),
+    io:format("~.12w: Min: ~p Max: ~p~n", [Alg, Min, Max]),
 
     %% Verify that the basic statistics are ok
     %% be gentle we don't want to see to many failing tests
@@ -310,11 +359,11 @@ basic_uniform_2(N, S0, Sum, A0) when N > 0 ->
     basic_uniform_2(N-1, S, Sum+X, A);
 basic_uniform_2(0, {#{type:=Alg}, _}, Sum, A) ->
     AverN = Sum / ?LOOP,
-    io:format("~.10w: Average: ~.4f~n", [Alg, AverN]),
+    io:format("~.12w: Average: ~.4f~n", [Alg, AverN]),
     Counters = tl(array:to_list(A)),
     Min = lists:min(Counters),
     Max = lists:max(Counters),
-    io:format("~.10w: Min: ~p Max: ~p~n", [Alg, Min, Max]),
+    io:format("~.12w: Min: ~p Max: ~p~n", [Alg, Min, Max]),
 
     %% Verify that the basic statistics are ok
     %% be gentle we don't want to see to many failing tests
@@ -323,107 +372,443 @@ basic_uniform_2(0, {#{type:=Alg}, _}, Sum, A) ->
     abs(?LOOP div 100 - Max) < 1000 orelse ct:fail({max, Alg, Max}),
     ok.
 
-basic_normal_1(N, S0, Sum, Sq) when N > 0 ->
-    {X,S} = rand:normal_s(S0),
-    basic_normal_1(N-1, S, X+Sum, X*X+Sq);
-basic_normal_1(0, {#{type:=Alg}, _}, Sum, SumSq) ->
-    Mean = Sum / ?LOOP,
-    StdDev =  math:sqrt((SumSq - (Sum*Sum/?LOOP))/(?LOOP - 1)),
-    io:format("~.10w: Average: ~7.4f StdDev ~6.4f~n", [Alg, Mean, StdDev]),
+basic_normal_1(N, IntendedMean, IntendedVariance, S0, StandardSum, StandardSq) when N > 0 ->
+    {X,S} = normal_s(IntendedMean, IntendedVariance, S0),
+    % We now shape X into a standard normal distribution (in case it wasn't already)
+    % in order to minimise the accumulated error on Sum / SumSq;
+    % otherwise said error would prevent us of making a fair judgment on
+    % the overall distribution when targeting large means and variances.
+    StandardX = (X - IntendedMean) / math:sqrt(IntendedVariance),
+    basic_normal_1(N-1, IntendedMean, IntendedVariance, S,
+                   StandardX+StandardSum, StandardX*StandardX+StandardSq);
+basic_normal_1(0, _IntendedMean, _IntendedVariance, {#{type:=Alg}, _}, StandardSum, StandardSumSq) ->
+    StandardMean = StandardSum / ?LOOP,
+    StandardVariance = (StandardSumSq - (StandardSum*StandardSum/?LOOP))/(?LOOP - 1),
+    StandardStdDev =  math:sqrt(StandardVariance),
+    io:format("~.12w: Standardised Average: ~7.4f, Standardised StdDev ~6.4f~n",
+              [Alg, StandardMean, StandardStdDev]),
     %% Verify that the basic statistics are ok
     %% be gentle we don't want to see to many failing tests
-    abs(Mean) < 0.005 orelse ct:fail({average, Alg, Mean}),
-    abs(StdDev - 1.0) < 0.005 orelse ct:fail({stddev, Alg, StdDev}),
+    abs(StandardMean) < 0.005 orelse ct:fail({average, Alg, StandardMean}),
+    abs(StandardStdDev - 1.0) < 0.005 orelse ct:fail({stddev, Alg, StandardStdDev}),
     ok.
+
+normal_s(Mean, Variance, State0) when Mean == 0, Variance == 1 ->
+    % Make sure we're also testing the standard normal interface
+    rand:normal_s(State0);
+normal_s(Mean, Variance, State0) ->
+    rand:normal_s(Mean, Variance, State0).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Test that the user can write algorithms.
 plugin(Config) when is_list(Config) ->
-    _ = lists:foldl(fun(_, S0) ->
-			    {V1, S1} = rand:uniform_s(10000, S0),
-			    true = is_integer(V1),
-			    {V2, S2} = rand:uniform_s(S1),
-			    true = is_float(V2),
-			    S2
-		    end, crypto_seed(), lists:seq(1, 200)),
-    ok.
+    try crypto:strong_rand_bytes(1) of
+        <<_>> ->
+            _ = lists:foldl(
+                  fun(_, S0) ->
+                          {V1, S1} = rand:uniform_s(10000, S0),
+                          true = is_integer(V1),
+                          {V2, S2} = rand:uniform_s(S1),
+                          true = is_float(V2),
+                          S2
+                  end, crypto64_seed(), lists:seq(1, 200)),
+            ok
+    catch
+        error:low_entropy ->
+            {skip,low_entropy};
+        error:undef ->
+            {skip,no_crypto}
+    end.
 
 %% Test implementation
-crypto_seed() ->
-    {#{type=>crypto,
-       max=>(1 bsl 64)-1,
-       next=>fun crypto_next/1,
-       uniform=>fun crypto_uniform/1,
-       uniform_n=>fun crypto_uniform_n/2},
+crypto64_seed() ->
+    {#{type=>crypto64,
+       bits=>64,
+       next=>fun crypto64_next/1,
+       uniform=>fun crypto64_uniform/1,
+       uniform_n=>fun crypto64_uniform_n/2},
      <<>>}.
 
 %% Be fair and create bignums i.e. 64bits otherwise use 58bits
-crypto_next(<<Num:64, Bin/binary>>) ->
+crypto64_next(<<Num:64, Bin/binary>>) ->
     {Num, Bin};
-crypto_next(_) ->
-    crypto_next(crypto:strong_rand_bytes((64 div 8)*100)).
+crypto64_next(_) ->
+    crypto64_next(crypto:strong_rand_bytes((64 div 8)*100)).
 
-crypto_uniform({Api, Data0}) ->
-    {Int, Data} = crypto_next(Data0),
+crypto64_uniform({Api, Data0}) ->
+    {Int, Data} = crypto64_next(Data0),
     {Int / (1 bsl 64), {Api, Data}}.
 
-crypto_uniform_n(N, {Api, Data0}) when N < (1 bsl 64) ->
-    {Int, Data} = crypto_next(Data0),
+crypto64_uniform_n(N, {Api, Data0}) when N < (1 bsl 64) ->
+    {Int, Data} = crypto64_next(Data0),
     {(Int rem N)+1, {Api, Data}};
-crypto_uniform_n(N, State0) ->
-    {F,State} = crypto_uniform(State0),
+crypto64_uniform_n(N, State0) ->
+    {F,State} = crypto64_uniform(State0),
     {trunc(F * N) + 1, State}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% Not a test but measures the time characteristics of the different algorithms
-measure(Suite) when is_atom(Suite) -> [];
-measure(_Config) ->
-    ct:timetrap({minutes,6}), %% valgrind needs a lot of time
-    Algos = [crypto64|algs()],
-    io:format("RNG uniform integer performance~n",[]),
-    _ = measure_1(random, fun(State) -> {int, random:uniform_s(10000, State)} end),
-    _ = [measure_1(Algo, fun(State) -> {int, rand:uniform_s(10000, State)} end) || Algo <- Algos],
-    io:format("RNG uniform float performance~n",[]),
-    _ = measure_1(random, fun(State) -> {uniform, random:uniform_s(State)} end),
-    _ = [measure_1(Algo, fun(State) -> {uniform, rand:uniform_s(State)} end) || Algo <- Algos],
-    io:format("RNG normal float performance~n",[]),
-    io:format("~.10w: not implemented (too few bits)~n", [random]),
-    _ = [measure_1(Algo, fun(State) -> {normal, rand:normal_s(State)} end) || Algo <- Algos],
+measure(Config) ->
+    ct:timetrap({minutes,60}), %% valgrind needs a lot of time
+    case ct:get_timetrap_info() of
+        {_,{_,1}} -> % No scaling
+            do_measure(Config);
+        {_,{_,Scale}} ->
+            {skip,{will_not_run_in_scaled_time,Scale}}
+    end.
+
+do_measure(_Config) ->
+    Algos =
+        try crypto:strong_rand_bytes(1) of
+            <<_>> -> [crypto64, crypto]
+        catch
+            error:low_entropy -> [];
+            error:undef -> []
+        end ++ algs(),
+    %%
+    ct:pal("RNG uniform integer performance~n",[]),
+    TMark1 =
+        measure_1(
+          random,
+          fun (_) -> 10000 end,
+          undefined,
+          fun (Range, State) ->
+                  {int, random:uniform_s(Range, State)}
+          end),
+    _ =
+        [measure_1(
+           Algo,
+           fun (_) -> 10000 end,
+           TMark1,
+           fun (Range, State) ->
+                   {int, rand:uniform_s(Range, State)}
+           end) || Algo <- Algos],
+    %%
+    ct:pal("~nRNG uniform integer half range performance~n",[]),
+    HalfRangeFun = fun (State) -> half_range(State) end,
+    TMark2 =
+        measure_1(
+          random,
+          HalfRangeFun,
+          undefined,
+          fun (Range, State) ->
+                  {int, random:uniform_s(Range, State)}
+          end),
+    _ =
+        [measure_1(
+           Algo,
+           HalfRangeFun,
+           TMark2,
+           fun (Range, State) ->
+                   {int, rand:uniform_s(Range, State)}
+           end) || Algo <- Algos],
+    %%
+    ct:pal("~nRNG uniform integer half range + 1  performance~n",[]),
+    HalfRangePlus1Fun = fun (State) -> half_range(State) + 1 end,
+    TMark3 =
+        measure_1(
+          random,
+          HalfRangePlus1Fun,
+          undefined,
+          fun (Range, State) ->
+                  {int, random:uniform_s(Range, State)}
+          end),
+    _ =
+        [measure_1(
+           Algo,
+           HalfRangePlus1Fun,
+           TMark3,
+           fun (Range, State) ->
+                   {int, rand:uniform_s(Range, State)}
+           end) || Algo <- Algos],
+    %%
+    ct:pal("~nRNG uniform integer full range - 1 performance~n",[]),
+    FullRangeMinus1Fun = fun (State) -> (half_range(State) bsl 1) - 1 end,
+    TMark4 =
+        measure_1(
+          random,
+          FullRangeMinus1Fun,
+          undefined,
+          fun (Range, State) ->
+                  {int, random:uniform_s(Range, State)}
+          end),
+    _ =
+        [measure_1(
+           Algo,
+           FullRangeMinus1Fun,
+           TMark4,
+           fun (Range, State) ->
+                   {int, rand:uniform_s(Range, State)}
+           end) || Algo <- Algos],
+    %%
+    ct:pal("~nRNG uniform integer full range performance~n",[]),
+    FullRangeFun = fun (State) -> half_range(State) bsl 1 end,
+    TMark5 =
+        measure_1(
+          random,
+          FullRangeFun,
+          undefined,
+          fun (Range, State) ->
+                  {int, random:uniform_s(Range, State)}
+          end),
+    _ =
+        [measure_1(
+           Algo,
+           FullRangeFun,
+           TMark5,
+           fun (Range, State) ->
+                   {int, rand:uniform_s(Range, State)}
+           end) || Algo <- Algos],
+    %%
+    ct:pal("~nRNG uniform integer full range + 1 performance~n",[]),
+    FullRangePlus1Fun = fun (State) -> (half_range(State) bsl 1) + 1 end,
+    TMark6 =
+        measure_1(
+          random,
+          FullRangePlus1Fun,
+          undefined,
+          fun (Range, State) ->
+                  {int, random:uniform_s(Range, State)}
+          end),
+    _ =
+        [measure_1(
+           Algo,
+           FullRangePlus1Fun,
+           TMark6,
+           fun (Range, State) ->
+                   {int, rand:uniform_s(Range, State)}
+           end) || Algo <- Algos],
+    %%
+    ct:pal("~nRNG uniform integer double range performance~n",[]),
+    DoubleRangeFun = fun (State) -> half_range(State) bsl 2 end,
+    TMark7 =
+        measure_1(
+          random,
+          DoubleRangeFun,
+          undefined,
+          fun (Range, State) ->
+                  {int, random:uniform_s(Range, State)}
+          end),
+    _ =
+        [measure_1(
+           Algo,
+           DoubleRangeFun,
+           TMark7,
+           fun (Range, State) ->
+                   {int, rand:uniform_s(Range, State)}
+           end) || Algo <- Algos],
+    %%
+    ct:pal("~nRNG uniform integer double range + 1  performance~n",[]),
+    DoubleRangePlus1Fun = fun (State) -> (half_range(State) bsl 2) + 1 end,
+    TMark8 =
+        measure_1(
+          random,
+          DoubleRangePlus1Fun,
+          undefined,
+          fun (Range, State) ->
+                  {int, random:uniform_s(Range, State)}
+          end),
+    _ =
+        [measure_1(
+           Algo,
+           DoubleRangePlus1Fun,
+           TMark8,
+           fun (Range, State) ->
+                   {int, rand:uniform_s(Range, State)}
+           end) || Algo <- Algos],
+    %%
+    ct:pal("~nRNG uniform float performance~n",[]),
+    TMark9 =
+        measure_1(
+          random,
+          fun (_) -> 0 end,
+          undefined,
+          fun (_, State) ->
+                  {uniform, random:uniform_s(State)}
+          end),
+    _ =
+        [measure_1(
+           Algo, 
+           fun (_) -> 0 end,
+           TMark9,
+           fun (_, State) ->
+                   {uniform, rand:uniform_s(State)}
+           end) || Algo <- Algos],
+    %%
+    ct:pal("~nRNG normal float performance~n",[]),
+    io:format("~.12w: not implemented (too few bits)~n", [random]),
+    _ = [measure_1(
+           Algo,
+           fun (_) -> 0 end,
+           TMark9,
+           fun (_, State) ->
+                   {normal, rand:normal_s(State)}
+           end) || Algo <- Algos],
     ok.
 
-measure_1(Algo, Gen) ->
+measure_1(Algo, RangeFun, TMark, Gen) ->
     Parent = self(),
-    Seed = fun(crypto64) -> crypto_seed();
-	      (random) -> random:seed(os:timestamp()), get(random_seed);
-	      (Alg) -> rand:seed_s(Alg)
-	   end,
-
-    Pid = spawn_link(fun() ->
-			     Fun = fun() -> measure_2(?LOOP, Seed(Algo), Gen) end,
-			     {Time, ok} = timer:tc(Fun),
-			     io:format("~.10w: ~pµs~n", [Algo, Time]),
-			     Parent ! {self(), ok},
-			     normal
-		     end),
+    Seed =
+        case Algo of
+            crypto64 ->
+                crypto64_seed();
+            crypto ->
+                crypto:rand_seed_s();
+            random ->
+                random:seed(os:timestamp()), get(random_seed);
+            _ ->
+                rand:seed_s(Algo)
+        end,
+    Range = RangeFun(Seed),
+    Pid = spawn_link(
+            fun() ->
+                    Fun = fun() -> measure_2(?LOOP, Range, Seed, Gen) end,
+                    {Time, ok} = timer:tc(Fun),
+                    Percent =
+                        case TMark of
+                            undefined -> 100;
+                            _ -> (Time * 100 + 50) div TMark
+                        end,
+                    io:format(
+                      "~.12w: ~p ns ~p% [16#~.16b]~n",
+                      [Algo, (Time * 1000 + 500) div ?LOOP, Percent, Range]),
+                    Parent ! {self(), Time},
+                    normal
+            end),
     receive
 	{Pid, Msg} -> Msg
     end.
 
-measure_2(N, State0, Fun) when N > 0 ->
-    case Fun(State0) of
+measure_2(N, Range, State0, Fun) when N > 0 ->
+    case Fun(Range, State0) of
 	{int, {Random, State}}
-	  when is_integer(Random), Random >= 1, Random =< 100000 ->
-	    measure_2(N-1, State, Fun);
-	{uniform, {Random, State}} when is_float(Random), Random > 0, Random < 1 ->
-	    measure_2(N-1, State, Fun);
+	  when is_integer(Random), Random >= 1, Random =< Range ->
+	    measure_2(N-1, Range, State, Fun);
+	{uniform, {Random, State}}
+          when is_float(Random), 0.0 =< Random, Random < 1.0 ->
+	    measure_2(N-1, Range, State, Fun);
 	{normal, {Random, State}} when is_float(Random) ->
-	    measure_2(N-1, State, Fun);
+	    measure_2(N-1, Range, State, Fun);
 	Res ->
 	    exit({error, Res, State0})
     end;
-measure_2(0, _, _) -> ok.
+measure_2(0, _, _, _) -> ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% The jump sequence tests has two parts
+%% for those with the functional API (jump/1)
+%% and for those with the internal state
+%% in process dictionary (jump/0).
+
+-define(LOOP_JUMP, (?LOOP div 1000)).
+
+%% Check if each algorithm generates the proper jump sequence
+%% with the functional API.
+reference_jump_state(Config) when is_list(Config) ->
+    [reference_jump_1(Alg) || Alg <- algs()],
+    ok.
+
+reference_jump_1(Alg) ->
+    Refval  = reference_jump_val(Alg),
+    Testval = gen_jump_1(Alg),
+    case Refval =:= Testval of
+        true -> ok;
+        false ->
+	    io:format("Failed: ~p~n",[Alg]),
+	    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
+	    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
+	    io:format("Vals ~p ~p~n",[Refval, Testval]),
+	    exit(wrong_value)
+    end.
+
+gen_jump_1(Algo) ->
+    State =
+        case Algo of
+            exs64 -> %% Test exception of not_implemented notice
+                try rand:jump(rand:seed_s(exs64))
+                catch
+                    error:not_implemented -> not_implemented
+                end;
+            _ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
+                %% Printed with orig 'C' code and this seed
+                rand:seed_s({Algo, [12345678|12345678]});
+            _ when Algo =:= exs1024; Algo =:= exs1024s ->
+                %% Printed with orig 'C' code and this seed
+                rand:seed_s({Algo, {lists:duplicate(16, 12345678), []}});
+            _ -> % unimplemented
+                not_implemented
+        end,
+    case State of
+        not_implemented -> [not_implemented];
+        _ ->
+            Max = range(State),
+            gen_jump_1(?LOOP_JUMP, State, Max, [])
+    end.
+
+gen_jump_1(N, State0, Max, Acc) when N > 0 ->
+    {_, State1} = rand:uniform_s(Max, State0),
+    {Random, State2} = rand:uniform_s(Max, rand:jump(State1)),
+    case N rem (?LOOP_JUMP div 100) of
+	0 -> gen_jump_1(N-1, State2, Max, [Random|Acc]);
+	_ -> gen_jump_1(N-1, State2, Max, Acc)
+    end;
+gen_jump_1(_, _, _, Acc) -> lists:reverse(Acc).
+
+
+%% Check if each algorithm generates the proper jump sequence
+%% with the internal state in the process dictionary.
+reference_jump_procdict(Config) when is_list(Config) ->
+    [reference_jump_0(Alg) || Alg <- algs()],
+    ok.
+
+reference_jump_0(Alg) ->
+    Refval  = reference_jump_val(Alg),
+    Testval = gen_jump_0(Alg),
+    case Refval =:= Testval of
+        true -> ok;
+        false ->
+	    io:format("Failed: ~p~n",[Alg]),
+	    io:format("Length ~p ~p~n",[length(Refval), length(Testval)]),
+	    io:format("Head ~p ~p~n",[hd(Refval), hd(Testval)]),
+	    exit(wrong_value)
+    end.
+
+gen_jump_0(Algo) ->
+    Seed = case Algo of
+	       exs64 -> %% Test exception of not_implemented notice
+                   try
+                       _ = rand:seed(exs64),
+                       rand:jump()
+                   catch
+                       error:not_implemented -> not_implemented
+                   end;
+	       _ when Algo =:= exsplus; Algo =:= exsp; Algo =:= exrop ->
+                   %% Printed with orig 'C' code and this seed
+		   rand:seed({Algo, [12345678|12345678]});
+	       _ when Algo =:= exs1024; Algo =:= exs1024s ->
+                   %% Printed with orig 'C' code and this seed
+		   rand:seed({Algo, {lists:duplicate(16, 12345678), []}});
+	       _ -> % unimplemented
+		   not_implemented
+	   end,
+    case Seed of
+        not_implemented -> [not_implemented];
+        _ ->
+            Max = range(Seed),
+            gen_jump_0(?LOOP_JUMP, Max, [])
+    end.
+
+gen_jump_0(N, Max, Acc) when N > 0 ->
+    _ = rand:uniform(Max),
+    _ = rand:jump(),
+    Random = rand:uniform(Max),
+    case N rem (?LOOP_JUMP div 100) of
+	0 -> gen_jump_0(N-1, Max, [Random|Acc]);
+	_ -> gen_jump_0(N-1, Max, Acc)
+    end;
+gen_jump_0(_, _, Acc) -> lists:reverse(Acc).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Data
@@ -506,4 +891,219 @@ reference_val(exsplus) ->
      16#6c6145ffa1169d,16#18ec2c393d45359,16#1f1a5f256e7130c,16#131cc2f49b8004f,
      16#36f715a249f4ec2,16#1c27629826c50d3,16#914d9a6648726a,16#27f5bf5ce2301e8,
      16#3dd493b8012970f,16#be13bed1e00e5c,16#ceef033b74ae10,16#3da38c6a50abe03,
-     16#15cbd1a421c7a8c,16#22794e3ec6ef3b1,16#26154d26e7ea99f,16#3a66681359a6ab6].
+     16#15cbd1a421c7a8c,16#22794e3ec6ef3b1,16#26154d26e7ea99f,16#3a66681359a6ab6];
+
+reference_val(exsp) ->
+    reference_val(exsplus);
+reference_val(exs1024s) ->
+    reference_val(exs1024);
+reference_val(exrop) ->
+%% #include <stdint.h>
+%% #include <stdio.h>
+%%
+%% uint64_t s[2];
+%% uint64_t next(void);
+%% /* Xoroshiro116+ PRNG here */
+%%
+%% int main(char *argv[]) {
+%%     int n;
+%%     uint64_t r;
+%%     s[0] = 12345678;
+%%     s[1] = 12345678;
+%%
+%%     for (n = 1000000;  n > 0;  n--) {
+%%         r = next();
+%%         if ((n % 10000) == 0) {
+%%             printf("%llu,", (unsigned long long) (r + 1));
+%%         }
+%%     }
+%%     printf("\n");
+%% }
+    [24691357,29089185972758626,135434857127264790,
+     277209758236304485,101045429972817342,
+     241950202080388093,283018380268425711,268233672110762489,
+     173241488791227202,245038518481669421,
+     253627577363613736,234979870724373477,115607127954560275,
+     96445882796968228,166106849348423677,
+     83614184550774836,109634510785746957,68415533259662436,
+     12078288820568786,246413981014863011,
+     96953486962147513,138629231038332640,206078430370986460,
+     11002780552565714,238837272913629203,
+     60272901610411077,148828243883348685,203140738399788939,
+     131001610760610046,30717739120305678,
+     262903815608472425,31891125663924935,107252017522511256,
+     241577109487224033,263801934853180827,
+     155517416581881714,223609336630639997,112175917931581716,
+     16523497284706825,201453767973653420,
+     35912153101632769,211525452750005043,96678037860996922,
+     70962216125870068,107383886372877124,
+     223441708670831233,247351119445661499,233235283318278995,
+     280646255087307741,232948506631162445,
+     %%
+     117394974124526779,55395923845250321,274512622756597759,
+     31754154862553492,222645458401498438,
+     161643932692872858,11771755227312868,93933211280589745,
+     92242631276348831,197206910466548143,
+     150370169849735808,229903773212075765,264650708561842793,
+     30318996509793571,158249985447105184,
+     220423733894955738,62892844479829080,112941952955911674,
+     203157000073363030,54175707830615686,
+     50121351829191185,115891831802446962,62298417197154985,
+     6569598473421167,69822368618978464,
+     176271134892968134,160793729023716344,271997399244980560,
+     59100661824817999,150500611720118722,
+     23707133151561128,25156834940231911,257788052162304719,
+     176517852966055005,247173855600850875,
+     83440973524473396,94711136045581604,154881198769946042,
+     236537934330658377,152283781345006019,
+     250789092615679985,78848633178610658,72059442721196128,
+     98223942961505519,191144652663779840,
+     102425686803727694,89058927716079076,80721467542933080,
+     8462479817391645,2774921106204163].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+reference_jump_val(exsplus) ->
+    [82445318862816932, 145810727464480743, 16514517716894509, 247642377064868650,
+     162385642339156908, 251810707075252101, 82288275771998924, 234412731596926322,
+     49960883129071044, 200690077681656596, 213743196668671647, 131182800982967108,
+     144200072021941728, 263557425008503277, 194858522616874272, 185869394820993172,
+     80384502675241453, 262654144824057588, 90033295011291362, 4494510449302659,
+     226005372746479588, 116780561309220553, 47048528594475843, 39168929349768743,
+     139615163424415552, 55330632656603925, 237575574720486569, 102381140288455025,
+     18452933910354323, 150248612130579752, 269358096791922740, 61313433522002187,
+     160327361842676597, 185187983548528938, 57378981505594193, 167510799293984067,
+     105117045862954303, 176126685946302943, 123590876906828803, 69185336947273487,
+     9098689247665808, 49906154674145057, 131575138412788650, 161843880211677185,
+     30743946051071186, 187578920583823612, 45008401528636978, 122454158686456658,
+     111195992644229524, 17962783958752862, 13579507636941108, 130137843317798663,
+     144202635170576832, 132539563255093922, 159785575703967124, 187241848364816640,
+     183044737781926478, 12921559769912263, 83553932242922001, 96698298841984688,
+     281664320227537824, 224233030818578263, 77812932110318774, 169729351013291728,
+     164475402723178734, 242780633011249051, 51095111179609125, 19249189591963554,
+     221412426221439180, 265700202856282653, 265342254311932308, 241218503498385511,
+     255400887248486575, 212083616929812076, 227947034485840579, 268261881651571692,
+     104846262373404908, 49690734329496661, 213259196633566308, 186966479726202436,
+     282157378232384574, 11272948584603747, 166540426999573480, 50628164001018755,
+     65235580992800860, 230664399047956956, 64575592354687978, 40519393736078511,
+     108341851194332747, 115426411532008961, 120656817002338193, 234537867870809797,
+     12504080415362731, 45083100453836317, 270968267812126657, 93505647407734103,
+     252852934678537969, 258758309277167202, 74250882143432077, 141629095984552833];
+
+reference_jump_val(exs1024) ->
+    [2655961906500790629, 17003395417078685063, 10466831598958356428, 7603399148503548021,
+     1650550950190587188, 12294992315080723704, 15743995773860389219, 5492181000145247327,
+     14118165228742583601, 1024386975263610703, 10124872895886669513, 6445624517813169301,
+     6238575554686562601, 14108646153524288915, 11804141635807832816, 8421575378006186238,
+     6354993374304550369, 838493020029548163, 14759355804308819469, 12212491527912522022,
+     16943204735100571602, 198964074252287588, 7325922870779721649, 15853102065526570574,
+     16294058349151823341, 6153379962047409781, 15874031679495957261, 17299265255608442340,
+     984658421210027171, 17408042033939375278, 3326465916992232353, 5222817718770538733,
+     13262385796795170510, 15648751121811336061, 6718721549566546451, 7353765235619801875,
+     16110995049882478788, 14559143407227563441, 4189805181268804683, 10938587948346538224,
+     1635025506014383478, 12619562911869525411, 17469465615861488695, 125252234176411528,
+     2004192558503448853, 13175467866790974840, 17712272336167363518, 1710549840100880318,
+     17486892343528340916, 5337910082227550967, 8333082060923612691, 6284787745504163856,
+     8072221024586708290, 6077032673910717705, 11495200863352251610, 11722792537523099594,
+     14642059504258647996, 8595733246938141113, 17223366528010341891, 17447739753327015776,
+     6149800490736735996, 11155866914574313276, 7123864553063709909, 15982886296520662323,
+     5775920250955521517, 8624640108274906072, 8652974210855988961, 8715770416136907275,
+     11841689528820039868, 10991309078149220415, 11758038663970841716, 7308750055935299261,
+     15939068400245256963, 6920341533033919644, 8017706063646646166, 15814376391419160498,
+     13529376573221932937, 16749061963269842448, 14639730709921425830, 3265850480169354066,
+     4569394597532719321, 16594515239012200038, 13372824240764466517, 16892840440503406128,
+     11260004846380394643, 2441660009097834955, 10566922722880085440, 11463315545387550692,
+     5252492021914937692, 10404636333478845345, 11109538423683960387, 5525267334484537655,
+     17936751184378118743, 4224632875737239207, 15888641556987476199, 9586888813112229805,
+     9476861567287505094, 14909536929239540332, 17996844556292992842, 2699310519182298856];
+
+reference_jump_val(exsp) ->
+    reference_jump_val(exsplus);
+reference_jump_val(exs1024s) ->
+    reference_jump_val(exs1024);
+reference_jump_val(exs64) -> [not_implemented];
+reference_jump_val(exrop) ->
+%% #include <stdint.h>
+%% #include <stdio.h>
+%%
+%% uint64_t s[2];
+%% uint64_t next(void);
+%% /* Xoroshiro116+ PRNG here */
+%%
+%% int main(char *argv[]) {
+%%     int n;
+%%     uint64_t r;
+%%     s[0] = 12345678;
+%%     s[1] = 12345678;
+
+%%     for (n = 1000;  n > 0;  n--) {
+%%         next();
+%%         jump();
+%%         r = next();
+%%         if ((n % 10) == 0) {
+%%             printf("%llu,", (unsigned long long) (r + 1));
+%%         }
+%%     }
+%%     printf("\n");
+%% }
+    [60301713907476001,135397949584721850,4148159712710727,
+     110297784509908316,18753463199438866,
+     106699913259182846,2414728156662676,237591345910610406,
+     48519427605486503,38071665570452612,
+     235484041375354592,45428997361037927,112352324717959775,
+     226084403445232507,270797890380258829,
+     160587966336947922,80453153271416820,222758573634013699,
+     195715386237881435,240975253876429810,
+     93387593470886224,23845439014202236,235376123357642262,
+     22286175195310374,239068556844083490,
+     120126027410954482,250690865061862527,113265144383673111,
+     57986825640269127,206087920253971490,
+     265971029949338955,40654558754415167,185972161822891882,
+     72224917962819036,116613804322063968,
+     129103518989198416,236110607653724474,98446977363728314,
+     122264213760984600,55635665885245081,
+     42625530794327559,288031254029912894,81654312180555835,
+     261800844953573559,144734008151358432,
+     77095621402920587,286730580569820386,274596992060316466,
+     97977034409404188,5517946553518132,
+     %%
+     56460292644964432,252118572460428657,38694442746260303,
+     165653145330192194,136968555571402812,
+     64905200201714082,257386366768713186,22702362175273017,
+     208480936480037395,152926769756967697,
+     256751159334239189,130982960476845557,21613531985982870,
+     87016962652282927,130446710536726404,
+     188769410109327420,282891129440391928,251807515151187951,
+     262029034126352975,30694713572208714,
+     46430187445005589,176983177204884508,144190360369444480,
+     14245137612606100,126045457407279122,
+     169277107135012393,42599413368851184,130940158341360014,
+     113412693367677211,119353175256553456,
+     96339829771832349,17378172025472134,110141940813943768,
+     253735613682893347,234964721082540068,
+     85668779779185140,164542570671430062,18205512302089755,
+     282380693509970845,190996054681051049,
+     250227633882474729,171181147785250210,55437891969696407,
+     241227318715885854,77323084015890802,
+     1663590009695191,234064400749487599,222983191707424780,
+     254956809144783896,203898972156838252].
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% The old algorithms used a range 2^N - 1 for their reference val
+%% tests, which was incorrect but works as long as you do not draw
+%% the value 2^N, which is very unlikely.  It was not possible
+%% to simply correct the range to 2^N due to another incorrectness
+%% in that the old algorithms changed to using the broken
+%% (multiply a float approach with too few bits) approach for
+%% ranges >= 2^N.  This function digs out the range to use
+%% for the reference tests for old and new algorithms.
+range({#{bits:=Bits}, _}) -> 1 bsl Bits;
+range({#{max:=Max}, _}) -> Max; %% Old incorrect range
+range({_, _, _}) -> 51. % random
+
+
+half_range({#{bits:=Bits}, _}) -> 1 bsl (Bits - 1);
+half_range({#{max:=Max}, _}) -> (Max bsr 1) + 1;
+half_range({#{}, _}) -> 1 bsl 63; % crypto
+half_range({_, _, _}) -> 1 bsl 50. % random

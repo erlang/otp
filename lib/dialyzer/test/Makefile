@@ -12,7 +12,9 @@ AUXILIARY_FILES=\
 	dialyzer_common.erl\
 	file_utils.erl\
 	dialyzer_SUITE.erl\
-	plt_SUITE.erl
+	abstract_SUITE.erl\
+	plt_SUITE.erl\
+	typer_SUITE.erl
 
 # ----------------------------------------------------
 # Release directory specification

@@ -16,7 +16,7 @@ To start slapd:
 
 This will however not work, since slapd is guarded by apparmor that checks that slapd does not access other than allowed files...
 
-To make a local extension of alowed operations:
+To make a local extension of allowed operations:
     sudo emacs /etc/apparmor.d/local/usr.sbin.slapd
 
 and, after the change (yes, at least on Ubuntu it is right to edit ../local/.. but run with another file):

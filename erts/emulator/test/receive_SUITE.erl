@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -34,30 +34,45 @@ suite() ->
 all() -> 
     [call_with_huge_message_queue, receive_in_between].
 
-groups() -> 
-    [].
-
 call_with_huge_message_queue(Config) when is_list(Config) ->
     Pid = spawn_link(fun echo_loop/0),
-
-    {Time,ok} = tc(fun() -> calls(10, Pid) end),
-
-    [self() ! {msg,N} || N <- lists:seq(1, 500000)],
-    erlang:garbage_collect(),
-    {NewTime1,ok} = tc(fun() -> calls(10, Pid) end),
-    {NewTime2,ok} = tc(fun() -> calls(10, Pid) end),
-
+    _WarmUpTime = time_calls(Pid),
+    Time = time_calls(Pid),
+    _ = [self() ! {msg,N} || N <- lists:seq(1, 500000)],
     io:format("Time for empty message queue: ~p", [Time]),
-    io:format("Time1 for huge message queue: ~p", [NewTime1]),
-    io:format("Time2 for huge message queue: ~p", [NewTime2]),
+    erlang:garbage_collect(),
+    call_with_huge_message_queue_1(Pid, Time, 5).
 
-    case hd(lists:sort([(NewTime1+1) / (Time+1), (NewTime2+1) / (Time+1)])) of
-	Q when Q < 10 ->
-	    ok;
-	Q ->
-	    ct:fail("Best Q = ~p", [Q])
-    end,
-    ok.
+call_with_huge_message_queue_1(_Pid, _Time, 0) ->
+    ct:fail(bad_ratio);
+call_with_huge_message_queue_1(Pid, Time, NumTries) ->
+    HugeTime = time_calls(Pid),
+    io:format("Time for huge message queue: ~p", [HugeTime]),
+
+    case (HugeTime+1) / (Time+1) of
+        Q when Q < 10 ->
+            ok;
+        Q ->
+            io:format("Too high ratio: ~p\n", [Q]),
+            call_with_huge_message_queue_1(Pid, Time, NumTries-1)
+    end.
+
+%% Time a number calls. Try to avoid returning a zero time.
+time_calls(Pid) ->
+    time_calls(Pid, 10).
+
+time_calls(_Pid, 0) ->
+    0;
+time_calls(Pid, NumTries) ->
+    case timer:tc(fun() -> calls(Pid) end) of
+        {0,ok} ->
+            time_calls(Pid, NumTries-1);
+        {Time,ok} ->
+            Time
+    end.
+
+calls(Pid) ->
+    calls(100, Pid).
 
 calls(0, _) -> ok;
 calls(N, Pid) ->
@@ -108,6 +123,3 @@ echo_loop() ->
 	    Pid ! {Ref,Msg},
 	    echo_loop()
     end.
-
-tc(Fun) ->
-    timer:tc(erlang, apply, [Fun,[]]).

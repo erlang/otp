@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -640,8 +640,8 @@ handle_call({install_release, Vsn, ErrorAction, Opts}, From, S) ->
 	    {noreply, NS};
 	{'EXIT', Reason} ->
 	    io:format("release_handler:"
-		      "install_release(Vsn=~p Opts=~p) failed, "
-		      "Reason=~p~n", [Vsn, Opts, Reason]),
+		      "install_release(Vsn=~tp Opts=~tp) failed, "
+		      "Reason=~tp~n", [Vsn, Opts, Reason]),
 	    gen_server:reply(From, {error, Reason}),
 	    case ErrorAction of
 		restart ->
@@ -831,7 +831,7 @@ do_unpack_release(Root, RelDir, ReleaseName, Releases) ->
     Tar = filename:join(RelDir, ReleaseName ++ ".tar.gz"),
     do_check_file(Tar, regular),
     Rel = ReleaseName ++ ".rel",
-    extract_rel_file(filename:join("releases", Rel), Tar, Root),
+    _ = extract_rel_file(filename:join("releases", Rel), Tar, Root),
     RelFile = filename:join(RelDir, Rel),
     Release = check_rel(Root, RelFile, false),
     #release{vsn = Vsn} = Release,
@@ -1124,7 +1124,7 @@ new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
 	    {ok,[FC]} ->
 		FC;
 	    {error,Error1} ->
-		io:format("Warning: ~w can not read ~p: ~p~n",
+		io:format("Warning: ~w can not read ~tp: ~tp~n",
 			  [?MODULE,FromFile,Error1]),
 		[]
 	end,
@@ -1134,7 +1134,7 @@ new_emulator_make_hybrid_config(CurrentVsn,ToVsn,TmpVsn,RelDir,Masters) ->
 	    {ok,[ToConfig]} ->
 		[lists:keyfind(App,1,ToConfig) || App <- [kernel,stdlib,sasl]];
 	    {error,Error2} ->
-		io:format("Warning: ~w can not read ~p: ~p~n",
+		io:format("Warning: ~w can not read ~tp: ~tp~n",
 			  [?MODULE,ToFile,Error2]),
 		[false,false,false]
 	end,
@@ -1807,7 +1807,7 @@ check_opt_file(FileName, Type, Masters) ->
 	ok ->
 	    true;
 	_Error ->
-	    io:format("Warning: ~p missing (optional)~n", [FileName]),
+	    io:format("Warning: ~tp missing (optional)~n", [FileName]),
 	    false
     end.
 
@@ -1841,14 +1841,12 @@ do_check_file(Master, FileName, Type) ->
 %% by the user in another way, i.e. ignore this here.
 %%-----------------------------------------------------------------
 extract_rel_file(Rel, Tar, Root) ->
-    erl_tar:extract(Tar, [{files, [Rel]}, {cwd, Root}, compressed]).
+    _ = erl_tar:extract(Tar, [{files, [Rel]}, {cwd, Root}, compressed]).
 
 extract_tar(Root, Tar) ->
     case erl_tar:extract(Tar, [keep_old_files, {cwd, Root}, compressed]) of
 	ok ->
 	    ok;
-	{error, Reason, Name} ->		% Old erl_tar.
-	    throw({error, {cannot_extract_file, Name, Reason}});
 	{error, {Name, Reason}} ->		% New erl_tar (R3A).
 	    throw({error, {cannot_extract_file, Name, Reason}})
     end.

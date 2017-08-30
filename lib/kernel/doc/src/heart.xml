@@ -37,10 +37,7 @@
       the <c>heart</c> port program is to check that the Erlang runtime system
       it is supervising is still running. If the port program has not
       received any heartbeats within <c>HEART_BEAT_TIMEOUT</c> seconds
-      (defaults to 60 seconds), the system can be rebooted. Also, if
-      the system is equipped with a hardware watchdog timer and is
-      running Solaris, the watchdog can be used to supervise the entire
-      system.</p>
+      (defaults to 60 seconds), the system can be rebooted.</p>
     <p>An Erlang runtime system to be monitored by a heart program
       is to be started with command-line flag <c>-heart</c> (see
       also <seealso marker="erts:erl"><c>erl(1)</c></seealso>).
@@ -51,17 +48,13 @@
       or a terminated Erlang runtime system, environment variable
       <c>HEART_COMMAND</c> must be set before the system is started.
       If this variable is not set, a warning text is printed but
-      the system does not reboot. However, if the hardware watchdog is
-      used, it still triggers a reboot <c>HEART_BEAT_BOOT_DELAY</c>
-      seconds later (defaults to 60 seconds).</p>
+      the system does not reboot.</p>
     <p>To reboot on Windows, <c>HEART_COMMAND</c> can be
       set to <c>heart -shutdown</c> (included in the Erlang delivery)
       or to any other suitable program that can activate a reboot.</p>
-    <p>The hardware watchdog is not started under Solaris if
-      environment variable <c>HW_WD_DISABLE</c> is set.</p>
-    <p>The environment variables <c>HEART_BEAT_TIMEOUT</c> and
-      <c>HEART_BEAT_BOOT_DELAY</c> can be used to configure the heart
-      time-outs; they can be set in the operating system shell before Erlang
+    <p>The environment variable <c>HEART_BEAT_TIMEOUT</c>
+      can be used to configure the heart
+      time-outs; it can be set in the operating system shell before Erlang
       is started or be specified at the command line:</p>
     <pre>
 % <input>erl -heart -env HEART_BEAT_TIMEOUT 30 ...</input></pre>
@@ -83,7 +76,7 @@
       <c><![CDATA[SIGKILL]]></c>:</p>
     <pre>
 % <input>erl -heart -env HEART_KILL_SIGNAL SIGABRT ...</input></pre>
-  <p> If heart should <b>not</b> kill the Erlang runtime system, this can be indicated
+  <p> If heart should <em>not</em> kill the Erlang runtime system, this can be indicated
       using the environment variable <c><![CDATA[HEART_NO_KILL=TRUE]]></c>.
       This can be useful if the command executed by heart takes care of this,
       for example as part of a specific cleanup sequence. 

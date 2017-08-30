@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -302,7 +302,7 @@ stats(?RELAY1, L) ->
                              %% RAR x 2 (send_timeout_[12])
      {{{0,257,0},recv},3},   %% CEA
      {{{0,257,0},send},1},   %%  "
-     {{{0,257,1},recv},1},   %% CER 
+     {{{0,257,1},recv},1},   %% CER
      {{{0,257,1},send},3},   %%  "
      {{{relay,0},recv,{'Result-Code',2001}},2},  %% STA x 2 (send[34])
      {{{relay,0},recv,{'Result-Code',3005}},1},  %% ASA     (send_loop)

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -50,9 +50,9 @@
 	 finished/5,  next_protocol/1]).
 
 %% Handle handshake messages
--export([certify/10, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
-	 master_secret/5, server_key_exchange_hash/2, verify_connection/6,
-	 init_handshake_history/0, update_handshake_history/2, verify_server_key/5
+-export([certify/6, client_certificate_verify/6, certificate_verify/6, verify_signature/5,
+	 master_secret/4, server_key_exchange_hash/2, verify_connection/6,
+	 init_handshake_history/0, update_handshake_history/3, verify_server_key/5
 	]).
 
 %% Encode/Decode
@@ -64,17 +64,17 @@
 	]).
 
 %% Cipher suites handling
--export([available_suites/2, available_signature_algs/3, cipher_suites/2,
+-export([available_suites/2, available_signature_algs/2, cipher_suites/2,
 	 select_session/11, supported_ecc/1, available_signature_algs/4]).
 
 %% Extensions handling
--export([client_hello_extensions/6,
+-export([client_hello_extensions/5,
 	 handle_client_hello_extensions/9, %% Returns server hello extensions
-	 handle_server_hello_extensions/9, select_curve/2
+	 handle_server_hello_extensions/9, select_curve/2, select_curve/3
 	]).
 
 %% MISC
--export([select_version/3, prf/6, select_hashsign/5,
+-export([select_version/3, prf/6,  select_hashsign/4, select_hashsign/5,
 	 select_hashsign_algs/3,
 	 premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
@@ -94,15 +94,14 @@ hello_request() ->
     #hello_request{}.
 
 %%--------------------------------------------------------------------
--spec server_hello(#session{}, ssl_record:ssl_version(), #connection_states{},
+-spec server_hello(#session{}, ssl_record:ssl_version(), ssl_record:connection_states(),
 		   #hello_extensions{}) -> #server_hello{}.
 %%
 %% Description: Creates a server hello message.
 %%--------------------------------------------------------------------
 server_hello(SessionId, Version, ConnectionStates, Extensions) ->
-    Pending = ssl_record:pending_connection_state(ConnectionStates, read),
-    SecParams = Pending#connection_state.security_parameters,
-
+    #{security_parameters := SecParams} = 
+	ssl_record:pending_connection_state(ConnectionStates, read),
     #server_hello{server_version = Version,
 		  cipher_suite = SecParams#security_parameters.cipher_suite,
                   compression_method =
@@ -120,12 +119,13 @@ server_hello(SessionId, Version, ConnectionStates, Extensions) ->
 server_hello_done() ->
     #server_hello_done{}.
 
-client_hello_extensions(Host, Version, CipherSuites, 
-			#ssl_options{signature_algs = SupportedHashSigns, versions = AllVersions} = SslOpts, ConnectionStates, Renegotiation) ->
+client_hello_extensions(Version, CipherSuites, 
+			#ssl_options{signature_algs = SupportedHashSigns,
+				     eccs = SupportedECCs} = SslOpts, ConnectionStates, Renegotiation) ->
     {EcPointFormats, EllipticCurves} =
 	case advertises_ec_ciphers(lists:map(fun ssl_cipher:suite_definition/1, CipherSuites)) of
 	    true ->
-		client_ecc_extensions(tls_v1, Version);
+		client_ecc_extensions(SupportedECCs);
 	    false ->
 		{undefined, undefined}
 	end,
@@ -135,14 +135,14 @@ client_hello_extensions(Host, Version, CipherSuites,
        renegotiation_info = renegotiation_info(tls_record, client,
 					       ConnectionStates, Renegotiation),
        srp = SRP,
-       signature_algs = available_signature_algs(SupportedHashSigns, Version, AllVersions),
+       signature_algs = available_signature_algs(SupportedHashSigns, Version),
        ec_point_formats = EcPointFormats,
        elliptic_curves = EllipticCurves,
        alpn = encode_alpn(SslOpts#ssl_options.alpn_advertised_protocols, Renegotiation),
        next_protocol_negotiation =
 	   encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector,
 					      Renegotiation),
-       sni = sni(Host, SslOpts#ssl_options.server_name_indication)}.
+       sni = sni(SslOpts#ssl_options.server_name_indication)}.
 
 %%--------------------------------------------------------------------
 -spec certificate(der_cert(), db_handle(), certdb_ref(), client | server) -> #certificate{} | #alert{}.
@@ -335,9 +335,8 @@ verify_server_key(#server_key_params{params_bin = EncParams,
 				     signature = Signature},
 		  HashSign = {HashAlgo, _},
 		  ConnectionStates, Version, PubKeyInfo) ->
-    ConnectionState =
+    #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
-    SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
     Hash = server_key_exchange_hash(HashAlgo,
@@ -389,25 +388,26 @@ verify_signature(_, Hash, {HashAlgo, _SignAlg}, Signature,
 
 
 %%--------------------------------------------------------------------
--spec certify(#certificate{}, db_handle(), certdb_ref(), integer() | nolimit,
-	      verify_peer | verify_none, {fun(), term}, fun(), term(), term(),
+-spec certify(#certificate{}, db_handle(), certdb_ref(), #ssl_options{}, term(),
 	      client | server) ->  {der_cert(), public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
-	MaxPathLen, _Verify, ValidationFunAndState0, PartialChain, CRLCheck, CRLDbHandle, Role) ->
-    [PeerCert | _] = ASN1Certs,
-        
-    ValidationFunAndState = validation_fun_and_state(ValidationFunAndState0, Role, 
-						     CertDbHandle, CertDbRef,  CRLCheck, CRLDbHandle),
+        Opts, CRLDbHandle, Role) ->    
 
+    [PeerCert | _] = ASN1Certs,       
     try
 	{TrustedCert, CertPath}  =
-	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef, PartialChain),
+	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef,  
+                                                  Opts#ssl_options.partial_chain),
+        ValidationFunAndState = validation_fun_and_state(Opts#ssl_options.verify_fun, Role, 
+                                                         CertDbHandle, CertDbRef,  
+                                                         Opts#ssl_options.server_name_indication,
+                                                         Opts#ssl_options.crl_check, CRLDbHandle, CertPath),
 	case public_key:pkix_path_validation(TrustedCert,
 					     CertPath,
-					     [{max_path_length, MaxPathLen},
+					     [{max_path_length,  Opts#ssl_options.depth},
 					      {verify_fun, ValidationFunAndState}]) of
 	    {ok, {PublicKeyInfo,_}} ->
 		{PeerCert, PublicKeyInfo};
@@ -447,7 +447,7 @@ init_handshake_history() ->
     {[], []}.
 
 %%--------------------------------------------------------------------
--spec update_handshake_history(ssl_handshake:ssl_handshake_history(), Data ::term()) ->
+-spec update_handshake_history(ssl_handshake:ssl_handshake_history(), Data ::term(), boolean()) ->
 				      ssl_handshake:ssl_handshake_history().
 %%
 %% Description: Update the handshake history buffer with Data.
@@ -457,14 +457,14 @@ update_handshake_history(Handshake, % special-case SSL2 client hello
 			   ?UINT16(CSLength), ?UINT16(0),
 			   ?UINT16(CDLength),
 			   CipherSuites:CSLength/binary,
-			   ChallengeData:CDLength/binary>>) ->
+			   ChallengeData:CDLength/binary>>, true) ->
     update_handshake_history(Handshake,
 			     <<?CLIENT_HELLO, ?BYTE(Major), ?BYTE(Minor),
 			       ?UINT16(CSLength), ?UINT16(0),
 			       ?UINT16(CDLength),
 			       CipherSuites:CSLength/binary,
-			       ChallengeData:CDLength/binary>>);
-update_handshake_history({Handshake0, _Prev}, Data) ->
+			       ChallengeData:CDLength/binary>>, true);
+update_handshake_history({Handshake0, _Prev}, Data, _) ->
     {[Data|Handshake0], Handshake0}.
 
 %% %%--------------------------------------------------------------------
@@ -581,7 +581,7 @@ prf({3,_N}, PRFAlgo, Secret, Label, Seed, WantedLength) ->
 			     {atom(), atom()} | undefined  | #alert{}.
 
 %%
-%% Description: Handles signature_algorithms extension
+%% Description: Handles signature_algorithms hello extension (server)
 %%--------------------------------------------------------------------
 select_hashsign(_, undefined, _,  _, _Version) ->
     {null, anon};
@@ -593,14 +593,17 @@ select_hashsign(HashSigns, Cert, KeyExAlgo,
 select_hashsign(#hash_sign_algos{hash_sign_algos = HashSigns}, Cert, KeyExAlgo, SupportedHashSigns,
 		{Major, Minor}) when Major >= 3 andalso Minor >= 3 ->
     #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
-    #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    Sign = cert_sign(Algo),
-    case lists:filter(fun({sha, dsa = S}) when S == Sign ->
-			      true;
-			 ({_, dsa}) ->
-			      false;
-			 ({_, _} = Algos) ->
-			      is_acceptable_hash_sign(Algos, Sign, KeyExAlgo, SupportedHashSigns);
+    #'OTPCertificate'{tbsCertificate = TBSCert,
+		      signatureAlgorithm =  {_,SignAlgo, _}} = public_key:pkix_decode_cert(Cert, otp),
+    #'OTPSubjectPublicKeyInfo'{algorithm = {_, SubjAlgo, _}} = 
+     	TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+
+    Sign = sign_algo(SignAlgo),
+    SubSing = sign_algo(SubjAlgo),
+
+    case lists:filter(fun({_, S} = Algos) when S == Sign ->
+			      is_acceptable_hash_sign(Algos, Sign,
+						      SubSing, KeyExAlgo, SupportedHashSigns);
 			 (_)  ->
 			      false
 		      end, HashSigns) of
@@ -613,6 +616,49 @@ select_hashsign(_, Cert, _, _, Version) ->
     #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
     #'OTPSubjectPublicKeyInfo'{algorithm = {_,Algo, _}} = TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
     select_hashsign_algs(undefined, Algo, Version).
+%%--------------------------------------------------------------------
+-spec select_hashsign(#certificate_request{},  binary(), 
+		      [atom()], ssl_record:ssl_version()) ->
+			     {atom(), atom()} | #alert{}.
+
+%%
+%% Description: Handles signature algorithms selection for certificate requests (client) 
+%%--------------------------------------------------------------------
+select_hashsign(#certificate_request{}, undefined, _, {Major, Minor})  when Major >= 3 andalso Minor >= 3->
+    %% There client does not have a certificate and will send an empty reply, the server may fail 
+    %% or accept the connection by its own preference. No signature algorihms needed as there is
+    %% no certificate to verify.
+    {undefined, undefined}; 
+ 
+select_hashsign(#certificate_request{hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSigns}, 
+				     certificate_types = Types}, Cert, SupportedHashSigns, 
+		{Major, Minor})  when Major >= 3 andalso Minor >= 3->
+    #'OTPCertificate'{tbsCertificate = TBSCert} = public_key:pkix_decode_cert(Cert, otp),
+    #'OTPCertificate'{tbsCertificate = TBSCert,
+		      signatureAlgorithm =  {_,SignAlgo, _}} = public_key:pkix_decode_cert(Cert, otp),
+    #'OTPSubjectPublicKeyInfo'{algorithm = {_, SubjAlgo, _}} = 
+     	TBSCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
+
+    Sign = sign_algo(SignAlgo),
+    SubSign = sign_algo(SubjAlgo),
+    
+    case is_acceptable_cert_type(SubSign, HashSigns, Types) andalso is_supported_sign(Sign, HashSigns) of
+	true ->
+	    case lists:filter(fun({_, S} = Algos) when S == SubSign ->
+				 is_acceptable_hash_sign(Algos, SupportedHashSigns);
+			    (_)  ->
+				      false
+			      end, HashSigns) of
+		[] ->
+		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm);
+		[HashSign | _] ->
+		    HashSign
+	    end;
+	false ->
+	    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)
+    end;
+select_hashsign(#certificate_request{}, Cert, _, Version) ->
+    select_hashsign(undefined, Cert, undefined, [], Version).
 
 %%--------------------------------------------------------------------
 -spec select_hashsign_algs({atom(), atom()}| undefined, oid(), ssl_record:ssl_version()) ->
@@ -648,34 +694,34 @@ select_hashsign_algs(undefined, ?rsaEncryption, _) ->
 select_hashsign_algs(undefined, ?'id-dsa', _) ->
     {sha, dsa}.
 
+
 %%--------------------------------------------------------------------
--spec master_secret(atom(), ssl_record:ssl_version(), #session{} | binary(), #connection_states{},
-		   client | server) -> {binary(), #connection_states{}} | #alert{}.
+-spec master_secret(ssl_record:ssl_version(), #session{} | binary(), ssl_record:connection_states(),
+		   client | server) -> {binary(), ssl_record:connection_states()} | #alert{}.
 %%
 %% Description: Sets or calculates the master secret and calculate keys,
 %% updating the pending connection states. The Mastersecret and the update
 %% connection states are returned or an alert if the calculation fails.
 %%-------------------------------------------------------------------
-master_secret(RecordCB, Version, #session{master_secret = Mastersecret},
+master_secret(Version, #session{master_secret = Mastersecret},
 	      ConnectionStates, Role) ->
-    ConnectionState =
+    #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
-    SecParams = ConnectionState#connection_state.security_parameters,
-    try master_secret(RecordCB, Version, Mastersecret, SecParams,
+    try master_secret(Version, Mastersecret, SecParams,
 		      ConnectionStates, Role)
     catch
 	exit:_ ->
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, key_calculation_failure)
     end;
 
-master_secret(RecordCB, Version, PremasterSecret, ConnectionStates, Role) ->
-    ConnectionState =
+master_secret(Version, PremasterSecret, ConnectionStates, Role) ->
+    #{security_parameters := SecParams} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
-    SecParams = ConnectionState#connection_state.security_parameters,
+    
     #security_parameters{prf_algorithm = PrfAlgo,
 			 client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams,
-    try master_secret(RecordCB, Version,
+    try master_secret(Version,
 		      calc_master_secret(Version,PrfAlgo,PremasterSecret,
 					 ClientRandom, ServerRandom),
 		      SecParams, ConnectionStates, Role)
@@ -1125,8 +1171,9 @@ select_session(SuggestedSessionId, CipherSuites, HashSigns, Compressions, Port, 
 	    {resumed, Resumed}
     end.
 
-supported_ecc({Major, Minor} = Version) when ((Major == 3) and (Minor >= 1)) orelse (Major > 3) ->
-    Curves = tls_v1:ecc_curves(Version),
+%% Deprecated?
+supported_ecc({Major, Minor}) when ((Major == 3) and (Minor >= 1)) orelse (Major > 3) ->
+    Curves = tls_v1:ecc_curves(Minor),
     #elliptic_curves{elliptic_curve_list = Curves};
 supported_ecc(_) ->
     #elliptic_curves{elliptic_curve_list = []}.
@@ -1143,11 +1190,13 @@ certificate_types(_, {N, M}) when N >= 3 andalso M >= 3 ->
     end;
 
 certificate_types({KeyExchange, _, _, _}, _) when KeyExchange == rsa;
+						  KeyExchange == dh_rsa;
 						  KeyExchange == dhe_rsa;
 						  KeyExchange == ecdhe_rsa ->
     <<?BYTE(?RSA_SIGN)>>;
 
-certificate_types({KeyExchange, _, _, _}, _)  when KeyExchange == dhe_dss;
+certificate_types({KeyExchange, _, _, _}, _)  when KeyExchange == dh_dss; 
+						   KeyExchange == dhe_dss;
 						   KeyExchange == srp_dss ->
     <<?BYTE(?DSS_SIGN)>>;
 
@@ -1170,13 +1219,18 @@ certificate_authorities(CertDbHandle, CertDbRef) ->
 	  end,
     list_to_binary([Enc(Cert) || {_, Cert} <- Authorities]).
 
-certificate_authorities_from_db(CertDbHandle, CertDbRef) ->
+certificate_authorities_from_db(CertDbHandle, CertDbRef) when is_reference(CertDbRef) ->
     ConnectionCerts = fun({{Ref, _, _}, Cert}, Acc) when Ref  == CertDbRef ->
 			      [Cert | Acc];
 			 (_, Acc) ->
 			      Acc
 		      end,
-    ssl_pkix_db:foldl(ConnectionCerts, [], CertDbHandle).
+    ssl_pkix_db:foldl(ConnectionCerts, [], CertDbHandle);
+certificate_authorities_from_db(_CertDbHandle, {extracted, CertDbData}) ->
+    %% Cache disabled, Ref contains data
+    lists:foldl(fun({decoded, {_Key,Cert}}, Acc) -> [Cert | Acc] end,
+		[], CertDbData).
+
 
 %%-------------Extension handling --------------------------------
 
@@ -1256,35 +1310,67 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
     end.
 
 select_version(RecordCB, ClientVersion, Versions) ->
-    ServerVersion = RecordCB:highest_protocol_version(Versions),
-    RecordCB:lowest_protocol_version(ClientVersion, ServerVersion).
+    do_select_version(RecordCB, ClientVersion, Versions).
+
+do_select_version(_, ClientVersion, []) ->
+    ClientVersion;
+do_select_version(RecordCB, ClientVersion, [Version | Versions]) ->
+    case RecordCB:is_higher(Version, ClientVersion) of
+	true ->
+	    %% Version too high for client - keep looking
+	    do_select_version(RecordCB, ClientVersion, Versions);
+	false ->
+	    %% Version ok for client - look for a higher
+	    do_select_version(RecordCB, ClientVersion, Versions, Version)
+    end.
+%%
+do_select_version(_, _, [], GoodVersion) ->
+    GoodVersion;
+do_select_version(
+  RecordCB, ClientVersion, [Version | Versions], GoodVersion) ->
+    BetterVersion =
+	case RecordCB:is_higher(Version, ClientVersion) of
+	    true ->
+		%% Version too high for client
+		GoodVersion;
+	    false ->
+		%% Version ok for client
+		case RecordCB:is_higher(Version, GoodVersion) of
+		    true ->
+			%% Use higher version
+			Version;
+		    false ->
+			GoodVersion
+		end
+	end,
+    do_select_version(RecordCB, ClientVersion, Versions, BetterVersion).
 
 renegotiation_info(_, client, _, false) ->
     #renegotiation_info{renegotiated_connection = undefined};
 renegotiation_info(_RecordCB, server, ConnectionStates, false) ->
-    CS  = ssl_record:current_connection_state(ConnectionStates, read),
-    case CS#connection_state.secure_renegotiation of
+    ConnectionState  = ssl_record:current_connection_state(ConnectionStates, read),
+    case maps:get(secure_renegotiation, ConnectionState) of
 	true ->
 	    #renegotiation_info{renegotiated_connection = ?byte(0)};
 	false ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end;
 renegotiation_info(_RecordCB, client, ConnectionStates, true) ->
-    CS = ssl_record:current_connection_state(ConnectionStates, read),
-    case CS#connection_state.secure_renegotiation of
+    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
+    case  maps:get(secure_renegotiation, ConnectionState) of
 	true ->
-	    Data = CS#connection_state.client_verify_data,
+	    Data = maps:get(client_verify_data, ConnectionState),
 	    #renegotiation_info{renegotiated_connection = Data};
 	false ->
 	    #renegotiation_info{renegotiated_connection = undefined}
     end;
 
 renegotiation_info(_RecordCB, server, ConnectionStates, true) ->
-    CS = ssl_record:current_connection_state(ConnectionStates, read),
-    case CS#connection_state.secure_renegotiation of
+    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
+    case maps:get(secure_renegotiation, ConnectionState) of
 	true ->
-	    CData = CS#connection_state.client_verify_data,
-	    SData  =CS#connection_state.server_verify_data,
+	    CData = maps:get(client_verify_data, ConnectionState),
+	    SData = maps:get(server_verify_data, ConnectionState),
 	    #renegotiation_info{renegotiated_connection = <<CData/binary, SData/binary>>};
 	false ->
 	    #renegotiation_info{renegotiated_connection = undefined}
@@ -1307,9 +1393,9 @@ handle_renegotiation_info(_RecordCB, _, undefined, ConnectionStates, false, _, _
 
 handle_renegotiation_info(_RecordCB, client, #renegotiation_info{renegotiated_connection = ClientServerVerify},
 			  ConnectionStates, true, _, _) ->
-    CS = ssl_record:current_connection_state(ConnectionStates, read),
-    CData = CS#connection_state.client_verify_data,
-    SData = CS#connection_state.server_verify_data,
+    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
+    CData = maps:get(client_verify_data, ConnectionState),
+    SData = maps:get(server_verify_data, ConnectionState),
     case <<CData/binary, SData/binary>> == ClientServerVerify of
 	true ->
 	    {ok, ConnectionStates};
@@ -1323,8 +1409,8 @@ handle_renegotiation_info(_RecordCB, server, #renegotiation_info{renegotiated_co
 	  true ->
               ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {server_renegotiation, empty_renegotiation_info_scsv});
 	  false ->
-	      CS = ssl_record:current_connection_state(ConnectionStates, read),
-	      Data = CS#connection_state.client_verify_data,
+	      ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
+	      Data =  maps:get(client_verify_data, ConnectionState),
 	      case Data == ClientVerify of
 		  true ->
 		      {ok, ConnectionStates};
@@ -1345,8 +1431,8 @@ handle_renegotiation_info(RecordCB, server, undefined, ConnectionStates, true, S
      end.
 
 handle_renegotiation_info(_RecordCB, ConnectionStates, SecureRenegotation) ->
-    CS = ssl_record:current_connection_state(ConnectionStates, read),
-    case {SecureRenegotation, CS#connection_state.secure_renegotiation} of
+    ConnectionState = ssl_record:current_connection_state(ConnectionStates, read),
+    case {SecureRenegotation, maps:get(secure_renegotiation, ConnectionState)} of
 	{_, true} ->
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, already_secure);
 	{true, false} ->
@@ -1371,12 +1457,12 @@ srp_user(#ssl_options{srp_identity = {UserName, _}}) ->
 srp_user(_) ->
     undefined.
 
-client_ecc_extensions(Module, Version) ->
+client_ecc_extensions(SupportedECCs) ->
     CryptoSupport = proplists:get_value(public_keys, crypto:supports()),
     case proplists:get_bool(ecdh, CryptoSupport) of
 	true ->
 	    EcPointFormats = #ec_point_formats{ec_point_format_list = [?ECPOINT_UNCOMPRESSED]},
-	    EllipticCurves = #elliptic_curves{elliptic_curve_list = Module:ecc_curves(Version)},
+	    EllipticCurves = SupportedECCs,
 	    {EcPointFormats, EllipticCurves};
 	_ ->
 	    {undefined, undefined}
@@ -1410,40 +1496,44 @@ advertises_ec_ciphers([{ecdh_anon, _,_,_} | _]) ->
     true;
 advertises_ec_ciphers([_| Rest]) ->
     advertises_ec_ciphers(Rest).
-select_curve(#elliptic_curves{elliptic_curve_list = ClientCurves}, 
-	     #elliptic_curves{elliptic_curve_list = ServerCurves}) -> 
-    select_curve(ClientCurves, ServerCurves);
-select_curve(undefined, _) ->
+
+select_curve(Client, Server) ->
+    select_curve(Client, Server, false).
+
+select_curve(#elliptic_curves{elliptic_curve_list = ClientCurves},
+	     #elliptic_curves{elliptic_curve_list = ServerCurves},
+	     ServerOrder) ->
+    case ServerOrder of
+        false ->
+            select_shared_curve(ClientCurves, ServerCurves);
+        true ->
+            select_shared_curve(ServerCurves, ClientCurves)
+    end;
+select_curve(undefined, _, _) ->
     %% Client did not send ECC extension use default curve if 
     %% ECC cipher is negotiated
-    {namedCurve, ?secp256r1};
-select_curve(_, []) ->
+    {namedCurve, ?secp256r1}.
+
+select_shared_curve([], _) ->
     no_curve;
-select_curve(Curves, [Curve| Rest]) ->
+select_shared_curve([Curve | Rest], Curves) ->
     case lists:member(Curve, Curves) of
 	true ->
 	    {namedCurve, Curve};
 	false ->
-	    select_curve(Curves, Rest)
+	    select_shared_curve(Rest, Curves)
     end.
-%% RFC 6066, Section 3: Currently, the only server names supported are
-%% DNS hostnames
-sni(_, disable) ->
-    undefined;
-sni(Host, undefined) ->
-    sni1(Host);
-sni(_Host, SNIOption) ->
-    sni1(SNIOption).
 
-sni1(Hostname) ->
-    case inet_parse:domain(Hostname) of
-        false -> undefined;
-        true -> #sni{hostname = Hostname}
-    end.
+sni(undefined) ->
+    undefined;
+sni(Hostname) ->
+    #sni{hostname = Hostname}.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle) ->
+validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef, 
+                         ServerNameIndication, CRLCheck, CRLDbHandle, CertPath) ->
     {fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
 	     case ssl_certificate:validate(OtpCert,
 					   Extension,
@@ -1452,24 +1542,29 @@ validation_fun_and_state({Fun, UserState0}, Role,  CertDbHandle, CertDbRef, CRLC
 		     {valid, {NewSslState, UserState}};
 		 {fail, Reason} ->
 		     apply_user_fun(Fun, OtpCert, Reason, UserState,
-				    SslState);
+				    SslState, CertPath);
 		 {unknown, _} ->
 		     apply_user_fun(Fun, OtpCert,
-				    Extension, UserState, SslState)
+				    Extension, UserState, SslState, CertPath)
 	     end;
 	(OtpCert, VerifyResult, {SslState, UserState}) ->
 	     apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
-			    SslState)
-     end, {{Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle}, UserState0}};
-validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle) ->
+			    SslState, CertPath)
+     end, {{Role, CertDbHandle, CertDbRef, ServerNameIndication, CRLCheck, CRLDbHandle}, UserState0}};
+validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef, 
+                         ServerNameIndication, CRLCheck, CRLDbHandle, CertPath) ->
     {fun(OtpCert, {extension, _} = Extension, SslState) ->
 	     ssl_certificate:validate(OtpCert,
 				      Extension,
 				      SslState);
-	(OtpCert, VerifyResult, SslState) when (VerifyResult == valid) or (VerifyResult == valid_peer) -> 
-	     case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, CRLDbHandle, VerifyResult) of
-		 valid ->
-		     {VerifyResult, SslState};
+	(OtpCert, VerifyResult, SslState) when (VerifyResult == valid) or 
+                                               (VerifyResult == valid_peer) -> 
+	     case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, 
+                            CRLDbHandle, VerifyResult, CertPath) of
+		 valid ->                     
+                     ssl_certificate:validate(OtpCert,
+                                              VerifyResult,
+                                              SslState);
 		 Reason ->
 		     {fail, Reason}
 	     end;
@@ -1477,23 +1572,24 @@ validation_fun_and_state(undefined, Role, CertDbHandle, CertDbRef, CRLCheck, CRL
 	     ssl_certificate:validate(OtpCert,
 				      VerifyResult,
 				      SslState)
-     end, {Role, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle}}.
+     end, {Role, CertDbHandle, CertDbRef, ServerNameIndication, CRLCheck, CRLDbHandle}}.
 
 apply_user_fun(Fun, OtpCert, VerifyResult, UserState0, 
-	       {_, CertDbHandle, CertDbRef, CRLCheck, CRLDbHandle} = SslState) when
+	       {_, CertDbHandle, CertDbRef, _, CRLCheck, CRLDbHandle} = SslState, CertPath) when
       (VerifyResult == valid) or (VerifyResult == valid_peer) ->
     case Fun(OtpCert, VerifyResult, UserState0) of
 	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer) ->
-	    case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, CRLDbHandle, VerifyResult) of
+	    case crl_check(OtpCert, CRLCheck, CertDbHandle, CertDbRef, 
+                           CRLDbHandle, VerifyResult, CertPath) of
 		valid ->
 		    {Valid, {SslState, UserState}};
 		Result ->
-		    apply_user_fun(Fun, OtpCert, Result, UserState, SslState)
+		    apply_user_fun(Fun, OtpCert, Result, UserState, SslState, CertPath)
 	    end;
 	{fail, _} = Fail ->
 	    Fail
     end;
-apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState) ->
+apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState, _CertPath) ->
     case Fun(OtpCert, ExtensionOrError, UserState0) of
 	{Valid, UserState} when (Valid == valid) or (Valid == valid_peer)->
 	    {Valid, {SslState, UserState}};
@@ -1564,7 +1660,7 @@ calc_finished({3, 0}, Role, _PrfAlgo, MasterSecret, Handshake) ->
 calc_finished({3, N}, Role, PrfAlgo, MasterSecret, Handshake) ->
     tls_v1:finished(Role, N, PrfAlgo, MasterSecret, lists:reverse(Handshake)).
 
-master_secret(_RecordCB, Version, MasterSecret,
+master_secret(Version, MasterSecret,
 	      #security_parameters{
 		 bulk_cipher_algorithm = BCA,
 		 client_random = ClientRandom,
@@ -1647,18 +1743,16 @@ hello_pending_connection_states(_RecordCB, Role, Version, CipherSuite, Random, C
 				    NewWriteSecParams,
 				    ConnectionStates).
 
-hello_security_parameters(client, Version, ConnectionState, CipherSuite, Random,
+hello_security_parameters(client, Version, #{security_parameters := SecParams}, CipherSuite, Random,
 			  Compression) ->
-    SecParams = ConnectionState#connection_state.security_parameters,
     NewSecParams = ssl_cipher:security_parameters(Version, CipherSuite, SecParams),
     NewSecParams#security_parameters{
       server_random = Random,
       compression_algorithm = Compression
      };
 
-hello_security_parameters(server, Version, ConnectionState, CipherSuite, Random,
+hello_security_parameters(server, Version, #{security_parameters := SecParams}, CipherSuite, Random,
 			  Compression) ->
-    SecParams = ConnectionState#connection_state.security_parameters,
     NewSecParams = ssl_cipher:security_parameters(Version, CipherSuite, SecParams),
     NewSecParams#security_parameters{
       client_random = Random,
@@ -2050,16 +2144,11 @@ is_member(Suite, SupportedSuites) ->
 select_compression(_CompressionMetodes) ->
     ?NULL.
 
-available_signature_algs(undefined, _, _)  ->
+available_signature_algs(undefined, _)  ->
     undefined;
-available_signature_algs(SupportedHashSigns, {Major, Minor}, AllVersions) when Major >= 3 andalso Minor >= 3 ->
-    case tls_record:lowest_protocol_version(AllVersions) of
-	{3, 3} ->
-	    #hash_sign_algos{hash_sign_algos = SupportedHashSigns};
-	_ ->
-	    undefined
-    end;	
-available_signature_algs(_, _, _) ->
+available_signature_algs(SupportedHashSigns, Version) when Version >= {3, 3} ->
+    #hash_sign_algos{hash_sign_algos = SupportedHashSigns};
+available_signature_algs(_, _) ->
     undefined.
 
 psk_secret(PSKIdentity, PSKLookup) ->
@@ -2091,13 +2180,14 @@ handle_psk_identity(_PSKIdentity, LookupFun)
 handle_psk_identity(PSKIdentity, {Fun, UserState}) ->
     Fun(psk, PSKIdentity, UserState).
 
-crl_check(_, false, _,_,_, _) ->
+crl_check(_, false, _,_,_, _, _) ->
     valid;
-crl_check(_, peer, _, _,_, valid) -> %% Do not check CAs with this option.
+crl_check(_, peer, _, _,_, valid, _) -> %% Do not check CAs with this option.
     valid;
-crl_check(OtpCert, Check, CertDbHandle, CertDbRef, {Callback, CRLDbHandle}, _) ->
+crl_check(OtpCert, Check, CertDbHandle, CertDbRef, {Callback, CRLDbHandle}, _, CertPath) ->
     Options = [{issuer_fun, {fun(_DP, CRL, Issuer, DBInfo) ->
-				     ssl_crl:trusted_cert_and_path(CRL, Issuer, DBInfo)
+				     ssl_crl:trusted_cert_and_path(CRL, Issuer, {CertPath,
+                                                                                 DBInfo})
 			     end, {CertDbHandle, CertDbRef}}}, 
 	       {update_crl, fun(DP, CRL) -> Callback:fresh_crl(DP, CRL) end}
 	      ],
@@ -2133,7 +2223,8 @@ dps_and_crls(OtpCert, Callback, CRLDbHandle, ext) ->
 	    no_dps;
 	DistPoints ->
 	    Issuer = OtpCert#'OTPCertificate'.tbsCertificate#'OTPTBSCertificate'.issuer,
-	    distpoints_lookup(DistPoints, Issuer, Callback, CRLDbHandle)
+	    CRLs = distpoints_lookup(DistPoints, Issuer, Callback, CRLDbHandle),
+            dps_and_crls(DistPoints, CRLs, [])
     end;
 
 dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer) ->    
@@ -2146,7 +2237,13 @@ dps_and_crls(OtpCert, Callback, CRLDbHandle, same_issuer) ->
 			 end, GenNames),
     [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs].
 
-distpoints_lookup([], _, _, _) ->
+dps_and_crls([], _, Acc) ->
+    Acc;
+dps_and_crls([DP | Rest], CRLs, Acc) ->
+    DpCRL = [{DP, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs],
+    dps_and_crls(Rest, CRLs, DpCRL ++ Acc).
+    
+distpoints_lookup([],_, _, _) ->
     [];
 distpoints_lookup([DistPoint | Rest], Issuer, Callback, CRLDbHandle) ->
     Result =
@@ -2161,29 +2258,77 @@ distpoints_lookup([DistPoint | Rest], Issuer, Callback, CRLDbHandle) ->
 	not_available ->
 	    distpoints_lookup(Rest, Issuer, Callback, CRLDbHandle);
 	CRLs ->
-	    [{DistPoint, {CRL, public_key:der_decode('CertificateList', CRL)}} ||  CRL <- CRLs]
+	    CRLs
     end.	
 
-cert_sign(?rsaEncryption) ->
+sign_algo(?rsaEncryption) ->
     rsa;
-cert_sign(?'id-ecPublicKey') ->
+sign_algo(?'id-ecPublicKey') ->
     ecdsa;
-cert_sign(?'id-dsa') ->
+sign_algo(?'id-dsa') ->
     dsa;
-cert_sign(Alg) ->
+sign_algo(Alg) ->
     {_, Sign} =public_key:pkix_sign_types(Alg),
     Sign.
 
-is_acceptable_hash_sign({_, Sign} = Algos, Sign, _, SupportedHashSigns) ->
-    is_acceptable_hash_sign(Algos, SupportedHashSigns);
-is_acceptable_hash_sign(Algos,_, KeyExAlgo, SupportedHashSigns) when KeyExAlgo == dh_ecdsa;
-								     KeyExAlgo == ecdh_rsa;    
-								     KeyExAlgo == ecdh_ecdsa ->
+is_acceptable_hash_sign(Algos, _, _, KeyExAlgo, SupportedHashSigns) when 
+      KeyExAlgo == dh_dss;
+      KeyExAlgo == dh_rsa;
+      KeyExAlgo == dh_ecdsa ->
+    %% dh_* could be called only dh in TLS-1.2
     is_acceptable_hash_sign(Algos, SupportedHashSigns); 
-is_acceptable_hash_sign(_,_,_,_) ->
-    false.
+is_acceptable_hash_sign(Algos, rsa, ecdsa, ecdh_rsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, rsa} = Algos, rsa, _, dhe_rsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, rsa} = Algos, rsa, rsa, ecdhe_rsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, rsa} = Algos, rsa, rsa, rsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, rsa} = Algos, rsa, _, srp_rsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, rsa} = Algos, rsa, _, rsa_psk, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, dsa} = Algos, dsa, _, dhe_dss, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, dsa} = Algos, dsa, _, srp_dss, SupportedHashSigns) ->  
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, _, dhe_ecdsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, ecdsa, ecdh_ecdsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign({_, ecdsa} = Algos, ecdsa, ecdsa, ecdhe_ecdsa, SupportedHashSigns) ->
+    is_acceptable_hash_sign(Algos, SupportedHashSigns); 
+is_acceptable_hash_sign(_, _, _, KeyExAlgo, _) when 
+      KeyExAlgo == psk;
+      KeyExAlgo == dhe_psk;
+      KeyExAlgo == srp_anon;
+      KeyExAlgo == dh_anon;
+      KeyExAlgo == ecdhe_anon     
+      ->
+    true; 
+is_acceptable_hash_sign(_,_, _,_,_) ->
+    false.					
+
 is_acceptable_hash_sign(Algos, SupportedHashSigns) ->
     lists:member(Algos, SupportedHashSigns).
+
+is_acceptable_cert_type(Sign, _HashSigns, Types) ->
+    lists:member(sign_type(Sign), binary_to_list(Types)).
+
+is_supported_sign(Sign, HashSigns) ->
+     [] =/=  lists:dropwhile(fun({_, S}) when S =/= Sign -> 
+				     true;
+				(_)-> 
+				     false 
+			     end, HashSigns).
+sign_type(rsa) ->
+    ?RSA_SIGN;
+sign_type(dsa) ->
+    ?DSS_SIGN;
+sign_type(ecdsa) ->
+    ?ECDSA_SIGN.
+
 
 bad_key(#'DSAPrivateKey'{}) ->
     unacceptable_dsa_key;
@@ -2192,11 +2337,11 @@ bad_key(#'RSAPrivateKey'{}) ->
 bad_key(#'ECPrivateKey'{}) ->
     unacceptable_ecdsa_key.
 
-available_signature_algs(undefined, SupportedHashSigns, _, {Major, Minor}) when 
-      (Major >= 3) andalso (Minor >= 3) ->
+available_signature_algs(undefined, SupportedHashSigns, _, Version) when 
+      Version >= {3,3} ->
     SupportedHashSigns;
 available_signature_algs(#hash_sign_algos{hash_sign_algos = ClientHashSigns}, SupportedHashSigns, 
-		     _, {Major, Minor}) when (Major >= 3) andalso (Minor >= 3) ->
+                         _, Version) when Version >= {3,3} ->
     sets:to_list(sets:intersection(sets:from_list(ClientHashSigns), 
 				   sets:from_list(SupportedHashSigns)));
 available_signature_algs(_, _, _, _) -> 

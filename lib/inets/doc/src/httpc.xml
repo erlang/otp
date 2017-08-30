@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2015</year>
+      <year>2004</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -68,11 +68,11 @@
       this module:</p>
     <p><c>boolean() = true | false</c></p>
     <p><c>string()</c> = list of ASCII characters</p>
-    <p><c>request_id() = ref()</c></p>
+    <p><c>request_id() = reference()</c></p>
     <p><c>profile() = atom()</c></p>
     <p><c>path() = string()</c> representing a file path or directory path</p>
     <p><c>ip_address()</c> = See the
-    <seealso marker="kernel:inet">inet(3)</seealso> manual page in <c>Kernel</c>.</p>
+    <seealso marker="kernel:inet">inet(3)</seealso> manual page in Kernel.</p>
     <p><c>socket_opt()</c> = See the options used by
     <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> <c>gen_tcp(3)</c> and 
     <seealso marker="ssl:ssl">ssl(3)</seealso> connect(s)</p>
@@ -83,7 +83,7 @@
     <title>HTTP DATA TYPES</title>
     <p>Type definitions related to HTTP:</p>
 
-    <p><c>method() = head | get | put | post | trace | options | delete</c></p>
+    <p><c>method() = head | get | put | post | trace | options | delete | patch</c></p>
     <taglist>
       <tag><c>request()</c></tag>
       <item><p>= <c>{url(), headers()}</c></p>
@@ -344,7 +344,7 @@
           <tag><c><![CDATA[ssl]]></c></tag>
           <item>
             <p>This is the <c>SSL/TLS</c> connectin configuration option.</p>
-            <p>Defaults to <c>[]</c>. See <seealso marker="ssl:ssl">ssl:connect/[2, 3,4]</seealso>  for availble options.</p>
+            <p>Defaults to <c>[]</c>. See <seealso marker="ssl:ssl">ssl:connect/[2,3,4]</seealso>  for available options.</p>
 	  </item>
 
           <tag><c><![CDATA[autoredirect]]></c></tag>

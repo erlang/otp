@@ -31,7 +31,29 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.4.1</title>
+   <section><title>IC 4.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Correct bugs when path to mib or idl spec files
+	    contains UTF-8 characters. </p>
+          <p>
+	    Own Id: OTP-13718 Aux Id: ERL-179 </p>
+        </item>
+        <item>
+          <p>
+	    Update build scripts to not make assumtions about where
+	    env, cp and perl are located.</p>
+          <p>
+	    Own Id: OTP-13800</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.4.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

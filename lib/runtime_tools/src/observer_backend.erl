@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 -export([vsn/0]).
 
 %% observer stuff
--export([sys_info/0, get_port_list/0,
+-export([sys_info/0, get_port_list/0, procs_info/1,
 	 get_table/3, get_table_list/2, fetch_stats/2]).
 
 %% etop stuff
@@ -141,13 +141,58 @@ get_mnesia_loop(Parent, {Match, Cont}) ->
     get_mnesia_loop(Parent, mnesia:select(Cont)).
 
 get_port_list() ->
+    ExtraItems = [monitors,monitored_by,parallelism,locking,queue_size,memory],
     [begin
 	 [{port_id,P}|erlang:port_info(P)] ++
-	     case erlang:port_info(P,monitors) of
-		 undefined -> [];
-		 Monitors -> [Monitors]
-	     end
+             port_info(P,ExtraItems) ++
+             inet_port_extra(erlang:port_info(P, name), P)
      end || P <- erlang:ports()].
+
+port_info(P,[Item|Items]) ->
+    case erlang:port_info(P,Item) of
+        undefined -> port_info(P,Items);
+        Value -> [Value|port_info(P,Items)]
+    end;
+port_info(_,[]) ->
+    [].
+
+inet_port_extra({_,Type},Port) when Type =:= "udp_inet";
+                                    Type =:= "tcp_inet";
+                                    Type =:= "sctp_inet" ->
+    Data =
+        case inet:getstat(Port) of
+            {ok, Stats} -> [{statistics, Stats}];
+            _ -> []
+        end ++
+        case inet:peername(Port) of
+            {ok, {RAddr,RPort}} when is_tuple(RAddr), is_integer(RPort) ->
+                [{remote_address,RAddr},{remote_port,RPort}];
+            {ok, RAddr} ->
+                [{remote_address,RAddr}];
+            {error, _} ->  []
+        end ++
+        case inet:sockname(Port) of
+            {ok, {LAddr,LPort}} when is_tuple(LAddr), is_integer(LPort) ->
+                [{local_address,LAddr},{local_port,LPort}];
+            {ok, LAddr} ->
+                [{local_address,LAddr}];
+            {error, _} -> []
+        end ++
+        case inet:getopts(Port,
+                          [active, broadcast, buffer, bind_to_device,
+                           delay_send, deliver, dontroute, exit_on_close,
+                           header, high_msgq_watermark, high_watermark,
+                           ipv6_v6only, keepalive, linger, low_msgq_watermark,
+                           low_watermark, mode, netns, nodelay, packet,
+                           packet_size, priority, read_packets, recbuf,
+                           reuseaddr, send_timeout, send_timeout_close,
+                           show_econnreset, sndbuf, tos, tclass]) of
+            {ok, Opts} -> [{options, Opts}];
+            {error, _} -> []
+        end,
+    [{inet,Data}];
+inet_port_extra(_,_) ->
+    [].
 
 get_table_list(ets, Opts) ->
     HideUnread = proplists:get_value(unread_hidden, Opts, true),
@@ -248,6 +293,23 @@ fetch_stats_loop(Parent, Time) ->
 			   try erlang:memory() catch _:_ -> [] end},
 	    fetch_stats_loop(Parent, Time)
     end.
+
+%%
+%% Chunk sending process info to etop/observer
+%%
+procs_info(Collector) ->
+    All = processes(),
+    Send = fun Send (Pids) ->
+                   try lists:split(10000, Pids) of
+                       {First, Rest} ->
+                           Collector ! {procs_info, self(), etop_collect(First, [])},
+                           Send(Rest)
+                   catch _:_ ->
+                           Collector ! {procs_info, self(), etop_collect(Pids, [])}
+                   end
+           end,
+    Send(All).
+
 %%
 %% etop backend
 %%
@@ -269,13 +331,12 @@ etop_collect(Collector) ->
 
     case SchedulerWallTime of
 	undefined ->
-	    spawn(fun() -> flag_holder_proc(Collector) end),
+            erlang:system_flag(scheduler_wall_time,true),
+            spawn(fun() -> flag_holder_proc(Collector) end),
             ok;
 	_ ->
 	    ok
-    end,
-
-    erlang:system_flag(scheduler_wall_time,true).
+    end.
 
 flag_holder_proc(Collector) ->
     Ref = erlang:monitor(process,Collector),

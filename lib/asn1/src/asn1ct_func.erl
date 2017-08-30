@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2012-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2012-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,7 +65,7 @@ generate(Fd) ->
     Funcs = sofs:to_external(Funcs0),
     ok = file:write(Fd, Funcs).
 
-is_used({_,_,_}=MFA) ->
+is_used({M,F,A}=MFA) when is_atom(M), is_atom(F), is_integer(A) ->
     req({is_used,MFA}).
 
 

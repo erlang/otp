@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Dustin Sallings, Michal Ptaszek, Scott Lystig Fritchie 2011-2016.
+ * Copyright Dustin Sallings, Michal Ptaszek, Scott Lystig Fritchie 2011-2017.
  * All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -74,7 +74,7 @@
 
 #if defined(_SDT_PROBE) && !defined(STAP_PROBE11)
 /* SLF: This is Ubuntu 11-style SystemTap hackery */
-/* work arround for missing STAP macro */
+/* workaround for missing STAP macro */
 #define STAP_PROBE11(provider,name,arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11) \
   _SDT_PROBE(provider, name, 11, \
              (arg1,arg2,arg3,arg4,arg5,arg6,arg7,arg8,arg9,arg10,arg11))

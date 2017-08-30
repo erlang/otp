@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,15 +26,13 @@
 
 %%-define(dist_debug, true).
 
-%-define(DBG,erlang:display([?MODULE,?LINE])).
-
 -ifdef(dist_debug).
 -define(debug(Term), erlang:display(Term)).
 -else.
 -define(debug(Term), ok).
 -endif.
 
--ifdef(DEBUG).
+-ifdef(dist_debug).
 -define(connect_failure(Node,Term),
 	io:format("Net Kernel 2: Failed connection to node ~p, reason ~p~n",
 		  [Node,Term])).
@@ -59,6 +57,8 @@
 	 connect_node/1,
 	 monitor_nodes/1,
 	 monitor_nodes/2,
+	 setopts/2,
+	 getopts/2,
 	 start/1,
 	 stop/0]).
 
@@ -111,7 +111,7 @@
 	 }).
 
 -record(listen, {
-		 listen,     %% listen pid
+		 listen,     %% listen socket
 		 accept,     %% accepting pid
 		 address,    %% #net_address
 		 module      %% proto module
@@ -384,7 +384,7 @@ init({Name, LongOrShortNames, TickT, CleanHalt}) ->
 			connections =
 			ets:new(sys_dist,[named_table,
 					  protected,
-					  {keypos, 2}]),
+					  {keypos, #connection.node}]),
 			listen = Listeners,
 			allowed = [],
 			verbose = 0
@@ -553,6 +553,38 @@ handle_call({new_ticktime,_T,_TP},
 	    From,
 	    #state{tick = #tick_change{time = T}} = State) ->
     async_reply({reply, {ongoing_change_to, T}, State}, From);
+
+handle_call({setopts, new, Opts}, From, State) ->
+    Ret = setopts_new(Opts, State),
+    async_reply({reply, Ret, State}, From);
+
+handle_call({setopts, Node, Opts}, From, State) ->
+    Return =
+	case ets:lookup(sys_dist, Node) of
+	    [Conn] when Conn#connection.state =:= up ->
+		case call_owner(Conn#connection.owner, {setopts, Opts}) of
+		    {ok, Ret} -> Ret;
+		    _ -> {error, noconnection}
+		end;
+
+	    _ ->
+		{error, noconnection}
+    end,
+    async_reply({reply, Return, State}, From);
+
+handle_call({getopts, Node, Opts}, From, State) ->
+    Return =
+	case ets:lookup(sys_dist, Node) of
+	    [Conn] when Conn#connection.state =:= up ->
+		case call_owner(Conn#connection.owner, {getopts, Opts}) of
+		    {ok, Ret} -> Ret;
+		    _ -> {error, noconnection}
+		end;
+
+	    _ ->
+		{error, noconnection}
+    end,
+    async_reply({reply, Return, State}, From);
 
 handle_call(_Msg, _From, State) ->
     {noreply, State}.
@@ -1230,11 +1262,22 @@ create_name(Name, LongOrShortNames, Try) ->
     {Head,Host1} = create_hostpart(Name, LongOrShortNames),
     case Host1 of
 	{ok,HostPart} ->
-	    {ok,list_to_atom(Head ++ HostPart)};
+            case valid_name_head(Head) of
+                true ->
+                    {ok,list_to_atom(Head ++ HostPart)};
+                false ->
+                    error_logger:info_msg("Invalid node name!\n"
+                                          "Please check your configuration\n"),
+                    {error, badarg}
+            end;
 	{error,long} when Try =:= 1 ->
 	    %% It could be we haven't read domain name from resolv file yet
 	    inet_config:do_load_resolv(os:type(), longnames),
 	    create_name(Name, LongOrShortNames, 0);
+        {error, hostname_not_allowed} ->
+            error_logger:info_msg("Invalid node name!\n"
+                                  "Please check your configuration\n"),
+            {error, badarg};
 	{error,Type} ->
 	    error_logger:info_msg(
 	      lists:concat(["Can\'t set ",
@@ -1247,12 +1290,13 @@ create_name(Name, LongOrShortNames, Try) ->
 create_hostpart(Name, LongOrShortNames) ->
     {Head,Host} = split_node(Name),
     Host1 = case {Host,LongOrShortNames} of
-		{[$@,_|_],longnames} ->
-		    {ok,Host};
+		{[$@,_|_] = Host,longnames} ->
+                    validate_hostname(Host);
 		{[$@,_|_],shortnames} ->
 		    case lists:member($.,Host) of
 			true -> {error,short};
-			_ -> {ok,Host}
+			_ ->
+                            validate_hostname(Host)
 		    end;
 		{_,shortnames} ->
 		    case inet_db:gethostname() of
@@ -1271,6 +1315,24 @@ create_hostpart(Name, LongOrShortNames) ->
 		    end
 	    end,
     {Head,Host1}.
+
+validate_hostname([$@|HostPart] = Host) ->
+    {ok, MP} = re:compile("^[!-ÿ]*$", [unicode]),
+    case re:run(HostPart, MP) of
+        {match, _} ->
+            {ok, Host};
+        nomatch ->
+            {error, hostname_not_allowed}
+    end.
+
+valid_name_head(Head) ->
+    {ok, MP} = re:compile("^[0-9A-Za-z_\\-]*$", [unicode]),
+        case re:run(Head, MP) of
+            {match, _} ->
+                true;
+            nomatch ->
+                false
+    end.
 
 split_node(Name) ->
     lists:splitwith(fun(C) -> C =/= $@ end, atom_to_list(Name)).
@@ -1608,3 +1670,93 @@ async_gen_server_reply(From, Msg) ->
         {'EXIT', _} ->
             ok
     end.
+
+call_owner(Owner, Msg) ->
+    Mref = monitor(process, Owner),
+    Owner ! {self(), Mref, Msg},
+    receive
+	{Mref, Reply} ->
+	    erlang:demonitor(Mref, [flush]),
+	    {ok, Reply};
+	{'DOWN', Mref, _, _, _} ->
+	    error
+    end.
+
+
+-spec setopts(Node, Options) -> ok | {error, Reason} | ignored when
+      Node :: node() | new,
+      Options :: [inet:socket_setopt()],
+      Reason :: inet:posix() | noconnection.
+
+setopts(Node, Opts) when is_atom(Node), is_list(Opts) ->
+    request({setopts, Node, Opts}).
+
+setopts_new(Opts, State) ->
+    %% First try setopts on listening socket(s)
+    %% Bail out on failure.
+    %% If successful, we are pretty sure Opts are ok
+    %% and we continue with config params and pending connections.
+    case setopts_on_listen(Opts, State#state.listen) of
+	ok ->
+	    setopts_new_1(Opts);
+	Fail -> Fail
+    end.
+
+setopts_on_listen(_, []) -> ok;
+setopts_on_listen(Opts, [#listen {listen = LSocket, module = Mod} | T]) ->
+    try Mod:setopts(LSocket, Opts) of
+	ok ->
+	    setopts_on_listen(Opts, T);
+	Fail -> Fail
+    catch
+	error:undef -> {error, enotsup}
+    end.
+
+setopts_new_1(Opts) ->
+    ConnectOpts = case application:get_env(kernel, inet_dist_connect_options) of
+		      {ok, CO} -> CO;
+		      _ -> []
+		  end,
+    application:set_env(kernel, inet_dist_connect_options,
+			merge_opts(Opts,ConnectOpts)),
+    ListenOpts = case application:get_env(kernel, inet_dist_listen_options) of
+		     {ok, LO} -> LO;
+		     _ -> []
+		 end,
+    application:set_env(kernel, inet_dist_listen_options,
+			merge_opts(Opts, ListenOpts)),
+    case lists:keyfind(nodelay, 1, Opts) of
+	{nodelay, ND} when is_boolean(ND) ->
+	    application:set_env(kernel, dist_nodelay, ND);
+	_ -> ignore
+    end,
+
+    %% Update any pending connections
+    PendingConns = ets:select(sys_dist, [{'_',
+					  [{'=/=',{element,#connection.state,'$_'},up}],
+					  ['$_']}]),
+    lists:foreach(fun(#connection{state = pending, owner = Owner}) ->
+			  call_owner(Owner, {setopts, Opts});
+		     (#connection{state = up_pending, pending_owner = Owner}) ->
+			  call_owner(Owner, {setopts, Opts});
+		     (_) -> ignore
+		  end, PendingConns),
+    ok.
+
+merge_opts([], B) ->
+    B;
+merge_opts([H|T], B0) ->
+    {Key, _} = H,
+    B1 = lists:filter(fun({K,_}) -> K =/= Key end, B0),
+    merge_opts(T, [H | B1]).
+
+-spec getopts(Node, Options) ->
+	{'ok', OptionValues} | {'error', Reason} | ignored when
+      Node :: node(),
+      Options :: [inet:socket_getopt()],
+      OptionValues :: [inet:socket_setopt()],
+      Reason :: inet:posix() | noconnection.
+
+getopts(Node, Opts) when is_atom(Node), is_list(Opts) ->
+    request({getopts, Node, Opts}).
+

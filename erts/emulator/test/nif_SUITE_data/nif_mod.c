@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2009-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2009-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
  *
  * %CopyrightEnd%
  */
-#include "erl_nif.h"
+#include <erl_nif.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -176,6 +176,7 @@ static void do_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info, int* retvalp)
     CHECK(enif_is_empty_list(env, head));
 }
 
+#if NIF_LIB_VER != 3
 static int load(ErlNifEnv* env, void** priv, ERL_NIF_TERM load_info)
 {
     NifModPrivData* data;
@@ -230,6 +231,7 @@ static void unload(ErlNifEnv* env, void* priv)
     add_call(env, data, "unload");
     NifModPrivData_release(data);
 }
+#endif /*  NIF_LIB_VER != 3 */
 
 static ERL_NIF_TERM lib_version(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -237,10 +239,22 @@ static ERL_NIF_TERM lib_version(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     return enif_make_int(env, NIF_LIB_VER);
 }
 
+static ERL_NIF_TERM nif_api_version(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    /*ADD_CALL("nif_api_version");*/
+    return enif_make_tuple2(env,
+			    enif_make_int(env, ERL_NIF_MAJOR_VERSION),
+			    enif_make_int(env, ERL_NIF_MINOR_VERSION));
+}
+
 static ERL_NIF_TERM get_priv_data_ptr(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
+    NifModPrivData** bin_data;
+    ERL_NIF_TERM res;
     ADD_CALL("get_priv_data_ptr");
-    return enif_make_uint64(env, (ErlNifUInt64)priv_data(env));
+    bin_data = (NifModPrivData**)enif_make_new_binary(env, sizeof(void*), &res);
+    *bin_data = priv_data(env);
+    return res;
 }
 
 static ERL_NIF_TERM make_new_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -279,6 +293,7 @@ static ERL_NIF_TERM get_resource(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
+    {"nif_api_version", 0, nif_api_version},
     {"get_priv_data_ptr", 0, get_priv_data_ptr},
     {"make_new_resource", 2, make_new_resource},
     {"get_resource", 2, get_resource}

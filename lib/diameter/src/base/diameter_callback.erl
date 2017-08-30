@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@
 %% in a callback applied to the atom-valued callback name and argument
 %% list. For all callbacks not to this module, the 'extra' field is a
 %% list of additional arguments, following arguments supplied by
-%% diameter but preceeding those of the diameter:evaluable() being
+%% diameter but preceding those of the diameter:evaluable() being
 %% applied.
 %%
 %% For example, the following config to diameter:start_service/2, in

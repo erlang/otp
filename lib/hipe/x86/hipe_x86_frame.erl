@@ -1,9 +1,5 @@
 %%% -*- erlang-indent-level: 2 -*-
 %%%
-%%% %CopyrightBegin%
-%%% 
-%%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
-%%% 
 %%% Licensed under the Apache License, Version 2.0 (the "License");
 %%% you may not use this file except in compliance with the License.
 %%% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %%% See the License for the specific language governing permissions and
 %%% limitations under the License.
-%%% 
-%%% %CopyrightEnd%
 %%%
 %%% x86 stack frame handling
 %%%
@@ -46,15 +40,13 @@
 -include("../x86/hipe_x86.hrl").
 -include("../rtl/hipe_literals.hrl").
 
-frame(Defun, _Options) ->
-  Formals = fix_formals(hipe_x86:defun_formals(Defun)),
-  Temps0 = all_temps(hipe_x86:defun_code(Defun), Formals),
-  MinFrame = defun_minframe(Defun),
+frame(CFG0, _Options) ->
+  Formals = fix_formals(hipe_x86_cfg:params(CFG0)),
+  Temps0 = all_temps(CFG0, Formals),
+  MinFrame = defun_minframe(CFG0),
   Temps = ensure_minframe(MinFrame, Temps0),
-  CFG0 = hipe_x86_cfg:init(Defun),
   Liveness = ?HIPE_X86_LIVENESS:analyse(CFG0),
-  CFG1 = do_body(CFG0, Liveness, Formals, Temps),
-  hipe_x86_cfg:linearise(CFG1).
+  do_body(CFG0, Liveness, Formals, Temps).
 
 fix_formals(Formals) ->
   fix_formals(?HIPE_X86_REGISTERS:nr_args(), Formals).
@@ -69,23 +61,14 @@ do_body(CFG0, Liveness, Formals, Temps) ->
   do_prologue(CFG1, Context).
 
 do_blocks(CFG, Context) ->
-  Labels = hipe_x86_cfg:labels(CFG),
-  do_blocks(Labels, CFG, Context).
+  hipe_x86_cfg:map_bbs(fun(Lbl, BB) -> do_block(Lbl, BB, Context) end, CFG).
 
-do_blocks([Label|Labels], CFG, Context) ->
+do_block(Label, Block, Context) ->
   Liveness = context_liveness(Context),
   LiveOut = ?HIPE_X86_LIVENESS:liveout(Liveness, Label),
-  Block = hipe_x86_cfg:bb(CFG, Label),
   Code = hipe_bb:code(Block),
-  NewCode = do_block(Code, LiveOut, Context),
-  NewBlock = hipe_bb:code_update(Block, NewCode),
-  NewCFG = hipe_x86_cfg:bb_add(CFG, Label, NewBlock),
-  do_blocks(Labels, NewCFG, Context);
-do_blocks([], CFG, _) ->
-  CFG.
-
-do_block(Insns, LiveOut, Context) ->
-  do_block(Insns, LiveOut, Context, context_framesize(Context), []).
+  NewCode = do_block(Code, LiveOut, Context, context_framesize(Context), []),
+  hipe_bb:code_update(Block, NewCode).
 
 do_block([I|Insns], LiveOut, Context, FPoff0, RevCode) ->
   {NewIs, FPoff1} = do_insn(I, LiveOut, Context, FPoff0),
@@ -112,13 +95,17 @@ do_insn(I, LiveOut, Context, FPoff) ->
     #imul{} ->
       {[do_imul(I, Context, FPoff)], FPoff};
     #move{} ->
-      {[do_move(I, Context, FPoff)], FPoff};
+      {do_move(I, Context, FPoff), FPoff};
     #movsx{} ->
       {[do_movsx(I, Context, FPoff)], FPoff};
     #movzx{} ->
       {[do_movzx(I, Context, FPoff)], FPoff};
     #pseudo_call{} ->
       do_pseudo_call(I, LiveOut, Context, FPoff);
+    #pseudo_spill_fmove{} ->
+      {do_pseudo_spill_fmove(I, Context, FPoff), FPoff};
+    #pseudo_spill_move{} ->
+      {do_pseudo_spill_move(I, Context, FPoff), FPoff};
     #pseudo_tailcall{} ->
       {do_pseudo_tailcall(I, Context), context_framesize(Context)};
     #push{} ->
@@ -127,6 +114,8 @@ do_insn(I, LiveOut, Context, FPoff) ->
       {do_ret(I, Context, FPoff), context_framesize(Context)};
     #shift{} ->
       {[do_shift(I, Context, FPoff)], FPoff};
+    #test{} ->
+      {[do_test(I, Context, FPoff)], FPoff};
     _ ->	% comment, jmp, label, pseudo_jcc, pseudo_tailcall_prepare
       {[I], FPoff}
   end.
@@ -159,22 +148,50 @@ do_fp_binop(I, Context, FPoff) ->
   Dst = conv_opnd(Dst0, FPoff, Context),
   [I#fp_binop{src=Src,dst=Dst}].
 
-do_fmove(I, Context, FPoff) ->
-  #fmove{src=Src0,dst=Dst0} = I,
+do_fmove(I0, Context, FPoff) ->
+  #fmove{src=Src0,dst=Dst0} = I0,
   Src = conv_opnd(Src0, FPoff, Context),
   Dst = conv_opnd(Dst0, FPoff, Context),
-  I#fmove{src=Src,dst=Dst}.
+  I = I0#fmove{src=Src,dst=Dst},
+  case Src =:= Dst of
+    true -> []; % omit move-to-self
+    false -> [I]
+  end.
+
+do_pseudo_spill_fmove(I0, Context, FPoff) ->
+  #pseudo_spill_fmove{src=Src0,temp=Temp0,dst=Dst0} = I0,
+  Src = conv_opnd(Src0, FPoff, Context),
+  Temp = conv_opnd(Temp0, FPoff, Context),
+  Dst = conv_opnd(Dst0, FPoff, Context),
+  case Src =:= Dst of
+    true -> []; % omit move-to-self
+    false -> [#fmove{src=Src, dst=Temp}, #fmove{src=Temp, dst=Dst}]
+  end.
 
 do_imul(I, Context, FPoff) ->
   #imul{src=Src0} = I,
   Src = conv_opnd(Src0, FPoff, Context),
   I#imul{src=Src}.
 
-do_move(I, Context, FPoff) ->
-  #move{src=Src0,dst=Dst0} = I,
+do_move(I0, Context, FPoff) ->
+  #move{src=Src0,dst=Dst0} = I0,
   Src = conv_opnd(Src0, FPoff, Context),
   Dst = conv_opnd(Dst0, FPoff, Context),
-  I#move{src=Src,dst=Dst}.
+  I = I0#move{src=Src,dst=Dst},
+  case Src =:= Dst of
+    true -> []; % omit move-to-self
+    false -> [I]
+  end.
+
+do_pseudo_spill_move(I0, Context, FPoff) ->
+  #pseudo_spill_move{src=Src0,temp=Temp0,dst=Dst0} = I0,
+  Src = conv_opnd(Src0, FPoff, Context),
+  Temp = conv_opnd(Temp0, FPoff, Context),
+  Dst = conv_opnd(Dst0, FPoff, Context),
+  case Src =:= Dst of
+    true -> []; % omit move-to-self
+    false -> [#move{src=Src, dst=Temp}, #move{src=Temp, dst=Dst}]
+  end.
 
 do_movsx(I, Context, FPoff) ->
   #movsx{src=Src0,dst=Dst0} = I,
@@ -198,6 +215,12 @@ do_shift(I, Context, FPoff) ->
   Src = conv_opnd(Src0, FPoff, Context),
   Dst = conv_opnd(Dst0, FPoff, Context),
   I#shift{src=Src,dst=Dst}.
+
+do_test(I, Context, FPoff) ->
+  #test{src=Src0,dst=Dst0} = I,
+  Src = conv_opnd(Src0, FPoff, Context),
+  Dst = conv_opnd(Dst0, FPoff, Context),
+  I#test{src=Src,dst=Dst}.
 
 conv_opnd(Opnd, FPoff, Context) ->
   case opnd_is_pseudo(Opnd) of
@@ -609,39 +632,46 @@ temp_is_pseudo(Temp) ->
 %%% Build the set of all temps used in a Defun's body.
 %%%
 
-all_temps(Code, Formals) ->
-  S0 = find_temps(Code, tset_empty()),
+all_temps(CFG, Formals) ->
+  S0 = fold_insns(fun find_temps/2, tset_empty(), CFG),
   S1 = tset_del_list(S0, Formals),
   S2 = tset_filter(S1, fun(T) -> temp_is_pseudo(T) end),
   S2.
 
-find_temps([I|Insns], S0) ->
+find_temps(I, S0) ->
   S1 = tset_add_list(S0, hipe_x86_defuse:insn_def(I)),
-  S2 = tset_add_list(S1, hipe_x86_defuse:insn_use(I)),
-  find_temps(Insns, S2);
-find_temps([], S) ->
-  S.
+  tset_add_list(S1, hipe_x86_defuse:insn_use(I)).
+
+fold_insns(Fun, InitAcc, CFG) ->
+  hipe_x86_cfg:fold_bbs(
+    fun(_, BB, Acc0) -> lists:foldl(Fun, Acc0, hipe_bb:code(BB)) end,
+    InitAcc, CFG).
+
+-compile({inline, [tset_empty/0, tset_size/1, tset_insert/2,
+		   tset_filter/2, tset_to_list/1]}).
 
 tset_empty() ->
-  gb_sets:new().
+  #{}.
 
 tset_size(S) ->
-  gb_sets:size(S).
+  map_size(S).
 
 tset_insert(S, T) ->
-  gb_sets:add_element(T, S).
+  S#{T => []}.
 
-tset_add_list(S, Ts) ->
-  gb_sets:union(S, gb_sets:from_list(Ts)).
+tset_add_list(S, []) -> S;
+tset_add_list(S, [T|Ts]) ->
+  tset_add_list(S#{T => []}, Ts).
 
-tset_del_list(S, Ts) ->
-  gb_sets:subtract(S, gb_sets:from_list(Ts)).
+tset_del_list(S, []) -> S;
+tset_del_list(S, [T|Ts]) ->
+  tset_del_list(maps:remove(T,S), Ts).
 
 tset_filter(S, F) ->
-  gb_sets:filter(F, S).
+  maps:filter(fun(K, _V) -> F(K) end, S).
 
 tset_to_list(S) ->
-  gb_sets:to_list(S).
+  maps:keys(S).
 
 %%%
 %%% Compute minimum permissible frame size, ignoring spilled temps.
@@ -649,15 +679,10 @@ tset_to_list(S) ->
 %%% in the middle of a tailcall.
 %%%
 
-defun_minframe(Defun) ->
-  MaxTailArity = body_mta(hipe_x86:defun_code(Defun), 0),
-  MyArity = length(fix_formals(hipe_x86:defun_formals(Defun))),
+defun_minframe(CFG) ->
+  MaxTailArity = fold_insns(fun insn_mta/2, 0, CFG),
+  MyArity = length(fix_formals(hipe_x86_cfg:params(CFG))),
   erlang:max(MaxTailArity - MyArity, 0).
-
-body_mta([I|Code], MTA) ->
-  body_mta(Code, insn_mta(I, MTA));
-body_mta([], MTA) ->
-  MTA.
 
 insn_mta(I, MTA) ->
   case I of

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2016. All Rights Reserved.
+# Copyright Ericsson AB 2001-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ HIPE_MODULES = hipe_vectors
 else
 HIPE_MODULES =
 endif
-MODULES = hipe_timing hipe_dot hipe_digraph $(HIPE_MODULES)
+MODULES = hipe_timing hipe_dot hipe_digraph hipe_dsets $(HIPE_MODULES)
 
 HRL_FILES=
 ERL_FILES= $(MODULES:%=%.erl)
@@ -113,4 +113,3 @@ release_docs_spec:
 
 
 $(EBIN)/hipe_timing.beam: ../main/hipe.hrl
-$(EBIN)/hipe_vectors.beam: hipe_vectors.hrl

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,6 +32,65 @@
   
   <p>This document describes the changes made to the Debugger
     application.</p>
+
+<section><title>Debugger 4.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> The Erlang shell, <c>qlc:string_to_handle()</c>, and
+	    the Debugger (the Evaluator area and Edit variable window
+	    of the Bindings area) can parse pids, ports, references,
+	    and external funs, as long as they can be created in the
+	    running system. </p>
+          <p>
+	    Own Id: OTP-14296</p>
+        </item>
+        <item>
+	    <p> Fix editing of simple binary values in the Bindings
+	    area of the Debugger's Attach Process Window. </p>
+          <p>
+	    Own Id: OTP-14318</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Miscellaneous updates due to atoms containing
+	    arbitrary Unicode characters. </p>
+          <p>
+	    Own Id: OTP-14285</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Debugger 4.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Update build scripts to not make assumtions about where
+	    env, cp and perl are located.</p>
+          <p>
+	    Own Id: OTP-13800</p>
+        </item>
+	<item>
+          <p>
+	    A bug causing non-interpreted code to crash the debugger
+	    has been fixed.</p>
+          <p>
+	    Own Id: OTP-13756</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Debugger 4.2</title>
 

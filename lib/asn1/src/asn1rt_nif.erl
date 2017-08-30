@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 	 decode_ber_tlv/1,
 	 encode_ber_tlv/1]).
 
+-compile(no_native).
 -on_load(load_nif/0).
 
 -define(ASN1_NIF_VSN,1).

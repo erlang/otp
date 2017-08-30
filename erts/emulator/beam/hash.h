@@ -25,9 +25,7 @@
 #ifndef __HASH_H__
 #define __HASH_H__
 
-#ifndef __SYS_H__
 #include "sys.h"
-#endif
 
 typedef unsigned long HashValue;
 typedef struct hash Hash;
@@ -39,7 +37,7 @@ typedef void (*HFREE_FUN)(void*);
 /* Meta functions */
 typedef void* (*HMALLOC_FUN)(int,size_t);
 typedef void (*HMFREE_FUN)(int,void*);
-typedef int (*HMPRINT_FUN)(int,void*,char*, ...);
+typedef int (*HMPRINT_FUN)(fmtfn_t,void*,char*, ...);
 
 /*
 ** This bucket must be placed in top of 
@@ -91,7 +89,7 @@ Hash* hash_init(int, Hash*, char*, int, HashFunctions);
 
 void  hash_delete(Hash*);
 void  hash_get_info(HashInfo*, Hash*);
-void  hash_info(int, void *, Hash*);
+void  hash_info(fmtfn_t, void *, Hash*);
 int   hash_table_sz(Hash *);
 
 void* hash_get(Hash*, void*);

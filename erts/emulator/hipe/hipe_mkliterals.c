@@ -435,9 +435,6 @@ static const struct rts_param rts_params[] = {
        presence or absence of struct erl_fun_thing's "next" field. */
     { 5, "EFT_CREATOR", 1, offsetof(struct erl_fun_thing, creator) },
     { 6, "EFT_FE", 1, offsetof(struct erl_fun_thing, fe) },
-#ifdef HIPE
-    { 7, "EFT_NATIVE_ADDRESS", 1, offsetof(struct erl_fun_thing, native_address) },
-#endif
     { 8, "EFT_ARITY", 1, offsetof(struct erl_fun_thing, arity) },
     { 9, "EFT_NUM_FREE", 1, offsetof(struct erl_fun_thing, num_free) },
     { 10, "EFT_ENV", 1, offsetof(struct erl_fun_thing, env[0]) },
@@ -525,6 +522,12 @@ static const struct rts_param rts_params[] = {
     { 51, "P_CALLEE_EXP", 1, offsetof(struct process, hipe.u.callee_exp) },
 
     { 52, "THE_NON_VALUE", 1, (int)THE_NON_VALUE },
+
+    { 53, "P_GCUNSAFE",
+#ifdef DEBUG
+      1, offsetof(struct process, hipe.gc_is_unsafe)
+#endif
+    },
 };
 
 #define NR_PARAMS	ARRAY_SIZE(rts_params)

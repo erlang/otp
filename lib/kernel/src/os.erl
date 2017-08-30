@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 
 -export([getenv/0, getenv/1, getenv/2, getpid/0,
          perf_counter/0, perf_counter/1,
-         putenv/2, system_time/0, system_time/1,
+         putenv/2, set_signal/2, system_time/0, system_time/1,
 	 timestamp/0, unsetenv/1]).
 
 -spec getenv() -> [string()].
@@ -102,6 +102,15 @@ timestamp() ->
       VarName :: string().
 
 unsetenv(_) ->
+    erlang:nif_error(undef).
+
+-spec set_signal(Signal, Option) -> 'ok' when
+      Signal :: 'sighup'  | 'sigquit' | 'sigabrt' | 'sigalrm' |
+                'sigterm' | 'sigusr1' | 'sigusr2' | 'sigchld' |
+                'sigstop' | 'sigtstp',
+      Option :: 'default' | 'handle' | 'ignore'.
+
+set_signal(_Signal, _Option) ->
     erlang:nif_error(undef).
 
 %%% End of BIFs
@@ -226,11 +235,13 @@ extensions() ->
       Command :: atom() | io_lib:chars().
 cmd(Cmd) ->
     validate(Cmd),
-    {SpawnCmd, SpawnOpts, SpawnInput} = mk_cmd(os:type(), Cmd),
+    {SpawnCmd, SpawnOpts, SpawnInput, Eot} = mk_cmd(os:type(), Cmd),
     Port = open_port({spawn, SpawnCmd}, [binary, stderr_to_stdout,
-                                         stream, in, eof, hide | SpawnOpts]),
+                                         stream, in, hide | SpawnOpts]),
+    MonRef = erlang:monitor(port, Port),
     true = port_command(Port, SpawnInput),
-    Bytes = get_data(Port, []),
+    Bytes = get_data(Port, MonRef, Eot, []),
+    demonitor(MonRef, [flush]),
     String = unicode:characters_to_list(Bytes),
     if  %% Convert to unicode list if possible otherwise return bytes
 	is_list(String) -> String;
@@ -243,7 +254,7 @@ mk_cmd({win32,Wtype}, Cmd) ->
                   {false,_} -> lists:concat(["cmd /c", Cmd]);
                   {Cspec,_} -> lists:concat([Cspec," /c",Cmd])
               end,
-    {Command, [], []};
+    {Command, [], [], <<>>};
 mk_cmd(OsType,Cmd) when is_atom(Cmd) ->
     mk_cmd(OsType, atom_to_list(Cmd));
 mk_cmd(_,Cmd) ->
@@ -252,7 +263,20 @@ mk_cmd(_,Cmd) ->
     {"/bin/sh -s unix:cmd", [out],
      %% We insert a new line after the command, in case the command
      %% contains a comment character.
-     ["(", unicode:characters_to_binary(Cmd), "\n); exit\n"]}.
+     %%
+     %% The </dev/null closes stdin, which means that programs
+     %% that use a closed stdin as an termination indicator works.
+     %% An example of such a program is 'more'.
+     %%
+     %% The "echo ^D" is used to indicate that the program has executed
+     %% and we should return any output we have gotten. We cannot use
+     %% termination of the child or closing of stdin/stdout as then
+     %% starting background jobs from os:cmd will block os:cmd.
+     %%
+     %% I tried changing this to be "better", but got bombarded with
+     %% backwards incompatibility bug reports, so leave this as it is.
+     ["(", unicode:characters_to_binary(Cmd), "\n) </dev/null; echo \"\^D\"\n"],
+     <<$\^D>>}.
 
 validate(Atom) when is_atom(Atom) ->
     ok;
@@ -267,21 +291,50 @@ validate1([List|Rest]) when is_list(List) ->
 validate1([]) ->
     ok.
 
-get_data(Port, Sofar) ->
+get_data(Port, MonRef, Eot, Sofar) ->
     receive
 	{Port, {data, Bytes}} ->
-	    get_data(Port, [Sofar,Bytes]);
-	{Port, eof} ->
-	    Port ! {self(), close},
-	    receive
-		{Port, closed} ->
-		    true
-	    end,
-	    receive
-		{'EXIT',  Port,  _} ->
-		    ok
-	    after 1 ->				% force context switch
-		    ok
-	    end,
+            case eot(Bytes, Eot) of
+                more ->
+                    get_data(Port, MonRef, Eot, [Sofar,Bytes]);
+                Last ->
+                    catch port_close(Port),
+                    flush_until_down(Port, MonRef),
+                    iolist_to_binary([Sofar, Last])
+            end;
+        {'DOWN', MonRef, _, _, _} ->
+	    flush_exit(Port),
 	    iolist_to_binary(Sofar)
+    end.
+
+eot(_Bs, <<>>) ->
+    more;
+eot(Bs, Eot) ->
+    case binary:match(Bs, Eot) of
+        nomatch -> more;
+        {Pos, _} ->
+            binary:part(Bs,{0, Pos})
+    end.
+
+%% When port_close returns we know that all the
+%% messages sent have been sent and that the
+%% DOWN message is after them all.
+flush_until_down(Port, MonRef) ->
+    receive
+        {Port, {data, _Bytes}} ->
+            flush_until_down(Port, MonRef);
+        {'DOWN', MonRef, _, _, _} ->
+            flush_exit(Port)
+    end.
+
+%% The exit signal is always delivered before
+%% the down signal, so we can be sure that if there
+%% was an exit message sent, it will be in the
+%% mailbox now.
+flush_exit(Port) ->
+    receive
+        {'EXIT',  Port,  _} ->
+            ok
+    after 0 ->
+            ok
     end.

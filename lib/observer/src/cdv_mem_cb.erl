@@ -77,6 +77,10 @@ fix_alloc([{Title,Columns,Data}|Tables]) ->
      fix_alloc(Tables)];
 fix_alloc([{Title,[{_,V}|_]=Data}|Tables]) ->
     fix_alloc([{Title,lists:duplicate(length(V),[]),Data}|Tables]);
+fix_alloc([{"",[]}|Tables]) -> % no name and no data, probably truncated dump
+    fix_alloc(Tables);
+fix_alloc([{Title,[]=Data}|Tables]) -> % no data, probably truncated dump
+    fix_alloc([{Title,[],Data}|Tables]);
 fix_alloc([]) ->
     [].
 

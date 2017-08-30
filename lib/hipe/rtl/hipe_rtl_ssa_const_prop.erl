@@ -1,9 +1,5 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
-%% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
-%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -15,8 +11,6 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
-%% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -110,8 +104,6 @@ visit_expression(Instruction, Environment) ->
       visit_alu(Instruction, Environment);
     #alub{} ->
       visit_alub(Instruction, Environment);
-    #branch{} ->
-      visit_branch(Instruction, Environment);
     #call{} ->
       visit_call(Instruction, Environment);
 %%    #comment{} ->
@@ -182,42 +174,6 @@ visit_expression(Instruction, Environment) ->
 set_to(Dst, Val, Env) ->
   {Env1, SSAWork} = update_lattice_value({Dst, Val}, Env),
   {[], SSAWork, Env1}.
-
-%%-----------------------------------------------------------------------------
-%% Procedure : visit_branch/2
-%% Purpose   : do symbolic exection of branch instructions.
-%% Arguments : Inst - The instruction
-%%             Env  - The environment
-%% Returns   : { FlowWorkList, SSAWorkList, NewEnvironment}
-%%-----------------------------------------------------------------------------
-
-visit_branch(Inst, Env) -> %% Titta också på exekverbarflagga
-  Val1 = lookup_lattice_value(hipe_rtl:branch_src1(Inst), Env),
-  Val2 = lookup_lattice_value(hipe_rtl:branch_src2(Inst), Env),
-  CFGWL = case evaluate_relop(Val1, hipe_rtl:branch_cond(Inst), Val2) of
-            true   -> [hipe_rtl:branch_true_label(Inst)];
-            false  -> [hipe_rtl:branch_false_label(Inst)];
-            bottom -> [hipe_rtl:branch_true_label(Inst), 
-	               hipe_rtl:branch_false_label(Inst)];
-            top    -> []
-          end,
-  {CFGWL, [], Env}.
-
-%%-----------------------------------------------------------------------------
-%% Procedure : evaluate_relop/3
-%% Purpose   : evaluate the given relop. While taking care to handle top & 
-%%             bottom in some sane way.
-%% Arguments : Val1, Val2 - The operands Integers or top or bottom
-%%             RelOp  - some relop atom from rtl. 
-%% Returns   : bottom, top, true or false
-%%-----------------------------------------------------------------------------
-
-evaluate_relop(Val1, RelOp, Val2) ->
-  if 
-    (Val1==bottom) or (Val2==bottom) -> bottom ;
-    (Val1==top) or (Val2==top)       ->  top;
-    true ->  hipe_rtl_arch:eval_cond(RelOp, Val1, Val2)
-  end.
 
 %%-----------------------------------------------------------------------------
 %% Procedure : evaluate_fixnumop/2 
@@ -408,6 +364,7 @@ partial_eval_branch(Cond, N0, Z0, V0, C0) ->
        Cond =:= 'ne'           -> {true, Z0,   true, true};
        Cond =:= 'gt';
        Cond =:= 'le'           -> {N0,   Z0,   V0,   true};
+       Cond =:= 'leu';
        Cond =:= 'gtu'          -> {true, Z0,   true, C0  };
        Cond =:= 'lt';
        Cond =:= 'ge'           -> {N0,   true, V0,   true};
@@ -450,7 +407,11 @@ visit_alub(Inst, Env) ->
           false  -> [hipe_rtl:alub_false_label(Inst)]
         end
      end,
-  {[], NewSSA, NewEnv} = set_to(hipe_rtl:alub_dst(Inst), NewVal,  Env),
+  {[], NewSSA, NewEnv} =
+    case hipe_rtl:alub_has_dst(Inst) of
+      false -> {[], [], Env};
+      true -> set_to(hipe_rtl:alub_dst(Inst), NewVal, Env)
+    end,
   {Labels, NewSSA, NewEnv}.
       
 %%-----------------------------------------------------------------------------
@@ -688,8 +649,6 @@ update_instruction(Inst, Env) ->
       update_alu(Inst, Env);
     #alub{} ->
       update_alub(Inst, Env);
-    #branch{} ->
-      update_branch(Inst, Env);
     #call{} ->
       subst_all_uses(Inst, Env);
 %%    #comment{} ->
@@ -902,33 +861,6 @@ update_alu(Inst, Env) ->
       {Val,_,_,_,_} = evaluate_alu(Val1, hipe_rtl:alu_op(Inst), Val2),
       [hipe_rtl:mk_move(hipe_rtl:alu_dst(Inst), hipe_rtl:mk_imm(Val))]
   end.
- 
-%%-----------------------------------------------------------------------------
-%% Procedure : update_branch/2
-%% Purpose   : update an branch-instruction
-%% Arguments : Inst - the instruction.
-%%             Env - in which everything happens.
-%% Returns   : list of new instruction
-%%-----------------------------------------------------------------------------
-
-update_branch(Inst, Env) ->
-  Src1 = hipe_rtl:branch_src1(Inst),
-  Src2 = hipe_rtl:branch_src2(Inst),
-  Val1 = lookup_lattice_value(Src1, Env),
-  Val2 = lookup_lattice_value(Src2, Env),
-  if
-    (Val1 =:= bottom) and (Val2 =:= bottom) ->
-      [Inst];
-    Val1 =:= bottom ->
-      [hipe_rtl:subst_uses([{Src2, hipe_rtl:mk_imm(Val2)}], Inst)];
-    Val2 =:= bottom -> 
-      [hipe_rtl:subst_uses([{Src1, hipe_rtl:mk_imm(Val1)}], Inst)];
-    true ->
-      case hipe_rtl_arch:eval_cond(hipe_rtl:branch_cond(Inst), Val1, Val2) of
-        true  -> [hipe_rtl:mk_goto(hipe_rtl:branch_true_label(Inst))];
-        false -> [hipe_rtl:mk_goto(hipe_rtl:branch_false_label(Inst))]
-      end
-  end.
 
 %%-----------------------------------------------------------------------------
 %% Procedure : update_alub/2
@@ -943,8 +875,12 @@ update_branch(Inst, Env) ->
 
 %% some small helpers.
 alub_to_move(Inst, Res, Lab) ->
-  [hipe_rtl:mk_move(hipe_rtl:alub_dst(Inst), Res),
-   hipe_rtl:mk_goto(Lab)].
+  Goto = [hipe_rtl:mk_goto(Lab)],
+  case hipe_rtl:alub_has_dst(Inst) of
+    false -> Goto;
+    true ->
+      [hipe_rtl:mk_move(hipe_rtl:alub_dst(Inst), Res) | Goto]
+  end.
 
 make_alub_subst_list(bottom, _, Tail) ->  Tail;
 make_alub_subst_list(top, Src, _) ->

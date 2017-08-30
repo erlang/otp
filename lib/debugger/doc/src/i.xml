@@ -45,7 +45,7 @@
       attached manually or automatically.</p>
 
     <p>By preference, these functions can be included in module
-      <seealso marker="stdlib:shell_default"><c>stdlib:shell_default</c></seealso>.
+      <seealso marker="stdlib:shell_default"><c>shell_default</c></seealso>.
       By default, they are included in that module.</p>
   </description>
 
@@ -372,7 +372,7 @@
       </fsummary>
       <desc>
 	<p>Returns the current version number of the interpreter.
-	  Same as the version number of the <c>Debugger</c> application.</p>
+	  Same as the version number of the Debugger application.</p>
       </desc>
     </func>
 

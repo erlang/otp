@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1999-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1999-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,23 @@
 
 #ifndef __ERL_BITS_H__
 #define __ERL_BITS_H__
+
+/*
+ * This structure represents a SUB_BINARY.
+ *
+ * Note: The last field (orig) is not counted in arityval in the header.
+ * This simplifies garbage collection.
+ */
+
+typedef struct erl_sub_bin {
+    Eterm thing_word;		/* Subtag SUB_BINARY_SUBTAG. */
+    Uint size;			/* Binary size in bytes. */
+    Uint offs;			/* Offset into original binary. */
+    byte bitsize;
+    byte bitoffs;
+    byte is_writable;		/* The underlying binary is writable */
+    Eterm orig;			/* Original binary (REFC or HEAP binary). */
+} ErlSubBin;
 
 /*
  * This structure represents a binary to be matched.
@@ -185,7 +202,6 @@ void erts_new_bs_put_string(ERL_BITS_PROTO_2(byte* iptr, Uint num_bytes));
 
 Uint erts_bits_bufs_size(void);
 Uint32 erts_bs_get_unaligned_uint32(ErlBinMatchBuffer* mb);
-void erts_align_utf8_bytes(ErlBinMatchBuffer* mb, byte* buf);
 Eterm erts_bs_get_utf8(ErlBinMatchBuffer* mb);
 Eterm erts_bs_get_utf16(ErlBinMatchBuffer* mb, Uint flags);
 Eterm erts_bs_append(Process* p, Eterm* reg, Uint live, Eterm build_size_term,

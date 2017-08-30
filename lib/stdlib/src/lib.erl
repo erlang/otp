@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,9 +22,12 @@
 -export([flush_receive/0, error_message/2, progname/0, nonl/1, send/2,
 	 sendw/2, eval_str/1]).
 
+-export([extended_parse_exprs/1, extended_parse_term/1,
+         subst_values_for_vars/2]).
+
 -export([format_exception/6, format_exception/7,
          format_stacktrace/4, format_stacktrace/5,
-         format_call/4, format_call/5, format_fun/1]).
+         format_call/4, format_call/5, format_fun/1, format_fun/2]).
 
 -spec flush_receive() -> 'ok'.
 
@@ -127,6 +130,224 @@ all_white([$\t|T]) -> all_white(T);
 all_white([])      -> true;
 all_white(_)       -> false.
 
+%% `Tokens' is assumed to have been scanned with the 'text' option.
+%% The annotations of the returned expressions are locations.
+%%
+%% Can handle pids, ports, references, and external funs ("items").
+%% Known items are represented by variables in the erl_parse tree, and
+%% the items themselves are stored in the returned bindings.
+
+-spec extended_parse_exprs(Tokens) ->
+                {'ok', ExprList, Bindings} | {'error', ErrorInfo} when
+      Tokens :: [erl_scan:token()],
+      ExprList :: [erl_parse:abstract_expr()],
+      Bindings :: erl_eval:binding_struct(),
+      ErrorInfo :: erl_parse:error_info().
+
+extended_parse_exprs(Tokens) ->
+    Ts = tokens_fixup(Tokens),
+    case erl_parse:parse_exprs(Ts) of
+        {ok, Exprs0} ->
+            {Exprs, Bs} = expr_fixup(Exprs0),
+            {ok, reset_expr_anno(Exprs), Bs};
+        _ErrorInfo ->
+            erl_parse:parse_exprs(reset_token_anno(Ts))
+    end.
+
+tokens_fixup([]) -> [];
+tokens_fixup([T|Ts]=Ts0) ->
+    try token_fixup(Ts0) of
+        {NewT, NewTs} ->
+            [NewT|tokens_fixup(NewTs)]
+    catch
+        _:_ ->
+            [T|tokens_fixup(Ts)]
+    end.
+
+token_fixup(Ts) ->
+    {AnnoL, NewTs, FixupTag} = unscannable(Ts),
+    String = lists:append([erl_anno:text(A) || A <- AnnoL]),
+    _ = (fixup_fun(FixupTag))(String),
+    NewAnno = erl_anno:set_text(fixup_text(FixupTag), hd(AnnoL)),
+    {{string, NewAnno, String}, NewTs}.
+
+unscannable([{'#', A1}, {var, A2, 'Fun'}, {'<', A3}, {atom, A4, _},
+             {'.', A5}, {float, A6, _}, {'>', A7}|Ts]) ->
+    {[A1, A2, A3, A4, A5, A6, A7], Ts, function};
+unscannable([{'#', A1}, {var, A2, 'Fun'}, {'<', A3}, {atom, A4, _},
+             {'.', A5}, {atom, A6, _}, {'.', A7}, {integer, A8, _},
+             {'>', A9}|Ts]) ->
+    {[A1, A2, A3, A4, A5, A6, A7, A8, A9], Ts, function};
+unscannable([{'<', A1}, {float, A2, _}, {'.', A3}, {integer, A4, _},
+             {'>', A5}|Ts]) ->
+    {[A1, A2, A3, A4, A5], Ts, pid};
+unscannable([{'#', A1}, {var, A2, 'Port'}, {'<', A3}, {float, A4, _},
+             {'>', A5}|Ts]) ->
+    {[A1, A2, A3, A4, A5], Ts, port};
+unscannable([{'#', A1}, {var, A2, 'Ref'}, {'<', A3}, {float, A4, _},
+             {'.', A5}, {float, A6, _}, {'>', A7}|Ts]) ->
+    {[A1, A2, A3, A4, A5, A6, A7], Ts, reference}.
+
+expr_fixup(Expr0) ->
+    {Expr, Bs, _} = expr_fixup(Expr0, erl_eval:new_bindings(), 1),
+    {Expr, Bs}.
+
+expr_fixup({string,A,S}=T, Bs0, I) ->
+    try string_fixup(A, S) of
+        Value ->
+            Var = new_var(I),
+            Bs = erl_eval:add_binding(Var, Value, Bs0),
+            {{var, A, Var}, Bs, I+1}
+    catch
+        _:_ ->
+            {T, Bs0, I}
+    end;
+expr_fixup(Tuple, Bs0, I0) when is_tuple(Tuple) ->
+    {L, Bs, I} = expr_fixup(tuple_to_list(Tuple), Bs0, I0),
+    {list_to_tuple(L), Bs, I};
+expr_fixup([E0|Es0], Bs0, I0) ->
+    {E, Bs1, I1} = expr_fixup(E0, Bs0, I0),
+    {Es, Bs, I} = expr_fixup(Es0, Bs1, I1),
+    {[E|Es], Bs, I};
+expr_fixup(T, Bs, I) ->
+    {T, Bs, I}.
+
+string_fixup(A, S) ->
+    Text = erl_anno:text(A),
+    FixupTag = fixup_tag(Text, S),
+    (fixup_fun(FixupTag))(S).
+
+new_var(I) ->
+    list_to_atom(lists:concat(['__ExtendedParseExprs_', I, '__'])).
+
+reset_token_anno(Tokens) ->
+    [setelement(2, T, (reset_anno())(element(2, T))) || T <- Tokens].
+
+reset_expr_anno(Exprs) ->
+    [erl_parse:map_anno(reset_anno(), E) || E <- Exprs].
+
+reset_anno() ->
+    fun(A) -> erl_anno:new(erl_anno:location(A)) end.
+
+fixup_fun(function)  -> fun function/1;
+fixup_fun(pid)       -> fun erlang:list_to_pid/1;
+fixup_fun(port)      -> fun erlang:list_to_port/1;
+fixup_fun(reference) -> fun erlang:list_to_ref/1.
+
+function(S) ->
+    %% External function.
+    {ok, [_, _, _,
+          {atom, _, Module}, _,
+          {atom, _, Function}, _,
+          {integer, _, Arity}|_], _} = erl_scan:string(S),
+    erlang:make_fun(Module, Function, Arity).
+
+fixup_text(function)  -> "function";
+fixup_text(pid)       -> "pid";
+fixup_text(port)      -> "port";
+fixup_text(reference) -> "reference".
+
+fixup_tag("function",  "#"++_) -> function;
+fixup_tag("pid",       "<"++_) -> pid;
+fixup_tag("port",      "#"++_) -> port;
+fixup_tag("reference", "#"++_) -> reference.
+
+%%% End of extended_parse_exprs.
+
+%% `Tokens' is assumed to have been scanned with the 'text' option.
+%%
+%% Can handle pids, ports, references, and external funs.
+
+-spec extended_parse_term(Tokens) ->
+                {'ok', Term} | {'error', ErrorInfo} when
+      Tokens :: [erl_scan:token()],
+      Term :: term(),
+      ErrorInfo :: erl_parse:error_info().
+
+extended_parse_term(Tokens) ->
+    case extended_parse_exprs(Tokens) of
+        {ok, [Expr], Bindings} ->
+            try normalise(Expr, Bindings) of
+                Term ->
+                    {ok, Term}
+            catch
+                _:_ ->
+                    Loc = erl_anno:location(element(2, Expr)),
+                    {error,{Loc,?MODULE,"bad term"}}
+            end;
+        {ok, [_,Expr|_], _Bindings} ->
+                Loc = erl_anno:location(element(2, Expr)),
+                {error,{Loc,?MODULE,"bad term"}};
+        {error, _} = Error ->
+            Error
+    end.
+
+%% From erl_parse.
+normalise({var, _, V}, Bs) ->
+    {value, Value} = erl_eval:binding(V, Bs),
+    Value;
+normalise({char,_,C}, _Bs) -> C;
+normalise({integer,_,I}, _Bs) -> I;
+normalise({float,_,F}, _Bs) -> F;
+normalise({atom,_,A}, _Bs) -> A;
+normalise({string,_,S}, _Bs) -> S;
+normalise({nil,_}, _Bs) -> [];
+normalise({bin,_,Fs}, Bs) ->
+    {value, B, _} =
+	eval_bits:expr_grp(Fs, [],
+			   fun(E, _) ->
+				   {value, normalise(E, Bs), []}
+			   end, [], true),
+    B;
+normalise({cons,_,Head,Tail}, Bs) ->
+    [normalise(Head, Bs)|normalise(Tail, Bs)];
+normalise({tuple,_,Args}, Bs) ->
+    list_to_tuple(normalise_list(Args, Bs));
+normalise({map,_,Pairs}, Bs) ->
+    maps:from_list(lists:map(fun
+		%% only allow '=>'
+		({map_field_assoc,_,K,V}) ->
+                                     {normalise(K, Bs),normalise(V, Bs)}
+	    end, Pairs));
+%% Special case for unary +/-.
+normalise({op,_,'+',{char,_,I}}, _Bs) -> I;
+normalise({op,_,'+',{integer,_,I}}, _Bs) -> I;
+normalise({op,_,'+',{float,_,F}}, _Bs) -> F;
+normalise({op,_,'-',{char,_,I}}, _Bs) -> -I;   %Weird, but compatible!
+normalise({op,_,'-',{integer,_,I}}, _Bs) -> -I;
+normalise({op,_,'-',{float,_,F}}, _Bs) -> -F;
+normalise({'fun',_,{function,{atom,_,M},{atom,_,F},{integer,_,A}}}, _Bs) ->
+    %% Since "#Fun<M.F.A>" is recognized, "fun M:F/A" should be too.
+    fun M:F/A.
+
+normalise_list([H|T], Bs) ->
+    [normalise(H, Bs)|normalise_list(T, Bs)];
+normalise_list([], _Bs) ->
+    [].
+
+%% To be used on ExprList and Bindings returned from extended_parse_exprs().
+%% Substitute {value, A, Item} for {var, A, ExtendedParseVar}.
+%% {value, A, Item} is a shell/erl_eval convention, and for example
+%% the linter cannot handle it.
+
+-spec subst_values_for_vars(ExprList, Bindings) -> [term()] when
+      ExprList :: [erl_parse:abstract_expr()],
+      Bindings :: erl_eval:binding_struct().
+
+subst_values_for_vars({var, A, V}=Var, Bs) ->
+    case erl_eval:binding(V, Bs) of
+        {value, Value} ->
+            {value, A, Value};
+        unbound ->
+            Var
+    end;
+subst_values_for_vars(L, Bs) when is_list(L) ->
+    [subst_values_for_vars(E, Bs) || E <- L];
+subst_values_for_vars(T, Bs) when is_tuple(T) ->
+    list_to_tuple(subst_values_for_vars(tuple_to_list(T), Bs));
+subst_values_for_vars(T, _Bs) ->
+    T.
+
 %%% Formatting of exceptions, mfa:s and funs.
 
 %% -> iolist() (no \n at end)
@@ -179,7 +400,11 @@ format_call(I, ForMForFun, As, FormatFun, Enc)
     format_call("", n_spaces(I-1), ForMForFun, As, FormatFun, Enc).
 
 %% -> iolist() (no \n at end)
-format_fun(Fun) when is_function(Fun) ->
+format_fun(Fun) ->
+    format_fun(Fun, latin1).
+
+%% -> iolist() (no \n at end)
+format_fun(Fun, Enc) when is_function(Fun) ->
     {module, M} = erlang:fun_info(Fun, module),
     {name, F} = erlang:fun_info(Fun, name),
     {arity, A} = erlang:fun_info(Fun, arity),
@@ -189,9 +414,9 @@ format_fun(Fun) when is_function(Fun) ->
         {type, local} when M =:= erl_eval ->
             io_lib:fwrite(<<"interpreted function with arity ~w">>, [A]);
         {type, local} ->
-            mfa_to_string(M, F, A);
+            mfa_to_string(M, F, A, Enc);
         {type, external} ->
-            mfa_to_string(M, F, A)
+            mfa_to_string(M, F, A, Enc)
     end.
 
 analyze_exception(error, Term, Stack) ->
@@ -233,11 +458,11 @@ explain_reason({badarg,V}, error=Cl, [], PF, S, _Enc) -> % orelse, andalso
     format_value(V, <<"bad argument: ">>, Cl, PF, S);
 explain_reason(badarith, error, [], _PF, _S, _Enc) ->
     <<"an error occurred when evaluating an arithmetic expression">>;
-explain_reason({badarity,{Fun,As}}, error, [], _PF, _S, _Enc)
+explain_reason({badarity,{Fun,As}}, error, [], _PF, _S, Enc)
                                       when is_function(Fun) ->
     %% Only the arity is displayed, not the arguments As.
-    io_lib:fwrite(<<"~s called with ~s">>, 
-                  [format_fun(Fun), argss(length(As))]);
+    io_lib:fwrite(<<"~ts called with ~s">>,
+                  [format_fun(Fun, Enc), argss(length(As))]);
 explain_reason({badfun,Term}, error=Cl, [], PF, S, _Enc) ->
     format_value(Term, <<"bad function ">>, Cl, PF, S);
 explain_reason({badmatch,Term}, error=Cl, [], PF, S, _Enc) ->
@@ -268,14 +493,15 @@ explain_reason({try_clause,V}, error=Cl, [], PF, S, _Enc) ->
     %% "there is no try clause with a true guard sequence and a
     %% pattern matching..."
     format_value(V, <<"no try clause matching ">>, Cl, PF, S);
-explain_reason(undef, error, [{M,F,A,_}], _PF, _S, _Enc) ->
+explain_reason(undef, error, [{M,F,A,_}], _PF, _S, Enc) ->
     %% Only the arity is displayed, not the arguments, if there are any.
-    io_lib:fwrite(<<"undefined function ~s">>, 
-                  [mfa_to_string(M, F, n_args(A))]);
-explain_reason({shell_undef,F,A,_}, error, [], _PF, _S, _Enc) ->
+    io_lib:fwrite(<<"undefined function ~ts">>,
+                  [mfa_to_string(M, F, n_args(A), Enc)]);
+explain_reason({shell_undef,F,A,_}, error, [], _PF, _S, Enc) ->
     %% Give nicer reports for undefined shell functions
     %% (but not when the user actively calls shell_default:F(...)).
-    io_lib:fwrite(<<"undefined shell command ~s/~w">>, [F, n_args(A)]);
+    FS = to_string(F, Enc),
+    io_lib:fwrite(<<"undefined shell command ~ts/~w">>, [FS, n_args(A)]);
 %% Exit codes returned by erl_eval only:
 explain_reason({argument_limit,_Fun}, error, [], _PF, _S, _Enc) ->
     io_lib:fwrite(<<"limit of number of arguments to interpreted function"
@@ -325,17 +551,18 @@ format_stacktrace1(S0, Stack0, PF, SF, Enc) ->
     format_stacktrace2(S, Stack, 1, PF, Enc).
 
 format_stacktrace2(S, [{M,F,A,L}|Fs], N, PF, Enc) when is_integer(A) ->
-    [io_lib:fwrite(<<"~s~s ~s ~s">>,
+    [io_lib:fwrite(<<"~s~s ~ts ~s">>,
                    [sep(N, S), origin(N, M, F, A),
-		    mfa_to_string(M, F, A),
+		    mfa_to_string(M, F, A, Enc),
 		    location(L)])
      | format_stacktrace2(S, Fs, N + 1, PF, Enc)];
 format_stacktrace2(S, [{M,F,As,_}|Fs], N, PF, Enc) when is_list(As) ->
     A = length(As),
     CalledAs = [S,<<"   called as ">>],
     C = format_call("", CalledAs, {M,F}, As, PF, Enc),
-    [io_lib:fwrite(<<"~s~s ~s\n~s~ts">>,
-		   [sep(N, S), origin(N, M, F, A), mfa_to_string(M, F, A),
+    [io_lib:fwrite(<<"~s~s ~ts\n~s~ts">>,
+		   [sep(N, S), origin(N, M, F, A),
+                    mfa_to_string(M, F, A, Enc),
                     CalledAs, C])
      | format_stacktrace2(S, Fs, N + 1, PF, Enc)];
 format_stacktrace2(_S, [], _N, _PF, _Enc) ->
@@ -373,10 +600,10 @@ format_call(ErrStr, Pre1, ForMForFun, As, PF, Enc) ->
          {yes,Op} -> 
              format_op(ErrStr, Pre1, Op, As, PF, Enc);
          no ->
-             MFs = mf_to_string(ForMForFun, Arity),
-             I1 = iolist_size([Pre1,ErrStr|MFs]),
+             MFs = mf_to_string(ForMForFun, Arity, Enc),
+             I1 = string:length([Pre1,ErrStr|MFs]),
              S1 = pp_arguments(PF, As, I1, Enc),
-             S2 = pp_arguments(PF, As, iolist_size([Pre1|MFs]), Enc),
+             S2 = pp_arguments(PF, As, string:length([Pre1|MFs]), Enc),
              Long = count_nl(pp_arguments(PF, [a2345,b2345], I1, Enc)) > 0,
              case Long or (count_nl(S2) < count_nl(S1)) of
                  true ->
@@ -435,10 +662,10 @@ printable_list(latin1, As) ->
 printable_list(_, As) ->
     io_lib:printable_list(As).
 
-mfa_to_string(M, F, A) ->
-    io_lib:fwrite(<<"~s/~w">>, [mf_to_string({M, F}, A), A]).
+mfa_to_string(M, F, A, Enc) ->
+    io_lib:fwrite(<<"~ts/~w">>, [mf_to_string({M, F}, A, Enc), A]).
 
-mf_to_string({M, F}, A) ->
+mf_to_string({M, F}, A, Enc) ->
     case erl_internal:bif(M, F, A) of
         true ->
             io_lib:fwrite(<<"~w">>, [F]);
@@ -449,13 +676,15 @@ mf_to_string({M, F}, A) ->
                 {yes, F} ->
                     atom_to_list(F);
                 no ->
-                    io_lib:fwrite(<<"~w:~w">>, [M, F])
+                    FS = to_string(F, Enc),
+                    io_lib:fwrite(<<"~w:~ts">>, [M, FS])
             end
     end;
-mf_to_string(Fun, _A) when is_function(Fun) ->
-    format_fun(Fun);
-mf_to_string(F, _A) ->
-    io_lib:fwrite(<<"~w">>, [F]).
+mf_to_string(Fun, _A, Enc) when is_function(Fun) ->
+    format_fun(Fun, Enc);
+mf_to_string(F, _A, Enc) ->
+    FS = to_string(F, Enc),
+    io_lib:fwrite(<<"~ts">>, [FS]).
 
 format_value(V, ErrStr, Class, PF, S) ->
     Pre1Sz = exited_size(Class),
@@ -504,9 +733,14 @@ exited(exit) ->
 exited(throw) ->
     <<"exception throw: ">>.
 
+to_string(A, latin1) ->
+    io_lib:write_atom_as_latin1(A);
+to_string(A, _) ->
+    io_lib:write_atom(A).
+
 size(latin1, S) ->
     {iolist_size(S),S};
 size(_, S0) ->
     S = unicode:characters_to_list(S0, unicode),
     true = is_list(S),
-    {length(S),S}.
+    {string:length(S),S}.

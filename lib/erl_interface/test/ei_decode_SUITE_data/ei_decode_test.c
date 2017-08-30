@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2004-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2004-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ int ei_decode_my_string(const char *buf, int *index, char *to,
     } \
 \
     if (size1 != SIZE) { \
-      fail("size of encoded data is incorrect"); \
+        fail1("size of encoded data (%d) is incorrect", size1);    \
       return; \
     } \
   } \

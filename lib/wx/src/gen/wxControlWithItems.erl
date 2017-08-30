@@ -41,29 +41,29 @@
   centreOnParent/2,clearBackground/1,clientToScreen/2,clientToScreen/3,
   close/1,close/2,connect/2,connect/3,convertDialogToPixels/2,convertPixelsToDialog/2,
   destroyChildren/1,disable/1,disconnect/1,disconnect/2,disconnect/3,
-  enable/1,enable/2,findWindow/2,fit/1,fitInside/1,freeze/1,getAcceleratorTable/1,
-  getBackgroundColour/1,getBackgroundStyle/1,getBestSize/1,getCaret/1,
-  getCharHeight/1,getCharWidth/1,getChildren/1,getClientSize/1,getContainingSizer/1,
-  getCursor/1,getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,
-  getForegroundColour/1,getGrandParent/1,getHandle/1,getHelpText/1,
-  getId/1,getLabel/1,getMaxSize/1,getMinSize/1,getName/1,getParent/1,
-  getPosition/1,getRect/1,getScreenPosition/1,getScreenRect/1,getScrollPos/2,
-  getScrollRange/2,getScrollThumb/2,getSize/1,getSizer/1,getTextExtent/2,
-  getTextExtent/3,getToolTip/1,getUpdateRegion/1,getVirtualSize/1,getWindowStyleFlag/1,
-  getWindowVariant/1,hasCapture/1,hasScrollbar/2,hasTransparentBackground/1,
-  hide/1,inheritAttributes/1,initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,
-  isEnabled/1,isExposed/2,isExposed/3,isExposed/5,isRetained/1,isShown/1,
-  isTopLevel/1,layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,
-  move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
-  navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,
-  popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,
-  refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,removeChild/2,
-  reparent/2,screenToClient/1,screenToClient/2,scrollLines/2,scrollPages/2,
-  scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,setAutoLayout/2,
-  setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,setClientSize/2,
-  setClientSize/3,setContainingSizer/2,setCursor/2,setDoubleBuffered/2,
-  setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,setFont/2,
-  setForegroundColour/2,setHelpText/2,setId/2,setLabel/2,setMaxSize/2,
+  dragAcceptFiles/2,enable/1,enable/2,findWindow/2,fit/1,fitInside/1,
+  freeze/1,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
+  getBestSize/1,getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,
+  getClientSize/1,getContainingSizer/1,getContentScaleFactor/1,getCursor/1,
+  getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,getForegroundColour/1,
+  getGrandParent/1,getHandle/1,getHelpText/1,getId/1,getLabel/1,getMaxSize/1,
+  getMinSize/1,getName/1,getParent/1,getPosition/1,getRect/1,getScreenPosition/1,
+  getScreenRect/1,getScrollPos/2,getScrollRange/2,getScrollThumb/2,
+  getSize/1,getSizer/1,getTextExtent/2,getTextExtent/3,getToolTip/1,
+  getUpdateRegion/1,getVirtualSize/1,getWindowStyleFlag/1,getWindowVariant/1,
+  hasCapture/1,hasScrollbar/2,hasTransparentBackground/1,hide/1,inheritAttributes/1,
+  initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,isEnabled/1,
+  isExposed/2,isExposed/3,isExposed/5,isRetained/1,isShown/1,isTopLevel/1,
+  layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,move/2,
+  move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,navigate/1,
+  navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,popEventHandler/2,
+  popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
+  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,
+  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
+  setAcceleratorTable/2,setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,
+  setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
+  setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
+  setFont/2,setForegroundColour/2,setHelpText/2,setId/2,setLabel/2,setMaxSize/2,
   setMinSize/2,setName/2,setOwnBackgroundColour/2,setOwnFont/2,setOwnForegroundColour/2,
   setPalette/2,setScrollPos/3,setScrollPos/4,setScrollbar/5,setScrollbar/6,
   setSize/2,setSize/3,setSize/5,setSize/6,setSizeHints/2,setSizeHints/3,
@@ -86,7 +86,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 -spec append(This, Item) -> integer() when
 	This::wxControlWithItems(), Item::unicode:chardata().
 append(#wx_ref{type=ThisT,ref=ThisRef},Item)
- when is_list(Item) ->
+ when ?is_chardata(Item) ->
   ?CLASS(ThisT,wxControlWithItems),
   Item_UC = unicode:characters_to_binary([Item,0]),
   wxe_util:call(?wxControlWithItems_Append_1,
@@ -96,7 +96,7 @@ append(#wx_ref{type=ThisT,ref=ThisRef},Item)
 -spec append(This, Item, ClientData) -> integer() when
 	This::wxControlWithItems(), Item::unicode:chardata(), ClientData::term().
 append(#wx_ref{type=ThisT,ref=ThisRef},Item,ClientData)
- when is_list(Item) ->
+ when ?is_chardata(Item) ->
   ?CLASS(ThisT,wxControlWithItems),
   Item_UC = unicode:characters_to_binary([Item,0]),
   wxe_util:send_bin(term_to_binary(ClientData)),
@@ -136,7 +136,7 @@ delete(#wx_ref{type=ThisT,ref=ThisRef},N)
 	This::wxControlWithItems(), S::unicode:chardata().
 
 findString(This,S)
- when is_record(This, wx_ref),is_list(S) ->
+ when is_record(This, wx_ref),?is_chardata(S) ->
   findString(This,S, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxcontrolwithitems.html#wxcontrolwithitemsfindstring">external documentation</a>.
@@ -144,7 +144,7 @@ findString(This,S)
 	This::wxControlWithItems(), S::unicode:chardata(),
 	Option :: {'bCase', boolean()}.
 findString(#wx_ref{type=ThisT,ref=ThisRef},S, Options)
- when is_list(S),is_list(Options) ->
+ when ?is_chardata(S),is_list(Options) ->
   ?CLASS(ThisT,wxControlWithItems),
   S_UC = unicode:characters_to_binary([S,0]),
   MOpts = fun({bCase, BCase}, Acc) -> [<<1:32/?UI,(wxe_util:from_bool(BCase)):32/?UI>>|Acc];
@@ -209,7 +209,7 @@ getStringSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
 -spec insert(This, Item, Pos) -> integer() when
 	This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer().
 insert(#wx_ref{type=ThisT,ref=ThisRef},Item,Pos)
- when is_list(Item),is_integer(Pos) ->
+ when ?is_chardata(Item),is_integer(Pos) ->
   ?CLASS(ThisT,wxControlWithItems),
   Item_UC = unicode:characters_to_binary([Item,0]),
   wxe_util:call(?wxControlWithItems_Insert_2,
@@ -219,7 +219,7 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Item,Pos)
 -spec insert(This, Item, Pos, ClientData) -> integer() when
 	This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer(), ClientData::term().
 insert(#wx_ref{type=ThisT,ref=ThisRef},Item,Pos,ClientData)
- when is_list(Item),is_integer(Pos) ->
+ when ?is_chardata(Item),is_integer(Pos) ->
   ?CLASS(ThisT,wxControlWithItems),
   Item_UC = unicode:characters_to_binary([Item,0]),
   wxe_util:send_bin(term_to_binary(ClientData)),
@@ -256,7 +256,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
 -spec setString(This, N, S) -> 'ok' when
 	This::wxControlWithItems(), N::integer(), S::unicode:chardata().
 setString(#wx_ref{type=ThisT,ref=ThisRef},N,S)
- when is_integer(N),is_list(S) ->
+ when is_integer(N),?is_chardata(S) ->
   ?CLASS(ThisT,wxControlWithItems),
   S_UC = unicode:characters_to_binary([S,0]),
   wxe_util:cast(?wxControlWithItems_SetString,
@@ -266,7 +266,7 @@ setString(#wx_ref{type=ThisT,ref=ThisRef},N,S)
 -spec setStringSelection(This, S) -> boolean() when
 	This::wxControlWithItems(), S::unicode:chardata().
 setStringSelection(#wx_ref{type=ThisT,ref=ThisRef},S)
- when is_list(S) ->
+ when ?is_chardata(S) ->
   ?CLASS(ThisT,wxControlWithItems),
   S_UC = unicode:characters_to_binary([S,0]),
   wxe_util:call(?wxControlWithItems_SetStringSelection,
@@ -278,6 +278,8 @@ setLabel(This,Label) -> wxControl:setLabel(This,Label).
 %% @hidden
 getLabel(This) -> wxControl:getLabel(This).
  %% From wxWindow
+%% @hidden
+getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
 %% @hidden
 setDoubleBuffered(This,On) -> wxWindow:setDoubleBuffered(This,On).
 %% @hidden
@@ -594,6 +596,8 @@ findWindow(This,Winid) -> wxWindow:findWindow(This,Winid).
 enable(This, Options) -> wxWindow:enable(This, Options).
 %% @hidden
 enable(This) -> wxWindow:enable(This).
+%% @hidden
+dragAcceptFiles(This,Accept) -> wxWindow:dragAcceptFiles(This,Accept).
 %% @hidden
 disable(This) -> wxWindow:disable(This).
 %% @hidden

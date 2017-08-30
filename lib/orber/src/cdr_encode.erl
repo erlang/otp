@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -683,7 +683,7 @@ enc_fixed(_Env, Digits, Scale, Fixed, _Bytes, _Len) ->
     orber:dbg("[~p] cdr_encode:enc_fixed(~p, ~p, ~p)~n"
 	      "The supplied fixed type incorrect. Check that the 'digits' and 'scale' field~n"
 	      "match the definition in the IDL-specification. The value field must be~n"
-	      "a list of Digits lenght.", 
+	      "a list of Digits length.", 
 	      [?LINE, Digits, Scale, Fixed], ?DEBUG_LEVEL),
     corba:raise(#'MARSHAL'{completion_status=?COMPLETED_MAYBE}).
 

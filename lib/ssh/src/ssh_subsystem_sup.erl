@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,7 +26,9 @@
 
 -behaviour(supervisor).
 
--export([start_link/1,
+-include("ssh.hrl").
+
+-export([start_link/5,
 	 connection_supervisor/1,
 	 channel_supervisor/1
 	]).
@@ -37,8 +39,8 @@
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
-start_link(Opts) ->
-    supervisor:start_link(?MODULE, [Opts]).
+start_link(Role, Address, Port, Profile, Options) ->
+    supervisor:start_link(?MODULE, [Role, Address, Port, Profile, Options]).
 
 connection_supervisor(SupPid) ->
     Children = supervisor:which_children(SupPid),
@@ -51,49 +53,40 @@ channel_supervisor(SupPid) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
--spec init( [term()] ) -> {ok,{supervisor:sup_flags(),[supervisor:child_spec()]}} | ignore .
-
-init([Opts]) ->
-    RestartStrategy = one_for_all,
-    MaxR = 0,
-    MaxT = 3600,
-    Children = child_specs(Opts),
-    {ok, {{RestartStrategy, MaxR, MaxT}, Children}}.
+init([Role, Address, Port, Profile, Options]) ->
+    SupFlags = #{strategy  => one_for_all,
+                 intensity =>    0,
+                 period    => 3600
+                },
+    ChildSpecs = child_specs(Role, Address, Port, Profile, Options),
+    {ok, {SupFlags,ChildSpecs}}.
 
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-child_specs(Opts) ->
-    case proplists:get_value(role, Opts) of
-	client ->		
-	    [];
-	server ->
-	    [ssh_channel_child_spec(Opts), ssh_connectinon_child_spec(Opts)]
-    end.
+child_specs(client, _Address, _Port, _Profile, _Options) ->
+    [];
+child_specs(server, Address, Port, Profile, Options) ->
+    [ssh_channel_child_spec(server, Address, Port, Profile, Options), 
+     ssh_connection_child_spec(server, Address, Port, Profile, Options)].
   
-ssh_connectinon_child_spec(Opts) ->
-    Address = proplists:get_value(address, Opts),
-    Port = proplists:get_value(port, Opts),
-    Role = proplists:get_value(role, Opts),
-    Name = id(Role, ssh_connection_sup, Address, Port),
-    StartFunc = {ssh_connection_sup, start_link, [Opts]},
-    Restart = temporary,
-    Shutdown = 5000,
-     Modules = [ssh_connection_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+ssh_connection_child_spec(Role, Address, Port, _Profile, Options) ->
+    #{id       => id(Role, ssh_connection_sup, Address, Port),
+      start    => {ssh_connection_sup, start_link, [Options]},
+      restart  => temporary,
+      shutdown => 5000,
+      type     => supervisor,
+      modules  => [ssh_connection_sup]
+     }.
 
-ssh_channel_child_spec(Opts) ->
-    Address = proplists:get_value(address, Opts),
-    Port = proplists:get_value(port, Opts),
-    Role = proplists:get_value(role, Opts),
-    Name = id(Role, ssh_channel_sup, Address, Port),
-    StartFunc = {ssh_channel_sup, start_link, [Opts]},
-    Restart = temporary,
-    Shutdown = infinity,
-    Modules = [ssh_channel_sup],
-    Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+ssh_channel_child_spec(Role, Address, Port, _Profile, Options) ->
+    #{id       => id(Role, ssh_channel_sup, Address, Port),
+      start    => {ssh_channel_sup, start_link, [Options]},
+      restart  => temporary,
+      shutdown => infinity,
+      type     => supervisor,
+      modules  => [ssh_channel_sup]
+     }.
 
 id(Role, Sup, Address, Port) ->
     {Role, Sup, Address, Port}.

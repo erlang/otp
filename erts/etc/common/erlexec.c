@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -141,6 +141,8 @@ static char *pluss_val_switches[] = {
     "wt",
     "ws",
     "ss",
+    "ssdcpu",
+    "ssdio",
     "pp",
     "ub",
     NULL
@@ -182,17 +184,6 @@ static char *plusz_val_switches[] = {
 #endif
 
 #define SMP_SUFFIX	  ".smp"
-#define DEBUG_SUFFIX      ".debug"
-#define EMU_TYPE_SUFFIX_LENGTH  strlen(DEBUG_SUFFIX)
-
-/*
- * Define flags for different memory architectures.
- */
-#define EMU_TYPE_SMP		0x0001
-
-#ifdef __WIN32__
-#define EMU_TYPE_DEBUG		0x0004
-#endif
 
 void usage(const char *switchname);
 static void usage_format(char *format, ...);
@@ -203,8 +194,8 @@ void error(char* format, ...);
  * Local functions.
  */
 
-#if !defined(ERTS_HAVE_SMP_EMU)
-static void usage_notsup(const char *switchname);
+#if !defined(ERTS_HAVE_SMP_EMU) || !defined(ERTS_HAVE_PLAIN_EMU)
+static void usage_notsup(const char *switchname, const char *alt);
 #endif
 static char **build_args_from_env(char *env_var);
 static char **build_args_from_string(char *env_var);
@@ -219,7 +210,7 @@ static void *erealloc(void *p, size_t size);
 static void efree(void *p);
 static char* strsave(char* string);
 static int is_one_of_strings(char *str, char *strs[]);
-static char *write_str(char *to, char *from);
+static char *write_str(char *to, const char *from);
 static void get_home(void);
 static void add_epmd_port(void);
 #ifdef __WIN32__
@@ -253,9 +244,8 @@ static int verbose = 0;		/* If non-zero, print some extra information. */
 static int start_detached = 0;	/* If non-zero, the emulator should be
 				 * started detached (in the background).
 				 */
-static int emu_type = 0;	/* If non-zero, start beam.ARCH or beam.ARCH.exe
-				 * instead of beam or beam.exe, where ARCH is defined by flags. */
-static int emu_type_passed = 0;	/* Types explicitly set */
+static int start_smp_emu = 0;   /* Start the smp emulator. */
+static const char* emu_type = 0; /* Type of emulator (lcnt, valgrind, etc) */
 
 #ifdef __WIN32__
 static char *start_emulator_program = NULL; /* For detachec mode - 
@@ -350,11 +340,11 @@ free_env_val(char *value)
 }
 
 /*
- * Add the architecture suffix to the program name if needed,
- * except on Windows, where we insert it just before ".DLL".
+ * Add the type and architecture suffix to the program name if needed.
+ * On Windows, we insert it just before ".DLL".
  */
 static char*
-add_extra_suffixes(char *prog, int type)
+add_extra_suffixes(char *prog)
 {
    char *res;
    char *p;
@@ -364,16 +354,10 @@ add_extra_suffixes(char *prog, int type)
    int dll = 0;
 #endif
 
-   if (!type) {
-       return prog;
-   }
-
    len = strlen(prog);
 
-   /* Worst-case allocation */
-   p = emalloc(len +
-	       EMU_TYPE_SUFFIX_LENGTH +
-	       + 1);
+   /* Allocate enough extra space for suffixes */
+   p = emalloc(len + 100);
    res = p;
    p = write_str(p, prog);
 
@@ -390,13 +374,11 @@ add_extra_suffixes(char *prog, int type)
    }
 #endif
 
-#ifdef __WIN32__
-   if (type & EMU_TYPE_DEBUG) {
-       p = write_str(p, DEBUG_SUFFIX);
-       type &= ~(EMU_TYPE_DEBUG);
+   if (emu_type) {
+       p = write_str(p, ".");
+       p = write_str(p, emu_type);
    }
-#endif
-   if (type == EMU_TYPE_SMP) {
+   if (start_smp_emu) {
        p = write_str(p, SMP_SUFFIX);
    }
 #ifdef __WIN32__
@@ -487,13 +469,11 @@ int main(int argc, char **argv)
     cpuinfo = erts_cpu_info_create();
     /* '-smp auto' is default */ 
 #ifdef ERTS_HAVE_SMP_EMU
-    if (erts_get_cpu_configured(cpuinfo) > 1)
-	emu_type |= EMU_TYPE_SMP;
+    start_smp_emu = 1;
 #endif
 
 #if defined(__WIN32__) && defined(WIN32_ALWAYS_DEBUG)
-    emu_type_passed |= EMU_TYPE_DEBUG;
-    emu_type |= EMU_TYPE_DEBUG;
+    emu_type = "debug";
 #endif
 
     /* We need to do this before the ordinary processing. */
@@ -518,54 +498,42 @@ int main(int argc, char **argv)
 
 		if (strcmp(argv[i+1], "auto") == 0) {
 		    i++;
-		smp_auto:
-		    emu_type_passed |= EMU_TYPE_SMP;
-#ifdef ERTS_HAVE_SMP_EMU
-		    if (erts_get_cpu_configured(cpuinfo) > 1)
-			emu_type |= EMU_TYPE_SMP;
-		    else
-#endif
-			emu_type &= ~EMU_TYPE_SMP;
-		}
-		else if (strcmp(argv[i+1], "enable") == 0) {
+		} else if (strcmp(argv[i+1], "enable") == 0) {
 		    i++;
 		smp_enable:
-		    emu_type_passed |= EMU_TYPE_SMP;
-#ifdef ERTS_HAVE_SMP_EMU
-		    emu_type |= EMU_TYPE_SMP;
-#else
-		    usage_notsup("-smp enable");
+                    ;
+#if !defined(ERTS_HAVE_SMP_EMU)
+		    usage_notsup("-smp enable", "");
 #endif
-		}
-		else if (strcmp(argv[i+1], "disable") == 0) {
+		} else if (strcmp(argv[i+1], "disable") == 0) {
 		    i++;
 		smp_disable:
-		    emu_type_passed |= EMU_TYPE_SMP;
-		    emu_type &= ~EMU_TYPE_SMP;
-		}
-		else {
-		smp:
-
-		    emu_type_passed |= EMU_TYPE_SMP;
-#ifdef ERTS_HAVE_SMP_EMU
-		    emu_type |= EMU_TYPE_SMP;
+#ifdef ERTS_HAVE_PLAIN_EMU
+                    start_smp_emu = 0;
 #else
-		    usage_notsup("-smp");
+                    usage_notsup("-smp disable", " Use \"+S 1\" instead.");
+#endif
+		} else {
+		smp:
+                    ;
+#if !defined(ERTS_HAVE_SMP_EMU)
+		    usage_notsup("-smp", "");
 #endif
 		}
 	    } else if (strcmp(argv[i], "-smpenable") == 0) {
 		goto smp_enable;
 	    } else if (strcmp(argv[i], "-smpauto") == 0) {
-		goto smp_auto;
+                ;
 	    } else if (strcmp(argv[i], "-smpdisable") == 0) {
 		goto smp_disable;
-#ifdef __WIN32__
-	    } else if (strcmp(argv[i], "-debug") == 0) {
-		emu_type_passed |= EMU_TYPE_DEBUG;
-		emu_type |= EMU_TYPE_DEBUG;
-#endif
 	    } else if (strcmp(argv[i], "-extra") == 0) {
 		break;
+	    } else if (strcmp(argv[i], "-emu_type") == 0) {
+		if (i + 1 >= argc) {
+                    usage(argv[i]);
+                }
+                emu_type = argv[i+1];
+                i++;
 	    }
 	}
 	i++;
@@ -578,13 +546,17 @@ int main(int argc, char **argv)
 	if (strcmp(malloc_lib, "libc") != 0)
 	    usage("+MYm");
     }
-    emu = add_extra_suffixes(emu, emu_type);
+    emu = add_extra_suffixes(emu);
     emu_name = strsave(emu);
     erts_snprintf(tmpStr, sizeof(tmpStr), "%s" DIRSEP "%s" BINARY_EXT, bindir, emu);
     emu = strsave(tmpStr);
 
-    add_Eargs(emu);		/* Will be argv[0] -- necessary! */
-
+    s = get_env("ESCRIPT_NAME");
+    if(s) {
+        add_Eargs(s);         /* argv[0] = scriptname*/
+    } else {
+        add_Eargs(emu);       /* argv[0] = erl or cerl */
+    }
     /*
      * Add the bindir to the path (unless it is there already).
      */
@@ -1044,7 +1016,7 @@ int main(int argc, char **argv)
 	start_epmd(epmd_prog);
 
 #if (! defined(__WIN32__)) && defined(DEBUG)
-    if (start_detached) {
+    if (start_detached && get_env("ERL_CONSOLE_MODE")) {
 	/* Start the emulator within an xterm.
 	 * Move up all arguments and insert
 	 * "xterm -e " first.
@@ -1168,7 +1140,11 @@ int main(int argc, char **argv)
     {
 	execv(emu, Eargsp);
     }
-    error("Error %d executing \'%s\'.", errno, emu);
+    if (errno == ENOENT) {
+        error("The emulator \'%s\' does not exist.", emu);
+    } else {
+        error("Error %d executing \'%s\'.", errno, emu);
+    }
     return 1;
 #endif
 }
@@ -1183,14 +1159,14 @@ usage_aux(void)
 #ifdef __WIN32__
 	  "[-start_erl [datafile]] "
 #endif
-	  "[-smp "
+	  "[-smp [auto"
 #ifdef ERTS_HAVE_SMP_EMU
-	  "[enable|"
+	  "|enable"
 #endif
-	  "auto|disable"
-#ifdef ERTS_HAVE_SMP_EMU
+#ifdef ERTS_HAVE_PLAIN_EMU
+	  "|disable"
+#endif
 	  "]"
-#endif
 	  "] "
 	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] [-start_epmd BOOLEAN] "
 	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c [BOOLEAN]] "
@@ -1212,11 +1188,11 @@ usage(const char *switchname)
     usage_aux();
 }
 
-#if !defined(ERTS_HAVE_SMP_EMU)
+#if !defined(ERTS_HAVE_SMP_EMU) || !defined(ERTS_HAVE_PLAIN_EMU)
 static void
-usage_notsup(const char *switchname)
+usage_notsup(const char *switchname, const char *alt)
 {
-    fprintf(stderr, "Argument \'%s\' not supported.\n", switchname);
+    fprintf(stderr, "Argument \'%s\' not supported.%s\n", switchname, alt);
     usage_aux();
 }
 #endif
@@ -1368,7 +1344,7 @@ is_one_of_strings(char *str, char *strs[])
     return 0;
 }
 
-static char *write_str(char *to, char *from)
+static char *write_str(char *to, const char *from)
 {
     while (*from)
 	*(to++) = *(from++);
@@ -1894,6 +1870,7 @@ read_args_file(char *filename)
 #undef EAF_QUOTE
 #undef SAVE_CHAR
 }
+
 
 typedef struct {
     char **argv;

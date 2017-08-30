@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2000-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2000-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -403,7 +403,6 @@ public class OtpOutputStream extends ByteArrayOutputStream {
     public void write_atom(final String atom) {
         String enc_atom;
         byte[] bytes;
-        boolean isLatin1 = true;
 
         if (atom.codePointCount(0, atom.length()) <= OtpExternal.maxAtomLength) {
             enc_atom = atom;
@@ -416,29 +415,15 @@ public class OtpOutputStream extends ByteArrayOutputStream {
                     OtpExternal.maxAtomLength);
         }
 
-        for (int offset = 0; offset < enc_atom.length();) {
-            final int cp = enc_atom.codePointAt(offset);
-            if ((cp & ~0xFF) != 0) {
-                isLatin1 = false;
-                break;
-            }
-            offset += Character.charCount(cp);
-        }
         try {
-            if (isLatin1) {
-                bytes = enc_atom.getBytes("ISO-8859-1");
-                write1(OtpExternal.atomTag);
-                write2BE(bytes.length);
+            bytes = enc_atom.getBytes("UTF-8");
+            final int length = bytes.length;
+            if (length < 256) {
+                write1(OtpExternal.smallAtomUtf8Tag);
+                write1(length);
             } else {
-                bytes = enc_atom.getBytes("UTF-8");
-                final int length = bytes.length;
-                if (length < 256) {
-                    write1(OtpExternal.smallAtomUtf8Tag);
-                    write1(length);
-                } else {
-                    write1(OtpExternal.atomUtf8Tag);
-                    write2BE(length);
-                }
+                write1(OtpExternal.atomUtf8Tag);
+                write2BE(length);
             }
             writeN(bytes);
         } catch (final java.io.UnsupportedEncodingException e) {

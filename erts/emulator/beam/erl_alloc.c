@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,9 +44,11 @@
 #include "erl_hl_timer.h"
 #include "erl_cpu_topology.h"
 #include "erl_thr_queue.h"
+#include "erl_nfunc_sched.h"
 #if defined(ERTS_ALC_T_DRV_SEL_D_STATE) || defined(ERTS_ALC_T_DRV_EV_D_STATE)
 #include "erl_check_io.h"
 #endif
+#include "erl_bif_unique.h"
 
 #define GET_ERL_GF_ALLOC_IMPL
 #include "erl_goodfit_alloc.h"
@@ -151,8 +153,7 @@ typedef struct {
     int internal;
     Uint req_sched;
     Process *proc;
-    Eterm ref;
-    Eterm ref_heap[REF_THING_SIZE];
+    ErtsIRefStorage iref;
     int allocs[ERTS_ALC_INFO_A_END - ERTS_ALC_A_MIN + 1];
 } ErtsAllocInfoReq;
 
@@ -373,10 +374,16 @@ set_default_exec_alloc_opts(struct au_init *ip)
     ip->init.util.rmbcmt	= 0;
     ip->init.util.acul		= 0;
 
+# ifdef ERTS_HAVE_EXEC_MMAPPER
     ip->init.util.mseg_alloc    = &erts_alcu_mmapper_mseg_alloc;
     ip->init.util.mseg_realloc  = &erts_alcu_mmapper_mseg_realloc;
     ip->init.util.mseg_dealloc  = &erts_alcu_mmapper_mseg_dealloc;
     ip->init.util.mseg_mmapper  = &erts_exec_mmapper;
+# else
+    ip->init.util.mseg_alloc    = &erts_alcu_exec_mseg_alloc;
+    ip->init.util.mseg_realloc  = &erts_alcu_exec_mseg_realloc;
+    ip->init.util.mseg_dealloc  = &erts_alcu_exec_mseg_dealloc;
+# endif
 }
 #endif /* ERTS_ALC_A_EXEC */
 
@@ -657,6 +664,8 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	= sizeof(ErtsDrvEventDataState);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_DRV_SEL_D_STATE)]
 	= sizeof(ErtsDrvSelectDataState);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_NIF_SEL_D_STATE)]
+        = sizeof(ErtsNifSelectDataState);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MSG_REF)]
 	= sizeof(ErtsMessageRef);
 #ifdef ERTS_SMP
@@ -669,10 +678,12 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	= erts_timer_type_size(ERTS_ALC_T_HL_PTIMER);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_BIF_TIMER)]
 	= erts_timer_type_size(ERTS_ALC_T_BIF_TIMER);
-#ifdef ERTS_BTM_ACCESSOR_SUPPORT
-    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_ABIF_TIMER)]
-	= erts_timer_type_size(ERTS_ALC_T_ABIF_TIMER);
-#endif
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_NIF_EXP_TRACE)]
+	= sizeof(NifExportTrace);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MREF_NSCHED_ENT)]
+	= sizeof(ErtsNSchedMagicRefTableEntry);
+    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_MINDIRECTION)]
+	= ERTS_MAGIC_BIN_UNALIGNED_SIZE(sizeof(ErtsMagicIndirectionWord));
 
 #ifdef HARD_DEBUG
     hdbg_init();
@@ -1571,7 +1582,7 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		    break;
                 case 'X':
                     if (has_prefix("scs", argv[i]+3)) {
-#ifdef ERTS_ALC_A_EXEC
+#ifdef ERTS_HAVE_EXEC_MMAPPER
                         init->mseg.exec_mmap.scs =
 #endif
                             get_mb_value(argv[i]+6, argv, &i);
@@ -2113,7 +2124,7 @@ add_fix_values(UWord *ap, UWord *up, ErtsAlcUFixInfo_t *fi, ErtsAlcType_t type)
 }
 
 Eterm
-erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
+erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 {
 /*
  * NOTE! When updating this function, make sure to also update
@@ -2425,12 +2436,10 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		       &size.processes_used,
 		       fi,
 		       ERTS_ALC_T_BIF_TIMER);
-#ifdef ERTS_BTM_ACCESSOR_SUPPORT
 	add_fix_values(&size.processes,
 		       &size.processes_used,
 		       fi,
-		       ERTS_ALC_T_ABIF_TIMER);
-#endif
+		       ERTS_ALC_T_NIF_EXP_TRACE);
     }
 
     if (want.atom || want.atom_used) {
@@ -2476,7 +2485,7 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 
     if (print_to_p) {
 	int i;
-	int to = *print_to_p;
+	fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
 
 	/* Print result... */
@@ -2530,7 +2539,7 @@ struct aa_values {
 };
 
 Eterm
-erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
+erts_allocated_areas(fmtfn_t *print_to_p, void *print_to_arg, void *proc)
 {
 #define MAX_AA_VALUES (24)
     struct aa_values values[MAX_AA_VALUES];
@@ -2665,7 +2674,7 @@ erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
 
     if (print_to_p) {
 	/* Print result... */
-	int to = *print_to_p;
+	fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
 
 	erts_print(to, arg, "=allocated_areas\n");
@@ -2779,7 +2788,7 @@ erts_alloc_util_allocators(void *proc)
 }
 
 void
-erts_allocator_info(int to, void *arg)
+erts_allocator_info(fmtfn_t to, void *arg)
 {
     ErtsAlcType_t a;
 
@@ -2852,7 +2861,7 @@ erts_allocator_info(int to, void *arg)
         erts_print(to, arg, "=allocator:erts_mmap.literal_mmap\n");
         erts_mmap_info(&erts_literal_mmapper, &to, arg, NULL, NULL, &emis);
 #endif
-#ifdef ERTS_ALC_A_EXEC
+#ifdef ERTS_HAVE_EXEC_MMAPPER
         erts_print(to, arg, "=allocator:erts_mmap.exec_mmap\n");
         erts_mmap_info(&erts_exec_mmapper, &to, arg, NULL, NULL, &emis);
 #endif
@@ -3010,7 +3019,7 @@ erts_allocator_options(void *proc)
 #if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
     terms[length++] = ERTS_MAKE_AM("literal_mmap");
 #endif
-#ifdef ERTS_ALC_A_EXEC
+#ifdef ERTS_HAVE_EXEC_MMAPPER
     terms[length++] = ERTS_MAKE_AM("exec_mmap");
 #endif
     features = length ? erts_bld_list(hpp, szp, length, terms) : NIL;
@@ -3102,7 +3111,7 @@ reply_alloc_info(void *vair)
 # if defined(ARCH_64) && defined(ERTS_HAVE_OS_PHYSICAL_MEMORY_RESERVATION)
     struct erts_mmap_info_struct mmap_info_literal;
 # endif
-# ifdef ERTS_ALC_A_EXEC
+# ifdef ERTS_HAVE_EXEC_MMAPPER
     struct erts_mmap_info_struct mmap_info_exec;
 # endif
 #endif
@@ -3110,7 +3119,7 @@ reply_alloc_info(void *vair)
     Eterm (*info_func)(Allctr_t *,
 		       int,
 		       int,
-		       int *,
+		       fmtfn_t *,
 		       void *,
 		       Uint **,
 		       Uint *) = (air->only_sz
@@ -3126,9 +3135,10 @@ reply_alloc_info(void *vair)
     while (1) {
 
 	if (hpp)
-	    ref_copy = STORE_NC(hpp, ohp, air->ref);
+	    ref_copy = erts_iref_storage_make_ref(&air->iref,
+                                                  hpp, ohp, 0);
 	else
-	    *szp += REF_THING_SIZE;
+	    *szp += erts_iref_storage_heap_size(&air->iref);
 
 	ai_list = NIL;
 	for (i = 0; air->allocs[i] != ERTS_ALC_A_INVALID; i++);
@@ -3232,7 +3242,7 @@ reply_alloc_info(void *vair)
                                             erts_bld_atom(hpp,szp,"literal_mmap"),
                                             ainfo);
 #  endif
-#  ifdef ERTS_ALC_A_EXEC
+#  ifdef ERTS_HAVE_EXEC_MMAPPER
                     ai_list = erts_bld_cons(hpp, szp,
                                             ainfo, ai_list);
                     ainfo = (air->only_sz ? NIL :
@@ -3357,8 +3367,10 @@ reply_alloc_info(void *vair)
     erts_smp_proc_unlock(rp, rp_locks);
     erts_proc_dec_refc(rp);
 
-    if (erts_smp_atomic32_dec_read_nob(&air->refc) == 0)
+    if (erts_smp_atomic32_dec_read_nob(&air->refc) == 0) {
+        erts_iref_storage_clean(&air->iref);
 	aireq_free(air);
+    }
 }
 
 int
@@ -3371,7 +3383,6 @@ erts_request_alloc_info(struct process *c_p,
     ErtsAllocInfoReq *air = aireq_alloc();
     Eterm req_ai[ERTS_ALC_INFO_A_END] = {0};
     Eterm alist;
-    Eterm *hp;
     int airix = 0, ai;
 
     air->req_sched = erts_get_scheduler_id();
@@ -3385,8 +3396,7 @@ erts_request_alloc_info(struct process *c_p,
     if (is_not_internal_ref(ref))
 	return 0;
 
-    hp = &air->ref_heap[0];
-    air->ref = STORE_NC(&hp, NULL, ref);
+    erts_iref_storage_save(&air->iref, ref);
 
     if (is_not_list(allocs))
 	return 0;
@@ -3500,28 +3510,6 @@ void erts_allctr_wrapper_pre_unlock(void)
 	}
     }
 }
-
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
- * Deprecated functions                                                    *
- *                                                                         *
- * These functions are still defined since "non-OTP linked in drivers" may *
- * contain (illegal) calls to them.                                        *
-\*                                                                         */
-
-/* --- DO *NOT* USE THESE FUNCTIONS --- */
-
-void *sys_alloc(Uint sz)
-{ return erts_alloc_fnf(ERTS_ALC_T_UNDEF, sz); }
-void *sys_realloc(void *ptr, Uint sz)
-{ return erts_realloc_fnf(ERTS_ALC_T_UNDEF, ptr, sz); }
-void sys_free(void *ptr)
-{ erts_free(ERTS_ALC_T_UNDEF, ptr); }
-void *safe_alloc(Uint sz)
-{ return erts_alloc(ERTS_ALC_T_UNDEF, sz); }
-void *safe_realloc(void *ptr, Uint sz)
-{ return erts_realloc(ERTS_ALC_T_UNDEF, ptr, sz); }
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
@@ -4129,12 +4117,20 @@ debug_free(ErtsAlcType_t n, void *extra, void *ptr)
     ErtsAllocatorFunctions_t *real_af = (ErtsAllocatorFunctions_t *) extra;
     void *dptr;
     Uint size;
+    int free_pattern = n;
 
     ASSERT(ERTS_ALC_N_MIN <= n && n <= ERTS_ALC_N_MAX);
 
     dptr = check_memory_fence(ptr, &size, n, ERTS_ALC_O_FREE);
 
-    sys_memset((void *) dptr, n, size + FENCE_SZ);
+#ifdef ERTS_ALC_A_EXEC
+# if defined(__i386__) || defined(__x86_64__)
+    if (ERTS_ALC_T2A(ERTS_ALC_N2T(n)) == ERTS_ALC_A_EXEC) {
+        free_pattern = 0x0f; /* Illegal instruction */
+    }
+# endif
+#endif
+    sys_memset((void *) dptr, free_pattern, size + FENCE_SZ);
 
     (*real_af->free)(n, real_af->extra, dptr);
 

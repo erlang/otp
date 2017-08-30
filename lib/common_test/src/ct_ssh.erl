@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,7 +68,8 @@
  	 send_and_receive/3, send_and_receive/4, send_and_receive/5,
 	 send_and_receive/6,
  	 exec/2, exec/3, exec/4,
- 	 subsystem/3, subsystem/4]).
+         subsystem/3, subsystem/4,
+         shell/2, shell/3]).
 
 %% STFP Functions
 -export([sftp_connect/1, 
@@ -94,6 +95,7 @@
 
 -record(state, {ssh_ref, conn_type, target}).
 
+-type handle() :: pid().
 
 %%%-----------------------------------------------------------------
 %%%------------------------ SSH COMMANDS ---------------------------
@@ -159,7 +161,7 @@ connect(KeyOrName, ExtraOpts) when is_list(ExtraOpts) ->
 connect(KeyOrName, ConnType, ExtraOpts) ->
     case ct:get_config(KeyOrName) of
 	undefined ->
-	    log(heading(connect,KeyOrName), "Failed: ~p\n",
+	    log(heading(connect,KeyOrName), "Failed: ~tp\n",
 		[{not_available,KeyOrName}]),
 	    {error,{not_available,KeyOrName}};
 	SSHData ->
@@ -212,18 +214,18 @@ connect(KeyOrName, ConnType, ExtraOpts) ->
 		end,
 	    case {Addr,proplists:get_value(port, AllOpts1)} of
 		{undefined,_} ->
-		    log(heading(connect,KeyOrName), "Failed: ~p\n",
+		    log(heading(connect,KeyOrName), "Failed: ~tp\n",
 			[{not_available,{KeyOrName,ConnType1}}]),
 		    {error,{not_available,{KeyOrName,ConnType1}}};
 		{_,undefined} ->
 		    try_log(heading(connect,KeyOrName), 
-			    "Opening ~w connection to ~p:22\n",
+			    "Opening ~w connection to ~tp:22\n",
 			    [ConnType1,Addr]),
 		    ct_gen_conn:start(KeyOrName, {ConnType1,Addr,22}, 
 				      AllOpts1, ?MODULE);		    
 		{_,Port} ->
 		    try_log(heading(connect,KeyOrName), 
-			    "Opening ~w connection to ~p:~w\n",
+			    "Opening ~w connection to ~tp:~w\n",
 			    [ConnType1,Addr,Port]),
 		    ct_gen_conn:start(KeyOrName, {ConnType1,Addr,Port}, 
 				      AllOpts1, ?MODULE)
@@ -488,6 +490,22 @@ subsystem(SSH, ChannelId, Subsystem) ->
 %%% @doc Sends a request to execute a predefined subsystem.
 subsystem(SSH, ChannelId, Subsystem, Timeout) ->
     call(SSH, {subsystem,ChannelId,Subsystem,Timeout}).
+
+
+-spec shell(SSH, ChannelId) -> Result when
+      SSH :: handle() | ct:target_name(),
+      ChannelId :: ssh:ssh_channel_id(),
+      Result :: ok | {error,term()}.
+shell(SSH, ChannelId) ->
+    shell(SSH, ChannelId, ?DEFAULT_TIMEOUT).
+
+-spec shell(SSH, ChannelId, Timeout) -> Result when
+      SSH :: handle() | ct:target_name(),
+      ChannelId :: ssh:ssh_channel_id(),
+      Timeout :: timeout(),
+      Result :: ok | {error,term()}.
+shell(SSH, ChannelId, Timeout) ->
+    call(SSH, {shell,ChannelId,Timeout}).
 
 
 %%%-----------------------------------------------------------------
@@ -977,7 +995,7 @@ init(KeyOrName, {ConnType,Addr,Port}, AllOpts) ->
 	    SSHRef = element(2, Ok),
 	    try_log(heading(init,KeyOrName), 
 		    "Opened ~w connection:\n"
-		    "Host: ~p (~p)\nUser: ~p\nPassword: ~p\n",
+		    "Host: ~tp (~p)\nUser: ~tp\nPassword: ~p\n",
 		[ConnType,Addr,Port,User,lists:duplicate(length(Password),$*)]),
 	    {ok,SSHRef,#state{ssh_ref=SSHRef, conn_type=ConnType,
 			      target=KeyOrName}}
@@ -1015,11 +1033,11 @@ handle_msg({exec,Chn,Command,TO}, State) ->
 	end,
     case Chn1 of
 	{error,_} = ChnError ->
-	    log(heading(exec,Target), "Opening channel failed: ~p", [ChnError]),
+	    log(heading(exec,Target), "Opening channel failed: ~tp", [ChnError]),
 	    {ChnError,State};
 	_ ->
 	    try_log(heading(exec,Target), 
-		    "SSH Ref: ~p, Chn: ~p, Command: ~p, Timeout: ~p", 
+		    "SSH Ref: ~p, Chn: ~p, Command: ~tp, Timeout: ~p",
 		    [SSHRef,Chn1,Command,TO]),
 	    case ssh_connection:exec(SSHRef, Chn1, Command, TO) of
 		success ->
@@ -1042,7 +1060,7 @@ handle_msg({send,Chn,Type,Data,TO}, State) ->
     #state{ssh_ref=SSHRef, target=Target} = State,
     try_log(heading(send,Target), 
 	    "SSH Ref: ~p, Chn: ~p, Type: ~p, Timeout: ~p~n"
-	    "Data: ~p", [SSHRef,Chn,Type,TO,Data]),
+	    "Data: ~tp", [SSHRef,Chn,Type,TO,Data]),
     Result = ssh_connection:send(SSHRef, Chn, Type, Data, TO),
     {Result,State};
 
@@ -1050,7 +1068,7 @@ handle_msg({send_and_receive,Chn,Type,Data,End,TO}, State) ->
     #state{ssh_ref=SSHRef, target=Target} = State,   
     try_log(heading(send_and_receive,Target), 
 	    "SSH Ref: ~p, Chn: ~p, Type: ~p, Timeout: ~p~n"
-	    "Data: ~p", [SSHRef,Chn,Type,TO,Data]),
+	    "Data: ~tp", [SSHRef,Chn,Type,TO,Data]),
     case ssh_connection:send(SSHRef, Chn, Type, Data, TO) of
 	ok ->
 	    Result = do_recv_response(SSHRef, Chn, [], End, TO),
@@ -1062,160 +1080,168 @@ handle_msg({send_and_receive,Chn,Type,Data,End,TO}, State) ->
 handle_msg({subsystem,Chn,Subsystem,TO}, State) ->
     #state{ssh_ref=SSHRef, target=Target} = State,
     try_log(heading(subsystem,Target), 
-	    "SSH Ref: ~p, Chn: ~p, Subsys: ~p, Timeout: ~p", 
+	    "SSH Ref: ~p, Chn: ~p, Subsys: ~tp, Timeout: ~p",
 	    [SSHRef,Chn,Subsystem,TO]),
     Result = ssh_connection:subsystem(SSHRef, Chn, Subsystem, TO),
+    {Result,State};
+
+handle_msg({shell,Chn,TO}, State) ->
+    #state{ssh_ref=SSHRef, target=Target} = State,
+    try_log(heading(shell,Target),
+	    "SSH Ref: ~p, Chn: ~p, Timeout: ~p",
+            [SSHRef,Chn,TO]),
+    Result = ssh_connection:shell(SSHRef, Chn),
     {Result,State};
 
 %% --- SFTP Commands ---
 
 handle_msg({read_file,Srv,File}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:read_file(ref(Srv,SSHRef), File),S};
 
 handle_msg({write_file,Srv,File,Iolist}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:write_file(ref(Srv,SSHRef), File, Iolist),S};
 
 handle_msg({list_dir,Srv,Path}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:list_dir(ref(Srv,SSHRef), Path),S};
 
 handle_msg({open,Srv,File,Mode}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:open(ref(Srv,SSHRef), File, Mode),S};
 
 handle_msg({opendir,Srv,Path}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:opendir(ref(Srv,SSHRef), Path),S};
 
 handle_msg({close,Srv,Handle}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:close(ref(Srv,SSHRef), Handle),S};
 
 handle_msg({read,Srv,Handle,Len}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:read(ref(Srv,SSHRef), Handle, Len),S};
 
 handle_msg({pread,Srv,Handle,Position,Length}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:pread(ref(Srv,SSHRef),Handle,Position,Length),S};
 
 handle_msg({aread,Srv,Handle,Len}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:aread(ref(Srv,SSHRef), Handle, Len),S};
 
 handle_msg({apread,Srv,Handle,Position,Length}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:apread(ref(Srv,SSHRef), Handle, Position, Length),S};
 
 handle_msg({write,Srv,Handle,Data}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:write(ref(Srv,SSHRef), Handle, Data),S};
 
 handle_msg({pwrite,Srv,Handle,Position,Data}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:pwrite(ref(Srv,SSHRef), Handle, Position, Data),S};
 
 handle_msg({awrite,Srv,Handle,Data}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:awrite(ref(Srv,SSHRef), Handle, Data),S};
 
 handle_msg({apwrite,Srv,Handle,Position,Data}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:apwrite(ref(Srv,SSHRef), Handle, Position, Data),S};
 
 handle_msg({position,Srv,Handle,Location}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:position(ref(Srv,SSHRef), Handle, Location),S};
 
 handle_msg({read_file_info,Srv,Name}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:read_file_info(ref(Srv,SSHRef), Name),S};
 
 handle_msg({get_file_info,Srv,Handle}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:get_file_info(ref(Srv,SSHRef), Handle),S};
 
 handle_msg({read_link_info,Srv,Name}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:read_link_info(ref(Srv,SSHRef), Name),S};
 
 handle_msg({write_file_info,Srv,Name,Info}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:write_file_info(ref(Srv,SSHRef), Name, Info),S};
 
 handle_msg({read_link,Srv,Name}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:read_link(ref(Srv,SSHRef), Name),S};
 
 handle_msg({make_symlink,Srv,Name,Target}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:make_symlink(ref(Srv,SSHRef), Name, Target),S};
 
 handle_msg({rename,Srv,OldName,NewName}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:rename(ref(Srv,SSHRef), OldName, NewName),S};
 
 handle_msg({delete,Srv,Name}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:delete(ref(Srv,SSHRef), Name),S};
 
 handle_msg({make_dir,Srv,Name}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:make_dir(ref(Srv,SSHRef), Name),S};
 
 handle_msg({del_dir,Srv,Name}=Cmd, S=#state{ssh_ref=SSHRef}) ->
     try_log(heading(sftp,S#state.target), 
-	    "SSH Ref: ~p, Server: ~p~nCmd: ~p",
+	    "SSH Ref: ~p, Server: ~p~nCmd: ~tp",
 	    [SSHRef,ref(Srv,SSHRef),mod(Cmd)]),
     {ssh_sftp:del_dir(ref(Srv,SSHRef), Name),S}.
 
@@ -1259,7 +1285,7 @@ do_recv_response(SSH, Chn, Data, End, Timeout) ->
 
 	{ssh_cm, SSH, {data,Chn,_,NewData}} ->
 	    ssh_connection:adjust_window(SSH, Chn, size(NewData)),
-	    debug("RECVD~n~p", [binary_to_list(NewData)]),
+	    debug("RECVD~n~tp", [binary_to_list(NewData)]),
 	    DataAcc = Data ++ binary_to_list(NewData),
 	    if is_function(End) ->
 		    case End(DataAcc) of
@@ -1312,7 +1338,7 @@ do_recv_response(SSH, Chn, Data, End, Timeout) ->
 	%%	    {ok,WCh};
 
 	Other ->
-	    debug("UNEXPECTED MESSAGE~n~p ~p~n~p", [SSH,Chn,Other]),
+	    debug("UNEXPECTED MESSAGE~n~p ~p~n~tp", [SSH,Chn,Other]),
 	    do_recv_response(SSH, Chn, Data, End, Timeout)
 
     after Timeout ->
@@ -1365,7 +1391,7 @@ mod(Cmd) ->
 %%%-----------------------------------------------------------------
 %%% 	  
 heading(Function, Ref) ->
-    io_lib:format("ct_ssh:~w ~p",[Function,Ref]).
+    io_lib:format("ct_ssh:~tw ~tp",[Function,Ref]).
 
 %%%-----------------------------------------------------------------
 %%% 

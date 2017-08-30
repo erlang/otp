@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,6 +52,9 @@ struct hipe_process_state {
 #if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
     void (*bif_callee)(void);   /* When calling BIF's via debug wrapper */
 #endif
+#ifdef DEBUG
+    UWord gc_is_unsafe;         /* Nonzero when GC-required state is on stack */
+#endif
 };
 
 extern void hipe_arch_print_pcb(struct hipe_process_state *p);
@@ -68,12 +71,15 @@ static __inline__ void hipe_init_process(struct hipe_process_state *p)
     p->nra = NULL;
 #endif
     p->narity = 0;
+#ifdef DEBUG
+    p->gc_is_unsafe = 0;
+#endif
 }
 
 static __inline__ void hipe_delete_process(struct hipe_process_state *p)
 {
     if (p->nstack)
-	erts_free(ERTS_ALC_T_HIPE, (void*)p->nstack);
+	erts_free(ERTS_ALC_T_HIPE_STK, (void*)p->nstack);
 }
 
 #ifdef ERTS_SMP

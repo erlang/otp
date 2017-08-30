@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@
 -include_lib("common_test/include/ct.hrl").
 
 
--export([wrong_path/1,comp/2,path/1,ticket_6143/1,noobj/1,
-	 record_name_prefix/1,verbose/1]).
+-export([wrong_path/1,comp/2,path/1,noobj/1,
+	 record_name_prefix/1,verbose/1,maps/1]).
 
 %% OTP-5689
 wrong_path(Config) ->
@@ -63,8 +63,6 @@ path(Config) ->
     ok=outfiles_check(OutDir,outfiles2()),
     file:set_cwd(CWD),
     ok.
-
-ticket_6143(Config) -> asn1_test_lib:compile("AA1", Config, []).
 
 noobj(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
@@ -128,6 +126,28 @@ verbose(Config) when is_list(Config) ->
     ok = asn1ct:compile(Asn1File, [{i,DataDir},{outdir,OutDir},noobj]),
     test_server:capture_stop(),
     [] = test_server:capture_get(),
+    ok.
+
+maps(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    OutDir = proplists:get_value(case_dir, Config),
+    InFile = filename:join(DataDir, "P-Record"),
+
+    do_maps(ber, InFile, OutDir),
+    do_maps(per, InFile, OutDir),
+    do_maps(uper, InFile, OutDir).
+
+do_maps(Erule, InFile, OutDir) ->
+    Opts = [Erule,maps,{outdir,OutDir}],
+    ok = asn1ct:compile(InFile, Opts),
+
+    %% Make sure that no .hrl files are generated.
+    [] = filelib:wildcard(filename:join(OutDir, "*.hrl")),
+
+    %% Remove all generated files.
+    All = filelib:wildcard(filename:join(OutDir, "*")),
+    _ = [file:delete(N) || N <- All],
+
     ok.
 
 outfiles_check(OutDir) ->

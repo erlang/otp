@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,32 +26,16 @@
 %%
 
 %% Basic types.
--export(['OctetString'/2,
-         'Integer32'/2,
-         'Integer64'/2,
-         'Unsigned32'/2,
-         'Unsigned64'/2,
-         'Float32'/2,
-         'Float64'/2]).
-
-%% Derived types.
--export(['Address'/2,
-         'Time'/2,
-         'UTF8String'/2,
-         'DiameterIdentity'/2,
-         'DiameterURI'/2,
-         'IPFilterRule'/2,
-         'QoSFilterRule'/2]).
-
-%% Functions taking the AVP name in question as second parameter.
 -export(['OctetString'/3,
          'Integer32'/3,
          'Integer64'/3,
          'Unsigned32'/3,
          'Unsigned64'/3,
          'Float32'/3,
-         'Float64'/3,
-         'Address'/3,
+         'Float64'/3]).
+
+%% Derived types.
+-export(['Address'/3,
          'Time'/3,
          'UTF8String'/3,
          'DiameterIdentity'/3,
@@ -89,81 +73,80 @@
 %%    AVP Data Format is needed, a new version of this RFC must be created.
 %% --------------------
 
-'OctetString'(decode, Bin)
+'OctetString'(decode, Bin, #{string_decode := true})
   when is_binary(Bin) ->
-    case diameter_codec:getopt(string_decode) of
-        true ->
-            binary_to_list(Bin);
-        false ->
-            Bin
-    end;
+    binary_to_list(Bin);
 
-'OctetString'(decode, B) ->
+'OctetString'(decode, Bin, _)
+  when is_binary(Bin) ->
+    Bin;
+
+'OctetString'(decode, B, _) ->
     ?INVALID_LENGTH(B);
 
-'OctetString'(encode = M, zero) ->
-    'OctetString'(M, []);
+'OctetString'(encode, zero, _) ->
+    <<>>;
 
-'OctetString'(encode, Str) ->
+'OctetString'(encode, Str, _) ->
     iolist_to_binary(Str).
 
 %% --------------------
 
-'Integer32'(decode, <<X:32/signed>>) ->
+'Integer32'(decode, <<X:32/signed>>, _) ->
     X;
 
-'Integer32'(decode, B) ->
+'Integer32'(decode, B, _) ->
     ?INVALID_LENGTH(B);
 
-'Integer32'(encode = M, zero) ->
-    'Integer32'(M, 0);
+'Integer32'(encode, zero, _) ->
+    <<0:32/signed>>;
 
-'Integer32'(encode, I)
+'Integer32'(encode, I, _)
   when ?SINT(32,I) ->
     <<I:32/signed>>.
 
 %% --------------------
 
-'Integer64'(decode, <<X:64/signed>>) ->
+'Integer64'(decode, <<X:64/signed>>, _) ->
     X;
 
-'Integer64'(decode, B) ->
+'Integer64'(decode, B, _) ->
     ?INVALID_LENGTH(B);
 
-'Integer64'(encode = M, zero) ->
-    'Integer64'(M, 0);
+'Integer64'(encode, zero, _) ->
+    <<0:64/signed>>;
 
-'Integer64'(encode, I)
+'Integer64'(encode, I, _)
   when ?SINT(64,I) ->
     <<I:64/signed>>.
 
 %% --------------------
 
-'Unsigned32'(decode, <<X:32>>) ->
+'Unsigned32'(decode, <<X:32>>, _) ->
     X;
 
-'Unsigned32'(decode, B) ->
+'Unsigned32'(decode, B, _) ->
     ?INVALID_LENGTH(B);
 
-'Unsigned32'(encode = M, zero) ->
-    'Unsigned32'(M, 0);
+'Unsigned32'(encode, zero, _) ->
+    <<0:32>>;
 
-'Unsigned32'(encode, I)
+'Unsigned32'(encode, I, _)
   when ?UINT(32,I) ->
     <<I:32>>.
 
 %% --------------------
 
-'Unsigned64'(decode, <<X:64>>) ->
+'Unsigned64'(decode, <<X:64>>, _) ->
     X;
 
-'Unsigned64'(decode, B) ->
+'Unsigned64'(decode, B, _) ->
     ?INVALID_LENGTH(B);
 
-'Unsigned64'(encode = M, zero) ->
-    'Unsigned64'(M, 0);
+'Unsigned64'(encode, zero, _) ->
+    <<0:64>>;
 
-'Unsigned64'(encode, I)
+'Unsigned64'(encode, I, _)
   when ?UINT(64,I) ->
     <<I:64>>.
 
@@ -184,25 +167,25 @@
 %% arithmetic is performed on the decoded value. Better to be explicit
 %% that precision has been lost.
 
-'Float32'(decode, <<S:1, 255:8, _:23>>) ->
+'Float32'(decode, <<S:1, 255:8, _:23>>, _) ->
     choose(S, infinity, '-infinity');
 
-'Float32'(decode, <<X:32/float>>) ->
+'Float32'(decode, <<X:32/float>>, _) ->
     X;
 
-'Float32'(decode, B) ->
+'Float32'(decode, B, _) ->
     ?INVALID_LENGTH(B);
 
-'Float32'(encode = M, zero) ->
-    'Float32'(M, 0.0);
+'Float32'(encode, zero, _) ->
+    <<0.0:32/float>>;
 
-'Float32'(encode, infinity) ->
+'Float32'(encode, infinity, _) ->
     <<0:1, 255:8, 0:23>>;
 
-'Float32'(encode, '-infinity') ->
+'Float32'(encode, '-infinity', _) ->
     <<1:1, 255:8, 0:23>>;
 
-'Float32'(encode, X)
+'Float32'(encode, X, _)
   when is_float(X) ->
     <<X:32/float>>.
 %% Note that this could also encode infinity/-infinity for large
@@ -222,25 +205,25 @@
 
 %% The 64 bit format is entirely analogous to the 32 bit format.
 
-'Float64'(decode, <<S:1, 2047:11, _:52>>) ->
+'Float64'(decode, <<S:1, 2047:11, _:52>>, _) ->
     choose(S, infinity, '-infinity');
 
-'Float64'(decode, <<X:64/float>>) ->
+'Float64'(decode, <<X:64/float>>, _) ->
     X;
 
-'Float64'(decode, B) ->
+'Float64'(decode, B, _) ->
     ?INVALID_LENGTH(B);
 
-'Float64'(encode, infinity) ->
+'Float64'(encode, infinity, _) ->
     <<0:1, 2047:11, 0:52>>;
 
-'Float64'(encode, '-infinity') ->
+'Float64'(encode, '-infinity', _) ->
     <<1:1, 2047:11, 0:52>>;
 
-'Float64'(encode = M, zero) ->
-    'Float64'(M, 0.0);
+'Float64'(encode, zero, _) ->
+    <<0.0:64/float>>;
 
-'Float64'(encode, X)
+'Float64'(encode, X, _)
   when is_float(X) ->
     <<X:64/float>>.
 
@@ -256,18 +239,18 @@
 %%    format.
 %% --------------------
 
-'Address'(encode, zero) ->
+'Address'(encode, zero, _) ->
     <<0:48>>;
 
-'Address'(decode, <<A:16, B/binary>>)
+'Address'(decode, <<A:16, B/binary>>, _)
   when 1 == A,  4 == size(B);
        2 == A, 16 == size(B) ->
     list_to_tuple([N || <<N:A/unit:8>> <= B]);
 
-'Address'(decode, B) ->
+'Address'(decode, B, _) ->
     ?INVALID_LENGTH(B);
 
-'Address'(encode, T) ->
+'Address'(encode, T, _) ->
     Ns = tuple_to_list(diameter_lib:ipaddr(T)),  %% length 4 or 8
     A = length(Ns) div 4,                        %% 1 or 2
     B = << <<N:A/unit:8>> || N <- Ns >>,
@@ -278,36 +261,38 @@
 %% A DiameterIdentity is a FQDN as definined in RFC 1035, which is at
 %% least one character.
 
-'DiameterIdentity'(encode = M, zero) ->
-    'OctetString'(M, [0]);
+'DiameterIdentity'(encode, zero, _) ->
+    <<0>>;
 
-'DiameterIdentity'(encode = M, X) ->
-    <<_,_/binary>> = 'OctetString'(M, X);
+'DiameterIdentity'(encode = M, X, Opts) ->
+    <<_,_/binary>> = 'OctetString'(M, X, Opts);
 
-'DiameterIdentity'(decode = M, <<_,_/binary>> = X) ->
-    'OctetString'(M, X);
+'DiameterIdentity'(decode = M, <<_,_/binary>> = X, Opts) ->
+    'OctetString'(M, X, Opts);
 
-'DiameterIdentity'(decode, X) ->
+'DiameterIdentity'(decode, X, _) ->
     ?INVALID_LENGTH(X).
 
 %% --------------------
 
-'DiameterURI'(decode, Bin)
+'DiameterURI'(decode, Bin, Opts)
   when is_binary(Bin) ->
-    scan_uri(Bin);
+    scan_uri(Bin, Opts);
 
-'DiameterURI'(decode, B) ->
+'DiameterURI'(decode, B, _) ->
     ?INVALID_LENGTH(B);
 
 %% The minimal DiameterURI is "aaa://x", 7 characters.
-'DiameterURI'(encode = M, zero) ->
-    'OctetString'(M, lists:duplicate(0,7));
+'DiameterURI'(encode, zero, _) ->
+    <<0:7/unit:8>>;
 
-'DiameterURI'(encode, #diameter_uri{type = Type,
-                                    fqdn = DN,
-                                    port = PN,
-                                    transport = T,
-                                    protocol = P})
+'DiameterURI'(encode,
+              #diameter_uri{type = Type,
+                            fqdn = DN,
+                            port = PN,
+                            transport = T,
+                            protocol = P},
+              _)
   when (Type == 'aaa' orelse Type == 'aaas'),
        is_integer(PN),
        0 =< PN,
@@ -324,48 +309,47 @@
 %% defaults, so it's best to be explicit. Interpret defaults on decode
 %% since there's no choice.
 
-'DiameterURI'(encode, Str) ->
+'DiameterURI'(encode, Str, Opts) ->
     Bin = iolist_to_binary(Str),
-    #diameter_uri{} = scan_uri(Bin),  %% assert
+    #diameter_uri{} = scan_uri(Bin, Opts),  %% assert
     Bin.
 
 %% --------------------
 
 %% This minimal rule is "deny in 0 from 0.0.0.0 to 0.0.0.0", 33 characters.
-'IPFilterRule'(encode = M, zero) ->
-    'OctetString'(M, lists:duplicate(0,33));
+'IPFilterRule'(encode, zero, _) ->
+    <<0:33/unit:8>>;
 
-'IPFilterRule'(M, X) ->
-    'OctetString'(M, X).
+'IPFilterRule'(M, X, Opts) ->
+    'OctetString'(M, X, Opts).
 
 %% --------------------
 
 %% This minimal rule is the same as for an IPFilterRule.
-'QoSFilterRule'(encode = M, zero = X) ->
-    'IPFilterRule'(M, X);
+'QoSFilterRule'(encode, zero, _) ->
+    <<0:33/unit:8>>;
 
-'QoSFilterRule'(M, X) ->
-    'OctetString'(M, X).
+'QoSFilterRule'(M, X, Opts) ->
+    'OctetString'(M, X, Opts).
 
 %% --------------------
 
-'UTF8String'(decode, Bin)
+'UTF8String'(decode, Bin, #{string_decode := true})
   when is_binary(Bin) ->
-    case diameter_codec:getopt(string_decode) of
-        true ->
-            %% assert list return
-            tl([0|_] = unicode:characters_to_list([0, Bin]));
-        false ->
-            <<_/binary>> = unicode:characters_to_binary(Bin)
-    end;
+    %% assert list return
+    tl([0|_] = unicode:characters_to_list([0, Bin]));
 
-'UTF8String'(decode, B) ->
+'UTF8String'(decode, Bin, _)
+  when is_binary(Bin) ->
+    <<_/binary>> = unicode:characters_to_binary(Bin);
+
+'UTF8String'(decode, B, _) ->
     ?INVALID_LENGTH(B);
 
-'UTF8String'(encode = M, zero) ->
-    'UTF8String'(M, []);
+'UTF8String'(encode, zero, _) ->
+    <<>>;
 
-'UTF8String'(encode, S) ->
+'UTF8String'(encode, S, _) ->
     <<_/binary>> = unicode:characters_to_binary(S).   %% assert binary return
 
 %% --------------------
@@ -414,66 +398,22 @@
 -define(TIME_MIN, {{1968,1,20},{3,14,8}}).  %% TIME_1900 + 1 bsl 31
 -define(TIME_MAX, {{2104,2,26},{9,42,24}}). %% TIME_2036 + 1 bsl 31
 
-'Time'(decode, <<Time:32>>) ->
+'Time'(decode, <<Time:32>>, _) ->
     Offset = msb(1 == Time bsr 31),
     calendar:gregorian_seconds_to_datetime(Time + Offset);
 
-'Time'(decode, B) ->
+'Time'(decode, B, _) ->
     ?INVALID_LENGTH(B);
 
-'Time'(encode, {{_Y,_M,_D},{_HH,_MM,_SS}} = Datetime)
+'Time'(encode, {{_Y,_M,_D},{_HH,_MM,_SS}} = Datetime, _)
   when ?TIME_MIN =< Datetime, Datetime < ?TIME_MAX ->
     S = calendar:datetime_to_gregorian_seconds(Datetime),
     T = S - msb(S < ?TIME_2036),
     0 = T bsr 32,  %% sanity check
     <<T:32>>;
 
-'Time'(encode, zero) ->
+'Time'(encode, zero, _) ->
     <<0:32>>.
-
-%% -------------------------------------------------------------------------
-
-'OctetString'(M, _, Data) ->
-    'OctetString'(M, Data).
-
-'Integer32'(M, _, Data) ->
-    'Integer32'(M, Data).
-
-'Integer64'(M, _, Data) ->
-    'Integer64'(M, Data).
-
-'Unsigned32'(M, _, Data) ->
-    'Unsigned32'(M, Data).
-
-'Unsigned64'(M, _, Data) ->
-    'Unsigned64'(M, Data).
-
-'Float32'(M, _, Data) ->
-    'Float32'(M, Data).
-
-'Float64'(M, _, Data) ->
-    'Float64'(M, Data).
-
-'Address'(M, _, Data) ->
-    'Address'(M, Data).
-
-'Time'(M, _, Data) ->
-    'Time'(M, Data).
-
-'UTF8String'(M, _, Data) ->
-    'UTF8String'(M, Data).
-
-'DiameterIdentity'(M, _, Data) ->
-    'DiameterIdentity'(M, Data).
-
-'DiameterURI'(M, _, Data) ->
-    'DiameterURI'(M, Data).
-
-'IPFilterRule'(M, _, Data) ->
-    'IPFilterRule'(M, Data).
-
-'QoSFilterRule'(M, _, Data) ->
-    'QoSFilterRule'(M, Data).
 
 %% ===========================================================================
 %% ===========================================================================
@@ -564,7 +504,7 @@ msb(false) -> ?TIME_2036.
 %%
 %%       aaa-protocol       = ( "diameter" / "radius" / "tacacs+" )
 
-scan_uri(Bin) ->
+scan_uri(Bin, Opts) ->
     RE = "^(aaas?)://"
          "([-a-zA-Z0-9.]{1,255})"
          "(:0{0,5}([0-9]{1,5}))?"
@@ -583,27 +523,29 @@ scan_uri(Bin) ->
                                         RE,
                                         [{capture, [1,2,4,6,8], binary}]),
     Type = to_atom(A),
-    {PN0, T0} = defaults(diameter_codec:getopt(rfc), Type),
-    PortNr = to_int(PN, PN0),
-    0 = PortNr bsr 16,  %% assert
     #diameter_uri{type = Type,
-                  fqdn = 'OctetString'(decode, DN),
-                  port = PortNr,
-                  transport = to_atom(T, T0),
+                  fqdn = 'OctetString'(decode, DN, Opts),
+                  port = portnr(PN, Type, Opts),
+                  transport = transport(T, Opts),
                   protocol = to_atom(P, diameter)}.
 
 %% Choose defaults based on the RFC, since 6733 has changed them.
-defaults(3588, _) ->
-    {3868, sctp};
-defaults(6733, aaa) ->
-    {3868, tcp};
-defaults(6733, aaas) ->
-    {5658, tcp}.
 
-to_int(<<>>, N) ->
-    N;
-to_int(B, _) ->
+portnr(<<>>, aaa, #{rfc := 6733}) ->
+    3868;
+portnr(<<>>, aaas, #{rfc := 6733}) ->
+    5868;
+portnr(<<>>, _, #{rfc := 3588}) ->
+    3868;
+portnr(B, _, _) ->
     binary_to_integer(B).
+
+transport(<<>>, #{rfc := 6733}) ->
+    tcp;
+transport(<<>>, #{rfc := 3588}) ->
+    sctp;
+transport(B, _) ->
+    to_atom(B).
 
 to_atom(<<>>, A) ->
     A;

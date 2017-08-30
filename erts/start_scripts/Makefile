@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,9 @@
 #
 # %CopyrightEnd%
 #
+
+.NOTPARALLEL:
+
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
@@ -65,11 +68,11 @@ include $(LIBPATH)/stdlib/vsn.mk
 
 ##############################################################################
 
-debug opt script: rel $(INSTALL_SCRIPTS) $(RELEASES_SRC)
+debug opt lcnt script: rel $(INSTALL_SCRIPTS) $(RELEASES_SRC)
 
 rel:	$(REL_SCRIPTS)
 
-RELEASES.src:
+RELEASES.src: $(SS_ROOT)/start_sasl.rel
 	$(gen_verbose)$(INSTALL_DIR) $(SS_TMP)
 	$(V_at)( cd $(SS_TMP) && \
 	$(ERL) -noinput +B -eval 'release_handler:create_RELEASES("%ERL_ROOT%", "$(SS_ROOT)", "$(SS_ROOT)/start_sasl.rel", []), halt()')

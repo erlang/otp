@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,17 +21,8 @@
 #ifndef __BIG_H__
 #define __BIG_H__
 
-#ifndef __SYS_H__
 #include "sys.h"
-#endif
-
-#ifndef __CONFIG_H__
-#include "erl_vm.h"
-#endif
-
-#ifndef __GLOBAL_H__
 #include "global.h"
-#endif
 
 typedef Uint     ErtsDigit;
 
@@ -127,9 +118,7 @@ Eterm big_minus(Eterm, Eterm, Eterm*);
 Eterm big_times(Eterm, Eterm, Eterm*);
 Eterm big_div(Eterm, Eterm, Eterm*);
 Eterm big_rem(Eterm, Eterm, Eterm*);
-Eterm big_neg(Eterm, Eterm*);
 
-Eterm big_minus_small(Eterm, Uint, Eterm*);
 Eterm big_plus_small(Eterm, Uint, Eterm*);
 Eterm big_times_small(Eterm, Uint, Eterm*);
 

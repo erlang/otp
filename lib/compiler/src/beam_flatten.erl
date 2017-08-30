@@ -25,6 +25,9 @@
 
 -import(lists, [reverse/1,reverse/2]).
 
+-spec module(beam_utils:module_code(), [compile:option()]) ->
+                    {'ok',beam_utils:module_code()}.
+
 module({Mod,Exp,Attr,Fs,Lc}, _Opt) ->
     {ok,{Mod,Exp,Attr,[function(F) || F <- Fs],Lc}}.
 
@@ -64,7 +67,6 @@ norm({set,[],[S,D],{set_tuple_element,I}}) -> {set_tuple_element,S,D,I};
 norm({set,[D1,D2],[S],get_list})          -> {get_list,S,D1,D2};
 norm({set,[D],[S|Puts],{alloc,R,{put_map,Op,F}}}) ->
     {put_map,F,Op,S,D,R,{list,Puts}};
-%% get_map_elements is always handled in beam_split (moved out of block)
 norm({set,[],[],remove_message})   -> remove_message;
 norm({set,[],[],fclearerror}) -> fclearerror;
 norm({set,[],[],fcheckerror}) -> {fcheckerror,{f,0}}.

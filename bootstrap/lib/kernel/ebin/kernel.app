@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "5.0"},
+  {vsn, "5.2"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -34,6 +34,7 @@
 	     erl_boot_server,
 	     erl_distribution,
 	     erl_reply,
+             erl_signal_handler,
 	     error_handler,
 	     error_logger,
 	     file,
@@ -43,6 +44,7 @@
 	     global_group,
 	     global_search,
 	     group,
+	     group_history,
 	     heart,
 	     hipe_unified_loader,
 	     inet6_tcp,
@@ -118,6 +120,6 @@
   {applications, []},
   {env, [{error_logger, tty}]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-8.0", "stdlib-3.0", "sasl-3.0"]}
+  {runtime_dependencies, ["erts-9.0", "stdlib-3.0", "sasl-3.0"]}
  ]
 }.

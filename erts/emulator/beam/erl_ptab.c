@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2016. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -474,7 +474,7 @@ erts_ptab_init_table(ErtsPTab *ptab,
 	 * we don't want to shrink the size to ERTS_PTAB_MAX_SIZE/2.
 	 *
 	 * In order to fix this, we insert a pointer from the table
-	 * to the invalid_element, wich will be interpreted as a
+	 * to the invalid_element, which will be interpreted as a
 	 * slot currently being modified. This way we will be able to
 	 * have ERTS_PTAB_MAX_SIZE-1 valid elements in the table while
 	 * still having a table size of the power of 2.
@@ -733,7 +733,7 @@ erts_ptab_delete_element(ErtsPTab *ptab,
  * erts_ptab_list() implements BIFs listing the content of the table,
  * e.g. erlang:processes/0.
  */
-static void cleanup_ptab_list_bif_data(Binary *bp);
+static int cleanup_ptab_list_bif_data(Binary *bp);
 static int ptab_list_bif_engine(Process *c_p, Eterm *res_accp, Binary *mbp);
 
 
@@ -771,23 +771,23 @@ erts_ptab_list(Process *c_p, ErtsPTab *ptab)
     }
     else {
 	Eterm *hp;
-	Eterm magic_bin;
+	Eterm magic_ref;
 	ERTS_PTAB_LIST_DBG_CHK_RESLIST(res_acc);
-	hp = HAlloc(c_p, PROC_BIN_SIZE);
-	ERTS_PTAB_LIST_DBG_SAVE_HEAP_ALLOC(ptlbdp, hp, PROC_BIN_SIZE);
-	magic_bin = erts_mk_magic_binary_term(&hp, &MSO(c_p), mbp);
+	hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
+	ERTS_PTAB_LIST_DBG_SAVE_HEAP_ALLOC(ptlbdp, hp, ERTS_MAGIC_REF_THING_SIZE);
+	magic_ref = erts_mk_magic_ref(&hp, &MSO(c_p), mbp);
 	ERTS_PTAB_LIST_DBG_VERIFY_HEAP_ALLOC_USED(ptlbdp, hp);
 	ERTS_PTAB_LIST_DBG_TRACE(c_p->common.id, trap);
 	ERTS_BIF_PREP_YIELD2(ret_val,
 			     &ptab_list_continue_export,
 			     c_p,
 			     res_acc,
-			     magic_bin);
+			     magic_ref);
     }
     return ret_val;
 }
 
-static void
+static int
 cleanup_ptab_list_bif_data(Binary *bp)
 {
     ErtsPTabListBifData *ptlbdp = ERTS_MAGIC_BIN_DATA(bp);
@@ -875,6 +875,8 @@ cleanup_ptab_list_bif_data(Binary *bp)
 
     ERTS_PTAB_LIST_DBG_TRACE(ptlbdp->debug.caller, return);
     ERTS_PTAB_LIST_DBG_CLEANUP(ptlbdp);
+
+    return 1;
 }
 
 static int
@@ -1287,9 +1289,7 @@ static BIF_RETTYPE ptab_list_continue(BIF_ALIST_2)
 
     res_acc = BIF_ARG_1;
 
-    ERTS_PTAB_LIST_ASSERT(ERTS_TERM_IS_MAGIC_BINARY(BIF_ARG_2));
-
-    mbp = ((ProcBin *) binary_val(BIF_ARG_2))->val;
+    mbp = erts_magic_ref2bin(BIF_ARG_2);
 
     ERTS_PTAB_LIST_ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(mbp)
 			  == cleanup_ptab_list_bif_data);

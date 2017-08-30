@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -66,8 +66,9 @@
 	 reload_config/1,
 	 escape_chars/1, escape_chars/2,
 	 log/1, log/2, log/3, log/4, log/5,
-	 print/1, print/2, print/3, print/4,
-	 pal/1, pal/2, pal/3, pal/4,
+	 print/1, print/2, print/3, print/4, print/5,
+	 pal/1, pal/2, pal/3, pal/4, pal/5,
+         set_verbosity/2, get_verbosity/1,
 	 capture_start/0, capture_stop/0, capture_get/0, capture_get/1,
 	 fail/1, fail/2, comment/1, comment/2, make_priv_dir/0,
 	 testcases/2, userdata/2, userdata/3,
@@ -87,6 +88,36 @@
 
 -export([get_target_name/1]).
 -export([parse_table/1, listenv/1]).
+
+%%----------------------------------------------------------------------
+%% Exported types
+%%----------------------------------------------------------------------
+%% For ct_gen_conn
+-export_type([config_key/0,
+	      target_name/0,
+	      key_or_name/0]).
+
+%% For cth_conn_log
+-export_type([conn_log_options/0,
+	      conn_log_type/0,
+	      conn_log_mod/0]).
+
+%%------------------------------------------------------------------
+%% Type declarations
+%% ------------------------------------------------------------------
+-type config_key() :: atom(). % Config key which exists in a config file
+-type target_name() :: atom().% Name associated to a config_key() though 'require'
+-type key_or_name() :: config_key() | target_name().
+
+%% Types used when logging connections with the 'cth_conn_log' hook
+-type conn_log_options() :: [conn_log_option()].
+-type conn_log_option() :: {log_type,conn_log_type()} |
+                           {hosts,[key_or_name()]}.
+-type conn_log_type() :: raw | pretty | html | silent.
+-type conn_log_mod() :: ct_netconfc | ct_telnet.
+%%----------------------------------------------------------------------
+
+
 
 %%%-----------------------------------------------------------------
 %%% @spec install(Opts) -> ok | {error,Reason}
@@ -591,7 +622,7 @@ log(X1,X2,X3,X4) ->
 %%%      Format = string()
 %%%      Args = list()
 %%%      Opts = [Opt]
-%%%      Opt = esc_chars | no_css
+%%%      Opt = {heading,string()} | esc_chars | no_css
 %%%
 %%% @doc Printout from a test case to the log file. 
 %%%
@@ -609,43 +640,61 @@ log(Category,Importance,Format,Args,Opts) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec print(Format) -> ok
-%%% @equiv print(default,50,Format,[])
+%%% @equiv print(default,50,Format,[],[])
 print(Format) ->
-    print(default,?STD_IMPORTANCE,Format,[]).
+    print(default,?STD_IMPORTANCE,Format,[],[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec print(X1,X2) -> ok
 %%%      X1 = Category | Importance | Format
 %%%      X2 = Format | Args
-%%% @equiv print(Category,Importance,Format,Args)
+%%% @equiv print(Category,Importance,Format,Args,[])
 print(X1,X2) ->
     {Category,Importance,Format,Args} = 
 	if is_atom(X1)    -> {X1,?STD_IMPORTANCE,X2,[]};
 	   is_integer(X1) -> {default,X1,X2,[]};
 	   is_list(X1)    -> {default,?STD_IMPORTANCE,X1,X2}
 	end,
-    print(Category,Importance,Format,Args).
+    print(Category,Importance,Format,Args,[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec print(X1,X2,X3) -> ok
+%%%      X1 = Category | Importance | Format
+%%%      X2 = Importance | Format | Args
+%%%      X3 = Format | Args | Opts
+%%% @equiv print(Category,Importance,Format,Args,Opts)
+print(X1,X2,X3) ->
+    {Category,Importance,Format,Args,Opts} = 
+	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[],[]};
+	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3,[]};
+	   is_integer(X1)              -> {default,X1,X2,X3,[]};
+	   is_list(X1), is_list(X2)    -> {default,?STD_IMPORTANCE,X1,X2,X3}
+	end,
+    print(Category,Importance,Format,Args,Opts).
+
+%%%-----------------------------------------------------------------
+%%% @spec print(X1,X2,X3,X4) -> ok
 %%%      X1 = Category | Importance
 %%%      X2 = Importance | Format
 %%%      X3 = Format | Args
-%%% @equiv print(Category,Importance,Format,Args)
-print(X1,X2,X3) ->
-    {Category,Importance,Format,Args} = 
-	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[]};
-	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3};
-	   is_integer(X1)              -> {default,X1,X2,X3}
+%%%      X4 = Args | Opts
+%%% @equiv print(Category,Importance,Format,Args,Opts)
+print(X1,X2,X3,X4) ->
+    {Category,Importance,Format,Args,Opts} = 
+	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,X4,[]};
+	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3,X4};
+	   is_integer(X1)              -> {default,X1,X2,X3,X4}
 	end,
-    print(Category,Importance,Format,Args).
+    print(Category,Importance,Format,Args,Opts).
 
 %%%-----------------------------------------------------------------
-%%% @spec print(Category,Importance,Format,Args) -> ok
+%%% @spec print(Category,Importance,Format,Args,Opts) -> ok
 %%%      Category = atom()
 %%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
+%%%      Opts = [Opt]
+%%%      Opt = {heading,string()}
 %%%
 %%% @doc Printout from a test case to the console. 
 %%%
@@ -657,13 +706,13 @@ print(X1,X2,X3) ->
 %%% and default value for <c>Args</c> is <c>[]</c>.</p>
 %%% <p>Please see the User's Guide for details on <c>Category</c>
 %%% and <c>Importance</c>.</p>
-print(Category,Importance,Format,Args) ->
-    ct_logs:tc_print(Category,Importance,Format,Args).
+print(Category,Importance,Format,Args,Opts) ->
+    ct_logs:tc_print(Category,Importance,Format,Args,Opts).
 
 
 %%%-----------------------------------------------------------------
 %%% @spec pal(Format) -> ok
-%%% @equiv pal(default,50,Format,[])
+%%% @equiv pal(default,50,Format,[],[])
 pal(Format) ->
     pal(default,?STD_IMPORTANCE,Format,[]).
 
@@ -671,35 +720,53 @@ pal(Format) ->
 %%% @spec pal(X1,X2) -> ok
 %%%      X1 = Category | Importance | Format
 %%%      X2 = Format | Args
-%%% @equiv pal(Category,Importance,Format,Args)
+%%% @equiv pal(Category,Importance,Format,Args,[])
 pal(X1,X2) ->
     {Category,Importance,Format,Args} = 
 	if is_atom(X1)    -> {X1,?STD_IMPORTANCE,X2,[]};
 	   is_integer(X1) -> {default,X1,X2,[]};
 	   is_list(X1)    -> {default,?STD_IMPORTANCE,X1,X2}
 	end,
-    pal(Category,Importance,Format,Args).
+    pal(Category,Importance,Format,Args,[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec pal(X1,X2,X3) -> ok
+%%%      X1 = Category | Importance | Format
+%%%      X2 = Importance | Format | Args
+%%%      X3 = Format | Args | Opts
+%%% @equiv pal(Category,Importance,Format,Args,Opts)
+pal(X1,X2,X3) ->
+    {Category,Importance,Format,Args,Opts} = 
+	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[],[]};
+	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3,[]};
+	   is_integer(X1)              -> {default,X1,X2,X3,[]};
+	   is_list(X1), is_list(X2)    -> {default,?STD_IMPORTANCE,X1,X2,X3}
+	end,
+    pal(Category,Importance,Format,Args,Opts).
+
+%%%-----------------------------------------------------------------
+%%% @spec pal(X1,X2,X3,X4) -> ok
 %%%      X1 = Category | Importance
 %%%      X2 = Importance | Format
 %%%      X3 = Format | Args
-%%% @equiv pal(Category,Importance,Format,Args)
-pal(X1,X2,X3) ->
-    {Category,Importance,Format,Args} = 
-	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[]};
-	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3};
-	   is_integer(X1)              -> {default,X1,X2,X3}
+%%%      X4 = Args | Opts
+%%% @equiv pal(Category,Importance,Format,Args,Opts)
+pal(X1,X2,X3,X4) ->
+    {Category,Importance,Format,Args,Opts} = 
+	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,X4,[]};
+	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3,X4};
+	   is_integer(X1)              -> {default,X1,X2,X3,X4}
 	end,
-    pal(Category,Importance,Format,Args).
+    pal(Category,Importance,Format,Args,Opts).
 
 %%%-----------------------------------------------------------------
-%%% @spec pal(Category,Importance,Format,Args) -> ok
+%%% @spec pal(Category,Importance,Format,Args,Opts) -> ok
 %%%      Category = atom()
 %%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
+%%%      Opts = [Opt]
+%%%      Opt = {heading,string()} | no_css
 %%%
 %%% @doc Print and log from a test case. 
 %%%
@@ -711,8 +778,26 @@ pal(X1,X2,X3) ->
 %%% and default value for <c>Args</c> is <c>[]</c>.</p>
 %%% <p>Please see the User's Guide for details on <c>Category</c>
 %%% and <c>Importance</c>.</p>
-pal(Category,Importance,Format,Args) ->
-    ct_logs:tc_pal(Category,Importance,Format,Args).
+pal(Category,Importance,Format,Args,Opts) ->
+    ct_logs:tc_pal(Category,Importance,Format,Args,Opts).
+
+%%%-----------------------------------------------------------------
+%%% @spec set_verbosity(Category, Level) -> ok
+%%%      Category = default | atom()
+%%%      Level = integer()
+%%%
+%%% @doc Set the verbosity level for a category
+set_verbosity(Category, Level) ->
+    ct_util:set_verbosity({Category,Level}).
+
+%%%-----------------------------------------------------------------
+%%% @spec get_verbosity(Category) -> Level | undefined
+%%%      Category = default | atom()
+%%%      Level = integer()
+%%%
+%%% @doc Read the verbosity level for a category
+get_verbosity(Category) ->
+    ct_util:get_verbosity(Category).
 
 %%%-----------------------------------------------------------------
 %%% @spec capture_start() -> ok
@@ -832,13 +917,13 @@ comment(Comment) when is_list(Comment) ->
     Formatted =
 	case (catch io_lib:format("~ts",[Comment])) of
 	    {'EXIT',_} ->  % it's a list not a string
-		io_lib:format("~p",[Comment]);
+		io_lib:format("~tp",[Comment]);
 	    String ->
 		String
 	end,
     send_html_comment(lists:flatten(Formatted));
 comment(Comment) ->
-    Formatted = io_lib:format("~p",[Comment]),
+    Formatted = io_lib:format("~tp",[Comment]),
     send_html_comment(lists:flatten(Formatted)).
 
 %%%-----------------------------------------------------------------

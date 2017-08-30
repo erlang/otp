@@ -44,6 +44,16 @@
 
   <funcs>
     <func>
+      <name name="add_predefined_functions" arity="1"/>
+      <fsummary>Add code for pre-defined functions.</fsummary>
+      <desc>
+        <p>Adds to <c><anno>Forms</anno></c> the code for the standard
+        pre-defined functions (such as <c>module_info/0</c>) that are
+        to be included in every module.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="arith_op" arity="2"/>
       <fsummary>Test for an arithmetic operator.</fsummary>
       <desc>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ prepare_tester_node(Node,Config) ->
     [true = rpc:call(Node, code, add_patha, [D]) || D <- PathDirs],
     io:format("Dirs added to code path (on ~w):~n",
 	      [Node]),
-    [io:format("~s~n", [D]) || D <- PathDirs],
+    [io:format("~ts~n", [D]) || D <- PathDirs],
 
     true = rpc:call(Node, os, putenv,
 		    ["TEST_SERVER_FRAMEWORK", "undefined"]),

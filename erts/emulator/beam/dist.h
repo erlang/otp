@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2017. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -115,8 +115,8 @@ extern int erts_is_alive;
  * erts_dsig_prepare() prepares a send of a distributed signal.
  * One of the values defined below are returned. If the returned
  * value is another than ERTS_DSIG_PREP_CONNECTED, the
- * distributed signal cannot be sent before apropriate actions
- * have been taken. Apropriate actions would typically be setting
+ * distributed signal cannot be sent before appropriate actions
+ * have been taken. Appropriate actions would typically be setting
  * up the connection.
  */
 
@@ -375,7 +375,7 @@ extern int erts_dsig_send_monitor(ErtsDSigData *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_m_exit(ErtsDSigData *, Eterm, Eterm, Eterm, Eterm);
 
 extern int erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx);
-extern void erts_dsend_context_dtor(Binary*);
+extern int erts_dsend_context_dtor(Binary*);
 extern Eterm erts_dsend_export_trap_context(Process* p, ErtsSendContext* ctx);
 
 extern int erts_dist_command(Port *prt, int reds);

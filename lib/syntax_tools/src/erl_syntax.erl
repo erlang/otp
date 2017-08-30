@@ -1,18 +1,23 @@
 %% =====================================================================
-%% This library is free software; you can redistribute it and/or modify
-%% it under the terms of the GNU Lesser General Public License as
-%% published by the Free Software Foundation; either version 2 of the
-%% License, or (at your option) any later version.
+%% Licensed under the Apache License, Version 2.0 (the "License"); you may
+%% not use this file except in compliance with the License. You may obtain
+%% a copy of the License at <http://www.apache.org/licenses/LICENSE-2.0>
 %%
-%% This library is distributed in the hope that it will be useful, but
-%% WITHOUT ANY WARRANTY; without even the implied warranty of
-%% MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-%% Lesser General Public License for more details.
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
 %%
-%% You should have received a copy of the GNU Lesser General Public
-%% License along with this library; if not, write to the Free Software
-%% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-%% USA
+%% Alternatively, you may use this file under the terms of the GNU Lesser
+%% General Public License (the "LGPL") as published by the Free Software
+%% Foundation; either version 2.1, or (at your option) any later version.
+%% If you wish to allow use of your version of this file only under the
+%% terms of the LGPL, you should delete the provisions above and replace
+%% them with the notice and other provisions required by the LGPL; see
+%% <http://www.gnu.org/licenses/>. If you do not delete the provisions
+%% above, a recipient may use your version of this file under the terms of
+%% either the Apache License or the LGPL.
 %%
 %% @copyright 1997-2006 Richard Carlsson
 %% @author Richard Carlsson <carlsson.richard@gmail.com>
@@ -134,6 +139,7 @@
 	 is_atom/2,
 	 atom_value/1,
 	 atom_literal/1,
+         atom_literal/2,
 	 atom_name/1,
 	 attribute/1,
 	 attribute/2,
@@ -1836,7 +1842,7 @@ char_literal(Node) ->
 %% @doc Returns the literal string represented by a `char'
 %% node. This includes the leading "`$'" character.
 %% Depending on the encoding a character beyond 255 will be escaped
-%% ('latin1') or copied as is ('utf8').
+%% (`latin1') or copied as is (`utf8').
 %%
 %% @see char/1
 
@@ -1939,7 +1945,7 @@ string_literal(Node) ->
 %% @doc Returns the literal string represented by a `string'
 %% node. This includes surrounding double-quote characters.
 %% Depending on the encoding characters beyond 255 will be escaped
-%% ('latin1') or copied as is ('utf8').
+%% (`latin1') or copied as is (`utf8').
 %%
 %% @see string/1
 
@@ -1960,6 +1966,7 @@ string_literal(Node, latin1) ->
 %% @see atom_value/1
 %% @see atom_name/1
 %% @see atom_literal/1
+%% @see atom_literal/2
 %% @see is_atom/2
 
 %% type(Node) = atom
@@ -2032,6 +2039,7 @@ atom_name(Node) ->
 %% =====================================================================
 %% @doc Returns the literal string represented by an `atom'
 %% node. This includes surrounding single-quote characters if necessary.
+%% Characters beyond 255 will be escaped.
 %%
 %% Note that e.g. the result of `atom("x\ny")' represents
 %% any and all of `'x\ny'', `'x\12y'',
@@ -2043,8 +2051,24 @@ atom_name(Node) ->
 -spec atom_literal(syntaxTree()) -> string().
 
 atom_literal(Node) ->
-    io_lib:write_atom(atom_value(Node)).
+    atom_literal(Node, latin1).
 
+%% =====================================================================
+%% @doc Returns the literal string represented by an `atom'
+%% node. This includes surrounding single-quote characters if necessary.
+%% Depending on the encoding a character beyond 255 will be escaped
+%% (`latin1') or copied as is (`utf8').
+%%
+%% @see atom/1
+%% @see atom_literal/1
+%% @see string/1
+
+atom_literal(Node, utf8) ->
+    io_lib:write_atom(atom_value(Node));
+atom_literal(Node, unicode) ->
+    io_lib:write_atom(atom_value(Node));
+atom_literal(Node, latin1) ->
+    io_lib:write_atom_as_latin1(atom_value(Node)).
 
 %% =====================================================================
 %% @equiv map_expr(none, Fields)
