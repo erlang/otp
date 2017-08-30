@@ -44,7 +44,8 @@ base() ->
     [] = run([[fun base/1, T] || T <- [zero, decode]]).
 
 gen(Mod) ->
-    Fs = [{Mod, F, []} || F <- [name, id, vendor_id, vendor_name]],
+    Fs = [{Mod, F, []} || Mod /= diameter_gen_doic_rfc7683,
+                          F <- [name, id, vendor_id, vendor_name]],
     [] = run(Fs ++ [[fun gen/2, Mod, T] || T <- [messages,
                                                  command_codes,
                                                  avp_types,

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2016. All Rights Reserved.
+# Copyright Ericsson AB 2010-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -274,9 +274,7 @@ gen/diameter_gen_base_accounting.erl gen/diameter_gen_base_accounting.hrl: \
 gen/diameter_gen_acct_rfc6733.erl gen/diameter_gen_acct_rfc6733.hrl: \
 	$(EBIN)/diameter_gen_base_rfc6733.$(EMULATOR)
 
-gen/diameter_gen_relay.erl gen/diameter_gen_relay.hrl \
-gen/diameter_gen_base_rfc3588.erl gen/diameter_gen_base_rfc3588.hrl \
-gen/diameter_gen_base_rfc6733.erl gen/diameter_gen_base_rfc6733.hrl: \
+$(DICT_ERLS) $(DICT_HRLS): \
 	$(COMPILER_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 $(DICT_MODULES:gen/%=$(EBIN)/%.$(EMULATOR)): \
