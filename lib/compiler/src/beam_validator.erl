@@ -1430,13 +1430,13 @@ merge_types(bool, {atom,A}) ->
     merge_bool(A);
 merge_types({atom,A}, bool) ->
     merge_bool(A);
-merge_types(#ms{id=Id,valid=B0,slots=Slots}=M,
-	    #ms{id=Id,valid=B1,slots=Slots}) ->
-    M#ms{valid=B0 bor B1,slots=Slots};
-merge_types(#ms{}=M, _) ->
-    M;
-merge_types(_, #ms{}=M) ->
-    M;
+merge_types(#ms{id=Id1,valid=B0,slots=Slots},
+	    #ms{id=Id2,valid=B1,slots=Slots}) ->
+    Id = if
+             Id1 =:= Id2 -> Id1;
+             true -> make_ref()
+         end,
+    #ms{id=Id,valid=B0 band B1,slots=Slots};
 merge_types(T1, T2) when T1 =/= T2 ->
     %% Too different. All we know is that the type is a 'term'.
     term.
