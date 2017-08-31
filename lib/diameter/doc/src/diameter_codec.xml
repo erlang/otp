@@ -4,7 +4,10 @@
   '<seealso marker="diameter_dict#MESSAGE_RECORDS">diameter_dict(4)</seealso>'>
   <!ENTITY types
   '<seealso marker="diameter_dict#DATA_TYPES">diameter_dict(4)</seealso>'>
-  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY decode_format
+  '<seealso marker="diameter#decode_format">decode format</seealso>'>
+
+<!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;
   %here;
@@ -145,7 +148,8 @@ question.</p>
 <p>
 The decoded value of an AVP.
 Will be <c>undefined</c> on decode if the data bytes could
-not be decoded or the AVP is unknown.
+not be decoded, the AVP is unknown, or if the &decode_format; is
+<c>none</c>.
 The type of a decoded value is as document in &types;.</p>
 </item>
 
@@ -243,8 +247,7 @@ Equivalently, a message can also be encoded as a list whose head is
 the atom-valued message name (as specified in the relevant dictionary
 file) and whose tail is either a list of AVP name/values
 pairs or a map with values keyed on AVP names.
-The format at decode is determined by &mod_service_opt;
-<c>decode_format</c>.
+The format at decode is determined by &mod_decode_format;.
 Any of the formats is accepted at encode.</p>
 
 <p>
@@ -288,15 +291,16 @@ value other than <c>undefined</c>.</p>
 <item>
 <p>
 The incoming/outgoing message.
-For an incoming message, a record if the message can be
-decoded in a non-relay application, <c>undefined</c> otherwise.
+For an incoming message, a term corresponding to the configured
+&decode_format; if the message can be decoded in a non-relay
+application, <c>undefined</c> otherwise.
 For an outgoing message, setting a <c>[&header; | &avp;]</c> list is
 equivalent to setting the <c>header</c> and <c>avps</c> fields to the
 corresponding values.</p>
 
 <warning>
 <p>
-A record-valued <c>msg</c> field does <em>not</em> imply an absence of
+A value in the <c>msg</c> field does <em>not</em> imply an absence of
 decode errors.
 The <c>errors</c> field should also be examined.</p>
 </warning>
