@@ -527,7 +527,7 @@ decode1(Data, Name, {AvpName, Type}, Mod, Fmt, Opts, Avp) ->
 
 %% set/4
 
-set('Grouped', false, Avp, V) ->
+set('Grouped', none, Avp, V) ->
     {_Rec, As} = V,
     [Avp | As];
 
@@ -542,7 +542,7 @@ set(_, _, Avp, V) ->
 %%
 %% Error when decoding a grouped AVP.
 
-decode_error(true, false, _, Avp) ->
+decode_error(true, none, _, Avp) ->
     Avp;
 
 decode_error(true, _, {Rec, _, _}, Avp) ->
@@ -735,8 +735,9 @@ pack(Arity, F, Avp, Mod, [Failed | Rec]) ->
 
 %% set/5
 
-set(_, _, _, _, false = No) ->
-    No;
+set(_, _, _, _, None)
+  when is_atom(None) ->
+    None;
 
 set(1, F, Value, _, Map)
   when is_map(Map) ->
@@ -830,7 +831,7 @@ empty(Name, #{module := Mod} = Opts) ->
 
 %% newrec/4
 
-newrec(false, _, Name, _) ->
+newrec(none, _, Name, _) ->
     Name;
 
 newrec(record, Mod, Name, T)

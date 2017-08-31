@@ -72,7 +72,7 @@
                      restrict := boolean(),
                      suspect := non_neg_integer(), %% OKAY -> SUSPECT
                      okay := non_neg_integer()},   %% REOPEN -> OKAY
-         codec :: #{decode_format := false,
+         codec :: #{decode_format := none,
                     string_decode := false,
                     strict_arities => diameter:strict_arities(),
                     strict_mbit := boolean(),
@@ -157,7 +157,7 @@ i({Ack, T, Pid, {Opts,
                                  string_decode,
                                  rfc,
                                  ordered_encode],
-                                SvcOpts#{decode_format := false,
+                                SvcOpts#{decode_format := none,
                                          string_decode := false,
                                          ordered_encode => false})}.
 

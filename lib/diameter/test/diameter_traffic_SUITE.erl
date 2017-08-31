@@ -154,7 +154,7 @@
 -define(ENCODINGS, [list, record, map]).
 
 %% How to decode incoming messages.
--define(DECODINGS, [record, false, map, list, record_from_map]).
+-define(DECODINGS, [record, none, map, list, record_from_map]).
 
 %% Which dictionary to use in the clients.
 -define(RFCS, [rfc3588, rfc6733, rfc4005]).
@@ -1109,12 +1109,12 @@ origin(N) ->
 decode(record) -> 0;
 decode(list)   -> 1;
 decode(map)    -> 2;
-decode(false)  -> 3;
+decode(none)   -> 3;
 decode(record_from_map) -> 4;
 decode(0) -> record;
 decode(1) -> list;
 decode(2) -> map;
-decode(3) -> false;
+decode(3) -> none;
 decode(4) -> record_from_map.
 
 encode(record) -> 0;
@@ -1163,7 +1163,7 @@ to_map(#diameter_packet{header = H, msg = Rec},
 to_map(#diameter_packet{header = H,
                         msg = Name,
                         bin = Bin},
-      #group{server_decoding = false,
+      #group{server_decoding = none,
              strings = B}) ->
     Opts = #{decode_format => map,
              string_decode => B,
