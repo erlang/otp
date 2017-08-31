@@ -134,9 +134,9 @@
 typedef Uint32 ErtsPollEvents;
 
 typedef enum {
-    ERTS_POLL_OP_ADD = 0, /* Add the FD to the pollset */
-    ERTS_POLL_OP_MOD = 1, /* Modify the FD in the pollset */
-    ERTS_POLL_OP_DEL = 2  /* Delete the FD from the pollset */
+    ERTS_POLL_OP_ADD = 0,          /* Add the FD to the pollset */
+    ERTS_POLL_OP_MOD = 1,          /* Modify the FD in the pollset */
+    ERTS_POLL_OP_DEL = 2           /* Delete the FD from the pollset */
 } ErtsPollOp;
 
 #define op2str(op) (op == ERTS_POLL_OP_ADD ? "add" :            \

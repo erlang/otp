@@ -3463,62 +3463,24 @@ case $poll_works-$host_os in
 esac
 
 #
-# If kqueue() found, check that it can be selected or polled on...
+# If kqueue() found
 #
 if test $have_kernel_poll = kqueue; then
-	if test $poll_works = yes; then
-		kqueue_with=poll
-	else
-		kqueue_with=select
-	fi
-	AC_MSG_CHECKING([whether kqueue() fd can be ${kqueue_with}()ed on])
-	AC_TRY_RUN([
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/event.h>
-#include <sys/time.h>
-#ifdef ERTS_USE_POLL
-#include <poll.h>
-#else
-#include <unistd.h>
-#endif
-int main(void) {
-    int kq = kqueue();
-    if (kq < 0) return 2;
-    {
-#ifdef ERTS_USE_POLL
-	struct pollfd pfds = {kq, POLLIN, 0};
-	if (poll(&pfds, 1, 0) < 0) return 1;
-#else
-	struct timeval tv = {0, 0};
-	fd_set set; FD_ZERO(&set); FD_SET(kq, &set);
-	if (select(kq+1, &set, NULL, NULL, &tv) < 0) return 1;
-#endif
-    }
-    return 0;
-}
-	],
-	ok_kqueue=yes,
-	ok_kqueue=no,
-	[
-	case X$erl_xcomp_kqueue in
-	    X) ok_kqueue=cross;;
-	    Xyes|Xno) ok_kqueue=$erl_xcomp_kqueue;;
-	    *) AC_MSG_ERROR([Bad erl_xcomp_kqueue value: $erl_xcomp_kqueue]);;
-	esac
-	])
-	AC_MSG_RESULT($ok_kqueue);
-	case $ok_kqueue in
-	    yes)
-		;;
-	    cross)
-		have_kernel_poll=no
-		AC_MSG_WARN([result no guessed because of cross compilation]);;
-	    *)
-		have_kernel_poll=no;;
-	esac
+## Some OS X kernel version seems to have bugs in them with regards to kqueue
+## Disable kernel poll on those versions
+   AC_MSG_CHECKING([whether host os has known kqueue bugs])
+   case $host_os in
+     # Any OS X version < 16 has known problems with using kqueue
+     # so we don't use it there. See erl_poll.c for details.
+     darwin[[0-9]].*|darwin1[[0-5]].*)
+        AC_MSG_RESULT([yes, disabling kernel poll])
+        have_kernel_poll=no
+        ;;
+     *)
+        AC_MSG_RESULT([no])
+        ;;
+   esac
 fi
-
 #
 # If epoll() found, check that it is level triggered.
 #

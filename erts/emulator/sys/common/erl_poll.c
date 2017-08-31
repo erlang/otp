@@ -186,6 +186,8 @@ int ERTS_SELECT(int nfds, ERTS_fd_set *readfds, ERTS_fd_set *writefds,
 
 #define ERTS_POLL_USE_CONCURRENT_UPDATE (ERTS_POLL_USE_EPOLL || ERTS_POLL_USE_KQUEUE)
 
+#define ERTS_POLL_USE_WAKEUP_PIPE (!ERTS_POLL_USE_CONCURRENT_UPDATE)
+
 #if !ERTS_POLL_USE_CONCURRENT_UPDATE
 
 #define ERTS_POLLSET_SET_HAVE_UPDATE_REQUESTS(PS) \
@@ -279,8 +281,11 @@ struct ERTS_POLL_EXPORT(erts_pollset) {
     ErtsPollSetUpdateRequestsBlock *curr_upd_req_block;
     erts_atomic32_t have_update_requests;
     erts_mtx_t mtx;
-    int wake_fds[2];
     erts_atomic32_t wakeup_state;
+#endif
+
+#if ERTS_POLL_USE_WAKEUP_PIPE
+    int wake_fds[2];
 #endif
 };
 
@@ -397,11 +402,12 @@ woke_up(ErtsPollSet *ps)
  * --- Wakeup pipe -----------------------------------------------------------
  */
 
-#if !ERTS_POLL_USE_CONCURRENT_UPDATE
+#if ERTS_POLL_USE_WAKEUP_PIPE
 
 static ERTS_INLINE void
 wake_poller(ErtsPollSet *ps, int interrupted)
 {
+#if !ERTS_POLL_USE_CONCURRENT_UPDATE
     int wake;
     erts_aint32_t wakeup_state;
     if (!interrupted)
@@ -413,7 +419,9 @@ wake_poller(ErtsPollSet *ps, int interrupted)
                                                ERTS_POLL_WOKEN_INTR);
     wake = wakeup_state == ERTS_POLL_NOT_WOKEN;
 
-    if (wake) {
+    if (wake)
+#endif
+    {
 	ssize_t res;
 	if (ps->wake_fds[1] < 0)
 	    return; /* Not initialized yet */
@@ -452,8 +460,10 @@ cleanup_wakeup_pipe(ErtsPollSet *ps)
 		    fd,
 		    erl_errno_id(errno), errno);
     }
+#if !ERTS_POLL_USE_CONCURRENT_UPDATE
     if (intr)
 	erts_atomic32_set_nob(&ps->wakeup_state, ERTS_POLL_WOKEN_INTR);
+#endif
 }
 
 static void
@@ -489,10 +499,13 @@ create_wakeup_pipe(ErtsPollSet *ps)
     ps->wake_fds[1] = wake_fds[1];
 }
 
+#endif
 
 /*
  * --- Poll set update requests ----------------------------------------------
  */
+
+#if !ERTS_POLL_USE_CONCURRENT_UPDATE
 
 static ERTS_INLINE void
 enqueue_update_request(ErtsPollSet *ps, int fd)
@@ -893,9 +906,9 @@ update_pollset(ErtsPollSet *ps, int fd, ErtsPollOp op, ErtsPollEvents events)
 #endif
             if (op == ERTS_POLL_OP_ADD)
                 erts_atomic_dec_nob(&ps->no_of_user_fds);
-            return ERTS_POLL_EV_NVAL;
-        }
-        return 0;
+            events = ERTS_POLL_EV_NVAL;
+        } else
+            events = 0;
     }
     return events;
 }
@@ -1216,7 +1229,7 @@ poll_control(ErtsPollSet *ps, int fd, ErtsPollOp op,
 	    goto done;
 	}
 #endif
-#if !ERTS_POLL_USE_CONCURRENT_UPDATE
+#if ERTS_POLL_USE_WAKEUP_PIPE
 	if (fd == ps->wake_fds[0] || fd == ps->wake_fds[1]) {
 	    new_events = ERTS_POLL_EV_NVAL;
 	    goto done;
@@ -1294,10 +1307,10 @@ ERTS_POLL_EXPORT(erts_poll_control)(ErtsPollSet *ps,
 static ERTS_INLINE int
 ERTS_POLL_EXPORT(save_result)(ErtsPollSet *ps, ErtsPollResFd pr[], int max_res, int chk_fds_res, int ebadf)
 {
-#if !ERTS_POLL_USE_CONCURRENT_UPDATE || ERTS_POLL_DEBUG_PRINT
+#if !ERTS_POLL_USE_CONCURRENT_UPDATE || ERTS_POLL_DEBUG_PRINT || ERTS_POLL_USE_WAKEUP_PIPE
     int n = chk_fds_res < max_res ? chk_fds_res : max_res, i;
     int res = n;
-#if !ERTS_POLL_USE_CONCURRENT_UPDATE
+#if ERTS_POLL_USE_WAKEUP_PIPE
     int wake_fd = ps->wake_fds[0];
 #endif
 
@@ -1318,12 +1331,16 @@ ERTS_POLL_EXPORT(save_result)(ErtsPollSet *ps, ErtsPollResFd pr[], int max_res, 
 #endif
             );
 
-#if !ERTS_POLL_USE_CONCURRENT_UPDATE
-
+#if ERTS_POLL_USE_WAKEUP_PIPE
         if (fd == wake_fd) {
             cleanup_wakeup_pipe(ps);
             ERTS_POLL_RES_SET_EVTS(&pr[i], ERTS_POLL_EV_NONE);
-        } else {
+            if (n == 1)
+                return 0;
+        }
+#endif
+#if !ERTS_POLL_USE_CONCURRENT_UPDATE
+        else {
             /* Reset the events to emulate ONESHOT semantics */
             ps->fds_status[fd].events = 0;
             enqueue_update_request(ps, fd);
@@ -1819,6 +1836,43 @@ ERTS_POLL_EXPORT(erts_poll_create_pollset)(int id)
     create_wakeup_pipe(ps);
     handle_update_requests(ps, NULL, 0);
     cleanup_wakeup_pipe(ps);
+#endif
+#if ERTS_POLL_USE_KERNEL_POLL && (defined(__DARWIN__) || defined(__APPLE__) && defined(__MACH__))
+    {
+        /*
+         * Using kqueue on OS X is a mess of brokenness...
+         *
+         * On OS X version older than 15.6 (i.e. OS X El Capitan released in July 2015),
+         * a thread waiting in kevent is not woken if an event is inserted into the kqueue
+         * by another thread and the event becomes ready. However if a new call to kevent
+         * is done by the waiting thread, the new event is found.
+         *
+         * So on effected OS X versions we could trigger the wakeup pipe so that
+         * the waiters will be woken and re-issue the kevent. However...
+         *
+         * On OS X version older then 16 (i.e. OS X Sierra released in September 2016),
+         * running the emulator driver_SUITE smp_select testcase consistently causes a
+         * kernel panic. I don't know why or what events that trigger it. But it seems
+         * like updates of the pollset while another thread is sleeping in it Creates
+         * some kind of race that triggers the kernel panic.
+         *
+         * So to deal with this, the erts configure check what OS X version is run
+         * and only enabled kernel poll on OS X 16 or newer. In addition, if someone
+         * attempts to compile Erlang on OS X 16 and then run it on OS X 15, we do the
+         * run-time check below to disallow this.
+         */
+        int major, minor, build;
+        os_version(&major,&minor,&build);
+        if (major < 16) {
+            erts_fprintf(stderr,"BROKEN KQUEUE!\n"
+                         "Erlang has been compiled with kernel-poll support,\n"
+                         "but this OS X version is known to have kernel bugs\n"
+                         "when using kernel-poll. You have two options:\n"
+                         " 1) update to a newer OS X version (OS X Sierra or newer)\n"
+                         " 2) recompile erlang without kernel-poll support\n");
+            erts_exit(1, "");
+        }
+    }
 #endif
     erts_atomic_set_nob(&ps->no_of_user_fds, 0); /* Don't count wakeup pipe and fallback fd */
 
