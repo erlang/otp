@@ -230,7 +230,7 @@ enc(AvpName, Value, Opts, Mod) ->
 %% ---------------------------------------------------------------------------
 
 -spec decode_avps(parent_name(), binary(), map())
-   -> {parent_record() | false, [avp()], Failed}
+   -> {parent_record() | parent_name(), [avp()], Failed}
  when Failed :: [{5000..5999, #diameter_avp{}}].
 
 decode_avps(Name, Bin, #{module := Mod, decode_format := Fmt} = Opts) ->
@@ -301,7 +301,7 @@ decode(Bin, Code, Vid, DataLen, Pad, M, P, Name, Mod, Fmt, Strict, Opts0,
                                 type = type(NameT),
                                 index = Idx},
 
-            Dec = decode(Data, Name, NameT, Mod, Opts, Avp),         %% decode
+            Dec = decode1(Data, Name, NameT, Mod, Fmt, Opts, Avp),
             Acc = decode(T, Name, Mod, Fmt, Strict, Opts, Idx+1, AM),%% recurse
             acc(Acc, Dec, I, Name, Field, Arity, Strict, Mod, Opts);
         _ ->
@@ -449,10 +449,10 @@ field({AvpName, _}) ->
 field(_) ->
     'AVP'.
 
-%% decode/6
+%% decode1/7
 
 %% AVP not in dictionary.
-decode(_Data, _Name, 'AVP', _Mod, _Opts, Avp) ->
+decode1(_Data, _Name, 'AVP', _Mod, _Fmt, _Opts, Avp) ->
     Avp;
 
 %% 6733, 4.4:
@@ -502,7 +502,7 @@ decode(_Data, _Name, 'AVP', _Mod, _Opts, Avp) ->
 %% defined the RFC's "unrecognized", which is slightly stronger than
 %% "not defined".)
 
-decode(Data, Name, {AvpName, Type}, Mod, Opts, Avp) ->
+decode1(Data, Name, {AvpName, Type}, Mod, Fmt, Opts, Avp) ->
     #{dictionary := AppMod, failed_avp := Failed}
         = Opts,
 
@@ -516,26 +516,39 @@ decode(Data, Name, {AvpName, Type}, Mod, Opts, Avp) ->
     %% list of component AVPs.
 
     try avp_decode(Data, AvpName, Opts, DecMod, Mod) of
-        {Rec, As} when Type == 'Grouped' ->
-            A = Avp#diameter_avp{value = Rec},
-            [A | As];
-        V when Type /= 'Grouped' ->
-            Avp#diameter_avp{value = V}
+        V ->
+            set(Type, Fmt, Avp, V)
     catch
         throw: {?MODULE, T} ->
-            decode_error(Failed, T, Avp);
+            decode_error(Failed, Fmt, T, Avp);
         error: Reason ->
             decode_error(Failed, Reason, Name, Mod, Opts, Avp)
     end.
 
-%% decode_error/3
+%% set/4
+
+set('Grouped', false, Avp, V) ->
+    {_Rec, As} = V,
+    [Avp | As];
+
+set('Grouped', _, Avp, V) ->
+    {Rec, As} = V,
+    [Avp#diameter_avp{value = Rec} | As];
+
+set(_, _, Avp, V) ->
+    Avp#diameter_avp{value = V}.
+
+%% decode_error/4
 %%
 %% Error when decoding a grouped AVP.
 
-decode_error(true, {Rec, _, _}, Avp) ->
+decode_error(true, false, _, Avp) ->
+    Avp;
+
+decode_error(true, _, {Rec, _, _}, Avp) ->
     Avp#diameter_avp{value = Rec};
 
-decode_error(false, {_, ComponentAvps, [{RC,A} | _]}, Avp) ->
+decode_error(false, _, {_, ComponentAvps, [{RC,A} | _]}, Avp) ->
     {RC, [Avp | ComponentAvps], Avp#diameter_avp{data = [A]}}.
 
 %% decode_error/6
@@ -817,8 +830,8 @@ empty(Name, #{module := Mod} = Opts) ->
 
 %% newrec/4
 
-newrec(false = No, _, _, _) ->
-    No;
+newrec(false, _, Name, _) ->
+    Name;
 
 newrec(record, Mod, Name, T)
   when T /= decode ->

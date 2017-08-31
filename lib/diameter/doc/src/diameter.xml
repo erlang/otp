@@ -810,8 +810,8 @@ dictionary file in question.
 If <c>list</c> or <c>map</c> then a <c>[Name | Avps]</c> pair where
 <c>Avps</c> is either a list of AVP name/values pairs or a map keyed on
 AVP names respectively.
-If <c>false</c> then the representation is omitted and <c>msg</c> and
-<c>value</c> fields are set to <c>false</c>.
+If <c>false</c> then the representation is as the atom-value message
+name, or <c>undefined</c> for a Grouped AVP.
 See also &codec_message;.</p>
 
 <p>

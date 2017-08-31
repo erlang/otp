@@ -1161,7 +1161,7 @@ to_map(#diameter_packet{header = H, msg = Rec},
 
 %% No record decode: do it ourselves.
 to_map(#diameter_packet{header = H,
-                        msg = false,
+                        msg = Name,
                         bin = Bin},
       #group{server_decoding = false,
              strings = B}) ->
@@ -1169,8 +1169,9 @@ to_map(#diameter_packet{header = H,
              string_decode => B,
              strict_mbit => true,
              rfc => 6733},
-    #diameter_packet{msg = [_MsgName | _Map] = Msg}
+    #diameter_packet{msg = [MsgName | _Map] = Msg}
         = diameter_codec:decode(dict(H), Opts, Bin),
+    {MsgName, _} = {Name, Msg},  %% assert
     Msg.
 
 dict(#diameter_header{application_id = Id,
