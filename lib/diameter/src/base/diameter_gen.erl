@@ -45,7 +45,7 @@
 -define(THROW(T), throw({?MODULE, T})).
 
 -type parent_name()   :: atom().  %% parent = Message or AVP
--type parent_record() :: tuple(). %%
+-type parent_record() :: tuple() | avp_values() | map().
 -type avp_name()   :: atom().
 -type avp_record() :: tuple().
 -type avp_values() :: [{avp_name(), term()}].
@@ -61,9 +61,7 @@
 %% # encode_avps/3
 %% ---------------------------------------------------------------------------
 
--spec encode_avps(parent_name(),
-                  parent_record() | avp_values() | map(),
-                  map())
+-spec encode_avps(parent_name(), parent_record(), map())
    -> iolist()
     | no_return().
 
@@ -232,7 +230,7 @@ enc(AvpName, Value, Opts, Mod) ->
 %% ---------------------------------------------------------------------------
 
 -spec decode_avps(parent_name(), binary(), map())
-   -> {parent_record(), [avp()], Failed}
+   -> {parent_record() | false, [avp()], Failed}
  when Failed :: [{5000..5999, #diameter_avp{}}].
 
 decode_avps(Name, Bin, #{module := Mod, decode_format := Fmt} = Opts) ->
