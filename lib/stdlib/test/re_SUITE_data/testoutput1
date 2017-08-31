@@ -9442,4 +9442,8 @@ No match
     \  X
  0: X
      
+/X+(?#comment)?/
+    >XXX<
+ 0: X
+
 /-- End of testinput1 --/
