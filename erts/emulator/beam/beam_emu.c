@@ -870,6 +870,8 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      goto do_schedule1;
  }
 
+#include "beam_warm.h"
+
  OpCase(normal_exit): {
      SWAPOUT;
      c_p->freason = EXC_NORMAL;

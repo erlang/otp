@@ -20,13 +20,16 @@
 #
 use strict;
 use vars qw($BEAM_FORMAT_NUMBER);
+use constant COLD => 0;
+use constant WARM => 1;
+use constant HOT => 2;
 
 $BEAM_FORMAT_NUMBER = undef;
 
 my $target = \&emulator_output;
 my $outdir = ".";		# Directory for output files.
 my $verbose = 0;
-my $hot = 1;
+my $hotness = 1;
 my $num_file_opcodes = 0;
 my $wordsize = 32;
 my %defs;			# Defines (from command line).
@@ -344,13 +347,16 @@ while (<>) {
     }
 
     #
-    # Handle %hot/%cold.
+    # Handle %hot, %warm, and %cold.
     # 
     if (/^\%hot/) {
-	$hot = 1;
+	$hotness = HOT;
 	next;
+    } elsif (/^\%warm/) {
+	$hotness = WARM;
+        next;
     } elsif (/^\%cold/) {
-	$hot = 0;
+	$hotness = COLD;
 	next;
     }
 
@@ -438,7 +444,7 @@ while (<>) {
     if (defined $gen_opnum{$name,$arity} and $obsolete[$gen_opnum{$name,$arity}]) {
 	error("specific instructions may not be specified for obsolete instructions");
     }
-    save_specific_ops($name, $arity, $hot, @args);
+    save_specific_ops($name, $arity, $hotness, @args);
     if (defined $op_num) {
 	error("specific instructions must not be numbered");
     } elsif (!defined($gen_arity{$name}) && !defined($unnumbered{$name,$arity})) {
@@ -801,12 +807,17 @@ sub emulator_output {
     $name = "$outdir/beam_hot.h";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
     comment('C');
-    print_code(1);
+    print_code(HOT);
+
+    $name = "$outdir/beam_warm.h";
+    open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
+    comment('C');
+    print_code(WARM);
 
     $name = "$outdir/beam_cold.h";
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
     comment('C');
-    print_code(0);
+    print_code(COLD);
 }
 
 sub init_item {
@@ -1039,14 +1050,16 @@ sub combine_micro_instructions {
 
     # Now generate code for each group.
     foreach my $group (sort keys %groups) {
-        my($code,@labels) = combine_instruction_group($group, @{$groups{$group}});
-        push @generated_code, [1,$code,@labels];
+        my($hotness,$code,@labels) =
+            combine_instruction_group($group, @{$groups{$group}});
+        push @generated_code, [$hotness,$code,@labels];
     }
 }
 
 sub combine_instruction_group {
     my($group,@in_instrs) = @_;
     my $gcode = '';             # Code for the entire group.
+    my $group_hotness = COLD;
 
     # Get code for the head of the group (if any).
     my $head_name = "$group.head";
@@ -1075,7 +1088,8 @@ sub combine_instruction_group {
         error("no $specific_key instruction")
             unless defined $specific_op_ref;
         foreach my $specific_op (@$specific_op_ref) {
-            my($name, $hot, @args) = @{$specific_op};
+            my($name, $hotness, @args) = @{$specific_op};
+            $group_hotness = $hotness unless $group_hotness >= $hotness;
             my $offset = 0;
             my @rest = @args;
             my @new_subs;
@@ -1182,7 +1196,7 @@ sub combine_instruction_group {
         $offset = $order_to_offset{$slots[$i+1]} if $i < $#slots;
     }
 
-    ("{\n$gcode\n}\n\n",@opcase_labels);
+    ($group_hotness,"{\n$gcode\n}\n\n",@opcase_labels);
 }
 
 sub micro_label {
