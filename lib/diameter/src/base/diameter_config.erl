@@ -665,9 +665,8 @@ opt(transport, {applications, As}) ->
     is_list(As);
 
 opt(transport, {capabilities, Os}) ->
-    is_list(Os) andalso case encode_CER(Os) of
-                            ok -> true;
-                            No -> {error, No}
+    is_list(Os) andalso try ok = encode_CER(Os), true
+                        catch ?FAILURE(No) -> {error, No}
                         end;
 
 opt(_, {K, Tmo})
