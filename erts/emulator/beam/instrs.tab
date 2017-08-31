@@ -906,5 +906,6 @@ i_raise() {
         c_p->freason = PRIMARY_EXCEPTION(s->freason);
     }
     goto find_func_info;
+    //| -no_next
 }
 

@@ -285,6 +285,7 @@ timeout() {
 TIMEOUT_VALUE() {
     c_p->freason = EXC_TIMEOUT_VALUE;
     goto find_func_info;
+    //| -no_next
 }
 
 i_wait_error_locked() {
