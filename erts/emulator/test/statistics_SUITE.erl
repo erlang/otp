@@ -674,6 +674,16 @@ msacc_test(TmpFile) ->
     ets:insert(Tid, {1, hello}),
     ets:delete(Tid),
 
+    %% Check some IO
+    {ok, L} = gen_tcp:listen(0, [{active, true},{reuseaddr,true}]),
+    {ok, Port} = inet:port(L),
+    Pid = spawn(fun() ->
+                        {ok, S} = gen_tcp:accept(L),
+                        (fun F() -> receive M -> F() end end)()
+                end),
+    {ok, C} = gen_tcp:connect("localhost", Port, []),
+    [begin gen_tcp:send(C,"hello"),timer:sleep(1) end || _ <- lists:seq(1,100)],
+
     %% Collect some garbage
     [erlang:garbage_collect() || _ <- lists:seq(1,100)],
 
