@@ -159,7 +159,7 @@ suite() ->
 all() ->
     [otp_6224, {group, stream}, basic_ping, slow_writes,
      bad_packet, bad_port_messages, {group, options},
-     {group, multiple_packets}, parallell, dying_port,
+     {group, multiple_packets}, parallell, dying_port, dropped_commands,
      port_program_with_path, open_input_file_port,
      open_output_file_port, name1, env, huge_env, bad_env, cd,
      cd_relative, pipe_limit_env, bad_args,
@@ -569,12 +569,14 @@ dropped_commands(Config, Outputv, Cmd) ->
     [dropped_commands_test(Cmd) || _ <- lists:seq(1, 100)],
     timer:sleep(100),
     erl_ddll:unload_driver("echo_drv"),
+    os:unsetenv("ECHO_DRV_USE_OUTPUTV"),
     ok.
 
 dropped_commands_test(Cmd) ->
-    Port = erlang:open_port({spawn_driver, "echo_drv"}, [{parallelism, true}]),
     spawn_monitor(
       fun() ->
+              Port = erlang:open_port({spawn_driver, "echo_drv"},
+                                      [{parallelism, true}]),
               [spawn_link(fun() -> spin(Port, Cmd) end) || _ <- lists:seq(1,8)],
               timer:sleep(5),
               port_close(Port),
