@@ -408,9 +408,9 @@
           calls cannot be in the guard or body of the fun. Calls to built-in
           match specification functions is of course allowed:</p>
         <pre>
-4> <input>ets:fun2ms(fun({M,N}) when N > X, is_atomm(M) -> M end).</input>
+4> <input>ets:fun2ms(fun({M,N}) when N > X, my_fun(M) -> M end).</input>
 Error: fun containing local Erlang function calls
-('is_atomm' called in guard) cannot be translated into match_spec
+('my_fun' called in guard) cannot be translated into match_spec
 {error,transform_error}
 5> <input>ets:fun2ms(fun({M,N}) when N > X, is_atom(M) -> M end).</input>
 [{{'$1','$2'},[{'>','$2',{const,3}},{is_atom,'$1'}],['$1']}]</pre>
