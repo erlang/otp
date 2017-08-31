@@ -91,12 +91,6 @@
 
   <datatypes>
     <datatype>
-      <name name="bytelist"/>
-      <desc>
-        <p>Maybe improper list of bytes (0..255).</p>
-      </desc>
-    </datatype>
-    <datatype>
       <name name="uri_map"/>
       <desc>
         <p>URI map holding the main components of a URI.</p>
