@@ -66,7 +66,9 @@ i_recv_set() {
     if (c_p->msg.mark == (BeamInstr *) ($NEXT_INSTRUCTION)) {
         c_p->msg.save = c_p->msg.saved_last;
     }
-    /* Fall through to the loop_rec/2 instruction */
+    SET_I($NEXT_INSTRUCTION);
+    goto loop_rec_top__;
+    //| -no_next
 }
 
 i_loop_rec(Dest) {
@@ -79,6 +81,10 @@ i_loop_rec(Dest) {
 
     ErtsMessage* msgp;
 
+    /* Entry point from recv_set */
+ loop_rec_top__:
+    ;
+
     /*
      * We need to disable GC while matching messages
      * in the queue. This since messages with data outside
@@ -87,7 +93,8 @@ i_loop_rec(Dest) {
     ASSERT(!(c_p->flags & F_DELAY_GC));
     c_p->flags |= F_DELAY_GC;
 
-loop_rec__:
+    /* Entry point from loop_rec_end */
+ loop_rec__:
 
     PROCESS_MAIN_CHK_LOCKS(c_p);
 
