@@ -117,6 +117,18 @@
                       decode_format := diameter:decode_format(),
                       traffic_counters := boolean(),
                       string_decode := boolean(),
+                      capabilities_cb => diameter:evaluable(),
+                      pool_size => pos_integer(),
+                      capx_timeout => diameter:'Unsigned32'(),
+                      strict_capx => boolean(),
+                      disconnect_cb => diameter:evaluable(),
+                      dpr_timeout => diameter:'Unsigned32'(),
+                      dpa_timeout => diameter:'Unsigned32'(),
+                      length_errors => exit | handle | discard,
+                      connect_timer => diameter:'Unsigned32'(),
+                      watchdog_timer => diameter:'Unsigned32'()
+                                      | {module(), atom(), list()},
+                      watchdog_config => [{okay|suspect, non_neg_integer()}],
                       spawn_opt := list() | {module(), atom(), list()}}}).
 
 %% Record representing an RFC 3539 watchdog process implemented by
@@ -682,12 +694,15 @@ i(SvcName) ->
 cfg_acc({SvcName, #diameter_service{applications = Apps} = Rec, Opts},
         {false, Acc}) ->
     lists:foreach(fun init_mod/1, Apps),
+    #{monitor := M}
+        = SvcOpts
+        = service_opts(Opts),
     S = #state{service_name = SvcName,
                service = Rec#diameter_service{pid = self()},
                local   = init_peers(),
                remote  = init_peers(),
-               monitor = mref(get_value(monitor, Opts)),
-               options = service_options(lists:keydelete(monitor, 1, Opts))},
+               monitor = mref(M),
+               options = maps:remove(monitor, SvcOpts)},
     {S, Acc};
 
 cfg_acc({_Ref, Type, _Opts} = T, {S, Acc})
@@ -702,8 +717,27 @@ init_peers() ->
                                %%  Alias,
                                %%  TPid}
 
-service_options(Opts) ->
-    maps:from_list(lists:delete({strict_arities, true}, Opts)).
+service_opts(Opts) ->
+    remove([{strict_arities, true}],
+           maps:merge(maps:from_list([{monitor, false} | def_opts()]),
+                      maps:from_list(Opts))).
+
+remove(List, Map) ->
+    maps:filter(fun(K,V) -> not lists:member({K,V}, List) end,
+                Map).
+
+def_opts() ->  %% defaults on the service map
+    [{share_peers, false},
+     {use_shared_peers, false},
+     {sequence, {0,32}},
+     {restrict_connections, nodes},
+     {incoming_maxlen, 16#FFFFFF},
+     {strict_arities, true},
+     {strict_mbit, true},
+     {decode_format, record},
+     {traffic_counters, true},
+     {string_decode, true},
+     {spawn_opt, []}].
 
 mref(false = No) ->
     No;
@@ -720,10 +754,6 @@ init_mod(#diameter_app{alias = Alias,
 
 start_fsm({Ref, Type, Opts}, S) ->
     start(Ref, {Type, Opts}, S).
-
-get_value(Key, Vs) ->
-    {_, V} = lists:keyfind(Key, 1, Vs),
-    V.
 
 notify(Share, SvcName, T) ->
     Nodes = remotes(Share),
@@ -809,7 +839,7 @@ start(Ref, Type, Opts, State) ->
 start(Ref, Type, Opts, N, #state{watchdogT = WatchdogT,
                                  local = {PeerT, _, _},
                                  options = #{string_decode := SD}
-                                 = SvcOpts0,
+                                 = SvcOpts,
                                  service_name = SvcName,
                                  service = Svc0})
   when Type == connect;
@@ -818,12 +848,12 @@ start(Ref, Type, Opts, N, #state{watchdogT = WatchdogT,
         = Svc1
         = merge_service(Opts, Svc0),
     Svc = binary_caps(Svc1, SD),
-    SvcOpts = merge_options(Opts, SvcOpts0),
-    RecvData = diameter_traffic:make_recvdata([SvcName, PeerT, Apps, SvcOpts]),
-    T = {Opts, SvcOpts, RecvData, Svc},
+    {SOpts, TOpts} = merge_opts(SvcOpts, Opts),
+    RecvData = diameter_traffic:make_recvdata([SvcName, PeerT, Apps, SOpts]),
+    T = {TOpts, SOpts, RecvData, Svc},
     Rec = #watchdog{type = Type,
                     ref = Ref,
-                    options = Opts},
+                    options = TOpts},
 
     diameter_lib:fold_n(fun(_,A) ->
                                 [wd(Type, Ref, T, WatchdogT, Rec) | A]
@@ -831,10 +861,14 @@ start(Ref, Type, Opts, N, #state{watchdogT = WatchdogT,
                         [],
                         N).
 
-merge_options(Opts, SvcOpts) ->
-    Keys = maps:keys(SvcOpts),
-    Map = maps:from_list([KV || {K,_} = KV <- Opts, lists:member(K, Keys)]),
-    maps:merge(SvcOpts, Map).
+merge_opts(SvcOpts, Opts) ->
+    Keys = [K || {K,_} <- def_opts()],
+    SO = [T || {K,_} = T <- Opts, lists:member(K, Keys)],
+    TO = Opts -- SO,
+    {maps:merge(maps:with(Keys, SvcOpts), maps:from_list(SO)),
+     TO ++ [T || {K,_} = T <- maps:to_list(SvcOpts),
+                 not lists:member(K, Keys),
+                 not lists:keymember(K, 1, Opts)]}.
 
 binary_caps(Svc, true) ->
     Svc;
