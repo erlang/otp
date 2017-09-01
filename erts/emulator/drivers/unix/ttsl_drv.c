@@ -936,10 +936,10 @@ static int put_chars(byte *s, int l)
     int n;
 
     n = insert_buf(s, l);
+    if (lpos > llen)
+        llen = lpos;
     if (n > 0)
       write_buf(lbuf + lpos - n, n);
-    if (lpos > llen)
-      llen = lpos;
     return TRUE;
 }
 
@@ -1016,7 +1016,7 @@ static int del_chars(int n)
 	   outc(' ');
 	   move_left(1);
 	}
-	move_cursor(llen + l, lpos);
+	move_cursor(llen + gcs, lpos);
     }
     else if (pos < lpos) {
 	l = lpos - pos;		/* Buffer characters */
@@ -1036,7 +1036,7 @@ static int del_chars(int n)
           outc(' ');
           move_left(1);
 	}
-        move_cursor(llen + l, lpos);
+        move_cursor(llen + gcs, lpos);
     }
     return TRUE;
 }
@@ -1289,7 +1289,7 @@ static int cp_pos_to_col(int cp_pos)
 
     if (cp_pos > llen) {
         col += cp_pos - llen;
-	cp_pos = llen;
+        cp_pos = llen;
     }
 
     while (i < cp_pos) {
