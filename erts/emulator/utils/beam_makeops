@@ -1451,7 +1451,32 @@ sub expand_macro {
         warn $@;
         die "... from the body of $name at $where\n";
     }
-    ("do {\n$body\n} while (0)",$rest);
+    $body = "do {\n$body\n} while (0)"
+        if needs_do_wrapper($body);
+    ($body,$rest);
+}
+
+# Conservative heuristic to determine whether a do { ... } while(0)
+# wrapper is needed.
+sub needs_do_wrapper {
+    local $_ = shift;
+
+    s@^//[|][^\n]*\n@@;
+    s@^\s*@@s;
+    s@^/[*].*[*]/\s*@@s;
+    return 1 if /^(Eterm|Uint|Sint|int|unsigned)/; # Definitely needed.
+    return 0 if /^do/;
+    return 0 if /^SET_I/;
+    return 0 if /^SET_CP/;
+    return 0 if /^ERTS_NO_FPE_CHECK_INIT/;
+    return 0 if /^ASSERT/;
+    return 0 if /^DTRACE/;
+    return 0 if /^[A-Za-z_]*\s*=/;
+    return 0 if /^c_p->/;
+    return 0 if /^[A-Z_]*SWAPOUT/;
+    return 0 if /^if\s*[(]/;
+    return 0 if /^goto\b/;
+    return 1;                   # Not sure, say that it is needed.
 }
 
 sub do_pack {
