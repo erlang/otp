@@ -2020,4 +2020,4 @@ decode_opts(Dict) ->
       strict_mbit => false,
       failed_avp => false,
       module => Dict,
-      dictionary => Dict}.
+      app_dictionary => Dict}.

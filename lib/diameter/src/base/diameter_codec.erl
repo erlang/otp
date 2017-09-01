@@ -324,7 +324,7 @@ decode_avps(MsgName, Mod, AppMod, Opts, #diameter_packet{bin = Bin} = Pkt) ->
     {_, Avps} = split_binary(Bin, 20),
     {Rec, As, Errors} = Mod:decode_avps(MsgName,
                                         Avps,
-                                        Opts#{dictionary => AppMod,
+                                        Opts#{app_dictionary => AppMod,
                                               failed_avp => false}),
     ?LOGC([] /= Errors, decode_errors, Pkt#diameter_packet.header),
     Pkt#diameter_packet{msg = reformat(MsgName, Rec, Opts),

@@ -77,7 +77,7 @@ dec('BR', #diameter_packet
     ok.
 
 opts(Mod) ->
-    #{dictionary => Mod,
+    #{app_dictionary => Mod,
       decode_format => record,
       string_decode => true,
       strict_mbit => true,

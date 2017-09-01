@@ -291,7 +291,7 @@ recode(Msg, Dict) ->
     recode(#diameter_packet{msg = Msg}, Dict).
 
 opts(Mod) ->
-    #{dictionary => Mod,
+    #{app_dictionary => Mod,
       decode_format => record,
       string_decode => false,
       strict_mbit => true,

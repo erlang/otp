@@ -503,7 +503,7 @@ decode1(_Data, _Name, 'AVP', _Mod, _Fmt, _Opts, Avp) ->
 %% "not defined".)
 
 decode1(Data, Name, {AvpName, Type}, Mod, Fmt, Opts, Avp) ->
-    #{dictionary := AppMod, failed_avp := Failed}
+    #{app_dictionary := AppMod, failed_avp := Failed}
         = Opts,
 
     %% Reset the dictionary for best-effort decode of Failed-AVP.

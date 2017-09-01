@@ -217,7 +217,7 @@ avp(Mod, encode = X, V, Name, _) ->
 
 opts(Mod) ->
     (opts())#{module => Mod,
-              dictionary => Mod}.
+              app_dictionary => Mod}.
 
 opts() ->
     #{decode_format => record,
