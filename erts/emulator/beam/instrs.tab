@@ -110,13 +110,9 @@ i_call_only(CallDest) {
     $DISPATCH($CallDest);
 }
 
-i_move_call_only(CallDest, Src) {
+move_call_only(Src, CallDest) {
     x(0) = $Src;
     $i_call_only($CallDest);
-}
-
-move_call_only(Src, CallDest) {
-    $i_move_call_only($CallDest, $Src);
 }
 
 DISPATCHX(Dest) {
