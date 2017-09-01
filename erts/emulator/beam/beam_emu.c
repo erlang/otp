@@ -649,7 +649,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      * Note: c_p->arity must be set to reflect the number of useful terms in
      * c_p->arg_reg before calling the scheduler.
      */
-    if (!init_done) {
+    if (ERTS_UNLIKELY(!init_done)) {
        /* This should only be reached during the init phase when only the main
         * process is running. I.e. there is no race for init_done.
         */
