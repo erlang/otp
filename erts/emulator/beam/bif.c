@@ -1250,7 +1250,11 @@ BIF_RETTYPE hibernate_3(BIF_ALIST_3)
      */
     Eterm reg[3];
 
-    if (erts_hibernate(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, reg)) {
+    reg[0] = BIF_ARG_1;
+    reg[1] = BIF_ARG_2;
+    reg[2] = BIF_ARG_3;
+
+    if (erts_hibernate(BIF_P, reg)) {
         /*
          * If hibernate succeeded, TRAP. The process will be wait in a
          * hibernated state if its state is inactive (!ERTS_PSFLG_ACTIVE);

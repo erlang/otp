@@ -545,6 +545,7 @@ OPCODE_TABLES += hipe/hipe_ops.tab hipe/hipe_instrs.tab
 endif
 
 $(TTF_DIR)/beam_cold.h \
+$(TTF_DIR)/beam_warm.h \
 $(TTF_DIR)/beam_hot.h \
 $(TTF_DIR)/beam_opcodes.c \
 $(TTF_DIR)/beam_opcodes.h \

@@ -45,7 +45,7 @@ CALL_GUARD_BIF(BF, TmpReg, Dst) {
     ERTS_HOLE_CHECK(c_p);
     FCALLS = c_p->fcalls;
     ERTS_DBG_CHK_REDS(c_p, FCALLS);
-    if (is_value(result)) {
+    if (ERTS_LIKELY(is_value(result))) {
         $Dst = result;
         $NEXT0();
     }
@@ -145,12 +145,12 @@ i_gc_bif1(Fail, Bif, Src, Live, Dst) {
     ERTS_HOLE_CHECK(c_p);
     FCALLS = c_p->fcalls;
     ERTS_DBG_CHK_REDS(c_p, FCALLS);
-    if (is_value(result)) {
+    if (ERTS_LIKELY(is_value(result))) {
         $REFRESH_GEN_DEST();
         $Dst = result;
         $NEXT0();
     }
-    if ($Fail != 0) {          /* Handle error in guard. */
+    if (ERTS_LIKELY($Fail != 0)) { /* Handle error in guard. */
         $NEXT($Fail);
     }
 
@@ -195,13 +195,13 @@ i_gc_bif2(Fail, Bif, Live, Src1, Src2, Dst) {
     ERTS_HOLE_CHECK(c_p);
     FCALLS = c_p->fcalls;
     ERTS_DBG_CHK_REDS(c_p, FCALLS);
-    if (is_value(result)) {
+    if (ERTS_LIKELY(is_value(result))) {
         $REFRESH_GEN_DEST();
         $Dst = result;
         $NEXT0();
     }
 
-    if ($Fail != 0) {          /* Handle error in guard. */
+    if (ERTS_LIKELY($Fail != 0)) { /* Handle error in guard. */
         $NEXT($Fail);
     }
 
@@ -249,14 +249,14 @@ i_gc_bif3(Fail, Bif, Live, Src2, Src3, Dst) {
     ERTS_HOLE_CHECK(c_p);
     FCALLS = c_p->fcalls;
     ERTS_DBG_CHK_REDS(c_p, FCALLS);
-    if (is_value(result)) {
+    if (ERTS_LIKELY(is_value(result))) {
         $REFRESH_GEN_DEST();
         $Dst = result;
         $NEXT0();
     }
 
     /* Handle error in guard. */
-    if ($Fail != 0) {
+    if (ERTS_LIKELY($Fail != 0)) {
         $NEXT($Fail);
     }
 
@@ -325,7 +325,7 @@ call_bif(Exp) {
         ERTS_MSACC_UPDATE_CACHE_X();
     }
     ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
-    if (is_value(result)) {
+    if (ERTS_LIKELY(is_value(result))) {
         r(0) = result;
         CHECK_TERM(r(0));
         $NEXT0();
@@ -370,7 +370,7 @@ send() {
     PROCESS_MAIN_CHK_LOCKS(c_p);
     HTOP = HEAP_TOP(c_p);
     FCALLS = c_p->fcalls;
-    if (is_value(result)) {
+    if (ERTS_LIKELY(is_value(result))) {
         r(0) = result;
         CHECK_TERM(r(0));
     } else if (c_p->freason == TRAP) {
@@ -520,7 +520,7 @@ nif_bif.epilogue() {
     SWAPIN;  /* There might have been a garbage collection. */
     FCALLS = c_p->fcalls;
     ERTS_DBG_CHK_REDS(c_p, FCALLS);
-    if (is_value(nif_bif_result)) {
+    if (ERTS_LIKELY(is_value(nif_bif_result))) {
         r(0) = nif_bif_result;
         CHECK_TERM(r(0));
         SET_I(c_p->cp);

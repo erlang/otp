@@ -23,4 +23,7 @@ hipe_trap_call_closure
 hipe_trap_return
 hipe_trap_throw
 hipe_trap_resume
+
+%cold
 hipe_call_count
+%hot

@@ -28,7 +28,7 @@ OUTLINED_ARITH_2(Fail, Live, Name, BIF, Op1, Op2, Dst) {
     result = erts_gc_$Name (c_p, reg, live);
     HEAVY_SWAPIN;
     ERTS_HOLE_CHECK(c_p);
-    if (is_value(result)) {
+    if (ERTS_LIKELY(is_value(result))) {
         $REFRESH_GEN_DEST();
         $Dst = result;
         $NEXT0();
@@ -49,10 +49,10 @@ plus.fetch(Op1, Op2) {
 }
 
 plus.execute(Fail, Live, Dst) {
-    if (is_both_small(PlusOp1, PlusOp2)) {
+    if (ERTS_LIKELY(is_both_small(PlusOp1, PlusOp2))) {
         Sint i = signed_val(PlusOp1) + signed_val(PlusOp2);
         ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
-        if (MY_IS_SSMALL(i)) {
+        if (ERTS_LIKELY(MY_IS_SSMALL(i))) {
             $Dst = make_small(i);
             $NEXT0();
         }
@@ -72,10 +72,10 @@ minus.fetch(Op1, Op2) {
 }
 
 minus.execute(Fail, Live, Dst) {
-    if (is_both_small(MinusOp1, MinusOp2)) {
+    if (ERTS_LIKELY(is_both_small(MinusOp1, MinusOp2))) {
         Sint i = signed_val(MinusOp1) - signed_val(MinusOp2);
         ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
-        if (MY_IS_SSMALL(i)) {
+        if (ERTS_LIKELY(MY_IS_SSMALL(i))) {
             $Dst = make_small(i);
             $NEXT0();
         }
@@ -98,10 +98,10 @@ increment.fetch(Src) {
 
 increment.execute(IncrementVal, Live, Dst) {
     increment_val = $IncrementVal;
-    if (is_small(increment_reg_val)) {
+    if (ERTS_LIKELY(is_small(increment_reg_val))) {
         Sint i = signed_val(increment_reg_val) + increment_val;
         ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
-        if (MY_IS_SSMALL(i)) {
+        if (ERTS_LIKELY(MY_IS_SSMALL(i))) {
             $Dst = make_small(i);
             $NEXT0();
         }
@@ -113,7 +113,7 @@ increment.execute(IncrementVal, Live, Dst) {
     result = erts_gc_mixed_plus(c_p, reg, live);
     HEAVY_SWAPIN;
     ERTS_HOLE_CHECK(c_p);
-    if (is_value(result)) {
+    if (ERTS_LIKELY(is_value(result))) {
         $REFRESH_GEN_DEST();
         $Dst = result;
         $NEXT0();
@@ -137,12 +137,12 @@ i_m_div(Fail, Live, Op1, Op2, Dst) {
 i_int_div(Fail, Live, Op1, Op2, Dst) {
     Eterm op1 = $Op1;
     Eterm op2 = $Op2;
-    if (op2 == SMALL_ZERO) {
+    if (ERTS_UNLIKELY(op2 == SMALL_ZERO)) {
         c_p->freason = BADARITH;
         $BIF_ERROR_ARITY_2($Fail, BIF_intdiv_2, op1, op2);
-    } else if (is_both_small(op1, op2)) {
+    } else if (ERTS_LIKELY(is_both_small(op1, op2))) {
         Sint ires = signed_val(op1) / signed_val(op2);
-        if (MY_IS_SSMALL(ires)) {
+        if (ERTS_LIKELY(MY_IS_SSMALL(ires))) {
             $Dst = make_small(ires);
             $NEXT0();
         }
@@ -162,15 +162,15 @@ rem.fetch(Src1, Src2) {
 }
 
 rem.execute(Fail, Live, Dst) {
-     if (RemOp2 == SMALL_ZERO) {
-         c_p->freason = BADARITH;
-         $BIF_ERROR_ARITY_2($Fail, BIF_rem_2, RemOp1, RemOp2);
-     } else if (is_both_small(RemOp1, RemOp2)) {
-         $Dst = make_small(signed_val(RemOp1) % signed_val(RemOp2));
-         $NEXT0();
-     } else {
-         $OUTLINED_ARITH_2($Fail, $Live, int_rem, BIF_rem_2, RemOp1, RemOp2, $Dst);
-     }
+    if (ERTS_UNLIKELY(RemOp2 == SMALL_ZERO)) {
+        c_p->freason = BADARITH;
+        $BIF_ERROR_ARITY_2($Fail, BIF_rem_2, RemOp1, RemOp2);
+    } else if (ERTS_LIKELY(is_both_small(RemOp1, RemOp2))) {
+        $Dst = make_small(signed_val(RemOp1) % signed_val(RemOp2));
+        $NEXT0();
+    } else {
+        $OUTLINED_ARITH_2($Fail, $Live, int_rem, BIF_rem_2, RemOp1, RemOp2, $Dst);
+    }
 }
 
 i_band := band.fetch.execute;
@@ -185,7 +185,7 @@ band.fetch(Src1, Src2) {
 }
 
 band.execute(Fail, Live, Dst) {
-    if (is_both_small(BandOp1, BandOp2)) {
+    if (ERTS_LIKELY(is_both_small(BandOp1, BandOp2))) {
         /*
          * No need to untag -- TAG & TAG == TAG.
          */
@@ -196,7 +196,7 @@ band.execute(Fail, Live, Dst) {
 }
 
 i_bor(Fail, Live, Src1, Src2, Dst) {
-    if (is_both_small($Src1, $Src2)) {
+    if (ERTS_LIKELY(is_both_small($Src1, $Src2))) {
         /*
          * No need to untag -- TAG | TAG == TAG.
          */
@@ -207,7 +207,7 @@ i_bor(Fail, Live, Src1, Src2, Dst) {
 }
 
 i_bxor(Fail, Live, Src1, Src2, Dst) {
-    if (is_both_small($Src1, $Src2)) {
+    if (ERTS_LIKELY(is_both_small($Src1, $Src2))) {
         /*
          * TAG ^ TAG == 0.
          *
@@ -232,7 +232,7 @@ shift.setup_bsr(Src1, Src2) {
     Op1 = $Src1;
     Op2 = $Src2;
     shift_left_count = 0;
-    if (is_small(Op2)) {
+    if (ERTS_LIKELY(is_small(Op2))) {
         shift_left_count = -signed_val(Op2);
     } else if (is_big(Op2)) {
         /*
@@ -248,7 +248,7 @@ shift.setup_bsl(Src1, Src2) {
     Op1 = $Src1;
     Op2 = $Src2;
     shift_left_count = 0;
-    if (is_small(Op2)) {
+    if (ERTS_LIKELY(is_small(Op2))) {
         shift_left_count = signed_val(Op2);
     } else if (is_big(Op2)) {
         if (bignum_header_is_neg(*big_val(Op2))) {
@@ -271,10 +271,10 @@ shift.setup_bsl(Src1, Src2) {
 shift.execute(Fail, Live, Dst) {
     Uint big_words_needed;
 
-    if (is_small(Op1)) {
+    if (ERTS_LIKELY(is_small(Op1))) {
         Sint int_res = signed_val(Op1);
-        if (shift_left_count == 0 || int_res == 0) {
-            if (is_not_integer(Op2)) {
+        if (ERTS_UNLIKELY(shift_left_count == 0 || int_res == 0)) {
+            if (ERTS_UNLIKELY(is_not_integer(Op2))) {
                 goto shift_error;
             }
             if (int_res == 0) {
@@ -343,7 +343,7 @@ shift.execute(Fail, Live, Dst) {
                 HTOP += bignum_header_arity(*HTOP) + 1;
             }
             HEAP_SPACE_VERIFIED(0);
-            if (is_nil(Op1)) {
+            if (ERTS_UNLIKELY(is_nil(Op1))) {
                 /*
                  * This result must have been only slighty larger
                  * than allowed since it wasn't caught by the
@@ -381,7 +381,7 @@ shift.execute(Fail, Live, Dst) {
 
 i_int_bnot(Fail, Src, Live, Dst) {
     Eterm bnot_val = $Src;
-    if (is_small(bnot_val)) {
+    if (ERTS_LIKELY(is_small(bnot_val))) {
         bnot_val = make_small(~signed_val(bnot_val));
     } else {
         Uint live = $Live;
@@ -390,7 +390,7 @@ i_int_bnot(Fail, Src, Live, Dst) {
         bnot_val = erts_gc_bnot(c_p, reg, live);
         HEAVY_SWAPIN;
         ERTS_HOLE_CHECK(c_p);
-        if (is_nil(bnot_val)) {
+        if (ERTS_UNLIKELY(is_nil(bnot_val))) {
             $BIF_ERROR_ARITY_1($Fail, BIF_bnot_1, reg[live]);
         }
         $REFRESH_GEN_DEST();

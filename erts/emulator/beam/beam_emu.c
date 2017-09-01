@@ -392,9 +392,8 @@ static BeamInstr* call_error_handler(Process* p, ErtsCodeMFA* mfa,
 				     Eterm* reg, Eterm func) NOINLINE;
 static BeamInstr* fixed_apply(Process* p, Eterm* reg, Uint arity,
 			      BeamInstr *I, Uint offs) NOINLINE;
-static BeamInstr* apply(Process* p, Eterm module, Eterm function,
-			Eterm args, Eterm* reg,
-			BeamInstr *I, Uint offs) NOINLINE;
+static BeamInstr* apply(Process* p, Eterm* reg,
+                        BeamInstr *I, Uint offs) NOINLINE;
 static BeamInstr* call_fun(Process* p, int arity,
 			   Eterm* reg, Eterm args) NOINLINE;
 static BeamInstr* apply_fun(Process* p, Eterm fun,
@@ -439,6 +438,12 @@ init_emulator(void)
 #  define REG_stop asm("%l3")
 #  define REG_I asm("%l4")
 #  define REG_fcalls asm("%l5")
+#elif defined(__GNUC__) && defined(__amd64__) && !defined(DEBUG)
+#  define REG_xregs asm("%r12")
+#  define REG_htop
+#  define REG_stop asm("%r13")
+#  define REG_I asm("%rbx")
+#  define REG_fcalls asm("%r14")
 #else
 #  define REG_xregs
 #  define REG_htop
@@ -869,6 +874,8 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      c_p->i = I;
      goto do_schedule1;
  }
+
+#include "beam_warm.h"
 
  OpCase(normal_exit): {
      SWAPOUT;
@@ -2174,13 +2181,14 @@ apply_bif_error_adjustment(Process *p, Export *ep,
 }
 
 static BeamInstr*
-apply(
-Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg,
-BeamInstr *I, Uint stack_offset)
+apply(Process* p, Eterm* reg, BeamInstr *I, Uint stack_offset)
 {
     int arity;
     Export* ep;
     Eterm tmp;
+    Eterm module = reg[0];
+    Eterm function = reg[1];
+    Eterm args = reg[2];
 
     /*
      * Check the arguments which should be of the form apply(Module,
@@ -2297,8 +2305,9 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
     if (is_not_atom(module)) goto error;
 
     /* Handle apply of apply/3... */
-    if (module == am_erlang && function == am_apply && arity == 3)
-	return apply(p, reg[0], reg[1], reg[2], reg, I, stack_offset);
+    if (module == am_erlang && function == am_apply && arity == 3) {
+	return apply(p, reg, I, stack_offset);
+    }
     
     /*
      * Get the index into the export table, or failing that the export
@@ -2319,10 +2328,13 @@ fixed_apply(Process* p, Eterm* reg, Uint arity,
 }
 
 int
-erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg)
+erts_hibernate(Process* c_p, Eterm* reg)
 {
     int arity;
     Eterm tmp;
+    Eterm module = reg[0];
+    Eterm function = reg[1];
+    Eterm args = reg[2];
 
     if (is_not_atom(module) || is_not_atom(function)) {
 	/*
