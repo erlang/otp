@@ -190,7 +190,9 @@ try Y F => catch Y F
 try_case Y => try_end Y
 try_end y
 
+%cold
 try_case_end s
+%hot
 
 # Destructive set tuple element
 
