@@ -4655,7 +4655,8 @@ from_form({type, _L, map, List}, S, D0, L, C) ->
 	end
     end(List, L, C),
   try
-    {Pairs, DefK, DefV} = map_from_form(Pairs1, [], [], [], ?none, ?none),
+    Pairs2 = singleton_elements(Pairs1),
+    {Pairs, DefK, DefV} = map_from_form(Pairs2, [], [], [], ?none, ?none),
     {t_map(Pairs, DefK, DefV), L5, C5}
   catch none -> {t_none(), L5, C5}
   end;
@@ -4997,6 +4998,30 @@ list_from_form([H|Tail], S, D, L, C) ->
   {H1, L1, C1} = from_form(H, S, D, L - 1, C),
   {T1, L2, C2} = list_from_form(Tail, S, D, L1, C1),
   {[H1|T1], L2, C2}.
+
+%% Separates singleton types in keys (see is_singleton_type/1).
+singleton_elements([]) ->
+  [];
+singleton_elements([{K,?mand,V}=Pair|Pairs]) ->
+  case is_singleton_type(K) of
+    true ->
+      [Pair|singleton_elements(Pairs)];
+    false ->
+      singleton_elements([{K,?opt,V}|Pairs])
+  end;
+singleton_elements([{Key0,MNess,Val}|Pairs]) ->
+  [{Key,MNess,Val} || Key <- separate_key(Key0)] ++ singleton_elements(Pairs).
+
+%% To be in sync with is_singleton_type/1.
+%% Does not separate tuples and maps as doing that has potential
+%% to be very expensive.
+separate_key(?atom(Atoms)) when Atoms =/= ?any ->
+  [t_atom(A) || A <- Atoms];
+separate_key(?number(_, _) = T) ->
+  t_elements(T);
+separate_key(?union(List)) ->
+  lists:append([separate_key(K) || K <- List, not t_is_none(K)]);
+separate_key(Key) -> [Key].
 
 %% Sorts, combines non-singleton pairs, and applies precendence and
 %% mandatoriness rules.
@@ -5447,7 +5472,8 @@ t_is_singleton(Type) ->
 t_is_singleton(Type, Opaques) ->
   do_opaque(Type, Opaques, fun is_singleton_type/1).
 
-%% Incomplete; not all representable singleton types are included.
+%% To be in sync with separate_key/1.
+%% Used to also recognize maps and tuples.
 is_singleton_type(?nil) -> true;
 is_singleton_type(?atom(?any)) -> false;
 is_singleton_type(?atom(Set)) ->
@@ -5455,13 +5481,6 @@ is_singleton_type(?atom(Set)) ->
 is_singleton_type(?int_range(V, V)) -> true;
 is_singleton_type(?int_set(Set)) ->
   ordsets:size(Set) =:= 1;
-is_singleton_type(?tuple(Types, Arity, _)) when is_integer(Arity) ->
-  lists:all(fun is_singleton_type/1, Types);
-is_singleton_type(?tuple_set([{Arity, [OnlyTuple]}])) when is_integer(Arity) ->
-  is_singleton_type(OnlyTuple);
-is_singleton_type(?map(Pairs, ?none, ?none)) ->
-  lists:all(fun({_,MNess,V}) -> MNess =:= ?mand andalso is_singleton_type(V)
-	    end, Pairs);
 is_singleton_type(_) ->
   false.
 
