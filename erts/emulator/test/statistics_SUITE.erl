@@ -23,8 +23,10 @@
 %% Tests the statistics/1 bif.
 
 -export([all/0, suite/0, groups/0,
+         wall_clock_sanity/1,
 	 wall_clock_zero_diff/1, wall_clock_update/1,
-	 runtime_zero_diff/1,
+         runtime_sanity/1,
+         runtime_zero_diff/1,
 	 runtime_update/1, runtime_diff/1,
 	 run_queue_one/1,
 	 scheduler_wall_time/1,
@@ -54,10 +56,22 @@ all() ->
 
 groups() -> 
     [{wall_clock, [],
-      [wall_clock_zero_diff, wall_clock_update]},
+      [wall_clock_sanity, wall_clock_zero_diff, wall_clock_update]},
      {runtime, [],
-      [runtime_zero_diff, runtime_update, runtime_diff]},
+      [runtime_sanity, runtime_zero_diff, runtime_update, runtime_diff]},
      {run_queue, [], [run_queue_one]}].
+
+wall_clock_sanity(Config) when is_list(Config) ->
+    erlang:yield(),
+    {WallClock, _} = statistics(wall_clock),
+    MT = erlang:monotonic_time(),
+    Time = erlang:convert_time_unit(MT - erlang:system_info(start_time),
+                                    native, millisecond),
+    io:format("Time=~p WallClock=~p~n",
+              [Time, WallClock]),
+    true = WallClock =< Time,
+    true = Time - 100 =< WallClock,
+    ok.
 
 %%% Testing statistics(wall_clock).
 
@@ -102,6 +116,20 @@ wall_clock_update1(0) ->
 
 %%% Test statistics(runtime).
 
+runtime_sanity(Config) when is_list(Config) ->
+    case erlang:system_info(logical_processors_available) of
+        unknown ->
+            {skipped, "Don't know available logical processors"};
+        LP when is_integer(LP) ->
+            erlang:yield(),
+            {RunTime, _} = statistics(runtime),
+            MT = erlang:monotonic_time(),
+            Time = erlang:convert_time_unit(MT - erlang:system_info(start_time),
+                                            native, millisecond),
+            io:format("Time=~p RunTime=~p~n",
+                      [Time, RunTime]),
+            true = RunTime =< Time*LP
+    end.
 
 %% Tests that the difference between the times returned from two consectuitive
 %% calls to statistics(runtime) is zero.

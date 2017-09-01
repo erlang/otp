@@ -784,10 +784,6 @@ Preload* sys_preloaded(void);
 unsigned char* sys_preload_begin(Preload*);
 void sys_preload_end(Preload*);
 int sys_get_key(int);
-void elapsed_time_both(ErtsMonotonicTime *ms_user, ErtsMonotonicTime *ms_sys, 
-		       ErtsMonotonicTime *ms_user_diff, ErtsMonotonicTime *ms_sys_diff);
-void wall_clock_elapsed_time_both(ErtsMonotonicTime *ms_total, 
-				  ErtsMonotonicTime *ms_diff);
 void get_time(int *hour, int *minute, int *second);
 void get_date(int *year, int *month, int *day);
 void get_localtime(int *year, int *month, int *day, 

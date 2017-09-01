@@ -36,12 +36,29 @@
 #include "erl_driver.h"
 #include "erl_nif.h"
  
-static erts_smp_mtx_t erts_timeofday_mtx;
 static erts_smp_mtx_t erts_get_time_mtx;
 
-static SysTimes t_start; /* Used in elapsed_time_both */
-static ErtsMonotonicTime prev_wall_clock_elapsed; /* Used in wall_clock_elapsed_time_both */
-static ErtsMonotonicTime previous_now; /* Used in get_now */
+ /* used by erts_runtime_elapsed_both */
+typedef struct {
+    erts_smp_mtx_t mtx;
+    ErtsMonotonicTime user;
+    ErtsMonotonicTime sys;
+} ErtsRunTimePrevData;
+
+static union {
+    ErtsRunTimePrevData data;
+    char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsRunTimePrevData))];
+} runtime_prev erts_align_attribute(ERTS_CACHE_LINE_SIZE);
+
+static union {
+    erts_smp_atomic64_t time;
+    char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_smp_atomic64_t))];
+} wall_clock_prev erts_align_attribute(ERTS_CACHE_LINE_SIZE);
+
+static union {
+    erts_smp_atomic64_t time;
+    char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_smp_atomic64_t))];
+} now_prev erts_align_attribute(ERTS_CACHE_LINE_SIZE);
 
 static ErtsMonitor *time_offset_monitors = NULL;
 static Uint no_time_offset_monitors = 0;
@@ -954,8 +971,10 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 
     ASSERT(ERTS_MONOTONIC_TIME_MIN < ERTS_MONOTONIC_TIME_MAX);
 
-    erts_smp_mtx_init(&erts_timeofday_mtx, "timeofday");
     erts_smp_mtx_init(&erts_get_time_mtx, "get_time");
+    erts_smp_mtx_init(&runtime_prev.data.mtx, "runtime");
+    runtime_prev.data.user = 0;
+    runtime_prev.data.sys = 0;
 
     time_sup.r.o.correction = time_correction;
     time_sup.r.o.warp_mode = time_warp_mode;
@@ -1154,9 +1173,13 @@ erts_init_time_sup(int time_correction, ErtsTimeWarpMode time_warp_mode)
 	time_sup.f.c.last_not_corrected_time = 0;
     }
 
-    prev_wall_clock_elapsed = 0;
+    erts_smp_atomic64_init_nob(&wall_clock_prev.time,
+                               (erts_aint64_t) 0);
 
-    previous_now = ERTS_MONOTONIC_TO_USEC(get_time_offset());
+    erts_smp_atomic64_init_nob(
+        &now_prev.time,
+        (erts_aint64_t) ERTS_MONOTONIC_TO_USEC(get_time_offset()));
+
 
 #ifdef DEBUG
     time_sup_initialized = 1;
@@ -1286,36 +1309,65 @@ erts_finalize_time_offset(void)
 /* info functions */
 
 void 
-elapsed_time_both(ErtsMonotonicTime *ms_user, ErtsMonotonicTime *ms_sys, 
-		  ErtsMonotonicTime *ms_user_diff, ErtsMonotonicTime *ms_sys_diff)
+erts_runtime_elapsed_both(ErtsMonotonicTime *ms_user, ErtsMonotonicTime *ms_sys, 
+                          ErtsMonotonicTime *ms_user_diff, ErtsMonotonicTime *ms_sys_diff)
 {
-    ErtsMonotonicTime prev_total_user, prev_total_sys;
-    ErtsMonotonicTime total_user, total_sys;
+    ErtsMonotonicTime prev_user, prev_sys, user, sys;
+
+#ifdef HAVE_GETRUSAGE
+
+    struct rusage now;
+
+    if (getrusage(RUSAGE_SELF, &now) != 0) {
+        erts_exit(ERTS_ABORT_EXIT, "getrusage(RUSAGE_SELF, _) failed: %d\n", errno);
+	return;
+    }
+
+    user = (ErtsMonotonicTime) now.ru_utime.tv_sec;
+    user *= (ErtsMonotonicTime) 1000000;
+    user += (ErtsMonotonicTime) now.ru_utime.tv_usec;
+    user /= (ErtsMonotonicTime) 1000;
+
+    sys = (ErtsMonotonicTime) now.ru_stime.tv_sec;
+    sys *= (ErtsMonotonicTime) 1000000;
+    sys += (ErtsMonotonicTime) now.ru_stime.tv_usec;
+    sys /= (ErtsMonotonicTime) 1000;
+
+#else
+
     SysTimes now;
 
     sys_times(&now);
-    total_user = (ErtsMonotonicTime) ((now.tms_utime * 1000) / SYS_CLK_TCK);
-    total_sys = (ErtsMonotonicTime) ((now.tms_stime * 1000) / SYS_CLK_TCK);
+    user = (ErtsMonotonicTime) now.tms_utime;
+    user *= (ErtsMonotonicTime) 1000;
+    user /= (ErtsMonotonicTime) SYS_CLK_TCK;
 
-    if (ms_user != NULL)
-	*ms_user = total_user;
-    if (ms_sys != NULL)
-	*ms_sys = total_sys;
+    sys = (ErtsMonotonicTime) now.tms_stime;
+    sys *= (ErtsMonotonicTime) 1000;
+    sys /= (ErtsMonotonicTime) SYS_CLK_TCK;
+
+#endif
+
+    if (ms_user)
+	*ms_user = user;
+    if (ms_sys)
+	*ms_sys = sys;
 
     if (ms_user_diff || ms_sys_diff) {
-        erts_smp_mtx_lock(&erts_timeofday_mtx);
-    
-        prev_total_user = (ErtsMonotonicTime) ((t_start.tms_utime * 1000) / SYS_CLK_TCK);
-        prev_total_sys = (ErtsMonotonicTime) ((t_start.tms_stime * 1000) / SYS_CLK_TCK);
-        t_start = now;
-    
-        erts_smp_mtx_unlock(&erts_timeofday_mtx);
+ 
+        erts_smp_mtx_lock(&runtime_prev.data.mtx);
 
-        if (ms_user_diff != NULL)
-            *ms_user_diff = total_user - prev_total_user;
-	  
-        if (ms_sys_diff != NULL)
-            *ms_sys_diff = total_sys - prev_total_sys;
+        prev_user = runtime_prev.data.user;
+        prev_sys = runtime_prev.data.sys;
+        runtime_prev.data.user = user;
+        runtime_prev.data.sys = sys;
+
+        erts_smp_mtx_unlock(&runtime_prev.data.mtx);
+
+        if (ms_user_diff)
+            *ms_user_diff = user - prev_user;
+        if (ms_sys_diff)
+            *ms_sys_diff = sys - prev_sys;
     }
 }
 
@@ -1323,7 +1375,7 @@ elapsed_time_both(ErtsMonotonicTime *ms_user, ErtsMonotonicTime *ms_sys,
 /* wall clock routines */
 
 void 
-wall_clock_elapsed_time_both(ErtsMonotonicTime *ms_total, ErtsMonotonicTime *ms_diff)
+erts_wall_clock_elapsed_both(ErtsMonotonicTime *ms_total, ErtsMonotonicTime *ms_diff)
 {
     ErtsMonotonicTime now, elapsed;
 
@@ -1331,16 +1383,18 @@ wall_clock_elapsed_time_both(ErtsMonotonicTime *ms_total, ErtsMonotonicTime *ms_
     update_last_mtime(NULL, now);
 
     elapsed = ERTS_MONOTONIC_TO_MSEC(now);
+    elapsed -= ERTS_MONOTONIC_TO_MSEC(ERTS_MONOTONIC_BEGIN);
 
     *ms_total = elapsed;
 
     if (ms_diff) {
-        erts_smp_mtx_lock(&erts_timeofday_mtx);
+        ErtsMonotonicTime prev;
 
-        *ms_diff = elapsed - prev_wall_clock_elapsed;
-        prev_wall_clock_elapsed = elapsed;
+        prev = ((ErtsMonotonicTime)
+                erts_smp_atomic64_xchg_mb(&wall_clock_prev.time,
+                                          (erts_aint64_t) elapsed));
 
-        erts_smp_mtx_unlock(&erts_timeofday_mtx);
+        *ms_diff = elapsed - prev;
     }
 }
 
@@ -1719,22 +1773,27 @@ univ_to_local(Sint *year, Sint *month, Sint *day,
 void
 get_now(Uint* megasec, Uint* sec, Uint* microsec)
 {
-    ErtsMonotonicTime now_megasec, now_sec, now, mtime, time_offset;
+    ErtsMonotonicTime now_megasec, now_sec, now, prev, mtime, time_offset;
     
     mtime = time_sup.r.o.get_time();
     time_offset = get_time_offset();
     update_last_mtime(NULL, mtime);
     now = ERTS_MONOTONIC_TO_USEC(mtime + time_offset);
 
-    erts_smp_mtx_lock(&erts_timeofday_mtx);
-
     /* Make sure now time is later than last time */
-    if (now <= previous_now)
-	now = previous_now + 1;
-
-    previous_now = now;
-    
-    erts_smp_mtx_unlock(&erts_timeofday_mtx);
+    prev = erts_smp_atomic64_read_nob(&now_prev.time);
+    while (1) {
+        ErtsMonotonicTime act;
+        if (now <= prev)
+            now = prev + 1;
+        act = ((ErtsMonotonicTime)
+               erts_smp_atomic64_cmpxchg_mb(&now_prev.time,
+                                            (erts_aint64_t) now,
+                                            (erts_aint64_t) prev));
+        if (act == prev)
+            break;
+        prev = act;
+    }
 
     now_megasec = now / ERTS_MONOTONIC_TIME_TERA;
     now_sec = now / ERTS_MONOTONIC_TIME_MEGA;
