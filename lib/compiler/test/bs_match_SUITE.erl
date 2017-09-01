@@ -39,7 +39,7 @@
 	 match_string_opt/1,select_on_integer/1,
 	 map_and_binary/1,unsafe_branch_caching/1,
 	 bad_literals/1,good_literals/1,constant_propagation/1,
-	 parse_xml/1,get_payload/1]).
+	 parse_xml/1,get_payload/1,escape/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -71,7 +71,7 @@ groups() ->
        match_string_opt,select_on_integer,
        map_and_binary,unsafe_branch_caching,
        bad_literals,good_literals,constant_propagation,parse_xml,
-       get_payload]}].
+       get_payload,escape]}].
 
 
 init_per_suite(Config) ->
@@ -1523,6 +1523,21 @@ do_get_payload(ExtHdr) ->
     ExtHdrOptions = ExtHdr#ext_header.ext_hdr_opts,
     <<_:13,_:35>> = ExtHdr#ext_header.ext_hdr_opts,
     ExtHdrOptions.
+
+escape(_Config) ->
+    0 = escape(<<>>, 0),
+    1 = escape(<<128>>, 0),
+    2 = escape(<<128,255>>, 0),
+    42 = escape(<<42>>, 0),
+    50 = escape(<<42,8>>, 0),
+    ok.
+
+escape(<<Byte, Rest/bits>>, Pos) when Byte >= 127 ->
+    escape(Rest, Pos + 1);
+escape(<<Byte, Rest/bits>>, Pos) ->
+    escape(Rest, Pos + Byte);
+escape(<<_Rest/bits>>, Pos) ->
+    Pos.
 
 check(F, R) ->
     R = F().
