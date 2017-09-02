@@ -4840,7 +4840,11 @@ freeze_code(LoaderState* stp)
 	    ASSERT(this_patch < stp->ci);
 	    next_patch = codev[this_patch];
 	    ASSERT(next_patch < stp->ci);
-	    codev[this_patch] = (BeamInstr) (codev + value);
+            if (this_patch < stp->num_functions) {
+                codev[this_patch] = (BeamInstr) (codev + value);
+            } else {
+                codev[this_patch] = (BeamInstr) (codev + value - JUMP_OFFSET);
+            }
 	    this_patch = next_patch;
 	}
     }
@@ -4885,7 +4889,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
     while (index != 0) {
 	BeamInstr next = codev[index];
 	codev[index] = BeamOpCode(op_catch_yf);
-	catches = beam_catches_cons((BeamInstr *)codev[index+2], catches);
+	catches = beam_catches_cons((BeamInstr *)codev[index+2]+JUMP_OFFSET, catches);
 	codev[index+2] = make_catch(catches);
 	index = next;
     }

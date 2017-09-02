@@ -68,10 +68,10 @@ select_val_bins.select(Fail, NumElements) {
         } else if (select_val > mid->val) {
             low = mid + 1;
         } else {
-            $NEXT(mid->addr);
+            $JUMP(mid->addr);
         }
     }
-    $NEXT($Fail);
+    $JUMP($Fail);
 }
 
 i_select_tuple_arity2 := select_val2.src.ta_fail.execute;
@@ -150,8 +150,8 @@ select_val_lin.execute(N) {
     }
 
     if (vs[ix] == select_val) {
-        I = $NEXT_INSTRUCTION + $N + ix;
-        $JUMP(*I);
+        Eterm offset = *($NEXT_INSTRUCTION + $N + ix);
+        $JUMP(offset);
     } else {
         $JUMP(*select_fail);
     }

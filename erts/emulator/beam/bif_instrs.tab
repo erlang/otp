@@ -151,7 +151,7 @@ i_gc_bif1(Fail, Bif, Src, Live, Dst) {
         $NEXT0();
     }
     if (ERTS_LIKELY($Fail != 0)) { /* Handle error in guard. */
-        $NEXT($Fail);
+        $JUMP($Fail);
     }
 
     /* Handle error in body. */
@@ -202,7 +202,7 @@ i_gc_bif2(Fail, Bif, Live, Src1, Src2, Dst) {
     }
 
     if (ERTS_LIKELY($Fail != 0)) { /* Handle error in guard. */
-        $NEXT($Fail);
+        $JUMP($Fail);
     }
 
     /* Handle error in body. */
@@ -257,7 +257,7 @@ i_gc_bif3(Fail, Bif, Live, Src2, Src3, Dst) {
 
     /* Handle error in guard. */
     if (ERTS_LIKELY($Fail != 0)) {
-        $NEXT($Fail);
+        $JUMP($Fail);
     }
 
     /* Handle error in body. */
@@ -473,10 +473,10 @@ nif_bif.apply_bif() {
 
     /* In case we apply process_info/1,2 or load_nif/1 */
     c_p->current = codemfa;
-    c_p->i = I;		/* In case we apply check_process_code/2. */
-    c_p->arity = 0;		/* To allow garbage collection on ourselves
-                                 * (check_process_code/2).
-                                 */
+    $SET_CP_I_ABS(I);     /* In case we apply check_process_code/2. */
+    c_p->arity = 0;       /* To allow garbage collection on ourselves
+                           * (check_process_code/2).
+                           */
     DTRACE_BIF_ENTRY(c_p, codemfa);
 
     SWAPOUT;
