@@ -27,7 +27,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 app_test/1,appup_test/1,
-	 debug_info/4, custom_debug_info/1,
+	 debug_info/4, custom_debug_info/1, custom_compile_info/1,
 	 file_1/1, forms_2/1, module_mismatch/1, big_file/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, kernel_listing/1, encrypted_abstr/1,
@@ -53,7 +53,8 @@ all() ->
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
      cover, env, core_pp, core_roundtrip, asm, optimized_guards,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
-     env_compiler_options, custom_debug_info, bc_options].
+     env_compiler_options, custom_debug_info, bc_options,
+     custom_compile_info].
 
 groups() -> 
     [].
@@ -648,6 +649,23 @@ custom_debug_info(Config) when is_list(Config) ->
 	beam_lib:chunks(ErrorBin, [abstract_code]),
     {ok,{simple,[{debug_info,{debug_info_v1,?MODULE,error}}]}} =
 	beam_lib:chunks(ErrorBin, [debug_info]).
+
+custom_compile_info(Config) when is_list(Config) ->
+    Anno = erl_anno:new(1),
+    Forms = [{attribute,Anno,module,custom_compile_info}],
+    Opts = [binary,{compile_info,[{another,version}]}],
+
+    {ok,custom_compile_info,Bin} = compile:forms(Forms, Opts),
+    {ok,{custom_compile_info,[{compile_info,CompileInfo}]}} =
+	beam_lib:chunks(Bin, [compile_info]),
+    version = proplists:get_value(another, CompileInfo),
+    CompileOpts = proplists:get_value(options, CompileInfo),
+    undefined = proplists:get_value(compile_info, CompileOpts),
+
+    {ok,custom_compile_info,DetBin} = compile:forms(Forms, [deterministic|Opts]),
+    {ok,{custom_compile_info,[{compile_info,DetInfo}]}} =
+	beam_lib:chunks(DetBin, [compile_info]),
+    version = proplists:get_value(another, DetInfo).
 
 cover(Config) when is_list(Config) ->
     io:format("~p\n", [compile:options()]),

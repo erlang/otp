@@ -123,6 +123,17 @@
 	    in the Efficiency Guide.</p>
           </item>
 
+          <tag><c>{compile_info, [{atom(), term()}]}</c></tag>
+          <item>
+            <p>Allows compilers built on top of <c>compile</c> to attach
+            extra compilation metadata to the <c>compile_info</c> chunk
+            in the generated beam file.</p>
+
+            <p>It is advised for compilers to remove all non-deterministic
+            information if the <c>deterministic</c> option is supported and
+            it was supplied by the user.</p>
+          </item>
+
           <tag><c>compressed</c></tag>
           <item>
             <p>The compiler will compress the generated object code,

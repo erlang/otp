@@ -1448,14 +1448,32 @@ save_core_code(Code, St) ->
 beam_asm(Code0, #compile{ifile=File,extra_chunks=ExtraChunks,options=CompilerOpts}=St) ->
     case debug_info(St) of
 	{ok,DebugInfo,Opts0} ->
-	    Source = paranoid_absname(File),
 	    Opts1 = [O || O <- Opts0, effects_code_generation(O)],
 	    Chunks = [{<<"Dbgi">>, DebugInfo} | ExtraChunks],
-	    {ok,Code} = beam_asm:module(Code0, Chunks, Source, Opts1, CompilerOpts),
+	    CompileInfo = compile_info(File, Opts1),
+	    {ok,Code} = beam_asm:module(Code0, Chunks, CompileInfo, CompilerOpts),
 	    {ok,Code,St#compile{abstract_code=[]}};
 	{error,Es} ->
 	    {error,St#compile{errors=St#compile.errors ++ [{File,Es}]}}
     end.
+
+compile_info(File, Opts) ->
+    IsSlim = member(slim, Opts),
+    IsDeterministic = member(deterministic, Opts),
+    Info0 = proplists:get_value(compile_info, Opts, []),
+    Info1 =
+	case paranoid_absname(File) of
+	    [_|_] = Source when not IsSlim, not IsDeterministic ->
+		[{source,Source} | Info0];
+	    _ ->
+		Info0
+	end,
+    Info2 =
+	case IsDeterministic of
+	    false -> [{options,proplists:delete(compile_info, Opts)} | Info1];
+	    true -> Info1
+	end,
+    Info2.
 
 paranoid_absname(""=File) ->
     File;
