@@ -572,7 +572,7 @@ avp_decode(Data, AvpName, Opts, Mod, Mod) ->
     Mod:avp(decode, Data, AvpName, Opts);
 
 avp_decode(Data, AvpName, Opts, Mod, _) ->
-    Mod:avp(decode, Data, AvpName, Opts, Mod).
+    Mod:avp(decode, Data, AvpName, Opts#{module := Mod}).
 
 %% set_strict/3
 %%
