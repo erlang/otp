@@ -115,6 +115,7 @@
                       strict_arities => diameter:strict_arities(),
                       strict_mbit := boolean(),
                       decode_format := diameter:decode_format(),
+                      avp_dictionaries => nonempty_list(module()),
                       traffic_counters := boolean(),
                       string_decode := boolean(),
                       capabilities_cb => diameter:evaluable(),
@@ -718,7 +719,8 @@ init_peers() ->
                                %%  TPid}
 
 service_opts(Opts) ->
-    remove([{strict_arities, true}],
+    remove([{strict_arities, true},
+            {avp_dictionaries, []}],
            maps:merge(maps:from_list([{monitor, false} | def_opts()]),
                       maps:from_list(Opts))).
 
@@ -735,6 +737,7 @@ def_opts() ->  %% defaults on the service map
      {strict_arities, true},
      {strict_mbit, true},
      {decode_format, record},
+     {avp_dictionaries, []},
      {traffic_counters, true},
      {string_decode, true},
      {spawn_opt, []}].

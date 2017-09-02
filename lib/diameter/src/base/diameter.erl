@@ -356,6 +356,7 @@ call(SvcName, App, Message) ->
     | {capx_timeout, 'Unsigned32'()}
     | {strict_capx, boolean()}
     | {strict_mbit, boolean()}
+    | {avp_dictionaries, [module()]}
     | {disconnect_cb, eval()}
     | {dpr_timeout, 'Unsigned32'()}
     | {dpa_timeout, 'Unsigned32'()}

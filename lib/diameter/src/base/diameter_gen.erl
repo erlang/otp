@@ -100,73 +100,73 @@ encode(Name, Vals, Opts, Strict, Mod)
 
 encode(Name, Map, Opts, Strict, Mod)
   when is_map(Map) ->
-    [enc(Name, F, A, V, Opts, Strict, Mod) || {F,A} <- Mod:avp_arity(Name),
-                                              V <- [mget(F, Map, undefined)]];
+    [enc(F, A, V, Opts, Strict, Mod) || {F,A} <- Mod:avp_arity(Name),
+                                        V <- [mget(F, Map, undefined)]];
 
 encode(Name, Rec, Opts, Strict, Mod) ->
     [encode(Name, F, V, Opts, Strict, Mod) || {F,V} <- Mod:'#get-'(Rec)].
 
 %% encode/6
 
-encode(Name, AvpName, Values, Opts, Strict, Mod)
+encode(_, AvpName, Values, Opts, Strict, Mod)
   when Strict /= encode ->
-    enc(Name, AvpName, ?ANY, Values, Opts, Strict, Mod);
+    enc(AvpName, ?ANY, Values, Opts, Strict, Mod);
 
 encode(Name, AvpName, Values, Opts, Strict, Mod) ->
     Arity = Mod:avp_arity(Name, AvpName),
-    enc(Name, AvpName, Arity, Values, Opts, Strict, Mod).
+    enc(AvpName, Arity, Values, Opts, Strict, Mod).
 
-%% enc/7
+%% enc/6
 
-enc(Name, AvpName, Arity, Values, Opts, Strict, Mod)
+enc(AvpName, Arity, Values, Opts, Strict, Mod)
   when Strict /= encode, Arity /= ?ANY ->
-    enc(Name, AvpName, ?ANY, Values, Opts, Strict, Mod);
+    enc(AvpName, ?ANY, Values, Opts, Strict, Mod);
 
-enc(_, AvpName, 1, undefined, _, _, _) ->
+enc(AvpName, 1, undefined, _, _, _) ->
     ?THROW([mandatory_avp_missing, AvpName]);
 
-enc(Name, AvpName, 1, Value, Opts, _, Mod) ->
+enc(AvpName, 1, Value, Opts, _, Mod) ->
     H = avp_header(AvpName, Mod),
-    enc1(Name, AvpName, H, Value, Opts, Mod);
+    enc(AvpName, H, Value, Opts, Mod);
 
-enc(_, _, {0,_}, [], _, _, _) ->
+enc(_, {0,_}, [], _, _, _) ->
     [];
 
-enc(_, _, _, undefined, _, _, _) ->
+enc(_, _, undefined, _, _, _) ->
     [];
 
 %% Be forgiving when a list of values is expected. If the value itself
 %% is a list then the user has to wrap it to avoid each member from
 %% being interpreted as an individual AVP value.
-enc(Name, AvpName, Arity, V, Opts, Strict, Mod)
+enc(AvpName, Arity, V, Opts, Strict, Mod)
   when not is_list(V) ->
-    enc(Name, AvpName, Arity, [V], Opts, Strict, Mod);
+    enc(AvpName, Arity, [V], Opts, Strict, Mod);
 
-enc(Name, AvpName, {Min, Max}, Values, Opts, Strict, Mod) ->
+enc(AvpName, {Min, Max}, Values, Opts, Strict, Mod) ->
     H = avp_header(AvpName, Mod),
-    enc(Name, AvpName, H, Min, 0, Max, Values, Opts, Strict, Mod).
+    enc(AvpName, H, Min, 0, Max, Values, Opts, Strict, Mod).
 
-%% enc/10
+%% enc/9
 
-enc(Name, AvpName, H, Min, N, Max, Vs, Opts, Strict, Mod)
+enc(AvpName, H, Min, N, Max, Vs, Opts, Strict, Mod)
   when Strict /= encode;
        Max == '*', Min =< N ->
-    [enc1(Name, AvpName, H, V, Opts, Mod) || V <- Vs];
+    [enc(AvpName, H, V, Opts, Mod) || V <- Vs];
 
-enc(_, AvpName, _, Min, N, _, [], _, _, _)
+enc(AvpName, _, Min, N, _, [], _, _, _)
   when N < Min ->
     ?THROW([repeated_avp_insufficient_arity, AvpName, Min, N]);
 
-enc(_, _, _, _, _, _, [], _, _, _) ->
+enc(_, _, _, _, _, [], _, _, _) ->
     [];
 
-enc(_, AvpName, _, _, N, Max, _, _, _, _)
+enc(AvpName, _, _, N, Max, _, _, _, _)
   when Max =< N ->
     ?THROW([repeated_avp_excessive_arity, AvpName, Max]);
 
-enc(Name, AvpName, H, Min, N, Max, [V|Vs], Opts, Strict, Mod) ->
-    [enc1(Name, AvpName, H, V, Opts, Mod)
-     | enc(Name, AvpName, H, Min, N+1, Max, Vs, Opts, Strict, Mod)].
+enc(AvpName, H, Min, N, Max, [V|Vs], Opts, Strict, Mod) ->
+    [enc(AvpName, H, V, Opts, Mod)
+     | enc(AvpName, H, Min, N+1, Max, Vs, Opts, Strict, Mod)].
 
 %% avp_header/2
 
@@ -176,12 +176,12 @@ avp_header('AVP', _) ->
 avp_header(AvpName, Mod) ->
     {_,_,_} = Mod:avp_header(AvpName).
 
-%% enc1/6
+%% enc/5
 
-enc1(Name, 'AVP', false, Value, Opts, Mod) ->
-    enc_AVP(Name, Value, Opts, Mod);
+enc('AVP', false, Value, Opts, Mod) ->
+    enc_AVP(Value, Opts, Mod);
 
-enc1(_, AvpName, Hdr, Value, Opts, Mod) ->
+enc(AvpName, Hdr, Value, Opts, Mod) ->
     enc1(AvpName, Hdr, Value, Opts, Mod).
 
 %% enc1/5
@@ -189,41 +189,59 @@ enc1(_, AvpName, Hdr, Value, Opts, Mod) ->
 enc1(AvpName, {_,_,_} = Hdr, Value, Opts, Mod) ->
     diameter_codec:pack_data(Hdr, Mod:avp(encode, Value, AvpName, Opts)).
 
-%% enc_AVP/4
+%% enc1/6
+
+enc1(AvpName, {_,_,_} = Hdr, Value, Opts, Mod, Dict) ->
+    diameter_codec:pack_data(Hdr, avp(encode, Value, AvpName, Opts, Mod, Dict)).
+
+%% enc_AVP/3
 
 %% No value: assume AVP data is already encoded. The normal case will
 %% be when this is passed back from #diameter_packet.errors as a
 %% consequence of a failed decode. Any AVP can be encoded this way
 %% however, which side-steps any arity checks for known AVP's and
 %% could potentially encode something unfortunate.
-enc_AVP(_, #diameter_avp{value = undefined} = A, Opts, _) ->
+enc_AVP(#diameter_avp{value = undefined} = A, Opts, _) ->
     diameter_codec:pack_avp(A, Opts);
 
-%% Missing name for value encode.
-enc_AVP(_, #diameter_avp{name = N, value = V}, _, _)
-  when N == undefined;
-       N == 'AVP' ->
-    ?THROW([value_with_nameless_avp, N, V]);
+%% Encode a name/value pair using an alternate dictionary if need be ...
+enc_AVP(#diameter_avp{name = AvpName, value = Value}, Opts, Mod) ->
+    enc_AVP(AvpName, Value, Opts, Mod);
+enc_AVP({AvpName, Value}, Opts, Mod) ->
+    enc_AVP(AvpName, Value, Opts, Mod);
 
-%% Or not. Ensure that 'AVP' is the appropriate field. Note that if we
-%% don't know this AVP at all then the encode will fail.
-enc_AVP(Name, #diameter_avp{name = AvpName, value = Data}, Opts, Mod) ->
-    0 == Mod:avp_arity(Name, AvpName)
-        orelse ?THROW([known_avp_as_AVP, Name, AvpName, Data]),
-    enc(AvpName, Data, Opts, Mod);
+%% ... or with a specified dictionary.
+enc_AVP({Dict, AvpName, Value}, Opts, Mod) ->
+    enc1(AvpName, Dict:avp_header(AvpName), Value, Opts, Mod, Dict).
 
-%% The backdoor ...
-enc_AVP(_, {AvpName, Value}, Opts, Mod) ->
-    enc(AvpName, Value, Opts, Mod);
+%% Don't guard against anything being sent as a generic 'AVP', which
+%% allows arity restrictions to be abused.
 
-%% ... and the side door.
-enc_AVP(_Name, {_Dict, _AvpName, _Data} = T, Opts, _) ->
-    diameter_codec:pack_avp(#diameter_avp{data = T}, Opts).
+%% enc_AVP/4
 
-%% enc/4
+enc_AVP(AvpName, Value, Opts, Mod) ->
+    try Mod:avp_header(AvpName) of
+        H ->
+            enc1(AvpName, H, Value, Opts, Mod)
+    catch
+        error: _ ->
+            Dicts = mget(avp_dictionaries, Opts, []),
+            enc_AVP(Dicts, AvpName, Value, Opts, Mod)
+    end.
 
-enc(AvpName, Value, Opts, Mod) ->
-    enc1(AvpName, Mod:avp_header(AvpName), Value, Opts, Mod).
+%% enc_AVP/5
+
+enc_AVP([Dict | Rest], AvpName, Value, Opts, Mod) ->
+    try Dict:avp_header(AvpName) of
+        H ->
+            enc1(AvpName, H, Value, Opts, Mod, Dict)
+    catch
+        error: _ ->
+            enc_AVP(Rest, AvpName, Value, Opts, Mod)
+    end;
+
+enc_AVP([], AvpName, _, _, _) ->
+    ?THROW([no_dictionary, AvpName]).
 
 %% ---------------------------------------------------------------------------
 %% # decode_avps/3
@@ -301,9 +319,9 @@ decode(Bin, Code, Vid, DataLen, Pad, M, P, Name, Mod, Fmt, Strict, Opts0,
                                 type = type(NameT),
                                 index = Idx},
 
-            Dec = decode1(Data, Name, NameT, Mod, Fmt, Opts, Avp),
+            Dec = dec(Data, Name, NameT, Mod, Fmt, Opts, Avp),
             Acc = decode(T, Name, Mod, Fmt, Strict, Opts, Idx+1, AM),%% recurse
-            acc(Acc, Dec, I, Name, Field, Arity, Strict, Mod, Opts);
+            acc(Acc, Dec, I, Field, Arity, Strict, Mod, Opts);
         _ ->
             {NameT, _Field, _Arity, {_, AM}}
                 = incr(Name, Code, Vid, M, Mod, Strict, Opts0, AM0),
@@ -449,11 +467,15 @@ field({AvpName, _}) ->
 field(_) ->
     'AVP'.
 
-%% decode1/7
+%% dec/7
 
-%% AVP not in dictionary.
-decode1(_Data, _Name, 'AVP', _Mod, _Fmt, _Opts, Avp) ->
+%% AVP not in dictionary: try an alternate.
+
+dec(_, _, 'AVP', _Mod, none, _, Avp) ->  %% none decode is no-op
     Avp;
+
+dec(Data, Name, 'AVP', Mod, Fmt, Opts, Avp) ->
+    dec_AVP(dicts(Mod, Opts), Data, Name, Mod, Fmt, Opts, Avp);
 
 %% 6733, 4.4:
 %%
@@ -502,20 +524,35 @@ decode1(_Data, _Name, 'AVP', _Mod, _Fmt, _Opts, Avp) ->
 %% defined the RFC's "unrecognized", which is slightly stronger than
 %% "not defined".)
 
-decode1(Data, Name, {AvpName, Type}, Mod, Fmt, Opts, Avp) ->
+dec(Data, Name, {AvpName, Type}, Mod, Fmt, Opts, Avp) ->
     #{app_dictionary := AppMod, failed_avp := Failed}
         = Opts,
 
     %% Reset the dictionary for best-effort decode of Failed-AVP.
-    DecMod = if Failed -> AppMod;
-                true   -> Mod
-             end,
+    Dict = if Failed -> AppMod;
+              true   -> Mod
+           end,
 
-    %% A Grouped AVP is represented as a #diameter_avp{} list with AVP
-    %% as head and component AVPs as tail. On encode, data can be a
-    %% list of component AVPs.
+    dec(Data, Name, AvpName, Type, Mod, Dict, Fmt, Failed, Opts, Avp).
 
-    try avp_decode(Data, AvpName, Opts, DecMod, Mod) of
+%% dicts/2
+
+dicts(Mod, #{app_dictionary := Mod, avp_dictionaries := Dicts}) ->
+    Dicts;
+
+dicts(_, #{app_dictionary := Dict, avp_dictionaries := Dicts}) ->
+    [Dict | Dicts];
+
+dicts(Mod, #{app_dictionary := Mod}) ->
+    [];
+
+dicts(_, #{app_dictionary := Dict}) ->
+    [Dict].
+
+%% dec/10
+
+dec(Data, Name, AvpName, Type, Mod, Dict, Fmt, Failed, Opts, Avp) ->
+    try avp(decode, Data, AvpName, Opts, Mod, Dict) of
         V ->
             set(Type, Fmt, Avp, V)
     catch
@@ -525,7 +562,39 @@ decode1(Data, Name, {AvpName, Type}, Mod, Fmt, Opts, Avp) ->
             decode_error(Failed, Reason, Name, Mod, Opts, Avp)
     end.
 
+%% dec_AVP/7
+
+dec_AVP([], _, _, _, _, _, Avp) ->
+    Avp;
+
+dec_AVP(Dicts, Data, Name, Mod, Fmt, Opts, #diameter_avp{code = Code,
+                                                         vendor_id = Vid}
+                                           = Avp) ->
+    dec_AVP(Dicts, Data, Name, Mod, Fmt, Opts, Code, Vid, Avp).
+
+%% dec_AVP/9
+%%
+%% Try to decode an AVP in the first alternate dictionary that defines
+%% it.
+
+dec_AVP([Dict | Rest], Data, Name, Mod, Fmt, Opts, Code, Vid, Avp) ->
+    case Dict:avp_name(Code, Vid) of
+        {AvpName, Type} ->
+            A = Avp#diameter_avp{name = AvpName,
+                                 type = Type},
+            #{failed_avp := Failed} = Opts,
+            dec(Data, Name, AvpName, Type, Mod, Dict, Fmt, Failed, Opts, A);
+        _ ->
+            dec_AVP(Rest, Data, Name, Mod, Fmt, Opts, Code, Vid, Avp)
+    end;
+
+dec_AVP([], _, _, _, _, _, _, _, Avp) ->
+    Avp.
+
 %% set/4
+%%
+%% A Grouped AVP is represented as a #diameter_avp{} list with AVP
+%% as head and component AVPs as tail.
 
 set('Grouped', none, Avp, V) ->
     {_Rec, As} = V,
@@ -566,13 +635,13 @@ decode_error(false, Reason, Name, Mod, Opts, Avp) ->
                      {Reason, Name, Avp#diameter_avp.name, Mod, Stack}),
     rc(Reason, Avp, Opts, Mod).
 
-%% avp_decode/5
+%% avp/6
 
-avp_decode(Data, AvpName, Opts, Mod, Mod) ->
-    Mod:avp(decode, Data, AvpName, Opts);
+avp(T, Data, AvpName, Opts, Mod, Mod) ->
+    Mod:avp(T, Data, AvpName, Opts);
 
-avp_decode(Data, AvpName, Opts, Mod, _) ->
-    Mod:avp(decode, Data, AvpName, Opts#{module := Mod}).
+avp(T, Data, AvpName, Opts, _, Mod) ->
+    Mod:avp(T, Data, AvpName, Opts#{module := Mod}).
 
 %% set_strict/3
 %%
@@ -595,49 +664,57 @@ set_failed('Failed-AVP', #{failed_avp := false} = Opts) ->
 set_failed(_, Opts) ->
     Opts.
 
-%% acc/9
+%% acc/8
 
-acc([AM | Acc], As, I, Name, Field, Arity, Strict, Mod, Opts) ->
-    [AM | acc1(Acc, As, I, Name, Field, Arity, Strict, Mod, Opts)].
+acc([AM | Acc], As, I, Field, Arity, Strict, Mod, Opts) ->
+    [AM | acc1(Acc, As, I, Field, Arity, Strict, Mod, Opts)].
 
-%% acc1/9
+%% acc1/8
 
 %% Faulty AVP, not grouped.
-acc1(Acc, {_RC, Avp} = E, _, _, _, _, _, _, _) ->
+acc1(Acc, {_RC, Avp} = E, _, _, _, _, _, _) ->
     [Avps, Failed | Rec] = Acc,
     [[Avp | Avps], [E | Failed] | Rec];
 
 %% Faulty component in grouped AVP.
-acc1(Acc, {RC, As, Avp}, _, _, _, _, _, _, _) ->
+acc1(Acc, {RC, As, Avp}, _, _, _, _, _, _) ->
     [Avps, Failed | Rec] = Acc,
     [[As | Avps], [{RC, Avp} | Failed] | Rec];
 
 %% Grouped AVP ...
-acc1([Avps | Acc], [Avp|_] = As, I, Name, Field, Arity, Strict, Mod, Opts) ->
-    [[As|Avps] | acc2(Acc, Avp, I, Name, Field, Arity, Strict, Mod, Opts)];
+acc1([Avps | Acc], [Avp|_] = As, I, Field, Arity, Strict, Mod, Opts) ->
+    [[As|Avps] | acc2(Acc, Avp, I, Field, Arity, Strict, Mod, Opts)];
 
 %% ... or not.
-acc1([Avps | Acc], Avp, I, Name, Field, Arity, Strict, Mod, Opts) ->
-    [[Avp|Avps] | acc2(Acc, Avp, I, Name, Field, Arity, Strict, Mod, Opts)].
+acc1([Avps | Acc], Avp, I, Field, Arity, Strict, Mod, Opts) ->
+    [[Avp|Avps] | acc2(Acc, Avp, I, Field, Arity, Strict, Mod, Opts)].
 
-%% acc2/9
+%% The component list of a Grouped AVP is discarded when packing into
+%% the record (or equivalent): the values in an 'AVP' field are
+%% diameter_avp records, not a list of records in the Grouped case,
+%% and the decode into the value field is best-effort. The reason is
+%% history more than logic: it would probably have made more sense to
+%% retain the same structure as in diameter_packet.avps, but an 'AVP'
+%% list has always been flat.
+
+%% acc2/8
 
 %% No errors, but nowhere to pack.
-acc2(Acc, Avp, _, _, 'AVP', 0, _, _, _) ->
+acc2(Acc, Avp, _, 'AVP', 0, _, _, _) ->
     [Failed | Rec] = Acc,
     [[{rc(Avp), Avp} | Failed] | Rec];
 
 %% Relaxed arities.
-acc2(Acc, Avp, _, _, Field, Arity, Strict, Mod, _)
+acc2(Acc, Avp, _, Field, Arity, Strict, Mod, _)
   when Strict /= decode ->
     pack(Arity, Field, Avp, Mod, Acc);
 
 %% No maximum arity.
-acc2(Acc, Avp, _, _, Field, {_,'*'} = Arity, _, Mod, _) ->
+acc2(Acc, Avp, _, Field, {_,'*'} = Arity, _, Mod, _) ->
     pack(Arity, Field, Avp, Mod, Acc);
 
 %% Or check.
-acc2(Acc, Avp, I, _, Field, Arity, _, Mod, _) ->
+acc2(Acc, Avp, I, Field, Arity, _, Mod, _) ->
     Mx = max_arity(Arity),
     if Mx =< I ->
             [Failed | Rec] = Acc,
