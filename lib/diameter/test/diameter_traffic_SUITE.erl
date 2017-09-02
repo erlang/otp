@@ -649,13 +649,13 @@ send_bad_answer(Config) ->
         = call(Config, Req).
 
 %% Send an ACR that the server callback answers explicitly with a
-%% protocol error.
+%% protocol error and some AVPs to check the decoding of.
 send_protocol_error(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 4}],
 
     ['answer-message' | #{'Result-Code' := ?TOO_BUSY,
-                          'AVP' := [OLR]}]
+                          'AVP' := [OLR | _]} = Avps]
         = call(Config, Req),
 
     #diameter_avp{name = 'OC-OLR',
@@ -668,7 +668,36 @@ send_protocol_error(Config) ->
     #diameter_avp{name = 'OC-Supported-Features',
                   value = #{} = Fs}
         = OSF,
-    0 = maps:size(Fs).
+    0 = maps:size(Fs),
+
+    #group{client_dict = D} = group(Config), 
+
+    if D == nas4005 ->
+            error = maps:find('Failed-AVP', Avps),
+            #{'AVP' := [#diameter_avp{name = 'Failed-AVP',
+                                      value = #{'AVP' := [_,NP]}}]}
+                = Avps,
+            #diameter_avp{name = 'NAS-Port', value = 44}
+                = NP;
+            
+       D == diameter_gen_base_rfc3588;
+       D == diameter_gen_basr_accounting ->
+            error = maps:find('Failed-AVP', Avps),
+            #{'AVP' := [#diameter_avp{name = 'Failed-AVP',
+                                      value = #{'AVP' := [_,NP]}}]}
+                = Avps,
+            #diameter_avp{name = undefined, value = undefined}
+                = NP;
+
+       D == diameter_gen_base_rfc6733;
+       D == diameter_gen_acct_rfc6733 ->
+            error = maps:find('AVP', Avps),
+            #{'Failed-AVP' := [#{'AVP' := [NP]}],
+              'AVP' := [_]}
+                = Avps,
+            #diameter_avp{name = undefined, value = undefined}
+                = NP
+    end.
 
 %% Send a 3xxx Experimental-Result in an answer not setting the E-bit
 %% and missing a Result-Code.
@@ -1730,10 +1759,17 @@ request(['ACR' | #{'Accounting-Record-Number' := 4}],
             'OC-Reduction-Percentage' => [25],
             'OC-Validity-Duration' => [60],
             'AVP' => [{'OC-Supported-Features', []}]},
+    %% Include a NAS Failed-AVP AVP that will only be decoded under
+    %% that application. Encode as 'AVP' since RFC 3588 doesn't list
+    %% Failed-AVP in the answer-message grammar while RFC 6733 does.
+    NP = #diameter_avp{data = {nas4005, 'NAS-Port', 44}},
+    Failed = #diameter_avp{data = {diameter_gen_base_rfc3588,
+                                   'Failed-AVP',
+                                   [{'AVP', [NP]}]}},
     Ans = ['answer-message', {'Result-Code', ?TOO_BUSY},
                              {'Origin-Host', OH},
                              {'Origin-Realm', OR},
-                             {'AVP', [{'OC-OLR', OLR}]}],
+                             {'AVP', [{'OC-OLR', OLR}, Failed]}],
     {reply, Ans};
 
 %% send_proxy_info
