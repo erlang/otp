@@ -72,6 +72,7 @@ significant.
 <!ENTITY watchdog_timer '<seealso marker="#watchdog_timer">watchdog_timer</seealso>'>
 
 <!ENTITY mod_string_decode '<seealso marker="diameter#service_opt">diameter:service_opt()</seealso> <seealso marker="diameter#string_decode">string_decode</seealso>'>
+<!ENTITY mod_decode_format '<seealso marker="diameter#service_opt">diameter:service_opt()</seealso> <seealso marker="diameter#decode_format">decode_format</seealso>'>
 
 <!-- diameter_app -->
 

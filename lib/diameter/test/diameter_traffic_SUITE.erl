@@ -158,7 +158,7 @@
 -define(ENCODINGS, [list, record, map]).
 
 %% How to decode incoming messages.
--define(DECODINGS, [record, false, map, list, record_from_map]).
+-define(DECODINGS, [record, none, map, list, record_from_map]).
 
 %% Which dictionary to use in the clients.
 -define(RFCS, [rfc3588, rfc6733, rfc4005]).
@@ -512,6 +512,7 @@ start_services(Config) ->
                                      | ?SERVICE(SN, Grp)]),
     ok = diameter:start_service(CN, [{traffic_counters, bool()},
                                      {sequence, ?CLIENT_MASK},
+                                     {decode_format, map},
                                      {strict_arities, decode}
                                      | ?SERVICE(CN, Grp)]).
 
@@ -705,9 +706,9 @@ send_proxy_info(Config) ->
     Req = ['ASR', {'Proxy-Info', #{'Proxy-Host'  => H0,
                                    'Proxy-State' => S0}}],
     ['answer-message' | #{'Result-Code' := 3999,
-                          'Proxy-Info' := [Rec]}]
+                          'Proxy-Info' := [#{'Proxy-Host' := H,
+                                             'Proxy-State' := S}]}]
         = call(Config, Req),
-    {H, S, []} = proxy_info(Rec, Config),
     [H0, S0] = [?B(X) || X <- [H,S]].
 
 %% Send an unknown AVP (to some client) and check that it comes back.
@@ -733,12 +734,12 @@ send_unknown_short(Config, M, RC) ->
                                          data = <<17>>}]}],
     ['ASA' | #{'Session-Id' := _,
                'Result-Code' := RC,
-               'Failed-AVP' := Avps}]
+               'Failed-AVP' := [#{'AVP' := [Avp]}]}]
         = call(Config, Req),
-    [[#diameter_avp{code = 999,
-                    is_mandatory = M,
-                    data = <<17, _/binary>>}]] %% extra bits from padding
-        = failed_avps(Avps, Config).
+    #diameter_avp{code = 999,
+                  is_mandatory = M,
+                  data = <<17, _/binary>>} %% extra bits from padding
+        = Avp.
 
 %% Ditto but set the M flag.
 send_unknown_mandatory(Config) ->
@@ -747,12 +748,12 @@ send_unknown_mandatory(Config) ->
                                          data = <<17>>}]}],
     ['ASA' | #{'Session-Id' := _,
                'Result-Code' := ?AVP_UNSUPPORTED,
-               'Failed-AVP' := Avps}]
+               'Failed-AVP' := [#{'AVP' := [Avp]}]}]
         = call(Config, Req),
-    [[#diameter_avp{code = 999,
-                    is_mandatory = true,
-                    data = <<17>>}]]
-        = failed_avps(Avps, Config).
+    #diameter_avp{code = 999,
+                  is_mandatory = true,
+                  data = <<17>>}
+        = Avp.
 
 %% Ditto, and point the AVP length past the end of the message. Expect
 %% 5014 instead of 5001.
@@ -767,13 +768,13 @@ send_unexpected_mandatory_decode(Config) ->
                                          data = <<12:32>>}]}],
     ['ASA' | #{'Session-Id' := _,
                'Result-Code' := ?AVP_UNSUPPORTED,
-               'Failed-AVP' := Avps}]
+               'Failed-AVP' := [#{'AVP' := [Avp]}]}]
         = call(Config, Req),
-    [[#diameter_avp{code = 27,
-                    is_mandatory = true,
-                    value = 12,
-                    data = <<12:32>>}]]
-        = failed_avps(Avps, Config).
+    #diameter_avp{code = 27,
+                  is_mandatory = true,
+                  value = 12,
+                  data = <<12:32>>}
+        = Avp.
 
 %% Try to two Auth-Application-Id in ASR expect 5009.
 send_too_many(Config) ->
@@ -781,11 +782,11 @@ send_too_many(Config) ->
 
     ['ASA' | #{'Session-Id' := _,
                'Result-Code' := ?TOO_MANY,
-               'Failed-AVP' := Avps}]
+               'Failed-AVP' := [#{'AVP' := [Avp]}]}]
         = call(Config, Req),
-    [[#diameter_avp{name = 'Auth-Application-Id',
-                    value = 44}]]
-        = failed_avps(Avps, Config).
+    #diameter_avp{name = 'Auth-Application-Id',
+                  value = 44}
+        = Avp.
 
 %% Send an containing a faulty Grouped AVP (empty Proxy-Host in
 %% Proxy-Info) and expect that only the faulty AVP is sent in
@@ -797,12 +798,11 @@ send_grouped_error(Config) ->
                                    {'Proxy-State', ""}]]}],
     ['ASA' | #{'Session-Id' := _,
                'Result-Code' := ?INVALID_AVP_LENGTH,
-               'Failed-AVP' := Avps}]
+               'Failed-AVP' := [#{'AVP' := [Avp]}]}]
         = call(Config, Req),
-    [[#diameter_avp{name = 'Proxy-Info', value = V}]]
-        = failed_avps(Avps, Config),
-    {Empty, undefined, []} = proxy_info(V, Config),
-    <<0>> = ?B(Empty).
+    #diameter_avp{name = 'Proxy-Info', value = #{'Proxy-Host' := H}}
+        = Avp,
+    <<0>> = ?B(H).
 
 %% Send an STR that the server ignores.
 send_noreply(Config) ->
@@ -855,9 +855,8 @@ send_invalid_avp_length(Config) ->
                'Result-Code' := ?INVALID_AVP_LENGTH,
                'Origin-Host' := _,
                'Origin-Realm' := _,
-               'Failed-AVP' := Avps}]
-        = call(Config, Req),
-    [[_]] = failed_avps(Avps, Config).
+               'Failed-AVP' := [#{'AVP' := [_]}]}]
+        = call(Config, Req).
 
 %% Send a request containing 5xxx errors that the server rejects with
 %% 3xxx.
@@ -1068,29 +1067,6 @@ send_anything(Config) ->
 
 %% ===========================================================================
 
-failed_avps(Avps, Config) ->
-    #group{client_dict = D} = proplists:get_value(group, Config),
-    [failed_avp(D, T) || T <- Avps].
-
-failed_avp(nas4005, {'nas_Failed-AVP', As}) ->
-    As;
-failed_avp(_, #'diameter_base_Failed-AVP'{'AVP' = As}) ->
-    As.
-
-proxy_info(Rec, Config) ->
-    #group{client_dict = D} = proplists:get_value(group, Config),
-    if D == nas4005 ->
-            {'nas_Proxy-Info', H, S, As}
-                = Rec,
-            {H,S,As};
-       true ->
-            #'diameter_base_Proxy-Info'{'Proxy-Host' = H,
-                                        'Proxy-State' = S,
-                                        'AVP' = As}
-                = Rec,
-            {H,S,As}
-    end.
-
 group(Config) ->
     #group{} = proplists:get_value(group, Config).
 
@@ -1131,12 +1107,12 @@ origin(N) ->
 decode(record) -> 0;
 decode(list)   -> 1;
 decode(map)    -> 2;
-decode(false)  -> 3;
+decode(none)   -> 3;
 decode(record_from_map) -> 4;
 decode(0) -> record;
 decode(1) -> list;
 decode(2) -> map;
-decode(3) -> false;
+decode(3) -> none;
 decode(4) -> record_from_map.
 
 encode(record) -> 0;
@@ -1183,16 +1159,17 @@ to_map(#diameter_packet{header = H, msg = Rec},
 
 %% No record decode: do it ourselves.
 to_map(#diameter_packet{header = H,
-                        msg = false,
+                        msg = Name,
                         bin = Bin},
-      #group{server_decoding = false,
+      #group{server_decoding = none,
              strings = B}) ->
     Opts = #{decode_format => map,
              string_decode => B,
              strict_mbit => true,
              rfc => 6733},
-    #diameter_packet{msg = [_MsgName | _Map] = Msg}
+    #diameter_packet{msg = [MsgName | _Map] = Msg}
         = diameter_codec:decode(dict(H), Opts, Bin),
+    {MsgName, _} = {Name, Msg},  %% assert
     Msg.
 
 dict(#diameter_header{application_id = Id,
@@ -1560,24 +1537,23 @@ answer(Pkt, Req, _Peer, Name, #group{client_dict = Dict0}) ->
     #diameter_packet{header = H, msg = Ans, errors = Es} = Pkt,
     ApplId = app(Req, Name, Dict0),
     #diameter_header{application_id = ApplId} = H,  %% assert
-    Dict = dict(Ans, Dict0),
-    rec_to_map(answer(Ans, Es, Name), Dict).
+    answer(Ans, Es, Name).
 
 %% Missing Result-Code and inappropriate Experimental-Result-Code.
-answer(Rec, Es, send_experimental_result) ->
+answer(Ans, Es, send_experimental_result) ->
     [{5004, #diameter_avp{name = 'Experimental-Result'}},
      {5005, #diameter_avp{name = 'Result-Code'}}]
         =  Es,
-    Rec;
+    Ans;
 
 %% An inappropriate E-bit results in a decode error ...
-answer(Rec, Es, send_bad_answer) ->
+answer(Ans, Es, send_bad_answer) ->
     [{5004, #diameter_avp{name = 'Result-Code'}} | _] = Es,
-    Rec;
+    Ans;
 
 %% ... while other errors are reflected in Failed-AVP.
-answer(Rec, [], _) ->
-    Rec.
+answer(Ans, [], _) ->
+    Ans.
 
 app(_, send_unsupported_app, _) ->
     ?BAD_APP;

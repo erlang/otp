@@ -1993,10 +1993,10 @@ avp_decode(Dict, 'Experimental-Result' = N, #diameter_avp{data = Bin}
     {V,_} = Dict:avp(decode, Bin, N, decode_opts(Dict)),
     Avp#diameter_avp{name = N, value = V};
 
-avp_decode(Dict, Name, #diameter_avp{value = X,
+avp_decode(Dict, Name, #diameter_avp{value = undefined,
                                      data = Bin}
                        = Avp)
-  when is_binary(Bin), X == undefined orelse X == false ->
+  when is_binary(Bin) ->
     V = Dict:avp(decode, Bin, Name, decode_opts(Dict)),
     Avp#diameter_avp{name = Name, value = V};
 
