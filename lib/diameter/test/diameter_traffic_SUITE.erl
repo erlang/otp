@@ -49,6 +49,7 @@
          send_protocol_error/1,
          send_experimental_result/1,
          send_arbitrary/1,
+         send_proxy_info/1,
          send_unknown/1,
          send_unknown_short/1,
          send_unknown_mandatory/1,
@@ -137,6 +138,7 @@
 
 -define(A, list_to_atom).
 -define(L, atom_to_list).
+-define(B, iolist_to_binary).
 
 %% Don't use is_record/2 since dictionary hrl's aren't included.
 %% (Since they define conflicting records with the same names.)
@@ -444,6 +446,7 @@ tc() ->
      send_protocol_error,
      send_experimental_result,
      send_arbitrary,
+     send_proxy_info,
      send_unknown,
      send_unknown_short,
      send_unknown_mandatory,
@@ -694,6 +697,19 @@ send_arbitrary(Config) ->
         = call(Config, Req),
     "XXX" = string(V, Config).
 
+%% Send Proxy-Info in an ASR that the peer answers with 3xxx, and
+%% ensure that the AVP is returned.
+send_proxy_info(Config) ->
+    H0 = ?B(?util:unique_string()),
+    S0 = ?B(?util:unique_string()),
+    Req = ['ASR', {'Proxy-Info', #{'Proxy-Host'  => H0,
+                                   'Proxy-State' => S0}}],
+    ['answer-message' | #{'Result-Code' := 3999,
+                          'Proxy-Info' := [Rec]}]
+        = call(Config, Req),
+    {H, S, []} = proxy_info(Rec, Config),
+    [H0, S0] = [?B(X) || X <- [H,S]].
+
 %% Send an unknown AVP (to some client) and check that it comes back.
 send_unknown(Config) ->
     Req = ['ASR', {'AVP', [#diameter_avp{code = 999,
@@ -786,7 +802,7 @@ send_grouped_error(Config) ->
     [[#diameter_avp{name = 'Proxy-Info', value = V}]]
         = failed_avps(Avps, Config),
     {Empty, undefined, []} = proxy_info(V, Config),
-    <<0>> = iolist_to_binary(Empty).
+    <<0>> = ?B(Empty).
 
 %% Send an STR that the server ignores.
 send_noreply(Config) ->
@@ -1742,6 +1758,11 @@ request(['ACR' | #{'Accounting-Record-Number' := 4}],
                              {'Origin-Host', OH},
                              {'Origin-Realm', OR}],
     {reply, Ans};
+
+%% send_proxy_info
+request(['ASR' | #{'Proxy-Info' := _}],
+        _) ->
+    {protocol_error, 3999};
 
 request(['ASR' | #{'Session-Id' := SId} = Avps],
         #diameter_caps{origin_host = {OH, _},
