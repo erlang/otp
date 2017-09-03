@@ -725,9 +725,13 @@ init_peers() ->
                                %%  TPid}
 
 service_opts(Opts) ->
-    T = {strict_arities, true},
-    maps:merge(maps:from_list([{monitor, false} | def_opts() -- [T]]),
-               maps:from_list(Opts -- [T])).
+    remove([{strict_arities, true}],
+           maps:merge(maps:from_list([{monitor, false} | def_opts()]),
+                      maps:from_list(Opts))).
+
+remove(List, Map) ->
+    maps:filter(fun(K,V) -> not lists:member({K,V}, List) end,
+                Map).
 
 def_opts() ->  %% defaults on the service map
     [{share_peers, false},
