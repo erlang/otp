@@ -340,7 +340,7 @@ call(SvcName, App, Message) ->
    :: record
     | list
     | map
-    | false
+    | none
     | record_from_map.
 
 -type strict_arities()

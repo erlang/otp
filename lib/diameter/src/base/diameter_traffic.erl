@@ -1032,15 +1032,15 @@ answer_message(RC,
                               origin_realm = {OR,_}},
                #diameter_packet{avps = Avps,
                                 errors = Es}) ->
-    {Code, _, Vid} = Dict0:avp_header('Session-Id'),
     ['answer-message', {'Origin-Host', OH},
                        {'Origin-Realm', OR},
-                       {'Result-Code', RC}]
-        ++ session_id(Code, Vid, Avps)
-        ++ failed_avp(RC, Es).
+                       {'Result-Code', RC}
+     | session_id(Dict0, Avps)
+       ++ failed_avp(RC, Es)
+       ++ proxy_info(Dict0, Avps)].
 
-session_id(Code, Vid, Avps)
-  when is_list(Avps) ->
+session_id(Dict0, Avps) ->
+    {Code, _, Vid} = Dict0:avp_header('Session-Id'),
     try
         #diameter_avp{data = Bin} = find_avp(Code, Vid, Avps),
         [{'Session-Id', [Bin]}]
@@ -1057,6 +1057,14 @@ failed_avp(RC, [_ | Es]) ->
     failed_avp(RC, Es);
 failed_avp(_, [] = No) ->
     No.
+
+proxy_info(Dict0, Avps) ->
+    {Code, _, Vid} = Dict0:avp_header('Proxy-Info'),
+    [{'AVP', [A#diameter_avp{value = undefined}
+              || [#diameter_avp{code = C, vendor_id = I} = A | _]
+                     <- Avps,
+                 C == Code,
+                 I == Vid]}].
 
 %% find_avp/3
 
@@ -1892,16 +1900,12 @@ str(T) ->
 
 %% get_avp/3
 %%
-%% Find an AVP in a message of one of three forms:
-%%
-%% - a message record (as generated from a .dia spec) or
-%% - a list of an atom message name followed by 2-tuple, avp name/value pairs.
-%% - a list of a #diameter_header{} followed by #diameter_avp{} records,
-%%
-%% In the first two forms a dictionary module is used at encode to
-%% identify the type of the AVP and its arity in the message in
-%% question. The third form allows messages to be sent as is, without
-%% a dictionary, which is needed in the case of relay agents, for one.
+%% Find an AVP in a message in one of the decoded formats, or as a
+%% header/avps list. There are only four AVPs that are extracted here:
+%% Result-Code and Experimental-Result in order when constructing
+%% counter keys, and Destination-Host/Realm when selecting a next-hop
+%% peer. Experimental-Result is the only of type Grouped, and is given
+%% special treatment in order to return the value as a record.
 
 %% Messages will be header/avps list as a relay and the only AVP's we
 %% look for are in the common dictionary. This is required since the
@@ -1910,12 +1914,12 @@ str(T) ->
 get_avp(?RELAY, Name, Msg) ->
     get_avp(?BASE, Name, Msg);
 
-%% Message is a header/avps list.
+%% Message as header/avps list.
 get_avp(Dict, Name, [#diameter_header{} | Avps]) ->
     try
-        {Code, _, VId} = Dict:avp_header(Name),
-        A = find_avp(Code, VId, Avps),
-        (avp_decode(Dict, Name, ungroup(A)))#diameter_avp{name = Name}
+        {Code, _, Vid} = Dict:avp_header(Name),
+        A = find_avp(Code, Vid, Avps),
+        avp_decode(Dict, Name, ungroup(A))
     catch
         error: _ ->
             undefined
@@ -1925,19 +1929,32 @@ get_avp(Dict, Name, [#diameter_header{} | Avps]) ->
 get_avp(_, Name, [_MsgName | Avps]) ->
     case find(Name, Avps) of
         {_, V} ->
-            #diameter_avp{name = Name, value = V};
+            #diameter_avp{name = Name, value = value(Name, V)};
         _ ->
             undefined
     end;
 
-%% ... or record (but not necessarily).
+%% ... or record.
 get_avp(Dict, Name, Rec) ->
-    try
-        #diameter_avp{name = Name, value = Dict:'#get-'(Name, Rec)}
+    try Dict:'#get-'(Name, Rec) of
+        V ->
+            #diameter_avp{name = Name, value = value(Name, V)}
     catch
         error:_ ->
             undefined
     end.
+
+value('Experimental-Result' = N, #{'Vendor-Id' := Vid,
+                                   'Experimental-Result-Code' := RC}) ->
+    {N, Vid, RC};
+value('Experimental-Result' = N, [{'Experimental-Result-Code', RC},
+                                  {'Vendor-Id', Vid}]) ->
+    {N, Vid, RC};
+value('Experimental-Result' = N, [{'Vendor-Id', Vid},
+                                  {'Experimental-Result-Code', RC}]) ->
+    {N, Vid, RC};
+value(_, V) ->
+    V.
 
 %% find/2
 
@@ -1968,14 +1985,25 @@ ungroup(Avp) ->
 
 %% avp_decode/3
 
+%% Ensure Experimental-Result is decoded as record, since this format
+%% is used for counter keys.
+avp_decode(Dict, 'Experimental-Result' = N, #diameter_avp{data = Bin}
+                                            = Avp)
+  when is_binary(Bin) ->
+    {V,_} = Dict:avp(decode, Bin, N, decode_opts(Dict)),
+    Avp#diameter_avp{name = N, value = V};
+
 avp_decode(Dict, Name, #diameter_avp{value = undefined,
                                      data = Bin}
                        = Avp)
   when is_binary(Bin) ->
     V = Dict:avp(decode, Bin, Name, decode_opts(Dict)),
-    Avp#diameter_avp{value = V};
-avp_decode(_, _, #diameter_avp{} = Avp) ->
-    Avp.
+    Avp#diameter_avp{name = Name, value = V};
+
+avp_decode(_, Name, #diameter_avp{} = Avp) ->
+    Avp#diameter_avp{name = Name}.
+
+%% cb/3
 
 cb(#diameter_app{module = [_|_] = M}, F, A) ->
     eval(M, F, A).
@@ -1992,4 +2020,5 @@ decode_opts(Dict) ->
       string_decode => false,
       strict_mbit => false,
       failed_avp => false,
+      module => Dict,
       dictionary => Dict}.

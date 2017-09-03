@@ -588,8 +588,7 @@ opt(service, {K, false})
        K == use_shared_peers;
        K == monitor;
        K == restrict_connections;
-       K == strict_arities;
-       K == decode_format ->
+       K == strict_arities ->
     true;
 
 opt(service, {K, true})
@@ -602,6 +601,7 @@ opt(service, {decode_format, T})
   when T == record;
        T == list;
        T == map;
+       T == none;
        T == record_from_map ->
     true;
 
@@ -665,9 +665,8 @@ opt(transport, {applications, As}) ->
     is_list(As);
 
 opt(transport, {capabilities, Os}) ->
-    is_list(Os) andalso case encode_CER(Os) of
-                            ok -> true;
-                            No -> {error, No}
+    is_list(Os) andalso try ok = encode_CER(Os), true
+                        catch ?FAILURE(No) -> {error, No}
                         end;
 
 opt(_, {K, Tmo})

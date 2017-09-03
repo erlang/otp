@@ -799,7 +799,7 @@ be matched by corresponding &capability; configuration, of
 
 <tag>
 <marker id="decode_format"/>
-<c>{decode_format, record | list | map | false}</c></tag>
+<c>{decode_format, record | list | map | none}</c></tag>
 <item>
 <p>
 The format of decoded messages and grouped AVPs in the <c>msg</c> field
@@ -808,10 +808,10 @@ records respectively.
 If <c>record</c> then a record whose definition is generated from the
 dictionary file in question.
 If <c>list</c> or <c>map</c> then a <c>[Name | Avps]</c> pair where
-<c>Avps</c> is either a list of AVP name/values pairs or a map keyed on
+<c>Avps</c> is a list of AVP name/values pairs or a map keyed on
 AVP names respectively.
-If <c>false</c> then the representation is omitted and <c>msg</c> and
-<c>value</c> fields are set to <c>false</c>.
+If <c>none</c> then the atom-value message name, or <c>undefined</c>
+for a Grouped AVP.
 See also &codec_message;.</p>
 
 <p>

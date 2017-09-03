@@ -45,7 +45,7 @@
 -define(THROW(T), throw({?MODULE, T})).
 
 -type parent_name()   :: atom().  %% parent = Message or AVP
--type parent_record() :: tuple(). %%
+-type parent_record() :: tuple() | avp_values() | map().
 -type avp_name()   :: atom().
 -type avp_record() :: tuple().
 -type avp_values() :: [{avp_name(), term()}].
@@ -61,9 +61,7 @@
 %% # encode_avps/3
 %% ---------------------------------------------------------------------------
 
--spec encode_avps(parent_name(),
-                  parent_record() | avp_values() | map(),
-                  map())
+-spec encode_avps(parent_name(), parent_record(), map())
    -> iolist()
     | no_return().
 
@@ -232,13 +230,13 @@ enc(AvpName, Value, Opts, Mod) ->
 %% ---------------------------------------------------------------------------
 
 -spec decode_avps(parent_name(), binary(), map())
-   -> {parent_record(), [avp()], Failed}
+   -> {parent_record() | parent_name(), [avp()], Failed}
  when Failed :: [{5000..5999, #diameter_avp{}}].
 
 decode_avps(Name, Bin, #{module := Mod, decode_format := Fmt} = Opts) ->
     Strict = mget(strict_arities, Opts, decode),
     [AM, Avps, Failed | Rec]
-        = decode(Bin, Name, Mod, Fmt, Strict, Opts, #{}),
+        = decode(Bin, Name, Mod, Fmt, Strict, Opts, 0, #{}),
     %% AM counts the number of top-level AVPs, which missing/5 then
     %% uses when appending 5005 errors.
     {reformat(Name, Rec, Strict, Mod, Fmt),
@@ -249,7 +247,7 @@ decode_avps(Name, Bin, #{module := Mod, decode_format := Fmt} = Opts) ->
 %% encountered. Failed-AVP should typically contain the first
 %% error encountered.
 
-%% decode/7
+%% decode/8
 
 decode(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
        Name,
@@ -257,6 +255,7 @@ decode(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
        Fmt,
        Strict,
        Opts,
+       Idx,
        AM) ->
     decode(Rest,
            Code,
@@ -270,21 +269,23 @@ decode(<<Code:32, V:1, M:1, P:1, _:5, Len:24, I:V/unit:32, Rest/binary>>,
            Fmt,
            Strict,
            Opts,
+           Idx,
            AM);
 
-decode(<<>>, Name, Mod, Fmt, Strict, _, AM) ->
+decode(<<>>, Name, Mod, Fmt, Strict, _, _, AM) ->
     [AM, [], [] | newrec(Fmt, Mod, Name, Strict)];
 
-decode(Bin, Name, Mod, Fmt, Strict, _, AM) ->
-    Avp = #diameter_avp{data = Bin},
+decode(Bin, Name, Mod, Fmt, Strict, _, Idx, AM) ->
+    Avp = #diameter_avp{data = Bin, index = Idx},
     [AM, [Avp], [{5014, Avp}] | newrec(Fmt, Mod, Name, Strict)].
 
-%% decode/13
+%% decode/14
 
-decode(Bin, Code, Vid, DataLen, Pad, M, P, Name, Mod, Fmt, Strict, Opts0, AM0) ->
+decode(Bin, Code, Vid, DataLen, Pad, M, P, Name, Mod, Fmt, Strict, Opts0,
+       Idx, AM0) ->
     case Bin of
         <<Data:DataLen/binary, _:Pad/binary, T/binary>> ->
-            {NameT, AvpName, Arity, {Idx, AM}}
+            {NameT, Field, Arity, {I, AM}}
                 = incr(Name, Code, Vid, M, Mod, Strict, Opts0, AM0),
 
             Opts = setopts(NameT, Name, M, Opts0),
@@ -300,11 +301,11 @@ decode(Bin, Code, Vid, DataLen, Pad, M, P, Name, Mod, Fmt, Strict, Opts0, AM0) -
                                 type = type(NameT),
                                 index = Idx},
 
-            Dec = decode(Data, Name, NameT, Mod, Opts, Avp),    %% decode
-            Acc = decode(T, Name, Mod, Fmt, Strict, Opts, AM),  %% recurse
-            acc(Acc, Dec, Name, AvpName, Arity, Strict, Mod, Opts);
+            Dec = decode1(Data, Name, NameT, Mod, Fmt, Opts, Avp),
+            Acc = decode(T, Name, Mod, Fmt, Strict, Opts, Idx+1, AM),%% recurse
+            acc(Acc, Dec, I, Name, Field, Arity, Strict, Mod, Opts);
         _ ->
-            {NameT, _AvpName, _Arity, {Idx, AM}}
+            {NameT, _Field, _Arity, {_, AM}}
                 = incr(Name, Code, Vid, M, Mod, Strict, Opts0, AM0),
 
             Avp = #diameter_avp{code = Code,
@@ -323,9 +324,14 @@ decode(Bin, Code, Vid, DataLen, Pad, M, P, Name, Mod, Fmt, Strict, Opts0, AM0) -
 
 incr(Name, Code, Vid, M, Mod, Strict, Opts, AM0) ->
     NameT = Mod:avp_name(Code, Vid), %% {AvpName, Type} | 'AVP'
-    AvpName = field(NameT),
-    Arity = avp_arity(Name, AvpName, Mod, Opts, M),
-    {NameT, AvpName, Arity, incr(AvpName, Arity, Strict, AM0)}.
+    Field = field(NameT),            %% AvpName | 'AVP'
+    Arity = avp_arity(Name, Field, Mod, Opts, M),
+    if 0 == Arity, 'AVP' /= Field ->
+            A = pack_arity(Name, Field, Opts, Mod, M),
+            {NameT, 'AVP', A, incr('AVP', A, Strict, AM0)};
+       true ->
+            {NameT, Field, Arity, incr(Field, Arity, Strict, AM0)}
+    end.
 
 %% Data is a truncated header if command_code = undefined, otherwise
 %% payload bytes. The former is padded to the length of a header if
@@ -342,9 +348,8 @@ setopts({_, Type}, Name, M, Opts) ->
 
 %% incr/4
 
-incr(F, A, SA, AM)
-  when F == 'AVP';
-       A == ?ANY;
+incr(_, A, SA, AM)
+  when A == ?ANY;
        A == 0;
        SA /= decode ->
     {undefined, AM};
@@ -444,10 +449,10 @@ field({AvpName, _}) ->
 field(_) ->
     'AVP'.
 
-%% decode/6
+%% decode1/7
 
 %% AVP not in dictionary.
-decode(_Data, _Name, 'AVP', _Mod, _Opts, Avp) ->
+decode1(_Data, _Name, 'AVP', _Mod, _Fmt, _Opts, Avp) ->
     Avp;
 
 %% 6733, 4.4:
@@ -497,7 +502,7 @@ decode(_Data, _Name, 'AVP', _Mod, _Opts, Avp) ->
 %% defined the RFC's "unrecognized", which is slightly stronger than
 %% "not defined".)
 
-decode(Data, Name, {AvpName, Type}, Mod, Opts, Avp) ->
+decode1(Data, Name, {AvpName, Type}, Mod, Fmt, Opts, Avp) ->
     #{dictionary := AppMod, failed_avp := Failed}
         = Opts,
 
@@ -511,26 +516,39 @@ decode(Data, Name, {AvpName, Type}, Mod, Opts, Avp) ->
     %% list of component AVPs.
 
     try avp_decode(Data, AvpName, Opts, DecMod, Mod) of
-        {Rec, As} when Type == 'Grouped' ->
-            A = Avp#diameter_avp{value = Rec},
-            [A | As];
-        V when Type /= 'Grouped' ->
-            Avp#diameter_avp{value = V}
+        V ->
+            set(Type, Fmt, Avp, V)
     catch
         throw: {?MODULE, T} ->
-            decode_error(Failed, T, Avp);
+            decode_error(Failed, Fmt, T, Avp);
         error: Reason ->
             decode_error(Failed, Reason, Name, Mod, Opts, Avp)
     end.
 
-%% decode_error/3
+%% set/4
+
+set('Grouped', none, Avp, V) ->
+    {_Rec, As} = V,
+    [Avp | As];
+
+set('Grouped', _, Avp, V) ->
+    {Rec, As} = V,
+    [Avp#diameter_avp{value = Rec} | As];
+
+set(_, _, Avp, V) ->
+    Avp#diameter_avp{value = V}.
+
+%% decode_error/4
 %%
 %% Error when decoding a grouped AVP.
 
-decode_error(true, {Rec, _, _}, Avp) ->
+decode_error(true, none, _, Avp) ->
+    Avp;
+
+decode_error(true, _, {Rec, _, _}, Avp) ->
     Avp#diameter_avp{value = Rec};
 
-decode_error(false, {_, ComponentAvps, [{RC,A} | _]}, Avp) ->
+decode_error(false, _, {_, ComponentAvps, [{RC,A} | _]}, Avp) ->
     {RC, [Avp | ComponentAvps], Avp#diameter_avp{data = [A]}}.
 
 %% decode_error/6
@@ -577,61 +595,55 @@ set_failed('Failed-AVP', #{failed_avp := false} = Opts) ->
 set_failed(_, Opts) ->
     Opts.
 
-%% acc/8
+%% acc/9
 
-acc([AM | Acc], As, Name, AvpName, Arity, Strict, Mod, Opts) ->
-    [AM | acc1(Acc, As, Name, AvpName, Arity, Strict, Mod, Opts)].
+acc([AM | Acc], As, I, Name, Field, Arity, Strict, Mod, Opts) ->
+    [AM | acc1(Acc, As, I, Name, Field, Arity, Strict, Mod, Opts)].
 
-%% acc1/8
+%% acc1/9
 
 %% Faulty AVP, not grouped.
-acc1(Acc, {_RC, Avp} = E, _, _, _, _, _, _) ->
+acc1(Acc, {_RC, Avp} = E, _, _, _, _, _, _, _) ->
     [Avps, Failed | Rec] = Acc,
     [[Avp | Avps], [E | Failed] | Rec];
 
 %% Faulty component in grouped AVP.
-acc1(Acc, {RC, As, Avp}, _, _, _, _, _, _) ->
+acc1(Acc, {RC, As, Avp}, _, _, _, _, _, _, _) ->
     [Avps, Failed | Rec] = Acc,
     [[As | Avps], [{RC, Avp} | Failed] | Rec];
 
 %% Grouped AVP ...
-acc1([Avps | Acc], [Avp|_] = As, Name, AvpName, Arity, Strict, Mod, Opts) ->
-    [[As|Avps] | acc2(Acc, Avp, Name, AvpName, Arity, Strict, Mod, Opts)];
+acc1([Avps | Acc], [Avp|_] = As, I, Name, Field, Arity, Strict, Mod, Opts) ->
+    [[As|Avps] | acc2(Acc, Avp, I, Name, Field, Arity, Strict, Mod, Opts)];
 
 %% ... or not.
-acc1([Avps | Acc], Avp, Name, AvpName, Arity, Strict, Mod, Opts) ->
-    [[Avp|Avps] | acc2(Acc, Avp, Name, AvpName, Arity, Strict, Mod, Opts)].
+acc1([Avps | Acc], Avp, I, Name, Field, Arity, Strict, Mod, Opts) ->
+    [[Avp|Avps] | acc2(Acc, Avp, I, Name, Field, Arity, Strict, Mod, Opts)].
 
-%% acc2/8
+%% acc2/9
 
 %% No errors, but nowhere to pack.
-acc2(Acc, Avp, _, 'AVP', 0, _, _, _) ->
+acc2(Acc, Avp, _, _, 'AVP', 0, _, _, _) ->
     [Failed | Rec] = Acc,
     [[{rc(Avp), Avp} | Failed] | Rec];
 
-%% No AVP of this name: try to pack as 'AVP'.
-acc2(Acc, Avp, Name, AvpName, 0, Strict, Mod, Opts) ->
-    M = Avp#diameter_avp.is_mandatory,
-    Arity = pack_arity(Name, AvpName, Opts, Mod, M),
-    acc2(Acc, Avp, Name, 'AVP', Arity, Strict, Mod, Opts);
-
 %% Relaxed arities.
-acc2(Acc, Avp, _, AvpName, Arity, Strict, Mod, _)
+acc2(Acc, Avp, _, _, Field, Arity, Strict, Mod, _)
   when Strict /= decode ->
-    pack(Arity, AvpName, Avp, Mod, Acc);
+    pack(Arity, Field, Avp, Mod, Acc);
 
 %% No maximum arity.
-acc2(Acc, Avp, _, AvpName, {_,'*'} = Arity, _, Mod, _) ->
-    pack(Arity, AvpName, Avp, Mod, Acc);
+acc2(Acc, Avp, _, _, Field, {_,'*'} = Arity, _, Mod, _) ->
+    pack(Arity, Field, Avp, Mod, Acc);
 
 %% Or check.
-acc2(Acc, Avp, _, AvpName, Arity, _, Mod, _) ->
+acc2(Acc, Avp, I, _, Field, Arity, _, Mod, _) ->
     Mx = max_arity(Arity),
-    if Mx =< Avp#diameter_avp.index ->
+    if Mx =< I ->
             [Failed | Rec] = Acc,
             [[{5009, Avp} | Failed] | Rec];
        true ->
-            pack(Arity, AvpName, Avp, Mod, Acc)
+            pack(Arity, Field, Avp, Mod, Acc)
     end.
 
 %% 3588/6733:
@@ -723,8 +735,9 @@ pack(Arity, F, Avp, Mod, [Failed | Rec]) ->
 
 %% set/5
 
-set(_, _, _, _, false = No) ->
-    No;
+set(_, _, _, _, None)
+  when is_atom(None) ->
+    None;
 
 set(1, F, Value, _, Map)
   when is_map(Map) ->
@@ -818,8 +831,8 @@ empty(Name, #{module := Mod} = Opts) ->
 
 %% newrec/4
 
-newrec(false = No, _, _, _) ->
-    No;
+newrec(none, _, Name, _) ->
+    Name;
 
 newrec(record, Mod, Name, T)
   when T /= decode ->
