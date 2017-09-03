@@ -102,6 +102,7 @@
          streams  :: {uint(), uint()}      %% {InStream, OutStream} counts
                    | undefined,
          os = 0   :: uint(),               %% next output stream
+         rotate = 1 :: boolean() | 0 | 1,  %% rotate os?
          packet = true :: boolean()        %% legacy transport_data?
                         | raw,
          message_cb = false :: false | diameter:eval(),
@@ -692,11 +693,16 @@ send(#diameter_packet{transport_data = {outstream, SId}}
      = S) ->
     send(SId rem OS, Msg, S);
 
-%% ... or not: rotate through all streams.
-send(Msg, #transport{streams = {_, OS},
+%% ... or not: rotate when sending on multiple streams ...
+send(Msg, #transport{rotate = true,
+                     streams = {_, OS},
                      os = N}
           = S) ->
-    send(N, Msg, S#transport{os = (N + 1) rem OS}).
+    send(N, Msg, S#transport{os = (N + 1) rem OS});
+
+%% ... or send on the only stream available.
+send(Msg, S) ->
+    send(0, Msg, S).
 
 %% send/3
 
@@ -764,7 +770,7 @@ recv({[#sctp_sndrcvinfo{assoc_id = Id}], _Bin}
 %% Inbound Diameter message.
 recv({[#sctp_sndrcvinfo{}], Bin} = Msg, S)
   when is_binary(Bin) ->
-    message(recv, Msg, S);
+    message(recv, Msg, recv(S));
 
 recv({_, #sctp_shutdown_event{}}, _) ->
     stop;
@@ -783,6 +789,25 @@ recv({_, #sctp_paddr_change{}}, _) ->
 
 recv({_, #sctp_pdapi_event{}}, _) ->
     ok.
+
+%% recv/1
+%%
+%% Start sending unordered after the second reception, so that an
+%% outgoing CER/CEA will arrive at the peer before another request.
+
+recv(#transport{rotate = B} = S)
+  when is_boolean(B) ->
+    S;
+
+recv(#transport{rotate = 0, streams = {_,N}, socket = Sock} = S) ->
+    ok = inet:setopts(Sock, [{sctp_default_send_param,
+                              #sctp_sndrcvinfo{flags = [unordered]}}]),
+    S#transport{rotate = 1 < N};
+
+recv(#transport{rotate = N} = S) ->
+    S#transport{rotate = N-1}.
+
+%% publish/4
 
 publish(T, Ref, Id, Sock) ->
     true = diameter_reg:add_new({?MODULE, T, {Ref, {Id, Sock}}}),
