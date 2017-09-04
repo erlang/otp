@@ -69,6 +69,7 @@ i_debug_breakpoint
 i_return_time_trace
 i_return_to_trace
 i_yield
+trace_jump W
 %hot
 
 return

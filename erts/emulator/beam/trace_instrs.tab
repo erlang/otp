@@ -153,3 +153,16 @@ i_debug_breakpoint() {
     goto handle_error;
     //| -no_next
 }
+
+
+
+//
+// Special jump instruction used for tracing. Takes an absolute
+// failure address.
+//
+
+trace_jump(Fail) {
+    //| -no_next
+    SET_I((BeamInstr *) $Fail);
+    Goto(*I);
+}
