@@ -152,10 +152,10 @@ i_move_call_ext_last(Dest, StackOffset, Src) {
     $i_call_ext_last($Dest, $StackOffset);
 }
 
-APPLY(I, Deallocate) {
+APPLY(I, Deallocate, Next) {
     //| -no_next
     HEAVY_SWAPOUT;
-    next = apply(c_p, reg, $I, $Deallocate);
+    $Next = apply(c_p, reg, $I, $Deallocate);
     HEAVY_SWAPIN;
 }
 
@@ -166,7 +166,7 @@ HANDLE_APPLY_ERROR() {
 
 i_apply() {
     BeamInstr *next;
-    $APPLY(NULL, 0);
+    $APPLY(NULL, 0, next);
     if (ERTS_LIKELY(next != NULL)) {
         $i_call(next);
     }
@@ -175,7 +175,7 @@ i_apply() {
 
 i_apply_last(Deallocate) {
     BeamInstr *next;
-    $APPLY(I, $Deallocate);
+    $APPLY(I, $Deallocate, next);
     if (ERTS_LIKELY(next != NULL)) {
         $i_call_last(next, $Deallocate);
     }
@@ -184,23 +184,23 @@ i_apply_last(Deallocate) {
 
 i_apply_only() {
     BeamInstr *next;
-    $APPLY(I, 0);
+    $APPLY(I, 0, next);
     if (ERTS_LIKELY(next != NULL)) {
         $i_call_only(next);
     }
     $HANDLE_APPLY_ERROR();
 }
 
-FIXED_APPLY(Arity, I, Deallocate) {
+FIXED_APPLY(Arity, I, Deallocate, Next) {
     //| -no_next
     HEAVY_SWAPOUT;
-    next = fixed_apply(c_p, reg, $Arity, $I, $Deallocate);
+    $Next = fixed_apply(c_p, reg, $Arity, $I, $Deallocate);
     HEAVY_SWAPIN;
 }
 
 apply(Arity) {
     BeamInstr *next;
-    $FIXED_APPLY($Arity, NULL, 0);
+    $FIXED_APPLY($Arity, NULL, 0, next);
     if (ERTS_LIKELY(next != NULL)) {
         $i_call(next);
     }
@@ -209,16 +209,16 @@ apply(Arity) {
 
 apply_last(Arity, Deallocate) {
     BeamInstr *next;
-    $FIXED_APPLY($Arity, I, $Deallocate);
+    $FIXED_APPLY($Arity, I, $Deallocate, next);
     if (ERTS_LIKELY(next != NULL)) {
         $i_call_last(next, $Deallocate);
     }
     $HANDLE_APPLY_ERROR();
 }
 
-APPLY_FUN() {
+APPLY_FUN(Next) {
     HEAVY_SWAPOUT;
-    next = apply_fun(c_p, r(0), x(1), reg);
+    $Next = apply_fun(c_p, r(0), x(1), reg);
     HEAVY_SWAPIN;
 }
 
@@ -233,7 +233,7 @@ DISPATCH_FUN(I) {
 
 i_apply_fun() {
     BeamInstr *next;
-    $APPLY_FUN();
+    $APPLY_FUN(next);
     if (ERTS_LIKELY(next != NULL)) {
         SET_CP(c_p, $NEXT_INSTRUCTION);
         $DISPATCH_FUN(next);
@@ -243,7 +243,7 @@ i_apply_fun() {
 
 i_apply_fun_last(Deallocate) {
     BeamInstr *next;
-    $APPLY_FUN();
+    $APPLY_FUN(next);
     if (ERTS_LIKELY(next != NULL)) {
         $deallocate($Deallocate);
         $DISPATCH_FUN(next);
@@ -253,23 +253,23 @@ i_apply_fun_last(Deallocate) {
 
 i_apply_fun_only() {
     BeamInstr *next;
-    $APPLY_FUN();
+    $APPLY_FUN(next);
     if (ERTS_LIKELY(next != NULL)) {
         $DISPATCH_FUN(next);
     }
     $HANDLE_APPLY_FUN_ERROR();
 }
 
-CALL_FUN(Fun) {
+CALL_FUN(Fun, Next) {
     //| -no_next
     HEAVY_SWAPOUT;
-    next = call_fun(c_p, $Fun, reg, THE_NON_VALUE);
+    $Next = call_fun(c_p, $Fun, reg, THE_NON_VALUE);
     HEAVY_SWAPIN;
 }
 
 i_call_fun(Fun) {
     BeamInstr *next;
-    $CALL_FUN($Fun);
+    $CALL_FUN($Fun, next);
     if (ERTS_LIKELY(next != NULL)) {
         SET_CP(c_p, $NEXT_INSTRUCTION);
         $DISPATCH_FUN(next);
@@ -279,7 +279,7 @@ i_call_fun(Fun) {
 
 i_call_fun_last(Fun, Deallocate) {
     BeamInstr *next;
-    $CALL_FUN($Fun);
+    $CALL_FUN($Fun, next);
     if (ERTS_LIKELY(next != NULL)) {
         $deallocate($Deallocate);
         $DISPATCH_FUN(next);
