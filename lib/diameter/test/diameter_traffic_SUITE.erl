@@ -20,6 +20,7 @@
 
 %%
 %% Tests of traffic between two Diameter nodes, one client, one server.
+%% The traffic isn't meant to be sensible, just to exercise code.
 %%
 
 -module(diameter_traffic_SUITE).
@@ -213,6 +214,7 @@
          {'Acct-Application-Id', [3]},  %% base accounting
          {restrict_connections, false},
          {string_decode, Grp#group.strings},
+         {avp_dictionaries, [diameter_gen_doic_rfc7683]},
          {incoming_maxlen, 1 bsl 21}
          | [{application, [{dictionary, D},
                            {module, [?MODULE, Grp]},
@@ -616,7 +618,6 @@ result_codes(_Config) ->
 send_ok(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 1}],
-
     ['ACA' | #{'Result-Code' := ?SUCCESS,
                'Session-Id' := _}]
         = call(Config, Req).
@@ -653,8 +654,21 @@ send_protocol_error(Config) ->
     Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
                   {'Accounting-Record-Number', 4}],
 
-    ?answer_message(?TOO_BUSY)
-        = call(Config, Req).
+    ['answer-message' | #{'Result-Code' := ?TOO_BUSY,
+                          'AVP' := [OLR]}]
+        = call(Config, Req),
+
+    #diameter_avp{name = 'OC-OLR',
+                  value = #{'OC-Sequence-Number' := 1,
+                            'OC-Report-Type' := 0,  %% HOST_REPORT
+                            'OC-Reduction-Percentage' := [25],
+                            'OC-Validity-Duration' := [60],
+                            'AVP' := [OSF]}}
+        = OLR,
+    #diameter_avp{name = 'OC-Supported-Features',
+                  value = #{} = Fs}
+        = OSF,
+    0 = maps:size(Fs).
 
 %% Send a 3xxx Experimental-Result in an answer not setting the E-bit
 %% and missing a Result-Code.
@@ -1143,6 +1157,7 @@ to_map(#diameter_packet{header = H,
              strings = B}) ->
     Opts = #{decode_format => map,
              string_decode => B,
+             avp_dictionaries => [diameter_gen_doic_rfc7683],
              strict_mbit => true,
              rfc => 6733},
     #diameter_packet{msg = [MsgName | _Map] = Msg}
@@ -1708,9 +1723,17 @@ request(['ACR' | #{'Session-Id' := SId,
 request(['ACR' | #{'Accounting-Record-Number' := 4}],
         #diameter_caps{origin_host = {OH, _},
                        origin_realm = {OR, _}}) ->
+    %% Include a DOIC AVP that will be encoded/decoded because of
+    %% avp_dictionaries config.
+    OLR = #{'OC-Sequence-Number' => 1,
+            'OC-Report-Type' => 0,  %% HOST_REPORT
+            'OC-Reduction-Percentage' => [25],
+            'OC-Validity-Duration' => [60],
+            'AVP' => [{'OC-Supported-Features', []}]},
     Ans = ['answer-message', {'Result-Code', ?TOO_BUSY},
                              {'Origin-Host', OH},
-                             {'Origin-Realm', OR}],
+                             {'Origin-Realm', OR},
+                             {'AVP', [{'OC-OLR', OLR}]}],
     {reply, Ans};
 
 %% send_proxy_info
