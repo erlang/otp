@@ -21,8 +21,6 @@
 #ifndef _BEAM_LOAD_H
 #  define _BEAM_LOAD_H
 
-#define JUMP_OFFSET 0x5
-
 #include "beam_opcodes.h"
 #include "erl_process.h"
 

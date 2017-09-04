@@ -29,8 +29,8 @@ REFRESH_GEN_DEST() {
 }
 
 SET_I_REL(Offset) {
-    ASSERT(VALID_INSTR(* (Eterm *)((BeamInstr *) ($Offset) + JUMP_OFFSET)));
-    I = (BeamInstr *) $Offset + JUMP_OFFSET;
+    ASSERT(VALID_INSTR(* (Eterm *)((BeamInstr *) ($Offset))));
+    I = (BeamInstr *) $Offset;
 }
 
 SET_CP_I_ABS(Target) {
@@ -39,7 +39,7 @@ SET_CP_I_ABS(Target) {
 }
 
 SET_REL_I(Dst, Offset) {
-    $Dst = (BeamInstr *) ($Offset) + JUMP_OFFSET;
+    $Dst = (BeamInstr *) ($Offset);
     ASSERT(VALID_INSTR(*$Dst));
 }
 
