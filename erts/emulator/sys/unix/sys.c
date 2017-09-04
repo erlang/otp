@@ -789,6 +789,8 @@ signalterm_to_signum(Eterm signal)
     }
 }
 
+#ifdef ERTS_SMP
+
 static ERTS_INLINE Eterm
 signum_to_signalterm(int signum)
 {
@@ -809,6 +811,8 @@ signum_to_signalterm(int signum)
     default:      return am_error;
     }
 }
+
+#endif
 
 #ifndef ERTS_SMP
 static ERTS_INLINE Uint
