@@ -220,6 +220,9 @@ typedef struct db_fixation {
         Process* p;
     } procs;
 
+    /* Number of fixations on table from procs.p
+     * Protected by table write lock or read lock + fixlock
+     */
     Uint counter;
 } DbFixation;
 
