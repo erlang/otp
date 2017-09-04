@@ -32,7 +32,7 @@
 -include("ssl_record.hrl").
 -include("ssl_internal.hrl").
 
--export([decode/1, alert_txt/1, reason_code/2]).
+-export([decode/1, own_alert_txt/1, alert_txt/1, reason_code/2]).
 
 %%====================================================================
 %% Internal application API
@@ -60,12 +60,28 @@ reason_code(#alert{description = Description}, _) ->
     {tls_alert, string:to_lower(description_txt(Description))}.
 
 %%--------------------------------------------------------------------
+-spec own_alert_txt(#alert{}) -> string().
+%%
+%% Description: Returns the error string for given alert generated
+%% by the erlang implementation.
+%%--------------------------------------------------------------------
+own_alert_txt(#alert{level = Level, description = Description, where = {Mod,Line}, reason = undefined, role = Role}) ->
+    "at " ++ Mod ++ ":" ++ integer_to_list(Line) ++ " generated " ++ string:to_upper(atom_to_list(Role)) ++ " ALERT: " ++
+        level_txt(Level) ++ description_txt(Description);
+own_alert_txt(#alert{reason = Reason} = Alert) ->
+    BaseTxt = own_alert_txt(Alert#alert{reason = undefined}),
+    FormatDepth = 9, % Some limit on printed representation of an error
+    ReasonTxt = lists:flatten(io_lib:format("~P", [Reason, FormatDepth])),
+    BaseTxt ++ " - " ++ ReasonTxt.
+
+%%--------------------------------------------------------------------
 -spec alert_txt(#alert{}) -> string().
 %%
-%% Description: Returns the error string for given alert.
+%% Description: Returns the error string for given alert received from
+%% the peer. 
 %%--------------------------------------------------------------------
-alert_txt(#alert{level = Level, description = Description, where = {Mod,Line}, reason = undefined, role = Role}) ->
-    "at " ++ Mod ++ ":" ++ integer_to_list(Line) ++ " " ++ string:to_upper(atom_to_list(Role)) ++ " ALERT: " ++
+alert_txt(#alert{level = Level, description = Description, reason = undefined, role = Role}) ->
+    "received " ++ string:to_upper(atom_to_list(Role)) ++ " ALERT: " ++
         level_txt(Level) ++ description_txt(Description);
 alert_txt(#alert{reason = Reason} = Alert) ->
     BaseTxt = alert_txt(Alert#alert{reason = undefined}),

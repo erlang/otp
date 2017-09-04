@@ -1153,7 +1153,8 @@ handle_alert(#alert{level = ?FATAL} = Alert, StateName,
 		    port = Port, session = Session, user_application = {_Mon, Pid},
 		    role = Role, socket_options = Opts, tracker = Tracker}) ->
     invalidate_session(Role, Host, Port, Session),
-    log_alert(SslOpts#ssl_options.log_alert,  Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
+    log_alert(SslOpts#ssl_options.log_alert, Role, Connection:protocol_name(), 
+              StateName, Alert#alert{role = opposite_role(Role)}),
     alert_user(Transport, Tracker, Socket, StateName, Opts, Pid, From, Alert, Role, Connection),
     {stop, normal};
 
@@ -1164,7 +1165,8 @@ handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert,
 
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
 	     #state{role = Role, ssl_options = SslOpts, protocol_cb = Connection, renegotiation = {true, internal}} = State) ->
-    log_alert(SslOpts#ssl_options.log_alert, Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
+    log_alert(SslOpts#ssl_options.log_alert, Role, 
+              Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
     handle_normal_shutdown(Alert, StateName, State),
     {stop, {shutdown, peer_close}};
 
@@ -1172,7 +1174,8 @@ handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
 	     #state{role = Role,
                     ssl_options = SslOpts, renegotiation = {true, From},
 		    protocol_cb = Connection} = State0) ->
-    log_alert(SslOpts#ssl_options.log_alert,  Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
+    log_alert(SslOpts#ssl_options.log_alert,  Role,
+              Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
     gen_statem:reply(From, {error, renegotiation_rejected}),
     {Record, State} = Connection:next_record(State0),
     %% Go back to connection!
@@ -1181,7 +1184,8 @@ handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
 %% Gracefully log and ignore all other warning alerts
 handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 	     #state{ssl_options = SslOpts, protocol_cb = Connection, role = Role} = State0) ->
-    log_alert(SslOpts#ssl_options.log_alert,  Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
+    log_alert(SslOpts#ssl_options.log_alert,  Role,
+              Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
     {Record, State} = Connection:next_record(State0),
     Connection:next_event(StateName, Record, State).
 
@@ -2444,10 +2448,13 @@ alert_user(Transport, Tracker, Socket, Active, Pid, From, Alert, Role, Connectio
 							Transport, Socket, Connection, Tracker), ReasonCode})
     end.
 
-log_alert(true, ProtocolName, StateName, Alert) ->
+log_alert(true, Role, ProtocolName, StateName, #alert{role = Role} = Alert) ->
+    Txt = ssl_alert:own_alert_txt(Alert),
+    error_logger:info_report(io_lib:format("~s ~p: In state ~p ~s\n", [ProtocolName, Role, StateName, Txt]));
+log_alert(true, Role, ProtocolName, StateName, Alert) ->
     Txt = ssl_alert:alert_txt(Alert),
-    error_logger:format("~s: In state ~p ~s\n", [ProtocolName, StateName, Txt]);
-log_alert(false, _, _, _) ->
+    error_logger:info_report(io_lib:format("~s ~p: In state ~p ~s\n", [ProtocolName, Role, StateName, Txt]));
+log_alert(false, _, _, _, _) ->
     ok.
 
 handle_own_alert(Alert, Version, StateName, 
@@ -2465,7 +2472,7 @@ handle_own_alert(Alert, Version, StateName,
 	    ignore
     end,
     try %% Try to tell the local user
-	log_alert(SslOpts#ssl_options.log_alert, Connection:protocol_name(), StateName, Alert#alert{role = Role}),
+	log_alert(SslOpts#ssl_options.log_alert, Role, Connection:protocol_name(), StateName, Alert#alert{role = Role}),
 	handle_normal_shutdown(Alert,StateName, State)
     catch _:_ ->
 	    ok
