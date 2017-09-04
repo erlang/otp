@@ -674,29 +674,54 @@ send_protocol_error(Config) ->
 
     if D == nas4005 ->
             error = maps:find('Failed-AVP', Avps),
-            #{'AVP' := [#diameter_avp{name = 'Failed-AVP',
-                                      value = #{'AVP' := [_,NP]}}]}
+            #{'AVP' := [_,Failed]}
                 = Avps,
-            #diameter_avp{name = 'NAS-Port', value = 44}
-                = NP;
-            
+            #diameter_avp{name = 'Failed-AVP',
+                          value = #{'AVP' := [NP,FR,AP]}}
+                = Failed,
+            #diameter_avp{name = 'NAS-Port',
+                          value = 44}
+                = NP,
+            #diameter_avp{name = 'Firmware-Revision',
+                          value = 12}
+                = FR,
+            #diameter_avp{name = 'Auth-Grace-Period',
+                          value = 13}
+                = AP;
+
        D == diameter_gen_base_rfc3588;
        D == diameter_gen_basr_accounting ->
             error = maps:find('Failed-AVP', Avps),
-            #{'AVP' := [#diameter_avp{name = 'Failed-AVP',
-                                      value = #{'AVP' := [_,NP]}}]}
+            #{'AVP' := [_,Failed]}
                 = Avps,
-            #diameter_avp{name = undefined, value = undefined}
-                = NP;
+
+            #diameter_avp{name = 'Failed-AVP',
+                           value = #{'AVP' := [NP,FR,AP]}}
+                = Failed,
+            #diameter_avp{name = undefined,
+                          value = undefined}
+                = NP,
+            #diameter_avp{name = 'Firmware-Revision',
+                          value = 12}
+                = FR,
+            #diameter_avp{name = 'Auth-Grace-Period',
+                          value = 13}
+                = AP;
 
        D == diameter_gen_base_rfc6733;
        D == diameter_gen_acct_rfc6733 ->
-            error = maps:find('AVP', Avps),
-            #{'Failed-AVP' := [#{'AVP' := [NP]}],
+            #{'Failed-AVP' := [#{'AVP' := [NP,FR,AP]}],
               'AVP' := [_]}
                 = Avps,
-            #diameter_avp{name = undefined, value = undefined}
-                = NP
+            #diameter_avp{name = undefined,
+                          value = undefined}
+                = NP,
+            #diameter_avp{name = 'Firmware-Revision',
+                          value = 12}
+                = FR,
+            #diameter_avp{name = 'Auth-Grace-Period',
+                          value = 13}
+                = AP
     end.
 
 %% Send a 3xxx Experimental-Result in an answer not setting the E-bit
@@ -1763,9 +1788,11 @@ request(['ACR' | #{'Accounting-Record-Number' := 4}],
     %% that application. Encode as 'AVP' since RFC 3588 doesn't list
     %% Failed-AVP in the answer-message grammar while RFC 6733 does.
     NP = #diameter_avp{data = {nas4005, 'NAS-Port', 44}},
+    FR = #diameter_avp{name = 'Firmware-Revision', value = 12}, %% M=0
+    AP = #diameter_avp{name = 'Auth-Grace-Period', value = 13}, %% M=1
     Failed = #diameter_avp{data = {diameter_gen_base_rfc3588,
                                    'Failed-AVP',
-                                   [{'AVP', [NP]}]}},
+                                   [{'AVP', [NP,FR,AP]}]}},
     Ans = ['answer-message', {'Result-Code', ?TOO_BUSY},
                              {'Origin-Host', OH},
                              {'Origin-Realm', OR},
