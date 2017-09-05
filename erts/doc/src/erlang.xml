@@ -60,6 +60,14 @@
       </desc>
     </datatype>
     <datatype>
+      <name>iovec()</name>
+      <desc>
+        <p>A list of binaries. This datatype is useful to use
+          together with <seealso marker="erl_nif#enif_inspect_iovec">
+          <c>enif_inspect_iovec</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="message_queue_data"></name>
       <desc>
         <p>See <seealso marker="#process_flag_message_queue_data">
@@ -2121,6 +2129,15 @@ os_prompt%</pre>
 &lt;&lt;6&gt;&gt;
 > <input>iolist_to_binary([Bin1,1,[2,3,Bin2],4|Bin3]).</input>
 &lt;&lt;1,2,3,1,2,3,4,5,4,6&gt;&gt;</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="iolist_to_iovec" arity="1"/>
+      <fsummary>Converts an iolist to a iovec.</fsummary>
+      <desc>
+        <p>Returns an iovec that is made from the integers and binaries in
+          <c><anno>IoListOrBinary</anno></c>.</p>
       </desc>
     </func>
 
