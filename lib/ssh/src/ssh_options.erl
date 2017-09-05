@@ -938,9 +938,6 @@ check_preferred_algorithms(Algs) when is_list(Algs) ->
     check_input_ok(Algs),
     {true, normalize_mod_algs(Algs, true)};
 
-check_preferred_algorithms(Algs) when is_list(Algs) ->
-    check_preferred_algorithms({false,Algs});
-
 check_preferred_algorithms(_) ->
     error_in_check(modify_algorithms, "Bad option value. List expected.").
 
