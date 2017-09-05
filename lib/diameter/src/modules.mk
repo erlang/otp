@@ -24,6 +24,7 @@ DICTS = \
 	base_rfc6733 \
 	base_accounting \
 	acct_rfc6733 \
+	doic_rfc7683 \
 	relay
 
 # The yecc grammar for the dictionary parser.

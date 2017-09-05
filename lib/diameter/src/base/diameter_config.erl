@@ -682,6 +682,9 @@ opt(_, {K, B})
        K == strict_mbit ->
     is_boolean(B);
 
+opt(_, {avp_dictionaries, Mods}) ->
+    is_list(Mods) andalso lists:all(fun erlang:is_atom/1, Mods);
+
 opt(_, {length_errors, T}) ->
     lists:member(T, [exit, handle, discard]);
 

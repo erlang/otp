@@ -78,6 +78,7 @@
          sequence     :: diameter:sequence(),
          counters     :: boolean(),
          codec        :: #{decode_format := diameter:decode_format(),
+                           avp_dictionaries => nonempty_list(module()),
                            string_decode := boolean(),
                            strict_arities => diameter:strict_arities(),
                            strict_mbit := boolean(),
@@ -108,6 +109,7 @@ make_recvdata([SvcName, PeerT, Apps, SvcOpts | _]) ->
                      sequence = Mask,
                      counters = B,
                      codec = maps:with([decode_format,
+                                        avp_dictionaries,
                                         string_decode,
                                         strict_arities,
                                         strict_mbit,
@@ -351,6 +353,8 @@ recv_request(Ack,
         false = No ->  %% transport has gone down
             No
     end.
+
+%% decode/4
 
 decode(Id, Dict, #recvdata{codec = Opts}, Pkt) ->
     errors(Id, diameter_codec:decode(Id, Dict, Opts, Pkt)).
@@ -2021,4 +2025,4 @@ decode_opts(Dict) ->
       strict_mbit => false,
       failed_avp => false,
       module => Dict,
-      dictionary => Dict}.
+      app_dictionary => Dict}.
