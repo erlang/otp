@@ -32,7 +32,7 @@ select_val_bins.fetch(Src) {
 select_val_bins.select(Fail, NumElements) {
     struct Pairs {
         BeamInstr val;
-        BeamInstr* addr;
+        Eterm offset;
     };
     struct Pairs* low;
     struct Pairs* high;
@@ -68,7 +68,7 @@ select_val_bins.select(Fail, NumElements) {
         } else if (select_val > mid->val) {
             low = mid + 1;
         } else {
-            $JUMP(mid->addr);
+            $JUMP(mid->offset);
         }
     }
     $JUMP($Fail);
