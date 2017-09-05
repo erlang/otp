@@ -2083,12 +2083,6 @@ This function is aware of imported functions."
            (when funcname
              (erlang-man-find-function (current-buffer) funcname))))))
 
-(defun erlang-default-function-or-module ()
-  (let ((id (erlang-get-identifier-at-point)))
-    (if (eq (erlang-id-kind id) 'qualified-function)
-        (format "%s:%s" (erlang-id-module id) (erlang-id-name id))
-      (erlang-id-name id))))
-
 
 ;; Should the defadvice be at the top level, the package `advice' would
 ;; be required.  Now it is only required when this functionality
@@ -3790,6 +3784,21 @@ of arguments could be found, otherwise nil."
 
 (defun erlang-id-arity (id)
   (nth 3 (erlang-id-to-list id)))
+
+
+(defun erlang-default-function-or-module ()
+  (erlang-with-id (kind module name) (erlang-get-identifier-at-point)
+    (let ((x (cond ((eq kind 'module)
+                    (format "%s:" name))
+                   ((eq kind 'record)
+                    (format "-record(%s" name))
+                   ((eq kind 'macro)
+                    (format "-define(%s" name))
+                   (t
+                    name))))
+      (if module
+          (format "%s:%s" module x)
+        x))))
 
 
 ;; TODO: Escape single quotes inside the string without
