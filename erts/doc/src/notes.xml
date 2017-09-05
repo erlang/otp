@@ -603,7 +603,7 @@
 	    marker="erts:erl"><c>erl</c></seealso> command.</p>
           <p>
 	    See <url
-	    href="http://pcre.org/original/changelog.txt"><c>http://pcre.org/original/changelog.txt</c></url>
+	    href="http://pcre.org/original/changelog.txt">http://pcre.org/original/changelog.txt</url>
 	    for information about changes made to PCRE between the
 	    versions 8.33 and 8.40.</p>
           <p>
