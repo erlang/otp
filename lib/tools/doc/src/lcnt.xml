@@ -471,7 +471,7 @@
                     <c>lcnt:rt_opt/2</c>.
                 </p>
                 <p>Valid categories are:</p>
-                <taglist>
+                <list>
                     <item><c>allocator</c></item>
                     <item><c>db</c> (ETS tables)</item>
                     <item><c>debug</c></item>
@@ -480,7 +480,7 @@
                     <item><c>io</c></item>
                     <item><c>process</c></item>
                     <item><c>scheduler</c></item>
-                </taglist>
+                </list>
                 <p>
                     This list is subject to change at any time, as is the category any given lock
                     may belong to.
