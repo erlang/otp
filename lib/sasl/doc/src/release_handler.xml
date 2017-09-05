@@ -61,6 +61,7 @@
     <list type="bulleted">
       <item>A release upgrade file, <c>relup</c></item>
       <item>A system configuration file, <c>sys.config</c></item>
+      <item>A system configuration source file, <c>sys.config.src</c></item>
     </list>
     <p>The <c>relup</c> file contains instructions for how to upgrade
       to, or downgrade from, this version of the release.</p>
@@ -819,4 +820,3 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
       <seealso marker="systools"><c>systools(3)</c></seealso></p>
   </section>
 </erlref>
-
