@@ -159,6 +159,7 @@ typedef struct op_entry {
    Uint32 mask[3];		/* Signature mask. */
    unsigned involves_r;		/* Needs special attention when matching. */
    int sz;			/* Number of loaded words. */
+   int adjust;                  /* Adjustment for start of instruction. */
    char* pack;			/* Instructions for packing engine. */
    char* sign;			/* Signature string. */
 } OpEntry;

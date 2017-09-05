@@ -80,6 +80,7 @@ my %gen_opnum;
 my %num_specific;
 my %gen_to_spec;
 my %specific_op;
+my %group_size;                 # Group size for specific operators.
 
 my %gen_arity;
 my @gen_arity;
@@ -623,7 +624,11 @@ sub emulator_output {
 		$sep = ",";
 	    }
 	    $init .= "}";
-	    init_item($print_name, $init, $involves_r, $size, $pack, $sign);
+            my $adj = 0;
+            if (defined $group_size{$print_name}) {
+                $adj = $size - $group_size{$print_name};
+            }
+	    init_item($print_name, $init, $involves_r, $size, $adj, $pack, $sign);
 	    $op_to_name[$spec_opnum] = $instr;
 	    $spec_opnum++;
 	}
@@ -1171,6 +1176,7 @@ sub combine_instruction_group {
             if ($opcase ne '') {
                 $gcode .= "OpCase($opcase):\n";
                 push @opcase_labels, $opcase;
+                $group_size{$opcase} = $group_size + 1;
             }
             if ($num_references{$label}) {
                 $gcode .= "$label:\n";
