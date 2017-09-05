@@ -1083,6 +1083,37 @@ implies having to set matching *-Application-Id AVPs in a
 </item>
 
 <tag>
+<marker id="avp_dictionaries"/><c>{avp_dictionaries, [module()]}</c></tag>
+<item>
+<p>
+A list of alternate dictionary modules with which to encode/decode
+AVPs that are not defined by the dictionary of the application in
+question.
+At decode, such AVPs are represented as diameter_avp records in the
+<c>'AVP'</c> field of a decoded message or Grouped AVP, the first
+alternate that succeeds in decoding the AVP setting the record's value
+field.
+At encode, values in an <c>'AVP'</c> list can be passed as AVP
+name/value 2-tuples, and it is an encode error for no alternate to
+define the AVP of such a tuple.</p>
+
+<p>
+Defaults to the empty list.</p>
+
+<note>
+<p>
+The motivation for alternate dictionaries is RFC 7683, Diameter
+Overload Indication Conveyance (DOIC), which defines AVPs to
+be piggybacked onto existing application messages rather than defining
+an application of its own.
+The DOIC dictionary is provided by the diameter application, as module
+<c>diameter_gen_doic_rfc7683</c>, but alternate dictionaries can be
+used to encode/decode any set of AVPs not known to an application
+dictionary.</p>
+</note>
+</item>
+
+<tag>
 <marker id="capabilities"/><c>{capabilities, [&capability;]}</c></tag>
 <item>
 <p>

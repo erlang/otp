@@ -324,7 +324,7 @@ decode_avps(MsgName, Mod, AppMod, Opts, #diameter_packet{bin = Bin} = Pkt) ->
     {_, Avps} = split_binary(Bin, 20),
     {Rec, As, Errors} = Mod:decode_avps(MsgName,
                                         Avps,
-                                        Opts#{dictionary => AppMod,
+                                        Opts#{app_dictionary => AppMod,
                                               failed_avp => false}),
     ?LOGC([] /= Errors, decode_errors, Pkt#diameter_packet.header),
     Pkt#diameter_packet{msg = reformat(MsgName, Rec, Opts),
@@ -614,8 +614,8 @@ pack_avp(#diameter_avp{data = {T, {Type, Value}}}, Opts) ->
 pack_avp(#diameter_avp{data = {T, Data}}, _) ->
     pack_data(T, Data);
 
-pack_avp(#diameter_avp{data = {Dict, Name, Data}}, Opts) ->
-    pack_data(Dict:avp_header(Name), Dict:avp(encode, Data, Name, Opts));
+pack_avp(#diameter_avp{data = {Dict, Name, Value}}, Opts) ->
+    pack_data(Dict:avp_header(Name), Dict:avp(encode, Value, Name, Opts));
 
 %% ... with a truncated header ...
 pack_avp(#diameter_avp{code = undefined, data = B}, _)
