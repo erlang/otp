@@ -130,6 +130,13 @@ Eterm erts_get_monotonic_end_time(struct process *c_p);
 Eterm erts_monotonic_time_source(struct process*c_p);
 Eterm erts_system_time_source(struct process*c_p);
 
+void erts_runtime_elapsed_both(ErtsMonotonicTime *ms_user,
+                               ErtsMonotonicTime *ms_sys, 
+                               ErtsMonotonicTime *ms_user_diff,
+                               ErtsMonotonicTime *ms_sys_diff);
+void erts_wall_clock_elapsed_both(ErtsMonotonicTime *total,
+                                  ErtsMonotonicTime *diff);
+
 #ifdef SYS_CLOCK_RESOLUTION
 #define ERTS_CLKTCK_RESOLUTION ((ErtsMonotonicTime) (SYS_CLOCK_RESOLUTION*1000))
 #else

@@ -1570,6 +1570,8 @@ AC_CHECK_HEADER(sys/resource.h,
 		[#include <sys/resource.h>])],
 	[],[])
 
+AC_CHECK_FUNCS([getrusage])
+
 dnl Check if we have kernel poll support
 have_kernel_poll=no
 AC_CHECK_HEADER(sys/event.h, have_kernel_poll=kqueue)

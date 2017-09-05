@@ -48,6 +48,7 @@
 #include "erl_map.h"
 #define ERTS_PTAB_WANT_DEBUG_FUNCS__
 #include "erl_ptab.h"
+#include "erl_time.h"
 #ifdef HIPE
 #include "hipe_arch.h"
 #endif
@@ -3467,7 +3468,7 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	ErtsMonotonicTime u1, u2;
 	Eterm b1, b2;
         Uint hsz;
-	elapsed_time_both(&u1, NULL, &u2, NULL);
+	erts_runtime_elapsed_both(&u1, NULL, &u2, NULL);
         hsz = 3; /* 2-tuple */
         (void) erts_bld_monotonic_time(NULL, &hsz, u1);
         (void) erts_bld_monotonic_time(NULL, &hsz, u2);
@@ -3483,7 +3484,7 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	ErtsMonotonicTime w1, w2;
 	Eterm b1, b2;
         Uint hsz;
-	wall_clock_elapsed_time_both(&w1, &w2);
+	erts_wall_clock_elapsed_both(&w1, &w2);
         hsz = 3; /* 2-tuple */
         (void) erts_bld_monotonic_time(NULL, &hsz, w1);
         (void) erts_bld_monotonic_time(NULL, &hsz, w2);
