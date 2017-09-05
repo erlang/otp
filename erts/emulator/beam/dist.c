@@ -1228,8 +1228,7 @@ int erts_net_message(Port *prt,
     }
 
 
-    if (hlen != 0)
-	goto data_error;
+    ASSERT(hlen == 0);
 
     if (len == 0) {  /* HANDLE TICK !!! */
 	UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
@@ -1247,11 +1246,6 @@ int erts_net_message(Port *prt,
 	/* Skip PASS_THROUGH */
 	t = buf+1;
 	len--;
-    }
-
-    if (len == 0) {
-	PURIFY_MSG("data error");
-	goto data_error;
     }
 
     res = erts_prepare_dist_ext(&ede, t, len, dep, dep->cache, &connection_id);
@@ -3301,8 +3295,10 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
         if (ERTS_PROC_GET_DIST_ENTRY(proc)) {
             if (dep == ERTS_PROC_GET_DIST_ENTRY(proc)
                 && (proc->flags & F_DISTRIBUTION)
-                && dep->cid == BIF_ARG_2)
+                && dep->cid == BIF_ARG_2) {
+                ERTS_BIF_PREP_RET(ret, erts_make_dhandle(BIF_P, dep));
                 goto done;
+            }
             goto badarg;
         }
 
@@ -3333,8 +3329,10 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
         if ((pp->drv_ptr->flags & ERL_DRV_FLAG_SOFT_BUSY) == 0)
             goto badarg;
 
-        if (dep->cid == BIF_ARG_2 && pp->dist_entry == dep)
+        if (dep->cid == BIF_ARG_2 && pp->dist_entry == dep) {
+            ERTS_BIF_PREP_RET(ret, erts_make_dhandle(BIF_P, dep));
             goto done; /* Already set */
+        }
 
         if (dep->status & ERTS_DE_SFLG_EXITING) {
             /* Suspend on dist entry waiting for the exit to finish */
