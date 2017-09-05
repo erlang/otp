@@ -206,7 +206,7 @@ ok
           <seealso marker="#enif_make_resource">
           <c>enif_make_resource</c></seealso>.
           The term returned by <c>enif_make_resource</c> is opaque in nature.
-          It can be stored and passed between processes on the same node, but
+          It can be stored and passed between processes, but
           the only real end usage is to pass it back as an argument to a NIF.
           The NIF can then call <seealso marker="#enif_get_resource">
           <c>enif_get_resource</c></seealso> and get back a pointer to the
@@ -1952,10 +1952,33 @@ typedef enum {
           details, see the <seealso marker="#enif_resource_example">example of
           creating and returning a resource object</seealso> in the User's
           Guide.</p>
-        <p>Notice that the only defined behavior of using a resource term in
-          an Erlang program is to store it and send it between processes on the
-          same node. Other operations, such as matching or
-          <c>term_to_binary</c>, have unpredictable (but harmless) results.</p>
+	<note>
+	  <p>Since ERTS 9.0 (OTP-20.0), resource terms have a defined behavior
+	  when compared and serialized through <c>term_to_binary</c> or passed
+	  between nodes.</p>
+	  <list type="bulleted">
+	    <item>
+	      <p>Two resource terms will compare equal iff they
+	      would yield the same resource object pointer when passed to
+	      <seealso marker="#enif_get_resource"><c>enif_get_resource</c></seealso>.</p>
+	    </item>
+	    <item>
+	      <p>A resoure term can be serialized with <c>term_to_binary</c> and later
+	      be fully recreated if the resource object is still alive when
+	      <c>binary_to_term</c> is called. A <em>stale</em> resource term will be
+	      returned from <c>binary_to_term</c> if the resource object has
+	      been deallocated. <seealso marker="#enif_get_resource"><c>enif_get_resource</c></seealso>
+	      will return false for stale resource terms.</p>
+	      <p>The same principles of serialization apply when passing
+	      resource terms in messages to remote nodes and back again. A
+	      resource term will act stale on all nodes except the node where
+	      its resource object is still alive in memory.</p>
+	    </item>
+	  </list>
+	  <p>Before ERTS 9.0 (OTP-20.0), all resource terms did
+	  compare equal to each other and to empty binaries (<c>&lt;&lt;&gt;&gt;</c>).
+	  If serialized, they would be recreated as plain empty binaries.</p>
+	</note>
       </desc>
     </func>
 
