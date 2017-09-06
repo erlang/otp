@@ -1115,8 +1115,7 @@ init_tls_version(Version, Config) ->
     NewConfig = proplists:delete(protocol_opts, proplists:delete(protocol, Config)),
     [{protocol, tls} | NewConfig].
 
-init_tls_version_default(Config) ->
-    %% Remove non default options that may be left from other test groups 
+clean_tls_version(Config) ->
     proplists:delete(protocol_opts, proplists:delete(protocol, Config)).
     
 sufficient_crypto_support(Version)
