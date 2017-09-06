@@ -814,14 +814,15 @@ RUN_OBJS = \
 	$(OBJDIR)/erl_io_queue.o
 
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
-NIF_OBJS = $(OBJDIR)/erl_tracer_nif.o
+NIF_OBJS = \
+	   $(OBJDIR)/erl_tracer_nif.o \
+	   $(OBJDIR)/zlib_nif.o
 
 ifeq ($(TARGET),win32)
 DRV_OBJS = \
 	$(OBJDIR)/registry_drv.o \
 	$(OBJDIR)/efile_drv.o \
 	$(OBJDIR)/inet_drv.o \
-	$(OBJDIR)/zlib_drv.o \
 	$(OBJDIR)/ram_file_drv.o \
 	$(OBJDIR)/ttsl_drv.o
 OS_OBJS = \
@@ -851,7 +852,6 @@ OS_OBJS = \
 DRV_OBJS = \
 	$(OBJDIR)/efile_drv.o \
 	$(OBJDIR)/inet_drv.o \
-	$(OBJDIR)/zlib_drv.o \
 	$(OBJDIR)/ram_file_drv.o \
 	$(OBJDIR)/ttsl_drv.o
 endif
