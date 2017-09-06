@@ -71,6 +71,7 @@ MODULES= \
 	hash_SUITE \
 	hibernate_SUITE \
 	hipe_SUITE \
+	iovec_SUITE \
 	list_bif_SUITE \
 	lttng_SUITE \
 	lcnt_SUITE \

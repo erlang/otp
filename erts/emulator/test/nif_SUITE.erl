@@ -61,7 +61,8 @@
          nif_internal_hash_salted/1,
          nif_phash2/1,
          nif_whereis/1, nif_whereis_parallel/1,
-         nif_whereis_threaded/1, nif_whereis_proxy/1
+         nif_whereis_threaded/1, nif_whereis_proxy/1,
+         nif_ioq/1
 	]).
 
 -export([many_args_100/100]).
@@ -99,7 +100,8 @@ all() ->
      nif_internal_hash,
      nif_internal_hash_salted,
      nif_phash2,
-     nif_whereis, nif_whereis_parallel, nif_whereis_threaded].
+     nif_whereis, nif_whereis_parallel, nif_whereis_threaded,
+     nif_ioq].
 
 groups() ->
     [{G, [], api_repeaters()} || G <- api_groups()]
@@ -2952,6 +2954,180 @@ nif_whereis_proxy(Ref) ->
         {Ref, quit} ->
             ok
     end.
+nif_ioq(Config) ->
+    ensure_lib_loaded(Config),
+
+    Script =
+        [{create, a},
+
+         %% Test enq of erlang term binary
+         {enqb,   a},
+         {enqb,   a, 3},
+
+         %% Test enq of non-erlang term binary
+         {enqbraw,a},
+         {enqbraw,a, 5},
+         {peek,   a},
+         {deq,    a, 42},
+
+         %% Test enqv
+         {enqv,   a, 2, 100},
+         {deq,    a, all},
+
+         %% This skips all elements but one in the iolist
+         {enqv,   a, 5, iolist_size(nif_ioq_payload(5)) - 1},
+         {peek,   a},
+
+         %% Test to enqueue a bunch of refc binaries
+         {enqv,   a, [nif_ioq_payload(refcbin) || _ <- lists:seq(1,20)], 0},
+
+         %% Enq stuff to destroy with data in queue
+         {enqv,   a, 2, 100},
+         {destroy,a},
+
+         %% Test destroy of new queue
+         {create, a},
+         {destroy,a}
+        ],
+
+    nif_ioq_run(Script),
+
+    %% Test that only enif_inspect_as_vec works
+    Payload = nif_ioq_payload(5),
+    PayloadBin = iolist_to_binary(Payload),
+
+    [begin
+         PayloadBin = iolist_to_binary(ioq_nif(inspect,Payload,Stack,Env)),
+         <<>>       = iolist_to_binary(ioq_nif(inspect,[],Stack,Env))
+     end || Stack <- [no_stack, use_stack], Env <- [use_env, no_env]],
+
+    %% Test error cases
+
+    Q = ioq_nif(create),
+
+    {'EXIT', {badarg, _}} = (catch ioq_nif(deq, Q, 1)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, 1, 1234)),
+
+    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [atom_in_list], 0)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [make_ref()], 0)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [256], 0)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [-1], 0)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [#{}], 0)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [1 bsl 64], 0)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [{tuple}], 0)),
+
+    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [atom_in_list], use_stack)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [make_ref()], no_stack)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [256], use_stack)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [-1], no_stack)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [#{}], use_stack)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [1 bsl 64], no_stack)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [{tuple}], use_stack)),
+    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  <<"binary">>, use_stack)),
+
+    ioq_nif(destroy, Q),
+
+    %% Test that the example in the docs works
+    ExampleQ = ioq_nif(create),
+    true = ioq_nif(example, ExampleQ, nif_ioq_payload(5)),
+    ioq_nif(destroy, ExampleQ),
+
+    ok.
+
+
+nif_ioq_run(Script) ->
+    nif_ioq_run(Script, #{}).
+
+nif_ioq_run([{Action, Name}|T], State)
+  when Action =:= enqb; Action =:= enqbraw ->
+    nif_ioq_run([{Action, Name, heapbin}|T], State);
+nif_ioq_run([{Action, Name, Skip}|T], State)
+  when Action =:= enqb, is_integer(Skip);
+       Action =:= enqbraw, is_integer(Skip) ->
+    nif_ioq_run([{Action, Name, heapbin, Skip}|T], State);
+nif_ioq_run([{Action, Name, N}|T], State)
+  when Action =:= enqv; Action =:= enqb; Action =:= enqbraw ->
+    nif_ioq_run([{Action, Name, N, 0}|T], State);
+nif_ioq_run([{Action, Name, N, Skip}|T], State)
+  when Action =:= enqv; Action =:= enqb; Action =:= enqbraw ->
+
+    #{ q := IOQ, b := B } = Q = maps:get(Name, State),
+    true = ioq_nif(size, IOQ) == iolist_size(B),
+
+    %% Sanitize the log output a bit so that it doesn't become too large.
+    H = {Action, Name, try iolist_size(N) of Sz -> Sz catch _:_ -> N end, Skip},
+    ct:log("~p", [H]),
+
+    Data = nif_ioq_payload(N),
+    ioq_nif(Action, IOQ, Data, Skip),
+
+    <<_:Skip/binary, SkippedData/binary>> = iolist_to_binary(Data),
+
+    true = ioq_nif(size, IOQ) == (iolist_size([B|SkippedData])),
+
+    nif_ioq_run(T, State#{ Name := Q#{ b := [B|SkippedData]}});
+nif_ioq_run([{peek, Name} = H|T], State) ->
+    #{ q := IOQ, b := B } = maps:get(Name, State),
+    true = ioq_nif(size, IOQ) == iolist_size(B),
+
+    ct:log("~p", [H]),
+
+    Data = ioq_nif(peek, IOQ, ioq_nif(size, IOQ)),
+
+    true = iolist_to_binary(B) == iolist_to_binary(Data),
+    nif_ioq_run(T, State);
+nif_ioq_run([{deq, Name, all}|T], State) ->
+    #{ q := IOQ, b := B } = maps:get(Name, State),
+    Size = ioq_nif(size, IOQ),
+    true = Size == iolist_size(B),
+    nif_ioq_run([{deq, Name, Size}|T], State);
+nif_ioq_run([{deq, Name, N} = H|T], State) ->
+    #{ q := IOQ, b := B } = Q = maps:get(Name, State),
+    true = ioq_nif(size, IOQ) == iolist_size(B),
+
+    ct:log("~p", [H]),
+
+    <<_:N/binary,Remain/binary>> = iolist_to_binary(B),
+    NewQ = Q#{ b := Remain },
+
+    Sz = ioq_nif(deq, IOQ, N),
+
+    true = Sz == iolist_size(Remain),
+    true = ioq_nif(size, IOQ) == iolist_size(Remain),
+
+    nif_ioq_run(T, State#{ Name := NewQ });
+nif_ioq_run([{create, Name} = H|T], State) ->
+    ct:log("~p", [H]),
+    nif_ioq_run(T, State#{ Name => #{ q => ioq_nif(create), b => [] } });
+nif_ioq_run([{destroy, Name} = H|T], State) ->
+    #{ q := IOQ, b := B } = maps:get(Name, State),
+    true = ioq_nif(size, IOQ) == iolist_size(B),
+
+    ct:log("~p", [H]),
+
+    ioq_nif(destroy, IOQ),
+
+    nif_ioq_run(T, maps:remove(Name, State));
+nif_ioq_run([], State) ->
+    State.
+
+nif_ioq_payload(N) when is_integer(N) ->
+    Tail = if N > 3 -> nif_ioq_payload(N-3); true -> [] end,
+    Head = element(1, lists:split(N,[nif_ioq_payload(subbin),
+                                     nif_ioq_payload(heapbin),
+                                     nif_ioq_payload(refcbin) | Tail])),
+    erlang:iolist_to_iovec(Head);
+nif_ioq_payload(subbin) ->
+    Bin = nif_ioq_payload(refcbin),
+    Sz = size(Bin) - 1,
+    <<_:8,SubBin:Sz/binary,_/bits>> = Bin,
+    SubBin;
+nif_ioq_payload(heapbin) ->
+    <<"a literal heap binary">>;
+nif_ioq_payload(refcbin) ->
+    iolist_to_binary([lists:seq(1,255) || _ <- lists:seq(1,255)]);
+nif_ioq_payload(Else) ->
+    Else.
 
 %% The NIFs:
 lib_version() -> undefined.
@@ -3027,6 +3203,10 @@ monitor_process_nif(_,_,_,_) -> ?nif_stub.
 demonitor_process_nif(_,_) -> ?nif_stub.
 compare_monitors_nif(_,_) -> ?nif_stub.
 monitor_frenzy_nif(_,_,_,_) -> ?nif_stub.
+ioq_nif(_) -> ?nif_stub.
+ioq_nif(_,_) -> ?nif_stub.
+ioq_nif(_,_,_) -> ?nif_stub.
+ioq_nif(_,_,_,_) -> ?nif_stub.
 
 %% whereis
 whereis_send(_Type,_Name,_Msg) -> ?nif_stub.

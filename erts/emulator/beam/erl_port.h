@@ -31,6 +31,9 @@ typedef struct ErtsProc2PortSigData_ ErtsProc2PortSigData;
 #include "erl_ptab.h"
 #include "erl_thr_progress.h"
 #include "erl_trace.h"
+#define ERTS_IO_QUEUE_TYPES_ONLY__
+#include "erl_io_queue.h"
+#undef ERTS_IO_QUEUE_TYPES_ONLY__
 
 #ifndef __WIN32__
 #define ERTS_DEFAULT_MAX_PORTS (1 << 16)
@@ -75,23 +78,8 @@ typedef struct erts_driver_t_ erts_driver_t;
 #define ERTS_Port2ErlDrvPort(PH) ((ErlDrvPort) (PH))
 #endif
 
-#define SMALL_IO_QUEUE 5   /* Number of fixed elements */
+typedef ErtsIOQueue ErlPortIOQueue;
 
-typedef struct {
-    ErlDrvSizeT size;       /* total size in bytes */
-
-    SysIOVec* v_start;
-    SysIOVec* v_end;
-    SysIOVec* v_head;
-    SysIOVec* v_tail;
-    SysIOVec  v_small[SMALL_IO_QUEUE];
-
-    ErlDrvBinary** b_start;
-    ErlDrvBinary** b_end;
-    ErlDrvBinary** b_head;
-    ErlDrvBinary** b_tail;
-    ErlDrvBinary*  b_small[SMALL_IO_QUEUE];
-} ErlIOQueue;
 
 typedef struct line_buf {  /* Buffer used in line oriented I/O */
     ErlDrvSizeT bufsiz;      /* Size of character buffer */
@@ -165,7 +153,7 @@ struct _erl_drv_port {
     Uint bytes_in;		/* Number of bytes read */
     Uint bytes_out;		/* Number of bytes written */
 
-    ErlIOQueue ioq;              /* driver accessible i/o queue */
+    ErlPortIOQueue ioq;          /* driver accessible i/o queue */
     DistEntry *dist_entry;       /* Dist entry used in DISTRIBUTION */
     char *name;		         /* String used in the open */
     erts_driver_t* drv_ptr;

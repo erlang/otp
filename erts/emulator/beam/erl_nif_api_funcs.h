@@ -184,6 +184,21 @@ ERL_NIF_API_FUNC_DECL(ErlNifUInt64,enif_hash,(ErlNifHash type, ERL_NIF_TERM term
 ERL_NIF_API_FUNC_DECL(int, enif_whereis_pid, (ErlNifEnv *env, ERL_NIF_TERM name, ErlNifPid *pid));
 ERL_NIF_API_FUNC_DECL(int, enif_whereis_port, (ErlNifEnv *env, ERL_NIF_TERM name, ErlNifPort *port));
 
+ERL_NIF_API_FUNC_DECL(ErlNifIOQueue *,enif_ioq_create,(ErlNifIOQueueOpts opts));
+ERL_NIF_API_FUNC_DECL(void,enif_ioq_destroy,(ErlNifIOQueue *q));
+
+ERL_NIF_API_FUNC_DECL(int,enif_ioq_enq_binary,(ErlNifIOQueue *q, ErlNifBinary *bin, size_t skip));
+ERL_NIF_API_FUNC_DECL(int,enif_ioq_enqv,(ErlNifIOQueue *q, ErlNifIOVec *iov, size_t skip));
+
+ERL_NIF_API_FUNC_DECL(size_t,enif_ioq_size,(ErlNifIOQueue *q));
+ERL_NIF_API_FUNC_DECL(int,enif_ioq_deq,(ErlNifIOQueue *q, size_t count, size_t *size));
+
+ERL_NIF_API_FUNC_DECL(SysIOVec*,enif_ioq_peek,(ErlNifIOQueue *q, int *iovlen));
+
+ERL_NIF_API_FUNC_DECL(int,enif_inspect_iovec,(ErlNifEnv *env, size_t max_length, ERL_NIF_TERM iovec_term, ERL_NIF_TERM *tail, ErlNifIOVec **iovec));
+ERL_NIF_API_FUNC_DECL(void,enif_free_iovec,(ErlNifIOVec *iov));
+
+
 /*
 ** ADD NEW ENTRIES HERE (before this comment) !!!
 */
@@ -348,6 +363,16 @@ ERL_NIF_API_FUNC_DECL(int, enif_whereis_port, (ErlNifEnv *env, ERL_NIF_TERM name
 #  define enif_hash ERL_NIF_API_FUNC_MACRO(enif_hash)
 #  define enif_whereis_pid ERL_NIF_API_FUNC_MACRO(enif_whereis_pid)
 #  define enif_whereis_port ERL_NIF_API_FUNC_MACRO(enif_whereis_port)
+#  define enif_ioq_create ERL_NIF_API_FUNC_MACRO(enif_ioq_create)
+#  define enif_ioq_destroy ERL_NIF_API_FUNC_MACRO(enif_ioq_destroy)
+#  define enif_ioq_enq ERL_NIF_API_FUNC_MACRO(enif_ioq_enq)
+#  define enif_ioq_enq_binary ERL_NIF_API_FUNC_MACRO(enif_ioq_enq_binary)
+#  define enif_ioq_enqv ERL_NIF_API_FUNC_MACRO(enif_ioq_enqv)
+#  define enif_ioq_size ERL_NIF_API_FUNC_MACRO(enif_ioq_size)
+#  define enif_ioq_deq ERL_NIF_API_FUNC_MACRO(enif_ioq_deq)
+#  define enif_ioq_peek ERL_NIF_API_FUNC_MACRO(enif_ioq_peek)
+#  define enif_inspect_iovec ERL_NIF_API_FUNC_MACRO(enif_inspect_iovec)
+#  define enif_free_iovec ERL_NIF_API_FUNC_MACRO(enif_free_iovec)
 
 /*
 ** ADD NEW ENTRIES HERE (before this comment)

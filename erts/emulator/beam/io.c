@@ -52,6 +52,7 @@
 #include "erl_bif_unique.h"
 #include "erl_hl_timer.h"
 #include "erl_time.h"
+#include "erl_io_queue.h"
 
 extern ErlDrvEntry fd_driver_entry;
 extern ErlDrvEntry vanilla_driver_entry;
@@ -102,7 +103,7 @@ static void driver_monitor_unlock_pdl(Port *p);
 #define ERL_SMALL_IO_BIN_LIMIT (4*ERL_ONHEAP_BIN_LIMIT)
 #define SMALL_WRITE_VEC  16
 
-static ERTS_INLINE ErlIOQueue*
+static ERTS_INLINE ErlPortIOQueue*
 drvport2ioq(ErlDrvPort drvport)
 {
     Port *prt = erts_thr_drvport2port(drvport, 0);
@@ -117,11 +118,11 @@ is_port_ioq_empty(Port *pp)
     int res;
     ERTS_LC_ASSERT(erts_lc_is_port_locked(pp));
     if (!pp->port_data_lock)
-	res = (pp->ioq.size == 0);
+	res = (erts_ioq_size(&pp->ioq) == 0);
     else {
 	ErlDrvPDL pdl = pp->port_data_lock;
 	erts_mtx_lock(&pdl->mtx);
-	res = (pp->ioq.size == 0);
+	res = (erts_ioq_size(&pp->ioq) == 0);
 	erts_mtx_unlock(&pdl->mtx);
     }
     return res;
@@ -136,14 +137,14 @@ erts_is_port_ioq_empty(Port *pp)
 Uint
 erts_port_ioq_size(Port *pp)
 {
-    int res;
+    ErlDrvSizeT res;
     ERTS_LC_ASSERT(erts_lc_is_port_locked(pp));
     if (!pp->port_data_lock)
-	res = pp->ioq.size;
+	res = erts_ioq_size(&pp->ioq);
     else {
 	ErlDrvPDL pdl = pp->port_data_lock;
 	erts_mtx_lock(&pdl->mtx);
-	res = pp->ioq.size;
+	res = erts_ioq_size(&pp->ioq);
 	erts_mtx_unlock(&pdl->mtx);
     }
     return (Uint) res;
@@ -473,41 +474,17 @@ erts_port_free(Port *prt)
 */
 static void initq(Port* prt)
 {
-    ErlIOQueue* q = &prt->ioq;
-
     ERTS_LC_ASSERT(!prt->port_data_lock);
-
-    q->size = 0;
-    q->v_head = q->v_tail = q->v_start = q->v_small;
-    q->v_end = q->v_small + SMALL_IO_QUEUE;
-    q->b_head = q->b_tail = q->b_start = q->b_small;
-    q->b_end = q->b_small + SMALL_IO_QUEUE;
+    erts_ioq_init(&prt->ioq, ERTS_ALC_T_IOQ, 1);
 }
 
 static void stopq(Port* prt)
 {
-    ErlIOQueue* q;
-    ErlDrvBinary** binp;
 
     if (prt->port_data_lock)
 	driver_pdl_lock(prt->port_data_lock);
 
-    q = &prt->ioq;
-    binp = q->b_head;
-
-    if (q->v_start != q->v_small)
-	erts_free(ERTS_ALC_T_IOQ, (void *) q->v_start);
-
-    while(binp < q->b_tail) {
-	if (*binp != NULL)
-	    driver_free_binary(*binp);
-	binp++;
-    }
-    if (q->b_start != q->b_small)
-	erts_free(ERTS_ALC_T_IOQ, (void *) q->b_start);
-    q->v_start = q->v_end = q->v_head = q->v_tail = NULL;
-    q->b_start = q->b_end = q->b_head = q->b_tail = NULL;
-    q->size = 0;
+    erts_ioq_clear(&prt->ioq);
 
     if (prt->port_data_lock) {
 	driver_pdl_unlock(prt->port_data_lock);
@@ -874,311 +851,6 @@ int erts_port_handle_xports(Port *prt)
     }
     prt->xports = NULL;
     return reds;
-}
-
-/* Fills a possibly deep list of chars and binaries into vec
-** Small characters are first stored in the buffer buf of length ln
-** binaries found are copied and linked into msoh
-** Return  vector length on succsess,
-**        -1 on overflow
-**        -2 on type error
-*/
-
-#ifdef DEBUG
-#define MAX_SYSIOVEC_IOVLEN (1ull << (32 - 1))
-#else
-#define MAX_SYSIOVEC_IOVLEN (1ull << (sizeof(((SysIOVec*)0)->iov_len) * 8 - 1))
-#endif
-
-static ERTS_INLINE void
-io_list_to_vec_set_vec(SysIOVec **iov, ErlDrvBinary ***binv,
-                        ErlDrvBinary *bin, byte *ptr, Uint len,
-                        int *vlen)
-{
-    while (len > MAX_SYSIOVEC_IOVLEN) {
-        (*iov)->iov_base = ptr;
-        (*iov)->iov_len = MAX_SYSIOVEC_IOVLEN;
-        ptr += MAX_SYSIOVEC_IOVLEN;
-        len -= MAX_SYSIOVEC_IOVLEN;
-        (*iov)++;
-        (*vlen)++;
-        *(*binv)++ = bin;
-    }
-    (*iov)->iov_base = ptr;
-    (*iov)->iov_len = len;
-    *(*binv)++ = bin;
-    (*iov)++;
-    (*vlen)++;
-}
-
-static int
-io_list_to_vec(Eterm obj,	/* io-list */
-	       SysIOVec* iov,	/* io vector */
-	       ErlDrvBinary** binv, /* binary reference vector */
-	       ErlDrvBinary* cbin, /* binary to store characters */
-	       ErlDrvSizeT bin_limit)	/* small binaries limit */
-{
-    DECLARE_ESTACK(s);
-    Eterm* objp;
-    byte *buf  = (byte*)cbin->orig_bytes;
-    Uint len = cbin->orig_size;
-    Uint csize  = 0;
-    int vlen   = 0;
-    byte* cptr = buf;
-
-    goto L_jump_start;  /* avoid push */
-
-    while (!ESTACK_ISEMPTY(s)) {
-	obj = ESTACK_POP(s);
-    L_jump_start:
-	if (is_list(obj)) {
-	L_iter_list:
-	    objp = list_val(obj);
-	    obj = CAR(objp);
-	    if (is_byte(obj)) {
-		if (len == 0)
-		    goto L_overflow;
-		*buf++ = unsigned_val(obj);
-		csize++;
-		len--;
-	    } else if (is_binary(obj)) {
-		ESTACK_PUSH(s, CDR(objp));
-		goto handle_binary;
-	    } else if (is_list(obj)) {
-		ESTACK_PUSH(s, CDR(objp));
-		goto L_iter_list;    /* on head */
-	    } else if (!is_nil(obj)) {
-		goto L_type_error;
-	    }	    
-	    obj = CDR(objp);
-	    if (is_list(obj))
-		goto L_iter_list; /* on tail */
-	    else if (is_binary(obj)) {
-		goto handle_binary;
-	    } else if (!is_nil(obj)) {
-		goto L_type_error;
-	    }
-	} else if (is_binary(obj)) {
-	    Eterm real_bin;
-	    Uint offset;
-	    Eterm* bptr;
-	    ErlDrvSizeT size;
-	    int bitoffs;
-	    int bitsize;
-
-	handle_binary:
-	    size = binary_size(obj);
-	    ERTS_GET_REAL_BIN(obj, real_bin, offset, bitoffs, bitsize);
-	    ASSERT(bitsize == 0);
-	    bptr = binary_val(real_bin);
-	    if (*bptr == HEADER_PROC_BIN) {
-		ProcBin* pb = (ProcBin *) bptr;
-		if (bitoffs != 0) {
-		    if (len < size) {
-			goto L_overflow;
-		    }
-		    erts_copy_bits(pb->bytes+offset, bitoffs, 1,
-				   (byte *) buf, 0, 1, size*8);
-		    csize += size;
-		    buf += size;
-		    len -= size;
-		} else if (bin_limit && size < bin_limit) {
-		    if (len < size) {
-			goto L_overflow;
-		    }
-		    sys_memcpy(buf, pb->bytes+offset, size);
-		    csize += size;
-		    buf += size;
-		    len -= size;
-		} else {
-		    if (csize != 0) {
-                        io_list_to_vec_set_vec(&iov, &binv, cbin,
-                                               cptr, csize, &vlen);
-			cptr = buf;
-			csize = 0;
-		    }
-		    if (pb->flags) {
-			erts_emasculate_writable_binary(pb);
-		    }
-                    io_list_to_vec_set_vec(
-                        &iov, &binv, Binary2ErlDrvBinary(pb->val),
-                        pb->bytes+offset, size, &vlen);
-		}
-	    } else {
-		ErlHeapBin* hb = (ErlHeapBin *) bptr;
-		if (len < size) {
-		    goto L_overflow;
-		}
-		copy_binary_to_buffer(buf, 0,
-				      ((byte *) hb->data)+offset, bitoffs,
-				      8*size);
-		csize += size;
-		buf += size;
-		len -= size;
-	    }
-	} else if (!is_nil(obj)) {
-	    goto L_type_error;
-	}
-    }
-
-    if (csize != 0) {
-        io_list_to_vec_set_vec(&iov, &binv, cbin, cptr, csize, &vlen);
-    }
-
-    DESTROY_ESTACK(s);
-    return vlen;
-
- L_type_error:
-    DESTROY_ESTACK(s);
-    return -2;
-
- L_overflow:
-    DESTROY_ESTACK(s);
-    return -1;
-}
-
-#define IO_LIST_VEC_COUNT(obj)						\
-do {									\
-    Uint _size = binary_size(obj);					\
-    Eterm _real;							\
-    ERTS_DECLARE_DUMMY(Uint _offset);					\
-    int _bitoffs;							\
-    int _bitsize;							\
-    ERTS_GET_REAL_BIN(obj, _real, _offset, _bitoffs, _bitsize);		\
-    if (_bitsize != 0) goto L_type_error;				\
-    if (thing_subtag(*binary_val(_real)) == REFC_BINARY_SUBTAG &&	\
-	_bitoffs == 0) {						\
-	b_size += _size;                                                \
-        if (b_size < _size) goto L_overflow_error;			\
-	in_clist = 0;							\
-        v_size++;                                                       \
-        /* If iov_len is smaller then Uint we split the binary into*/   \
-        /* multiple smaller (2GB) elements in the iolist.*/             \
-	v_size += _size / MAX_SYSIOVEC_IOVLEN;                          \
-        if (_size >= ERL_SMALL_IO_BIN_LIMIT) {				\
-            p_in_clist = 0;						\
-            p_v_size++;							\
-        } else {							\
-            p_c_size += _size;						\
-            if (!p_in_clist) {						\
-                p_in_clist = 1;						\
-                p_v_size++;						\
-            }								\
-        }								\
-    } else {								\
-	c_size += _size;						\
-        if (c_size < _size) goto L_overflow_error;			\
-	if (!in_clist) {						\
-	    in_clist = 1;						\
-	    v_size++;							\
-	}								\
-	p_c_size += _size;						\
-	if (!p_in_clist) {						\
-	    p_in_clist = 1;						\
-	    p_v_size++;							\
-	}								\
-    }									\
-} while (0)
-
-
-/* 
- * Returns 0 if successful and a non-zero value otherwise.
- *
- * Return values through pointers:
- *    *vsize      - SysIOVec size needed for a writev
- *    *csize      - Number of bytes not in binary (in the common binary)
- *    *pvsize     - SysIOVec size needed if packing small binaries
- *    *pcsize     - Number of bytes in the common binary if packing
- *    *total_size - Total size of iolist in bytes
- */
-
-static int 
-io_list_vec_len(Eterm obj, int* vsize, Uint* csize,
-		Uint* pvsize, Uint* pcsize,
-		ErlDrvSizeT* total_size)
-{
-    DECLARE_ESTACK(s);
-    Eterm* objp;
-    Uint v_size = 0;
-    Uint c_size = 0;
-    Uint b_size = 0;
-    Uint in_clist = 0;
-    Uint p_v_size = 0;
-    Uint p_c_size = 0;
-    Uint p_in_clist = 0;
-    Uint total;
-
-    goto L_jump_start;  /* avoid a push */
-
-    while (!ESTACK_ISEMPTY(s)) {
-	obj = ESTACK_POP(s);
-    L_jump_start:
-	if (is_list(obj)) {
-	L_iter_list:
-	    objp = list_val(obj);
-	    obj = CAR(objp);
-
-	    if (is_byte(obj)) {
-		c_size++;
-		if (c_size == 0) {
-		    goto L_overflow_error;
-		}
-		if (!in_clist) {
-		    in_clist = 1;
-		    v_size++;
-		}
-		p_c_size++;
-		if (!p_in_clist) {
-		    p_in_clist = 1;
-		    p_v_size++;
-		}
-	    }
-	    else if (is_binary(obj)) {
-		IO_LIST_VEC_COUNT(obj);
-	    }
-	    else if (is_list(obj)) {
-		ESTACK_PUSH(s, CDR(objp));
-		goto L_iter_list;   /* on head */
-	    }
-	    else if (!is_nil(obj)) {
-		goto L_type_error;
-	    }
-
-	    obj = CDR(objp);
-	    if (is_list(obj))
-		goto L_iter_list;   /* on tail */
-	    else if (is_binary(obj)) {  /* binary tail is OK */
-		IO_LIST_VEC_COUNT(obj);
-	    }
-	    else if (!is_nil(obj)) {
-		goto L_type_error;
-	    }
-	}
-	else if (is_binary(obj)) {
-	    IO_LIST_VEC_COUNT(obj);
-	}
-	else if (!is_nil(obj)) {
-	    goto L_type_error;
-	}
-    }
-
-    total = c_size + b_size;
-    if (total < c_size) {
-	goto L_overflow_error;
-    }
-    *total_size = (ErlDrvSizeT) total;
-
-    DESTROY_ESTACK(s);
-    *vsize = v_size;
-    *csize = c_size;
-    *pvsize = p_v_size;
-    *pcsize = p_c_size;
-    return 0;
-
- L_type_error:
- L_overflow_error:
-    DESTROY_ESTACK(s);
-    return 1;
 }
 
 typedef enum {
@@ -1750,8 +1422,7 @@ cleanup_scheduled_outputv(ErlIOVec *ev, ErlDrvBinary *cbinp)
     int i;
     /* Need to free all binaries */
     for (i = 1; i < ev->vsize; i++)
-	if (ev->binv[i])
-	    driver_free_binary(ev->binv[i]);
+        driver_free_binary(ev->binv[i]);
     if (cbinp)
 	driver_free_binary(cbinp);
 }
@@ -1919,15 +1590,14 @@ erts_port_output_async(Port *prt, Eterm from, Eterm list)
     size_t size;
     int task_flags;
     ErtsProc2PortSigCallback port_sig_callback;
-    ErlDrvBinary *cbin = NULL;
-    ErlIOVec *evp = NULL;
+    ErtsIOQBinary *cbin = NULL;
+    ErtsIOVec *evp = NULL;
     char *buf = NULL;
     ErtsPortTaskHandle *ns_pthp;
 
     if (drv->outputv) {
-        ErlIOVec ev;
 	SysIOVec* ivp;
-	ErlDrvBinary**  bvp;
+	ErtsIOQBinary**  bvp;
         int vsize;
 	Uint csize;
 	Uint pvsize;
@@ -1937,91 +1607,63 @@ erts_port_output_async(Port *prt, Eterm from, Eterm list)
         char *ptr;
         int i;
 
-        Eterm* bptr = NULL;
-        Uint offset;
+        if (erts_ioq_iodata_vec_len(list, &vsize, &csize, &pvsize, &pcsize,
+                                    &size, ERL_SMALL_IO_BIN_LIMIT))
+            goto bad_value;
 
-        if (is_binary(list)) {
-            /* We optimize for when we get a procbin without offset */
-            Eterm real_bin;
-            int bitoffs;
-            int bitsize;
-            ERTS_GET_REAL_BIN(list, real_bin, offset, bitoffs, bitsize);
-            bptr = binary_val(real_bin);
-            if (*bptr == HEADER_PROC_BIN && bitoffs == 0) {
-                size = binary_size(list);
-                vsize = 1;
-            } else
-                bptr = NULL;
+        /* To pack or not to pack (small binaries) ...? */
+        if (vsize >= SMALL_WRITE_VEC) {
+            /* Do pack */
+            vsize = pvsize + 1;
+            csize = pcsize;
+            blimit = ERL_SMALL_IO_BIN_LIMIT;
         }
-
-        if (!bptr) {
-            if (io_list_vec_len(list, &vsize, &csize, &pvsize, &pcsize, &size))
-                goto bad_value;
-
-            /* To pack or not to pack (small binaries) ...? */
-            if (vsize >= SMALL_WRITE_VEC) {
-                /* Do pack */
-                vsize = pvsize + 1;
-                csize = pcsize;
-                blimit = ERL_SMALL_IO_BIN_LIMIT;
-            }
-            cbin = driver_alloc_binary(csize);
+        if (csize) {
+            cbin = (ErtsIOQBinary *)driver_alloc_binary(csize);
             if (!cbin)
                 erts_alloc_enomem(ERTS_ALC_T_DRV_BINARY, ERTS_SIZEOF_Binary(csize));
         }
-
 
         iov_offset = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(ErlIOVec));
 	binv_offset = iov_offset;
         binv_offset += ERTS_ALC_DATA_ALIGN_SIZE((vsize+1)*sizeof(SysIOVec));
         alloc_size = binv_offset;
-	alloc_size += (vsize+1)*sizeof(ErlDrvBinary *);
+	alloc_size += (vsize+1)*sizeof(ErtsIOQBinary *);
 
         sigdp = erts_port_task_alloc_p2p_sig_data_extra(alloc_size, (void**)&ptr);
 
-        evp = (ErlIOVec *) ptr;
-        ivp = evp->iov = (SysIOVec *) (ptr + iov_offset);
-        bvp = evp->binv = (ErlDrvBinary **) (ptr + binv_offset);
+        evp = (ErtsIOVec *) ptr;
+        ivp = evp->driver.iov = (SysIOVec *) (ptr + iov_offset);
+        bvp = evp->common.binv = (ErtsIOQBinary **) (ptr + binv_offset);
 
         ivp[0].iov_base = NULL;
 	ivp[0].iov_len = 0;
 	bvp[0] = NULL;
 
-        if (bptr) {
-            ProcBin* pb = (ProcBin *) bptr;
-
-            ivp[1].iov_base = pb->bytes+offset;
-            ivp[1].iov_len = size;
-            bvp[1] = Binary2ErlDrvBinary(pb->val);
-
-            evp->vsize = 1;
-        } else {
-
-            evp->vsize = io_list_to_vec(list, ivp+1, bvp+1, cbin, blimit);
-            if (evp->vsize < 0) {
-                if (evp != &ev)
-                    erts_free(ERTS_ALC_T_DRV_CMD_DATA, evp);
-                driver_free_binary(cbin);
-                goto bad_value;
-            }
+        evp->driver.vsize = erts_ioq_iodata_to_vec(list, ivp+1, bvp+1, cbin,
+                                                   blimit, 1);
+        if (evp->driver.vsize < 0) {
+            erts_free(ERTS_ALC_T_DRV_CMD_DATA, evp);
+            driver_free_binary(&cbin->driver);
+            goto bad_value;
         }
 #if 0
 	/* This assertion may say something useful, but it can
         be falsified during the emulator test suites. */
 	ASSERT(evp->vsize == vsize);
 #endif
-	evp->vsize++;
-	evp->size = size;  /* total size */
+	evp->driver.vsize++;
+	evp->driver.size = size;  /* total size */
 
         /* Need to increase refc on all binaries */
-        for (i = 1; i < evp->vsize; i++)
+        for (i = 1; i < evp->driver.vsize; i++)
             if (bvp[i])
-                driver_binary_inc_refc(bvp[i]);
+                driver_binary_inc_refc(&bvp[i]->driver);
 
 	sigdp->flags = ERTS_P2P_SIG_TYPE_OUTPUTV;
 	sigdp->u.outputv.from = from;
-	sigdp->u.outputv.evp = evp;
-	sigdp->u.outputv.cbinp = cbin;
+	sigdp->u.outputv.evp = &evp->driver;
+	sigdp->u.outputv.cbinp = &cbin->driver;
 	port_sig_callback = port_sig_outputv;
     } else {
         ErlDrvSizeT ERTS_DECLARE_DUMMY(r);
@@ -2092,8 +1734,8 @@ erts_port_output(Process *c_p,
     erts_aint32_t sched_flags, busy_flgs, invalid_flags;
     int task_flags;
     ErtsProc2PortSigCallback port_sig_callback;
-    ErlDrvBinary *cbin = NULL;
-    ErlIOVec *evp = NULL;
+    ErtsIOQBinary *cbin = NULL;
+    ErtsIOVec *evp = NULL;
     char *buf = NULL;
     int force_immediate_call = (flags & ERTS_PORT_SIG_FLG_FORCE_IMM_CALL);
     int async_nosuspend;
@@ -2139,11 +1781,11 @@ erts_port_output(Process *c_p,
     }
 #endif
     if (drv->outputv) {
-	ErlIOVec ev;
+	ErtsIOVec ev;
 	SysIOVec iv[SMALL_WRITE_VEC];
-	ErlDrvBinary* bv[SMALL_WRITE_VEC];
+	ErtsIOQBinary* bv[SMALL_WRITE_VEC];
 	SysIOVec* ivp;
-	ErlDrvBinary**  bvp;
+	ErtsIOQBinary**  bvp;
 	int vsize;
 	Uint csize;
 	Uint pvsize;
@@ -2151,18 +1793,19 @@ erts_port_output(Process *c_p,
 	Uint blimit;
 	size_t iov_offset, binv_offset, alloc_size;
 
-	if (io_list_vec_len(list, &vsize, &csize, &pvsize, &pcsize, &size))
+	if (erts_ioq_iodata_vec_len(list, &vsize, &csize, &pvsize, &pcsize,
+                                    &size, ERL_SMALL_IO_BIN_LIMIT))
 	    goto bad_value;
 
 	iov_offset = ERTS_ALC_DATA_ALIGN_SIZE(sizeof(ErlIOVec));
 	binv_offset = iov_offset;
 	binv_offset += ERTS_ALC_DATA_ALIGN_SIZE((vsize+1)*sizeof(SysIOVec));
 	alloc_size = binv_offset;
-	alloc_size += (vsize+1)*sizeof(ErlDrvBinary *);
+	alloc_size += (vsize+1)*sizeof(ErtsIOQBinary *);
 
 	if (try_call && vsize < SMALL_WRITE_VEC) {
-	    ivp = ev.iov = iv;
-	    bvp = ev.binv = bv;
+	    ivp = ev.common.iov = iv;
+	    bvp = ev.common.binv = bv;
 	    evp = &ev;
 	}
 	else {
@@ -2173,9 +1816,9 @@ erts_port_output(Process *c_p,
                 sigdp = erts_port_task_alloc_p2p_sig_data_extra(
                     alloc_size, (void**)&ptr);
             }
-	    evp = (ErlIOVec *) ptr;
-	    ivp = evp->iov = (SysIOVec *) (ptr + iov_offset);
-	    bvp = evp->binv = (ErlDrvBinary **) (ptr + binv_offset);
+	    evp = (ErtsIOVec *) ptr;
+	    ivp = evp->driver.iov = (SysIOVec *) (ptr + iov_offset);
+	    bvp = evp->common.binv = (ErtsIOQBinary **) (ptr + binv_offset);
 	}
 
 	/* To pack or not to pack (small binaries) ...? */
@@ -2191,23 +1834,26 @@ erts_port_output(Process *c_p,
 	}
 	/* Use vsize and csize from now on */
 
-	cbin = driver_alloc_binary(csize);
-	if (!cbin)
-	    erts_alloc_enomem(ERTS_ALC_T_DRV_BINARY, ERTS_SIZEOF_Binary(csize));
+        if (csize) {
+            cbin = (ErtsIOQBinary *)driver_alloc_binary(csize);
+            if (!cbin)
+                erts_alloc_enomem(ERTS_ALC_T_DRV_BINARY, ERTS_SIZEOF_Binary(csize));
+        }
 
 	/* Element 0 is for driver usage to add header block */
 	ivp[0].iov_base = NULL;
 	ivp[0].iov_len = 0;
 	bvp[0] = NULL;
-	evp->vsize = io_list_to_vec(list, ivp+1, bvp+1, cbin, blimit);
-	if (evp->vsize < 0) {
+	evp->driver.vsize = erts_ioq_iodata_to_vec(list, ivp+1, bvp+1,
+                                                   cbin, blimit, 1);
+	if (evp->driver.vsize < 0) {
             if (evp != &ev) {
                 if (try_call)
                     erts_free(ERTS_ALC_T_TMP, evp);
                 else
                     erts_port_task_free_p2p_sig_data(sigdp);
             }
-	    driver_free_binary(cbin);
+            driver_free_binary(&cbin->driver);
 	    goto bad_value;
 	}
 #if 0
@@ -2215,19 +1861,19 @@ erts_port_output(Process *c_p,
 	   be falsified during the emulator test suites. */
 	ASSERT(evp->vsize == vsize);
 #endif
-	evp->vsize++;
-	evp->size = size;  /* total size */
+	evp->driver.vsize++;
+	evp->driver.size = size;  /* total size */
 
 	if (!try_call) {
 	    int i;
 	    /* Need to increase refc on all binaries */
-	    for (i = 1; i < evp->vsize; i++)
-		if (bvp[i])
-		    driver_binary_inc_refc(bvp[i]);
+	    for (i = 1; i < evp->driver.vsize; i++)
+                if (bvp[i])
+                    driver_binary_inc_refc(&bvp[i]->driver);
 	}
 	else {
 	    int i;
-	    ErlIOVec *new_evp;
+	    ErtsIOVec *new_evp;
 	    ErtsTryImmDrvCallResult try_call_res;
 	    ErtsTryImmDrvCallState try_call_state
 		= ERTS_INIT_TRY_IMM_DRV_CALL_STATE(
@@ -2250,14 +1896,14 @@ erts_port_output(Process *c_p,
 				    from,
 				    prt,
 				    drv,
-				    evp);
+				    &evp->driver);
 		if (force_immediate_call)
 		    finalize_force_imm_drv_call(&try_call_state);
 		else
 		    finalize_imm_drv_call(&try_call_state);
 		/* Fall through... */
 	    case ERTS_TRY_IMM_DRV_CALL_INVALID_PORT:
-		driver_free_binary(cbin);
+		driver_free_binary(&cbin->driver);
 		if (evp != &ev) {
                     ASSERT(!sigdp);
 		    erts_free(ERTS_ALC_T_TMP, evp);
@@ -2271,7 +1917,7 @@ erts_port_output(Process *c_p,
 		sched_flags = try_call_state.sched_flags;
 		if (async_nosuspend
 		    && (sched_flags & (busy_flgs|ERTS_PTS_FLG_EXIT))) {
-		    driver_free_binary(cbin);
+		    driver_free_binary(&cbin->driver);
                     if (evp != &ev) {
                         ASSERT(!sigdp);
 			erts_free(ERTS_ALC_T_TMP, evp);
@@ -2286,9 +1932,9 @@ erts_port_output(Process *c_p,
 	    }
 
 	    /* Need to increase refc on all binaries */
-	    for (i = 1; i < evp->vsize; i++)
+	    for (i = 1; i < evp->driver.vsize; i++)
 		if (bvp[i])
-		    driver_binary_inc_refc(bvp[i]);
+		    driver_binary_inc_refc(&bvp[i]->driver);
 
             /* The port task and iovec is allocated in the
                same structure as an optimization. This
@@ -2301,18 +1947,18 @@ erts_port_output(Process *c_p,
 	    if (evp != &ev) {
                 /* Copy from TMP alloc to port task */
 		sys_memcpy((void *) new_evp, (void *) evp, alloc_size);
-		new_evp->iov = (SysIOVec *) (((char *) new_evp)
-					     + iov_offset);
-		bvp = new_evp->binv = (ErlDrvBinary **) (((char *) new_evp)
-							 + binv_offset);
+		new_evp->driver.iov = (SysIOVec *) (((char *) new_evp)
+                                                    + iov_offset);
+		bvp = new_evp->common.binv = (ErtsIOQBinary **) (((char *) new_evp)
+                                                                 + binv_offset);
 
 #ifdef DEBUG
-		ASSERT(new_evp->vsize == evp->vsize);
-		ASSERT(new_evp->size == evp->size);
-		for (i = 0; i < evp->vsize; i++) {
-		    ASSERT(new_evp->iov[i].iov_len == evp->iov[i].iov_len);
-		    ASSERT(new_evp->iov[i].iov_base == evp->iov[i].iov_base);
-		    ASSERT(new_evp->binv[i] == evp->binv[i]);
+		ASSERT(new_evp->driver.vsize == evp->driver.vsize);
+		ASSERT(new_evp->driver.size == evp->driver.size);
+		for (i = 0; i < evp->driver.vsize; i++) {
+		    ASSERT(new_evp->driver.iov[i].iov_len == evp->driver.iov[i].iov_len);
+		    ASSERT(new_evp->driver.iov[i].iov_base == evp->driver.iov[i].iov_base);
+		    ASSERT(new_evp->driver.binv[i] == evp->driver.binv[i]);
 		}
 #endif
 
@@ -2321,24 +1967,24 @@ erts_port_output(Process *c_p,
 	    else { /* from stack allocated structure; offsets may differ */
 
 		sys_memcpy((void *) new_evp, (void *) evp, sizeof(ErlIOVec));
-		new_evp->iov = (SysIOVec *) (((char *) new_evp)
-					     + iov_offset);
-		sys_memcpy((void *) new_evp->iov,
-			   (void *) evp->iov,
-			   evp->vsize * sizeof(SysIOVec));
-		new_evp->binv = (ErlDrvBinary **) (((char *) new_evp)
-						   + binv_offset);
-		sys_memcpy((void *) new_evp->binv,
-			   (void *) evp->binv,
-			   evp->vsize * sizeof(ErlDrvBinary *));
+		new_evp->driver.iov = (SysIOVec *) (((char *) new_evp)
+                                                    + iov_offset);
+		sys_memcpy((void *) new_evp->driver.iov,
+			   (void *) evp->driver.iov,
+			   evp->driver.vsize * sizeof(SysIOVec));
+		new_evp->common.binv = (ErtsIOQBinary **) (((char *) new_evp)
+                                                           + binv_offset);
+		sys_memcpy((void *) new_evp->common.binv,
+			   (void *) evp->common.binv,
+			   evp->driver.vsize * sizeof(ErtsIOQBinary *));
 
 #ifdef DEBUG
-		ASSERT(new_evp->vsize == evp->vsize);
-		ASSERT(new_evp->size == evp->size);
-		for (i = 0; i < evp->vsize; i++) {
-		    ASSERT(new_evp->iov[i].iov_len == evp->iov[i].iov_len);
-		    ASSERT(new_evp->iov[i].iov_base == evp->iov[i].iov_base);
-		    ASSERT(new_evp->binv[i] == evp->binv[i]);
+		ASSERT(new_evp->driver.vsize == evp->driver.vsize);
+		ASSERT(new_evp->driver.size == evp->driver.size);
+		for (i = 0; i < evp->driver.vsize; i++) {
+		    ASSERT(new_evp->driver.iov[i].iov_len == evp->driver.iov[i].iov_len);
+		    ASSERT(new_evp->driver.iov[i].iov_base == evp->driver.iov[i].iov_base);
+		    ASSERT(new_evp->driver.binv[i] == evp->driver.binv[i]);
 		}
 #endif
 
@@ -2349,8 +1995,8 @@ erts_port_output(Process *c_p,
 
 	sigdp->flags = ERTS_P2P_SIG_TYPE_OUTPUTV;
 	sigdp->u.outputv.from = from;
-	sigdp->u.outputv.evp = evp;
-	sigdp->u.outputv.cbinp = cbin;
+	sigdp->u.outputv.evp = &evp->driver;
+	sigdp->u.outputv.cbinp = &cbin->driver;
 	port_sig_callback = port_sig_outputv;
     }
     else {
@@ -7090,227 +6736,19 @@ driver_pdl_dec_refc(ErlDrvPDL pdl)
     return refc;
 }
 
-/* expand queue to hold n elements in tail or head */
-static int expandq(ErlIOQueue* q, int n, int tail)
-/* tail: 0 if make room in head, make room in tail otherwise */
-{
-    int h_sz;  /* room before header */
-    int t_sz;  /* room after tail */
-    int q_sz;  /* occupied */
-    int nvsz;
-    SysIOVec* niov;
-    ErlDrvBinary** nbinv;
-
-    h_sz = q->v_head - q->v_start;
-    t_sz = q->v_end -  q->v_tail;
-    q_sz = q->v_tail - q->v_head;
-
-    if (tail && (n <= t_sz)) /* do we need to expand tail? */
-	return 0;
-    else if (!tail && (n <= h_sz))  /* do we need to expand head? */
-	return 0;
-    else if (n > (h_sz + t_sz)) { /* need to allocate */
-	/* we may get little extra but it ok */
-	nvsz = (q->v_end - q->v_start) + n; 
-
-	niov = erts_alloc_fnf(ERTS_ALC_T_IOQ, nvsz * sizeof(SysIOVec));
-	if (!niov)
-	    return -1;
-	nbinv = erts_alloc_fnf(ERTS_ALC_T_IOQ, nvsz * sizeof(ErlDrvBinary**));
-	if (!nbinv) {
-	    erts_free(ERTS_ALC_T_IOQ, (void *) niov);
-	    return -1;
-	}
-	if (tail) {
-	    sys_memcpy(niov, q->v_head, q_sz*sizeof(SysIOVec));
-	    if (q->v_start != q->v_small)
-		erts_free(ERTS_ALC_T_IOQ, (void *) q->v_start);
-	    q->v_start = niov;
-	    q->v_end = niov + nvsz;
-	    q->v_head = q->v_start;
-	    q->v_tail = q->v_head + q_sz;
-
-	    sys_memcpy(nbinv, q->b_head, q_sz*sizeof(ErlDrvBinary*));
-	    if (q->b_start != q->b_small)
-		erts_free(ERTS_ALC_T_IOQ, (void *) q->b_start);
-	    q->b_start = nbinv;
-	    q->b_end = nbinv + nvsz;
-	    q->b_head = q->b_start;
-	    q->b_tail = q->b_head + q_sz;	
-	}
-	else {
-	    sys_memcpy(niov+nvsz-q_sz, q->v_head, q_sz*sizeof(SysIOVec));
-	    if (q->v_start != q->v_small)
-		erts_free(ERTS_ALC_T_IOQ, (void *) q->v_start);
-	    q->v_start = niov;
-	    q->v_end = niov + nvsz;
-	    q->v_tail = q->v_end;
-	    q->v_head = q->v_tail - q_sz;
-	    
-	    sys_memcpy(nbinv+nvsz-q_sz, q->b_head, q_sz*sizeof(ErlDrvBinary*));
-	    if (q->b_start != q->b_small)
-		erts_free(ERTS_ALC_T_IOQ, (void *) q->b_start);
-	    q->b_start = nbinv;
-	    q->b_end = nbinv + nvsz;
-	    q->b_tail = q->b_end;
-	    q->b_head = q->b_tail - q_sz;
-	}
-    }
-    else if (tail) {  /* move to beginning to make room in tail */
-	sys_memmove(q->v_start, q->v_head, q_sz*sizeof(SysIOVec));
-	q->v_head = q->v_start;
-	q->v_tail = q->v_head + q_sz;
-	sys_memmove(q->b_start, q->b_head, q_sz*sizeof(ErlDrvBinary*));
-	q->b_head = q->b_start;
-	q->b_tail = q->b_head + q_sz;
-    }
-    else {   /* move to end to make room */
-	sys_memmove(q->v_end-q_sz, q->v_head, q_sz*sizeof(SysIOVec));
-	q->v_tail = q->v_end;
-	q->v_head = q->v_tail-q_sz;
-	sys_memmove(q->b_end-q_sz, q->b_head, q_sz*sizeof(ErlDrvBinary*));
-	q->b_tail = q->b_end;
-	q->b_head = q->b_tail-q_sz;
-    }
-
-    return 0;
-}
-
-
-
 /* Put elements from vec at q tail */
 int driver_enqv(ErlDrvPort ix, ErlIOVec* vec, ErlDrvSizeT skip)
 {
-    int n;
-    size_t len;
-    ErlDrvSizeT size;
-    SysIOVec* iov;
-    ErlDrvBinary** binv;
-    ErlDrvBinary*  b;
-    ErlIOQueue* q = drvport2ioq(ix);
-
-    if (q == NULL)
-	return -1;
-
-    ASSERT(vec->size >= skip);       /* debug only */
-    if (vec->size <= skip)
-	return 0;
-    size = vec->size - skip;
-
-    iov = vec->iov;
-    binv = vec->binv;
-    n = vec->vsize;
-
-    /* we use do here to strip iov_len=0 from beginning */
-    do {
-	len = iov->iov_len;
-	if (len <= skip) {
-	    skip -= len;
-	    iov++;
-	    binv++;
-	    n--;
-	}
-	else {
-	    iov->iov_base = ((char *)(iov->iov_base)) + skip;
-	    iov->iov_len -= skip;
-	    skip = 0;
-	}
-    } while(skip > 0);
-
-    if (q->v_tail + n >= q->v_end)
-	expandq(q, n, 1);
-
-    /* Queue and reference all binaries (remove zero length items) */
-    while(n--) {
-	if ((len = iov->iov_len) > 0) {
-	    if ((b = *binv) == NULL) { /* speical case create binary ! */
-		b = driver_alloc_binary(len);
-		sys_memcpy(b->orig_bytes, iov->iov_base, len);
-		*q->b_tail++ = b;
-		q->v_tail->iov_len = len;
-		q->v_tail->iov_base = b->orig_bytes;
-		q->v_tail++;
-	    }
-	    else {
-		driver_binary_inc_refc(b);
-		*q->b_tail++ = b;
-		*q->v_tail++ = *iov;
-	    }
-	}
-	iov++;
-	binv++;
-    }
-    q->size += size;      /* update total size in queue */
-    return 0;
+    ASSERT(vec->size >= skip);
+    return erts_ioq_enqv(drvport2ioq(ix), (ErtsIOVec*)vec, skip);
 }
 
 /* Put elements from vec at q head */
 int driver_pushqv(ErlDrvPort ix, ErlIOVec* vec, ErlDrvSizeT skip)
 {
-    int n;
-    size_t len;
-    ErlDrvSizeT size;
-    SysIOVec* iov;
-    ErlDrvBinary** binv;
-    ErlDrvBinary* b;
-    ErlIOQueue* q = drvport2ioq(ix);
-
-    if (q == NULL)
-	return -1;
-
-    if (vec->size <= skip)
-	return 0;
-    size = vec->size - skip;
-
-    iov = vec->iov;
-    binv = vec->binv;
-    n = vec->vsize;
-
-    /* we use do here to strip iov_len=0 from beginning */
-    do {
-	len = iov->iov_len;
-	if (len <= skip) {
-	    skip -= len;
-	    iov++;
-	    binv++;
-	    n--;
-	}
-	else {
-	    iov->iov_base = ((char *)(iov->iov_base)) + skip;
-	    iov->iov_len -= skip;
-	    skip = 0;
-	}
-    } while(skip > 0);
-
-    if (q->v_head - n < q->v_start)
-	expandq(q, n, 0);
-
-    /* Queue and reference all binaries (remove zero length items) */
-    iov += (n-1);  /* move to end */
-    binv += (n-1); /* move to end */
-    while(n--) {
-	if ((len = iov->iov_len) > 0) {
-	    if ((b = *binv) == NULL) { /* speical case create binary ! */
-		b = driver_alloc_binary(len);
-		sys_memcpy(b->orig_bytes, iov->iov_base, len);
-		*--q->b_head = b;
-		q->v_head--;
-		q->v_head->iov_len = len;
-		q->v_head->iov_base = b->orig_bytes;
-	    }
-	    else {
-		driver_binary_inc_refc(b);
-		*--q->b_head = b;
-		*--q->v_head = *iov;
-	    }
-	}
-	iov--;
-	binv--;
-    }
-    q->size += size;      /* update total size in queue */
-    return 0;
+    ASSERT(vec->size >= skip);
+    return erts_ioq_pushqv(drvport2ioq(ix), (ErtsIOVec*)vec, skip);
 }
-
 
 /*
 ** Remove size bytes from queue head
@@ -7318,79 +6756,31 @@ int driver_pushqv(ErlDrvPort ix, ErlIOVec* vec, ErlDrvSizeT skip)
 */
 ErlDrvSizeT driver_deq(ErlDrvPort ix, ErlDrvSizeT size)
 {
-    ErlIOQueue* q = drvport2ioq(ix);
-    ErlDrvSizeT len;
-
-    if ((q == NULL) || (q->size < size))
-	return -1;
-    q->size -= size;
-    while (size > 0) {
-	ASSERT(q->v_head != q->v_tail);
-
-	len = q->v_head->iov_len;
-	if (len <= size) {
-	    size -= len;
-	    driver_free_binary(*q->b_head);
-	    *q->b_head++ = NULL;
-	    q->v_head++;
-	}
-	else {
-	    q->v_head->iov_base = ((char *)(q->v_head->iov_base)) + size;
-	    q->v_head->iov_len -= size;
-	    size = 0;
-	}
-    }
-
-    /* restart pointers (optimised for enq) */
-    if (q->v_head == q->v_tail) {
-	q->v_head = q->v_tail = q->v_start;
-	q->b_head = q->b_tail = q->b_start;
-    }
-    return q->size;
+    ErlPortIOQueue *q = drvport2ioq(ix);
+    if (erts_ioq_deq(q, size) == -1)
+        return -1;
+    return erts_ioq_size(q);
 }
 
 
-ErlDrvSizeT driver_peekqv(ErlDrvPort ix, ErlIOVec *ev) {
-    ErlIOQueue *q = drvport2ioq(ix);
-    ASSERT(ev);
-
-    if (! q) {
-	return (ErlDrvSizeT) -1;
-    } else {
-	if ((ev->vsize = q->v_tail - q->v_head) == 0) {
-	    ev->size = 0;
-	    ev->iov = NULL;
-	    ev->binv = NULL;
-	} else {
-	    ev->size = q->size;
-	    ev->iov = q->v_head;
-	    ev->binv = q->b_head;
-	}
-	return q->size;
-    }
+ErlDrvSizeT driver_peekqv(ErlDrvPort ix, ErlIOVec *ev)
+{
+    return erts_ioq_peekqv(drvport2ioq(ix), (ErtsIOVec*)ev);
 }
 
 SysIOVec* driver_peekq(ErlDrvPort ix, int* vlenp)  /* length of io-vector */
 {
-    ErlIOQueue* q = drvport2ioq(ix);
-
-    if (q == NULL) {
-	*vlenp = -1;
-	return NULL;
-    }
-    if ((*vlenp = (q->v_tail - q->v_head)) == 0)
-	return NULL;
-    return q->v_head;
+    return erts_ioq_peekq(drvport2ioq(ix), vlenp);
 }
 
 
 ErlDrvSizeT driver_sizeq(ErlDrvPort ix)
 {
-    ErlIOQueue* q = drvport2ioq(ix);
+    ErlPortIOQueue *q = drvport2ioq(ix);
 
     if (q == NULL)
-	return (size_t) -1;
-    return q->size;
+	return (ErlDrvSizeT) -1;
+    return erts_ioq_size(q);
 }
 
 
