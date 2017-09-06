@@ -225,7 +225,7 @@ sub(Pat, Ps, Dict) ->
 %% waits/0
 
 -spec waits()
-   -> [{pattern(), [{from(), term()}]}].
+   -> [{pattern(), [from()]}].
 
 waits() ->
     #state{receivers = RD} = state(),
