@@ -1629,8 +1629,8 @@ lift_list_to_pos_empty(?list(Content, Termination, _)) ->
 %%  * The keys in Pairs are singleton types.
 %%  * The values of Pairs must not be unit, and may only be none if the
 %%      mandatoriness tag  is 'optional'.
-%%  * Optional must contain no pair {K,V} s.t. K is a subtype of DefaultKey and
-%%    V is equal to DefaultKey.
+%%  * There is no pair {K, 'optional', V} in Pairs s.t.
+%%      K is a subtype of DefaultKey and V is equal to DefaultValue.
 %%  * DefaultKey must be the empty type iff DefaultValue is the empty type.
 %%  * DefaultKey must not be a singleton type.
 %%  * For every key K in Pairs, DefaultKey - K must not be representable; i.e.
