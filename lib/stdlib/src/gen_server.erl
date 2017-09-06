@@ -116,23 +116,27 @@
 %%%=========================================================================
 
 -callback init(Args :: term()) ->
-    {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate} |
+    {ok, State :: term()} | {ok, State :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term()} | ignore.
 -callback handle_call(Request :: term(), From :: {pid(), Tag :: term()},
                       State :: term()) ->
     {reply, Reply :: term(), NewState :: term()} |
-    {reply, Reply :: term(), NewState :: term(), timeout() | hibernate} |
+    {reply, Reply :: term(), NewState :: term(), timeout() | hibernate | {continue, term()}} |
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate} |
+    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
     {stop, Reason :: term(), NewState :: term()}.
 -callback handle_cast(Request :: term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate} |
+    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term(), NewState :: term()}.
 -callback handle_info(Info :: timeout | term(), State :: term()) ->
     {noreply, NewState :: term()} |
-    {noreply, NewState :: term(), timeout() | hibernate} |
+    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+    {stop, Reason :: term(), NewState :: term()}.
+-callback handle_continue(Info :: term(), State :: term()) ->
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
     {stop, Reason :: term(), NewState :: term()}.
 -callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
                                term()),
@@ -149,7 +153,7 @@
       Status :: term().
 
 -optional_callbacks(
-    [handle_info/2, terminate/2, code_change/3, format_status/2]).
+    [handle_info/2, handle_continue/2, terminate/2, code_change/3, format_status/2]).
 
 %%%  -----------------------------------------------------------------
 %%% Starts a generic server.
@@ -309,7 +313,7 @@ enter_loop(Mod, Options, State, ServerName, Timeout) ->
     Name = gen:get_proc_name(ServerName),
     Parent = gen:get_parent(),
     Debug = gen:debug_options(Name, Options),
-	HibernateAfterTimeout = gen:hibernate_after(Options),
+    HibernateAfterTimeout = gen:hibernate_after(Options),
     loop(Parent, Name, State, Mod, Timeout, HibernateAfterTimeout, Debug).
 
 %%%========================================================================
@@ -374,6 +378,19 @@ init_it(Mod, Args) ->
 %%% ---------------------------------------------------
 %%% The MAIN loop.
 %%% ---------------------------------------------------
+
+loop(Parent, Name, State, Mod, {continue, Continue} = Msg, HibernateAfterTimeout, Debug) ->
+    Reply = try_dispatch(Mod, handle_continue, Continue, State),
+    case Debug of
+	[] ->
+	    handle_common_reply(Reply, Parent, Name, undefined, Msg, Mod,
+				HibernateAfterTimeout, State);
+	_ ->
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name, Msg),
+	    handle_common_reply(Reply, Parent, Name, undefined, Msg, Mod,
+				HibernateAfterTimeout, State, Debug1)
+    end;
+
 loop(Parent, Name, State, Mod, hibernate, HibernateAfterTimeout, Debug) ->
     proc_lib:hibernate(?MODULE,wake_hib,[Parent, Name, State, Mod, HibernateAfterTimeout, Debug]);
 
