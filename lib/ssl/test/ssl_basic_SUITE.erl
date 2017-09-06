@@ -276,13 +276,6 @@ end_per_suite(_Config) ->
     application:stop(crypto).
 
 %%--------------------------------------------------------------------
-init_per_group(GroupName, Config) when GroupName == basic;
-                                       GroupName == basic_tls;
-                                       GroupName == options;
-                                       GroupName == options_tls;
-                                       GroupName == session ->
-    ssl_test_lib:init_tls_version_default(Config);
-
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) andalso ssl_test_lib:sufficient_crypto_support(GroupName) of
 	true ->
@@ -297,8 +290,13 @@ init_per_group(GroupName, Config) ->
 	    end
     end.
 
-end_per_group(_GroupName, Config) ->
-    Config.
+end_per_group(GroupName, Config) ->
+  case ssl_test_lib:is_tls_version(GroupName) of
+      true ->
+          ssl_test_lib:clean_tls_version(Config);
+      false ->
+          Config
+  end.
 
 %%--------------------------------------------------------------------
 init_per_testcase(Case, Config) when Case ==  unordered_protocol_versions_client;
