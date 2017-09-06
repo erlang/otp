@@ -719,8 +719,8 @@ Eshell V5.10.1  (abort with ^G)
   </section> 
 
   <section>
-    <title>Unicode Filenames</title>
     <marker id="unicode_file_names"/>
+    <title>Unicode Filenames</title>
     <p>Most modern operating systems support Unicode filenames in some way.
       There are many different ways to do this and Erlang by default treats the
       different approaches differently:</p>
@@ -855,8 +855,12 @@ Eshell V5.10.1  (abort with ^G)
     </note>
 
     <section>
-      <title>Notes About Raw Filenames</title>
       <marker id="notes-about-raw-filenames"/>
+      <title>Notes About Raw Filenames</title>
+      <note><p>
+	Note that raw filenames <em>not</em> necessarily are encoded the
+	same way as on the OS level.
+      </p></note>
       <p>Raw filenames were introduced together with Unicode filename support
         in ERTS 5.8.2 (Erlang/OTP R14B01). The reason &quot;raw
         filenames&quot; were introduced in the system was

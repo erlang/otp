@@ -25,6 +25,8 @@
 
 -include("file.hrl").
 
+-export_type([env_var_name/0, env_var_value/0, env_var_name_value/0, command_input/0]).
+
 %%% BIFs
 
 -export([getenv/0, getenv/1, getenv/2, getpid/0,
@@ -32,21 +34,29 @@
          putenv/2, set_signal/2, system_time/0, system_time/1,
 	 timestamp/0, unsetenv/1]).
 
--spec getenv() -> [string()].
+-type env_var_name() :: nonempty_string().
+
+-type env_var_value() :: string().
+
+-type env_var_name_value() :: nonempty_string().
+
+-type command_input() :: atom() | io_lib:chars().
+
+-spec getenv() -> [env_var_name_value()].
 
 getenv() -> erlang:nif_error(undef).
 
 -spec getenv(VarName) -> Value | false when
-      VarName :: string(),
-      Value :: string().
+      VarName :: env_var_name(),
+      Value :: env_var_value().
 
 getenv(_) ->
     erlang:nif_error(undef).
 
 -spec getenv(VarName, DefaultValue) -> Value when
-      VarName :: string(),
-      DefaultValue :: string(),
-      Value :: string().
+      VarName :: env_var_name(),
+      DefaultValue :: env_var_value(),
+      Value :: env_var_value().
 
 getenv(VarName, DefaultValue) ->
     case os:getenv(VarName) of
@@ -75,8 +85,8 @@ perf_counter(Unit) ->
       erlang:convert_time_unit(os:perf_counter(), perf_counter, Unit).
 
 -spec putenv(VarName, Value) -> true when
-      VarName :: string(),
-      Value :: string().
+      VarName :: env_var_name(),
+      Value :: env_var_value().
 
 putenv(_, _) ->
     erlang:nif_error(undef).
@@ -99,7 +109,7 @@ timestamp() ->
     erlang:nif_error(undef).
 
 -spec unsetenv(VarName) -> true when
-      VarName :: string().
+      VarName :: env_var_name().
 
 unsetenv(_) ->
     erlang:nif_error(undef).
@@ -232,10 +242,9 @@ extensions() ->
 
 %% Executes the given command in the default shell for the operating system.
 -spec cmd(Command) -> string() when
-      Command :: atom() | io_lib:chars().
+      Command :: os:command_input().
 cmd(Cmd) ->
-    validate(Cmd),
-    {SpawnCmd, SpawnOpts, SpawnInput, Eot} = mk_cmd(os:type(), Cmd),
+    {SpawnCmd, SpawnOpts, SpawnInput, Eot} = mk_cmd(os:type(), validate(Cmd)),
     Port = open_port({spawn, SpawnCmd}, [binary, stderr_to_stdout,
                                          stream, in, hide | SpawnOpts]),
     MonRef = erlang:monitor(port, Port),
@@ -255,8 +264,6 @@ mk_cmd({win32,Wtype}, Cmd) ->
                   {Cspec,_} -> lists:concat([Cspec," /c",Cmd])
               end,
     {Command, [], [], <<>>};
-mk_cmd(OsType,Cmd) when is_atom(Cmd) ->
-    mk_cmd(OsType, atom_to_list(Cmd));
 mk_cmd(_,Cmd) ->
     %% Have to send command in like this in order to make sh commands like
     %% cd and ulimit available
@@ -279,17 +286,33 @@ mk_cmd(_,Cmd) ->
      <<$\^D>>}.
 
 validate(Atom) when is_atom(Atom) ->
-    ok;
+    validate(atom_to_list(Atom));
 validate(List) when is_list(List) ->
-    validate1(List).
+    case validate1(List) of
+        false ->
+            List;
+        true -> 
+            %% Had zeros at end; remove them...
+            string:trim(List, trailing, [0])
+    end.
 
-validate1([C|Rest]) when is_integer(C) ->
+validate1([0|Rest]) ->
+    validate2(Rest);
+validate1([C|Rest]) when is_integer(C), C > 0 ->
     validate1(Rest);
 validate1([List|Rest]) when is_list(List) ->
-    validate1(List),
-    validate1(Rest);
+    validate1(List) or validate1(Rest);
 validate1([]) ->
-    ok.
+    false.
+
+%% Ensure that the rest is zero only...
+validate2([]) ->
+    true;
+validate2([0|Rest]) ->
+    validate2(Rest);
+validate2([List|Rest]) when is_list(List) ->
+    validate2(List),
+    validate2(Rest).
 
 get_data(Port, MonRef, Eot, Sofar) ->
     receive

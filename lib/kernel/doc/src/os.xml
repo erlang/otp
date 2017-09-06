@@ -36,8 +36,99 @@
       only run on a specific platform. On the other hand, with careful
       use, these functions can be of help in enabling a program to run on
       most platforms.</p>
+
+    <note>
+      <p>
+	File operations used to accept filenames containing
+	null characters (integer value zero). This caused
+	the name to be truncated and in some cases arguments
+	to primitive operations to be mixed up. Filenames
+	containing null characters inside the filename
+	are now <em>rejected</em> and will cause primitive
+	file operations to fail.
+      </p>
+      <p>
+	Also environment variable operations used to accept
+	names and values of environment variables containing
+	null characters (integer value zero). This caused
+	operations to silently produce erroneous results.
+	Environment variable names and values containing
+	null characters inside the name or value are now
+	<em>rejected</em> and will cause environment variable
+	operations to fail.
+      </p>
+    </note>
+    <warning>
+      <p>
+	Currently null characters at the end of filenames,
+	environment variable names and values will be accepted
+	by the primitive operations. Such filenames, environment
+	variable names and values are however still documented as
+	invalid. The implementation will also change in the
+	future and reject such filenames, environment variable
+	names and values.
+      </p>
+    </warning>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name name="env_var_name"/>
+      <desc>
+        <p>A string containing valid characters on the specific
+	OS for environment variable names using
+	<seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seealso>
+	encoding. Note that specifically null characters (integer
+	value zero) and <c>$=</c> characters are not allowed.
+	However, note that not all invalid characters necessarily
+	will cause the primitiv operations to fail, but may instead
+	produce invalid results.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="env_var_value"/>
+      <desc>
+        <p>A string containing valid characters on the specific
+	OS for environment variable values using
+	<seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seealso>
+	encoding. Note that specifically null characters (integer
+	value zero) are not allowed. However, note that not all
+	invalid characters necessarily will cause the primitiv
+	operations to fail, but may instead produce invalid results.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="env_var_name_value"/>
+      <desc>
+        <p>
+	  Assuming that environment variables has been correctly
+	  set, a strings containing valid characters on the specific
+	  OS for environment variable names and values using
+	  <seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seealso>
+	  encoding. The first <c>$=</c> characters appearing in
+	  the string separates environment variable name (on the
+	  left) from environment variable value (on the right).
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="command_input"/>
+      <desc>
+        <p>All characters needs to be valid characters on the
+	specific OS using
+	<seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seealso>
+	encoding. Note that specifically null characters (integer
+	value zero) are not allowed. However, note that not all
+	invalid characters not necessarily will cause
+	<seealso marker="#cmd/1"><c>os:cmd/1</c></seealso>
+	to fail, but may instead produce invalid results.
+	</p>
+      </desc>
+    </datatype>
+  </datatypes>
+ 
   <funcs>
     <func>
       <name name="cmd" arity="1"/>
@@ -49,6 +140,15 @@
           result as a string. This function is a replacement of
           the previous function <c>unix:cmd/1</c>; they are equivalent on a
           Unix platform.</p>
+	  <warning><p>Previous implementation used to allow all characters
+	  as long as they were integer values greater than or equal to zero.
+	  This sometimes lead to unwanted results since null characters
+	  (integer value zero) often are interpreted as string termination.
+	  Current implementation still accepts null characters at the end
+	  of <c><anno>Command</anno></c> even though the documentation
+	  states that no null characters are allowed. This will however
+	  be changed in the future so that no null characters at all will
+	  be accepted.</p></warning>
         <p><em>Examples:</em></p>
         <code type="none">
 LsOut = os:cmd("ls"), % on unix platform
@@ -152,6 +252,15 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
 	<p>On Unix platforms, the environment is set using UTF-8 encoding
 	  if Unicode filename translation is in effect. On Windows, the
 	  environment is set using wide character interfaces.</p>
+	  <note>
+	    <p>
+	      <c><anno>VarName</anno></c> is not allowed to contain
+	      an <c>$=</c> character. Previous implementations used
+	      to just let the <c>$=</c> character through which
+	      silently caused erroneous results. Current implementation
+	      will instead throw a <c>badarg</c> exception.
+	    </p>
+	  </note>
       </desc>
     </func>
 

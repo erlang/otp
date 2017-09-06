@@ -37,6 +37,8 @@
 #include "dist.h"
 #include "erl_version.h"
 
+static int check_env_name(char *name);
+
 /*
  * Return the pid for the Erlang process in the host OS.
  */
@@ -101,8 +103,10 @@ BIF_RETTYPE os_getenv_1(BIF_ALIST_1)
     key_str = erts_convert_filename_to_native(BIF_ARG_1,buf,STATIC_BUF_SIZE,
 					      ERTS_ALC_T_TMP,1,0,&len);
 
-    if (!key_str) {
-	BIF_ERROR(p, BADARG);
+    if (!check_env_name(key_str)) {
+        if (key_str && key_str != &buf[0])
+            erts_free(ERTS_ALC_T_TMP, key_str);
+        BIF_ERROR(p, BADARG);
     }
 
     if (key_str != &buf[0])
@@ -143,25 +147,20 @@ BIF_RETTYPE os_putenv_2(BIF_ALIST_2)
 {
     char def_buf_key[STATIC_BUF_SIZE];
     char def_buf_value[STATIC_BUF_SIZE];
-    char *key_buf, *value_buf;
+    char *key_buf = NULL, *value_buf = NULL;
 
     key_buf = erts_convert_filename_to_native(BIF_ARG_1,def_buf_key,
 					      STATIC_BUF_SIZE,
 					      ERTS_ALC_T_TMP,0,0,NULL);
-    if (!key_buf) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
+    if (!check_env_name(key_buf))
+        goto badarg;
+
     value_buf = erts_convert_filename_to_native(BIF_ARG_2,def_buf_value,
 						STATIC_BUF_SIZE,
 						ERTS_ALC_T_TMP,1,0,
 						NULL);
-    if (!value_buf) {
-	if (key_buf != def_buf_key) {
-	    erts_free(ERTS_ALC_T_TMP, key_buf);
-	}
-	BIF_ERROR(BIF_P, BADARG);
-    }
-	    
+    if (!value_buf)
+        goto badarg;
 
     if (erts_sys_putenv(key_buf, value_buf)) {
 	if (key_buf != def_buf_key) {
@@ -179,6 +178,13 @@ BIF_RETTYPE os_putenv_2(BIF_ALIST_2)
 	erts_free(ERTS_ALC_T_TMP, value_buf);
     }
     BIF_RET(am_true);
+
+badarg:
+    if (key_buf && key_buf != def_buf_key)
+	erts_free(ERTS_ALC_T_TMP, key_buf);
+    if (value_buf && value_buf != def_buf_value)
+	erts_free(ERTS_ALC_T_TMP, value_buf);
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 BIF_RETTYPE os_unsetenv_1(BIF_ALIST_1)
@@ -188,20 +194,21 @@ BIF_RETTYPE os_unsetenv_1(BIF_ALIST_1)
 
     key_buf = erts_convert_filename_to_native(BIF_ARG_1,buf,STATIC_BUF_SIZE,
 					      ERTS_ALC_T_TMP,0,0,NULL);
-    if (!key_buf) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
+    if (!check_env_name(key_buf))
+        goto badarg;
 
-    if (erts_sys_unsetenv(key_buf)) {
-	if (key_buf != buf) {
-	    erts_free(ERTS_ALC_T_TMP, key_buf);
-	}
-	BIF_ERROR(BIF_P, BADARG);
-    }
+    if (erts_sys_unsetenv(key_buf))
+        goto badarg;
+
     if (key_buf != buf) {
 	erts_free(ERTS_ALC_T_TMP, key_buf);
     }
     BIF_RET(am_true);
+
+badarg:
+    if (key_buf && key_buf != buf)
+        erts_free(ERTS_ALC_T_TMP, key_buf);
+    BIF_ERROR(BIF_P, BADARG);    
 }
 
 BIF_RETTYPE os_set_signal_2(BIF_ALIST_2) {
@@ -216,4 +223,28 @@ BIF_RETTYPE os_set_signal_2(BIF_ALIST_2) {
 
 error:
     BIF_ERROR(BIF_P, BADARG);
+}
+
+static int
+check_env_name(char *raw_name)
+{
+    byte *c = (byte *) raw_name;
+    int encoding;
+
+    if (!c)
+        return 0;
+    
+    encoding = erts_get_native_filename_encoding();
+
+    if (erts_raw_env_char_is_7bit_ascii_char('\0', c, encoding))
+        return 0; /* Do not allow empty name... */
+
+    /* Verify no '=' characters in variable name... */
+    do {
+        if (erts_raw_env_char_is_7bit_ascii_char('=', c, encoding))
+            return 0;
+        c = erts_raw_env_next_char(c, encoding);
+    } while (!erts_raw_env_char_is_7bit_ascii_char('\0', c, encoding));
+
+    return 1; /* Seems ok... */
 }

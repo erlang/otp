@@ -22,7 +22,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2]).
--export([space_in_cwd/1, quoting/1, cmd_unicode/1, space_in_name/1, bad_command/1,
+-export([space_in_cwd/1, quoting/1, cmd_unicode/1, 
+         null_in_command/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
          message_leak/1, close_stdin/0, close_stdin/1, perf_counter_api/1]).
@@ -34,7 +35,8 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() ->
-    [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
+    [space_in_cwd, quoting, cmd_unicode, null_in_command,
+     space_in_name, bad_command,
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
      close_stdin, perf_counter_api].
@@ -125,6 +127,14 @@ cmd_unicode(Config) when is_list(Config) ->
     [] = receive_all(),
     ok.
 
+null_in_command(Config) ->
+    {Ok, Error} = case os:type() of
+                      {win32,_} -> {"dir", "di\0r"};
+                      _ -> {"ls", "l\0s"}
+                  end,
+    true = is_list(try os:cmd(Ok) catch Class0:_ -> Class0 end),
+    error = try os:cmd(Error) catch Class1:_ -> Class1 end,
+    ok.
 
 %% Test that program with a space in its name can be executed.
 space_in_name(Config) when is_list(Config) ->
