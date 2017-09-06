@@ -87,6 +87,10 @@
 
 -export_type([prepared_code/0]).
 
+-type iovec() :: [binary()].
+
+-export_type([iovec/0]).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Native code BIF stubs and their types
 %% (BIF's actually implemented in this module goes last in the file)
@@ -124,7 +128,7 @@
 	 has_prepared_code_on_load/1, hibernate/3]).
 -export([insert_element/3]).
 -export([integer_to_binary/1, integer_to_list/1]).
--export([iolist_size/1, iolist_to_binary/1]).
+-export([iolist_size/1, iolist_to_binary/1, iolist_to_iovec/1]).
 -export([is_alive/0, is_builtin/3, is_process_alive/1, length/1, link/1]).
 -export([list_to_atom/1, list_to_binary/1]).
 -export([list_to_bitstring/1, list_to_existing_atom/1, list_to_float/1]).
@@ -1077,6 +1081,12 @@ iolist_size(_Item) ->
 -spec iolist_to_binary(IoListOrBinary) -> binary() when
       IoListOrBinary :: iolist() | binary().
 iolist_to_binary(_IoListOrBinary) ->
+    erlang:nif_error(undefined).
+
+%% iolist_to_iovec/1
+-spec erlang:iolist_to_iovec(IoListOrBinary) -> iovec() when
+      IoListOrBinary :: iolist() | binary().
+iolist_to_iovec(_IoListOrBinary) ->
     erlang:nif_error(undefined).
 
 %% is_alive/0

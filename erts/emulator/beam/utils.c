@@ -52,6 +52,7 @@
 #include "erl_ptab.h"
 #include "erl_check_io.h"
 #include "erl_bif_unique.h"
+#include "erl_io_queue.h"
 #define ERTS_WANT_TIMER_WHEEL_API
 #include "erl_time.h"
 #ifdef HIPE
