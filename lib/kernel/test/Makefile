@@ -148,8 +148,8 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(APP_FILES) "$(RELSYSDIR)"
-	$(INSTALL_DATA) kernel.spec kernel_smoke.spec  $(EMAKEFILE)\
-		$(COVERFILE) "$(RELSYSDIR)"
+	$(INSTALL_DATA) kernel.spec kernel_smoke.spec kernel_bench.spec \
+		$(EMAKEFILE) $(COVERFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 
