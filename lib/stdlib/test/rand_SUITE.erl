@@ -80,7 +80,7 @@ test() ->
       end, Tests).
 
 algs() ->
-    [exs64, exsplus, exsp, exrop, exs1024, exs1024s].
+    [exrop, exsp, exs1024s, exs64, exsplus, exs1024].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -459,213 +459,233 @@ measure(Config) ->
             {skip,{will_not_run_in_scaled_time,Scale}}
     end.
 
+-define(CHECK_UNIFORM_RANGE(Gen, Range, X, St),
+        case (Gen) of
+            {(X), (St)} when is_integer(X), 1 =< (X), (X) =< (Range) ->
+                St
+        end).
+-define(CHECK_UNIFORM(Gen, X, St),
+        case (Gen) of
+            {(X), (St)} when is_float(X), 0.0 =< (X), (X) < 1.0 ->
+                St
+        end).
+-define(CHECK_UNIFORM_NZ(Gen, X, St),
+        case (Gen) of
+            {(X), (St)} when is_float(X), 0.0 < (X), (X) =< 1.0 ->
+                St
+        end).
+-define(CHECK_NORMAL(Gen, X, St),
+        case (Gen) of
+            {(X), (St)} when is_float(X) ->
+                St
+        end).
+
 do_measure(_Config) ->
-    Algos =
+    Algs =
+        algs() ++
         try crypto:strong_rand_bytes(1) of
-            <<_>> -> [crypto64, crypto]
+            <<_>> -> [crypto64, crypto_cache, crypto]
         catch
             error:low_entropy -> [];
             error:undef -> []
-        end ++ algs(),
+        end,
     %%
-    ct:pal("RNG uniform integer performance~n",[]),
-    TMark1 =
+    ct:pal("~nRNG uniform integer range 10000 performance~n",[]),
+    _ =
         measure_1(
-          random,
           fun (_) -> 10000 end,
-          undefined,
-          fun (Range, State) ->
-                  {int, random:uniform_s(Range, State)}
-          end),
-    _ =
-        [measure_1(
-           Algo,
-           fun (_) -> 10000 end,
-           TMark1,
-           fun (Range, State) ->
-                   {int, rand:uniform_s(Range, State)}
-           end) || Algo <- Algos],
+          fun (State, Range, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_UNIFORM_RANGE(
+                               Mod:uniform_s(Range, St0), Range,
+                               X, St1)
+                    end,
+                    State)
+          end,
+          Algs),
     %%
-    ct:pal("~nRNG uniform integer half range performance~n",[]),
-    HalfRangeFun = fun (State) -> half_range(State) end,
-    TMark2 =
-        measure_1(
-          random,
-          HalfRangeFun,
-          undefined,
-          fun (Range, State) ->
-                  {int, random:uniform_s(Range, State)}
-          end),
+    ct:pal("~nRNG uniform integer 32 bit performance~n",[]),
     _ =
-        [measure_1(
-           Algo,
-           HalfRangeFun,
-           TMark2,
-           fun (Range, State) ->
-                   {int, rand:uniform_s(Range, State)}
-           end) || Algo <- Algos],
+        measure_1(
+          fun (_) -> 1 bsl 32 end,
+          fun (State, Range, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_UNIFORM_RANGE(
+                               Mod:uniform_s(Range, St0), Range,
+                               X, St1)
+                    end,
+                    State)
+          end,
+          Algs),
     %%
-    ct:pal("~nRNG uniform integer half range + 1  performance~n",[]),
-    HalfRangePlus1Fun = fun (State) -> half_range(State) + 1 end,
-    TMark3 =
-        measure_1(
-          random,
-          HalfRangePlus1Fun,
-          undefined,
-          fun (Range, State) ->
-                  {int, random:uniform_s(Range, State)}
-          end),
+    ct:pal("~nRNG uniform integer half range + 1 performance~n",[]),
     _ =
-        [measure_1(
-           Algo,
-           HalfRangePlus1Fun,
-           TMark3,
-           fun (Range, State) ->
-                   {int, rand:uniform_s(Range, State)}
-           end) || Algo <- Algos],
+        measure_1(
+          fun (State) -> half_range(State) + 1 end,
+          fun (State, Range, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_UNIFORM_RANGE(
+                               Mod:uniform_s(Range, St0), Range,
+                               X, St1)
+                    end,
+                    State)
+          end,
+          Algs),
     %%
     ct:pal("~nRNG uniform integer full range - 1 performance~n",[]),
-    FullRangeMinus1Fun = fun (State) -> (half_range(State) bsl 1) - 1 end,
-    TMark4 =
-        measure_1(
-          random,
-          FullRangeMinus1Fun,
-          undefined,
-          fun (Range, State) ->
-                  {int, random:uniform_s(Range, State)}
-          end),
     _ =
-        [measure_1(
-           Algo,
-           FullRangeMinus1Fun,
-           TMark4,
-           fun (Range, State) ->
-                   {int, rand:uniform_s(Range, State)}
-           end) || Algo <- Algos],
+        measure_1(
+          fun (State) -> (half_range(State) bsl 1) - 1 end,
+          fun (State, Range, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_UNIFORM_RANGE(
+                               Mod:uniform_s(Range, St0), Range,
+                               X, St1)
+                    end,
+                    State)
+          end,
+          Algs),
     %%
     ct:pal("~nRNG uniform integer full range performance~n",[]),
-    FullRangeFun = fun (State) -> half_range(State) bsl 1 end,
-    TMark5 =
-        measure_1(
-          random,
-          FullRangeFun,
-          undefined,
-          fun (Range, State) ->
-                  {int, random:uniform_s(Range, State)}
-          end),
     _ =
-        [measure_1(
-           Algo,
-           FullRangeFun,
-           TMark5,
-           fun (Range, State) ->
-                   {int, rand:uniform_s(Range, State)}
-           end) || Algo <- Algos],
+        measure_1(
+          fun (State) -> half_range(State) bsl 1 end,
+          fun (State, Range, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_UNIFORM_RANGE(
+                               Mod:uniform_s(Range, St0), Range,
+                               X, St1)
+                    end,
+                    State)
+          end,
+          Algs),
     %%
     ct:pal("~nRNG uniform integer full range + 1 performance~n",[]),
-    FullRangePlus1Fun = fun (State) -> (half_range(State) bsl 1) + 1 end,
-    TMark6 =
-        measure_1(
-          random,
-          FullRangePlus1Fun,
-          undefined,
-          fun (Range, State) ->
-                  {int, random:uniform_s(Range, State)}
-          end),
     _ =
-        [measure_1(
-           Algo,
-           FullRangePlus1Fun,
-           TMark6,
-           fun (Range, State) ->
-                   {int, rand:uniform_s(Range, State)}
-           end) || Algo <- Algos],
+        measure_1(
+          fun (State) -> (half_range(State) bsl 1) + 1 end,
+          fun (State, Range, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_UNIFORM_RANGE(
+                               Mod:uniform_s(Range, St0), Range,
+                               X, St1)
+                    end,
+                    State)
+          end,
+          Algs),
     %%
     ct:pal("~nRNG uniform integer double range performance~n",[]),
-    DoubleRangeFun = fun (State) -> half_range(State) bsl 2 end,
-    TMark7 =
-        measure_1(
-          random,
-          DoubleRangeFun,
-          undefined,
-          fun (Range, State) ->
-                  {int, random:uniform_s(Range, State)}
-          end),
     _ =
-        [measure_1(
-           Algo,
-           DoubleRangeFun,
-           TMark7,
-           fun (Range, State) ->
-                   {int, rand:uniform_s(Range, State)}
-           end) || Algo <- Algos],
+        measure_1(
+          fun (State) ->
+                  half_range(State) bsl 2
+          end,
+          fun (State, Range, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_UNIFORM_RANGE(
+                               Mod:uniform_s(Range, St0), Range,
+                               X, St1)
+                    end,
+                    State)
+          end,
+          Algs),
     %%
     ct:pal("~nRNG uniform integer double range + 1  performance~n",[]),
-    DoubleRangePlus1Fun = fun (State) -> (half_range(State) bsl 2) + 1 end,
-    TMark8 =
-        measure_1(
-          random,
-          DoubleRangePlus1Fun,
-          undefined,
-          fun (Range, State) ->
-                  {int, random:uniform_s(Range, State)}
-          end),
     _ =
-        [measure_1(
-           Algo,
-           DoubleRangePlus1Fun,
-           TMark8,
-           fun (Range, State) ->
-                   {int, rand:uniform_s(Range, State)}
-           end) || Algo <- Algos],
+        measure_1(
+          fun (State) ->
+                  (half_range(State) bsl 2) + 1
+          end,
+          fun (State, Range, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_UNIFORM_RANGE(
+                               Mod:uniform_s(Range, St0), Range,
+                               X, St1)
+                    end,
+                    State)
+          end,
+          Algs),
+    %%
+    ct:pal("~nRNG uniform integer 64 bit performance~n",[]),
+    _ =
+        measure_1(
+          fun (_) -> 1 bsl 64 end,
+          fun (State, Range, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_UNIFORM_RANGE(
+                               Mod:uniform_s(Range, St0), Range,
+                               X, St1)
+                    end,
+                    State)
+          end,
+          Algs),
     %%
     ct:pal("~nRNG uniform float performance~n",[]),
-    TMark9 =
-        measure_1(
-          random,
+    _ = measure_1(
           fun (_) -> 0 end,
-          undefined,
-          fun (_, State) ->
-                  {uniform, random:uniform_s(State)}
-          end),
-    _ =
-        [measure_1(
-           Algo, 
-           fun (_) -> 0 end,
-           TMark9,
-           fun (_, State) ->
-                   {uniform, rand:uniform_s(State)}
-           end) || Algo <- Algos],
+          fun (State, _, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_UNIFORM(Mod:uniform_s(St0), X, St)
+                    end,
+                    State)
+          end,
+          Algs),
     %%
     ct:pal("~nRNG normal float performance~n",[]),
-    io:format("~.12w: not implemented (too few bits)~n", [random]),
-    _ = [measure_1(
-           Algo,
-           fun (_) -> 0 end,
-           TMark9,
-           fun (_, State) ->
-                   {normal, rand:normal_s(State)}
-           end) || Algo <- Algos],
+    _ = measure_1(
+          fun (_) -> 0 end,
+          fun (State, _, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_NORMAL(Mod:normal_s(St0), X, St1)
+                    end,
+                    State)
+          end,
+          Algs),
     ok.
 
-measure_1(Algo, RangeFun, TMark, Gen) ->
+measure_loop(Fun, State) ->
+    measure_loop(Fun, State, ?LOOP).
+%%
+measure_loop(Fun, State, N) when 0 < N ->
+    measure_loop(Fun, Fun(State), N-1);
+measure_loop(_, _, _) ->
+    ok.
+
+measure_1(RangeFun, Fun, Algs) ->
+    TMark = measure_1(RangeFun, Fun, hd(Algs), undefined),
+    [TMark] ++
+        [measure_1(RangeFun, Fun, Alg, TMark) || Alg <- tl(Algs)].
+
+measure_1(RangeFun, Fun, Alg, TMark) ->
     Parent = self(),
-    Seed =
-        case Algo of
+    {Mod, State} =
+        case Alg of
             crypto64 ->
-                crypto64_seed();
+                {rand, crypto64_seed()};
+            crypto_cache ->
+                {rand, crypto:rand_seed_alg(crypto_cache)};
             crypto ->
-                crypto:rand_seed_s();
+                {rand, crypto:rand_seed_s()};
             random ->
-                random:seed(os:timestamp()), get(random_seed);
+                {random, random:seed(os:timestamp()), get(random_seed)};
             _ ->
-                rand:seed_s(Algo)
+                {rand, rand:seed_s(Alg)}
         end,
-    Range = RangeFun(Seed),
+    Range = RangeFun(State),
     Pid = spawn_link(
             fun() ->
-                    Fun = fun() -> measure_2(?LOOP, Range, Seed, Gen) end,
-                    {Time, ok} = timer:tc(Fun),
+                    {Time, ok} = timer:tc(fun () -> Fun(State, Range, Mod) end),
                     Percent =
                         case TMark of
                             undefined -> 100;
@@ -673,28 +693,13 @@ measure_1(Algo, RangeFun, TMark, Gen) ->
                         end,
                     io:format(
                       "~.12w: ~p ns ~p% [16#~.16b]~n",
-                      [Algo, (Time * 1000 + 500) div ?LOOP, Percent, Range]),
+                      [Alg, (Time * 1000 + 500) div ?LOOP, Percent, Range]),
                     Parent ! {self(), Time},
                     normal
             end),
     receive
 	{Pid, Msg} -> Msg
     end.
-
-measure_2(N, Range, State0, Fun) when N > 0 ->
-    case Fun(Range, State0) of
-	{int, {Random, State}}
-	  when is_integer(Random), Random >= 1, Random =< Range ->
-	    measure_2(N-1, Range, State, Fun);
-	{uniform, {Random, State}}
-          when is_float(Random), 0.0 =< Random, Random < 1.0 ->
-	    measure_2(N-1, Range, State, Fun);
-	{normal, {Random, State}} when is_float(Random) ->
-	    measure_2(N-1, Range, State, Fun);
-	Res ->
-	    exit({error, Res, State0})
-    end;
-measure_2(0, _, _, _) -> ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% The jump sequence tests has two parts
