@@ -30,11 +30,12 @@
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([cmac/3, cmac/4]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
--export([rand_seed/0]).
--export([rand_seed_s/0]).
+-export([rand_seed/0, rand_seed_alg/1]).
+-export([rand_seed_s/0, rand_seed_alg_s/1]).
 -export([rand_plugin_next/1]).
 -export([rand_plugin_uniform/1]).
 -export([rand_plugin_uniform/2]).
+-export([rand_cache_plugin_next/1]).
 -export([rand_uniform/2]).
 -export([block_encrypt/3, block_decrypt/3, block_encrypt/4, block_decrypt/4]).
 -export([next_iv/2, next_iv/3]).
@@ -299,6 +300,8 @@ stream_decrypt(State, Data0) ->
 -spec strong_rand_bytes(non_neg_integer()) -> binary().
 -spec rand_seed() -> rand:state().
 -spec rand_seed_s() -> rand:state().
+-spec rand_seed_alg(Alg :: atom()) -> rand:state().
+-spec rand_seed_alg_s(Alg :: atom()) -> rand:state().
 -spec rand_uniform(crypto_integer(), crypto_integer()) ->
 			  crypto_integer().
 
@@ -314,12 +317,24 @@ rand_seed() ->
     rand:seed(rand_seed_s()).
 
 rand_seed_s() ->
+    rand_seed_alg_s(?MODULE).
+
+rand_seed_alg(Alg) ->
+    rand:seed(rand_seed_alg_s(Alg)).
+    
+-define(CRYPTO_CACHE_BITS, 56).
+rand_seed_alg_s(?MODULE) ->
     {#{ type => ?MODULE,
         bits => 64,
         next => fun ?MODULE:rand_plugin_next/1,
         uniform => fun ?MODULE:rand_plugin_uniform/1,
         uniform_n => fun ?MODULE:rand_plugin_uniform/2},
-     no_seed}.
+     no_seed};
+rand_seed_alg_s(crypto_cache) ->
+    {#{ type => crypto_cache,
+        bits => ?CRYPTO_CACHE_BITS,
+        next => fun ?MODULE:rand_cache_plugin_next/1},
+     <<>>}.
 
 rand_plugin_next(Seed) ->
     {bytes_to_integer(strong_rand_range(1 bsl 64)), Seed}.
@@ -330,6 +345,11 @@ rand_plugin_uniform(State) ->
 rand_plugin_uniform(Max, State) ->
     {bytes_to_integer(strong_rand_range(Max)) + 1, State}.
 
+rand_cache_plugin_next(<<>>) ->
+    rand_cache_plugin_next(
+      strong_rand_bytes(?CRYPTO_CACHE_BITS * 16)); % Cache 16 * 8 words
+rand_cache_plugin_next(<<I:?CRYPTO_CACHE_BITS,Cache/binary>>) ->
+    {I, Cache}.
 
 strong_rand_range(Range) when is_integer(Range), Range > 0 ->
     BinRange = int_to_bin(Range),
@@ -377,7 +397,7 @@ rand_uniform_nif(_From,_To) -> ?nif_stub.
 
 
 -spec rand_seed(binary()) -> ok.
-rand_seed(Seed) ->
+rand_seed(Seed) when is_binary(Seed) ->
     rand_seed_nif(Seed).
 
 rand_seed_nif(_Seed) -> ?nif_stub.
