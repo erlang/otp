@@ -2554,8 +2554,6 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    break;
 	}
 
-    L_jump_start:
-
 	if (ctx && --r <= 0) {
 	    *reds = 0;
 	    ctx->obj = obj;
@@ -2563,6 +2561,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
 	    WSTACK_SAVE(s, &ctx->wstack);
 	    return -1;
 	}
+
+    L_jump_start:
 	switch(tag_val_def(obj)) {
 	case NIL_DEF:
 	    *ep++ = NIL_EXT;
@@ -2945,12 +2945,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
                 ep = enc_term(acmp, make_small(funp->fe->old_uniq), ep, dflags, off_heap);
                 ep = enc_pid(acmp, funp->creator, ep, dflags);
 
-		for (ei = funp->num_free-1; ei > 0; ei--) {
+		for (ei = funp->num_free-1; ei >= 0; ei--) {
 		    WSTACK_PUSH2(s, ENC_TERM, (UWord) funp->env[ei]);
-		}
-		if (funp->num_free != 0) {
-		    obj = funp->env[0];
-		    goto L_jump_start;
 		}
 	    }
 	    break;
