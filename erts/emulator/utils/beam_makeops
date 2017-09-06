@@ -1232,7 +1232,7 @@ sub basic_generator {
     #
 
     my $c_code_ref = $c_code{$name};
-    if ($hot and defined $c_code_ref) {
+    if ($hot and defined $c_code_ref and $name ne 'catch') {
         ($var_decls, $pack_spec, @args) = do_pack(@args);
     }
 
@@ -1517,6 +1517,23 @@ sub do_pack {
     }
 
     #
+    # Try to pack 'f' and 'j', but not at expense at worse packing
+    # for other operands. For example, given the arguments "f x x", we
+    # want the 'x' operands to be packed, not 'f' and 'x' packed and
+    # the final 'x' not packed.
+    #
+
+    if ($wordsize == 64 and $packable_args == 1) {
+        for (my $i = 0; $i < @args; $i++) {
+            if ($args[$i] =~ /^[fj]$/) {
+                $bits_needed[$i] = 32;
+                $packable_args++;
+                last;
+            }
+        }
+    }
+
+    #
     # Nothing to pack unless there are at least 2 packable arguments.
     #
     return ('', '', @args) if $packable_args < 2;
@@ -1602,7 +1619,15 @@ sub do_pack {
 
         if ($arg_size{$arg} and $did_some_packing) {
             # Save the argument on the pack engine's stack.
-            $down = "g${down}";
+            my $push = 'g';
+            if ($type_bit{$arg} & $type_bit{'q'}) {
+                # The operand may be a literal.
+                $push = 'q';
+            } elsif ($type_bit{$arg} & $type_bit{'f'}) {
+                # The operand may be a failure label.
+                $push = 'f';
+            }
+            $down = "$push${down}";
             $up = "${up}p";
         } else {
             # The argument has either zero size (e.g. r(0)),
@@ -1630,7 +1655,7 @@ sub do_pack {
         if ($need_wide_mask[$word]) {
             @shift = ('0', 'BEAM_WIDE_SHIFT');
             @mask = ('BEAM_WIDE_MASK', $WHOLE_WORD);
-            @instr = ('w', 'i');
+            @instr = ('w', 'w');
         } else {
             @shift = @{$pack_shift[$args_per_word]};
             @mask = @{$pack_mask[$args_per_word]};

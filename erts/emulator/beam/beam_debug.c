@@ -425,7 +425,9 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	while (start_prog < prog) {
 	    prog--;
 	    switch (*prog) {
+	    case 'f':
 	    case 'g':
+	    case 'q':
 		*ap++ = *--sp;
 		break;
 	    case 'i':		/* Initialize packing accumulator. */
@@ -805,7 +807,7 @@ static void print_bif_name(fmtfn_t to, void* to_arg, BifFunction bif)
 
 static BeamInstr* f_to_addr(BeamInstr* base, int op, BeamInstr* ap)
 {
-    return base - 1 + opc[op].adjust + *ap;
+    return base - 1 + opc[op].adjust + (Sint32) *ap;
 }
 
 
