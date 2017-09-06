@@ -120,7 +120,8 @@ specs(Dir) ->
 				      []
 			      end
 		      end, Specs),
-    sort_tests(MainSpecs).
+
+    sort_tests(filter_tests(MainSpecs)).
 
 test_categories(Dir, App) ->
     Specs = filelib:wildcard(filename:join([filename:dirname(Dir),
@@ -141,9 +142,28 @@ suites(Dir, App) ->
 			"*_SUITE.erl"]),
     Suites=filelib:wildcard(Glob),
     [filename_to_atom(Name) || Name <- Suites].
-    
+
 filename_to_atom(Name) ->
     list_to_atom(filename:rootname(filename:basename(Name))).
+
+%% Filter out tests of applications that are not accessible
+
+filter_tests(Tests) ->
+    lists:filter(
+      fun(Special) when Special == epmd;
+                        Special == emulator;
+                        Special == system ->
+              true;
+         (Test) ->
+              case application:load(filename_to_atom(Test)) of
+                  {error, {already_loaded, _}} ->
+                      true;
+                  {error,_NoSuchApplication} ->
+                      false;
+                  _ ->
+                      true
+              end
+      end, Tests).
 
 %% Sorts a list of either log files directories or spec files.
 
