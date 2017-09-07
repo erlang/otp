@@ -110,8 +110,8 @@ init_per_group(tls, Config0) ->
     application:load(ssl),
     application:set_env(ssl, protocol_version, Version),
     ssl:start(),
-    Config = proplists:delete(protocol, Config0),
-    [{protocol, tls}, {version, tls_record:protocol_version(Version)} | Config];
+    Config = ssl_test_lib:init_tls_version(Version, Config0),
+    [{version, tls_record:protocol_version(Version)} | Config];
 
 init_per_group(dtls, Config0) ->
     Version = dtls_record:protocol_version(dtls_record:highest_protocol_version([])),
@@ -119,8 +119,8 @@ init_per_group(dtls, Config0) ->
     application:load(ssl),
     application:set_env(ssl, protocol_version, Version),
     ssl:start(),
-    Config = proplists:delete(protocol_opts, proplists:delete(protocol, Config0)),
-    [{protocol, dtls}, {protocol_opts, [{protocol, dtls}]}, {version, dtls_record:protocol_version(Version)} | Config];
+    Config = ssl_test_lib:init_tls_version(Version, Config0),
+    [{version, dtls_record:protocol_version(Version)} | Config];
 
 init_per_group(active, Config) ->
     [{active, true}, {receive_function, send_recv_result_active} | Config];
@@ -134,6 +134,9 @@ init_per_group(error_handling, Config) ->
 init_per_group(_, Config) ->
     Config.
 
+end_per_group(GroupName, Config) when GroupName == tls;
+                                      GroupName == dtls ->
+    ssl_test_lib:clean_tls_version(Config);
 end_per_group(_GroupName, Config) ->
     Config.
 
