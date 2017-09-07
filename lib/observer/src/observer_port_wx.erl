@@ -338,7 +338,7 @@ handle_info({info, {port_info_not_available,NodeName}},
     {noreply, State};
 
 handle_info({error, Error}, #state{panel=Panel} = State) ->
-    Str = io_lib:format("ERROR: ~s~n",[Error]),
+    Str = io_lib:format("ERROR: ~ts~n",[Error]),
     observer_lib:display_info_dialog(Panel, Str),
     {noreply, State};
 

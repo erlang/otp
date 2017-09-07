@@ -142,13 +142,13 @@ dict_table(Tab,{Key0,Value0}, Even) ->
     tr(color(Even), [td("VALIGN=center",pre(Key)), td(pre(Value))]).
 
 proc_state(Tab,{Key0,Value0}, Even) ->
-    Key = lists:flatten(io_lib:format("~s",[Key0])),
+    Key = lists:flatten(io_lib:format("~ts",[Key0])),
     Value = all_or_expand(Tab,Value0),
     tr(color(Even), [td("VALIGN=center",Key), td(pre(Value))]).
 
 all_or_expand(Tab,Term) ->
-    Preview = io_lib:format("~P",[Term,8]),
-    Check = io_lib:format("~P",[Term,100]),
+    Preview = io_lib:format("~tP",[Term,8]),
+    Check = io_lib:format("~tP",[Term,100]),
     Exp = Preview=/=Check,
     all_or_expand(Tab,Term,Preview,Exp).
 all_or_expand(_Tab,Term,Str,false)
@@ -166,13 +166,8 @@ all_or_expand(Tab,Term,Preview,true)
 	  "Click to expand above term")];
 all_or_expand(Tab,Bin,_PreviewStr,_Expand)
   when is_binary(Bin) ->
-    Size = byte_size(Bin),
-    PrevSize = min(Size, 10) * 8,
-    <<Preview:PrevSize, _/binary>> = Bin,
-    Hash = erlang:phash2(Bin),
-    Key = {Preview, Size, Hash},
-    ets:insert(Tab,{Key,Bin}),
-    Term = io_lib:format("~p", [['#OBSBin',Preview,Size,Hash]]),
+    OBSBin = observer_lib:make_obsbin(Bin,Tab),
+    Term = io_lib:format("~tp", [OBSBin]),
     href_proc_port(lists:flatten(Term), true).
 
 color(true) -> io_lib:format("BGCOLOR=\"#~2.16.0B~2.16.0B~2.16.0B\"", tuple_to_list(?BG_EVEN));
@@ -339,9 +334,11 @@ href_proc_bin(From, T, Acc, LTB) ->
     BinStr =
 	case string:tokens(OffsetSizePos,",.| \n") of
 	    [Offset,SizeStr,Pos] when From =:= cdv ->
-		Id = {list_to_integer(Offset),10,list_to_integer(Pos)},
+                Size = list_to_integer(SizeStr),
+                PreviewSize = min(Size,10),
+		Id = {list_to_integer(Offset),PreviewSize,list_to_integer(Pos)},
 		{ok,PreviewBin} = crashdump_viewer:expand_binary(Id),
-		PreviewStr = preview_string(list_to_integer(SizeStr), PreviewBin),
+		PreviewStr = preview_string(Size, PreviewBin),
 		if LTB ->
 			href("TARGET=\"expanded\"",
 			     ["#Binary?offset="++Offset++
@@ -351,14 +348,14 @@ href_proc_bin(From, T, Acc, LTB) ->
 		   true ->
 			PreviewStr
 		end;
-	    [Preview,SizeStr,Md5] when From =:= obs ->
+	    [PreviewIntStr,SizeStr,Md5] when From =:= obs ->
 		Size = list_to_integer(SizeStr),
-		PrevSize =  min(Size, 10) * 8,
-		PreviewStr = preview_string(Size,
-					    <<(list_to_integer(Preview)):PrevSize>>),
+                PreviewInt = list_to_integer(PreviewIntStr),
+		PrevSize = (trunc(math:log2(PreviewInt)/8)+1)*8,
+		PreviewStr = preview_string(Size,<<PreviewInt:PrevSize>>),
 		if LTB ->
 			href("TARGET=\"expanded\"",
-			     ["#OBSBinary?key1="++Preview++
+			     ["#OBSBinary?key1="++PreviewIntStr++
 				  "&key2="++SizeStr++
 				  "&key3="++Md5],
 			     PreviewStr);
@@ -372,14 +369,14 @@ href_proc_bin(From, T, Acc, LTB) ->
 
 preview_string(Size, PreviewBin) when Size > 10 ->
     ["&lt;&lt;",
-     remove_lgt(io_lib:format("~p",[PreviewBin])),
+     remove_lgt(io_lib:format("~tp",[PreviewBin])),
      "...(",
      observer_lib:to_str({bytes,Size}),
      ")",
      "&gt;&gt"];
 preview_string(_, PreviewBin) ->
     ["&lt;&lt;",
-     remove_lgt(io_lib:format("~p",[PreviewBin])),
+     remove_lgt(io_lib:format("~tp",[PreviewBin])),
      "&gt;&gt"].
 
 remove_lgt(Deep) ->

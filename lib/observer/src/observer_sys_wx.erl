@@ -199,7 +199,7 @@ handle_info(not_active, #sys_wx_state{timer = Timer} = State) ->
     {noreply, State#sys_wx_state{timer = observer_lib:stop_timer(Timer)}};
 
 handle_info(Info, State) ->
-    io:format("~p:~p: Unhandled info: ~p~n", [?MODULE, ?LINE, Info]),
+    io:format("~p:~p: Unhandled info: ~tp~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -212,11 +212,11 @@ handle_call(get_config, _, #sys_wx_state{timer=Timer}=State) ->
     {reply, observer_lib:timer_config(Timer), State};
 
 handle_call(Msg, _From, State) ->
-    io:format("~p~p: Unhandled Call ~p~n",[?MODULE, ?LINE, Msg]),
+    io:format("~p~p: Unhandled Call ~tp~n",[?MODULE, ?LINE, Msg]),
     {reply, ok, State}.
 
 handle_cast(Msg, State) ->
-    io:format("~p~p: Unhandled cast ~p~n",[?MODULE, ?LINE, Msg]),
+    io:format("~p~p: Unhandled cast ~tp~n",[?MODULE, ?LINE, Msg]),
     {noreply, State}.
 
 handle_event(#wx{id = ?ID_REFRESH, event = #wxCommand{type = command_menu_selected}},
@@ -235,5 +235,5 @@ handle_event(#wx{id = ?ID_REFRESH_INTERVAL,
     {noreply, State#sys_wx_state{timer=Timer}};
 
 handle_event(Event, State) ->
-    io:format("~p:~p: Unhandled event ~p\n", [?MODULE,?LINE,Event]),
+    io:format("~p:~p: Unhandled event ~tp\n", [?MODULE,?LINE,Event]),
     {noreply, State}.

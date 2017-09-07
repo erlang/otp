@@ -150,7 +150,7 @@ file(Args) ->
 
 -spec invalid_args(string(), args()) -> no_return().
 invalid_args(Where, Args) ->
-    report("invalid arguments to ~ts: ~w.", [Where, Args]),
+    report("invalid arguments to ~ts: ~tw.", [Where, Args]),
     shutdown_error().
 
 run(F) ->
@@ -159,10 +159,10 @@ run(F) ->
 	{ok, _} ->
 	    shutdown_ok();
 	{'EXIT', E} ->
-	    report("edoc terminated abnormally: ~P.", [E, 10]),
+	    report("edoc terminated abnormally: ~tP.", [E, 10]),
 	    shutdown_error();
 	Thrown ->
-	    report("internal error: throw without catch in edoc: ~P.",
+	    report("internal error: throw without catch in edoc: ~tP.",
 		   [Thrown, 15]),
 	    shutdown_error()
     end.

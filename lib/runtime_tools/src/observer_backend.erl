@@ -36,6 +36,7 @@
 	 ttb_write_binary/2,
 	 ttb_stop/1,
 	 ttb_fetch/2,
+	 ttb_fetch/3,
          ttb_resume_trace/0,
 	 ttb_get_filenames/1]).
 -define(CHUNKSIZE,8191). % 8 kbytes - 1 byte
@@ -658,21 +659,41 @@ stop_seq_trace() ->
 
 %% Fetch ttb logs from remote node
 ttb_fetch(MetaFile,{Port,Host}) ->
+    ttb_fetch(MetaFile,{Port,Host},undefined).
+ttb_fetch(MetaFile,{Port,Host},MasterEnc) ->
     erlang:process_flag(priority,low),
     Files = ttb_get_filenames(MetaFile),
     {ok, Sock} = gen_tcp:connect(Host, Port, [binary, {packet, 2}]),
-    send_files({Sock,Host},Files),
+    send_files({Sock,Host},Files,MasterEnc,file:native_name_encoding()),
     ok = gen_tcp:close(Sock).
 
 
-send_files({Sock,Host},[File|Files]) ->
+send_files({Sock,Host},[File|Files],MasterEnc,MyEnc) ->
     {ok,Fd} = file:open(File,[raw,read,binary]),
-    ok = gen_tcp:send(Sock,<<1,(list_to_binary(filename:basename(File)))/binary>>),
+    Basename = filename:basename(File),
+    {Code,FilenameBin} = encode_filename(Basename,MasterEnc,MyEnc),
+    ok = gen_tcp:send(Sock,<<Code,FilenameBin/binary>>),
     send_chunks(Sock,Fd),
     ok = file:delete(File),
-    send_files({Sock,Host},Files);
-send_files({_Sock,_Host},[]) ->
+    send_files({Sock,Host},Files,MasterEnc,MyEnc);
+send_files({_Sock,_Host},[],_MasterEnc,_MyEnc) ->
     done.
+
+encode_filename(Basename,undefined,MyEnc) ->
+    %% Compatible with old version of ttb.erl, but no longer crashing
+    %% for code points > 255.
+    {1,unicode:characters_to_binary(Basename,MyEnc,MyEnc)};
+encode_filename(Basename,MasterEnc,MyEnc) ->
+    case unicode:characters_to_binary(Basename,MyEnc,MasterEnc) of
+        Bin when is_binary(Bin) ->
+            %% Encoding succeeded
+            {2,Bin};
+        _ ->
+            %% Can't convert Basename from my encoding to the master
+            %% node's encoding. Doing my best and hoping that master
+            %% node can fix it...
+            {3,unicode:characters_to_binary(Basename,MyEnc,MyEnc)}
+    end.
 
 send_chunks(Sock,Fd) ->
     case file:read(Fd,?CHUNKSIZE) of

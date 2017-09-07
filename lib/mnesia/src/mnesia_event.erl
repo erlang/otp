@@ -103,11 +103,11 @@ handle_any_event({mnesia_system_event, Event}, State) ->
 handle_any_event({mnesia_table_event, Event}, State) ->
     handle_table_event(Event, State);
 handle_any_event(Msg, State) ->
-    report_error("~p got unexpected event: ~p~n", [?MODULE, Msg]),
+    report_error("~p got unexpected event: ~tp~n", [?MODULE, Msg]),
     {ok, State}.
 
 handle_table_event({Oper, Record, TransId}, State) ->
-    report_info("~p performed by ~p on record:~n\t~p~n",
+    report_info("~p performed by ~p on record:~n\t~tp~n",
 		[Oper, TransId, Record]),
     {ok, State}.  
 
@@ -155,7 +155,7 @@ handle_system_event({mnesia_down, Node}, State) ->
     end;
 
 handle_system_event({mnesia_overload, Details}, State) ->
-    report_warning("Mnesia is overloaded: ~w~n", [Details]),
+    report_warning("Mnesia is overloaded: ~tw~n", [Details]),
     {ok, State}; 
 
 handle_system_event({mnesia_info, Format, Args}, State) ->
@@ -175,16 +175,16 @@ handle_system_event({mnesia_fatal, Format, Args, BinaryCore}, State) ->
     {ok, State#state{dumped_core = true}};
 
 handle_system_event({inconsistent_database, Reason, Node}, State) ->
-    report_error("mnesia_event got {inconsistent_database, ~w, ~w}~n",
+    report_error("mnesia_event got {inconsistent_database, ~tw, ~w}~n",
 		 [Reason, Node]),
     {ok, State}; 
 
 handle_system_event({mnesia_user, Event}, State) ->
-    report_info("User event: ~p~n", [Event]),
+    report_info("User event: ~tp~n", [Event]),
     {ok, State}; 
 
 handle_system_event(Msg, State) ->
-    report_error("mnesia_event got unexpected system event: ~p~n", [Msg]),
+    report_error("mnesia_event got unexpected system event: ~tp~n", [Msg]),
     {ok, State}.
 
 report_info(Format0, Args0) ->

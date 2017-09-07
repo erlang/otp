@@ -386,7 +386,7 @@ delete_schema(Ns) when is_list(Ns), Ns /= [] ->
 			[] ->
 			    ok;
 			BadReplies ->
-			    verbose("~s: ~p~n", [Reason, BadReplies]),
+			    verbose("~s: ~tp~n", [Reason, BadReplies]),
 			    {error, {"All nodes not running", BadReplies}}
 		    end;
 		{_Replies, BadNs} ->
@@ -467,10 +467,10 @@ opt_create_dir(UseDir, Dir) when UseDir == true->
         false ->
             case file:make_dir(Dir) of
                 ok ->
-                    verbose("Create Directory ~p~n", [Dir]),
+                    verbose("Create Directory ~tp~n", [Dir]),
                     ok;
                 {error, Reason} ->
-                    verbose("Cannot create mnesia dir ~p~n", [Reason]),
+                    verbose("Cannot create mnesia dir ~tp~n", [Reason]),
                     {error, {"Cannot create Mnesia dir", Dir, Reason}}
             end
     end;
@@ -1470,7 +1470,7 @@ verify_backend_type(Name, Module) ->
         [] ->
 	    ok;
         _Other ->
-	    io:fwrite(user, "Missing backend_type exports: ~p~n", [_Other]),
+	    io:fwrite(user, "Missing backend_type exports: ~tp~n", [_Other]),
             mnesia:abort({bad_type, {backend_type,Name,Module}})
     end.
 
@@ -1776,7 +1776,7 @@ make_del_table_copy(Tab, Node) ->
             mnesia:abort({combine_error, Tab, "Last replica"});
         [] ->
 	    ensure_active(Cs),
-            dbg_out("Last replica deleted in table ~p~n",  [Tab]),
+            dbg_out("Last replica deleted in table ~tp~n",  [Tab]),
             make_delete_table(Tab,  whole_table);
         _ when Tab == schema ->
 	    %% ensure_active(Cs2),
@@ -2178,13 +2178,13 @@ do_write_table_property(Tab, Prop) ->
     case change_prop_in_existing_op(Tab, Prop, write_property, Store) of
 	true ->
 	    dbg_out("change_prop_in_existing_op"
-		    "(~p,~p,write_property,Store) -> true~n",
+		    "(~tp,~p,write_property,Store) -> true~n",
 		    [Tab,Prop]),
 	    %% we have merged the table prop into the create_table op
 	    ok;
 	false ->
 	    dbg_out("change_prop_in_existing_op"
-		    "(~p,~p,write_property,Store) -> false~n",
+		    "(~tp,~p,write_property,Store) -> false~n",
 		    [Tab,Prop]),
 	    %% this must be an existing table
 	    get_tid_ts_and_lock(Tab, none),
@@ -2315,13 +2315,13 @@ do_delete_table_property(Tab, PropKey) ->
     case change_prop_in_existing_op(Tab, PropKey, delete_property, Store) of
 	true ->
 	    dbg_out("change_prop_in_existing_op"
-		    "(~p,~p,delete_property,Store) -> true~n",
+		    "(~tp,~p,delete_property,Store) -> true~n",
 		    [Tab,PropKey]),
 	    %% we have merged the table prop into the create_table op
 	    ok;
 	false ->
 	    dbg_out("change_prop_in_existing_op"
-		    "(~p,~p,delete_property,Store) -> false~n",
+		    "(~tp,~p,delete_property,Store) -> false~n",
 		    [Tab,PropKey]),
 	    %% this must be an existing table
 	    get_tid_ts_and_lock(Tab, none),
@@ -2435,17 +2435,17 @@ prepare_op(_Tid, {op, sync_trans}, {part, CoordPid}) ->
 	{sync_trans, CoordPid} ->
 	    {false, optional};
 	{mnesia_down, _Node} = Else ->
-	    mnesia_lib:verbose("sync_op terminated due to ~p~n", [Else]),
+	    mnesia_lib:verbose("sync_op terminated due to ~tp~n", [Else]),
 	    mnesia:abort(Else);
 	{'EXIT', _, _} = Else ->
-	    mnesia_lib:verbose("sync_op terminated due to ~p~n", [Else]),
+	    mnesia_lib:verbose("sync_op terminated due to ~tp~n", [Else]),
 	    mnesia:abort(Else)
     end;
 
 prepare_op(_Tid, {op, sync_trans}, {coord, Nodes}) ->
     case receive_sync(Nodes, []) of
 	{abort, Reason} ->
-	    mnesia_lib:verbose("sync_op terminated due to ~p~n", [Reason]),
+	    mnesia_lib:verbose("sync_op terminated due to ~tp~n", [Reason]),
 	    mnesia:abort(Reason);
 	Pids ->
 	    [Pid ! {sync_trans, self()} || Pid <- Pids],
@@ -2707,7 +2707,7 @@ prepare_op(_Tid, {op, transform, Fun, TabDef}, _WaitFor) ->
                     {true, Objs, mandatory}
 	    catch _:Reason ->
 		    mnesia_lib:db_fixtable(Storage, Tab, false),
-		    mnesia_lib:important("Transform function failed: '~p' in '~p'",
+		    mnesia_lib:important("Transform function failed: '~tp' in '~tp'",
 					 [Reason, erlang:get_stacktrace()]),
                     exit({"Bad transform function", Tab, Fun, node(), Reason})
             end
@@ -2719,7 +2719,7 @@ prepare_op(_Tid, {op, merge_schema, TabDef}, _WaitFor) ->
 	ok  ->
 	    {true, optional};
 	Error ->
-	    verbose("Merge_Schema ~p failed on ~p: ~p~n", [_Tid,node(),Error]),
+	    verbose("Merge_Schema ~p failed on ~p: ~tp~n", [_Tid,node(),Error]),
 	    mnesia:abort({bad_commit, Error})
     end;
 prepare_op(_Tid, _Op, _WaitFor) ->
@@ -3133,7 +3133,7 @@ ext_real_suffixes(Ext) ->
 		    [M || {_,M} <- Ext])
     catch
         error:E ->
-            verbose("Cant find real ext suffixes (~p)~n", [E]),
+            verbose("Cant find real ext suffixes (~tp)~n", [E]),
             []
     end.
 
@@ -3142,7 +3142,7 @@ ext_tmp_suffixes(Ext) ->
 		    [M || {_,M} <- Ext])
     catch
         error:E ->
-            verbose("Cant find tmp ext suffixes (~p)~n", [E]),
+            verbose("Cant find tmp ext suffixes (~tp)~n", [E]),
             []
     end.
 
@@ -3153,14 +3153,14 @@ info() ->
 
 info(Tab) ->
     Props = get_table_properties(Tab),
-    io:format("-- Properties for ~w table --- ~n",[Tab]),
+    io:format("-- Properties for ~tw table --- ~n",[Tab]),
     info2(Tab, Props).
 info2(Tab, [{cstruct, _V} | Tail]) -> % Ignore cstruct
     info2(Tab, Tail);
 info2(Tab, [{frag_hash, _V} | Tail]) -> % Ignore frag_hash
     info2(Tab, Tail);
 info2(Tab, [{P, V} | Tail]) ->
-    io:format("~-20w -> ~p~n",[P,V]),
+    io:format("~-20tw -> ~tp~n",[P,V]),
     info2(Tab, Tail);
 info2(_, []) ->
     io:format("~n", []).
@@ -3726,7 +3726,7 @@ merge_versions(AnythingNew, Cs, RemoteCs, Force) ->
 	    ok;
 	true ->
 	    Str = io_lib:format("Bad cookies. Cannot merge definitions of "
-				"table ~w. Local = ~w, Remote = ~w~n",
+				"table ~tw. Local = ~w, Remote = ~w~n",
 				[Cs#cstruct.name, Cs, RemoteCs]),
 	    throw(Str)
     end,
@@ -3746,7 +3746,7 @@ merge_versions(AnythingNew, Cs, RemoteCs, Force) ->
 	    do_merge_versions(AnythingNew, Cs, RemoteCs);
 	true ->
 	    Str1 = io_lib:format("Cannot merge definitions of "
-				"table ~w. Local = ~w, Remote = ~w~n",
+				"table ~tw. Local = ~w, Remote = ~w~n",
 				[Cs#cstruct.name, Cs, RemoteCs]),
 	    throw(Str1)
     end.

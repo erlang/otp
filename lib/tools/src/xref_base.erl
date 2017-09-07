@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -405,21 +405,21 @@ analysis(exports_not_used, _) ->
     %% Local calls are not considered here. "X * UU" would do otherwise.
     "X - XU";
 analysis({call, F}, functions) ->
-    make_query("range (E | ~w : Fun)", [F]);
+    make_query("range (E | ~tw : Fun)", [F]);
 analysis({use, F}, functions) ->
-    make_query("domain (E || ~w : Fun)", [F]);
+    make_query("domain (E || ~tw : Fun)", [F]);
 analysis({module_call, M}, _) ->
-    make_query("range (ME | ~w : Mod)", [M]);
+    make_query("range (ME | ~tw : Mod)", [M]);
 analysis({module_use, M}, _) ->
-    make_query("domain (ME || ~w : Mod)", [M]);
+    make_query("domain (ME || ~tw : Mod)", [M]);
 analysis({application_call, A}, _) ->
-    make_query("range (AE | ~w : App)", [A]);
+    make_query("range (AE | ~tw : App)", [A]);
 analysis({application_use, A}, _) ->
-    make_query("domain (AE || ~w : App)", [A]);
+    make_query("domain (AE || ~tw : App)", [A]);
 analysis({release_call, R}, _) ->
-    make_query("range (RE | ~w : Rel)", [R]);
+    make_query("range (RE | ~tw : Rel)", [R]);
 analysis({release_use, R}, _) ->
-    make_query("domain (RE || ~w : Rel)", [R]);
+    make_query("domain (RE || ~tw : Rel)", [R]);
 analysis(deprecated_function_calls, functions) ->
     "XC || DF";
 analysis({deprecated_function_calls,Flag}, functions) ->
@@ -1833,9 +1833,9 @@ message(true, What, Arg) ->
 	unreadable ->
 	    io:format("Skipping ~ts (unreadable)~n", [Arg]);
 	xref_attr ->
-	    io:format("~ts: Skipping 'xref' attribute ~w~n", Arg);
+	    io:format("~ts: Skipping 'xref' attribute ~tw~n", Arg);
         depr_attr ->
-            io:format("~ts: Skipping 'deprecated' attribute ~w~n", Arg);
+            io:format("~ts: Skipping 'deprecated' attribute ~tw~n", Arg);
 	lib_search ->
 	    io:format("Scanning library path for BEAM files... ", []);
 	lib_check ->

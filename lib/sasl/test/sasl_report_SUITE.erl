@@ -20,7 +20,7 @@
 -module(sasl_report_SUITE).
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
--export([gen_server_crash/1]).
+-export([gen_server_crash/1, gen_server_crash_unicode/1]).
 
 -export([crash_me/0,start_link/0,init/1,handle_cast/2,terminate/2]).
 
@@ -29,7 +29,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [gen_server_crash].
+    [gen_server_crash, gen_server_crash_unicode].
 
 groups() ->
     [].
@@ -47,8 +47,14 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 gen_server_crash(Config) ->
+    gen_server_crash(Config, latin1).
+
+gen_server_crash_unicode(Config) ->
+    gen_server_crash(Config, unicode).
+
+gen_server_crash(Config, Encoding) ->
     try
-	do_gen_server_crash(Config)
+	do_gen_server_crash(Config, Encoding)
     after
 	error_logger:tty(true),
 	ok = application:unset_env(sasl, sasl_error_logger),
@@ -57,7 +63,7 @@ gen_server_crash(Config) ->
     end,
     ok.
 
-do_gen_server_crash(Config) ->
+do_gen_server_crash(Config, Encoding) ->
     PrivDir = ?config(priv_dir, Config),
     LogDir = filename:join(PrivDir, ?MODULE),
     KernelLog = filename:join(LogDir, "kernel.log"),
@@ -67,7 +73,8 @@ do_gen_server_crash(Config) ->
     error_logger:delete_report_handler(cth_log_redirect),
     error_logger:tty(false),
     application:stop(sasl),
-    ok = application:set_env(sasl, sasl_error_logger, {file,SaslLog},
+    Modes = [write, {encoding, Encoding}],
+    ok = application:set_env(sasl, sasl_error_logger, {file,SaslLog,Modes},
 			     [{persistent,true}]),
     application:set_env(kernel, error_logger_format_depth, 30),
     error_logger:logfile({open,KernelLog}),
@@ -78,16 +85,21 @@ do_gen_server_crash(Config) ->
 
     error_logger:logfile(close),
 
-    check_file(KernelLog, 70000, 150000),
-    check_file(SaslLog, 100000, 150000),
+    check_file(KernelLog, utf8, 70000, 150000),
+    check_file(SaslLog, Encoding, 70000, 150000),
 
+    %% ok = file:delete(KernelLog),
+    %% ok = file:delete(SaslLog),
     ok.
 
-check_file(File, Min, Max) ->
+check_file(File, Encoding, Min, Max) ->
     {ok,Bin} = file:read_file(File),
     Base = filename:basename(File),
     io:format("*** Contents of ~s ***\n", [Base]),
-    io:put_chars([Bin,"\n"]),
+    case Encoding of
+        latin1 -> io:format("~s\n", [Bin]);
+        _ -> io:format("~ts\n", [Bin])
+    end,
     Sz = byte_size(Bin),
     io:format("Size: ~p (allowed range is ~p..~p)\n",
 	      [Sz,Min,Max]),
@@ -110,7 +122,9 @@ crash_me() ->
     {ok,SuperPid} = supervisor:start_link(sasl_report_suite_supervisor, []),
     [{Id,Pid,_,_}] = supervisor:which_children(SuperPid),
     HugeData = gb_sets:from_list(lists:seq(1, 100000)),
-    gen_server:cast(Pid, HugeData),
+    SomeData1 = list_to_atom([246]),
+    SomeData2 = list_to_atom([1024]),
+    gen_server:cast(Pid, {HugeData,SomeData1,SomeData2}),
     Ref = monitor(process, Pid),
     receive
 	{'DOWN',Ref,process,Pid,_} ->
@@ -129,6 +143,12 @@ init(_) ->
 
 handle_cast(Big, St) ->
     Seq = lists:seq(1, 10000),
+    Latin1Atom = list_to_atom([246]),
+    UnicodeAtom = list_to_atom([1024]),
+    put(Latin1Atom, Latin1Atom),
+    put(UnicodeAtom, UnicodeAtom),
+    self() ! Latin1Atom,
+    self() ! UnicodeAtom,
     self() ! Seq,
     self() ! Seq,
     self() ! Seq,

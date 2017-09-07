@@ -346,7 +346,7 @@ check_appup_clauses_plausible([], _Direction, _Modules) ->
     ok;
 check_appup_clauses_plausible([{Re, Instrs} | Rest], Direction, Modules)
   when is_binary(Re) ->
-    case re:compile(Re) of
+    case re:compile(Re,[unicode]) of
         {ok, _} ->
             case check_appup_instructions(Instrs, Direction, Modules) of
                 ok ->

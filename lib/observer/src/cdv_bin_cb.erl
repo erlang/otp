@@ -38,6 +38,7 @@ init_bin_page(Parent,{Type,Bin}) ->
       [{"Format \~p",cdv_html_wx,{Type,format_bin_fun("~p",Bin)}},
        {"Format \~tp",cdv_html_wx,{Type,format_bin_fun("~tp",Bin)}},
        {"Format \~w",cdv_html_wx,{Type,format_bin_fun("~w",Bin)}},
+       {"Format \~tw",cdv_html_wx,{Type,format_bin_fun("~tw",Bin)}},
        {"Format \~s",cdv_html_wx,{Type,format_bin_fun("~s",Bin)}},
        {"Format \~ts",cdv_html_wx,{Type,format_bin_fun("~ts",Bin)}},
        {"Hex",cdv_html_wx,{Type,hex_binary_fun(Bin)}},
@@ -56,7 +57,7 @@ format_bin_fun(Format,Bin) ->
 binary_to_term_fun(Bin) ->
     fun() ->
 	    try binary_to_term(Bin) of
-		Term -> plain_html(io_lib:format("~p",[Term]))
+		Term -> plain_html(io_lib:format("~tp",[Term]))
 	    catch error:badarg ->
 		    Warning = "This binary can not be converted to an Erlang term",
 		    observer_html_lib:warning(Warning)

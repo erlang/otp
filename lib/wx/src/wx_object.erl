@@ -561,21 +561,21 @@ system_code_change([Name, State, Mod, Time], _Module, OldVsn, Extra) ->
 print_event(Dev, {in, Msg}, Name) ->
     case Msg of
 	{'$gen_call', {From, _Tag}, Call} ->
-	    io:format(Dev, "*DBG* ~p got call ~p from ~w~n",
+	    io:format(Dev, "*DBG* ~tp got call ~tp from ~w~n",
 		      [Name, Call, From]);
 	{'$gen_cast', Cast} ->
-	    io:format(Dev, "*DBG* ~p got cast ~p~n",
+	    io:format(Dev, "*DBG* ~tp got cast ~tp~n",
 		      [Name, Cast]);
 	_ ->
-	    io:format(Dev, "*DBG* ~p got ~p~n", [Name, Msg])
+	    io:format(Dev, "*DBG* ~tp got ~tp~n", [Name, Msg])
     end;
 print_event(Dev, {out, Msg, To, State}, Name) ->
-    io:format(Dev, "*DBG* ~p sent ~p to ~w, new state ~w~n",
+    io:format(Dev, "*DBG* ~tp sent ~tp to ~w, new state ~tp~n",
 	      [Name, Msg, To, State]);
 print_event(Dev, {noreply, State}, Name) ->
-    io:format(Dev, "*DBG* ~p new state ~w~n", [Name, State]);
+    io:format(Dev, "*DBG* ~tp new state ~tp~n", [Name, State]);
 print_event(Dev, Event, Name) ->
-    io:format(Dev, "*DBG* ~p dbg  ~p~n", [Name, Event]).
+    io:format(Dev, "*DBG* ~tp dbg  ~tp~n", [Name, Event]).
 
 %%% ---------------------------------------------------
 %%% Terminate the server.
@@ -629,10 +629,10 @@ error_info(Reason, Name, Msg, State, Debug) ->
 	    _ ->
 		Reason
 	end,    
-    format("** wx object server ~p terminating \n"
-           "** Last message in was ~p~n"
-           "** When Server state == ~p~n"
-           "** Reason for termination == ~n** ~p~n",
+    format("** wx object server ~tp terminating \n"
+           "** Last message in was ~tp~n"
+           "** When Server state == ~tp~n"
+           "** Reason for termination == ~n** ~tp~n",
 	   [Name, Msg, State, Reason1]),
     sys:print_log(Debug),
     ok.
@@ -657,7 +657,7 @@ debug_options(Name, Opts) ->
 dbg_opts(Name, Opts) ->
     case catch sys:debug_options(Opts) of
 	{'EXIT',_} ->
-	    format("~p: ignoring erroneous debug options - ~p~n",
+	    format("~tp: ignoring erroneous debug options - ~tp~n",
 		   [Name, Opts]),
 	    [];
 	Dbg ->

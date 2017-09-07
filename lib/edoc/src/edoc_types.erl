@@ -107,7 +107,7 @@ to_xml(#t_paren{type = T}, Env) ->
 to_xml(#t_nonempty_list{type = T}, Env) ->
     {nonempty_list, [wrap_utype(T, Env)]};
 to_xml(#t_atom{val = V}, _Env) ->
-    {atom, [{value, io_lib:write(V)}], []};
+    {atom, [{value, atom_to_list(V)}], []};
 to_xml(#t_integer{val = V}, _Env) ->
     {integer, [{value, integer_to_list(V)}], []};
 to_xml(#t_integer_range{from = From, to = To}, _Env) ->

@@ -1132,7 +1132,7 @@ wait_for_request(Parent, MonRef, Post) ->
             wait_for_request(Parent, MonRef, Post);
         Other ->
             error_logger:error_msg(
-              "The qlc cursor ~w received an unexpected message:\n~p\n", 
+              "The qlc cursor ~w received an unexpected message:\n~tp\n",
               [self(), Other]),
             wait_for_request(Parent, MonRef, Post)
     end.

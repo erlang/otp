@@ -74,7 +74,8 @@
 -spec start() -> no_return().
 
 start() ->
-_ = io:setopts(standard_error, [{encoding,unicode}]),
+  _ = io:setopts(standard_error, [{encoding,unicode}]),
+  _ = io:setopts([{encoding,unicode}]),
   {Args, Analysis} = process_cl_args(),
   %% io:format("Args: ~p\n", [Args]),
   %% io:format("Analysis: ~p\n", [Analysis]),
@@ -484,12 +485,12 @@ write_typed_file(File, Info) ->
 
 write_typed_file(File, Info, NewFileName) ->
   {ok, Binary} = file:read_file(File),
-  Chars = binary_to_list(Binary),
+  Chars = unicode:characters_to_list(Binary),
   write_typed_file(Chars, NewFileName, Info, 1, []),
   io:format("             Saved as: ~tp\n", [NewFileName]).
 
 write_typed_file(Chars, File, #info{functions = []}, _LNo, _Acc) ->
-  ok = file:write_file(File, list_to_binary(Chars), [append]);
+  ok = file:write_file(File, unicode:characters_to_binary(Chars), [append]);
 write_typed_file([Ch|Chs] = Chars, File, Info, LineNo, Acc) ->
   [{Line,F,A}|RestFuncs] = Info#info.functions,
   case Line of
@@ -519,7 +520,7 @@ write_typed_file([Ch|Chs] = Chars, File, Info, LineNo, Acc) ->
 raw_write(F, A, Info, File, Content) ->
   TypeInfo = get_type_string(F, A, Info, file),
   ContentList = lists:reverse(Content) ++ TypeInfo ++ "\n",
-  ContentBin = list_to_binary(ContentList),
+  ContentBin = unicode:characters_to_binary(ContentList),
   file:write_file(File, ContentBin, [append]).
 
 get_type_string(F, A, Info, Mode) ->
@@ -608,7 +609,7 @@ cl(["-D"++Def|Opts]) ->
   case Def of
     "" -> fatal_error("no variable name specified after -D");
     _ ->
-      DefPair = process_def_list(re:split(Def, "=", [{return, list}])),
+      DefPair = process_def_list(re:split(Def, "=", [{return, list}, unicode])),
       {{def, DefPair}, Opts}
   end;
 cl(["-I",Dir|Opts]) -> {{inc, Dir}, Opts};
@@ -697,7 +698,7 @@ get_all_files(#args{files = Fs, files_r = Ds}) ->
 test_erl_file_exclude_ann(File) ->
   case is_erl_file(File) of
     true -> %% Exclude files ending with ".ann.erl"
-      case re:run(File, "[\.]ann[\.]erl$") of
+      case re:run(File, "[\.]ann[\.]erl$", [unicode]) of
 	{match, _} -> false;
 	nomatch -> true
       end;

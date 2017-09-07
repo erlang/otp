@@ -1093,7 +1093,7 @@ macro_loop(Options, Win, Box, MacroText, TermText, Frame) ->
 	    Fun = 
 	      fun(X) ->
 		  Val = wxControlWithItems:getString(Box,X),
-		  [MacroName|_] = re:split(Val, " ", [{return, list}]),
+		  [MacroName|_] = re:split(Val, " ", [{return, list}, unicode]),
 		  list_to_atom(MacroName)
 	      end,
 	    Delete = [Fun(X) || X <- List],

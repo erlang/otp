@@ -427,6 +427,18 @@ special(File,Procs) ->
             {ok,_,[TW]} = crashdump_viewer:general_info(),
             {match,_} = re:run(TW,"CRASH DUMP SIZE LIMIT REACHED"),
             ok;
+        ".unicode" ->
+            #proc{pid=Pid0} =
+                lists:keyfind("'unicode_reg_name_αβ'",#proc.name,Procs),
+            Pid = pid_to_list(Pid0),
+	    {ok,#proc{},[]} = crashdump_viewer:proc_details(Pid),
+            io:format("  unicode registered name ok",[]),
+
+	    {ok,[#ets_table{id="'tab_αβ'",name="'tab_αβ'"}],[]} =
+                crashdump_viewer:ets_tables(Pid),
+            io:format("  unicode table name ok",[]),
+
+            ok;
 	_ ->
 	    ok
     end,
@@ -492,7 +504,8 @@ do_create_dumps(DataDir,Rel) ->
             CD5 = dump_with_args(DataDir,Rel,"trunc.bytes",
                                  "-env ERL_CRASH_DUMP_BYTES " ++
                                      integer_to_list(Bytes)),
-	    {[CD1,CD2,CD3,CD4,CD5], DosDump};
+            CD6 = dump_with_unicode_atoms(DataDir,Rel,"unicode"),
+	    {[CD1,CD2,CD3,CD4,CD5,CD6], DosDump};
 	_ ->
 	    {[CD1,CD2], DosDump}
     end.
@@ -569,6 +582,16 @@ dump_with_strange_module_name(DataDir,Rel,DumpName) ->
 	     {eof,4}],
     {ok,Mod,Bin} = rpc:call(N1,compile,forms,[Forms,[binary]]),
     {module,Mod} = rpc:call(N1,code,load_binary,[Mod,File,Bin]),
+    CD = dump(N1,DataDir,Rel,DumpName),
+    ?t:stop_node(n1),
+    CD.
+
+dump_with_unicode_atoms(DataDir,Rel,DumpName) ->
+    Opt = rel_opt(Rel),
+    Pz = "-pz \"" ++ filename:dirname(code:which(?MODULE)) ++ "\"",
+    PzOpt = [{args,Pz}],
+    {ok,N1} = ?t:start_node(n1,peer,Opt ++ PzOpt),
+    {ok,_Pid} = rpc:call(N1,crashdump_helper_unicode,start,[]),
     CD = dump(N1,DataDir,Rel,DumpName),
     ?t:stop_node(n1),
     CD.

@@ -2283,9 +2283,9 @@ list_index_plugins([{N,M,F} | T] = Ps, Legend) ->
 	  lists:foldl(fun({N1,_,_}, Wa) ->
 			      erlang:max(Wa, length(pp_ix_name(N1)))
 		      end, 0, Ps)),
-    io:fwrite(Legend ++ "~-" ++ W ++ "s - ~s:~s~n",
+    io:fwrite(Legend ++ "~-" ++ W ++ "s - ~s:~ts~n",
 	      [pp_ix_name(N), atom_to_list(M), atom_to_list(F)]),
-    [io:fwrite(Indent ++ "~-" ++ W ++ "s - ~s:~s~n",
+    [io:fwrite(Indent ++ "~-" ++ W ++ "s - ~s:~ts~n",
 	       [pp_ix_name(N1), atom_to_list(M1), atom_to_list(F1)])
      || {N1,M1,F1} <- T].
 

@@ -314,7 +314,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	    ?eval_debug_fun({?MODULE, do_abort, pre}, [{tid, Tid}]),
 	    case gb_trees:lookup(Tid, Participants) of
 		none ->
-		    verbose("Tried to abort a non participant transaction ~p: ~p~n",
+		    verbose("Tried to abort a non participant transaction ~p: ~tp~n",
 			    [Tid, Reason]),
 		    mnesia_locker:release_tid(Tid),
 		    doit_loop(State);
@@ -417,7 +417,7 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	{From, {unblock_me, Tab}} ->
 	    case lists:member(Tab, State#state.blocked_tabs) of
 		false ->
-		    verbose("Wrong dirty Op blocked on ~p ~p ~p",
+		    verbose("Wrong dirty Op blocked on ~p ~tp ~p",
 			    [node(), Tab, From]),
 		    reply(From, unblocked),
 		    doit_loop(State);
@@ -466,11 +466,11 @@ doit_loop(#state{coordinators=Coordinators,participants=Participants,supervisor=
 	    end;
 
 	{system, From, Msg} ->
-	    dbg_out("~p got {system, ~p, ~p}~n", [?MODULE, From, Msg]),
+	    dbg_out("~p got {system, ~p, ~tp}~n", [?MODULE, From, Msg]),
 	    sys:handle_system_msg(Msg, From, Sup, ?MODULE, [], State);
 
 	Msg ->
-	    verbose("** ERROR ** ~p got unexpected message: ~p~n", [?MODULE, Msg]),
+	    verbose("** ERROR ** ~p got unexpected message: ~tp~n", [?MODULE, Msg]),
 	    doit_loop(State)
     end.
 
@@ -556,7 +556,7 @@ handle_exit(Pid, Reason, State) ->
 		    %% We got exit from a local fool
 		    doit_loop(State);
 		{P = #participant{}, _RestP} ->
-		    fatal("Participant ~p in transaction ~p died ~p~n",
+		    fatal("Participant ~p in transaction ~p died ~tp~n",
 			  [P#participant.pid, P#participant.tid, Reason]),
 		    NewPs = gb_trees:delete(P#participant.tid,State#state.participants),
 		    doit_loop(State#state{participants = NewPs})
@@ -598,7 +598,7 @@ recover_coordinator(Tid, Etabs) ->
 		    ok    %% to the new nested trans store.
 	    end
     catch _:Reason ->
-	    dbg_out("Recovery of coordinator ~p failed:~n",
+	    dbg_out("Recovery of coordinator ~p failed: ~tp~n",
 		    [Tid, {Reason, erlang:get_stacktrace()}]),
 	    Protocol = asym_trans,
 	    tell_outcome(Tid, Protocol, node(), CheckNodes, TellNodes)
@@ -941,7 +941,7 @@ decr(_X) -> 0.
 
 return_abort(Fun, Args, Reason)  ->
     {_Mod, Tid, Ts} = get(mnesia_activity_state),
-    dbg_out("Transaction ~p calling ~p with ~p failed: ~n ~p~n",
+    dbg_out("Transaction ~p calling ~tp with ~tp failed: ~n ~tp~n",
 	    [Tid, Fun, Args, Reason]),
     OldStore = Ts#tidstore.store,
     Nodes = get_elements(nodes, OldStore),
@@ -1714,7 +1714,7 @@ commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 			    mnesia_schema:undo_prepare_commit(Tid, C0);
 
 			Msg ->
-			    verbose("** ERROR ** commit_participant ~p, got unexpected msg: ~p~n",
+			    verbose("** ERROR ** commit_participant ~p, got unexpected msg: ~tp~n",
 				    [Tid, Msg])
 		    end;
 		{Tid, {do_abort, Reason}} ->
@@ -1730,7 +1730,7 @@ commit_participant(Coord, Tid, Bin, C0, DiscNs, _RamNs) ->
 
 		Msg ->
 		    reply(Coord, {do_abort, Tid, self(), {bad_commit,internal}}),
-		    verbose("** ERROR ** commit_participant ~p, got unexpected msg: ~p~n",
+		    verbose("** ERROR ** commit_participant ~p, got unexpected msg: ~tp~n",
 			    [Tid, Msg])
 	    end
     catch _:Reason ->
@@ -1804,7 +1804,7 @@ do_update(Tid, Storage, [Op | Ops], OldRes) ->
 	    %%         Determine actual storage type and try again.
 	    %% BUGBUG: Updates may be lost if table is transformed.
 	    ST = erlang:get_stacktrace(),
-	    verbose("do_update in ~w failed: ~p -> {'EXIT', ~p}~n",
+	    verbose("do_update in ~w failed: ~tp -> {'EXIT', ~tp}~n",
 		    [Tid, Op, {Reason, ST}]),
 	    do_update(Tid, Storage, Ops, OldRes)
     end;
@@ -1919,7 +1919,7 @@ do_snmp(Tid, [Head|Tail]) ->
 	    %% deleted our local replica or recently deattached
 	    %% the snmp table
 	    ST = erlang:get_stacktrace(),
-	    verbose("do_snmp in ~w failed: ~p -> {'EXIT', ~p}~n",
+	    verbose("do_snmp in ~w failed: ~tp -> {'EXIT', ~tp}~n",
 		    [Tid, Head, {Reason, ST}])
     end,
     do_snmp(Tid, Tail).
@@ -2151,7 +2151,7 @@ pr_participant(Stream, P) ->
 	    true -> Commit0
 	end,
     pr_tid(Stream, P#participant.tid),
-    io:format(Stream, "with participant objects ~p~n", [Commit]).
+    io:format(Stream, "with participant objects ~tp~n", [Commit]).
 
 
 pr_tid(Stream, Tid) ->
@@ -2193,7 +2193,7 @@ search_pr_participant(S, [ P | Tail]) ->
 		    true -> Commit0
 		end,
 
-	    io:format("~p~n", [Commit]),
+	    io:format("~tp~n", [Commit]),
 	    search_pr_participant(S,Tail);  %% !!!!!
 	true ->
 	    search_pr_participant(S, Tail)
@@ -2214,12 +2214,12 @@ display_pid_info(Pid) ->
 	    Reds  = fetch(reductions, Info),
 	    LM = length(fetch(messages, Info)),
 	    pformat(io_lib:format("~p", [Pid]),
-		    io_lib:format("~p", [Call]),
-		    io_lib:format("~p", [Curr]), Reds, LM)
+		    io_lib:format("~tp", [Call]),
+		    io_lib:format("~tp", [Curr]), Reds, LM)
     end.
 
 pformat(A1, A2, A3, A4, A5) ->
-    io:format( "~-12s ~-21s ~-21s ~9w ~4w~n", [A1,A2,A3,A4,A5]).
+    io:format( "~-12s ~-21ts ~-21ts ~9w ~4w~n", [A1,A2,A3,A4,A5]).
 
 fetch(Key, Info) ->
     case lists:keysearch(Key, 1, Info) of

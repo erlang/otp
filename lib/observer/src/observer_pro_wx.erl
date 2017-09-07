@@ -217,7 +217,7 @@ call(Holder, What) ->
 	    erlang:demonitor(Ref),
 	    Res
     after 2000 ->
-	    io:format("Hanging call ~p~n",[What]),
+	    io:format("Hanging call ~tp~n",[What]),
 	    ""
     end.
 
@@ -256,7 +256,7 @@ handle_info(not_active, #state{timer=Timer0}=State) ->
     {noreply, State#state{timer=Timer}};
 
 handle_info(Info, State) ->
-    io:format("~p:~p, Unexpected info: ~p~n", [?MODULE, ?LINE, Info]),
+    io:format("~p:~p, Unexpected info: ~tp~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.
 
 terminate(_Reason, #state{holder=Holder}) ->
@@ -273,11 +273,11 @@ handle_call(get_config, _, #state{holder=Holder, timer=Timer}=State) ->
     {reply, Conf#{acc=>Accum}, State};
 
 handle_call(Msg, _From, State) ->
-    io:format("~p:~p: Unhandled call ~p~n",[?MODULE, ?LINE, Msg]),
+    io:format("~p:~p: Unhandled call ~tp~n",[?MODULE, ?LINE, Msg]),
     {reply, ok, State}.
 
 handle_cast(Msg, State) ->
-    io:format("~p:~p: Unhandled cast ~p~n", [?MODULE, ?LINE, Msg]),
+    io:format("~p:~p: Unhandled cast ~tp~n", [?MODULE, ?LINE, Msg]),
     {noreply, State}.
 
 %%%%%%%%%%%%%%%%%%%%LOOP%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -401,7 +401,7 @@ handle_event(#wx{event=#wxList{type=command_list_item_activated}},
     {noreply, State#state{procinfo_menu_pids=Opened2}};
 
 handle_event(Event, State) ->
-    io:format("~p:~p: handle event ~p\n", [?MODULE, ?LINE, Event]),
+    io:format("~p:~p: handle event ~tp\n", [?MODULE, ?LINE, Event]),
     {noreply, State}.
 
 
@@ -559,7 +559,7 @@ table_holder(#holder{info=Info, attrs=Attrs,
             %% Node crashed will be noticed soon..
             table_holder(S0#holder{backend_pid=undefined});
 	_What ->
-            %% io:format("~p: Table holder got ~p~n",[?MODULE, _What]),
+            %% io:format("~p: Table holder got ~tp~n",[?MODULE, _What]),
 	    table_holder(S0)
     end.
 

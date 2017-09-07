@@ -36,6 +36,7 @@ MODULES= \
 	ets_tough_SUITE \
 	expand_test \
 	expand_test1 \
+	unicode_expand \
 	ExpandTestCaps \
 	ExpandTestCaps1 \
 	filelib_SUITE \

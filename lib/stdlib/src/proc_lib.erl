@@ -823,22 +823,22 @@ to_string(A, _) ->
     io_lib:write_atom(A).
 
 pp_fun({Enc,Depth}) ->
-    {Letter,Tl} = case Depth of
-		      unlimited -> {"p",[]};
-		      _ -> {"P",[Depth]}
-		  end,
-    P = modifier(Enc) ++ Letter,
+    {P,Tl} = p(Enc, Depth),
     fun(Term, I) -> 
             io_lib:format("~." ++ integer_to_list(I) ++ P, [Term|Tl])
     end.
 
-format_tag(Indent, Tag, Data, {_Enc,Depth}) ->
-    case Depth of
-	unlimited ->
-	    io_lib:format("~s~p: ~80.18p~n", [Indent, Tag, Data]);
-	_ ->
-            io_lib:format("~s~p: ~80.18P~n", [Indent, Tag, Data, Depth])
-    end.
+format_tag(Indent, Tag, Data, {Enc,Depth}) ->
+    {P,Tl} = p(Enc, Depth),
+    io_lib:format("~s~p: ~80.18" ++ P ++ "\n", [Indent, Tag, Data|Tl]).
+
+p(Encoding, Depth) ->
+    {Letter, Tl}  = case Depth of
+                        unlimited -> {"p", []};
+                        _         -> {"P", [Depth]}
+                    end,
+    P = modifier(Encoding) ++ Letter,
+    {P, Tl}.
 
 modifier(latin1) -> "";
 modifier(_) -> "t".

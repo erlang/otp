@@ -498,24 +498,24 @@ call_or_apply_to_string(ArgNs, FailReason, SigArgs, SigRet,
 	true ->
 	  %% We do not know which argument(s) caused the failure
 	  io_lib:format("will never return since the success typing arguments"
-			" are ~s\n", [SigArgs]);
+			" are ~ts\n", [SigArgs]);
         false ->
 	  io_lib:format("will never return since it differs in the ~s argument"
-			" from the success typing arguments: ~s\n",
+			" from the success typing arguments: ~ts\n",
 			[PositionString, SigArgs])
       end;
     only_contract ->
       case (ArgNs =:= []) orelse IsOverloaded of
 	true ->
 	  %% We do not know which arguments caused the failure
-	  io_lib:format("breaks the contract ~s\n", [Contract]);
+	  io_lib:format("breaks the contract ~ts\n", [Contract]);
 	false ->
-	  io_lib:format("breaks the contract ~s in the ~s argument\n",
+	  io_lib:format("breaks the contract ~ts in the ~s argument\n",
 			[Contract, PositionString])
       end;
     both ->
-      io_lib:format("will never return since the success typing is ~s -> ~s"
-		    " and the contract is ~s\n", [SigArgs, SigRet, Contract])
+      io_lib:format("will never return since the success typing is ~ts -> ~ts"
+		    " and the contract is ~ts\n", [SigArgs, SigRet, Contract])
   end.
 
 form_positions(ArgNs) ->
@@ -533,9 +533,9 @@ form_positions(ArgNs) ->
 form_expected_without_opaque([{N, T, TStr}]) ->
   case erl_types:t_is_opaque(T) of
     true  ->
-      io_lib:format("an opaque term of type ~s as ", [TStr]);
+      io_lib:format("an opaque term of type ~ts as ", [TStr]);
     false ->
-      io_lib:format("a term of type ~s (with opaque subterms) as ", [TStr])
+      io_lib:format("a term of type ~ts (with opaque subterms) as ", [TStr])
   end ++ form_position_string([N]) ++ " argument";
 form_expected_without_opaque(ExpectedTriples) -> %% TODO: can do much better here
   {ArgNs, _Ts, _TStrs} = lists:unzip3(ExpectedTriples),
@@ -546,8 +546,8 @@ form_expected(ExpectedArgs) ->
     [T] ->
       TS = erl_types:t_to_string(T),
       case erl_types:t_is_opaque(T) of
-	true  -> io_lib:format("an opaque term of type ~s is expected", [TS]);
-	false -> io_lib:format("a structured term of type ~s is expected", [TS])
+	true  -> io_lib:format("an opaque term of type ~ts is expected", [TS]);
+	false -> io_lib:format("a structured term of type ~ts is expected", [TS])
       end;
     [_,_|_] -> "terms of different types are expected in these positions"
   end.

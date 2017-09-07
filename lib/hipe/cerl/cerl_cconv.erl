@@ -258,7 +258,7 @@ bind_module_defs([], Env, S) ->
 check_function_name(Name, S) ->
     case s__is_function_name(Name, S) of
 	true ->
-	    error_msg("multiple definitions of function `~w'.", [Name]),
+	    error_msg("multiple definitions of function `~tw'.", [Name]),
 	    exit(error);
 	false ->
 	    ok

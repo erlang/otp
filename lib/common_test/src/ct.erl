@@ -848,7 +848,8 @@ capture_get([ExclCat | ExclCategories]) ->
     Strs = test_server:capture_get(),
     CatsStr = [atom_to_list(ExclCat) | 
 	       [[$| | atom_to_list(EC)] || EC <- ExclCategories]],
-    {ok,MP} = re:compile("<div class=\"(" ++ lists:flatten(CatsStr) ++ ")\">.*"),
+    {ok,MP} = re:compile("<div class=\"(" ++ lists:flatten(CatsStr) ++ ")\">.*",
+                         [unicode]),
     lists:flatmap(fun(Str) ->
 			  case re:run(Str, MP) of
 			      {match,_} -> [];
