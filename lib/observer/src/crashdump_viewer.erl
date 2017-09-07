@@ -106,6 +106,8 @@
 -define(internal_ets,internal_ets).
 -define(loaded_modules,loaded_modules).
 -define(memory,memory).
+-define(memory_map,memory_map).
+-define(memory_status,memory_status).
 -define(mod,mod).
 -define(no_distribution,no_distribution).
 -define(node,node).
@@ -911,7 +913,11 @@ check_if_truncated() ->
 	    find_truncated_proc(TruncatedTag)
     end.
 	    
-find_truncated_proc({?atoms,_Id}) ->
+find_truncated_proc({Tag,_Id}) when Tag==?atoms;
+                                    Tag==?binary;
+                                    Tag==?instr_data;
+                                    Tag==?memory_status;
+                                    Tag==?memory_map ->
     put(truncated_proc,false);
 find_truncated_proc({Tag,Pid}) ->
     case is_proc_tag(Tag) of
