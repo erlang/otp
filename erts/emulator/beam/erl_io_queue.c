@@ -32,14 +32,6 @@
 #include "erl_bits.h"
 #include "erl_io_queue.h"
 
-#ifndef MAX
-#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
-#endif
-
-#ifndef MIN
-#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
-#endif
-
 #define IOL2V_SMALL_BIN_LIMIT (ERL_ONHEAP_BIN_LIMIT * 4)
 
 static void free_binary(ErtsIOQBinary *b, int driver);

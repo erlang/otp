@@ -113,10 +113,6 @@ do {                                     \
 #  define CHECK_ARGS(T)
 #endif
 
-#ifndef MAX
-#define MAX(x, y) (((x) > (y)) ? (x) : (y))
-#endif
-
 #define GET_BIF_MODULE(p)  (p->info.mfa.module)
 #define GET_BIF_FUNCTION(p)  (p->info.mfa.function)
 #define GET_BIF_ARITY(p)  (p->info.mfa.arity)

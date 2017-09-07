@@ -85,9 +85,6 @@
 
 #define EMPTY_NODE(Dtt) (TOP_NODE(Dtt) == NULL)
 
-#ifndef MIN
-#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
-#endif
 
 /* Obtain table static stack if available. NULL if not.
 ** Must be released with release_stack()
