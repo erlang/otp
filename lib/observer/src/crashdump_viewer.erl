@@ -748,32 +748,6 @@ get_rest_of_line_1(Fd, <<>>, Acc) ->
 	eof -> {eof,lists:reverse(Acc)}
     end.
 
-get_lines_to_empty(Fd) ->
-    case get_chunk(Fd) of
-	{ok,Bin} ->
-	    get_lines_to_empty(Fd,Bin,[],[]);
-	eof ->
-	    []
-    end.
-get_lines_to_empty(Fd,<<$\n:8,Bin/binary>>,[],Lines) ->
-    put_chunk(Fd,Bin),
-    lists:reverse(Lines);
-get_lines_to_empty(Fd,<<$\n:8,Bin/binary>>,Acc,Lines) ->
-    get_lines_to_empty(Fd,Bin,[],[byte_list_to_string(lists:reverse(Acc))|Lines]);
-get_lines_to_empty(Fd,<<$\r:8,Bin/binary>>,Acc,Lines) ->
-    get_lines_to_empty(Fd,Bin,Acc,Lines);
-get_lines_to_empty(Fd,<<$\s:8,Bin/binary>>,[],Lines) ->
-    get_lines_to_empty(Fd,Bin,[],Lines);
-get_lines_to_empty(Fd,<<Char:8,Bin/binary>>,Acc,Lines) ->
-    get_lines_to_empty(Fd,Bin,[Char|Acc],Lines);
-get_lines_to_empty(Fd,<<>>,Acc,Lines) ->
-    case get_chunk(Fd) of
-	{ok,Bin} ->
-	    get_lines_to_empty(Fd,Bin,Acc,Lines);
-	eof ->
-	    lists:reverse(Lines,[byte_list_to_string(lists:reverse(Acc))])
-    end.
-
 split(Str) ->
     split($ ,Str,[]).    
 split(Char,Str) ->
@@ -1182,7 +1156,7 @@ all_procinfo(Fd,Fun,Proc,WS,LineHead) ->
 	    get_procinfo(Fd,Fun,Proc#proc{old_heap_end=bytes(Fd)},WS);
 	%% - END - moved from get_procinfo -
 	"Last calls" ->
-	    get_procinfo(Fd,Fun,Proc#proc{last_calls=get_lines_to_empty(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{last_calls=get_last_calls(Fd)},WS);
 	"Link list" ->
 	    {Links,Monitors,MonitoredBy} = parse_link_list(bytes(Fd),[],[],[]),
 	    get_procinfo(Fd,Fun,Proc#proc{links=Links,
@@ -1204,6 +1178,66 @@ all_procinfo(Fd,Fun,Proc,WS,LineHead) ->
 	Other ->
 	    unexpected(Fd,Other,"process info"),
 	    get_procinfo(Fd,Fun,Proc,WS)
+    end.
+
+%% The end of the 'Last calls' section is meant to be an empty line,
+%% but in some cases this is not the case, so we also need to look for
+%% the next heading which currently (OTP-20.1) can be "Link list: ",
+%% "Dictionary: " or "Reductions: ". We do this by looking for ": "
+%% and when found, pushing the heading back into the saved chunk.
+%%
+%% Note that the 'Last calls' section is only present if the
+%% 'save_calls' process flag is set.
+get_last_calls(Fd) ->
+    case get_chunk(Fd) of
+	{ok,Bin} ->
+	    get_last_calls(Fd,Bin,[],[]);
+	eof ->
+	    []
+    end.
+get_last_calls(Fd,<<$\n:8,Bin/binary>>,[],Lines) ->
+    %% Empty line - we're done
+    put_chunk(Fd,Bin),
+    lists:reverse(Lines);
+get_last_calls(Fd,<<$::8>>,Acc,Lines) ->
+    case get_chunk(Fd) of
+	{ok,Bin} ->
+            %% Could be a colon followed by a space - see next function clause
+	    get_last_calls(Fd,<<$::8,Bin/binary>>,Acc,Lines);
+	eof ->
+            %% Truncated here - either we've got the next heading, or
+            %% it was truncated in a last call function, in which case
+            %% we note that it was truncated
+            case byte_list_to_string(lists:reverse(Acc)) of
+                NextHeading when NextHeading=="Link list";
+                                 NextHeading=="Dictionary";
+                                 NextHeading=="Reductions" ->
+                    put_chunk(Fd,list_to_binary(NextHeading++":")),
+                    lists:reverse(Lines);
+                LastCallFunction->
+                    lists:reverse(Lines,[LastCallFunction++":...(truncated)"])
+            end
+    end;
+get_last_calls(Fd,<<$\::8,$\s:8,Bin/binary>>,Acc,Lines) ->
+    %% ": " - means we have the next heading in Acc - save it back
+    %% into the chunk and return the lines we've found
+    HeadingBin = list_to_binary(lists:reverse(Acc,[$:])),
+    put_chunk(Fd,<<HeadingBin/binary,Bin/binary>>),
+    lists:reverse(Lines);
+get_last_calls(Fd,<<$\n:8,Bin/binary>>,Acc,Lines) ->
+    get_last_calls(Fd,Bin,[],[byte_list_to_string(lists:reverse(Acc))|Lines]);
+get_last_calls(Fd,<<$\r:8,Bin/binary>>,Acc,Lines) ->
+    get_last_calls(Fd,Bin,Acc,Lines);
+get_last_calls(Fd,<<$\s:8,Bin/binary>>,[],Lines) ->
+    get_last_calls(Fd,Bin,[],Lines);
+get_last_calls(Fd,<<Char:8,Bin/binary>>,Acc,Lines) ->
+    get_last_calls(Fd,Bin,[Char|Acc],Lines);
+get_last_calls(Fd,<<>>,Acc,Lines) ->
+    case get_chunk(Fd) of
+	{ok,Bin} ->
+	    get_last_calls(Fd,Bin,Acc,Lines);
+	eof ->
+	    lists:reverse(Lines,[byte_list_to_string(lists:reverse(Acc))])
     end.
 
 parse_link_list([SB|Str],Links,Monitors,MonitoredBy) when SB==$[; SB==$] ->

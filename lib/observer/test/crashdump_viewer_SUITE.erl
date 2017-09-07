@@ -364,6 +364,9 @@ special(File,Procs) ->
 		crashdump_viewer:expand_binary({SOffset,SSize,SPos}),
 	    io:format("  expand binary ok",[]),
 
+	    #proc{last_calls=LastCalls} = ProcDetails,
+            true = length(LastCalls) =< 4,
+
 	    ['#CDVPid',X1,Y1,Z1] = proplists:get_value(ext_pid,Dict),
 	    ChannelStr1 = integer_to_list(X1),
 	    ExtPid =
