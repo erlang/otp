@@ -54,6 +54,7 @@ void dbg_where(BeamInstr* addr, Eterm x0, Eterm* reg);
 static int print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr);
 static void print_bif_name(fmtfn_t to, void* to_arg, BifFunction bif);
 static BeamInstr* f_to_addr(BeamInstr* base, int op, BeamInstr* ap);
+static BeamInstr* f_to_addr_packed(BeamInstr* base, int op, Sint32* ap);
 
 BIF_RETTYPE
 erts_debug_same_2(BIF_ALIST_2)
@@ -634,6 +635,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	{
 	    int n = ap[-1];
 	    int ix = n;
+            Sint32* jump_tab = (Sint32 *)(ap + n);
 
 	    while (ix--) {
 		erts_print(to, to_arg, "%T ", (Eterm) ap[0]);
@@ -642,11 +644,11 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	    ix = n;
 	    while (ix--) {
-                BeamInstr* target = f_to_addr(addr, op, ap);
+                BeamInstr* target = f_to_addr_packed(addr, op, jump_tab);
 		erts_print(to, to_arg, "f(" HEXF ") ", target);
-		ap++;
-		size++;
+                jump_tab++;
 	    }
+            size += (n+1) / 2;
 	}
 	break;
     case op_i_select_val_bins_xfI:
@@ -668,6 +670,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
         {
             int n = ap[-1];
             int ix = n - 1; /* without sentinel */
+            Sint32* jump_tab = (Sint32 *)(ap + n);
 
             while (ix--) {
                 Uint arity = arityval(ap[0]);
@@ -681,34 +684,38 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             size++;
             ix = n;
             while (ix--) {
-                BeamInstr* target = f_to_addr(addr, op, ap);
+                BeamInstr* target = f_to_addr_packed(addr, op, jump_tab);
                 erts_print(to, to_arg, "f(" HEXF ") ", target);
-                ap++;
-                size++;
+                jump_tab++;
             }
+            size += (n+1) / 2;
         }
         break;
     case op_i_jump_on_val_xfIW:
     case op_i_jump_on_val_yfIW:
 	{
-	    int n;
-	    for (n = ap[-2]; n > 0; n--) {
-                BeamInstr* target = f_to_addr(addr, op, ap);
+	    int n = ap[-2];
+            Sint32* jump_tab = (Sint32 *) ap;
+
+            size += (n+1) / 2;
+            while (n-- > 0) {
+                BeamInstr* target = f_to_addr_packed(addr, op, jump_tab);
 		erts_print(to, to_arg, "f(" HEXF ") ", target);
-		ap++;
-		size++;
+                jump_tab++;
 	    }
 	}
 	break;
     case op_i_jump_on_val_zero_xfI:
     case op_i_jump_on_val_zero_yfI:
 	{
-	    int n;
-	    for (n = ap[-1]; n > 0; n--) {
-                BeamInstr* target = f_to_addr(addr, op, ap);
+	    int n = ap[-1];
+            Sint32* jump_tab = (Sint32 *) ap;
+
+            size += (n+1) / 2;
+            while (n-- > 0) {
+                BeamInstr* target = f_to_addr_packed(addr, op, jump_tab);
 		erts_print(to, to_arg, "f(" HEXF ") ", target);
-		ap++;
-		size++;
+                jump_tab++;
 	    }
 	}
 	break;
@@ -808,6 +815,11 @@ static void print_bif_name(fmtfn_t to, void* to_arg, BifFunction bif)
 static BeamInstr* f_to_addr(BeamInstr* base, int op, BeamInstr* ap)
 {
     return base - 1 + opc[op].adjust + (Sint32) *ap;
+}
+
+static BeamInstr* f_to_addr_packed(BeamInstr* base, int op, Sint32* ap)
+{
+    return base - 1 + opc[op].adjust + *ap;
 }
 
 

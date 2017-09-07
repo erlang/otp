@@ -150,7 +150,8 @@ select_val_lin.execute(N) {
     }
 
     if (vs[ix] == select_val) {
-        Eterm offset = *($NEXT_INSTRUCTION + $N + ix);
+        Sint32* jump_tab = (Sint32 *) ($NEXT_INSTRUCTION + $N);
+        Eterm offset = jump_tab[ix];
         $JUMP(offset);
     } else {
         $JUMP(*select_fail);
@@ -161,7 +162,8 @@ JUMP_ON_VAL(Fail, Index, N, Base) {
     if (is_small($Index)) {
         $Index = (Uint) (signed_val($Index) - $Base);
         if ($Index < $N) {
-            $JUMP((($NEXT_INSTRUCTION)[$Index]));
+            Sint32* jump_tab = (Sint32 *) ($NEXT_INSTRUCTION);
+            $JUMP(jump_tab[$Index]);
         }
     }
     $FAIL($Fail);

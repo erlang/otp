@@ -1976,6 +1976,9 @@ load_code(LoaderState* stp)
     GenOp** last_op_next = NULL;
     int arity;
     int retval = 1;
+#if defined(BEAM_WIDE_SHIFT)
+    int num_trailing_f;     /* Number of extra 'f' arguments in a list */
+#endif
 
     /*
      * The size of the loaded func_info instruction is needed
@@ -2661,7 +2664,17 @@ load_code(LoaderState* stp)
 	 * Load any list arguments using the primitive tags.
 	 */
 
+#if defined(BEAM_WIDE_SHIFT)
+        num_trailing_f = 0;
+#endif
 	for ( ; arg < tmp_op->arity; arg++) {
+#if defined(BEAM_WIDE_SHIFT)
+	    if (tmp_op->a[arg].type == TAG_f) {
+                num_trailing_f++;
+            } else {
+                num_trailing_f = 0;
+            }
+#endif
 	    switch (tmp_op->a[arg].type) {
 	    case TAG_i:
 		CodeNeed(1);
@@ -2700,6 +2713,61 @@ load_code(LoaderState* stp)
 			   tag_to_letter[tmp_op->a[arg].type]);
 	    }
 	}
+
+        /*
+         * If all the extra arguments were 'f' operands,
+         * and the wordsize is 64 bits, pack two 'f' operands
+         * into each word.
+         */
+
+#if defined(BEAM_WIDE_SHIFT)
+        if (num_trailing_f >= 1) {
+            Uint src_index = ci - num_trailing_f;
+            Uint src_limit = ci;
+            Uint dst_limit = src_index + (num_trailing_f+1)/2;
+
+            ci = src_index;
+            while (ci < dst_limit) {
+                Uint w[2];
+                BeamInstr packed = 0;
+                int wi;
+
+                w[0] = code[src_index];
+                if (src_index+1 < src_limit) {
+                    w[1] = code[src_index+1];
+                } else {
+                    w[1] = 0;
+                }
+                for (wi = 0; wi < 2; wi++) {
+                    Uint lbl = w[wi];
+                    LabelPatch* lp = stp->labels[lbl].patches;
+                    int num_patches = stp->labels[lbl].num_patches;
+
+#if defined(WORDS_BIGENDIAN)
+                    packed <<= BEAM_WIDE_SHIFT;
+                    packed |= lbl & BEAM_WIDE_MASK;
+#else
+                    packed >>= BEAM_WIDE_SHIFT;
+                    packed |= lbl << BEAM_WIDE_SHIFT;
+#endif
+                    while (num_patches-- > 0) {
+                        if (lp->pos == src_index + wi) {
+                            lp->pos = ci;
+#if defined(WORDS_BIGENDIAN)
+                            lp->packed = 2 - wi;
+#else
+                            lp->packed = wi + 1;
+#endif
+                            break;
+                        }
+                        lp++;
+                    }
+                }
+                code[ci++] = packed;
+                src_index += 2;
+            }
+        }
+#endif
 
 	/*
 	 * Handle a few special cases.
