@@ -20,7 +20,7 @@
 
 -module(iovec_SUITE).
 
--export([all/0, suite/0]).
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
 
 -export([integer_lists/1, binary_lists/1, empty_lists/1, empty_binary_lists/1,
          mixed_lists/1, improper_lists/1, illegal_lists/1, cons_bomb/1,
@@ -36,6 +36,13 @@ all() ->
     [integer_lists, binary_lists, empty_lists, empty_binary_lists, mixed_lists,
      illegal_lists, improper_lists, cons_bomb, iolist_to_iovec_idempotence,
      iolist_to_iovec_correctness].
+
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(Config) ->
+    application:stop(os_mon),
+    Config.
 
 integer_lists(Config) when is_list(Config) ->
     Variations = gen_variations([I || I <- lists:seq(1, 255)]),
