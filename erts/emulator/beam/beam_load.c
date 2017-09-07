@@ -4039,7 +4039,6 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     int i, j, align = 0;
 
     if (size == 2) {
-
 	/*
 	 * Use a special-cased instruction if there are only two values.
 	 */
@@ -4056,47 +4055,19 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 	op->a[5] = Rest[3];
 
 	return op;
-
-    } else if (size > 10) {
-
-	/* binary search instruction */
-
-	NEW_GENOP(stp, op);
-	op->next = NULL;
-	op->op = genop_i_select_val_bins_3;
-	GENOP_ARITY(op, arity);
-	op->a[0] = S;
-	op->a[1] = Fail;
-	op->a[2].type = TAG_u;
-	op->a[2].val = size;
-	for (i = 3; i < arity; i++) {
-	    op->a[i] = Rest[i-3];
-	}
-
-	/*
-	 * Sort the values to make them useful for a binary search.
-	 */
-
-	qsort(op->a+3, size, 2*sizeof(GenOpArg),
-		(int (*)(const void *, const void *)) genopargcompare);
-#ifdef DEBUG
-	for (i = 3; i < arity-2; i += 2) {
-	    ASSERT(op->a[i].val < op->a[i+2].val);
-	}
-#endif
-	return op;
     }
 
-    /* linear search instruction */
-
-    align = 1;
+    if (size <= 10) {
+        /* Use linear search. Reserve place for a sentinel. */
+        align = 1;
+    }
 
     arity += 2*align;
     size  += align;
 
     NEW_GENOP(stp, op);
     op->next = NULL;
-    op->op = genop_i_select_val_lins_3;
+    op->op = (align == 0) ? genop_i_select_val_bins_3 : genop_i_select_val_lins_3;
     GENOP_ARITY(op, arity);
     op->a[0] = S;
     op->a[1] = Fail;
@@ -4110,7 +4081,7 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     }
 
     /*
-     * Sort the values to make them useful for a sentinel search
+     * Sort the values to make them useful for a binary or sentinel search.
      */
 
     qsort(tmp, size - align, 2*sizeof(GenOpArg),
@@ -4125,11 +4096,12 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 
     erts_free(ERTS_ALC_T_LOADER_TMP, (void *) tmp);
 
-    /* add sentinel */
-
-    op->a[j].type = TAG_u;
-    op->a[j].val  = ~((BeamInstr)0);
-    op->a[j+size] = Fail;
+    if (align) {
+        /* Add sentinel for linear search. */
+        op->a[j].type = TAG_u;
+        op->a[j].val  = ~((BeamInstr)0);
+        op->a[j+size] = Fail;
+    }
 
 #ifdef DEBUG
     for (i = 0; i < size - 1; i++) {

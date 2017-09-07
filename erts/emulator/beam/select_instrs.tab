@@ -30,16 +30,15 @@ select_val_bins.fetch(Src) {
 }
 
 select_val_bins.select(Fail, NumElements) {
-    struct Pairs {
+    struct Singleton {
         BeamInstr val;
-        Eterm offset;
     };
-    struct Pairs* low;
-    struct Pairs* high;
-    struct Pairs* mid;
+    struct Singleton* low;
+    struct Singleton* high;
+    struct Singleton* mid;
     int bdiff; /* int not long because the arrays aren't that large */
 
-    low = (struct Pairs *) (&$NumElements + 1);
+    low = (struct Singleton *) ($NEXT_INSTRUCTION);
     high = low + $NumElements;
 
     /* The pointer subtraction (high-low) below must produce
@@ -60,15 +59,17 @@ select_val_bins.select(Fail, NumElements) {
      *
      */
     while ((bdiff = (int)((char*)high - (char*)low)) > 0) {
-        unsigned int boffset = ((unsigned int)bdiff >> 1) & ~(sizeof(struct Pairs)-1);
+        unsigned int boffset = ((unsigned int)bdiff >> 1) & ~(sizeof(struct Singleton)-1);
 
-        mid = (struct Pairs*)((char*)low + boffset);
+        mid = (struct Singleton*)((char*)low + boffset);
         if (select_val < mid->val) {
             high = mid;
         } else if (select_val > mid->val) {
             low = mid + 1;
         } else {
-            $JUMP(mid->offset);
+            Sint32* jump_tab = (Sint32 *) ($NEXT_INSTRUCTION + $NumElements);
+            Sint32 offset = jump_tab[mid - (struct Singleton *)($NEXT_INSTRUCTION)];
+            $JUMP(offset);
         }
     }
     $JUMP($Fail);

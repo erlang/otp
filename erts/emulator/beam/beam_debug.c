@@ -632,6 +632,8 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
     switch (op) {
     case op_i_select_val_lins_xfI:
     case op_i_select_val_lins_yfI:
+    case op_i_select_val_bins_xfI:
+    case op_i_select_val_bins_yfI:
 	{
 	    int n = ap[-1];
 	    int ix = n;
@@ -649,20 +651,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
                 jump_tab++;
 	    }
             size += (n+1) / 2;
-	}
-	break;
-    case op_i_select_val_bins_xfI:
-    case op_i_select_val_bins_yfI:
-	{
-	    int n = ap[-1];
-
-	    while (n > 0) {
-                BeamInstr* target = f_to_addr(addr, op, ap+1);
-		erts_print(to, to_arg, "%T f(" HEXF ") ", (Eterm) ap[0], target);
-		ap += 2;
-		size += 2;
-		n--;
-	    }
 	}
 	break;
     case op_i_select_tuple_arity_xfI:
