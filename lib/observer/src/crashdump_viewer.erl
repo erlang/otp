@@ -36,7 +36,6 @@
 %% file: The name of the crashdump currently viewed.
 %% dump_vsn: The version number of the crashdump
 %% wordsize: 4 | 8, the number of bytes in a word.
-%% binaries: a gb_tree containing binaries or links to binaries in the dump
 %%
 
 %% User API
@@ -124,7 +123,7 @@
 -define(visible_node,visible_node).
 
 
--record(state,{file,dump_vsn,wordsize=4,num_atoms="unknown",binaries}).
+-record(state,{file,dump_vsn,wordsize=4,num_atoms="unknown"}).
 
 %%%-----------------------------------------------------------------
 %%% Debugging
@@ -307,6 +306,7 @@ expand_binary(Pos) ->
 init([]) ->
     ets:new(cdv_dump_index_table,[ordered_set,named_table,public]),
     ets:new(cdv_reg_proc_table,[ordered_set,named_table,public]),
+    ets:new(cdv_binary_index_table,[ordered_set,named_table,public]),
     {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -350,9 +350,9 @@ handle_call(procs_summary,_From,State=#state{file=File,wordsize=WS}) ->
     Procs = procs_summary(File,WS),
     {reply,{ok,Procs,TW},State};
 handle_call({proc_details,Pid},_From,
-	    State=#state{file=File,wordsize=WS,dump_vsn=DumpVsn,binaries=B})->
+	    State=#state{file=File,wordsize=WS,dump_vsn=DumpVsn})->
     Reply = 
-	case get_proc_details(File,Pid,WS,DumpVsn,B) of
+	case get_proc_details(File,Pid,WS,DumpVsn) of
 	    {ok,Proc,TW} ->
 		{ok,Proc,TW};
 	    Other ->
@@ -464,9 +464,9 @@ handle_call(schedulers,_From,State=#state{file=File}) ->
 %%--------------------------------------------------------------------
 handle_cast({read_file,File}, _State) ->
     case do_read_file(File) of
-	{ok,Binaries,DumpVsn} ->
+	{ok,DumpVsn} ->
 	    observer_lib:report_progress({ok,done}),
-	    {noreply, #state{file=File,binaries=Binaries,dump_vsn=DumpVsn}};
+	    {noreply, #state{file=File,dump_vsn=DumpVsn}};
 	Error ->
 	    end_progress(Error),
 	    {noreply, #state{}}
@@ -793,18 +793,17 @@ do_read_file(File) ->
 		    {Tag,Id,Rest,N1} = tag(Fd,TagAndRest,1),
 		    case Tag of
 			?erl_crash_dump ->
-			    reset_index_table(),
+			    reset_tables(),
 			    insert_index(Tag,Id,N1+1),
 			    put_last_tag(Tag,""),
-			    indexify(Fd,Rest,N1),
+                            DumpVsn = [list_to_integer(L) ||
+                                          L<-string:tokens(Id,".")],
+                            AddrAdj = get_bin_addr_adj(DumpVsn),
+                            indexify(Fd,AddrAdj,Rest,N1),
 			    end_progress(),
 			    check_if_truncated(),
-			    [{DumpVsn0,_}] = lookup_index(?erl_crash_dump),
-			    DumpVsn = [list_to_integer(L) ||
-					L<-string:tokens(DumpVsn0,".")],
-			    Binaries = read_binaries(Fd,DumpVsn),
 			    close(Fd),
-			    {ok,Binaries,DumpVsn};
+                            {ok,DumpVsn};
 			_Other ->
 			    R = io_lib:format(
 				  "~ts is not an Erlang crash dump~n",
@@ -832,15 +831,26 @@ do_read_file(File) ->
 	    {error,R}
     end.
 
-indexify(Fd,Bin,N) ->
+indexify(Fd,AddrAdj,Bin,N) ->
     case binary:match(Bin,<<"\n=">>) of
 	{Start,Len} ->
 	    Pos = Start+Len,
 	    <<_:Pos/binary,TagAndRest/binary>> = Bin,
 	    {Tag,Id,Rest,N1} = tag(Fd,TagAndRest,N+Pos),
-	    insert_index(Tag,Id,N1+1), % +1 to get past newline
+            NewPos = N1+1, % +1 to get past newline
+            case Tag of
+                ?binary ->
+                    %% Binaries are stored in a separate table in
+                    %% order to minimize lookup time. Key is the
+                    %% translated address.
+                    {HexAddr,_} = get_hex(Id),
+                    Addr = HexAddr bor AddrAdj,
+                    insert_binary_index(Addr,NewPos);
+                _ ->
+                    insert_index(Tag,Id,NewPos)
+            end,
 	    put_last_tag(Tag,Id),
-	    indexify(Fd,Rest,N1);
+	    indexify(Fd,AddrAdj,Rest,N1);
 	nomatch ->
 	    case progress_read(Fd) of
 		{ok,Chunk0} when is_binary(Chunk0) ->
@@ -851,7 +861,7 @@ indexify(Fd,Bin,N) ->
 			    _ ->
 				{Chunk0,N+byte_size(Bin)}
 			end,
-		    indexify(Fd,Chunk,N1);
+		    indexify(Fd,AddrAdj,Chunk,N1);
 		eof ->
 		    eof
 	    end
@@ -1040,14 +1050,14 @@ procs_summary(File,WS) ->
 
 %%-----------------------------------------------------------------
 %% Page with one process
-get_proc_details(File,Pid,WS,DumpVsn,Binaries) ->
+get_proc_details(File,Pid,WS,DumpVsn) ->
     case lookup_index(?proc,Pid) of
 	[{_,Start}] ->
 	    Fd = open(File),
 	    {{Stack,MsgQ,Dict},TW} =
 		case truncated_warning([{?proc,Pid}]) of
 		    [] ->
-			{expand_memory(Fd,Pid,DumpVsn,Binaries),[]};
+			{expand_memory(Fd,Pid,DumpVsn),[]};
 		    TW0 ->
 			{{[],[],[]},TW0}
 		end,
@@ -1365,10 +1375,10 @@ maybe_other_node2(Channel) ->
     end.
 
 
-expand_memory(Fd,Pid,DumpVsn,Binaries) ->
+expand_memory(Fd,Pid,DumpVsn) ->
     BinAddrAdj = get_bin_addr_adj(DumpVsn),
     put(fd,Fd),
-    Dict = read_heap(Fd,Pid,BinAddrAdj,Binaries),
+    Dict = read_heap(Fd,Pid,BinAddrAdj,gb_trees:empty()),
     Expanded = {read_stack_dump(Fd,Pid,BinAddrAdj,Dict),
 		read_messages(Fd,Pid,BinAddrAdj,Dict),
 		read_dictionary(Fd,Pid,BinAddrAdj,Dict)},
@@ -1384,25 +1394,6 @@ get_bin_addr_adj(DumpVsn) when DumpVsn < [0,3] ->
     16#f bsl 64;
 get_bin_addr_adj(_) ->
     0.
-
-%%%
-%%% Read binaries.
-%%%
-read_binaries(Fd,DumpVsn) ->
-    AllBinaries = lookup_index(?binary),
-    AddrAdj = get_bin_addr_adj(DumpVsn),
-    Fun = fun({Addr0,Pos},Dict0) ->
-		  pos_bof(Fd,Pos),
-		  {HexAddr,_} = get_hex(Addr0),
-		  Addr = HexAddr bor AddrAdj,
-		  Bin =
-		      case line_head(Fd) of
-			  {eof,_} -> '#CDVTruncatedBinary';
-			  _Size   -> {'#CDVBin',Pos}
-		      end,
-		  gb_trees:enter(Addr,Bin,Dict0)
-	  end,
-    progress_foldl("Processing binaries",Fun,gb_trees:empty(),AllBinaries).
 
 %%%
 %%% Read top level section.
@@ -2564,9 +2555,9 @@ parse_heap_term("Yc"++Line0, Addr, BinAddrAdj, D0) ->	%Reference-counted binary.
     {Offset,":"++Line2} = get_hex(Line1),
     {Sz,Line} = get_hex(Line2),
     Binp = Binp0 bor BinAddrAdj,
-    Term = case gb_trees:lookup(Binp, D0) of
-	       {value,Bin} -> cdvbin(Offset,Sz,Bin);
-	       none -> '#CDVNonexistingBinary'
+    Term = case lookup_binary_index(Binp) of
+               [{_,Start}] -> cdvbin(Offset,Sz,{'#CDVBin',Start});
+	       [] -> '#CDVNonexistingBinary'
 	   end,
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
@@ -2575,15 +2566,14 @@ parse_heap_term("Ys"++Line0, Addr, BinAddrAdj, D0) ->	%Sub binary.
     {Offset,":"++Line2} = get_hex(Line1),
     {Sz,Line} = get_hex(Line2),
     Binp = Binp0 bor BinAddrAdj,
-    Term = case gb_trees:lookup(Binp, D0) of
-	       {value,Bin} -> cdvbin(Offset,Sz,Bin);
-	       none when Binp0=/=Binp ->
+    Term = case lookup_binary_index(Binp) of
+               [{_,Start}] -> cdvbin(Offset,Sz,{'#CDVBin',Start});
+	       [] ->
 		   %% Might it be on the heap?
-		   case gb_trees:lookup(Binp0, D0) of
+		   case gb_trees:lookup(Binp, D0) of
 		       {value,Bin} -> cdvbin(Offset,Sz,Bin);
 		       none -> '#CDVNonexistingBinary'
-		   end;
-	       none -> '#CDVNonexistingBinary'
+		   end
 	   end,
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D}.
@@ -2739,12 +2729,20 @@ get_label([H|T], Acc) ->
     get_label(T, [H|Acc]).
 
 get_binary(Line0) ->
-    {N,":"++Line} = get_hex(Line0),
-    do_get_binary(N, Line, []).
+    case get_hex(Line0) of
+        {N,":"++Line} ->
+            do_get_binary(N, Line, []);
+        _  ->
+           {'#CDVTruncatedBinary',[]}
+    end.
 
 get_binary(Offset,Size,Line0) ->
-    {_N,":"++Line} = get_hex(Line0),
-    do_get_binary(Size, lists:sublist(Line,(Offset*2)+1,Size*2), []).
+    case get_hex(Line0) of
+        {_N,":"++Line} ->
+            do_get_binary(Size, lists:sublist(Line,(Offset*2)+1,Size*2), []);
+        _  ->
+           {'#CDVTruncatedBinary',[]}
+    end.
 
 do_get_binary(0, Line, Acc) ->
     {list_to_binary(lists:reverse(Acc)),Line};
@@ -2759,12 +2757,16 @@ cdvbin(Offset,Size,{'#CDVBin',Pos}) ->
 cdvbin(Offset,Size,['#CDVBin',_,_,Pos]) ->
     ['#CDVBin',Offset,Size,Pos];
 cdvbin(_,_,'#CDVTruncatedBinary') ->
-    '#CDVTruncatedBinary'.
+    '#CDVTruncatedBinary';
+cdvbin(_,_,'#CDVNonexistingBinary') ->
+    '#CDVNonexistingBinary'.
 
 %%-----------------------------------------------------------------
-%% Functions for accessing the cdv_dump_index_table
-reset_index_table() ->
-    ets:delete_all_objects(cdv_dump_index_table).
+%% Functions for accessing tables
+reset_tables() ->
+    ets:delete_all_objects(cdv_dump_index_table),
+    ets:delete_all_objects(cdv_reg_proc_table),
+    ets:delete_all_objects(cdv_binary_index_table).
 
 insert_index(Tag,Id,Pos) ->
     ets:insert(cdv_dump_index_table,{{Tag,Pos},Id}).
@@ -2779,6 +2781,11 @@ lookup_index(Tag,Id) ->
 count_index(Tag) ->
     ets:select_count(cdv_dump_index_table,[{{{Tag,'_'},'_'},[],[true]}]).
 
+insert_binary_index(Addr,Pos) ->
+    ets:insert(cdv_binary_index_table,{Addr,Pos}).
+
+lookup_binary_index(Addr) ->
+    ets:lookup(cdv_binary_index_table,Addr).
 
 %%-----------------------------------------------------------------
 %% Convert tags read from crashdump to atoms used as first part of key
@@ -2847,23 +2854,6 @@ to_proplist(Fields,Record) ->
 to_value_list(Record) ->
     [_RecordName|Values] = tuple_to_list(Record),
     Values.
-
-%%%-----------------------------------------------------------------
-%%% Fold over List and report progress in percent.
-%%% Report is the text to be presented in the progress dialog.
-%%% Acc0 is the initial accumulator and will be passed to Fun as the
-%%% second arguement, i.e. Fun = fun(Item,Acc) -> NewAcc end.
-progress_foldl(Report,Fun,Acc0,List) ->
-    init_progress(Report, length(List)),
-    progress_foldl1(Fun,Acc0,List).
-
-progress_foldl1(Fun,Acc,[H|T]) ->
-    update_progress(),
-    progress_foldl1(Fun,Fun(H,Acc),T);
-progress_foldl1(_Fun,Acc,[]) ->
-    end_progress(),
-    Acc.
-
 
 %%%-----------------------------------------------------------------
 %%% Map over List and report progress in percent.

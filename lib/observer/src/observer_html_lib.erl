@@ -337,17 +337,24 @@ href_proc_bin(From, T, Acc, LTB) ->
                 Size = list_to_integer(SizeStr),
                 PreviewSize = min(Size,10),
 		Id = {list_to_integer(Offset),PreviewSize,list_to_integer(Pos)},
-		{ok,PreviewBin} = crashdump_viewer:expand_binary(Id),
-		PreviewStr = preview_string(Size, PreviewBin),
-		if LTB ->
-			href("TARGET=\"expanded\"",
-			     ["#Binary?offset="++Offset++
-				  "&size="++SizeStr++
-				  "&pos="++Pos],
-			     PreviewStr);
-		   true ->
-			PreviewStr
-		end;
+                case crashdump_viewer:expand_binary(Id) of
+                    {ok, '#CDVTruncatedBinary'} ->
+                          lists:flatten(
+                            "<FONT COLOR=\"#FF0000\">"
+                            "&lt;&lt;...(Truncated Binary)&gt;&gt;"
+                            "</FONT>");
+                    {ok, PreviewBin} ->
+                        PreviewStr = preview_string(Size, PreviewBin),
+                        if LTB ->
+                                href("TARGET=\"expanded\"",
+                                     ["#Binary?offset="++Offset++
+                                          "&size="++SizeStr++
+                                          "&pos="++Pos],
+                                     PreviewStr);
+                           true ->
+                                PreviewStr
+                        end
+                end;
 	    [PreviewIntStr,SizeStr,Md5] when From =:= obs ->
 		Size = list_to_integer(SizeStr),
                 PreviewInt = list_to_integer(PreviewIntStr),

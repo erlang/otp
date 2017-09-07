@@ -76,7 +76,7 @@ end_per_testcase(Case, Config) ->
     end,
     ok.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [].
 
 all() -> 
     [start_stop,
@@ -416,19 +416,90 @@ special(File,Procs) ->
 			old_attrib=undefined,
 			old_comp_info=undefined}=Mod2,
 	    ok;
-	%% ".strangemodname" ->
-	%%     {ok,Mods,[]} = crashdump_viewer:loaded_modules(),
-	%%     lookat_all_mods(Mods),
-	%%     ok;
-	%% ".sort" ->
-	%%     %% sort ports, atoms and modules ????
-	%%     ok;
-	%% ".trunc" ->
-	%%     %% ????
-	%%     ok;
-        ".trunc.bytes" ->
+	".trunc_bin1" ->
+            %% This is 'full_dist' truncated after the first
+            %% "=binary:"
+            %% i.e. no binary exist in the dump
+	    [#proc{pid=Pid0}|_Rest] = lists:keysort(#proc.name,Procs),
+	    Pid = pid_to_list(Pid0),
+	    {ok,ProcDetails=#proc{},[]} = crashdump_viewer:proc_details(Pid),
+	    io:format("  process details ok",[]),
+
+	    #proc{dict=Dict} = ProcDetails,
+
+	    '#CDVNonexistingBinary' = proplists:get_value(bin,Dict),
+	    '#CDVNonexistingBinary' = proplists:get_value(sub_bin,Dict),
+
+	    io:format("  nonexisting binaries ok",[]),
+            ok;
+	".trunc_bin2" ->
+            %% This is 'full_dist' truncated after the first
+            %% "=binary:Addr\n
+            %%  Size"
+            %% i.e. binaries are truncated
+	    [#proc{pid=Pid0}|_Rest] = lists:keysort(#proc.name,Procs),
+	    Pid = pid_to_list(Pid0),
+	    {ok,ProcDetails=#proc{},[]} = crashdump_viewer:proc_details(Pid),
+	    io:format("  process details ok",[]),
+
+	    #proc{dict=Dict} = ProcDetails,
+
+	    ['#CDVBin',Offset,Size,Pos] = proplists:get_value(bin,Dict),
+            {ok,'#CDVTruncatedBinary'} =
+		crashdump_viewer:expand_binary({Offset,Size,Pos}),
+	    ['#CDVBin',SOffset,SSize,SPos] = proplists:get_value(sub_bin,Dict),
+            {ok,'#CDVTruncatedBinary'} =
+		crashdump_viewer:expand_binary({SOffset,SSize,SPos}),
+
+	    io:format("  expand truncated binary ok",[]),
+            ok;
+	".trunc_bin3" ->
+            %% This is 'full_dist' truncated after the first
+            %% "=binary:Addr\n
+            %%  Size:"
+            %% i.e. same as 'trunc_bin2', except the colon exists also
+	    [#proc{pid=Pid0}|_Rest] = lists:keysort(#proc.name,Procs),
+	    Pid = pid_to_list(Pid0),
+	    {ok,ProcDetails=#proc{},[]} = crashdump_viewer:proc_details(Pid),
+	    io:format("  process details ok",[]),
+
+	    #proc{dict=Dict} = ProcDetails,
+
+	    ['#CDVBin',Offset,Size,Pos] = proplists:get_value(bin,Dict),
+            {ok,'#CDVTruncatedBinary'} =
+		crashdump_viewer:expand_binary({Offset,Size,Pos}),
+	    ['#CDVBin',SOffset,SSize,SPos] = proplists:get_value(sub_bin,Dict),
+            {ok,'#CDVTruncatedBinary'} =
+		crashdump_viewer:expand_binary({SOffset,SSize,SPos}),
+
+	    io:format("  expand truncated binary ok",[]),
+            ok;
+	".trunc_bin4" ->
+            %% This is 'full_dist' truncated after the first
+            %% "=binary:Addr\n
+            %%  Size:BinaryMissinOneByte"
+            %% i.e. the full binary is truncated, but the sub binary is complete
+	    [#proc{pid=Pid0}|_Rest] = lists:keysort(#proc.name,Procs),
+	    Pid = pid_to_list(Pid0),
+	    {ok,ProcDetails=#proc{},[]} = crashdump_viewer:proc_details(Pid),
+	    io:format("  process details ok",[]),
+
+	    #proc{dict=Dict} = ProcDetails,
+
+	    ['#CDVBin',Offset,Size,Pos] = proplists:get_value(bin,Dict),
+            {ok,'#CDVTruncatedBinary'} =
+		crashdump_viewer:expand_binary({Offset,Size,Pos}),
+	    io:format("  expand truncated binary ok",[]),
+	    ['#CDVBin',SOffset,SSize,SPos] = proplists:get_value(sub_bin,Dict),
+            {ok,<<_:SSize/binary>>} =
+		crashdump_viewer:expand_binary({SOffset,SSize,SPos}),
+	    io:format("  expand complete sub binary ok",[]),
+
+            ok;
+        ".trunc_bytes" ->
             {ok,_,[TW]} = crashdump_viewer:general_info(),
             {match,_} = re:run(TW,"CRASH DUMP SIZE LIMIT REACHED"),
+	    io:format("  size limit information ok",[]),
             ok;
         ".unicode" ->
             #proc{pid=Pid0} =
@@ -504,14 +575,40 @@ do_create_dumps(DataDir,Rel) ->
 	    CD3 = dump_with_args(DataDir,Rel,"instr","+Mim true"),
 	    CD4 = dump_with_strange_module_name(DataDir,Rel,"strangemodname"),
             Bytes = rand:uniform(300000) + 100,
-            CD5 = dump_with_args(DataDir,Rel,"trunc.bytes",
+            CD5 = dump_with_args(DataDir,Rel,"trunc_bytes",
                                  "-env ERL_CRASH_DUMP_BYTES " ++
                                      integer_to_list(Bytes)),
             CD6 = dump_with_unicode_atoms(DataDir,Rel,"unicode"),
-	    {[CD1,CD2,CD3,CD4,CD5,CD6], DosDump};
+            TruncatedDumps = truncate_dump(CD1),
+	    {[CD1,CD2,CD3,CD4,CD5,CD6|TruncatedDumps], DosDump};
 	_ ->
 	    {[CD1,CD2], DosDump}
     end.
+
+truncate_dump(File) ->
+    {ok,Bin} = file:read_file(File),
+    BinTag = <<"\n=binary:">>,
+    Colon = <<":">>,
+    NewLine = case os:type() of
+                  {win32,_} -> <<"\r\n">>;
+                  _ -> <<"\n">>
+              end,
+    [StartBin,AfterTag] = binary:split(Bin,BinTag),
+    [AddrAndSize,BinaryAndRest] = binary:split(AfterTag,Colon),
+    [Binary,_Rest] = binary:split(BinaryAndRest,NewLine),
+    TruncSize = byte_size(Binary) - 2,
+    <<TruncBinary:TruncSize/binary,_/binary>> = Binary,
+    TruncName = filename:rootname(File) ++ ".trunc_bin",
+    write_trunc_files(TruncName,StartBin,
+                      [BinTag,AddrAndSize,Colon,TruncBinary],1).
+
+write_trunc_files(TruncName0,Bin,[Part|Parts],N) ->
+    TruncName = TruncName0++integer_to_list(N),
+    Bin1 = <<Bin/binary,Part/binary>>,
+    ok = file:write_file(TruncName,Bin1),
+    [TruncName|write_trunc_files(TruncName0,Bin1,Parts,N+1)];
+write_trunc_files(_,_,[],_) ->
+    [].
 
 
 %% Create a dump which has three visible nodes, one hidden and one
