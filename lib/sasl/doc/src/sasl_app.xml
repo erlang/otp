@@ -103,13 +103,16 @@
           <tag><c>{file,FileName}</c></tag>
           <item><p>Installs <c>sasl_report_file_h</c> in the error logger.
             All reports go to file <c>FileName</c>, which is a
-            string.</p></item>
+            string. The file is opened in <c>write</c> mode with encoding
+	    <c>utf8</c>.</p></item>
           <tag><c>{file,FileName,Modes}</c></tag>
           <item><p>Same as <c>{file,FileName}</c>, except that <c>Modes</c>
             allows you to specify the modes used for opening the <c>FileName</c>
             given to the <seealso marker="kernel:file#open/2">file:open/2</seealso>
-            call. When not specified, <c>Modes</c> defaults to <c>[write]</c>.
-            Use <c>[append]</c> to have the <c>FileName</c> open in append mode.
+            call. By default, the file is opened in <c>write</c> mode
+            with encoding <c>utf8</c>. Use <c>[append]</c> to have
+            the <c>FileName</c> open in append mode. A different
+            encoding can also be specified.
             <c>FileName</c> is a string.</p></item>
           <tag><c>false</c></tag>
           <item><p>No SASL error logger handler is installed.</p></item>

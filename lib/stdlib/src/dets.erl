@@ -1354,7 +1354,7 @@ open_file_loop2(Head, N) ->
                                   ?MODULE, [], Head);
         Message ->
             error_logger:format("** dets: unexpected message"
-                                "(ignored): ~w~n", [Message]),
+                                "(ignored): ~tw~n", [Message]),
             open_file_loop(Head, N)
     end.
 
@@ -1403,7 +1403,7 @@ apply_op(Op, From, Head, N) ->
 		    Head;
 		_Dirty when N =:= 0 -> % dirty or new_dirty
 		    %% The updates seems to have declined
-		    dets_utils:vformat("** dets: Auto save of ~p\n", 
+		    dets_utils:vformat("** dets: Auto save of ~tp\n",
                                        [Head#head.name]), 
 		    {NewHead, _Res} = perform_save(Head, true),
 		    erlang:garbage_collect(),
@@ -1587,13 +1587,13 @@ bug_found(Name, Op, Bad, From) ->
             %% If stream_op/5 found more requests, this is not
             %% the last operation.
             error_logger:format
-              ("** dets: Bug was found when accessing table ~w,~n"
-               "** dets: operation was ~p and reply was ~w.~n"
-               "** dets: Stacktrace: ~w~n",
+              ("** dets: Bug was found when accessing table ~tw,~n"
+               "** dets: operation was ~tp and reply was ~tw.~n"
+               "** dets: Stacktrace: ~tw~n",
                [Name, Op, Bad, erlang:get_stacktrace()]);
         false ->
             error_logger:format
-              ("** dets: Bug was found when accessing table ~w~n",
+              ("** dets: Bug was found when accessing table ~tw~n",
                [Name])
     end,
     if
@@ -2117,7 +2117,7 @@ do_open_file([Fname, Verbose], Parent, Server, Ref) ->
 	    Error;
 	Bad ->
 	    error_logger:format
-	      ("** dets: Bug was found in open_file/1, reply was ~w.~n", 
+	      ("** dets: Bug was found in open_file/1, reply was ~tw.~n",
 	       [Bad]),
 	    {error, {dets_bug, Fname, Bad}}
     end;
@@ -2135,7 +2135,7 @@ do_open_file([Tab, OpenArgs, Verb], Parent, Server, _Ref) ->
 	Bad ->
 	    error_logger:format
 	      ("** dets: Bug was found in open_file/2, arguments were~n"
-	       "** dets: ~w and reply was ~w.~n", 
+	       "** dets: ~tw and reply was ~tw.~n",
 	       [OpenArgs, Bad]),
 	    {error, {dets_bug, Tab, {open_file, OpenArgs}, Bad}}
     end.
@@ -3123,7 +3123,7 @@ check_safe_fixtable(Head) ->
          ((get(verbose) =:= yes) orelse dets_utils:debug_mode()) of
         true ->
             error_logger:format
-              ("** dets: traversal of ~p needs safe_fixtable~n",
+              ("** dets: traversal of ~tp needs safe_fixtable~n",
                [Head#head.name]);
         false ->
             ok
@@ -3189,7 +3189,7 @@ scan_read(H, From, _To, Min, _L, Ts, R, C) ->
 err(Error) ->
     case get(verbose) of
 	yes -> 
-	    error_logger:format("** dets: failed with ~w~n", [Error]),
+	    error_logger:format("** dets: failed with ~tw~n", [Error]),
 	    Error;
 	undefined  ->
 	    Error

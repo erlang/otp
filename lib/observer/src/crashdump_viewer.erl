@@ -200,13 +200,13 @@ do_script_start(StartFun) ->
 			{'EXIT', Pid, normal} ->
 			    ok;
 			{'EXIT', Pid, Reason} ->
-			    io:format("\ncdv crash: ~p\n",[Reason])
+			    io:format("\ncdv crash: ~tp\n",[Reason])
 		    end;
 		_ ->
 		    io:format("\ncdv crash: ~p\n",[unknown_reason])
 	    end;
 	Error ->
-	    io:format("\ncdv start failed: ~p\n",[Error])
+	    io:format("\ncdv start failed: ~tp\n",[Error])
     end.
 
 usage() ->
@@ -340,7 +340,7 @@ handle_call(general_info,_From,State=#state{file=File}) ->
 handle_call({expand_binary,{Offset,Size,Pos}},_From,State=#state{file=File}) ->
     Fd = open(File),
     pos_bof(Fd,Pos),
-    {Bin,_Line} = get_binary(Offset,Size,val(Fd)),
+    {Bin,_Line} = get_binary(Offset,Size,bytes(Fd)),
     close(Fd),
     {reply,{ok,Bin},State};
 handle_call(procs_summary,_From,State=#state{file=File,wordsize=WS}) ->
@@ -512,9 +512,9 @@ unexpected(_Fd,{eof,_LastLine},_Where) ->
     ok; % truncated file
 unexpected(Fd,{part,What},Where) ->
     skip_rest_of_line(Fd),
-    io:format("WARNING: Found unexpected line in ~s:~n~s ...~n",[Where,What]);
+    io:format("WARNING: Found unexpected line in ~ts:~n~ts ...~n",[Where,What]);
 unexpected(_Fd,What,Where) ->
-    io:format("WARNING: Found unexpected line in ~s:~n~s~n",[Where,What]).
+    io:format("WARNING: Found unexpected line in ~ts:~n~ts~n",[Where,What]).
 
 truncated_warning([]) ->
     [];
@@ -701,9 +701,24 @@ skip(Fd,<<>>) ->
     end.
 
 
-val(Fd) ->
-    val(Fd, "-1").
-val(Fd, NoExist) ->
+string(Fd) ->
+    string(Fd, "-1").
+string(Fd,NoExist) ->
+    case bytes(Fd,noexist) of
+        noexist -> NoExist;
+        Val -> byte_list_to_string(Val)
+    end.
+
+byte_list_to_string(ByteList) ->
+    Bin = list_to_binary(ByteList),
+    case unicode:characters_to_list(Bin) of
+        Str when is_list(Str) -> Str;
+        _ -> ByteList
+    end.
+
+bytes(Fd) ->
+    bytes(Fd, "-1").
+bytes(Fd, NoExist) ->
     case get_rest_of_line(Fd) of
 	{eof,[]} -> NoExist;
 	[] -> NoExist;
@@ -742,7 +757,7 @@ get_lines_to_empty(Fd,<<$\n:8,Bin/binary>>,[],Lines) ->
     put_chunk(Fd,Bin),
     lists:reverse(Lines);
 get_lines_to_empty(Fd,<<$\n:8,Bin/binary>>,Acc,Lines) ->
-    get_lines_to_empty(Fd,Bin,[],[lists:reverse(Acc)|Lines]);
+    get_lines_to_empty(Fd,Bin,[],[byte_list_to_string(lists:reverse(Acc))|Lines]);
 get_lines_to_empty(Fd,<<$\r:8,Bin/binary>>,Acc,Lines) ->
     get_lines_to_empty(Fd,Bin,Acc,Lines);
 get_lines_to_empty(Fd,<<$\s:8,Bin/binary>>,[],Lines) ->
@@ -754,7 +769,7 @@ get_lines_to_empty(Fd,<<>>,Acc,Lines) ->
 	{ok,Bin} ->
 	    get_lines_to_empty(Fd,Bin,Acc,Lines);
 	eof ->
-	    lists:reverse(Lines,[lists:reverse(Acc)])
+	    lists:reverse(Lines,[byte_list_to_string(lists:reverse(Acc))])
     end.
 
 split(Str) ->
@@ -816,7 +831,7 @@ do_read_file(File) ->
 			    {ok,Binaries,DumpVsn};
 			_Other ->
 			    R = io_lib:format(
-				  "~s is not an Erlang crash dump~n",
+				  "~ts is not an Erlang crash dump~n",
 				  [File]),
 			    close(Fd),
 			    {error,R}
@@ -824,20 +839,20 @@ do_read_file(File) ->
 		{ok,<<"<Erlang crash dump>",_Rest/binary>>} -> 
 		    %% old version - no longer supported
 		    R = io_lib:format(
-			  "The crashdump ~s is in the pre-R10B format, "
+			  "The crashdump ~ts is in the pre-R10B format, "
 			  "which is no longer supported.~n",
 			     [File]),
 		    close(Fd),
 		    {error,R};
 		_Other ->
 		    R = io_lib:format(
-			  "~s is not an Erlang crash dump~n",
+			  "~ts is not an Erlang crash dump~n",
 			  [File]),
 		    close(Fd),
 		    {error,R}
 	    end;
 	_other ->
-	    R = io_lib:format("~s is not an Erlang crash dump~n",[File]),
+	    R = io_lib:format("~ts is not an Erlang crash dump~n",[File]),
 	    {error,R}
     end.
 
@@ -986,7 +1001,7 @@ general_info(File) ->
 		    instr_info=InstrInfo}.
 
 get_slogan_and_sysvsn(Fd,Acc) ->
-    case val(Fd,eof) of
+    case string(Fd,eof) of
         "Slogan: " ++ SloganPart when Acc==[] ->
             get_slogan_and_sysvsn(Fd,[SloganPart]);
         "System version: " ++ SystemVsn ->
@@ -1000,14 +1015,14 @@ get_slogan_and_sysvsn(Fd,Acc) ->
 get_general_info(Fd,GenInfo) ->
     case line_head(Fd) of
 	"Compiled" ->
-	    get_general_info(Fd,GenInfo#general_info{compile_time=val(Fd)});
+	    get_general_info(Fd,GenInfo#general_info{compile_time=bytes(Fd)});
 	"Taints" ->
-	    Val = case val(Fd) of "-1" -> "(none)"; Line -> Line end,
+	    Val = case string(Fd) of "-1" -> "(none)"; Line -> Line end,
 	    get_general_info(Fd,GenInfo#general_info{taints=Val});
 	"Atoms" ->
-	    get_general_info(Fd,GenInfo#general_info{num_atoms=val(Fd)});
+	    get_general_info(Fd,GenInfo#general_info{num_atoms=bytes(Fd)});
 	"Calling Thread" ->
-	    get_general_info(Fd,GenInfo#general_info{thread=val(Fd)});
+	    get_general_info(Fd,GenInfo#general_info{thread=bytes(Fd)});
 	"=" ++ _next_tag ->
 	    GenInfo;
 	Other ->
@@ -1068,15 +1083,15 @@ get_proc_details(File,Pid,WS,DumpVsn,Binaries) ->
 get_procinfo(Fd,Fun,Proc,WS) ->
     case line_head(Fd) of
 	"State" ->
-	    State = case val(Fd) of
+	    State = case bytes(Fd) of
 			"Garbing" -> "Garbing\n(limited info)";
 			State0 -> State0
 		    end,
 	    get_procinfo(Fd,Fun,Proc#proc{state=State},WS);
 	"Name" ->
-	    get_procinfo(Fd,Fun,Proc#proc{name=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{name=string(Fd)},WS);
 	"Spawned as" ->
-	    IF = val(Fd),
+	    IF = string(Fd),
 	    case Proc#proc.name of
 		undefined ->
 		    get_procinfo(Fd,Fun,Proc#proc{name=IF,init_func=IF},WS);
@@ -1085,17 +1100,17 @@ get_procinfo(Fd,Fun,Proc,WS) ->
 	    end;
 	"Message queue length" ->
 	    %% stored as integer so we can sort on it
-	    get_procinfo(Fd,Fun,Proc#proc{msg_q_len=list_to_integer(val(Fd))},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{msg_q_len=list_to_integer(bytes(Fd))},WS);
 	"Reductions" ->
 	    %% stored as integer so we can sort on it
-	    get_procinfo(Fd,Fun,Proc#proc{reds=list_to_integer(val(Fd))},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{reds=list_to_integer(bytes(Fd))},WS);
 	"Stack+heap" ->
 	    %% stored as integer so we can sort on it
 	    get_procinfo(Fd,Fun,Proc#proc{stack_heap=
-					  list_to_integer(val(Fd))*WS},WS);
+					  list_to_integer(bytes(Fd))*WS},WS);
 	"Memory" ->
 	    %% stored as integer so we can sort on it
-	    get_procinfo(Fd,Fun,Proc#proc{memory=list_to_integer(val(Fd))},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{memory=list_to_integer(bytes(Fd))},WS);
 	{eof,_} ->
 	    Proc; % truncated file
 	Other ->
@@ -1117,67 +1132,67 @@ all_procinfo(Fd,Fun,Proc,WS,LineHead) ->
     case LineHead of
 	%% - START - moved from get_procinfo -
 	"Spawned by" ->
-	    case val(Fd) of
+	    case bytes(Fd) of
 		"[]" ->
 		    get_procinfo(Fd,Fun,Proc,WS);
 		Parent ->
 		    get_procinfo(Fd,Fun,Proc#proc{parent=Parent},WS)
 	    end;
 	"Started" ->
-	    get_procinfo(Fd,Fun,Proc#proc{start_time=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{start_time=bytes(Fd)},WS);
 	"Last scheduled in for" ->
 	    get_procinfo(Fd,Fun,Proc#proc{current_func=
 					  {"Last scheduled in for",
-					   val(Fd)}},WS);
+					   string(Fd)}},WS);
 	"Current call" ->
 	    get_procinfo(Fd,Fun,Proc#proc{current_func={"Current call",
-							val(Fd)}},WS);
+							string(Fd)}},WS);
 	"Number of heap fragments" ->
-	    get_procinfo(Fd,Fun,Proc#proc{num_heap_frag=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{num_heap_frag=bytes(Fd)},WS);
 	"Heap fragment data" ->
-	    get_procinfo(Fd,Fun,Proc#proc{heap_frag_data=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{heap_frag_data=bytes(Fd)},WS);
 	"OldHeap" ->
-	    Bytes = list_to_integer(val(Fd))*WS,
+	    Bytes = list_to_integer(bytes(Fd))*WS,
 	    get_procinfo(Fd,Fun,Proc#proc{old_heap=Bytes},WS);
 	"Heap unused" ->
-	    Bytes = list_to_integer(val(Fd))*WS,
+	    Bytes = list_to_integer(bytes(Fd))*WS,
 	    get_procinfo(Fd,Fun,Proc#proc{heap_unused=Bytes},WS);
 	"OldHeap unused" ->
-	    Bytes = list_to_integer(val(Fd))*WS,
+	    Bytes = list_to_integer(bytes(Fd))*WS,
 	    get_procinfo(Fd,Fun,Proc#proc{old_heap_unused=Bytes},WS);
 	"New heap start" ->
-	    get_procinfo(Fd,Fun,Proc#proc{new_heap_start=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{new_heap_start=bytes(Fd)},WS);
 	"New heap top" ->
-	    get_procinfo(Fd,Fun,Proc#proc{new_heap_top=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{new_heap_top=bytes(Fd)},WS);
 	"Stack top" ->
-	    get_procinfo(Fd,Fun,Proc#proc{stack_top=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{stack_top=bytes(Fd)},WS);
 	"Stack end" ->
-	    get_procinfo(Fd,Fun,Proc#proc{stack_end=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{stack_end=bytes(Fd)},WS);
 	"Old heap start" ->
-	    get_procinfo(Fd,Fun,Proc#proc{old_heap_start=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{old_heap_start=bytes(Fd)},WS);
 	"Old heap top" ->
-	    get_procinfo(Fd,Fun,Proc#proc{old_heap_top=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{old_heap_top=bytes(Fd)},WS);
 	"Old heap end" ->
-	    get_procinfo(Fd,Fun,Proc#proc{old_heap_end=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{old_heap_end=bytes(Fd)},WS);
 	%% - END - moved from get_procinfo -
 	"Last calls" ->
 	    get_procinfo(Fd,Fun,Proc#proc{last_calls=get_lines_to_empty(Fd)},WS);
 	"Link list" ->
-	    {Links,Monitors,MonitoredBy} = parse_link_list(val(Fd),[],[],[]),
+	    {Links,Monitors,MonitoredBy} = parse_link_list(bytes(Fd),[],[],[]),
 	    get_procinfo(Fd,Fun,Proc#proc{links=Links,
 					  monitors=Monitors,
 					  mon_by=MonitoredBy},WS);
 	"Program counter" ->
-	    get_procinfo(Fd,Fun,Proc#proc{prog_count=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{prog_count=string(Fd)},WS);
 	"CP" ->
-	    get_procinfo(Fd,Fun,Proc#proc{cp=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{cp=string(Fd)},WS);
 	"arity = " ++ Arity ->
 	    %%! Temporary workaround
 	    get_procinfo(Fd,Fun,Proc#proc{arity=Arity--"\r\n"},WS);
 	"Run queue" ->
-	    get_procinfo(Fd,Fun,Proc#proc{run_queue=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{run_queue=string(Fd)},WS);
 	"Internal State" ->
-	    get_procinfo(Fd,Fun,Proc#proc{int_state=val(Fd)},WS);
+	    get_procinfo(Fd,Fun,Proc#proc{int_state=string(Fd)},WS);
 	"=" ++ _next_tag ->
 	    Proc;
 	Other ->
@@ -1204,7 +1219,7 @@ parse_link_list(", "++Rest,Links,Monitors,MonitoredBy) ->
 parse_link_list([],Links,Monitors,MonitoredBy) ->
     {lists:reverse(Links),lists:reverse(Monitors),lists:reverse(MonitoredBy)};
 parse_link_list(Unexpected,Links,Monitors,MonitoredBy) ->
-    io:format("WARNING: found unexpected data in link list:~n~s~n",[Unexpected]),
+    io:format("WARNING: found unexpected data in link list:~n~ts~n",[Unexpected]),
     parse_link_list([],Links,Monitors,MonitoredBy).
 
 
@@ -1363,7 +1378,7 @@ read_stack_dump(Fd,Pid,BinAddrAdj,Dict) ->
     end.
 read_stack_dump1(Fd,BinAddrAdj,Dict,Acc) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
-    case val(Fd) of
+    case bytes(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
 	Line ->
@@ -1391,7 +1406,7 @@ read_messages(Fd,Pid,BinAddrAdj,Dict) ->
     end.
 read_messages1(Fd,BinAddrAdj,Dict,Acc) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
-    case val(Fd) of
+    case bytes(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
 	Line ->
@@ -1419,7 +1434,7 @@ read_dictionary(Fd,Pid,BinAddrAdj,Dict) ->
     end.
 read_dictionary1(Fd,BinAddrAdj,Dict,Acc) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
-    case val(Fd) of
+    case bytes(Fd) of
 	"=" ++ _next_tag ->
 	    lists:reverse(Acc);
 	Line ->
@@ -1451,7 +1466,7 @@ read_heap(BinAddrAdj,Dict0) ->
 	end_of_heap ->
 	    Dict0;
 	Fd ->
-	    case val(Fd) of
+	    case bytes(Fd) of
 		"=" ++ _next_tag ->
 		    put(fd, end_of_heap),
 		    Dict0;
@@ -1498,42 +1513,42 @@ get_portinfo(Fd,Port) ->
     case line_head(Fd) of
 	"Slot" ->
 	    %% stored as integer so we can sort on it
-	    get_portinfo(Fd,Port#port{slot=list_to_integer(val(Fd))});
+	    get_portinfo(Fd,Port#port{slot=list_to_integer(bytes(Fd))});
 	"Connected" ->
 	    %% stored as pid so we can sort on it
-	    Connected0 = val(Fd),
+	    Connected0 = bytes(Fd),
 	    Connected =
 		try list_to_pid(Connected0)
 		catch error:badarg -> Connected0
 		end,
 	    get_portinfo(Fd,Port#port{connected=Connected});
 	"Links" ->
-	    Pids = split_pid_list_no_space(val(Fd)),
+	    Pids = split_pid_list_no_space(bytes(Fd)),
 	    Links = [{Pid,Pid} || Pid <- Pids],
 	    get_portinfo(Fd,Port#port{links=Links});
 	"Registered as" ->
-	    get_portinfo(Fd,Port#port{name=val(Fd)});
+	    get_portinfo(Fd,Port#port{name=string(Fd)});
 	"Monitors" ->
-	    Monitors0 = string:tokens(val(Fd),"()"),
+	    Monitors0 = string:tokens(bytes(Fd),"()"),
 	    Monitors = [begin
 			    [Pid,Ref] = string:tokens(Mon,","),
 			    {Pid,Pid++" ("++Ref++")"}
 			end || Mon <- Monitors0],
 	    get_portinfo(Fd,Port#port{monitors=Monitors});
 	"Port controls linked-in driver" ->
-	    Str = lists:flatten(["Linked in driver: " | val(Fd)]),
+	    Str = lists:flatten(["Linked in driver: " | string(Fd)]),
 	    get_portinfo(Fd,Port#port{controls=Str});
 	"Port controls forker process" ->
-	    Str = lists:flatten(["Forker process: " | val(Fd)]),
+	    Str = lists:flatten(["Forker process: " | string(Fd)]),
 	    get_portinfo(Fd,Port#port{controls=Str});
 	"Port controls external process" ->
-	    Str = lists:flatten(["External proc: " | val(Fd)]),
+	    Str = lists:flatten(["External proc: " | string(Fd)]),
 	    get_portinfo(Fd,Port#port{controls=Str});
 	"Port is a file" ->
-	    Str = lists:flatten(["File: "| val(Fd)]),
+	    Str = lists:flatten(["File: "| string(Fd)]),
 	    get_portinfo(Fd,Port#port{controls=Str});
 	"Port is UNIX fd not opened by emulator" ->
-	    Str = lists:flatten(["UNIX fd not opened by emulator: "| val(Fd)]),
+	    Str = lists:flatten(["UNIX fd not opened by emulator: "| string(Fd)]),
 	    get_portinfo(Fd,Port#port{controls=Str});
 	"=" ++ _next_tag ->
 	    Port;
@@ -1566,23 +1581,23 @@ tab_is_named(#ets_table{}) -> "no".
 get_etsinfo(Fd,EtsTable = #ets_table{details=Ds},WS) ->
     case line_head(Fd) of
 	"Slot" ->
-	    get_etsinfo(Fd,EtsTable#ets_table{slot=list_to_integer(val(Fd))},WS);
+	    get_etsinfo(Fd,EtsTable#ets_table{slot=list_to_integer(bytes(Fd))},WS);
 	"Table" ->
-	    get_etsinfo(Fd,EtsTable#ets_table{id=val(Fd)},WS);
+	    get_etsinfo(Fd,EtsTable#ets_table{id=string(Fd)},WS);
 	"Name" ->
-	    get_etsinfo(Fd,EtsTable#ets_table{name=val(Fd)},WS);
+	    get_etsinfo(Fd,EtsTable#ets_table{name=string(Fd)},WS);
 	"Ordered set (AVL tree), Elements" ->
 	    skip_rest_of_line(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{data_type="tree"},WS);
 	"Buckets" ->
 	    %% A bug in erl_db_hash.c prints a space after the buckets
 	    %% - need to strip the string to make list_to_integer/1 happy.
-	    Buckets = list_to_integer(string:strip(val(Fd))),
+	    Buckets = list_to_integer(string:strip(bytes(Fd))),
 	    get_etsinfo(Fd,EtsTable#ets_table{buckets=Buckets},WS);
 	"Objects" ->
-	    get_etsinfo(Fd,EtsTable#ets_table{size=list_to_integer(val(Fd))},WS);
+	    get_etsinfo(Fd,EtsTable#ets_table{size=list_to_integer(bytes(Fd))},WS);
 	"Words" ->
-	    Words = list_to_integer(val(Fd)),
+	    Words = list_to_integer(bytes(Fd)),
 	    Bytes = 
 		case Words of
 		    -1 -> -1; % probably truncated
@@ -1592,37 +1607,37 @@ get_etsinfo(Fd,EtsTable = #ets_table{details=Ds},WS) ->
 	"=" ++ _next_tag ->
 	    EtsTable;
 	"Chain Length Min" ->
-	    Val = val(Fd),
+	    Val = bytes(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_min=>Val}},WS);
 	"Chain Length Avg" ->
-	    Val = try list_to_float(string:strip(val(Fd))) catch _:_ -> "-" end,
+	    Val = try list_to_float(string:strip(bytes(Fd))) catch _:_ -> "-" end,
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_avg=>Val}},WS);
 	"Chain Length Max" ->
-	    Val = val(Fd),
+	    Val = bytes(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_max=>Val}},WS);
 	"Chain Length Std Dev" ->
-	    Val = val(Fd),
+	    Val = bytes(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_stddev=>Val}},WS);
 	"Chain Length Expected Std Dev" ->
-	    Val = val(Fd),
+	    Val = bytes(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_exp_stddev=>Val}},WS);
 	"Fixed" ->
-	    Val = val(Fd),
+	    Val = bytes(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{fixed=>Val}},WS);
 	"Type" ->
-	    Val = val(Fd),
+	    Val = bytes(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{data_type=Val},WS);
 	"Protection" ->
-	    Val = val(Fd),
+	    Val = bytes(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{protection=>Val}},WS);
 	"Compressed" ->
-	    Val = val(Fd),
+	    Val = bytes(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{compressed=>Val}},WS);
 	"Write Concurrency" ->
-	    Val = val(Fd),
+	    Val = bytes(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{write_c=>Val}},WS);
 	"Read Concurrency" ->
-	    Val = val(Fd),
+	    Val = bytes(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{read_c=>Val}},WS);
 	Other ->
 	    unexpected(Fd,Other,"ETS info"),
@@ -1672,9 +1687,9 @@ get_timerinfo(Fd,Id) ->
 get_timerinfo_1(Fd,Timer) ->
     case line_head(Fd) of
 	"Message" ->
-	    get_timerinfo_1(Fd,Timer#timer{msg=val(Fd)});
+	    get_timerinfo_1(Fd,Timer#timer{msg=string(Fd)});
 	"Time left" ->
-	    TimeLeft = list_to_integer(val(Fd) -- " ms"),
+	    TimeLeft = list_to_integer(bytes(Fd) -- " ms"),
 	    get_timerinfo_1(Fd,Timer#timer{time=TimeLeft});
 	"=" ++ _next_tag ->
 	    Timer;
@@ -1743,37 +1758,37 @@ get_nodeinfo(Fd,Channel,Type,Start) ->
 get_nodeinfo(Fd,Nod) ->
     case line_head(Fd) of
 	"Name" ->
-	    get_nodeinfo(Fd,Nod#nod{name=val(Fd)});
+	    get_nodeinfo(Fd,Nod#nod{name=bytes(Fd)});
 	"Controller" ->
-	    get_nodeinfo(Fd,Nod#nod{controller=val(Fd)});
+	    get_nodeinfo(Fd,Nod#nod{controller=bytes(Fd)});
 	"Creation" ->
 	    %% Throwing away elements like "(refc=1)", which might be
 	    %% printed from a debug compiled emulator.
 	    Creations = lists:flatmap(fun(C) -> try [list_to_integer(C)]
 						catch error:badarg -> []
 						end
-				      end, string:tokens(val(Fd)," ")),
+				      end, string:tokens(bytes(Fd)," ")),
 	    get_nodeinfo(Fd,Nod#nod{creation={creations,Creations}});
 	"Remote link" ->
-	    Procs = val(Fd), % e.g. "<0.31.0> <4322.54.0>"
+	    Procs = bytes(Fd), % e.g. "<0.31.0> <4322.54.0>"
 	    {Local,Remote} = split(Procs),
 	    Str = Local++" <-> "++Remote,
 	    NewRemLinks = [{Local,Str} | Nod#nod.remote_links],
 	    get_nodeinfo(Fd,Nod#nod{remote_links=NewRemLinks});
 	"Remote monitoring" ->
-	    Procs = val(Fd), % e.g. "<0.31.0> <4322.54.0>"
+	    Procs = bytes(Fd), % e.g. "<0.31.0> <4322.54.0>"
 	    {Local,Remote} = split(Procs),
 	    Str = Local++" -> "++Remote,
 	    NewRemMon = [{Local,Str} | Nod#nod.remote_mon],
 	    get_nodeinfo(Fd,Nod#nod{remote_mon=NewRemMon});
 	"Remotely monitored by" ->
-	    Procs = val(Fd), % e.g. "<0.31.0> <4322.54.0>"
+	    Procs = bytes(Fd), % e.g. "<0.31.0> <4322.54.0>"
 	    {Local,Remote} = split(Procs),
 	    Str = Local++" <- "++Remote,
 	    NewRemMonBy = [{Local,Str} | Nod#nod.remote_mon_by],
 	    get_nodeinfo(Fd,Nod#nod{remote_mon_by=NewRemMonBy});
 	"Error" ->
-	    get_nodeinfo(Fd,Nod#nod{error="ERROR: "++val(Fd)});
+	    get_nodeinfo(Fd,Nod#nod{error="ERROR: "++string(Fd)});
 	"=" ++ _next_tag ->
 	    Nod;
 	Other ->
@@ -1817,9 +1832,9 @@ loaded_mods(File) ->
 get_loaded_mod_totals(Fd,{CC,OC}) ->
     case line_head(Fd) of
 	"Current code" ->
-	    get_loaded_mod_totals(Fd,{val(Fd),OC});
+	    get_loaded_mod_totals(Fd,{bytes(Fd),OC});
 	"Old code" ->
-	    get_loaded_mod_totals(Fd,{CC,val(Fd)});
+	    get_loaded_mod_totals(Fd,{CC,bytes(Fd)});
 	"=" ++ _next_tag ->
 	    {CC,OC};
 	Other ->
@@ -1830,10 +1845,10 @@ get_loaded_mod_totals(Fd,{CC,OC}) ->
 get_loaded_mod_info(Fd,LM,Fun) ->
     case line_head(Fd) of
 	"Current size" ->
-	    CS = list_to_integer(val(Fd)),
+	    CS = list_to_integer(bytes(Fd)),
 	    get_loaded_mod_info(Fd,LM#loaded_mod{current_size=CS},Fun);
 	"Old size" ->
-	    OS = list_to_integer(val(Fd)),
+	    OS = list_to_integer(bytes(Fd)),
 	    get_loaded_mod_info(Fd,LM#loaded_mod{old_size=OS},Fun);
 	"=" ++ _next_tag ->
 	    LM;
@@ -1849,16 +1864,16 @@ main_modinfo(_Fd,LM,_LineHead) ->
 all_modinfo(Fd,LM,LineHead) ->
     case LineHead of
 	"Current attributes" ->
-	    Str = hex_to_str(val(Fd,"")),
+	    Str = hex_to_str(bytes(Fd,"")),
 	    LM#loaded_mod{current_attrib=Str};
 	"Current compilation info" ->
-	    Str = hex_to_str(val(Fd,"")),
+	    Str = hex_to_str(bytes(Fd,"")),
 	    LM#loaded_mod{current_comp_info=Str};
 	"Old attributes" ->
-	    Str = hex_to_str(val(Fd,"")),
+	    Str = hex_to_str(bytes(Fd,"")),
 	    LM#loaded_mod{old_attrib=Str};
 	"Old compilation info" ->
-	    Str = hex_to_str(val(Fd,"")),
+	    Str = hex_to_str(bytes(Fd,"")),
 	    LM#loaded_mod{old_comp_info=Str};
 	Other ->
 	    unexpected(Fd,Other,"loaded modules info"),
@@ -1868,7 +1883,7 @@ all_modinfo(Fd,LM,LineHead) ->
 
 hex_to_str(Hex) ->
     Term = hex_to_term(Hex,[]),
-    io_lib:format("~p~n",[Term]).
+    io_lib:format("~tp~n",[Term]).
 
 hex_to_term([X,Y|Hex],Acc) ->
     MS = hex_to_dec([X]),
@@ -1909,17 +1924,17 @@ funs(File) ->
 get_funinfo(Fd,Fu) ->
     case line_head(Fd) of
 	"Module" ->
-	    get_funinfo(Fd,Fu#fu{module=val(Fd)});
+	    get_funinfo(Fd,Fu#fu{module=bytes(Fd)});
 	"Uniq" ->
-	    get_funinfo(Fd,Fu#fu{uniq=list_to_integer(val(Fd))});
+	    get_funinfo(Fd,Fu#fu{uniq=list_to_integer(bytes(Fd))});
 	"Index" ->
-	    get_funinfo(Fd,Fu#fu{index=list_to_integer(val(Fd))});
+	    get_funinfo(Fd,Fu#fu{index=list_to_integer(bytes(Fd))});
 	"Address" ->
-	    get_funinfo(Fd,Fu#fu{address=val(Fd)});
+	    get_funinfo(Fd,Fu#fu{address=bytes(Fd)});
 	"Native_address" ->
-	    get_funinfo(Fd,Fu#fu{native_address=val(Fd)});
+	    get_funinfo(Fd,Fu#fu{native_address=bytes(Fd)});
 	"Refc" ->
-	    get_funinfo(Fd,Fu#fu{refc=list_to_integer(val(Fd))});
+	    get_funinfo(Fd,Fu#fu{refc=list_to_integer(bytes(Fd))});
 	"=" ++ _next_tag ->
 	    Fu;
 	Other ->
@@ -1999,7 +2014,7 @@ get_meminfo(Fd,Acc) ->
 	{eof,_last_line} ->
 	    lists:reverse(Acc);
 	Key ->
-	    get_meminfo(Fd,[{list_to_atom(Key),val(Fd)}|Acc])
+	    get_meminfo(Fd,[{list_to_atom(Key),bytes(Fd)}|Acc])
     end.
 
 %%-----------------------------------------------------------------
@@ -2023,7 +2038,7 @@ get_allocareainfo(Fd,Acc) ->
 	{eof,_last_line} ->
 	    lists:reverse(Acc);
 	Key ->
-	    Val = val(Fd),
+	    Val = bytes(Fd),
 	    AllocInfo =
 		case split(Val) of
 		    {Alloc,[]} ->
@@ -2061,7 +2076,7 @@ get_allocatorinfo1(Fd,Acc,Max) ->
 	{eof,_last_line} ->
 	    pad_and_reverse(Acc,Max,[]);
 	Key ->
-	    Values = get_all_vals(val(Fd),[]),
+	    Values = get_all_vals(bytes(Fd),[]),
 	    L = length(Values),
 	    Max1 = if L > Max -> L; true -> Max end,
 	    get_allocatorinfo1(Fd,[{Key,Values}|Acc],Max1)
@@ -2316,13 +2331,13 @@ get_hashtableinfo(Fd,Name,Start) ->
 get_hashtableinfo1(Fd,HashTable) ->
     case line_head(Fd) of
 	"size" ->
-	    get_hashtableinfo1(Fd,HashTable#hash_table{size=val(Fd)});
+	    get_hashtableinfo1(Fd,HashTable#hash_table{size=bytes(Fd)});
 	"used" ->
-	    get_hashtableinfo1(Fd,HashTable#hash_table{used=val(Fd)});
+	    get_hashtableinfo1(Fd,HashTable#hash_table{used=bytes(Fd)});
 	"objs" ->
-	    get_hashtableinfo1(Fd,HashTable#hash_table{objs=val(Fd)});
+	    get_hashtableinfo1(Fd,HashTable#hash_table{objs=bytes(Fd)});
 	"depth" ->
-	    get_hashtableinfo1(Fd,HashTable#hash_table{depth=val(Fd)});
+	    get_hashtableinfo1(Fd,HashTable#hash_table{depth=bytes(Fd)});
     	"=" ++ _next_tag ->
 	    HashTable;
 	Other ->
@@ -2353,15 +2368,15 @@ get_indextableinfo(Fd,Name,Start) ->
 get_indextableinfo1(Fd,IndexTable) ->
     case line_head(Fd) of
 	"size" ->
-	    get_indextableinfo1(Fd,IndexTable#index_table{size=val(Fd)});
+	    get_indextableinfo1(Fd,IndexTable#index_table{size=bytes(Fd)});
 	"used" ->
-	    get_indextableinfo1(Fd,IndexTable#index_table{used=val(Fd)});
+	    get_indextableinfo1(Fd,IndexTable#index_table{used=bytes(Fd)});
 	"limit" ->
-	    get_indextableinfo1(Fd,IndexTable#index_table{limit=val(Fd)});
+	    get_indextableinfo1(Fd,IndexTable#index_table{limit=bytes(Fd)});
 	"rate" ->
-	    get_indextableinfo1(Fd,IndexTable#index_table{rate=val(Fd)});
+	    get_indextableinfo1(Fd,IndexTable#index_table{rate=bytes(Fd)});
 	"entries" ->
-	    get_indextableinfo1(Fd,IndexTable#index_table{entries=val(Fd)});
+	    get_indextableinfo1(Fd,IndexTable#index_table{entries=bytes(Fd)});
     	"=" ++ _next_tag ->
 	    IndexTable;
 	Other ->
@@ -2393,45 +2408,45 @@ get_schedulerinfo(Fd,Name,Start) ->
 get_schedulerinfo1(Fd,Sched=#sched{details=Ds}) ->
     case line_head(Fd) of
 	"Current Process" ->
-	    get_schedulerinfo1(Fd,Sched#sched{process=val(Fd, "None")});
+	    get_schedulerinfo1(Fd,Sched#sched{process=bytes(Fd, "None")});
 	"Current Port" ->
-	    get_schedulerinfo1(Fd,Sched#sched{port=val(Fd, "None")});
+	    get_schedulerinfo1(Fd,Sched#sched{port=bytes(Fd, "None")});
 	"Run Queue Max Length" ->
-	    RQMax = list_to_integer(val(Fd)),
+	    RQMax = list_to_integer(bytes(Fd)),
 	    RQ = RQMax + Sched#sched.run_q,
 	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_max=>RQMax}});
 	"Run Queue High Length" ->
-	    RQHigh = list_to_integer(val(Fd)),
+	    RQHigh = list_to_integer(bytes(Fd)),
 	    RQ = RQHigh + Sched#sched.run_q,
 	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_high=>RQHigh}});
 	"Run Queue Normal Length" ->
-	    RQNorm = list_to_integer(val(Fd)),
+	    RQNorm = list_to_integer(bytes(Fd)),
 	    RQ = RQNorm + Sched#sched.run_q,
 	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_norm=>RQNorm}});
 	"Run Queue Low Length" ->
-	    RQLow = list_to_integer(val(Fd)),
+	    RQLow = list_to_integer(bytes(Fd)),
 	    RQ = RQLow + Sched#sched.run_q,
 	    get_schedulerinfo1(Fd,Sched#sched{run_q=RQ, details=Ds#{runq_low=>RQLow}});
 	"Run Queue Port Length" ->
-	    RQ = list_to_integer(val(Fd)),
+	    RQ = list_to_integer(bytes(Fd)),
 	    get_schedulerinfo1(Fd,Sched#sched{port_q=RQ});
 
 	"Scheduler Sleep Info Flags" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{sleep_info=>val(Fd, "None")}});
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{sleep_info=>bytes(Fd, "None")}});
 	"Scheduler Sleep Info Aux Work" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{sleep_aux=>val(Fd, "None")}});
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{sleep_aux=>bytes(Fd, "None")}});
 
 	"Run Queue Flags" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{runq_flags=>val(Fd, "None")}});
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{runq_flags=>bytes(Fd, "None")}});
 
 	"Current Process State" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_state=>val(Fd)}});
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_state=>bytes(Fd)}});
 	"Current Process Internal State" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_int_state=>val(Fd)}});
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_int_state=>bytes(Fd)}});
 	"Current Process Program counter" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_prg_cnt=>val(Fd)}});
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_prg_cnt=>string(Fd)}});
 	"Current Process CP" ->
-	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_cp=>val(Fd)}});
+	    get_schedulerinfo1(Fd,Sched#sched{details=Ds#{currp_cp=>string(Fd)}});
 	"Current Process Limited Stack Trace" ->
 	    %% If there shall be last in scheduler information block
 	    Sched#sched{details=get_limited_stack(Fd, 0, Ds)};
@@ -2443,7 +2458,7 @@ get_schedulerinfo1(Fd,Sched=#sched{details=Ds}) ->
     end.
 
 get_limited_stack(Fd, N, Ds) ->
-    case val(Fd) of
+    case string(Fd) of
 	Addr = "0x" ++ _ ->
 	    get_limited_stack(Fd, N+1, Ds#{{currp_stack, N} => Addr});
 	"=" ++ _next_tag ->
@@ -2595,7 +2610,7 @@ skip_dist_ext([C|Cs], KeptCs) ->
 parse_atom([$A|Line0], D) ->
     {N,":"++Line1} = get_hex(Line0),
     {Chars, Line} = get_chars(N, Line1),
-    {list_to_atom(Chars), Line, D}.
+    {binary_to_atom(list_to_binary(Chars),utf8), Line, D}.
 
 parse_atom_translation_table(0, Line0, As) ->
     {list_to_tuple(lists:reverse(As)), Line0};
@@ -2614,7 +2629,7 @@ deref_ptr(Ptr, Line, BinAddrAdj, D0) ->
 		end_of_heap ->
 		    {['#CDVIncompleteHeap'],Line,D0};
 		Fd ->
-		    case val(Fd) of
+		    case bytes(Fd) of
 			"="++_ ->
 			    put(fd, end_of_heap),
 			    deref_ptr(Ptr, Line, BinAddrAdj, D0);
@@ -2759,7 +2774,7 @@ tag_to_atom("scheduler") -> ?scheduler;
 tag_to_atom("timer") -> ?timer;
 tag_to_atom("visible_node") -> ?visible_node;
 tag_to_atom(UnknownTag) ->
-    io:format("WARNING: Found unexpected tag:~s~n",[UnknownTag]),
+    io:format("WARNING: Found unexpected tag:~ts~n",[UnknownTag]),
     list_to_atom(UnknownTag).
 
 %%%-----------------------------------------------------------------

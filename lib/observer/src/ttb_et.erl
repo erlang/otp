@@ -137,13 +137,13 @@ processes(E0) ->
     E = label(E0),
     {{FromProc,FromNode},{ToProc,ToNode}} = 
 	get_actors(E#event.from,E#event.to),
-    {true,E#event{from = io_lib:format("~w~n~w",[FromProc,FromNode]),
-		  to = io_lib:format("~w~n~w",[ToProc,ToNode])}}.
+    {true,E#event{from = io_lib:format("~tw~n~w",[FromProc,FromNode]),
+		  to = io_lib:format("~tw~n~w",[ToProc,ToNode])}}.
 
 
 mods_and_procs(E) ->
     ActorFun = fun({M,_F,_A},{Proc,Node}) -> 
-		       io_lib:format("~w~n~w~n~w",[M,Proc,Node])
+		       io_lib:format("~w~n~tw~n~w",[M,Proc,Node])
 	       end,
     calltrace_filter(E,ActorFun).
 
@@ -155,13 +155,13 @@ modules(E) ->
 
 funcs_and_procs(E) ->
     ActorFun = fun({M,F,A},{Proc,Node}) -> 
-		       io_lib:format("~s~n~w~n~w",[mfa(M,F,A),Proc,Node])
+		       io_lib:format("~ts~n~tw~n~w",[mfa(M,F,A),Proc,Node])
 	       end,
     calltrace_filter(E,ActorFun).
     
 functions(E) ->
     ActorFun = fun({M,F,A},{_Proc,Node}) -> 
-		       io_lib:format("~s~n~w",[mfa(M,F,A),Node])
+		       io_lib:format("~ts~n~w",[mfa(M,F,A),Node])
 	       end,
     calltrace_filter(E,ActorFun).
     
@@ -221,7 +221,7 @@ label(Event=#event{label=L,contents=C}) ->
 	false -> Event
     end.
 label(L,{M,F,A}) -> label(L,M,F,A);
-label(L,Other) -> io_lib:format("~w ~w",[L,Other]).
+label(L,Other) -> io_lib:format("~w ~tw",[L,Other]).
 label(call,M,F,A) -> "call " ++ mfa(M,F,A);
 label(return_from,M,F,A) -> "return_from " ++ mfa(M,F,A);
 label(return_to,M,F,A) -> "return_to " ++ mfa(M,F,A);

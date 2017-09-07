@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1475,7 +1475,7 @@ info_suspect_call(GroupLeader, GroupLeader, _, _) ->
     ok;
 info_suspect_call(GroupLeader, _, Func, Pid) ->
     io:format(GroupLeader,
-	      "~nWarning: ~p called in ~p - trace may become corrupt!~n",
+	      "~nWarning: ~tp called in ~p - trace may become corrupt!~n",
 	      parsify([Func, Pid])).
 
 info(GroupLeader, GroupLeader, _, _) ->
@@ -1498,13 +1498,13 @@ dump_stack(Dump, Stack, Term) ->
 			{N, length(hd(Stack))}
 		end
 	end,
-     io:format(Dump, "~s~p.~n", [lists:duplicate(Depth, "  "), parsify(Term)]),
+     io:format(Dump, "~s~tp.~n", [lists:duplicate(Depth, "  "), parsify(Term)]),
     true.
 
 dump(undefined, _) ->
     false;
 dump(Dump, Term) ->
-    io:format(Dump, "~p.~n", [parsify(Term)]),
+    io:format(Dump, "~tp.~n", [parsify(Term)]),
     true.
 
 
@@ -2603,17 +2603,17 @@ println({Io, [W1, W2, W3, W4]}, Head,
 println({Io, _}, Head,
 	[],
 	Tail, Comment) ->
-    io:format(Io, "~s~s~s~n",
+    io:format(Io, "~s~ts~ts~n",
 	      [pad(Head, $ , 3), Tail, Comment]);
 println({Io, _}, Head,
 	{Tag, Term},
 	Tail, Comment) ->
-    io:format(Io, "~s~p, ~p~s~s~n",
+    io:format(Io, "~s~tp, ~tp~ts~ts~n",
 	      [pad(Head, $ , 3), parsify(Tag), parsify(Term), Tail, Comment]);
 println({Io, _}, Head,
 	Term,
 	Tail, Comment) ->
-    io:format(Io, "~s~p~s~s~n",
+    io:format(Io, "~s~tp~ts~ts~n",
 	      [pad(Head, $ , 3), parsify(Term), Tail, Comment]).
 
 
@@ -2720,7 +2720,7 @@ postsort_r([[_|C] | L], R) ->
 flat_format(F, Trailer) when is_float(F) ->
     lists:flatten([io_lib:format("~.3f", [F]), Trailer]);
 flat_format(W, Trailer) ->
-    lists:flatten([io_lib:format("~p", [W]), Trailer]).
+    lists:flatten([io_lib:format("~tp", [W]), Trailer]).
 
 %% Format, flatten, and pad.
 flat_format(Term, Trailer, Width) ->

@@ -46,7 +46,7 @@ val(Var) ->
 disc_load_table(Tab, Reason) ->
     Storage =  val({Tab, storage_type}),
     Type = val({Tab, setorbag}),
-    dbg_out("Getting table ~p (~p) from disc: ~p~n",
+    dbg_out("Getting table ~tp (~p) from disc: ~tp~n",
 	    [Tab, Storage, Reason]),
     ?eval_debug_fun({?MODULE, do_get_disc_copy},
 		    [{tab, Tab},
@@ -56,7 +56,7 @@ disc_load_table(Tab, Reason) ->
     do_get_disc_copy2(Tab, Reason, Storage, Type).
 
 do_get_disc_copy2(Tab, _Reason, Storage, _Type) when Storage == unknown ->
-    verbose("Local table copy of ~p has recently been deleted, ignored.~n",
+    verbose("Local table copy of ~tp has recently been deleted, ignored.~n",
 	    [Tab]),
     {not_loaded, storage_unknown};
 do_get_disc_copy2(Tab, Reason, Storage, Type) when Storage == disc_copies ->
@@ -199,20 +199,20 @@ net_load_table(Tab, Reason, Ns, _Cs) ->
     try_net_load_table(Tab, Reason, Ns, val({Tab, cstruct})).
 
 try_net_load_table(Tab, _Reason, [], _Cs) ->
-    verbose("Copy failed. No active replicas of ~p are available.~n", [Tab]),
+    verbose("Copy failed. No active replicas of ~tp are available.~n", [Tab]),
     {not_loaded, none_active};
 try_net_load_table(Tab, Reason, Ns, Cs) ->
     Storage = mnesia_lib:cs_to_storage_type(node(), Cs),
     do_get_network_copy(Tab, Reason, Ns, Storage, Cs).
 
 do_get_network_copy(Tab, _Reason, _Ns, unknown, _Cs) ->
-    verbose("Local table copy of ~p has recently been deleted, ignored.~n", [Tab]),
+    verbose("Local table copy of ~tp has recently been deleted, ignored.~n", [Tab]),
     {not_loaded, storage_unknown};
 do_get_network_copy(Tab, Reason, Ns, Storage, Cs) ->
     [Node | Tail] = Ns,
     case lists:member(Node,val({current, db_nodes})) of
 	true ->
-	    dbg_out("Getting table ~p (~p) from node ~p: ~p~n",
+	    dbg_out("Getting table ~tp (~p) from node ~p: ~tp~n",
 		    [Tab, Storage, Node, Reason]),
 	    ?eval_debug_fun({?MODULE, do_get_network_copy},
 			    [{tab, Tab}, {reason, Reason},
@@ -222,7 +222,7 @@ do_get_network_copy(Tab, Reason, Ns, Storage, Cs) ->
 		    set({Tab, load_node}, Node),
 		    set({Tab, load_reason}, Reason),
 		    mnesia_controller:i_have_tab(Tab),
-		    dbg_out("Table ~p copied from ~p to ~p~n", [Tab, Node, node()]),
+		    dbg_out("Table ~tp copied from ~p to ~p~n", [Tab, Node, node()]),
 		    {loaded, ok};
 		Err = {error, _} when element(1, Reason) == dumper ->
 		    {not_loaded,Err};
@@ -286,12 +286,12 @@ init_receiver(Node, Tab,Storage,Cs,Reason) ->
 		  element(1,Reason) == dumper ->
 		{error,Result};
 	    {atomic, {error,Result}} ->
-		fatal("Cannot create table ~p: ~p~n",
+		fatal("Cannot create table ~tp: ~tp~n",
 		      [[Tab, Storage], Result]);
 	    {atomic,  Result} -> Result;
 	    {aborted, nomore} -> restart;
 	    {aborted, _Reas} ->
-		verbose("Receiver failed on ~p from ~p:~nReason: ~p~n",
+		verbose("Receiver failed on ~tp from ~p:~nReason: ~tp~n",
 			[Tab,Node,_Reas]),
 		down  %% either this node or sender is dying
 	end,
@@ -313,7 +313,7 @@ start_remote_sender(Node,Tab,Storage) ->
 	    {SenderPid, TabSize, DetsData};
 	%% Protocol conversion hack
 	{copier_done, Node} ->
-	    verbose("Sender of table ~p crashed on node ~p ~n", [Tab, Node]),
+	    verbose("Sender of table ~tp crashed on node ~p ~n", [Tab, Node]),
 	    down(Tab, Storage)
     end.
 
@@ -374,7 +374,7 @@ do_init_table(Tab,Storage,Cs,SenderPid,
 		    tab_receiver(Node,Tab,Storage,Cs,OrigTabRec);
 		Reason ->
 		    Msg = "[d]ets:init table failed",
-		    verbose("~s: ~p: ~p~n", [Msg, Tab, Reason]),
+		    verbose("~ts: ~tp: ~tp~n", [Msg, Tab, Reason]),
 		    down(Tab, Storage)
 	    end;
 	Error ->
@@ -432,7 +432,7 @@ tab_receiver(Node, Tab, Storage, Cs, OrigTabRec) ->
 
 	%% Protocol conversion hack
 	{copier_done, Node} ->
-	    verbose("Sender of table ~p crashed on node ~p ~n", [Tab, Node]),
+	    verbose("Sender of table ~tp crashed on node ~p ~n", [Tab, Node]),
 	    down(Tab, Storage);
 
 	{'EXIT', Pid, Reason} ->
@@ -490,7 +490,7 @@ ext_load_table(Mod, Alias, Tab, Reason) ->
 ext_init_table(Action, Alias, Mod, Tab, Fun, State, Sender) ->
     case Fun(Action) of
 	{copier_done, Node} ->
-	    verbose("Receiver of table ~p crashed on ~p (more)~n", [Tab, Node]),
+	    verbose("Receiver of table ~tp crashed on ~p (more)~n", [Tab, Node]),
 	    down(Tab, {ext,Alias,Mod});
 	{Data, NewFun} ->
 	    case Mod:receive_data(Data, Alias, Tab, Sender, State) of
@@ -553,7 +553,7 @@ finish_copy(Storage,Tab,Cs,SenderPid,DatBin,OrigTabRec) ->
 	    ok;
 	{error, Reason} ->
 	    Msg = "Failed to handle last",
-	    verbose("~s: ~p: ~p~n", [Msg, Tab, Reason]),
+	    verbose("~ts: ~tp: ~tp~n", [Msg, Tab, Reason]),
 	    down(Tab, Storage)
     end.
 
@@ -859,7 +859,7 @@ send_more(Pid, N, Chunk, DataState, Tab, Storage) ->
 	    send_more(Pid, 1, NewChunk, Init(), Tab, Storage);
 
 	{copier_done, Node} when Node == node(Pid)->
-	    verbose("Receiver of table ~p crashed on ~p (more)~n", [Tab, Node]),
+	    verbose("Receiver of table ~tp crashed on ~p (more)~n", [Tab, Node]),
 	    throw(receiver_died)
     end.
 
@@ -937,7 +937,7 @@ finish_copy(Pid, Tab, Storage, RemoteS, NeedLock) ->
 		    {Pid, no_more} -> % Dont bother about the spurious 'more' message
 			no_more;
 		    {copier_done, Node} ->
-			verbose("Tab receiver ~p crashed (more): ~p~n", [Tab, Node]),
+			verbose("Tab receiver ~tp crashed (more): ~p~n", [Tab, Node]),
 			receiver_died
 		end
 	end,

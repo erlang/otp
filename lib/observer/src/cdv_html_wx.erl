@@ -62,7 +62,7 @@ handle_info(active, State) ->
     {noreply, State};
 
 handle_info(Info, State) ->
-    io:format("~p:~p: Unhandled info: ~p~n", [?MODULE, ?LINE, Info]),
+    io:format("~p:~p: Unhandled info: ~tp~n", [?MODULE, ?LINE, Info]),
     {noreply, State}.
 
 terminate(_Reason, _State) ->
@@ -72,7 +72,7 @@ code_change(_, _, State) ->
     {ok, State}.
 
 handle_call(Msg, _From, State) ->
-    io:format("~p~p: Unhandled Call ~p~n",[?MODULE, ?LINE, Msg]),
+    io:format("~p~p: Unhandled Call ~tp~n",[?MODULE, ?LINE, Msg]),
     {reply, ok, State}.
 
 handle_cast({detail_win_closed, Id},#state{expand_wins=Opened0}=State) ->
@@ -80,7 +80,7 @@ handle_cast({detail_win_closed, Id},#state{expand_wins=Opened0}=State) ->
     {noreply, State#state{expand_wins=Opened}};
 
 handle_cast(Msg, State) ->
-    io:format("~p~p: Unhandled cast ~p~n",[?MODULE, ?LINE, Msg]),
+    io:format("~p~p: Unhandled cast ~tp~n",[?MODULE, ?LINE, Msg]),
     {noreply, State}.
 
 handle_event(#wx{event=#wxHtmlLink{type=command_html_link_clicked,
@@ -118,7 +118,7 @@ handle_event(#wx{event=#wxHtmlLink{type=command_html_link_clicked,
     {noreply, NewState};
 
 handle_event(Event, State) ->
-    io:format("~p:~p: Unhandled event ~p\n", [?MODULE,?LINE,Event]),
+    io:format("~p:~p: Unhandled event ~tp\n", [?MODULE,?LINE,Event]),
     {noreply, State}.
 
 %%%-----------------------------------------------------------------

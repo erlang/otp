@@ -87,18 +87,18 @@ validate_tab(_) -> error(badtab).
 make_tabs([{Tab, Def} | Tail]) ->
     try mnesia:table_info(Tab, where_to_read) of
 	Node ->
-	    io:format("** Table ~w already exists on ~p, just entering data~n",
+	    io:format("** Table ~tw already exists on ~p, just entering data~n",
 		      [Tab, Node]),
 	    make_tabs(Tail)
     catch exit:_ -> %% non-existing table
 	    case mnesia:create_table(Tab, Def) of
 		{aborted, Reason} ->
-		    io:format("** Failed to create table ~w ~n"
-			      "** Reason = ~w, Args = ~p~n", 
+		    io:format("** Failed to create table ~tw ~n"
+			      "** Reason = ~tw, Args = ~tp~n", 
 			      [Tab, Reason, Def]),
 		    [Tab | make_tabs(Tail)];
 		_ -> 
-		    io:format("New table ~w~n", [Tab]),
+		    io:format("New table ~tw~n", [Tab]),
 		    make_tabs(Tail)
 	    end
     end;
@@ -139,12 +139,12 @@ collect_data(Tabs, [{Line, Term} | Tail]) when is_tuple(Term) ->
 	{value, _} ->
 	    [Term | collect_data(Tabs, Tail)];
 	_Other ->
-	    io:format("Object:~p at line ~w unknown\n", [Term,Line]),
+	    io:format("Object:~tp at line ~w unknown\n", [Term,Line]),
 	    error(undefined_object)
     end;
 collect_data(_Tabs, []) -> [];
 collect_data(_Tabs, [H|_T]) ->
-    io:format("Object:~p unknown\n", [H]),
+    io:format("Object:~tp unknown\n", [H]),
     error(undefined_object).
 
 error(What) -> throw({error, What}).
@@ -178,7 +178,7 @@ read_term_from_stream(Stream, File, Line) ->
 		    {ok, {Line, Term}, EndLine};
 		{error, {NewLine,Mod,What}} ->
 		    Str = Mod:format_error(What),
-		    io:format("Error in line:~p of:~p ~s\n",
+		    io:format("Error in line:~p of:~tp ~ts\n",
 			      [NewLine, File, Str]),
 		    error
 	    end;

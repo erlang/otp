@@ -621,7 +621,7 @@ try_dispatch(Mod, Func, Msg, State) ->
             case erlang:function_exported(Mod, handle_info, 2) of
                 false ->
                     error_logger:warning_msg("** Undefined handle_info in ~p~n"
-                                             "** Unhandled message: ~p~n",
+                                             "** Unhandled message: ~tp~n",
                                              [Mod, Msg]),
                     {ok, {noreply, State}};
                 true ->
@@ -785,21 +785,21 @@ system_replace_state(StateFun, [Name, State, Mod, Time, HibernateAfterTimeout]) 
 print_event(Dev, {in, Msg}, Name) ->
     case Msg of
 	{'$gen_call', {From, _Tag}, Call} ->
-	    io:format(Dev, "*DBG* ~p got call ~p from ~w~n",
+	    io:format(Dev, "*DBG* ~tp got call ~tp from ~w~n",
 		      [Name, Call, From]);
 	{'$gen_cast', Cast} ->
-	    io:format(Dev, "*DBG* ~p got cast ~p~n",
+	    io:format(Dev, "*DBG* ~tp got cast ~tp~n",
 		      [Name, Cast]);
 	_ ->
-	    io:format(Dev, "*DBG* ~p got ~p~n", [Name, Msg])
+	    io:format(Dev, "*DBG* ~tp got ~tp~n", [Name, Msg])
     end;
 print_event(Dev, {out, Msg, To, State}, Name) ->
-    io:format(Dev, "*DBG* ~p sent ~p to ~w, new state ~w~n", 
+    io:format(Dev, "*DBG* ~tp sent ~tp to ~w, new state ~tp~n",
 	      [Name, Msg, To, State]);
 print_event(Dev, {noreply, State}, Name) ->
-    io:format(Dev, "*DBG* ~p new state ~w~n", [Name, State]);
+    io:format(Dev, "*DBG* ~tp new state ~tp~n", [Name, State]);
 print_event(Dev, Event, Name) ->
-    io:format(Dev, "*DBG* ~p dbg  ~p~n", [Name, Event]).
+    io:format(Dev, "*DBG* ~tp dbg  ~tp~n", [Name, Event]).
 
 
 %%% ---------------------------------------------------
@@ -881,10 +881,10 @@ error_info(Reason, Name, From, Msg, State, Debug) ->
 	end,    
     {ClientFmt, ClientArgs} = client_stacktrace(From),
     LimitedState = error_logger:limit_term(State),
-    error_logger:format("** Generic server ~p terminating \n"
-                        "** Last message in was ~p~n"
-                        "** When Server state == ~p~n"
-                        "** Reason for termination == ~n** ~p~n" ++ ClientFmt,
+    error_logger:format("** Generic server ~tp terminating \n"
+                        "** Last message in was ~tp~n"
+                        "** When Server state == ~tp~n"
+                        "** Reason for termination == ~n** ~tp~n" ++ ClientFmt,
                         [Name, Msg, LimitedState, Reason1] ++ ClientArgs),
     sys:print_log(Debug),
     ok.
@@ -898,11 +898,11 @@ client_stacktrace(From) when is_pid(From), node(From) =:= node() ->
             {"** Client ~p is dead~n", [From]};
         [{current_stacktrace, Stacktrace}, {registered_name, []}]  ->
             {"** Client ~p stacktrace~n"
-             "** ~p~n",
+             "** ~tp~n",
              [From, Stacktrace]};
         [{current_stacktrace, Stacktrace}, {registered_name, Name}]  ->
-            {"** Client ~p stacktrace~n"
-             "** ~p~n",
+            {"** Client ~tp stacktrace~n"
+             "** ~tp~n",
              [Name, Stacktrace]}
     end;
 client_stacktrace(From) when is_pid(From) ->

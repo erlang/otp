@@ -541,13 +541,13 @@ uri_get_http_1(Result, URI) ->
 	    Reason = inet:format_error(R),
 	    {error, http_errmsg(Reason, URI)};
 	{ok, R} ->
-	    Reason = io_lib:format("bad return value ~P", [R, 5]),
+	    Reason = io_lib:format("bad return value ~tP", [R, 5]),
 	    {error, http_errmsg(Reason, URI)};
 	{'EXIT', R} ->
-	    Reason = io_lib:format("crashed with reason ~w", [R]),
+	    Reason = io_lib:format("crashed with reason ~tw", [R]),
 	    {error, http_errmsg(Reason, URI)};
 	R ->
-	    Reason = io_lib:format("uncaught throw: ~w", [R]),
+	    Reason = io_lib:format("uncaught throw: ~tw", [R]),
 	    {error, http_errmsg(Reason, URI)}
     end.
 
@@ -603,7 +603,7 @@ filename([]) ->
 filename(N) when is_atom(N) ->
     atom_to_list(N);
 filename(N) ->
-    report("bad filename: `~P'.", [N, 25]),
+    report("bad filename: `~tP'.", [N, 25]),
     exit(error).
 
 %% @private
@@ -1000,7 +1000,7 @@ run_plugin(Name, Key, Default, Fun, Opts) when is_atom(Name) ->
 	{ok, Value} ->
 	    Value;
 	R ->
-	    report("error in ~ts '~w': ~P.", [Name, Module, R, 20]),
+	    report("error in ~ts '~w': ~tP.", [Name, Module, R, 20]),
 	    exit(error)
     end.
 
@@ -1009,7 +1009,7 @@ get_plugin(Key, Default, Opts) ->
 	M when is_atom(M) ->
 	    M;
 	Other ->
-	    report("bad value for option '~w': ~P.", [Key, Other, 10]),
+	    report("bad value for option '~w': ~tP.", [Key, Other, 10]),
 	    exit(error)
     end.
 

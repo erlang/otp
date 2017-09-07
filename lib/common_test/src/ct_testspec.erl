@@ -537,7 +537,7 @@ replace_names_in_elems([],Modified,_Defs) ->
 replace_names_in_string(Term,Defs=[{Name,Replacement=[Ch|_]}|Ds])
   when is_integer(Ch) ->
     try re:replace(Term,[$'|atom_to_list(Name)]++"'",
-		   Replacement,[{return,list}]) of
+		   Replacement,[{return,list},unicode]) of
 	Term ->					% no match, proceed
 	    replace_names_in_string(Term,Ds);
 	Term1 ->
@@ -569,7 +569,7 @@ replace_names_in_node1(NodeStr,Defs=[{Name,Replacement}|Ds]) ->
 	    replace_names_in_node1(NodeStr,Ds);
        true ->
 	    case re:replace(NodeStr,atom_to_list(Name),
-			    ReplStr,[{return,list}]) of
+			    ReplStr,[{return,list},unicode]) of
 		NodeStr ->			% no match, proceed
 		    replace_names_in_node1(NodeStr,Ds);
 		NodeStr1 ->

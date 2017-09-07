@@ -683,14 +683,14 @@ retainer_create(_Cp, R, Tab, Name, Ext = {ext, Alias, Mod}) ->
     Cs = val({Tab, cstruct}),
     Mod:load_table(Alias, T, {retainer, create_table},
 		   mnesia_schema:cs2list(Cs)),
-    dbg_out("Checkpoint retainer created ~p ~p~n", [Name, Tab]),
+    dbg_out("Checkpoint retainer created ~p ~tp~n", [Name, Tab]),
     R#retainer{store = {Ext, T}, really_retain = true};
 retainer_create(_Cp, R, Tab, Name, disc_only_copies) ->
     Fname = tab2retainer({Tab, Name}),
     file:delete(Fname),
     Args = [{file, Fname}, {type, set}, {keypos, 2}, {repair, false}],
     {ok, _} = mnesia_lib:dets_sync_open({Tab, Name}, Args),
-    dbg_out("Checkpoint retainer created ~p ~p~n", [Name, Tab]),
+    dbg_out("Checkpoint retainer created ~p ~tp~n", [Name, Tab]),
     R#retainer{store = {dets, {Tab, Name}}, really_retain = true};
 retainer_create(Cp, R, Tab, Name, Storage) ->
     T = ?ets_new_table(mnesia_retainer, [set, public, {keypos, 2}]),
@@ -698,7 +698,7 @@ retainer_create(Cp, R, Tab, Name, Storage) ->
     ReallyR = R#retainer.really_retain,
     ReallyCp = lists:member(Tab, Overriders),
     ReallyR2 = prepare_ram_tab(Tab, T, Storage, ReallyR, ReallyCp),
-    dbg_out("Checkpoint retainer created ~p ~p~n", [Name, Tab]),
+    dbg_out("Checkpoint retainer created ~p ~tp~n", [Name, Tab]),
     R#retainer{store = {ets, T}, really_retain = ReallyR2}.
 
 %% Copy the dumped table into retainer if needed
@@ -849,7 +849,7 @@ retainer_loop(Cp = #checkpoint_args{is_activated=false, name=Name}) ->
 	    retainer_loop(Cp#checkpoint_args{iterators = Iters});
 
 	{system, From, Msg} ->
-	    dbg_out("~p got {system, ~p, ~p}~n", [?MODULE, From, Msg]),
+	    dbg_out("~p got {system, ~p, ~tp}~n", [?MODULE, From, Msg]),
 	    sys:handle_system_msg(Msg, From, Cp#checkpoint_args.supervisor,
 				  ?MODULE, [], Cp)
     end;
@@ -938,11 +938,11 @@ retainer_loop(Cp = #checkpoint_args{name=Name}) ->
 	    retainer_loop(Cp#checkpoint_args{iterators = Iters});
 
 	{system, From, Msg} ->
-	    dbg_out("~p got {system, ~p, ~p}~n", [?MODULE, From, Msg]),
+	    dbg_out("~p got {system, ~p, ~tp}~n", [?MODULE, From, Msg]),
 	    sys:handle_system_msg(Msg, From, Cp#checkpoint_args.supervisor,
 				  ?MODULE, [], Cp);
 	Msg ->
-	    dbg_out("~p got ~p~n", [?MODULE, Msg])
+	    dbg_out("~p got ~tp~n", [?MODULE, Msg])
     end.
 
 maybe_activate(Cp)

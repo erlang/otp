@@ -762,7 +762,7 @@ handle_call(sync, _From, State) ->
     {reply, ok, State};
 
 handle_call(Msg, _From, State) ->
-    error("~p got unexpected call: ~p~n", [?MODULE, Msg]),
+    error("~p got unexpected call: ~tp~n", [?MODULE, Msg]),
     {noreply, State}.
 
 do_log_mnesia_up(Node) ->
@@ -881,7 +881,7 @@ handle_cast({log_dump_overload, Flag}, State) when is_boolean(Flag) ->
     {noreply, State#state{log_dump_overload = Flag}};
 
 handle_cast(Msg, State) ->
-    error("~p got unexpected cast: ~p~n", [?MODULE, Msg]),
+    error("~p got unexpected cast: ~tp~n", [?MODULE, Msg]),
     {noreply, State}.
 
 %%----------------------------------------------------------------------
@@ -927,11 +927,11 @@ handle_info({force_decision, Tid}, State) ->
     end;
 
 handle_info({'EXIT', Pid, R}, State) when Pid == State#state.supervisor ->
-    mnesia_lib:dbg_out("~p was ~p~n",[?MODULE, R]),
+    mnesia_lib:dbg_out("~p was ~tp~n",[?MODULE, R]),
     {stop, shutdown, State};
 
 handle_info(Msg, State) ->
-    error("~p got unexpected info: ~p~n", [?MODULE, Msg]),
+    error("~p got unexpected info: ~tp~n", [?MODULE, Msg]),
     {noreply, State}.
 
 %%----------------------------------------------------------------------

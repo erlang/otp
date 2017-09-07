@@ -860,7 +860,7 @@ code_handler(Name, Args, Dict, File) ->
                     %% io:format("Calling:~p~n",[{Mod,Name,Args}]),
                     apply(Mod, Name, Args);
                 error ->
-                    io:format("Script does not export ~w/~w\n", [Name,Arity]),
+                    io:format("Script does not export ~tw/~w\n", [Name,Arity]),
                     my_halt(127)
             end
     end.

@@ -422,7 +422,7 @@ debug_options(Name, Opts) ->
 	    try sys:debug_options(Options)
 	    catch _:_ ->
 		    error_logger:format(
-		      "~p: ignoring erroneous debug options - ~p~n",
+		      "~tp: ignoring erroneous debug options - ~tp~n",
 		      [Name,Options]),
 		    []
 	    end;

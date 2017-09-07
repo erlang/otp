@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -246,7 +246,7 @@ handle_call(profile_stop, _From, #state{ profiling = true } = S) ->
 
 %% logfile
 handle_call({logfile, File}, _From, #state{ fd = OldFd } = S) ->
-    case file:open(File, [write]) of
+    case file:open(File, [write, {encoding, utf8}]) of
 	{ok, Fd} ->
 	    case OldFd of
 		undefined -> ok;
@@ -478,11 +478,11 @@ string_bp_mfa([{Mfa, {Count, Time}}|Mfas], Tus, {MfaW, CountW, PercW, TimeW, TpC
 	Stpc   = s("~.2f", [divide(Time,Count)]),
 
 	string_bp_mfa(Mfas, Tus, {
-		erlang:max(MfaW,  length(Smfa)),
-		erlang:max(CountW,length(Scount)),
-		erlang:max(PercW, length(Sperc)),
-		erlang:max(TimeW, length(Stime)),
-		erlang:max(TpCW,  length(Stpc))
+		erlang:max(MfaW,  string:length(Smfa)),
+		erlang:max(CountW,string:length(Scount)),
+		erlang:max(PercW, string:length(Sperc)),
+		erlang:max(TimeW, string:length(Stime)),
+		erlang:max(TpCW,  string:length(Stpc))
 	    }, [[Smfa, Scount, Sperc, Stime, Stpc] | Strings]).
 
 print_bp_mfa(Mfas, {Tn, Tus}, Fd, Opts) ->
@@ -491,11 +491,11 @@ print_bp_mfa(Mfas, {Tn, Tus}, Fd, Opts) ->
     TnStr    = s(Tn),
     TusStr   = s(Tus),
     TuspcStr = s("~.2f", [divide(Tus,Tn)]),
-    Ws = {erlang:max(length("FUNCTION"), MfaW),
-          lists:max([length("CALLS"), CountW, length(TnStr)]),
-          erlang:max(length("      %"), PercW),
-          lists:max([length("TIME"), TimeW, length(TusStr)]),
-          lists:max([length("uS / CALLS"), TpCW, length(TuspcStr)])},
+    Ws = {erlang:max(string:length("FUNCTION"), MfaW),
+          lists:max([string:length("CALLS"), CountW, string:length(TnStr)]),
+          erlang:max(string:length("      %"), PercW),
+          lists:max([string:length("TIME"), TimeW, string:length(TusStr)]),
+          lists:max([string:length("uS / CALLS"), TpCW, string:length(TuspcStr)])},
     format(Fd, Ws, ["FUNCTION", "CALLS", "      %", "TIME", "uS / CALLS"]),
     format(Fd, Ws, ["--------", "-----", "-------", "----", "----------"]),
     lists:foreach(fun (String) -> format(Fd, Ws, String) end, Strs),
@@ -503,13 +503,13 @@ print_bp_mfa(Mfas, {Tn, Tus}, Fd, Opts) ->
     format(Fd, Ws, ["Total:", TnStr, "100.00%", TusStr, TuspcStr]),
     ok.
 
-s({M,F,A}) -> s("~w:~w/~w",[M,F,A]);
-s(Term) -> s("~p", [Term]).
+s({M,F,A}) -> s("~w:~tw/~w",[M,F,A]);
+s(Term) -> s("~tp", [Term]).
 s(Format, Terms) -> lists:flatten(io_lib:format(Format, Terms)).
 
 
 format(Fd, {MfaW, CountW, PercW, TimeW, TpCW}, Strings) ->
-    format(Fd, s("~~.~ps  ~~~ps  ~~~ps  ~~~ps  [~~~ps]~~n", [MfaW, CountW, PercW, TimeW, TpCW]), Strings);
+    format(Fd, s("~~.~wts  ~~~ws  ~~~ws  ~~~ws  [~~~ws]~~n", [MfaW, CountW, PercW, TimeW, TpCW]), Strings);
 format(undefined, Format, Strings) ->
     io:format(Format, Strings),
     ok;

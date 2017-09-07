@@ -30,7 +30,8 @@
 	 create_attrs/0,
 	 set_listctrl_col_size/2,
 	 create_status_bar/1,
-	 html_window/1, html_window/2
+	 html_window/1, html_window/2,
+         make_obsbin/2
 	]).
 
 -include_lib("wx/include/wx.hrl").
@@ -300,7 +301,7 @@ to_str(Float) when is_float(Float) ->
 to_str({trunc, Float}) when is_float(Float) ->
     float_to_list(Float, [{decimals,0}]);
 to_str(Term) ->
-    io_lib:format("~w", [Term]).
+    io_lib:format("~tw", [Term]).
 
 create_menus([], _MenuBar, _Type) -> ok;
 create_menus(Menus, MenuBar, Type) ->
@@ -520,7 +521,7 @@ link_entry2(Panel,{Target,Str},Cursor) ->
     TC.
 
 to_link(RegName={Name, Node}) when is_atom(Name), is_atom(Node) ->
-    Str = io_lib:format("{~p,~p}", [Name, Node]),
+    Str = io_lib:format("{~tp,~p}", [Name, Node]),
     {RegName, Str};
 to_link(TI = {_Target, _Identifier}) ->
     TI;
@@ -641,11 +642,11 @@ parse_string(Str) ->
 	Tokens = case erl_scan:string(Str, 1, [text]) of
 		     {ok, Ts, _} -> Ts;
 		     {error, {_SLine, SMod, SError}, _} ->
-			 throw(io_lib:format("~s", [SMod:format_error(SError)]))
+			 throw(io_lib:format("~ts", [SMod:format_error(SError)]))
 		 end,
 	case lib:extended_parse_term(Tokens) of
 	    {error, {_PLine, PMod, PError}} ->
-		throw(io_lib:format("~s", [PMod:format_error(PError)]));
+		throw(io_lib:format("~ts", [PMod:format_error(PError)]));
 	    Res -> Res
 	end
     catch
@@ -769,3 +770,26 @@ update_progress_text(PD,Text) ->
     end.
 finish_progress(PD) ->
     wxProgressDialog:destroy(PD).
+
+make_obsbin(Bin,Tab) ->
+    Size = byte_size(Bin),
+    Preview =
+        try
+            %% The binary might be a unicode string, in which case we
+            %% don't want to split it in the middle of a grapheme
+            %% cluster - thus trying string:length and slice.
+            PL1 = min(string:length(Bin), 10),
+            PB1 = string:slice(Bin,0,PL1),
+            PS1 = byte_size(PB1) * 8,
+            <<P1:PS1>> = PB1,
+            P1
+        catch _:_ ->
+                %% Probably not a string, so just split anywhere
+                PS2 = min(Size, 10) * 8,
+                <<P2:PS2, _/binary>> = Bin,
+                P2
+        end,
+    Hash = erlang:phash2(Bin),
+    Key = {Preview, Size, Hash},
+    ets:insert(Tab, {Key,Bin}),
+    ['#OBSBin',Preview,Size,Hash].

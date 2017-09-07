@@ -22,7 +22,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
 	 init_per_group/2,end_per_group/2]).
 -export([normal/1, quoted_fun/1, quoted_module/1, quoted_both/1, erl_1152/1,
-         erl_352/1]).
+         erl_352/1, unicode/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -37,7 +37,8 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [normal, quoted_fun, quoted_module, quoted_both, erl_1152, erl_352].
+    [normal, quoted_fun, quoted_module, quoted_both, erl_1152, erl_352,
+     unicode].
 
 groups() -> 
     [].
@@ -150,6 +151,7 @@ quoted_both(Config) when is_list(Config) ->
     {yes,"weird-fun-name'()",[]} = do_expand("'ExpandTestCaps1':'#"),
     ok.
 
+%% Note: pull request #1152.
 erl_1152(Config) when is_list(Config) ->
     "\n"++"foo"++"    "++[1089]++_ = do_format(["foo",[1089]]),
     ok.
@@ -225,6 +227,26 @@ check_trailing([I|Str], ArityStr, Suffix, Dots) ->
                 lists:split(length(Str) - length(ArityStr), Str),
             Rest =:= Suffix
     end.
+
+unicode(Config) when is_list(Config) ->
+    {module,unicode_expand} = c:l('unicode_expand'),
+    {no,[],[{"'кlирилли́ческий атом'",0},
+            {"'кlирилли́ческий атом'",1},
+            {"'кlирилли́ческий атомB'",1},
+            {"module_info",0},
+            {"module_info",1}]} = do_expand("unicode_expand:"),
+    {yes,"рилли́ческий атом", []} = do_expand("unicode_expand:'кlи"),
+    {yes,"еский атом", []} = do_expand("unicode_expand:'кlирилли́ч"),
+    {yes,"(",[]} = do_expand("unicode_expand:'кlирилли́ческий атомB'"),
+    "\n'кlирилли́ческий атом'/0   'кlирилли́ческий атом'/1   "
+    "'кlирилли́ческий атомB'/1  \nmodule_info/0             "
+    "module_info/1             \n" =
+        do_format([{"'кlирилли́ческий атом'",0},
+                   {"'кlирилли́ческий атом'",1},
+                   {"'кlирилли́ческий атомB'",1},
+                   {"module_info",0},
+                   {"module_info",1}]),
+    ok.
 
 do_expand(String) ->
     edlin_expand:expand(lists:reverse(String)).

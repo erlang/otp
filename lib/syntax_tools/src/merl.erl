@@ -565,13 +565,13 @@ parse_5(Ts, Es) ->
 -dialyzer({nowarn_function, parse_error/1}). % no local return
 
 parse_error({L, M, R}) when is_atom(M), is_integer(L) ->
-    fail("~w: ~s", [L, M:format_error(R)]);
+    fail("~w: ~ts", [L, M:format_error(R)]);
 parse_error({{L,C}, M, R}) when is_atom(M), is_integer(L), is_integer(C) ->
-    fail("~w:~w: ~s", [L,C,M:format_error(R)]);
+    fail("~w:~w: ~ts", [L,C,M:format_error(R)]);
 parse_error({_, M, R}) when is_atom(M) ->
     fail(M:format_error(R));
 parse_error(R) ->
-    fail("unknown parse error: ~p", [R]).
+    fail("unknown parse error: ~tp", [R]).
 
 %% ------------------------------------------------------------------------
 %% Templates, substitution and matching

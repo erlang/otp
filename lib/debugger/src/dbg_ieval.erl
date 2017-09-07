@@ -353,15 +353,15 @@ format_trace(What, Args, P) ->
             {Called, {Le,Li,M,F,As}} = Args,
             case Called of
                 extern ->	
-                    io_lib:format("++ (~w) <~w> ~w:~w~ts~n",
+                    io_lib:format("++ (~w) <~w> ~w:~tw~ts~n",
                                   [Le,Li,M,F,format_args(As, P)]);
                 local ->
-                    io_lib:format("++ (~w) <~w> ~w~ts~n",
+                    io_lib:format("++ (~w) <~w> ~tw~ts~n",
                                   [Le,Li,F,format_args(As, P)])
             end;
         call_fun ->
             {Le,Li,F,As} = Args,
-            io_lib:format("++ (~w) <~w> ~w~ts~n",
+            io_lib:format("++ (~w) <~w> ~tw~ts~n",
                           [Le, Li, F, format_args(As, P)]);
         return ->
             {Le,Val} = Args,
@@ -370,7 +370,7 @@ format_trace(What, Args, P) ->
 
         bif ->
             {Le,Li,M,F,As} = Args,
-            io_lib:format("++ (~w) <~w> ~w:~w~ts~n",
+            io_lib:format("++ (~w) <~w> ~w:~tw~ts~n",
                           [Le, Li, M, F, format_args(As, P)])
     end.
 

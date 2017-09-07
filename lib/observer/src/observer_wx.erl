@@ -459,7 +459,7 @@ handle_info({'EXIT', Pid, Reason}, State) ->
 	normal ->
 	    {noreply, State};
 	_ ->
-	    io:format("Observer: Child (~s) crashed exiting:  ~p ~p~n",
+	    io:format("Observer: Child (~s) crashed exiting:  ~p ~tp~n",
 		      [pid2panel(Pid, State), Pid, Reason]),
 	    {stop, normal, State}
     end;
@@ -504,7 +504,7 @@ save_config(Panels) ->
     File = config_file(),
     case filelib:ensure_dir(File) of
         ok ->
-            Format = [io_lib:format("~p.~n",[Conf]) || Conf <- Configs],
+            Format = [io_lib:format("~tp.~n",[Conf]) || Conf <- Configs],
             _ = file:write_file(File, Format);
         _ ->
             ignore

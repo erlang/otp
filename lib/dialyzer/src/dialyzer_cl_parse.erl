@@ -82,7 +82,7 @@ cl(["--get_warnings"|T]) ->
 cl(["-D"|_]) ->
   cl_error("No defines specified after -D");
 cl(["-D"++Define|T]) ->
-  Def = re:split(Define, "=", [{return, list}]),
+  Def = re:split(Define, "=", [{return, list}, unicode]),
   append_defines(Def),
   cl(T);
 cl(["-h"|_]) ->

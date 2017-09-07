@@ -306,7 +306,7 @@ handle_info({'EXIT', Pid, normal}, #state{server=Pid}=State) ->
     {stop, normal, State};
 
 handle_info({'EXIT', Pid, _Reason}, State) ->
-    io:format("Child (~s) crashed exiting:  ~p ~p~n",
+    io:format("Child (~s) crashed exiting:  ~p ~tp~n",
 	      [pid2panel(Pid, State), Pid,_Reason]),
     {stop, normal, State};
 

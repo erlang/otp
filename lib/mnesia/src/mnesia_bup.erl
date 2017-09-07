@@ -920,7 +920,7 @@ create_dat_files([{schema, Tab, TabDef} | Tail], Ext, LocalTabs) ->
 				       ok ->
 					   ok;
 				       {error, Reason} ->
-					   mnesia_lib:fatal("Cannot rename file ~p -> ~p: ~p~n",
+					   mnesia_lib:fatal("Cannot rename file ~tp -> ~tp: ~tp~n",
 							    [TmpFile, DclFile, Reason])
 				   end
 			   end
@@ -1016,7 +1016,7 @@ disc_only_swap_fun(disc_only_copies, Expunge, Open, Close) ->
 		ok ->
 		    ok;
 		{error, Reason} ->
-		    mnesia_lib:fatal("Cannot rename file ~p -> ~p: ~p~n",
+		    mnesia_lib:fatal("Cannot rename file ~tp -> ~tp: ~tp~n",
 				     [TmpFile, DatFile, Reason])
 	    end
     end;

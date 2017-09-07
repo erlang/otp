@@ -778,7 +778,7 @@ handle_info(transition_period_end,
     {noreply,State#state{tick = #tick{ticker = Tckr, time = T}}};
 
 handle_info(X, State) ->
-    error_msg("Net kernel got ~w~n",[X]),
+    error_msg("Net kernel got ~tw~n",[X]),
     {noreply,State}.
 
 %% -----------------------------------------------------------

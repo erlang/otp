@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -342,7 +342,7 @@ add_process(WinInfo, Pid, Name, {Mod,Func,Args}, Status, Info) ->
     Row = (WinInfo#winInfo.row),
     
     Name2 = case Name of undefined -> ""; _ -> to_string(Name) end,
-    FuncS = to_string("~w:~w/~w", [Mod, Func, length(Args)]),
+    FuncS = to_string("~w:~tw/~w", [Mod, Func, length(Args)]),
     Info2 = case Info of {} -> ""; _ -> to_string(Info) end,
     Pid2  = to_string("~p",[Pid]),
     

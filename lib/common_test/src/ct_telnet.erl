@@ -1455,7 +1455,7 @@ match_line(Name,Pid,Line,[{prompt,PromptType}|Patterns],FoundPrompt,Term,
   when PromptType=/=FoundPrompt ->
     match_line(Name,Pid,Line,Patterns,FoundPrompt,Term,EO,RetTag);
 match_line(Name,Pid,Line,[{Tag,Pattern}|Patterns],FoundPrompt,Term,EO,RetTag) ->
-    case re:run(Line,Pattern,[{capture,all,list}]) of
+    case re:run(Line,Pattern,[{capture,all,list},unicode]) of
 	nomatch ->
 	    match_line(Name,Pid,Line,Patterns,FoundPrompt,Term,EO,RetTag);
 	{match,Match} ->
@@ -1463,7 +1463,7 @@ match_line(Name,Pid,Line,[{Tag,Pattern}|Patterns],FoundPrompt,Term,EO,RetTag) ->
 	    {RetTag,{Tag,Match}}
     end;
 match_line(Name,Pid,Line,[Pattern|Patterns],FoundPrompt,Term,EO,RetTag) ->
-    case re:run(Line,Pattern,[{capture,all,list}]) of
+    case re:run(Line,Pattern,[{capture,all,list},unicode]) of
 	nomatch ->
 	    match_line(Name,Pid,Line,Patterns,FoundPrompt,Term,EO,RetTag);
 	{match,Match} ->
@@ -1575,7 +1575,7 @@ split_lines([],Line,Lines) ->
 match_prompt(Str,Prx) ->
     match_prompt(Str,Prx,[]).
 match_prompt(Str,Prx,Acc) ->
-    case re:run(Str,Prx) of
+    case re:run(Str,Prx,[unicode]) of
 	nomatch ->
 	    noprompt;
 	{match,[{Start,Len}]} ->

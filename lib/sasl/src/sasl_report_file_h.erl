@@ -29,15 +29,27 @@
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
 
-init({File, Modes, Type}) when is_list(Modes) ->
+init({File, Modes0, Type}) when is_list(Modes0) ->
     process_flag(trap_exit, true),
+    Modes1 =
+        case lists:keymember(encoding,1,Modes0) of
+            true -> Modes0;
+            false -> [{encoding,utf8}|Modes0]
+        end,
+    Modes =
+        case [M || M <- Modes1, lists:member(M,[write,append,exclusive])] of
+            [] ->
+                [write|Modes1];
+            _ ->
+                Modes1
+        end,
     case file:open(File, Modes) of
 	{ok,Fd} ->
 	    {ok, {Fd, File, Type}};
 	What ->
 	    What
     end.
-    
+
 handle_event({_Type, GL, _Msg}, State) when node(GL) /= node() ->
     {ok, State};
 handle_event(Event, {Fd, File, Type}) ->

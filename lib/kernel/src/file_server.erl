@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -207,7 +207,7 @@ handle_call(stop, _From, Handle) ->
     {stop, normal, stopped, Handle};
 
 handle_call(Request, From, Handle) ->
-    error_logger:error_msg("handle_call(~p, ~p, _)", [Request, From]),
+    error_logger:error_msg("handle_call(~tp, ~tp, _)", [Request, From]),
     {noreply, Handle}.
 
 %%----------------------------------------------------------------------
@@ -220,7 +220,7 @@ handle_call(Request, From, Handle) ->
 -spec handle_cast(term(), state()) -> {'noreply', state()}.
 
 handle_cast(Msg, State) ->
-    error_logger:error_msg("handle_cast(~p, _)", [Msg]),
+    error_logger:error_msg("handle_cast(~tp, _)", [Msg]),
     {noreply, State}.
 
 %%----------------------------------------------------------------------
@@ -243,7 +243,7 @@ handle_info({'EXIT', Handle, _Reason}, Handle) ->
     {stop, normal, Handle};
 
 handle_info(Info, State) ->
-    error_logger:error_msg("handle_Info(~p, _)", [Info]),
+    error_logger:error_msg("handle_Info(~tp, _)", [Info]),
     {noreply, State}.
 
 %%----------------------------------------------------------------------

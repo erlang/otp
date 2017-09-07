@@ -452,30 +452,30 @@ system_replace_state(StateFun, [Name, StateName, StateData, Mod, Time, Hibernate
 print_event(Dev, {in, Msg}, {Name, StateName}) ->
     case Msg of
 	{'$gen_event', Event} ->
-	    io:format(Dev, "*DBG* ~p got event ~p in state ~w~n",
+	    io:format(Dev, "*DBG* ~tp got event ~tp in state ~tw~n",
 		      [Name, Event, StateName]);
 	{'$gen_all_state_event', Event} ->
 	    io:format(Dev,
-		      "*DBG* ~p got all_state_event ~p in state ~w~n",
+		      "*DBG* ~tp got all_state_event ~tp in state ~tw~n",
 		      [Name, Event, StateName]);
 	{timeout, Ref, {'$gen_timer', Message}} ->
 	    io:format(Dev,
-		      "*DBG* ~p got timer ~p in state ~w~n",
+		      "*DBG* ~tp got timer ~tp in state ~tw~n",
 		      [Name, {timeout, Ref, Message}, StateName]);
 	{timeout, _Ref, {'$gen_event', Event}} ->
 	    io:format(Dev,
-		      "*DBG* ~p got timer ~p in state ~w~n",
+		      "*DBG* ~tp got timer ~tp in state ~tw~n",
 		      [Name, Event, StateName]);
 	_ ->
-	    io:format(Dev, "*DBG* ~p got ~p in state ~w~n",
+	    io:format(Dev, "*DBG* ~tp got ~tp in state ~tw~n",
 		      [Name, Msg, StateName])
     end;
 print_event(Dev, {out, Msg, To, StateName}, Name) ->
-    io:format(Dev, "*DBG* ~p sent ~p to ~w~n"
-	           "      and switched to state ~w~n",
+    io:format(Dev, "*DBG* ~tp sent ~tp to ~tw~n"
+	           "      and switched to state ~tw~n",
 	      [Name, Msg, To, StateName]);
 print_event(Dev, return, {Name, StateName}) ->
-    io:format(Dev, "*DBG* ~p switched to state ~w~n",
+    io:format(Dev, "*DBG* ~tp switched to state ~tw~n",
 	      [Name, StateName]).
 
 handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTimeout) -> %No debug here
@@ -500,7 +500,7 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTi
 	    exit(R);
         {'EXIT', {undef, [{Mod, handle_info, [_,_,_], _}|_]}} ->
             error_logger:warning_msg("** Undefined handle_info in ~p~n"
-                                     "** Unhandled message: ~p~n", [Mod, Msg]),
+                                     "** Unhandled message: ~tp~n", [Mod, Msg]),
             loop(Parent, Name, StateName, StateData, Mod, infinity, HibernateAfterTimeout, []);
 	{'EXIT', What} ->
 	    terminate(What, Name, Msg, Mod, StateName, StateData, []);
@@ -620,29 +620,29 @@ error_info(Reason, Name, Msg, StateName, StateData, Debug) ->
 	    _ ->
 		Reason
 	end,
-    Str = "** State machine ~p terminating \n" ++
+    Str = "** State machine ~tp terminating \n" ++
 	get_msg_str(Msg) ++
-	"** When State == ~p~n"
-        "**      Data  == ~p~n"
-        "** Reason for termination = ~n** ~p~n",
+	"** When State == ~tp~n"
+        "**      Data  == ~tp~n"
+        "** Reason for termination = ~n** ~tp~n",
     format(Str, [Name, get_msg(Msg), StateName, StateData, Reason1]),
     sys:print_log(Debug),
     ok.
 
 get_msg_str({'$gen_event', _Event}) ->
-    "** Last event in was ~p~n";
+    "** Last event in was ~tp~n";
 get_msg_str({'$gen_sync_event', _Event}) ->
-    "** Last sync event in was ~p~n";
+    "** Last sync event in was ~tp~n";
 get_msg_str({'$gen_all_state_event', _Event}) ->
-    "** Last event in was ~p (for all states)~n";
+    "** Last event in was ~tp (for all states)~n";
 get_msg_str({'$gen_sync_all_state_event', _Event}) ->
-    "** Last sync event in was ~p (for all states)~n";
+    "** Last sync event in was ~tp (for all states)~n";
 get_msg_str({timeout, _Ref, {'$gen_timer', _Msg}}) ->
-    "** Last timer event in was ~p~n";
+    "** Last timer event in was ~tp~n";
 get_msg_str({timeout, _Ref, {'$gen_event', _Msg}}) ->
-    "** Last timer event in was ~p~n";
+    "** Last timer event in was ~tp~n";
 get_msg_str(_Msg) ->
-    "** Last message in was ~p~n".
+    "** Last message in was ~tp~n".
 
 get_msg({'$gen_event', Event}) -> Event;
 get_msg({'$gen_sync_event', Event}) -> Event;
