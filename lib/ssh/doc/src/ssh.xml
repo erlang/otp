@@ -292,18 +292,39 @@
 	  <c><![CDATA[{modify_algorithms, modify_algs_list()}]]></c></tag>
 	  <item>
 	    <p>Modifies the list of algorithms to use in the algorithm negotiation. The modifications are
-	    applied after the option <c>preferred_algorithms</c> is applied (if existing)</p>
-	    <p>The possible modifications are to:</p>
+	    applied after the option <c>preferred_algorithms</c> (if existing) is applied.</p>
+	    <p>The algoritm for modifications works like this:</p>
 	    <list>
-	      <item><p>Append or prepend supported but not enabled algorithm(s) to the list of
-	      algorithms.</p><p>If the wanted algorithms already are in the list of algorithms, they will first
-	      be removed and then appended or prepended.
-	    </p>
+	      <item>
+		<p>Input is the <c>modify_algs_list()</c> and a set of algorithms <c>A</c>
+		obtained from the <c>preferred_algorithms</c> option if existing, or else from the
+		<seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>.
+		</p>
 	      </item>
-	      <item><p>Remove (rm) one or more algorithms from the list of algorithms.</p></item>
+	      <item>
+		<p>The head of the <c>modify_algs_list()</c> modifies <c>A</c> giving the result <c>A'</c>.</p>
+		<p>The possible modifications are:</p>
+		<list>
+		  <item>
+		    <p>Append or prepend supported but not enabled algorithm(s) to the list of
+		    algorithms. If the wanted algorithms already are in <c>A</c> they will first
+		    be removed and then appended or prepended,
+		    </p>
+		  </item>
+		  <item>
+		    <p>Remove (rm) one or more algorithms from <c>A</c>.
+		    </p>
+		  </item>
+		</list>
+	      </item>
+	      <item>
+		<p>Repeat the modification step with the tail of <c>modify_algs_list()</c> and the resulting
+		<c>A'</c>.
+		</p>
+	      </item>
 	    </list>
-	    <p>If an unsupported algorithm is in the list, it will be silently ignored</p>
-
+	    <p>If an unsupported algorithm is in the <c>modify_algs_list()</c>, it will be silently ignored</p>
+	    <p>If there are more than one modify_algorithms options, the result is undefined.</p>
 	    <p>Here is an example of this option:</p>
 	<code>
 {modify_algorithms, 

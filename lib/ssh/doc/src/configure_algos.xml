@@ -35,11 +35,11 @@
   <section>
     <marker id="introduction"/>
     <title>Introduction</title>
-    <p>To fully understand how to configure the algorithms, we must understand partly both how the ssh protocol 
-    works and how the OTP SSH app handles the corresponding items</p>
+    <p>To fully understand how to configure the algorithms, it is essential to have a basic understanding of the SSH protocol
+    and how OTP SSH app handles the corresponding items</p>
 
-    <p>The first subsection will give a short background about the ssh protocol while later sections describes
-    the implementation and provides many examples</p>
+    <p>The first subsection will give a short background of the SSH protocol while later sections describes
+    the implementation and provides some examples</p>
 
     <section>
       <title>Basics of the ssh protocol's algorithms handling</title>
@@ -77,7 +77,7 @@
 
 	<tag><c>cipher</c></tag>
 	<item>
-	  <p>Symetric cipher algorithm used for the message encryption. This algorithm will use the key calculated
+	  <p>Symetric cipher algorithm used for the payload encryption. This algorithm will use the key calculated
 	  in the kex phase (together with other info) to genereate the actual key used. Examples are 
 	  tripple-DES <c>'3des-cbc'</c> and one of many AES variants <c>'aes192-ctr'</c>.
 	  </p>
@@ -115,7 +115,7 @@
 	</item>
       </list>
       <p>Due to this, it impossible to list in documentation what algorithms that are available in a certain installation.</p>
-      <p>There is an important commands to list the actual algorithms and their ordering:
+      <p>There is an important command to list the actual algorithms and their ordering:
       <seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>.</p>
       <code type="erl">
 0> ssh:default_algorithms().
@@ -143,8 +143,8 @@
                {server2client,[none,'zlib@openssh.com',zlib]}]}]
 
       </code>
-      <p>To change this listing, there are two options which can be used in 
-      <seealso marker="ssh#connect-3">ssh:default_algorithms/2,3,4</seealso>
+      <p>To change the algorithm list, there are two options which can be used in 
+      <seealso marker="ssh#connect-3">ssh:connect/2,3,4</seealso>
       and
       <seealso marker="ssh#daemon-2">ssh:daemon/2,3</seealso>. The options could of course
       be used in all other functions that initiates connections.</p>
@@ -160,8 +160,9 @@
     
     <p>Here follows a series of examples ranging from simple to more complex.</p>
 
-    <p>The experimental function <c>ssh:chk_algos_opts(Opts)</c> mangles the options <c>preferred_algorithms</c>
-    and <c>modify_algorithms</c> as <c>ssh:dameon</c>, <c>ssh:connect</c> and others does.</p>
+    <p>To forsee the effect of an option there is an experimental function <c>ssh:chk_algos_opts(Opts)</c>.
+    It mangles the options <c>preferred_algorithms</c>
+    and <c>modify_algorithms</c> in the same way as <c>ssh:dameon</c>, <c>ssh:connect</c> and their friends does.</p>
 
     <section>
       <title>Example 1</title>
@@ -292,11 +293,12 @@
   
   <section>
     <title>Modifying the default set: modify_algorithms</title>
-    <p>The option <c>preferred_algorithms</c> is complicated to use for adding or removing single algorithms. One has
-    to first list them with <c>ssh:default_algorithms()</c> and then do substitutions in the lists. A situation
-    when it might be useful to add an algorithm is when one need to use a supported but disabled one. An example
-    is the kex <c>'diffie-hellman-group1-sha1'</c> which nowadays is very unsecure and therefore disabled. It is 
+    <p>A situation where it might be useful to add an algorithm is when one need to use a supported but disabled one.
+    An example is the <c>'diffie-hellman-group1-sha1'</c> which nowadays is very unsecure and therefore disabled. It is 
     however still supported and might be used.</p>
+    
+    <p>The option <c>preferred_algorithms</c> may be complicated to use for adding or removing single algorithms.
+    First one has to list them with <c>ssh:default_algorithms()</c> and then do changes in the lists.</p>
 
     <p>To facilitate addition or removal of algorithms the option <c>modify_algorithms</c> is available.
     See the <seealso marker="ssh#option_modify_algorithms">Reference Manual</seealso> for details.</p>
@@ -352,8 +354,8 @@
     
     <section>
       <title>Example 6</title>
-      <p>In next example, we also move the <c>'ecdh-sha2-nistp521'</c> to the end in the kex
-      list, that is, <c>append</c>.</p>
+      <p>In this example, we in put the 'diffie-hellman-group1-sha1' first and also move the
+      <c>'ecdh-sha2-nistp521'</c> to the end in the kex list, that is, <c>append</c> it.</p>
       <code type="erl">
 6> ssh:chk_algos_opts(
          [{modify_algorithms,
@@ -377,46 +379,15 @@
    .....
 ] 
       </code>
-      <p>Note that the appended algorithm is removed from its original place and then appended.</p>
+      <p>Note that the appended algorithm is removed from its original place and then appended to the same list.</p>
     </section>
     
     <section>
       <title>Example 7</title>
-      <p>In next example, we also move the <c>'ecdh-sha2-nistp521'</c> to the end in the kex
-      list, that is, <c>append</c>.</p>
-      <code type="erl">
-7> ssh:chk_algos_opts(
-         [{modify_algorithms,
-	       [{prepend,
-	           [{kex, ['diffie-hellman-group1-sha1']}
-		   ]},
-		{append,
-                   [{kex, ['ecdh-sha2-nistp521']}
-                   ]}
-	       ]
-          }
-        ]).
-[{kex,['diffie-hellman-group1-sha1','ecdh-sha2-nistp384',
-       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
-       'diffie-hellman-group16-sha512',
-       'diffie-hellman-group18-sha512',
-       'diffie-hellman-group14-sha256',
-       'diffie-hellman-group14-sha1',
-       'diffie-hellman-group-exchange-sha1','ecdh-sha2-nistp521']},
- {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
-   .....
-] 
-      </code>
-      <p>Note that the appended algorithm first is removed from its original place and then appended.</p>
-    </section>
-    
-    
-    <section>
-      <title>Example 8</title>
       <p>In this example, we use both options (<c>preferred_algorithms</c> and <c>modify_algorithms</c>) and
       also try to prepend an unsupported algorithm.   Any unsupported algorithm is quietly removed.</p>
       <code type="erl">
-8> ssh:chk_algos_opts(
+7> ssh:chk_algos_opts(
          [{preferred_algorithms,
                [{cipher,['aes128-ctr']},
 	        {mac,['hmac-sha2-256']},
@@ -446,8 +417,8 @@
                {server2client,[none]}]}]
 
       </code>
-      <p>It is of course questionable why anyone would like to use the both options together, but it is possible
-      if the needed.</p>
+      <p>It is of course questionable why anyone would like to use the both these options together,
+      but it is possible if an unforeseen need should arise.</p>
     </section>
     
     
