@@ -809,6 +809,7 @@ verify_host_key(#ssh{algorithms=Alg}=SSH, PublicKey, Digest, {AlgStr,Signature})
     end.
 
 
+%%% -> boolean() | {error,_}
 accepted_host(Ssh, PeerName, Public, Opts) ->
     case ?GET_OPT(silently_accept_hosts, Opts) of
 
@@ -830,11 +831,16 @@ accepted_host(Ssh, PeerName, Public, Opts) ->
 
         %% Call-back alternatives: A user provided fun is called for the decision:
         F when is_function(F,2) ->
-	    true == (catch F(PeerName, public_key:ssh_hostkey_fingerprint(Public)));
+            case catch F(PeerName, public_key:ssh_hostkey_fingerprint(Public)) of
+                true -> true;
+                _ -> {error, fingerprint_check_failed}
+            end;
 
 	{DigestAlg,F} when is_function(F,2) ->
-	    true == (catch F(PeerName, public_key:ssh_hostkey_fingerprint(DigestAlg,Public)))
-        
+            case catch F(PeerName, public_key:ssh_hostkey_fingerprint(DigestAlg,Public)) of
+                true -> true;
+                _ -> {error, {fingerprint_check_failed,DigestAlg}}
+            end
     end.
 
 
@@ -852,18 +858,27 @@ fmt_hostkey(X) -> X.
 known_host_key(#ssh{opts = Opts, key_cb = {KeyCb,KeyCbOpts}, peer = {PeerName,_}} = Ssh, 
 	       Public, Alg) ->
     UserOpts = ?GET_OPT(user_options, Opts),
-    case KeyCb:is_host_key(Public, PeerName, Alg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
-	true ->
+    case is_host_key(KeyCb, Public, PeerName, Alg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
+	{_,true} ->
 	    ok;
-	false ->
+	{_,false} ->
 	    case accepted_host(Ssh, PeerName, Public, Opts) of
 		true ->
-		    KeyCb:add_host_key(PeerName, Public, [{key_cb_private,KeyCbOpts}|UserOpts]);
+		    {_,R} = add_host_key(KeyCb, PeerName, Public, [{key_cb_private,KeyCbOpts}|UserOpts]),
+                    R;
 		false ->
-		    {error, rejected}
+		    {error, rejected_by_user};
+                {error,E} ->
+                    {error,E}
 	    end
     end.
 	    
+is_host_key(KeyCb, Public, PeerName, Alg, Data) ->
+    {KeyCb, KeyCb:is_host_key(Public, PeerName, Alg, Data)}.
+
+add_host_key(KeyCb, PeerName, Public, Data) ->
+    {KeyCb, KeyCb:add_host_key(PeerName, Public, Data)}.
+    
 
 %%   Each of the algorithm strings MUST be a comma-separated list of
 %%   algorithm names (see ''Algorithm Naming'' in [SSH-ARCH]).  Each
