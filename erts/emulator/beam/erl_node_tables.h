@@ -87,6 +87,7 @@ struct ErtsDistOutputBuf_ {
     ErtsDistOutputBuf *next;
     byte *extp;
     byte *ext_endp;
+    byte *msg_start;
     byte data[1];
 };
 

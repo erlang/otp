@@ -1879,33 +1879,32 @@ erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx)
 
 	    if (ctx->flags & DFLAG_DIST_HDR_ATOM_CACHE) {
 		ctx->acmp = erts_get_atom_cache_map(ctx->c_p);
-		ctx->pass_through_size = 0;
+		ctx->max_finalize_prepend = 0;
 	    }
 	    else {
 		ctx->acmp = NULL;
-		ctx->pass_through_size = 3; /* SVERK rename */
+		ctx->max_finalize_prepend = 3;
 	    }
 
     #ifdef ERTS_DIST_MSG_DBG
-	    erts_fprintf(stderr, ">>%s CTL: %T\n", ctx->pass_through_size ? "P" : " ", ctx->ctl);
-        if (is_value(ctx->msg))
-            erts_fprintf(stderr, "    MSG: %T\n", ctx->msg);
+            erts_fprintf(stderr, ">> CTL: %T\n", ctx->ctl);
+            if (is_value(ctx->msg))
+                erts_fprintf(stderr, "    MSG: %T\n", ctx->msg);
     #endif
 
-	    ctx->data_size = ctx->pass_through_size;
+	    ctx->data_size = ctx->max_finalize_prepend;
 	    erts_reset_atom_cache_map(ctx->acmp);
 	    erts_encode_dist_ext_size(ctx->ctl, ctx->flags, ctx->acmp, &ctx->data_size);
 
-	    if (is_value(ctx->msg)) {
-		ctx->u.sc.wstack.wstart = NULL;
-		ctx->u.sc.flags = ctx->flags;
-		ctx->u.sc.level = 0;
-		ctx->phase = ERTS_DSIG_SEND_PHASE_MSG_SIZE;
-	    } else {
-		ctx->phase = ERTS_DSIG_SEND_PHASE_ALLOC;
-	    }
-	    break;
+	    if (is_non_value(ctx->msg)) {
+                ctx->phase = ERTS_DSIG_SEND_PHASE_ALLOC;
+                break;
+            }
+            ctx->u.sc.wstack.wstart = NULL;
+            ctx->u.sc.flags = ctx->flags;
+            ctx->u.sc.level = 0;
 
+            ctx->phase = ERTS_DSIG_SEND_PHASE_MSG_SIZE;
 	case ERTS_DSIG_SEND_PHASE_MSG_SIZE:
 	    if (erts_encode_dist_ext_size_int(ctx->msg, ctx, &ctx->data_size)) {
 		retval = ERTS_DSIG_SEND_CONTINUE;
@@ -1920,23 +1919,24 @@ erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx)
 	    ctx->data_size += ctx->dhdr_ext_size;
 
 	    ctx->obuf = alloc_dist_obuf(ctx->data_size);
-	    ctx->obuf->ext_endp = &ctx->obuf->data[0] + ctx->pass_through_size + ctx->dhdr_ext_size;
+	    ctx->obuf->ext_endp = &ctx->obuf->data[0] + ctx->max_finalize_prepend + ctx->dhdr_ext_size;
 
 	    /* Encode internal version of dist header */
 	    ctx->obuf->extp = erts_encode_ext_dist_header_setup(ctx->obuf->ext_endp, ctx->acmp);
 	    /* Encode control message */
 	    erts_encode_dist_ext(ctx->ctl, &ctx->obuf->ext_endp, ctx->flags, ctx->acmp, NULL, NULL);
-	    if (is_value(ctx->msg)) {
-		ctx->u.ec.flags = ctx->flags;
-		ctx->u.ec.level = 0;
-		ctx->u.ec.wstack.wstart = NULL;
-		ctx->phase = ERTS_DSIG_SEND_PHASE_MSG_ENCODE;
-	    } else {
-		ctx->phase = ERTS_DSIG_SEND_PHASE_FIN;
-	    }
-	    break;
+	    if (is_non_value(ctx->msg)) {
+                ctx->obuf->msg_start = NULL;
+                ctx->phase = ERTS_DSIG_SEND_PHASE_FIN;
+                break;
+            }
+            ctx->u.ec.flags = ctx->flags;
+            ctx->u.ec.level = 0;
+            ctx->u.ec.wstack.wstart = NULL;
+            ctx->obuf->msg_start = ctx->obuf->ext_endp;
 
-	case ERTS_DSIG_SEND_PHASE_MSG_ENCODE:
+            ctx->phase = ERTS_DSIG_SEND_PHASE_MSG_ENCODE;
+        case ERTS_DSIG_SEND_PHASE_MSG_ENCODE:
 	    if (erts_encode_dist_ext(ctx->msg, &ctx->obuf->ext_endp, ctx->flags, ctx->acmp, &ctx->u.ec, &ctx->reds)) {
 		retval = ERTS_DSIG_SEND_CONTINUE;
 		goto done;
@@ -1949,7 +1949,7 @@ erts_dsig_send(ErtsDSigData *dsdp, struct erts_dsig_send_context* ctx)
 	    int resume = 0;
 
 	    ASSERT(ctx->obuf->extp < ctx->obuf->ext_endp);
-	    ASSERT(&ctx->obuf->data[0] <= ctx->obuf->extp - ctx->pass_through_size);
+	    ASSERT(&ctx->obuf->data[0] <= ctx->obuf->extp - ctx->max_finalize_prepend);
 	    ASSERT(ctx->obuf->ext_endp <= &ctx->obuf->data[0] + ctx->data_size);
 
 	    ctx->data_size = ctx->obuf->ext_endp - ctx->obuf->extp;
@@ -2308,9 +2308,7 @@ erts_dist_command(Port *prt, int reds_limit)
 	    ob = oq.first;
 	    ASSERT(ob);
 	    do {
-		ob->extp = erts_encode_ext_dist_header_finalize(ob->extp,
-								dep->cache,
-								flags);
+		erts_encode_ext_dist_header_finalize(ob, dep->cache, flags);
 		ASSERT(&ob->data[0] <= ob->extp && ob->extp < ob->ext_endp);
 		reds += ERTS_PORT_REDS_DIST_CMD_FINALIZE;
 		preempt = reds > reds_limit;
@@ -2350,10 +2348,7 @@ erts_dist_command(Port *prt, int reds_limit)
 	while (oq.first && !preempt) {
 	    ErtsDistOutputBuf *fob;
 	    Uint size;
-	    oq.first->extp
-		= erts_encode_ext_dist_header_finalize(oq.first->extp,
-						       dep->cache,
-						       flags);
+            erts_encode_ext_dist_header_finalize(oq.first, dep->cache, flags);
 	    reds += ERTS_PORT_REDS_DIST_CMD_FINALIZE;
 	    ASSERT(&oq.first->data[0] <= oq.first->extp
 		   && oq.first->extp < oq.first->ext_endp);

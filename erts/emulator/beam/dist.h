@@ -405,7 +405,7 @@ struct erts_dsig_send_context {
     Eterm ctl;
     Eterm msg;
     int force_busy;
-    Uint32 pass_through_size;
+    Uint32 max_finalize_prepend;
     Uint data_size, dhdr_ext_size;
     ErtsAtomCacheMap *acmp;
     ErtsDistOutputBuf *obuf;

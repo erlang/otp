@@ -154,7 +154,7 @@ void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint32);
 
 Uint erts_encode_ext_dist_header_size(ErtsAtomCacheMap *);
 byte *erts_encode_ext_dist_header_setup(byte *, ErtsAtomCacheMap *);
-byte *erts_encode_ext_dist_header_finalize(byte *, ErtsAtomCache *, Uint32);
+void erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf*, ErtsAtomCache *, Uint32);
 struct erts_dsig_send_context;
 int erts_encode_dist_ext_size(Eterm, Uint32, ErtsAtomCacheMap*, Uint* szp);
 int erts_encode_dist_ext_size_int(Eterm term, struct erts_dsig_send_context* ctx, Uint* szp);

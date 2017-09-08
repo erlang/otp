@@ -351,41 +351,63 @@ byte *erts_encode_ext_dist_header_setup(byte *ctl_ext, ErtsAtomCacheMap *acmp)
 
 #define PASS_THROUGH 'p'        /* This code should go */
 
-byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint32 dflags)
+void erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
+                                          ErtsAtomCache *cache,
+                                          Uint32 dflags)
 {
     byte *ip;
     byte instr_buf[(2+4)*ERTS_ATOM_CACHE_SIZE];
     int ci, sz;
     byte dist_hdr_flags;
     int long_atoms;
-    register byte *ep = ext;
+    register byte *ep = ob->extp;
     ASSERT(dflags & DFLAG_UTF8_ATOMS);
 
+    /*
+     * The buffer can have three different layouts at this point depending on
+     * what was known when encoded:
+     *
+     * Pending connection: CtrlTerm [, MsgTerm]
+     * With atom cache   : VERSION_MAGIC, DIST_HEADER, ..., CtrlTerm [, MsgTerm]
+     * No atom cache     : VERSION_MAGIC, CtrlTerm [, VERSION_MAGIC, MsgTerm]
+     */
+
     if (ep[0] != VERSION_MAGIC) {
+        /*
+         * Was encoded without atom cache toward pending connection.
+         */
         ASSERT(ep[0] == SMALL_TUPLE_EXT || ep[0] == LARGE_TUPLE_EXT);
         if (dflags & DFLAG_DIST_HDR_ATOM_CACHE) {
             /*
-             * Encoded without atom cache (toward pending connection)
-             * but receiver wants dist header. Let's prepend an empty one.
+             * Receiver wants dist header. Let's prepend an empty one.
              */
             *--ep = 0; /* NumberOfAtomCacheRefs */
             *--ep = DIST_HEADER;
             *--ep = VERSION_MAGIC;
         }
         else {
-            /* Node without atom cache, 'pass through' needed */
-
-            ASSERT(!"SVERK: Must insert VERSION_MAGIC's");
+            /*
+             * Primitive receiver without atom cache (erl_interface/jinterface).
+             * Must prepend VERSION_MAGIC to both ctrl and message
+             * And add PASSTHROUGH.
+             */
+            if (ob->msg_start) {
+                ASSERT(ep < ob->msg_start && ob->msg_start < ob->ext_endp);
+                sys_memmove(ep-1, ep, (ob->msg_start - ep));
+                ob->msg_start[-1] = VERSION_MAGIC;
+                --ep;
+            }
+            *--ep = VERSION_MAGIC;
             *--ep = PASS_THROUGH;
         }
-        return ep;
+        goto done;
     }
     else if (ep[1] != DIST_HEADER) {
         ASSERT(ep[1] == SMALL_TUPLE_EXT || ep[1] == LARGE_TUPLE_EXT);
         ASSERT(!(dflags & DFLAG_DIST_HDR_ATOM_CACHE));
         /* Node without atom cache, 'pass through' needed */
         *--ep = PASS_THROUGH;
-        return ep;
+        goto done;
     }
 
     dist_hdr_flags = ep[2];
@@ -510,7 +532,9 @@ byte *erts_encode_ext_dist_header_finalize(byte *ext, ErtsAtomCache *cache, Uint
     put_int8(ci, ep);
     *--ep = DIST_HEADER;
     *--ep = VERSION_MAGIC;
-    return ep;
+done:
+    ASSERT(ep >= ob->data);
+    ob->extp = ep;
 }
 
 int erts_encode_dist_ext_size(Eterm term, Uint32 flags, ErtsAtomCacheMap *acmp,
