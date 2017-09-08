@@ -2192,11 +2192,10 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
 	if (is_not_atom(tp[1]) || is_not_atom(tp[2]))
 	    return SEND_BADARG;
 	
-	/* sysname_to_connected_dist_entry will return NULL if there
-	   is no dist_entry or the dist_entry has no port,
+	/* erts_find_dist_entry will return NULL if there is no dist_entry
 	   but remote_send() will handle that. */
 
-	dep = erts_sysname_to_connected_dist_entry(tp[2]);
+	dep = erts_find_dist_entry(tp[2]);
 
 	if (dep == erts_this_dist_entry) {
 	    Eterm id;
