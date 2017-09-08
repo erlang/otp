@@ -24,6 +24,7 @@
 
 -export([messages/0, messages/1, messages/2, messages/3,
 	 auth/0,     auth/1,     auth/2,     auth/3,
+	 hostkey/0,  hostkey/1,  hostkey/2,  hostkey/3,
 	 stop/0
 	]).
 
@@ -45,6 +46,11 @@ auth() -> start(auth).
 auth(F) -> start(auth,F).
 auth(F,X) -> start(auth,F,X).
 auth(F,M,I) -> start(auth,F,M,I).
+
+hostkey() -> start(hostkey).
+hostkey(F) -> start(hostkey,F).
+hostkey(F,X) -> start(hostkey,F,X).
+hostkey(F,M,I) -> start(hostkey,F,M,I).
 
 stop() -> dbg:stop().
 
@@ -71,23 +77,36 @@ fmt_fun(F) -> fun(Fmt,Args,Data) -> F(Fmt,Args), Data end.
 id_fun() ->  fun(X) -> X end.
 
 %%%----------------------------------------------------------------
-dbg_ssh(msg) ->
-    dbg_ssh(auth),
-    dbg:tp(ssh_message,encode,1, x),
-    dbg:tp(ssh_message,decode,1, x),
-    dbg:tpl(ssh_transport,select_algorithm,4, x),
-    dbg:tp(ssh_transport,hello_version_msg,1, x),
-    dbg:tp(ssh_transport,handle_hello_version,1, x),
-    dbg:tpl(ssh_connection_handler,ext_info,2, x);
-   
 dbg_ssh(auth) ->
-    dbg:tp(ssh_transport,hello_version_msg,1, x),
-    dbg:tp(ssh_transport,handle_hello_version,1, x),
-    dbg:tp(ssh_message,encode,1, x),
-    dbg:tpl(ssh_transport,select_algorithm,4, x),
-    dbg:tpl(ssh_connection_handler,ext_info,2, x),
-    lists:foreach(fun(F) -> dbg:tp(ssh_auth, F, x) end,
-                  [publickey_msg, password_msg, keyboard_interactive_msg]).
+    [dbg:tp(ssh_transport,hello_version_msg,1, x),
+     dbg:tp(ssh_transport,handle_hello_version,1, x),
+     dbg:tp(ssh_message,encode,1, x),
+     dbg:tpl(ssh_transport,select_algorithm,4, x),
+     dbg:tpl(ssh_connection_handler,ext_info,2, x),
+     lists:map(fun(F) -> dbg:tp(ssh_auth, F, x) end,
+               [publickey_msg, password_msg, keyboard_interactive_msg])
+    ];
+
+dbg_ssh(hostkey) ->
+    [dbg:tpl(ssh_transport, verify_host_key, 4, x),
+     dbg:tp(ssh_transport, verify, 4, x),
+     dbg:tpl(ssh_transport, known_host_key, 3, x),
+%%     dbg:tpl(ssh_transport, accepted_host, 4, x),
+     dbg:tpl(ssh_transport, add_host_key, 4, x),
+     dbg:tpl(ssh_transport, is_host_key, 5, x)
+    ];
+
+dbg_ssh(msg) ->
+    [dbg_ssh(hostkey),
+     dbg_ssh(auth),
+     dbg:tp(ssh_message,encode,1, x),
+     dbg:tp(ssh_message,decode,1, x),
+     dbg:tpl(ssh_transport,select_algorithm,4, x),
+     dbg:tp(ssh_transport,hello_version_msg,1, x),
+     dbg:tp(ssh_transport,handle_hello_version,1, x),
+     dbg:tpl(ssh_connection_handler,ext_info,2, x)
+    ].
+   
    
 %%%================================================================
 cond_start(Type, WriteFun, MangleArgFun, Init) ->
@@ -110,10 +129,10 @@ msg_formater(msg, {trace_ts,_Pid,call,{ssh_message,decode,_},_TS}, D) ->
 msg_formater(msg, {trace_ts,Pid,return_from,{ssh_message,decode,1},Msg,TS}, D) -> 
     fmt("~n~s ~p RECV ~s~n", [ts(TS),Pid,wr_record(shrink_bin(Msg))], D);
 
-msg_formater(auth, {trace_ts,Pid,return_from,{ssh_message,decode,1},#ssh_msg_userauth_failure{authentications=As},TS}, D) -> 
+msg_formater(_auth, {trace_ts,Pid,return_from,{ssh_message,decode,1},#ssh_msg_userauth_failure{authentications=As},TS}, D) -> 
     fmt("~n~s ~p Client login FAILURE. Try ~s~n", [ts(TS),Pid,As], D);
 	
-msg_formater(auth, {trace_ts,Pid,return_from,{ssh_message,decode,1},#ssh_msg_userauth_success{},TS}, D) -> 
+msg_formater(_auth, {trace_ts,Pid,return_from,{ssh_message,decode,1},#ssh_msg_userauth_success{},TS}, D) -> 
     fmt("~n~s ~p Client login SUCCESS~n", [ts(TS),Pid], D);
 
 	
@@ -155,10 +174,50 @@ msg_formater(_, {trace_ts,Pid,return_from,{ssh_connection_handler,ext_info,2},St
             D
     end;
 
+msg_formater(_, {trace_ts,Pid,call, {ssh_transport,verify_host_key,[_Ssh,_PK,_Dgst,{AlgStr,_Sign}]},TS}, D) ->
+    fmt("~n~s ~p Client got a ~s hostkey. Will try to verify it~n", [ts(TS),Pid,AlgStr], D);
+msg_formater(_, {trace_ts,Pid,return_from, {ssh_transport,verify_host_key,4}, Result, TS}, D) ->
+    case Result of
+        ok -> fmt("~n~s ~p Hostkey verified.~n", [ts(TS),Pid], D);
+        {error,E} ->
+              fmt("~n~s ~p ***** Hostkey NOT verified: ~p ******!~n", [ts(TS),Pid,E], D);
+        _  -> fmt("~n~s ~p ***** Hostkey is NOT verified: ~p ******!~n", [ts(TS),Pid,Result], D)
+    end;
+        
+msg_formater(_, {trace_ts,Pid,return_from, {ssh_transport,verify,4}, Result, TS}, D) ->
+    case Result of
+        true -> D;
+        _ -> fmt("~n~s ~p Couldn't verify the signature!~n", [ts(TS),Pid], D)
+    end;
+
+msg_formater(_, {trace_ts,_Pid,call, {ssh_transport,is_host_key,_}, _TS}, D) -> D;
+msg_formater(_, {trace_ts,Pid,return_from, {ssh_transport,is_host_key,5}, {CbMod,Result}, TS}, D) ->
+    case Result of
+        true -> fmt("~n~s ~p Hostkey found by ~p.~n", [ts(TS),Pid,CbMod], D);
+        _    -> fmt("~n~s ~p Hostkey NOT found by ~p.~n", [ts(TS),Pid,CbMod], D)
+    end;
+
+msg_formater(_, {trace_ts,_Pid,call, {ssh_transport,add_host_key,_}, _TS}, D) -> D;
+msg_formater(_, {trace_ts,Pid,return_from, {ssh_transport,add_host_key,4}, {CbMod,Result}, TS}, D) ->
+    case Result of
+        ok -> fmt("~n~s ~p New hostkey added by ~p.~n", [ts(TS),Pid,CbMod], D);
+        _  -> D
+    end;
+
+msg_formater(_, {trace_ts,_Pid,call,{ssh_transport,known_host_key,_},_TS}, D) -> D;
+msg_formater(_, {trace_ts,Pid,return_from, {ssh_transport,known_host_key,3}, Result, TS}, D) ->
+    case Result of
+        ok -> D;
+        {error,E} -> fmt("~n~s ~p Hostkey addition failed: ~p~n", [ts(TS),Pid,E], D);
+        _ -> fmt("~n~s ~p Hostkey addition: ~p~n", [ts(TS),Pid,Result], D)
+    end;
+
 msg_formater(_, {trace_ts,Pid,call,{ssh_auth,publickey_msg,[[SigAlg,#ssh{user=User}]]},TS}, D) ->
      fmt("~n~s ~p Client will try to login user ~p with public key algorithm ~p~n", [ts(TS),Pid,User,SigAlg], D);
 msg_formater(_, {trace_ts,Pid,return_from,{ssh_auth,publickey_msg,1},{not_ok,#ssh{user=User}},TS}, D) ->
      fmt("~s ~p User ~p can't login with that kind of public key~n", [ts(TS),Pid,User], D);
+msg_formater(_, {trace_ts,Pid,return_from,{ssh_auth,publickey_msg,1},{_,#ssh{user=User}},TS}, D) ->
+     fmt("~s ~p User ~p logged in~n", [ts(TS),Pid,User], D);
 
 msg_formater(_, {trace_ts,Pid,call,{ssh_auth,password_msg,[[#ssh{user=User}]]},TS}, D) ->
      fmt("~n~s ~p Client will try to login user ~p with password~n", [ts(TS),Pid,User], D);
@@ -187,21 +246,9 @@ msg_formater(msg, {trace_ts,Pid,'receive',ErlangMsg,TS}, D) ->
     fmt("~n~s ~p ERL MSG RECEIVE~n ~p~n", [ts(TS),Pid,shrink_bin(ErlangMsg)], D);
 
 
-%% msg_formater(_, {trace_ts,_Pid,return_from,MFA,_Ret,_TS}=M, D) ->
-%%     case lists:member(MFA, [{ssh_auth,keyboard_interactive_msg,1},
-%%                             {ssh_auth,password_msg,1},
-%%                             {ssh_auth,publickey_msg,1}]) of
-%%         true ->
-%%             D;
-%%         false ->
-%%             fmt("~nDBG ~n~p~n", [shrink_bin(M)], D)
-%%     end;
-
-%% msg_formater(_, M, D) ->
-%%     fmt("~nDBG ~n~p~n", [shrink_bin(M)], D).
-
-msg_formater(_, _, D) -> 
-     D.
+msg_formater(_, _M, D) ->
+    fmt("~nDBG other ~n~p~n", [shrink_bin(_M)], D),
+    D.
 
 %%%----------------------------------------------------------------
 -record(data, {writer,
