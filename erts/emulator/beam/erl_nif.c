@@ -304,7 +304,6 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
     return (ERL_NIF_TERM) THE_NON_VALUE;
 }
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 
 static ERL_NIF_TERM dirty_nif_finalizer(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dirty_nif_exception(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -394,24 +393,19 @@ erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
     return exiting;
 }
 
-#endif
 
 static void full_flush_env(ErlNifEnv* env)
 {
     flush_env(env);
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC)
 	/* Dirty nif call using shadow process struct */
 	erts_flush_dirty_shadow_proc(env->proc);
-#endif
 }
 
 static void full_cache_env(ErlNifEnv* env)
 {    
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (env->proc->static_flags & ERTS_STC_FLG_SHADOW_PROC)
 	erts_cache_dirty_shadow_proc(env->proc);
-#endif
     cache_env(env);
 }
 
@@ -2591,7 +2585,6 @@ nif_export_restore(Process *c_p, NifExport *ep, Eterm res)
 }
 
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 
 /*
  * Finalize a dirty NIF call. This function is scheduled to cause the VM to
@@ -2719,7 +2712,6 @@ static_schedule_dirty_cpu_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     return static_schedule_dirty_nif(env, ERTS_PSFLG_DIRTY_CPU_PROC, argc, argv);
 }
 
-#endif /* ERTS_DIRTY_SCHEDULERS */
 
 /*
  * NIF execution wrapper used by enif_schedule_nif() for regular NIFs. It
@@ -2800,11 +2792,7 @@ enif_schedule_nif(ErlNifEnv* env, const char* fun_name, int flags,
 	result = schedule(env, execute_nif, fp, proc->current->module,
 			  fun_name_atom, argc, argv);
     else if (!(flags & ~(ERL_NIF_DIRTY_JOB_IO_BOUND|ERL_NIF_DIRTY_JOB_CPU_BOUND))) {
-#ifdef ERTS_DIRTY_SCHEDULERS
 	result = schedule_dirty_nif(env, flags, fp, fun_name_atom, argc, argv);
-#else
-        result = enif_raise_exception(env, am_notsup);
-#endif
     }
     else
 	result = enif_make_badarg(env);
@@ -2826,12 +2814,10 @@ enif_thread_type(void)
     switch (esdp->type) {
     case ERTS_SCHED_NORMAL:
 	return ERL_NIF_THR_NORMAL_SCHEDULER;
-#ifdef ERTS_DIRTY_SCHEDULERS
     case ERTS_SCHED_DIRTY_CPU:
 	return ERL_NIF_THR_DIRTY_CPU_SCHEDULER;
     case ERTS_SCHED_DIRTY_IO:
         return ERL_NIF_THR_DIRTY_IO_SCHEDULER;
-#endif
     default:
         ERTS_INTERNAL_ERROR("Invalid scheduler type");
 	return -1;
@@ -3929,14 +3915,9 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 		 * dirty scheduler support, treat a non-zero flags field as
 		 * a load error.
 		 */
-#ifdef ERTS_DIRTY_SCHEDULERS
 		if (f->flags != ERL_NIF_DIRTY_JOB_IO_BOUND && f->flags != ERL_NIF_DIRTY_JOB_CPU_BOUND)
 		    ret = load_nif_error(BIF_P, bad_lib, "Illegal flags field value %d for NIF %T:%s/%u",
 					 f->flags, mod_atom, f->name, f->arity);
-#else
-		ret = load_nif_error(BIF_P, bad_lib, "NIF %T:%s/%u requires a runtime with dirty scheduler support.",
-				     mod_atom, f->name, f->arity);
-#endif
 	    }
 	    else if (erts_codeinfo_to_code(ci_pp[1]) - erts_codeinfo_to_code(ci_pp[0])
                      < BEAM_NIF_MIN_FUNC_SZ)
@@ -4009,7 +3990,6 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 		       (BeamInstr) BeamOp(op_i_generic_breakpoint));
 		g->orig_instr = (BeamInstr) BeamOp(op_call_nif);
 	    }
-#ifdef ERTS_DIRTY_SCHEDULERS
 	    if (f->flags) {
 		code_ptr[3] = (BeamInstr) f->fptr;
 		code_ptr[1] = (f->flags == ERL_NIF_DIRTY_JOB_IO_BOUND) ?
@@ -4017,7 +3997,6 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 		    (BeamInstr) static_schedule_dirty_cpu_nif;
 	    }
 	    else
-#endif
 		code_ptr[1] = (BeamInstr) f->fptr;
 	    code_ptr[2] = (BeamInstr) lib;
 	}

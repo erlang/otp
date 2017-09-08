@@ -804,10 +804,8 @@ static void print_bif_name(fmtfn_t to, void* to_arg, BifFunction bif)
  * test suite.
  */
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 static int ms_wait(Process *c_p, Eterm etimeout, int busy);
 static int dirty_send_message(Process *c_p, Eterm to, Eterm tag);
-#endif
 static BIF_RETTYPE dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I);
 
 /*
@@ -836,7 +834,6 @@ erts_debug_dirty_io_2(BIF_ALIST_2)
 BIF_RETTYPE
 erts_debug_dirty_3(BIF_ALIST_3)
 {
-#ifdef ERTS_DIRTY_SCHEDULERS
     Eterm argv[2];
     switch (BIF_ARG_1) {
     case am_normal:
@@ -866,9 +863,6 @@ erts_debug_dirty_3(BIF_ALIST_3)
     default:
 	BIF_ERROR(BIF_P, EXC_BADARG);
     }
-#else
-	BIF_ERROR(BIF_P, EXC_UNDEF);
-#endif
 }
 
 
@@ -876,7 +870,6 @@ static BIF_RETTYPE
 dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I)
 {
     BIF_RETTYPE ret;
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (am_scheduler == arg1) {
 	ErtsSchedulerData *esdp;
 	if (arg2 != am_type) 
@@ -1062,13 +1055,9 @@ dirty_test(Process *c_p, Eterm type, Eterm arg1, Eterm arg2, UWord *I)
     badarg:
 	ERTS_BIF_PREP_ERROR(ret, c_p, BADARG);
     }
-#else
-    ERTS_BIF_PREP_ERROR(ret, c_p, EXC_UNDEF);
-#endif
     return ret;
 }
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 
 static int
 dirty_send_message(Process *c_p, Eterm to, Eterm tag)
@@ -1155,7 +1144,6 @@ ms_wait(Process *c_p, Eterm etimeout, int busy)
     return 1;
 }
 
-#endif /* ERTS_DIRTY_SCHEDULERS */
 
 #  define ERTS_STACK_LIMIT ((char *) ethr_get_stacklimit())
 

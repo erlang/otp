@@ -119,11 +119,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"schdlr_sspnd",				NULL			},
     {	"migration_info_update",		NULL			},
     {	"run_queue",				"address"		},
-#ifdef ERTS_DIRTY_SCHEDULERS
     {   "dirty_run_queue_sleep_list",		"address"		},
     {	"dirty_gc_info",			NULL			},
     {	"dirty_break_point_index",		NULL			},
-#endif
     {	"process_table",			NULL			},
     {	"cpu_info",				NULL			},
     {	"pollset",				"address"		},

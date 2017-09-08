@@ -128,10 +128,8 @@ extern Eterm erts_nif_call_function(Process *p, Process *tracee,
                                     struct enif_func_t *,
                                     int argc, Eterm *argv);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 int erts_call_dirty_nif(ErtsSchedulerData *esdp, Process *c_p,
 			BeamInstr *I, Eterm *reg);
-#endif /* ERTS_DIRTY_SCHEDULERS */
 
 
 /* Driver handle (wrapper for old plain handle) */
@@ -911,9 +909,7 @@ extern erts_atomic_t erts_copy_literal_area__;
 #define ERTS_COPY_LITERAL_AREA()					\
     ((ErtsLiteralArea *) erts_atomic_read_nob(&erts_copy_literal_area__))
 extern Process *erts_literal_area_collector;
-#ifdef ERTS_DIRTY_SCHEDULERS
 extern Process *erts_dirty_process_code_checker;
-#endif
 
 extern Process *erts_code_purger;
 

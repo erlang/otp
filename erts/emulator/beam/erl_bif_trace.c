@@ -1043,16 +1043,12 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
 	erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
 	erts_thr_progress_block();
     }
-#ifdef ERTS_DIRTY_SCHEDULERS
     erts_mtx_lock(&erts_dirty_bp_ix_mtx);
-#endif
 
 
     r = function_is_traced(p, mfa, &ms, &ms_meta, &meta, &count, &call_time);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     erts_mtx_unlock(&erts_dirty_bp_ix_mtx);
-#endif
     if ( (key == am_call_time) || (key == am_all)) {
 	erts_thr_progress_unblock();
 	erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);

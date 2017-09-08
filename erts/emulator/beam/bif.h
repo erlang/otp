@@ -498,10 +498,8 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 					 Eterm args[],
 					 int nargs);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 int erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p,
 			BeamInstr *I, Eterm *reg);
-#endif
 
 BIF_RETTYPE
 erts_schedule_bif(Process *proc,

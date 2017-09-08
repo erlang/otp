@@ -4701,7 +4701,6 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 		      ref,
 		      old ? am_true : am_false);
 	}
-#if defined(ERTS_DIRTY_SCHEDULERS)
     } else if (BIF_ARG_1 == am_dirty_cpu_schedulers_online) {
 	Sint old_no;
 	if (!is_small(BIF_ARG_2))
@@ -4727,7 +4726,6 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
 	    break;
 	}
-#endif
     } else if (BIF_ARG_1 == am_time_offset
 	       && ERTS_IS_ATOM_STR("finalize", BIF_ARG_2)) {
 	ErtsTimeOffsetState res;
@@ -5104,7 +5102,6 @@ schedule(Process *c_p, Process *dirty_shadow_proc,
 				    argc, argv);
 }
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 
 static BIF_RETTYPE dirty_bif_result(BIF_ALIST_1)
 {
@@ -5147,7 +5144,6 @@ static BIF_RETTYPE dirty_bif_exception(BIF_ALIST_2)
     BIF_ERROR(BIF_P, freason);
 }
 
-#endif /* ERTS_DIRTY_SCHEDULERS */
 
 extern BeamInstr* em_call_bif_e;
 static BIF_RETTYPE call_bif(Process *c_p, Eterm *reg, BeamInstr *I);
@@ -5165,7 +5161,6 @@ erts_schedule_bif(Process *proc,
     Process *c_p, *dirty_shadow_proc;
     ErtsCodeMFA *mfa;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (proc->static_flags & ERTS_STC_FLG_SHADOW_PROC) {
 	dirty_shadow_proc = proc;
 	c_p = proc->next;
@@ -5173,7 +5168,6 @@ erts_schedule_bif(Process *proc,
 	erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
     }
     else
-#endif
     {
 	dirty_shadow_proc = NULL;
 	c_p = proc;
@@ -5189,7 +5183,6 @@ erts_schedule_bif(Process *proc,
 	 * ibif - indirect bif
 	 */
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 	erts_aint32_t set, mask;
 	mask = (ERTS_PSFLG_DIRTY_CPU_PROC
 		| ERTS_PSFLG_DIRTY_IO_PROC);
@@ -5213,10 +5206,6 @@ erts_schedule_bif(Process *proc,
 	}
 
 	(void) erts_atomic32_read_bset_nob(&c_p->state, mask, set);
-#else
-	dbif = call_bif;
-	ibif = bif;
-#endif
 
 	if (i == NULL) {
 	    ERTS_INTERNAL_ERROR("Missing instruction pointer");
@@ -5292,7 +5281,6 @@ call_bif(Process *c_p, Eterm *reg, BeamInstr *I)
     return ret;
 }
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 
 int
 erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *reg)
@@ -5386,7 +5374,6 @@ erts_call_dirty_bif(ErtsSchedulerData *esdp, Process *c_p, BeamInstr *I, Eterm *
     return exiting;
 }
 
-#endif /* ERTS_DIRTY_SCHEDULERS */
 
 
 #ifdef HARDDEBUG

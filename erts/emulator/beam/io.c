@@ -7484,11 +7484,7 @@ driver_system_info(ErlDrvSysInfo *sip, size_t si_size)
      */
     if (si_size >= ERL_DRV_SYS_INFO_SIZE(dirty_scheduler_support)) {
 	sip->dirty_scheduler_support =
-#ifdef ERTS_DIRTY_SCHEDULERS
 	    1
-#else
-	    0
-#endif
 	    ;
     }
 

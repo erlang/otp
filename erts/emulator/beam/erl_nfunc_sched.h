@@ -193,7 +193,6 @@ erts_nif_export_check_save_trace(Process *c_p, Eterm result,
 ERTS_GLB_INLINE Process *
 erts_proc_shadow2real(Process *c_p)
 {
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (c_p->static_flags & ERTS_STC_FLG_SHADOW_PROC) {
 	Process *real_c_p = c_p->next;
 	ASSERT(ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
@@ -201,7 +200,6 @@ erts_proc_shadow2real(Process *c_p)
 	return real_c_p;
     }
     ASSERT(!ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
-#endif
     return c_p;
 }
 
@@ -217,7 +215,6 @@ erts_proc_shadow2real(Process *c_p)
 	    || BeamOp(op_call_nif) == (BeamInstr *) (*(I))),		\
      ((NifExport *) (((char *) (I)) - offsetof(NifExport, exp.beam[0]))))
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 
 #include "erl_message.h"
 #include <stddef.h>
@@ -326,7 +323,6 @@ erts_make_dirty_shadow_proc(ErtsSchedulerData *esdp, Process *c_p)
 
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
-#endif /* ERTS_DIRTY_SCHEDULERS */
 
 #endif /* defined(ERTS_WANT_NFUNC_SCHED_INTERNALS__) && !defined(ERTS_NFUNC_SCHED_INTERNALS__) */
 

@@ -75,9 +75,7 @@ extern BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 
 erts_atomic32_t erts_active_bp_index;
 erts_atomic32_t erts_staging_bp_index;
-#ifdef ERTS_DIRTY_SCHEDULERS
 erts_mtx_t erts_dirty_bp_ix_mtx;
-#endif
 
 /*
  * Inlined helpers
@@ -94,22 +92,18 @@ acquire_bp_sched_ix(Process *c_p)
 {
     ErtsSchedulerData *esdp = erts_proc_sched_data(c_p);
     ASSERT(esdp);
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (ERTS_SCHEDULER_IS_DIRTY(esdp)) {
 	erts_mtx_lock(&erts_dirty_bp_ix_mtx);
         return (Uint32) erts_no_schedulers;
     }
-#endif
     return (Uint32) esdp->no - 1;
 }
 
 static ERTS_INLINE void
 release_bp_sched_ix(Uint32 ix)
 {
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (ix == (Uint32) erts_no_schedulers)
         erts_mtx_unlock(&erts_dirty_bp_ix_mtx);
-#endif
 }
 
 
@@ -164,10 +158,8 @@ void
 erts_bp_init(void) {
     erts_atomic32_init_nob(&erts_active_bp_index, 0);
     erts_atomic32_init_nob(&erts_staging_bp_index, 1);
-#ifdef ERTS_DIRTY_SCHEDULERS
     erts_mtx_init(&erts_dirty_bp_ix_mtx, "dirty_break_point_index", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_DEBUG);
-#endif
 }
 
 
@@ -1585,11 +1577,7 @@ set_function_break(ErtsCodeInfo *ci, Binary *match_spec, Uint break_flags,
 	ASSERT((bp->flags & ERTS_BPF_TIME_TRACE) == 0);
 	bdt = Alloc(sizeof(BpDataTime));
 	erts_refc_init(&bdt->refc, 1);
-#ifdef ERTS_DIRTY_SCHEDULERS
 	bdt->n = erts_no_schedulers + 1;
-#else
-	bdt->n = erts_no_schedulers;
-#endif
 	bdt->hash = Alloc(sizeof(bp_time_hash_t)*(bdt->n));
 	for (i = 0; i < bdt->n; i++) {
 	    bp_hash_init(&(bdt->hash[i]), 32);

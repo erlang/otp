@@ -1034,7 +1034,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
  */
 void erts_dirty_process_main(ErtsSchedulerData *esdp)
 {
-#ifdef ERTS_DIRTY_SCHEDULERS
     Process* c_p = NULL;
     ErtsMonotonicTime start_time;
 #ifdef DEBUG
@@ -1273,7 +1272,6 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	I = c_p->i;
 	goto context_switch;
     }
-#endif /* ERTS_DIRTY_SCHEDULERS */
 }
 
 static ErtsCodeMFA *

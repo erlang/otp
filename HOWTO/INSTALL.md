@@ -417,11 +417,6 @@ Some of the available `configure` options are:
     and scalability compared to the default clock sources chosen.
 *   `--disable-saved-compile-time` - Disable saving of compile date and time
     in the emulator binary.
-*   `--enable-dirty-schedulers` - Enable the **experimental** dirty schedulers
-    functionality. Note that the dirty schedulers functionality is experimental,
-    and **not supported**. This functionality **will** be subject to backward
-    incompatible changes. Note that you should **not** enable the dirty scheduler
-    functionality on production systems. It is only provided for testing.
 
 If you or your system has special requirements please read the `Makefile` for
 additional configuration information.

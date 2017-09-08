@@ -77,10 +77,8 @@ init_reference(void)
     ref_init_value += (Uint64) tv.tv_usec;
 #ifdef DEBUG
     max_thr_id = (Uint32) erts_no_schedulers;
-#ifdef ERTS_DIRTY_SCHEDULERS
     max_thr_id += (Uint32) erts_no_dirty_cpu_schedulers;
     max_thr_id += (Uint32) erts_no_dirty_io_schedulers;
-#endif
 #endif
     erts_atomic64_init_nob(&global_reference.count,
 			   (erts_aint64_t) ref_init_value);
@@ -439,10 +437,8 @@ init_unique_integer(void)
 {
     int bits;
     unique_data.r.o.val0_max = (Uint64) erts_no_schedulers;
-#ifdef ERTS_DIRTY_SCHEDULERS
     unique_data.r.o.val0_max += (Uint64) erts_no_dirty_cpu_schedulers;
     unique_data.r.o.val0_max += (Uint64) erts_no_dirty_io_schedulers;
-#endif
     bits = erts_fit_in_bits_int64(unique_data.r.o.val0_max);
     unique_data.r.o.left_shift = bits;
     unique_data.r.o.right_shift = 64 - bits;

@@ -65,9 +65,7 @@ static struct {
 
 Process *erts_code_purger = NULL;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 Process *erts_dirty_process_code_checker;
-#endif
 erts_atomic_t erts_copy_literal_area__;
 #define ERTS_SET_COPY_LITERAL_AREA(LA)			\
     erts_atomic_set_nob(&erts_copy_literal_area__,	\
@@ -604,9 +602,6 @@ badarg:
 
 BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
 {
-#if !defined(ERTS_DIRTY_SCHEDULERS)
-    BIF_ERROR(BIF_P, EXC_NOTSUP);
-#else
     Process *rp;
     int reds = 0;
     Eterm res;
@@ -636,7 +631,6 @@ BIF_RETTYPE erts_internal_check_dirty_process_code_2(BIF_ALIST_2)
     ASSERT(is_value(res));
 
     BIF_RET2(res, reds);
-#endif
 }
 
 BIF_RETTYPE delete_module_1(BIF_ALIST_1)
@@ -1053,10 +1047,8 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
 
 return_ok:
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(c_p)))
 	c_p->flags &= ~F_DIRTY_CLA;
-#endif
 
     return am_ok;
 
@@ -1071,10 +1063,8 @@ literal_gc:
     *redsp += erts_garbage_collect_literals(c_p, (Eterm *) literals, lit_bsize,
 					    oh, fcalls);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (c_p->flags & F_DIRTY_CLA)
 	return THE_NON_VALUE;
-#endif
 
     return am_ok;
 }
