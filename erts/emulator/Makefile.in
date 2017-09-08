@@ -644,7 +644,8 @@ PRELOAD_BEAM =		$(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erts_internal.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erl_tracer.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erts_literal_area_collector.beam \
-			$(ERL_TOP)/erts/preloaded/ebin/erts_dirty_process_code_checker.beam
+			$(ERL_TOP)/erts/preloaded/ebin/erts_dirty_process_code_checker.beam \
+			$(ERL_TOP)/erts/preloaded/ebin/prim_buffer.beam
 
 ifeq ($(TARGET),win32)
 # On windows the preloaded objects are in a resource object.
@@ -873,7 +874,8 @@ RUN_OBJS += \
 LTTNG_OBJS = $(OBJDIR)/erlang_lttng.o
 NIF_OBJS = \
 	   $(OBJDIR)/erl_tracer_nif.o \
-	   $(OBJDIR)/zlib_nif.o
+	   $(OBJDIR)/zlib_nif.o \
+	   $(OBJDIR)/prim_buffer_nif.o
 
 ifeq ($(TARGET),win32)
 DRV_OBJS = \
