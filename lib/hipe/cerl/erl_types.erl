@@ -74,6 +74,7 @@
 	 t_form_to_string/1,
          t_from_form/6,
          t_from_form_without_remote/3,
+         t_from_form_check_remote/4,
          t_check_record_fields/6,
 	 t_from_range/2,
 	 t_from_range_unsafe/2,
@@ -4471,7 +4472,7 @@ t_from_form(Form, ExpTypes, Site, RecDict, VarTab, Cache) ->
 
 %% Replace external types with with none().
 -spec t_from_form_without_remote(parse_form(), site(), type_table()) ->
-                                    {erl_type(), cache()}.
+                                    erl_type().
 
 t_from_form_without_remote(Form, Site, TypeTable) ->
   Module = site_module(Site),
@@ -4480,7 +4481,32 @@ t_from_form_without_remote(Form, Site, TypeTable) ->
   VarTab = var_table__new(),
   Cache0 = cache__new(),
   Cache = Cache0#cache{mod_recs = {mrecs, ModRecs}},
-  t_from_form1(Form, ExpTypes, Site, undefined, VarTab, Cache).
+  {Type, _} = t_from_form1(Form, ExpTypes, Site, undefined, VarTab, Cache),
+  Type.
+
+-type expand_limit() :: integer().
+
+-type expand_depth() :: integer().
+
+-record(from_form, {site   :: site() | {'check', mta()},
+                    xtypes :: sets:set(mfa()) | 'replace_by_none',
+                    mrecs  :: 'undefined' | mod_type_table(),
+                    vtab   :: var_table(),
+                    tnames :: type_names()}).
+
+-spec t_from_form_check_remote(parse_form(), sets:set(mfa()), mta(),
+                               mod_type_table()) -> 'ok'.
+t_from_form_check_remote(Form, ExpTypes, MTA, RecDict) ->
+  State = #from_form{site   = {check, MTA},
+                     xtypes = ExpTypes,
+                     mrecs  = RecDict,
+                     vtab   = var_table__new(),
+                     tnames = []},
+  D = (1 bsl 25), % unlimited
+  L = (1 bsl 25),
+  Cache0 = cache__new(),
+  _ = t_from_form2(Form, State, D, L, Cache0),
+  ok.
 
 %% REC_TYPE_LIMIT is used for limiting the depth of recursive types.
 %% EXPAND_LIMIT is used for limiting the size of types by
@@ -4489,29 +4515,23 @@ t_from_form_without_remote(Form, Site, TypeTable) ->
 %% types balanced (unions will otherwise collapse to any()) by limiting
 %% the depth the same way as t_limit/2 does.
 
--type expand_limit() :: integer().
-
--type expand_depth() :: integer().
-
--record(from_form, {site   :: site(),
-                    xtypes :: sets:set(mfa()) | 'replace_by_none',
-                    mrecs  :: 'undefined' | mod_type_table(),
-                    vtab   :: var_table(),
-                    tnames :: type_names()}).
-
 -spec t_from_form1(parse_form(), sets:set(mfa()) | 'replace_by_none',
                    site(), 'undefined' | mod_type_table(), var_table(),
                    cache()) -> {erl_type(), cache()}.
 
 t_from_form1(Form, ET, Site, MR, V, C) ->
   TypeNames = initial_typenames(Site),
+  D = ?EXPAND_DEPTH,
+  L = ?EXPAND_LIMIT,
   State = #from_form{site   = Site,
                      xtypes = ET,
                      mrecs  = MR,
                      vtab   = V,
                      tnames = TypeNames},
-  L = ?EXPAND_LIMIT,
-  {T0, L0, C0} = from_form(Form, State, ?EXPAND_DEPTH, L, C),
+  t_from_form2(Form, State, D, L, C).
+
+t_from_form2(Form, State, D, L, C) ->
+  {T0, L0, C0} = from_form(Form, State, D, L, C),
   if
     L0 =< 0 ->
       {T1, _, C1} = from_form(Form, State, 1, L, C0),
@@ -4767,14 +4787,18 @@ type_from_form(Name, Args, S, D, L, C) ->
   case can_unfold_more(TypeName, TypeNames) of
     true ->
       {R, C1} = lookup_module_types(Module, MR, C),
-      type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames,
+      type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, Site,
                       S, D, L, C1);
     false ->
       {t_any(), L, C}
   end.
 
-type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, S, D, L, C) ->
+type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, Site,
+                S, D, L, C) ->
   case lookup_type(Name, ArgsLen, R) of
+    {_, {_, _}} when element(1, Site) =:= check ->
+      {_ArgTypes, L1, C1} = list_from_form(Args, S, D, L, C),
+      {t_any(), L1, C1};
     {Tag, {{Module, _FileName, Form, ArgNames}, Type}} ->
       NewTypeNames = [TypeName|TypeNames],
       S1 = S#from_form{tnames = NewTypeNames},
@@ -4813,7 +4837,7 @@ type_from_form1(Name, Args, ArgsLen, R, TypeName, TypeNames, S, D, L, C) ->
   end.
 
 remote_from_form(RemMod, Name, Args, S, D, L, C) ->
-  #from_form{xtypes = ET, mrecs = MR, tnames = TypeNames} = S,
+  #from_form{site = Site, xtypes = ET, mrecs = MR, tnames = TypeNames} = S,
   if
     ET =:= replace_by_none ->
       {t_none(), L, C};
@@ -4831,7 +4855,7 @@ remote_from_form(RemMod, Name, Args, S, D, L, C) ->
               case can_unfold_more(RemType, TypeNames) of
                 true ->
                   remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict,
-                                    RemType, TypeNames, S, D, L, C1);
+                                    RemType, TypeNames, Site, S, D, L, C1);
                 false ->
                   {t_any(), L, C1}
               end;
@@ -4843,14 +4867,16 @@ remote_from_form(RemMod, Name, Args, S, D, L, C) ->
   end.
 
 remote_from_form1(RemMod, Name, Args, ArgsLen, RemDict, RemType, TypeNames,
-                  S, D, L, C) ->
+                  Site, S, D, L, C) ->
   case lookup_type(Name, ArgsLen, RemDict) of
+    {_, {_, _}} when element(1, Site) =:= check ->
+      {_ArgTypes, L1, C1} = list_from_form(Args, S, D, L, C),
+      {t_any(), L1, C1};
     {Tag, {{Mod, _FileLine, Form, ArgNames}, Type}} ->
       NewTypeNames = [RemType|TypeNames],
       S1 = S#from_form{tnames = NewTypeNames},
       {ArgTypes, L1, C1} = list_from_form(Args, S1, D, L, C),
       CKey = cache_key(RemMod, Name, ArgTypes, TypeNames, D),
-      %% case error of
       case cache_find(CKey, C) of
         {CachedType, DeltaL} ->
           {CachedType, L - DeltaL, C};
@@ -4914,6 +4940,8 @@ record_from_form({atom, _, Name}, ModFields, S, D0, L0, C) ->
       M = site_module(Site),
       {R, C1} = lookup_module_types(M, MR, C),
       case lookup_record(Name, R) of
+        {ok, _} when element(1, Site) =:= check ->
+          {t_any(), L0, C1};
         {ok, DeclFields} ->
           NewTypeNames = [RecordType|TypeNames],
           Site1 = {record, {M, Name, length(DeclFields)}},
