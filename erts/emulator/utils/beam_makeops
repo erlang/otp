@@ -268,6 +268,16 @@ if ($wordsize == 64) {
 }
 
 #
+# Add placeholders for built-in macros.
+#
+
+$c_code{'IS_PACKED'} = ['$Expr',"built-in macro",('Expr')];
+$c_code{'ARG_POSITION'} = ['$Expr',"built-in macro",('Expr')];
+foreach my $name (keys %c_code) {
+    $c_code_used{$name} = 1;
+}
+
+#
 # Parse the input files.
 #
 
@@ -1382,14 +1392,8 @@ sub expand_all {
         my $keep = substr($code, 0, $-[0]);
         my $after = substr($code, $+[0]);
 
-        # Keep the special, pre-defined bindings.
-        my %new_bindings;
-        foreach my $key (qw(NEXT_INSTRUCTION)) {
-            $new_bindings{$key} = $bindings{$key};
-        }
-
         my $body;
-        ($body,$code) = expand_macro($macro_name, $after, \%new_bindings);
+        ($body,$code) = expand_macro($macro_name, $after, \%bindings);
         $res .= "$keep$body";
     }
 
@@ -1436,21 +1440,49 @@ sub expand_macro {
         $arg =~ s/^\s*//;
     }
 
-    # Now combine bindings from the parameter names and arguments.
-    my %bindings = %{$bindings_ref};
+    # Make sure that the number of arguments are correct.
     if (@vars != @args) {
         error("calling $name with ", scalar(@args),
               " arguments instead of expected ", scalar(@vars), " arguments...");
     }
-    for (my $i = 0; $i < @vars; $i++) {
-        $bindings{$vars[$i]} = $args[$i];
+
+    # Now combine bindings from the parameter names and arguments.
+    my %bindings = %{$bindings_ref};
+    my %new_bindings;
+
+    # Keep the special, pre-defined bindings.
+    foreach my $key (qw(NEXT_INSTRUCTION)) {
+        $new_bindings{$key} = $bindings{$key};
     }
 
-    $body = eval { expand_all($body, \%bindings) };
+    for (my $i = 0; $i < @vars; $i++) {
+        my $arg = $args[$i];
+        $arg = eval { expand_all($arg, \%bindings) };
+        unless (defined $arg) {
+            warn $@;
+            die "... from the body of $name at $where\n";
+        }
+        $new_bindings{$vars[$i]} = $arg;
+    }
+
+    $body = eval { expand_all($body, \%new_bindings) };
     unless (defined $body) {
         warn $@;
         die "... from the body of $name at $where\n";
     }
+
+    # Handle built-in macros.
+    if ($name eq 'ARG_POSITION') {
+        if ($body =~ /^I\[(\d+)\]$/) {
+            $body = $1;
+        } else {
+            $body = 0;
+        }
+    } elsif ($name eq 'IS_PACKED') {
+        $body = ($body =~ /^I\[\d+\]$/) ? 0 : 1;
+    }
+
+    # Wrap body if needed and return resul.t
     $body = "do {\n$body\n} while (0)"
         if needs_do_wrapper($body);
     ($body,$rest);
@@ -1476,6 +1508,7 @@ sub needs_do_wrapper {
     return 0 if /^[A-Z_]*SWAPOUT/;
     return 0 if /^if\s*[(]/;
     return 0 if /^goto\b/;
+    return 0 if /^\d+/;
     return 1;                   # Not sure, say that it is needed.
 }
 
