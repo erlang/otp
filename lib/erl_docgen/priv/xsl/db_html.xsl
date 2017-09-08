@@ -1803,7 +1803,7 @@
   <!-- Modulesummary -->
   <xsl:template match="modulesummary">
     <xsl:param name="partnum"/>
-    <h3><a name="module-sumary" href="#module-sumary">Module Summary</a></h3>
+    <h3><a name="module-summary" href="#module-summary">Module Summary</a></h3>
     <div class="REFBODY module-summary-body">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
@@ -1826,7 +1826,7 @@
   <!-- Libsummary -->
   <xsl:template match="libsummary">
     <xsl:param name="partnum"/>
-    <h3><a name="library-sumary" href="#library-sumary">Library Summary</a></h3>
+    <h3><a name="library-summary" href="#library-summary">Library Summary</a></h3>
     <div class="REFBODY library-summary-body">
       <xsl:apply-templates>
         <xsl:with-param name="partnum" select="$partnum"/>
