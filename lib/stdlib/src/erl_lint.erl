@@ -3238,13 +3238,13 @@ icrt_clauses(Cs, In, Vt, St0) ->
 icrt_clauses(Cs, Vt, St) ->
     mapfoldl(fun (C, St0) -> icrt_clause(C, Vt, St0) end, St, Cs).
 
-icrt_clause({clause,_Line,H,G,B}, Vt0, St0) ->
+icrt_clause({clause,_Line,H,G,B}, Vt0, #lint{catch_scope=Scope}=St0) ->
     {Hvt,Binvt,St1} = head(H, Vt0, St0),
     Vt1 = vtupdate(Hvt, Binvt),
     {Gvt,St2} = guard(G, vtupdate(Vt1, Vt0), St1),
     Vt2 = vtupdate(Gvt, Vt1),
     {Bvt,St3} = exprs(B, vtupdate(Vt2, Vt0), St2),
-    {vtupdate(Bvt, Vt2),St3}.
+    {vtupdate(Bvt, Vt2),St3#lint{catch_scope=Scope}}.
 
 icrt_export(Vts, Vt, {Tag,Attrs}, St) ->
     {_File,Loc} = loc(Attrs, St),
