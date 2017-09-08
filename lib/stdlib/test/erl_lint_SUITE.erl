@@ -4104,7 +4104,27 @@ get_stacktrace(Config) ->
            [],
            {warnings,[{4,erl_lint,{get_stacktrace,wrong_part_of_try}},
                       {13,erl_lint,{get_stacktrace,after_try}},
-                      {22,erl_lint,{get_stacktrace,after_try}}]}}],
+                      {22,erl_lint,{get_stacktrace,after_try}}]}},
+          {multiple_catch_clauses,
+           <<"maybe_error(Arg) ->
+                try 5 / Arg
+                catch
+                    error:badarith ->
+                        _Stacktrace = erlang:get_stacktrace(),
+                        try io:nl()
+                        catch
+                            error:_ -> io:format('internal error')
+                        end;
+                    error:badarg ->
+                        _Stacktrace = erlang:get_stacktrace(),
+                        try io:format(qwe)
+                        catch
+                            error:_ -> io:format('internal error')
+                        end
+                end.
+             ">>,
+           [],
+           []}],
 
     run(Config, Ts),
     ok.
