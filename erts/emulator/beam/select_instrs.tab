@@ -75,66 +75,55 @@ select_val_bins.select(Fail, NumElements) {
     $JUMP($Fail);
 }
 
-i_select_tuple_arity2 := select_val2.src.ta_fail.execute;
-i_select_val2 := select_val2.src.fail.execute;
+i_select_tuple_arity2 := select_val2.src.get_arity.execute;
+i_select_val2 := select_val2.src.execute;
 
 select_val2.head() {
     Eterm select_val2;
-    BeamInstr* select_fail;
 }
 
 select_val2.src(Src) {
     select_val2 = $Src;
 }
 
-select_val2.ta_fail(Fail) {
-    select_fail = &$Fail;
-    if (is_not_tuple(select_val2)) {
-        $FAIL(*select_fail);
+select_val2.get_arity() {
+    if (ERTS_LIKELY(is_tuple(select_val2))) {
+        select_val2 = *tuple_val(select_val2);
+    } else {
+        select_val2 = NIL;
     }
-    select_val2 = *tuple_val(select_val2);
 }
 
-select_val2.fail(Fail) {
-    select_fail = &$Fail;
-}
-
-select_val2.execute(T1, T2, D1, D2) {
+select_val2.execute(Fail, T1, T2, D1, D2) {
     if (select_val2 == $T1) {
         $JUMP($D1);
     } else if (select_val2 == $T2) {
         $JUMP($D2);
     } else {
-        $FAIL(*select_fail);
+        $FAIL($Fail);
     }
 }
 
-i_select_tuple_arity := select_val_lin.fetch.ta_fail.execute;
-i_select_val_lins := select_val_lin.fetch.fail.execute;
+i_select_tuple_arity := select_val_lin.fetch.get_arity.execute;
+i_select_val_lins := select_val_lin.fetch.execute;
 
 select_val_lin.head() {
     Eterm select_val;
-    BeamInstr* select_fail;
 }
 
 select_val_lin.fetch(Src) {
     select_val = $Src;
 }
 
-select_val_lin.ta_fail(Fail) {
-    select_fail = &$Fail;
-    if (is_tuple(select_val)) {
+select_val_lin.get_arity() {
+    if (ERTS_LIKELY(is_tuple(select_val))) {
         select_val = *tuple_val(select_val);
     } else {
-        $JUMP(*select_fail);
+        select_val = NIL;
     }
 }
 
-select_val_lin.fail(Fail) {
-    select_fail = &$Fail;
-}
-
-select_val_lin.execute(N) {
+select_val_lin.execute(Fail, N) {
     BeamInstr* vs = $NEXT_INSTRUCTION;
     int ix = 0;
 
@@ -155,7 +144,7 @@ select_val_lin.execute(N) {
         Eterm offset = jump_tab[ix];
         $JUMP(offset);
     } else {
-        $JUMP(*select_fail);
+        $JUMP($Fail);
     }
 }
 
