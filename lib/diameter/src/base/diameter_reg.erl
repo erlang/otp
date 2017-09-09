@@ -340,24 +340,22 @@ notify(Op, {_,_} = Rec, #state{notify = Dict} = S) ->
 notify(Op, {_, Pid} = Rec, Pat, Rcvrs, Dict) ->
     case lists:member(Rec, match(Pat, Pid)) of
         true ->
-            reset(Pat, Dict, lists:foldr(fun(P,A) -> send(P, Op, Rec, A) end,
-                                         [],
-                                         Rcvrs));
+            reset(Pat, Dict, [P || P <- Rcvrs, send(P, Op, Rec)]);
         false ->
             Dict
     end.
 
-%% send/4
+%% send/3
 
-send([Pid | T] = Rcvr, Op, Rec, Acc) ->
+send([Pid | T], Op, Rec) ->
     Pid ! {T, Op, Rec},
-    [Rcvr | Acc];
+    true;
 
 %% No processes wait on remove: they receive notification immediately
 %% or at add, by construction.
-send({_,_} = From, add, Rec, Acc) ->
+send({_,_} = From, add, Rec) ->
     gen_server:reply(From, [Rec]),
-    Acc.
+    false.
 
 %% down/2
 
