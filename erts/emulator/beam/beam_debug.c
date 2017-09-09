@@ -679,6 +679,22 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             size += (n+1) / 2;
         }
         break;
+    case op_i_select_val2_xfcc:
+    case op_i_select_val2_yfcc:
+    case op_i_select_tuple_arity2_xfAA:
+    case op_i_select_tuple_arity2_yfAA:
+        {
+            Sint32* jump_tab = (Sint32 *) ap;
+            BeamInstr* target;
+            int i;
+
+            for (i = 0; i < 2; i++) {
+                target = f_to_addr_packed(addr, op, jump_tab++);
+                erts_print(to, to_arg, "f(" HEXF ") ", target);
+            }
+            size += 1;
+        }
+        break;
     case op_i_jump_on_val_xfIW:
     case op_i_jump_on_val_yfIW:
 	{

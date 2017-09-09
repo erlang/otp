@@ -162,11 +162,11 @@ i_select_val_bins xy f I
 
 i_select_val_lins xy f I
 
-i_select_val2 xy f c c f f
+i_select_val2 xy f c c
 
 i_select_tuple_arity xy f I
 
-i_select_tuple_arity2 xy f A A f f
+i_select_tuple_arity2 xy f A A
 
 i_jump_on_val_zero xy f I
 

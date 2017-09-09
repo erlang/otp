@@ -3749,7 +3749,7 @@ gen_select_tuple_arity(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     if (size == 2) {
 	NEW_GENOP(stp, op);
 	op->next = NULL;
-	op->op = genop_i_select_tuple_arity2_6;
+	op->op = genop_i_select_tuple_arity2_4;
 	GENOP_ARITY(op, arity - 1);
 	op->a[0] = S;
 	op->a[1] = Fail;
@@ -4045,7 +4045,7 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 
 	NEW_GENOP(stp, op);
 	op->next = NULL;
-	op->op = genop_i_select_val2_6;
+	op->op = genop_i_select_val2_4;
 	GENOP_ARITY(op, arity - 1);
 	op->a[0] = S;
 	op->a[1] = Fail;

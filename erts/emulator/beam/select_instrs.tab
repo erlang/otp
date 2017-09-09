@@ -94,11 +94,13 @@ select_val2.get_arity() {
     }
 }
 
-select_val2.execute(Fail, T1, T2, D1, D2) {
+select_val2.execute(Fail, T1, T2) {
+    Sint32* jump_tab = (Sint32 *) ($NEXT_INSTRUCTION);
+
     if (select_val2 == $T1) {
-        $JUMP($D1);
+        $JUMP(jump_tab[0]);
     } else if (select_val2 == $T2) {
-        $JUMP($D2);
+        $JUMP(jump_tab[1]);
     } else {
         $FAIL($Fail);
     }
