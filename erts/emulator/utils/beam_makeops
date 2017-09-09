@@ -1720,8 +1720,11 @@ sub parse_transformation {
     #
 
     my @to;
-    if ($to =~ /^(\w+)\((.*?)\)/) {
-	my($name, $arglist) = ($1, $2);
+    if ($to =~ /^(\w+)\((.*?)\)(.*)/) {
+	my($name, $arglist, $garbage) = ($1, $2, $3);
+        if ($garbage =~ /\S/) {
+            error("garbage after call to '$name()'");
+        }
 	@to = (compile_transform_function($name, split(/\s*,\s*/, $arglist)));
     } else {
 	@to = split(/\s*\|\s*/, $to);
