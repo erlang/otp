@@ -698,7 +698,7 @@ is_boolean f xy
 is_function2 Fail=f acq Arity => jump Fail
 is_function2 Fail=f Fun a => jump Fail
 
-is_function2 f s s
+is_function2 f S s
 
 # Allocating & initializing.
 allocate Need Regs | init Y => allocate_init Need Regs Y
@@ -1153,7 +1153,7 @@ bs_skip_utf32 Fail=f Ms=x Live=u Flags=u => \
 	bs_get_integer2 Fail Ms Live i=32 u=1 Flags x | \
 	i_bs_validate_unicode_retract Fail x Ms
 
-i_bs_validate_unicode_retract j s s
+i_bs_validate_unicode_retract j s S
 %hot
 
 #
@@ -1212,7 +1212,7 @@ bs_private_append Fail Size Unit Bin Flags Dst => \
 bs_init_writable
 
 i_bs_append j I t t s x
-i_bs_private_append j t s s x
+i_bs_private_append j t s S x
 
 #
 # Storing integers into binaries.
@@ -1498,7 +1498,9 @@ i_band s s j t d
 i_bor j I s s d
 i_bxor j I s s d
 
-i_int_bnot j s t d
+i_int_bnot Fail Src=c Live Dst => move Src x | i_int_bnot Fail x Live Dst
+
+i_int_bnot j S t d
 
 #
 # Old guard BIFs that creates heap fragments are no longer allowed.
