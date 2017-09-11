@@ -1064,13 +1064,13 @@ func_info M F A => i_func_info u M F A
 %warm
 bs_start_match2 Fail=f ica X Y D => jump Fail
 bs_start_match2 Fail Bin X Y D => i_bs_start_match2 Bin Fail X Y D
-i_bs_start_match2 xy f I I x
+i_bs_start_match2 xy f t t x
 
 bs_save2 Reg Index => gen_bs_save(Reg, Index)
-i_bs_save2 x I
+i_bs_save2 x t
 
 bs_restore2 Reg Index => gen_bs_restore(Reg, Index)
-i_bs_restore2 x I
+i_bs_restore2 x t
 
 # Matching integers
 bs_match_string Fail Ms Bits Val => i_bs_match_string Ms Fail Bits Val
@@ -1096,9 +1096,9 @@ bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
 i_bs_get_binary_imm2 f x t W t x
-i_bs_get_binary2 f x I s I x
-i_bs_get_binary_all2 f x I I x
-i_bs_get_binary_all_reuse x f I
+i_bs_get_binary2 f x t s t x
+i_bs_get_binary_all2 f x t t x
+i_bs_get_binary_all_reuse x f t
 
 # Fetching float from binaries.
 bs_get_float2 Fail=f Ms=x Live=u Sz=s Unit=u Flags=u Dst=d => \
@@ -1106,7 +1106,7 @@ bs_get_float2 Fail=f Ms=x Live=u Sz=s Unit=u Flags=u Dst=d => \
 
 bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
-i_bs_get_float2 f x I s I x
+i_bs_get_float2 f x t s t x
 
 # Miscellanous
 
@@ -1114,8 +1114,8 @@ bs_skip_bits2 Fail=f Ms=x Sz=sq Unit=u Flags=u => \
 			gen_skip_bits2(Fail, Ms, Sz, Unit, Flags)
 
 i_bs_skip_bits_imm2 f x W
-i_bs_skip_bits2 f x xy I
-i_bs_skip_bits_all2 f x I
+i_bs_skip_bits2 f x xy t
+i_bs_skip_bits_all2 f x t
 
 bs_test_tail2 Fail=f Ms=x Bits=u==0 => bs_test_zero_tail2 Fail Ms
 bs_test_tail2 Fail=f Ms=x Bits=u => bs_test_tail_imm2 Fail Ms Bits
@@ -1123,7 +1123,7 @@ bs_test_zero_tail2 f x
 bs_test_tail_imm2 f x W
 
 bs_test_unit F Ms Unit=u==8 => bs_test_unit8 F Ms
-bs_test_unit f x I
+bs_test_unit f x t
 bs_test_unit8 f x
 
 # An y register operand for bs_context_to_binary is rare,
@@ -1144,7 +1144,7 @@ bs_skip_utf8 Fail=f Ms=x u u => i_bs_get_utf8 Ms Fail x
 bs_get_utf16 Fail=f Ms=x u Flags=u Dst=d => i_bs_get_utf16 Ms Fail Flags Dst
 bs_skip_utf16 Fail=f Ms=x u Flags=u => i_bs_get_utf16 Ms Fail Flags x
 
-i_bs_get_utf16 x f I x
+i_bs_get_utf16 x f t x
 
 bs_get_utf32 Fail=f Ms=x Live=u Flags=u Dst=d => \
 	bs_get_integer2 Fail Ms Live i=32 u=1 Flags Dst | \
