@@ -892,8 +892,8 @@ static void ttysl_from_tty(ErlDrvData ttysl_data, ErlDrvEvent fd)
 		tpos = 0;
 	    }
 	}
-    } else {
-        DEBUGLOG(("ttysl_from_tty: driver failure in read(%d,..) = %d\n", (int)(SWord)fd, i)); 
+    } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
+        DEBUGLOG(("ttysl_from_tty: driver failure in read(%d,..) = %d (errno = %d)\n", (int)(SWord)fd, i, errno));
 	driver_failure(ttysl_port, -1);
     }
 }

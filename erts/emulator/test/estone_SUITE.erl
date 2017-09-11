@@ -379,7 +379,7 @@ monotonic_time() ->
     try erlang:monotonic_time() catch error:undef -> erlang:now() end.
 
 subtr(Before, After) when is_integer(Before), is_integer(After) ->
-    erlang:convert_time_unit(After-Before, native, microsecond);
+    erlang:convert_time_unit(After-Before, native, 1000000);
 subtr({_,_,_}=Before, {_,_,_}=After) ->
     timer:now_diff(After, Before).
 
