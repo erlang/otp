@@ -327,7 +327,7 @@
     <section>
       <title>Initial Database Content</title>
       <p>After the insertion of the  employee named <c>klacke</c>,
-        the databse has the following records:</p>
+        the database has the following records:</p>
       <marker id="table2_1"></marker>
       <table>
         <row>

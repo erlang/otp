@@ -108,6 +108,9 @@
       
       <tag><c>double_algs() =</c></tag>
       <item><p><c>[{client2serverlist,simple_algs()},{server2client,simple_algs()}] | simple_algs()</c></p></item>
+
+      <tag><c>modify_algs_list() =</c></tag>
+      <item><p><c>list( {append,algs_list()} | {prepend,algs_list()} | {rm,algs_list()} )</c></p></item>
      </taglist>
 </section>
 
@@ -254,7 +257,8 @@
 	    </p>
 	  </item>
 
-	  <tag><c><![CDATA[{preferred_algorithms, algs_list()}]]></c></tag>
+	  <tag><marker id="option_preferred_algorithms"></marker>
+	  <c><![CDATA[{preferred_algorithms, algs_list()}]]></c></tag>
 	  <item>
             <p>List of algorithms to use in the algorithm negotiation. The default <c>algs_list()</c> can
 	    be obtained from <seealso marker="#default_algorithms/0">default_algorithms/0</seealso>.
@@ -275,11 +279,69 @@
 	for cipher but specifies the same algorithms for mac and compression in both directions.
 	The kex (key exchange) is implicit but public_key is set explicitly.</p>
 
+	<p>For background and more examples see the <seealso marker="configure_algos#introduction">User's Guide</seealso>.</p>
+
         <warning>
 	  <p>Changing the values can make a connection less secure. Do not change unless you
 	  know exactly what you are doing. If you do not understand the values then you
 	  are not supposed to change them.</p>
 	</warning>
+	  </item>
+
+	  <tag><marker id="option_modify_algorithms"></marker>
+	  <c><![CDATA[{modify_algorithms, modify_algs_list()}]]></c></tag>
+	  <item>
+	    <p>Modifies the list of algorithms to use in the algorithm negotiation. The modifications are
+	    applied after the option <c>preferred_algorithms</c> (if existing) is applied.</p>
+	    <p>The algoritm for modifications works like this:</p>
+	    <list>
+	      <item>
+		<p>Input is the <c>modify_algs_list()</c> and a set of algorithms <c>A</c>
+		obtained from the <c>preferred_algorithms</c> option if existing, or else from the
+		<seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>.
+		</p>
+	      </item>
+	      <item>
+		<p>The head of the <c>modify_algs_list()</c> modifies <c>A</c> giving the result <c>A'</c>.</p>
+		<p>The possible modifications are:</p>
+		<list>
+		  <item>
+		    <p>Append or prepend supported but not enabled algorithm(s) to the list of
+		    algorithms. If the wanted algorithms already are in <c>A</c> they will first
+		    be removed and then appended or prepended,
+		    </p>
+		  </item>
+		  <item>
+		    <p>Remove (rm) one or more algorithms from <c>A</c>.
+		    </p>
+		  </item>
+		</list>
+	      </item>
+	      <item>
+		<p>Repeat the modification step with the tail of <c>modify_algs_list()</c> and the resulting
+		<c>A'</c>.
+		</p>
+	      </item>
+	    </list>
+	    <p>If an unsupported algorithm is in the <c>modify_algs_list()</c>, it will be silently ignored</p>
+	    <p>If there are more than one modify_algorithms options, the result is undefined.</p>
+	    <p>Here is an example of this option:</p>
+	<code>
+{modify_algorithms, 
+ [{prepend, [{kex, ['diffie-hellman-group1-sha1']}],
+  {rm,      [{compression, [none]}]}
+ ]
+}
+</code>
+          <p>The example specifies that:</p>
+	  <list>
+	    <item><p>the old key exchange algorithm 'diffie-hellman-group1-sha1' should be
+	    the main alternative. It will be the main alternative since it is prepened to the list</p>
+	    </item>
+	    <item><p>The compression algorithm none (= no compression) is removed so compression is enforced</p>
+	    </item>
+	  </list>
+	  <p>For background and more examples see the <seealso marker="configure_algos#introduction">User's Guide</seealso>.</p>
 	  </item>
 
 	  <tag><c><![CDATA[{dh_gex_limits,{Min=integer(),I=integer(),Max=integer()}}]]></c></tag>
@@ -555,11 +617,48 @@
 	for cipher but specifies the same algorithms for mac and compression in both directions.
 	The kex (key exchange) is implicit but public_key is set explicitly.</p>
 
+	<p>For background and more examples see the <seealso marker="configure_algos#introduction">User's Guide</seealso>.</p>
+
         <warning>
 	  <p>Changing the values can make a connection less secure. Do not change unless you
 	  know exactly what you are doing. If you do not understand the values then you
 	  are not supposed to change them.</p>
 	</warning>
+	  </item>
+
+	  <tag><marker id="option_modify_algorithms"></marker>
+	  <c><![CDATA[{modify_algorithms, modify_algs_list()}]]></c></tag>
+	  <item>
+	    <p>Modifies the list of algorithms to use in the algorithm negotiation. The modifications are
+	    applied after the option <c>preferred_algorithms</c> is applied (if existing)</p>
+	    <p>The possible modifications are to:</p>
+	    <list>
+	      <item><p>Append or prepend supported but not enabled algorithm(s) to the list of
+	      algorithms.</p><p>If the wanted algorithms already are in the list of algorithms, they will first
+	      be removed and then appended or prepended.
+	    </p>
+	      </item>
+	      <item><p>Remove (rm) one or more algorithms from the list of algorithms.</p></item>
+	    </list>
+	    <p>If an unsupported algorithm is in the list, it will be silently ignored</p>
+
+	    <p>Here is an example of this option:</p>
+	<code>
+{modify_algorithms, 
+ [{prepend, [{kex, ['diffie-hellman-group1-sha1']}],
+  {rm,      [{compression, [none]}]}
+ ]
+}
+</code>
+          <p>The example specifies that:</p>
+	  <list>
+	    <item><p>the old key exchange algorithm 'diffie-hellman-group1-sha1' should be
+	    the main alternative. It will be the main alternative since it is prepened to the list</p>
+	    </item>
+	    <item><p>The compression algorithm none (= no compression) is removed so compression is enforced</p>
+	    </item>
+	  </list>
+	  <p>For background and more examples see the <seealso marker="configure_algos#introduction">User's Guide</seealso>.</p>
 	  </item>
 
 	  <tag><c><![CDATA[{dh_gex_groups, [{Size=integer(),G=integer(),P=integer()}] | {file,filename()} {ssh_moduli_file,filename()} }]]></c></tag>

@@ -34,6 +34,8 @@
 -export([next_seqnum/1, 
 	 supported_algorithms/0, supported_algorithms/1,
 	 default_algorithms/0, default_algorithms/1,
+         algo_classes/0, algo_class/1,
+         algo_two_spec_classes/0, algo_two_spec_class/1,
 	 handle_packet_part/4,
 	 handle_hello_version/1,
 	 key_exchange_init_msg/1,
@@ -80,6 +82,23 @@
 default_algorithms() -> [{K,default_algorithms(K)} || K <- algo_classes()].
 
 algo_classes() -> [kex, public_key, cipher, mac, compression].
+
+algo_class(kex) -> true;
+algo_class(public_key) -> true;
+algo_class(cipher) -> true;
+algo_class(mac) -> true;
+algo_class(compression) -> true;
+algo_class(_) -> false.
+
+
+algo_two_spec_classes() -> [cipher, mac, compression].
+
+algo_two_spec_class(cipher) -> true;
+algo_two_spec_class(mac) -> true;
+algo_two_spec_class(compression) -> true;
+algo_two_spec_class(_) -> false.
+
+    
 
 default_algorithms(kex) ->
     supported_algorithms(kex, [

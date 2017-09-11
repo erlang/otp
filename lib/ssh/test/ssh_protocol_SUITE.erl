@@ -34,8 +34,8 @@
 -define(NEWLINE, <<"\r\n">>).
 -define(REKEY_DATA_TMO, 65000).
 
-%%-define(DEFAULT_KEX, 'diffie-hellman-group1-sha1').
 -define(DEFAULT_KEX, 'diffie-hellman-group14-sha256').
+-define(EXTRA_KEX, 'diffie-hellman-group1-sha1').
 
 -define(CIPHERS, ['aes256-ctr','aes192-ctr','aes128-ctr','aes128-cbc','3des-cbc']).
 -define(DEFAULT_CIPHERS, [{client2server,?CIPHERS}, {server2client,?CIPHERS}]).
@@ -60,7 +60,8 @@ all() ->
      {group,authentication},
      {group,packet_size_error},
      {group,field_size_error},
-     {group,ext_info}
+     {group,ext_info},
+     {group,preferred_algorithms}
     ].
 
 groups() ->
@@ -96,7 +97,13 @@ groups() ->
                      no_ext_info_s2,
                      ext_info_s,
                      ext_info_c
-                    ]}
+                    ]},
+     {preferred_algorithms, [], [preferred_algorithms,
+                                 modify_append,
+                                 modify_prepend,
+                                 modify_rm,
+                                 modify_combo
+                                ]}
     ].
 
 
@@ -701,8 +708,6 @@ ext_info_s(Config) ->
 %%%--------------------------------------------------------------------
 %%% The client sends the extension
 ext_info_c(Config) ->    
-    {User,_Pwd} = server_user_password(Config),
-
     %% Create a listening socket as server socket:
     {ok,InitialState} = ssh_trpt_test_lib:exec(listen),
     HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
@@ -757,9 +762,134 @@ ext_info_c(Config) ->
         {result, Pid, Error} -> ct:fail("Error: ~p",[Error])
     end.
 
+
+%%%----------------------------------------------------------------
+%%%
+preferred_algorithms(Config) ->
+    Ciphers = filter_supported(cipher, ?CIPHERS),
+    {error,{eoptions,{{preferred_algorithms,{kex,[some_unknown_algo]}},
+                      "Unsupported value(s) found"}}} =
+        chk_pref_algs(Config,
+                      [?DEFAULT_KEX],
+                      Ciphers,
+                      [{preferred_algorithms, [{kex,[some_unknown_algo,?DEFAULT_KEX]},
+                                               {cipher,Ciphers}
+                                              ]}
+                      ]).
+
+%%%----------------------------------------------------------------
+%%%
+modify_append(Config) ->
+    Ciphers = filter_supported(cipher, ?CIPHERS),
+    {ok,_} =
+        chk_pref_algs(Config,
+                      [?DEFAULT_KEX, ?EXTRA_KEX],
+                      Ciphers,
+                      [{preferred_algorithms, [{kex,[?DEFAULT_KEX]},
+                                               {cipher,Ciphers}
+                                              ]},
+                       {modify_algorithms, [{append,[{kex,[some_unknown_algo,?EXTRA_KEX]}]}]}
+                      ]).
+
+%%%----------------------------------------------------------------
+%%%
+modify_prepend(Config) ->
+    Ciphers = filter_supported(cipher, ?CIPHERS),
+    {ok,_} =
+        chk_pref_algs(Config,
+                      [?EXTRA_KEX, ?DEFAULT_KEX],
+                      Ciphers,
+                      [{preferred_algorithms, [{kex,[?DEFAULT_KEX]},
+                                               {cipher,Ciphers}
+                                              ]},
+                       {modify_algorithms, [{prepend,[{kex,[some_unknown_algo,?EXTRA_KEX]}]}]}
+                      ]).
+
+%%%----------------------------------------------------------------
+%%%
+modify_rm(Config) ->
+    Ciphers = filter_supported(cipher, ?CIPHERS),
+    {ok,_} =
+        chk_pref_algs(Config,
+                      [?DEFAULT_KEX],
+                      tl(Ciphers),
+                      [{preferred_algorithms, [{kex,[?DEFAULT_KEX,?EXTRA_KEX]},
+                                               {cipher,Ciphers}
+                                              ]},
+                       {modify_algorithms, [{rm,[{kex,[some_unknown_algo,?EXTRA_KEX]},
+                                                 {cipher,[hd(Ciphers)]}
+                                                ]}
+                                           ]}
+                      ]).
+
+
+%%%----------------------------------------------------------------
+%%%
+modify_combo(Config) ->
+    Ciphers = filter_supported(cipher, ?CIPHERS),
+    LastC = lists:last(Ciphers),
+    {ok,_} =
+        chk_pref_algs(Config,
+                      [?DEFAULT_KEX],
+                      [LastC] ++ (tl(Ciphers)--[LastC]) ++ [hd(Ciphers)],
+                      [{preferred_algorithms, [{kex,[?DEFAULT_KEX,?EXTRA_KEX]},
+                                               {cipher,Ciphers}
+                                              ]},
+                       {modify_algorithms, [{rm,[{kex,[some_unknown_algo,?EXTRA_KEX]}
+                                                ]},
+                                            {prepend,[{cipher,[{server2client,[LastC]}]}
+                                                     ]},
+                                            {append,[{cipher,[a,hd(Ciphers),b]}
+                                                    ]}
+                                           ]}
+                      ]).
+
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================
+
+chk_pref_algs(Config,
+              ExpectedKex,
+              ExpectedCiphers,
+              ServerPrefOpts) ->
+    %% Start the dameon
+    case ssh_test_lib:daemon(
+                      [{send_ext_info,false},
+                       {recv_ext_info,false},
+                       {system_dir, system_dir(Config)}
+                       | ServerPrefOpts])
+    of
+        {_,Host,Port} ->
+            %% Check the Kex part
+            ssh_trpt_test_lib:exec(
+              [{set_options, [print_ops, {print_messages,detail}]},
+               {connect, Host, Port,
+                [{silently_accept_hosts, true},
+                 {user_dir, user_dir(Config)},
+                 {user_interaction, false}
+                ]},
+               {send, hello},
+               receive_hello,
+               {match,
+                #ssh_msg_kexinit{
+                   kex_algorithms = to_lists(ExpectedKex),
+                   encryption_algorithms_server_to_client = to_lists(ExpectedCiphers),
+                   _   = '_'},
+                receive_msg}
+              ]);
+        Error ->
+            Error
+    end.
+
+
+filter_supported(K, Algs) -> Algs -- (Algs--supported(K)).
+
+supported(K) -> proplists:get_value(
+                  server2client,
+                  ssh_transport:supported_algorithms(cipher)).
+
+to_lists(L) -> lists:map(fun erlang:atom_to_list/1, L).
+    
 
 %%%---- init_suite and end_suite ---------------------------------------	
 start_apps(Config) ->
