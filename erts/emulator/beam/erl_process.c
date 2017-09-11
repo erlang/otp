@@ -1597,6 +1597,12 @@ erts_proclist_create(Process *p)
     return proclist_create(p);
 }
 
+ErtsProcList *
+erts_proclist_copy(ErtsProcList *plp)
+{
+    return proclist_copy(plp);
+}
+
 void
 erts_proclist_destroy(ErtsProcList *plp)
 {
