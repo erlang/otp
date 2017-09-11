@@ -1083,7 +1083,7 @@ bs_get_integer2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 
 i_bs_get_integer_small_imm x W f t x
 i_bs_get_integer_imm x W t f t x
-i_bs_get_integer f I I s s x
+i_bs_get_integer f t t x s x
 i_bs_get_integer_8 x f x
 i_bs_get_integer_16 x f x
 
