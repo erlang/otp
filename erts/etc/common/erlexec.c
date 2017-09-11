@@ -237,7 +237,7 @@ static int verbose = 0;		/* If non-zero, print some extra information. */
 static int start_detached = 0;	/* If non-zero, the emulator should be
 				 * started detached (in the background).
 				 */
-static int start_smp_emu = 0;   /* Start the smp emulator. */
+static int start_smp_emu = 1;   /* Start the smp emulator. */
 static const char* emu_type = 0; /* Type of emulator (lcnt, valgrind, etc) */
 
 #ifdef __WIN32__
@@ -460,8 +460,6 @@ int main(int argc, char **argv)
      * Construct the path of the executable.
      */
     cpuinfo = erts_cpu_info_create();
-    /* '-smp auto' is default */ 
-    start_smp_emu = 1;
 
 #if defined(__WIN32__) && defined(WIN32_ALWAYS_DEBUG)
     emu_type = "debug";
@@ -1140,10 +1138,6 @@ usage_aux(void)
 #ifdef __WIN32__
 	  "[-start_erl [datafile]] "
 #endif
-	  "[-smp [auto"
-	  "|enable"
-	  "]"
-	  "] "
 	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] [-start_epmd BOOLEAN] "
 	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c [BOOLEAN]] "
 	  "[+C MODE] [+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
