@@ -230,10 +230,6 @@ void erts_lcnt_update_allocator_locks(int enable);
 #  endif
 #endif
 
-#undef MIN
-#undef MAX
-#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
-#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
 #define FLOOR(X, I) (((X)/(I))*(I))
 #define CEILING(X, I)  ((((X) - 1)/(I) + 1)*(I))
 

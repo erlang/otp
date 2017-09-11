@@ -269,9 +269,6 @@ static ERTS_INLINE Sint next_slot_w(DbTableHash* tb, Uint ix,
     return ix;
 }
 
-#ifndef MIN
-#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
-#endif
 
 /*
  * Some special binary flags

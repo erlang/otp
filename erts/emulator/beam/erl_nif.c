@@ -67,14 +67,6 @@
 #include <limits.h>
 #include <stddef.h> /* offsetof */
 
-#ifndef MAX
-#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
-#endif
-
-#ifndef MIN
-#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
-#endif
-
 /* Information about a loaded nif library.
  * Each successful call to erlang:load_nif will allocate an instance of
  * erl_module_nif. Two calls opening the same library will thus have the same
