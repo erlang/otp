@@ -39,6 +39,7 @@ MODULES= \
 	ssh_bench_SUITE \
 	ssh_connection_SUITE \
 	ssh_protocol_SUITE \
+	ssh_property_test_SUITE \
 	ssh_sftp_SUITE \
 	ssh_sftpd_SUITE \
 	ssh_sftpd_erlclient_SUITE \
