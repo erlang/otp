@@ -471,9 +471,6 @@ field(_) ->
 
 %% AVP not in dictionary: try an alternate.
 
-dec(_, _, 'AVP', _Mod, none, _, Avp) ->  %% none decode is no-op
-    Avp;
-
 dec(Data, Name, 'AVP', Mod, Fmt, Opts, Avp) ->
     dec_AVP(dicts(Mod, Opts), Data, Name, Mod, Fmt, Opts, Avp);
 
