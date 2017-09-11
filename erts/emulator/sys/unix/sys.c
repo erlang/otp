@@ -739,7 +739,6 @@ signum_to_signalterm(int signum)
     }
 }
 
-
 static RETSIGTYPE generic_signal_handler(int signum)
 {
     smp_sig_notify(signum);

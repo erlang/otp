@@ -1585,6 +1585,7 @@ Uint64 erts_ensure_later_proc_interval(Uint64);
 Uint64 erts_step_proc_interval(void);
 
 ErtsProcList *erts_proclist_create(Process *);
+ErtsProcList *erts_proclist_copy(ErtsProcList *);
 void erts_proclist_destroy(ErtsProcList *);
 
 ERTS_GLB_INLINE int erts_proclist_same(ErtsProcList *, Process *);

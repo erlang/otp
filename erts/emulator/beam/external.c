@@ -1929,7 +1929,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		}
 
 		result_bin = erts_bin_nrml_alloc(size);
-		result_bin->orig_bytes[0] = VERSION_MAGIC;
+		result_bin->orig_bytes[0] = (byte)VERSION_MAGIC;
 		/* Next state immediately, no need to export context */
 		context->state = TTBEncode;
 		context->s.ec.flags = flags;
@@ -1987,7 +1987,7 @@ static Eterm erts_term_to_binary_int(Process* p, Eterm Term, int level, Uint fla
 		context->s.cc.result_bin = result_bin;
 
 		result_bin = erts_bin_nrml_alloc(real_size);
-		result_bin->orig_bytes[0] = VERSION_MAGIC;
+		result_bin->orig_bytes[0] = (byte) VERSION_MAGIC;
 
 		context->s.cc.destination_bin = result_bin;
 		context->s.cc.dest_len = 0;
