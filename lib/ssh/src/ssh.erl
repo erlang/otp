@@ -35,6 +35,7 @@
 	 daemon/1, daemon/2, daemon/3,
 	 daemon_info/1,
 	 default_algorithms/0,
+         chk_algos_opts/1,
 	 stop_listener/1, stop_listener/2,  stop_listener/3,
 	 stop_daemon/1, stop_daemon/2, stop_daemon/3,
 	 shell/1, shell/2, shell/3
@@ -379,6 +380,27 @@ start_shell(Error) ->
 %%--------------------------------------------------------------------
 default_algorithms() ->
     ssh_transport:default_algorithms().
+
+%%--------------------------------------------------------------------
+-spec chk_algos_opts(list(any())) -> algs_list() .
+%%--------------------------------------------------------------------
+chk_algos_opts(Opts) ->
+    case lists:foldl(
+           fun({preferred_algorithms,_}, Acc) -> Acc;
+              ({modify_algorithms,_}, Acc) -> Acc;
+              (KV, Acc) -> [KV|Acc]
+           end, [], Opts)
+    of
+        [] ->
+            case ssh_options:handle_options(client, Opts) of
+                M when is_map(M) ->
+                    maps:get(preferred_algorithms, M);
+                Others ->
+                    Others
+            end;
+        OtherOps ->
+            {error, {non_algo_opts_found,OtherOps}}
+    end.
 
 %%--------------------------------------------------------------------
 %%% Internal functions

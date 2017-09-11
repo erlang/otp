@@ -36,4 +36,5 @@
   </description>
   <xi:include href="introduction.xml"/>
   <xi:include href="using_ssh.xml"/>
+  <xi:include href="configure_algos.xml"/>
 </part>

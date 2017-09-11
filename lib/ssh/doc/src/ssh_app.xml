@@ -97,7 +97,7 @@
     <p>The <c>known_hosts</c> file contains a list of approved servers and
       their public keys. Once a server is listed, it can be verified
       without user interaction.
-      </p>
+     </p>
   </section>
  <section>
     <title>Authorized Keys</title>
@@ -135,7 +135,7 @@
     </p>
 
     <p>Supported algorithms are:</p>
-
+    <marker id="supported_algos"></marker>
     <taglist>
       <tag>Key exchange algorithms</tag>
       <item>

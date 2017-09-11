@@ -53,7 +53,8 @@ XML_PART_FILES = part_notes.xml \
 XML_CHAPTER_FILES = notes.xml \
 	introduction.xml \
 	ssh_protocol.xml \
-	using_ssh.xml
+	using_ssh.xml \
+	configure_algos.xml
 
 BOOK_FILES = book.xml
 
