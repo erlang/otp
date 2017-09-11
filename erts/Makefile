@@ -49,11 +49,6 @@ debug opt lcnt clean:
 	done
 	(cd preloaded/src && $(MAKE) ../ebin/erts.app)
 
-# ----------------------------------------------------------------------
-# These are "convenience targets", provided as shortcuts for developers
-# - don't use them in scripts or assume they will always stay like this!
-#
-
 .PHONY: smp
 smp:
 	$(V_at)for type in $(TYPES); do \
@@ -111,6 +106,11 @@ local_setup:
 		$(ERL_TOP)/bin/start_sasl.script \
 		$(ERL_TOP)/bin/start_clean.script \
 		$(ERL_TOP)/bin/no_dot_erlang.script
+
+# ----------------------------------------------------------------------
+# These are "convenience targets", provided as shortcuts for developers
+# - don't use them in scripts or assume they will always stay like this!
+#
 
 # Run the configure script
 .PHONY: configure

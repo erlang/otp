@@ -63,6 +63,28 @@ ARFLAGS=rc
 OMIT_OMIT_FP=no
 TYPE_LIBS=
 
+PROFILE_COMPILER=@PROFILE_COMPILER@
+PROFILE_MARKER=
+ifeq ($(PROFILE),generate)
+PROFILE_MARKER=_pg
+else
+ifeq ($(PROFILE),use)
+PROFILE_MARKER=_pu
+endif
+endif
+
+ifeq ($(PROFILE_COMPILER), gcc)
+PROFILE_CORRECTION=@PROFILE_CORRECTION@
+PROFILE_GENERATE=-fprofile-generate
+PROFILE_USE=-fprofile-use $(PROFILE_CORRECTION)
+PROFILE_USE_DEPS=$(OBJDIR)/%_pu.gcda
+endif
+ifeq ($(PROFILE_COMPILER), clang)
+PROFILE_GENERATE=-fprofile-instr-generate
+PROFILE_USE=-fprofile-instr-use=$(OBJDIR)/default.profdata
+PROFILE_USE_DEPS=$(OBJDIR)/default.profdata
+endif
+
 DIRTY_SCHEDULER_SUPPORT=@DIRTY_SCHEDULER_SUPPORT@
 DIRTY_SCHEDULER_TEST=@DIRTY_SCHEDULER_TEST@
 
@@ -418,8 +440,19 @@ ifeq ($(TARGET), win32)
 EMULATOR_EXECUTABLE = beam$(TF_MARKER).dll
 else
 EMULATOR_EXECUTABLE = beam$(TF_MARKER)
+PROFILE_EXECUTABLE = beam.prof$(TF_MARKER)
 endif
 CS_EXECUTABLE = erl_child_setup$(TYPEMARKER)
+
+ifeq ($(PROFILE), generate)
+EMULATOR_EXECUTABLE = $(PROFILE_EXECUTABLE)
+ifeq ($(PROFILE_COMPILER), gcc)
+PROFILE_LDFLAGS = -fprofile-generate
+endif
+ifeq ($(PROFILE_COMPILER), clang)
+PROFILE_LDFLAGS = -fprofile-instr-generate
+endif
+endif
 
 # ----------------------------------------------------------------------
 
@@ -688,16 +721,33 @@ $(OBJDIR)/beams.$(RES_EXT): $(TARGET)/beams.rc
 
 endif
 
-ifneq ($(filter tile-%,$(TARGET)),)
-$(OBJDIR)/beam_emu.o: beam/beam_emu.c
-	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) \
-         $(INCLUDES) -c $< -o $@
-else
 # Usually the same as the default rule, but certain platforms (e.g. win32) mix
 # different compilers
 $(OBJDIR)/beam_emu.o: beam/beam_emu.c
 	$(V_EMU_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
-endif
+
+$(OBJDIR)/%_pg.o: beam/%.c
+	$(V_CC) $(PROFILE_GENERATE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+$(OBJDIR)/%_pu.o: beam/%.c $(PROFILE_USE_DEPS)
+	$(V_CC) $(PROFILE_USE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
+$(OBJDIR)/PROFILE: $(BINDIR)/$(PROFILE_EXECUTABLE)
+	$(V_at)echo " PROFILE ${PROFILE_EXECUTABLE}"
+	$(V_at)rm -f $(OBJDIR)/erl*.profraw
+	$(V_at)set -e; LLVM_PROFILE_FILE="$(OBJDIR)/erlc-%m.profraw" \
+          ERL_FLAGS="-emu_type prof${TYPEMARKER} +S 1" $(ERLC) -DPGO \
+	  -o $(OBJDIR) test/estone_SUITE.erl > $(OBJDIR)/PROFILE_LOG
+	$(V_at)set -e; LLVM_PROFILE_FILE="$(OBJDIR)/erl-%m.profraw" \
+	  ERL_FLAGS="-emu_type prof${TYPEMARKER} +S 1" $(ERL) -pa $(OBJDIR) \
+	  -noshell -s estone_SUITE pgo -s init stop >> $(OBJDIR)/PROFILE_LOG
+	$(V_at)touch $@
+
+$(OBJDIR)/%_pu.gcda: $(OBJDIR)/PROFILE
+	$(V_at)mv $(OBJDIR)/$*_pg.gcda $@
+	$(V_at)touch $@
+
+$(OBJDIR)/default.profdata: $(OBJDIR)/PROFILE
+	$(V_LLVM_PROFDATA) merge -output $@ $(OBJDIR)/*.profraw
 
 $(OBJDIR)/%.o: beam/%.c
 	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
@@ -759,15 +809,23 @@ $(ERL_TOP)/lib/%.beam:
 
 INIT_OBJS = $(OBJDIR)/erl_main.o	$(PRELOAD_OBJ)
 
+# -fprofile-correction is needed in order to use PGO on erl_process
+# as multiple threads execute in that file.
+ifeq ($(PROFILE_CORRECTION),)
+PROFILE_OBJS = $(OBJDIR)/beam_emu.o
+RUN_OBJS = $(OBJDIR)/erl_process.o
+else
+PROFILE_OBJS = $(OBJDIR)/beam_emu.o	$(OBJDIR)/erl_process.o
+endif
+
 EMU_OBJS = \
-	$(OBJDIR)/beam_emu.o		$(OBJDIR)/beam_opcodes.o \
+	$(OBJDIR)/beam_opcodes.o \
 	$(OBJDIR)/beam_load.o		$(OBJDIR)/beam_bif_load.o \
 	$(OBJDIR)/beam_debug.o		$(OBJDIR)/beam_bp.o \
-	$(OBJDIR)/beam_catches.o \
-	$(OBJDIR)/code_ix.o \
+	$(OBJDIR)/beam_catches.o 	$(OBJDIR)/code_ix.o \
 	$(OBJDIR)/beam_ranges.o
 
-RUN_OBJS = \
+RUN_OBJS += \
 	$(OBJDIR)/erl_alloc.o		$(OBJDIR)/erl_mtrace.o \
 	$(OBJDIR)/erl_alloc_util.o	$(OBJDIR)/erl_goodfit_alloc.o \
 	$(OBJDIR)/erl_bestfit_alloc.o	$(OBJDIR)/erl_afit_alloc.o \
@@ -783,7 +841,7 @@ RUN_OBJS = \
 	$(OBJDIR)/utils.o		$(OBJDIR)/bif.o \
 	$(OBJDIR)/io.o 			$(OBJDIR)/erl_printf_term.o\
 	$(OBJDIR)/erl_debug.o		$(OBJDIR)/erl_md5.o \
-	$(OBJDIR)/erl_message.o		$(OBJDIR)/erl_process.o \
+	$(OBJDIR)/erl_message.o		 \
 	$(OBJDIR)/erl_process_dict.o	$(OBJDIR)/erl_process_lock.o \
 	$(OBJDIR)/erl_port_task.o	$(OBJDIR)/erl_arith.o \
 	$(OBJDIR)/time.o		$(OBJDIR)/erl_time_sup.o  \
@@ -925,20 +983,22 @@ ifdef HIPE_ENABLED
 EXTRA_BASE_OBJS += $(HIPE_OBJS)
 endif
 
-BASE_OBJS = $(EMU_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS) $(LTTNG_OBJS)
+BASE_OBJS = $(EMU_OBJS) $(RUN_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS) \
+	$(LTTNG_OBJS) $(DRV_OBJS) $(NIF_OBJS)
 
-before_DTrace_OBJS =	$(BASE_OBJS) $(DRV_OBJS) $(NIF_OBJS)
+PROF_OBJS = $(patsubst %.o,%$(PROFILE_MARKER).o,$(PROFILE_OBJS)) $(BASE_OBJS)
 
-DTRACE_OBJS =
+OBJS = $(PROF_OBJS)
+
 ifdef DTRACE_ENABLED_2STEP
-DTRACE_OBJS = $(OBJDIR)/erlang_dtrace.o
-$(OBJDIR)/erlang_dtrace.o: $(before_DTrace_OBJS) $(TARGET)/erlang_dtrace.h
+# The $(PROFILE_MARKER) is placed in the object file name in order to
+# make sure we re-compile with the new object files for the profiled emulator
+OBJS += $(OBJDIR)/erlang$(PROFILE_MARKER)_dtrace.o
+$(OBJDIR)/erlang$(PROFILE_MARKER)_dtrace.o: $(PROF_OBJS) $(TARGET)/erlang_dtrace.h
 	dtrace -G -C -Ibeam \
 	  -s beam/erlang_dtrace.d \
-	  -o $@ $(before_DTrace_OBJS)
+	  -o $@ $(PROF_OBJS)
 endif
-
-OBJS = $(before_DTrace_OBJS) $(DTRACE_OBJS)
 
 $(INIT_OBJS): $(TTF_DIR)/GENERATED
 $(OBJS): $(TTF_DIR)/GENERATED
@@ -1031,8 +1091,8 @@ $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 
 else
 $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
-	$(ld_verbose)$(PURIFY) $(LD) -o $(BINDIR)/$(EMULATOR_EXECUTABLE) \
-	$(HIPEBEAMLDFLAGS) $(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) \
+	$(ld_verbose)$(PURIFY) $(LD) -o $@ \
+	$(HIPEBEAMLDFLAGS) $(PROFILE_LDFLAGS) $(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS) \
 	$(STATIC_NIF_LIBS) $(STATIC_DRIVER_LIBS) $(LIBS)
 
 endif

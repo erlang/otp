@@ -316,6 +316,7 @@ endif
 # The steps to build a working system are:
 #   * build an emulator
 #   * setup the erl and erlc program in bootstrap/bin
+#   * optionally run pgo and build optimized emulator
 #   * build additional compilers and copy them into bootstrap/lib
 #   * use the bootstrap erl and erlc to build all the libs
 #
@@ -396,7 +397,7 @@ else
 endif
 	cd $(ERL_TOP)/erts && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
-	    $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" release
+	    $(MAKE) BUILD_ALL=1 PROFILE=$(PROFILE) TESTROOT="$(RELEASE_ROOT)" release
 ifeq ($(RELEASE_ROOT),)
 	$(INSTALL_DATA) "$(ERL_TOP)/OTP_VERSION" "$(OTP_DEFAULT_RELEASE_PATH)/releases/@OTP_REL@"
 else
@@ -438,10 +439,24 @@ BOOT_BINDIR=$(BOOTSTRAP_ROOT)/bootstrap/erts/bin
 BEAM_EVM=$(ERL_TOP)/bin/$(TARGET)/beam_evm
 BOOTSTRAP_COMPILER  =  $(BOOTSTRAP_TOP)/primary_compiler
 
+# otp.mk is only used to figure out if we are doing PGO or not
+include $(ERL_TOP)/make/$(TARGET)/otp.mk
+
 .PHONY: emulator libs kernel stdlib compiler hipe syntax_tools preloaded
 
-emulator:
-	$(make_verbose)cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) NO_START_SCRIPTS=true $(TYPE) FLAVOR=$(FLAVOR)
+ifeq ($(USE_PGO), true)
+PROFILE=use
+PROFILE_EMU_DEPS=emulator_profile_generate bootstrap_setup
+emulator_profile_generate:
+	$(make_verbose)cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) NO_START_SCRIPTS=true $(TYPE) FLAVOR=$(FLAVOR) PROFILE=generate
+else
+PROFILE=
+PROFILE_EMU_DEPS=
+endif
+
+emulator: $(PROFILE_EMU_DEPS)
+	$(make_verbose)cd erts && ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
+	  $(MAKE) NO_START_SCRIPTS=true $(TYPE) FLAVOR=$(FLAVOR) PROFILE=$(PROFILE)
 
 libs:
 ifeq ($(OTP_SMALL_BUILD),true)
@@ -1007,7 +1022,7 @@ install-docs:
 install.emulator:
 	cd erts && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
-	  $(MAKE) TESTROOT="$(ERLANG_LIBDIR)" release
+	  $(MAKE) PROFILE=$(PROFILE) TESTROOT="$(ERLANG_LIBDIR)" release
 
 install.libs:
 ifeq ($(OTP_SMALL_BUILD),true)
