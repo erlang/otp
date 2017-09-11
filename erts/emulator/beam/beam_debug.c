@@ -489,6 +489,14 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'n':		/* Nil */
 	    erts_print(to, to_arg, "[]");
 	    break;
+        case 'S':               /* Register */
+            {
+                Uint reg_type = (*ap & 1) ? 'y' : 'x';
+                Uint n = ap[0] / sizeof(Eterm);
+                erts_print(to, to_arg, "%c(%d)", reg_type, n);
+		ap++;
+                break;
+            }
 	case 's':		/* Any source (tagged constant or register) */
 	    tag = loader_tag(*ap);
 	    if (tag == LOADER_X_REG) {
