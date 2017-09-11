@@ -1251,9 +1251,13 @@ check_sane_openssl_version(Version) ->
 		    true;
 		{_, "OpenSSL 1.0.1" ++ _} ->
 		    true;
-		{'tlsv1.2', "OpenSSL 1.0" ++ _} ->
+		{'tlsv1.2', "OpenSSL 1.0.0" ++ _} ->
 		    false;
-		{'tlsv1.1', "OpenSSL 1.0" ++ _} ->
+		{'tlsv1.1', "OpenSSL 1.0.0" ++ _} ->
+		    false;
+                {'dtlsv1.2', "OpenSSL 1.0.0" ++ _} ->
+		    false;
+		{'dtlsv1',  "OpenSSL 1.0.0" ++ _} ->
 		    false;
 		{'tlsv1.2', "OpenSSL 0" ++ _} ->
 		    false;
