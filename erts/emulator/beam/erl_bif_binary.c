@@ -229,13 +229,6 @@ static void dump_ac_node(ACNode *node, int indent, int ch);
  MYALIGN(sizeof(ACTrie)))      /* Structure */
 
 
-#ifndef MAX
-#define MAX(A,B) (((A) > (B)) ? (A) : (B))
-#endif
-
-#ifndef MIN
-#define MIN(A,B) (((A) > (B)) ? (B) : (A))
-#endif
 /*
  * Callback for the magic binary
  */

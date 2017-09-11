@@ -32,15 +32,6 @@
 #include "erl_bits.h"
 #include "erl_binary.h"
 
-#ifdef MAX
-#undef MAX
-#endif
-#define MAX(x,y) (((x)>(y))?(x):(y))
-#ifdef MIN
-#undef MIN
-#endif
-#define MIN(x,y) (((x)<(y))?(x):(y))
-
 #if defined(WORDS_BIGENDIAN)
 # define BIT_ENDIAN_MACHINE 0
 #else

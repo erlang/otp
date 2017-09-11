@@ -33,14 +33,6 @@
 
 #define INFL_DICT_SZ    (32768)
 
-#ifndef MAX
-#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
-#endif
-
-#ifndef MIN
-#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
-#endif
-
 /* NIF interface declarations */
 static int load(ErlNifEnv *env, void** priv_data, ERL_NIF_TERM load_info);
 static int upgrade(ErlNifEnv *env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
