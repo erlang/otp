@@ -156,7 +156,8 @@ end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
-init_per_group(basic, Config) ->
+init_per_group(basic, Config0) ->
+    Config = ssl_test_lib:clean_tls_version(Config0),
     case ssl_test_lib:supports_ssl_tls_version(sslv2) of
 	true ->
 	    [{v2_hello_compatible, true} | Config];
