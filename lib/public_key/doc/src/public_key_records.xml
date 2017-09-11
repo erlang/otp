@@ -171,9 +171,9 @@
 #'ECPrivateKey'{
           version,       % integer()
 	  privateKey,    % binary()  
-	  parameters,    % der_encoded() - {'EcpkParameters', #'ECParameters'{}} |
-	                                   {'EcpkParameters', {namedCurve, oid()}} |
-	                                   {'EcpkParameters', 'NULL'} % Inherited by CA
+          parameters,    % {ecParameters, #'ECParameters'{}} |
+                         % {namedCurve, Oid::tuple()} |
+                         % {implicitlyCA, 'NULL'}
 	  publicKey      % bitstring()
 	  }.
 	  

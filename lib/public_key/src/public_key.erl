@@ -71,7 +71,9 @@
 -type rsa_private_key()      ::  #'RSAPrivateKey'{}.
 -type dsa_private_key()      ::  #'DSAPrivateKey'{}.
 -type dsa_public_key()       :: {integer(), #'Dss-Parms'{}}.
--type ec_public_key()        :: {#'ECPoint'{},{namedCurve, Oid::tuple()} | #'ECParameters'{}}.
+-type ecpk_parameters() :: {ecParameters, #'ECParameters'{}} | {namedCurve, Oid::tuple()}.
+-type ecpk_parameters_api() :: ecpk_parameters() | #'ECParameters'{} | {namedCurve, Name::atom()}.
+-type ec_public_key()        :: {#'ECPoint'{}, ecpk_parameters_api()}.
 -type ec_private_key()       :: #'ECPrivateKey'{}.
 -type der_encoded()          :: binary().
 -type pki_asn1_type()        ::  'Certificate' | 'RSAPrivateKey' | 'RSAPublicKey'
@@ -399,9 +401,7 @@ dh_gex_group(Min, N, Max, Groups) ->
 %%--------------------------------------------------------------------
 -spec generate_key(#'DHParameter'{}) ->
                           {Public::binary(), Private::binary()};
-                  ({namedCurve, Name ::oid()}) ->
-                          #'ECPrivateKey'{};
-                  (#'ECParameters'{}) ->
+                  (ecpk_parameters_api()) ->
                           #'ECPrivateKey'{};
                   ({rsa, Size::pos_integer(), PubExp::pos_integer()}) ->
                           #'RSAPrivateKey'{}.
@@ -411,6 +411,8 @@ dh_gex_group(Min, N, Max, Groups) ->
 generate_key(#'DHParameter'{prime = P, base = G}) ->
     crypto:generate_key(dh, [P, G]);
 generate_key({namedCurve, _} = Params) ->
+    ec_generate_key(Params);
+generate_key({ecParameters, _} = Params) ->
     ec_generate_key(Params);
 generate_key(#'ECParameters'{} = Params) ->
     ec_generate_key(Params);
@@ -1286,22 +1288,34 @@ format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
 								   is_integer(D) ->
    [E, N, D].
 
+-spec ec_generate_key(ecpk_parameters_api()) -> #'ECPrivateKey'{}.
 ec_generate_key(Params) ->
     Curve = ec_curve_spec(Params),
     Term = crypto:generate_key(ecdh, Curve),
-    ec_key(Term, Params).
+    NormParams = ec_normalize_params(Params),
+    ec_key(Term, NormParams).
 
+-spec ec_normalize_params(ecpk_parameters_api()) -> ecpk_parameters().
+ec_normalize_params({namedCurve, Name}) when is_atom(Name) ->
+	{namedCurve, pubkey_cert_records:namedCurves(Name)};
+ec_normalize_params(#'ECParameters'{} = ECParams) ->
+	{ecParameters, ECParams};
+ec_normalize_params(Other) -> Other.
+
+-spec ec_curve_spec(ecpk_parameters_api()) -> term().
 ec_curve_spec( #'ECParameters'{fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor }) ->
     Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'FieldID'.fieldType),
 	     FieldId#'FieldID'.parameters},
     Curve = {PCurve#'Curve'.a, PCurve#'Curve'.b, none},
     {Field, Curve, Base, Order, CoFactor};
+ec_curve_spec({ecParameters, ECParams}) ->
+	ec_curve_spec(ECParams);
 ec_curve_spec({namedCurve, OID}) when is_tuple(OID), is_integer(element(1,OID)) ->
     ec_curve_spec({namedCurve,  pubkey_cert_records:namedCurves(OID)});
 ec_curve_spec({namedCurve, Name}) when is_atom(Name) ->
     crypto:ec_curve(Name).
 
-
+-spec ec_key({PubKey::term(), PrivateKey::term()}, Params::ecpk_parameters()) -> #'ECPrivateKey'{}.
 ec_key({PubKey, PrivateKey}, Params) ->
     #'ECPrivateKey'{version = 1,
 		    privateKey = PrivateKey,

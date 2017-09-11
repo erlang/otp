@@ -60,7 +60,8 @@ all() ->
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, ec_pem, encrypted_pem,
-			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem]},
+			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem, ec_pem2,
+                  ec_pem_encode_generated]},
      {ssh_public_key_decode_encode, [],
       [ssh_rsa_public_key, ssh_dsa_public_key, ssh_ecdsa_public_key,
        ssh_rfc4716_rsa_comment, ssh_rfc4716_dsa_comment,
@@ -217,9 +218,41 @@ ec_pem(Config) when is_list(Config) ->
     true = check_entry_type(ECParams, 'EcpkParameters'),
     ECPrivKey = public_key:pem_entry_decode(Entry2),
     true = check_entry_type(ECPrivKey, 'ECPrivateKey'),
+    true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters'),
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([Entry1, Entry2])).
     
+ec_pem2() ->
+    [{doc, "EC key w/explicit params PEM-file decode/encode"}].
+ec_pem2(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+
+    %% Load key with explicit curve parameters.  Generated with...
+    %% openssl ecparam -name secp521r1 -genkey -param_enc explicit -out ec_key2.pem
+    {ok, ECPrivPem} = file:read_file(filename:join(Datadir, "ec_key2.pem")),
+    [{'EcpkParameters', _, not_encrypted} = Entry1,
+     {'ECPrivateKey', _, not_encrypted} = Entry2] = public_key:pem_decode(ECPrivPem),
+
+    ECParams = public_key:pem_entry_decode(Entry1),
+    true = check_entry_type(ECParams, 'EcpkParameters'),
+    ECPrivKey = public_key:pem_entry_decode(Entry2),
+    true = check_entry_type(ECPrivKey, 'ECPrivateKey'),
+    true = check_entry_type(ECPrivKey#'ECPrivateKey'.parameters, 'EcpkParameters'),
+    ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
+    ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([Entry1, Entry2])).
+
+
+ec_pem_encode_generated() ->
+    [{doc, "PEM-encode generated EC key"}].
+ec_pem_encode_generated(Config) ->
+
+    Key1 = public_key:generate_key({namedCurve, 'secp384r1'}),
+    public_key:pem_entry_encode('ECPrivateKey', Key1),
+
+    Key2 = public_key:generate_key({namedCurve, ?'secp384r1'}),
+    public_key:pem_entry_encode('ECPrivateKey', Key2).
+
+
 %%--------------------------------------------------------------------
 
 encrypted_pem() ->
@@ -1095,7 +1128,7 @@ check_entry_type(#'ECPrivateKey'{}, 'ECPrivateKey') ->
     true;
 check_entry_type({namedCurve, _}, 'EcpkParameters') ->
     true;
-check_entry_type(#'ECParameters'{}, 'EcpkParameters') ->
+check_entry_type({ecParameters, #'ECParameters'{}}, 'EcpkParameters') ->
     true;
 check_entry_type(_,_) ->
     false.
