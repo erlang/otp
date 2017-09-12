@@ -772,12 +772,16 @@ tab_is_disj(K1, T1, T2) ->
   end.
 
 merge_tables(T1, T2) ->
-  ets:safe_fixtable(T1, true),
   tab_merge(ets:first(T1), T1, T2).
 
 tab_merge('$end_of_table', T1, T2) ->
-  true = ets:delete(T1),
-  T2;
+  case ets:first(T1) of % no safe_fixtable()...
+    '$end_of_table' ->
+      true = ets:delete(T1),
+      T2;
+    Key ->
+      tab_merge(Key, T1, T2)
+  end;
 tab_merge(K1, T1, T2) ->
   Vs = ets:lookup(T1, K1),
   NextK1 = ets:next(T1, K1),
