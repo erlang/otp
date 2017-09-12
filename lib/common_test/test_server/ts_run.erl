@@ -96,6 +96,9 @@ ct_run_test(Dir, CommonTestArgs) ->
 	case ct:run_test(CommonTestArgs) of
 	    {_,_,_} ->
 		ok;
+            {error,{make_failed, _Modules} = Error} ->
+		io:format("ERROR: ~P\n", [Error,20]),
+                erlang:halt(123, [{flush,false}]);
 	    {error,Error} ->
 		io:format("ERROR: ~P\n", [Error,20]);
 	    Other ->
@@ -284,6 +287,10 @@ tricky_print_data(Port, Timeout) ->
             receive
                 {Port, {exit_status, 0}} ->
                     ok;
+                {Port, {exit_status, 123 = N}} ->
+                    io:format(user, "Test run exited with status ~p,"
+                              "aborting rest of test~n", [N]),
+                    erlang:halt(123, [{flush,false}]);
                 {Port, {exit_status, N}} ->
                     io:format(user, "Test run exited with status ~p~n", [N])
             after 1 ->

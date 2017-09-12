@@ -60,7 +60,7 @@ main(CaseDir, Rule, Opts) ->
     Objs = [gen_obj(I) || {I,_,_} <- D1],
     DupObjs = [gen_dup_obj(I, T) || {I,T,_} <- D1],
     DupObjRefs0 = [gen_dup_obj_refs(I) || {I,_,_} <- D1],
-    DupObjRefs = string:join(DupObjRefs0, " |\n"),
+    DupObjRefs = lists:join(" |\n", DupObjRefs0),
     Asn1Spec = 'UniqueObjectSets',
     A = ["UniqueObjectSets DEFINITIONS AUTOMATIC TAGS ::=\n",
 	 "BEGIN\n\n",

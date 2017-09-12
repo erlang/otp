@@ -38,7 +38,7 @@ read_pem(File) ->
 
 
 extract_base64(Binary) ->
-    extract_base64_lines(string:tokens(binary_to_list(Binary), "\n")).
+    extract_base64_lines(string:lexemes(binary_to_list(Binary), "\n")).
 
 extract_base64_lines(["-----BEGIN"++_ | Lines]) ->
     take_base64_lines(Lines, _Acc = []);
