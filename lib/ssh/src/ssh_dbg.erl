@@ -77,7 +77,15 @@ fmt_fun(F) -> fun(Fmt,Args,Data) -> F(Fmt,Args), Data end.
 id_fun() ->  fun(X) -> X end.
 
 %%%----------------------------------------------------------------
-dbg_ssh(auth) ->
+dbg_ssh(What) ->
+    case [E || E <- lists:flatten(dbg_ssh0(What)),
+               element(1,E) =/= ok] of
+        [] -> ok;
+        Other -> Other
+    end.
+            
+
+dbg_ssh0(auth) ->
     [dbg:tp(ssh_transport,hello_version_msg,1, x),
      dbg:tp(ssh_transport,handle_hello_version,1, x),
      dbg:tp(ssh_message,encode,1, x),
@@ -87,7 +95,7 @@ dbg_ssh(auth) ->
                [publickey_msg, password_msg, keyboard_interactive_msg])
     ];
 
-dbg_ssh(hostkey) ->
+dbg_ssh0(hostkey) ->
     [dbg:tpl(ssh_transport, verify_host_key, 4, x),
      dbg:tp(ssh_transport, verify, 4, x),
      dbg:tpl(ssh_transport, known_host_key, 3, x),
@@ -96,9 +104,9 @@ dbg_ssh(hostkey) ->
      dbg:tpl(ssh_transport, is_host_key, 5, x)
     ];
 
-dbg_ssh(msg) ->
-    [dbg_ssh(hostkey),
-     dbg_ssh(auth),
+dbg_ssh0(msg) ->
+    [dbg_ssh0(hostkey),
+     dbg_ssh0(auth),
      dbg:tp(ssh_message,encode,1, x),
      dbg:tp(ssh_message,decode,1, x),
      dbg:tpl(ssh_transport,select_algorithm,4, x),
@@ -252,8 +260,14 @@ msg_formater(_, _M, D) ->
 
 %%%----------------------------------------------------------------
 -record(data, {writer,
+               initialized,
                acc}).
 
+fmt(Fmt, Args,  D=#data{initialized=false}) ->
+    fmt(Fmt, Args,
+        D#data{acc = (D#data.writer)("~s~n", [initial_info()], D#data.acc),
+               initialized = true}
+       );
 fmt(Fmt, Args,  D=#data{writer=Write, acc=Acc}) ->
     D#data{acc = Write(Fmt,Args,Acc)}.
 
@@ -268,9 +282,46 @@ setup_tracer(Type, WriteFun, MangleArgFun, Init) ->
 		      msg_formater(Type, MangleArgFun(Arg), D)
 	      end,
     InitialData = #data{writer = WriteFun,
+                        initialized = false,
                         acc = Init},
     {ok,_} = dbg:tracer(process, {Handler, InitialData}),
     ok.
+
+
+initial_info() ->
+    Lines =
+        [ts(erlang:timestamp()),
+         "",
+         "SSH:"]
+        ++ as_list_of_lines(case application:get_key(ssh,vsn) of
+                                {ok,Vsn} -> Vsn;
+                                _ -> "(ssh not started)"
+                            end)
+        ++ ["",
+            "Cryptolib:"]
+        ++ as_list_of_lines(crypto:info_lib())
+        ++ ["",
+            "Crypto app:"]
+        ++ as_list_of_lines(crypto:supports()),
+    W = max_len(Lines),
+    append_lines([line_of($*, W+4)]
+                 ++ prepend_lines("* ", Lines)
+                 ++ [line_of($-, W+4)],
+                 io_lib:nl()
+               ).
+    
+    
+as_list_of_lines(Term) ->
+    prepend_lines("  ",
+                  string:tokens(lists:flatten(io_lib:format("~p",[Term])),
+                                io_lib:nl()  % Get line endings in current OS
+                               )
+                 ).
+
+line_of(Char,W) -> lists:duplicate(W,Char).
+max_len(L) -> lists:max([length(S) || S<-L]).
+append_lines(L, X)  -> [S++X || S<-L].
+prepend_lines(X, L) -> [X++S || S<-L].
 
 %%%----------------------------------------------------------------
 shrink_bin(B) when is_binary(B), size(B)>256 -> {'*** SHRINKED BIN',
