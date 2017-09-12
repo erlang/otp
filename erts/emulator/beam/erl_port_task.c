@@ -1438,10 +1438,10 @@ erts_port_task_schedule(Eterm id,
 	erts_thr_progress_unmanaged_continue(dhndl);
     }
 
-    if (!pp)
-	goto fail;
-
     if (type != ERTS_PORT_TASK_PROC_SIG) {
+        if (!pp)
+            goto fail;
+
 	ptp = port_task_alloc();
 
 	ptp->type = type;
@@ -1479,6 +1479,9 @@ erts_port_task_schedule(Eterm id,
 	ptp->u.alive.td.psig.callback = va_arg(argp, ErtsProc2PortSigCallback);
  	ptp->u.alive.flags |= va_arg(argp, int);
 	va_end(argp);
+        if (!pp)
+            goto fail;
+
 	if (!(ptp->u.alive.flags & ERTS_PT_FLG_NOSUSPEND))
 	    set_tmp_handle(ptp, pthp);
 	else {
