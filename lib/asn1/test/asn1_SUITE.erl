@@ -266,7 +266,7 @@ replace_path(PathA, PathB) ->
     true = code:add_patha(PathB).
 
 join(Rule, Opts) ->
-    string:join([atom_to_list(Rule)|lists:map(fun atom_to_list/1, Opts)], "_").
+    lists:join("_", [atom_to_list(Rule)|lists:map(fun atom_to_list/1, Opts)]).
 
 %%------------------------------------------------------------------------------
 %% Test cases
