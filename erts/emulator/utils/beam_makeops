@@ -1128,7 +1128,9 @@ sub combine_instruction_group {
             my $offset = 0;
             my @rest = @args;
             my @new_subs;
-            my $opcase = print_name($specific, @args);
+            my $print_name = print_name($specific, @args);
+            my $opcase = $print_name;
+            my $last = $subs[$#subs];
             foreach my $s (@subs) {
                 my $code = $c_code{$s};
                 my(undef,undef,@c_args) = @{$code};
@@ -1136,7 +1138,7 @@ sub combine_instruction_group {
                 foreach (0..$#c_args) {
                     push @first, shift @rest;
                 }
-                my $size = cg_combined_size($s, 0, @first);
+                my $size = cg_combined_size($s, 1, @first);
                 $offsets{$s} = $offset
                     unless defined $offsets{$s} and $offsets{$s} >= $offset;
                 $offset += $size - 1;
@@ -1145,6 +1147,7 @@ sub combine_instruction_group {
                 push @new_subs, [$opcase,$label,$s,$size-1,@first];
                 $opcase = '';
             }
+            $spec_op_info{$print_name}->{'size'} = $offset + 1;
             $group_size = $offset if $group_size < $offset;
             push @instrs, [$specific_key,@new_subs];
         }
@@ -1181,6 +1184,8 @@ sub combine_instruction_group {
     # Now generate the code for the entire group.
     my $offset = 0;
     my @opcase_labels;
+    my %down;
+    my %up;
     for(my $i = 0; $i < @slots; $i++) {
         my $key = $slots[$i];
 
@@ -1201,6 +1206,7 @@ sub combine_instruction_group {
             my $seen_key = "$label:$next:" . scalar(@first);
             next if $opcase eq '' and $seen{$seen_key};
             $seen{$seen_key} = 1;
+            $seen_key .= $opcase;
 
             if ($opcase ne '') {
                 $gcode .= "OpCase($opcase):\n";
@@ -1222,9 +1228,12 @@ sub combine_instruction_group {
                 $transfer_to_next .= "goto $next;\n\n";
             }
 
-            my($gen_code) =
-                cg_combined_code($s, 0, $flags, $offset,
+            my($gen_code,$down,$up) =
+                cg_combined_code($s, 1, $flags, $offset,
                                  $group_size-$offset-$dec, @first);
+            my $spec_label = "$opcase$label";
+            $down{$spec_label} = $down;
+            $up{$spec_label} = $up;
             $gcode .= $gen_code . $transfer_to_next;
         }
         $offset = $order_to_offset{$slots[$i+1]} if $i < $#slots;
@@ -1233,6 +1242,26 @@ sub combine_instruction_group {
     foreach my $print_name (@opcase_labels) {
         my $info = $spec_op_info{$print_name};
         $info->{'adj'} = $info->{'size'} - $group_size - 1;
+    }
+
+    #
+    # Assemble pack specifications for all instructions in the group.
+    #
+    foreach my $instr (@instrs) {
+        my(undef,@subs) = @{$instr};
+        my $down = '';
+        my $up = '';
+        for (my $i = 0; $i < @subs; $i++) {
+            my($opcase,$label) = @{$subs[$i]};
+            my $spec_label = "$opcase$label";
+            if (defined $down{$spec_label}) {
+                $down = $down{$spec_label} . $down;
+                $up = $up . $up{$spec_label};
+            }
+        }
+        my $print_name = $subs[0]->[0];
+        my $info = $spec_op_info{$print_name};
+        $info->{'pack_spec'} = build_pack_spec("$down:$up");
     }
 
     ($group_hotness,"{\n$gcode\n}\n\n",@opcase_labels);
@@ -1296,7 +1325,7 @@ sub code_gen {
 
     my $c_code_ref = $c_code{$name};
     if ($pack and defined $c_code_ref and $name ne 'catch') {
-        ($var_decls, $pack_spec, @args) = do_pack(@args);
+        ($var_decls, $pack_spec, @args) = do_pack($offset, @args);
     }
 
     #
@@ -1572,7 +1601,7 @@ sub needs_do_wrapper {
 }
 
 sub do_pack {
-    my(@args) = @_;
+    my($offset,@args) = @_;
     my($packable_args) = 0;
     my @bits_needed;            # Bits needed for each argument.
 
@@ -1750,7 +1779,7 @@ sub do_pack {
 
                 if ($ap == 0) {
                     $pack_prefix .= "Eterm $packed_var = " .
-                        arg_offset($size) . ";\n";
+                        arg_offset($size+$offset) . ";\n";
                     $up .= "p";
                     $down = "P$down";
                     $this_size = 1;
