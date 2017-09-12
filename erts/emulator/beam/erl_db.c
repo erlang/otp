@@ -3550,13 +3550,7 @@ static SWord proc_cleanup_fixed_table(Process* p, DbFixation* fix)
 	    ASSERT(sizeof(DbFixation) == ERTS_ALC_DBG_BLK_SZ(fix));
 	    ERTS_DB_ALC_MEM_UPDATE_(tb, sizeof(DbFixation), 0);
 	}
-	else {
-	    ASSERT(fix->counter == 0);
-	}
 	db_unlock(tb, LCK_WRITE_REC);
-    }
-    else {
-	ASSERT(fix->counter == 0);
     }
 
     erts_bin_release(fix->tabs.btid);
@@ -3785,11 +3779,8 @@ static void free_fixations_op(DbFixation* fix, void* vctx)
 {
     struct free_fixations_ctx* ctx = (struct free_fixations_ctx*) vctx;
     erts_aint_t diff;
-#ifdef DEBUG
-    DbTable* dbg_tb = btid2tab(fix->tabs.btid);
-#endif
 
-    ASSERT(!dbg_tb || dbg_tb == ctx->tb);
+    ASSERT(!btid2tab(fix->tabs.btid));
     ASSERT(fix->counter > 0);
     ASSERT(ctx->tb->common.status & DB_DELETE);
 
