@@ -115,7 +115,7 @@ encode_binary(Bin) ->
 decode(Bin) when is_binary(Bin) ->
     decode_binary(<<>>, Bin);
 decode(List) when is_list(List) ->
-    list_to_binary(decode_l(List)).
+    decode_list(<<>>, List).
 
 -spec mime_decode(Base64) -> Data when
       Base64 :: ascii_string() | ascii_binary(),
@@ -260,6 +260,42 @@ mime_decode_binary_after_eq(Result0, <<>>, Eq) ->
             Split = byte_size(Result0) - 1,
             <<Result:Split/bytes,_:2>> = Result0,
             Result
+    end.
+
+decode_list(A, [C1 | Cs]) ->
+    case element(C1, ?DECODE_MAP) of
+        ws -> decode_list(A, Cs);
+        B1 -> decode_list(A, B1, Cs)
+    end;
+decode_list(A, []) ->
+    A.
+
+decode_list(A, B1, [C2 | Cs]) ->
+    case element(C2, ?DECODE_MAP) of
+        ws -> decode_list(A, B1, Cs);
+        B2 -> decode_list(A, B1, B2, Cs)
+    end.
+
+decode_list(A, B1, B2, [C3 | Cs]) ->
+    case element(C3, ?DECODE_MAP) of
+        ws -> decode_list(A, B1, B2, Cs);
+        B3 -> decode_list(A, B1, B2, B3, Cs)
+    end.
+
+decode_list(A, B1, B2, B3, [C4 | Cs]) ->
+    case element(C4, ?DECODE_MAP) of
+        ws                -> decode_list(A, B1, B2, B3, Cs);
+        eq when B3 =:= eq -> only_ws(<<A/binary,B1:6,(B2 bsr 4):2>>, Cs);
+        eq                -> only_ws(<<A/binary,B1:6,B2:6,(B3 bsr 2):4>>, Cs);
+        B4                -> decode_list(<<A/binary,B1:6,B2:6,B3:6,B4:6>>, Cs)
+    end.
+
+only_ws(A, []) ->
+    A;
+only_ws(A, [C | Cs]) ->
+    case element(C, ?DECODE_MAP) of
+        ws -> only_ws(A, Cs);
+        _ -> erlang:error(function_clause)
     end.
 
 decode([], A) -> A;
