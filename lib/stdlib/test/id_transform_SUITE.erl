@@ -61,8 +61,13 @@ id_transform(Config) when is_list(Config) ->
 			"erl_id_trans.erl"]),
     {ok,erl_id_trans,Bin} = compile:file(File,[binary]),
     {module,erl_id_trans} = code:load_binary(erl_id_trans, File, Bin),
-    ct:timetrap({hours,1}),
-    run_in_test_suite().
+    case test_server:is_valgrind() of
+	false ->
+	    ct:timetrap({hours,1}),
+	    run_in_test_suite();
+	true ->
+	    {skip,"Valgrind (too slow)"}
+    end.
 
 run_in_test_suite() ->
     SuperDir = filename:dirname(filename:dirname(code:which(?MODULE))),

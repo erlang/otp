@@ -2163,6 +2163,7 @@ do_add_end_per_suite_and_skip(LastMod, LastRef, Mod, FwMod) ->
 %% Runs the specified tests, then displays/logs the summary.
 
 run_test_cases(TestSpec, Config, TimetrapData) ->
+    test_server:init_valgrind(),
     case lists:member(no_src, get(test_server_logopts)) of
 	true ->
 	    ok;
@@ -3796,7 +3797,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 
     %% run the test case
     {Result,DetectedFail,ProcsBefore,ProcsAfter} =
-	run_test_case_apply(Mod, Func, [UpdatedArgs], GrName,
+	run_test_case_apply(Num, Mod, Func, [UpdatedArgs], GrName,
 			    RunInit, TimetrapData),
     {Time,RetVal,Loc,Opts,Comment} =
 	case Result of
@@ -4366,7 +4367,7 @@ do_format_exception(Reason={Error,Stack}) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% run_test_case_apply(Mod, Func, Args, Name, RunInit,
+%% run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit,
 %%                     TimetrapData) ->
 %%  {{Time,RetVal,Loc,Opts,Comment},DetectedFail,ProcessesBefore,ProcessesAfter} |
 %%  {{died,Reason,unknown,Comment},DetectedFail,ProcessesBefore,ProcessesAfter}
@@ -4380,9 +4381,9 @@ do_format_exception(Reason={Error,Stack}) ->
 %% ProcessesBefore = ProcessesAfter = integer()
 %%
 
-run_test_case_apply(Mod, Func, Args, Name, RunInit,
+run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit,
 		    TimetrapData) ->
-    test_server:run_test_case_apply({Mod,Func,Args,Name,RunInit,
+    test_server:run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,
 				     TimetrapData}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
