@@ -79,7 +79,9 @@ dh_gex_group(Min, N, Max, undefined) ->
 dh_gex_group(Min, N, Max, Groups) ->
     case select_by_keylen(Min-10, N, Max+10, Groups) of
 	{ok,{Sz,GPs}} ->
-	    {ok, {Sz,lists:nth(crypto:rand_uniform(1, 1+length(GPs)), GPs)}};
+            Rnd = rand:uniform( length(GPs) ),
+            %% 1 =< Rnd =< length(GPs)
+	    {ok, {Sz, lists:nth(Rnd,GPs)}};
 	Other ->
 	    Other
     end.
