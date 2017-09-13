@@ -78,7 +78,7 @@
 name(normal) ->
     ?MODULE;
 name(dist) ->
-    list_to_atom(atom_to_list(?MODULE) ++ "dist").
+    list_to_atom(atom_to_list(?MODULE) ++ "_dist").
 
 %%--------------------------------------------------------------------
 -spec start_link(list()) -> {ok, pid()} | ignore | {error, term()}.
