@@ -1,10 +1,10 @@
-;;; erlang.el --- Major modes for editing and running Erlang
+;;; erlang.el --- Major modes for editing and running Erlang -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2004  Free Software Foundation, Inc.
 ;; Author:   Anders Lindgren
 ;; Keywords: erlang, languages, processes
 ;; Date:     2011-12-11
-;; Version:  2.7.0
+;; Version:  2.8.0
 ;; Package-Requires: ((emacs "24.1"))
 
 ;; %CopyrightBegin%
@@ -84,7 +84,7 @@
   "The Erlang programming language."
   :group 'languages)
 
-(defconst erlang-version "2.7"
+(defconst erlang-version "2.8.0"
   "The version number of Erlang mode.")
 
 (defcustom erlang-root-dir nil
@@ -1025,26 +1025,15 @@ files written in other languages than Erlang.")
 If nil, the inferior shell replaces the window. This is the traditional
 behaviour.")
 
-(defconst inferior-erlang-use-cmm (boundp 'minor-mode-overriding-map-alist)
-  "Non-nil means use `compilation-minor-mode' in Erlang shell.")
-
 (defvar erlang-mode-map
   (let ((map (make-sparse-keymap)))
-    (unless (boundp 'indent-line-function)
-      (define-key map "\t"        'erlang-indent-command))
     (define-key map ";"       'erlang-electric-semicolon)
     (define-key map ","       'erlang-electric-comma)
     (define-key map "<"         'erlang-electric-lt)
     (define-key map ">"         'erlang-electric-gt)
     (define-key map "\C-m"      'erlang-electric-newline)
-    (if (not (boundp 'delete-key-deletes-forward))
-        (define-key map "\177" 'backward-delete-char-untabify)
-      (define-key map [(backspace)] 'backward-delete-char-untabify))
-    ;;(unless (boundp 'fill-paragraph-function)
+    (define-key map [(backspace)] 'backward-delete-char-untabify)
     (define-key map "\M-q"      'erlang-fill-paragraph)
-    (unless (boundp 'beginning-of-defun-function)
-      (define-key map "\M-\C-a"   'erlang-beginning-of-function)
-      (define-key map "\M-\C-e"   'erlang-end-of-function))
     (define-key map "\M-\t"     'erlang-complete-tag)
     (define-key map "\C-c\M-\t" 'tempo-complete-tag)
     (define-key map "\M-+"      'erlang-find-next-tag)
@@ -1063,8 +1052,6 @@ behaviour.")
     (define-key map "\C-c\C-y"  'erlang-clone-arguments)
     (define-key map "\C-c\C-a"  'erlang-align-arrows)
     (define-key map "\C-c\C-z"  'erlang-shell-display)
-    (unless inferior-erlang-use-cmm
-      (define-key map "\C-x`"    'erlang-next-error))
     map)
   "Keymap used in Erlang mode.")
 (defvar erlang-mode-abbrev-table nil
@@ -3396,14 +3383,6 @@ at the end."
 
 ;;; Information retrieval functions.
 
-(defun erlang-buffer-substring (beg end)
-  "Like `buffer-substring-no-properties'.
-Although, this function works on all versions of Emacs."
-  (if (fboundp 'buffer-substring-no-properties)
-      (funcall (symbol-function 'buffer-substring-no-properties) beg end)
-    (buffer-substring beg end)))
-
-
 (defun erlang-get-module ()
   "Return the name of the module as specified by `-module'.
 
@@ -3421,7 +3400,7 @@ Return nil if file contains no `-module' attribute."
                            "\\)?\\)\\s *)\\s *\\."))
                  (point-max) t)
                 (erlang-remove-quotes
-                 (erlang-buffer-substring (match-beginning 1)
+                 (buffer-substring-no-properties (match-beginning 1)
                                           (match-end 1)))
               nil)
           (store-match-data md))))))
@@ -3475,10 +3454,10 @@ corresponds to the order of the parsed Erlang list."
                    (setq res (cons
                               (cons
                                (erlang-remove-quotes
-                                (erlang-buffer-substring
+                                (buffer-substring-no-properties
                                  (match-beginning 1) (match-end 1)))
                                (string-to-number
-                                (erlang-buffer-substring
+                                (buffer-substring-no-properties
                                  (match-beginning
                                   (+ 1 erlang-atom-regexp-matches))
                                  (match-end
@@ -3525,7 +3504,7 @@ function and arity as cdr part."
               (erlang-skip-blank)
               (if (looking-at erlang-atom-regexp)
                   (let ((module (erlang-remove-quotes
-                                 (erlang-buffer-substring
+                                 (buffer-substring-no-properties
                                   (match-beginning 0)
                                   (match-end 0)))))
                     (goto-char (match-end 0))
@@ -3558,7 +3537,7 @@ Normally used in conjunction with `erlang-beginning-of-clause', e.g.:
   (let ((n (if arg 0 1)))
     (and (looking-at (eval-when-compile
                        (concat "^" erlang-atom-regexp "\\s *(")))
-         (erlang-buffer-substring (match-beginning n) (match-end n)))))
+         (buffer-substring-no-properties (match-beginning n) (match-end n)))))
 
 
 (defun erlang-get-function-arrow ()
@@ -3572,7 +3551,7 @@ Normally used in conjunction with `erlang-beginning-of-clause', e.g.:
   (and
    (save-excursion
      (re-search-forward "->" (point-max) t)
-     (erlang-buffer-substring (- (point) 2) (+ (point) 1)))))
+     (buffer-substring-no-properties (- (point) 2) (+ (point) 1)))))
 
 (defun erlang-get-function-arity ()
   "Return the number of arguments of function at point, or nil."
@@ -3638,7 +3617,7 @@ The return value is a string of the form \"foo/1\"."
           (let ((start (match-end 0)))
             (goto-char (- start 1))
             (forward-sexp)
-            (erlang-buffer-substring start (- (point) 1)))
+            (buffer-substring-no-properties start (- (point) 1)))
         (error nil)))))
 
 
@@ -3703,10 +3682,10 @@ of arguments could be found, otherwise nil."
 (defun erlang-get-qualified-function-id-at-point ()
   (let ((kind 'qualified-function)
         (module (erlang-remove-quotes
-                 (erlang-buffer-substring
+                 (buffer-substring-no-properties
                   (match-beginning 1) (match-end 1))))
         (name (erlang-remove-quotes
-               (erlang-buffer-substring
+               (buffer-substring-no-properties
                 (match-beginning (1+ erlang-atom-regexp-matches))
                 (match-end (1+ erlang-atom-regexp-matches)))))
         (arity (progn
@@ -3718,14 +3697,14 @@ of arguments could be found, otherwise nil."
   (let ((kind 'module)
         (module nil)
         (name (erlang-remove-quotes
-               (erlang-buffer-substring (match-beginning 1)
+               (buffer-substring-no-properties (match-beginning 1)
                                         (match-end 1))))
         (arity nil))
     (list kind module name arity)))
 
 (defun erlang-get-some-other-id-at-point ()
   (let ((name (erlang-remove-quotes
-               (erlang-buffer-substring
+               (buffer-substring-no-properties
                 (match-beginning 0) (match-end 0))))
         (imports (erlang-get-import))
         kind module arity)
@@ -5140,7 +5119,7 @@ Erlang compilation package.")
   "Command to execute to go to the next error.
 
 Change this variable to use your favorite Erlang compilation
-package.  Not used in Emacs 21.")
+package.")
 
 
 ;;;###autoload
@@ -5199,6 +5178,13 @@ future, a new shell on an already running host will be started."
 (defvar erlang-shell-buffer-name "*erlang*"
   "The name of the Erlang link shell buffer.")
 
+(defcustom erlang-shell-prompt-read-only t
+  "If non-nil, the prompt will be read-only.
+
+Also see the description of `ielm-prompt-read-only'."
+  :type 'boolean
+  :package-version '(erlang . "2.8.0"))
+
 (defvar erlang-shell-mode-map nil
   "Keymap used by Erlang shells.")
 
@@ -5239,17 +5225,11 @@ The following special commands are available:
     (setq erlang-shell-mode-map (copy-keymap comint-mode-map))
     (erlang-shell-mode-commands erlang-shell-mode-map))
   (use-local-map erlang-shell-mode-map)
-  (unless inferior-erlang-use-cmm
-    ;; This was originally not a marker, but it needs to be, at least
-    ;; in Emacs 21, and should be backwards-compatible.  Otherwise,
-    ;; would need to test whether compilation-parsing-end is a marker
-    ;; after requiring `compile'.
-    (set (make-local-variable 'compilation-parsing-end) (copy-marker 1))
-    (set (make-local-variable 'compilation-error-list) nil)
-    (set (make-local-variable 'compilation-old-error-list) nil))
   ;; Needed when compiling directly from the Erlang shell.
   (setq compilation-last-buffer (current-buffer))
   (setq comint-prompt-regexp "^[^>=]*> *")
+  (make-local-variable 'comint-prompt-read-only)
+  (setq comint-prompt-read-only erlang-shell-prompt-read-only)
   (setq comint-eol-on-send t)
   (setq comint-input-ignoredups t)
   (setq comint-scroll-show-maximum-output t)
@@ -5263,24 +5243,20 @@ The following special commands are available:
   (comint-read-input-ring t)
   (make-local-variable 'kill-buffer-hook)
   (add-hook 'kill-buffer-hook 'comint-write-input-ring)
-  ;; At least in Emacs 21, we need to be in `compilation-minor-mode'
-  ;; for `next-error' to work.  We can avoid it clobbering the shell
-  ;; keys thus.
-  (when inferior-erlang-use-cmm
-    (compilation-minor-mode 1)
-    (set (make-local-variable 'minor-mode-overriding-map-alist)
-         `((compilation-minor-mode
-            . ,(let ((map (make-sparse-keymap)))
-                 ;; It would be useful to put keymap properties on the
-                 ;; error lines so that we could use RET and mouse-2
-                 ;; on them directly.
-                 (when (boundp 'compilation-skip-threshold) ; new compile.el
-                   (define-key map [mouse-2] #'erlang-mouse-2-command)
-                   (define-key map "\C-m" #'erlang-RET-command))
-                 (if (boundp 'compilation-menu-map)
-                     (define-key map [menu-bar compilation]
-                       (cons "Errors" compilation-menu-map)))
-                 map)))))
+  (compilation-minor-mode 1)
+  (set (make-local-variable 'minor-mode-overriding-map-alist)
+       `((compilation-minor-mode
+          . ,(let ((map (make-sparse-keymap)))
+               ;; It would be useful to put keymap properties on the
+               ;; error lines so that we could use RET and mouse-2
+               ;; on them directly.
+               (when (boundp 'compilation-skip-threshold) ; new compile.el
+                 (define-key map [mouse-2] #'erlang-mouse-2-command)
+                 (define-key map "\C-m" #'erlang-RET-command))
+               (if (boundp 'compilation-menu-map)
+                   (define-key map [menu-bar compilation]
+                     (cons "Errors" compilation-menu-map)))
+               map))))
   (erlang-tags-init)
   (run-hooks 'erlang-shell-mode-hook))
 
@@ -5309,9 +5285,7 @@ Selects Comint or Compilation mode command as appropriate."
   (define-key map "\C-a"     'comint-bol) ; Normally the other way around.
   (define-key map "\C-c\C-a" 'beginning-of-line)
   (define-key map "\C-d"     nil)       ; Was `comint-delchar-or-maybe-eof'
-  (define-key map "\M-\C-m"  'compile-goto-error)
-  (unless inferior-erlang-use-cmm
-    (define-key map "\C-x`"    'erlang-next-error)))
+  (define-key map "\M-\C-m"  'compile-goto-error))
 
 ;;;
 ;;; Inferior Erlang -- Run an Erlang shell as a subprocess.
@@ -5921,35 +5895,6 @@ Tab characters are counted by their visual width."
     (erlang-beginning-of-function)
     (if (looking-at "[a-z0-9_]+")
         (match-string 0))))
-
-;; Aliases for backward compatibility with older versions of Erlang Mode.
-;;
-;; Unfortuantely, older versions of Emacs doesn't have `defalias' and
-;; `make-obsolete' so we have to define our own `obsolete' function.
-
-(defun erlang-obsolete (sym newdef)
-  "Make the obsolete function SYM refer to the defined function NEWDEF.
-
-Simplified version of a combination `defalias' and `make-obsolete',
-it assumes that NEWDEF is loaded."
-  (defalias sym (symbol-function newdef))
-  (make-obsolete sym newdef "long ago"))
-
-
-(erlang-obsolete 'calculate-erlang-indent 'erlang-calculate-indent)
-(erlang-obsolete 'calculate-erlang-stack-indent
-                 'erlang-calculate-stack-indent)
-(erlang-obsolete 'at-erlang-keyword 'erlang-at-keyword)
-(erlang-obsolete 'at-erlang-operator 'erlang-at-operator)
-(erlang-obsolete 'beginning-of-erlang-clause 'erlang-beginning-of-clause)
-(erlang-obsolete 'end-of-erlang-clause 'erlang-end-of-clause)
-(erlang-obsolete 'mark-erlang-clause 'erlang-mark-clause)
-(erlang-obsolete 'beginning-of-erlang-function 'erlang-beginning-of-function)
-(erlang-obsolete 'end-of-erlang-function 'erlang-end-of-function)
-(erlang-obsolete 'mark-erlang-function 'erlang-mark-function)
-(erlang-obsolete 'pass-over-erlang-clause 'erlang-pass-over-function)
-(erlang-obsolete 'name-of-erlang-function 'erlang-name-of-function)
-
 
 (defconst erlang-unload-hook
   (list (lambda ()
