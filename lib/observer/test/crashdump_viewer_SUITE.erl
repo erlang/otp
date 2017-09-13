@@ -574,7 +574,10 @@ do_create_dumps(DataDir,Rel) ->
 	current ->
 	    CD3 = dump_with_args(DataDir,Rel,"instr","+Mim true"),
 	    CD4 = dump_with_strange_module_name(DataDir,Rel,"strangemodname"),
-            Bytes = rand:uniform(300000) + 100,
+	    Tmp = dump_with_args(DataDir,Rel,"trunc_bytes",""),
+            {ok,#file_info{size=Max}} = file:read_file_info(Tmp),
+            ok = file:delete(Tmp),
+            Bytes = max(15,rand:uniform(Max)),
             CD5 = dump_with_args(DataDir,Rel,"trunc_bytes",
                                  "-env ERL_CRASH_DUMP_BYTES " ++
                                      integer_to_list(Bytes)),

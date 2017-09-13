@@ -412,7 +412,8 @@ load_dump(Frame,undefined) ->
 	    error
     end;
 load_dump(Frame,FileName) ->
-    ok = observer_lib:display_progress_dialog("Crashdump Viewer",
+    ok = observer_lib:display_progress_dialog(wx:null(),
+                                              "Crashdump Viewer",
 					      "Loading crashdump"),
     crashdump_viewer:read_file(FileName),
     case observer_lib:wait_for_progress() of

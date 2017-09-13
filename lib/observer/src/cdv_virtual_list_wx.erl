@@ -174,7 +174,7 @@ do_start_detail_win(Id, #state{panel=Panel,detail_wins=Opened,
 	case lists:keyfind(Id, 1, Opened) of
 	    false ->
 		Data = call(Holder, {get_data, self(), Id}),
-		case cdv_detail_wx:start_link(Id, Data, Panel, Callback) of
+		case cdv_detail_wx:start_link(Id, Data, Panel, Callback, cdv) of
 		    {error, _} -> Opened;
 		    IW -> [{Id, IW} | Opened]
 		end;

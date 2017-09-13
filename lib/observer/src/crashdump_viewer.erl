@@ -86,6 +86,7 @@
 -define(max_line_size,100). % max number of bytes (i.e. characters) the
 			    % line_head/1 function can return
 -define(not_available,"N/A").
+-define(binary_size_progress_limit,10000).
 
 
 %% All possible tags - use macros in order to avoid misspelling in the code
@@ -307,6 +308,7 @@ init([]) ->
     ets:new(cdv_dump_index_table,[ordered_set,named_table,public]),
     ets:new(cdv_reg_proc_table,[ordered_set,named_table,public]),
     ets:new(cdv_binary_index_table,[ordered_set,named_table,public]),
+    ets:new(cdv_heap_file_chars,[ordered_set,named_table,public]),
     {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -849,7 +851,12 @@ indexify(Fd,AddrAdj,Bin,N) ->
                 _ ->
                     insert_index(Tag,Id,NewPos)
             end,
-	    put_last_tag(Tag,Id),
+	    case put_last_tag(Tag,Id) of
+                {?proc_heap,LastId} ->
+                    [{_,LastPos}] = lookup_index(?proc_heap,LastId),
+                    ets:insert(cdv_heap_file_chars,{LastId,N+Start+1-LastPos});
+                _ -> ok
+            end,
 	    indexify(Fd,AddrAdj,Rest,N1);
 	nomatch ->
 	    case progress_read(Fd) of
@@ -1485,6 +1492,8 @@ parse_dictionary(Line0, BinAddrAdj, D) ->
 read_heap(Fd,Pid,BinAddrAdj,Dict0) ->
     case lookup_index(?proc_heap,Pid) of
 	[{_,Pos}] ->
+            [{_,Chars}] = ets:lookup(cdv_heap_file_chars,Pid),
+            init_progress("Reading process heap",Chars),
 	    pos_bof(Fd,Pos),
 	    read_heap(BinAddrAdj,Dict0);
 	[] ->
@@ -1495,13 +1504,16 @@ read_heap(BinAddrAdj,Dict0) ->
     %% This function is never called if the dump is truncated in {?proc_heap,Pid}
     case get(fd) of
 	end_of_heap ->
+            end_progress(),
 	    Dict0;
 	Fd ->
 	    case bytes(Fd) of
 		"=" ++ _next_tag ->
+                    end_progress(),
 		    put(fd, end_of_heap),
 		    Dict0;
 		Line ->
+                    update_progress(length(Line)+1),
 		    Dict = parse(Line,BinAddrAdj,Dict0),
 		    read_heap(BinAddrAdj,Dict)
 	    end
@@ -2664,6 +2676,7 @@ deref_ptr(Ptr, Line, BinAddrAdj, D0) ->
 			    put(fd, end_of_heap),
 			    deref_ptr(Ptr, Line, BinAddrAdj, D0);
 			L ->
+                            update_progress(length(L)+1),
 			    D = parse(L, BinAddrAdj, D0),
 			    deref_ptr(Ptr, Line, BinAddrAdj, D)
 		    end
@@ -2731,7 +2744,7 @@ get_label([H|T], Acc) ->
 get_binary(Line0) ->
     case get_hex(Line0) of
         {N,":"++Line} ->
-            do_get_binary(N, Line, []);
+            do_get_binary(N, Line, [], false);
         _  ->
            {'#CDVTruncatedBinary',[]}
     end.
@@ -2739,17 +2752,23 @@ get_binary(Line0) ->
 get_binary(Offset,Size,Line0) ->
     case get_hex(Line0) of
         {_N,":"++Line} ->
-            do_get_binary(Size, lists:sublist(Line,(Offset*2)+1,Size*2), []);
+            Progress = Size>?binary_size_progress_limit,
+            Progress andalso init_progress("Reading binary",Size),
+            do_get_binary(Size, lists:sublist(Line,(Offset*2)+1,Size*2), [],
+                          Progress);
         _  ->
            {'#CDVTruncatedBinary',[]}
     end.
 
-do_get_binary(0, Line, Acc) ->
+do_get_binary(0, Line, Acc, Progress) ->
+    Progress andalso end_progress(),
     {list_to_binary(lists:reverse(Acc)),Line};
-do_get_binary(N, [A,B|Line], Acc) ->
+do_get_binary(N, [A,B|Line], Acc, Progress) ->
     Byte = (get_hex_digit(A) bsl 4) bor get_hex_digit(B),
-    do_get_binary(N-1, Line, [Byte|Acc]);
-do_get_binary(_N, [], _Acc) ->
+    Progress andalso update_progress(),
+    do_get_binary(N-1, Line, [Byte|Acc], Progress);
+do_get_binary(_N, [], _Acc, Progress) ->
+    Progress andalso end_progress(),
     {'#CDVTruncatedBinary',[]}.
 
 cdvbin(Offset,Size,{'#CDVBin',Pos}) ->
@@ -2766,7 +2785,8 @@ cdvbin(_,_,'#CDVNonexistingBinary') ->
 reset_tables() ->
     ets:delete_all_objects(cdv_dump_index_table),
     ets:delete_all_objects(cdv_reg_proc_table),
-    ets:delete_all_objects(cdv_binary_index_table).
+    ets:delete_all_objects(cdv_binary_index_table),
+    ets:delete_all_objects(cdv_heap_file_chars).
 
 insert_index(Tag,Id,Pos) ->
     ets:insert(cdv_dump_index_table,{{Tag,Pos},Id}).

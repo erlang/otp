@@ -52,8 +52,12 @@ init([ParentWin, HtmlText]) ->
     init(ParentWin, HtmlText, undefined, cdv).
 
 init(ParentWin, HtmlText, Tab, App) ->
+    %% If progress dialog is shown, remove it now - and sett cursor busy instead
+    observer_lib:destroy_progress_dialog(),
+    wx_misc:beginBusyCursor(),
     HtmlWin = observer_lib:html_window(ParentWin),
     wxHtmlWindow:setPage(HtmlWin,HtmlText),
+    wx_misc:endBusyCursor(),
     {HtmlWin, #state{panel=HtmlWin,expand_table=Tab,app=App}}.
 
 %%%%%%%%%%%%%%%%%%%%%%% Callbacks %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -123,11 +127,12 @@ handle_event(Event, State) ->
 
 %%%-----------------------------------------------------------------
 %%% Internal
-expand(Id,Callback,#state{expand_wins=Opened0}=State) ->
+expand(Id,Callback,#state{expand_wins=Opened0, app=App}=State) ->
     Opened =
 	case lists:keyfind(Id,1,Opened0) of
 	    false ->
-		EW = cdv_detail_wx:start_link(Id,[],State#state.panel,Callback),
+		EW = cdv_detail_wx:start_link(Id,[],State#state.panel,
+                                              Callback,App),
 		wx_object:get_pid(EW) ! active,
 		[{Id,EW}|Opened0];
 	    {_,EW} ->
