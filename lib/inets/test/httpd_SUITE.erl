@@ -73,6 +73,7 @@ all() ->
      {group, http_reload},
      {group, https_reload},
      {group, http_mime_types},
+     {group, http_post},
      mime_types_format
     ].
 
@@ -98,6 +99,7 @@ groups() ->
      {https_security, [], [{group, security}]},
      {http_reload, [], [{group, reload}]},
      {https_reload, [], [{group, reload}]},
+     {http_post, [], [{group, post}]},
      {http_mime_types, [], [alias_1_1, alias_1_0, alias_0_9]},
      {limit, [],  [max_clients_1_1, max_clients_1_0, max_clients_0_9]},  
      {custom, [],  [customize, add_default]},  
@@ -110,6 +112,7 @@ groups() ->
 		   disturbing_1_0, 
 		   disturbing_0_9
 		  ]},
+     {post, [], [chunked_post, chunked_chunked_encoded_post]},
      {basic_auth, [], [basic_auth_1_1, basic_auth_1_0, basic_auth_0_9]},
      {auth_api, [], [auth_api_1_1, auth_api_1_0, auth_api_0_9
 		    ]},
@@ -147,6 +150,7 @@ http_get() ->
      max_content_length,
      ipv6
     ].
+
 
 load() ->
     [light, medium 
@@ -214,6 +218,7 @@ init_per_group(Group, Config0)  when  Group == http_basic;
 				      Group == http_auth_api_mnesia;
 				      Group == http_security;
 				      Group == http_reload;
+                                      Group == http_post;
                                       Group == http_mime_types
 				      ->
     ok = start_apps(Group),
@@ -266,6 +271,7 @@ end_per_group(Group, _Config)  when  Group == http_basic;
 				     Group == http_htaccess;
 				     Group == http_security;
 				     Group == http_reload;
+                                     Group == http_post;
                                      Group == http_mime_types
 				     ->
     inets:stop();
@@ -290,7 +296,7 @@ end_per_group(_, _) ->
 
 %%--------------------------------------------------------------------
 init_per_testcase(Case, Config) when Case == host; Case == trace ->
-    ct:timetrap({seconds, 20}),
+    ct:timetrap({seconds, 40}),
     Prop = proplists:get_value(tc_group_properties, Config),
     Name = proplists:get_value(name, Prop),
     Cb = case Name of
@@ -616,6 +622,51 @@ ipv6(Config) when is_list(Config) ->
 	 false ->
 	     {skip, "Host does not support IPv6"}
      end.
+
+%%-------------------------------------------------------------------------
+chunked_post() ->
+    [{doc,"Test option max_client_body_chunk"}].
+chunked_post(Config) when is_list(Config) ->
+    ok = http_status("POST /cgi-bin/erl/httpd_example:post_chunked ",  
+                       {"Content-Length:833 \r\n",
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+                        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"},
+                     [{http_version, "HTTP/1.1"} |Config], 
+                     [{statuscode, 200}]),
+    ok = http_status("POST /cgi-bin/erl/httpd_example:post_chunked ",  
+                     {"Content-Length:2 \r\n",
+                        "ZZ"
+                     },
+                     [{http_version, "HTTP/1.1"} |Config], 
+                     [{statuscode, 200}]).
+
+chunked_chunked_encoded_post() ->
+    [{doc,"Test option max_client_body_chunk with chunked client encoding"}].
+chunked_chunked_encoded_post(Config) when is_list(Config) ->
+    Chunk = http_chunk:encode("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"),
+    LastChunk = http_chunk:encode_last(),
+    Chunks = lists:duplicate(10000, Chunk),
+    ok = http_status("POST /cgi-bin/erl/httpd_example:post_chunked ",  
+                     {"Transfer-Encoding:chunked \r\n",
+                      [Chunks | LastChunk]},
+                     [{http_version, "HTTP/1.1"} | Config], 
+                     [{statuscode, 200}]).
+
 
 %%-------------------------------------------------------------------------
 htaccess_1_1(Config) when is_list(Config) -> 
@@ -1568,6 +1619,7 @@ start_apps(Group) when  Group == http_basic;
 			Group == http_htaccess;
 			Group == http_security;
 			Group == http_reload;
+                        Group == http_post;
                         Group == http_mime_types->
     inets_test_lib:start_apps([inets]).
 
@@ -1614,6 +1666,8 @@ server_config(https_basic, Config) ->
     basic_conf() ++ server_config(https, Config);
 server_config(http_reload, Config) ->
     [{keep_alive_timeout, 2}]  ++ server_config(http, Config);
+server_config(http_post, Config) ->
+    [{max_client_body_chunk, 10}]  ++ server_config(http, Config);
 server_config(https_reload, Config) ->
     [{keep_alive_timeout, 2}]  ++ server_config(https, Config);
 server_config(http_limit, Config) ->

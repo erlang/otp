@@ -21,7 +21,7 @@
 -module(httpd_response).
 -export([generate_and_send_response/1, send_status/3, send_header/3, 
 	 send_body/3, send_chunk/3, send_final_chunk/2, send_final_chunk/3, 
-	 split_header/2, is_disable_chunked_send/1, cache_headers/2]).
+	 split_header/2, is_disable_chunked_send/1, cache_headers/2, handle_continuation/1]).
 -export([map_status_code/2]).
 
 -include_lib("inets/src/inets_app/inets_internal.hrl").
@@ -31,6 +31,9 @@
 
 -define(VMODULE,"RESPONSE").
 
+handle_continuation(Mod) ->
+    generate_and_send_response(Mod).
+
 %% If peername does not exist the client already discarded the
 %% request so we do not need to send a reply.
 generate_and_send_response(#mod{init_data =
@@ -39,6 +42,8 @@ generate_and_send_response(#mod{init_data =
 generate_and_send_response(#mod{config_db = ConfigDB} = ModData) ->
     Modules = httpd_util:lookup(ConfigDB, modules, ?DEFAULT_MODS),
     case traverse_modules(ModData, Modules) of
+        {continue, _} = Continue ->
+            Continue;
 	done ->
 	    ok;
 	{proceed, Data} ->
@@ -69,17 +74,15 @@ generate_and_send_response(#mod{config_db = ConfigDB} = ModData) ->
 traverse_modules(ModData,[]) ->
   {proceed,ModData#mod.data};
 traverse_modules(ModData,[Module|Rest]) ->
-    ?hdrd("traverse modules", [{callback_module, Module}]), 
     try apply(Module, do, [ModData]) of
+        {continue, _} = Continue ->
+            Continue;
 	done ->
-	    ?hdrt("traverse modules - done", []), 
-	    done;
+            done;
 	{break, NewData} ->
-	    ?hdrt("traverse modules - break", [{new_data, NewData}]), 
-	    {proceed, NewData};
+            {proceed, NewData};
 	{proceed, NewData} ->
-	    ?hdrt("traverse modules - proceed", [{new_data, NewData}]), 
-	    traverse_modules(ModData#mod{data = NewData}, Rest)
+            traverse_modules(ModData#mod{data = NewData}, Rest)
     catch 
 	T:E ->
 	    String = 
@@ -104,15 +107,10 @@ send_status(#mod{socket_type = SocketType,
 		 socket      = Socket, 
 		 config_db   = ConfigDB} = ModData, StatusCode, PhraseArgs) ->
 
-    ?hdrd("send status", [{status_code, StatusCode}, 
-			  {phrase_args, PhraseArgs}]), 
-
     ReasonPhrase = httpd_util:reason_phrase(StatusCode),
     Message      = httpd_util:message(StatusCode, PhraseArgs, ConfigDB),
     Body         = get_body(ReasonPhrase, Message),
 
-    ?hdrt("send status - header", [{reason_phrase, ReasonPhrase}, 
-     				   {message,       Message}]), 
     send_header(ModData, StatusCode, 
 		[{content_type,   "text/html"},
 		 {content_length, integer_to_list(length(Body))}]),
