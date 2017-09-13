@@ -23,6 +23,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/erl_compile.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
@@ -36,7 +37,7 @@
 	 core_roundtrip/1, asm/1, optimized_guards/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
-         bc_options/1
+         bc_options/1, optimized_away_atoms_reintroduced/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -53,7 +54,8 @@ all() ->
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
      cover, env, core_pp, core_roundtrip, asm, optimized_guards,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
-     env_compiler_options, custom_debug_info, bc_options].
+     env_compiler_options, custom_debug_info, bc_options,
+     optimized_away_atoms_reintroduced].
 
 groups() -> 
     [].
@@ -1493,3 +1495,37 @@ is_lfe_module(File, Ext) ->
 	"lfe_" ++ _ -> true;
 	_ -> false
     end.
+
+%% @doc This test covers sys_core_fold and beam_asm stages and attempts to use
+%% an atom_to_binary call on literal, which will be optimized away when
+%% compiling tests, and may fail because the funny-looking atom does not exist.
+%% The test will compile a file and load it separately from test node.
+optimized_away_atoms_reintroduced(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    ErlFile = filename:join(PrivDir, "optimized_away_atoms.erl"),
+    BeamFile = filename:join(PrivDir, "optimized_away_atoms.beam"),
+
+    %% Write a new module with random atom to test the bug
+    RandomAtomB = << <<(random:uniform(26) + $a):8>> || _ <- lists:seq(1, 32)>>,
+    RandomAtom = erlang:binary_to_atom(RandomAtomB, utf8),
+    file:write_file(ErlFile, <<
+        "-module(optimized_away_atoms).\n",
+        "-export([start/0]).\n",
+        "%% start/0 crashes if the bug exists, or prints something if not\n",
+        "start() ->\n",
+        "  X = f(),\n",
+        "  io:format(\"Atom ~p binary ~p\\n\", [",
+            "erlang:binary_to_existing_atom(X, utf8), X]).\n",
+        "%% The compiler will try to reduce this call into the call result,\n",
+        "%% losing the side effect (adding an atom to the atom table).\n",
+        "%% ERL-453 fixes that.\n",
+        "f() ->\n",
+        "  erlang:atom_to_binary('", RandomAtomB/binary, "').\n">>),
+
+    %% Create BEAM file with this module
+    compile:file(ErlFile, [report_errors, report_warnings, {outdir, PrivDir}]),
+
+    %% Check the atoms table on the compiled file, we don't need to run it
+    {ok, {_Module, [{atoms, Atoms}]}} = beam_lib:chunks(BeamFile, [atoms]),
+    ?assert(lists:keyfind(RandomAtom, 2, Atoms) =/= false),
+    ok.

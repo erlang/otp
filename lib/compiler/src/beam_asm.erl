@@ -68,7 +68,18 @@ assemble({Mod,Exp0,Attr0,Asm0,NumLabels}, ExtraChunks, SourceFile, Opts, Compile
     {Asm,Attr} = on_load(Asm0, Attr0),
     Exp = cerl_sets:from_list(Exp0),
     {Code,Dict2} = assemble_1(Asm, Exp, Dict1, []),
-    build_file(Code, Attr, Dict2, NumLabels, NumFuncs, ExtraChunks, SourceFile, Opts, CompilerOpts).
+
+    %% Populate atom dict with atoms that were optimized away during Core Fold
+    %% Atoms may possibly exist in atom Dict, but we attempt to add them anyway
+    OptAtoms = proplists:get_value(<<"optimized_away_atoms">>, Attr0, []),
+    Dict3 = lists:foldl(
+        fun(A, D0) ->
+            {_, D1} = beam_dict:atom(A, D0),
+            D1
+        end, Dict2, OptAtoms),
+
+    build_file(Code, Attr, Dict3, NumLabels, NumFuncs, ExtraChunks, SourceFile,
+               Opts, CompilerOpts).
 
 on_load(Fs0, Attr0) ->
     case proplists:get_value(on_load, Attr0) of
