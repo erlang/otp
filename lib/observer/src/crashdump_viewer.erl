@@ -205,7 +205,8 @@ do_script_start(StartFun) ->
 			    io:format("\ncdv crash: ~tp\n",[Reason])
 		    end;
 		_ ->
-		    io:format("\ncdv crash: ~p\n",[unknown_reason])
+		    %io:format("\ncdv crash: ~p\n",[unknown_reason])
+                    ok
 	    end;
 	Error ->
 	    io:format("\ncdv start failed: ~tp\n",[Error])

@@ -412,6 +412,14 @@ load_dump(Frame,undefined) ->
 	    error
     end;
 load_dump(Frame,FileName) ->
+    case maybe_warn_filename(FileName) of
+        continue ->
+            do_load_dump(Frame,FileName);
+        stop ->
+            error
+    end.
+
+do_load_dump(Frame,FileName) ->
     ok = observer_lib:display_progress_dialog(wx:null(),
                                               "Crashdump Viewer",
 					      "Loading crashdump"),
@@ -430,6 +438,33 @@ load_dump(Frame,FileName) ->
 	    {ok,FileName};
 	error ->
 	    error
+    end.
+
+maybe_warn_filename(FileName) ->
+    case os:getenv("ERL_CRASH_DUMP_SECONDS")=="0" orelse
+        os:getenv("ERL_CRASH_DUMP_BYTES")=="0" of
+        true ->
+            continue;
+        false ->
+            DumpName = case os:getenv("ERL_CRASH_DUMP") of
+                           false -> filename:absname("erl_crash.dump");
+                           Name -> filename:absname(Name)
+                       end,
+            case filename:absname(FileName) of
+                DumpName ->
+                    Warning =
+                        "WARNING: the current crashdump might be overwritten "
+                        "if the crashdump_viewer node crashes.\n\n"
+                        "Renaming the file before inspecting it will "
+                        "remove the problem.\n\n"
+                        "Do you want to continue?",
+                    case observer_lib:display_yes_no_dialog(Warning) of
+                        ?wxID_YES -> continue;
+                        ?wxID_NO -> stop
+                    end;
+                _ ->
+                    continue
+            end
     end.
 
 %%%-----------------------------------------------------------------
