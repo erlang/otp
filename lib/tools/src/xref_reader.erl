@@ -42,7 +42,8 @@
 	 %% experimental; -xref(FunEdge) is recognized.
 	 lattrs=[],            % local calls, {{mfa(),mfa()},Line}
 	 xattrs=[],            % external calls, -"-
-	 battrs=[]	       % badly formed xref attributes, term().
+	 battrs=[],	       % badly formed xref attributes, term().
+         on_load               % function name
 	 }).
 
 -include("xref.hrl").
@@ -68,15 +69,26 @@ forms([F | Fs], S) ->
 forms([], S) ->
     #xrefr{module = M, def_at = DefAt,
 	   l_call_at = LCallAt, x_call_at = XCallAt,
-	   el = LC, ex = XC, x = X, df = Depr,
+	   el = LC, ex = XC, x = X, df = Depr, on_load = OnLoad,
+	   lattrs = AL, xattrs = AX, battrs = B, unresolved = U} = S,
+    OL = case OnLoad of
+             undefined -> [];
+             F ->
+                 [{M, F, 0}]
+         end,
+    #xrefr{def_at = DefAt,
+	   l_call_at = LCallAt, x_call_at = XCallAt,
+	   el = LC, ex = XC, x = X, df = Depr, on_load = OnLoad,
 	   lattrs = AL, xattrs = AX, battrs = B, unresolved = U} = S,
     Attrs = {lists:reverse(AL), lists:reverse(AX), lists:reverse(B)},
-    {ok, M, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr}, U}.
+    {ok, M, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr, OL}, U}.
 
 form({attribute, Line, xref, Calls}, S) -> % experimental
     #xrefr{module = M, function = Fun,
 	   lattrs = L, xattrs = X, battrs = B} = S,
     attr(Calls, erl_anno:line(Line), M, Fun, L, X, B, S);
+form({attribute, _, on_load, {F, 0}}, S) ->
+    S#xrefr{on_load = F};
 form({attribute, _Line, _Attr, _Val}, S) ->
     S;
 form({function, _, module_info, 0, _Clauses}, S) ->
