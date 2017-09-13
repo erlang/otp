@@ -430,8 +430,17 @@ send
 # Optimized comparisons with one immediate/literal operand.
 #
 
-is_eq_exact Lbl R=xy C=ian => i_is_eq_exact_immed Lbl R C
+is_eq_exact Lbl S S =>
+is_eq_exact Lbl C1=c C2=c => move C1 x | is_eq_exact Lbl x C2
+is_eq_exact Lbl C=c R=xy => is_eq_exact Lbl R C
+
+is_eq_exact Lbl R=xy n => is_nil Lbl R
+is_eq_exact Lbl R=xy C=ia => i_is_eq_exact_immed Lbl R C
 is_eq_exact Lbl R=xy C=q => i_is_eq_exact_literal Lbl R C
+
+is_ne_exact Lbl S S => jump Lbl
+is_ne_exact Lbl C1=c C2=c => move C1 x | is_ne_exact Lbl x C2
+is_ne_exact Lbl C=c R=xy => is_ne_exact Lbl R C
 
 is_ne_exact Lbl R=xy C=ian => i_is_ne_exact_immed Lbl R C
 is_ne_exact Lbl R=xy C=q => i_is_ne_exact_literal Lbl R C
@@ -446,7 +455,9 @@ i_is_ne_exact_literal f xy c
 
 is_eq_exact Lbl Y=y X=x => is_eq_exact Lbl X Y
 is_eq_exact f x xy
-is_eq_exact f s s
+is_eq_exact f y y
+
+is_ne_exact f S S
 
 is_lt f x x
 is_lt f x c
@@ -461,8 +472,6 @@ is_ge f c x
 %cold
 is_ge f s s
 %hot
-
-is_ne_exact f s s
 
 is_eq f s s
 

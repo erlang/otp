@@ -32,6 +32,11 @@
 
 -import(lists, [map/2,member/2,sort/1,reverse/1,splitwith/2]).
 
+-define(is_const(Val), (element(1, Val) =:= integer orelse
+                        element(1, Val) =:= float orelse
+                        element(1, Val) =:= atom orelse
+                        element(1, Val) =:= literal)).
+
 %% instruction() describes all instructions that are used during optimzation
 %% (from beam_a to beam_z).
 -type instruction() :: atom() | tuple().
@@ -197,10 +202,20 @@ bif_to_test('>', [A,B], Fail) -> {test,is_lt,Fail,[B,A]};
 bif_to_test('<', [_,_]=Ops, Fail) -> {test,is_lt,Fail,Ops};
 bif_to_test('>=', [_,_]=Ops, Fail) -> {test,is_ge,Fail,Ops};
 bif_to_test('==', [A,nil], Fail) -> {test,is_nil,Fail,[A]};
+bif_to_test('==', [nil,A], Fail) -> {test,is_nil,Fail,[A]};
+bif_to_test('==', [C,A], Fail) when ?is_const(C) ->
+    {test,is_eq,Fail,[A,C]};
 bif_to_test('==', [_,_]=Ops, Fail) -> {test,is_eq,Fail,Ops};
+bif_to_test('/=', [C,A], Fail) when ?is_const(C) ->
+    {test,is_ne,Fail,[A,C]};
 bif_to_test('/=', [_,_]=Ops, Fail) -> {test,is_ne,Fail,Ops};
 bif_to_test('=:=', [A,nil], Fail) -> {test,is_nil,Fail,[A]};
+bif_to_test('=:=', [nil,A], Fail) -> {test,is_nil,Fail,[A]};
+bif_to_test('=:=', [C,A], Fail) when ?is_const(C) ->
+    {test,is_eq_exact,Fail,[A,C]};
 bif_to_test('=:=', [_,_]=Ops, Fail) -> {test,is_eq_exact,Fail,Ops};
+bif_to_test('=/=', [C,A], Fail) when ?is_const(C) ->
+    {test,is_ne_exact,Fail,[A,C]};
 bif_to_test('=/=', [_,_]=Ops, Fail) -> {test,is_ne_exact,Fail,Ops};
 bif_to_test(is_record, [_,_,_]=Ops, Fail) -> {test,is_record,Fail,Ops}.
 
