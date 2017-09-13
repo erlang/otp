@@ -76,10 +76,17 @@ remove(Dbs) ->
 			  true = ets:delete(Db1);
 		     (undefined) -> 
 			  ok;
-		     (ssl_pem_cache) -> 
-			  ok;
-                     (ssl_pem_cache_dist) -> 
-			  ok;
+                     (Name) when is_atom(Name) ->
+                          NormalName = ssl_pem_cache:name(normal),
+                          DistName = ssl_pem_cache:name(dist),
+                          case Name of
+                              NormalName ->
+                                  ok;
+                              DistName -> 
+                                  ok;
+                              _ ->
+                                  true = ets:delete(Name)
+                          end;
 		     (Db) ->
 			  true = ets:delete(Db)
 		  end, Dbs).
