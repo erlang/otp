@@ -65,7 +65,7 @@ GC_TEST_PRESERVE(NeedHeap, Live, PreserveTerm) {
        $PreserveTerm = reg[$Live];
        SWAPIN;
     }
-    HEAP_SPACE_VERIFIED($Nh);
+    HEAP_SPACE_VERIFIED($NeedHeap);
 }
 
 
