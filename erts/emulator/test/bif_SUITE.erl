@@ -503,6 +503,8 @@ binary_to_atom(Config) when is_list(Config) ->
     ?BADARG(binary_to_atom(id(<<255>>), utf8)),
     ?BADARG(binary_to_atom(id(<<255,0>>), utf8)),
     ?BADARG(binary_to_atom(id(<<16#C0,16#80>>), utf8)), %Overlong 0.
+    <<B:1/binary, _/binary>> = id(<<194, 163>>), %Truncated character ERL-474
+    ?BADARG(binary_to_atom(B, utf8)),
 
     %% system_limit failures.
     ?SYS_LIMIT(binary_to_atom(id(<<0:512/unit:8,255>>), utf8)),
