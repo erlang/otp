@@ -35,6 +35,7 @@
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
 	 on_load_embedded/1, on_load_errors/1, on_load_update/1,
+         on_load_trace_on_load/1,
 	 on_load_purge/1, on_load_self_call/1, on_load_pending/1,
 	 on_load_deleted/1,
 	 big_boot_embedded/1,
@@ -66,14 +67,16 @@ all() ->
      ext_mod_dep, clash, where_is_file,
      purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
-     on_load_binary, on_load_embedded, on_load_errors, on_load_update,
+     on_load_binary, on_load_embedded, on_load_errors,
+     {group, sequence},
      on_load_purge, on_load_self_call, on_load_pending,
      on_load_deleted,
      module_status,
      big_boot_embedded, native_early_modules, get_mode, normalized_paths].
 
-groups() ->
-    [].
+%% These need to run in order
+groups() -> [{sequence, [sequence], [on_load_update,
+                                     on_load_trace_on_load]}].
 
 init_per_group(_GroupName, Config) ->
 	Config.
@@ -1493,7 +1496,7 @@ do_on_load_error(ReturnValue) ->
 	    {undef,[{on_load_error,main,[],_}|_]} = Exit
     end.
 
-on_load_update(_Config) ->
+on_load_update(Config) ->
     {Mod,Code1} = on_load_update_code(1),
     {module,Mod} = code:load_binary(Mod, "", Code1),
     42 = Mod:a(),
@@ -1503,7 +1506,7 @@ on_load_update(_Config) ->
     {Mod,Code2} = on_load_update_code(2),
     {error,on_load_failure} = code:load_binary(Mod, "", Code2),
     42 = Mod:a(),
-    100 = Mod:b(99),
+    78 = Mod:b(77),
     {'EXIT',{undef,_}} = (catch Mod:never()),
     4 = erlang:trace_pattern({Mod,'_','_'}, false),
 
@@ -1514,6 +1517,9 @@ on_load_update(_Config) ->
     {'EXIT',{undef,_}} = (catch Mod:b(10)),
     {'EXIT',{undef,_}} = (catch Mod:never()),
 
+    code:purge(Mod),
+    code:delete(Mod),
+    code:purge(Mod),
     ok.
 
 on_load_update_code(Version) ->
@@ -1544,6 +1550,40 @@ on_load_update_code_1(3, Mod) ->
 	"-on_load(f/0).\n",
 	"f() -> ok.\n",
 	"c() -> 100.\n"]).
+
+%% Test -on_load while trace feature 'on_load' is enabled (OTP-14612)
+on_load_trace_on_load(Config) ->
+    Papa = self(),
+    Tracer = spawn_link(fun F() -> receive M -> Papa ! M end, F() end),
+    {tracer,[]} = erlang:trace_info(self(),tracer),
+    erlang:trace(self(), true, [call, {tracer, Tracer}]),
+    erlang:trace_pattern(on_load, true, []),
+    on_load_update(Config),
+    erlang:trace_pattern(on_load, false, []),
+    erlang:trace(self(), false, [call]),
+
+    %% WE GET TRACES FOR CALLS TO UNDEFINED FUNCTIONS ???
+    %% Remove filter when that is fixed.
+    Ms = lists:filter(fun({trace,Papa,call,
+                           {error_handler,undefined_function,
+                            [on_load_update_code,_,_]}})
+                         -> false;
+                         (_) -> true
+                      end,
+                      flush()),
+
+    [{trace, Papa, call, {on_load_update_code, a, []}},
+     {trace, Papa, call, {on_load_update_code, b, [99]}},
+     {trace, Papa, call, {on_load_update_code, c, []}}] = Ms,
+
+    exit(Tracer, normal),
+    ok.
+
+flush() ->
+    receive M -> [M | flush()]
+    after 100 -> []
+    end.
+
 
 on_load_purge(_Config) ->
     Mod = ?FUNCTION_NAME,
