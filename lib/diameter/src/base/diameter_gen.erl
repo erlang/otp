@@ -593,13 +593,9 @@ dec_AVP([], _, _, _, _, _, _, _, Avp) ->
 %% A Grouped AVP is represented as a #diameter_avp{} list with AVP
 %% as head and component AVPs as tail.
 
-set('Grouped', none, Avp, V) ->
-    {_Rec, As} = V,
-    [Avp | As];
-
-set('Grouped', _, Avp, V) ->
+set('Grouped', Fmt, Avp, V) ->
     {Rec, As} = V,
-    [Avp#diameter_avp{value = Rec} | As];
+    [set(Fmt, Avp, Rec) | As];
 
 set(_, _, Avp, V) ->
     Avp#diameter_avp{value = V}.
@@ -608,14 +604,22 @@ set(_, _, Avp, V) ->
 %%
 %% Error when decoding a grouped AVP.
 
-decode_error(true, none, _, Avp) ->
-    Avp;
+%% Ignoring errors in Failed-AVP.
+decode_error(true, Fmt, {Rec, ComponentAvps, _Errors}, Avp) ->
+    [set(Fmt, Avp, Rec) | ComponentAvps];
 
-decode_error(true, _, {Rec, _, _}, Avp) ->
-    Avp#diameter_avp{value = Rec};
-
+%% Or not. A faulty component is encoded by itself in Failed-AVP, as
+%% suggested by 7.5 of RFC 6733 (quoted below), so that errors are
+%% reported unambigiously.
 decode_error(false, _, {_, ComponentAvps, [{RC,A} | _]}, Avp) ->
     {RC, [Avp | ComponentAvps], Avp#diameter_avp{data = [A]}}.
+
+%% set/3
+
+set(none, Avp, _Name) ->
+    Avp;
+set(_, Avp, Rec) ->
+    Avp#diameter_avp{value = Rec}.
 
 %% decode_error/6
 %%
@@ -630,7 +634,22 @@ decode_error(false, Reason, Name, Mod, Opts, Avp) ->
                      ?MODULE,
                      ?LINE,
                      {Reason, Name, Avp#diameter_avp.name, Mod, Stack}),
-    rc(Reason, Avp, Opts, Mod).
+    case Reason of
+        {'DIAMETER', 5014 = RC, _} ->
+            %% Length error communicated from diameter_types or a
+            %% @custom_types/@codecs module.
+            AvpName = Avp#diameter_avp.name,
+            {RC, Avp#diameter_avp{data = Mod:empty_value(AvpName, Opts)}};
+        _ ->
+            {5004, Avp}
+    end.
+
+%% 3588/6733:
+%%
+%%   DIAMETER_INVALID_AVP_VALUE         5004
+%%      The request contained an AVP with an invalid value in its data
+%%      portion.  A Diameter message indicating this error MUST include
+%%      the offending AVPs within a Failed-AVP AVP.
 
 %% avp/6
 
@@ -786,22 +805,6 @@ avp_arity(Name, 'AVP' = AvpName, Mod, Opts, M) ->
 avp_arity(Name, AvpName, Mod, _, _) ->
     Mod:avp_arity(Name, AvpName).
 
-%% rc/4
-
-%% Length error communicated from diameter_types or a
-%% @custom_types/@codecs module.
-rc({'DIAMETER', 5014 = RC, _}, #diameter_avp{name = AvpName} = A, Opts, Mod) ->
-    {RC, A#diameter_avp{data = Mod:empty_value(AvpName, Opts)}};
-
-%% 3588:
-%%
-%%   DIAMETER_INVALID_AVP_VALUE         5004
-%%      The request contained an AVP with an invalid value in its data
-%%      portion.  A Diameter message indicating this error MUST include
-%%      the offending AVPs within a Failed-AVP AVP.
-rc(_, Avp, _, _) ->
-    {5004, Avp}.
-
 %% pack/5
 
 pack(Arity, F, Avp, Mod, [Failed | Rec]) ->
@@ -809,9 +812,9 @@ pack(Arity, F, Avp, Mod, [Failed | Rec]) ->
 
 %% set/5
 
-set(_, _, _, _, None)
-  when is_atom(None) ->
-    None;
+set(_, _, _, _, Name)
+  when is_atom(Name) ->
+    Name;
 
 set(1, F, Value, _, Map)
   when is_map(Map) ->
