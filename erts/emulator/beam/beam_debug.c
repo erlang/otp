@@ -629,13 +629,20 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 
     unpacked = ap;
     ap = addr + size;
+
+    /*
+     * In the code below, never use ap[-1], ap[-2], ...
+     * (will not work if the arguments have been packed).
+     *
+     * Instead use unpacked[-1], unpacked[-2], ...
+     */
     switch (op) {
     case op_i_select_val_lins_xfI:
     case op_i_select_val_lins_yfI:
     case op_i_select_val_bins_xfI:
     case op_i_select_val_bins_yfI:
 	{
-	    int n = ap[-1];
+	    int n = unpacked[-1];
 	    int ix = n;
             Sint32* jump_tab = (Sint32 *)(ap + n);
 
@@ -656,7 +663,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_i_select_tuple_arity_xfI:
     case op_i_select_tuple_arity_yfI:
         {
-            int n = ap[-1];
+            int n = unpacked[-1];
             int ix = n - 1; /* without sentinel */
             Sint32* jump_tab = (Sint32 *)(ap + n);
 
@@ -698,7 +705,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_i_jump_on_val_xfIW:
     case op_i_jump_on_val_yfIW:
 	{
-	    int n = ap[-2];
+	    int n = unpacked[-2];
             Sint32* jump_tab = (Sint32 *) ap;
 
             size += (n+1) / 2;
@@ -712,7 +719,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_i_jump_on_val_zero_xfI:
     case op_i_jump_on_val_zero_yfI:
 	{
-	    int n = ap[-1];
+	    int n = unpacked[-1];
             Sint32* jump_tab = (Sint32 *) ap;
 
             size += (n+1) / 2;
