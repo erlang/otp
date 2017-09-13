@@ -279,7 +279,18 @@
 	requests defined by <c>max_keep_alive_requests</c>, the server 
 	closes the connection. The server closes it even if there are 
 	queued request. Default is no limit.</p>
-      </item>   
+      </item>
+
+      
+      <tag><marker id="max_client_body_chunk"></marker>{max_client_body_chunk, integer()}</tag>
+      <item>
+	<p>Enforces chunking of a HTTP PUT or POST body data to be deliverd
+	to the mod_esi callback. Note this is not supported for mod_cgi. 
+	Default is no limit e.i the whole body is deliverd as one entity, which could
+	be very memory consuming. <seealso marker="mod_esi">mod_esi(3)</seealso>.
+	</p>
+      </item>
+      
     </taglist>
     
     <marker id="props_admin"></marker>
