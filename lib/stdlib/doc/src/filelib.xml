@@ -217,6 +217,11 @@
         <p>Other characters represent themselves. Only filenames that
           have exactly the same character in the same position match.
           Matching is case-sensitive, for example, "a" does not match "A".</p>
+	<p>Directory separators must always be written as <c>/</c>, even on
+	Windows.</p>
+	<p>A character preceded by <c>\</c> loses its special meaning. Note
+	that <c>\</c> must be written as <c>\\</c> in a string literal.
+	For example, "\\?*" will match any filename starting with <c>?</c>.</p>
         <p>Notice that multiple "*" characters are allowed
           (as in Unix wildcards, but opposed to Windows/DOS wildcards).</p>
         <p><em>Examples:</em></p>
