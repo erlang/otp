@@ -22,7 +22,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc  Standard OpenGL api.
-%% See <a href="http://www.opengl.org/sdk/docs/man/">www.opengl.org</a>
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">www.khronos.org</a>
 %%
 %% Booleans are represented by integers 0 and 1.
 
@@ -324,7 +324,7 @@ send_bin(Tuple) when is_tuple(Tuple) ->
 %% value is then masked with   2 m-1, where   m is the number of bits in a color index stored
 %% in the frame buffer. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearIndex.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glClearIndex.xml">external</a> documentation.
 -spec clearIndex(C) -> 'ok' when C :: float().
 clearIndex(C) ->
   cast(5037, <<C:?GLfloat>>).
@@ -335,7 +335,7 @@ clearIndex(C) ->
 %%  to clear the color buffers. Values specified by ``gl:clearColor'' are clamped to the
 %% range  [0 1]. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearColor.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClearColor.xhtml">external</a> documentation.
 -spec clearColor(Red, Green, Blue, Alpha) -> 'ok' when Red :: clamp(),Green :: clamp(),Blue :: clamp(),Alpha :: clamp().
 clearColor(Red,Green,Blue,Alpha) ->
   cast(5038, <<Red:?GLclampf,Green:?GLclampf,Blue:?GLclampf,Alpha:?GLclampf>>).
@@ -346,7 +346,7 @@ clearColor(Red,Green,Blue,Alpha) ->
 %% , ``gl:clearDepth'', and ``gl:clearStencil''. Multiple color buffers can be cleared
 %% simultaneously by selecting more than one buffer at a time using  {@link gl:drawBuffer/1} . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClear.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClear.xhtml">external</a> documentation.
 -spec clear(Mask) -> 'ok' when Mask :: integer().
 clear(Mask) ->
   cast(5039, <<Mask:?GLbitfield>>).
@@ -359,7 +359,7 @@ clear(Mask) ->
 %% to the corresponding bit in the color index buffer (or buffers). Where a 0 (zero) appears,
 %% the corresponding bit is write-protected. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIndexMask.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glIndexMask.xml">external</a> documentation.
 -spec indexMask(Mask) -> 'ok' when Mask :: integer().
 indexMask(Mask) ->
   cast(5040, <<Mask:?GLuint>>).
@@ -372,7 +372,7 @@ indexMask(Mask) ->
 %%  is `?GL_FALSE', for example, no change is made to the red component of any pixel
 %% in any of the color buffers, regardless of the drawing operation attempted. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorMask.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glColorMask.xhtml">external</a> documentation.
 -spec colorMask(Red, Green, Blue, Alpha) -> 'ok' when Red :: 0|1,Green :: 0|1,Blue :: 0|1,Alpha :: 0|1.
 colorMask(Red,Green,Blue,Alpha) ->
   cast(5041, <<Red:?GLboolean,Green:?GLboolean,Blue:?GLboolean,Alpha:?GLboolean>>).
@@ -385,7 +385,7 @@ colorMask(Red,Green,Blue,Alpha) ->
 %% testing is enabled. By default, it is not enabled. (See  {@link gl:enable/1}  and  {@link gl:enable/1} 
 %%  of `?GL_ALPHA_TEST'.) 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glAlphaFunc.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glAlphaFunc.xml">external</a> documentation.
 -spec alphaFunc(Func, Ref) -> 'ok' when Func :: enum(),Ref :: clamp().
 alphaFunc(Func,Ref) ->
   cast(5042, <<Func:?GLenum,Ref:?GLclampf>>).
@@ -397,7 +397,7 @@ alphaFunc(Func,Ref) ->
 %% is initially disabled. Use  {@link gl:enable/1}  and  {@link gl:enable/1}  with argument `?GL_BLEND'
 %%  to enable and disable blending. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendFunc.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendFunc.xhtml">external</a> documentation.
 -spec blendFunc(Sfactor, Dfactor) -> 'ok' when Sfactor :: enum(),Dfactor :: enum().
 blendFunc(Sfactor,Dfactor) ->
   cast(5043, <<Sfactor:?GLenum,Dfactor:?GLenum>>).
@@ -409,7 +409,7 @@ blendFunc(Sfactor,Dfactor) ->
 %% buffer. To enable or disable the logical operation, call  {@link gl:enable/1}  and  {@link gl:enable/1} 
 %%  using the symbolic constant `?GL_COLOR_LOGIC_OP'. The initial value is disabled. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLogicOp.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glLogicOp.xhtml">external</a> documentation.
 -spec logicOp(Opcode) -> 'ok' when Opcode :: enum().
 logicOp(Opcode) ->
   cast(5044, <<Opcode:?GLenum>>).
@@ -422,7 +422,7 @@ logicOp(Opcode) ->
 %% commands with the argument `?GL_CULL_FACE'. Facets include triangles, quadrilaterals,
 %% polygons, and rectangles. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCullFace.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCullFace.xhtml">external</a> documentation.
 -spec cullFace(Mode) -> 'ok' when Mode :: enum().
 cullFace(Mode) ->
   cast(5045, <<Mode:?GLenum>>).
@@ -434,7 +434,7 @@ cullFace(Mode) ->
 %% rendering of the image. To enable and disable elimination of back-facing polygons, call  {@link gl:enable/1} 
 %%  and  {@link gl:enable/1}  with argument `?GL_CULL_FACE'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFrontFace.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFrontFace.xhtml">external</a> documentation.
 -spec frontFace(Mode) -> 'ok' when Mode :: enum().
 frontFace(Mode) ->
   cast(5046, <<Mode:?GLenum>>).
@@ -446,7 +446,7 @@ frontFace(Mode) ->
 %% will be used to rasterize points. Otherwise, the value written to the shading language
 %% built-in variable gl_PointSize will be used. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPointSize.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPointSize.xhtml">external</a> documentation.
 -spec pointSize(Size) -> 'ok' when Size :: float().
 pointSize(Size) ->
   cast(5047, <<Size:?GLfloat>>).
@@ -458,7 +458,7 @@ pointSize(Size) ->
 %% is enabled. To enable and disable line antialiasing, call  {@link gl:enable/1}  and  {@link gl:enable/1} 
 %%  with argument `?GL_LINE_SMOOTH'. Line antialiasing is initially disabled. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLineWidth.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glLineWidth.xhtml">external</a> documentation.
 -spec lineWidth(Width) -> 'ok' when Width :: float().
 lineWidth(Width) ->
   cast(5048, <<Width:?GLfloat>>).
@@ -470,7 +470,7 @@ lineWidth(Width) ->
 %% stipple pattern  `Pattern' , the repeat count  `Factor' , and an integer stipple
 %% counter   s. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLineStipple.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glLineStipple.xml">external</a> documentation.
 -spec lineStipple(Factor, Pattern) -> 'ok' when Factor :: integer(),Pattern :: integer().
 lineStipple(Factor,Pattern) ->
   cast(5049, <<Factor:?GLint,Pattern:?GLushort>>).
@@ -483,7 +483,7 @@ lineStipple(Factor,Pattern) ->
 %% polygon's vertices are lit and the polygon is clipped and possibly culled before these
 %% modes are applied. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPolygonMode.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPolygonMode.xhtml">external</a> documentation.
 -spec polygonMode(Face, Mode) -> 'ok' when Face :: enum(),Mode :: enum().
 polygonMode(Face,Mode) ->
   cast(5050, <<Face:?GLenum,Mode:?GLenum>>).
@@ -498,7 +498,7 @@ polygonMode(Face,Mode) ->
 %% a resolvable offset for a given implementation. The offset is added before the depth test
 %% is performed and before the value is written into the depth buffer. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPolygonOffset.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPolygonOffset.xhtml">external</a> documentation.
 -spec polygonOffset(Factor, Units) -> 'ok' when Factor :: float(),Units :: float().
 polygonOffset(Factor,Units) ->
   cast(5051, <<Factor:?GLfloat,Units:?GLfloat>>).
@@ -509,7 +509,7 @@ polygonOffset(Factor,Units) ->
 %% fragments produced by rasterization, creating a pattern. Stippling is independent of polygon
 %% antialiasing. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPolygonStipple.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPolygonStipple.xml">external</a> documentation.
 -spec polygonStipple(Mask) -> 'ok' when Mask :: binary().
 polygonStipple(Mask) ->
   send_bin(Mask),
@@ -524,7 +524,7 @@ polygonStipple(Mask) ->
 %% Unlike  {@link gl:readPixels/7} , however, pixel transfer operations (shift, offset, pixel
 %% map) are not applied to the returned stipple image. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetPolygonStipple.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetPolygonStipple.xml">external</a> documentation.
 -spec getPolygonStipple() -> binary().
 getPolygonStipple() ->
   call(5053, <<>>).
@@ -538,7 +538,7 @@ getPolygonStipple() ->
 %% of a nonboundary edge. ``gl:edgeFlag'' sets the edge flag bit to `?GL_TRUE' if  `Flag' 
 %%  is `?GL_TRUE' and to `?GL_FALSE' otherwise. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEdgeFlag.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEdgeFlag.xml">external</a> documentation.
 -spec edgeFlag(Flag) -> 'ok' when Flag :: 0|1.
 edgeFlag(Flag) ->
   cast(5054, <<Flag:?GLboolean>>).
@@ -553,7 +553,7 @@ edgeFlagv({Flag}) ->  edgeFlag(Flag).
 %% first two arguments,  `X'  and  `Y' , specify the lower left corner of the box.  `Width' 
 %%  and  `Height'  specify the width and height of the box. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glScissor.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glScissor.xhtml">external</a> documentation.
 -spec scissor(X, Y, Width, Height) -> 'ok' when X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
 scissor(X,Y,Width,Height) ->
   cast(5055, <<X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei>>).
@@ -568,7 +568,7 @@ scissor(X,Y,Width,Height) ->
 %% clipping planes. Because the resulting clipping region is the intersection of the defined
 %% half-spaces, it is always convex. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClipPlane.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glClipPlane.xml">external</a> documentation.
 -spec clipPlane(Plane, Equation) -> 'ok' when Plane :: enum(),Equation :: {float(),float(),float(),float()}.
 clipPlane(Plane,{E1,E2,E3,E4}) ->
   cast(5056, <<Plane:?GLenum,0:32,E1:?GLdouble,E2:?GLdouble,E3:?GLdouble,E4:?GLdouble>>).
@@ -578,7 +578,7 @@ clipPlane(Plane,{E1,E2,E3,E4}) ->
 %% ``gl:getClipPlane'' returns in  `Equation'  the four coefficients of the plane equation
 %% for  `Plane' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetClipPlane.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetClipPlane.xml">external</a> documentation.
 -spec getClipPlane(Plane) -> {float(),float(),float(),float()} when Plane :: enum().
 getClipPlane(Plane) ->
   call(5057, <<Plane:?GLenum>>).
@@ -588,7 +588,7 @@ getClipPlane(Plane) ->
 %%  When colors are written to the frame buffer, they are written into the color buffers
 %% specified by ``gl:drawBuffer''. The specifications are as follows: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawBuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawBuffer.xhtml">external</a> documentation.
 -spec drawBuffer(Mode) -> 'ok' when Mode :: enum().
 drawBuffer(Mode) ->
   cast(5058, <<Mode:?GLenum>>).
@@ -605,7 +605,7 @@ drawBuffer(Mode) ->
 %% the `i'th color attachment where `i' ranges from zero to the value of `?GL_MAX_COLOR_ATTACHMENTS'
 %%  minus one. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glReadBuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glReadBuffer.xhtml">external</a> documentation.
 -spec readBuffer(Mode) -> 'ok' when Mode :: enum().
 readBuffer(Mode) ->
   cast(5059, <<Mode:?GLenum>>).
@@ -618,7 +618,7 @@ readBuffer(Mode) ->
 %% is `?GL_FALSE'. The initial value for `?GL_DITHER' and `?GL_MULTISAMPLE'
 %% is `?GL_TRUE'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEnable.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glEnable.xhtml">external</a> documentation.
 -spec enable(Cap) -> 'ok' when Cap :: enum().
 enable(Cap) ->
   cast(5060, <<Cap:?GLenum>>).
@@ -638,7 +638,7 @@ disable(Cap) ->
 %% all capabilities except `?GL_DITHER' are disabled; `?GL_DITHER' is initially
 %% enabled. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsEnabled.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsEnabled.xhtml">external</a> documentation.
 -spec isEnabled(Cap) -> 0|1 when Cap :: enum().
 isEnabled(Cap) ->
   call(5062, <<Cap:?GLenum>>).
@@ -650,7 +650,7 @@ isEnabled(Cap) ->
 %%  and  {@link gl:enableClientState/1}  take a single argument,  `Cap' , which can assume
 %% one of the following values: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEnableClientState.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEnableClientState.xml">external</a> documentation.
 -spec enableClientState(Cap) -> 'ok' when Cap :: enum().
 enableClientState(Cap) ->
   cast(5063, <<Cap:?GLenum>>).
@@ -667,7 +667,7 @@ disableClientState(Cap) ->
 %% symbolic constant indicating the state variable to be returned, and  `Params'  is a
 %% pointer to an array of the indicated type in which to place the returned data. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGet.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGet.xhtml">external</a> documentation.
 -spec getBooleanv(Pname) -> [0|1] when Pname :: enum().
 getBooleanv(Pname) ->
   call(5065, <<Pname:?GLenum>>).
@@ -698,7 +698,7 @@ getIntegerv(Pname) ->
 %% together. The special mask `?GL_ALL_ATTRIB_BITS' can be used to save all stackable
 %% states. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPushAttrib.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPushAttrib.xml">external</a> documentation.
 -spec pushAttrib(Mask) -> 'ok' when Mask :: integer().
 pushAttrib(Mask) ->
   cast(5069, <<Mask:?GLbitfield>>).
@@ -717,7 +717,7 @@ popAttrib() ->
 %%   of these constants together. The special mask `?GL_CLIENT_ALL_ATTRIB_BITS' can
 %% be used to save all stackable client state. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPushClientAttrib.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPushClientAttrib.xml">external</a> documentation.
 -spec pushClientAttrib(Mask) -> 'ok' when Mask :: integer().
 pushClientAttrib(Mask) ->
   cast(5071, <<Mask:?GLbitfield>>).
@@ -733,7 +733,7 @@ popClientAttrib() ->
 %% ``gl:renderMode'' sets the rasterization mode. It takes one argument,  `Mode' , which
 %% can assume one of three predefined values: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glRenderMode.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRenderMode.xml">external</a> documentation.
 -spec renderMode(Mode) -> integer() when Mode :: enum().
 renderMode(Mode) ->
   call(5073, <<Mode:?GLenum>>).
@@ -747,7 +747,7 @@ renderMode(Mode) ->
 %%  returns `?GL_NO_ERROR', there has been no detectable error since the last call to ``gl:getError''
 %% , or since the GL was initialized. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetError.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetError.xhtml">external</a> documentation.
 -spec getError() -> enum().
 getError() ->
   call(5074, <<>>).
@@ -757,7 +757,7 @@ getError() ->
 %% ``gl:getString'' returns a pointer to a static string describing some aspect of the
 %% current GL connection.  `Name'  can be one of the following: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetString.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetString.xhtml">external</a> documentation.
 -spec getString(Name) -> string() when Name :: enum().
 getString(Name) ->
   call(5075, <<Name:?GLenum>>).
@@ -768,7 +768,7 @@ getString(Name) ->
 %% are complete. Such effects include all changes to GL state, all changes to connection
 %% state, and all changes to the frame buffer contents. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFinish.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFinish.xhtml">external</a> documentation.
 -spec finish() -> 'ok'.
 finish() ->
   cast(5076, <<>>).
@@ -781,7 +781,7 @@ finish() ->
 %% the actual rendering engine. Though this execution may not be completed in any particular
 %% time period, it does complete in finite time. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFlush.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFlush.xhtml">external</a> documentation.
 -spec flush() -> 'ok'.
 flush() ->
   cast(5077, <<>>).
@@ -794,7 +794,7 @@ flush() ->
 %% indicating the desired behavior. The initial value for each  `Target'  is `?GL_DONT_CARE'
 %% .  `Mode'  can be one of the following: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glHint.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glHint.xhtml">external</a> documentation.
 -spec hint(Target, Mode) -> 'ok' when Target :: enum(),Mode :: enum().
 hint(Target,Mode) ->
   cast(5078, <<Target:?GLenum,Mode:?GLenum>>).
@@ -804,7 +804,7 @@ hint(Target,Mode) ->
 %% ``gl:clearDepth'' specifies the depth value used by  {@link gl:clear/1}  to clear the depth
 %% buffer. Values specified by ``gl:clearDepth'' are clamped to the range  [0 1]. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearDepth.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClearDepth.xhtml">external</a> documentation.
 -spec clearDepth(Depth) -> 'ok' when Depth :: clamp().
 clearDepth(Depth) ->
   cast(5079, <<Depth:?GLclampd>>).
@@ -816,7 +816,7 @@ clearDepth(Depth) ->
 %% depth testing is enabled. (See  {@link gl:enable/1}  and  {@link gl:enable/1}  of `?GL_DEPTH_TEST'
 %% .) 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthFunc.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDepthFunc.xhtml">external</a> documentation.
 -spec depthFunc(Func) -> 'ok' when Func :: enum().
 depthFunc(Func) ->
   cast(5080, <<Func:?GLenum>>).
@@ -827,7 +827,7 @@ depthFunc(Func) ->
 %%  is `?GL_FALSE', depth buffer writing is disabled. Otherwise, it is enabled. Initially,
 %% depth buffer writing is enabled. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthMask.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDepthMask.xhtml">external</a> documentation.
 -spec depthMask(Flag) -> 'ok' when Flag :: 0|1.
 depthMask(Flag) ->
   cast(5081, <<Flag:?GLboolean>>).
@@ -841,7 +841,7 @@ depthMask(Flag) ->
 %% as though they range from 0 through 1 (like color components). Thus, the values accepted
 %% by ``gl:depthRange'' are both clamped to this range before they are accepted. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthRange.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDepthRange.xhtml">external</a> documentation.
 -spec depthRange(Near_val, Far_val) -> 'ok' when Near_val :: clamp(),Far_val :: clamp().
 depthRange(Near_val,Far_val) ->
   cast(5082, <<Near_val:?GLclampd,Far_val:?GLclampd>>).
@@ -851,7 +851,7 @@ depthRange(Near_val,Far_val) ->
 %% ``gl:clearAccum'' specifies the red, green, blue, and alpha values used by  {@link gl:clear/1} 
 %%  to clear the accumulation buffer. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearAccum.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glClearAccum.xml">external</a> documentation.
 -spec clearAccum(Red, Green, Blue, Alpha) -> 'ok' when Red :: float(),Green :: float(),Blue :: float(),Alpha :: float().
 clearAccum(Red,Green,Blue,Alpha) ->
   cast(5083, <<Red:?GLfloat,Green:?GLfloat,Blue:?GLfloat,Alpha:?GLfloat>>).
@@ -864,7 +864,7 @@ clearAccum(Red,Green,Blue,Alpha) ->
 %% and polygons), motion blur, and depth of field can be created by accumulating images generated
 %% with different transformation matrices. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glAccum.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glAccum.xml">external</a> documentation.
 -spec accum(Op, Value) -> 'ok' when Op :: enum(),Value :: float().
 accum(Op,Value) ->
   cast(5084, <<Op:?GLenum,Value:?GLfloat>>).
@@ -874,7 +874,7 @@ accum(Op,Value) ->
 %% ``gl:matrixMode'' sets the current matrix mode.  `Mode'  can assume one of four values:
 %% 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMatrixMode.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMatrixMode.xml">external</a> documentation.
 -spec matrixMode(Mode) -> 'ok' when Mode :: enum().
 matrixMode(Mode) ->
   cast(5085, <<Mode:?GLenum>>).
@@ -886,7 +886,7 @@ matrixMode(Mode) ->
 %% the current matrix, as if  {@link gl:multMatrixd/1}  were called with the following matrix
 %% as its argument: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glOrtho.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glOrtho.xml">external</a> documentation.
 -spec ortho(Left, Right, Bottom, Top, Near_val, Far_val) -> 'ok' when Left :: float(),Right :: float(),Bottom :: float(),Top :: float(),Near_val :: float(),Far_val :: float().
 ortho(Left,Right,Bottom,Top,Near_val,Far_val) ->
   cast(5086, <<Left:?GLdouble,Right:?GLdouble,Bottom:?GLdouble,Top:?GLdouble,Near_val:?GLdouble,Far_val:?GLdouble>>).
@@ -898,7 +898,7 @@ ortho(Left,Right,Bottom,Top,Near_val,Far_val) ->
 %% replaces the current matrix, as if  {@link gl:multMatrixd/1}  were called with the following
 %% matrix as its argument: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFrustum.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glFrustum.xml">external</a> documentation.
 -spec frustum(Left, Right, Bottom, Top, Near_val, Far_val) -> 'ok' when Left :: float(),Right :: float(),Bottom :: float(),Top :: float(),Near_val :: float(),Far_val :: float().
 frustum(Left,Right,Bottom,Top,Near_val,Far_val) ->
   cast(5087, <<Left:?GLdouble,Right:?GLdouble,Bottom:?GLdouble,Top:?GLdouble,Near_val:?GLdouble,Far_val:?GLdouble>>).
@@ -909,7 +909,7 @@ frustum(Left,Right,Bottom,Top,Near_val,Far_val) ->
 %% coordinates to window coordinates. Let  (x nd y nd) be normalized device coordinates. Then the window
 %% coordinates  (x w y w) are computed as follows: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glViewport.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glViewport.xhtml">external</a> documentation.
 -spec viewport(X, Y, Width, Height) -> 'ok' when X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
 viewport(X,Y,Width,Height) ->
   cast(5088, <<X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei>>).
@@ -921,7 +921,7 @@ viewport(X,Y,Width,Height) ->
 %% , and `?GL_TEXTURE', the depth is at least 2. The current matrix in any mode is the
 %% matrix on the top of the stack for that mode. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPushMatrix.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPushMatrix.xml">external</a> documentation.
 -spec pushMatrix() -> 'ok'.
 pushMatrix() ->
   cast(5089, <<>>).
@@ -937,7 +937,7 @@ popMatrix() ->
 %% ``gl:loadIdentity'' replaces the current matrix with the identity matrix. It is semantically
 %% equivalent to calling  {@link gl:loadMatrixd/1}  with the identity matrix 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadIdentity.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glLoadIdentity.xml">external</a> documentation.
 -spec loadIdentity() -> 'ok'.
 loadIdentity() ->
   cast(5091, <<>>).
@@ -948,7 +948,7 @@ loadIdentity() ->
 %% by  `M' . The current matrix is the projection matrix, modelview matrix, or texture
 %% matrix, depending on the current matrix mode (see  {@link gl:matrixMode/1} ). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadMatrix.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glLoadMatrix.xml">external</a> documentation.
 -spec loadMatrixd(M) -> 'ok' when M :: matrix().
 loadMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5092, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
@@ -968,7 +968,7 @@ loadMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %% ``gl:multMatrix'' multiplies the current matrix with the one specified using  `M' ,
 %% and replaces the current matrix with the product. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultMatrix.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultMatrix.xml">external</a> documentation.
 -spec multMatrixd(M) -> 'ok' when M :: matrix().
 multMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5094, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
@@ -990,7 +990,7 @@ multMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %% replacing the current matrix, as if  {@link gl:multMatrixd/1}  were called with the following
 %% matrix as its argument: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glRotate.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRotate.xml">external</a> documentation.
 -spec rotated(Angle, X, Y, Z) -> 'ok' when Angle :: float(),X :: float(),Y :: float(),Z :: float().
 rotated(Angle,X,Y,Z) ->
   cast(5096, <<Angle:?GLdouble,X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
@@ -1007,7 +1007,7 @@ rotatef(Angle,X,Y,Z) ->
 %% axes. The three parameters indicate the desired scale factor along each of the three axes.
 %% 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glScale.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glScale.xml">external</a> documentation.
 -spec scaled(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 scaled(X,Y,Z) ->
   cast(5098, <<X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
@@ -1024,7 +1024,7 @@ scalef(X,Y,Z) ->
 %% ) is multiplied by this translation matrix, with the product replacing the current matrix,
 %% as if  {@link gl:multMatrixd/1}  were called with the following matrix for its argument: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTranslate.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTranslate.xml">external</a> documentation.
 -spec translated(X, Y, Z) -> 'ok' when X :: float(),Y :: float(),Z :: float().
 translated(X,Y,Z) ->
   cast(5100, <<X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
@@ -1040,7 +1040,7 @@ translatef(X,Y,Z) ->
 %% ``gl:isList'' returns `?GL_TRUE' if  `List'  is the name of a display list and
 %% returns `?GL_FALSE' if it is not, or if an error occurs. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsList.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glIsList.xml">external</a> documentation.
 -spec isList(List) -> 0|1 when List :: integer().
 isList(List) ->
   call(5102, <<List:?GLuint>>).
@@ -1052,7 +1052,7 @@ isList(List) ->
 %% display lists to delete. All display lists   d with   list&lt;= d&lt;= list+range-1 are
 %% deleted. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteLists.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glDeleteLists.xml">external</a> documentation.
 -spec deleteLists(List, Range) -> 'ok' when List :: integer(),Range :: integer().
 deleteLists(List,Range) ->
   cast(5103, <<List:?GLuint,Range:?GLsizei>>).
@@ -1065,7 +1065,7 @@ deleteLists(List,Range) ->
 %% available, or if any error is generated, no display lists are generated, and 0 is returned.
 %% 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenLists.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGenLists.xml">external</a> documentation.
 -spec genLists(Range) -> integer() when Range :: integer().
 genLists(Range) ->
   call(5104, <<Range:?GLsizei>>).
@@ -1076,14 +1076,14 @@ genLists(Range) ->
 %% Display lists are created with ``gl:newList''. All subsequent commands are placed in
 %% the display list, in the order issued, until  {@link gl:endList/0}  is called. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glNewList.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glNewList.xml">external</a> documentation.
 -spec newList(List, Mode) -> 'ok' when List :: integer(),Mode :: enum().
 newList(List,Mode) ->
   cast(5105, <<List:?GLuint,Mode:?GLenum>>).
 
 %% @doc glBeginList
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginList.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec endList() -> 'ok'.
 endList() ->
   cast(5106, <<>>).
@@ -1095,7 +1095,7 @@ endList() ->
 %% list. If  `List'  has not been defined as a display list, ``gl:callList'' is ignored.
 %% 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCallList.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glCallList.xml">external</a> documentation.
 -spec callList(List) -> 'ok' when List :: integer().
 callList(List) ->
   cast(5107, <<List:?GLuint>>).
@@ -1107,7 +1107,7 @@ callList(List) ->
 %% just as if they were called without using a display list. Names of display lists that
 %% have not been defined are ignored. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCallLists.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glCallLists.xml">external</a> documentation.
 -spec callLists(Lists) -> 'ok' when Lists :: [integer()].
 callLists(Lists) ->
   ListsLen = length(Lists),
@@ -1122,7 +1122,7 @@ callLists(Lists) ->
 %% by adding  `Base'  to each offset. Names that reference valid display lists are executed;
 %% the others are ignored. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glListBase.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glListBase.xml">external</a> documentation.
 -spec listBase(Base) -> 'ok' when Base :: integer().
 listBase(Base) ->
   cast(5109, <<Base:?GLuint>>).
@@ -1134,7 +1134,7 @@ listBase(Base) ->
 %% ten ways the vertices are interpreted. Taking   n as an integer count starting at one,
 %% and   N as the total number of vertices specified, the interpretations are as follows: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBegin.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glBegin.xml">external</a> documentation.
 -spec 'begin'(Mode) -> 'ok' when Mode :: enum().
 'begin'(Mode) ->
   cast(5110, <<Mode:?GLenum>>).
@@ -1151,7 +1151,7 @@ listBase(Base) ->
 %% point, line, and polygon vertices. The current color, normal, texture coordinates, and
 %% fog coordinate are associated with the vertex when ``gl:vertex'' is called. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertex.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml">external</a> documentation.
 -spec vertex2d(X, Y) -> 'ok' when X :: float(),Y :: float().
 vertex2d(X,Y) ->
   cast(5112, <<X:?GLdouble,Y:?GLdouble>>).
@@ -1277,7 +1277,7 @@ vertex4sv({X,Y,Z,W}) ->  vertex4s(X,Y,Z,W).
 %% mapping that maps the most positive representable integer value to 1.0 and the most negative
 %% representable integer value to   -1.0. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glNormal.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glNormal.xml">external</a> documentation.
 -spec normal3b(Nx, Ny, Nz) -> 'ok' when Nx :: integer(),Ny :: integer(),Nz :: integer().
 normal3b(Nx,Ny,Nz) ->
   cast(5124, <<Nx:?GLbyte,Ny:?GLbyte,Nz:?GLbyte>>).
@@ -1331,7 +1331,7 @@ normal3sv({Nx,Ny,Nz}) ->  normal3s(Nx,Ny,Nz).
 %% ``gl:index'' updates the current (single-valued) color index. It takes one argument,
 %% the new value for the current color index. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIndex.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glIndex.xml">external</a> documentation.
 -spec indexd(C) -> 'ok' when C :: float().
 indexd(C) ->
   cast(5129, <<C:?GLdouble>>).
@@ -1388,7 +1388,7 @@ indexubv({C}) ->  indexub(C).
 %% green, and blue values explicitly and set the current alpha value to 1.0 (full intensity)
 %% implicitly. ``gl:color4'' variants specify all four color components explicitly. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColor.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml">external</a> documentation.
 -spec color3b(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 color3b(Red,Green,Blue) ->
   cast(5134, <<Red:?GLbyte,Green:?GLbyte,Blue:?GLbyte>>).
@@ -1555,7 +1555,7 @@ color4usv({Red,Green,Blue,Alpha}) ->  color4us(Red,Green,Blue,Alpha).
 %% Similarly, ``gl:texCoord3'' specifies the texture coordinates as (s t r 1), and ``gl:texCoord4''
 %%  defines all four components explicitly as (s t r q). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexCoord.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml">external</a> documentation.
 -spec texCoord1d(S) -> 'ok' when S :: float().
 texCoord1d(S) ->
   cast(5150, <<S:?GLdouble>>).
@@ -1721,7 +1721,7 @@ texCoord4sv({S,T,R,Q}) ->  texCoord4s(S,T,R,Q).
 %% subpixel accuracy. See  {@link gl:bitmap/7} ,  {@link gl:drawPixels/5} , and  {@link gl:copyPixels/5} 
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glRasterPos.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRasterPos.xml">external</a> documentation.
 -spec rasterPos2d(X, Y) -> 'ok' when X :: float(),Y :: float().
 rasterPos2d(X,Y) ->
   cast(5166, <<X:?GLdouble,Y:?GLdouble>>).
@@ -1847,7 +1847,7 @@ rasterPos4sv({X,Y,Z,W}) ->  rasterPos4s(X,Y,Z,W).
 %% coordinates or as two pointers to arrays, each containing an  (x y) pair. The resulting rectangle
 %% is defined in the   z=0 plane. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glRect.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRect.xml">external</a> documentation.
 -spec rectd(X1, Y1, X2, Y2) -> 'ok' when X1 :: float(),Y1 :: float(),X2 :: float(),Y2 :: float().
 rectd(X1,Y1,X2,Y2) ->
   cast(5178, <<X1:?GLdouble,Y1:?GLdouble,X2:?GLdouble,Y2:?GLdouble>>).
@@ -1903,7 +1903,7 @@ rectsv({V1,V2},{V1,V2}) ->
 %% to be packed into a single array or stored in separate arrays. (Single-array storage may
 %% be more efficient on some implementations; see  {@link gl:interleavedArrays/3} .) 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexPointer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertexPointer.xml">external</a> documentation.
 -spec vertexPointer(Size, Type, Stride, Ptr) -> 'ok' when Size :: integer(),Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
 vertexPointer(Size,Type,Stride,Ptr) when  is_integer(Ptr) ->
   cast(5186, <<Size:?GLint,Type:?GLenum,Stride:?GLsizei,Ptr:?GLuint>>);
@@ -1919,7 +1919,7 @@ vertexPointer(Size,Type,Stride,Ptr) ->
 %% to be packed into a single array or stored in separate arrays. (Single-array storage may
 %% be more efficient on some implementations; see  {@link gl:interleavedArrays/3} .) 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glNormalPointer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glNormalPointer.xml">external</a> documentation.
 -spec normalPointer(Type, Stride, Ptr) -> 'ok' when Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
 normalPointer(Type,Stride,Ptr) when  is_integer(Ptr) ->
   cast(5188, <<Type:?GLenum,Stride:?GLsizei,Ptr:?GLuint>>);
@@ -1936,7 +1936,7 @@ normalPointer(Type,Stride,Ptr) ->
 %% to be packed into a single array or stored in separate arrays. (Single-array storage may
 %% be more efficient on some implementations; see  {@link gl:interleavedArrays/3} .) 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorPointer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColorPointer.xml">external</a> documentation.
 -spec colorPointer(Size, Type, Stride, Ptr) -> 'ok' when Size :: integer(),Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
 colorPointer(Size,Type,Stride,Ptr) when  is_integer(Ptr) ->
   cast(5190, <<Size:?GLint,Type:?GLenum,Stride:?GLsizei,Ptr:?GLuint>>);
@@ -1951,7 +1951,7 @@ colorPointer(Size,Type,Stride,Ptr) ->
 %%  specifies the byte stride from one color index to the next, allowing vertices and attributes
 %% to be packed into a single array or stored in separate arrays. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIndexPointer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glIndexPointer.xml">external</a> documentation.
 -spec indexPointer(Type, Stride, Ptr) -> 'ok' when Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
 indexPointer(Type,Stride,Ptr) when  is_integer(Ptr) ->
   cast(5192, <<Type:?GLenum,Stride:?GLsizei,Ptr:?GLuint>>);
@@ -1969,7 +1969,7 @@ indexPointer(Type,Stride,Ptr) ->
 %% array or stored in separate arrays. (Single-array storage may be more efficient on some
 %% implementations; see  {@link gl:interleavedArrays/3} .) 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexCoordPointer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoordPointer.xml">external</a> documentation.
 -spec texCoordPointer(Size, Type, Stride, Ptr) -> 'ok' when Size :: integer(),Type :: enum(),Stride :: integer(),Ptr :: offset()|mem().
 texCoordPointer(Size,Type,Stride,Ptr) when  is_integer(Ptr) ->
   cast(5194, <<Size:?GLint,Type:?GLenum,Stride:?GLsizei,Ptr:?GLuint>>);
@@ -1984,7 +1984,7 @@ texCoordPointer(Size,Type,Stride,Ptr) ->
 %% flag to the next, allowing vertices and attributes to be packed into a single array or
 %% stored in separate arrays. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEdgeFlagPointer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEdgeFlagPointer.xml">external</a> documentation.
 -spec edgeFlagPointer(Stride, Ptr) -> 'ok' when Stride :: integer(),Ptr :: offset()|mem().
 edgeFlagPointer(Stride,Ptr) when  is_integer(Ptr) ->
   cast(5196, <<Stride:?GLsizei,Ptr:?GLuint>>);
@@ -2001,7 +2001,7 @@ edgeFlagPointer(Stride,Ptr) ->
 %%  is not enabled, no drawing occurs but the attributes corresponding to the enabled arrays
 %% are modified. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glArrayElement.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glArrayElement.xml">external</a> documentation.
 -spec arrayElement(I) -> 'ok' when I :: integer().
 arrayElement(I) ->
   cast(5198, <<I:?GLint>>).
@@ -2014,7 +2014,7 @@ arrayElement(I) ->
 %% and use them to construct a sequence of primitives with a single call to ``gl:drawArrays''
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawArrays.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawArrays.xhtml">external</a> documentation.
 -spec drawArrays(Mode, First, Count) -> 'ok' when Mode :: enum(),First :: integer(),Count :: integer().
 drawArrays(Mode,First,Count) ->
   cast(5199, <<Mode:?GLenum,First:?GLint,Count:?GLsizei>>).
@@ -2027,7 +2027,7 @@ drawArrays(Mode,First,Count) ->
 %% and so on, and use them to construct a sequence of primitives with a single call to ``gl:drawElements''
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElements.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawElements.xhtml">external</a> documentation.
 -spec drawElements(Mode, Count, Type, Indices) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem().
 drawElements(Mode,Count,Type,Indices) when  is_integer(Indices) ->
   cast(5200, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint>>);
@@ -2041,7 +2041,7 @@ drawElements(Mode,Count,Type,Indices) ->
 %% and vertex arrays whose elements are part of a larger aggregate array element. For some
 %% implementations, this is more efficient than specifying the arrays separately. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glInterleavedArrays.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glInterleavedArrays.xml">external</a> documentation.
 -spec interleavedArrays(Format, Stride, Pointer) -> 'ok' when Format :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 interleavedArrays(Format,Stride,Pointer) when  is_integer(Pointer) ->
   cast(5202, <<Format:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
@@ -2059,7 +2059,7 @@ interleavedArrays(Format,Stride,Pointer) ->
 %% result of lighting if lighting is enabled, or it is the current color at the time the
 %% vertex was specified if lighting is disabled. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glShadeModel.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glShadeModel.xml">external</a> documentation.
 -spec shadeModel(Mode) -> 'ok' when Mode :: enum().
 shadeModel(Mode) ->
   cast(5204, <<Mode:?GLenum>>).
@@ -2072,7 +2072,7 @@ shadeModel(Mode) ->
 %% parameters, again by symbolic name.  `Params'  is either a single value or a pointer
 %% to an array that contains the new values. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLight.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glLight.xml">external</a> documentation.
 -spec lightf(Light, Pname, Param) -> 'ok' when Light :: enum(),Pname :: enum(),Param :: float().
 lightf(Light,Pname,Param) ->
   cast(5205, <<Light:?GLenum,Pname:?GLenum,Param:?GLfloat>>).
@@ -2105,7 +2105,7 @@ lightiv(Light,Pname,Params) ->
 %% implementation dependent constant that is greater than or equal to eight.  `Pname' 
 %% specifies one of ten light source parameters, again by symbolic name. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetLight.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetLight.xml">external</a> documentation.
 -spec getLightfv(Light, Pname) -> {float(),float(),float(),float()} when Light :: enum(),Pname :: enum().
 getLightfv(Light,Pname) ->
   call(5209, <<Light:?GLenum,Pname:?GLenum>>).
@@ -2121,7 +2121,7 @@ getLightiv(Light,Pname) ->
 %% ``gl:lightModel'' sets the lighting model parameter.  `Pname'  names a parameter
 %% and  `Params'  gives the new value. There are three lighting model parameters: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLightModel.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glLightModel.xml">external</a> documentation.
 -spec lightModelf(Pname, Param) -> 'ok' when Pname :: enum(),Param :: float().
 lightModelf(Pname,Param) ->
   cast(5211, <<Pname:?GLenum,Param:?GLfloat>>).
@@ -2155,7 +2155,7 @@ lightModeliv(Pname,Params) ->
 %% to shade back-facing polygons only when two-sided lighting is enabled. Refer to the  {@link gl:lightModelf/2} 
 %%  reference page for details concerning one- and two-sided lighting calculations. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMaterial.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMaterial.xml">external</a> documentation.
 -spec materialf(Face, Pname, Param) -> 'ok' when Face :: enum(),Pname :: enum(),Param :: float().
 materialf(Face,Pname,Param) ->
   cast(5215, <<Face:?GLenum,Pname:?GLenum,Param:?GLfloat>>).
@@ -2185,7 +2185,7 @@ materialiv(Face,Pname,Params) ->
 %% ``gl:getMaterial'' returns in  `Params'  the value or values of parameter  `Pname' 
 %%  of material  `Face' . Six parameters are defined: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetMaterial.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetMaterial.xml">external</a> documentation.
 -spec getMaterialfv(Face, Pname) -> {float(),float(),float(),float()} when Face :: enum(),Pname :: enum().
 getMaterialfv(Face,Pname) ->
   call(5219, <<Face:?GLenum,Pname:?GLenum>>).
@@ -2202,7 +2202,7 @@ getMaterialiv(Face,Pname) ->
 %%  is enabled, the material parameter or parameters specified by  `Mode' , of the material
 %% or materials specified by  `Face' , track the current color at all times. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorMaterial.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColorMaterial.xml">external</a> documentation.
 -spec colorMaterial(Face, Mode) -> 'ok' when Face :: enum(),Mode :: enum().
 colorMaterial(Face,Mode) ->
   cast(5221, <<Face:?GLenum,Mode:?GLenum>>).
@@ -2214,7 +2214,7 @@ colorMaterial(Face,Mode) ->
 %% position, and a given element is in the   mth row and   nth column of the pixel rectangle,
 %% then pixels whose centers are in the rectangle with corners at 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPixelZoom.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPixelZoom.xml">external</a> documentation.
 -spec pixelZoom(Xfactor, Yfactor) -> 'ok' when Xfactor :: float(),Yfactor :: float().
 pixelZoom(Xfactor,Yfactor) ->
   cast(5222, <<Xfactor:?GLfloat,Yfactor:?GLfloat>>).
@@ -2228,7 +2228,7 @@ pixelZoom(Xfactor,Yfactor) ->
 %% ,  {@link gl:compressedTexSubImage1D/7} ,  {@link gl:compressedTexSubImage2D/9}  or  {@link gl:compressedTexSubImage1D/7} 
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPixelStore.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPixelStore.xhtml">external</a> documentation.
 -spec pixelStoref(Pname, Param) -> 'ok' when Pname :: enum(),Param :: float().
 pixelStoref(Pname,Param) ->
   cast(5223, <<Pname:?GLenum,Param:?GLfloat>>).
@@ -2259,7 +2259,7 @@ pixelStorei(Pname,Param) ->
 %% ) control the unpacking of pixels being read from client memory and the packing of pixels
 %% being written back into client memory. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPixelTransfer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPixelTransfer.xml">external</a> documentation.
 -spec pixelTransferf(Pname, Param) -> 'ok' when Pname :: enum(),Param :: float().
 pixelTransferf(Pname,Param) ->
   cast(5225, <<Pname:?GLenum,Param:?GLfloat>>).
@@ -2283,7 +2283,7 @@ pixelTransferi(Pname,Param) ->
 %% page, and partly in the reference pages for the pixel and texture image commands. Only
 %% the specification of the maps is described in this reference page. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPixelMap.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPixelMap.xml">external</a> documentation.
 -spec pixelMapfv(Map, Mapsize, Values) -> 'ok' when Map :: enum(),Mapsize :: integer(),Values :: binary().
 pixelMapfv(Map,Mapsize,Values) ->
   send_bin(Values),
@@ -2314,7 +2314,7 @@ pixelMapusv(Map,Mapsize,Values) ->
 %% , and  {@link gl:copyTexSubImage3D/9} . to map color indices, stencil indices, color components,
 %% and depth components to other values. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetPixelMap.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetPixelMap.xml">external</a> documentation.
 -spec getPixelMapfv(Map, Values) -> 'ok' when Map :: enum(),Values :: mem().
 getPixelMapfv(Map,Values) ->
   send_bin(Values),
@@ -2341,7 +2341,7 @@ getPixelMapusv(Map,Values) ->
 %% using the current raster color or index. Frame buffer pixels corresponding to 0's in the
 %% bitmap are not modified. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBitmap.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glBitmap.xml">external</a> documentation.
 -spec bitmap(Width, Height, Xorig, Yorig, Xmove, Ymove, Bitmap) -> 'ok' when Width :: integer(),Height :: integer(),Xorig :: float(),Yorig :: float(),Xmove :: float(),Ymove :: float(),Bitmap :: offset()|mem().
 bitmap(Width,Height,Xorig,Yorig,Xmove,Ymove,Bitmap) when  is_integer(Bitmap) ->
   cast(5233, <<Width:?GLsizei,Height:?GLsizei,Xorig:?GLfloat,Yorig:?GLfloat,Xmove:?GLfloat,Ymove:?GLfloat,Bitmap:?GLuint>>);
@@ -2358,7 +2358,7 @@ bitmap(Width,Height,Xorig,Yorig,Xmove,Ymove,Bitmap) ->
 %% This reference page describes the effects on ``gl:readPixels'' of most, but not all
 %% of the parameters specified by these three commands. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glReadPixels.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glReadPixels.xhtml">external</a> documentation.
 -spec readPixels(X, Y, Width, Height, Format, Type, Pixels) -> 'ok' when X :: integer(),Y :: integer(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Pixels :: mem().
 readPixels(X,Y,Width,Height,Format,Type,Pixels) ->
   send_bin(Pixels),
@@ -2373,7 +2373,7 @@ readPixels(X,Y,Width,Height,Format,Type,Pixels) ->
 %% position is valid, and  {@link gl:getBooleanv/1}  with argument `?GL_CURRENT_RASTER_POSITION'
 %% to query the raster position. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawPixels.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glDrawPixels.xml">external</a> documentation.
 -spec drawPixels(Width, Height, Format, Type, Pixels) -> 'ok' when Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 drawPixels(Width,Height,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5236, <<Width:?GLsizei,Height:?GLsizei,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
@@ -2389,7 +2389,7 @@ drawPixels(Width,Height,Format,Type,Pixels) ->
 %% window. Results of copies from outside the window, or from regions of the window that
 %% are not exposed, are hardware dependent and undefined. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyPixels.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glCopyPixels.xml">external</a> documentation.
 -spec copyPixels(X, Y, Width, Height, Type) -> 'ok' when X :: integer(),Y :: integer(),Width :: integer(),Height :: integer(),Type :: enum().
 copyPixels(X,Y,Width,Height,Type) ->
   cast(5238, <<X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei,Type:?GLenum>>).
@@ -2402,7 +2402,7 @@ copyPixels(X,Y,Width,Height,Type) ->
 %% typically used in multipass rendering algorithms to achieve special effects, such as decals,
 %% outlining, and constructive solid geometry rendering. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilFunc.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glStencilFunc.xhtml">external</a> documentation.
 -spec stencilFunc(Func, Ref, Mask) -> 'ok' when Func :: enum(),Ref :: integer(),Mask :: integer().
 stencilFunc(Func,Ref,Mask) ->
   cast(5239, <<Func:?GLenum,Ref:?GLint,Mask:?GLuint>>).
@@ -2415,7 +2415,7 @@ stencilFunc(Func,Ref,Mask) ->
 %% bit in the stencil buffer. Where a 0 appears, the corresponding bit is write-protected.
 %% Initially, all bits are enabled for writing. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilMask.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glStencilMask.xhtml">external</a> documentation.
 -spec stencilMask(Mask) -> 'ok' when Mask :: integer().
 stencilMask(Mask) ->
   cast(5240, <<Mask:?GLuint>>).
@@ -2428,7 +2428,7 @@ stencilMask(Mask) ->
 %% used in multipass rendering algorithms to achieve special effects, such as decals, outlining,
 %% and constructive solid geometry rendering. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilOp.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glStencilOp.xhtml">external</a> documentation.
 -spec stencilOp(Fail, Zfail, Zpass) -> 'ok' when Fail :: enum(),Zfail :: enum(),Zpass :: enum().
 stencilOp(Fail,Zfail,Zpass) ->
   cast(5241, <<Fail:?GLenum,Zfail:?GLenum,Zpass:?GLenum>>).
@@ -2439,7 +2439,7 @@ stencilOp(Fail,Zfail,Zpass) ->
 %% buffer.  `S'  is masked with   2 m-1, where   m is the number of bits in the stencil
 %% buffer. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearStencil.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClearStencil.xhtml">external</a> documentation.
 -spec clearStencil(S) -> 'ok' when S :: integer().
 clearStencil(S) ->
   cast(5242, <<S:?GLint>>).
@@ -2456,7 +2456,7 @@ clearStencil(S) ->
 %%  is either `?GL_OBJECT_PLANE' or `?GL_EYE_PLANE',  `Params'  contains coefficients
 %% for the corresponding texture generation function. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexGen.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexGen.xml">external</a> documentation.
 -spec texGend(Coord, Pname, Param) -> 'ok' when Coord :: enum(),Pname :: enum(),Param :: float().
 texGend(Coord,Pname,Param) ->
   cast(5243, <<Coord:?GLenum,Pname:?GLenum,Param:?GLdouble>>).
@@ -2501,7 +2501,7 @@ texGeniv(Coord,Pname,Params) ->
 %% of the (`s', `t', `r', `q') texture coordinates, using the symbolic
 %% constant `?GL_S', `?GL_T', `?GL_R', or `?GL_Q'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetTexGen.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetTexGen.xml">external</a> documentation.
 -spec getTexGendv(Coord, Pname) -> {float(),float(),float(),float()} when Coord :: enum(),Pname :: enum().
 getTexGendv(Coord,Pname) ->
   call(5249, <<Coord:?GLenum,Pname:?GLenum>>).
@@ -2520,14 +2520,14 @@ getTexGeniv(Coord,Pname) ->
 
 %% @doc glTexEnvf
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexEnvf.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec texEnvf(Target, Pname, Param) -> 'ok' when Target :: enum(),Pname :: enum(),Param :: float().
 texEnvf(Target,Pname,Param) ->
   cast(5252, <<Target:?GLenum,Pname:?GLenum,Param:?GLfloat>>).
 
 %% @doc glTexEnvi
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexEnvi.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec texEnvi(Target, Pname, Param) -> 'ok' when Target :: enum(),Pname :: enum(),Param :: integer().
 texEnvi(Target,Pname,Param) ->
   cast(5253, <<Target:?GLenum,Pname:?GLenum,Param:?GLint>>).
@@ -2541,7 +2541,7 @@ texEnvi(Target,Pname,Param) ->
 %% , `?GL_ALPHA_SCALE', `?GL_SRC0_RGB', `?GL_SRC1_RGB', `?GL_SRC2_RGB', `?GL_SRC0_ALPHA'
 %% , `?GL_SRC1_ALPHA', or `?GL_SRC2_ALPHA'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexEnv.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexEnv.xml">external</a> documentation.
 -spec texEnvfv(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: tuple().
 texEnvfv(Target,Pname,Params) ->
   cast(5254, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
@@ -2559,7 +2559,7 @@ texEnviv(Target,Pname,Params) ->
 %% ``gl:getTexEnv'' returns in  `Params'  selected values of a texture environment that
 %% was specified with  {@link gl:texEnvfv/3} .  `Target'  specifies a texture environment. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetTexEnv.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetTexEnv.xml">external</a> documentation.
 -spec getTexEnvfv(Target, Pname) -> {float(),float(),float(),float()} when Target :: enum(),Pname :: enum().
 getTexEnvfv(Target,Pname) ->
   call(5256, <<Target:?GLenum,Pname:?GLenum>>).
@@ -2577,7 +2577,7 @@ getTexEnviv(Target,Pname) ->
 %% , `?GL_TEXTURE_2D', `?GL_TEXTURE_1D_ARRAY', `?GL_TEXTURE_2D_ARRAY', `?GL_TEXTURE_RECTANGLE'
 %% , or `?GL_TEXTURE_3D'. The following symbols are accepted in  `Pname' : 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexParameter.xhtml">external</a> documentation.
 -spec texParameterf(Target, Pname, Param) -> 'ok' when Target :: enum(),Pname :: enum(),Param :: float().
 texParameterf(Target,Pname,Param) ->
   cast(5258, <<Target:?GLenum,Pname:?GLenum,Param:?GLfloat>>).
@@ -2612,7 +2612,7 @@ texParameteriv(Target,Pname,Params) ->
 %% rectangle, cube-mapped or cube-mapped array texturing, respectively.  `Pname'  accepts
 %% the same symbols as  {@link gl:texParameterf/3} , with the same interpretations: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetTexParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetTexParameter.xhtml">external</a> documentation.
 -spec getTexParameterfv(Target, Pname) -> {float(),float(),float(),float()} when Target :: enum(),Pname :: enum().
 getTexParameterfv(Target,Pname) ->
   call(5262, <<Target:?GLenum,Pname:?GLenum>>).
@@ -2633,7 +2633,7 @@ getTexParameteriv(Target,Pname) ->
 %% , `?GL_TEXTURE_CUBE_MAP_POSITIVE_Z', `?GL_TEXTURE_CUBE_MAP_NEGATIVE_Z', or `?GL_PROXY_TEXTURE_CUBE_MAP'
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetTexLevelParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetTexLevelParameter.xhtml">external</a> documentation.
 -spec getTexLevelParameterfv(Target, Level, Pname) -> {float()} when Target :: enum(),Level :: integer(),Pname :: enum().
 getTexLevelParameterfv(Target,Level,Pname) ->
   call(5264, <<Target:?GLenum,Level:?GLint,Pname:?GLenum>>).
@@ -2650,7 +2650,7 @@ getTexLevelParameteriv(Target,Level,Pname) ->
 %% which texturing is enabled. To enable and disable one-dimensional texturing, call  {@link gl:enable/1} 
 %%  and  {@link gl:enable/1}  with argument `?GL_TEXTURE_1D'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexImage1D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexImage1D.xhtml">external</a> documentation.
 -spec texImage1D(Target, Level, InternalFormat, Width, Border, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),InternalFormat :: integer(),Width :: integer(),Border :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 texImage1D(Target,Level,InternalFormat,Width,Border,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5266, <<Target:?GLenum,Level:?GLint,InternalFormat:?GLint,Width:?GLsizei,Border:?GLint,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
@@ -2662,7 +2662,7 @@ texImage1D(Target,Level,InternalFormat,Width,Border,Format,Type,Pixels) ->
 %%
 %%  Texturing allows elements of an image array to be read by shaders. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexImage2D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexImage2D.xhtml">external</a> documentation.
 -spec texImage2D(Target, Level, InternalFormat, Width, Height, Border, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),InternalFormat :: integer(),Width :: integer(),Height :: integer(),Border :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 texImage2D(Target,Level,InternalFormat,Width,Height,Border,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5268, <<Target:?GLenum,Level:?GLint,InternalFormat:?GLint,Width:?GLsizei,Height:?GLsizei,Border:?GLint,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
@@ -2681,7 +2681,7 @@ texImage2D(Target,Level,InternalFormat,Width,Height,Border,Format,Type,Pixels) -
 %% array. See the reference page for  {@link gl:texImage1D/8}  for a description of the acceptable
 %% values for the  `Format'  and  `Type'  parameters, respectively. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetTexImage.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetTexImage.xhtml">external</a> documentation.
 -spec getTexImage(Target, Level, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),Format :: enum(),Type :: enum(),Pixels :: mem().
 getTexImage(Target,Level,Format,Type,Pixels) ->
   send_bin(Pixels),
@@ -2693,7 +2693,7 @@ getTexImage(Target,Level,Format,Type,Pixels) ->
 %% that the names form a contiguous set of integers; however, it is guaranteed that none
 %% of the returned names was in use immediately before the call to ``gl:genTextures''. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenTextures.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenTextures.xhtml">external</a> documentation.
 -spec genTextures(N) -> [integer()] when N :: integer().
 genTextures(N) ->
   call(5271, <<N:?GLsizei>>).
@@ -2705,7 +2705,7 @@ genTextures(N) ->
 %% for reuse (for example by  {@link gl:genTextures/1} ). If a texture that is currently bound
 %% is deleted, the binding reverts to 0 (the default texture). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteTextures.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteTextures.xhtml">external</a> documentation.
 -spec deleteTextures(Textures) -> 'ok' when Textures :: [integer()].
 deleteTextures(Textures) ->
   TexturesLen = length(Textures),
@@ -2722,7 +2722,7 @@ deleteTextures(Textures) ->
 %% When a texture is bound to a target, the previous binding for that target is automatically
 %% broken. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindTexture.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindTexture.xhtml">external</a> documentation.
 -spec bindTexture(Target, Texture) -> 'ok' when Target :: enum(),Texture :: integer().
 bindTexture(Target,Texture) ->
   cast(5273, <<Target:?GLenum,Texture:?GLuint>>).
@@ -2732,7 +2732,7 @@ bindTexture(Target,Texture) ->
 %% ``gl:prioritizeTextures'' assigns the  `N'  texture priorities given in  `Priorities' 
 %%  to the  `N'  textures named in  `Textures' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPrioritizeTextures.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPrioritizeTextures.xml">external</a> documentation.
 -spec prioritizeTextures(Textures, Priorities) -> 'ok' when Textures :: [integer()],Priorities :: [clamp()].
 prioritizeTextures(Textures,Priorities) ->
   TexturesLen = length(Textures),
@@ -2747,7 +2747,7 @@ prioritizeTextures(Textures,Priorities) ->
 %% textures can be bound to a texture target much more efficiently than textures that are
 %% not resident. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glAreTexturesResident.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glAreTexturesResident.xml">external</a> documentation.
 -spec areTexturesResident(Textures) -> {0|1,Residences :: [0|1]} when Textures :: [integer()].
 areTexturesResident(Textures) ->
   TexturesLen = length(Textures),
@@ -2760,14 +2760,14 @@ areTexturesResident(Textures) ->
 %% a texture. If  `Texture'  is zero, or is a non-zero value that is not currently the
 %% name of a texture, or if an error occurs, ``gl:isTexture'' returns `?GL_FALSE'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsTexture.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsTexture.xhtml">external</a> documentation.
 -spec isTexture(Texture) -> 0|1 when Texture :: integer().
 isTexture(Texture) ->
   call(5276, <<Texture:?GLuint>>).
 
 %% @doc glTexSubImage
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexSubImage.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec texSubImage1D(Target, Level, Xoffset, Width, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Width :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 texSubImage1D(Target,Level,Xoffset,Width,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5277, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Width:?GLsizei,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
@@ -2777,7 +2777,7 @@ texSubImage1D(Target,Level,Xoffset,Width,Format,Type,Pixels) ->
 
 %% @doc glTexSubImage
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexSubImage.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec texSubImage2D(Target, Level, Xoffset, Yoffset, Width, Height, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 texSubImage2D(Target,Level,Xoffset,Yoffset,Width,Height,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5279, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Yoffset:?GLint,Width:?GLsizei,Height:?GLsizei,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
@@ -2790,7 +2790,7 @@ texSubImage2D(Target,Level,Xoffset,Yoffset,Width,Height,Format,Type,Pixels) ->
 %% ``gl:copyTexImage1D'' defines a one-dimensional texture image with pixels from the current
 %% `?GL_READ_BUFFER'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyTexImage1D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCopyTexImage1D.xhtml">external</a> documentation.
 -spec copyTexImage1D(Target, Level, Internalformat, X, Y, Width, Border) -> 'ok' when Target :: enum(),Level :: integer(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer(),Border :: integer().
 copyTexImage1D(Target,Level,Internalformat,X,Y,Width,Border) ->
   cast(5281, <<Target:?GLenum,Level:?GLint,Internalformat:?GLenum,X:?GLint,Y:?GLint,Width:?GLsizei,Border:?GLint>>).
@@ -2800,7 +2800,7 @@ copyTexImage1D(Target,Level,Internalformat,X,Y,Width,Border) ->
 %% ``gl:copyTexImage2D'' defines a two-dimensional texture image, or cube-map texture image
 %% with pixels from the current `?GL_READ_BUFFER'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyTexImage2D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCopyTexImage2D.xhtml">external</a> documentation.
 -spec copyTexImage2D(Target, Level, Internalformat, X, Y, Width, Height, Border) -> 'ok' when Target :: enum(),Level :: integer(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer(),Height :: integer(),Border :: integer().
 copyTexImage2D(Target,Level,Internalformat,X,Y,Width,Height,Border) ->
   cast(5282, <<Target:?GLenum,Level:?GLint,Internalformat:?GLenum,X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei,Border:?GLint>>).
@@ -2811,7 +2811,7 @@ copyTexImage2D(Target,Level,Internalformat,X,Y,Width,Height,Border) ->
 %% pixels from the current `?GL_READ_BUFFER' (rather than from main memory, as is the
 %% case for  {@link gl:texSubImage1D/7} ). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyTexSubImage1D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCopyTexSubImage1D.xhtml">external</a> documentation.
 -spec copyTexSubImage1D(Target, Level, Xoffset, X, Y, Width) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),X :: integer(),Y :: integer(),Width :: integer().
 copyTexSubImage1D(Target,Level,Xoffset,X,Y,Width) ->
   cast(5283, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,X:?GLint,Y:?GLint,Width:?GLsizei>>).
@@ -2822,14 +2822,14 @@ copyTexSubImage1D(Target,Level,Xoffset,X,Y,Width) ->
 %% image or cube-map texture image with pixels from the current `?GL_READ_BUFFER' (rather
 %% than from main memory, as is the case for  {@link gl:texSubImage1D/7} ). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyTexSubImage2D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCopyTexSubImage2D.xhtml">external</a> documentation.
 -spec copyTexSubImage2D(Target, Level, Xoffset, Yoffset, X, Y, Width, Height) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
 copyTexSubImage2D(Target,Level,Xoffset,Yoffset,X,Y,Width,Height) ->
   cast(5284, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Yoffset:?GLint,X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei>>).
 
 %% @doc glMap
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMap.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec map1d(Target, U1, U2, Stride, Order, Points) -> 'ok' when Target :: enum(),U1 :: float(),U2 :: float(),Stride :: integer(),Order :: integer(),Points :: binary().
 map1d(Target,U1,U2,Stride,Order,Points) ->
   send_bin(Points),
@@ -2837,7 +2837,7 @@ map1d(Target,U1,U2,Stride,Order,Points) ->
 
 %% @doc glMap
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMap.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec map1f(Target, U1, U2, Stride, Order, Points) -> 'ok' when Target :: enum(),U1 :: float(),U2 :: float(),Stride :: integer(),Order :: integer(),Points :: binary().
 map1f(Target,U1,U2,Stride,Order,Points) ->
   send_bin(Points),
@@ -2845,7 +2845,7 @@ map1f(Target,U1,U2,Stride,Order,Points) ->
 
 %% @doc glMap
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMap.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec map2d(Target, U1, U2, Ustride, Uorder, V1, V2, Vstride, Vorder, Points) -> 'ok' when Target :: enum(),U1 :: float(),U2 :: float(),Ustride :: integer(),Uorder :: integer(),V1 :: float(),V2 :: float(),Vstride :: integer(),Vorder :: integer(),Points :: binary().
 map2d(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points) ->
   send_bin(Points),
@@ -2853,7 +2853,7 @@ map2d(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points) ->
 
 %% @doc glMap
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMap.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec map2f(Target, U1, U2, Ustride, Uorder, V1, V2, Vstride, Vorder, Points) -> 'ok' when Target :: enum(),U1 :: float(),U2 :: float(),Ustride :: integer(),Uorder :: integer(),V1 :: float(),V2 :: float(),Vstride :: integer(),Vorder :: integer(),Points :: binary().
 map2f(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points) ->
   send_bin(Points),
@@ -2865,7 +2865,7 @@ map2f(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points) ->
 %% parameters.  `Target'  chooses a map,  `Query'  selects a specific parameter, and  `V' 
 %%  points to storage where the values will be returned. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetMap.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetMap.xml">external</a> documentation.
 -spec getMapdv(Target, Query, V) -> 'ok' when Target :: enum(),Query :: enum(),V :: mem().
 getMapdv(Target,Query,V) ->
   send_bin(V),
@@ -2892,7 +2892,7 @@ getMapiv(Target,Query,V) ->
 %% To define a map, call  {@link gl:map1d/6}  and  {@link gl:map1d/6} ; to enable and disable it,
 %% call  {@link gl:enable/1}  and  {@link gl:enable/1} . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEvalCoord.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEvalCoord.xml">external</a> documentation.
 -spec evalCoord1d(U) -> 'ok' when U :: float().
 evalCoord1d(U) ->
   cast(5292, <<U:?GLdouble>>).
@@ -2938,7 +2938,7 @@ evalCoord2fv({U,V}) ->  evalCoord2f(U,V).
 %% the integer domain of a one- or two-dimensional grid, whose range is the domain of the
 %% evaluation maps specified by  {@link gl:map1d/6}  and  {@link gl:map1d/6} . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMapGrid.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMapGrid.xml">external</a> documentation.
 -spec mapGrid1d(Un, U1, U2) -> 'ok' when Un :: integer(),U1 :: float(),U2 :: float().
 mapGrid1d(Un,U1,U2) ->
   cast(5296, <<Un:?GLint,0:32,U1:?GLdouble,U2:?GLdouble>>).
@@ -2969,7 +2969,7 @@ mapGrid2f(Un,U1,U2,Vn,V1,V2) ->
 %% . Calling ``gl:evalPoint1'' is equivalent to calling  glEvalCoord1(  i.&amp;Delta; u+u
 %% 1 );  where &amp;Delta; u=(u 2-u 1)/n
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEvalPoint.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEvalPoint.xml">external</a> documentation.
 -spec evalPoint1(I) -> 'ok' when I :: integer().
 evalPoint1(I) ->
   cast(5300, <<I:?GLint>>).
@@ -2988,7 +2988,7 @@ evalPoint2(I,J) ->
 %% evaluation maps specified by  {@link gl:map1d/6}  and  {@link gl:map1d/6} .  `Mode'  determines
 %% whether the resulting vertices are connected as points, lines, or filled polygons. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEvalMesh.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEvalMesh.xml">external</a> documentation.
 -spec evalMesh1(Mode, I1, I2) -> 'ok' when Mode :: enum(),I1 :: integer(),I2 :: integer().
 evalMesh1(Mode,I1,I2) ->
   cast(5302, <<Mode:?GLenum,I1:?GLint,I2:?GLint>>).
@@ -3005,7 +3005,7 @@ evalMesh2(Mode,I1,I2,J1,J2) ->
 %% pixel blocks, but not buffer clear operations. To enable and disable fog, call  {@link gl:enable/1} 
 %%  and  {@link gl:enable/1}  with argument `?GL_FOG'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFog.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glFog.xml">external</a> documentation.
 -spec fogf(Pname, Param) -> 'ok' when Pname :: enum(),Param :: float().
 fogf(Pname,Param) ->
   cast(5304, <<Pname:?GLenum,Param:?GLfloat>>).
@@ -3038,7 +3038,7 @@ fogiv(Pname,Params) ->
 %% about primitives that would have been rasterized is fed back to the application using
 %% the GL. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFeedbackBuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glFeedbackBuffer.xml">external</a> documentation.
 -spec feedbackBuffer(Size, Type, Buffer) -> 'ok' when Size :: integer(),Type :: enum(),Buffer :: mem().
 feedbackBuffer(Size,Type,Buffer) ->
   send_bin(Buffer),
@@ -3048,7 +3048,7 @@ feedbackBuffer(Size,Type,Buffer) ->
 %%
 %% 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPassThrough.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPassThrough.xml">external</a> documentation.
 -spec passThrough(Token) -> 'ok' when Token :: float().
 passThrough(Token) ->
   cast(5309, <<Token:?GLfloat>>).
@@ -3062,7 +3062,7 @@ passThrough(Token) ->
 %%  must be issued before selection mode is enabled, and it must not be issued while the
 %% rendering mode is `?GL_SELECT'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSelectBuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glSelectBuffer.xml">external</a> documentation.
 -spec selectBuffer(Size, Buffer) -> 'ok' when Size :: integer(),Buffer :: mem().
 selectBuffer(Size,Buffer) ->
   send_bin(Buffer),
@@ -3074,7 +3074,7 @@ selectBuffer(Size,Buffer) ->
 %% uniquely identified. It consists of an ordered set of unsigned integers. ``gl:initNames''
 %%  causes the name stack to be initialized to its default empty state. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glInitNames.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glInitNames.xml">external</a> documentation.
 -spec initNames() -> 'ok'.
 initNames() ->
   cast(5311, <<>>).
@@ -3085,7 +3085,7 @@ initNames() ->
 %% uniquely identified. It consists of an ordered set of unsigned integers and is initially
 %% empty. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadName.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glLoadName.xml">external</a> documentation.
 -spec loadName(Name) -> 'ok' when Name :: integer().
 loadName(Name) ->
   cast(5312, <<Name:?GLuint>>).
@@ -3096,7 +3096,7 @@ loadName(Name) ->
 %% uniquely identified. It consists of an ordered set of unsigned integers and is initially
 %% empty. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPushName.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPushName.xml">external</a> documentation.
 -spec pushName(Name) -> 'ok' when Name :: integer().
 pushName(Name) ->
   cast(5313, <<Name:?GLuint>>).
@@ -3114,7 +3114,7 @@ popName() ->
 %%  for a complete description of the blending operations. Initially the `?GL_BLEND_COLOR'
 %%  is set to (0, 0, 0, 0). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendColor.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendColor.xhtml">external</a> documentation.
 -spec blendColor(Red, Green, Blue, Alpha) -> 'ok' when Red :: clamp(),Green :: clamp(),Blue :: clamp(),Alpha :: clamp().
 blendColor(Red,Green,Blue,Alpha) ->
   cast(5315, <<Red:?GLclampf,Green:?GLclampf,Blue:?GLclampf,Alpha:?GLclampf>>).
@@ -3127,7 +3127,7 @@ blendColor(Red,Green,Blue,Alpha) ->
 %%  specifies the blend equation for a single draw buffer whereas ``gl:blendEquation''
 %% sets the blend equation for all draw buffers. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendEquation.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendEquation.xhtml">external</a> documentation.
 -spec blendEquation(Mode) -> 'ok' when Mode :: enum().
 blendEquation(Mode) ->
   cast(5316, <<Mode:?GLenum>>).
@@ -3139,7 +3139,7 @@ blendEquation(Mode) ->
 %% , with the additional constraint that all values in the arrays  `Count'  must lie between
 %%  `Start'  and  `End' , inclusive. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawRangeElements.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawRangeElements.xhtml">external</a> documentation.
 -spec drawRangeElements(Mode, Start, End, Count, Type, Indices) -> 'ok' when Mode :: enum(),Start :: integer(),End :: integer(),Count :: integer(),Type :: enum(),Indices :: offset()|mem().
 drawRangeElements(Mode,Start,End,Count,Type,Indices) when  is_integer(Indices) ->
   cast(5317, <<Mode:?GLenum,Start:?GLuint,End:?GLuint,Count:?GLsizei,Type:?GLenum,Indices:?GLuint>>);
@@ -3153,7 +3153,7 @@ drawRangeElements(Mode,Start,End,Count,Type,Indices) ->
 %% which texturing is enabled. To enable and disable three-dimensional texturing, call  {@link gl:enable/1} 
 %%  and  {@link gl:enable/1}  with argument `?GL_TEXTURE_3D'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexImage3D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexImage3D.xhtml">external</a> documentation.
 -spec texImage3D(Target, Level, InternalFormat, Width, Height, Depth, Border, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),InternalFormat :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Border :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 texImage3D(Target,Level,InternalFormat,Width,Height,Depth,Border,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5319, <<Target:?GLenum,Level:?GLint,InternalFormat:?GLint,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei,Border:?GLint,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
@@ -3163,7 +3163,7 @@ texImage3D(Target,Level,InternalFormat,Width,Height,Depth,Border,Format,Type,Pix
 
 %% @doc glTexSubImage
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexSubImage.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec texSubImage3D(Target, Level, Xoffset, Yoffset, Zoffset, Width, Height, Depth, Format, Type, Pixels) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Zoffset :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Format :: enum(),Type :: enum(),Pixels :: offset()|mem().
 texSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Format,Type,Pixels) when  is_integer(Pixels) ->
   cast(5321, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Yoffset:?GLint,Zoffset:?GLint,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei,Format:?GLenum,Type:?GLenum,Pixels:?GLuint>>);
@@ -3177,7 +3177,7 @@ texSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Format,Typ
 %% image with pixels from the current `?GL_READ_BUFFER' (rather than from main memory,
 %% as is the case for  {@link gl:texSubImage1D/7} ). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyTexSubImage3D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCopyTexSubImage3D.xhtml">external</a> documentation.
 -spec copyTexSubImage3D(Target, Level, Xoffset, Yoffset, Zoffset, X, Y, Width, Height) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Zoffset :: integer(),X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
 copyTexSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,X,Y,Width,Height) ->
   cast(5323, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Yoffset:?GLint,Zoffset:?GLint,X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei>>).
@@ -3189,7 +3189,7 @@ copyTexSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,X,Y,Width,Height) ->
 %% lookup table. Use the targets `?GL_PROXY_*' for the first case and the other targets
 %% for the second case. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorTable.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColorTable.xml">external</a> documentation.
 -spec colorTable(Target, Internalformat, Width, Format, Type, Table) -> 'ok' when Target :: enum(),Internalformat :: enum(),Width :: integer(),Format :: enum(),Type :: enum(),Table :: offset()|mem().
 colorTable(Target,Internalformat,Width,Format,Type,Table) when  is_integer(Table) ->
   cast(5324, <<Target:?GLenum,Internalformat:?GLenum,Width:?GLsizei,Format:?GLenum,Type:?GLenum,Table:?GLuint>>);
@@ -3204,7 +3204,7 @@ colorTable(Target,Internalformat,Width,Format,Type,Table) ->
 %% color table the scale and bias terms apply to; it must be set to `?GL_COLOR_TABLE', `?GL_POST_CONVOLUTION_COLOR_TABLE'
 %% , or `?GL_POST_COLOR_MATRIX_COLOR_TABLE'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorTableParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColorTableParameter.xml">external</a> documentation.
 -spec colorTableParameterfv(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: {float(),float(),float(),float()}.
 colorTableParameterfv(Target,Pname,{P1,P2,P3,P4}) ->
   cast(5326, <<Target:?GLenum,Pname:?GLenum,P1:?GLfloat,P2:?GLfloat,P3:?GLfloat,P4:?GLfloat>>).
@@ -3220,7 +3220,7 @@ colorTableParameteriv(Target,Pname,{P1,P2,P3,P4}) ->
 %% ``gl:copyColorTable'' loads a color table with pixels from the current `?GL_READ_BUFFER'
 %%  (rather than from main memory, as is the case for  {@link gl:colorTable/6} ). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyColorTable.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glCopyColorTable.xml">external</a> documentation.
 -spec copyColorTable(Target, Internalformat, X, Y, Width) -> 'ok' when Target :: enum(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer().
 copyColorTable(Target,Internalformat,X,Y,Width) ->
   cast(5328, <<Target:?GLenum,Internalformat:?GLenum,X:?GLint,Y:?GLint,Width:?GLsizei>>).
@@ -3231,7 +3231,7 @@ copyColorTable(Target,Internalformat,X,Y,Width) ->
 %% by  `Target' . No pixel transfer operations are performed, but pixel storage modes
 %% that are applicable to  {@link gl:readPixels/7}  are performed. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetColorTable.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetColorTable.xml">external</a> documentation.
 -spec getColorTable(Target, Format, Type, Table) -> 'ok' when Target :: enum(),Format :: enum(),Type :: enum(),Table :: mem().
 getColorTable(Target,Format,Type,Table) ->
   send_bin(Table),
@@ -3241,7 +3241,7 @@ getColorTable(Target,Format,Type,Table) ->
 %%
 %%  Returns parameters specific to color table  `Target' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetColorTableParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetColorTableParameter.xml">external</a> documentation.
 -spec getColorTableParameterfv(Target, Pname) -> {float(),float(),float(),float()} when Target :: enum(),Pname :: enum().
 getColorTableParameterfv(Target,Pname) ->
   call(5330, <<Target:?GLenum,Pname:?GLenum>>).
@@ -3261,7 +3261,7 @@ getColorTableParameteriv(Target,Pname) ->
 %% originally specified. It is not an error to specify a subtexture with width of 0, but
 %% such a specification has no effect. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorSubTable.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColorSubTable.xml">external</a> documentation.
 -spec colorSubTable(Target, Start, Count, Format, Type, Data) -> 'ok' when Target :: enum(),Start :: integer(),Count :: integer(),Format :: enum(),Type :: enum(),Data :: offset()|mem().
 colorSubTable(Target,Start,Count,Format,Type,Data) when  is_integer(Data) ->
   cast(5332, <<Target:?GLenum,Start:?GLsizei,Count:?GLsizei,Format:?GLenum,Type:?GLenum,Data:?GLuint>>);
@@ -3278,7 +3278,7 @@ colorSubTable(Target,Start,Count,Format,Type,Data) ->
 %% specified. It is not an error to specify a subtexture with width of 0, but such a specification
 %% has no effect. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyColorSubTable.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glCopyColorSubTable.xml">external</a> documentation.
 -spec copyColorSubTable(Target, Start, X, Y, Width) -> 'ok' when Target :: enum(),Start :: integer(),X :: integer(),Y :: integer(),Width :: integer().
 copyColorSubTable(Target,Start,X,Y,Width) ->
   cast(5334, <<Target:?GLenum,Start:?GLsizei,X:?GLint,Y:?GLint,Width:?GLsizei>>).
@@ -3288,7 +3288,7 @@ copyColorSubTable(Target,Start,X,Y,Width) ->
 %% ``gl:convolutionFilter1D'' builds a one-dimensional convolution filter kernel from an
 %% array of pixels. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glConvolutionFilter1D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glConvolutionFilter1D.xml">external</a> documentation.
 -spec convolutionFilter1D(Target, Internalformat, Width, Format, Type, Image) -> 'ok' when Target :: enum(),Internalformat :: enum(),Width :: integer(),Format :: enum(),Type :: enum(),Image :: offset()|mem().
 convolutionFilter1D(Target,Internalformat,Width,Format,Type,Image) when  is_integer(Image) ->
   cast(5335, <<Target:?GLenum,Internalformat:?GLenum,Width:?GLsizei,Format:?GLenum,Type:?GLenum,Image:?GLuint>>);
@@ -3301,7 +3301,7 @@ convolutionFilter1D(Target,Internalformat,Width,Format,Type,Image) ->
 %% ``gl:convolutionFilter2D'' builds a two-dimensional convolution filter kernel from an
 %% array of pixels. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glConvolutionFilter2D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glConvolutionFilter2D.xml">external</a> documentation.
 -spec convolutionFilter2D(Target, Internalformat, Width, Height, Format, Type, Image) -> 'ok' when Target :: enum(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Image :: offset()|mem().
 convolutionFilter2D(Target,Internalformat,Width,Height,Format,Type,Image) when  is_integer(Image) ->
   cast(5337, <<Target:?GLenum,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei,Format:?GLenum,Type:?GLenum,Image:?GLuint>>);
@@ -3313,7 +3313,7 @@ convolutionFilter2D(Target,Internalformat,Width,Height,Format,Type,Image) ->
 %%
 %% ``gl:convolutionParameter'' sets the value of a convolution parameter. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glConvolutionParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glConvolutionParameter.xml">external</a> documentation.
 -spec convolutionParameterf(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: tuple().
 convolutionParameterf(Target,Pname,Params) ->
   cast(5339, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
@@ -3340,7 +3340,7 @@ convolutionParameteriv(Target,Pname,{Params}) ->  convolutionParameteri(Target,P
 %% pixels from the current `?GL_READ_BUFFER' (rather than from main memory, as is the
 %% case for  {@link gl:convolutionFilter1D/6} ). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyConvolutionFilter1D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glCopyConvolutionFilter1D.xml">external</a> documentation.
 -spec copyConvolutionFilter1D(Target, Internalformat, X, Y, Width) -> 'ok' when Target :: enum(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer().
 copyConvolutionFilter1D(Target,Internalformat,X,Y,Width) ->
   cast(5341, <<Target:?GLenum,Internalformat:?GLenum,X:?GLint,Y:?GLint,Width:?GLsizei>>).
@@ -3351,7 +3351,7 @@ copyConvolutionFilter1D(Target,Internalformat,X,Y,Width) ->
 %% pixels from the current `?GL_READ_BUFFER' (rather than from main memory, as is the
 %% case for  {@link gl:convolutionFilter2D/7} ). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyConvolutionFilter2D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glCopyConvolutionFilter2D.xml">external</a> documentation.
 -spec copyConvolutionFilter2D(Target, Internalformat, X, Y, Width, Height) -> 'ok' when Target :: enum(),Internalformat :: enum(),X :: integer(),Y :: integer(),Width :: integer(),Height :: integer().
 copyConvolutionFilter2D(Target,Internalformat,X,Y,Width,Height) ->
   cast(5342, <<Target:?GLenum,Internalformat:?GLenum,X:?GLint,Y:?GLint,Width:?GLsizei,Height:?GLsizei>>).
@@ -3363,7 +3363,7 @@ copyConvolutionFilter2D(Target,Internalformat,X,Y,Width,Height) ->
 %% specifications in  `Format'  and  `Type' . No pixel transfer operations are performed
 %% on this image, but the relevant pixel storage modes are applied. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetConvolutionFilter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetConvolutionFilter.xml">external</a> documentation.
 -spec getConvolutionFilter(Target, Format, Type, Image) -> 'ok' when Target :: enum(),Format :: enum(),Type :: enum(),Image :: mem().
 getConvolutionFilter(Target,Format,Type,Image) ->
   send_bin(Image),
@@ -3375,7 +3375,7 @@ getConvolutionFilter(Target,Format,Type,Image) ->
 %% which convolution filter is queried.  `Pname'  determines which parameter is returned:
 %% 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetConvolutionParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetConvolutionParameter.xml">external</a> documentation.
 -spec getConvolutionParameterfv(Target, Pname) -> {float(),float(),float(),float()} when Target :: enum(),Pname :: enum().
 getConvolutionParameterfv(Target,Pname) ->
   call(5344, <<Target:?GLenum,Pname:?GLenum>>).
@@ -3391,7 +3391,7 @@ getConvolutionParameteriv(Target,Pname) ->
 %% ``gl:separableFilter2D'' builds a two-dimensional separable convolution filter kernel
 %% from two arrays of pixels. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSeparableFilter2D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glSeparableFilter2D.xml">external</a> documentation.
 -spec separableFilter2D(Target, Internalformat, Width, Height, Format, Type, Row, Column) -> 'ok' when Target :: enum(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Format :: enum(),Type :: enum(),Row :: offset()|mem(),Column :: offset()|mem().
 separableFilter2D(Target,Internalformat,Width,Height,Format,Type,Row,Column) when  is_integer(Row), is_integer(Column) ->
   cast(5346, <<Target:?GLenum,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei,Format:?GLenum,Type:?GLenum,Row:?GLuint,Column:?GLuint>>);
@@ -3406,7 +3406,7 @@ separableFilter2D(Target,Internalformat,Width,Height,Format,Type,Row,Column) ->
 %% the same width as the histogram. No pixel transfer operations are performed on this image,
 %% but pixel storage modes that are applicable to 1D images are honored. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetHistogram.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetHistogram.xml">external</a> documentation.
 -spec getHistogram(Target, Reset, Format, Type, Values) -> 'ok' when Target :: enum(),Reset :: 0|1,Format :: enum(),Type :: enum(),Values :: mem().
 getHistogram(Target,Reset,Format,Type,Values) ->
   send_bin(Values),
@@ -3420,7 +3420,7 @@ getHistogram(Target,Reset,Format,Type,Values) ->
 %% table) or `?GL_PROXY_HISTOGRAM' (to obtain information from the most recent proxy
 %% request) and one of the following values for the  `Pname'  argument: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetHistogramParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetHistogramParameter.xml">external</a> documentation.
 -spec getHistogramParameterfv(Target, Pname) -> {float()} when Target :: enum(),Pname :: enum().
 getHistogramParameterfv(Target,Pname) ->
   call(5349, <<Target:?GLenum,Pname:?GLenum>>).
@@ -3439,7 +3439,7 @@ getHistogramParameteriv(Target,Pname) ->
 %% of the return values is determined by  `Format' , and their type is determined by  `Types' 
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetMinmax.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetMinmax.xml">external</a> documentation.
 -spec getMinmax(Target, Reset, Format, Types, Values) -> 'ok' when Target :: enum(),Reset :: 0|1,Format :: enum(),Types :: enum(),Values :: mem().
 getMinmax(Target,Reset,Format,Types,Values) ->
   send_bin(Values),
@@ -3450,7 +3450,7 @@ getMinmax(Target,Reset,Format,Types,Values) ->
 %% ``gl:getMinmaxParameter'' retrieves parameters for the current minmax table by setting  `Pname' 
 %%  to one of the following values: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetMinmaxParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetMinmaxParameter.xml">external</a> documentation.
 -spec getMinmaxParameterfv(Target, Pname) -> {float()} when Target :: enum(),Pname :: enum().
 getMinmaxParameterfv(Target,Pname) ->
   call(5352, <<Target:?GLenum,Pname:?GLenum>>).
@@ -3471,7 +3471,7 @@ getMinmaxParameteriv(Target,Pname) ->
 %% to be incremented.) If a histogram table entry is incremented beyond its maximum value,
 %% then its value becomes undefined. (This is not an error.) 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glHistogram.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glHistogram.xml">external</a> documentation.
 -spec histogram(Target, Width, Internalformat, Sink) -> 'ok' when Target :: enum(),Width :: integer(),Internalformat :: enum(),Sink :: 0|1.
 histogram(Target,Width,Internalformat,Sink) ->
   cast(5354, <<Target:?GLenum,Width:?GLsizei,Internalformat:?GLenum,Sink:?GLboolean>>).
@@ -3491,7 +3491,7 @@ histogram(Target,Width,Internalformat,Sink) ->
 %% calling  {@link gl:enable/1}  or  {@link gl:enable/1} , respectively, with an argument of `?GL_MINMAX'
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMinmax.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMinmax.xml">external</a> documentation.
 -spec minmax(Target, Internalformat, Sink) -> 'ok' when Target :: enum(),Internalformat :: enum(),Sink :: 0|1.
 minmax(Target,Internalformat,Sink) ->
   cast(5355, <<Target:?GLenum,Internalformat:?GLenum,Sink:?GLboolean>>).
@@ -3500,7 +3500,7 @@ minmax(Target,Internalformat,Sink) ->
 %%
 %% ``gl:resetHistogram'' resets all the elements of the current histogram table to zero. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glResetHistogram.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glResetHistogram.xml">external</a> documentation.
 -spec resetHistogram(Target) -> 'ok' when Target :: enum().
 resetHistogram(Target) ->
   cast(5356, <<Target:?GLenum>>).
@@ -3511,7 +3511,7 @@ resetHistogram(Target) ->
 %% values: the ``maximum'' element receives the minimum possible component values, and the
 %% ``minimum'' element receives the maximum possible component values. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glResetMinmax.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glResetMinmax.xml">external</a> documentation.
 -spec resetMinmax(Target) -> 'ok' when Target :: enum().
 resetMinmax(Target) ->
   cast(5357, <<Target:?GLenum>>).
@@ -3522,7 +3522,7 @@ resetMinmax(Target) ->
 %% affect. The number of texture units an implementation supports is implementation dependent,
 %% but must be at least 80. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glActiveTexture.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glActiveTexture.xhtml">external</a> documentation.
 -spec activeTexture(Texture) -> 'ok' when Texture :: enum().
 activeTexture(Texture) ->
   cast(5358, <<Texture:?GLenum>>).
@@ -3533,7 +3533,7 @@ activeTexture(Texture) ->
 %% locations to generate antialiasing effects. Multisampling transparently antialiases points,
 %% lines, polygons, and images if it is enabled. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSampleCoverage.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glSampleCoverage.xhtml">external</a> documentation.
 -spec sampleCoverage(Value, Invert) -> 'ok' when Value :: clamp(),Invert :: 0|1.
 sampleCoverage(Value,Invert) ->
   cast(5359, <<Value:?GLclampf,Invert:?GLboolean>>).
@@ -3542,7 +3542,7 @@ sampleCoverage(Value,Invert) ->
 %%
 %%  Texturing allows elements of an image array to be read by shaders. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexImage3D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexImage3D.xhtml">external</a> documentation.
 -spec compressedTexImage3D(Target, Level, Internalformat, Width, Height, Depth, Border, ImageSize, Data) -> 'ok' when Target :: enum(),Level :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Depth :: integer(),Border :: integer(),ImageSize :: integer(),Data :: offset()|mem().
 compressedTexImage3D(Target,Level,Internalformat,Width,Height,Depth,Border,ImageSize,Data) when  is_integer(Data) ->
   cast(5360, <<Target:?GLenum,Level:?GLint,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei,Border:?GLint,ImageSize:?GLsizei,Data:?GLuint>>);
@@ -3554,7 +3554,7 @@ compressedTexImage3D(Target,Level,Internalformat,Width,Height,Depth,Border,Image
 %%
 %%  Texturing allows elements of an image array to be read by shaders. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexImage2D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexImage2D.xhtml">external</a> documentation.
 -spec compressedTexImage2D(Target, Level, Internalformat, Width, Height, Border, ImageSize, Data) -> 'ok' when Target :: enum(),Level :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Border :: integer(),ImageSize :: integer(),Data :: offset()|mem().
 compressedTexImage2D(Target,Level,Internalformat,Width,Height,Border,ImageSize,Data) when  is_integer(Data) ->
   cast(5362, <<Target:?GLenum,Level:?GLint,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei,Border:?GLint,ImageSize:?GLsizei,Data:?GLuint>>);
@@ -3566,7 +3566,7 @@ compressedTexImage2D(Target,Level,Internalformat,Width,Height,Border,ImageSize,D
 %%
 %%  Texturing allows elements of an image array to be read by shaders. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexImage1D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexImage1D.xhtml">external</a> documentation.
 -spec compressedTexImage1D(Target, Level, Internalformat, Width, Border, ImageSize, Data) -> 'ok' when Target :: enum(),Level :: integer(),Internalformat :: enum(),Width :: integer(),Border :: integer(),ImageSize :: integer(),Data :: offset()|mem().
 compressedTexImage1D(Target,Level,Internalformat,Width,Border,ImageSize,Data) when  is_integer(Data) ->
   cast(5364, <<Target:?GLenum,Level:?GLint,Internalformat:?GLenum,Width:?GLsizei,Border:?GLint,ImageSize:?GLsizei,Data:?GLuint>>);
@@ -3578,7 +3578,7 @@ compressedTexImage1D(Target,Level,Internalformat,Width,Border,ImageSize,Data) ->
 %%
 %%  Texturing allows elements of an image array to be read by shaders. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexSubImage3D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexSubImage3D.xhtml">external</a> documentation.
 -spec compressedTexSubImage3D(Target, Level, Xoffset, Yoffset, Zoffset, Width, Height, Depth, Format, ImageSize, Data) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Zoffset :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Format :: enum(),ImageSize :: integer(),Data :: offset()|mem().
 compressedTexSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Format,ImageSize,Data) when  is_integer(Data) ->
   cast(5366, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Yoffset:?GLint,Zoffset:?GLint,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei,Format:?GLenum,ImageSize:?GLsizei,Data:?GLuint>>);
@@ -3590,7 +3590,7 @@ compressedTexSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,
 %%
 %%  Texturing allows elements of an image array to be read by shaders. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexSubImage2D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexSubImage2D.xhtml">external</a> documentation.
 -spec compressedTexSubImage2D(Target, Level, Xoffset, Yoffset, Width, Height, Format, ImageSize, Data) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Yoffset :: integer(),Width :: integer(),Height :: integer(),Format :: enum(),ImageSize :: integer(),Data :: offset()|mem().
 compressedTexSubImage2D(Target,Level,Xoffset,Yoffset,Width,Height,Format,ImageSize,Data) when  is_integer(Data) ->
   cast(5368, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Yoffset:?GLint,Width:?GLsizei,Height:?GLsizei,Format:?GLenum,ImageSize:?GLsizei,Data:?GLuint>>);
@@ -3602,7 +3602,7 @@ compressedTexSubImage2D(Target,Level,Xoffset,Yoffset,Width,Height,Format,ImageSi
 %%
 %%  Texturing allows elements of an image array to be read by shaders. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompressedTexSubImage1D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexSubImage1D.xhtml">external</a> documentation.
 -spec compressedTexSubImage1D(Target, Level, Xoffset, Width, Format, ImageSize, Data) -> 'ok' when Target :: enum(),Level :: integer(),Xoffset :: integer(),Width :: integer(),Format :: enum(),ImageSize :: integer(),Data :: offset()|mem().
 compressedTexSubImage1D(Target,Level,Xoffset,Width,Format,ImageSize,Data) when  is_integer(Data) ->
   cast(5370, <<Target:?GLenum,Level:?GLint,Xoffset:?GLint,Width:?GLsizei,Format:?GLenum,ImageSize:?GLsizei,Data:?GLuint>>);
@@ -3619,7 +3619,7 @@ compressedTexSubImage1D(Target,Level,Xoffset,Width,Format,ImageSize,Data) ->
 %% ), or  {@link gl:texImage3D/10}  (`?GL_TEXTURE_3D').  `Lod'  specifies the level-of-detail
 %% number of the desired image. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetCompressedTexImage.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetCompressedTexImage.xhtml">external</a> documentation.
 -spec getCompressedTexImage(Target, Lod, Img) -> 'ok' when Target :: enum(),Lod :: integer(),Img :: mem().
 getCompressedTexImage(Target,Lod,Img) ->
   send_bin(Img),
@@ -3632,7 +3632,7 @@ getCompressedTexImage(Target,Lod,Img) ->
 %% or  {@link gl:enableClientState/1} , respectively, when called with a parameter of `?GL_TEXTURE_COORD_ARRAY'
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClientActiveTexture.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glClientActiveTexture.xml">external</a> documentation.
 -spec clientActiveTexture(Texture) -> 'ok' when Texture :: enum().
 clientActiveTexture(Texture) ->
   cast(5373, <<Texture:?GLenum>>).
@@ -3645,7 +3645,7 @@ clientActiveTexture(Texture) ->
 %%  t r 1),
 %% and ``gl:multiTexCoord4'' defines all four components explicitly as (s t r q). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultiTexCoord.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml">external</a> documentation.
 -spec multiTexCoord1d(Target, S) -> 'ok' when Target :: enum(),S :: float().
 multiTexCoord1d(Target,S) ->
   cast(5374, <<Target:?GLenum,0:32,S:?GLdouble>>).
@@ -3810,7 +3810,7 @@ multiTexCoord4sv(Target,{S,T,R,Q}) ->  multiTexCoord4s(Target,S,T,R,Q).
 %% specified by  `M' . The current matrix is the projection matrix, modelview matrix,
 %% or texture matrix, depending on the current matrix mode (see  {@link gl:matrixMode/1} ). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadTransposeMatrix.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glLoadTransposeMatrix.xml">external</a> documentation.
 -spec loadTransposeMatrixf(M) -> 'ok' when M :: matrix().
 loadTransposeMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5390, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
@@ -3830,7 +3830,7 @@ loadTransposeMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %% ``gl:multTransposeMatrix'' multiplies the current matrix with the one specified using  `M' 
 %% , and replaces the current matrix with the product. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultTransposeMatrix.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultTransposeMatrix.xml">external</a> documentation.
 -spec multTransposeMatrixf(M) -> 'ok' when M :: matrix().
 multTransposeMatrixf({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5392, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
@@ -3852,7 +3852,7 @@ multTransposeMatrixd({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 %% is initially disabled. Use  {@link gl:enable/1}  and  {@link gl:enable/1}  with argument `?GL_BLEND'
 %%  to enable and disable blending. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendFuncSeparate.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendFuncSeparate.xhtml">external</a> documentation.
 -spec blendFuncSeparate(SfactorRGB, DfactorRGB, SfactorAlpha, DfactorAlpha) -> 'ok' when SfactorRGB :: enum(),DfactorRGB :: enum(),SfactorAlpha :: enum(),DfactorAlpha :: enum().
 blendFuncSeparate(SfactorRGB,DfactorRGB,SfactorAlpha,DfactorAlpha) ->
   cast(5394, <<SfactorRGB:?GLenum,DfactorRGB:?GLenum,SfactorAlpha:?GLenum,DfactorAlpha:?GLenum>>).
@@ -3865,7 +3865,7 @@ blendFuncSeparate(SfactorRGB,DfactorRGB,SfactorAlpha,DfactorAlpha) ->
 %% normals, and colors and use them to construct a sequence of primitives with a single call
 %% to ``gl:multiDrawArrays''. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultiDrawArrays.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glMultiDrawArrays.xhtml">external</a> documentation.
 -spec multiDrawArrays(Mode, First, Count) -> 'ok' when Mode :: enum(),First :: [integer()]|mem(),Count :: [integer()]|mem().
 multiDrawArrays(Mode,First,Count) when  is_list(First), is_list(Count) ->
   FirstLen = length(First),
@@ -3884,7 +3884,7 @@ multiDrawArrays(Mode,First,Count) ->
 %%
 %%  The following values are accepted for  `Pname' : 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPointParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPointParameter.xhtml">external</a> documentation.
 -spec pointParameterf(Pname, Param) -> 'ok' when Pname :: enum(),Param :: float().
 pointParameterf(Pname,Param) ->
   cast(5397, <<Pname:?GLenum,Param:?GLfloat>>).
@@ -3915,7 +3915,7 @@ pointParameteriv(Pname,Params) ->
 %% the current raster position. The value specified is interpolated and used in computing
 %% the fog color (see  {@link gl:fogf/2} ). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFogCoord.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glFogCoord.xml">external</a> documentation.
 -spec fogCoordf(Coord) -> 'ok' when Coord :: float().
 fogCoordf(Coord) ->
   cast(5401, <<Coord:?GLfloat>>).
@@ -3941,7 +3941,7 @@ fogCoorddv({Coord}) ->  fogCoordd(Coord).
 %%  specifies the byte stride from one fog coordinate to the next, allowing vertices and
 %% attributes to be packed into a single array or stored in separate arrays. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFogCoordPointer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glFogCoordPointer.xml">external</a> documentation.
 -spec fogCoordPointer(Type, Stride, Pointer) -> 'ok' when Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 fogCoordPointer(Type,Stride,Pointer) when  is_integer(Pointer) ->
   cast(5403, <<Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
@@ -3954,7 +3954,7 @@ fogCoordPointer(Type,Stride,Pointer) ->
 %%  The GL stores both a primary four-valued RGBA color and a secondary four-valued RGBA
 %% color (where alpha is always set to 0.0) that is associated with every vertex. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSecondaryColor.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glSecondaryColor.xml">external</a> documentation.
 -spec secondaryColor3b(Red, Green, Blue) -> 'ok' when Red :: integer(),Green :: integer(),Blue :: integer().
 secondaryColor3b(Red,Green,Blue) ->
   cast(5405, <<Red:?GLbyte,Green:?GLbyte,Blue:?GLbyte>>).
@@ -4041,7 +4041,7 @@ secondaryColor3usv({Red,Green,Blue}) ->  secondaryColor3us(Red,Green,Blue).
 %%  specifies the byte stride from one color to the next, allowing vertices and attributes
 %% to be packed into a single array or stored in separate arrays. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSecondaryColorPointer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glSecondaryColorPointer.xml">external</a> documentation.
 -spec secondaryColorPointer(Size, Type, Stride, Pointer) -> 'ok' when Size :: integer(),Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 secondaryColorPointer(Size,Type,Stride,Pointer) when  is_integer(Pointer) ->
   cast(5413, <<Size:?GLint,Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
@@ -4056,7 +4056,7 @@ secondaryColorPointer(Size,Type,Stride,Pointer) ->
 %% subpixel accuracy. See  {@link gl:bitmap/7} ,  {@link gl:drawPixels/5} , and  {@link gl:copyPixels/5} 
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWindowPos.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glWindowPos.xml">external</a> documentation.
 -spec windowPos2d(X, Y) -> 'ok' when X :: float(),Y :: float().
 windowPos2d(X,Y) ->
   cast(5415, <<X:?GLdouble,Y:?GLdouble>>).
@@ -4141,7 +4141,7 @@ windowPos3sv({X,Y,Z}) ->  windowPos3s(X,Y,Z).
 %% that the names form a contiguous set of integers; however, it is guaranteed that none
 %% of the returned names was in use immediately before the call to ``gl:genQueries''. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenQueries.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenQueries.xhtml">external</a> documentation.
 -spec genQueries(N) -> [integer()] when N :: integer().
 genQueries(N) ->
   call(5423, <<N:?GLsizei>>).
@@ -4152,7 +4152,7 @@ genQueries(N) ->
 %% . After a query object is deleted, it has no contents, and its name is free for reuse
 %% (for example by  {@link gl:genQueries/1} ). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteQueries.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteQueries.xhtml">external</a> documentation.
 -spec deleteQueries(Ids) -> 'ok' when Ids :: [integer()].
 deleteQueries(Ids) ->
   IdsLen = length(Ids),
@@ -4165,7 +4165,7 @@ deleteQueries(Ids) ->
 %% object. If  `Id'  is zero, or is a non-zero value that is not currently the name of
 %% a query object, or if an error occurs, ``gl:isQuery'' returns `?GL_FALSE'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsQuery.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsQuery.xhtml">external</a> documentation.
 -spec isQuery(Id) -> 0|1 when Id :: integer().
 isQuery(Id) ->
   call(5425, <<Id:?GLuint>>).
@@ -4179,7 +4179,7 @@ isQuery(Id) ->
 %% , `?GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN', or `?GL_TIME_ELAPSED'. The behavior
 %% of the query object depends on its type and is as follows. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginQuery.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBeginQuery.xhtml">external</a> documentation.
 -spec beginQuery(Target, Id) -> 'ok' when Target :: enum(),Id :: integer().
 beginQuery(Target,Id) ->
   cast(5426, <<Target:?GLenum,Id:?GLuint>>).
@@ -4192,7 +4192,7 @@ endQuery(Target) ->
 
 %% @doc glGetQuery
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetQuery.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getQueryiv(Target, Pname) -> integer() when Target :: enum(),Pname :: enum().
 getQueryiv(Target,Pname) ->
   call(5428, <<Target:?GLenum,Pname:?GLenum>>).
@@ -4202,7 +4202,7 @@ getQueryiv(Target,Pname) ->
 %% ``gl:getQueryObject'' returns in  `Params'  a selected parameter of the query object
 %% specified by  `Id' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetQueryObject.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetQueryObject.xhtml">external</a> documentation.
 -spec getQueryObjectiv(Id, Pname) -> integer() when Id :: integer(),Pname :: enum().
 getQueryObjectiv(Id,Pname) ->
   call(5429, <<Id:?GLuint,Pname:?GLenum>>).
@@ -4221,7 +4221,7 @@ getQueryObjectuiv(Id,Pname) ->
 %% object with name  `Buffer'  exists, one is created with that name. When a buffer object
 %% is bound to a target, the previous binding for that target is automatically broken. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindBuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindBuffer.xhtml">external</a> documentation.
 -spec bindBuffer(Target, Buffer) -> 'ok' when Target :: enum(),Buffer :: integer().
 bindBuffer(Target,Buffer) ->
   cast(5431, <<Target:?GLenum,Buffer:?GLuint>>).
@@ -4233,7 +4233,7 @@ bindBuffer(Target,Buffer) ->
 %% free for reuse (for example by  {@link gl:genBuffers/1} ). If a buffer object that is currently
 %% bound is deleted, the binding reverts to 0 (the absence of any buffer object). 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteBuffers.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteBuffers.xhtml">external</a> documentation.
 -spec deleteBuffers(Buffers) -> 'ok' when Buffers :: [integer()].
 deleteBuffers(Buffers) ->
   BuffersLen = length(Buffers),
@@ -4247,7 +4247,7 @@ deleteBuffers(Buffers) ->
 %% that none of the returned names was in use immediately before the call to ``gl:genBuffers''
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenBuffers.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenBuffers.xhtml">external</a> documentation.
 -spec genBuffers(N) -> [integer()] when N :: integer().
 genBuffers(N) ->
   call(5433, <<N:?GLsizei>>).
@@ -4259,7 +4259,7 @@ genBuffers(N) ->
 %% the name of a buffer object, or if an error occurs, ``gl:isBuffer'' returns `?GL_FALSE'
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsBuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsBuffer.xhtml">external</a> documentation.
 -spec isBuffer(Buffer) -> 0|1 when Buffer :: integer().
 isBuffer(Buffer) ->
   call(5434, <<Buffer:?GLuint>>).
@@ -4273,7 +4273,7 @@ isBuffer(Buffer) ->
 %% is not mapped, it has a `?NULL' mapped pointer, and its mapped access  is `?GL_READ_WRITE'
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBufferData.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBufferData.xhtml">external</a> documentation.
 -spec bufferData(Target, Size, Data, Usage) -> 'ok' when Target :: enum(),Size :: integer(),Data :: offset()|mem(),Usage :: enum().
 bufferData(Target,Size,Data,Usage) when  is_integer(Data) ->
   cast(5435, <<Target:?GLenum,0:32,Size:?GLsizeiptr,Data:?GLuint,Usage:?GLenum>>);
@@ -4289,7 +4289,7 @@ bufferData(Target,Size,Data,Usage) ->
 %% is thrown if  `Offset'  and  `Size'  together define a range beyond the bounds of
 %% the buffer object's data store. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBufferSubData.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBufferSubData.xhtml">external</a> documentation.
 -spec bufferSubData(Target, Offset, Size, Data) -> 'ok' when Target :: enum(),Offset :: integer(),Size :: integer(),Data :: offset()|mem().
 bufferSubData(Target,Offset,Size,Data) when  is_integer(Data) ->
   cast(5437, <<Target:?GLenum,0:32,Offset:?GLintptr,Size:?GLsizeiptr,Data:?GLuint>>);
@@ -4305,7 +4305,7 @@ bufferSubData(Target,Offset,Size,Data) ->
 %% is thrown if the buffer object is currently mapped, or if  `Offset'  and  `Size' 
 %% together define a range beyond the bounds  of the buffer object's data store. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetBufferSubData.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetBufferSubData.xhtml">external</a> documentation.
 -spec getBufferSubData(Target, Offset, Size, Data) -> 'ok' when Target :: enum(),Offset :: integer(),Size :: integer(),Data :: mem().
 getBufferSubData(Target,Offset,Size,Data) ->
   send_bin(Data),
@@ -4316,7 +4316,7 @@ getBufferSubData(Target,Offset,Size,Data) ->
 %% ``gl:getBufferParameteriv'' returns in  `Data'  a selected parameter of the buffer
 %% object specified by  `Target' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetBufferParameteriv.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetBufferParameteriv.xml">external</a> documentation.
 -spec getBufferParameteriv(Target, Pname) -> integer() when Target :: enum(),Pname :: enum().
 getBufferParameteriv(Target,Pname) ->
   call(5440, <<Target:?GLenum,Pname:?GLenum>>).
@@ -4330,7 +4330,7 @@ getBufferParameteriv(Target,Pname) ->
 %% draw buffer whereas ``gl:blendEquationSeparate'' sets the blend equations for all draw
 %% buffers. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendEquationSeparate.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendEquationSeparate.xhtml">external</a> documentation.
 -spec blendEquationSeparate(ModeRGB, ModeAlpha) -> 'ok' when ModeRGB :: enum(),ModeAlpha :: enum().
 blendEquationSeparate(ModeRGB,ModeAlpha) ->
   cast(5441, <<ModeRGB:?GLenum,ModeAlpha:?GLenum>>).
@@ -4345,7 +4345,7 @@ blendEquationSeparate(ModeRGB,ModeAlpha) ->
 %% or equal to  `N'  is implicitly set to `?GL_NONE' and any data written to such
 %% an output is discarded.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawBuffers.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawBuffers.xhtml">external</a> documentation.
 -spec drawBuffers(Bufs) -> 'ok' when Bufs :: [enum()].
 drawBuffers(Bufs) ->
   BufsLen = length(Bufs),
@@ -4360,7 +4360,7 @@ drawBuffers(Bufs) ->
 %% used in multipass rendering algorithms to achieve special effects, such as decals, outlining,
 %% and constructive solid geometry rendering. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilOpSeparate.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glStencilOpSeparate.xhtml">external</a> documentation.
 -spec stencilOpSeparate(Face, Sfail, Dpfail, Dppass) -> 'ok' when Face :: enum(),Sfail :: enum(),Dpfail :: enum(),Dppass :: enum().
 stencilOpSeparate(Face,Sfail,Dpfail,Dppass) ->
   cast(5443, <<Face:?GLenum,Sfail:?GLenum,Dpfail:?GLenum,Dppass:?GLenum>>).
@@ -4373,7 +4373,7 @@ stencilOpSeparate(Face,Sfail,Dpfail,Dppass) ->
 %% used in multipass rendering algorithms to achieve special effects, such as decals, outlining,
 %% and constructive solid geometry rendering. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilFuncSeparate.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glStencilFuncSeparate.xhtml">external</a> documentation.
 -spec stencilFuncSeparate(Face, Func, Ref, Mask) -> 'ok' when Face :: enum(),Func :: enum(),Ref :: integer(),Mask :: integer().
 stencilFuncSeparate(Face,Func,Ref,Mask) ->
   cast(5444, <<Face:?GLenum,Func:?GLenum,Ref:?GLint,Mask:?GLuint>>).
@@ -4386,7 +4386,7 @@ stencilFuncSeparate(Face,Func,Ref,Mask) ->
 %% to the corresponding bit in the stencil buffer. Where a 0 appears, the corresponding bit
 %% is write-protected. Initially, all bits are enabled for writing. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilMaskSeparate.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glStencilMaskSeparate.xhtml">external</a> documentation.
 -spec stencilMaskSeparate(Face, Mask) -> 'ok' when Face :: enum(),Mask :: integer().
 stencilMaskSeparate(Face,Mask) ->
   cast(5445, <<Face:?GLenum,Mask:?GLuint>>).
@@ -4400,7 +4400,7 @@ stencilMaskSeparate(Face,Mask) ->
 %% the  program object specified by  `Program' . This  indicates that  `Shader'  will
 %% be included in  link operations that will be performed on   `Program' .
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glAttachShader.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glAttachShader.xhtml">external</a> documentation.
 -spec attachShader(Program, Shader) -> 'ok' when Program :: integer(),Shader :: integer().
 attachShader(Program,Shader) ->
   cast(5446, <<Program:?GLuint,Shader:?GLuint>>).
@@ -4415,7 +4415,7 @@ attachShader(Program,Shader) ->
 %% attribute  `Index'  will modify the value of the user-defined attribute variable specified
 %% by  `Name' .
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindAttribLocation.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindAttribLocation.xhtml">external</a> documentation.
 -spec bindAttribLocation(Program, Index, Name) -> 'ok' when Program :: integer(),Index :: integer(),Name :: string().
 bindAttribLocation(Program,Index,Name) ->
   NameLen = length(Name),
@@ -4426,7 +4426,7 @@ bindAttribLocation(Program,Index,Name) ->
 %% ``gl:compileShader'' compiles the source code strings that have been stored in the shader
 %% object specified by  `Shader' .
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompileShader.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompileShader.xhtml">external</a> documentation.
 -spec compileShader(Shader) -> 'ok' when Shader :: integer().
 compileShader(Shader) ->
   cast(5448, <<Shader:?GLuint>>).
@@ -4441,7 +4441,7 @@ compileShader(Shader) ->
 %% between a vertex shader and a  fragment shader). When no longer needed as part of a program
 %%  object, shader objects can be detached.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCreateProgram.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCreateProgram.xhtml">external</a> documentation.
 -spec createProgram() -> integer().
 createProgram() ->
   call(5449, <<>>).
@@ -4460,7 +4460,7 @@ createProgram() ->
 %% programmable geometry processor. A shader of  type `?GL_FRAGMENT_SHADER' is a shader
 %% that is  intended to run on the programmable fragment processor.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCreateShader.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCreateShader.xhtml">external</a> documentation.
 -spec createShader(Type) -> integer() when Type :: enum().
 createShader(Type) ->
   call(5450, <<Type:?GLenum>>).
@@ -4471,7 +4471,7 @@ createShader(Type) ->
 %% object specified by  `Program.'  This command effectively undoes the effects of a call
 %% to  {@link gl:createProgram/0} .
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteProgram.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteProgram.xhtml">external</a> documentation.
 -spec deleteProgram(Program) -> 'ok' when Program :: integer().
 deleteProgram(Program) ->
   cast(5451, <<Program:?GLuint>>).
@@ -4482,7 +4482,7 @@ deleteProgram(Program) ->
 %% object specified by  `Shader' . This command effectively undoes the effects of a call
 %% to  {@link gl:createShader/1} .
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteShader.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteShader.xhtml">external</a> documentation.
 -spec deleteShader(Shader) -> 'ok' when Shader :: integer().
 deleteShader(Shader) ->
   cast(5452, <<Shader:?GLuint>>).
@@ -4493,7 +4493,7 @@ deleteShader(Shader) ->
 %% object specified by  `Program' . This command can be used to undo the effect of the
 %% command  {@link gl:attachShader/2} .
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDetachShader.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDetachShader.xhtml">external</a> documentation.
 -spec detachShader(Program, Shader) -> 'ok' when Program :: integer(),Shader :: integer().
 detachShader(Program,Shader) ->
   cast(5453, <<Program:?GLuint,Shader:?GLuint>>).
@@ -4508,7 +4508,7 @@ detachShader(Program,Shader) ->
 %% such as  {@link gl:drawArrays/3} ,  {@link gl:drawElements/4} ,  {@link gl:drawRangeElements/6} , see `glMultiDrawElements'
 %% , or  {@link gl:multiDrawArrays/3} .
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEnableVertexAttribArray.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glEnableVertexAttribArray.xhtml">external</a> documentation.
 -spec disableVertexAttribArray(Index) -> 'ok' when Index :: integer().
 disableVertexAttribArray(Index) ->
   cast(5454, <<Index:?GLuint>>).
@@ -4527,7 +4527,7 @@ enableVertexAttribArray(Index) ->
 %% of 0 for  `Index'  selects the first active attribute variable. Permissible values
 %% for  `Index'  range from 0 to the number of active attribute variables minus 1.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveAttrib.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetActiveAttrib.xhtml">external</a> documentation.
 -spec getActiveAttrib(Program, Index, BufSize) -> {Size :: integer(),Type :: enum(),Name :: string()} when Program :: integer(),Index :: integer(),BufSize :: integer().
 getActiveAttrib(Program,Index,BufSize) ->
   call(5456, <<Program:?GLuint,Index:?GLuint,BufSize:?GLsizei>>).
@@ -4540,7 +4540,7 @@ getActiveAttrib(Program,Index,BufSize) ->
 %% A value of 0 for  `Index'  selects the first active uniform variable. Permissible values
 %% for  `Index'  range from 0 to the number of active uniform variables minus 1.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveUniform.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetActiveUniform.xhtml">external</a> documentation.
 -spec getActiveUniform(Program, Index, BufSize) -> {Size :: integer(),Type :: enum(),Name :: string()} when Program :: integer(),Index :: integer(),BufSize :: integer().
 getActiveUniform(Program,Index,BufSize) ->
   call(5457, <<Program:?GLuint,Index:?GLuint,BufSize:?GLsizei>>).
@@ -4554,7 +4554,7 @@ getActiveUniform(Program,Index,BufSize) ->
 %% number of shader names that may be returned in  `Shaders'  is specified by  `MaxCount' 
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetAttachedShaders.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetAttachedShaders.xhtml">external</a> documentation.
 -spec getAttachedShaders(Program, MaxCount) -> [integer()] when Program :: integer(),MaxCount :: integer().
 getAttachedShaders(Program,MaxCount) ->
   call(5458, <<Program:?GLuint,MaxCount:?GLsizei>>).
@@ -4568,7 +4568,7 @@ getAttachedShaders(Program,MaxCount) ->
 %% attribute variable is not an active attribute in the specified program object or if  `Name' 
 %%  starts with the reserved prefix "gl_", a value of -1 is returned.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetAttribLocation.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetAttribLocation.xhtml">external</a> documentation.
 -spec getAttribLocation(Program, Name) -> integer() when Program :: integer(),Name :: string().
 getAttribLocation(Program,Name) ->
   NameLen = length(Name),
@@ -4579,7 +4579,7 @@ getAttribLocation(Program,Name) ->
 %% ``gl:getProgram'' returns in  `Params'  the value of a parameter for a specific program
 %% object. The following parameters are defined:
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgram.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetProgram.xhtml">external</a> documentation.
 -spec getProgramiv(Program, Pname) -> integer() when Program :: integer(),Pname :: enum().
 getProgramiv(Program,Pname) ->
   call(5460, <<Program:?GLuint,Pname:?GLenum>>).
@@ -4590,7 +4590,7 @@ getProgramiv(Program,Pname) ->
 %% The  information log for a program object is modified when the  program object is linked
 %% or validated. The string that is  returned will be null terminated.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramInfoLog.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetProgramInfoLog.xhtml">external</a> documentation.
 -spec getProgramInfoLog(Program, BufSize) -> string() when Program :: integer(),BufSize :: integer().
 getProgramInfoLog(Program,BufSize) ->
   call(5461, <<Program:?GLuint,BufSize:?GLsizei>>).
@@ -4600,7 +4600,7 @@ getProgramInfoLog(Program,BufSize) ->
 %% ``gl:getShader''  returns in  `Params'   the value of a parameter for a specific
 %% shader object. The  following parameters are defined:
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetShader.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetShader.xhtml">external</a> documentation.
 -spec getShaderiv(Shader, Pname) -> integer() when Shader :: integer(),Pname :: enum().
 getShaderiv(Shader,Pname) ->
   call(5462, <<Shader:?GLuint,Pname:?GLenum>>).
@@ -4611,7 +4611,7 @@ getShaderiv(Shader,Pname) ->
 %% The information  log for a shader object is modified when the shader is compiled.  The
 %% string that is returned will be null terminated.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetShaderInfoLog.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetShaderInfoLog.xhtml">external</a> documentation.
 -spec getShaderInfoLog(Shader, BufSize) -> string() when Shader :: integer(),BufSize :: integer().
 getShaderInfoLog(Shader,BufSize) ->
   call(5463, <<Shader:?GLuint,BufSize:?GLsizei>>).
@@ -4623,7 +4623,7 @@ getShaderInfoLog(Shader,BufSize) ->
 %% are the result of a previous call to  {@link gl:shaderSource/2} . The string returned by
 %% the function will be null terminated.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetShaderSource.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetShaderSource.xhtml">external</a> documentation.
 -spec getShaderSource(Shader, BufSize) -> string() when Shader :: integer(),BufSize :: integer().
 getShaderSource(Shader,BufSize) ->
   call(5464, <<Shader:?GLuint,BufSize:?GLsizei>>).
@@ -4638,7 +4638,7 @@ getShaderSource(Shader,BufSize) ->
 %% in  `Program' , if  `Name'  starts with the reserved prefix "gl_", or if  `Name' 
 %% is associated with an atomic counter or a named uniform block.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformLocation.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetUniformLocation.xhtml">external</a> documentation.
 -spec getUniformLocation(Program, Name) -> integer() when Program :: integer(),Name :: string().
 getUniformLocation(Program,Name) ->
   NameLen = length(Name),
@@ -4657,7 +4657,7 @@ getUniformLocation(Program,Name) ->
 %% The values for uniform variables declared as a matrix will be returned in column major
 %% order.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniform.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetUniform.xhtml">external</a> documentation.
 -spec getUniformfv(Program, Location) -> matrix() when Program :: integer(),Location :: integer().
 getUniformfv(Program,Location) ->
   call(5466, <<Program:?GLuint,Location:?GLint>>).
@@ -4674,7 +4674,7 @@ getUniformiv(Program,Location) ->
 %% parameter. The generic vertex attribute to be queried is specified by  `Index' , and
 %% the parameter to be queried is specified by  `Pname' .
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetVertexAttrib.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetVertexAttrib.xhtml">external</a> documentation.
 -spec getVertexAttribdv(Index, Pname) -> {float(),float(),float(),float()} when Index :: integer(),Pname :: enum().
 getVertexAttribdv(Index,Pname) ->
   call(5468, <<Index:?GLuint,Pname:?GLenum>>).
@@ -4698,7 +4698,7 @@ getVertexAttribiv(Index,Pname) ->
 %% . If  `Program'  is zero or a non-zero value that is not the name of a program object,
 %% or if an error occurs,  ``gl:isProgram'' returns `?GL_FALSE'.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsProgram.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsProgram.xhtml">external</a> documentation.
 -spec isProgram(Program) -> 0|1 when Program :: integer().
 isProgram(Program) ->
   call(5471, <<Program:?GLuint>>).
@@ -4710,7 +4710,7 @@ isProgram(Program) ->
 %% .  If  `Shader'  is zero or a non-zero value that is not the name of a shader object,
 %% or if an error occurs, ``gl:isShader '' returns `?GL_FALSE'.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsShader.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsShader.xhtml">external</a> documentation.
 -spec isShader(Shader) -> 0|1 when Shader :: integer().
 isShader(Shader) ->
   call(5472, <<Shader:?GLuint>>).
@@ -4726,7 +4726,7 @@ isShader(Shader) ->
 %% they will be used to create an executable that will run on the programmable fragment processor.
 %% 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLinkProgram.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glLinkProgram.xhtml">external</a> documentation.
 -spec linkProgram(Program) -> 'ok' when Program :: integer().
 linkProgram(Program) ->
   cast(5473, <<Program:?GLuint>>).
@@ -4744,7 +4744,7 @@ linkProgram(Program) ->
 %% than 0 to indicate  that the string is null terminated. The source code strings are  not
 %% scanned or parsed at this time; they are simply copied into  the specified shader object.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glShaderSource.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glShaderSource.xhtml">external</a> documentation.
 -spec shaderSource(Shader, String) -> 'ok' when Shader :: integer(),String :: iolist().
 shaderSource(Shader,String) ->
   StringTemp = list_to_binary([[Str|[0]] || Str <- String ]),
@@ -4759,7 +4759,7 @@ shaderSource(Shader,String) ->
 %% compiling the shader objects with   {@link gl:compileShader/1} ,  and successfully linking
 %% the program object with   {@link gl:linkProgram/1} .  
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUseProgram.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glUseProgram.xhtml">external</a> documentation.
 -spec useProgram(Program) -> 'ok' when Program :: integer().
 useProgram(Program) ->
   cast(5475, <<Program:?GLuint>>).
@@ -4772,7 +4772,7 @@ useProgram(Program) ->
 %% on the program object that was made part of current state by calling  {@link gl:useProgram/1} 
 %% .
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUniform.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glUniform.xhtml">external</a> documentation.
 -spec uniform1f(Location, V0) -> 'ok' when Location :: integer(),V0 :: float().
 uniform1f(Location,V0) ->
   cast(5476, <<Location:?GLint,V0:?GLfloat>>).
@@ -4917,7 +4917,7 @@ uniformMatrix4fv(Location,Transpose,Value) ->
 %% a way for OpenGL  implementers to convey more information about why the current  program
 %% is inefficient, suboptimal, failing to execute, and so  on.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glValidateProgram.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glValidateProgram.xhtml">external</a> documentation.
 -spec validateProgram(Program) -> 'ok' when Program :: integer().
 validateProgram(Program) ->
   cast(5495, <<Program:?GLuint>>).
@@ -4927,7 +4927,7 @@ validateProgram(Program) ->
 %% The ``gl:vertexAttrib'' family of entry points allows an application to pass generic
 %% vertex attributes in numbered locations.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttrib.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml">external</a> documentation.
 -spec vertexAttrib1d(Index, X) -> 'ok' when Index :: integer(),X :: float().
 vertexAttrib1d(Index,X) ->
   cast(5496, <<Index:?GLuint,0:32,X:?GLdouble>>).
@@ -5125,7 +5125,7 @@ vertexAttrib4usv(Index,{V1,V2,V3,V4}) ->
 %% and  `Stride'  specifies the byte stride from one attribute to the next, allowing vertices
 %% and attributes to be packed into a single array or stored in separate arrays. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribPointer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttribPointer.xhtml">external</a> documentation.
 -spec vertexAttribPointer(Index, Size, Type, Normalized, Stride, Pointer) -> 'ok' when Index :: integer(),Size :: integer(),Type :: enum(),Normalized :: 0|1,Stride :: integer(),Pointer :: offset()|mem().
 vertexAttribPointer(Index,Size,Type,Normalized,Stride,Pointer) when  is_integer(Pointer) ->
   cast(5519, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Normalized:?GLboolean,0:24,Stride:?GLsizei,Pointer:?GLuint>>);
@@ -5183,7 +5183,7 @@ uniformMatrix4x3fv(Location,Transpose,Value) ->
 
 %% @doc glColorMaski
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glColorMaski.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec colorMaski(Index, R, G, B, A) -> 'ok' when Index :: integer(),R :: 0|1,G :: 0|1,B :: 0|1,A :: 0|1.
 colorMaski(Index,R,G,B,A) ->
   cast(5527, <<Index:?GLuint,R:?GLboolean,G:?GLboolean,B:?GLboolean,A:?GLboolean>>).
@@ -5208,14 +5208,14 @@ enablei(Target,Index) ->
 
 %% @doc glEnablei
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glEnablei.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec disablei(Target, Index) -> 'ok' when Target :: enum(),Index :: integer().
 disablei(Target,Index) ->
   cast(5531, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glIsEnabledi
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsEnabledi.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec isEnabledi(Target, Index) -> 0|1 when Target :: enum(),Index :: integer().
 isEnabledi(Target,Index) ->
   call(5532, <<Target:?GLenum,Index:?GLuint>>).
@@ -5227,7 +5227,7 @@ isEnabledi(Target,Index) ->
 %% a call to ``gl:beginTransformFeedback'' until a subsequent call to  {@link gl:beginTransformFeedback/1} 
 %% . Transform feedback commands must be paired. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginTransformFeedback.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBeginTransformFeedback.xhtml">external</a> documentation.
 -spec beginTransformFeedback(PrimitiveMode) -> 'ok' when PrimitiveMode :: enum().
 beginTransformFeedback(PrimitiveMode) ->
   cast(5533, <<PrimitiveMode:?GLenum>>).
@@ -5248,7 +5248,7 @@ endTransformFeedback() ->
 %% a range of  `Buffer'  to the indexed buffer binding target, ``gl:bindBufferBase''
 %% also binds the range to the generic buffer binding point specified by  `Target' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindBufferRange.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindBufferRange.xhtml">external</a> documentation.
 -spec bindBufferRange(Target, Index, Buffer, Offset, Size) -> 'ok' when Target :: enum(),Index :: integer(),Buffer :: integer(),Offset :: integer(),Size :: integer().
 bindBufferRange(Target,Index,Buffer,Offset,Size) ->
   cast(5535, <<Target:?GLenum,Index:?GLuint,Buffer:?GLuint,0:32,Offset:?GLintptr,Size:?GLsizeiptr>>).
@@ -5263,7 +5263,7 @@ bindBufferRange(Target,Index,Buffer,Offset,Size) ->
 %% binding target, ``gl:bindBufferBase'' also binds  `Buffer'  to the generic buffer
 %% binding point specified by  `Target' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindBufferBase.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindBufferBase.xhtml">external</a> documentation.
 -spec bindBufferBase(Target, Index, Buffer) -> 'ok' when Target :: enum(),Index :: integer(),Buffer :: integer().
 bindBufferBase(Target,Index,Buffer) ->
   cast(5536, <<Target:?GLenum,Index:?GLuint,Buffer:?GLuint>>).
@@ -5276,7 +5276,7 @@ bindBufferBase(Target,Index,Buffer) ->
 %% from the emitted vertices. Otherwise, the values of the selected vertex shader outputs
 %% are recorded. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTransformFeedbackVaryings.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTransformFeedbackVaryings.xhtml">external</a> documentation.
 -spec transformFeedbackVaryings(Program, Varyings, BufferMode) -> 'ok' when Program :: integer(),Varyings :: iolist(),BufferMode :: enum().
 transformFeedbackVaryings(Program,Varyings,BufferMode) ->
   VaryingsTemp = list_to_binary([[Str|[0]] || Str <- Varyings ]),
@@ -5292,7 +5292,7 @@ transformFeedbackVaryings(Program,Varyings,BufferMode) ->
 %% the  `Varyings'  array passed to  {@link gl:transformFeedbackVaryings/3} , and an  `Index' 
 %%  of `?GL_TRANSFORM_FEEDBACK_VARYINGS-1' selects the last such variable. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetTransformFeedbackVarying.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetTransformFeedbackVarying.xhtml">external</a> documentation.
 -spec getTransformFeedbackVarying(Program, Index, BufSize) -> {Size :: integer(),Type :: enum(),Name :: string()} when Program :: integer(),Index :: integer(),BufSize :: integer().
 getTransformFeedbackVarying(Program,Index,BufSize) ->
   call(5538, <<Program:?GLuint,Index:?GLuint,BufSize:?GLsizei>>).
@@ -5307,7 +5307,7 @@ getTransformFeedbackVarying(Program,Index,BufSize) ->
 %% is disabled. If  `Clamp'  is `?GL_FIXED_ONLY', read color clamping is enabled
 %% only if the selected read buffer has fixed point components and disabled otherwise. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClampColor.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClampColor.xhtml">external</a> documentation.
 -spec clampColor(Target, Clamp) -> 'ok' when Target :: enum(),Clamp :: enum().
 clampColor(Target,Clamp) ->
   cast(5539, <<Target:?GLenum,Clamp:?GLenum>>).
@@ -5328,7 +5328,7 @@ clampColor(Target,Clamp) ->
 %%  is `?GL_QUERY_NO_WAIT', the GL may choose to unconditionally execute the subsequent
 %% rendering commands without waiting for the query to complete. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginConditionalRender.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBeginConditionalRender.xhtml">external</a> documentation.
 -spec beginConditionalRender(Id, Mode) -> 'ok' when Id :: integer(),Mode :: enum().
 beginConditionalRender(Id,Mode) ->
   cast(5540, <<Id:?GLuint,Mode:?GLenum>>).
@@ -5341,7 +5341,7 @@ endConditionalRender() ->
 
 %% @doc glVertexAttribIPointer
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribIPointer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec vertexAttribIPointer(Index, Size, Type, Stride, Pointer) -> 'ok' when Index :: integer(),Size :: integer(),Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 vertexAttribIPointer(Index,Size,Type,Stride,Pointer) when  is_integer(Pointer) ->
   cast(5542, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
@@ -5357,7 +5357,7 @@ getVertexAttribIiv(Index,Pname) ->
 
 %% @doc glGetVertexAttribI
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetVertexAttribI.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getVertexAttribIuiv(Index, Pname) -> {integer(),integer(),integer(),integer()} when Index :: integer(),Pname :: enum().
 getVertexAttribIuiv(Index,Pname) ->
   call(5545, <<Index:?GLuint,Pname:?GLenum>>).
@@ -5480,7 +5480,7 @@ getUniformuiv(Program,Location) ->
 %% .  `Name'  must be a null-terminated string.  `ColorNumber'  must be less than `?GL_MAX_DRAW_BUFFERS'
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindFragDataLocation.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindFragDataLocation.xhtml">external</a> documentation.
 -spec bindFragDataLocation(Program, Color, Name) -> 'ok' when Program :: integer(),Color :: integer(),Name :: string().
 bindFragDataLocation(Program,Color,Name) ->
   NameLen = length(Name),
@@ -5494,7 +5494,7 @@ bindFragDataLocation(Program,Color,Name) ->
 %% not the name of an active user-defined varying out fragment shader variable within  `Program' 
 %% , -1 will be returned. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetFragDataLocation.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetFragDataLocation.xhtml">external</a> documentation.
 -spec getFragDataLocation(Program, Name) -> integer() when Program :: integer(),Name :: string().
 getFragDataLocation(Program,Name) ->
   NameLen = length(Name),
@@ -5565,7 +5565,7 @@ texParameterIiv(Target,Pname,Params) ->
 
 %% @doc glTexParameterI
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexParameterI.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec texParameterIuiv(Target, Pname, Params) -> 'ok' when Target :: enum(),Pname :: enum(),Params :: tuple().
 texParameterIuiv(Target,Pname,Params) ->
   cast(5570, <<Target:?GLenum,Pname:?GLenum,(size(Params)):?GLuint,
@@ -5579,7 +5579,7 @@ getTexParameterIiv(Target,Pname) ->
 
 %% @doc glGetTexParameterI
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetTexParameterI.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getTexParameterIuiv(Target, Pname) -> {integer(),integer(),integer(),integer()} when Target :: enum(),Pname :: enum().
 getTexParameterIuiv(Target,Pname) ->
   call(5572, <<Target:?GLenum,Pname:?GLenum>>).
@@ -5595,7 +5595,7 @@ getTexParameterIuiv(Target,Pname) ->
 %% and conversion for fixed-point color buffers are performed in the same fashion as  {@link gl:clearColor/4} 
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearBuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClearBuffer.xhtml">external</a> documentation.
 -spec clearBufferiv(Buffer, Drawbuffer, Value) -> 'ok' when Buffer :: enum(),Drawbuffer :: integer(),Value :: tuple().
 clearBufferiv(Buffer,Drawbuffer,Value) ->
   cast(5573, <<Buffer:?GLenum,Drawbuffer:?GLint,(size(Value)):?GLuint,
@@ -5617,7 +5617,7 @@ clearBufferfv(Buffer,Drawbuffer,Value) ->
 
 %% @doc glClearBufferfi
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearBufferfi.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec clearBufferfi(Buffer, Drawbuffer, Depth, Stencil) -> 'ok' when Buffer :: enum(),Drawbuffer :: integer(),Depth :: float(),Stencil :: integer().
 clearBufferfi(Buffer,Drawbuffer,Depth,Stencil) ->
   cast(5576, <<Buffer:?GLenum,Drawbuffer:?GLint,Depth:?GLfloat,Stencil:?GLint>>).
@@ -5630,14 +5630,14 @@ getStringi(Name,Index) ->
 
 %% @doc glDrawArraysInstance
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawArraysInstance.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec drawArraysInstanced(Mode, First, Count, Primcount) -> 'ok' when Mode :: enum(),First :: integer(),Count :: integer(),Primcount :: integer().
 drawArraysInstanced(Mode,First,Count,Primcount) ->
   cast(5578, <<Mode:?GLenum,First:?GLint,Count:?GLsizei,Primcount:?GLsizei>>).
 
 %% @doc glDrawElementsInstance
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsInstance.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec drawElementsInstanced(Mode, Count, Type, Indices, Primcount) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer().
 drawElementsInstanced(Mode,Count,Type,Indices,Primcount) when  is_integer(Indices) ->
   cast(5579, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei>>);
@@ -5655,7 +5655,7 @@ drawElementsInstanced(Mode,Count,Type,Indices,Primcount) ->
 %% .  `Internalformat'  specifies the storage format, and must be one of the following
 %% sized internal formats: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexBuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexBuffer.xhtml">external</a> documentation.
 -spec texBuffer(Target, Internalformat, Buffer) -> 'ok' when Target :: enum(),Internalformat :: enum(),Buffer :: integer().
 texBuffer(Target,Internalformat,Buffer) ->
   cast(5581, <<Target:?GLenum,Internalformat:?GLenum,Buffer:?GLuint>>).
@@ -5665,7 +5665,7 @@ texBuffer(Target,Internalformat,Buffer) ->
 %% ``gl:primitiveRestartIndex'' specifies a vertex array element that is treated specially
 %% when primitive restarting is enabled. This is known as the primitive restart index. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPrimitiveRestartIndex.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPrimitiveRestartIndex.xhtml">external</a> documentation.
 -spec primitiveRestartIndex(Index) -> 'ok' when Index :: integer().
 primitiveRestartIndex(Index) ->
   cast(5582, <<Index:?GLuint>>).
@@ -5678,7 +5678,7 @@ getInteger64i_v(Target,Index) ->
 
 %% @doc glGetBufferParameteri64v
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetBufferParameteri64v.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getBufferParameteri64v(Target, Pname) -> [integer()] when Target :: enum(),Pname :: enum().
 getBufferParameteri64v(Target,Pname) ->
   call(5584, <<Target:?GLenum,Pname:?GLenum>>).
@@ -5691,7 +5691,7 @@ getBufferParameteri64v(Target,Pname) ->
 %%  `Target'  must be `?GL_DRAW_FRAMEBUFFER', `?GL_READ_FRAMEBUFFER', or `?GL_FRAMEBUFFER'
 %% . `?GL_FRAMEBUFFER' is equivalent to `?GL_DRAW_FRAMEBUFFER'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFramebufferTexture.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFramebufferTexture.xhtml">external</a> documentation.
 -spec framebufferTexture(Target, Attachment, Texture, Level) -> 'ok' when Target :: enum(),Attachment :: enum(),Texture :: integer(),Level :: integer().
 framebufferTexture(Target,Attachment,Texture,Level) ->
   cast(5585, <<Target:?GLenum,Attachment:?GLenum,Texture:?GLuint,Level:?GLint>>).
@@ -5705,7 +5705,7 @@ framebufferTexture(Target,Attachment,Texture,Level) ->
 %% vertices being rendered. An attribute is referred to as instanced if its `?GL_VERTEX_ATTRIB_ARRAY_DIVISOR'
 %%  value is non-zero. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribDivisor.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttribDivisor.xhtml">external</a> documentation.
 -spec vertexAttribDivisor(Index, Divisor) -> 'ok' when Index :: integer(),Divisor :: integer().
 vertexAttribDivisor(Index,Divisor) ->
   cast(5586, <<Index:?GLuint,Divisor:?GLuint>>).
@@ -5720,7 +5720,7 @@ vertexAttribDivisor(Index,Divisor) ->
 %%  is the value of `?GL_SAMPLES' for the current framebuffer. At least 1 sample for
 %% each covered fragment is generated. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMinSampleShading.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glMinSampleShading.xhtml">external</a> documentation.
 -spec minSampleShading(Value) -> 'ok' when Value :: clamp().
 minSampleShading(Value) ->
   cast(5587, <<Value:?GLclampf>>).
@@ -5739,7 +5739,7 @@ blendEquationSeparatei(Buf,ModeRGB,ModeAlpha) ->
 
 %% @doc glBlendFunci
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlendFunci.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec blendFunci(Buf, Src, Dst) -> 'ok' when Buf :: integer(),Src :: enum(),Dst :: enum().
 blendFunci(Buf,Src,Dst) ->
   cast(5590, <<Buf:?GLuint,Src:?GLenum,Dst:?GLenum>>).
@@ -5752,7 +5752,7 @@ blendFuncSeparatei(Buf,SrcRGB,DstRGB,SrcAlpha,DstAlpha) ->
 
 %% @doc glLoadTransposeMatrixARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadTransposeMatrixARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec loadTransposeMatrixfARB(M) -> 'ok' when M :: matrix().
 loadTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5592, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
@@ -5761,7 +5761,7 @@ loadTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 
 %% @doc glLoadTransposeMatrixARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLoadTransposeMatrixARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec loadTransposeMatrixdARB(M) -> 'ok' when M :: matrix().
 loadTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5593, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
@@ -5770,7 +5770,7 @@ loadTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 
 %% @doc glMultTransposeMatrixARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultTransposeMatrixARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec multTransposeMatrixfARB(M) -> 'ok' when M :: matrix().
 multTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5594, <<M1:?GLfloat,M2:?GLfloat,M3:?GLfloat,M4:?GLfloat,M5:?GLfloat,M6:?GLfloat,M7:?GLfloat,M8:?GLfloat,M9:?GLfloat,M10:?GLfloat,M11:?GLfloat,M12:?GLfloat,M13:?GLfloat,M14:?GLfloat,M15:?GLfloat,M16:?GLfloat>>);
@@ -5779,7 +5779,7 @@ multTransposeMatrixfARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 
 %% @doc glMultTransposeMatrixARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMultTransposeMatrixARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec multTransposeMatrixdARB(M) -> 'ok' when M :: matrix().
 multTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12,M13,M14,M15,M16}) ->
   cast(5595, <<M1:?GLdouble,M2:?GLdouble,M3:?GLdouble,M4:?GLdouble,M5:?GLdouble,M6:?GLdouble,M7:?GLdouble,M8:?GLdouble,M9:?GLdouble,M10:?GLdouble,M11:?GLdouble,M12:?GLdouble,M13:?GLdouble,M14:?GLdouble,M15:?GLdouble,M16:?GLdouble>>);
@@ -5788,7 +5788,7 @@ multTransposeMatrixdARB({M1,M2,M3,M4,M5,M6,M7,M8,M9,M10,M11,M12}) ->
 
 %% @doc glWeightARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec weightbvARB(Weights) -> 'ok' when Weights :: [integer()].
 weightbvARB(Weights) ->
   WeightsLen = length(Weights),
@@ -5797,7 +5797,7 @@ weightbvARB(Weights) ->
 
 %% @doc glWeightARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec weightsvARB(Weights) -> 'ok' when Weights :: [integer()].
 weightsvARB(Weights) ->
   WeightsLen = length(Weights),
@@ -5806,7 +5806,7 @@ weightsvARB(Weights) ->
 
 %% @doc glWeightARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec weightivARB(Weights) -> 'ok' when Weights :: [integer()].
 weightivARB(Weights) ->
   WeightsLen = length(Weights),
@@ -5815,7 +5815,7 @@ weightivARB(Weights) ->
 
 %% @doc glWeightARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec weightfvARB(Weights) -> 'ok' when Weights :: [float()].
 weightfvARB(Weights) ->
   WeightsLen = length(Weights),
@@ -5824,7 +5824,7 @@ weightfvARB(Weights) ->
 
 %% @doc glWeightARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec weightdvARB(Weights) -> 'ok' when Weights :: [float()].
 weightdvARB(Weights) ->
   WeightsLen = length(Weights),
@@ -5833,7 +5833,7 @@ weightdvARB(Weights) ->
 
 %% @doc glWeightARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec weightubvARB(Weights) -> 'ok' when Weights :: [integer()].
 weightubvARB(Weights) ->
   WeightsLen = length(Weights),
@@ -5842,7 +5842,7 @@ weightubvARB(Weights) ->
 
 %% @doc glWeightARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec weightusvARB(Weights) -> 'ok' when Weights :: [integer()].
 weightusvARB(Weights) ->
   WeightsLen = length(Weights),
@@ -5851,7 +5851,7 @@ weightusvARB(Weights) ->
 
 %% @doc glWeightARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWeightARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec weightuivARB(Weights) -> 'ok' when Weights :: [integer()].
 weightuivARB(Weights) ->
   WeightsLen = length(Weights),
@@ -5860,21 +5860,21 @@ weightuivARB(Weights) ->
 
 %% @doc glVertexBlenARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexBlenARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec vertexBlendARB(Count) -> 'ok' when Count :: integer().
 vertexBlendARB(Count) ->
   cast(5604, <<Count:?GLint>>).
 
 %% @doc glCurrentPaletteMatrixARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCurrentPaletteMatrixARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec currentPaletteMatrixARB(Index) -> 'ok' when Index :: integer().
 currentPaletteMatrixARB(Index) ->
   cast(5605, <<Index:?GLint>>).
 
 %% @doc glMatrixIndexARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMatrixIndexARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec matrixIndexubvARB(Indices) -> 'ok' when Indices :: [integer()].
 matrixIndexubvARB(Indices) ->
   IndicesLen = length(Indices),
@@ -5883,7 +5883,7 @@ matrixIndexubvARB(Indices) ->
 
 %% @doc glMatrixIndexARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMatrixIndexARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec matrixIndexusvARB(Indices) -> 'ok' when Indices :: [integer()].
 matrixIndexusvARB(Indices) ->
   IndicesLen = length(Indices),
@@ -5892,7 +5892,7 @@ matrixIndexusvARB(Indices) ->
 
 %% @doc glMatrixIndexARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMatrixIndexARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec matrixIndexuivARB(Indices) -> 'ok' when Indices :: [integer()].
 matrixIndexuivARB(Indices) ->
   IndicesLen = length(Indices),
@@ -5901,7 +5901,7 @@ matrixIndexuivARB(Indices) ->
 
 %% @doc glProgramStringARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramStringARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec programStringARB(Target, Format, String) -> 'ok' when Target :: enum(),Format :: enum(),String :: string().
 programStringARB(Target,Format,String) ->
   StringLen = length(String),
@@ -5909,14 +5909,14 @@ programStringARB(Target,Format,String) ->
 
 %% @doc glBindProgramARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindProgramARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec bindProgramARB(Target, Program) -> 'ok' when Target :: enum(),Program :: integer().
 bindProgramARB(Target,Program) ->
   cast(5610, <<Target:?GLenum,Program:?GLuint>>).
 
 %% @doc glDeleteProgramsARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteProgramsARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec deleteProgramsARB(Programs) -> 'ok' when Programs :: [integer()].
 deleteProgramsARB(Programs) ->
   ProgramsLen = length(Programs),
@@ -5925,98 +5925,98 @@ deleteProgramsARB(Programs) ->
 
 %% @doc glGenProgramsARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenProgramsARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec genProgramsARB(N) -> [integer()] when N :: integer().
 genProgramsARB(N) ->
   call(5612, <<N:?GLsizei>>).
 
 %% @doc glProgramEnvParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramEnvParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec programEnvParameter4dARB(Target, Index, X, Y, Z, W) -> 'ok' when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 programEnvParameter4dARB(Target,Index,X,Y,Z,W) ->
   cast(5613, <<Target:?GLenum,Index:?GLuint,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @doc glProgramEnvParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramEnvParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec programEnvParameter4dvARB(Target, Index, Params) -> 'ok' when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
 programEnvParameter4dvARB(Target,Index,{P1,P2,P3,P4}) ->
   cast(5614, <<Target:?GLenum,Index:?GLuint,P1:?GLdouble,P2:?GLdouble,P3:?GLdouble,P4:?GLdouble>>).
 
 %% @doc glProgramEnvParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramEnvParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec programEnvParameter4fARB(Target, Index, X, Y, Z, W) -> 'ok' when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 programEnvParameter4fARB(Target,Index,X,Y,Z,W) ->
   cast(5615, <<Target:?GLenum,Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat,W:?GLfloat>>).
 
 %% @doc glProgramEnvParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramEnvParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec programEnvParameter4fvARB(Target, Index, Params) -> 'ok' when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
 programEnvParameter4fvARB(Target,Index,{P1,P2,P3,P4}) ->
   cast(5616, <<Target:?GLenum,Index:?GLuint,P1:?GLfloat,P2:?GLfloat,P3:?GLfloat,P4:?GLfloat>>).
 
 %% @doc glProgramLocalParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramLocalParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec programLocalParameter4dARB(Target, Index, X, Y, Z, W) -> 'ok' when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 programLocalParameter4dARB(Target,Index,X,Y,Z,W) ->
   cast(5617, <<Target:?GLenum,Index:?GLuint,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
 
 %% @doc glProgramLocalParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramLocalParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec programLocalParameter4dvARB(Target, Index, Params) -> 'ok' when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
 programLocalParameter4dvARB(Target,Index,{P1,P2,P3,P4}) ->
   cast(5618, <<Target:?GLenum,Index:?GLuint,P1:?GLdouble,P2:?GLdouble,P3:?GLdouble,P4:?GLdouble>>).
 
 %% @doc glProgramLocalParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramLocalParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec programLocalParameter4fARB(Target, Index, X, Y, Z, W) -> 'ok' when Target :: enum(),Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 programLocalParameter4fARB(Target,Index,X,Y,Z,W) ->
   cast(5619, <<Target:?GLenum,Index:?GLuint,X:?GLfloat,Y:?GLfloat,Z:?GLfloat,W:?GLfloat>>).
 
 %% @doc glProgramLocalParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramLocalParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec programLocalParameter4fvARB(Target, Index, Params) -> 'ok' when Target :: enum(),Index :: integer(),Params :: {float(),float(),float(),float()}.
 programLocalParameter4fvARB(Target,Index,{P1,P2,P3,P4}) ->
   cast(5620, <<Target:?GLenum,Index:?GLuint,P1:?GLfloat,P2:?GLfloat,P3:?GLfloat,P4:?GLfloat>>).
 
 %% @doc glGetProgramEnvParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramEnvParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getProgramEnvParameterdvARB(Target, Index) -> {float(),float(),float(),float()} when Target :: enum(),Index :: integer().
 getProgramEnvParameterdvARB(Target,Index) ->
   call(5621, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glGetProgramEnvParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramEnvParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getProgramEnvParameterfvARB(Target, Index) -> {float(),float(),float(),float()} when Target :: enum(),Index :: integer().
 getProgramEnvParameterfvARB(Target,Index) ->
   call(5622, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glGetProgramLocalParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramLocalParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getProgramLocalParameterdvARB(Target, Index) -> {float(),float(),float(),float()} when Target :: enum(),Index :: integer().
 getProgramLocalParameterdvARB(Target,Index) ->
   call(5623, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glGetProgramLocalParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramLocalParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getProgramLocalParameterfvARB(Target, Index) -> {float(),float(),float(),float()} when Target :: enum(),Index :: integer().
 getProgramLocalParameterfvARB(Target,Index) ->
   call(5624, <<Target:?GLenum,Index:?GLuint>>).
 
 %% @doc glGetProgramStringARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramStringARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getProgramStringARB(Target, Pname, String) -> 'ok' when Target :: enum(),Pname :: enum(),String :: mem().
 getProgramStringARB(Target,Pname,String) ->
   send_bin(String),
@@ -6024,42 +6024,42 @@ getProgramStringARB(Target,Pname,String) ->
 
 %% @doc glGetBufferParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetBufferParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getBufferParameterivARB(Target, Pname) -> [integer()] when Target :: enum(),Pname :: enum().
 getBufferParameterivARB(Target,Pname) ->
   call(5626, <<Target:?GLenum,Pname:?GLenum>>).
 
 %% @doc glDeleteObjectARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteObjectARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec deleteObjectARB(Obj) -> 'ok' when Obj :: integer().
 deleteObjectARB(Obj) ->
   cast(5627, <<Obj:?GLhandleARB>>).
 
 %% @doc glGetHandleARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetHandleARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getHandleARB(Pname) -> integer() when Pname :: enum().
 getHandleARB(Pname) ->
   call(5628, <<Pname:?GLenum>>).
 
 %% @doc glDetachObjectARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDetachObjectARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec detachObjectARB(ContainerObj, AttachedObj) -> 'ok' when ContainerObj :: integer(),AttachedObj :: integer().
 detachObjectARB(ContainerObj,AttachedObj) ->
   cast(5629, <<ContainerObj:?GLhandleARB,AttachedObj:?GLhandleARB>>).
 
 %% @doc glCreateShaderObjectARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCreateShaderObjectARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec createShaderObjectARB(ShaderType) -> integer() when ShaderType :: enum().
 createShaderObjectARB(ShaderType) ->
   call(5630, <<ShaderType:?GLenum>>).
 
 %% @doc glShaderSourceARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glShaderSourceARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec shaderSourceARB(ShaderObj, String) -> 'ok' when ShaderObj :: integer(),String :: iolist().
 shaderSourceARB(ShaderObj,String) ->
   StringTemp = list_to_binary([[Str|[0]] || Str <- String ]),
@@ -6068,77 +6068,77 @@ shaderSourceARB(ShaderObj,String) ->
 
 %% @doc glCompileShaderARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompileShaderARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec compileShaderARB(ShaderObj) -> 'ok' when ShaderObj :: integer().
 compileShaderARB(ShaderObj) ->
   cast(5632, <<ShaderObj:?GLhandleARB>>).
 
 %% @doc glCreateProgramObjectARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCreateProgramObjectARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec createProgramObjectARB() -> integer().
 createProgramObjectARB() ->
   call(5633, <<>>).
 
 %% @doc glAttachObjectARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glAttachObjectARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec attachObjectARB(ContainerObj, Obj) -> 'ok' when ContainerObj :: integer(),Obj :: integer().
 attachObjectARB(ContainerObj,Obj) ->
   cast(5634, <<ContainerObj:?GLhandleARB,Obj:?GLhandleARB>>).
 
 %% @doc glLinkProgramARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glLinkProgramARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec linkProgramARB(ProgramObj) -> 'ok' when ProgramObj :: integer().
 linkProgramARB(ProgramObj) ->
   cast(5635, <<ProgramObj:?GLhandleARB>>).
 
 %% @doc glUseProgramObjectARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUseProgramObjectARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec useProgramObjectARB(ProgramObj) -> 'ok' when ProgramObj :: integer().
 useProgramObjectARB(ProgramObj) ->
   cast(5636, <<ProgramObj:?GLhandleARB>>).
 
 %% @doc glValidateProgramARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glValidateProgramARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec validateProgramARB(ProgramObj) -> 'ok' when ProgramObj :: integer().
 validateProgramARB(ProgramObj) ->
   cast(5637, <<ProgramObj:?GLhandleARB>>).
 
 %% @doc glGetObjectParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetObjectParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getObjectParameterfvARB(Obj, Pname) -> float() when Obj :: integer(),Pname :: enum().
 getObjectParameterfvARB(Obj,Pname) ->
   call(5638, <<Obj:?GLhandleARB,Pname:?GLenum>>).
 
 %% @doc glGetObjectParameterARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetObjectParameterARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getObjectParameterivARB(Obj, Pname) -> integer() when Obj :: integer(),Pname :: enum().
 getObjectParameterivARB(Obj,Pname) ->
   call(5639, <<Obj:?GLhandleARB,Pname:?GLenum>>).
 
 %% @doc glGetInfoLogARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetInfoLogARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getInfoLogARB(Obj, MaxLength) -> string() when Obj :: integer(),MaxLength :: integer().
 getInfoLogARB(Obj,MaxLength) ->
   call(5640, <<Obj:?GLhandleARB,MaxLength:?GLsizei>>).
 
 %% @doc glGetAttachedObjectsARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetAttachedObjectsARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getAttachedObjectsARB(ContainerObj, MaxCount) -> [integer()] when ContainerObj :: integer(),MaxCount :: integer().
 getAttachedObjectsARB(ContainerObj,MaxCount) ->
   call(5641, <<ContainerObj:?GLhandleARB,MaxCount:?GLsizei>>).
 
 %% @doc glGetUniformLocationARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformLocationARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getUniformLocationARB(ProgramObj, Name) -> integer() when ProgramObj :: integer(),Name :: string().
 getUniformLocationARB(ProgramObj,Name) ->
   NameLen = length(Name),
@@ -6146,35 +6146,35 @@ getUniformLocationARB(ProgramObj,Name) ->
 
 %% @doc glGetActiveUniformARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveUniformARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getActiveUniformARB(ProgramObj, Index, MaxLength) -> {Size :: integer(),Type :: enum(),Name :: string()} when ProgramObj :: integer(),Index :: integer(),MaxLength :: integer().
 getActiveUniformARB(ProgramObj,Index,MaxLength) ->
   call(5643, <<ProgramObj:?GLhandleARB,Index:?GLuint,MaxLength:?GLsizei>>).
 
 %% @doc glGetUniformARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getUniformfvARB(ProgramObj, Location) -> matrix() when ProgramObj :: integer(),Location :: integer().
 getUniformfvARB(ProgramObj,Location) ->
   call(5644, <<ProgramObj:?GLhandleARB,Location:?GLint>>).
 
 %% @doc glGetUniformARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getUniformivARB(ProgramObj, Location) -> {integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer()} when ProgramObj :: integer(),Location :: integer().
 getUniformivARB(ProgramObj,Location) ->
   call(5645, <<ProgramObj:?GLhandleARB,Location:?GLint>>).
 
 %% @doc glGetShaderSourceARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetShaderSourceARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getShaderSourceARB(Obj, MaxLength) -> string() when Obj :: integer(),MaxLength :: integer().
 getShaderSourceARB(Obj,MaxLength) ->
   call(5646, <<Obj:?GLhandleARB,MaxLength:?GLsizei>>).
 
 %% @doc glBindAttribLocationARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindAttribLocationARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec bindAttribLocationARB(ProgramObj, Index, Name) -> 'ok' when ProgramObj :: integer(),Index :: integer(),Name :: string().
 bindAttribLocationARB(ProgramObj,Index,Name) ->
   NameLen = length(Name),
@@ -6182,14 +6182,14 @@ bindAttribLocationARB(ProgramObj,Index,Name) ->
 
 %% @doc glGetActiveAttribARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveAttribARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getActiveAttribARB(ProgramObj, Index, MaxLength) -> {Size :: integer(),Type :: enum(),Name :: string()} when ProgramObj :: integer(),Index :: integer(),MaxLength :: integer().
 getActiveAttribARB(ProgramObj,Index,MaxLength) ->
   call(5648, <<ProgramObj:?GLhandleARB,Index:?GLuint,MaxLength:?GLsizei>>).
 
 %% @doc glGetAttribLocationARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetAttribLocationARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getAttribLocationARB(ProgramObj, Name) -> integer() when ProgramObj :: integer(),Name :: string().
 getAttribLocationARB(ProgramObj,Name) ->
   NameLen = length(Name),
@@ -6205,7 +6205,7 @@ getAttribLocationARB(ProgramObj,Name) ->
 %% , then the name is not a renderbuffer object and ``gl:isRenderbuffer'' returns `?GL_FALSE'
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsRenderbuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsRenderbuffer.xhtml">external</a> documentation.
 -spec isRenderbuffer(Renderbuffer) -> 0|1 when Renderbuffer :: integer().
 isRenderbuffer(Renderbuffer) ->
   call(5650, <<Renderbuffer:?GLuint>>).
@@ -6218,7 +6218,7 @@ isRenderbuffer(Renderbuffer) ->
 %% call to  {@link gl:genRenderbuffers/1} , or zero to break the existing binding of a renderbuffer
 %% object to  `Target' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindRenderbuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindRenderbuffer.xhtml">external</a> documentation.
 -spec bindRenderbuffer(Target, Renderbuffer) -> 'ok' when Target :: enum(),Renderbuffer :: integer().
 bindRenderbuffer(Target,Renderbuffer) ->
   cast(5651, <<Target:?GLenum,Renderbuffer:?GLuint>>).
@@ -6233,7 +6233,7 @@ bindRenderbuffer(Target,Renderbuffer) ->
 %% it is as though  {@link gl:bindRenderbuffer/2}  had been executed with a  `Target'  of `?GL_RENDERBUFFER'
 %%  and a  `Name'  of zero. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteRenderbuffers.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteRenderbuffers.xhtml">external</a> documentation.
 -spec deleteRenderbuffers(Renderbuffers) -> 'ok' when Renderbuffers :: [integer()].
 deleteRenderbuffers(Renderbuffers) ->
   RenderbuffersLen = length(Renderbuffers),
@@ -6247,7 +6247,7 @@ deleteRenderbuffers(Renderbuffers) ->
 %% is guaranteed that none of the returned names was in use immediately before the call to ``gl:genRenderbuffers''
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenRenderbuffers.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenRenderbuffers.xhtml">external</a> documentation.
 -spec genRenderbuffers(N) -> [integer()] when N :: integer().
 genRenderbuffers(N) ->
   call(5653, <<N:?GLsizei>>).
@@ -6257,7 +6257,7 @@ genRenderbuffers(N) ->
 %% ``gl:renderbufferStorage'' is equivalent to calling  {@link gl:renderbufferStorageMultisample/5} 
 %%  with the  `Samples'  set to zero. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glRenderbufferStorage.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glRenderbufferStorage.xhtml">external</a> documentation.
 -spec renderbufferStorage(Target, Internalformat, Width, Height) -> 'ok' when Target :: enum(),Internalformat :: enum(),Width :: integer(),Height :: integer().
 renderbufferStorage(Target,Internalformat,Width,Height) ->
   cast(5654, <<Target:?GLenum,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei>>).
@@ -6272,7 +6272,7 @@ renderbufferStorage(Target,Internalformat,Width,Height) ->
 %% , `?GL_RENDERBUFFER_DEPTH_SIZE', `?GL_RENDERBUFFER_DEPTH_SIZE', `?GL_RENDERBUFFER_STENCIL_SIZE'
 %% , or `?GL_RENDERBUFFER_SAMPLES'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetRenderbufferParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetRenderbufferParameter.xhtml">external</a> documentation.
 -spec getRenderbufferParameteriv(Target, Pname) -> integer() when Target :: enum(),Pname :: enum().
 getRenderbufferParameteriv(Target,Pname) ->
   call(5655, <<Target:?GLenum,Pname:?GLenum>>).
@@ -6286,7 +6286,7 @@ getRenderbufferParameteriv(Target,Pname) ->
 %% , by that has not yet been bound through a call to  {@link gl:bindFramebuffer/2} , then the
 %% name is not a framebuffer object and ``gl:isFramebuffer'' returns `?GL_FALSE'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsFramebuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsFramebuffer.xhtml">external</a> documentation.
 -spec isFramebuffer(Framebuffer) -> 0|1 when Framebuffer :: integer().
 isFramebuffer(Framebuffer) ->
   call(5656, <<Framebuffer:?GLuint>>).
@@ -6304,7 +6304,7 @@ isFramebuffer(Framebuffer) ->
 %% a call to  {@link gl:genFramebuffers/1} , or zero to break the existing binding of a framebuffer
 %% object to  `Target' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindFramebuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindFramebuffer.xhtml">external</a> documentation.
 -spec bindFramebuffer(Target, Framebuffer) -> 'ok' when Target :: enum(),Framebuffer :: integer().
 bindFramebuffer(Target,Framebuffer) ->
   cast(5657, <<Target:?GLenum,Framebuffer:?GLuint>>).
@@ -6319,7 +6319,7 @@ bindFramebuffer(Target,Framebuffer) ->
 %%  or `?GL_READ_FRAMEBUFFER' is deleted, it is as though  {@link gl:bindFramebuffer/2} 
 %% had been executed with the corresponding  `Target'  and  `Framebuffer'  zero. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteFramebuffers.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteFramebuffers.xhtml">external</a> documentation.
 -spec deleteFramebuffers(Framebuffers) -> 'ok' when Framebuffers :: [integer()].
 deleteFramebuffers(Framebuffers) ->
   FramebuffersLen = length(Framebuffers),
@@ -6333,7 +6333,7 @@ deleteFramebuffers(Framebuffers) ->
 %% that none of the returned names was in use immediately before the call to ``gl:genFramebuffers''
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenFramebuffers.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenFramebuffers.xhtml">external</a> documentation.
 -spec genFramebuffers(N) -> [integer()] when N :: integer().
 genFramebuffers(N) ->
   call(5659, <<N:?GLsizei>>).
@@ -6345,7 +6345,7 @@ genFramebuffers(N) ->
 %%  or `?GL_FRAMEBUFFER'. `?GL_FRAMEBUFFER' is equivalent to `?GL_DRAW_FRAMEBUFFER'
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCheckFramebufferStatus.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCheckFramebufferStatus.xhtml">external</a> documentation.
 -spec checkFramebufferStatus(Target) -> enum() when Target :: enum().
 checkFramebufferStatus(Target) ->
   call(5660, <<Target:?GLenum>>).
@@ -6378,7 +6378,7 @@ framebufferTexture3D(Target,Attachment,Textarget,Texture,Level,Zoffset) ->
 %% buffer identified by  `Attachment'  of the framebuffer currently bound to  `Target' .
 %% 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFramebufferRenderbuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFramebufferRenderbuffer.xhtml">external</a> documentation.
 -spec framebufferRenderbuffer(Target, Attachment, Renderbuffertarget, Renderbuffer) -> 'ok' when Target :: enum(),Attachment :: enum(),Renderbuffertarget :: enum(),Renderbuffer :: integer().
 framebufferRenderbuffer(Target,Attachment,Renderbuffertarget,Renderbuffer) ->
   cast(5664, <<Target:?GLenum,Attachment:?GLenum,Renderbuffertarget:?GLenum,Renderbuffer:?GLuint>>).
@@ -6390,7 +6390,7 @@ framebufferRenderbuffer(Target,Attachment,Renderbuffertarget,Renderbuffer) ->
 %% be `?GL_DRAW_FRAMEBUFFER', `?GL_READ_FRAMEBUFFER' or `?GL_FRAMEBUFFER'. `?GL_FRAMEBUFFER'
 %%  is equivalent to `?GL_DRAW_FRAMEBUFFER'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetFramebufferAttachmentParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetFramebufferAttachmentParameter.xhtml">external</a> documentation.
 -spec getFramebufferAttachmentParameteriv(Target, Attachment, Pname) -> integer() when Target :: enum(),Attachment :: enum(),Pname :: enum().
 getFramebufferAttachmentParameteriv(Target,Attachment,Pname) ->
   call(5665, <<Target:?GLenum,Attachment:?GLenum,Pname:?GLenum>>).
@@ -6401,7 +6401,7 @@ getFramebufferAttachmentParameteriv(Target,Attachment,Pname) ->
 %% the active texture unit. For cube map textures, a `?GL_INVALID_OPERATION' error is
 %% generated if the texture attached to  `Target'  is not cube complete. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenerateMipmap.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenerateMipmap.xhtml">external</a> documentation.
 -spec generateMipmap(Target) -> 'ok' when Target :: enum().
 generateMipmap(Target) ->
   cast(5666, <<Target:?GLenum>>).
@@ -6417,7 +6417,7 @@ generateMipmap(Target) ->
 %% by the locations ( `DstX0' ;  `DstY0' ) and ( `DstX1' ;  `DstY1' ). The lower
 %% bounds of the rectangle are inclusive, while the upper bounds are exclusive. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBlitFramebuffer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlitFramebuffer.xhtml">external</a> documentation.
 -spec blitFramebuffer(SrcX0, SrcY0, SrcX1, SrcY1, DstX0, DstY0, DstX1, DstY1, Mask, Filter) -> 'ok' when SrcX0 :: integer(),SrcY0 :: integer(),SrcX1 :: integer(),SrcY1 :: integer(),DstX0 :: integer(),DstY0 :: integer(),DstX1 :: integer(),DstY1 :: integer(),Mask :: integer(),Filter :: enum().
 blitFramebuffer(SrcX0,SrcY0,SrcX1,SrcY1,DstX0,DstY0,DstX1,DstY1,Mask,Filter) ->
   cast(5667, <<SrcX0:?GLint,SrcY0:?GLint,SrcX1:?GLint,SrcY1:?GLint,DstX0:?GLint,DstY0:?GLint,DstX1:?GLint,DstY1:?GLint,Mask:?GLbitfield,Filter:?GLenum>>).
@@ -6427,7 +6427,7 @@ blitFramebuffer(SrcX0,SrcY0,SrcX1,SrcY1,DstX0,DstY0,DstX1,DstY1,Mask,Filter) ->
 %% ``gl:renderbufferStorageMultisample'' establishes the data storage, format, dimensions
 %% and number of samples of a renderbuffer object's image. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glRenderbufferStorageMultisample.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glRenderbufferStorageMultisample.xhtml">external</a> documentation.
 -spec renderbufferStorageMultisample(Target, Samples, Internalformat, Width, Height) -> 'ok' when Target :: enum(),Samples :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer().
 renderbufferStorageMultisample(Target,Samples,Internalformat,Width,Height) ->
   cast(5668, <<Target:?GLenum,Samples:?GLsizei,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei>>).
@@ -6453,7 +6453,7 @@ framebufferTextureFaceARB(Target,Attachment,Texture,Level,Face) ->
 %% mapped range of the buffer. ``gl:flushMappedBufferRange'' may be called multiple times
 %% to indicate distinct subranges of the mapping which require flushing. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFlushMappedBufferRange.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFlushMappedBufferRange.xhtml">external</a> documentation.
 -spec flushMappedBufferRange(Target, Offset, Length) -> 'ok' when Target :: enum(),Offset :: integer(),Length :: integer().
 flushMappedBufferRange(Target,Offset,Length) ->
   cast(5671, <<Target:?GLenum,0:32,Offset:?GLintptr,Length:?GLsizeiptr>>).
@@ -6464,7 +6464,7 @@ flushMappedBufferRange(Target,Offset,Length) ->
 %%  is the name of a vertex array object previously returned from a call to  {@link gl:genVertexArrays/1} 
 %% , or zero to break the existing vertex array object binding. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindVertexArray.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindVertexArray.xhtml">external</a> documentation.
 -spec bindVertexArray(Array) -> 'ok' when Array :: integer().
 bindVertexArray(Array) ->
   cast(5672, <<Array:?GLuint>>).
@@ -6477,7 +6477,7 @@ bindVertexArray(Array) ->
 %% is deleted, the binding for that object reverts to zero and the default vertex array becomes
 %% current. Unused names in  `Arrays'  are silently ignored, as is the value zero. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteVertexArrays.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteVertexArrays.xhtml">external</a> documentation.
 -spec deleteVertexArrays(Arrays) -> 'ok' when Arrays :: [integer()].
 deleteVertexArrays(Arrays) ->
   ArraysLen = length(Arrays),
@@ -6491,7 +6491,7 @@ deleteVertexArrays(Arrays) ->
 %% guaranteed that none of the returned names was in use immediately before the call to ``gl:genVertexArrays''
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenVertexArrays.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenVertexArrays.xhtml">external</a> documentation.
 -spec genVertexArrays(N) -> [integer()] when N :: integer().
 genVertexArrays(N) ->
   call(5674, <<N:?GLsizei>>).
@@ -6505,7 +6505,7 @@ genVertexArrays(N) ->
 %% been bound through a call to  {@link gl:bindVertexArray/1} , then the name is not a vertex
 %% array object and ``gl:isVertexArray'' returns `?GL_FALSE'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsVertexArray.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsVertexArray.xhtml">external</a> documentation.
 -spec isVertexArray(Array) -> 0|1 when Array :: integer().
 isVertexArray(Array) ->
   call(5675, <<Array:?GLuint>>).
@@ -6515,7 +6515,7 @@ isVertexArray(Array) ->
 %% ``gl:getUniformIndices'' retrieves the indices of a number of uniforms within  `Program' 
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformIndices.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetUniformIndices.xhtml">external</a> documentation.
 -spec getUniformIndices(Program, UniformNames) -> [integer()] when Program :: integer(),UniformNames :: iolist().
 getUniformIndices(Program,UniformNames) ->
   UniformNamesTemp = list_to_binary([[Str|[0]] || Str <- UniformNames ]),
@@ -6524,7 +6524,7 @@ getUniformIndices(Program,UniformNames) ->
 
 %% @doc glGetActiveUniforms
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveUniforms.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getActiveUniformsiv(Program, UniformIndices, Pname) -> [integer()] when Program :: integer(),UniformIndices :: [integer()],Pname :: enum().
 getActiveUniformsiv(Program,UniformIndices,Pname) ->
   UniformIndicesLen = length(UniformIndices),
@@ -6543,7 +6543,7 @@ getActiveUniformsiv(Program,UniformIndices,Pname) ->
 %% is given by the value of `?GL_ACTIVE_UNIFORM_MAX_LENGTH', which can be queried with  {@link gl:getProgramiv/2} 
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveUniformName.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetActiveUniformName.xhtml">external</a> documentation.
 -spec getActiveUniformName(Program, UniformIndex, BufSize) -> string() when Program :: integer(),UniformIndex :: integer(),BufSize :: integer().
 getActiveUniformName(Program,UniformIndex,BufSize) ->
   call(5678, <<Program:?GLuint,UniformIndex:?GLuint,BufSize:?GLsizei>>).
@@ -6553,7 +6553,7 @@ getActiveUniformName(Program,UniformIndex,BufSize) ->
 %% ``gl:getUniformBlockIndex'' retrieves the index of a uniform block within  `Program' .
 %% 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformBlockIndex.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetUniformBlockIndex.xhtml">external</a> documentation.
 -spec getUniformBlockIndex(Program, UniformBlockName) -> integer() when Program :: integer(),UniformBlockName :: string().
 getUniformBlockIndex(Program,UniformBlockName) ->
   UniformBlockNameLen = length(UniformBlockName),
@@ -6564,7 +6564,7 @@ getUniformBlockIndex(Program,UniformBlockName) ->
 %% ``gl:getActiveUniformBlockiv'' retrieves information about an active uniform block within
 %%  `Program' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveUniformBlock.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetActiveUniformBlock.xhtml">external</a> documentation.
 -spec getActiveUniformBlockiv(Program, UniformBlockIndex, Pname, Params) -> 'ok' when Program :: integer(),UniformBlockIndex :: integer(),Pname :: enum(),Params :: mem().
 getActiveUniformBlockiv(Program,UniformBlockIndex,Pname,Params) ->
   send_bin(Params),
@@ -6575,7 +6575,7 @@ getActiveUniformBlockiv(Program,UniformBlockIndex,Pname,Params) ->
 %% ``gl:getActiveUniformBlockName'' retrieves the name of the active uniform block at  `UniformBlockIndex' 
 %%  within  `Program' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveUniformBlockName.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetActiveUniformBlockName.xhtml">external</a> documentation.
 -spec getActiveUniformBlockName(Program, UniformBlockIndex, BufSize) -> string() when Program :: integer(),UniformBlockIndex :: integer(),BufSize :: integer().
 getActiveUniformBlockName(Program,UniformBlockIndex,BufSize) ->
   call(5681, <<Program:?GLuint,UniformBlockIndex:?GLuint,BufSize:?GLsizei>>).
@@ -6587,7 +6587,7 @@ getActiveUniformBlockName(Program,UniformBlockIndex,BufSize) ->
 %%  `Program'  is the name of a program object for which the command  {@link gl:linkProgram/1} 
 %%  has been issued in the past. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUniformBlockBinding.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glUniformBlockBinding.xhtml">external</a> documentation.
 -spec uniformBlockBinding(Program, UniformBlockIndex, UniformBlockBinding) -> 'ok' when Program :: integer(),UniformBlockIndex :: integer(),UniformBlockBinding :: integer().
 uniformBlockBinding(Program,UniformBlockIndex,UniformBlockBinding) ->
   cast(5682, <<Program:?GLuint,UniformBlockIndex:?GLuint,UniformBlockBinding:?GLuint>>).
@@ -6599,7 +6599,7 @@ uniformBlockBinding(Program,UniformBlockIndex,UniformBlockBinding) ->
 %% by  `Size'  is copied from the source, at offset  `Readoffset'  to the destination
 %% at  `Writeoffset' , also in basic machine units. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCopyBufferSubData.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCopyBufferSubData.xhtml">external</a> documentation.
 -spec copyBufferSubData(ReadTarget, WriteTarget, ReadOffset, WriteOffset, Size) -> 'ok' when ReadTarget :: enum(),WriteTarget :: enum(),ReadOffset :: integer(),WriteOffset :: integer(),Size :: integer().
 copyBufferSubData(ReadTarget,WriteTarget,ReadOffset,WriteOffset,Size) ->
   cast(5683, <<ReadTarget:?GLenum,WriteTarget:?GLenum,ReadOffset:?GLintptr,WriteOffset:?GLintptr,Size:?GLsizeiptr>>).
@@ -6613,7 +6613,7 @@ copyBufferSubData(ReadTarget,WriteTarget,ReadOffset,WriteOffset,Size) ->
 %% were upconverted to 32-bit unsigned integers (with wrapping on overflow conditions). The
 %% operation is undefined if the sum would be negative. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsBaseVertex.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawElementsBaseVertex.xhtml">external</a> documentation.
 -spec drawElementsBaseVertex(Mode, Count, Type, Indices, Basevertex) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Basevertex :: integer().
 drawElementsBaseVertex(Mode,Count,Type,Indices,Basevertex) when  is_integer(Indices) ->
   cast(5684, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Basevertex:?GLint>>);
@@ -6635,7 +6635,7 @@ drawElementsBaseVertex(Mode,Count,Type,Indices,Basevertex) ->
 %% to 32-bit unsigned integers (with wrapping on overflow conditions). The operation is undefined
 %% if the sum would be negative. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawRangeElementsBaseVertex.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawRangeElementsBaseVertex.xhtml">external</a> documentation.
 -spec drawRangeElementsBaseVertex(Mode, Start, End, Count, Type, Indices, Basevertex) -> 'ok' when Mode :: enum(),Start :: integer(),End :: integer(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Basevertex :: integer().
 drawRangeElementsBaseVertex(Mode,Start,End,Count,Type,Indices,Basevertex) when  is_integer(Indices) ->
   cast(5686, <<Mode:?GLenum,Start:?GLuint,End:?GLuint,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Basevertex:?GLint>>);
@@ -6652,7 +6652,7 @@ drawRangeElementsBaseVertex(Mode,Start,End,Count,Type,Indices,Basevertex) ->
 %% if the calculation were upconverted to 32-bit unsigned integers (with wrapping on overflow
 %% conditions). The operation is undefined if the sum would be negative. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsInstancedBaseVertex.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawElementsInstancedBaseVertex.xhtml">external</a> documentation.
 -spec drawElementsInstancedBaseVertex(Mode, Count, Type, Indices, Primcount, Basevertex) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer(),Basevertex :: integer().
 drawElementsInstancedBaseVertex(Mode,Count,Type,Indices,Primcount,Basevertex) when  is_integer(Indices) ->
   cast(5688, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei,Basevertex:?GLint>>);
@@ -6667,7 +6667,7 @@ drawElementsInstancedBaseVertex(Mode,Count,Type,Indices,Primcount,Basevertex) ->
 %% as the `provoking vertex' and ``gl:provokingVertex'' specifies which vertex is
 %% to be used as the source of data for flat shaded varyings. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProvokingVertex.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glProvokingVertex.xhtml">external</a> documentation.
 -spec provokingVertex(Mode) -> 'ok' when Mode :: enum().
 provokingVertex(Mode) ->
   cast(5690, <<Mode:?GLenum>>).
@@ -6678,7 +6678,7 @@ provokingVertex(Mode) ->
 %% command stream and associates it with that sync object, and returns a non-zero name corresponding
 %% to the sync object. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glFenceSync.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFenceSync.xhtml">external</a> documentation.
 -spec fenceSync(Condition, Flags) -> integer() when Condition :: enum(),Flags :: integer().
 fenceSync(Condition,Flags) ->
   call(5691, <<Condition:?GLenum,Flags:?GLbitfield>>).
@@ -6689,7 +6689,7 @@ fenceSync(Condition,Flags) ->
 %% object. If  `Sync'  is not the name of a sync object, or if an error occurs, ``gl:isSync''
 %%  returns `?GL_FALSE'. Note that zero is not the name of a sync object. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsSync.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsSync.xhtml">external</a> documentation.
 -spec isSync(Sync) -> 0|1 when Sync :: integer().
 isSync(Sync) ->
   call(5692, <<Sync:?GLsync>>).
@@ -6704,7 +6704,7 @@ isSync(Sync) ->
 %%  or  {@link gl:clientWaitSync/3}  command. In either case, after ``gl:deleteSync'' returns,
 %% the name  `Sync'  is invalid and can no longer be used to refer to the sync object. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteSync.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteSync.xhtml">external</a> documentation.
 -spec deleteSync(Sync) -> 'ok' when Sync :: integer().
 deleteSync(Sync) ->
   cast(5693, <<Sync:?GLsync>>).
@@ -6716,7 +6716,7 @@ deleteSync(Sync) ->
 %% is called, ``gl:clientWaitSync'' returns immediately, otherwise it will block and wait
 %% for up to  `Timeout'  nanoseconds for  `Sync'  to become signaled. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClientWaitSync.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClientWaitSync.xhtml">external</a> documentation.
 -spec clientWaitSync(Sync, Flags, Timeout) -> enum() when Sync :: integer(),Flags :: integer(),Timeout :: integer().
 clientWaitSync(Sync,Flags,Timeout) ->
   call(5694, <<Sync:?GLsync,Flags:?GLbitfield,0:32,Timeout:?GLuint64>>).
@@ -6732,7 +6732,7 @@ clientWaitSync(Sync,Flags,Timeout) ->
 %% sync object capabilities. They must have these reserved values in order that existing
 %% code calling ``gl:waitSync'' operate properly in the presence of such extensions.
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glWaitSync.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glWaitSync.xhtml">external</a> documentation.
 -spec waitSync(Sync, Flags, Timeout) -> 'ok' when Sync :: integer(),Flags :: integer(),Timeout :: integer().
 waitSync(Sync,Flags,Timeout) ->
   cast(5695, <<Sync:?GLsync,Flags:?GLbitfield,0:32,Timeout:?GLuint64>>).
@@ -6748,7 +6748,7 @@ getInteger64v(Pname) ->
 %% ``gl:getSynciv'' retrieves properties of a sync object.  `Sync'  specifies the name
 %% of the sync object whose properties to retrieve. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetSync.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetSync.xhtml">external</a> documentation.
 -spec getSynciv(Sync, Pname, BufSize) -> [integer()] when Sync :: integer(),Pname :: enum(),BufSize :: integer().
 getSynciv(Sync,Pname,BufSize) ->
   call(5697, <<Sync:?GLsync,Pname:?GLenum,BufSize:?GLsizei>>).
@@ -6758,7 +6758,7 @@ getSynciv(Sync,Pname,BufSize) ->
 %% ``gl:texImage2DMultisample'' establishes the data storage, format, dimensions and number
 %% of samples of a multisample texture's image. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexImage2DMultisample.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexImage2DMultisample.xhtml">external</a> documentation.
 -spec texImage2DMultisample(Target, Samples, Internalformat, Width, Height, Fixedsamplelocations) -> 'ok' when Target :: enum(),Samples :: integer(),Internalformat :: integer(),Width :: integer(),Height :: integer(),Fixedsamplelocations :: 0|1.
 texImage2DMultisample(Target,Samples,Internalformat,Width,Height,Fixedsamplelocations) ->
   cast(5698, <<Target:?GLenum,Samples:?GLsizei,Internalformat:?GLint,Width:?GLsizei,Height:?GLsizei,Fixedsamplelocations:?GLboolean>>).
@@ -6768,7 +6768,7 @@ texImage2DMultisample(Target,Samples,Internalformat,Width,Height,Fixedsampleloca
 %% ``gl:texImage3DMultisample'' establishes the data storage, format, dimensions and number
 %% of samples of a multisample texture's image. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexImage3DMultisample.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexImage3DMultisample.xhtml">external</a> documentation.
 -spec texImage3DMultisample(Target, Samples, Internalformat, Width, Height, Depth, Fixedsamplelocations) -> 'ok' when Target :: enum(),Samples :: integer(),Internalformat :: integer(),Width :: integer(),Height :: integer(),Depth :: integer(),Fixedsamplelocations :: 0|1.
 texImage3DMultisample(Target,Samples,Internalformat,Width,Height,Depth,Fixedsamplelocations) ->
   cast(5699, <<Target:?GLenum,Samples:?GLsizei,Internalformat:?GLint,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei,Fixedsamplelocations:?GLboolean>>).
@@ -6783,7 +6783,7 @@ texImage3DMultisample(Target,Samples,Internalformat,Width,Height,Depth,Fixedsamp
 %% space of that sample. (0.5, 0.5) this corresponds to the pixel center.  `Index'  must
 %% be between zero and the value of `?GL_SAMPLES' - 1. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetMultisample.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetMultisample.xhtml">external</a> documentation.
 -spec getMultisamplefv(Pname, Index) -> {float(),float()} when Pname :: enum(),Index :: integer().
 getMultisamplefv(Pname,Index) ->
   call(5700, <<Pname:?GLenum,Index:?GLuint>>).
@@ -6793,14 +6793,14 @@ getMultisamplefv(Pname,Index) ->
 %% ``gl:sampleMaski'' sets one 32-bit sub-word of the multi-word sample mask, `?GL_SAMPLE_MASK_VALUE'
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSampleMaski.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glSampleMaski.xhtml">external</a> documentation.
 -spec sampleMaski(Index, Mask) -> 'ok' when Index :: integer(),Mask :: integer().
 sampleMaski(Index,Mask) ->
   cast(5701, <<Index:?GLuint,Mask:?GLbitfield>>).
 
 %% @doc glNamedStringARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glNamedStringARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec namedStringARB(Type, Name, String) -> 'ok' when Type :: enum(),Name :: string(),String :: string().
 namedStringARB(Type,Name,String) ->
   NameLen = length(Name),
@@ -6809,7 +6809,7 @@ namedStringARB(Type,Name,String) ->
 
 %% @doc glDeleteNamedStringARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteNamedStringARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec deleteNamedStringARB(Name) -> 'ok' when Name :: string().
 deleteNamedStringARB(Name) ->
   NameLen = length(Name),
@@ -6817,7 +6817,7 @@ deleteNamedStringARB(Name) ->
 
 %% @doc glCompileShaderIncludeARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCompileShaderIncludeARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec compileShaderIncludeARB(Shader, Path) -> 'ok' when Shader :: integer(),Path :: iolist().
 compileShaderIncludeARB(Shader,Path) ->
   PathTemp = list_to_binary([[Str|[0]] || Str <- Path ]),
@@ -6826,7 +6826,7 @@ compileShaderIncludeARB(Shader,Path) ->
 
 %% @doc glIsNamedStringARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsNamedStringARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec isNamedStringARB(Name) -> 0|1 when Name :: string().
 isNamedStringARB(Name) ->
   NameLen = length(Name),
@@ -6834,7 +6834,7 @@ isNamedStringARB(Name) ->
 
 %% @doc glGetNamedStringARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetNamedStringARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getNamedStringARB(Name, BufSize) -> string() when Name :: string(),BufSize :: integer().
 getNamedStringARB(Name,BufSize) ->
   NameLen = length(Name),
@@ -6842,7 +6842,7 @@ getNamedStringARB(Name,BufSize) ->
 
 %% @doc glGetNamedStringARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetNamedStringARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getNamedStringivARB(Name, Pname) -> integer() when Name :: string(),Pname :: enum().
 getNamedStringivARB(Name,Pname) ->
   NameLen = length(Name),
@@ -6850,7 +6850,7 @@ getNamedStringivARB(Name,Pname) ->
 
 %% @doc glBindFragDataLocationIndexe
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindFragDataLocationIndexe.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec bindFragDataLocationIndexed(Program, ColorNumber, Index, Name) -> 'ok' when Program :: integer(),ColorNumber :: integer(),Index :: integer(),Name :: string().
 bindFragDataLocationIndexed(Program,ColorNumber,Index,Name) ->
   NameLen = length(Name),
@@ -6862,7 +6862,7 @@ bindFragDataLocationIndexed(Program,ColorNumber,Index,Name) ->
 %%  was bound when the program object  `Program'  was last linked. If  `Name'  is not
 %% a varying out variable of  `Program' , or if an error occurs, -1 will be returned. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetFragDataIndex.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetFragDataIndex.xhtml">external</a> documentation.
 -spec getFragDataIndex(Program, Name) -> integer() when Program :: integer(),Name :: string().
 getFragDataIndex(Program,Name) ->
   NameLen = length(Name),
@@ -6875,7 +6875,7 @@ getFragDataIndex(Program,Name) ->
 %% that none of the returned names was in use immediately before the call to ``gl:genSamplers''
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenSamplers.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenSamplers.xhtml">external</a> documentation.
 -spec genSamplers(Count) -> [integer()] when Count :: integer().
 genSamplers(Count) ->
   call(5710, <<Count:?GLsizei>>).
@@ -6888,7 +6888,7 @@ genSamplers(Count) ->
 %%  is called with unit set to the unit the sampler is bound to and sampler zero. Unused
 %% names in samplers are silently ignored, as is the reserved name zero. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteSamplers.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteSamplers.xhtml">external</a> documentation.
 -spec deleteSamplers(Samplers) -> 'ok' when Samplers :: [integer()].
 deleteSamplers(Samplers) ->
   SamplersLen = length(Samplers),
@@ -6901,7 +6901,7 @@ deleteSamplers(Samplers) ->
 %% object. If  `Id'  is zero, or is a non-zero value that is not currently the name of
 %% a sampler object, or if an error occurs, ``gl:isSampler'' returns `?GL_FALSE'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsSampler.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsSampler.xhtml">external</a> documentation.
 -spec isSampler(Sampler) -> 0|1 when Sampler :: integer().
 isSampler(Sampler) ->
   call(5712, <<Sampler:?GLuint>>).
@@ -6913,7 +6913,7 @@ isSampler(Sampler) ->
 %% .  `Unit'  must be less than the value of `?GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS'.
 %% 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindSampler.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindSampler.xhtml">external</a> documentation.
 -spec bindSampler(Unit, Sampler) -> 'ok' when Unit :: integer(),Sampler :: integer().
 bindSampler(Unit,Sampler) ->
   cast(5713, <<Unit:?GLuint,Sampler:?GLuint>>).
@@ -6925,7 +6925,7 @@ bindSampler(Unit,Sampler) ->
 %% modified, and must be the name of a sampler object previously returned from a call to  {@link gl:genSamplers/1} 
 %% . The following symbols are accepted in  `Pname' : 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSamplerParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glSamplerParameter.xhtml">external</a> documentation.
 -spec samplerParameteri(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: integer().
 samplerParameteri(Sampler,Pname,Param) ->
   cast(5714, <<Sampler:?GLuint,Pname:?GLenum,Param:?GLint>>).
@@ -6962,7 +6962,7 @@ samplerParameterIiv(Sampler,Pname,Param) ->
 
 %% @doc glSamplerParameterI
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glSamplerParameterI.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec samplerParameterIuiv(Sampler, Pname, Param) -> 'ok' when Sampler :: integer(),Pname :: enum(),Param :: [integer()].
 samplerParameterIuiv(Sampler,Pname,Param) ->
   ParamLen = length(Param),
@@ -6977,7 +6977,7 @@ samplerParameterIuiv(Sampler,Pname,Param) ->
 %% .  `Pname'  accepts the same symbols as  {@link gl:samplerParameteri/3} , with the same
 %% interpretations: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetSamplerParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetSamplerParameter.xhtml">external</a> documentation.
 -spec getSamplerParameteriv(Sampler, Pname) -> [integer()] when Sampler :: integer(),Pname :: enum().
 getSamplerParameteriv(Sampler,Pname) ->
   call(5720, <<Sampler:?GLuint,Pname:?GLenum>>).
@@ -6996,7 +6996,7 @@ getSamplerParameterfv(Sampler,Pname) ->
 
 %% @doc glGetSamplerParameterI
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetSamplerParameterI.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getSamplerParameterIuiv(Sampler, Pname) -> [integer()] when Sampler :: integer(),Pname :: enum().
 getSamplerParameterIuiv(Sampler,Pname) ->
   call(5723, <<Sampler:?GLuint,Pname:?GLenum>>).
@@ -7011,21 +7011,21 @@ getSamplerParameterIuiv(Sampler,Pname) ->
 %%  block where the target is `?GL_TIME_ELAPSED' and it does not affect the result of
 %% that query object. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glQueryCounter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glQueryCounter.xhtml">external</a> documentation.
 -spec queryCounter(Id, Target) -> 'ok' when Id :: integer(),Target :: enum().
 queryCounter(Id,Target) ->
   cast(5724, <<Id:?GLuint,Target:?GLenum>>).
 
 %% @doc glGetQueryObjecti64v
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetQueryObjecti64v.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getQueryObjecti64v(Id, Pname) -> integer() when Id :: integer(),Pname :: enum().
 getQueryObjecti64v(Id,Pname) ->
   call(5725, <<Id:?GLuint,Pname:?GLenum>>).
 
 %% @doc glGetQueryObjectui64v
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetQueryObjectui64v.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getQueryObjectui64v(Id, Pname) -> integer() when Id :: integer(),Pname :: enum().
 getQueryObjectui64v(Id,Pname) ->
   call(5726, <<Id:?GLuint,Pname:?GLenum>>).
@@ -7037,7 +7037,7 @@ getQueryObjectui64v(Id,Pname) ->
 %% , execept that the parameters to  {@link gl:drawArraysInstancedBaseInstance/5}  are stored
 %% in memory at the address given by  `Indirect' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawArraysIndirect.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawArraysIndirect.xhtml">external</a> documentation.
 -spec drawArraysIndirect(Mode, Indirect) -> 'ok' when Mode :: enum(),Indirect :: offset()|mem().
 drawArraysIndirect(Mode,Indirect) when  is_integer(Indirect) ->
   cast(5727, <<Mode:?GLenum,Indirect:?GLuint>>);
@@ -7052,7 +7052,7 @@ drawArraysIndirect(Mode,Indirect) ->
 %% , execpt that the parameters to  {@link gl:drawElementsInstancedBaseVertexBaseInstance/7} 
 %% are stored in memory at the address given by  `Indirect' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsIndirect.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawElementsIndirect.xhtml">external</a> documentation.
 -spec drawElementsIndirect(Mode, Type, Indirect) -> 'ok' when Mode :: enum(),Type :: enum(),Indirect :: offset()|mem().
 drawElementsIndirect(Mode,Type,Indirect) when  is_integer(Indirect) ->
   cast(5729, <<Mode:?GLenum,Type:?GLenum,Indirect:?GLuint>>);
@@ -7200,7 +7200,7 @@ getUniformdv(Program,Location) ->
 %%  `Name'  in the shader stage of type  `Shadertype'  attached to  `Program' ,
 %% with behavior otherwise identical to  {@link gl:getUniformLocation/2} . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetSubroutineUniformLocation.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetSubroutineUniformLocation.xhtml">external</a> documentation.
 -spec getSubroutineUniformLocation(Program, Shadertype, Name) -> integer() when Program :: integer(),Shadertype :: enum(),Name :: string().
 getSubroutineUniformLocation(Program,Shadertype,Name) ->
   NameLen = length(Name),
@@ -7214,7 +7214,7 @@ getSubroutineUniformLocation(Program,Shadertype,Name) ->
 %% shader subroutine index.  `Name'  contains the null-terminated name of the subroutine
 %% uniform whose name to query. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetSubroutineIndex.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetSubroutineIndex.xhtml">external</a> documentation.
 -spec getSubroutineIndex(Program, Shadertype, Name) -> integer() when Program :: integer(),Shadertype :: enum(),Name :: string().
 getSubroutineIndex(Program,Shadertype,Name) ->
   NameLen = length(Name),
@@ -7228,7 +7228,7 @@ getSubroutineIndex(Program,Shadertype,Name) ->
 %%  `Index'  must be between zero and the value of `?GL_ACTIVE_SUBROUTINE_UNIFORMS'
 %% minus one for the shader stage. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveSubroutineUniformName.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetActiveSubroutineUniformName.xhtml">external</a> documentation.
 -spec getActiveSubroutineUniformName(Program, Shadertype, Index, Bufsize) -> string() when Program :: integer(),Shadertype :: enum(),Index :: integer(),Bufsize :: integer().
 getActiveSubroutineUniformName(Program,Shadertype,Index,Bufsize) ->
   call(5751, <<Program:?GLuint,Shadertype:?GLenum,Index:?GLuint,Bufsize:?GLsizei>>).
@@ -7240,7 +7240,7 @@ getActiveSubroutineUniformName(Program,Shadertype,Index,Bufsize) ->
 %% shader subroutine uniform within the shader stage given by  `Stage' , and must between
 %% zero and the value of `?GL_ACTIVE_SUBROUTINES' minus one for the shader stage. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetActiveSubroutineName.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetActiveSubroutineName.xhtml">external</a> documentation.
 -spec getActiveSubroutineName(Program, Shadertype, Index, Bufsize) -> string() when Program :: integer(),Shadertype :: enum(),Index :: integer(),Bufsize :: integer().
 getActiveSubroutineName(Program,Shadertype,Index,Bufsize) ->
   call(5752, <<Program:?GLuint,Shadertype:?GLenum,Index:?GLuint,Bufsize:?GLsizei>>).
@@ -7254,7 +7254,7 @@ getActiveSubroutineName(Program,Shadertype,Index,Bufsize) ->
 %% values in  `Indices'  must be less than the value of `?GL_ACTIVE_SUBROUTINES'
 %% for the shader stage. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUniformSubroutines.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glUniformSubroutines.xhtml">external</a> documentation.
 -spec uniformSubroutinesuiv(Shadertype, Indices) -> 'ok' when Shadertype :: enum(),Indices :: [integer()].
 uniformSubroutinesuiv(Shadertype,Indices) ->
   IndicesLen = length(Indices),
@@ -7269,7 +7269,7 @@ uniformSubroutinesuiv(Shadertype,Indices) ->
 %% in use at shader stage  `Shadertype' . The value of the subroutine uniform is returned
 %% in  `Values' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetUniformSubroutine.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetUniformSubroutine.xhtml">external</a> documentation.
 -spec getUniformSubroutineuiv(Shadertype, Location) -> {integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer(),integer()} when Shadertype :: enum(),Location :: integer().
 getUniformSubroutineuiv(Shadertype,Location) ->
   call(5754, <<Shadertype:?GLenum,Location:?GLint>>).
@@ -7282,7 +7282,7 @@ getUniformSubroutineuiv(Shadertype,Location) ->
 %% should be queried. The value or values of the parameter to be queried is returned in the
 %% variable whose address is given in  `Values' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramStage.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetProgramStage.xhtml">external</a> documentation.
 -spec getProgramStageiv(Program, Shadertype, Pname) -> integer() when Program :: integer(),Shadertype :: enum(),Pname :: enum().
 getProgramStageiv(Program,Shadertype,Pname) ->
   call(5755, <<Program:?GLuint,Shadertype:?GLenum,Pname:?GLenum>>).
@@ -7296,7 +7296,7 @@ getProgramStageiv(Program,Shadertype,Pname) ->
 %%  `Values'  specifies the address of an array containing the new values for the parameter
 %% specified by  `Pname' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPatchParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPatchParameter.xhtml">external</a> documentation.
 -spec patchParameteri(Pname, Value) -> 'ok' when Pname :: enum(),Value :: integer().
 patchParameteri(Pname,Value) ->
   cast(5756, <<Pname:?GLenum,Value:?GLint>>).
@@ -7316,7 +7316,7 @@ patchParameterfv(Pname,Values) ->
 %% . If  `Id'  has not previously been bound, a new transform feedback object with name  `Id' 
 %%  and initialized with with the default transform state vector is created. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindTransformFeedback.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindTransformFeedback.xhtml">external</a> documentation.
 -spec bindTransformFeedback(Target, Id) -> 'ok' when Target :: enum(),Id :: integer().
 bindTransformFeedback(Target,Id) ->
   cast(5758, <<Target:?GLenum,Id:?GLuint>>).
@@ -7329,7 +7329,7 @@ bindTransformFeedback(Target,Id) ->
 %% and it has no contents. If an active transform feedback object is deleted, its name immediately
 %% becomes unused, but the underlying object is not deleted until it is no longer active. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteTransformFeedbacks.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteTransformFeedbacks.xhtml">external</a> documentation.
 -spec deleteTransformFeedbacks(Ids) -> 'ok' when Ids :: [integer()].
 deleteTransformFeedbacks(Ids) ->
   IdsLen = length(Ids),
@@ -7342,7 +7342,7 @@ deleteTransformFeedbacks(Ids) ->
 %% names in  `Ids' . These names are marked as used, for the purposes of ``gl:genTransformFeedbacks''
 %%  only, but they acquire transform feedback state only when they are first bound. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenTransformFeedbacks.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenTransformFeedbacks.xhtml">external</a> documentation.
 -spec genTransformFeedbacks(N) -> [integer()] when N :: integer().
 genTransformFeedbacks(N) ->
   call(5760, <<N:?GLsizei>>).
@@ -7357,7 +7357,7 @@ genTransformFeedbacks(N) ->
 %% the name is not a transform feedback object and ``gl:isTransformFeedback'' returns `?GL_FALSE'
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsTransformFeedback.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsTransformFeedback.xhtml">external</a> documentation.
 -spec isTransformFeedback(Id) -> 0|1 when Id :: integer().
 isTransformFeedback(Id) ->
   call(5761, <<Id:?GLuint>>).
@@ -7370,7 +7370,7 @@ isTransformFeedback(Id) ->
 %% to the object results in an error. However, a new transform feedback object may be bound
 %% while transform feedback is paused. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glPauseTransformFeedback.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPauseTransformFeedback.xhtml">external</a> documentation.
 -spec pauseTransformFeedback() -> 'ok'.
 pauseTransformFeedback() ->
   cast(5762, <<>>).
@@ -7383,7 +7383,7 @@ pauseTransformFeedback() ->
 %% to the object results in an error. However, a new transform feedback object may be bound
 %% while transform feedback is paused. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glResumeTransformFeedback.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glResumeTransformFeedback.xhtml">external</a> documentation.
 -spec resumeTransformFeedback() -> 'ok'.
 resumeTransformFeedback() ->
   cast(5763, <<>>).
@@ -7397,7 +7397,7 @@ resumeTransformFeedback() ->
 %% zero the last time transform feedback was active on the transform feedback object named
 %% by  `Id' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawTransformFeedback.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawTransformFeedback.xhtml">external</a> documentation.
 -spec drawTransformFeedback(Mode, Id) -> 'ok' when Mode :: enum(),Id :: integer().
 drawTransformFeedback(Mode,Id) ->
   cast(5764, <<Mode:?GLenum,Id:?GLuint>>).
@@ -7412,14 +7412,14 @@ drawTransformFeedback(Mode,Id) ->
 %%  the last time transform feedback was active on the transform feedback object named by  `Id' 
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawTransformFeedbackStream.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawTransformFeedbackStream.xhtml">external</a> documentation.
 -spec drawTransformFeedbackStream(Mode, Id, Stream) -> 'ok' when Mode :: enum(),Id :: integer(),Stream :: integer().
 drawTransformFeedbackStream(Mode,Id,Stream) ->
   cast(5765, <<Mode:?GLenum,Id:?GLuint,Stream:?GLuint>>).
 
 %% @doc glBeginQueryIndexe
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginQueryIndexe.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec beginQueryIndexed(Target, Index, Id) -> 'ok' when Target :: enum(),Index :: integer(),Id :: integer().
 beginQueryIndexed(Target,Index,Id) ->
   cast(5766, <<Target:?GLenum,Index:?GLuint,Id:?GLuint>>).
@@ -7433,7 +7433,7 @@ beginQueryIndexed(Target,Index,Id) ->
 %% , `?GL_PRIMITIVES_GENERATED', `?GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN', or `?GL_TIME_ELAPSED'
 %% . The behavior of the query object depends on its type and is as follows. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBeginQueryIndexed.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBeginQueryIndexed.xhtml">external</a> documentation.
 -spec endQueryIndexed(Target, Index) -> 'ok' when Target :: enum(),Index :: integer().
 endQueryIndexed(Target,Index) ->
   cast(5767, <<Target:?GLenum,Index:?GLuint>>).
@@ -7445,7 +7445,7 @@ endQueryIndexed(Target,Index) ->
 %% the index of the query object target and must be between zero and a target-specific maxiumum.
 %% 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetQueryIndexed.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetQueryIndexed.xhtml">external</a> documentation.
 -spec getQueryIndexediv(Target, Index, Pname) -> integer() when Target :: enum(),Index :: integer(),Pname :: enum().
 getQueryIndexediv(Target,Index,Pname) ->
   call(5768, <<Target:?GLenum,Index:?GLuint,Pname:?GLenum>>).
@@ -7457,7 +7457,7 @@ getQueryIndexediv(Target,Index,Pname) ->
 %% subsequently be called and the implementation may at that time reallocate resources previously
 %% freed by the call to ``gl:releaseShaderCompiler''. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glReleaseShaderCompiler.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glReleaseShaderCompiler.xhtml">external</a> documentation.
 -spec releaseShaderCompiler() -> 'ok'.
 releaseShaderCompiler() ->
   cast(5769, <<>>).
@@ -7469,7 +7469,7 @@ releaseShaderCompiler() ->
 %% bytes of binary shader code stored in client memory.  `BinaryFormat'  specifies the
 %% format of the pre-compiled code. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glShaderBinary.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glShaderBinary.xhtml">external</a> documentation.
 -spec shaderBinary(Shaders, Binaryformat, Binary) -> 'ok' when Shaders :: [integer()],Binaryformat :: enum(),Binary :: binary().
 shaderBinary(Shaders,Binaryformat,Binary) ->
   ShadersLen = length(Shaders),
@@ -7487,7 +7487,7 @@ shaderBinary(Shaders,Binaryformat,Binary) ->
 %% `?GL_HIGH_FLOAT', `?GL_LOW_INT', `?GL_MEDIUM_INT', or `?GL_HIGH_INT'.
 %% 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetShaderPrecisionFormat.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetShaderPrecisionFormat.xhtml">external</a> documentation.
 -spec getShaderPrecisionFormat(Shadertype, Precisiontype) -> {Range :: {integer(),integer()},Precision :: integer()} when Shadertype :: enum(),Precisiontype :: enum().
 getShaderPrecisionFormat(Shadertype,Precisiontype) ->
   call(5771, <<Shadertype:?GLenum,Precisiontype:?GLenum>>).
@@ -7500,7 +7500,7 @@ depthRangef(N,F) ->
 
 %% @doc glClearDepthf
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glClearDepthf.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec clearDepthf(D) -> 'ok' when D :: clamp().
 clearDepthf(D) ->
   cast(5773, <<D:?GLclampf>>).
@@ -7515,7 +7515,7 @@ clearDepthf(D) ->
 %% in the variable whose address is given by  `Length' . If  `Length'  is `?NULL',
 %% then no length is returned. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramBinary.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetProgramBinary.xhtml">external</a> documentation.
 -spec getProgramBinary(Program, BufSize) -> {BinaryFormat :: enum(),Binary :: binary()} when Program :: integer(),BufSize :: integer().
 getProgramBinary(Program,BufSize) ->
   call(5774, <<Program:?GLuint,BufSize:?GLsizei>>).
@@ -7530,7 +7530,7 @@ getProgramBinary(Program,BufSize) ->
 %% are not met, loading the program binary will fail and  `Program' 's `?GL_LINK_STATUS'
 %%  will be set to `?GL_FALSE'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramBinary.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glProgramBinary.xhtml">external</a> documentation.
 -spec programBinary(Program, BinaryFormat, Binary) -> 'ok' when Program :: integer(),BinaryFormat :: enum(),Binary :: binary().
 programBinary(Program,BinaryFormat,Binary) ->
   send_bin(Binary),
@@ -7541,7 +7541,7 @@ programBinary(Program,BinaryFormat,Binary) ->
 %% ``gl:programParameter'' specifies a new value for the parameter nameed by  `Pname' 
 %% for the program object  `Program' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramParameter.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glProgramParameter.xhtml">external</a> documentation.
 -spec programParameteri(Program, Pname, Value) -> 'ok' when Program :: integer(),Pname :: enum(),Value :: integer().
 programParameteri(Program,Pname,Value) ->
   cast(5776, <<Program:?GLuint,Pname:?GLenum,Value:?GLint>>).
@@ -7558,7 +7558,7 @@ programParameteri(Program,Pname,Value) ->
 %% special value `?GL_ALL_SHADER_BITS' may be specified to indicate that all executables
 %% contained in  `Program'  should be installed in  `Pipeline' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glUseProgramStages.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glUseProgramStages.xhtml">external</a> documentation.
 -spec useProgramStages(Pipeline, Stages, Program) -> 'ok' when Pipeline :: integer(),Stages :: integer(),Program :: integer().
 useProgramStages(Pipeline,Stages,Program) ->
   cast(5777, <<Pipeline:?GLuint,Stages:?GLbitfield,Program:?GLuint>>).
@@ -7570,14 +7570,14 @@ useProgramStages(Pipeline,Stages,Program) ->
 %% the active program pipeline object is the target of calls to  {@link gl:uniform1f/2}  when
 %% no program has been made current through a call to  {@link gl:useProgram/1} . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glActiveShaderProgram.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glActiveShaderProgram.xhtml">external</a> documentation.
 -spec activeShaderProgram(Pipeline, Program) -> 'ok' when Pipeline :: integer(),Program :: integer().
 activeShaderProgram(Pipeline,Program) ->
   cast(5778, <<Pipeline:?GLuint,Program:?GLuint>>).
 
 %% @doc glCreateShaderProgramv
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glCreateShaderProgramv.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec createShaderProgramv(Type, Strings) -> integer() when Type :: enum(),Strings :: iolist().
 createShaderProgramv(Type,Strings) ->
   StringsTemp = list_to_binary([[Str|[0]] || Str <- Strings ]),
@@ -7591,7 +7591,7 @@ createShaderProgramv(Type,Strings) ->
 %% no program pipeline exists with name  `Pipeline'  then a new pipeline object is created
 %% with that name and initialized to the default state vector. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindProgramPipeline.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindProgramPipeline.xhtml">external</a> documentation.
 -spec bindProgramPipeline(Pipeline) -> 'ok' when Pipeline :: integer().
 bindProgramPipeline(Pipeline) ->
   cast(5780, <<Pipeline:?GLuint>>).
@@ -7605,7 +7605,7 @@ bindProgramPipeline(Pipeline) ->
 %% the binding for that object reverts to zero and no program pipeline object becomes current.
 %% 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDeleteProgramPipelines.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDeleteProgramPipelines.xhtml">external</a> documentation.
 -spec deleteProgramPipelines(Pipelines) -> 'ok' when Pipelines :: [integer()].
 deleteProgramPipelines(Pipelines) ->
   PipelinesLen = length(Pipelines),
@@ -7618,7 +7618,7 @@ deleteProgramPipelines(Pipelines) ->
 %% names in  `Pipelines' . These names are marked as used, for the purposes of ``gl:genProgramPipelines''
 %%  only, but they acquire program pipeline state only when they are first bound. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGenProgramPipelines.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenProgramPipelines.xhtml">external</a> documentation.
 -spec genProgramPipelines(N) -> [integer()] when N :: integer().
 genProgramPipelines(N) ->
   call(5782, <<N:?GLsizei>>).
@@ -7633,7 +7633,7 @@ genProgramPipelines(N) ->
 %% the name is not a program pipeline object and ``gl:isProgramPipeline'' returns `?GL_FALSE'
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glIsProgramPipeline.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsProgramPipeline.xhtml">external</a> documentation.
 -spec isProgramPipeline(Pipeline) -> 0|1 when Pipeline :: integer().
 isProgramPipeline(Pipeline) ->
   call(5783, <<Pipeline:?GLuint>>).
@@ -7645,7 +7645,7 @@ isProgramPipeline(Pipeline) ->
 %% retrieve. The value of the parameter is written to the variable whose address is given
 %% by  `Params' . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramPipeline.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetProgramPipeline.xhtml">external</a> documentation.
 -spec getProgramPipelineiv(Pipeline, Pname) -> integer() when Pipeline :: integer(),Pname :: enum().
 getProgramPipelineiv(Pipeline,Pname) ->
   call(5784, <<Pipeline:?GLuint,Pname:?GLenum>>).
@@ -7657,7 +7657,7 @@ getProgramPipelineiv(Pipeline,Pname) ->
 %% which should be a value returned by  {@link gl:getUniformLocation/2} . ``gl:programUniform''
 %%  operates on the program object specified by  `Program' .
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glProgramUniform.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glProgramUniform.xhtml">external</a> documentation.
 -spec programUniform1i(Program, Location, V0) -> 'ok' when Program :: integer(),Location :: integer(),V0 :: integer().
 programUniform1i(Program,Location,V0) ->
   cast(5785, <<Program:?GLuint,Location:?GLint,V0:?GLint>>).
@@ -8031,7 +8031,7 @@ programUniformMatrix4x3dv(Program,Location,Transpose,Value) ->
 %% this as an opportunity to perform any internal shader modifications that may be required
 %% to ensure correct operation of the installed shaders given the current GL state. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glValidateProgramPipeline.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glValidateProgramPipeline.xhtml">external</a> documentation.
 -spec validateProgramPipeline(Pipeline) -> 'ok' when Pipeline :: integer().
 validateProgramPipeline(Pipeline) ->
   cast(5835, <<Pipeline:?GLuint>>).
@@ -8045,35 +8045,35 @@ validateProgramPipeline(Pipeline) ->
 %% of characters written into  `InfoLog'  is returned in the integer whose address is
 %% given by  `Length' . If  `Length'  is `?NULL', no length is returned. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetProgramPipelineInfoLog.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetProgramPipelineInfoLog.xhtml">external</a> documentation.
 -spec getProgramPipelineInfoLog(Pipeline, BufSize) -> string() when Pipeline :: integer(),BufSize :: integer().
 getProgramPipelineInfoLog(Pipeline,BufSize) ->
   call(5836, <<Pipeline:?GLuint,BufSize:?GLsizei>>).
 
 %% @doc glVertexAttribL
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribL.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec vertexAttribL1d(Index, X) -> 'ok' when Index :: integer(),X :: float().
 vertexAttribL1d(Index,X) ->
   cast(5837, <<Index:?GLuint,0:32,X:?GLdouble>>).
 
 %% @doc glVertexAttribL
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribL.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec vertexAttribL2d(Index, X, Y) -> 'ok' when Index :: integer(),X :: float(),Y :: float().
 vertexAttribL2d(Index,X,Y) ->
   cast(5838, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble>>).
 
 %% @doc glVertexAttribL
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribL.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec vertexAttribL3d(Index, X, Y, Z) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float().
 vertexAttribL3d(Index,X,Y,Z) ->
   cast(5839, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble>>).
 
 %% @doc glVertexAttribL
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribL.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec vertexAttribL4d(Index, X, Y, Z, W) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),Z :: float(),W :: float().
 vertexAttribL4d(Index,X,Y,Z,W) ->
   cast(5840, <<Index:?GLuint,0:32,X:?GLdouble,Y:?GLdouble,Z:?GLdouble,W:?GLdouble>>).
@@ -8096,7 +8096,7 @@ vertexAttribL4dv(Index,{X,Y,Z,W}) ->  vertexAttribL4d(Index,X,Y,Z,W).
 
 %% @doc glVertexAttribLPointer
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glVertexAttribLPointer.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec vertexAttribLPointer(Index, Size, Type, Stride, Pointer) -> 'ok' when Index :: integer(),Size :: integer(),Type :: enum(),Stride :: integer(),Pointer :: offset()|mem().
 vertexAttribLPointer(Index,Size,Type,Stride,Pointer) when  is_integer(Pointer) ->
   cast(5841, <<Index:?GLuint,Size:?GLint,Type:?GLenum,Stride:?GLsizei,Pointer:?GLuint>>);
@@ -8106,14 +8106,14 @@ vertexAttribLPointer(Index,Size,Type,Stride,Pointer) ->
 
 %% @doc glGetVertexAttribL
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetVertexAttribL.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getVertexAttribLdv(Index, Pname) -> {float(),float(),float(),float()} when Index :: integer(),Pname :: enum().
 getVertexAttribLdv(Index,Pname) ->
   call(5843, <<Index:?GLuint,Pname:?GLenum>>).
 
 %% @doc glViewportArrayv
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glViewportArrayv.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec viewportArrayv(First, V) -> 'ok' when First :: integer(),V :: [{float(),float(),float(),float()}].
 viewportArrayv(First,V) ->
   VLen = length(V),
@@ -8134,7 +8134,7 @@ viewportArrayv(First,V) ->
 %% coordinates to window coordinates. Let  (x nd y nd) be normalized device coordinates. Then the window
 %% coordinates  (x w y w) are computed as follows: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glViewportIndexed.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glViewportIndexed.xhtml">external</a> documentation.
 -spec viewportIndexedf(Index, X, Y, W, H) -> 'ok' when Index :: integer(),X :: float(),Y :: float(),W :: float(),H :: float().
 viewportIndexedf(Index,X,Y,W,H) ->
   cast(5845, <<Index:?GLuint,X:?GLfloat,Y:?GLfloat,W:?GLfloat,H:?GLfloat>>).
@@ -8147,7 +8147,7 @@ viewportIndexedfv(Index,{V1,V2,V3,V4}) ->
 
 %% @doc glScissorArrayv
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glScissorArrayv.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec scissorArrayv(First, V) -> 'ok' when First :: integer(),V :: [{integer(),integer(),integer(),integer()}].
 scissorArrayv(First,V) ->
   VLen = length(V),
@@ -8156,21 +8156,21 @@ scissorArrayv(First,V) ->
 
 %% @doc glScissorIndexe
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glScissorIndexe.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec scissorIndexed(Index, Left, Bottom, Width, Height) -> 'ok' when Index :: integer(),Left :: integer(),Bottom :: integer(),Width :: integer(),Height :: integer().
 scissorIndexed(Index,Left,Bottom,Width,Height) ->
   cast(5848, <<Index:?GLuint,Left:?GLint,Bottom:?GLint,Width:?GLsizei,Height:?GLsizei>>).
 
 %% @doc glScissorIndexe
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glScissorIndexe.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec scissorIndexedv(Index, V) -> 'ok' when Index :: integer(),V :: {integer(),integer(),integer(),integer()}.
 scissorIndexedv(Index,{V1,V2,V3,V4}) ->
   cast(5849, <<Index:?GLuint,V1:?GLint,V2:?GLint,V3:?GLint,V4:?GLint>>).
 
 %% @doc glDepthRangeArrayv
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthRangeArrayv.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec depthRangeArrayv(First, V) -> 'ok' when First :: integer(),V :: [{clamp(),clamp()}].
 depthRangeArrayv(First,V) ->
   VLen = length(V),
@@ -8179,7 +8179,7 @@ depthRangeArrayv(First,V) ->
 
 %% @doc glDepthRangeIndexe
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthRangeIndexe.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec depthRangeIndexed(Index, N, F) -> 'ok' when Index :: integer(),N :: clamp(),F :: clamp().
 depthRangeIndexed(Index,N,F) ->
   cast(5851, <<Index:?GLuint,0:32,N:?GLclampd,F:?GLclampd>>).
@@ -8198,7 +8198,7 @@ getDoublei_v(Target,Index) ->
 
 %% @doc glDebugMessageControlARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDebugMessageControlARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec debugMessageControlARB(Source, Type, Severity, Ids, Enabled) -> 'ok' when Source :: enum(),Type :: enum(),Severity :: enum(),Ids :: [integer()],Enabled :: 0|1.
 debugMessageControlARB(Source,Type,Severity,Ids,Enabled) ->
   IdsLen = length(Ids),
@@ -8207,7 +8207,7 @@ debugMessageControlARB(Source,Type,Severity,Ids,Enabled) ->
 
 %% @doc glDebugMessageInsertARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDebugMessageInsertARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec debugMessageInsertARB(Source, Type, Id, Severity, Buf) -> 'ok' when Source :: enum(),Type :: enum(),Id :: integer(),Severity :: enum(),Buf :: string().
 debugMessageInsertARB(Source,Type,Id,Severity,Buf) ->
   BufLen = length(Buf),
@@ -8215,14 +8215,14 @@ debugMessageInsertARB(Source,Type,Id,Severity,Buf) ->
 
 %% @doc glGetDebugMessageLogARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetDebugMessageLogARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getDebugMessageLogARB(Count, Bufsize) -> {integer(),Sources :: [enum()],Types :: [enum()],Ids :: [integer()],Severities :: [enum()],MessageLog :: [string()]} when Count :: integer(),Bufsize :: integer().
 getDebugMessageLogARB(Count,Bufsize) ->
   call(5856, <<Count:?GLuint,Bufsize:?GLsizei>>).
 
 %% @doc glGetGraphicsResetStatusARB
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetGraphicsResetStatusARB.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getGraphicsResetStatusARB() -> enum().
 getGraphicsResetStatusARB() ->
   call(5857, <<>>).
@@ -8235,7 +8235,7 @@ getGraphicsResetStatusARB() ->
 %% is an internal 32-bit integer counter that may be read by a vertex shader as `?gl_InstanceID'
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawArraysInstancedBaseInstance.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawArraysInstancedBaseInstance.xhtml">external</a> documentation.
 -spec drawArraysInstancedBaseInstance(Mode, First, Count, Primcount, Baseinstance) -> 'ok' when Mode :: enum(),First :: integer(),Count :: integer(),Primcount :: integer(),Baseinstance :: integer().
 drawArraysInstancedBaseInstance(Mode,First,Count,Primcount,Baseinstance) ->
   cast(5858, <<Mode:?GLenum,First:?GLint,Count:?GLsizei,Primcount:?GLsizei,Baseinstance:?GLuint>>).
@@ -8248,7 +8248,7 @@ drawArraysInstancedBaseInstance(Mode,First,Count,Primcount,Baseinstance) ->
 %% is an internal 32-bit integer counter that may be read by a vertex shader as `?gl_InstanceID'
 %% . 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsInstancedBaseInstance.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawElementsInstancedBaseInstance.xhtml">external</a> documentation.
 -spec drawElementsInstancedBaseInstance(Mode, Count, Type, Indices, Primcount, Baseinstance) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer(),Baseinstance :: integer().
 drawElementsInstancedBaseInstance(Mode,Count,Type,Indices,Primcount,Baseinstance) when  is_integer(Indices) ->
   cast(5859, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei,Baseinstance:?GLuint>>);
@@ -8266,7 +8266,7 @@ drawElementsInstancedBaseInstance(Mode,Count,Type,Indices,Primcount,Baseinstance
 %% conditions). The operation is undefined if the sum would be negative. The  `Basevertex' 
 %%  has no effect on the shader-visible value of `?gl_VertexID'. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawElementsInstancedBaseVertexBaseInstance.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDrawElementsInstancedBaseVertexBaseInstance.xhtml">external</a> documentation.
 -spec drawElementsInstancedBaseVertexBaseInstance(Mode, Count, Type, Indices, Primcount, Basevertex, Baseinstance) -> 'ok' when Mode :: enum(),Count :: integer(),Type :: enum(),Indices :: offset()|mem(),Primcount :: integer(),Basevertex :: integer(),Baseinstance :: integer().
 drawElementsInstancedBaseVertexBaseInstance(Mode,Count,Type,Indices,Primcount,Basevertex,Baseinstance) when  is_integer(Indices) ->
   cast(5861, <<Mode:?GLenum,Count:?GLsizei,Type:?GLenum,Indices:?GLuint,Primcount:?GLsizei,Basevertex:?GLint,Baseinstance:?GLuint>>);
@@ -8276,21 +8276,21 @@ drawElementsInstancedBaseVertexBaseInstance(Mode,Count,Type,Indices,Primcount,Ba
 
 %% @doc glDrawTransformFeedbackInstance
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawTransformFeedbackInstance.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec drawTransformFeedbackInstanced(Mode, Id, Primcount) -> 'ok' when Mode :: enum(),Id :: integer(),Primcount :: integer().
 drawTransformFeedbackInstanced(Mode,Id,Primcount) ->
   cast(5863, <<Mode:?GLenum,Id:?GLuint,Primcount:?GLsizei>>).
 
 %% @doc glDrawTransformFeedbackStreamInstance
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDrawTransformFeedbackStreamInstance.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec drawTransformFeedbackStreamInstanced(Mode, Id, Stream, Primcount) -> 'ok' when Mode :: enum(),Id :: integer(),Stream :: integer(),Primcount :: integer().
 drawTransformFeedbackStreamInstanced(Mode,Id,Stream,Primcount) ->
   cast(5864, <<Mode:?GLenum,Id:?GLuint,Stream:?GLuint,Primcount:?GLsizei>>).
 
 %% @doc glGetInternalformat
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glGetInternalformat.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec getInternalformativ(Target, Internalformat, Pname, BufSize) -> [integer()] when Target :: enum(),Internalformat :: enum(),Pname :: enum(),BufSize :: integer().
 getInternalformativ(Target,Internalformat,Pname,BufSize) ->
   call(5865, <<Target:?GLenum,Internalformat:?GLenum,Pname:?GLenum,BufSize:?GLsizei>>).
@@ -8304,7 +8304,7 @@ getInternalformativ(Target,Internalformat,Pname,BufSize) ->
 %% any existing binding to the image unit is broken.  `Level'  specifies the level of
 %% the texture to bind to the image unit. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glBindImageTexture.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindImageTexture.xhtml">external</a> documentation.
 -spec bindImageTexture(Unit, Texture, Level, Layered, Layer, Access, Format) -> 'ok' when Unit :: integer(),Texture :: integer(),Level :: integer(),Layered :: 0|1,Layer :: integer(),Access :: enum(),Format :: enum().
 bindImageTexture(Unit,Texture,Level,Layered,Layer,Access,Format) ->
   cast(5866, <<Unit:?GLuint,Texture:?GLuint,Level:?GLint,Layered:?GLboolean,0:24,Layer:?GLint,Access:?GLenum,Format:?GLenum>>).
@@ -8318,7 +8318,7 @@ bindImageTexture(Unit,Texture,Level,Layered,Layer,Access,Format) ->
 %% the set of operations that are synchronized with shader stores; the bits used in  `Barriers' 
 %%  are as follows: 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glMemoryBarrier.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glMemoryBarrier.xhtml">external</a> documentation.
 -spec memoryBarrier(Barriers) -> 'ok' when Barriers :: integer().
 memoryBarrier(Barriers) ->
   cast(5867, <<Barriers:?GLbitfield>>).
@@ -8331,7 +8331,7 @@ memoryBarrier(Barriers) ->
 %% the image may still be modified, however, its storage requirements may not change. Such
 %% a texture is referred to as an `immutable-format' texture. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexStorage1D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexStorage1D.xhtml">external</a> documentation.
 -spec texStorage1D(Target, Levels, Internalformat, Width) -> 'ok' when Target :: enum(),Levels :: integer(),Internalformat :: enum(),Width :: integer().
 texStorage1D(Target,Levels,Internalformat,Width) ->
   cast(5868, <<Target:?GLenum,Levels:?GLsizei,Internalformat:?GLenum,Width:?GLsizei>>).
@@ -8344,7 +8344,7 @@ texStorage1D(Target,Levels,Internalformat,Width) ->
 %% proxy texture. The contents of the image may still be modified, however, its storage requirements
 %% may not change. Such a texture is referred to as an `immutable-format' texture. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexStorage2D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexStorage2D.xhtml">external</a> documentation.
 -spec texStorage2D(Target, Levels, Internalformat, Width, Height) -> 'ok' when Target :: enum(),Levels :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer().
 texStorage2D(Target,Levels,Internalformat,Width,Height) ->
   cast(5869, <<Target:?GLenum,Levels:?GLsizei,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei>>).
@@ -8358,21 +8358,21 @@ texStorage2D(Target,Levels,Internalformat,Width,Height) ->
 %% requirements may not change. Such a texture is referred to as an `immutable-format'
 %% texture. 
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glTexStorage3D.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexStorage3D.xhtml">external</a> documentation.
 -spec texStorage3D(Target, Levels, Internalformat, Width, Height, Depth) -> 'ok' when Target :: enum(),Levels :: integer(),Internalformat :: enum(),Width :: integer(),Height :: integer(),Depth :: integer().
 texStorage3D(Target,Levels,Internalformat,Width,Height,Depth) ->
   cast(5870, <<Target:?GLenum,Levels:?GLsizei,Internalformat:?GLenum,Width:?GLsizei,Height:?GLsizei,Depth:?GLsizei>>).
 
 %% @doc glDepthBoundsEXT
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glDepthBoundsEXT.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec depthBoundsEXT(Zmin, Zmax) -> 'ok' when Zmin :: clamp(),Zmax :: clamp().
 depthBoundsEXT(Zmin,Zmax) ->
   cast(5871, <<Zmin:?GLclampd,Zmax:?GLclampd>>).
 
 %% @doc glStencilClearTagEXT
 %%
-%% See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glStencilClearTagEXT.xml">external</a> documentation.
+%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">external</a> documentation.
 -spec stencilClearTagEXT(StencilTagBits, StencilClearTag) -> 'ok' when StencilTagBits :: integer(),StencilClearTag :: integer().
 stencilClearTagEXT(StencilTagBits,StencilClearTag) ->
   cast(5872, <<StencilTagBits:?GLsizei,StencilClearTag:?GLuint>>).
