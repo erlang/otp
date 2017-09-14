@@ -936,10 +936,10 @@ static int put_chars(byte *s, int l)
     int n;
 
     n = insert_buf(s, l);
+    if (lpos > llen)
+        llen = lpos;
     if (n > 0)
       write_buf(lbuf + lpos - n, n);
-    if (lpos > llen)
-      llen = lpos;
     return TRUE;
 }
 
@@ -1016,7 +1016,7 @@ static int del_chars(int n)
 	   outc(' ');
 	   move_left(1);
 	}
-	move_cursor(llen + l, lpos);
+	move_cursor(llen + gcs, lpos);
     }
     else if (pos < lpos) {
 	l = lpos - pos;		/* Buffer characters */
@@ -1036,7 +1036,7 @@ static int del_chars(int n)
           outc(' ');
           move_left(1);
 	}
-        move_cursor(llen + l, lpos);
+        move_cursor(llen + gcs, lpos);
     }
     return TRUE;
 }
@@ -1095,6 +1095,7 @@ static int insert_buf(byte *s, int n)
 		ch = 0;
 	    } while (lpos % 8);
 	} else if (ch == '\e') {
+	    DEBUGLOG(("insert_buf: ANSI Escape: \\e"));
 	    lbuf[lpos++] = (CONTROL_TAG | ((Uint32) ch));
 	} else if (ch == '\n' || ch == '\r') {
 	    write_buf(lbuf + buffpos, lpos - buffpos);
@@ -1156,7 +1157,7 @@ static int write_buf(Uint32 *s, int n)
 		--n; s++;
 	    }
 	} else if (*s == (CONTROL_TAG | ((Uint32) '\e'))) {
-	    outc('\e');
+	    outc(lastput = '\e');
 	    --n;
 	    ++s;
 	} else if (*s & CONTROL_TAG) {
@@ -1251,26 +1252,63 @@ static int move_cursor(int from_pos, int to_pos)
     return to_col-from_col;
 }
 
+/*
+ * Returns the length of an ANSI escape code in a buffer, this function only consider
+ * color escape sequences like `\e[33m` or `\e[21;33m`. If a sequence has no valid
+ * terminator, the length is equal the number of characters between `\e` and the first
+ * invalid character, inclusive.
+ */
+
+static int ansi_escape_width(Uint32 *s, int max_length)
+{
+    int i;
+    
+    if (*s != (CONTROL_TAG | ((Uint32) '\e'))) {
+       return 0;
+    } else if (max_length <= 1) {
+       return 1;
+    } else if (s[1] != '[') {
+       return 2;
+    }
+    
+    for (i = 2; i < max_length && (s[i] == ';' || (s[i] >= '0' && s[i] <= '9')); i++);
+
+    return i + 1;
+}
+
 static int cp_pos_to_col(int cp_pos)
 {
-#ifdef HAVE_WCWIDTH
-    int i;
-    int col = 0;
-
-    for (i = 0; i < cp_pos; i++) {
-        int w = wcwidth(lbuf[i]);
-        if (w > 0) {
-            col += w;
-        }
-    }
-    return col;
-#else
     /*
-     * We dont' have any character width information. Assume that
-     * code points are one column wide.
+     * If we don't have any character width information. Assume that
+     * code points are one column wide
      */
-    return cp_pos;
+    int w = 1;
+    int col = 0;
+    int i = 0;
+    int j;
+
+    if (cp_pos > llen) {
+        col += cp_pos - llen;
+        cp_pos = llen;
+    }
+
+    while (i < cp_pos) {
+       j = ansi_escape_width(lbuf + i, llen - i);
+
+       if (j > 0) {
+           i += j;
+       } else {
+#ifdef HAVE_WCWIDTH
+           w = wcwidth(lbuf[i]);
 #endif
+           if (w > 0) {
+              col += w;
+           }
+           i++;
+       }
+    }
+
+    return col;    
 }
 
 static int start_termcap(void)

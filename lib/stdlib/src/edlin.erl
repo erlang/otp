@@ -412,12 +412,12 @@ do_op(backward_word, Bef0, Aft0, Rs) ->
     {Bef1,Aft1,N0} = over_non_word(Bef0, Aft0, 0),
     {Bef,Aft,N} = over_word(Bef1, Aft1, N0),
     {{Bef,Aft},[{move_rel,-N}|Rs]};
-do_op(beginning_of_line, [C|Bef], Aft, Rs) ->
-    {{[],reverse(Bef, [C|Aft])},[{move_rel,-(cp_len(Bef)+1)}|Rs]};
+do_op(beginning_of_line, [_|_]=Bef, Aft, Rs) ->
+    {{[],reverse(Bef, Aft)},[{move_rel,-(cp_len(Bef))}|Rs]};
 do_op(beginning_of_line, [], Aft, Rs) ->
     {{[],Aft},Rs};
-do_op(end_of_line, Bef, [C|Aft], Rs) ->
-    {{reverse(Aft, [C|Bef]),[]},[{move_rel,cp_len(Aft)+1}|Rs]};
+do_op(end_of_line, Bef, [_|_]=Aft, Rs) ->
+    {{reverse(Aft, Bef),[]},[{move_rel,cp_len(Aft)}|Rs]};
 do_op(end_of_line, Bef, [], Rs) ->
     {{Bef,[]},Rs};
 do_op(ctlu, Bef, Aft, Rs) ->
