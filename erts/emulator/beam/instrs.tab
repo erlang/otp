@@ -78,7 +78,14 @@ move_deallocate_return(Src, Deallocate) {
 
 // Call instructions
 
-DISPATCH(CallDest) {
+DISPATCH_REL(CallDest) {
+    //| -no_next
+    $SET_I_REL($CallDest);
+    DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
+    Dispatch();
+}
+
+DISPATCH_ABS(CallDest) {
     //| -no_next
     SET_I((BeamInstr *) $CallDest);
     DTRACE_LOCAL_CALL(c_p, erts_code_to_codemfa(I));
@@ -87,18 +94,18 @@ DISPATCH(CallDest) {
 
 i_call(CallDest) {
     SET_CP(c_p, $NEXT_INSTRUCTION);
-    $DISPATCH($CallDest);
+    $DISPATCH_REL($CallDest);
 }
 
 move_call(Src, CallDest) {
     x(0) = $Src;
     SET_CP(c_p, $NEXT_INSTRUCTION);
-    $DISPATCH($CallDest);
+    $DISPATCH_REL($CallDest);
 }
 
 i_call_last(CallDest, Deallocate) {
     $deallocate($Deallocate);
-    $DISPATCH($CallDest);
+    $DISPATCH_REL($CallDest);
 }
 
 move_call_last(Src, CallDest, Deallocate) {
@@ -107,7 +114,7 @@ move_call_last(Src, CallDest, Deallocate) {
 }
 
 i_call_only(CallDest) {
-    $DISPATCH($CallDest);
+    $DISPATCH_REL($CallDest);
 }
 
 move_call_only(Src, CallDest) {
@@ -168,7 +175,8 @@ i_apply() {
     BeamInstr *next;
     $APPLY(NULL, 0, next);
     if (ERTS_LIKELY(next != NULL)) {
-        $i_call(next);
+        SET_CP(c_p, $NEXT_INSTRUCTION);
+        $DISPATCH_ABS(next);
     }
     $HANDLE_APPLY_ERROR();
 }
@@ -177,7 +185,8 @@ i_apply_last(Deallocate) {
     BeamInstr *next;
     $APPLY(I, $Deallocate, next);
     if (ERTS_LIKELY(next != NULL)) {
-        $i_call_last(next, $Deallocate);
+        $deallocate($Deallocate);
+        $DISPATCH_ABS(next);
     }
     $HANDLE_APPLY_ERROR();
 }
@@ -186,7 +195,7 @@ i_apply_only() {
     BeamInstr *next;
     $APPLY(I, 0, next);
     if (ERTS_LIKELY(next != NULL)) {
-        $i_call_only(next);
+        $DISPATCH_ABS(next);
     }
     $HANDLE_APPLY_ERROR();
 }
@@ -202,7 +211,8 @@ apply(Arity) {
     BeamInstr *next;
     $FIXED_APPLY($Arity, NULL, 0, next);
     if (ERTS_LIKELY(next != NULL)) {
-        $i_call(next);
+        SET_CP(c_p, $NEXT_INSTRUCTION);
+        $DISPATCH_ABS(next);
     }
     $HANDLE_APPLY_ERROR();
 }
@@ -211,7 +221,8 @@ apply_last(Arity, Deallocate) {
     BeamInstr *next;
     $FIXED_APPLY($Arity, I, $Deallocate, next);
     if (ERTS_LIKELY(next != NULL)) {
-        $i_call_last(next, $Deallocate);
+        $deallocate($Deallocate);
+        $DISPATCH_ABS(next);
     }
     $HANDLE_APPLY_ERROR();
 }
@@ -560,6 +571,7 @@ i_put_tuple.fill(Arity) {
         }
     } while (--arity != 0);
     HTOP = hp;
+    ASSERT(VALID_INSTR(* (Eterm *)I));
     Goto(*I);
 }
 
@@ -731,9 +743,10 @@ is_reference(Fail, Src) {
 }
 
 is_tagged_tuple(Fail, Src, Arityval, Tag) {
-    if (!(BEAM_IS_TUPLE($Src) &&
-          (tuple_val($Src))[0] == $Arityval &&
-          (tuple_val($Src))[1] == $Tag)) {
+    Eterm term = $Src;
+    if (!(BEAM_IS_TUPLE(term) &&
+          (tuple_val(term))[0] == $Arityval &&
+          (tuple_val(term))[1] == $Tag)) {
         $FAIL($Fail);
     }
 }
@@ -745,7 +758,8 @@ is_tuple(Fail, Src) {
 }
 
 is_tuple_of_arity(Fail, Src, Arityval) {
-    if (!(BEAM_IS_TUPLE($Src) && *tuple_val($Src) == $Arityval)) {
+    Eterm term = $Src;
+    if (!(BEAM_IS_TUPLE(term) && *tuple_val(term) == $Arityval)) {
         $FAIL($Fail);
     }
 }

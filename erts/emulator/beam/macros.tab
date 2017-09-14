@@ -28,15 +28,30 @@ REFRESH_GEN_DEST() {
     dst_ptr = REG_TARGET_PTR(dst);
 }
 
+SET_I_REL(Offset) {
+    ASSERT(VALID_INSTR(*(I + ($Offset))));
+    I += $Offset;
+}
+
+SET_CP_I_ABS(Target) {
+    c_p->i = $Target;
+    ASSERT(VALID_INSTR(*c_p->i));
+}
+
+SET_REL_I(Dst, Offset) {
+    $Dst = I + ($Offset);
+    ASSERT(VALID_INSTR(*$Dst));
+}
+
 FAIL(Fail) {
     //| -no_prefetch
-    SET_I((BeamInstr *) $Fail);
+    $SET_I_REL($Fail);
     Goto(*I);
 }
 
 JUMP(Fail) {
     //| -no_next
-    SET_I((BeamInstr *) $Fail);
+    $SET_I_REL($Fail);
     Goto(*I);
 }
 

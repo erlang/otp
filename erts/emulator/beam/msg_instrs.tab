@@ -49,7 +49,7 @@ recv_mark(Dest) {
      * the label for the loop_rec/2 instruction for the
      * the receive statement.
      */
-    c_p->msg.mark = (BeamInstr *) $Dest;
+    $SET_REL_I(c_p->msg.mark, $Dest);
     c_p->msg.saved_last = c_p->msg.last;
 }
 
@@ -116,7 +116,7 @@ i_loop_rec(Dest) {
             erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
         } else {
             c_p->flags &= ~F_DELAY_GC;
-            SET_I((BeamInstr *) $Dest);
+            $SET_I_REL($Dest);
             Goto(*I);		/* Jump to a wait or wait_timeout instruction */
         }
     }
@@ -253,7 +253,7 @@ loop_rec_end(Dest) {
 
     ASSERT(c_p->flags & F_DELAY_GC);
 
-    SET_I((BeamInstr *) $Dest);
+    $SET_I_REL($Dest);
     SAVE_MESSAGE(c_p);
     if (FCALLS > 0 || FCALLS > neg_o_reds) {
         FCALLS--;
@@ -261,7 +261,7 @@ loop_rec_end(Dest) {
     }
 
     c_p->flags &= ~F_DELAY_GC;
-    c_p->i = I;
+    $SET_CP_I_ABS(I);
     SWAPOUT;
     c_p->arity = 0;
     c_p->current = NULL;
@@ -374,7 +374,7 @@ wait.src(Src) {
 //
 
 wait.execute(JumpTarget) {
-    c_p->i = (BeamInstr *) $JumpTarget; /* L1 */
+    $SET_REL_I(c_p->i, $JumpTarget); /* L1 */
     SWAPOUT;
     c_p->arity = 0;
 

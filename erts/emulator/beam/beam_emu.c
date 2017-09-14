@@ -235,6 +235,8 @@ void** beam_ops;
      ERTS_UNREQ_PROC_MAIN_LOCK((P))
 
 #define db(N) (N)
+#define fb(N) ((Sint)(Sint32)(N))
+#define jb(N) ((Sint)(Sint32)(N))
 #define tb(N) (N)
 #define xb(N) (*(Eterm *) (((unsigned char *)reg) + (N)))
 #define yb(N) (*(Eterm *) (((unsigned char *)E) + (N)))

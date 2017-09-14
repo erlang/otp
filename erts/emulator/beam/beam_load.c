@@ -81,15 +81,28 @@ ErlDrvBinary* erts_gzinflate_buffer(char*, int);
 #define TE_FAIL (-1)
 #define TE_SHORT_WINDOW (-2)
 
+/*
+ * Type for a reference to a label that must be patched.
+ */
+
 typedef struct {
-    Uint value;			/* Value of label (NULL if not known yet). */
-    Sint patches;		/* Index (into code buffer) to first
-				 * location which must be patched with
-				 * the value of this label.
-				 */
+    Uint pos;                   /* Position of label reference to patch. */
+    Uint offset;                /* Offset from patch location.  */
+    int packed;                 /* 0 (not packed), 1 (lsw), 2 (msw) */
+} LabelPatch;
+
+/*
+ * Type for a label.
+ */
+
+typedef struct {
+    Uint value;			/* Value of label (0 if not known yet). */
     Uint looprec_targeted;	/* Non-zero if this label is the target of a loop_rec
 				 * instruction.
 				 */
+    LabelPatch* patches;       /* Array of label patches. */
+    Uint num_patches;           /* Number of patches in array. */
+    Uint num_allocated;         /* Number of allocated patches. */
 } Label;
 
 /*
@@ -226,7 +239,7 @@ typedef struct {
 
 typedef struct literal_patch LiteralPatch;
 struct literal_patch {
-    int pos;			/* Position in code */
+    Uint pos;			/* Position in code */
     LiteralPatch* next;
 };
 
@@ -507,6 +520,7 @@ static int read_lambda_table(LoaderState* stp);
 static int read_literal_table(LoaderState* stp);
 static int read_line_table(LoaderState* stp);
 static int read_code_header(LoaderState* stp);
+static void init_label(Label* lp);
 static int load_code(LoaderState* stp);
 static GenOp* gen_element(LoaderState* stp, GenOpArg Fail, GenOpArg Index,
 			  GenOpArg Tuple, GenOpArg Dst);
@@ -1051,6 +1065,10 @@ loader_state_dtor(Binary* magic)
         stp->codev = 0;
     }
     if (stp->labels != 0) {
+        Uint num;
+        for (num = 0; num < stp->num_labels; num++) {
+            erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->labels[num].patches);
+        }
 	erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->labels);
 	stp->labels = 0;
     }
@@ -1534,7 +1552,7 @@ read_export_table(LoaderState* stp)
 	 * any other functions that walk through all local functions.
 	 */
 
-	if (stp->labels[n].patches >= 0) {
+	if (stp->labels[n].num_patches > 0) {
 	    LoadError3(stp, "there are local calls to the stub for "
 		       "the BIF %T:%T/%d",
 		       stp->module, func, arity);
@@ -1880,9 +1898,7 @@ read_code_header(LoaderState* stp)
     stp->labels = (Label *) erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 				       stp->num_labels * sizeof(Label));
     for (i = 0; i < stp->num_labels; i++) {
-	stp->labels[i].value = 0;
-	stp->labels[i].patches = -1;
-	stp->labels[i].looprec_targeted = 0;
+        init_label(&stp->labels[i]);
     }
 
     stp->catches = 0;
@@ -1911,12 +1927,43 @@ read_code_header(LoaderState* stp)
     
 #define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
 
+static void init_label(Label* lp)
+{
+    lp->value = 0;
+    lp->looprec_targeted = 0;
+    lp->num_patches = 0;
+    lp->num_allocated = 4;
+    lp->patches = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+                             lp->num_allocated * sizeof(LabelPatch));
+}
+
+static void
+register_label_patch(LoaderState* stp, Uint label, Uint ci, Uint offset)
+{
+    Label* lp;
+
+    ASSERT(label < stp->num_labels);
+    lp = &stp->labels[label];
+    if (lp->num_allocated <= lp->num_patches) {
+        lp->num_allocated *= 2;
+        lp->patches = erts_realloc(ERTS_ALC_T_PREPARED_CODE,
+                                   (void *) lp->patches,
+                                   lp->num_allocated * sizeof(LabelPatch));
+    }
+    lp->patches[lp->num_patches].pos = ci;
+    lp->patches[lp->num_patches].offset = offset;
+    lp->patches[lp->num_patches].packed = 0;
+    lp->num_patches++;
+    stp->codev[ci] = label;
+}
+
 static int
 load_code(LoaderState* stp)
 {
     int i;
-    int ci;
-    int last_func_start = 0;	/* Needed by nif loading and line instructions */
+    Uint ci;
+    Uint last_instr_start;       /* Needed for relative jumps */
+    Uint last_func_start = 0;	/* Needed by nif loading and line instructions */
     char* sign;
     int arg;			/* Number of current argument. */
     int num_specific;		/* Number of specific ops for current. */
@@ -1929,6 +1976,9 @@ load_code(LoaderState* stp)
     GenOp** last_op_next = NULL;
     int arity;
     int retval = 1;
+#if defined(BEAM_WIDE_SHIFT)
+    int num_trailing_f;     /* Number of extra 'f' arguments in a list */
+#endif
 
     /*
      * The size of the loaded func_info instruction is needed
@@ -2272,6 +2322,7 @@ load_code(LoaderState* stp)
 
 	    stp->specific_op = specific;
 	    CodeNeed(opc[stp->specific_op].sz+16); /* Extra margin for packing */
+            last_instr_start = ci + opc[stp->specific_op].adjust;
 	    code[ci++] = BeamOpCode(stp->specific_op);
 	}
 	
@@ -2401,16 +2452,14 @@ load_code(LoaderState* stp)
 		break;
 	    case 'f':		/* Destination label */
 		VerifyTag(stp, tag_to_letter[tag], *sign);
-		code[ci] = stp->labels[tmp_op->a[arg].val].patches;
-		stp->labels[tmp_op->a[arg].val].patches = ci;
+                register_label_patch(stp, tmp_op->a[arg].val, ci, -last_instr_start);
 		ci++;
 		break;
 	    case 'j':		/* 'f' or 'p' */
 		if (tag == TAG_p) {
 		    code[ci] = 0;
 		} else if (tag == TAG_f) {
-		    code[ci] = stp->labels[tmp_op->a[arg].val].patches;
-		    stp->labels[tmp_op->a[arg].val].patches = ci;
+                    register_label_patch(stp, tmp_op->a[arg].val, ci, -last_instr_start);
 		} else {
 		    LoadError3(stp, "bad tag %d; expected %d or %d",
 			       tag, TAG_f, TAG_p);
@@ -2430,7 +2479,6 @@ load_code(LoaderState* stp)
 		    LoadError1(stp, "label %d defined more than once", last_label);
 		}
 		stp->labels[last_label].value = ci;
-		ASSERT(stp->labels[last_label].patches < ci);
 		break;
 	    case 'e':		/* Export entry */
 		VerifyTag(stp, tag, TAG_u);
@@ -2479,23 +2527,58 @@ load_code(LoaderState* stp)
 	    char* prog;            /* Program for packing engine. */
 	    struct pack_stack {
                 BeamInstr instr;
-                LiteralPatch* patch;
+                Uint* patch_pos;
             } stack[8];            /* Stack. */
 	    struct pack_stack* sp = stack; /* Points to next free position. */
 	    BeamInstr packed = 0; /* Accumulator for packed operations. */
+            LabelPatch* packed_label = 0;
 
 	    for (prog = opc[stp->specific_op].pack; *prog; prog++) {
 		switch (*prog) {
-		case 'g':	/* Get instruction; push on stack. */
+		case 'g':	/* Get operand and push on stack. */
+                    ci--;
+                    sp->instr = code[ci];
+                    sp->patch_pos = 0;
+                    sp++;
+                    break;
+		case 'f':	/* Get possible 'f' operand and push on stack. */
+                    {
+                        Uint w = code[--ci];
+                        sp->instr = w;
+                        sp->patch_pos = 0;
+
+                        if (w != 0) {
+                            LabelPatch* lbl_p;
+                            int num_patches;
+                            int patch;
+
+                            ASSERT(w < stp->num_labels);
+                            lbl_p = stp->labels[w].patches;
+                            num_patches = stp->labels[w].num_patches;
+                            for (patch = num_patches - 1; patch >= 0; patch--) {
+                                if (lbl_p[patch].pos == ci) {
+                                    sp->patch_pos = &lbl_p[patch].pos;
+                                    break;
+                                }
+                            }
+                            ASSERT(sp->patch_pos);
+                        }
+                        sp++;
+                    }
+                    break;
+		case 'q':	/* Get possible 'q' operand and push on stack. */
                     {
                         LiteralPatch* lp;
 
                         ci--;
                         sp->instr = code[ci];
-                        sp->patch = 0;
-                        for (lp = stp->literal_patches; lp && lp->pos > ci-MAX_OPARGS; lp = lp->next) {
+                        sp->patch_pos = 0;
+
+                        for (lp = stp->literal_patches;
+                             lp && lp->pos > ci-MAX_OPARGS;
+                             lp = lp->next) {
                             if (lp->pos == ci) {
-                                sp->patch = lp;
+                                sp->patch_pos = &lp->pos;
                                 break;
                             }
                         }
@@ -2507,28 +2590,68 @@ load_code(LoaderState* stp)
 		    break;
 		case '0':	/* Tight shift */
 		    packed = (packed << BEAM_TIGHT_SHIFT) | code[--ci];
+                    if (packed_label) {
+                        packed_label->packed++;
+                    }
 		    break;
 		case '6':	/* Shift 16 steps */
 		    packed = (packed << BEAM_LOOSE_SHIFT) | code[--ci];
+                    if (packed_label) {
+                        packed_label->packed++;
+                    }
 		    break;
 #ifdef ARCH_64
 		case 'w':	/* Shift 32 steps */
-		    packed = (packed << BEAM_WIDE_SHIFT) | code[--ci];
-		    break;
+                    {
+                        Uint w = code[--ci];
+
+                        if (packed_label) {
+                            packed_label->packed++;
+                        }
+
+                        /*
+                         * 'w' can handle both labels ('f' and 'j'), as well
+                         * as 'I'. Test whether this is a label.
+                         */
+
+                        if (w < stp->num_labels) {
+                            /*
+                             * Probably a label. Look for patch pointing to this
+                             * position.
+                             */
+                            LabelPatch* lp = stp->labels[w].patches;
+                            int num_patches = stp->labels[w].num_patches;
+                            int patch;
+                            for (patch = num_patches - 1; patch >= 0; patch--) {
+                                if (lp[patch].pos == ci) {
+                                    lp[patch].packed = 1;
+                                    packed_label = &lp[patch];
+                                    break;
+                                }
+                            }
+                        }
+                        packed = (packed << BEAM_WIDE_SHIFT) |
+                            (code[ci] & BEAM_WIDE_MASK);
+                    }
+                    break;
 #endif
 		case 'p':	/* Put instruction (from stack). */
                     --sp;
                     code[ci] = sp->instr;
-                    if (sp->patch) {
-                        sp->patch->pos = ci;
+                    if (sp->patch_pos) {
+                        *sp->patch_pos = ci;
                     }
                     ci++;
 		    break;
 		case 'P':	/* Put packed operands. */
                     sp->instr = packed;
-                    sp->patch = 0;
+                    sp->patch_pos = 0;
                     sp++;
 		    packed = 0;
+                    if (packed_label) {
+                        packed_label->pos = ci;
+                        packed_label = 0;
+                    }
 		    break;
 		default:
 		    ASSERT(0);
@@ -2541,7 +2664,17 @@ load_code(LoaderState* stp)
 	 * Load any list arguments using the primitive tags.
 	 */
 
+#if defined(BEAM_WIDE_SHIFT)
+        num_trailing_f = 0;
+#endif
 	for ( ; arg < tmp_op->arity; arg++) {
+#if defined(BEAM_WIDE_SHIFT)
+	    if (tmp_op->a[arg].type == TAG_f) {
+                num_trailing_f++;
+            } else {
+                num_trailing_f = 0;
+            }
+#endif
 	    switch (tmp_op->a[arg].type) {
 	    case TAG_i:
 		CodeNeed(1);
@@ -2555,8 +2688,7 @@ load_code(LoaderState* stp)
 		break;
 	    case TAG_f:
 		CodeNeed(1);
-		code[ci] = stp->labels[tmp_op->a[arg].val].patches;
-		stp->labels[tmp_op->a[arg].val].patches = ci;
+                register_label_patch(stp, tmp_op->a[arg].val, ci, -last_instr_start);
 		ci++;
 		break;
 	    case TAG_x:
@@ -2581,6 +2713,61 @@ load_code(LoaderState* stp)
 			   tag_to_letter[tmp_op->a[arg].type]);
 	    }
 	}
+
+        /*
+         * If all the extra arguments were 'f' operands,
+         * and the wordsize is 64 bits, pack two 'f' operands
+         * into each word.
+         */
+
+#if defined(BEAM_WIDE_SHIFT)
+        if (num_trailing_f >= 1) {
+            Uint src_index = ci - num_trailing_f;
+            Uint src_limit = ci;
+            Uint dst_limit = src_index + (num_trailing_f+1)/2;
+
+            ci = src_index;
+            while (ci < dst_limit) {
+                Uint w[2];
+                BeamInstr packed = 0;
+                int wi;
+
+                w[0] = code[src_index];
+                if (src_index+1 < src_limit) {
+                    w[1] = code[src_index+1];
+                } else {
+                    w[1] = 0;
+                }
+                for (wi = 0; wi < 2; wi++) {
+                    Uint lbl = w[wi];
+                    LabelPatch* lp = stp->labels[lbl].patches;
+                    int num_patches = stp->labels[lbl].num_patches;
+
+#if defined(WORDS_BIGENDIAN)
+                    packed <<= BEAM_WIDE_SHIFT;
+                    packed |= lbl & BEAM_WIDE_MASK;
+#else
+                    packed >>= BEAM_WIDE_SHIFT;
+                    packed |= lbl << BEAM_WIDE_SHIFT;
+#endif
+                    while (num_patches-- > 0) {
+                        if (lp->pos == src_index + wi) {
+                            lp->pos = ci;
+#if defined(WORDS_BIGENDIAN)
+                            lp->packed = 2 - wi;
+#else
+                            lp->packed = wi + 1;
+#endif
+                            break;
+                        }
+                        lp++;
+                    }
+                }
+                code[ci++] = packed;
+                src_index += 2;
+            }
+        }
+#endif
 
 	/*
 	 * Handle a few special cases.
@@ -2628,17 +2815,16 @@ load_code(LoaderState* stp)
                    the size of the ops.tab i_func_info instruction is not
                    the same as FUNC_INFO_SZ */
 		ASSERT(stp->labels[last_label].value == ci - FUNC_INFO_SZ);
-		stp->hdr->functions[function_number] = (ErtsCodeInfo*) stp->labels[last_label].patches;
 		offset = function_number;
-		stp->labels[last_label].patches = offset;
+                register_label_patch(stp, last_label, offset, 0);
 		function_number++;
 		if (stp->arity > MAX_ARG) {
 		    LoadError1(stp, "too many arguments: %d", stp->arity);
 		}
 #ifdef DEBUG
-		ASSERT(stp->labels[0].patches < 0); /* Should not be referenced. */
+		ASSERT(stp->labels[0].num_patches == 0); /* Should not be referenced. */
 		for (i = 1; i < stp->num_labels; i++) {
-		    ASSERT(stp->labels[i].patches < ci);
+                    ASSERT(stp->labels[i].num_patches <= stp->labels[i].num_allocated);
 		}
 #endif
 	    }
@@ -3563,7 +3749,7 @@ gen_select_tuple_arity(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     if (size == 2) {
 	NEW_GENOP(stp, op);
 	op->next = NULL;
-	op->op = genop_i_select_tuple_arity2_6;
+	op->op = genop_i_select_tuple_arity2_4;
 	GENOP_ARITY(op, arity - 1);
 	op->a[0] = S;
 	op->a[1] = Fail;
@@ -3853,14 +4039,13 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     int i, j, align = 0;
 
     if (size == 2) {
-
 	/*
 	 * Use a special-cased instruction if there are only two values.
 	 */
 
 	NEW_GENOP(stp, op);
 	op->next = NULL;
-	op->op = genop_i_select_val2_6;
+	op->op = genop_i_select_val2_4;
 	GENOP_ARITY(op, arity - 1);
 	op->a[0] = S;
 	op->a[1] = Fail;
@@ -3870,47 +4055,19 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 	op->a[5] = Rest[3];
 
 	return op;
-
-    } else if (size > 10) {
-
-	/* binary search instruction */
-
-	NEW_GENOP(stp, op);
-	op->next = NULL;
-	op->op = genop_i_select_val_bins_3;
-	GENOP_ARITY(op, arity);
-	op->a[0] = S;
-	op->a[1] = Fail;
-	op->a[2].type = TAG_u;
-	op->a[2].val = size;
-	for (i = 3; i < arity; i++) {
-	    op->a[i] = Rest[i-3];
-	}
-
-	/*
-	 * Sort the values to make them useful for a binary search.
-	 */
-
-	qsort(op->a+3, size, 2*sizeof(GenOpArg),
-		(int (*)(const void *, const void *)) genopargcompare);
-#ifdef DEBUG
-	for (i = 3; i < arity-2; i += 2) {
-	    ASSERT(op->a[i].val < op->a[i+2].val);
-	}
-#endif
-	return op;
     }
 
-    /* linear search instruction */
-
-    align = 1;
+    if (size <= 10) {
+        /* Use linear search. Reserve place for a sentinel. */
+        align = 1;
+    }
 
     arity += 2*align;
     size  += align;
 
     NEW_GENOP(stp, op);
     op->next = NULL;
-    op->op = genop_i_select_val_lins_3;
+    op->op = (align == 0) ? genop_i_select_val_bins_3 : genop_i_select_val_lins_3;
     GENOP_ARITY(op, arity);
     op->a[0] = S;
     op->a[1] = Fail;
@@ -3924,7 +4081,7 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
     }
 
     /*
-     * Sort the values to make them useful for a sentinel search
+     * Sort the values to make them useful for a binary or sentinel search.
      */
 
     qsort(tmp, size - align, 2*sizeof(GenOpArg),
@@ -3939,11 +4096,12 @@ gen_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 
     erts_free(ERTS_ALC_T_LOADER_TMP, (void *) tmp);
 
-    /* add sentinel */
-
-    op->a[j].type = TAG_u;
-    op->a[j].val  = ~((BeamInstr)0);
-    op->a[j+size] = Fail;
+    if (align) {
+        /* Add sentinel for linear search. */
+        op->a[j].type = TAG_u;
+        op->a[j].val  = ~((BeamInstr)0);
+        op->a[j+size] = Fail;
+    }
 
 #ifdef DEBUG
     for (i = 0; i < size - 1; i++) {
@@ -4827,21 +4985,57 @@ freeze_code(LoaderState* stp)
      */
 
     for (i = 0; i < stp->num_labels; i++) {
-	Sint this_patch;
-	Sint next_patch;
+	Uint patch;
 	Uint value = stp->labels[i].value;
-	
-	if (value == 0 && stp->labels[i].patches >= 0) {
+
+	if (value == 0 && stp->labels[i].num_patches != 0) {
 	    LoadError1(stp, "label %d not resolved", i);
 	}
 	ASSERT(value < stp->ci);
-	this_patch = stp->labels[i].patches;
-	while (this_patch >= 0) {
-	    ASSERT(this_patch < stp->ci);
-	    next_patch = codev[this_patch];
-	    ASSERT(next_patch < stp->ci);
-	    codev[this_patch] = (BeamInstr) (codev + value);
-	    this_patch = next_patch;
+        for (patch = 0; patch < stp->labels[i].num_patches; patch++) {
+            LabelPatch* lp = &stp->labels[i].patches[patch];
+            Uint pos = lp->pos;
+	    ASSERT(pos < stp->ci);
+            if (pos < stp->num_functions) {
+                /*
+                 * This is the array of pointers to the beginning of
+                 * each function. The pointers must remain absolute.
+                 */
+                codev[pos] = (BeamInstr) (codev + value);
+            } else {
+#ifdef DEBUG
+                Uint w;
+#endif
+                Sint32 rel = lp->offset + value;
+                switch (lp->packed) {
+                case 0:         /* Not packed */
+                    ASSERT(codev[pos] == i);
+                    codev[pos] = rel;
+                    break;
+#ifdef BEAM_WIDE_MASK
+                case 1:         /* Least significant word. */
+#ifdef DEBUG
+                    w = codev[pos] & BEAM_WIDE_MASK;
+                    /* Correct label in least significant word? */
+                    ASSERT(w == i);
+#endif
+                    codev[pos] = (codev[pos] & ~BEAM_WIDE_MASK) |
+                        (rel & BEAM_WIDE_MASK);
+                    break;
+                case 2:         /* Most significant word */
+#ifdef DEBUG
+                    w = (codev[pos] >> BEAM_WIDE_SHIFT) & BEAM_WIDE_MASK;
+                    /* Correct label in most significant word? */
+                    ASSERT(w == i);
+#endif
+                    codev[pos] = ((Uint)rel << BEAM_WIDE_SHIFT) |
+                        (codev[pos] & BEAM_WIDE_MASK);
+                    break;
+#endif
+                default:
+                    ASSERT(0);
+                }
+            }
 	}
     }
     CHKBLK(ERTS_ALC_T_CODE,code_hdr);
@@ -4884,8 +5078,11 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
     catches = BEAM_CATCHES_NIL;
     while (index != 0) {
 	BeamInstr next = codev[index];
+        BeamInstr* abs_addr;
 	codev[index] = BeamOpCode(op_catch_yf);
-	catches = beam_catches_cons((BeamInstr *)codev[index+2], catches);
+        /* We must make the address of the label absolute again. */
+        abs_addr = (BeamInstr *)codev + index + codev[index+2];
+	catches = beam_catches_cons(abs_addr, catches);
 	codev[index+2] = make_catch(catches);
 	index = next;
     }
@@ -5573,8 +5770,7 @@ new_label(LoaderState* stp)
     stp->labels = (Label *) erts_realloc(ERTS_ALC_T_PREPARED_CODE,
 					 (void *) stp->labels,
 					 stp->num_labels * sizeof(Label));
-    stp->labels[num].value = 0;
-    stp->labels[num].patches = -1;
+    init_label(&stp->labels[num]);
     return num;
 }
 
