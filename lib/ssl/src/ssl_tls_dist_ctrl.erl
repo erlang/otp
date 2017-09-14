@@ -277,7 +277,7 @@ setup_loop(SslSocket, TickHandler, Sup) ->
             Res =
                 ssl:setopts(
                   SslSocket,
-                  [{active, false}, {packet, 4}, inet_tls_dist:nodelay()]),
+                  [{packet, 4}, inet_tls_dist:nodelay()]),
             From ! {Ref, Res},
             setup_loop(SslSocket, TickHandler, Sup);
 
@@ -285,7 +285,7 @@ setup_loop(SslSocket, TickHandler, Sup) ->
             Res =
                 ssl:setopts(
                   SslSocket,
-                  [{active, once}, {packet, 4}, inet_tls_dist:nodelay()]),
+                  [{packet, 4}, inet_tls_dist:nodelay()]),
             From ! {Ref, Res},
             setup_loop(SslSocket, TickHandler, Sup);
 
@@ -296,30 +296,33 @@ setup_loop(SslSocket, TickHandler, Sup) ->
         {Ref, From, {handshake_complete, _Node, DHandle}} ->
             From ! {Ref, ok},
             %% Handshake complete! Begin dispatching traffic...
+            %%
+            %% Use a dedicated input process to push the
+            %% input-output-flow-control-deadlock problem
+            %% to the SSL implementation.
+            InputHandler =
+                spawn_opt(
+                  fun () ->
+                          link(Sup),
+                          ssl:setopts(SslSocket, [{active, once}]),
+                          receive
+                              DHandle ->
+                                  input_loop(DHandle, SslSocket)
+                          end
+                  end,
+                  [link] ++ common_spawn_opts()),
+            ok = ssl:controlling_process(SslSocket, InputHandler),
+            ok = erlang:dist_ctrl_input_handler(DHandle, InputHandler),
+            InputHandler ! DHandle,
+            %%
             %% From now on we execute on normal priority
             process_flag(priority, normal),
             erlang:dist_ctrl_get_data_notification(DHandle),
-            loop(DHandle, SslSocket)
+            output_loop(DHandle, SslSocket)
     end.
 
-loop(DHandle, SslSocket) ->
+input_loop(DHandle, SslSocket) ->
     receive
-        dist_data ->
-            %% Outgoing data from this node...
-            try send_data(DHandle, SslSocket)
-            catch _ : _ -> death_row()
-            end,
-            loop(DHandle, SslSocket);
-
-        {send, From, Ref, Data} ->
-            %% This is for testing only!
-            %%
-            %% Needed by some OTP distribution
-            %% test suites...
-            sock_send(SslSocket, Data),
-            From ! {Ref, ok},
-            loop(DHandle, SslSocket);
-
         {ssl_closed, SslSocket} ->
             %% Connection to remote node terminated...
             exit(connection_closed);
@@ -330,13 +333,33 @@ loop(DHandle, SslSocket) ->
             %% Incoming data from remote node...
             ok = ssl:setopts(SslSocket, [{active, once}]),
             try erlang:dist_ctrl_put_data(DHandle, Data)
-            catch _ : _ -> death_row()
+            catch _:_ -> death_row()
             end,
-            loop(DHandle, SslSocket);
-
+            input_loop(DHandle, SslSocket);
         _ ->
             %% Drop garbage message...
-            loop(DHandle, SslSocket)
+            input_loop(DHandle, SslSocket)
+    end.
+
+output_loop(DHandle, SslSocket) ->
+    receive
+        dist_data ->
+            %% Outgoing data from this node...
+            try send_data(DHandle, SslSocket)
+            catch _ : _ -> death_row()
+            end,
+            output_loop(DHandle, SslSocket);
+        {send, From, Ref, Data} ->
+            %% This is for testing only!
+            %%
+            %% Needed by some OTP distribution
+            %% test suites...
+            sock_send(SslSocket, Data),
+            From ! {Ref, ok},
+            output_loop(DHandle, SslSocket);
+        _ ->
+            %% Drop garbage message...
+            output_loop(DHandle, SslSocket)
     end.
 
 send_data(DHandle, SslSocket) ->

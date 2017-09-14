@@ -345,11 +345,13 @@ splitnode(Driver, Node, LongOrShortNames) ->
 	    Host = lists:append(Tail),
 	    check_node(Driver, Name, Node, Host, LongOrShortNames);
 	[_] ->
-	    error_logger:error_msg("** Nodename ~p illegal, no '@' character **~n",
-		      [Node]),
+	    error_logger:error_msg(
+              "** Nodename ~p illegal, no '@' character **~n",
+              [Node]),
 	    ?shutdown(Node);
 	_ ->
-	    error_logger:error_msg("** Nodename ~p illegal **~n", [Node]),
+	    error_logger:error_msg(
+              "** Nodename ~p illegal **~n", [Node]),
 	    ?shutdown(Node)
     end.
 
