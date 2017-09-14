@@ -304,10 +304,10 @@ table_win(Config) when is_list(Config) ->
 %% Test PR-1296/OTP-14151
 %% Clicking a link to a port before the port tab has been activated the
 %% first time crashes observer.
-port_win_when_tab_not_initiated(Config) ->
+port_win_when_tab_not_initiated(_Config) ->
     {ok,Port} = gen_tcp:listen(0,[]),
     ok = observer:start(),
-    Notebook = setup_whitebox_testing(),
+    _Notebook = setup_whitebox_testing(),
     observer ! {open_link,erlang:port_to_list(Port)},
     timer:sleep(1000),
     observer:stop(),
