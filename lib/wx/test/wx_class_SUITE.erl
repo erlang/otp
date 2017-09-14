@@ -29,7 +29,10 @@
 	 init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 
--compile(export_all).
+-export([calendarCtrl/1, treeCtrl/1, notebook/1, staticBoxSizer/1,
+         clipboard/1, helpFrame/1, htmlWindow/1, listCtrlSort/1, listCtrlVirtual/1,
+         radioBox/1, systemSettings/1, taskBarIcon/1, toolbar/1, popup/1, modal/1,
+         textCtrl/1, locale/1]).
 
 -include("wx_test_lib.hrl").
 
@@ -51,7 +54,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}, {timetrap,{minutes,2}}].
 all() ->
     [calendarCtrl, treeCtrl, notebook, staticBoxSizer,
      clipboard, helpFrame, htmlWindow, listCtrlSort, listCtrlVirtual,
-     radioBox, systemSettings, taskBarIcon, toolbar, popup, modal].
+     radioBox, systemSettings, taskBarIcon, toolbar, popup, modal,
+     textCtrl, locale].
 
 groups() ->
     [].

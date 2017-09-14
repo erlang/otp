@@ -28,7 +28,8 @@
 	 init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
--compile(export_all).
+-export([destroy_app/1, multiple_add_in_sizer/1, app_dies/1,
+         menu_item_debug/1]).
 
 -include("wx_test_lib.hrl").
 

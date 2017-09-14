@@ -20,7 +20,7 @@
 %% Description : Shortcuts for running tests with wx internal test_server
 %%-------------------------------------------------------------------
 -module(wxt).
--compile(export_all).
+-export([t/0, t/1, t/2, user/0, user/1,user/2]).
 
 %%  Modules or suites can be shortcuts i.e. basic expands to wx_basic_SUITE.
 %%  
@@ -82,36 +82,6 @@ alias(Suite) when is_atom(Suite) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-config_fname() ->
-    "wx_test_case_config".
-
-%% Read default config file
-read_config() ->
-    Fname = config_fname(),
-    wx_test_lib:log("Consulting file ~s...~n", [Fname]),
-    case file:consult(Fname) of
-        {ok, Config} ->
-	    wx_test_lib:log("Read config ~w~n", [Config]),
-            Config;
-        _Error ->
-	    Config = wx_test_lib:default_config(),
-            wx_test_lib:log("<>WARNING<> Using default config: ~w~n", [Config]),
-            Config
-    end.
-
-%% Write new default config file
-write_config(Config) when is_list(Config) ->
-    Fname = config_fname(),
-    {ok, Fd} = file:open(Fname, write),
-    write_list(Fd, Config),
-    file:close(Fd).
-
-write_list(Fd, [H | T]) ->
-    ok = io:format(Fd, "~p.~n",[H]),
-    write_list(Fd, T);
-write_list(_, []) ->
-    ok.
 
 test_case_fname() ->
     "wx_test_case_info".

@@ -20,9 +20,9 @@
 -module(wx_oc_object).
 -include_lib("wx/include/wx.hrl").
 
--behaviour(wx_object).
+%%-behaviour(wx_object).  %% commented out avoid warnings
 
-%% gen_server callbacks
+%% wx_object callbacks
 -export([init/1]).
 
 -record(state, {}).
