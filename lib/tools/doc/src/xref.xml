@@ -559,8 +559,10 @@ Two functions (modules,
       analyzing operators:
       </p>
     <list type="bulleted">
-      <item>Expression ::= Expression GraphOp Expression</item>
-      <item>GraphOp ::= <c>components</c> | <c>condensation</c> | <c>of</c></item>
+      <item>Expression ::= Expression BinaryGraphOp Expression</item>
+      <item>Expression ::= UnaryGraphOp Expression</item>
+      <item>UnaryGraphOp ::= <c>components</c> | <c>condensation</c></item>
+      <item>BinaryGraphOp ::= <c>of</c></item>
     </list>
     <p>As was mentioned before, the graph analyses operate on
       the <c>digraph</c> representation of graphs.
