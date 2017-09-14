@@ -38,7 +38,8 @@
 
 -record(options, {username, password, boot_timeout, init_timeout,
 		  startup_timeout, startup_functions, monitor_master,
-		  kill_if_fail, erl_flags, env, ssh_port, ssh_opts}).
+		  kill_if_fail, erl_flags, env, ssh_port, ssh_opts,
+		  stop_timeout}).
 
 %%%-----------------------------------------------------------------
 %%% @spec start(Node) -> Result
@@ -198,6 +199,7 @@ start(Host, Node, Opts) ->
 	    end
     end.
 
+%%%-----------------------------------------------------------------
 %%% @spec stop(Node) -> Result
 %%%   Node = atom()
 %%%   Result = {ok, NodeName} |
@@ -205,16 +207,41 @@ start(Host, Node, Opts) ->
 %%%   Reason = not_started |
 %%%            not_connected |
 %%%            stop_timeout
-
 %%%   NodeName = atom()
 %%% @doc Stops the running Erlang node with name <code>Node</code> on
 %%% the localhost.
 stop(Node) ->
     stop(gethostname(), Node).
 
-%%% @spec stop(Host, Node) -> Result
+%%%-----------------------------------------------------------------
+%%% @spec stop(HostOrNode, NodeOrOpts) -> Result
+%%%   HostOrNode = atom()
+%%%   NodeOrOpts = atom() | list()
+%%%   Result = {ok, NodeName} |
+%%%            {error, Reason, NodeName}
+%%%   Reason = not_started |
+%%%            not_connected |
+%%%            stop_timeout
+%%%   NodeName = atom()
+%%% @doc Stops the running Erlang node with default options on a specified
+%%% host, or on the local host with specified options. That is,
+%%% the call is interpreted as <code>stop(Host, Node)</code> when the
+%%% second argument is atom-valued and <code>stop(Node, Opts)</code>
+%%% when it's list-valued.
+%%% @see stop/3
+stop(_HostOrNode = Node, _NodeOrOpts = Opts) %% match to satiate edoc
+  when is_list(Opts) ->
+    stop(gethostname(), Node, Opts);
+
+stop(Host, Node) ->
+    stop(Host, Node, []).
+
+%%% @spec stop(Host, Node, Opts) -> Result
 %%%   Host = atom()
 %%%   Node = atom()
+%%%   Opts = [OptTuples]
+%%%   OptTuples = {stop_timeout, StopTimeout}
+%%%   StopTimeout = integer()
 %%%   Result = {ok, NodeName} |
 %%%            {error, Reason, NodeName}
 %%%   Reason = not_started |
@@ -222,12 +249,19 @@ stop(Node) ->
 %%%            stop_timeout
 %%%   NodeName = atom()
 %%% @doc Stops the running Erlang node with name <code>Node</code> on
-%%% host <code>Host</code>.
-stop(Host, Node) ->
+%%% host <code>Host</code> as specified by options <code>Opts</code>.
+%%%
+%%% <p>Option <code>stop_timeout</code> specifies, in seconds,
+%%% the time to wait until the node is disconnected.
+%%% Defaults to 5 seconds. If this timeout occurs,
+%%% the result <code>{error, stop_timeout, NodeName}</code> is returned.
+%%%
+stop(Host, Node, Opts) ->
     ENode = enodename(Host, Node),
     case is_started(ENode) of
 	{true, connected}->
-	     do_stop(ENode);
+	     OptionsRec = fetch_options(Opts),
+	     do_stop(ENode, OptionsRec);
 	{true, not_connected}->
 	     {error, not_connected, ENode};
 	false->
@@ -257,11 +291,13 @@ fetch_options(Options) ->
     EnvVars = get_option_value(env, Options, []),
     SSHPort = get_option_value(ssh_port, Options, []),
     SSHOpts = get_option_value(ssh_opts, Options, []),
+    StopTimeout = get_option_value(stop_timeout, Options, 5),
     #options{username=UserName, password=Password,
 	     boot_timeout=BootTimeout, init_timeout=InitTimeout,
 	     startup_timeout=StartupTimeout, startup_functions=StartupFunctions,
 	     monitor_master=Monitor, kill_if_fail=KillIfFail,
-	     erl_flags=ErlFlags, env=EnvVars, ssh_port=SSHPort, ssh_opts=SSHOpts}.
+	     erl_flags=ErlFlags, env=EnvVars, ssh_port=SSHPort, ssh_opts=SSHOpts,
+	     stop_timeout=StopTimeout}.
 
 % send a message when slave node is started
 % @hidden
@@ -461,6 +497,8 @@ wait_for_node_alive(Node, N) ->
 
 % call init:stop on a remote node
 do_stop(ENode) ->
+    do_stop(ENode, fetch_options([])).
+do_stop(ENode, Options) ->
     {Cover,MainCoverNode} =
 	case test_server:is_cover() of
 	    true ->
@@ -471,7 +509,8 @@ do_stop(ENode) ->
 		{false,undefined}
     end,
     spawn(ENode, init, stop, []),
-    case wait_for_node_dead(ENode, 5) of
+    StopTimeout = Options#options.stop_timeout,
+    case wait_for_node_dead(ENode, StopTimeout) of
 	{ok,ENode} ->
 	    if Cover ->
 		    %% To avoid that cover is started again if a node
