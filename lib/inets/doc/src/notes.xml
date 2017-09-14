@@ -33,7 +33,41 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.4</title>
+  <section><title>Inets 6.4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    http_uri aligned to follow RFC 3986 and not convert "+"
+	    to space when decoding URIs.</p>
+          <p>
+	    Own Id: OTP-14573</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added new option max_client_body_chunk to httpd server to
+	    allow chunked delivery of PUT and POST data to mod_esi
+	    callback. Note, new mod_esi callback implementation is
+	    required.</p>
+          <p>
+	    Also correct value provided by server_name environment
+	    variable</p>
+          <p>
+	    Own Id: OTP-14450</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

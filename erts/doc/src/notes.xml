@@ -31,6 +31,27 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.0.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in <c>binary_to_term</c> and
+	    <c>binary_to_atom</c> that could cause VM crash.
+	    Typically happens when the last character of an UTF8
+	    string is in the range 128 to 255, but truncated to only
+	    one byte. Bug exists in <c>binary_to_term</c> since ERTS
+	    version 5.10.2 (OTP_R16B01) and <c>binary_to_atom</c>
+	    since ERTS version 9.0 (OTP-20.0).</p>
+          <p>
+	    Own Id: OTP-14590 Aux Id: ERL-474 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.0.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

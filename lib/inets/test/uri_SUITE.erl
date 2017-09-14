@@ -277,8 +277,8 @@ encode_decode(Config) when is_list(Config) ->
     ?assertEqual("foo%20bar", http_uri:encode("foo bar")),
     ?assertEqual(<<"foo%20bar">>, http_uri:encode(<<"foo bar">>)),
 
-    ?assertEqual("foo bar", http_uri:decode("foo+bar")),
-    ?assertEqual(<<"foo bar">>, http_uri:decode(<<"foo+bar">>)),
+    ?assertEqual("foo+bar", http_uri:decode("foo+bar")),
+    ?assertEqual(<<"foo+bar">>, http_uri:decode(<<"foo+bar">>)),
     ?assertEqual("foo bar", http_uri:decode("foo%20bar")),
     ?assertEqual(<<"foo bar">>, http_uri:decode(<<"foo%20bar">>)),
     ?assertEqual("foo\r\n", http_uri:decode("foo%0D%0A")),
