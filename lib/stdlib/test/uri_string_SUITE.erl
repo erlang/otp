@@ -22,9 +22,12 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0,groups/0,
-         parse_binary_fragment/1, parse_binary_host/1, parse_binary_path/1, parse_binary_port/1,
+         parse_binary_fragment/1, parse_binary_host/1, parse_binary_host_ipv4/1,
+         parse_binary_host_ipv6/1,
+         parse_binary_path/1, parse_binary_port/1,
          parse_binary_query/1, parse_binary_scheme/1, parse_binary_userinfo/1,
-         parse_fragment/1, parse_host/1, parse_path/1, parse_port/1,
+         parse_fragment/1, parse_host/1, parse_host_ipv4/1, parse_host_ipv6/1,
+         parse_path/1, parse_port/1,
          parse_query/1, parse_scheme/1, parse_userinfo/1,
 	 parse_list/1, parse_binary/1, parse_mixed/1, parse_relative/1
         ]).
@@ -37,6 +40,8 @@ all() ->
      parse_binary_scheme,
      parse_binary_userinfo,
      parse_binary_host,
+     parse_binary_host_ipv4,
+     parse_binary_host_ipv6,
      parse_binary_port,
      parse_binary_path,
      parse_binary_query,
@@ -44,6 +49,8 @@ all() ->
      parse_scheme,
      parse_userinfo,
      parse_host,
+     parse_host_ipv4,
+     parse_host_ipv6,
      parse_port,
      parse_path,
      parse_query,
@@ -56,17 +63,6 @@ all() ->
 
 groups() ->
     [].
-
-
-%% TODO: Negative tests
-%% uri_string:parse(<<"?name=ferret">>).
-%% uri_string:parse("//user@")
-%% uri_string:parse("foo://user@")
-%% uri_string:parse(":600").
-%%
-%% uri_string:parse("//:8042x").
-%%
-%% io:format("# DEBUG T: >>~s<<~n", [T]),
 
 parse_binary_scheme(_Config) ->
     #{} = uri_string:parse(<<>>),
@@ -95,13 +91,39 @@ parse_binary_userinfo(_Config) ->
     #{scheme := <<"foo">>, userinfo := <<"user">>, host := <<"localhost">>} =
         uri_string:parse(<<"foo://user@localhost">>),
     #{scheme := <<"foo">>, userinfo := <<"user:password">>, host := <<"localhost">>} =
-        uri_string:parse(<<"foo://user:password@localhost">>).
+        uri_string:parse(<<"foo://user:password@localhost">>),
+    uri_parse_error =(catch uri_string:parse("//user@")),
+    uri_parse_error = (catch uri_string:parse("foo://user@")).
 
 parse_binary_host(_Config) ->
     #{host := <<"hostname">>} = uri_string:parse(<<"//hostname">>),
     #{host := <<"hostname">>,scheme := <<"foo">>} = uri_string:parse(<<"foo://hostname">>),
     #{host := <<"hostname">>,scheme := <<"foo">>, userinfo := <<"user">>} =
         uri_string:parse(<<"foo://user@hostname">>).
+
+parse_binary_host_ipv4(_Config) ->
+    #{host := <<"127.0.0.1">>} = uri_string:parse(<<"//127.0.0.1">>),
+    #{host := <<"127.0.0.1">>, path := <<"/over/there">>} =
+        uri_string:parse(<<"//127.0.0.1/over/there">>),
+    #{host := <<"127.0.0.1">>, query := <<"?name=ferret">>} =
+        uri_string:parse(<<"//127.0.0.1?name=ferret">>),
+    #{host := <<"127.0.0.1">>, fragment := <<"nose">>} = uri_string:parse(<<"//127.0.0.1#nose">>),
+    uri_parse_error = (catch uri_string:parse(<<"//127.0.0.x">>)),
+    uri_parse_error = (catch uri_string:parse(<<"//1227.0.0.1">>)).
+
+parse_binary_host_ipv6(_Config) ->
+    #{host := <<"::127.0.0.1">>} = uri_string:parse(<<"//[::127.0.0.1]">>),
+    #{host := <<"2001:0db8:0000:0000:0000:0000:1428:07ab">>} =
+        uri_string:parse(<<"//[2001:0db8:0000:0000:0000:0000:1428:07ab]">>),
+    #{host := <<"::127.0.0.1">>, path := <<"/over/there">>} =
+        uri_string:parse(<<"//[::127.0.0.1]/over/there">>),
+    #{host := <<"::127.0.0.1">>, query := <<"?name=ferret">>} =
+        uri_string:parse(<<"//[::127.0.0.1]?name=ferret">>),
+    #{host := <<"::127.0.0.1">>, fragment := <<"nose">>} =
+        uri_string:parse(<<"//[::127.0.0.1]#nose">>),
+    uri_parse_error = (catch uri_string:parse(<<"//[::127.0.0.x]">>)),
+    uri_parse_error = (catch uri_string:parse(<<"//[::1227.0.0.1]">>)),
+    uri_parse_error = (catch uri_string:parse(<<"//[2001:0db8:0000:0000:0000:0000:1428:G7ab]">>)).
 
 parse_binary_port(_Config) ->
     #{path:= <<"/:8042">>} =
@@ -115,7 +137,9 @@ parse_binary_port(_Config) ->
     #{scheme := <<"foo">>, host := <<>>, port := 8042} =
         uri_string:parse(<<"foo://:8042">>),
     #{scheme := <<"foo">>, host := <<"example.com">>, port := 8042} =
-        uri_string:parse(<<"foo://example.com:8042">>).
+        uri_string:parse(<<"foo://example.com:8042">>),
+    uri_parse_error = (catch uri_string:parse(":600")),
+    uri_parse_error = (catch uri_string:parse("//:8042x")).
 
 parse_binary_path(_Config) ->
     #{path := <<"over/there">>} = uri_string:parse(<<"over/there">>),
@@ -213,6 +237,26 @@ parse_host(_Config) ->
     #{host := "hostname",scheme := "foo"} = uri_string:parse("foo://hostname"),
     #{host := "hostname",scheme := "foo", userinfo := "user"} =
         uri_string:parse("foo://user@hostname").
+
+parse_host_ipv4(_Config) ->
+    #{host := "127.0.0.1"} = uri_string:parse("//127.0.0.1"),
+    #{host := "2001:0db8:0000:0000:0000:0000:1428:07ab"} =
+        uri_string:parse("//[2001:0db8:0000:0000:0000:0000:1428:07ab]"),
+    #{host := "127.0.0.1", path := "/over/there"} = uri_string:parse("//127.0.0.1/over/there"),
+    #{host := "127.0.0.1", query := "?name=ferret"} = uri_string:parse("//127.0.0.1?name=ferret"),
+    #{host := "127.0.0.1", fragment := "nose"} = uri_string:parse("//127.0.0.1#nose"),
+    uri_parse_error = (catch uri_string:parse("//127.0.0.x")),
+    uri_parse_error = (catch uri_string:parse("//1227.0.0.1")).
+
+parse_host_ipv6(_Config) ->
+    #{host := "::127.0.0.1"} = uri_string:parse("//[::127.0.0.1]"),
+    #{host := "::127.0.0.1", path := "/over/there"} = uri_string:parse("//[::127.0.0.1]/over/there"),
+    #{host := "::127.0.0.1", query := "?name=ferret"} =
+        uri_string:parse("//[::127.0.0.1]?name=ferret"),
+    #{host := "::127.0.0.1", fragment := "nose"} = uri_string:parse("//[::127.0.0.1]#nose"),
+    uri_parse_error = (catch uri_string:parse("//[::127.0.0.x]")),
+    uri_parse_error = (catch uri_string:parse("//[::1227.0.0.1]")),
+    uri_parse_error = (catch uri_string:parse("//[2001:0db8:0000:0000:0000:0000:1428:G7ab]")).
 
 parse_port(_Config) ->
     #{path:= "/:8042"} =

@@ -388,7 +388,7 @@ parse_relative_part(?STRING_REST("//", Rest), URI) ->
         throw:uri_parse_error ->
             {T, URI1} = parse_host(Rest, URI),
 	    {Host, _} = split_binary(Rest, byte_size_exl_single_slash(Rest) - byte_size_exl_head(T)),
-	    URI1#{host => Host}
+	    URI1#{host => remove_brackets(Host)}
     end;
 parse_relative_part(?STRING_REST($/, Rest), URI) ->
     {T, URI1} = parse_segment(Rest, URI),  % path-absolute
@@ -669,7 +669,7 @@ parse_hier(?STRING_REST("//", Rest), URI) ->
         throw:uri_parse_error ->
             {T, URI1} = parse_host(Rest, URI),
 	    {Host, _} = split_binary(Rest, byte_size_exl_single_slash(Rest) - byte_size_exl_head(T)),
-	    {Rest, URI1#{host => Host}}
+	    {Rest, URI1#{host => remove_brackets(Host)}}
     end;
 parse_hier(?STRING_REST($/, Rest), URI) ->
     {T, URI1} = parse_segment(Rest, URI),  % path-absolute
@@ -756,7 +756,7 @@ parse_userinfo(?CHAR($@), _URI) ->
 parse_userinfo(?STRING_REST($@, Rest), URI) ->
     {T, URI1} = parse_host(Rest, URI),
     {Host, _} = split_binary(Rest, byte_size(Rest) - byte_size_exl_head(T)),
-    {Rest, URI1#{host => Host}};
+    {Rest, URI1#{host => remove_brackets(Host)}};
 parse_userinfo(?STRING_REST(Char, Rest), URI) ->
     case is_userinfo(Char) of
         true -> parse_userinfo(Rest, URI);
@@ -834,7 +834,6 @@ is_userinfo(Char) -> is_unreserved(Char) orelse is_sub_delim(Char).
 %%
 %%    reg-name    = *( unreserved / pct-encoded / sub-delims )
 %%-------------------------------------------------------------------------
-%% TODO: implement parsing of IPv4/IPv6 addresses
 -spec parse_host(binary(), uri_map()) -> {binary(), uri_map()}.
 parse_host(?STRING_REST($:, Rest), URI) ->
     {T, URI1} = parse_port(Rest, URI),
@@ -849,14 +848,16 @@ parse_host(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
     {Query, _} = split_binary(Rest, byte_size(Rest) - byte_size_exl_head(T)),
     {Rest, URI1#{query => ?STRING_REST($?, Query)}};
+parse_host(?STRING_REST($[, Rest), URI) ->
+    parse_ipv6_bin(Rest, [], URI);
 parse_host(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
     {Fragment, _} = split_binary(Rest, byte_size(Rest) - byte_size(T)),
     {Rest, URI1#{fragment => Fragment}};
 parse_host(?STRING_REST(Char, Rest), URI) ->
-    case is_reg_name(Char) of
-        true -> parse_host(Rest, URI);
-        false -> throw(uri_parse_error)
+    case is_digit(Char) of
+        true -> parse_ipv4_bin(Rest, [Char], URI);
+        false -> parse_reg_name(?STRING_REST(Char, Rest), URI)
     end;
 parse_host(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
@@ -877,18 +878,233 @@ parse_host([$?|Rest], Acc, URI) ->
     parse_query(Rest, [$?], URI#{host => lists:reverse(Acc)});  % path-empty ?query
 parse_host([$#|Rest], Acc, URI) ->
     parse_fragment(Rest, [], URI#{host => lists:reverse(Acc)});  % path-empty
+parse_host([$[|Rest], _Acc, URI) ->
+    parse_ipv6(Rest, [], URI);
 parse_host([Char|Rest], Acc, URI) ->
-    case is_reg_name(Char) of
-        true -> parse_host(Rest, [Char|Acc], URI);
-        false -> throw(uri_parse_error)
+    case is_digit(Char) of
+        true -> parse_ipv4(Rest, [Char|Acc], URI);
+        false -> parse_reg_name([Char|Rest], Acc, URI)
     end;
 parse_host([], Acc, URI) ->
+    URI#{host => lists:reverse(Acc)}.
+
+
+-spec parse_reg_name(binary(), uri_map()) -> {binary(), uri_map()}.
+parse_reg_name(?STRING_REST($:, Rest), URI) ->
+    {T, URI1} = parse_port(Rest, URI),
+    {H, _} = split_binary(Rest, byte_size(Rest) - byte_size_exl_head(T)),
+    Port = binary_to_integer(H),
+    {Rest, URI1#{port => Port}};
+parse_reg_name(?STRING_REST($/, Rest), URI) ->
+    {T, URI1} = parse_segment(Rest, URI),  % path-abempty
+    {Path, _} = split_binary(Rest, byte_size(Rest) - byte_size_exl_head(T)),
+    {Rest, URI1#{path => ?STRING_REST($/, Path)}};
+parse_reg_name(?STRING_REST($?, Rest), URI) ->
+    {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
+    {Query, _} = split_binary(Rest, byte_size(Rest) - byte_size_exl_head(T)),
+    {Rest, URI1#{query => ?STRING_REST($?, Query)}};
+parse_reg_name(?STRING_REST($#, Rest), URI) ->
+    {T, URI1} = parse_fragment(Rest, URI),  % path-empty
+    {Fragment, _} = split_binary(Rest, byte_size(Rest) - byte_size(T)),
+    {Rest, URI1#{fragment => Fragment}};
+parse_reg_name(?STRING_REST(Char, Rest), URI) ->
+    case is_reg_name(Char) of
+        true -> parse_reg_name(Rest, URI);
+        false -> throw(uri_parse_error)
+    end;
+parse_reg_name(?STRING_EMPTY, URI) ->
+    {?STRING_EMPTY, URI}.
+
+-spec parse_reg_name(iolist(), list(), uri_map()) -> uri_map().
+parse_reg_name(?STRING(Str), Acc, URI) when is_list(Acc) ->
+    parse_reg_name(unicode:characters_to_list(Str), Acc, URI);
+parse_reg_name([H|Rest], Acc, URI) when is_binary(H) ->
+    parse_reg_name(unicode:characters_to_list(H, utf8) ++ Rest,
+               Acc, URI);
+parse_reg_name([H|Rest], Acc, URI) when is_list(H) ->
+    parse_reg_name(H ++ Rest, Acc, URI);
+parse_reg_name([$:|Rest], Acc, URI) ->
+    parse_port(Rest, [], URI#{host => lists:reverse(Acc)});
+parse_reg_name([$/|Rest], Acc, URI) ->
+    parse_segment(Rest, [$/], URI#{host => lists:reverse(Acc)});  % path-abempty
+parse_reg_name([$?|Rest], Acc, URI) ->
+    parse_query(Rest, [$?], URI#{host => lists:reverse(Acc)});  % path-empty ?query
+parse_reg_name([$#|Rest], Acc, URI) ->
+    parse_fragment(Rest, [], URI#{host => lists:reverse(Acc)});  % path-empty
+parse_reg_name([Char|Rest], Acc, URI) ->
+    case is_reg_name(Char) of
+        true -> parse_reg_name(Rest, [Char|Acc], URI);
+        false -> throw(uri_parse_error)
+    end;
+parse_reg_name([], Acc, URI) ->
     URI#{host => lists:reverse(Acc)}.
 
 %% Check if char is allowed in reg-name
 -spec is_reg_name(char()) -> boolean().
 is_reg_name($%) -> true;
 is_reg_name(Char) -> is_unreserved(Char) orelse is_sub_delim(Char).
+
+
+-spec parse_ipv4_bin(binary(), list(), uri_map()) -> {binary(), uri_map()}.
+parse_ipv4_bin(?STRING_REST($:, Rest), Acc, URI) ->
+    _ = validate_ipv4_address(lists:reverse(Acc)),
+    {T, URI1} = parse_port(Rest, URI),
+    {H, _} = split_binary(Rest, byte_size(Rest) - byte_size_exl_head(T)),
+    Port = binary_to_integer(H),
+    {Rest, URI1#{port => Port}};
+parse_ipv4_bin(?STRING_REST($/, Rest), Acc, URI) ->
+    _ = validate_ipv4_address(lists:reverse(Acc)),
+    {T, URI1} = parse_segment(Rest, URI),  % path-abempty
+    {Path, _} = split_binary(Rest, byte_size(Rest) - byte_size_exl_head(T)),
+    {Rest, URI1#{path => ?STRING_REST($/, Path)}};
+parse_ipv4_bin(?STRING_REST($?, Rest), Acc, URI) ->
+    _ = validate_ipv4_address(lists:reverse(Acc)),
+    {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
+    {Query, _} = split_binary(Rest, byte_size(Rest) - byte_size_exl_head(T)),
+    {Rest, URI1#{query => ?STRING_REST($?, Query)}};
+parse_ipv4_bin(?STRING_REST($#, Rest), Acc, URI) ->
+    _ = validate_ipv4_address(lists:reverse(Acc)),
+    {T, URI1} = parse_fragment(Rest, URI),  % path-empty
+    {Fragment, _} = split_binary(Rest, byte_size(Rest) - byte_size(T)),
+    {Rest, URI1#{fragment => Fragment}};
+parse_ipv4_bin(?STRING_REST(Char, Rest), Acc, URI) ->
+    case is_ipv4(Char) of
+        true -> parse_ipv4_bin(Rest, [Char|Acc], URI);
+        false -> throw(uri_parse_error)
+    end;
+parse_ipv4_bin(?STRING_EMPTY, Acc, URI) ->
+    _ = validate_ipv4_address(lists:reverse(Acc)),
+    {?STRING_EMPTY, URI}.
+
+-spec parse_ipv4(iolist(), list(), uri_map()) -> uri_map().
+parse_ipv4(?STRING(Str), Acc, URI) when is_list(Acc) ->
+    parse_ipv4(unicode:characters_to_list(Str), Acc, URI);
+parse_ipv4([H|Rest], Acc, URI) when is_binary(H) ->
+    parse_ipv4(unicode:characters_to_list(H, utf8) ++ Rest,
+               Acc, URI);
+parse_ipv4([H|Rest], Acc, URI) when is_list(H) ->
+    parse_ipv4(H ++ Rest, Acc, URI);
+parse_ipv4([$:|Rest], Acc, URI) ->
+    parse_port(Rest, [], URI#{host => validate_ipv4_address(lists:reverse(Acc))});
+parse_ipv4([$/|Rest], Acc, URI) ->
+    parse_segment(Rest, [$/], URI#{host => validate_ipv4_address(lists:reverse(Acc))});  % path-abempty
+parse_ipv4([$?|Rest], Acc, URI) ->
+    parse_query(Rest, [$?], URI#{host => validate_ipv4_address(lists:reverse(Acc))});  % path-empty ?query
+parse_ipv4([$#|Rest], Acc, URI) ->
+    parse_fragment(Rest, [], URI#{host => validate_ipv4_address(lists:reverse(Acc))});  % path-empty
+parse_ipv4([Char|Rest], Acc, URI) ->
+    case is_ipv4(Char) of
+        true -> parse_ipv4(Rest, [Char|Acc], URI);
+        false -> throw(uri_parse_error)
+    end;
+parse_ipv4([], Acc, URI) ->
+    URI#{host => validate_ipv4_address(lists:reverse(Acc))}.
+
+%% Check if char is allowed in IPv4 addresses
+-spec is_ipv4(char()) -> boolean().
+is_ipv4($.) -> true;
+is_ipv4(Char) -> is_digit(Char).
+
+-spec validate_ipv4_address(list()) -> list().
+validate_ipv4_address(Addr) ->
+    case inet:parse_ipv4strict_address(Addr) of
+        {ok, _} -> Addr;
+        {error, _} -> throw(uri_parse_error)
+    end.
+
+
+-spec parse_ipv6_bin(binary(), list(), uri_map()) -> {binary(), uri_map()}.
+parse_ipv6_bin(?STRING_REST($], Rest), Acc, URI) ->
+    _ = validate_ipv6_address(lists:reverse(Acc)),
+    parse_ipv6_bin_end(Rest, URI);
+parse_ipv6_bin(?STRING_REST(Char, Rest), Acc, URI) ->
+    case is_ipv6(Char) of
+        true -> parse_ipv6_bin(Rest, [Char|Acc], URI);
+        false -> throw(uri_parse_error)
+    end;
+parse_ipv6_bin(?STRING_EMPTY, _Acc, _URI) ->
+    throw(uri_parse_error).
+
+-spec parse_ipv6(iolist(), list(), uri_map()) -> uri_map().
+parse_ipv6(?STRING(Str), Acc, URI) when is_list(Acc) ->
+    parse_ipv6(unicode:characters_to_list(Str), Acc, URI);
+parse_ipv6([H|Rest], Acc, URI) when is_binary(H) ->
+    parse_ipv6(unicode:characters_to_list(H, utf8) ++ Rest,
+               Acc, URI);
+parse_ipv6([H|Rest], Acc, URI) when is_list(H) ->
+    parse_ipv6(H ++ Rest, Acc, URI);
+parse_ipv6([$]|Rest], Acc, URI) ->
+    parse_ipv6_end(Rest, [], URI#{host => validate_ipv6_address(lists:reverse(Acc))});
+parse_ipv6([Char|Rest], Acc, URI) ->
+    case is_ipv6(Char) of
+        true -> parse_ipv6(Rest, [Char|Acc], URI);
+        false ->
+            io:format("# DEBUG Char: >>~c<<~n", [Char]),
+            io:format("# DEBUG Rest: >>~s<<~n", [Rest]),
+            throw(uri_parse_error)
+    end;
+parse_ipv6([], _Acc, _URI) ->
+    throw(uri_parse_error).
+
+%% Check if char is allowed in IPv6 addresses
+-spec is_ipv6(char()) -> boolean().
+is_ipv6($:) -> true;
+is_ipv6($.) -> true;
+is_ipv6(Char) -> is_hex_digit(Char).
+
+
+-spec parse_ipv6_bin_end(binary(), uri_map()) -> {binary(), uri_map()}.
+parse_ipv6_bin_end(?STRING_REST($:, Rest), URI) ->
+    {T, URI1} = parse_port(Rest, URI),
+    {H, _} = split_binary(Rest, byte_size(Rest) - byte_size_exl_head(T)),
+    Port = binary_to_integer(H),
+    {Rest, URI1#{port => Port}};
+parse_ipv6_bin_end(?STRING_REST($/, Rest), URI) ->
+    {T, URI1} = parse_segment(Rest, URI),  % path-abempty
+    {Path, _} = split_binary(Rest, byte_size(Rest) - byte_size_exl_head(T)),
+    {Rest, URI1#{path => ?STRING_REST($/, Path)}};
+parse_ipv6_bin_end(?STRING_REST($?, Rest), URI) ->
+    {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
+    {Query, _} = split_binary(Rest, byte_size(Rest) - byte_size_exl_head(T)),
+    {Rest, URI1#{query => ?STRING_REST($?, Query)}};
+parse_ipv6_bin_end(?STRING_REST($#, Rest), URI) ->
+    {T, URI1} = parse_fragment(Rest, URI),  % path-empty
+    {Fragment, _} = split_binary(Rest, byte_size(Rest) - byte_size(T)),
+    {Rest, URI1#{fragment => Fragment}};
+parse_ipv6_bin_end(?STRING_REST(Char, Rest), URI) ->
+    case is_ipv6(Char) of
+        true -> parse_ipv6_bin_end(Rest, URI);
+        false -> throw(uri_parse_error)
+    end;
+parse_ipv6_bin_end(?STRING_EMPTY, URI) ->
+    {?STRING_EMPTY, URI}.
+
+-spec parse_ipv6_end(iolist(), list(), uri_map()) -> uri_map().
+parse_ipv6_end(?STRING(Str), Acc, URI) when is_list(Acc) ->
+    parse_ipv6_end(unicode:characters_to_list(Str), Acc, URI);
+parse_ipv6_end([H|Rest], Acc, URI) when is_binary(H) ->
+    parse_ipv6_end(unicode:characters_to_list(H, utf8) ++ Rest,
+               Acc, URI);
+parse_ipv6_end([H|Rest], Acc, URI) when is_list(H) ->
+    parse_ipv6_end(H ++ Rest, Acc, URI);
+parse_ipv6_end([$:|Rest], _Acc, URI) ->
+    parse_port(Rest, [], URI);
+parse_ipv6_end([$/|Rest], _Acc, URI) ->
+    parse_segment(Rest, [$/], URI);  % path-abempty
+parse_ipv6_end([$?|Rest], _Acc, URI) ->
+    parse_query(Rest, [$?], URI);  % path-empty ?query
+parse_ipv6_end([$#|Rest], _Acc, URI) ->
+    parse_fragment(Rest, [], URI);  % path-empty
+parse_ipv6_end([], _Acc, URI) ->
+    URI.
+
+
+-spec validate_ipv6_address(list()) -> list().
+validate_ipv6_address(Addr) ->
+    case inet:parse_ipv6strict_address(Addr) of
+        {ok, _} -> Addr;
+        {error, _} -> throw(uri_parse_error)
+    end.
 
 
 %%-------------------------------------------------------------------------
@@ -1106,8 +1322,20 @@ is_digit(C)
   when $0 =< C, C =< $9 -> true;
 is_digit(_) -> false.
 
+-spec is_hex_digit(char()) -> boolean().
+is_hex_digit(C)
+  when $0 =< C, C =< $9;$a =< C, C =< $f;$A =< C, C =< $F -> true;
+is_hex_digit(_) -> false.
+
 %% Returns the size of a binary exluding the first element.
 %% Used in calls to split_binary().
 -spec byte_size_exl_head(binary()) -> number().
 byte_size_exl_head(<<>>) -> 0;
 byte_size_exl_head(Binary) -> byte_size(Binary) + 1.
+
+% Remove brackets from binary
+-spec remove_brackets(binary()) -> binary().
+remove_brackets(?STRING_REST($[,Addr)) ->
+    A1 = binary:replace(Addr, <<$[>>, <<>>),
+    binary:replace(A1, <<$]>>, <<>>);
+remove_brackets(Addr) -> Addr.
