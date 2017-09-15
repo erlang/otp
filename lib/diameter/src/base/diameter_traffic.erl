@@ -679,7 +679,7 @@ resend(false,
     Route = #diameter_avp{data = {Dict0, 'Route-Record', OH}},
     Seq = diameter_session:sequence(Mask),
     Hdr = Hdr0#diameter_header{hop_by_hop_id = Seq},
-    Msg = [Hdr, Route | Avps],  %% reordered at encode
+    Msg = [Hdr | Avps ++ [Route]],
     case send_request(SvcName, App, Msg, Opts) of
         #diameter_packet{} = Ans ->
             Ans;
