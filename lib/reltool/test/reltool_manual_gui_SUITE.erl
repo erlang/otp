@@ -23,7 +23,7 @@
 	 init_per_suite/1, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 
--compile(export_all).
+-export([config/1, depgraphs/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include("reltool_test_lib.hrl").
