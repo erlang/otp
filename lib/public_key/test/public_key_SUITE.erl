@@ -102,6 +102,7 @@ init_per_testcase(TestCase, Config) ->
 	ssh_hostkey_fingerprint_sha384 -> init_fingerprint_testcase([sha384], Config);
 	ssh_hostkey_fingerprint_sha512 -> init_fingerprint_testcase([sha512], Config);
 	ssh_hostkey_fingerprint_list   -> init_fingerprint_testcase([sha,md5], Config);
+    ec_pem_encode_generated        -> init_ec_pem_encode_generated(Config);
 	_ -> init_common_per_testcase(Config)
     end.
 	
@@ -241,6 +242,12 @@ ec_pem2(Config) when is_list(Config) ->
     ECPemNoEndNewLines = strip_superfluous_newlines(ECPrivPem),
     ECPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([Entry1, Entry2])).
 
+
+init_ec_pem_encode_generated(Config) ->
+    case catch true = lists:member('secp384r1', crypto:ec_curves()) of
+        {'EXIT', _} -> {skip, {'secp384r1', not_supported}};
+        _           -> init_common_per_testcase(Config)
+    end.
 
 ec_pem_encode_generated() ->
     [{doc, "PEM-encode generated EC key"}].
