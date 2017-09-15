@@ -80,7 +80,10 @@ my %gen_opnum;
 my %num_specific;
 my %gen_to_spec;
 my %specific_op;
-my %group_size;                 # Group size for specific operators.
+
+# Information about each specific operator. Key is the print name (e.g. get_list_xxy).
+# Value is a hash.
+my %spec_op_info;
 
 my %gen_arity;
 my @gen_arity;
@@ -523,6 +526,37 @@ sub emulator_output {
     my $key;			# Loop variable.
 
     #
+    # Generate code and meta information for all instructions.
+    #
+    foreach $key (keys %specific_op) {
+	foreach (@{$specific_op{$key}}) {
+	    my($name, $hotness, @args) = @$_;
+	    my $sign = join('', @args);
+	    my $print_name = print_name($name, @args);
+
+	    my($size, $code, $pack_spec) = cg_basic($name, @args);
+	    if (defined $code) {
+                $code = "OpCase($print_name):\n$code";
+                push @generated_code, [$hotness,$code,($print_name)];
+	    }
+
+            # Note: Some of the information below will be modified
+            # for combined instructions.
+            my %info = ('size' => $size,
+                        'pack_spec' => $pack_spec,
+                        'adj' => 0,
+                        'args' => \@args);
+            $spec_op_info{$print_name} = \%info;
+	}
+    }
+
+    #
+    # Combine micro instruction into instruction blocks and generate
+    # code for them.
+    #
+    combine_micro_instructions();
+
+    #
     # Information about opcodes (beam_opcodes.c).
     #
     $name = "$outdir/beam_opcodes.c";
@@ -551,14 +585,9 @@ sub emulator_output {
     print "\n";
 
     #
-    # Combine micro instruction into instruction blocks.
-    #
-    combine_micro_instructions();
-
-    #
     # Generate code for specific ops.
     #
-    my($spec_opnum) = 0;
+    my $spec_opnum = 0;
     print "const OpEntry opc[] = {\n";
     foreach $key (sort keys %specific_op) {
 	$gen_to_spec{$key} = $spec_opnum;
@@ -576,35 +605,21 @@ sub emulator_output {
 
 	    # The primitive types should sort before other types.
 
-	    my($sort_key) = $sign;
+	    my $sort_key = $sign;
 	    eval "\$sort_key =~ tr/$genop_types/./";
 	    $sort_key .= ":$sign";
-	    $items{$sort_key} = [$name, $hot, $sign, @args];
+            my $print_name = print_name($name, @args);
+	    $items{$sort_key} = $print_name;
 	}
 
 	#
 	# Now call the generator for the sorted result.
 	#
-	foreach (sort keys %items) {
-	    my($name, $hot, $sign, @args) = @{$items{$_}};
+	foreach my $sort_key (sort keys %items) {
+            my $print_name = $items{$sort_key};
+            my $info = $spec_op_info{$print_name};
+            my(@args) = @{$info->{'args'}};
 	    my $arity = @args;
-	    my($instr) = "${name}_$sign";
-	    $instr =~ s/_$//;
-
-	    #
-	    # Call a generator to calculate size and generate macros
-	    # for the emulator.
-	    #
-	    my($size, $code, $pack) =
-                basic_generator($name, 1, '', 0, undef, @args);
-
-	    #
-	    # Save the generated $code for later.
-	    #
-	    if (defined $code) {
-                $code = "OpCase($instr):\n$code";
-                push @generated_code, [$hot,$code,($instr)];
-	    }
 
 	    #
 	    # Calculate the bit mask which should be used to match this
@@ -626,7 +641,6 @@ sub emulator_output {
 	    }
 
 	    printf "/* %3d */  ", $spec_opnum;
-	    my $print_name = $sign ne '' ? "${name}_$sign" : $name;
 	    my $init = "{";
 	    my $sep = "";
 	    foreach (@bits) {
@@ -634,12 +648,12 @@ sub emulator_output {
 		$sep = ",";
 	    }
 	    $init .= "}";
-            my $adj = 0;
-            if (defined $group_size{$print_name}) {
-                $adj = $size - $group_size{$print_name};
-            }
-	    init_item($print_name, $init, $involves_r, $size, $adj, $pack, $sign);
-	    $op_to_name[$spec_opnum] = $instr;
+            my $adj = $info->{'adj'};
+            my $size = $info->{'size'};
+            my $pack_spec = $info->{'pack_spec'};
+            my $sign = join '', @args;
+	    init_item($print_name, $init, $involves_r, $size, $adj, $pack_spec, $sign);
+	    $op_to_name[$spec_opnum] = $print_name;
 	    $spec_opnum++;
 	}
     }
@@ -833,6 +847,12 @@ sub emulator_output {
     open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
     comment('C');
     print_code(COLD);
+}
+
+sub print_name {
+    my($name,@args) = @_;
+    my $sign = join '', @args;
+    $sign ne '' ? "${name}_$sign" : $name;
 }
 
 sub init_item {
@@ -1108,8 +1128,9 @@ sub combine_instruction_group {
             my $offset = 0;
             my @rest = @args;
             my @new_subs;
-            my $opcase = $specific;
-            $opcase .= "_" . join '', @args if @args;
+            my $print_name = print_name($specific, @args);
+            my $opcase = $print_name;
+            my $last = $subs[$#subs];
             foreach my $s (@subs) {
                 my $code = $c_code{$s};
                 my(undef,undef,@c_args) = @{$code};
@@ -1117,7 +1138,7 @@ sub combine_instruction_group {
                 foreach (0..$#c_args) {
                     push @first, shift @rest;
                 }
-                my($size,undef) = basic_generator($s, 0, '', 0, undef, @first);
+                my $size = cg_combined_size($s, 1, @first);
                 $offsets{$s} = $offset
                     unless defined $offsets{$s} and $offsets{$s} >= $offset;
                 $offset += $size - 1;
@@ -1126,6 +1147,7 @@ sub combine_instruction_group {
                 push @new_subs, [$opcase,$label,$s,$size-1,@first];
                 $opcase = '';
             }
+            $spec_op_info{$print_name}->{'size'} = $offset + 1;
             $group_size = $offset if $group_size < $offset;
             push @instrs, [$specific_key,@new_subs];
         }
@@ -1162,6 +1184,8 @@ sub combine_instruction_group {
     # Now generate the code for the entire group.
     my $offset = 0;
     my @opcase_labels;
+    my %down;
+    my %up;
     for(my $i = 0; $i < @slots; $i++) {
         my $key = $slots[$i];
 
@@ -1182,11 +1206,11 @@ sub combine_instruction_group {
             my $seen_key = "$label:$next:" . scalar(@first);
             next if $opcase eq '' and $seen{$seen_key};
             $seen{$seen_key} = 1;
+            $seen_key .= $opcase;
 
             if ($opcase ne '') {
                 $gcode .= "OpCase($opcase):\n";
                 push @opcase_labels, $opcase;
-                $group_size{$opcase} = $group_size + 1;
             }
             if ($num_references{$label}) {
                 $gcode .= "$label:\n";
@@ -1204,12 +1228,40 @@ sub combine_instruction_group {
                 $transfer_to_next .= "goto $next;\n\n";
             }
 
-            my(undef,$gen_code) =
-                basic_generator($s, 0, $flags, $offset,
-                                $group_size-$offset-$dec, @first);
+            my($gen_code,$down,$up) =
+                cg_combined_code($s, 1, $flags, $offset,
+                                 $group_size-$offset-$dec, @first);
+            my $spec_label = "$opcase$label";
+            $down{$spec_label} = $down;
+            $up{$spec_label} = $up;
             $gcode .= $gen_code . $transfer_to_next;
         }
         $offset = $order_to_offset{$slots[$i+1]} if $i < $#slots;
+    }
+
+    foreach my $print_name (@opcase_labels) {
+        my $info = $spec_op_info{$print_name};
+        $info->{'adj'} = $info->{'size'} - $group_size - 1;
+    }
+
+    #
+    # Assemble pack specifications for all instructions in the group.
+    #
+    foreach my $instr (@instrs) {
+        my(undef,@subs) = @{$instr};
+        my $down = '';
+        my $up = '';
+        for (my $i = 0; $i < @subs; $i++) {
+            my($opcase,$label) = @{$subs[$i]};
+            my $spec_label = "$opcase$label";
+            if (defined $down{$spec_label}) {
+                $down = $down{$spec_label} . $down;
+                $up = $up . $up{$spec_label};
+            }
+        }
+        my $print_name = $subs[0]->[0];
+        my $info = $spec_op_info{$print_name};
+        $info->{'pack_spec'} = build_pack_spec("$down:$up");
     }
 
     ($group_hotness,"{\n$gcode\n}\n\n",@opcase_labels);
@@ -1223,12 +1275,42 @@ sub micro_label {
 
 
 #
-# Basic implementation of instruction in emulator loop
-# (assuming no packing).
+# Basic code generation for one instruction.
 #
 
-sub basic_generator {
-    my($name,$hot,$extra_comments,$offset,$group_size,@args) = @_;
+sub cg_basic {
+    my($name,@args) = @_;
+    my($size,$code,$pack_spec) = code_gen($name, 1, '', 0, undef, @args);
+    $pack_spec = build_pack_spec($pack_spec);
+    ($size,$code,$pack_spec);
+}
+
+#
+# Calculate size for a micro instruction.
+#
+
+sub cg_combined_size {
+    my($name,$pack,@args) = @_;
+    my($size) = code_gen($name, $pack, '', 0, undef, @args);
+    $size;
+}
+
+#
+# Generate code for a micro instruction.
+#
+
+sub cg_combined_code {
+    my($size,$code,$pack_spec) = code_gen(@_);
+    if ($pack_spec eq '') {
+        ($code,'','');
+    } else {
+        my($down,$up) = split /:/, $pack_spec;
+        ($code,$down,$up);
+    }
+}
+
+sub code_gen {
+    my($name,$pack,$extra_comments,$offset,$group_size,@args) = @_;
     my $size = 0;
     my $flags = '';
     my @f;
@@ -1242,8 +1324,8 @@ sub basic_generator {
     #
 
     my $c_code_ref = $c_code{$name};
-    if ($hot and defined $c_code_ref and $name ne 'catch') {
-        ($var_decls, $pack_spec, @args) = do_pack(@args);
+    if ($pack and defined $c_code_ref and $name ne 'catch') {
+        ($var_decls, $pack_spec, @args) = do_pack($offset, @args);
     }
 
     #
@@ -1519,7 +1601,7 @@ sub needs_do_wrapper {
 }
 
 sub do_pack {
-    my(@args) = @_;
+    my($offset,@args) = @_;
     my($packable_args) = 0;
     my @bits_needed;            # Bits needed for each argument.
 
@@ -1569,7 +1651,7 @@ sub do_pack {
     #
     # Nothing to pack unless there are at least 2 packable arguments.
     #
-    return ('', '', @args) if $packable_args < 2;
+    return ('', ':', @args) if $packable_args < 2;
 
     #
     # Determine how many arguments we should pack into each word.
@@ -1644,13 +1726,12 @@ sub do_pack {
 				# beginning).
     my $up = '';		# Pack commands (storing back while
 				# moving forward).
-    my $did_some_packing = 0;   # Nothing packed yet.
 
     # Skip an unpackable argument.
     my $skip_unpackable = sub {
         my($arg) = @_;
 
-        if ($arg_size{$arg} and $did_some_packing) {
+        if ($arg_size{$arg}) {
             # Save the argument on the pack engine's stack.
             my $push = 'g';
             if ($type_bit{$arg} & $type_bit{'q'}) {
@@ -1662,11 +1743,6 @@ sub do_pack {
             }
             $down = "$push${down}";
             $up = "${up}p";
-        } else {
-            # The argument has either zero size (e.g. r(0)),
-            # or is to the left of the first packed argument
-            # and will never be accessed. No need to do
-            # anything.
         }
     };
 
@@ -1700,11 +1776,10 @@ sub do_pack {
             my $this_size = $arg_size{$reg};
             if ($bits_needed[$arg_num]) {
                 $this_size = 0;
-                $did_some_packing = 1;
 
                 if ($ap == 0) {
                     $pack_prefix .= "Eterm $packed_var = " .
-                        arg_offset($size) . ";\n";
+                        arg_offset($size+$offset) . ";\n";
                     $up .= "p";
                     $down = "P$down";
                     $this_size = 1;
@@ -1731,7 +1806,7 @@ sub do_pack {
         $arg_num++;
     }
 
-    my $pack_spec = $down . $up;
+    my $pack_spec = "$down:$up";
     return ($pack_prefix, $pack_spec, @args);
 }
 
@@ -1742,6 +1817,17 @@ sub make_unpack {
     $e = "($e>>$shift)" if $shift;
     $e .= "&$mask" unless $mask eq $WHOLE_WORD;
     $e;
+}
+
+sub build_pack_spec {
+    my $pack_spec = shift;
+    return '' if $pack_spec eq '';
+    my($down,$up) = split /:/, $pack_spec;
+    while ($down =~ /[gfq]$/ and $up =~ /^p/) {
+        $down = substr($down, 0, -1);
+        $up = substr($up, 1);
+    }
+    "$down$up";
 }
 
 sub quote {
