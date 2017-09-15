@@ -166,16 +166,15 @@
 	for all calls where <c>Input</c> is <c>{first,
 	Data::binary()}</c> or <c>{continue, Data::binary(),
 	State::term()}</c>. When <c>Input</c> is <c>{last,
-	Data::binary(), State::term()}</c> the return value will be ignored.
+	Data::binary(), State::term()}</c> the return value will be ignored.</p>
 	<note><p>Note that if the body is
 	small all data may be delivered in only one chunk and then the
 	callback will be called with {last, Data::binary(), undefined}
 	without getting called with <c>{first,
-	Data::binary()}</c>.</p></note> The input <c>State</c> is
+	Data::binary()}</c>.</p></note><p>The input <c>State</c> is
 	the last returned <c>State</c>, in it the callback can include
 	any data that it needs to keep track of when handling the chunks.
 	</p>
-	<p></p>
       </desc>
    </func>
 
