@@ -440,6 +440,16 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
           <seealso marker="#binary_to_atom/2"><c>binary_to_atom/2</c></seealso>,
           but the atom must exist.</p>
         <p>Failure: <c>badarg</c> if the atom does not exist.</p>
+	<note>
+	  <p>Note that the compiler may optimize away atoms. For
+	  example, the compiler will rewrite
+	  <c>atom_to_list(some_atom)</c> to <c>"some_atom"</c>. If
+	  that expression is the only mention of the atom
+	  <c>some_atom</c> in the containing module, the atom will not
+	  be created when the module is loaded, and a subsequent call
+	  to <c>binary_to_existing_atom(&lt;&lt;"some_atom"&gt;&gt;, utf8)</c>
+	  will fail.</p>
+	</note>
       </desc>
     </func>
 
@@ -2621,6 +2631,15 @@ os_prompt%</pre>
           but only if there already exists such atom.</p>
         <p>Failure: <c>badarg</c> if there does not already exist an atom
           whose text representation is <c><anno>String</anno></c>.</p>
+	<note>
+	  <p>Note that the compiler may optimize away atoms. For
+	  example, the compiler will rewrite
+	  <c>atom_to_list(some_atom)</c> to <c>"some_atom"</c>. If
+	  that expression is the only mention of the atom
+	  <c>some_atom</c> in the containing module, the atom will not
+	  be created when the module is loaded, and a subsequent call
+	  to <c>list_to_existing_atom("some_atom")</c> will fail.</p>
+	</note>
       </desc>
     </func>
 
