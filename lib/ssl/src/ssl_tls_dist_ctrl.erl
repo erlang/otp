@@ -381,14 +381,16 @@ sock_send(SslSocket, Data) ->
             death_row({send_error, {Type, Reason}})
     end.
 
+-spec death_row() -> no_return().
 death_row() ->
     death_row(connection_closed).
 
-death_row(normal) ->
-    %% We do not want to exit with normal
-    %% exit reason since it wont bring down
-    %% linked processes...
-    death_row();
+-spec death_row(term()) -> no_return().
+%% death_row(normal) ->
+%%     %% We do not want to exit with normal
+%%     %% exit reason since it wont bring down
+%%     %% linked processes...
+%%     death_row();
 death_row(Reason) ->
     %% When the connection is on its way down operations
     %% begin to fail. We catch the failures and call
