@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2016</year>
+      <year>2000</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -347,6 +347,9 @@ represented by
       <item>Locally Used Functions (*). Functions of all modules that have
        been used in some local call.
       </item>
+      <tag><c>OL</c></tag>
+      <item>Functions with an attribute tag <c>on_load</c> (*).
+      </item>
       <tag><c>LC</c></tag>
       <item>Local Calls (*).</item>
       <tag><c>XC</c></tag>
@@ -393,6 +396,7 @@ facts about the
       <c>LU</c> and <c>XU</c> may have elements in common. Put in
        another way:</item>
       <item><c>V</c> is equal to <c>UU + XU + LU</c>.</item>
+      <item><c>OL</c> is a subset of <c>F</c>.</item>
       <item><c>E</c> is equal to <c>LC + XC</c>. Note that <c>LC</c>
        and <c>XC</c> may have elements in common, namely if some
        function is locally and externally used from one and the same
@@ -559,8 +563,10 @@ Two functions (modules,
       analyzing operators:
       </p>
     <list type="bulleted">
-      <item>Expression ::= Expression GraphOp Expression</item>
-      <item>GraphOp ::= <c>components</c> | <c>condensation</c> | <c>of</c></item>
+      <item>Expression ::= Expression BinaryGraphOp Expression</item>
+      <item>Expression ::= UnaryGraphOp Expression</item>
+      <item>UnaryGraphOp ::= <c>components</c> | <c>condensation</c></item>
+      <item>BinaryGraphOp ::= <c>of</c></item>
     </list>
     <p>As was mentioned before, the graph analyses operate on
       the <c>digraph</c> representation of graphs.

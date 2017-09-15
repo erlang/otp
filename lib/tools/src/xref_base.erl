@@ -400,7 +400,9 @@ analysis(locals_not_used, functions) ->
     %% used (indirectly) from any export: "(domain EE + range EE) * L".
     %% But then we only get locals that make some calls, so we add
     %% locals that are not used at all: "L * (UU + XU - LU)".
-    "L * ((UU + XU - LU) + domain EE + range EE)";
+    %% We also need to exclude functions with the -on_load() attribute:
+    %% (L - OL) is used rather than just L.
+    "(L - OL) * ((UU + XU - LU) + domain EE + range EE)";
 analysis(exports_not_used, _) ->
     %% Local calls are not considered here. "X * UU" would do otherwise.
     "X - XU";
@@ -918,7 +920,7 @@ do_add_module(S, XMod, Unres, Data) ->
     {ok, Ms, Bad, NS}.
 
 prepare_module(_Mode = functions, XMod, Unres0, Data) ->
-    {DefAt0, LPreCAt0, XPreCAt0, LC0, XC0, X0, Attrs, Depr} = Data,
+    {DefAt0, LPreCAt0, XPreCAt0, LC0, XC0, X0, Attrs, Depr, OL0} = Data,
     %% Bad is a list of bad values of 'xref' attributes.
     {ALC0,AXC0,Bad0} = Attrs,
     FT = [tspec(func)],
@@ -935,6 +937,7 @@ prepare_module(_Mode = functions, XMod, Unres0, Data) ->
     ALC1 = xref_utils:xset(ALC0, PCA),
     UnresCalls = xref_utils:xset(Unres0, PCA),
     Unres = domain(UnresCalls),
+    OL1 = xref_utils:xset(OL0, FT),
 
     DefinedFuns = domain(DefAt),
     {AXC, ALC, Bad1, LPreCAt2, XPreCAt2} =
@@ -955,7 +958,7 @@ prepare_module(_Mode = functions, XMod, Unres0, Data) ->
     {DF1,DF_11,DF_21,DF_31,DBad} = depr_mod(Depr, X),
     {EE, ECallAt} = inter_graph(X, L, LC, XC, CallAt),
     {ok, {functions, XMod, [DefAt,L,X,LCallAt,XCallAt,CallAt,LC,XC,EE,ECallAt,
-                            DF1,DF_11,DF_21,DF_31], NoCalls, Unres},
+                            OL1,DF1,DF_11,DF_21,DF_31], NoCalls, Unres},
      DBad++Bad};
 prepare_module(_Mode = modules, XMod, _Unres, Data) ->
     {X0, I0, Depr} = Data,
@@ -967,7 +970,7 @@ prepare_module(_Mode = modules, XMod, _Unres, Data) ->
 finish_module({functions, XMod, List, NoCalls, Unres}, S) ->
     ok  = check_module(XMod, S),
     [DefAt2,L2,X2,LCallAt2,XCallAt2,CallAt2,LC2,XC2,EE2,ECallAt2,
-     DF2,DF_12,DF_22,DF_32] = pack(List),
+     OL2,DF2,DF_12,DF_22,DF_32] = pack(List),
 
     LU = range(LC2),
 
@@ -976,7 +979,7 @@ finish_module({functions, XMod, List, NoCalls, Unres}, S) ->
     M = XMod#xref_mod.name,
     MS = xref_utils:xset(M, atom),
     T = from_sets({MS,DefAt2,L2,X2,LCallAt2,XCallAt2,CallAt2,
-		   LC2,XC2,LU,EE2,ECallAt2,Unres,LPredefined,
+		   LC2,XC2,LU,EE2,ECallAt2,Unres,LPredefined,OL2,
                    DF2,DF_12,DF_22,DF_32}),
 
     NoUnres = XMod#xref_mod.no_unresolved,
@@ -1220,7 +1223,7 @@ do_set_up(S, VerboseOpt) ->
 
 %% If data has been supplied using add_module/9 (and that is the only
 %% sanctioned way), then DefAt, L, X, LCallAt, XCallAt, CallAt, XC, LC,
-%% and LU are  guaranteed to be functions (with all supplied
+%% LU and OL are  guaranteed to be functions (with all supplied
 %% modules as domain (disregarding unknown modules, that is, modules
 %% not supplied but hosting unknown functions)).
 %% As a consequence, V and E are also functions. V is defined for unknown
@@ -1233,8 +1236,8 @@ do_set_up(S, VerboseOpt) ->
 do_set_up(S) when S#xref.mode =:= functions ->
     ModDictList = dict:to_list(S#xref.modules),
     [DefAt0, L, X0, LCallAt, XCallAt, CallAt, LC, XC, LU,
-     EE0, ECallAt, UC, LPredefined,
-     Mod_DF,Mod_DF_1,Mod_DF_2,Mod_DF_3] = make_families(ModDictList, 18),
+     EE0, ECallAt, UC, LPredefined, OL,
+     Mod_DF,Mod_DF_1,Mod_DF_2,Mod_DF_3] = make_families(ModDictList, 19),
 
     {XC_1, XU, XPredefined} = do_set_up_1(XC),
     LC_1 = user_family(union_of_family(LC)),
@@ -1314,13 +1317,14 @@ do_set_up(S) when S#xref.mode =:= functions ->
     UC_1 = user_family(union_of_family(UC)),
 
     ?FORMAT("DefAt ~p~n", [DefAt]),
-    ?FORMAT("U=~p~nLib=~p~nB=~p~nLU=~p~nXU=~p~nUU=~p~n", [U,Lib,B,LU,XU,UU]),
+    ?FORMAT("U=~p~nLib=~p~nB=~p~nLU=~p~nXU=~p~nUU=~p~nOL=~p~n",
+            [U,Lib,B,LU,XU,UU,OL]),
     ?FORMAT("E_1=~p~nLC_1=~p~nXC_1=~p~n", [E_1,LC_1,XC_1]),
     ?FORMAT("EE=~p~nEE_1=~p~nECallAt=~p~n", [EE, EE_1, ECallAt]),
     ?FORMAT("DF=~p~nDF_1=~p~nDF_2=~p~nDF_3=~p~n", [DF, DF_1, DF_2, DF_3]),
 
     Vs = [{'L',L}, {'X',X},{'F',F},{'U',U},{'B',B},{'UU',UU},
-	  {'XU',XU},{'LU',LU},{'V',V},{v,V},
+	  {'XU',XU},{'LU',LU},{'V',V},{v,V},{'OL',OL},
 	  {'LC',{LC,LC_1}},{'XC',{XC,XC_1}},{'E',{E,E_1}},{e,{E,E_1}},
 	  {'EE',{EE,EE_1}},{'UC',{UC,UC_1}},
 	  {'M',M},{'A',A},{'R',R},
@@ -1405,6 +1409,7 @@ var_type('U')    -> {function, vertex};
 var_type('UU')   -> {function, vertex};
 var_type('V')    -> {function, vertex};
 var_type('X')    -> {function, vertex};
+var_type('OL')   -> {function, vertex};
 var_type('XU')   -> {function, vertex};
 var_type('DF')   -> {function, vertex};
 var_type('DF_1') -> {function, vertex};

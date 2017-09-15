@@ -51,7 +51,7 @@
 -export([analyze/1, basic/1, md/1, q/1, variables/1, unused_locals/1]).
 
 -export([format_error/1, otp_7423/1, otp_7831/1, otp_10192/1, otp_13708/1,
-         otp_14464/1]).
+         otp_14464/1, otp_14344/1]).
 
 -import(lists, [append/2, flatten/1, keysearch/3, member/2, sort/1, usort/1]).
 
@@ -85,7 +85,7 @@ groups() ->
 
       [analyze, basic, md, q, variables, unused_locals]},
      {misc, [], [format_error, otp_7423, otp_7831, otp_10192, otp_13708,
-                 otp_14464]}].
+                 otp_14464, otp_14344]}].
 
 
 init_per_suite(Conf) when is_list(Conf) ->
@@ -2441,6 +2441,30 @@ otp_14464(Conf) when is_list(Conf) ->
     ok = file:delete(File1),
     ok = file:delete(Beam1).
 
+%% OTP-14344. -on_load() attribute.
+otp_14344(Conf) when is_list(Conf) ->
+    Dir = ?copydir,
+
+    File1 = fname(Dir, "a.erl"),
+    MFile1 = fname(Dir, "a"),
+    Beam1 = fname(Dir, "a.beam"),
+    Test1 = <<"-module(a).
+               -on_load(doit/0).
+               doit() -> ok.
+              ">>,
+    ok = file:write_file(File1, Test1),
+    {ok, a} = compile:file(File1, [debug_info,{outdir,Dir}]),
+
+    {ok, _} = xref:start(s),
+    {ok, a} = xref:add_module(s, MFile1),
+
+    {ok, [{a,doit,0}]} = xref:q(s, "OL"),
+    {ok, []} = xref:analyze(s, locals_not_used),
+
+    xref:stop(s),
+    ok = file:delete(File1),
+    ok = file:delete(Beam1).
+
 %%%
 %%% Utilities
 %%%
@@ -2515,7 +2539,8 @@ add_module(S, XMod, DefAt, X, LCallAt, XCallAt, XC, LC) ->
     Depr0 = {[], [], [], []},
     DBad = [],
     Depr = {Depr0,DBad},
-    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, Attr, Depr},
+    OL = [],
+    Data = {DefAt, LCallAt, XCallAt, LC, XC, X, Attr, Depr, OL},
     Unres = [],
     {ok, _Module, _Bad, State} =
     xref_base:do_add_module(S, XMod, Unres, Data),
@@ -2595,6 +2620,9 @@ functions_mode_check(S, Info) ->
 
     %% UU subset F
     {ok, []} = xref:q(S, "UU - F"),
+
+    %% OL subset F
+    {ok, []} = xref:q(S, "OL - F"),
 
     %% ME = (Mod) E
     {ok, ME} = xref:q(S, "ME"),
