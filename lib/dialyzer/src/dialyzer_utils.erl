@@ -244,9 +244,12 @@ process_record_remote_types(CServer) ->
                 {record, Name} ->
                   FieldFun =
                     fun({Arity, Fields}, C4) ->
-                        Site = {record, {Module, Name, Arity}},
+                        MRA = {Module, Name, Arity},
+                        Site = {record, MRA},
                         {Fields1, C7} =
                           lists:mapfoldl(fun({FieldName, Field, _}, C5) ->
+                                             check_remote(Field, ExpTypes,
+                                                          MRA, RecordTable),
                                              {FieldT, C6} =
                                                erl_types:t_from_form
                                                  (Field, ExpTypes, Site,
@@ -260,18 +263,12 @@ process_record_remote_types(CServer) ->
                   {FieldsList, C3} =
                     lists:mapfoldl(FieldFun, C2, orddict:to_list(Fields)),
                   {{Key, {FileLine, orddict:from_list(FieldsList)}}, C3};
-                {type, Name, NArgs} ->
+                {_TypeOrOpaque, Name, NArgs} ->
                   %% Make sure warnings about unknown types are output
                   %% also for types unused by specs.
-                  Site = {type, {Module, Name, NArgs}},
-                  L = erl_anno:new(0),
-                  Args = lists:duplicate(NArgs, {var, L, '_'}),
-                  UserType = {user_type, L, Name, Args},
-                  {_NewType, C3} =
-                    erl_types:t_from_form(UserType, ExpTypes, Site,
-                                          RecordTable, VarTable, C2),
-                  {{Key, Value}, C3};
-                {opaque, _Name, _NArgs} ->
+                  MTA = {Module, Name, NArgs},
+                  {{_Module, _FileLine, Form, _ArgNames}, _Type} = Value,
+                  check_remote(Form, ExpTypes, MTA, RecordTable),
                   {{Key, Value}, C2}
               end
           end,
@@ -371,6 +368,9 @@ msg_with_position(Fun, FileLine) ->
       NewMsg = io_lib:format("~ts:~p: ~ts", [BaseName, Line, Msg]),
       throw({error, NewMsg})
   end.
+
+check_remote(Form, ExpTypes, What, RecordTable) ->
+  erl_types:t_from_form_check_remote(Form, ExpTypes, What, RecordTable).
 
 -spec merge_types(codeserver(), dialyzer_plt:plt()) -> codeserver().
 
