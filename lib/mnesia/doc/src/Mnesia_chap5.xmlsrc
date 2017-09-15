@@ -226,8 +226,10 @@
         not known beforehand, all fragments are searched for
         matching records.</p>
       <p>Notice that in <c>ordered_set</c> tables, the records
-        are ordered per fragment, and the the order is undefined in
-        results returned by <c>select</c> and <c>match_object</c>.</p>
+        are ordered per fragment, and the order is undefined in
+        results returned by <c>select</c> and <c>match_object</c>,
+        as well as <c>first</c>, <c>next</c>, <c>prev</c> and
+        <c>last</c>.</p>
       <p>The following code illustrates how a <c>Mnesia</c> table is
         converted to be a fragmented table and how more fragments
         are added later:</p>
