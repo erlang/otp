@@ -52,11 +52,13 @@
 #  define CountCase(OpCode) case op_count_##OpCode
 #  define IsOpCode(InstrWord, OpCode)  (BeamCodeAddr(InstrWord) == (BeamInstr)op_##OpCode)
 #  define Goto(Rel)         {Go = BeamCodeAddr(Rel); goto emulator_loop;}
+#  define GotoPF(Rel)       Goto(Rel)
 #else
 #  define OpCase(OpCode)    lb_##OpCode
 #  define CountCase(OpCode) lb_count_##OpCode
 #  define IsOpCode(InstrWord, OpCode)  (BeamCodeAddr(InstrWord) == (BeamInstr)&&lb_##OpCode)
 #  define Goto(Rel)         goto *((void *)BeamCodeAddr(Rel))
+#  define GotoPF(Rel)       goto *((void *)Rel)
 #  define LabelAddr(Label)  &&Label
 #endif
 
