@@ -28,10 +28,23 @@
 
 -module(mnesia_evil_backup).
 -author('dgud@erix.ericsson.se').
--compile(export_all).
 -include("mnesia_test_lib.hrl").
 
-%%-export([Function/Arity, ...]).
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+-export([backup/1, bad_backup/1, global_backup_checkpoint/1,
+         traverse_backup/1,
+         selective_backup_checkpoint/1,
+         incremental_backup_checkpoint/1, install_fallback/1,
+         uninstall_fallback/1, local_fallback/1,
+         sops_with_checkpoint/1,
+         restore_errors/1, restore_clear/1, restore_keep/1,
+         restore_recreate/1, restore_clear_ram/1
+        ]).
+
+-export([check_tab/2]).
 
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).

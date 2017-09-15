@@ -21,8 +21,36 @@
 %%
 -module(mnesia_dirty_access_test).
 -author('hakan@erix.ericsson.se').
--compile([export_all]).
 -include("mnesia_test_lib.hrl").
+
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+-export([dirty_write_ram/1, dirty_write_disc/1, dirty_write_disc_only/1, dirty_write_xets/1,
+         dirty_read_ram/1, dirty_read_disc/1, dirty_read_disc_only/1, dirty_read_xets/1,
+         dirty_update_counter_ram/1, dirty_update_counter_disc/1,
+         dirty_update_counter_disc_only/1, dirty_update_counter_xets/1,
+         dirty_delete_ram/1, dirty_delete_disc/1, dirty_delete_disc_only/1, dirty_delete_xets/1,
+         dirty_delete_object_ram/1, dirty_delete_object_disc/1,
+         dirty_delete_object_disc_only/1, dirty_delete_object_xets/1,
+         dirty_match_object_ram/1, dirty_match_object_disc/1,
+         dirty_match_object_disc_only/1, dirty_match_object_xets/1,
+         dirty_index_match_object_ram/1, dirty_index_match_object_disc/1,
+         dirty_index_match_object_disc_only/1, dirty_index_match_object_xets/1,
+         dirty_index_read_ram/1, dirty_index_read_disc/1,
+         dirty_index_read_disc_only/1, dirty_index_read_xets/1,
+         dirty_index_update_set_ram/1,  dirty_index_update_set_disc/1,
+         dirty_index_update_set_disc_only/1,  dirty_index_update_set_xets/1,
+         dirty_index_update_bag_ram/1, dirty_index_update_bag_disc/1,
+         dirty_index_update_bag_disc_only/1, dirty_index_update_bag_xets/1,
+         dirty_iter_ram/1, dirty_iter_disc/1, dirty_iter_disc_only/1,dirty_iter_xets/1,
+         del_table_copy_1/1, del_table_copy_2/1, del_table_copy_3/1,
+         add_table_copy_1/1, add_table_copy_2/1, add_table_copy_3/1,
+         add_table_copy_4/1, move_table_copy_1/1, move_table_copy_2/1,
+         move_table_copy_3/1, move_table_copy_4/1]).
+
+-export([update_trans/3]).
 
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).

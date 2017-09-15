@@ -21,8 +21,13 @@
 %%
 -module(mnesia_install_test).
 -author('hakan@erix.ericsson.se').
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
 
--compile([export_all]).
+-export([silly_durability/1, silly_move/1, silly_upgrade/1, conflict/1, dist/1,
+         silly/0, silly2/1]).
+
 -include("mnesia_test_lib.hrl").
 
 init_per_testcase(Func, Conf) ->

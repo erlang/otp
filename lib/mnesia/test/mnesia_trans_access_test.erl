@@ -21,7 +21,28 @@
 %%
 -module(mnesia_trans_access_test).
 -author('hakan@erix.ericsson.se').
--compile([export_all]).
+
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+-export([write/1, read/1, wread/1, delete/1, delete_object/1,
+         match_object/1, select/1, select14/1, all_keys/1, transaction/1,
+         basic_nested/1, mix_of_nested_activities/1,
+         nested_trans_both_ok/1, nested_trans_child_dies/1,
+         nested_trans_parent_dies/1, nested_trans_both_dies/1,
+         index_match_object/1, index_read/1,index_write/1,
+         index_update_set/1, index_update_bag/1,
+         add_table_index_ram/1, add_table_index_disc/1,
+         add_table_index_disc_only/1, create_live_table_index_ram/1,
+         create_live_table_index_disc/1,
+         create_live_table_index_disc_only/1, del_table_index_ram/1,
+         del_table_index_disc/1, del_table_index_disc_only/1,
+         idx_schema_changes_ram/1, idx_schema_changes_disc/1,
+         idx_schema_changes_disc_only/1]).
+
+-export([do_nested/1]).
+
 -include("mnesia_test_lib.hrl").
 
 init_per_testcase(Func, Conf) ->
