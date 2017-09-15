@@ -59,7 +59,6 @@ my %dirty_bif_tab;
 
 my @bif;
 my @bif_info;
-my $dirty_schedulers = 'no';
 my $dirty_schedulers_test = 'no';
 my $hipe = 'no';
 
@@ -73,10 +72,6 @@ while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
 	$include = shift;
 	die "No directory for -include argument specified"
 	    unless defined $include;
-    } elsif($opt eq '-ds') {
-	$dirty_schedulers = shift;
-	die "No -ds argument specified"
-	    unless defined $dirty_schedulers;
     } elsif($opt eq '-dst') {
 	$dirty_schedulers_test = shift;
 	die "No -dst argument specified"
@@ -140,21 +135,19 @@ while (<>) {
 	push(@bif_info, [$type, $sched_type, $alias3, $alias]);
     } elsif ($type eq 'dirty-cpu' or $type eq 'dirty-io'
 	     or $type eq 'dirty-cpu-test' or $type eq 'dirty-io-test') {
-	if ($dirty_schedulers eq 'yes') {
-	    my($bif,$other) = (@args);
-	    $bif =~ m@^([a-z_.'0-9]+):(.*)/(\d)$@ or error("invalid BIF");
-	    my($mod,$name,$arity) = ($1,$2,$3);
-	    my $mfa = "$mod:$name/$arity";
-	    if (($type eq 'dirty-cpu')
-		or (($dirty_schedulers_test eq 'yes')
-		    and ($type eq 'dirty-cpu-test'))) {
-		$dirty_bif_tab{$mfa} = 'dirty_cpu';
-	    } elsif (($type eq 'dirty-io')
-		or (($dirty_schedulers_test eq 'yes')
-		    and ($type eq 'dirty-io-test'))) {
-		$dirty_bif_tab{$mfa} = 'dirty_io';
-	    }
-	}
+        my($bif,$other) = (@args);
+        $bif =~ m@^([a-z_.'0-9]+):(.*)/(\d)$@ or error("invalid BIF");
+        my($mod,$name,$arity) = ($1,$2,$3);
+        my $mfa = "$mod:$name/$arity";
+        if (($type eq 'dirty-cpu')
+            or (($dirty_schedulers_test eq 'yes')
+                and ($type eq 'dirty-cpu-test'))) {
+            $dirty_bif_tab{$mfa} = 'dirty_cpu';
+        } elsif (($type eq 'dirty-io')
+                 or (($dirty_schedulers_test eq 'yes')
+                     and ($type eq 'dirty-io-test'))) {
+            $dirty_bif_tab{$mfa} = 'dirty_io';
+        }
     } else {
 	error("invalid line");
     }

@@ -110,16 +110,12 @@ extern int erts_sched_compact_load;
 extern int erts_sched_balance_util;
 extern Uint erts_no_schedulers;
 extern Uint erts_no_total_schedulers;
-#ifdef ERTS_DIRTY_SCHEDULERS
 extern Uint erts_no_dirty_cpu_schedulers;
 extern Uint erts_no_dirty_io_schedulers;
-#endif
 extern Uint erts_no_run_queues;
 extern int erts_sched_thread_suggested_stack_size;
-#ifdef ERTS_DIRTY_SCHEDULERS
 extern int erts_dcpu_sched_thread_suggested_stack_size;
 extern int erts_dio_sched_thread_suggested_stack_size;
-#endif
 #define ERTS_SCHED_THREAD_MIN_STACK_SIZE 20	/* Kilo words */
 #define ERTS_SCHED_THREAD_MAX_STACK_SIZE 8192	/* Kilo words */
 
@@ -362,12 +358,10 @@ typedef enum {
 
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 typedef struct {
     erts_spinlock_t lock;
     ErtsSchedulerSleepInfo *list;
 } ErtsSchedulerSleepList;
-#endif
 
 struct ErtsSchedulerSleepInfo_ {
     ErtsSchedulerSleepInfo *next;
@@ -477,9 +471,7 @@ struct ErtsRunQueue_ {
     erts_mtx_t mtx;
     erts_cnd_t cnd;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     ErtsSchedulerSleepList sleepers;
-#endif
 
     ErtsSchedulerData *scheduler;
     int waiting; /* < 0 in sys schedule; > 0 on cnd variable */
@@ -616,13 +608,11 @@ typedef struct {
     (&(ESDP)->aux_work_data.yield.NAME)
 void erts_notify_new_aux_yield_work(ErtsSchedulerData *esdp);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 typedef enum {
     ERTS_DIRTY_CPU_SCHEDULER,
     ERTS_DIRTY_IO_SCHEDULER
 } ErtsDirtySchedulerType;
 
-#endif
 
 struct ErtsSchedulerData_ {
     /*
@@ -645,10 +635,8 @@ struct ErtsSchedulerData_ {
     Process *current_process;
     ErtsSchedType type;
     Uint no;			/* Scheduler number for normal schedulers */
-#ifdef ERTS_DIRTY_SCHEDULERS
     Uint dirty_no;  /* Scheduler number for dirty schedulers */
     Process *dirty_shadow_process;
-#endif
     Port *current_port;
     ErtsRunQueue *run_queue;
     int virtual_reds;
@@ -687,10 +675,8 @@ typedef union {
 } ErtsAlignedSchedulerData;
 
 extern ErtsAlignedSchedulerData *erts_aligned_scheduler_data;
-#ifdef ERTS_DIRTY_SCHEDULERS
 extern ErtsAlignedSchedulerData *erts_aligned_dirty_cpu_scheduler_data;
 extern ErtsAlignedSchedulerData *erts_aligned_dirty_io_scheduler_data;
-#endif
 
 
 #if defined(ERTS_ENABLE_LOCK_CHECK)
@@ -1058,14 +1044,10 @@ struct process {
     Uint64 bin_old_vheap;	/* Virtual old heap size for binaries */
 
     ErtsProcSysTaskQs *sys_task_qs;
-#ifdef ERTS_DIRTY_SCHEDULERS
     ErtsProcSysTask *dirty_sys_tasks;
-#endif
 
     erts_atomic32_t state;  /* Process state flags (see ERTS_PSFLG_*) */
-#ifdef ERTS_DIRTY_SCHEDULERS
     erts_atomic32_t dirty_state; /* Process dirty state flags (see ERTS_PDSFLG_*) */
-#endif
 
     ErlMessageInQueue msg_inq;
     ErlTraceMessageQueue *trace_msg_q;
@@ -1222,7 +1204,6 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLGS_GET_PRQ_PRIO(PSFLGS) \
     (((PSFLGS) >> ERTS_PSFLGS_PRQ_PRIO_OFFSET) & ERTS_PSFLGS_PRIO_MASK)
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 
 /*
  * Flags in the dirty_state field.
@@ -1249,7 +1230,6 @@ void erts_check_for_holes(Process* p);
 					 | ERTS_PDSFLG_IN_CPU_PRQ_HIGH	\
 					 | ERTS_PDSFLG_IN_CPU_PRQ_NORMAL\
 					 | ERTS_PDSFLG_IN_CPU_PRQ_LOW)
-#endif
 
 
 /*
@@ -1514,20 +1494,14 @@ extern int erts_system_profile_ts_type;
 	}						\
     } while (0)
 
-#if defined(ERTS_DIRTY_SCHEDULERS)
 #define ERTS_NUM_DIRTY_CPU_RUNQS 1
 #define ERTS_NUM_DIRTY_IO_RUNQS 1
-#else
-#define ERTS_NUM_DIRTY_CPU_RUNQS 0
-#define ERTS_NUM_DIRTY_IO_RUNQS 0
-#endif
 
 #define ERTS_NUM_DIRTY_RUNQS (ERTS_NUM_DIRTY_CPU_RUNQS+ERTS_NUM_DIRTY_IO_RUNQS)
 
 #define ERTS_RUNQ_IX(IX)						\
   (ASSERT(0 <= (IX) && (IX) < erts_no_run_queues+ERTS_NUM_DIRTY_RUNQS), \
    &erts_aligned_run_queues[(IX)].runq)
-#ifdef ERTS_DIRTY_SCHEDULERS
 #define ERTS_RUNQ_IX_IS_DIRTY(IX)					\
   (ASSERT(0 <= (IX) && (IX) < erts_no_run_queues+ERTS_NUM_DIRTY_RUNQS), \
    (erts_no_run_queues <= (IX)))
@@ -1538,13 +1512,9 @@ extern int erts_system_profile_ts_type;
 #define ERTS_DIRTY_IO_RUNQ  (&erts_aligned_run_queues[erts_no_run_queues+1].runq)
 #define ERTS_RUNQ_IS_DIRTY_CPU_RUNQ(RQ) ((RQ) == ERTS_DIRTY_CPU_RUNQ)
 #define ERTS_RUNQ_IS_DIRTY_IO_RUNQ(RQ) ((RQ) == ERTS_DIRTY_IO_RUNQ)
-#else
-#define ERTS_RUNQ_IX_IS_DIRTY(IX) 0
-#endif
 #define ERTS_SCHEDULER_IX(IX)						\
   (ASSERT(0 <= (IX) && (IX) < erts_no_schedulers),			\
    &erts_aligned_scheduler_data[(IX)].esd)
-#ifdef ERTS_DIRTY_SCHEDULERS
 #define ERTS_DIRTY_CPU_SCHEDULER_IX(IX)					\
   (ASSERT(0 <= (IX) && (IX) < erts_no_dirty_cpu_schedulers),		\
    &erts_aligned_dirty_cpu_scheduler_data[(IX)].esd)
@@ -1557,24 +1527,14 @@ extern int erts_system_profile_ts_type;
     ((ESDP)->type == ERTS_SCHED_DIRTY_CPU)
 #define ERTS_SCHEDULER_IS_DIRTY_IO(ESDP)				\
     ((ESDP)->type == ERTS_SCHED_DIRTY_IO)
-#else /* !ERTS_DIRTY_SCHEDULERS */
-#define ERTS_RUNQ_IX_IS_DIRTY(IX) 0
-#define ERTS_SCHEDULER_IS_DIRTY(ESDP) 0
-#define ERTS_SCHEDULER_IS_DIRTY_CPU(ESDP) 0
-#define ERTS_SCHEDULER_IS_DIRTY_IO(ESDP) 0
-#endif
 
 void erts_pre_init_process(void);
 void erts_late_init_process(void);
 void erts_early_init_scheduling(int);
 void erts_init_scheduling(int, int
-#ifdef ERTS_DIRTY_SCHEDULERS
 			  , int, int, int
-#endif
 			  );
-#ifdef ERTS_DIRTY_SCHEDULERS
 void erts_execute_dirty_system_task(Process *c_p);
-#endif
 int erts_set_gc_state(Process *c_p, int enable);
 Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable,
                                    int dirty_cpu, int want_dirty_io);
@@ -2242,7 +2202,6 @@ ErtsSchedulerData *erts_proc_sched_data(Process *c_p)
     ErtsSchedulerData *esdp;
     ASSERT(c_p);
     esdp = c_p->scheduler_data;
-#  if defined(ERTS_DIRTY_SCHEDULERS)
     if (esdp) {
 	ASSERT(esdp == erts_get_scheduler_data());
 	ASSERT(!ERTS_SCHEDULER_IS_DIRTY(esdp));
@@ -2252,7 +2211,6 @@ ErtsSchedulerData *erts_proc_sched_data(Process *c_p)
 	ASSERT(esdp);
 	ASSERT(ERTS_SCHEDULER_IS_DIRTY(esdp));
     }
-#  endif
     ASSERT(esdp);
     return esdp;
 }
@@ -2284,11 +2242,9 @@ ERTS_GLB_INLINE
 Uint erts_get_scheduler_id(void)
 {
     ErtsSchedulerData *esdp = erts_get_scheduler_data();
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (esdp && ERTS_SCHEDULER_IS_DIRTY(esdp))
 	return 0;
     else
-#endif
 	return esdp ? esdp->no : (Uint) 0;
 }
 

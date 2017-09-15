@@ -180,11 +180,9 @@ int erts_compat_rel;
 
 static int no_schedulers;
 static int no_schedulers_online;
-#ifdef ERTS_DIRTY_SCHEDULERS
 static int no_dirty_cpu_schedulers;
 static int no_dirty_cpu_schedulers_online;
 static int no_dirty_io_schedulers;
-#endif
 
 #ifdef DEBUG
 Uint32 verbose;             /* See erl_debug.h for information about verbose */
@@ -313,11 +311,9 @@ erl_init(int ncpu,
     erts_init_process(ncpu, proc_tab_sz, legacy_proc_tab);
     erts_init_scheduling(no_schedulers,
 			 no_schedulers_online
-#ifdef ERTS_DIRTY_SCHEDULERS
 			 , no_dirty_cpu_schedulers,
 			 no_dirty_cpu_schedulers_online,
 			 no_dirty_io_schedulers
-#endif
 			 );
     erts_late_init_time_sup();
     erts_init_cpu_topology(); /* Must be after init_scheduling */
@@ -609,7 +605,6 @@ void erts_usage(void)
 		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
 		 ERTS_SCHED_THREAD_MAX_STACK_SIZE,
                  ERTS_DEFAULT_SCHED_STACK_SIZE);
-#ifdef ERTS_DIRTY_SCHEDULERS
     erts_fprintf(stderr, "-sssdcpu size  suggested stack size in kilo words for dirty CPU scheduler\n");
     erts_fprintf(stderr, "               threads, valid range is [%d-%d] (default %d)\n",
 		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
@@ -620,7 +615,6 @@ void erts_usage(void)
 		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
 		 ERTS_SCHED_THREAD_MAX_STACK_SIZE,
                  ERTS_DEFAULT_DIO_SCHED_STACK_SIZE);
-#endif
     erts_fprintf(stderr, "-spp Bool      set port parallelism scheduling hint\n");
     erts_fprintf(stderr, "-S n1:n2       set number of schedulers (n1), and number of\n");
     erts_fprintf(stderr, "               schedulers online (n2), maximum for both\n");
@@ -629,7 +623,6 @@ void erts_usage(void)
     erts_fprintf(stderr, "-SP p1:p2      specify schedulers (p1) and schedulers online (p2)\n");
     erts_fprintf(stderr, "               as percentages of logical processors configured and logical\n");
     erts_fprintf(stderr, "               processors available, respectively\n");
-#ifdef ERTS_DIRTY_SCHEDULERS
     erts_fprintf(stderr, "-SDcpu n1:n2   set number of dirty CPU schedulers (n1), and number of\n");
     erts_fprintf(stderr, "               dirty CPU schedulers online (n2), valid range for both\n");
     erts_fprintf(stderr, "               numbers is [1-%d], and n2 must be less than or equal to n1\n",
@@ -639,7 +632,6 @@ void erts_usage(void)
     erts_fprintf(stderr, "               and logical processors available, respectively\n");
     erts_fprintf(stderr, "-SDio n        set number of dirty I/O schedulers, valid range is [0-%d]\n",
 		 ERTS_MAX_NO_OF_DIRTY_IO_SCHEDULERS);
-#endif
     erts_fprintf(stderr, "-t size        set the maximum number of atoms the emulator can handle\n");
     erts_fprintf(stderr, "               valid range is [%d-%d]\n",
 		 MIN_ATOM_TABLE_SIZE, MAX_ATOM_TABLE_SIZE);
@@ -725,13 +717,11 @@ early_init(int *argc, char **argv) /*
     int schdlrs_percentage = 100;
     int schdlrs_onln_percentage = 100;
     int max_main_threads;
-#ifdef ERTS_DIRTY_SCHEDULERS
     int dirty_cpu_scheds;
     int dirty_cpu_scheds_online;
     int dirty_cpu_scheds_pctg = 100;
     int dirty_cpu_scheds_onln_pctg = 100;
     int dirty_io_scheds;
-#endif
     int max_reader_groups;
     int reader_groups;
     char envbuf[21]; /* enough for any 64-bit integer */
@@ -794,11 +784,9 @@ early_init(int *argc, char **argv) /*
     schdlrs = no_schedulers;
     schdlrs_onln = no_schedulers_online;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     dirty_cpu_scheds = no_schedulers;
     dirty_cpu_scheds_online = no_schedulers_online;
     dirty_io_scheds = 10;
-#endif
 
     envbufsz = sizeof(envbuf);
 
@@ -891,7 +879,6 @@ early_init(int *argc, char **argv) /*
                                 ("using %d:%d scheduler percentages\n",
                                  schdlrs_percentage, schdlrs_onln_percentage));
                     }
-#ifdef ERTS_DIRTY_SCHEDULERS
 		    else if (argv[i][2] == 'D') {
 			char *arg;
 			char *type = argv[i]+3;
@@ -1003,7 +990,6 @@ early_init(int *argc, char **argv) /*
 			    break;
 			}
 		    }
-#endif
 		    else {
 			int tot, onln;
 			char *arg = get_arg(argv[i]+2, argv[i+1], &i);
@@ -1085,7 +1071,6 @@ early_init(int *argc, char **argv) /*
 		erts_usage();
 	    }
 	}
-#ifdef ERTS_DIRTY_SCHEDULERS
 	/* apply any dirty scheduler precentages */
 	if (dirty_cpu_scheds_pctg != 100 || dirty_cpu_scheds_onln_pctg != 100) {
 	    dirty_cpu_scheds = dirty_cpu_scheds * dirty_cpu_scheds_pctg / 100;
@@ -1099,7 +1084,6 @@ early_init(int *argc, char **argv) /*
 	    dirty_cpu_scheds_online = schdlrs_onln;
 	if (dirty_cpu_scheds_online < 1)
 	    dirty_cpu_scheds_online = 1;
-#endif
     }
 
 
@@ -1107,11 +1091,9 @@ early_init(int *argc, char **argv) /*
     no_schedulers_online = schdlrs_onln;
 
     erts_no_schedulers = (Uint) no_schedulers;
-#ifdef ERTS_DIRTY_SCHEDULERS
     erts_no_dirty_cpu_schedulers = no_dirty_cpu_schedulers = dirty_cpu_scheds;
     no_dirty_cpu_schedulers_online = dirty_cpu_scheds_online;
     erts_no_dirty_io_schedulers = no_dirty_io_schedulers = dirty_io_scheds;
-#endif
     erts_early_init_scheduling(no_schedulers);
 
     alloc_opts.ncpu = ncpu;
@@ -1132,13 +1114,9 @@ early_init(int *argc, char **argv) /*
      */
     erts_thr_progress_init(no_schedulers,
 			   no_schedulers+2,
-#ifndef ERTS_DIRTY_SCHEDULERS
-			   erts_async_max_threads
-#else
 			   erts_async_max_threads +
 			   erts_no_dirty_cpu_schedulers +
 			   erts_no_dirty_io_schedulers
-#endif
 			   );
     erts_thr_q_init();
     erts_init_utils();
@@ -1237,10 +1215,8 @@ erl_start(int argc, char **argv)
      * a lot of stack.
      */
     erts_sched_thread_suggested_stack_size = ERTS_DEFAULT_SCHED_STACK_SIZE;
-#ifdef ERTS_DIRTY_SCHEDULERS
     erts_dcpu_sched_thread_suggested_stack_size = ERTS_DEFAULT_DCPU_SCHED_STACK_SIZE;
     erts_dio_sched_thread_suggested_stack_size = ERTS_DEFAULT_DIO_SCHED_STACK_SIZE;
-#endif
 
 #ifdef DEBUG
     verbose = DEBUG_DEFAULT;
@@ -1855,7 +1831,6 @@ erl_start(int argc, char **argv)
 		VERBOSE(DEBUG_SYSTEM,
 			("scheduler wakeup threshold: %s\n", arg));
 	    }
-#ifdef ERTS_DIRTY_SCHEDULERS
 	    else if (has_prefix("ssdcpu", sub_param)) {
 		/* suggested stack size (Kilo Words) for dirty CPU scheduler threads */
 		arg = get_arg(sub_param+6, argv[i+1], &i);
@@ -1890,7 +1865,6 @@ erl_start(int argc, char **argv)
 			("suggested dirty IO scheduler thread stack size %d kilo words\n",
 			 erts_dio_sched_thread_suggested_stack_size));
 	    }
-#endif
 	    else if (has_prefix("ss", sub_param)) {
 		/* suggested stack size (Kilo Words) for scheduler threads */
 		arg = get_arg(sub_param+2, argv[i+1], &i);
@@ -2205,12 +2179,10 @@ erl_start(int argc, char **argv)
 
     if (erts_sched_thread_suggested_stack_size < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
         erts_sched_thread_suggested_stack_size = ERTS_SCHED_THREAD_MIN_STACK_SIZE;
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (erts_dcpu_sched_thread_suggested_stack_size < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
         erts_dcpu_sched_thread_suggested_stack_size = ERTS_SCHED_THREAD_MIN_STACK_SIZE;
     if (erts_dio_sched_thread_suggested_stack_size < ERTS_SCHED_THREAD_MIN_STACK_SIZE)
         erts_dio_sched_thread_suggested_stack_size = ERTS_SCHED_THREAD_MIN_STACK_SIZE;
-#endif
 
     erl_init(ncpu,
 	     proc_tab_sz,
@@ -2255,7 +2227,6 @@ erl_start(int argc, char **argv)
 	       && erts_literal_area_collector->common.id == pid);
 	erts_proc_inc_refc(erts_literal_area_collector);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 	pid = erl_system_process_otp(otp_ring0_pid, "erts_dirty_process_code_checker", !0);
 	erts_dirty_process_code_checker
 	    = (Process *) erts_ptab_pix2intptr_ddrb(&erts_proc,
@@ -2263,7 +2234,6 @@ erl_start(int argc, char **argv)
 	ASSERT(erts_dirty_process_code_checker
 	       && erts_dirty_process_code_checker->common.id == pid);
 	erts_proc_inc_refc(erts_dirty_process_code_checker);
-#endif
 
     }
 

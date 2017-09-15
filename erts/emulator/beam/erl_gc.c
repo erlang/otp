@@ -183,12 +183,10 @@ typedef struct {
     erts_atomic32_t refc;
 } ErtsGCInfoReq;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 static struct {
     erts_mtx_t mtx;
     ErtsGCInfo info;
 } dirty_gc;
-#endif
 
 static ERTS_INLINE int
 gc_cost(Uint gc_moved_live_words, Uint resize_moved_words)
@@ -273,11 +271,9 @@ erts_init_gc(void)
       init_gc_info(&esdp->gc_info);
     }
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     erts_mtx_init(&dirty_gc.mtx, "dirty_gc_info", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
     init_gc_info(&dirty_gc.info);
-#endif
 
     init_gcireq_alloc();
 }
@@ -481,12 +477,10 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int
     }
 
     if (need == 0) {
-#ifdef ERTS_DIRTY_SCHEDULERS
         if (p->flags & (F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC)) {
             ASSERT(!ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(p)));
             goto force_reschedule;
         }
-#endif
 	return 1;
     }
     /*
@@ -541,9 +535,7 @@ delay_garbage_collection(Process *p, ErlHeapFragment *live_hf_end, int need, int
     p->heap_hfrag = hfrag;
 #endif
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 force_reschedule:
-#endif
 
     /* Make sure that we do a proper GC as soon as possible... */
     p->flags |= F_FORCE_GC;
@@ -616,7 +608,6 @@ young_gen_usage(Process *p)
 	}							\
     } while (0)
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 
 static ERTS_INLINE void
 check_for_possibly_long_gc(Process *p, Uint ygen_usage)
@@ -640,7 +631,6 @@ check_for_possibly_long_gc(Process *p, Uint ygen_usage)
     }
 }
 
-#endif
 
 /*
  * Garbage collect a process.
@@ -675,21 +665,17 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
     state = erts_atomic32_read_nob(&p->state);
 
     if ((p->flags & (F_DISABLE_GC|F_DELAY_GC)) || state & ERTS_PSFLG_EXITING) {
-#ifdef ERTS_DIRTY_SCHEDULERS
     delay_gc_before_start:
-#endif
 	return delay_garbage_collection(p, live_hf_end, need, fcalls);
     }
 
     ygen_usage = max_young_gen_usage ? max_young_gen_usage : young_gen_usage(p);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
 	check_for_possibly_long_gc(p, ygen_usage);
 	if (p->flags & (F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC))
 	    goto delay_gc_before_start;
     }
-#endif
 
     if (p->abandoned_heap)
 	live_hf_end = ERTS_INVALID_HFRAG_PTR;
@@ -731,14 +717,12 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
             if (IS_TRACED_FL(p, F_TRACE_GC)) {
                 trace_gc(p, am_gc_minor_end, reclaimed_now, THE_NON_VALUE);
             }
-#ifdef ERTS_DIRTY_SCHEDULERS
 	    if (!ERTS_SCHEDULER_IS_DIRTY(esdp)) {
 		p->flags |= F_NEED_FULLSWEEP;
 		check_for_possibly_long_gc(p, ygen_usage);
 		if (p->flags & F_DIRTY_MAJOR_GC)
 		    goto delay_gc_after_start;
 	    }
-#endif
             goto do_major_collection;
         }
         if (ERTS_SCHEDULER_IS_DIRTY(esdp))
@@ -784,9 +768,7 @@ do_major_collection:
                               am_kill, NIL, NULL, 0);
         erts_proc_unlock(p, locks & ERTS_PROC_LOCKS_ALL_MINOR);
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     delay_gc_after_start:
-#endif
         /* erts_send_exit_signal looks for ERTS_PSFLG_GC, so
            we have to remove it after the signal is sent */
         erts_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
@@ -821,7 +803,6 @@ do_major_collection:
 	    monitor_large_heap(p);
     }
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (ERTS_SCHEDULER_IS_DIRTY(esdp)) {
 	erts_mtx_lock(&dirty_gc.mtx);
 	dirty_gc.info.garbage_cols++;
@@ -829,7 +810,6 @@ do_major_collection:
 	erts_mtx_unlock(&dirty_gc.mtx);
     }
     else
-#endif
     {
 	esdp->gc_info.garbage_cols++;
 	esdp->gc_info.reclaimed += reclaimed_now;
@@ -907,7 +887,6 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
     if (p->flags & F_DISABLE_GC)
 	ERTS_INTERNAL_ERROR("GC disabled");
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(p)))
         p->flags &= ~(F_DIRTY_GC_HIBERNATE|F_DIRTY_MAJOR_GC|F_DIRTY_MINOR_GC);
     else if (check_long_gc) {
@@ -920,7 +899,6 @@ garbage_collect_hibernate(Process* p, int check_long_gc)
 	}
 	p->flags = flags;
     }
-#endif
     /*
      * Preliminaries.
      */
@@ -1110,7 +1088,6 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 
     p->flags |= F_NEED_FULLSWEEP;
 
-#ifdef ERTS_DIRTY_SCHEDULERS
     if (ERTS_SCHEDULER_IS_DIRTY(erts_proc_sched_data(p)))
 	p->flags &= ~F_DIRTY_CLA;
     else {
@@ -1126,7 +1103,6 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
 	    return 10;
 	}
     }
-#endif
 
     reds = (Sint64) garbage_collect(p, ERTS_INVALID_HFRAG_PTR, 0,
 				    p->arg_reg, p->arity, fcalls,
@@ -3230,7 +3206,6 @@ reply_gc_info(void *vgcirp)
 
     reclaimed = esdp->gc_info.reclaimed;
     garbage_cols = esdp->gc_info.garbage_cols;
-#ifdef ERTS_DIRTY_SCHEDULERS
     /*
      * Add dirty schedulers info on requesting
      * schedulers info
@@ -3241,7 +3216,6 @@ reply_gc_info(void *vgcirp)
 	garbage_cols += dirty_gc.info.garbage_cols;
 	erts_mtx_unlock(&dirty_gc.mtx);
     }
-#endif
 
     sz = 0;
     hpp = NULL;

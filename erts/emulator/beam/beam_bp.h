@@ -79,9 +79,7 @@ typedef struct generic_bp {
 #define ERTS_BP_CALL_TIME_SCHEDULE_OUT     (1)
 #define ERTS_BP_CALL_TIME_SCHEDULE_EXITING (2)
 
-#ifdef ERTS_DIRTY_SCHEDULERS
 extern erts_mtx_t erts_dirty_bp_ix_mtx;
-#endif
 
 enum erts_break_op{
     ERTS_BREAK_NOP   =  0, /* Must be false */

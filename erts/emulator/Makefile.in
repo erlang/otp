@@ -85,7 +85,6 @@ PROFILE_USE=-fprofile-instr-use=$(OBJDIR)/default.profdata
 PROFILE_USE_DEPS=$(OBJDIR)/default.profdata
 endif
 
-DIRTY_SCHEDULER_SUPPORT=@DIRTY_SCHEDULER_SUPPORT@
 DIRTY_SCHEDULER_TEST=@DIRTY_SCHEDULER_TEST@
 
 ifeq ($(TYPE),debug)
@@ -216,21 +215,12 @@ override FLAVOR=smp
 
 FLAVOR_MARKER=.smp
 ENABLE_ALLOC_TYPE_VARS += nofrag
-ifeq ($(DIRTY_SCHEDULER_SUPPORT),yes)
-THR_DEFS += -DERTS_DIRTY_SCHEDULERS
-DS_SUPPORT=yes
-
 ifeq ($(DIRTY_SCHEDULER_TEST),yes)
 DS_TEST=yes
 THR_DEFS += -DERTS_DIRTY_SCHEDULERS_TEST
 else # DIRTY_SCHEDULER_TEST
 DS_TEST=no
 endif # DIRTY_SCHEDULER_TEST
-
-else # DIRTY_SCHEDULER_SUPPORT
-DS_SUPPORT=no
-DS_TEST=no
-endif # DIRTY_SCHEDULER_SUPPORT
 
 TF_MARKER=$(TYPEMARKER)$(FLAVOR_MARKER)
 
@@ -627,7 +617,7 @@ $(HIPE_NBIF_FILES) \
 	: $(TTF_DIR)/TABLES-GENERATED
 $(TTF_DIR)/TABLES-GENERATED: $(ATOMS) $(DIRTY_BIFS) $(BIFS) utils/make_tables
 	$(gen_verbose)LANG=C $(PERL) utils/make_tables -src $(TTF_DIR) -include $(TTF_DIR)\
-		-ds $(DS_SUPPORT) -dst $(DS_TEST) -hipe $(HIPE) $(ATOMS) $(DIRTY_BIFS) $(BIFS) && echo $? >$(TTF_DIR)/TABLES-GENERATED
+		-dst $(DS_TEST) -hipe $(HIPE) $(ATOMS) $(DIRTY_BIFS) $(BIFS) && echo $? >$(TTF_DIR)/TABLES-GENERATED
 GENERATE += $(TTF_DIR)/TABLES-GENERATED
 
 $(TTF_DIR)/erl_alloc_types.h: beam/erl_alloc.types utils/make_alloc_types

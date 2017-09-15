@@ -118,16 +118,8 @@ AS_HELP_STRING([--enable-bootstrap-only],
 	with_ssl_zlib=no
 	enable_hipe=no
 	enable_sctp=no
-        enable_dirty_schedulers=no
-  fi	
+  fi
 ])
-
-AC_ARG_ENABLE(dirty-schedulers,
-AS_HELP_STRING([--enable-dirty-schedulers], [enable dirty scheduler support]),
-[ case "$enableval" in
-    no) enable_dirty_schedulers=no ;;
-    *)  enable_dirty_schedulers=yes ;;
-  esac ], enable_dirty_schedulers=default)
 
 AC_ARG_ENABLE(dirty-schedulers-test,
 AS_HELP_STRING([--enable-dirty-schedulers-test], [enable dirty scheduler test (for debugging purposes)]),
@@ -1064,20 +1056,7 @@ fi
 
 TYPES=opt
 
-AC_MSG_CHECKING(whether dirty schedulers should be enabled)
-case $enable_dirty_schedulers in
-     yes)
-	DIRTY_SCHEDULER_SUPPORT=yes;;
-     default)
-	DIRTY_SCHEDULER_SUPPORT=yes;;
-     *)
-	DIRTY_SCHEDULER_SUPPORT=no;;
-esac
-AC_MSG_RESULT($DIRTY_SCHEDULER_SUPPORT)
-AC_SUBST(DIRTY_SCHEDULER_SUPPORT)
-
 DIRTY_SCHEDULER_TEST=$enable_dirty_schedulers_test
-test $DIRTY_SCHEDULER_SUPPORT = yes || DIRTY_SCHEDULER_TEST=no
 AC_SUBST(DIRTY_SCHEDULER_TEST)
 test $DIRTY_SCHEDULER_TEST != yes || {
     test -f "$ERL_TOP/erts/CONF_INFO" || echo "" > "$ERL_TOP/erts/CONF_INFO"

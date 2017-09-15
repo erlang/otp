@@ -89,9 +89,7 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     " [64-bit]"
 #endif
 				     " [smp:%beu:%beu]"
-#if defined(ERTS_DIRTY_SCHEDULERS)
 				     " [ds:%beu:%beu:%beu]"
-#endif
 #if defined(ERTS_DIRTY_SCHEDULERS_TEST)
 				     " [dirty-schedulers-TEST]"
 #endif
@@ -371,9 +369,7 @@ erts_print_system_version(fmtfn_t to, void *arg, Process *c_p)
     return erts_print(to, arg, erts_system_version,
 		      rc_str
 		      , total, online
-#ifdef ERTS_DIRTY_SCHEDULERS
 		      , dirty_cpu, dirty_cpu_onln, dirty_io
-#endif
 		      , erts_async_max_threads
 #ifdef ERTS_ENABLE_KERNEL_POLL
 		      , erts_use_kernel_poll ? "true" : "false"
@@ -2131,11 +2127,6 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	ASSERT(erts_compat_rel > 0);
 	BIF_RET(make_small(erts_compat_rel));
     } else if (BIF_ARG_1 == am_multi_scheduling) {
-#ifndef ERTS_DIRTY_SCHEDULERS
-	if (erts_no_schedulers == 1)
-	    BIF_RET(am_disabled);
-	else
-#endif
 	{
 	    int msb = erts_is_multi_scheduling_blocked();
 	    BIF_RET(!msb
@@ -2674,27 +2665,15 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(make_small(active));
     } else if (ERTS_IS_ATOM_STR("dirty_cpu_schedulers", BIF_ARG_1)) {
 	Uint dirty_cpu;
-#ifdef ERTS_DIRTY_SCHEDULERS
 	erts_schedulers_state(NULL, NULL, NULL, &dirty_cpu, NULL, NULL, NULL, NULL);
-#else
-        dirty_cpu = 0;
-#endif
 	BIF_RET(make_small(dirty_cpu));
     } else if (ERTS_IS_ATOM_STR("dirty_cpu_schedulers_online", BIF_ARG_1)) {
 	Uint dirty_cpu_onln;
-#ifdef ERTS_DIRTY_SCHEDULERS
 	erts_schedulers_state(NULL, NULL, NULL, NULL, &dirty_cpu_onln, NULL, NULL, NULL);
-#else
-        dirty_cpu_onln = 0;
-#endif
 	BIF_RET(make_small(dirty_cpu_onln));
     } else if (ERTS_IS_ATOM_STR("dirty_io_schedulers", BIF_ARG_1)) {
 	Uint dirty_io;
-#ifdef ERTS_DIRTY_SCHEDULERS
 	erts_schedulers_state(NULL, NULL, NULL, NULL, NULL, NULL, &dirty_io, NULL);
-#else
-        dirty_io = 0;
-#endif
 	BIF_RET(make_small(dirty_io));
     } else if (ERTS_IS_ATOM_STR("run_queues", BIF_ARG_1)) {
 	res = make_small(erts_no_run_queues);
