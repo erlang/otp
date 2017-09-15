@@ -4249,13 +4249,13 @@ t_to_string(?identifier(Set), _RecDict) ->
   case Set of
     ?any -> "identifier()";
     _ ->
-      string:join([flat_format("~w()", [T]) || T <- set_to_list(Set)], " | ")
+      flat_join([flat_format("~w()", [T]) || T <- set_to_list(Set)], " | ")
   end;
 t_to_string(?opaque(Set), RecDict) ->
-  string:join([opaque_type(Mod, Name, Args, S, RecDict) ||
-                #opaque{mod = Mod, name = Name, struct = S, args = Args}
-                  <- set_to_list(Set)],
-	      " | ");
+  flat_join([opaque_type(Mod, Name, Args, S, RecDict) ||
+              #opaque{mod = Mod, name = Name, struct = S, args = Args}
+                <- set_to_list(Set)],
+            " | ");
 t_to_string(?matchstate(Pres, Slots), RecDict) ->
   flat_format("ms(~ts,~ts)", [t_to_string(Pres, RecDict),
                               t_to_string(Slots,RecDict)]);
@@ -4346,9 +4346,9 @@ t_to_string(?map(Pairs0,DefK,DefV), RecDict) ->
 		  end end,
   StrMand = [{Tos(K),Tos(V)}||{K,?mand,V}<-Pairs],
   StrOpt  = [{Tos(K),Tos(V)}||{K,?opt,V}<-Pairs],
-  "#{" ++ string:join([K ++ ":=" ++ V||{K,V}<-StrMand]
-		      ++ [K ++ "=>" ++ V||{K,V}<-StrOpt]
-		      ++ ExtraEl, ", ") ++ "}";
+  "#{" ++ flat_join([K ++ ":=" ++ V||{K,V}<-StrMand]
+                    ++ [K ++ "=>" ++ V||{K,V}<-StrOpt]
+                    ++ ExtraEl, ", ") ++ "}";
 t_to_string(?tuple(?any, ?any, ?any), _RecDict) -> "tuple()";
 t_to_string(?tuple(Elements, _Arity, ?any), RecDict) ->   
   "{" ++ comma_sequence(Elements, RecDict) ++ "}";
@@ -4371,7 +4371,7 @@ t_to_string(?var(Id), _RecDict) when is_integer(Id) ->
 
 record_to_string(Tag, [_|Fields], FieldNames, RecDict) ->
   FieldStrings = record_fields_to_string(Fields, FieldNames, RecDict, []),
-  "#" ++ atom_to_string(Tag) ++ "{" ++ string:join(FieldStrings, ",") ++ "}".
+  "#" ++ atom_to_string(Tag) ++ "{" ++ flat_join(FieldStrings, ",") ++ "}".
 
 record_fields_to_string([F|Fs], [{FName, _Abstr, DefType}|FDefs],
                         RecDict, Acc) ->
@@ -4397,7 +4397,7 @@ record_field_diffs_to_string(?tuple([_|Fs], Arity, Tag), RecDict) ->
   {ok, FieldNames} = lookup_record(TagAtom, Arity-1, RecDict),
   %% io:format("RecCElems = ~p\nRecTypes = ~p\n", [Fs, FieldNames]),
   FieldDiffs = field_diffs(Fs, FieldNames, RecDict, []),
-  string:join(FieldDiffs, " and ").
+  flat_join(FieldDiffs, " and ").
 
 field_diffs([F|Fs], [{FName, _Abstr, DefType}|FDefs], RecDict, Acc) ->
   %% Don't care about opacity for now.
@@ -4417,11 +4417,11 @@ comma_sequence(Types, RecDict) ->
 	    true -> "_";
 	    false -> t_to_string(T, RecDict)
 	  end || T <- Types],
-  string:join(List, ",").
+  flat_join(List, ",").
 
 union_sequence(Types, RecDict) ->
   List = [t_to_string(T, RecDict) || T <- Types], 
-  string:join(List, " | ").
+  flat_join(List, " | ").
 
 -ifdef(DEBUG).
 opaque_type(Mod, Name, _Args, S, RecDict) ->
@@ -5236,7 +5236,7 @@ t_form_to_string({ann_type, _L, [Var, Type]}) ->
 t_form_to_string({paren_type, _L, [Type]}) ->
   flat_format("(~ts)", [t_form_to_string(Type)]);
 t_form_to_string({remote_type, _L, [{atom, _, Mod}, {atom, _, Name}, Args]}) ->
-  ArgString = "(" ++ string:join(t_form_to_string_list(Args), ",") ++ ")",
+  ArgString = "(" ++ flat_join(t_form_to_string_list(Args), ",") ++ ")",
   flat_format("~w:~tw", [Mod, Name]) ++ ArgString;
 t_form_to_string({type, _L, arity, []}) -> "arity()";
 t_form_to_string({type, _L, binary, []}) -> "binary()";
@@ -5259,7 +5259,7 @@ t_form_to_string({type, _L, 'fun', []}) -> "fun()";
 t_form_to_string({type, _L, 'fun', [{type, _, any}, Range]}) ->
   "fun(...) -> " ++ t_form_to_string(Range);
 t_form_to_string({type, _L, 'fun', [{type, _, product, Domain}, Range]}) ->
-  "fun((" ++ string:join(t_form_to_string_list(Domain), ",") ++ ") -> "
+  "fun((" ++ flat_join(t_form_to_string_list(Domain), ",") ++ ") -> "
     ++ t_form_to_string(Range) ++ ")";
 t_form_to_string({type, _L, iodata, []}) -> "iodata()";
 t_form_to_string({type, _L, iolist, []}) -> "iolist()";
@@ -5267,7 +5267,7 @@ t_form_to_string({type, _L, list, [Type]}) ->
   "[" ++ t_form_to_string(Type) ++ "]";
 t_form_to_string({type, _L, map, any}) -> "map()";
 t_form_to_string({type, _L, map, Args}) ->
-  "#{" ++ string:join(t_form_to_string_list(Args), ",") ++ "}";
+  "#{" ++ flat_join(t_form_to_string_list(Args), ",") ++ "}";
 t_form_to_string({type, _L, map_field_assoc, [Key, Val]}) ->
   t_form_to_string(Key) ++ "=>" ++ t_form_to_string(Val);
 t_form_to_string({type, _L, map_field_exact, [Key, Val]}) ->
@@ -5279,7 +5279,7 @@ t_form_to_string({type, _L, nonempty_list, [Type]}) ->
   "[" ++ t_form_to_string(Type) ++ ",...]";
 t_form_to_string({type, _L, nonempty_string, []}) -> "nonempty_string()";
 t_form_to_string({type, _L, product, Elements}) ->
-  "<" ++ string:join(t_form_to_string_list(Elements), ",") ++ ">";
+  "<" ++ flat_join(t_form_to_string_list(Elements), ",") ++ ">";
 t_form_to_string({type, _L, range, [From, To]} = Type) ->
   case {erl_eval:partial_eval(From), erl_eval:partial_eval(To)} of
     {{integer, _, FromVal}, {integer, _, ToVal}} ->
@@ -5289,7 +5289,7 @@ t_form_to_string({type, _L, range, [From, To]} = Type) ->
 t_form_to_string({type, _L, record, [{atom, _, Name}]}) ->
   flat_format("#~tw{}", [Name]);
 t_form_to_string({type, _L, record, [{atom, _, Name}|Fields]}) ->
-  FieldString = string:join(t_form_to_string_list(Fields), ","),
+  FieldString = flat_join(t_form_to_string_list(Fields), ","),
   flat_format("#~tw{~ts}", [Name, FieldString]);
 t_form_to_string({type, _L, field_type, [{atom, _, Name}, Type]}) ->
   flat_format("~tw::~ts", [Name, t_form_to_string(Type)]);
@@ -5297,9 +5297,9 @@ t_form_to_string({type, _L, term, []}) -> "term()";
 t_form_to_string({type, _L, timeout, []}) -> "timeout()";
 t_form_to_string({type, _L, tuple, any}) -> "tuple()";
 t_form_to_string({type, _L, tuple, Args}) ->
-  "{" ++ string:join(t_form_to_string_list(Args), ",") ++ "}";
+  "{" ++ flat_join(t_form_to_string_list(Args), ",") ++ "}";
 t_form_to_string({type, _L, union, Args}) ->
-  string:join(t_form_to_string_list(Args), " | ");
+  flat_join(t_form_to_string_list(Args), " | ");
 t_form_to_string({type, _L, Name, []} = T) ->
    try
      M = mod,
@@ -5317,7 +5317,7 @@ t_form_to_string({type, _L, Name, []} = T) ->
   end;
 t_form_to_string({user_type, _L, Name, List}) ->
   flat_format("~tw(~ts)",
-              [Name, string:join(t_form_to_string_list(List), ",")]);
+              [Name, flat_join(t_form_to_string_list(List), ",")]);
 t_form_to_string({type, L, Name, List}) ->
   %% Compatibility: modules compiled before Erlang/OTP 18.0.
   t_form_to_string({user_type, L, Name, List}).
@@ -5584,7 +5584,7 @@ set_to_string(Set) ->
 	 true -> io_lib:write_string(atom_to_list(X), $'); % stupid emacs '
 	 false -> flat_format("~tw", [X])
        end || X <- set_to_list(Set)],
-  string:join(L, " | ").
+  flat_join(L, " | ").
 
 set_min([H|_]) -> H.
 
@@ -5593,6 +5593,9 @@ set_max(Set) ->
 
 flat_format(F, S) ->
   lists:flatten(io_lib:format(F, S)).
+
+flat_join(List, Sep) ->
+  lists:flatten(lists:join(Sep, List)).
 
 %%=============================================================================
 %% 

@@ -83,7 +83,7 @@ spec(Form, Clause) ->
 %% the given Erlang spec and an empty list of arguments.
 dummy_spec(Form) ->
     {#t_name{name = Name}, Arity, TypeSpecs} = get_spec(Form),
-    As = string:join(lists:duplicate(Arity, "_X"), ","),
+    As = lists:join(",", lists:duplicate(Arity, "_X")),
     S = lists:flatten(io_lib:format("~p(~s) -> true\n", [Name, As])),
     #tag{name = spec, line = get_line(element(2, hd(TypeSpecs))),
          origin = code, data = S}.

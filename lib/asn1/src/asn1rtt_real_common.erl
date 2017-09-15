@@ -125,7 +125,7 @@ encode_real(_C, {_,Base,_}) ->
 encode_real(C, Real) when is_list(Real) ->
     %% The Real string may come in as a NR1, NR2 or NR3 string.
     {Mantissa, Exponent} =
-	case string:tokens(Real,"Ee") of
+	case string:lexemes(Real,"Ee") of
 	    [NR2] ->
 		{NR2,0};
 	    [NR3MB,NR3E] ->
@@ -144,7 +144,7 @@ encode_real(C, Real) when is_list(Real) ->
 		NewMan = remove_trailing_zeros(Dec),
 		{NewMan,length(ZeroDecimal(NewMan))};
 	    _ ->
-		case string:tokens(Mantissa,",.") of
+		case string:lexemes(Mantissa,",.") of
 		    [Num] -> %% No decimal-mark
 			{integer_to_list(list_to_integer(Num)),0};
 		    [Num,Dec] ->

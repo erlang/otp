@@ -244,7 +244,7 @@ get_uint32_measurement(Request, #internal{os_type = {unix, Sys}}) when Sys == ir
     %% Get the load average using uptime.
     %% "8:01pm  up 2 days, 22:12,  4 users,  load average: 0.70, 0.58, 0.43"
     D = os:cmd("uptime") -- "\n",
-    Avg = lists:reverse(hd(string:tokens(lists:reverse(D), ":"))),
+    Avg = lists:reverse(hd(string:lexemes(lists:reverse(D), ":"))),
     {ok, [L1, L5, L15], _} = io_lib:fread("~f, ~f, ~f", Avg),
     case Request of
 	?avg1  -> sunify(L1);

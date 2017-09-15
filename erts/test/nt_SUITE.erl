@@ -117,7 +117,7 @@ wait_for_node(Name) ->
     do_wait_for_it(FullName,30).
 
 make_full_name(Name) ->
-    [_,Suffix] = string:tokens(atom_to_list(node()),"@"),
+    [_,Suffix] = string:lexemes(atom_to_list(node()),"@"),
     list_to_atom(Name ++ "@" ++ Suffix).
 
 
@@ -171,7 +171,7 @@ service_env(Config) when is_list(Config) ->
                     ["ERLSRV_SERVICE_NAME"]),
     "erlsrv.exe" = filename:basename(
                      hd(
-                       string:tokens(
+                       string:lexemes(
                          rpc:call(make_full_name(Name),
                                   os,
                                   getenv,

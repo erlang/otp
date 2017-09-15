@@ -1188,26 +1188,23 @@ print_style(Fd, IoFormat, StyleSheet) ->
     case file:read_file(StyleSheet) of
 	{ok,Bin} ->
 	    Str = b2s(Bin,encoding(StyleSheet)),
-	    Pos0 = case string:str(Str,"<style>") of
-		       0 -> string:str(Str,"<STYLE>");
-		       N0 -> N0
-		   end,
-	    Pos1 = case string:str(Str,"</style>") of
-		       0 -> string:str(Str,"</STYLE>");
-		       N1 -> N1
-		   end,
-	    if (Pos0 == 0) and (Pos1 /= 0) ->
-		    print_style_error(Fd, IoFormat,
-				      StyleSheet, missing_style_start_tag);
-	       (Pos0 /= 0) and (Pos1 == 0) ->
-		    print_style_error(Fd, IoFormat,
-				      StyleSheet,missing_style_end_tag);
-	       Pos0 /= 0 ->
-		    Style = string:sub_string(Str,Pos0,Pos1+7),
-		    IoFormat(Fd,"~ts\n",[Style]);
-	       Pos0 == 0 ->
-		    IoFormat(Fd,"<style>\n~ts</style>\n",[Str])
-	    end;
+            case re:run(Str,"<style>.*</style>",
+                        [dotall,caseless,{capture,all,list}]) of
+                nomatch ->
+                    case re:run(Str,"</?style>",[caseless,{capture,all,list}]) of
+                        nomatch ->
+                            IoFormat(Fd,"<style>\n~ts</style>\n",[Str]);
+                        {match,["</"++_]} ->
+                            print_style_error(Fd, IoFormat,
+                                              StyleSheet,
+                                              missing_style_start_tag);
+                        {match,[_]} ->
+                            print_style_error(Fd, IoFormat,
+                                              StyleSheet,missing_style_end_tag)
+                    end;
+                {match,[Style]} ->
+                    IoFormat(Fd,"~ts\n",[Style])
+            end;
 	{error,Reason} ->
 	    print_style_error(Fd,IoFormat,StyleSheet,Reason)
     end.
@@ -1414,9 +1411,9 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
     {Lbl,Timestamp,Node,AllInfo} =
 	case All of
 	    {true,OldRuns} -> 
-		[_Prefix,NodeOrDate|_] = string:tokens(Link,"."),
-		Node1 = case string:chr(NodeOrDate,$@) of
-			    0 -> "-";
+		[_Prefix,NodeOrDate|_] = string:lexemes(Link,"."),
+		Node1 = case string:find(NodeOrDate,[$@]) of
+			    nomatch -> "-";
 			    _ -> NodeOrDate
 			end,
 
@@ -1523,7 +1520,7 @@ not_built(BaseName,_LogDir,_All,Missing) ->
     %%            Top.ObjDir | Top.ObjDir.suites | Top.ObjDir.Suite | 
     %%            Top.ObjDir.Suite.cases | Top.ObjDir.Suite.Case    
     Failed =
-	case string:tokens(BaseName,".") of
+	case string:lexemes(BaseName,".") of
 	    [T,O] when is_list(T) ->		% all under Top.ObjDir
 		locate_info({T,O},all,Missing);
 	    [T,O,"suites"] ->
@@ -2051,9 +2048,9 @@ sort_all_runs(Dirs) ->
     %% "YYYY-MM-DD_HH.MM.SS"
     lists:sort(fun(Dir1,Dir2) ->
 		       [SS1,MM1,HH1,Date1|_] =
-			   lists:reverse(string:tokens(Dir1,[$.,$_])),
+			   lists:reverse(string:lexemes(Dir1,[$.,$_])),
 		       [SS2,MM2,HH2,Date2|_] =
-			   lists:reverse(string:tokens(Dir2,[$.,$_])),
+			   lists:reverse(string:lexemes(Dir2,[$.,$_])),
 		       {Date1,HH1,MM1,SS1} > {Date2,HH2,MM2,SS2}
 	       end, Dirs).
 
@@ -2063,9 +2060,9 @@ sort_ct_runs(Dirs) ->
     lists:sort(
       fun(Dir1,Dir2) ->
 	      [SS1,MM1,DateHH1 | _] =
-		  lists:reverse(string:tokens(filename:dirname(Dir1),[$.])),
+		  lists:reverse(string:lexemes(filename:dirname(Dir1),[$.])),
 	      [SS2,MM2,DateHH2 | _] =
-		  lists:reverse(string:tokens(filename:dirname(Dir2),[$.])),
+		  lists:reverse(string:lexemes(filename:dirname(Dir2),[$.])),
 	      {DateHH1,MM1,SS1} =< {DateHH2,MM2,SS2}
       end, Dirs).
 
@@ -2211,27 +2208,15 @@ runentry(Dir, Totals={Node,Label,Logs,
 		    0 -> "-";
 		    N -> integer_to_list(N)
 		end,
-    StripExt = 
-	fun(File) ->
-		string:sub_string(File,1,
-				  length(File)-
-				      length(?logdir_ext)) ++ ", "
-	end,
-    Polish =  fun(S) -> case lists:reverse(S) of
-			    [32,$,|Rev] -> lists:reverse(Rev);
-			    [$,|Rev] -> lists:reverse(Rev);
-			    _ -> S
-			end 
-	      end,
-    TestNames = Polish(lists:flatten(lists:map(StripExt,Logs))),
+
+    RootNames = lists:map(fun(F) -> filename:rootname(F,?logdir_ext) end, Logs),
+    TestNames = lists:flatten(lists:join(", ", RootNames)),
     TestNamesTrunc =
-	if TestNames=="" -> 
-		"";
-	   length(TestNames) < ?testname_width ->
+	if length(TestNames) < ?testname_width ->
 		TestNames;
 	   true ->
-		Trunc = Polish(string:substr(TestNames,1,
-					     ?testname_width-3)),
+		Trunc = string:trim(string:slice(TestNames,0,?testname_width-3),
+                                    trailing,",\s"),
 		lists:flatten(io_lib:format("~ts...",[Trunc]))
 	end,
     TotMissingStr =
@@ -2374,7 +2359,7 @@ force_rename(From,To,Number) ->
 
 
 timestamp(Dir) ->
-    TsR = lists:reverse(string:tokens(Dir,".-_")),
+    TsR = lists:reverse(string:lexemes(Dir,".-_")),
     [S,Min,H,D,M,Y] = [list_to_integer(N) || N <- lists:sublist(TsR,6)],
     format_time({{Y,M,D},{H,Min,S}}).
 
@@ -2923,7 +2908,7 @@ cache_vsn() ->
 	    VSNfile = filename:join([EbinDir,"..","vsn.mk"]),
 	    case file:read_file(VSNfile) of
 		{ok,Bin} ->
-		    [_,VSN] = string:tokens(binary_to_list(Bin),[$=,$\n,$ ]),
+		    [_,VSN] = string:lexemes(binary_to_list(Bin),[$=,$\n,$ ]),
 		    VSN;
 		_ ->
 		    undefined
@@ -3320,7 +3305,7 @@ insert_javascript({tablesorter,TableName,
 			  end, [{"CTDateSorter",DateCols},
 				{"CTTextSorter",TextCols},
 				{"CTValSorter",ValCols}]))),
-    Headers1 = string:substr(Headers, 1, length(Headers)-2),
+    Headers1 = string:trim(Headers, trailing, ",\n"),
 
     ["<script type=\"text/javascript\">\n",
      "// Parser for date format, e.g: Wed Jul 4 2012 11:24:15\n",

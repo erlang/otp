@@ -796,7 +796,7 @@ result_line(NoOkWrapper, Items) ->
 result_line_1([SingleItem]) ->
     SingleItem;
 result_line_1(Items) ->
-    ["{",string:join(Items, ","),"}"].
+    ["{",lists:join(",",Items),"}"].
 
 try_catch() ->
     ["  catch",nl,
@@ -943,7 +943,7 @@ open_hrl(OutFile,Module) ->
 
 hrl_protector(OutFile) ->
     BaseName = filename:basename(OutFile),
-    P = "_" ++ string:to_upper(BaseName) ++ "_HRL_",
+    P = "_" ++ string:uppercase(BaseName) ++ "_HRL_",
     [if
 	 $A =< C, C =< $Z -> C;
 	 $a =< C, C =< $a -> C;

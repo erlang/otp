@@ -391,7 +391,7 @@ fun_parent(F) ->
 
 -ifdef(TEST).
 fun_parent_test() ->
-    {?MODULE,fun_parent_test,0} = fun_parent(fun () -> ok end).
+    {?MODULE,fun_parent_test,0} = fun_parent(fun (A) -> {ok,A} end).
 -endif.
 
 %% ---------------------------------------------------------------------

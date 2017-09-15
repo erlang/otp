@@ -108,7 +108,7 @@ print(Date, Report, Device) ->
 
 format_h(Line, Header, Pid, Date) ->
     NHeader = lists:flatten(io_lib:format("~s  ~w", [Header, Pid])), 
-    DateLen = length(Date),
+    DateLen = string:length(Date),
     HeaderLen = Line - DateLen,
     Format = lists:concat(["~-", HeaderLen, "s~", DateLen, "s"]),
     io_lib:format(Format, [NHeader, Date]).

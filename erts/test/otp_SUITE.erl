@@ -336,7 +336,7 @@ not_recommended_calls(Config, Apps0, MFA) ->
                 _ ->
                     AppStrings = [atom_to_list(A) || A <- SkippedApps],
                     Mess = io_lib:format("Application(s) not present: ~s\n",
-                                         [string:join(AppStrings, ", ")]),
+                                         [lists:join(", ", AppStrings)]),
                     {comment, Mess}
             end;
         _ ->
@@ -463,7 +463,7 @@ runtime_dependencies(Config) ->
 have_rdep(_App, [], _Dep) ->
     false;
 have_rdep(App, [RDep | RDeps], Dep) ->		    
-    [AppStr, _VsnStr] = string:tokens(RDep, "-"),
+    [AppStr, _VsnStr] = string:lexemes(RDep, "-"),
     case Dep == list_to_atom(AppStr) of
         true ->
             io:format("~p -> ~s~n", [App, RDep]),

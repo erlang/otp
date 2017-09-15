@@ -646,7 +646,7 @@ pp_arguments(PF, As, I, Enc) ->
             Ll = length(L),
             A = list_to_atom(lists:duplicate(Ll, $a)),
             S0 = unicode:characters_to_list(PF([A | T], I+1), Enc),
-            brackets_to_parens([$[,L,string:sub_string(S0, 2+Ll)], Enc);
+            brackets_to_parens([$[,L,string:slice(S0, 1+Ll)], Enc);
         _ -> 
             brackets_to_parens(PF(As, I+1), Enc)
     end.

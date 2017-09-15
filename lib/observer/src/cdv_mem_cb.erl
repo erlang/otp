@@ -49,9 +49,7 @@ gen_mem_info_fields([]) ->
     [].
 
 upper(Key) ->
-    string:join([string:to_upper([H]) ++ T || 
-		    [H|T] <- string:tokens(Key,"_")]," ").
-
+    lists:join(" ", [string:titlecase(Word) || Word <- string:split(Key, "_", all)]).
 
 %%%-----------------------------------------------------------------
 %%% Allocated areas page

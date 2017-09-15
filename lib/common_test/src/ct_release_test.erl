@@ -817,7 +817,7 @@ get_runtime_deps([App|Apps],StartApps,Acc,Visited) ->
 	    RuntimeDeps =
 		lists:flatmap(
 		  fun(Str) ->
-			  [RuntimeAppStr,_] = string:tokens(Str,"-"),
+			  [RuntimeAppStr,_] = string:lexemes(Str,"-"),
 			  RuntimeApp = list_to_atom(RuntimeAppStr),
 			  case {lists:keymember(RuntimeApp,1,Acc),
 				lists:member(RuntimeApp,StartApps)} of

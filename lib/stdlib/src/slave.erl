@@ -320,7 +320,7 @@ mk_cmd(Host, Name, Args, Waiter, Prog0) ->
 %% emulator and flags as the test node. The return from lib:progname()
 %% could then typically be '/<full_path_to>/cerl -gcov').
 quote_progname(Progname) ->
-    do_quote_progname(string:tokens(to_list(Progname)," ")).
+    do_quote_progname(string:lexemes(to_list(Progname)," ")).
 
 do_quote_progname([Prog]) ->
     "\""++Prog++"\"";

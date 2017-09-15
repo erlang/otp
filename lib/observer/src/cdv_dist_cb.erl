@@ -78,7 +78,7 @@ init_gen_page(Parent, Info) ->
     cdv_info_wx:start_link(Parent,{Fields,Info,[]}).
 
 format({creations,Creations}) ->
-    string:join([integer_to_list(C) || C <- Creations],",");
+    lists:flatten(lists:join(",",[integer_to_list(C) || C <- Creations]));
 format(D) ->
     D.
 

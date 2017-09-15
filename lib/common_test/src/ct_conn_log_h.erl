@@ -224,7 +224,7 @@ now_to_time({_,_,MicroS}=Now) ->
     {calendar:now_to_local_time(Now),MicroS}.
 
 pretty_head({{{Y,Mo,D},{H,Mi,S}},MicroS},ConnMod,Text0) ->
-    Text = string:to_upper(atom_to_list(ConnMod) ++ Text0),
+    Text = string:uppercase(atom_to_list(ConnMod) ++ Text0),
     io_lib:format("= ~s ==== ~s-~s-~w::~s:~s:~s,~s ",
 		  [Text,t(D),month(Mo),Y,t(H),t(Mi),t(S),
 		   micro2milli(MicroS)]).
@@ -275,7 +275,7 @@ pad0(N,Str) ->
     lists:duplicate(N-M,$0) ++ Str.
 
 pad_char_end(N,Str,Char) ->
-    case length(lists:flatten(Str)) of
+    case string:length(Str) of
 	M when M<N -> Str ++ lists:duplicate(N-M,Char);
 	_ -> Str
     end.

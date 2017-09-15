@@ -121,7 +121,8 @@ connect1(Name,Ip,Port,Timeout,KeepAlive,TCPNoDelay,Username,Password) ->
 							  prompt,?prx,[]) of
 			    {ok,{prompt,?password},_} ->
 				ok = ct_telnet_client:send_data(Pid,Password),
-				Stars = lists:duplicate(length(Password),$*),
+				Stars =
+                                    lists:duplicate(string:length(Password),$*),
 				log(Name,send,"Password: ~s",[Stars]),
 %				ok = ct_telnet_client:send_data(Pid,""),
 				case ct_telnet:silent_teln_expect(Name,Pid,[],

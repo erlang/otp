@@ -1135,7 +1135,7 @@ handle_info(Info, S) ->
     noreply(S).
 
 listen_on_trace_port(Node, Port, S) ->
-    [_Name, Host] = string:tokens(atom_to_list(Node), [$@]),
+    [_Name, Host] = string:lexemes(atom_to_list(Node), [$@]),
     case catch start_trace_client(self(), ip, {Host, Port}) of
         {trace_client_pid, RemotePid} ->
             rpc:call(Node, et_selector, change_pattern, [S#state.trace_pattern]),

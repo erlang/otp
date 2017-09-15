@@ -1717,7 +1717,7 @@ get_line(P, Default) ->
 line_string(Binary) when is_binary(Binary) -> unicode:characters_to_list(Binary);
 line_string(Other) -> Other.
 
-nonl(S) -> string:strip(S, right, $\n).
+nonl(S) -> string:trim(S, trailing, "$\n").
 
 print_number(Tab, Key, Num) ->
     Os = ets:lookup(Tab, Key),
@@ -1746,7 +1746,7 @@ do_display_item(_Height, Width, I, Opos)  ->
     L = to_string(I),
     L2 = if
 	     length(L) > Width - 8 ->
-                 string:substr(L, 1, Width-13) ++ "  ...";
+                 string:slice(L, 0, Width-13) ++ "  ...";
 	     true ->
 		 L
 	 end,

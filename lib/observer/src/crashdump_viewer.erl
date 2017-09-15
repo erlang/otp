@@ -825,7 +825,7 @@ do_read_file(File) ->
 			    check_if_truncated(),
 			    [{DumpVsn0,_}] = lookup_index(?erl_crash_dump),
 			    DumpVsn = [list_to_integer(L) ||
-					L<-string:tokens(DumpVsn0,".")],
+					L<-string:lexemes(DumpVsn0,".")],
 			    Binaries = read_binaries(Fd,DumpVsn),
 			    close(Fd),
 			    {ok,Binaries,DumpVsn};
@@ -1235,12 +1235,12 @@ parse_monitor("{"++Str) ->
     %% Named process
     {Name,Node,Rest1} = parse_name_node(Str,[]),
     Pid = get_pid_from_name(Name,Node),
-    case parse_link(string:strip(Rest1,left,$,),[]) of
+    case parse_link(string:trim(Rest1,leading,","),[]) of
 	{Ref,"}"++Rest2} ->
 	    %% Bug in break.c - prints an extra "}" for remote
 	    %% nodes... thus the strip
 	    {{Pid,"{"++Name++","++Node++"} ("++Ref++")"},
-	     string:strip(Rest2,left,$})};
+	     string:trim(Rest2,leading,"}")};
 	{Ref,[]} ->
 	    {{Pid,"{"++Name++","++Node++"} ("++Ref++")"},[]}
     end;
@@ -1506,7 +1506,7 @@ get_ports(File) ->
 %% Converting port string to tuple to secure correct sorting. This is
 %% converted back in cdv_port_cb:format/1.
 port_to_tuple("#Port<"++Port) ->
-    [I1,I2] = string:tokens(Port,".>"),
+    [I1,I2] = string:lexemes(Port,".>"),
     {list_to_integer(I1),list_to_integer(I2)}.
 
 get_portinfo(Fd,Port) ->
@@ -1529,9 +1529,9 @@ get_portinfo(Fd,Port) ->
 	"Registered as" ->
 	    get_portinfo(Fd,Port#port{name=string(Fd)});
 	"Monitors" ->
-	    Monitors0 = string:tokens(bytes(Fd),"()"),
+	    Monitors0 = string:lexemes(bytes(Fd),"()"),
 	    Monitors = [begin
-			    [Pid,Ref] = string:tokens(Mon,","),
+			    [Pid,Ref] = string:lexemes(Mon,","),
 			    {Pid,Pid++" ("++Ref++")"}
 			end || Mon <- Monitors0],
 	    get_portinfo(Fd,Port#port{monitors=Monitors});
@@ -1592,7 +1592,7 @@ get_etsinfo(Fd,EtsTable = #ets_table{details=Ds},WS) ->
 	"Buckets" ->
 	    %% A bug in erl_db_hash.c prints a space after the buckets
 	    %% - need to strip the string to make list_to_integer/1 happy.
-	    Buckets = list_to_integer(string:strip(bytes(Fd))),
+	    Buckets = list_to_integer(string:trim(bytes(Fd),both,"\s")),
 	    get_etsinfo(Fd,EtsTable#ets_table{buckets=Buckets},WS);
 	"Objects" ->
 	    get_etsinfo(Fd,EtsTable#ets_table{size=list_to_integer(bytes(Fd))},WS);
@@ -1610,7 +1610,9 @@ get_etsinfo(Fd,EtsTable = #ets_table{details=Ds},WS) ->
 	    Val = bytes(Fd),
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_min=>Val}},WS);
 	"Chain Length Avg" ->
-	    Val = try list_to_float(string:strip(bytes(Fd))) catch _:_ -> "-" end,
+	    Val = try list_to_float(string:trim(bytes(Fd),both,"\s"))
+                  catch _:_ -> "-"
+                  end,
 	    get_etsinfo(Fd,EtsTable#ets_table{details=Ds#{chain_avg=>Val}},WS);
 	"Chain Length Max" ->
 	    Val = bytes(Fd),
@@ -1767,7 +1769,7 @@ get_nodeinfo(Fd,Nod) ->
 	    Creations = lists:flatmap(fun(C) -> try [list_to_integer(C)]
 						catch error:badarg -> []
 						end
-				      end, string:tokens(bytes(Fd)," ")),
+				      end, string:lexemes(bytes(Fd)," ")),
 	    get_nodeinfo(Fd,Nod#nod{creation={creations,Creations}});
 	"Remote link" ->
 	    Procs = bytes(Fd), % e.g. "<0.31.0> <4322.54.0>"
@@ -2213,7 +2215,7 @@ get_size_value(Key,Data) ->
 %% and Value is the sum over all allocator instances of each type.
 sort_allocator_types([{Name,Data}|Allocators],Acc,DoTotal) ->
     Type =
-	case string:tokens(Name,"[]") of
+	case string:lexemes(Name,"[]") of
 	    [T,_Id] -> T;
 	    [Name] -> Name;
             Other -> Other

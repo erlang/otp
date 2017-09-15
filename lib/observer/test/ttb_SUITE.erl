@@ -222,7 +222,7 @@ file_fetch(Config) when is_list(Config) ->
     ?line ?t:capture_stop(),
     ?line [StoreString] = ?t:capture_get(),
     ?line UploadDir =
-	lists:last(string:tokens(lists:flatten(StoreString),"$ \n")),
+	lists:last(string:lexemes(lists:flatten(StoreString),"$ \n")),
 
     %% check that files are no longer in original directories...
     ?line ok = check_gone(ThisDir,atom_to_list(Node)++"-file_fetch"),
@@ -1035,8 +1035,8 @@ logfile_name_in_fetch_dir(Config) when is_list(Config) ->
     ?line {ServerNode, ClientNode} = start_client_and_server(),
     ?line begin_trace(ServerNode, ClientNode, {local, ?FNAME}),
     ?line {_,Dir} = ttb:stop([return_fetch_dir]),
-    ?line P1 = lists:nth(3, string:tokens(filename:basename(Dir), "_")),
-    ?line P2 = hd(string:tokens(P1, "-")),
+    ?line P1 = lists:nth(3, string:lexemes(filename:basename(Dir), "_")),
+    ?line P2 = hd(string:lexemes(P1, "-")),
     ?line _File = P2.
 logfile_name_in_fetch_dir(cleanup,_Config) ->
     ?line stop_client_and_server().

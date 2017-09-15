@@ -297,7 +297,7 @@ indent(L) ->
 app_fix(L) ->
     try
         {"//" ++ R1,L2} = app_fix(L, 1),
-        [App, Mod] = string:tokens(R1, "/"),
+        [App, Mod] = string:lexemes(R1, "/"),
         "//" ++ atom(App) ++ "/" ++ atom(Mod) ++ L2
     catch _:_ -> L
     end.
@@ -585,13 +585,13 @@ ot_integer(E) ->
     {integer,0,list_to_integer(get_attrval(value, E))}.
 
 ot_range(E) ->
-    [I1, I2] = string:tokens(get_attrval(value, E), "."),
+    [I1, I2] = string:lexemes(get_attrval(value, E), "."),
     {type,0,range,[{integer,0,list_to_integer(I1)},
                    {integer,0,list_to_integer(I2)}]}.
 
 ot_binary(E) ->
     {Base, Unit} =
-        case string:tokens(get_attrval(value, E), ",:*><") of
+        case string:lexemes(get_attrval(value, E), ",:*><") of
             [] ->
                 {0, 0};
             ["_",B] ->

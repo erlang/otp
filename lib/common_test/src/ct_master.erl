@@ -807,7 +807,7 @@ filter_accessible(InitOptions, Inaccessible)->
 
 start_nodes(InitOptions)->
     lists:foreach(fun({NodeName, Options})->
-	[NodeS,HostS]=string:tokens(atom_to_list(NodeName), "@"),
+	[NodeS,HostS]=string:lexemes(atom_to_list(NodeName), "@"),
 	Node=list_to_atom(NodeS),
 	Host=list_to_atom(HostS),
 	HasNodeStart = lists:keymember(node_start, 1, Options),

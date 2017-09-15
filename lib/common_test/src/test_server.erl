@@ -462,11 +462,12 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 			 %% it as a comment, potentially replacing user data
 			 Error = lists:flatten(io_lib:format("Aborted: ~tp",
 							     [Reason])),
-			 Error1 = lists:flatten([string:strip(S,left) ||
-						    S <- string:tokens(Error,
-								       [$\n])]),
-			 Comment = if length(Error1) > 63 ->
-					   string:substr(Error1,1,60) ++ "...";
+			 Error1 = lists:flatten([string:trim(S,leading,"\s") ||
+						    S <- string:lexemes(Error,
+                                                                        [$\n])]),
+                         ErrorLength = string:length(Error1),
+			 Comment = if ErrorLength > 63 ->
+					   string:slice(Error1,0,60) ++ "...";
 				      true ->
 					   Error1
 				   end,
@@ -2697,9 +2698,9 @@ is_cover() ->
 is_debug() ->
     case catch erlang:system_info(debug_compiled) of
 	{'EXIT', _} ->
-	    case string:str(erlang:system_info(system_version), "debug") of
-		Int when is_integer(Int), Int > 0 -> true;
-		_ -> false
+	    case string:find(erlang:system_info(system_version), "debug") of
+                nomatch -> false;
+		_ -> true
 	    end;
 	Res ->
 	    Res
@@ -2735,9 +2736,9 @@ has_superfluous_schedulers() ->
 %% We might want to do more tests on a commercial platform, for instance
 %% ensuring that all applications have documentation).
 is_commercial() ->
-    case string:str(erlang:system_info(system_version), "source") of
-	Int when is_integer(Int), Int > 0 -> false;
-	_ -> true
+    case string:find(erlang:system_info(system_version), "source") of
+        nomatch -> true;
+	_ -> false
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

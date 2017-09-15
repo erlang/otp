@@ -464,4 +464,4 @@ split_one(Path) ->
     filename:split(Path).
 
 split_path(Path) ->
-    string:tokens(Path,";").
+    string:lexemes(Path,";").

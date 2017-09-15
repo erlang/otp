@@ -164,7 +164,7 @@ pre_post_io(Config) ->
       fun(PrePostIoFile) ->
 	      ct:log("Reading Pre/Post Test IO Log file: ~ts", [PrePostIoFile]),
 	      {ok,Bin} = file:read_file(PrePostIoFile),
-	      Ts = string:tokens(binary_to_list(Bin),[$\n]),
+	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
 	      PrePostIOEntries =
 		  lists:foldl(fun([$L,$o,$g,$g,$e,$r|_],
 				  {pre,PreLogN,PreErrN,0,0}) ->
@@ -203,7 +203,7 @@ pre_post_io(Config) ->
       fun(UnexpIoFile) ->
 	      ct:log("Reading Unexpected IO Log file: ~ts", [UnexpIoFile]),
 	      {ok,Bin} = file:read_file(UnexpIoFile),
-	      Ts = string:tokens(binary_to_list(Bin),[$\n]),
+	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
 	      UnexpIOEntries =
 		  lists:foldl(fun([$L,$o,$g,$g,$e,$r|_], [LogN,ErrN]) ->
 				      [LogN+1,ErrN];

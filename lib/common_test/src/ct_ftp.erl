@@ -285,7 +285,7 @@ init(KeyOrName,{IP,Port},{Username,Password}) ->
 	{ok,FtpPid} ->
 	    log(heading(init,KeyOrName), 
 		"Opened ftp connection:\nIP: ~tp\nUsername: ~tp\nPassword: ~p\n",
-		[IP,Username,lists:duplicate(length(Password),$*)]),
+		[IP,Username,lists:duplicate(string:length(Password),$*)]),
 	    {ok,FtpPid,#state{ftp_pid=FtpPid,target_name=KeyOrName}};
 	Error ->
 	    Error

@@ -43,7 +43,7 @@ pre_init_per_testcase(_TC,Config,State) ->
     {start_slave(Config, 50),State}.
 
 start_slave(Config,_Level) ->
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    [_,Host] = string:lexemes(atom_to_list(node()), "@"),
     
     ct:log("Trying to start ~s~n", 
 	   ["test_server_tester@"++Host]),

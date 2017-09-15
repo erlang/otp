@@ -996,7 +996,8 @@ init(KeyOrName, {ConnType,Addr,Port}, AllOpts) ->
 	    try_log(heading(init,KeyOrName), 
 		    "Opened ~w connection:\n"
 		    "Host: ~tp (~p)\nUser: ~tp\nPassword: ~p\n",
-		[ConnType,Addr,Port,User,lists:duplicate(length(Password),$*)]),
+		[ConnType,Addr,Port,User,
+                 lists:duplicate(string:length(Password),$*)]),
 	    {ok,SSHRef,#state{ssh_ref=SSHRef, conn_type=ConnType,
 			      target=KeyOrName}}
     end.

@@ -29,13 +29,9 @@ get_suites(SuitesWithSuiteSuffix) ->
     [S || {yes, S} <- Prefixes].
 
 suffix(String, Suffix) ->
-    case string:rstr(String, Suffix) of
-	0 -> no;
-	Index ->
-	    case string:substr(String, Index) =:= Suffix of
-		true -> {yes, string:sub_string(String, 1, Index-1)};
-		false -> no
-	    end
+    case string:split(String, Suffix, trailing) of
+	[Prefix,[]] -> {yes, Prefix};
+        _ -> no
     end.
 
 -spec file_type(file:filename()) -> {ok, file_type()} | {error, ext_posix()}.

@@ -255,7 +255,7 @@ do_run_erl(Config, Case, Opt) ->
     
     net_kernel:monitor_nodes(true),
     open_port({spawn,Cmd}, []),
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    [_,Host] = string:lexemes(atom_to_list(node()), "@"),
     Node = list_to_atom(NodeName++"@"++Host),
 
     receive

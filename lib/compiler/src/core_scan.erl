@@ -200,8 +200,8 @@ pre_string(eof, Q, _, Sp, SoFar, Pos) ->
     pre_string_error(Q, Sp, SoFar, Pos).
 
 pre_string_error(Q, Sp, SoFar, Pos) ->
-    S = reverse(string:substr(SoFar, 1, string:chr(SoFar, Q)-1)),
-    pre_error({string,Q,string:substr(S, 1, 16)}, Sp, Pos).
+    [S,_] = string:split(SoFar, [Q]),
+    pre_error({string,Q,string:slice(string:reverse(S), 0, 16)}, Sp, Pos).
 
 pre_char([C|Cs], SoFar) -> pre_char(C, Cs, SoFar);
 pre_char([], _) -> more;

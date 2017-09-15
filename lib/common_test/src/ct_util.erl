@@ -795,25 +795,25 @@ parse_table(Data) ->
     {Heading,Lines}.
 
 get_headings(["|" ++ Headings | Rest]) ->
-    {remove_space(string:tokens(Headings, "|"),[]), Rest};
+    {remove_space(string:lexemes(Headings, "|"),[]), Rest};
 get_headings([_ | Rest]) ->
     get_headings(Rest);
 get_headings([]) ->
     {{},[]}.
 
 parse_row(["|" ++ _ = Row | T], Rows, NumCols) when NumCols > 1 ->
-    case string:tokens(Row, "|") of
+    case string:lexemes(Row, "|") of
 	Values when length(Values) =:= NumCols ->
 	    parse_row(T,[remove_space(Values,[])|Rows], NumCols);
 	Values when length(Values) < NumCols ->
 	    parse_row([Row ++"\n"++ hd(T) | tl(T)], Rows, NumCols)
     end;
-parse_row(["|" ++ _ = Row | T], Rows, 1 = NumCols) ->
-    case string:rchr(Row, $|) of
-	1 ->
+parse_row(["|" ++ X = Row | T], Rows, 1 = NumCols) ->
+    case string:find(X, [$|]) of
+	nomatch ->
 	    parse_row([Row ++"\n"++hd(T) | tl(T)], Rows, NumCols);
 	_Else ->
-	    parse_row(T, [remove_space(string:tokens(Row,"|"),[])|Rows],
+	    parse_row(T, [remove_space(string:lexemes(Row,"|"),[])|Rows],
 		      NumCols)
     end;
 parse_row([_Skip | T], Rows, NumCols) ->
@@ -822,7 +822,7 @@ parse_row([], Rows, _NumCols) ->
     lists:reverse(Rows).
 
 remove_space([Str|Rest],Acc) ->
-    remove_space(Rest,[string:strip(string:strip(Str),both,$')|Acc]);
+    remove_space(Rest,[string:trim(string:trim(Str,both,[$\s]),both,[$'])|Acc]);
 remove_space([],Acc) ->
     list_to_tuple(lists:reverse(Acc)).
 
@@ -832,7 +832,7 @@ remove_space([],Acc) ->
 %%%
 %%% @doc
 is_test_dir(Dir) ->
-    lists:last(string:tokens(filename:basename(Dir), "_")) == "test".
+    lists:last(string:lexemes(filename:basename(Dir), "_")) == "test".
 
 %%%-----------------------------------------------------------------
 %%% @spec 
@@ -1077,7 +1077,7 @@ open_url(iexplore, Args, URL) ->
     _ = case win32reg:values(R) of
 	{ok, Paths} ->
 	    Path = proplists:get_value(default, Paths),
-	    [Cmd | _] = string:tokens(Path, "%"),
+	    [Cmd | _] = string:lexemes(Path, "%"),
 	    Cmd1 = Cmd ++ " " ++ Args ++ " " ++ URL,
 	    io:format(?def_gl, "~nOpening ~ts with command:~n  ~ts~n", [URL,Cmd1]),
 	    open_port({spawn,Cmd1}, []);

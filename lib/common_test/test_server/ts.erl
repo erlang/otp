@@ -583,7 +583,7 @@ is_list_of_suites(List) ->
 		      S = if is_atom(Suite) -> atom_to_list(Suite);
 			     true -> Suite
 			  end,
-		      try lists:last(string:tokens(S,"_")) of
+		      try lists:last(string:lexemes(S,"_")) of
 			  "SUITE" -> true;
 			  "suite" -> true;
 			  _ -> false

@@ -154,7 +154,7 @@ compiler_target_opt() ->
 
 %% @doc Join options.
 fix_opts(Opts) ->
-  string:join(Opts, " ").
+  lists:flatten(lists:join(" ", Opts)).
 
 %% @doc Translate optimization-level flag (default is "O2").
 trans_optlev_flag(Tool, Options) ->

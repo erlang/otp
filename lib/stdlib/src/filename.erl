@@ -1036,10 +1036,10 @@ basedir_linux(Type) ->
         user_log    -> getenv("XDG_CACHE_HOME", ?basedir_linux_user_log,   true);
         site_data   ->
             Base = getenv("XDG_DATA_DIRS",?basedir_linux_site_data,false),
-            string:tokens(Base,":");
+            string:lexemes(Base, ":");
         site_config ->
             Base = getenv("XDG_CONFIG_DIRS",?basedir_linux_site_config,false),
-            string:tokens(Base,":")
+            string:lexemes(Base, ":")
     end.
 
 -define(basedir_darwin_user_data,   "Library/Application Support").

@@ -311,7 +311,7 @@ lib_dir(Vars, Lib) ->
 			  end,
 	    CLibDir = filename:join(CLibDirList),
 	    Cmd = "ls -d " ++ CLibDir ++ "*",
-	    XLibDir = lists:last(string:tokens(os:cmd(Cmd),"\n")),
+	    XLibDir = lists:last(string:lexemes(os:cmd(Cmd),"\n")),
 	    case file:list_dir(XLibDir) of
 		{error, enoent} ->
 		    [];
@@ -361,15 +361,11 @@ emu_vars(Vars) ->
      {erl_name, atom_to_list(lib:progname())}|Vars].
 
 is_source_build() ->
-    string:str(erlang:system_info(system_version), "[source]") > 0.
+    string:find(erlang:system_info(system_version), "source") =/= nomatch.
 
 is_debug_build() ->
-    case catch string:str(erlang:system_info(system_version), "debug") of
-	Int when is_integer(Int), Int > 0 ->
-	    true;
-	_ ->
-	    false
-    end.
+    string:find(erlang:system_info(system_version), "debug") =/= nomatch.
+
 %%
 %% ssl_libdir
 %%

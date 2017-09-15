@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ reply(_) ->
 
 %% convert ip number to tuple
 ip_string_to_tuple(Ip) ->
-    [Ip1,Ip2,Ip3,Ip4] = string:tokens(Ip,"."),
+    [Ip1,Ip2,Ip3,Ip4] = string:lexemes(Ip,"."),
     {list_to_integer(Ip1),
      list_to_integer(Ip2),
      list_to_integer(Ip3),

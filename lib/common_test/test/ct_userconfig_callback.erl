@@ -21,7 +21,7 @@
 -export([check_parameter/1, read_config/1]).
 
 read_config(Str) ->
-    KeyVals = string:tokens(Str, " "),
+    KeyVals = string:lexemes(Str, " "),
     {ok,read_config1(KeyVals)}.
 
 read_config1([Key,Val | KeyVals]) ->

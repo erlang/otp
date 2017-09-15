@@ -249,7 +249,7 @@ do_handle_data("echo " ++ Data,State) ->
     send(Data++"\r\n> ",State),
     {ok,State};
 do_handle_data("echo_sep " ++ Data,State) ->
-    Msgs = string:tokens(Data," "),
+    Msgs = string:lexemes(Data," "),
     lists:foreach(fun(Msg) ->
 			  send(Msg,State),
 			  timer:sleep(10)
@@ -260,28 +260,28 @@ do_handle_data("echo_no_prompt " ++ Data,State) ->
     send(Data,State),
     {ok,State};
 do_handle_data("echo_ml " ++ Data,State) ->
-    Lines = string:tokens(Data," "),
-    ReturnData = string:join(Lines,"\n"),
+    Lines = string:lexemes(Data," "),
+    ReturnData = lists:flatten(lists:join("\n",Lines)),
     send(ReturnData++"\r\n> ",State),
     {ok,State};
 do_handle_data("echo_ml_no_prompt " ++ Data,State) ->
-    Lines = string:tokens(Data," "),
-    ReturnData = string:join(Lines,"\n"),
+    Lines = string:lexemes(Data," "),
+    ReturnData = lists:flatten(lists:join("\n",Lines)),
     send(ReturnData,State),
     {ok,State};
 do_handle_data("echo_loop " ++ Data,State) ->
-    [TStr|Lines] = string:tokens(Data," "),
-    ReturnData = string:join(Lines,"\n"),
+    [TStr|Lines] = string:lexemes(Data," "),
+    ReturnData = lists:flatten(lists:join("\n",Lines)),
     send_loop(list_to_integer(TStr),ReturnData,State),
     {ok,State};
 do_handle_data("echo_delayed_prompt "++Data,State) ->
-    [MsStr|EchoData] = string:tokens(Data, " "),
-    send(string:join(EchoData,"\n"),State),
+    [MsStr|EchoData] = string:lexemes(Data, " "),
+    send(lists:flatten(lists:join("\n",EchoData)),State),
     timer:sleep(list_to_integer(MsStr)),
     send("\r\n> ",State),
     {ok,State};
 do_handle_data("disconnect_after " ++WaitStr,State) ->
-    Wait = list_to_integer(string:strip(WaitStr,right,$\n)),
+    Wait = list_to_integer(string:trim(WaitStr,trailing,"\n")),
     dbg("Server will close connection in ~w ms...", [Wait]),
     erlang:send_after(Wait,self(),disconnect),
     {ok,State};

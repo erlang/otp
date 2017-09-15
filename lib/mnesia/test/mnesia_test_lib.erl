@@ -774,7 +774,7 @@ init_nodes([], _File, _Line) ->
 
 %% Returns [Name, Host]
 node_to_name_and_host(Node) ->
-    string:tokens(atom_to_list(Node), [$@]).
+    string:lexemes(atom_to_list(Node), [$@]).
 
 lookup_config(Key,Config) ->
     case lists:keysearch(Key,1,Config) of

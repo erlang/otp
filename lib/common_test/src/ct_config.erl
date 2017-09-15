@@ -659,7 +659,7 @@ decrypt_config_file(EncryptFileName, TargetFileName, {key,Key}) ->
 get_crypt_key_from_file(File) ->
     case file:read_file(File) of
 	{ok,Bin} ->
-	    case catch string:tokens(binary_to_list(Bin), [$\n,$\r]) of
+	    case catch string:lexemes(binary_to_list(Bin), [$\n,$\r]) of
 		[Key] ->
 		    Key;
 		_ ->
@@ -693,7 +693,7 @@ get_crypt_key_from_file() ->
 	noent ->
 	    Result;
 	_ ->
-	    case catch string:tokens(binary_to_list(Result), [$\n,$\r]) of
+	    case catch string:lexemes(binary_to_list(Result), [$\n,$\r]) of
 		[Key] ->
 		    io:format("~nCrypt key file: ~ts~n", [FullName]),
 		    Key;

@@ -147,7 +147,7 @@ script_start(Args) ->
 	    CTVsn =
 		case filename:basename(code:lib_dir(common_test)) of
 		    CTBase when is_list(CTBase) ->
-			case string:tokens(CTBase, "-") of
+			case string:lexemes(CTBase, "-") of
 			    ["common_test",Vsn] -> " v"++Vsn;
 			    _ -> ""
 			end
@@ -315,7 +315,7 @@ script_start1(Parent, Args) ->
 			{undefined,InclDirs};
 		    CtInclPath ->
 			AllInclDirs =
-			    string:tokens(CtInclPath,[$:,$ ,$,]) ++ InclDirs,
+			    string:lexemes(CtInclPath,[$:,$ ,$,]) ++ InclDirs,
 			application:set_env(common_test, include, AllInclDirs),
 			{undefined,AllInclDirs}
 		end;
@@ -1096,7 +1096,7 @@ run_test2(StartOpts) ->
 			application:set_env(common_test, include, InclDirs),
 			{undefined,InclDirs};
 		    CtInclPath ->
-			InclDirs1 = string:tokens(CtInclPath, [$:,$ ,$,]),
+			InclDirs1 = string:lexemes(CtInclPath, [$:,$ ,$,]),
 			AllInclDirs = InclDirs1++InclDirs,
 			application:set_env(common_test, include, AllInclDirs),
 			{undefined,AllInclDirs}
@@ -1482,7 +1482,7 @@ run_testspec2(TestSpec) ->
 		    false ->
 			Opts#opts.include;
 		    CtInclPath ->
-			EnvInclude = string:tokens(CtInclPath, [$:,$ ,$,]),
+			EnvInclude = string:lexemes(CtInclPath, [$:,$ ,$,]),
 			EnvInclude++Opts#opts.include
 		end,
 	    application:set_env(common_test, include, AllInclude),

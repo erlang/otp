@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@
 
 -export([decode/1, encode/1]).
 
--import(lists, [reverse/1, reverse/2, nthtail/2]).
+-import(lists, [reverse/1]).
 
 -include("inet_int.hrl").
 -include("inet_dns.hrl").
@@ -473,7 +473,7 @@ decode_data(<<Order:16,Preference:16,Data0/binary>>, _, ?S_NAPTR, Buffer) ->
     {Data2,Services} = decode_string(Data1),
     {Data,Regexp} = decode_characters(Data2, utf8),
     Replacement = decode_domain(Data, Buffer),
-    {Order,Preference,string:to_lower(Flags),string:to_lower(Services),
+    {Order,Preference,string:lowercase(Flags),string:lowercase(Services),
      Regexp,Replacement};
 %% ?S_OPT falls through to default
 decode_data(Data, _, ?S_TXT, _) ->

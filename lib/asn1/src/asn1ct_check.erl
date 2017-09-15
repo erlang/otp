@@ -1576,13 +1576,15 @@ printable_string_1(#'Externalvaluereference'{value=Type}) ->
 printable_string_1({Atom,Line}) when is_atom(Atom), is_integer(Line) ->
     q(Atom);
 printable_string_1({object,definedsyntax,L}) ->
-    q(string:join([printable_string_1(Item) || Item <- L], " "));
+    Str = lists:join($\s, [printable_string_1(Item) || Item <- L]),
+    q(lists:flatten(Str));
 printable_string_1([_|_]=Def) ->
     case lists:all(fun is_integer/1, Def) of
 	true ->
 	    lists:flatten(io_lib:format("~p", [Def]));
 	false ->
-	    q(string:join([printable_string_1(Item) || Item <- Def], " "))
+            Str = lists:join($\s, [printable_string_1(Item) || Item <- Def]),
+            q(lists:flatten(Str))
     end;
 printable_string_1(Def) ->
     lists:flatten(io_lib:format("~p", [Def])).

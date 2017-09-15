@@ -178,7 +178,7 @@ verify_executable(Name0, [Ext|Rest], OrigExtensions) ->
     end;
 verify_executable(Name, [], OrigExtensions) when OrigExtensions =/= [""] -> %% Windows
     %% Will only happen on windows, hence case insensitivity
-    case can_be_full_name(string:to_lower(Name),OrigExtensions) of
+    case can_be_full_name(string:lowercase(Name),OrigExtensions) of
 	true ->
 	    verify_executable(Name,[""],[""]);
 	_ ->
