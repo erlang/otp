@@ -47,7 +47,7 @@
 -export([to_upper_to_lower/1]).
 
 %% Run tests when debugging them
--export([debug/0]).
+-export([debug/0, time_func/4]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -728,7 +728,7 @@ do_measure(TestDir) ->
     {ok, Bin} = file:read_file(File),
     io:format("~p~n",[byte_size(Bin)]),
     Do = fun(Name, Func, Mode) ->
-                 {N, Mean, Stddev, _} = time_func(Func, Mode, Bin),
+                 {N, Mean, Stddev, _} = time_func(Func, Mode, Bin, 50),
                  io:format("~10w ~6w ~6.2fms ±~4.2fms #~.2w gc included~n",
                            [Name, Mode, Mean/1000, Stddev/1000, N])
          end,
@@ -938,19 +938,19 @@ needs_check(_) -> true.
 
 %%%% Timer stuff
 
-time_func(Fun, Mode, Bin) ->
+time_func(Fun, Mode, Bin, Repeat) ->
     timer:sleep(100), %% Let emulator catch up and clean things before test runs
     Self = self(),
     Pid = spawn_link(fun() ->
                              Str = mode(Mode, Bin),
-                             Self ! {self(),time_func(0,0,0, Fun, Str, undefined)}
+                             Self ! {self(),time_func(0,0,0, Fun, Str, undefined, Repeat)}
                      end),
     receive {Pid,Msg} -> Msg end.
 
-time_func(N,Sum,SumSq, Fun, Str, _) when N < 50 ->
+time_func(N,Sum,SumSq, Fun, Str, _, Repeat) when N < Repeat ->
     {Time, Res} = timer:tc(fun() -> Fun(Str) end),
-    time_func(N+1,Sum+Time,SumSq+Time*Time, Fun, Str, Res);
-time_func(N,Sum,SumSq, _, _, Res) ->
+    time_func(N+1,Sum+Time,SumSq+Time*Time, Fun, Str, Res, Repeat);
+time_func(N,Sum,SumSq, _, _, Res, _) ->
     Mean = round(Sum / N),
     Stdev = round(math:sqrt((SumSq - (Sum*Sum/N))/(N - 1))),
     {N, Mean, Stdev, Res}.
