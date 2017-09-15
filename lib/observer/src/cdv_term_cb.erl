@@ -40,6 +40,7 @@ init_term_page(ParentWin, {Type, [Term, Tab]}) ->
       [{"Format \~p",cdv_html_wx,{Type, format_term_fun("~p",BinSaved,Tab)}},
        {"Format \~tp",cdv_html_wx,{Type,format_term_fun("~tp",BinSaved,Tab)}},
        {"Format \~w",cdv_html_wx,{Type,format_term_fun("~w",BinSaved,Tab)}},
+       {"Format \~tw",cdv_html_wx,{Type,format_term_fun("~tw",BinSaved,Tab)}},
        {"Format \~s",cdv_html_wx,{Type,format_term_fun("~s",Expanded,Tab)}},
        {"Format \~ts",cdv_html_wx,{Type,format_term_fun("~ts",Expanded,Tab)}}]).
 
