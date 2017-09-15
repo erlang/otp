@@ -555,6 +555,9 @@ from_form_with_check(Form, ExpTypes, MFA, RecordTable, VarTable, Cache) ->
   Site = {spec, MFA},
   C1 = erl_types:t_check_record_fields(Form, ExpTypes, Site, RecordTable,
                                        VarTable, Cache),
+  %% The check costs some time, and with the assumption that contracts
+  %% are not very deep, it does not add anything.
+  %% erl_types:t_from_form_check_remote(Form, ExpTypes, MFA, RecordTable),
   erl_types:t_from_form(Form, ExpTypes, Site, RecordTable, VarTable, C1).
 
 constraints_to_dict(Constrs, MFA, RecDict, ExpTypes, RecordTable,
@@ -840,7 +843,7 @@ is_remote_types_related(Contract, CSig, Sig, MFA, RecDict) ->
 
 t_from_forms_without_remote([{FType, []}], MFA, RecDict) ->
   Site = {spec, MFA},
-  {Type1, _} = erl_types:t_from_form_without_remote(FType, Site, RecDict),
+  Type1 = erl_types:t_from_form_without_remote(FType, Site, RecDict),
   {ok, erl_types:subst_all_vars_to_any(Type1)};
 t_from_forms_without_remote([{_FType, _Constrs}], _MFA, _RecDict) ->
   %% 'When' constraints
