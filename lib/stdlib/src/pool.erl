@@ -25,7 +25,7 @@
 %% with the least load !!!!
 %% This function is callable from any node including the master
 %% That is part of the pool
-%% nodes are scheduled on a per usgae basis and per load basis,
+%% nodes are scheduled on a per usage basis and per load basis,
 %% Whenever we use a node, we put at the end of the queue, and whenever
 %% a node report a change in load, we insert it accordingly
 
@@ -197,7 +197,7 @@ pure_insert({Load,Node},[{L,N}|Tail]) when Load < L ->
 pure_insert(L,[H|T]) -> [H|pure_insert(L,T)].
 
 %% Really should not measure the contributions from
-%% the back ground processes here .... which we do :-(
+%% the background processes here .... which we do :-(
 %% We don't have to monitor the master, since we're slaves anyway
 
 statistic_collector() ->
@@ -213,7 +213,7 @@ statistic_collector(I) ->
 	    stat_loop(M, 999999)
     end.
 
-%% Do not tell the master about our load if it has not  changed
+%% Do not tell the master about our load if it has not changed
 
 stat_loop(M, Old) ->
     sleep(2000),
