@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -133,17 +133,17 @@
 
   Map :: map()                                 %% denotes a map of any size
        | #{}                                   %% denotes the empty map
-       | #{PairList}
+       | #{AssociationList}
 
   Tuple :: tuple()                             %% denotes a tuple of any size
          | {}
          | {TList}
 
-  PairList :: Pair
-            | Pair, PairList
+  AssociationList :: Association
+                   | Association, AssociationList
 
-  Pair :: Type := Type                         %% denotes a mandatory pair
-        | Type => Type                         %% denotes an optional pair
+  Association :: Type := Type                  %% denotes a mandatory association
+               | Type => Type                  %% denotes an optional association
 
   TList :: Type
          | Type, TList
@@ -173,14 +173,17 @@
     The notation <c>[]</c> specifies the singleton type for the empty list.
   </p>
   <p>
-    The general form of maps is <c>#{PairList}</c>. The key types in
-    <c>PairList</c> are allowed to overlap, and if they do, the
-    leftmost pair takes precedence. A map pair has a key in
-    <c>PairList</c> if it belongs to this type. A <c>PairList</c> may contain
-    both 'mandatory' and 'optional' pairs where 'mandatory' denotes that
-    a key type, and its associated value type, must be present.
-    In the case of an 'optional' pair it is not required for the key type to
-    be present.
+    The general form of map types is <c>#{AssociationList}</c>.
+    The key types in
+    <c>AssociationList</c> are allowed to overlap, and if they do, the
+    leftmost association takes precedence. A map association has a key in
+    <c>AssociationList</c> if it belongs to this type.
+    <c>AssociationList</c> can contain both mandatory and optional
+    association types.
+    If an association type is mandatory, an association with that type
+    is to be present.
+    In the case of an optional association type it is not required for
+    the key type to be present.
   </p>
   <p>
     Notice that the syntactic representation of <c>map()</c> is
@@ -512,8 +515,8 @@
     <p>
       Currently, the <c>::</c> constraint
       (read as &laquo;is a subtype of&raquo;) is
-      the only guard constraint that can be used in the <c>'when'</c>
-      part of a <c>'-spec'</c> attribute.
+      the only guard constraint that can be used in the <c>when</c>
+      part of a <c>-spec</c> attribute.
     </p>
     <note>
       <p>
