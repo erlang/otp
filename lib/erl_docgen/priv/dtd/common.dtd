@@ -17,7 +17,7 @@
  
      $Id$
 -->
-<!-- This file contains common stuff for all dtds. -->
+<!-- This file contains common stuff for all dtds.  -->
 
 <!ENTITY % common.entities SYSTEM "common.entities.dtd" >
 %common.entities;
