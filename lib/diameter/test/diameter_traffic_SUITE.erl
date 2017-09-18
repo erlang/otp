@@ -533,9 +533,10 @@ add_transports(Config) ->
     LRef = ?util:listen(SN,
                         [T,
                          {sender, SS},
-                         {message_cb, ST andalso {?MODULE, message, [0]}}
-                         | [{packet, hd(?util:scramble([false, raw]))}
-                            || T == sctp andalso CS]],
+                         {message_cb, ST andalso {?MODULE, message, [0]}}]
+                        ++ [{packet, hd(?util:scramble([false, raw]))}
+                            || T == sctp andalso CS]
+                        ++ [{unordered, unordered()} || T == sctp],
                         [{capabilities_cb, fun capx/2},
                          {pool_size, 8}
                          | server_apps()]
@@ -551,13 +552,17 @@ add_transports(Config) ->
              Id <- [{D,E}]],
     ?util:write_priv(Config, "transport", [LRef | Cs]).
 
+unordered() ->
+    element(rand:uniform(4), {true, false, 1, 2}).
+
 client_opts(tcp) ->
     [];
 client_opts(sctp) ->
-    [{sctp_initmsg, #sctp_initmsg{num_ostreams = N,
-                                  max_instreams = 5}}
-     || N <- [rand:uniform(8)],
-        N =< 6].
+    [{unordered, unordered()}
+     | [{sctp_initmsg, #sctp_initmsg{num_ostreams = N,
+                                     max_instreams = 5}}
+        || N <- [rand:uniform(8)],
+           N =< 6]].
 
 server_apps() ->
     B = have_nas(),
