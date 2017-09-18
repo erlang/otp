@@ -27,7 +27,7 @@
 	 init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
--compile(export_all).
+-export([canvas/1, glu_tesselation/1]).
 
 -include("wx_test_lib.hrl").
 -include_lib("wx/include/gl.hrl").

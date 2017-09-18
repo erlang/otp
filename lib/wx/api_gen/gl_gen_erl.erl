@@ -35,6 +35,9 @@
 		   open_write/1, open_write/2, close/0, erl_copyright/0, w/2,
 		   args/3, args/4, strip_name/2]).
 
+
+-define(HTTP_TOP, "https://www.khronos.org/registry/OpenGL-Refpages/").
+
 gl_defines(Defs) ->
     open_write("../include/gl.hrl"),
     erl_copyright(),
@@ -96,7 +99,7 @@ gl_api(Fs) ->
     w("~n%% OPENGL API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% @doc  Standard OpenGL api.~n", []),
-    w("%% See <a href=\"http://www.opengl.org/sdk/docs/man/\">www.opengl.org</a>~n",[]),
+    w("%% See <a href=\""++ ?HTTP_TOP ++ "\">www.khronos.org</a>~n",[]),
     w("%%~n", []),
     w("%% Booleans are represented by integers 0 and 1.~n~n", []),
 
@@ -158,7 +161,7 @@ glu_api(Fs) ->
     w("~n%% OPENGL UTILITY API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
     w("%% @doc  A part of the standard OpenGL Utility api.~n", []),
-    w("%% See <a href=\"http://www.opengl.org/sdk/docs/man/\">www.opengl.org</a>~n",[]),
+    w("%% See <a href=\""++ ?HTTP_TOP ++ "\">www.khronos.org</a>~n",[]),
     w("%%~n", []),
     w("%% Booleans are represented by integers 0 and 1.~n~n", []),
 
@@ -300,8 +303,7 @@ gen_doc(Name0, Alt, Export) ->
     Name = doc_name(Name0, Alt),
     case get({doc, Name}) of
 	undefined ->
-	    GLDoc = "http://www.opengl.org/sdk/docs/man/xhtml/",
-	    case parse_doc(Name, _Dir1 ="gl_man4", _Dir2="gl_man2") of
+	    case parse_doc(Name, Dir1 ="gl_man4", Dir2="gl_man2") of
 		{error, _} ->
 		    case reverse(Name) of
 			"BRA" ++ _ -> ok;
@@ -311,13 +313,18 @@ gen_doc(Name0, Alt, Export) ->
 			    %% 	      [Name, Name0, Dir1, Dir2]),
 			    ok
 		    end,
-		    w("%% @doc ~s~n%%~n%% See <a href=\"~s~s.xml\">external</a> documentation.~n",
-		      [Name, GLDoc, Name]);
-		Doc ->
+		    w("%% @doc ~s~n%%~n"
+                      "%% See <a href=\"~s\">external</a> documentation.~n",
+		      [Name, ?HTTP_TOP]);
+		{Found, Doc} ->
+                    {Dir,Ext} = case Found of
+                                    Dir1 -> {"gl4/html", "xhtml"};
+                                    Dir2 -> {"gl2.1/xhtml", "xml"}
+                                end,
 		    put({doc, Name}, Export),
 		    format_doc(Doc, ?LINE_LEN),
-		    w("~n%%~n%% See <a href=\"~s~s.xml\">external</a> documentation.~n",
-		      [GLDoc, Name])
+		    w("~n%%~n%% See <a href=\"~s~s/~s.~s\">external</a> documentation.~n",
+		      [?HTTP_TOP, Dir, Name, Ext])
 	    end;
 	Where ->
 	    w("%% @doc ~n", []),
@@ -327,9 +334,12 @@ gen_doc(Name0, Alt, Export) ->
 parse_doc(Name, Dir1, Dir2) ->
     case gl_scan_doc:file(filename:join(Dir1, Name++".xml"), []) of
 	{error, {_, "no such" ++ _}} ->
-	    gl_scan_doc:file(filename:join(Dir2, Name++".xml"), []);
+	    case gl_scan_doc:file(filename:join(Dir2, Name++".xml"), []) of
+                {error, _} = Err -> Err;
+                Doc -> {Dir2, Doc}
+            end;
 	Doc ->
-	    Doc
+	    {Dir1, Doc}
     end.
 
 format_doc(Strs, Count) when Count < 0 ->

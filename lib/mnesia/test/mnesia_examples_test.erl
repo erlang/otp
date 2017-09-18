@@ -21,7 +21,14 @@
 %%
 -module(mnesia_examples_test).
 -author('hakan@erix.ericsson.se').
--compile([export_all]).
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+-export([bup/1, company/1, meter/1,
+         replica_test/1, sticky_replica_test/1, dist_test/1,
+         conflict_test/1, frag_test/1, frag2_test/1, remote_test/1,
+         remote_frag2_test/1, opt_load/1]).
+
 -include("mnesia_test_lib.hrl").
 
 init_per_testcase(Func, Conf) ->

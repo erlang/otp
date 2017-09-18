@@ -29,7 +29,6 @@
 -include_lib("wx/include/wx.hrl").
 
 -export([start/0]).
--compile(export_all).
 
 %%%Lots of IDs to declare!
 -define(menuID_FILE_QUIT,           ?wxID_EXIT).
@@ -223,36 +222,6 @@ create_menubar_menu() ->
             {help,  "Find a menu by searching for its label"}
             ])),
     MenuBarMenu.
-
-
-%%    
-%%    
-%%    
-create_submenu_menu() ->
-    SubMenuMenu   = wxMenu:new(),
-    wxMenu:append(SubMenuMenu, wxMenuItem:new([
-            {id,    ?menuID_SUBMENU_NORMAL},
-            {text,  "&Normal submenu item"},
-            {help,  "Disabled submenu item"}
-            ])),
-    %% note different way of adding check menu item
-    wxMenu:appendCheckItem(SubMenuMenu, 
-            ?menuID_SUBMENU_CHECK,
-            "&Check submenu item",
-            [{help,  "Check submenu item"}]),
-    wxMenu:appendRadioItem(SubMenuMenu, 
-            ?menuID_SUBMENU_RADIO_1,
-            "Radio item &1",
-            [{help,  "Radio item"}]),
-    wxMenu:appendRadioItem(SubMenuMenu, 
-            ?menuID_SUBMENU_RADIO_2,
-            "Radio item &2",
-            [{help,  "Radio item"}]),
-    wxMenu:appendRadioItem(SubMenuMenu, 
-            ?menuID_SUBMENU_RADIO_3,
-            "Radio item &3",
-            [{help,  "Radio item"}]),
-    SubMenuMenu.
 
 
 %%    

@@ -22,7 +22,36 @@
 -module(mnesia_isolation_test).
 -author('hakan@erix.ericsson.se').
 
--compile([export_all]).
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+-export([no_conflict/1, simple_queue_conflict/1,
+         advanced_queue_conflict/1, simple_deadlock_conflict/1,
+         advanced_deadlock_conflict/1, schema_deadlock/1, lock_burst/1,
+         nasty/1, basic_sticky_functionality/1,
+         unbound1/1, unbound2/1,
+         create_table/1, delete_table/1, move_table_copy/1,
+         add_table_index/1, del_table_index/1, transform_table/1,
+         snmp_open_table/1, snmp_close_table/1,
+         change_table_copy_type/1, change_table_access/1,
+         add_table_copy/1, del_table_copy/1, dump_tables/1,
+         del_table_copy_1/1, del_table_copy_2/1, del_table_copy_3/1,
+         add_table_copy_1/1, add_table_copy_2/1, add_table_copy_3/1,
+         add_table_copy_4/1, move_table_copy_1/1, move_table_copy_2/1,
+         move_table_copy_3/1, move_table_copy_4/1,
+         dirty_updates_visible_direct/1,
+         dirty_reads_regardless_of_trans/1,
+         trans_update_invisibible_outside_trans/1,
+         trans_update_visible_inside_trans/1, write_shadows/1,
+         delete_shadows/1, write_delete_shadows_bag/1,
+         write_delete_shadows_bag2/1,
+         shadow_search/1, snmp_shadows/1,
+         rr_kill_copy/1, foldl/1, first_next/1]).
+
+-export([do_fun/4, burst_counter/3, burst_incr/2, get_held/0, get_info/1,
+         get_sticky/0, op/4, update_own/3, update_shared/3]).
+
 -include("mnesia_test_lib.hrl").
 
 init_per_testcase(Func, Conf) ->
@@ -668,16 +697,6 @@ unbound2(Config) when is_list(Config) ->
 			  {B, {atomic, [{ul,{key,{17,42}},val}]}}]),
     ok.
 
-receiver() ->
-    receive 
-	{_Pid, begin_trans} ->
-	    receiver();
-	Else ->
-	    Else
-    after 
-	10000 ->
-	    timeout
-    end.   
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

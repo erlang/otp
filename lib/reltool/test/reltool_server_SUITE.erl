@@ -19,11 +19,7 @@
 
 -module(reltool_server_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
-	 init_per_suite/1, end_per_suite/1, 
-         init_per_testcase/2, end_per_testcase/2]).
-
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 -include_lib("reltool/src/reltool.hrl").
 -include("reltool_test_lib.hrl").

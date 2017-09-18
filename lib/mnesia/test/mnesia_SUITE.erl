@@ -21,7 +21,12 @@
 %%
 -module(mnesia_SUITE).
 -author('hakan@erix.ericsson.se').
--compile([export_all]).
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
+         suite/0, all/0, groups/0]).
+-export([app/1, appup/1, clean_up_suite/1, silly/0]).
+
 -include_lib("common_test/include/ct.hrl").
 -include("mnesia_test_lib.hrl").
 
@@ -92,16 +97,8 @@ groups() ->
      %% benchmarks
      {heavy, [], [{group, measure}]},
      {measure, [], [{mnesia_measure_test, all}]},
-     {prediction, [],
-      [{group, mnesia_measure_test, prediction}]},
-     {fairness, [],
-      [{group, mnesia_measure_test, fairness}]},
      {benchmarks, [],
       [{group, mnesia_measure_test, benchmarks}]},
-     {consumption, [],
-      [{group, mnesia_measure_test, consumption}]},
-     {scalability, [],
-      [{group, mnesia_measure_test, scalability}]},
      %% This test suite is an extract of the grand Mnesia suite
      %% it contains OTP R4B specific test cases
      {otp_r4b, [],

@@ -24,7 +24,7 @@
 %%----------------------------------------------------------------------
 -module(reltool_app_SUITE).
 
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 -include("reltool_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").

@@ -23,7 +23,7 @@
 %%%-------------------------------------------------------------------
 
 -module(xrc).
--compile(export_all).
+-export([start/0]).
 
 -include("../../include/wx.hrl").
 

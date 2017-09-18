@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 
 -module(et_test_lib).
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 -include("et_test_lib.hrl").
 

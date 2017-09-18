@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 
 -module(rtt).
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 %%  Modules or suites can be shortcuts, for example server expands to reltool_server_SUITE.
 %%  

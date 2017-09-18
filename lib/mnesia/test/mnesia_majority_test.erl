@@ -21,7 +21,13 @@
 %%
 -module(mnesia_majority_test).
 -author('ulf.wiger@erlang-solutions.com').
--compile(export_all).
+-export([init_per_testcase/2, end_per_testcase/2,
+         all/0]).
+
+-export([write/1, wread/1, delete/1, clear_table/1, frag/1,
+         change_majority/1, frag_change_majority/1
+        ]).
+
 -include("mnesia_test_lib.hrl").
 
 init_per_testcase(Func, Conf) ->

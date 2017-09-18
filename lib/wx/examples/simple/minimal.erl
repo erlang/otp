@@ -29,7 +29,7 @@
 -include_lib("wx/include/wx.hrl").
 
 -export([start/0]).
--compile(export_all).
+
 
 start() ->
     Wx = wx:new(),

@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 
 -module(ett).
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 %%  Modules or suites can be shortcuts, for example wx expands to et_wx_SUITE.
 %%  

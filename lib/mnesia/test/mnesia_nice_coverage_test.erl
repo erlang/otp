@@ -21,7 +21,13 @@
 %%
 -module(mnesia_nice_coverage_test).
 -author('hakan@erix.ericsson.se').
--compile([export_all]).
+
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+-export([nice/1]).
+
 -include("mnesia_test_lib.hrl").
 
 -record(nice_tab, {key, val}).

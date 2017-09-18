@@ -24,7 +24,10 @@
 %%% Created : 30 Oct 2008 by Dan Gudmundsson <dan.gudmundsson@ericsson.com>
 %%%-------------------------------------------------------------------
 -module(wx_test_lib).
--compile(export_all).
+-export([init_per_suite/1, end_per_suite/1, init_per_testcase/2, end_per_testcase/2]).
+-export([tc_info/1, log/2, log/4, verbose/4, error/4,
+         flush/0, pick_msg/0, user_available/1, wx_destroy/2, wx_close/2, wait_for_close/0,
+         run_test/2, run_test/3, test_case_evaluator/3]).
 
 -include("wx_test_lib.hrl").
 
@@ -182,11 +185,15 @@ run_test([], _Config) -> [].
 run_test(Module, all, Config) ->
     All = [{Module, Test} || Test <- Module:all()],
     run_test(All, Config);
+run_test(Module, {group, Group}, Config) ->
+    {_, _, TCs} = lists:keyfind(Group, 1, Module:groups()),
+    All = [{Module, Test} || Test <- TCs],
+    run_test(All, Config);
+
 run_test(Module, TestCase, Config) ->
     log("Eval test case: ~w~n", [{Module, TestCase}]),
     Sec = timer:seconds(1) * 1000,
-    {T, Res} =
-	timer:tc(?MODULE, eval_test_case, [Module, TestCase, Config]),
+    {T, Res} = timer:tc(fun() -> eval_test_case(Module, TestCase, Config) end),
     log("Tested ~w in ~w sec~n", [TestCase, T div Sec]),
     {T div Sec, Res}.
     

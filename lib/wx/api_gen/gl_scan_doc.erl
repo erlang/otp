@@ -209,6 +209,10 @@ gen_output({startElement, _Uri, "para", _QName, _Attributes}, #state{gen_output=
 	    State#state{str=[para|Str]}
     end;
 
+gen_output({endElement, _Uri, "para", _QName}, #state{gen_output=true, str=Str} = State) ->
+    %% Pick only the first paragraph in the descriptions
+    State#state{gen_output=false};
+
 %% gen_output({startElement, _Uri, What, _QName, _Attributes}, State) ->
 %%     io:format("Skipped ~s~n",[What]),
 %%     State;
