@@ -52,13 +52,12 @@
 #  define CountCase(OpCode) case op_count_##OpCode
 #  define OpCode(OpCode)    ((Uint*)op_##OpCode)
 #  define Goto(Rel) {Go = (int)(UWord)(Rel); goto emulator_loop;}
-#  define LabelAddr(Addr) &&##Addr
 #else
 #  define OpCase(OpCode)    lb_##OpCode
 #  define CountCase(OpCode) lb_count_##OpCode
+#  define OpCode(OpCode)  (&&lb_##OpCode)
 #  define Goto(Rel) goto *((void *)Rel)
 #  define LabelAddr(Label) &&Label
-#  define OpCode(OpCode)  (&&lb_##OpCode)
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
