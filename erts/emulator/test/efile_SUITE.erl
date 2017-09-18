@@ -171,15 +171,21 @@ open_files(Name) ->
 %% a /proc directory), let's read some zero sized files 500 times each, while
 %% ensuring that response isn't empty << >>
 proc_zero_sized_files(Config) when is_list(Config) ->
+    {Type, Flavor} = os:type()
     %% Some files which exist on Linux but might be missing on other systems
     Inputs = ["/proc/cpuinfo",
               "/proc/meminfo",
               "/proc/partitions",
               "/proc/swaps",
               "/proc/version",
-              "/proc/uptime"],
+              "/proc/uptime",
+              %% curproc is present on freebsd
+              "/proc/curproc/cmdline"],
     case filelib:is_dir("/proc") of
-        false -> ok; % skip the test if no /proc
+        false -> {skip, "/proc not found"}; % skip the test if no /proc
+        _ when Type =:= unix andalso Flavor =:= sunos ->
+            %% SunOS has a /proc, but no zero sized special files
+            {skip, "sunos does not have any zero sized special files"};
         true ->
             %% Take away files which do not exist in proc
             Inputs1 = lists:filter(fun filelib:is_file/1, Inputs),
