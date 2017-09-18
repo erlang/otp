@@ -654,7 +654,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
         edep->flags |= ERTS_DIST_EXT_DFLAG_HDR;
 
     *connection_id = dep->connection_id;
-    edep->flags |= (dep->connection_id & ERTS_DIST_EXT_CON_ID_MASK);
+    edep->connection_id = dep->connection_id;
 
     if (ep[1] != DIST_HEADER) {
 	if (edep->flags & ERTS_DIST_EXT_DFLAG_HDR)
@@ -868,7 +868,7 @@ bad_dist_ext(ErtsDistExternal *edep)
 		erts_dsprintf(dsbufp, ", %d=%T", i, edep->attab.atom[i]);
 	}
 	erts_send_warning_to_logger_nogl(dsbufp);
-	erts_kill_dist_connection(dep, ERTS_DIST_EXT_CON_ID(edep));
+	erts_kill_dist_connection(dep, edep->connection_id);
     }
 }
 
