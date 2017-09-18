@@ -171,7 +171,7 @@ open_files(Name) ->
 %% a /proc directory), let's read some zero sized files 500 times each, while
 %% ensuring that response isn't empty << >>
 proc_zero_sized_files(Config) when is_list(Config) ->
-    {Type, Flavor} = os:type()
+    {Type, Flavor} = os:type(),
     %% Some files which exist on Linux but might be missing on other systems
     Inputs = ["/proc/cpuinfo",
               "/proc/meminfo",
