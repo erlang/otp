@@ -115,6 +115,7 @@ basic(doc) -> [""];
 basic(Config) when is_list(Config) ->
     timer:send_after(100, "foobar"), %% Otherwise the timer server gets added to procs
     ProcsBefore = processes(),
+    ProcInfoBefore = [{P,process_info(P)} || P <- ProcsBefore],
     NumProcsBefore = length(ProcsBefore),
 
     ok = observer:start(),
@@ -145,8 +146,10 @@ basic(Config) when is_list(Config) ->
     ProcsAfter = processes(),
     NumProcsAfter = length(ProcsAfter),
     if NumProcsAfter=/=NumProcsBefore ->
+            BeforeNotAfter = ProcsBefore -- ProcsAfter,
 	    ct:log("Before but not after:~n~p~n",
-		   [[{P,process_info(P)} || P <- ProcsBefore -- ProcsAfter]]),
+		   [[{P,I} || {P,I} <- ProcInfoBefore,
+                              lists:member(P,BeforeNotAfter)]]),
 	    ct:log("After but not before:~n~p~n",
 		   [[{P,process_info(P)} || P <- ProcsAfter -- ProcsBefore]]),
 	    ct:fail("leaking processes");
