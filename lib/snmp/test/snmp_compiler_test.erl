@@ -57,8 +57,8 @@
 	 otp_8595/1, 
 	 otp_10799/1, 
 	 otp_10808/1,
-	 otp_14145/1
-
+	 otp_14145/1,
+         otp_13014/1
 	]).
 
 %%----------------------------------------------------------------------
@@ -137,7 +137,8 @@ all() ->
 
 groups() -> 
     [{tickets, [],
-      [otp_6150, otp_8574, otp_8595, otp_10799, otp_10808, otp_14145]}].
+      [otp_6150, otp_8574, otp_8595, otp_10799, otp_10808, otp_14145,
+       otp_13014]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -436,7 +437,7 @@ otp_10808(Config) when is_list(Config) ->
 otp_14145(suite) ->
     [];
 otp_14145(Config) when is_list(Config) ->
-    put(tname, otp10808),
+    put(tname, otp14145),
     p("starting with Config: ~p~n", [Config]),
 
     Dir     = ?config(case_top_dir, Config),
@@ -452,6 +453,40 @@ otp_14145(Config) when is_list(Config) ->
     MIB = read_mib(MibBin),
     Oid = [1,3,6,1,2,1,67,4],
     check_mib(MIB#mib.mes, Oid, undefined),
+    ok.
+
+
+%%======================================================================
+
+otp_13014(suite) ->
+    [];
+otp_13014(Config) when is_list(Config) ->
+    put(tname, otp13014),
+    p("starting with Config: ~p~n", [Config]),
+
+    Dir     = ?config(case_top_dir, Config),
+    MibDir  = ?config(mib_dir,      Config),
+    MibName = "Test-LLDP-MIB",
+    MibFile = join(MibDir, MibName++".mib"),
+    ?line {ok, MibBin} =
+	snmpc:compile(MibFile, [{outdir, Dir},
+				{verbosity, log},
+				{group_check, false},
+				module_compliance]),
+    p("Mib: ~n~p~n", [MibBin]),
+    #mib{mes = MEs} = read_mib(MibBin),
+    Oid = [1,0,8802,1,1,2,1,1,7],
+    #me{
+       entrytype = table,
+       aliasname = lldpConfigManAddrTable,
+       assocList = [{table_info,TableInfo}]} =
+        lists:keyfind(Oid, #me.oid, MEs),
+    #table_info{
+       nbr_of_cols = 1,
+       first_accessible = 1,
+       not_accessible = [],
+       index_types = {augments,{lldpLocManAddrEntry,undefined}}} =
+        TableInfo,
     ok.
 
 

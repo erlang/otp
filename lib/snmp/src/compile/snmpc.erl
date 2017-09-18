@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -455,7 +455,8 @@ compile_parsed_data(#pdata{mib_name = MibName,
     Deprecated = get_deprecated(Opts),
     RelChk = get_relaxed_row_name_assign_check(Opts),
     Data = #dldata{deprecated                    = Deprecated,
-		   relaxed_row_name_assign_check = RelChk}, 
+		   relaxed_row_name_assign_check = RelChk},
+    put(augmentations, false),
     definitions_loop(Definitions, Data),
     MibName.
 
@@ -1211,7 +1212,39 @@ definitions_loop([{Obj,Line}|T], Data) ->
 
 definitions_loop([], _Data) ->
     ?vlog("defloop -> done", []),
-    ok.
+    case get(augmentations) of
+        true ->
+            CData = get(cdata),
+            put(cdata, CData#cdata{mes = augmentations(CData#cdata.mes)}),
+            ok;
+        false ->
+            ok
+    end.
+
+augmentations(
+  [#me{
+      aliasname = AliasName,
+      assocList =
+          [{table_info,
+            #table_info{
+               index_types =
+                   {augments, SrcTableEntry, Line}} = TableInfo}|Ref]} = Me
+   |Mes]) ->
+    ?vlog("augmentations(~w) ->"
+          "~n   NameOfTable:  ~p"
+          "~n   IndexingInfo: ~p"
+          "~n   Sline:        ~p",
+          [?LINE, AliasName, {augments, SrcTableEntry}, Line]),
+    NewTableInfo = snmpc_lib:fix_table_info_augmentation(TableInfo),
+    [Me#me{assocList = [{table_info,NewTableInfo}|Ref]}
+     |augmentations(Mes)];
+augmentations([Me | Mes]) ->
+     [Me|augmentations(Mes)];
+augmentations([]) ->
+    ?vlog("augmentations -> done", []),
+    [].
+
+
 
 safe_elem(N,T) ->
     case catch(element(N,T)) of
