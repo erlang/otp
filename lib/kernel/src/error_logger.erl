@@ -499,16 +499,31 @@ display4(A = [_|_]) ->
 display4(A) ->
     erlang:display(A).
 
-
-string_p(Term) when is_list(Term) ->
-    string_p1(lists:flatten(Term));
-string_p(_Term) ->
-    false.
-
-string_p1([]) ->
+string_p([]) ->
     false;
-string_p1(FlatList) ->
-    io_lib:printable_list(FlatList).
+string_p(Term) ->
+    string_p1(Term).
+
+string_p1([H|T]) when is_integer(H), H >= $\040, H =< $\176 ->
+    string_p1(T);
+string_p1([H|T]) when is_integer(H), H >= 16#A0, H < 16#D800;
+                      is_integer(H), H > 16#DFFF, H < 16#FFFE;
+                      is_integer(H), H > 16#FFFF, H =< 16#10FFFF ->
+    string_p1(T);
+string_p1([$\n|T]) -> string_p1(T);
+string_p1([$\r|T]) -> string_p1(T);
+string_p1([$\t|T]) -> string_p1(T);
+string_p1([$\v|T]) -> string_p1(T);
+string_p1([$\b|T]) -> string_p1(T);
+string_p1([$\f|T]) -> string_p1(T);
+string_p1([$\e|T]) -> string_p1(T);
+string_p1([H|T]) when is_list(H) ->
+    case string_p1(H) of
+	true -> string_p1(T);
+	_    -> false
+    end;
+string_p1([]) -> true;
+string_p1(_) ->  false.
 
 -spec limit_term(term()) -> term().
 
