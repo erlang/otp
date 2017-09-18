@@ -103,6 +103,8 @@
                    | undefined,
          os = 0   :: uint(),               %% next output stream
          rotate = 1 :: boolean() | 0 | 1,  %% rotate os?
+         unordered = false :: boolean()    %% always send unordered?
+                            | pos_integer(),% or if =< N outbound streams?
          packet = true :: boolean()        %% legacy transport_data?
                         | raw,
          message_cb = false :: false | diameter:eval(),
@@ -242,8 +244,11 @@ i(#monitor{transport = TPid} = S) ->
 i({listen, Ref, {Opts, SvcPid, Addrs}}) ->
     monitor(process, SvcPid),
     [_] = diameter_config:subscribe(Ref, transport), %% assert existence
-    {Split, Rest}
-        = proplists:split(Opts, [accept, packet, sender, message_cb]),
+    {Split, Rest} = proplists:split(Opts, [accept,
+                                           packet,
+                                           sender,
+                                           message_cb,
+                                           unordered]),
     OwnOpts = lists:append(Split),
     {LAs, Sock} = AS = open(Addrs, Rest, ?DEFAULT_PORT),
     ok = gen_sctp:listen(Sock, true),
@@ -255,12 +260,16 @@ i({listen, Ref, {Opts, SvcPid, Addrs}}) ->
               opts = [[[M] || {accept, M} <- OwnOpts],
                       proplists:get_value(packet, OwnOpts, true)
                       | [proplists:get_value(K, OwnOpts, false)
-                         || K <- [sender, message_cb]]]};
+                         || K <- [sender, message_cb, unordered]]]};
 
 %% A connecting transport.
 i({connect, Pid, Opts, Addrs, Ref}) ->
-    {[Ps | Split], Rest}
-        = proplists:split(Opts, [rport, raddr, packet, sender, message_cb]),
+    {[Ps | Split], Rest} = proplists:split(Opts, [rport,
+                                                  raddr,
+                                                  packet,
+                                                  sender,
+                                                  message_cb,
+                                                  unordered]),
     OwnOpts = lists:append(Split),
     CB = proplists:get_value(message_cb, OwnOpts, false),
     false == CB orelse (Pid ! {diameter, ack}),
@@ -274,6 +283,7 @@ i({connect, Pid, Opts, Addrs, Ref}) ->
                mode = {connect, connect(Sock, RAs, RP, [])},
                socket = Sock,
                message_cb = CB,
+               unordered = proplists:get_value(ordered, OwnOpts, false),
                packet = proplists:get_value(packet, OwnOpts, true),
                send = proplists:get_value(sender, OwnOpts, false)};
 
@@ -311,12 +321,13 @@ i({K, Ref}, #transport{mode = {accept, _}} = S) ->
             S#transport{parent = Pid};
         {K, T, Opts} when K == peeloff ->  %% association
             {sctp, Sock, _RA, _RP, _Data} = T,
-            [Matches, Packet, Sender, CB] = Opts,
+            [Matches, Packet, Sender, CB, Unordered] = Opts,
             ok = accept_peer(Sock, Matches),
             demonitor(Ref, [flush]),
             false == CB orelse (S#transport.parent ! {diameter, ack}),
             t(T, S#transport{socket = Sock,
                              message_cb = CB,
+                             unordered = Unordered,
                              packet = Packet,
                              send = Sender});
         accept_timeout = T ->
@@ -799,13 +810,29 @@ recv(#transport{rotate = B} = S)
   when is_boolean(B) ->
     S;
 
-recv(#transport{rotate = 0, streams = {_,N}, socket = Sock} = S) ->
-    ok = inet:setopts(Sock, [{sctp_default_send_param,
-                              #sctp_sndrcvinfo{flags = [unordered]}}]),
-    S#transport{rotate = 1 < N};
+recv(#transport{rotate = 0,
+                streams = {_,OS},
+                socket = Sock,
+                unordered = B}
+     = S) ->
+    ok = unordered(Sock, OS, B),
+    S#transport{rotate = 1 < OS};
 
 recv(#transport{rotate = N} = S) ->
     S#transport{rotate = N-1}.
+
+%% unordered/3
+
+unordered(Sock, OS, B)
+  when B;
+       is_integer(B), OS =< B ->
+    inet:setopts(Sock, [{sctp_default_send_param,
+                         #sctp_sndrcvinfo{flags = [unordered]}}]);
+
+unordered(_, OS, B)
+  when not B;
+       is_integer(B), B < OS ->
+    ok.
 
 %% publish/4
 
