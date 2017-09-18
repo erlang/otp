@@ -26,9 +26,8 @@
 
 -module(sudoku).
 
--export([go/0]).
+-export([go/0, start/0]).
 
--compile(export_all).
 
 -include("sudoku.hrl").
 

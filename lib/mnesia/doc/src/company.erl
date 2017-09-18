@@ -19,7 +19,12 @@
 %%
 -module(company).
 
--compile(export_all).
+-export([init/0,insert_emp/3,mk_projs/2,females/0,all_females/0,
+         g/0,female_bosses/0, raise_females/1, over_write/2, raise/2,
+         bad_raise/2, get_emps/2, get_emps2/2, filter/2, filter_deps/3,
+         search_deps/3, bench1/0, dotimes/2, dist_init/0, remove_proj/1,
+         del_in_projs/1, sync/0, tabs/0, find_male_on_second_floor/0,
+         panic/1, fill_tables/0]).
 
 %0
 

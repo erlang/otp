@@ -22,8 +22,36 @@
 -module(mnesia_atomicity_test).
 -author('hakan@erix.ericsson.se').
 -author('rossi@erix.ericsson.se').
--compile([export_all]).
 -include("mnesia_test_lib.hrl").
+
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+-export([explicit_abort_in_middle_of_trans/1,
+         runtime_error_in_middle_of_trans/1,
+         mnesia_down_during_infinite_trans/1,
+         kill_self_in_middle_of_trans/1, throw_in_middle_of_trans/1,
+         lock_waiter_sw_r/1, lock_waiter_sw_rt/1, lock_waiter_sw_wt/1,
+         lock_waiter_wr_r/1, lock_waiter_srw_r/1, lock_waiter_sw_sw/1,
+         lock_waiter_sw_w/1, lock_waiter_sw_wr/1, lock_waiter_sw_srw/1,
+         lock_waiter_wr_wt/1, lock_waiter_srw_wt/1,
+         lock_waiter_wr_sw/1, lock_waiter_srw_sw/1, lock_waiter_wr_w/1,
+         lock_waiter_srw_w/1, lock_waiter_r_sw/1, lock_waiter_r_w/1,
+         lock_waiter_r_wt/1, lock_waiter_rt_sw/1, lock_waiter_rt_w/1,
+         lock_waiter_rt_wt/1, lock_waiter_wr_wr/1,
+         lock_waiter_srw_srw/1, lock_waiter_wt_r/1, lock_waiter_wt_w/1,
+         lock_waiter_wt_rt/1, lock_waiter_wt_wt/1, lock_waiter_wt_wr/1,
+         lock_waiter_wt_srw/1, lock_waiter_wt_sw/1, lock_waiter_w_wr/1,
+         lock_waiter_w_srw/1, lock_waiter_w_sw/1, lock_waiter_w_r/1,
+         lock_waiter_w_w/1, lock_waiter_w_rt/1, lock_waiter_w_wt/1,
+         restart_r_one/1, restart_w_one/1, restart_rt_one/1,
+         restart_wt_one/1, restart_wr_one/1, restart_sw_one/1,
+         restart_r_two/1, restart_w_two/1, restart_rt_two/1,
+         restart_wt_two/1, restart_wr_two/1, restart_sw_two/1
+        ]
+       ).
+
+-export([perform_restarted_transaction/1, sync_tid_release/0]).
 
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).

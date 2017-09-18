@@ -23,7 +23,7 @@
 	 init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
--compile(export_all).
+-export([start_all_windows/1, check_no_win_crash/0, wait_terminate/1]).
 
 -include("reltool_test_lib.hrl").
 

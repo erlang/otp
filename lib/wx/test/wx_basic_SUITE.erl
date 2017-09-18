@@ -28,7 +28,11 @@
 	 init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
--compile(export_all).
+-export([silent_start/1, create_window/1, several_apps/1, wx_api/1, wx_misc/1,
+         data_types/1, wx_object/1, undef_in_handle_info/1, undef_in_terminate/1,
+         undef_handle_event/1, undef_handle_call/1, undef_handle_cast/1, undef_handle_info/1,
+         undef_code_change/1, undef_terminate1/1, undef_terminate2/1
+        ]).
 
 -include("wx_test_lib.hrl").
 

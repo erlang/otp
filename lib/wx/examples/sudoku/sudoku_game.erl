@@ -18,7 +18,9 @@
 %% %CopyrightEnd%
 
 -module(sudoku_game).
--compile(export_all).
+
+-export([init/1,
+         indx/1, rcm/1, level/1]).
 -include("sudoku.hrl").
 
 init(GFX) ->
@@ -127,17 +129,6 @@ rebuild_all(_, S0) ->
     lists:foldl(fun({Indx,Val},Acc) ->
 			add(rcm(Indx),Val,Acc)
 		end, S1, Solved).
-
-is_ok({RI,CI,MI}, Vals) ->
-    [Ri,Ci,Mi] = all(RI,CI,MI),
-    case element(indx(RI,CI),Vals) of
-	0  -> true;
-	Val ->
-	    Vs  = [[element(indx(R,C),Vals)||{R,C} <- Obs, 
-					     not ((R == RI) and (C == CI))]
-		   || Obs <- [Ri,Ci,Mi]],
-	    not lists:member(Val,lists:flatten(Vs))
-    end.
 
 test() ->  %% Known to solvable
     [{{1,2},6}, {{1,4},1}, {{1,6},4}, {{1,8},5}, 
@@ -376,14 +367,6 @@ get_poss([],_,Tot) -> Tot;
 get_poss([H|R],What,Tot) ->
     %%     io:format("~p~n",[H]),
     get_poss(R,What, gb_sets:union(element(H,What),Tot)).
-
-r2rs(R) -> 
-    R0 = (R-1)*3,
-    [R0+1,R0+2,R0+3].
-
-c2cs(C) ->
-    C0 = (C-1) rem 9,
-    [C0+1, C0+10, C0+19].
 
 mindx(row,Indx) -> 
     {R,_C,M} = rcm(Indx),

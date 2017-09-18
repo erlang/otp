@@ -23,7 +23,17 @@
 -author('hakan@erix.ericsson.se').
 -include("mnesia_test_lib.hrl").
 
--compile([export_all]).
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+
+-export([nice_single/1, nice_multi/1, nice_access/1, iter_access/1,
+         consistency/1, evil_create/1, evil_delete/1, evil_change/1, evil_combine/1,
+         evil_loop/1, evil_delete_db_node/1]).
+
+
+-export([frag_dist/1]).
 
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).
@@ -845,16 +855,7 @@ frag_rec_dist(Tab) ->
     Fun = fun() -> mnesia:table_info(Tab, frag_size) end,
     [Size || {_, Size} <- mnesia:activity(sync_dirty, Fun, mnesia_frag)].
 
-table_size(Tab) ->
-    Node = mnesia:table_info(Tab, where_to_read),
-    rpc:call(Node, mnesia, table_info, [Tab, size]).
-
 sort_res(List) when is_list(List) ->
     lists:sort(List);
 sort_res(Else) ->
-    Else.
-
-rev_res(List) when is_list(List) ->
-    lists:reverse(List);
-rev_res(Else) ->
     Else.

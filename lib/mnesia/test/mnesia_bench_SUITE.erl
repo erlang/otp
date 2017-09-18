@@ -21,7 +21,13 @@
 %%
 -module(mnesia_bench_SUITE).
 -author('lukas@erix.ericsson.se').
--compile(export_all).
+
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
+         suite/0, all/0, groups/0]).
+
+-export([tpcb_conflict_ramcopies/1, tpcb_conflict_disk_only_copies/1]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].

@@ -20,7 +20,7 @@
 
 %%
 -module(mnesia_cost).
--compile(export_all).
+-export([go/0, go/1]).
 
 %% This code exercises the mnesia system and produces a bunch
 %% of measurements on what various things cost
@@ -156,64 +156,3 @@ do_dirty(I, F) when I /= 0 ->
     F(),
     do_dirty(I-1, F);
 do_dirty(_,_) -> ok.
-
-    
-    
-table_load([N1,N2| _ ] = Ns) ->    
-    Nodes = [N1,N2],
-    rpc:multicall(Ns, mnesia, lkill, []),
-    ok = mnesia:delete_schema(Ns),
-    ok = mnesia:create_schema(Nodes),
-    rpc:multicall(Nodes, mnesia, start, []),
-    TabDef = [{disc_copies,[N1]},{ram_copies,[N2]},
-	      {attributes,record_info(fields,item)},{record_name,item}],
-    Tabs   = [list_to_atom("tab" ++ integer_to_list(I)) || I <- lists:seq(1,400)],
-    
-    [mnesia:create_table(Tab,TabDef) || Tab <- Tabs],
-
-%%     InitTab = fun(Tab) ->
-%% 		      mnesia:write_lock_table(Tab),
-%% 		      InitRec = fun(Key) -> mnesia:write(Tab,#item{a=Key},write) end,
-%% 		      lists:foreach(InitRec, lists:seq(1,100))
-%% 	      end,
-%%     
-%%    {Time,{atomic,ok}} = timer:tc(mnesia,transaction, [fun() ->lists:foreach(InitTab, Tabs) end]),
-    mnesia:dump_log(),
-%%    io:format("Init took ~p msec ~n", [Time/1000]),
-    rpc:call(N2, mnesia, stop, []),    timer:sleep(1000),
-    mnesia:stop(), timer:sleep(500),
-    %% Warmup
-    ok = mnesia:start([{no_table_loaders, 1}]),    
-    timer:tc(mnesia, wait_for_tables, [Tabs, infinity]),
-    mnesia:dump_log(),
-    rpc:call(N2, mnesia, dump_log, []),
-    io:format("Initialized ~n",[]),
-
-    mnesia:stop(), timer:sleep(1000),
-    ok = mnesia:start([{no_table_loaders, 1}]),
-    {T1, ok} = timer:tc(mnesia, wait_for_tables, [Tabs, infinity]),
-    io:format("Loading from disc with 1 loader ~p msec~n",[T1/1000]),
-    mnesia:stop(), timer:sleep(1000),
-    ok = mnesia:start([{no_table_loaders, 4}]),
-    {T2, ok} = timer:tc(mnesia, wait_for_tables, [Tabs, infinity]),
-    io:format("Loading from disc with 4 loader ~p msec~n",[T2/1000]),
-
-    %% Warmup
-    rpc:call(N2, ?MODULE, remote_load, [Tabs,4]),
-    io:format("Initialized ~n",[]),
-
-    
-    T3 = rpc:call(N2, ?MODULE, remote_load, [Tabs,1]),
-    io:format("Loading from net with 1 loader ~p msec~n",[T3/1000]),
-    
-    T4 = rpc:call(N2, ?MODULE, remote_load, [Tabs,4]),
-    io:format("Loading from net with 4 loader ~p msec~n",[T4/1000]),
-
-    ok.
-
-remote_load(Tabs,Loaders) ->
-    ok = mnesia:start([{no_table_loaders, Loaders}]),
-%%    io:format("~p ~n", [mnesia_controller:get_info(500)]),
-    {Time, ok} = timer:tc(mnesia, wait_for_tables, [Tabs, infinity]),
-    timer:sleep(1000), mnesia:stop(), timer:sleep(1000),
-    Time.

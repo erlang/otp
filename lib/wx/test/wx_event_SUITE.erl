@@ -27,7 +27,10 @@
 	 init_per_suite/1, end_per_suite/1, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
--compile(export_all).
+-export([connect/1, disconnect/1, disconnect_cb/1, connect_msg_20/1, connect_cb_20/1,
+         mouse_on_grid/1, spin_event/1, connect_in_callback/1, recursive/1,
+         dialog/1, char_events/1, callback_clean/1, handler_clean/1
+        ]).
 
 -include("wx_test_lib.hrl").
 
@@ -49,7 +52,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}, {timetrap,{minutes,2}}].
 all() ->
     [connect, disconnect, disconnect_cb, connect_msg_20, connect_cb_20,
      mouse_on_grid, spin_event, connect_in_callback, recursive,
-     dialog, char_events, callback_clean
+     dialog, char_events, callback_clean, handler_clean
     ].
 
 groups() -> 
@@ -577,6 +580,7 @@ handler_clean(_Config) ->
     Frame1 = wx_obj_test:start([{init, Init}]),
     ?mt(wxFrame, Frame1),
     wxWindow:show(Frame1),
+    timer:sleep(500),
     ?m([_|_], lists:sort(wx_test_lib:flush())),
     ?m(ok, wx_obj_test:stop(Frame1)),
     ?m([{terminate,normal}], lists:sort(wx_test_lib:flush())),
@@ -584,6 +588,7 @@ handler_clean(_Config) ->
     Terminate = fun({Frame,_}) -> wxWindow:destroy(Frame) end,
     Frame2 = wx_obj_test:start([{init, Init}, {terminate, Terminate}]),
     wxWindow:show(Frame2),
+    timer:sleep(500),
     ?m([_|_], lists:sort(wx_test_lib:flush())),
     ?m(ok, wx_obj_test:stop(Frame2)),
     ?m([{terminate,normal}], lists:sort(wx_test_lib:flush())),

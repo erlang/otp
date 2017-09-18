@@ -19,7 +19,11 @@
 %%
 
 -module(company_o).
--compile(export_all).
+
+-export([sinit/0, init/0,insert_emp/3,females/0,
+         female_bosses/0, raise_females/1, over_write/2, raise/2,
+         bad_raise/2, get_emps/2, get_emps2/2]).
+
 
 -import(mnesia, [transaction/1]).
 

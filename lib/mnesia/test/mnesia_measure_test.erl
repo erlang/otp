@@ -21,7 +21,15 @@
 %%
 -module(mnesia_measure_test).
 -author('hakan@erix.ericsson.se').
--compile([export_all]).
+
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+-export([cost/1, dbn_meters/1,
+         ram_tpcb/1, disc_tpcb/1, disc_only_tpcb/1,
+         ram_meter/1, disc_meter/1, disc_only_meter/1]).
+
 
 -include("mnesia_test_lib.hrl").
 
@@ -39,41 +47,12 @@ end_per_testcase(Func, Conf) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-    [{group, prediction}, {group, consumption},
-     {group, scalability}, {group, benchmarks}].
+    [{group, benchmarks}].
 
 groups() -> 
-    [{prediction, [],
-      [reader_disturbed_by_node_down,
-       writer_disturbed_by_node_down,
-       reader_disturbed_by_node_up,
-       writer_disturbed_by_node_up,
-       reader_disturbed_by_schema_ops,
-       writer_disturbed_by_schema_ops,
-       reader_disturbed_by_checkpoint,
-       writer_disturbed_by_checkpoint,
-       reader_disturbed_by_dump_log,
-       writer_disturbed_by_dump_log,
-       reader_disturbed_by_backup, writer_disturbed_by_backup,
-       reader_disturbed_by_restore,
-       writer_disturbed_by_restore, {group, fairness}]},
-     {fairness, [],
-      [reader_competing_with_reader,
-       reader_competing_with_writer,
-       writer_competing_with_reader,
-       writer_competing_with_writer]},
-     {consumption, [],
-      [measure_resource_consumption,
-       determine_resource_leakage]},
-     {scalability, [],
-      [determine_system_limits, performance_at_min_config,
-       performance_at_max_config, performance_at_full_load,
-       resource_consumption_at_min_config,
-       resource_consumption_at_max_config,
-       resource_consumption_at_full_load]},
-     {benchmarks, [],
+    [{benchmarks, [],
       [{group, meter}, cost, dbn_meters,
-       measure_all_api_functions, {group, tpcb}]},
+       {group, tpcb}]},
      {tpcb, [], [ram_tpcb, disc_tpcb, disc_only_tpcb]},
      {meter, [], [ram_meter, disc_meter, disc_only_meter]}].
 

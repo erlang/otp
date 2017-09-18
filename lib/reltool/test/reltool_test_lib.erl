@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 
 -module(reltool_test_lib).
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 -include("reltool_test_lib.hrl").
 -define(timeout, 20). % minutes

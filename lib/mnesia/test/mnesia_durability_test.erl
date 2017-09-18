@@ -21,7 +21,33 @@
 %%
 -module(mnesia_durability_test).
 -author('hakan@erix.ericsson.se').
--compile([export_all]).
+
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+-export([durability_of_disc_copies/1,
+         durability_of_disc_only_copies/1,
+         load_latest_data/1, load_local_contents_directly/1,
+         load_directly_when_all_are_ram_copiesA/1,
+         load_directly_when_all_are_ram_copiesB/1,
+         load_when_last_replica_becomes_available/1,
+         load_when_down_from_all_other_replica_nodes/1,
+         late_load_transforms_into_disc_load/1,
+         late_load_leads_to_hanging/1,
+         force_load_when_nobody_intents_to_load/1,
+         force_load_when_someone_has_decided_to_load/1,
+         force_load_when_someone_else_has_loaded/1,
+         force_load_when_we_has_loaded/1,
+         force_load_on_a_non_local_table/1,
+         force_load_when_the_table_does_not_exist/1,
+         late_load_all_ram_cs_ram_nodes1/1,
+         late_load_all_ram_cs_ram_nodes2/1,
+         master_nodes/1, starting_master_nodes/1,
+         master_on_non_local_tables/1,
+         remote_force_load_with_local_master_node/1,
+         dump_ram_copies/1, dump_disc_copies/1, dump_disc_only/1]).
+
 -include("mnesia_test_lib.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

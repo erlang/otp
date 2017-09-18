@@ -23,7 +23,32 @@
 -author('hakan@erix.ericsson.se').
 -include("mnesia_test_lib.hrl").
 
--compile([export_all]).
+-export([init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2, end_per_group/2,
+         all/0, groups/0]).
+
+-export([system_info/1, table_info/1, error_description/1,
+         db_node_lifecycle/1, evil_delete_db_node/1, start_and_stop/1,
+         checkpoint/1, table_lifecycle/1, storage_options/1,
+         add_copy_conflict/1, add_copy_when_going_down/1,
+         replica_management/1, clear_table_during_load/1,
+         schema_availability/1, local_content/1,
+         replica_location/1, user_properties/1, unsupp_user_props/1,
+         sorted_ets/1,
+         change_table_access_mode/1, change_table_load_order/1,
+         set_master_nodes/1, offline_set_master_nodes/1,
+         dump_tables/1, dump_log/1, wait_for_tables/1, force_load_table/1,
+         snmp_open_table/1, snmp_close_table/1, snmp_get_next_index/1,
+         snmp_get_row/1, snmp_get_mnesia_key/1, snmp_update_counter/1,
+         snmp_order/1, subscribe_standard/1, subscribe_extended/1,
+         foldl/1, info/1, schema_0/1, schema_1/1, view_0/1, view_1/1, view_2/1,
+         lkill/1, kill/1,
+         record_name_dirty_access_ram/1,
+         record_name_dirty_access_disc/1,
+         record_name_dirty_access_disc_only/1,
+         record_name_dirty_access_xets/1]).
+
+-export([info_check/8]).
 
 -define(cleanup(N, Config),
 	mnesia_test_lib:prepare_test_case([{reload_appls, [mnesia]}],
