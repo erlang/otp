@@ -5031,7 +5031,7 @@ void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
     ep->info.mfa.module = m;
     ep->info.mfa.function = f;
     ep->info.mfa.arity = a;
-    ep->beam[0] = (BeamInstr) em_apply_bif;
+    ep->beam[0] = BeamOpCodeAddr(op_apply_bif);
     ep->beam[1] = (BeamInstr) bif;
 }
 
@@ -5096,7 +5096,7 @@ schedule(Process *c_p, Process *dirty_shadow_proc,
 {
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(c_p));
     (void) erts_nif_export_schedule(c_p, dirty_shadow_proc,
-				    mfa, pc, (BeamInstr) em_apply_bif,
+				    mfa, pc, BeamOpCodeAddr(op_apply_bif),
 				    dfunc, ifunc,
 				    module, function,
 				    argc, argv);
@@ -5145,7 +5145,6 @@ static BIF_RETTYPE dirty_bif_exception(BIF_ALIST_2)
 }
 
 
-extern BeamInstr* em_call_bif_e;
 static BIF_RETTYPE call_bif(Process *c_p, Eterm *reg, BeamInstr *I);
 
 BIF_RETTYPE
@@ -5218,13 +5217,13 @@ erts_schedule_bif(Process *proc,
 	    mfa = &exp->info.mfa;
 	}
 #endif
-	else if (em_call_bif_e == (BeamInstr *) *i) {
+	else if (BeamIsOpCode(*i, op_call_bif_e)) {
 	    /* Pointer to bif export in i+1 */
 	    exp = (Export *) i[1];
 	    pc = i;
 	    mfa = &exp->info.mfa;
 	}
-	else if (em_apply_bif == (BeamInstr *) *i) {
+	else if (BeamIsOpCode(*i, op_apply_bif)) {
 	    /* Pointer to bif in i+1, and mfa in i-3 */	    
 	    pc = c_p->cp;
 	    mfa = erts_code_to_codemfa(i);

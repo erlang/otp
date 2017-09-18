@@ -155,8 +155,6 @@ void hipe_check_pcb(Process *p, const char *file, unsigned line)
 #include "hipe_arm_glue.h"
 #endif
 
-#define BeamOpCode(Op)		((Uint)BeamOp(Op))
-
 Uint hipe_beam_pc_return[1];	/* needed in hipe_debug.c */
 Uint hipe_beam_pc_throw[1];	/* needed in hipe_debug.c */
 Uint hipe_beam_pc_resume[1];	/* needed by hipe_set_timeout() */
@@ -166,9 +164,9 @@ void hipe_mode_switch_init(void)
 {
     hipe_arch_glue_init();
 
-    hipe_beam_pc_return[0] = BeamOpCode(op_hipe_trap_return);
-    hipe_beam_pc_throw[0] = BeamOpCode(op_hipe_trap_throw);
-    hipe_beam_pc_resume[0] = BeamOpCode(op_hipe_trap_resume);
+    hipe_beam_pc_return[0] = BeamOpCodeAddr(op_hipe_trap_return);
+    hipe_beam_pc_throw[0] = BeamOpCodeAddr(op_hipe_trap_throw);
+    hipe_beam_pc_resume[0] = BeamOpCodeAddr(op_hipe_trap_resume);
 
     hipe_beam_catch_throw =
 	make_catch(beam_catches_cons(hipe_beam_pc_throw, BEAM_CATCHES_NIL));
@@ -182,8 +180,8 @@ void hipe_set_call_trap(ErtsCodeInfo* ci, void *nfun, int is_closure)
     HIPE_ASSERT(ci->op == BeamOpCode(op_i_func_info_IaaI));
     bfun[0] =
 	is_closure
-	? BeamOpCode(op_hipe_trap_call_closure)
-	: BeamOpCode(op_hipe_trap_call);
+	? BeamOpCodeAddr(op_hipe_trap_call_closure)
+	: BeamOpCodeAddr(op_hipe_trap_call);
     ci->u.ncallee = (void (*)(void)) nfun;
 }
 

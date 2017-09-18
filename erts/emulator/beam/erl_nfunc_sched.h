@@ -211,8 +211,8 @@ erts_proc_shadow2real(Process *c_p)
 #define ERTS_NFUNC_SCHED_INTERNALS__
 
 #define ERTS_I_BEAM_OP_TO_NIF_EXPORT(I)					\
-    (ASSERT(BeamOp(op_apply_bif) == (BeamInstr *) (*(I))		\
-	    || BeamOp(op_call_nif) == (BeamInstr *) (*(I))),		\
+    (ASSERT(BeamIsOpCode(*(I), op_apply_bif) ||                         \
+            BeamIsOpCode(*(I), op_call_nif)),                           \
      ((NifExport *) (((char *) (I)) - offsetof(NifExport, exp.beam[0]))))
 
 

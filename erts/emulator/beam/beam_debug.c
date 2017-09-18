@@ -199,7 +199,7 @@ void debug_dump_code(BeamInstr *I, int num)
 	erts_print(ERTS_PRINT_DSBUF, (void *) dsbufp, HEXF ": ", code_ptr);
 	instr = (BeamInstr) code_ptr[0];
 	for (i = 0; i < NUM_SPECIFIC_OPS; i++) {
-	    if (instr == (BeamInstr) BeamOp(i) && opc[i].name[0] != '\0') {
+	    if (BeamIsOpCode(instr, i) && opc[i].name[0] != '\0') {
 		code_ptr += print_op(ERTS_PRINT_DSBUF, (void *) dsbufp,
 				     i, opc[i].sz-1, code_ptr+1) + 1;
 		break;
@@ -319,7 +319,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     erts_print(ERTS_PRINT_DSBUF, (void *) dsbufp, HEXF ": ", code_ptr);
     instr = (BeamInstr) code_ptr[0];
     for (i = 0; i < NUM_SPECIFIC_OPS; i++) {
-	if (instr == (BeamInstr) BeamOp(i) && opc[i].name[0] != '\0') {
+	if (BeamIsOpCode(instr, i) && opc[i].name[0] != '\0') {
 	    code_ptr += print_op(ERTS_PRINT_DSBUF, (void *) dsbufp,
 				 i, opc[i].sz-1, code_ptr+1) + 1;
 	    break;

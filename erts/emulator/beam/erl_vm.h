@@ -202,11 +202,15 @@ extern int erts_pd_initial_size;/* Initial Process dictionary table size */
 
 #include "erl_term.h"
 
-#ifdef NO_JUMP_TABLE 
-#define BeamOp(Op) (Op)
+#if defined(NO_JUMP_TABLE)
+#  define BeamOpsAreInitialized() (1)
+#  define BeamOpCodeAddr(OpCode) ((BeamInstr)(OpCode))
 #else
 extern void** beam_ops;
-#define BeamOp(Op) beam_ops[(Op)]
+#  define BeamOpsAreInitialized() (beam_ops != 0)
+#  define BeamOpCodeAddr(OpCode) ((BeamInstr)beam_ops[(OpCode)])
 #endif
+
+#define BeamIsOpCode(InstrWord, OpCode) ((InstrWord) == BeamOpCodeAddr(OpCode))
 
 #endif	/* __ERL_VM_H__ */

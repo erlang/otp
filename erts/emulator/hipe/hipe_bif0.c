@@ -53,8 +53,6 @@
 #include "hipe_literals.h"
 #endif
 
-#define BeamOpCode(Op)	((Uint)BeamOp(Op))
-
 
 int term_to_Sint32(Eterm term, Sint *sp)
 {
@@ -615,7 +613,7 @@ static ErtsCodeInfo* hipe_find_emu_address(Eterm mod, Eterm name, unsigned int a
     n = code_hdr->num_functions;
     for (i = 0; i < n; ++i) {
 	ErtsCodeInfo *ci = code_hdr->functions[i];
-	ASSERT(ci->op == BeamOpCode(op_i_func_info_IaaI));
+	ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
 	if (ci->mfa.function == name && ci->mfa.arity == arity)
 	    return ci;
     }

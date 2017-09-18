@@ -158,11 +158,6 @@ BeamInstr beam_apply[2];
 BeamInstr beam_exit[1];
 BeamInstr beam_continue_exit[1];
 
-BeamInstr* em_call_error_handler;
-BeamInstr* em_apply_bif;
-BeamInstr* em_call_nif;
-BeamInstr* em_call_bif_e;
-
 
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are form the instruction value, and sometimes
@@ -977,11 +972,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 #endif /* ERTS_OPCODE_COUNTER_SUPPORT */
 #endif /* NO_JUMP_TABLE */
      
-     em_call_error_handler = OpCode(call_error_handler);
-     em_apply_bif = OpCode(apply_bif);
-     em_call_nif = OpCode(call_nif);
-     em_call_bif_e = OpCode(call_bif_e);
-
      beam_apply[0]             = (BeamInstr) OpCode(i_apply);
      beam_apply[1]             = (BeamInstr) OpCode(normal_exit);
      beam_exit[0]              = (BeamInstr) OpCode(error_action_code);
@@ -1002,7 +992,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 ep->beam[0] = (BeamInstr) OpCode(apply_bif);
 	 ep->beam[1] = (BeamInstr) bif_table[i].f;
 	 /* XXX: set func info for bifs */
-	 ep->info.op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
+	 ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
      }
 
      return;
@@ -1249,12 +1239,12 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	if (em_apply_bif == (BeamInstr *) *I) {
+	if (BeamIsOpCode(*I, op_apply_bif)) {
 	    exiting = erts_call_dirty_bif(esdp, c_p, I, reg);
 	}
 	else {
-	    ASSERT(em_call_nif == (BeamInstr *) *I);
-	    exiting = erts_call_dirty_nif(esdp, c_p, I, reg);
+	    ASSERT(BeamIsOpCode(*I, op_call_nif));
+            exiting = erts_call_dirty_nif(esdp, c_p, I, reg);
 	}
 
 	ASSERT(!(c_p->flags & F_HIBERNATE_SCHED));
@@ -2089,8 +2079,8 @@ apply_bif_error_adjustment(Process *p, Export *ep,
      * and apply_last_IP.
      */
     if (I
-	&& ep->beam[0] == (BeamInstr) em_apply_bif
-	&& (ep == bif_export[BIF_error_1]
+	&& BeamIsOpCode(ep->beam[0], op_apply_bif)
+        && (ep == bif_export[BIF_error_1]
 	    || ep == bif_export[BIF_error_2]
 	    || ep == bif_export[BIF_exit_1]
 	    || ep == bif_export[BIF_throw_1])) {
@@ -3196,8 +3186,8 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
     if ((ep = export_get(&e)) == NULL) {
 	return 0;
     }
-    return ep->addressv[erts_active_code_ix()] == ep->beam
-	&& (ep->beam[0] == (BeamInstr) em_apply_bif);
+    return ep->addressv[erts_active_code_ix()] == ep->beam &&
+	BeamIsOpCode(ep->beam[0], op_apply_bif);
 }
 
 
