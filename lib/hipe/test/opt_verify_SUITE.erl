@@ -44,7 +44,7 @@ call_elim(Config) ->
     Icode5 = call_elim_test_file(Config, F3, icode_call_elim),
     0 = substring_count(binary:bin_to_list(Icode5), "is_key"),
     Icode6 = call_elim_test_file(Config, F3, no_icode_call_elim),
-    3 = substring_count(binary:bin_to_list(Icode6), "is_key"),
+    2 = substring_count(binary:bin_to_list(Icode6), "is_key"),
     ok.
 
 call_elim_test_file(Config, FileName, Option) ->

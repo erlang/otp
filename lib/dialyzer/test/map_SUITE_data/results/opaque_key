@@ -1,4 +1,5 @@
 
+opaque_key_adt.erl:35: Invalid type specification for function opaque_key_adt:s2/0. The success typing is () -> #{3:='a'}
 opaque_key_adt.erl:41: Invalid type specification for function opaque_key_adt:s4/0. The success typing is () -> #{1:='a'}
 opaque_key_adt.erl:44: Invalid type specification for function opaque_key_adt:s5/0. The success typing is () -> #{2:=3}
 opaque_key_adt.erl:56: Invalid type specification for function opaque_key_adt:smt1/0. The success typing is () -> #{3:='a'}
