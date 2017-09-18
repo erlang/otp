@@ -35,12 +35,19 @@
   <module>rand</module>
   <modulesummary>Pseudo random number generation.</modulesummary>
   <description>
-    <p>This module provides a random number generator. The module contains
-      a number of algorithms. The uniform distribution algorithms use the
-      <url href="http://xorshift.di.unimi.it">scrambled Xorshift algorithms by
-      Sebastiano Vigna</url>. The normal distribution algorithm uses the
-      <url href="http://www.jstatsoft.org/v05/i08">Ziggurat Method by Marsaglia
-      and Tsang</url>.</p>
+    <p>
+      This module provides a pseudo random number generator.
+      The module contains a number of algorithms.
+      The uniform distribution algorithms use the
+      <url href="http://xorshift.di.unimi.it">
+	xoroshiro116+ and xorshift1024* algorithms by Sebastiano Vigna.
+      </url>
+      The normal distribution algorithm uses the
+      <url href="http://www.jstatsoft.org/v05/i08">
+	Ziggurat Method by Marsaglia and Tsang
+      </url>
+      on top of the uniform distribution algorithm.
+    </p>
     <p>For some algorithms, jump functions are provided for generating
         non-overlapping sequences for parallel computations.
         The jump functions perform calculations
@@ -393,9 +400,34 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <name name="uniform" arity="0"/>
       <fsummary>Return a random float.</fsummary>
       <desc><marker id="uniform-0"/>
-        <p>Returns a random float uniformly distributed in the value
+        <p>
+	  Returns a random float uniformly distributed in the value
           range <c>0.0 =&lt; <anno>X</anno> &lt; 1.0</c> and
-          updates the state in the process dictionary.</p>
+          updates the state in the process dictionary.
+	</p>
+	<p>
+	  The generated numbers are on the form N * 2.0^(-53),
+	  that is; equally spaced in the interval.
+	</p>
+	<warning>
+	  <p>
+	    This function may return exactly <c>0.0</c> which can be
+	    fatal for certain applications.  If that is undesired
+	    you can use <c>(1.0 - rand:uniform())</c> to get the
+	    interval <c>0.0 &lt; <anno>X</anno> =&lt; 1.0</c>.
+	  </p>
+	  <p>
+	    If neither endpoint is desired you can test and re-try
+	    like this:
+	  </p>
+	  <pre>
+my_uniform() ->
+    case rand:uniform() of
+        0.0 -> my_uniform();
+	X -> X
+    end
+end.</pre>
+	</warning>
       </desc>
     </func>
 
@@ -414,9 +446,34 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <name name="uniform_s" arity="1"/>
       <fsummary>Return a random float.</fsummary>
       <desc>
-        <p>Returns, for a specified state, random float
+        <p>
+	  Returns, for a specified state, random float
           uniformly distributed in the value range <c>0.0 =&lt;
-          <anno>X</anno> &lt; 1.0</c> and a new state.</p>
+          <anno>X</anno> &lt; 1.0</c> and a new state.
+	</p>
+	<p>
+	  The generated numbers are on the form N * 2.0^(-53),
+	  that is; equally spaced in the interval.
+	</p>
+	<warning>
+	  <p>
+	    This function may return exactly <c>0.0</c> which can be
+	    fatal for certain applications.  If that is undesired
+	    you can use <c>(1.0 - rand:uniform(State))</c> to get the
+	    interval <c>0.0 &lt; <anno>X</anno> =&lt; 1.0</c>.
+	  </p>
+	  <p>
+	    If neither endpoint is desired you can test and re-try
+	    like this:
+	  </p>
+	  <pre>
+my_uniform(State) ->
+    case rand:uniform(State) of
+        {0.0, NewState} -> my_uniform(NewState);
+	Result -> Result
+    end
+end.</pre>
+	</warning>
       </desc>
     </func>
 
