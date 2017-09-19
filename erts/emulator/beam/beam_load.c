@@ -2636,15 +2636,15 @@ load_code(LoaderState* stp)
                     }
                     ci++;
 		    break;
-		case 'P':	/* Put packed operands. */
+		case 'P':	/* Put packed operands (on the stack). */
                     sp->instr = packed;
                     sp->patch_pos = 0;
-                    sp++;
-		    packed = 0;
                     if (packed_label) {
-                        packed_label->pos = ci;
+                        sp->patch_pos = &packed_label->pos;
                         packed_label = 0;
                     }
+                    sp++;
+		    packed = 0;
 		    break;
 		default:
 		    ASSERT(0);
