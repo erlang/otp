@@ -2480,11 +2480,6 @@ erts_dist_command(Port *prt, int initial_reds)
 
 	foq.first = NULL;
 	foq.last = NULL;
-#ifdef DEBUG
-	erts_mtx_lock(&dep->qlock);
-	ASSERT(erts_atomic_read_nob(&dep->qsize) == obufsize);
-	erts_mtx_unlock(&dep->qlock);
-#endif
     }
     else {
 	if (oq.first) {
