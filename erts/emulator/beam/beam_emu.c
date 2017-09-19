@@ -50,8 +50,8 @@
 #if defined(NO_JUMP_TABLE)
 #  define OpCase(OpCode)    case op_##OpCode
 #  define CountCase(OpCode) case op_count_##OpCode
-#  define OpCode(OpCode)    ((Uint*)op_##OpCode)
-#  define Goto(Rel) {Go = (int)(UWord)(Rel); goto emulator_loop;}
+#  define OpCode(OpCode)    (op_##OpCode)
+#  define Goto(Rel) {Go = (Rel); goto emulator_loop;}
 #else
 #  define OpCase(OpCode)    lb_##OpCode
 #  define CountCase(OpCode) lb_count_##OpCode
@@ -249,8 +249,8 @@ void** beam_ops;
 
 #define DispatchMacro()				\
   do {						\
-     BeamInstr* dis_next;				\
-     dis_next = (BeamInstr *) *I;			\
+     BeamInstr dis_next;                        \
+     dis_next = *I;                             \
      CHECK_ARGS(I);				\
      if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
         FCALLS--;				\
@@ -258,12 +258,12 @@ void** beam_ops;
      } else {					\
 	goto context_switch;			\
      }						\
- } while (0)
+ } while (0)                                    \
 
 #define DispatchMacroFun()			\
   do {						\
-     BeamInstr* dis_next;				\
-     dis_next = (BeamInstr *) *I;			\
+     BeamInstr dis_next;                        \
+     dis_next = *I;                             \
      CHECK_ARGS(I);				\
      if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
         FCALLS--;				\
@@ -273,23 +273,23 @@ void** beam_ops;
      }						\
  } while (0)
 
-#define DispatchMacrox()					\
-  do {								\
-     if (FCALLS > 0) {						\
-        Eterm* dis_next;					\
-        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]); \
-        dis_next = (Eterm *) *I;				\
-        FCALLS--;						\
-        CHECK_ARGS(I);						\
-        Goto(dis_next);						\
-     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)		\
-		&& FCALLS > neg_o_reds) {			\
-        goto save_calls1;					\
-     } else {							\
-        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]); \
-        CHECK_ARGS(I);						\
-	goto context_switch;					\
-     }								\
+#define DispatchMacrox()                                                \
+  do {                                                                  \
+     if (FCALLS > 0) {                                                  \
+        BeamInstr dis_next;                                             \
+        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);    \
+        dis_next = *I;                                                  \
+        FCALLS--;                                                       \
+        CHECK_ARGS(I);                                                  \
+        Goto(dis_next);                                                 \
+     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)                      \
+		&& FCALLS > neg_o_reds) {                               \
+        goto save_calls1;                                               \
+     } else {                                                           \
+        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);    \
+        CHECK_ARGS(I);                                                  \
+	goto context_switch;                                            \
+     }                                                                  \
  } while (0)
 
 #ifdef DEBUG
@@ -621,7 +621,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 #ifndef NO_JUMP_TABLE
     static void* opcodes[] = { DEFINE_OPCODES };
 #else
-    int Go;
+    register BeamInstr Go;
 #endif
 #endif
 
@@ -697,7 +697,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     {
 	int reds;
 	Eterm* argp;
-	BeamInstr *next;
+	BeamInstr next;
 	int i;
 
 	argp = c_p->arg_reg;
@@ -729,7 +729,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
 	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 
-	next = (BeamInstr *) *I;
+	next = *I;
 	SWAPIN;
 	ASSERT(VALID_INSTR(next));
 
@@ -1006,13 +1006,13 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
   save_calls1:
     {
-	Eterm* dis_next;
+	BeamInstr dis_next;
 
 	save_calls(c_p, (Export *) Arg(0));
 
 	SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);
 
-	dis_next = (Eterm *) *I;
+	dis_next = *I;
 	FCALLS--;
 	Goto(dis_next);
     }

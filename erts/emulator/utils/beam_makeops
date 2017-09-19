@@ -1438,11 +1438,10 @@ sub code_gen {
             "ASSERT(VALID_INSTR(*I));\n" .
             "Goto(*I);";
     } else {
-        $var_decls .= "BeamInstr* _nextpf = " .
-            "(BeamInstr *) I[$instr_offset];\n";
+        $var_decls .= "BeamInstr next_pf = I[$instr_offset];\n";
         $dispatch_next = "\nI += $instr_offset;\n" .
-            "ASSERT(VALID_INSTR(_nextpf));\n" .
-            "Goto(_nextpf);";
+            "ASSERT(VALID_INSTR(next_pf));\n" .
+            "Goto(next_pf);";
     }
 
     #
