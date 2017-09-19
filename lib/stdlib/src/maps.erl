@@ -32,7 +32,7 @@
          new/0, put/3, remove/2, take/2,
          to_list/1, update/3, values/1]).
 
--opaque iterator() :: [{term(), term()}].
+-opaque iterator() :: [{term(), term()}] | [[pos_integer() | map()]].
 
 -export_type([iterator/0]).
 
@@ -279,7 +279,10 @@ size(Val) ->
       Iterator :: iterator().
 
 iterator(Map) when is_map(Map) ->
-    maps:to_list(Map);
+    case maps:size(Map) < 42 of
+        true -> maps:to_list(Map);
+        false -> [[1 | Map]]
+    end;
 iterator(M) ->
     erlang:error(error_type(M),[M]).
 
@@ -289,6 +292,12 @@ iterator(M) ->
       V :: term(),
       NextIterator :: iterator().
 next([]) -> none;
+next([[Index | Map] | St]) ->
+    case erts_internal:map_get_index(Index, Map) of
+        SubMap when is_map(SubMap) -> next([[1 | SubMap], [Index+1|Map] | St]);
+        [K|V] -> {K,V,[[Index+1 | Map] | St]};
+        none -> next(St)
+    end;
 next([{K, V} | I]) ->
     {K, V, I}.
 

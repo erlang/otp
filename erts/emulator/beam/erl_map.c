@@ -90,7 +90,6 @@ static BIF_RETTYPE hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB, int swap_
                                  struct HashmapMergeContext_*);
 static Export hashmap_merge_trap_export;
 static BIF_RETTYPE maps_merge_trap_1(BIF_ALIST_1);
-static Uint hashmap_subtree_size(Eterm node);
 static Eterm hashmap_to_list(Process *p, Eterm map, Sint n);
 static Eterm hashmap_keys(Process *p, Eterm map);
 static Eterm hashmap_values(Process *p, Eterm map);
@@ -1519,7 +1518,7 @@ trap:  /* Yield */
     return trap_ret;
 }
 
-static Uint hashmap_subtree_size(Eterm node) {
+Uint hashmap_subtree_size(Eterm node) {
     DECLARE_WSTACK(stack);
     Uint size = 0;
 
@@ -3060,6 +3059,75 @@ static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]) 
     return res;
 }
 
+static Uint32
+index_to_hash(Sint idx, Uint32 hval)
+{
+    Uint32 new_hval = 1;
+    while (1) {
+        if (hval & 0x1) {
+            idx--;
+            if (!idx) break;
+        }
+        new_hval = new_hval << 1;
+        hval = hval >> 1;
+    }
+    return new_hval;
+}
+
+BIF_RETTYPE erts_internal_map_get_index_2(BIF_ALIST_2) {
+    Sint idx;
+    Uint32 hval, sz;
+    Eterm *ptr, hdr;
+
+    if (!is_hashmap(BIF_ARG_2) || is_not_small(BIF_ARG_1))
+        BIF_ERROR(BIF_P, BADARG);
+
+    idx = signed_val(BIF_ARG_1);
+
+    if (idx < 1 || idx > 17)
+        BIF_ERROR(BIF_P, BADARG);
+
+    ASSERT(is_boxed(BIF_ARG_2));
+
+    ptr = boxed_val(BIF_ARG_2);
+again:
+    hdr = *ptr;
+
+    switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+    case HAMT_SUBTAG_HEAD_ARRAY:
+        ptr++;
+        sz = 16;
+        hval = 0xffff;
+        break;
+    case HAMT_SUBTAG_HEAD_BITMAP:
+        ptr++;
+        if (ptr[0] == -1) {
+            ptr = boxed_val(ptr[1]);
+            goto again;
+        }
+    case HAMT_SUBTAG_NODE_BITMAP:
+        hval = MAP_HEADER_VAL(hdr);
+        sz = hashmap_bitcount(hval);
+        ASSERT(sz < 17);
+        break;
+    default:
+        erts_exit(ERTS_ABORT_EXIT, "bad header");
+    }
+
+    if (idx <= sz) {
+        if (is_list(ptr[idx]))
+            return ptr[idx];
+        else {
+            Eterm *hp = HAlloc(BIF_P, HAMT_HEAD_BITMAP_SZ(1));
+            hp[0] = MAP_HEADER_HAMT_HEAD_BITMAP(index_to_hash(idx, hval));
+            hp[1] = -1;
+            hp[2] = ptr[idx];
+            return make_hashmap(hp);
+        }
+    } else {
+        return am_none;
+    }
+}
 
 /* implementation of builtin emulations */
 
