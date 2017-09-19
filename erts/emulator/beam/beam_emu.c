@@ -50,12 +50,12 @@
 #if defined(NO_JUMP_TABLE)
 #  define OpCase(OpCode)    case op_##OpCode
 #  define CountCase(OpCode) case op_count_##OpCode
-#  define OpCode(OpCode)    (op_##OpCode)
+#  define IsOpCode(InstrWord, OpCode)  ((InstrWord) == (BeamInstr)op_##OpCode)
 #  define Goto(Rel) {Go = (Rel); goto emulator_loop;}
 #else
 #  define OpCase(OpCode)    lb_##OpCode
 #  define CountCase(OpCode) lb_count_##OpCode
-#  define OpCode(OpCode)  (&&lb_##OpCode)
+#  define IsOpCode(InstrWord, OpCode)  ((InstrWord) == (BeamInstr)&&lb_##OpCode)
 #  define Goto(Rel) goto *((void *)Rel)
 #  define LabelAddr(Label) &&Label
 #endif
@@ -971,15 +971,15 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      beam_ops = opcodes;
 #endif /* ERTS_OPCODE_COUNTER_SUPPORT */
 #endif /* NO_JUMP_TABLE */
-     
-     beam_apply[0]             = (BeamInstr) OpCode(i_apply);
-     beam_apply[1]             = (BeamInstr) OpCode(normal_exit);
-     beam_exit[0]              = (BeamInstr) OpCode(error_action_code);
-     beam_continue_exit[0]     = (BeamInstr) OpCode(continue_exit);
-     beam_return_to_trace[0]   = (BeamInstr) OpCode(i_return_to_trace);
-     beam_return_trace[0]      = (BeamInstr) OpCode(return_trace);
-     beam_exception_trace[0]   = (BeamInstr) OpCode(return_trace); /* UGLY */
-     beam_return_time_trace[0] = (BeamInstr) OpCode(i_return_time_trace);
+
+     beam_apply[0]             = BeamOpCodeAddr(op_i_apply);
+     beam_apply[1]             = BeamOpCodeAddr(op_normal_exit);
+     beam_exit[0]              = BeamOpCodeAddr(op_error_action_code);
+     beam_continue_exit[0]     = BeamOpCodeAddr(op_continue_exit);
+     beam_return_to_trace[0]   = BeamOpCodeAddr(op_i_return_to_trace);
+     beam_return_trace[0]      = BeamOpCodeAddr(op_return_trace);
+     beam_exception_trace[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
+     beam_return_time_trace[0] = BeamOpCodeAddr(op_i_return_time_trace);
 
      /*
       * Enter all BIFs into the export table.
@@ -989,7 +989,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 			      bif_table[i].name,
 			      bif_table[i].arity);
 	 bif_export[i] = ep;
-	 ep->beam[0] = (BeamInstr) OpCode(apply_bif);
+	 ep->beam[0] = BeamOpCodeAddr(op_apply_bif);
 	 ep->beam[1] = (BeamInstr) bif_table[i].f;
 	 /* XXX: set func info for bifs */
 	 ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
