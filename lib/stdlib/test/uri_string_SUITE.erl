@@ -24,10 +24,12 @@
 -export([all/0, suite/0,groups/0,
          parse_binary_fragment/1, parse_binary_host/1, parse_binary_host_ipv4/1,
          parse_binary_host_ipv6/1,
-         parse_binary_path/1, parse_binary_port/1,
+         parse_binary_path/1, parse_binary_pct_encoded_fragment/1, parse_binary_pct_encoded_query/1,
+         parse_binary_pct_encoded_userinfo/1, parse_binary_port/1,
          parse_binary_query/1, parse_binary_scheme/1, parse_binary_userinfo/1,
          parse_fragment/1, parse_host/1, parse_host_ipv4/1, parse_host_ipv6/1,
-         parse_path/1, parse_port/1,
+         parse_path/1, parse_pct_encoded_fragment/1, parse_pct_encoded_query/1,
+         parse_pct_encoded_userinfo/1, parse_port/1,
          parse_query/1, parse_scheme/1, parse_userinfo/1,
 	 parse_list/1, parse_binary/1, parse_mixed/1, parse_relative/1
         ]).
@@ -39,22 +41,28 @@ all() ->
     [
      parse_binary_scheme,
      parse_binary_userinfo,
+     parse_binary_pct_encoded_userinfo,
      parse_binary_host,
      parse_binary_host_ipv4,
      parse_binary_host_ipv6,
      parse_binary_port,
      parse_binary_path,
      parse_binary_query,
+     parse_binary_pct_encoded_query,
      parse_binary_fragment,
+     parse_binary_pct_encoded_fragment,
      parse_scheme,
      parse_userinfo,
+     parse_pct_encoded_userinfo,
      parse_host,
      parse_host_ipv4,
      parse_host_ipv6,
      parse_port,
      parse_path,
      parse_query,
+     parse_pct_encoded_query,
      parse_fragment,
+     parse_pct_encoded_fragment,
      parse_list,
      parse_binary,
      parse_mixed,
@@ -92,8 +100,27 @@ parse_binary_userinfo(_Config) ->
         uri_string:parse(<<"foo://user@localhost">>),
     #{scheme := <<"foo">>, userinfo := <<"user:password">>, host := <<"localhost">>} =
         uri_string:parse(<<"foo://user:password@localhost">>),
-    uri_parse_error =(catch uri_string:parse("//user@")),
-    uri_parse_error = (catch uri_string:parse("foo://user@")).
+    uri_parse_error =(catch uri_string:parse(<<"//user@">>)),
+    uri_parse_error = (catch uri_string:parse(<<"foo://user@">>)).
+
+parse_binary_pct_encoded_userinfo(_Config) ->
+    #{scheme := <<"user">>, path := <<"合@気道"/utf8>>} =
+        uri_string:parse(<<"user:%E5%90%88@%E6%B0%97%E9%81%93">>),
+    #{path := <<"合気道@"/utf8>>} = uri_string:parse(<<"%E5%90%88%E6%B0%97%E9%81%93@">>),
+    #{path := <<"/合気道@"/utf8>>} = uri_string:parse(<<"/%E5%90%88%E6%B0%97%E9%81%93@">>),
+    #{path := <<"合@気道"/utf8>>} = uri_string:parse(<<"%E5%90%88@%E6%B0%97%E9%81%93">>),
+    #{userinfo := <<"合"/utf8>>, host := <<"気道"/utf8>>} =
+        uri_string:parse(<<"//%E5%90%88@%E6%B0%97%E9%81%93">>),
+    #{userinfo := <<"合:気"/utf8>>, host := <<"道"/utf8>>} =
+        uri_string:parse(<<"//%E5%90%88:%E6%B0%97@%E9%81%93">>),
+    #{scheme := <<"foo">>, path := <<"/合気道@"/utf8>>} =
+        uri_string:parse(<<"foo:/%E5%90%88%E6%B0%97%E9%81%93@">>),
+    #{scheme := <<"foo">>, userinfo := <<"合"/utf8>>, host := <<"気道"/utf8>>} =
+        uri_string:parse(<<"foo://%E5%90%88@%E6%B0%97%E9%81%93">>),
+    #{scheme := <<"foo">>, userinfo := <<"合:気"/utf8>>, host := <<"道"/utf8>>} =
+        uri_string:parse(<<"foo://%E5%90%88:%E6%B0%97@%E9%81%93">>),
+    uri_parse_error =(catch uri_string:parse(<<"//%E5%90%88@%E6%B0%97%E9%81%93@">>)),
+    uri_parse_error = (catch uri_string:parse(<<"foo://%E5%90%88@%E6%B0%97%E9%81%93@">>)).
 
 parse_binary_host(_Config) ->
     #{host := <<"hostname">>} = uri_string:parse(<<"//hostname">>),
@@ -176,6 +203,12 @@ parse_binary_query(_Config) ->
     #{host := <<"example.com">>, path := <<"/">>, query := <<"?name=ferret">>} =
         uri_string:parse(<<"//example.com/?name=ferret">>).
 
+parse_binary_pct_encoded_query(_Config) ->
+    #{scheme := <<"foo">>, host := <<"example.com">>, path := <<"/">>,
+      query := <<"?name=合気道"/utf8>>} =
+        uri_string:parse(<<"foo://example.com/?name=%E5%90%88%E6%B0%97%E9%81%93">>),
+    #{host := <<"example.com">>, path := <<"/">>, query := <<"?name=合気道"/utf8>>} =
+        uri_string:parse(<<"//example.com/?name=%E5%90%88%E6%B0%97%E9%81%93">>).
 
 parse_binary_fragment(_Config) ->
     #{scheme := <<"foo">>, fragment := <<"nose">>} =
@@ -204,6 +237,12 @@ parse_binary_fragment(_Config) ->
     #{host := <<"example.com">>, path := <<"/">>, fragment := <<"nose">>} =
         uri_string:parse(<<"//example.com/#nose">>).
 
+parse_binary_pct_encoded_fragment(_Config) ->
+    #{scheme := <<"foo">>, host := <<"example.com">>, fragment := <<"合気道"/utf8>>} =
+        uri_string:parse(<<"foo://example.com#%E5%90%88%E6%B0%97%E9%81%93">>),
+    #{host := <<"example.com">>, path := <<"/">>, fragment := <<"合気道"/utf8>>} =
+        uri_string:parse(<<"//example.com/#%E5%90%88%E6%B0%97%E9%81%93">>).
+
 parse_scheme(_Config) ->
     #{} = uri_string:parse(""),
     #{path := "foo"} = uri_string:parse("foo"),
@@ -231,6 +270,26 @@ parse_userinfo(_Config) ->
         uri_string:parse("foo://user@localhost"),
     #{scheme := "foo", userinfo := "user:password", host := "localhost"} =
         uri_string:parse("foo://user:password@localhost").
+
+parse_pct_encoded_userinfo(_Config) ->
+    #{scheme := "user", path := "合@気道"} =
+        uri_string:parse("user:%E5%90%88@%E6%B0%97%E9%81%93"),
+    #{path := "合気道@"} = uri_string:parse("%E5%90%88%E6%B0%97%E9%81%93@"),
+    #{path := "/合気道@"} = uri_string:parse("/%E5%90%88%E6%B0%97%E9%81%93@"),
+    #{path := "合@気道"} = uri_string:parse("%E5%90%88@%E6%B0%97%E9%81%93"),
+    #{userinfo := "合", host := "気道"} =
+        uri_string:parse("//%E5%90%88@%E6%B0%97%E9%81%93"),
+    #{userinfo := "合:気", host := "道"} =
+        uri_string:parse("//%E5%90%88:%E6%B0%97@%E9%81%93"),
+    #{scheme := "foo", path := "/合気道@"} =
+        uri_string:parse("foo:/%E5%90%88%E6%B0%97%E9%81%93@"),
+    #{scheme := "foo", userinfo := "合", host := "気道"} =
+        uri_string:parse("foo://%E5%90%88@%E6%B0%97%E9%81%93"),
+    #{scheme := "foo", userinfo := "合:気", host := "道"} =
+        uri_string:parse("foo://%E5%90%88:%E6%B0%97@%E9%81%93"),
+    uri_parse_error =(catch uri_string:parse("//%E5%90%88@%E6%B0%97%E9%81%93@")),
+    uri_parse_error = (catch uri_string:parse("foo://%E5%90%88@%E6%B0%97%E9%81%93@")).
+
 
 parse_host(_Config) ->
     #{host := "hostname"} = uri_string:parse("//hostname"),
@@ -307,6 +366,12 @@ parse_query(_Config) ->
     #{host := "example.com", path := "/", query := "?name=ferret"} =
         uri_string:parse("//example.com/?name=ferret").
 
+parse_pct_encoded_query(_Config) ->
+    #{scheme := "foo", host := "example.com", path := "/",
+      query := "?name=合気道"} =
+        uri_string:parse("foo://example.com/?name=%E5%90%88%E6%B0%97%E9%81%93"),
+    #{host := "example.com", path := "/", query := "?name=合気道"} =
+        uri_string:parse("//example.com/?name=%E5%90%88%E6%B0%97%E9%81%93").
 
 parse_fragment(_Config) ->
     #{scheme := "foo", fragment := "nose"} =
@@ -335,6 +400,11 @@ parse_fragment(_Config) ->
     #{host := "example.com", path := "/", fragment := "nose"} =
         uri_string:parse("//example.com/#nose").
 
+parse_pct_encoded_fragment(_Config) ->
+    #{scheme := "foo", host := "example.com", fragment := "合気道"} =
+        uri_string:parse("foo://example.com#%E5%90%88%E6%B0%97%E9%81%93"),
+    #{host := "example.com", path := "/", fragment := "合気道"} =
+        uri_string:parse("//example.com/#%E5%90%88%E6%B0%97%E9%81%93").
 
 parse_list(_Config) ->
     #{scheme := "foo", path := "bar:nisse"} = uri_string:parse("foo:bar:nisse"),
