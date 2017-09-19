@@ -778,37 +778,37 @@ otp_4967_2(suite) ->
 otp_4967_2(doc) ->
     ["OTP-4967: Trace message sent to {Name, Node}"];
 otp_4967_2(Config) when is_list(Config) ->
-    io:format("1: ~p",[now()]),
+    io:format("1: ~p",[erlang:timestamp()]),
     ?line Privdir = priv_dir(Config),
-    io:format("2: ~p",[now()]),
+    io:format("2: ~p",[erlang:timestamp()]),
     ?line File = filename:join(Privdir,"otp_4967"),
-    io:format("3: ~p",[now()]),
+    io:format("3: ~p",[erlang:timestamp()]),
     ?line S = self(),
-    io:format("4: ~p",[now()]),
+    io:format("4: ~p",[erlang:timestamp()]),
     ?line {ok,[Node]} =
 	ttb:tracer(node(),[{file, File},
 			   {handler,{fun myhandler/4, S}}]),
 
-    io:format("5: ~p",[now()]),
+    io:format("5: ~p",[erlang:timestamp()]),
     %% Test that delayed registration of a process works.
     receive after 200 -> ok end,
     ?line register(otp_4967,self()),
-    io:format("6: ~p",[now()]),
+    io:format("6: ~p",[erlang:timestamp()]),
     ?line {ok,[{S,[{matched,Node,1}]}]} =  ttb:p(self(),s),
-    io:format("7: ~p",[now()]),
+    io:format("7: ~p",[erlang:timestamp()]),
     ?line {otp_4967,node()} ! heihopp,
-    io:format("8: ~p",[now()]),
+    io:format("8: ~p",[erlang:timestamp()]),
     ?line stopped = ttb:stop([format]),
-    io:format("9: ~p",[now()]),
+    io:format("9: ~p",[erlang:timestamp()]),
     ?line Msgs = flush(),
-    io:format("10: ~p",[now()]),
+    io:format("10: ~p",[erlang:timestamp()]),
     ?line io:format("Messages received: \n~p\n",[Msgs]),
-    io:format("11: ~p",[now()]),
+    io:format("11: ~p",[erlang:timestamp()]),
     ?line true = lists:member(heihopp,Msgs), % the heihopp message itself
-    io:format("13: ~p",[now()]),
+    io:format("13: ~p",[erlang:timestamp()]),
     ?line {value,{trace_ts,_,send,heihopp,{_,otp_4967,Node},{_,_,_}}} =
 	lists:keysearch(heihopp,4,Msgs), % trace trace of the heihopp message
-    io:format("14: ~p",[now()]),
+    io:format("14: ~p",[erlang:timestamp()]),
     ?line end_of_trace = lists:last(Msgs), % end of the trace
     ok.
     

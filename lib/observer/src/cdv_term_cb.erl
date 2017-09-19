@@ -30,23 +30,31 @@ detail_pages() ->
     [{"Term", fun init_term_page/2}].
 
 init_term_page(ParentWin, {Type, [Term, Tab]}) ->
+    observer_lib:report_progress({ok,"Expanding term"}),
+    observer_lib:report_progress({ok,start_pulse}),
     Expanded = expand(Term, true),
     BinSaved = expand(Term, Tab),
+    observer_lib:report_progress({ok,stop_pulse}),
     cdv_multi_wx:start_link(
       ParentWin,
       [{"Format \~p",cdv_html_wx,{Type, format_term_fun("~p",BinSaved,Tab)}},
        {"Format \~tp",cdv_html_wx,{Type,format_term_fun("~tp",BinSaved,Tab)}},
        {"Format \~w",cdv_html_wx,{Type,format_term_fun("~w",BinSaved,Tab)}},
+       {"Format \~tw",cdv_html_wx,{Type,format_term_fun("~tw",BinSaved,Tab)}},
        {"Format \~s",cdv_html_wx,{Type,format_term_fun("~s",Expanded,Tab)}},
        {"Format \~ts",cdv_html_wx,{Type,format_term_fun("~ts",Expanded,Tab)}}]).
 
 format_term_fun(Format,Term,Tab) ->
     fun() ->
+            observer_lib:report_progress({ok,"Formatting term"}),
+            observer_lib:report_progress({ok,start_pulse}),
 	    try io_lib:format(Format,[Term]) of
 		Str -> {expand, plain_html(Str), Tab}
 	    catch error:badarg ->
 		    Warning = "This term can not be formatted with " ++ Format,
 		    observer_html_lib:warning(Warning)
+            after
+                    observer_lib:report_progress({ok,stop_pulse})
 	    end
     end.
 
