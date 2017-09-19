@@ -23,13 +23,18 @@
 -export([get/3, filter/2,fold/3,
          map/2, size/1,
          update_with/3, update_with/4,
-         without/2, with/2]).
+         without/2, with/2,
+         iterator/1, next/1]).
 
 %% BIFs
 -export([get/2, find/2, from_list/1,
          is_key/2, keys/1, merge/2,
          new/0, put/3, remove/2, take/2,
          to_list/1, update/3, values/1]).
+
+-opaque iterator() :: [{term(), term()}].
+
+-export_type([iterator/0]).
 
 %% Shadowed by erl_bif_types: maps:get/2
 -spec get(Key,Map) -> Value when
@@ -200,10 +205,22 @@ get(Key,Map,Default) ->
       Map2 :: map().
 
 filter(Pred,Map) when is_function(Pred,2), is_map(Map) ->
-    maps:from_list([{K,V}||{K,V}<-maps:to_list(Map),Pred(K,V)]);
+    maps:from_list(filter_1(Pred, iterator(Map)));
 filter(Pred,Map) ->
     erlang:error(error_type(Map),[Pred,Map]).
 
+filter_1(Pred, Iter) ->
+    case next(Iter) of
+        {K, V, NextIter} ->
+            case Pred(K,V) of
+                true ->
+                    [{K,V} | filter_1(Pred, NextIter)];
+                false ->
+                    filter_1(Pred, NextIter)
+            end;
+        none ->
+            []
+    end.
 
 -spec fold(Fun,Init,Map) -> Acc when
     Fun :: fun((K, V, AccIn) -> AccOut),
@@ -216,9 +233,17 @@ filter(Pred,Map) ->
     V :: term().
 
 fold(Fun,Init,Map) when is_function(Fun,3), is_map(Map) ->
-    lists:foldl(fun({K,V},A) -> Fun(K,V,A) end,Init,maps:to_list(Map));
+    fold_1(Fun, Init, iterator(Map));
 fold(Fun,Init,Map) ->
     erlang:error(error_type(Map),[Fun,Init,Map]).
+
+fold_1(Fun, Acc, Iter) ->
+    case next(Iter) of
+        {K, V, NextIter} ->
+            fold_1(Fun, Fun(K,V,Acc), NextIter);
+        none ->
+            Acc
+    end.
 
 -spec map(Fun,Map1) -> Map2 when
     Fun :: fun((K, V1) -> V2),
@@ -229,10 +254,17 @@ fold(Fun,Init,Map) ->
     V2 :: term().
 
 map(Fun,Map) when is_function(Fun, 2), is_map(Map) ->
-    maps:from_list([{K,Fun(K,V)}||{K,V}<-maps:to_list(Map)]);
+    maps:from_list(map_1(Fun, iterator(Map)));
 map(Fun,Map) ->
     erlang:error(error_type(Map),[Fun,Map]).
 
+map_1(Fun, Iter) ->
+    case next(Iter) of
+        {K, V, NextIter} ->
+            [{K, Fun(K, V)} | map_1(Fun, NextIter)];
+        none ->
+            []
+    end.
 
 -spec size(Map) -> non_neg_integer() when
     Map :: map().
@@ -242,6 +274,23 @@ size(Map) when is_map(Map) ->
 size(Val) ->
     erlang:error({badmap,Val},[Val]).
 
+-spec iterator(Map) -> Iterator when
+      Map :: map(),
+      Iterator :: iterator().
+
+iterator(Map) when is_map(Map) ->
+    maps:to_list(Map);
+iterator(M) ->
+    erlang:error(error_type(M),[M]).
+
+-spec next(Iterator) -> {K,V,NextIterator} | 'none' when
+      Iterator :: iterator(),
+      K :: term(),
+      V :: term(),
+      NextIterator :: iterator().
+next([]) -> none;
+next([{K, V} | I]) ->
+    {K, V, I}.
 
 -spec without(Ks,Map1) -> Map2 when
     Ks :: [K],
@@ -250,10 +299,9 @@ size(Val) ->
     K :: term().
 
 without(Ks,M) when is_list(Ks), is_map(M) ->
-    lists:foldl(fun(K, M1) -> ?MODULE:remove(K, M1) end, M, Ks);
+    lists:foldl(fun(K, M1) -> maps:remove(K, M1) end, M, Ks);
 without(Ks,M) ->
     erlang:error(error_type(M),[Ks,M]).
-
 
 -spec with(Ks, Map1) -> Map2 when
     Ks :: [K],
@@ -263,14 +311,14 @@ without(Ks,M) ->
 
 with(Ks,Map1) when is_list(Ks), is_map(Map1) ->
     Fun = fun(K, List) ->
-      case ?MODULE:find(K, Map1) of
-          {ok, V} ->
-              [{K, V} | List];
-          error ->
-              List
-      end
-    end,
-    ?MODULE:from_list(lists:foldl(Fun, [], Ks));
+                  case maps:find(K, Map1) of
+                      {ok, V} ->
+                          [{K, V} | List];
+                      error ->
+                          List
+                  end
+          end,
+    maps:from_list(lists:foldl(Fun, [], Ks));
 with(Ks,M) ->
     erlang:error(error_type(M),[Ks,M]).
 
