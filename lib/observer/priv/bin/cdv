@@ -1,4 +1,4 @@
 #!/bin/sh 
 
-erl -noinput -s crashdump_viewer script_start $@
+erl -env ERL_CRASH_DUMP_SECONDS 0 -noinput -s crashdump_viewer script_start $@
 

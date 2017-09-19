@@ -21,7 +21,7 @@
 
 -export([get_wx_parent/1,
 	 display_info_dialog/2, display_yes_no_dialog/1,
-	 display_progress_dialog/2, destroy_progress_dialog/0,
+	 display_progress_dialog/3, destroy_progress_dialog/0,
 	 wait_for_progress/0, report_progress/1,
 	 user_term/3, user_term_multiline/3,
 	 interval_dialog/4, start_timer/1, start_timer/2, stop_timer/1, timer_config/1,
@@ -40,6 +40,7 @@
 -define(SINGLE_LINE_STYLE, ?wxBORDER_NONE bor ?wxTE_READONLY bor ?wxTE_RICH2).
 -define(MULTI_LINE_STYLE, ?SINGLE_LINE_STYLE bor ?wxTE_MULTILINE).
 
+-define(pulse_timeout,50).
 
 get_wx_parent(Window) ->
     Parent = wxWindow:getParent(Window),
@@ -688,11 +689,11 @@ create_status_bar(Panel) ->
 %%%-----------------------------------------------------------------
 %%% Progress dialog
 -define(progress_handler,cdv_progress_handler).
-display_progress_dialog(Title,Str) ->
+display_progress_dialog(Parent,Title,Str) ->
     Caller = self(),
     Env = wx:get_env(),
     spawn_link(fun() ->
-		       progress_handler(Caller,Env,Title,Str)
+		       progress_handler(Caller,Env,Parent,Title,Str)
 	       end),
     ok.
 
@@ -716,31 +717,38 @@ report_progress(Progress) ->
 	    ok
     end.
 
-progress_handler(Caller,Env,Title,Str) ->
+progress_handler(Caller,Env,Parent,Title,Str) ->
     register(?progress_handler,self()),
     wx:set_env(Env),
-    PD = progress_dialog(Env,Title,Str),
-    try progress_loop(Title,PD,Caller)
+    PD = progress_dialog(Env,Parent,Title,Str),
+    try progress_loop(Title,PD,Caller,infinity)
     catch closed -> normal end.
 
-progress_loop(Title,PD,Caller) ->
+progress_loop(Title,PD,Caller,Pulse) ->
     receive
 	{progress,{ok,done}} -> % to make wait_for_progress/0 return
 	    Caller ! continue,
-	    progress_loop(Title,PD,Caller);
+	    progress_loop(Title,PD,Caller,Pulse);
+        {progress,{ok,start_pulse}} ->
+            update_progress_pulse(PD),
+            progress_loop(Title,PD,Caller,?pulse_timeout);
+        {progress,{ok,stop_pulse}} ->
+            progress_loop(Title,PD,Caller,infinity);
 	{progress,{ok,Percent}} when is_integer(Percent) ->
 	    update_progress(PD,Percent),
-	    progress_loop(Title,PD,Caller);
+	    progress_loop(Title,PD,Caller,Pulse);
 	{progress,{ok,Msg}} ->
 	    update_progress_text(PD,Msg),
-	    progress_loop(Title,PD,Caller);
+	    progress_loop(Title,PD,Caller,Pulse);
 	{progress,{error, Reason}} ->
+            {Dialog,_,_} = PD,
+            Parent = wxWindow:getParent(Dialog),
 	    finish_progress(PD),
 	    FailMsg =
 		if is_list(Reason) -> Reason;
 		   true -> file:format_error(Reason)
 		end,
-	    display_info_dialog(PD,"Crashdump Viewer Error",FailMsg),
+	    display_info_dialog(Parent,"Crashdump Viewer Error",FailMsg),
 	    Caller ! error,
 	    unregister(?progress_handler),
 	    unlink(Caller);
@@ -748,28 +756,57 @@ progress_loop(Title,PD,Caller) ->
 	    finish_progress(PD),
 	    unregister(?progress_handler),
 	    unlink(Caller)
+    after Pulse ->
+            update_progress_pulse(PD),
+            progress_loop(Title,PD,Caller,?pulse_timeout)
     end.
 
-progress_dialog(_Env,Title,Str) ->
-    PD = wxProgressDialog:new(Title,Str,
-			      [{maximum,101},
-			       {style,
-				?wxPD_APP_MODAL bor
-				    ?wxPD_SMOOTH bor
-				    ?wxPD_AUTO_HIDE}]),
-    wxProgressDialog:setMinSize(PD,{200,-1}),
-    PD.
+progress_dialog(_Env,Parent,Title,Str) ->
+    progress_dialog_new(Parent,Title,Str).
 
 update_progress(PD,Value) ->
-    try wxProgressDialog:update(PD,Value)
+    try progress_dialog_update(PD,Value)
     catch _:_ -> throw(closed) %% Port or window have died
     end.
 update_progress_text(PD,Text) ->
-    try wxProgressDialog:update(PD,0,[{newmsg,Text}])
+    try progress_dialog_update(PD,Text)
+    catch _:_ -> throw(closed) %% Port or window have died
+    end.
+update_progress_pulse(PD) ->
+    try progress_dialog_pulse(PD)
     catch _:_ -> throw(closed) %% Port or window have died
     end.
 finish_progress(PD) ->
-    wxProgressDialog:destroy(PD).
+    try progress_dialog_update(PD,100)
+    catch _:_ -> ok
+    after progress_dialog_destroy(PD)
+    end.
+
+progress_dialog_new(Parent,Title,Str) ->
+    Dialog = wxDialog:new(Parent, ?wxID_ANY, Title,
+                          [{style,?wxDEFAULT_DIALOG_STYLE}]),
+    Panel = wxPanel:new(Dialog),
+    Sizer = wxBoxSizer:new(?wxVERTICAL),
+    Message = wxStaticText:new(Panel, 1, Str),
+    Gauge = wxGauge:new(Panel, 2, 100, [{size, {170, -1}},
+                                        {style, ?wxGA_HORIZONTAL}]),
+    SizerFlags = ?wxEXPAND bor ?wxLEFT bor ?wxRIGHT bor ?wxTOP,
+    wxSizer:add(Sizer, Message, [{flag,SizerFlags},{border,15}]),
+    wxSizer:add(Sizer, Gauge, [{flag, SizerFlags bor ?wxBOTTOM},{border,15}]),
+    wxPanel:setSizer(Panel, Sizer),
+    wxSizer:setSizeHints(Sizer, Dialog),
+    wxDialog:show(Dialog),
+    {Dialog,Message,Gauge}.
+
+progress_dialog_update({_,_,Gauge},Value) when is_integer(Value) ->
+    wxGauge:setValue(Gauge,Value);
+progress_dialog_update({_,Message,Gauge},Text) when is_list(Text) ->
+    wxGauge:setValue(Gauge,0),
+    wxStaticText:setLabel(Message,Text).
+progress_dialog_pulse({_,_,Gauge}) ->
+    wxGauge:pulse(Gauge).
+progress_dialog_destroy({Dialog,_,_}) ->
+    wxDialog:destroy(Dialog).
 
 make_obsbin(Bin,Tab) ->
     Size = byte_size(Bin),
