@@ -48,6 +48,6 @@
   {registered, []},
   {applications, [compiler, hipe, kernel, stdlib, wx]},
   {env, []},
-  {runtime_dependencies, ["wx-1.2","syntax_tools-2.0","stdlib-3.0",
-			  "kernel-5.0","hipe-3.15.4","erts-8.0",
+  {runtime_dependencies, ["wx-1.2","syntax_tools-2.0","stdlib-3.4",
+			  "kernel-5.3","hipe-3.16.1","erts-9.0",
 			  "compiler-7.0"]}]}.
