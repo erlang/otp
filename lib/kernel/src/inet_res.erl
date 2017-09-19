@@ -859,15 +859,17 @@ query_ns(S0, Id, Buffer, IP, Port, Timer, Retry, I,
 		{ok,S} ->
 		    Timeout =
 			inet:timeout( (Tm * (1 bsl I)) div Retry, Timer),
-		    {S,
 		     case query_udp(
 			    S, Id, Buffer, IP, Port, Timeout, Verbose) of
 			 {ok,#dns_rec{header=H}} when H#dns_header.tc ->
 			     TcpTimeout = inet:timeout(Tm*5, Timer),
-			     query_tcp(
-			       TcpTimeout, Id, Buffer, IP, Port, Verbose);
-			 Reply -> Reply
-		     end};
+			     {S, query_tcp(
+			       TcpTimeout, Id, Buffer, IP, Port, Verbose)};
+			{error, econnrefused} = Err ->
+                            ok = udp_close(S),
+	                    {#sock{}, Err};
+			Reply -> {S, Reply}
+		     end;
 		Error ->
 		    {S0,Error}
 	    end
