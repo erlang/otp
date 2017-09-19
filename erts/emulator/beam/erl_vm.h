@@ -209,6 +209,15 @@ extern void** beam_ops;
 #  define BeamOpCodeAddr(OpCode) ((BeamInstr)beam_ops[(OpCode)])
 #endif
 
-#define BeamIsOpCode(InstrWord, OpCode) ((InstrWord) == BeamOpCodeAddr(OpCode))
+#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
+#  define BeamCodeAddr(InstrWord) ((BeamInstr)(Uint32)(InstrWord))
+#  define BeamSetCodeAddr(InstrWord, Addr) (((InstrWord) & ~((1ull << 32)-1)) | (Addr))
+#  define BeamExtraData(InstrWord) ((InstrWord) >> 32)
+#else
+#  define BeamCodeAddr(InstrWord) ((BeamInstr)(InstrWord))
+#  define BeamSetCodeAddr(InstrWord, Addr) (Addr)
+#endif
+
+#define BeamIsOpCode(InstrWord, OpCode) (BeamCodeAddr(InstrWord) == BeamOpCodeAddr(OpCode))
 
 #endif	/* __ERL_VM_H__ */
