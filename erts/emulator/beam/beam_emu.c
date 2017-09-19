@@ -234,15 +234,18 @@ void** beam_ops;
 #define fb(N) ((Sint)(Sint32)(N))
 #define jb(N) ((Sint)(Sint32)(N))
 #define tb(N) (N)
-#define xb(N) (*(Eterm *) (((unsigned char *)reg) + (N)))
-#define yb(N) (*(Eterm *) (((unsigned char *)E) + (N)))
+#define xb(N) (*ADD_BYTE_OFFSET(reg, N))
+#define yb(N) (*ADD_BYTE_OFFSET(E, N))
 #define Sb(N) (*REG_TARGET_PTR(N))
 #define lb(N) (*(double *) (((unsigned char *)&(freg[0].fd)) + (N)))
 #define Qb(N) (N)
 #define Ib(N) (N)
+
 #define x(N) reg[N]
 #define y(N) E[N]
 #define r(N) x(N)
+#define Q(N) (N*sizeof(Eterm *))
+#define l(N) (freg[N].fd)
 
 /*
  * Check that we haven't used the reductions and jump to function pointed to by

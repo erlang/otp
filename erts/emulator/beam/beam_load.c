@@ -2578,23 +2578,31 @@ load_code(LoaderState* stp)
                         sp++;
                     }
                     break;
-		case 'i':	/* Initialize packing accumulator. */
-		    packed = code[--ci];
+#ifdef ARCH_64
+		case '1':	/* Tightest shift (always 10 bits) */
+                    ci--;
+                    ASSERT((code[ci] & ~0x1FF8ull) == 0); /* Fits in 10 bits */
+                    packed = (packed << BEAM_TIGHTEST_SHIFT);
+                    packed |= code[ci] >> 3;
+                    if (packed_label) {
+                        packed_label->packed++;
+                    }
 		    break;
-		case '0':	/* Tight shift */
+#endif
+		case '2':	/* Tight shift (10 or 16 bits) */
 		    packed = (packed << BEAM_TIGHT_SHIFT) | code[--ci];
                     if (packed_label) {
                         packed_label->packed++;
                     }
 		    break;
-		case '6':	/* Shift 16 steps */
+		case '3':	/* Loose shift (16 bits) */
 		    packed = (packed << BEAM_LOOSE_SHIFT) | code[--ci];
                     if (packed_label) {
                         packed_label->packed++;
                     }
 		    break;
 #ifdef ARCH_64
-		case 'w':	/* Shift 32 steps */
+		case '4':	/* Wide shift (32 bits) */
                     {
                         Uint w = code[--ci];
 
@@ -2646,8 +2654,31 @@ load_code(LoaderState* stp)
                     sp++;
 		    packed = 0;
 		    break;
+#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
+                case '#':       /* -1 */
+                case '$':       /* -2 */
+                case '%':       /* -3 */
+                case '&':       /* -4 */
+                case '\'':      /* -5 */
+                case '(':       /* -6 */
+                    /* Pack accumulator contents into instruction word. */
+                    {
+                        Sint pos = ci - (*prog - '#' + 1);
+                        /* Are the high 32 bits of the instruction word zero? */
+                        ASSERT((code[pos] & ~((1ull << BEAM_WIDE_SHIFT)-1)) == 0);
+                        code[pos] |= packed << BEAM_WIDE_SHIFT;
+                        if (packed_label) {
+                            ASSERT(packed_label->packed == 1);
+                            packed_label->pos = pos;
+                            packed_label->packed = 2;
+                            packed_label = 0;
+                        }
+                        packed >>= BEAM_WIDE_SHIFT;
+                    }
+		    break;
+#endif
 		default:
-		    ASSERT(0);
+                    erts_exit(ERTS_ERROR_EXIT, "beam_load: invalid packing op: %c\n", *prog);
 		}
 	    }
 	    ASSERT(sp == stack); /* Incorrect program? */

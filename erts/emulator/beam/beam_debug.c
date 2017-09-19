@@ -201,7 +201,7 @@ void debug_dump_code(BeamInstr *I, int num)
 	for (i = 0; i < NUM_SPECIFIC_OPS; i++) {
 	    if (BeamIsOpCode(instr, i) && opc[i].name[0] != '\0') {
 		code_ptr += print_op(ERTS_PRINT_DSBUF, (void *) dsbufp,
-				     i, opc[i].sz-1, code_ptr+1) + 1;
+				     i, opc[i].sz-1, code_ptr) + 1;
 		break;
 	    }
 	}
@@ -321,7 +321,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
     for (i = 0; i < NUM_SPECIFIC_OPS; i++) {
 	if (BeamIsOpCode(instr, i) && opc[i].name[0] != '\0') {
 	    code_ptr += print_op(ERTS_PRINT_DSBUF, (void *) dsbufp,
-				 i, opc[i].sz-1, code_ptr+1) + 1;
+				 i, opc[i].sz-1, code_ptr) + 1;
 	    break;
 	}
     }
@@ -405,8 +405,11 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	 * Avoid copying because instructions containing bignum operands
 	 * are bigger than actually declared.
 	 */
-	ap = (BeamInstr *) addr;
+        addr++;
+        ap = addr;
     } else {
+        BeamInstr instr_word = addr++[0];
+
 	/*
 	 * Copy all arguments to a local buffer for the unpacking.
 	 */
@@ -431,23 +434,22 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    case 'q':
 		*ap++ = *--sp;
 		break;
-	    case 'i':		/* Initialize packing accumulator. */
-		*ap++ = packed;
+#ifdef ARCH_64
+	    case '1':		/* Tightest shift */
+		*ap++ = (packed & BEAM_TIGHTEST_MASK) << 3;
+		packed >>= BEAM_TIGHTEST_SHIFT;
 		break;
-	    case 's':
-		*ap++ = packed & 0x3ff;
-		packed >>= 10;
-		break;
-	    case '0':		/* Tight shift */
+#endif
+	    case '2':		/* Tight shift */
 		*ap++ = packed & BEAM_TIGHT_MASK;
 		packed >>= BEAM_TIGHT_SHIFT;
 		break;
-	    case '6':		/* Shift 16 steps */
+	    case '3':		/* Loose shift */
 		*ap++ = packed & BEAM_LOOSE_MASK;
 		packed >>= BEAM_LOOSE_SHIFT;
 		break;
 #ifdef ARCH_64
-	    case 'w':		/* Shift 32 steps */
+	    case '4':		/* Shift 32 steps */
 		*ap++ = packed & BEAM_WIDE_MASK;
 		packed >>= BEAM_WIDE_SHIFT;
 		break;
@@ -458,8 +460,18 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    case 'P':
 		packed = *--sp;
 		break;
+#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
+            case '#':       /* -1 */
+            case '$':       /* -2 */
+            case '%':       /* -3 */
+            case '&':       /* -4 */
+            case '\'':      /* -5 */
+            case '(':       /* -6 */
+                packed = (packed << BEAM_WIDE_SHIFT) | BeamExtraData(instr_word);
+		break;
+#endif
 	    default:
-		ASSERT(0);
+                erts_exit(ERTS_ERROR_EXIT, "beam_debug: invalid packing op: %c\n", *prog);
 	    }
 	}
 	ap = args;

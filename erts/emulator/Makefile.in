@@ -569,6 +569,7 @@ $(TTF_DIR)/beam_tr_funcs.h \
 $(TTF_DIR)/OPCODES-GENERATED: $(OPCODE_TABLES) utils/beam_makeops
 	$(gen_verbose)LANG=C $(PERL) utils/beam_makeops \
 		-wordsize @EXTERNAL_WORD_SIZE@ \
+		-code-model @CODE_MODEL@ \
 		-outdir $(TTF_DIR) \
 		-DUSE_VM_PROBES=$(if $(USE_VM_PROBES),1,0) \
 		-DNO_FPE_SIGNALS=$(if $filter(unreliable,$(FPE)),1,0) \
