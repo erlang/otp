@@ -141,9 +141,7 @@ dist_table_cmp(void *dep1, void *dep2)
 static void*
 dist_table_alloc(void *dep_tmpl)
 {
-#ifdef DEBUG
     erts_aint_t refc;
-#endif
     Eterm sysname;
     Binary *bin;
     DistEntry *dep;
@@ -160,13 +158,8 @@ dist_table_alloc(void *dep_tmpl)
 
     dist_entries++;
 
-#ifdef DEBUG
-    refc =
-#else
-    (void)
-#endif
-        de_refc_dec_read(dep, -1);
-    ASSERT(refc == -1);
+    refc = de_refc_dec_read(dep, -1);
+    ASSERT(refc == -1); (void)refc;
 
     dep->prev				= NULL;
     erts_rwmtx_init_opt(&dep->rwmtx, &rwmtx_opt, "dist_entry", sysname,
@@ -227,6 +220,8 @@ dist_table_free(void *vdep)
 {
     DistEntry *dep = (DistEntry *) vdep;
 
+    ASSERT(de_refc_read(dep, -1) == -1);
+    ASSERT(dep->status == 0);
     ASSERT(is_nil(dep->cid));
     ASSERT(dep->nlinks == NULL);
     ASSERT(dep->node_links == NULL);
@@ -387,16 +382,19 @@ erts_dhandle_to_dist_entry(Eterm dhandle)
 }
 
 Eterm
-erts_make_dhandle(Process *c_p, DistEntry *dep)
+erts_build_dhandle(Eterm **hpp, ErlOffHeap* ohp, DistEntry *dep)
 {
-    Binary *bin;
-    Eterm *hp;
-
-    bin = ErtsDistEntry2Bin(dep);
+    Binary *bin = ErtsDistEntry2Bin(dep);
     ASSERT(bin);
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == erts_dist_entry_destructor);
-    hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
-    return erts_mk_magic_ref(&hp, &c_p->off_heap, bin);
+    return erts_mk_magic_ref(hpp, ohp, bin);
+}
+
+Eterm
+erts_make_dhandle(Process *c_p, DistEntry *dep)
+{
+    Eterm *hp = HAlloc(c_p, ERTS_MAGIC_REF_THING_SIZE);
+    return erts_build_dhandle(&hp, &c_p->off_heap, dep);
 }
 
 static void start_timer_delete_dist_entry(void *vdep);

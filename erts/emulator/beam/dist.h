@@ -161,6 +161,7 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
 		  int connect)
 {
     DistEntry* dep = *depp;
+    int deref_dep = 0;
     int res;
 
     if (!erts_is_alive)
@@ -171,6 +172,7 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
 
 	dep = erts_find_or_insert_dist_entry(dsdp->node);
 	ASSERT(dep != erts_this_dist_entry);  /* SVERK: What to do? */
+        deref_dep = 1;
     }
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -208,7 +210,7 @@ retry:
 	    Eterm *hp;
 	    ErlOffHeap *ohp;
 	    ErtsMessage *mp;
-	    Eterm msg, conn_id;
+	    Eterm msg, conn_id, dhandle;
 
 	    dep->status = ERTS_DE_SFLG_PENDING;
 	    dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY);
@@ -220,16 +222,18 @@ retry:
 	    net_kernel = erts_whereis_process(proc, proc_locks,
 					      am_net_kernel, nk_locks, 0);
 	    if (!net_kernel) {
-		if (!*depp) {
-		    erts_deref_dist_entry(dep);
-		}
+                if (deref_dep)
+                    erts_deref_dist_entry(dep);
 		return ERTS_DSIG_PREP_NOT_ALIVE;
 	    }
 
-	    /* Send {auto_connect, Node, ConnId} to net_kernel */
-	    mp = erts_alloc_message_heap(net_kernel, &nk_locks, 4, &hp, &ohp);
-	    msg = TUPLE3(hp, am_auto_connect, dep->sysname, conn_id);
-	    erts_queue_message(net_kernel, nk_locks, mp, msg, proc->common.id);
+	    /* Send {auto_connect, Node, ConnId, DHandle} to net_kernel */
+	    mp = erts_alloc_message_heap(net_kernel, &nk_locks,
+                                         5 + ERTS_MAGIC_REF_THING_SIZE,
+                                         &hp, &ohp);
+            dhandle = erts_build_dhandle(&hp, ohp, dep);
+	    msg = TUPLE4(hp, am_auto_connect, dep->sysname, conn_id, dhandle);
+            erts_queue_message(net_kernel, nk_locks, mp, msg, proc->common.id);
 	    erts_proc_unlock(net_kernel, nk_locks);
 	}
 	else
@@ -255,6 +259,8 @@ retry:
     dsdp->no_suspend = no_suspend;
     if (dspl == ERTS_DSP_NO_LOCK)
 	erts_de_runlock(dep);
+    if (deref_dep)
+        erts_deref_dist_entry(dep);
     *depp = dep;
     return res;
 
@@ -263,6 +269,8 @@ retry:
 	erts_de_rwunlock(dep);
     else
 	erts_de_runlock(dep);
+    if (deref_dep)
+        erts_deref_dist_entry(dep);
     return res;
 }
 

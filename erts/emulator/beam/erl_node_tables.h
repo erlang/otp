@@ -210,6 +210,7 @@ int erts_lc_is_de_rlocked(DistEntry *);
 #endif
 int erts_dist_entry_destructor(Binary *bin);
 DistEntry *erts_dhandle_to_dist_entry(Eterm dhandle);
+Eterm erts_build_dhandle(Eterm **hpp, ErlOffHeap*, DistEntry*);
 Eterm erts_make_dhandle(Process *c_p, DistEntry *dep);
 void erts_ref_dist_entry(DistEntry *dep);
 void erts_deref_dist_entry(DistEntry *dep);

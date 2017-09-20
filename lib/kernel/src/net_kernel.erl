@@ -435,10 +435,10 @@ handle_connect(ConnLookup, Type, Node, ConnId, From , State) ->
 
 -define(ERTS_DIST_CON_ID_MASK, 16#ffffff).  % also in external.h
 
-verify_new_conn_id([], ConnId)
-  when (ConnId band (bnot ?ERTS_DIST_CON_ID_MASK)) =:= 0 ->
+verify_new_conn_id([], {Nr,_DHandle})
+  when (Nr band (bnot ?ERTS_DIST_CON_ID_MASK)) =:= 0 ->
     true;
-verify_new_conn_id([#connection{conn_id = Old}], New)
+verify_new_conn_id([#connection{conn_id = {Old,_}}], {New,_})
   when New =:= ((Old+1) band ?ERTS_DIST_CON_ID_MASK) ->
     true;
 verify_new_conn_id(_, _) ->
@@ -460,7 +460,7 @@ handle_call({auto_connect, Type, Node, WaitForBarred}, From, State) ->
     verbose({auto_connect, Type, Node, WaitForBarred}, 1, State),
 
     R = case (catch erlang:new_connection_id(Node)) of
-            ConnId when is_integer(ConnId) ->
+            {Nr,_DHandle}=ConnId when is_integer(Nr) ->
                 handle_auto_connect(Type, Node, ConnId, WaitForBarred, From, State);
 
             _Error ->
@@ -481,7 +481,7 @@ handle_call({connect, Type, Node}, From, State) ->
     verbose({connect, Type, Node}, 1, State),
     ConnLookup = ets:lookup(sys_dist, Node),
     R = case (catch erlang:new_connection_id(Node)) of
-            ConnId when is_integer(ConnId) ->
+            {Nr,_DHandle}=ConnId when is_integer(Nr) ->
                 handle_connect(ConnLookup, Type, Node, ConnId, From, State);
                     
             _Error ->
@@ -699,8 +699,9 @@ terminate(_Reason, State) ->
 %%
 %% Asynchronous auto connect request
 %%
-handle_info({auto_connect,Node,ConnId}, State) ->
-    verbose({auto_connect, Node, ConnId}, 1, State),
+handle_info({auto_connect,Node, Nr, DHandle}, State) ->
+    verbose({auto_connect, Node, Nr, DHandle}, 1, State),
+    ConnId = {Nr, DHandle},
     NewState =
         case handle_auto_connect(normal, Node, ConnId, false, noreply, State) of
             {noreply, S} ->           %% Pending connection
@@ -796,7 +797,7 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
 	    {noreply, State};
 	_ ->
             ConnId = case (catch erlang:new_connection_id(Node)) of
-                         CI when is_integer(CI) -> CI
+                         {Nr,_DHandle}=CI when is_integer(Nr) -> CI
                          %% SVERK What to do?
                      end,
 	    ets:insert(sys_dist, #connection{node = Node,

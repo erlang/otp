@@ -3426,6 +3426,8 @@ BIF_RETTYPE new_connection_id_1(BIF_ALIST_1)
 {
     DistEntry* dep;
     Uint32 conn_id;
+    Eterm* hp;
+    Eterm dhandle;
 
     if (is_not_atom(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
@@ -3449,17 +3451,25 @@ BIF_RETTYPE new_connection_id_1(BIF_ALIST_1)
 	conn_id = dep->connection_id;
     }
     erts_de_rwunlock(dep);
-    BIF_RET(make_small(conn_id));
+    hp = HAlloc(BIF_P, 3 + ERTS_MAGIC_REF_THING_SIZE);
+    dhandle = erts_build_dhandle(&hp, &BIF_P->off_heap, dep);
+    erts_deref_dist_entry(dep);
+    BIF_RET(TUPLE2(hp, make_small(conn_id), dhandle));
 }
 
 BIF_RETTYPE abort_connection_id_2(BIF_ALIST_2)
 {
     DistEntry* dep;
+    Eterm* tp;
 
-    if (is_not_atom(BIF_ARG_1) || is_not_small(BIF_ARG_2)) {
+    if (is_not_atom(BIF_ARG_1) || is_not_tuple_arity(BIF_ARG_2, 2)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-    dep = erts_find_dist_entry(BIF_ARG_1);
+    tp = tuple_val(BIF_ARG_2);
+    dep = erts_dhandle_to_dist_entry(tp[2]);
+    if (is_not_small(tp[1]) || dep != erts_find_dist_entry(BIF_ARG_1)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
     ASSERT(dep != erts_this_dist_entry); /* SVERK: What to do? */
 
     if (!dep) {
@@ -3469,7 +3479,7 @@ BIF_RETTYPE abort_connection_id_2(BIF_ALIST_2)
     erts_de_rwlock(dep);
 
     if (dep->status == ERTS_DE_SFLG_PENDING
-	&& dep->connection_id == unsigned_val(BIF_ARG_2)) {
+	&& dep->connection_id == unsigned_val(tp[1])) {
 
 	NetExitsContext nec = {dep};
 	ErtsLink *nlinks;
@@ -3736,10 +3746,12 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
             ++ERTS_LINK_REFC(lnk);
             lnk = erts_add_or_lookup_link(&ERTS_P_LINKS(p), LINK_NODE, Node);
             ++ERTS_LINK_REFC(lnk);
+            erts_de_links_unlock(dep);
             break;
         default:
             ERTS_ASSERT(! "Invalid dsig prepare result");
         }
+        erts_deref_dist_entry(dep);
     }
     else { /* Bool == false */
         dep = erts_sysname_to_connected_dist_entry(Node);
@@ -3777,9 +3789,9 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
                                                    Node));
             }
         }
+        erts_de_links_unlock(dep);
     }
 
-    erts_de_links_unlock(dep);
     erts_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 
  done:
