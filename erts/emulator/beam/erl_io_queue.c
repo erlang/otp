@@ -973,9 +973,10 @@ static int iol2v_append_binary(iol2v_state_t *state, Eterm bin_term) {
     UWord binary_size;
 
     Uint byte_offset, bit_offset, bit_size;
+    byte *binary_data;
+
     Eterm *parent_header;
     Eterm parent_binary;
-    byte *binary_data;
 
     ASSERT(state->bytereds_available > state->bytereds_spent);
 
@@ -1001,14 +1002,14 @@ static int iol2v_append_binary(iol2v_state_t *state, Eterm bin_term) {
             erts_emasculate_writable_binary(pb);
         }
 
-        binary_data = pb->bytes;
+        binary_data = &((byte*)pb->bytes)[byte_offset];
     } else {
         ErlHeapBin *hb = (ErlHeapBin*)parent_header;
 
         ASSERT(thing_subtag(*parent_header) == HEAP_BINARY_SUBTAG);
         ASSERT(is_bin_small);
 
-        binary_data = &((unsigned char*)&hb->data)[byte_offset];
+        binary_data = &((byte*)&hb->data)[byte_offset];
     }
 
     if (!is_bin_small && (state->acc_size == 0 || !is_acc_small)) {
