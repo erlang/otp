@@ -439,7 +439,7 @@ server_require_peer_cert_partial_chain_fun_fail(Config) when is_list(Config) ->
     [{_,_,_}, {_, IntermidiateCA, _} | _] = public_key:pem_decode(ServerCAs),
 
     PartialChain =  fun(_CertChain) ->
-			   ture = false %% crash on purpose
+                            ture = false %% crash on purpose
 		    end,
 
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
@@ -567,9 +567,12 @@ cert_expired() ->
 cert_expired(Config) when is_list(Config) ->
     {Year, Month, Day} = date(),
     Active = proplists:get_value(active, Config),
-    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{server_ca_0, 
-                                                                     [{validity, {{Year-2, Month, Day}, 
-                                                                                  {Year-1, Month, Day}}}]}], 
+    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{server_chain,
+                                                                     [[], 
+                                                                      [{validity, {{Year-2, Month, Day}, 
+                                                                                   {Year-1, Month, Day}}}],
+                                                                      []
+                                                                     ]}], 
                                                                    Config, "_expired"),
     ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
     ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),                                                     
@@ -598,11 +601,11 @@ extended_key_usage_verify_server() ->
     [{doc,"Test cert that has a critical extended_key_usage extension in server cert"}].
 
 extended_key_usage_verify_server(Config) when is_list(Config) -> 
-    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{server_peer_opts, 
-                                                                     [{extensions, 
-                                                                       [{?'id-ce-extKeyUsage',
-                                                                         [?'id-kp-serverAuth'], true}]
-                                                                      }]}], Config, "_keyusage_server"),
+    Ext = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                 [?'id-kp-serverAuth'], true}]),
+    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{server_chain, 
+                                                                     [[],[], [{extensions, Ext}]]}], Config, 
+                                                                   "_keyusage_server"),
     ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
     ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),                                                     
     Active = proplists:get_value(active, Config),
@@ -632,14 +635,13 @@ extended_key_usage_verify_both() ->
     [{doc,"Test cert that has a critical extended_key_usage extension in client verify_peer mode"}].
 
 extended_key_usage_verify_both(Config) when is_list(Config) ->
-     {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{server_peer_opts, 
-                                                                      [{extensions, [{?'id-ce-extKeyUsage',
-                                                                                      [?'id-kp-serverAuth'], true}]
-                                                                      }]},
-                                                                     {client_peer_opts, 
-                                                                      [{extensions, [{?'id-ce-extKeyUsage',
-                                                                                      [?'id-kp-clientAuth'], true}]
-                                                                      }]}], Config, "_keyusage_both"),
+    ServerExt = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                       [?'id-kp-serverAuth'], true}]),
+    ClientExt = x509_test:extensions([{?'id-ce-extKeyUsage',
+                                       [?'id-kp-clientAuth'], true}]),
+    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{client_chain, [[],[],[{extensions, ClientExt}]]},
+                                                                    {server_chain, [[],[],[{extensions, ServerExt}]]}], 
+                                                                   Config, "_keyusage_both"),
     ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
     ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),        
     Active = proplists:get_value(active, Config),
@@ -668,10 +670,10 @@ critical_extension_verify_server() ->
     [{doc,"Test cert that has a critical unknown extension in verify_peer mode"}].
 
 critical_extension_verify_server(Config) when is_list(Config) ->
-    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{client_peer_opts, 
-                                                                     [{extensions, [{{2,16,840,1,113730,1,1},
-                                                                                      <<3,2,6,192>>, true}]
-                                                                      }]}], Config, "_client_unknown_extension"),
+    Ext = x509_test:extensions([{{2,16,840,1,113730,1,1}, <<3,2,6,192>>, true}]),
+    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{client_chain, 
+                                                                     [[],[], [{extensions, Ext}]]}], 
+                                                                   Config, "_client_unknown_extension"),
     ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
     ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),              
     Active = proplists:get_value(active, Config),
@@ -705,10 +707,10 @@ critical_extension_verify_client() ->
     [{doc,"Test cert that has a critical unknown extension in verify_peer mode"}].
 
 critical_extension_verify_client(Config) when is_list(Config) ->
-    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{server_peer_opts, 
-                                                                     [{extensions, [{{2,16,840,1,113730,1,1},
-                                                                                     <<3,2,6,192>>, true}]
-                                                                      }]}], Config, "_server_unknown_extensions"),
+    Ext = x509_test:extensions([{{2,16,840,1,113730,1,1}, <<3,2,6,192>>, true}]),
+    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{server_chain, 
+                                                                     [[],[],[{extensions, Ext}]]}], 
+                                                                   Config, "_server_unknown_extensions"),
     ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
     ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),              
     Active = proplists:get_value(active, Config),
@@ -741,11 +743,10 @@ critical_extension_verify_none() ->
     [{doc,"Test cert that has a critical unknown extension in verify_none mode"}].
 
 critical_extension_verify_none(Config) when is_list(Config) ->
-    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{client_peer_opts, 
-                                                                     [{extensions, 
-                                                                       [{{2,16,840,1,113730,1,1},
-                                                                          <<3,2,6,192>>, true}]
-                                                                      }]}], Config, "_unknown_extensions"),
+    Ext = x509_test:extensions([{{2,16,840,1,113730,1,1}, <<3,2,6,192>>, true}]),
+    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{server_chain, 
+                                                                     [[],[], [{extensions, Ext}]]}], 
+                                                                   Config, "_unknown_extensions"),
     ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
     ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),             
     Active = proplists:get_value(active, Config),
@@ -780,12 +781,7 @@ no_authority_key_identifier() ->
       " but are present in trusted certs db."}].
 
 no_authority_key_identifier(Config) when is_list(Config) ->
-   {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{server_peer_opts, 
-                                                                      [{extensions, [{auth_key_id, undefined}]
-                                                                      }]},
-                                                                     {client_peer_opts, 
-                                                                      [{extensions, [{auth_key_id, undefined}]
-                                                                       }]}], Config, "_peer_no_auth_key_id"),
+   {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([], Config, "_peer_no_auth_key_id"),
     ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
     ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),        
 
@@ -822,14 +818,10 @@ no_authority_key_identifier_keyEncipherment() ->
       " authorityKeyIdentifier extension, but are present in trusted certs db."}].
 
 no_authority_key_identifier_keyEncipherment(Config) when is_list(Config) ->
-    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{server_peer_opts, 
-                                                                      [{extensions, [{auth_key_id, undefined},
-                                                                                     {key_usage, [digitalSignature,
-                                                                                                  keyEncipherment]}]
-                                                                      }]},
-                                                                     {client_peer_opts, 
-                                                                      [{extensions, [{auth_key_id, undefined}]
-                                                                       }]}], Config, "_peer_keyEncipherment"),
+    ClientExt = x509_test:extensions([{key_usage, [digitalSignature, keyEncipherment]}]),
+    {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{client_chain, 
+                                                                     [[],[],[{extensions, ClientExt}]]}], 
+                                                                   Config, "_peer_keyEncipherment"),
     ClientOpts = ssl_test_lib:ssl_options(ClientOpts0, Config),
     ServerOpts = ssl_test_lib:ssl_options(ServerOpts0, Config),        
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -932,12 +924,10 @@ client_with_cert_cipher_suites_handshake() ->
     [{doc, "Test that client with a certificate without keyEncipherment usage "
     " extension can connect to a server with restricted cipher suites "}].
 client_with_cert_cipher_suites_handshake(Config) when is_list(Config) ->
-  {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{client_peer_opts, 
-                                                                     [{extensions, 
-                                                                       [{key_usage, [digitalSignature]}]
-                                                                      }]}], Config, "_sign_only_extensions"),
-    
-
+    Ext = x509_test:extensions([{key_usage, [digitalSignature]}]),
+  {ClientOpts0, ServerOpts0} = ssl_test_lib:make_rsa_cert_chains([{client_chain, 
+                                                                     [[], [], [{extensions, Ext}]]}], 
+                                                                 Config, "_sign_only_extensions"),
     ClientOpts =  ssl_test_lib:ssl_options(ClientOpts0, Config),
     ServerOpts =  ssl_test_lib:ssl_options(ServerOpts0, Config),
 

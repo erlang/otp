@@ -48,6 +48,8 @@ all() ->
      pkix_verify_hostname_cn,
      pkix_verify_hostname_subjAltName,
      pkix_verify_hostname_options,
+     pkix_test_data_all_default,
+     pkix_test_data,
      short_cert_issuer_hash, short_crl_issuer_hash,
      ssh_hostkey_fingerprint_md5_implicit,
      ssh_hostkey_fingerprint_md5,
@@ -93,6 +95,14 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 %%-------------------------------------------------------------------
+
+init_per_testcase(pkix_test_data_all_default, Config) ->
+     case crypto:ec_curves() of
+         [] ->
+             {skip, missing_ecc_support};
+         _ ->
+               init_common_per_testcase(Config)
+     end;
 init_per_testcase(TestCase, Config) ->
     case TestCase of
 	ssh_hostkey_fingerprint_md5_implicit -> init_fingerprint_testcase([md5], Config);
@@ -1047,6 +1057,84 @@ general_name(Config) when is_list(Config) ->
 				    authorityCertSerialNumber = 
 					1}).
 %%--------------------------------------------------------------------
+
+pkix_test_data_all_default() ->
+    [{doc, "Test API function pkix_test_data/1"}].
+
+pkix_test_data_all_default(Config) when is_list(Config) ->
+    #{server_config := ServerConf0,
+      client_config := ClientConf0} = public_key:pkix_test_data(#{server_chain => 
+                                                                     #{root => [],
+                                                                       intermediates => [[]],
+                                                                       peer => []},
+                                                                 client_chain => 
+                                                                     #{root => [],
+                                                                       intermediates => [[]],
+                                                                       peer => []}}),
+    check_conf_member(ServerConf0, [key, cert, cacerts]),
+    check_conf_member(ClientConf0, [key, cert, cacerts]),
+    
+    3 = length(proplists:get_value(cacerts, ServerConf0)),
+    3 = length(proplists:get_value(cacerts, ServerConf0)),
+
+    #{server_config := ServerConf1,
+      client_config := ClientConf1} = public_key:pkix_test_data(#{server_chain => 
+                                                                     #{root => [],
+                                                                       peer => []},
+                                                                 client_chain => 
+                                                                     #{root => [],
+                                                                       peer => []}}),
+    2 = length(proplists:get_value(cacerts, ServerConf1)),
+    2 = length(proplists:get_value(cacerts, ServerConf1)),
+    
+    check_conf_member(ServerConf1, [key, cert, cacerts]),
+    check_conf_member(ClientConf1, [key, cert, cacerts]).
+    
+
+pkix_test_data() ->
+    [{doc, "Test API function pkix_test_data/1"}].
+
+pkix_test_data(Config) when is_list(Config) ->
+    {Year, Month, Day} = date(),
+    Keygen = 
+        case crypto:ec_curves() of
+        [] ->
+            {rsa, 2048, 17};
+        [Curve |_] ->
+            Oid = pubkey_cert_records:namedCurves(Curve),
+            {namedCurve, Oid}
+        end,
+    #{server_config := ServerConf0,
+      client_config := ClientConf0} = 
+        public_key:pkix_test_data(#{server_chain => 
+                                        #{root => [],
+                                          intermediates => [],
+                                          peer => [{key, hardcode_rsa_key()}]},
+                                    client_chain => 
+                                        #{root => [{validity, {{Year-2, Month, Day}, 
+                                                               {Year-1, Month, Day}}}],
+                                          intermediates => 
+                                              [[{extensions, [#'Extension'{extnID = ?'id-ce-basicConstraints',
+                                                                           extnValue = #'BasicConstraints'{cA=true, 
+                                                                                             pathLenConstraint = 1},
+                                                                           critical = true}]}]],
+                                               peer => [{key, Keygen}, {digest, sha1}]}}),
+    check_conf_member(ServerConf0, [key, cert, cacerts]),
+    check_conf_member(ClientConf0, [key, cert, cacerts]).
+
+   
+                                 
+check_conf_member(_, []) ->
+    true;
+check_conf_member(Conf, [Member | Rest]) ->
+    case lists:keymember(Member, 1, Conf) of
+        true ->
+            check_conf_member(Conf, Rest);
+        false ->
+            ct:fail({misssing_conf, Member})
+    end.
+                              
+%%--------------------------------------------------------------------
 short_cert_issuer_hash() ->
     [{doc, "Test OpenSSL-style hash for certificate issuer"}].
 
@@ -1168,3 +1256,15 @@ ssh_hostkey(rsa) ->
 	  public_key),
     PKdecoded.
 
+hardcode_rsa_key() ->
+    #'RSAPrivateKey'{
+       version = 'two-prime',
+       modulus = 23995666614853919027835084074500048897452890537492185072956789802729257783422306095699263934587064480357348855732149402060270996295002843755712064937715826848741191927820899197493902093529581182351132392364214171173881547273475904587683433713767834856230531387991145055273426806331200574039205571401702219159773947658558490957010003143162250693492642996408861265758000254664396313741422909188635443907373976005987612936763564996605457102336549804831742940035613780926178523017685712710473543251580072875247250504243621640157403744718833162626193206685233710319205099867303242759099560438381385658382486042995679707669,
+       publicExponent = 17,
+       privateExponent = 11292078406990079542510627799764728892919007311761028269626724613049062486316379339152594792746853873109340637991599718616598115903530750002688030558925094987642913848386305504703012749896273497577003478759630198199473669305165131570674557041773098755873191241407597673069847908861741446606684974777271632545629600685952292605647052193819136445675100211504432575554351515262198132231537860917084269870590492135731720141577986787033006338680118008484613510063003323516659048210893001173583018220214626635609151105287049126443102976056146630518124476470236027123782297108342869049542023328584384300970694412006494684657,
+       prime1 = 169371138592582642967021557955633494538845517070305333860805485424261447791289944610138334410987654265476540480228705481960508520379619587635662291973699651583489223555422528867090299996446070521801757353675026048850480903160224210802452555900007597342687137394192939372218903554801584969667104937092080815197,
+       prime2 = 141675062317286527042995673340952251894209529891636708844197799307963834958115010129693036021381525952081167155681637592199810112261679449166276939178032066869788822014115556349519329537177920752776047051833616197615329017439297361972726138285974555338480581117881706656603857310337984049152655480389797687577,
+       exponent1 = 119556097830058336212015217380447172615655659108450823901745048534772786676204666783627059584226579481512852103690850928442711896738555003036938088452023283470698275450886490965004917644550167427154181661417665446247398284583687678213495921811770068712485038160606780733330990744565824684470897602653233516609,
+       exponent2 = 41669135975672507953822256864985956439473391144599032012999352737636422046504414744027363535700448809435637398729893409470532385959317485048904982111185902020526124121798693043976273393287623750816484427009887116945685005129205106462566511260580751570141347387612266663707016855981760014456663376585234613993,
+       coefficient = 76837684977089699359024365285678488693966186052769523357232308621548155587515525857011429902602352279058920284048929101483304120686557782043616693940283344235057989514310975192908256494992960578961614059245280827077951132083993754797053182279229469590276271658395444955906108899267024101096069475145863928441,
+       otherPrimeInfos = asn1_NOVALUE}.
