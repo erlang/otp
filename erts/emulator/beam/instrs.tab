@@ -831,12 +831,14 @@ badmatch(Src) {
     c_p->fvalue = $Src;
     c_p->freason = BADMATCH;
     goto find_func_info;
+    //| -no_next;
 }
 
 case_end(Src) {
     c_p->fvalue = $Src;
     c_p->freason = EXC_CASE_CLAUSE;
     goto find_func_info;
+    //| -no_next;
 }
 
 if_end() {
