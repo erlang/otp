@@ -36,6 +36,6 @@
   {registered, []},
   {applications, [stdlib, kernel]},
   {env, []},
-  {runtime_dependencies, ["wx-1.2","tools-2.6.14","stdlib-2.0","sasl-2.4",
+  {runtime_dependencies, ["wx-1.2","tools-2.6.14","stdlib-3.4","sasl-2.4",
 			  "kernel-3.0","erts-7.0"]}
  ]}.
