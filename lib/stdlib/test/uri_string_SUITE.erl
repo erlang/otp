@@ -31,8 +31,30 @@
          parse_path/1, parse_pct_encoded_fragment/1, parse_pct_encoded_query/1,
          parse_pct_encoded_userinfo/1, parse_port/1,
          parse_query/1, parse_scheme/1, parse_userinfo/1,
-	 parse_list/1, parse_binary/1, parse_mixed/1, parse_relative/1
+	 parse_list/1, parse_binary/1, parse_mixed/1, parse_relative/1,
+         recompose_fragment/1, recompose_parse_fragment/1,
+         recompose_query/1, recompose_parse_query/1,
+         recompose_path/1, recompose_parse_path/1,
+         recompose_autogen/1, parse_recompose_autogen/1
         ]).
+
+
+-define(SCHEME, "foo").
+-define(USERINFO, "åsa").
+-define(USERINFO_ENC, "%C3%A5sa").
+-define(HOST, "älvsjö").
+-define(HOST_ENC, "%C3%A4lvsj%C3%B6").
+-define(IPV6, "::127.0.0.1").
+-define(IPV6_ENC, "[::127.0.0.1]").
+-define(PORT, 8042).
+-define(PORT_ENC, ":8042").
+-define(PATH, "/där").
+-define(PATH_ENC, "/d%C3%A4r").
+-define(QUERY, "?name=örn").
+-define(QUERY_ENC, "?name=%C3%B6rn").
+-define(FRAGMENT, "näsa").
+-define(FRAGMENT_ENC, "#n%C3%A4sa").
+
 
 suite() ->
     [{timetrap,{minutes,1}}].
@@ -66,11 +88,201 @@ all() ->
      parse_list,
      parse_binary,
      parse_mixed,
-     parse_relative
+     parse_relative,
+     recompose_fragment,
+     recompose_parse_fragment,
+     recompose_query,
+     recompose_parse_query,
+     recompose_path,
+     recompose_parse_path,
+     recompose_autogen,
+     parse_recompose_autogen
     ].
 
 groups() ->
     [].
+
+
+%%-------------------------------------------------------------------------
+%% Helper functions
+%%-------------------------------------------------------------------------
+uri_combinations() ->
+    [[Sch,Usr,Hst,Prt,Pat,Qry,Frg] ||
+        Sch <- [fun update_scheme/1, fun update_scheme_binary/1, none],
+        Usr <- [fun update_userinfo/1, fun update_userinfo_binary/1, none],
+        Hst <- [fun update_host/1, fun update_host_binary/1,
+                fun update_ipv6/1, fun update_ipv6_binary/1, none],
+        Prt <- [fun update_port/1, none],
+        Pat <- [fun update_path/1, fun update_path_binary/1, none],
+        Qry <- [fun update_query/1,fun update_query_binary/1, none],
+        Frg <- [fun update_fragment/1, fun update_fragment_binary/1, none],
+        not (Usr =:= none andalso Hst =:= none andalso Prt =/= none),
+        not (Usr =/= none andalso Hst =:= none andalso Prt =:= none),
+        not (Usr =/= none andalso Hst =:= none andalso Prt =/= none)].
+
+
+generate_test_vector(Comb) ->
+    Fun = fun (F, {Map, URI}) when is_function(F) -> F({Map, URI});
+              (_, Map) -> Map
+          end,
+    lists:foldl(Fun, {#{}, empty}, Comb).
+
+generate_test_vectors(L) ->
+    lists:map(fun generate_test_vector/1, L).
+
+update_fragment({In, empty}) ->
+    {In#{fragment => ?FRAGMENT}, ?FRAGMENT_ENC};
+update_fragment({In, Out}) when is_list(Out) ->
+    {In#{fragment => ?FRAGMENT}, Out ++ ?FRAGMENT_ENC};
+update_fragment({In, Out}) when is_binary(Out) ->
+    {In#{fragment => ?FRAGMENT}, binary_to_list(Out) ++ ?FRAGMENT_ENC}.
+
+update_fragment_binary({In, empty}) ->
+    {In#{fragment => <<?FRAGMENT/utf8>>}, <<?FRAGMENT_ENC>>};
+update_fragment_binary({In, Out}) when is_list(Out) ->
+    {In#{fragment => <<?FRAGMENT/utf8>>}, Out ++ ?FRAGMENT_ENC};
+update_fragment_binary({In, Out}) when is_binary(Out) ->
+    {In#{fragment => <<?FRAGMENT/utf8>>}, <<Out/binary,?FRAGMENT_ENC>>}.
+
+
+update_query({In, empty}) ->
+    {In#{query => ?QUERY}, ?QUERY_ENC};
+update_query({In, Out}) when is_list(Out) ->
+    {In#{query => ?QUERY}, Out ++ ?QUERY_ENC};
+update_query({In, Out}) when is_binary(Out) ->
+    {In#{query => ?QUERY}, binary_to_list(Out) ++ ?QUERY_ENC}.
+
+update_query_binary({In, empty}) ->
+    {In#{query => <<?QUERY/utf8>>}, <<?QUERY_ENC>>};
+update_query_binary({In, Out}) when is_list(Out) ->
+    {In#{query => <<?QUERY/utf8>>}, Out ++ ?QUERY_ENC};
+update_query_binary({In, Out}) when is_binary(Out) ->
+    {In#{query => <<?QUERY/utf8>>}, <<Out/binary,?QUERY_ENC>>}.
+
+update_path({In, empty}) ->
+    {In#{path => ?PATH}, ?PATH_ENC};
+update_path({In, Out}) when is_list(Out) ->
+    {In#{path => ?PATH}, Out ++ ?PATH_ENC};
+update_path({In, Out}) when is_binary(Out) ->
+    {In#{path => ?PATH}, binary_to_list(Out) ++ ?PATH_ENC}.
+
+update_path_binary({In, empty}) ->
+    {In#{path => <<?PATH/utf8>>}, <<?PATH_ENC>>};
+update_path_binary({In, Out}) when is_list(Out) ->
+    {In#{path => <<?PATH/utf8>>}, Out ++ ?PATH_ENC};
+update_path_binary({In, Out}) when is_binary(Out) ->
+    {In#{path => <<?PATH/utf8>>}, <<Out/binary,?PATH_ENC>>}.
+
+update_port({In, Out}) when is_list(Out) ->
+    {In#{port => ?PORT}, Out ++ ?PORT_ENC};
+update_port({In, Out}) when is_binary(Out) ->
+    {In#{port => ?PORT}, <<Out/binary,?PORT_ENC>>}.
+
+update_host({In, empty}) ->
+    {In#{host => ?HOST}, "//" ++ ?HOST_ENC};
+update_host({In, Out}) when is_list(Out) ->
+    case maps:is_key(userinfo, In) of
+        true -> {In#{host => ?HOST}, Out ++ [$@|?HOST_ENC]};
+        false -> {In#{host => ?HOST}, Out ++ [$/,$/|?HOST_ENC]}
+    end;
+update_host({In, Out}) when is_binary(Out) ->
+    case maps:is_key(userinfo, In) of
+        true -> {In#{host => ?HOST}, binary_to_list(Out) ++ [$@|?HOST_ENC]};
+        false -> {In#{host => ?HOST}, binary_to_list(Out) ++ [$/,$/|?HOST_ENC]}
+    end.
+
+update_host_binary({In, empty}) ->
+    {In#{host => <<?HOST/utf8>>}, <<"//",?HOST_ENC>>};
+update_host_binary({In, Out}) when is_list(Out) ->
+    case maps:is_key(userinfo, In) of
+        true -> {In#{host => <<?HOST/utf8>>}, Out ++ [$@|?HOST_ENC]};
+        false -> {In#{host => <<?HOST/utf8>>}, Out ++ [$/,$/|?HOST_ENC]}
+    end;
+update_host_binary({In, Out}) when is_binary(Out) ->
+    case maps:is_key(userinfo, In) of
+        true -> {In#{host => <<?HOST/utf8>>}, <<Out/binary,$@,?HOST_ENC>>};
+        false-> {In#{host => <<?HOST/utf8>>}, <<Out/binary,"//",?HOST_ENC>>}
+    end.
+
+update_ipv6({In, empty}) ->
+    {In#{host => ?IPV6}, "//" ++ ?IPV6_ENC};
+update_ipv6({In, Out}) when is_list(Out) ->
+    case maps:is_key(userinfo, In) of
+        true -> {In#{host => ?IPV6}, Out ++ [$@|?IPV6_ENC]};
+        false -> {In#{host => ?IPV6}, Out ++ [$/,$/|?IPV6_ENC]}
+    end;
+update_ipv6({In, Out}) when is_binary(Out) ->
+    case maps:is_key(userinfo, In) of
+        true -> {In#{host => ?IPV6}, binary_to_list(Out) ++ [$@|?IPV6_ENC]};
+        false -> {In#{host => ?IPV6}, binary_to_list(Out) ++ [$/,$/|?IPV6_ENC]}
+    end.
+
+update_ipv6_binary({In, empty}) ->
+    {In#{host => <<?IPV6/utf8>>}, <<"//",?IPV6_ENC>>};
+update_ipv6_binary({In, Out}) when is_list(Out) ->
+    case maps:is_key(userinfo, In) of
+        true -> {In#{host => <<?IPV6/utf8>>}, Out ++ [$@|?IPV6_ENC]};
+        false -> {In#{host => <<?IPV6/utf8>>}, Out ++ [$/,$/|?IPV6_ENC]}
+    end;
+update_ipv6_binary({In, Out}) when is_binary(Out) ->
+    case maps:is_key(userinfo, In) of
+        true -> {In#{host => <<?IPV6/utf8>>}, <<Out/binary,$@,?IPV6_ENC>>};
+        false-> {In#{host => <<?IPV6/utf8>>}, <<Out/binary,"//",?IPV6_ENC>>}
+    end.
+
+update_userinfo({In, empty}) ->
+    {In#{userinfo => ?USERINFO}, "//" ++ ?USERINFO_ENC};
+update_userinfo({In, Out}) when is_list(Out) ->
+    {In#{userinfo => ?USERINFO}, Out ++ "//" ++ ?USERINFO_ENC};
+update_userinfo({In, Out}) when is_binary(Out) ->
+    {In#{userinfo => ?USERINFO}, binary_to_list(Out) ++ "//" ++ ?USERINFO_ENC}.
+
+update_userinfo_binary({In, empty}) ->
+    {In#{userinfo => <<?USERINFO/utf8>>}, <<"//",?USERINFO_ENC>>};
+update_userinfo_binary({In, Out}) when is_list(Out) ->
+    {In#{userinfo => <<?USERINFO/utf8>>}, Out ++ "//" ++ ?USERINFO_ENC};
+update_userinfo_binary({In, Out}) when is_binary(Out) ->
+    {In#{userinfo => <<?USERINFO/utf8>>}, <<Out/binary,"//",?USERINFO_ENC>>}.
+
+update_scheme({In, empty}) ->
+    {In#{scheme => ?SCHEME}, ?SCHEME ++ ":"}.
+
+update_scheme_binary({In, empty}) ->
+    {In#{scheme => <<?SCHEME/utf8>>}, <<?SCHEME,$:>>}.
+
+
+%% Test recompose on a generated test vector
+run_test_recompose({#{}, empty}) ->
+    try "" = uri_string:recompose(#{}) of
+        _ -> ok
+    catch
+        _:_ -> error({test_failed, #{}, ""})
+    end;
+run_test_recompose({Map, URI}) ->
+    try URI = uri_string:recompose(Map) of
+        URI -> ok
+    catch
+        _:_ -> error({test_failed, Map, URI})
+    end.
+
+%% Test parse - recompose on a generated test vector
+run_test_parse_recompose({#{}, empty}) ->
+    try "" = uri_string:recompose(uri_string:parse("")) of
+        _ -> ok
+    catch
+        _:_ -> error({test_failed, #{}, ""})
+    end;
+run_test_parse_recompose({Map, URI}) ->
+    try URI = uri_string:recompose(uri_string:parse(URI)) of
+        URI -> ok
+    catch
+        _:_ -> error({test_failed, Map, URI})
+    end.
+
+
+%%-------------------------------------------------------------------------
+%% Parse tests
+%%-------------------------------------------------------------------------
 
 parse_binary_scheme(_Config) ->
     #{} = uri_string:parse(<<>>),
@@ -438,3 +650,87 @@ parse_relative(_Config) ->
         uri_string:parse(lists:append("/pa",<<"th">>)),
     #{path := "foo"} =
         uri_string:parse(lists:append("fo",<<"o">>)).
+
+
+%%-------------------------------------------------------------------------
+%% Recompose tests
+%%-------------------------------------------------------------------------
+recompose_fragment(_Config) ->
+    <<?FRAGMENT_ENC>> = uri_string:recompose(#{fragment => <<?FRAGMENT/utf8>>}),
+    ?FRAGMENT_ENC = uri_string:recompose(#{fragment => ?FRAGMENT}).
+
+recompose_parse_fragment(_Config) ->
+    <<?FRAGMENT_ENC>> = uri_string:recompose(uri_string:parse(<<?FRAGMENT_ENC>>)),
+    ?FRAGMENT_ENC = uri_string:recompose(uri_string:parse(?FRAGMENT_ENC)).
+
+recompose_query(_Config) ->
+    <<?QUERY_ENC>> =
+        uri_string:recompose(#{query => <<?QUERY/utf8>>}),
+    <<?QUERY_ENC?FRAGMENT_ENC>> =
+        uri_string:recompose(#{query => <<?QUERY/utf8>>,
+                               fragment => <<?FRAGMENT/utf8>>}),
+    "?name=%C3%B6rn" =
+        uri_string:recompose(#{query => "?name=örn"}),
+    "?name=%C3%B6rn#n%C3%A4sa" =
+        uri_string:recompose(#{query => "?name=örn",
+                               fragment => "näsa"}).
+
+recompose_parse_query(_Config) ->
+    <<"?name=%C3%B6rn">> = uri_string:recompose(uri_string:parse(<<"?name=%C3%B6rn">>)),
+    <<"?name=%C3%B6rn#n%C3%A4sa">> =
+        uri_string:recompose(uri_string:parse(<<"?name=%C3%B6rn#n%C3%A4sa">>)),
+    "?name=%C3%B6rn" = uri_string:recompose(uri_string:parse("?name=%C3%B6rn")),
+    "?name=%C3%B6rn#n%C3%A4sa" = uri_string:recompose(uri_string:parse("?name=%C3%B6rn#n%C3%A4sa")).
+
+recompose_path(_Config) ->
+    <<"/d%C3%A4r">> =
+        uri_string:recompose(#{path => <<"/där"/utf8>>}),
+    <<"/d%C3%A4r#n%C3%A4sa">> =
+        uri_string:recompose(#{path => <<"/där"/utf8>>,
+                               fragment => <<"näsa"/utf8>>}),
+    <<"/d%C3%A4r?name=%C3%B6rn">> =
+        uri_string:recompose(#{path => <<"/där"/utf8>>,
+                               query => <<"?name=örn"/utf8>>}),
+    <<"/d%C3%A4r?name=%C3%B6rn#n%C3%A4sa">> =
+        uri_string:recompose(#{path => <<"/där"/utf8>>,
+                               query => <<"?name=örn"/utf8>>,
+                               fragment => <<"näsa"/utf8>>}),
+
+
+    "/d%C3%A4r" =
+        uri_string:recompose(#{path => "/där"}),
+    "/d%C3%A4r#n%C3%A4sa" =
+        uri_string:recompose(#{path => "/där",
+                               fragment => "näsa"}),
+    "/d%C3%A4r?name=%C3%B6rn" =
+        uri_string:recompose(#{path => "/där",
+                               query => "?name=örn"}),
+    "/d%C3%A4r?name=%C3%B6rn#n%C3%A4sa" =
+        uri_string:recompose(#{path => "/där",
+                               query => "?name=örn",
+                               fragment => "näsa"}).
+
+
+recompose_parse_path(_Config) ->
+    <<"/d%C3%A4r">> =
+        uri_string:recompose(uri_string:parse(<<"/d%C3%A4r">>)),
+    <<"/d%C3%A4r#n%C3%A4sa">> =
+        uri_string:recompose(uri_string:parse(<<"/d%C3%A4r#n%C3%A4sa">>)),
+    <<"/d%C3%A4r?name=%C3%B6rn">> =
+        uri_string:recompose(uri_string:parse(<<"/d%C3%A4r?name=%C3%B6rn">>)),
+
+    "/d%C3%A4r" =
+        uri_string:recompose(uri_string:parse("/d%C3%A4r")),
+    "/d%C3%A4r#n%C3%A4sa" =
+        uri_string:recompose(uri_string:parse("/d%C3%A4r#n%C3%A4sa")),
+    "/d%C3%A4r?name=%C3%B6rn" =
+        uri_string:recompose(uri_string:parse("/d%C3%A4r?name=%C3%B6rn")).
+
+
+recompose_autogen(_Config) ->
+    Tests = generate_test_vectors(uri_combinations()),
+    lists:map(fun run_test_recompose/1, Tests).
+
+parse_recompose_autogen(_Config) ->
+    Tests = generate_test_vectors(uri_combinations()),
+    lists:map(fun run_test_parse_recompose/1, Tests).

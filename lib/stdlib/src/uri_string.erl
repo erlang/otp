@@ -223,15 +223,38 @@
 %%
 -module(uri_string).
 
+%%-------------------------------------------------------------------------
+%% External API
+%%-------------------------------------------------------------------------
 -export([compose_query/1, create_uri_reference/2, dissect_query/1, normalize/1,
          parse/1, recompose/1, resolve_uri_reference/2, transcode/2]).
--export([is_host/1, is_path/1]).  % suppress warnings
 -export_type([uri_map/0, uri_string/0]).
 
+
+%%-------------------------------------------------------------------------
+%% Internal API
+%%-------------------------------------------------------------------------
+-export([is_host/1, is_path/1]).  % suppress warnings
+
+
+%%-------------------------------------------------------------------------
+%% Macros
+%%-------------------------------------------------------------------------
 -define(CHAR(Char), <<Char/utf8>>).
 -define(STRING_EMPTY, <<>>).
 -define(STRING(MatchStr), <<MatchStr/binary>>).
 -define(STRING_REST(MatchStr, Rest), <<MatchStr/utf8, Rest/binary>>).
+
+-define(DEC2HEX(X),
+        if ((X) >= 0) andalso ((X) =< 9) -> (X) + $0;
+           ((X) >= 10) andalso ((X) =< 15) -> (X) + $A - 10
+        end).
+
+-define(HEX2DEC(X),
+        if ((X) >= $0) andalso ((X) =< $9) -> (X) - $0;
+           ((X) >= $A) andalso ((X) =< $F) -> (X) - $A + 10;
+           ((X) >= $a) andalso ((X) =< $f) -> (X) - $a + 10
+        end).
 
 
 %%%=========================================================================
@@ -250,8 +273,9 @@
 %%-------------------------------------------------------------------------
 -type uri_string() :: iodata().
 
-
+%%-------------------------------------------------------------------------
 %% RFC 3986, Chapter 3. Syntax Components
+%%-------------------------------------------------------------------------
 -type uri_map() ::
   #{fragment => unicode:chardata(),
     host => unicode:chardata(),
@@ -261,25 +285,44 @@
     scheme => unicode:chardata(),
     userinfo => unicode:chardata()} | #{}.
 
+%%-------------------------------------------------------------------------
 %% Parse URIs
+%%-------------------------------------------------------------------------
 -spec parse(URIString) -> URIMap when
       URIString :: uri_string(),
       URIMap :: uri_map().
-parse(URIString) ->
-    if is_binary(URIString) ->
-            parse_uri_reference(URIString, #{});
-       true ->
-            parse_uri_reference(URIString, [], #{})
-    end.
+parse(URIString) when is_binary(URIString) ->
+    parse_uri_reference(URIString, #{});
+parse(URIString) when is_list(URIString) ->
+    Binary = unicode:characters_to_binary(URIString),
+    Map = parse_uri_reference(Binary, #{}),
+    convert_mapfields_to_list(Map).
 
+%%-------------------------------------------------------------------------
 %% Recompose URIs
+%%-------------------------------------------------------------------------
 -spec recompose(URIMap) -> URIString when
       URIMap :: uri_map(),
       URIString :: uri_string().
-recompose(_) ->
-    "".
+recompose(Map) when map_size(Map) =:= 0 ->
+    "";
+recompose(Map) ->
+    case is_valid_map(Map) of
+        false ->
+            error({badarg, invalid_map});
+        true ->
+            T0 = update_scheme(Map, empty),
+            T1 = update_userinfo(Map, T0),
+            T2 = update_host(Map, T1),
+            T3 = update_port(Map, T2),
+            T4 = update_path(Map, T3),
+            T5 = update_query(Map, T4),
+            update_fragment(Map, T5)
+    end.
 
+%%-------------------------------------------------------------------------
 %% Resolve references
+%%-------------------------------------------------------------------------
 -spec resolve_uri_reference(RelativeURI, AbsoluteBaseURI) -> AbsoluteDestURI when
       RelativeURI :: uri_string(),
       AbsoluteBaseURI :: uri_string(),
@@ -287,7 +330,9 @@ recompose(_) ->
 resolve_uri_reference(_,_) ->
     "".
 
+%%-------------------------------------------------------------------------
 %% Create references
+%%-------------------------------------------------------------------------
 -spec create_uri_reference(AbsoluteSourceURI, AbsoluteBaseURI) -> RelativeDestURI when
       AbsoluteSourceURI :: uri_string(),
       AbsoluteBaseURI :: uri_string(),
@@ -295,33 +340,42 @@ resolve_uri_reference(_,_) ->
 create_uri_reference(_,_) ->
     "".
 
+%%-------------------------------------------------------------------------
 %% Normalize URIs
+%%-------------------------------------------------------------------------
 -spec normalize(URIString) -> NormalizedURI when
       URIString :: uri_string(),
       NormalizedURI :: uri_string().
 normalize(_) ->
     "".
 
+%%-------------------------------------------------------------------------
 %% Transcode URIs
+%%-------------------------------------------------------------------------
 -spec transcode(URIString, Options) -> URIString when
       URIString :: uri_string(),
       Options :: [{in_encoding, unicode:encoding()}|{out_encoding, unicode:encoding()}].
 transcode(_, _) ->
     "".
 
-
+%%-------------------------------------------------------------------------
 %% Working with query strings
 %% HTML 2.0 - application/x-www-form-urlencoded
 %% RFC 1866 [8.2.1]
+%%-------------------------------------------------------------------------
 
+%%-------------------------------------------------------------------------
 %% Compose urlencoded query string from a list of unescaped key/value pairs.
+%%-------------------------------------------------------------------------
 -spec compose_query(QueryList) -> QueryString when
       QueryList :: [{unicode:chardata(), unicode:chardata()}],
       QueryString :: uri_string().
 compose_query(_) ->
     "".
 
+%%-------------------------------------------------------------------------
 %% Dissect a query string into a list of unescaped key/value pairs.
+%%-------------------------------------------------------------------------
 -spec dissect_query(QueryString) -> QueryList when
       QueryString :: uri_string(),
       QueryList :: [{unicode:chardata(), unicode:chardata()}].
@@ -333,6 +387,14 @@ dissect_query(_) ->
 %%% Internal functions
 %%%========================================================================
 
+%%-------------------------------------------------------------------------
+%% Converts Map fields to lists
+%%-------------------------------------------------------------------------
+convert_mapfields_to_list(Map) ->
+    Fun = fun (_, V) when is_binary(V) -> unicode:characters_to_list(V);
+              (_, V) -> V end,
+    maps:map(Fun, Map).
+
 
 %%-------------------------------------------------------------------------
 %% [RFC 3986, Chapter 4.1. URI Reference]
@@ -342,16 +404,6 @@ dissect_query(_) ->
 %%
 %%    URI-reference = URI / relative-ref
 %%-------------------------------------------------------------------------
--spec parse_uri_reference(iolist(), list(), uri_map()) -> uri_map().
-parse_uri_reference([], _, _) -> #{};
-parse_uri_reference(URIString, Acc, URI) ->
-    try parse_scheme_start(URIString, Acc, URI) of
-        Res -> Res
-    catch
-        throw:uri_parse_error ->
-            parse_relative_part(URIString, Acc, URI)
-    end.
-
 -spec parse_uri_reference(binary(), uri_map()) -> uri_map().
 parse_uri_reference(<<>>, _) -> #{};
 parse_uri_reference(URIString, URI) ->
@@ -408,32 +460,6 @@ parse_relative_part(?STRING_REST(Char, Rest), URI) ->
             {T, URI1} = parse_segment_nz_nc(Rest, URI),  % path-noscheme
             {Path, _} = split_binary(Rest, byte_size(Rest) - byte_size_exl_head(T)),
             URI1#{path => decode_path(?STRING_REST(Char, Path))};
-        false -> throw(uri_parse_error)
-    end.
-
--spec parse_relative_part(iolist(), list(), uri_map()) -> uri_map().
-parse_relative_part([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_relative_part(unicode:characters_to_list(H, utf8) ++ Rest,
-               Acc, URI);
-parse_relative_part([H|Rest], Acc, URI) when is_list(H) ->
-    parse_relative_part(H ++ Rest, Acc, URI);
-parse_relative_part("//" ++ Rest, Acc, URI) ->
-     % Parse userinfo
-     try parse_userinfo(Rest, Acc, URI) of
-         Res -> Res
-     catch
-         throw:uri_parse_error ->
-             parse_host(Rest, Acc, URI)
-     end;
-parse_relative_part([$/|Rest], _Acc, URI) ->
-    parse_segment(Rest, [$/], URI);  % path-absolute
-parse_relative_part([$?|Rest], _Acc, URI) ->
-    parse_query(Rest, [$?], URI);  % path-empty ?query
-parse_relative_part([$#|Rest], _Acc, URI) ->
-    parse_fragment(Rest, [], URI);  % path-empty
-parse_relative_part([Char|Rest], _, URI) ->
-    case is_segment_nz_nc(Char) of
-        true -> parse_segment_nz_nc(Rest, [Char], URI);  % path-noscheme
         false -> throw(uri_parse_error)
     end.
 
@@ -504,27 +530,6 @@ parse_segment(?STRING_REST(Char, Rest), URI) ->
 parse_segment(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
 
--spec parse_segment(iolist(), list(), uri_map()) -> uri_map().
-parse_segment(?STRING(Str), Acc, URI) when is_list(Acc) ->
-    parse_segment(unicode:characters_to_list(Str), Acc, URI);
-parse_segment([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_segment(unicode:characters_to_list(H, utf8) ++ Rest,
-               Acc, URI);
-parse_segment([H|Rest], Acc, URI) when is_list(H) ->
-    parse_segment(H ++ Rest, Acc, URI);
-parse_segment([$/|Rest], Acc, URI) ->
-    parse_segment(Rest, [$/|Acc], URI);  % segment
-parse_segment([$?|Rest], Acc, URI) ->
-    parse_query(Rest, [$?], URI#{path => decode_path(lists:reverse(Acc))});  % ?query
-parse_segment([$#|Rest], Acc, URI) ->
-    parse_fragment(Rest, [], URI#{path => decode_path(lists:reverse(Acc))});
-parse_segment([Char|Rest], Acc, URI) ->
-    case is_pchar(Char) of
-        true -> parse_segment(Rest, [Char|Acc], URI);
-        false -> throw(uri_parse_error)
-    end;
-parse_segment([], Acc, URI) ->
-    URI#{path => decode_path(lists:reverse(Acc))}.
 
 %%-------------------------------------------------------------------------
 %%    path-noscheme
@@ -548,27 +553,6 @@ parse_segment_nz_nc(?STRING_REST(Char, Rest), URI) ->
 parse_segment_nz_nc(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
 
--spec parse_segment_nz_nc(iolist(), list(), uri_map()) -> uri_map().
-parse_segment_nz_nc(?STRING(Str), Acc, URI) when is_list(Acc) ->
-    parse_segment_nz_nc(unicode:characters_to_list(Str), Acc, URI);
-parse_segment_nz_nc([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_segment_nz_nc(unicode:characters_to_list(H, utf8) ++ Rest,
-               Acc, URI);
-parse_segment_nz_nc([H|Rest], Acc, URI) when is_list(H) ->
-    parse_segment_nz_nc(H ++ Rest, Acc, URI);
-parse_segment_nz_nc([$/|Rest], Acc, URI) ->
-    parse_segment(Rest, [$/|Acc], URI);  % segment
-parse_segment_nz_nc([$?|Rest], Acc, URI) ->
-    parse_query(Rest, [$?], URI#{path => decode_path(lists:reverse(Acc))});  % ?query
-parse_segment_nz_nc([$#|Rest], Acc, URI) ->
-    parse_fragment(Rest, [], URI#{path => decode_path(lists:reverse(Acc))});
-parse_segment_nz_nc([Char|Rest], Acc, URI) ->
-    case is_segment_nz_nc(Char) of
-        true -> parse_segment_nz_nc(Rest, [Char|Acc], URI);
-        false -> throw(uri_parse_error)
-    end;
-parse_segment_nz_nc([], Acc, URI) ->
-    URI#{path => decode_path(lists:reverse(Acc))}.
 
 %% Check if char is pchar.
 -spec is_pchar(char()) -> boolean().
@@ -601,18 +585,6 @@ parse_scheme_start(?STRING_REST(Char, Rest), URI) ->
         false -> throw(uri_parse_error)
     end.
 
--spec parse_scheme_start(iolist(), list(), uri_map()) -> uri_map().
-parse_scheme_start([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_scheme_start(unicode:characters_to_list(H, utf8) ++ Rest,
-                       Acc, URI);
-parse_scheme_start([H|Rest], Acc, URI) when is_list(H) ->
-    parse_scheme_start(H ++ Rest, Acc, URI);
-parse_scheme_start([Char|Rest], Acc, URI) ->
-    case is_alpha(Char) of
-        true  -> parse_scheme(Rest, [Char|Acc], URI);
-        false -> throw(uri_parse_error)
-    end.
-
 
 -spec parse_scheme(binary(), uri_map()) -> {binary(), uri_map()}.
 parse_scheme(?STRING_REST($:, Rest), URI) ->
@@ -626,23 +598,6 @@ parse_scheme(?STRING_REST(Char, Rest), URI) ->
 parse_scheme(?STRING_EMPTY, _URI) ->
     throw(uri_parse_error).
 
--spec parse_scheme(iolist(), list(), uri_map()) -> uri_map().
-parse_scheme(?STRING(Str), Acc, URI) when is_list(Acc) ->
-    parse_scheme(unicode:characters_to_list(Str), Acc, URI);
-parse_scheme([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_scheme(unicode:characters_to_list(H, utf8) ++ Rest,
-                 Acc, URI);
-parse_scheme([H|Rest], Acc, URI) when is_list(H) ->
-    parse_scheme(H ++ Rest, Acc, URI);
-parse_scheme([$:|Rest], Acc, URI) ->
-    parse_hier(Rest, [], URI#{scheme => lists:reverse(Acc)});
-parse_scheme([Char|Rest], Acc, URI) ->
-    case is_scheme(Char) of
-        true  -> parse_scheme(Rest, [Char|Acc], URI);
-        false -> throw(uri_parse_error)
-    end;
-parse_scheme([], _Acc, _URI) ->
-    throw(uri_parse_error).
 
 %% Check if char is allowed in scheme
 -spec is_scheme(char()) -> boolean().
@@ -694,36 +649,6 @@ parse_hier(?STRING_REST(Char, Rest), URI) ->  % path-rootless
 parse_hier(?STRING_EMPTY, URI) ->
     {<<>>, URI}.
 
--spec parse_hier(iolist(), list(), uri_map()) -> uri_map().
-parse_hier(?STRING(Str), Acc, URI) when is_list(Acc) ->
-    parse_hier(unicode:characters_to_list(Str), Acc, URI);
-parse_hier([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_hier(unicode:characters_to_list(H, utf8) ++ Rest,
-               Acc, URI);
-parse_hier([H|Rest], Acc, URI) when is_list(H) ->
-    parse_hier(H ++ Rest, Acc, URI);
-parse_hier("//" ++ Rest, Acc, URI) ->
-     % Parse userinfo
-     try parse_userinfo(Rest, Acc, URI) of
-         Res -> Res
-     catch
-         throw:uri_parse_error ->
-             parse_host(Rest, [], URI)
-     end;
-parse_hier([$/|Rest], _Acc, URI) ->
-    parse_segment(Rest, [$/], URI);  % path-absolute
-parse_hier([$?|Rest], _Acc, URI) ->
-    parse_query(Rest, [$?], URI);  % path-empty ?query
-parse_hier([$#|Rest], _Acc, URI) ->
-    parse_fragment(Rest, [], URI);  % path-empty
-parse_hier([Char|Rest], _, URI) ->  % path-rootless
-    case is_pchar(Char) of
-        true -> parse_segment(Rest, [Char], URI);
-        false -> throw(uri_parse_error)
-    end;
-parse_hier([], _, URI) ->
-    URI.
-
 
 %%-------------------------------------------------------------------------
 %% [RFC 3986, Chapter 3.2. Authority]
@@ -766,27 +691,6 @@ parse_userinfo(?STRING_EMPTY, _URI) ->
     %% URI cannot end in userinfo state
     throw(uri_parse_error).
 
--spec parse_userinfo(iolist(), list(), uri_map()) -> uri_map().
-parse_userinfo(?STRING(Str), Acc, URI) when is_list(Acc) ->
-    parse_userinfo(unicode:characters_to_list(Str), Acc, URI);
-parse_userinfo([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_userinfo(unicode:characters_to_list(H, utf8) ++ Rest,
-                   Acc, URI);
-parse_userinfo([H|Rest], Acc, URI) when is_list(H) ->
-    parse_userinfo(H ++ Rest, Acc, URI);
-parse_userinfo([$@], _Acc, _URI) ->
-    %% URI cannot end in userinfo state
-    throw(uri_parse_error);
-parse_userinfo([$@|Rest], Acc, URI) ->
-    parse_host(Rest, [],  URI#{userinfo => decode_userinfo(lists:reverse(Acc))});
-parse_userinfo([Char|Rest], Acc, URI) ->
-    case is_userinfo(Char) of
-        true -> parse_userinfo(Rest, [Char|Acc], URI);
-        false -> throw(uri_parse_error)
-    end;
-parse_userinfo([], _Acc, _URI) ->
-    %% URI cannot end in userinfo state
-    throw(uri_parse_error).
 
 %% Check if char is allowed in userinfo
 -spec is_userinfo(char()) -> boolean().
@@ -862,32 +766,6 @@ parse_host(?STRING_REST(Char, Rest), URI) ->
 parse_host(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
 
--spec parse_host(iolist(), list(), uri_map()) -> uri_map().
-parse_host(?STRING(Str), Acc, URI) when is_list(Acc) ->
-    parse_host(unicode:characters_to_list(Str), Acc, URI);
-parse_host([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_host(unicode:characters_to_list(H, utf8) ++ Rest,
-               Acc, URI);
-parse_host([H|Rest], Acc, URI) when is_list(H) ->
-    parse_host(H ++ Rest, Acc, URI);
-parse_host([$:|Rest], Acc, URI) ->
-    parse_port(Rest, [], URI#{host => decode_host(lists:reverse(Acc))});
-parse_host([$/|Rest], Acc, URI) ->
-    parse_segment(Rest, [$/], URI#{host => decode_host(lists:reverse(Acc))});  % path-abempty
-parse_host([$?|Rest], Acc, URI) ->
-    parse_query(Rest, [$?], URI#{host => decode_host(lists:reverse(Acc))});  % path-empty ?query
-parse_host([$#|Rest], Acc, URI) ->
-    parse_fragment(Rest, [], URI#{host => decode_host(lists:reverse(Acc))});  % path-empty
-parse_host([$[|Rest], _Acc, URI) ->
-    parse_ipv6(Rest, [], URI);
-parse_host([Char|Rest], Acc, URI) ->
-    case is_digit(Char) of
-        true -> parse_ipv4(Rest, [Char|Acc], URI);
-        false -> parse_reg_name([Char|Rest], Acc, URI)
-    end;
-parse_host([], Acc, URI) ->
-    URI#{host => decode_host(lists:reverse(Acc))}.
-
 
 -spec parse_reg_name(binary(), uri_map()) -> {binary(), uri_map()}.
 parse_reg_name(?STRING_REST($:, Rest), URI) ->
@@ -914,30 +792,6 @@ parse_reg_name(?STRING_REST(Char, Rest), URI) ->
     end;
 parse_reg_name(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
-
--spec parse_reg_name(iolist(), list(), uri_map()) -> uri_map().
-parse_reg_name(?STRING(Str), Acc, URI) when is_list(Acc) ->
-    parse_reg_name(unicode:characters_to_list(Str), Acc, URI);
-parse_reg_name([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_reg_name(unicode:characters_to_list(H, utf8) ++ Rest,
-               Acc, URI);
-parse_reg_name([H|Rest], Acc, URI) when is_list(H) ->
-    parse_reg_name(H ++ Rest, Acc, URI);
-parse_reg_name([$:|Rest], Acc, URI) ->
-    parse_port(Rest, [], URI#{host => decode_host(lists:reverse(Acc))});
-parse_reg_name([$/|Rest], Acc, URI) ->
-    parse_segment(Rest, [$/], URI#{host => decode_host(lists:reverse(Acc))});  % path-abempty
-parse_reg_name([$?|Rest], Acc, URI) ->
-    parse_query(Rest, [$?], URI#{host => decode_host(lists:reverse(Acc))});  % path-empty ?query
-parse_reg_name([$#|Rest], Acc, URI) ->
-    parse_fragment(Rest, [], URI#{host => decode_host(lists:reverse(Acc))});  % path-empty
-parse_reg_name([Char|Rest], Acc, URI) ->
-    case is_reg_name(Char) of
-        true -> parse_reg_name(Rest, [Char|Acc], URI);
-        false -> throw(uri_parse_error)
-    end;
-parse_reg_name([], Acc, URI) ->
-    URI#{host => decode_host(lists:reverse(Acc))}.
 
 %% Check if char is allowed in reg-name
 -spec is_reg_name(char()) -> boolean().
@@ -976,29 +830,6 @@ parse_ipv4_bin(?STRING_EMPTY, Acc, URI) ->
     _ = validate_ipv4_address(lists:reverse(Acc)),
     {?STRING_EMPTY, URI}.
 
--spec parse_ipv4(iolist(), list(), uri_map()) -> uri_map().
-parse_ipv4(?STRING(Str), Acc, URI) when is_list(Acc) ->
-    parse_ipv4(unicode:characters_to_list(Str), Acc, URI);
-parse_ipv4([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_ipv4(unicode:characters_to_list(H, utf8) ++ Rest,
-               Acc, URI);
-parse_ipv4([H|Rest], Acc, URI) when is_list(H) ->
-    parse_ipv4(H ++ Rest, Acc, URI);
-parse_ipv4([$:|Rest], Acc, URI) ->
-    parse_port(Rest, [], URI#{host => validate_ipv4_address(lists:reverse(Acc))});
-parse_ipv4([$/|Rest], Acc, URI) ->
-    parse_segment(Rest, [$/], URI#{host => validate_ipv4_address(lists:reverse(Acc))});  % path-abempty
-parse_ipv4([$?|Rest], Acc, URI) ->
-    parse_query(Rest, [$?], URI#{host => validate_ipv4_address(lists:reverse(Acc))});  % path-empty ?query
-parse_ipv4([$#|Rest], Acc, URI) ->
-    parse_fragment(Rest, [], URI#{host => validate_ipv4_address(lists:reverse(Acc))});  % path-empty
-parse_ipv4([Char|Rest], Acc, URI) ->
-    case is_ipv4(Char) of
-        true -> parse_ipv4(Rest, [Char|Acc], URI);
-        false -> throw(uri_parse_error)
-    end;
-parse_ipv4([], Acc, URI) ->
-    URI#{host => validate_ipv4_address(lists:reverse(Acc))}.
 
 %% Check if char is allowed in IPv4 addresses
 -spec is_ipv4(char()) -> boolean().
@@ -1023,27 +854,6 @@ parse_ipv6_bin(?STRING_REST(Char, Rest), Acc, URI) ->
         false -> throw(uri_parse_error)
     end;
 parse_ipv6_bin(?STRING_EMPTY, _Acc, _URI) ->
-    throw(uri_parse_error).
-
--spec parse_ipv6(iolist(), list(), uri_map()) -> uri_map().
-parse_ipv6(?STRING(Str), Acc, URI) when is_list(Acc) ->
-    parse_ipv6(unicode:characters_to_list(Str), Acc, URI);
-parse_ipv6([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_ipv6(unicode:characters_to_list(H, utf8) ++ Rest,
-               Acc, URI);
-parse_ipv6([H|Rest], Acc, URI) when is_list(H) ->
-    parse_ipv6(H ++ Rest, Acc, URI);
-parse_ipv6([$]|Rest], Acc, URI) ->
-    parse_ipv6_end(Rest, [], URI#{host => validate_ipv6_address(lists:reverse(Acc))});
-parse_ipv6([Char|Rest], Acc, URI) ->
-    case is_ipv6(Char) of
-        true -> parse_ipv6(Rest, [Char|Acc], URI);
-        false ->
-            io:format("# DEBUG Char: >>~c<<~n", [Char]),
-            io:format("# DEBUG Rest: >>~s<<~n", [Rest]),
-            throw(uri_parse_error)
-    end;
-parse_ipv6([], _Acc, _URI) ->
     throw(uri_parse_error).
 
 %% Check if char is allowed in IPv6 addresses
@@ -1078,26 +888,6 @@ parse_ipv6_bin_end(?STRING_REST(Char, Rest), URI) ->
     end;
 parse_ipv6_bin_end(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
-
--spec parse_ipv6_end(iolist(), list(), uri_map()) -> uri_map().
-parse_ipv6_end(?STRING(Str), Acc, URI) when is_list(Acc) ->
-    parse_ipv6_end(unicode:characters_to_list(Str), Acc, URI);
-parse_ipv6_end([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_ipv6_end(unicode:characters_to_list(H, utf8) ++ Rest,
-               Acc, URI);
-parse_ipv6_end([H|Rest], Acc, URI) when is_list(H) ->
-    parse_ipv6_end(H ++ Rest, Acc, URI);
-parse_ipv6_end([$:|Rest], _Acc, URI) ->
-    parse_port(Rest, [], URI);
-parse_ipv6_end([$/|Rest], _Acc, URI) ->
-    parse_segment(Rest, [$/], URI);  % path-abempty
-parse_ipv6_end([$?|Rest], _Acc, URI) ->
-    parse_query(Rest, [$?], URI);  % path-empty ?query
-parse_ipv6_end([$#|Rest], _Acc, URI) ->
-    parse_fragment(Rest, [], URI);  % path-empty
-parse_ipv6_end([], _Acc, URI) ->
-    URI.
-
 
 -spec validate_ipv6_address(list()) -> list().
 validate_ipv6_address(Addr) ->
@@ -1137,32 +927,6 @@ parse_port(?STRING_REST(Char, Rest), URI) ->
 parse_port(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
 
--spec parse_port(iolist(), list(), uri_map()) -> uri_map().
-parse_port(?STRING(Str), Acc, URI) when is_list(Acc) ->
-    parse_port(unicode:characters_to_list(Str), Acc, URI);
-parse_port([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_port(unicode:characters_to_list(H, utf8) ++ Rest,
-               Acc, URI);
-parse_port([H|Rest], Acc, URI) when is_list(H) ->
-    parse_port(H ++ Rest, Acc, URI);
-parse_port([$/|Rest], Acc, URI) ->
-    {Port, _} = string:to_integer(lists:reverse(Acc)),
-    parse_segment(Rest, [$/], URI#{port => Port});  % path-abempty
-parse_port([$?|Rest], Acc, URI) ->
-    {Port, _} = string:to_integer(lists:reverse(Acc)),
-    parse_query(Rest, [$?], URI#{port => Port});  % path-empty ?query
-parse_port([$#|Rest], Acc, URI) ->
-    {Port, _} = string:to_integer(lists:reverse(Acc)),
-    parse_fragment(Rest, [], URI#{port => Port});  % path-empty
-parse_port([Char|Rest], Acc, URI) ->
-    case is_digit(Char) of
-        true -> parse_port(Rest, [Char|Acc], URI);
-        false -> throw(uri_parse_error)
-    end;
-parse_port([], Acc, URI) ->
-    {Port, _} = string:to_integer(lists:reverse(Acc)),
-    URI#{port => Port}.
-
 
 %%-------------------------------------------------------------------------
 %% [RFC 3986, Chapter 3.4. Query]
@@ -1189,23 +953,6 @@ parse_query(?STRING_REST(Char, Rest), URI) ->
 parse_query(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
 
--spec parse_query(iolist(), list(), uri_map()) -> uri_map().
-parse_query(?STRING(Str), Acc, URI) when is_list(Acc) ->
-    parse_query(unicode:characters_to_list(Str), Acc, URI);
-parse_query([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_query(unicode:characters_to_list(H, utf8) ++ Rest,
-               Acc, URI);
-parse_query([H|Rest], Acc, URI) when is_list(H) ->
-    parse_query(H ++ Rest, Acc, URI);
-parse_query([$#|Rest], Acc, URI) ->
-    parse_fragment(Rest, [], URI#{query => decode_query(lists:reverse(Acc))});
-parse_query([Char|Rest], Acc, URI) ->
-    case is_query(Char) of
-        true -> parse_query(Rest, [Char|Acc], URI);
-        false -> throw(uri_parse_error)
-    end;
-parse_query([], Acc, URI) ->
-    URI#{query => decode_query(lists:reverse(Acc))}.
 
 %% Check if char is allowed in query
 -spec is_query(char()) -> boolean().
@@ -1232,21 +979,6 @@ parse_fragment(?STRING_REST(Char, Rest), URI) ->
 parse_fragment(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
 
--spec parse_fragment(iolist(), list(), uri_map()) -> uri_map().
-parse_fragment(?STRING(Str), Acc, URI) when is_list(Acc) ->
-    parse_fragment(unicode:characters_to_list(Str), Acc, URI);
-parse_fragment([H|Rest], Acc, URI) when is_binary(H) ->
-    parse_fragment(unicode:characters_to_list(H, utf8) ++ Rest,
-                   Acc, URI);
-parse_fragment([H|Rest], Acc, URI) when is_list(H) ->
-    parse_fragment(H ++ Rest, Acc, URI);
-parse_fragment([Char|Rest], Acc, URI) ->
-    case is_fragment(Char) of
-        true -> parse_fragment(Rest, [Char|Acc], URI);
-        false -> throw(uri_parse_error)
-    end;
-parse_fragment([], Acc, URI) ->
-    URI#{fragment => decode_fragment(lists:reverse(Acc))}.
 
 %% Check if char is allowed in fragment
 -spec is_fragment(char()) -> boolean().
@@ -1266,21 +998,6 @@ is_fragment(Char) -> is_pchar(Char).
 %%               / "*" / "+" / "," / ";" / "="
 %%
 %%-------------------------------------------------------------------------
-%% %% Return true if input char is reserved.
-%% -spec is_reserved(char()) -> boolean().
-%% is_reserved(Char) ->
-%%     is_gen_delim(Char) orelse is_sub_delim(Char).
-
-%% %% Check if char is reserved.
-%% -spec is_gen_delim(char()) -> boolean().
-%% is_gen_delim($:) -> true;
-%% is_gen_delim($/) -> true;
-%% is_gen_delim($?) -> true;
-%% is_gen_delim($#) -> true;
-%% is_gen_delim($[) -> true;
-%% is_gen_delim($]) -> true;
-%% is_gen_delim($@) -> true;
-%% is_gen_delim(_) -> false.
 
 %% Check if char is sub-delim.
 -spec is_sub_delim(char()) -> boolean().
@@ -1328,17 +1045,22 @@ is_hex_digit(C)
   when $0 =< C, C =< $9;$a =< C, C =< $f;$A =< C, C =< $F -> true;
 is_hex_digit(_) -> false.
 
+
 %% Returns the size of a binary exluding the first element.
 %% Used in calls to split_binary().
 -spec byte_size_exl_head(binary()) -> number().
 byte_size_exl_head(<<>>) -> 0;
 byte_size_exl_head(Binary) -> byte_size(Binary) + 1.
 
-% Remove brackets from binary
+
+%% Remove enclosing brackets from binary
 -spec remove_brackets(binary()) -> binary().
-remove_brackets(?STRING_REST($[,Addr)) ->
-    A1 = binary:replace(Addr, <<$[>>, <<>>),
-    binary:replace(A1, <<$]>>, <<>>);
+remove_brackets(<<$[/utf8, Rest/binary>>) ->
+    {H,T} = split_binary(Rest, byte_size(Rest) - 1),
+    case T =:= <<$]/utf8>> of
+        true -> H;
+        false -> Rest
+    end;
 remove_brackets(Addr) -> Addr.
 
 
@@ -1362,27 +1084,13 @@ remove_brackets(Addr) -> Addr.
 decode_userinfo(Cs) ->
     decode(Cs, fun is_userinfo/1, <<>>).
 
-
 -spec decode_host(list()|binary()) -> list() | binary().
 decode_host(Cs) ->
     decode(Cs, fun is_host/1, <<>>).
 
-%% Check if char is allowed in host
--spec is_host(char()) -> boolean().
-is_host($:) -> true;
-is_host(Char) -> is_unreserved(Char) orelse is_sub_delim(Char).
-
-
 -spec decode_path(list()|binary()) -> list() | binary().
 decode_path(Cs) ->
     decode(Cs, fun is_path/1, <<>>).
-
-%% Check if char is allowed in path
--spec is_path(char()) -> boolean().
-is_path($/) -> true;
-
-is_path(Char) -> is_pchar(Char).
-
 
 -spec decode_query(list()|binary()) -> list() | binary().
 decode_query(Cs) ->
@@ -1390,14 +1098,58 @@ decode_query(Cs) ->
 
 -spec decode_fragment(list()|binary()) -> list() | binary().
 decode_fragment(Cs) ->
-    decode(Cs, fun is_host/1, <<>>).
+    decode(Cs, fun is_fragment/1, <<>>).
 
 
+%%-------------------------------------------------------------------------
+%% Percent-encode
+%%-------------------------------------------------------------------------
+
+%% Only validates as scheme cannot have percent-encoded characters
+-spec encode_scheme(list()|binary()) -> list() | binary().
+encode_scheme([]) ->
+    throw(uri_parse_error);
+encode_scheme(<<>>) ->
+    throw(uri_parse_error);
+encode_scheme(Scheme) ->
+    case validate_scheme(Scheme) of
+        true -> Scheme;
+        false -> throw(uri_parse_error)
+    end.
+
+-spec encode_userinfo(list()|binary()) -> list() | binary().
+encode_userinfo(Cs) ->
+    encode(Cs, fun is_userinfo/1).
+
+-spec encode_host(list()|binary()) -> list() | binary().
+encode_host(Cs) ->
+    case classify_host(Cs) of
+        regname -> Cs;
+        ipv4 -> Cs;
+        ipv6 -> bracket_ipv6(Cs);
+        other -> encode(Cs, fun is_reg_name/1)
+    end.
+
+-spec encode_path(list()|binary()) -> list() | binary().
+encode_path(Cs) ->
+    encode(Cs, fun is_path/1).
+
+-spec encode_query(list()|binary()) -> list() | binary().
+encode_query(Cs) ->
+    encode(Cs, fun is_query/1).
+
+-spec encode_fragment(list()|binary()) -> list() | binary().
+encode_fragment(Cs) ->
+    encode(Cs, fun is_fragment/1).
+
+%%-------------------------------------------------------------------------
+%% Helper funtions for percent-decode
+%%-------------------------------------------------------------------------
 -spec decode(list()|binary(), fun(), binary()) -> list() | binary().
 decode(<<$%,C0,C1,Cs/binary>>, Fun, Acc) ->
     case is_hex_digit(C0) andalso is_hex_digit(C1) of
         true ->
-            B = hex2dec(C0)*16+hex2dec(C1),
+            B = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
             decode(Cs, Fun, <<Acc/binary, B>>);
         false -> throw(uri_parse_error)
     end;
@@ -1411,7 +1163,7 @@ decode(<<>>, _Fun, Acc) ->
 decode([$%,C0,C1|Cs], Fun, Acc) ->
     case is_hex_digit(C0) andalso is_hex_digit(C1) of
         true ->
-            B = hex2dec(C0)*16+hex2dec(C1),
+            B = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
             decode(Cs, Fun, <<Acc/binary, B>>);
         false -> throw(uri_parse_error)
     end;
@@ -1423,7 +1175,278 @@ decode([C|Cs], Fun, Acc) ->
 decode([], _Fun, Acc) ->
     unicode:characters_to_list(Acc).
 
+%% Check if char is allowed in host
+-spec is_host(char()) -> boolean().
+is_host($:) -> true;
+is_host(Char) -> is_unreserved(Char) orelse is_sub_delim(Char).
 
-hex2dec(X) when (X >= $0) andalso (X =< $9) -> X - $0;
-hex2dec(X) when (X >= $A) andalso (X =< $F) -> X - $A + 10;
-hex2dec(X) when (X >= $a) andalso (X =< $f) -> X - $a + 10.
+%% Check if char is allowed in path
+-spec is_path(char()) -> boolean().
+is_path($/) -> true;
+is_path(Char) -> is_pchar(Char).
+
+
+
+%%-------------------------------------------------------------------------
+%% Helper functions for percent-encode
+%%-------------------------------------------------------------------------
+-spec encode(list()|binary(), fun()) -> list() | binary().
+encode(Component, Fun) when is_list(Component) ->
+    B = unicode:characters_to_binary(Component),
+    unicode:characters_to_list(encode(B, Fun, <<>>));
+encode(Component, Fun) when is_binary(Component) ->
+    encode(Component, Fun, <<>>).
+%%
+encode(<<Char/utf8, Rest/binary>>, Fun, Acc) ->
+    C = encode_codepoint_binary(Char, Fun),
+    encode(Rest, Fun, <<Acc/binary,C/binary>>);
+encode(<<_Char, _Rest/binary>>, _Fun, _Acc) ->
+    throw(uri_parse_error);
+encode(<<>>, _Fun, Acc) ->
+    Acc.
+
+
+-spec encode_codepoint_binary(integer(), fun()) -> list().
+encode_codepoint_binary(C, Fun) ->
+    case Fun(C) of
+        false -> percent_encode_binary(C);
+        true -> <<C>>
+    end.
+
+
+-spec percent_encode_binary(integer()) -> binary().
+percent_encode_binary(Code) ->
+    percent_encode_binary(<<Code/utf8>>, <<>>).
+
+
+percent_encode_binary(<<A:4,B:4,Rest/binary>>, Acc) ->
+    percent_encode_binary(Rest, <<Acc/binary,$%,(?DEC2HEX(A)),(?DEC2HEX(B))>>);
+percent_encode_binary(<<>>, Acc) ->
+    Acc.
+
+
+%%-------------------------------------------------------------------------
+%%-------------------------------------------------------------------------
+validate_scheme([]) -> true;
+validate_scheme([H|T]) ->
+    case is_scheme(H) of
+        true -> validate_scheme(T);
+        false -> false
+    end;
+validate_scheme(<<>>) -> true;
+validate_scheme(<<H, Rest/binary>>) ->
+    case is_scheme(H) of
+        true -> validate_scheme(Rest);
+        false -> false
+    end.
+
+%%-------------------------------------------------------------------------
+%% Classifies hostname into the following categories:
+%% regname, ipv4 - address does not contain reserved characters to be
+%%           percent-encoded
+%% ipv6 - address does not contain reserved characters but it shall be
+%%        encolsed in brackets
+%% other - address shall be percent-encoded
+%%-------------------------------------------------------------------------
+classify_host([]) -> false;
+classify_host(Addr) when is_binary(Addr) ->
+    A = unicode:characters_to_list(Addr),
+    classify_host_ipv6(A);
+classify_host(Addr) ->
+    classify_host_ipv6(Addr).
+
+classify_host_ipv6(Addr) ->
+    case is_ipv6_address(Addr) of
+        true -> ipv6;
+        false -> classify_host_ipv4(Addr)
+    end.
+
+classify_host_ipv4(Addr) ->
+    case is_ipv4_address(Addr) of
+        true -> ipv4;
+        false -> classify_host_regname(Addr)
+    end.
+
+classify_host_regname([]) -> regname;
+classify_host_regname([H|T]) ->
+    case is_reg_name(H) of
+        true -> classify_host_regname(T);
+        false -> other
+    end;
+classify_host_regname(<<>>) -> regname;
+classify_host_regname(<<H, Rest/binary>>) ->
+    case is_reg_name(H) of
+        true -> classify_host_regname(Rest);
+        false -> other
+    end.
+
+is_ipv4_address(Addr) ->
+    case inet:parse_ipv4strict_address(Addr) of
+        {ok, _} -> true;
+        {error, _} -> false
+    end.
+
+is_ipv6_address(Addr) ->
+    case inet:parse_ipv6strict_address(Addr) of
+        {ok, _} -> true;
+        {error, _} -> false
+    end.
+
+bracket_ipv6(Addr) when is_binary(Addr) ->
+    concat(<<$[,Addr/binary>>,<<$]>>);
+bracket_ipv6(Addr) when is_list(Addr) ->
+    [$[|Addr] ++ "]".
+
+
+%%-------------------------------------------------------------------------
+%% Helper funtions for recompose
+%%-------------------------------------------------------------------------
+
+%%-------------------------------------------------------------------------
+%% Checks if input Map has valid combination of fields that can be
+%% recomposed into a URI.
+%% It filters out the following combinations from the set of all possible
+%% values:
+%%   - <no-userinfo> <no-host> port
+%%     E.g. ":8080" - invalid URI
+%%   - userinfo <no-host> <no-port>
+%%     E.g. "//user@" - invalid URI
+%%   - userinfo <no-host> port
+%%     E.g. "//user@:8080" => #{host => [],port => 8080,userinfo => "user"}
+%%     There is always at least an empty host when both userinfo and port
+%%     are present.
+%%-------------------------------------------------------------------------
+is_valid_map(Map) ->
+    case
+        (not maps:is_key(userinfo, Map) andalso
+         not maps:is_key(host, Map) andalso
+         maps:is_key(port, Map))
+        orelse
+        (maps:is_key(userinfo, Map) andalso
+         not maps:is_key(host, Map) andalso
+         not maps:is_key(port, Map))
+        orelse
+        (maps:is_key(userinfo, Map) andalso
+         not maps:is_key(host, Map) andalso
+         maps:is_key(port, Map))
+    of
+        true ->
+            false;
+        false ->
+            true
+    end.
+
+
+update_scheme(#{scheme := Scheme}, _) ->
+    add_colon_postfix(encode_scheme(Scheme));
+update_scheme(#{}, _) ->
+    empty.
+
+
+update_userinfo(#{userinfo := Userinfo}, empty) ->
+    add_auth_prefix(encode_userinfo(Userinfo));
+update_userinfo(#{userinfo := Userinfo}, URI) ->
+    concat(URI,add_auth_prefix(encode_userinfo(Userinfo)));
+update_userinfo(#{}, empty) ->
+    empty;
+update_userinfo(#{}, URI) ->
+    URI.
+
+
+update_host(#{host := Host}, empty) ->
+    add_auth_prefix(encode_host(Host));
+update_host(#{host := Host} = Map, URI) ->
+    concat(URI,add_host_prefix(Map, encode_host(Host)));
+update_host(#{}, empty) ->
+    empty;
+update_host(#{}, URI) ->
+    URI.
+
+
+%% URI cannot be empty for ports. E.g. ":8080" is not a valid URI
+update_port(#{port := Port}, URI) ->
+    concat(URI,add_colon(encode_port(Port)));
+update_port(#{}, URI) ->
+    URI.
+
+
+update_path(#{path := Path}, empty) ->
+    encode_path(Path);
+update_path(#{path := Path}, URI) ->
+    concat(URI,encode_path(Path));
+update_path(#{}, empty) ->
+    empty;
+update_path(#{}, URI) ->
+    URI.
+
+
+update_query(#{query := Query}, empty) ->
+    encode_query(Query);
+update_query(#{query := Query}, URI) ->
+    concat(URI,encode_query(Query));
+update_query(#{}, empty) ->
+    empty;
+update_query(#{}, URI) ->
+    URI.
+
+
+update_fragment(#{fragment := Fragment}, empty) ->
+    add_hashmark(encode_query(Fragment));
+update_fragment(#{fragment := Fragment}, URI) ->
+    concat(URI,add_hashmark(encode_fragment(Fragment)));
+update_fragment(#{}, empty) ->
+    "";
+update_fragment(#{}, URI) ->
+    URI.
+
+%%-------------------------------------------------------------------------
+%% Concatenates its arguments that can be lists and binaries.
+%% The result is a list if at least one of its argument is a list and
+%% binary otherwise.
+%%-------------------------------------------------------------------------
+concat(A, B) when is_binary(A), is_binary(B) ->
+    <<A/binary, B/binary>>;
+concat(A, B) when is_binary(A), is_list(B) ->
+    unicode:characters_to_list(A) ++ B;
+concat(A, B) when is_list(A) ->
+    A ++ maybe_to_list(B).
+
+add_hashmark(empty) -> empty;
+add_hashmark(Comp) when is_binary(Comp) ->
+    <<$#, Comp/binary>>;
+add_hashmark(Comp) when is_list(Comp) ->
+    [$#|Comp].
+
+add_colon(empty) -> empty;
+add_colon(Comp) when is_binary(Comp) ->
+    <<$:, Comp/binary>>;
+add_colon(Comp) when is_list(Comp) ->
+    [$:|Comp].
+
+add_colon_postfix(empty) -> empty;
+add_colon_postfix(Comp) when is_binary(Comp) ->
+    <<Comp/binary,$:>>;
+add_colon_postfix(Comp) when is_list(Comp) ->
+    Comp ++ ":".
+
+add_auth_prefix(empty) -> empty;
+add_auth_prefix(Comp) when is_binary(Comp) ->
+    <<"//", Comp/binary>>;
+add_auth_prefix(Comp) when is_list(Comp) ->
+    [$/,$/|Comp].
+
+add_host_prefix(_, empty) -> empty;
+add_host_prefix(#{userinfo := _}, Host) when is_binary(Host) ->
+    <<$@,Host/binary>>;
+add_host_prefix(#{}, Host) when is_binary(Host) ->
+    <<"//",Host/binary>>;
+add_host_prefix(#{userinfo := _}, Host) when is_list(Host) ->
+    [$@|Host];
+add_host_prefix(#{}, Host) when is_list(Host) ->
+    [$/,$/|Host].
+
+maybe_to_list(Comp) when is_binary(Comp) -> unicode:characters_to_list(Comp);
+maybe_to_list(Comp) -> Comp.
+
+encode_port(Port) ->
+    integer_to_binary(Port).
