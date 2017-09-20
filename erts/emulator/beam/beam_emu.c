@@ -376,6 +376,7 @@ do {                                            \
  * The following functions are called directly by process_main().
  * Don't inline them.
  */
+static void init_emulator_finish(void) NOINLINE;
 static ErtsCodeMFA *ubif2mfa(void* uf) NOINLINE;
 static ErtsCodeMFA *gcbif2mfa(void* gcf) NOINLINE;
 static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
@@ -957,9 +958,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
  init_emulator:
  {
-     int i;
-     Export* ep;
-
 #ifndef NO_JUMP_TABLE
 #ifdef ERTS_OPCODE_COUNTER_SUPPORT
 #ifdef DEBUG
@@ -971,6 +969,40 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      beam_ops = opcodes;
 #endif /* ERTS_OPCODE_COUNTER_SUPPORT */
 #endif /* NO_JUMP_TABLE */
+
+     init_emulator_finish();
+     return;
+ }
+#ifdef NO_JUMP_TABLE
+ default:
+    erts_exit(ERTS_ERROR_EXIT, "unexpected op code %d\n",Go);
+  }
+#endif
+    return;			/* Never executed */
+
+  save_calls1:
+    {
+	BeamInstr dis_next;
+
+	save_calls(c_p, (Export *) Arg(0));
+
+	SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);
+
+	dis_next = *I;
+	FCALLS--;
+	Goto(dis_next);
+    }
+}
+
+/*
+ * One-time initialization of emulator. Does not need to be
+ * in process_main().
+ */
+static void
+init_emulator_finish(void)
+{
+     int i;
+     Export* ep;
 
      beam_apply[0]             = BeamOpCodeAddr(op_i_apply);
      beam_apply[1]             = BeamOpCodeAddr(op_normal_exit);
@@ -994,28 +1026,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 	 /* XXX: set func info for bifs */
 	 ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
      }
-
-     return;
- }
-#ifdef NO_JUMP_TABLE
- default:
-    erts_exit(ERTS_ERROR_EXIT, "unexpected op code %d\n",Go);
-  }
-#endif
-    return;			/* Never executed */
-
-  save_calls1:
-    {
-	BeamInstr dis_next;
-
-	save_calls(c_p, (Export *) Arg(0));
-
-	SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);
-
-	dis_next = *I;
-	FCALLS--;
-	Goto(dis_next);
-    }
 }
 
 /*
