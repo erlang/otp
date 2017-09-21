@@ -117,11 +117,15 @@
 	 start_link/3, start_link/4,
 	 stop/1, stop/3,
 	 call/2, call/3,
+         send_request/2, wait_response/1, wait_response/2, check_response/2,
 	 cast/2,
 	 reply/2,
 	 get_pid/1,
 	 set_pid/2
 	]).
+
+-type request_id() :: term().
+-type server_ref() :: Obj::wx:wx_object()|atom()|pid().
 
 %% -export([behaviour_info/1]).
 -callback init(Args :: term()) ->
@@ -316,6 +320,34 @@ call(Name, Request, Timeout) when is_atom(Name) orelse is_pid(Name) ->
     catch _:Reason ->
             erlang:error({Reason, {?MODULE, call, [Name, Request, Timeout]}})
     end.
+
+%% @doc Make an send_request to a generic server.
+%% and return a RequestId which can/should be used with wait_response/[1|2].
+%% Invokes handle_call(Request, From, State) in server.
+-spec send_request(Obj, Request::term()) -> request_id() when
+      Obj::wx:wx_object()|atom()|pid().
+send_request(#wx_ref{state=Pid}, Request) ->
+    gen:send_request(Pid, '$gen_call', Request);
+send_request(Pid, Request) when is_atom(Pid) orelse is_pid(Pid) ->
+    gen:send_request(Pid, '$gen_call', Request).
+
+%% @doc Wait infinitely for a reply from a generic server.
+-spec wait_response(RequestId::request_id()) ->
+        {reply, Reply::term()} | {error, {term(), server_ref()}}.
+wait_response(RequestId) ->
+    gen:wait_response(RequestId, infinity).
+
+%% @doc Wait 'timeout' for a reply from a generic server.
+-spec wait_response(Key::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
+wait_response(RequestId, Timeout) ->
+    gen:wait_response(RequestId, Timeout).
+
+%% @doc Check if a received message was a reply to a RequestId
+-spec check_response(Msg::term(), Key::request_id()) ->
+        {reply, Reply::term()} | 'false' | {error, {term(), server_ref()}}.
+check_response(Msg, RequestId) ->
+    gen:check_response(Msg, RequestId).
 
 %% @doc Make a cast to a wx_object server.
 %% Invokes handle_cast(Request, State) in the server

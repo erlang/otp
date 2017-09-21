@@ -26,6 +26,7 @@
    [start/3,start/4,start_link/3,start_link/4,
     stop/1,stop/3,
     cast/2,call/2,call/3,
+    send_request/2,wait_response/1,wait_response/2,check_response/2,
     enter_loop/4,enter_loop/5,enter_loop/6,
     reply/1,reply/2]).
 
@@ -58,7 +59,8 @@
     event_handler_result/1,
     reply_action/0,
     enter_action/0,
-    action/0]).
+    action/0
+   ]).
 %% Old types, not advertised
 -export_type(
    [state_function_result/0,
@@ -256,6 +258,7 @@
 	 Replies :: [reply_action()] | reply_action(),
 	 NewData :: data()}.
 
+-type request_id() :: term().
 
 %% The state machine init function.  It is called only once and
 %% the server is not running until this function has returned
@@ -548,6 +551,26 @@ call(ServerRef, Request, {_, _} = Timeout) ->
     erlang:error(badarg, [ServerRef,Request,Timeout]);
 call(ServerRef, Request, Timeout) ->
     call_clean(ServerRef, Request, Timeout, Timeout).
+
+-spec send_request(ServerRef::server_ref(), Request::term()) ->
+        RequestId::request_id().
+send_request(Name, Request) ->
+    gen:send_request(Name, '$gen_call', Request).
+
+-spec wait_response(RequestId::request_id()) ->
+        {reply, Reply::term()} | {error, {term(), server_ref()}}.
+wait_response(RequestId) ->
+    gen:wait_response(RequestId, infinity).
+
+-spec wait_response(RequestId::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
+wait_response(RequestId, Timeout) ->
+    gen:wait_response(RequestId, Timeout).
+
+-spec check_response(Msg::term(), RequestId::request_id()) ->
+        {reply, Reply::term()} | 'no_reply' | {error, {term(), server_ref()}}.
+check_response(Msg, RequestId) ->
+    gen:check_response(Msg, RequestId).
 
 %% Reply from a state machine callback to whom awaits in call/2
 -spec reply([reply_action()] | reply_action()) -> ok.

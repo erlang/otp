@@ -1815,7 +1815,17 @@ do_func_test(STM) ->
     wfor(yes),
     ok = do_disconnect(STM),
     ok = gen_statem:cast(STM, {'alive?',self()}),
+    P0 = gen_statem:send_request(STM, 'alive?'),
+    timeout = gen_statem:wait_response(P0, 0),
     wfor(yes),
+    {reply, yes} = gen_statem:wait_response(P0, infinity),
+    _ = flush(),
+    P1 = gen_statem:send_request(STM, 'alive?'),
+    receive Msg ->
+            no_reply = gen_statem:check_response(Msg, P0),
+            {reply, yes} = gen_statem:check_response(Msg, P1)
+    after 1000 -> exit(timeout)
+    end,
     ok.
 
 

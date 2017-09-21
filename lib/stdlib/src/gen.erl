@@ -28,7 +28,9 @@
 %%%-----------------------------------------------------------------
 -export([start/5, start/6, debug_options/2, hibernate_after/1,
 	 name/1, unregister_name/1, get_proc_name/1, get_parent/0,
-	 call/3, call/4, reply/2, stop/1, stop/3]).
+	 call/3, call/4, reply/2,
+         send_request/3, wait_response/2, check_response/2,
+         stop/1, stop/3]).
 
 -export([init_it/6, init_it/7]).
 
@@ -52,6 +54,11 @@
 		    | {'hibernate_after', timeout()}
 		    | {'spawn_opt', [proc_lib:spawn_option()]}.
 -type options()    :: [option()].
+
+-type server_ref() :: pid() | atom() | {atom(), node()}
+                    | {global, term()} | {via, module(), term()}.
+
+-type request_id() :: term().
 
 %%-----------------------------------------------------------------
 %% Starts a generic process.
@@ -139,7 +146,7 @@ init_it2(GenMod, Starter, Parent, Name, Mod, Args, Options) ->
 %%-----------------------------------------------------------------
 %% Makes a synchronous call to a generic process.
 %% Request is sent to the Pid, and the response must be
-%% {Tag, _, Reply}.
+%% {Tag, Reply}.
 %%-----------------------------------------------------------------
 
 %%% New call function which uses the new monitor BIF
@@ -190,6 +197,56 @@ get_node(Process) ->
 	    N;
 	_ when is_pid(Process) ->
 	    node(Process)
+    end.
+
+-spec send_request(Name::server_ref(), Label::term(), Request::term()) -> request_id().
+send_request(Process, Label, Request) when is_pid(Process) ->
+    do_send_request(Process, Label, Request);
+send_request(Process, Label, Request) ->
+    Fun = fun(Pid) -> do_send_request(Pid, Label, Request) end,
+    try do_for_proc(Process, Fun)
+    catch exit:Reason ->
+            %% Make send_request async and fake a down message
+            Mref = erlang:make_ref(),
+            self() ! {'DOWN', Mref, process, Process, Reason},
+            Mref
+    end.
+
+do_send_request(Process, Label, Request) ->
+    Mref = erlang:monitor(process, Process),
+    erlang:send(Process, {Label, {self(), Mref}, Request}, [noconnect]),
+    Mref.
+
+%%
+%% Wait for a reply to the client.
+%% Note: if timeout is returned monitors are kept.
+
+-spec wait_response(RequestId::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {term(), server_ref()}}.
+wait_response(Mref, Timeout)
+  when is_reference(Mref) ->
+    receive
+        {Mref, Reply} ->
+            erlang:demonitor(Mref, [flush]),
+            {reply, Reply};
+        {'DOWN', Mref, _, Object, Reason} ->
+            {error, {Reason, Object}}
+    after Timeout ->
+            timeout
+    end.
+
+-spec check_response(RequestId::term(), Key::request_id()) ->
+        {reply, Reply::term()} | 'no_reply' | {error, {term(), server_ref()}}.
+check_response(Msg, Mref)
+  when is_reference(Mref) ->
+    case Msg of
+        {Mref, Reply} ->
+            erlang:demonitor(Mref, [flush]),
+            {reply, Reply};
+        {'DOWN', Mref, _, Object, Reason} ->
+            {error, {Reason, Object}};
+        _ ->
+            no_reply
     end.
 
 %%

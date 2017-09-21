@@ -763,27 +763,49 @@ sync_notify(Config) when is_list(Config) ->
     ok.
 
 call(Config) when is_list(Config) ->
+    Async = fun(Mgr,H,Req) ->
+                    try
+                        Promise = gen_event:send_request(Mgr,H,Req),
+                        gen_event:wait_response(Promise, infinity)
+                    catch _:Reason ->
+                            {'did_exit', Reason}
+                    end
+            end,
     {ok,_} = gen_event:start({local, my_dummy_handler}),
     ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
     ok = gen_event:add_handler(my_dummy_handler, {dummy_h, 1}, [self()]),
     [{dummy_h, 1}, dummy_h] = gen_event:which_handlers(my_dummy_handler),
     {'EXIT',_} = (catch gen_event:call(non_exist, dummy_h, hejsan)),
-    {error, bad_module} =
-	gen_event:call(my_dummy_handler, bad_h, hejsan),
+    {error, _} = Async(non_exist, dummy_h, hejsan),
+    {error, bad_module} = gen_event:call(my_dummy_handler, bad_h, hejsan),
+    {error, bad_module} = Async(my_dummy_handler, bad_h, hejsan),
+
     {ok, hejhopp} = gen_event:call(my_dummy_handler, dummy_h, hejsan),
-    {ok, hejhopp} = gen_event:call(my_dummy_handler, {dummy_h, 1},
-				   hejsan),
-    {ok, hejhopp} = gen_event:call(my_dummy_handler, dummy_h, hejsan,
-				   10000),
+    {reply, {ok, hejhopp}} = Async(my_dummy_handler, dummy_h, hejsan),
+    {ok, hejhopp} = gen_event:call(my_dummy_handler, {dummy_h, 1}, hejsan),
+    {reply, {ok, hejhopp}} = Async(my_dummy_handler, {dummy_h, 1}, hejsan),
+    {ok, hejhopp} = gen_event:call(my_dummy_handler, {dummy_h, 1}, hejsan),
+    {reply, {ok, hejhopp}} = Async(my_dummy_handler, {dummy_h, 1}, hejsan),
+    {ok, hejhopp} = gen_event:call(my_dummy_handler, dummy_h, hejsan, 10000),
     {'EXIT', {timeout, _}} =
 	(catch gen_event:call(my_dummy_handler, dummy_h, hejsan, 0)),
     flush(),
+    P1 = gen_event:send_request(my_dummy_handler, dummy_h, hejsan),
+    timeout = gen_event:wait_response(P1, 0),
+    {reply, {ok, hejhopp}} = gen_event:wait_response(P1, infinity),
+
+    flush(),
+    P2 = gen_event:send_request(my_dummy_handler, dummy_h, hejsan),
+    no_reply = gen_event:check_response({other,msg}, P2),
+    {reply, {ok, hejhopp}} = receive Msg -> gen_event:check_response(Msg, P2)
+                             after 1000 -> exit(tmo) end,
+
     ok = gen_event:delete_handler(my_dummy_handler, {dummy_h, 1}, []),
     {ok, swapped} = gen_event:call(my_dummy_handler, dummy_h,
 				   {swap_call,dummy1_h,swap}),
     [dummy1_h] = gen_event:which_handlers(my_dummy_handler),
-    {error, bad_module} =
-	gen_event:call(my_dummy_handler, dummy_h, hejsan),
+    {error, bad_module} = gen_event:call(my_dummy_handler, dummy_h, hejsan),
+    {error, bad_module} = Async(my_dummy_handler, dummy_h, hejsan),
     ok = gen_event:call(my_dummy_handler, dummy1_h, delete_call),
     receive
 	{dummy1_h, removed} ->

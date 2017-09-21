@@ -91,6 +91,7 @@
 	 start_link/3, start_link/4,
 	 stop/1, stop/3,
 	 call/2, call/3,
+         send_request/2, wait_response/2, check_response/2,
 	 cast/2, reply/2,
 	 abcast/2, abcast/3,
 	 multi_call/2, multi_call/3, multi_call/4,
@@ -115,6 +116,16 @@
 -define(
    STACKTRACE(),
    element(2, erlang:process_info(self(), current_stacktrace))).
+
+
+-type server_ref() ::
+        pid()
+      | (LocalName :: atom())
+      | {Name :: atom(), Node :: atom()}
+      | {'global', GlobalName :: term()}
+      | {'via', RegMod :: module(), ViaName :: term()}.
+
+-type request_id() :: term().
 
 %%%=========================================================================
 %%%  API
@@ -222,6 +233,25 @@ call(Name, Request, Timeout) ->
 	{'EXIT',Reason} ->
 	    exit({Reason, {?MODULE, call, [Name, Request, Timeout]}})
     end.
+
+%% -----------------------------------------------------------------
+%% Send a request to a generic server and return a Key which should be
+%% used with wait_response/2 or check_response/2 to fetch the
+%% result of the request.
+
+-spec send_request(Name::server_ref(), Request::term()) -> request_id().
+send_request(Name, Request) ->
+    gen:send_request(Name, '$gen_call', Request).
+
+-spec wait_response(RequestId::request_id(), timeout()) ->
+        {reply, Reply::term()} | 'timeout' | {error, {Reason::term(), server_ref()}}.
+wait_response(RequestId, Timeout) ->
+    gen:wait_response(RequestId, Timeout).
+
+-spec check_response(Msg::term(), RequestId::request_id()) ->
+        {reply, Reply::term()} | 'no_reply' | {error, {Reason::term(), server_ref()}}.
+check_response(Msg, RequestId) ->
+    gen:check_response(Msg, RequestId).
 
 %% -----------------------------------------------------------------
 %% Make a cast to a generic server.

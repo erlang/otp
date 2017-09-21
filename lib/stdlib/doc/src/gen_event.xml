@@ -58,6 +58,7 @@ gen_event:add_sup_handler  ----->  Module:init/1
 gen_event:notify
 gen_event:sync_notify      ----->  Module:handle_event/2
 
+gen_event:send_request
 gen_event:call             ----->  Module:handle_call/2
 
 -                          ----->  Module:handle_info/2
@@ -125,6 +126,15 @@ gen_event:stop             ----->  Module:terminate/2
     </datatype>
     <datatype>
       <name name="del_handler_ret"/>
+    </datatype>
+    <datatype>
+      <name name="request_id"/>
+      <desc>
+	<p>
+	  A request handle, see <seealso marker="#send_request/3"> <c>send_request/3</c> </seealso>
+	  for details.
+	</p>
+      </desc>
     </datatype>
   </datatypes>
 
@@ -284,6 +294,40 @@ gen_event:stop             ----->  Module:terminate/2
       </desc>
     </func>
 
+
+    <func>
+      <name since="OTP-23">check_response(Msg, RequestId) -> Result</name>
+      <fsummary>Check if a message is a reply from a server.</fsummary>
+      <type>
+	<v>Msg = term()</v>
+	<v>RequestId = request_id()</v>
+	<v>Result = {reply, Reply} | no_reply | {error, Error}</v>
+	<v>Reply = Error = term()</v>
+      </type>
+      <desc>
+	<p>
+	  This function is used to check if a previously received
+	  message, for example by <c>receive</c> or
+	  <c>handle_info/2</c>, is a result of a request made with
+	  <seealso marker="#send_request/3"><c>send_request/3</c></seealso>.
+	  If <c>Msg</c> is a reply to the handle <c>RequestId</c>
+	  the result of the request is returned in <c>Reply</c>.
+	  Otherwise returns <c>no_reply</c> and no cleanup is done, and
+	  thus the function shall be invoked repeatedly until a reply
+	  is returned.
+	</p>
+	<p>
+	  If the specified event handler is not
+          installed, the function returns <c>{error,bad_module}</c>. If
+          the callback function fails with <c>Reason</c> or returns an
+          unexpected value <c>Term</c>, this function returns
+          <c>{error,{'EXIT',Reason}}</c> or <c>{error,Term}</c>,
+          respectively. If the event manager dies before or during the
+	  request this function returns <c>{error,{Reason, EventMgrRef}}</c>.
+	</p>
+      </desc>
+    </func>
+
     <func> 
       <name since="">delete_handler(EventMgrRef, Handler, Args) -> Result</name>
       <fsummary>Delete an event handler from a generic event manager.</fsummary>
@@ -345,6 +389,49 @@ gen_event:stop             ----->  Module:terminate/2
           <c>Module:handle_event/2</c></seealso>.</p>
         <p><c>notify/1</c> does not fail even if the specified event manager
           does not exist, unless it is specified as <c>Name</c>.</p>
+      </desc>
+    </func>
+
+
+    <func>
+      <name since="OTP-23">send_request(EventMgrRef, Handler, Request) -> RequestId</name>
+      <fsummary>Send a request to a generic event manager.</fsummary>
+      <type>
+        <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}</v>
+        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+	<v>Handler = Module | {Module,Id}</v>
+        <v>&nbsp;Module = atom()</v>
+        <v>&nbsp;Id = term()</v>
+        <v>Request = term()</v>
+        <v>RequestId = request_id()</v>
+      </type>
+      <desc>
+        <p>
+	  Sends a request to event handler <c>Handler</c> installed in
+	  event manager <c>EventMgrRef</c> and returns a handle
+	  <c>RequestId</c>.  The return value <c>RequestId</c> shall
+	  later be used with <seealso marker="#wait_response/2">
+	  <c>wait_response/2</c></seealso> or <seealso
+	  marker="#check_response/2">
+	  <c>check_response/2</c></seealso> in the same process to
+	  fetch the actual result of the request.
+	</p>
+	<p>
+	  The call <c>gen_event:wait_response(gen_event:send_request(EventMgrRef,Handler,Request), Timeout)</c>
+	  can be seen as equivalent to
+	  <seealso marker="#call/3"><c>gen_event:call(EventMgrRef,Handler,Request,Timeout)</c></seealso>,
+	  ignoring the error handling.
+	</p>
+	<p>
+	  The event manager calls <seealso marker="#Module:handle_call/2">
+          <c>Module:handle_call/2</c></seealso> to handle the request.
+	</p>
+        <p>
+	  <c>Request</c> is any term that is passed as one of
+          the arguments to <c>Module:handle_call/3</c>.
+	</p>
       </desc>
     </func>
 
@@ -542,6 +629,49 @@ gen_event:stop             ----->  Module:terminate/2
           the connection between <c>Handler2</c> and the calling process.</p>
         <p>For a description of the arguments and return values, see 
           <seealso marker="#swap_handler/3"><c>swap_handler/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP-23">wait_response(RequestId, Timeout) -> Result</name>
+      <fsummary>Wait for a reply from a server.</fsummary>
+      <type>
+	<v>RequestId = request_id()</v>
+	<v>Reply = term()</v>
+	<v>Timeout = timeout()</v>
+	<v>Result = {reply, Reply} | timeout | {error, Error}</v>
+	<v>Reply = Error = term()</v>
+      </type>
+      <desc>
+	<p>
+	This function is used to wait for a reply of a request made with
+	<seealso marker="#send_request/3"><c>send_request/3</c></seealso>
+	from the event manager. This function must be called from the same
+	process from which <seealso marker="#send_request/3"><c>send_request/3</c></seealso>
+	was made.
+	</p>
+	<p>
+	  <c>Timeout</c> is an integer greater then or equal to zero
+	  that specifies how many milliseconds to wait for an reply, or
+	  the atom <c>infinity</c> to wait indefinitely.
+	  If no reply is received within the specified
+	  time, the function returns <c>timeout</c> and no cleanup is
+	  done, and thus the function must be invoked repeatedly until a
+	  reply is returned.
+	</p>
+	<p>
+	  The return value <c>Reply</c> is defined in the return value
+	  of <c>Module:handle_call/3</c>.
+	</p>
+	<p>
+	  If the specified event handler is not
+          installed, the function returns <c>{error,bad_module}</c>. If
+          the callback function fails with <c>Reason</c> or returns an
+          unexpected value <c>Term</c>, this function returns
+          <c>{error,{'EXIT',Reason}}</c> or <c>{error,Term}</c>,
+          respectively. If the event manager dies before or during the
+	  request this function returns <c>{error,{Reason, EventMgrRef}}</c>.
+	</p>
       </desc>
     </func>
 

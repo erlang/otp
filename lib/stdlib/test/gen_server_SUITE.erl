@@ -26,7 +26,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
--export([start/1, crash/1, call/1, cast/1, cast_fast/1,
+-export([start/1, crash/1, call/1, send_request/1, cast/1, cast_fast/1,
 	 continue/1, info/1, abcast/1, multicall/1, multicall_down/1,
 	 call_remote1/1, call_remote2/1, call_remote3/1,
 	 call_remote_n1/1, call_remote_n2/1, call_remote_n3/1, spec_init/1,
@@ -61,7 +61,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [start, {group,stop}, crash, call, cast, cast_fast, info, abcast,
+    [start, {group,stop}, crash, call, send_request, cast, cast_fast, info, abcast,
      continue, multicall, multicall_down, call_remote1, call_remote2,
      call_remote3, call_remote_n1, call_remote_n2,
      call_remote_n3, spec_init,
@@ -104,7 +104,8 @@ init_per_testcase(Case, Config) when Case == call_remote1;
 				     Case == call_remote3;
 				     Case == call_remote_n1;
 				     Case == call_remote_n2;
-				     Case == call_remote_n3 ->
+				     Case == call_remote_n3;
+                                     Case == send_request ->
     {ok,N} = start_node(hubba),
     [{node,N} | Config];
 
@@ -457,6 +458,87 @@ call(Config) when is_list(Config) ->
 
     process_flag(trap_exit, OldFl),
     ok.
+
+%% --------------------------------------
+%% Test gen_server:send_request.
+%% --------------------------------------
+
+send_request(Config) when is_list(Config) ->
+    OldFl = process_flag(trap_exit, true),
+
+    {ok, Pid} = gen_server:start_link({local, my_test_name},
+                                      gen_server_SUITE, [], []),
+
+    Async = fun(Process, Req) ->
+                    try
+                        Promise = gen_server:send_request(Process, Req),
+                        gen_server:wait_response(Promise, infinity)
+                    catch _:Reason:ST ->
+                            {'did_exit', Reason, ST}
+                    end
+            end,
+    {reply,ok} = Async(my_test_name, started_p),
+
+    {reply,delayed} = Async(Pid, {delayed_answer,1}),
+
+    %% two requests within a specified time.
+    Promise1 = gen_server:send_request(my_test_name, {call_within, 1000}),
+    Promise2 = gen_server:send_request(my_test_name, next_call),
+    {reply, ok} = gen_server:wait_response(Promise1, infinity),
+    {reply, ok} = gen_server:wait_response(Promise2, infinity),
+
+    Promise3 = gen_server:send_request(my_test_name, {call_within, 1000}),
+    no_reply = gen_server:check_response({foo, bar}, Promise3),
+    receive {Ref,_} = Msg when is_reference(Ref) ->
+            {reply, ok} = gen_server:check_response(Msg, Promise3)
+    after 1000 -> exit(api_changed)
+    end,
+    timer:sleep(1500),
+
+    {reply, false} = Async(my_test_name, next_call),
+
+    %% timeout
+    Promise5 = gen_server:send_request(my_test_name, {delayed_answer,50}),
+    timeout = gen_server:wait_response(Promise5, 0),
+    {reply, delayed} = gen_server:wait_response(Promise5, infinity),
+
+    %% bad return value in the gen_server loop from handle_call.
+    {error,{{bad_return_value, badreturn},_}} = Async(my_test_name, badreturn),
+
+    %% Test other error cases
+    {error, {noproc,_}} = Async(Pid, started_p),
+    {error, {noproc,_}} = Async(my_test_name, started_p),
+    {error, {noconnection, _}} = Async({my_test_name, foo@node}, started_p),
+
+    {error, {noproc,_}} = Async({global, non_existing}, started_p),
+    catch exit(whereis(dummy_via), foo),
+    {'EXIT', {badarg,_}} =
+        (catch gen_server:send_request({via, dummy_via, non_existing}, started_p)),
+
+    %% Remote nodes
+    Via = dummy_via:reset(),
+    Remote = proplists:get_value(node,Config),
+    {ok, RPid} = rpc:call(Remote, gen_server, start, [{global, remote}, ?MODULE, [], []]),
+    dummy_via:register_name(remote, RPid),
+    {reply, ok} = Async(RPid, started_p),
+    {reply, ok} = Async({global, remote}, started_p),
+    {reply, ok} = Async({via, dummy_via, remote}, started_p),
+    {error, {shutdown, _}} = Async({global, remote}, stop_shutdown),
+    {error, {noproc, _}} = Async({global, remote}, started_p),
+    {error, {noproc, _}} = Async({via, dummy_via, remote}, started_p),
+    {error, {noproc, _}} = Async({via, dummy_via, non_existing}, started_p),
+
+    {ok, _} = rpc:call(Remote, gen_server, start, [{local, remote}, ?MODULE, [], []]),
+    {reply, ok} = Async({remote, Remote}, started_p),
+    {error, {shutdown, _}} = Async({remote, Remote}, stop_shutdown),
+    {error, {noproc, _}} = Async({remote, Remote}, started_p),
+
+    %% Cleanup
+    catch exit(Via, foo2),
+    receive {'EXIT', Via, foo2} -> ok end,
+    process_flag(trap_exit, OldFl),
+    ok.
+
 
 %% --------------------------------------
 %% Test handle_continue.
