@@ -31,18 +31,33 @@
 
 -export([split_node/1, nodelay/0]).
 
+-export([dbg/0]). % Debug
+
 -include_lib("kernel/include/net_address.hrl").
 -include_lib("kernel/include/dist.hrl").
 -include_lib("kernel/include/dist_util.hrl").
 
-%% -undef(trace).
-%% -define(trace(Fmt,Args),
-%%         erlang:display(
-%%           [erlang:convert_time_unit(
-%%              erlang:monotonic_time()
-%%              - erlang:system_info(start_time), native, microsecond),
-%%            node(),
-%%            lists:flatten(io_lib:format(Fmt, Args))])).
+-include("ssl_api.hrl").
+
+%%%-undef(trace).
+%%%%%-define(trace, true).
+%%%-ifdef(trace).
+%%%trace(Module, FunctionName, Line, Info, Value) ->
+%%%    erlang:display(
+%%%      [{erlang:convert_time_unit(
+%%%          erlang:monotonic_time()
+%%%          - erlang:system_info(start_time), native, microsecond),
+%%%        node(), self()},
+%%%       {Module, FunctionName, Line}, Info, Value]),
+%%%    Value.
+%%%-else.
+%%%trace(_Module, _FunctionName, _Line, _Info, Value) -> Value.
+%%%-endif.
+%%%-undef(trace).
+%%%-define(
+%%%   trace(Info, Body),
+%%%   trace(?MODULE, ?FUNCTION_NAME, ?LINE, (Info), begin Body end)).
+trace(Term) -> Term.
 
 %% -------------------------------------------------------------------------
 
@@ -76,6 +91,130 @@ is_node_name(Node) ->
 
 %% -------------------------------------------------------------------------
 
+hs_data_common(#sslsocket{pid = DistCtrl} = SslSocket) ->
+    #hs_data{
+       f_send =
+           fun (Ctrl, Packet) when Ctrl == DistCtrl ->
+                   f_send(SslSocket, Packet)
+           end,
+       f_recv =
+           fun (Ctrl, Length, Timeout) when Ctrl == DistCtrl ->
+                   f_recv(SslSocket, Length, Timeout)
+           end,
+       f_setopts_pre_nodeup =
+           fun (Ctrl) when Ctrl == DistCtrl ->
+                   f_setopts_pre_nodeup(SslSocket)
+           end,
+       f_setopts_post_nodeup =
+           fun (Ctrl) when Ctrl == DistCtrl ->
+%%%                   sys:trace(Ctrl, true),
+                   f_setopts_post_nodeup(SslSocket)
+           end,
+       f_getll =
+           fun (Ctrl) when Ctrl == DistCtrl ->
+                   f_getll(DistCtrl)
+           end,
+       f_address =
+           fun (Ctrl, Node) when Ctrl == DistCtrl ->
+                   f_address(SslSocket, Node)
+           end,
+       mf_tick =
+           fun (Ctrl) when Ctrl == DistCtrl ->
+                   mf_tick(DistCtrl)
+           end,
+       mf_getstat =
+           fun (Ctrl) when Ctrl == DistCtrl ->
+                   mf_getstat(SslSocket)
+           end,
+       mf_setopts =
+           fun (Ctrl, Opts) when Ctrl == DistCtrl ->
+                   mf_setopts(SslSocket, Opts)
+           end,
+       mf_getopts =
+           fun (Ctrl, Opts) when Ctrl == DistCtrl ->
+                   mf_getopts(SslSocket, Opts)
+           end,
+       f_handshake_complete =
+           fun (Ctrl, Node, DHandle) when Ctrl == DistCtrl ->
+                   f_handshake_complete(DistCtrl, Node, DHandle)
+           end}.
+
+f_send(SslSocket, Packet) ->
+    ssl:send(SslSocket, Packet).
+
+f_recv(SslSocket, Length, Timeout) ->
+    case ssl:recv(SslSocket, Length, Timeout) of
+        {ok, Bin} when is_binary(Bin) ->
+            {ok, binary_to_list(Bin)};
+        Other ->
+            Other
+    end.
+
+f_setopts_pre_nodeup(_SslSocket) ->
+    ok.
+
+f_setopts_post_nodeup(_SslSocket) ->
+    ok.
+
+f_getll(DistCtrl) ->
+    {ok, DistCtrl}.
+
+f_address(SslSocket, Node) ->
+    case ssl:peername(SslSocket) of
+        {ok, Address} ->
+            case split_node(Node) of
+                false ->
+                    {error, no_node};
+                Host ->
+                    #net_address{
+                       address=Address, host=Host,
+                       protocol=tls, family=inet}
+            end
+    end.
+
+mf_tick(DistCtrl) ->
+    DistCtrl ! tick,
+    ok.
+
+mf_getstat(SslSocket) ->
+    case ssl:getstat(
+           SslSocket, [recv_cnt, send_cnt, send_pend]) of
+        {ok, Stat} ->
+            split_stat(Stat,0,0,0);
+        Error ->
+            Error
+    end.
+
+mf_setopts(SslSocket, Opts) ->
+    case setopts_filter(Opts) of
+        [] ->
+            ssl:setopts(SslSocket, Opts);
+        Opts1 ->
+            {error, {badopts,Opts1}}
+    end.
+
+mf_getopts(SslSocket, Opts) ->
+    ssl:getopts(SslSocket, Opts).
+
+f_handshake_complete(DistCtrl, Node, DHandle) ->
+    ssl_connection:handshake_complete(DistCtrl, Node, DHandle).
+
+
+setopts_filter(Opts) ->
+    [Opt || {K,_} = Opt <- Opts,
+            K =:= active orelse K =:= deliver orelse K =:= packet].
+
+split_stat([{recv_cnt, R}|Stat], _, W, P) ->
+    split_stat(Stat, R, W, P);
+split_stat([{send_cnt, W}|Stat], R, _, P) ->
+    split_stat(Stat, R, W, P);
+split_stat([{send_pend, P}|Stat], R, W, _) ->
+    split_stat(Stat, R, W, P);
+split_stat([], R, W, P) ->
+    {ok, R, W, P}.
+
+%% -------------------------------------------------------------------------
+
 listen(Name) ->
     gen_listen(inet_tcp, Name).
 
@@ -95,40 +234,33 @@ accept(Listen) ->
 
 gen_accept(Driver, Listen) ->
     Kernel = self(),
-    spawn_opt(
-      fun () ->
-              accept_loop(Driver, Listen, Kernel)
-      end,
-      [link, {priority, max}]).
+    monitor_pid(
+      spawn_opt(
+        fun () ->
+                accept_loop(Driver, Listen, Kernel)
+        end,
+        [link, {priority, max}])).
 
 accept_loop(Driver, Listen, Kernel) ->
-    ?trace("~p~n",[{?MODULE, accept_loop, self()}]),
     case Driver:accept(Listen) of
         {ok, Socket} ->
             Opts = get_ssl_options(server),
             wait_for_code_server(),
             case ssl:ssl_accept(
                    Socket, [{active, false}, {packet, 4}] ++ Opts) of
-                {ok, SslSocket} ->
-                    DistCtrl = ssl_tls_dist_ctrl:start(SslSocket),
-                    ?trace("~p~n",
-                           [{?MODULE, accept_loop, accepted,
-                             SslSocket, DistCtrl, self()}]),
-                    ok = ssl:controlling_process(SslSocket, DistCtrl),
-                    Kernel !
-                        {accept, self(), DistCtrl, Driver:family(), tls},
+                {ok, #sslsocket{pid = DistCtrl} = SslSocket} ->
+                    monitor_pid(DistCtrl),
+                    trace(
+                      Kernel !
+                          {accept, self(), DistCtrl,
+                           Driver:family(), tls}),
                     receive
                         {Kernel, controller, Pid} ->
-                            ?trace("~p~n",
-                                   [{?MODULE, accept_loop,
-                                     controller, self()}]),
-                            ssl_tls_dist_ctrl:set_supervisor(DistCtrl, Pid),
-                            Pid ! {self(), controller};
+                            ok = ssl:controlling_process(SslSocket, Pid),
+                            trace(
+                              Pid ! {self(), controller});
                         {Kernel, unsupported_protocol} ->
-                            ?trace("~p~n",
-                                   [{?MODULE, accept_loop,
-                                     unsupported_protocol, self()}]),
-                            exit(unsupported_protocol)
+                            exit(trace(unsupported_protocol))
                     end,
                     accept_loop(Driver, Listen, Kernel);
 		{error, {options, _}} = Error ->
@@ -137,12 +269,14 @@ accept_loop(Driver, Listen, Kernel) ->
 		    error_logger:error_msg(
                       "Cannot accept TLS distribution connection: ~s~n",
                       [ssl:format_error(Error)]),
-		    gen_tcp:close(Socket);
-		_ ->
-		    gen_tcp:close(Socket)
+                    _ = trace(Error),
+                    gen_tcp:close(Socket);
+		Other ->
+                    _ = trace(Other),
+                    gen_tcp:close(Socket)
 	    end;
 	Error ->
-	    exit(Error)
+	    exit(trace(Error))
     end,
     accept_loop(Driver, Listen, Kernel).
 
@@ -184,21 +318,23 @@ accept_connection(AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
 gen_accept_connection(
   Driver, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
     Kernel = self(),
-    spawn_opt(
-      fun() ->
-              do_accept(
-                Driver, Kernel, AcceptPid, DistCtrl,
-                MyNode, Allowed, SetupTime)
-      end,
-      [link, {priority, max}]).
+    monitor_pid(
+      spawn_opt(
+        fun() ->
+                do_accept(
+                  Driver, Kernel, AcceptPid, DistCtrl,
+                  MyNode, Allowed, SetupTime)
+        end,
+        [link, {priority, max}])).
 
 do_accept(Driver, Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
+    SslSocket = ssl_connection:get_sslsocket(DistCtrl),
     receive
 	{AcceptPid, controller} ->
 	    Timer = dist_util:start_timer(SetupTime),
-	    case check_ip(Driver, DistCtrl) of
+	    case check_ip(Driver, SslSocket) of
 		true ->
-                    HSData0 = ssl_tls_dist_ctrl:hs_data_common(DistCtrl),
+                    HSData0 = hs_data_common(SslSocket),
                     HSData =
                         HSData0#hs_data{
                           kernel_pid = Kernel,
@@ -207,12 +343,12 @@ do_accept(Driver, Kernel, AcceptPid, DistCtrl, MyNode, Allowed, SetupTime) ->
                           timer = Timer,
                           this_flags = 0,
                           allowed = Allowed},
-		    dist_util:handshake_other_started(HSData);
+		    dist_util:handshake_other_started(trace(HSData));
 		{false,IP} ->
 		    error_logger:error_msg(
                       "** Connection attempt from "
                       "disallowed IP ~w ** ~n", [IP]),
-		    ?shutdown(no_node)
+		    ?shutdown(trace(no_node))
 	    end
     end.
 
@@ -223,42 +359,33 @@ setup(Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 
 gen_setup(Driver, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     Kernel = self(),
-    spawn_opt(
-      fun() ->
-              do_setup(
-                Driver, Kernel, Node, Type,
-                MyNode, LongOrShortNames, SetupTime)
-      end,
-      [link, {priority, max}]).
+    monitor_pid(
+      spawn_opt(
+        fun() ->
+                do_setup(
+                  Driver, Kernel, Node, Type,
+                  MyNode, LongOrShortNames, SetupTime)
+        end,
+        [link, {priority, max}])).
 
 do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     [Name, Address] = splitnode(Driver, Node, LongOrShortNames),
     case Driver:getaddr(Address) of
 	{ok, Ip} ->
-	    Timer = dist_util:start_timer(SetupTime),
+            Timer = trace(dist_util:start_timer(SetupTime)),
 	    ErlEpmd = net_kernel:epmd_module(),
 	    case ErlEpmd:port_please(Name, Ip) of
 		{port, TcpPort, Version} ->
-		    ?trace("port_please(~p) -> version ~p~n", 
-			   [Node,Version]),
-                    Opts = connect_options(get_ssl_options(client)),
+                    Opts = trace(connect_options(get_ssl_options(client))),
 		    dist_util:reset_timer(Timer),
                     case ssl:connect(
                            Ip, TcpPort,
                            [binary, {active, false}, {packet, 4},
                             Driver:family(), nodelay()] ++ Opts) of
-			{ok, SslSocket} ->
-                            ?trace("~p~n",
-                                   [{?MODULE, do_setup,
-                                     ssl_socket, SslSocket}]),
-                            DistCtrl = ssl_tls_dist_ctrl:start(SslSocket),
-                            ssl_tls_dist_ctrl:set_supervisor(
-                              DistCtrl, self()),
-                            ok =
-                                ssl:controlling_process(
-                                  SslSocket, DistCtrl),
-                            HSData0 =
-                                ssl_tls_dist_ctrl:hs_data_common(DistCtrl),
+			{ok, #sslsocket{pid = DistCtrl} = SslSocket} ->
+                            monitor_pid(DistCtrl),
+                            ok = ssl:controlling_process(SslSocket, self()),
+                            HSData0 = hs_data_common(SslSocket),
 			    HSData =
                                 HSData0#hs_data{
                                   kernel_pid = Kernel,
@@ -269,44 +396,37 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
                                   this_flags = 0,
                                   other_version = Version,
                                   request_type = Type},
-                            ?trace("~p~n",
-                                   [{?MODULE, do_setup,
-                                     handshake_we_started, HSData}]),
-			    dist_util:handshake_we_started(HSData);
+			    dist_util:handshake_we_started(trace(HSData));
 			Other ->
 			    %% Other Node may have closed since 
 			    %% port_please !
-			    ?trace("other node (~p) "
-				   "closed since port_please.~n", 
-				   [Node]),
-			    ?shutdown2(Node,
-                                       {shutdown, {connect_failed, Other}})
+			    ?shutdown2(
+                               Node,
+                               trace({shutdown, {connect_failed, Other}}))
 		    end;
 		Other ->
-		    ?trace("port_please (~p) "
-			   "failed.~n", [Node]),
-		    ?shutdown2(Node, {shutdown, {port_please_failed, Other}})
+		    ?shutdown2(
+                       Node,
+                       trace({shutdown, {port_please_failed, Other}}))
 	    end;
 	Other ->
-	    ?trace("~w:getaddr(~p) "
-		   "failed (~p).~n", [Driver, Address, Other]),
-	    ?shutdown2(Node, {shutdown, {getaddr_failed, Other}})
+	    ?shutdown2(Node, trace({shutdown, {getaddr_failed, Other}}))
     end.
 
 close(Socket) ->
     gen_close(inet, Socket).
 
 gen_close(Driver, Socket) ->
-    Driver:close(Socket).
+    trace(Driver:close(Socket)).
 
 %% ------------------------------------------------------------
 %% Do only accept new connection attempts from nodes at our
 %% own LAN, if the check_ip environment parameter is true.
 %% ------------------------------------------------------------
-check_ip(Driver, DistCtrl) ->
+check_ip(Driver, SslSocket) ->
     case application:get_env(check_ip) of
 	{ok, true} ->
-	    case get_ifs(DistCtrl) of
+	    case get_ifs(SslSocket) of
 		{ok, IFs, IP} ->
 		    check_ip(Driver, IFs, IP);
 		_ ->
@@ -324,8 +444,7 @@ check_ip(Driver, [{OwnIP, _, Netmask}|IFs], PeerIP) ->
 check_ip(_Driver, [], PeerIP) ->
     {false, PeerIP}.
 
-get_ifs(DistCtrl) ->
-    Socket = ssl_tls_dist_ctrl:get_socket(DistCtrl),
+get_ifs(#sslsocket{fd = {gen_tcp, Socket, _}}) ->
     case inet:peername(Socket) of
 	{ok, {IP, _}} ->
             %% XXX this is seriously broken for IPv6
@@ -513,3 +632,35 @@ verify_fun(Value) ->
 	_ ->
 	    error(malformed_ssl_dist_opt, [Value])
     end.
+
+%% -------------------------------------------------------------------------
+
+%% Keep an eye on distribution Pid:s we know of
+monitor_pid(Pid) ->
+    spawn(
+      fun () ->
+              MRef = erlang:monitor(process, Pid),
+              receive
+                  {'DOWN', MRef, _, _, normal} ->
+                      error_logger:error_report(
+                        [dist_proc_died,
+                         {reason, normal},
+                         {pid, Pid}]);
+                  {'DOWN', MRef, _, _, Reason} ->
+                      error_logger:info_report(
+                        [dist_proc_died,
+                         {reason, Reason},
+                         {pid, Pid}])
+              end
+      end),
+    Pid.
+
+dbg() ->
+    dbg:stop(),
+    dbg:tracer(),
+    dbg:p(all, c),
+    dbg:tpl(?MODULE, cx),
+    dbg:tpl(erlang, dist_ctrl_get_data_notification, cx),
+    dbg:tpl(erlang, dist_ctrl_get_data, cx),
+    dbg:tpl(erlang, dist_ctrl_put_data, cx),
+    ok.
