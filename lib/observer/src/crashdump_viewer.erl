@@ -800,7 +800,7 @@ do_read_file(File) ->
 			    insert_index(Tag,Id,N1+1),
 			    put_last_tag(Tag,""),
                             DumpVsn = [list_to_integer(L) ||
-                                          L<-string:tokens(Id,".")],
+                                          L<-string:lexemes(Id,".")],
                             AddrAdj = get_bin_addr_adj(DumpVsn),
                             indexify(Fd,AddrAdj,Rest,N1),
 			    end_progress(),
