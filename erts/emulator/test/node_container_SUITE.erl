@@ -966,6 +966,8 @@ check_refc(ThisNodeName,ThisCreation,Table,EntryList) when is_list(EntryList) ->
                         {case Referrer of
                              {system,delayed_delete_timer} ->
                                  true;
+                             {system,thread_progress_delete_timer} ->
+                                 true;
                              _ ->
                                  DDT
                          end,
