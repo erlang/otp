@@ -8600,11 +8600,13 @@ erts_start_schedulers(void)
 	erts_atomic_init_nob(&runq_supervisor_sleeping, 0);
 	if (0 != ethr_event_init(&runq_supervision_event))
 	    erts_exit(ERTS_ERROR_EXIT, "Failed to create run-queue supervision event\n");
-	if (0 != ethr_thr_create(&runq_supervisor_tid,
-				 runq_supervisor,
-				 NULL,
-				 &opts))
-	    erts_exit(ERTS_ERROR_EXIT, "Failed to create run-queue supervision thread\n");
+        res = ethr_thr_create(&runq_supervisor_tid,
+                              runq_supervisor,
+                              NULL,
+                              &opts);
+	if (0 != res)
+	    erts_exit(ERTS_ERROR_EXIT, "Failed to create run-queue supervision thread, "
+                      "error = %d\n", res);
 
     }
 
@@ -8640,7 +8642,7 @@ erts_start_schedulers(void)
             opts.suggested_stack_size = erts_dcpu_sched_thread_suggested_stack_size;
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_cpu_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
-		erts_exit(ERTS_ERROR_EXIT, "Failed to create dirty cpu scheduler thread %d\n", ix);
+		erts_exit(ERTS_ERROR_EXIT, "Failed to create dirty cpu scheduler thread %d, error = %d\n", ix, res);
 	}
 	for (ix = 0; ix < erts_no_dirty_io_schedulers; ix++) {
 	    ErtsSchedulerData *esdp = ERTS_DIRTY_IO_SCHEDULER_IX(ix);
@@ -8648,7 +8650,7 @@ erts_start_schedulers(void)
             opts.suggested_stack_size = erts_dio_sched_thread_suggested_stack_size;
 	    res = ethr_thr_create(&esdp->tid,sched_dirty_io_thread_func,(void*)esdp,&opts);
 	    if (res != 0)
-		erts_exit(ERTS_ERROR_EXIT, "Failed to create dirty io scheduler thread %d\n", ix);
+		erts_exit(ERTS_ERROR_EXIT, "Failed to create dirty io scheduler thread %d, error = %d\n", ix, res);
 	}
     }
 
@@ -8658,7 +8660,7 @@ erts_start_schedulers(void)
 
     res = ethr_thr_create(&aux_tid, aux_thread, NULL, &opts);
     if (res != 0)
-	erts_exit(ERTS_ERROR_EXIT, "Failed to create aux thread\n");
+	erts_exit(ERTS_ERROR_EXIT, "Failed to create aux thread, error = %d\n", res);
 
     if (actual < 1)
 	erts_exit(ERTS_ERROR_EXIT,
