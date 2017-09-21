@@ -689,6 +689,10 @@ bif erts_internal:maps_to_list/2
 #
 # New in 20.1
 #
-
 bif erlang:iolist_to_iovec/1
-bif erts_internal:map_get_index/2
+
+#
+# New in 21.0
+#
+
+bif erts_internal:map_next/2

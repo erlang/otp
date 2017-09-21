@@ -90,6 +90,7 @@ static BIF_RETTYPE hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB, int swap_
                                  struct HashmapMergeContext_*);
 static Export hashmap_merge_trap_export;
 static BIF_RETTYPE maps_merge_trap_1(BIF_ALIST_1);
+static Uint hashmap_subtree_size(Eterm node);
 static Eterm hashmap_to_list(Process *p, Eterm map, Sint n);
 static Eterm hashmap_keys(Process *p, Eterm map);
 static Eterm hashmap_values(Process *p, Eterm map);
@@ -1518,7 +1519,7 @@ trap:  /* Yield */
     return trap_ret;
 }
 
-Uint hashmap_subtree_size(Eterm node) {
+static Uint hashmap_subtree_size(Eterm node) {
     DECLARE_WSTACK(stack);
     Uint size = 0;
 
@@ -3059,74 +3060,247 @@ static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]) 
     return res;
 }
 
-static Uint32
-index_to_hash(Sint idx, Uint32 hval)
-{
-    Uint32 new_hval = 1;
-    while (1) {
-        if (hval & 0x1) {
-            idx--;
-            if (!idx) break;
-        }
-        new_hval = new_hval << 1;
-        hval = hval >> 1;
-    }
-    return new_hval;
-}
 
-BIF_RETTYPE erts_internal_map_get_index_2(BIF_ALIST_2) {
-    Sint idx;
-    Uint32 hval, sz;
-    Eterm *ptr, hdr;
+/*
+ * The iterator work in about the same way for both
+ * flat- and hash-maps. It consists of a Path, Map
+ * term where Path describes where to find the
+ * term to get.
+ *
+ * In flatmap Path is just the index of the element
+ * in the flatmap array.
+ *
+ * In hashmap the Path is a bit pattern that describes
+ * which slot we should traverse in each hashmap node.
+ * Since each hashmap node can only be up to 16 elements
+ * large we use 4 bits per level in the path.
+ *
+ * So a Path with value 0x110 will first get the 0:th
+ * slot in the head node, and then the 1:st slot in the
+ * resulting node and then finally the 1:st slot in the
+ * node beneath. If that slot is not a leaf, then the path
+ * continues down the 0:th slot until it finds a leaf and
+ * returns that leaf.
+ *
+ * Once the leaf has been found, the Path to the next leaf
+ * is built using a stack that was created while traversing
+ * the tree down.
+ *
+ * The index can become a bignum, which complicates the code
+ * a bit. However it should be very rare that this happens
+ * even on a 32bit system as you would need a tree of depth
+ * 7 or more.
+ */
 
-    if (!is_hashmap(BIF_ARG_2) || is_not_small(BIF_ARG_1))
+#define PATH_ELEM_SIZE 4
+#define PATH_ELEM_MASK 0xf
+#define PATH_ELEM(PATH) ((PATH) & PATH_ELEM_MASK)
+#define PATH_ELEMS_PER_DIGIT (sizeof(ErtsDigit) * 8 / PATH_ELEM_SIZE)
+
+BIF_RETTYPE erts_internal_map_next_2(BIF_ALIST_2) {
+
+    Eterm *hp = NULL, *lst,
+        iter, path, map, k, v;
+
+    path = BIF_ARG_1;
+    map  = BIF_ARG_2;
+
+    if (!is_map(map))
         BIF_ERROR(BIF_P, BADARG);
 
-    idx = signed_val(BIF_ARG_1);
+    if (path == am_none)
+        BIF_RET(am_none);
 
-    if (idx < 1 || idx > 17)
-        BIF_ERROR(BIF_P, BADARG);
+    if (is_flatmap(map)) {
+        flatmap_t *mp = (flatmap_t *)flatmap_val(map);
+        Uint idx, sz = flatmap_get_size(mp);
 
-    ASSERT(is_boxed(BIF_ARG_2));
+        if (is_not_small(path))
+            BIF_ERROR(BIF_P, BADARG);
 
-    ptr = boxed_val(BIF_ARG_2);
-again:
-    hdr = *ptr;
+        idx = unsigned_val(path);
 
-    switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
-    case HAMT_SUBTAG_HEAD_ARRAY:
-        ptr++;
-        sz = 16;
-        hval = 0xffff;
-        break;
-    case HAMT_SUBTAG_HEAD_BITMAP:
-        ptr++;
-        if (ptr[0] == -1) {
-            ptr = boxed_val(ptr[1]);
-            goto again;
+        if (sz == 0) {
+            if (idx == 0)
+                BIF_RET(am_none);
+            else
+                BIF_ERROR(BIF_P, BADARG);
         }
-    case HAMT_SUBTAG_NODE_BITMAP:
-        hval = MAP_HEADER_VAL(hdr);
-        sz = hashmap_bitcount(hval);
-        ASSERT(sz < 17);
-        break;
-    default:
-        erts_exit(ERTS_ABORT_EXIT, "bad header");
-    }
 
-    if (idx <= sz) {
-        if (is_list(ptr[idx]))
-            return ptr[idx];
-        else {
-            Eterm *hp = HAlloc(BIF_P, HAMT_HEAD_BITMAP_SZ(1));
-            hp[0] = MAP_HEADER_HAMT_HEAD_BITMAP(index_to_hash(idx, hval));
-            hp[1] = -1;
-            hp[2] = ptr[idx];
-            return make_hashmap(hp);
+        k = flatmap_get_keys(mp)[idx];
+        v = flatmap_get_values(mp)[idx];
+
+        if (idx + 1 < sz) {
+            path = make_small(idx + 1);
+        } else if (idx < sz) {
+            path = am_none;
+        } else {
+            BIF_ERROR(BIF_P, BADARG);
         }
     } else {
-        return am_none;
+        Uint curr_path;
+        Uint path_length = 0;
+        Uint *path_rest = NULL;
+        int i;
+        Eterm node = map;
+        DECLARE_WSTACK(stack);
+
+        ASSERT(is_hashmap(node));
+
+        if (is_small(path)) {
+            curr_path = unsigned_val(path);
+        } else if (is_big(path)) {
+            Eterm *big = big_val(path);
+            if (bignum_header_is_neg(*big))
+                BIF_ERROR(BIF_P, BADARG);
+            path_length = BIG_ARITY(big) - 1;
+            curr_path = BIG_DIGIT(big,  0);
+            path_rest = BIG_V(big) + 1;
+        } else {
+            BIF_ERROR(BIF_P, BADARG);
+        }
+
+        /* First we look for the K and V to return using the
+           path given. While doing so, we push each map node
+           and the index onto the stack so use later when
+           building the next index. */
+        for (i = 1; ; i++) {
+            Eterm *ptr = hashmap_val(node),
+                hdr = *ptr;
+            Uint sz;
+
+            ptr++;
+
+            switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+	    case HAMT_SUBTAG_HEAD_ARRAY:
+		ptr++;
+		sz = 16;
+		break;
+	    case HAMT_SUBTAG_HEAD_BITMAP:
+		ptr++;
+	    case HAMT_SUBTAG_NODE_BITMAP:
+		sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+		ASSERT(sz < 17);
+		break;
+            default:
+		erts_exit(ERTS_ABORT_EXIT, "bad header");
+	    }
+
+            if (PATH_ELEM(curr_path) >= sz)
+                BIF_ERROR(BIF_P, BADARG);
+
+            WSTACK_PUSH2(stack, node, PATH_ELEM(curr_path));
+
+            /* We have found a leaf, return it and calculate the path to next */
+            if (is_list(ptr[PATH_ELEM(curr_path)])) {
+                lst = list_val(ptr[PATH_ELEM(curr_path)]);
+                k = CAR(lst);
+                v = CDR(lst);
+                break;
+            }
+
+            node = ptr[PATH_ELEM(curr_path)];
+
+            curr_path >>= PATH_ELEM_SIZE;
+
+            if (i == PATH_ELEMS_PER_DIGIT) {
+                /* Switch to next bignum word if available,
+                   otherwise just follow 0 path */
+                i = 0;
+                if (path_length) {
+                    curr_path = *path_rest;
+                    path_length--;
+                    path_rest++;
+                } else {
+                    curr_path = 0;
+                }
+            }
+        }
+
+        /* We pop the stack until we come to the next leaf to return */
+        while (1) {
+            Uint idx = (Uint)WSTACK_POP(stack);
+            Eterm node = (Eterm)WSTACK_POP(stack);
+            Eterm *ptr = hashmap_val(node),
+                hdr = *ptr;
+            Uint sz;
+
+            ptr++;
+
+            switch(hdr & _HEADER_MAP_SUBTAG_MASK) {
+	    case HAMT_SUBTAG_HEAD_ARRAY:
+		ptr++;
+		sz = 16;
+		break;
+	    case HAMT_SUBTAG_HEAD_BITMAP:
+		ptr++;
+	    case HAMT_SUBTAG_NODE_BITMAP:
+		sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+		ASSERT(sz < 17);
+		break;
+            default:
+		erts_exit(ERTS_ABORT_EXIT, "bad header");
+	    }
+
+            if (idx + 1 < sz) {
+                curr_path = idx + 1;
+                break;
+            }
+
+            /* We have reached the end of the iteration */
+            if (WSTACK_ISEMPTY(stack)) {
+                path = am_none;
+                break;
+            }
+
+        }
+
+        if (path != am_none) {
+            Uint depth = WSTACK_COUNT(stack) / 2 + 1;
+            /* +1 because we already have the first element in curr_path */
+            Eterm *path_digits = NULL;
+
+            /* If the path cannot fit in a small, we allocate a bignum */
+            if (depth >= PATH_ELEMS_PER_DIGIT) {
+                /* We need multiple ErtsDigit's to represent the path */
+                int big_size = BIG_NEED_FOR_BITS(depth * PATH_ELEM_SIZE);
+                hp = HAlloc(BIF_P, big_size);
+                hp[0] = make_pos_bignum_header(big_size - BIG_NEED_SIZE(0));
+                path_digits = hp + big_size - 1;
+            }
+
+            /* Pop the stack to create the complete path to the next leaf */
+            while(!WSTACK_ISEMPTY(stack)) {
+                Uint idx = (Uint)WSTACK_POP(stack);
+                (void)WSTACK_POP(stack);
+
+                depth--;
+                if (depth % PATH_ELEMS_PER_DIGIT == 0) {
+                    path_digits[0] = curr_path;
+                    path_digits--;
+                    curr_path = 0;
+                }
+
+                curr_path <<= PATH_ELEM_SIZE;
+                curr_path |= idx;
+            }
+
+            if (path_digits) {
+                path_digits[0] = curr_path;
+                path = make_big(hp);
+            } else {
+                /* The Uint could be too large for a small */
+                path = erts_make_integer(curr_path, BIF_P);
+            }
+        }
+
+        DESTROY_WSTACK(stack);
     }
+
+    hp = HAlloc(BIF_P, 4 + 3 /* 3-tuple + 2-tuple */);
+    iter = TUPLE2(hp, path, map);
+    hp += 3;
+    BIF_RET(TUPLE3(hp, k, v, iter));
 }
 
 /* implementation of builtin emulations */

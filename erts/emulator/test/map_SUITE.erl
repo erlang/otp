@@ -53,6 +53,7 @@
          t_bif_map_to_list/1,
          t_bif_map_from_list/1,
          t_bif_erts_internal_maps_to_list/1,
+         t_bif_map_next/1,
 
          %% erlang
          t_erlang_hash/1,
@@ -120,6 +121,7 @@ all() -> [t_build_and_match_literals, t_build_and_match_literals_large,
           t_bif_map_values,
           t_bif_map_to_list, t_bif_map_from_list,
           t_bif_erts_internal_maps_to_list,
+          t_bif_map_next,
 
           %% erlang
           t_erlang_hash, t_map_encode_decode,
@@ -2398,6 +2400,55 @@ t_bif_erts_internal_maps_to_list(Config) when is_list(Config) ->
     {'EXIT', {badarg,_}} = (catch erts_internal:maps_to_list(id(#{}),id(a))),
     {'EXIT', {badarg,_}} = (catch erts_internal:maps_to_list(id(#{1=>2}),id(<<>>))),
     ok.
+
+t_bif_map_next(Config) when is_list(Config) ->
+
+    erts_debug:set_internal_state(available_internal_state, true),
+
+    try
+
+        none = maps:next(maps:iterator(id(#{}))),
+
+        verify_iterator(#{}),
+        verify_iterator(#{a => 1, b => 2, c => 3}),
+
+        %% Use fatmap in order to test iterating in very deep maps
+        FM = fatmap(43),
+        verify_iterator(FM),
+
+        {'EXIT', {{badmap,[{a,b},b]},_}} = (catch maps:iterator(id([{a,b},b]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id(a))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([a|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([1|#{}]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([16#FFFFFFF|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([16#F0F0F0F|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([16#1234567890ABCDEF|FM]))),
+
+        ok
+    after
+            erts_debug:set_internal_state(available_internal_state, false)
+    end.
+
+verify_iterator(Map) ->
+    KVs = t_fold(fun(K, V, A) -> [{K, V} | A] end, [], Map),
+
+    %% Verify that KVs created by iterating Map is of
+    %% correct size and contains all elements
+    true = length(KVs) == maps:size(Map),
+    [maps:get(K, Map) || {K, _} <- KVs],
+    ok.
+
+
+t_fold(Fun, Init, Map) ->
+    t_fold_1(Fun, Init, maps:iterator(Map)).
+
+t_fold_1(Fun, Acc, Iter) ->
+    case maps:next(Iter) of
+        {K, V, NextIter} ->
+            t_fold_1(Fun, Fun(K,V,Acc), NextIter);
+        none ->
+            Acc
+    end.
 
 t_bif_build_and_check(Config) when is_list(Config) ->
     ok = check_build_and_remove(750,[fun(K) -> [K,K] end,

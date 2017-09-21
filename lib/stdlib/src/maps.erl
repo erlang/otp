@@ -24,7 +24,7 @@
          map/2, size/1,
          update_with/3, update_with/4,
          without/2, with/2,
-         iterator/1, next/1]).
+         iterator/1, iterator/2, next/1]).
 
 %% BIFs
 -export([get/2, find/2, from_list/1,
@@ -32,9 +32,12 @@
          new/0, put/3, remove/2, take/2,
          to_list/1, update/3, values/1]).
 
--opaque iterator() :: [{term(), term()}] | [[pos_integer() | map()]].
+-opaque iterator() :: {non_neg_integer() | none | list(term()), map()}
+                    | list({term(), term()}).
 
 -export_type([iterator/0]).
+
+-define(IS_ITERATOR(I), (is_list(I) orelse (is_map(element(2,I) andalso (is_list(element(1,I) orelse is_integer(element(1,I)))))))).
 
 %% Shadowed by erl_bif_types: maps:get/2
 -spec get(Key,Map) -> Value when
@@ -43,7 +46,6 @@
     Value :: term().
 
 get(_,_) -> erlang:nif_error(undef).
-
 
 -spec find(Key,Map) -> {ok, Value} | error when
     Key :: term(),
@@ -197,15 +199,17 @@ get(Key,Map,Default) ->
     erlang:error({badmap,Map},[Key,Map,Default]).
 
 
--spec filter(Pred,Map1) -> Map2 when
+-spec filter(Pred,MapOrIter) -> Map when
       Pred :: fun((Key, Value) -> boolean()),
       Key  :: term(),
       Value :: term(),
-      Map1 :: map(),
-      Map2 :: map().
+      MapOrIter :: map() | iterator(),
+      Map :: map().
 
 filter(Pred,Map) when is_function(Pred,2), is_map(Map) ->
-    maps:from_list(filter_1(Pred, iterator(Map)));
+    maps:from_list([{K,V}||{K,V}<-maps:to_list(Map),Pred(K,V)]);
+filter(Pred,Iterator) when is_function(Pred,2), ?IS_ITERATOR(Iterator) ->
+    maps:from_list(filter_1(Pred, Iterator));
 filter(Pred,Map) ->
     erlang:error(error_type(Map),[Pred,Map]).
 
@@ -222,18 +226,20 @@ filter_1(Pred, Iter) ->
             []
     end.
 
--spec fold(Fun,Init,Map) -> Acc when
+-spec fold(Fun,Init,MapOrIter) -> Acc when
     Fun :: fun((K, V, AccIn) -> AccOut),
     Init :: term(),
     Acc :: term(),
     AccIn :: term(),
     AccOut :: term(),
-    Map :: map(),
+    MapOrIter :: map() | iterator(),
     K :: term(),
     V :: term().
 
 fold(Fun,Init,Map) when is_function(Fun,3), is_map(Map) ->
-    fold_1(Fun, Init, iterator(Map));
+    lists:foldl(fun({K,V},A) -> Fun(K,V,A) end,Init,maps:to_list(Map));
+fold(Fun,Init,Iterator) when is_function(Fun,3), ?IS_ITERATOR(Iterator) ->
+    fold_1(Fun,Init,Iterator);
 fold(Fun,Init,Map) ->
     erlang:error(error_type(Map),[Fun,Init,Map]).
 
@@ -245,16 +251,18 @@ fold_1(Fun, Acc, Iter) ->
             Acc
     end.
 
--spec map(Fun,Map1) -> Map2 when
+-spec map(Fun,MapOrIter) -> Map when
     Fun :: fun((K, V1) -> V2),
-    Map1 :: map(),
-    Map2 :: map(),
+    MapOrIter :: map() | iterator(),
+    Map :: map(),
     K :: term(),
     V1 :: term(),
     V2 :: term().
 
 map(Fun,Map) when is_function(Fun, 2), is_map(Map) ->
-    maps:from_list(map_1(Fun, iterator(Map)));
+    maps:from_list([{K,Fun(K,V)}||{K,V}<-maps:to_list(Map)]);
+map(Fun,Iterator) when is_function(Fun, 2), ?IS_ITERATOR(Iterator) ->
+    maps:from_list(map_1(Fun, Iterator));
 map(Fun,Map) ->
     erlang:error(error_type(Map),[Fun,Map]).
 
@@ -278,28 +286,45 @@ size(Val) ->
       Map :: map(),
       Iterator :: iterator().
 
-iterator(Map) when is_map(Map) ->
-    case maps:size(Map) < 42 of
-        true -> maps:to_list(Map);
-        false -> [[1 | Map]]
-    end;
-iterator(M) ->
-    erlang:error(error_type(M),[M]).
+iterator(M) when is_map(M) -> iterator(M, #{});
+iterator(M) -> erlang:error({badmap, M}, [M]).
 
--spec next(Iterator) -> {K,V,NextIterator} | 'none' when
-      Iterator :: iterator(),
-      K :: term(),
-      V :: term(),
-      NextIterator :: iterator().
-next([]) -> none;
-next([[Index | Map] | St]) ->
-    case erts_internal:map_get_index(Index, Map) of
-        SubMap when is_map(SubMap) -> next([[1 | SubMap], [Index+1|Map] | St]);
-        [K|V] -> {K,V,[[Index+1 | Map] | St]};
-        none -> next(St)
+-spec iterator(Map, Opts) -> Iterator when
+      Map :: map(),
+      Opts :: #{ ordered => boolean(), optimize => speed | memory },
+      Iterator :: iterator().
+iterator(M, Opts) when is_map(M), is_map(Opts) ->
+    case maps:merge(default_iterator_opts(), Opts) of
+        #{ ordered := true, optimize := speed} -> lists:sort(maps:to_list(M));
+        #{ ordered := false, optimize := speed} -> maps:to_list(M);
+        #{ ordered := true, optimize := memory} -> {lists:sort(maps:keys(M)), M};
+        #{ ordered := false, optimize := memory} -> {0, M}
     end;
-next([{K, V} | I]) ->
-    {K, V, I}.
+iterator(M, Opts) when is_map(M) ->
+    erlang:error({badmap, M}, [M, Opts]);
+iterator(M, Opts) ->
+    erlang:error(error_type(M), [M, Opts]).
+
+default_iterator_opts() ->
+    #{ ordered => false, optimize => speed }.
+
+-spec next(Iterator) -> {Key, Value, NextIterator} | 'none' when
+      Iterator :: iterator(),
+      Key :: term(),
+      Value :: term(),
+      NextIterator :: iterator().
+next([{K, V} | T]) ->
+    {K, V, T};
+next([]) ->
+    none;
+next({I, M}) when is_map(M), is_integer(I) orelse is_atom(I) ->
+    erts_internal:map_next(I, M);
+next({[K | T], M}) when is_map(M) ->
+    {K, maps:get(K, M), {T, M}};
+next({[], M}) when is_map(M) ->
+    none;
+next(Iter) ->
+    erlang:error(badarg, [Iter]).
 
 -spec without(Ks,Map1) -> Map2 when
     Ks :: [K],
@@ -332,5 +357,5 @@ with(Ks,M) ->
     erlang:error(error_type(M),[Ks,M]).
 
 
-error_type(M) when is_map(M) -> badarg;
+error_type(M) when is_map(M); ?IS_ITERATOR(M) -> badarg;
 error_type(V) -> {badmap, V}.
