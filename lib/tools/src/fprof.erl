@@ -1136,7 +1136,7 @@ ensure_open(Pid, _Options) when is_pid(Pid) ->
 ensure_open([], _Options) ->
     {already_open, undefined};
 ensure_open(Filename, Options) when is_atom(Filename); is_list(Filename) ->
-    file:open(Filename, Options).
+    file:open(Filename, [{encoding, utf8} | Options]).
 
 %%%---------------------------------
 %%% Fairly generic utility functions
