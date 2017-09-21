@@ -139,7 +139,7 @@ endif
 #
 .PRECIOUS: %.erl %.fo
 
-## Uncomment these lines and add .idl to suffixes above to have erlc 
+## Uncomment these lines and add .idl to suffixes above to have erlc
 ## eat IDL files
 ##$(EGEN)/%.erl: $(ESRC)/%.idl
 ##	$(ERLC) $(IDL_FLAGS) $<
@@ -239,7 +239,7 @@ ifeq ($(PDFCOLOR),)
 PDFCOLOR = \#960003
 endif
 
-# HTML & GIF files that always are generated and must be delivered 
+# HTML & GIF files that always are generated and must be delivered
 SGML_COLL_FILES = $(SGML_APPLICATION_FILES) $(SGML_PART_FILES)
 XML_COLL_FILES = $(XML_APPLICATION_FILES) $(XML_PART_FILES)
 DEFAULT_HTML_FILES = \
@@ -327,5 +327,4 @@ $(MAN9DIR)/%.9: %.xml
 	 escript $(DOCGEN)/priv/bin/codeline_preprocessing.escript $< $@
 
 .fo.pdf:
-	$(FOP) -c $(FOP_CONFIG) -fo $< -pdf $@
-
+	$(FOP) -c $(FOP_CONFIG) -cache $(ERL_TOP)/make/$(TARGET)/fop-fonts.cache -fo $< -pdf $@
