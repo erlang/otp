@@ -1089,6 +1089,7 @@ typedef struct {
 typedef struct dist_referrer_ {
     struct dist_referrer_ *next;
     int heap_ref;
+    int ets_ref;
     int node_ref;
     int ctrl_ref;
     int system_ref;
@@ -1207,10 +1208,11 @@ insert_dist_referrer(ReferredDist *referred_dist,
 	else {
 	    Uint *hp = &drp->id_heap[0];
 	    ASSERT(is_tuple(id));
-	    drp->id = copy_struct(id, size_object(id), &hp, NULL);
+            drp->id = copy_struct(id, size_object(id), &hp, NULL);
 	}
 	drp->creation = creation;
 	drp->heap_ref = 0;
+        drp->ets_ref = 0;
 	drp->node_ref = 0;
 	drp->ctrl_ref = 0;
 	drp->system_ref = 0;
@@ -1220,6 +1222,7 @@ insert_dist_referrer(ReferredDist *referred_dist,
     case NODE_REF:	drp->node_ref++;	break;
     case CTRL_REF:	drp->ctrl_ref++;	break;
     case HEAP_REF:	drp->heap_ref++;	break;
+    case ETS_REF:	drp->ets_ref++;	        break;
     case SYSTEM_REF:	drp->system_ref++;	break;
     default:		ASSERT(0);
     }
@@ -1897,6 +1900,10 @@ reference_table_term(Uint **hpp, ErlOffHeap *ohp, Uint *szp)
 		tup = MK_2TUP(AM_heap, MK_UINT(drp->heap_ref));
 		drl = MK_CONS(tup, drl);
 	    }
+            if(drp->ets_ref) {
+                tup = MK_2TUP(AM_ets, MK_UINT(drp->ets_ref));
+                drl = MK_CONS(tup, drl);
+            }
 	    if(drp->system_ref) {
 		tup = MK_2TUP(AM_system, MK_UINT(drp->system_ref));
 		drl = MK_CONS(tup, drl);
@@ -1913,12 +1920,17 @@ reference_table_term(Uint **hpp, ErlOffHeap *ohp, Uint *szp)
 	    else if (is_tuple(drp->id)) {
 		Eterm *t;
 		ASSERT(drp->system_ref && !drp->node_ref
-		       && !drp->ctrl_ref && !drp->heap_ref);
+		       && !drp->ctrl_ref && !drp->heap_ref && !drp->ets_ref);
 		t = tuple_val(drp->id);
 		ASSERT(2 == arityval(t[0]));
 		tup = MK_2TUP(t[1], t[2]);
 	    }
-	    else {
+	    else if (drp->ets_ref) {
+                ASSERT(!drp->heap_ref && !drp->node_ref &&
+                       !drp->ctrl_ref && !drp->system_ref);
+                tup = MK_2TUP(AM_ets, drp->id);
+            }
+            else {
 		ASSERT(!drp->ctrl_ref && drp->node_ref);
 		ASSERT(is_atom(drp->id));
 		tup = MK_2TUP(drp->id, MK_UINT(drp->creation));
