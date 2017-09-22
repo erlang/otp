@@ -24,7 +24,8 @@
 
 -export([integer_lists/1, binary_lists/1, empty_lists/1, empty_binary_lists/1,
          mixed_lists/1, improper_lists/1, illegal_lists/1, cons_bomb/1,
-         iolist_to_iovec_idempotence/1, iolist_to_iovec_correctness/1]).
+         sub_binary_lists/1, iolist_to_iovec_idempotence/1,
+         iolist_to_iovec_correctness/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -34,8 +35,8 @@ suite() ->
 
 all() ->
     [integer_lists, binary_lists, empty_lists, empty_binary_lists, mixed_lists,
-     illegal_lists, improper_lists, cons_bomb, iolist_to_iovec_idempotence,
-     iolist_to_iovec_correctness].
+     sub_binary_lists, illegal_lists, improper_lists, cons_bomb,
+     iolist_to_iovec_idempotence, iolist_to_iovec_correctness].
 
 init_per_suite(Config) ->
     Config.
@@ -46,15 +47,16 @@ end_per_suite(Config) ->
 
 integer_lists(Config) when is_list(Config) ->
     Variations = gen_variations([I || I <- lists:seq(1, 255)]),
+    equivalence_test(fun erlang:iolist_to_iovec/1, Variations).
 
-    equivalence_test(fun erlang:iolist_to_iovec/1, Variations),
-
-    ok.
+sub_binary_lists(Config) when is_list(Config) ->
+    Parent = <<0:256/unit:8, "gazurka">>,
+    <<0:196/unit:8, Child/binary>> = Parent,
+    equivalence_test(fun erlang:iolist_to_iovec/1, gen_variations(Child)).
 
 binary_lists(Config) when is_list(Config) ->
     Variations = gen_variations([<<I:8>> || I <- lists:seq(1, 255)]),
-    equivalence_test(fun erlang:iolist_to_iovec/1, Variations),
-    ok.
+    equivalence_test(fun erlang:iolist_to_iovec/1, Variations).
 
 empty_lists(Config) when is_list(Config) ->
     Variations = gen_variations([[] || _ <- lists:seq(1, 256)]),
@@ -70,8 +72,7 @@ empty_binary_lists(Config) when is_list(Config) ->
 
 mixed_lists(Config) when is_list(Config) ->
     Variations = gen_variations([<<>>, lists:seq(1, 40), <<12, 45, 78>>]),
-    equivalence_test(fun erlang:iolist_to_iovec/1, Variations),
-    ok.
+    equivalence_test(fun erlang:iolist_to_iovec/1, Variations).
 
 illegal_lists(Config) when is_list(Config) ->
     BitStrs = gen_variations(["gurka", <<1:1>>, "gaffel"]),
@@ -82,18 +83,15 @@ illegal_lists(Config) when is_list(Config) ->
     Variations =
         BitStrs ++ BadInts ++ Atoms ++ BadTails,
 
-    illegality_test(fun erlang:iolist_to_iovec/1, Variations),
-
-    ok.
+    illegality_test(fun erlang:iolist_to_iovec/1, Variations).
 
 improper_lists(Config) when is_list(Config) ->
     Variations = [
         [[[[1 | <<2>>] | <<3>>] | <<4>>] | <<5>>],
-        [[<<"test">>, 3] | <<"improper tail">>],
-        [1, 2, 3 | <<"improper tail">>]
+        [[<<1>>, 2] | <<3, 4, 5>>],
+        [1, 2, 3 | <<4, 5>>]
     ],
-    equivalence_test(fun erlang:iolist_to_iovec/1, Variations),
-    ok.
+    equivalence_test(fun erlang:iolist_to_iovec/1, Variations).
 
 cons_bomb(Config) when is_list(Config) ->
     IntBase = gen_variations([I || I <- lists:seq(1, 255)]),
@@ -108,8 +106,7 @@ cons_bomb(Config) when is_list(Config) ->
         end,
 
     Variations = gen_variations([IntBase, BinBase, MixBase], Rounds),
-    equivalence_test(fun erlang:iolist_to_iovec/1, Variations),
-    ok.
+    equivalence_test(fun erlang:iolist_to_iovec/1, Variations).
 
 iolist_to_iovec_idempotence(Config) when is_list(Config) ->
     IntVariations = gen_variations([I || I <- lists:seq(1, 255)]),
@@ -134,11 +131,15 @@ iolist_to_iovec_correctness(Config) when is_list(Config) ->
     ok.
 
 illegality_test(Fun, Variations) ->
-    [{'EXIT',{badarg, _}} = (catch Fun(Variation)) || Variation <- Variations].
+    [{'EXIT',{badarg, _}} = (catch Fun(Variation)) || Variation <- Variations],
+    ok.
 
 equivalence_test(Fun, [Head | _] = Variations) ->
+    %% Check that each variation is equal to the others, and that the sum of
+    %% them is equal to the input.
     Comparand = Fun(Head),
-    [is_iolist_equal(Comparand, Fun(Variation)) || Variation <- Variations],
+    [true = is_iolist_equal(Comparand, Fun(V)) || V <- Variations],
+    true = is_iolist_equal(Variations, Fun(Variations)),
     ok.
 
 is_iolist_equal(A, B) ->
