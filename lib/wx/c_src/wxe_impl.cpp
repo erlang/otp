@@ -666,7 +666,7 @@ void * WxeApp::getPtr(char * bp, wxeMemEnv *memenv) {
     throw wxe_badarg(index);
   }
   void * temp = memenv->ref2ptr[index];
-  if((index < memenv->next) && ((index == 0) || (temp > NULL)))
+  if((index < memenv->next) && ((index == 0) || (temp != (void *) NULL)))
     return temp;
   else {
     throw wxe_badarg(index);
@@ -678,7 +678,7 @@ void WxeApp::registerPid(char * bp, ErlDrvTermData pid, wxeMemEnv * memenv) {
   if(!memenv)
     throw wxe_badarg(index);
   void * temp = memenv->ref2ptr[index];
-  if((index < memenv->next) && ((index == 0) || (temp > NULL))) {
+  if((index < memenv->next) && ((index == 0) || (temp != (void *) NULL))) {
     ptrMap::iterator it;
     it = ptr2ref.find(temp);
     if(it != ptr2ref.end()) {
