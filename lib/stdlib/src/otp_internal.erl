@@ -466,8 +466,6 @@ obsolete_1(inviso, _, _) ->
     {removed,"the inviso application was removed in R16"};
 
 %% Added in R15B01.
-obsolete_1(gs, _, _) ->
-    {removed,"the gs application has been removed; use the wx application instead"};
 obsolete_1(ssh, sign_data, 2) ->
     {removed,"removed in R16A; use public_key:pem_decode/1, public_key:pem_entry_decode/1 "
      "and public_key:sign/3 instead"};
