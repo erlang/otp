@@ -794,7 +794,7 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
       client_config := [conf_opt()]}</v>
 
       <v>conf_opt() = {cert, der_encoded()} | {key, der_encoded()} |{cacerts, [der_encoded()]}</v>
-      <d>This is a subset of the type <seealso marker="ssl#type-ssloption"> ssl:ssl_option()</seealso> </d>
+      <d>This is a subset of the type <seealso marker="ssl:ssl#type-ssloption"> ssl:ssl_option()</seealso> </d>
     </type>
     
     <desc>
