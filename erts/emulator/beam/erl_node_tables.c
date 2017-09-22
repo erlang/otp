@@ -1325,6 +1325,11 @@ insert_offheap2(ErlOffHeap *oh, void *arg)
     (((Bin)->intern.flags & BIN_FLAG_MAGIC)                             \
      && ERTS_MAGIC_BIN_DESTRUCTOR((Bin)) == erts_dist_entry_destructor)
 
+#define IsSendCtxBinary(Bin)                                            \
+    (((Bin)->intern.flags & BIN_FLAG_MAGIC)                             \
+     && ERTS_MAGIC_BIN_DESTRUCTOR((Bin)) == erts_dsend_context_dtor)
+
+
 static void
 insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 {
@@ -1361,7 +1366,12 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    inserted_bins = nib;
 		    UnUseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
 		}
-	    }		
+	    }
+            else if (IsSendCtxBinary(u.mref->mb)) {
+                ErtsSendContext* ctx = ERTS_MAGIC_BIN_DATA(u.mref->mb);
+                if (ctx->deref_dep)
+                    insert_dist_entry(ctx->dep, type, id, 0);
+            }
 	    break;
 	case REFC_BINARY_SUBTAG:
 	case FUN_SUBTAG:
