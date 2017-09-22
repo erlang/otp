@@ -37,6 +37,21 @@
   one section in this document. The title of each section is the
   version number of <c>Event Tracer (ET)</c>.</p>
 
+<section><title>ET 1.6.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Tools are updated to show Unicode atoms correctly.</p>
+          <p>
+	    Own Id: OTP-14464</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>ET 1.6</title>
 
     <section><title>Improvements and New Features</title>

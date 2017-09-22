@@ -33,7 +33,29 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 6.4.1</title>
+  <section><title>Inets 6.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Make sure mod_log uses the correct status code</p>
+          <p>
+	    Own Id: OTP-14510</p>
+        </item>
+        <item>
+          <p>
+	    Correct behaviour of mod_disk_log to proparly handle
+	    repair options</p>
+          <p>
+	    Own Id: OTP-14530</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 6.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

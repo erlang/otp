@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    On macOS 10.13 (High Sierra), disksup could not grab
+	    information for any disks that used the new APFS file
+	    system. That has been corrected.</p>
+          <p>
+	    Own Id: OTP-14560 Aux Id: ERL-461 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.4.2</title>
 
     <section><title>Improvements and New Features</title>

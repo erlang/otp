@@ -43,6 +43,208 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix handling of Proxy-Info in answer messages setting the
+	    E-bit.</p>
+          <p>
+	    RFC 6733 requires that Proxy-Info AVPs in an incoming
+	    request be echoed in an outgoing answer. This was not
+	    done in answers formulated by diameter; for example, as a
+	    result of a handle_request callback having returned an
+	    'answer-message' or protocol_error tuple.</p>
+          <p>
+	    Own Id: OTP-9869</p>
+        </item>
+        <item>
+          <p>
+	    React to nodeup/nodedown when sharing peer connections.</p>
+          <p>
+	    Service configuration share_peers and use_shared_peers
+	    did not respond to the coming and going of remote nodes.</p>
+          <p>
+	    Own Id: OTP-14011</p>
+        </item>
+        <item>
+          <p>
+	    Fix inappropriate message callbacks.</p>
+          <p>
+	    An incoming CER or DPR was regarded as discarded,
+	    resulting in a corresponding message callback (if
+	    configured) in diameter_tcp/sctp.</p>
+          <p>
+	    Own Id: OTP-14486</p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of 5009 errors (DIAMETER_AVP_OCCURS_TOO_MANY
+	    TIMES).</p>
+          <p>
+	    RFC 6733 says that the first AVP that exceeds the bound
+	    should be reported, but the suggestions in the errors
+	    field of a diameter_packet record counted AVPs from the
+	    rear of the message, not the front. Additionally,
+	    diameter 2.0 in OTP 20.0 broke the counting by accepting
+	    one more AVP than the message grammar in question
+	    allowed.</p>
+          <p>
+	    Own Id: OTP-14512</p>
+        </item>
+        <item>
+          <p>
+	    Match case insensitively in diameter_tcp/sctp accept
+	    tuple.</p>
+          <p>
+	    Matching of remote addresses when accepting connections
+	    in a listening transport was case-sensitive, causing the
+	    semantics to change as a consequence of (kernel)
+	    OTP-13006.</p>
+          <p>
+	    Own Id: OTP-14535 Aux Id: OTP-13006 </p>
+        </item>
+        <item>
+          <p>
+	    Fix backwards incompatibility of remote send when sharing
+	    transports.</p>
+          <p>
+	    The sending of requests over a transport connection on a
+	    remote node running an older version of diameter was
+	    broken by diameter 2.0 in OTP 20.0.</p>
+          <p>
+	    Own Id: OTP-14552</p>
+        </item>
+        <item>
+          <p>
+	    Fix diameter_packet.avps decode of Grouped AVP errors in
+	    Failed-AVP.</p>
+          <p>
+	    Decode didn't produce a list of diameter_avp records, so
+	    information about faulty component AVPs was lost.</p>
+          <p>
+	    Own Id: OTP-14607</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Let unordered delivery be configured in diameter_sctp.</p>
+          <p>
+	    With option {unordered, boolean() | pos_integer()}, with
+	    false the default, and N equivalent to OS =&lt; N, where
+	    OS is the number of outbound streams negotiated on the
+	    association in question. If configured, unordered sending
+	    commences upon reception of a second message, outgoing
+	    messages being sent on stream 0 before this.</p>
+          <p>
+	    The default false is for backwards compatibility, but
+	    false or 1 should be set to follow RFC 6733's
+	    recommendation on the use of unordered sending to avoid
+	    head-of-line blocking. There is typically no meaningful
+	    order to preserve, since the order in which outgoing
+	    messages are received by a transport process isn't known
+	    to the sender.</p>
+          <p>
+	    Own Id: OTP-10889</p>
+        </item>
+        <item>
+          <p>
+	    Complete/simplify Standards Compliance in User's Guide.</p>
+          <p>
+	    Own Id: OTP-10927</p>
+        </item>
+        <item>
+          <p>
+	    Add service option decode_format.</p>
+          <p>
+	    To allow incoming messages to be decoded into maps or
+	    lists instead of records. Messages can be presented in
+	    any of the formats for encode.</p>
+          <p>
+	    Decode performance has also been improved.</p>
+          <p>
+	    Own Id: OTP-14511 Aux Id: OTP-14343 </p>
+        </item>
+        <item>
+          <p>
+	    Add service option traffic_counters.</p>
+          <p>
+	    To let message-related counters be disabled, which can be
+	    a performance improvement in some usecases.</p>
+          <p>
+	    Own Id: OTP-14521</p>
+        </item>
+        <item>
+          <p>
+	    Allow loopback/any as local addresses in
+	    diameter_tcp/sctp.</p>
+          <p>
+	    The atoms were implied by documentation, but not handled
+	    in code.</p>
+          <p>
+	    Own Id: OTP-14544</p>
+        </item>
+        <item>
+          <p>
+	    Add transport option strict_capx.</p>
+          <p>
+	    To allow the RFC 6733 requirement that a transport
+	    connection be closed if a message is received before
+	    capabilities exchange to be relaxed.</p>
+          <p>
+	    Own Id: OTP-14546</p>
+        </item>
+        <item>
+          <p>
+	    Be consistent with service/transport configuration.</p>
+          <p>
+	    For options for which it's meaningful, defaults values
+	    for transport options can now be configured on a service.
+	    This was previously the case only for an arbitrary subset
+	    of options.</p>
+          <p>
+	    Own Id: OTP-14555</p>
+        </item>
+        <item>
+          <p>
+	    Add service/transport option avp_dictionaries.</p>
+          <p>
+	    To provide better support for AVPs that are not defined
+	    in the application dictionary: configuring additional
+	    dictionaries in an avp_dictionaries tuple allows their
+	    AVPs to be encoded/decoded in much the same fashion as
+	    application AVPs.</p>
+          <p>
+	    The motivation is RFC 7683 Diameter Overload, Indicator
+	    Conveyance (DOIC), that defines AVPs intended to be
+	    piggybacked onto arbitrary messages. A DOIC dictionary
+	    has been included in the installation, in module
+	    diameter_gen_doic_rfc7683.</p>
+          <p>
+	    Own Id: OTP-14588</p>
+        </item>
+        <item>
+          <p>
+	    Decode application AVPs in answers setting the E-bit.</p>
+          <p>
+	    AVPs defined in the application of the message being sent
+	    were previously not decoded, only those in the common
+	    application that defines the answer-message grammar.</p>
+          <p>
+	    Own Id: OTP-14596</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.0</title>
 
     <section><title>Improvements and New Features</title>

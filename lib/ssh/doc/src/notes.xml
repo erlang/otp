@@ -30,6 +30,48 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Enables the <c>ssh_io module</c> to also accept binary
+	    values when reading standard_io instead of getting stuck
+	    in the receive clause.</p>
+          <p>
+	    Own Id: OTP-14506 Aux Id: PR1503 </p>
+        </item>
+        <item>
+          <p>
+	    Previously, the file owner access permission in response
+	    to ssh_sftp:read_file_info/2 function was always
+	    <c>read_write</c>. With this fix, the actual value of
+	    file owner access permission is added to the returning
+	    record. That value is calculated from file mode value.</p>
+          <p>
+	    Own Id: OTP-14550 Aux Id: PR1533 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new option <c>modify_algorithms</c> is implemented. It
+	    enables specifying changes on the default algorithms
+	    list. See the reference manual and the SSH User's Guide
+	    chapter "Configuring algorithms in SSH".</p>
+          <p>
+	    Own Id: OTP-14568</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

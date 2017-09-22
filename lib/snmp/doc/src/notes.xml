@@ -34,7 +34,24 @@
   </header>
 
 
-  <section><title>SNMP 5.2.6</title>
+  <section><title>SNMP 5.2.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug in the SNMP MIB compiler has been fixed. An
+	    AUGMENTS referring to a table defined later in the MIB
+	    did not work.</p>
+          <p>
+	    Own Id: OTP-13014 Aux Id: ERL-375 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.2.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

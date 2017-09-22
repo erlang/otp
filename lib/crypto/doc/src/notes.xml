@@ -31,6 +31,52 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>On macOS, <c>crypto</c> would crash if <c>observer</c>
+	    had been started before <c>crypto</c>. On the beta for
+	    macOS 10.13 (High Sierra), <c>crypto</c> would crash.
+	    Both of those bugs have been fixed.</p>
+          <p>
+	    Own Id: OTP-14499 Aux Id: ERL-251 ERL-439 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Extend crypto:sign, crypto:verify, public_key:sign and
+	    public_key:verify with:</p>
+          <p>
+	    * support for RSASSA-PS padding for signatures and for
+	    saltlength setting<br/> * X9.31 RSA padding.<br/> * sha,
+	    sha224, sha256, sha384, and sha512 for dss signatures as
+	    mentioned in NIST SP 800-57 Part 1.<br/> * ripemd160 to
+	    be used for rsa signatures.</p>
+          <p>
+	    This is a manual merge of half of the pull request 838 by
+	    potatosalad from Sept 2015.</p>
+          <p>
+	    Own Id: OTP-13704 Aux Id: PR838 </p>
+        </item>
+        <item>
+          <p>
+	    A new tuple in <c>crypto:supports/0</c> reports supported
+	    MAC algorithms.</p>
+          <p>
+	    Own Id: OTP-14504</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

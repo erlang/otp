@@ -33,6 +33,21 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.15.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.15.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

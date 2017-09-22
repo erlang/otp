@@ -32,6 +32,57 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The following improvements are done to Crashdump
+	    Viewer:</p> <list> <item>Reading of crash dumps with many
+	    binaries is optimized.</item> <item>A progress bar is
+	    shown when the detail view for a process is
+	    opened.</item> <item>The <c>cdv</c> script now sets
+	    <c>ERL_CRASH_DUMP_SECONDS=0</c> to avoid generating a new
+	    crash dump from the node running the Crashdump
+	    Viewer.</item> <item>A warning dialog is shown if the
+	    node running the Crashdump Viewer could potentially
+	    overwrite the crash dump under inspection.</item>
+	    <item>Bugfix: In some situations, Crashdump Viewer could
+	    not find the end of the 'Last calls' section in a crash
+	    dump, and would erroneously mark the crash dump as
+	    truncated. This is now corrected.</item> <item>Bugfix: In
+	    some situations, process info for a specific process
+	    would be marked as truncated by Crashdump Viewer, even if
+	    the crash dump was truncated in the binary section - and
+	    not related to the process in question. This is now
+	    corrected.</item> </list>
+          <p>
+	    Own Id: OTP-14386</p>
+        </item>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+        <item>
+          <p>
+	    Tools are updated to show Unicode atoms correctly.</p>
+          <p>
+	    Own Id: OTP-14464</p>
+        </item>
+        <item>
+          <p>
+	    Add system statistics and limits to frontpage in
+	    observer.</p>
+          <p>
+	    Own Id: OTP-14536</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

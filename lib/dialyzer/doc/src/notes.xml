@@ -32,6 +32,40 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 3.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug regarding map types that caused Dialyzer to
+	    go into an infinite loop. A consequence of the fix is
+	    that compound map keys such as maps and tuples sometimes
+	    are handled with less precision than before. </p>
+          <p>
+	    Own Id: OTP-14572 Aux Id: seq13319 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+        <item>
+	    <p> The check for unknown remote types is improved. </p>
+          <p>
+	    Own Id: OTP-14606 Aux Id: OTP-14218 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 3.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

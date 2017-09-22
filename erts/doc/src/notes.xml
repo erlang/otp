@@ -31,6 +31,184 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Changed <c>erlang:apply/2</c> to raise a <c>badarg</c>
+	    exception if the second argument is not a proper list.
+	    Previous behavior was a misleading <c>undef</c>
+	    exception.</p>
+          <p>
+	    Own Id: OTP-14490 Aux Id: ERL-432 </p>
+        </item>
+        <item>
+	    <p>On macOS, <c>crypto</c> would crash if <c>observer</c>
+	    had been started before <c>crypto</c>. On the beta for
+	    macOS 10.13 (High Sierra), <c>crypto</c> would crash.
+	    Both of those bugs have been fixed.</p>
+          <p>
+	    Own Id: OTP-14499 Aux Id: ERL-251 ERL-439 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in enif_whereis_pid/port that could cause heap
+	    corruption in rare cases.</p>
+          <p>
+	    Own Id: OTP-14523</p>
+        </item>
+        <item>
+          <p>
+	    Fix so that trace messages generated when in a dirty nif
+	    are flushed correctly when the dirty nif is done
+	    executing.</p>
+          <p>
+	    Own Id: OTP-14538</p>
+        </item>
+        <item>
+          <p>
+	    Fix escape code handling when using ANSI color codes in
+	    the shell.</p>
+          <p>
+	    Own Id: OTP-14549 Aux Id: PR1536 </p>
+        </item>
+        <item>
+          <p>
+	    Upgraded the ERTS internal PCRE library from version 8.40
+	    to version 8.41. See <url
+	    href="http://pcre.org/original/changelog.txt">http://pcre.org/original/changelog.txt</url>
+	    for information about changes made to PCRE. This library
+	    implements major parts of the <seealso
+	    marker="stdlib:re"><c>re</c></seealso> regular
+	    expressions module.</p>
+          <p>
+	    Own Id: OTP-14574</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug causing <c>statistics(runtime)</c> to produce
+	    negative values and a bug in
+	    <c>statistics(wall_clock)</c> causing it to produce
+	    values one second too long.</p>
+          <p>
+	    <c>statistics(runtime)</c> now also use
+	    <c>getrusage()</c> as source when available preventing
+	    the returned value from wrapping as frequent as before.</p>
+          <p>
+	    Own Id: OTP-14597 Aux Id: ERL-465 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed small memory leak that could occur when sending to
+	    a terminating port.</p>
+          <p>
+	    Own Id: OTP-14609</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug causing VM crash when a module with
+	    <c>-on_load</c> directive is loaded while
+	    <c>erlang:trace(on_load, ...)</c> is enabled.</p>
+          <p>
+	    Own Id: OTP-14612</p>
+        </item>
+        <item>
+	    <p>A warning that the compiler may optimize away atoms
+	    have been added to the documentation of
+	    <c>list_to_existing_atom/1</c> and
+	    <c>binary_to_existing_atom/2</c>.</p>
+          <p>
+	    Own Id: OTP-14614 Aux Id: ERL-453 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Lock counting can now be fully toggled at runtime in
+	    the lock counting emulator (<c>-emu_type lcnt</c>).
+	    Everything is enabled by default to match the old
+	    behavior, but specific categories can be toggled at will
+	    with minimal runtime overhead when disabled. Refer to the
+	    documentation on <c>lcnt:rt_mask/1</c> for details.</p>
+          <p>
+	    Own Id: OTP-13170</p>
+        </item>
+        <item>
+	    <p>The <c>zlib</c> module has been refactored and all its
+	    operations will now yield appropriately, allowing them to
+	    be used freely in concurrent applications.</p> <p>The
+	    following functions have been deprecated, but will not
+	    produce compiler warnings until OTP 21:
+	    <c>zlib:adler32</c>, <c>zlib:crc32</c>,
+	    <c>zlib:inflateChunk</c>, <c>zlib:getBufSize</c>,
+	    <c>zlib:setBufSize</c>.</p> <p>The behavior of throwing
+	    an error when a dictionary is required for decompression
+	    has also been deprecated. Refer to the documentation on
+	    <c>inflateSetDictionary/2</c> for details.</p>
+          <p>
+	    Own Id: OTP-14185</p>
+        </item>
+        <item>
+	    <p><c>lcnt:collect</c> and <c>lcnt:clear</c> will no
+	    longer block all other threads in the runtime system.</p>
+          <p>
+	    Own Id: OTP-14412</p>
+        </item>
+        <item>
+	    <p>Add <c>erlang:iolist_to_iovec/1</c>, which converts an
+	    iolist() to an erlang:iovec(), which suitable for use
+	    with <c>enif_inspect_iovec</c>.</p>
+          <p>
+	    Own Id: OTP-14520</p>
+        </item>
+        <item>
+	    <p>When provided with bad arguments, the <c>zlib</c>
+	    module will now raise named exceptions instead of just
+	    <c>badarg</c>. For example, <c>not_initialized</c> when
+	    using <c>zlib:inflate/2</c> with an uninitialized
+	    stream.</p>
+          <p>
+	    Own Id: OTP-14527</p>
+        </item>
+        <item>
+          <p>
+	    <c>erlang:halt/2</c> allows any Unicode string as slogan
+	    for the crash dump.</p>
+          <p>
+	    Own Id: OTP-14553</p>
+        </item>
+        <item>
+	    <p>Add new nif API functions for managing an I/O Queue.
+	    The added functions are:</p> <list type="bulleted">
+	    <item><seealso marker="erl_nif#enif_ioq_create">
+	    <c>enif_ioq_create()</c></seealso></item> <item><seealso
+	    marker="erl_nif#enif_ioq_destroy">
+	    <c>enif_ioq_destroy()</c></seealso></item> <item><seealso
+	    marker="erl_nif#enif_ioq_enq_binary">
+	    <c>enif_ioq_enq_binary()</c></seealso></item>
+	    <item><seealso marker="erl_nif#enif_ioq_enqv">
+	    <c>enif_ioq_enqv()</c></seealso></item> <item><seealso
+	    marker="erl_nif#enif_ioq_deq">
+	    <c>enif_ioq_deq()</c></seealso></item> <item><seealso
+	    marker="erl_nif#enif_ioq_peek">
+	    <c>enif_ioq_peek()</c></seealso></item> <item><seealso
+	    marker="erl_nif#enif_inspect_iovec">
+	    <c>enif_inspect_iovec()</c></seealso></item>
+	    <item><seealso marker="erl_nif#enif_free_iovec">
+	    <c>enif_free_iovec()</c></seealso></item> </list>
+          <p>
+	    Own Id: OTP-14598</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.0.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
