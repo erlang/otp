@@ -113,20 +113,41 @@ packed_registers(Config) when is_list(Config) ->
 		   VarName = list_to_atom("M"++integer_to_list(V)),
 		   merl:var(VarName)
 	       end || V <- Seq],
+    MoreNewVars = [begin
+                       VarName = list_to_atom("MM"++integer_to_list(V)),
+                       merl:var(VarName)
+                   end || V <- Seq],
+    TupleEls = [?Q("id(_@Value@)") || {_,Value} <- S0],
     S = [?Q("_@Var = id(_@Value@)") || {Var,Value} <- S0],
     Code = ?Q(["-module('@Mod@').\n"
 	       "-export([f/0]).\n"
 	       "f() ->\n"
+               "Tuple = id({_@TupleEls}),\n"
+               "{_@MoreNewVars} = Tuple,\n"
 	       "_@S,\n"
 	       "_ = id(0),\n"
 	       "L = [_@Vars],\n"
 	       "_ = id(1),\n"
 	       "[_@NewVars] = L,\n"		%Test get_list/3.
 	       "_ = id(2),\n"
-	       "id([_@Vars,_@NewVars]).\n"
+	       "id([_@Vars,_@NewVars,_@MoreNewVars]).\n"
 	       "id(I) -> I.\n"]),
     merl:compile_and_load(Code),
-    CombinedSeq = Seq ++ Seq,
+
+    %% Optionally print the generated code.
+    PrintCode = false,                          %Change to true to print code.
+
+    case PrintCode of
+        false ->
+            ok;
+        true ->
+            merl:print(Code),
+            erts_debug:df(Mod),
+            {ok,Dis} = file:read_file(atom_to_list(Mod)++".dis"),
+            io:put_chars(Dis)
+    end,
+
+    CombinedSeq = Seq ++ Seq ++ Seq,
     CombinedSeq = Mod:f(),
 
     %% Clean up.
