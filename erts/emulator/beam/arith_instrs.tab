@@ -85,9 +85,6 @@ i_increment := increment.fetch.execute;
 
 increment.head() {
     Eterm increment_reg_val;
-    Eterm increment_val;
-    Uint live;
-    Eterm result;
 }
 
 increment.fetch(Src) {
@@ -95,7 +92,10 @@ increment.fetch(Src) {
 }
 
 increment.execute(IncrementVal, Live, Dst) {
-    increment_val = $IncrementVal;
+    Eterm increment_val = $IncrementVal;
+    Uint live;
+    Eterm result;
+
     if (ERTS_LIKELY(is_small(increment_reg_val))) {
         Sint i = signed_val(increment_reg_val) + increment_val;
         if (ERTS_LIKELY(IS_SSMALL(i))) {

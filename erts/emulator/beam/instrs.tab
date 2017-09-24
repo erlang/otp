@@ -375,7 +375,6 @@ i_element := element_group.fetch.execute;
 
 
 element_group.head() {
-    Eterm element_index;
     Eterm element_tuple;
 }
 
@@ -384,7 +383,7 @@ element_group.fetch(Src) {
 }
 
 element_group.execute(Fail, Index, Dst) {
-    element_index = $Index;
+    Eterm element_index = $Index;
     if (ERTS_LIKELY(is_small(element_index) && is_tuple(element_tuple))) {
         Eterm* tp = tuple_val(element_tuple);
 
