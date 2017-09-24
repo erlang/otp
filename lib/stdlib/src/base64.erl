@@ -115,7 +115,7 @@ encode_binary(Bin) ->
 decode(Bin) when is_binary(Bin) ->
     decode_binary(<<>>, Bin);
 decode(List) when is_list(List) ->
-    decode_list(<<>>, List).
+    decode_list(List, <<>>).
 
 -spec mime_decode(Base64) -> Data when
       Base64 :: ascii_string() | ascii_binary(),
@@ -262,39 +262,39 @@ mime_decode_binary_after_eq(Result0, <<>>, Eq) ->
             Result
     end.
 
-decode_list(A, [C1 | Cs]) ->
+decode_list([C1 | Cs], A) ->
     case element(C1, ?DECODE_MAP) of
-        ws -> decode_list(A, Cs);
-        B1 -> decode_list(A, B1, Cs)
+        ws -> decode_list(Cs, A);
+        B1 -> decode_list(Cs, A, B1)
     end;
-decode_list(A, []) ->
+decode_list([], A) ->
     A.
 
-decode_list(A, B1, [C2 | Cs]) ->
+decode_list([C2 | Cs], A, B1) ->
     case element(C2, ?DECODE_MAP) of
-        ws -> decode_list(A, B1, Cs);
-        B2 -> decode_list(A, B1, B2, Cs)
+        ws -> decode_list(Cs, A, B1);
+        B2 -> decode_list(Cs, A, B1, B2)
     end.
 
-decode_list(A, B1, B2, [C3 | Cs]) ->
+decode_list([C3 | Cs], A, B1, B2) ->
     case element(C3, ?DECODE_MAP) of
-        ws -> decode_list(A, B1, B2, Cs);
-        B3 -> decode_list(A, B1, B2, B3, Cs)
+        ws -> decode_list(Cs, A, B1, B2);
+        B3 -> decode_list(Cs, A, B1, B2, B3)
     end.
 
-decode_list(A, B1, B2, B3, [C4 | Cs]) ->
+decode_list([C4 | Cs], A, B1, B2, B3) ->
     case element(C4, ?DECODE_MAP) of
-        ws                -> decode_list(A, B1, B2, B3, Cs);
-        eq when B3 =:= eq -> only_ws(<<A/binary,B1:6,(B2 bsr 4):2>>, Cs);
-        eq                -> only_ws(<<A/binary,B1:6,B2:6,(B3 bsr 2):4>>, Cs);
-        B4                -> decode_list(<<A/binary,B1:6,B2:6,B3:6,B4:6>>, Cs)
+        ws                -> decode_list(Cs, A, B1, B2, B3);
+        eq when B3 =:= eq -> only_ws(Cs, <<A/binary,B1:6,(B2 bsr 4):2>>);
+        eq                -> only_ws(Cs, <<A/binary,B1:6,B2:6,(B3 bsr 2):4>>);
+        B4                -> decode_list(Cs, <<A/binary,B1:6,B2:6,B3:6,B4:6>>)
     end.
 
-only_ws(A, []) ->
+only_ws([], A) ->
     A;
-only_ws(A, [C | Cs]) ->
+only_ws([C | Cs], A) ->
     case element(C, ?DECODE_MAP) of
-        ws -> only_ws(A, Cs);
+        ws -> only_ws(Cs, A);
         _ -> erlang:error(function_clause)
     end.
 
