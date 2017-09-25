@@ -847,11 +847,18 @@ do_unpack_release(Root, RelDir, ReleaseName, Releases) ->
     %% systools:make_tar, where there is no copy of the .rel file in
     %% the releases/<vsn> dir. See OTP-9746.
     Dir = filename:join([RelDir, Vsn]),
-    copy_file(RelFile, Dir, false),
+
+    %% don't copy or delete RelFile if it is already under releases/<vsn>
+    _ = case filename:dirname(RelFile) of
+            Dir ->
+                ok;
+            _ ->
+                copy_file(RelFile, Dir, false),
+                _ = file:delete(RelFile)
+        end,
 
     %% Clean release
     _ = file:delete(Tar),
-    _ = file:delete(RelFile),
 
     {ok, NewReleases, Vsn}.
    
