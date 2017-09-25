@@ -29,7 +29,7 @@
 	 check_install_release/1, check_install_release/2,
 	 install_release/1, install_release/2, new_emulator_upgrade/2,
 	 remove_release/1, which_releases/0, which_releases/1,
-	 make_permanent/1, reboot_old_release/1,
+         make_permanent/1, reboot_old_release/1, restart_new_release/1,
 	 set_unpacked/2, set_removed/1, install_file/2]).
 -export([upgrade_app/2, downgrade_app/2, downgrade_app/3,
 	 upgrade_script/2, downgrade_script/3,
@@ -277,6 +277,12 @@ make_permanent(Vsn) ->
 %%-----------------------------------------------------------------
 reboot_old_release(Vsn) ->
     call({reboot_old_release, Vsn}).
+
+%%-----------------------------------------------------------------
+%% Purpose: Restarts the system from a new release.
+%%-----------------------------------------------------------------
+restart_new_release(Vsn) ->
+    call({restart_new_release, Vsn}).
 
 %%-----------------------------------------------------------------
 %% Purpose: Deletes all files and directories used by the release
@@ -672,6 +678,18 @@ handle_call({reboot_old_release, Vsn}, From, S) ->
 	    {reply, {error, Reason}, S}; 
 	{'EXIT', Reason} ->
 	    {reply, {error, Reason}, S}
+    end;
+
+handle_call({restart_new_release, Vsn}, From, S) ->
+    case catch do_restart_new_release(S, Vsn) of
+        ok ->
+            gen_server:reply(From, ok),
+            init:restart(),
+            {noreply, S};
+        {error, Reason}   ->
+            {reply, {error, Reason}, S};
+        {'EXIT', Reason} ->
+            {reply, {error, Reason}, S}
     end;
 
 handle_call({remove_release, Vsn}, _From, S)
@@ -1368,6 +1386,47 @@ do_reboot_old_release(#state{releases = Releases,
 	    {error, {bad_status, Status}};
 	false ->
 	    {error, {no_such_release, Vsn}}
+    end.
+
+do_restart_new_release(#state{releases = Releases,
+                             rel_dir = RelDir, masters = Masters,
+                             static_emulator = Static},
+                      Vsn) ->
+    case lists:keysearch(Vsn, #release.vsn, Releases) of
+        {value, #release{erts_vsn = EVsn, status = unpacked}} ->
+            CurrentRunning = case os:type() of
+                                 {win32,nt} ->
+                                     %% Get the current release on NT
+                                     case lists:keysearch(permanent,
+                                                          #release.status,
+                                                          Releases) of
+                                         false ->
+                                             lists:keysearch(current,
+                                                             #release.status,
+                                                             Releases);
+                                         {value,CR} ->
+                                             CR
+                                     end;
+                                 _ ->
+                                     false
+                             end,
+            set_permanent_files(RelDir, EVsn, Vsn, Masters, Static),
+            NewReleases = set_status(Vsn, permanent, Releases),
+            write_releases(RelDir, NewReleases, Masters),
+            case os:type() of
+                {win32,nt} ->
+                    %% Edit up the services and set a reasonable heart
+                    %% command
+                    do_back_service(Vsn,CurrentRunning#release.vsn,EVsn,
+                                   CurrentRunning#release.erts_vsn);
+                _ ->
+                    ok
+            end,
+            ok;
+        {value, #release{status = Status}} ->
+            {error, {bad_status, Status}};
+        false ->
+            {error, {no_such_release, Vsn}}
     end.
 
 %%-----------------------------------------------------------------
