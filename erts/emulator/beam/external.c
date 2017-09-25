@@ -3115,7 +3115,7 @@ dec_term(ErtsDistExternal *edep,
 #if defined(ARCH_64)
 		*objp = make_small(sn);
 #else
-		if (MY_IS_SSMALL(sn)) {
+		if (IS_SSMALL(sn)) {
 		    *objp = make_small(sn);
 		} else {
 		    *objp = small_to_big(sn, hp);

@@ -114,7 +114,7 @@ BIF_RETTYPE intdiv_2(BIF_ALIST_2)
     }
     if (is_both_small(BIF_ARG_1,BIF_ARG_2)){
 	Sint ires = signed_val(BIF_ARG_1) / signed_val(BIF_ARG_2);
-	if (MY_IS_SSMALL(ires))
+	if (IS_SSMALL(ires))
 	    BIF_RET(make_small(ires));
     } 
     BIF_RET(erts_int_div(BIF_P, BIF_ARG_1, BIF_ARG_2));
@@ -340,8 +340,7 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    ires = signed_val(arg1) + signed_val(arg2);
-		    ASSERT(MY_IS_SSMALL(ires) == IS_SSMALL(ires));
-		    if (MY_IS_SSMALL(ires)) {
+		    if (IS_SSMALL(ires)) {
 			return make_small(ires);
 		    } else {
 			hp = HAlloc(p, 2);
@@ -486,8 +485,7 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    ires = signed_val(arg1) - signed_val(arg2);
-		    ASSERT(MY_IS_SSMALL(ires) == IS_SSMALL(ires));
-		    if (MY_IS_SSMALL(ires)) {
+		    if (IS_SSMALL(ires)) {
 			return make_small(ires);
 		    } else {
 			hp = HAlloc(p, 2);
@@ -1181,8 +1179,7 @@ erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live)
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    ires = signed_val(arg1) + signed_val(arg2);
-		    ASSERT(MY_IS_SSMALL(ires) == IS_SSMALL(ires));
-		    if (MY_IS_SSMALL(ires)) {
+		    if (IS_SSMALL(ires)) {
 			return make_small(ires);
 		    } else {
 			if (ERTS_NEED_GC(p, 2)) {
@@ -1349,8 +1346,7 @@ erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live)
 		switch ((arg2 & _TAG_IMMED1_MASK) >> _TAG_PRIMARY_SIZE) {
 		case (_TAG_IMMED1_SMALL >> _TAG_PRIMARY_SIZE):
 		    ires = signed_val(arg1) - signed_val(arg2);
-		    ASSERT(MY_IS_SSMALL(ires) == IS_SSMALL(ires));
-		    if (MY_IS_SSMALL(ires)) {
+		    if (IS_SSMALL(ires)) {
 			return make_small(ires);
 		    } else {
 			if (ERTS_NEED_GC(p, 2)) {
