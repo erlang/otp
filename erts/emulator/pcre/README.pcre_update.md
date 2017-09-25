@@ -2,7 +2,7 @@
 
 ## The basic changes to the PCRE library
 
-To work with the Erlang VM, PCRE has been changed in two important ways:
+To work with the Erlang VM, PCRE has been changed in three important ways:
 
 1. The main execution machine in pcre\_exec has been modified so that
 matching can be interrupted and restarted. This functionality utilizes
