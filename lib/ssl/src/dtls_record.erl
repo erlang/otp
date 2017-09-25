@@ -30,7 +30,7 @@
 -include("ssl_cipher.hrl").
 
 %% Handling of incoming data
--export([get_dtls_records/2,  init_connection_states/2]).
+-export([get_dtls_records/2,  init_connection_states/2, empty_connection_state/1]).
 
 %% Decoding
 -export([decode_cipher_text/2]).
@@ -75,13 +75,17 @@ init_connection_states(Role, BeastMitigation) ->
     Initial = initial_connection_state(ConnectionEnd, BeastMitigation),
     Current = Initial#{epoch := 0},
     InitialPending = ssl_record:empty_connection_state(ConnectionEnd, BeastMitigation),
-    Pending = InitialPending#{epoch => undefined, replay_window => init_replay_window(?REPLAY_WINDOW_SIZE)},
+    Pending = empty_connection_state(InitialPending),
     #{saved_read  => Current,
       current_read  => Current,
       pending_read  => Pending,
       saved_write => Current,
       current_write => Current,
       pending_write => Pending}.
+
+empty_connection_state(Empty) ->    
+    Empty#{epoch => undefined, replay_window => init_replay_window(?REPLAY_WINDOW_SIZE)}.
+
 
 %%--------------------------------------------------------------------
 -spec save_current_connection_state(ssl_record:connection_states(), read | write) ->
