@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2016. All Rights Reserved.
+# Copyright Ericsson AB 2004-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,9 +59,8 @@ XMERL_XML_FILES = $(XMERL_MODULES:=.xml)
 XML_REF3_FILES = $(XMERL_XML_FILES) \
 	xmerl_sax_parser.xml
 
-XML_PART_FILES =  \
-	part.xml \
-	part_notes.xml
+XML_PART_FILES = \
+	part.xml
 
 XML_REF6_FILES =
 
@@ -107,10 +106,10 @@ TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
@@ -120,14 +119,14 @@ $(HTMLDIR)/%.gif: %.gif
 
 docs: pdf html man
 
-$(TOP_PDF_FILE): $(XML_FILES) 
+$(TOP_PDF_FILE): $(XML_FILES)
 
 pdf: $(TOP_PDF_FILE)
 
 html: gifs $(HTML_REF_MAN_FILE)
 
-$(XMERL_XML_FILES): 
-	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript $(XMERL_DIR)/$(@:%.xml=%.erl) 
+$(XMERL_XML_FILES):
+	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript $(XMERL_DIR)/$(@:%.xml=%.erl)
 
 man: $(MAN3_FILES) $(MAN6_FILES)
 
@@ -135,15 +134,15 @@ gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
 xml: $(XMERL_XML_FILES)
 
-debug opt: 
+debug opt:
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
-	rm -f $(MAN3DIR)/*	
-	rm -f $(MAN6DIR)/*	
+	rm -f $(MAN3DIR)/*
+	rm -f $(MAN6DIR)/*
 	rm -f $(XMERL_XML_FILES)
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f errs core *~ 
+	rm -f errs core *~
 
 
 info:
@@ -158,7 +157,7 @@ info:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs
@@ -177,6 +176,3 @@ release_spec:
 
 
 release_tests_spec:
-
-
-

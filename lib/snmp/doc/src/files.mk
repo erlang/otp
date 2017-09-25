@@ -1,9 +1,9 @@
 #-*-makefile-*-   ; force emacs to enter makefile-mode
 
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2001-2016. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2001-2017. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,7 +15,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 
 XML_APPLICATION_FILES = \
@@ -81,9 +81,7 @@ XML_REF3_FILES = \
 XML_REF6_FILES = snmp_app.xml
 
 XML_PART_FILES =  \
-	part.xml \
-	part_notes.xml \
-	part_notes_history.xml
+	part.xml
 
 XML_CHAPTER_FILES = \
 	snmp_intro.xml \
@@ -115,23 +113,16 @@ XML_FILES = $(BOOK_FILES)        \
             $(XML_REF6_FILES)    \
             $(XML_APPLICATION_FILES)
 
-GIF_FILES = book.gif \
+GIF_FILES = \
 	getnext1.gif \
 	getnext2.gif \
 	getnext3.gif \
 	getnext4.gif \
 	snmp_agent_netif_1.gif \
 	snmp_manager_netif_1.gif \
-	min_head.gif \
-	note.gif \
-	notes.gif \
-	ref_man.gif \
 	snmp-um-1-image-1.gif \
 	snmp-um-1-image-2.gif \
 	snmp-um-1-image-3.gif \
-	snmp.gif \
-	user_guide.gif \
-	warning.gif \
 	MIB_mechanism.gif
 
 PS_FILES = getnext1.ps \

@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2016. All Rights Reserved.
+# Copyright Ericsson AB 2001-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -36,9 +36,7 @@ XML_REF3_FILES = \
 	megaco_udp.xml
 
 XML_PART_FILES =       \
-	part.xml       \
-        part_notes.xml \
-        part_notes_history.xml
+	part.xml
 
 XML_EXTRA_FILES = \
 	notes_history.xml
@@ -61,11 +59,6 @@ IMG_FILES = \
 	single_node_config.gif \
 	distr_node_config.gif \
 	megaco_sys_arch.gif \
-	user_guide.gif \
-	note.gif \
-	notes.gif \
-	ref_man.gif \
-	book.gif \
 	MG-startup_flow_noMID.gif \
 	MGC_startup_call_flow.gif \
 	MG_startup_call_flow.gif \

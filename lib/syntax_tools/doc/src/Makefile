@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2006-2016. All Rights Reserved.
+# Copyright Ericsson AB 2006-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ XML_REF3_FILES = \
 	merl_transform.xml \
 	prettypr.xml
 
-XML_PART_FILES = part.xml part_notes.xml
+XML_PART_FILES = part.xml
 XML_CHAPTER_FILES = chapter.xml
 XML_NOTES_FILES = notes.xml
 
@@ -86,11 +86,11 @@ SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
 TOP_SPECS_FILE = specs.xml
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
+XML_FLAGS +=
 SPECS_FLAGS = -I../../include
-DVIPS_FLAGS += 
+DVIPS_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
@@ -112,13 +112,13 @@ $(XML_REF3_FILES):
 	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript $(SRC_DIR)/$(@:%.xml=%.erl)
 
 $(XML_CHAPTER_FILES):
-	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) -chapter ../overview.edoc 
+	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) -chapter ../overview.edoc
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
 xml: $(XML_REF3_FILES) $(XML_CHAPTER_FILES)
 
-debug opt: 
+debug opt:
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
@@ -126,11 +126,11 @@ clean clean_docs:
 	rm -f $(XML_REF3_FILES) $(XML_CHAPTER_FILES) *.html
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f $(SPECDIR)/*
-	rm -f errs core *~ 
+	rm -f errs core *~
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs

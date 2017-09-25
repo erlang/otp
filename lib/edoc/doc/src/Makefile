@@ -9,11 +9,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # The Initial Developer of the Original Code is Ericsson Utvecklings AB.
 # Portions created by Ericsson are Copyright 1999, Ericsson Utvecklings
 # AB. All Rights Reserved.''
-# 
+#
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
@@ -47,7 +47,7 @@ XML_REF3_FILES = \
 	edoc_lib.xml \
 	edoc_run.xml
 
-XML_PART_FILES = part.xml part_notes.xml
+XML_PART_FILES = part.xml
 XML_CHAPTER_FILES = chapter.xml
 XML_NOTES_FILES = notes.xml
 
@@ -80,10 +80,10 @@ TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
@@ -109,19 +109,19 @@ $(XML_CHAPTER_FILES): ../overview.edoc
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
-debug opt: 
+debug opt:
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
 	rm -f $(MAN3DIR)/*
 	rm -f $(XML_REF3_FILES) $(XML_CHAPTER_FILES) *.html
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f errs core *~ 
+	rm -f errs core *~
 
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs

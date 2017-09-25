@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1998-2016. All Rights Reserved.
+# Copyright Ericsson AB 1998-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,8 +49,7 @@ XML_REF3_FILES = ic.xml \
 	 	  ic_clib.xml \
 		  ic_c_protocol.xml
 
-XML_PART_FILES = part.xml \
-	 part_notes.xml
+XML_PART_FILES = part.xml
 
 XML_CHAPTER_FILES = \
 	ch_introduction.xml \
@@ -68,13 +67,9 @@ XML_CHAPTER_FILES = \
 BOOK_FILES = book.xml
 
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
-            $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
+            $(XML_PART_FILES) $(XML_CHAPTER_FILES)
 
-GIF_FILES = \
-	book.gif \
-	notes.gif \
-	ref_man.gif \
-	user_guide.gif
+GIF_FILES =
 
 # ----------------------------------------------------
 
@@ -82,7 +77,7 @@ HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
 	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
 
 INFO_FILE = ../../info
-EXTRA_FILES = summary.html.src \
+EXTRA_FILES = \
 	$(DEFAULT_GIF_FILES) \
 	$(DEFAULT_HTML_FILES) \
 	$(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html) \
@@ -161,12 +156,12 @@ JAVADOC_GENERATED_FILES = $(JAVADOC_PACK_HTML_FILES) $(JAVADOC_INDEX_HTML_FILES)
 
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
 CLASSPATH = $(JAVA_SRC_ROOT):$(JAVA_INCL_ROOT)
 
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
 JAVADOCFLAGS = \
 	-classpath $(CLASSPATH) \
 	-d ../doc/html/java \
@@ -197,7 +192,7 @@ clean clean_docs:
 	rm -rf $(HTMLDIR)/*
 	rm -f $(MAN3DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f errs core *~ 
+	rm -f errs core *~
 
 $(JAVADOC_GENERATED_FILES): JAVADOC-GENERATED
 
@@ -212,12 +207,12 @@ gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 $(INDEX_TARGET): $(INDEX_SRC) ../../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
 
-debug opt: 
+debug opt:
 
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs
