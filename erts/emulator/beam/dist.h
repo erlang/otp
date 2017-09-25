@@ -96,8 +96,7 @@ extern Export* dmonitor_p_trap;
 
 typedef enum {
     ERTS_DSP_NO_LOCK,
-    ERTS_DSP_RLOCK,
-    ERTS_DSP_RWLOCK
+    ERTS_DSP_RLOCK
 } ErtsDSigPrepLock;
 
 
@@ -182,10 +181,7 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
 #endif
 
 retry:
-    if (dspl == ERTS_DSP_RWLOCK)
-	erts_de_rwlock(dep);
-    else
-	erts_de_rlock(dep);
+    erts_de_rlock(dep);
 
     if (ERTS_DE_IS_CONNECTED(dep)) {
 	res = ERTS_DSIG_PREP_CONNECTED;
@@ -200,10 +196,8 @@ retry:
     }
     else if (connect) {
         ASSERT(dep->status == 0);
-	if (dspl != ERTS_DSP_RWLOCK) {
-	    erts_de_runlock(dep);
-	    erts_de_rwlock(dep);
-	}
+        erts_de_runlock(dep);
+        erts_de_rwlock(dep);
 	if (dep->status == 0) {
 	    Process* net_kernel;
 	    ErtsProcLocks nk_locks = ERTS_PROC_LOCK_MSGQ;
@@ -265,10 +259,7 @@ retry:
     return res;
 
  fail:
-    if (dspl == ERTS_DSP_RWLOCK)
-	erts_de_rwunlock(dep);
-    else
-	erts_de_runlock(dep);
+    erts_de_runlock(dep);
     if (deref_dep)
         erts_deref_dist_entry(dep);
     return res;
