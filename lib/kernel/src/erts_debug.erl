@@ -378,16 +378,11 @@ df(Mod, Func, Arity) when is_atom(Mod), is_atom(Func) ->
     catch _:_ -> {undef,Mod}
     end.
 
-dff(File, Fs) when is_pid(File), is_list(Fs) ->
-    lists:foreach(fun(Mfa) ->
-			  disassemble_function(File, Mfa),
-			  io:nl(File)
-		  end, Fs);
-dff(Name, Fs) when is_list(Name) ->
-    case file:open(Name, [write]) of
+dff(Name, Fs) ->
+    case file:open(Name, [write,raw,delayed_write]) of
 	{ok,F} ->
 	    try
-		dff(F, Fs)
+		dff_1(F, Fs)
 	    after
 		_ = file:close(F)
 	    end;
@@ -395,12 +390,18 @@ dff(Name, Fs) when is_list(Name) ->
 	    {error,{badopen,Reason}}
     end.
 
+dff_1(File, Fs) ->
+    lists:foreach(fun(Mfa) ->
+                          disassemble_function(File, Mfa),
+                          file:write(File, "\n")
+                  end, Fs).
+
 disassemble_function(File, {_,_,_}=MFA) ->
     cont_dis(File, erts_debug:disassemble(MFA), MFA).
 
 cont_dis(_, false, _) -> ok;
 cont_dis(File, {Addr,Str,MFA}, MFA) ->
-    io:put_chars(File, binary_to_list(Str)),
+    ok = file:write(File, Str),
     cont_dis(File, erts_debug:disassemble(Addr), MFA);
 cont_dis(_, {_,_,_}, _) -> ok.
 

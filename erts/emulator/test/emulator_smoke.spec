@@ -7,3 +7,4 @@
     [consistency],"Not reliable in October and March"}.
 {cases,'Dir',crypto_SUITE,[t_md5]}.
 {cases,'Dir',float_SUITE,[fpe,cmp_integer]}.
+{cases,'Dir',erts_debug_SUITE,[df]}.
