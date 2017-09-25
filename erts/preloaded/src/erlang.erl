@@ -1664,15 +1664,16 @@ setnode(_P1, _P2, _P3) ->
     erlang:nif_error(undefined).
 
 %% new_connection_id/1
--spec erlang:new_connection_id(Node) -> integer() when
-      Node :: atom().
+-spec erlang:new_connection_id(Node) -> ConnId when
+      Node :: atom(),
+      ConnId :: {integer(), dist_handle()}.
 new_connection_id(_Node) ->
     erlang:nif_error(undefined).
 
 %% abort_connection_id/2
--spec erlang:abort_connection_id(Node, ConnId) -> integer() when
+-spec erlang:abort_connection_id(Node, ConnId) -> boolean() when
       Node :: atom(),
-      ConnId :: integer().
+      ConnId :: {integer(), dist_handle()}.
 abort_connection_id(_Node, _ConnId) ->
     erlang:nif_error(undefined).
 
