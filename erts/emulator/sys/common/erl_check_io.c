@@ -298,6 +298,8 @@ static ERTS_INLINE void
 check_fd_cleanup(ErtsDrvEventState *state,
 		 ErtsDrvSelectDataState **free_select,
                  ErtsNifSelectDataState **free_nif);
+static ERTS_INLINE void iready(Eterm id, ErtsDrvEventState *state);
+static ERTS_INLINE void oready(Eterm id, ErtsDrvEventState *state);
 #ifdef DEBUG_PRINT_MODE
 static char *drvmode2str(int mode);
 static char *nifmode2str(enum ErlNifSelectFlags mode);
@@ -460,8 +462,18 @@ erts_io_notify_port_task_executed(ErtsPortTaskType type,
     if (active_events) {
         /* This is not needed if active_events has not changed */
         if (state->active_events != active_events) {
+            ErtsPollEvents new_events;
             state->active_events = active_events;
-            erts_io_control(state, ERTS_POLL_OP_MOD, active_events);
+            new_events = erts_io_control(state, ERTS_POLL_OP_MOD, active_events);
+
+            /* We were unable to re-insert the fd into the pollset, signal the callback. */
+            if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
+                if (active_events & ERTS_POLL_EV_IN)
+                    iready(state->driver.select->inport, state);
+                if (active_events & ERTS_POLL_EV_OUT)
+                    oready(state->driver.select->outport, state);
+                state->active_events = 0;
+            }
         }
     } else {
         check_fd_cleanup(state, &free_select, &free_nif);
@@ -564,7 +576,17 @@ deselect(ErtsDrvEventState *state, int mode)
 	state->type = ERTS_EV_TYPE_NONE;
 	state->flags = 0;
     } else {
-        erts_io_control(state, ERTS_POLL_OP_MOD, state->active_events);
+        ErtsPollEvents new_events =
+            erts_io_control(state, ERTS_POLL_OP_MOD, state->active_events);
+
+        /* We were unable to re-insert the fd into the pollset, signal the callback. */
+        if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
+            if (state->active_events & ERTS_POLL_EV_IN)
+                iready(state->driver.select->inport, state);
+            if (state->active_events & ERTS_POLL_EV_OUT)
+                oready(state->driver.select->outport, state);
+            state->active_events = 0;
+        }
     }
 }
 
@@ -619,6 +641,7 @@ driver_select(ErlDrvPort ix, ErlDrvEvent e, int mode, int on)
     ErtsSysFdType fd = (ErtsSysFdType) e;
     ErtsPollEvents ctl_events = (ErtsPollEvents) 0;
     ErtsPollEvents old_events;
+    ErtsPollEvents new_events;
     ErtsPollOp ctl_op = ERTS_POLL_OP_MOD;
     ErtsDrvEventState *state;
     int wake_poller = 0;
@@ -745,22 +768,10 @@ driver_select(ErlDrvPort ix, ErlDrvEvent e, int mode, int on)
     }
 
     if (ctl_events || ctl_op == ERTS_POLL_OP_DEL) {
-        ErtsPollEvents new_events;
 
         new_events = erts_io_control_wakeup(state, ctl_op,
                                             state->active_events,
                                             &wake_poller);
-
-        if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
-            if (state->type == ERTS_EV_TYPE_DRV_SEL && !old_events) {
-                state->type = ERTS_EV_TYPE_NONE;
-                state->flags = 0;
-                state->driver.select->inport = NIL;
-                state->driver.select->outport = NIL;
-            }
-            ret = -1;
-            goto done;
-        }
 
         ASSERT(state->type == ERTS_EV_TYPE_DRV_SEL || state->type == ERTS_EV_TYPE_NONE);
     }
@@ -772,13 +783,18 @@ driver_select(ErlDrvPort ix, ErlDrvEvent e, int mode, int on)
 	    if (state->type == ERTS_EV_TYPE_NONE)
 		state->type = ERTS_EV_TYPE_DRV_SEL;
 	    ASSERT(state->type == ERTS_EV_TYPE_DRV_SEL);
-	    if (ctl_events & ERTS_POLL_EV_IN)
+	    if (ctl_events & ERTS_POLL_EV_IN) {
 		state->driver.select->inport = id;
-	    if (ctl_events & ERTS_POLL_EV_OUT)
+                if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL))
+                    iready(id, state);
+            }
+	    if (ctl_events & ERTS_POLL_EV_OUT) {
 		state->driver.select->outport = id;
-	    if (mode & ERL_DRV_USE) {
+                if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL))
+                    oready(id, state);
+            }
+	    if (mode & ERL_DRV_USE)
 		state->flags |= ERTS_EV_FLAG_USED;
-	    }
         }
     }
     else { /* off */
@@ -1598,8 +1614,16 @@ erts_check_io(ErtsPollThread *psi)
 
             /* Reactivate the poll op if there are still active events */
             if (state->active_events) {
+                ErtsPollEvents new_events;
                 DEBUG_PRINT_FD("re-enable %s", state, ev2str(state->active_events));
-                erts_io_control(state, ERTS_POLL_OP_MOD, state->active_events);
+
+                new_events = erts_io_control(state, ERTS_POLL_OP_MOD, state->active_events);
+
+                /* Unable to re-enable the fd, signal all callbacks */
+                if (new_events & (ERTS_POLL_EV_ERR|ERTS_POLL_EV_NVAL)) {
+                    revents |= state->active_events;
+                    state->active_events = 0;
+                }
             }
         }
 
