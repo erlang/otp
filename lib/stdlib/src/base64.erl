@@ -113,7 +113,7 @@ encode_binary(Bin) ->
       Data :: ascii_binary().
 
 decode(Bin) when is_binary(Bin) ->
-    decode_binary(<<>>, Bin);
+    decode_binary(Bin, <<>>);
 decode(List) when is_list(List) ->
     decode_list(List, <<>>).
 
@@ -186,31 +186,41 @@ mime_decode_to_string(List) when is_list(List) ->
 	 bad,bad,bad,bad,bad,bad,bad,bad,bad,bad,bad,bad,bad,bad,bad,bad,
 	 bad,bad,bad,bad,bad,bad,bad,bad,bad,bad,bad,bad,bad,bad,bad,bad}).
 
-decode_binary(Result0, <<C:8,T0/bits>>) ->
-    case element(C, ?DECODE_MAP) of
-	bad ->
-	    erlang:error({badarg,C});
-	ws ->
-	    decode_binary(Result0, T0);
-	eq ->
-	    case strip_ws(T0) of
-		<<$=:8,T/binary>> ->
-		    <<>> = strip_ws(T),
-		    Split = byte_size(Result0) - 1,
-		    <<Result:Split/bytes,_:4>> = Result0,
-		    Result;
-		T ->
-		    <<>> = strip_ws(T),
-		    Split = byte_size(Result0) - 1,
-		    <<Result:Split/bytes,_:2>> = Result0,
-		    Result
-	    end;
-	Bits ->
-	    decode_binary(<<Result0/bits,Bits:6>>, T0)
+decode_binary(<<C1:8, Cs/bits>>, A) ->
+    case element(C1, ?DECODE_MAP) of
+        ws -> decode_binary(Cs, A);
+        B1 -> decode_binary(Cs, A, B1)
     end;
-decode_binary(Result, <<>>) ->
-    true = is_binary(Result),
-    Result.
+decode_binary(<<>>, A) ->
+    A.
+
+decode_binary(<<C2:8, Cs/bits>>, A, B1) ->
+    case element(C2, ?DECODE_MAP) of
+        ws -> decode_binary(Cs, A, B1);
+        B2 -> decode_binary(Cs, A, B1, B2)
+    end.
+
+decode_binary(<<C3:8, Cs/bits>>, A, B1, B2) ->
+    case element(C3, ?DECODE_MAP) of
+        ws -> decode_binary(Cs, A, B1, B2);
+        B3 -> decode_binary(Cs, A, B1, B2, B3)
+    end.
+
+decode_binary(<<C4:8, Cs/bits>>, A, B1, B2, B3) ->
+    case element(C4, ?DECODE_MAP) of
+        ws                -> decode_binary(Cs, A, B1, B2, B3);
+        eq when B3 =:= eq -> only_ws_binary(Cs, <<A/binary,B1:6,(B2 bsr 4):2>>);
+        eq                -> only_ws_binary(Cs, <<A/binary,B1:6,B2:6,(B3 bsr 2):4>>);
+        B4                -> decode_binary(Cs, <<A/binary,B1:6,B2:6,B3:6,B4:6>>)
+    end.
+
+only_ws_binary(<<>>, A) ->
+    A;
+only_ws_binary(<<C:8, Cs/bits>>, A) ->
+    case element(C, ?DECODE_MAP) of
+        ws -> only_ws_binary(Cs, A);
+        _ -> erlang:error(function_clause)
+    end.
 
 %% Skipping pad character if not at end of string. Also liberal about
 %% excess padding and skipping of other illegal (non-base64 alphabet)
@@ -327,16 +337,6 @@ strip_spaces([$\t|Cs], A) -> strip_spaces(Cs, A);
 strip_spaces([$\r|Cs], A) -> strip_spaces(Cs, A);
 strip_spaces([$\n|Cs], A) -> strip_spaces(Cs, A);
 strip_spaces([C|Cs], A) -> strip_spaces(Cs, [C | A]).
-
-strip_ws(<<$\t,T/binary>>) ->
-    strip_ws(T);
-strip_ws(<<$\n,T/binary>>) ->
-    strip_ws(T);
-strip_ws(<<$\r,T/binary>>) ->
-    strip_ws(T);
-strip_ws(<<$\s,T/binary>>) ->
-    strip_ws(T);
-strip_ws(T) -> T.
 
 %% Skipping pad character if not at end of string. Also liberal about
 %% excess padding and skipping of other illegal (non-base64 alphabet)
