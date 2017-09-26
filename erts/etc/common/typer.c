@@ -177,7 +177,7 @@ main(int argc, char** argv)
     }
 
     PUSH("+B");
-    PUSH2("-boot", "start_clean");
+    PUSH2("-boot", "no_dot_erlang");
     PUSH3("-run", "typer", "start");
     PUSH("-extra");
 
