@@ -521,7 +521,7 @@ main(int argc, char** argv)
     free_env_val(env);
 
     PUSH("+B");
-    PUSH2("-boot", "start_clean");
+    PUSH2("-boot", "no_dot_erlang");
     PUSH("-noshell");
 
     /*
