@@ -120,6 +120,7 @@ static void clear_dist_entry(DistEntry*);
 static int dsig_send_ctl(ErtsDSigData* dsdp, Eterm ctl, int force_busy);
 static void send_nodes_mon_msgs(Process *, Eterm, Eterm, Eterm, Eterm);
 static void init_nodes_monitors(void);
+static Sint abort_pending_connection(DistEntry* dep, Uint32 conn_id);
 
 static erts_atomic_t no_caches;
 static erts_atomic_t no_nodes;
@@ -3457,30 +3458,16 @@ BIF_RETTYPE new_connection_id_1(BIF_ALIST_1)
     BIF_RET(TUPLE2(hp, make_small(conn_id), dhandle));
 }
 
-BIF_RETTYPE abort_connection_id_2(BIF_ALIST_2)
+static Sint abort_pending_connection(DistEntry* dep, Uint32 conn_id)
 {
-    DistEntry* dep;
-    Eterm* tp;
-
-    if (is_not_atom(BIF_ARG_1) || is_not_tuple_arity(BIF_ARG_2, 2)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    tp = tuple_val(BIF_ARG_2);
-    dep = erts_dhandle_to_dist_entry(tp[2]);
-    if (is_not_small(tp[1]) || dep != erts_find_dist_entry(BIF_ARG_1)) {
-        BIF_ERROR(BIF_P, BADARG);
-    }
-    ASSERT(dep != erts_this_dist_entry); /* SVERK: What to do? */
-
-    if (!dep) {
-	BIF_RET(am_false);
-    }
+    Sint reds = 0;
 
     erts_de_rwlock(dep);
 
-    if (dep->status == ERTS_DE_SFLG_PENDING
-	&& dep->connection_id == unsigned_val(tp[1])) {
-
+    if (dep->status != ERTS_DE_SFLG_PENDING || dep->connection_id != conn_id) {
+        erts_de_rwunlock(dep);
+    }
+    else {
 	NetExitsContext nec = {dep};
 	ErtsLink *nlinks;
 	ErtsLink *node_links;
@@ -3488,7 +3475,6 @@ BIF_RETTYPE abort_connection_id_2(BIF_ALIST_2)
 	ErtsAtomCache *cache;
 	ErtsDistOutputBuf *obuf;
         ErtsProcList *resume_procs;
-        Sint reds = 0;
 
 	ASSERT(is_nil(dep->cid));
 
@@ -3529,13 +3515,71 @@ BIF_RETTYPE abort_connection_id_2(BIF_ALIST_2)
 	delete_cache(cache);
 
 	free_de_out_queues(dep, obuf);
+    }
+    return reds;
+}
 
-	BIF_RET2(am_true, reds);
+BIF_RETTYPE abort_connection_id_2(BIF_ALIST_2)
+{
+    DistEntry* dep;
+    Eterm* tp;
+
+    if (is_not_atom(BIF_ARG_1) || is_not_tuple_arity(BIF_ARG_2, 2)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    tp = tuple_val(BIF_ARG_2);
+    dep = erts_dhandle_to_dist_entry(tp[2]);
+    if (is_not_small(tp[1]) || dep != erts_find_dist_entry(BIF_ARG_1)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    ASSERT(dep != erts_this_dist_entry); /* SVERK: What to do? */
+
+    if (dep) {
+        Sint reds = abort_pending_connection(dep, unsigned_val(tp[1]));
+        BUMP_REDS(BIF_P, reds);
+    }
+    BIF_RET(am_true);
+}
+
+int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks)
+{
+    erts_de_rwlock(dep);
+    if (dep->status != 0) {
+        erts_de_rwunlock(dep);
+    }
+    else {
+        Process* net_kernel;
+        ErtsProcLocks nk_locks = ERTS_PROC_LOCK_MSGQ;
+        Eterm *hp;
+        ErlOffHeap *ohp;
+        ErtsMessage *mp;
+        Eterm msg, dhandle;
+        Uint32 conn_id;
+
+        dep->status = ERTS_DE_SFLG_PENDING;
+        dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY);
+        dep->connection_id = (dep->connection_id + 1) & ERTS_DIST_CON_ID_MASK;
+        conn_id = dep->connection_id;
+        erts_de_rwunlock(dep);
+
+        net_kernel = erts_whereis_process(proc, proc_locks,
+                                          am_net_kernel, nk_locks, 0);
+        if (!net_kernel) {
+            return 0;
+        }
+
+        /* Send {auto_connect, Node, ConnId, DHandle} to net_kernel */
+        mp = erts_alloc_message_heap(net_kernel, &nk_locks,
+                                     5 + ERTS_MAGIC_REF_THING_SIZE,
+                                     &hp, &ohp);
+        dhandle = erts_build_dhandle(&hp, ohp, dep);
+        msg = TUPLE4(hp, am_auto_connect, dep->sysname, make_small(conn_id),
+                     dhandle);
+        erts_queue_message(net_kernel, nk_locks, mp, msg, proc->common.id);
+        erts_proc_unlock(net_kernel, nk_locks);
     }
 
-    erts_de_rwunlock(dep);
-
-    BIF_RET(am_false);
+    return 1;
 }
 
 /**********************************************************************/
