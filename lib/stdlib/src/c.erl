@@ -668,19 +668,23 @@ lm() ->
     [l(M) || M <- mm()].
 
 %% erlangrc(Home)
-%%  Try to run a ".erlang" file, first in the current directory
-%%  else in home directory.
+%%  Try to run a ".erlang" file in home directory.
+
+-spec erlangrc() -> {ok, file:filename()} | {error, term()}.
 
 erlangrc() ->
     case init:get_argument(home) of
 	{ok,[[Home]]} ->
 	    erlangrc([Home]);
 	_ ->
-	    f_p_e(["."], ".erlang")
+            {error, enoent}
     end.
 
-erlangrc([Home]) ->
-    f_p_e([".",Home], ".erlang").
+-spec erlangrc(PathList) -> {ok, file:filename()} | {error, term()}
+                                when PathList :: [Dir :: file:name()].
+
+erlangrc([Home|_]=Paths) when is_list(Home) ->
+    f_p_e(Paths, ".erlang").
 
 error(Fmt, Args) ->
     error_logger:error_msg(Fmt, Args).
@@ -692,11 +696,11 @@ f_p_e(P, F) ->
 	{error, E={Line, _Mod, _Term}} ->
 	    error("file:path_eval(~tp,~tp): error on line ~p: ~ts~n",
 		  [P, F, Line, file:format_error(E)]),
-	    ok;
+	    {error, E};
 	{error, E} ->
 	    error("file:path_eval(~tp,~tp): ~ts~n",
 		  [P, F, file:format_error(E)]),
-	    ok;
+	    {error, E};
 	Other ->
 	    Other
     end.
