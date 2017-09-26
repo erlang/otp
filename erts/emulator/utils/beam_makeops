@@ -526,7 +526,6 @@ sub emulator_output {
     foreach $key (keys %specific_op) {
 	foreach (@{$specific_op{$key}}) {
 	    my($name, $hotness, @args) = @$_;
-	    my $sign = join('', @args);
 	    my $print_name = print_name($name, @args);
 
 	    my($size, $code, $pack_spec) = cg_basic($name, @args);
@@ -597,6 +596,7 @@ sub emulator_output {
 	foreach (@{$specific_op{$key}}) {
 	    my($name, $hot, @args) = @{$_};
 	    my($sign) = join('', @args);
+            $sign =~ s/[?]//g;
 
 	    # The primitive types should sort before other types.
 
@@ -614,6 +614,7 @@ sub emulator_output {
             my $print_name = $items{$sort_key};
             my $info = $spec_op_info{$print_name};
             my(@args) = @{$info->{'args'}};
+            @args = map { s/[?]$//; $_ } @args;
 	    my $arity = @args;
 
 	    #
@@ -854,6 +855,7 @@ sub emulator_output {
 sub print_name {
     my($name,@args) = @_;
     my $sign = join '', @args;
+    $sign =~ s/[?]//g;
     $sign ne '' ? "${name}_$sign" : $name;
 }
 
@@ -985,7 +987,9 @@ sub parse_specific_op {
     error("too many operands")
 	if @args > $max_spec_operands;
     for (my $i = 0; $i < $arity; $i++) {
-        foreach my $type (split(//, $args[$i])) {
+        my $arg = $args[$i];
+        $arg =~ s/[?]$//;
+        foreach my $type (split(//, $arg)) {
             error("Argument " . ($i+1) . ": invalid type '$type'")
                 unless defined $arg_size{$type};
         }
@@ -1000,10 +1004,11 @@ sub parse_specific_op {
     foreach my $arg (@args) {
         my @old_res = @res;
         @res = ();
+        my $marker = ($arg =~ s/[?]$//) ? '?' : '';
         foreach my $type (split(//, $arg)) {
             foreach my $args_ref (@old_res) {
                 my @args = @$args_ref;
-                push @args, $type;
+                push @args, "$type$marker";
                 push @res, \@args;
             }
         }
@@ -1351,6 +1356,7 @@ sub code_gen {
 
     my $need_block = 0;
     my $arg_offset = $offset;
+    @args = map { s/[?]$//g; $_ } @args;
     foreach (@args) {
 	my($this_size) = $arg_size{$_};
       SWITCH:
@@ -1618,6 +1624,7 @@ sub needs_do_wrapper {
 
 sub do_pack {
     my($offset,$pack_options,@args) = @_;
+    @args = map { s/[?]$//; $_ } @args;
     my $ret = ['', ':', @args];
     my $score = 0;
 
