@@ -32,6 +32,24 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Compiling an ASN.1 module using the option {n2n,
+	    EnumTypeName} when EnumTypeName contains a hypen like for
+	    example Cause-Misc caused syntax errors when compiling
+	    the generated Erlang code. This is now corrected.</p>
+          <p>
+	    Own Id: OTP-14495 Aux Id: ERL-437 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

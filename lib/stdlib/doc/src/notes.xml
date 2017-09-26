@@ -31,6 +31,56 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug in the Erlang shell where recursively
+	    defined records with typed fields could cause a loop.
+	    </p>
+          <p>
+	    Own Id: OTP-14488 Aux Id: PR-1489 </p>
+        </item>
+        <item>
+          <p>
+	    Make edlin handle grapheme clusters instead of codepoints
+	    to improve the handling multi-codepoints characters.</p>
+          <p>
+	    Own Id: OTP-14542</p>
+        </item>
+        <item>
+	    <p>There could be false warnings for
+	    <c>erlang:get_stacktrace/0</c> being used outside of a
+	    <c>try</c> block when using multiple <c>catch</c>
+	    clauses.</p>
+          <p>
+	    Own Id: OTP-14600 Aux Id: ERL-478 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The Erlang code linter no longer checks that the
+	    functions mentioned in <c>nowarn_deprecated_function</c>
+	    options are declared in the module. </p>
+          <p>
+	    Own Id: OTP-14378</p>
+        </item>
+        <item>
+          <p>
+	    General Unicode improvements.</p>
+          <p>
+	    Own Id: OTP-14462</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.4.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

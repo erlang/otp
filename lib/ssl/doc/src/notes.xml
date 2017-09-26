@@ -28,6 +28,40 @@
   <p>This document describes the changes made to the SSL application.</p>
 
 
+<section><title>SSL 8.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Max session table works correctly again</p>
+          <p>
+	    Own Id: OTP-14556</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Customize alert handling for DTLS over UDP to mitigate
+	    DoS attacks</p>
+          <p>
+	    Own Id: OTP-14078</p>
+        </item>
+        <item>
+          <p>
+	    Improved error propagation and reports</p>
+          <p>
+	    Own Id: OTP-14236</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
