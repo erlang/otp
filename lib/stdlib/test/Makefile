@@ -69,6 +69,7 @@ MODULES= \
 	sets_test_lib \
 	sofs_SUITE \
 	stdlib_SUITE \
+	stdlib_bench_SUITE \
 	string_SUITE \
 	supervisor_1 \
 	supervisor_2 \
@@ -146,7 +147,7 @@ release_spec: opt
 
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
-	$(INSTALL_DATA) stdlib.spec $(EMAKEFILE) \
+	$(INSTALL_DATA) stdlib.spec stdlib_bench.spec $(EMAKEFILE) \
 		$(ERL_FILES) $(COVERFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)

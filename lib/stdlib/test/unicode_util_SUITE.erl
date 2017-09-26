@@ -29,7 +29,9 @@
          get/1,
          count/1]).
 
--export([debug/0, id/1, bin_split/1, uc_loaded_size/0]).
+-export([debug/0, id/1, bin_split/1, uc_loaded_size/0,
+        time_count/4  %% Used by stdlib_bench_SUITE
+        ]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -323,7 +325,7 @@ do_measure(Config) ->
     File =  DataDir ++ "/NormalizationTest.txt",
     {ok, Bin} = file:read_file(File),
     Do = fun(Func, Mode) ->
-                 {N, Mean, Stddev, Res} = time_count(Func, Mode, Bin),
+                 {N, Mean, Stddev, Res} = time_count(Func, Mode, Bin, 10),
                  io:format("~4w ~6w ~.10w ~.6wms ±~.2wms #~.2w~n",
                            [Func, Mode, Res, Mean div 1000, Stddev div 1000, N])
          end,
@@ -345,19 +347,19 @@ uc_loaded_size([_|Rest]) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-time_count(Fun, Mode, Bin) ->
+time_count(Fun, Mode, Bin, Repeat) ->
     timer:sleep(100), %% Let emulator catch up and clean things before test runs
     Self = self(),
     Pid = spawn_link(fun() ->
                              Str = mode(Mode, Bin),
-                             Self ! {self(),do_count(0,0,0, Fun, Str, undefined)}
+                             Self ! {self(),do_count(0,0,0, Fun, Str, undefined, Repeat)}
                      end),
     receive {Pid,Msg} -> Msg end.
 
-do_count(N,Sum,SumSq, Fun, Str, _) when N < 10 ->
+do_count(N,Sum,SumSq, Fun, Str, _, Repeat) when N < Repeat ->
     {Time, Res} = do_count(Fun, Str),
-    do_count(N+1,Sum+Time,SumSq+Time*Time, Fun, Str, Res);
-do_count(N,Sum,SumSq, _, _, Res) ->
+    do_count(N+1,Sum+Time,SumSq+Time*Time, Fun, Str, Res, Repeat);
+do_count(N,Sum,SumSq, _, _, Res, _) ->
     Mean = round(Sum / N),
     Stdev = round(math:sqrt((SumSq - (Sum*Sum/N))/(N - 1))),
     {N, Mean, Stdev, Res}.
