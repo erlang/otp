@@ -99,6 +99,10 @@
 
 -export([unicode_mode/1]).
 
+-export([tiny_writes/1, tiny_writes_delayed/1,
+         large_writes/1, large_writes_delayed/1,
+         tiny_reads/1, tiny_reads_ahead/1]).
+
 %% Debug exports
 -export([create_file_slow/2, create_file/2, create_bin/2]).
 -export([verify_file/2, verify_bin/3]).
@@ -109,6 +113,8 @@
 -export([disc_free/1, memsize/0]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/include/ct_event.hrl").
+
 -include_lib("kernel/include/file.hrl").
 
 -define(THROW_ERROR(RES), throw({fail, ?LINE, RES})).
@@ -126,7 +132,7 @@ all() ->
      ipread, pid2name, interleaved_read_write, otp_5814, otp_10852,
      large_file, large_write, read_line_1, read_line_2, read_line_3,
      read_line_4, standard_io, old_io_protocol,
-     unicode_mode
+     unicode_mode, {group, bench}
     ].
 
 groups() -> 
@@ -156,11 +162,19 @@ groups() ->
        write_compressed, compress_errors, catenated_gzips,
        compress_async_crash]},
      {links, [],
-      [make_link, read_link_info_for_non_link, symlinks]}].
+      [make_link, read_link_info_for_non_link, symlinks]},
+     {bench, [],
+      [tiny_writes, tiny_writes_delayed,
+       large_writes, large_writes_delayed,
+       tiny_reads, tiny_reads_ahead]}].
 
 init_per_group(_GroupName, Config) ->
     Config.
 
+end_per_group(bench, Config) ->
+    ScratchDir = proplists:get_value(priv_dir, Config),
+    file:delete(filename:join(ScratchDir, "benchmark_scratch_file")),
+    Config;
 end_per_group(_GroupName, Config) ->
     Config.
 
@@ -3701,6 +3715,83 @@ do_large_write(Name) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Benchmarks
+%%
+%% Note that we only measure the time it takes to run the isolated file
+%% operations and that the actual test runtime can differ significantly,
+%% especially on the write side as the files need to be truncated before
+%% writing.
+
+large_writes(Config) when is_list(Config) ->
+    Modes = [raw, binary],
+    OpCount = 4096,
+    Data = <<0:(64 bsl 10)/unit:8>>,
+    run_write_benchmark(Config, Modes, OpCount, Data).
+
+large_writes_delayed(Config) when is_list(Config) ->
+    %% Each write is exactly as large as the delay buffer, causing the writes
+    %% to pass through each time, giving us a decent idea of how much overhead
+    %% delayed_write adds.
+    Modes = [raw, binary, {delayed_write, 64 bsl 10, 2000}],
+    OpCount = 4096,
+    Data = <<0:(64 bsl 10)/unit:8>>,
+    run_write_benchmark(Config, Modes, OpCount, Data).
+
+tiny_writes(Config) when is_list(Config) ->
+    Modes = [raw, binary],
+    OpCount = 512 bsl 10,
+    Data = <<0>>,
+    run_write_benchmark(Config, Modes, OpCount, Data).
+
+tiny_writes_delayed(Config) when is_list(Config) ->
+    Modes = [raw, binary, {delayed_write, 512 bsl 10, 2000}],
+    OpCount = 512 bsl 10,
+    Data = <<0>>,
+    run_write_benchmark(Config, Modes, OpCount, Data).
+
+%% The read benchmarks assume that "benchmark_scratch_file" has been filled by
+%% the write benchmarks.
+
+tiny_reads(Config) when is_list(Config) ->
+    Modes = [raw, binary],
+    OpCount = 512 bsl 10,
+    run_read_benchmark(Config, Modes, OpCount, 1).
+
+tiny_reads_ahead(Config) when is_list(Config) ->
+    Modes = [raw, binary, {read_ahead, 512 bsl 10}],
+    OpCount = 512 bsl 10,
+    run_read_benchmark(Config, Modes, OpCount, 1).
+
+run_write_benchmark(Config, Modes, OpCount, Data) ->
+    run_benchmark(Config, [write | Modes], OpCount, fun file:write/2, Data).
+
+run_read_benchmark(Config, Modes, OpCount, OpSize) ->
+    run_benchmark(Config, [read | Modes], OpCount, fun file:read/2, OpSize).
+
+run_benchmark(Config, Modes, OpCount, Fun, Arg) ->
+    ScratchDir = proplists:get_value(priv_dir, Config),
+    Path = filename:join(ScratchDir, "benchmark_scratch_file"),
+    {ok, Fd} = file:open(Path, Modes),
+    submit_throughput_results(Fun, [Fd, Arg], OpCount).
+
+submit_throughput_results(Fun, Args, Times) ->
+    MSecs = measure_repeated_file_op(Fun, Args, Times, millisecond),
+    IOPS = trunc(Times * (1000 / MSecs)),
+    ct_event:notify(#event{ name = benchmark_data, data = [{value,IOPS}] }),
+    {comment, io_lib:format("~p IOPS, ~p ms", [IOPS, trunc(MSecs)])}.
+
+measure_repeated_file_op(Fun, Args, Times, Unit) ->
+    Start = os:perf_counter(Unit),
+    repeated_apply(Fun, Args, Times),
+    os:perf_counter(Unit) - Start.
+
+repeated_apply(_F, _Args, Times) when Times =< 0 ->
+    ok;
+repeated_apply(F, Args, Times) ->
+    erlang:apply(F, Args),
+    repeated_apply(F, Args, Times - 1).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 response_analysis(Module, Function, Arguments) ->
