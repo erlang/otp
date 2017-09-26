@@ -1700,6 +1700,8 @@ choice(Height, Width, P, Mode, Tab, Key, Turn, Opos) ->
 		    io:format("~ts\n", [ErrorString]),
 		    choice(Height, Width, P, Mode, Tab, Key, Turn, Opos)
 	    end;
+        eof ->
+            ok;
 	_  ->
 	    choice(Height, Width, P, Mode, Tab, Key, Turn, Opos)
     end.

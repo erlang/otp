@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -398,7 +398,7 @@ get_line(Prompt, Port, Q, Acc, Enc) ->
 		    get_line_bytes(Prompt, Port, Q, Acc, Bytes, Enc);
 		{Port, eof} ->
 		    put(eof, true),
-		    {ok, eof, []};
+		    {ok, eof, queue:new()};
                 {io_request,From,ReplyAs,{get_geometry,_}=Req} when is_pid(From) ->
                     do_io_request(Req, From, ReplyAs, Port, 
                                   queue:new()), 
@@ -615,7 +615,7 @@ get_chars(Prompt, M, F, Xa, Port, Q, State, Enc) ->
 		    get_chars_bytes(State, M, F, Xa, Port, Q, Bytes, Enc);
 		{Port, eof} ->
 		    put(eof, true),
-		    {ok, eof, []};
+		    {ok, eof, queue:new()};
 		%%{io_request,From,ReplyAs,Request} when is_pid(From) ->
 		%%    get_chars_req(Prompt, M, F, Xa, Port, queue:new(), State,
 		%%		  Request, From, ReplyAs);
