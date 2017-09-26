@@ -453,15 +453,7 @@ while (<>) {
     # Parse specific instructions (only present in emulator/loader):
     #    Name Arg1 Arg2...
     #
-    my($name, @args) = split;
-    error("too many operands")
-	if @args > $max_spec_operands;
-    syntax_check($name, @args);
-    my $arity = @args;
-    if (defined $gen_opnum{$name,$arity} and $obsolete[$gen_opnum{$name,$arity}]) {
-	error("specific instructions may not be specified for obsolete instructions");
-    }
-    save_specific_ops($name, $arity, $hotness, @args);
+    my($name,$arity) = parse_specific_op($_);
     if (defined $op_num) {
 	error("specific instructions must not be numbered");
     } elsif (!defined($gen_arity{$name}) && !defined($unnumbered{$name,$arity})) {
@@ -981,40 +973,51 @@ sub compiler_output {
 }
 
 #
-# Check an operation for validity.
+# Parse and store a specific operation.
 #
-sub syntax_check {
-    my($name, @args) = @_;
-    my($i);
+sub parse_specific_op {
+    my($name, @args) = split " ", shift;
+    my $arity = @args;
 
+    # Check for various errors.
     error("Bad opcode name '$name'")
 	unless $name =~ /^[a-z][\w\d_]*$/;
-    for ($i = 0; $i < @args; $i++) {
+    error("too many operands")
+	if @args > $max_spec_operands;
+    for (my $i = 0; $i < $arity; $i++) {
         foreach my $type (split(//, $args[$i])) {
             error("Argument " . ($i+1) . ": invalid type '$type'")
                 unless defined $arg_size{$type};
         }
     }
-}
+    if (defined $gen_opnum{$name,$arity} and $obsolete[$gen_opnum{$name,$arity}]) {
+	error("specific instructions may not be specified for obsolete instructions");
+    }
 
-sub save_specific_ops {
-    my($name,$arity,$hot,@args) = @_;
-    my(@res) = ("");
-
+    # Expand operands with multiple types to multiple instructions.
+    # (For example, "get_list xy xy xy" will be expanded to six instructions.)
+    my @res = ([]);
     foreach my $arg (@args) {
-        my @new_res = ();
+        my @old_res = @res;
+        @res = ();
         foreach my $type (split(//, $arg)) {
-            foreach my $args (@res) {
-                push @new_res, "$args$type";
+            foreach my $args_ref (@old_res) {
+                my @args = @$args_ref;
+                push @args, $type;
+                push @res, \@args;
             }
         }
-        @res = @new_res;
     }
+
+    # Store each specific instruction.
     my $key = "$name/$arity";
-    foreach my $args (@res) {
-        @args = split //, $args;
-        push @{$specific_op{$key}}, [$name,$hot,@args];
+    foreach my $args_ref (@res) {
+        @args = @$args_ref;
+        push @{$specific_op{$key}}, [$name,$hotness,@args];
     }
+
+    # Done.
+    ($name,$arity);
 }
 
 sub parse_c_args {
