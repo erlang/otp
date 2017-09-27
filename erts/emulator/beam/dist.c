@@ -476,41 +476,54 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
 
     if (dep == erts_this_dist_entry) {  /* Net kernel has died (clean up!!) */
 	DistEntry *tdep;
-	int no_dist_ctrl = 0;
+	int no_dist_ctrl;
+        int no_pending;
 	Eterm nd_reason = (reason == am_no_network
 			   ? am_no_network
 			   : am_net_kernel_terminated);
+        int i = 0;
+        Eterm *dist_ctrl;
+        DistEntry** pending;
+
+        ERTS_UNDEF(dist_ctrl, NULL);
+        ERTS_UNDEF(pending, NULL);
+
 	erts_rwmtx_rlock(&erts_dist_table_rwmtx);
 
-	for (tdep = erts_hidden_dist_entries; tdep; tdep = tdep->next)
-	    no_dist_ctrl++;
-	for (tdep = erts_visible_dist_entries; tdep; tdep = tdep->next)
-	    no_dist_ctrl++;
+        no_dist_ctrl = (erts_no_of_hidden_dist_entries +
+                        erts_no_of_visible_dist_entries);
+        no_pending = erts_no_of_pending_dist_entries;
 
 	/* KILL all port controllers */
-	if (no_dist_ctrl == 0)
-	    erts_rwmtx_runlock(&erts_dist_table_rwmtx);
-	else {
-	    Eterm def_buf[128];
-	    int i = 0;
-	    Eterm *dist_ctrl;
-
-	    if (no_dist_ctrl <= sizeof(def_buf)/sizeof(def_buf[0]))
-		dist_ctrl = &def_buf[0];
-	    else
-		dist_ctrl = erts_alloc(ERTS_ALC_T_TMP,
-				       sizeof(Eterm)*no_dist_ctrl);
+	if (no_dist_ctrl) {
+            dist_ctrl = erts_alloc(ERTS_ALC_T_TMP,
+                                   sizeof(Eterm)*no_dist_ctrl);
 	    for (tdep = erts_hidden_dist_entries; tdep; tdep = tdep->next) {
 		ASSERT(is_internal_port(tdep->cid) || is_internal_pid(tdep->cid));
+                ASSERT(i < no_dist_ctrl);
 		dist_ctrl[i++] = tdep->cid;
 	    }
 	    for (tdep = erts_visible_dist_entries; tdep; tdep = tdep->next) {
 		ASSERT(is_internal_port(tdep->cid) || is_internal_pid(tdep->cid));
+                ASSERT(i < no_dist_ctrl);
 		dist_ctrl[i++] = tdep->cid;
 	    }
-	    erts_rwmtx_runlock(&erts_dist_table_rwmtx);
+            ASSERT(i == no_dist_ctrl);
+        }
+        if (no_pending) {
+            pending = erts_alloc(ERTS_ALC_T_TMP, sizeof(DistEntry*)*no_pending);
+            i = 0;
+            for (tdep = erts_pending_dist_entries; tdep; tdep = tdep->next) {
+                ASSERT(is_nil(tdep->cid));
+                ASSERT(i < no_pending);
+                pending[i++] = tdep;
+            }
+            ASSERT(i == no_pending);
+        }
+        erts_rwmtx_runlock(&erts_dist_table_rwmtx);
 
-	    for (i = 0; i < no_dist_ctrl; i++) {
+        if (no_dist_ctrl) {
+            for (i = 0; i < no_dist_ctrl; i++) {
                 if (is_internal_pid(dist_ctrl[i]))
                     schedule_kill_dist_ctrl_proc(dist_ctrl[i]);
                 else {
@@ -524,11 +537,17 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
                                        prt, dist_ctrl[i], nd_reason, NULL);
                     }
                 }
-	    }
+            }
+            erts_free(ERTS_ALC_T_TMP, dist_ctrl);
+        }
 
-	    if (dist_ctrl != &def_buf[0])
-		erts_free(ERTS_ALC_T_TMP, dist_ctrl);
-	}
+        if (no_pending) {
+            for (i = 0; i < no_pending; i++) {
+                abort_pending_connection(pending[i], pending[i]->connection_id);
+            }
+            erts_free(ERTS_ALC_T_TMP, pending);
+        }
+
 
 	/*
 	 * When last dist ctrl exits, node will be taken
@@ -3565,6 +3584,7 @@ int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks)
         net_kernel = erts_whereis_process(proc, proc_locks,
                                           am_net_kernel, nk_locks, 0);
         if (!net_kernel) {
+            abort_pending_connection(dep, conn_id);
             return 0;
         }
 
