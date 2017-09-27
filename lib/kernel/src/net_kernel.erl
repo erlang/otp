@@ -796,19 +796,23 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
 	    AcceptPid ! {self(), {accept_pending, already_pending}},
 	    {noreply, State};
 	_ ->
-            ConnId = case (catch erlang:new_connection_id(Node)) of
-                         {Nr,_DHandle}=CI when is_integer(Nr) -> CI
-                         %% SVERK What to do?
-                     end,
-	    ets:insert(sys_dist, #connection{node = Node,
-                                             conn_id = ConnId,
-					     state = pending,
-					     owner = AcceptPid,
-					     address = Address,
-					     type = Type}),
-	    AcceptPid ! {self(),{accept_pending,ok}},
-	    Owners = [{AcceptPid,Node} | State#state.conn_owners],
-	    {noreply, State#state{conn_owners = Owners}}
+            case (catch erlang:new_connection_id(Node)) of
+                {Nr,_DHandle}=ConnId when is_integer(Nr) ->
+                    ets:insert(sys_dist, #connection{node = Node,
+                                                     conn_id = ConnId,
+                                                     state = pending,
+                                                     owner = AcceptPid,
+                                                     address = Address,
+                                                     type = Type}),
+                    AcceptPid ! {self(),{accept_pending,ok}},
+                    Owners = [{AcceptPid,Node} | State#state.conn_owners],
+                    {noreply, State#state{conn_owners = Owners}};
+
+                _ ->
+                    error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
+                                           [Node]),
+                    AcceptPid ! {self(),{accept_pending,nok_pending}}
+            end
     end;
 
 handle_info({SetupPid, {is_pending, Node}}, State) ->
@@ -1009,7 +1013,9 @@ up_pending_nodedown(Conn, Node, _Reason, _Type, State) ->
     AcceptPid = Conn#connection.pending_owner,
     Owners = State#state.conn_owners,
     Pend = lists:keydelete(AcceptPid, 1, State#state.pend_owners),
+    erlang:abort_connection_id(Node, Conn#connection.conn_id),    
     Conn1 = Conn#connection { owner = AcceptPid,
+                              conn_id = erlang:new_connection_id(Node),
 			      pending_owner = undefined,
 			      state = pending },
     ets:insert(sys_dist, Conn1),

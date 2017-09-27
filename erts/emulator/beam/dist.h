@@ -172,7 +172,7 @@ erts_dsig_prepare(ErtsDSigData *dsdp,
 	    return ERTS_DSIG_PREP_NOT_CONNECTED;
 
 	dep = erts_find_or_insert_dist_entry(dsdp->node);
-	ASSERT(dep != erts_this_dist_entry);  /* SVERK: What to do? */
+	ASSERT(dep != erts_this_dist_entry);
         deref_dep = 1;
     }
 
@@ -192,7 +192,6 @@ retry:
 	res = ERTS_DSIG_PREP_PENDING;
     }
     else if (dep->status & ERTS_DE_SFLG_EXITING) {
-	/* SVERK is this ok, or should we trigger another connection setup */
 	res = ERTS_DSIG_PREP_NOT_CONNECTED;
 	goto fail;
     }
