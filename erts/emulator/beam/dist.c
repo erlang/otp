@@ -3062,6 +3062,10 @@ int distribution_info(fmtfn_t to, void *arg)	/* Called by break handler */
       info_dist_entry(to, arg, dep, 0, 1);
     }
 
+    for (dep = erts_pending_dist_entries; dep; dep = dep->next) {
+        info_dist_entry(to, arg, dep, 0, 0);
+    }
+
     for (dep = erts_not_connected_dist_entries; dep; dep = dep->next) {
         if (dep != erts_this_dist_entry) {
             info_dist_entry(to, arg, dep, 0, 0);
@@ -3441,10 +3445,7 @@ BIF_RETTYPE new_connection_id_1(BIF_ALIST_1)
     if (ERTS_DE_IS_CONNECTED(dep) || dep->status & ERTS_DE_SFLG_PENDING)
 	conn_id = dep->connection_id;
     else if (dep->status == 0) {
-	dep->status = ERTS_DE_SFLG_PENDING;
-	dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY);
-	dep->connection_id++;
-	dep->connection_id &= ERTS_DIST_CON_ID_MASK;
+        erts_set_dist_entry_pending(dep);
 	conn_id = dep->connection_id;
     }
     else {
@@ -3489,8 +3490,6 @@ static Sint abort_pending_connection(DistEntry* dep, Uint32 conn_id)
 
 	cache = dep->cache;
 	dep->cache = NULL;
-	dep->status = 0;
-	dep->flags = 0;
 	erts_mtx_lock(&dep->qlock);
         obuf = dep->out_queue.first;
         dep->out_queue.first = NULL;
@@ -3501,6 +3500,9 @@ static Sint abort_pending_connection(DistEntry* dep, Uint32 conn_id)
 	erts_mtx_unlock(&dep->qlock);
 	erts_atomic_set_nob(&dep->dist_cmd_scheduled, 0);
 	dep->send = NULL;
+
+        erts_set_dist_entry_not_connected(dep);
+
 	erts_de_rwunlock(dep);
 
 	erts_sweep_monitors(monitors, &doit_monitor_net_exits, &nec);
@@ -3556,9 +3558,7 @@ int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks)
         Eterm msg, dhandle;
         Uint32 conn_id;
 
-        dep->status = ERTS_DE_SFLG_PENDING;
-        dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY);
-        dep->connection_id = (dep->connection_id + 1) & ERTS_DIST_CON_ID_MASK;
+        erts_set_dist_entry_pending(dep);
         conn_id = dep->connection_id;
         erts_de_rwunlock(dep);
 
@@ -3655,9 +3655,11 @@ BIF_RETTYPE nodes_1(BIF_ALIST_1)
 
     ASSERT(erts_no_of_not_connected_dist_entries > 0);
     ASSERT(erts_no_of_hidden_dist_entries >= 0);
+    ASSERT(erts_no_of_pending_dist_entries >= 0);
     ASSERT(erts_no_of_visible_dist_entries >= 0);
     if(not_connected)
-      length += (erts_no_of_not_connected_dist_entries - 1);
+      length += ((erts_no_of_not_connected_dist_entries - 1)
+                 + erts_no_of_pending_dist_entries);
     if(hidden)
       length += erts_no_of_hidden_dist_entries;
     if(visible)
@@ -3677,13 +3679,18 @@ BIF_RETTYPE nodes_1(BIF_ALIST_1)
 #ifdef DEBUG
     endp = hp + length*2;
 #endif
-    if(not_connected)
+    if(not_connected) {
       for(dep = erts_not_connected_dist_entries; dep; dep = dep->next) {
           if (dep != erts_this_dist_entry) {
             result = CONS(hp, dep->sysname, result);
             hp += 2;
           }
+        }
+      for(dep = erts_pending_dist_entries; dep; dep = dep->next) {
+          result = CONS(hp, dep->sysname, result);
+          hp += 2;
       }
+    }
     if(hidden)
       for(dep = erts_hidden_dist_entries; dep; dep = dep->next) {
 	result = CONS(hp, dep->sysname, result);

@@ -177,9 +177,11 @@ extern erts_rwmtx_t erts_node_table_rwmtx;
 
 extern DistEntry *erts_hidden_dist_entries;
 extern DistEntry *erts_visible_dist_entries;
+extern DistEntry *erts_pending_dist_entries;
 extern DistEntry *erts_not_connected_dist_entries;
 extern Sint erts_no_of_hidden_dist_entries;
 extern Sint erts_no_of_visible_dist_entries;
+extern Sint erts_no_of_pending_dist_entries;
 extern Sint erts_no_of_not_connected_dist_entries;
 
 extern DistEntry *erts_this_dist_entry;
@@ -195,6 +197,7 @@ void erts_schedule_delete_dist_entry(DistEntry *);
 Uint erts_dist_table_size(void);
 void erts_dist_table_info(fmtfn_t, void *);
 void erts_set_dist_entry_not_connected(DistEntry *);
+void erts_set_dist_entry_pending(DistEntry *);
 void erts_set_dist_entry_connected(DistEntry *, Eterm, Uint);
 ErlNode *erts_find_or_insert_node(Eterm, Uint32);
 void erts_schedule_delete_node(ErlNode *);

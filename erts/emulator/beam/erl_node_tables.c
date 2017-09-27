@@ -39,9 +39,11 @@ erts_rwmtx_t erts_node_table_rwmtx;
 
 DistEntry *erts_hidden_dist_entries;
 DistEntry *erts_visible_dist_entries;
+DistEntry *erts_pending_dist_entries;
 DistEntry *erts_not_connected_dist_entries; /* including erts_this_dist_entry */
 Sint erts_no_of_hidden_dist_entries;
 Sint erts_no_of_visible_dist_entries;
+Sint erts_no_of_pending_dist_entries;
 Sint erts_no_of_not_connected_dist_entries; /* including erts_this_dist_entry */
 
 DistEntry *erts_this_dist_entry;
@@ -522,12 +524,17 @@ erts_dist_table_size(void)
 	i++;
     ASSERT(i == erts_no_of_hidden_dist_entries);
     i = 0;
+    for(dep = erts_pending_dist_entries; dep; dep = dep->next)
+        i++;
+    ASSERT(i == erts_no_of_pending_dist_entries);
+    i = 0;
     for(dep = erts_not_connected_dist_entries; dep; dep = dep->next)
 	i++;
     ASSERT(i == erts_no_of_not_connected_dist_entries);
 
     ASSERT(dist_entries == (erts_no_of_visible_dist_entries
 			    + erts_no_of_hidden_dist_entries
+                            + erts_no_of_pending_dist_entries
 			    + erts_no_of_not_connected_dist_entries));
 #endif
 
@@ -542,43 +549,46 @@ erts_dist_table_size(void)
 void
 erts_set_dist_entry_not_connected(DistEntry *dep)
 {
+    DistEntry** head;
+
     ERTS_LC_ASSERT(erts_lc_is_de_rwlocked(dep));
     erts_rwmtx_rwlock(&erts_dist_table_rwmtx);
 
     ASSERT(dep != erts_this_dist_entry);
-    ASSERT(is_internal_port(dep->cid) || is_internal_pid(dep->cid));
 
-    if(dep->flags & DFLAG_PUBLISHED) {
-	if(dep->prev) {
-	    ASSERT(is_in_de_list(dep, erts_visible_dist_entries));
-	    dep->prev->next = dep->next;
-	}
-	else {
-	    ASSERT(erts_visible_dist_entries == dep);
-	    erts_visible_dist_entries = dep->next;
-	}
-
-	ASSERT(erts_no_of_visible_dist_entries > 0);
-	erts_no_of_visible_dist_entries--;
+    if (dep->status & ERTS_DE_SFLG_PENDING) {
+        ASSERT(is_nil(dep->cid));
+        ASSERT(erts_no_of_pending_dist_entries > 0);
+        erts_no_of_pending_dist_entries--;
+        head = &erts_pending_dist_entries;
     }
     else {
-	if(dep->prev) {
-	    ASSERT(is_in_de_list(dep, erts_hidden_dist_entries));
-	    dep->prev->next = dep->next;
-	}
-	else {
-	    ASSERT(erts_hidden_dist_entries == dep);
-	    erts_hidden_dist_entries = dep->next;
-	}
-
-	ASSERT(erts_no_of_hidden_dist_entries > 0);
-	erts_no_of_hidden_dist_entries--;
+        ASSERT(dep->status != 0);
+        ASSERT(is_internal_port(dep->cid) || is_internal_pid(dep->cid));
+        if (dep->flags & DFLAG_PUBLISHED) {
+            ASSERT(erts_no_of_visible_dist_entries > 0);
+            erts_no_of_visible_dist_entries--;
+            head = &erts_visible_dist_entries;
+        }
+        else {
+            ASSERT(erts_no_of_hidden_dist_entries > 0);
+            erts_no_of_hidden_dist_entries--;
+            head = &erts_hidden_dist_entries;
+        }
     }
 
+    if(dep->prev) {
+        ASSERT(is_in_de_list(dep, *head));
+        dep->prev->next = dep->next;
+    }
+    else {
+        ASSERT(*head == dep);
+        *head = dep->next;
+    }
     if(dep->next)
 	dep->next->prev = dep->prev;
 
-    dep->status &= ~ERTS_DE_SFLG_CONNECTED;
+    dep->status &= ~(ERTS_DE_SFLG_PENDING | ERTS_DE_SFLG_CONNECTED);
     dep->flags = 0;
     dep->prev = NULL;
     dep->cid = NIL;
@@ -594,6 +604,45 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
 }
 
 void
+erts_set_dist_entry_pending(DistEntry *dep)
+{
+    ERTS_LC_ASSERT(erts_lc_is_de_rwlocked(dep));
+    erts_rwmtx_rwlock(&erts_dist_table_rwmtx);
+
+    ASSERT(dep != erts_this_dist_entry);
+    ASSERT(dep->status == 0);
+    ASSERT(is_nil(dep->cid));
+
+    if(dep->prev) {
+        ASSERT(is_in_de_list(dep, erts_not_connected_dist_entries));
+        dep->prev->next = dep->next;
+    }
+    else {
+        ASSERT(dep == erts_not_connected_dist_entries);
+        erts_not_connected_dist_entries = dep->next;
+    }
+
+    if(dep->next)
+	dep->next->prev = dep->prev;
+
+    erts_no_of_not_connected_dist_entries--;
+
+    dep->status = ERTS_DE_SFLG_PENDING;
+    dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY);
+    dep->connection_id = (dep->connection_id + 1) & ERTS_DIST_CON_ID_MASK;
+
+    dep->prev = NULL;
+    dep->next = erts_pending_dist_entries;
+    if(erts_pending_dist_entries) {
+	ASSERT(erts_pending_dist_entries->prev == NULL);
+	erts_pending_dist_entries->prev = dep;
+    }
+    erts_pending_dist_entries = dep;
+    erts_no_of_pending_dist_entries++;
+    erts_rwmtx_rwunlock(&erts_dist_table_rwmtx);
+}
+
+void
 erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
 {
     erts_aint32_t set_qflgs;
@@ -603,29 +652,25 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
 
     ASSERT(dep != erts_this_dist_entry);
     ASSERT(is_nil(dep->cid));
+    ASSERT(dep->status & ERTS_DE_SFLG_PENDING);
     ASSERT(is_internal_port(cid) || is_internal_pid(cid));
 
     if(dep->prev) {
-	ASSERT(is_in_de_list(dep, erts_not_connected_dist_entries));
+	ASSERT(is_in_de_list(dep, erts_pending_dist_entries));
 	dep->prev->next = dep->next;
     }
     else {
-	ASSERT(erts_not_connected_dist_entries == dep);
-	erts_not_connected_dist_entries = dep->next;
+	ASSERT(erts_pending_dist_entries == dep);
+	erts_pending_dist_entries = dep->next;
     }
 
     if(dep->next)
 	dep->next->prev = dep->prev;
 
-    ASSERT(erts_no_of_not_connected_dist_entries > 0);
-    erts_no_of_not_connected_dist_entries--;
+    ASSERT(erts_no_of_pending_dist_entries > 0);
+    erts_no_of_pending_dist_entries--;
 
-    if (dep->status & ERTS_DE_SFLG_PENDING) {
-	dep->status &= ~ERTS_DE_SFLG_PENDING;
-    } else {
-	dep->connection_id++;
-	dep->connection_id &= ERTS_DIST_CON_ID_MASK;
-    }
+    dep->status &= ~ERTS_DE_SFLG_PENDING;
     dep->status |= ERTS_DE_SFLG_CONNECTED;
     dep->flags = flags & ~DFLAG_NO_MAGIC;
     dep->cid = cid;
@@ -959,9 +1004,11 @@ void erts_init_node_tables(int dd_sec)
 
     erts_hidden_dist_entries				= NULL;
     erts_visible_dist_entries				= NULL;
+    erts_pending_dist_entries			        = NULL;
     erts_not_connected_dist_entries			= NULL;
     erts_no_of_hidden_dist_entries			= 0;
     erts_no_of_visible_dist_entries			= 0;
+    erts_no_of_pending_dist_entries			= 0;
     erts_no_of_not_connected_dist_entries		= 0;
 
     node_tmpl.sysname = am_Noname;
@@ -1727,6 +1774,15 @@ setup_reference_table(void)
 	    insert_links(dep->node_links, dep->sysname);
 	if(dep->monitors)
 	    insert_monitors(dep->monitors, dep->sysname);
+    }
+
+    for(dep = erts_pending_dist_entries; dep; dep = dep->next) {
+        if(dep->nlinks)
+            insert_links2(dep->nlinks, dep->sysname);
+        if(dep->node_links)
+            insert_links(dep->node_links, dep->sysname);
+        if(dep->monitors)
+            insert_monitors(dep->monitors, dep->sysname);
     }
 
     /* Not connected dist entries should not have any links,
