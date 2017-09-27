@@ -37,7 +37,6 @@
 	       %% Erlang Distribution over SSL/TLS
 	       inet_tls_dist,
 	       inet6_tls_dist,
-	       ssl_tls_dist_ctrl,
 	       ssl_dist_sup,
                ssl_dist_connection_sup,
                ssl_dist_admin_sup,

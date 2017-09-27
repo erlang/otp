@@ -294,7 +294,7 @@ wait_for_code_server() ->
     %% unloaded, and the function call that triggered loading it fails
     %% with 'undef', which is rather confusing.
     %%
-    %% Thus, the ssl_tls_dist_ctrl process will terminate, and be
+    %% Thus, the accept process will terminate, and be
     %% restarted by ssl_dist_sup.  However, it won't have any memory
     %% of being asked by net_kernel to listen for incoming
     %% connections.  Hence, the node will believe that it's open for
