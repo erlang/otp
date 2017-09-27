@@ -27,6 +27,7 @@ use constant HOT => 2;
 # Instructions for packing
 use constant PACK_JUMP => 1;
 use constant PACK_IN_INSTR_WORD => 2;
+use constant PACK_OPT_IN_INSTR_WORD => 4;
 
 # Packing commands
 use constant PACK_CMD_TIGHTEST => '1';
@@ -1623,13 +1624,38 @@ sub needs_do_wrapper {
 }
 
 sub do_pack {
-    my($name,$offset,$pack_options,@args) = @_;
-    @args = map { s/[?]$//; $_ } @args;
+    my($name,$offset,$pack_opts_ref,@args) = @_;
+    my @pack_opts = @$pack_opts_ref;
+    my $opt_arg_pos = -1;
+
+    # Look for an optional use operand not as the first argument.
+    if (@args and $args[0] !~ /[?]$/) {
+        for (my $pos = 0; $pos < @args; $pos++) {
+            if ($args[$pos] =~ /[?]$/) {
+                $opt_arg_pos = $pos;
+                last;
+            }
+        }
+    }
+
+    @args = map { s/[?]$//; $_ } @args; # Remove any optional use marker.
+
+    # If there is an optional operand, extend the array of pack options.
+    if ($opt_arg_pos >= 0) {
+        my @new_pack_opts = grep { $_ & PACK_IN_INSTR_WORD } @pack_opts;
+        @new_pack_opts = map {
+            ($_ & ~ PACK_IN_INSTR_WORD) | PACK_OPT_IN_INSTR_WORD;
+        } @new_pack_opts;
+        push @pack_opts, @new_pack_opts;
+    }
+
     my $ret = ['', ':', @args];
     my $score = 0;
 
-    foreach my $options (@$pack_options) {
-        my($this_score,$this_result) = do_pack_one($name, $options, $offset, @args);
+    foreach my $options (@pack_opts) {
+        my $this_opt_arg_pos = ($options & PACK_OPT_IN_INSTR_WORD) ? $opt_arg_pos : -1;
+        my($this_score,$this_result) =
+            do_pack_one($name, $options, $this_opt_arg_pos, $offset, @args);
         if ($this_score > $score) {
             $ret = $this_result;
             $score = $this_score;
@@ -1639,7 +1665,7 @@ sub do_pack {
 }
 
 sub do_pack_one {
-    my($name,$options,$offset,@args) = @_;
+    my($name,$options,$opt_arg_pos,$offset,@args) = @_;
     my($packable_args) = 0;
     my @bits_needed;            # Bits needed for each argument.
     my $pack_in_iw = $options & PACK_IN_INSTR_WORD;
@@ -1684,7 +1710,7 @@ sub do_pack_one {
     #
     if ($packable_args == 0) {
         return (-1);
-    } elsif ($packable_args == 1 and !$pack_in_iw) {
+    } elsif ($packable_args == 1 and $options == 0) {
         return (-1);
     }
 
@@ -1707,9 +1733,11 @@ sub do_pack_one {
 
     $next_word->();
     $this_wordsize = 32 if $pack_in_iw;
-    for (my $i = 0; $i < @args; $i++) {
-            my $needed = $bits_needed[$i];
+    for (my $arg_num = 0; $arg_num < @args; $arg_num++) {
+            my $needed = $bits_needed[$arg_num];
+
             next unless $needed;
+            next if $arg_num == $opt_arg_pos;
 
             if ($bits+$needed > $this_wordsize) { # Does not fit.
                 $next_word->();
@@ -1765,12 +1793,19 @@ sub do_pack_one {
 				# beginning).
     my $up = '';		# Pack commands (storing back while
 				# moving forward).
+    my $arg_num = 0;            # Number of argument.
 
-    # Skip an unpackable argument.
+    # Skip an unpackable argument. Also handle packing of
+    # an single operand into the instruction word.
     my $skip_unpackable = sub {
         my($arg) = @_;
 
-        if ($arg_size{$arg}) {
+        if ($arg_num == $opt_arg_pos) {
+            my $pack = chr(ord('#') + $arg_num);
+            $down = PACK_CMD_WIDE . "$pack$down";
+            my $unpack = "BeamExtraData(I[0])";
+            $args[$arg_num] = "packed:$arg:0:${arg}b($unpack)";
+        } elsif ($arg_size{$arg}) {
             # Save the argument on the pack engine's stack.
             my $push = 'g';
             if ($type_bit{$arg} & $type_bit{'q'}) {
@@ -1790,7 +1825,6 @@ sub do_pack_one {
     # the packing engine works from right-to-left, but we must generate
     # the instructions from left-to-right because we must calculate
     # instruction sizes from left-to-right.
-    my $arg_num = 0;
     for (my $word = 0; $word < @args_per_word; $word++) {
         my $ap = 0;              # Argument number within word.
         my $packed_var = "tmp_packed" . ($word+1);
@@ -1849,7 +1883,9 @@ sub do_pack_one {
     # Skip any unpackable arguments at the end.
     #
     while ($arg_num < @args) {
-        $skip_unpackable->($args[$arg_num]);
+        my $arg = $args[$arg_num];
+        $skip_unpackable->($arg);
+        $size += $arg_size{$arg};
         $arg_num++;
     }
 
@@ -1935,8 +1971,10 @@ sub pack_score {
 
     # Less numbers of words give a higher score; for the same number of
     # words, using PACK_JUMP or PACK_IN_INSTR_WORD gives a lower score.
-    my $score = 1 + $max_spec_operands*($max_spec_operands - $size);
-    if ($options == PACK_IN_INSTR_WORD) {
+    my $score = 1 + 10*($max_spec_operands - $size);
+    if (($options & PACK_OPT_IN_INSTR_WORD) != 0) {
+        $score += 4;
+    } elsif ($options == PACK_IN_INSTR_WORD) {
         $score += 0;
     } elsif ($options == PACK_JUMP) {
         $score += 1;
