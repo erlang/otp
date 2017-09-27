@@ -829,6 +829,26 @@ connection(
     end;
 connection({call, From}, Msg, State, Connection) ->
     handle_call(Msg, From, connection, State, Connection);
+connection(
+  info, dist_data = Msg,
+  #state{
+     ssl_options = #ssl_options{erl_dist = true},
+     protocol_specific = #{d_handle := DHandle}} = State,
+  _) ->
+    eat_msgs(Msg),
+    try send_dist_data(connection, State, DHandle, [])
+    catch _:Reason ->
+            death_row(State, Reason)
+    end;
+connection(
+  info, tick = Msg,
+  #state{
+     ssl_options = #ssl_options{erl_dist = true},
+     protocol_specific = #{d_handle := _}},
+  _) ->
+    eat_msgs(Msg),
+    {keep_state_and_data,
+     [{next_event, {call, {self(), undefined}}, {application_data, <<>>}}]};
 connection(info, Msg, State, _) ->
     handle_info(Msg, connection, State);
 connection(internal, {recv, _}, State, Connection) ->
@@ -1080,31 +1100,12 @@ handle_info({cancel_start_or_recv, RecvFrom}, StateName,
 handle_info({cancel_start_or_recv, _RecvFrom}, StateName, State) ->
     {next_state, StateName, State#state{timer = undefined}};
 
-handle_info(
-  dist_data = Msg,
-  connection,
-  #state{
-     ssl_options = #ssl_options{erl_dist = true},
-     protocol_specific = #{d_handle := DHandle}} = State) ->
-    eat_msgs(Msg),
-    try send_dist_data(connection, State, DHandle, [])
-    catch _:Reason ->
-            death_row(State, Reason)
-    end;
-handle_info(
-  tick = Msg,
-  connection,
-  #state{
-     ssl_options = #ssl_options{erl_dist = true},
-     protocol_specific = #{d_handle := _}}) ->
-    eat_msgs(Msg),
-    {keep_state_and_data,
-     [{next_event, {call, {self(), undefined}}, {application_data, <<>>}}]};
-
 handle_info(Msg, StateName, #state{socket = Socket, error_tag = Tag} = State) ->
     Report = io_lib:format("SSL: Got unexpected info: ~p ~n", [{Msg, Tag, Socket}]),
     error_logger:info_report(Report),
     {next_state, StateName, State}.
+
+
 
 send_dist_data(StateName, State, DHandle, Acc) ->
     case erlang:dist_ctrl_get_data(DHandle) of

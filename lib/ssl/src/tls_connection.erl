@@ -441,8 +441,7 @@ handle_info({CloseTag, Socket}, StateName,
             next_event(StateName, no_record, State)
     end;
 handle_info(Msg, StateName, State) ->
-    ssl_connection:handle_info(Msg, StateName, State).
-%%%    ssl_connection:StateName(info, Msg, State, ?MODULE).
+    ssl_connection:StateName(info, Msg, State, ?MODULE).
 
 handle_common_event(internal, #alert{} = Alert, StateName, 
 		    #state{negotiated_version = Version} = State) ->

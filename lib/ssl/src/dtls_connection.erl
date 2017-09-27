@@ -540,8 +540,7 @@ handle_info(new_cookie_secret, StateName,
                                             CookieInfo#{current_cookie_secret => dtls_v1:cookie_secret(),
                                                         previous_cookie_secret => Secret}}};
 handle_info(Msg, StateName, State) ->
-    ssl_connection:handle_info(Msg, StateName, State).
-%%%    ssl_connection:StateName(info, Msg, State, ?MODULE).
+    ssl_connection:StateName(info, Msg, State, ?MODULE).
 
 
 handle_call(Event, From, StateName, State) ->
