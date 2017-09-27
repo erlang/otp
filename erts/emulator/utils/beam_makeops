@@ -1346,7 +1346,7 @@ sub code_gen {
 
     my $c_code_ref = $c_code{$name};
     if (defined $c_code_ref and $name ne 'catch') {
-        ($var_decls, $pack_spec, @args) = do_pack($offset, $pack_options, @args);
+        ($var_decls, $pack_spec, @args) = do_pack($name, $offset, $pack_options, @args);
     }
 
     #
@@ -1623,13 +1623,13 @@ sub needs_do_wrapper {
 }
 
 sub do_pack {
-    my($offset,$pack_options,@args) = @_;
+    my($name,$offset,$pack_options,@args) = @_;
     @args = map { s/[?]$//; $_ } @args;
     my $ret = ['', ':', @args];
     my $score = 0;
 
     foreach my $options (@$pack_options) {
-        my($this_score,$this_result) = do_pack_one($options, $offset, @args);
+        my($this_score,$this_result) = do_pack_one($name, $options, $offset, @args);
         if ($this_score > $score) {
             $ret = $this_result;
             $score = $this_score;
@@ -1639,7 +1639,7 @@ sub do_pack {
 }
 
 sub do_pack_one {
-    my($options,$offset,@args) = @_;
+    my($name,$options,$offset,@args) = @_;
     my($packable_args) = 0;
     my @bits_needed;            # Bits needed for each argument.
     my $pack_in_iw = $options & PACK_IN_INSTR_WORD;
@@ -1798,7 +1798,7 @@ sub do_pack_one {
         my $pack_word_size = ($pack_in_iw && $word == 0) ? 32 : $wordsize;
 
         my($shref,$mref,$iref,$unpack_suffix)  =
-            get_pack_parameters($args_per_word, $pack_word_size,
+            get_pack_parameters($name, $args_per_word, $pack_word_size,
                                 $need_wide_mask[$word]);
         my @shift = @$shref;
         my @mask = @$mref;
@@ -1860,7 +1860,7 @@ sub do_pack_one {
 }
 
 sub get_pack_parameters {
-    my($args_per_word,$pack_word_size,$wide_mask) = @_;
+    my($name,$args_per_word,$pack_word_size,$wide_mask) = @_;
     my(@shift,@mask,@instr);
     my $unpack_suffix = 'b';
 
@@ -1913,7 +1913,7 @@ sub get_pack_parameters {
     }
 
     unless (@shift) {
-        error("internal error: args_per_word=$args_per_word, " .
+        error("$name: internal packing error: args_per_word=$args_per_word, " .
               "pack_word_size=$pack_word_size");
     }
 
