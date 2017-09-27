@@ -220,7 +220,8 @@
         {
           name     :: rel_name(),
           vsn      :: rel_vsn(),
-          rel_apps :: [#rel_app{}]
+          rel_apps :: [#rel_app{}],
+          load_dot_erlang = true :: boolean()
 	}).
 
 -record(sys,
@@ -300,6 +301,7 @@
 
 -define(STANDALONE_INCL_SYS_FILTERS,  ["^bin/(erl|epmd)(|\\.exe|\\.ini)\$",
 				       "^bin/start(|_clean).boot\$",
+				       "^bin/no_dot_erlang\\.boot\$",
 				       "^erts.*/bin",
 				       "^lib\$"]).
 -define(STANDALONE_EXCL_SYS_FILTERS,
