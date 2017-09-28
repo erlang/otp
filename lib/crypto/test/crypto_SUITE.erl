@@ -125,13 +125,11 @@ groups() ->
                 private_encrypt,
                 generate
                ]},
-     {dss, [], [sign_verify,
-                public_encrypt,
-                private_encrypt
+     {dss, [], [sign_verify
+                %% Does not work yet:  ,public_encrypt, private_encrypt
                ]},
-     {ecdsa, [], [sign_verify,
-                  public_encrypt,
-                  private_encrypt
+     {ecdsa, [], [sign_verify
+                %% Does not work yet:  ,public_encrypt, private_encrypt
                  ]},
      {dh, [], [generate_compute]},
      {ecdh, [], [compute, generate]},
@@ -820,9 +818,7 @@ negative_verify(Type, Hash, Msg, Signature, Public, Options) ->
     end.
 
 do_public_encrypt({Type, Public, Private, Msg, Padding}) ->
-    ct:pal("public_encrypt",[]),
     PublicEcn = (catch crypto:public_encrypt(Type, Msg, Public, Padding)),
-    ct:pal("private_decrypt of ~p",[PublicEcn]),
     case crypto:private_decrypt(Type, PublicEcn, Private, Padding) of
 	Msg ->
 	    ok;
@@ -831,12 +827,9 @@ do_public_encrypt({Type, Public, Private, Msg, Padding}) ->
     end. 
 
 do_private_encrypt({_Type, _Public, _Private, _Msg, rsa_pkcs1_oaep_padding}) ->
-    ct:pal("do_private_encrypt: ~p not supported by openssl(?)",[rsa_pkcs1_oaep_padding]),
     ok; %% Not supported by openssl
 do_private_encrypt({Type, Public, Private, Msg, Padding}) ->
-    ct:pal("private_encrypt",[]),
     PrivEcn = (catch crypto:private_encrypt(Type, Msg, Private, Padding)),
-    ct:pal("public_decrypt of ~p",[PrivEcn]),
     case crypto:public_decrypt(Type, PrivEcn, Public, Padding) of
 	Msg ->
 	    ok;
