@@ -325,7 +325,7 @@
         <p><c><anno>Acc0</anno></c> is returned if the table is empty.
           This function is similar to
           <seealso marker="lists#foldl/3"><c>lists:foldl/3</c></seealso>.
-          The table elements are traversed is unspecified order, except for
+          The table elements are traversed in an unspecified order, except for
           <c>ordered_set</c> tables, where they are traversed first to last.</p>
         <p>If <c><anno>Function</anno></c> inserts objects into the table,
           or another
@@ -341,7 +341,7 @@
         <p><c><anno>Acc0</anno></c> is returned if the table is empty.
           This function is similar to
           <seealso marker="lists#foldr/3"><c>lists:foldr/3</c></seealso>.
-          The table elements are traversed is unspecified order, except for
+          The table elements are traversed in an unspecified order, except for
           <c>ordered_set</c> tables, where they are traversed last to first.</p>
         <p>If <c><anno>Function</anno></c> inserts objects into the table,
           or another
