@@ -249,9 +249,14 @@
     <pre>
 {restart_application, Application}
   Application = atom()</pre>
-    <p>Restarting an application means that the application is
-      stopped and then started again, similar to using the instructions
-      <c>remove_application</c> and <c>add_application</c> in sequence.</p>
+    <p>Restarting an application means that the application is stopped
+    and then started again, similar to using the instructions
+    <c>remove_application</c> and <c>add_application</c> in sequence.
+    Note that, even if the application has been started before the
+    release upgrade is performed, <c>restart_application</c> may only
+    <c>load</c> it rather than <c>start</c> it, depending on the
+    application's <c>restart_type()</c>.
+    </p>
     </section>
 
     <section>
