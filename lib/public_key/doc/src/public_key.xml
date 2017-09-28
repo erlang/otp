@@ -871,12 +871,13 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
     <type>
       <v>Cert = der_encoded() | #'OTPCertificate'{} </v>
       <v>ReferenceIDs = [ RefID ]</v>
-      <v>RefID = {IdType,string()}</v>
-      <v>IdType = dns_id | srv_id | uri_id</v>
+      <v>RefID = {dns_id,string()} | {srv_id,string()} | {uri_id,string()} | {ip,inet:ip_address()|string()} | {OtherRefID,term()}}</v>
+      <v>OtherRefID = atom()</v>
       <v>Opts = [ PvhOpt() ]</v>
       <v>PvhOpt = [MatchOpt | FailCallBackOpt | FqdnExtractOpt]</v>
-      <v>MatchOpt = {fun(RefId | FQDN::string(), PresentedID) -> boolean() | default}</v>
-      <v>PresentedID = {dNSName,string()} | {uniformResourceIdentifier,string()}</v>
+      <v>MatchOpt = {match_fun, fun(RefId | FQDN::string(), PresentedID) -> boolean() | default}</v>
+      <v>PresentedID = {dNSName,string()} | {uniformResourceIdentifier,string() | {iPAddress,list(byte())} | {OtherPresId,term()}}</v>
+      <v>OtherPresID = atom()</v>
       <v>FailCallBackOpt = {fail_callback, fun(#'OTPCertificate'{}) -> boolean()}</v>
       <v>FqdnExtractOpt = {fqdn_fun, fun(RefID) -> FQDN::string() | default | undefined}</v>
     </type>
@@ -892,6 +893,11 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
       and
       <seealso marker="using_public_key#verify_hostname_examples">code examples</seealso>
       describes this function more detailed.
+      </p>
+      <p>The <c>{OtherRefId,term()}</c> is defined by the user and is passed to the <c>match_fun</c>, if defined.
+      If that term is a binary, it will be converted to a string.
+      </p>
+      <p>The <c>ip</c> takes a 4-tuple or a 
       </p>
     </desc>
   </func>

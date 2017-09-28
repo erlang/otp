@@ -1454,13 +1454,43 @@ verify_hostname_match_default0({dns_id,R}, {dNSName,P}) ->
     R==P;
 verify_hostname_match_default0({uri_id,R}, {uniformResourceIdentifier,P}) ->
     R==P;
-verify_hostname_match_default0({srv_id,R}, {T,P}) when T == srvName ;
-                                                       T == ?srvName_OID ->
+verify_hostname_match_default0({ip,R}, {iPAddress,P}) when length(P) == 4 ->
+    %% IPv4
+    try
+        list_to_tuple(P)
+            == if is_tuple(R), size(R)==4 -> R;
+                  is_list(R) -> ok(inet:parse_ipv4strict_address(R))
+               end
+    catch
+        _:_ ->
+            false
+    end;
+
+verify_hostname_match_default0({ip,R}, {iPAddress,P}) when length(P) == 16 ->
+    %% IPv6. The length 16 is due to the certificate specification.
+    try
+        l16_to_tup(P)
+            == if is_tuple(R), size(R)==8 -> R;
+                  is_list(R) -> ok(inet:parse_ipv6strict_address(R))
+               end
+    catch
+        _:_ ->
+            false
+    end;
+verify_hostname_match_default0({srv_id,R}, {srvName,P}) ->
+    R==P;
+verify_hostname_match_default0({srv_id,R}, {?srvName_OID,P}) ->
     R==P;
 verify_hostname_match_default0(_, _) ->
     false.
 
+ok({ok,X}) -> X.
 
+l16_to_tup(L) -> list_to_tuple(l16_to_tup(L, [])).
+%%
+l16_to_tup([A,B|T], Acc) -> l16_to_tup(T, [(A bsl 8) bor B | Acc]);
+l16_to_tup([], Acc) -> lists:reverse(Acc).
+    
 match_wild(A,     [$*|B]) -> match_wild_suffixes(A, B);
 match_wild([C|A], [ C|B]) -> match_wild(A, B);
 match_wild([],        []) -> true;
@@ -1505,7 +1535,8 @@ to_lower_ascii(C) when $A =< C,C =< $Z -> C + ($a-$A);
 to_lower_ascii(C) -> C.
 
 to_string(S) when is_list(S) -> S;
-to_string(B) when is_binary(B) -> binary_to_list(B).
+to_string(B) when is_binary(B) -> binary_to_list(B);
+to_string(X) -> X.
 
 format_details([]) ->
     no_relevant_crls;
