@@ -41,12 +41,14 @@
   <funcs>
     <func>
       <name name="cmd" arity="1"/>
+      <name name="cmd" arity="2"/>
       <fsummary>Execute a command in a shell of the target OS.</fsummary>
       <desc>
         <p>Executes <c><anno>Command</anno></c> in a command shell of the
           target OS,
           captures the standard output of the command, and returns this
-          result as a string. This function is a replacement of
+          result as a string. If the <c>binary</c> option is given, the
+          result is a binary. This function is a replacement of
           the previous function <c>unix:cmd/1</c>; they are equivalent on a
           Unix platform.</p>
         <p><em>Examples:</em></p>
