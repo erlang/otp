@@ -39,26 +39,6 @@
 
 -include("ssl_api.hrl").
 
-%%%-undef(trace).
-%%%%%-define(trace, true).
-%%%-ifdef(trace).
-%%%trace(Module, FunctionName, Line, Info, Value) ->
-%%%    erlang:display(
-%%%      [{erlang:convert_time_unit(
-%%%          erlang:monotonic_time()
-%%%          - erlang:system_info(start_time), native, microsecond),
-%%%        node(), self()},
-%%%       {Module, FunctionName, Line}, Info, Value]),
-%%%    Value.
-%%%-else.
-%%%trace(_Module, _FunctionName, _Line, _Info, Value) -> Value.
-%%%-endif.
-%%%-undef(trace).
-%%%-define(
-%%%   trace(Info, Body),
-%%%   trace(?MODULE, ?FUNCTION_NAME, ?LINE, (Info), begin Body end)).
-trace(Term) -> Term.
-
 %% -------------------------------------------------------------------------
 
 childspecs() ->
@@ -247,7 +227,8 @@ accept_loop(Driver, Listen, Kernel) ->
             Opts = get_ssl_options(server),
             wait_for_code_server(),
             case ssl:ssl_accept(
-                   Socket, [{active, false}, {packet, 4}] ++ Opts) of
+                   Socket, [{active, false}, {packet, 4}] ++ Opts,
+                   net_kernel:connecttime()) of
                 {ok, #sslsocket{pid = DistCtrl} = SslSocket} ->
                     monitor_pid(DistCtrl),
                     trace(
@@ -381,7 +362,8 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
                     case ssl:connect(
                            Ip, TcpPort,
                            [binary, {active, false}, {packet, 4},
-                            Driver:family(), nodelay()] ++ Opts) of
+                            Driver:family(), nodelay()] ++ Opts,
+                           net_kernel:connecttime()) of
 			{ok, #sslsocket{pid = DistCtrl} = SslSocket} ->
                             monitor_pid(DistCtrl),
                             ok = ssl:controlling_process(SslSocket, self()),
@@ -635,24 +617,27 @@ verify_fun(Value) ->
 
 %% -------------------------------------------------------------------------
 
+%% Trace point
+trace(Term) -> Term.
+
 %% Keep an eye on distribution Pid:s we know of
 monitor_pid(Pid) ->
-    spawn(
-      fun () ->
-              MRef = erlang:monitor(process, Pid),
-              receive
-                  {'DOWN', MRef, _, _, normal} ->
-                      error_logger:error_report(
-                        [dist_proc_died,
-                         {reason, normal},
-                         {pid, Pid}]);
-                  {'DOWN', MRef, _, _, Reason} ->
-                      error_logger:info_report(
-                        [dist_proc_died,
-                         {reason, Reason},
-                         {pid, Pid}])
-              end
-      end),
+    %%spawn(
+    %%  fun () ->
+    %%          MRef = erlang:monitor(process, Pid),
+    %%          receive
+    %%              {'DOWN', MRef, _, _, normal} ->
+    %%                  error_logger:error_report(
+    %%                    [dist_proc_died,
+    %%                     {reason, normal},
+    %%                     {pid, Pid}]);
+    %%              {'DOWN', MRef, _, _, Reason} ->
+    %%                  error_logger:info_report(
+    %%                    [dist_proc_died,
+    %%                     {reason, Reason},
+    %%                     {pid, Pid}])
+    %%          end
+    %%  end),
     Pid.
 
 dbg() ->
