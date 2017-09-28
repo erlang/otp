@@ -21,7 +21,7 @@
 
 %% Provides a common operating system interface.
 
--export([type/0, version/0, cmd/1, find_executable/1, find_executable/2]).
+-export([type/0, version/0, cmd/1, cmd/2, find_executable/1, find_executable/2]).
 
 -include("file.hrl").
 
@@ -234,6 +234,11 @@ extensions() ->
 -spec cmd(Command) -> string() when
       Command :: atom() | io_lib:chars().
 cmd(Cmd) ->
+    cmd(Cmd, []).
+
+-spec cmd(Command, [binary]) -> string() | binary() when
+      Command :: atom() | io_lib:chars().
+cmd(Cmd, Opts) ->
     validate(Cmd),
     {SpawnCmd, SpawnOpts, SpawnInput, Eot} = mk_cmd(os:type(), Cmd),
     Port = open_port({spawn, SpawnCmd}, [binary, stderr_to_stdout,
@@ -242,10 +247,15 @@ cmd(Cmd) ->
     true = port_command(Port, SpawnInput),
     Bytes = get_data(Port, MonRef, Eot, []),
     demonitor(MonRef, [flush]),
-    String = unicode:characters_to_list(Bytes),
-    if  %% Convert to unicode list if possible otherwise return bytes
-	is_list(String) -> String;
-	true -> binary_to_list(Bytes)
+    case lists:member(binary, Opts) of
+	true ->
+	    iolist_to_binary(Bytes);
+	false ->
+	    String = unicode:characters_to_list(Bytes),
+	    if  %% Convert to unicode list if possible otherwise return bytes
+		is_list(String) -> String;
+		true -> binary_to_list(Bytes)
+	    end
     end.
 
 mk_cmd({win32,Wtype}, Cmd) ->

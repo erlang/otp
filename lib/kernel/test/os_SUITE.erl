@@ -22,7 +22,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2]).
--export([space_in_cwd/1, quoting/1, cmd_unicode/1, space_in_name/1, bad_command/1,
+-export([space_in_cwd/1, quoting/1, cmd_unicode/1, cmd_binary/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, deep_list_command/1,
          large_output_command/1, background_command/0, background_command/1,
          message_leak/1, close_stdin/0, close_stdin/1, perf_counter_api/1]).
@@ -34,7 +34,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() ->
-    [space_in_cwd, quoting, cmd_unicode, space_in_name, bad_command,
+    [space_in_cwd, quoting, cmd_binary, cmd_unicode, space_in_name, bad_command,
      find_executable, unix_comment_in_command, deep_list_command,
      large_output_command, background_command, message_leak,
      close_stdin, perf_counter_api].
@@ -108,6 +108,18 @@ quoting(Config) when is_list(Config) ->
     comp("x::one two", os:cmd(Echo ++ " x \"one two\"")),
     comp("one two::y", os:cmd(Echo ++ " \"one two\" y")),
     comp("x::::y", os:cmd(Echo ++ " x \"\" y")),
+    ct:sleep(5),
+    [] = receive_all(),
+    ok.
+
+
+cmd_binary(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    Echo = filename:join(DataDir, "my_echo"),
+
+    comp(<<"one"/utf8>>, os:cmd(Echo ++ " one", [binary])),
+    comp(<<"one::two"/utf8>>, os:cmd(Echo ++ " one two", [binary])),
+    comp(<<"åäö::ϼΩ"/utf8>>, os:cmd(Echo ++ " åäö " ++ [1020, 937], [binary])),
     ct:sleep(5),
     [] = receive_all(),
     ok.
@@ -365,6 +377,11 @@ comp(Expected, Got) ->
     end.
 
 %% Like lib:nonl/1, but strips \r as well as \n.
+
+strip_nl(<<$\r, $\n>>)    -> <<>>;
+strip_nl(<<$\n>>)         -> <<>>;
+strip_nl(<<H, T/binary>>) -> <<H, (strip_nl(T))/binary>>;
+strip_nl(<<>>)            -> <<>>;
 
 strip_nl([$\r, $\n]) -> [];
 strip_nl([$\n])      -> [];
