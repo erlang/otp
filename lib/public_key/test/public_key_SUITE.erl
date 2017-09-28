@@ -47,6 +47,7 @@ all() ->
      pkix_iso_rsa_oid, pkix_iso_dsa_oid, pkix_crl, general_name,
      pkix_verify_hostname_cn,
      pkix_verify_hostname_subjAltName,
+     pkix_verify_hostname_subjAltName_IP,
      pkix_verify_hostname_options,
      pkix_test_data_all_default,
      pkix_test_data,
@@ -983,6 +984,45 @@ pkix_verify_hostname_options(Config) ->
     true =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://example.com"}],
 					    [{fqdn_fun, fun(_) -> default end}]),
     false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"some://very.wrong.domain"}]).
+
+%%--------------------------------------------------------------------
+%% To generate the PEM file contents:
+%%
+%% openssl req -x509 -nodes -newkey rsa:1024 -keyout /dev/null -extensions SAN -config  public_key_SUITE_data/verify_hostname_ip.conf 2>/dev/null > public_key_SUITE_data/pkix_verify_hostname_subjAltName_IP.pem
+%%
+%% Subject: C=SE, CN=example.com
+%% Subject Alternative Name: DNS:1.2.3.4, IP=5.6.7.8, URI:https://10.11.12.13
+
+pkix_verify_hostname_subjAltName_IP(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    {ok,Bin} = file:read_file(filename:join(DataDir,"pkix_verify_hostname_subjAltName_IP.pem")),
+    Cert = public_key:pkix_decode_cert(element(2,hd(public_key:pem_decode(Bin))), otp),
+
+    %% Print the tests that a matchfun has to handle
+    catch public_key:pkix_verify_hostname(Cert, [{some_tag,"some.domain"},
+                                                 {some_other_tag,[a,b,3,4]}],
+                                          [{match_fun,
+                                            fun(Ref,Pres) -> 
+                                                    ct:pal("~p:~p:~nRef : ~p~nPres: ~p",[?MODULE,?LINE,Ref,Pres]),
+                                                    false
+                                            end}]),
+
+    false =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://10.11.12.14"}]),
+    true  =  public_key:pkix_verify_hostname(Cert, [{uri_id,"https://10.11.12.13"}]),
+    true  =  public_key:pkix_verify_hostname(Cert, [{dns_id,"1.2.3.4"}]),
+    false =  public_key:pkix_verify_hostname(Cert, [{dns_id,"5.6.7.8"}]),
+    true  =  public_key:pkix_verify_hostname(Cert, [{ip,[5,6,7,8]}],
+                                             [{match_fun,
+                                               fun({ip,IPref},{iPAddress,IPpres}) -> 
+                                                       ct:pal("~p:~p: IPref=~p, IPpres=~p",[?MODULE,?LINE,IPref,IPpres]),
+                                                       IPref == IPpres;
+                                                  (Ref,Pres) ->
+                                                       ct:pal("~p:~p:~nRef : ~p~nPres: ~p",[?MODULE,?LINE,Ref,Pres]),
+                                                       default
+                                               end}]).
+                                                      
+    
+        
 
 %%--------------------------------------------------------------------
 pkix_iso_rsa_oid() ->
