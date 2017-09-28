@@ -800,6 +800,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
         <v>Alg = crypto | crypto_cache</v>
       </type>
       <desc>
+	<marker id="rand_seed_alg-1" />
 	<p>
           Creates state object for
 	  <seealso marker="stdlib:rand">random number generation</seealso>,
@@ -813,6 +814,12 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
 	  <seealso marker="stdlib:rand">rand</seealso> functions using it
 	  may throw exception <c>low_entropy</c> in case the random generator
 	  failed due to lack of secure "randomness".
+	</p>
+	<p>
+	  The cache size can be changed from its default value using the
+	  <seealso marker="crypto_app">
+	    crypto app's
+	  </seealso> configuration parameter <c>rand_cache_size</c>.
 	</p>
         <p><em>Example</em></p>
         <pre>
@@ -829,6 +836,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
         <v>Alg = crypto | crypto_cache</v>
       </type>
       <desc>
+	<marker id="rand_seed_alg_s-1" />
 	<p>
           Creates state object for
 	  <seealso marker="stdlib:rand">random number generation</seealso>,
@@ -851,6 +859,12 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
 	  <seealso marker="stdlib:rand">rand</seealso> functions using it
 	  may throw exception <c>low_entropy</c> in case the random generator
 	  failed due to lack of secure "randomness".
+	</p>
+	<p>
+	  The cache size can be changed from its default value using the
+	  <seealso marker="crypto_app">
+	    crypto app's
+	  </seealso> configuration parameter <c>rand_cache_size</c>.
 	</p>
 	<note>
 	  <p>
