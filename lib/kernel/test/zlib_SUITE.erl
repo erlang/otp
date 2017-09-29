@@ -276,10 +276,10 @@ api_inflateInit(Config) when is_list(Config) ->
 			  ?m(ok,zlib:close(Z12))
 		  end, lists:seq(8,15)),
     ?m(?EXIT(badarg), zlib:inflateInit(gurka, -15)),
-    ?m(?EXIT(already_initialized), zlib:inflateInit(Z1, 7)),
-    ?m(?EXIT(already_initialized), zlib:inflateInit(Z1, -7)),
-    ?m(?EXIT(already_initialized), zlib:inflateInit(Z1, 48)),
-    ?m(?EXIT(already_initialized), zlib:inflateInit(Z1, -16)),
+    ?m(?EXIT(bad_windowbits), zlib:inflateInit(Z1, 7)),
+    ?m(?EXIT(bad_windowbits), zlib:inflateInit(Z1, -7)),
+    ?m(?EXIT(bad_windowbits), zlib:inflateInit(Z1, 48)),
+    ?m(?EXIT(bad_windowbits), zlib:inflateInit(Z1, -16)),
     ?m(ok, zlib:close(Z1)).
 
 %% Test inflateSetDictionary.
@@ -416,6 +416,9 @@ api_inflateChunk(Config) when is_list(Config) ->
     {more, Part1AsIOList} = zlib:inflateChunk(Z1, Compressed),
     {more, Part2AsIOList} = zlib:inflateChunk(Z1),
     {more, Part3AsIOList} = zlib:inflateChunk(Z1),
+
+    [] = zlib:inflateChunk(Z1),
+    [] = zlib:inflateChunk(Z1),
     [] = zlib:inflateChunk(Z1),
 
     ?m(Part1, iolist_to_binary(Part1AsIOList)),
@@ -483,7 +486,8 @@ api_safeInflate(Config) when is_list(Config) ->
 
     SafeInflateLoop(zlib:safeInflate(Z1, Compressed), []),
 
-    ?m(?EXIT(data_error), zlib:safeInflate(Z1, Compressed)),
+    ?m({finished, []}, zlib:safeInflate(Z1, Compressed)),
+    ?m({finished, []}, zlib:safeInflate(Z1, Compressed)),
 
     ?m(ok, zlib:inflateReset(Z1)),
     ?m(?EXIT(badarg), zlib:safeInflate(gurka, Compressed)),
