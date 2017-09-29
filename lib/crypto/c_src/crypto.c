@@ -2730,24 +2730,6 @@ static int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, DSA *dsa)
     return 1;
 }
 
-static int rsa_pad(ERL_NIF_TERM term, int* padding)
-{
-    if (term == atom_rsa_pkcs1_padding) {
-	*padding = RSA_PKCS1_PADDING;
-    }
-    else if (term == atom_rsa_pkcs1_oaep_padding) {
-	*padding = RSA_PKCS1_OAEP_PADDING;
-    }
-    else if (term == atom_rsa_no_padding) {
-	*padding = RSA_NO_PADDING;
-    }
-    else {
-	return 0;
-    }
-    return 1;
-}
-
-
 /* Creates a term which can be parsed by get_rsa_private_key(). This is a list of plain integer binaries (not mpints). */
 static ERL_NIF_TERM put_rsa_private_key(ErlNifEnv* env, const RSA *rsa)
 {
@@ -4218,7 +4200,9 @@ static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NI
 	tail = options;
 	while (enif_get_list_cell(env, tail, &head, &tail)) {
 	    if (enif_get_tuple(env, head, &tpl_arity, &tpl_terms) && tpl_arity == 2) {
-		if (tpl_terms[0] == atom_rsa_padding || tpl_terms[0] == atom_rsa_pad) {
+		if (tpl_terms[0] == atom_rsa_padding
+                    || tpl_terms[0] == atom_rsa_pad /* Compatibility */
+                    ) {
 		    if (tpl_terms[1] == atom_rsa_pkcs1_padding) {
 			opt->rsa_padding = RSA_PKCS1_PADDING;
 		    } else if (tpl_terms[1] == atom_rsa_pkcs1_oaep_padding) {
@@ -4283,15 +4267,19 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
 {/* (Algorithm, Data, PublKey=[E,N]|[E,N,D]|[E,N,D,P1,P2,E1,E2,C], Options, IsPrivate, IsEncrypt) */
     int i;
     EVP_PKEY *pkey;
+#ifdef HAS_EVP_PKEY_CTX
     EVP_PKEY_CTX *ctx;
+#else
+    RSA *rsa;
+#endif
     PKeyCryptOptions crypt_opt;
     ErlNifBinary in_bin, out_bin, tmp_bin;
     size_t outlen, tmplen;
     int is_private = (argv[4] == atom_true),
         is_encrypt = (argv[5] == atom_true);
+    int algo_init = 0;
 
-int algo_init = 0;
-char algo[1024];
+/* char algo[1024]; */
    
     if (!enif_inspect_binary(env, argv[1], &in_bin)) {
 	return enif_make_badarg(env);
@@ -4320,10 +4308,11 @@ char algo[1024];
     tmp_bin.data = NULL;
     tmp_bin.size = 0;
 
+#ifdef HAS_EVP_PKEY_CTX
     ctx = EVP_PKEY_CTX_new(pkey, NULL);
     if (!ctx) goto badarg;
 
-enif_get_atom(env,argv[0],algo,1024,ERL_NIF_LATIN1); 
+/* enif_get_atom(env,argv[0],algo,1024,ERL_NIF_LATIN1);  */
 
     if (is_private) {
         if (is_encrypt) {
@@ -4439,7 +4428,59 @@ enif_get_atom(env,argv[0],algo,1024,ERL_NIF_LATIN1);
 	}
     }
 
-    if ((i == 1) && argv[0] == atom_rsa && !is_encrypt) {
+#else
+    /* Non-EVP cryptolib. Only support RSA */
+
+    if (argv[0] != atom_rsa) {
+        algo_init = -2;         /* exitcode: notsup */
+        goto badarg;
+    }
+    rsa = EVP_PKEY_get1_RSA(pkey);
+    enif_alloc_binary(RSA_size(rsa), &out_bin);
+
+    if (is_private) {
+        if (is_encrypt) {
+            /* non-evp rsa private encrypt */
+            ERL_VALGRIND_ASSERT_MEM_DEFINED(in_bin.data,in_bin.size);
+            i = RSA_private_encrypt(in_bin.size, in_bin.data,
+                                    out_bin.data, rsa, crypt_opt.rsa_padding);
+            if (i > 0) {
+                ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
+            }
+        } else {
+            /* non-evp rsa private decrypt */
+            i = RSA_private_decrypt(in_bin.size, in_bin.data,
+                                    out_bin.data, rsa, crypt_opt.rsa_padding);       
+            if (i > 0) {
+                ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
+                enif_realloc_binary(&out_bin, i);
+            }
+        }
+    } else {
+        if (is_encrypt) {
+            /* non-evp rsa public encrypt */
+            ERL_VALGRIND_ASSERT_MEM_DEFINED(in_bin.data,in_bin.size);
+            i = RSA_public_encrypt(in_bin.size, in_bin.data,
+                                   out_bin.data, rsa, crypt_opt.rsa_padding);
+            if (i > 0) {
+                ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
+	}
+        } else {
+            /* non-evp rsa public decrypt */
+            i = RSA_public_decrypt(in_bin.size, in_bin.data,
+                                   out_bin.data, rsa, crypt_opt.rsa_padding);    
+            if (i > 0) {
+                ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
+                enif_realloc_binary(&out_bin, i);
+            }
+        }
+    }
+
+    outlen = i;
+    RSA_free(rsa);
+#endif
+
+    if ((i > 0) && argv[0] == atom_rsa && !is_encrypt) {
 	if (crypt_opt.rsa_padding == RSA_SSLV23_PADDING) {
 	    RSA *rsa = EVP_PKEY_get1_RSA(pkey);
 	    unsigned char *p;
@@ -4462,9 +4503,13 @@ enif_get_atom(env,argv[0],algo,1024,ERL_NIF_LATIN1);
     if (tmp_bin.data != NULL) {
 	enif_release_binary(&tmp_bin);
     }
+
+#ifdef HAS_EVP_PKEY_CTX
     EVP_PKEY_CTX_free(ctx);
+#else
+#endif
     EVP_PKEY_free(pkey);
-    if (i == 1) {
+    if (i > 0) {
 	ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, outlen);
 	if (outlen != out_bin.size) {
 	    enif_realloc_binary(&out_bin, outlen);
@@ -4483,7 +4528,10 @@ enif_get_atom(env,argv[0],algo,1024,ERL_NIF_LATIN1);
     if (tmp_bin.data != NULL) {
 	enif_release_binary(&tmp_bin);
     }
+#ifdef HAS_EVP_PKEY_CTX
     EVP_PKEY_CTX_free(ctx);
+#else
+#endif
     EVP_PKEY_free(pkey);
     if (algo_init == -2)
         return atom_notsup;
