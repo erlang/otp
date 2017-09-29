@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,8 +46,7 @@ start_link() ->
 init([]) ->    
     AdminSup = ssl_admin_child_spec(),
     ConnectionSup = ssl_connection_sup(),
-    ProxyServer = proxy_server_child_spec(),
-    {ok, {{one_for_all, 10, 3600}, [AdminSup, ProxyServer, ConnectionSup]}}.
+    {ok, {{one_for_all, 10, 3600}, [AdminSup, ConnectionSup]}}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -68,13 +67,4 @@ ssl_connection_sup() ->
     Shutdown = 4000,
     Modules = [ssl_connection_sup],
     Type = supervisor,
-    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-
-proxy_server_child_spec() ->
-    Name = ssl_tls_dist_proxy,  
-    StartFunc = {ssl_tls_dist_proxy, start_link, []},
-    Restart = permanent, 
-    Shutdown = 4000,
-    Modules = [ssl_tls_dist_proxy],
-    Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.

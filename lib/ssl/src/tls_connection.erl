@@ -65,7 +65,7 @@
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
 	 hello/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
-	 connection/3]). 
+	 connection/3, death_row/3]).
 %% gen_statem callbacks
 -export([callback_mode/0, terminate/3, code_change/4, format_status/2]).
  
@@ -378,6 +378,13 @@ connection(Type, Event, State) ->
     ssl_connection:connection(Type, Event, State, ?MODULE).
 
 %%--------------------------------------------------------------------
+-spec death_row(gen_statem:event_type(), term(), #state{}) ->
+		       gen_statem:state_function_result().
+%%--------------------------------------------------------------------
+death_row(Type, Event, State) ->
+     ssl_connection:death_row(Type, Event, State, ?MODULE).
+
+%%--------------------------------------------------------------------
 -spec downgrade(gen_statem:event_type(), term(), #state{}) ->
 		       gen_statem:state_function_result().
 %%--------------------------------------------------------------------
@@ -434,7 +441,7 @@ handle_info({CloseTag, Socket}, StateName,
             next_event(StateName, no_record, State)
     end;
 handle_info(Msg, StateName, State) ->
-    ssl_connection:handle_info(Msg, StateName, State).
+    ssl_connection:StateName(info, Msg, State, ?MODULE).
 
 handle_common_event(internal, #alert{} = Alert, StateName, 
 		    #state{negotiated_version = Version} = State) ->

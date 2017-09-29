@@ -37,7 +37,6 @@
 	       %% Erlang Distribution over SSL/TLS
 	       inet_tls_dist,
 	       inet6_tls_dist,
-	       ssl_tls_dist_proxy,
 	       ssl_dist_sup,
                ssl_dist_connection_sup,
                ssl_dist_admin_sup,
@@ -63,7 +62,5 @@
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {ssl_app, []}},
-    {runtime_dependencies, ["stdlib-3.2","public_key-1.5","kernel-3.0",
-			    "erts-7.0","crypto-3.3", "inets-5.10.7"]}]}.
-
-
+    {runtime_dependencies, ["stdlib-3.2","public_key-1.5","kernel-6.0",
+			    "erts-10.0","crypto-3.3", "inets-5.10.7"]}]}.

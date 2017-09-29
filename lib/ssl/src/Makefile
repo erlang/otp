@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2016. All Rights Reserved.
+# Copyright Ericsson AB 1999-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,8 +87,7 @@ MODULES= \
 	ssl_v2 \
 	ssl_v3 \
 	tls_v1 \
-	dtls_v1 \
-	ssl_tls_dist_proxy
+	dtls_v1
 
 INTERNAL_HRL_FILES = \
 	ssl_alert.hrl ssl_cipher.hrl \
