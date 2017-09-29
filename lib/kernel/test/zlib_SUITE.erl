@@ -636,12 +636,21 @@ api_g_un_zip(Config) when is_list(Config) ->
     ?m(?EXIT(badarg),zlib:gzip(not_a_binary)),
     Bin = <<1,11,1,23,45>>,
     Comp = zlib:gzip(Bin),
+
     ?m(Comp, zlib:gzip(binary_to_list(Bin))),
     ?m(?EXIT(badarg), zlib:gunzip(not_a_binary)),
     ?m(?EXIT(data_error), zlib:gunzip(<<171,171,171,171,171>>)),
     ?m(?EXIT(data_error), zlib:gunzip(<<>>)),
     ?m(Bin, zlib:gunzip(Comp)),
     ?m(Bin, zlib:gunzip(binary_to_list(Comp))),
+
+    %% RFC 1952:
+    %%
+    %% "A gzip file consists of a series of "members" (compressed data
+    %% sets). [...] The members simply appear one after another in the file,
+    %% with no additional information before, between, or after them."
+    Concatenated = <<Bin/binary, Bin/binary>>,
+    ?m(Concatenated, zlib:gunzip([Comp, Comp])),
 
     %% Bad CRC; bad length.
     BadCrc = bad_crc_data(),

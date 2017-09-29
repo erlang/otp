@@ -541,7 +541,7 @@ gzip(Data) ->
 gunzip(Data) ->
     Z = open(),
     Bs = try
-             inflateInit(Z, 16+?MAX_WBITS),
+             inflateInit(Z, 16+?MAX_WBITS, reset),
              B = inflate(Z, Data),
              inflateEnd(Z),
              B
