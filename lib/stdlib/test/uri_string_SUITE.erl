@@ -31,7 +31,7 @@
          parse_path/1, parse_pct_encoded_fragment/1, parse_pct_encoded_query/1,
          parse_pct_encoded_userinfo/1, parse_port/1,
          parse_query/1, parse_scheme/1, parse_userinfo/1,
-	 parse_list/1, parse_binary/1, parse_mixed/1, parse_relative/1,
+	 parse_list/1, parse_binary/1, parse_mixed/1, parse_relative/1, parse_special/1,
          recompose_fragment/1, recompose_parse_fragment/1,
          recompose_query/1, recompose_parse_query/1,
          recompose_path/1, recompose_parse_path/1,
@@ -89,6 +89,7 @@ all() ->
      parse_binary,
      parse_mixed,
      parse_relative,
+     parse_special,
      recompose_fragment,
      recompose_parse_fragment,
      recompose_query,
@@ -651,6 +652,22 @@ parse_relative(_Config) ->
     #{path := "foo"} =
         uri_string:parse(lists:append("fo",<<"o">>)).
 
+parse_special(_Config) ->
+    #{host := [],query := "?"} = uri_string:parse("//?"),
+    #{fragment := [],host := []} = uri_string:parse("//#"),
+    #{host := [],query := "?",scheme := "foo"} = uri_string:parse("foo://?"),
+    #{fragment := [],host := [],scheme := "foo"} = uri_string:parse("foo://#"),
+    #{host := <<>>, path := <<"/">>} = uri_string:parse(<<"///">>),
+    #{host := <<"hostname">>} = uri_string:parse(<<"//hostname">>),
+    #{host := <<>>, path := <<"/hostname">>} = uri_string:parse(<<"///hostname">>),
+    #{host :=  [],path := "/",query := "?"} = uri_string:parse("///?"),
+    #{fragment := [],host := [],path := "/"} = uri_string:parse("///#"),
+    #{host := "foo",query := "?"} = uri_string:parse("//foo?"),
+    #{fragment := [],host := "foo"} = uri_string:parse("//foo#"),
+    #{host := "foo",path := "/"} = uri_string:parse("//foo/"),
+    #{host := "foo",query := "?",scheme := "http"} = uri_string:parse("http://foo?"),
+    #{fragment := [],host := "foo",scheme := "http"} = uri_string:parse("http://foo#"),
+    #{host := "foo",path := "/",scheme := "http"} = uri_string:parse("http://foo/").
 
 %%-------------------------------------------------------------------------
 %% Recompose tests
