@@ -1111,7 +1111,7 @@ sub combine_instruction_group {
     my %offsets;
     my @instrs;
     my %num_references;
-    my $group_size = 0;
+    my $group_size = 999;
 
     # Do basic error checking. Associate operands of instructions
     # with the correct micro instructions. Calculate offsets for micro
@@ -1140,7 +1140,7 @@ sub combine_instruction_group {
                 }
                 my $size = cg_combined_size($s, 1, @first);
                 $offsets{$s} = $offset
-                    unless defined $offsets{$s} and $offsets{$s} >= $offset;
+                    unless defined $offsets{$s} and $offsets{$s} < $offset;
                 $offset += $size - 1;
                 my $label = micro_label($s);
                 $num_references{$label} = 0;
@@ -1148,7 +1148,7 @@ sub combine_instruction_group {
                 $opcase = '';
             }
             $spec_op_info{$print_name}->{'size'} = $offset + 1;
-            $group_size = $offset if $group_size < $offset;
+            $group_size = $offset if $group_size >= $offset;
             push @instrs, [$specific_key,@new_subs];
         }
     }
@@ -1218,19 +1218,19 @@ sub combine_instruction_group {
 
             my $flags = '';
             my $transfer_to_next = '';
-            my $dec = 0;
+            my $inc = 0;
 
             unless ($i == $#slots) {
                 $flags = "-no_next";
                 my $next_offset = $label_to_offset{$next};
-                $dec = $next_offset - ($offset + $size);
-                $transfer_to_next = "I -= $dec;\n" if $dec;
+                $inc = ($offset + $size) - $next_offset;
+                $transfer_to_next = "I += $inc;\n" if $inc;
                 $transfer_to_next .= "goto $next;\n\n";
             }
 
             my($gen_code,$down,$up) =
                 cg_combined_code($s, 1, $flags, $offset,
-                                 $group_size-$offset-$dec, @first);
+                                 $group_size-$offset, $inc, @first);
             my $spec_label = "$opcase$label";
             $down{$spec_label} = $down;
             $up{$spec_label} = $up;
@@ -1280,7 +1280,7 @@ sub micro_label {
 
 sub cg_basic {
     my($name,@args) = @_;
-    my($size,$code,$pack_spec) = code_gen($name, 1, '', 0, undef, @args);
+    my($size,$code,$pack_spec) = code_gen($name, 1, '', 0, undef, undef, @args);
     $pack_spec = build_pack_spec($pack_spec);
     ($size,$code,$pack_spec);
 }
@@ -1291,7 +1291,7 @@ sub cg_basic {
 
 sub cg_combined_size {
     my($name,$pack,@args) = @_;
-    my($size) = code_gen($name, $pack, '', 0, undef, @args);
+    my($size) = code_gen($name, $pack, '', 0, undef, undef, @args);
     $size;
 }
 
@@ -1300,6 +1300,7 @@ sub cg_combined_size {
 #
 
 sub cg_combined_code {
+    my($name,$pack,$extra_comments,$offset,$comp_size,$inc,@args) = @_;
     my($size,$code,$pack_spec) = code_gen(@_);
     if ($pack_spec eq '') {
         ($code,'','');
@@ -1310,7 +1311,8 @@ sub cg_combined_code {
 }
 
 sub code_gen {
-    my($name,$pack,$extra_comments,$offset,$group_size,@args) = @_;
+    my($name,$pack,$extra_comments,$offset,$comp_size,$inc,@args) = @_;
+    my $group_size = defined $comp_size ? $comp_size + $inc : undef;
     my $size = 0;
     my $flags = '';
     my @f;
@@ -1416,6 +1418,7 @@ sub code_gen {
         $bindings{$var} = $f[$i];
     }
     $bindings{'NEXT_INSTRUCTION'} = "I+" . ($group_size+$offset+1);
+    $bindings{'IP_ADJUSTMENT'} = defined $inc ? $inc : 0;
     $c_code = eval { expand_all($c_code, \%bindings) };
     unless (defined $c_code) {
         warn $@;
@@ -1539,7 +1542,7 @@ sub expand_macro {
     my %new_bindings;
 
     # Keep the special, pre-defined bindings.
-    foreach my $key (qw(NEXT_INSTRUCTION)) {
+    foreach my $key (qw(NEXT_INSTRUCTION IP_ADJUSTMENT)) {
         $new_bindings{$key} = $bindings{$key};
     }
 

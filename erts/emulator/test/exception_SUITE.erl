@@ -662,6 +662,15 @@ line_numbers(Config) when is_list(Config) ->
               {?MODULE,line_numbers,1,_}|_]}} =
     (catch applied_bif_2()),
 
+    {'EXIT',{badarith,
+             [{?MODULE,increment1,1,[{file,"increment.erl"},{line,45}]},
+              {?MODULE,line_numbers,1,_}|_]}} =
+        (catch increment1(x)),
+    {'EXIT',{badarith,
+             [{?MODULE,increment2,1,[{file,"increment.erl"},{line,48}]},
+              {?MODULE,line_numbers,1,_}|_]}} =
+        (catch increment2(x)),
+
     ok.
 
 id(I) -> I.
@@ -762,3 +771,15 @@ applied_bif_2() ->				%Line 8
     R = process_info(self(), current_location),	%Line 9
     fail = R,					%Line 10
     ok.						%Line 11
+
+%% The increment instruction used to decrement the instruction
+%% pointer, which would cause the line number in a stack trace to
+%% be the previous line number.
+
+-file("increment.erl", 42).
+increment1(Arg) ->                              %Line 43
+    Res = id(Arg),                              %Line 44
+    Res + 1.                                    %Line 45
+increment2(Arg) ->                              %Line 46
+    _ = id(Arg),                                %Line 47
+    Arg + 1.                                    %Line 48
