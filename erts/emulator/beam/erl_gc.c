@@ -337,7 +337,7 @@ erts_heap_sizes(Process* p)
 
     for (i = num_heap_sizes-1; i >= 0; i--) {
 	n += 2;
-	if (!MY_IS_SSMALL(heap_sizes[i])) {
+	if (!IS_SSMALL(heap_sizes[i])) {
 	    big += BIG_UINT_HEAP_SIZE;
 	}
     }
@@ -352,7 +352,7 @@ erts_heap_sizes(Process* p)
 	Eterm num;
 	Sint sz = heap_sizes[i];
 
-	if (MY_IS_SSMALL(sz)) {
+	if (IS_SSMALL(sz)) {
 	    num = make_small(sz);
 	} else {
 	    num = uint_to_big(sz, bigp);

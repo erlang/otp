@@ -51,8 +51,7 @@ plus.fetch(Op1, Op2) {
 plus.execute(Fail, Live, Dst) {
     if (ERTS_LIKELY(is_both_small(PlusOp1, PlusOp2))) {
         Sint i = signed_val(PlusOp1) + signed_val(PlusOp2);
-        ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
-        if (ERTS_LIKELY(MY_IS_SSMALL(i))) {
+        if (ERTS_LIKELY(IS_SSMALL(i))) {
             $Dst = make_small(i);
             $NEXT0();
         }
@@ -74,8 +73,7 @@ minus.fetch(Op1, Op2) {
 minus.execute(Fail, Live, Dst) {
     if (ERTS_LIKELY(is_both_small(MinusOp1, MinusOp2))) {
         Sint i = signed_val(MinusOp1) - signed_val(MinusOp2);
-        ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
-        if (ERTS_LIKELY(MY_IS_SSMALL(i))) {
+        if (ERTS_LIKELY(IS_SSMALL(i))) {
             $Dst = make_small(i);
             $NEXT0();
         }
@@ -100,8 +98,7 @@ increment.execute(IncrementVal, Live, Dst) {
     increment_val = $IncrementVal;
     if (ERTS_LIKELY(is_small(increment_reg_val))) {
         Sint i = signed_val(increment_reg_val) + increment_val;
-        ASSERT(MY_IS_SSMALL(i) == IS_SSMALL(i));
-        if (ERTS_LIKELY(MY_IS_SSMALL(i))) {
+        if (ERTS_LIKELY(IS_SSMALL(i))) {
             $Dst = make_small(i);
             $NEXT0();
         }
@@ -142,7 +139,7 @@ i_int_div(Fail, Live, Op1, Op2, Dst) {
         $BIF_ERROR_ARITY_2($Fail, BIF_intdiv_2, op1, op2);
     } else if (ERTS_LIKELY(is_both_small(op1, op2))) {
         Sint ires = signed_val(op1) / signed_val(op2);
-        if (ERTS_LIKELY(MY_IS_SSMALL(ires))) {
+        if (ERTS_LIKELY(IS_SSMALL(ires))) {
             $Dst = make_small(ires);
             $NEXT0();
         }
