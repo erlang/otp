@@ -39,7 +39,7 @@
 	 match_string_opt/1,select_on_integer/1,
 	 map_and_binary/1,unsafe_branch_caching/1,
 	 bad_literals/1,good_literals/1,constant_propagation/1,
-	 parse_xml/1,get_payload/1]).
+	 parse_xml/1,get_payload/1,num_slots_different/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -71,7 +71,7 @@ groups() ->
        match_string_opt,select_on_integer,
        map_and_binary,unsafe_branch_caching,
        bad_literals,good_literals,constant_propagation,parse_xml,
-       get_payload]}].
+       get_payload,num_slots_different]}].
 
 
 init_per_suite(Config) ->
@@ -1523,6 +1523,40 @@ do_get_payload(ExtHdr) ->
     ExtHdrOptions = ExtHdr#ext_header.ext_hdr_opts,
     <<_:13,_:35>> = ExtHdr#ext_header.ext_hdr_opts,
     ExtHdrOptions.
+
+%% ERL-490
+num_slots_different(_Config) ->
+    Ts = [{<<"de">>, <<"default">>, <<"Remove">>, <<"a">>},
+          {<<"de">>, <<"default">>, <<"Remove from list">>, <<"a">>},
+          {<<"de">>, <<"default">>, <<"Remove from the list">>, <<"a">>},
+          {<<"de">>, <<"default">>, <<"Results">>, <<"Ergebnisse">>},
+          {<<"de">>, <<"default">>, <<"Reservatio">>, <<"a">>},
+          {<<"de">>, <<"navigation">>, <<"Results">>, <<"Ergebnisse">>},
+          {<<"de">>, <<"navigation">>, <<"Resources">>, <<"Ressourcen">>}],
+    _ = [{ok,Res} = lgettext(A, B, C) || {A,B,C,Res} <- Ts],
+
+    {'EXIT',_} = (catch lgettext(<<"d">>, <<"default">>, <<"Remove">>)),
+    {'EXIT',_} = (catch lgettext("", <<"default">>, <<"Remove">>)),
+    {'EXIT',_} = (catch lgettext(<<"de">>, <<"def">>, <<"Remove">>)),
+    {'EXIT',_} = (catch lgettext(<<"de">>, <<"default">>, <<"Res">>)),
+    ok.
+
+
+lgettext(<<"de">>, <<"default">>, <<"Remove">>) ->
+    {ok, <<"a">>};
+lgettext(<<"de">>, <<"default">>, <<"Remove from list">>) ->
+    {ok, <<"a">>};
+lgettext(<<"de">>, <<"default">>, <<"Remove from the list">>) ->
+    {ok, <<"a">>};
+lgettext(<<"de">>, <<"default">>, <<"Results">>) ->
+    {ok, <<"Ergebnisse">>};
+lgettext(<<"de">>, <<"default">>, <<"Reservatio">>) ->
+    {ok, <<"a">>};
+lgettext(<<"de">>, <<"navigation">>, <<"Results">>) ->
+    {ok, <<"Ergebnisse">>};
+lgettext(<<"de">>, <<"navigation">>, <<"Resources">>) ->
+    {ok, <<"Ressourcen">>}.
+
 
 check(F, R) ->
     R = F().
