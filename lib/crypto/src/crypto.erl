@@ -325,12 +325,10 @@ rand_seed() ->
 rand_seed_s() ->
     rand_seed_alg_s(?MODULE).
 
--dialyzer({no_improper_lists, rand_seed_alg/1}).
 rand_seed_alg(Alg) ->
     rand:seed(rand_seed_alg_s(Alg)).
 
 -define(CRYPTO_CACHE_BITS, 56).
--dialyzer({no_improper_lists, rand_seed_alg_s/1}).
 rand_seed_alg_s(?MODULE) ->
     {#{ type => ?MODULE,
         bits => 64,
@@ -339,11 +337,11 @@ rand_seed_alg_s(?MODULE) ->
         uniform_n => fun ?MODULE:rand_plugin_uniform/2},
      no_seed};
 rand_seed_alg_s(crypto_cache) ->
+    CacheBits = ?CRYPTO_CACHE_BITS,
     EnvCacheSize =
         application:get_env(
-          crypto, rand_cache_size,
-          ?CRYPTO_CACHE_BITS * 16), % Cache 16 * 8 words
-    Bytes = (?CRYPTO_CACHE_BITS + 7) div 8,
+          crypto, rand_cache_size, CacheBits * 16), % Cache 16 * 8 words
+    Bytes = (CacheBits + 7) div 8,
     CacheSize =
         case ((EnvCacheSize + (Bytes - 1)) div Bytes) * Bytes of
             Sz when is_integer(Sz), Bytes =< Sz ->
@@ -352,9 +350,9 @@ rand_seed_alg_s(crypto_cache) ->
                 Bytes
         end,
     {#{ type => crypto_cache,
-        bits => ?CRYPTO_CACHE_BITS,
+        bits => CacheBits,
         next => fun ?MODULE:rand_cache_plugin_next/1},
-     [CacheSize|<<>>]}.
+     {CacheBits, CacheSize, <<>>}}.
 
 rand_plugin_next(Seed) ->
     {bytes_to_integer(strong_rand_range(1 bsl 64)), Seed}.
@@ -365,11 +363,12 @@ rand_plugin_uniform(State) ->
 rand_plugin_uniform(Max, State) ->
     {bytes_to_integer(strong_rand_range(Max)) + 1, State}.
 
--dialyzer({no_improper_lists, rand_cache_plugin_next/1}).
-rand_cache_plugin_next([CacheSize|<<>>]) ->
-    rand_cache_plugin_next([CacheSize|strong_rand_bytes(CacheSize)]);
-rand_cache_plugin_next([CacheSize|<<I:?CRYPTO_CACHE_BITS,Cache/binary>>]) ->
-    {I, [CacheSize|Cache]}.
+rand_cache_plugin_next({CacheBits, CacheSize, <<>>}) ->
+    rand_cache_plugin_next(
+      {CacheBits, CacheSize, strong_rand_bytes(CacheSize)});
+rand_cache_plugin_next({CacheBits, CacheSize, Cache}) ->
+    <<I:CacheBits, NewCache/binary>> = Cache,
+    {I, {CacheBits, CacheSize, NewCache}}.
 
 strong_rand_range(Range) when is_integer(Range), Range > 0 ->
     BinRange = int_to_bin(Range),
