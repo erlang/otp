@@ -31,7 +31,7 @@
 
 %% Connection state handling
 -export([initial_security_params/1, current_connection_state/2, pending_connection_state/2,
-	 activate_pending_connection_state/2,
+	 activate_pending_connection_state/3,
 	 set_security_params/3,
          set_mac_secret/4,
 	 set_master_secret/2,
@@ -83,7 +83,7 @@ pending_connection_state(ConnectionStates, write) ->
     maps:get(pending_write, ConnectionStates).
 
 %%--------------------------------------------------------------------
--spec activate_pending_connection_state(connection_states(), read | write) ->
+-spec activate_pending_connection_state(connection_states(), read | write, tls_connection | dtls_connection) ->
 					       connection_states().
 %%
 %% Description: Creates a new instance of the connection_states record
@@ -91,13 +91,13 @@ pending_connection_state(ConnectionStates, write) ->
 %%--------------------------------------------------------------------
 activate_pending_connection_state(#{current_read := Current,
 				    pending_read := Pending} = States,
-                                  read) ->
+                                  read, Connection) ->
     #{secure_renegotiation := SecureRenegotation} = Current,
     #{beast_mitigation := BeastMitigation,
       security_parameters := SecParams} = Pending,
     NewCurrent = Pending#{sequence_number => 0},
     ConnectionEnd = SecParams#security_parameters.connection_end,
-    EmptyPending = empty_connection_state(ConnectionEnd, BeastMitigation),
+    EmptyPending = Connection:empty_connection_state(ConnectionEnd, BeastMitigation),
     NewPending = EmptyPending#{secure_renegotiation => SecureRenegotation},
     States#{current_read => NewCurrent,
 	    pending_read => NewPending
@@ -105,13 +105,13 @@ activate_pending_connection_state(#{current_read := Current,
 
 activate_pending_connection_state(#{current_write := Current,
 				    pending_write := Pending} = States,
-                                  write) ->
+                                  write, Connection) ->
     NewCurrent = Pending#{sequence_number => 0},
     #{secure_renegotiation := SecureRenegotation} = Current,
     #{beast_mitigation := BeastMitigation,
       security_parameters := SecParams} = Pending,
     ConnectionEnd = SecParams#security_parameters.connection_end,
-    EmptyPending = empty_connection_state(ConnectionEnd, BeastMitigation),
+    EmptyPending = Connection:empty_connection_state(ConnectionEnd, BeastMitigation),
     NewPending = EmptyPending#{secure_renegotiation => SecureRenegotation},
     States#{current_write => NewCurrent,
 	    pending_write => NewPending

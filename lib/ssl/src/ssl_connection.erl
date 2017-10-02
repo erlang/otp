@@ -463,7 +463,7 @@ abbreviated(internal,
 	    #change_cipher_spec{type = <<1>>},  #state{connection_states = ConnectionStates0} =
 		State0, Connection) ->
     ConnectionStates1 =
-	ssl_record:activate_pending_connection_state(ConnectionStates0, read),
+	ssl_record:activate_pending_connection_state(ConnectionStates0, read, Connection),
     {Record, State} = Connection:next_record(State0#state{connection_states = 
 							      ConnectionStates1}),
     Connection:next_event(abbreviated, Record, State#state{expecting_finished = true});
@@ -751,7 +751,7 @@ cipher(internal, #next_protocol{selected_protocol = SelectedProtocol},
 cipher(internal, #change_cipher_spec{type = <<1>>},  #state{connection_states = ConnectionStates0} =
 	   State0, Connection) ->
     ConnectionStates1 =
-	ssl_record:activate_pending_connection_state(ConnectionStates0, read),
+	ssl_record:activate_pending_connection_state(ConnectionStates0, read, Connection),
     {Record, State} = Connection:next_record(State0#state{connection_states = 
 							      ConnectionStates1}),
     Connection:next_event(cipher, Record, State#state{expecting_finished = true});
@@ -1344,8 +1344,9 @@ handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
     log_alert(SslOpts#ssl_options.log_alert,  Role,
               Connection:protocol_name(), StateName, Alert#alert{role = opposite_role(Role)}),
     gen_statem:reply(From, {error, renegotiation_rejected}),
-    {Record, State} = Connection:next_record(State0),
+    {Record, State1} = Connection:next_record(State0),
     %% Go back to connection!
+    State = Connection:reinit_handshake_data(State1#state{renegotiation = undefined}),
     Connection:next_event(connection, Record, State);
 
 %% Gracefully log and ignore all other warning alerts
@@ -1947,7 +1948,7 @@ finalize_handshake(State0, StateName, Connection) ->
 
     ConnectionStates =
         ssl_record:activate_pending_connection_state(ConnectionStates0,
-                                                     write),
+                                                     write, Connection),
 
     State2 = State1#state{connection_states = ConnectionStates},
     State = next_protocol(State2, Connection),

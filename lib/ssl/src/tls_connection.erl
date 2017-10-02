@@ -53,7 +53,7 @@
 %% Handshake handling
 -export([renegotiate/2, send_handshake/2, 
 	 queue_handshake/2, queue_change_cipher/2,
-	 reinit_handshake_data/1,  select_sni_extension/1]).
+	 reinit_handshake_data/1,  select_sni_extension/1, empty_connection_state/2]).
 
 %% Alert and close handling
 -export([send_alert/2, close/5, protocol_name/0]).
@@ -151,6 +151,9 @@ select_sni_extension(#client_hello{extensions = HelloExtensions}) ->
     HelloExtensions#hello_extensions.sni;
 select_sni_extension(_) ->
     undefined.
+
+empty_connection_state(ConnectionEnd, BeastMitigation) ->
+    ssl_record:empty_connection_state(ConnectionEnd, BeastMitigation).
 
 encode_data(Data, Version, ConnectionStates0)->
     tls_record:encode_data(Data, Version, ConnectionStates0).
