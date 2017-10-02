@@ -516,6 +516,10 @@ handle_body(#state{headers = Headers, body = Body,
 	    case ((Length =< MaxBodySize) or (MaxBodySize == nolimit)) of
 		true ->
 		    case httpd_request:body_chunk_first(Body, Length, MaxChunk) of 
+			{Module, Function, Args} ->
+       				http_transport:setopts(ModData#mod.socket_type, 
+					ModData#mod.socket, [{active, once}]),
+       				{noreply, State#state{mfa = {Module, Function, Args}}};
                         {ok, {continue, Module, Function, Args}} ->
                                 http_transport:setopts(ModData#mod.socket_type, 
 						   ModData#mod.socket, 
