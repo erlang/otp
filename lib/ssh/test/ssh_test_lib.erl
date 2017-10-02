@@ -404,7 +404,7 @@ setup_ecdsa(Size, DataDir, UserDir) ->
     file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size++".pub"), filename:join(System, "ssh_host_ecdsa_key.pub")),
 ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
     setup_ecdsa_known_host(Size, System, UserDir),
-    setup_ecdsa_auth_keys(Size, UserDir, UserDir).
+    setup_ecdsa_auth_keys(Size, DataDir, UserDir).
 
 clean_dsa(UserDir) ->
     del_dirs(filename:join(UserDir, "system")),
@@ -437,6 +437,29 @@ setup_rsa_pass_pharse(DataDir, UserDir, Phrase) ->
     file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
     setup_rsa_known_host(DataDir, UserDir),
     setup_rsa_auth_keys(DataDir, UserDir).
+
+setup_ecdsa_pass_phrase(Size, DataDir, UserDir, Phrase) ->
+    try
+        {ok, KeyBin} = 
+            case file:read_file(F=filename:join(DataDir, "id_ecdsa"++Size)) of
+                {error,E} ->
+                    ct:log("Failed (~p) to read ~p~nFiles: ~p", [E,F,file:list_dir(DataDir)]),
+                    file:read_file(filename:join(DataDir, "id_ecdsa"));
+                Other ->
+                    Other
+            end,
+        setup_pass_pharse(KeyBin, filename:join(UserDir, "id_ecdsa"), Phrase),
+        System = filename:join(UserDir, "system"),
+        file:make_dir(System),
+        file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size), filename:join(System, "ssh_host_ecdsa_key")),
+        file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size++".pub"), filename:join(System, "ssh_host_ecdsa_key.pub")),
+        setup_ecdsa_known_host(Size, System, UserDir),
+        setup_ecdsa_auth_keys(Size, DataDir, UserDir)
+    of 
+        _ -> true
+    catch
+        _:_ -> false
+    end.
 
 setup_pass_pharse(KeyBin, OutFile, Phrase) ->
     [{KeyType, _,_} = Entry0] = public_key:pem_decode(KeyBin),
@@ -489,8 +512,15 @@ setup_rsa_auth_keys(Dir, UserDir) ->
     PKey = #'RSAPublicKey'{publicExponent = E, modulus = N},
     setup_auth_keys([{ PKey, [{comment, "Test"}]}], UserDir).
 
-setup_ecdsa_auth_keys(_Size, Dir, UserDir) ->
-    {ok, Pem} = file:read_file(filename:join(Dir, "id_ecdsa")),
+setup_ecdsa_auth_keys(Size, Dir, UserDir) ->
+    {ok, Pem} =
+        case file:read_file(F=filename:join(Dir, "id_ecdsa"++Size)) of
+            {error,E} ->
+                ct:log("Failed (~p) to read ~p~nFiles: ~p", [E,F,file:list_dir(Dir)]),
+                file:read_file(filename:join(Dir, "id_ecdsa"));
+            Other ->
+                Other
+        end,
     ECDSA = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
     #'ECPrivateKey'{publicKey = Q,
 		    parameters = Param = {namedCurve,_Id0}} = ECDSA,
@@ -572,7 +602,6 @@ check_ssh_client_support2(P) ->
 	{P, {exit_status, E}} ->
 	    E
     after 5000 ->
-
 	    ct:log("Openssh command timed out ~n"),
 	    -1
     end.

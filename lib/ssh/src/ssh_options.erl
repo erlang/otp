@@ -421,6 +421,12 @@ default(client) ->
             class => user_options
            },
 
+      {ecdsa_pass_phrase, def} =>
+          #{default => undefined,
+            chk => fun check_string/1,
+            class => user_options
+           },
+
       {silently_accept_hosts, def} =>
           #{default => false,
             chk => fun check_silently_accept_hosts/1,

@@ -178,6 +178,12 @@
 	    supplied with this option.
 	    </p>
 	  </item>
+	  <tag><c><![CDATA[{ecdsa_pass_phrase, string()}]]></c></tag>
+	  <item>
+	    <p>If the user ECDSA key is protected by a passphrase, it can be
+	    supplied with this option.
+	    </p>
+	  </item>
           <tag>
             <c><![CDATA[{silently_accept_hosts, boolean()}]]></c> <br/>
             <c><![CDATA[{silently_accept_hosts, CallbackFun}]]></c> <br/>
