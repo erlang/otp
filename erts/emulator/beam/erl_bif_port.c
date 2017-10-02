@@ -1076,7 +1076,7 @@ static byte* convert_environment(Process* p, Eterm env)
 	goto done;
     }
 
-    if ((size = erts_native_filename_need(all,encoding)) < 0) {
+    if ((size = erts_native_filename_need(all, encoding, 1)) < 0) {
 	goto done;
     }
 

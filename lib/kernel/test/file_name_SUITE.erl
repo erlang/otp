@@ -302,7 +302,9 @@ check_normal(Mod) ->
 	      {ok, BC} = Mod:read(FD,1024),
 	      ok = file:close(FD)
 	  end || {regular,Name,Content} <- NormalDir ],
+	{error, badarg} = Mod:rename("fil1\0tmp_fil2","tmp_fil1"),
 	Mod:rename("fil1","tmp_fil1"),
+	{error, badarg} = Mod:read_file("tmp_fil1\0.txt"),
 	{ok, <<"fil1">>} = Mod:read_file("tmp_fil1"),
 	{error,enoent} = Mod:read_file("fil1"),
 	Mod:rename("tmp_fil1","fil1"),
