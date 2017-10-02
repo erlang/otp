@@ -25,8 +25,7 @@
  *		- ready_input(),
  *		- ready_output(),
  *		- timeout(),
- *		- driver_async() -> read_async(), and
- *		- event()
+ *		- driver_async() -> read_async()
  */
 
 #ifndef UNIX
@@ -65,11 +64,9 @@ typedef enum {
     IOQ_EXIT_READY_OUTPUT = 2,
     IOQ_EXIT_TIMEOUT = 3,
     IOQ_EXIT_READY_ASYNC = 4,
-    IOQ_EXIT_EVENT = 5,
     IOQ_EXIT_READY_INPUT_ASYNC = 6,
     IOQ_EXIT_READY_OUTPUT_ASYNC = 7,
     IOQ_EXIT_TIMEOUT_ASYNC = 8,
-    IOQ_EXIT_EVENT_ASYNC = 9
 } IOQExitTest;
 
 typedef struct {
@@ -80,9 +77,6 @@ typedef struct {
     int outstanding_async_task;
     long async_task;
     ErlDrvPDL pdl;
-#ifdef HAVE_POLL_H
-    struct erl_drv_event_data event_data;
-#endif
 } IOQExitDrvData;
 
 #define EV2FD(EV) ((int) ((long) (EV)))
@@ -97,8 +91,6 @@ static ErlDrvSSizeT control(ErlDrvData, unsigned int,
 static void timeout(ErlDrvData drv_data);
 static void ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data);
 static void flush(ErlDrvData drv_data);
-static void event(ErlDrvData drv_data, ErlDrvEvent event,
-		  ErlDrvEventData event_data);
 static void async_invoke(void*);
 static void do_driver_async(IOQExitDrvData *);
 
@@ -118,7 +110,7 @@ static ErlDrvEntry ioq_exit_drv_entry = {
     ready_async,
     flush,
     NULL /* call */,
-    event,
+    NULL /* unused_event_callback*/,
     ERL_DRV_EXTENDED_MARKER,
     ERL_DRV_EXTENDED_MAJOR_VERSION,
     ERL_DRV_EXTENDED_MINOR_VERSION,
@@ -149,10 +141,6 @@ start(ErlDrvPort port, char *command)
     ddp->outstanding_async_task = 0;
     ddp->async_task = -1;
     ddp->pdl = driver_pdl_create(port);
-#ifdef HAVE_POLL_H
-    ddp->event_data.events = (short) 0;
-    ddp->event_data.revents = (short) 0;
-#endif
 
     return (ErlDrvData) ddp;
 }
@@ -190,27 +178,6 @@ static ErlDrvSSizeT control(ErlDrvData drv_data,
 	}
 	break;
 #else
-	goto done;
-#endif
-    case IOQ_EXIT_EVENT:
-    case IOQ_EXIT_EVENT_ASYNC:
-#ifdef UNIX
-#ifdef HAVE_POLL_H
-	ddp->ofd = open("/dev/null", O_WRONLY);
-	if (ddp->ofd < 0) {
-	    driver_failure_posix(ddp->port, errno);
-	    return 0;
-	}
-	else if (driver_event(ddp->port, FD2EV(ddp->ofd), NULL) != 0) {
-	    res_str = "skip: driver_event() not supported";
-	    goto done;
-	}
-#else
-	res_str = "skip: No poll.h found which is needed for this test";
-	goto done;
-#endif
-	break;
-#else /* UNIX */
 	goto done;
 #endif
     case IOQ_EXIT_TIMEOUT:
@@ -266,13 +233,6 @@ static void stop(ErlDrvData drv_data)
 		close(ddp->ofd);
 	    }
 	    break;
-	case IOQ_EXIT_EVENT:
-	case IOQ_EXIT_EVENT_ASYNC:
-	    if (ddp->ofd >= 0) {
-		driver_event(ddp->port, FD2EV(ddp->ofd), NULL);
-		close(ddp->ofd);
-	    }
-	    break;
 #endif
 	case IOQ_EXIT_TIMEOUT:
 	case IOQ_EXIT_TIMEOUT_ASYNC:
@@ -301,13 +261,6 @@ static void flush(ErlDrvData drv_data)
     case IOQ_EXIT_READY_OUTPUT:
     case IOQ_EXIT_READY_OUTPUT_ASYNC:
 	driver_select(ddp->port, FD2EV(ddp->ofd), DO_WRITE, 1);
-	break;
-    case IOQ_EXIT_EVENT:
-    case IOQ_EXIT_EVENT_ASYNC:
-#ifdef HAVE_POLL_H
-	ddp->event_data.events |= POLLOUT;
-	driver_event(ddp->port, FD2EV(ddp->ofd), &ddp->event_data);
-#endif
 	break;
 #endif
     case IOQ_EXIT_TIMEOUT:
@@ -393,30 +346,6 @@ static void ready_async(ErlDrvData drv_data, ErlDrvThreadData thread_data)
 	driver_pdl_unlock(ddp->pdl);
 	ddp->outstanding_async_task = 0;
     }
-}
-
-static void event(ErlDrvData drv_data,
-		  ErlDrvEvent event,
-		  ErlDrvEventData event_data)
-{
-    IOQExitDrvData *ddp = (IOQExitDrvData *) drv_data;
-
-    PRINTF(("event(%p, %d, %p) called\r\n", drv_data, EV2FD(event), event_data));
-
-#if defined(UNIX) && defined(HAVE_POLL_H)
-    if (ddp->ofd == EV2FD(event)) {
-	driver_event(ddp->port, FD2EV(ddp->ofd), NULL);
-	close(ddp->ofd);
-	ddp->ofd = -1;
-	if (ddp->test == IOQ_EXIT_EVENT_ASYNC)
-	    do_driver_async(ddp);
-	else {
-	    driver_pdl_lock(ddp->pdl);
-	    driver_deq(ddp->port, 1);
-	    driver_pdl_unlock(ddp->pdl);
-	}
-    }
-#endif
 }
 
 static void async_invoke(void *arg)

@@ -46,6 +46,7 @@
 #include "erl_thr_progress.h"
 #include "erl_bif_unique.h"
 #include "erl_map.h"
+#include "erl_check_io.h"
 #define ERTS_PTAB_WANT_DEBUG_FUNCS__
 #include "erl_ptab.h"
 #include "erl_time.h"
@@ -96,9 +97,6 @@ static char erts_system_version[] = ("Erlang/OTP " ERLANG_OTP_RELEASE
 				     " [async-threads:%d]"
 #ifdef HIPE
 				     " [hipe]"
-#endif	
-#ifdef ERTS_ENABLE_KERNEL_POLL
-				     " [kernel-poll:%s]"
 #endif	
 #ifdef ET_DEBUG
 #if ET_DEBUG
@@ -371,9 +369,6 @@ erts_print_system_version(fmtfn_t to, void *arg, Process *c_p)
 		      , total, online
 		      , dirty_cpu, dirty_cpu_onln, dirty_io
 		      , erts_async_max_threads
-#ifdef ERTS_ENABLE_KERNEL_POLL
-		      , erts_use_kernel_poll ? "true" : "false"
-#endif
 	);
 }
 
@@ -2695,7 +2690,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(make_small(CONTEXT_REDS));
     } else if (ERTS_IS_ATOM_STR("kernel_poll", BIF_ARG_1)) {
 #ifdef ERTS_ENABLE_KERNEL_POLL
-	BIF_RET(erts_use_kernel_poll ? am_true : am_false);
+	BIF_RET(am_true);
 #else
 	BIF_RET(am_false);
 #endif    
@@ -2848,7 +2843,7 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(am_disabled);
     }
     else if (ERTS_IS_ATOM_STR("eager_check_io",BIF_ARG_1)) {
-	BIF_RET(erts_eager_check_io ? am_true : am_false);
+	BIF_RET(am_true);
     }
     else if (ERTS_IS_ATOM_STR("literal_test",BIF_ARG_1)) {
 #ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
@@ -3580,8 +3575,8 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 						   (Uint) ciodi.no_used_fds),
 				     erts_bld_uint(hpp, szp,
 						   (Uint) ciodi.no_driver_select_structs),
-				     erts_bld_uint(hpp, szp,
-						   (Uint) ciodi.no_driver_event_structs));
+                                     erts_bld_uint(hpp, szp,
+                                                   (Uint) ciodi.no_enif_select_structs));
 		if (hpp)
 		    break;
 		hp = HAlloc(BIF_P, sz);

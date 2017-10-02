@@ -222,8 +222,6 @@ struct erts_driver_t_ {
 			 char *buf, ErlDrvSizeT len,
 			 char **rbuf, ErlDrvSizeT rlen, /* Might be NULL */
 			 unsigned int *flags);
-    void (*event)(ErlDrvData drv_data, ErlDrvEvent event,
-		  ErlDrvEventData event_data);
     void (*ready_input)(ErlDrvData drv_data, ErlDrvEvent event); 
     void (*ready_output)(ErlDrvData drv_data, ErlDrvEvent event);  
     void (*timeout)(ErlDrvData drv_data);
@@ -1103,7 +1101,6 @@ void erts_save_stacktrace(Process* p, struct StackTrace* s, int depth);
 typedef struct {
     Eterm delay_time;
     int context_reds;
-    int input_reds;
 } ErtsModifiedTimings;
 
 extern Export *erts_delay_trap;

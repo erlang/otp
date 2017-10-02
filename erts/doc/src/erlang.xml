@@ -8042,15 +8042,6 @@ ok
               The return value will always be <c>false</c>, as the
               <c>elib_malloc</c> allocator has been removed.</p>
           </item>
-          <tag><marker id="system_info_eager_check_io"/>
-            <c>eager_check_io</c></tag>
-          <item>
-            <p>Returns the value of command-line flag
-              <seealso marker="erl#+secio"><c>+secio</c></seealso> in
-              <c>erl(1)</c>, which is either <c>true</c> or <c>false</c>.
-              For information about the different values, see the
-              documentation of the command-line flag.</p>
-          </item>
           <tag><c>ets_limit</c></tag>
           <item>
             <p>Returns the maximum number of ETS tables allowed. This

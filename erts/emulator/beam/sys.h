@@ -575,8 +575,6 @@ __decl_noreturn void __noreturn erts_exit(int n, char*, ...);
     erts_exit(ERTS_ABORT_EXIT, "%s:%d:%s(): Internal error: %s\n", \
 	     __FILE__, __LINE__, __func__, What)
 
-Eterm erts_check_io_info(void *p);
-
 UWord erts_sys_get_page_size(void);
 
 /* Size of misc memory allocated from system dependent code */
@@ -739,8 +737,6 @@ extern char *erts_sys_ddll_error(int code);
 /*
  * System interfaces for startup.
  */
-void erts_sys_schedule_interrupt(int set);
-void erts_sys_schedule_interrupt_timed(int, ErtsMonotonicTime);
 void erts_sys_main_thread(void);
 
 extern int erts_sys_prepare_crash_dump(int secs);
@@ -794,7 +790,7 @@ void fini_getenv_state(GETENV_STATE *);
 typedef struct {
     int no_used_fds;
     int no_driver_select_structs;
-    int no_driver_event_structs;
+    int no_enif_select_structs;
 } ErtsCheckIoDebugInfo;
 int erts_check_io_debug(ErtsCheckIoDebugInfo *ip);
 
@@ -995,10 +991,6 @@ erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
-
-#ifdef ERTS_ENABLE_KERNEL_POLL
-extern int erts_use_kernel_poll;
-#endif
 
 #define sys_memcpy(s1,s2,n)  memcpy(s1,s2,n)
 #define sys_memmove(s1,s2,n) memmove(s1,s2,n)

@@ -57,6 +57,7 @@
 	 scheduler_suspend_basic/1,
 	 scheduler_suspend/1,
 	 dirty_scheduler_threads/1,
+         poll_threads/1,
 	 reader_groups/1]).
 
 suite() ->
@@ -72,6 +73,7 @@ all() ->
      {group, scheduler_bind}, scheduler_threads,
      scheduler_suspend_basic, scheduler_suspend,
      dirty_scheduler_threads,
+     poll_threads,
      reader_groups].
 
 groups() -> 
@@ -1446,6 +1448,79 @@ sst5_loop(N) ->
     erlang:system_flag(multi_scheduling, unblock_normal),
     sst5_loop(N-1).
 
+poll_threads(Config) when is_list(Config) ->
+    {Conc, PollType, KP} = get_ioconfig(Config),
+    {Sched, SchedOnln, _} = get_sstate(Config, ""),
+
+    [1, 1] = get_ionum(Config,"+IOt 2 +IOp 2"),
+    [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 5"),
+
+    [1, 1] = get_ionum(Config, "+S 2 +IOPt 100 +IOPp 100"),
+
+    if
+        Conc ->
+            [5] = get_ionum(Config,"+IOt 5 +IOp 1"),
+            [3, 2] = get_ionum(Config,"+IOt 5 +IOp 2"),
+            [2, 2, 2, 2, 2] = get_ionum(Config,"+IOt 10 +IOPp 50"),
+
+            [2] = get_ionum(Config, "+S 2 +IOPt 100"),
+            [4] = get_ionum(Config, "+S 4 +IOPt 100"),
+            [4] = get_ionum(Config, "+S 4:2 +IOPt 100"),
+            [4, 4] = get_ionum(Config, "+S 8 +IOPt 100 +IOPp 25"),
+
+            fail = get_ionum(Config, "+IOt 1 +IOp 2"),
+
+            ok;
+        not Conc ->
+            [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 1"),
+            [1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 5 +IOp 2"),
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1] = get_ionum(Config,"+IOt 10 +IOPp 50"),
+
+            [1, 1] = get_ionum(Config, "+S 2 +IOPt 100"),
+            [1, 1, 1, 1] = get_ionum(Config, "+S 4 +IOPt 100"),
+            [1, 1, 1, 1] = get_ionum(Config, "+S 4:2 +IOPt 100"),
+            [1, 1, 1, 1, 1, 1, 1, 1] = get_ionum(Config, "+S 8 +IOPt 100 +IOPp 25"),
+
+            [1] = get_ionum(Config, "+IOt 1 +IOp 2"),
+
+            ok
+    end,
+
+    fail = get_ionum(Config, "+IOt 1 +IOPp 101"),
+    fail = get_ionum(Config, "+IOt 0"),
+    fail = get_ionum(Config, "+IOPt 101"),
+
+    ok.
+
+get_ioconfig(Config) ->
+    [PS | _] = get_iostate(Config, ""),
+    {proplists:get_value(concurrent_updates, PS),
+     proplists:get_value(primary, PS),
+     proplists:get_value(kernel_poll, PS)}.
+
+get_ionum(Config, Cmd) ->
+    case get_iostate(Config, Cmd) of
+        fail -> fail;
+        PSs ->
+            lists:reverse(
+              lists:sort(
+                [proplists:get_value(poll_threads, PS) || PS <- PSs]))
+    end.
+
+get_iostate(Config, Cmd)->
+    case start_node(Config, Cmd) of
+        {ok, Node} ->
+            [IOStates] = mcall(Node,[fun () ->
+                                             erlang:system_info(check_io)
+                                     end]),
+            IO = [IOState || IOState <- IOStates,
+                             proplists:get_value(fallback, IOState) == false],
+            stop_node(Node),
+            IO;
+        {error,timeout} ->
+            fail
+    end.
+
 reader_groups(Config) when is_list(Config) ->
     %% White box testing. These results are correct, but other results
     %% could be too...
@@ -1770,18 +1845,24 @@ mcall(Node, Funs) ->
     Parent = self(),
     Refs = lists:map(fun (Fun) ->
                              Ref = make_ref(),
-                             spawn_link(Node,
-                                        fun () ->
-                                                Res = Fun(),
-                                                unlink(Parent),
-                                                Parent ! {Ref, Res}
-                                        end),
-                             Ref
+                             Pid = spawn(Node,
+                                         fun () ->
+                                                 Res = Fun(),
+                                                 unlink(Parent),
+                                                 Parent ! {Ref, Res}
+                                         end),
+                             MRef = erlang:monitor(process, Pid),
+                             {Ref, MRef}
                      end, Funs),
-    lists:map(fun (Ref) ->
+    lists:map(fun ({Ref, MRef}) ->
                       receive
                           {Ref, Res} ->
-                              Res
+                              receive
+                                  {'DOWN',MRef,_,_,_} ->
+                                      Res
+                              end;
+                          {'DOWN',MRef,_,_,Reason} ->
+                              Reason
                       end
               end, Refs).
 

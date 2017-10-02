@@ -36,6 +36,7 @@
 #include "erl_check_io.h"
 #include "dtrace-wrapper.h"
 #include "lttng-wrapper.h"
+#include "erl_check_io.h"
 #include <stdarg.h>
 
 /*
@@ -90,8 +91,6 @@ static void chk_task_queues(Port *pp, ErtsPortTask *execq, int processing_busy_q
 				    erts_atomic_read_nob(&(PP)->run_queue))); \
     } while (0)
 
-erts_atomic_t erts_port_task_outstanding_io_tasks;
-
 #define ERTS_PT_STATE_SCHEDULED		0
 #define ERTS_PT_STATE_ABORTED		1
 #define ERTS_PT_STATE_EXECUTING		2
@@ -99,7 +98,6 @@ erts_atomic_t erts_port_task_outstanding_io_tasks;
 typedef union {
     struct { /* I/O tasks */
 	ErlDrvEvent event;
-	ErlDrvEventData event_data;
     } io;
     struct {
 	ErtsProc2PortSigCallback callback;
@@ -149,10 +147,10 @@ static void begin_port_cleanup(Port *pp,
 			       ErtsPortTask **execq,
 			       int *processing_busy_q_p);
 
-ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(port_task,
-				 ErtsPortTask,
-				 1000,
-				 ERTS_ALC_T_PORT_TASK)
+ERTS_THR_PREF_QUICK_ALLOC_IMPL(port_task,
+                               ErtsPortTask,
+                               1000,
+                               ERTS_ALC_T_PORT_TASK)
 
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(busy_caller_table,
 				 ErtsPortTaskBusyCallerTable,
@@ -585,8 +583,9 @@ reset_executed_io_task_handle(ErtsPortTask *ptp)
 {
     if (ptp->u.alive.handle) {
 	ASSERT(ptp == handle2task(ptp->u.alive.handle));
-	erts_io_notify_port_task_executed(ptp->u.alive.handle);
-	reset_port_task_handle(ptp->u.alive.handle);
+        /* The port task handle is reset inside task_executed */
+	erts_io_notify_port_task_executed(ptp->type, ptp->u.alive.handle,
+                                          reset_port_task_handle);
     }
 }
 
@@ -1308,21 +1307,7 @@ erts_port_task_abort(ErtsPortTaskHandle *pthp)
 	if (old_state != ERTS_PT_STATE_SCHEDULED)
 	    res = - 1; /* Task already aborted, executing, or executed */
 	else {
-
 	    reset_port_task_handle(pthp);
-
-	    switch (ptp->type) {
-	    case ERTS_PORT_TASK_INPUT:
-	    case ERTS_PORT_TASK_OUTPUT:
-	    case ERTS_PORT_TASK_EVENT:
-		ASSERT(erts_atomic_read_nob(
-			   &erts_port_task_outstanding_io_tasks) > 0);
-		erts_atomic_dec_relb(&erts_port_task_outstanding_io_tasks);
-		break;
-	    default:
-		break;
-	    }
-
 	    res = 0;
 	}
     }
@@ -1459,16 +1444,6 @@ erts_port_task_schedule(Eterm id,
 	va_start(argp, type);
 	ptp->u.alive.td.io.event = va_arg(argp, ErlDrvEvent);
 	va_end(argp);
-	erts_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
-	break;
-    }
-    case ERTS_PORT_TASK_EVENT: {
-	va_list argp;
-	va_start(argp, type);
-	ptp->u.alive.td.io.event = va_arg(argp, ErlDrvEvent);
-	ptp->u.alive.td.io.event_data = va_arg(argp, ErlDrvEventData);
-	va_end(argp);
-	erts_atomic_inc_relb(&erts_port_task_outstanding_io_tasks);
 	break;
     }
     case ERTS_PORT_TASK_PROC_SIG: {
@@ -1644,13 +1619,12 @@ erts_port_task_free_port(Port *pp)
  * scheduling of processes. Run-queue lock should be held by caller.
  */
 
-int
+void
 erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 {
     Port *pp;
     ErtsPortTask *execq;
     int processing_busy_q;
-    int res = 0;
     int vreds = 0;
     int reds = 0;
     erts_aint_t io_tasks_executed = 0;
@@ -1665,7 +1639,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
     pp = pop_port(runq);
     if (!pp) {
-	res = 0;
 	goto done;
     }
 
@@ -1768,17 +1741,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    reset_executed_io_task_handle(ptp);
 	    io_tasks_executed++;
 	    break;
-	case ERTS_PORT_TASK_EVENT:
-	    reds = ERTS_PORT_REDS_EVENT;
-	    ASSERT((state & ERTS_PORT_SFLGS_DEAD) == 0);
-            DTRACE_DRIVER(driver_event, pp);
-            LTTNG_DRIVER(driver_event, pp);
-	    (*pp->drv_ptr->event)((ErlDrvData) pp->drv_data,
-				  ptp->u.alive.td.io.event,
-				  ptp->u.alive.td.io.event_data);
-	    reset_executed_io_task_handle(ptp);
-	    io_tasks_executed++;
-	    break;
 	case ERTS_PORT_TASK_PROC_SIG: {
 	    ErtsProc2PortSigData *sigdp = &ptp->u.alive.td.psig.data;
 	    reset_handle(ptp);
@@ -1843,14 +1805,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     erts_unblock_fpe(fpe_was_unmasked);
     ERTS_MSACC_POP_STATE_M();
 
-
-    if (io_tasks_executed) {
-	ASSERT(erts_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
-	       >= io_tasks_executed);
-	erts_atomic_add_relb(&erts_port_task_outstanding_io_tasks,
-				 -1*io_tasks_executed);
-    }
-
     ASSERT(runq == (ErtsRunQueue *) erts_atomic_read_nob(&pp->run_queue));
 
     active = finalize_exec(pp, &execq, processing_busy_q);
@@ -1891,15 +1845,11 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     }
 
  done:
-    res = (erts_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
-	   != (erts_aint_t) 0);
 
     runq->scheduler->reductions += reds;
 
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(runq));
     ERTS_PORT_REDUCTIONS_EXECUTED(esdp, runq, reds);
-
-    return res;
 }
 
 static void
@@ -2031,13 +1981,6 @@ begin_port_cleanup(Port *pp, ErtsPortTask **execqp, int *processing_busy_q_p)
 				      DO_WRITE,
 				      1);
 		break;
-	    case ERTS_PORT_TASK_EVENT:
-		erts_stale_drv_select(pp->common.id,
-				      ERTS_Port2ErlDrvPort(pp),
-				      ptp->u.alive.td.io.event,
-				      0,
-				      1);
-		break;
 	    case ERTS_PORT_TASK_DIST_CMD:
 		break;
 	    case ERTS_PORT_TASK_PROC_SIG: {
@@ -2151,8 +2094,7 @@ erts_dequeue_port(ErtsRunQueue *rq)
 void
 erts_port_task_init(void)
 {
-    erts_atomic_init_nob(&erts_port_task_outstanding_io_tasks,
-			     (erts_aint_t) 0);
-    init_port_task_alloc();
+    init_port_task_alloc(erts_no_schedulers + erts_no_poll_threads
+                         + 1); /* aux_thread */
     init_busy_caller_table_alloc();
 }

@@ -402,6 +402,32 @@ NAME##_free(TYPE *p)							\
 	erts_free(ALCT, (void *) p);					\
 }
 
+#define ERTS_THR_PREF_AUX(NAME, TYPE, PASZ)				\
+ERTS_THR_PREF_PRE_ALLOC_IMPL(NAME##_pre, TYPE, PASZ)
+
+#define ERTS_THR_PREF_QUICK_ALLOC_IMPL(NAME, TYPE, PASZ, ALCT)	        \
+ERTS_THR_PREF_AUX(NAME, TYPE, PASZ)					\
+static void								\
+init_##NAME##_alloc(int nthreads)					\
+{									\
+    init_##NAME##_pre_alloc(nthreads);			                \
+}									\
+static ERTS_INLINE TYPE *						\
+NAME##_alloc(void)							\
+{									\
+    TYPE *res = NAME##_pre_alloc();					\
+    if (!res)								\
+	res = erts_alloc(ALCT, sizeof(TYPE));				\
+    return res;								\
+}									\
+static ERTS_INLINE void							\
+NAME##_free(TYPE *p)							\
+{									\
+    if (!NAME##_pre_free(p))						\
+	erts_free(ALCT, (void *) p);					\
+}
+
+
 #ifdef DEBUG
 #define ERTS_PRE_ALLOC_SIZE(SZ) ((SZ) < 1000 ? (SZ)/10 + 10 : 100)
 #define ERTS_PRE_ALLOC_CLOBBER(P, T) memset((void *) (P), 0xfd, sizeof(T))
@@ -482,7 +508,8 @@ init_##NAME##_alloc(void)						\
 {									\
     sspa_data_##NAME##__ =						\
 	erts_sspa_create(sizeof(union erts_sspa_##NAME##__),		\
-			 ERTS_PRE_ALLOC_SIZE((PASZ)));			\
+			 ERTS_PRE_ALLOC_SIZE((PASZ)), 			\
+                         0, NULL);                                      \
 }									\
 									\
 static TYPE *								\
@@ -503,6 +530,57 @@ NAME##_free(TYPE *p)							\
 			  esdp ? (int) esdp->no - 1 : -1,		\
 			  (char *) p);					\
 }
+
+
+#define ERTS_THR_PREF_PRE_ALLOC_IMPL(NAME, TYPE, PASZ)		        \
+union erts_sspa_##NAME##__ {						\
+    erts_sspa_blk_t next;						\
+    TYPE type;								\
+};									\
+									\
+static erts_sspa_data_t *sspa_data_##NAME##__;				\
+									\
+static void								\
+init_##NAME##_alloc(int nthreads)					\
+{									\
+    sspa_data_##NAME##__ =						\
+	erts_sspa_create(sizeof(union erts_sspa_##NAME##__),		\
+			 ERTS_PRE_ALLOC_SIZE((PASZ)),			\
+                         nthreads,                                      \
+                         #NAME);                                        \
+}									\
+                                                                        \
+void								        \
+erts_##NAME##_alloc_init_thread(void)				        \
+{									\
+    int id = erts_atomic_inc_read_nob(&sspa_data_##NAME##__->id_generator);\
+    if (id > sspa_data_##NAME##__->nthreads) {                          \
+        erts_exit(ERTS_ABORT_EXIT,                                      \
+                  "%s:%d:%s(): Too many threads for '" #NAME "'\n",     \
+                  __FILE__, __LINE__, __func__);                        \
+    }                                                                   \
+    erts_tsd_set(sspa_data_##NAME##__->tsd_key, (void*)(SWord)id);      \
+}									\
+									\
+static TYPE *								\
+NAME##_alloc(void)							\
+{									\
+    int id = (int)(SWord)erts_tsd_get(sspa_data_##NAME##__->tsd_key);   \
+    if (id == 0)                                                        \
+        return NULL;                                                    \
+    return (TYPE *) erts_sspa_alloc(sspa_data_##NAME##__,		\
+                                    id-1);		                \
+}									\
+									\
+static int								\
+NAME##_free(TYPE *p)							\
+{									\
+    int id = (int)(SWord)erts_tsd_get(sspa_data_##NAME##__->tsd_key);   \
+    return erts_sspa_free(sspa_data_##NAME##__,				\
+			  id - 1,		                        \
+			  (char *) p);					\
+}
+
 
 #ifdef DEBUG
 #define ERTS_ALC_DBG_BLK_SZ(PTR) (*(((UWord *) (PTR)) - 2))

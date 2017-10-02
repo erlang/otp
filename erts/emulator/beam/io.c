@@ -5390,24 +5390,17 @@ erts_stale_drv_select(Eterm port,
     switch (mode) {
     case ERL_DRV_READ | ERL_DRV_WRITE:
 	type = "Input/Output";
-	goto deselect;
     case ERL_DRV_WRITE:
 	type = "Output";
-	goto deselect;
     case ERL_DRV_READ:
 	type = "Input";
-    deselect:
-	if (deselect) {
-	    driver_select(drv_port, hndl,
-			  mode | ERL_DRV_USE_NO_CALLBACK,
-			  0);
-	}
-	break;
     default:
-	type = "Event";
-	if (deselect)
-	    driver_event(drv_port, hndl, NULL);
-	break;
+        type = "";
+    }
+    if (deselect) {
+        driver_select(drv_port, hndl,
+                      mode | ERL_DRV_USE_NO_CALLBACK,
+                      0);
     }
 
     dsbufp = erts_create_logger_dsbuf();
@@ -7511,14 +7504,6 @@ no_output_callback(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)
 }
 
 static void
-no_event_callback(ErlDrvData drv_data, ErlDrvEvent event, ErlDrvEventData event_data)
-{
-    Port *prt = get_current_port();
-    report_missing_drv_callback(prt, "Event", "event()");
-    driver_event(ERTS_Port2ErlDrvPort(prt), event, NULL);
-}
-
-static void
 no_ready_input_callback(ErlDrvData drv_data, ErlDrvEvent event)
 {
     Port *prt = get_current_port();
@@ -7585,7 +7570,6 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
     drv->outputv = de->outputv;
     drv->control = de->control;
     drv->call = de->call;
-    drv->event = de->event ? de->event : no_event_callback;
     drv->ready_input = de->ready_input ? de->ready_input : no_ready_input_callback;
     drv->ready_output = de->ready_output ? de->ready_output : no_ready_output_callback;
     drv->timeout = de->timeout ? de->timeout : no_timeout_callback;

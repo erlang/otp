@@ -131,121 +131,6 @@ static int replace_intr = 0;
 /* assume yes initially, ttsl_init will clear it */
 int using_oldshell = 1;
 
-#ifdef ERTS_ENABLE_KERNEL_POLL
-
-int erts_use_kernel_poll = 0;
-
-struct {
-    int (*select)(ErlDrvPort, ErlDrvEvent, int, int);
-    int (*enif_select)(ErlNifEnv*, ErlNifEvent, enum ErlNifSelectFlags, void*, const ErlNifPid*, Eterm);
-    int (*event)(ErlDrvPort, ErlDrvEvent, ErlDrvEventData);
-    void (*check_io_as_interrupt)(void);
-    void (*check_io_interrupt)(int);
-    void (*check_io_interrupt_tmd)(int, ErtsMonotonicTime);
-    void (*check_io)(int);
-    Uint (*size)(void);
-    Eterm (*info)(void *);
-    int (*check_io_debug)(ErtsCheckIoDebugInfo *);
-} io_func = {0};
-
-
-int
-driver_select(ErlDrvPort port, ErlDrvEvent event, int mode, int on)
-{
-    return (*io_func.select)(port, event, mode, on);
-}
-
-int
-driver_event(ErlDrvPort port, ErlDrvEvent event, ErlDrvEventData event_data)
-{
-    return (*io_func.event)(port, event, event_data);
-}
-
-int enif_select(ErlNifEnv* env, ErlNifEvent event,
-                enum ErlNifSelectFlags flags, void* obj, const ErlNifPid* pid, Eterm ref)
-{
-    return (*io_func.enif_select)(env, event, flags, obj, pid, ref);
-}
-
-
-Eterm erts_check_io_info(void *p)
-{
-    return (*io_func.info)(p);
-}
-
-int
-erts_check_io_debug(ErtsCheckIoDebugInfo *ip)
-{
-    return (*io_func.check_io_debug)(ip);
-}
-
-
-static void
-init_check_io(void)
-{
-    if (erts_use_kernel_poll) {
-	io_func.select			= driver_select_kp;
-        io_func.enif_select		= enif_select_kp;
-	io_func.event			= driver_event_kp;
-	io_func.check_io_interrupt	= erts_check_io_interrupt_kp;
-	io_func.check_io_interrupt_tmd	= erts_check_io_interrupt_timed_kp;
-	io_func.check_io		= erts_check_io_kp;
-	io_func.size			= erts_check_io_size_kp;
-	io_func.info			= erts_check_io_info_kp;
-	io_func.check_io_debug		= erts_check_io_debug_kp;
-	erts_init_check_io_kp();
-	max_files = erts_check_io_max_files_kp();
-    }
-    else {
-	io_func.select			= driver_select_nkp;
-        io_func.enif_select		= enif_select_nkp;
-	io_func.event			= driver_event_nkp;
-	io_func.check_io_interrupt	= erts_check_io_interrupt_nkp;
-	io_func.check_io_interrupt_tmd	= erts_check_io_interrupt_timed_nkp;
-	io_func.check_io		= erts_check_io_nkp;
-	io_func.size			= erts_check_io_size_nkp;
-	io_func.info			= erts_check_io_info_nkp;
-	io_func.check_io_debug		= erts_check_io_debug_nkp;
-	erts_init_check_io_nkp();
-	max_files = erts_check_io_max_files_nkp();
-    }
-}
-
-#define ERTS_CHK_IO_AS_INTR()	(*io_func.check_io_interrupt)(1)
-#define ERTS_CHK_IO_INTR	(*io_func.check_io_interrupt)
-#define ERTS_CHK_IO_INTR_TMD	(*io_func.check_io_interrupt_tmd)
-#define ERTS_CHK_IO		(*io_func.check_io)
-#define ERTS_CHK_IO_SZ		(*io_func.size)
-
-#else /* !ERTS_ENABLE_KERNEL_POLL */
-
-static void
-init_check_io(void)
-{
-    erts_init_check_io();
-    max_files = erts_check_io_max_files();
-}
-
-#define ERTS_CHK_IO_AS_INTR()	erts_check_io_interrupt(1)
-#define ERTS_CHK_IO_INTR	erts_check_io_interrupt
-#define ERTS_CHK_IO_INTR_TMD	erts_check_io_interrupt_timed
-#define ERTS_CHK_IO		erts_check_io
-#define ERTS_CHK_IO_SZ		erts_check_io_size
-
-#endif
-
-void
-erts_sys_schedule_interrupt(int set)
-{
-    ERTS_CHK_IO_INTR(set);
-}
-
-void
-erts_sys_schedule_interrupt_timed(int set, ErtsMonotonicTime timeout_time)
-{
-    ERTS_CHK_IO_INTR_TMD(set, timeout_time);
-}
-
 UWord
 erts_sys_get_page_size(void)
 {
@@ -261,7 +146,7 @@ erts_sys_get_page_size(void)
 Uint
 erts_sys_misc_mem_sz(void)
 {
-    Uint res = ERTS_CHK_IO_SZ();
+    Uint res = erts_check_io_size();
     res += erts_atomic_read_mb(&sys_misc_mem_sz);
     return res;
 }
@@ -618,14 +503,12 @@ break_requested(void)
    * just set a flag - checked for and handled by
    * scheduler threads erts_check_io() (not signal handler).
    */
-#ifdef DEBUG			
-  fprintf(stderr,"break!\n");
-#endif
   if (ERTS_BREAK_REQUESTED)
       erts_exit(ERTS_INTR_EXIT, "");
 
   ERTS_SET_BREAK_REQUESTED;
-  ERTS_CHK_IO_AS_INTR(); /* Make sure we don't sleep in poll */
+  /* Wake aux thread to get handle break */
+  erts_aux_thread_poke();
 }
 
 static RETSIGTYPE request_break(int signum)
@@ -813,7 +696,7 @@ erts_sys_unix_later_init(void)
 
 int sys_max_files(void)
 {
-   return(max_files);
+   return max_files;
 }
 
 /************************** OS info *******************************/
@@ -1190,20 +1073,6 @@ erl_debug(char* fmt, ...)
 
 #endif /* DEBUG */
 
-/*
- * Called from schedule() when it runs out of runnable processes,
- * or when Erlang code has performed INPUT_REDUCTIONS reduction
- * steps. runnable == 0 iff there are no runnable Erlang processes.
- */
-void
-erl_sys_schedule(int runnable)
-{
-    ERTS_CHK_IO(!runnable);
-    ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());
-}
-
-
-
 static erts_tid_t sig_dispatcher_tid;
 
 static void
@@ -1392,99 +1261,18 @@ erts_sys_main_thread(void)
 }
 
 
-#ifdef ERTS_ENABLE_KERNEL_POLL /* get_value() is currently only used when
-				  kernel-poll is enabled */
-
-/* Get arg marks argument as handled by
-   putting NULL in argv */
-static char *
-get_value(char* rest, char** argv, int* ip)
-{
-    char *param = argv[*ip]+1;
-    argv[*ip] = NULL;
-    if (*rest == '\0') {
-	char *next = argv[*ip + 1];
-	if (next[0] == '-'
-	    && next[1] == '-'
-	    &&  next[2] == '\0') {
-	    erts_fprintf(stderr, "bad \"%s\" value: \n", param);
-	    erts_usage();
-	}
-	(*ip)++;
-	argv[*ip] = NULL;
-	return next;
-    }
-    return rest;
-}
-
-#endif /* ERTS_ENABLE_KERNEL_POLL */
-
 void
 erl_sys_args(int* argc, char** argv)
 {
-    int i, j;
 
     erts_rwmtx_init(&environ_rwmtx, "environ", NIL,
         ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
 
-    i = 1;
-
     ASSERT(argc && argv);
 
-    while (i < *argc) {
-	if(argv[i][0] == '-') {
-	    switch (argv[i][1]) {
-#ifdef ERTS_ENABLE_KERNEL_POLL
-	    case 'K': {
-		char *arg = get_value(argv[i] + 2, argv, &i);
-		if (strcmp("true", arg) == 0) {
-		    erts_use_kernel_poll = 1;
-		}
-		else if (strcmp("false", arg) == 0) {
-		    erts_use_kernel_poll = 0;
-		}
-		else {
-		    erts_fprintf(stderr, "bad \"K\" value: %s\n", arg);
-		    erts_usage();
-		}
-		break;
-	    }
-#endif
-	    case '-':
-		goto done_parsing;
-	    default:
-		break;
-	    }
-	}
-	i++;
-    }
-
- done_parsing:
-
-#ifdef ERTS_ENABLE_KERNEL_POLL
-    if (erts_use_kernel_poll) {
-	char no_kp[10];
-	size_t no_kp_sz = sizeof(no_kp);
-	int res = erts_sys_getenv_raw("ERL_NO_KERNEL_POLL", no_kp, &no_kp_sz);
-	if (res > 0
-	    || (res == 0
-		&& sys_strcmp("false", no_kp) != 0
-		&& sys_strcmp("FALSE", no_kp) != 0)) {
-	    erts_use_kernel_poll = 0;
-	}
-    }
-#endif
-
-    init_check_io();
+    max_files = erts_check_io_max_files();
 
     init_smp_sig_notify();
     init_smp_sig_suspend();
 
-    /* Handled arguments have been marked with NULL. Slide arguments
-       not handled towards the beginning of argv. */
-    for (i = 0, j = 0; i < *argc; i++) {
-	if (argv[i])
-	    argv[j++] = argv[i];
-    }
-    *argc = j;
 }

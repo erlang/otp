@@ -87,9 +87,9 @@
         the number of system calls made.</item>
     </taglist>
 
-    <p><c>sys_alloc</c> and <c>literal_alloc</c> are always enabled and
-      cannot be disabled. <c>exec_alloc</c> is only available if it is needed
-      and cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
+    <p><c>sys_alloc</c>, <c>literal_alloc</c> and <c>temp_alloc</c> are always
+      enabled and cannot be disabled. <c>exec_alloc</c> is only available if it
+      is needed and cannot be disabled. <c>mseg_alloc</c> is always enabled if it is
       available and an allocator that uses it is enabled. All other
       allocators can be <seealso marker="#M_e">enabled or disabled</seealso>.
       By default all allocators are enabled.

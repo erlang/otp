@@ -330,7 +330,7 @@ display_check_io(ChkIo) ->
     ok.
 
 get_check_io_info() ->
-    ChkIo = erlang:system_info(check_io),
+    ChkIo = driver_SUITE:get_check_io_total(erlang:system_info(check_io)),
     PendUpdNo = case lists:keysearch(pending_updates, 1, ChkIo) of
 		    {value, {pending_updates, PendNo}} ->
 			PendNo;

@@ -318,8 +318,8 @@ ERTS_GLB_INLINE
 void erts_msacc_set_state_um__(ErtsMsAcc *msacc, Uint new_state, int increment) {
     if (ERTS_UNLIKELY(msacc->unmanaged)) {
         erts_mtx_lock(&msacc->mtx);
-        msacc->state = new_state;
         if (ERTS_LIKELY(!msacc->perf_counter)) {
+            msacc->state = new_state;
             erts_mtx_unlock(&msacc->mtx);
             return;
         }

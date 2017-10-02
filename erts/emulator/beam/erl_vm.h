@@ -46,8 +46,6 @@
  */
 #define ERTS_X_REGS_ALLOCATED (MAX_REG+3)
 
-#define INPUT_REDUCTIONS (2 * CONTEXT_REDS)
-
 #define H_DEFAULT_SIZE  233        /* default (heap + stack) min size */
 #define VH_DEFAULT_SIZE  32768     /* default virtual (bin) heap min size (words) */
 #define H_DEFAULT_MAX_SIZE 0       /* default max heap size is off */

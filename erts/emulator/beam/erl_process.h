@@ -105,7 +105,6 @@ struct saved_calls {
 };
 
 extern Export exp_send, exp_receive, exp_timeout;
-extern int erts_eager_check_io;
 extern int erts_sched_compact_load;
 extern int erts_sched_balance_util;
 extern Uint erts_no_schedulers;
@@ -364,10 +363,12 @@ typedef struct {
 } ErtsSchedulerSleepList;
 
 struct ErtsSchedulerSleepInfo_ {
+    struct ErtsSchedulerData_ *esdp;
     ErtsSchedulerSleepInfo *next;
     ErtsSchedulerSleepInfo *prev;
     erts_atomic32_t flags;
     erts_tse_t *event;
+    struct erts_poll_thread *psi;
     erts_atomic32_t aux_work;
 };
 
@@ -1531,9 +1532,7 @@ extern int erts_system_profile_ts_type;
 void erts_pre_init_process(void);
 void erts_late_init_process(void);
 void erts_early_init_scheduling(int);
-void erts_init_scheduling(int, int
-			  , int, int, int
-			  );
+void erts_init_scheduling(int, int, int, int, int, int);
 void erts_execute_dirty_system_task(Process *c_p);
 int erts_set_gc_state(Process *c_p, int enable);
 Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable,
@@ -2470,6 +2469,7 @@ void erts_notify_inc_runq(ErtsRunQueue *runq);
 
 void erts_sched_finish_poke(ErtsSchedulerSleepInfo *, erts_aint32_t);
 ERTS_GLB_INLINE void erts_sched_poke(ErtsSchedulerSleepInfo *ssi);
+void erts_aux_thread_poke(void);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

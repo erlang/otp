@@ -157,7 +157,7 @@
     </note>
 
     <p>Most functions in this API are <em>not</em> thread-safe, that is,
-      they <em>cannot</em> be called from any thread. Functions
+      they <em>cannot</em> be called from arbitrary threads. Functions
       that are not documented as thread-safe can only be called from
       driver callbacks or function calls descending from a driver
       callback call. Notice that driver callbacks can be called from

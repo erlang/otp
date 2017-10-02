@@ -385,6 +385,7 @@ set_default_temp_alloc_opts(struct au_init *ip)
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
     ip->thr_spec		= 1;
+    ip->disable_allowed         = 0;
     ip->carrier_migration_allowed = 0;
     ip->atype			= AFIT;
     ip->init.util.name_prefix	= "temp_";
@@ -644,8 +645,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 	= ERTS_MONITOR_SH_SIZE * sizeof(Uint);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_NLINK_SH)]
 	= ERTS_LINK_SH_SIZE * sizeof(Uint);
-    fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_DRV_EV_D_STATE)]
-	= sizeof(ErtsDrvEventDataState);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_DRV_SEL_D_STATE)]
 	= sizeof(ErtsDrvSelectDataState);
     fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(ERTS_ALC_T_NIF_SEL_D_STATE)]
@@ -1494,8 +1493,7 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 	&init->ll_alloc,
 	&init->driver_alloc,
 	&init->fix_alloc,
-	&init->sl_alloc,
-	&init->temp_alloc
+	&init->sl_alloc
 	/* test_alloc not affected by +Mea??? or +Mu???  */
     };
     int aui_sz = (int) sizeof(aui)/sizeof(aui[0]);

@@ -762,13 +762,36 @@
           <seealso marker="erlang#process_flag_message_queue_data">
           <c>process_flag(message_queue_data, MQD)</c></seealso>.</p>
       </item>
-      <tag><c><![CDATA[+K true | false]]></c></tag>
+      <tag><marker id="+IOp"/><c>+IOp PollSets</c></tag>
       <item>
-        <p>Enables or disables the kernel poll functionality if supported by
-          the emulator. Defaults to <c><![CDATA[false]]></c> (disabled).
-          If the emulator does not support kernel poll, and flag
-          <c><![CDATA[+K]]></c> is passed to the emulator, a warning is
-          issued at startup.</p>
+        <p>Sets the number of IO pollsets to use when polling for I/O.
+          This option is only used on platforms that support concurrent
+          updates of a pollset, otherwise the same number of pollsets
+          are used as IO poll threads.
+          The default is 1.
+        </p>
+      </item>
+      <tag><marker id="+IOt"/><c>+IOt PollThreads</c></tag>
+      <item>
+        <p>Sets the number of IO poll threads to use when polling for I/O.
+          The maximum number of poll threads allowed is 1024. The default is 1.
+        </p>
+      </item>
+      <tag><marker id="+IOPp"/><c>+IOPp PollSetsPercentage</c></tag>
+      <item>
+        <p>Similar to <seealso marker="#+IOp"><c>+IOp</c></seealso> but uses
+          percentages to set the number of IO pollsets to create, based on the
+          number of poll threads configured. If both <c>+IOPp</c> and <c>+IOp</c>
+          are used, <c>+IOPp</c> is ignored.
+        </p>
+      </item>
+      <tag><marker id="+IOPt"/><c>+IOPt PollThreadsPercentage</c></tag>
+      <item>
+        <p>Similar to <seealso marker="#+IOt"><c>+IOt</c></seealso> but uses
+          percentages to set the number of IO poll threads to create, based on
+          the number of schedulers configures. If both <c>+IOPt</c> and
+          <c>+IOt</c> are used, <c>+IOPt</c> is ignored.
+        </p>
       </item>
       <tag><c><![CDATA[+l]]></c></tag>
       <item>
@@ -1272,25 +1295,6 @@
             <p>For more information, see
               <seealso marker="erlang#system_info_cpu_topology">
               <c>erlang:system_info(cpu_topology)</c></seealso>.</p>
-          </item>
-          <tag><marker id="+secio"/><c>+secio true|false</c></tag>
-          <item>
-            <p>Enables or disables eager check I/O scheduling. Defaults
-              to <c>true</c>. The default was changed from <c>false</c>
-              as from ERTS 7.0. The behavior before this
-              flag was introduced corresponds to <c>+secio false</c>.</p>
-            <p>The flag effects when schedulers will check for I/O
-              operations possible to execute, and when such I/O operations
-              will execute. As the parameter name implies,
-              schedulers are more eager to check for I/O when
-              <c>true</c> is passed. This, however, also implies that
-              execution of outstanding I/O operation is not
-              prioritized to the same extent as when <c>false</c> is
-              passed.</p>
-            <p><seealso marker="erlang#system_info_eager_check_io">
-              <c>erlang:system_info(eager_check_io)</c></seealso>
-              returns the value of this parameter used when starting
-              the virtual machine.</p>
           </item>
           <tag><marker id="+sfwi"/><c>+sfwi Interval</c></tag>
           <item>
