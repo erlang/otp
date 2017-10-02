@@ -83,13 +83,14 @@ groups() ->
     ].
 
 tls_versions_groups ()->
-    [{group, renegotiate}, %% Should be in all_versions_groups not fixed for DTLS yet
+    [
      {group, api_tls},
      {group, tls_ciphers},
      {group, error_handling_tests_tls}].
 
 all_versions_groups ()->
     [{group, api},
+     {group, renegotiate},
      {group, ciphers},
      {group, ciphers_ec},
      {group, error_handling_tests}].
