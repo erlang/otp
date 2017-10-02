@@ -31,6 +31,30 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The new zlib module returned a data_error when
+	    inflating concatenated streams, which was incompatible
+	    with the old module's behavior of returning the
+	    uncompressed data up to the end of the first stream.</p>
+          <p>
+	    Own Id: OTP-14648</p>
+        </item>
+        <item>
+	    <p>zlib:gunzip/1 will no longer stop at the end of the
+	    first stream when decompressing concatenated gzip
+	    files.</p>
+          <p>
+	    Own Id: OTP-14649</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

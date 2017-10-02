@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler could issue an incorrect internal
+	    consistency failure diagnostic for some complicated bit
+	    syntax maches.</p>
+          <p>
+	    Own Id: OTP-14640 Aux Id: ERL-490 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
