@@ -69,11 +69,27 @@ typedef enum {
     ST_DEFLATE = 1,
     ST_INFLATE = 2,
     ST_CLOSED = 3
-} zlib_state;
+} zlib_state_t;
+
+/* Controls what to do when the user attempts to decompress more data after
+ * Z_STREAM_END has been returned:
+ *
+ * - 'cut' wipes all further input and returns empty results until reset by
+ * the user. This is the default behavior, matching that of the old driver.
+ * - 'reset' resets the state without discarding any input, making it possible
+ * to decompress blindly concatenated streams.
+ * - 'error' crashes with a data error. */
+typedef enum {
+    EOS_BEHAVIOR_ERROR = 0,
+    EOS_BEHAVIOR_RESET = 1,
+    EOS_BEHAVIOR_CUT = 2
+} zlib_eos_behavior_t;
 
 typedef struct {
     z_stream s;
-    zlib_state state;
+    zlib_state_t state;
+
+    zlib_eos_behavior_t eos_behavior;
 
     /* These refer to the plaintext CRC, and are only needed for zlib:crc32/1
      * which is deprecated. */
@@ -102,7 +118,6 @@ typedef struct {
 static ERL_NIF_TERM zlib_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_close(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_deflateInit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM zlib_deflateInit2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_deflateSetDictionary(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_deflateReset(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_deflateEnd(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
@@ -110,7 +125,6 @@ static ERL_NIF_TERM zlib_deflateParams(ErlNifEnv *env, int argc, const ERL_NIF_T
 static ERL_NIF_TERM zlib_deflate(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
 static ERL_NIF_TERM zlib_inflateInit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM zlib_inflateInit2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_inflateSetDictionary(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_inflateGetDictionary(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_inflateReset(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
@@ -130,8 +144,7 @@ static ERL_NIF_TERM zlib_enqueue_input(ErlNifEnv *env, int argc, const ERL_NIF_T
 
 static ErlNifFunc nif_funcs[] = {
     /* deflate */
-    {"deflateInit_nif", 2, zlib_deflateInit},
-    {"deflateInit_nif", 6, zlib_deflateInit2},
+    {"deflateInit_nif", 6, zlib_deflateInit},
     {"deflateSetDictionary_nif", 2, zlib_deflateSetDictionary},
     {"deflateReset_nif", 1, zlib_deflateReset},
     {"deflateEnd_nif", 1, zlib_deflateEnd},
@@ -139,8 +152,7 @@ static ErlNifFunc nif_funcs[] = {
     {"deflate_nif", 4, zlib_deflate},
 
     /* inflate */
-    {"inflateInit_nif", 1, zlib_inflateInit},
-    {"inflateInit_nif", 2, zlib_inflateInit2},
+    {"inflateInit_nif", 3, zlib_inflateInit},
     {"inflateSetDictionary_nif", 2, zlib_inflateSetDictionary},
     {"inflateGetDictionary_nif", 1, zlib_inflateGetDictionary},
     {"inflateReset_nif", 1, zlib_inflateReset},
@@ -509,8 +521,10 @@ static ERL_NIF_TERM zlib_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
     d->s.opaque = d;
     d->s.data_type = Z_BINARY;
 
-    d->state = ST_NONE;
+    d->eos_behavior = EOS_BEHAVIOR_CUT;
     d->eos_seen = 0;
+
+    d->state = ST_NONE;
 
     d->want_output_crc = 0;
     d->want_input_crc = 0;
@@ -550,42 +564,6 @@ static ERL_NIF_TERM zlib_close(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
 /* deflate */
 
 static ERL_NIF_TERM zlib_deflateInit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    zlib_data_t *d;
-    int level, res;
-
-    if(argc != 2 || !get_zlib_data(env, argv[0], &d) ||
-                    !enif_get_int(env, argv[1], &level)) {
-        return enif_make_badarg(env);
-    } else if(!zlib_process_check(env, d)) {
-        return enif_raise_exception(env, am_not_on_controlling_process);
-    } else if(d->state != ST_NONE) {
-        return enif_raise_exception(env, am_already_initialized);
-    }
-
-    res = deflateInit(&d->s, level);
-
-    if(res == Z_OK) {
-        d->state = ST_DEFLATE;
-        d->eos_seen = 0;
-
-        /* FIXME: crc32/1 is documented as returning "the current calculated
-         * checksum," but failed to mention that the old implementation only
-         * calculated it when WindowBits < 0 (See zlib_deflateInit2).
-         *
-         * We could fix this behavior by setting d->want_input_crc to 1 here,
-         * but we've decided to retain this quirk since the performance hit is
-         * quite significant. */
-        d->want_output_crc = 0;
-        d->want_input_crc = 0;
-
-        d->output_crc = crc32(0L, Z_NULL, 0);
-        d->input_crc = crc32(0L, Z_NULL, 0);
-    }
-
-    return zlib_return(env, res);
-}
-
-static ERL_NIF_TERM zlib_deflateInit2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     zlib_data_t *d;
     int level, method, windowBits, memLevel, strategy, res;
 
@@ -741,39 +719,12 @@ static ERL_NIF_TERM zlib_deflate(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
 
 static ERL_NIF_TERM zlib_inflateInit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     zlib_data_t *d;
-    int res;
 
-    if(argc != 1 || !get_zlib_data(env, argv[0], &d)) {
-        return enif_make_badarg(env);
-    } else if(!zlib_process_check(env, d)) {
-        return enif_raise_exception(env, am_not_on_controlling_process);
-    } else if(d->state != ST_NONE) {
-        return enif_raise_exception(env, am_already_initialized);
-    }
+    int windowBits, eosBehavior, res;
 
-    res = inflateInit(&d->s);
-
-    if(res == Z_OK) {
-        d->state = ST_INFLATE;
-        d->eos_seen = 0;
-
-        d->want_output_crc = 0;
-        d->want_input_crc = 0;
-        d->is_raw_stream = 0;
-
-        d->output_crc = crc32(0L, Z_NULL, 0);
-        d->input_crc = crc32(0L, Z_NULL, 0);
-    }
-
-    return zlib_return(env, res);
-}
-
-static ERL_NIF_TERM zlib_inflateInit2(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
-    zlib_data_t *d;
-    int windowBits, res;
-
-    if(argc != 2 || !get_zlib_data(env, argv[0], &d)
-                 || !enif_get_int(env, argv[1], &windowBits)) {
+    if(argc != 3 || !get_zlib_data(env, argv[0], &d)
+                 || !enif_get_int(env, argv[1], &windowBits)
+                 || !enif_get_int(env, argv[2], &eosBehavior)) {
         return enif_make_badarg(env);
     } else if(!zlib_process_check(env, d)) {
         return enif_raise_exception(env, am_not_on_controlling_process);
@@ -785,6 +736,8 @@ static ERL_NIF_TERM zlib_inflateInit2(ErlNifEnv *env, int argc, const ERL_NIF_TE
 
     if(res == Z_OK) {
         d->state = ST_INFLATE;
+
+        d->eos_behavior = eosBehavior;
         d->eos_seen = 0;
 
         d->is_raw_stream = (windowBits < 0);
@@ -932,6 +885,28 @@ static ERL_NIF_TERM zlib_inflate(ErlNifEnv *env, int argc, const ERL_NIF_TERM ar
         return enif_raise_exception(env, am_not_on_controlling_process);
     } else if(d->state != ST_INFLATE) {
         return enif_raise_exception(env, am_not_initialized);
+    }
+
+    if(d->eos_seen) {
+        int res;
+
+        switch(d->eos_behavior) {
+        case EOS_BEHAVIOR_ERROR:
+            return zlib_return(env, Z_DATA_ERROR);
+        case EOS_BEHAVIOR_RESET:
+            res = inflateReset(&d->s);
+
+            if(res != Z_OK) {
+                return zlib_return(env, res);
+            }
+
+            d->eos_seen = 0;
+            break;
+        case EOS_BEHAVIOR_CUT:
+            zlib_reset_input(d);
+
+            return enif_make_tuple2(env, am_finished, enif_make_list(env, 0));
+        }
     }
 
     return zlib_codec(&inflate, env, d, input_chunk_size, output_chunk_size, flush);

@@ -23,7 +23,7 @@
 -export([open/0,close/1,deflateInit/1,deflateInit/2,deflateInit/6,
          deflateSetDictionary/2,deflateReset/1,deflateParams/3,
          deflate/2,deflate/3,deflateEnd/1,
-         inflateInit/1,inflateInit/2,
+         inflateInit/1,inflateInit/2,inflateInit/3,
          inflateSetDictionary/2,inflateGetDictionary/1, inflateReset/1,
          inflate/2,inflate/3,inflateEnd/1,
          inflateChunk/2,inflateChunk/1,
@@ -67,6 +67,13 @@
 -define(Z_DEFLATED,  8).
 
 -define(MAX_WBITS, 15).
+
+-define(DEFAULT_MEMLEVEL, 8).
+-define(DEFAULT_WBITS, 15).
+
+-define(EOS_BEHAVIOR_ERROR, 0).
+-define(EOS_BEHAVIOR_RESET, 1).
+-define(EOS_BEHAVIOR_CUT, 2).
 
 %% Chunk sizes are hardcoded on account of them screwing with the
 %% predictability of the system. zlib is incapable of trapping so we need to
@@ -130,10 +137,7 @@ deflateInit(Z) ->
       Z :: zstream(),
       Level :: zlevel().
 deflateInit(Z, Level) ->
-    deflateInit_nif(Z, arg_level(Level)).
-
-deflateInit_nif(_Z, _Level) ->
-    erlang:nif_error(undef).
+    deflateInit(Z, Level, deflated, ?DEFAULT_WBITS, ?DEFAULT_MEMLEVEL, default).
 
 -spec deflateInit(Z, Level, Method, WindowBits, MemLevel, Strategy) -> 'ok' when
       Z :: zstream(),
@@ -225,16 +229,21 @@ deflateEnd_nif(_Z) ->
 -spec inflateInit(Z) -> 'ok' when
       Z :: zstream().
 inflateInit(Z) ->
-    inflateInit_nif(Z).
-inflateInit_nif(_Z) ->
-    erlang:nif_error(undef).
+    inflateInit(Z, ?DEFAULT_WBITS).
 
 -spec inflateInit(Z, WindowBits) -> 'ok' when
       Z :: zstream(),
       WindowBits :: zwindowbits().
 inflateInit(Z, WindowBits) ->
-    inflateInit_nif(Z, WindowBits).
-inflateInit_nif(_Z, _WindowBits) ->
+    inflateInit(Z, WindowBits, cut).
+
+-spec inflateInit(Z, WindowBits, EoSBehavior) -> 'ok' when
+      Z :: zstream(),
+      WindowBits :: zwindowbits(),
+      EoSBehavior :: error | reset | cut.
+inflateInit(Z, WindowBits, EoSBehavior) ->
+    inflateInit_nif(Z, arg_bitsz(WindowBits), arg_eos_behavior(EoSBehavior)).
+inflateInit_nif(_Z, _WindowBits, _EoSBehavior) ->
     erlang:nif_error(undef).
 
 -spec inflateSetDictionary(Z, Dictionary) -> 'ok' when
@@ -532,7 +541,7 @@ gzip(Data) ->
 gunzip(Data) ->
     Z = open(),
     Bs = try
-             inflateInit(Z, 16+?MAX_WBITS),
+             inflateInit(Z, 16+?MAX_WBITS, reset),
              B = inflate(Z, Data),
              inflateEnd(Z),
              B
@@ -651,6 +660,11 @@ arg_strategy(_) -> erlang:error(bad_compression_strategy).
 
 arg_method(deflated) -> ?Z_DEFLATED;
 arg_method(_) -> erlang:error(bad_compression_method).
+
+arg_eos_behavior(error) -> ?EOS_BEHAVIOR_ERROR;
+arg_eos_behavior(reset) -> ?EOS_BEHAVIOR_RESET;
+arg_eos_behavior(cut) -> ?EOS_BEHAVIOR_CUT;
+arg_eos_behavior(_) -> erlang:error(bad_eos_behavior).
 
 -spec arg_bitsz(zwindowbits()) -> zwindowbits().
 arg_bitsz(Bits) when is_integer(Bits) andalso
