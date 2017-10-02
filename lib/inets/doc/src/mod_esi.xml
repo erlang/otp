@@ -142,7 +142,7 @@
 	to the client and <c>SessionID</c> is an identifier that shall by used when
 	calling this function, do not assume anything about
 	the datatype. This function may be called
-	several times to chunk the the respons data. Notice that the
+	several times to chunk the response data. Notice that the
 	first chunk of data sent to the client must at least contain
 	all HTTP header fields that the response will generate. If the
 	first chunk does not contain the <em>end of HTTP header</em>,
