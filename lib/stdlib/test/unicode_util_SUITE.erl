@@ -312,7 +312,7 @@ get(_) ->
 count(Config) ->
     ct:timetrap({minutes,5}),
     case ct:get_timetrap_info() of
-        {_,{_,Scale}} ->
+        {_,{_,Scale}} when Scale > 1 ->
             {skip,{measurments_skipped_debug,Scale}};
         _ -> % No scaling
             do_measure(Config)

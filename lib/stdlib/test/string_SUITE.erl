@@ -92,7 +92,7 @@ end_per_testcase(_Case, _Config) ->
     ok.
 
 debug() ->
-    Config = [{data_dir, ?MODULE_STRING++"_data"}],
+    Config = [{data_dir, "./" ++ ?MODULE_STRING++"_data"}],
     [io:format("~p:~p~n",[Test,?MODULE:Test(Config)]) ||
         {_,Tests} <- groups(), Test <- Tests].
 
@@ -717,19 +717,19 @@ meas(Config) ->
         {_,{_,Scale}} when Scale > 1 ->
             {skip,{will_not_run_in_debug,Scale}};
         _ -> % No scaling
-            DataDir = proplists:get_value(data_dir, Config),
-            TestDir = filename:dirname(string:trim(DataDir, trailing, "/")),
-            do_measure(TestDir)
+            DataDir0 = proplists:get_value(data_dir, Config),
+            DataDir = filename:join(lists:droplast(filename:split(DataDir0))),
+            do_measure(DataDir)
     end.
 
-do_measure(TestDir) ->
-    File =  filename:join(TestDir, ?MODULE_STRING ++ ".erl"),
+do_measure(DataDir) ->
+    File =  filename:join([DataDir,"unicode_util_SUITE_data","NormalizationTest.txt"]),
     io:format("File ~s ",[File]),
     {ok, Bin} = file:read_file(File),
     io:format("~p~n",[byte_size(Bin)]),
     Do = fun(Name, Func, Mode) ->
                  {N, Mean, Stddev, _} = time_func(Func, Mode, Bin),
-                 io:format("~10w ~6w ~6.2fms ±~4.2fms #~.2w gc included~n",
+                 io:format("~10w ~6w ~6.2fms ±~5.2fms #~.2w gc included~n",
                            [Name, Mode, Mean/1000, Stddev/1000, N])
          end,
     io:format("----------------------~n"),
@@ -947,7 +947,7 @@ time_func(Fun, Mode, Bin) ->
                      end),
     receive {Pid,Msg} -> Msg end.
 
-time_func(N,Sum,SumSq, Fun, Str, _) when N < 50 ->
+time_func(N,Sum,SumSq, Fun, Str, _) when N < 20 ->
     {Time, Res} = timer:tc(fun() -> Fun(Str) end),
     time_func(N+1,Sum+Time,SumSq+Time*Time, Fun, Str, Res);
 time_func(N,Sum,SumSq, _, _, Res) ->

@@ -170,7 +170,7 @@ gen_header(Fd) ->
     io:put_chars(Fd, "-export([spec_version/0, lookup/1, get_case/1]).\n"),
     io:put_chars(Fd, "-inline([class/1]).\n"),
     io:put_chars(Fd, "-compile(nowarn_unused_vars).\n"),
-    io:put_chars(Fd, "-dialyzer({no_improper_lists, [cp/1, gc_prepend/2, gc_e_cont/2]}).\n"),
+    io:put_chars(Fd, "-dialyzer({no_improper_lists, [cp/1, gc/1, gc_prepend/2, gc_e_cont/2]}).\n"),
     io:put_chars(Fd, "-type gc() :: char()|[char()].\n\n\n"),
     ok.
 
@@ -240,7 +240,7 @@ gen_norm(Fd) ->
                  "-spec nfd(unicode:chardata()) -> maybe_improper_list(gc(),unicode:chardata()) | {error, unicode:chardata()}.\n"
                  "nfd(Str0) ->\n"
                  "    case gc(Str0) of\n"
-                 "        [GC|R] when GC < 127 -> [GC|R];\n"
+                 "        [GC|R] when GC < 128 -> [GC|R];\n"
                  "        [GC|Str] -> [decompose(GC)|Str];\n"
                  "        [] -> [];\n"
                  "        {error,_}=Error -> Error\n    end.\n\n"
@@ -250,7 +250,7 @@ gen_norm(Fd) ->
                  "-spec nfkd(unicode:chardata()) -> maybe_improper_list(gc(),unicode:chardata()) | {error, unicode:chardata()}.\n"
                  "nfkd(Str0) ->\n"
                  "    case gc(Str0) of\n"
-                 "        [GC|R] when GC < 127 -> [GC|R];\n"
+                 "        [GC|R] when GC < 128 -> [GC|R];\n"
                  "        [GC|Str] -> [decompose_compat(GC)|Str];\n"
                  "        [] -> [];\n"
                  "        {error,_}=Error -> Error\n    end.\n\n"
@@ -260,7 +260,7 @@ gen_norm(Fd) ->
                  "-spec nfc(unicode:chardata()) -> maybe_improper_list(gc(),unicode:chardata()) | {error, unicode:chardata()}.\n"
                  "nfc(Str0) ->\n"
                  "    case gc(Str0) of\n"
-                 "        [GC|R] when GC < 255 -> [GC|R];\n"
+                 "        [GC|R] when GC < 256 -> [GC|R];\n"
                  "        [GC|Str] -> [compose(decompose(GC))|Str];\n"
                  "        [] -> [];\n"
                  "        {error,_}=Error -> Error\n    end.\n\n"
@@ -270,7 +270,7 @@ gen_norm(Fd) ->
                  "-spec nfkc(unicode:chardata()) -> maybe_improper_list(gc(),unicode:chardata()) | {error, unicode:chardata()}.\n"
                  "nfkc(Str0) ->\n"
                  "    case gc(Str0) of\n"
-                 "        [GC|R] when GC < 127 -> [GC|R];\n"
+                 "        [GC|R] when GC < 128 -> [GC|R];\n"
                  "        [GC|Str] -> [compose_compat_0(decompose_compat(GC))|Str];\n"
                  "        [] -> [];\n"
                  "        {error,_}=Error -> Error\n    end.\n\n"
@@ -476,13 +476,30 @@ gen_gc(Fd, GBP) ->
                  "-spec gc(String::unicode:chardata()) ->"
                  " maybe_improper_list() | {error, unicode:chardata()}.\n"),
     io:put_chars(Fd,
+                 "gc([CP1, CP2|_]=T)\n"
+                 "  when CP1 < 256, CP2 < 256, CP1 =/= $\r -> %% Ascii Fast path\n"
+                 "       T;\n"
+                 "gc(<<CP1/utf8, Rest/binary>>) ->\n"
+                 "    if CP1 < 256, CP1 =/= $\r ->\n"
+                 "           case Rest of\n"
+                 "               <<CP2/utf8, _/binary>> when CP2 < 256 -> %% Ascii Fast path\n"
+                 "                   [CP1|Rest];\n"
+                 "               _ -> gc_1([CP1|Rest])\n"
+                 "           end;\n"
+                 "      true -> gc_1([CP1|Rest])\n"
+                 "    end;\n"
                  "gc(Str) ->\n"
                  "    gc_1(cp(Str)).\n\n"
                  "gc_1([$\\r|R0] = R) ->\n"
                  "    case cp(R0) of % Don't break CRLF\n"
                  "        [$\\n|R1] -> [[$\\r,$\\n]|R1];\n"
                  "        _ -> R\n"
-                 "    end;\n"),
+                 "    end;\n"
+                 %% "gc_1([CP1, CP2|_]=T) when CP1 < 256, CP2 < 256 ->\n"
+                 %% "    T;  %% Fast path\n"
+                 %% "gc_1([CP1|<<CP2/utf8, _/binary>>]=T) when CP1 < 256, CP2 < 256 ->\n"
+                 %% "    T;  %% Fast path\n"
+                ),
 
     io:put_chars(Fd, "%% Handle control\n"),
     GenControl = fun(Range) -> io:format(Fd, "gc_1~s R0;\n", [gen_clause(Range)]) end,
@@ -490,7 +507,7 @@ gen_gc(Fd, GBP) ->
     [R1,R2,R3|Crs] = CRs0,
     [GenControl(CP) || CP <- merge_ranges([R1,R2,R3], split), CP =/= {$\r, undefined}],
     %%GenControl(R1),GenControl(R2),GenControl(R3),
-    io:format(Fd, "gc_1([CP|R]) when CP < 255 -> gc_extend(R,CP);\n", []),
+    io:format(Fd, "gc_1([CP|R]) when CP < 256 -> gc_extend(R,CP);\n", []),
     [GenControl(CP) || CP <- Crs],
     %% One clause per CP
     %% CRs0 = merge_ranges(maps:get(cr, GBP) ++ maps:get(lf, GBP) ++ maps:get(control, GBP)),
