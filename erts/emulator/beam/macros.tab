@@ -28,9 +28,18 @@ REFRESH_GEN_DEST() {
     dst_ptr = REG_TARGET_PTR(dst);
 }
 
+// $Offset is relative to the start of the instruction (not to the
+// location of the failure label reference). Since combined
+// instructions may increment the instruction pointer (e.g. in
+// 'increment') for some of the instructions in the group, we actually
+// use a virtual start position common to all instructions in the
+// group. To calculate the correct virtual position, we will need to
+// add $IP_ADJUSTMENT to the offset. ($IP_ADJUSTMENT will usually be
+// zero, except in a few bit syntax instructions.)
+
 SET_I_REL(Offset) {
     ASSERT(VALID_INSTR(*(I + ($Offset))));
-    I += $Offset;
+    I += $Offset + $IP_ADJUSTMENT;
 }
 
 SET_CP_I_ABS(Target) {
