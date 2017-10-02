@@ -99,6 +99,9 @@ all() ->
      {group, ecdsa_sha2_nistp521_key},
      {group, dsa_pass_key},
      {group, rsa_pass_key},
+     {group, ecdsa_sha2_nistp256_pass_key},
+     {group, ecdsa_sha2_nistp384_pass_key},
+     {group, ecdsa_sha2_nistp521_pass_key},
      {group, host_user_key_differs},
      {group, key_cb},
      {group, internal_error},
@@ -124,6 +127,9 @@ groups() ->
 				  exec_key_differs_fail]},
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
+     {ecdsa_sha2_nistp256_pass_key, [], [pass_phrase]},
+     {ecdsa_sha2_nistp384_pass_key, [], [pass_phrase]},
+     {ecdsa_sha2_nistp521_pass_key, [], [pass_phrase]},
      {key_cb, [], [key_callback, key_callback_options]},
      {internal_error, [], [internal_error]},
      {login_bad_pwd_no_retry, [], [login_bad_pwd_no_retry1,
@@ -229,6 +235,45 @@ init_per_group(dsa_pass_key, Config) ->
 	false ->
 	    {skip, unsupported_pub_key}
     end;
+init_per_group(ecdsa_sha2_nistp256_pass_key, Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    case lists:member('ecdsa-sha2-nistp256',
+		      ssh_transport:default_algorithms(public_key))
+        andalso
+        ssh_test_lib:setup_ecdsa_pass_phrase("256", DataDir, PrivDir, "Password")
+    of
+	true ->
+	    [{pass_phrase, {ecdsa_pass_phrase, "Password"}}| Config];
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
+init_per_group(ecdsa_sha2_nistp384_pass_key, Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    case lists:member('ecdsa-sha2-nistp384',
+		      ssh_transport:default_algorithms(public_key))
+        andalso
+        ssh_test_lib:setup_ecdsa_pass_phrase("384", DataDir, PrivDir, "Password")
+    of
+	true ->
+	    [{pass_phrase, {ecdsa_pass_phrase, "Password"}}| Config];
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
+init_per_group(ecdsa_sha2_nistp521_pass_key, Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    case lists:member('ecdsa-sha2-nistp521',
+		      ssh_transport:default_algorithms(public_key))
+        andalso
+        ssh_test_lib:setup_ecdsa_pass_phrase("521", DataDir, PrivDir, "Password")
+    of
+	true ->
+	    [{pass_phrase, {ecdsa_pass_phrase, "Password"}}| Config];
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
 init_per_group(host_user_key_differs, Config) ->
     Data = proplists:get_value(data_dir, Config),
     Sys = filename:join(proplists:get_value(priv_dir, Config), system_rsa),
@@ -241,7 +286,7 @@ init_per_group(host_user_key_differs, Config) ->
     file:copy(filename:join(Data, "ssh_host_rsa_key.pub"), filename:join(Sys, "ssh_host_rsa_key.pub")),
     file:copy(filename:join(Data, "id_ecdsa256"),         filename:join(Usr, "id_ecdsa")),
     file:copy(filename:join(Data, "id_ecdsa256.pub"),     filename:join(Usr, "id_ecdsa.pub")),
-    ssh_test_lib:setup_ecdsa_auth_keys("256", Usr, SysUsr),
+    ssh_test_lib:setup_ecdsa_auth_keys("256", Data, SysUsr),
     ssh_test_lib:setup_rsa_known_host(Sys, Usr),
     Config;
 init_per_group(key_cb, Config) ->
@@ -305,6 +350,7 @@ init_per_group(dir_options, Config) ->
     end;
 init_per_group(_, Config) ->
     Config.
+
 
 end_per_group(dsa_key, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),

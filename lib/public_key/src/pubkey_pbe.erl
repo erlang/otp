@@ -222,7 +222,8 @@ pbe_pad(Data, {#'PBEParameter'{}, _}) ->
 pbe_pad(Data, #'PBES2-params'{}) ->
     pbe_pad(Data);
 pbe_pad(Data, _) ->
-    Data.
+pbe_pad(Data).%%    Data.
+
 
 pbe_pad(Data) ->
     N = 8 - (erlang:byte_size(Data) rem 8), 
