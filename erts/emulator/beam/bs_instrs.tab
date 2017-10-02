@@ -364,11 +364,9 @@ i_bs_init_bits_fail      := bs_init_bits.fail.verify.execute;
 i_bs_init_bits_fail_heap := bs_init_bits.fail_heap.verify.execute;
 
 bs_init_bits.head() {
-    Eterm new_binary;
     Eterm num_bits_term;
     Uint num_bits;
     Uint alloc;
-    Uint num_bytes;
 }
 
 bs_init_bits.plain(NumBits) {
@@ -410,7 +408,9 @@ bs_init_bits.verify(Fail) {
 }
 
 bs_init_bits.execute(Live, Dst) {
-     num_bytes = ((Uint64)num_bits+(Uint64)7) >> 3;
+     Eterm new_binary;
+     Uint num_bytes = ((Uint64)num_bits+(Uint64)7) >> 3;
+
      if (num_bits & 7) {
 	 alloc += ERL_SUB_BIN_SIZE;
      }
@@ -709,9 +709,6 @@ i_bs_validate_unicode_retract(Fail, Src, Ms) {
 i_bs_start_match2 := bs_start_match.fetch.execute;
 
 bs_start_match.head() {
-    Uint slots;
-    Uint live;
-    Eterm header;
     Eterm context;
 }
 
@@ -720,6 +717,9 @@ bs_start_match.fetch(Src) {
 }
 
 bs_start_match.execute(Fail, Live, Slots, Dst) {
+    Uint slots;
+    Uint live;
+    Eterm header;
     if (!is_boxed(context)) {
         $FAIL($Fail);
     }
@@ -942,13 +942,10 @@ bs_context_to_binary := ctx_to_bin.fetch.execute;
 i_bs_get_binary_all_reuse := ctx_to_bin.fetch_bin.execute;
 
 ctx_to_bin.head() {
-     Eterm context;
-     ErlBinMatchBuffer* mb;
-     ErlSubBin* sb;
-     Uint size;
-     Uint offs;
-     Uint orig;
-     Uint hole_size;
+    Eterm context;
+    ErlBinMatchBuffer* mb;
+    Uint size;
+    Uint offs;
 }
 
 ctx_to_bin.fetch(Src) {
@@ -976,8 +973,9 @@ ctx_to_bin.fetch_bin(Src, Fail, Unit) {
 }
 
 ctx_to_bin.execute() {
-    orig = mb->orig;
-    sb = (ErlSubBin *) boxed_val(context);
+    Uint hole_size;
+    Uint orig = mb->orig;
+    ErlSubBin* sb = (ErlSubBin *) boxed_val(context);
     hole_size = 1 + header_arity(sb->thing_word) - ERL_SUB_BIN_SIZE;
     sb->thing_word = HEADER_SUB_BIN;
     sb->size = BYTE_OFFSET(size);

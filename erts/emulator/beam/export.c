@@ -48,7 +48,6 @@ static erts_atomic_t total_entries_bytes;
  */
 erts_mtx_t export_staging_lock;
 
-extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_call_traced_function;
 
 struct export_entry
@@ -130,7 +129,10 @@ export_alloc(struct export_entry* tmpl_e)
 	obj->info.mfa.module = tmpl->info.mfa.module;
 	obj->info.mfa.function = tmpl->info.mfa.function;
 	obj->info.mfa.arity = tmpl->info.mfa.arity;
-	obj->beam[0] = (BeamInstr) em_call_error_handler;
+        obj->beam[0] = 0;
+        if (BeamOpsAreInitialized()) {
+            obj->beam[0] = BeamOpCodeAddr(op_call_error_handler);
+        }
 	obj->beam[1] = 0;
 
 	for (ix=0; ix<ERTS_NUM_CODE_IX; ix++) {
@@ -267,7 +269,7 @@ erts_find_function(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
     ee = hash_get(&export_tables[code_ix].htable, init_template(&templ, m, f, a));
     if (ee == NULL ||
 	(ee->ep->addressv[code_ix] == ee->ep->beam &&
-	 ee->ep->beam[0] != (BeamInstr) BeamOp(op_i_generic_breakpoint))) {
+	 ! BeamIsOpCode(ee->ep->beam[0], op_i_generic_breakpoint))) {
 	return NULL;
     }
     return ee->ep;

@@ -37,11 +37,6 @@ typedef struct gen_op_entry {
 
 extern const GenOpEntry gen_opc[];
 
-extern BeamInstr beam_debug_apply[];
-extern BeamInstr* em_call_error_handler;
-extern BeamInstr* em_apply_bif;
-extern BeamInstr* em_call_nif;
-
 struct ErtsLiteralArea_;
 
 /*

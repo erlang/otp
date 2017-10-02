@@ -292,7 +292,7 @@ schedule(ErlNifEnv* env, NativeFunPtr direct_fp, NativeFunPtr indirect_fp,
     ep = erts_nif_export_schedule(c_p, dirty_shadow_proc,
 				  c_p->current,
 				  c_p->cp,
-				  (BeamInstr) em_call_nif,
+				  BeamOpCodeAddr(op_call_nif),
 				  direct_fp, indirect_fp,
 				  mod, func_name,
 				  argc, (const Eterm *) argv);
@@ -3613,7 +3613,7 @@ static ErtsCodeInfo** get_func_pp(BeamCodeHeader* mod_code, Eterm f_atom, unsign
     int j;
     for (j = 0; j < n; ++j) {
 	ErtsCodeInfo* ci = mod_code->functions[j];
-	ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI));
+	ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
 	if (f_atom == ci->mfa.function
 	    && arity == ci->mfa.arity) {
 	    return mod_code->functions+j;
@@ -3982,13 +3982,12 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
             code_ptr = erts_codeinfo_to_code(ci);
 
 	    if (ci->u.gen_bp == NULL) {
-		code_ptr[0] = (BeamInstr) BeamOp(op_call_nif);
+		code_ptr[0] = BeamOpCodeAddr(op_call_nif);
 	    }
 	    else { /* Function traced, patch the original instruction word */
 		GenericBp* g = ci->u.gen_bp;
-		ASSERT(code_ptr[0] ==
-		       (BeamInstr) BeamOp(op_i_generic_breakpoint));
-		g->orig_instr = (BeamInstr) BeamOp(op_call_nif);
+		ASSERT(BeamIsOpCode(code_ptr[0], op_i_generic_breakpoint));
+		g->orig_instr = BeamOpCodeAddr(op_call_nif);
 	    }
 	    if (f->flags) {
 		code_ptr[3] = (BeamInstr) f->fptr;

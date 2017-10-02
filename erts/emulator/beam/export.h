@@ -73,7 +73,7 @@ extern erts_mtx_t export_staging_lock;
 #include "beam_load.h" /* For em_* extern declarations */ 
 #define ExportIsBuiltIn(EntryPtr) 			\
 (((EntryPtr)->addressv[erts_active_code_ix()] == (EntryPtr)->beam) && \
- ((EntryPtr)->beam[0] == (BeamInstr) em_apply_bif))
+ (BeamIsOpCode((EntryPtr)->beam[0], op_apply_bif)))
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 

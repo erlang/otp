@@ -176,7 +176,7 @@ int erts_has_code_write_permission(void);
 ERTS_GLB_INLINE
 BeamInstr *erts_codeinfo_to_code(ErtsCodeInfo *ci)
 {
-    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI) || !ci->op);
+    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
     ASSERT_MFA(&ci->mfa);
     return (BeamInstr*)(ci + 1);
 }
@@ -185,7 +185,7 @@ ERTS_GLB_INLINE
 ErtsCodeInfo *erts_code_to_codeinfo(BeamInstr *I)
 {
     ErtsCodeInfo *ci = ((ErtsCodeInfo *)(((char *)(I)) - sizeof(ErtsCodeInfo)));
-    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI) || !ci->op);
+    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI) || !ci->op);
     ASSERT_MFA(&ci->mfa);
     return ci;
 }

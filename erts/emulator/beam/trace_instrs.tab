@@ -61,12 +61,12 @@ i_return_to_trace() {
         Uint *cpp = (Uint*) E;
         for(;;) {
             ASSERT(is_CP(*cpp));
-            if (*cp_val(*cpp) == (BeamInstr) OpCode(return_trace)) {
+            if (IsOpCode(*cp_val(*cpp), return_trace)) {
                 do
                     ++cpp;
                 while (is_not_CP(*cpp));
                 cpp += 2;
-            } else if (*cp_val(*cpp) == (BeamInstr) OpCode(i_return_to_trace)) {
+            } else if (IsOpCode(*cp_val(*cpp), i_return_to_trace)) {
                 do
                     ++cpp;
                 while (is_not_CP(*cpp));

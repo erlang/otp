@@ -966,12 +966,12 @@ static int function_is_traced(Process *p,
     if ((ep = export_get(&e)) != NULL) {
 	pc = ep->beam;
 	if (ep->addressv[erts_active_code_ix()] == pc &&
-	    *pc != (BeamInstr) em_call_error_handler) {
+	    ! BeamIsOpCode(*pc, op_call_error_handler)) {
 
 	    int r = 0;
 
-	    ASSERT(*pc == (BeamInstr) em_apply_bif ||
-		   *pc == (BeamInstr) BeamOp(op_i_generic_breakpoint));
+	    ASSERT(BeamIsOpCode(*pc, op_apply_bif) ||
+		   BeamIsOpCode(*pc, op_i_generic_breakpoint));
 
 	    if (erts_is_trace_break(&ep->info, ms, 0)) {
 		return FUNC_TRACE_GLOBAL_TRACE;
@@ -1361,14 +1361,14 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 	    if (ep->addressv[code_ix] != pc) {
 		fp[i].mod->curr.num_traced_exports++;
 #ifdef DEBUG
-		ep->info.op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
+		ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
 #endif
-                ep->beam[0] = (BeamInstr) BeamOp(op_trace_jump_W);
+                ep->beam[0] = BeamOpCodeAddr(op_trace_jump_W);
 		ep->beam[1] = (BeamInstr) ep->addressv[code_ix];
 	    }
 	    erts_set_call_trace_bif(ci, match_prog_set, 0);
 	    if (ep->addressv[code_ix] != pc) {
-		ep->beam[0] = (BeamInstr) BeamOp(op_i_generic_breakpoint);
+		ep->beam[0] = BeamOpCodeAddr(op_i_generic_breakpoint);
 	    }
 	} else if (!on && flags.breakpoint) {
 	    /* Turn off breakpoint tracing -- nothing to do here. */
@@ -1378,8 +1378,8 @@ erts_set_trace_pattern(Process*p, ErtsCodeMFA *mfa, int specified,
 	     * before turning on breakpoint tracing.
 	     */
 	    erts_clear_call_trace_bif(ci, 0);
-	    if (ep->beam[0] == (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
-		ep->beam[0] = (BeamInstr) BeamOp(op_trace_jump_W);
+	    if (BeamIsOpCode(ep->beam[0], op_i_generic_breakpoint)) {
+		ep->beam[0] = BeamOpCodeAddr(op_trace_jump_W);
 	    }
 	}
     }
@@ -1671,7 +1671,7 @@ uninstall_exp_breakpoints(BpFunctions* f)
 	if (ep->addressv[code_ix] != ep->beam) {
 	    continue;
 	}
-	ASSERT(ep->beam[0] == (BeamInstr) BeamOp(op_trace_jump_W));
+	ASSERT(BeamIsOpCode(ep->beam[0], op_trace_jump_W));
 	ep->addressv[code_ix] = (BeamInstr *) ep->beam[1];
     }
 }
@@ -1690,7 +1690,7 @@ clean_export_entries(BpFunctions* f)
 	if (ep->addressv[code_ix] == ep->beam) {
 	    continue;
 	}
-	if (ep->beam[0] == (BeamInstr) BeamOp(op_trace_jump_W)) {
+	if (BeamIsOpCode(ep->beam[0], op_trace_jump_W)) {
 	    ep->beam[0] = (BeamInstr) 0;
 	    ep->beam[1] = (BeamInstr) 0;
 	}

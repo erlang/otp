@@ -55,12 +55,6 @@ ErlDrvBinary* erts_gzinflate_buffer(char*, int);
 #define DEFINED   1
 #define EXPORTED  2
 
-#ifdef NO_JUMP_TABLE
-#  define BeamOpCode(Op) ((BeamInstr)(Op))
-#else
-#  define BeamOpCode(Op) ((BeamInstr)beam_ops[Op])
-#endif
-
 #if defined(WORDS_BIGENDIAN)
 # define NATIVE_ENDIAN(F)			\
   if ((F).val & BSF_NATIVE) {			\
@@ -849,10 +843,9 @@ erts_finish_loading(Binary* magic, Process* c_p,
 		continue;
 	    }
 	    if (ep->addressv[code_ix] == ep->beam) {
-		if (ep->beam[0] == (BeamInstr) em_apply_bif) {
+		if (BeamIsOpCode(ep->beam[0], op_apply_bif)) {
 		    continue;
-		} else if (ep->beam[0] ==
-			   (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
+		} else if (BeamIsOpCode(ep->beam[0], op_i_generic_breakpoint)) {
 		    ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 		    ASSERT(mod_tab_p->curr.num_traced_exports > 0);
 		    erts_clear_export_break(mod_tab_p, &ep->info);
@@ -1482,7 +1475,7 @@ load_import_table(LoaderState* stp)
 	 * the BIF function.
 	 */
 	if ((e = erts_active_export_entry(mod, func, arity)) != NULL) {
-	    if (e->beam[0] == (BeamInstr) em_apply_bif) {
+	    if (BeamIsOpCode(e->beam[0], op_apply_bif)) {
 		stp->import[i].bf = (BifFunction) e->beam[1];
 		if (func == am_load_nif && mod == am_erlang && arity == 2) {
 		    stp->may_load_nif = 1;
@@ -1576,7 +1569,7 @@ is_bif(Eterm mod, Eterm func, unsigned arity)
     if (e == NULL) {
 	return 0;
     }
-    if (e->beam[0] != (BeamInstr) em_apply_bif) {
+    if (! BeamIsOpCode(e->beam[0], op_apply_bif)) {
 	return 0;
     }
     if (mod == am_erlang && func == am_apply && arity == 3) {
@@ -2323,7 +2316,7 @@ load_code(LoaderState* stp)
 	    stp->specific_op = specific;
 	    CodeNeed(opc[stp->specific_op].sz+16); /* Extra margin for packing */
             last_instr_start = ci + opc[stp->specific_op].adjust;
-	    code[ci++] = BeamOpCode(stp->specific_op);
+	    code[ci++] = BeamOpCodeAddr(stp->specific_op);
 	}
 	
 	/*
@@ -2643,15 +2636,15 @@ load_code(LoaderState* stp)
                     }
                     ci++;
 		    break;
-		case 'P':	/* Put packed operands. */
+		case 'P':	/* Put packed operands (on the stack). */
                     sp->instr = packed;
                     sp->patch_pos = 0;
-                    sp++;
-		    packed = 0;
                     if (packed_label) {
-                        packed_label->pos = ci;
+                        sp->patch_pos = &packed_label->pos;
                         packed_label = 0;
                     }
+                    sp++;
+		    packed = 0;
 		    break;
 		default:
 		    ASSERT(0);
@@ -5079,7 +5072,7 @@ final_touch(LoaderState* stp, struct erl_module_instance* inst_p)
     while (index != 0) {
 	BeamInstr next = codev[index];
         BeamInstr* abs_addr;
-	codev[index] = BeamOpCode(op_catch_yf);
+	codev[index] = BeamOpCodeAddr(op_catch_yf);
         /* We must make the address of the label absolute again. */
         abs_addr = (BeamInstr *)codev + index + codev[index+2];
 	catches = beam_catches_cons(abs_addr, catches);
@@ -6033,9 +6026,9 @@ int
 erts_is_function_native(ErtsCodeInfo *ci)
 {
 #ifdef HIPE
-    ASSERT(ci->op == (BeamInstr) BeamOp(op_i_func_info_IaaI));
-    return erts_codeinfo_to_code(ci)[0] == (BeamInstr) BeamOp(op_hipe_trap_call)
-	|| erts_codeinfo_to_code(ci)[0] == (BeamInstr) BeamOp(op_hipe_trap_call_closure);
+    ASSERT(BeamIsOpCode(ci->op, op_i_func_info_IaaI));
+    return BeamIsOpCode(erts_codeinfo_to_code(ci)[0], op_hipe_trap_call) ||
+	BeamIsOpCode(erts_codeinfo_to_code(ci)[0], op_hipe_trap_call_closure);
 #else
     return 0;
 #endif
@@ -6104,7 +6097,7 @@ exported_from_module(Process* p, /* Process whose heap to use. */
 	    Eterm tuple;
 	    
 	    if (ep->addressv[code_ix] == ep->beam &&
-		ep->beam[0] == (BeamInstr) em_call_error_handler) {
+		BeamIsOpCode(ep->beam[0], op_call_error_handler)) {
 		/* There is a call to the function, but it does not exist. */ 
 		continue;
 	    }
@@ -6375,7 +6368,7 @@ make_stub(ErtsCodeInfo* info, Eterm mod, Eterm func, Uint arity, Uint native, Be
 {
     DBG_TRACE_MFA(mod,func,arity,"make beam stub at %p", erts_codeinfo_to_code(info));
     ASSERT(WORDS_PER_FUNCTION == 6);
-    info->op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
+    info->op = BeamOpCodeAddr(op_i_func_info_IaaI);
     info->u.ncallee = (void (*)(void)) native;
     info->mfa.module = mod;
     info->mfa.function = func;
@@ -6480,7 +6473,7 @@ stub_final_touch(LoaderState* stp, ErtsCodeInfo* ci)
     for (i = 0, lp = stp->lambdas; i < n; i++, lp++) {
         ErlFunEntry* fe = stp->lambdas[i].fe;
 	if (lp->function == ci->mfa.function && lp->arity == ci->mfa.arity) {
-	    *erts_codeinfo_to_code(ci) = (Eterm) BeamOpCode(op_hipe_trap_call_closure);
+	    *erts_codeinfo_to_code(ci) = BeamOpCodeAddr(op_hipe_trap_call_closure);
             fe->address = erts_codeinfo_to_code(ci);
 	}
     }
@@ -6804,7 +6797,7 @@ erts_make_stub_module(Process* p, Eterm hipe_magic_bin, Eterm Beam, Eterm Info)
 	 * as the body until we know what kind of trap we should put there.
 	 */
 	code_hdr->functions[i] = (ErtsCodeInfo*)fp;
-	op = (Eterm) BeamOpCode(op_hipe_trap_call); /* Might be changed later. */
+	op = BeamOpCodeAddr(op_hipe_trap_call); /* Might be changed later. */
 	fp = make_stub((ErtsCodeInfo*)fp, hipe_stp->module, func, arity,
                        (Uint)native_address, op);
     }
@@ -6814,7 +6807,7 @@ erts_make_stub_module(Process* p, Eterm hipe_magic_bin, Eterm Beam, Eterm Info)
      */
 
     code_hdr->functions[i] = (ErtsCodeInfo*)fp;
-    *fp++ = (BeamInstr) BeamOp(op_int_code_end);
+    *fp++ = BeamOpCodeAddr(op_int_code_end);
 
     /*
      * Copy attributes and compilation information.

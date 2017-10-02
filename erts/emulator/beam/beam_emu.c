@@ -50,15 +50,14 @@
 #if defined(NO_JUMP_TABLE)
 #  define OpCase(OpCode)    case op_##OpCode
 #  define CountCase(OpCode) case op_count_##OpCode
-#  define OpCode(OpCode)    ((Uint*)op_##OpCode)
-#  define Goto(Rel) {Go = (int)(UWord)(Rel); goto emulator_loop;}
-#  define LabelAddr(Addr) &&##Addr
+#  define IsOpCode(InstrWord, OpCode)  ((InstrWord) == (BeamInstr)op_##OpCode)
+#  define Goto(Rel) {Go = (Rel); goto emulator_loop;}
 #else
 #  define OpCase(OpCode)    lb_##OpCode
 #  define CountCase(OpCode) lb_count_##OpCode
+#  define IsOpCode(InstrWord, OpCode)  ((InstrWord) == (BeamInstr)&&lb_##OpCode)
 #  define Goto(Rel) goto *((void *)Rel)
 #  define LabelAddr(Label) &&Label
-#  define OpCode(OpCode)  (&&lb_##OpCode)
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -106,6 +105,8 @@ do {                                     \
 #  define CHECK_TERM(T) ASSERT(!is_CP(T))
 #  define CHECK_ARGS(T)
 #endif
+
+#define CHECK_ALIGNED(Dst) ASSERT((((Uint)&Dst) & (sizeof(Uint)-1)) == 0)
 
 #define GET_BIF_MODULE(p)  (p->info.mfa.module)
 #define GET_BIF_FUNCTION(p)  (p->info.mfa.function)
@@ -158,11 +159,6 @@ do {                                     \
 BeamInstr beam_apply[2];
 BeamInstr beam_exit[1];
 BeamInstr beam_continue_exit[1];
-
-BeamInstr* em_call_error_handler;
-BeamInstr* em_apply_bif;
-BeamInstr* em_call_nif;
-BeamInstr* em_call_bif_e;
 
 
 /* NOTE These should be the only variables containing trace instructions.
@@ -255,8 +251,8 @@ void** beam_ops;
 
 #define DispatchMacro()				\
   do {						\
-     BeamInstr* dis_next;				\
-     dis_next = (BeamInstr *) *I;			\
+     BeamInstr dis_next;                        \
+     dis_next = *I;                             \
      CHECK_ARGS(I);				\
      if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
         FCALLS--;				\
@@ -264,12 +260,12 @@ void** beam_ops;
      } else {					\
 	goto context_switch;			\
      }						\
- } while (0)
+ } while (0)                                    \
 
 #define DispatchMacroFun()			\
   do {						\
-     BeamInstr* dis_next;				\
-     dis_next = (BeamInstr *) *I;			\
+     BeamInstr dis_next;                        \
+     dis_next = *I;                             \
      CHECK_ARGS(I);				\
      if (FCALLS > 0 || FCALLS > neg_o_reds) {	\
         FCALLS--;				\
@@ -279,23 +275,23 @@ void** beam_ops;
      }						\
  } while (0)
 
-#define DispatchMacrox()					\
-  do {								\
-     if (FCALLS > 0) {						\
-        Eterm* dis_next;					\
-        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]); \
-        dis_next = (Eterm *) *I;				\
-        FCALLS--;						\
-        CHECK_ARGS(I);						\
-        Goto(dis_next);						\
-     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)		\
-		&& FCALLS > neg_o_reds) {			\
-        goto save_calls1;					\
-     } else {							\
-        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]); \
-        CHECK_ARGS(I);						\
-	goto context_switch;					\
-     }								\
+#define DispatchMacrox()                                                \
+  do {                                                                  \
+     if (FCALLS > 0) {                                                  \
+        BeamInstr dis_next;                                             \
+        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);    \
+        dis_next = *I;                                                  \
+        FCALLS--;                                                       \
+        CHECK_ARGS(I);                                                  \
+        Goto(dis_next);                                                 \
+     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)                      \
+		&& FCALLS > neg_o_reds) {                               \
+        goto save_calls1;                                               \
+     } else {                                                           \
+        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);    \
+        CHECK_ARGS(I);                                                  \
+	goto context_switch;                                            \
+     }                                                                  \
  } while (0)
 
 #ifdef DEBUG
@@ -382,6 +378,7 @@ do {                                            \
  * The following functions are called directly by process_main().
  * Don't inline them.
  */
+static void init_emulator_finish(void) NOINLINE;
 static ErtsCodeMFA *ubif2mfa(void* uf) NOINLINE;
 static ErtsCodeMFA *gcbif2mfa(void* gcf) NOINLINE;
 static BeamInstr* handle_error(Process* c_p, BeamInstr* pc,
@@ -627,7 +624,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 #ifndef NO_JUMP_TABLE
     static void* opcodes[] = { DEFINE_OPCODES };
 #else
-    int Go;
+    register BeamInstr Go;
 #endif
 #endif
 
@@ -703,7 +700,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
     {
 	int reds;
 	Eterm* argp;
-	BeamInstr *next;
+	BeamInstr next;
 	int i;
 
 	argp = c_p->arg_reg;
@@ -735,7 +732,7 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
 	ERTS_DBG_CHK_REDS(c_p, FCALLS);
 
-	next = (BeamInstr *) *I;
+	next = *I;
 	SWAPIN;
 	ASSERT(VALID_INSTR(next));
 
@@ -963,9 +960,6 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
  init_emulator:
  {
-     int i;
-     Export* ep;
-
 #ifndef NO_JUMP_TABLE
 #ifdef ERTS_OPCODE_COUNTER_SUPPORT
 #ifdef DEBUG
@@ -977,35 +971,8 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
      beam_ops = opcodes;
 #endif /* ERTS_OPCODE_COUNTER_SUPPORT */
 #endif /* NO_JUMP_TABLE */
-     
-     em_call_error_handler = OpCode(call_error_handler);
-     em_apply_bif = OpCode(apply_bif);
-     em_call_nif = OpCode(call_nif);
-     em_call_bif_e = OpCode(call_bif_e);
 
-     beam_apply[0]             = (BeamInstr) OpCode(i_apply);
-     beam_apply[1]             = (BeamInstr) OpCode(normal_exit);
-     beam_exit[0]              = (BeamInstr) OpCode(error_action_code);
-     beam_continue_exit[0]     = (BeamInstr) OpCode(continue_exit);
-     beam_return_to_trace[0]   = (BeamInstr) OpCode(i_return_to_trace);
-     beam_return_trace[0]      = (BeamInstr) OpCode(return_trace);
-     beam_exception_trace[0]   = (BeamInstr) OpCode(return_trace); /* UGLY */
-     beam_return_time_trace[0] = (BeamInstr) OpCode(i_return_time_trace);
-
-     /*
-      * Enter all BIFs into the export table.
-      */
-     for (i = 0; i < BIF_SIZE; i++) {
-	 ep = erts_export_put(bif_table[i].module,
-			      bif_table[i].name,
-			      bif_table[i].arity);
-	 bif_export[i] = ep;
-	 ep->beam[0] = (BeamInstr) OpCode(apply_bif);
-	 ep->beam[1] = (BeamInstr) bif_table[i].f;
-	 /* XXX: set func info for bifs */
-	 ep->info.op = (BeamInstr) BeamOp(op_i_func_info_IaaI);
-     }
-
+     init_emulator_finish();
      return;
  }
 #ifdef NO_JUMP_TABLE
@@ -1017,16 +984,50 @@ void process_main(Eterm * x_reg_array, FloatDef* f_reg_array)
 
   save_calls1:
     {
-	Eterm* dis_next;
+	BeamInstr dis_next;
 
 	save_calls(c_p, (Export *) Arg(0));
 
 	SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);
 
-	dis_next = (Eterm *) *I;
+	dis_next = *I;
 	FCALLS--;
 	Goto(dis_next);
     }
+}
+
+/*
+ * One-time initialization of emulator. Does not need to be
+ * in process_main().
+ */
+static void
+init_emulator_finish(void)
+{
+     int i;
+     Export* ep;
+
+     beam_apply[0]             = BeamOpCodeAddr(op_i_apply);
+     beam_apply[1]             = BeamOpCodeAddr(op_normal_exit);
+     beam_exit[0]              = BeamOpCodeAddr(op_error_action_code);
+     beam_continue_exit[0]     = BeamOpCodeAddr(op_continue_exit);
+     beam_return_to_trace[0]   = BeamOpCodeAddr(op_i_return_to_trace);
+     beam_return_trace[0]      = BeamOpCodeAddr(op_return_trace);
+     beam_exception_trace[0]   = BeamOpCodeAddr(op_return_trace); /* UGLY */
+     beam_return_time_trace[0] = BeamOpCodeAddr(op_i_return_time_trace);
+
+     /*
+      * Enter all BIFs into the export table.
+      */
+     for (i = 0; i < BIF_SIZE; i++) {
+	 ep = erts_export_put(bif_table[i].module,
+			      bif_table[i].name,
+			      bif_table[i].arity);
+	 bif_export[i] = ep;
+	 ep->beam[0] = BeamOpCodeAddr(op_apply_bif);
+	 ep->beam[1] = (BeamInstr) bif_table[i].f;
+	 /* XXX: set func info for bifs */
+	 ep->info.op = BeamOpCodeAddr(op_i_func_info_IaaI);
+     }
 }
 
 /*
@@ -1250,12 +1251,12 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
 
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	if (em_apply_bif == (BeamInstr *) *I) {
+	if (BeamIsOpCode(*I, op_apply_bif)) {
 	    exiting = erts_call_dirty_bif(esdp, c_p, I, reg);
 	}
 	else {
-	    ASSERT(em_call_nif == (BeamInstr *) *I);
-	    exiting = erts_call_dirty_nif(esdp, c_p, I, reg);
+	    ASSERT(BeamIsOpCode(*I, op_call_nif));
+            exiting = erts_call_dirty_nif(esdp, c_p, I, reg);
 	}
 
 	ASSERT(!(c_p->flags & F_HIBERNATE_SCHED));
@@ -2090,8 +2091,8 @@ apply_bif_error_adjustment(Process *p, Export *ep,
      * and apply_last_IP.
      */
     if (I
-	&& ep->beam[0] == (BeamInstr) em_apply_bif
-	&& (ep == bif_export[BIF_error_1]
+	&& BeamIsOpCode(ep->beam[0], op_apply_bif)
+        && (ep == bif_export[BIF_error_1]
 	    || ep == bif_export[BIF_error_2]
 	    || ep == bif_export[BIF_exit_1]
 	    || ep == bif_export[BIF_throw_1])) {
@@ -3197,8 +3198,8 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
     if ((ep = export_get(&e)) == NULL) {
 	return 0;
     }
-    return ep->addressv[erts_active_code_ix()] == ep->beam
-	&& (ep->beam[0] == (BeamInstr) em_apply_bif);
+    return ep->addressv[erts_active_code_ix()] == ep->beam &&
+	BeamIsOpCode(ep->beam[0], op_apply_bif);
 }
 
 
