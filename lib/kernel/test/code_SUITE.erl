@@ -1562,16 +1562,7 @@ on_load_trace_on_load(Config) ->
     erlang:trace_pattern(on_load, false, []),
     erlang:trace(self(), false, [call]),
 
-    %% WE GET TRACES FOR CALLS TO UNDEFINED FUNCTIONS ???
-    %% Remove filter when that is fixed.
-    Ms = lists:filter(fun({trace,Papa,call,
-                           {error_handler,undefined_function,
-                            [on_load_update_code,_,_]}})
-                         -> false;
-                         (_) -> true
-                      end,
-                      flush()),
-
+    Ms = flush(),
     [{trace, Papa, call, {on_load_update_code, a, []}},
      {trace, Papa, call, {on_load_update_code, b, [99]}},
      {trace, Papa, call, {on_load_update_code, c, []}}] = Ms,
