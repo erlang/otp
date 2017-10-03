@@ -2766,6 +2766,20 @@ if test X${enable_hipe} = Xyes && test X$ARCH = Xamd64; then
 			     LDFLAGS=$saved_LDFLAGS])])])
 fi
 
+if test X${enable_hipe} = Xyes; then
+   case $OPSYS in
+	linux)
+		ppcBEAMLDFLAGS="-Wl,-m,elf32ppc"
+		ppc64BEAMLDFLAGS="-Wl,-m,elf64ppc,-T,hipe/elf64ppc.x"
+		;;
+	darwin)
+		amd64BEAMLDFLAGS="-pagezero_size 0x10000000"
+		;;
+   esac
+   archVarName="${ARCH}BEAMLDFLAGS"
+   eval HIPEBEAMLDFLAGS=\$$archVarName
+fi
+AC_SUBST(HIPEBEAMLDFLAGS)
 
 if test X${enable_fp_exceptions} = Xauto ; then
    case $host_os in
