@@ -155,6 +155,7 @@ test_info(_VtsPid,Type,Data) ->
     call({test_info,Type,Data}).
 
 init(Parent) ->
+    put(app, common_test),
     register(?MODULE,self()),
     process_flag(trap_exit,true),
     Parent ! {self(),started},
@@ -284,6 +285,7 @@ run_test1(State=#state{tests=Tests,current_log_dir=LogDir,
 		       logopts=LogOpts}) ->
     Self=self(),
     RunTest = fun() ->
+                      put(app, common_test),
 		      case ct_run:do_run(Tests,[],LogDir,LogOpts) of
 			  {error,_Reason} ->
 			      aborted();

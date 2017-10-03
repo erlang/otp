@@ -124,6 +124,7 @@ start(Mode, LogDir, Verbosity) ->
     end.
 
 do_start(Parent, Mode, LogDir, Verbosity) ->
+    put(app, common_test),
     process_flag(trap_exit,true),
     register(ct_util_server,self()),
     create_table(?conn_table,#conn.handle),

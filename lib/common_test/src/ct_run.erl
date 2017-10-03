@@ -250,6 +250,8 @@ finish(Tracing, ExitStatus, Args) ->
     end.
 
 script_start1(Parent, Args) ->
+    %% tag this process
+    put(app, common_test),
     %% read general start flags
     Label = get_start_opt(label, fun([Lbl]) -> Lbl end, Args),
     Profile = get_start_opt(profile, fun([Prof]) -> Prof end, Args),
@@ -956,7 +958,10 @@ run_test(StartOpts) when is_list(StartOpts) ->
 -spec run_test1_fun(_) -> fun(() -> no_return()).
 
 run_test1_fun(StartOpts) ->
-    fun() -> run_test1(StartOpts) end.
+    fun() -> 
+            put(app, common_test),
+            run_test1(StartOpts)
+    end.
 
 run_test1(StartOpts) when is_list(StartOpts) ->
     case proplists:get_value(refresh_logs, StartOpts) of
@@ -1447,7 +1452,10 @@ run_testspec(TestSpec) ->
 -spec run_testspec1_fun(_) -> fun(() -> no_return()).
 
 run_testspec1_fun(TestSpec) ->
-    fun() -> run_testspec1(TestSpec) end.
+    fun() -> 
+            put(app, common_test),
+            run_testspec1(TestSpec)
+    end.
 
 run_testspec1(TestSpec) ->
     {ok,Cwd} = file:get_cwd(),
@@ -1906,10 +1914,12 @@ possibly_spawn(true, Tests, Skip, Opts) ->
     CTUtilSrv = whereis(ct_util_server),
     Supervisor = 
 	fun() ->
+                put(app, common_test),
 		process_flag(trap_exit, true),
 		link(CTUtilSrv),
 		TestRun =
 		    fun() ->
+                            put(app, common_test),
 			    TestResult = (catch do_run_test(Tests, Skip, Opts)),
 			    case TestResult of
 				{EType,_} = Error when EType == user_error;

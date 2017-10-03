@@ -282,6 +282,7 @@ monitor_master(MasterNode) ->
 
 % code of the masterdeath-waiter process
 monitor_master_int(MasterNode) ->
+    put(app, common_test),
     erlang:monitor_node(MasterNode, true),
     receive
         {nodedown, MasterNode}->

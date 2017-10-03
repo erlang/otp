@@ -87,6 +87,7 @@ stop() ->
 %%%--------------------------------------------------------------------
 
 init(Parent,LogDir,Nodes) ->
+    put(app, common_test),
     register(?MODULE,self()),
     Time = calendar:local_time(),
     RunDir = make_dirname(Time),

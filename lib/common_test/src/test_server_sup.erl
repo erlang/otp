@@ -849,6 +849,7 @@ util_start() ->
     case whereis(?MODULE) of
 	undefined ->	
 	    spawn_link(fun() ->
+                               put(app, common_test),
 			       register(?MODULE, self()),
 			       util_loop(#util_state{starter=Starter})
 		       end),
