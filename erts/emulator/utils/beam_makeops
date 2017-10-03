@@ -529,7 +529,7 @@ sub emulator_output {
 	    my($name, $hotness, @args) = @$_;
 	    my $print_name = print_name($name, @args);
 
-	    my($size, $code, $pack_spec) = cg_basic($name, @args);
+	    my($size, $code, $pack_spec) = cg_basic(name => $name, args => \@args);
 	    if (defined $code) {
                 $code = "OpCase($print_name):\n$code";
                 push @generated_code, [$hotness,$code,($print_name)];
@@ -1157,7 +1157,7 @@ sub combine_instruction_group {
                 foreach (0..$#c_args) {
                     push @first, shift @rest;
                 }
-                my $size = cg_combined_size($s, @first);
+                my $size = cg_combined_size(name => $s, args => \@first);
                 $offsets{$s} = $offset
                     unless defined $offsets{$s} and $offsets{$s} < $offset;
                 $offset += $size - 1;
@@ -1248,8 +1248,12 @@ sub combine_instruction_group {
             }
 
             my($gen_code,$down,$up) =
-                cg_combined_code($s, $flags, $offset,
-                                 $group_size-$offset, $inc, @first);
+                cg_combined_code(name => $s,
+                                 extra_comments => $flags,
+                                 offset => $offset,
+                                 comp_size => $group_size-$offset,
+                                 inc => $inc,
+                                 args =>\@first);
             my $spec_label = "$opcase$label";
             $down{$spec_label} = $down;
             $up{$spec_label} = $up;
@@ -1298,8 +1302,8 @@ sub micro_label {
 #
 
 sub cg_basic {
-    my($name,@args) = @_;
-    my($size,$code,$pack_spec) = code_gen($name, \@extended_pack_options, '', 0, undef, undef, @args);
+    my %params = (@_, pack_options => \@extended_pack_options);
+    my($size,$code,$pack_spec) = code_gen(%params);
     $pack_spec = build_pack_spec($pack_spec);
     ($size,$code,$pack_spec);
 }
@@ -1309,8 +1313,8 @@ sub cg_basic {
 #
 
 sub cg_combined_size {
-    my($name,@args) = @_;
-    my($size) = code_gen($name, \@basic_pack_options, '', 0, undef, undef, @args);
+    my %params = (@_, pack_options => \@basic_pack_options);
+    my($size) = code_gen(%params);
     $size;
 }
 
@@ -1319,9 +1323,9 @@ sub cg_combined_size {
 #
 
 sub cg_combined_code {
-    my($name,$extra,$offset,$comp_size,$inc,@args) = @_;
-    my($size,$code,$pack_spec) =
-        code_gen($name, \@basic_pack_options, $extra, $offset, $comp_size, $inc, @args);
+    my %params = (@_, pack_options => \@basic_pack_options);
+
+    my($size,$code,$pack_spec) = code_gen(%params);
     if ($pack_spec eq '') {
         ($code,'','');
     } else {
@@ -1331,8 +1335,16 @@ sub cg_combined_code {
 }
 
 sub code_gen {
-    my($name,$pack_options,$extra_comments,$offset,$comp_size,$inc,@args) = @_;
-    my $group_size = defined $comp_size ? $comp_size + $inc : undef;
+    my %params = (extra_comments => '',
+                  offset => 0,
+                  inc => 0,
+                  @_);
+    my $name = $params{name};
+    my $extra_comments = $params{extra_comments};
+    my $offset = $params{offset};
+    my $inc = $params{inc};
+    my @args = @{$params{args}};
+
     my $size = 0;
     my $flags = '';
     my @f;
@@ -1347,6 +1359,7 @@ sub code_gen {
 
     my $c_code_ref = $c_code{$name};
     if (defined $c_code_ref and $name ne 'catch') {
+        my $pack_options = $params{pack_options};
         ($var_decls, $pack_spec, @args) = do_pack($name, $offset, $pack_options, @args);
     }
 
@@ -1420,7 +1433,7 @@ sub code_gen {
         return ($size+1, undef, '');
     }
 
-    $group_size = $size unless defined $group_size;
+    my $group_size = ($params{comp_size} || $size) + $inc;
 
     #
     # Generate main body of the implementation.
@@ -1439,7 +1452,7 @@ sub code_gen {
         $bindings{$var} = $f[$i];
     }
     $bindings{'NEXT_INSTRUCTION'} = "I+" . ($group_size+$offset+1);
-    $bindings{'IP_ADJUSTMENT'} = defined $inc ? $inc : 0;
+    $bindings{'IP_ADJUSTMENT'} = $inc;
     $c_code = eval { expand_all($c_code, \%bindings) };
     unless (defined $c_code) {
         warn $@;
