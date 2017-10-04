@@ -97,9 +97,6 @@ debug() ->
         {_,Tests} <- groups(), Test <- Tests].
 
 -define(TEST(B,C,D), test(?LINE,?FUNCTION_NAME,B,C,D, true)).
--define(TEST_EQ(B,C,D),
-        test(?LINE,?FUNCTION_NAME,B,C,D, true),
-        test(?LINE,?FUNCTION_NAME,hd(C),[B|tl(C),D, true)).
 
 -define(TEST_NN(B,C,D),
         test(?LINE,?FUNCTION_NAME,B,C,D, false),
@@ -294,6 +291,7 @@ trim(_) ->
     ?TEST(["..h", ".e", <<"j..">>], [both, ". "], "h.ej"),
     ?TEST(["..h", <<".ejsa"/utf8>>, "n.."], [both, ". "], "h.ejsan"),
     %% Test that it behaves with graphemes (i.e. nfd tests are the hard part)
+    ?TEST([1013,101,778,101,101], [trailing, [101]], [1013,101,778]),
     ?TEST("aaåaa", [both, "a"], "å"),
     ?TEST(["aaa",778,"äöoo"], [both, "ao"], "åäö"),
     ?TEST([<<"aaa">>,778,"äöoo"], [both, "ao"], "åäö"),
@@ -353,6 +351,7 @@ take(_) ->
     ?TEST([<<>>,<<"..">>, " h.ej", <<" ..">>], [Chars, true, leading], {".. ", "h.ej .."}),
     ?TEST(["..h", <<".ejsa"/utf8>>, "n.."], [Chars, true, leading], {"..", "h.ejsan.."}),
     %% Test that it behaves with graphemes (i.e. nfd tests are the hard part)
+    ?TEST([101,778], [[[101, 779]], true], {[101,778], []}),
     ?TEST(["aaee",778,"äöoo"], [[[$e,778]], true, leading], {"aae", [$e,778|"äöoo"]}),
     ?TEST([<<"aae">>,778,"äöoo"], [[[$e,778]],true,leading], {"aa", [$e,778|"äöoo"]}),
     ?TEST([<<"e">>,778,"åäöe", <<778/utf8>>], [[[$e,778]], true, leading], {[], [$e,778]++"åäöe"++[778]}),
@@ -719,7 +718,15 @@ meas(Config) ->
         _ -> % No scaling
             DataDir0 = proplists:get_value(data_dir, Config),
             DataDir = filename:join(lists:droplast(filename:split(DataDir0))),
-            do_measure(DataDir)
+            case proplists:get_value(profile, Config, false) of
+                false ->
+                    do_measure(DataDir);
+                eprof ->
+                    eprof:profile(fun() -> do_measure(DataDir) end, [set_on_spawn]),
+                    eprof:stop_profiling(),
+                    eprof:analyze(),
+                    eprof:stop()
+            end
     end.
 
 do_measure(DataDir) ->
@@ -729,13 +736,86 @@ do_measure(DataDir) ->
     io:format("~p~n",[byte_size(Bin)]),
     Do = fun(Name, Func, Mode) ->
                  {N, Mean, Stddev, _} = time_func(Func, Mode, Bin),
-                 io:format("~10w ~6w ~6.2fms ±~5.2fms #~.2w gc included~n",
+                 io:format("~15w ~6w ~6.2fms ±~5.2fms #~.2w gc included~n",
                            [Name, Mode, Mean/1000, Stddev/1000, N])
          end,
+    Do2 = fun(Name, Func, Mode) ->
+                  {N, Mean, Stddev, _} = time_func(Func, binary, <<>>),
+                  io:format("~15w ~6w ~6.2fms ±~5.2fms #~.2w gc included~n",
+                            [Name, Mode, Mean/1000, Stddev/1000, N])
+          end,
     io:format("----------------------~n"),
-    Do(tokens, fun(Str) -> string:tokens(Str, [$\n,$\r]) end, list),
+
+    Do(old_tokens, fun(Str) -> string:tokens(Str, [$\n,$\r]) end, list),
     Tokens = {lexemes, fun(Str) -> string:lexemes(Str, [$\n,$\r]) end},
     [Do(Name,Fun,Mode) || {Name,Fun} <- [Tokens], Mode <- [list, binary]],
+
+    S0 = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxy.....",
+    S0B = <<"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxy.....">>,
+    Do2(old_strip_l, repeat(fun() -> string:strip(S0, left, $x) end), list),
+    Do2(trim_l,  repeat(fun() -> string:trim(S0, leading, [$x]) end), list),
+    Do2(trim_l,  repeat(fun() -> string:trim(S0B, leading, [$x]) end), binary),
+    Do2(old_strip_r, repeat(fun() -> string:strip(S0, right, $.) end), list),
+    Do2(trim_t,  repeat(fun() -> string:trim(S0, trailing, [$.]) end), list),
+    Do2(trim_t,  repeat(fun() -> string:trim(S0B, trailing, [$.]) end), binary),
+
+    Do2(old_chr_sub, repeat(fun() -> string:sub_string(S0, string:chr(S0, $.)) end), list),
+    Do2(old_str_sub, repeat(fun() -> string:sub_string(S0, string:str(S0, [$.])) end), list),
+    Do2(find, repeat(fun() -> string:find(S0, [$.]) end), list),
+    Do2(find, repeat(fun() -> string:find(S0B, [$.]) end), binary),
+    Do2(old_str_sub2, repeat(fun() -> N = string:str(S0, "xy.."),
+                        {string:sub_string(S0,1,N), string:sub_string(S0,N+4)} end), list),
+    Do2(split, repeat(fun() -> string:split(S0, "xy..") end), list),
+    Do2(split, repeat(fun() -> string:split(S0B, "xy..") end), binary),
+
+    Do2(old_rstr_sub, repeat(fun() -> string:sub_string(S0, string:rstr(S0, [$y])) end), list),
+    Do2(find_t, repeat(fun() -> string:find(S0, [$y], trailing) end), list),
+    Do2(find_t, repeat(fun() -> string:find(S0B, [$y], trailing) end), binary),
+    Do2(old_rstr_sub2, repeat(fun() -> N = string:rstr(S0, "y.."),
+                         {string:sub_string(S0,1,N), string:sub_string(S0,N+3)} end), list),
+    Do2(split_t, repeat(fun() -> string:split(S0, "y..", trailing) end), list),
+    Do2(split_t, repeat(fun() -> string:split(S0B, "y..", trailing) end), binary),
+
+    Do2(old_span, repeat(fun() -> N=string:span(S0, [$x, $y]),
+                                  {string:sub_string(S0,1,N),string:sub_string(S0,N+1)}
+                         end), list),
+    Do2(take, repeat(fun() -> string:take(S0, [$x, $y]) end), list),
+    Do2(take, repeat(fun() -> string:take(S0B, [$x, $y]) end), binary),
+
+    Do2(old_cspan, repeat(fun() -> N=string:cspan(S0, [$.,$y]),
+                                   {string:sub_string(S0,1,N),string:sub_string(S0,N+1)}
+                          end), list),
+    Do2(take_c, repeat(fun() -> string:take(S0, [$.,$y], true) end), list),
+    Do2(take_c, repeat(fun() -> string:take(S0B, [$.,$y], true) end), binary),
+
+    Do2(old_substr, repeat(fun() -> string:substr(S0, 21, 15) end), list),
+    Do2(slice, repeat(fun() -> string:slice(S0, 20, 15) end), list),
+    Do2(slice, repeat(fun() -> string:slice(S0B, 20, 15) end), binary),
+
+    io:format("--~n",[]),
+    NthTokens = {nth_lexemes, fun(Str) -> string:nth_lexeme(Str, 18000, [$\n,$\r]) end},
+    [Do(Name,Fun,Mode) || {Name,Fun} <- [NthTokens], Mode <- [list, binary]],
+    Do2(take_t, repeat(fun() -> string:take(S0, [$.,$y], false, trailing) end), list),
+    Do2(take_t, repeat(fun() -> string:take(S0B, [$.,$y], false, trailing) end), binary),
+    Do2(take_tc, repeat(fun() -> string:take(S0, [$x], true, trailing) end), list),
+    Do2(take_tc, repeat(fun() -> string:take(S0B, [$x], true, trailing) end), binary),
+
+    Length = {length, fun(Str) -> string:length(Str) end},
+    [Do(Name,Fun,Mode) || {Name,Fun} <- [Length], Mode <- [list, binary]],
+
+    Reverse = {reverse, fun(Str) -> string:reverse(Str) end},
+    [Do(Name,Fun,Mode) || {Name,Fun} <- [Reverse], Mode <- [list, binary]],
+
+    ok.
+
+repeat(F) ->
+    fun(_) -> repeat_1(F,20000) end.
+
+repeat_1(F, N) when N > 0 ->
+    F(),
+    repeat_1(F, N-1);
+repeat_1(_, _) ->
+    erlang:garbage_collect(),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -864,8 +944,6 @@ check_types_1(Str, Res)
 check_types_1({list, _},{list, undefined}) ->
     ok;
 check_types_1({list, _},{list, codepoints}) ->
-    ok;
-check_types_1({list, _},{list, {list, codepoints}}) ->
     ok;
 check_types_1({list, {list, _}},{list, {list, codepoints}}) ->
     ok;
