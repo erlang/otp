@@ -442,8 +442,7 @@ static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM pkey_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-static ERL_NIF_TERM rsa_private_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_check(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -511,8 +510,7 @@ static ErlNifFunc nif_funcs[] = {
     {"rc4_encrypt_with_state", 2, rc4_encrypt_with_state},
     {"pkey_sign_nif", 5, pkey_sign_nif},
     {"pkey_verify_nif", 6, pkey_verify_nif},
-    {"rsa_public_crypt", 4, rsa_public_crypt},
-    {"rsa_private_crypt", 4, rsa_private_crypt},
+    {"pkey_crypt_nif", 6, pkey_crypt_nif},
     {"rsa_generate_key_nif", 2, rsa_generate_key_nif},
     {"dh_generate_parameters_nif", 2, dh_generate_parameters_nif},
     {"dh_check", 1, dh_check},
@@ -549,6 +547,7 @@ static ERL_NIF_TERM atom_error;
 static ERL_NIF_TERM atom_rsa_pkcs1_padding;
 static ERL_NIF_TERM atom_rsa_pkcs1_oaep_padding;
 static ERL_NIF_TERM atom_rsa_no_padding;
+static ERL_NIF_TERM atom_signature_md;
 static ERL_NIF_TERM atom_undefined;
 
 static ERL_NIF_TERM atom_ok;
@@ -589,8 +588,12 @@ static ERL_NIF_TERM atom_rsa;
 static ERL_NIF_TERM atom_dss;
 static ERL_NIF_TERM atom_ecdsa;
 static ERL_NIF_TERM atom_rsa_mgf1_md;
+static ERL_NIF_TERM atom_rsa_oaep_label;
+static ERL_NIF_TERM atom_rsa_oaep_md;
+static ERL_NIF_TERM atom_rsa_pad; /* backwards compatibility */
 static ERL_NIF_TERM atom_rsa_padding;
 static ERL_NIF_TERM atom_rsa_pkcs1_pss_padding;
+static ERL_NIF_TERM atom_rsa_sslv23_padding;
 static ERL_NIF_TERM atom_rsa_x931_padding;
 static ERL_NIF_TERM atom_rsa_pss_saltlen;
 static ERL_NIF_TERM atom_sha224;
@@ -895,6 +898,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_rsa_pkcs1_padding = enif_make_atom(env,"rsa_pkcs1_padding");
     atom_rsa_pkcs1_oaep_padding = enif_make_atom(env,"rsa_pkcs1_oaep_padding");
     atom_rsa_no_padding = enif_make_atom(env,"rsa_no_padding");
+    atom_signature_md = enif_make_atom(env,"signature_md");
     atom_undefined = enif_make_atom(env,"undefined");
     atom_ok = enif_make_atom(env,"ok");
     atom_not_prime = enif_make_atom(env,"not_prime");
@@ -933,8 +937,12 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_dss = enif_make_atom(env,"dss");
     atom_ecdsa = enif_make_atom(env,"ecdsa");
     atom_rsa_mgf1_md = enif_make_atom(env,"rsa_mgf1_md");
+    atom_rsa_oaep_label = enif_make_atom(env,"rsa_oaep_label");
+    atom_rsa_oaep_md = enif_make_atom(env,"rsa_oaep_md");
+    atom_rsa_pad = enif_make_atom(env,"rsa_pad"); /* backwards compatibility */
     atom_rsa_padding = enif_make_atom(env,"rsa_padding");
     atom_rsa_pkcs1_pss_padding = enif_make_atom(env,"rsa_pkcs1_pss_padding");
+    atom_rsa_sslv23_padding = enif_make_atom(env,"rsa_sslv23_padding");
     atom_rsa_x931_padding = enif_make_atom(env,"rsa_x931_padding");
     atom_rsa_pss_saltlen = enif_make_atom(env,"rsa_pss_saltlen");
     atom_sha224 = enif_make_atom(env,"sha224");
@@ -2722,118 +2730,6 @@ static int get_dss_public_key(ErlNifEnv* env, ERL_NIF_TERM key, DSA *dsa)
     return 1;
 }
 
-static int rsa_pad(ERL_NIF_TERM term, int* padding)
-{
-    if (term == atom_rsa_pkcs1_padding) {
-	*padding = RSA_PKCS1_PADDING;
-    }
-    else if (term == atom_rsa_pkcs1_oaep_padding) {
-	*padding = RSA_PKCS1_OAEP_PADDING;
-    }
-    else if (term == atom_rsa_no_padding) {
-	*padding = RSA_NO_PADDING;
-    }
-    else {
-	return 0;
-    }
-    return 1;
-}
-
-static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data, PublKey=[E,N], Padding, IsEncrypt) */
-    ErlNifBinary data_bin, ret_bin;
-    ERL_NIF_TERM head, tail;
-    int padding, i;
-    RSA* rsa;
-    BIGNUM *e, *n;
-
-    rsa = RSA_new();
-
-    if (!enif_inspect_binary(env, argv[0], &data_bin)
-	|| !enif_get_list_cell(env, argv[1], &head, &tail)
-	|| !get_bn_from_bin(env, head, &e)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_bin(env, head, &n)
-	|| !enif_is_empty_list(env,tail)
-	|| !rsa_pad(argv[2], &padding)) {
-
-	RSA_free(rsa);
-	return enif_make_badarg(env);
-    }
-    (void) RSA_set0_key(rsa, n, e, NULL);
-
-    enif_alloc_binary(RSA_size(rsa), &ret_bin); 
-
-    if (argv[3] == atom_true) {
-	ERL_VALGRIND_ASSERT_MEM_DEFINED(data_bin.data,data_bin.size);
-	i = RSA_public_encrypt(data_bin.size, data_bin.data,
-			       ret_bin.data, rsa, padding);
-	if (i > 0) {
-	    ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, i);
-	}
-    }
-    else {
-	i = RSA_public_decrypt(data_bin.size, data_bin.data,
-			       ret_bin.data, rsa, padding);    
-	if (i > 0) {
-	    ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, i);
-	    enif_realloc_binary(&ret_bin, i);
-	}
-    }
-    RSA_free(rsa);
-    if (i > 0) {
-	return enif_make_binary(env,&ret_bin);
-    }
-    else {
-	enif_release_binary(&ret_bin);
-	return atom_error;
-    }
-}
-
-static ERL_NIF_TERM rsa_private_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data, Key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C], Padding, IsEncrypt) */
-    ErlNifBinary data_bin, ret_bin;
-    int padding, i;
-    RSA* rsa;
-
-    rsa = RSA_new();
-
-    if (!enif_inspect_binary(env, argv[0], &data_bin)
-	|| !get_rsa_private_key(env, argv[1], rsa)
-	|| !rsa_pad(argv[2], &padding)) {
-
-	RSA_free(rsa);
-	return enif_make_badarg(env);
-    }
-
-    enif_alloc_binary(RSA_size(rsa), &ret_bin); 
-
-    if (argv[3] == atom_true) {
-	ERL_VALGRIND_ASSERT_MEM_DEFINED(data_bin.data,data_bin.size);
-	i = RSA_private_encrypt(data_bin.size, data_bin.data,
-				ret_bin.data, rsa, padding);
-	if (i > 0) {
-	    ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, i);
-	}
-    }
-    else {
-	i = RSA_private_decrypt(data_bin.size, data_bin.data,
-				ret_bin.data, rsa, padding);       
-	if (i > 0) {
-	    ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, i);
-	    enif_realloc_binary(&ret_bin, i);
-	}
-    }
-    RSA_free(rsa);
-    if (i > 0) {
-	return enif_make_binary(env,&ret_bin);
-    }
-    else {
-	enif_release_binary(&ret_bin);
-	return atom_error;
-    }
-}
-
 /* Creates a term which can be parsed by get_rsa_private_key(). This is a list of plain integer binaries (not mpints). */
 static ERL_NIF_TERM put_rsa_private_key(ErlNifEnv* env, const RSA *rsa)
 {
@@ -3906,7 +3802,8 @@ static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF
     return PKEY_OK;
 }
 
-static int get_pkey_sign_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key, EVP_PKEY **pkey)
+
+static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
     if (algorithm == atom_rsa) {
 	RSA *rsa = RSA_new();
@@ -3965,6 +3862,67 @@ static int get_pkey_sign_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TER
     return PKEY_OK;
 }
 
+
+static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key,
+			       EVP_PKEY **pkey)
+{
+    if (algorithm == atom_rsa) {
+	RSA *rsa = RSA_new();
+
+	if (!get_rsa_public_key(env, key, rsa)) {
+	    RSA_free(rsa);
+	    return PKEY_BADARG;
+	}
+
+	*pkey = EVP_PKEY_new();
+	if (!EVP_PKEY_assign_RSA(*pkey, rsa)) {
+	    EVP_PKEY_free(*pkey);
+	    RSA_free(rsa);
+	    return PKEY_BADARG;
+	}
+    } else if (algorithm == atom_ecdsa) {
+#if defined(HAVE_EC)
+	EC_KEY *ec = NULL;
+	const ERL_NIF_TERM *tpl_terms;
+	int tpl_arity;
+
+	if (enif_get_tuple(env, key, &tpl_arity, &tpl_terms) && tpl_arity == 2
+	    && enif_is_tuple(env, tpl_terms[0]) && enif_is_binary(env, tpl_terms[1])
+	    && get_ec_key(env, tpl_terms[0], atom_undefined, tpl_terms[1], &ec)) {
+
+	    *pkey = EVP_PKEY_new();
+	    if (!EVP_PKEY_assign_EC_KEY(*pkey, ec)) {
+		EVP_PKEY_free(*pkey);
+		EC_KEY_free(ec);
+		return PKEY_BADARG;
+	    }
+	} else {
+	    return PKEY_BADARG;
+	}
+#else
+	return PKEY_NOTSUP;
+#endif
+    } else if (algorithm == atom_dss) {
+	DSA *dsa = DSA_new();
+
+	if (!get_dss_public_key(env, key, dsa)) {
+	    DSA_free(dsa);
+	    return PKEY_BADARG;
+	}
+
+	*pkey = EVP_PKEY_new();
+	if (!EVP_PKEY_assign_DSA(*pkey, dsa)) {
+	    EVP_PKEY_free(*pkey);
+	    DSA_free(dsa);
+	    return PKEY_BADARG;
+	}
+    } else {
+	return PKEY_BADARG;
+    }
+
+    return PKEY_OK;
+}
+
 static ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {/* (Algorithm, Type, Data|{digest,Digest}, Key, Options) */
     int i;
@@ -4002,7 +3960,7 @@ printf("\r\n");
 	    return enif_make_badarg(env);
     }
 
-    if (get_pkey_sign_key(env, argv[0], argv[3], &pkey) != PKEY_OK) {
+    if (get_pkey_private_key(env, argv[0], argv[3], &pkey) != PKEY_OK) {
 	return enif_make_badarg(env);
     }
 
@@ -4097,66 +4055,6 @@ printf("\r\n");
 }
 
 
-static int get_pkey_verify_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key,
-			       EVP_PKEY **pkey)
-{
-    if (algorithm == atom_rsa) {
-	RSA *rsa = RSA_new();
-
-	if (!get_rsa_public_key(env, key, rsa)) {
-	    RSA_free(rsa);
-	    return PKEY_BADARG;
-	}
-
-	*pkey = EVP_PKEY_new();
-	if (!EVP_PKEY_assign_RSA(*pkey, rsa)) {
-	    EVP_PKEY_free(*pkey);
-	    RSA_free(rsa);
-	    return PKEY_BADARG;
-	}
-    } else if (algorithm == atom_ecdsa) {
-#if defined(HAVE_EC)
-	EC_KEY *ec = NULL;
-	const ERL_NIF_TERM *tpl_terms;
-	int tpl_arity;
-
-	if (enif_get_tuple(env, key, &tpl_arity, &tpl_terms) && tpl_arity == 2
-	    && enif_is_tuple(env, tpl_terms[0]) && enif_is_binary(env, tpl_terms[1])
-	    && get_ec_key(env, tpl_terms[0], atom_undefined, tpl_terms[1], &ec)) {
-
-	    *pkey = EVP_PKEY_new();
-	    if (!EVP_PKEY_assign_EC_KEY(*pkey, ec)) {
-		EVP_PKEY_free(*pkey);
-		EC_KEY_free(ec);
-		return PKEY_BADARG;
-	    }
-	} else {
-	    return PKEY_BADARG;
-	}
-#else
-	return PKEY_NOTSUP;
-#endif
-    } else if (algorithm == atom_dss) {
-	DSA *dsa = DSA_new();
-
-	if (!get_dss_public_key(env, key, dsa)) {
-	    DSA_free(dsa);
-	    return PKEY_BADARG;
-	}
-
-	*pkey = EVP_PKEY_new();
-	if (!EVP_PKEY_assign_DSA(*pkey, dsa)) {
-	    EVP_PKEY_free(*pkey);
-	    DSA_free(dsa);
-	    return PKEY_BADARG;
-	}
-    } else {
-	return PKEY_BADARG;
-    }
-
-    return PKEY_OK;
-}
-
 static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 {/* (Algorithm, Type, Data|{digest,Digest}, Signature, Key, Options) */
     int i;
@@ -4192,7 +4090,7 @@ static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 	    return enif_make_badarg(env);
     }
 
-    if (get_pkey_verify_key(env, argv[0], argv[4], &pkey) != PKEY_OK) {
+    if (get_pkey_public_key(env, argv[0], argv[4], &pkey) != PKEY_OK) {
 	return enif_make_badarg(env);
     }
 
@@ -4268,6 +4166,382 @@ static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     return enif_make_badarg(env);
 }
 
+
+/*--------------------------------*/
+
+static int get_pkey_crypt_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM options,
+				  PKeyCryptOptions *opt)
+{
+    ERL_NIF_TERM head, tail;
+    const ERL_NIF_TERM *tpl_terms;
+    int tpl_arity;
+    const EVP_MD *opt_md;
+    int i;
+
+    if (!enif_is_list(env, options)) {
+	return PKEY_BADARG;
+    }
+
+    /* defaults */
+    if (algorithm == atom_rsa) {
+	opt->rsa_mgf1_md = NULL;
+	opt->rsa_oaep_label.data = NULL;
+	opt->rsa_oaep_label.size = 0;
+	opt->rsa_oaep_md = NULL;
+	opt->rsa_padding = RSA_PKCS1_PADDING;
+	opt->signature_md = NULL;
+    }
+
+    if (enif_is_empty_list(env, options)) {
+	return PKEY_OK;
+    }
+
+    if (algorithm == atom_rsa) {
+	tail = options;
+	while (enif_get_list_cell(env, tail, &head, &tail)) {
+	    if (enif_get_tuple(env, head, &tpl_arity, &tpl_terms) && tpl_arity == 2) {
+		if (tpl_terms[0] == atom_rsa_padding
+                    || tpl_terms[0] == atom_rsa_pad /* Compatibility */
+                    ) {
+		    if (tpl_terms[1] == atom_rsa_pkcs1_padding) {
+			opt->rsa_padding = RSA_PKCS1_PADDING;
+		    } else if (tpl_terms[1] == atom_rsa_pkcs1_oaep_padding) {
+			opt->rsa_padding = RSA_PKCS1_OAEP_PADDING;
+		    } else if (tpl_terms[1] == atom_rsa_sslv23_padding) {
+			opt->rsa_padding = RSA_SSLV23_PADDING;
+		    } else if (tpl_terms[1] == atom_rsa_x931_padding) {
+			opt->rsa_padding = RSA_X931_PADDING;
+		    } else if (tpl_terms[1] == atom_rsa_no_padding) {
+			opt->rsa_padding = RSA_NO_PADDING;
+		    } else {
+			return PKEY_BADARG;
+		    }
+		} else if (tpl_terms[0] == atom_signature_md && enif_is_atom(env, tpl_terms[1])) {
+		    i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+		    if (i != PKEY_OK) {
+			return i;
+		    }
+		    opt->signature_md = opt_md;
+		} else if (tpl_terms[0] == atom_rsa_mgf1_md && enif_is_atom(env, tpl_terms[1])) {
+#ifndef HAVE_RSA_OAEP_MD
+		    if (tpl_terms[1] != atom_sha)
+			return PKEY_NOTSUP;
+#endif
+		    i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+		    if (i != PKEY_OK) {
+			return i;
+		    }
+		    opt->rsa_mgf1_md = opt_md;
+		} else if (tpl_terms[0] == atom_rsa_oaep_label
+			   && enif_inspect_binary(env, tpl_terms[1], &(opt->rsa_oaep_label))) {
+#ifdef HAVE_RSA_OAEP_MD
+		    continue;
+#else
+		    return PKEY_NOTSUP;
+#endif
+		} else if (tpl_terms[0] == atom_rsa_oaep_md && enif_is_atom(env, tpl_terms[1])) {
+#ifndef HAVE_RSA_OAEP_MD
+		    if (tpl_terms[1] != atom_sha)
+			return PKEY_NOTSUP;
+#endif
+		    i = get_pkey_digest_type(env, algorithm, tpl_terms[1], &opt_md);
+		    if (i != PKEY_OK) {
+			return i;
+		    }
+		    opt->rsa_oaep_md = opt_md;
+		} else {
+		    return PKEY_BADARG;
+		}
+	    } else {
+		return PKEY_BADARG;
+	    }
+	}
+    } else {
+	return PKEY_BADARG;
+    }
+
+    return PKEY_OK;
+}
+
+static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
+{/* (Algorithm, Data, PublKey=[E,N]|[E,N,D]|[E,N,D,P1,P2,E1,E2,C], Options, IsPrivate, IsEncrypt) */
+    int i;
+    EVP_PKEY *pkey;
+#ifdef HAS_EVP_PKEY_CTX
+    EVP_PKEY_CTX *ctx;
+#else
+    RSA *rsa;
+#endif
+    PKeyCryptOptions crypt_opt;
+    ErlNifBinary in_bin, out_bin, tmp_bin;
+    size_t outlen, tmplen;
+    int is_private = (argv[4] == atom_true),
+        is_encrypt = (argv[5] == atom_true);
+    int algo_init = 0;
+
+/* char algo[1024]; */
+   
+    if (!enif_inspect_binary(env, argv[1], &in_bin)) {
+	return enif_make_badarg(env);
+    }
+
+    i = get_pkey_crypt_options(env, argv[0], argv[3], &crypt_opt);
+    if (i != PKEY_OK) {
+	if (i == PKEY_NOTSUP)
+	    return atom_notsup;
+	else
+	    return enif_make_badarg(env);
+    }
+
+    if (is_private) {
+	if (get_pkey_private_key(env, argv[0], argv[2], &pkey) != PKEY_OK) {
+	    return enif_make_badarg(env);
+	}
+    } else {
+	if (get_pkey_public_key(env, argv[0], argv[2], &pkey) != PKEY_OK) {
+	    return enif_make_badarg(env);
+	}
+    }
+
+    out_bin.data = NULL;
+    out_bin.size = 0;
+    tmp_bin.data = NULL;
+    tmp_bin.size = 0;
+
+#ifdef HAS_EVP_PKEY_CTX
+    ctx = EVP_PKEY_CTX_new(pkey, NULL);
+    if (!ctx) goto badarg;
+
+/* enif_get_atom(env,argv[0],algo,1024,ERL_NIF_LATIN1);  */
+
+    if (is_private) {
+        if (is_encrypt) {
+            /* private encrypt */
+            if ((algo_init=EVP_PKEY_sign_init(ctx)) <= 0) {
+                /* fprintf(stderr,"BADARG %s private encrypt algo_init=%d %s:%d\r\n", algo, algo_init, __FILE__, __LINE__); */
+                goto badarg;
+            }
+        } else {
+            /* private decrypt */
+            if ((algo_init=EVP_PKEY_decrypt_init(ctx)) <= 0) {
+                /* fprintf(stderr,"BADARG %s private decrypt algo_init=%d %s:%d\r\n", algo, algo_init, __FILE__, __LINE__); */
+                goto badarg;
+            }
+        }
+    } else {
+        if (is_encrypt) {
+            /* public encrypt */
+            if ((algo_init=EVP_PKEY_encrypt_init(ctx)) <= 0) {
+                /* fprintf(stderr,"BADARG %s public encrypt algo_init=%d %s:%d\r\n", algo,algo_init,__FILE__, __LINE__); */
+                goto badarg;
+            }
+        } else {
+            /* public decrypt */
+            if ((algo_init=EVP_PKEY_verify_recover_init(ctx)) <= 0) {
+                /* fprintf(stderr,"BADARG %s public decrypt algo_init=%d %s:%d\r\n", algo,algo_init,__FILE__, __LINE__); */
+                goto badarg;
+            }
+        }
+    }
+
+    if (argv[0] == atom_rsa) {
+	if (crypt_opt.signature_md != NULL
+	    && EVP_PKEY_CTX_set_signature_md(ctx, crypt_opt.signature_md) <= 0)
+		goto badarg;
+	if (crypt_opt.rsa_padding == RSA_SSLV23_PADDING) {
+	    if (is_encrypt) {
+		RSA *rsa = EVP_PKEY_get1_RSA(pkey);
+		if (rsa == NULL) goto badarg;
+		tmplen = RSA_size(rsa);
+		if (!enif_alloc_binary(tmplen, &tmp_bin)) goto badarg;
+		if (RSA_padding_add_SSLv23(tmp_bin.data, tmplen, in_bin.data, in_bin.size) <= 0)
+		    goto badarg;
+		in_bin = tmp_bin;
+	    }
+	    if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_NO_PADDING) <= 0) goto badarg;
+	} else {
+	    if (EVP_PKEY_CTX_set_rsa_padding(ctx, crypt_opt.rsa_padding) <= 0) goto badarg;
+	}
+#ifdef HAVE_RSA_OAEP_MD
+	if (crypt_opt.rsa_padding == RSA_PKCS1_OAEP_PADDING) {
+	    if (crypt_opt.rsa_oaep_md != NULL
+		&& EVP_PKEY_CTX_set_rsa_oaep_md(ctx, crypt_opt.rsa_oaep_md) <= 0)
+		goto badarg;
+	    if (crypt_opt.rsa_mgf1_md != NULL
+		&& EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, crypt_opt.rsa_mgf1_md) <= 0) goto badarg;
+	    if (crypt_opt.rsa_oaep_label.data != NULL && crypt_opt.rsa_oaep_label.size > 0) {
+		unsigned char *label_copy;
+		label_copy = OPENSSL_malloc(crypt_opt.rsa_oaep_label.size);
+		if (label_copy == NULL) goto badarg;
+		memcpy((void *)(label_copy), (const void *)(crypt_opt.rsa_oaep_label.data),
+		       crypt_opt.rsa_oaep_label.size);
+		if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, label_copy,
+						     crypt_opt.rsa_oaep_label.size) <= 0) {
+		    OPENSSL_free(label_copy);
+		    label_copy = NULL;
+		    goto badarg;
+		}
+	    }
+	}
+#endif
+    }
+
+    if (is_private) {
+	if (is_encrypt) {
+	    /* private_encrypt */
+	    i = EVP_PKEY_sign(ctx, NULL, &outlen, in_bin.data, in_bin.size);
+	} else {
+	    /* private_decrypt */
+	    i = EVP_PKEY_decrypt(ctx, NULL, &outlen, in_bin.data, in_bin.size);
+	}
+    } else {
+	if (is_encrypt) {
+	    /* public_encrypt */
+	    i = EVP_PKEY_encrypt(ctx, NULL, &outlen, in_bin.data, in_bin.size);
+	} else {
+	    /* public_decrypt */
+	    i = EVP_PKEY_verify_recover(ctx, NULL, &outlen, in_bin.data, in_bin.size);
+	}
+    }
+    /* fprintf(stderr,"i = %d %s:%d\r\n", i, __FILE__, __LINE__); */
+
+    if (i != 1) goto badarg;
+
+    enif_alloc_binary(outlen, &out_bin);
+
+    ERL_VALGRIND_ASSERT_MEM_DEFINED(out_bin.data, out_bin.size);
+    if (is_private) {
+	if (is_encrypt) {
+	    /* private_encrypt */
+	    i = EVP_PKEY_sign(ctx, out_bin.data, &outlen, in_bin.data, in_bin.size);
+	} else {
+	    /* private_decrypt */
+	    i = EVP_PKEY_decrypt(ctx, out_bin.data, &outlen, in_bin.data, in_bin.size);
+	}
+    } else {
+	if (is_encrypt) {
+	    /* public_encrypt */
+	    i = EVP_PKEY_encrypt(ctx, out_bin.data, &outlen, in_bin.data, in_bin.size);
+	} else {
+	    /* public_decrypt */
+	    i = EVP_PKEY_verify_recover(ctx, out_bin.data, &outlen, in_bin.data, in_bin.size);
+	}
+    }
+
+#else
+    /* Non-EVP cryptolib. Only support RSA */
+
+    if (argv[0] != atom_rsa) {
+        algo_init = -2;         /* exitcode: notsup */
+        goto badarg;
+    }
+    rsa = EVP_PKEY_get1_RSA(pkey);
+    enif_alloc_binary(RSA_size(rsa), &out_bin);
+
+    if (is_private) {
+        if (is_encrypt) {
+            /* non-evp rsa private encrypt */
+            ERL_VALGRIND_ASSERT_MEM_DEFINED(in_bin.data,in_bin.size);
+            i = RSA_private_encrypt(in_bin.size, in_bin.data,
+                                    out_bin.data, rsa, crypt_opt.rsa_padding);
+            if (i > 0) {
+                ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
+            }
+        } else {
+            /* non-evp rsa private decrypt */
+            i = RSA_private_decrypt(in_bin.size, in_bin.data,
+                                    out_bin.data, rsa, crypt_opt.rsa_padding);       
+            if (i > 0) {
+                ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
+                enif_realloc_binary(&out_bin, i);
+            }
+        }
+    } else {
+        if (is_encrypt) {
+            /* non-evp rsa public encrypt */
+            ERL_VALGRIND_ASSERT_MEM_DEFINED(in_bin.data,in_bin.size);
+            i = RSA_public_encrypt(in_bin.size, in_bin.data,
+                                   out_bin.data, rsa, crypt_opt.rsa_padding);
+            if (i > 0) {
+                ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
+	}
+        } else {
+            /* non-evp rsa public decrypt */
+            i = RSA_public_decrypt(in_bin.size, in_bin.data,
+                                   out_bin.data, rsa, crypt_opt.rsa_padding);    
+            if (i > 0) {
+                ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, i);
+                enif_realloc_binary(&out_bin, i);
+            }
+        }
+    }
+
+    outlen = i;
+    RSA_free(rsa);
+#endif
+
+    if ((i > 0) && argv[0] == atom_rsa && !is_encrypt) {
+	if (crypt_opt.rsa_padding == RSA_SSLV23_PADDING) {
+	    RSA *rsa = EVP_PKEY_get1_RSA(pkey);
+	    unsigned char *p;
+	    if (rsa == NULL) goto badarg;
+	    tmplen = RSA_size(rsa);
+	    if (!enif_alloc_binary(tmplen, &tmp_bin)) goto badarg;
+	    p = out_bin.data;
+	    p++;
+	    i = RSA_padding_check_SSLv23(tmp_bin.data, tmplen, p, out_bin.size - 1, tmplen);
+	    if (i >= 0) {
+		outlen = i;
+		in_bin = out_bin;
+		out_bin = tmp_bin;
+		tmp_bin = in_bin;
+		i = 1;
+	    }
+	}
+    }
+
+    if (tmp_bin.data != NULL) {
+	enif_release_binary(&tmp_bin);
+    }
+
+#ifdef HAS_EVP_PKEY_CTX
+    EVP_PKEY_CTX_free(ctx);
+#else
+#endif
+    EVP_PKEY_free(pkey);
+    if (i > 0) {
+	ERL_VALGRIND_MAKE_MEM_DEFINED(out_bin.data, outlen);
+	if (outlen != out_bin.size) {
+	    enif_realloc_binary(&out_bin, outlen);
+	    ERL_VALGRIND_ASSERT_MEM_DEFINED(out_bin.data, outlen);
+	}
+	return enif_make_binary(env, &out_bin);
+    } else {
+	enif_release_binary(&out_bin);
+	return atom_error;
+    }
+
+ badarg:
+    if (out_bin.data != NULL) {
+	enif_release_binary(&out_bin);
+    }
+    if (tmp_bin.data != NULL) {
+	enif_release_binary(&tmp_bin);
+    }
+#ifdef HAS_EVP_PKEY_CTX
+    EVP_PKEY_CTX_free(ctx);
+#else
+#endif
+    EVP_PKEY_free(pkey);
+    if (algo_init == -2)
+        return atom_notsup;
+    else
+        return enif_make_badarg(env);
+}
+
+
+
+/*--------------------------------*/
 
 /*================================================================*/
 

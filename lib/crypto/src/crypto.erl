@@ -420,46 +420,55 @@ sign(Algorithm, Type, Data, Key, Options) ->
 	Signature -> Signature
     end.
 
--spec public_encrypt(rsa, binary(), [binary()], rsa_padding()) ->
-				binary().
--spec public_decrypt(rsa, binary(), [integer() | binary()], rsa_padding()) ->
-				binary().
--spec private_encrypt(rsa, binary(), [integer() | binary()], rsa_padding()) ->
-				binary().
--spec private_decrypt(rsa, binary(), [integer() | binary()], rsa_padding()) ->
-				binary().
 
-public_encrypt(rsa, BinMesg, Key, Padding) ->
-    case rsa_public_crypt(BinMesg,  map_ensure_int_as_bin(Key), Padding, true) of
-	error ->
-	    erlang:error(encrypt_failed, [rsa, BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
+-type pk_algs() :: rsa | ecdsa | dss .
+-type pk_opt() :: list() | rsa_padding() .
 
-%% Binary, Key = [E,N,D]
-private_decrypt(rsa, BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, false) of
-	error ->
-	    erlang:error(decrypt_failed, [rsa, BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
+-spec public_encrypt(pk_algs(),  binary(), [binary()],             pk_opt()) -> binary().
+-spec public_decrypt(pk_algs(),  binary(), [integer() | binary()], pk_opt()) -> binary().
+-spec private_encrypt(pk_algs(), binary(), [integer() | binary()], pk_opt()) -> binary().
+-spec private_decrypt(pk_algs(), binary(), [integer() | binary()], pk_opt()) -> binary().
 
+public_encrypt(Algorithm, In, Key, Options) when is_list(Options) ->
+    case pkey_crypt_nif(Algorithm, In, format_pkey(Algorithm, Key), Options, false, true) of
+	error -> erlang:error(encrypt_failed, [Algorithm, In, Key, Options]);
+	notsup -> erlang:error(notsup);
+	Out -> Out
+    end;
+%% Backwards compatible
+public_encrypt(Algorithm = rsa, In, Key, Padding) when is_atom(Padding) ->
+    public_encrypt(Algorithm, In, Key, [{rsa_padding, Padding}]).
 
-%% Binary, Key = [E,N,D]
-private_encrypt(rsa, BinMesg, Key, Padding) ->
-    case rsa_private_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, true) of
-	error ->
-	    erlang:error(encrypt_failed, [rsa, BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
+private_decrypt(Algorithm, In, Key, Options) when is_list(Options) ->
+    case pkey_crypt_nif(Algorithm, In, format_pkey(Algorithm, Key), Options, true, false) of
+	error -> erlang:error(decrypt_failed, [Algorithm, In, Key, Options]);
+	notsup -> erlang:error(notsup);
+	Out -> Out
+    end;
+%% Backwards compatible
+private_decrypt(Algorithm = rsa, In, Key, Padding) when is_atom(Padding) ->
+    private_decrypt(Algorithm, In, Key, [{rsa_padding, Padding}]).
 
-%% Binary, Key = [E,N]
-public_decrypt(rsa, BinMesg, Key, Padding) ->
-    case rsa_public_crypt(BinMesg, map_ensure_int_as_bin(Key), Padding, false) of
-	error ->
-	    erlang:error(decrypt_failed, [rsa, BinMesg,Key, Padding]);
-	Sign -> Sign
-    end.
+private_encrypt(Algorithm, In, Key, Options) when is_list(Options) ->
+    case pkey_crypt_nif(Algorithm, In, format_pkey(Algorithm, Key), Options, true, true) of
+	error -> erlang:error(encrypt_failed, [Algorithm, In, Key, Options]);
+	notsup -> erlang:error(notsup);
+	Out -> Out
+    end;
+%% Backwards compatible
+private_encrypt(Algorithm = rsa, In, Key, Padding) when is_atom(Padding) ->
+    private_encrypt(Algorithm, In, Key, [{rsa_padding, Padding}]).
+
+public_decrypt(Algorithm, In, Key, Options) when is_list(Options) ->
+    case pkey_crypt_nif(Algorithm, In, format_pkey(Algorithm, Key), Options, false, false) of
+	error -> erlang:error(decrypt_failed, [Algorithm, In, Key, Options]);
+	notsup -> erlang:error(notsup);
+	Out -> Out
+    end;
+%% Backwards compatible
+public_decrypt(Algorithm = rsa, In, Key, Padding) when is_atom(Padding) ->
+    public_decrypt(Algorithm, In, Key, [{rsa_padding, Padding}]).
+
 
 %%
 %% XOR - xor to iolists and return a binary
@@ -970,9 +979,7 @@ format_pkey(_, Key) ->
 %%
 -type rsa_padding() :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' | 'rsa_no_padding'.
 
-rsa_public_crypt(_BinMsg, _Key, _Padding, _IsEncrypt) -> ?nif_stub.
-
-rsa_private_crypt(_BinMsg, _Key, _Padding, _IsEncrypt) -> ?nif_stub.
+pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_stub.
 
 %% large integer in a binary with 32bit length
 %% MP representaion  (SSH2)
