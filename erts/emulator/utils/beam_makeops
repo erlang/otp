@@ -1129,8 +1129,27 @@ sub combine_instruction_group {
     # Variables.
     my %offsets;
     my @instrs;
-    my %num_references;
+    my %num_references;         # Number of references from other sub instructions.
     my $group_size = 999;
+
+    #
+    # Calculate the number of references from other sub instructions.
+    # This number is useful in several ways:
+    #
+    # * If this number is 0, it is only used as the entry point for a
+    #   function, implying that it does not need a label and that operands
+    #   can be packed into the instruction word.
+    #
+    # * We'll use this number in the sort key, as a tie breaker for sub instructions
+    #   at the same instruction offset.
+    #
+    foreach my $ref_instr (@in_instrs) {
+        my(undef,undef,$first_sub,@other_subs) = @$ref_instr;
+        $num_references{$first_sub} += 0; # Make sure it is defined.
+        foreach my $sub (@other_subs) {
+            $num_references{$sub}++;
+        }
+    }
 
     # Do basic error checking. Associate operands of instructions
     # with the correct micro instructions. Calculate offsets for micro
@@ -1157,12 +1176,13 @@ sub combine_instruction_group {
                 foreach (0..$#c_args) {
                     push @first, shift @rest;
                 }
-                my $size = cg_combined_size(name => $s, args => \@first);
+                my $size = cg_combined_size(name => $s,
+                                            first => $num_references{$s} == 0,
+                                            args => \@first);
                 $offsets{$s} = $offset
                     unless defined $offsets{$s} and $offsets{$s} < $offset;
                 $offset += $size - 1;
                 my $label = micro_label($s);
-                $num_references{$label} = 0;
                 push @new_subs, [$opcase,$label,$s,$size-1,@first];
                 $opcase = '';
             }
@@ -1181,9 +1201,8 @@ sub combine_instruction_group {
             my($opcase,$label,$s,$size,@args) = @{$subs[$i]};
             my $next = '';
             (undef,$next) = @{$subs[$i+1]} if $i < $#subs;
-            $num_references{$next}++ if $next;
             my $instr_info = "$opcase:$label:$next:$s:$size:@args";
-            push @all_instrs, [$label,$offsets{$s},$instr_info];
+            push @all_instrs, [$label,$s,$offsets{$s},$instr_info];
         }
     }
 
@@ -1191,8 +1210,8 @@ sub combine_instruction_group {
     my %label_to_offset;
     my %order_to_offset;
     foreach my $instr (@all_instrs) {
-        my($label,$offset,$instr_info) = @$instr;
-        my $sort_key = sprintf("%02d.%02d", $offset, $num_references{$label});
+        my($label,$s,$offset,$instr_info) = @$instr;
+        my $sort_key = sprintf("%02d.%02d", $offset, $num_references{$s});
         push @{$order_to_instrs{$sort_key}}, $instr_info;
         $label_to_offset{$label} = $offset;
         $order_to_offset{$sort_key} = $offset;
@@ -1231,7 +1250,7 @@ sub combine_instruction_group {
                 $gcode .= "OpCase($opcase):\n";
                 push @opcase_labels, $opcase;
             }
-            if ($num_references{$label}) {
+            if ($num_references{$s}) {
                 $gcode .= "$label:\n";
             }
 
@@ -1249,6 +1268,7 @@ sub combine_instruction_group {
 
             my($gen_code,$down,$up) =
                 cg_combined_code(name => $s,
+                                 first => $num_references{$s} == 0,
                                  extra_comments => $flags,
                                  offset => $offset,
                                  comp_size => $group_size-$offset,
@@ -1314,6 +1334,8 @@ sub cg_basic {
 
 sub cg_combined_size {
     my %params = (@_, pack_options => \@basic_pack_options);
+    $params{pack_options} = \@extended_pack_options
+        if $params{first};
     my($size) = code_gen(%params);
     $size;
 }
@@ -1324,7 +1346,8 @@ sub cg_combined_size {
 
 sub cg_combined_code {
     my %params = (@_, pack_options => \@basic_pack_options);
-
+    $params{pack_options} = \@extended_pack_options
+        if $params{first};
     my($size,$code,$pack_spec) = code_gen(%params);
     if ($pack_spec eq '') {
         ($code,'','');
