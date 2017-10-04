@@ -1139,6 +1139,9 @@ bs_test_unit8 f x
 # An y register operand for bs_context_to_binary is rare,
 # but can happen because of inlining.
 
+bs_context_to_binary Y=y | line L | badmatch Y => \
+    move Y x | bs_context_to_binary x | line L | badmatch x
+
 bs_context_to_binary Y=y => move Y x | bs_context_to_binary x
 
 bs_context_to_binary x
