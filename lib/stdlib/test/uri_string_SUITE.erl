@@ -31,7 +31,8 @@
          parse_path/1, parse_pct_encoded_fragment/1, parse_pct_encoded_query/1,
          parse_pct_encoded_userinfo/1, parse_port/1,
          parse_query/1, parse_scheme/1, parse_userinfo/1,
-	 parse_list/1, parse_binary/1, parse_mixed/1, parse_relative/1, parse_special/1,
+	 parse_list/1, parse_binary/1, parse_mixed/1, parse_relative/1,
+         parse_special/1, parse_special2/1,
          recompose_fragment/1, recompose_parse_fragment/1,
          recompose_query/1, recompose_parse_query/1,
          recompose_path/1, recompose_parse_path/1,
@@ -90,6 +91,7 @@ all() ->
      parse_mixed,
      parse_relative,
      parse_special,
+     parse_special2,
      recompose_fragment,
      recompose_parse_fragment,
      recompose_query,
@@ -114,7 +116,7 @@ uri_combinations() ->
         Hst <- [fun update_host/1, fun update_host_binary/1,
                 fun update_ipv6/1, fun update_ipv6_binary/1, none],
         Prt <- [fun update_port/1, none],
-        Pat <- [fun update_path/1, fun update_path_binary/1, none],
+        Pat <- [fun update_path/1, fun update_path_binary/1],
         Qry <- [fun update_query/1,fun update_query_binary/1, none],
         Frg <- [fun update_fragment/1, fun update_fragment_binary/1, none],
         not (Usr =:= none andalso Hst =:= none andalso Prt =/= none),
@@ -312,9 +314,7 @@ parse_binary_userinfo(_Config) ->
     #{scheme := <<"foo">>, userinfo := <<"user">>, host := <<"localhost">>} =
         uri_string:parse(<<"foo://user@localhost">>),
     #{scheme := <<"foo">>, userinfo := <<"user:password">>, host := <<"localhost">>} =
-        uri_string:parse(<<"foo://user:password@localhost">>),
-    uri_parse_error =(catch uri_string:parse(<<"//user@">>)),
-    uri_parse_error = (catch uri_string:parse(<<"foo://user@">>)).
+        uri_string:parse(<<"foo://user:password@localhost">>).
 
 parse_binary_pct_encoded_userinfo(_Config) ->
     #{scheme := <<"user">>, path := <<"合@気道"/utf8>>} =
@@ -667,14 +667,24 @@ parse_special(_Config) ->
     #{host := "foo",path := "/"} = uri_string:parse("//foo/"),
     #{host := "foo",query := "?",scheme := "http"} = uri_string:parse("http://foo?"),
     #{fragment := [],host := "foo",scheme := "http"} = uri_string:parse("http://foo#"),
-    #{host := "foo",path := "/",scheme := "http"} = uri_string:parse("http://foo/").
+    #{host := "foo",path := "/",scheme := "http"} = uri_string:parse("http://foo/"),
+    #{fragment := [],host := "host",port := 80,scheme := "http"} = uri_string:parse("http://host:80#"),
+    #{host := "host",port := 80,query := "?",scheme := "http"} = uri_string:parse("http://host:80?").
+
+parse_special2(_Config) ->
+    #{host := [],path := "/",port := 1,scheme := "a"} = uri_string:parse("a://:1/"),
+    #{path := "/a/",scheme := "a"} = uri_string:parse("a:/a/"),
+    #{host := [],path := [],userinfo := []} = uri_string:parse("//@"),
+    #{host := [],path := [],scheme := "foo",userinfo := []} = uri_string:parse("foo://@"),
+    #{host := [],path := "/",userinfo := []} = uri_string:parse("//@/"),
+    #{host := [],path := "/",scheme := "foo",userinfo := []} = uri_string:parse("foo://@/").
 
 %%-------------------------------------------------------------------------
 %% Recompose tests
 %%-------------------------------------------------------------------------
 recompose_fragment(_Config) ->
-    <<?FRAGMENT_ENC>> = uri_string:recompose(#{fragment => <<?FRAGMENT/utf8>>}),
-    ?FRAGMENT_ENC = uri_string:recompose(#{fragment => ?FRAGMENT}).
+    <<?FRAGMENT_ENC>> = uri_string:recompose(#{fragment => <<?FRAGMENT/utf8>>, path => <<>>}),
+    ?FRAGMENT_ENC = uri_string:recompose(#{fragment => ?FRAGMENT, path => ""}).
 
 recompose_parse_fragment(_Config) ->
     <<?FRAGMENT_ENC>> = uri_string:recompose(uri_string:parse(<<?FRAGMENT_ENC>>)),
@@ -682,15 +692,17 @@ recompose_parse_fragment(_Config) ->
 
 recompose_query(_Config) ->
     <<?QUERY_ENC>> =
-        uri_string:recompose(#{query => <<?QUERY/utf8>>}),
+        uri_string:recompose(#{query => <<?QUERY/utf8>>, path => <<>>}),
     <<?QUERY_ENC?FRAGMENT_ENC>> =
         uri_string:recompose(#{query => <<?QUERY/utf8>>,
-                               fragment => <<?FRAGMENT/utf8>>}),
+                               fragment => <<?FRAGMENT/utf8>>,
+                               path => <<>>}),
     "?name=%C3%B6rn" =
-        uri_string:recompose(#{query => "?name=örn"}),
+        uri_string:recompose(#{query => "?name=örn", path => ""}),
     "?name=%C3%B6rn#n%C3%A4sa" =
         uri_string:recompose(#{query => "?name=örn",
-                               fragment => "näsa"}).
+                               fragment => "näsa",
+                               path => ""}).
 
 recompose_parse_query(_Config) ->
     <<"?name=%C3%B6rn">> = uri_string:recompose(uri_string:parse(<<"?name=%C3%B6rn">>)),

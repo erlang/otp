@@ -20,10 +20,9 @@
 -module(uri_string_property_test_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
-
 -compile(export_all).
 
-all() -> [decode].
+all() -> [recompose].
 
 init_per_suite(Config) ->
     ct_property_test:init_per_suite(Config).
@@ -31,12 +30,10 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     Config.
 
-%%%================================================================
+%%%========================================================================
 %%% Test suites
-%%%
-
-decode(Config) ->
+%%%========================================================================
+recompose(Config) ->
     ct_property_test:quickcheck(
-      uri_string_decode:prop_uri_string_decode(),
-      Config
-     ).
+      uri_string_recompose:prop_recompose(),
+      Config).
