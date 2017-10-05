@@ -1113,24 +1113,6 @@ dtls_validate_versions([Version | Rest], Versions) when  Version == 'dtlsv1';
 dtls_validate_versions([Ver| _], Versions) ->
     throw({error, {options, {Ver, {versions, Versions}}}}).
 
-validate_inet_option(mode, Value)
-  when Value =/= list, Value =/= binary ->
-    throw({error, {options, {mode,Value}}});
-validate_inet_option(packet, Value)
-  when not (is_atom(Value) orelse is_integer(Value)) ->
-    throw({error, {options, {packet,Value}}});
-validate_inet_option(packet_size, Value)
-  when not is_integer(Value) ->
-    throw({error, {options, {packet_size,Value}}});
-validate_inet_option(header, Value)
-  when not is_integer(Value) ->
-    throw({error, {options, {header,Value}}});
-validate_inet_option(active, Value)
-  when Value =/= true, Value =/= false, Value =/= once ->
-    throw({error, {options, {active,Value}}});
-validate_inet_option(_, _) ->
-    ok.
-
 %% The option cacerts overrides cacertsfile
 ca_cert_default(_,_, [_|_]) ->
     undefined;
@@ -1145,30 +1127,10 @@ ca_cert_default(verify_peer, undefined, _) ->
 emulated_options(Protocol, Opts) ->
     case Protocol of
 	tls ->
-	    emulated_options(Opts, tls_socket:internal_inet_values(), tls_socket:default_inet_values());
+	    tls_socket:emulated_options(Opts);
 	dtls ->
-	    emulated_options(Opts, dtls_socket:internal_inet_values(), dtls_socket:default_inet_values())
+	    dtls_socket:emulated_options(Opts)
     end.
-
-emulated_options([{mode, Value} = Opt |Opts], Inet, Emulated) ->
-    validate_inet_option(mode, Value),
-    emulated_options(Opts, Inet, [Opt | proplists:delete(mode, Emulated)]);
-emulated_options([{header, Value} = Opt | Opts], Inet, Emulated) ->
-    validate_inet_option(header, Value),
-    emulated_options(Opts, Inet,  [Opt | proplists:delete(header, Emulated)]);
-emulated_options([{active, Value} = Opt |Opts], Inet, Emulated) ->
-    validate_inet_option(active, Value),
-    emulated_options(Opts, Inet, [Opt | proplists:delete(active, Emulated)]);
-emulated_options([{packet, Value} = Opt |Opts], Inet, Emulated) ->
-    validate_inet_option(packet, Value),
-    emulated_options(Opts, Inet, [Opt | proplists:delete(packet, Emulated)]);
-emulated_options([{packet_size, Value} = Opt | Opts], Inet, Emulated) ->
-    validate_inet_option(packet_size, Value),
-    emulated_options(Opts, Inet, [Opt | proplists:delete(packet_size, Emulated)]);
-emulated_options([Opt|Opts], Inet, Emulated) ->
-    emulated_options(Opts, [Opt|Inet], Emulated);
-emulated_options([], Inet,Emulated) ->
-    {Inet, Emulated}.
 
 handle_cipher_option(Value, Version)  when is_list(Value) ->
     try binary_cipher_suites(Version, Value) of
