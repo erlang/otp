@@ -30,11 +30,12 @@
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([cmac/3, cmac/4]).
 -export([exor/2, strong_rand_bytes/1, mod_pow/3]).
--export([rand_seed/0]).
--export([rand_seed_s/0]).
+-export([rand_seed/0, rand_seed_alg/1]).
+-export([rand_seed_s/0, rand_seed_alg_s/1]).
 -export([rand_plugin_next/1]).
 -export([rand_plugin_uniform/1]).
 -export([rand_plugin_uniform/2]).
+-export([rand_cache_plugin_next/1]).
 -export([rand_uniform/2]).
 -export([block_encrypt/3, block_decrypt/3, block_encrypt/4, block_decrypt/4]).
 -export([next_iv/2, next_iv/3]).
@@ -301,9 +302,17 @@ stream_decrypt(State, Data0) ->
 %%
 %% RAND - pseudo random numbers using RN_ and BN_ functions in crypto lib
 %%
+-type rand_cache_seed() ::
+        nonempty_improper_list(non_neg_integer(), binary()).
 -spec strong_rand_bytes(non_neg_integer()) -> binary().
 -spec rand_seed() -> rand:state().
 -spec rand_seed_s() -> rand:state().
+-spec rand_seed_alg(Alg :: atom()) ->
+                           {rand:alg_handler(),
+                            atom() | rand_cache_seed()}.
+-spec rand_seed_alg_s(Alg :: atom()) ->
+                             {rand:alg_handler(),
+                              atom() | rand_cache_seed()}.
 -spec rand_uniform(crypto_integer(), crypto_integer()) ->
 			  crypto_integer().
 
@@ -319,12 +328,36 @@ rand_seed() ->
     rand:seed(rand_seed_s()).
 
 rand_seed_s() ->
+    rand_seed_alg_s(?MODULE).
+
+rand_seed_alg(Alg) ->
+    rand:seed(rand_seed_alg_s(Alg)).
+
+-define(CRYPTO_CACHE_BITS, 56).
+rand_seed_alg_s(?MODULE) ->
     {#{ type => ?MODULE,
         bits => 64,
         next => fun ?MODULE:rand_plugin_next/1,
         uniform => fun ?MODULE:rand_plugin_uniform/1,
         uniform_n => fun ?MODULE:rand_plugin_uniform/2},
-     no_seed}.
+     no_seed};
+rand_seed_alg_s(crypto_cache) ->
+    CacheBits = ?CRYPTO_CACHE_BITS,
+    EnvCacheSize =
+        application:get_env(
+          crypto, rand_cache_size, CacheBits * 16), % Cache 16 * 8 words
+    Bytes = (CacheBits + 7) div 8,
+    CacheSize =
+        case ((EnvCacheSize + (Bytes - 1)) div Bytes) * Bytes of
+            Sz when is_integer(Sz), Bytes =< Sz ->
+                Sz;
+            _ ->
+                Bytes
+        end,
+    {#{ type => crypto_cache,
+        bits => CacheBits,
+        next => fun ?MODULE:rand_cache_plugin_next/1},
+     {CacheBits, CacheSize, <<>>}}.
 
 rand_plugin_next(Seed) ->
     {bytes_to_integer(strong_rand_range(1 bsl 64)), Seed}.
@@ -335,6 +368,12 @@ rand_plugin_uniform(State) ->
 rand_plugin_uniform(Max, State) ->
     {bytes_to_integer(strong_rand_range(Max)) + 1, State}.
 
+rand_cache_plugin_next({CacheBits, CacheSize, <<>>}) ->
+    rand_cache_plugin_next(
+      {CacheBits, CacheSize, strong_rand_bytes(CacheSize)});
+rand_cache_plugin_next({CacheBits, CacheSize, Cache}) ->
+    <<I:CacheBits, NewCache/binary>> = Cache,
+    {I, {CacheBits, CacheSize, NewCache}}.
 
 strong_rand_range(Range) when is_integer(Range), Range > 0 ->
     BinRange = int_to_bin(Range),
@@ -382,7 +421,7 @@ rand_uniform_nif(_From,_To) -> ?nif_stub.
 
 
 -spec rand_seed(binary()) -> ok.
-rand_seed(Seed) ->
+rand_seed(Seed) when is_binary(Seed) ->
     rand_seed_nif(Seed).
 
 rand_seed_nif(_Seed) -> ?nif_stub.

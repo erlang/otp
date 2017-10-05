@@ -68,6 +68,24 @@
         thus the crypto module will fail to load. This mechanism
         prevents the accidental use of non-validated algorithms.</p>
       </item>
+      <tag><c>rand_cache_size = integer()</c></tag>
+      <item>
+        <p>
+	  Sets the cache size in bytes to use by
+	  <seealso marker="crypto#rand_seed_alg-1">
+	    <c>crypto:rand_seed_alg(crypto_cache)</c>
+	  </seealso> and
+	  <seealso marker="crypto#rand_seed_alg_s-1">
+	    <c>crypto:rand_seed_alg_s(crypto_cache)</c>
+	  </seealso>.
+	  This parameter is read when a seed function is called,
+	  and then kept in generators state object.  It has a rather
+	  small default value that causes reads of strong random bytes
+	  about once per hundred calls for a random value.
+	  The set value is rounded up to an integral number of words
+	  of the size these seed functions use.
+	</p>
+      </item>
     </taglist>
   </section>
 
