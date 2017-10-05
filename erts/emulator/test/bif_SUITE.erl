@@ -464,6 +464,9 @@ binary_to_atom(Config) when is_list(Config) ->
     ?BADARG(binary_to_atom(id(<<255>>), utf8)),
     ?BADARG(binary_to_atom(id(<<255,0>>), utf8)),
     ?BADARG(binary_to_atom(id(<<16#C0,16#80>>), utf8)), %Overlong 0.
+    <<B:1/binary, _/binary>> = id(<<194, 163>>), %Truncated character ERL-474
+    ?BADARG(binary_to_atom(B, utf8)),
+
     [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(256, 16#D7FF)],
     [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#E000, 16#FFFD)],
     [?BADARG(binary_to_atom(<<C/utf8>>, utf8)) || C <- lists:seq(16#10000, 16#8FFFF)],
