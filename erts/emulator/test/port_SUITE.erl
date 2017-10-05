@@ -1662,13 +1662,7 @@ spawn_executable(Config) when is_list(Config) ->
     [ExactFile2,"hello world","dlrow olleh"] =
     run_echo_args_2(unicode:characters_to_binary("\""++ExactFile2++"\" "++"\"hello world\" \"dlrow olleh\"")),
 
-    ExeExt =
-    case string:to_lower(lists:last(string:tokens(ExactFile2,"."))) of
-        "exe" ->
-            ".exe";
-        _ ->
-            ""
-    end,
+    ExeExt = filename:extension(ExactFile2),
     Executable2 = "spoky name"++ExeExt,
     file:copy(ExactFile1,filename:join([SpaceDir,Executable2])),
     ExactFile3 = filename:nativename(filename:join([SpaceDir,Executable2])),
@@ -1836,7 +1830,7 @@ collect_data(Port) ->
     end.
 
 parse_echo_args_output(Data) ->
-    [lists:last(string:tokens(S,"|")) || S <- string:tokens(Data,"\r\n")].
+    [lists:last(string:lexemes(S,"|")) || S <- string:lexemes(Data,["\r\n",$\n])].
 
 %% Test that the emulator does not mix up ports when the port table wraps
 mix_up_ports(Config) when is_list(Config) ->
@@ -1962,7 +1956,7 @@ max_ports() ->
     erlang:system_info(port_limit).
 
 port_ix(Port) when is_port(Port) ->
-    ["#Port",_,PortIxStr] = string:tokens(erlang:port_to_list(Port),
+    ["#Port",_,PortIxStr] = string:lexemes(erlang:port_to_list(Port),
                                           "<.>"),
     list_to_integer(PortIxStr).
 
