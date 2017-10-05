@@ -57,7 +57,6 @@ init_per_suite(Config) ->
         ok ->
             DataSize = 1000000,
             SystemDir = proplists:get_value(data_dir, Config),
-%%%            Algs = insert_none(ssh:default_algorithms()),
             Algs = ssh:default_algorithms(),
             {_ServerPid, _Host, Port} =
                 ssh_test_lib:daemon([{system_dir, SystemDir},
@@ -218,16 +217,6 @@ send_wait_acc(C, Ch, Data) ->
 %%%
 %%% Private
 %%% 
-
-%%%----------------------------------------------------------------
-insert_none(L) ->
-    lists:foldl(fun insert_none/2, [], L).
-
-insert_none({T,L}, Acc) when T==cipher ;
-                             T==mac    ->
-    [{T, [{T1,L1++[none]} || {T1,L1} <- L]} | Acc];
-insert_none(_, Acc) ->
-    Acc.
 
 %%%----------------------------------------------------------------
 mk_name(Name) -> [char(C) || C <- lists:concat(Name)].
