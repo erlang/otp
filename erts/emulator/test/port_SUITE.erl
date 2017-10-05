@@ -1035,6 +1035,9 @@ huge_env(Config) when is_list(Config) ->
     try erlang:open_port({spawn,Cmd},[exit_status, {env, Env}]) of
         P ->
             receive
+                {P, {exit_status,N}} = M when N > 127->
+                    %% If exit status is > 127 something went very wrong
+                    ct:fail("Open port failed got ~p",[M]);
                 {P, {exit_status,N}} = M ->
                     %% We test that the exit status is an integer, this means
                     %% that the child program has started. If we get an atom
