@@ -499,7 +499,6 @@ ifeq ($(TARGET),win32)
 RELEASE_INCLUDES += sys/$(ERLANG_OSTYPE)/erl_win_dyn_driver.h
 endif
 
-
 .PHONY: release_spec
 ifdef VOID_EMULATOR
 release_spec:
@@ -711,15 +710,26 @@ $(OBJDIR)/beams.$(RES_EXT): $(TARGET)/beams.rc
 
 endif
 
+# We disable the implicit rule of .S -> .o so that the verbose asm
+# generate is not used for compiling erts. This is only a problem on
+# old solaris make
+%.o : %.S
+
 # Usually the same as the default rule, but certain platforms (e.g. win32) mix
 # different compilers
 $(OBJDIR)/beam_emu.o: beam/beam_emu.c
 	$(V_EMU_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
+$(OBJDIR)/beam_emu.S: beam/beam_emu.c
+	$(V_EMU_CC) -S -fverbose-asm $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
 $(OBJDIR)/%_pg.o: beam/%.c
 	$(V_CC) $(PROFILE_GENERATE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 $(OBJDIR)/%_pu.o: beam/%.c $(PROFILE_USE_DEPS)
 	$(V_CC) $(PROFILE_USE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
+$(OBJDIR)/%_pu.S: beam/%.c $(PROFILE_USE_DEPS)
+	$(V_CC) -S -fverbose-asm $(PROFILE_USE) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
 $(OBJDIR)/PROFILE: $(BINDIR)/$(PROFILE_EXECUTABLE)
 	$(V_at)echo " PROFILE ${PROFILE_EXECUTABLE}"
@@ -731,6 +741,8 @@ $(OBJDIR)/PROFILE: $(BINDIR)/$(PROFILE_EXECUTABLE)
 	  ERL_FLAGS="-emu_type prof${TYPEMARKER} +S 1" $(ERL) -pa $(OBJDIR) \
 	  -noshell -s estone_SUITE pgo -s init stop >> $(OBJDIR)/PROFILE_LOG
 	$(V_at)touch $@
+
+.SECONDARY: $(patsubst %.o,%_pu.gcda,$(PROFILE_OBJS))
 
 $(OBJDIR)/%_pu.gcda: $(OBJDIR)/PROFILE
 	$(V_at)mv $(OBJDIR)/$*_pg.gcda $@
@@ -1164,6 +1176,10 @@ DEP_CC=$(CC)
 DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(INCLUDES) -Inifs/common -Idrivers/common -Idrivers/$(ERLANG_OSTYPE)
 SYS_SRC=$(ALL_SYS_SRC)
 endif
+
+.PHONY: check_emu_registers
+check_emu_registers: $(OBJDIR)/beam_emu$(PROFILE_MARKER).S
+	utils/beam_emu_vars -vars 'c_p E HTOP FCALLS I reg' $^
 
 .PHONY: $(TARGET)/gen_git_version.mk
 $(TARGET)/gen_git_version.mk:
