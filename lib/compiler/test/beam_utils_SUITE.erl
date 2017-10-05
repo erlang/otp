@@ -260,6 +260,14 @@ otp_8949_b(A, B) ->
 liveopt(_Config) ->
     F = liveopt_fun(42, pebkac, user),
     void = F(42, #alarmInfo{type=sctp,cause=pebkac,origin=user}),
+
+
+    A = {#alarmInfo{cause = {abc, def}}, ghi},
+    A = liveopt_guard_bif(A),
+
+    B = {#alarmInfo{cause = {abc}}, def},
+    {#alarmInfo{cause = {{abc}}}, def} = liveopt_guard_bif(B),
+
     ok.
 
 liveopt_fun(Peer, Cause, Origin) ->
@@ -269,6 +277,15 @@ liveopt_fun(Peer, Cause, Origin) ->
 				       cause=Cause,
 				       origin=Origin} ->
 	    void
+    end.
+
+liveopt_guard_bif({#alarmInfo{cause=F}=R, X}=A) ->
+    %% ERIERL-48
+    if
+        is_tuple(F), tuple_size(F) == 2 -> A;
+        true ->
+            R2 = R#alarmInfo{cause={F}},
+            {R2,X}
     end.
 
 %% Thanks to QuickCheck.
