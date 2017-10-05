@@ -271,5 +271,6 @@ erts_de_links_unlock(DistEntry *dep)
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 void erts_debug_test_node_tab_delayed_delete(Sint64 millisecs);
+void erts_lcnt_update_distribution_locks(int enable);
 
 #endif
