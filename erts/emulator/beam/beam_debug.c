@@ -744,7 +744,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 		    erts_print(to, to_arg, " x(%d)", loader_x_reg_index(ap[0]));
 		    break;
 		case LOADER_Y_REG:
-		    erts_print(to, to_arg, " x(%d)", loader_y_reg_index(ap[0]));
+		    erts_print(to, to_arg, " y(%d)", loader_y_reg_index(ap[0]) - CP_SIZE);
 		    break;
 		default:
 		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
@@ -765,7 +765,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
                     erts_print(to, to_arg, " x(%d)", loader_x_reg_index(ap[0]));
                     break;
                 case LOADER_Y_REG:
-		    erts_print(to, to_arg, " x(%d)", loader_y_reg_index(ap[0]));
+		    erts_print(to, to_arg, " y(%d)", loader_y_reg_index(ap[0]) - CP_SIZE);
 		    break;
                 default:
 		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
@@ -788,7 +788,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 			erts_print(to, to_arg, " x(%d)", loader_x_reg_index(ap[0]));
 			break;
 		    case LOADER_Y_REG:
-			erts_print(to, to_arg, " y(%d)", loader_y_reg_index(ap[0]));
+			erts_print(to, to_arg, " y(%d)", loader_y_reg_index(ap[0]) - CP_SIZE);
 			break;
 		    default:
 			erts_print(to, to_arg, " %T", (Eterm) ap[0]);
