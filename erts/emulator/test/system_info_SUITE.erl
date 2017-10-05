@@ -308,9 +308,9 @@ memory_test(_Config) ->
 
     mem_workers_call(MWs,
 		     fun () ->
-			     list_to_atom("an ugly atom "++integer_to_list(erlang:system_info(scheduler_id))),
-			     list_to_atom("another ugly atom "++integer_to_list(erlang:system_info(scheduler_id))),
-			     list_to_atom("yet another ugly atom "++integer_to_list(erlang:system_info(scheduler_id)))
+			     _ = list_to_atom("an ugly atom "++integer_to_list(erlang:system_info(scheduler_id))),
+			     _ = list_to_atom("another ugly atom "++integer_to_list(erlang:system_info(scheduler_id))),
+			     _ = list_to_atom("yet another ugly atom "++integer_to_list(erlang:system_info(scheduler_id)))
 		     end, []),
     cmp_memory(MWs, "new atoms"),
 
