@@ -1205,7 +1205,7 @@ binary_cipher_suites(Version, [Head | _] = Ciphers0) when is_list(Head) ->
     binary_cipher_suites(Version, Ciphers);
 binary_cipher_suites(Version, Ciphers0)  ->
     %% Format: "RC4-SHA:RC4-MD5"
-    Ciphers = [ssl_cipher:openssl_suite(C) || C <- string:tokens(Ciphers0, ":")],
+    Ciphers = [ssl_cipher:openssl_suite(C) || C <- string:lexemes(Ciphers0, ":")],
     binary_cipher_suites(Version, Ciphers).
 
 handle_eccs_option(Value, Version) when is_list(Value) ->

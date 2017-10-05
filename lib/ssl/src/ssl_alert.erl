@@ -57,7 +57,7 @@ decode(Bin) ->
 reason_code(#alert{description = ?CLOSE_NOTIFY}, _) ->
     closed;
 reason_code(#alert{description = Description}, _) ->
-    {tls_alert, string:to_lower(description_txt(Description))}.
+    {tls_alert, string:casefold(description_txt(Description))}.
 
 %%--------------------------------------------------------------------
 -spec own_alert_txt(#alert{}) -> string().
@@ -66,7 +66,7 @@ reason_code(#alert{description = Description}, _) ->
 %% by the erlang implementation.
 %%--------------------------------------------------------------------
 own_alert_txt(#alert{level = Level, description = Description, where = {Mod,Line}, reason = undefined, role = Role}) ->
-    "at " ++ Mod ++ ":" ++ integer_to_list(Line) ++ " generated " ++ string:to_upper(atom_to_list(Role)) ++ " ALERT: " ++
+    "at " ++ Mod ++ ":" ++ integer_to_list(Line) ++ " generated " ++ string:uppercase(atom_to_list(Role)) ++ " ALERT: " ++
         level_txt(Level) ++ description_txt(Description);
 own_alert_txt(#alert{reason = Reason} = Alert) ->
     BaseTxt = own_alert_txt(Alert#alert{reason = undefined}),
@@ -81,7 +81,7 @@ own_alert_txt(#alert{reason = Reason} = Alert) ->
 %% the peer. 
 %%--------------------------------------------------------------------
 alert_txt(#alert{level = Level, description = Description, reason = undefined, role = Role}) ->
-    "received " ++ string:to_upper(atom_to_list(Role)) ++ " ALERT: " ++
+    "received " ++ string:uppercase(atom_to_list(Role)) ++ " ALERT: " ++
         level_txt(Level) ++ description_txt(Description);
 alert_txt(#alert{reason = Reason} = Alert) ->
     BaseTxt = alert_txt(Alert#alert{reason = undefined}),
