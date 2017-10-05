@@ -46,7 +46,8 @@
                                                        system := float()}}.
 
 
--type msacc_type() :: scheduler | aux | async.
+-type msacc_type() :: aux | async | dirty_cpu_scheduler
+                    | dirty_io_scheduler | poll | scheduler.
 -type msacc_id() :: non_neg_integer().
 -type msacc_state() :: alloc | aux | bif | busy_wait | check_io |
                        emulator | ets | gc | gc_fullsweep | nif |

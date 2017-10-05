@@ -2344,7 +2344,8 @@ spawn_opt(_Tuple) ->
       MSAcc_Thread :: #{ type := MSAcc_Thread_Type,
                         id := MSAcc_Thread_Id,
                         counters := MSAcc_Counters},
-      MSAcc_Thread_Type :: scheduler | async | aux,
+      MSAcc_Thread_Type :: async | aux | dirty_io_scheduler
+                         | dirty_cpu_scheduler | poll | scheduler,
       MSAcc_Thread_Id :: non_neg_integer(),
       MSAcc_Counters :: #{ MSAcc_Thread_State => non_neg_integer() },
       MSAcc_Thread_State :: alloc | aux | bif | busy_wait | check_io |

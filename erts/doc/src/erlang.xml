@@ -6475,17 +6475,24 @@ lists:map(
         <p><c><anno>MSAcc_Thread_Type</anno></c>s:</p>
         <taglist>
           <tag><c>scheduler</c></tag>
-          <item>The main execution threads that do most of the work.</item>
+          <item>The main execution threads that do most of the work. See
+            <seealso marker="erts:erl#+S">erl +S</seealso> for more details.</item>
           <tag><c>dirty_cpu_scheduler</c></tag>
-          <item>The threads for long running cpu intensive work.</item>
+          <item>The threads for long running cpu intensive work. See
+            <seealso marker="erts:erl#+SDcpu">erl +SDcpu</seealso> for more details.</item>
           <tag><c>dirty_io_scheduler</c></tag>
-          <item>The threads for long running I/O work.</item>
+          <item>The threads for long running I/O work. See
+            <seealso marker="erts:erl#+SDio">erl +SDio</seealso> for more details.</item>
           <tag><c>async</c></tag>
           <item>Async threads are used by various linked-in drivers (mainly the
-            file drivers) do offload non-CPU intensive work.</item>
+            file drivers) do offload non-CPU intensive work. See
+            <seealso marker="erts:erl#+async_thread_pool_size">erl +A</seealso> for more details.</item>
           <tag><c>aux</c></tag>
           <item>Takes care of any work that is not
             specifically assigned to a scheduler.</item>
+          <tag><c>poll</c></tag>
+          <item>Does the IO polling for the emulator. See
+            <seealso marker="erts:erl#+IOt">erl +IOt</seealso> for more details.</item>
         </taglist>
         <p>The following <c><anno>MSAcc_Thread_State</anno></c>s are available.
           All states are exclusive, meaning that a thread cannot be in two
