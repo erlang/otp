@@ -242,7 +242,7 @@ struct m {
     Binary* code;
     Eterm module;
     Module* modp;
-    Uint exception;
+    Eterm exception;
 };
 
 static Eterm staging_epilogue(Process* c_p, int, Eterm res, int, struct m*, int);
@@ -263,7 +263,7 @@ exception_list(Process* p, Eterm tag, struct m* mp, Sint exceptions)
     Eterm res = NIL;
 
     while (exceptions > 0) {
-	if (mp->exception) {
+	if (is_value(mp->exception)) {
 	    res = CONS(hp, mp->module, res);
 	    hp += 2;
 	    exceptions--;
@@ -366,9 +366,9 @@ finish_loading_1(BIF_ALIST_1)
 
     exceptions = 0;
     for (i = 0; i < n; i++) {
-	p[i].exception = 0;
+	p[i].exception = THE_NON_VALUE;
 	if (p[i].modp->seen) {
-	    p[i].exception = 1;
+	    p[i].exception = am_duplicated;
 	    exceptions++;
 	}
 	p[i].modp->seen = 1;
@@ -401,9 +401,9 @@ finish_loading_1(BIF_ALIST_1)
 
     exceptions = 0;
     for (i = 0; i < n; i++) {
-	p[i].exception = 0;
+	p[i].exception = THE_NON_VALUE;
 	if (p[i].modp->curr.code_hdr && p[i].modp->old.code_hdr) {
-	    p[i].exception = 1;
+	    p[i].exception = am_not_purged;
 	    exceptions++;
 	}
     }
@@ -424,7 +424,7 @@ finish_loading_1(BIF_ALIST_1)
 	    retval = erts_finish_loading(p[i].code, BIF_P, 0, &mod);
 	    ASSERT(retval == NIL || retval == am_on_load);
 	    if (retval == am_on_load) {
-		p[i].exception = 1;
+		p[i].exception = am_on_load;
 		exceptions++;
 	    }
 	}
@@ -456,8 +456,9 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	    erts_commit_staging_code_ix();
 	    if (loaded) {
 		int i;
-		for (i=0; i < nloaded; i++) {		
-		    set_default_trace_pattern(loaded[i].module);
+		for (i=0; i < nloaded; i++) {
+		    if (loaded[i].exception != am_on_load)
+			set_default_trace_pattern(loaded[i].module);
 		}
 	    }
 	}
