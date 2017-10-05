@@ -298,6 +298,11 @@ terminate(_Reason, _State)->
 %% # code_change/3
 %% ----------------------------------------------------------
 
+code_change(_, State, "2.1") ->
+    {ok, lists:foldl(fun add_monitor/2,
+                     State,
+                     ets:select(?TABLE, [{{'_', '$1'}, [], ['$1']}]))};
+
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
