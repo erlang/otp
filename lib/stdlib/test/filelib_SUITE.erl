@@ -120,7 +120,7 @@ wcc(Wc, Error) ->
 do_wildcard_1(Dir, Wcf0) ->
     do_wildcard_2(Dir, Wcf0),
     Wcf = fun(Wc0) ->
-		  Wc = filename:join(Dir, Wc0),
+		  Wc = Dir ++ "/" ++ Wc0,
 		  L = Wcf0(Wc),
 		  [subtract_dir(N, Dir) || N <- L]
 	  end,
@@ -268,8 +268,37 @@ do_wildcard_9(Dir, Wcf) ->
     %% Cleanup.
     del(Files),
     [ok = file:del_dir(D) || D <- lists:reverse(Dirs)],
-    ok.
+    do_wildcard_10(Dir, Wcf).
 
+%% ERL-451/OTP-14577: Escape characters using \\.
+do_wildcard_10(Dir, Wcf) ->
+    All0 = ["{abc}","abc","def","---","z--","@a,b","@c"],
+    All = case os:type() of
+              {unix,_} ->
+                  %% '?' is allowed in file names on Unix, but
+                  %% not on Windows.
+                  ["?q"|All0];
+              _ ->
+                  All0
+          end,
+    Files = mkfiles(lists:reverse(All), Dir),
+
+    ["{abc}"] = Wcf("\\{a*"),
+    ["{abc}"] = Wcf("\\{abc}"),
+    ["abc","def","z--"] = Wcf("[a-z]*"),
+    ["---","abc","z--"] = Wcf("[a\\-z]*"),
+    ["@a,b","@c"] = Wcf("@{a\\,b,c}"),
+    ["@c"] = Wcf("@{a,b,c}"),
+
+    case os:type() of
+        {unix,_} ->
+            ["?q"] = Wcf("\\?q");
+        _ ->
+            [] = Wcf("\\?q")
+    end,
+
+    del(Files),
+    ok.
 
 fold_files(Config) when is_list(Config) ->
     Dir = filename:join(proplists:get_value(priv_dir, Config), "fold_files"),
