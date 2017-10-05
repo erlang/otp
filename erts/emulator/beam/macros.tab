@@ -38,7 +38,7 @@ REFRESH_GEN_DEST() {
 // zero, except in a few bit syntax instructions.)
 
 SET_I_REL(Offset) {
-    ASSERT(VALID_INSTR(*(I + ($Offset))));
+    ASSERT(VALID_INSTR(*(I + ($Offset) + $IP_ADJUSTMENT)));
     I += $Offset + $IP_ADJUSTMENT;
 }
 
