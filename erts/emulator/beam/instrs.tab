@@ -857,8 +857,7 @@ catch(Y, Fail) {
 }
 
 catch_end(Y) {
-    c_p->catches--;
-    make_blank($Y);
+    $try_end($Y);
     if (is_non_value(r(0))) {
         c_p->fvalue = NIL;
         if (x(1) == am_throw) {
@@ -888,12 +887,15 @@ catch_end(Y) {
 try_end(Y) {
     c_p->catches--;
     make_blank($Y);
-    if (is_non_value(r(0))) {
-        c_p->fvalue = NIL;
-        r(0) = x(1);
-        x(1) = x(2);
-        x(2) = x(3);
-    }
+}
+
+try_case(Y) {
+    $try_end($Y);
+    ASSERT(is_non_value(r(0)));
+    c_p->fvalue = NIL;
+    r(0) = x(1);
+    x(1) = x(2);
+    x(2) = x(3);
 }
 
 try_case_end(Src) {
