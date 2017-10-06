@@ -251,7 +251,7 @@ finish(Tracing, ExitStatus, Args) ->
 
 script_start1(Parent, Args) ->
     %% tag this process
-    put(app, common_test),
+    ct_util:mark_process(),
     %% read general start flags
     Label = get_start_opt(label, fun([Lbl]) -> Lbl end, Args),
     Profile = get_start_opt(profile, fun([Prof]) -> Prof end, Args),
@@ -959,7 +959,7 @@ run_test(StartOpts) when is_list(StartOpts) ->
 
 run_test1_fun(StartOpts) ->
     fun() -> 
-            put(app, common_test),
+            ct_util:mark_process(),
             run_test1(StartOpts)
     end.
 
@@ -1453,7 +1453,7 @@ run_testspec(TestSpec) ->
 
 run_testspec1_fun(TestSpec) ->
     fun() -> 
-            put(app, common_test),
+            ct_util:mark_process(),
             run_testspec1(TestSpec)
     end.
 
@@ -1914,12 +1914,12 @@ possibly_spawn(true, Tests, Skip, Opts) ->
     CTUtilSrv = whereis(ct_util_server),
     Supervisor = 
 	fun() ->
-                put(app, common_test),
+                ct_util:mark_process(),
 		process_flag(trap_exit, true),
 		link(CTUtilSrv),
 		TestRun =
 		    fun() ->
-                            put(app, common_test),
+                            ct_util:mark_process(),
 			    TestResult = (catch do_run_test(Tests, Skip, Opts)),
 			    case TestResult of
 				{EType,_} = Error when EType == user_error;

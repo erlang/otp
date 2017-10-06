@@ -346,6 +346,7 @@ init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,
     case whereis(ct_master) of
 	undefined ->
 	    register(ct_master,self()),
+            ct_util:mark_process(),
 	    ok;
 	_Pid ->
 	    io:format("~nWarning: ct_master already running!~n"),
@@ -690,6 +691,7 @@ refresh_logs([],Refreshed) ->
 init_node_ctrl(MasterPid,Cookie,Opts) ->
     %% make sure tests proceed even if connection to master is lost
     process_flag(trap_exit, true),
+    ct_util:mark_process(),
     MasterNode = node(MasterPid),
     group_leader(whereis(user),self()),
     io:format("~n********** node_ctrl process ~w started on ~w **********~n",

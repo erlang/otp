@@ -665,8 +665,8 @@ log_timestamp({MS,S,US}) ->
 		      tc_esc_chars}).
 
 logger(Parent, Mode, Verbosity) ->
-    put(app, common_test),
     register(?MODULE,self()),
+    ct_util:mark_process(),
     %%! Below is a temporary workaround for the limitation of
     %%! max one test run per second. 
     %%! --->
@@ -1005,7 +1005,7 @@ print_to_log(async, FromPid, Category, TCGL, Content, EscChars, State) ->
 	if FromPid /= TCGL ->
 		IoFun = create_io_fun(FromPid, CtLogFd, EscChars),
 		fun() ->
-                        put(app, common_test),
+                        ct_util:mark_process(),
 			test_server:permit_io(TCGL, self()),
 
 			%% Since asynchronous io gets can get buffered if
@@ -1037,7 +1037,7 @@ print_to_log(async, FromPid, Category, TCGL, Content, EscChars, State) ->
 		end;
 	   true ->
 		fun() ->
-                        put(app, common_test),
+                        ct_util:mark_process(),
 			unexpected_io(FromPid, Category, ?MAX_IMPORTANCE,
 				      Content, CtLogFd, EscChars)
 		end
@@ -3019,8 +3019,8 @@ simulate() ->
     cast(stop),
     S = self(),
     Pid = spawn(fun() -> 
-                        put(app, common_test),
 			register(?MODULE,self()),
+                        ct_util:mark_process(),
 			S ! {self(),started},
 			simulate_logger_loop() 
 		end),

@@ -65,6 +65,8 @@
 
 -export([warn_duplicates/1]).
 
+-export([mark_process/0, is_marked/1]).
+
 -export([get_profile_data/0, get_profile_data/1,
 	 get_profile_data/2, open_url/3]).
 
@@ -124,9 +126,9 @@ start(Mode, LogDir, Verbosity) ->
     end.
 
 do_start(Parent, Mode, LogDir, Verbosity) ->
-    put(app, common_test),
     process_flag(trap_exit,true),
     register(ct_util_server,self()),
+    mark_process(),
     create_table(?conn_table,#conn.handle),
     create_table(?board_table,2),
     create_table(?suite_table,#suite_data.key),
@@ -930,6 +932,18 @@ warn_duplicates(Suites) ->
 	end,
     lists:foreach(Warn, Suites),
     ok.
+
+%%%-----------------------------------------------------------------
+%%% @spec
+%%%
+%%% @doc
+mark_process() ->
+    put(app, common_test).
+
+is_marked(Pid) ->
+    {dictionary,List} = process_info(self(), dictionary),
+    common_test == proplists:get_value(app, List).
+
 
 %%%-----------------------------------------------------------------
 %%% @spec

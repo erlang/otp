@@ -81,6 +81,7 @@ start(Mode) ->
 
 do_start(Parent) ->
     process_flag(trap_exit,true),
+    ct_util:mark_process(),
     register(ct_config_server,self()),
     ct_util:create_table(?attr_table,bag,#ct_conf.key),
     {ok,StartDir} = file:get_cwd(),

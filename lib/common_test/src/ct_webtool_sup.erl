@@ -46,6 +46,7 @@ stop(Pid)->
 %%          {error, Reason}   
 %%----------------------------------------------------------------------
 init(_StartArgs) ->
+    ct_util:mark_process(),
     %%Child1 = 
     %%Child2 ={webcover_backend,{webcover_backend,start_link,[]},permanent,2000,worker,[webcover_backend]},
     %%{ok,{{simple_one_for_one,5,10},[Child1]}}.

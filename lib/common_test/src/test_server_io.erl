@@ -184,6 +184,7 @@ reset_state() ->
 
 init([]) ->
     process_flag(trap_exit, true),
+    ct_util:mark_process(),
     Empty = gb_trees:empty(),
     {ok,Shared} = test_server_gl:start_link(self()),
     {ok,#st{fds=Empty,shared_gl=Shared,gls=gb_sets:empty(),
