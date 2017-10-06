@@ -31,7 +31,6 @@
 %% Internal exports
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3, format_status/2]).
--export([try_again_restart/2]).
 
 %% For release_handler only
 -export([get_callback_module/1]).
@@ -244,17 +243,6 @@ check_childspecs(ChildSpecs) when is_list(ChildSpecs) ->
 check_childspecs(X) -> {error, {badarg, X}}.
 
 %%%-----------------------------------------------------------------
-%%% Called by restart/2
--spec try_again_restart(SupRef, Child) -> ok when
-      SupRef :: sup_ref(),
-      Child :: child_id() | pid().
-try_again_restart(Supervisor, Child) ->
-    cast(Supervisor, {try_again_restart, Child}).
-
-cast(Supervisor, Req) ->
-    gen_server:cast(Supervisor, Req).
-
-%%%-----------------------------------------------------------------
 %%% Called by release_handler during upgrade
 -spec get_callback_module(Pid) -> Module when
       Pid :: pid(),
@@ -360,7 +348,7 @@ start_children([], NChildren, _SupName) ->
 
 do_start_child(SupName, Child) ->
     #child{mfargs = {M, F, Args}} = Child,
-    case catch apply(M, F, Args) of
+    case do_start_child_i(M, F, Args) of
 	{ok, Pid} when is_pid(Pid) ->
 	    NChild = Child#child{pid = Pid},
 	    report_progress(NChild, SupName),
@@ -369,10 +357,8 @@ do_start_child(SupName, Child) ->
 	    NChild = Child#child{pid = Pid},
 	    report_progress(NChild, SupName),
 	    {ok, Pid, Extra};
-	ignore ->
-	    {ok, undefined};
-	{error, What} -> {error, What};
-	What -> {error, What}
+        Other ->
+            Other
     end.
 
 do_start_child_i(M, F, A) ->
@@ -558,25 +544,8 @@ count_child(#child{pid = Pid, child_type = supervisor},
 -spec handle_cast({try_again_restart, child_id() | pid()}, state()) ->
 			 {'noreply', state()} | {stop, shutdown, state()}.
 
-handle_cast({try_again_restart,Pid}, #state{children=[Child]}=State)
-  when ?is_simple(State) ->
-    RPid = restarting(Pid),
-    case dyn_args(RPid, State) of
-	{ok, Args} ->
-	    {M, F, _} = Child#child.mfargs,
-	    NChild = Child#child{pid = RPid, mfargs = {M, F, Args}},
-	    case restart(NChild,State) of
-		{ok, State1} ->
-		    {noreply, State1};
-		{shutdown, State1} ->
-		    {stop, shutdown, State1}
-	    end;
-	error ->
-            {noreply, State}
-    end;
-
-handle_cast({try_again_restart,Name}, State) ->
-    case lists:keyfind(Name,#child.name,State#state.children) of
+handle_cast({try_again_restart,TryAgainId}, State) ->
+    case get_child_and_args(TryAgainId, State) of
 	Child = #child{pid=?restarting(_)} ->
 	    case restart(Child,State) of
 		{ok, State1} ->
@@ -587,6 +556,7 @@ handle_cast({try_again_restart,Name}, State) ->
 	_ ->
 	    {noreply,State}
     end.
+
 
 %%
 %% Take care of terminated children.
@@ -715,20 +685,9 @@ handle_start_child(Child, State) ->
 %%% Returns: {ok, state()} | {shutdown, state()}
 %%% ---------------------------------------------------
 
-restart_child(Pid, Reason, #state{children = [Child]} = State) when ?is_simple(State) ->
-    case dyn_args(Pid, State) of
-	{ok, Args} ->
-	    {M, F, _} = Child#child.mfargs,
-	    NChild = Child#child{pid = Pid, mfargs = {M, F, Args}},
-	    do_restart(Reason, NChild, State);
-	error ->
-            {ok, State}
-    end;
-
 restart_child(Pid, Reason, State) ->
-    Children = State#state.children,
-    case lists:keyfind(Pid, #child.pid, Children) of
-	#child{} = Child ->
+    case get_child_and_args(Pid, State) of
+        #child{} = Child ->
 	    do_restart(Reason, Child, State);
 	false ->
 	    {ok, State}
@@ -758,19 +717,13 @@ restart(Child, State) ->
     case add_restart(State) of
 	{ok, NState} ->
 	    case restart(NState#state.strategy, Child, NState) of
-		{try_again,NState2} ->
+		{try_again, NState2, TryAgainId} ->
 		    %% Leaving control back to gen_server before
 		    %% trying again. This way other incoming requsts
 		    %% for the supervisor can be handled - e.g. a
 		    %% shutdown request for the supervisor or the
 		    %% child.
-		    Id = if ?is_simple(State) -> Child#child.pid;
-			    true -> Child#child.name
-			 end,
-		    ok = try_again_restart(self(), Id),
-		    {ok,NState2};
-		{try_again, NState2, #child{name=ChName}} ->
-		    ok = try_again_restart(self(), ChName),
+                    gen_server:cast(self(), {try_again_restart, TryAgainId}),
 		    {ok,NState2};
 		Other ->
 		    Other
@@ -799,11 +752,12 @@ restart(simple_one_for_one, Child, State0) ->
             NState = dyn_store(Pid, A, State2),
 	    {ok, NState};
 	{error, Error} ->
+            ROldPid = restarting(OldPid),
 	    NRestarts = State2#state.dynamic_restarts + 1,
 	    State3 = State2#state{dynamic_restarts = NRestarts},
-            NState = dyn_store(restarting(OldPid), A, State3),
+            NState = dyn_store(ROldPid, A, State3),
 	    report_error(start_error, Error, Child, NState#state.name),
-	    {try_again, NState}
+	    {try_again, NState, ROldPid}
     end;
 restart(one_for_one, Child, State) ->
     OldPid = Child#child.pid,
@@ -817,10 +771,10 @@ restart(one_for_one, Child, State) ->
 	{error, Reason} ->
 	    NState = replace_child(Child#child{pid = restarting(OldPid)}, State),
 	    report_error(start_error, Reason, Child, State#state.name),
-	    {try_again, NState}
+	    {try_again, NState, Child#child.name}
     end;
 restart(rest_for_one, Child, State) ->
-    {ChAfter, ChBefore} = split_child(Child#child.pid, State#state.children),
+    {ChAfter, ChBefore} = split_child(Child#child.name, State#state.children),
     ChAfter2 = terminate_children(ChAfter, State#state.name),
     case start_children(ChAfter2, State#state.name) of
 	{ok, ChAfter3} ->
@@ -829,12 +783,12 @@ restart(rest_for_one, Child, State) ->
 	  when ChName =:= Child#child.name ->
 	    NChild = Child#child{pid=restarting(Child#child.pid)},
 	    NState = State#state{children = ChAfter3 ++ ChBefore},
-	    {try_again, replace_child(NChild,NState)};
+	    {try_again, replace_child(NChild,NState), ChName};
 	{error, ChAfter3, {failed_to_start_child, ChName, _Reason}} ->
 	    NChild = lists:keyfind(ChName, #child.name, ChAfter3),
 	    NChild2 = NChild#child{pid=?restarting(undefined)},
 	    NState = State#state{children = ChAfter3 ++ ChBefore},
-	    {try_again, replace_child(NChild2,NState), NChild2}
+	    {try_again, replace_child(NChild2,NState), ChName}
     end;
 restart(one_for_all, Child, State) ->
     Children1 = del_child(Child#child.name, State#state.children),
@@ -846,12 +800,12 @@ restart(one_for_all, Child, State) ->
 	  when ChName =:= Child#child.name ->
 	    NChild = Child#child{pid=restarting(Child#child.pid)},
 	    NState = State#state{children = NChs},
-	    {try_again, replace_child(NChild,NState)};
+	    {try_again, replace_child(NChild,NState), ChName};
 	{error, NChs, {failed_to_start_child, ChName, _Reason}} ->
 	    NChild = lists:keyfind(ChName, #child.name, NChs),
 	    NChild2 = NChild#child{pid=?restarting(undefined)},
 	    NState = State#state{children = NChs},
-	    {try_again, replace_child(NChild2,NState), NChild2}
+	    {try_again, replace_child(NChild2,NState), ChName}
     end.
 
 restarting(Pid) when is_pid(Pid) -> ?restarting(Pid);
@@ -1092,8 +1046,6 @@ split_child(Name, Chs) ->
 
 split_child(Name, [Ch|Chs], After) when Ch#child.name =:= Name ->
     {lists:reverse([Ch#child{pid = undefined} | After]), Chs};
-split_child(Pid, [Ch|Chs], After) when Ch#child.pid =:= Pid ->
-    {lists:reverse([Ch#child{pid = undefined} | After]), Chs};
 split_child(Name, [Ch|Chs], After) ->
     split_child(Name, Chs, [Ch | After]);
 split_child(_, [], After) ->
@@ -1136,6 +1088,21 @@ do_replace_child(Child, [Ch|Chs]) ->
 remove_child(Child, State) ->
     Chs = lists:keydelete(Child#child.name, #child.name, State#state.children),
     State#state{children = Chs}.
+
+get_child_and_args(Pid, #state{children=[Child]}=State) when ?is_simple(State) ->
+    case dyn_args(Pid, State) of
+	{ok, Args} ->
+	    {M, F, _} = Child#child.mfargs,
+	    Child#child{pid = Pid, mfargs = {M, F, Args}};
+	error ->
+            false
+    end;
+get_child_and_args(Pid, State) when is_pid(Pid) ->
+    lists:keyfind(Pid, #child.pid, State#state.children);
+get_child_and_args(?restarting(Pid)=RPid, State) when is_pid(Pid) ->
+    lists:keyfind(RPid, #child.pid, State#state.children);
+get_child_and_args(Name, State)  ->
+    lists:keyfind(Name, #child.name, State#state.children).
 
 %%-----------------------------------------------------------------
 %% Func: init_state/4
