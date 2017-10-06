@@ -496,12 +496,13 @@ certify(internal, #certificate{},
 certify(internal, #certificate{} = Cert,
         #state{negotiated_version = Version,
 	       role = Role,
+               host = Host,
 	       cert_db = CertDbHandle,
 	       cert_db_ref = CertDbRef,
 	       crl_db = CRLDbInfo,
 	       ssl_options = Opts} = State, Connection) ->
     case ssl_handshake:certify(Cert, CertDbHandle, CertDbRef, 
-			       Opts, CRLDbInfo, Role) of
+			       Opts, CRLDbInfo, Role, Host) of
         {PeerCert, PublicKeyInfo} ->
 	    handle_peer_cert(Role, PeerCert, PublicKeyInfo,
 			     State#state{client_certificate_requested = false}, Connection);
