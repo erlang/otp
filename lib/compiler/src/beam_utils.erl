@@ -825,8 +825,14 @@ live_opt([{select,_,Src,Fail,List}=I|Is], Regs0, D, Acc) ->
     Regs1 = x_live([Src], Regs0),
     Regs = live_join_labels([Fail|List], D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{try_case,_}=I|Is], _, D, Acc) ->
-    live_opt(Is, live_call(1), D, [I|Acc]);
+live_opt([{try_case,Y}=I|Is], Regs0, D, Acc) ->
+    Regs = live_call(1),
+    case Regs0 of
+        0 ->
+            live_opt(Is, Regs, D, [{try_end,Y}|Acc]);
+        _ ->
+            live_opt(Is, live_call(1), D, [I|Acc])
+    end;
 live_opt([{loop_rec,_Fail,_Dst}=I|Is], _, D, Acc) ->
     live_opt(Is, 0, D, [I|Acc]);
 live_opt([timeout=I|Is], _, D, Acc) ->
