@@ -1217,7 +1217,7 @@ simple_one_for_one(Config) when is_list(Config) ->
     [{Id4, Pid4, _, _}|_] = supervisor:which_children(sup_test),
 
     terminate(SupPid, Pid4, Id4, abnormal),
-    check_exit([SupPid]).
+    check_exit_reason(SupPid,shutdown).
 
 
 %%-------------------------------------------------------------------------
