@@ -106,7 +106,7 @@
 -record(state, {name,
 		strategy               :: strategy() | 'undefined',
 		children = []          :: [child_rec()],
-                dynamics               :: {'dict', dict:dict(pid(), list())}
+                dynamics               :: {'maps', #{pid() => list()}}
                                         | {'sets', sets:set(pid())}
                                         | 'undefined',
 		intensity              :: non_neg_integer() | 'undefined',
@@ -1355,35 +1355,35 @@ dyn_size(#state{dynamics = {Mod,Db}}) ->
 
 dyn_erase(Pid,#state{dynamics={sets,Db}}=State) ->
     State#state{dynamics={sets,sets:del_element(Pid,Db)}};
-dyn_erase(Pid,#state{dynamics={dict,Db}}=State) ->
-    State#state{dynamics={dict,dict:erase(Pid,Db)}}.
+dyn_erase(Pid,#state{dynamics={maps,Db}}=State) ->
+    State#state{dynamics={maps,maps:remove(Pid,Db)}}.
 
 dyn_store(Pid,_,#state{dynamics={sets,Db}}=State) ->
     State#state{dynamics={sets,sets:add_element(Pid,Db)}};
-dyn_store(Pid,Args,#state{dynamics={dict,Db}}=State) ->
-    State#state{dynamics={dict,dict:store(Pid,Args,Db)}}.
+dyn_store(Pid,Args,#state{dynamics={maps,Db}}=State) ->
+    State#state{dynamics={maps,Db#{Pid => Args}}}.
 
 dyn_fold(Fun,Init,#state{dynamics={sets,Db}}) ->
     sets:fold(Fun,Init,Db);
-dyn_fold(Fun,Init,#state{dynamics={dict,Db}}) ->
-    dict:fold(fun(Pid,_,Acc) -> Fun(Pid,Acc) end, Init, Db).
+dyn_fold(Fun,Init,#state{dynamics={maps,Db}}) ->
+    maps:fold(fun(Pid,_,Acc) -> Fun(Pid,Acc) end, Init, Db).
 
 dyn_map(Fun, #state{dynamics={sets,Db}}) ->
     lists:map(Fun, sets:to_list(Db));
-dyn_map(Fun, #state{dynamics={dict,Db}}) ->
-    lists:map(Fun, dict:fetch_keys(Db)).
+dyn_map(Fun, #state{dynamics={maps,Db}}) ->
+    lists:map(Fun, maps:keys(Db)).
 
 dyn_exists(Pid, #state{dynamics={sets, Db}}) ->
     sets:is_element(Pid, Db);
-dyn_exists(Pid, #state{dynamics={dict, Db}}) ->
-    dict:is_key(Pid, Db).
+dyn_exists(Pid, #state{dynamics={maps, Db}}) ->
+    maps:is_key(Pid, Db).
 
 dyn_args(_Pid, #state{dynamics={sets, _Db}}) ->
     {ok,undefined};
-dyn_args(Pid, #state{dynamics={dict, Db}}) ->
-    dict:find(Pid, Db).
+dyn_args(Pid, #state{dynamics={maps, Db}}) ->
+    maps:find(Pid, Db).
 
 dyn_init(#state{children=[Child]}=State) when ?is_temporary(Child) ->
     State#state{dynamics = {sets,sets:new()}};
 dyn_init(State) ->
-    State#state{dynamics = {dict,dict:new()}}.
+    State#state{dynamics = {maps,#{}}}.
