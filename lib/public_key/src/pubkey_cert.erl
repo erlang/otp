@@ -1144,7 +1144,7 @@ issuer(Contact, Role, Name) ->
   subject(Contact, Role ++ Name).
 
 subject(Contact, Name) ->
-    Opts = [{email, Contact ++ "@erlang.org"},
+    Opts = [{email, Contact ++ "@example.org"},
 	    {name,  Name},
 	    {city, "Stockholm"},
 	    {country, "SE"},
@@ -1223,12 +1223,12 @@ cert_chain(Role, IssuerCert, IssuerKey, [PeerOpts], _, Acc) ->
     Key = gen_key(proplists:get_value(key, PeerOpts, default_key_gen())),
     Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), 
                 IssuerKey, Key, "admin", " Peer cert", PeerOpts, peer),
-    [{Cert, Key}, {IssuerCert, IssuerKey} | Acc];
+    [{Cert, encode_key(Key)}, {IssuerCert, encode_key(IssuerKey)} | Acc];
 cert_chain(Role, IssuerCert, IssuerKey, [CAOpts | Rest], N, Acc) ->
     Key = gen_key(proplists:get_value(key, CAOpts, default_key_gen())),
     Cert = cert(Role, public_key:pkix_decode_cert(IssuerCert, otp), IssuerKey, Key, "webadmin", 
                 " Intermidiate CA " ++ integer_to_list(N), CAOpts, ca),
-    cert_chain(Role, Cert, Key, Rest, N+1, [{IssuerCert, IssuerKey} | Acc]).
+    cert_chain(Role, Cert, Key, Rest, N+1, [{IssuerCert, encode_key(IssuerKey)} | Acc]).
 
 cert(Role, #'OTPCertificate'{tbsCertificate = #'OTPTBSCertificate'{subject = Issuer}}, 
      PrivKey, Key, Contact, Name, Opts, Type) ->
@@ -1310,4 +1310,11 @@ add_default_extensions(Defaults0, Exts) ->
                                        end 
                                end, Defaults0),
     Exts ++ Defaults.
+
+encode_key(#'RSAPrivateKey'{} = Key) ->
+    {'RSAPrivateKey', public_key:der_encode('RSAPrivateKey', Key)};
+encode_key(#'ECPrivateKey'{} = Key) ->
+    {'ECPrivateKey', public_key:der_encode('ECPrivateKey', Key)};
+encode_key(#'DSAPrivateKey'{} = Key) ->
+    {'DSAPrivateKey', public_key:der_encode('DSAPrivateKey', Key)}.
 
