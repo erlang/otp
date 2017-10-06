@@ -119,6 +119,9 @@
 -type state() :: #state{}.
 
 -define(is_simple(State), State#state.strategy =:= simple_one_for_one).
+-define(is_temporary(_Child_), _Child_#child.restart_type=:=temporary).
+-define(is_transient(_Child_), _Child_#child.restart_type=:=transient).
+-define(is_permanent(_Child_), _Child_#child.restart_type=:=permanent).
 
 -callback init(Args :: term()) ->
     {ok, {SupFlags :: sup_flags(), [ChildSpec :: child_spec()]}}
@@ -341,7 +344,7 @@ start_children(Children, SupName) -> start_children(Children, [], SupName).
 
 start_children([Child|Chs], NChildren, SupName) ->
     case do_start_child(SupName, Child) of
-	{ok, undefined} when Child#child.restart_type =:= temporary ->
+	{ok, undefined} when ?is_temporary(Child) ->
 	    start_children(Chs, NChildren, SupName);
 	{ok, Pid} ->
 	    start_children(Chs, [Child#child{pid = Pid}|NChildren], SupName);
@@ -429,7 +432,7 @@ handle_call({terminate_child, Name}, _From, State) ->
     case get_child(Name, State, ?is_simple(State)) of
 	{value, Child} ->
 	    case do_terminate(Child, State#state.name) of
-		#child{restart_type=RT} when RT=:=temporary; ?is_simple(State) ->
+		NChild when ?is_temporary(NChild); ?is_simple(State) ->
 		    {reply, ok, state_del_child(Child, State)};
 		NChild ->
 		    {reply, ok, replace_child(NChild, State)}
@@ -692,7 +695,7 @@ handle_start_child(Child, State) ->
     case get_child(Child#child.name, State) of
 	false ->
 	    case do_start_child(State#state.name, Child) of
-		{ok, undefined} when Child#child.restart_type =:= temporary ->
+		{ok, undefined} when ?is_temporary(Child) ->
 		    {{ok, undefined}, State};
 		{ok, Pid} ->
 		    {{ok, Pid}, save_child(Child#child{pid = Pid}, State)};
@@ -731,7 +734,7 @@ restart_child(Pid, Reason, State) ->
 	    {ok, State}
     end.
 
-do_restart(Reason, Child, State) when Child#child.restart_type=:=permanent->
+do_restart(Reason, Child, State) when ?is_permanent(Child) ->
     report_error(child_terminated, Reason, Child, State#state.name),
     restart(Child, State);
 do_restart(normal, Child, State) ->
@@ -743,10 +746,10 @@ do_restart(shutdown, Child, State) ->
 do_restart({shutdown, _Term}, Child, State) ->
     NState = state_del_child(Child, State),
     {ok, NState};
-do_restart(Reason, Child, State) when Child#child.restart_type=:=transient ->
+do_restart(Reason, Child, State) when ?is_transient(Child) ->
     report_error(child_terminated, Reason, Child, State#state.name),
     restart(Child, State);
-do_restart(Reason, Child, State) when Child#child.restart_type=:=temporary ->
+do_restart(Reason, Child, State) when ?is_temporary(Child) ->
     report_error(child_terminated, Reason, Child, State#state.name),
     NState = state_del_child(Child, State),
     {ok, NState}.
@@ -834,7 +837,7 @@ restart(rest_for_one, Child, State) ->
 	    {try_again, replace_child(NChild2,NState), NChild2}
     end;
 restart(one_for_all, Child, State) ->
-    Children1 = del_child(Child#child.pid, State#state.children),
+    Children1 = del_child(Child#child.name, State#state.children),
     Children2 = terminate_children(Children1, State#state.name),
     case start_children(Children2, State#state.name) of
 	{ok, NChs} ->
@@ -868,7 +871,7 @@ terminate_children(Children, SupName) ->
 %% be skipped when building the list of terminated children, although
 %% we do want them to be shut down as many functions from this module
 %% use this function to just clear everything.
-terminate_children([Child = #child{restart_type=temporary} | Children], SupName, Res) ->
+terminate_children([Child | Children], SupName, Res) when ?is_temporary(Child) ->
     _ = do_terminate(Child, SupName),
     terminate_children(Children, SupName, Res);
 terminate_children([Child | Children], SupName, Res) ->
@@ -881,7 +884,7 @@ do_terminate(Child, SupName) when is_pid(Child#child.pid) ->
     case shutdown(Child#child.pid, Child#child.shutdown) of
         ok ->
             ok;
-        {error, normal} when Child#child.restart_type =/= permanent ->
+        {error, normal} when not (?is_permanent(Child)) ->
             ok;
         {error, OtherReason} ->
             report_error(shutdown_error, OtherReason, Child, SupName)
@@ -972,7 +975,7 @@ monitor_child(Pid) ->
 %% can have an significative overhead here.
 %%-----------------------------------------------------------------
 terminate_dynamic_children(#state{children=[Child]} = State) ->
-    {Pids, EStack0} = monitor_dynamic_children(Child#child.restart_type,State),
+    {Pids, EStack0} = monitor_dynamic_children(Child,State),
     Sz = sets:size(Pids),
     EStack = case Child#child.shutdown of
                  brutal_kill ->
@@ -992,12 +995,12 @@ terminate_dynamic_children(#state{children=[Child]} = State) ->
                                    Child#child{pid=Ls}, State#state.name)
               end, ok, EStack).
 
-monitor_dynamic_children(RType,State) ->
+monitor_dynamic_children(Child,State) ->
     dyn_fold(fun(P,{Pids, EStack}) when is_pid(P) ->
                      case monitor_child(P) of
                          ok ->
                              {sets:add_element(P, Pids), EStack};
-                         {error, normal} when RType =/= permanent ->
+                         {error, normal} when not (?is_permanent(Child)) ->
                              {Pids, EStack};
                          {error, Reason} ->
                              {Pids, dict:append(Reason, P, EStack)}
@@ -1030,8 +1033,7 @@ wait_dynamic_children(#child{shutdown=brutal_kill} = Child, Pids, Sz,
             wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
                                   TRef, dict:append(Reason, Pid, EStack))
     end;
-wait_dynamic_children(#child{restart_type=RType} = Child, Pids, Sz,
-                      TRef, EStack) ->
+wait_dynamic_children(Child, Pids, Sz, TRef, EStack) ->
     receive
         {'DOWN', _MRef, process, Pid, shutdown} ->
             wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
@@ -1041,7 +1043,7 @@ wait_dynamic_children(#child{restart_type=RType} = Child, Pids, Sz,
             wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
                                   TRef, EStack);
 
-        {'DOWN', _MRef, process, Pid, normal} when RType =/= permanent ->
+        {'DOWN', _MRef, process, Pid, normal} when not (?is_permanent(Child)) ->
             wait_dynamic_children(Child, sets:del_element(Pid, Pids), Sz-1,
                                   TRef, EStack);
 
@@ -1063,8 +1065,7 @@ wait_dynamic_children(#child{restart_type=RType} = Child, Pids, Sz,
 %% Especially for dynamic children to simple_one_for_one supervisors
 %% it could become very costly as it is not uncommon to spawn
 %% very many such processes.
-save_child(#child{restart_type = temporary,
-		  mfargs = {M, F, _}} = Child, #state{children = Children} = State) ->
+save_child(#child{mfargs = {M, F, _}} = Child, #state{children = Children} = State) when ?is_temporary(Child) ->
     State#state{children = [Child#child{mfargs = {M, F, undefined}} |Children]};
 save_child(Child, #state{children = Children} = State) ->
     State#state{children = [Child |Children]}.
@@ -1075,13 +1076,9 @@ state_del_child(Child, State) ->
     NChildren = del_child(Child#child.name, State#state.children),
     State#state{children = NChildren}.
 
-del_child(Name, [Ch|Chs]) when Ch#child.name =:= Name, Ch#child.restart_type =:= temporary ->
+del_child(Name, [Ch|Chs]) when Ch#child.name =:= Name, ?is_temporary(Ch) ->
     Chs;
 del_child(Name, [Ch|Chs]) when Ch#child.name =:= Name ->
-    [Ch#child{pid = undefined} | Chs];
-del_child(Pid, [Ch|Chs]) when Ch#child.pid =:= Pid, Ch#child.restart_type =:= temporary ->
-    Chs;
-del_child(Pid, [Ch|Chs]) when Ch#child.pid =:= Pid ->
     [Ch#child{pid = undefined} | Chs];
 del_child(Name, [Ch|Chs]) ->
     [Ch|del_child(Name, Chs)];
@@ -1419,7 +1416,7 @@ dyn_args(_Pid, #state{dynamics={sets, _Db}}) ->
 dyn_args(Pid, #state{dynamics={dict, Db}}) ->
     dict:find(Pid, Db).
 
-dyn_init(#state{children=[#child{restart_type=temporary}]}=State) ->
+dyn_init(#state{children=[Child]}=State) when ?is_temporary(Child) ->
     State#state{dynamics = {sets,sets:new()}};
 dyn_init(State) ->
     State#state{dynamics = {dict,dict:new()}}.
