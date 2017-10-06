@@ -2666,8 +2666,8 @@ altname(Config) when is_list(Config) ->
 		{skipped, "Altname not supported on this platform"};
 	    {ok, "LONGAL~1"} -> 
 		{ok, "A_FILE~1"} = ?FILE_MODULE:altname(Name),
-		{ok, "C:/"} = ?FILE_MODULE:altname("C:/"),
-		{ok, "C:\\"} = ?FILE_MODULE:altname("C:\\"),
+		{ok, "c:/"} = ?FILE_MODULE:altname("C:/"),
+		{ok, "c:/"} = ?FILE_MODULE:altname("C:\\"),
 		{error,enoent} = ?FILE_MODULE:altname(NonexName),
 		{ok, "short"} = ?FILE_MODULE:altname(ShortName),
 		ok
