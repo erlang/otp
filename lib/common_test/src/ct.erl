@@ -89,6 +89,8 @@
 -export([get_target_name/1]).
 -export([parse_table/1, listenv/1]).
 
+-export([get_test_processes/0]).
+
 %%----------------------------------------------------------------------
 %% Exported types
 %%----------------------------------------------------------------------
@@ -1474,3 +1476,13 @@ continue() ->
 %%%      in order to let the test case proceed.</p>
 continue(TestCase) -> 
     test_server:continue(TestCase).
+
+
+%%%-----------------------------------------------------------------
+%%% @spec get_test_processes() -> TestProcs
+%%%       TestProcs = [{Pid,GroupLeader}]
+%%%
+%%% @doc 
+%%%
+get_test_processes() ->
+    ct_util:get_test_processes().

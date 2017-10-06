@@ -65,7 +65,8 @@
 
 -export([warn_duplicates/1]).
 
--export([mark_process/0, is_marked/1]).
+-export([mark_process/0, mark_process/1, is_marked/1, is_marked/2,
+         get_test_processes/0]).
 
 -export([get_profile_data/0, get_profile_data/1,
 	 get_profile_data/2, open_url/3]).
@@ -938,12 +939,64 @@ warn_duplicates(Suites) ->
 %%%
 %%% @doc
 mark_process() ->
-    put(app, common_test).
+    mark_process(system).
+
+mark_process(Type) ->
+    put(ct_process_type, Type).
 
 is_marked(Pid) ->
-    {dictionary,List} = process_info(self(), dictionary),
-    common_test == proplists:get_value(app, List).
+    is_marked(Pid, system).
 
+is_marked(Pid, Type) ->
+    case process_info(Pid, dictionary) of
+        {dictionary,List} ->
+            Type == proplists:get_value(ct_process_type, List);
+        undefined ->
+            false
+    end.
+
+get_test_processes() ->
+    Procs = processes(),
+    {SharedGL,OtherGLs,Procs2} =
+        lists:foldl(
+          fun(Pid, ProcTypes = {Shared,Other,Procs1}) ->
+                  case is_marked(Pid, group_leader) of
+                      true ->
+                          if not is_pid(Shared) ->
+                                  case test_server_io:get_gl(true) of
+                                      Pid ->
+                                          {Pid,Other,
+                                           lists:delete(Pid,Procs1)};
+                                      _ ->
+                                          {Shared,[Pid|Other],Procs1}
+                                  end;
+                             true ->          % SharedGL already found
+                                  {Shared,[Pid|Other],Procs1}
+                          end;
+                      false ->
+                          case is_marked(Pid) of
+                              true ->
+                                  {Shared,Other,lists:delete(Pid,Procs1)};
+                              false ->
+                                  ProcTypes
+                          end
+                  end
+          end, {undefined,[],Procs}, Procs),
+
+    AllGLs = [SharedGL | OtherGLs],
+    TestProcs =
+        lists:flatmap(fun(Pid) ->
+                              case process_info(Pid, group_leader) of
+                                  {group_leader,GL} ->
+                                      case lists:member(GL, AllGLs) of
+                                          true  -> [{Pid,GL}];
+                                          false -> []
+                                      end;
+                                  undefined ->
+                                      []
+                              end
+                      end, Procs2),
+    {TestProcs, SharedGL, OtherGLs}.
 
 %%%-----------------------------------------------------------------
 %%% @spec

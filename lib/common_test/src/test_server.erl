@@ -415,6 +415,7 @@ run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
     St = #st{ref=Ref,pid=Pid,mf={Mod,Func},last_known_loc=unknown,
 	     status=starting,ret_val=[],comment="",timeout=infinity,
 	     config=hd(Args)},
+    ct_util:mark_process(),
     run_test_case_msgloop(St).
 
 %% Ugly bug (pre R5A):

@@ -132,6 +132,7 @@ set_props(GL, PropList) ->
 %%% Internal functions.
 
 init([TSIO]) ->
+    ct_util:mark_process(group_leader),
     EscChars = case application:get_env(test_server, esc_chars) of
 		   {ok,ECBool} -> ECBool;
 		   _           -> true
