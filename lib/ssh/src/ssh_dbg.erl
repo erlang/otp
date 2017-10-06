@@ -24,6 +24,7 @@
 
 -export([messages/0, messages/1, messages/2, messages/3,
 	 auth/0,     auth/1,     auth/2,     auth/3,
+	 algs/0,     algs/1,     algs/2,     algs/3,
 	 hostkey/0,  hostkey/1,  hostkey/2,  hostkey/3,
 	 stop/0
 	]).
@@ -46,6 +47,11 @@ auth() -> start(auth).
 auth(F) -> start(auth,F).
 auth(F,X) -> start(auth,F,X).
 auth(F,M,I) -> start(auth,F,M,I).
+
+algs() -> start(algs).
+algs(F) -> start(algs,F).
+algs(F,X) -> start(algs,F,X).
+algs(F,M,I) -> start(algs,F,M,I).
 
 hostkey() -> start(hostkey).
 hostkey(F) -> start(hostkey,F).
@@ -93,6 +99,11 @@ dbg_ssh0(auth) ->
      dbg:tpl(ssh_connection_handler,ext_info,2, x),
      lists:map(fun(F) -> dbg:tp(ssh_auth, F, x) end,
                [publickey_msg, password_msg, keyboard_interactive_msg])
+    ];
+
+dbg_ssh0(algs) ->
+    [dbg:tpl(ssh_transport,select_algorithm,4, x),
+     dbg:tpl(ssh_connection_handler,ext_info,2, x)
     ];
 
 dbg_ssh0(hostkey) ->
