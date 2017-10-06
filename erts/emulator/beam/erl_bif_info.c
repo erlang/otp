@@ -655,7 +655,8 @@ static Eterm pi_args[] = {
     am_current_stacktrace,
     am_message_queue_data,
     am_garbage_collection_info,
-    am_magic_ref
+    am_magic_ref,
+    am_start_time
 };
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(Eterm)))
@@ -707,6 +708,7 @@ pi_arg2ix(Eterm arg)
     case am_message_queue_data:			return 32;
     case am_garbage_collection_info:		return 33;
     case am_magic_ref:                          return 34;
+    case am_start_time:                         return 35;
     default:					return -1;
     }
 }
@@ -1652,6 +1654,14 @@ process_info_aux(Process *BIF_P,
 	(void) bld_magic_ref_bin_list(NULL, &sz, &MSO(rp));
 	hp = HAlloc(BIF_P, sz);
 	res = bld_magic_ref_bin_list(&hp, NULL, &MSO(rp));
+	break;
+    }
+
+    case am_start_time: {
+	Uint hsz = 3;
+	(void) erts_bld_uint(NULL, &hsz, rp->approx_started);
+	hp = HAlloc(BIF_P, hsz);
+	res = erts_bld_uint(&hp, NULL, rp->approx_started);
 	break;
     }
 

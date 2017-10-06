@@ -425,6 +425,7 @@ etwice_high(Low) ->
 
 %% Tests the process_info/2 BIF.
 t_process_info(Config) when is_list(Config) ->
+    NowTime = erlang:system_time(seconds),
     [] = process_info(self(), registered_name),
     register(my_name, self()),
     {registered_name, my_name} = process_info(self(), registered_name),
@@ -450,6 +451,11 @@ t_process_info(Config) when is_list(Config) ->
 
     Gleader = group_leader(),
     {group_leader, Gleader} = process_info(self(), group_leader),
+
+    %% start_time is system time in seconds
+    {start_time, StartTime} = process_info(self(), start_time),
+    true = (abs(StartTime - NowTime) =< 1),
+
     {'EXIT',{badarg,_Info}} = (catch process_info('not_a_pid')),
     ok.
 
