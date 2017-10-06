@@ -64,7 +64,12 @@ init_per_suite(Config) ->
                                      {failfun, fun ssh_test_lib:failfun/2},
                                      {preferred_algorithms, Algs},
                                      {modify_algorithms,[{prepend,[{cipher,[none]},
-                                                                   {mac,[none]}]}]},
+                                                                   {mac,[none]}
+                                                                  ]},
+                                                         {rm, [{cipher,['aes256-gcm@openssh.com',
+                                                                        'aes128-gcm@openssh.com']}
+                                                              ]}
+                                                        ]},
                                      {max_random_length_padding, 0},
                                      {subsystems, [{"/dev/null", {ssh_bench_dev_null,[DataSize]}}]}
                                     ]),
@@ -177,19 +182,30 @@ gen_data(DataSz) ->
 %%              {suite, ?MODULE},
 %%              {name, mk_name(["Transfer 1M bytes ",Cipher,"/",Mac," [µs]"])}]);
 connect_measure(Port, Cipher, Mac, Data, Options) ->
+    AES_GCM = {cipher,['aes256-gcm@openssh.com',
+                       'aes128-gcm@openssh.com']},
+
     AlgOpt = case {Cipher,Mac} of
                  {none,none} ->
                      [{modify_algorithms,[{prepend, [{cipher,[Cipher]},
-                                                     {mac,[Mac]}]}]}];
+                                                     {mac,[Mac]}]},
+                                          {rm,[AES_GCM]}
+                                         ]}];
                  {none,_} ->
-                     [{modify_algorithms,[{prepend, [{cipher,[Cipher]}]}]},
+                     [{modify_algorithms,[{prepend, [{cipher,[Cipher]}]},
+                                          {rm,[AES_GCM]}
+                                         ]},
                       {preferred_algorithms, [{mac,[Mac]}]}];
                  {_,none} ->
-                     [{modify_algorithms,[{prepend, [{mac,[Mac]}]}]},
+                     [{modify_algorithms,[{prepend, [{mac,[Mac]}]},
+                                          {rm,[AES_GCM]}
+                                         ]},
                       {preferred_algorithms, [{cipher,[Cipher]}]}];
                  _ ->
                      [{preferred_algorithms, [{cipher,[Cipher]},
-                                              {mac,[Mac]}]}]
+                                              {mac,[Mac]}]},
+                      {modify_algorithms, [{rm,[AES_GCM]}]}
+                     ]
              end,
     Times =
         [begin
