@@ -702,6 +702,7 @@ cipher(internal, #finished{verify_data = Data} = Finished,
 	      expecting_finished = true,
 	      session = #session{master_secret = MasterSecret}
 	      = Session0,
+              ssl_options = SslOpts,
 	      connection_states = ConnectionStates0,
 	      tls_handshake_history = Handshake0} = State, Connection) ->
     case ssl_handshake:verify_connection(ssl:tls_version(Version), Finished,
@@ -709,7 +710,7 @@ cipher(internal, #finished{verify_data = Data} = Finished,
 					 get_current_prf(ConnectionStates0, read),
 					 MasterSecret, Handshake0) of
         verified ->
-	    Session = register_session(Role, Host, Port, Session0),
+	    Session = register_session(Role, host_id(Role, Host, SslOpts), Port, Session0),
 	    cipher_role(Role, Data, Session, 
 			State#state{expecting_finished = false}, Connection);
         #alert{} = Alert ->
@@ -2096,6 +2097,11 @@ register_session(server, _, Port, #session{is_resumable = new} = Session0) ->
     Session;
 register_session(_, _, _, Session) ->
     Session. %% Already registered
+
+host_id(client, _Host, #ssl_options{server_name_indication = Hostname}) when is_list(Hostname) ->
+    Hostname;
+host_id(_, Host, _) ->
+    Host.
 
 handle_new_session(NewId, CipherSuite, Compression, 
 		   #state{session = Session0,
