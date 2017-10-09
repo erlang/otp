@@ -251,9 +251,9 @@ key_exchange_init_msg(Ssh0) ->
     {SshPacket, Ssh} = ssh_packet(Msg, Ssh0),
     {Msg, SshPacket, Ssh}.
 
-kex_init(#ssh{role = Role, opts = Opts, available_host_keys = HostKeyAlgs}) ->
+kex_init(#ssh{role = Role, opts = Opts, available_host_keys = HostKeyAlgs} = Ssh) ->
     Random = ssh_bits:random(16),
-    PrefAlgs = ?GET_OPT(preferred_algorithms, Opts),
+    PrefAlgs = adjust_algs_for_peer_version(Role, ?GET_OPT(preferred_algorithms, Opts), Ssh),
     kexinit_message(Role, Random, PrefAlgs, HostKeyAlgs, Opts).
 
 key_init(client, Ssh, Value) ->
@@ -261,7 +261,22 @@ key_init(client, Ssh, Value) ->
 key_init(server, Ssh, Value) ->
     Ssh#ssh{s_keyinit = Value}.
 
-
+adjust_algs_for_peer_version(client, PrefAlgs, #ssh{s_version=V}) ->
+    adjust_algs_for_peer_version(V, PrefAlgs);
+adjust_algs_for_peer_version(server, PrefAlgs, #ssh{c_version=V}) ->
+    adjust_algs_for_peer_version(V, PrefAlgs).
+%%
+adjust_algs_for_peer_version("SSH-2.0-OpenSSH_6.2"++_, PrefAlgs) ->
+    C0 = proplists:get_value(cipher, PrefAlgs, same([])),
+    C = [{D,L} || D <- [client2server, server2client],
+                  L <- [[K || K <- proplists:get_value(D, C0, []),
+                              K =/= 'aes256-gcm@openssh.com',
+                              K =/= 'aes128-gcm@openssh.com']]
+        ],
+    lists:keyreplace(cipher, 1, PrefAlgs, {cipher,C});
+adjust_algs_for_peer_version(_, PrefAlgs) ->
+    PrefAlgs.
+    
 kexinit_message(Role, Random, Algs, HostKeyAlgs, Opts) ->
     #ssh_msg_kexinit{
 		  cookie = Random,

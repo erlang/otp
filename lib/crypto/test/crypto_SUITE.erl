@@ -122,10 +122,15 @@ groups() ->
      {sha512, [], [hash, hmac]},
      {rsa, [], [sign_verify,
                 public_encrypt,
+                private_encrypt,
                 generate
                ]},
-     {dss, [], [sign_verify]},
-     {ecdsa, [], [sign_verify]},
+     {dss, [], [sign_verify
+                %% Does not work yet:  ,public_encrypt, private_encrypt
+               ]},
+     {ecdsa, [], [sign_verify
+                %% Does not work yet:  ,public_encrypt, private_encrypt
+                 ]},
      {dh, [], [generate_compute]},
      {ecdh, [], [compute, generate]},
      {srp, [], [generate_compute]},
@@ -439,10 +444,16 @@ sign_verify(Config) when is_list(Config) ->
 
 %%-------------------------------------------------------------------- 
 public_encrypt() ->
-     [{doc, "Test public_encrypt/decrypt and private_encrypt/decrypt functions. "}].
+     [{doc, "Test public_encrypt/decrypt "}].
 public_encrypt(Config) when is_list(Config) ->
     Params = proplists:get_value(pub_priv_encrypt, Config),
-    lists:foreach(fun do_public_encrypt/1, Params),
+    lists:foreach(fun do_public_encrypt/1, Params).
+
+%%-------------------------------------------------------------------- 
+private_encrypt() ->
+     [{doc, "Test private_encrypt/decrypt functions. "}].
+private_encrypt(Config) when is_list(Config) ->
+    Params = proplists:get_value(pub_priv_encrypt, Config),
     lists:foreach(fun do_private_encrypt/1, Params).
 
 %%--------------------------------------------------------------------
@@ -819,7 +830,7 @@ do_private_encrypt({_Type, _Public, _Private, _Msg, rsa_pkcs1_oaep_padding}) ->
     ok; %% Not supported by openssl
 do_private_encrypt({Type, Public, Private, Msg, Padding}) ->
     PrivEcn = (catch crypto:private_encrypt(Type, Msg, Private, Padding)),
-    case crypto:public_decrypt(rsa, PrivEcn, Public, Padding) of
+    case crypto:public_decrypt(Type, PrivEcn, Public, Padding) of
 	Msg ->
 	    ok;
 	Other ->
@@ -1233,7 +1244,9 @@ group_config(dss = Type, Config) ->
     SignVerify = [{Type, Hash, Public, Private, Msg} 
                   || Hash <- DssHashs,
                      lists:member(Hash, SupportedHashs)],
-    [{sign_verify, SignVerify} | Config];
+    MsgPubEnc = <<"7896345786348 Asldi">>,
+    PubPrivEnc = [{dss, Public, Private, MsgPubEnc, []}],
+    [{sign_verify, SignVerify}, {pub_priv_encrypt, PubPrivEnc}  | Config];
 
 group_config(ecdsa = Type, Config) ->
     {Private, Public} = ec_key_named(),
@@ -1243,7 +1256,9 @@ group_config(ecdsa = Type, Config) ->
     SignVerify = [{Type, Hash, Public, Private, Msg} 
                   || Hash <- DssHashs,
                      lists:member(Hash, SupportedHashs)],
-    [{sign_verify, SignVerify} | Config];
+    MsgPubEnc = <<"7896345786348 Asldi">>,
+    PubPrivEnc = [{ecdsa, Public, Private, MsgPubEnc, []}],
+    [{sign_verify, SignVerify}, {pub_priv_encrypt, PubPrivEnc} | Config];
 group_config(srp, Config) ->
     GenerateCompute = [srp3(), srp6(), srp6a(), srp6a_smaller_prime()],
     [{generate_compute, GenerateCompute} | Config];
