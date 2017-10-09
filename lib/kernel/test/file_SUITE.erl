@@ -2948,20 +2948,22 @@ delayed_write(Config) when is_list(Config) ->
     %%
     %% Test caching and normal close of non-raw file
     {ok, Fd1} = 
-	?FILE_MODULE:open(File, [write, {delayed_write, Size+1, 2000}]),
+	?FILE_MODULE:open(File, [write, {delayed_write, Size+1, 400}]),
     ok = ?FILE_MODULE:write(Fd1, Data1),
-    timer:sleep(1000), % Just in case the file system is slow
+    %% Wait for a reasonable amount of time to check whether the write was
+    %% practically instantaneous or actually delayed.
+    timer:sleep(100),
     {ok, Fd2} = ?FILE_MODULE:open(File, [read]),
     eof = ?FILE_MODULE:read(Fd2, 1),
     ok = ?FILE_MODULE:write(Fd1, Data1), % Data flush on size
-    timer:sleep(1000), % Just in case the file system is slow
+    timer:sleep(100),
     {ok, Data1Data1} = ?FILE_MODULE:pread(Fd2, bof, 2*Size+1),
     ok = ?FILE_MODULE:write(Fd1, Data1),
-    timer:sleep(3000), % Wait until data flush on timeout
+    timer:sleep(500), % Wait until data flush on timeout
     {ok, Data1Data1Data1} = ?FILE_MODULE:pread(Fd2, bof, 3*Size+1),
     ok = ?FILE_MODULE:write(Fd1, Data1),
     ok = ?FILE_MODULE:close(Fd1), % Data flush on close
-    timer:sleep(1000), % Just in case the file system is slow
+    timer:sleep(100),
     {ok, Data1Data1Data1Data1} = ?FILE_MODULE:pread(Fd2, bof, 4*Size+1),
     ok = ?FILE_MODULE:close(Fd2),
     %%
@@ -2995,7 +2997,7 @@ delayed_write(Config) when is_list(Config) ->
         {'DOWN', Mref1, _, _, _} = Down1a ->
             ct:fail(Down1a)
     end,
-    timer:sleep(1000), % Just in case the file system is slow
+    timer:sleep(100), % Just in case the file system is slow
     {ok, Fd3} = ?FILE_MODULE:open(File, [read]),
     eof = ?FILE_MODULE:read(Fd3, 1),
     Child1 ! {Parent, continue, normal},
@@ -3005,7 +3007,7 @@ delayed_write(Config) when is_list(Config) ->
         {'DOWN', Mref1, _, _, _} = Down1b ->
             ct:fail(Down1b)
     end,
-    timer:sleep(1000), % Just in case the file system is slow
+    timer:sleep(100), % Just in case the file system is slow
     {ok, Data1} = ?FILE_MODULE:pread(Fd3, bof, Size+1),
     ok = ?FILE_MODULE:close(Fd3),
     %%
@@ -3018,7 +3020,7 @@ delayed_write(Config) when is_list(Config) ->
         {'DOWN', Mref2, _, _, _} = Down2a ->
             ct:fail(Down2a)
     end,
-    timer:sleep(1000), % Just in case the file system is slow
+    timer:sleep(100), % Just in case the file system is slow
     {ok, Fd4} = ?FILE_MODULE:open(File, [read]),
     eof = ?FILE_MODULE:read(Fd4, 1),
     Child2 ! {Parent, continue, kill},
@@ -3028,7 +3030,7 @@ delayed_write(Config) when is_list(Config) ->
         {'DOWN', Mref2, _, _, _} = Down2b ->
             ct:fail(Down2b)
     end,
-    timer:sleep(1000), % Just in case the file system is slow
+    timer:sleep(100), % Just in case the file system is slow
     eof = ?FILE_MODULE:pread(Fd4, bof, 1),
     ok  = ?FILE_MODULE:close(Fd4),
     %%
