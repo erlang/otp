@@ -19,7 +19,8 @@
 %%
 
 -module(crashdump_helper).
--export([n1_proc/2,remote_proc/2]).
+-export([n1_proc/2,remote_proc/2,
+         dump_maps/0,create_maps/0]).
 -compile(r18).
 -include_lib("common_test/include/ct.hrl").
 
@@ -92,3 +93,31 @@ remote_proc(P1,Creator) ->
 		  Creator ! {self(),done},
 		  receive after infinity -> ok end
 	  end).
+
+
+%%%
+%%% Test dumping of maps. Dumping of maps only from OTP 20.2.
+%%%
+
+dump_maps() ->
+    Parent = self(),
+    F = fun() ->
+                register(aaaaaaaa_maps, self()),
+                put(maps, create_maps()),
+                Parent ! {self(),done},
+                receive _ -> ok end
+        end,
+    Pid = spawn_link(F),
+    receive
+        {Pid,done} ->
+            {ok,Pid}
+    end.
+
+create_maps() ->
+    Map0 = maps:from_list([{I,[I,I+1]} || I <- lists:seq(1, 40)]),
+    Map1 = maps:from_list([{I,{a,[I,I*I],{}}} || I <- lists:seq(1, 100)]),
+    Map2 = maps:from_list([{{I},(I*I) bsl 24} || I <- lists:seq(1, 10000)]),
+    Map3 = lists:foldl(fun(I, A) ->
+                               A#{I=>I*I}
+                       end, Map2, lists:seq(-10, 0)),
+    #{a=>Map0,b=>Map1,c=>Map2,d=>Map3,e=>#{}}.

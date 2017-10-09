@@ -2589,8 +2589,26 @@ parse_heap_term("Ys"++Line0, Addr, BinAddrAdj, D0) ->	%Sub binary.
 		   end
 	   end,
     D = gb_trees:insert(Addr, Term, D0),
-    {Term,Line,D}.
-
+    {Term,Line,D};
+parse_heap_term("Mf"++Line0, Addr, BinAddrAdj, D0) -> %Flatmap.
+    {Size,":"++Line1} = get_hex(Line0),
+    {Keys,":"++Line2,D1} = parse_term(Line1, BinAddrAdj, D0),
+    {Values,Line,D2} = parse_tuple(Size, Line2, Addr,BinAddrAdj, D1, []),
+    Pairs = zip_tuples(tuple_size(Keys), Keys, Values, []),
+    Map = maps:from_list(Pairs),
+    D = gb_trees:update(Addr, Map, D2),
+    {Map,Line,D};
+parse_heap_term("Mh"++Line0, Addr, BinAddrAdj, D0) -> %Head node in a hashmap.
+    {MapSize,":"++Line1} = get_hex(Line0),
+    {N,":"++Line2} = get_hex(Line1),
+    {Nodes,Line,D1} = parse_tuple(N, Line2, Addr, BinAddrAdj, D0, []),
+    Map = maps:from_list(flatten_hashmap_nodes(Nodes)),
+    MapSize = maps:size(Map),                   %Assertion.
+    D = gb_trees:update(Addr, Map, D1),
+    {Map,Line,D};
+parse_heap_term("Mn"++Line0, Addr, BinAddrAdj, D) -> %Interior node in a hashmap.
+    {N,":"++Line} = get_hex(Line0),
+    parse_tuple(N, Line, Addr, BinAddrAdj, D, []).
 
 parse_tuple(0, Line, Addr, _, D0, Acc) ->
     Tuple = list_to_tuple(lists:reverse(Acc)),
@@ -2602,6 +2620,25 @@ parse_tuple(N, Line0, Addr, BinAddrAdj, D0, Acc) ->
 	    parse_tuple(N-1, Line, Addr, BinAddrAdj, D, [Term|Acc]);
 	{Term,Line,D}->
 	    parse_tuple(N-1, Line, Addr, BinAddrAdj, D, [Term|Acc])
+    end.
+
+zip_tuples(0, _T1, _T2, Acc) ->
+    Acc;
+zip_tuples(N, T1, T2, Acc) when N =< tuple_size(T1) ->
+    zip_tuples(N-1, T1, T2, [{element(N, T1),element(N, T2)}|Acc]).
+
+flatten_hashmap_nodes(Tuple) ->
+    flatten_hashmap_nodes_1(tuple_size(Tuple), Tuple, []).
+
+flatten_hashmap_nodes_1(0, _Tuple, Acc) ->
+    Acc;
+flatten_hashmap_nodes_1(N, Tuple0, Acc0) ->
+    case element(N, Tuple0) of
+        [K|V] ->
+            flatten_hashmap_nodes_1(N-1, Tuple0, [{K,V}|Acc0]);
+        Tuple when is_tuple(Tuple) ->
+            Acc = flatten_hashmap_nodes_1(N-1, Tuple0, Acc0),
+            flatten_hashmap_nodes_1(tuple_size(Tuple), Tuple, Acc)
     end.
 
 parse_term([$H|Line0], BinAddrAdj, D) ->        %Pointer to heap term.

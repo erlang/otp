@@ -513,6 +513,22 @@ special(File,Procs) ->
             io:format("  unicode table name ok",[]),
 
             ok;
+        ".maps" ->
+	    %% I registered a process as aaaaaaaa_maps in the map dump
+	    %% to make sure it will be the first in the list when sorted
+	    %% on names.
+	    [#proc{pid=Pid0,name=Name}|_Rest] = lists:keysort(#proc.name,Procs),
+            "aaaaaaaa_maps" = Name,
+	    Pid = pid_to_list(Pid0),
+	    {ok,ProcDetails=#proc{},[]} = crashdump_viewer:proc_details(Pid),
+	    io:format("  process details ok",[]),
+
+	    #proc{dict=Dict} = ProcDetails,
+            io:format("~p\n", [Dict]),
+            Maps = crashdump_helper:create_maps(),
+            Maps = proplists:get_value(maps,Dict),
+            io:format("  maps ok",[]),
+            ok;
 	_ ->
 	    ok
     end,
@@ -582,8 +598,9 @@ do_create_dumps(DataDir,Rel) ->
                                  "-env ERL_CRASH_DUMP_BYTES " ++
                                      integer_to_list(Bytes)),
             CD6 = dump_with_unicode_atoms(DataDir,Rel,"unicode"),
+            CD7 = dump_with_maps(DataDir,Rel,"maps"),
             TruncatedDumps = truncate_dump(CD1),
-	    {[CD1,CD2,CD3,CD4,CD5,CD6|TruncatedDumps], DosDump};
+	    {[CD1,CD2,CD3,CD4,CD5,CD6,CD7|TruncatedDumps], DosDump};
 	_ ->
 	    {[CD1,CD2], DosDump}
     end.
@@ -695,6 +712,16 @@ dump_with_unicode_atoms(DataDir,Rel,DumpName) ->
     PzOpt = [{args,Pz}],
     {ok,N1} = ?t:start_node(n1,peer,Opt ++ PzOpt),
     {ok,_Pid} = rpc:call(N1,crashdump_helper_unicode,start,[]),
+    CD = dump(N1,DataDir,Rel,DumpName),
+    ?t:stop_node(n1),
+    CD.
+
+dump_with_maps(DataDir,Rel,DumpName) ->
+    Opt = rel_opt(Rel),
+    Pz = "-pz \"" ++ filename:dirname(code:which(?MODULE)) ++ "\"",
+    PzOpt = [{args,Pz}],
+    {ok,N1} = ?t:start_node(n1,peer,Opt ++ PzOpt),
+    {ok,_Pid} = rpc:call(N1,crashdump_helper,dump_maps,[]),
     CD = dump(N1,DataDir,Rel,DumpName),
     ?t:stop_node(n1),
     CD.

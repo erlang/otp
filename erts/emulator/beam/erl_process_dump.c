@@ -32,6 +32,7 @@
 #include "dist.h"
 #include "beam_catches.h"
 #include "erl_binary.h"
+#include "erl_map.h"
 #define ERTS_WANT_EXTERNAL_TAGS
 #include "external.h"
 
@@ -498,11 +499,77 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
 		    erts_print(to, to_arg, "p<%beu.%beu>\n",
 			       port_channel_no(x), port_number(x));
 		    *ptr = OUR_NIL;
+		} else if (is_map_header(hdr)) {
+                    if (is_flatmap_header(hdr)) {
+                        flatmap_t* fmp = (flatmap_t *) flatmap_val(x);
+                        Eterm* values = ptr + sizeof(flatmap_t) / sizeof(Eterm);
+                        Uint map_size = fmp->size;
+                        int i;
+
+                        erts_print(to, to_arg, "Mf" ETERM_FMT ":", map_size);
+                        dump_element(to, to_arg, fmp->keys);
+                        erts_putc(to, to_arg, ':');
+                        for (i = 0; i < map_size; i++) {
+                            dump_element(to, to_arg, values[i]);
+                            if (is_immed(values[i])) {
+                                values[i] = make_small(0);
+                            }
+                            if (i < map_size-1) {
+                                erts_putc(to, to_arg, ',');
+                            }
+                        }
+                        erts_putc(to, to_arg, '\n');
+                        *ptr = OUR_NIL;
+                        x = fmp->keys;
+                        if (map_size) {
+                            fmp->keys = (Eterm) next;
+                            next = &values[map_size-1];
+                        }
+                        continue;
+                    } else {
+                        Uint i;
+                        Uint sz = 0;
+                        Eterm* nodes = ptr + 1;
+
+                        switch (MAP_HEADER_TYPE(hdr)) {
+                        case MAP_HEADER_TAG_HAMT_HEAD_ARRAY:
+                            nodes++;
+                            sz = 16;
+                            erts_print(to, to_arg, "Mh" ETERM_FMT ":" ETERM_FMT ":",
+                                       hashmap_size(x), sz);
+                            break;
+                        case MAP_HEADER_TAG_HAMT_HEAD_BITMAP:
+                            nodes++;
+                            sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                            erts_print(to, to_arg, "Mh" ETERM_FMT ":" ETERM_FMT ":",
+                                       hashmap_size(x), sz);
+                            break;
+                        case MAP_HEADER_TAG_HAMT_NODE_BITMAP:
+                            sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                            erts_print(to, to_arg, "Mn" ETERM_FMT ":", sz);
+                            break;
+                        }
+                        *ptr = OUR_NIL;
+                        for (i = 0; i < sz; i++) {
+                            dump_element(to, to_arg, nodes[i]);
+                            if (is_immed(nodes[i])) {
+                                nodes[i] = make_small(0);
+                            }
+                            if (i < sz-1) {
+                                erts_putc(to, to_arg, ',');
+                            }
+                        }
+                        erts_putc(to, to_arg, '\n');
+                        x = nodes[0];
+                        nodes[0] = (Eterm) next;
+                        next = &nodes[sz-1];
+                        continue;
+                    }
 		} else {
 		    /*
 		     * All other we dump in the external term format.
 		     */
-			dump_externally(to, to_arg, x);
+                    dump_externally(to, to_arg, x);
 		    erts_putc(to, to_arg, '\n');
 		    *ptr = OUR_NIL;
 		}
@@ -562,11 +629,6 @@ dump_externally(fmtfn_t to, void *to_arg, Eterm term)
 	for (i = 0; i < num_free; i++) {
 	    funp->env[i] = NIL;
 	}
-    }
-
-    /* Do not handle maps */
-    if (is_map(term)) {
-        term = am_undefined;
     }
 
     s = p = sbuf;
