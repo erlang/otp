@@ -23,12 +23,16 @@
 <xsl:stylesheet version="1.0"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns:exsl="http://exslt.org/common"
-  extension-element-prefixes="exsl"
-  xmlns:fo="http://www.w3.org/1999/XSL/Format">
+  xmlns:func="http://exslt.org/functions"
+  xmlns:erl="http://erlang.org"
+  extension-element-prefixes="exsl func"
+  xmlns:fo="http://www.w3.org/1999/XSL/Format"
+  xmlns:fn="http://www.w3.org/2005/02/xpath-functions">
 
   <xsl:output method="xml" indent="yes"/>
 
   <xsl:include href="db_pdf_params.xsl"/>
+  <xsl:include href="db_funcs.xsl"/>
 
   <!-- Start of Dialyzer type/spec tags.
        See also the templates matching "name" and "seealso" as well as
@@ -1234,7 +1238,14 @@
     </xsl:variable>
 
     <fo:block xsl:use-attribute-sets="code">
-      <xsl:apply-templates select="text()"/>
+      <xsl:choose> 
+	<xsl:when test="not(descendant::anno)">
+	  <xsl:value-of select="erl:code_trim(text())"/>
+	</xsl:when>
+	<xsl:otherwise>
+	  <xsl:apply-templates/>
+	</xsl:otherwise>
+      </xsl:choose>	
     </fo:block>
 
     <xsl:if test="@caption">
