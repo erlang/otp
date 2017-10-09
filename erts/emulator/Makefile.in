@@ -739,6 +739,25 @@ $(OBJDIR)/%_pu.gcda: $(OBJDIR)/PROFILE
 $(OBJDIR)/default.profdata: $(OBJDIR)/PROFILE
 	$(V_LLVM_PROFDATA) merge -output $@ $(OBJDIR)/*.profraw
 
+ifeq ($(ERTS_BUILD_FALLBACK_POLL),yes)
+# Have to treat erl_poll differently as the same .c file is used
+# twice for kernel poll builds.
+$(OBJDIR)/erl_poll.o: sys/common/erl_poll.c
+	$(V_CC) -DERTS_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+
+# Do a copy in order to make debuggers less confused
+$(TTF_DIR)/erl_poll.flbk.c: sys/common/erl_poll.c
+	$(V_at) cp $< $@
+	@touch $@
+
+$(OBJDIR)/erl_poll.flbk.o: $(TTF_DIR)/erl_poll.flbk.c
+	$(V_CC) -DERTS_NO_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
+endif
+
+
+# ----------------------------------------------------------------------
+# General targets
+#
 $(OBJDIR)/%.o: beam/%.c
 	$(V_CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
@@ -771,12 +790,6 @@ CS_OBJ = $(OBJDIR)/erl_child_setup.o $(OBJDIR)/sys_uds.o $(OBJDIR)/hash.o
 $(BINDIR)/$(CS_EXECUTABLE): $(TTF_DIR)/GENERATED $(PRELOAD_SRC) $(CS_OBJ) $(ERTS_LIB)
 	$(ld_verbose)$(CS_PURIFY) $(LD) $(CS_LDFLAGS) -o $(BINDIR)/$(CS_EXECUTABLE) \
                $(CS_CFLAGS) $(COMMON_INCLUDES) $(CS_OBJ) $(CS_LIBS)
-
-$(OBJDIR)/%.kp.o: sys/common/%.c
-	$(V_CC) -DERTS_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
-
-$(OBJDIR)/%.nkp.o: sys/common/%.c
-	$(V_CC) -DERTS_NO_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
 ifeq ($(GCC),yes)
 
@@ -928,20 +941,18 @@ $(STATIC_NIF_LIBS) $(STATIC_DRIVER_LIBS):
 	echo "=== Leaving lib after making static libs"
 endif
 
-ifeq ($(ERTS_BUILD_FALLBACK_POLL),yes)
-OS_OBJS += 	$(OBJDIR)/erl_poll.kp.o \
-		$(OBJDIR)/erl_poll.nkp.o
-else
-OS_OBJS +=	$(OBJDIR)/erl_poll.o
-endif
-
-OS_OBJS +=	$(OBJDIR)/erl_check_io.o \
+OS_OBJS +=	$(OBJDIR)/erl_poll.o \
+		$(OBJDIR)/erl_check_io.o \
 		$(OBJDIR)/erl_mseg.o \
 		$(OBJDIR)/erl_mmap.o \
 		$(OBJDIR)/erl_$(ERLANG_OSTYPE)_sys_ddll.o \
 		$(OBJDIR)/erl_mtrace_sys_wrap.o \
 		$(OBJDIR)/erl_sys_common_misc.o \
 		$(OBJDIR)/erl_os_monotonic_time_extender.o
+
+ifeq ($(ERTS_BUILD_FALLBACK_POLL),yes)
+OS_OBJS += 	$(OBJDIR)/erl_poll.flbk.o
+endif
 
 HIPE_ARCH64_OBJS=$(OBJDIR)/hipe_bif64.o
 
@@ -1099,8 +1110,7 @@ SED_REPL_O=s|^\([^:]*:\)|$$(OBJDIR)/\1|g
 SED_REPL_O_ZLIB=s|^\([^:]*:\)|$$(ZLIB_OBJDIR)/\1|g
 SED_REPL_TTF_DIR=s|$(TTF_DIR)/|$$(TTF_DIR)/|g
 SED_REPL_ERL_TOP=s|\([ 	]\)$(ERL_TOP)/|\1$$(ERL_TOP)/|g;s|^$(ERL_TOP)/|$$(ERL_TOP)/|g
-SED_REPL_POLL=s|$$(OBJDIR)/erl_poll.o|$$(OBJDIR)/erl_poll.kp.o $$(OBJDIR)/erl_poll.nkp.o|g
-SED_REPL_CHK_IO=s|$$(OBJDIR)/erl_check_io.o|$$(OBJDIR)/erl_check_io.kp.o $$(OBJDIR)/erl_check_io.nkp.o|g
+SED_REPL_POLL=s|$$(OBJDIR)/erl_poll.o|$$(OBJDIR)/erl_poll.o $$(OBJDIR)/erl_poll.flbk.o|g
 SED_REPL_TTF_COMP_FLAGS=s|\([^/]\)erl_compile_flags\.h|\1$$(TTF_DIR)/erl_compile_flags\.h|g
 
 ifeq ($(TARGET),win32)
@@ -1111,7 +1121,7 @@ SED_PREFIX=
 endif
 
 ifeq ($(ERTS_BUILD_FALLBACK_POLL),yes)
-SED_SUFFIX=;$(SED_REPL_POLL);$(SED_REPL_CHK_IO)
+SED_SUFFIX=;$(SED_REPL_POLL)
 else
 SED_SUFFIX=
 endif
