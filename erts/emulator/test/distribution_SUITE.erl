@@ -56,6 +56,7 @@
          bad_dist_ext_process_info/1,
          bad_dist_ext_control/1,
          bad_dist_ext_connection_id/1,
+         bad_dist_ext_size/1,
 	 start_epmd_false/1, epmd_module/1]).
 
 %% Internal exports.
@@ -92,6 +93,7 @@ groups() ->
       [dist_auto_connect_never, dist_auto_connect_once]},
      {bad_dist_ext, [],
       [bad_dist_ext_receive, bad_dist_ext_process_info,
+       bad_dist_ext_size,
        bad_dist_ext_control, bad_dist_ext_connection_id]}].
 
 %% Tests pinging a node in different ways.
@@ -1672,6 +1674,57 @@ bad_dist_ext_connection_id(Config) when is_list(Config) ->
     stop_node(Offender),
     stop_node(Victim).
 
+%% OTP-14661: Bad message is discovered by erts_msg_attached_data_size
+bad_dist_ext_size(Config) when is_list(Config) ->
+    {ok, Offender} = start_node(bad_dist_ext_process_info_offender),
+    %%Prog = "Prog=/home/uabseri/src/otp_new3/bin/cerl -rr -debug",
+    Prog = [],
+    {ok, Victim} = start_node(bad_dist_ext_process_info_victim, [], Prog),
+    start_node_monitors([Offender,Victim]),
+
+    Parent = self(),
+    P = spawn_link(Victim,
+                   fun () ->
+                           Parent ! {self(), started},
+                           receive check_msgs -> ok end,  %% DID CRASH HERE
+                           bad_dist_ext_check_msgs([one]),
+                           Parent ! {self(), messages_checked}
+                   end),
+
+    receive {P, started} -> ok end,
+    P ! one,
+
+    Suspended = make_ref(),
+    S = spawn(Victim,
+              fun () ->
+                      erlang:suspend_process(P),
+                      Parent ! Suspended,
+                      receive after infinity -> ok end
+              end),
+
+    receive Suspended -> ok end,
+    pong = rpc:call(Victim, net_adm, ping, [Offender]),
+    verify_up(Offender, Victim),
+    send_bad_msgs(Offender, P, 1, dmsg_bad_tag()),
+
+    %% Make sure bad msgs has reached Victim
+    rpc:call(Offender, rpc, call, [Victim, erlang, node, []]),
+
+    verify_still_up(Offender, Victim),
+
+    rpc:call(Victim, erlang, process_info, [P, total_heap_size]),
+
+    verify_down(Offender, connection_closed, Victim, killed),
+
+    P ! check_msgs,
+    exit(S, bang),  % resume Victim
+    receive {P, messages_checked} -> ok end,
+
+    unlink(P),
+    verify_no_down(Offender, Victim),
+    stop_node(Offender),
+    stop_node(Victim).
+
 
 bad_dist_struct_check_msgs([]) ->
     receive
@@ -1775,9 +1828,12 @@ send_bad_structure(Offender,Victim,Bad,WhereToPutSelf,PayLoad) ->
 send_bad_msg(BadNode, To) ->
     send_bad_msgs(BadNode, To, 1).
 
-send_bad_msgs(BadNode, To, Repeat) when is_atom(BadNode),
-                                        is_pid(To),
-                                        is_integer(Repeat) ->
+send_bad_msgs(BadNode, To, Repeat) ->
+    send_bad_msgs(BadNode, To, Repeat, dmsg_bad_atom_cache_ref()).
+
+send_bad_msgs(BadNode, To, Repeat, BadTerm) when is_atom(BadNode),
+                                                 is_pid(To),
+                                                 is_integer(Repeat) ->
     Parent = self(),
     Done = make_ref(),
     spawn_link(BadNode,
@@ -1787,7 +1843,7 @@ send_bad_msgs(BadNode, To, Repeat) when is_atom(BadNode),
                        DPrt = dport(Node),
                        DData = [dmsg_hdr(),
                                 dmsg_ext({?DOP_SEND, ?COOKIE, To}),
-                                dmsg_bad_atom_cache_ref()],
+                                BadTerm],
                        repeat(fun () -> port_command(DPrt, DData) end, Repeat),
                        Parent ! Done
                end),
@@ -1873,6 +1929,9 @@ dmsg_ext(Term) ->
 
 dmsg_bad_atom_cache_ref() ->
     [$R, 137].
+
+dmsg_bad_tag() ->  %% Will fail early at heap size calculation
+    [$?, 66].
 
 start_epmd_false(Config) when is_list(Config) ->
     %% Start a node with the option -start_epmd false.

@@ -568,14 +568,11 @@ erts_msg_attached_data_size_aux(ErtsMessage *msg)
 
     sz = erts_decode_dist_ext_size(msg->data.dist_ext);
     if (sz < 0) {
-	/* Bad external; remove it */
-	if (is_not_nil(ERL_MESSAGE_TOKEN(msg))) {
-	    ErlHeapFragment *heap_frag;
-	    heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
-	    erts_cleanup_offheap(&heap_frag->off_heap);
-	}
-	erts_free_dist_ext_copy(msg->data.dist_ext);
-	msg->data.dist_ext = NULL;
+	/* Bad external
+	 * We leave the message intact in this case as it's not worth the trouble
+	 * to make all callers remove it from queue. It will be detected again
+	 * and removed from message queue later anyway.
+	 */
 	return 0;
     }
 
