@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -44,14 +44,14 @@
       function because the NameComponents are represented as Erlang records and 
       therefor will be removed by the garbage collector when not in use.</p>
     <p>The type <c>NameComponent</c> used below is defined as:</p>
-    <code type="none">
-      -record('CosNaming_NameComponent', {id, kind=""}).
+    <code type="erl">
+-record('CosNaming_NameComponent', {id, kind=""}).
     </code>
     <p><c>id</c> and <c>kind</c> are strings. </p>
     <p>The record is defined in the file <c>CosNaming.hrl</c> and it 
       is included with:</p>
-    <code type="none">
-      -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
+    <code type="erl">
+-include_lib("orber/COSS/CosNaming/CosNaming.hrl").
     </code>
   </description>
   <funcs>

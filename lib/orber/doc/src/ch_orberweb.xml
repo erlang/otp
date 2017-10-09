@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -208,8 +208,7 @@
     <p>You may choose to start OrberWeb on node, on which Orber is running or not. But
       the Erlang distribution must be started (e.g. by using -sname aNodeName). Now, all 
       you have to do is to invoke:</p>
-    <code type="none">
-    
+    <code type="none">    
 erl> webtool:start().
 WebTool is available at http://localhost:8888/
 Or  http://127.0.0.1:8888/
