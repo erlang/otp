@@ -43,6 +43,23 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An inadvertently removed monitor in diameter 2.1 caused
+	    the ets table diameter_reg to leak entries, and caused
+	    service restart and more to fail.</p>
+          <p>
+	    Own Id: OTP-14668 Aux Id: ERIERL-83 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
