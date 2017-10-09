@@ -419,9 +419,11 @@ erts_install_breakpoints(BpFunctions* f)
 
     for (i = 0; i < n; i++) {
 	ErtsCodeInfo* ci = f->matching[i].ci;
-        BeamInstr *pc = erts_codeinfo_to_code(ci);
 	GenericBp* g = ci->u.gen_bp;
-	if (*pc != br && g) {
+        BeamInstr volatile *pc = erts_codeinfo_to_code(ci);
+        BeamInstr instr = *pc;
+
+	if (!BeamIsOpCode(instr, op_i_generic_breakpoint) && g) {
 	    Module* modp = f->matching[i].mod;
 
 	    /*
@@ -435,11 +437,16 @@ erts_install_breakpoints(BpFunctions* f)
 	    /*
 	     * The following write is not protected by any lock. We
 	     * assume that the hardware guarantees that a write of an
-	     * aligned word-size (or half-word) writes is atomic
-	     * (i.e. that other processes executing this code will not
-	     * see a half pointer).
+	     * aligned word-size writes is atomic (i.e. that other
+	     * processes executing this code will not see a half
+	     * pointer).
+             *
+             * The contents of *pc is marked 'volatile' to ensure that
+             * the compiler will do a single full-word write, and not
+             * try any fancy optimizations to write a half word.
 	     */
-	    *pc = br;
+            instr = BeamSetCodeAddr(instr, br);
+            *pc = instr;
 	    modp->curr.num_breakpoints++;
 	}
     }

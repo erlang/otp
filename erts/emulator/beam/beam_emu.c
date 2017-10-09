@@ -50,14 +50,16 @@
 #if defined(NO_JUMP_TABLE)
 #  define OpCase(OpCode)    case op_##OpCode
 #  define CountCase(OpCode) case op_count_##OpCode
-#  define IsOpCode(InstrWord, OpCode)  ((InstrWord) == (BeamInstr)op_##OpCode)
-#  define Goto(Rel) {Go = (Rel); goto emulator_loop;}
+#  define IsOpCode(InstrWord, OpCode)  (BeamCodeAddr(InstrWord) == (BeamInstr)op_##OpCode)
+#  define Goto(Rel)         {Go = BeamCodeAddr(Rel); goto emulator_loop;}
+#  define GotoPF(Rel)       Goto(Rel)
 #else
 #  define OpCase(OpCode)    lb_##OpCode
 #  define CountCase(OpCode) lb_count_##OpCode
-#  define IsOpCode(InstrWord, OpCode)  ((InstrWord) == (BeamInstr)&&lb_##OpCode)
-#  define Goto(Rel) goto *((void *)Rel)
-#  define LabelAddr(Label) &&Label
+#  define IsOpCode(InstrWord, OpCode)  (BeamCodeAddr(InstrWord) == (BeamInstr)&&lb_##OpCode)
+#  define Goto(Rel)         goto *((void *)BeamCodeAddr(Rel))
+#  define GotoPF(Rel)       goto *((void *)Rel)
+#  define LabelAddr(Label)  &&Label
 #endif
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -131,11 +133,11 @@ do {                                     \
 
 /* We don't check the range if an ordinary switch is used */
 #ifdef NO_JUMP_TABLE
-#define VALID_INSTR(IP) ((UWord)(IP) < (NUMBER_OF_OPCODES*2+10))
+#  define VALID_INSTR(IP) (BeamCodeAddr(IP) < (NUMBER_OF_OPCODES*2+10))
 #else
-#define VALID_INSTR(IP) \
-   ((SWord)LabelAddr(emulator_loop) <= (SWord)(IP) && \
-    (SWord)(IP) < (SWord)LabelAddr(end_emulator_loop))
+#  define VALID_INSTR(IP) \
+    ((BeamInstr)LabelAddr(emulator_loop) <= BeamCodeAddr(IP) && \
+     BeamCodeAddr(IP) < (BeamInstr)LabelAddr(end_emulator_loop))
 #endif /* NO_JUMP_TABLE */
 
 #define SET_CP(p, ip)           \
@@ -234,15 +236,18 @@ void** beam_ops;
 #define fb(N) ((Sint)(Sint32)(N))
 #define jb(N) ((Sint)(Sint32)(N))
 #define tb(N) (N)
-#define xb(N) (*(Eterm *) (((unsigned char *)reg) + (N)))
-#define yb(N) (*(Eterm *) (((unsigned char *)E) + (N)))
+#define xb(N) (*ADD_BYTE_OFFSET(reg, N))
+#define yb(N) (*ADD_BYTE_OFFSET(E, N))
 #define Sb(N) (*REG_TARGET_PTR(N))
 #define lb(N) (*(double *) (((unsigned char *)&(freg[0].fd)) + (N)))
 #define Qb(N) (N)
 #define Ib(N) (N)
+
 #define x(N) reg[N]
 #define y(N) E[N]
 #define r(N) x(N)
+#define Q(N) (N*sizeof(Eterm *))
+#define l(N) (freg[N].fd)
 
 /*
  * Check that we haven't used the reductions and jump to function pointed to by
@@ -1005,6 +1010,18 @@ init_emulator_finish(void)
 {
      int i;
      Export* ep;
+
+#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
+     for (i = 0; i < NUMBER_OF_OPCODES; i++) {
+         BeamInstr instr = BeamOpCodeAddr(i);
+         if (instr >= (1ull << 32)) {
+             erts_exit(ERTS_ERROR_EXIT,
+                       "This run-time was supposed be compiled with all code below 2Gb,\n"
+                       "but the instruction '%s' is located at %016lx.\n",
+                       opc[i].name, instr);
+         }
+     }
+#endif
 
      beam_apply[0]             = BeamOpCodeAddr(op_i_apply);
      beam_apply[1]             = BeamOpCodeAddr(op_normal_exit);

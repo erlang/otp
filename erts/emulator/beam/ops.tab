@@ -99,21 +99,21 @@ line Loc | func_info M F A => func_info M F A | line Loc
 
 line I
 
-allocate t t
-allocate_heap t I t
+allocate t t?
+allocate_heap t I t?
 
 %cold
 deallocate Q
 %hot
 
 init y
-allocate_zero t t
-allocate_heap_zero t I t
+allocate_zero t t?
+allocate_heap_zero t I t?
 
 trim N Remaining => i_trim N
 i_trim t
 
-test_heap I t
+test_heap I t?
 
 allocate_heap S u==0 R => allocate S R
 allocate_heap_zero S u==0 R => allocate_zero S R
@@ -158,19 +158,19 @@ is_tuple Fail=f S | select_tuple_arity S=d Fail=f Size=u Rest=* => \
 select_tuple_arity S=d Fail=f Size=u Rest=* => \
   gen_select_tuple_arity(S, Fail, Size, Rest)
 
-i_select_val_bins xy f I
+i_select_val_bins xy f? I
 
-i_select_val_lins xy f I
+i_select_val_lins xy f? I
 
-i_select_val2 xy f c c
+i_select_val2 xy f? c c
 
-i_select_tuple_arity xy f I
+i_select_tuple_arity xy f? I
 
-i_select_tuple_arity2 xy f A A
+i_select_tuple_arity2 xy f? A A
 
-i_jump_on_val_zero xy f I
+i_jump_on_val_zero xy f? I
 
-i_jump_on_val xy f I W
+i_jump_on_val xy f? I W
 
 get_list xy xy xy
 
@@ -213,9 +213,9 @@ i_get_tuple_element2y x P y y
 i_get_tuple_element3 x P x
 
 %cold
-is_number f x
-is_number f y
+is_number f? xy
 %hot
+
 is_number Fail=f i =>
 is_number Fail=f na => jump Fail
 is_number Fail Literal=q => move Literal x | is_number Fail x
@@ -446,37 +446,37 @@ is_ne_exact Lbl C=c R=xy => is_ne_exact Lbl R C
 is_ne_exact Lbl R=xy C=ian => i_is_ne_exact_immed Lbl R C
 is_ne_exact Lbl R=xy C=q => i_is_ne_exact_literal Lbl R C
 
-i_is_eq_exact_immed f rxy c
+i_is_eq_exact_immed f? rxy c
 
-i_is_eq_exact_literal f xy c
+i_is_eq_exact_literal f? xy c
 
-i_is_ne_exact_immed f xy c
+i_is_ne_exact_immed f? xy c
 
-i_is_ne_exact_literal f xy c
+i_is_ne_exact_literal f? xy c
 
 is_eq_exact Lbl Y=y X=x => is_eq_exact Lbl X Y
-is_eq_exact f x xy
-is_eq_exact f y y
+is_eq_exact f? x xy
+is_eq_exact f? y y
 
-is_ne_exact f S S
+is_ne_exact f? S S
 
-is_lt f x x
-is_lt f x c
-is_lt f c x
+is_lt f? x x
+is_lt f? x c
+is_lt f? c x
 %cold
-is_lt f s s
+is_lt f? s s
 %hot
 
-is_ge f x x
-is_ge f x c
-is_ge f c x
+is_ge f? x x
+is_ge f? x c
+is_ge f? c x
 %cold
-is_ge f s s
+is_ge f? s s
 %hot
 
-is_eq f s s
+is_eq f? s s
 
-is_ne f s s
+is_ne f? s s
 
 #
 # Putting things.
@@ -583,7 +583,7 @@ is_tagged_tuple Fail Literal=q Arity Atom => \
     move Literal x | is_tagged_tuple Fail x Arity Atom
 is_tagged_tuple Fail=f c Arity Atom  => jump Fail
 
-is_tagged_tuple f rxy A a
+is_tagged_tuple f? rxy A a
 
 # Test tuple & arity (head)
 
@@ -591,14 +591,14 @@ is_tuple Fail Literal=q => move Literal x | is_tuple Fail x
 is_tuple Fail=f c => jump Fail
 is_tuple Fail=f S=xy | test_arity Fail=f S=xy Arity => is_tuple_of_arity Fail S Arity
 
-is_tuple_of_arity f rxy A
+is_tuple_of_arity f? rxy A
 
-is_tuple f rxy
+is_tuple f? rxy
 
 test_arity Fail Literal=q Arity => move Literal x | test_arity Fail x Arity
 test_arity Fail=f c Arity => jump Fail
 
-test_arity f xy A
+test_arity f? xy A
 
 get_tuple_element Reg=x P1 D1=x | get_tuple_element Reg=x P2 D2=x | \
    get_tuple_element Reg=x P3 D3=x | \
@@ -619,16 +619,16 @@ is_integer Fail Literal=q => move Literal x | is_integer Fail x
 
 is_integer Fail=f S=x | allocate Need Regs => is_integer_allocate Fail S Need Regs
 
-is_integer_allocate f x t t
+is_integer_allocate f? x t t
 
-is_integer f xy
+is_integer f? xy
 
 is_list Fail=f n =>
 is_list Fail Literal=q => move Literal x | is_list Fail x
 is_list Fail=f c => jump Fail
-is_list f x
+is_list f? x
 %cold
-is_list f y
+is_list f? y
 %hot
 
 is_nonempty_list Fail=f S=x | allocate Need Rs => is_nonempty_list_allocate Fail S Need Rs
@@ -638,21 +638,21 @@ is_nonempty_list F=f x==0 | test_heap I1 I2 => is_nonempty_list_test_heap F I1 I
 is_nonempty_list Fail=f S=x | get_list S D1=x D2=x => \
   is_nonempty_list_get_list Fail S D1 D2
 
-is_nonempty_list_allocate f rx t t
-is_nonempty_list_test_heap f I t
-is_nonempty_list_get_list f rx x x
-is_nonempty_list f xy
+is_nonempty_list_allocate f? rx t t
+is_nonempty_list_test_heap f? I t
+is_nonempty_list_get_list f? rx x x
+is_nonempty_list f? xy
 
-is_atom f x
+is_atom f? x
 %cold
-is_atom f y
+is_atom f? y
 %hot
 is_atom Fail=f a =>
 is_atom Fail=f niq => jump Fail
 
-is_float f x
+is_float f? x
 %cold
-is_float f y
+is_float f? y
 %hot
 is_float Fail=f nai => jump Fail
 is_float Fail Literal=q => move Literal x | is_float Fail x
@@ -660,13 +660,13 @@ is_float Fail Literal=q => move Literal x | is_float Fail x
 is_nil Fail=f n =>
 is_nil Fail=f qia => jump Fail
 
-is_nil f xy
+is_nil f? xy
 
 is_binary Fail Literal=q => move Literal x | is_binary Fail x
 is_binary Fail=f c => jump Fail
-is_binary f x
+is_binary f? x
 %cold
-is_binary f y
+is_binary f? y
 %hot
 
 # XXX Deprecated.
@@ -674,27 +674,27 @@ is_bitstr Fail Term => is_bitstring Fail Term
 
 is_bitstring Fail Literal=q => move Literal x | is_bitstring Fail x
 is_bitstring Fail=f c => jump Fail
-is_bitstring f x
+is_bitstring f? x
 %cold
-is_bitstring f y
+is_bitstring f? y
 %hot
 
 is_reference Fail=f cq => jump Fail
-is_reference f x
+is_reference f? x
 %cold
-is_reference f y
+is_reference f? y
 %hot
 
 is_pid Fail=f cq => jump Fail
-is_pid f x
+is_pid f? x
 %cold
-is_pid f y
+is_pid f? y
 %hot
 
 is_port Fail=f cq => jump Fail
-is_port f x
+is_port f? x
 %cold
-is_port f y
+is_port f? y
 %hot
 
 is_boolean Fail=f a==am_true =>
@@ -702,19 +702,19 @@ is_boolean Fail=f a==am_false =>
 is_boolean Fail=f ac => jump Fail
 
 %cold
-is_boolean f xy
+is_boolean f? xy
 %hot
 
 is_function2 Fail=f acq Arity => jump Fail
 is_function2 Fail=f Fun a => jump Fail
 
-is_function2 f S s
+is_function2 f? S s
 
 # Allocating & initializing.
 allocate Need Regs | init Y => allocate_init Need Regs Y
 init Y1 | init Y2 => init2 Y1 Y2
 
-allocate_init t t y
+allocate_init t t? y
 
 #################################################################
 # External function and bif calls.
@@ -1004,13 +1004,13 @@ node y
 
 # Note: 'I' is sufficient because this instruction will only be used
 # if the arity fits in 24 bits.
-i_fast_element xy j I d
+i_fast_element xy j? I d
 
-i_element xy j s d
+i_element xy j? s d
 
-bif1 f b s d
+bif1 f? b s d
 bif1_body b s d
-i_bif2 f b s s d
+i_bif2 f? b s s d
 i_bif2_body b s s d
 
 #
@@ -1062,7 +1062,7 @@ make_fun2 OldIndex=u => gen_make_fun2(OldIndex)
 i_make_fun W t
 %hot
 
-is_function f xy
+is_function f? xy
 is_function Fail=f c => jump Fail
 
 func_info M F A => i_func_info u M F A
@@ -1091,24 +1091,24 @@ i_bs_match_string x f W W
 bs_get_integer2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_integer2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_integer_small_imm x W f t x
-i_bs_get_integer_imm x W t f t x
-i_bs_get_integer f t t x s x
-i_bs_get_integer_8 x f x
-i_bs_get_integer_16 x f x
+i_bs_get_integer_small_imm x W f? t x
+i_bs_get_integer_imm x W t f? t x
+i_bs_get_integer f? t t x s x
+i_bs_get_integer_8 x f? x
+i_bs_get_integer_16 x f? x
 
 %if ARCH_64
-i_bs_get_integer_32 x f x
+i_bs_get_integer_32 x f? x
 %endif
 
 # Fetching binaries from binaries.
 bs_get_binary2 Fail=f Ms=x Live=u Sz=sq Unit=u Flags=u Dst=d => \
 			gen_get_binary2(Fail, Ms, Live, Sz, Unit, Flags, Dst)
 
-i_bs_get_binary_imm2 f x t W t x
-i_bs_get_binary2 f x t s t x
-i_bs_get_binary_all2 f x t t x
-i_bs_get_binary_all_reuse x f t
+i_bs_get_binary_imm2 f? x t W t x
+i_bs_get_binary2 f x t? s t x
+i_bs_get_binary_all2 f? x t t x
+i_bs_get_binary_all_reuse x f? t
 
 # Fetching float from binaries.
 bs_get_float2 Fail=f Ms=x Live=u Sz=s Unit=u Flags=u Dst=d => \
@@ -1116,28 +1116,31 @@ bs_get_float2 Fail=f Ms=x Live=u Sz=s Unit=u Flags=u Dst=d => \
 
 bs_get_float2 Fail=f Ms=x Live=u Sz=q Unit=u Flags=u Dst=d => jump Fail
 
-i_bs_get_float2 f x t s t x
+i_bs_get_float2 f? x t s t x
 
 # Miscellanous
 
 bs_skip_bits2 Fail=f Ms=x Sz=sq Unit=u Flags=u => \
 			gen_skip_bits2(Fail, Ms, Sz, Unit, Flags)
 
-i_bs_skip_bits_imm2 f x W
-i_bs_skip_bits2 f x xy t
-i_bs_skip_bits_all2 f x t
+i_bs_skip_bits_imm2 f? x W
+i_bs_skip_bits2 f? x xy t
+i_bs_skip_bits_all2 f? x t
 
 bs_test_tail2 Fail=f Ms=x Bits=u==0 => bs_test_zero_tail2 Fail Ms
 bs_test_tail2 Fail=f Ms=x Bits=u => bs_test_tail_imm2 Fail Ms Bits
-bs_test_zero_tail2 f x
-bs_test_tail_imm2 f x W
+bs_test_zero_tail2 f? x
+bs_test_tail_imm2 f? x W
 
 bs_test_unit F Ms Unit=u==8 => bs_test_unit8 F Ms
-bs_test_unit f x t
-bs_test_unit8 f x
+bs_test_unit f? x t
+bs_test_unit8 f? x
 
 # An y register operand for bs_context_to_binary is rare,
 # but can happen because of inlining.
+
+bs_context_to_binary Y=y | line L | badmatch Y => \
+    move Y x | bs_context_to_binary x | line L | badmatch x
 
 bs_context_to_binary Y=y => move Y x | bs_context_to_binary x
 
@@ -1147,14 +1150,14 @@ bs_context_to_binary x
 # Utf8/utf16/utf32 support. (R12B-5)
 #
 bs_get_utf8 Fail=f Ms=x u u Dst=d => i_bs_get_utf8 Ms Fail Dst
-i_bs_get_utf8 x f x
+i_bs_get_utf8 x f? x
 
 bs_skip_utf8 Fail=f Ms=x u u => i_bs_get_utf8 Ms Fail x
 
 bs_get_utf16 Fail=f Ms=x u Flags=u Dst=d => i_bs_get_utf16 Ms Fail Flags Dst
 bs_skip_utf16 Fail=f Ms=x u Flags=u => i_bs_get_utf16 Ms Fail Flags x
 
-i_bs_get_utf16 x f t x
+i_bs_get_utf16 x f? t x
 
 bs_get_utf32 Fail=f Ms=x Live=u Flags=u Dst=d => \
 	bs_get_integer2 Fail Ms Live i=32 u=1 Flags Dst | \
@@ -1183,13 +1186,13 @@ bs_init2 Fail Sz Words=u==0 Regs Flags Dst => \
 bs_init2 Fail Sz Words Regs Flags Dst => \
   i_bs_init_fail_heap Sz Words Fail Regs Dst
 
-i_bs_init_fail xy j t x
+i_bs_init_fail xy j? t? x
 
-i_bs_init_fail_heap s I j t x
+i_bs_init_fail_heap s I j? t? x
 
-i_bs_init W t x
+i_bs_init W t? x
 
-i_bs_init_heap W I t x
+i_bs_init_heap W I t? x
 
 
 bs_init_bits Fail Sz=o Words Regs Flags Dst => system_limit Fail
@@ -1202,16 +1205,16 @@ bs_init_bits Fail Sz Words=u==0 Regs Flags Dst => \
 bs_init_bits Fail Sz Words Regs Flags Dst => \
   i_bs_init_bits_fail_heap Sz Words Fail Regs Dst
 
-i_bs_init_bits_fail xy j t x
+i_bs_init_bits_fail xy j? t? x
 
-i_bs_init_bits_fail_heap s I j t x
+i_bs_init_bits_fail_heap s I j? t? x
 
-i_bs_init_bits W t x
-i_bs_init_bits_heap W I t x
+i_bs_init_bits W t? x
+i_bs_init_bits_heap W I t? x
 
 bs_add Fail S1=i==0 S2 Unit=u==1 D => move S2 D
 
-bs_add j s s t x
+bs_add j? s s t? x
 
 bs_append Fail Size Extra Live Unit Bin Flags Dst => \
   move Bin x | i_bs_append Fail Extra Live Unit Size Dst
@@ -1221,8 +1224,8 @@ bs_private_append Fail Size Unit Bin Flags Dst => \
 
 bs_init_writable
 
-i_bs_append j I t t s x
-i_bs_private_append j t s S x
+i_bs_append j? I t? t s x
+i_bs_private_append j? t s S x
 
 #
 # Storing integers into binaries.
@@ -1231,8 +1234,8 @@ i_bs_private_append j t s S x
 bs_put_integer Fail=j Sz=sq Unit=u Flags=u Src=s => \
 			gen_put_integer(Fail, Sz, Unit, Flags, Src)
 
-i_new_bs_put_integer j s t s
-i_new_bs_put_integer_imm j W t s
+i_new_bs_put_integer j? s t s
+i_new_bs_put_integer_imm j? W t s
 
 #
 # Utf8/utf16/utf32 support. (R12B-5)
@@ -1248,14 +1251,14 @@ i_bs_utf16_size s x
 
 bs_put_utf8 Fail u Src=s => i_bs_put_utf8 Fail Src
 
-i_bs_put_utf8 j s
+i_bs_put_utf8 j? s
 
-bs_put_utf16 j t s
+bs_put_utf16 j? t s
 
 bs_put_utf32 Fail=j Flags=u Src=s => \
    i_bs_validate_unicode Fail Src | bs_put_integer Fail i=32 u=1 Flags Src
 
-i_bs_validate_unicode j s
+i_bs_validate_unicode j? s
 
 #
 # Storing floats into binaries.
@@ -1265,8 +1268,8 @@ bs_put_float Fail Sz=q Unit Flags Val => badarg Fail
 bs_put_float Fail=j Sz=s Unit=u Flags=u Src=s => \
 			gen_put_float(Fail, Sz, Unit, Flags, Src)
 
-i_new_bs_put_float j s t s
-i_new_bs_put_float_imm j W t s
+i_new_bs_put_float j? s t s
+i_new_bs_put_float_imm j? W t s
 
 #
 # Storing binaries into binaries.
@@ -1275,9 +1278,9 @@ i_new_bs_put_float_imm j W t s
 bs_put_binary Fail=j Sz=s Unit=u Flags=u Src=s => \
 			gen_put_binary(Fail, Sz, Unit, Flags, Src)
 
-i_new_bs_put_binary j s t s
-i_new_bs_put_binary_imm j W s
-i_new_bs_put_binary_all j s t
+i_new_bs_put_binary j? s t s
+i_new_bs_put_binary_imm j? W s
+i_new_bs_put_binary_all j? s t
 
 #
 # Warning: The i_bs_put_string and i_new_bs_put_string instructions
@@ -1391,12 +1394,12 @@ new_map Dst Live Size Rest=* | is_small_map_literal_keys(Size, Rest) => \
 new_map d t I
 i_new_small_map_lit d t q
 update_map_assoc s d t I
-update_map_exact j s d t I
+update_map_exact j? s d t I
 
 is_map Fail Lit=q | literal_is_map(Lit) =>
 is_map Fail cq => jump Fail
 
-is_map f xy
+is_map f? xy
 
 ## Transform has_map_fields #{ K1 := _, K2 := _ } to has_map_elements
 
@@ -1410,14 +1413,14 @@ get_map_elements Fail Src=xy Size=u==2 Rest=* => \
 get_map_elements Fail Src Size Rest=* | map_key_sort(Size, Rest) => \
    gen_get_map_elements(Fail, Src, Size, Rest)
 
-i_get_map_elements f s I
+i_get_map_elements f? s I
 
 i_get_map_element Fail Src=xy Key=y Dst => \
     move Key x | i_get_map_element Fail Src x Dst
 
-i_get_map_element_hash f xy c I xy
+i_get_map_element_hash f? xy c I xy
 
-i_get_map_element f xy x xy
+i_get_map_element f? xy x xy
 
 #
 # Convert the plus operations to a generic plus instruction.
@@ -1485,32 +1488,32 @@ gc_bif1 Fail I u$bif:erlang:bnot/1 Src Dst=d => i_int_bnot Fail Src I Dst
 
 i_increment rxy W t d
 
-i_plus x xy j t d
-i_plus s s  j t d
+i_plus x xy j? t d
+i_plus s s  j? t d
 
-i_minus x x j t d
-i_minus s s j t d
+i_minus x x j? t d
+i_minus s s j? t d
 
-i_times j t s s d
+i_times j? t s s d
 
-i_m_div j t s s d
-i_int_div j t s s d
+i_m_div j? t s s d
+i_int_div j? t s s d
 
-i_rem x x j t d
-i_rem s s j t d
+i_rem x x j? t d
+i_rem s s j? t d
 
-i_bsl s s j t d
-i_bsr s s j t d
+i_bsl s s j? t d
+i_bsr s s j? t d
 
-i_band x c j t d
-i_band s s j t d
+i_band x c j? t d
+i_band s s j? t d
 
-i_bor j I s s d
-i_bxor j I s s d
+i_bor j? I s s d
+i_bxor j? I s s d
 
 i_int_bnot Fail Src=c Live Dst => move Src x | i_int_bnot Fail x Live Dst
 
-i_int_bnot j S t d
+i_int_bnot j? S t d
 
 #
 # Old guard BIFs that creates heap fragments are no longer allowed.
@@ -1534,9 +1537,9 @@ gc_bif2 Fail I Bif S1 S2 Dst => \
 gc_bif3 Fail I Bif S1 S2 S3 Dst => \
 	gen_guard_bif3(Fail, I, Bif, S1, S2, S3, Dst)
 
-i_gc_bif1 j W s t d
+i_gc_bif1 j? W s t? d
 
-i_gc_bif2 j W t s s d
+i_gc_bif2 j? W t? s s d
 
 ii_gc_bif3/7
 
@@ -1545,7 +1548,7 @@ ii_gc_bif3/7
 ii_gc_bif3 Fail Bif Live S1 S2 S3 Dst => \
   move S1 x | i_gc_bif3 Fail Bif Live S2 S3 Dst
 
-i_gc_bif3 j W t s s d
+i_gc_bif3 j? W t? s s d
 
 #
 # The following instruction is specially handled in beam_load.c
