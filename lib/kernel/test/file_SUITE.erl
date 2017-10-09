@@ -654,6 +654,10 @@ cur_dir_0(Config) when is_list(Config) ->
 	    {ok,NewDirFiles} = ?FILE_MODULE:list_dir("."),
 	    true = lists:member(UncommonName,NewDirFiles),
 
+	    %% Ensure that we get the same result with a trailing slash; the
+	    %% APIs used on Windows will choke on them if passed directly.
+	    {ok,NewDirFiles} = ?FILE_MODULE:list_dir("./"),
+
 	    %% Delete the directory and return to the old current directory
 	    %% and check that the created file isn't there (too!)
 	    expect({error, einval}, {error, eacces}, 
