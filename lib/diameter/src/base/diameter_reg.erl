@@ -238,7 +238,11 @@ handle_call({add, Uniq, Key}, {Pid, _}, S) ->
     Rec = {Key, Pid},
     NS = flush(Uniq, Rec, S),  %% before insert
     {Res, New} = insert(Uniq, Rec),
-    {reply, Res, notify(add, New andalso Rec, NS)};
+    {reply, Res, notify(add, New andalso Rec, if New ->
+                                                      add_monitor(Pid, NS);
+                                                 true ->
+                                                      NS
+                                              end)};
 
 handle_call({remove, Key}, {Pid, _}, S) ->
     Rec = {Key, Pid},
