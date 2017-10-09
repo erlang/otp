@@ -71,6 +71,11 @@ list_to_binary([Compressed|Last])</pre>
       called prior to a call to
       <seealso marker="#inflate/2"><c>inflate/2</c></seealso>.
       </item>
+      <tag><c>not_on_controlling_process</c></tag>
+      <item>The stream was used by a process that doesn't control it. Use
+      <seealso marker="#set_controlling_process/2">
+      <c>set_controlling_process/2</c></seealso> if you need to transfer
+      a stream to a different process.</item>
       <tag><c>data_error</c></tag>
       <item>The data contains errors.
       </item>
@@ -736,6 +741,15 @@ loop(Z, Handler, {finished, Output}) ->
           <p>This function is deprecated and will be removed in a future
              release.</p>
         </warning>
+      </desc>
+    </func>
+
+    <func>
+      <name name="set_controlling_process" arity="2"/>
+      <fsummary>Transfers ownership of a zlib stream.</fsummary>
+      <desc>
+        <p>Changes the controlling process of <c><anno>Z</anno></c> to
+           <c><anno>Pid</anno></c>, which must be a local process.</p>
       </desc>
     </func>
 
