@@ -261,7 +261,6 @@ JAVADOC-GENERATED
 
 # edoc
 
-/lib/edoc/priv/edoc_generate
 /lib/edoc/src/edoc_parser.erl
 
 # erts

@@ -58,7 +58,7 @@ XML_REF3_FILES = \
 	mod_alias.xml \
 	mod_auth.xml \
 	mod_esi.xml \
-	mod_security.xml	
+	mod_security.xml
 
 XML_PART_FILES = \
 	part.xml
@@ -83,7 +83,7 @@ HTML_FILES = \
 	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
 
 INFO_FILE = ../../info
-EXTRA_FILES = summary.html.src \
+EXTRA_FILES = \
 	$(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html) \
 	$(XML_REF6_FILES:%.xml=$(HTMLDIR)/%.html) \
 	$(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
@@ -95,10 +95,10 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
@@ -119,25 +119,25 @@ html: gifs $(HTML_REF_MAN_FILE)
 clean clean_docs: clean_html clean_man clean_pdf
 	rm -f errs core *~
 
-man: $(MAN3_FILES) 
+man: $(MAN3_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
-debug opt: 
+debug opt:
 
-clean_pdf: 
+clean_pdf:
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 
-clean_html: 
+clean_html:
 	rm -rf $(TOP_HTML_FILES) $(HTMLDIR)/*
 
 clean_man:
-	rm -f $(MAN3_FILES) 
+	rm -f $(MAN3_FILES)
 
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs

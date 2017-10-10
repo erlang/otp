@@ -1,9 +1,9 @@
 #-*-makefile-*-   ; force emacs to enter makefile-mode
 
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1997-2017. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -15,7 +15,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 
 include $(ERL_TOP)/make/target.mk
@@ -66,7 +66,6 @@ HTML_REF6_FILES = $(XML_REF6_FILES:%.xml=$(HTMLDIR)/%.html)
 HTML_CHAP_FILES = $(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
 
 EXTRA_FILES = \
-        summary.html.src \
         $(DEFAULT_HTML_FILES)  \
         $(HTML_REF1_FILES)     \
         $(HTML_REF3_FILES)     \
@@ -85,18 +84,14 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
-INDEX_FILE   = index.html
-INDEX_SRC    = $(INDEX_FILE).src
-INDEX_TARGET = $(DOCDIR)/$(INDEX_FILE)
-
 GIF_TARGETS = $(GIF_FILES:%=$(HTMLDIR)/%)
 
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
@@ -106,20 +101,16 @@ $(HTMLDIR)/%.gif: %.gif			# Copy them to ../html
 
 docs: pdf html man
 
-ldocs: local_docs $(INDEX_TARGET)
+ldocs: local_docs
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
 pdf: $(TOP_PDF_FILE)
 
 html: gifs $(HTML_REF_MAN_FILE)
-html2: html $(INDEX_TARGET)
 
 clean clean_docs: clean_html clean_man clean_pdf
 	rm -f errs core *~
-
-$(INDEX_TARGET): $(INDEX_SRC) ../../vsn.mk	# Create top make file 
-	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@	# inserting version number
 
 man: man1 man3 man6 man7
 
@@ -133,7 +124,7 @@ man7: $(MAN7_FILES)
 
 gifs: $(GIF_TARGETS)
 
-debug opt: 
+debug opt:
 
 clean_pdf:
 	@echo "cleaning pdf:"
@@ -149,7 +140,6 @@ clean_man:
 clean_html:
 	@echo "cleaning html:"
 	rm -rf $(HTMLDIR)/*
-	rm -f $(INDEX_TARGET)
 
 $(MAN7DIR)/%.7: $(MIBSDIR)/%.mib
 	@echo "processing $*"
@@ -162,7 +152,7 @@ $(MAN7DIR)/%.7: $(MIBSDIR)/%.mib
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 
 $(MAN1DIR)/snmpc.1: snmpc_cmd.xml
 	date=`date +"%B %e %Y"`; \
@@ -194,7 +184,7 @@ info: info_xml info_man info_html
 	@echo "MAN6DIR: $(MAN6DIR)"
 	@echo "MAN7DIR: $(MAN7DIR)"
 
-info_man: 
+info_man:
 	@echo "man files:"
 	@echo "MAN1_FILES = $(MAN1_FILES)"
 	@echo "MAN3_FILES = $(MAN3_FILES)"
@@ -203,7 +193,7 @@ info_man:
 	@echo ""
 	@echo "MIB_FILES  = $(MIB_FILES)"
 
-info_xml: 
+info_xml:
 	@echo "xml files:"
 #	@echo "XML_REF1_FILES        = $(XML_REF1_FILES)"
 	@echo "XML_REF3_FILES        = $(XML_REF3_FILES)"
@@ -221,9 +211,7 @@ info_xml:
 info_html:
 	@echo "html files:"
 	@echo "DOCDIR = $(DOCDIR)"
-	@echo "INDEX_FILE = $(INDEX_FILE)"
-	@echo "INDEX_SRC = $(INDEX_SRC)"
-	@echo "INDEX_TARGET = $(INDEX_TARGET)"
+	@echo "HTML_REF_MAN_FILE = $(HTML_REF_MAN_FILE)"
 	@echo ""
 	@echo "HTMLDIR = $(HTMLDIR)"
 	@echo "HTML_APP_FILES  = $(HTML_APP_FILES)"
