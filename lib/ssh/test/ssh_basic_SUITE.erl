@@ -46,6 +46,7 @@
 	 exec_key_differs2/1,
 	 exec_key_differs3/1,
 	 exec_key_differs_fail/1,
+         fail_daemon_start/1,
 	 idle_time_client/1,
 	 idle_time_server/1,
 	 inet6_option/1,
@@ -105,6 +106,7 @@ all() ->
      {group, host_user_key_differs},
      {group, key_cb},
      {group, internal_error},
+     {group, rsa_host_key_is_actualy_ecdsa},
      daemon_already_started,
      double_close,
      daemon_opt_fd,
@@ -121,6 +123,7 @@ groups() ->
      {ecdsa_sha2_nistp256_key, [], basic_tests()},
      {ecdsa_sha2_nistp384_key, [], basic_tests()},
      {ecdsa_sha2_nistp521_key, [], basic_tests()},
+     {rsa_host_key_is_actualy_ecdsa, [], [fail_daemon_start]},
      {host_user_key_differs, [], [exec_key_differs1,
 				  exec_key_differs2,
 				  exec_key_differs3,
@@ -176,6 +179,31 @@ init_per_group(rsa_key, Config) ->
             DataDir = proplists:get_value(data_dir, Config),
             PrivDir = proplists:get_value(priv_dir, Config),
             ssh_test_lib:setup_rsa(DataDir, PrivDir),
+            Config;
+	false ->
+	    {skip, unsupported_pub_key}
+    end;
+init_per_group(rsa_host_key_is_actualy_ecdsa, Config) ->
+    case 
+        lists:member('ssh-rsa',
+		      ssh_transport:default_algorithms(public_key)) and
+        lists:member('ecdsa-sha2-nistp256',
+                     ssh_transport:default_algorithms(public_key))
+    of
+	true ->
+            DataDir = proplists:get_value(data_dir, Config),
+            PrivDir = proplists:get_value(priv_dir, Config),
+	    ssh_test_lib:setup_ecdsa("256", DataDir, PrivDir),
+            %% The following sets up bad rsa keys:
+            begin
+                UserDir = PrivDir,
+                System = filename:join(UserDir, "system"),
+                file:copy(filename:join(DataDir, "id_rsa"), filename:join(UserDir, "id_rsa")),
+                file:rename(filename:join(System, "ssh_host_ecdsa_key"), filename:join(System, "ssh_host_rsa_key")),
+                file:rename(filename:join(System, "ssh_host_ecdsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
+                ssh_test_lib:setup_rsa_known_host(DataDir, UserDir),
+                ssh_test_lib:setup_rsa_auth_keys(DataDir, UserDir)
+            end,
             Config;
 	false ->
 	    {skip, unsupported_pub_key}
@@ -900,6 +928,17 @@ send(Config) when is_list(Config) ->
     ok = ssh_connection:send(ConnectionRef, ChannelId, << >>),
     ssh:stop_daemon(Pid).
 
+
+%%--------------------------------------------------------------------
+%%%
+fail_daemon_start(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    UserDir = proplists:get_value(priv_dir, Config),
+
+    {error,_} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                     {user_dir, UserDir},
+                                     {failfun, fun ssh_test_lib:failfun/2}]).
 
 %%--------------------------------------------------------------------
 %%% Test ssh:connection_info([peername, sockname])
