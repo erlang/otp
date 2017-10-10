@@ -1,5 +1,5 @@
 -module(supervisor_deadlock).
--compile(export_all).
+-compile([export_all,nowarn_export_all]).
 
 
 %%%-----------------------------------------------------------------

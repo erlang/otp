@@ -42,6 +42,8 @@ start_child(error) ->
 	set -> gen_server:start_link(?MODULE, error, [])
     end;
 
+start_child({return, Term}) ->
+    Term;
 
 start_child(Extra) ->
     {ok, Pid} = gen_server:start_link(?MODULE, normal, []),
