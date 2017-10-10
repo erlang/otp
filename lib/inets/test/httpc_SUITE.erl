@@ -42,7 +42,8 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 suite() ->
-    [{ct_hooks,[ts_install_cth]}
+    [{ct_hooks,[ts_install_cth]},
+     {timetrap,{seconds, 30}}
     ].
 
 all() ->
@@ -142,7 +143,6 @@ misc() ->
 %%--------------------------------------------------------------------
 
 init_per_suite(Config) ->
-    ct:timetrap({seconds, 30}),
     PrivDir = proplists:get_value(priv_dir, Config),
     DataDir = proplists:get_value(data_dir, Config),
     inets_test_lib:start_apps([inets]),
@@ -169,7 +169,6 @@ init_per_group(Group, Config0) when Group =:= sim_https; Group =:= https->
     catch crypto:stop(),
     try crypto:start() of
         ok ->
-            ct:timetrap({seconds, 30}),
             start_apps(Group),
             do_init_per_group(Group, Config0)
     catch
