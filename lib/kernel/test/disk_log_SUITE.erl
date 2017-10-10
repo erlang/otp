@@ -89,8 +89,6 @@
 	 dist_terminate/1, dist_accessible/1, dist_deadlock/1,
          dist_open2/1, other_groups/1,
 
-         evil/1,
-
          otp_6278/1, otp_10131/1]).
 
 -export([head_fun/1, hf/0, lserv/1, 
@@ -123,7 +121,7 @@
 	[halt_int, wrap_int, halt_ext, wrap_ext, read_mode, head,
 	 notif, new_idx_vsn, reopen, block, unblock, open, close,
 	 error, chunk, truncate, many_users, info, change_size,
-	 change_attribute, distribution, evil, otp_6278, otp_10131]).
+	 change_attribute, distribution, otp_6278, otp_10131]).
 
 %% These test cases should be skipped if the VxWorks card is 
 %% configured without NFS cache.
@@ -149,7 +147,7 @@ all() ->
      {group, open}, {group, close}, {group, error}, chunk,
      truncate, many_users, {group, info},
      {group, change_size}, change_attribute,
-     {group, distribution}, evil, otp_6278, otp_10131].
+     {group, distribution}, otp_6278, otp_10131].
 
 groups() -> 
     [{halt_int, [], [halt_int_inf, {group, halt_int_sz}]},
@@ -4674,119 +4672,6 @@ other_groups(Conf) when is_list(Conf) ->
     {[],[]} = disk_log:accessible_logs(),
     file:delete(File),
 
-    ok.
-
--define(MAX, ?MAX_FWRITE_CACHE). % as in disk_log_1.erl
-%% Evil cases such as closed file descriptor port.
-evil(Conf) when is_list(Conf) ->
-    Dir = ?privdir(Conf),
-    File = filename:join(Dir, "n.LOG"),
-    Log = n,
-
-    %% Not a very thorough test.
-
-    ok = setup_evil_filled_cache_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:log(Log, apa),
-    ok = disk_log:close(Log),
-
-    ok = setup_evil_filled_cache_halt(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:truncate(Log, apa),
-    ok = stop_evil(Log),
-
-    %% White box test. 
-    file:delete(File),
-    Ports0 = erlang:ports(),
-    {ok, Log} = disk_log:open([{name,Log},{file,File},{type,halt},
-                                     {size,?MAX+50},{format,external}]),
-    [Fd] = erlang:ports() -- Ports0,
-    {B,_} = x_mk_bytes(30),
-    ok = disk_log:blog(Log, <<0:(?MAX-1)/unit:8>>),
-    exit(Fd, kill),
-    {error, {file_error,_,einval}} = disk_log:blog_terms(Log, [B,B]),
-    ok= disk_log:close(Log),
-    file:delete(File),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:close(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:log(Log, apa),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_halt(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:log(Log, apa),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:reopen(Log, apa),
-    {error, {file_error,_,einval}} = disk_log:reopen(Log, apa),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:reopen(Log, apa),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:inc_wrap_file(Log),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:chunk(Log, start),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:truncate(Log),
-    ok = stop_evil(Log),
-
-    ok = setup_evil_wrap(Log, Dir),
-    {error, {file_error,_,einval}} = disk_log:chunk_step(Log, start, 1),
-    ok = stop_evil(Log),
-
-    io:format("messages: ~p~n", [erlang:process_info(self(), messages)]),
-    del(File, 2),
-    file:delete(File),
-    ok.
-
-setup_evil_wrap(Log, Dir) ->
-    setup_evil(Log, [{type,wrap},{size,{100,2}}], Dir).
-
-setup_evil_halt(Log, Dir) ->
-    setup_evil(Log, [{type,halt},{size,10000}], Dir).
-
-setup_evil(Log, Args, Dir) ->
-    File = filename:join(Dir, lists:concat([Log, ".LOG"])),
-    file:delete(File),
-    del(File, 2),
-    ok = disk_log:start(),
-    Ports0 = erlang:ports(),
-    {ok, Log} = disk_log:open([{name,Log},{file,File} | Args]),
-    [Fd] = erlang:ports() -- Ports0,
-    exit(Fd, kill),
-    ok = disk_log:log_terms(n, [<<0:10/unit:8>>]),
-    timer:sleep(2500), % TIMEOUT in disk_log_1.erl is 2000
-    ok.
-
-stop_evil(Log) ->
-    {error, _} = disk_log:close(Log),
-    ok.
-
-setup_evil_filled_cache_wrap(Log, Dir) ->
-    setup_evil_filled_cache(Log, [{type,wrap},{size,{?MAX,2}}], Dir).
-
-setup_evil_filled_cache_halt(Log, Dir) ->
-    setup_evil_filled_cache(Log, [{type,halt},{size,infinity}], Dir).
-
-%% The cache is filled, and the file descriptor port gone.
-setup_evil_filled_cache(Log, Args, Dir) ->
-    File = filename:join(Dir, lists:concat([Log, ".LOG"])),
-    file:delete(File),
-    del(File, 2),
-    ok = disk_log:start(),
-    Ports0 = erlang:ports(),
-    {ok, Log} = disk_log:open([{name,Log},{file,File} | Args]),
-    [Fd] = erlang:ports() -- Ports0,
-    ok = disk_log:log_terms(n, [<<0:?MAX/unit:8>>]),
-    exit(Fd, kill),
     ok.
 
 %% OTP-6278. open/1 creates no status or crash report.
