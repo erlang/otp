@@ -341,6 +341,7 @@ check_tracing_loop(N, MsgList) ->
 
 
 stop_tracing(Tracer) ->
+    erlang:trace_pattern({error_handler,undefined_function,3}, false, [global]),
     erlang:trace(self(), false, [call]),
     Tracer ! die_please,
     receive
