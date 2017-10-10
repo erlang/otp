@@ -56,7 +56,7 @@
                   | {'global', Name :: atom()}
                   | {'via', Module :: module(), Name :: any()}
                   | pid().
--type child_spec() :: #{id := child_id(),      % mandatory
+-type child_spec() :: #{id := child_id(),       % mandatory
 			start := mfargs(),      % mandatory
 			restart => restart(),   % optional
 			shutdown => shutdown(), % optional
@@ -78,6 +78,7 @@
                    | {RestartStrategy :: strategy(),
                       Intensity :: non_neg_integer(),
                       Period :: pos_integer()}.
+-type children() :: {Ids :: [child_id()], Db :: #{child_id() => child_rec()}}.
 
 %%--------------------------------------------------------------------------
 %% Defaults
@@ -105,7 +106,7 @@
 
 -record(state, {name,
 		strategy               :: strategy() | 'undefined',
-		children = []          :: [child_rec()],
+		children = {[],#{}}    :: children(), % Ids in start order
                 dynamics               :: {'maps', #{pid() => list()}}
                                         | {'sets', sets:set(pid())}
                                         | 'undefined',
@@ -320,31 +321,30 @@ init_dynamic(_State, StartSpec) ->
 
 %%-----------------------------------------------------------------
 %% Func: start_children/2
-%% Args: Children = [child_rec()] in start order
+%% Args: Children = children() % Ids in start order
 %%       SupName = {local, atom()} | {global, atom()} | {pid(), Mod}
-%% Purpose: Start all children.  The new list contains #child's
+%% Purpose: Start all children.  The new map contains #child's
 %%          with pids.
 %% Returns: {ok, NChildren} | {error, NChildren, Reason}
-%%          NChildren = [child_rec()] in termination order (reversed
-%%                        start order)
+%%          NChildren = children() % Ids in termination order
+%%                                   (reversed start order)
 %%-----------------------------------------------------------------
-start_children(Children, SupName) -> start_children(Children, [], SupName).
-
-start_children([Child|Chs], NChildren, SupName) ->
-    case do_start_child(SupName, Child) of
-	{ok, undefined} when ?is_temporary(Child) ->
-	    start_children(Chs, NChildren, SupName);
-	{ok, Pid} ->
-	    start_children(Chs, [Child#child{pid = Pid}|NChildren], SupName);
-	{ok, Pid, _Extra} ->
-	    start_children(Chs, [Child#child{pid = Pid}|NChildren], SupName);
-	{error, Reason} ->
-	    report_error(start_error, Reason, Child, SupName),
-	    {error, lists:reverse(Chs) ++ [Child | NChildren],
-	     {failed_to_start_child,Child#child.id,Reason}}
-    end;
-start_children([], NChildren, _SupName) ->
-    {ok, NChildren}.
+start_children(Children, SupName) ->
+    Start =
+        fun(Id,Child) ->
+                case do_start_child(SupName, Child) of
+                    {ok, undefined} when ?is_temporary(Child) ->
+                        remove;
+                    {ok, Pid} ->
+                        {update,Child#child{pid = Pid}};
+                    {ok, Pid, _Extra} ->
+                        {update,Child#child{pid = Pid}};
+                    {error, Reason} ->
+                        report_error(start_error, Reason, Child, SupName),
+                        {abort,{failed_to_start_child,Id,Reason}}
+                end
+        end,
+    children_map(Start,Children).
 
 do_start_child(SupName, Child) ->
     #child{mfargs = {M, F, Args}} = Child,
@@ -384,7 +384,7 @@ do_start_child_i(M, F, A) ->
 -spec handle_call(call(), term(), state()) -> {'reply', term(), state()}.
 
 handle_call({start_child, EArgs}, _From, State) when ?is_simple(State) ->
-    Child = hd(State#state.children),
+    Child = get_dynamic_child(State),
     #child{mfargs = {M, F, A}} = Child,
     Args = A ++ EArgs,
     case do_start_child_i(M, F, Args) of
@@ -415,15 +415,11 @@ handle_call({terminate_child, Id}, _From, State) when not is_pid(Id),
     {reply, {error, simple_one_for_one}, State};
 
 handle_call({terminate_child, Id}, _From, State) ->
-    case get_child(Id, State, ?is_simple(State)) of
-	{value, Child} ->
-	    case do_terminate(Child, State#state.name) of
-		NChild when ?is_temporary(NChild); ?is_simple(State) ->
-		    {reply, ok, state_del_child(Child, State)};
-		NChild ->
-		    {reply, ok, replace_child(NChild, State)}
-		end;
-	false ->
+    case find_child(Id, State) of
+	{ok, Child} ->
+	    do_terminate(Child, State#state.name),
+            {reply, ok, del_child(Child, State)};
+	error ->
 	    {reply, {error, not_found}, State}
     end;
 
@@ -432,21 +428,21 @@ handle_call({restart_child, _Id}, _From, State) when ?is_simple(State) ->
     {reply, {error, simple_one_for_one}, State};
 
 handle_call({restart_child, Id}, _From, State) ->
-    case get_child(Id, State) of
-	{value, Child} when Child#child.pid =:= undefined ->
+    case find_child(Id, State) of
+	{ok, Child} when Child#child.pid =:= undefined ->
 	    case do_start_child(State#state.name, Child) of
 		{ok, Pid} ->
-		    NState = replace_child(Child#child{pid = Pid}, State),
+		    NState = set_pid(Pid, Id, State),
 		    {reply, {ok, Pid}, NState};
 		{ok, Pid, Extra} ->
-		    NState = replace_child(Child#child{pid = Pid}, State),
+		    NState = set_pid(Pid, Id, State),
 		    {reply, {ok, Pid, Extra}, NState};
 		Error ->
 		    {reply, Error, State}
 	    end;
-	{value, #child{pid=?restarting(_)}} ->
+	{ok, #child{pid=?restarting(_)}} ->
 	    {reply, {error, restarting}, State};
-	{value, _} ->
+	{ok, _} ->
 	    {reply, {error, running}, State};
 	_ ->
 	    {reply, {error, not_found}, State}
@@ -457,29 +453,28 @@ handle_call({delete_child, _Id}, _From, State) when ?is_simple(State) ->
     {reply, {error, simple_one_for_one}, State};
 
 handle_call({delete_child, Id}, _From, State) ->
-    case get_child(Id, State) of
-	{value, Child} when Child#child.pid =:= undefined ->
-	    NState = remove_child(Child, State),
+    case find_child(Id, State) of
+	{ok, Child} when Child#child.pid =:= undefined ->
+	    NState = remove_child(Id, State),
 	    {reply, ok, NState};
-	{value, #child{pid=?restarting(_)}} ->
+	{ok, #child{pid=?restarting(_)}} ->
 	    {reply, {error, restarting}, State};
-	{value, _} ->
+	{ok, _} ->
 	    {reply, {error, running}, State};
 	_ ->
 	    {reply, {error, not_found}, State}
     end;
 
 handle_call({get_childspec, Id}, _From, State) ->
-    case get_child(Id, State, ?is_simple(State)) of
-	{value, Child} ->
+    case find_child(Id, State) of
+	{ok, Child} ->
             {reply, {ok, child_to_spec(Child)}, State};
-	false ->
+	error ->
 	    {reply, {error, not_found}, State}
     end;
 
-handle_call(which_children, _From, #state{children = [#child{child_type = CT,
-							     modules = Mods}]} =
-		State) when ?is_simple(State) ->
+handle_call(which_children, _From, State) when ?is_simple(State) ->
+    #child{child_type = CT,modules = Mods} = get_dynamic_child(State),
     Reply = dyn_map(fun(?restarting(_)) -> {undefined, restarting, CT, Mods};
                        (Pid) -> {undefined, Pid, CT, Mods}
                     end, State),
@@ -487,20 +482,20 @@ handle_call(which_children, _From, #state{children = [#child{child_type = CT,
 
 handle_call(which_children, _From, State) ->
     Resp =
-	lists:map(fun(#child{pid = ?restarting(_), id = Id,
-			     child_type = ChildType, modules = Mods}) ->
-			  {Id, restarting, ChildType, Mods};
-		     (#child{pid = Pid, id = Id,
-			     child_type = ChildType, modules = Mods}) ->
-			  {Id, Pid, ChildType, Mods}
-		  end,
-		  State#state.children),
+	children_to_list(
+          fun(Id,#child{pid = ?restarting(_),
+                        child_type = ChildType, modules = Mods}) ->
+                  {Id, restarting, ChildType, Mods};
+             (Id,#child{pid = Pid,
+                        child_type = ChildType, modules = Mods}) ->
+                  {Id, Pid, ChildType, Mods}
+          end,
+          State#state.children),
     {reply, Resp, State};
 
-
-handle_call(count_children, _From,  #state{dynamic_restarts = Restarts,
-					   children = [#child{child_type = CT}]} = State)
+handle_call(count_children, _From,  #state{dynamic_restarts = Restarts} = State)
   when ?is_simple(State) ->
+    #child{child_type = CT} = get_dynamic_child(State),
     Sz = dyn_size(State),
     Active = Sz - Restarts, % Restarts is always 0 for temporary children
     Reply = case CT of
@@ -514,15 +509,14 @@ handle_call(count_children, _From,  #state{dynamic_restarts = Restarts,
 handle_call(count_children, _From, State) ->
     %% Specs and children are together on the children list...
     {Specs, Active, Supers, Workers} =
-	lists:foldl(fun(Child, Counts) ->
-			   count_child(Child, Counts)
-		   end, {0,0,0,0}, State#state.children),
+	children_fold(fun(_Id, Child, Counts) ->
+                              count_child(Child, Counts)
+                      end, {0,0,0,0}, State#state.children),
 
     %% Reformat counts to a property list.
     Reply = [{specs, Specs}, {active, Active},
 	     {supervisors, Supers}, {workers, Workers}],
     {reply, Reply, State}.
-
 
 count_child(#child{pid = Pid, child_type = worker},
 	    {Specs, Active, Supers, Workers}) ->
@@ -537,16 +531,15 @@ count_child(#child{pid = Pid, child_type = supervisor},
 	false -> {Specs+1, Active, Supers+1, Workers}
     end.
 
-
 %%% If a restart attempt failed, this message is cast
 %%% from restart/2 in order to give gen_server the chance to
 %%% check it's inbox before trying again.
--spec handle_cast({try_again_restart, child_id() | pid()}, state()) ->
+-spec handle_cast({try_again_restart, child_id() | {'restarting',pid()}}, state()) ->
 			 {'noreply', state()} | {stop, shutdown, state()}.
 
 handle_cast({try_again_restart,TryAgainId}, State) ->
-    case get_child_and_args(TryAgainId, State) of
-	Child = #child{pid=?restarting(_)} ->
+    case find_child_and_args(TryAgainId, State) of
+	{ok, Child = #child{pid=?restarting(_)}} ->
 	    case restart(Child,State) of
 		{ok, State1} ->
 		    {noreply, State1};
@@ -556,7 +549,6 @@ handle_cast({try_again_restart,TryAgainId}, State) ->
 	_ ->
 	    {noreply,State}
     end.
-
 
 %%
 %% Take care of terminated children.
@@ -618,8 +610,8 @@ code_change(_, State, _) ->
 
 update_childspec(State, StartSpec) when ?is_simple(State) ->
     case check_startspec(StartSpec) of
-        {ok, [Child]} ->
-            {ok, State#state{children = [Child]}};
+        {ok, {[_],_}=Children} ->
+            {ok, State#state{children = Children}};
         Error ->
             {error, Error}
     end;
@@ -633,37 +625,34 @@ update_childspec(State, StartSpec) ->
 	    {error, Error}
     end.
 
-update_childspec1([Child|OldC], Children, KeepOld) ->
-    case update_chsp(Child, Children) of
-	{ok,NewChildren} ->
-	    update_childspec1(OldC, NewChildren, KeepOld);
+update_childspec1({[Id|OldIds], OldDb}, {Ids,Db}, KeepOld) ->
+    case update_chsp(maps:get(Id,OldDb), Db) of
+	{ok,NewDb} ->
+	    update_childspec1({OldIds,OldDb}, {Ids,NewDb}, KeepOld);
 	false ->
-	    update_childspec1(OldC, Children, [Child|KeepOld])
+	    update_childspec1({OldIds,OldDb}, {Ids,Db}, [Id|KeepOld])
     end;
-update_childspec1([], Children, KeepOld) ->
+update_childspec1({[],OldDb}, {Ids,Db}, KeepOld) ->
+    KeepOldDb = maps:with(KeepOld,OldDb),
     %% Return them in (kept) reverse start order.
-    lists:reverse(Children ++ KeepOld).
+    {lists:reverse(Ids ++ KeepOld),maps:merge(KeepOldDb,Db)}.
 
-update_chsp(OldCh, Children) ->
-    case lists:map(fun(Ch) when OldCh#child.id =:= Ch#child.id ->
-			   Ch#child{pid = OldCh#child.pid};
-		      (Ch) ->
-			   Ch
-		   end,
-		   Children) of
-	Children ->
-	    false;  % OldCh not found in new spec.
-	NewC ->
-	    {ok, NewC}
+update_chsp(#child{id=Id}=OldChild, NewDb) ->
+    case maps:find(Id, NewDb) of
+        {ok,Child} ->
+            {ok,NewDb#{Id => Child#child{pid = OldChild#child.pid}}};
+        error -> % Id not found in new spec.
+            false
     end.
+
     
 %%% ---------------------------------------------------
 %%% Start a new child.
 %%% ---------------------------------------------------
 
 handle_start_child(Child, State) ->
-    case get_child(Child#child.id, State) of
-	false ->
+    case find_child(Child#child.id, State) of
+	error ->
 	    case do_start_child(State#state.name, Child) of
 		{ok, undefined} when ?is_temporary(Child) ->
 		    {{ok, undefined}, State};
@@ -674,9 +663,9 @@ handle_start_child(Child, State) ->
 		{error, What} ->
 		    {{error, {What, Child}}, State}
 	    end;
-	{value, OldChild} when is_pid(OldChild#child.pid) ->
+	{ok, OldChild} when is_pid(OldChild#child.pid) ->
 	    {{error, {already_started, OldChild#child.pid}}, State};
-	{value, _OldChild} ->
+	{ok, _OldChild} ->
 	    {{error, already_present}, State}
     end.
 
@@ -686,10 +675,10 @@ handle_start_child(Child, State) ->
 %%% ---------------------------------------------------
 
 restart_child(Pid, Reason, State) ->
-    case get_child_and_args(Pid, State) of
-        #child{} = Child ->
+    case find_child_and_args(Pid, State) of
+        {ok, Child} ->
 	    do_restart(Reason, Child, State);
-	false ->
+	error ->
 	    {ok, State}
     end.
 
@@ -697,33 +686,33 @@ do_restart(Reason, Child, State) when ?is_permanent(Child) ->
     report_error(child_terminated, Reason, Child, State#state.name),
     restart(Child, State);
 do_restart(normal, Child, State) ->
-    NState = state_del_child(Child, State),
+    NState = del_child(Child, State),
     {ok, NState};
 do_restart(shutdown, Child, State) ->
-    NState = state_del_child(Child, State),
+    NState = del_child(Child, State),
     {ok, NState};
 do_restart({shutdown, _Term}, Child, State) ->
-    NState = state_del_child(Child, State),
+    NState = del_child(Child, State),
     {ok, NState};
 do_restart(Reason, Child, State) when ?is_transient(Child) ->
     report_error(child_terminated, Reason, Child, State#state.name),
     restart(Child, State);
 do_restart(Reason, Child, State) when ?is_temporary(Child) ->
     report_error(child_terminated, Reason, Child, State#state.name),
-    NState = state_del_child(Child, State),
+    NState = del_child(Child, State),
     {ok, NState}.
 
 restart(Child, State) ->
     case add_restart(State) of
 	{ok, NState} ->
 	    case restart(NState#state.strategy, Child, NState) of
-		{try_again, NState2, TryAgainId} ->
+		{{try_again, TryAgainId}, NState2} ->
 		    %% Leaving control back to gen_server before
 		    %% trying again. This way other incoming requsts
 		    %% for the supervisor can be handled - e.g. a
 		    %% shutdown request for the supervisor or the
 		    %% child.
-                    gen_server:cast(self(), {try_again_restart, TryAgainId}),
+                    try_again_restart(TryAgainId),
 		    {ok,NState2};
 		Other ->
 		    Other
@@ -731,7 +720,7 @@ restart(Child, State) ->
 	{terminate, NState} ->
 	    report_error(shutdown, reached_max_restart_intensity,
 			 Child, State#state.name),
-	    {shutdown, state_del_child(Child, NState)}
+	    {shutdown, del_child(Child, NState)}
     end.
 
 restart(simple_one_for_one, Child, State0) ->
@@ -757,82 +746,72 @@ restart(simple_one_for_one, Child, State0) ->
 	    State3 = State2#state{dynamic_restarts = NRestarts},
             NState = dyn_store(ROldPid, A, State3),
 	    report_error(start_error, Error, Child, NState#state.name),
-	    {try_again, NState, ROldPid}
+	    {{try_again, ROldPid}, NState}
     end;
-restart(one_for_one, Child, State) ->
+restart(one_for_one, #child{id=Id} = Child, State) ->
     OldPid = Child#child.pid,
     case do_start_child(State#state.name, Child) of
 	{ok, Pid} ->
-	    NState = replace_child(Child#child{pid = Pid}, State),
+	    NState = set_pid(Pid, Id, State),
 	    {ok, NState};
 	{ok, Pid, _Extra} ->
-	    NState = replace_child(Child#child{pid = Pid}, State),
+	    NState = set_pid(Pid, Id, State),
 	    {ok, NState};
 	{error, Reason} ->
-	    NState = replace_child(Child#child{pid = restarting(OldPid)}, State),
+	    NState = set_pid(restarting(OldPid), Id, State),
 	    report_error(start_error, Reason, Child, State#state.name),
-	    {try_again, NState, Child#child.id}
+	    {{try_again,Id}, NState}
     end;
-restart(rest_for_one, Child, State) ->
-    {ChAfter, ChBefore} = split_child(Child#child.id, State#state.children),
-    ChAfter2 = terminate_children(ChAfter, State#state.name),
-    case start_children(ChAfter2, State#state.name) of
-	{ok, ChAfter3} ->
-	    {ok, State#state{children = ChAfter3 ++ ChBefore}};
-	{error, ChAfter3, {failed_to_start_child, FailedId, _Reason}}
-	  when FailedId =:= Child#child.id ->
-	    NChild = Child#child{pid=restarting(Child#child.pid)},
-	    NState = State#state{children = ChAfter3 ++ ChBefore},
-	    {try_again, replace_child(NChild,NState), FailedId};
-	{error, ChAfter3, {failed_to_start_child, FailedId, _Reason}} ->
-	    NChild = lists:keyfind(FailedId, #child.id, ChAfter3),
-	    NChild2 = NChild#child{pid=?restarting(undefined)},
-	    NState = State#state{children = ChAfter3 ++ ChBefore},
-	    {try_again, replace_child(NChild2,NState), FailedId}
-    end;
-restart(one_for_all, Child, State) ->
+restart(rest_for_one, #child{id=Id} = Child, #state{name=SupName} = State) ->
+    {ChAfter, ChBefore} = split_child(Id, State#state.children),
+    {Return, ChAfter2} = restart_multiple_children(Child, ChAfter, SupName),
+    {Return, State#state{children = append(ChAfter2,ChBefore)}};
+restart(one_for_all, Child, #state{name=SupName} = State) ->
     Children1 = del_child(Child#child.id, State#state.children),
-    Children2 = terminate_children(Children1, State#state.name),
-    case start_children(Children2, State#state.name) of
-	{ok, NChs} ->
-	    {ok, State#state{children = NChs}};
-	{error, NChs, {failed_to_start_child, FailedId, _Reason}}
-	  when FailedId =:= Child#child.id ->
-	    NChild = Child#child{pid=restarting(Child#child.pid)},
-	    NState = State#state{children = NChs},
-	    {try_again, replace_child(NChild,NState), FailedId};
-	{error, NChs, {failed_to_start_child, FailedId, _Reason}} ->
-	    NChild = lists:keyfind(FailedId, #child.id, NChs),
-	    NChild2 = NChild#child{pid=?restarting(undefined)},
-	    NState = State#state{children = NChs},
-	    {try_again, replace_child(NChild2,NState), FailedId}
+    {Return, NChildren} = restart_multiple_children(Child, Children1, SupName),
+    {Return, State#state{children = NChildren}}.
+
+restart_multiple_children(Child, Children, SupName) ->
+    Children1 = terminate_children(Children, SupName),
+    case start_children(Children1, SupName) of
+	{ok, NChildren} ->
+	    {ok, NChildren};
+	{error, NChildren, {failed_to_start_child, FailedId, _Reason}} ->
+            NewPid = if FailedId =:= Child#child.id ->
+                             restarting(Child#child.pid);
+                        true ->
+                             ?restarting(undefined)
+                     end,
+	    {{try_again, FailedId}, set_pid(NewPid,FailedId,NChildren)}
     end.
 
 restarting(Pid) when is_pid(Pid) -> ?restarting(Pid);
 restarting(RPid) -> RPid.
 
+-spec try_again_restart(child_id() | {'restarting',pid()}) -> 'ok'.
+try_again_restart(TryAgainId) ->
+    gen_server:cast(self(), {try_again_restart, TryAgainId}).
+
 %%-----------------------------------------------------------------
 %% Func: terminate_children/2
-%% Args: Children = [child_rec()] in termination order
+%% Args: Children = children() % Ids in termination order
 %%       SupName = {local, atom()} | {global, atom()} | {pid(),Mod}
-%% Returns: NChildren = [child_rec()] in
-%%          startup order (reversed termination order)
+%% Returns: NChildren = children() % Ids in startup order
+%%                                 % (reversed termination order)
 %%-----------------------------------------------------------------
 terminate_children(Children, SupName) ->
-    terminate_children(Children, SupName, []).
-
-%% Temporary children should not be restarted and thus should
-%% be skipped when building the list of terminated children, although
-%% we do want them to be shut down as many functions from this module
-%% use this function to just clear everything.
-terminate_children([Child | Children], SupName, Res) when ?is_temporary(Child) ->
-    _ = do_terminate(Child, SupName),
-    terminate_children(Children, SupName, Res);
-terminate_children([Child | Children], SupName, Res) ->
-    NChild = do_terminate(Child, SupName),
-    terminate_children(Children, SupName, [NChild | Res]);
-terminate_children([], _SupName, Res) ->
-    Res.
+    Terminate =
+        fun(_Id,Child) when ?is_temporary(Child) ->
+                %% Temporary children should not be restarted and thus should
+                %% be skipped when building the list of terminated children.
+                do_terminate(Child, SupName),
+                remove;
+           (_Id,Child) ->
+                do_terminate(Child, SupName),
+                {update,Child#child{pid=undefined}}
+        end,
+    {ok,NChildren} = children_map(Terminate, Children),
+    NChildren.
 
 do_terminate(Child, SupName) when is_pid(Child#child.pid) ->
     case shutdown(Child#child.pid, Child#child.shutdown) of
@@ -843,9 +822,9 @@ do_terminate(Child, SupName) when is_pid(Child#child.pid) ->
         {error, OtherReason} ->
             report_error(shutdown_error, OtherReason, Child, SupName)
     end,
-    Child#child{pid = undefined};
-do_terminate(Child, _SupName) ->
-    Child#child{pid = undefined}.
+    ok;
+do_terminate(_Child, _SupName) ->
+    ok.
 
 %%-----------------------------------------------------------------
 %% Shutdowns a child. We must check the EXIT value 
@@ -918,7 +897,6 @@ monitor_child(Pid) ->
 	    ok   
     end.
 
-
 %%-----------------------------------------------------------------
 %% Func: terminate_dynamic_children/1
 %% Args: State
@@ -926,9 +904,10 @@ monitor_child(Pid) ->
 %%
 %% Shutdown all dynamic children. This happens when the supervisor is
 %% stopped. Because the supervisor can have millions of dynamic children, we
-%% can have an significative overhead here.
+%% can have a significative overhead here.
 %%-----------------------------------------------------------------
-terminate_dynamic_children(#state{children=[Child]} = State) ->
+terminate_dynamic_children(State) ->
+    Child = get_dynamic_child(State),
     {Pids, EStack0} = monitor_dynamic_children(Child,State),
     Sz = sets:size(Pids),
     EStack = case Child#child.shutdown of
@@ -962,7 +941,6 @@ monitor_dynamic_children(Child,State) ->
                 (?restarting(_), {Pids, EStack}) ->
                      {Pids, EStack}
              end, {sets:new(), dict:new()}, State).
-
 
 wait_dynamic_children(_Child, _Pids, 0, undefined, EStack) ->
     EStack;
@@ -1011,7 +989,7 @@ wait_dynamic_children(Child, Pids, Sz, TRef, EStack) ->
     end.
 
 %%-----------------------------------------------------------------
-%% Child/State manipulating functions.
+%% Access #state.children
 %%-----------------------------------------------------------------
 
 %% Note we do not want to save the parameter list for temporary processes as
@@ -1019,90 +997,184 @@ wait_dynamic_children(Child, Pids, Sz, TRef, EStack) ->
 %% Especially for dynamic children to simple_one_for_one supervisors
 %% it could become very costly as it is not uncommon to spawn
 %% very many such processes.
-save_child(#child{mfargs = {M, F, _}} = Child, #state{children = Children} = State) when ?is_temporary(Child) ->
-    State#state{children = [Child#child{mfargs = {M, F, undefined}} |Children]};
-save_child(Child, #state{children = Children} = State) ->
-    State#state{children = [Child |Children]}.
+-spec save_child(child_rec(), state()) -> state().
+save_child(#child{mfargs = {M, F, _}} = Child, State) when ?is_temporary(Child) ->
+    do_save_child(Child#child{mfargs = {M, F, undefined}}, State);
+save_child(Child, State) ->
+    do_save_child(Child, State).
 
-state_del_child(#child{pid = Pid}, State) when ?is_simple(State) ->
+-spec do_save_child(child_rec(), state()) -> state().
+do_save_child(#child{id = Id} = Child, #state{children = {Ids,Db}} = State) ->
+    State#state{children = {[Id|Ids],Db#{Id => Child}}}.
+
+-spec del_child(child_rec(), state()) -> state();
+               (child_id(), children()) -> children().
+del_child(#child{pid = Pid}, State) when ?is_simple(State) ->
     dyn_erase(Pid,State);
-state_del_child(Child, State) ->
+del_child(Child, State) when is_record(Child,child), is_record(State,state) ->
     NChildren = del_child(Child#child.id, State#state.children),
-    State#state{children = NChildren}.
-
-del_child(Id, [Ch|Chs]) when Ch#child.id =:= Id, ?is_temporary(Ch) ->
-    Chs;
-del_child(Id, [Ch|Chs]) when Ch#child.id =:= Id ->
-    [Ch#child{pid = undefined} | Chs];
-del_child(Id, [Ch|Chs]) ->
-    [Ch|del_child(Id, Chs)];
-del_child(_, []) ->
-    [].
-
-%% Chs = [S4, S3, Ch, S1, S0]
-%% Ret: {[S4, S3, Ch], [S1, S0]}
-split_child(Id, Chs) ->
-    split_child(Id, Chs, []).
-
-split_child(Id, [Ch|Chs], After) when Ch#child.id =:= Id ->
-    {lists:reverse([Ch#child{pid = undefined} | After]), Chs};
-split_child(Id, [Ch|Chs], After) ->
-    split_child(Id, Chs, [Ch | After]);
-split_child(_, [], After) ->
-    {lists:reverse(After), []}.
-
-get_child(Id, State) ->
-    get_child(Id, State, false).
-
-get_child(Pid, State, AllowPid) when AllowPid, is_pid(Pid) ->
-    get_dynamic_child(Pid, State);
-get_child(Id, State, _) ->
-    lists:keysearch(Id, #child.id, State#state.children).
-
-get_dynamic_child(Pid, #state{children=[Child]} = State) ->
-    case dyn_exists(Pid, State) of
-	true ->
-	    {value, Child#child{pid=Pid}};
-	false ->
-	    RPid = restarting(Pid),
-	    case dyn_exists(RPid, State) of
-		true ->
-		    {value, Child#child{pid=RPid}};
-		false ->
-		    case erlang:is_process_alive(Pid) of
-			true -> false;
-			false -> {value, Child}
-		    end
-	    end
+    State#state{children = NChildren};
+del_child(Id, {Ids,Db}) ->
+    case maps:get(Id, Db) of
+        Child when Child#child.restart_type =:= temporary ->
+            {lists:delete(Id, Ids), maps:remove(Id, Db)};
+        Child ->
+            {Ids, Db#{Id=>Child#child{pid=undefined}}}
     end.
 
-replace_child(Child, State) ->
-    Chs = do_replace_child(Child, State#state.children),
-    State#state{children = Chs}.
+%% In: {[S4, S3, Ch, S1, S0],Db}
+%% Ret: {{[S4, S3, Ch],Db1}, {[S1, S0],Db2}}
+%% Db1 and Db2 contain the keys in the lists they are associated with.
+-spec split_child(child_id(), children()) -> {children(), children()}.
+split_child(Id, {Ids,Db}) ->
+    {IdsAfter,IdsBefore} = split_ids(Id, Ids, []),
+    DbBefore = maps:with(IdsBefore,Db),
+    #{Id:=Ch} = DbAfter = maps:with(IdsAfter,Db),
+    {{IdsAfter,DbAfter#{Id=>Ch#child{pid=undefined}}},{IdsBefore,DbBefore}}.
 
-do_replace_child(Child, [Ch|Chs]) when Ch#child.id =:= Child#child.id ->
-    [Child | Chs];
-do_replace_child(Child, [Ch|Chs]) ->
-    [Ch|do_replace_child(Child, Chs)].
+split_ids(Id, [Id|Ids], After) ->
+    {lists:reverse([Id|After]), Ids};
+split_ids(Id, [Other|Ids], After) ->
+    split_ids(Id, Ids, [Other | After]).
 
-remove_child(Child, State) ->
-    Chs = lists:keydelete(Child#child.id, #child.id, State#state.children),
-    State#state{children = Chs}.
-
-get_child_and_args(Pid, #state{children=[Child]}=State) when ?is_simple(State) ->
-    case dyn_args(Pid, State) of
-	{ok, Args} ->
-	    {M, F, _} = Child#child.mfargs,
-	    Child#child{pid = Pid, mfargs = {M, F, Args}};
-	error ->
-            false
+%% Find the child record for a given Pid (dynamic child) or Id
+%% (non-dynamic child). This is called from the API functions.
+-spec find_child(pid() | child_id(), state()) -> {ok,child_rec()} | error.
+find_child(Pid, State) when is_pid(Pid), ?is_simple(State) ->
+    case find_dynamic_child(Pid, State) of
+        error ->
+            case find_dynamic_child(restarting(Pid), State) of
+                error ->
+		    case erlang:is_process_alive(Pid) of
+			true -> error;
+			false -> {ok, get_dynamic_child(State)}
+		    end;
+                Other ->
+                    Other
+            end;
+        Other ->
+            Other
     end;
-get_child_and_args(Pid, State) when is_pid(Pid) ->
-    lists:keyfind(Pid, #child.pid, State#state.children);
-get_child_and_args(?restarting(Pid)=RPid, State) when is_pid(Pid) ->
-    lists:keyfind(RPid, #child.pid, State#state.children);
-get_child_and_args(Id, State)  ->
-    lists:keyfind(Id, #child.id, State#state.children).
+find_child(Id, #state{children = {_Ids,Db}}) ->
+    maps:find(Id, Db).
+
+%% Get the child record - either by child id or by pid.  If
+%% simple_one_for_one, then insert the pid and args into the returned
+%% child record. This is called when trying to restart the child.
+-spec find_child_and_args(IdOrPid, state()) -> {ok, child_rec()} | error when
+      IdOrPid :: pid() | {restarting,pid()} | child_id().
+find_child_and_args(Pid, State) when ?is_simple(State) ->
+    case find_dynamic_child(Pid, State) of
+        {ok,#child{mfargs={M,F,_}} = Child} ->
+            {ok, Args} = dyn_args(Pid, State),
+            {ok, Child#child{mfargs = {M, F, Args}}};
+        error ->
+            error
+    end;
+find_child_and_args(Pid, State) when is_pid(Pid) ->
+    find_child_by_pid(Pid, State);
+find_child_and_args(Id, #state{children={_Ids,Db}})  ->
+    maps:find(Id, Db).
+
+%% Given the pid, find the child record for a dynamic child, and
+%% include the pid in the returned record.
+-spec find_dynamic_child(IdOrPid, state()) -> {ok, child_rec()} | error when
+      IdOrPid :: pid() | {restarting,pid()} | child_id().
+find_dynamic_child(Pid, State) ->
+    case dyn_exists(Pid, State) of
+        true ->
+            Child = get_dynamic_child(State),
+            {ok, Child#child{pid=Pid}};
+        false ->
+            error
+    end.
+
+%% Given the pid, find the child record for a non-dyanamic child.
+-spec find_child_by_pid(IdOrPid, state()) -> {ok,child_rec()} | error when
+      IdOrPid :: pid() | {restarting,pid()}.
+find_child_by_pid(Pid,#state{children={_Ids,Db}}) ->
+    Fun = fun(_Id,#child{pid=P}=Ch,_) when P =:= Pid ->
+                  throw(Ch);
+             (_,_,error) ->
+                  error
+          end,
+    try maps:fold(Fun,error,Db)
+    catch throw:Child -> {ok,Child}
+    end.
+
+%% Get the child record from a simple_one_for_one supervisor - no pid
+%% It is assumed that the child can always be found
+-spec get_dynamic_child(state()) -> child_rec().
+get_dynamic_child(#state{children={[Id],Db}}) ->
+    #{Id := Child} = Db,
+    Child.
+
+%% Update pid in the given child record and store it in the process state
+-spec set_pid(term(), child_id(), state()) -> state();
+             (term(), child_id(), children()) -> children().
+set_pid(Pid, Id, #state{children=Children} = State) ->
+    State#state{children = set_pid(Pid, Id, Children)};
+set_pid(Pid, Id, {Ids, Db}) ->
+    NewDb = maps:update_with(Id, fun(Child) -> Child#child{pid=Pid} end, Db),
+    {Ids,NewDb}.
+
+%% Remove the Id and the child record from the process state
+-spec remove_child(child_id(), state()) -> state().
+remove_child(Id, #state{children={Ids,Db}} = State) ->
+    NewIds = lists:delete(Id,Ids),
+    NewDb = maps:remove(Id,Db),
+    State#state{children = {NewIds,NewDb}}.
+
+%% In the order of Ids, traverse the children and update each child
+%% according to the return value of the Fun.
+%% On error, abort and return the merge of the old and the updated map.
+%% NOTE: The returned list of Ids is reverted compared to the input.
+-spec children_map(Fun, children()) -> {ok, children()} |
+                                       {error,children(),Reason} when
+      Fun :: fun((child_id(),child_rec()) -> {update,child_rec()} |
+                                             remove |
+                                             {abort, Reason}),
+      Reason :: term().
+children_map(Fun,{Ids,Db}) ->
+    children_map(Fun, Ids, Db, []).
+
+children_map(Fun,[Id|Ids],Db,Acc) ->
+    case Fun(Id,maps:get(Id,Db)) of
+        {update,Child} ->
+            children_map(Fun,Ids,Db#{Id => Child},[Id|Acc]);
+        remove ->
+            children_map(Fun,Ids,maps:remove(Id,Db),Acc);
+        {abort,Reason} ->
+            {error,{lists:reverse(Ids)++[Id|Acc],Db},Reason}
+    end;
+children_map(_Fun,[],Db,Acc) ->
+    {ok,{Acc,Db}}.
+
+%% In the order of Ids, map over all children and return the list
+-spec children_to_list(Fun, children()) -> List when
+      Fun :: fun((child_id(), child_rec()) -> Elem),
+      List :: list(Elem),
+      Elem :: term().
+children_to_list(Fun,{Ids,Db}) ->
+    children_to_list(Fun, Ids, Db, []).
+children_to_list(Fun,[Id|Ids],Db,Acc) ->
+    children_to_list(Fun,Ids,Db,[Fun(Id,maps:get(Id,Db))|Acc]);
+children_to_list(_Fun,[],_Db,Acc) ->
+    lists:reverse(Acc).
+
+%% The order is not important - so ignore Ids
+-spec children_fold(Fun, Acc0, children()) -> Acc1 when
+      Fun :: fun((child_id(), child_rec(), AccIn) -> AccOut),
+      Acc0 :: term(),
+      Acc1 :: term(),
+      AccIn :: term(),
+      AccOut :: term().
+children_fold(Fun,Init,{_Ids,Db}) ->
+    maps:fold(Fun, Init, Db).
+
+-spec append(children(), children()) -> children().
+append({Ids1,Db1},{Ids2,Db2}) ->
+    {Ids1++Ids2,maps:merge(Db1,Db2)}.
 
 %%-----------------------------------------------------------------
 %% Func: init_state/4
@@ -1172,22 +1244,22 @@ supname(N, _)      -> N.
 %%% Returns: {ok, [child_rec()]} | Error
 %%% ------------------------------------------------------
 
-check_startspec(Children) -> check_startspec(Children, []).
+check_startspec(Children) -> check_startspec(Children, [], #{}).
 
-check_startspec([ChildSpec|T], Res) ->
+check_startspec([ChildSpec|T], Ids, Db) ->
     case check_childspec(ChildSpec) of
-	{ok, Child} ->
-	    case lists:keymember(Child#child.id, #child.id, Res) of
+	{ok, #child{id=Id}=Child} ->
+	    case maps:is_key(Id, Db) of
 		%% The error message duplicate_child_name is kept for
 		%% backwards compatibility, although
 		%% duplicate_child_id would be more correct.
-		true -> {duplicate_child_name, Child#child.id};
-		false -> check_startspec(T, [Child | Res])
+		true -> {duplicate_child_name, Id};
+		false -> check_startspec(T, [Id | Ids], Db#{Id=>Child})
 	    end;
 	Error -> Error
     end;
-check_startspec([], Res) ->
-    {ok, lists:reverse(Res)}.
+check_startspec([], Ids, Db) ->
+    {ok, {lists:reverse(Ids),Db}}.
 
 check_childspec(ChildSpec) when is_map(ChildSpec) ->
     catch do_check_childspec(maps:merge(?default_child_spec,ChildSpec));
@@ -1321,7 +1393,6 @@ report_error(Error, Reason, Child, SupName) ->
 		{offender, extract_child(Child)}],
     error_logger:error_report(supervisor_report, ErrorMsg).
 
-
 extract_child(Child) when is_list(Child#child.pid) ->
     [{nb_children, length(Child#child.pid)},
      {id, Child#child.id},
@@ -1383,7 +1454,10 @@ dyn_args(_Pid, #state{dynamics={sets, _Db}}) ->
 dyn_args(Pid, #state{dynamics={maps, Db}}) ->
     maps:find(Pid, Db).
 
-dyn_init(#state{children=[Child]}=State) when ?is_temporary(Child) ->
-    State#state{dynamics = {sets,sets:new()}};
 dyn_init(State) ->
-    State#state{dynamics = {maps,#{}}}.
+    dyn_init(get_dynamic_child(State),State).
+
+dyn_init(Child,State) when ?is_temporary(Child) ->
+    State#state{dynamics={sets,sets:new()}};
+dyn_init(_Child,State) ->
+    State#state{dynamics={maps,maps:new()}}.

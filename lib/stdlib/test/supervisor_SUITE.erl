@@ -2196,11 +2196,11 @@ code_change_simple(_Config) ->
     SimpleChild2 = {child2,{supervisor_1, start_child, []}, permanent,
 		    brutal_kill, worker, []},
 
-    {error, {error, {ok,[_,_]}}} =
+    {error, {error, {ok,{[_,_],_}}}} =
 	fake_upgrade(SimplePid,{ok,{SimpleFlags,[SimpleChild1,SimpleChild2]}}),
 
     %% Attempt to remove child
-    {error, {error, {ok,[]}}} = fake_upgrade(SimplePid,{ok,{SimpleFlags,[]}}),
+    {error, {error, {ok,{[],_}}}} = fake_upgrade(SimplePid,{ok,{SimpleFlags,[]}}),
 
     terminate(SimplePid,shutdown),
     ok.
@@ -2221,11 +2221,11 @@ code_change_simple_map(_Config) ->
     %% Attempt to add child
     SimpleChild2 = #{id=>child2,
 		     start=>{supervisor_1, start_child, []}},
-    {error, {error, {ok, [_,_]}}} =
+    {error, {error, {ok, {[_,_],_}}}} =
 	fake_upgrade(SimplePid,{ok,{SimpleFlags,[SimpleChild1,SimpleChild2]}}),
 
     %% Attempt to remove child
-    {error, {error, {ok, []}}} =
+    {error, {error, {ok, {[],_}}}} =
 	fake_upgrade(SimplePid,{ok,{SimpleFlags,[]}}),
 
     terminate(SimplePid,shutdown),
