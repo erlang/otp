@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -116,7 +116,7 @@ Figure 1: Contextual object relationships using the Naming Service.</icaption>
       <title>Fetch Initial Reference to the Naming Service</title>
       <p>In order to use the naming service you have to fetch an 
         initial reference to it. This is done with:</p>
-      <code type="none">
+      <code type="erl">
 NS = corba:resolve_initial_references("NameService").
       </code>
       <note>
@@ -128,14 +128,14 @@ NS = corba:resolve_initial_references("NameService").
       <title>Creating a Naming Context</title>
       <p>There are two functions for creating a naming context.
         The first function, which only creates a naming context object is:</p>
-      <code type="none">
+      <code type="erl">
 NC = 'CosNaming_NamingContext':new_context(NS).
       </code>
       <p>The other function creates a naming context and binds it to a name in 
         an already existing naming context (the initial context in this 
         example):
         </p>
-      <code type="none">
+      <code type="erl">
 NC = 'CosNaming_NamingContext':bind_new_context(NS, lname:new(["new"])).
       </code>
     </section>
@@ -150,19 +150,19 @@ NC = 'CosNaming_NamingContext':bind_new_context(NS, lname:new(["new"])).
       <list type="ordered">
         <item>
           <p>Use the naming library functions to create a name</p>
-          <code type="none">
+          <code type="erl">
 Name = lname:new(["object"]).
           </code>
         </item>
         <item>
           <p>Use CosNaming::NamingContext::bind() to bind a name to an object</p>
-          <code type="none">
+          <code type="erl">
 'CosNaming_NamingContext':bind(Sc, Name, Object).
           </code>
         </item>
         <item>
           <p>Use CosNaming::NamingContext::unbind() to remove the NameBinding from an object</p>
-          <code type="none">
+          <code type="erl">
 'CosNaming_NamingContext':unbind(Sc, Name).
           </code>
         </item>
@@ -180,19 +180,19 @@ Name = lname:new(["object"]).
       <list type="ordered">
         <item>
           <p>Use the naming library functions to create a name path:</p>
-          <code type="none">
+          <code type="erl">
 Name = lname:new(["workgroup", "services"]).
           </code>
         </item>
         <item>
           <p>Use CosNaming::NamingContext::resolve() to to resolve the name to an object</p>
-          <code type="none">
+          <code type="erl">
 Sc = 'CosNaming_NamingContext':resolve(NS, Name).
           </code>
         </item>
       </list>
       <p>An alternative is to use:</p>
-      <code type="none">
+      <code type="erl">
 Sc = corba:string_to_object("corbaname:rir:/NameService#workgroup/services/").
       </code>
       <p>The <c>corbaname</c> schema is described further in the Interoperable
@@ -205,7 +205,7 @@ Sc = corba:string_to_object("corbaname:rir:/NameService#workgroup/services/").
         <item>
           <p>Use CosNaming::NamingContext::list() to list all the bindings in a context</p>
           <p>The following code retrieves and lists up to 10 bindings from a context.</p>
-          <code type="none">
+          <code type="erl">
 {BList, BIterator} = 'CosNaming_NamingContext':list(Sc, 10).
 
 lists:foreach(fun({{Id, Kind},BindingType}) -> case BindingType of 
@@ -229,8 +229,8 @@ lists:foreach(fun({{Id, Kind},BindingType}) -> case BindingType of
           <em>must be removed</em> otherwise dangling processes will occur.
           Use <c>CosNaming::BindingIterator::destroy()</c> to remove it.</p>
       </warning>
-      <code type="none">
-      'CosNaming_NamingContext':destroy(BIterator).
+      <code type="erl">
+'CosNaming_NamingContext':destroy(BIterator).
       </code>
     </section>
 
@@ -241,7 +241,7 @@ lists:foreach(fun({{Id, Kind},BindingType}) -> case BindingType of
       <list type="ordered">
         <item>
           <p>Use CosNaming::NamingContext::destroy() to remove a NamingContext</p>
-          <code type="none">
+          <code type="erl">
 'CosNaming_NamingContext':destroy(Sc).
           </code>
         </item>
@@ -318,13 +318,13 @@ lists:foreach(fun({{Id, Kind},BindingType}) -> case BindingType of
         listed below, they should be associated with. The <c>NameService</c>
         key may <em>not</em> be changed in Orber. If you want to add one of the
         reserved keys as an initial service, simply use:</p>
-      <code type="none">
+      <code type="erl">
 1> Factory = cosNotificationApp:start_global_factory().
 2> corba:add_initial_service("NotificationService", Factory).
       </code>
       <p>This object can then be easily resolved by any other ORB, supporting 
         the Interoperable Naming Service, by using:</p>
-      <code type="none">
+      <code type="erl">
 3> NF = corba:string_to_object("corbaloc::1.0@erlang.org:4001/NotificationService").
       </code>
       <table>
@@ -438,13 +438,13 @@ lists:foreach(fun({{Id, Kind},BindingType}) -> case BindingType of
         <tcaption>Stringified Name representation</tcaption>
       </table>
       <p>After creating a stringified Name we can either use:</p>
-      <code type="none">
+      <code type="erl">
 NameStr = "org.erlang",
 NS      = corba:resolve_initial_references("NameService"),
 Obj     = 'CosNaming_NamingContextExt':resolve_str(NS, NameStr),
       </code>
       <p>or concatenate the Name String using:</p>
-      <code type="none">
+      <code type="erl">
 NameStr = "Swedish/Soccer/Champions",
 Address = "corbaname:iiop:1.0@www.aik.se:2000/NameService",
 NS      = corba:resolve_initial_references("NameService"),

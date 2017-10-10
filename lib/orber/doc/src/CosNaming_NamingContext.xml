@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -37,61 +37,54 @@
       naming contexts. Name context may be named in other contexts and cycles are
       permitted.</p>
     <p>The type <c>NameComponent</c> used below is defined as:</p>
-    <code type="none">
-      -record('CosNaming_NameComponent', {id, kind=""}).
-    </code>
+    <code type="erl">-record('CosNaming_NameComponent', {id, kind=""}).</code>
     <p>where <c>id</c> and <c>kind</c> are strings. </p>
     <p>The type <c>Binding</c> used below is defined as:</p>
-    <code type="none">
-      -record('CosNaming_Binding', {binding_name, binding_type}).
-    </code>
+    <code type="erl">-record('CosNaming_Binding', {binding_name, binding_type}).</code>
     <p>where <c>binding_name</c> is a Name and <c>binding_type</c> is an enum which 
       has the values <c>nobject</c> and <c>ncontext</c>.</p>
     <p>Both these records are defined in the file <c>CosNaming.hrl</c> and it 
       is included with:</p>
-    <code type="none">
-      -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
-    </code>
+    <code type="erl">-include_lib("orber/COSS/CosNaming/CosNaming.hrl").</code>
     <p>There are a number of exceptions that can be returned from functions in this 
       interface.</p>
     <list type="bulleted">
       <item>
         <p>NotFound is defined as </p>
-        <code type="none">
--record('CosNaming_NamingContext_NotFound', 
-                      {rest_of_name, why}).        </code>
+        <code type="erl">
+-record('CosNaming_NamingContext_NotFound',
+        {rest_of_name, why}).</code>
       </item>
       <item>
         <p>CannotProceed is defined as </p>
-        <code type="none">
--record('CosNaming_NamingContext_CannotProceed', 
-                      {rest_of_name, cxt}).        </code>
+        <code type="erl">
+-record('CosNaming_NamingContext_CannotProceed',
+        {rest_of_name, cxt}).
+	</code>
       </item>
       <item>
         <p>InvalidName is defined as </p>
-        <code type="none">
--record('CosNaming_NamingContext_InvalidName', {}).        </code>
+        <code type="erl">
+-record('CosNaming_NamingContext_InvalidName', {}).
+	</code>
       </item>
       <item>
         <p>NotFound is defined as </p>
-        <code type="none">
--record('CosNaming_NamingContext_NotFound', {}).        </code>
+        <code type="erl">-record('CosNaming_NamingContext_NotFound', {}).</code>
       </item>
       <item>
         <p>AlreadyBound is defined as </p>
-        <code type="none">
--record('CosNaming_NamingContext_AlreadyBound', {}).        </code>
+        <code type="erl">-record('CosNaming_NamingContext_AlreadyBound', {}).</code>
       </item>
       <item>
         <p>NotEmpty is defined as </p>
-        <code type="none">
--record('CosNaming_NamingContext_NotEmpty', {).        </code>
+        <code type="erl">-record('CosNaming_NamingContext_NotEmpty', {}).</code>
       </item>
     </list>
     <p>These exceptions are defined in the file <c>CosNaming_NamingContext.hrl</c> and it 
       is included with:</p>
-    <code type="none">
-      -include_lib("orber/COSS/CosNaming/CosNaming_NamingContext.hrl").
+    <code type="erl">
+-include_lib("orber/COSS/CosNaming/CosNaming_NamingContext.hrl").
     </code>
   </description>
   <funcs>

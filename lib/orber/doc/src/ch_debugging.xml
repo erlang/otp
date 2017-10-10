@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -121,7 +121,7 @@ Result.......: {'EXCEPTION',{'MARSHAL',[],102,'COMPLETED_NO'}}
         uses the <c>error_logger</c> module to generate the logs. If the traffic 
         is intense you probably want to write the reports to a log-file. 
         This is done by, for example, invoking:</p>
-      <code type="none">
+      <code type="erl">
 erl> error_logger:tty(false). 
 erl> error_logger:logfile({open, "/tmp/IIOPTrace"}). 
       </code>

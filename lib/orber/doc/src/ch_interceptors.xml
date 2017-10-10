@@ -4,7 +4,7 @@
 <chapter>
    <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -121,7 +121,7 @@ The Invocation Order of Interceptor Functions.</icaption>
       we store which objects the clients are allowed to invoke operations on
       and <c>ChecksumModule</c> determines which module we should use to handle
       the checksums. </p>
-    <code type="none">
+    <code type="erl">
 new_in_connection(Arg, Host, Port) ->
     %% Since we only use one interceptor we do not care about the
     %% input Arg since it is set do undefined by Orber.
@@ -141,7 +141,7 @@ new_in_connection(Arg, Host, Port) ->
     <p>When a new request comes in the first interceptor function to be invoked is
       <c>in_request_encoded</c>. We will remove the checksum from the coded
       request body in the following way:</p>
-    <code type="none">
+    <code type="erl">
 in_request_encoded({ObjTable, ChecksumModule}, ObjKey, Ctx, Op, Bin, Extra) ->
     NewBin = ChecksumModule:remove_checksum(Bin),
     {NewBin, Extra}.
@@ -154,7 +154,7 @@ in_request_encoded({ObjTable, ChecksumModule}, ObjKey, Ctx, Op, Bin, Extra) ->
       good throughput.</p>
     <p>If we want to we can restrict any clients to only use a subset of operations
       exported by a server:</p>
-    <code type="none">
+    <code type="erl">
 in_request({ObjTable, ChecksumModule}, ObjKey, Ctx, Op, Params, Extra) ->
     case ets:lookup(ObjTable, {ObjKey, Op}) of
          [] ->
@@ -166,13 +166,13 @@ in_request({ObjTable, ChecksumModule}, ObjKey, Ctx, Op, Params, Extra) ->
     <p>At this point Orber are now ready to invoke the operation on the target 
       object. Since we do not care about what the reply is the <c>out_reply</c>
       function do nothing, i.e.:</p>
-    <code type="none">
+    <code type="erl">
 out_reply(_, _, _, _, Reply, Extra) ->
     {Reply, Extra}.
     </code>
     <p>If the client side ORB expects a checksum to be added to the reply we
       add it by using:</p>
-    <code type="none">
+    <code type="erl">
 out_reply_encoded({ObjTable, ChecksumModule}, ObjKey, Ctx, Op, Bin, Extra) ->
     NewBin = ChecksumModule:add_checksum(Bin),
     {NewBin, Extra}.
@@ -183,8 +183,7 @@ out_reply_encoded({ObjTable, ChecksumModule}, ObjKey, Ctx, Op, Bin, Extra) ->
     </warning>
     <p>For outgoing requests the principle is the same. Hence, it is not further
       described here. The complete interceptor module would look like:</p>
-    <code type="none">
-
+    <code type="erl">
 -module(myInterceptor).
 
 %% Interceptor functions.

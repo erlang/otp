@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2016</year>
+      <year>2001</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -192,7 +192,7 @@ module MyModule {
     <title>Throwing Exceptions</title>
     <p>To be able to raise <c>MyException</c> or <c>MyExceptionMsg</c> exceptions, 
       the generated <c>MyModule.hrl</c> must be included, and typical usage is:</p>
-    <code type="none">
+    <code type="erl">
 -module('MyModule_MyInterface_impl').
 -include("MyModule.hrl").
 

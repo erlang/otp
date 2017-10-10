@@ -4,8 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1998</year>
-      <year>2016</year>
+      <year>1998</year><year>2017</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -41,9 +40,7 @@
     <p>The type <c>TC</c> used below describes an IDL type and is a tuple according 
       to the to the Erlang language mapping.</p>
     <p>The type <c>Any</c> used below is defined as:</p>
-    <code type="none">
-      -record(any, {typecode, value}).
-    </code>
+    <code type="erl">-record(any, {typecode, value}).</code>
     <p>where <c>typecode</c> is a TC tuple and <c>value</c> is an Erlang term of 
       the type defined by the typecode field.</p>
   </description>

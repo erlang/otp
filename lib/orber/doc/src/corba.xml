@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -370,12 +370,12 @@ Example:
       <desc>
         <p>This function takes a <c>corbaname</c>, <c>corbaloc</c> or an IOR on the
           external string representation and returns the object reference.</p>
-        <p>To lookup the NameService reference, simply use
-          <c>"corbaloc:iiop:1.2@123.0.0.12:4001/NameService"</c></p>
-        <p>We can also resolve an object from the NameService by using
-          <c>"corbaname:iiop:1.2@123.0.0.12:4001/NameService#org/Erlang/MyObj"</c></p>
-        <p>To lookup the NameService reference with an IPv6 address, simply use
-          <c>"corbaloc:iiop:1.2@[FEC1:0:3:0:0312:44AF:FAB1:3D01]:4001/NameService"</c></p>
+        <p>To lookup the NameService reference, simply use:</p>
+        <code>corbaloc:iiop:1.2@123.0.0.12:4001/NameService</code>
+        <p>We can also resolve an object from the NameService by using:</p>
+        <code>corbaname:iiop:1.2@123.0.0.12:4001/NameService#org/Erlang/MyObj</code>
+        <p>To lookup the NameService reference with an IPv6 address, simply use:</p>
+        <code>corbaloc:iiop:1.2@[FEC1:0:3:0:0312:44AF:FAB1:3D01]:4001/NameService</code>
         <p>For more information about <c>corbaname</c> and <c>corbaloc</c>, see
           the User's Guide (Interoperable Naming Service).</p>
         <p>The <em>configuration</em> context is used to override the global

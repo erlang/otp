@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -55,8 +55,8 @@ struct Binding {
 
 typedef sequence <Binding> BindingList;
     ]]></code>
-    <p>To get access to the record definitions for the structs use:
-      <c>-include_lib("orber/COSS/CosNaming.hrl").</c>.</p>
+    <p>To get access to the record definitions for the structs use:</p>
+    <code>-include_lib("orber/COSS/CosNaming.hrl").</code>
     <p>Names are not an ORB object but the can be structured in components as seen by 
       the definition above. There are no requirements on names so the service can support 
       many different conventions and standards.</p>
