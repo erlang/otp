@@ -850,8 +850,10 @@ do_measure(_Config) ->
           exrop, TMarkNormalFloat),
     ok.
 
+-define(LOOP_MEASURE, (?LOOP div 5)).
+
 measure_loop(Fun, State) ->
-    measure_loop(Fun, State, ?LOOP).
+    measure_loop(Fun, State, ?LOOP_MEASURE).
 %%
 measure_loop(Fun, State, N) when 0 < N ->
     measure_loop(Fun, Fun(State), N-1);
@@ -889,7 +891,8 @@ measure_1(RangeFun, Fun, Alg, TMark) ->
                         end,
                     io:format(
                       "~.12w: ~p ns ~p% [16#~.16b]~n",
-                      [Alg, (Time * 1000 + 500) div ?LOOP, Percent, Range]),
+                      [Alg, (Time * 1000 + 500) div ?LOOP_MEASURE,
+                       Percent, Range]),
                     Parent ! {self(), Time},
                     normal
             end),
