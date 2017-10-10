@@ -4,8 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year>
-      <year>2016</year>
+      <year>2000</year><year>2017</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -36,8 +35,8 @@
   <description>
     <p>To get access to the record definitions for the structures use:      <br></br>
 </p>
-    <code type="none">
-        -include_lib("orber/COSS/CosNaming/CosNaming.hrl").
+    <code type="erl">
+-include_lib("orber/COSS/CosNaming/CosNaming.hrl").
     </code>
     <p>This module also exports the functions described in:</p>
     <list type="bulleted">

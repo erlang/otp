@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -106,7 +106,7 @@
         necessary to start the Erlang distribution (i.e. using <c>-name/-sname</c>).</p>
       <p>If we use <c>ram_copies</c> there is no need for creating a disk based
         schema. Simply use:</p>
-      <code type="none">
+      <code type="erl">
 erl> mnesia:start().
 erl> corba:orb_init([{domain, "MyRAMSingleNodeORB"}]).
 erl> orber:install([node()], [{ifr_storage_type, ram_copies}]).
@@ -115,7 +115,7 @@ erl> orber:start().
       <p>If you installation requires <c>disc_copies</c> you must begin with
         creating a Mnesia schema. Otherwise, the installation is similar
         to a RAM installation:</p>
-      <code type="none">
+      <code type="erl">
 erl> mnesia:create_schema([node()]).
 erl> mnesia:start().
 erl> corba:orb_init([{domain, "MyDiskSingleNodeORB"}]).
@@ -137,7 +137,7 @@ erl> orber:start().
       <title>Install RAM Based Multi Node Orber</title>
       <p>Within a domain Orber uses the Erlang distribution protocol. Hence, you
         <em>must</em> start it first by, for example, using:</p>
-      <code type="none">
+      <code type="erl">
 hostA> erl -sname nodeA
       </code>
       <p>In this example, we assume that we want to use two nodes; <c>nodeA</c> and
@@ -146,7 +146,7 @@ hostA> erl -sname nodeA
         parameter <c>extra_db_nodes</c> or use <c>mnesia:change_config/2</c>. To 
         begin with, Mnesia must be started on all nodes before we can install
         Orber:</p>
-      <code type="none">
+      <code type="erl">
 nodeA@hostA> mnesia:start().
 nodeA@hostA> mnesia:change_config(extra_db_nodes, 
                                   [nodeA@hostA, nodeB@hostB]).
@@ -154,7 +154,7 @@ nodeA@hostA> mnesia:change_config(extra_db_nodes,
       <p>After that the above have been repeated on <c>nodeB</c> we must
         first make sure that both nodes will use the same domain name, then
         we can install Orber:</p>
-      <code type="none">
+      <code type="erl">
 nodeA@hostA> corba:orb_init([{domain, "MyRAMMultiNodeORB"}]).
 nodeA@hostA> orber:install([nodeA@hostA, nodeB@hostB],
                            [{ifr_storage_type, ram_copies}]).
@@ -162,7 +162,7 @@ nodeA@hostA> orber:start().
       </code>
       <p>Note that you can only invoke <c>orber:install/1/2</c> on one of the
         nodes. Now we can start Orber on the other node:</p>
-      <code type="none">
+      <code type="erl">
 nodeB@hostB> corba:orb_init([{domain, "MyRAMMultiNodeORB"}]).
 nodeB@hostB> orber:start().
       </code>
@@ -173,7 +173,7 @@ nodeB@hostB> orber:start().
       <p>As for RAM based multi-node Orber installations, the Erlang distribution
         must be started (e.g. erl -sname nodeA). The major difference is that
         when it is disk based a Mnesia schema must be created:</p>
-      <code type="none">
+      <code type="erl">
 nodeA@hostA> mnesia:create_schema([nodeA@hostA, nodeB@hostB]).
 nodeA@hostA> mnesia:start().
       </code>
@@ -183,7 +183,7 @@ nodeA@hostA> mnesia:start().
         <c>mnesia:start()</c>) on <c>nodeB</c>.</p>
       <p>After Mnesia have been started on all nodes, you must confirm that all 
         nodes have the same domain name, then Orber is ready to be installed:</p>
-      <code type="none">
+      <code type="erl">
 nodeA@hostA> corba:orb_init([{domain, "MyDiskMultiNodeORB"}]).
 nodeA@hostA> orber:install([nodeA@hostA, nodeB@hostB],
                            [{ifr_storage_type, disc_copies}]).
@@ -191,7 +191,7 @@ nodeA@hostA> orber:start().
       </code>
       <p>Note that you can only invoke <c>orber:install/1/2</c> on one of the
         nodes. Now we can start Orber on the other node:</p>
-      <code type="none">
+      <code type="erl">
 nodeB@hostB> corba:orb_init([{domain, "MyDiskMultiNodeORB"}]).
 nodeB@hostB> orber:start().
       </code>
@@ -918,7 +918,7 @@ TCP Firewall With NAT</icaption>
       verify whether access would be granted or not. For example, if Orber would
       be started with the ACL <c>[{tcp_out, "10.1.1.1/8#4001/5001"}]</c>, then 
       <c>orber_acl:match/2</c> would behave as follows:</p>
-    <code type="none">
+    <code type="erl">
 erl> orber_acl:match({11,1,1,1}, tcp_out).
 false
 
@@ -967,7 +967,7 @@ erl> orber_acl:match({10,1,1,1}, tcp_out, true).
       the configuration of the underlying system.</p>
     <p>Adding the interface context, for generated stubs/skeletons, is done in the 
       following way:</p>
-    <code type="none">
+    <code type="erl">
 Ctx = #'IOP_ServiceContext'{context_id = ?ORBER_GENERIC_CTX_ID, 
                             context_data = {interface, "10.0.0.1"}},
 'CosNaming_NamingContext':resolve(NS, [{context, [Ctx]}], Name),

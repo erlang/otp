@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -906,9 +906,9 @@
         </item>
       </list>
     </section>
-    
-  </section>  
-  
+
+  </section>
+
   <section><title>Mnesia 4.4.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -977,7 +977,7 @@
 
   </section>
   <section><title>Mnesia 4.4.10</title>
-    
+
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
@@ -1007,7 +1007,7 @@
         </item>
       </list>
     </section>
-    
+
   </section>
 
 
@@ -1025,7 +1025,7 @@
         </item>
       </list>
     </section>
-    
+
   </section>
 
   <section><title>Mnesia 4.4.8</title>
@@ -1050,7 +1050,7 @@
         </item>
       </list>
     </section>
-    
+
   </section>
 
  <section><title>Mnesia 4.4.7</title>
@@ -1084,7 +1084,7 @@
 
 </section>
 
- <section><title>Mnesia 4.4.6</title>    
+ <section><title>Mnesia 4.4.6</title>
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
@@ -1275,9 +1275,4 @@
     </section>
   </section>
 
-  <!-- section>
-    <title>Previous Notes</title>
-    <p>For information about older versions see <url href="part_notes_history_frame.html">release notes history</url>.</p>
-  </section -->
 </chapter>
-

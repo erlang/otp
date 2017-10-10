@@ -1,7 +1,7 @@
-# 
+#
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2000-2016. All Rights Reserved.
+# Copyright Ericsson AB 2000-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ include files.mk
 # ----------------------------------------------------
 
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
-            $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
+            $(XML_PART_FILES) $(XML_CHAPTER_FILES)
 
 INTERNAL_HTML_FILES = $(TECHNICAL_DESCR_FILES:%.xml=$(HTMLDIR)/%.html)
 
@@ -70,10 +70,6 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
-INDEX_FILE   = index.html
-INDEX_SRC    = $(INDEX_FILE).src
-INDEX_TARGET = $(DOCDIR)/$(INDEX_FILE)
-
 STANDARD_DIR = ../standard
 STANDARDS = $(STANDARD_DIR)/rfc3525.txt \
             $(STANDARD_DIR)/rfc4234.txt \
@@ -81,10 +77,10 @@ STANDARDS = $(STANDARD_DIR)/rfc3525.txt \
             $(STANDARD_DIR)/implementors_guide_v10-13.pdf
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
 
 
 # ----------------------------------------------------
@@ -101,7 +97,7 @@ $(HTMLDIR)/%.png: %.png
 
 docs: pdf html man
 
-ldocs: local_docs $(INDEX_TARGET)
+ldocs: local_docs
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -121,22 +117,14 @@ clean_html:
 
 imgs: $(IMG_FILES:%=$(HTMLDIR)/%)
 
-man: $(MAN3_FILES) 
+man: $(MAN3_FILES)
 
-$(INDEX_TARGET): $(INDEX_SRC) $(APP_FILE)
-	sed -e 's/%VSN%/$(VSN)/' \
-            -e 's/%ERLANG_SITE%/www\.erlang\.se\//' \
-            -e 's/%UP_ONE_LEVEL%/..\/..\/..\/doc\/index.html/' \
-            -e 's/%OFF_PRINT%/pdf\/megaco-$(VSN).pdf/' $< > $@
-
-debug opt: 
+debug opt:
 
 info:
 	@echo "->Makefile<-"
 	@echo ""
-	@echo "INDEX_FILE   = $(INDEX_FILE)"
-	@echo "INDEX_SRC    = $(INDEX_SRC)"
-	@echo "INDEX_TARGET = $(INDEX_TARGET)"
+	@echo "HTML_REF_MAN_FILE   = $(HTML_REF_MAN_FILE)"
 	@echo ""
 	@echo "XML_APPLICATION_FILES = $(XML_APPLICATION_FILES)"
 	@echo "XML_PART_FILES        = $(XML_PART_FILES)"
@@ -158,7 +146,7 @@ info:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs
@@ -193,4 +181,3 @@ $(HTMLDIR)/megaco_transport_mechanisms.html: megaco_transport_mechanisms.xml
 $(HTMLDIR)/megaco_transport.html: megaco_transport.xml
 $(HTMLDIR)/megaco_udp.html: megaco_udp.xml
 $(HTMLDIR)/megaco_user.html: megaco_user.xml
-

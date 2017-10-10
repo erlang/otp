@@ -1,8 +1,8 @@
 #
 # %CopyrightBegin%
-# 
+#
 # Copyright Ericsson AB 1997-2016. All Rights Reserved.
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 #
@@ -37,7 +37,7 @@ RELSYSDIR = "$(RELEASE_PATH)/doc/design_principles"
 # ----------------------------------------------------
 XML_PART_FILES = part.xml
 
-include xmlfiles.mk 
+include xmlfiles.mk
 
 XML_CHAPTER_FILES=$(DESIGN_PRINCIPLES_CHAPTER_FILES)
 
@@ -46,7 +46,6 @@ TOPDOCDIR=..
 BOOK_FILES = book.xml
 
 GIF_FILES = \
-	note.gif \
 	clientserver.gif \
 	dist1.gif \
 	dist2.gif \
@@ -66,7 +65,7 @@ IMAGE_FILES = $(GIF_FILES) $(PNG_FILES)
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
-	$(XML_PART_FILES) 
+	$(XML_PART_FILES)
 
 # ----------------------------------------------------
 
@@ -78,10 +77,10 @@ HTMLDIR = ../html/design_principles
 HTML_UG_FILE = $(HTMLDIR)/users_guide.html
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
@@ -102,16 +101,16 @@ html: $(HTML_UG_FILE) images
 
 images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
 
-debug opt: 
+debug opt:
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f errs core *~ 
+	rm -f errs core *~
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs
@@ -123,5 +122,3 @@ release_docs_spec: docs
 
 
 release_spec:
-
-

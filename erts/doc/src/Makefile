@@ -1,7 +1,7 @@
-# 
+#
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 # %CopyrightEnd%
-# 
+#
 
 SPECS_ESRC = ../../preloaded/src/
 
@@ -66,9 +66,7 @@ XML_REF3_FILES = \
 	zlib.xml
 
 XML_PART_FILES = \
-	part.xml \
-	part_notes.xml \
-	part_notes_history.xml
+	part.xml
 
 XML_CHAPTER_FILES = \
 	tty.xml \
@@ -116,9 +114,9 @@ SPECS_FILES = $(XML_REF3_EFILES:%.xml=$(SPECDIR)/specs_%.xml)
 TOP_SPECS_FILE = specs.xml
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
+XML_FLAGS +=
 
 KERNEL_SRC=$(ERL_TOP)/lib/kernel/src
 KERNEL_INCLUDE=$(ERL_TOP)/lib/kernel/include
@@ -146,7 +144,7 @@ $(INFO_FILE): $(INFO_FILE_SRC) $(ERL_TOP)/make/$(TARGET)/otp.mk
 	sed -e 's;%RELEASE%;$(SYSTEM_VSN);' $(INFO_FILE_SRC) > $(INFO_FILE)
 
 
-debug opt: 
+debug opt:
 
 clean:
 	rm -rf $(HTMLDIR)/*
@@ -154,7 +152,7 @@ clean:
 	rm -f $(MAN3DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f $(SPECDIR)/*
-	rm -f errs core *~ 
+	rm -f errs core *~
 
 $(SPECDIR)/specs_%.xml:
 	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
@@ -162,7 +160,7 @@ $(SPECDIR)/specs_%.xml:
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs

@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -21,7 +21,7 @@
       limitations under the License.
 
     </legalnotice>
-    
+
     <title>ODBC Release Notes</title>
     <prepared>otp_appnotes</prepared>
     <docno>nil</docno>
@@ -568,9 +568,9 @@
 
 </section>
 
-  
+
   <section><title>ODBC 2.10.7</title>
-  
+
     <section><title>Fixed Bugs and Malfunctions</title>
     <list>
       <item>
@@ -583,7 +583,7 @@
     </list>
     </section>
 
-    
+
     <section><title>Improvements and New Features</title>
       <list>
         <item>
@@ -720,7 +720,7 @@
   </section>
 
   <section><title>ODBC 2.10.5</title>
-  
+
   <section><title>Fixed Bugs and Malfunctions</title>
   <list>
     <item>
@@ -732,12 +732,12 @@
     </item>
   </list>
   </section>
-  
+
   </section>
 
 
   <section><title>ODBC 2.10.4</title>
-  
+
   <section><title>Improvements and New Features</title>
   <list>
     <item>
@@ -756,7 +756,7 @@
     </item>
   </list>
   </section>
-  
+
   </section>
 
  <section><title>ODBC 2.10.3</title>
@@ -787,7 +787,7 @@
 </section>
 
   <section><title>ODBC 2.10.2</title>
-  
+
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
         <item>
@@ -802,9 +802,9 @@
     </section>
 
   </section>
-  
+
   <section><title>ODBC 2.10.1</title>
-  
+
     <section><title>Improvements and New Features</title>
       <list>
         <item>
@@ -852,7 +852,7 @@
  </section>
 
   <section><title>ODBC 2.10</title>
-    
+
     <section><title>Improvements and New Features</title>
       <list>
         <item>
@@ -865,11 +865,11 @@
         </item>
       </list>
     </section>
-    
+
   </section>
 
   <section><title>ODBC 2.0.9</title>
-    
+
     <section><title>Improvements and New Features</title>
       <list>
         <item>
@@ -897,9 +897,9 @@
         </item>
       </list>
     </section>
-    
+
   </section>
-  
+
   <section>
     <title>ODBC 2.0.8</title>
 
@@ -1142,9 +1142,5 @@
         </item>
       </list>
     </section>
-    <!-- p>For information about older versions see
-      <url href="part_notes_history_frame.html">release notes history</url>.</p -->
   </section>
 </chapter>
-
-

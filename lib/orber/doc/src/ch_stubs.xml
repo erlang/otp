@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2016</year>
+      <year>1999</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -158,7 +158,7 @@ up_to_date
         <p>Arguments and Replies are determined by the IDL-code and, hence, not
           further described here.</p>
       </note>
-      <code type="none">
+      <code type="erl">
 %%%-----------------------------------------------------------
 %%% File    : Module_Interface_impl.erl
 %%% Author  : 

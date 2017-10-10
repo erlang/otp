@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2016. All Rights Reserved.
+# Copyright Ericsson AB 1999-2017. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,11 +38,9 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
-XML_REF3_FILES = odbc.xml 
+XML_REF3_FILES = odbc.xml
 
-XML_PART_FILES = part.xml \
-	part_notes.xml \
-	part_notes_history.xml
+XML_PART_FILES = part.xml
 
 XML_HTML_FILES = \
 	notes_history.xml
@@ -52,21 +50,15 @@ XML_CHAPTER_FILES = \
 	getting_started.xml \
 	databases.xml \
 	error_handling.xml \
-	notes.xml 
+	notes.xml
 
 BOOK_FILES = book.xml
 
 XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
-            $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
+            $(XML_PART_FILES) $(XML_CHAPTER_FILES)
 
 GIF_FILES = \
-	book.gif \
-	odbc.gif \
-	note.gif \
-	notes.gif \
-	ref_man.gif \
-	user_guide.gif \
-	odbc_app_arc.gif 
+	odbc_app_arc.gif
 
 # ----------------------------------------------------
 
@@ -87,10 +79,10 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
 
 # ----------------------------------------------------
 # Targets
@@ -117,12 +109,12 @@ man: $(MAN3_FILES)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)	# We depend just to copy them to ../html
 
-debug opt: 
+debug opt:
 
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs

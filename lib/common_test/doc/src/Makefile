@@ -57,9 +57,7 @@ XML_REF3_FILES = ct.xml \
         ct_testspec.xml
 XML_REF6_FILES = common_test_app.xml
 
-XML_PART_FILES = part.xml 
-#	part_notes.xml \
-#	part_notes_history.xml
+XML_PART_FILES = part.xml
 
 XML_CHAPTER_FILES = \
 	basics_chapter.xml \
@@ -77,7 +75,7 @@ XML_CHAPTER_FILES = \
 	ct_hooks_chapter.xml \
 	dependencies_chapter.xml \
 	notes.xml \
-	notes_history.xml 
+	notes_history.xml
 
 BOOK_FILES = book.xml
 
@@ -111,10 +109,10 @@ SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
 TOP_SPECS_FILE = specs.xml
 
 # ----------------------------------------------------
-# FLAGS 
+# FLAGS
 # ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
+XML_FLAGS +=
+DVIPS_FLAGS +=
 SPECS_FLAGS = -I../../include -I../../../snmp/include \
 	-I../../../kernel/include
 
@@ -131,14 +129,14 @@ $(TOP_PDF_FILE): $(XML_FILES)
 
 pdf: $(TOP_PDF_FILE)
 
-html: gifs $(HTML_REF_MAN_FILE) 
+html: gifs $(HTML_REF_MAN_FILE)
 
 gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
 man: $(MAN6_FILES) $(MAN3_FILES) $(MAN1_FILES)
 
 
-debug opt: 
+debug opt:
 
 clean clean_docs:
 	rm -rf $(HTMLDIR)/*
@@ -147,11 +145,11 @@ clean clean_docs:
 	rm -f $(MAN6DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f $(SPECDIR)/*
-	rm -f errs core *~ 
+	rm -f errs core *~
 
 # ----------------------------------------------------
 # Release Target
-# ---------------------------------------------------- 
+# ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 

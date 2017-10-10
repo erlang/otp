@@ -4,8 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2002</year>
-      <year>2016</year>
+      <year>2002</year><year>2017</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -38,8 +37,8 @@
   <description>
     <p>This module contains functions that gives an interface to the CORBA fixed type.</p>
     <p>The type <c>Fixed</c> used below is defined as:</p>
-    <code type="none">
-      -record(fixed, {digits, scale, value}).
+    <code type="erl">
+-record(fixed, {digits, scale, value}).
     </code>
     <p>where <c>digits</c> is the total amount of digits it consists of and 
       <c>scale</c> is the number of fractional digits. The <c>value</c> field

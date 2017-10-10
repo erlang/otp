@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2016</year>
+      <year>1997</year><year>2017</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -819,7 +819,7 @@ module x {
     <p><term id="Type Codes"><termdef>Type codes give a complete description  of the type including all its components and structure.</termdef></term>are, for example, used in <seealso marker="any">Any</seealso> values.
       Hence, we can encapsulate the <c>employee</c> struct in an <c>any</c>
       type by:</p>
-    <code type="none">
+    <code type="erl">
 %% Erlang code
 ....
 AnEmployee = #'DB_employee'{'No'      = 1,
@@ -962,7 +962,7 @@ R1 = m_i:foo(Obj, 55),
       representation of the IDL-type <c>void</c>, must be returned by
       <c>baz</c> and <c>'_set_RWAttribute'</c>. 
       These operations can be implemented in the call-back module as:</p>
-    <code type="none">
+    <code type="erl">
 '_set_RWAttribute'(State, Long) ->
     {reply, ok, State}.
 
@@ -1011,7 +1011,7 @@ $> erlc +"{be,erl_template}" DB.idl
     <p>We begin with implementing the <c>DB_Access_impl.erl</c> module, which,
       if we used <c>erl_template</c>, will look like the following. All we need
       to do is to add the logic to the <c>logon</c> operation.</p>
-    <code type="none"><![CDATA[
+    <code type="erl"><![CDATA[
 %%----------------------------------------------------------------------
 %% <LICENSE>
 %% 
@@ -1154,7 +1154,7 @@ $ <input>erlc *.erl</input>
       <seealso marker="ch_exceptions">Exceptions</seealso> chapter.
       In the following example, only the implementation of the API functions
       are shown:</p>
-    <code type="none">
+    <code type="erl">
 %%======================================================================
 %% API Functions
 %%======================================================================

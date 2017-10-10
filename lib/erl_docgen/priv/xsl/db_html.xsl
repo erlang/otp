@@ -30,6 +30,7 @@
   xmlns:fn="http://www.w3.org/2005/02/xpath-functions">
 
   <xsl:include href="db_html_params.xsl"/>
+  <xsl:include href="db_funcs.xsl"/>
 
   <func:function name="erl:flip_first_char">
     <xsl:param name="in"/>
@@ -1132,7 +1133,14 @@
     <xsl:variable name="codenum">
       <xsl:number level="any" from="chapter" count="code"/>
     </xsl:variable>
-    <div class="example"><pre><xsl:apply-templates/></pre></div>
+      <xsl:choose> 
+	<xsl:when test="not(descendant::anno)">
+ 	   <div class="example"><pre><xsl:value-of select="erl:code_trim(text())"/></pre></div>
+ 	</xsl:when>
+	<xsl:otherwise>    
+	   <div class="example"><pre><xsl:apply-templates/></pre></div>
+	</xsl:otherwise>
+      </xsl:choose>	
   </xsl:template>
 
   <!-- Pre -->

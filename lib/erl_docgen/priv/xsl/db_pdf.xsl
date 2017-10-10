@@ -23,12 +23,16 @@
 <xsl:stylesheet version="1.0"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns:exsl="http://exslt.org/common"
-  extension-element-prefixes="exsl"
-  xmlns:fo="http://www.w3.org/1999/XSL/Format">
+  xmlns:func="http://exslt.org/functions"
+  xmlns:erl="http://erlang.org"
+  extension-element-prefixes="exsl func"
+  xmlns:fo="http://www.w3.org/1999/XSL/Format"
+  xmlns:fn="http://www.w3.org/2005/02/xpath-functions">
 
   <xsl:output method="xml" indent="yes"/>
 
   <xsl:include href="db_pdf_params.xsl"/>
+  <xsl:include href="db_funcs.xsl"/>
 
   <!-- Start of Dialyzer type/spec tags.
        See also the templates matching "name" and "seealso" as well as
@@ -687,7 +691,7 @@
         <fo:block xsl:use-attribute-sets="cover.inner.copyrightnotice">
           <xsl:value-of select="/book/header/legalnotice"/>
 
-        <!--   
+        <!--
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at
@@ -744,12 +748,12 @@
         <fo:bookmark internal-destination="{generate-id(header/title)}"
           starting-state="hide">
           <fo:bookmark-title><xsl:value-of select="header/title"/></fo:bookmark-title>
-          
+
           <xsl:call-template name="bookmarks2">
             <xsl:with-param name="entries"
               select="chapter[header/title]"/>
           </xsl:call-template>
-          
+
         </fo:bookmark>
       </xsl:for-each>
     </xsl:if>
@@ -1122,52 +1126,60 @@
   <!-- Note -->
   <xsl:template match="note">
     <xsl:param name="partnum"/>
-    <fo:block xsl:use-attribute-sets="note">
-        <fo:block xsl:use-attribute-sets="note-warning-title">
-            <xsl:text>Note:</xsl:text>
-        </fo:block>
-      <xsl:apply-templates>
-        <xsl:with-param name="partnum" select="$partnum"/>
-      </xsl:apply-templates>
+    <fo:block xsl:use-attribute-sets="note-warning">
+      <fo:block xsl:use-attribute-sets="note-title">
+	<xsl:text>Note:</xsl:text>
+      </fo:block>
+      <fo:block xsl:use-attribute-sets="note-warning-content">
+	<xsl:apply-templates>
+          <xsl:with-param name="partnum" select="$partnum"/>
+	</xsl:apply-templates>
+      </fo:block>
     </fo:block>
   </xsl:template>
 
   <!-- Warning -->
   <xsl:template match="warning">
     <xsl:param name="partnum"/>
-    <fo:block xsl:use-attribute-sets="warning">
-        <fo:block xsl:use-attribute-sets="note-warning-title">
-            <xsl:text>Warning:</xsl:text>
-        </fo:block>
-      <xsl:apply-templates>
-        <xsl:with-param name="partnum" select="$partnum"/>
-      </xsl:apply-templates>
+    <fo:block xsl:use-attribute-sets="note-warning">
+      <fo:block xsl:use-attribute-sets="warning-title">
+	<xsl:text>Warning:</xsl:text>
+      </fo:block>
+      <fo:block xsl:use-attribute-sets="note-warning-content">
+	<xsl:apply-templates>
+          <xsl:with-param name="partnum" select="$partnum"/>
+	</xsl:apply-templates>
+      </fo:block>
     </fo:block>
   </xsl:template>
 
   <!-- Do -->
   <xsl:template match="do">
     <xsl:param name="partnum"/>
-    <fo:block xsl:use-attribute-sets="do">
-        <fo:block xsl:use-attribute-sets="note-warning-title">
-            <xsl:text>Do:</xsl:text>
-        </fo:block>
-      <xsl:apply-templates>
-        <xsl:with-param name="partnum" select="$partnum"/>
-      </xsl:apply-templates>
+    <fo:block xsl:use-attribute-sets="note-warning">
+      <fo:block xsl:use-attribute-sets="note-title">
+	<xsl:text>Do:</xsl:text>
+      </fo:block>
+      <fo:block xsl:use-attribute-sets="note-warning-content">
+	<xsl:apply-templates>
+          <xsl:with-param name="partnum" select="$partnum"/>
+	</xsl:apply-templates>
+      </fo:block>
     </fo:block>
   </xsl:template>
 
   <!-- Dont -->
   <xsl:template match="dont">
     <xsl:param name="partnum"/>
-    <fo:block xsl:use-attribute-sets="dont">
-        <fo:block xsl:use-attribute-sets="note-warning-title">
-            <xsl:text>Don't:</xsl:text>
-        </fo:block>
-      <xsl:apply-templates>
-        <xsl:with-param name="partnum" select="$partnum"/>
-      </xsl:apply-templates>
+    <fo:block xsl:use-attribute-sets="note-warning">
+      <fo:block xsl:use-attribute-sets="warning-title">
+	<xsl:text>Don't:</xsl:text>
+      </fo:block>
+      <fo:block xsl:use-attribute-sets="note-warning-content">
+	<xsl:apply-templates>
+          <xsl:with-param name="partnum" select="$partnum"/>
+	</xsl:apply-templates>
+      </fo:block>
     </fo:block>
   </xsl:template>
 
@@ -1226,7 +1238,14 @@
     </xsl:variable>
 
     <fo:block xsl:use-attribute-sets="code">
-      <xsl:apply-templates select="text()"/>
+      <xsl:choose> 
+	<xsl:when test="not(descendant::anno)">
+	  <xsl:value-of select="erl:code_trim(text())"/>
+	</xsl:when>
+	<xsl:otherwise>
+	  <xsl:apply-templates/>
+	</xsl:otherwise>
+      </xsl:choose>	
     </fo:block>
 
     <xsl:if test="@caption">
