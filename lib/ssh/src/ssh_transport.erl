@@ -1830,11 +1830,14 @@ valid_key_sha_alg(#'RSAPrivateKey'{}, 'ssh-rsa'     ) -> true;
 valid_key_sha_alg({_, #'Dss-Parms'{}}, 'ssh-dss') -> true;
 valid_key_sha_alg(#'DSAPrivateKey'{},  'ssh-dss') -> true;
 
-valid_key_sha_alg({#'ECPoint'{},{namedCurve,OID}},                Alg) -> sha(OID) == sha(Alg);
-valid_key_sha_alg(#'ECPrivateKey'{parameters = {namedCurve,OID}}, Alg) -> sha(OID) == sha(Alg);
+valid_key_sha_alg({#'ECPoint'{},{namedCurve,OID}},                Alg) -> valid_key_sha_alg_ec(OID, Alg);
+valid_key_sha_alg(#'ECPrivateKey'{parameters = {namedCurve,OID}}, Alg) -> valid_key_sha_alg_ec(OID, Alg);
 valid_key_sha_alg(_, _) -> false.
     
-
+valid_key_sha_alg_ec(OID, Alg) -> 
+    Curve = public_key:oid2ssh_curvename(OID),
+    Alg == list_to_atom("ecdsa-sha2-" ++ binary_to_list(Curve)).
+    
 
 public_algo(#'RSAPublicKey'{}) ->   'ssh-rsa';  % FIXME: Not right with draft-curdle-rsa-sha2
 public_algo({_, #'Dss-Parms'{}}) -> 'ssh-dss';
