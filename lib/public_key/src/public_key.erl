@@ -850,10 +850,10 @@ pkix_crls_validate(OtpCert, DPAndCRLs0, Options) ->
 
 %--------------------------------------------------------------------
 -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
-			   ReferenceIDs :: [{uri_id | dns_id | oid(),  string()}]) -> boolean().
+			   ReferenceIDs :: [{uri_id | dns_id | ip | srv_id | oid(),  string()}]) -> boolean().
 
 -spec pkix_verify_hostname(Cert :: #'OTPCertificate'{} | binary(),
-			   ReferenceIDs :: [{uri_id | dns_id | oid(),  string()}],
+			   ReferenceIDs :: [{uri_id | dns_id | ip | srv_id | oid(),  string()}],
 			   Options :: proplists:proplist()) -> boolean().
 
 %% Description: Validates a hostname to RFC 6125
