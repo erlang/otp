@@ -213,7 +213,6 @@ start_httpd(Config) when is_list(Config) ->
     true = lists:member(Pid0, Pids0),
     [_|_] = inets:services_info(),	
     inets:stop(httpd, Pid0),
-    ct:sleep(500),
     Pids1 =  [ServicePid || {_, ServicePid} <- inets:services()],
     false = lists:member(Pid0, Pids1),
     {ok, Pid0b} =
@@ -222,7 +221,6 @@ start_httpd(Config) when is_list(Config) ->
     true = lists:member(Pid0b, Pids0b),
     [_|_] = inets:services_info(),
     inets:stop(httpd, Pid0b),
-    ct:sleep(500),
     Pids1 =  [ServicePid || {_, ServicePid} <- inets:services()], 
     false = lists:member(Pid0b, Pids1),
     {ok, Pid1} = 
