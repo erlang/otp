@@ -46,6 +46,7 @@
 
 %%% Internal application API
 -export([start_connection/4,
+         available_hkey_algorithms/2,
 	 open_channel/6,
 	 request/6, request/7,
 	 reply_request/3, 
@@ -432,13 +433,12 @@ init_ssh_record(Role, Socket, Opts) ->
     init_ssh_record(Role, Socket, PeerAddr, Opts).
 
 init_ssh_record(Role, _Socket, PeerAddr, Opts) ->
-    KeyCb = ?GET_OPT(key_cb, Opts),
     AuthMethods = ?GET_OPT(auth_methods, Opts),
     S0 = #ssh{role = Role,
-	      key_cb = KeyCb,
+	      key_cb = ?GET_OPT(key_cb, Opts),
 	      opts = Opts,
 	      userauth_supported_methods = AuthMethods,
-	      available_host_keys = supported_host_keys(Role, KeyCb, Opts),
+	      available_host_keys = available_hkey_algorithms(Role, Opts),
 	      random_length_padding = ?GET_OPT(max_random_length_padding, Opts)
 	   },
 
@@ -1544,44 +1544,42 @@ peer_role(client) -> server;
 peer_role(server) -> client.
 
 %%--------------------------------------------------------------------
-supported_host_keys(client, _, Options) ->
-    try
-        find_sup_hkeys(Options)
-    of
-	[] ->
+available_hkey_algorithms(Role, Options) ->
+    KeyCb = ?GET_OPT(key_cb, Options),
+    case [A || A <- available_hkey_algos(Options),
+               (Role==client) orelse available_host_key(KeyCb, A, Options)
+         ] of
+        
+        [] when Role==client ->
 	    error({shutdown, "No public key algs"});
+
+        [] when Role==server ->
+	    error({shutdown, "No host key available"});
+
 	Algs ->
 	    [atom_to_list(A) || A<-Algs]
-    catch
-	exit:Reason ->
-	    error({shutdown, Reason})
-    end;
-supported_host_keys(server, KeyCb, Options) ->
-    [atom_to_list(A) || A <- find_sup_hkeys(Options),
-			available_host_key(KeyCb, A, Options)
-    ].
-
-
-find_sup_hkeys(Options) ->
-    case proplists:get_value(public_key,
-                             ?GET_OPT(preferred_algorithms,Options)
-                            )
-    of
-        undefined ->
-            ssh_transport:default_algorithms(public_key);
-        L ->
-            NonSupported =  L--ssh_transport:supported_algorithms(public_key),
-            L -- NonSupported
     end.
 
+
+available_hkey_algos(Options) ->
+    SupAlgos = ssh_transport:supported_algorithms(public_key),
+    HKeys = proplists:get_value(public_key,
+                                ?GET_OPT(preferred_algorithms,Options)
+                               ),
+    NonSupported =  HKeys -- SupAlgos,
+    AvailableAndSupported = HKeys -- NonSupported,
+    AvailableAndSupported.
 
 
 %% Alg :: atom()
 available_host_key({KeyCb,KeyCbOpts}, Alg, Opts) ->
     UserOpts = ?GET_OPT(user_options, Opts),
     case KeyCb:host_key(Alg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
-        {ok,_} -> true;
-        _ -> false
+        {ok,Key} ->
+            %% Check the key - the KeyCb may be a buggy plugin
+            ssh_transport:valid_key_sha_alg(Key, Alg);
+        _ ->
+            false
     end.
 
 

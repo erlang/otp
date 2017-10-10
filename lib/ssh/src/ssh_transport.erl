@@ -795,8 +795,14 @@ get_host_key(SSH, SignAlg) ->
     #ssh{key_cb = {KeyCb,KeyCbOpts}, opts = Opts} = SSH,
     UserOpts = ?GET_OPT(user_options, Opts),
     case KeyCb:host_key(SignAlg, [{key_cb_private,KeyCbOpts}|UserOpts]) of
-	{ok, PrivHostKey} ->  PrivHostKey;
-	Result -> exit({error, {Result, unsupported_key_type}})
+	{ok, PrivHostKey} ->
+            %% Check the key - the KeyCb may be a buggy plugin
+            case valid_key_sha_alg(PrivHostKey, SignAlg) of
+                true -> PrivHostKey;
+                false -> exit({error, bad_hostkey})
+            end;
+	Result ->
+            exit({error, {Result, unsupported_key_type}})
     end.
 
 extract_public_key(#'RSAPrivateKey'{modulus = N, publicExponent = E}) ->
