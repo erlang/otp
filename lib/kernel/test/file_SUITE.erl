@@ -489,7 +489,7 @@ um_check_unicode(_Utf8Bin, {ok, _ListOrBin}, _, _UTF8_) ->
 um_filename(Bin, Dir, Options) when is_binary(Bin) ->
     um_filename(binary_to_list(Bin), Dir, Options);
 um_filename(Str = [_|_], Dir, Options) ->
-    Name = hd(string:tokens(Str, ":")),
+    Name = hd(string:lexemes(Str, ":")),
     Enc = atom_to_list(proplists:get_value(encoding, Options, latin1)),
     File = case lists:member(binary, Options) of
 	       true ->
@@ -851,7 +851,7 @@ no_untranslatable_names() ->
     end.
 
 start_node(Name, Args) ->
-    [_,Host] = string:tokens(atom_to_list(node()), "@"),
+    [_,Host] = string:lexemes(atom_to_list(node()), "@"),
     ct:log("Trying to start ~w@~s~n", [Name,Host]),
     case test_server:start_node(Name, peer, [{args,Args}]) of
 	{error,Reason} ->
