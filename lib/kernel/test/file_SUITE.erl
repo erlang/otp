@@ -99,6 +99,8 @@
 
 -export([unicode_mode/1]).
 
+-export([volume_relative_paths/1]).
+
 -export([tiny_writes/1, tiny_writes_delayed/1,
          large_writes/1, large_writes_delayed/1,
          tiny_reads/1, tiny_reads_ahead/1]).
@@ -126,8 +128,8 @@ suite() ->
 
 all() -> 
     [unicode, altname, read_write_file, {group, dirs},
-     {group, files}, delete, rename, names, {group, errors},
-     {group, compression}, {group, links}, copy,
+     {group, files}, delete, rename, names, volume_relative_paths,
+     {group, errors}, {group, compression}, {group, links}, copy,
      delayed_write, read_ahead, segment_read, segment_write,
      ipread, pid2name, interleaved_read_write, otp_5814, otp_10852,
      large_file, large_write, read_line_1, read_line_2, read_line_3,
@@ -2119,6 +2121,22 @@ names(Config) when is_list(Config) ->
     end,
     [] = flush(),
     ok.
+
+volume_relative_paths(Config) when is_list(Config) ->
+    case os:type() of
+        {win32, _} ->
+            {ok, [Drive, $: | _]} = file:get_cwd(),
+            %% Relative to current device root.
+            {ok, RootInfo} = file:read_file_info([Drive, $:, $/]),
+            {ok, RootInfo} = file:read_file_info("/"),
+            %% Relative to current device directory.
+            {ok, DirContents} = file:list_dir([Drive, $:]),
+            {ok, DirContents} = file:list_dir("."),
+            [] = flush(),
+            ok;
+        _ ->
+            {skip, "This test is Windows-specific."}
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
