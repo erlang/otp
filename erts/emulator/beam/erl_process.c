@@ -12285,6 +12285,7 @@ alloc_process(ErtsRunQueue *rq, erts_aint32_t state)
 {
     ErtsEarlyProcInit init_arg;
     Process *p;
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
 
     p = erts_alloc_fnf(ERTS_ALC_T_PROC, sizeof(Process));
     if (!p)
@@ -12308,7 +12309,7 @@ alloc_process(ErtsRunQueue *rq, erts_aint32_t state)
 
     ASSERT(internal_pid_serial(p->common.id) <= ERTS_MAX_PID_SERIAL);
     
-    p->approx_started = erts_get_approx_time();
+    p->start_time = erts_get_monotonic_time(esdp),
     p->rcount = 0;
     p->heap = NULL;
 
@@ -12750,7 +12751,7 @@ void erts_init_empty_process(Process *p)
     p->def_arg_reg[5] = 0;
 
     p->parent = NIL;
-    p->approx_started = 0;
+    p->start_time = 0;
     p->static_flags = 0;
 
     p->common.u.alive.started_interval = 0;

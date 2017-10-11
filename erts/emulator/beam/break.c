@@ -44,6 +44,7 @@
 static void process_killer(void);
 void do_break(void);
 void erl_crash_dump_v(char *file, int line, char* fmt, va_list args);
+time_t get_approx_started(Process* p);
 
 #ifdef DEBUG
 static void bin_check(void);
@@ -256,7 +257,7 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
     }
 
     erts_print(to, to_arg, "Spawned by: %T\n", p->parent);
-    approx_started = (time_t) p->approx_started;
+    approx_started = get_approx_started(p);
     erts_print(to, to_arg, "Started: %s", ctime(&approx_started));
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
     erts_print(to, to_arg, "Message queue length: %d\n", p->msg.len);
@@ -353,6 +354,15 @@ print_process_info(fmtfn_t to, void *to_arg, Process *p)
     /* Display all states */
     erts_print(to, to_arg, "Internal State: ");
     erts_dump_extended_process_state(to, to_arg, state);
+}
+
+time_t
+get_approx_started(Process* p)
+{
+    ErtsMonotonicTime native = p->start_time + erts_get_time_offset();
+    return (time_t) erts_time_unit_conversion((Uint64) native,
+                                              (Uint32) ERTS_MONOTONIC_TIME_UNIT,
+                                              (Uint32) 1);
 }
 
 static void

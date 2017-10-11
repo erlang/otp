@@ -5153,7 +5153,7 @@ RealSystem = system + MissedSystem</code>
           </item>
           <tag><c>{start_time, <anno>StartTime</anno>}</c></tag>
           <item>
-            <p><c><anno>StartTime</anno></c> is system time in seconds when
+            <p><c><anno>StartTime</anno></c> is Erlang monotonic time when
               the process was started.</p>
           </item>
           <tag><c>{status, <anno>Status</anno>}</c></tag>

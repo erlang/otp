@@ -1659,9 +1659,10 @@ process_info_aux(Process *BIF_P,
 
     case am_start_time: {
 	Uint hsz = 3;
-	(void) erts_bld_uint(NULL, &hsz, rp->approx_started);
+	ErtsMonotonicTime start_time = rp->start_time + ERTS_MONOTONIC_OFFSET_NATIVE;
+	(void) erts_bld_monotonic_time(NULL, &hsz, start_time);
 	hp = HAlloc(BIF_P, hsz);
-	res = erts_bld_uint(&hp, NULL, rp->approx_started);
+	res = erts_bld_monotonic_time(&hp, NULL, start_time);
 	break;
     }
 

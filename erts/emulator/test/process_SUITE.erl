@@ -425,7 +425,7 @@ etwice_high(Low) ->
 
 %% Tests the process_info/2 BIF.
 t_process_info(Config) when is_list(Config) ->
-    NowTime = erlang:system_time(seconds),
+    NowTime = erlang:monotonic_time(),
     [] = process_info(self(), registered_name),
     register(my_name, self()),
     {registered_name, my_name} = process_info(self(), registered_name),
@@ -454,7 +454,8 @@ t_process_info(Config) when is_list(Config) ->
 
     %% start_time is system time in seconds
     {start_time, StartTime} = process_info(self(), start_time),
-    true = (abs(StartTime - NowTime) =< 1),
+    true = (StartTime < NowTime),
+    true = (NowTime - StartTime < erlang:convert_time_unit(1, seconds, native)),
 
     {'EXIT',{badarg,_Info}} = (catch process_info('not_a_pid')),
     ok.
