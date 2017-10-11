@@ -1329,7 +1329,7 @@ handle_event(_, _, State, Data) ->
 	  <c><anno>T</anno></c> is the time-out time.
 	  <c>{clean_timeout,<anno>T</anno>}</c> works like
 	  just <c>T</c> described in the note above
-	  and uses a proxy process for <c>T &lt; infinity</c>,
+	  and uses a proxy process
 	  while <c>{dirty_timeout,<anno>T</anno>}</c>
 	  bypasses the proxy process which is more lightweight.
 	</p>
@@ -1339,8 +1339,12 @@ handle_event(_, _, State, Data) ->
 	    with <c>{dirty_timeout,<anno>T</anno>}</c>
 	    to avoid that the calling process dies when the call
 	    times out, you will have to be prepared to handle
-	    a late reply.
-	    So why not just let the calling process die?
+	    a late reply.  Note that there is an odd chance
+	    to get a late reply even with
+	    <c>{dirty_timeout,infinity}</c> or <c>infinity</c>
+	    for example in the event of network problems.
+	    So why not just let the calling process die
+	    by not catching the exception?
 	  </p>
 	</note>
 	<p>

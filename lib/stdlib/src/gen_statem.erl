@@ -510,8 +510,6 @@ call(ServerRef, Request, Timeout) ->
 
 parse_timeout(Timeout) ->
     case Timeout of
-	{clean_timeout,infinity} ->
-	    {dirty_timeout,infinity};
 	{clean_timeout,_} ->
 	    Timeout;
 	{dirty_timeout,_} ->
