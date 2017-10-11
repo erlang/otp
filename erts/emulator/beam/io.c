@@ -3829,7 +3829,7 @@ static void sweep_one_link(ErtsLink *lnk, void *vpsc)
 	    ErtsDistLinkData dld;
 	    ErtsDSigData dsd;
 	    int code;
-	    code = erts_dsig_prepare(&dsd, &dep, NULL, 0, ERTS_DSP_NO_LOCK, 0, 0);
+	    code = erts_dsig_prepare(&dsd, dep, NULL, 0, ERTS_DSP_NO_LOCK, 0, 0);
 	    switch (code) {
 	    case ERTS_DSIG_PREP_NOT_ALIVE:
 	    case ERTS_DSIG_PREP_NOT_CONNECTED:

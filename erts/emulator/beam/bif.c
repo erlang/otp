@@ -227,7 +227,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 		goto res_no_proc;
 	    }
 
-	    code = erts_dsig_prepare(&dsd, &dep, BIF_P,
+	    code = erts_dsig_prepare(&dsd, dep, BIF_P,
 				     (ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK),
 				     ERTS_DSP_RLOCK, 0, 1);
 	    switch (code) {
@@ -314,7 +314,7 @@ remote_demonitor(Process *c_p, DistEntry *dep, Eterm ref, Eterm to)
     ERTS_LC_ASSERT((ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_LINK)
 		       == erts_proc_lc_my_proc_locks(c_p));
 
-    code = erts_dsig_prepare(&dsd, &dep, c_p, ERTS_PROC_LOCK_MAIN,
+    code = erts_dsig_prepare(&dsd, dep, c_p, ERTS_PROC_LOCK_MAIN,
 			     ERTS_DSP_RLOCK, 0, 0);
     switch (code) {
     case ERTS_DSIG_PREP_NOT_ALIVE:
@@ -792,7 +792,7 @@ remote_monitor(Process *p, Eterm bifarg1, Eterm bifarg2,
 
     ASSERT(dep);
     erts_proc_lock(p, ERTS_PROC_LOCK_LINK);
-    code = erts_dsig_prepare(&dsd, &dep,
+    code = erts_dsig_prepare(&dsd, dep,
 			     p, (ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK),
 			     ERTS_DSP_RLOCK, 0, 1);
     switch (code) {
@@ -1176,7 +1176,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 	    BIF_RET(am_true);
 	}
 
-	code = erts_dsig_prepare(&dsd, &dep, BIF_P, ERTS_PROC_LOCK_MAIN,
+	code = erts_dsig_prepare(&dsd, dep, BIF_P, ERTS_PROC_LOCK_MAIN,
 				 ERTS_DSP_NO_LOCK, 0, 0);
 	switch (code) {
 	case ERTS_DSIG_PREP_NOT_ALIVE:
@@ -1560,7 +1560,7 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
 	 if(dep == erts_this_dist_entry)
 	     BIF_RET(am_true);
 
-	 code = erts_dsig_prepare(&dsd, &dep, BIF_P, ERTS_PROC_LOCK_MAIN,
+	 code = erts_dsig_prepare(&dsd, dep, BIF_P, ERTS_PROC_LOCK_MAIN,
 				  ERTS_DSP_NO_LOCK, 0, 1);
 	 switch (code) {
 	 case ERTS_DSIG_PREP_NOT_ALIVE:
@@ -1996,7 +1996,7 @@ static Sint remote_send(Process *p, DistEntry *dep,
     ASSERT(is_atom(to) || is_external_pid(to));
 
     ctx->dep = dep;
-    code = erts_dsig_prepare(&ctx->dsd, &dep, p, ERTS_PROC_LOCK_MAIN,
+    code = erts_dsig_prepare(&ctx->dsd, dep, p, ERTS_PROC_LOCK_MAIN,
 			     ERTS_DSP_NO_LOCK,
 			     !ctx->suspend, ctx->connect);
     switch (code) {
@@ -2185,6 +2185,7 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
 	}
 	return ret_val;
     } else if (is_tuple(to)) { /* Remote send */
+        int deref_dep = 0;
 	int ret;
 	tp = tuple_val(to);
 	if (*tp != make_arityval(2))
@@ -2219,15 +2220,20 @@ do_send(Process *p, Eterm to, Eterm msg, Eterm *refp, ErtsSendContext *ctx)
 	    }
 	    return 0;
 	}
+        if (dep == NULL) {
+            dep = erts_find_or_insert_dist_entry(tp[2]);
+            ASSERT(dep != erts_this_dist_entry);
+            deref_dep = 1;
+        }
 	ctx->dsd.node = tp[2];
 
 	ret = remote_send(p, dep, tp[1], to, msg, ctx);
 	if (ret == SEND_YIELD_CONTINUE) {
-            if (dep) {
-                erts_ref_dist_entry(dep);
-		ctx->deref_dep = 1;
-	    }
+            erts_ref_dist_entry(ctx->dep);
+            ctx->deref_dep = 1;
 	}
+        if (deref_dep)
+            erts_deref_dist_entry(dep);
 	return ret;
     } else {
 	if (IS_TRACED_FL(p, F_TRACE_SEND))
@@ -4405,7 +4411,7 @@ BIF_RETTYPE group_leader_2(BIF_ALIST_2)
 	if(dep == erts_this_dist_entry)
 	    BIF_ERROR(BIF_P, BADARG);
 
-	code = erts_dsig_prepare(&dsd, &dep, BIF_P, ERTS_PROC_LOCK_MAIN,
+	code = erts_dsig_prepare(&dsd, dep, BIF_P, ERTS_PROC_LOCK_MAIN,
 				 ERTS_DSP_NO_LOCK, 0, 1);
 	switch (code) {
 	case ERTS_DSIG_PREP_NOT_ALIVE:

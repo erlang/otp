@@ -138,7 +138,7 @@ extern int erts_is_alive;
 #define ERTS_DSIG_PREP_PENDING	        4
 
 ERTS_GLB_INLINE int erts_dsig_prepare(ErtsDSigData *,
-				      DistEntry **,
+				      DistEntry*,
 				      Process *,
                                       ErtsProcLocks,
 				      ErtsDSigPrepLock,
@@ -154,26 +154,20 @@ int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks);
 
 ERTS_GLB_INLINE int 
 erts_dsig_prepare(ErtsDSigData *dsdp,
-		  DistEntry **depp,
+		  DistEntry *dep,
 		  Process *proc,
                   ErtsProcLocks proc_locks,
 		  ErtsDSigPrepLock dspl,
 		  int no_suspend,
 		  int connect)
 {
-    DistEntry* dep = *depp;
-    int deref_dep = 0;
     int res;
 
     if (!erts_is_alive)
 	return ERTS_DSIG_PREP_NOT_ALIVE;
     if (!dep) {
-	if (!connect)
-	    return ERTS_DSIG_PREP_NOT_CONNECTED;
-
-	dep = erts_find_or_insert_dist_entry(dsdp->node);
-	ASSERT(dep != erts_this_dist_entry);
-        deref_dep = 1;
+        ASSERT(!connect);
+        return ERTS_DSIG_PREP_NOT_CONNECTED;
     }
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -199,8 +193,6 @@ retry:
         ASSERT(dep->status == 0);
         erts_de_runlock(dep);
         if (!erts_auto_connect(dep, proc, proc_locks)) {
-            if (deref_dep)
-                erts_deref_dist_entry(dep);
             return ERTS_DSIG_PREP_NOT_ALIVE;
         }
 	goto retry;
@@ -224,15 +216,10 @@ retry:
     dsdp->no_suspend = no_suspend;
     if (dspl == ERTS_DSP_NO_LOCK)
 	erts_de_runlock(dep);
-    if (deref_dep)
-        erts_deref_dist_entry(dep);
-    *depp = dep;
     return res;
 
  fail:
     erts_de_runlock(dep);
-    if (deref_dep)
-        erts_deref_dist_entry(dep);
     return res;
 }
 

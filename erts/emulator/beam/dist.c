@@ -1349,7 +1349,7 @@ int erts_net_message(Port *prt,
 	    /* This is tricky (we MUST force a distributed send) */
 	    ErtsDSigData dsd;
 	    int code;
-	    code = erts_dsig_prepare(&dsd, &dep, NULL, 0, ERTS_DSP_NO_LOCK, 0, 0);
+	    code = erts_dsig_prepare(&dsd, dep, NULL, 0, ERTS_DSP_NO_LOCK, 0, 0);
 	    if (code == ERTS_DSIG_PREP_CONNECTED) {
 		code = erts_dsig_send_exit(&dsd, to, from, am_noproc);
 		ASSERT(code == ERTS_DSIG_SEND_OK);
@@ -1441,7 +1441,7 @@ int erts_net_message(Port *prt,
 	if (!rp) {
 	    ErtsDSigData dsd;
 	    int code;
-	    code = erts_dsig_prepare(&dsd, &dep, NULL, 0, ERTS_DSP_NO_LOCK, 0, 0);
+	    code = erts_dsig_prepare(&dsd, dep, NULL, 0, ERTS_DSP_NO_LOCK, 0, 0);
 	    if (code == ERTS_DSIG_PREP_CONNECTED) {
 		code = erts_dsig_send_m_exit(&dsd, watcher, watched, ref,
 					     am_noproc);
@@ -3831,7 +3831,7 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
 
         erts_proc_lock(p, ERTS_PROC_LOCK_LINK);
 
-        switch (erts_dsig_prepare(&dsd, &dep, p,
+        switch (erts_dsig_prepare(&dsd, dep, p,
                                   (ERTS_PROC_LOCK_MAIN | ERTS_PROC_LOCK_LINK),
                                   ERTS_DSP_RLOCK, 0, async_connect)) {
         case ERTS_DSIG_PREP_NOT_ALIVE:

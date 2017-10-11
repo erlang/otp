@@ -12659,7 +12659,7 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		erts_de_links_unlock(dep);
 		if (rmon) {
 		    ErtsDSigData dsd;
-		    int code = erts_dsig_prepare(&dsd, &dep, NULL, 0,
+		    int code = erts_dsig_prepare(&dsd, dep, NULL, 0,
 						 ERTS_DSP_NO_LOCK, 0, 0);
 		    if (code == ERTS_DSIG_PREP_CONNECTED ||
                         code == ERTS_DSIG_PREP_PENDING) {
@@ -12707,7 +12707,7 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		    erts_de_links_unlock(dep);
 		    if (rmon) {
 			ErtsDSigData dsd;
-			int code = erts_dsig_prepare(&dsd, &dep, NULL, 0,
+			int code = erts_dsig_prepare(&dsd, dep, NULL, 0,
 						     ERTS_DSP_NO_LOCK, 0, 0);
 			if (code == ERTS_DSIG_PREP_CONNECTED ||
                             code == ERTS_DSIG_PREP_PENDING) {
@@ -12768,7 +12768,7 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		erts_de_links_unlock(dep);
 		if (rmon) {
 		    ErtsDSigData dsd;
-		    int code = erts_dsig_prepare(&dsd, &dep, NULL, 0,
+		    int code = erts_dsig_prepare(&dsd, dep, NULL, 0,
 						 ERTS_DSP_NO_LOCK, 0, 0);
 		    if (code == ERTS_DSIG_PREP_CONNECTED) {
 			code = erts_dsig_send_m_exit(&dsd,
@@ -12893,7 +12893,7 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
 		erts_remove_dist_link(&dld, p->common.id, item, dep);
                 if (dld.d_lnk) {
                     erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-                    code = erts_dsig_prepare(&dsd, &dep, p, 0, ERTS_DSP_NO_LOCK, 0, 0);
+                    code = erts_dsig_prepare(&dsd, dep, p, 0, ERTS_DSP_NO_LOCK, 0, 0);
                     if (code == ERTS_DSIG_PREP_CONNECTED ||
                         code == ERTS_DSIG_PREP_PENDING) {
 
