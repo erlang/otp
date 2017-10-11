@@ -630,11 +630,12 @@ client_handles_keyboard_interactive_0_pwds(Config) ->
 
 
 %%%--------------------------------------------------------------------
-client_info_line(_Config) ->
+client_info_line(Config) ->
     %% A client must not send an info-line. If it does, the server should handle
     %% handle this gracefully
     {ok,Pid} = ssh_eqc_event_handler:add_report_handler(),
-    {_, _, Port} = ssh_test_lib:daemon([]),
+    DataDir = proplists:get_value(data_dir, Config),
+    {_, _, Port} = ssh_test_lib:daemon([{system_dir,DataDir}]),
 
     %% Fake client:
     {ok,S} = gen_tcp:connect("localhost",Port,[]),

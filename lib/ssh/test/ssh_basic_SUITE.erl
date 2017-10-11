@@ -332,7 +332,8 @@ init_per_group(internal_error, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
     ssh_test_lib:setup_dsa(DataDir, PrivDir),
-    file:delete(filename:join(PrivDir, "system/ssh_host_dsa_key")),
+    %% In the test case the key will be deleted after the daemon start:
+    %% ... file:delete(filename:join(PrivDir, "system/ssh_host_dsa_key")),
     Config;
 init_per_group(dir_options, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
@@ -896,12 +897,17 @@ key_callback_options(Config) when is_list(Config) ->
 %%% Test that client does not hang if disconnects due to internal error
 internal_error(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = filename:join(proplists:get_value(priv_dir, Config), system),
+    PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
+    SystemDir = filename:join(PrivDir, system),
     
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
                                              {user_dir, UserDir},
                                              {failfun, fun ssh_test_lib:failfun/2}]),
+
+    %% Now provoke an error in the following connect:
+    file:delete(filename:join(PrivDir, "system/ssh_host_dsa_key")), 
+
     {error, Error} =
         ssh:connect(Host, Port, [{silently_accept_hosts, true},
                                  {user_dir, UserDir},
@@ -1339,14 +1345,11 @@ shell_exit_status(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Due to timing the error message may or may not be delivered to
 %% the "tcp-application" before the socket closed message is recived
-check_error("Invalid state") ->
-    ok;
-check_error("Connection closed") ->
-    ok;
-check_error("Selection of key exchange algorithm failed"++_) ->
-    ok;
-check_error(Error) ->
-    ct:fail(Error).
+check_error("Invalid state") -> ok;
+check_error("Connection closed") -> ok;
+check_error("Selection of key exchange algorithm failed"++_) -> ok;
+check_error("No host key available") -> ok;
+check_error(Error) -> ct:fail(Error).
 
 basic_test(Config) ->
     ClientOpts = proplists:get_value(client_opts, Config),
