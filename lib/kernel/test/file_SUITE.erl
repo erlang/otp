@@ -39,6 +39,8 @@
 -define(FILE_FIN_PER_TESTCASE(Config), Config).
 -endif.
 
+-define(PRIM_FILE, prim_file).
+
 -module(?FILE_SUITE).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -3934,7 +3936,7 @@ read_line_create_files(TestData) ->
 read_line_remove_files(TestData) ->
     [ file:delete(File) || {_Function,File,_,_} <- TestData ].
 
-%% read_line with prim_file.
+%% read_line with ?PRIM_FILE.
 read_line_1(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     All = read_line_testdata(PrivDir),
@@ -4103,9 +4105,9 @@ read_line_create7(Filename) ->
     file:close(F).
 
 read_line_all(Filename) ->
-    {ok,F} = prim_file:open(Filename,[read,binary]),
+    {ok,F} = ?PRIM_FILE:open(Filename,[read,binary]),
     X=read_rl_lines(F),
-    prim_file:close(F),
+    ?PRIM_FILE:close(F),
     Bin = list_to_binary([B || {ok,B} <- X]),
     Bin = re:replace(list_to_binary([element(2,file:read_file(Filename))]),
 		     "\r\n","\n",[global,{return,binary}]),
@@ -4138,7 +4140,7 @@ read_line_all4(Filename) ->
     {length(X),Bin}.
 
 read_rl_lines(F) ->
-    case prim_file:read_line(F) of
+    case ?PRIM_FILE:read_line(F) of
 	eof ->
 	    [];
 	{error,X} ->
@@ -4158,9 +4160,9 @@ read_rl_lines2(F) ->
     end.
 
 read_line_all_alternating(Filename) ->
-    {ok,F} = prim_file:open(Filename,[read,binary]),
+    {ok,F} = ?PRIM_FILE:open(Filename,[read,binary]),
     X=read_rl_lines(F,true),
-    prim_file:close(F),
+    ?PRIM_FILE:close(F),
     Bin = list_to_binary([B || {ok,B} <- X]),
     Bin = re:replace(list_to_binary([element(2,file:read_file(Filename))]),
 		     "\r\n","\n",[global,{return,binary}]),
@@ -4194,8 +4196,8 @@ read_line_all_alternating4(Filename) ->
 read_rl_lines(F,Alternate) ->
     case begin
 	     case Alternate of
-		 true -> prim_file:read(F,1);
-		 false -> prim_file:read_line(F)
+		 true -> ?PRIM_FILE:read(F,1);
+		 false -> ?PRIM_FILE:read_line(F)
 	     end 
 	 end of
 	eof ->

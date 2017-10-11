@@ -91,9 +91,12 @@ init_per_testcase(TC,Config) when TC == t_sendfile_recvduring;
 
     Send = fun(Sock) ->
 		   {_Size, Data} = sendfile_file_info(Filename),
-		   {ok,D} = file:open(Filename, [raw,binary,read]),
-		   prim_file:sendfile(D, Sock, 0, 0, 0,
-				      [],[],[]),
+		   {ok,Fd} = file:open(Filename, [raw,binary,read]),
+                   %% Determine whether the driver has native support by
+                   %% hitting the raw module directly; file:sendfile/5 will
+                   %% land in the fallback if it doesn't.
+                   RawModule = Fd#file_descriptor.module,
+                   {ok, _Ignored} = RawModule:sendfile(Fd,Sock,0,0,0,[],[],[]),
 		   Data
 	   end,
 

@@ -33,6 +33,8 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 
+-define(PRIM_FILE, prim_file).
+
 init_per_testcase(_Case, Config) ->
     Config.
 
@@ -446,10 +448,10 @@ wildcard_symlink(Config) when is_list(Config) ->
 						erl_prim_loader)),
 	    ["sub","symlink"] =
 		basenames(Dir, filelib:wildcard(filename:join(Dir, "*"),
-						prim_file)),
+						?PRIM_FILE)),
 	    ["symlink"] =
 		basenames(Dir, filelib:wildcard(filename:join(Dir, "symlink"),
-						prim_file)),
+						?PRIM_FILE)),
 	    ok = file:delete(AFile),
 	    %% The symlink should still be visible even when its target
 	    %% has been deleted.
@@ -465,10 +467,10 @@ wildcard_symlink(Config) when is_list(Config) ->
 						erl_prim_loader)),
 	    ["sub","symlink"] =
 		basenames(Dir, filelib:wildcard(filename:join(Dir, "*"),
-						prim_file)),
+						?PRIM_FILE)),
 	    ["symlink"] =
 		basenames(Dir, filelib:wildcard(filename:join(Dir, "symlink"),
-						prim_file)),
+						?PRIM_FILE)),
 	    ok
     end.
 
@@ -497,17 +499,17 @@ is_file_symlink(Config) ->
 	ok ->
 	    true = filelib:is_dir(DirAlias),
 	    true = filelib:is_dir(DirAlias, erl_prim_loader),
-	    true = filelib:is_dir(DirAlias, prim_file),
+	    true = filelib:is_dir(DirAlias, ?PRIM_FILE),
 	    true = filelib:is_file(DirAlias),
 	    true = filelib:is_file(DirAlias, erl_prim_loader),
-	    true = filelib:is_file(DirAlias, prim_file),
+	    true = filelib:is_file(DirAlias, ?PRIM_FILE),
 	    ok = file:make_symlink(AFile,FileAlias),
 	    true = filelib:is_file(FileAlias),
 	    true = filelib:is_file(FileAlias, erl_prim_loader),
-	    true = filelib:is_file(FileAlias, prim_file),
+	    true = filelib:is_file(FileAlias, ?PRIM_FILE),
 	    true = filelib:is_regular(FileAlias),
 	    true = filelib:is_regular(FileAlias, erl_prim_loader),
-	    true = filelib:is_regular(FileAlias, prim_file),
+	    true = filelib:is_regular(FileAlias, ?PRIM_FILE),
 	    ok
     end.
 
@@ -528,11 +530,11 @@ file_props_symlink(Config) ->
 	    {_,_} = LastMod = filelib:last_modified(AFile),
 	    LastMod = filelib:last_modified(Alias),
 	    LastMod = filelib:last_modified(Alias, erl_prim_loader),
-	    LastMod = filelib:last_modified(Alias, prim_file),
+	    LastMod = filelib:last_modified(Alias, ?PRIM_FILE),
 	    FileSize = filelib:file_size(AFile),
 	    FileSize = filelib:file_size(Alias),
 	    FileSize = filelib:file_size(Alias, erl_prim_loader),
-	    FileSize = filelib:file_size(Alias, prim_file)
+	    FileSize = filelib:file_size(Alias, ?PRIM_FILE)
     end.
 
 find_source(Config) when is_list(Config) ->
