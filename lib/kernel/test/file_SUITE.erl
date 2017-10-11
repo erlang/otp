@@ -1039,6 +1039,23 @@ close(Config) when is_list(Config) ->
     Val = ?FILE_MODULE:close(Fd1),
     io:format("Second close gave: ~p",[Val]),
 
+    %% All operations on a closed raw file should EINVAL, even if they're not
+    %% supported on the current platform.
+    {ok,Fd2} = ?FILE_MODULE:open(Name, [read, write, raw]),
+    ok = ?FILE_MODULE:close(Fd2),
+
+    {error, einval} = ?FILE_MODULE:advise(Fd2, 5, 5, normal),
+    {error, einval} = ?FILE_MODULE:allocate(Fd2, 5, 5),
+    {error, einval} = ?FILE_MODULE:close(Fd2),
+    {error, einval} = ?FILE_MODULE:datasync(Fd2),
+    {error, einval} = ?FILE_MODULE:position(Fd2, 5),
+    {error, einval} = ?FILE_MODULE:pread(Fd2, 5, 1),
+    {error, einval} = ?FILE_MODULE:pwrite(Fd2, 5, "einval please"),
+    {error, einval} = ?FILE_MODULE:read(Fd2, 1),
+    {error, einval} = ?FILE_MODULE:sync(Fd2),
+    {error, einval} = ?FILE_MODULE:truncate(Fd2),
+    {error, einval} = ?FILE_MODULE:write(Fd2, "einval please"),
+
     [] = flush(),
     ok.
 
