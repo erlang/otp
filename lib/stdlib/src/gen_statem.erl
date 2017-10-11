@@ -296,7 +296,7 @@
     (Reason :: term()).
 
 %% Format the callback module state in some sensible that is
-%% often condensed way.  For StatusOption =:= 'normal' the perferred
+%% often condensed way.  For StatusOption =:= 'normal' the preferred
 %% return term is [{data,[{"State",FormattedState}]}], and for
 %% StatusOption =:= 'terminate' it is just FormattedState.
 -callback format_status(
