@@ -1529,6 +1529,8 @@ verify_hostname_match_loop(Refs, Pres, MatchFun, FailCB, Cert) ->
       Refs).
 
 
+to_lower_ascii({ip,_}=X) -> X;
+to_lower_ascii({iPAddress,_}=X) -> X;
 to_lower_ascii(S) when is_list(S) -> lists:map(fun to_lower_ascii/1, S);
 to_lower_ascii({T,S}) -> {T, to_lower_ascii(S)};
 to_lower_ascii(C) when $A =< C,C =< $Z -> C + ($a-$A);
