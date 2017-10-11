@@ -353,8 +353,26 @@ normalize(_) ->
 -spec transcode(URIString, Options) -> URIString when
       URIString :: uri_string(),
       Options :: [{in_encoding, unicode:encoding()}|{out_encoding, unicode:encoding()}].
-transcode(_, _) ->
-    "".
+transcode(URIString, Options) when is_binary(URIString) ->
+    try
+        InEnc = proplists:get_value(in_encoding, Options, utf8),
+        OutEnc = proplists:get_value(out_encoding, Options, utf8),
+        List = convert_list(URIString, InEnc),
+        Output = transcode(List, [], InEnc, OutEnc),
+        convert_binary(Output, utf8, OutEnc)
+    of
+        Result -> Result
+    catch
+        throw:{error, L, RestData} -> {invalid_input, L, RestData}
+    end;
+transcode(URIString, Options) when is_list(URIString) ->
+    InEnc = proplists:get_value(in_encoding, Options, utf8),
+    OutEnc = proplists:get_value(out_encoding, Options, utf8),
+    try transcode(URIString, [], InEnc, OutEnc) of
+        Result -> Result
+    catch
+        throw:{error, List, RestData} -> {invalid_input, List, RestData}
+    end.
 
 %%-------------------------------------------------------------------------
 %% Working with query strings
@@ -1624,3 +1642,93 @@ maybe_to_list(Comp) -> Comp.
 
 encode_port(Port) ->
     integer_to_binary(Port).
+
+%%-------------------------------------------------------------------------
+%% Helper functions for transcode
+%%-------------------------------------------------------------------------
+
+%%-------------------------------------------------------------------------
+%% uri_string:transcode(<<"x%00%00%00%F6"/utf32>>).
+%% 1. Convert (transcode/2) input to list form (list of unicode codepoints)
+%%    "x%00%00%00%F6"
+%% 2. Accumulate characters until percent-encoded segment (transcode/4).
+%%    Acc = "x"
+%% 3. Convert percent-encoded triplets to binary form (transcode_pct/4)
+%%    <<0,0,0,246>>
+%% 4. Transcode in-encoded binary to out-encoding (utf32 -> utf8):
+%%    <<195,182>>
+%% 5. Percent-encode out-encoded binary:
+%%    <<"%C3%B6"/utf8>> = <<37,67,51,37,66,54>>
+%% 6. Convert binary to list form, reverse it and append the accumulator
+%%    "6B%3C%" + "x"
+%% 7. Reverse Acc and return it
+%%-------------------------------------------------------------------------
+transcode([$%,_C0,_C1|_Rest] = L, Acc, InEnc, OutEnc) ->
+    transcode_pct(L, Acc, <<>>, InEnc, OutEnc);
+transcode([_C|_Rest] = L, Acc, InEnc, OutEnc) ->
+    transcode(L, Acc, [], InEnc, OutEnc).
+%%
+transcode([H|T], Acc, List, InEnc, OutEnc) when is_binary(H) ->
+    L = convert_list(H, InEnc),
+    transcode(L ++ T, Acc, List, InEnc, OutEnc);
+transcode([H|T], Acc, List, InEnc, OutEnc) when is_list(H) ->
+    transcode(H ++ T, Acc, List, InEnc, OutEnc);
+transcode([$%,_C0,_C1|_Rest] = L, Acc, List, InEncoding, OutEncoding) ->
+    transcode_pct(L, List ++ Acc, <<>>, InEncoding, OutEncoding);
+transcode([C|Rest], Acc, List, InEncoding, OutEncoding) ->
+    transcode(Rest, Acc, [C|List], InEncoding, OutEncoding);
+transcode([], Acc, List, _InEncoding, _OutEncoding) ->
+    lists:reverse(List ++ Acc).
+
+
+%% Transcode percent-encoded segment
+transcode_pct([H|T], Acc, B, InEnc, OutEnc) when is_binary(H) ->
+    L = convert_list(H, InEnc),
+    transcode_pct(L ++ T, Acc, B, InEnc, OutEnc);
+transcode_pct([H|T], Acc, B, InEnc, OutEnc) when is_list(H) ->
+    transcode_pct(H ++ T, Acc, B, InEnc, OutEnc);
+transcode_pct([$%,C0,C1|Rest], Acc, B, InEncoding, OutEncoding) ->
+    case is_hex_digit(C0) andalso is_hex_digit(C1) of
+        true ->
+            Int = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
+            transcode_pct(Rest, Acc, <<B/binary, Int>>, InEncoding, OutEncoding);
+        false -> throw({error, lists:reverse(Acc),[C0,C1]})
+    end;
+transcode_pct([_C|_Rest] = L, Acc, B, InEncoding, OutEncoding) ->
+    OutBinary = convert_binary(B, InEncoding, OutEncoding),
+    PctEncUtf8 = percent_encode_segment(OutBinary),
+    Out = lists:reverse(convert_list(PctEncUtf8, utf8)),
+    transcode(L, Out ++ Acc, [], InEncoding, OutEncoding);
+transcode_pct([], Acc, B, InEncoding, OutEncoding) ->
+    OutBinary = convert_binary(B, InEncoding, OutEncoding),
+    PctEncUtf8 = percent_encode_segment(OutBinary),
+    Out = convert_list(PctEncUtf8, utf8),
+    lists:reverse(Acc) ++ Out.
+
+
+% Convert binary
+convert_binary(Binary, InEncoding, OutEncoding) ->
+    case unicode:characters_to_binary(Binary, InEncoding, OutEncoding) of
+        {error, List, RestData} ->
+            throw({error, List, RestData});
+        {incomplete, List, RestData} ->
+            throw({error, List, RestData});
+        Result ->
+            Result
+    end.
+
+
+% Convert binary
+convert_list(Binary, InEncoding) ->
+    case unicode:characters_to_list(Binary, InEncoding) of
+        {error, List, RestData} ->
+            throw({error, List, RestData});
+        {incomplete, List, RestData} ->
+            throw({error, List, RestData});
+        Result ->
+            Result
+    end.
+
+
+percent_encode_segment(Segment) ->
+    percent_encode_binary(Segment, <<>>).

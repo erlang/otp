@@ -36,7 +36,8 @@
          recompose_fragment/1, recompose_parse_fragment/1,
          recompose_query/1, recompose_parse_query/1,
          recompose_path/1, recompose_parse_path/1,
-         recompose_autogen/1, parse_recompose_autogen/1
+         recompose_autogen/1, parse_recompose_autogen/1,
+         transcode_basic/1, transcode_options/1, transcode_mixed/1, transcode_negative/1
         ]).
 
 
@@ -99,7 +100,11 @@ all() ->
      recompose_path,
      recompose_parse_path,
      recompose_autogen,
-     parse_recompose_autogen
+     parse_recompose_autogen,
+     transcode_basic,
+     transcode_options,
+     transcode_mixed,
+     transcode_negative
     ].
 
 groups() ->
@@ -763,3 +768,33 @@ recompose_autogen(_Config) ->
 parse_recompose_autogen(_Config) ->
     Tests = generate_test_vectors(uri_combinations()),
     lists:map(fun run_test_parse_recompose/1, Tests).
+
+transcode_basic(_Config) ->
+    <<"foo%C3%B6bar"/utf8>> =
+        uri_string:transcode(<<"foo%00%00%00%F6bar"/utf32>>, [{in_encoding, utf32},{out_encoding, utf8}]),
+    "foo%C3%B6bar" =
+        uri_string:transcode("foo%00%00%00%F6bar", [{in_encoding, utf32},{out_encoding, utf8}]),
+    <<"foo%00%00%00%F6bar"/utf32>> =
+        uri_string:transcode(<<"foo%C3%B6bar"/utf8>>, [{in_encoding, utf8},{out_encoding, utf32}]),
+    "foo%00%00%00%F6bar" =
+        uri_string:transcode("foo%C3%B6bar", [{in_encoding, utf8},{out_encoding, utf32}]),
+    "foo%C3%B6bar" =
+        uri_string:transcode("foo%F6bar", [{in_encoding, latin1},{out_encoding, utf8}]).
+
+transcode_options(_Config) ->
+    <<"foo%C3%B6bar"/utf8>> =
+        uri_string:transcode(<<"foo%C3%B6bar"/utf8>>, []),
+    <<"foo%C3%B6bar"/utf8>> =
+        uri_string:transcode(<<"foo%00%00%00%F6bar"/utf32>>, [{in_encoding, utf32}]),
+    <<"foo%00%00%00%F6bar"/utf32>> =
+        uri_string:transcode(<<"foo%C3%B6bar"/utf8>>, [{out_encoding, utf32}]).
+
+transcode_mixed(_Config) ->
+    "foo%00%00%00%F6bar" =
+        uri_string:transcode(["foo",<<"%C3%B6"/utf8>>,<<"ba"/utf8>>,"r"], [{out_encoding, utf32}]).
+
+transcode_negative(_Config) ->
+    {invalid_input,"foo","BX"} =
+        uri_string:transcode(<<"foo%C3%BXbar"/utf8>>, [{in_encoding, utf8},{out_encoding, utf32}]),
+    {invalid_input,<<>>,<<"ö">>} =
+        uri_string:transcode("foo%F6bar", [{in_encoding, utf8},{out_encoding, utf8}]).
