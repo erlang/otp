@@ -238,7 +238,11 @@ handle_call({add, Uniq, Key}, {Pid, _}, S) ->
     Rec = {Key, Pid},
     NS = flush(Uniq, Rec, S),  %% before insert
     {Res, New} = insert(Uniq, Rec),
-    {reply, Res, notify(add, New andalso Rec, NS)};
+    {reply, Res, notify(add, New andalso Rec, if New ->
+                                                      add_monitor(Pid, NS);
+                                                 true ->
+                                                      NS
+                                              end)};
 
 handle_call({remove, Key}, {Pid, _}, S) ->
     Rec = {Key, Pid},
@@ -293,6 +297,11 @@ terminate(_Reason, _State)->
 %% ----------------------------------------------------------
 %% # code_change/3
 %% ----------------------------------------------------------
+
+code_change(_, State, "2.1") ->
+    {ok, lists:foldl(fun add_monitor/2,
+                     State,
+                     ets:select(?TABLE, [{{'_', '$1'}, [], ['$1']}]))};
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.

@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug that could cause a VM crash when a corrupt
+	    message is received on distribution channel from other
+	    node.</p>
+          <p>
+	    Own Id: OTP-14661 Aux Id: ERIERL-80 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
