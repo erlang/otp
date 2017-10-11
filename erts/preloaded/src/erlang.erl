@@ -3274,12 +3274,6 @@ dist_ctrl_get_data_notification(_DHandle) ->
 dist_get_stat(_DHandle) ->
     erlang:nif_error(undefined).
 
-%%
-%% If the emulator wants to perform a distributed command and
-%% a connection is not established to the actual node the following 
-%% functions are called in order to set up the connection and then
-%% reactivate the command.
-%%
 
 dmonitor_node(Node, _Flag, []) ->
     %% Only called when auto-connect attempt failed early in VM

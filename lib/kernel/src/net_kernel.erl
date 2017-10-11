@@ -70,8 +70,8 @@
 	 protocol_childspecs/0,
 	 epmd_module/0]).
 
--export([connect/1, disconnect/1, hidden_connect/1, passive_cnct/1]).
--export([hidden_connect_node/1]). %% explicit connect
+-export([disconnect/1, passive_cnct/1]).
+-export([hidden_connect_node/1]).
 -export([set_net_ticktime/1, set_net_ticktime/2, get_net_ticktime/0]).
 
 -export([node_info/1, node_info/2, nodes_info/0,
@@ -248,14 +248,15 @@ ticktime_res(A)      when is_atom(A)             -> A.
 
 %% Called though BIF's
 
-connect(Node) ->               auto_connect(Node, normal, false).
 %%% Long timeout if blocked (== barred), only affects nodes with
 %%% {dist_auto_connect, once} set.
-passive_cnct(Node) ->          auto_connect(Node, normal, true).
-disconnect(Node) ->            request({disconnect, Node}).
+passive_cnct(Node) ->
+    case request({passive_cnct, Node}) of
+        ignored -> false;
+        Other -> Other
+    end.
 
-%% connect but not seen
-hidden_connect(Node) ->        auto_connect(Node, hidden, false).
+disconnect(Node) ->            request({disconnect, Node}).
 
 %% Should this node publish itself on Node?
 publish_on_node(Node) when is_atom(Node) ->
@@ -273,11 +274,6 @@ connect_node(Node) when is_atom(Node) ->
 hidden_connect_node(Node) when is_atom(Node) ->
     request({connect, hidden, Node}).
 
-auto_connect(Node, Type, WaitForBarred) -> %% Type = normal | hidden
-    case request({auto_connect, Type, Node, WaitForBarred}) of
-        ignored -> false;
-        Other -> Other
-    end.
 
 passive_connect_monitor(From, Node) ->
     ok = monitor_nodes(true,[{node_type,all}]),
@@ -363,7 +359,7 @@ init({Name, LongOrShortNames, TickT, CleanHalt}) ->
     end.
 
 
-handle_auto_connect(Type, Node, ConnId, WaitForBarred, From, State) ->
+do_auto_connect(Type, Node, ConnId, WaitForBarred, From, State) ->
     ConnLookup = ets:lookup(sys_dist, Node),
 
     case ConnLookup of
@@ -412,18 +408,18 @@ handle_auto_connect(Type, Node, ConnId, WaitForBarred, From, State) ->
     end.
 
 
-handle_connect([#connection{conn_id = ConnId, state = up}], _, _, ConnId, _From, State) ->
+do_explicit_connect([#connection{conn_id = ConnId, state = up}], _, _, ConnId, _From, State) ->
     {reply, true, State};
-handle_connect([#connection{conn_id = ConnId}=Conn], _, _, ConnId, From, State)
+do_explicit_connect([#connection{conn_id = ConnId}=Conn], _, _, ConnId, From, State)
   when Conn#connection.state =:= pending;
        Conn#connection.state =:= up_pending ->
     Waiting = Conn#connection.waiting,
     ets:insert(sys_dist, Conn#connection{waiting = [From|Waiting]}),    
     {noreply, State};
-handle_connect([#barred_connection{}], Type, Node, ConnId, From , State) ->
+do_explicit_connect([#barred_connection{}], Type, Node, ConnId, From , State) ->
     %% Barred connection only affects auto_connect, ignore it.
-    handle_connect([], Type, Node, ConnId, From , State);
-handle_connect(ConnLookup, Type, Node, ConnId, From , State) ->
+    do_explicit_connect([], Type, Node, ConnId, From , State);
+do_explicit_connect(ConnLookup, Type, Node, ConnId, From , State) ->
     case setup(ConnLookup, Node,ConnId,Type,From,State) of
         {ok, SetupPid} ->
             Owners = [{SetupPid, Node} | State#state.conn_owners],
@@ -451,17 +447,18 @@ verify_new_conn_id(_, _) ->
 %% ------------------------------------------------------------
 
 %%
-%% Auto-connect to Node.
+%% Passive auto-connect to Node.
 %% The response is delayed until the connection is up and running.
 %%
-handle_call({auto_connect, _, Node, _}, From, State) when Node =:= node() ->
+handle_call({passive_cnct, Node}, From, State) when Node =:= node() ->
     async_reply({reply, true, State}, From);
-handle_call({auto_connect, Type, Node, WaitForBarred}, From, State) ->
-    verbose({auto_connect, Type, Node, WaitForBarred}, 1, State),
-
+handle_call({passive_cnct, Node}, From, State) ->
+    verbose({passive_cnct, Node}, 1, State),
+    Type = normal,
+    WaitForBarred = true,
     R = case (catch erlang:new_connection_id(Node)) of
             {Nr,_DHandle}=ConnId when is_integer(Nr) ->
-                handle_auto_connect(Type, Node, ConnId, WaitForBarred, From, State);
+                do_auto_connect(Type, Node, ConnId, WaitForBarred, From, State);
 
             _Error ->
                 error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
@@ -482,7 +479,7 @@ handle_call({connect, Type, Node}, From, State) ->
     ConnLookup = ets:lookup(sys_dist, Node),
     R = case (catch erlang:new_connection_id(Node)) of
             {Nr,_DHandle}=ConnId when is_integer(Nr) ->
-                handle_connect(ConnLookup, Type, Node, ConnId, From, State);
+                do_explicit_connect(ConnLookup, Type, Node, ConnId, From, State);
                     
             _Error ->
                 error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
@@ -703,7 +700,7 @@ handle_info({auto_connect,Node, Nr, DHandle}, State) ->
     verbose({auto_connect, Node, Nr, DHandle}, 1, State),
     ConnId = {Nr, DHandle},
     NewState =
-        case handle_auto_connect(normal, Node, ConnId, false, noreply, State) of
+        case do_auto_connect(normal, Node, ConnId, false, noreply, State) of
             {noreply, S} ->           %% Pending connection
                 S;
 
