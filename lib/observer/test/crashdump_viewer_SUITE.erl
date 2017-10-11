@@ -613,7 +613,10 @@ truncate_dump(File) ->
                   {win32,_} -> <<"\r\n">>;
                   _ -> <<"\n">>
               end,
-    [StartBin,AfterTag] = binary:split(Bin,BinTag),
+    %% Split after "our binary" created by crashdump_helper
+    %% (it may not be the first binary).
+    RE = <<"\n=binary:(?=[0-9A-Z]+",NewLine/binary,"FF:010203)">>,
+    [StartBin,AfterTag] = re:split(Bin,RE,[{parts,2}]),
     [AddrAndSize,BinaryAndRest] = binary:split(AfterTag,Colon),
     [Binary,_Rest] = binary:split(BinaryAndRest,NewLine),
     TruncSize = byte_size(Binary) - 2,
