@@ -91,7 +91,6 @@ static BIF_RETTYPE hashmap_merge(Process *p, Eterm nodeA, Eterm nodeB, int swap_
 static Export hashmap_merge_trap_export;
 static BIF_RETTYPE maps_merge_trap_1(BIF_ALIST_1);
 static Uint hashmap_subtree_size(Eterm node);
-static Eterm hashmap_to_list(Process *p, Eterm map, Sint n);
 static Eterm hashmap_keys(Process *p, Eterm map);
 static Eterm hashmap_values(Process *p, Eterm map);
 static Eterm hashmap_delete(Process *p, Uint32 hx, Eterm key, Eterm node, Eterm *value);
@@ -138,51 +137,6 @@ BIF_RETTYPE map_size_1(BIF_ALIST_1) {
     BIF_P->fvalue = BIF_ARG_1;
     BIF_ERROR(BIF_P, BADMAP);
 }
-
-/* erts_internal:maps_to_list/2
- *
- * This function should be removed once iterators are in place.
- * Never document it.
- * Never encourage its usage.
- *
- * A negative value in ARG 2 means the entire map.
- */
-
-BIF_RETTYPE erts_internal_maps_to_list_2(BIF_ALIST_2) {
-    Sint m;
-    if (term_to_Sint(BIF_ARG_2, &m)) {
-        if (is_flatmap(BIF_ARG_1)) {
-            Uint n;
-            Eterm* hp;
-            Eterm *ks,*vs, res, tup;
-            flatmap_t *mp = (flatmap_t*)flatmap_val(BIF_ARG_1);
-
-            ks  = flatmap_get_keys(mp);
-            vs  = flatmap_get_values(mp);
-            n   = flatmap_get_size(mp);
-
-            if (m >= 0) {
-                n = m < n ? m : n;
-            }
-
-            hp  = HAlloc(BIF_P, (2 + 3) * n);
-            res = NIL;
-
-            while(n--) {
-                tup = TUPLE2(hp, ks[n], vs[n]); hp += 3;
-                res = CONS(hp, tup, res); hp += 2;
-            }
-
-            BIF_RET(res);
-        } else if (is_hashmap(BIF_ARG_1)) {
-            return hashmap_to_list(BIF_P, BIF_ARG_1, m);
-        }
-        BIF_P->fvalue = BIF_ARG_1;
-        BIF_ERROR(BIF_P, BADMAP);
-    }
-    BIF_ERROR(BIF_P, BADARG);
-}
-
 
 /* maps:find/2
  * return value if key *matches* a key in the map
@@ -1931,30 +1885,6 @@ BIF_RETTYPE maps_values_1(BIF_ALIST_1) {
     }
     BIF_P->fvalue = BIF_ARG_1;
     BIF_ERROR(BIF_P, BADMAP);
-}
-
-static Eterm hashmap_to_list(Process *p, Eterm node, Sint m) {
-    DECLARE_WSTACK(stack);
-    Eterm *hp, *kv;
-    Eterm tup, res = NIL;
-    Uint n = hashmap_size(node);
-
-    if (m >= 0) {
-        n = m < n ? m : n;
-    }
-
-    hp  = HAlloc(p, n * (2 + 3));
-    hashmap_iterator_init(&stack, node, 0);
-    while (n--) {
-        kv  = hashmap_iterator_next(&stack);
-        ASSERT(kv != NULL);
-	tup = TUPLE2(hp, CAR(kv), CDR(kv));
-	hp += 3;
-	res = CONS(hp, tup, res);
-	hp += 2;
-    }
-    DESTROY_WSTACK(stack);
-    return res;
 }
 
 static ERTS_INLINE

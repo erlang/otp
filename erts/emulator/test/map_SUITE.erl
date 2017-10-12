@@ -52,7 +52,6 @@
          t_bif_map_values/1,
          t_bif_map_to_list/1,
          t_bif_map_from_list/1,
-         t_bif_erts_internal_maps_to_list/1,
          t_bif_map_next/1,
 
          %% erlang
@@ -120,7 +119,6 @@ all() -> [t_build_and_match_literals, t_build_and_match_literals_large,
           t_bif_map_update,
           t_bif_map_values,
           t_bif_map_to_list, t_bif_map_from_list,
-          t_bif_erts_internal_maps_to_list,
           t_bif_map_next,
 
           %% erlang

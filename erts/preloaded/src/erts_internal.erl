@@ -32,7 +32,7 @@
 -export([await_port_send_result/3]).
 -export([cmp_term/2]).
 -export([map_to_tuple_keys/1, term_type/1, map_hashmap_children/1,
-         maps_to_list/2, map_next/3]).
+         map_next/3]).
 -export([open_port/2, port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
@@ -365,15 +365,6 @@ term_type(_T) ->
     Children :: [map() | nonempty_improper_list(term(),term())].
 
 map_hashmap_children(_M) ->
-    erlang:nif_error(undefined).
-
-%% return a list of key value pairs, at most of length N
--spec maps_to_list(M,N) -> Pairs when
-    M :: map(),
-    N :: integer(),
-    Pairs :: list().
-
-maps_to_list(_M, _N) ->
     erlang:nif_error(undefined).
 
 %% return the next assoc in the iterator and a new iterator
