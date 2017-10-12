@@ -1238,7 +1238,7 @@ void erts_init_unicode(void);
 Sint erts_unicode_set_loop_limit(Sint limit);
 
 void erts_native_filename_put(Eterm ioterm, int encoding, byte *p) ;
-Sint erts_native_filename_need(Eterm ioterm, int encoding, int allow_null);
+Sint erts_native_filename_need(Eterm ioterm, int encoding);
 void erts_copy_utf8_to_utf16_little(byte *target, byte *bytes, int num_chars);
 int erts_analyze_utf8(byte *source, Uint size, 
 			byte **err_pos, Uint *num_chars, int *left);
