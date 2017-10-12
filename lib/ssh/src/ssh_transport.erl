@@ -426,7 +426,7 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
 	    K = compute_key(dh, E, Private, [P,G]),
 	    MyPrivHostKey = get_host_key(Ssh0, SignAlg),
 	    MyPubHostKey = extract_public_key(MyPrivHostKey),
-            H = kex_hash(Ssh0, MyPubHostKey, SignAlg, sha(Kex), {E,Public,K}),
+            H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {E,Public,K}),
             H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
 	    {SshPacket, Ssh1} = 
 		ssh_packet(#ssh_msg_kexdh_reply{public_host_key = {MyPubHostKey,SignAlg},
@@ -451,13 +451,12 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
 					f = F,
 					h_sig = H_SIG}, 
 		   #ssh{keyex_key = {{Private, Public}, {G, P}},
-                        algorithms = #alg{kex=Kex,
-                                          hkey=SignAlg}} = Ssh0) ->
+                        algorithms = #alg{kex=Kex}} = Ssh0) ->
     %% client
     if 
 	1=<F, F=<(P-1)->
 	    K = compute_key(dh, F, Private, [P,G]),
-            H = kex_hash(Ssh0, PeerPubHostKey, SignAlg, sha(Kex), {Public,F,K}),
+            H = kex_hash(Ssh0, PeerPubHostKey, sha(Kex), {Public,F,K}),
 	    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 		ok ->
 		    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
@@ -590,7 +589,7 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
 		1<K, K<(P-1) ->
 		    MyPrivHostKey = get_host_key(Ssh0, SignAlg),
 		    MyPubHostKey = extract_public_key(MyPrivHostKey),
-                    H = kex_hash(Ssh0, MyPubHostKey, SignAlg, sha(Kex), {Min,NBits,Max,P,G,E,Public,K}),
+                    H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {Min,NBits,Max,P,G,E,Public,K}),
                     H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
 		    {SshPacket, Ssh} = 
 			ssh_packet(#ssh_msg_kex_dh_gex_reply{public_host_key = {MyPubHostKey,SignAlg},
@@ -620,8 +619,7 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
 						  h_sig = H_SIG},
 			#ssh{keyex_key = {{Private, Public}, {G, P}},
 			     keyex_info = {Min, Max, NBits},
-                             algorithms = #alg{kex=Kex,
-                                               hkey=SignAlg}} = 
+                             algorithms = #alg{kex=Kex}} = 
 			    Ssh0) ->
     %% client
     if 
@@ -629,7 +627,7 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
 	    K = compute_key(dh, F, Private, [P,G]),
 	    if
 		1<K, K<(P-1) ->
-                    H = kex_hash(Ssh0, PeerPubHostKey, SignAlg, sha(Kex), {Min,NBits,Max,P,G,Public,F,K}),
+                    H = kex_hash(Ssh0, PeerPubHostKey, sha(Kex), {Min,NBits,Max,P,G,Public,F,K}),
 		    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 			ok ->
 			    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
@@ -676,7 +674,7 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 	K ->
 	    MyPrivHostKey = get_host_key(Ssh0, SignAlg),
 	    MyPubHostKey = extract_public_key(MyPrivHostKey),
-            H = kex_hash(Ssh0, MyPubHostKey, SignAlg, sha(Curve), {PeerPublic, MyPublic, K}),
+            H = kex_hash(Ssh0, MyPubHostKey, sha(Curve), {PeerPublic, MyPublic, K}),
             H_SIG = sign(H, sha(SignAlg), MyPrivHostKey),
 	    {SshPacket, Ssh1} = 
 		ssh_packet(#ssh_msg_kex_ecdh_reply{public_host_key = {MyPubHostKey,SignAlg},
@@ -699,15 +697,15 @@ handle_kex_ecdh_init(#ssh_msg_kex_ecdh_init{q_c = PeerPublic},
 handle_kex_ecdh_reply(#ssh_msg_kex_ecdh_reply{public_host_key = PeerPubHostKey,
 					      q_s = PeerPublic,
 					      h_sig = H_SIG},
-		      #ssh{keyex_key = {{MyPublic,MyPrivate}, Curve},
-                           algorithms = #alg{hkey=SignAlg}} = Ssh0
+		      #ssh{keyex_key = {{MyPublic,MyPrivate}, Curve}
+                          } = Ssh0
 		     ) ->
     %% at client
     try
 	compute_key(ecdh, PeerPublic, MyPrivate, Curve)
     of
 	K ->
-            H = kex_hash(Ssh0, PeerPubHostKey,  SignAlg, sha(Curve), {MyPublic,PeerPublic,K}),
+            H = kex_hash(Ssh0, PeerPubHostKey, sha(Curve), {MyPublic,PeerPublic,K}),
 	    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
 		ok ->
 		    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
@@ -1794,11 +1792,11 @@ hash(K, H, Ki, N, HashAlg) ->
     hash(K, H, <<Ki/binary, Kj/binary>>, N-128, HashAlg).
 
 %%%----------------------------------------------------------------
-kex_hash(SSH, Key, SignAlg, HashAlg, Args) ->
-    crypto:hash(HashAlg, kex_plaintext(SSH,Key,SignAlg,Args)).
+kex_hash(SSH, Key, HashAlg, Args) ->
+    crypto:hash(HashAlg, kex_plaintext(SSH,Key,Args)).
 
-kex_plaintext(SSH, Key, SignAlg, Args) ->
-    EncodedKey = public_key:ssh_encode({Key,SignAlg}, ssh2_pubkey),
+kex_plaintext(SSH, Key, Args) ->
+    EncodedKey = public_key:ssh_encode(Key, ssh2_pubkey),
     <<?Estring(SSH#ssh.c_version), ?Estring(SSH#ssh.s_version),
       ?Ebinary(SSH#ssh.c_keyinit), ?Ebinary(SSH#ssh.s_keyinit),
       ?Ebinary(EncodedKey),
