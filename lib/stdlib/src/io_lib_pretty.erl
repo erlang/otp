@@ -478,8 +478,18 @@ print_length(Term, _D, _RF, _Enc, _Str) ->
 print_length_map(_Map, 1, _RF, _Enc, _Str) ->
     {"#{...}", 6};
 print_length_map(Map, D, RF, Enc, Str) when is_map(Map) ->
-    Pairs = print_length_map_pairs(erts_internal:maps_to_list(Map, D), D, RF, Enc, Str),
+    Pairs = print_length_map_pairs(limit_map(maps:iterator(Map), D, []), D, RF, Enc, Str),
     {{map, Pairs}, list_length(Pairs, 3)}.
+
+limit_map(_I, 0, Acc) ->
+    Acc;
+limit_map(I, D, Acc) ->
+    case maps:next(I) of
+        {K, V, NextI} ->
+            limit_map(NextI, D-1, [{K,V} | Acc]);
+        none ->
+            Acc
+    end.
 
 print_length_map_pairs([], _D, _RF, _Enc, _Str) ->
     [];

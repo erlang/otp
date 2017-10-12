@@ -963,7 +963,18 @@ limit_tail(Other, D) ->
 %% maps:from_list() creates a map with the same internal ordering of
 %% the selected associations as in Map.
 limit_map(Map, D) ->
-    maps:from_list(erts_internal:maps_to_list(Map, D)).
+    limit_map(maps:iterator(Map), D, []).
+
+limit_map(_I, 0, Acc) ->
+    maps:from_list(Acc);
+limit_map(I, D, Acc) ->
+    case maps:next(I) of
+        {K, V, NextI} ->
+            limit_map(NextI, D-1, [{K,V} | Acc]);
+        none ->
+            maps:from_list(Acc)
+    end.
+
 %%     maps:from_list(limit_map_body(erts_internal:maps_to_list(Map, D), D)).
 
 %% limit_map_body(_, 0) -> [{'...', '...'}];
