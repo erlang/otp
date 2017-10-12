@@ -21,7 +21,7 @@
 -module(match_spec_SUITE).
 
 -export([all/0, suite/0, not_run/1]).
--export([test_1/1, test_2/1, test_3/1, bad_match_spec_bin/1,
+-export([test_1/1, test_2/1, test_3/1, caller_and_return_to/1, bad_match_spec_bin/1,
 	 trace_control_word/1, silent/1, silent_no_ms/1, silent_test/1,
 	 ms_trace2/1, ms_trace3/1, ms_trace_dead/1, boxed_and_small/1,
 	 destructive_in_test_bif/1, guard_exceptions/1,
@@ -47,7 +47,7 @@ suite() ->
 all() -> 
     case test_server:is_native(match_spec_SUITE) of
 	false ->
-	    [test_1, test_2, test_3, bad_match_spec_bin,
+	    [test_1, test_2, test_3, caller_and_return_to, bad_match_spec_bin,
 	     trace_control_word, silent, silent_no_ms, silent_test, ms_trace2,
 	     ms_trace3, ms_trace_dead, boxed_and_small, destructive_in_test_bif,
 	     guard_exceptions, unary_plus, unary_minus, fpe,
@@ -179,6 +179,50 @@ test_3(Config) when is_list(Config) ->
 							     {?MODULE,f3,2}]}]),
     collect(P1, [{trace, P1, call, {?MODULE, f2, [a, b]}, [true]}]),
     ok.
+
+%% Test that caller and return to work as they should
+%% There was a bug where caller would be undefined when return_to was set
+%% for r the bif erlang:put().
+caller_and_return_to(Config) ->
+    tr(
+      fun do_put_wrapper/0,
+      fun (Tracee) ->
+              MsgCaller = [{'_',[],[{message,{caller}}]}],
+              1 = erlang:trace(Tracee, true, [call,return_to]),
+              1 = erlang:trace_pattern( {?MODULE,do_put,1}, MsgCaller, [local]),
+              1 = erlang:trace_pattern( {?MODULE,do_the_put,1}, MsgCaller, [local]),
+              1 = erlang:trace_pattern( {erlang,integer_to_list,1}, MsgCaller, [local]),
+              1 = erlang:trace_pattern( {erlang,put,2}, MsgCaller, [local]),
+
+              [{trace,Tracee,call,{?MODULE,do_put,[test]},{?MODULE,do_put_wrapper,0}},
+               {trace,Tracee,call,{?MODULE,do_the_put,[test]},{?MODULE,do_put,1}},
+               {trace,Tracee,call,{erlang,integer_to_list,[1]},{?MODULE,do_the_put,1}},
+               {trace,Tracee,return_to,{?MODULE,do_the_put,1}},
+               {trace,Tracee,call,{erlang,put,[test,"1"]},{?MODULE,do_put,1}},
+               {trace,Tracee,return_to,{?MODULE,do_put,1}},
+
+               %% These last trace messages are a bit strange...
+               %% if call tracing had been enabled for do_put_wrapper
+               %% then caller and return_to would have been {?MODULE,do_put_wrapper,1}
+               %% but since it is not, they are set to do_put instead, but we still
+               %% get the do_put_wrapper return_to message...
+               {trace,Tracee,call,{erlang,integer_to_list,[2]},{?MODULE,do_put,1}},
+               {trace,Tracee,return_to,{?MODULE,do_put,1}},
+               {trace,Tracee,return_to,{?MODULE,do_put_wrapper,0}}
+              ]
+      end),
+    ok.
+
+do_put_wrapper() ->
+    do_put(test),
+    ok.
+
+do_put(Var) ->
+    do_the_put(Var),
+    erlang:integer_to_list(id(2)).
+do_the_put(Var) ->
+    Lst = erlang:integer_to_list(id(1)),
+    erlang:put(Var, Lst).
 
 otp_9422(Config) when is_list(Config) ->
     Laps = 10000,
