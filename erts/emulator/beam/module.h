@@ -45,7 +45,7 @@ typedef struct erl_module {
     int seen;			/* Used by finish_loading() */
 
     struct erl_module_instance curr;
-    struct erl_module_instance old; /* protected by "old_code" rwlock */
+    struct erl_module_instance old; /* active protected by "old_code" rwlock */
     struct erl_module_instance* on_load;
 } Module; 
 
