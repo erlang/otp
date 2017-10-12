@@ -884,9 +884,9 @@ chk_pref_algs(Config,
 
 filter_supported(K, Algs) -> Algs -- (Algs--supported(K)).
 
-supported(K) -> proplists:get_value(
-                  server2client,
-                  ssh_transport:supported_algorithms(cipher)).
+supported(_K) -> proplists:get_value(
+                   server2client,
+                   ssh_transport:supported_algorithms(cipher)).
 
 to_lists(L) -> lists:map(fun erlang:atom_to_list/1, L).
     
