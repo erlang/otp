@@ -1988,7 +1988,7 @@ char *erts_convert_filename_to_encoding(Eterm name, char *statbuf, size_t statbu
 	is_list(name) || 
 	(allow_empty && is_nil(name))) {
 	Sint need;
-	if ((need = erts_native_filename_need(name,encoding)) < 0) {
+	if ((need = erts_native_filename_need(name, encoding)) < 0) {
 	    return NULL;
 	}
 	if (encoding == ERL_FILENAME_WIN_WCHAR) {
@@ -2152,12 +2152,13 @@ Eterm erts_convert_native_to_filename(Process *p, byte *bytes)
 }
 
 
-Sint erts_native_filename_need(Eterm ioterm, int encoding) 
+Sint erts_native_filename_need(Eterm ioterm, int encoding)
 {
     Eterm *objp;
     Eterm obj;
     DECLARE_ESTACK(stack);
     Sint need = 0;
+    int seen_null = 0;
 
     if (is_atom(ioterm)) {
 	Atom* ap;
@@ -2194,6 +2195,22 @@ Sint erts_native_filename_need(Eterm ioterm, int encoding)
 	default:
 	    need = -1;
 	}
+        /*
+         * Do not allow null in
+         * the middle of filenames
+         */
+        if (need > 0) {
+            byte *name = ap->name;
+            int len = ap->len;
+            for (i = 0; i < len; i++) {
+                if (name[i] == 0)
+                    seen_null = 1;
+                else if (seen_null) {
+                    need = -1;
+                    break;
+                }
+            }
+        }
 	DESTROY_ESTACK(stack);
 	return need;
     }
@@ -2224,6 +2241,16 @@ L_Again:   /* Restart with sublist, old listend was pushed on stack */
 		if (is_small(obj)) { /* Always small */
 		    for(;;) {
 			Uint x = unsigned_val(obj);
+                        /*
+                         * Do not allow null in
+                         * the middle of filenames
+                         */
+                        if (x == 0)
+                            seen_null = 1;
+                        else if (seen_null) {
+                            DESTROY_ESTACK(stack);
+                            return ((Sint) -1);
+                        }
 			switch (encoding) {
 			case ERL_FILENAME_LATIN1:
 			    if (x > 255) {
@@ -2497,6 +2524,38 @@ void erts_copy_utf8_to_utf16_little(byte *target, byte *bytes, int num_chars)
 }
 
 /*
+ * *** Requirements on Raw Filename Format ***
+ *
+ * These requirements are due to the 'filename' module
+ * in stdlib. This since it is documented that it
+ * should be able to operate on raw filenames as well
+ * as ordinary filenames.
+ *
+ * A raw filename *must* be a byte sequence where:
+ * 1. Codepoints 0-127 (7-bit ascii) *must* be encoded
+ *    as a byte with the corresponding value. That is,
+ *    the most significant bit in the byte encoding the
+ *    codepoint is never set.
+ * 2. Codepoints greater than 127 *must* be encoded
+ *    with the most significant bit set in *every* byte
+ *    encoding it.
+ *
+ * Latin1 and UTF-8 meet these requirements while
+ * UTF-16 and UTF-32 don't.
+ *
+ * On Windows filenames are natively stored as malformed
+ * UTF-16LE (lonely surrogates may appear). A more correct
+ * description than UTF-16 would be an array of 16-bit
+ * words... In order to meet the requirements of the
+ * raw file format we convert the malformed UTF-16LE to
+ * malformed UTF-8 which meet the requirements.
+ *
+ * Note that these requirements are today only OTP
+ * internal (erts-stdlib internal) requirements that
+ * could be changed.
+ */
+
+/*
  * This internal bif converts a filename to whatever format is suitable for the file driver
  * It also adds zero termination so that prim_file needn't bother with the character encoding
  * of the file driver 
@@ -2507,6 +2566,12 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
     Sint need;
     Eterm bin_term;
     byte* bin_p;
+
+    /*
+     * See comment on "Requirements on Raw Filename Format"
+     * above.
+     */
+
     /* Prim file explicitly does not allow atoms, although we could 
        very well cope with it. Instead of letting 'file' handle them,
        it would probably be more efficient to handle them here. Subject to 
@@ -2515,6 +2580,7 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P,BADARG);
     }
     if (is_binary(BIF_ARG_1)) {
+        int seen_null = 0;
 	byte *temp_alloc = NULL;
 	byte *bytes;
 	byte *err_pos;
@@ -2524,10 +2590,18 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	size = binary_size(BIF_ARG_1);
 	bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
 	if (encoding != ERL_FILENAME_WIN_WCHAR) {
+            Uint i;
 	    /*Add 0 termination only*/
 	    bin_term = new_binary(BIF_P, NULL, size+1);
 	    bin_p = binary_bytes(bin_term);
-	    memcpy(bin_p,bytes,size);
+            for (i = 0; i < size; i++) {
+                /* Don't allow null in the middle of filenames... */
+                if (bytes[i] == 0)
+                    seen_null = 1;
+                else if (seen_null)
+                    goto bin_name_error;
+                bin_p[i] = bytes[i];
+            }
 	    bin_p[size]=0;
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    BIF_RET(bin_term);
@@ -2541,6 +2615,11 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	    bin_term = new_binary(BIF_P, 0, (size+1)*2);
 	    bin_p = binary_bytes(bin_term);
 	    while (size--) {
+                /* Don't allow null in the middle of filenames... */
+                if (*bytes == 0)
+                    seen_null = 1;
+                else if (seen_null)
+                    goto bin_name_error;
 		*bin_p++ = *bytes++;
 		*bin_p++ = 0;
 	    }
@@ -2558,11 +2637,14 @@ BIF_RETTYPE prim_file_internal_name2native_1(BIF_ALIST_1)
 	bin_p[num_chars*2+1] = 0;
 	erts_free_aligned_binary_bytes(temp_alloc);
 	BIF_RET(bin_term);
+    bin_name_error:
+        erts_free_aligned_binary_bytes(temp_alloc);
+        BIF_ERROR(BIF_P,BADARG);
     } /* binary */   
 	    
 
-    if ((need = erts_native_filename_need(BIF_ARG_1,encoding)) < 0) {
-	BIF_ERROR(BIF_P,BADARG);
+    if ((need = erts_native_filename_need(BIF_ARG_1, encoding)) < 0) {
+        BIF_ERROR(BIF_P,BADARG);
     }
     if (encoding == ERL_FILENAME_WIN_WCHAR) {
 	need += 2;
@@ -2595,6 +2677,11 @@ BIF_RETTYPE prim_file_internal_native2name_1(BIF_ALIST_1)
     Uint num_eaten; /* bytes */
     Eterm ret;
     int mac = 0;
+
+    /*
+     * See comment on "Requirements on Raw Filename Format"
+     * above.
+     */
 
     if (is_not_binary(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P,BADARG);

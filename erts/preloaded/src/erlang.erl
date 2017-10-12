@@ -2110,7 +2110,7 @@ nodes(_Arg) ->
            | stream
            | {line, L :: non_neg_integer()}
            | {cd, Dir :: string() | binary()}
-           | {env, Env :: [{Name :: string(), Val :: string() | false}]}
+           | {env, Env :: [{Name :: os:env_var_name(), Val :: os:env_var_value() | false}]}
            | {args, [string() | binary()]}
            | {arg0, string() | binary()}
            | exit_status

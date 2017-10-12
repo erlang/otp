@@ -1170,4 +1170,52 @@ int erts_get_printable_characters(void);
 
 void erts_init_sys_common_misc(void);
 
+ERTS_GLB_INLINE Sint erts_raw_env_7bit_ascii_char_need(int encoding);
+ERTS_GLB_INLINE byte *erts_raw_env_7bit_ascii_char_put(byte c, byte *p,
+                                                       int encoding);
+ERTS_GLB_INLINE int  erts_raw_env_char_is_7bit_ascii_char(byte c, byte *p,
+                                                          int encoding);
+ERTS_GLB_INLINE byte *erts_raw_env_next_char(byte *p, int encoding);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE Sint
+erts_raw_env_7bit_ascii_char_need(int encoding)
+{
+    return (encoding == ERL_FILENAME_WIN_WCHAR) ? 2 : 1;
+}
+
+ERTS_GLB_INLINE byte *
+erts_raw_env_7bit_ascii_char_put(byte c,
+                                 byte *p,
+                                 int encoding)
+{
+    *(p++) = c;
+    if (encoding == ERL_FILENAME_WIN_WCHAR)
+        *(p++) = 0;
+    return p;
+}
+
+ERTS_GLB_INLINE int
+erts_raw_env_char_is_7bit_ascii_char(byte c,
+                                     byte *p,
+                                     int encoding)
+{
+    if (encoding == ERL_FILENAME_WIN_WCHAR)
+        return (p[0] == c) & (p[1] == 0);
+    else
+        return p[0] == c;
+}
+
+ERTS_GLB_INLINE byte *
+erts_raw_env_next_char(byte *p, int encoding)
+{
+    if (encoding == ERL_FILENAME_WIN_WCHAR)
+        return p + 2;
+    else
+        return p + 1;
+}
+
+#endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
 #endif

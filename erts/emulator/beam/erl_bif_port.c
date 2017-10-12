@@ -45,7 +45,7 @@
 #include "dtrace-wrapper.h"
 
 static Port *open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump);
-static byte* convert_environment(Process* p, Eterm env);
+static char* convert_environment(Eterm env);
 static char **convert_args(Eterm);
 static void free_args(char **);
 
@@ -718,11 +718,11 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 			goto badarg;
 		    }
 		} else if (option == am_env) {
-		    byte* bytes;
-		    if ((bytes = convert_environment(p, *tp)) == NULL) {
+                    if (opts.envir) /* ignore previous env option... */
+                        erts_free(ERTS_ALC_T_OPEN_PORT_ENV, opts.envir);
+                    opts.envir = convert_environment(*tp);
+                    if (!opts.envir)
 			goto badarg;
-		    }
-		    opts.envir = (char *) bytes;
 		} else if (option == am_args) {
 		    char **av;
 		    char **oav = opts.argv;
@@ -956,6 +956,8 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	erts_atomic32_read_bor_relb(&port->state, sflgs);
  
  do_return:
+    if (opts.envir)
+        erts_free(ERTS_ALC_T_OPEN_PORT_ENV, opts.envir);
     if (name_buf)
 	erts_free(ERTS_ALC_T_TMP, (void *) name_buf);
     if (opts.argv) {
@@ -1021,74 +1023,129 @@ static void free_args(char **av)
     }
     erts_free(ERTS_ALC_T_TMP, av);
 }
-    
 
-static byte* convert_environment(Process* p, Eterm env)
+#ifdef DEBUG
+#define ERTS_CONV_ENV_BUF_EXTRA 2
+#else
+#define ERTS_CONV_ENV_BUF_EXTRA 1024
+#endif
+
+static char* convert_environment(Eterm env)
 {
-    Eterm all;
-    Eterm* temp_heap;
-    Eterm* hp;
-    Uint heap_size;
-    Sint n;
-    Sint size;
+    /*
+     * Returns environment buffer in memory allocated
+     * as ERTS_ALC_T_OPEN_PORT_ENV. Caller *needs*
+     * to deallocate...
+     */
+
+    Sint size, alloc_size;
     byte* bytes;
     int encoding = erts_get_native_filename_encoding();
 
-    if ((n = erts_list_length(env)) < 0) {
-	return NULL;
-    }
-    heap_size = 2*(5*n+1);
-    temp_heap = hp = (Eterm *) erts_alloc(ERTS_ALC_T_TMP, heap_size*sizeof(Eterm));
-    bytes = NULL;		/* Indicating error */
+    alloc_size = ERTS_CONV_ENV_BUF_EXTRA;
+    bytes = erts_alloc(ERTS_ALC_T_OPEN_PORT_ENV,
+                       alloc_size);
+    size = 0;
 
-    /*
-     * All errors below are handled by jumping to 'done', to ensure that the memory
-     * gets deallocated. Do NOT return directly from this function.
-     */
+    /* ERTS_CONV_ENV_BUF_EXTRA >= for end delimiter... */
+    ERTS_CT_ASSERT(ERTS_CONV_ENV_BUF_EXTRA >= 2);
 
-    all = CONS(hp, make_small(0), NIL);
-    hp += 2;
+    while (is_list(env)) {
+        Sint var_sz, val_sz, need;
+        byte *str, *limit;
+	Eterm tmp, *tp, *consp;
 
-    while(is_list(env)) {
-	Eterm tmp;
-	Eterm* tp;
+        consp = list_val(env);
+	tmp = CAR(consp);
+	if (is_not_tuple_arity(tmp, 2))
+	    goto error;
 
-	tmp = CAR(list_val(env));
-	if (is_not_tuple_arity(tmp, 2)) {
-	    goto done;
-	}
 	tp = tuple_val(tmp);
-	tmp = CONS(hp, make_small(0), NIL);
-	hp += 2;
-	if (tp[2] != am_false) {
-	    tmp = CONS(hp, tp[2], tmp);
-	    hp += 2;
-	}
-	tmp = CONS(hp, make_small('='), tmp);
-	hp += 2;
-	tmp = CONS(hp, tp[1], tmp);
-	hp += 2;
-	all = CONS(hp, tmp, all);
-	hp += 2;
-	env = CDR(list_val(env));
-    }
-    if (is_not_nil(env)) {
-	goto done;
+
+        /* Check encoding of env variable... */
+        if (is_not_list(tp[1]))
+            goto error;
+        var_sz = erts_native_filename_need(tp[1], encoding);
+        if (var_sz <= 0)
+            goto error;
+        /* Check encoding of value... */
+        if (tp[2] == am_false || is_nil(tp[2]))
+            val_sz = 0;
+        else if (is_not_list(tp[2]))
+            goto error;
+        else {
+            val_sz = erts_native_filename_need(tp[2], encoding);
+            if (val_sz < 0)
+                goto error;
+        }
+
+        /* Ensure enough memory... */
+        need = size;
+        need += var_sz + val_sz;
+        /* '=' and '\0' */
+        need += 2 * erts_raw_env_7bit_ascii_char_need(encoding);
+        if (need > alloc_size) {
+            alloc_size = (need - alloc_size) + alloc_size;
+            alloc_size += ERTS_CONV_ENV_BUF_EXTRA;
+            bytes = erts_realloc(ERTS_ALC_T_OPEN_PORT_ENV,
+                                 bytes, alloc_size);
+        }
+
+        /* Write environment variable name... */
+        str = bytes + size;
+        erts_native_filename_put(tp[1], encoding, str);
+        /* empty variable name is not allowed... */
+        if (erts_raw_env_char_is_7bit_ascii_char('\0', str, encoding))
+            goto error;
+
+        /*
+         * Drop null characters at the end and verify that we do
+         * not have any '=' characters in the name...
+         */
+        limit = str + var_sz;
+        while (str < limit) {
+            if (erts_raw_env_char_is_7bit_ascii_char('\0', str, encoding))
+                break;
+            if (erts_raw_env_char_is_7bit_ascii_char('=', str, encoding))
+                goto error;
+            str = erts_raw_env_next_char(str, encoding);
+        }
+
+        /* Write the equals sign... */
+        str = erts_raw_env_7bit_ascii_char_put('=', str, encoding);
+
+        /* Write the value... */
+        if (val_sz > 0) {
+            limit = str + val_sz;
+            erts_native_filename_put(tp[2], encoding, str);
+            while (str < limit) {
+                if (erts_raw_env_char_is_7bit_ascii_char('\0', str, encoding))
+                    break;
+                str = erts_raw_env_next_char(str, encoding);
+            }
+        }
+
+        /* Delimit... */
+        str = erts_raw_env_7bit_ascii_char_put('\0', str, encoding);
+
+        size = str - bytes;
+        ASSERT(size <= alloc_size);
+
+        env = CDR(consp);
     }
 
-    if ((size = erts_native_filename_need(all,encoding)) < 0) {
-	goto done;
-    }
+    /* End delimit... */
+    (void) erts_raw_env_7bit_ascii_char_put('\0', &bytes[size], encoding);
 
-    /*
-     * Put the result in a binary (no risk for a memory leak that way).
-     */
-    (void) erts_new_heap_binary(p, NULL, size, &bytes);
-    erts_native_filename_put(all,encoding,bytes);
+    if (is_nil(env))
+        return (char *) bytes;
 
- done:
-    erts_free(ERTS_ALC_T_TMP, temp_heap);
-    return bytes;
+error:
+
+    if (bytes)
+        erts_free(ERTS_ALC_T_OPEN_PORT_ENV, bytes);
+
+    return (char *) NULL; /* error... */
 }
 
 /* ------------ decode_packet() and friends: */
