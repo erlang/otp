@@ -3674,6 +3674,12 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		Eterm *hp = HAlloc(BIF_P, hsz);
 		BIF_RET(uword_to_big(size, hp));
 	    }
+        } else if (ERTS_IS_ATOM_STR("scheduler_dump", BIF_ARG_1)) {
+#if defined(ERTS_HAVE_TRY_CATCH) && defined(ERTS_SYS_SUSPEND_SIGNAL)
+            BIF_RET(am_true);
+#else
+            BIF_RET(am_false);
+#endif
         }
     }
     else if (is_tuple(BIF_ARG_1)) {

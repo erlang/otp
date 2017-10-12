@@ -824,11 +824,16 @@ int erts_sys_unsetenv(char *key);
 char *erts_read_env(char *key);
 void erts_free_read_env(void *value);
 
-#if defined(ERTS_THR_HAVE_SIG_FUNCS) && !defined(ETHR_UNUSABLE_SIGUSRX)
+#if defined(ERTS_THR_HAVE_SIG_FUNCS) &&                         \
+    (!defined(ETHR_UNUSABLE_SIGUSRX) || defined(SIGRTMIN))
 extern void sys_thr_resume(erts_tid_t tid);
 extern void sys_thr_suspend(erts_tid_t tid);
-#define ERTS_SYS_SUSPEND_SIGNAL SIGUSR2
-#endif
+#ifdef SIGRTMIN
+#define ERTS_SYS_SUSPEND_SIGNAL (SIGRTMIN+1)
+#else
+#define ERTS_SYS_SUSPEND_SIGNAL (SIGUSR2)
+#endif /* SIGRTMIN */
+#endif /* HAVE_SIG_FUNCS */
 
 /* utils.c */
 

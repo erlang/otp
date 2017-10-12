@@ -57,6 +57,7 @@ MODULES= \
 	dirty_nif_SUITE \
 	distribution_SUITE \
 	driver_SUITE \
+	dump_SUITE \
 	efile_SUITE \
 	erts_debug_SUITE \
 	estone_SUITE \
