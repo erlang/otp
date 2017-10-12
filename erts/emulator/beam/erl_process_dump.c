@@ -52,9 +52,11 @@ static void print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x);
 static void heap_dump(fmtfn_t to, void *to_arg, Eterm x);
 static void dump_binaries(fmtfn_t to, void *to_arg, Binary* root);
 static void dump_externally(fmtfn_t to, void *to_arg, Eterm term);
+static void mark_literal(Eterm* ptr);
+static void init_literal_areas(void);
 static void dump_literals(fmtfn_t to, void *to_arg);
 static void dump_module_literals(fmtfn_t to, void *to_arg,
-                                 struct erl_module_instance* mp);
+                                 ErtsLiteralArea* lit_area);
 
 static Binary* all_binaries;
 
@@ -68,7 +70,8 @@ erts_deep_process_dump(fmtfn_t to, void *to_arg)
     int i, max = erts_ptab_max(&erts_proc);
 
     all_binaries = NULL;
-    
+    init_literal_areas();
+
     for (i = 0; i < max; i++) {
 	Process *p = erts_pix2proc(i);
 	if (p && p->i != ENULL) {
@@ -377,7 +380,9 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
 	    next = (Eterm *) x;
 	} else if (is_list(x)) {
 	    ptr = list_val(x);
-	    if (ptr[0] != OUR_NIL && !erts_is_literal(x, ptr)) {
+            if (erts_is_literal(x, ptr)) {
+                mark_literal(ptr);
+            } else if (ptr[0] != OUR_NIL) {
 		erts_print(to, to_arg, PTR_FMT ":l", ptr);
 		dump_element(to, to_arg, ptr[0]);
 		erts_putc(to, to_arg, '|');
@@ -396,7 +401,9 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
 
 	    ptr = boxed_val(x);
 	    hdr = *ptr;
-	    if (hdr != OUR_NIL && !erts_is_literal(x, ptr)) {
+            if (erts_is_literal(x, ptr)) {
+                mark_literal(ptr);
+            } else if (hdr != OUR_NIL) {
 		erts_print(to, to_arg, PTR_FMT ":", ptr);
 	        if (is_arity_value(hdr)) {
 		    Uint i;
@@ -642,42 +649,115 @@ dump_externally(fmtfn_t to, void *to_arg, Eterm term)
     }
 }
 
+/*
+ * Handle dumping of literal areas.
+ */
+
+static ErtsLiteralArea** lit_areas;
+static Uint num_lit_areas;
+
+static int compare_areas(const void * a, const void * b)
+{
+    ErtsLiteralArea** a_p = (ErtsLiteralArea **) a;
+    ErtsLiteralArea** b_p = (ErtsLiteralArea **) b;
+
+    if (*a_p < *b_p) {
+        return -1;
+    } else if (*b_p < *a_p) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+
 static void
-dump_literals(fmtfn_t to, void *to_arg)
+init_literal_areas(void)
 {
     int i;
     Module* modp;
     ErtsCodeIndex code_ix;
+    ErtsLiteralArea** area_p;
 
     code_ix = erts_active_code_ix();
     erts_rlock_old_code(code_ix);
 
-    erts_print(to, to_arg, "=literals\n");
-
+    lit_areas = area_p = erts_dump_lit_areas;
+    num_lit_areas = 0;
     for (i = 0; i < module_code_size(code_ix); i++) {
 	modp = module_code(i, code_ix);
         if (modp == NULL) {
             continue;
         }
-        dump_module_literals(to, to_arg, &modp->curr);
-        dump_module_literals(to, to_arg, &modp->old);
+        if (modp->curr.code_length > 0 &&
+            modp->curr.code_hdr->literal_area) {
+            *area_p++ = modp->curr.code_hdr->literal_area;
+        }
+        if (modp->old.code_length > 0 && modp->old.code_hdr->literal_area) {
+            *area_p++ = modp->old.code_hdr->literal_area;
+        }
     }
+
+    num_lit_areas = area_p - lit_areas;
+    ASSERT(num_lit_areas <= erts_dump_num_lit_areas);
+    for (i = 0; i < num_lit_areas; i++) {
+        lit_areas[i]->off_heap = 0;
+    }
+
+    qsort(lit_areas, num_lit_areas, sizeof(ErtsLiteralArea *),
+          compare_areas);
+
+    erts_runlock_old_code(code_ix);
+}
+
+static int search_areas(const void * a, const void * b) {
+    Eterm* key = (Eterm *) a;
+    ErtsLiteralArea** b_p = (ErtsLiteralArea **) b;
+    if (key < b_p[0]->start) {
+        return -1;
+    } else if (b_p[0]->end <= key) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static void mark_literal(Eterm* ptr)
+{
+    ErtsLiteralArea** ap;
+
+    ap = bsearch(ptr, lit_areas, num_lit_areas, sizeof(ErtsLiteralArea*),
+                 search_areas);
+    ASSERT(ap);
+    ap[0]->off_heap = (struct erl_off_heap_header *) 1;
+}
+
+
+static void
+dump_literals(fmtfn_t to, void *to_arg)
+{
+    ErtsCodeIndex code_ix;
+    int i;
+
+    code_ix = erts_active_code_ix();
+    erts_rlock_old_code(code_ix);
+
+    erts_print(to, to_arg, "=literals\n");
+    for (i = 0; i < num_lit_areas; i++) {
+        if (lit_areas[i]->off_heap) {
+            dump_module_literals(to, to_arg, lit_areas[i]);
+        }
+    }
+
     erts_runlock_old_code(code_ix);
 }
 
 static void
-dump_module_literals(fmtfn_t to, void *to_arg, struct erl_module_instance* mp)
+dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
 {
-    BeamCodeHeader* code;
-    ErtsLiteralArea* lit_area;
     Eterm* htop;
     Eterm* hend;
 
-    if (mp->code_length == 0) {
-        return;
-    }
-    code = mp->code_hdr;
-    lit_area = code->literal_area;
     htop = lit_area->start;
     hend = lit_area->end;
     while (htop < hend) {
