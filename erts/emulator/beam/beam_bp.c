@@ -641,6 +641,49 @@ erts_clear_export_break(Module* modp, ErtsCodeInfo *ci)
     ASSERT(ci->u.gen_bp == NULL);
 }
 
+/*
+ * If c_p->cp is a trace return instruction, we set cp
+ * to be the place where we again start to execute code.
+ *
+ * cp is used by match spec {caller} to get the calling
+ * function, and if we don't do this fixup it will be
+ * 'undefined'. This has the odd side effect of {caller}
+ * not really being which function is the caller, but
+ * rather which function we are about to return to.
+ */
+static void fixup_cp_before_trace(Process *c_p, int *return_to_trace)
+{
+    Eterm *cpp, *E = c_p->stop;
+    BeamInstr w = *c_p->cp;
+    if (BeamIsOpCode(w, op_return_trace)) {
+        cpp = &E[2];
+    } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
+        *return_to_trace = 1;
+        cpp = &E[0];
+    } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
+        cpp = &E[0];
+    } else {
+        cpp = NULL;
+    }
+    if (cpp) {
+        for (;;) {
+            BeamInstr w = *cp_val(*cpp);
+            if (BeamIsOpCode(w, op_return_trace)) {
+                cpp += 3;
+            } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
+                *return_to_trace = 1;
+                cpp += 1;
+            } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
+                cpp += 2;
+            } else {
+                break;
+            }
+        }
+        c_p->cp = (BeamInstr *) cp_val(*cpp);
+        ASSERT(is_CP(*cpp));
+    }
+}
+
 BeamInstr
 erts_generic_breakpoint(Process* c_p, ErtsCodeInfo *info, Eterm* reg)
 {
@@ -751,6 +794,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
     GenericBp* g;
     GenericBpData* bp = NULL;
     Uint bp_flags = 0;
+    int return_to_trace = 0;
 
     ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
@@ -766,6 +810,8 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
      */
     if (!applying) {
 	p->cp = I;
+    } else {
+        fixup_cp_before_trace(p, &return_to_trace);
     }
     if (bp_flags & (ERTS_BPF_LOCAL_TRACE|ERTS_BPF_GLOBAL_TRACE) &&
 	IS_TRACED_FL(p, F_TRACE_CALLS)) {
@@ -944,49 +990,18 @@ static ErtsTracer
 do_call_trace(Process* c_p, ErtsCodeInfo* info, Eterm* reg,
 	      int local, Binary* ms, ErtsTracer tracer)
 {
-    Eterm* cpp;
     int return_to_trace = 0;
-    BeamInstr w;
     BeamInstr *cp_save = c_p->cp;
     Uint32 flags;
     Uint need = 0;
     Eterm* E = c_p->stop;
 
-    w = *c_p->cp;
-    if (BeamIsOpCode(w, op_return_trace)) {
-	cpp = &E[2];
-    } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
-	return_to_trace = 1;
-	cpp = &E[0];
-    } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
-	cpp = &E[0];
-    } else {
-	cpp = NULL;
-    }
-    if (cpp) {
-	for (;;) {
-	    BeamInstr w = *cp_val(*cpp);
-	    if (BeamIsOpCode(w, op_return_trace)) {
-		cpp += 3;
-	    } else if (BeamIsOpCode(w, op_i_return_to_trace)) {
-		return_to_trace = 1;
-		cpp += 1;
-            } else if (BeamIsOpCode(w, op_i_return_time_trace)) {
-		cpp += 2;
-	    } else {
-		break;
-	    }
-	}
-	cp_save = c_p->cp;
-	c_p->cp = (BeamInstr *) cp_val(*cpp);
-	ASSERT(is_CP(*cpp));
-    }
-    ERTS_UNREQ_PROC_MAIN_LOCK(c_p);
+    fixup_cp_before_trace(c_p, &return_to_trace);
+
     flags = erts_call_trace(c_p, info, ms, reg, local, &tracer);
-    ERTS_REQ_PROC_MAIN_LOCK(c_p);
-    if (cpp) {
-	c_p->cp = cp_save;
-    }
+
+    /* restore cp after potential fixup */
+    c_p->cp = cp_save;
 
     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     if ((flags & MATCH_SET_RETURN_TO_TRACE) && !return_to_trace) {

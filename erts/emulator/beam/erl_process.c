@@ -12476,9 +12476,9 @@ send_exit_signal(Process *c_p,		/* current process if and only
 
     if ((state & ERTS_PSFLG_TRAP_EXIT)
 	&& (reason != am_kill || (flags & ERTS_XSIG_FLG_IGN_KILL))) {
-        /* have to release the status lock in order to send the exit message */
-        erts_proc_unlock(rp, *rp_locks & ERTS_PROC_LOCKS_XSIG_SEND);
-        *rp_locks &= ~ERTS_PROC_LOCKS_XSIG_SEND;
+        /* have to release the status and trace lock in order to send the exit message */
+        erts_proc_unlock(rp, *rp_locks & (ERTS_PROC_LOCKS_XSIG_SEND|ERTS_PROC_LOCK_TRACE));
+        *rp_locks &= ~(ERTS_PROC_LOCKS_XSIG_SEND|ERTS_PROC_LOCK_TRACE);
         if (have_seqtrace(token) && token_update)
 	    seq_trace_update_send(token_update);
 	if (is_value(exit_tuple))
