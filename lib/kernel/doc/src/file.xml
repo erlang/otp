@@ -59,7 +59,7 @@
     terminal supports UTF-8, otherwise <c>latin1</c>. The default can
     be overridden using <c>+fnl</c> (to force <c>latin1</c> mode)
     or <c>+fnu</c> (to force <c>utf8</c> mode) when starting
-    <seealso marker="erts:erl"><c>erl</c></seealso>.</p>
+    <seealso marker="erts:erl"><c>erts:erl</c></seealso>.</p>
 
     <p>On operating systems with transparent naming, files can be
     inconsistently named, for example, some files are encoded in UTF-8 while
@@ -81,22 +81,6 @@
 
     <p>See also section <seealso marker="stdlib:unicode_usage#notes-about-raw-filenames">Notes About Raw Filenames</seealso> in the STDLIB User's Guide.</p>
 
-    <note><p>
-      File operations used to accept filenames containing
-      null characters (integer value zero). This caused
-      the name to be truncated at the first null character.
-      Filenames containing null characters inside the filename
-      are now <em>rejected</em> and will cause primitive
-      file operations fail.
-    </p></note>
-    <warning><p>
-      Currently null characters at the end of the filename
-      will be accepted by primitive file operations. Such
-      filenames are however still documented as invalid. The
-      implementation will also change in the future and
-      reject such filenames.
-    </p></warning>
-
   </description>
 
   <datatypes>
@@ -112,21 +96,9 @@
     </datatype>
     <datatype>
       <name name="filename"/>
-      <desc>
-        <p>
-	  See also the documentation of the
-	  <seealso marker="#type-name_all"><c>name_all()</c></seealso> type.
-	</p>
-      </desc>
     </datatype>
     <datatype>
       <name name="filename_all"/>
-      <desc>
-        <p>
-	  See also the documentation of the
-	  <seealso marker="#type-name_all"><c>name_all()</c></seealso> type.
-	</p>
-      </desc>
     </datatype>
     <datatype>
       <name name="io_device"/>
@@ -140,23 +112,21 @@
       <name name="name"/>
       <desc>
         <p>If VM is in Unicode filename mode, <c>string()</c> and <c>char()</c>
-          are allowed to be &gt; 255. See also the documentation of the
-	  <seealso marker="#type-name_all"><c>name_all()</c></seealso> type.
+          are allowed to be &gt; 255.
         </p>
       </desc>
     </datatype>
     <datatype>
       <name name="name_all"/>
       <desc>
-        <p>If VM is in Unicode filename mode, characters
+        <p>If VM is in Unicode filename mode, <c>string()</c> and <c>char()</c>
           are allowed to be &gt; 255.
           <c><anno>RawFilename</anno></c> is a filename not subject to
           Unicode translation,
           meaning that it can contain characters not conforming to
           the Unicode encoding expected from the file system
           (that is, non-UTF-8 characters although the VM is started
-          in Unicode filename mode). Null characters (integer value zero)
-	  are <em>not</em> allowed in filenames (not even at the end).
+          in Unicode filename mode).
         </p>
       </desc>
     </datatype>

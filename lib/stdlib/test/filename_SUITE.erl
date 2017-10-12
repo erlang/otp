@@ -30,7 +30,6 @@
 -export([pathtype_bin/1,rootname_bin/1,split_bin/1]).
 -export([t_basedir_api/1, t_basedir_xdg/1, t_basedir_windows/1]).
 -export([safe_relative_path/1]).
--export([validate/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -44,8 +43,7 @@ all() ->
      absname_bin, absname_bin_2,
      {group,p},
      t_basedir_xdg, t_basedir_windows,
-     safe_relative_path,
-     validate].
+     safe_relative_path].
 
 groups() -> 
     [{p, [parallel],
@@ -1013,56 +1011,3 @@ basedir_xdg_def(Type,Home,Name) ->
                         Dir <- ["/usr/local/share/","/usr/share/"]];
         site_config -> [filename:join(["/etc/xdg",Name])]
     end.
-
-validate(Config) when is_list(Config) ->
-    true = filename:validate(blipp),
-    false = filename:validate('bli\0pp'),
-    false = filename:validate('blipp\0'),
-    true = filename:validate("blipp"),
-    false = filename:validate("bli"++[0]++"pp"),
-    false = filename:validate("blipp"++[0]),
-    true = filename:validate(["one ", blipp, "blopp"]),
-    false = filename:validate(["one ", 'bli\0pp', "blopp"]),
-    false = filename:validate(["one ", 'blipp\0', "blopp"]),
-    false = filename:validate(["one ", 'blipp', "blopp\0"]),
-    false = filename:validate([0]),
-    false = filename:validate([]),
-    false = filename:validate([[[]],[[[[],[[[[[[[[]]], '', [[[[[]]]]]]]]]]]]]]),
-    false = filename:validate([16#110000]),
-    false = filename:validate([16#110001]),
-    false = filename:validate([16#110000*2]),
-    case file:native_name_encoding() of
-        latin1 ->
-            true = filename:validate(lists:seq(1, 255)),
-            false = filename:validate([256]);
-        utf8 ->
-            true = filename:validate(lists:seq(1, 16#D7FF)),
-            true = filename:validate(lists:seq(16#E000, 16#FFFF)),
-            true = filename:validate([16#FFFF]),
-            case os:type() of
-                {win32, _} ->
-                    false = filename:validate([16#10000]),
-                    true = filename:validate(lists:seq(16#D800,16#DFFF));
-                _ ->
-                    true = filename:validate([16#10000]),
-                    true = filename:validate([16#10FFFF]),
-                    lists:foreach(fun (C) ->
-                                          false = filename:validate([C])
-                                  end,
-                                  lists:seq(16#D800,16#DFFF))
-            end
-                        
-    end,
-    true = filename:validate(<<1,17,255>>),
-    false = filename:validate(<<1,0,17,255>>),
-    false = filename:validate(<<1,17,255,0>>),
-    false = filename:validate(<<>>),
-    lists:foreach(fun (N) ->
-                          true = filename:validate(N)
-                  end,
-                  code:get_path()),
-    ok.
-
-            
-    
-

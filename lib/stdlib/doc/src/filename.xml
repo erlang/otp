@@ -46,10 +46,7 @@
       filename by removing redundant directory separators, use
       <seealso marker="#join/1"><c>join/1</c></seealso>.</p>
 
-    <p>
-      The module supports
-      <seealso marker="unicode_usage#notes-about-raw-filenames">raw
-      filenames</seealso> in the way that if a binary is
+    <p>The module supports raw filenames in the way that if a binary is
       present, or the filename cannot be interpreted according to the return
       value of <seealso marker="kernel:file#native_name_encoding/0">
       <c>file:native_name_encoding/0</c></seealso>, a raw filename is also
@@ -59,30 +56,6 @@
       (the join operation is performed of course). For more information
       about raw filenames, see the
       <seealso marker="kernel:file"><c>file</c></seealso> module.</p>
-
-    <note>
-      <p>
-	Functionality in this module generally assumes valid input and
-	does not necessarily fail on input that does not use a valid
-	encoding. You can validate the encoding of a filename using
-	<seealso marker="#validate/1">filename:validate/1</seealso>.
-      </p>
-      <p>
-	File operations used to accept filenames containing
-	null characters (integer value zero). This caused
-	the name to be truncated at the first null character.
-	Filenames containing null characters inside the filename
-	are now <em>rejected</em> and will cause primitive
-	file operations fail.
-      </p>
-    </note>
-    <warning><p>
-      Currently null characters at the end of the filename
-      will be accepted by primitive file operations. Such
-      filenames are however still documented as invalid. The
-      implementation will also change in the future and
-      reject such filenames.
-    </p></warning>
   </description>
   <datatypes>
       <datatype>
@@ -580,55 +553,6 @@ unsafe</pre>
 ["foo","bar"]
 26> <input>filename:split("a:\\msdev\\include").</input>
 ["a:/","msdev","include"]</pre>
-      </desc>
-    </func>
-
-    <func>
-      <name name="validate" arity="1"/>
-      <fsummary>Validate encoding of filename</fsummary>
-      <desc>
-	<p>
-	  Validates filename encoding. Returns <c>true</c> if
-	  <c><anno>FileName</anno></c> has a valid encoding;
-	  otherwise, returns <c>false</c>.
-	</p>
-	<taglist>
-	  <tag>Ordinary Filename</tag>
-	  <item>
-	    <p>
-	      Type: <c><anno>FileName</anno> = </c><seealso marker="kernel:file#type-name"><c>file:name()</c></seealso>
-	    </p>
-	    <p>
-	      Validates encoding against the
-	      <seealso marker="kernel:file#native_name_encoding/0">native file
-	      name encoding</seealso>, and the
-	      capabilities of the operating system used.
-	      Regardless of configuration and OS, null
-	      characters (integer value zero) will be
-	      rejected by the validation  (even when only
-	      present at the end of the filename).
-	    </p>
-	  </item>
-	  <tag><seealso marker="unicode_usage#notes-about-raw-filenames">Raw
-	  Filename</seealso></tag>
-	  <item>
-	    <p>
-	      Type: <c><anno>FileName</anno> = binary()</c>
-	    </p>
-	    <p>
-	      The encoding will not be interpreted, but
-	      null bytes (integer value zero) will be
-	      rejected by the validation (even when only
-	      present at the end of the filename).
-	    </p>
-	  </item>
-	</taglist>
-	<p>
-	  For information on filename encoding see the documentation
-	  of unicode filenames in
-	  <seealso marker="stdlib:unicode_usage#unicode_file_names">STDLIB
-	  Users Guide ➜ Using Unicode in Erlang ➜ Unicode Filenames</seealso>.
-	</p>
       </desc>
     </func>
   </funcs>
