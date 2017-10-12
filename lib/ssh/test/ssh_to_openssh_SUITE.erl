@@ -332,7 +332,7 @@ erlang_client_openssh_server_publickey_dsa(Config) ->
     erlang_client_openssh_server_publickey_X(Config, 'ssh-dss').
 
 
-erlang_client_openssh_server_publickey_X(Config, Alg) ->
+erlang_client_openssh_server_publickey_X(_Config, Alg) ->
     ConnectionRef =
         ssh_test_lib:connect(?SSH_DEFAULT_PORT,
                              [{pref_public_key_algs, [Alg]},
