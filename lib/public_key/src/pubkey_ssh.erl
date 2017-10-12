@@ -408,8 +408,8 @@ ssh2_pubkey_encode(Key={#'ECPoint'{point = Q}, {namedCurve,OID}}) ->
 ssh2_pubkey_decode(<<?DEC_BIN(Type,_TL), Bin/binary>>) ->
     ssh2_pubkey_decode(Type, Bin).
 
-ssh2_pubkey_decode(<<"rsa-sha2-256">>, Bin) -> ssh2_pubkey_decode(<<"ssh-rsa">>, Bin);
-ssh2_pubkey_decode(<<"rsa-sha2-512">>, Bin) -> ssh2_pubkey_decode(<<"ssh-rsa">>, Bin);
+%% ssh2_pubkey_decode(<<"rsa-sha2-256">>, Bin) -> ssh2_pubkey_decode(<<"ssh-rsa">>, Bin);
+%% ssh2_pubkey_decode(<<"rsa-sha2-512">>, Bin) -> ssh2_pubkey_decode(<<"ssh-rsa">>, Bin);
 ssh2_pubkey_decode(<<"ssh-rsa">>,
                    <<?DEC_INT(E, _EL),
                      ?DEC_INT(N, _NL)>>) ->
