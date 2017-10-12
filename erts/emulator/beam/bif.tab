@@ -629,7 +629,6 @@ bif re:inspect/2
 
 ubif erlang:is_map/1
 gcbif erlang:map_size/1
-bif maps:to_list/1
 bif maps:find/2
 bif maps:get/2
 bif maps:from_list/1
@@ -695,4 +694,4 @@ bif erlang:iolist_to_iovec/1
 # New in 21.0
 #
 
-bif erts_internal:map_next/2
+bif erts_internal:map_next/3

@@ -352,6 +352,7 @@ atom instruction_counts
 atom invalid
 atom is_constant
 atom is_seq_trace
+atom iterator
 atom io
 atom keypos
 atom kill

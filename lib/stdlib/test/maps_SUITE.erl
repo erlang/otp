@@ -30,7 +30,7 @@
 -export([t_update_with_3/1, t_update_with_4/1,
          t_get_3/1, t_filter_2/1,
          t_fold_3/1,t_map_2/1,t_size_1/1,
-         t_iterator_1/1, t_iterator_2/1,
+         t_iterator_1/1,
          t_with_2/1,t_without_2/1]).
 
 %%-define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
@@ -48,7 +48,7 @@ all() ->
     [t_update_with_3,t_update_with_4,
      t_get_3,t_filter_2,
      t_fold_3,t_map_2,t_size_1,
-     t_iterator_1, t_iterator_2,
+     t_iterator_1,
      t_with_2,t_without_2].
 
 t_update_with_3(Config) when is_list(Config) ->
@@ -179,39 +179,18 @@ t_iterator_1(Config) when is_list(Config) ->
 
     %% Large map test
 
-    Vs = lists:seq(1,200),
-    M2 = maps:from_list([{{k,I},I}||I<-Vs]),
+    Vs2 = lists:seq(1,200),
+    M2 = maps:from_list([{{k,I},I}||I<-Vs2]),
     KVList2 = lists:sort(iter_kv(maps:iterator(M2))),
     KVList2 = lists:sort(maps:to_list(M2)),
+
+    %% Larger map test
+
+    Vs3 = lists:seq(1,10000),
+    M3 = maps:from_list([{{k,I},I}||I<-Vs3]),
+    KVList3 = lists:sort(iter_kv(maps:iterator(M3))),
+    KVList3 = lists:sort(maps:to_list(M3)),
     ok.
-
-t_iterator_2(Config) when is_list(Config) ->
-
-    Vs = lists:seq(1,200),
-    Maps = [#{ a => 1, b => 2 }, maps:from_list([{{k,I},I}||I<-Vs])],
-    Optimize = [speed, memory],
-    Ordered = [true, false],
-
-    [test_iterator(Map, Opt, Ord) || Map <- Maps,
-                                     Opt <- Optimize,
-                                     Ord <- Ordered],
-
-    ok.
-
-test_iterator(Map, Opt, Ord) ->
-    Opts = #{ optimize => Opt, ordered => Ord },
-    test_iterator_1(maps:iterator(Map, Opts), Map, Opts).
-
-test_iterator_1(Iter, OrigMap, Opts) ->
-    erlang:display(Opts),
-    KVs = iter_kv(Iter),
-    case Opts of
-        #{ ordered := true } ->
-            KVs = lists:sort(maps:to_list(OrigMap));
-        #{ ordered := false } ->
-            OrderedKVs = lists:sort(KVs),
-            OrderedKVs = lists:sort(maps:to_list(OrigMap))
-    end.
 
 iter_kv(I) ->
     case maps:next(I) of

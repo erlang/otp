@@ -38,8 +38,7 @@
       <name name="iterator"/>
       <desc>
         <p>An iterator representing the key value associations in a map.</p>
-        <p>Created using <seealso marker="#iterator-1"><c>maps:iterator/1</c></seealso>
-        and <seealso marker="#iterator-2"><c>maps:iterator/2</c></seealso>.</p>
+        <p>Created using <seealso marker="#iterator-1"><c>maps:iterator/1</c></seealso>.</p>
         <p>Consumed by <seealso marker="#next-1"><c>maps:next/1</c></seealso>,
           <seealso marker="#filter-2"><c>maps:filter/2</c></seealso>,
           <seealso marker="#fold-3"><c>maps:fold/3</c></seealso> and
@@ -194,9 +193,9 @@ false</code>
       <desc>
         <p>Returns a map iterator <c><anno>Iterator</anno></c> that can
           be used by <seealso marker="#next-1"><c>maps:next/1</c></seealso>
-          to traverse the keys and values in a map. This call is equivalent
-          to calling <seealso marker="#iterator-2"><c>maps:iterator/2</c></seealso>
-          with an empty map as the options.</p>
+          to traverse the key-value associations in a map. When iterating
+          over a map, the memory usage is guaranteed to be bounded no matter
+          the size of the map.</p>
         <p>The call fails with a <c>{badmap,Map}</c> exception if
           <c><anno>Map</anno></c> is not a map.</p>
         <p><em>Example:</em></p>
@@ -211,49 +210,6 @@ false</code>
 {b,2,[]}
 > maps:next(I3).
 none</code>
-      </desc>
-    </func>
-
-    <func>
-      <name name="iterator" arity="2"/>
-      <fsummary>Create a map iterator.</fsummary>
-      <desc>
-        <p>Returns a map iterator <c><anno>Iterator</anno></c> that can
-          be used by <seealso marker="#next-1"><c>maps:next/1</c></seealso>
-          to traverse the keys and values in a map. The iterator will behave
-          according to the given <c><anno>Opts</anno></c>.</p>
-        <taglist>
-          <tag>optimize</tag>
-          <item>
-            Configures whether the iterator should be optimized for <c>speed</c>
-            or for <c>memory</c> consumption. Default is <c>speed</c>.
-          </item>
-          <tag>ordered</tag>
-          <item>
-            Configures whether the iterator should return the key value
-            associations ordered on the keys according to erlang term order
-            or not. The default is <c>false</c>.
-          </item>
-        </taglist>
-        <p>Both options can be configured at the same time.</p>
-        <p>The call fails with a <c>{badmap,Map}</c> exception if
-          <c><anno>Map</anno></c> is not a map.</p>
-        <p><em>Example:</em></p>
-        <code type="none">
-> M = maps:from_list([{I,I} || I &lt;- lists:seq(1,50)]).
-#{45 => 45,6 => 6,2 => 2,49 => 49,41 => 41,33 => 33,42 => 42,
-  43 => 43,10 => 10,9 => 9,19 => 19,14 => 14,5 => 5,18 => 18,
-  31 => 31,22 => 22,29 => 29,21 => 21,27 => 27,24 => 24,
-  47 => 47,40 => 40,30 => 30,23 => 23,28 => 28,46 => 46,
-  16 => 16,38 => 38,4 => 4,...}
-> MemoryIter = maps:iterator(M, #{ optimize => memory }), ok.
-ok
-> {K1, V1, _} = maps:next(MemoryIter), {K1, V1}.
-{46,46}
-> OrderedIter = maps:iterator(M, #{ ordered => true, optimize => memory }), ok.
-ok
-> {K2, V2, _} = maps:next(OrderedIter), {K2, V2}.
-{1,1}</code>
       </desc>
     </func>
 

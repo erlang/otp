@@ -32,7 +32,7 @@
 -export([await_port_send_result/3]).
 -export([cmp_term/2]).
 -export([map_to_tuple_keys/1, term_type/1, map_hashmap_children/1,
-         maps_to_list/2, map_next/2]).
+         maps_to_list/2, map_next/3]).
 -export([open_port/2, port_command/3, port_connect/2, port_close/1,
 	 port_control/3, port_call/3, port_info/1, port_info/2]).
 
@@ -367,11 +367,6 @@ term_type(_T) ->
 map_hashmap_children(_M) ->
     erlang:nif_error(undefined).
 
--spec erts_internal:flush_monitor_messages(Ref, Multi, Res) -> term() when
-      Ref :: reference(),
-      Multi :: boolean(),
-      Res :: term().
-
 %% return a list of key value pairs, at most of length N
 -spec maps_to_list(M,N) -> Pairs when
     M :: map(),
@@ -382,15 +377,21 @@ maps_to_list(_M, _N) ->
     erlang:nif_error(undefined).
 
 %% return the next assoc in the iterator and a new iterator
--spec map_next(I, M) -> {K,V,NI} when
+-spec map_next(I, M, A) -> {K,V,NI} | list() when
       I :: non_neg_integer(),
       M :: map(),
       K :: term(),
       V :: term(),
+      A :: iterator | list(),
       NI :: maps:iterator().
 
-map_next(_I, _M) ->
+map_next(_I, _M, _A) ->
     erlang:nif_error(undefined).
+
+-spec erts_internal:flush_monitor_messages(Ref, Multi, Res) -> term() when
+      Ref :: reference(),
+      Multi :: boolean(),
+      Res :: term().
 
 %% erlang:demonitor(Ref, [flush]) traps to
 %% erts_internal:flush_monitor_messages(Ref, Res) when

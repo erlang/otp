@@ -2366,41 +2366,6 @@ t_bif_map_from_list(Config) when is_list(Config) ->
     {'EXIT', {badarg,_}} = (catch maps:from_list(id(42))),
     ok.
 
-t_bif_erts_internal_maps_to_list(Config) when is_list(Config) ->
-    %% small maps
-    [] = erts_internal:maps_to_list(#{},-1),
-    [] = erts_internal:maps_to_list(#{},-2),
-    [] = erts_internal:maps_to_list(#{},10),
-    [{a,1},{b,2}] = lists:sort(erts_internal:maps_to_list(#{a=>1,b=>2}, 2)),
-    [{a,1},{b,2}] = lists:sort(erts_internal:maps_to_list(#{a=>1,b=>2}, -1)),
-    [{_,_}] = erts_internal:maps_to_list(#{a=>1,b=>2}, 1),
-    [{a,1},{b,2},{c,3}] = lists:sort(erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},-2)),
-    [{a,1},{b,2},{c,3}] = lists:sort(erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},3)),
-    [{a,1},{b,2},{c,3}] = lists:sort(erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},5)),
-    [{_,_},{_,_}] = erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},2),
-    [{_,_}] = erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},1),
-    [] = erts_internal:maps_to_list(#{c=>3,a=>1,b=>2},0),
-
-    %% big maps
-    M = maps:from_list([{I,ok}||I <- lists:seq(1,500)]),
-    [] = erts_internal:maps_to_list(M,0),
-    [{_,_}] = erts_internal:maps_to_list(M,1),
-    [{_,_},{_,_}] = erts_internal:maps_to_list(M,2),
-    Ls1 = erts_internal:maps_to_list(M,10),
-    10 = length(Ls1),
-    Ls2 = erts_internal:maps_to_list(M,20),
-    20 = length(Ls2),
-    Ls3 = erts_internal:maps_to_list(M,120),
-    120 = length(Ls3),
-    Ls4 = erts_internal:maps_to_list(M,-1),
-    500 = length(Ls4),
-
-    %% error cases
-    {'EXIT', {{badmap,[{a,b},b]},_}} = (catch erts_internal:maps_to_list(id([{a,b},b]),id(1))),
-    {'EXIT', {badarg,_}} = (catch erts_internal:maps_to_list(id(#{}),id(a))),
-    {'EXIT', {badarg,_}} = (catch erts_internal:maps_to_list(id(#{1=>2}),id(<<>>))),
-    ok.
-
 t_bif_map_next(Config) when is_list(Config) ->
 
     erts_debug:set_internal_state(available_internal_state, true),
@@ -2420,9 +2385,25 @@ t_bif_map_next(Config) when is_list(Config) ->
         {'EXIT', {badarg,_}} = (catch maps:next(id(a))),
         {'EXIT', {badarg,_}} = (catch maps:next(id([a|FM]))),
         {'EXIT', {badarg,_}} = (catch maps:next(id([1|#{}]))),
-        {'EXIT', {badarg,_}} = (catch maps:next(id([16#FFFFFFF|FM]))),
-        {'EXIT', {badarg,_}} = (catch maps:next(id([16#F0F0F0F|FM]))),
-        {'EXIT', {badarg,_}} = (catch maps:next(id([16#1234567890ABCDEF|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([-1|#{}]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([-1|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([16#FFFFFFFFFFFFFFFF|FM]))),
+        {'EXIT', {badarg,_}} = (catch maps:next(id([-16#FFFFFFFFFFFFFFFF|FM]))),
+
+        %% This us a whitebox test that the error code works correctly.
+        %% It uses a path for a tree of depth 4 and tries to do next on
+        %% each of those paths.
+        (fun F(0) -> ok;
+             F(N) ->
+                 try maps:next([N|FM]) of
+                     none ->
+                         F(N-1);
+                     {_K,_V,_I} ->
+                         F(N-1)
+                 catch error:badarg ->
+                         F(N-1)
+                 end
+         end)(16#FFFF),
 
         ok
     after
