@@ -38,7 +38,7 @@
 	 system_monitor_long_gc_1/1, system_monitor_long_gc_2/1, 
 	 system_monitor_large_heap_1/1, system_monitor_large_heap_2/1,
 	 system_monitor_long_schedule/1,
-	 bad_flag/1, trace_delivered/1]).
+	 bad_flag/1, trace_delivered/1, trap_exit_self_receive/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -61,7 +61,8 @@ all() ->
      more_system_monitor_args, system_monitor_long_gc_1,
      system_monitor_long_gc_2, system_monitor_large_heap_1,
      system_monitor_long_schedule,
-     system_monitor_large_heap_2, bad_flag, trace_delivered].
+     system_monitor_large_heap_2, bad_flag, trace_delivered,
+     trap_exit_self_receive].
 
 init_per_testcase(_Case, Config) ->
     [{receiver,spawn(fun receiver/0)}|Config].
@@ -1709,6 +1710,31 @@ trace_delivered(Config) when is_list(Config) ->
               ok
     end.
 
+%% This testcase checks that receive trace works on exit signal messages
+%% when the sender of the exit signal is the process itself.
+trap_exit_self_receive(Config) ->
+    Parent = self(),
+    Proc = spawn_link(fun() -> process(Parent) end),
+
+    1 = erlang:trace(Proc, true, ['receive']),
+    Proc ! {trap_exit_please, true},
+    {trace, Proc, 'receive', {trap_exit_please, true}} = receive_first_trace(),
+
+    %% Make the process call exit(self(), signal)
+    Reason1 = make_ref(),
+    Proc ! {exit_signal_please, Reason1},
+    {trace, Proc, 'receive', {exit_signal_please, Reason1}} = receive_first_trace(),
+    {trace, Proc, 'receive', {'EXIT', Proc, Reason1}} = receive_first_trace(),
+    receive {Proc, {'EXIT', Proc, Reason1}} -> ok end,
+    receive_nothing(),
+
+    unlink(Proc),
+    Reason2 = make_ref(),
+    Proc ! {exit_please, Reason2},
+    {trace, Proc, 'receive', {exit_please, Reason2}} = receive_first_trace(),
+    receive_nothing(),
+    ok.
+
 drop_trace_until_down(Proc, Mon) ->
     drop_trace_until_down(Proc, Mon, false, 0, 0).
 
@@ -1791,6 +1817,9 @@ process(Dest) ->
             process(Dest);
         {exit_please, Reason} ->
             exit(Reason);
+        {exit_signal_please, Reason} ->
+            exit(self(), Reason),
+            process(Dest);
         {trap_exit_please, State} ->
             process_flag(trap_exit, State),
             process(Dest);
