@@ -51,7 +51,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,60}}].
+     {timetrap,{seconds,240}}].
 
 all() -> 
     case test_server:is_native(fprof_SUITE) of
@@ -571,7 +571,7 @@ seq_r(Start, Stop, Succ, R) ->
 
 create_file_slow(Name, N) when is_integer(N), N >= 0 ->
     {ok, FD} = 
-    file:open(Name, [raw, write, delayed_write, binary]),
+    file:open(Name, [raw, write, binary]),
     if N > 256 ->
            ok = file:write(FD,
                            lists:map(fun (X) -> <<X:32/unsigned>> end,
