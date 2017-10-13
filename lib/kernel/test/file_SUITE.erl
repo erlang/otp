@@ -3161,6 +3161,16 @@ read_ahead(Config) when is_list(Config) ->
     Data1Data2Data3 = Data1++Data2++Data3,
     {ok, Data1Data2Data3} = ?FILE_MODULE:read(Fd5, 3*Size+1),
     ok = ?FILE_MODULE:close(Fd5),
+
+    %% Ensure that a read that draws from both the buffer and the file won't
+    %% return anything wonky.
+    SplitData = << <<(I rem 256)>> || I <- lists:seq(1, 1024) >>,
+    file:write_file(File, SplitData),
+    {ok, Fd6} = ?FILE_MODULE:open(File, [raw, read, binary, {read_ahead, 256}]),
+    {ok, <<1>>} = file:read(Fd6, 1),
+    <<1, Shifted:512/binary, _Rest/binary>> = SplitData,
+    {ok, Shifted} = file:read(Fd6, 512),
+
     %%
     [] = flush(),
     ok.
