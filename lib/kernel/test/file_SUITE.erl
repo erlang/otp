@@ -712,9 +712,14 @@ win_cur_dir_1(_Config) ->
     %% Get the drive letter from the current directory,
     %% and try to get current directory for that drive.
 
-    [Drive,$:|_] = BaseDir,
-    {ok,BaseDir} = ?FILE_MODULE:get_cwd([Drive,$:]),
+    [CurDrive,$:|_] = BaseDir,
+    {ok,BaseDir} = ?FILE_MODULE:get_cwd([CurDrive,$:]),
     io:format("BaseDir = ~s\n", [BaseDir]),
+
+    %% We should error out on non-existent drives. Any reasonable system will
+    %% have at least one.
+    CurDirs = [?FILE_MODULE:get_cwd([Drive,$:]) || Drive <- lists:seq($A, $Z)],
+    lists:member({error,eaccess}, CurDirs),
 
     %% Unfortunately, there is no way to move away from the
     %% current drive as we can't use the "subst" command from
