@@ -321,7 +321,7 @@ decode(Bin, Code, Vid, DataLen, Pad, M, P, Name, Mod, Fmt, Strict, Opts0,
 
             Dec = dec(Data, Name, NameT, Mod, Fmt, Opts, Avp),
             Acc = decode(T, Name, Mod, Fmt, Strict, Opts0, Idx+1, AM),%% recurse
-            acc(Acc, Dec, I, Field, Arity, Strict, Mod, Opts);
+            acc(Acc, Dec, I, Field, Arity, Strict, Mod);
         _ ->
             {NameT, _Field, _Arity, {_, AM}}
                 = incr(Name, Code, Vid, M, Mod, Strict, Opts0, AM0),
@@ -680,30 +680,30 @@ set_failed('Failed-AVP', #{failed_avp := false} = Opts) ->
 set_failed(_, Opts) ->
     Opts.
 
-%% acc/8
+%% acc/7
 
-acc([AM | Acc], As, I, Field, Arity, Strict, Mod, Opts) ->
-    [AM | acc1(Acc, As, I, Field, Arity, Strict, Mod, Opts)].
+acc([AM | Acc], As, I, Field, Arity, Strict, Mod) ->
+    [AM | acc1(Acc, As, I, Field, Arity, Strict, Mod)].
 
-%% acc1/8
+%% acc1/7
 
 %% Faulty AVP, not grouped.
-acc1(Acc, {_RC, Avp} = E, _, _, _, _, _, _) ->
+acc1(Acc, {_RC, Avp} = E, _, _, _, _, _) ->
     [Avps, Failed | Rec] = Acc,
     [[Avp | Avps], [E | Failed] | Rec];
 
 %% Faulty component in grouped AVP.
-acc1(Acc, {RC, As, Avp}, _, _, _, _, _, _) ->
+acc1(Acc, {RC, As, Avp}, _, _, _, _, _) ->
     [Avps, Failed | Rec] = Acc,
     [[As | Avps], [{RC, Avp} | Failed] | Rec];
 
 %% Grouped AVP ...
-acc1([Avps | Acc], [Avp|_] = As, I, Field, Arity, Strict, Mod, Opts) ->
-    [[As|Avps] | acc2(Acc, Avp, I, Field, Arity, Strict, Mod, Opts)];
+acc1([Avps | Acc], [Avp|_] = As, I, Field, Arity, Strict, Mod) ->
+    [[As|Avps] | acc2(Acc, Avp, I, Field, Arity, Strict, Mod)];
 
 %% ... or not.
-acc1([Avps | Acc], Avp, I, Field, Arity, Strict, Mod, Opts) ->
-    [[Avp|Avps] | acc2(Acc, Avp, I, Field, Arity, Strict, Mod, Opts)].
+acc1([Avps | Acc], Avp, I, Field, Arity, Strict, Mod) ->
+    [[Avp|Avps] | acc2(Acc, Avp, I, Field, Arity, Strict, Mod)].
 
 %% The component list of a Grouped AVP is discarded when packing into
 %% the record (or equivalent): the values in an 'AVP' field are
@@ -713,24 +713,24 @@ acc1([Avps | Acc], Avp, I, Field, Arity, Strict, Mod, Opts) ->
 %% retain the same structure as in diameter_packet.avps, but an 'AVP'
 %% list has always been flat.
 
-%% acc2/8
+%% acc2/7
 
 %% No errors, but nowhere to pack.
-acc2(Acc, Avp, _, 'AVP', 0, _, _, _) ->
+acc2(Acc, Avp, _, 'AVP', 0, _, _) ->
     [Failed | Rec] = Acc,
     [[{rc(Avp), Avp} | Failed] | Rec];
 
 %% Relaxed arities.
-acc2(Acc, Avp, _, Field, Arity, Strict, Mod, _)
+acc2(Acc, Avp, _, Field, Arity, Strict, Mod)
   when Strict /= decode ->
     pack(Arity, Field, Avp, Mod, Acc);
 
 %% No maximum arity.
-acc2(Acc, Avp, _, Field, {_,'*'} = Arity, _, Mod, _) ->
+acc2(Acc, Avp, _, Field, {_,'*'} = Arity, _, Mod) ->
     pack(Arity, Field, Avp, Mod, Acc);
 
 %% Or check.
-acc2(Acc, Avp, I, Field, Arity, _, Mod, _) ->
+acc2(Acc, Avp, I, Field, Arity, _, Mod) ->
     Mx = max_arity(Arity),
     if Mx =< I ->
             [Failed | Rec] = Acc,
