@@ -712,21 +712,34 @@ nth_lexeme(_) ->
 
 
 meas(Config) ->
+    Parent = self(),
+    Exec = fun() ->
+                   DataDir0 = proplists:get_value(data_dir, Config),
+                   DataDir = filename:join(lists:droplast(filename:split(DataDir0))),
+                   case proplists:get_value(profile, Config, false) of
+                       false ->
+                           do_measure(DataDir);
+                       eprof ->
+                           eprof:profile(fun() -> do_measure(DataDir) end, [set_on_spawn]),
+                           eprof:stop_profiling(),
+                           eprof:analyze(),
+                           eprof:stop()
+                   end,
+                   Parent ! {test_done, self()},
+                   normal
+           end,
+    ct:timetrap({minutes,2}),
     case ct:get_timetrap_info() of
         {_,{_,Scale}} when Scale > 1 ->
             {skip,{will_not_run_in_debug,Scale}};
-        _ -> % No scaling
-            DataDir0 = proplists:get_value(data_dir, Config),
-            DataDir = filename:join(lists:droplast(filename:split(DataDir0))),
-            case proplists:get_value(profile, Config, false) of
-                false ->
-                    do_measure(DataDir);
-                eprof ->
-                    eprof:profile(fun() -> do_measure(DataDir) end, [set_on_spawn]),
-                    eprof:stop_profiling(),
-                    eprof:analyze(),
-                    eprof:stop()
-            end
+        _ -> % No scaling, run at most 1.5 min
+            Tester = spawn(Exec),
+            receive {test_done, Tester} -> ok
+            after 90000 ->
+                    io:format("Timelimit reached stopping~n",[]),
+                    exit(Tester, die)
+            end,
+            ok
     end.
 
 do_measure(DataDir) ->
