@@ -1034,6 +1034,20 @@ connection(
             death_row(State, Reason)
     end;
 connection(
+  info, {send, From, Ref, Data},
+  #state{
+     ssl_options = #ssl_options{erl_dist = true},
+     protocol_specific = #{d_handle := _}},
+  _) ->
+    %% This is for testing only!
+    %%
+    %% Needed by some OTP distribution
+    %% test suites...
+    From ! {Ref, ok},
+    {keep_state_and_data,
+     [{next_event, {call, {self(), undefined}},
+       {application_data, iolist_to_binary(Data)}}]};
+connection(
   info, tick = Msg,
   #state{
      ssl_options = #ssl_options{erl_dist = true},
