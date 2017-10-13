@@ -2060,13 +2060,22 @@ names(Config) when is_list(Config) ->
     ok = ?FILE_MODULE:close(Fd2),
     {ok,Fd3} = ?FILE_MODULE:open(Name3,read),
     ok = ?FILE_MODULE:close(Fd3),
+
+    %% Now try the same on raw files.
+    {ok,Fd4} = ?FILE_MODULE:open(Name2, [read, raw]),
+    ok = ?FILE_MODULE:close(Fd4),
+    {ok,Fd4f} = ?FILE_MODULE:open(lists:flatten(Name2), [read, raw]),
+    ok = ?FILE_MODULE:close(Fd4f),
+    {ok,Fd5} = ?FILE_MODULE:open(Name3, [read, raw]),
+    ok = ?FILE_MODULE:close(Fd5),
+
     case length(Name1) > 255 of
 	true ->
 	    io:format("Path too long for an atom:\n\n~p\n", [Name1]);
 	false ->
 	    Name4 = list_to_atom(Name1),
-	    {ok,Fd4} = ?FILE_MODULE:open(Name4,read),
-	    ok = ?FILE_MODULE:close(Fd4)
+	    {ok,Fd6} = ?FILE_MODULE:open(Name4,read),
+	    ok = ?FILE_MODULE:close(Fd6)
     end,
 
     %% Try some path names
