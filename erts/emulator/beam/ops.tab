@@ -188,7 +188,8 @@ catch_end y
 
 # Try/catch.
 try Y F => catch Y F
-try_case Y => try_end Y
+
+try_case y
 try_end y
 
 %cold

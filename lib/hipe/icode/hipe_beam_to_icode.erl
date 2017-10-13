@@ -2296,6 +2296,12 @@ split_code([First|Code], Label, Instr) ->
 
 split_code([Instr|Code], Label, Instr, Prev, As) when Prev =:= Label ->
   split_code_final(Code, As);  % drop both label and instruction
+split_code([{icode_end_try}|_]=Code, Label, {try_case,_}, Prev, As)
+  when Prev =:= Label ->
+  %% The try_case has been replaced with try_end as an optimization.
+  %% Keep this instruction, since it might be the only try_end instruction
+  %% for this try/catch block.
+  split_code_final(Code, As);  % drop label
 split_code([Other|_Code], Label, Instr, Prev, _As) when Prev =:= Label ->
   ?EXIT({missing_instr_after_label, Label, Instr, [Other, Prev | _As]});
 split_code([Other|Code], Label, Instr, Prev, As) ->

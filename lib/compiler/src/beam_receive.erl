@@ -207,6 +207,8 @@ opt_update_regs({label,Lbl}, R, L) ->
 	    %% A catch label for a previously seen catch instruction is OK.
 	    {R,L}
     end;
+opt_update_regs({'try',_,{f,Lbl}}, R, L) ->
+    {R,gb_sets:add(Lbl, L)};
 opt_update_regs({try_end,_}, R, L) ->
     {R,L};
 opt_update_regs({line,_}, R, L) ->

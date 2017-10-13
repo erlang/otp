@@ -418,6 +418,15 @@ expr(#c_call{module=M0,name=N0}=Call0, Ctxt, Sub) ->
 expr(#c_primop{args=As0}=Prim, _, Sub) ->
     As1 = expr_list(As0, value, Sub),
     Prim#c_primop{args=As1};
+expr(#c_catch{anno=Anno,body=B}, effect, Sub) ->
+    %% When the return value of the 'catch' is ignored, we can replace it
+    %% with a try/catch to avoid building a stack trace when an exception
+    %% occurs.
+    Var = #c_var{name='catch_value'},
+    Evs = [#c_var{name='Class'},#c_var{name='Reason'},#c_var{name='Stk'}],
+    Try = #c_try{anno=Anno,arg=B,vars=[Var],body=Var,
+                 evars=Evs,handler=void()},
+    expr(Try, effect, Sub);
 expr(#c_catch{body=B0}=Catch, _, Sub) ->
     %% We can remove catch if the value is simple
     B1 = body(B0, value, Sub),
