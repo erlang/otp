@@ -320,7 +320,7 @@ decode(Bin, Code, Vid, DataLen, Pad, M, P, Name, Mod, Fmt, Strict, Opts0,
                                 index = Idx},
 
             Dec = dec(Data, Name, NameT, Mod, Fmt, Opts, Avp),
-            Acc = decode(T, Name, Mod, Fmt, Strict, Opts, Idx+1, AM),%% recurse
+            Acc = decode(T, Name, Mod, Fmt, Strict, Opts0, Idx+1, AM),%% recurse
             acc(Acc, Dec, I, Field, Arity, Strict, Mod, Opts);
         _ ->
             {NameT, _Field, _Arity, {_, AM}}
