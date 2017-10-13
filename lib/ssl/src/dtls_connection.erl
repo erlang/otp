@@ -273,28 +273,28 @@ init({call, From}, {start, Timeout},
     {Record, State} = next_record(State3),
     next_event(hello, Record, State, Actions);
 init({call, _} = Type, Event, #state{role = server, transport_cb = gen_udp} = State) ->
-    Result = ssl_connection:init(Type, Event, 
-                                 State#state{flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT},
-                                             protocol_specific = #{current_cookie_secret => dtls_v1:cookie_secret(), 
-                                                                   previous_cookie_secret => <<>>,
-                                                                   ignored_alerts => 0,
-                                                                   max_ignored_alerts => 10}},
-                                 ?MODULE),
+    Result = ssl_connection:?FUNCTION_NAME(Type, Event, 
+                                           State#state{flight_state = {retransmit, ?INITIAL_RETRANSMIT_TIMEOUT},
+                                                       protocol_specific = #{current_cookie_secret => dtls_v1:cookie_secret(), 
+                                                                             previous_cookie_secret => <<>>,
+                                                                             ignored_alerts => 0,
+                                                                             max_ignored_alerts => 10}},
+                                           ?MODULE),
     erlang:send_after(dtls_v1:cookie_timeout(), self(), new_cookie_secret),
     Result;
-                                     
+
 init({call, _} = Type, Event, #state{role = server} = State) ->
     %% I.E. DTLS over sctp
-    ssl_connection:init(Type, Event, State#state{flight_state = reliable}, ?MODULE);
+    ssl_connection:?FUNCTION_NAME(Type, Event, State#state{flight_state = reliable}, ?MODULE);
 init(Type, Event, State) ->
-    ssl_connection:init(Type, Event, State, ?MODULE).
+    ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
  
 error(enter, _, State) ->
     {keep_state, State};     
 error({call, From}, {start, _Timeout}, {Error, State}) ->
     {stop_and_reply, normal, {reply, From, {error, Error}}, State};
 error({call, From}, Msg, State) ->
-    handle_call(Msg, From, error, State);
+    handle_call(Msg, From, ?FUNCTION_NAME, State);
 error(_, _, _) ->
      {keep_state_and_data, [postpone]}.
 
@@ -326,7 +326,7 @@ hello(internal, #client_hello{cookie = <<>>,
     State1 = prepare_flight(State0#state{negotiated_version = Version}),
     {State2, Actions} = send_handshake(VerifyRequest, State1),
     {Record, State} = next_record(State2),
-    next_event(hello, Record, State#state{tls_handshake_history = ssl_handshake:init_handshake_history()}, Actions);
+    next_event(?FUNCTION_NAME, Record, State#state{tls_handshake_history = ssl_handshake:init_handshake_history()}, Actions);
 hello(internal, #client_hello{cookie = Cookie} = Hello, #state{role = server,
 							       transport_cb = Transport,
 							       socket = Socket,
@@ -367,7 +367,7 @@ hello(internal, #hello_verify_request{cookie = Cookie}, #state{role = client,
 			      Session0#session{session_id = 
 						   Hello#client_hello.session_id}},
     {Record, State} = next_record(State3),
-    next_event(hello, Record, State, Actions);
+    next_event(?FUNCTION_NAME, Record, State, Actions);
 hello(internal, #server_hello{} = Hello,
       #state{connection_states = ConnectionStates0,
 	     negotiated_version = ReqVersion,
@@ -376,80 +376,80 @@ hello(internal, #server_hello{} = Hello,
 	     ssl_options = SslOptions} = State) ->
     case dtls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, ReqVersion, hello, State);
+	    handle_own_alert(Alert, ReqVersion, ?FUNCTION_NAME, State);
 	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
 	    ssl_connection:handle_session(Hello, 
 					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State)
     end;
 hello(internal, {handshake, {#client_hello{cookie = <<>>} = Handshake, _}}, State) ->
     %% Initial hello should not be in handshake history
-    {next_state, hello, State, [{next_event, internal, Handshake}]};
+    {next_state, ?FUNCTION_NAME, State, [{next_event, internal, Handshake}]};
 hello(internal, {handshake, {#hello_verify_request{} = Handshake, _}}, State) ->
     %% hello_verify should not be in handshake history
-    {next_state, hello, State, [{next_event, internal, Handshake}]};
+    {next_state, ?FUNCTION_NAME, State, [{next_event, internal, Handshake}]};
 hello(info, Event, State) ->
-    handle_info(Event, hello, State);
+    handle_info(Event, ?FUNCTION_NAME, State);
 hello(state_timeout, Event, State) ->
-    handle_state_timeout(Event, hello, State);
+    handle_state_timeout(Event, ?FUNCTION_NAME, State);
 hello(Type, Event, State) ->
-    ssl_connection:hello(Type, Event, State, ?MODULE).
+    ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
 abbreviated(enter, _, State0) ->
     {State, Actions} = handle_flight_timer(State0),
     {keep_state, State, Actions}; 
 abbreviated(info, Event, State) ->
-    handle_info(Event, abbreviated, State);
+    handle_info(Event, ?FUNCTION_NAME, State);
 abbreviated(internal = Type, 
 	    #change_cipher_spec{type = <<1>>} = Event, 
 	    #state{connection_states = ConnectionStates0} = State) ->
     ConnectionStates1 = dtls_record:save_current_connection_state(ConnectionStates0, read),
     ConnectionStates = dtls_record:next_epoch(ConnectionStates1, read),
-    ssl_connection:abbreviated(Type, Event, State#state{connection_states = ConnectionStates}, ?MODULE);
+    ssl_connection:?FUNCTION_NAME(Type, Event, State#state{connection_states = ConnectionStates}, ?MODULE);
 abbreviated(internal = Type, #finished{} = Event, #state{connection_states = ConnectionStates} = State) ->
-    ssl_connection:abbreviated(Type, Event, 
-                               prepare_flight(State#state{connection_states = ConnectionStates,
-                                                          flight_state = connection}), ?MODULE);
+    ssl_connection:?FUNCTION_NAME(Type, Event, 
+                                  prepare_flight(State#state{connection_states = ConnectionStates,
+                                                             flight_state = connection}), ?MODULE);
 abbreviated(state_timeout, Event, State) ->
-    handle_state_timeout(Event, abbreviated, State);
+    handle_state_timeout(Event, ?FUNCTION_NAME, State);
 abbreviated(Type, Event, State) ->
-    ssl_connection:abbreviated(Type, Event, State, ?MODULE).
+    ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
 certify(enter, _, State0) ->
     {State, Actions} = handle_flight_timer(State0),
     {keep_state, State, Actions}; 
 certify(info, Event, State) ->
-    handle_info(Event, certify, State);
+    handle_info(Event, ?FUNCTION_NAME, State);
 certify(internal = Type, #server_hello_done{} = Event, State) ->
     ssl_connection:certify(Type, Event, prepare_flight(State), ?MODULE);
 certify(state_timeout, Event, State) ->
-    handle_state_timeout(Event, certify, State);
+    handle_state_timeout(Event, ?FUNCTION_NAME, State);
 certify(Type, Event, State) ->
-    ssl_connection:certify(Type, Event, State, ?MODULE).
+    ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
 cipher(enter, _, State0) ->
     {State, Actions} = handle_flight_timer(State0),
     {keep_state, State, Actions}; 
 cipher(info, Event, State) ->
-    handle_info(Event, cipher, State);
+    handle_info(Event, ?FUNCTION_NAME, State);
 cipher(internal = Type, #change_cipher_spec{type = <<1>>} = Event,  
        #state{connection_states = ConnectionStates0} = State) ->
     ConnectionStates1 = dtls_record:save_current_connection_state(ConnectionStates0, read),
     ConnectionStates = dtls_record:next_epoch(ConnectionStates1, read),
-    ssl_connection:cipher(Type, Event, State#state{connection_states = ConnectionStates}, ?MODULE);
+    ssl_connection:?FUNCTION_NAME(Type, Event, State#state{connection_states = ConnectionStates}, ?MODULE);
 cipher(internal = Type, #finished{} = Event, #state{connection_states = ConnectionStates} = State) ->
-    ssl_connection:cipher(Type, Event, 
-			  prepare_flight(State#state{connection_states = ConnectionStates,
-                                                     flight_state = connection}), 
-                          ?MODULE);
+    ssl_connection:?FUNCTION_NAME(Type, Event, 
+                                  prepare_flight(State#state{connection_states = ConnectionStates,
+                                                             flight_state = connection}), 
+                                  ?MODULE);
 cipher(state_timeout, Event, State) ->
-    handle_state_timeout(Event, cipher, State);
+    handle_state_timeout(Event, ?FUNCTION_NAME, State);
 cipher(Type, Event, State) ->
-     ssl_connection:cipher(Type, Event, State, ?MODULE).
+     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
 connection(enter, _, State) ->
     {keep_state, State};     
 connection(info, Event, State) ->
-    handle_info(Event, connection, State);
+    handle_info(Event, ?FUNCTION_NAME, State);
 connection(internal, #hello_request{}, #state{host = Host, port = Port,
 				    session = #session{own_certificate = Cert} = Session0,
 				    session_cache = Cache, session_cache_cb = CacheCb,
@@ -476,15 +476,15 @@ connection(internal, #client_hello{}, #state{role = server, allow_renegotiate = 
     Alert = ?ALERT_REC(?WARNING, ?NO_RENEGOTIATION),
     State1 = send_alert(Alert, State0),
     {Record, State} = ssl_connection:prepare_connection(State1, ?MODULE),
-    next_event(connection, Record, State);
+    next_event(?FUNCTION_NAME, Record, State);
 connection(Type, Event, State) ->
-     ssl_connection:connection(Type, Event, State, ?MODULE).
+     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
 %%TODO does this make sense for DTLS ?
 downgrade(enter, _, State) ->
     {keep_state, State};
 downgrade(Type, Event, State) ->
-     ssl_connection:downgrade(Type, Event, State, ?MODULE).
+     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
 %%--------------------------------------------------------------------
 %% Description: This function is called by a gen_fsm when it receives any
