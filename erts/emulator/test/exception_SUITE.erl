@@ -31,6 +31,10 @@
 -include_lib("common_test/include/ct.hrl").
 -import(lists, [foreach/2]).
 
+%% The range analysis of the HiPE compiler results in a system limit error
+%% during compilation instead of at runtime, so do not perform this analysis.
+-compile([{hipe, [no_icode_range]}]).
+
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 1}}].
