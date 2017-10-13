@@ -36,6 +36,7 @@
 #ifdef __WIN32__
 #  include "erl_version.h"
 #  include "init_file.h"
+#  include <Shlobj.h>
 #endif
 
 #define NO 0
@@ -1541,17 +1542,16 @@ static void get_parameters(int argc, char** argv)
 static void
 get_home(void)
 {
-    int len;
-    char tmpstr[MAX_PATH+1];
+    wchar_t *profile;
     char* homedrive;
     char* homepath;
 
     homedrive = get_env("HOMEDRIVE");
     homepath = get_env("HOMEPATH");
     if (!homedrive || !homepath) {
-	if (len = GetWindowsDirectory(tmpstr,MAX_PATH)) {
-	    home = emalloc(len+1);
-	    strcpy(home,tmpstr);
+        if (SHGetKnownFolderPath(&FOLDERID_Profile, 0, NULL, &profile) == S_OK) {
+            home = utf16_to_utf8(profile);
+            /* CoTaskMemFree(profile); */
 	} else
 	    error("HOMEDRIVE or HOMEPATH is not set and GetWindowsDir failed");
     } else {
