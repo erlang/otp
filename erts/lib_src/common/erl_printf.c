@@ -147,8 +147,8 @@ write_f_add_cr(void *vfp, char* buf, size_t len)
     return len;
 }
 
-static int
-write_f(void *vfp, char* buf, size_t len)
+int
+erts_write_fp(void *vfp, char* buf, size_t len)
 {
     ASSERT(vfp);
 #ifdef PUTC_ON_SMALL_WRITES
@@ -257,7 +257,7 @@ erts_printf(const char *format, ...)
 	FLOCKFILE(stdout);
 	res = erts_printf_format(erts_printf_add_cr_to_stdout
 				 ? write_f_add_cr
-				 : write_f,
+				 : erts_write_fp,
 				 (void *) stdout,
 				 (char *) format,
 				 arglist);
@@ -285,7 +285,7 @@ erts_fprintf(FILE *filep, const char *format, ...)
 	else if (erts_printf_add_cr_to_stderr && filep == stderr)
 	    fmt_f = write_f_add_cr;
 	else
-	    fmt_f = write_f;
+	    fmt_f = erts_write_fp;
 	FLOCKFILE(filep);
 	res = erts_printf_format(fmt_f,(void *)filep,(char *)format,arglist);
 	FUNLOCKFILE(filep);
@@ -390,7 +390,7 @@ erts_vprintf(const char *format, va_list arglist)
 	errno = 0;
 	res = erts_printf_format(erts_printf_add_cr_to_stdout
 				 ? write_f_add_cr
-				 : write_f,
+				 : erts_write_fp,
 				 (void *) stdout,
 				 (char *) format,
 				 arglist);
@@ -414,7 +414,7 @@ erts_vfprintf(FILE *filep, const char *format, va_list arglist)
 	else if (erts_printf_add_cr_to_stderr && filep == stderr)
 	    fmt_f = write_f_add_cr;
 	else
-	    fmt_f = write_f;
+	    fmt_f = erts_write_fp;
 	res = erts_printf_format(fmt_f,(void *)filep,(char *)format,arglist);
     }
     return res;
