@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2017. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -367,7 +367,7 @@ common_socket_opts(Opts) ->
 	     default ->
 		 [];
 	     Sz ->
-		 [{sndbuf, Sz}]
+		 [{recbuf, Sz}]
 	 end ++
 	 case get_opt(Opts, no_reuse, false) of
 	     false ->
