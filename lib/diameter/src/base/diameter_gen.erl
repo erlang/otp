@@ -574,15 +574,17 @@ dec_AVP(Dicts, Data, Name, Mod, Fmt, Opts, #diameter_avp{code = Code,
 %% Try to decode an AVP in the first alternate dictionary that defines
 %% it.
 
-dec_AVP([Dict | Rest], Data, Name, Mod, Fmt, Opts, Code, Vid, Avp) ->
+dec_AVP([Dict | Rest], Data, Name, Mod, Fmt, Opts0, Code, Vid, Avp) ->
     case Dict:avp_name(Code, Vid) of
-        {AvpName, Type} ->
+        {AvpName, Type} = NameT ->
             A = Avp#diameter_avp{name = AvpName,
                                  type = Type},
-            #{failed_avp := Failed} = Opts,
+            #{failed_avp := Failed}
+                = Opts
+                = setopts(NameT, Name, Avp#diameter_avp.is_mandatory, Opts0),
             dec(Data, Name, AvpName, Type, Mod, Dict, Fmt, Failed, Opts, A);
         _ ->
-            dec_AVP(Rest, Data, Name, Mod, Fmt, Opts, Code, Vid, Avp)
+            dec_AVP(Rest, Data, Name, Mod, Fmt, Opts0, Code, Vid, Avp)
     end;
 
 dec_AVP([], _, _, _, _, _, _, _, Avp) ->
