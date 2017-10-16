@@ -381,7 +381,7 @@ init({call, From}, {start, {Opts, EmOpts}, Timeout},
 	    {stop_and_reply, normal, {reply, From, {error, Error}}}
     end;
 init({call, From}, Msg, State, Connection) ->
-    handle_call(Msg, From, init, State, Connection);
+    handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
 init(_Type, _Event, _State, _Connection) ->
     {keep_state_and_data, [postpone]}.
 	
@@ -392,13 +392,13 @@ init(_Type, _Event, _State, _Connection) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 hello({call, From}, Msg, State, Connection) ->
-    handle_call(Msg, From, hello, State, Connection);
+    handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
 hello(internal, {common_client_hello, Type, ServerHelloExt}, State, Connection) ->
     do_server_hello(Type, ServerHelloExt, State, Connection);
 hello(info, Msg, State, _) ->
-    handle_info(Msg, hello, State);
+    handle_info(Msg, ?FUNCTION_NAME, State);
 hello(Type, Msg, State, Connection) ->
-    handle_common_event(Type, Msg, hello, State, Connection).
+    handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
 %%--------------------------------------------------------------------
 -spec abbreviated(gen_statem:event_type(),
@@ -407,7 +407,7 @@ hello(Type, Msg, State, Connection) ->
 			 gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 abbreviated({call, From}, Msg, State, Connection) ->
-    handle_call(Msg, From, abbreviated, State, Connection);
+    handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
 
 abbreviated(internal, #finished{verify_data = Data} = Finished,
 	    #state{role = server,
@@ -427,7 +427,7 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
 							      expecting_finished = false}, Connection),
 	    Connection:next_event(connection, Record, State);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, abbreviated, State0)
+	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
     end;
 
 abbreviated(internal, #finished{verify_data = Data} = Finished,
@@ -443,11 +443,11 @@ abbreviated(internal, #finished{verify_data = Data} = Finished,
 		ssl_record:set_server_verify_data(current_read, Data, ConnectionStates0),
 	    {State1, Actions} =
 		finalize_handshake(State0#state{connection_states = ConnectionStates1},
-				   abbreviated, Connection),
+				   ?FUNCTION_NAME, Connection),
 	    {Record, State} = prepare_connection(State1#state{expecting_finished = false}, Connection),
 	    Connection:next_event(connection, Record, State, Actions);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, abbreviated, State0)
+	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
     end;
 
 %% only allowed to send next_protocol message after change cipher spec
@@ -457,7 +457,7 @@ abbreviated(internal, #next_protocol{selected_protocol = SelectedProtocol},
 	    Connection) ->
     {Record, State} =
 	Connection:next_record(State0#state{negotiated_protocol = SelectedProtocol}),
-    Connection:next_event(abbreviated, Record, 
+    Connection:next_event(?FUNCTION_NAME, Record, 
 			  State#state{expecting_next_protocol_negotiation = false});
 abbreviated(internal, 
 	    #change_cipher_spec{type = <<1>>},  #state{connection_states = ConnectionStates0} =
@@ -466,11 +466,11 @@ abbreviated(internal,
 	ssl_record:activate_pending_connection_state(ConnectionStates0, read, Connection),
     {Record, State} = Connection:next_record(State0#state{connection_states = 
 							      ConnectionStates1}),
-    Connection:next_event(abbreviated, Record, State#state{expecting_finished = true});
+    Connection:next_event(?FUNCTION_NAME, Record, State#state{expecting_finished = true});
 abbreviated(info, Msg, State, _) ->
-    handle_info(Msg, abbreviated, State);
+    handle_info(Msg, ?FUNCTION_NAME, State);
 abbreviated(Type, Msg, State, Connection) ->
-    handle_common_event(Type, Msg, abbreviated, State, Connection).
+    handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
  
 %%--------------------------------------------------------------------
 -spec certify(gen_statem:event_type(),
@@ -480,16 +480,16 @@ abbreviated(Type, Msg, State, Connection) ->
 		     gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 certify({call, From}, Msg, State, Connection) ->
-    handle_call(Msg, From, certify, State, Connection);
+    handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
 certify(info, Msg, State, _) ->
-    handle_info(Msg, certify, State);
+    handle_info(Msg, ?FUNCTION_NAME, State);
 certify(internal, #certificate{asn1_certificates = []},
 	#state{role = server, negotiated_version = Version,
 	       ssl_options = #ssl_options{verify = verify_peer,
 					  fail_if_no_peer_cert = true}} =
 	    State, _) ->
     Alert =  ?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE),
-    handle_own_alert(Alert, Version, certify, State);
+    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
 
 certify(internal, #certificate{asn1_certificates = []},
 	#state{role = server,
@@ -498,7 +498,7 @@ certify(internal, #certificate{asn1_certificates = []},
 	State0, Connection) ->
     {Record, State} = 
 	Connection:next_record(State0#state{client_certificate_requested = false}),
-    Connection:next_event(certify, Record, State);
+    Connection:next_event(?FUNCTION_NAME, Record, State);
 
 certify(internal, #certificate{},
 	#state{role = server,
@@ -506,7 +506,7 @@ certify(internal, #certificate{},
 	       ssl_options = #ssl_options{verify = verify_none}} =
 	    State, _) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, unrequested_certificate),
-    handle_own_alert(Alert, Version, certify, State);
+    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
 
 certify(internal, #certificate{} = Cert,
         #state{negotiated_version = Version,
@@ -521,7 +521,7 @@ certify(internal, #certificate{} = Cert,
 	    handle_peer_cert(Role, PeerCert, PublicKeyInfo,
 			     State#state{client_certificate_requested = false}, Connection);
 	#alert{} = Alert ->
-            handle_own_alert(Alert, Version, certify, State)
+            handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
     end;
 
 certify(internal, #server_key_exchange{exchange_keys = Keys},
@@ -553,7 +553,7 @@ certify(internal, #server_key_exchange{exchange_keys = Keys},
 				     Connection);
 		false ->
 		    handle_own_alert(?ALERT_REC(?FATAL, ?DECRYPT_ERROR),
-						Version, certify, State)
+						Version, ?FUNCTION_NAME, State)
 	    end
     end;
 
@@ -573,10 +573,10 @@ certify(internal, #certificate_request{} = CertRequest,
 	       negotiated_version = Version} = State0, Connection) ->
     case ssl_handshake:select_hashsign(CertRequest, Cert, SupportedHashSigns, ssl:tls_version(Version)) of
 	#alert {} = Alert ->
-	    handle_own_alert(Alert, Version, certify, State0);
+	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0);
 	NegotiatedHashSign -> 
 	    {Record, State} = Connection:next_record(State0#state{client_certificate_requested = true}),
-	    Connection:next_event(certify, Record,
+	    Connection:next_event(?FUNCTION_NAME, Record,
 				  State#state{cert_hashsign_algorithm = NegotiatedHashSign})
     end;
 
@@ -592,7 +592,7 @@ certify(internal, #server_hello_done{},
   when Alg == psk ->
     case ssl_handshake:premaster_secret({Alg, PSKIdentity}, PSKLookup) of
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, certify, State0);
+	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0);
 	PremasterSecret ->
 	    State = master_secret(PremasterSecret,
 				  State0#state{premaster_secret = PremasterSecret}),
@@ -613,7 +613,7 @@ certify(internal, #server_hello_done{},
     case ssl_handshake:premaster_secret({Alg, PSKIdentity}, PSKLookup, 
 					RSAPremasterSecret) of
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, certify, State0);
+	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0);
 	PremasterSecret ->
 	    State = master_secret(PremasterSecret, 
 				  State0#state{premaster_secret = RSAPremasterSecret}),
@@ -633,7 +633,7 @@ certify(internal, #server_hello_done{},
 	    State = State0#state{connection_states = ConnectionStates},
 	    client_certify_and_key_exchange(State, Connection);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, certify, State0)
+	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
     end;
 
 %% Master secret is calculated from premaster_secret
@@ -651,7 +651,7 @@ certify(internal, #server_hello_done{},
 				 session = Session},
 	    client_certify_and_key_exchange(State, Connection);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, certify, State0)
+	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
     end;
 
 certify(internal = Type, #client_key_exchange{} = Msg,
@@ -660,7 +660,7 @@ certify(internal = Type, #client_key_exchange{} = Msg,
 	       ssl_options = #ssl_options{fail_if_no_peer_cert = true}} = State, 
 	Connection) ->
     %% We expect a certificate here
-    handle_common_event(Type, Msg, certify, State, Connection);
+    handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection);
 
 certify(internal, #client_key_exchange{exchange_keys = Keys},
 	State = #state{key_algorithm = KeyAlg, negotiated_version = Version}, Connection) ->
@@ -669,11 +669,11 @@ certify(internal, #client_key_exchange{exchange_keys = Keys},
 				    State, Connection)
     catch
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, certify, State)
+	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
     end;
 
 certify(Type, Msg, State, Connection) ->
-    handle_common_event(Type, Msg, certify, State, Connection).
+    handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
  
 %%--------------------------------------------------------------------
 -spec cipher(gen_statem:event_type(),
@@ -682,10 +682,10 @@ certify(Type, Msg, State, Connection) ->
 		    gen_statem:state_function_result().
 %%--------------------------------------------------------------------
 cipher({call, From}, Msg, State, Connection) ->
-    handle_call(Msg, From, cipher, State, Connection);
+    handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
 
 cipher(info, Msg, State, _) ->
-    handle_info(Msg, cipher, State);
+    handle_info(Msg, ?FUNCTION_NAME, State);
 
 cipher(internal, #certificate_verify{signature = Signature, 
 				     hashsign_algorithm = CertHashSign},
@@ -704,10 +704,10 @@ cipher(internal, #certificate_verify{signature = Signature,
 					  TLSVersion, HashSign, MasterSecret, Handshake) of
 	valid ->
 	    {Record, State} = Connection:next_record(State0),
-	    Connection:next_event(cipher, Record,
+	    Connection:next_event(?FUNCTION_NAME, Record,
 				  State#state{cert_hashsign_algorithm = HashSign});
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, cipher, State0)
+	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State0)
     end;
 
 %% client must send a next protocol message if we are expecting it
@@ -715,7 +715,7 @@ cipher(internal, #finished{},
        #state{role = server, expecting_next_protocol_negotiation = true,
 	      negotiated_protocol = undefined, negotiated_version = Version} = State0,
        _Connection) ->
-    handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), Version, cipher, State0);
+    handle_own_alert(?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE), Version, ?FUNCTION_NAME, State0);
 
 cipher(internal, #finished{verify_data = Data} = Finished,
        #state{negotiated_version = Version,
@@ -736,7 +736,7 @@ cipher(internal, #finished{verify_data = Data} = Finished,
 	    cipher_role(Role, Data, Session, 
 			State#state{expecting_finished = false}, Connection);
         #alert{} = Alert ->
-	    handle_own_alert(Alert, Version, cipher, State)
+	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
     end;
 
 %% only allowed to send next_protocol message after change cipher spec
@@ -746,7 +746,7 @@ cipher(internal, #next_protocol{selected_protocol = SelectedProtocol},
 	      expecting_finished = true} = State0, Connection) ->
     {Record, State} = 
 	Connection:next_record(State0#state{negotiated_protocol = SelectedProtocol}),
-    Connection:next_event(cipher, Record, 
+    Connection:next_event(?FUNCTION_NAME, Record, 
 			  State#state{expecting_next_protocol_negotiation = false});
 cipher(internal, #change_cipher_spec{type = <<1>>},  #state{connection_states = ConnectionStates0} =
 	   State0, Connection) ->
@@ -754,9 +754,9 @@ cipher(internal, #change_cipher_spec{type = <<1>>},  #state{connection_states = 
 	ssl_record:activate_pending_connection_state(ConnectionStates0, read, Connection),
     {Record, State} = Connection:next_record(State0#state{connection_states = 
 							      ConnectionStates1}),
-    Connection:next_event(cipher, Record, State#state{expecting_finished = true});
+    Connection:next_event(?FUNCTION_NAME, Record, State#state{expecting_finished = true});
 cipher(Type, Msg, State, Connection) ->
-    handle_common_event(Type, Msg, cipher, State, Connection).
+    handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
 %%--------------------------------------------------------------------
 -spec connection(gen_statem:event_type(), term(), 
@@ -776,7 +776,7 @@ connection({call, {FromPid, _} = From}, {application_data, Data},
                      {stop, {shutdown, Error}};
                  _ ->
                      hibernate_after(
-                       connection, State, [{reply, From, Error}])
+                       ?FUNCTION_NAME, State, [{reply, From, Error}])
              end
      end;
 connection({call, RecvFrom}, {recv, N, Timeout},  
@@ -785,25 +785,25 @@ connection({call, RecvFrom}, {recv, N, Timeout},
     Timer = start_or_recv_cancel_timer(Timeout, RecvFrom),
     Connection:passive_receive(State0#state{bytes_to_read = N,
 					    start_or_recv_from = RecvFrom, 
-					    timer = Timer}, connection);
+					    timer = Timer}, ?FUNCTION_NAME);
 connection({call, From}, renegotiate, #state{protocol_cb = Connection} = State, 
 	   Connection) ->
     Connection:renegotiate(State#state{renegotiation = {true, From}}, []);
 connection({call, From}, peer_certificate, 
 	   #state{session = #session{peer_certificate = Cert}} = State, _) ->
-    hibernate_after(connection, State, [{reply, From,  {ok, Cert}}]); 
+    hibernate_after(?FUNCTION_NAME, State, [{reply, From,  {ok, Cert}}]); 
 connection({call, From}, {connection_information, true}, State, _) ->
     Info = connection_info(State) ++ security_info(State),
-    hibernate_after(connection, State, [{reply, From, {ok, Info}}]);
+    hibernate_after(?FUNCTION_NAME, State, [{reply, From, {ok, Info}}]);
 connection({call, From}, {connection_information, false}, State, _) ->
     Info = connection_info(State),
-    hibernate_after(connection, State, [{reply, From, {ok, Info}}]);
+    hibernate_after(?FUNCTION_NAME, State, [{reply, From, {ok, Info}}]);
 connection({call, From}, negotiated_protocol, 
 	   #state{negotiated_protocol = undefined} = State, _) ->
-    hibernate_after(connection, State, [{reply, From, {error, protocol_not_negotiated}}]);
+    hibernate_after(?FUNCTION_NAME, State, [{reply, From, {error, protocol_not_negotiated}}]);
 connection({call, From}, negotiated_protocol, 
 	   #state{negotiated_protocol = SelectedProtocol} = State, _) ->
-    hibernate_after(connection, State,
+    hibernate_after(?FUNCTION_NAME, State,
 		    [{reply, From, {ok, SelectedProtocol}}]);
 connection(
   {call, From}, {handshake_complete, _Node, DHandle},
@@ -828,7 +828,7 @@ connection(
             death_row(State, Reason)
     end;
 connection({call, From}, Msg, State, Connection) ->
-    handle_call(Msg, From, connection, State, Connection);
+    handle_call(Msg, From, ?FUNCTION_NAME, State, Connection);
 connection(
   info, dist_data = Msg,
   #state{
@@ -836,7 +836,7 @@ connection(
      protocol_specific = #{d_handle := DHandle}} = State,
   _) ->
     eat_msgs(Msg),
-    try send_dist_data(connection, State, DHandle, [])
+    try send_dist_data(?FUNCTION_NAME, State, DHandle, [])
     catch _:Reason ->
             death_row(State, Reason)
     end;
@@ -850,11 +850,11 @@ connection(
     {keep_state_and_data,
      [{next_event, {call, {self(), undefined}}, {application_data, <<>>}}]};
 connection(info, Msg, State, _) ->
-    handle_info(Msg, connection, State);
+    handle_info(Msg, ?FUNCTION_NAME, State);
 connection(internal, {recv, _}, State, Connection) ->
-    Connection:passive_receive(State, connection);
+    Connection:passive_receive(State, ?FUNCTION_NAME);
 connection(Type, Msg, State, Connection) ->
-    handle_common_event(Type, Msg, connection, State, Connection).
+    handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
 %%--------------------------------------------------------------------
 -spec death_row(gen_statem:event_type(), term(),
@@ -896,7 +896,7 @@ downgrade(timeout, downgrade, #state{downgrade = {_, From}} = State, _) ->
     gen_statem:reply(From, {error, timeout}),
     stop_normal(State);
 downgrade(Type, Event, State, Connection) ->
-    handle_common_event(Type, Event, downgrade, State, Connection).
+    handle_common_event(Type, Event, ?FUNCTION_NAME, State, Connection).
 
 %%--------------------------------------------------------------------
 %% Event handling functions called by state functions to handle
