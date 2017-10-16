@@ -45,6 +45,8 @@
 #   -valgrind   Run emulator compiled for valgrind
 #   -lcnt	Run emulator compiled for lock counting
 #   -icount	Run emulator compiled for instruction counting
+#   -rr         Run emulator under "rr record"
+#               Can be combined with compile targets (like -debug) except valgrind.
 #   -nox        Unset the DISPLAY variable to disable us of X Windows
 #
 # FIXME For GDB you can also set the break point using "-break FUNCTION".
@@ -84,6 +86,8 @@ GDBARGS=
 TYPE=
 debug=
 run_valgrind=no
+run_rr=no
+skip_erlexec=no
 
 # Default rootdir
 ROOTDIR=%SRC_ROOTDIR%
@@ -225,6 +229,13 @@ while [ $# -gt 0 ]; do
 	    cargs="$cargs -valgrind"
 	    TYPE=.valgrind
 	    run_valgrind=yes
+	    skip_erlexec=yes
+	    ;;
+	"-rr")
+	    shift
+	    cargs="$cargs -rr"
+	    run_rr=yes
+	    skip_erlexec=yes
 	    ;;
 	*)
 	    break
@@ -246,7 +257,19 @@ PROGNAME="$PROGNAME$cargs"
 EMU="$EMU$TYPE"
 EMU_NAME=`$EXEC -emu_name_exit $eeargs`
 
-if [ $run_valgrind != yes ]; then
+if [ $skip_erlexec = yes ]; then
+    emu_xargs=`echo $xargs | sed "s|+|-|g"`
+    beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
+
+    # Prepare for some argument passing voodoo:
+    # $beam_args is a list of command line arguments separated by newlines.
+    # Make "$@" represent those arguments verbatim (including spaces and quotes).
+    SAVE_IFS="$IFS"
+    IFS='
+'
+    set -- $beam_args
+    IFS="$SAVE_IFS"
+else
     xargs="$xargs -pz $PRELOADED --"
 fi
 if [ "x$GDB" = "x" ]; then
@@ -254,7 +277,6 @@ if [ "x$GDB" = "x" ]; then
 	valversion=`valgrind --version`
 	valmajor=`echo $valversion | sed 's,[a-z]*\-\([0-9]*\).*,\1,'`
         valminor=`echo $valversion | sed 's,[a-z]*\-[0-9]*.\([0-9]*\).*,\1,'`
-	emu_xargs=`echo $xargs | sed "s|+|-|g"`
 	if [ "x$VALGRIND_LOG_XML" = "x" ]; then
 	    valgrind_xml=
 	    log_file_prefix="--log-file="
@@ -294,17 +316,10 @@ if [ "x$GDB" = "x" ]; then
 	    sched_arg=
 	fi
 
-	beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
-
-	# Time for some argument passing voodoo:
-	# $beam_args is a list of command line arguments separated by newlines.
-	# Make "$@" represent those arguments verbatim (including spaces and quotes).
-	SAVE_IFS="$IFS"
-	IFS='
-'
-	set -- $beam_args
-	IFS="$SAVE_IFS"
 	exec $taskset1 valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $sched_arg $emu_xargs "$@" -pz $PRELOADED
+
+    elif [ $run_rr = yes ]; then
+	exec rr record --ignore-nested $BINDIR/$EMU_NAME $emu_xargs "$@" -pz $PRELOADED
     else
 	exec $EXEC $eeargs $xargs ${1+"$@"}
     fi
