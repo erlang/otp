@@ -364,6 +364,10 @@ special(File,Procs) ->
 		crashdump_viewer:expand_binary({SOffset,SSize,SPos}),
 	    io:format("  expand binary ok",[]),
 
+            Binaries = crashdump_helper:create_binaries(),
+            verify_binaries(Binaries, proplists:get_value(bins,Dict)),
+	    io:format("  binaries ok",[]),
+
 	    #proc{last_calls=LastCalls} = ProcDetails,
             true = length(LastCalls) =< 4,
 
@@ -534,6 +538,15 @@ special(File,Procs) ->
     end,
     ok.
 
+verify_binaries([H|T1], [H|T2]) ->
+    %% Heap binary.
+    verify_binaries(T1, T2);
+verify_binaries([Bin|T1], [['#CDVBin',Offset,Size,Pos]|T2]) ->
+    %% Refc binary.
+    {ok,<<Bin:Size/binary>>} = crashdump_viewer:expand_binary({Offset,Size,Pos}),
+    verify_binaries(T1, T2);
+verify_binaries([], []) ->
+    ok.
 
 lookat_all_pids([]) ->
     ok;

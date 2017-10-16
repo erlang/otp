@@ -20,7 +20,8 @@
 
 -module(crashdump_helper).
 -export([n1_proc/2,remote_proc/2,
-         dump_maps/0,create_maps/0]).
+         dump_maps/0,create_maps/0,
+         create_binaries/0]).
 -compile(r18).
 -include_lib("common_test/include/ct.hrl").
 
@@ -61,6 +62,7 @@ n1_proc(Creator,_N2,Pid2,Port2,_L) ->
     put(ref,Ref),
     put(pid,Pid),
     put(bin,Bin),
+    put(bins,create_binaries()),
     put(sub_bin,SubBin),
     put(bignum,83974938738373873),
     put(neg_bignum,-38748762783736367),
@@ -94,6 +96,13 @@ remote_proc(P1,Creator) ->
 		  receive after infinity -> ok end
 	  end).
 
+create_binaries() ->
+    Sizes = lists:seq(60, 70) ++ lists:seq(120, 140),
+    [begin
+         <<H:16/unit:8>> = erlang:md5(<<Size:32>>),
+         Data = ((H bsl (8*150)) div (H+7919)),
+         <<Data:Size/unit:8>>
+     end || Size <- Sizes].
 
 %%%
 %%% Test dumping of maps. Dumping of maps only from OTP 20.2.
