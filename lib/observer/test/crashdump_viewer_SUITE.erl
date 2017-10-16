@@ -674,7 +674,7 @@ truncate_dump(File) ->
               end,
     %% Split after "our binary" created by crashdump_helper
     %% (it may not be the first binary).
-    RE = <<"\n=binary:(?=[0-9A-Z]+",NewLine/binary,"FF:010203)">>,
+    RE = <<"\n=binary:(?=[0-9A-Z]+",NewLine/binary,"FF:AQID)">>,
     [StartBin,AfterTag] = re:split(Bin,RE,[{parts,2}]),
     [AddrAndSize,BinaryAndRest] = binary:split(AfterTag,Colon),
     [Binary,_Rest] = binary:split(BinaryAndRest,NewLine),

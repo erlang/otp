@@ -105,8 +105,10 @@
 			    % line_head/1 function can return
 -define(not_available,"N/A").
 -define(binary_size_progress_limit,10000).
--define(max_dump_version,[0,4]).
+-define(max_dump_version,[0,5]).
 
+%% The value of the next define must be divisible by 4.
+-define(base64_chunk_size, (4*256)).
 
 %% All possible tags - use macros in order to avoid misspelling in the code
 -define(abort,abort).
@@ -145,7 +147,7 @@
 
 
 -record(state,{file,dump_vsn,wordsize=4,num_atoms="unknown"}).
--record(dec_opts, {bin_addr_adj=0}).
+-record(dec_opts, {bin_addr_adj=0,base64=true}).
 
 %%%-----------------------------------------------------------------
 %%% Debugging
@@ -368,10 +370,12 @@ handle_call(general_info,_From,State=#state{file=File}) ->
     ets:insert(cdv_reg_proc_table,
 	       {cdv_dump_node_name,GenInfo#general_info.node_name}),
     {reply,{ok,GenInfo,TW},State#state{wordsize=WS, num_atoms=NumAtoms}};
-handle_call({expand_binary,{Offset,Size,Pos}},_From,State=#state{file=File}) ->
+handle_call({expand_binary,{Offset,Size,Pos}},_From,
+            #state{file=File,dump_vsn=DumpVsn}=State) ->
     Fd = open(File),
     pos_bof(Fd,Pos),
-    {Bin,_Line} = get_binary(Offset,Size,bytes(Fd)),
+    DecodeOpts = get_decode_opts(DumpVsn),
+    {Bin,_Line} = get_binary(Offset,Size,bytes(Fd),DecodeOpts),
     close(Fd),
     {reply,{ok,Bin},State};
 handle_call(procs_summary,_From,State=#state{file=File,wordsize=WS}) ->
@@ -444,9 +448,11 @@ handle_call(loaded_mods,_From,State=#state{file=File}) ->
     TW = truncated_warning([?mod]),
     {_CC,_OC,Mods} = loaded_mods(File),
     {reply,{ok,Mods,TW},State};
-handle_call({loaded_mod_details,Mod},_From,State=#state{file=File}) ->
+handle_call({loaded_mod_details,Mod},_From,
+            #state{dump_vsn=DumpVsn,file=File}=State) ->
     TW = truncated_warning([{?mod,Mod}]),
-    ModInfo = get_loaded_mod_details(File,Mod),
+    DecodeOpts = get_decode_opts(DumpVsn),
+    ModInfo = get_loaded_mod_details(File,Mod,DecodeOpts),
     {reply,{ok,ModInfo,TW},State};
 handle_call(funs,_From,State=#state{file=File}) ->
     TW = truncated_warning([?fu]),
@@ -1493,7 +1499,8 @@ get_decode_opts(DumpVsn) ->
                      true ->
                          0
                  end,
-    #dec_opts{bin_addr_adj=BinAddrAdj}.
+    Base64 = DumpVsn >= [0,5],
+    #dec_opts{bin_addr_adj=BinAddrAdj,base64=Base64}.
 
 %%%
 %%% Read top level section.
@@ -1934,12 +1941,15 @@ get_nodeinfo(Fd,Nod) ->
 
 %%-----------------------------------------------------------------
 %% Page with details about one loaded modules
-get_loaded_mod_details(File,Mod) ->
+get_loaded_mod_details(File,Mod,DecodeOpts) ->
     [{_,Start}] = lookup_index(?mod,Mod),
     Fd = open(File),
     pos_bof(Fd,Start),
     InitLM = #loaded_mod{mod=Mod,old_size="No old code exists"},
-    ModInfo = get_loaded_mod_info(Fd,InitLM,fun all_modinfo/3),
+    Fun = fun(F, LM, LineHead) ->
+                  all_modinfo(F, LM, LineHead, DecodeOpts)
+          end,
+    ModInfo = get_loaded_mod_info(Fd,InitLM,Fun),
     close(Fd),
     ModInfo.
 
@@ -1997,59 +2007,44 @@ get_loaded_mod_info(Fd,LM,Fun) ->
 
 main_modinfo(_Fd,LM,_LineHead) ->
     LM.
-all_modinfo(Fd,LM,LineHead) ->
+all_modinfo(Fd,LM,LineHead,DecodeOpts) ->
     case LineHead of
 	"Current attributes" ->
-	    Str = hex_to_str(bytes(Fd,"")),
+            Str = get_attribute(Fd, DecodeOpts),
 	    LM#loaded_mod{current_attrib=Str};
 	"Current compilation info" ->
-	    Str = hex_to_str(bytes(Fd,"")),
+            Str = get_attribute(Fd, DecodeOpts),
 	    LM#loaded_mod{current_comp_info=Str};
 	"Old attributes" ->
-	    Str = hex_to_str(bytes(Fd,"")),
+            Str = get_attribute(Fd, DecodeOpts),
 	    LM#loaded_mod{old_attrib=Str};
 	"Old compilation info" ->
-	    Str = hex_to_str(bytes(Fd,"")),
+            Str = get_attribute(Fd, DecodeOpts),
 	    LM#loaded_mod{old_comp_info=Str};
 	Other ->
 	    unexpected(Fd,Other,"loaded modules info"),
 	    LM
     end.
-    
 
-hex_to_str(Hex) ->
-    Term = hex_to_term(Hex,[]),
-    io_lib:format("~tp~n",[Term]).
-
-hex_to_term([X,Y|Hex],Acc) ->
-    MS = hex_to_dec([X]),
-    LS = hex_to_dec([Y]),
-    Z = 16*MS+LS,
-    hex_to_term(Hex,[Z|Acc]);
-hex_to_term([],Acc) ->
-    Bin = list_to_binary(lists:reverse(Acc)),
-    case catch binary_to_term(Bin) of
-	{'EXIT',_Reason} ->
-	    {"WARNING: The term is probably truncated!",
-	     "I can not do binary_to_term.",
-	     Bin};
-	Term ->
-	    Term
-    end;
-hex_to_term(Rest,Acc) ->
-    {"WARNING: The term is probably truncated!",
-     "I can not convert hex to term.",
-     Rest,list_to_binary(lists:reverse(Acc))}.
-
-
-hex_to_dec("F") -> 15;
-hex_to_dec("E") -> 14;
-hex_to_dec("D") -> 13;
-hex_to_dec("C") -> 12;
-hex_to_dec("B") -> 11;
-hex_to_dec("A") -> 10;
-hex_to_dec(N) -> list_to_integer(N).
-    
+get_attribute(Fd, DecodeOpts) ->
+    Bytes = bytes(Fd, ""),
+    try get_binary(Bytes, DecodeOpts) of
+        {Bin,_} ->
+            try binary_to_term(Bin) of
+                Term ->
+                    io_lib:format("~tp~n",[Term])
+            catch
+                _:_ ->
+                    {"WARNING: The term is probably truncated!",
+                     "I cannot do binary_to_term/1.",
+                     Bin}
+            end
+    catch
+        _:_ ->
+            {"WARNING: The term is probably truncated!",
+             "I cannot convert to binary.",
+             Bytes}
+    end.
 
 %%-----------------------------------------------------------------
 %% Page with list of all funs
@@ -2646,13 +2641,13 @@ parse_heap_term([$p|Line0], Addr, _DecodeOpts, D0) ->   % External Port.
     Port = ['#CDVPort'|Port0],
     D = gb_trees:insert(Addr, Port, D0),
     {Port,Line,D};
-parse_heap_term("E"++Line0, Addr, _DecodeOpts, D0) ->	%Term encoded in external format.
-    {Bin,Line} = get_binary(Line0),
+parse_heap_term("E"++Line0, Addr, DecodeOpts, D0) ->	%Term encoded in external format.
+    {Bin,Line} = get_binary(Line0, DecodeOpts),
     Term = binary_to_term(Bin),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
-parse_heap_term("Yh"++Line0, Addr, _DecodeOpts, D0) ->	%Heap binary.
-    {Term,Line} = get_binary(Line0),
+parse_heap_term("Yh"++Line0, Addr, DecodeOpts, D0) ->	%Heap binary.
+    {Term,Line} = get_binary(Line0, DecodeOpts),
     D = gb_trees:insert(Addr, Term, D0),
     {Term,Line,D};
 parse_heap_term("Yc"++Line0, Addr, DecodeOpts, D0) ->	%Reference-counted binary.
@@ -2750,11 +2745,11 @@ parse_term([$p|Line0], _, D) ->			%Port.
 parse_term([$S|Str0], _, D) ->			%Information string.
     Str = lists:reverse(skip_blanks(lists:reverse(Str0))),
     {Str,[],D};
-parse_term([$D|Line0], _, D) ->                 %DistExternal
+parse_term([$D|Line0], DecodeOpts, D) ->                 %DistExternal
     try
 	{AttabSize,":"++Line1} = get_hex(Line0),
 	{Attab, "E"++Line2} = parse_atom_translation_table(AttabSize, Line1, []),
-	{Bin,Line3} = get_binary(Line2),
+	{Bin,Line3} = get_binary(Line2, DecodeOpts),
 	{try
 	     erts_debug:dist_ext_to_term(Attab, Bin)
 	 catch
@@ -2898,35 +2893,79 @@ get_label([$:|Line], Acc) ->
 get_label([H|T], Acc) ->
     get_label(T, [H|Acc]).
 
-get_binary(Line0) ->
+get_binary(Line0,DecodeOpts) ->
     case get_hex(Line0) of
         {N,":"++Line} ->
-            do_get_binary(N, Line, [], false);
+            get_binary_1(N, Line, DecodeOpts);
         _  ->
            {'#CDVTruncatedBinary',[]}
     end.
 
-get_binary(Offset,Size,Line0) ->
+get_binary_1(N,Line,#dec_opts{base64=false}) ->
+    get_binary_hex(N, Line, [], false);
+get_binary_1(N,Line0,#dec_opts{base64=true}) ->
+    NumBytes = ((N+2) div 3) * 4,
+    {Base64,Line} = lists:split(NumBytes, Line0),
+    Bin = get_binary_base64(list_to_binary(Base64), <<>>, false),
+    {Bin,Line}.
+
+get_binary(Offset,Size,Line0,DecodeOpts) ->
     case get_hex(Line0) of
         {_N,":"++Line} ->
-            Progress = Size>?binary_size_progress_limit,
-            Progress andalso init_progress("Reading binary",Size),
-            do_get_binary(Size, lists:sublist(Line,(Offset*2)+1,Size*2), [],
-                          Progress);
-        _  ->
-           {'#CDVTruncatedBinary',[]}
+            get_binary_1(Offset,Size,Line,DecodeOpts);
+        _ ->
+            {'#CDVTruncatedBinary',[]}
     end.
 
-do_get_binary(0, Line, Acc, Progress) ->
+get_binary_1(Offset,Size,Line,#dec_opts{base64=false}) ->
+    Progress = Size > ?binary_size_progress_limit,
+    Progress andalso init_progress("Reading binary",Size),
+    get_binary_hex(Size, lists:sublist(Line,(Offset*2)+1,Size*2), [],
+                  Progress);
+get_binary_1(StartOffset,Size,Line,#dec_opts{base64=true}) ->
+    Progress = Size > ?binary_size_progress_limit,
+    Progress andalso init_progress("Reading binary",Size),
+    EndOffset = StartOffset + Size,
+    StartByte = (StartOffset div 3) * 4,
+    EndByte = ((EndOffset + 2) div 3) * 4,
+    NumBytes = EndByte - StartByte,
+    case list_to_binary(Line) of
+        <<_:StartByte/bytes,Base64:NumBytes/bytes,_/bytes>> ->
+            Bin0 = get_binary_base64(Base64, <<>>, Progress),
+            Skip = StartOffset - (StartOffset div 3) * 3,
+            <<_:Skip/bytes,Bin:Size/bytes,_/bytes>> = Bin0,
+            {Bin,[]};
+        _ ->
+            {'#CDVTruncatedBinary',[]}
+    end.
+
+get_binary_hex(0, Line, Acc, Progress) ->
     Progress andalso end_progress(),
     {list_to_binary(lists:reverse(Acc)),Line};
-do_get_binary(N, [A,B|Line], Acc, Progress) ->
+get_binary_hex(N, [A,B|Line], Acc, Progress) ->
     Byte = (get_hex_digit(A) bsl 4) bor get_hex_digit(B),
     Progress andalso update_progress(),
-    do_get_binary(N-1, Line, [Byte|Acc], Progress);
-do_get_binary(_N, [], _Acc, Progress) ->
+    get_binary_hex(N-1, Line, [Byte|Acc], Progress);
+get_binary_hex(_N, [], _Acc, Progress) ->
     Progress andalso end_progress(),
     {'#CDVTruncatedBinary',[]}.
+
+get_binary_base64(<<Chunk0:?base64_chunk_size/bytes,T/bytes>>,
+                  Acc0, Progress) ->
+    Chunk = base64:decode(Chunk0),
+    Acc = <<Acc0/binary,Chunk/binary>>,
+    Progress andalso update_progress(?base64_chunk_size * 3 div 4),
+    get_binary_base64(T, Acc, Progress);
+get_binary_base64(Chunk0, Acc, Progress) ->
+    case Progress of
+        true ->
+            update_progress(?base64_chunk_size * 3 div 4),
+            end_progress();
+        false ->
+            ok
+    end,
+    Chunk = base64:decode(Chunk0),
+    <<Acc/binary,Chunk/binary>>.
 
 cdvbin(Offset,Size,{'#CDVBin',Pos}) ->
     ['#CDVBin',Offset,Size,Pos];
