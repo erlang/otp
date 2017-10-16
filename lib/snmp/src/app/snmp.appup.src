@@ -8,19 +8,6 @@
 %% {update, snmpa_local_db, soft, soft_purge, soft_purge, []}
 %% {add_module,  snmpm_net_if_mt}
  [
-  {<<"5\\.2\\.6">>,
-   [{load_module, snmpc, soft_purge, soft_purge, []},
-    {load_module, snmpc_lib, soft_purge, soft_purge, []}]},
-  {<<"5\\.2\\.5">>,
-   [{load_module, snmpc, soft_purge, soft_purge, []},
-    {load_module, snmpc_lib, soft_purge, soft_purge, []},
-    {load_module, snmp_generic, soft_purge, soft_purge, []}]},
-  {<<"5\\.2\\.4">>,
-   [{load_module, snmpc, soft_purge, soft_purge, []},
-    {load_module, snmp_generic, soft_purge, soft_purge, []},
-    {load_module, snmp, soft_purge, soft_purge, []},
-    {load_module, snmpc_lib, soft_purge, soft_purge, []},
-    {load_module, snmpc_mib_gram, soft_purge, soft_purge, []}]},
   {<<"5\\..*">>, [{restart_application, snmp}]},	
   {<<"4\\..*">>, [{restart_application, snmp}]}
  ],
@@ -30,19 +17,6 @@
 %% {remove, {snmpm_net_if_mt, soft_purge, soft_purge}}
  
  [
-  {<<"5\\.2\\.6">>,
-   [{load_module, snmpc, soft_purge, soft_purge, []},
-    {load_module, snmpc_lib, soft_purge, soft_purge, []}]},
-  {<<"5\\.2\\.5">>,
-   [{load_module, snmpc, soft_purge, soft_purge, []},
-    {load_module, snmpc_lib, soft_purge, soft_purge, []},
-    {load_module, snmp_generic, soft_purge, soft_purge, []}]},
-  {<<"5\\.2\\.4">>,
-   [{load_module, snmpc, soft_purge, soft_purge, []},
-    {load_module, snmp_generic, soft_purge, soft_purge, []},
-    {load_module, snmp, soft_purge, soft_purge, []},
-    {load_module, snmpc_lib, soft_purge, soft_purge, []},
-    {load_module, snmpc_mib_gram, soft_purge, soft_purge, []}]},
   {<<"5\\..*">>, [{restart_application, snmp}]},	
   {<<"4\\..*">>, [{restart_application, snmp}]}
  ]  	       
