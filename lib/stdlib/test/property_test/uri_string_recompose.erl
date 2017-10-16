@@ -271,7 +271,7 @@ port() ->
 
 
 query_map() ->
-    [$?| unicode()].
+    unicode().
 
 
 query_uri() ->

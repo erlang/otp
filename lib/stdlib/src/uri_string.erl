@@ -466,9 +466,9 @@ parse_relative_part(?STRING_REST($/, Rest), URI) ->
     URI1#{path => decode_path(?STRING_REST($/, Path))};
 parse_relative_part(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
-    Query = calculate_parsed_part(Rest, T),
+    Query = calculate_parsed_query(Rest, T),
     URI2 = maybe_add_path(URI1),
-    URI2#{query => decode_query(?STRING_REST($?, Query))};
+    URI2#{query => decode_query(Query)};
 parse_relative_part(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
     Fragment = calculate_parsed_fragment(Rest, T),
@@ -521,8 +521,8 @@ parse_segment(?STRING_REST($/, Rest), URI) ->
     parse_segment(Rest, URI);  % segment
 parse_segment(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % ?query
-    Query = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{query => decode_query(?STRING_REST($?, Query))}};
+    Query = calculate_parsed_query(Rest, T),
+    {Rest, URI1#{query => decode_query(Query)}};
 parse_segment(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),
     Fragment = calculate_parsed_fragment(Rest, T),
@@ -544,8 +544,8 @@ parse_segment_nz_nc(?STRING_REST($/, Rest), URI) ->
     parse_segment(Rest, URI);  % segment
 parse_segment_nz_nc(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % ?query
-    Query = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{query => decode_query(?STRING_REST($?, Query))}};
+    Query = calculate_parsed_query(Rest, T),
+    {Rest, URI1#{query => decode_query(Query)}};
 parse_segment_nz_nc(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),
     Fragment = calculate_parsed_fragment(Rest, T),
@@ -595,14 +595,6 @@ parse_scheme_start(?STRING_REST(Char, Rest), URI) ->
 %% According to the URI specification there is always a
 %% path component in every URI-reference and it can be
 %% empty.
-
-%% maybe_add_path(Map) ->
-%%     case length(maps:keys(Map)) of
-%%         0 ->
-%%             Map#{path => <<>>};
-%%         _Else ->
-%%             Map
-%%     end.
 maybe_add_path(Map) ->
     case maps:is_key(path, Map) of
         false ->
@@ -659,8 +651,8 @@ parse_hier(?STRING_REST($/, Rest), URI) ->
     {Rest, URI1#{path => decode_path(?STRING_REST($/, Path))}};
 parse_hier(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
-    Query = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{query => decode_query(?STRING_REST($?, Query))}};
+    Query = calculate_parsed_query(Rest, T),
+    {Rest, URI1#{query => decode_query(Query)}};
 parse_hier(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
     Fragment = calculate_parsed_fragment(Rest, T),
@@ -776,8 +768,8 @@ parse_host(?STRING_REST($/, Rest), URI) ->
     {Rest, URI1#{path => decode_path(?STRING_REST($/, Path))}};
 parse_host(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
-    Query = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{query => decode_query(?STRING_REST($?, Query))}};
+    Query = calculate_parsed_query(Rest, T),
+    {Rest, URI1#{query => decode_query(Query)}};
 parse_host(?STRING_REST($[, Rest), URI) ->
     parse_ipv6_bin(Rest, [], URI);
 parse_host(?STRING_REST($#, Rest), URI) ->
@@ -805,8 +797,8 @@ parse_reg_name(?STRING_REST($/, Rest), URI) ->
     {Rest, URI1#{path => decode_path(?STRING_REST($/, Path))}};
 parse_reg_name(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
-    Query = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{query => decode_query(?STRING_REST($?, Query))}};
+    Query = calculate_parsed_query(Rest, T),
+    {Rest, URI1#{query => decode_query(Query)}};
 parse_reg_name(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
     Fragment = calculate_parsed_fragment(Rest, T),
@@ -840,8 +832,8 @@ parse_ipv4_bin(?STRING_REST($/, Rest), Acc, URI) ->
 parse_ipv4_bin(?STRING_REST($?, Rest), Acc, URI) ->
     _ = validate_ipv4_address(lists:reverse(Acc)),
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
-    Query = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{query => decode_query(?STRING_REST($?, Query))}};
+    Query = calculate_parsed_query(Rest, T),
+    {Rest, URI1#{query => decode_query(Query)}};
 parse_ipv4_bin(?STRING_REST($#, Rest), Acc, URI) ->
     _ = validate_ipv4_address(lists:reverse(Acc)),
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
@@ -901,8 +893,8 @@ parse_ipv6_bin_end(?STRING_REST($/, Rest), URI) ->
     {Rest, URI1#{path => decode_path(?STRING_REST($/, Path))}};
 parse_ipv6_bin_end(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
-    Query = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{query => decode_query(?STRING_REST($?, Query))}};
+    Query = calculate_parsed_query(Rest, T),
+    {Rest, URI1#{query => decode_query(Query)}};
 parse_ipv6_bin_end(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
     Fragment = calculate_parsed_fragment(Rest, T),
@@ -939,8 +931,8 @@ parse_port(?STRING_REST($/, Rest), URI) ->
     {Rest, URI1#{path => decode_path(?STRING_REST($/, Path))}};
 parse_port(?STRING_REST($?, Rest), URI) ->
     {T, URI1} = parse_query(Rest, URI),  % path-empty ?query
-    Query = calculate_parsed_part(Rest, T),
-    {Rest, URI1#{query => decode_query(?STRING_REST($?, Query))}};
+    Query = calculate_parsed_query(Rest, T),
+    {Rest, URI1#{query => decode_query(Query)}};
 parse_port(?STRING_REST($#, Rest), URI) ->
     {T, URI1} = parse_fragment(Rest, URI),  % path-empty
     Fragment = calculate_parsed_fragment(Rest, T),
@@ -1090,7 +1082,7 @@ remove_brackets(Addr) -> Addr.
 %% Returns the parsed binary based on Input and the Unparsed part.
 %% Handles the following special cases:
 %%
-%%    #{host => [],path => "/",query => "?"} = uri_string:parse("///?")
+%%    #{host => [],path => "/",query => []} = uri_string:parse("///?")
 %%    #{fragment => [],host => [],path => "/"} = uri_string:parse("///#")
 %%
 -spec calculate_parsed_part(binary(), binary()) -> binary().
@@ -1171,6 +1163,20 @@ calculate_parsed_port(Input, Unparsed) ->
     First.
 
 
+calculate_parsed_query(<<$#>>, _) -> <<>>;
+calculate_parsed_query(<<>>, _) -> <<>>;
+calculate_parsed_query(Input, <<>>) ->
+    case binary:last(Input) of
+        $# ->
+            init_binary(Input);
+        _Else ->
+            Input
+    end;
+calculate_parsed_query(Input, Unparsed) ->
+    {First, _} = split_binary(Input, byte_size(Input) - byte_size_exl_head(Unparsed)),
+    First.
+
+
 -spec calculate_parsed_fragment(binary(), binary()) -> binary().
 calculate_parsed_fragment(<<$#>>, _) -> <<>>;
 calculate_parsed_fragment(Input, Unparsed) ->
@@ -1183,10 +1189,10 @@ calculate_parsed_fragment(Input, Unparsed) ->
 %%
 %% Handles the following special cases:
 %%
-%%    #{host => "foo",query => "?"} = uri_string:parse("//foo?")
+%%    #{host => "foo",query => []} = uri_string:parse("//foo?")
 %%    #{fragment => [],host => "foo"} = uri_string:parse("//foo#")
 %%    #{host => "foo",path => "/"} = uri_string:parse("//foo/")
-%%    #{host => "foo",query => "?",scheme => "http"} = uri_string:parse("http://foo?")
+%%    #{host => "foo",query => [],scheme => "http"} = uri_string:parse("http://foo?")
 %%    #{fragment => [],host => "foo",scheme => "http"} = uri_string:parse("http://foo#")
 %%    #{host => "foo",path => "/",scheme => "http"} = uri_string:parse("http://foo/")
 %%
@@ -1329,10 +1335,7 @@ encode_path(Cs) ->
 
 -spec encode_query(list()|binary()) -> list() | binary().
 encode_query(Cs) ->
-    case validate_query(Cs) of
-        true -> encode(Cs, fun is_query/1);
-        false -> throw(uri_parse_error)
-    end.
+    encode(Cs, fun is_query/1).
 
 -spec encode_fragment(list()|binary()) -> list() | binary().
 encode_fragment(Cs) ->
@@ -1419,10 +1422,6 @@ validate_scheme(<<H, Rest/binary>>) ->
         true -> validate_scheme(Rest);
         false -> false
     end.
-
-validate_query([$?|_]) -> true;
-validate_query(<<$?/utf8, _/binary>>) -> true;
-validate_query(_) -> false.
 
 
 %%-------------------------------------------------------------------------
@@ -1582,7 +1581,7 @@ update_path(#{}, URI) ->
 update_query(#{query := Query}, empty) ->
     encode_query(Query);
 update_query(#{query := Query}, URI) ->
-    concat(URI,encode_query(Query));
+    concat(URI,add_question_mark(encode_query(Query)));
 update_query(#{}, empty) ->
     empty;
 update_query(#{}, URI) ->
@@ -1614,6 +1613,11 @@ add_hashmark(Comp) when is_binary(Comp) ->
     <<$#, Comp/binary>>;
 add_hashmark(Comp) when is_list(Comp) ->
     [$#|Comp].
+
+add_question_mark(Comp) when is_binary(Comp) ->
+    <<$?, Comp/binary>>;
+add_question_mark(Comp) when is_list(Comp) ->
+    [$?|Comp].
 
 add_colon(Comp) when is_binary(Comp) ->
     <<$:, Comp/binary>>.

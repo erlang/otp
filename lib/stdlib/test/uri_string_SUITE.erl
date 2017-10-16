@@ -52,7 +52,7 @@
 -define(PORT_ENC, ":8042").
 -define(PATH, "/där").
 -define(PATH_ENC, "/d%C3%A4r").
--define(QUERY, "?name=örn").
+-define(QUERY, "name=örn").
 -define(QUERY_ENC, "?name=%C3%B6rn").
 -define(FRAGMENT, "näsa").
 -define(FRAGMENT_ENC, "#n%C3%A4sa").
@@ -350,7 +350,7 @@ parse_binary_host_ipv4(_Config) ->
     #{host := <<"127.0.0.1">>} = uri_string:parse(<<"//127.0.0.1">>),
     #{host := <<"127.0.0.1">>, path := <<"/over/there">>} =
         uri_string:parse(<<"//127.0.0.1/over/there">>),
-    #{host := <<"127.0.0.1">>, query := <<"?name=ferret">>} =
+    #{host := <<"127.0.0.1">>, query := <<"name=ferret">>} =
         uri_string:parse(<<"//127.0.0.1?name=ferret">>),
     #{host := <<"127.0.0.1">>, fragment := <<"nose">>} = uri_string:parse(<<"//127.0.0.1#nose">>),
     uri_parse_error = (catch uri_string:parse(<<"//127.0.0.x">>)),
@@ -362,7 +362,7 @@ parse_binary_host_ipv6(_Config) ->
         uri_string:parse(<<"//[2001:0db8:0000:0000:0000:0000:1428:07ab]">>),
     #{host := <<"::127.0.0.1">>, path := <<"/over/there">>} =
         uri_string:parse(<<"//[::127.0.0.1]/over/there">>),
-    #{host := <<"::127.0.0.1">>, query := <<"?name=ferret">>} =
+    #{host := <<"::127.0.0.1">>, query := <<"name=ferret">>} =
         uri_string:parse(<<"//[::127.0.0.1]?name=ferret">>),
     #{host := <<"::127.0.0.1">>, fragment := <<"nose">>} =
         uri_string:parse(<<"//[::127.0.0.1]#nose">>),
@@ -397,35 +397,35 @@ parse_binary_path(_Config) ->
         uri_string:parse(<<"foo://example.com:8042/over/there">>).
 
 parse_binary_query(_Config) ->
-    #{scheme := <<"foo">>, query := <<"?name=ferret">>} =
+    #{scheme := <<"foo">>, query := <<"name=ferret">>} =
         uri_string:parse(<<"foo:?name=ferret">>),
-    #{scheme := <<"foo">>, path:= <<"over/there">>, query := <<"?name=ferret">>} =
+    #{scheme := <<"foo">>, path:= <<"over/there">>, query := <<"name=ferret">>} =
         uri_string:parse(<<"foo:over/there?name=ferret">>),
-    #{scheme := <<"foo">>, path:= <<"/over/there">>, query := <<"?name=ferret">>} =
+    #{scheme := <<"foo">>, path:= <<"/over/there">>, query := <<"name=ferret">>} =
         uri_string:parse(<<"foo:/over/there?name=ferret">>),
-    #{scheme := <<"foo">>, host := <<"example.com">>, query := <<"?name=ferret">>} =
+    #{scheme := <<"foo">>, host := <<"example.com">>, query := <<"name=ferret">>} =
         uri_string:parse(<<"foo://example.com?name=ferret">>),
-    #{scheme := <<"foo">>, host := <<"example.com">>, path := <<"/">>, query := <<"?name=ferret">>} =
+    #{scheme := <<"foo">>, host := <<"example.com">>, path := <<"/">>, query := <<"name=ferret">>} =
         uri_string:parse(<<"foo://example.com/?name=ferret">>),
 
-    #{query := <<"?name=ferret">>} =
+    #{path := <<>>, query := <<"name=ferret">>} =
         uri_string:parse(<<"?name=ferret">>),
-    #{path := <<"over/there">>, query := <<"?name=ferret">>} =
+    #{path := <<"over/there">>, query := <<"name=ferret">>} =
         uri_string:parse(<<"over/there?name=ferret">>),
-    #{path := <<"/">>, query := <<"?name=ferret">>} =
+    #{path := <<"/">>, query := <<"name=ferret">>} =
         uri_string:parse(<<"/?name=ferret">>),
-    #{path := <<"/over/there">>, query := <<"?name=ferret">>} =
+    #{path := <<"/over/there">>, query := <<"name=ferret">>} =
         uri_string:parse(<<"/over/there?name=ferret">>),
-    #{host := <<"example.com">>, query := <<"?name=ferret">>} =
+    #{host := <<"example.com">>, query := <<"name=ferret">>} =
         uri_string:parse(<<"//example.com?name=ferret">>),
-    #{host := <<"example.com">>, path := <<"/">>, query := <<"?name=ferret">>} =
+    #{host := <<"example.com">>, path := <<"/">>, query := <<"name=ferret">>} =
         uri_string:parse(<<"//example.com/?name=ferret">>).
 
 parse_binary_pct_encoded_query(_Config) ->
     #{scheme := <<"foo">>, host := <<"example.com">>, path := <<"/">>,
-      query := <<"?name=合気道"/utf8>>} =
+      query := <<"name=合気道"/utf8>>} =
         uri_string:parse(<<"foo://example.com/?name=%E5%90%88%E6%B0%97%E9%81%93">>),
-    #{host := <<"example.com">>, path := <<"/">>, query := <<"?name=合気道"/utf8>>} =
+    #{host := <<"example.com">>, path := <<"/">>, query := <<"name=合気道"/utf8>>} =
         uri_string:parse(<<"//example.com/?name=%E5%90%88%E6%B0%97%E9%81%93">>).
 
 parse_binary_fragment(_Config) ->
@@ -520,7 +520,7 @@ parse_host_ipv4(_Config) ->
     #{host := "2001:0db8:0000:0000:0000:0000:1428:07ab"} =
         uri_string:parse("//[2001:0db8:0000:0000:0000:0000:1428:07ab]"),
     #{host := "127.0.0.1", path := "/over/there"} = uri_string:parse("//127.0.0.1/over/there"),
-    #{host := "127.0.0.1", query := "?name=ferret"} = uri_string:parse("//127.0.0.1?name=ferret"),
+    #{host := "127.0.0.1", query := "name=ferret"} = uri_string:parse("//127.0.0.1?name=ferret"),
     #{host := "127.0.0.1", fragment := "nose"} = uri_string:parse("//127.0.0.1#nose"),
     uri_parse_error = (catch uri_string:parse("//127.0.0.x")),
     uri_parse_error = (catch uri_string:parse("//1227.0.0.1")).
@@ -528,7 +528,7 @@ parse_host_ipv4(_Config) ->
 parse_host_ipv6(_Config) ->
     #{host := "::127.0.0.1"} = uri_string:parse("//[::127.0.0.1]"),
     #{host := "::127.0.0.1", path := "/over/there"} = uri_string:parse("//[::127.0.0.1]/over/there"),
-    #{host := "::127.0.0.1", query := "?name=ferret"} =
+    #{host := "::127.0.0.1", query := "name=ferret"} =
         uri_string:parse("//[::127.0.0.1]?name=ferret"),
     #{host := "::127.0.0.1", fragment := "nose"} = uri_string:parse("//[::127.0.0.1]#nose"),
     uri_parse_error = (catch uri_string:parse("//[::127.0.0.x]")),
@@ -560,35 +560,35 @@ parse_path(_Config) ->
         uri_string:parse("foo://example.com:8042/over/there").
 
 parse_query(_Config) ->
-    #{scheme := "foo", query := "?name=ferret"} =
+    #{scheme := "foo", query := "name=ferret"} =
         uri_string:parse("foo:?name=ferret"),
-    #{scheme := "foo", path:= "over/there", query := "?name=ferret"} =
+    #{scheme := "foo", path:= "over/there", query := "name=ferret"} =
         uri_string:parse("foo:over/there?name=ferret"),
-    #{scheme := "foo", path:= "/over/there", query := "?name=ferret"} =
+    #{scheme := "foo", path:= "/over/there", query := "name=ferret"} =
         uri_string:parse("foo:/over/there?name=ferret"),
-    #{scheme := "foo", host := "example.com", query := "?name=ferret"} =
+    #{scheme := "foo", host := "example.com", query := "name=ferret"} =
         uri_string:parse("foo://example.com?name=ferret"),
-    #{scheme := "foo", host := "example.com", path := "/", query := "?name=ferret"} =
+    #{scheme := "foo", host := "example.com", path := "/", query := "name=ferret"} =
         uri_string:parse("foo://example.com/?name=ferret"),
 
-    #{query := "?name=ferret"} =
+    #{path := "", query := "name=ferret"} =
         uri_string:parse("?name=ferret"),
-    #{path := "over/there", query := "?name=ferret"} =
+    #{path := "over/there", query := "name=ferret"} =
         uri_string:parse("over/there?name=ferret"),
-    #{path := "/", query := "?name=ferret"} =
+    #{path := "/", query := "name=ferret"} =
         uri_string:parse("/?name=ferret"),
-    #{path := "/over/there", query := "?name=ferret"} =
+    #{path := "/over/there", query := "name=ferret"} =
         uri_string:parse("/over/there?name=ferret"),
-    #{host := "example.com", query := "?name=ferret"} =
+    #{host := "example.com", query := "name=ferret"} =
         uri_string:parse("//example.com?name=ferret"),
-    #{host := "example.com", path := "/", query := "?name=ferret"} =
+    #{host := "example.com", path := "/", query := "name=ferret"} =
         uri_string:parse("//example.com/?name=ferret").
 
 parse_pct_encoded_query(_Config) ->
     #{scheme := "foo", host := "example.com", path := "/",
-      query := "?name=合気道"} =
+      query := "name=合気道"} =
         uri_string:parse("foo://example.com/?name=%E5%90%88%E6%B0%97%E9%81%93"),
-    #{host := "example.com", path := "/", query := "?name=合気道"} =
+    #{host := "example.com", path := "/", query := "name=合気道"} =
         uri_string:parse("//example.com/?name=%E5%90%88%E6%B0%97%E9%81%93").
 
 parse_fragment(_Config) ->
@@ -627,19 +627,19 @@ parse_pct_encoded_fragment(_Config) ->
 parse_list(_Config) ->
     #{scheme := "foo", path := "bar:nisse"} = uri_string:parse("foo:bar:nisse"),
     #{scheme := "foo", host := "example.com", port := 8042,
-      path := "/over/there", query := "?name=ferret", fragment := "nose"} =
+      path := "/over/there", query := "name=ferret", fragment := "nose"} =
         uri_string:parse("foo://example.com:8042/over/there?name=ferret#nose"),
     #{scheme := "foo", userinfo := "admin:admin", host := "example.com", port := 8042,
-      path := "/over/there", query := "?name=ferret", fragment := "nose"} =
+      path := "/over/there", query := "name=ferret", fragment := "nose"} =
         uri_string:parse("foo://admin:admin@example.com:8042/over/there?name=ferret#nose").
 
 parse_binary(_Config) ->
     #{scheme := <<"foo">>, path := <<"bar:nisse">>} = uri_string:parse(<<"foo:bar:nisse">>),
     #{scheme := <<"foo">>, host := <<"example.com">>, port := 8042,
-      path := <<"/over/there">>, query := <<"?name=ferret">>, fragment := <<"nose">>} =
+      path := <<"/over/there">>, query := <<"name=ferret">>, fragment := <<"nose">>} =
         uri_string:parse(<<"foo://example.com:8042/over/there?name=ferret#nose">>),
     #{scheme := <<"foo">>, userinfo := <<"admin:admin">>, host := <<"example.com">>, port := 8042,
-      path := <<"/over/there">>, query := <<"?name=ferret">>, fragment := <<"nose">>} =
+      path := <<"/over/there">>, query := <<"name=ferret">>, fragment := <<"nose">>} =
         uri_string:parse(<<"foo://admin:admin@example.com:8042/over/there?name=ferret#nose">>).
 
 
@@ -658,23 +658,26 @@ parse_relative(_Config) ->
         uri_string:parse(lists:append("fo",<<"o">>)).
 
 parse_special(_Config) ->
-    #{host := [],query := "?"} = uri_string:parse("//?"),
+    #{host := [],query := []} = uri_string:parse("//?"),
     #{fragment := [],host := []} = uri_string:parse("//#"),
-    #{host := [],query := "?",scheme := "foo"} = uri_string:parse("foo://?"),
+    #{host := [],query := [],scheme := "foo"} = uri_string:parse("foo://?"),
     #{fragment := [],host := [],scheme := "foo"} = uri_string:parse("foo://#"),
     #{host := <<>>, path := <<"/">>} = uri_string:parse(<<"///">>),
     #{host := <<"hostname">>} = uri_string:parse(<<"//hostname">>),
     #{host := <<>>, path := <<"/hostname">>} = uri_string:parse(<<"///hostname">>),
-    #{host :=  [],path := "/",query := "?"} = uri_string:parse("///?"),
+    #{host :=  [],path := "/",query := []} = uri_string:parse("///?"),
     #{fragment := [],host := [],path := "/"} = uri_string:parse("///#"),
-    #{host := "foo",query := "?"} = uri_string:parse("//foo?"),
+    #{host := "foo",query := []} = uri_string:parse("//foo?"),
     #{fragment := [],host := "foo"} = uri_string:parse("//foo#"),
     #{host := "foo",path := "/"} = uri_string:parse("//foo/"),
-    #{host := "foo",query := "?",scheme := "http"} = uri_string:parse("http://foo?"),
+    #{host := "foo",query := [],scheme := "http"} = uri_string:parse("http://foo?"),
     #{fragment := [],host := "foo",scheme := "http"} = uri_string:parse("http://foo#"),
     #{host := "foo",path := "/",scheme := "http"} = uri_string:parse("http://foo/"),
     #{fragment := [],host := "host",port := 80,scheme := "http"} = uri_string:parse("http://host:80#"),
-    #{host := "host",port := 80,query := "?",scheme := "http"} = uri_string:parse("http://host:80?").
+    #{host := "host",port := 80,query := [],scheme := "http"} = uri_string:parse("http://host:80?"),
+    #{path := [],query := []} = uri_string:parse("?"),
+    #{path := [],query := "?"} = uri_string:parse("??"),
+    #{path := [],query := "??"} = uri_string:parse("???").
 
 parse_special2(_Config) ->
     #{host := [],path := "/",port := 1,scheme := "a"} = uri_string:parse("a://:1/"),
@@ -703,9 +706,9 @@ recompose_query(_Config) ->
                                fragment => <<?FRAGMENT/utf8>>,
                                path => <<>>}),
     "?name=%C3%B6rn" =
-        uri_string:recompose(#{query => "?name=örn", path => ""}),
+        uri_string:recompose(#{query => "name=örn", path => ""}),
     "?name=%C3%B6rn#n%C3%A4sa" =
-        uri_string:recompose(#{query => "?name=örn",
+        uri_string:recompose(#{query => "name=örn",
                                fragment => "näsa",
                                path => ""}).
 
@@ -724,10 +727,10 @@ recompose_path(_Config) ->
                                fragment => <<"näsa"/utf8>>}),
     <<"/d%C3%A4r?name=%C3%B6rn">> =
         uri_string:recompose(#{path => <<"/där"/utf8>>,
-                               query => <<"?name=örn"/utf8>>}),
+                               query => <<"name=örn"/utf8>>}),
     <<"/d%C3%A4r?name=%C3%B6rn#n%C3%A4sa">> =
         uri_string:recompose(#{path => <<"/där"/utf8>>,
-                               query => <<"?name=örn"/utf8>>,
+                               query => <<"name=örn"/utf8>>,
                                fragment => <<"näsa"/utf8>>}),
 
 
@@ -738,10 +741,10 @@ recompose_path(_Config) ->
                                fragment => "näsa"}),
     "/d%C3%A4r?name=%C3%B6rn" =
         uri_string:recompose(#{path => "/där",
-                               query => "?name=örn"}),
+                               query => "name=örn"}),
     "/d%C3%A4r?name=%C3%B6rn#n%C3%A4sa" =
         uri_string:recompose(#{path => "/där",
-                               query => "?name=örn",
+                               query => "name=örn",
                                fragment => "näsa"}).
 
 
