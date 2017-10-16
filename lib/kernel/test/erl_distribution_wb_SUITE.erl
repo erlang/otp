@@ -65,6 +65,7 @@
                             ?DFLAG_EXTENDED_PIDS_PORTS bor
                             ?DFLAG_UTF8_ATOMS)).
 
+-define(PASS_THROUGH, $p).
 
 -define(shutdown(X), exit(X)).
 -define(int16(X), [((X) bsr 8) band 16#ff, (X) band 16#ff]).
@@ -676,10 +677,9 @@ recv_message(Socket) ->
     case gen_tcp:recv(Socket, 0) of
 	{ok,Data} ->
 	    B0 = list_to_binary(Data),
-	    {_,B1} = erlang:split_binary(B0,1),
-	    Header = binary_to_term(B1),
-	    Siz = byte_size(term_to_binary(Header)),
-	    {_,B2} = erlang:split_binary(B1,Siz),
+	    <<?PASS_THROUGH, B1/binary>> = B0,
+	    {Header,Siz} = binary_to_term(B1,[used]),
+	    <<_:Siz/binary,B2/binary>> = B1,
 	    Message = case (catch binary_to_term(B2)) of
 			  {'EXIT', _} ->
 			      could_not_digest_message;
