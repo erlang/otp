@@ -289,7 +289,6 @@ join(Config) when is_list(Config) ->
     %% join/1 and join/2 (OTP-12158) by using help function
     %% filename_join/2.
     "/" = filename:join(["/"]),
-    "/" = filename:join(["//"]),
     "usr/foo.erl" = filename_join("usr","foo.erl"),
     "/src/foo.erl" = filename_join(usr, "/src/foo.erl"),
     "/src/foo.erl" = filename_join("/src/",'foo.erl'),
@@ -301,7 +300,6 @@ join(Config) when is_list(Config) ->
     "a/b/c/d/e/f/g" = filename_join("a//b/c/", "d//e/f/g"),
     "a/b/c/d/e/f/g" = filename_join("a//b/c", "d//e/f/g"),
     "/d/e/f/g" = filename_join("a//b/c", "/d//e/f/g"),
-    "/d/e/f/g" = filename:join("a//b/c", "//d//e/f/g"),
 
     "foo/bar" = filename_join([$f,$o,$o,$/,[]], "bar"),
 
@@ -332,6 +330,7 @@ join(Config) when is_list(Config) ->
 
     case os:type() of
         {win32, _} ->
+            "//" = filename:join(["//"]),
             "d:/" = filename:join(["D:/"]),
             "d:/" = filename:join(["D:\\"]),
             "d:/abc" = filename_join("D:/", "abc"),
@@ -345,8 +344,16 @@ join(Config) when is_list(Config) ->
             "c:/usr/foo.erl" = filename:join(["A:","C:/usr","foo.erl"]),
             "c:usr/foo.erl" = filename:join(["A:","C:usr","foo.erl"]),
             "d:/foo" = filename:join([$D, $:, $/, []], "foo"),
+            "//" = filename:join("\\\\", ""),
+            "//foo" = filename:join("\\\\", "foo"),
+            "//foo/bar" = filename:join("\\\\", "foo\\\\bar"),
+            "//foo/bar/baz" = filename:join("\\\\foo", "bar\\\\baz"),
+            "//bar/baz" = filename:join("\\\\foo", "\\\\bar\\baz"),
+            "//d/e/f/g" = filename:join("a//b/c", "//d//e/f/g"),
             ok;
         _ ->
+            "/" = filename:join(["//"]),
+            "/d/e/f/g" = filename:join("a//b/c", "//d//e/f/g"),
             ok
     end.
 
@@ -402,6 +409,12 @@ split(Config) when is_list(Config) ->
                 filename:split("a:\\msdev\\include"),
             ["a:","msdev","include"] =
                 filename:split("a:msdev\\include"),
+            ["//","foo"] =
+                filename:split("\\\\foo"),
+            ["//","foo","bar"] =
+                filename:split("\\\\foo\\\\bar"),
+            ["//","foo","baz"] =
+                filename:split("\\\\foo\\baz"),
             ok;
         _ ->
 	    ok
@@ -630,7 +643,6 @@ extension_bin(Config) when is_list(Config) ->
     
 join_bin(Config) when is_list(Config) ->
     <<"/">> = filename:join([<<"/">>]),
-    <<"/">> = filename:join([<<"//">>]),
     <<"usr/foo.erl">> = filename:join(<<"usr">>,<<"foo.erl">>),
     <<"/src/foo.erl">> = filename:join(usr, <<"/src/foo.erl">>),
     <<"/src/foo.erl">> = filename:join([<<"/src/">>,'foo.erl']),
@@ -642,7 +654,6 @@ join_bin(Config) when is_list(Config) ->
     <<"a/b/c/d/e/f/g">> = filename:join([<<"a//b/c/">>, <<"d//e/f/g">>]),
     <<"a/b/c/d/e/f/g">> = filename:join([<<"a//b/c">>, <<"d//e/f/g">>]),
     <<"/d/e/f/g">> = filename:join([<<"a//b/c">>, <<"/d//e/f/g">>]),
-    <<"/d/e/f/g">> = filename:join([<<"a//b/c">>, <<"//d//e/f/g">>]),
 
     <<"foo/bar">> = filename:join([$f,$o,$o,$/,[]], <<"bar">>),
 
@@ -695,6 +706,7 @@ join_bin(Config) when is_list(Config) ->
 
     case os:type() of
         {win32, _} ->
+            <<"//">> = filename:join([<<"//">>]),
             <<"d:/">> = filename:join([<<"D:/">>]),
             <<"d:/">> = filename:join([<<"D:\\">>]),
             <<"d:/abc">> = filename:join([<<"D:/">>, <<"abc">>]),
@@ -708,8 +720,16 @@ join_bin(Config) when is_list(Config) ->
             <<"c:/usr/foo.erl">> = filename:join([<<"A:">>,<<"C:/usr">>,<<"foo.erl">>]),
             <<"c:usr/foo.erl">> = filename:join([<<"A:">>,<<"C:usr">>,<<"foo.erl">>]),
             <<"d:/foo">> = filename:join([$D, $:, $/, []], <<"foo">>),
+            <<"//">> = filename:join(<<"\\\\">>, <<"">>),
+            <<"//foo">> = filename:join(<<"\\\\">>, <<"foo">>),
+            <<"//foo/bar">> = filename:join(<<"\\\\">>, <<"foo\\\\bar">>),
+            <<"//foo/bar/baz">> = filename:join(<<"\\\\foo">>, <<"bar\\\\baz">>),
+            <<"//bar/baz">> = filename:join(<<"\\\\foo">>, <<"\\\\bar\\baz">>),
+            <<"//d/e/f/g">> = filename:join([<<"a//b/c">>, <<"//d//e/f/g">>]),
             ok;
         _ ->
+            <<"/">> = filename:join([<<"//">>]),
+            <<"/d/e/f/g">> = filename:join([<<"a//b/c">>, <<"//d//e/f/g">>]),
             ok
     end.
 
@@ -756,6 +776,12 @@ split_bin(Config) when is_list(Config) ->
                 filename:split(<<"a:\\msdev\\include">>),
             [<<"a:">>,<<"msdev">>,<<"include">>] =
                 filename:split(<<"a:msdev\\include">>),
+            [<<"//">>,<<"foo">>] =
+                filename:split(<<"\\\\foo">>),
+            [<<"//">>,<<"foo">>,<<"bar">>] =
+                filename:split(<<"\\\\foo\\\\bar">>),
+            [<<"//">>,<<"foo">>,<<"baz">>] =
+                filename:split(<<"\\\\foo\\baz">>),
             ok;
         _ ->
             ok
