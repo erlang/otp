@@ -1212,6 +1212,7 @@ typedef struct B2TContext_t {
     ErtsBinary2TermState b2ts;
     Uint32 flags;
     SWord reds;
+    Uint used_bytes; /* In: boolean, Out: bytes */
     Eterm trap_bin;  /* THE_NON_VALUE if not exported */
     Export *bif;
     Eterm arg[2];
@@ -1306,6 +1307,11 @@ binary2term_prepare(ErtsBinary2TermState *state, byte *data, Sint data_size,
 
 	    ctx->u.uc.dbytes = state->extp;
 	    ctx->u.uc.dleft = dest_len;
+            if (ctx->used_bytes) {
+                ASSERT(ctx->used_bytes == 1);
+                 /* to be subtracted by stream.avail_in when done */
+                ctx->used_bytes = data_size;
+            }
 	    ctx->state = B2TUncompressChunk;
             *ctxp = ctx;
         }
@@ -1515,6 +1521,10 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
                      && zret == Z_STREAM_END
                      && ctx->u.uc.dleft == 0) {
                 ctx->reds -= chunk;
+                if (ctx->used_bytes) {
+                    ASSERT(ctx->used_bytes > 5 + ctx->u.uc.stream.avail_in);
+                    ctx->used_bytes -= ctx->u.uc.stream.avail_in;
+                }
                 ctx->state = B2TSizeInit;
             }
             else {
@@ -1580,6 +1590,25 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
 	    return ret_val;
 
         case B2TDone:
+            if (ctx->used_bytes) {
+                Eterm *hp;
+                Eterm used;
+                if (!ctx->b2ts.exttmp) {
+                    ASSERT(ctx->used_bytes == 1);
+                    ctx->used_bytes = (ctx->u.dc.ep - ctx->b2ts.extp
+                                       +1); /* VERSION_MAGIC */
+                }
+                if (IS_USMALL(0, ctx->used_bytes)) {
+                    hp = erts_produce_heap(&ctx->u.dc.factory, 3, 0);
+                    used = make_small(ctx->used_bytes);
+                }
+                else {
+                    hp = erts_produce_heap(&ctx->u.dc.factory, 3+BIG_UINT_HEAP_SIZE, 0);
+                    used = uint_to_big(ctx->used_bytes, hp);
+                    hp += BIG_UINT_HEAP_SIZE;
+                }
+                ctx->u.dc.res = TUPLE2(hp, ctx->u.dc.res, used);
+            }
             b2t_destroy_context(ctx);
 
             if (ctx->u.dc.factory.hp > ctx->u.dc.factory.hp_end) {
@@ -1623,6 +1652,7 @@ BIF_RETTYPE binary_to_term_1(BIF_ALIST_1)
     B2TContext ctx;
 
     ctx.flags = 0;
+    ctx.used_bytes = 0;
     ctx.trap_bin = THE_NON_VALUE;
     ctx.bif = bif_export[BIF_binary_to_term_1];
     ctx.arg[0] = BIF_ARG_1;
@@ -1639,11 +1669,15 @@ BIF_RETTYPE binary_to_term_2(BIF_ALIST_2)
     Eterm opt;
 
     ctx.flags = 0;
+    ctx.used_bytes = 0;
     opts = BIF_ARG_2;
     while (is_list(opts)) {
         opt = CAR(list_val(opts));
         if (opt == am_safe) {
             ctx.flags |= ERTS_DIST_EXT_BTT_SAFE;
+        }
+        else if (opt == am_used) {
+            ctx.used_bytes = 1;
         }
 	else {
             goto error;
@@ -3996,6 +4030,7 @@ dec_term_atom_common:
     if (ctx) {
         ctx->state = B2TDone;
 	ctx->reds = reds;
+        ctx->u.dc.ep = ep;
     }
 
     return ep;
