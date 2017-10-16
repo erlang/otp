@@ -425,36 +425,32 @@ bad_term_to_binary(Config) when is_list(Config) ->
 
 terms(Config) when is_list(Config) ->
     TestFun = fun(Term) ->
-		      try
-			  S = io_lib:format("~p", [Term]),
-			  io:put_chars(S)
-		      catch
-			  error:badarg ->
-			      io:put_chars("bit sized binary")
-		      end,
+                      S = io_lib:format("~p", [Term]),
+                      io:put_chars(S),
 		      Bin = term_to_binary(Term),
 		      case erlang:external_size(Bin) of
 			  Sz when is_integer(Sz), size(Bin) =< Sz ->
 			      ok
 		      end,
-              Bin1 = term_to_binary(Term, [{minor_version, 1}]),
-              case erlang:external_size(Bin1, [{minor_version, 1}]) of
-              Sz1 when is_integer(Sz1), size(Bin1) =< Sz1 ->
-                  ok
-              end,
+                      Bin1 = term_to_binary(Term, [{minor_version, 1}]),
+                      case erlang:external_size(Bin1, [{minor_version, 1}]) of
+                          Sz1 when is_integer(Sz1), size(Bin1) =< Sz1 ->
+                              ok
+                      end,
 		      Term = binary_to_term_stress(Bin),
 		      Term = binary_to_term_stress(Bin, [safe]),
-		      Unaligned = make_unaligned_sub_binary(Bin),
-		      Term = binary_to_term_stress(Unaligned),
-		      Term = binary_to_term_stress(Unaligned, []),
-		      Term = binary_to_term_stress(Bin, [safe]),
+		      BinU = make_unaligned_sub_binary(Bin),
+		      Term = binary_to_term_stress(BinU),
+		      Term = binary_to_term_stress(BinU, []),
+		      Term = binary_to_term_stress(BinU, [safe]),
 		      BinC = erlang:term_to_binary(Term, [compressed]),
 		      Term = binary_to_term_stress(BinC),
 		      true = size(BinC) =< size(Bin),
 		      Bin = term_to_binary(Term, [{compressed,0}]),
 		      terms_compression_levels(Term, size(Bin), 1),
-		      UnalignedC = make_unaligned_sub_binary(BinC),
-		      Term = binary_to_term_stress(UnalignedC)
+
+		      BinUC = make_unaligned_sub_binary(BinC),
+		      Term = binary_to_term_stress(BinUC),
 	      end,
     test_terms(TestFun),
     ok.
