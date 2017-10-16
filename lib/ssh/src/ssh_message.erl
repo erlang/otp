@@ -252,12 +252,12 @@ encode(#ssh_msg_kexdh_init{e = E}) ->
     <<?Ebyte(?SSH_MSG_KEXDH_INIT), ?Empint(E)>>;
 
 encode(#ssh_msg_kexdh_reply{
-	  public_host_key = Key,
+	  public_host_key = {Key,SigAlg},
 	  f = F,
 	  h_sig = Signature
 	 }) ->
     EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
-    EncSign = encode_signature(Key, Signature),
+    EncSign = encode_signature(Key, SigAlg, Signature),
     <<?Ebyte(?SSH_MSG_KEXDH_REPLY), ?Ebinary(EncKey), ?Empint(F), ?Ebinary(EncSign)>>;
 
 encode(#ssh_msg_kex_dh_gex_request{
@@ -278,20 +278,20 @@ encode(#ssh_msg_kex_dh_gex_init{e = Public}) ->
 
 encode(#ssh_msg_kex_dh_gex_reply{
 	  %% Will be private key encode_host_key extracts only the public part!
-	  public_host_key = Key,
+	  public_host_key = {Key,SigAlg},
 	  f = F,
 	  h_sig = Signature
 	 }) ->
     EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
-    EncSign = encode_signature(Key, Signature),
+    EncSign = encode_signature(Key, SigAlg, Signature),
     <<?Ebyte(?SSH_MSG_KEX_DH_GEX_REPLY), ?Ebinary(EncKey), ?Empint(F), ?Ebinary(EncSign)>>;
 
 encode(#ssh_msg_kex_ecdh_init{q_c = Q_c}) ->
     <<?Ebyte(?SSH_MSG_KEX_ECDH_INIT), ?Empint(Q_c)>>;
 
-encode(#ssh_msg_kex_ecdh_reply{public_host_key = Key, q_s = Q_s, h_sig = Sign}) ->
+encode(#ssh_msg_kex_ecdh_reply{public_host_key = {Key,SigAlg}, q_s = Q_s, h_sig = Sign}) ->
     EncKey = public_key:ssh_encode(Key, ssh2_pubkey),
-    EncSign = encode_signature(Key, Sign),
+    EncSign = encode_signature(Key, SigAlg, Sign),
     <<?Ebyte(?SSH_MSG_KEX_ECDH_REPLY), ?Ebinary(EncKey), ?Empint(Q_s), ?Ebinary(EncSign)>>;
 
 encode(#ssh_msg_ignore{data = Data}) ->
@@ -602,12 +602,12 @@ decode_signature(<<?DEC_BIN(Alg,__0), ?UINT32(_), Signature/binary>>) ->
     {binary_to_list(Alg), Signature}.
 
 
-encode_signature({#'RSAPublicKey'{},Sign}, Signature) ->
-    SignName = list_to_binary(atom_to_list(Sign)),
+encode_signature(#'RSAPublicKey'{}, SigAlg, Signature) ->
+    SignName = list_to_binary(atom_to_list(SigAlg)),
     <<?Ebinary(SignName), ?Ebinary(Signature)>>;
-encode_signature({{_, #'Dss-Parms'{}},_}, Signature) ->
+encode_signature({_, #'Dss-Parms'{}}, _SigAlg, Signature) ->
     <<?Ebinary(<<"ssh-dss">>), ?Ebinary(Signature)>>;
-encode_signature({{#'ECPoint'{}, {namedCurve,OID}},_}, Signature) ->
+encode_signature({#'ECPoint'{}, {namedCurve,OID}}, _SigAlg, Signature) ->
     CurveName = public_key:oid2ssh_curvename(OID),
     <<?Ebinary(<<"ecdsa-sha2-",CurveName/binary>>), ?Ebinary(Signature)>>.
 
