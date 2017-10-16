@@ -858,7 +858,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     }
 
     time(&now);
-    erts_cbprintf(to, to_arg, "=erl_crash_dump:0.3\n%s", ctime(&now));
+    erts_cbprintf(to, to_arg, "=erl_crash_dump:0.4\n%s", ctime(&now));
 
     if (file != NULL)
        erts_cbprintf(to, to_arg, "The error occurred in file %s, line %d\n", file, line);
