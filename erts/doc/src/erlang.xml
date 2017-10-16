@@ -2029,6 +2029,18 @@ helper() ->
             where the exception occurred or the function was called.
           </item>
         </taglist>
+        <warning><p>Developers should rely on stacktrace entries only for
+          debugging purposes.</p>
+          <p>The VM performs tail call optimization, which
+          does not add new entries to the stacktrace, and also limits stacktraces
+          to a certain depth. Furthermore, compiler options, optimizations and
+          future changes may add or remove stacktrace entries, causing any code
+          that expects the stacktrace to be in a certain order or contain specific
+          items to fail.</p>
+          <p>The only exception to this rule is <c>error:undef</c> which
+          guarantees to include the <anno>Module</anno>, <anno>Function</anno> and <anno>Arity</anno>
+          of the attempted function as the first stacktrace entry.</p>
+        </warning>	
         <p>See also
           <seealso marker="#error/1"><c>error/1</c></seealso> and
           <seealso marker="#error/2"><c>error/2</c></seealso>.</p>
