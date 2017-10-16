@@ -942,7 +942,6 @@ ssh_decode(SshBin, Type) when is_binary(SshBin),
 %%--------------------------------------------------------------------
 -spec ssh_encode([{public_key(), Attributes::list()}], ssh_file()) -> binary()
 	      ; (public_key(), ssh2_pubkey) -> binary()
-	      ; ({public_key(),atom()}, ssh2_pubkey) -> binary()
 	      .
 %%
 %% Description: Encodes a list of ssh file entries (public keys and
