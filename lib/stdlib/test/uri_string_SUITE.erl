@@ -794,7 +794,11 @@ transcode_options(_Config) ->
 
 transcode_mixed(_Config) ->
     "foo%00%00%00%F6bar" =
-        uri_string:transcode(["foo",<<"%C3%B6"/utf8>>,<<"ba"/utf8>>,"r"], [{out_encoding, utf32}]).
+        uri_string:transcode(["foo",<<"%C3%B6"/utf8>>,<<"ba"/utf8>>,"r"], [{out_encoding, utf32}]),
+    "foo%00%00%00%F6bar" =
+        uri_string:transcode(["foo",<<"%C3%"/utf8>>,<<"B6ba"/utf8>>,"r"], [{out_encoding, utf32}]),
+    "foo%C3%B6bar" =
+        uri_string:transcode(["foo%00", <<"%00%0"/utf32>>,<<"0%F"/utf32>>,"6bar"], [{in_encoding, utf32},{out_encoding, utf8}]).
 
 transcode_negative(_Config) ->
     {invalid_input,"foo","BX"} =

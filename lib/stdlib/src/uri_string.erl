@@ -368,11 +368,13 @@ transcode(URIString, Options) when is_binary(URIString) ->
 transcode(URIString, Options) when is_list(URIString) ->
     InEnc = proplists:get_value(in_encoding, Options, utf8),
     OutEnc = proplists:get_value(out_encoding, Options, utf8),
-    try transcode(URIString, [], InEnc, OutEnc) of
+    Flattened = flatten_list(URIString, InEnc),
+    try transcode(Flattened, [], InEnc, OutEnc) of
         Result -> Result
     catch
         throw:{error, List, RestData} -> {invalid_input, List, RestData}
     end.
+
 
 %%-------------------------------------------------------------------------
 %% Working with query strings
@@ -1672,11 +1674,6 @@ transcode([$%,_C0,_C1|_Rest] = L, Acc, InEnc, OutEnc) ->
 transcode([_C|_Rest] = L, Acc, InEnc, OutEnc) ->
     transcode(L, Acc, [], InEnc, OutEnc).
 %%
-transcode([H|T], Acc, List, InEnc, OutEnc) when is_binary(H) ->
-    L = convert_list(H, InEnc),
-    transcode(L ++ T, Acc, List, InEnc, OutEnc);
-transcode([H|T], Acc, List, InEnc, OutEnc) when is_list(H) ->
-    transcode(H ++ T, Acc, List, InEnc, OutEnc);
 transcode([$%,_C0,_C1|_Rest] = L, Acc, List, InEncoding, OutEncoding) ->
     transcode_pct(L, List ++ Acc, <<>>, InEncoding, OutEncoding);
 transcode([C|Rest], Acc, List, InEncoding, OutEncoding) ->
@@ -1686,11 +1683,6 @@ transcode([], Acc, List, _InEncoding, _OutEncoding) ->
 
 
 %% Transcode percent-encoded segment
-transcode_pct([H|T], Acc, B, InEnc, OutEnc) when is_binary(H) ->
-    L = convert_list(H, InEnc),
-    transcode_pct(L ++ T, Acc, B, InEnc, OutEnc);
-transcode_pct([H|T], Acc, B, InEnc, OutEnc) when is_list(H) ->
-    transcode_pct(H ++ T, Acc, B, InEnc, OutEnc);
 transcode_pct([$%,C0,C1|Rest], Acc, B, InEncoding, OutEncoding) ->
     case is_hex_digit(C0) andalso is_hex_digit(C1) of
         true ->
@@ -1710,7 +1702,7 @@ transcode_pct([], Acc, B, InEncoding, OutEncoding) ->
     lists:reverse(Acc) ++ Out.
 
 
-% Convert binary
+%% Convert to binary
 convert_binary(Binary, InEncoding, OutEncoding) ->
     case unicode:characters_to_binary(Binary, InEncoding, OutEncoding) of
         {error, List, RestData} ->
@@ -1722,7 +1714,7 @@ convert_binary(Binary, InEncoding, OutEncoding) ->
     end.
 
 
-% Convert binary
+%% Convert to list
 convert_list(Binary, InEncoding) ->
     case unicode:characters_to_list(Binary, InEncoding) of
         {error, List, RestData} ->
@@ -1732,6 +1724,23 @@ convert_list(Binary, InEncoding) ->
         Result ->
             Result
     end.
+
+
+%% Flatten input list
+flatten_list([], _) ->
+    [];
+flatten_list(L, InEnc) ->
+    flatten_list(L, InEnc, []).
+%%
+flatten_list([H|T], InEnc, Acc) when is_binary(H) ->
+    L = convert_list(H, InEnc),
+    flatten_list(T, InEnc, lists:reverse(L) ++ Acc);
+flatten_list([H|T], InEnc, Acc) when is_list(H) ->
+    flatten_list(H ++ T, InEnc, Acc);
+flatten_list([H|T], InEnc, Acc) ->
+    flatten_list(T, InEnc, [H|Acc]);
+flatten_list([], _InEnc, Acc) ->
+    lists:reverse(Acc).
 
 
 percent_encode_segment(Segment) ->
