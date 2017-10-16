@@ -129,75 +129,80 @@ dns_name(Config) ->
     Hostname = "OTP.test.server",
     #{server_config := ServerConf,
       client_config := ClientConf} = public_key:pkix_test_data(#{server_chain => 
-                                                                     #{root => [],
-                                                                       intermediates => [[]],
+                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
                                                                        peer => [{extensions,  [#'Extension'{extnID = 
                                                                                                                 ?'id-ce-subjectAltName',
                                                                                                             extnValue = [{dNSName, Hostname}],
-                                                                                                            critical = false}]}]},
+                                                                                                            critical = false}]},
+                                                                                {key, ssl_test_lib:hardcode_rsa_key(3)}]},
                                                                  client_chain => 
-                                                                     #{root => [],
-                                                                       intermediates => [[]],
-                                                                       peer => []}}),
+                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
+                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
+                                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
     unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], undefined, Config),
     successfull_connect(ServerConf, [{verify, verify_peer}, {server_name_indication, Hostname} | ClientConf], undefined, Config),
     unsuccessfull_connect(ServerConf, [{verify, verify_peer}, {server_name_indication, "foo"} | ClientConf], undefined, Config),
     successfull_connect(ServerConf, [{verify, verify_peer}, {server_name_indication, disable} | ClientConf], undefined, Config).
- 
+
 ip_fallback(Config) ->
     Hostname = net_adm:localhost(),
     {ok, #hostent{h_addr_list = [IP |_]}} = inet:gethostbyname(net_adm:localhost()),
     IPStr = tuple_to_list(IP),
     #{server_config := ServerConf,
       client_config := ClientConf} = public_key:pkix_test_data(#{server_chain => 
-                                                                     #{root => [],
-                                                                       intermediates => [[]],
+                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
                                                                        peer => [{extensions, [#'Extension'{extnID = 
                                                                                                                ?'id-ce-subjectAltName',
                                                                                                            extnValue = [{dNSName, Hostname},
                                                                                                                         {iPAddress, IPStr}],
-                                                                                                           critical = false}]}
-                                                                               ]},
+                                                                                                           critical = false}]},
+                                                                                {key, ssl_test_lib:hardcode_rsa_key(3)}]},
                                                                  client_chain => 
-                                                                     #{root => [],
-                                                                       intermediates => [[]],
-                                                                       peer => []}}),
+                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
+                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
+                                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
     successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], Hostname, Config),
     successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config).
- 
+
 no_ip_fallback(Config) ->
     Hostname = net_adm:localhost(),
     {ok, #hostent{h_addr_list = [IP |_]}} = inet:gethostbyname(net_adm:localhost()),
     #{server_config := ServerConf,
       client_config := ClientConf} = public_key:pkix_test_data(#{server_chain => 
-                                                                     #{root => [],
-                                                                       intermediates => [[]],
+                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
                                                                        peer => [{extensions, [#'Extension'{extnID = 
                                                                                                                ?'id-ce-subjectAltName',
                                                                                                            extnValue = [{dNSName, Hostname}],
-                                                                                                           critical = false}]}
+                                                                                                           critical = false}]},
+                                                                                {key, ssl_test_lib:hardcode_rsa_key(3)}
                                                                                ]},
                                                                  client_chain => 
-                                                                     #{root => [],
-                                                                       intermediates => [[]],
-                                                                       peer => []}}),
+                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
+                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
+                                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
     successfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], Hostname, Config),
     unsuccessfull_connect(ServerConf, [{verify, verify_peer} | ClientConf], IP, Config).
- 
+
 dns_name_reuse(Config) ->
     SNIHostname = "OTP.test.server",
     #{server_config := ServerConf,
       client_config := ClientConf} = public_key:pkix_test_data(#{server_chain => 
-                                                                     #{root => [],
-                                                                       intermediates => [[]],
+                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
                                                                        peer => [{extensions,  [#'Extension'{extnID = 
                                                                                                                 ?'id-ce-subjectAltName',
                                                                                                             extnValue = [{dNSName, SNIHostname}],
-                                                                                                            critical = false}]}]},
+                                                                                                            critical = false}
+                                                                                              ]},
+                                                                                {key, ssl_test_lib:hardcode_rsa_key(3)}
+                                                                               ]},
                                                                  client_chain => 
-                                                                     #{root => [],
-                                                                       intermediates => [[]],
-                                                                       peer => []}}),
+                                                                     #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
+                                                                       intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
+                                                                       peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
     
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
   
@@ -215,11 +220,10 @@ dns_name_reuse(Config) ->
 				   {mfa, {ssl_test_lib, no_result, []}},
                                    {from, self()}, {options, [{verify, verify_peer}, 
                                                               {server_name_indication, SNIHostname} | ClientConf]}]),   
-    SessionInfo = 
-        receive
-	    {Server, Info} ->
-		Info
-	end,
+    receive
+        {Server, _} ->
+            ok
+    end,
     
     Server ! {listen, {mfa, {ssl_test_lib, no_result, []}}},
     
@@ -232,8 +236,7 @@ dns_name_reuse(Config) ->
                                          {mfa, {ssl_test_lib, session_info_result, []}},
                                          {from, self()},  {options, [{verify, verify_peer} | ClientConf]}]),
     
-    ssl_test_lib:check_result(Server, {error, {tls_alert, "handshake failure"}},
-                              Client1, {error, {tls_alert, "handshake failure"}}),
+    ssl_test_lib:check_result(Client1, {error, {tls_alert, "handshake failure"}}),
     ssl_test_lib:close(Client0).
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
