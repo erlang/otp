@@ -77,7 +77,7 @@
 	 hanging_restart_loop_rest_for_one/1,
 	 hanging_restart_loop_simple/1, code_change/1, code_change_map/1,
 	 code_change_simple/1, code_change_simple_map/1,
-         order_of_children/1]).
+         order_of_children/1, scale_start_stop_many_children/1]).
 
 %%-------------------------------------------------------------------------
 
@@ -104,7 +104,7 @@ all() ->
      simple_global_supervisor, hanging_restart_loop,
      hanging_restart_loop_rest_for_one, hanging_restart_loop_simple,
      code_change, code_change_map, code_change_simple, code_change_simple_map,
-     order_of_children].
+     order_of_children, scale_start_stop_many_children].
 
 groups() -> 
     [{sup_start, [],
@@ -2334,6 +2334,61 @@ order_of_children(_Config) ->
             dbg:stop_clear(),
             ct:fail({shutdown_fail,timeout})
     end,
+    ok.
+
+%% Test that a non-simple supervisor scales well for starting and
+%% stopping many children.
+scale_start_stop_many_children(_Config) ->
+    process_flag(trap_exit, true),
+    {ok, _Pid}  = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    N1 = 1000,
+    N2 = 100000,
+    Ids1 = lists:seq(1,N1),
+    Ids2 = lists:seq(1,N2),
+    Children1 = [{Id,{supervisor_1,start_child,[]},permanent,1000,worker,[]} ||
+                    Id <- Ids1],
+    Children2 = [{Id,{supervisor_1,start_child,[]},permanent,1000,worker,[]} ||
+                    Id <- Ids2],
+
+    {StartT1,_} =
+        timer:tc(fun() ->
+                         [supervisor:start_child(sup_test,C) || C <- Children1]
+                 end),
+    {StopT1,_} =
+        timer:tc(fun() ->
+                         [supervisor:terminate_child(sup_test,I) || I <- Ids1]
+                 end),
+    ct:log("~w children, start time: ~w ms, stop time: ~w ms",
+           [N1, StartT1 div 1000, StopT1 div 1000]),
+
+    {StartT2,_} =
+        timer:tc(fun() ->
+                         [supervisor:start_child(sup_test,C) || C <- Children2]
+                 end),
+    {StopT2,_} =
+        timer:tc(fun() ->
+                         [supervisor:terminate_child(sup_test,I) || I <- Ids2]
+                 end),
+    ct:log("~w children, start time: ~w ms, stop time: ~w ms",
+           [N2, StartT2 div 1000, StopT2 div 1000]),
+
+    %% Scaling should be more or less linear, but allowing a bit more
+    %% to avoid false alarms
+    ScaleLimit = (N2 div N1) * 10,
+    StartScale = StartT2 div StartT1,
+    StopScale = StopT2 div StopT1,
+
+    ct:log("Scale limit: ~w~nStart scale: ~w~nStop scale: ~w",
+           [ScaleLimit, StartScale, StopScale]),
+
+    if StartScale > ScaleLimit ->
+            ct:fail({bad_start_scale,StartScale});
+       StopScale > ScaleLimit ->
+            ct:fail({bad_stop_scale,StopScale});
+       true ->
+            ok
+    end,
+
     ok.
 
 %%-------------------------------------------------------------------------
