@@ -2199,13 +2199,16 @@ static int inet_reply_ok(inet_descriptor* desc)
     ErlDrvTermData caller = desc->caller;
     int i = 0;
     
+    desc->caller = 0;
+    if (is_not_internal_pid(caller))
+        return 0;
+
     i = LOAD_ATOM(spec, i, am_inet_reply);
     i = LOAD_PORT(spec, i, desc->dport);
     i = LOAD_ATOM(spec, i, am_ok);
     i = LOAD_TUPLE(spec, i, 3);
     ASSERT(i == sizeof(spec)/sizeof(*spec));
     
-    desc->caller = 0;
     return erl_drv_send_term(desc->dport, caller, spec, i);    
 }
 
