@@ -810,7 +810,7 @@ progress_dialog_destroy({Dialog,_,_}) ->
 
 make_obsbin(Bin,Tab) ->
     Size = byte_size(Bin),
-    Preview =
+    {Preview,PreviewBitSize} =
         try
             %% The binary might be a unicode string, in which case we
             %% don't want to split it in the middle of a grapheme
@@ -819,14 +819,14 @@ make_obsbin(Bin,Tab) ->
             PB1 = string:slice(Bin,0,PL1),
             PS1 = byte_size(PB1) * 8,
             <<P1:PS1>> = PB1,
-            P1
+            {P1,PS1}
         catch _:_ ->
                 %% Probably not a string, so just split anywhere
                 PS2 = min(Size, 10) * 8,
                 <<P2:PS2, _/binary>> = Bin,
-                P2
+                {P2,PS2}
         end,
     Hash = erlang:phash2(Bin),
     Key = {Preview, Size, Hash},
     ets:insert(Tab, {Key,Bin}),
-    ['#OBSBin',Preview,Size,Hash].
+    ['#OBSBin',Preview,PreviewBitSize,Size,Hash].
