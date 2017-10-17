@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2016. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -261,11 +261,11 @@ io_request({put_chars,latin1,M,F,As}, Drv, From, Buf) ->
     end;
 
 io_request({get_chars,Encoding,Prompt,N}, Drv, _From, Buf) ->
-    get_chars(Prompt, io_lib, collect_chars, N, Drv, Buf, Encoding);
+    get_chars_n(Prompt, io_lib, collect_chars, N, Drv, Buf, Encoding);
 io_request({get_line,Encoding,Prompt}, Drv, _From, Buf) ->
-    get_chars(Prompt, io_lib, collect_line, [], Drv, Buf, Encoding);
+    get_chars_line(Prompt, io_lib, collect_line, [], Drv, Buf, Encoding);
 io_request({get_until,Encoding, Prompt,M,F,As}, Drv, _From, Buf) ->
-    get_chars(Prompt, io_lib, get_until, {M,F,As}, Drv, Buf, Encoding);
+    get_chars_line(Prompt, io_lib, get_until, {M,F,As}, Drv, Buf, Encoding);
 io_request({get_password,_Encoding},Drv,_From,Buf) ->
     get_password_chars(Drv, Buf);
 io_request({setopts,Opts}, Drv, _From, Buf) when is_list(Opts) ->
@@ -434,7 +434,7 @@ getopts(Drv,Buf) ->
     {ok,[Exp,Echo,Bin,Uni],Buf}.
     
 
-%% get_chars(Prompt, Module, Function, XtraArgument, Drv, Buffer)
+%% get_chars_*(Prompt, Module, Function, XtraArgument, Drv, Buffer)
 %%  Gets characters from the input Drv until as the applied function
 %%  returns {stop,Result,Rest}. Does not block output until input has been
 %%  received.
@@ -452,12 +452,21 @@ get_password_chars(Drv,Buf) ->
 	    {exit, terminated}
     end.
 
-get_chars(Prompt, M, F, Xa, Drv, Buf, Encoding) ->
+get_chars_n(Prompt, M, F, Xa, Drv, Buf, Encoding) ->
+    Pbs = prompt_bytes(Prompt, Encoding),
+    case get(echo) of
+        true ->
+            get_chars_loop(Pbs, M, F, Xa, Drv, Buf, start, Encoding);
+        false ->
+            get_chars_n_loop(Pbs, M, F, Xa, Drv, Buf, start, Encoding)
+    end.
+
+get_chars_line(Prompt, M, F, Xa, Drv, Buf, Encoding) ->
     Pbs = prompt_bytes(Prompt, Encoding),
     get_chars_loop(Pbs, M, F, Xa, Drv, Buf, start, Encoding).
 
 get_chars_loop(Pbs, M, F, Xa, Drv, Buf0, State, Encoding) ->
-    Result = case get(echo) of 
+    Result = case get(echo) of
 		 true ->
 		     get_line(Buf0, Pbs, Drv, Encoding);
 		 false ->
@@ -466,8 +475,8 @@ get_chars_loop(Pbs, M, F, Xa, Drv, Buf0, State, Encoding) ->
 		     get_line_echo_off(Buf0, Pbs, Drv)
 	     end,
     case Result of
-	{done,Line,Buf1} ->
-	    get_chars_apply(Pbs, M, F, Xa, Drv, Buf1, State, Line, Encoding);
+	{done,Line,Buf} ->
+            get_chars_apply(Pbs, M, F, Xa, Drv, Buf, State, Line, Encoding);
 	interrupted ->
 	    {error,{error,interrupted},[]};
 	terminated ->
@@ -476,12 +485,29 @@ get_chars_loop(Pbs, M, F, Xa, Drv, Buf0, State, Encoding) ->
 
 get_chars_apply(Pbs, M, F, Xa, Drv, Buf, State0, Line, Encoding) ->
     case catch M:F(State0, cast(Line,get(read_mode), Encoding), Encoding, Xa) of
-	{stop,Result,Rest} ->
-	    {ok,Result,append(Rest, Buf, Encoding)};
-	{'EXIT',_} ->
-	    {error,{error,err_func(M, F, Xa)},[]};
-	State1 ->
-	    get_chars_loop(Pbs, M, F, Xa, Drv, Buf, State1, Encoding)
+        {stop,Result,Rest} ->
+            {ok,Result,append(Rest, Buf, Encoding)};
+        {'EXIT',_} ->
+            {error,{error,err_func(M, F, Xa)},[]};
+        State1 ->
+            get_chars_loop(Pbs, M, F, Xa, Drv, Buf, State1, Encoding)
+    end.
+
+get_chars_n_loop(Pbs, M, F, Xa, Drv, Buf0, State, Encoding) ->
+    try M:F(State, cast(Buf0, get(read_mode), Encoding), Encoding, Xa) of
+        {stop,Result,Rest} ->
+            {ok, Result, Rest};
+        State1 ->
+            case get_chars_echo_off(Pbs, Drv) of
+                interrupted ->
+                    {error,{error,interrupted},[]};
+                terminated ->
+                    {exit,terminated};
+                Buf ->
+                    get_chars_n_loop(Pbs, M, F, Xa, Drv, Buf, State1, Encoding)
+            end
+    catch _:_ ->
+            {error,{error,err_func(M, F, Xa)},[]}
     end.
 
 %% Convert error code to make it look as before
@@ -683,6 +709,29 @@ get_line_echo_off1({Chars,[]}, Drv) ->
     end;
 get_line_echo_off1({Chars,Rest}, _Drv) ->
     {done,lists:reverse(Chars),case Rest of done -> []; _ -> Rest end}.
+
+get_chars_echo_off(Pbs, Drv) ->
+    send_drv_reqs(Drv, [{put_chars, unicode,Pbs}]),
+    get_chars_echo_off1(Drv).
+
+get_chars_echo_off1(Drv) ->
+    receive
+        {Drv, {data, Cs}} ->
+            Cs;
+	{Drv, eof} ->
+            eof;
+	{io_request,From,ReplyAs,Req} when is_pid(From) ->
+	    io_request(Req, From, ReplyAs, Drv, []),
+	    get_chars_echo_off1(Drv);
+        {reply,{{From,ReplyAs},Reply}} when From =/= undefined ->
+            %% We take care of replies from puts here as well
+            io_reply(From, ReplyAs, Reply),
+            get_chars_echo_off1(Drv);
+	{'EXIT',Drv,interrupt} ->
+	    interrupted;
+	{'EXIT',Drv,_} ->
+	    terminated
+    end.
 
 %% We support line editing for the ICANON mode except the following
 %% line editing characters, which already has another meaning in
