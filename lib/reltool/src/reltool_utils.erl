@@ -154,7 +154,12 @@ default_rels() ->
 	  rel_apps = []},
      #rel{name = "start_sasl",
 	  vsn = "1.0",
-	  rel_apps = [#rel_app{name = sasl}]}
+          rel_apps = [#rel_app{name = sasl}]},
+     #rel{name = "no_dot_erlang", %% Needed by escript and erlc
+          vsn = "1.0",
+          rel_apps = [],
+          load_dot_erlang = false
+         }
     ].
 
 choose_default(Tag, Profile, InclDefs)

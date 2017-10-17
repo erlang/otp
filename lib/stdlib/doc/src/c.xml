@@ -94,6 +94,15 @@
     </func>
 
     <func>
+      <name name="erlangrc" arity="1"/>
+      <fsummary>Load an erlang resource file.</fsummary>
+      <desc>
+        <p>Search <c>PathList</c> and load <c>.erlang</c> resource file if
+	found.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="flush" arity="0"/>
       <fsummary>Flush any messages sent to the shell.</fsummary>
       <desc>

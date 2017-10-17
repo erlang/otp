@@ -1835,24 +1835,32 @@ otp_10463_upgrade_script_regexp(cleanup,Config) ->
     code:del_path(filename:join([DataDir,regexp_appup,app1,ebin])),
     ok.
 
-no_dot_erlang(Conf) ->
-    PrivDir = ?config(data_dir,Conf),
-    {ok, OrigWd} = file:get_cwd(),
+no_dot_erlang(_Conf) ->
+    case init:get_argument(home) of
+        {ok,[[Home]]} when is_list(Home) ->
+            no_dot_erlang_1(Home);
+        _ -> ok
+    end.
+
+no_dot_erlang_1(Home) ->
+    DotErlang = filename:join(Home, ".erlang"),
+    BupErlang = filename:join(Home, ".erlang_testbup"),
     try
-	ok = file:set_cwd(PrivDir),
-
-	{ok, Wd} = file:get_cwd(),
-	io:format("Dir ~ts~n", [Wd]),
-
+        {ok, Wd} = file:get_cwd(),
+        case filelib:is_file(DotErlang) of
+            true -> {ok, _} = file:copy(DotErlang, BupErlang);
+            false -> ok
+        end,
 	Erl0 =  filename:join([code:root_dir(),"bin","erl"]),
 	Erl = filename:nativename(Erl0),
 	Quote = "\"",
 	Args = " -noinput -run c pwd -run erlang halt",
-	ok = file:write_file(".erlang", <<"io:put_chars(\"DOT_ERLANG_READ\\n\").\n">>),
+	ok = file:write_file(DotErlang, <<"io:put_chars(\"DOT_ERLANG_READ\\n\").\n">>),
 
 	CMD1 = Quote ++ Erl ++ Quote ++ Args ,
 	case os:cmd(CMD1) of
-	    "DOT_ERLANG_READ" ++ _ -> ok;
+	    "DOT_ERLANG_READ" ++ _ ->
+                io:format("~p: Success~n", [?LINE]);
 	    Other1 ->
 		io:format("Failed: ~ts~n",[CMD1]),
 		io:format("Expected: ~s ++ _~n",["DOT_ERLANG_READ "]),
@@ -1862,7 +1870,7 @@ no_dot_erlang(Conf) ->
 	NO_DOT_ERL = " -boot no_dot_erlang",
 	CMD2 = Quote ++ Erl ++ Quote ++ NO_DOT_ERL ++ Args,
 	case lists:prefix(Wd, Other2 = os:cmd(CMD2)) of
-	    true -> ok;
+	    true -> io:format("~p: Success~n", [?LINE]);
 	    false ->
 		io:format("Failed: ~ts~n",[CMD2]),
 		io:format("Expected: ~s~n",["TESTOK"]),
@@ -1870,9 +1878,13 @@ no_dot_erlang(Conf) ->
 		exit({failed_to_start, no_dot_erlang})
 	end
     after
-	_ = file:delete(".erlang"),
-	ok = file:set_cwd(OrigWd),
-	ok
+        case filelib:is_file(BupErlang) of
+            true ->
+                {ok, _} = file:copy(BupErlang, DotErlang),
+                _ = file:delete(BupErlang);
+            false ->
+                _ = file:delete(DotErlang)
+        end
     end.
 
 %%%-----------------------------------------------------------------

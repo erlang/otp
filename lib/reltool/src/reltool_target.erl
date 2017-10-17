@@ -424,7 +424,7 @@ gen_script(Rel, Sys, PathFlag, Variables) ->
             {error, Text}
     end.
 
-do_gen_script(#rel{name = RelName, vsn = RelVsn},
+do_gen_script(#rel{name = RelName, vsn = RelVsn, load_dot_erlang=LoadErlangRc},
               #sys{apps = Apps},
 	      MergedApps,
               PathFlag,
@@ -474,9 +474,11 @@ do_gen_script(#rel{name = RelName, vsn = RelVsn},
              Type =/= none,
              Type =/= load,
              not lists:member(Name, InclApps)],
-
          %% Apply user specific customizations
-         {apply, {c, erlangrc, []}},
+         case LoadErlangRc of
+             true -> {apply, {c, erlangrc, []}};
+             false -> []
+         end,
          {progress, started}
         ],
     {ok, {script, {RelName, RelVsn}, lists:flatten(DeepList)}}.

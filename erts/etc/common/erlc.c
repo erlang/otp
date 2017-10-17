@@ -234,7 +234,7 @@ int main(int argc, char** argv)
     PUSH("+A0");
     PUSH("-noinput");
     PUSH2("-mode", "minimal");
-    PUSH2("-boot", "start_clean");
+    PUSH2("-boot", "no_dot_erlang");
     PUSH3("-s", "erl_compile", "compile_cmdline");
     PUSH("-extra");
 

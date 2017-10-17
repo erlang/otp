@@ -1641,9 +1641,7 @@
       <tag>The <c>.erlang</c> startup file</tag>
       <item>
         <p>When Erlang/OTP is started, the system searches for a file named
-          <c>.erlang</c> in the directory where Erlang/OTP is started. If not
-          found, the user's home directory is searched for an <c>.erlang</c>
-          file.</p>
+        <c>.erlang</c> in the user's home directory.</p>
         <p>If an <c>.erlang</c> file is found, it is assumed to contain valid
           Erlang expressions. These expressions are evaluated as if they were
           input to the shell.</p>
