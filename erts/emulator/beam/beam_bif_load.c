@@ -768,35 +768,44 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     ErtsCodeIndex code_ix;
     Module* modp;
 
+    if (BIF_ARG_2 != am_false && BIF_ARG_2 != am_true) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+
     if (!erts_try_seize_code_write_permission(BIF_P)) {
 	ERTS_BIF_YIELD2(bif_export[BIF_finish_after_on_load_2],
 			BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
 
-    /* ToDo: Use code_ix staging instead of thread blocking */
-
-    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_thr_progress_block();
-
     code_ix = erts_active_code_ix();
     modp = erts_get_module(BIF_ARG_1, code_ix);
 
-    if (!modp || !modp->on_load || !modp->on_load->code_hdr) {
-    error:
-	erts_thr_progress_unblock();
-        erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    if (!modp || !modp->on_load || !modp->on_load->code_hdr
+	|| !modp->on_load->code_hdr->on_load_function_ptr) {
+
 	erts_release_code_write_permission();
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if (modp->on_load->code_hdr->on_load_function_ptr == NULL) {
-	goto error;
-    }
-    if (BIF_ARG_2 != am_false && BIF_ARG_2 != am_true) {
-	goto error;
-    }
 
     if (BIF_ARG_2 == am_true) {
+	struct m mods[1];
+	int is_blocking = 0;
 	int i, num_exps;
+
+	erts_start_staging_code_ix(0);
+	code_ix = erts_staging_code_ix();
+	modp = erts_get_module(BIF_ARG_1, code_ix);
+
+	ASSERT(modp && modp->on_load && modp->on_load->code_hdr
+	       && modp->on_load->code_hdr->on_load_function_ptr);
+
+        if (erts_is_default_trace_enabled()
+	    || IF_HIPE(hipe_need_blocking(modp))) {
+
+            erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+            erts_thr_progress_block();
+            is_blocking = 1;
+	}
 
 	/*
 	 * Make the code with the on_load function current.
@@ -831,11 +840,13 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	    }
 	}
 	modp->curr.code_hdr->on_load_function_ptr = NULL;
-	set_default_trace_pattern(BIF_ARG_1);
-      #ifdef HIPE
-        hipe_redirect_to_module(modp);
-      #endif
-    } else if (BIF_ARG_2 == am_false) {
+
+	mods[0].modp = modp;
+	mods[0].module = BIF_ARG_1;
+        mods[0].exception = THE_NON_VALUE;
+	return staging_epilogue(BIF_P, 1, am_true, is_blocking, mods, 1, 0);
+    }
+    else if (BIF_ARG_2 == am_false) {
 	int i, num_exps;
 
 	/*
@@ -855,8 +866,6 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	    ep->beam[1] = 0;
 	}
     }
-    erts_thr_progress_unblock();
-    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_release_code_write_permission();
     BIF_RET(am_true);
 }

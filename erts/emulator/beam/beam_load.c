@@ -806,11 +806,6 @@ erts_finish_loading(Binary* magic, Process* c_p,
     struct erl_module_instance* inst_p;
     Uint size;
 
-    /*
-     * No other process may run since we will update the export
-     * table which is not protected by any locks.
-     */
-
     ERTS_LC_ASSERT(erts_initialized == 0 || erts_has_code_write_permission() ||
 		       erts_thr_progress_is_blocking());
     /*
