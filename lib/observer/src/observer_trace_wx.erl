@@ -1201,7 +1201,7 @@ make_ms(MS) ->
     make_ms(Name,Term,FunStr).
 
 make_ms(Name, Term, FunStr) ->
-    #match_spec{name=Name, term=Term, str=io_lib:format("~tw", Term), func = FunStr}.
+    #match_spec{name=Name, term=Term, str=io_lib:format("~tw", [Term]), func = FunStr}.
 
 parse_tp({tp, Mod, FAs}, State) ->
     Patterns = [#tpattern{m=Mod,fa={F,A}, ms=make_ms(List)} ||

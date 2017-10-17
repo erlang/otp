@@ -64,15 +64,12 @@ do_gen_pem_config_files(Config, CertFile, KeyFile, CAFile) ->
 cert_entry(Cert) ->
     {'Certificate', Cert, not_encrypted}.
 
-key_entry(Key = #'RSAPrivateKey'{}) ->
-    Der = public_key:der_encode('RSAPrivateKey', Key),
-    {'RSAPrivateKey', Der, not_encrypted};
-key_entry(Key = #'DSAPrivateKey'{}) ->
-    Der =  public_key:der_encode('DSAPrivateKey', Key),
-    {'DSAPrivateKey', Der, not_encrypted};
-key_entry(Key = #'ECPrivateKey'{}) ->
-    Der =  public_key:der_encode('ECPrivateKey', Key),
-    {'ECPrivateKey', Der, not_encrypted}.
+key_entry({'RSAPrivateKey', DERKey}) ->
+    {'RSAPrivateKey', DERKey, not_encrypted};
+key_entry({'DSAPrivateKey', DERKey}) ->
+    {'DSAPrivateKey', DERKey, not_encrypted};
+key_entry({'ECPrivateKey', DERKey}) ->
+    {'ECPrivateKey', DERKey, not_encrypted}.
 
 ca_entries(CAs) ->
     [{'Certificate', CACert, not_encrypted} || CACert <- CAs].
