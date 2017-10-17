@@ -70,7 +70,10 @@
 	t_bad_update/1,
 
         %% new in OTP 21
-        t_reused_key_variable/1
+        t_reused_key_variable/1,
+
+        %% new in OTP 22
+        t_mixed_clause/1
     ]).
 
 suite() -> [].
@@ -124,7 +127,10 @@ all() ->
         t_bad_update,
 
         %% new in OTP 21
-        t_reused_key_variable
+        t_reused_key_variable,
+
+        %% new in OTP 22
+        t_mixed_clause
     ].
 
 groups() -> [].
@@ -2160,6 +2166,21 @@ t_reused_key_variable(Config) when is_list(Config) ->
         {#{Key:=Same},#{Key:=Same}} ->
             ok
     end.
+
+t_mixed_clause(_Config) ->
+    put(fool_inliner, x),
+    K = get(fool_inliner),
+    {42,100} = case #{K=>42,y=>100} of
+                   #{x:=X,y:=Y} ->
+                       {X,Y}
+               end,
+    nomatch = case #{K=>42,y=>100} of
+                  #{x:=X,y:=0} ->
+                      {X,Y};
+                  #{} ->
+                      nomatch
+              end,
+    ok.
 
 %% aux
 
