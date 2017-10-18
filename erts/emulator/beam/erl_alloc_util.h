@@ -580,6 +580,11 @@ struct Allctr_t_ {
             CallCounter_t       fail_pend_dealloc;
             CallCounter_t       fail;
             CallCounter_t       fetch;
+	    CallCounter_t       skip_size;
+	    CallCounter_t       skip_busy;
+	    CallCounter_t       skip_not_pooled;
+	    CallCounter_t       skip_traitor;
+	    CallCounter_t       skip_race;
 	} stat;
     } cpool;
 #endif

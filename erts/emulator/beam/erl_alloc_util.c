@@ -3279,8 +3279,16 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 	ASSERT(crr->cpool.orig_allctr == allctr);
 	dl = dl->next;
 	exp = erts_smp_atomic_read_rb(&crr->allctr);
-	if ((exp & ERTS_CRR_ALCTR_FLG_MASK) == ERTS_CRR_ALCTR_FLG_IN_POOL
-	    && erts_atomic_read_nob(&crr->cpool.max_size) >= size) {
+        if (erts_atomic_read_nob(&crr->cpool.max_size) < size) {
+            INC_CC(allctr->cpool.stat.skip_size);
+        }
+        else if ((exp & ERTS_CRR_ALCTR_FLG_MASK) != ERTS_CRR_ALCTR_FLG_IN_POOL) {
+            if (exp & ERTS_CRR_ALCTR_FLG_BUSY)
+                INC_CC(allctr->cpool.stat.skip_busy);
+            else
+                INC_CC(allctr->cpool.stat.skip_not_pooled);
+        }
+        else {
 	    /* Try to fetch it... */
 	    act = erts_smp_atomic_cmpxchg_mb(&crr->allctr,
 					     (erts_aint_t) allctr,
@@ -3327,22 +3335,27 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 	dl = dl->next;
 	exp = erts_smp_atomic_read_rb(&crr->allctr);
 	if (exp & ERTS_CRR_ALCTR_FLG_IN_POOL) {
-	    if (!(exp & ERTS_CRR_ALCTR_FLG_BUSY)
-		&& erts_atomic_read_nob(&crr->cpool.max_size) >= size) {
-		/* Try to fetch it... */
-		act = erts_smp_atomic_cmpxchg_mb(&crr->allctr,
-						 (erts_aint_t) allctr,
-						 exp);
-		if (act == exp) {
-		    cpool_delete(allctr, ((Allctr_t *) (act & ~ERTS_CRR_ALCTR_FLG_MASK)), crr);
-		    unlink_abandoned_carrier(crr);
+            if (erts_atomic_read_nob(&crr->cpool.max_size) < size) {
+                INC_CC(allctr->cpool.stat.skip_size);
+            }
+            else if (exp & ERTS_CRR_ALCTR_FLG_BUSY) {
+                INC_CC(allctr->cpool.stat.skip_busy);
+            }
+            else {
+                /* Try to fetch it... */
+                act = erts_smp_atomic_cmpxchg_mb(&crr->allctr,
+                                                 (erts_aint_t) allctr,
+                                                 exp);
+                if (act == exp) {
+                    cpool_delete(allctr, ((Allctr_t *) (act & ~ERTS_CRR_ALCTR_FLG_MASK)), crr);
+                    unlink_abandoned_carrier(crr);
 
-		    /* Move sentinel to continue next search from here */
-		    relink_edl_before(dl, &allctr->cpool.traitor_list);
-		    return crr;
-		}
-		exp = act;
-	    }
+                    /* Move sentinel to continue next search from here */
+                    relink_edl_before(dl, &allctr->cpool.traitor_list);
+                    return crr;
+                }
+                exp = act;
+            }
 	    if (exp & ERTS_CRR_ALCTR_FLG_IN_POOL) {
 		if (!cpool_entrance)
 		    cpool_entrance = &crr->cpool;
@@ -3352,6 +3365,9 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 		link_abandoned_carrier(&allctr->cpool.pooled_list, crr);
 	    }
 	}
+        else {
+            INC_CC(allctr->cpool.stat.skip_traitor);
+        }
 	if (--i <= i_stop) {
 	    /* Move sentinel to continue next search from here */
 	    relink_edl_before(dl, &allctr->cpool.traitor_list);
@@ -3409,8 +3425,17 @@ cpool_fetch(Allctr_t *allctr, UWord size)
 	}
 	crr = (Carrier_t *)(((char *)cpdp) - offsetof(Carrier_t, cpool));
 	exp = erts_smp_atomic_read_rb(&crr->allctr);
-	if (((exp & (ERTS_CRR_ALCTR_FLG_MASK)) == ERTS_CRR_ALCTR_FLG_IN_POOL)
-	    && (erts_atomic_read_nob(&cpdp->max_size) >= size)) {
+
+        if (erts_atomic_read_nob(&cpdp->max_size) < size) {
+            INC_CC(allctr->cpool.stat.skip_size);
+        }
+        else if ((exp & (ERTS_CRR_ALCTR_FLG_MASK)) != ERTS_CRR_ALCTR_FLG_IN_POOL) {
+            if (exp & ERTS_CRR_ALCTR_FLG_BUSY)
+                INC_CC(allctr->cpool.stat.skip_busy);
+            else
+                INC_CC(allctr->cpool.stat.skip_race);
+        }
+	else {
 	    erts_aint_t act;
 	    /* Try to fetch it... */
 	    act = erts_smp_atomic_cmpxchg_mb(&crr->allctr,
@@ -4269,6 +4294,11 @@ static struct {
     Eterm fail_shared;
     Eterm fail_pend_dealloc;
     Eterm fail;
+    Eterm skip_size;
+    Eterm skip_busy;
+    Eterm skip_not_pooled;
+    Eterm skip_traitor;
+    Eterm skip_race;
 #endif
     Eterm sbcs;
 
@@ -4365,6 +4395,11 @@ init_atoms(Allctr_t *allctr)
         AM_INIT(fail_shared);
         AM_INIT(fail_pend_dealloc);
         AM_INIT(fail);
+        AM_INIT(skip_size);
+        AM_INIT(skip_busy);
+        AM_INIT(skip_not_pooled);
+        AM_INIT(skip_traitor);
+        AM_INIT(skip_race);
 #endif
 	AM_INIT(sbcs);
 
@@ -4675,6 +4710,25 @@ info_cpool(Allctr_t *allctr,
                  bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.fetch)),
                  bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.fetch)));
 
+        add_3tup(hpp, szp, &res, am.skip_size,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.skip_size)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.skip_size)));
+
+        add_3tup(hpp, szp, &res, am.skip_busy,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.skip_busy)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.skip_busy)));
+
+        add_3tup(hpp, szp, &res, am.skip_not_pooled,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.skip_not_pooled)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.skip_not_pooled)));
+
+        add_3tup(hpp, szp, &res, am.skip_traitor,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.skip_traitor)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.skip_traitor)));
+
+        add_3tup(hpp, szp, &res, am.skip_race,
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_GIGA_VAL(allctr->cpool.stat.skip_race)),
+                 bld_unstable_uint(hpp, szp, ERTS_ALC_CC_VAL(allctr->cpool.stat.skip_race)));
 
 	add_2tup(hpp, szp, &res,
 		 am.carriers_size,
