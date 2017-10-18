@@ -24,7 +24,7 @@
 
 -export([send/3, listen/3, accept/3, connect/4, socket/4, setopts/3, getopts/3, getstat/3, 
 	 peername/2, sockname/2, port/2, close/2]).
--export([emulated_options/0, internal_inet_values/0, default_inet_values/0, default_cb_info/0]).
+-export([emulated_options/0, emulated_options/1, internal_inet_values/0, default_inet_values/0, default_cb_info/0]).
 
 send(Transport, {{IP,Port},Socket}, Data) ->
     Transport:send(Socket, IP, Port, Data).
@@ -133,6 +133,9 @@ port(Transport, Socket) ->
 emulated_options() ->
     [mode, active,  packet, packet_size].
 
+emulated_options(Opts) ->
+      emulated_options(Opts, internal_inet_values(), default_inet_values()).
+
 internal_inet_values() ->
     [{active, false}, {mode,binary}].
 
@@ -158,3 +161,29 @@ emulated_socket_options(InetValues, #socket_options{
        packet_size = proplists:get_value(packet_size, InetValues, PacketSize),
        active = proplists:get_value(active, InetValues, Active)
       }.
+
+emulated_options([{mode, Value} = Opt |Opts], Inet, Emulated) ->
+    validate_inet_option(mode, Value),
+    emulated_options(Opts, Inet, [Opt | proplists:delete(mode, Emulated)]);
+emulated_options([{header, _} = Opt | _], _, _) ->
+    throw({error, {options, {not_supported, Opt}}});
+emulated_options([{active, Value} = Opt |Opts], Inet, Emulated) ->
+    validate_inet_option(active, Value),
+    emulated_options(Opts, Inet, [Opt | proplists:delete(active, Emulated)]);
+emulated_options([{packet, _} = Opt | _], _, _) ->
+    throw({error, {options, {not_supported, Opt}}});
+emulated_options([{packet_size, _} = Opt | _], _, _) ->
+    throw({error, {options, {not_supported, Opt}}});
+emulated_options([Opt|Opts], Inet, Emulated) ->
+    emulated_options(Opts, [Opt|Inet], Emulated);
+emulated_options([], Inet,Emulated) ->
+    {Inet, Emulated}.
+
+validate_inet_option(mode, Value)
+  when Value =/= list, Value =/= binary ->
+    throw({error, {options, {mode,Value}}});
+validate_inet_option(active, Value)
+  when Value =/= true, Value =/= false, Value =/= once ->
+    throw({error, {options, {active,Value}}});
+validate_inet_option(_, _) ->
+    ok.

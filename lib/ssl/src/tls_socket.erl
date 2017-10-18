@@ -27,7 +27,7 @@
 -export([send/3, listen/3, accept/3, socket/5, connect/4, upgrade/3,
 	 setopts/3, getopts/3, getstat/3, peername/2, sockname/2, port/2]).
 -export([split_options/1, get_socket_opts/3]).
--export([emulated_options/0, internal_inet_values/0, default_inet_values/0,
+-export([emulated_options/0, emulated_options/1, internal_inet_values/0, default_inet_values/0,
 	 init/1, start_link/3, terminate/2, inherit_tracker/3, 
 	 emulated_socket_options/2, get_emulated_opts/1, 
 	 set_emulated_opts/2, get_all_opts/1, handle_call/3, handle_cast/2,
@@ -169,6 +169,9 @@ port(Transport, Socket) ->
 
 emulated_options() ->
     [mode, packet, active, header, packet_size].
+
+emulated_options(Opts) ->
+      emulated_options(Opts, internal_inet_values(), default_inet_values()).
 
 internal_inet_values() ->
     [{packet_size,0}, {packet, 0}, {header, 0}, {active, false}, {mode,binary}].
@@ -328,3 +331,41 @@ emulated_socket_options(InetValues, #socket_options{
        packet = proplists:get_value(packet, InetValues, Packet),
        packet_size = proplists:get_value(packet_size, InetValues, Size)
       }.
+
+emulated_options([{mode, Value} = Opt |Opts], Inet, Emulated) ->
+    validate_inet_option(mode, Value),
+    emulated_options(Opts, Inet, [Opt | proplists:delete(mode, Emulated)]);
+emulated_options([{header, Value} = Opt | Opts], Inet, Emulated) ->
+    validate_inet_option(header, Value),
+    emulated_options(Opts, Inet,  [Opt | proplists:delete(header, Emulated)]);
+emulated_options([{active, Value} = Opt |Opts], Inet, Emulated) ->
+    validate_inet_option(active, Value),
+    emulated_options(Opts, Inet, [Opt | proplists:delete(active, Emulated)]);
+emulated_options([{packet, Value} = Opt |Opts], Inet, Emulated) ->
+    validate_inet_option(packet, Value),
+    emulated_options(Opts, Inet, [Opt | proplists:delete(packet, Emulated)]);
+emulated_options([{packet_size, Value} = Opt | Opts], Inet, Emulated) ->
+    validate_inet_option(packet_size, Value),
+    emulated_options(Opts, Inet, [Opt | proplists:delete(packet_size, Emulated)]);
+emulated_options([Opt|Opts], Inet, Emulated) ->
+    emulated_options(Opts, [Opt|Inet], Emulated);
+emulated_options([], Inet,Emulated) ->
+    {Inet, Emulated}.
+
+validate_inet_option(mode, Value)
+  when Value =/= list, Value =/= binary ->
+    throw({error, {options, {mode,Value}}});
+validate_inet_option(packet, Value)
+  when not (is_atom(Value) orelse is_integer(Value)) ->
+    throw({error, {options, {packet,Value}}});
+validate_inet_option(packet_size, Value)
+  when not is_integer(Value) ->
+    throw({error, {options, {packet_size,Value}}});
+validate_inet_option(header, Value)
+  when not is_integer(Value) ->
+    throw({error, {options, {header,Value}}});
+validate_inet_option(active, Value)
+  when Value =/= true, Value =/= false, Value =/= once ->
+    throw({error, {options, {active,Value}}});
+validate_inet_option(_, _) ->
+    ok.
