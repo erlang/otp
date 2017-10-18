@@ -21,8 +21,8 @@
 %% Multiple PRNG module for Erlang/OTP
 %% Copyright (c) 2015-2016 Kenji Rikitake
 %%
-%% exrop (xoroshiro116+) added and statistical distribution
-%% improvements by the Erlang/OTP team 2017
+%% exrop (xoroshiro116+) added, statistical distribution
+%% improvements and uniform_real added by the Erlang/OTP team 2017
 %% =====================================================================
 
 -module(rand).
@@ -30,9 +30,13 @@
 -export([seed_s/1, seed_s/2, seed/1, seed/2,
 	 export_seed/0, export_seed_s/1,
          uniform/0, uniform/1, uniform_s/1, uniform_s/2,
+         uniform_real/0, uniform_real_s/1,
          jump/0, jump/1,
 	     normal/0, normal/2, normal_s/1, normal_s/3
 	]).
+
+%% Debug
+-export([make_float/3, float2str/1, bc64/1]).
 
 -compile({inline, [exs64_next/1, exsplus_next/1,
 		   exs1024_next/1, exs1024_calc/2,
@@ -60,6 +64,10 @@
    %% N i evaluated 3 times
    (?BSL((Bits), (X), (N)) bor ((X) bsr ((Bits)-(N))))).
 
+-define(
+   BC(V, N),
+   bc((V), ?BIT((N) - 1), N)).
+
 %%-define(TWO_POW_MINUS53, (math:pow(2, -53))).
 -define(TWO_POW_MINUS53, 1.11022302462515657e-16).
 
@@ -84,14 +92,21 @@
 %% The 'bits' field indicates how many bits the integer
 %% returned from 'next' has got, i.e 'next' shall return
 %% an random integer in the range 0..(2^Bits - 1).
-%% At least 53 bits is required for the floating point
-%% producing fallbacks.  This field is only used when
-%% the 'uniform' or 'uniform_n' fields are not defined.
+%% At least 55 bits is required for the floating point
+%% producing fallbacks, but 56 bits would be more future proof.
 %%
 %% The fields 'next', 'uniform' and 'uniform_n'
-%% implement the algorithm.  If 'uniform' or 'uinform_n'
+%% implement the algorithm.  If 'uniform' or 'uniform_n'
 %% is not present there is a fallback using 'next' and either
-%% 'bits' or the deprecated 'max'.
+%% 'bits' or the deprecated 'max'.  The 'next' function
+%% must generate a word with at least 56 good random bits.
+%%
+%% The 'weak_low_bits' field indicate how many bits are of
+%% lesser quality and they will not be used by the floating point
+%% producing functions, nor by the range producing functions
+%% when more bits are needed, to avoid weak bits in the middle
+%% of the generated bits.  The lowest bits from the range
+%% functions still have the generator's quality.
 %%
 -type alg_handler() ::
         #{type := alg(),
@@ -148,11 +163,7 @@
 
 %% For ranges larger than the algorithm bit size
 uniform_range(Range, #{next:=Next, bits:=Bits} = Alg, R, V) ->
-    WeakLowBits =
-        case Alg of
-            #{weak_low_bits:=WLB} -> WLB;
-            #{} -> 0
-        end,
+    WeakLowBits = maps:get(weak_low_bits, Alg, 0),
     %% Maybe waste the lowest bit(s) when shifting in new bits
     Shift = Bits - WeakLowBits,
     ShiftMask = bnot ?MASK(WeakLowBits),
@@ -297,7 +308,7 @@ uniform_s({#{bits:=Bits, next:=Next} = Alg, R0}) ->
     {(V bsr (Bits - 53)) * ?TWO_POW_MINUS53, {Alg, R1}};
 uniform_s({#{max:=Max, next:=Next} = Alg, R0}) ->
     {V, R1} = Next(R0),
-    %% Old broken algorithm with non-uniform density
+    %% Old algorithm with non-uniform density
     {V / (Max + 1), {Alg, R1}}.
 
 
@@ -317,7 +328,7 @@ uniform_s(N, {#{bits:=Bits, next:=Next} = Alg, R0})
     ?uniform_range(N, Alg, R1, V, MaxMinusN, I);
 uniform_s(N, {#{max:=Max, next:=Next} = Alg, R0})
   when is_integer(N), 1 =< N ->
-    %% Old broken algorithm with skewed probability
+    %% Old algorithm with skewed probability
     %% and gap in ranges > Max
     {V, R1} = Next(R0),  
     if
@@ -327,6 +338,189 @@ uniform_s(N, {#{max:=Max, next:=Next} = Alg, R0})
             F = V / (Max + 1),
             {trunc(F * N) + 1, {Alg, R1}}
     end.
+
+%% uniform_real/0: returns a random float X where 0.0 < X =< 1.0,
+%% updating the state in the process dictionary.
+
+-spec uniform_real() -> X :: float().
+uniform_real() ->
+    {X, Seed} = uniform_real_s(seed_get()),
+    _ = seed_put(Seed),
+    X.
+
+%% uniform_real_s/1: given a state, uniform_s/1
+%% returns a random float X where 0.0 < X =< 1.0,
+%% and a new state.
+%%
+%% This function does not use the same form of uniformity
+%% as the uniform_s/1 function.
+%%
+%% Instead, this function does not generate numbers with equal
+%% distance in the interval, but rather tries to keep all mantissa
+%% bits random also for small numbers, meaning that the distance
+%% between possible numbers decreases when the numbers
+%% approaches 0.0, as does the possibility for a particular
+%% number.  Hence uniformity is preserved.
+%%
+%% To generate 56 bits at the time instead of 53 is actually
+%% a speed optimization since the probability to have to
+%% generate a second word decreases by 1/2 for every extra bit.
+%%
+%% This function generates normalized numbers, so the smallest number
+%% that can be generated is 2^-1022 with the distance 2^-1074
+%% to the next to smallest number, compared to 2^-53 for uniform_s/1.
+%%
+%% This concept of uniformity should work better for applications
+%% where you need to calculate 1.0/X or math:log(X) since those
+%% operations benefits from larger precision approaching 0.0,
+%% and that this function does not return 0.0 nor denormalized
+%% numbers very close to 0.0.  The log() operation in The Box-Muller
+%% transformation for normal distribution is an example of this.
+%%
+%%-define(TWO_POW_MINUS55, (math:pow(2, -55))).
+%%-define(TWO_POW_MINUS110, (math:pow(2, -110))).
+%%-define(TWO_POW_MINUS55, 2.7755575615628914e-17).
+%%-define(TWO_POW_MINUS110, 7.7037197775489436e-34).
+%%
+-spec uniform_real_s(State :: state()) -> {X :: float(), NewState :: state()}.
+uniform_real_s({#{bits:=Bits, next:=Next} = Alg, R0}) ->
+    %% Generate a 56 bit number without using the weak low bits.
+    %%
+    %% Be sure to use only 53 bits when multiplying with
+    %% math:pow(2.0, -N) to avoid rounding which would make
+    %% "even" floats more probable than "odd".
+    %%
+    {V1, R1} = Next(R0),
+    M1 = V1 bsr (Bits - 56),
+    if
+        ?BIT(55) =< M1 ->
+            %% We have 56 bits - waste 3
+            {(M1 bsr 3) * math:pow(2.0, -53), {Alg, R1}};
+        ?BIT(54) =< M1 ->
+            %% We have 55 bits - waste 2
+            {(M1 bsr 2) * math:pow(2.0, -54), {Alg, R1}};
+        ?BIT(53) =< M1 ->
+            %% We have 54 bits - waste 1
+            {(M1 bsr 1) * math:pow(2.0, -55), {Alg, R1}};
+        ?BIT(52) =< M1 ->
+            %% We have 53 bits - use all
+            {M1 * math:pow(2.0, -56), {Alg, R1}};
+        true ->
+            %% Need more bits
+            {V2, R2} = Next(R1),
+            uniform_real_s(Alg, Next, M1, -56, R2, V2, Bits)
+    end;
+uniform_real_s({#{max:=_, next:=Next} = Alg, R0}) ->
+    %% Generate a 56 bit number.
+    %% Ignore the weak low bits for these old algorithms,
+    %% just produce something reasonable.
+    %%
+    %% Be sure to use only 53 bits when multiplying with
+    %% math:pow(2.0, -N) to avoid rounding which would make
+    %% "even" floats more probable than "odd".
+    %%
+    {V1, R1} = Next(R0),
+    M1 = ?MASK(56, V1),
+    if
+        ?BIT(55) =< M1 ->
+            %% We have 56 bits - waste 3
+            {(M1 bsr 3) * math:pow(2.0, -53), {Alg, R1}};
+        ?BIT(54) =< M1 ->
+            %% We have 55 bits - waste 2
+            {(M1 bsr 2) * math:pow(2.0, -54), {Alg, R1}};
+        ?BIT(53) =< M1 ->
+            %% We have 54 bits - waste 1
+            {(M1 bsr 1) * math:pow(2.0, -55), {Alg, R1}};
+        ?BIT(52) =< M1 ->
+            %% We have 53 bits - use all
+            {M1 * math:pow(2.0, -56), {Alg, R1}};
+        true ->
+            %% Need more bits
+            {V2, R2} = Next(R1),
+            uniform_real_s(Alg, Next, M1, -56, R2, V2, 56)
+    end.
+
+uniform_real_s(Alg, _Next, M0, -1064, R1, V1, Bits) -> % 19*56
+    %% This is a very theoretical bottom case.
+    %% The odds of getting here is about 2^-1008,
+    %% through a white box test case, or thanks to
+    %% a malfunctioning PRNG producing 18 56-bit zeros in a row.
+    %%
+    %% Fill up to 53 bits, we have at most 52
+    B0 = (53 - ?BC(M0, 52)), % Missing bits
+    {(((M0 bsl B0) bor (V1 bsr (Bits - B0))) * math:pow(2.0, -1064 - B0)),
+     {Alg, R1}};
+uniform_real_s(Alg, Next, M0, BitNo, R1, V1, Bits) ->
+    if
+        %% Optimize the most probable.
+        %% Fill up to 53 bits.
+        ?BIT(51) =< M0 ->
+            %% We have 52 bits in M0 - need 1
+            {(((M0 bsl 1) bor (V1 bsr (Bits - 1)))
+              * math:pow(2.0, BitNo - 1)),
+             {Alg, R1}};
+        ?BIT(50) =< M0 ->
+            %% We have 51 bits in M0 - need 2
+            {(((M0 bsl 2) bor (V1 bsr (Bits - 2)))
+              * math:pow(2.0, BitNo - 2)),
+             {Alg, R1}};
+        ?BIT(49) =< M0 ->
+            %% We have 50 bits in M0 - need 3
+            {(((M0 bsl 3) bor (V1 bsr (Bits - 3)))
+              * math:pow(2.0, BitNo - 3)),
+             {Alg, R1}};
+        M0 == 0 ->
+            M1 = V1 bsr (Bits - 56),
+            if
+                ?BIT(55) =< M1 ->
+                    %% We have 56 bits - waste 3
+                    {(M1 bsr 3) * math:pow(2.0, BitNo - 53), {Alg, R1}};
+                ?BIT(54) =< M1 ->
+                    %% We have 55 bits - waste 2
+                    {(M1 bsr 2) * math:pow(2.0, BitNo - 54), {Alg, R1}};
+                ?BIT(53) =< M1 ->
+                    %% We have 54 bits - waste 1
+                    {(M1 bsr 1) * math:pow(2.0, BitNo - 55), {Alg, R1}};
+                ?BIT(52) =< M1 ->
+                    %% We have 53 bits - use all
+                    {M1 * math:pow(2.0, BitNo - 56), {Alg, R1}};
+                BitNo =:= -1008 ->
+                    %% Endgame
+                    %% For the last round we can not have 14 zeros or more
+                    %% at the top of M1 because then we will underflow,
+                    %% so we need at least 43 bits
+                    if
+                        ?BIT(42) =< M1 ->
+                            %% We have 43 bits - get the last bits
+                            uniform_real_s(Alg, Next, M1, BitNo - 56, R1);
+                        true ->
+                            %% Would underflow 2^-1022 - start all over
+                            %%
+                            %% We could just crash here since the odds for
+                            %% the PRNG being broken is much higher than
+                            %% for a good PRNG generating this many zeros
+                            %% in a row.  Maybe we should write an error
+                            %% report or call this a system limit...?
+                            uniform_real_s({Alg, R1})
+                    end;
+                true ->
+                    %% Need more bits
+                    uniform_real_s(Alg, Next, M1, BitNo - 56, R1)
+            end;
+        true ->
+            %% Fill up to 53 bits
+            B0 = 53 - ?BC(M0, 49), % Number of bits we need to append
+            {(((M0 bsl B0) bor (V1 bsr (Bits - B0)))
+              * math:pow(2.0, BitNo - B0)),
+             {Alg, R1}}
+    end.
+%%
+uniform_real_s(#{bits:=Bits} = Alg, Next, M0, BitNo, R0) ->
+    {V1, R1} = Next(R0),
+    uniform_real_s(Alg, Next, M0, BitNo, R1, V1, Bits);
+uniform_real_s(#{max:=_} = Alg, Next, M0, BitNo, R0) ->
+    {V1, R1} = Next(R0),
+    uniform_real_s(Alg, Next, M0, BitNo, R1, ?MASK(56, V1), 56).
 
 %% jump/1: given a state, jump/1
 %% returns a new state which is equivalent to that
@@ -1025,3 +1219,42 @@ normal_fi(Indx) ->
 	     1.0214971439701471e-02,8.6165827693987316e-03,7.0508754713732268e-03,
 	     5.5224032992509968e-03,4.0379725933630305e-03,2.6090727461021627e-03,
 	     1.2602859304985975e-03}).
+
+%%%bitcount64(0) -> 0;
+%%%bitcount64(V) -> 1 + bitcount(V, 64).
+%%%
+%%%-define(
+%%%   BITCOUNT(V, N),
+%%%   bitcount(V, N) ->
+%%%       if
+%%%           (1 bsl ((N) bsr 1)) =< (V) ->
+%%%               ((N) bsr 1) + bitcount((V) bsr ((N) bsr 1), ((N) bsr 1));
+%%%           true ->
+%%%               bitcount((V), ((N) bsr 1))
+%%%       end).
+%%%?BITCOUNT(V, 64);
+%%%?BITCOUNT(V, 32);
+%%%?BITCOUNT(V, 16);
+%%%?BITCOUNT(V, 8);
+%%%?BITCOUNT(V, 4);
+%%%?BITCOUNT(V, 2);
+%%%bitcount(_, 1) -> 0.
+
+bc64(V) -> ?BC(V, 64).
+
+%% Linear from high bit - higher probability first gives faster execution
+bc(V, B, N) when B =< V -> N;
+bc(V, B, N) -> bc(V, B bsr 1, N - 1).
+    
+make_float(S, E, M) ->
+    <<F/float>> = <<S:1, E:11, M:52>>,
+    F.
+
+float2str(N) ->
+    <<S:1, E:11, M:52>> = <<(float(N))/float>>,
+    lists:flatten(
+      io_lib:format(
+      "~c~c.~13.16.0bE~b",
+      [case S of 1 -> $-; 0 -> $+ end,
+       case E of 0 -> $0; _ -> $1 end,
+       M, E - 16#3ff])).

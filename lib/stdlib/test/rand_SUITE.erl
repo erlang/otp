@@ -29,10 +29,13 @@
 	 basic_stats_uniform_1/1, basic_stats_uniform_2/1,
 	 basic_stats_standard_normal/1,
 	 basic_stats_normal/1,
+         uniform_real_conv/1,
 	 plugin/1, measure/1,
 	 reference_jump_state/1, reference_jump_procdict/1]).
 
 -export([test/0, gen/1]).
+
+-export([uniform_real_gen/1, uniform_gen/2]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -46,7 +49,7 @@ all() ->
     [seed, interval_int, interval_float,
      api_eq,
      reference,
-     {group, basic_stats},
+     {group, basic_stats}, uniform_real_conv,
      plugin, measure,
      {group, reference_jump}
     ].
@@ -101,7 +104,7 @@ seed_1(Alg) ->
     _ = rand:uniform(),
     S00 = get(rand_seed),
     erase(),
-    _ = rand:uniform(),
+    _ = rand:uniform_real(),
     false = S00 =:= get(rand_seed), %% hopefully
 
     %% Choosing algo and seed
@@ -228,11 +231,13 @@ interval_float(Config) when is_list(Config) ->
 interval_float_1(0) -> ok;
 interval_float_1(N) ->
     X = rand:uniform(),
+    Y = rand:uniform_real(),
     if
-	0.0 =< X, X < 1.0 ->
+	0.0 =< X, X < 1.0, 0.0 < Y, Y < 1.0 ->
 	    ok;
 	true ->
-	    io:format("X=~p 0=<~p<1.0~n", [X,X]),
+	    io:format("X=~p 0.0=<~p<1.0~n", [X,X]),
+	    io:format("Y=~p 0.0<~p<1.0~n", [Y,Y]),
 	    exit({X, rand:export_seed()})
     end,
     interval_float_1(N-1).
@@ -334,7 +339,13 @@ basic_stats_normal(Config) when is_list(Config) ->
       IntendedMeanVariancePairs).
 
 basic_uniform_1(N, S0, Sum, A0) when N > 0 ->
-    {X,S} = rand:uniform_s(S0),
+    {X,S} =
+        case N band 1 of
+            0 ->
+                rand:uniform_s(S0);
+            1 ->
+                rand:uniform_real_s(S0)
+        end,
     I = trunc(X*100),
     A = array:set(I, 1+array:get(I,A0), A0),
     basic_uniform_1(N-1, S, Sum+X, A);
@@ -398,6 +409,137 @@ normal_s(Mean, Variance, State0) when Mean == 0, Variance == 1 ->
     rand:normal_s(State0);
 normal_s(Mean, Variance, State0) ->
     rand:normal_s(Mean, Variance, State0).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% White box test of the conversion to float
+
+uniform_real_conv(Config) when is_list(Config) ->
+    [begin
+%%         ct:pal("~13.16.0bx~3.16.0b: ~p~n", [M,E,Gen]),
+         uniform_real_conv_check(M, E, Gen)
+     end || {M, E, Gen} <- uniform_real_conv_data()],
+    uniform_real_scan(0),
+    uniform_real_scan(3).
+
+uniform_real_conv_data() ->
+    [{16#fffffffffffff,  -1, [16#3ffffffffffffff]},
+     {16#fffffffffffff,  -1, [16#3ffffffffffffe0]},
+     {16#ffffffffffffe,  -1, [16#3ffffffffffffdf]},
+     %%
+     {16#0000000000000,  -1, [16#200000000000000]},
+     {16#fffffffffffff,  -2, [16#1ffffffffffffff]},
+     {16#fffffffffffff,  -2, [16#1fffffffffffff0]},
+     {16#ffffffffffffe,  -2, [16#1ffffffffffffef]},
+     %%
+     {16#0000000000000,  -2, [16#100000000000000]},
+     {16#fffffffffffff,  -3, [16#0ffffffffffffff]},
+     {16#fffffffffffff,  -3, [16#0fffffffffffff8]},
+     {16#ffffffffffffe,  -3, [16#0fffffffffffff7]},
+     %%
+     {16#0000000000000,  -3, [16#080000000000000]},
+     {16#fffffffffffff,  -4, [16#07fffffffffffff]},
+     {16#fffffffffffff,  -4, [16#07ffffffffffffc]},
+     {16#ffffffffffffe,  -4, [16#07ffffffffffffb]},
+     %%
+     {16#0000000000000,  -4, [16#040000000000000]},
+     {16#fffffffffffff,  -5, [16#03fffffffffffff,16#3ffffffffffffff]},
+     {16#fffffffffffff,  -5, [16#03ffffffffffffe,16#200000000000000]},
+     {16#ffffffffffffe,  -5, [16#03fffffffffffff,16#1ffffffffffffff]},
+     {16#ffffffffffffe,  -5, [16#03fffffffffffff,16#100000000000000]},
+     %%
+     {16#0000000000001, -56, [16#000000000000007,16#00000000000007f]},
+     {16#0000000000001, -56, [16#000000000000004,16#000000000000040]},
+     {16#0000000000000, -57, [16#000000000000003,16#20000000000001f]},
+     {16#0000000000000, -57, [16#000000000000000,16#200000000000000]},
+     {16#fffffffffffff, -58, [16#000000000000003,16#1ffffffffffffff]},
+     {16#fffffffffffff, -58, [16#000000000000000,16#1fffffffffffff0]},
+     {16#ffffffffffffe, -58, [16#000000000000000,16#1ffffffffffffef]},
+     {16#ffffffffffffe, -58, [16#000000000000000,16#1ffffffffffffe0]},
+     %%
+     {16#0000000000000, -58, [16#000000000000000,16#10000000000000f]},
+     {16#0000000000000, -58, [16#000000000000000,16#100000000000000]},
+     {2#11001100000000000000000000000000000000000011000000011, % 53 bits
+      -1022,
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, % 18 zeros
+       2#1100110000000000000000000000000000000000001 bsl 2, % 43 bits
+       2#1000000011 bsl (56-10+2)]}, % 10 bits
+     {0, -1, % 0.5 after retry
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, % 18 zeros
+       2#111111111111111111111111111111111111111111 bsl 2, % 42 bits - retry
+       16#200000000000003]}]. % 0.5
+
+-define(UNIFORM_REAL_SCAN_PATTERN, (16#19000000000009)). % 53 bits
+-define(UNIFORM_REAL_SCAN_NUMBER, (1021)).
+
+uniform_real_scan_template(K) ->
+    <<0:?UNIFORM_REAL_SCAN_NUMBER,
+      ?UNIFORM_REAL_SCAN_PATTERN:53,K:2,0:1>>.
+
+uniform_real_scan(K) ->
+    Templ = uniform_real_scan_template(K),
+    N = ?UNIFORM_REAL_SCAN_NUMBER,
+    uniform_real_scan(Templ, N, K).
+
+uniform_real_scan(Templ, N, K) when 0 =< N ->
+    <<_:N/bits,T/bits>> = Templ,
+    Data = uniform_real_scan_data(T, K),
+    uniform_real_conv_check(
+      ?UNIFORM_REAL_SCAN_PATTERN, N - 1 - ?UNIFORM_REAL_SCAN_NUMBER, Data),
+    uniform_real_scan(Templ, N - 1, K);
+uniform_real_scan(_, _, _) ->
+    ok.
+
+uniform_real_scan_data(Templ, K) ->
+    case Templ of
+        <<X:56, T/bits>> ->
+            B = rand:bc64(X),
+            [(X bsl 2) bor K |
+             if
+                 53 =< B ->
+                     [];
+                 true ->
+                     uniform_real_scan_data(T, K)
+             end];
+        _ ->
+            <<X:56, _/bits>> = <<Templ/bits, 0:56>>,
+            [(X bsl 2) bor K]
+    end.
+
+uniform_real_conv_check(M, E, Gen) ->
+    <<F/float>> = <<0:1, (E + 16#3ff):11, M:52>>,
+    try uniform_real_gen(Gen) of
+        F -> F;
+        FF ->
+            ct:pal(
+              "~s =/= ~s: ~s~n",
+              [rand:float2str(FF), rand:float2str(F),
+               [["16#",integer_to_list(G,16),$\s]||G<-Gen]]),
+            ct:fail({neq, FF, F})
+    catch
+        Error:Reason ->
+            ct:pal(
+              "~w:~p ~s: ~s~n",
+              [Error, Reason, rand:float2str(F),
+               [["16#",integer_to_list(G,16),$\s]||G<-Gen]]),
+            ct:fail({Error, Reason, F, erlang:get_stacktrace()})
+    end.
+
+
+uniform_real_gen(Gen) ->
+    State = rand_state(Gen),
+    {F, {#{type := rand_SUITE_list},[]}} = rand:uniform_real_s(State),
+    F.
+
+uniform_gen(Range, Gen) ->
+    State = rand_state(Gen),
+    {N, {#{type := rand_SUITE_list},[]}} = rand:uniform_s(Range, State),
+    N.
+
+%% Loaded dice for white box tests
+rand_state(Gen) ->
+    {#{type => rand_SUITE_list, bits => 58, weak_low_bits => 1,
+       next => fun ([H|T]) -> {H, T} end},
+     Gen}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -520,6 +662,21 @@ do_measure(_Config) ->
           end,
           Algs),
     %%
+    ct:pal("~nRNG uniform integer half range performance~n",[]),
+    _ =
+        measure_1(
+          fun (State) -> half_range(State) end,
+          fun (State, Range, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_UNIFORM_RANGE(
+                               Mod:uniform_s(Range, St0), Range,
+                               X, St1)
+                    end,
+                    State)
+          end,
+          Algs),
+    %%
     ct:pal("~nRNG uniform integer half range + 1 performance~n",[]),
     _ =
         measure_1(
@@ -630,7 +787,8 @@ do_measure(_Config) ->
           Algs),
     %%
     ct:pal("~nRNG uniform float performance~n",[]),
-    _ = measure_1(
+    _ =
+        measure_1(
           fun (_) -> 0 end,
           fun (State, _, Mod) ->
                   measure_loop(
@@ -641,8 +799,22 @@ do_measure(_Config) ->
           end,
           Algs),
     %%
+    ct:pal("~nRNG uniform_real float performance~n",[]),
+    _ =
+        measure_1(
+          fun (_) -> 0 end,
+          fun (State, _, Mod) ->
+                  measure_loop(
+                    fun (St0) ->
+                            ?CHECK_UNIFORM(Mod:uniform_real_s(St0), X, St)
+                    end,
+                    State)
+          end,
+          Algs),
+    %%
     ct:pal("~nRNG normal float performance~n",[]),
-    _ = measure_1(
+    [TMarkNormalFloat|_] =
+        measure_1(
           fun (_) -> 0 end,
           fun (State, _, Mod) ->
                   measure_loop(
@@ -652,10 +824,36 @@ do_measure(_Config) ->
                     State)
           end,
           Algs),
+    %% Just for fun try an implementation of the Box-Muller
+    %% transformation for creating normal distribution floats
+    %% to compare with our Ziggurat implementation.
+    %% Generates two numbers per call that we add so they
+    %% will not be optimized away.  Hence the benchmark time
+    %% is twice what it should be.
+    TwoPi = 2 * math:pi(),
+    _ =
+        measure_1(
+          fun (_) -> 0 end,
+          fun (State, _, Mod) ->
+                  measure_loop(
+                    fun (State0) ->
+                            {U1, State1} = Mod:uniform_real_s(State0),
+                            {U2, State2} = Mod:uniform_s(State1),
+                            R = math:sqrt(-2.0 * math:log(U1)),
+                            T = TwoPi * U2,
+                            Z0 = R * math:cos(T),
+                            Z1 = R * math:sin(T),
+                            ?CHECK_NORMAL({Z0 + Z1, State2}, X, State3)
+                    end,
+                    State)
+          end,
+          exrop, TMarkNormalFloat),
     ok.
 
+-define(LOOP_MEASURE, (?LOOP div 5)).
+
 measure_loop(Fun, State) ->
-    measure_loop(Fun, State, ?LOOP).
+    measure_loop(Fun, State, ?LOOP_MEASURE).
 %%
 measure_loop(Fun, State, N) when 0 < N ->
     measure_loop(Fun, Fun(State), N-1);
@@ -693,7 +891,8 @@ measure_1(RangeFun, Fun, Alg, TMark) ->
                         end,
                     io:format(
                       "~.12w: ~p ns ~p% [16#~.16b]~n",
-                      [Alg, (Time * 1000 + 500) div ?LOOP, Percent, Range]),
+                      [Alg, (Time * 1000 + 500) div ?LOOP_MEASURE,
+                       Percent, Range]),
                     Parent ! {self(), Time},
                     normal
             end),
