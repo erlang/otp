@@ -226,8 +226,9 @@
 %%-------------------------------------------------------------------------
 %% External API
 %%-------------------------------------------------------------------------
--export([compose_query/1, create_uri_reference/2, dissect_query/1, normalize/1,
-         parse/1, recompose/1, resolve_uri_reference/2, transcode/2]).
+-export([compose_query/1, compose_query/2, create_uri_reference/2,
+         dissect_query/1, normalize/1, parse/1,
+         recompose/1, resolve_uri_reference/2, transcode/2]).
 -export_type([uri_map/0, uri_string/0]).
 
 
@@ -377,28 +378,66 @@ transcode(URIString, Options) when is_list(URIString) ->
 
 
 %%-------------------------------------------------------------------------
-%% Working with query strings
-%% HTML 2.0 - application/x-www-form-urlencoded
-%% RFC 1866 [8.2.1]
+%% Functions for working with the query part of a URI as a list
+%% of key/value pairs.
+%% HTML 2.0 (RFC 1866) defines a media type application/x-www-form-urlencoded
+%% in section [8.2.1] "The form-urlencoded Media Type".
 %%-------------------------------------------------------------------------
 
 %%-------------------------------------------------------------------------
 %% Compose urlencoded query string from a list of unescaped key/value pairs.
 %%-------------------------------------------------------------------------
 -spec compose_query(QueryList) -> QueryString when
-      QueryList :: [{unicode:chardata(), unicode:chardata()}],
-      QueryString :: uri_string().
-compose_query(_) ->
-    "".
+      QueryList :: [{uri_string(), uri_string()}],
+      QueryString :: string().
+compose_query(List) ->
+    compose_query(List, []).
+
+
+-spec compose_query(QueryList, Options) -> QueryString when
+      QueryList :: [{uri_string(), uri_string()}],
+      Options :: [{separator, atom()}],
+      QueryString :: string().
+compose_query([],_Options) ->
+    [];
+compose_query(List, Options) ->
+    try compose_query(List, Options, []) of
+        Result -> Result
+    catch
+      throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
+%%
+compose_query([{Key,Value}|Rest], Options, Acc) ->
+    Separator = get_separator(Options, Acc),
+    K = form_urlencode(Key),
+    V = form_urlencode(Value),
+    compose_query(Rest, Options, Acc ++ Separator ++ K ++ "=" ++ V);
+compose_query([], _Options, Acc) ->
+    Acc.
+
 
 %%-------------------------------------------------------------------------
 %% Dissect a query string into a list of unescaped key/value pairs.
 %%-------------------------------------------------------------------------
 -spec dissect_query(QueryString) -> QueryList when
       QueryString :: uri_string(),
-      QueryList :: [{unicode:chardata(), unicode:chardata()}].
-dissect_query(_) ->
-     "".
+      QueryList :: [{string(), string()}].
+dissect_query([]) ->
+    [];
+dissect_query(QueryString) when is_binary(QueryString) ->
+    L = convert_list(QueryString, utf8),
+    try dissect_query_key(L, [], [], []) of
+        Result -> Result
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end;
+dissect_query(QueryString) ->
+    L = flatten_list(QueryString, utf8),
+    try dissect_query_key(L, [], [], []) of
+        Result -> Result
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
 
 
 %%%========================================================================
@@ -1705,10 +1744,10 @@ transcode_pct([], Acc, B, InEncoding, OutEncoding) ->
 %% Convert to binary
 convert_binary(Binary, InEncoding, OutEncoding) ->
     case unicode:characters_to_binary(Binary, InEncoding, OutEncoding) of
-        {error, List, RestData} ->
-            throw({error, List, RestData});
-        {incomplete, List, RestData} ->
-            throw({error, List, RestData});
+        {error, _List, RestData} ->
+            throw({error, unicode, RestData});
+        {incomplete, _List, RestData} ->
+            throw({error, unicode, RestData});
         Result ->
             Result
     end.
@@ -1717,10 +1756,10 @@ convert_binary(Binary, InEncoding, OutEncoding) ->
 %% Convert to list
 convert_list(Binary, InEncoding) ->
     case unicode:characters_to_list(Binary, InEncoding) of
-        {error, List, RestData} ->
-            throw({error, List, RestData});
-        {incomplete, List, RestData} ->
-            throw({error, List, RestData});
+        {error, _List, RestData} ->
+            throw({error, unicode, RestData});
+        {incomplete, _List, RestData} ->
+            throw({error, unicode, RestData});
         Result ->
             Result
     end.
@@ -1740,8 +1779,153 @@ flatten_list([H|T], InEnc, Acc) when is_list(H) ->
 flatten_list([H|T], InEnc, Acc) ->
     flatten_list(T, InEnc, [H|Acc]);
 flatten_list([], _InEnc, Acc) ->
-    lists:reverse(Acc).
+    lists:reverse(Acc);
+flatten_list(Arg, _, _) ->
+    throw({error, badarg, Arg}).
+
 
 
 percent_encode_segment(Segment) ->
     percent_encode_binary(Segment, <<>>).
+
+
+%%-------------------------------------------------------------------------
+%% Helper functions for compose_query
+%%-------------------------------------------------------------------------
+
+%% Returns separator to be used between key-value pairs
+get_separator(_, Acc) when length(Acc) =:= 0 ->
+    [];
+get_separator([], _Acc) ->
+    "&amp;";
+get_separator([{separator, amp}], _Acc) ->
+    "&amp;";
+get_separator([{separator, semicolon}], _Acc) ->
+    ";".
+
+
+%% Form-urlencode input based on RFC 1866 [8.2.1]
+form_urlencode(Cs) when is_binary(Cs) ->
+    L = convert_list(Cs, utf8),
+    form_urlencode(L, []);
+form_urlencode(Cs) ->
+    L = flatten_list(Cs, utf8),
+    form_urlencode(L, []).
+%%
+form_urlencode([], Acc) ->
+    lists:reverse(Acc);
+form_urlencode([$ |T], Acc) ->
+    form_urlencode(T, [$+|Acc]);
+form_urlencode([H|T], Acc) ->
+    case is_url_char(H) of
+        true ->
+            form_urlencode(T, [H|Acc]);
+        false ->
+            E = urlencode_char(H),
+            form_urlencode(T, lists:reverse(E) ++ Acc)
+    end.
+
+
+urlencode_char(C) ->
+    B = percent_encode_binary(C),
+    unicode:characters_to_list(B).
+
+
+%% Return true if input char can appear in URL according to
+%% RFC 1738 "Uniform Resource Locators".
+is_url_char(C)
+  when 0 =< C, C =< 31;
+       128 =< C, C =< 255 -> false;
+is_url_char(127) -> false;
+is_url_char(C) ->
+    not (is_reserved(C) orelse is_unsafe(C)).
+
+
+%% Reserved characters (RFC 1738)
+is_reserved($;) -> true;
+is_reserved($/) -> true;
+is_reserved($?) -> true;
+is_reserved($:) -> true;
+is_reserved($@) -> true;
+is_reserved($=) -> true;
+is_reserved($&) -> true;
+is_reserved(_) -> false.
+
+
+%% Unsafe characters (RFC 1738)
+is_unsafe(${) -> true;
+is_unsafe($}) -> true;
+is_unsafe($|) -> true;
+is_unsafe($\\) -> true;
+is_unsafe($^) -> true;
+is_unsafe($~) -> true;
+is_unsafe($[) -> true;
+is_unsafe($]) -> true;
+is_unsafe($`) -> true;
+is_unsafe(_) -> false.
+
+
+%%-------------------------------------------------------------------------
+%% Helper functions for dissect_query
+%%-------------------------------------------------------------------------
+dissect_query_key([$=|T], Acc, Key, Value) ->
+    dissect_query_value(T, Acc, Key, Value);
+dissect_query_key([H|T], Acc, Key, Value) ->
+    dissect_query_key(T, Acc, [H|Key], Value);
+dissect_query_key(L, _, _, _) ->
+    throw({error, missing_value, L}).
+
+
+dissect_query_value([$&|_] = L, Acc, Key, Value) ->
+    K = form_urldecode(lists:reverse(Key)),
+    V = form_urldecode(lists:reverse(Value)),
+    dissect_query_separator_amp(L, [{K,V}|Acc], [], []);
+dissect_query_value([$;|_] = L, Acc, Key, Value) ->
+    K = form_urldecode(lists:reverse(Key)),
+    V = form_urldecode(lists:reverse(Value)),
+    dissect_query_separator_semicolon(L, [{K,V}|Acc], [], []);
+dissect_query_value([H|T], Acc, Key, Value) ->
+    dissect_query_value(T, Acc, Key, [H|Value]);
+dissect_query_value([], Acc, Key, Value) ->
+    K = form_urldecode(lists:reverse(Key)),
+    V = form_urldecode(lists:reverse(Value)),
+    lists:reverse([{K,V}|Acc]).
+
+
+dissect_query_separator_amp("&amp;" ++ T, Acc, Key, Value) ->
+    dissect_query_key(T, Acc, Key, Value);
+dissect_query_separator_amp(L, _, _, _) ->
+    throw({error, invalid_separator, L}).
+
+
+dissect_query_separator_semicolon([$;|T], Acc, Key, Value) ->
+    dissect_query_key(T, Acc, Key, Value).
+
+
+%% Form-urldecode input based on RFC 1866 [8.2.1]
+form_urldecode(Cs) ->
+    B = convert_binary(Cs, utf8, utf8),
+    Result = form_urldecode(B, <<>>),
+    convert_list(Result, utf8).
+%%
+form_urldecode(<<>>, Acc) ->
+    convert_list(Acc, utf8);
+form_urldecode(<<$+,T/binary>>, Acc) ->
+    form_urlencode(T, [$ |Acc]);
+form_urldecode(<<$%,C0,C1,T/binary>>, Acc) ->
+    case is_hex_digit(C0) andalso is_hex_digit(C1) of
+        true ->
+            V = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
+            form_urldecode(T, <<Acc/binary, V>>);
+        false ->
+            L = convert_list(<<$%,C0,C1,T/binary>>, utf8),
+            throw({error, urldecode, L})
+    end;
+form_urldecode(<<H,T/binary>>, Acc) ->
+    case is_url_char(H) of
+        true ->
+            form_urldecode(T, <<Acc/binary,H>>);
+        false ->
+            L = convert_list(<<H,T/binary>>, utf8),
+            throw({error, urldecode, L})
+    end.

@@ -37,7 +37,9 @@
          recompose_query/1, recompose_parse_query/1,
          recompose_path/1, recompose_parse_path/1,
          recompose_autogen/1, parse_recompose_autogen/1,
-         transcode_basic/1, transcode_options/1, transcode_mixed/1, transcode_negative/1
+         transcode_basic/1, transcode_options/1, transcode_mixed/1, transcode_negative/1,
+         compose_query/1, compose_query_negative/1,
+         dissect_query/1, dissect_query_negative/1
         ]).
 
 
@@ -104,7 +106,11 @@ all() ->
      transcode_basic,
      transcode_options,
      transcode_mixed,
-     transcode_negative
+     transcode_negative,
+     compose_query,
+     compose_query_negative,
+     dissect_query,
+     dissect_query_negative
     ].
 
 groups() ->
@@ -803,5 +809,31 @@ transcode_mixed(_Config) ->
 transcode_negative(_Config) ->
     {invalid_input,"foo","BX"} =
         uri_string:transcode(<<"foo%C3%BXbar"/utf8>>, [{in_encoding, utf8},{out_encoding, utf32}]),
-    {invalid_input,<<>>,<<"ö">>} =
+    {invalid_input,unicode,<<"ö">>} =
         uri_string:transcode("foo%F6bar", [{in_encoding, utf8},{out_encoding, utf8}]).
+
+compose_query(_Config) ->
+    [] = uri_string:compose_query([]),
+    "foo=1&amp;bar=2" = uri_string:compose_query([{<<"foo">>,"1"}, {"bar", "2"}]),
+    "foo=1&amp;bar=2" = uri_string:compose_query([{"foo","1"}, {"bar", "2"}],[{separator,amp}]),
+    "foo=1;bar=2" = uri_string:compose_query([{"foo","1"}, {"bar", "2"}],[{separator,semicolon}]),
+    "foo+bar=1&amp;%C3%B6=2" = uri_string:compose_query([{"foo bar","1"}, {"ö", "2"}]).
+
+compose_query_negative(_Config) ->
+    {error,badarg,4} = uri_string:compose_query([{"",4}]).
+
+dissect_query(_Config) ->
+    [] = uri_string:dissect_query(""),
+    [{"foo","1"}, {"bar", "2"}] = uri_string:dissect_query("foo=1&amp;bar=2"),
+    [{"foo","1"}, {"bar", "2"}] = uri_string:dissect_query("foo=1;bar=2"),
+    [{"foo","1"}, {"bar", "222"}] = uri_string:dissect_query([<<"foo=1;bar=2">>,"22"]),
+    [{"foo","ö"}, {"bar", "2"}] = uri_string:dissect_query("foo=%C3%B6&amp;bar=2").
+
+dissect_query_negative(_Config) ->
+    {error,invalid_separator,"&ap;bar=2"} =
+        uri_string:dissect_query("foo=1&ap;bar=2"),
+    {error,urldecode,"&amp;bar"} =
+        uri_string:dissect_query("foo1&amp;bar=2"),
+    {error,urldecode,"%XX%B6"} = uri_string:dissect_query("foo=%XX%B6&amp;bar=2"),
+    {error,unicode,<<153,182>>} =
+        uri_string:dissect_query("foo=%99%B6&amp;bar=2").
