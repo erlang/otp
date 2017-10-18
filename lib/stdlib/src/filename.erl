@@ -453,8 +453,6 @@ join1([], [], Result, OsType) ->
     maybe_remove_dirsep(Result, OsType);
 join1([], RelativeName, [$:|Rest], win32) ->
     join1(RelativeName, [], [$:|Rest], win32);
-%% REMOVE -- join1([], RelativeName, [$/,$/|Result], win32) ->
-%% REMOVE --     join1(RelativeName, [], [$/,$/|Result], win32);
 join1([], RelativeName, [$/|Result], OsType) ->
     join1(RelativeName, [], [$/|Result], OsType);
 join1([], RelativeName, [$., $/|Result], OsType) ->
