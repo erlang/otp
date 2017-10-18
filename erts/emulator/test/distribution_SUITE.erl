@@ -786,8 +786,8 @@ dist_auto_connect_once(Config) when is_list(Config) ->
     {ok, pong} = do_inet_rpc(Sock2,net_adm,ping,[NN]),
     {ok,[NN2]} = do_inet_rpc(Sock,erlang,nodes,[]),
     {ok,[NN]} = do_inet_rpc(Sock2,erlang,nodes,[]),
-    [_,HostPartPeer] = string:tokens(atom_to_list(NN),"@"),
-    [_,MyHostPart] = string:tokens(atom_to_list(node()),"@"),
+    [_,HostPartPeer] = string:lexemes(atom_to_list(NN),"@"),
+    [_,MyHostPart] = string:lexemes(atom_to_list(node()),"@"),
     % Give net_kernel a chance to change the state of the node to up to.
     receive after 1000 -> ok end,
     case HostPartPeer of
@@ -2094,7 +2094,7 @@ start_relay_node(Node, Args) ->
                                       [{args, Args ++
                                         " -setcookie "++Cookie++" -pa "++Pa++" "++
                                         RunArg}]),
-    [N,H] = string:tokens(atom_to_list(NN),"@"),
+    [N,H] = string:lexemes(atom_to_list(NN),"@"),
     {ok, Sock} = gen_tcp:accept(LSock),
     pang = net_adm:ping(NN),
     {N,H,Sock}.

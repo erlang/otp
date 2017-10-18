@@ -894,11 +894,9 @@ adjust_schedulers_online() ->
 
 read_affinity(Data) ->
     Exp = "pid " ++ os:getpid() ++ "'s current affinity mask",
-    case string:tokens(Data, ":") of
+    case string:lexemes(Data, ":") of
 	[Exp, DirtyAffinityStr] ->
-	    AffinityStr = string:strip(string:strip(DirtyAffinityStr,
-						    both, $ ),
-				       both, $\n),
+	    AffinityStr = string:trim(DirtyAffinityStr),
 	    case catch erlang:list_to_integer(AffinityStr, 16) of
 		Affinity when is_integer(Affinity) ->
 		    Affinity;

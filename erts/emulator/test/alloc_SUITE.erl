@@ -89,10 +89,11 @@ mmsc_flags() ->
 mmsc_flags(Env) ->
     case os:getenv(Env) of
 	false -> false;
-	V -> case string:str(V, "+MMsc") of
-		 0 -> false;
-		 P -> Env ++ "=" ++ string:substr(V, P)
-	     end
+	V ->
+            case string:find(V, "+MMsc") of
+                nomatch -> false;
+                SubStr -> Env ++ "=" ++ SubStr
+            end
     end.
 
 erts_mmap_do(Config, SCO, SCRPM, SCRFSD) ->

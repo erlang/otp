@@ -731,10 +731,12 @@ erlang_halt(Config) when is_list(Config) ->
                                  [broken_halt, "Validate correct crash dump"]),
     {ok,_} = wait_until_stable_size(CrashDump,-1),
     {ok, Bin} = file:read_file(CrashDump),
-    case {string:str(binary_to_list(Bin),"\n=end\n"),
-          string:str(binary_to_list(Bin),"\r\n=end\r\n")} of
-        {0,0} -> ct:fail("Could not find end marker in crash dump");
-        _ -> ok
+    case {string:find(Bin, <<"\n=end\n">>),
+          string:find(Bin, <<"\r\n=end\r\n">>)} of
+        {nomatch,nomatch} ->
+            ct:fail("Could not find end marker in crash dump");
+        {_,_} ->
+            ok
     end.
 
 wait_until_stable_size(_File,-10) ->

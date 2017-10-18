@@ -239,7 +239,7 @@ packet_size(Config) when is_list(Config) ->
     %% Test OTP-9389, long HTTP header lines.
     Opts = [{packet_size, 128}],
     Pkt = list_to_binary(["GET / HTTP/1.1\r\nHost: localhost\r\nLink: /",
-                          string:chars($Y, 64), "\r\n\r\n"]),
+                          lists:duplicate(64, $Y), "\r\n\r\n"]),
     <<Pkt1:50/binary, Pkt2/binary>> = Pkt,
     {ok, {http_request,'GET',{abs_path,"/"},{1,1}}, Rest1} =
     erlang:decode_packet(http, Pkt1, Opts),
@@ -250,7 +250,7 @@ packet_size(Config) when is_list(Config) ->
     erlang:decode_packet(httph, list_to_binary([Rest2, Pkt2]), Opts),
 
     Pkt3 = list_to_binary(["GET / HTTP/1.1\r\nHost: localhost\r\nLink: /",
-                           string:chars($Y, 129), "\r\n\r\n"]),
+                           lists:duplicate(129, $Y), "\r\n\r\n"]),
     {ok, {http_request,'GET',{abs_path,"/"},{1,1}}, Rest3} =
     erlang:decode_packet(http, Pkt3, Opts),
     {ok, {http_header,_,'Host',_,"localhost"}, Rest4} =
@@ -509,9 +509,9 @@ decode_line(Bin,MaxLen) ->
     end.
 
 find_in_binary(Byte, Bin) ->
-    case string:chr(binary_to_list(Bin),Byte) of
-        0 -> notfound;	    
-        P -> P
+    case string:find(Bin, [Byte]) of
+        nomatch -> notfound;
+        Suffix -> byte_size(Bin) - byte_size(Suffix) + 1
     end.    
 
 ssl(Config) when is_list(Config) ->
@@ -562,7 +562,7 @@ decode_pkt(Type,Bin,Opts) ->
 otp_9389(Config) when is_list(Config) ->
     Opts = [{packet_size, 16384}, {line_length, 3000}],
     Pkt = list_to_binary(["GET / HTTP/1.1\r\nHost: localhost\r\nLink: /",
-                          string:chars($X, 8192),
+                          lists:duplicate(8192, $X),
                           "\r\nContent-Length: 0\r\n\r\n"]),
     <<Pkt1:5000/binary, Pkt2/binary>> = Pkt,
     {ok, {http_request,'GET',{abs_path,"/"},{1,1}}, Rest1} =

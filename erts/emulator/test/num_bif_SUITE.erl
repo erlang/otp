@@ -145,7 +145,7 @@ t_float_to_string(Config) when is_list(Config) ->
 				     123456789012345678.0, [{decimals, 237}])),
     {'EXIT', {badarg, _}} = (catch float_to_binary(
 				     123456789012345678.0, [{decimals, 237}])),
-    test_fts("1." ++ string:copies("0", 249) ++ "e+00",
+    test_fts("1." ++ lists:duplicate(249, $0) ++ "e+00",
 	     1.0,  [{scientific, 249}, compact]),
 
     X1 = float_to_list(1.0),

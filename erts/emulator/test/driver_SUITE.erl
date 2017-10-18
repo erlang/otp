@@ -1192,9 +1192,9 @@ check_driver_system_info_result(Result) ->
     io:format("All names: ~p~n", [?EXPECTED_SYSTEM_INFO_NAMES]),
     io:format("Result: ~p~n", [Result]),
     {[], Ns, DDVSN} = chk_sis(lists:map(fun (Str) ->
-                                                string:tokens(Str, "=")
+                                                string:lexemes(Str, "=")
                                         end,
-                                        string:tokens(Result, " ")),
+                                        string:lexemes(Result, " ")),
                               ?EXPECTED_SYSTEM_INFO_NAMES),
     case {DDVSN,
           drv_vsn_str2tup(erlang:system_info(driver_version))} of
@@ -2438,7 +2438,7 @@ wait_until(Fun) ->
     end.
 
 drv_vsn_str2tup(Str) ->
-    [Major, Minor] = string:tokens(Str, "."),
+    [Major, Minor] = string:lexemes(Str, "."),
     {list_to_integer(Major), list_to_integer(Minor)}.
 
 %% Build port data from a template.
