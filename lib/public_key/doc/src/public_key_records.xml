@@ -70,10 +70,10 @@
       <p><c>| {dNSName, string()}</c></p>
       <p><c>| {x400Address, string()}</c></p>
       <p><c>| {directoryName, {rdnSequence, [#AttributeTypeAndValue'{}]}}</c></p>
-      <p><c>| {eidPartyName, special_string()}</c></p>
-      <p><c>| {eidPartyName, special_string(), special_string()}</c></p>
+      <p><c>| {ediPartyName, special_string()}</c></p>
+      <p><c>| {ediPartyName, special_string(), special_string()}</c></p>
       <p><c>| {uniformResourceIdentifier, string()}</c></p>
-      <p><c>| {ipAddress, string()}</c></p>
+      <p><c>| {iPAddress, string()}</c></p>
       <p><c>| {registeredId, oid()}</c></p>
       <p><c>| {otherName, term()}</c></p>
       </item>
