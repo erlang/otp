@@ -453,8 +453,8 @@ join1([], [], Result, OsType) ->
     maybe_remove_dirsep(Result, OsType);
 join1([], RelativeName, [$:|Rest], win32) ->
     join1(RelativeName, [], [$:|Rest], win32);
-join1([], RelativeName, [$/,$/|Result], win32) ->
-    join1(RelativeName, [], [$/,$/|Result], win32);
+%% REMOVE -- join1([], RelativeName, [$/,$/|Result], win32) ->
+%% REMOVE --     join1(RelativeName, [], [$/,$/|Result], win32);
 join1([], RelativeName, [$/|Result], OsType) ->
     join1(RelativeName, [], [$/|Result], OsType);
 join1([], RelativeName, [$., $/|Result], OsType) ->
@@ -502,8 +502,8 @@ maybe_remove_dirsep([$/, $:, Letter], win32) ->
     [Letter, $:, $/];
 maybe_remove_dirsep([$/], _) ->
     [$/];
-maybe_remove_dirsep([$/,$/|Name], win32) ->
-    [$/,$/|lists:reverse(Name)];
+maybe_remove_dirsep([$/,$/], win32) ->
+    [$/,$/];
 maybe_remove_dirsep([$/|Name], _) ->
     lists:reverse(Name);
 maybe_remove_dirsep(Name, _) ->
@@ -693,7 +693,7 @@ win32_splitb(<<Letter0,$:,Rest/binary>>) when ?IS_DRIVELETTER(Letter0) ->
     Letter = fix_driveletter(Letter0),
     L = binary:split(Rest,[<<"/">>,<<"\\">>],[global]),
     [<<Letter,$:>> | [ X || X <- L, X =/= <<>> ]];
-win32_splitb(<<Slash,Slash,Rest/binary>>) when Slash =:= $\\ ->
+win32_splitb(<<Slash,Slash,Rest/binary>>) when ((Slash =:= $\\) orelse (Slash =:= $/)) ->
     L = binary:split(Rest,[<<"/">>,<<"\\">>],[global]),
     [<<"//">> | [ X || X <- L, X =/= <<>> ]];
 win32_splitb(<<Slash,Rest/binary>>) when ((Slash =:= $\\) orelse (Slash =:= $/)) ->
@@ -707,7 +707,7 @@ win32_splitb(Name) ->
 unix_split(Name) ->
     split(Name, [], unix).
 
-win32_split([$\\,$\\|Rest]) ->
+win32_split([Slash,Slash|Rest]) when ((Slash =:= $\\) orelse (Slash =:= $/)) ->
     split(Rest, [[$/,$/]], win32);
 win32_split([$\\|Rest]) ->
     win32_split([$/|Rest]);

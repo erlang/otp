@@ -348,8 +348,27 @@ join(Config) when is_list(Config) ->
             "//foo" = filename:join("\\\\", "foo"),
             "//foo/bar" = filename:join("\\\\", "foo\\\\bar"),
             "//foo/bar/baz" = filename:join("\\\\foo", "bar\\\\baz"),
+            "//foo/bar/baz" = filename:join("\\\\foo", "bar\\baz"),
+            "//foo/bar/baz" = filename:join("\\\\foo\\bar", baz),
+            "//foo/\bar/baz" = filename:join("\\\\foo/\bar", baz),
+            "//foo/bar/baz" = filename:join("\\\\foo/bar", baz),
             "//bar/baz" = filename:join("\\\\foo", "\\\\bar\\baz"),
+            "//bar/baz" = filename:join("\\\\foo", "//bar\\baz"),
+            "//bar/baz" = filename:join("\\\\foo", "//bar/baz"),
+            "//bar/baz" = filename:join("\\\\foo", "\\\\bar/baz"),
             "//d/e/f/g" = filename:join("a//b/c", "//d//e/f/g"),
+            "//" = filename:join("//", ""),
+            "//foo" = filename:join("//", "foo"),
+            "//foo/bar" = filename:join("//", "foo\\\\bar"),
+            "//foo/bar/baz" = filename:join("//foo", "bar\\\\baz"),
+            "//foo/bar/baz" = filename:join("//foo", "bar\\baz"),
+            "//foo/bar/baz" = filename:join("//foo\\bar", baz),
+            "//foo/\bar/baz" = filename:join("//foo/\bar", baz),
+            "//foo/bar/baz" = filename:join("//foo/bar", baz),
+            "//bar/baz" = filename:join("//foo", "\\\\bar\\baz"),
+            "//bar/baz" = filename:join("//foo", "//bar\\baz"),
+            "//bar/baz" = filename:join("//foo", "//bar/baz"),
+            "//bar/baz" = filename:join("//foo", "\\\\bar/baz"),
             ok;
         _ ->
             "/" = filename:join(["//"]),
@@ -411,10 +430,14 @@ split(Config) when is_list(Config) ->
                 filename:split("a:msdev\\include"),
             ["//","foo"] =
                 filename:split("\\\\foo"),
+            ["//","foo"] =
+                filename:split("//foo"),
             ["//","foo","bar"] =
                 filename:split("\\\\foo\\\\bar"),
             ["//","foo","baz"] =
                 filename:split("\\\\foo\\baz"),
+            ["//","foo","baz"] =
+                filename:split("//foo\\baz"),
             ok;
         _ ->
 	    ok
@@ -725,7 +748,26 @@ join_bin(Config) when is_list(Config) ->
             <<"//foo/bar">> = filename:join(<<"\\\\">>, <<"foo\\\\bar">>),
             <<"//foo/bar/baz">> = filename:join(<<"\\\\foo">>, <<"bar\\\\baz">>),
             <<"//bar/baz">> = filename:join(<<"\\\\foo">>, <<"\\\\bar\\baz">>),
+            <<"//foo/bar/baz">> = filename:join(<<"\\\\foo\\bar">>, baz),
+            <<"//foo/\bar/baz">> = filename:join(<<"\\\\foo/\bar">>, baz),
+            <<"//foo/bar/baz">> = filename:join(<<"\\\\foo/bar">>, baz),
+            <<"//bar/baz">> = filename:join(<<"\\\\foo">>, <<"\\\\bar\\baz">>),
+            <<"//bar/baz">> = filename:join(<<"\\\\foo">>, <<"//bar\\baz">>),
+            <<"//bar/baz">> = filename:join(<<"\\\\foo">>, <<"//bar/baz">>),
+            <<"//bar/baz">> = filename:join(<<"\\\\foo">>, <<"\\\\bar/baz">>),
             <<"//d/e/f/g">> = filename:join([<<"a//b/c">>, <<"//d//e/f/g">>]),
+            <<"//">> = filename:join(<<"//">>, <<"">>),
+            <<"//foo">> = filename:join(<<"//">>, <<"foo">>),
+            <<"//foo/bar">> = filename:join(<<"//">>, <<"foo\\\\bar">>),
+            <<"//foo/bar/baz">> = filename:join(<<"//foo">>, <<"bar\\\\baz">>),
+            <<"//bar/baz">> = filename:join(<<"//foo">>, <<"\\\\bar\\baz">>),
+            <<"//foo/bar/baz">> = filename:join(<<"//foo\\bar">>, baz),
+            <<"//foo/\bar/baz">> = filename:join(<<"//foo/\bar">>, baz),
+            <<"//foo/bar/baz">> = filename:join(<<"//foo/bar">>, baz),
+            <<"//bar/baz">> = filename:join(<<"//foo">>, <<"\\\\bar\\baz">>),
+            <<"//bar/baz">> = filename:join(<<"//foo">>, <<"//bar\\baz">>),
+            <<"//bar/baz">> = filename:join(<<"//foo">>, <<"//bar/baz">>),
+            <<"//bar/baz">> = filename:join(<<"//foo">>, <<"\\\\bar/baz">>),
             ok;
         _ ->
             <<"/">> = filename:join([<<"//">>]),
@@ -778,10 +820,14 @@ split_bin(Config) when is_list(Config) ->
                 filename:split(<<"a:msdev\\include">>),
             [<<"//">>,<<"foo">>] =
                 filename:split(<<"\\\\foo">>),
+            [<<"//">>,<<"foo">>] =
+                filename:split(<<"//foo">>),
             [<<"//">>,<<"foo">>,<<"bar">>] =
                 filename:split(<<"\\\\foo\\\\bar">>),
             [<<"//">>,<<"foo">>,<<"baz">>] =
                 filename:split(<<"\\\\foo\\baz">>),
+            [<<"//">>,<<"foo">>,<<"baz">>] =
+                filename:split(<<"//foo\\baz">>),
             ok;
         _ ->
             ok
