@@ -2059,7 +2059,8 @@ uint32_t epoll_events(int kp_fd, int fd)
         int ev_fd;
         uint32_t events;
         uint64_t data;
-        if (fscanf(f,"tfd:%d events:%x data:%lx\n", &ev_fd, &events, &data) != 3) {
+        if (fscanf(f,"tfd:%d events:%x data:%llx\n", &ev_fd, &events,
+                   (unsigned long long*)&data) != 3) {
             fprintf(stderr,"failed to parse file %s on line %d, errno = %d\n", fname,
                     line,
                     errno);
@@ -2125,7 +2126,8 @@ ERTS_POLL_EXPORT(erts_poll_get_selected_events)(ErtsPollSet *ps,
         int fd;
         uint32_t events;
         uint64_t data;
-        if (fscanf(f,"tfd:%d events:%x data:%lx\n", &fd, &events, &data) != 3) {
+        if (fscanf(f,"tfd:%d events:%x data:%llx\n", &fd, &events,
+                   (unsigned long long*)&data) != 3) {
             fprintf(stderr,"failed to parse file %s on line %d, errno = %d\n",
                     fname, line, errno);
             ASSERT(0);

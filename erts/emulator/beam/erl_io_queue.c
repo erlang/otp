@@ -658,7 +658,7 @@ io_list_vec_count(Eterm obj, Uint *v_size,
 int
 erts_ioq_iolist_vec_len(Eterm obj, int* vsize, Uint* csize,
                         Uint* pvsize, Uint* pcsize,
-                        Uint* total_size, Uint blimit)
+                        size_t* total_size, Uint blimit)
 {
     DECLARE_ESTACK(s);
     Eterm* objp;
@@ -669,7 +669,7 @@ erts_ioq_iolist_vec_len(Eterm obj, int* vsize, Uint* csize,
     Uint p_v_size = 0;
     Uint p_c_size = 0;
     Uint p_in_clist = 0;
-    Uint total;
+    size_t total;
 
     goto L_jump_start;  /* avoid a push */
 

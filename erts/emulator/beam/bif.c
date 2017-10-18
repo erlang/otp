@@ -4200,7 +4200,7 @@ BIF_RETTYPE list_to_port_1(BIF_ALIST_1)
 
     cp += 6; /* strlen("#Port<") */
 
-    if (sscanf(cp, "%u.%u>", &n, &p) < 2)
+    if (sscanf(cp, "%u.%u>", (unsigned int*)&n, (unsigned int*)&p) < 2)
         goto bad;
 
     if (p > ERTS_MAX_PORT_NUMBER)
