@@ -63,8 +63,10 @@ groups() ->
      {'tlsv1.1', [], socket_packet_tests() ++ protocol_packet_tests()},
      {'tlsv1', [], socket_packet_tests() ++ protocol_packet_tests()},
      {'sslv3', [], socket_packet_tests() ++ protocol_packet_tests()},
-     {'dtlsv1.2', [], protocol_packet_tests()},
-     {'dtlsv1', [],  protocol_packet_tests()}
+     %% We will not support any packet types if the transport is
+     %% not reliable. We might support it for DTLS over SCTP in the future 
+     {'dtlsv1.2', [], [reject_packet_opt]},
+     {'dtlsv1', [],  [reject_packet_opt]}
     ].
 
 socket_packet_tests() ->
@@ -1924,6 +1926,25 @@ header_decode_two_bytes_one_sent_passive(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
+reject_packet_opt() ->
+    [{doc,"Test packet option is rejected for DTLS over udp"}].
+
+reject_packet_opt(Config) when is_list(Config) ->
+
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+       
+    {error,{options,{not_supported,{packet,4}}}} = 
+        ssl:listen(9999, [{packet, 4} | ServerOpts]),
+    {error,{options,{not_supported,{packet_size,1}}}} =  
+        ssl:listen(9999, [{packet_size, 1} | ServerOpts]),
+    {error,{options,{not_supported,{header,1}}}} =
+        ssl:listen(9999, [{header, 1} | ServerOpts]),
+    
+    client_reject_packet_opt(Config, {packet,4}),
+    client_reject_packet_opt(Config, {packet_size, 1}),
+    client_reject_packet_opt(Config, {header, 1}).
+
+%%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
@@ -2245,3 +2266,23 @@ add_tpkt_header(IOList) when is_list(IOList) ->
     Binary = list_to_binary(IOList),
     L = size(Binary) + 4,
     [3, 0, ((L) bsr 8) band 16#ff, (L) band 16#ff , Binary].
+
+
+client_reject_packet_opt(Config, PacketOpt) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, no_result_msg ,[]}},
+                                        {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client_error([{node, ServerNode}, {port, Port},
+                                              {host, Hostname},
+                                              {from, self()},
+                                              {mfa, {ssl_test_lib, no_result_msg, []}},
+                                              {options, [PacketOpt |
+                                                         ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Client, {error, {options, {not_supported, PacketOpt}}}).
