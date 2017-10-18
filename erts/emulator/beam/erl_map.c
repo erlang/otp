@@ -2992,20 +2992,6 @@ static Eterm hashmap_bld_tuple_uint(Uint **hpp, Uint *szp, Uint n, Uint nums[]) 
 #define PATH_ELEM(PATH) ((PATH) & PATH_ELEM_MASK)
 #define PATH_ELEMS_PER_DIGIT (sizeof(ErtsDigit) * 8 / PATH_ELEM_SIZE)
 
-/* How many elements we return in one call depends on the number of reductions
-   that the process has left to run. In debug we return fewer elements to test
-   the Path implementation better. */
-#if defined(DEBUG)
-#define FCALLS_ELEMS(BIF_P) ((BIF_P->fcalls / 4) & 0xF)
-#else
-#define FCALLS_ELEMS(BIF_P) (BIF_P->fcalls / 4)
-#endif
-
-#define NUM_ELEMS_TO_RETURN(BIF_P, map)                   \
-    ((MAX(FCALLS_ELEMS(BIF_P), 1) < hashmap_size(map)) ?  \
-     MAX(FCALLS_ELEMS(BIF_P), 1) : hashmap_size(map))
-
-
 BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
 
     Eterm path, map;
@@ -3059,7 +3045,7 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
         Uint curr_path;
         Uint path_length = 0;
         Uint *path_rest = NULL;
-        int i, elems = NUM_ELEMS_TO_RETURN(BIF_P, map);
+        int i, elems, orig_elems;
         Eterm node = map, res, *path_ptr = NULL, *hp;
 
         /* A stack WSTACK is used when traversing the hashmap.
@@ -3080,12 +3066,37 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
 
         ASSERT(is_hashmap(node));
 
+/* How many elements we return in one call depends on the number of reductions
+ * that the process has left to run. In debug we return fewer elements to test
+ * the Path implementation better.
+ *
+ * Also, when the path is 0 (i.e. for the first call) we limit the number of
+ * elements to MAP_SMALL_MAP_LIMIT in order to not use a huge amount of heap
+ * when only the first X associations in the hashmap was needed.
+ */
+#if defined(DEBUG)
+#define FCALLS_ELEMS(BIF_P) ((BIF_P->fcalls / 4) & 0xF)
+#else
+#define FCALLS_ELEMS(BIF_P) (BIF_P->fcalls / 4)
+#endif
+
+        if (MAX(FCALLS_ELEMS(BIF_P), 1) < hashmap_size(map))
+            elems = MAX(FCALLS_ELEMS(BIF_P), 1);
+        else
+            elems = hashmap_size(map);
+
+#undef FCALLS_ELEMS
+
         if (is_small(path)) {
             curr_path = unsigned_val(path);
+
+            if (curr_path == 0 && elems > MAP_SMALL_MAP_LIMIT) {
+                elems = MAP_SMALL_MAP_LIMIT;
+            }
         } else if (is_big(path)) {
             Eterm *big = big_val(path);
             if (bignum_header_is_neg(*big))
-                goto badarg;
+                BIF_ERROR(BIF_P, BADARG);
             path_length = BIG_ARITY(big) - 1;
             curr_path = BIG_DIGIT(big,  0);
             path_rest = BIG_V(big) + 1;
@@ -3096,14 +3107,16 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
         if (type == iterator) {
             /* iterator uses the format {K, V, {K, V, {K, V, [Path | Map]}}},
              * so each element is 4 words large */
-            hp = HAlloc(BIF_P, 4 * NUM_ELEMS_TO_RETURN(BIF_P, map));
+            hp = HAlloc(BIF_P, 4 * elems);
             res = am_none;
         } else {
             /* list used the format [Path, Map, {K,V}, {K,V} | BIF_ARG_3],
              * so each element is 2+3 words large */
-            hp = HAlloc(BIF_P, (2 + 3) * NUM_ELEMS_TO_RETURN(BIF_P, map));
+            hp = HAlloc(BIF_P, (2 + 3) * elems);
             res = BIF_ARG_3;
         }
+
+        orig_elems = elems;
 
         /* First we look for the leaf to start at using the
            path given. While doing so, we push each map node
@@ -3274,7 +3287,7 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
                 HRelease(BIF_P, hp + (2+3) * elems, hp);
             }
         }
-        BIF_P->fcalls -= 4 * (NUM_ELEMS_TO_RETURN(BIF_P, map) - elems);
+        BIF_P->fcalls -= 4 * (orig_elems - elems);
         DESTROY_WSTACK(stack);
         BIF_RET(res);
 
@@ -3284,7 +3297,7 @@ BIF_RETTYPE erts_internal_map_next_3(BIF_ALIST_3) {
         } else {
             HRelease(BIF_P, hp + (2+3) * elems, hp);
         }
-        BIF_P->fcalls -= 4 * (NUM_ELEMS_TO_RETURN(BIF_P, map) - elems);
+        BIF_P->fcalls -= 4 * (orig_elems - elems);
         DESTROY_WSTACK(stack);
         BIF_ERROR(BIF_P, BADARG);
     }
