@@ -65,6 +65,20 @@
 
     <p>The tools are further described in
     <seealso marker="#profiling_tools">Tools</seealso>.</p>
+
+    <p>There are also several open source tools outside of Erlang/OTP
+    that can be used to help profiling. Some of them are:</p>
+
+    <list type="bulleted">
+      <item><url href="https://github.com/isacssouza/erlgrind">erlgrind</url>
+      can be used to visualize fprof data in kcachegrind.</item>
+      <item><url href="https://github.com/proger/eflame">eflame</url>
+      is an alternative to fprof that displays the profiling output as a flamegraph.</item>
+      <item><url href="https://ferd.github.io/recon/index.html">recon</url>
+      is a collection of Erlang profiling and debugging tools.
+      This tool comes with an accompanying E-book called
+      <url href="https://www.erlang-in-anger.com/">Erlang in Anger</url>.</item>
+    </list>
   </section>
 
   <section>
