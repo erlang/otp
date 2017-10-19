@@ -107,6 +107,17 @@ absname(Config) when is_list(Config) ->
             [Drive|":/erlang/src"] = filename:absname([Drive|":erlang/src"]),
             "a:/erlang" = filename:absname("a:erlang"),
 
+            "//foo" = filename:absname("//foo"),
+            "//foo/bar" = filename:absname("//foo/bar"),
+            "//foo/\bar" = filename:absname("//foo/\bar"),
+            "//foo/bar/baz" = filename:absname("//foo/bar\\baz"),
+            "//foo/bar/baz" = filename:absname("//foo\\bar/baz"),
+            "//foo" = filename:absname("\\\\foo"),
+            "//foo/bar" = filename:absname("\\\\foo/bar"),
+            "//foo/\bar" = filename:absname("\\\\foo/\bar"),
+            "//foo/bar/baz" = filename:absname("\\\\foo/bar\\baz"),
+            "//foo/bar/baz" = filename:absname("\\\\foo\\bar/baz"),
+
             file:set_cwd(Cwd),
             ok;
         {unix, _} ->
@@ -166,6 +177,23 @@ absname_2(Config) when is_list(Config) ->
             [Drive|":/erlang/src"] = filename:absname([Drive|":erlang/src"],
                                                       [Drive|":/"]),
             "a:/erlang" = filename:absname("a:erlang", [Drive|":/"]),
+
+            "//foo" = filename:absname("foo","//"),
+            "//foo/bar" = filename:absname("foo/bar", "//"),
+            "//foo/bar" = filename:absname("bar", "//foo"),
+            "//bar" = filename:absname("/bar", "//foo"),
+            "//foo/bar/baz" = filename:absname("bar/baz", "//foo"),
+            "//bar/baz" = filename:absname("//bar/baz", "//foo"),
+            "//\bar" = filename:absname("/\bar", "//foo"),
+            "//foo" = filename:absname("foo","\\\\"),
+            "//foo/bar" = filename:absname("foo/bar", "\\\\"),
+            "//foo/bar" = filename:absname("bar", "\\\\foo"),
+            "//bar" = filename:absname("/bar", "\\\\foo"),
+            "//foo/bar/baz" = filename:absname("bar/baz", "\\\\foo"),
+            "//bar/baz" = filename:absname("\\\\bar/baz", "\\\\foo"),
+            "//\bar" = filename:absname("/\bar", "\\\\foo"),
+            "//bar/baz" = filename:absname("\\\\bar/baz", "//foo"),
+            "//bar/baz" = filename:absname("//bar/baz", "\\\\foo"),
 
             ok;
         _ ->
@@ -244,6 +272,18 @@ dirname(Config) when is_list(Config) ->
             "A:usr" = filename:dirname("A:usr/foo.erl"),
             "/usr" = filename:dirname("\\usr\\foo.erl"),
             "/" = filename:dirname("\\usr"),
+            "//foo/bar" = filename:dirname("//foo/bar/baz.erl"),
+            "//foo/\bar" = filename:dirname("//foo/\bar/baz.erl"),
+            "//foo/bar" = filename:dirname("//foo\\bar/baz.erl"),
+            "//foo/bar" = filename:dirname("\\\\foo/bar/baz.erl"),
+            "//foo/\bar" = filename:dirname("\\\\foo/\bar/baz.erl"),
+            "//foo/bar" = filename:dirname("\\\\foo\\bar/baz.erl"),
+            "//foo" = filename:dirname("//foo/baz.erl"),
+            "//foo" = filename:dirname("//foo/\baz.erl"),
+            "//foo" = filename:dirname("//foo\\baz.erl"),
+            "//foo" = filename:dirname("\\\\foo/baz.erl"),
+            "//foo" = filename:dirname("\\\\foo/\baz.erl"),
+            "//foo" = filename:dirname("\\\\foo\\baz.erl"),
             "A:" = filename:dirname("A:");
         _ -> true
     end,
