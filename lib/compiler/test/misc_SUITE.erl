@@ -171,7 +171,7 @@ silly_coverage(Config) when is_list(Config) ->
     expect_error(fun() -> sys_core_dsetel:module(BadCoreErlang, []) end),
     expect_error(fun() -> v3_kernel:module(BadCoreErlang, []) end),
 
-    %% v3_life
+    %% v3_codegen
     BadKernel = {k_mdef,[],?MODULE,
 		 [{foo,0}],
 		 [],
@@ -179,11 +179,7 @@ silly_coverage(Config) when is_list(Config) ->
 		   {k,[],[],[]},
 		   f,0,[],
 		   seriously_bad_body}]},
-    expect_error(fun() -> v3_life:module(BadKernel, []) end),
-
-    %% v3_codegen
-    CodegenInput = {?MODULE,[{foo,0}],[],[{function,foo,0,[a|b],a,b,[]}]},
-    expect_error(fun() -> v3_codegen:module(CodegenInput, []) end),
+    expect_error(fun() -> v3_codegen:module(BadKernel, []) end),
 
     %% beam_a
     BeamAInput = {?MODULE,[{foo,0}],[],

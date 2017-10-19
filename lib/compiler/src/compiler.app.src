@@ -68,8 +68,7 @@
 	     v3_codegen,
 	     v3_core,
 	     v3_kernel,
-	     v3_kernel_pp,
-	     v3_life
+	     v3_kernel_pp
 	    ]},
   {registered, []},
   {applications, [kernel, stdlib]},

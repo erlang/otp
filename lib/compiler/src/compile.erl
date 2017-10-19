@@ -733,8 +733,6 @@ kernel_passes() ->
      ?pass(v3_kernel),
      {iff,dkern,{listing,"kernel"}},
      {iff,'to_kernel',{done,"kernel"}},
-     {pass,v3_life},
-     {iff,dlife,{listing,"life"}},
      {pass,v3_codegen},
      {iff,dcg,{listing,"codegen"}}
      | asm_passes()].
@@ -1947,7 +1945,6 @@ pre_load() ->
 	 sys_core_fold,
 	 v3_codegen,
 	 v3_core,
-	 v3_kernel,
-	 v3_life],
+	 v3_kernel],
     _ = code:ensure_modules_loaded(L),
     ok.

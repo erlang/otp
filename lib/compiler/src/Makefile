@@ -93,16 +93,14 @@ MODULES =  \
 	v3_codegen \
 	v3_core \
 	v3_kernel \
-	v3_kernel_pp \
-	v3_life
+	v3_kernel_pp
 
 BEAM_H = $(wildcard ../priv/beam_h/*.h)
 
 HRL_FILES= \
 	beam_disasm.hrl \
 	core_parse.hrl \
-	v3_kernel.hrl \
-	v3_life.hrl
+	v3_kernel.hrl
 
 YRL_FILE = core_parse.yrl
 
@@ -187,7 +185,7 @@ release_docs_spec:
 # ---------------------------------------------------- 
 
 $(EBIN)/beam_disasm.beam: $(EGEN)/beam_opcodes.hrl beam_disasm.hrl
-$(EBIN)/beam_listing.beam: v3_life.hrl
+$(EBIN)/beam_listing.beam: core_parse.hrl v3_kernel.hrl
 $(EBIN)/beam_validator.beam: beam_disasm.hrl
 $(EBIN)/cerl.beam: core_parse.hrl
 $(EBIN)/compile.beam: core_parse.hrl ../../stdlib/include/erl_compile.hrl
@@ -200,8 +198,7 @@ $(EBIN)/sys_core_dsetel.beam: core_parse.hrl
 $(EBIN)/sys_core_fold.beam: core_parse.hrl
 $(EBIN)/sys_core_fold_lists.beam: core_parse.hrl
 $(EBIN)/sys_core_inline.beam: core_parse.hrl
-$(EBIN)/v3_codegen.beam: v3_life.hrl
+$(EBIN)/v3_codegen.beam: v3_kernel.hrl
 $(EBIN)/v3_core.beam: core_parse.hrl
 $(EBIN)/v3_kernel.beam: core_parse.hrl v3_kernel.hrl
 $(EBIN)/v3_kernel_pp.beam: v3_kernel.hrl
-$(EBIN)/v3_life.beam: v3_kernel.hrl v3_life.hrl
