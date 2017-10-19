@@ -293,11 +293,22 @@
       URIString :: uri_string(),
       URIMap :: uri_map().
 parse(URIString) when is_binary(URIString) ->
-    parse_uri_reference(URIString, #{});
+    try parse_uri_reference(URIString, #{}) of
+        Result -> Result
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end;
 parse(URIString) when is_list(URIString) ->
-    Binary = unicode:characters_to_binary(URIString),
-    Map = parse_uri_reference(Binary, #{}),
-    convert_mapfields_to_list(Map).
+    try
+        Binary = unicode:characters_to_binary(URIString),
+        Map = parse_uri_reference(Binary, #{}),
+        convert_mapfields_to_list(Map)
+    of
+        Result -> Result
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
+
 
 %%-------------------------------------------------------------------------
 %% Recompose URIs
@@ -308,16 +319,23 @@ parse(URIString) when is_list(URIString) ->
 recompose(Map) ->
     case is_valid_map(Map) of
         false ->
-            error({badarg, invalid_map});
+            {error, invalid_map, Map};
         true ->
-            T0 = update_scheme(Map, empty),
-            T1 = update_userinfo(Map, T0),
-            T2 = update_host(Map, T1),
-            T3 = update_port(Map, T2),
-            T4 = update_path(Map, T3),
-            T5 = update_query(Map, T4),
-            update_fragment(Map, T5)
+            try
+                T0 = update_scheme(Map, empty),
+                T1 = update_userinfo(Map, T0),
+                T2 = update_host(Map, T1),
+                T3 = update_port(Map, T2),
+                T4 = update_path(Map, T3),
+                T5 = update_query(Map, T4),
+                update_fragment(Map, T5)
+            of
+                Result -> Result
+            catch
+                throw:{error, Atom, RestData} -> {error, Atom, RestData}
+            end
     end.
+
 
 %%-------------------------------------------------------------------------
 %% Resolve references
@@ -364,7 +382,7 @@ transcode(URIString, Options) when is_binary(URIString) ->
     of
         Result -> Result
     catch
-        throw:{error, L, RestData} -> {invalid_input, L, RestData}
+        throw:{error, _, RestData} -> {error, invalid_input, RestData}
     end;
 transcode(URIString, Options) when is_list(URIString) ->
     InEnc = proplists:get_value(in_encoding, Options, utf8),
@@ -373,7 +391,7 @@ transcode(URIString, Options) when is_list(URIString) ->
     try transcode(Flattened, [], InEnc, OutEnc) of
         Result -> Result
     catch
-        throw:{error, List, RestData} -> {invalid_input, List, RestData}
+        throw:{error, _, RestData} -> {error, invalid_input, RestData}
     end.
 
 
@@ -467,7 +485,7 @@ parse_uri_reference(URIString, URI) ->
     try parse_scheme_start(URIString, URI) of
         Res -> Res
     catch
-        throw:uri_parse_error ->
+        throw:{_,_,_} ->
             parse_relative_part(URIString, URI)
     end.
 
@@ -495,7 +513,7 @@ parse_relative_part(?STRING_REST("//", Rest), URI) ->
             URI2 = maybe_add_path(URI1),
             URI2#{userinfo => decode_userinfo(Userinfo)}
     catch
-        throw:uri_parse_error ->
+        throw:{_,_,_} ->
             {T, URI1} = parse_host(Rest, URI),
             Host = calculate_parsed_part_sl(Rest, T),
             URI2 = maybe_add_path(URI1),
@@ -521,7 +539,7 @@ parse_relative_part(?STRING_REST(Char, Rest), URI) ->
             {T, URI1} = parse_segment_nz_nc(Rest, URI),  % path-noscheme
             Path = calculate_parsed_part(Rest, T),
             URI1#{path => decode_path(?STRING_REST(Char, Path))};
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end.
 
 
@@ -571,7 +589,7 @@ parse_segment(?STRING_REST($#, Rest), URI) ->
 parse_segment(?STRING_REST(Char, Rest), URI) ->
     case is_pchar(Char) of
         true -> parse_segment(Rest, URI);
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end;
 parse_segment(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
@@ -594,7 +612,7 @@ parse_segment_nz_nc(?STRING_REST($#, Rest), URI) ->
 parse_segment_nz_nc(?STRING_REST(Char, Rest), URI) ->
     case is_segment_nz_nc(Char) of
         true -> parse_segment_nz_nc(Rest, URI);
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end;
 parse_segment_nz_nc(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
@@ -629,7 +647,7 @@ parse_scheme_start(?STRING_REST(Char, Rest), URI) ->
                  Scheme = calculate_parsed_scheme(Rest, T),
                  URI2 = maybe_add_path(URI1),
 		 URI2#{scheme => ?STRING_REST(Char, Scheme)};
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end.
 
 %% Add path component if it missing after parsing the URI.
@@ -653,10 +671,10 @@ parse_scheme(?STRING_REST($:, Rest), URI) ->
 parse_scheme(?STRING_REST(Char, Rest), URI) ->
     case is_scheme(Char) of
         true  -> parse_scheme(Rest, URI);
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end;
 parse_scheme(?STRING_EMPTY, _URI) ->
-    throw(uri_parse_error).
+    throw({error,invalid_uri,<<>>}).
 
 
 %% Check if char is allowed in scheme
@@ -681,7 +699,7 @@ parse_hier(?STRING_REST("//", Rest), URI) ->
             Userinfo = calculate_parsed_userinfo(Rest, T),
 	    {Rest, URI1#{userinfo => decode_userinfo(Userinfo)}}
     catch
-        throw:uri_parse_error ->
+        throw:{_,_,_} ->
             {T, URI1} = parse_host(Rest, URI),
             Host = calculate_parsed_part_sl(Rest, T),
 	    {Rest, URI1#{host => decode_host(remove_brackets(Host))}}
@@ -704,7 +722,7 @@ parse_hier(?STRING_REST(Char, Rest), URI) ->  % path-rootless
             {T, URI1} = parse_segment(Rest, URI),
             Path = calculate_parsed_part(Rest, T),
             {Rest, URI1#{path => decode_path(?STRING_REST(Char, Path))}};
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end;
 parse_hier(?STRING_EMPTY, URI) ->
     {<<>>, URI}.
@@ -744,11 +762,11 @@ parse_userinfo(?STRING_REST($@, Rest), URI) ->
 parse_userinfo(?STRING_REST(Char, Rest), URI) ->
     case is_userinfo(Char) of
         true -> parse_userinfo(Rest, URI);
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end;
 parse_userinfo(?STRING_EMPTY, _URI) ->
     %% URI cannot end in userinfo state
-    throw(uri_parse_error).
+    throw({error,invalid_uri,<<>>}).
 
 
 %% Check if char is allowed in userinfo
@@ -847,7 +865,7 @@ parse_reg_name(?STRING_REST($#, Rest), URI) ->
 parse_reg_name(?STRING_REST(Char, Rest), URI) ->
     case is_reg_name(Char) of
         true -> parse_reg_name(Rest, URI);
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end;
 parse_reg_name(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
@@ -883,7 +901,7 @@ parse_ipv4_bin(?STRING_REST($#, Rest), Acc, URI) ->
 parse_ipv4_bin(?STRING_REST(Char, Rest), Acc, URI) ->
     case is_ipv4(Char) of
         true -> parse_ipv4_bin(Rest, [Char|Acc], URI);
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end;
 parse_ipv4_bin(?STRING_EMPTY, Acc, URI) ->
     _ = validate_ipv4_address(lists:reverse(Acc)),
@@ -899,7 +917,7 @@ is_ipv4(Char) -> is_digit(Char).
 validate_ipv4_address(Addr) ->
     case inet:parse_ipv4strict_address(Addr) of
         {ok, _} -> Addr;
-        {error, _} -> throw(uri_parse_error)
+        {error, _} -> throw({error,invalid_uri,Addr})
     end.
 
 
@@ -910,10 +928,10 @@ parse_ipv6_bin(?STRING_REST($], Rest), Acc, URI) ->
 parse_ipv6_bin(?STRING_REST(Char, Rest), Acc, URI) ->
     case is_ipv6(Char) of
         true -> parse_ipv6_bin(Rest, [Char|Acc], URI);
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end;
 parse_ipv6_bin(?STRING_EMPTY, _Acc, _URI) ->
-    throw(uri_parse_error).
+    throw({error,invalid_uri,<<>>}).
 
 %% Check if char is allowed in IPv6 addresses
 -spec is_ipv6(char()) -> boolean().
@@ -943,7 +961,7 @@ parse_ipv6_bin_end(?STRING_REST($#, Rest), URI) ->
 parse_ipv6_bin_end(?STRING_REST(Char, Rest), URI) ->
     case is_ipv6(Char) of
         true -> parse_ipv6_bin_end(Rest, URI);
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end;
 parse_ipv6_bin_end(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
@@ -952,7 +970,7 @@ parse_ipv6_bin_end(?STRING_EMPTY, URI) ->
 validate_ipv6_address(Addr) ->
     case inet:parse_ipv6strict_address(Addr) of
         {ok, _} -> Addr;
-        {error, _} -> throw(uri_parse_error)
+        {error, _} -> throw({error,invalid_uri,Addr})
     end.
 
 
@@ -981,7 +999,7 @@ parse_port(?STRING_REST($#, Rest), URI) ->
 parse_port(?STRING_REST(Char, Rest), URI) ->
     case is_digit(Char) of
         true -> parse_port(Rest, URI);
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end;
 parse_port(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
@@ -1007,7 +1025,7 @@ parse_query(?STRING_REST($#, Rest), URI) ->
 parse_query(?STRING_REST(Char, Rest), URI) ->
     case is_query(Char) of
         true -> parse_query(Rest, URI);
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end;
 parse_query(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
@@ -1033,7 +1051,7 @@ is_query(Char) -> is_pchar(Char).
 parse_fragment(?STRING_REST(Char, Rest), URI) ->
     case is_fragment(Char) of
         true -> parse_fragment(Rest, URI);
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_uri,[Char]})
     end;
 parse_fragment(?STRING_EMPTY, URI) ->
     {?STRING_EMPTY, URI}.
@@ -1335,9 +1353,9 @@ decode_fragment(Cs) ->
 check_utf8(Cs) ->
     case unicode:characters_to_list(Cs) of
         {incomplete,_,_} ->
-            throw(uri_parse_error);
+            throw({error,non_utf8,Cs});
         {error,_,_} ->
-            throw(uri_parse_error);
+            throw({error,non_utf8,Cs});
         _ -> Cs
     end.
 
@@ -1348,13 +1366,13 @@ check_utf8(Cs) ->
 %% Only validates as scheme cannot have percent-encoded characters
 -spec encode_scheme(list()|binary()) -> list() | binary().
 encode_scheme([]) ->
-    throw(uri_parse_error);
+    throw({error,invalid_scheme,""});
 encode_scheme(<<>>) ->
-    throw(uri_parse_error);
+    throw({error,invalid_scheme,<<>>});
 encode_scheme(Scheme) ->
     case validate_scheme(Scheme) of
         true -> Scheme;
-        false -> throw(uri_parse_error)
+        false -> throw({error,invalid_scheme,Scheme})
     end.
 
 -spec encode_userinfo(list()|binary()) -> list() | binary().
@@ -1390,12 +1408,12 @@ decode(<<$%,C0,C1,Cs/binary>>, Fun, Acc) ->
         true ->
             B = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
             decode(Cs, Fun, <<Acc/binary, B>>);
-        false -> throw(uri_parse_error)
+        false -> throw({error,percent_decode,<<$%,C0,C1>>})
     end;
 decode(<<C,Cs/binary>>, Fun, Acc) ->
     case Fun(C) of
         true -> decode(Cs, Fun, <<Acc/binary, C>>);
-        false -> throw(uri_parse_error)
+        false -> throw({error,percent_decode,<<C,Cs/binary>>})
     end;
 decode(<<>>, _Fun, Acc) ->
     Acc.
@@ -1424,8 +1442,8 @@ encode(Component, Fun) when is_binary(Component) ->
 encode(<<Char/utf8, Rest/binary>>, Fun, Acc) ->
     C = encode_codepoint_binary(Char, Fun),
     encode(Rest, Fun, <<Acc/binary,C/binary>>);
-encode(<<_Char, _Rest/binary>>, _Fun, _Acc) ->
-    throw(uri_parse_error);
+encode(<<Char, Rest/binary>>, _Fun, _Acc) ->
+    throw({error,percent_encode,<<Char,Rest/binary>>});
 encode(<<>>, _Fun, Acc) ->
     Acc.
 
@@ -1554,13 +1572,24 @@ is_valid_map(Map) ->
          not maps:is_key(host, Map) andalso
          maps:is_key(port, Map))) orelse
         not maps:is_key(path, Map) orelse
-        not is_host_and_path_valid(Map)
+        not is_host_and_path_valid(Map) orelse
+        invalid_field_present(Map)
     of
         true ->
             false;
         false ->
             true
     end.
+
+
+invalid_field_present(Map) ->
+    Fun = fun(K, _, AccIn) -> AccIn orelse
+                                      ((K =/= scheme) andalso (K =/= userinfo)
+                                       andalso (K =/= host) andalso (K =/= port)
+                                       andalso (K =/= path) andalso (K =/= query)
+                                       andalso (K =/= fragment))
+          end,
+    maps:fold(Fun, false, Map).
 
 
 is_host_and_path_valid(Map) ->
@@ -1745,9 +1774,9 @@ transcode_pct([], Acc, B, InEncoding, OutEncoding) ->
 convert_binary(Binary, InEncoding, OutEncoding) ->
     case unicode:characters_to_binary(Binary, InEncoding, OutEncoding) of
         {error, _List, RestData} ->
-            throw({error, unicode, RestData});
+            throw({error, invalid_input, RestData});
         {incomplete, _List, RestData} ->
-            throw({error, unicode, RestData});
+            throw({error, invalid_input, RestData});
         Result ->
             Result
     end.
@@ -1757,9 +1786,9 @@ convert_binary(Binary, InEncoding, OutEncoding) ->
 convert_list(Binary, InEncoding) ->
     case unicode:characters_to_list(Binary, InEncoding) of
         {error, _List, RestData} ->
-            throw({error, unicode, RestData});
+            throw({error, invalid_input, RestData});
         {incomplete, _List, RestData} ->
-            throw({error, unicode, RestData});
+            throw({error, invalid_input, RestData});
         Result ->
             Result
     end.

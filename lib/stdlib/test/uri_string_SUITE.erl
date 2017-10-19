@@ -32,7 +32,7 @@
          parse_pct_encoded_userinfo/1, parse_port/1,
          parse_query/1, parse_scheme/1, parse_userinfo/1,
 	 parse_list/1, parse_binary/1, parse_mixed/1, parse_relative/1,
-         parse_special/1, parse_special2/1,
+         parse_special/1, parse_special2/1, parse_negative/1,
          recompose_fragment/1, recompose_parse_fragment/1,
          recompose_query/1, recompose_parse_query/1,
          recompose_path/1, recompose_parse_path/1,
@@ -95,6 +95,7 @@ all() ->
      parse_relative,
      parse_special,
      parse_special2,
+     parse_negative,
      recompose_fragment,
      recompose_parse_fragment,
      recompose_query,
@@ -343,8 +344,8 @@ parse_binary_pct_encoded_userinfo(_Config) ->
         uri_string:parse(<<"foo://%E5%90%88@%E6%B0%97%E9%81%93">>),
     #{scheme := <<"foo">>, userinfo := <<"合:気"/utf8>>, host := <<"道"/utf8>>} =
         uri_string:parse(<<"foo://%E5%90%88:%E6%B0%97@%E9%81%93">>),
-    uri_parse_error =(catch uri_string:parse(<<"//%E5%90%88@%E6%B0%97%E9%81%93@">>)),
-    uri_parse_error = (catch uri_string:parse(<<"foo://%E5%90%88@%E6%B0%97%E9%81%93@">>)).
+    {error,invalid_uri,"@"} = uri_string:parse(<<"//%E5%90%88@%E6%B0%97%E9%81%93@">>),
+    {error,invalid_uri,":"} = uri_string:parse(<<"foo://%E5%90%88@%E6%B0%97%E9%81%93@">>).
 
 parse_binary_host(_Config) ->
     #{host := <<"hostname">>} = uri_string:parse(<<"//hostname">>),
@@ -359,8 +360,8 @@ parse_binary_host_ipv4(_Config) ->
     #{host := <<"127.0.0.1">>, query := <<"name=ferret">>} =
         uri_string:parse(<<"//127.0.0.1?name=ferret">>),
     #{host := <<"127.0.0.1">>, fragment := <<"nose">>} = uri_string:parse(<<"//127.0.0.1#nose">>),
-    uri_parse_error = (catch uri_string:parse(<<"//127.0.0.x">>)),
-    uri_parse_error = (catch uri_string:parse(<<"//1227.0.0.1">>)).
+    {error,invalid_uri,"x"} = uri_string:parse(<<"//127.0.0.x">>),
+    {error,invalid_uri,"1227.0.0.1"} = uri_string:parse(<<"//1227.0.0.1">>).
 
 parse_binary_host_ipv6(_Config) ->
     #{host := <<"::127.0.0.1">>} = uri_string:parse(<<"//[::127.0.0.1]">>),
@@ -372,9 +373,9 @@ parse_binary_host_ipv6(_Config) ->
         uri_string:parse(<<"//[::127.0.0.1]?name=ferret">>),
     #{host := <<"::127.0.0.1">>, fragment := <<"nose">>} =
         uri_string:parse(<<"//[::127.0.0.1]#nose">>),
-    uri_parse_error = (catch uri_string:parse(<<"//[::127.0.0.x]">>)),
-    uri_parse_error = (catch uri_string:parse(<<"//[::1227.0.0.1]">>)),
-    uri_parse_error = (catch uri_string:parse(<<"//[2001:0db8:0000:0000:0000:0000:1428:G7ab]">>)).
+    {error,invalid_uri,"x"} = uri_string:parse(<<"//[::127.0.0.x]">>),
+    {error,invalid_uri,"::1227.0.0.1"} = uri_string:parse(<<"//[::1227.0.0.1]">>),
+    {error,invalid_uri,"G"} = uri_string:parse(<<"//[2001:0db8:0000:0000:0000:0000:1428:G7ab]">>).
 
 parse_binary_port(_Config) ->
     #{path:= <<"/:8042">>} =
@@ -389,8 +390,8 @@ parse_binary_port(_Config) ->
         uri_string:parse(<<"foo://:8042">>),
     #{scheme := <<"foo">>, host := <<"example.com">>, port := 8042} =
         uri_string:parse(<<"foo://example.com:8042">>),
-    uri_parse_error = (catch uri_string:parse(":600")),
-    uri_parse_error = (catch uri_string:parse("//:8042x")).
+    {error,invalid_uri,":"} = uri_string:parse(":600"),
+    {error,invalid_uri,"x"} = uri_string:parse("//:8042x").
 
 parse_binary_path(_Config) ->
     #{path := <<"over/there">>} = uri_string:parse(<<"over/there">>),
@@ -511,8 +512,8 @@ parse_pct_encoded_userinfo(_Config) ->
         uri_string:parse("foo://%E5%90%88@%E6%B0%97%E9%81%93"),
     #{scheme := "foo", userinfo := "合:気", host := "道"} =
         uri_string:parse("foo://%E5%90%88:%E6%B0%97@%E9%81%93"),
-    uri_parse_error =(catch uri_string:parse("//%E5%90%88@%E6%B0%97%E9%81%93@")),
-    uri_parse_error = (catch uri_string:parse("foo://%E5%90%88@%E6%B0%97%E9%81%93@")).
+    {error,invalid_uri,"@"} = uri_string:parse("//%E5%90%88@%E6%B0%97%E9%81%93@"),
+    {error,invalid_uri,":"} = uri_string:parse("foo://%E5%90%88@%E6%B0%97%E9%81%93@").
 
 
 parse_host(_Config) ->
@@ -528,8 +529,8 @@ parse_host_ipv4(_Config) ->
     #{host := "127.0.0.1", path := "/over/there"} = uri_string:parse("//127.0.0.1/over/there"),
     #{host := "127.0.0.1", query := "name=ferret"} = uri_string:parse("//127.0.0.1?name=ferret"),
     #{host := "127.0.0.1", fragment := "nose"} = uri_string:parse("//127.0.0.1#nose"),
-    uri_parse_error = (catch uri_string:parse("//127.0.0.x")),
-    uri_parse_error = (catch uri_string:parse("//1227.0.0.1")).
+    {error,invalid_uri,"x"} = uri_string:parse("//127.0.0.x"),
+    {error,invalid_uri,"1227.0.0.1"} = uri_string:parse("//1227.0.0.1").
 
 parse_host_ipv6(_Config) ->
     #{host := "::127.0.0.1"} = uri_string:parse("//[::127.0.0.1]"),
@@ -537,9 +538,9 @@ parse_host_ipv6(_Config) ->
     #{host := "::127.0.0.1", query := "name=ferret"} =
         uri_string:parse("//[::127.0.0.1]?name=ferret"),
     #{host := "::127.0.0.1", fragment := "nose"} = uri_string:parse("//[::127.0.0.1]#nose"),
-    uri_parse_error = (catch uri_string:parse("//[::127.0.0.x]")),
-    uri_parse_error = (catch uri_string:parse("//[::1227.0.0.1]")),
-    uri_parse_error = (catch uri_string:parse("//[2001:0db8:0000:0000:0000:0000:1428:G7ab]")).
+    {error,invalid_uri,"x"} = uri_string:parse("//[::127.0.0.x]"),
+    {error,invalid_uri,"::1227.0.0.1"} = uri_string:parse("//[::1227.0.0.1]"),
+    {error,invalid_uri,"G"} = uri_string:parse("//[2001:0db8:0000:0000:0000:0000:1428:G7ab]").
 
 parse_port(_Config) ->
     #{path:= "/:8042"} =
@@ -693,6 +694,17 @@ parse_special2(_Config) ->
     #{host := [],path := "/",userinfo := []} = uri_string:parse("//@/"),
     #{host := [],path := "/",scheme := "foo",userinfo := []} = uri_string:parse("foo://@/").
 
+parse_negative(_Config) ->
+    {error,invalid_uri,"å"} = uri_string:parse("å"),
+    {error,invalid_uri,"å"} = uri_string:parse("aå:/foo"),
+    {error,invalid_uri,":"} = uri_string:parse("foo://usär@host"),
+    {error,invalid_uri,"ö"} = uri_string:parse("//host/path?foö=bar"),
+    {error,invalid_uri,"ö"} = uri_string:parse("//host/path#foö"),
+    {error,invalid_uri,"127.256.0.1"} = uri_string:parse("//127.256.0.1"),
+    {error,invalid_uri,":::127.0.0.1"} = uri_string:parse("//[:::127.0.0.1]"),
+    {error,non_utf8,<<0,0,0,246>>} = uri_string:parse("//%00%00%00%F6").
+
+
 %%-------------------------------------------------------------------------
 %% Recompose tests
 %%-------------------------------------------------------------------------
@@ -807,9 +819,9 @@ transcode_mixed(_Config) ->
         uri_string:transcode(["foo%00", <<"%00%0"/utf32>>,<<"0%F"/utf32>>,"6bar"], [{in_encoding, utf32},{out_encoding, utf8}]).
 
 transcode_negative(_Config) ->
-    {invalid_input,"foo","BX"} =
+    {error,invalid_input,"BX"} =
         uri_string:transcode(<<"foo%C3%BXbar"/utf8>>, [{in_encoding, utf8},{out_encoding, utf32}]),
-    {invalid_input,unicode,<<"ö">>} =
+    {error,invalid_input,<<"ö">>} =
         uri_string:transcode("foo%F6bar", [{in_encoding, utf8},{out_encoding, utf8}]).
 
 compose_query(_Config) ->
@@ -835,5 +847,5 @@ dissect_query_negative(_Config) ->
     {error,urldecode,"&amp;bar"} =
         uri_string:dissect_query("foo1&amp;bar=2"),
     {error,urldecode,"%XX%B6"} = uri_string:dissect_query("foo=%XX%B6&amp;bar=2"),
-    {error,unicode,<<153,182>>} =
+    {error,invalid_input,<<153,182>>} =
         uri_string:dissect_query("foo=%99%B6&amp;bar=2").
