@@ -32,7 +32,7 @@
   <marker id="gen_server"></marker>
   <p>This section is to be read with the
     <seealso marker="stdlib:gen_server">gen_server(3)</seealso>
-    manual page in <c>stdblib</c>, where all interface functions and
+    manual page in <c>stdlib</c>, where all interface functions and
     callback functions are described in detail.</p>
 
   <section>
