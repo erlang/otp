@@ -250,7 +250,7 @@ init({call, From}, {start, Timeout},
 					Cache, CacheCb, Renegotiation, Cert),
 
     Version = Hello#client_hello.client_version,
-    HelloVersion = dtls_record:lowest_protocol_version(SslOpts#ssl_options.versions),
+    HelloVersion = dtls_record:hello_version(Version, SslOpts#ssl_options.versions),
     State1 = prepare_flight(State0#state{negotiated_version = Version}),
     {State2, Actions} = send_handshake(Hello, State1#state{negotiated_version = HelloVersion}),  
     State3 = State2#state{negotiated_version = Version, %% Requested version
