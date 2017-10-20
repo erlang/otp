@@ -82,7 +82,8 @@
 -export([module/2,format_error/1]).
 
 -import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,splitwith/2,member/2,
-		keymember/3,keyfind/3,partition/2,droplast/1,last/1,sort/1]).
+		keymember/3,keyfind/3,partition/2,droplast/1,last/1,sort/1,
+                reverse/1]).
 -import(ordsets, [add_element/2,del_element/2,union/2,union/1,subtract/2]).
 -import(cerl, [c_tuple/1]).
 
@@ -1589,23 +1590,18 @@ match_var([U|Us], Cs0, Def, St) ->
 %%  according to type, the order is really irrelevant but tries to be
 %%  smart.
 
-match_con(Us, [C], Def, St) ->
-    %% There is only one clause. We can keep literal tuples and
-    %% lists, but we must convert []/integer/float/atom literals
-    %% to the proper record (#k_nil{} and so on).
-    Cs = [expand_pat_lit_clause(C, false)],
-    match_con_1(Us, Cs, Def, St);
 match_con(Us, Cs0, Def, St) ->
-    %% More than one clause. Remove literals at the top level.
-    Cs = [expand_pat_lit_clause(C, true) || C <- Cs0],
+    %% Expand literals at the top level.
+    Cs = [expand_pat_lit_clause(C) || C <- Cs0],
     match_con_1(Us, Cs, Def, St).
 
 match_con_1([U|_Us] = L, Cs, Def, St0) ->
     %% Extract clauses for different constructors (types).
     %%ok = io:format("match_con ~p~n", [Cs]),
-    Ttcs = select_types([k_binary], Cs) ++ select_bin_con(Cs) ++
-	select_types([k_cons,k_tuple,k_map,k_atom,k_float,k_int,
-		      k_nil,k_literal], Cs),
+    Ttcs0 = select_types([k_binary], Cs) ++ select_bin_con(Cs) ++
+        select_types([k_cons,k_tuple,k_map,k_atom,k_float,
+                      k_int,k_nil], Cs),
+    Ttcs = opt_single_valued(Ttcs0),
     %%ok = io:format("ttcs = ~p~n", [Ttcs]),
     {Scs,St1} =
 	mapfoldl(fun ({T,Tcs}, St) ->
@@ -1618,28 +1614,14 @@ match_con_1([U|_Us] = L, Cs, Def, St0) ->
 
 select_types(Types, Cs) ->
     [{T,Tcs} || T <- Types, begin Tcs = select(T, Cs), Tcs =/= [] end].
-    
-expand_pat_lit_clause(#iclause{pats=[#ialias{pat=#k_literal{anno=A,val=Val}}=Alias|Ps]}=C, B) ->
-    P = case B of
-	    true -> expand_pat_lit(Val, A);
-	    false -> literal(Val, A)
-	end,
+
+expand_pat_lit_clause(#iclause{pats=[#ialias{pat=#k_literal{anno=A,val=Val}}=Alias|Ps]}=C) ->
+    P = expand_pat_lit(Val, A),
     C#iclause{pats=[Alias#ialias{pat=P}|Ps]};
-expand_pat_lit_clause(#iclause{pats=[#k_literal{anno=A,val=Val}|Ps]}=C, B) ->
-    P = case B of
-	    true -> expand_pat_lit(Val, A);
-	    false -> literal(Val, A)
-	end,
+expand_pat_lit_clause(#iclause{pats=[#k_literal{anno=A,val=Val}|Ps]}=C) ->
+    P = expand_pat_lit(Val, A),
     C#iclause{pats=[P|Ps]};
-expand_pat_lit_clause(#iclause{pats=[#k_binary{anno=A,segs=#k_bin_end{}}|Ps]}=C, B) ->
-    case B of
-	true ->
-	    C;
-	false ->
-	    P = #k_literal{anno=A,val = <<>>},
-	    C#iclause{pats=[P|Ps]}
-    end;
-expand_pat_lit_clause(C, _) -> C.
+expand_pat_lit_clause(C) -> C.
 
 expand_pat_lit([H|T], A) ->
     #k_cons{anno=A,hd=literal(H, A),tl=literal(T, A)};
@@ -1658,6 +1640,107 @@ literal(Val, A) when is_atom(Val) ->
     #k_atom{anno=A,val=Val};
 literal(Val, A) when is_list(Val); is_tuple(Val) ->
     #k_literal{anno=A,val=Val}.
+
+%% opt_singled_valued([{Type,Clauses}]) -> [{Type,Clauses}].
+%%  If a type only has one clause and if the pattern is literal,
+%%  the matching can be done more efficiently by directly comparing
+%%  with the literal (that is especially true for binaries).
+
+opt_single_valued(Ttcs) ->
+    opt_single_valued(Ttcs, [], []).
+
+opt_single_valued([{_,[#iclause{pats=[P0|Ps]}=Tc]}=Ttc|Ttcs], TtcAcc, LitAcc) ->
+    try combine_lit_pat(P0) of
+        P ->
+            LitTtc = Tc#iclause{pats=[P|Ps]},
+            opt_single_valued(Ttcs, TtcAcc, [LitTtc|LitAcc])
+    catch
+        not_possible ->
+            opt_single_valued(Ttcs, [Ttc|TtcAcc], LitAcc)
+    end;
+opt_single_valued([Ttc|Ttcs], TtcAcc, LitAcc) ->
+    opt_single_valued(Ttcs, [Ttc|TtcAcc], LitAcc);
+opt_single_valued([], TtcAcc, []) ->
+    reverse(TtcAcc);
+opt_single_valued([], TtcAcc, LitAcc) ->
+    Literals = {k_literal,reverse(LitAcc)},
+    %% Test the literals as early as possible.
+    case reverse(TtcAcc) of
+        [{k_binary,_}=Bin|Ttcs] ->
+            %% The delayed creation of sub binaries requires
+            %% bs_start_match2 to be the first instruction in the
+            %% function.
+            [Bin,Literals|Ttcs];
+        Ttcs ->
+            [Literals|Ttcs]
+    end.
+
+combine_lit_pat(#ialias{pat=Pat0}=Alias) ->
+    Pat = combine_lit_pat(Pat0),
+    Alias#ialias{pat=Pat};
+combine_lit_pat(Pat) ->
+    case do_combine_lit_pat(Pat) of
+        #k_literal{val=Val} when is_atom(Val) ->
+            throw(not_possible);
+        #k_literal{val=Val} when is_number(Val) ->
+            throw(not_possible);
+        #k_literal{val=[]} ->
+            throw(not_possible);
+        #k_literal{}=Lit ->
+            Lit
+    end.
+
+do_combine_lit_pat(#k_atom{anno=A,val=Val}) ->
+    #k_literal{anno=A,val=Val};
+do_combine_lit_pat(#k_float{anno=A,val=Val}) ->
+    #k_literal{anno=A,val=Val};
+do_combine_lit_pat(#k_int{anno=A,val=Val}) ->
+    #k_literal{anno=A,val=Val};
+do_combine_lit_pat(#k_nil{anno=A}) ->
+    #k_literal{anno=A,val=[]};
+do_combine_lit_pat(#k_binary{anno=A,segs=Segs}) ->
+    Bin = combine_bin_segs(Segs),
+    #k_literal{anno=A,val=Bin};
+do_combine_lit_pat(#k_cons{anno=A,hd=Hd0,tl=Tl0}) ->
+    #k_literal{val=Hd} = do_combine_lit_pat(Hd0),
+    #k_literal{val=Tl} = do_combine_lit_pat(Tl0),
+    #k_literal{anno=A,val=[Hd|Tl]};
+do_combine_lit_pat(#k_literal{}=Lit) ->
+    Lit;
+do_combine_lit_pat(#k_tuple{anno=A,es=Es0}) ->
+    Es = [begin
+              #k_literal{val=Lit} = do_combine_lit_pat(El),
+              Lit
+          end || El <- Es0],
+    #k_literal{anno=A,val=list_to_tuple(Es)};
+do_combine_lit_pat(_) ->
+    throw(not_possible).
+
+combine_bin_segs(#k_bin_seg{size=Size0,unit=Unit,type=integer,
+                            flags=[unsigned,big],seg=Seg,next=Next}) ->
+    #k_literal{val=Size1} = do_combine_lit_pat(Size0),
+    #k_literal{val=Int} = do_combine_lit_pat(Seg),
+    Size = Size1 * Unit,
+    if
+        0 < Size, Size < 64 ->
+            Bin = <<Int:Size>>,
+            case Bin of
+                <<Int:Size>> ->
+                    NextBin = combine_bin_segs(Next),
+                    <<Bin/bits,NextBin/bits>>;
+                _ ->
+                    %% The integer Int does not fit in the segment,
+                    %% thus it will not match.
+                    throw(not_possible)
+            end;
+        true ->
+            %% Avoid creating huge binary literals.
+            throw(not_possible)
+    end;
+combine_bin_segs(#k_bin_end{}) ->
+    <<>>;
+combine_bin_segs(_) ->
+    throw(not_possible).
 
 %% select_bin_con([Clause]) -> [{Type,[Clause]}].
 %%  Extract clauses for the k_bin_seg constructor.  As k_bin_seg
