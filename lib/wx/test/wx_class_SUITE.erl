@@ -618,7 +618,7 @@ lang_env() ->
     Env0 = os:getenv(),
     Env = [[R,"\n"]||R <- Env0],
     %%io:format("~p~n",[lists:sort(Env)]),
-    Opts = [global, multiline, {capture, all, list}],
+    Opts = [global, multiline, {capture, all, list}, unicode],
     format_env(re:run(Env, "LC_ALL.*", Opts)),
     format_env(re:run(Env, "^LANG.*=.*$", Opts)),
     ok.
