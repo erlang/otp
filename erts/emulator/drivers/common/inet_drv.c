@@ -346,7 +346,7 @@ static unsigned long one_value = 1;
 #if defined(HAVE_SCTP_H)
 
 #ifdef HAVE_USRSCTP
-#define SCTP_DEBUG 1
+//#define SCTP_DEBUG 1
 #include <usrsctp.h>
 #else
 #include <netinet/sctp.h>
@@ -489,6 +489,9 @@ static void (*p_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 static typeof(usrsctp_set_non_blocking) *p_usrsctp_set_non_blocking = NULL;
 static typeof(usrsctp_init) *p_usrsctp_init = NULL;
 static typeof(usrsctp_peeloff) *p_usrsctp_peeloff = NULL;
+static typeof(usrsctp_sysctl_set_sctp_ecn_enable) *p_usrsctp_sysctl_set_sctp_ecn_enable = NULL;
+static typeof(usrsctp_sysctl_set_sctp_auth_enable) *p_usrsctp_sysctl_set_sctp_auth_enable = NULL;
+
 #ifdef SCTP_DEBUG
 static typeof(usrsctp_sysctl_set_sctp_debug_on) *p_usrsctp_set_debug_on = NULL;
 #endif
@@ -511,7 +514,7 @@ static typeof(usrsctp_close) *p_usrsctp_close = NULL;
 #endif
 #include "sys.h"
 
-#define INET_DRV_DEBUG 1
+//#define INET_DRV_DEBUG 1
 #ifdef INET_DRV_DEBUG
 #define DEBUG 1
 #undef DEBUGF
@@ -2829,42 +2832,55 @@ static ErlDrvTermData   am_sctp_rtoinfo, /* Option names */
 	 LOAD_NIL_CNT + LOAD_LIST_CNT + LOAD_ASSOC_ID_CNT + LOAD_TUPLE_CNT)
 
 #ifdef HAVE_USRSCTP
+//(struct sctp_rcvinfo *) mptr->msg_control
 static int usrsctp_parse_sndrcvinfo
-	   (ErlDrvTermData * spec, int i, struct sctp_rcvinfo * ri)
+	   (ErlDrvTermData * spec, int i, struct msghdr *mptr)
 {
     int n;
-    
-    i = LOAD_ATOM	(spec, i, am_sctp_sndrcvinfo);
-    i = LOAD_INT	(spec, i, ri->rcv_sid);
-    i = LOAD_INT	(spec, i, ri->rcv_ssn); /* no such value in usrsctp */
-    /* Now Flags, as a list: */
-    n = 0;
-    if (ri->rcv_flags & SCTP_UNORDERED)
-	{ i = LOAD_ATOM (spec, i, am_unordered);     n++; }
+    int s = 0;
 
-    if (ri->rcv_flags & SCTP_ADDR_OVER)
-	{ i = LOAD_ATOM (spec, i, am_addr_over);     n++; }
+    if (! (mptr->msg_flags & MSG_NOTIFICATION)) {
+	struct sctp_rcvinfo *ri = (struct sctp_rcvinfo *) mptr->msg_control;
+	i = LOAD_ATOM	(spec, i, am_sctp_sndrcvinfo);
+	i = LOAD_INT	(spec, i, ri->rcv_sid);
+	i = LOAD_INT	(spec, i, ri->rcv_ssn); /* no such value in usrsctp */
+	/* Now Flags, as a list: */
+	n = 0;
+	if (ri->rcv_flags & SCTP_UNORDERED)
+	    { i = LOAD_ATOM (spec, i, am_unordered);     n++; }
 
-    if (ri->rcv_flags & SCTP_ABORT)
-	{ i = LOAD_ATOM (spec, i, am_abort);	     n++; }
+	if (ri->rcv_flags & SCTP_ADDR_OVER)
+	    { i = LOAD_ATOM (spec, i, am_addr_over);     n++; }
 
-    if (ri->rcv_flags & SCTP_EOF)
-	{ i = LOAD_ATOM (spec, i, am_eof);	     n++; }
+	if (ri->rcv_flags & SCTP_ABORT)
+	    { i = LOAD_ATOM (spec, i, am_abort);	     n++; }
 
-    /* SCTP_SENDALL is not yet supported by the Linux kernel     */
-    i = LOAD_NIL	(spec, i);
-    i = LOAD_LIST	(spec, i, n+1);
+	if (ri->rcv_flags & SCTP_EOF)
+	    { i = LOAD_ATOM (spec, i, am_eof);	     n++; }
 
-    /* Continue with other top-level fields: */
-    i = LOAD_INT	(spec, i, sock_ntohl(ri->rcv_ppid));
-    i = LOAD_INT	(spec, i, ri->rcv_context);
-    i = LOAD_INT	(spec, i, 0);
-    i = LOAD_UINT	(spec, i, ri->rcv_tsn);
-    i = LOAD_UINT	(spec, i, ri->rcv_cumtsn);
-    i = LOAD_ASSOC_ID	(spec, i, ri->rcv_assoc_id);
+	/* SCTP_SENDALL is not yet supported by the Linux kernel     */
+	i = LOAD_NIL	(spec, i);
+	i = LOAD_LIST	(spec, i, n+1);
 
-    /* Close up the record: */
-    i = LOAD_TUPLE	(spec, i, 10);
+	/* Continue with other top-level fields: */
+	i = LOAD_INT	(spec, i, sock_ntohl(ri->rcv_ppid));
+	i = LOAD_INT	(spec, i, ri->rcv_context);
+	i = LOAD_INT	(spec, i, 0);
+	i = LOAD_UINT	(spec, i, ri->rcv_tsn);
+	i = LOAD_UINT	(spec, i, ri->rcv_cumtsn);
+	i = LOAD_ASSOC_ID	(spec, i, ri->rcv_assoc_id);
+
+	/* Close up the record: */
+	i = LOAD_TUPLE	(spec, i, 10);
+	s++;
+    }
+    /* Now make the list of tuples created above. Normally, it will be [] or
+       a singleton list.   The list must first be closed with NIL, otherwise
+       traversing it in Erlang would be problematic:
+    */
+    i = LOAD_NIL (spec, i);
+    i = LOAD_LIST(spec, i, s+1);
+
     return i;
 }
 
@@ -2876,6 +2892,7 @@ static void usrsctp_setup_sock(struct socket *sock, inet_descriptor *desc)
     struct sctp_event event;
     uint16_t event_types[] = {SCTP_ASSOC_CHANGE,
 			      SCTP_PEER_ADDR_CHANGE,
+			      SCTP_REMOTE_ERROR,
 			      SCTP_SEND_FAILED_EVENT};
 
     /* create pipes to be used with sock_select 
@@ -2913,7 +2930,7 @@ static struct socket* usrsctp_sock_open(int domain, int type, int protocol, inet
     sock = p_usrsctp_socket(domain, type, protocol,
 			    NULL,
 			    NULL,
-			    0, NULL, 0);
+			    0, NULL);
     usrsctp_setup_sock(sock, desc);
 
     return sock;
@@ -3405,7 +3422,8 @@ inet_async_binary_data
 	/* Put in the list (possibly empty) of Ancillary Data: */
 	mptr = (struct msghdr *) extra;
 #ifdef HAVE_USRSCTP
-	i = usrsctp_parse_sndrcvinfo (spec, i, (struct sctp_rcvinfo *) mptr->msg_control);
+	i = usrsctp_parse_sndrcvinfo (spec, i, mptr);
+	//i = usrsctp_parse_sndrcvinfo (spec, i, (struct sctp_rcvinfo *) mptr->msg_control);
 #else
 	i = sctp_parse_ancillary_data (spec, i, mptr);
 #endif
@@ -3631,7 +3649,8 @@ static int packet_binary_message
 	/* Put in the list (possibly empty) of Ancillary Data: */
 	mptr = (struct msghdr *) extra;
 #ifdef HAVE_USRSCTP
-	i = usrsctp_parse_sndrcvinfo (spec, i, (struct sctp_rcvinfo *) mptr->msg_control);
+	i = usrsctp_parse_sndrcvinfo (spec, i, mptr);
+	//i = usrsctp_parse_sndrcvinfo (spec, i, (struct sctp_rcvinfo *) mptr->msg_control);
 #else
 	i = sctp_parse_ancillary_data (spec, i, mptr);
 #endif
@@ -3990,19 +4009,20 @@ static void inet_init_sctp(void) {
 static void drop_root_priv()
 {
     seteuid(getuid());
+    setegid(getgid());
 }
 
+#ifdef SCTP_DEBUG
 static void usrsctp_debug_printf(const char *format, ...)
 {
-/*
     va_list ap;
     printf("USRCTP: ");
     va_start(ap, format);
     vprintf(format, ap);
     va_end(ap);
     printf("\r");
-*/
 }
+#endif
 #endif
 
 #endif /* HAVE_SCTP */
@@ -4105,10 +4125,6 @@ static int inet_init()
 	    void *ptr;
 	    if (erts_sys_ddll_sym(h_libsctp, "usrsctp_bindx", &ptr) == 0) {
 		p_sctp_bindx = ptr;
-		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_peeloff", &ptr) == 0) {
-		    p_sctp_peeloff = ptr;
-		}
-		else p_sctp_peeloff = NULL;
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_getladdrs", &ptr) == 0) {
 		    p_sctp_getladdrs = ptr;
 		}
@@ -4161,6 +4177,12 @@ static int inet_init()
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_peeloff", &ptr) == 0) {
 		    p_usrsctp_peeloff = ptr;
 		}
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_sysctl_set_sctp_auth_enable", &ptr) == 0) {
+		    p_usrsctp_sysctl_set_sctp_auth_enable = ptr;
+		}
+		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_sysctl_set_sctp_ecn_enable", &ptr) == 0) {
+		    p_usrsctp_sysctl_set_sctp_ecn_enable = ptr;
+		}
 #ifdef SCTP_DEBUG
 		if (erts_sys_ddll_sym(h_libsctp, "usrsctp_sysctl_set_sctp_debug_on", &ptr) == 0) {
 		    p_usrsctp_set_debug_on = ptr;
@@ -4177,8 +4199,14 @@ static int inet_init()
 		    p_sctp_getpaddrs = NULL;
 		}
 		inet_init_sctp();
+#ifdef SCTP_DEBUG 
 		p_usrsctp_init(0, NULL, usrsctp_debug_printf); 
+#else
+		p_usrsctp_init(0, NULL, NULL);
+#endif
 		drop_root_priv();
+		//p_usrsctp_sysctl_set_sctp_ecn_enable(0);
+		//p_usrsctp_sysctl_set_sctp_auth_enable(0);
 #ifdef SCTP_DEBUG
 		p_usrsctp_set_debug_on(SCTP_DEBUG_ALL);
 #endif		
@@ -4600,6 +4628,9 @@ static void desc_close(inet_descriptor* desc)
 #ifdef HAVE_USRSCTP
     if (IS_SCTP(desc)) {
 	p_usrsctp_close(desc->usrsctp_sock);
+	/* close pipes */
+	close(desc->s);	
+	close(desc->wpipe);
 	desc->s = INVALID_SOCKET;
 	desc->event_mask = 0;
 	return;
@@ -11435,6 +11466,15 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
 
 #ifdef HAVE_USRSCTP
     usrsctp_setup_sock(s,INETP(copy_desc));
+    
+    /* a hack since we set the FD after the socket is peeled off
+       any incoming data after peeloff and set of notif fd are missed.
+       write a byte on the pipe to trigger an read to check 
+       TODO: add support for passing notif fd in peeloff call instead
+    */
+    char b=1;
+    write(INETP(copy_desc)->wpipe, &b, 1);
+    
     if ((copy_desc->inet.usrsctp_sock = s) != NULL)
 #else
     if ((copy_desc->inet.s = s) != INVALID_SOCKET) 
@@ -12158,7 +12198,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 #ifdef HAVE_USRSCTP
 	/* For SCTP we must use recvmsg() */
 	if (IS_SCTP(desc)) {
-	    unsigned int infotype;
+	    unsigned int infotype = 0;
 	    socklen_t infolen = SCTP_ANC_BUFF_SIZE;
 	    struct sockaddr addr;
 	    char dummyread[1];
@@ -12176,7 +12216,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	     
 	    /* Do the actual SCTP receive: */
 	    read(desc->s, dummyread, 1); 
-	    DEBUGF(("usrsctp_recvv about to be called\r\n"));
+	    DEBUGF(("usrsctp_recvv about to be called %x\r\n", desc->usrsctp_sock));
 	    n = p_usrsctp_recvv(desc->usrsctp_sock,
 				udesc->i_ptr,
 				desc->bufsz,
@@ -12187,11 +12227,13 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 				&infotype,
 				&mhdr.msg_flags);
 	    len = mhdr.msg_namelen;
+	    DEBUGF(("n -> %d\r\n", n));
 	    DEBUGF(("infolen -> %d\r\n", infolen));
 	    DEBUGF(("infotype -> %d\r\n", infotype));
 	    struct sctp_rcvinfo* ri = (struct sctp_rcvinfo *) mhdr.msg_control;
 	    DEBUGF(("sctp_rcvinfo->rcv_sid %d\r\n", ri->rcv_sid));
-	    
+	    DEBUGF(("msg_flags %d\r\n", mhdr.msg_flags));
+
 	    goto check_result;
 	}
 #else
@@ -12245,7 +12287,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    }
 	    /* would block error - try again */
 	    if (!desc->active
-#ifdef HAVE_SCTP
+#ifdef defined(HAVE_SCTP) && defined(USRSCTP)
 		|| short_recv
 #endif
 		) {
@@ -12254,8 +12296,9 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    return count;		/* strange, not ready */
 	}
 
-#if defined(HAVE_SCTP)
+#if defined(HAVE_SCTP) && defined(USRCTP)
 	if (IS_SCTP(desc) && (short_recv = !(mhdr.msg_flags & MSG_EOR))) {
+	    
 	    /* SCTP non-final message fragment */
 	    inet_input_count(desc, n);
 	    udesc->i_ptr += n;
@@ -12322,7 +12365,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
      * that got that many messages or an SCTP socket that got that
      * many message fragments but still not the final
      */
-#ifdef HAVE_SCTP
+#ifdef defined(HAVE_SCTP) && defined(USRSCTP)
     if (short_recv) {
 	sock_select(desc, FD_READ, 1);
     }
