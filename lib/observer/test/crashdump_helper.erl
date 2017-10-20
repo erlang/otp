@@ -19,7 +19,9 @@
 %%
 
 -module(crashdump_helper).
--export([n1_proc/2,remote_proc/2]).
+-export([n1_proc/2,remote_proc/2,
+         dump_maps/0,create_maps/0,
+         create_binaries/0]).
 -compile(r18).
 -include_lib("common_test/include/ct.hrl").
 
@@ -60,6 +62,7 @@ n1_proc(Creator,_N2,Pid2,Port2,_L) ->
     put(ref,Ref),
     put(pid,Pid),
     put(bin,Bin),
+    put(bins,create_binaries()),
     put(sub_bin,SubBin),
     put(bignum,83974938738373873),
     put(neg_bignum,-38748762783736367),
@@ -92,3 +95,38 @@ remote_proc(P1,Creator) ->
 		  Creator ! {self(),done},
 		  receive after infinity -> ok end
 	  end).
+
+create_binaries() ->
+    Sizes = lists:seq(60, 70) ++ lists:seq(120, 140),
+    [begin
+         <<H:16/unit:8>> = erlang:md5(<<Size:32>>),
+         Data = ((H bsl (8*150)) div (H+7919)),
+         <<Data:Size/unit:8>>
+     end || Size <- Sizes].
+
+%%%
+%%% Test dumping of maps. Dumping of maps only from OTP 20.2.
+%%%
+
+dump_maps() ->
+    Parent = self(),
+    F = fun() ->
+                register(aaaaaaaa_maps, self()),
+                put(maps, create_maps()),
+                Parent ! {self(),done},
+                receive _ -> ok end
+        end,
+    Pid = spawn_link(F),
+    receive
+        {Pid,done} ->
+            {ok,Pid}
+    end.
+
+create_maps() ->
+    Map0 = maps:from_list([{I,[I,I+1]} || I <- lists:seq(1, 40)]),
+    Map1 = maps:from_list([{I,{a,[I,I*I],{}}} || I <- lists:seq(1, 100)]),
+    Map2 = maps:from_list([{{I},(I*I) bsl 24} || I <- lists:seq(1, 10000)]),
+    Map3 = lists:foldl(fun(I, A) ->
+                               A#{I=>I*I}
+                       end, Map2, lists:seq(-10, 0)),
+    #{a=>Map0,b=>Map1,c=>Map2,d=>Map3,e=>#{}}.

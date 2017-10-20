@@ -32,6 +32,7 @@
 #include "dist.h"
 #include "beam_catches.h"
 #include "erl_binary.h"
+#include "erl_map.h"
 #define ERTS_WANT_EXTERNAL_TAGS
 #include "external.h"
 
@@ -51,6 +52,11 @@ static void print_function_from_pc(fmtfn_t to, void *to_arg, BeamInstr* x);
 static void heap_dump(fmtfn_t to, void *to_arg, Eterm x);
 static void dump_binaries(fmtfn_t to, void *to_arg, Binary* root);
 static void dump_externally(fmtfn_t to, void *to_arg, Eterm term);
+static void mark_literal(Eterm* ptr);
+static void init_literal_areas(void);
+static void dump_literals(fmtfn_t to, void *to_arg);
+static void dump_module_literals(fmtfn_t to, void *to_arg,
+                                 ErtsLiteralArea* lit_area);
 
 static Binary* all_binaries;
 
@@ -58,14 +64,14 @@ extern BeamInstr beam_apply[];
 extern BeamInstr beam_exit[];
 extern BeamInstr beam_continue_exit[];
 
-
 void
 erts_deep_process_dump(fmtfn_t to, void *to_arg)
 {
     int i, max = erts_ptab_max(&erts_proc);
 
     all_binaries = NULL;
-    
+    init_literal_areas();
+
     for (i = 0; i < max; i++) {
 	Process *p = erts_pix2proc(i);
 	if (p && p->i != ENULL) {
@@ -75,6 +81,7 @@ erts_deep_process_dump(fmtfn_t to, void *to_arg)
        }
     }
 
+    dump_literals(to, to_arg);
     dump_binaries(to, to_arg, all_binaries);
 }
 
@@ -373,7 +380,9 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
 	    next = (Eterm *) x;
 	} else if (is_list(x)) {
 	    ptr = list_val(x);
-	    if (ptr[0] != OUR_NIL) {
+            if (erts_is_literal(x, ptr)) {
+                mark_literal(ptr);
+            } else if (ptr[0] != OUR_NIL) {
 		erts_print(to, to_arg, PTR_FMT ":l", ptr);
 		dump_element(to, to_arg, ptr[0]);
 		erts_putc(to, to_arg, '|');
@@ -392,7 +401,9 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
 
 	    ptr = boxed_val(x);
 	    hdr = *ptr;
-	    if (hdr != OUR_NIL) {	/* If not visited */
+            if (erts_is_literal(x, ptr)) {
+                mark_literal(ptr);
+            } else if (hdr != OUR_NIL) {
 		erts_print(to, to_arg, PTR_FMT ":", ptr);
 	        if (is_arity_value(hdr)) {
 		    Uint i;
@@ -498,11 +509,77 @@ heap_dump(fmtfn_t to, void *to_arg, Eterm x)
 		    erts_print(to, to_arg, "p<%beu.%beu>\n",
 			       port_channel_no(x), port_number(x));
 		    *ptr = OUR_NIL;
+		} else if (is_map_header(hdr)) {
+                    if (is_flatmap_header(hdr)) {
+                        flatmap_t* fmp = (flatmap_t *) flatmap_val(x);
+                        Eterm* values = ptr + sizeof(flatmap_t) / sizeof(Eterm);
+                        Uint map_size = fmp->size;
+                        int i;
+
+                        erts_print(to, to_arg, "Mf" ETERM_FMT ":", map_size);
+                        dump_element(to, to_arg, fmp->keys);
+                        erts_putc(to, to_arg, ':');
+                        for (i = 0; i < map_size; i++) {
+                            dump_element(to, to_arg, values[i]);
+                            if (is_immed(values[i])) {
+                                values[i] = make_small(0);
+                            }
+                            if (i < map_size-1) {
+                                erts_putc(to, to_arg, ',');
+                            }
+                        }
+                        erts_putc(to, to_arg, '\n');
+                        *ptr = OUR_NIL;
+                        x = fmp->keys;
+                        if (map_size) {
+                            fmp->keys = (Eterm) next;
+                            next = &values[map_size-1];
+                        }
+                        continue;
+                    } else {
+                        Uint i;
+                        Uint sz = 0;
+                        Eterm* nodes = ptr + 1;
+
+                        switch (MAP_HEADER_TYPE(hdr)) {
+                        case MAP_HEADER_TAG_HAMT_HEAD_ARRAY:
+                            nodes++;
+                            sz = 16;
+                            erts_print(to, to_arg, "Mh" ETERM_FMT ":" ETERM_FMT ":",
+                                       hashmap_size(x), sz);
+                            break;
+                        case MAP_HEADER_TAG_HAMT_HEAD_BITMAP:
+                            nodes++;
+                            sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                            erts_print(to, to_arg, "Mh" ETERM_FMT ":" ETERM_FMT ":",
+                                       hashmap_size(x), sz);
+                            break;
+                        case MAP_HEADER_TAG_HAMT_NODE_BITMAP:
+                            sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+                            erts_print(to, to_arg, "Mn" ETERM_FMT ":", sz);
+                            break;
+                        }
+                        *ptr = OUR_NIL;
+                        for (i = 0; i < sz; i++) {
+                            dump_element(to, to_arg, nodes[i]);
+                            if (is_immed(nodes[i])) {
+                                nodes[i] = make_small(0);
+                            }
+                            if (i < sz-1) {
+                                erts_putc(to, to_arg, ',');
+                            }
+                        }
+                        erts_putc(to, to_arg, '\n');
+                        x = nodes[0];
+                        nodes[0] = (Eterm) next;
+                        next = &nodes[sz-1];
+                        continue;
+                    }
 		} else {
 		    /*
 		     * All other we dump in the external term format.
 		     */
-			dump_externally(to, to_arg, x);
+                    dump_externally(to, to_arg, x);
 		    erts_putc(to, to_arg, '\n');
 		    *ptr = OUR_NIL;
 		}
@@ -564,16 +641,282 @@ dump_externally(fmtfn_t to, void *to_arg, Eterm term)
 	}
     }
 
-    /* Do not handle maps */
-    if (is_map(term)) {
-        term = am_undefined;
-    }
-
     s = p = sbuf;
     erts_encode_ext(term, &p);
     erts_print(to, to_arg, "E%X:", p-s);
     while (s < p) {
 	erts_print(to, to_arg, "%02X", *s++);
+    }
+}
+
+/*
+ * Handle dumping of literal areas.
+ */
+
+static ErtsLiteralArea** lit_areas;
+static Uint num_lit_areas;
+
+static int compare_areas(const void * a, const void * b)
+{
+    ErtsLiteralArea** a_p = (ErtsLiteralArea **) a;
+    ErtsLiteralArea** b_p = (ErtsLiteralArea **) b;
+
+    if (*a_p < *b_p) {
+        return -1;
+    } else if (*b_p < *a_p) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+
+static void
+init_literal_areas(void)
+{
+    int i;
+    Module* modp;
+    ErtsCodeIndex code_ix;
+    ErtsLiteralArea** area_p;
+
+    code_ix = erts_active_code_ix();
+    erts_rlock_old_code(code_ix);
+
+    lit_areas = area_p = erts_dump_lit_areas;
+    num_lit_areas = 0;
+    for (i = 0; i < module_code_size(code_ix); i++) {
+	modp = module_code(i, code_ix);
+        if (modp == NULL) {
+            continue;
+        }
+        if (modp->curr.code_length > 0 &&
+            modp->curr.code_hdr->literal_area) {
+            *area_p++ = modp->curr.code_hdr->literal_area;
+        }
+        if (modp->old.code_length > 0 && modp->old.code_hdr->literal_area) {
+            *area_p++ = modp->old.code_hdr->literal_area;
+        }
+    }
+
+    num_lit_areas = area_p - lit_areas;
+    ASSERT(num_lit_areas <= erts_dump_num_lit_areas);
+    for (i = 0; i < num_lit_areas; i++) {
+        lit_areas[i]->off_heap = 0;
+    }
+
+    qsort(lit_areas, num_lit_areas, sizeof(ErtsLiteralArea *),
+          compare_areas);
+
+    erts_runlock_old_code(code_ix);
+}
+
+static int search_areas(const void * a, const void * b) {
+    Eterm* key = (Eterm *) a;
+    ErtsLiteralArea** b_p = (ErtsLiteralArea **) b;
+    if (key < b_p[0]->start) {
+        return -1;
+    } else if (b_p[0]->end <= key) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+static void mark_literal(Eterm* ptr)
+{
+    ErtsLiteralArea** ap;
+
+    ap = bsearch(ptr, lit_areas, num_lit_areas, sizeof(ErtsLiteralArea*),
+                 search_areas);
+    ASSERT(ap);
+    ap[0]->off_heap = (struct erl_off_heap_header *) 1;
+}
+
+
+static void
+dump_literals(fmtfn_t to, void *to_arg)
+{
+    ErtsCodeIndex code_ix;
+    int i;
+
+    code_ix = erts_active_code_ix();
+    erts_rlock_old_code(code_ix);
+
+    erts_print(to, to_arg, "=literals\n");
+    for (i = 0; i < num_lit_areas; i++) {
+        if (lit_areas[i]->off_heap) {
+            dump_module_literals(to, to_arg, lit_areas[i]);
+        }
+    }
+
+    erts_runlock_old_code(code_ix);
+}
+
+static void
+dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
+{
+    Eterm* htop;
+    Eterm* hend;
+
+    htop = lit_area->start;
+    hend = lit_area->end;
+    while (htop < hend) {
+        Eterm w = *htop;
+        Eterm term;
+        Uint size;
+
+        switch (primary_tag(w)) {
+        case TAG_PRIMARY_HEADER:
+            term = make_boxed(htop);
+            erts_print(to, to_arg, PTR_FMT ":", htop);
+            if (is_arity_value(w)) {
+                Uint i;
+                Uint arity = arityval(w);
+
+                erts_print(to, to_arg, "t" ETERM_FMT ":", arity);
+                for (i = 1; i <= arity; i++) {
+                    dump_element(to, to_arg, htop[i]);
+                    if (i < arity) {
+                        erts_putc(to, to_arg, ',');
+                    }
+                }
+                erts_putc(to, to_arg, '\n');
+            } else if (w == HEADER_FLONUM) {
+                FloatDef f;
+                char sbuf[31];
+                int i;
+
+                GET_DOUBLE_DATA((htop+1), f);
+                i = sys_double_to_chars(f.fd, sbuf, sizeof(sbuf));
+                sys_memset(sbuf+i, 0, 31-i);
+                erts_print(to, to_arg, "F%X:%s\n", i, sbuf);
+            } else if (_is_bignum_header(w)) {
+                erts_print(to, to_arg, "B%T\n", term);
+            } else if (is_binary_header(w)) {
+                Uint tag = thing_subtag(w);
+                Uint size = binary_size(term);
+                Uint i;
+
+                if (tag == HEAP_BINARY_SUBTAG) {
+                    byte* p;
+
+                    erts_print(to, to_arg, "Yh%X:", size);
+                    p = binary_bytes(term);
+                    for (i = 0; i < size; i++) {
+                        erts_print(to, to_arg, "%02X", p[i]);
+                    }
+                } else if (tag == REFC_BINARY_SUBTAG) {
+                    ProcBin* pb = (ProcBin *) binary_val(term);
+                    Binary* val = pb->val;
+
+                    if (erts_atomic_xchg_nob(&val->intern.refc, 0) != 0) {
+                        val->intern.flags = (UWord) all_binaries;
+                        all_binaries = val;
+                    }
+                    erts_print(to, to_arg,
+                               "Yc" PTR_FMT ":" PTR_FMT ":" PTR_FMT,
+                               val,
+                               pb->bytes - (byte *)val->orig_bytes,
+                               size);
+                } else if (tag == SUB_BINARY_SUBTAG) {
+                    ErlSubBin* Sb = (ErlSubBin *) binary_val(term);
+                    Eterm* real_bin;
+                    void* val;
+
+                    real_bin = boxed_val(Sb->orig);
+                    if (thing_subtag(*real_bin) == REFC_BINARY_SUBTAG) {
+                        /*
+                         * Unvisited REFC_BINARY: Point directly to
+                         * the binary.
+                         */
+                        ProcBin* pb = (ProcBin *) real_bin;
+                        val = pb->val;
+                    } else {
+                        /*
+                         * Heap binary or visited REFC binary: Point
+                         * to heap binary or ProcBin on the heap.
+                         */
+                        val = real_bin;
+                    }
+                    erts_print(to, to_arg,
+                               "Ys" PTR_FMT ":" PTR_FMT ":" PTR_FMT,
+                               val, Sb->offs, size);
+                }
+                erts_putc(to, to_arg, '\n');
+            } else if (is_map_header(w)) {
+                if (is_flatmap_header(w)) {
+                    flatmap_t* fmp = (flatmap_t *) flatmap_val(term);
+                    Eterm* values = htop + sizeof(flatmap_t) / sizeof(Eterm);
+                    Uint map_size = fmp->size;
+                    int i;
+
+                    erts_print(to, to_arg, "Mf" ETERM_FMT ":", map_size);
+                    dump_element(to, to_arg, fmp->keys);
+                    erts_putc(to, to_arg, ':');
+                    for (i = 0; i < map_size; i++) {
+                        dump_element(to, to_arg, values[i]);
+                        if (i < map_size-1) {
+                            erts_putc(to, to_arg, ',');
+                        }
+                    }
+                    erts_putc(to, to_arg, '\n');
+                } else {
+                    Uint i;
+                    Uint sz = 0;
+                    Eterm* nodes = htop + 1;
+
+                    switch (MAP_HEADER_TYPE(w)) {
+                    case MAP_HEADER_TAG_HAMT_HEAD_ARRAY:
+                        nodes++;
+                        sz = 16;
+                        erts_print(to, to_arg, "Mh" ETERM_FMT ":" ETERM_FMT ":",
+                                   hashmap_size(term), sz);
+                        break;
+                    case MAP_HEADER_TAG_HAMT_HEAD_BITMAP:
+                        nodes++;
+                        sz = hashmap_bitcount(MAP_HEADER_VAL(w));
+                        erts_print(to, to_arg, "Mh" ETERM_FMT ":" ETERM_FMT ":",
+                                   hashmap_size(term), sz);
+                        break;
+                    case MAP_HEADER_TAG_HAMT_NODE_BITMAP:
+                        sz = hashmap_bitcount(MAP_HEADER_VAL(w));
+                        erts_print(to, to_arg, "Mn" ETERM_FMT ":", sz);
+                        break;
+                    }
+                    for (i = 0; i < sz; i++) {
+                        dump_element(to, to_arg, nodes[i]);
+                        if (i < sz-1) {
+                            erts_putc(to, to_arg, ',');
+                        }
+                    }
+                    erts_putc(to, to_arg, '\n');
+                }
+            }
+            size = 1 + header_arity(w);
+            switch (w & _HEADER_SUBTAG_MASK) {
+            case MAP_SUBTAG:
+                if (is_flatmap_header(w)) {
+                    size += 1 + flatmap_get_size(htop);
+                } else {
+                    size += hashmap_bitcount(MAP_HEADER_VAL(w));
+                }
+                break;
+            case SUB_BINARY_SUBTAG:
+                size += 1;
+                break;
+            }
+            break;
+        default:
+            ASSERT(!is_header(htop[1]));
+            erts_print(to, to_arg, PTR_FMT ":l", htop);
+            dump_element(to, to_arg, htop[0]);
+            erts_putc(to, to_arg, '|');
+            dump_element(to, to_arg, htop[1]);
+            erts_putc(to, to_arg, '\n');
+            size = 2;
+            break;
+        }
+        htop += size;
     }
 }
 

@@ -256,4 +256,3 @@ void module_end_staging(int commit)
 
     IF_DEBUG(dbg_load_code_ix = -1);
 }
-
