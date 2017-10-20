@@ -104,6 +104,7 @@
 -define(index_table,index_table).
 -define(instr_data,instr_data).
 -define(internal_ets,internal_ets).
+-define(literals,literals).
 -define(loaded_modules,loaded_modules).
 -define(memory,memory).
 -define(memory_map,memory_map).
@@ -785,6 +786,9 @@ parse_vsn_str(Str,WS) ->
 %%% Progress is reported during the time and MUST be checked with
 %%% crashdump_viewer:get_progress/0 until it returns {ok,done}.
 do_read_file(File) ->
+    erase(?literals),                           %Clear literal cache.
+    put(truncated,false),                       %Not truncated (yet).
+    erase(truncated_reason),                    %Not truncated (yet).
     case file:read_file_info(File) of
 	{ok,#file_info{type=regular,
 		       access=FileA,
@@ -856,6 +860,19 @@ indexify(Fd,AddrAdj,Bin,N) ->
                 {?proc_heap,LastId} ->
                     [{_,LastPos}] = lookup_index(?proc_heap,LastId),
                     ets:insert(cdv_heap_file_chars,{LastId,N+Start+1-LastPos});
+                {?literals,[]} ->
+                    case get(truncated_reason) of
+                        undefined ->
+                            [{_,LastPos}] = lookup_index(?literals,[]),
+                            ets:insert(cdv_heap_file_chars,
+                                       {literals,N+Start+1-LastPos});
+                        _ ->
+                            %% Literals are truncated. Make sure we never
+                            %% attempt to read in the literals. (Heaps that
+                            %% references literals will show markers for
+                            %% incomplete heaps, but will otherwise work.)
+                            delete_index(?literals, [])
+                    end;
                 _ -> ok
             end,
 	    indexify(Fd,AddrAdj,Rest,N1);
@@ -908,6 +925,7 @@ check_if_truncated() ->
 find_truncated_proc({Tag,_Id}) when Tag==?atoms;
                                     Tag==?binary;
                                     Tag==?instr_data;
+                                    Tag==?literals;
                                     Tag==?memory_status;
                                     Tag==?memory_map ->
     put(truncated_proc,false);
@@ -1386,12 +1404,32 @@ maybe_other_node2(Channel) ->
 expand_memory(Fd,Pid,DumpVsn) ->
     BinAddrAdj = get_bin_addr_adj(DumpVsn),
     put(fd,Fd),
-    Dict = read_heap(Fd,Pid,BinAddrAdj,gb_trees:empty()),
+    Dict0 = case get(?literals) of
+                undefined ->
+                    Literals = read_literals(Fd),
+                    put(?literals,Literals),
+                    put(fd,Fd),
+                    Literals;
+                Literals ->
+                    Literals
+            end,
+    Dict = read_heap(Fd,Pid,BinAddrAdj,Dict0),
     Expanded = {read_stack_dump(Fd,Pid,BinAddrAdj,Dict),
 		read_messages(Fd,Pid,BinAddrAdj,Dict),
 		read_dictionary(Fd,Pid,BinAddrAdj,Dict)},
     erase(fd),
     Expanded.
+
+read_literals(Fd) ->
+    case lookup_index(?literals,[]) of
+	[{_,Start}] ->
+            [{_,Chars}] = ets:lookup(cdv_heap_file_chars,literals),
+            init_progress("Reading literals",Chars),
+	    pos_bof(Fd,Start),
+	    read_heap(0,gb_trees:empty());
+        [] ->
+            gb_trees:empty()
+    end.
 
 %%%-----------------------------------------------------------------
 %%% This is a workaround for a bug in dump versions prior to 0.3:
@@ -2591,8 +2629,26 @@ parse_heap_term("Ys"++Line0, Addr, BinAddrAdj, D0) ->	%Sub binary.
 		   end
 	   end,
     D = gb_trees:insert(Addr, Term, D0),
-    {Term,Line,D}.
-
+    {Term,Line,D};
+parse_heap_term("Mf"++Line0, Addr, BinAddrAdj, D0) -> %Flatmap.
+    {Size,":"++Line1} = get_hex(Line0),
+    {Keys,":"++Line2,D1} = parse_term(Line1, BinAddrAdj, D0),
+    {Values,Line,D2} = parse_tuple(Size, Line2, Addr,BinAddrAdj, D1, []),
+    Pairs = zip_tuples(tuple_size(Keys), Keys, Values, []),
+    Map = maps:from_list(Pairs),
+    D = gb_trees:update(Addr, Map, D2),
+    {Map,Line,D};
+parse_heap_term("Mh"++Line0, Addr, BinAddrAdj, D0) -> %Head node in a hashmap.
+    {MapSize,":"++Line1} = get_hex(Line0),
+    {N,":"++Line2} = get_hex(Line1),
+    {Nodes,Line,D1} = parse_tuple(N, Line2, Addr, BinAddrAdj, D0, []),
+    Map = maps:from_list(flatten_hashmap_nodes(Nodes)),
+    MapSize = maps:size(Map),                   %Assertion.
+    D = gb_trees:update(Addr, Map, D1),
+    {Map,Line,D};
+parse_heap_term("Mn"++Line0, Addr, BinAddrAdj, D) -> %Interior node in a hashmap.
+    {N,":"++Line} = get_hex(Line0),
+    parse_tuple(N, Line, Addr, BinAddrAdj, D, []).
 
 parse_tuple(0, Line, Addr, _, D0, Acc) ->
     Tuple = list_to_tuple(lists:reverse(Acc)),
@@ -2604,6 +2660,25 @@ parse_tuple(N, Line0, Addr, BinAddrAdj, D0, Acc) ->
 	    parse_tuple(N-1, Line, Addr, BinAddrAdj, D, [Term|Acc]);
 	{Term,Line,D}->
 	    parse_tuple(N-1, Line, Addr, BinAddrAdj, D, [Term|Acc])
+    end.
+
+zip_tuples(0, _T1, _T2, Acc) ->
+    Acc;
+zip_tuples(N, T1, T2, Acc) when N =< tuple_size(T1) ->
+    zip_tuples(N-1, T1, T2, [{element(N, T1),element(N, T2)}|Acc]).
+
+flatten_hashmap_nodes(Tuple) ->
+    flatten_hashmap_nodes_1(tuple_size(Tuple), Tuple, []).
+
+flatten_hashmap_nodes_1(0, _Tuple, Acc) ->
+    Acc;
+flatten_hashmap_nodes_1(N, Tuple0, Acc0) ->
+    case element(N, Tuple0) of
+        [K|V] ->
+            flatten_hashmap_nodes_1(N-1, Tuple0, [{K,V}|Acc0]);
+        Tuple when is_tuple(Tuple) ->
+            Acc = flatten_hashmap_nodes_1(N-1, Tuple0, Acc0),
+            flatten_hashmap_nodes_1(tuple_size(Tuple), Tuple, Acc)
     end.
 
 parse_term([$H|Line0], BinAddrAdj, D) ->        %Pointer to heap term.
@@ -2794,6 +2869,10 @@ reset_tables() ->
 insert_index(Tag,Id,Pos) ->
     ets:insert(cdv_dump_index_table,{{Tag,Pos},Id}).
 
+delete_index(Tag,Id) ->
+    Ms = [{{{Tag,'$1'},Id},[],[true]}],
+    ets:select_delete(cdv_dump_index_table, Ms).
+
 lookup_index({Tag,Id}) ->
     lookup_index(Tag,Id);
 lookup_index(Tag) ->
@@ -2809,6 +2888,7 @@ insert_binary_index(Addr,Pos) ->
 
 lookup_binary_index(Addr) ->
     ets:lookup(cdv_binary_index_table,Addr).
+
 
 %%-----------------------------------------------------------------
 %% Convert tags read from crashdump to atoms used as first part of key
@@ -2827,6 +2907,7 @@ tag_to_atom("hidden_node") -> ?hidden_node;
 tag_to_atom("index_table") -> ?index_table;
 tag_to_atom("instr_data") -> ?instr_data;
 tag_to_atom("internal_ets") -> ?internal_ets;
+tag_to_atom("literals") -> ?literals;
 tag_to_atom("loaded_modules") -> ?loaded_modules;
 tag_to_atom("memory") -> ?memory;
 tag_to_atom("mod") -> ?mod;
@@ -2850,8 +2931,10 @@ tag_to_atom(UnknownTag) ->
 %%%-----------------------------------------------------------------
 %%% Store last tag for use when truncated, and reason if aborted
 put_last_tag(?abort,Reason) ->
-    %% Don't overwrite the real last tag
-    put(truncated_reason,Reason);
+    %% Don't overwrite the real last tag, and make sure to return
+    %% the previous last tag.
+    put(truncated_reason,Reason),
+    get(last_tag);
 put_last_tag(Tag,Id) ->
     put(last_tag,{Tag,Id}).
 

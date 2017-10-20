@@ -44,6 +44,7 @@ struct erts_dsprintf_buf_t_ {
 typedef int (*fmtfn_t)(void*, char*, size_t);
 
 int erts_write_fd(void *vfdp, char* buf, size_t len);
+int erts_write_fp(void *vfdp, char* buf, size_t len);
 int erts_write_ds(void *vdsbufp, char* buf, size_t len);
 
 int erts_printf(const char *, ...);

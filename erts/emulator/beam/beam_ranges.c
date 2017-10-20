@@ -32,6 +32,15 @@ typedef struct {
     erts_atomic_t end; /* (BeamInstr*) Points one word beyond last function in module. */
 } Range;
 
+/*
+ * Used for crash dumping of literals. The size of erts_dump_lit_areas is
+ * always twice the number of active ranges (to allow for literals in both
+ * current and old code).
+ */
+
+ErtsLiteralArea** erts_dump_lit_areas;
+Uint erts_dump_num_lit_areas;
+
 /* Range 'end' needs to be atomic as we purge module
     by setting end=start in active code_ix */
 #define RANGE_END(R) ((BeamInstr*)erts_atomic_read_nob(&(R)->end))
@@ -97,6 +106,11 @@ erts_init_ranges(void)
 	r[i].allocated = 0;
 	erts_atomic_init_nob(&r[i].mid, 0);
     }
+
+    erts_dump_num_lit_areas = 8;
+    erts_dump_lit_areas = (ErtsLiteralArea **)
+        erts_alloc(ERTS_ALC_T_CRASH_DUMP,
+                   erts_dump_num_lit_areas * sizeof(ErtsLiteralArea*));
 }
 
 void
@@ -164,6 +178,14 @@ erts_end_staging_ranges(int commit)
 	erts_atomic_set_nob(&r[dst].mid,
 				(erts_aint_t) (r[dst].modules +
 					       r[dst].n / 2));
+
+        if (r[dst].allocated * 2 > erts_dump_num_lit_areas) {
+            erts_dump_num_lit_areas *= 2;
+            erts_dump_lit_areas = (ErtsLiteralArea **)
+                erts_realloc(ERTS_ALC_T_CRASH_DUMP,
+                             (void *) erts_dump_lit_areas,
+                             erts_dump_num_lit_areas * sizeof(ErtsLiteralArea*));
+        }
     }
 }
 

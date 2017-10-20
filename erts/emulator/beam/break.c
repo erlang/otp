@@ -58,6 +58,8 @@ static void dump_attributes(fmtfn_t to, void *to_arg, byte* ptr, int size);
 
 extern char* erts_system_version[];
 
+#define WRITE_BUFFER_SIZE (64*1024)
+
 static void
 port_info(fmtfn_t to, void *to_arg)
 {
@@ -673,18 +675,28 @@ bin_check(void)
 static Sint64 crash_dump_limit = ERTS_SINT64_MAX;
 static Sint64 crash_dump_written = 0;
 
-static int crash_dump_limited_writer(void* vfdp, char* buf, size_t len)
+typedef struct LimitedWriterInfo_ {
+    fmtfn_t to;
+    void* to_arg;
+} LimitedWriterInfo;
+
+static int
+crash_dump_limited_writer(void* vfdp, char* buf, size_t len)
 {
     const char stop_msg[] = "\n=abort:CRASH DUMP SIZE LIMIT REACHED\n";
+    LimitedWriterInfo* lwi = (LimitedWriterInfo *) vfdp;
 
     crash_dump_written += len;
     if (crash_dump_written <= crash_dump_limit) {
-        return erts_write_fd(vfdp, buf, len);
+        return lwi->to(lwi->to_arg, buf, len);
     }
 
     len -= (crash_dump_written - crash_dump_limit);
-    erts_write_fd(vfdp, buf, len);
-    erts_write_fd(vfdp, (char*)stop_msg, sizeof(stop_msg)-1);
+    lwi->to(lwi->to_arg, buf, len);
+    lwi->to(lwi->to_arg, (char*)stop_msg, sizeof(stop_msg)-1);
+    if (lwi->to == &erts_write_fp) {
+        fclose((FILE *) lwi->to_arg);
+    }
 
     /* We assume that crash dump was called from erts_exit_vv() */
     erts_exit_epilogue();
@@ -707,6 +719,9 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     int i;
     fmtfn_t to = &erts_write_fd;
     void*   to_arg;
+    FILE* fp = 0;
+    LimitedWriterInfo lwi;
+    static char* write_buffer;  /* 'static' to avoid a leak warning in valgrind */
 
     if (ERTS_SOMEONE_IS_CRASH_DUMPING)
 	return;
@@ -810,9 +825,30 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     fd = open(dumpname,O_WRONLY | O_CREAT | O_TRUNC,0640);
     if (fd < 0)
 	return; /* Can't create the crash dump, skip it */
-    to_arg = (void*)&fd;
+
+    /*
+     * Wrap into a FILE* so that we can use buffered output. Set an
+     * explicit buffer to make sure the first write does not fail because
+     * of a failure to allocate a buffer.
+     */
+    write_buffer = (char *) erts_alloc_fnf(ERTS_ALC_T_TMP, WRITE_BUFFER_SIZE);
+    if (write_buffer && (fp = fdopen(fd, "w")) != NULL) {
+        setvbuf(fp, write_buffer, _IOFBF, WRITE_BUFFER_SIZE);
+        lwi.to = &erts_write_fp;
+        lwi.to_arg = (void*)fp;
+    } else {
+        lwi.to = &erts_write_fd;
+        lwi.to_arg = (void*)&fd;
+    }
+    if (to == &crash_dump_limited_writer) {
+        to_arg = (void *) &lwi;
+    } else {
+        to = lwi.to;
+        to_arg = lwi.to_arg;
+    }
+
     time(&now);
-    erts_cbprintf(to, to_arg, "=erl_crash_dump:0.3\n%s", ctime(&now));
+    erts_cbprintf(to, to_arg, "=erl_crash_dump:0.4\n%s", ctime(&now));
 
     if (file != NULL)
        erts_cbprintf(to, to_arg, "The error occurred in file %s, line %d\n", file, line);
@@ -916,6 +952,9 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     }
 
     erts_cbprintf(to, to_arg, "=end\n");
+    if (fp) {
+        fclose(fp);
+    }
     close(fd);
     erts_fprintf(stderr,"done\n");
 }
