@@ -226,9 +226,9 @@
 %%-------------------------------------------------------------------------
 %% External API
 %%-------------------------------------------------------------------------
--export([compose_query/1, compose_query/2, create_uri_reference/2,
-         dissect_query/1, normalize/1, parse/1,
-         recompose/1, resolve_uri_reference/2, transcode/2]).
+-export([compose_query/1, compose_query/2,
+         dissect_query/1, parse/1,
+         recompose/1, transcode/2]).
 -export_type([uri_map/0, uri_string/0]).
 
 
@@ -291,7 +291,8 @@
 %%-------------------------------------------------------------------------
 -spec parse(URIString) -> URIMap when
       URIString :: uri_string(),
-      URIMap :: uri_map().
+      URIMap :: uri_map()
+              | {error, atom(), list() | binary()}.
 parse(URIString) when is_binary(URIString) ->
     try parse_uri_reference(URIString, #{}) of
         Result -> Result
@@ -315,7 +316,8 @@ parse(URIString) when is_list(URIString) ->
 %%-------------------------------------------------------------------------
 -spec recompose(URIMap) -> URIString when
       URIMap :: uri_map(),
-      URIString :: uri_string().
+      URIString :: uri_string()
+                 | {error, atom(), list() | binary()}.
 recompose(Map) ->
     case is_valid_map(Map) of
         false ->
@@ -338,40 +340,13 @@ recompose(Map) ->
 
 
 %%-------------------------------------------------------------------------
-%% Resolve references
-%%-------------------------------------------------------------------------
--spec resolve_uri_reference(RelativeURI, AbsoluteBaseURI) -> AbsoluteDestURI when
-      RelativeURI :: uri_string(),
-      AbsoluteBaseURI :: uri_string(),
-      AbsoluteDestURI :: uri_string().
-resolve_uri_reference(_,_) ->
-    "".
-
-%%-------------------------------------------------------------------------
-%% Create references
-%%-------------------------------------------------------------------------
--spec create_uri_reference(AbsoluteSourceURI, AbsoluteBaseURI) -> RelativeDestURI when
-      AbsoluteSourceURI :: uri_string(),
-      AbsoluteBaseURI :: uri_string(),
-      RelativeDestURI :: uri_string().
-create_uri_reference(_,_) ->
-    "".
-
-%%-------------------------------------------------------------------------
-%% Normalize URIs
-%%-------------------------------------------------------------------------
--spec normalize(URIString) -> NormalizedURI when
-      URIString :: uri_string(),
-      NormalizedURI :: uri_string().
-normalize(_) ->
-    "".
-
-%%-------------------------------------------------------------------------
 %% Transcode URIs
 %%-------------------------------------------------------------------------
--spec transcode(URIString, Options) -> URIString when
+-spec transcode(URIString, Options) -> Result when
       URIString :: uri_string(),
-      Options :: [{in_encoding, unicode:encoding()}|{out_encoding, unicode:encoding()}].
+      Options :: [{in_encoding, unicode:encoding()}|{out_encoding, unicode:encoding()}],
+      Result :: uri_string()
+              | {error, atom(), list() | binary()}.
 transcode(URIString, Options) when is_binary(URIString) ->
     try
         InEnc = proplists:get_value(in_encoding, Options, utf8),
@@ -407,7 +382,8 @@ transcode(URIString, Options) when is_list(URIString) ->
 %%-------------------------------------------------------------------------
 -spec compose_query(QueryList) -> QueryString when
       QueryList :: [{uri_string(), uri_string()}],
-      QueryString :: string().
+      QueryString :: string()
+                   | {error, atom(), list() | binary()}.
 compose_query(List) ->
     compose_query(List, []).
 
@@ -415,7 +391,8 @@ compose_query(List) ->
 -spec compose_query(QueryList, Options) -> QueryString when
       QueryList :: [{uri_string(), uri_string()}],
       Options :: [{separator, atom()}],
-      QueryString :: string().
+      QueryString :: string()
+                   | {error, atom(), list() | binary()}.
 compose_query([],_Options) ->
     [];
 compose_query(List, Options) ->
@@ -439,7 +416,8 @@ compose_query([], _Options, Acc) ->
 %%-------------------------------------------------------------------------
 -spec dissect_query(QueryString) -> QueryList when
       QueryString :: uri_string(),
-      QueryList :: [{string(), string()}].
+      QueryList :: [{string(), string()}]
+                 | {error, atom(), list() | binary()}.
 dissect_query([]) ->
     [];
 dissect_query(QueryString) when is_binary(QueryString) ->
@@ -1940,7 +1918,7 @@ form_urldecode(Cs) ->
 form_urldecode(<<>>, Acc) ->
     convert_list(Acc, utf8);
 form_urldecode(<<$+,T/binary>>, Acc) ->
-    form_urlencode(T, [$ |Acc]);
+    form_urldecode(T, <<Acc/binary,$ >>);
 form_urldecode(<<$%,C0,C1,T/binary>>, Acc) ->
     case is_hex_digit(C0) andalso is_hex_digit(C1) of
         true ->
