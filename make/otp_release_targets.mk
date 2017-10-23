@@ -94,6 +94,8 @@ $(HTMLDIR)/users_guide.html: $(XML_FILES)
 # ------------------------------------------------------------------------
 # The following targets just exist in the documentation directory
 # ------------------------------------------------------------------------
+.PHONY: xmllint
+
 ifneq ($(XML_FILES),)
 
 # ----------------------------------------------------
@@ -143,6 +145,8 @@ local_copy_of_topdefs:
 		$(DOCGEN)/priv/js/flipmenu/flip_static.gif \
 		$(DOCGEN)/priv/js/flipmenu/flipmenu.js $(HTMLDIR)/js/flipmenu
 
+else
+xmllint:
 endif
 
 # ----------------------------------------------------
