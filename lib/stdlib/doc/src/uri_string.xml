@@ -28,9 +28,10 @@
     <rev>A</rev>
   </header>
   <module>uri_string</module>
-  <modulesummary>RFC 3986 compliant URI processing functions.</modulesummary>
+  <modulesummary>URI processing functions.</modulesummary>
   <description>
-    <p>This module contains functions for parsing and handling RFC 3986 compliant URIs.</p>
+    <p>This module contains functions for parsing and handling URIs (RFC 3986) and
+    form-urlencoded query strings (RFC 1866).</p>
     <p>A URI is an identifier consisting of a sequence of characters   matching the syntax
     rule named <em>URI</em> in <em>RFC 3986</em>.</p>
     <p>  The generic URI syntax consists of a hierarchical sequence of components referred
@@ -109,7 +110,7 @@
 	<c><anno>QueryList</anno></c>, a list of unescaped key-value pairs.
 	Media type <c>application/x-www-form-urlencoded</c> is defined in section
 	8.2.1 of <c>RFC 1866</c> (HTML 2.0). Reserved and unsafe characters, as
-	defined by RFC 1738 (Uniform Resource Locators), are procent-encoded.
+	defined by RFC 1738 (Uniform Resource Locators), are percent-encoded.
 	</p>
         <p><em>Example:</em></p>
         <pre>
@@ -125,8 +126,7 @@
       <desc>
         <p>Same as <c>compose_query/1</c> but with an additional
 	<c><anno>Options</anno></c> parameter, that controls the type of separator used
-	between key-value pairs. There are two supported separator types: <c>amp</c> (<![CDATA[&amp;]]>)
-	and <c>semicolon</c> (;).</p>
+	between key-value pairs. There are three supported separator types: <c>amp</c> (<![CDATA[&]]>), <c>escaped_amp</c> (<![CDATA[&amp;]]>) and <c>semicolon</c> (;). If the parameter <c><anno>Options</anno></c> is empty, separator takes the default value (<c>escaped_amp</c>).</p>
         <p><em>Example:</em></p>
         <pre>
 1> <input>uri_string:compose_query([{"foo bar","1"},{"city","örebro"}],</input>

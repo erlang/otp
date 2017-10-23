@@ -1806,6 +1806,8 @@ get_separator(_, Acc) when length(Acc) =:= 0 ->
 get_separator([], _Acc) ->
     "&amp;";
 get_separator([{separator, amp}], _Acc) ->
+    "&";
+get_separator([{separator, escaped_amp}], _Acc) ->
     "&amp;";
 get_separator([{separator, semicolon}], _Acc) ->
     ";".
@@ -1900,6 +1902,8 @@ dissect_query_value([], Acc, Key, Value) ->
 
 
 dissect_query_separator_amp("&amp;" ++ T, Acc, Key, Value) ->
+    dissect_query_key(T, Acc, Key, Value);
+dissect_query_separator_amp("&" ++ T, Acc, Key, Value) ->
     dissect_query_key(T, Acc, Key, Value);
 dissect_query_separator_amp(L, _, _, _) ->
     throw({error, invalid_separator, L}).

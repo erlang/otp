@@ -827,7 +827,8 @@ transcode_negative(_Config) ->
 compose_query(_Config) ->
     [] = uri_string:compose_query([]),
     "foo=1&amp;bar=2" = uri_string:compose_query([{<<"foo">>,"1"}, {"bar", "2"}]),
-    "foo=1&amp;bar=2" = uri_string:compose_query([{"foo","1"}, {"bar", "2"}],[{separator,amp}]),
+    "foo=1&amp;bar=2" = uri_string:compose_query([{"foo","1"}, {"bar", "2"}],[{separator,escaped_amp}]),
+    "foo=1&bar=2" = uri_string:compose_query([{"foo","1"}, {"bar", "2"}],[{separator,amp}]),
     "foo=1;bar=2" = uri_string:compose_query([{"foo","1"}, {"bar", "2"}],[{separator,semicolon}]),
     "foo+bar=1&amp;%C3%B6=2" = uri_string:compose_query([{"foo bar","1"}, {"ö", "2"}]).
 
@@ -837,12 +838,13 @@ compose_query_negative(_Config) ->
 dissect_query(_Config) ->
     [] = uri_string:dissect_query(""),
     [{"foo","1"}, {"bar", "2"}] = uri_string:dissect_query("foo=1&amp;bar=2"),
+    [{"foo","1"}, {"bar", "2"}] = uri_string:dissect_query("foo=1&bar=2"),
     [{"foo","1"}, {"bar", "2"}] = uri_string:dissect_query("foo=1;bar=2"),
     [{"foo","1"}, {"bar", "222"}] = uri_string:dissect_query([<<"foo=1;bar=2">>,"22"]),
     [{"foo","ö"}, {"bar", "2"}] = uri_string:dissect_query("foo=%C3%B6&amp;bar=2").
 
 dissect_query_negative(_Config) ->
-    {error,invalid_separator,"&ap;bar=2"} =
+    {error,urldecode,";bar"} =
         uri_string:dissect_query("foo=1&ap;bar=2"),
     {error,urldecode,"&amp;bar"} =
         uri_string:dissect_query("foo1&amp;bar=2"),
