@@ -30,5 +30,6 @@ REF_MAN_CHAPTER_FILES = \
 	processes.xml \
 	distributed.xml \
 	code_loading.xml \
-	ports.xml
-
+	ports.xml \
+	character_set.xml \
+	typespec.xml

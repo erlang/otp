@@ -53,7 +53,7 @@ XML_APPLICATION_FILES = ref_man.xml
 #ref_man_ei.xml ref_man_erl_interface.xml
 XML_PART_FILES = \
 	part.xml
-XML_CHAPTER_FILES = ei_users_guide.xml notes.xml notes_history.xml
+XML_CHAPTER_FILES = ei_users_guide.xml notes.xml
 
 XML_FILES = $(XML_REF1_FILES) $(XML_REF3_FILES) $(BOOK_FILES) \
 	 $(XML_APPLICATION_FILES) $(XML_PART_FILES) $(XML_CHAPTER_FILES)

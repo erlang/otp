@@ -39,6 +39,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 XML_APPLICATION_FILES = ref_man.xml
 
 XML_CHAPTER_FILES = \
+	introduction.xml \
 	inets_services.xml \
 	http_client.xml \
 	http_server.xml \

@@ -58,8 +58,7 @@ XML_CHAPTER_FILES = \
 	lcnt_chapter.xml \
 	erlang_mode_chapter.xml \
 	xref_chapter.xml \
-	notes.xml \
-	notes_history.xml
+	notes.xml
 
 
 BOOK_FILES = book.xml

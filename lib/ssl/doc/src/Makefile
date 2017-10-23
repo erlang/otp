@@ -43,6 +43,7 @@ XML_REF6_FILES = ssl_app.xml
 
 XML_PART_FILES = usersguide.xml
 XML_CHAPTER_FILES = \
+	ssl_introduction.xml \
 	ssl_protocol.xml \
 	using_ssl.xml \
 	pkix_certs.xml \

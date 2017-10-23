@@ -60,6 +60,7 @@ XML_REF6_FILES = common_test_app.xml
 XML_PART_FILES = part.xml
 
 XML_CHAPTER_FILES = \
+	introduction.xml \
 	basics_chapter.xml \
 	getting_started_chapter.xml \
 	install_chapter.xml \
@@ -74,8 +75,7 @@ XML_CHAPTER_FILES = \
 	event_handler_chapter.xml \
 	ct_hooks_chapter.xml \
 	dependencies_chapter.xml \
-	notes.xml \
-	notes_history.xml
+	notes.xml
 
 BOOK_FILES = book.xml
 

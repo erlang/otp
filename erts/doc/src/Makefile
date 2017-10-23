@@ -69,6 +69,7 @@ XML_PART_FILES = \
 	part.xml
 
 XML_CHAPTER_FILES = \
+	introduction.xml \
 	tty.xml \
 	match_spec.xml \
 	crash_dump.xml \
@@ -80,8 +81,7 @@ XML_CHAPTER_FILES = \
 	erl_dist_protocol.xml \
 	communication.xml \
 	time_correction.xml \
-	notes.xml \
-	notes_history.xml
+	notes.xml
 
 TOPDOCDIR=../../../doc
 

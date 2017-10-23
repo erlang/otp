@@ -71,7 +71,7 @@ XML_REF4_FILES = app.xml config.xml
 XML_REF6_FILES = kernel_app.xml
 
 XML_PART_FILES =
-XML_CHAPTER_FILES = notes.xml notes_history.xml
+XML_CHAPTER_FILES = notes.xml
 
 BOOK_FILES = book.xml
 
