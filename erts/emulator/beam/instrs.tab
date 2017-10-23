@@ -788,7 +788,8 @@ is_eq_exact(Fail, X, Y) {
 }
 
 i_is_eq_exact_literal(Fail, Src, Literal) {
-    if (!eq($Src, $Literal)) {
+    Eterm src = $Src;
+    if (is_immed(src) || !eq(src, $Literal)) {
         $FAIL($Fail);
     }
 }
@@ -800,7 +801,8 @@ is_ne_exact(Fail, X, Y) {
 }
 
 i_is_ne_exact_literal(Fail, Src, Literal) {
-    if (eq($Src, $Literal)) {
+    Eterm src = $Src;
+    if (!is_immed(src) && eq(src, $Literal)) {
         $FAIL($Fail);
     }
 }

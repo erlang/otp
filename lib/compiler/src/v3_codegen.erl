@@ -654,6 +654,8 @@ select_cg(#l{ke={type_clause,bin_end,[S]}}, {var,V}, Tf, _Vf, Bef, St) ->
     select_bin_end(S, V, Tf, Bef, St);
 select_cg(#l{ke={type_clause,map,S}}, {var,V}, Tf, Vf, Bef, St) ->
     select_map(S, V, Tf, Vf, Bef, St);
+select_cg(#l{ke={type_clause,literal,S}}, {var,V}, Tf, Vf, Bef, St) ->
+    select_literal(S, V, Tf, Vf, Bef, St);
 select_cg(#l{ke={type_clause,Type,Scs}}, {var,V}, Tf, Vf, Bef, St0) ->
     {Vis,{Aft,St1}} =
 	mapfoldl(fun (S, {Int,Sta}) ->
@@ -694,6 +696,15 @@ select_labels([], St, Vls, Sis) ->
 add_vls([V|Vs], Lbl, Acc) ->
     add_vls(Vs, Lbl, [V, {f,Lbl}|Acc]);
 add_vls([], _, Acc) -> Acc.
+
+select_literal(S, V, Tf, Vf, Bef, St) ->
+    Reg = fetch_var(V, Bef),
+    F = fun(ValClause, Fail, St0) ->
+                {Val,Is,Aft,St1} = select_val(ValClause, V, Vf, Bef, St0),
+                Test = {test,is_eq_exact,{f,Fail},[Reg,{literal,Val}]},
+                {[Test|Is],Aft,St1}
+        end,
+    match_fmf(F, Tf, St, S).
 
 select_cons(#l{ke={val_clause,{cons,Es},B},i=I,vdb=Vdb}, V, Tf, Vf, Bef, St0) ->
     {Eis,Int,St1} = select_extract_cons(V, Es, I, Vdb, Bef, St0),
