@@ -36,6 +36,7 @@ no_group_cases() ->
 
 groups() ->
     [{running_error_logger,[shuffle],[show,
+                                      show_other,
 				      list,
 				      rescan,
 				      start_stop_log,
@@ -162,6 +163,23 @@ show(Config) ->
 			    OutFile),
     true = contains(SR,"child_terminated"),
     true = contains(SR,"{rb_SUITE,rb_test_crash}"),
+
+    ok.
+
+show_other(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    OutFile = filename:join(PrivDir,"rb_SUITE_log.txt"),
+
+    %% Insert some reports in the error log and start rb
+    error_logger:info_report([rb_test_term_in_list]),
+    error_logger:info_report(rb_test_term_no_list),
+    ok = start_rb(OutFile),
+
+    %% Show by type and check content
+    [{_,I1},{_,I2}] = check_report(fun() -> rb:show(info_report) end,OutFile),
+
+    true = contains(I1,"rb_test_term_no_list"),
+    true = contains(I2,"rb_test_term_in_list"),
 
     ok.
 

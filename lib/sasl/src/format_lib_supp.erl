@@ -86,8 +86,10 @@ print_data(Device, Line, [{Key, Value}|T]) ->
 print_data(Device, Line, [Value|T]) ->
     Modifier = misc_supp:modifier(Device),
     io:format(Device, "~"++Modifier++"p~n", [Value]),
-    print_data(Device, Line, T).
-
+    print_data(Device, Line, T);
+print_data(Device, _Line, Value) ->
+    Modifier = misc_supp:modifier(Device),
+    io:format(Device, "~"++Modifier++"p~n", [Value]).
 
 print_items(Device, Line, {Name, Items}) ->
     print_items(Device, Line, Name, Items).
