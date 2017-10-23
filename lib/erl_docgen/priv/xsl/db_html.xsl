@@ -172,6 +172,7 @@
   <xsl:template name="spec_name">
     <xsl:variable name="name" select="@name"/>
     <xsl:variable name="arity" select="@arity"/>
+    <xsl:variable name="anchor" select="@anchor"/>
     <xsl:variable name="spec0">
       <xsl:call-template name="find_spec"/>
     </xsl:variable>
@@ -197,6 +198,11 @@
 	    <a name="{$name}-{$arity}"></a>
 	  </xsl:otherwise>
         </xsl:choose>
+
+	<!-- Insert an anchor for "anchor" attribute -->
+	<xsl:if test="string-length($anchor) > 0">
+	      <a name="{$anchor}"></a>
+	</xsl:if>
 
         <xsl:variable name="global_types" select="ancestor::erlref/datatypes"/>
 	<xsl:variable name="local_types"
