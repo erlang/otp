@@ -730,6 +730,7 @@ do_trans_loop2(Tab, Father) ->
 	    do_trans_loop2(Tab, Father);
 	Else ->
 	    ?error("Transaction failed: ~p ~n", [Else]),
+            io:format("INFO: ~p~n",[erlang:process_info(self())]),
 	    Father ! test_done,
 	    exit(shutdown)
     end.
