@@ -360,7 +360,7 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
                     Opts = trace(connect_options(get_ssl_options(client))),
 		    dist_util:reset_timer(Timer),
                     case ssl:connect(
-                           Ip, TcpPort,
+                           Address, TcpPort,
                            [binary, {active, false}, {packet, 4},
                             Driver:family(), nodelay()] ++ Opts,
                            net_kernel:connecttime()) of
