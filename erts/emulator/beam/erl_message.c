@@ -616,7 +616,7 @@ erts_try_alloc_message_on_heap(Process *pp,
     }
     else {
     in_message_fragment:
-	if (!((*psp) & ERTS_PSFLG_ON_HEAP_MSGQ)) {
+	if ((*psp) & ERTS_PSFLG_OFF_HEAP_MSGQ) {
 	    mp = erts_alloc_message(sz, hpp);
 	    *ohpp = sz == 0 ? NULL : &mp->hfrag.off_heap;
 	}
@@ -1079,8 +1079,6 @@ erts_change_message_queue_management(Process *c_p, Eterm new_state)
 	case am_on_heap:
 	    c_p->flags |= F_ON_HEAP_MSGQ;
 	    c_p->flags &= ~F_OFF_HEAP_MSGQ;
-	    erts_atomic32_read_bor_nob(&c_p->state,
-					   ERTS_PSFLG_ON_HEAP_MSGQ);
 	    /*
 	     * We are not allowed to clear ERTS_PSFLG_OFF_HEAP_MSGQ
 	     * if a off heap change is ongoing. It will be adjusted
@@ -1106,8 +1104,6 @@ erts_change_message_queue_management(Process *c_p, Eterm new_state)
 	    break;
 	case am_off_heap:
 	    c_p->flags &= ~F_ON_HEAP_MSGQ;
-	    erts_atomic32_read_band_nob(&c_p->state,
-					    ~ERTS_PSFLG_ON_HEAP_MSGQ);
 	    goto change_to_off_heap;
 	default:
 	    res = THE_NON_VALUE; /* badarg */

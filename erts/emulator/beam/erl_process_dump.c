@@ -1023,8 +1023,6 @@ erts_dump_extended_process_state(fmtfn_t to, void *to_arg, erts_aint32_t psflg) 
                 erts_print(to, to_arg, "DELAYED_SYS"); break;
             case ERTS_PSFLG_OFF_HEAP_MSGQ:
                 erts_print(to, to_arg, "OFF_HEAP_MSGQ"); break;
-            case ERTS_PSFLG_ON_HEAP_MSGQ:
-                erts_print(to, to_arg, "ON_HEAP_MSGQ"); break;
             case ERTS_PSFLG_DIRTY_CPU_PROC:
                 erts_print(to, to_arg, "DIRTY_CPU_PROC"); break;
             case ERTS_PSFLG_DIRTY_IO_PROC:

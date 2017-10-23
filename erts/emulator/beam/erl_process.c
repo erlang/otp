@@ -11593,7 +11593,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	flags |= F_OFF_HEAP_MSGQ;
     }
     else if (so->flags & SPO_ON_HEAP_MSGQ) {
-	state |= ERTS_PSFLG_ON_HEAP_MSGQ;
 	flags |= F_ON_HEAP_MSGQ;
     }
 
@@ -11610,11 +11609,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	so->error_code = SYSTEM_LIMIT;
 	goto error;
     }
-
-    ASSERT((erts_atomic32_read_nob(&p->state)
-	    & ERTS_PSFLG_ON_HEAP_MSGQ)
-	   || (erts_atomic32_read_nob(&p->state)
-	       & ERTS_PSFLG_OFF_HEAP_MSGQ));
 
 #ifdef SHCOPY_SPAWN
     arg_size = copy_shared_calculate(args, &info);
