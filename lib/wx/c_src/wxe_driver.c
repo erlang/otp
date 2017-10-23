@@ -33,6 +33,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 
+#include <assert.h>
 #include "wxe_driver.h"
 
 #define TEMP_BINARY_SIZE 512
@@ -234,13 +235,21 @@ standard_outputv(ErlDrvData drv_data, ErlIOVec* ev)
        sd->max_bins = max;
    }
 
-   if(ev->vsize == 2) {
-      binref->base = ev->iov[1].iov_base;
-      binref->size = ev->iov[1].iov_len;
-      binref->from = driver_caller(sd->port_handle);
-      bin = ev->binv[1];
-      driver_binary_inc_refc(bin); /* Otherwise it could get deallocated */
-      binref->bin = bin;
+   if(ev->size > 0) {
+       assert(ev->vsize == 2 && ev->iov[0].iov_len == 0
+              && "erts changed how the ErlIOVec is structured for outputv");
+       binref->from = driver_caller(sd->port_handle);
+       binref->size = ev->iov[1].iov_len;
+       if(ev->binv[1]) {
+           binref->base = ev->iov[1].iov_base;
+           bin = ev->binv[1];
+           driver_binary_inc_refc(bin); /* Otherwise it could get deallocated */
+       } else {
+           bin = driver_alloc_binary(ev->iov[1].iov_len);
+           memcpy(bin->orig_bytes, ev->iov[1].iov_base, ev->iov[1].iov_len);
+           binref->base = bin->orig_bytes;
+       }
+       binref->bin = bin;
    } else { /* Empty binary (becomes NULL) */
       binref->base = NULL;
       binref->size = 0;
