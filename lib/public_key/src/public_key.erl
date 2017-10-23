@@ -1323,9 +1323,9 @@ ec_normalize_params(#'ECParameters'{} = ECParams) ->
 ec_normalize_params(Other) -> Other.
 
 -spec ec_curve_spec(ecpk_parameters_api()) -> term().
-ec_curve_spec( #'ECParameters'{fieldID = FieldId, curve = PCurve, base = Base, order = Order, cofactor = CoFactor }) ->
-    Field = {pubkey_cert_records:supportedCurvesTypes(FieldId#'FieldID'.fieldType),
-	     FieldId#'FieldID'.parameters},
+ec_curve_spec( #'ECParameters'{fieldID = #'FieldID'{fieldType = Type,
+                                                    parameters = Params}, curve = PCurve, base = Base, order = Order, cofactor = CoFactor }) ->
+    Field = format_field(pubkey_cert_records:supportedCurvesTypes(Type), Params),
     Curve = {PCurve#'Curve'.a, PCurve#'Curve'.b, none},
     {Field, Curve, Base, Order, CoFactor};
 ec_curve_spec({ecParameters, ECParams}) ->
@@ -1335,6 +1335,26 @@ ec_curve_spec({namedCurve, OID}) when is_tuple(OID), is_integer(element(1,OID)) 
 ec_curve_spec({namedCurve, Name}) when is_atom(Name) ->
     crypto:ec_curve(Name).
 
+format_field(characteristic_two_field = Type, Params0) ->
+    #'Characteristic-two'{
+       m = M,
+       basis = BasisOid,
+       parameters = Params} = der_decode('Characteristic-two', Params0),
+    {Type, M, field_param_decode(BasisOid, Params)};
+format_field(prime_field, Params0) ->
+    Prime = der_decode('Prime-p', Params0),
+    {prime_field, Prime}.
+
+field_param_decode(?'ppBasis', Params) ->
+    #'Pentanomial'{k1 = K1, k2 = K2, k3 = K3} =
+        der_decode('Pentanomial', Params),
+    {ppbasis, K1, K2, K3};
+field_param_decode(?'tpBasis', Params) ->
+    K = der_decode('Trinomial', Params),
+    {tpbasis, K};
+field_param_decode(?'gnBasis', _) ->
+    onbasis.
+        
 -spec ec_key({PubKey::term(), PrivateKey::term()}, Params::ecpk_parameters()) -> #'ECPrivateKey'{}.
 ec_key({PubKey, PrivateKey}, Params) ->
     #'ECPrivateKey'{version = 1,
