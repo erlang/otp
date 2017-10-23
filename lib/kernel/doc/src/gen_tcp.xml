@@ -51,6 +51,7 @@ server() ->
     {ok, Sock} = gen_tcp:accept(LSock),
     {ok, Bin} = do_recv(Sock, []),
     ok = gen_tcp:close(Sock),
+    ok = gen_tcp:close(LSock),
     Bin.
 
 do_recv(Sock, Bs) ->
@@ -309,9 +310,9 @@ do_recv(Sock, Bs) ->
             <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>.
             </p></item>
         </taglist>
-        <p>The returned socket <c><anno>ListenSocket</anno></c> can only be
-          used in calls to
-          <seealso marker="#accept/1"><c>accept/1,2</c></seealso>.</p>
+        <p>The returned socket <c><anno>ListenSocket</anno></c> should be used
+          in calls to <seealso marker="#accept/1"><c>accept/1,2</c></seealso> to
+          accept incoming connection requests.</p>
         <note>
           <p>The default values for options specified to <c>listen</c> can
             be affected by the Kernel configuration parameter
