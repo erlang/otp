@@ -1060,6 +1060,42 @@
       </desc>
     </func>
 
+     <func>
+      <name>remaining_test_procs() -&gt; {TestProcs,SharedGL,OtherGLs}</name>
+      <fsummary>>This function will return the identity of test- and group
+       leader processes that are still running at the time of this call.</fsummary>
+      <type>
+        <v>TestProcs = [{pid(),GL}]</v>
+	<v>GL = pid()</v>
+        <v>SharedGL = pid()</v>
+        <v>OtherGLs = [pid()]</v>
+      </type>
+      <desc><marker id="remaining_test_procs-0"/>
+        <p>This function will return the identity of test- and group
+	leader processes that are still running at the time of this call.
+	<c>TestProcs</c> are processes in the system that have a Common Test IO
+	process as group leader. <c>SharedGL</c> is the central Common Test
+	IO process, responsible for printing to log files for configuration
+	functions and sequentially executing test cases. <c>OtherGLs</c> are
+	Common Test IO processes that print to log files for test cases
+	in parallel test case groups.</p>
+	<p>The process information returned by this function may be
+	used to locate and terminate remaining processes after tests have
+	finished executing. The function would typically by called from
+	Common Test Hook functions.</p>
+	<p>Note that processes that execute configuration functions or
+	test cases are never included in <c>TestProcs</c>. It is therefore safe
+	to use post configuration hook functions (such as post_end_per_suite,
+	post_end_per_group, post_end_per_testcase) to terminate all processes
+	in <c>TestProcs</c> that have the current group leader process as its group
+	leader.</p>
+	<p>Note also that the shared group leader (<c>SharedGL</c>) must never be
+	terminated by the user, only by Common Test. Group leader processes
+	for parallel test case groups (<c>OtherGLs</c>) may however be terminated
+	in post_end_per_group hook functions.</p>
+      </desc>
+    </func>   
+
     <func>
       <name>remove_config(Callback, Config) -&gt; ok</name>
       <fsummary>Removes configuration variables (together with

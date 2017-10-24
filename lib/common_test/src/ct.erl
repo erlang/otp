@@ -89,7 +89,7 @@
 -export([get_target_name/1]).
 -export([parse_table/1, listenv/1]).
 
--export([get_test_processes/0]).
+-export([remaining_test_procs/0]).
 
 %%----------------------------------------------------------------------
 %% Exported types
@@ -1479,10 +1479,33 @@ continue(TestCase) ->
 
 
 %%%-----------------------------------------------------------------
-%%% @spec get_test_processes() -> TestProcs
-%%%       TestProcs = [{Pid,GroupLeader}]
+%%% @spec remaining_test_procs() -> {TestProcs,SharedGL,OtherGLs}
+%%%       TestProcs = [{pid(),GL}]
+%%%       GL = SharedGL = pid()
+%%%       OtherGLs = [pid()]
 %%%
-%%% @doc 
-%%%
-get_test_processes() ->
-    ct_util:get_test_processes().
+%%% @doc <p>This function will return the identity of test- and group
+%%%      leader processes that are still running at the time of this call.
+%%%      TestProcs are processes in the system that have a Common Test IO
+%%%      process as group leader. SharedGL is the central Common Test
+%%%      IO process, responsible for printing to log files for configuration
+%%%      functions and sequentially executing test cases. OtherGLs are
+%%%      Common Test IO processes that print to log files for test cases
+%%%      in parallel test case groups.</p>
+%%%      <p>The process information returned by this function may be
+%%%      used to locate and terminate remaining processes after tests have
+%%%      finished executing. The function would typically by called from
+%%%      Common Test Hook functions.</p>
+%%%      <p>Note that processes that execute configuration functions or
+%%%      test cases are never included in TestProcs. It is therefore safe
+%%%      to use post configuration hook functions (such as post_end_per_suite,
+%%%      post_end_per_group, post_end_per_testcase) to terminate all processes
+%%%      in TestProcs that have the current group leader process as its group
+%%%      leader.</p>
+%%%      <p>Note also that the shared group leader (SharedGL) must never be
+%%%      terminated by the user, only by Common Test. Group leader processes
+%%%      for parallel test case groups (OtherGLs) may however be terminated
+%%%      in post_end_per_group hook functions.</p>
+%%%      
+remaining_test_procs() ->
+    ct_util:remaining_test_procs().

@@ -66,7 +66,7 @@
 -export([warn_duplicates/1]).
 
 -export([mark_process/0, mark_process/1, is_marked/1, is_marked/2,
-         get_test_processes/0]).
+         remaining_test_procs/0]).
 
 -export([get_profile_data/0, get_profile_data/1,
 	 get_profile_data/2, open_url/3]).
@@ -955,7 +955,7 @@ is_marked(Pid, Type) ->
             false
     end.
 
-get_test_processes() ->
+remaining_test_procs() ->
     Procs = processes(),
     {SharedGL,OtherGLs,Procs2} =
         lists:foldl(
