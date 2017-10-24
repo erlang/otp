@@ -339,26 +339,21 @@ erl_scheme_webpage_whole(Mod, Func, Env, Input, ModData) ->
 	    {Headers, Body} = 
 		httpd_esi:parse_headers(lists:flatten(Response)),
 	    Length =  httpd_util:flatlength(Body),
-	    case httpd_esi:handle_headers(Headers) of
-		{proceed, AbsPath} ->
-		    {proceed, [{real_name, httpd_util:split_path(AbsPath)} 
-			       | ModData#mod.data]};
-		{ok, NewHeaders, StatusCode} ->
-		    send_headers(ModData, StatusCode, 
-				 [{"content-length", 
-				   integer_to_list(Length)}| NewHeaders]),
-		    case ModData#mod.method of
-			"HEAD" ->
-			    {proceed, [{response, {already_sent, 200, 0}} | 
-				       ModData#mod.data]};
-			_ ->
-			    httpd_response:send_body(ModData, 
-						     StatusCode, Body),
-			    {proceed, [{response, {already_sent, 200, 
-						  Length}} | 
-				       ModData#mod.data]}
-		    end
-	    end
+            {ok, NewHeaders, StatusCode} = httpd_esi:handle_headers(Headers), 
+            send_headers(ModData, StatusCode, 
+                         [{"content-length", 
+                           integer_to_list(Length)}| NewHeaders]),
+            case ModData#mod.method of
+                "HEAD" ->
+                    {proceed, [{response, {already_sent, 200, 0}} | 
+                               ModData#mod.data]};
+                _ ->
+                    httpd_response:send_body(ModData, 
+                                             StatusCode, Body),
+                    {proceed, [{response, {already_sent, 200, 
+                                           Length}} | 
+                               ModData#mod.data]}
+            end
     end.
 
 %% New API that allows the dynamic wepage to be sent back to the client 
@@ -398,29 +393,23 @@ deliver_webpage_chunk(#mod{config_db = Db} = ModData, Pid, Timeout) ->
         {continue, _} = Continue ->
             Continue;
 	{Headers, Body} ->
-	    case httpd_esi:handle_headers(Headers) of
-		{proceed, AbsPath} ->
-		    {proceed, [{real_name, httpd_util:split_path(AbsPath)} 
-			       | ModData#mod.data]};
-		{ok, NewHeaders, StatusCode} ->
-		    IsDisableChunkedSend = 
-			httpd_response:is_disable_chunked_send(Db),
-		    case (ModData#mod.http_version =/= "HTTP/1.1") or
-			(IsDisableChunkedSend) of
-			true ->
-			    send_headers(ModData, StatusCode, 
-					 [{"connection", "close"} | 
-					  NewHeaders]);
-			false ->
-			    send_headers(ModData, StatusCode, 
-					 [{"transfer-encoding", 
-					   "chunked"} | NewHeaders])
-		    end,    
-		    handle_body(Pid, ModData, Body, Timeout, length(Body), 
-				IsDisableChunkedSend)
-	    end;
-	timeout ->
-	    send_headers(ModData, 504, [{"connection", "close"}]),
+            {ok, NewHeaders, StatusCode} = httpd_esi:handle_headers(Headers),
+                IsDisableChunkedSend = httpd_response:is_disable_chunked_send(Db),
+            case (ModData#mod.http_version =/= "HTTP/1.1") or
+                (IsDisableChunkedSend) of
+                true ->
+                    send_headers(ModData, StatusCode, 
+                                 [{"connection", "close"} | 
+                                  NewHeaders]);
+                false ->
+                    send_headers(ModData, StatusCode, 
+                                 [{"transfer-encoding", 
+                                   "chunked"} | NewHeaders])
+            end,    
+            handle_body(Pid, ModData, Body, Timeout, length(Body), 
+                        IsDisableChunkedSend);
+        timeout ->
+            send_headers(ModData, 504, [{"connection", "close"}]),
 	    httpd_socket:close(ModData#mod.socket_type, ModData#mod.socket),
 	    {proceed,[{response, {already_sent, 200, 0}} | ModData#mod.data]}
     end.
@@ -560,15 +549,10 @@ eval(#mod{method = Method} = ModData, ESIBody, Modules)
 		{ok, Response} ->
 		    {Headers, _} = 
 			httpd_esi:parse_headers(lists:flatten(Response)),
-		    case httpd_esi:handle_headers(Headers) of
-			{ok, _, StatusCode} ->
-			    {proceed,[{response, {StatusCode, Response}} | 
-				      ModData#mod.data]};
-			{proceed, AbsPath} ->
-			    {proceed, [{real_name, AbsPath} | 
-				       ModData#mod.data]}
-		    end
-	    end;
+                    {ok, _, StatusCode} =httpd_esi:handle_headers(Headers), 
+                    {proceed,[{response, {StatusCode, Response}} | 
+                              ModData#mod.data]}
+            end;
 	false ->
 	    {proceed,[{status,
 		       {403, ModData#mod.request_uri,
