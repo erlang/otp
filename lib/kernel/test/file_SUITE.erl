@@ -1148,8 +1148,8 @@ pread_write_test(File, Data) ->
 	   end,
     I = Size + 17,
     ok = ?FILE_MODULE:pwrite(File, 0, Data),
-    Res = ?FILE_MODULE:pread(File, 0, I),
-    {ok, Data} = Res,
+    {ok, Data} = ?FILE_MODULE:pread(File, 0, I),
+    {ok, [Data]} = ?FILE_MODULE:pread(File, [{0, I}]),
     eof = ?FILE_MODULE:pread(File, I, 1),
     ok = ?FILE_MODULE:pwrite(File, [{0, Data}, {I, Data}]),
     {ok, [Data, eof, Data]} =
