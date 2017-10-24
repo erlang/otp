@@ -1744,7 +1744,6 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
    else if (BIF_ARG_1 == am_scheduler) {
        ErtsRunQueue *old, *new, *curr;
        Sint sched;
-       erts_aint32_t state;
 
        if (!is_small(BIF_ARG_2))
 	   goto error;
@@ -1753,23 +1752,23 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 	   goto error;
 
        if (sched == 0) {
+           old = erts_bind_runq_proc(BIF_P, 0);
 	   new = NULL;
-	   state = erts_atomic32_read_band_mb(&BIF_P->state,
-						  ~ERTS_PSFLG_BOUND);
        }
        else {
+           int bound = !0;
 	   new = erts_schedid2runq(sched);
-	   erts_atomic_set_nob(&BIF_P->run_queue, (erts_aint_t) new);
-	   state = erts_atomic32_read_bor_mb(&BIF_P->state,
-						 ERTS_PSFLG_BOUND);
+           old = erts_set_runq_proc(BIF_P, new, &bound);
+           if (!bound)
+               old = NULL;
        }
 
+       old_value = old ? make_small(old->ix+1) : make_small(0);
+
        curr = erts_proc_sched_data(BIF_P)->run_queue;
-       old = (ERTS_PSFLG_BOUND & state) ? curr : NULL;
 
        ASSERT(!old || old == curr);
 
-       old_value = old ? make_small(old->ix+1) : make_small(0);
        if (new && new != curr)
 	   ERTS_BIF_YIELD_RETURN_X(BIF_P, old_value, am_scheduler);
        else

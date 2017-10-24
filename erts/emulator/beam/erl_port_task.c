@@ -84,11 +84,10 @@ static void chk_task_queues(Port *pp, ErtsPortTask *execq, int processing_busy_q
 #define LTTNG_DRIVER(TRACEPOINT, PP) do {} while(0)
 #endif
 
-#define ERTS_LC_VERIFY_RQ(RQ, PP)					\
-    do {								\
+#define ERTS_LC_VERIFY_RQ(RQ, PP)				\
+    do {							\
 	ERTS_LC_ASSERT(erts_lc_runq_is_locked(runq));		\
-	ERTS_LC_ASSERT((RQ) == ((ErtsRunQueue *)			\
-				    erts_atomic_read_nob(&(PP)->run_queue))); \
+	ERTS_LC_ASSERT((RQ) == erts_get_runq_port((PP)));       \
     } while (0)
 
 #define ERTS_PT_STATE_SCHEDULED		0
@@ -1520,19 +1519,15 @@ erts_port_task_schedule(Eterm id,
     /* Enqueue port on run-queue */
 
     runq = erts_port_runq(pp);
-    if (!runq)
-	ERTS_INTERNAL_ERROR("Missing run-queue");
 
     xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
     ERTS_LC_ASSERT(runq != xrunq);
     ERTS_LC_VERIFY_RQ(runq, pp);
     if (xrunq) {
 	/* Emigrate port ... */
-	erts_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
+        erts_set_runq_port(pp, xrunq);
 	erts_runq_unlock(runq);
 	runq = erts_port_runq(pp);
-	if (!runq)
-	    ERTS_INTERNAL_ERROR("Missing run-queue");
     }
 
     enqueue_port(runq, pp);
@@ -1593,8 +1588,6 @@ erts_port_task_free_port(Port *pp)
     ASSERT(!(erts_atomic32_read_nob(&pp->state) & ERTS_PORT_SFLGS_DEAD));
 
     runq = erts_port_runq(pp);
-    if (!runq)
-	ERTS_INTERNAL_ERROR("Missing run-queue");
     erts_port_task_sched_lock(&pp->sched);
     flags = erts_atomic32_read_bor_relb(&pp->sched.flags,
 					    ERTS_PTS_FLG_EXIT);
@@ -1805,7 +1798,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     erts_unblock_fpe(fpe_was_unmasked);
     ERTS_MSACC_POP_STATE_M();
 
-    ASSERT(runq == (ErtsRunQueue *) erts_atomic_read_nob(&pp->run_queue));
+    ASSERT(runq == erts_get_runq_port(pp));
 
     active = finalize_exec(pp, &execq, processing_busy_q);
 
@@ -1831,11 +1824,10 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	}
 	else {
 	    /* Emigrate port... */
-	    erts_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
+            erts_set_runq_port(pp, xrunq);
 	    erts_runq_unlock(runq);
 
 	    xrunq = erts_port_runq(pp);
-	    ASSERT(xrunq);
 	    enqueue_port(xrunq, pp);
 	    erts_runq_unlock(xrunq);
 	    erts_notify_inc_runq(xrunq);
@@ -2069,7 +2061,7 @@ void
 erts_enqueue_port(ErtsRunQueue *rq, Port *pp)
 {
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
-    ASSERT(rq == (ErtsRunQueue *) erts_atomic_read_nob(&pp->run_queue));
+    ASSERT(rq == erts_get_runq_port(pp));
     ASSERT(erts_atomic32_read_nob(&pp->sched.flags) & ERTS_PTS_FLG_IN_RUNQ);
     enqueue_port(rq, pp);
 }
@@ -2080,8 +2072,7 @@ erts_dequeue_port(ErtsRunQueue *rq)
     Port *pp;
     ERTS_LC_ASSERT(erts_lc_runq_is_locked(rq));
     pp = pop_port(rq);
-    ASSERT(!pp
-	   || rq == (ErtsRunQueue *) erts_atomic_read_nob(&pp->run_queue));
+    ASSERT(!pp || rq == erts_get_runq_port(pp));
     ASSERT(!pp || (erts_atomic32_read_nob(&pp->sched.flags)
 		   & ERTS_PTS_FLG_IN_RUNQ));
     return pp;

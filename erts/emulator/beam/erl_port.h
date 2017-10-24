@@ -196,26 +196,52 @@ struct erl_drv_port_data_lock {
     Port *prt;
 };
 
+ERTS_GLB_INLINE void erts_init_runq_port(Port *prt, ErtsRunQueue *runq);
+ERTS_GLB_INLINE void erts_set_runq_port(Port *prt, ErtsRunQueue *runq);
+ERTS_GLB_INLINE ErtsRunQueue *erts_get_runq_port(Port *prt);
 ERTS_GLB_INLINE ErtsRunQueue *erts_port_runq(Port *prt);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE void
+erts_init_runq_port(Port *prt, ErtsRunQueue *runq)
+{
+    if (!runq)
+        ERTS_INTERNAL_ERROR("Missing run-queue");
+    erts_atomic_init_nob(&prt->run_queue, (erts_aint_t) runq);
+}
+
+ERTS_GLB_INLINE void
+erts_set_runq_port(Port *prt, ErtsRunQueue *runq)
+{
+    if (!runq)
+        ERTS_INTERNAL_ERROR("Missing run-queue");
+    erts_atomic_set_nob(&prt->run_queue, (erts_aint_t) runq);
+}
+
+ERTS_GLB_INLINE ErtsRunQueue *
+erts_get_runq_port(Port *prt)
+{
+    ErtsRunQueue *runq;
+    runq = (ErtsRunQueue *) erts_atomic_read_nob(&prt->run_queue);
+    if (!runq)
+        ERTS_INTERNAL_ERROR("Missing run-queue");
+    return runq;
+}
+
 
 ERTS_GLB_INLINE ErtsRunQueue *
 erts_port_runq(Port *prt)
 {
     ErtsRunQueue *rq1, *rq2;
-    rq1 = (ErtsRunQueue *) erts_atomic_read_nob(&prt->run_queue);
-    if (!rq1)
-	return NULL;
+    rq1 = erts_get_runq_port(prt);
     while (1) {
 	erts_runq_lock(rq1);
-	rq2 = (ErtsRunQueue *) erts_atomic_read_nob(&prt->run_queue);
+	rq2 = erts_get_runq_port(prt);
 	if (rq1 == rq2)
 	    return rq1;
 	erts_runq_unlock(rq1);
 	rq1 = rq2;
-	if (!rq1)
-	    return NULL;
     }
 }
 

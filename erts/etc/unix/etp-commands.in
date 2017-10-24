@@ -1717,7 +1717,7 @@ define etp-proc-state-int
     printf "trapping-exit | "
   end
   if ($arg0 & 0x40000)
-    printf "bound | "
+    printf "GARBAGE<0x40000> | "
   end
   if ($arg0 & 0x20000)
     printf "garbage-collecting | "

@@ -244,6 +244,9 @@ extern int erts_dio_sched_thread_suggested_stack_size;
 					       (erts_aint32_t) (MSK),	\
 					       (erts_aint32_t) (FLGS)))
 
+#define ERTS_RUNQ_POINTER_MASK  (~((erts_aint_t) 3))
+#define ERTS_RUNQ_BOUND_FLAG    ((erts_aint_t) 1)
+
 typedef enum {
     ERTS_SCHDLR_SSPND_DONE_MSCHED_BLOCKED,
     ERTS_SCHDLR_SSPND_DONE_NMSCHED_BLOCKED,
@@ -1168,7 +1171,7 @@ void erts_check_for_holes(Process* p);
 #define ERTS_PSFLG_RUNNING		ERTS_PSFLG_BIT(9)
 #define ERTS_PSFLG_SUSPENDED		ERTS_PSFLG_BIT(10)
 #define ERTS_PSFLG_GC			ERTS_PSFLG_BIT(11)
-#define ERTS_PSFLG_BOUND		ERTS_PSFLG_BIT(12)
+/* #define ERTS_PSFLG_		        ERTS_PSFLG_BIT(12) */
 #define ERTS_PSFLG_TRAP_EXIT		ERTS_PSFLG_BIT(13)
 #define ERTS_PSFLG_ACTIVE_SYS		ERTS_PSFLG_BIT(14)
 #define ERTS_PSFLG_RUNNING_SYS		ERTS_PSFLG_BIT(15)
@@ -2169,7 +2172,12 @@ ERTS_GLB_INLINE int erts_is_scheduler_bound(ErtsSchedulerData *esdp);
 ERTS_GLB_INLINE Process *erts_get_current_process(void);
 ERTS_GLB_INLINE Eterm erts_get_current_pid(void);
 ERTS_GLB_INLINE Uint erts_get_scheduler_id(void);
-ERTS_GLB_INLINE ErtsRunQueue *erts_get_runq_proc(Process *p);
+ERTS_GLB_INLINE void erts_init_runq_proc(Process *p, ErtsRunQueue *rq, int bnd);
+ERTS_GLB_INLINE ErtsRunQueue *erts_set_runq_proc(Process *p, ErtsRunQueue *rq, int *boundp);
+ERTS_GLB_INLINE int erts_try_change_runq_proc(Process *p, ErtsRunQueue *rq);
+ERTS_GLB_INLINE ErtsRunQueue *erts_bind_runq_proc(Process *p, int bind);
+ERTS_GLB_INLINE int erts_proc_runq_is_bound(Process *p);
+ERTS_GLB_INLINE ErtsRunQueue *erts_get_runq_proc(Process *p, int *boundp);
 ERTS_GLB_INLINE ErtsRunQueue *erts_get_runq_current(ErtsSchedulerData *esdp);
 ERTS_GLB_INLINE void erts_runq_lock(ErtsRunQueue *rq);
 ERTS_GLB_INLINE int erts_runq_trylock(ErtsRunQueue *rq);
@@ -2249,11 +2257,143 @@ Uint erts_get_scheduler_id(void)
 	return esdp ? esdp->no : (Uint) 0;
 }
 
-ERTS_GLB_INLINE ErtsRunQueue *
-erts_get_runq_proc(Process *p)
+/**
+ * Init run-queue of process.
+ *
+ * @param p[in,out]     Process
+ * @param rq[in]        Run-queue that process will be assigned to
+ * @param bnd[in,out]   If non-zero binds process to run-queue.
+ */
+
+ERTS_GLB_INLINE void
+erts_init_runq_proc(Process *p, ErtsRunQueue *rq, int bnd)
 {
-    ASSERT(ERTS_AINT_NULL != erts_atomic_read_nob(&p->run_queue));
-    return (ErtsRunQueue *) erts_atomic_read_nob(&p->run_queue);
+    erts_aint_t rqint = (erts_aint_t) rq;
+    if (bnd)
+        rqint |= ERTS_RUNQ_BOUND_FLAG;
+    erts_atomic_init_nob(&p->run_queue, rqint);
+}
+
+/**
+ * Forcibly set run-queue of process.
+ *
+ * @param p[in,out]     Process
+ * @param rq[in]        Run-queue that process will be assigned to
+ * @param bndp[in,out]  Pointer to integer. On input non-zero
+ *                      value causes the process to be bound to
+ *                      the run-queue. On output, indicating
+ *                      wether process previously was bound or
+ *                      not.
+ * @return              Previous run-queue.
+ */
+
+ERTS_GLB_INLINE ErtsRunQueue *
+erts_set_runq_proc(Process *p, ErtsRunQueue *rq, int *bndp)
+{
+    erts_aint_t rqint = (erts_aint_t) rq;
+    ASSERT(bndp);
+    if (*bndp)
+        rqint |= ERTS_RUNQ_BOUND_FLAG;
+    rqint = erts_atomic_xchg_nob(&p->run_queue, rqint);
+    *bndp = (int) (rqint & ERTS_RUNQ_BOUND_FLAG);
+    return (ErtsRunQueue *) (rqint & ERTS_RUNQ_POINTER_MASK);
+}
+
+/**
+ * Try to change run-queue assignment of a process.
+ *
+ * @param p[in,out]     Process
+ * @param rq[int]       Run-queue that process will be assigned to
+ * @return              Non-zero if the run-queue assignment was
+ *                      successfully changed.
+ */
+
+ERTS_GLB_INLINE int
+erts_try_change_runq_proc(Process *p, ErtsRunQueue *rq)
+{
+    erts_aint_t old_rqint, new_rqint;
+
+    new_rqint = (erts_aint_t) rq;
+    old_rqint = (erts_aint_t) erts_atomic_read_nob(&p->run_queue);
+    while (1) {
+        erts_aint_t act_rqint;
+
+        if (old_rqint & ERTS_RUNQ_BOUND_FLAG)
+            return 0;
+
+        act_rqint = erts_atomic_cmpxchg_nob(&p->run_queue,
+                                            new_rqint,
+                                            old_rqint);
+        if (act_rqint == old_rqint)
+            return !0;
+    }
+}
+
+/**
+ *
+ * Bind or unbind process to/from currently used run-queue.
+ *
+ * @param p             Process
+ * @param bind          Bind if non-zero; otherwise unbind
+ * @return              Pointer to previously bound run-queue,
+ *                      or NULL if previously unbound
+ */
+
+ERTS_GLB_INLINE ErtsRunQueue *
+erts_bind_runq_proc(Process *p, int bind)
+{
+    erts_aint_t rqint;
+    if (bind)
+        rqint = erts_atomic_read_bor_nob(&p->run_queue,
+                                         ERTS_RUNQ_BOUND_FLAG);
+    else
+        rqint = erts_atomic_read_band_nob(&p->run_queue,
+                                          ~ERTS_RUNQ_BOUND_FLAG);
+    if (rqint & ERTS_RUNQ_BOUND_FLAG)
+        return (ErtsRunQueue *) (rqint & ERTS_RUNQ_POINTER_MASK);
+    else
+        return NULL;
+}
+
+/**
+ * Determine wether a process is bound to a run-queue or not.
+ *
+ * @return              Returns a non-zero value if bound,
+ *                      and zero of not bound.
+ */
+
+ERTS_GLB_INLINE int
+erts_proc_runq_is_bound(Process *p)
+{
+    erts_aint_t rqint = erts_atomic_read_nob(&p->run_queue);
+    return (int) (rqint & ERTS_RUNQ_BOUND_FLAG);
+}
+
+/**
+ * Set run-queue of process.
+ *
+ * @param p[in,out]     Process
+ * @param bndp[out]     Pointer to integer. If non-NULL pointer,
+ *                      the integer will be set to a non-zero
+ *                      value if the process is bound to the
+ *                      run-queue.
+ * @return              Pointer to the normal run-queue that
+ *                      the process currently is assigend to.
+ *                      A process is always assigned to a
+ *                      normal run-queue.
+ */
+
+ERTS_GLB_INLINE ErtsRunQueue *
+erts_get_runq_proc(Process *p, int *bndp)
+{
+    erts_aint_t rqint = erts_atomic_read_nob(&p->run_queue);
+    ErtsRunQueue *rq;
+    if (bndp)
+        *bndp = (int) (rqint & ERTS_RUNQ_BOUND_FLAG);
+    rqint &= ERTS_RUNQ_POINTER_MASK;
+    rq = (ErtsRunQueue *) rqint;
+    ASSERT(rq);
+    return rq;
 }
 
 ERTS_GLB_INLINE ErtsRunQueue *

@@ -137,36 +137,6 @@ runq_got_work_to_execute(ErtsRunQueue *rq)
     return runq_got_work_to_execute_flags(ERTS_RUNQ_FLGS_GET_NOB(rq));
 }
 
-#undef RUNQ_READ_RQ
-#undef RUNQ_SET_RQ
-#define RUNQ_READ_RQ(X) ((ErtsRunQueue *) erts_atomic_read_nob((X)))
-#define RUNQ_SET_RQ(X, RQ) erts_atomic_set_nob((X), (erts_aint_t) (RQ))
-
-#ifdef DEBUG
-#  if defined(ARCH_64)
-#    define ERTS_DBG_SET_INVALID_RUNQP(RQP, N) \
-    (RUNQ_SET_RQ((RQP), (0xdeadbeefdead0003LL | ((N) << 4)))
-#  define ERTS_DBG_VERIFY_VALID_RUNQP(RQP) \
-do { \
-    ASSERT((RQP) != NULL); \
-    ASSERT(((((Uint) (RQP)) & ((Uint) 0x3))) == ((Uint) 0)); \
-    ASSERT((((Uint) (RQP)) & ~((Uint) 0xffff)) != ((Uint) 0xdeadbeefdead0000LL));\
-} while (0)
-#  else
-#    define ERTS_DBG_SET_INVALID_RUNQP(RQP, N) \
-    (RUNQ_SET_RQ((RQP), (0xdead0003 | ((N) << 4))))
-#  define ERTS_DBG_VERIFY_VALID_RUNQP(RQP) \
-do { \
-    ASSERT((RQP) != NULL); \
-    ASSERT(((((UWord) (RQP)) & ((UWord) 1))) == ((UWord) 0)); \
-    ASSERT((((UWord) (RQP)) & ~((UWord) 0xffff)) != ((UWord) 0xdead0000)); \
-} while (0)
-#  endif
-#else
-#  define ERTS_DBG_SET_INVALID_RUNQP(RQP, N)
-#  define ERTS_DBG_VERIFY_VALID_RUNQP(RQP)
-#endif
-
 const Process erts_invalid_process = {{ERTS_INVALID_PID}};
 
 extern BeamInstr beam_apply[];
@@ -3940,21 +3910,16 @@ immigrate(ErtsRunQueue *c_rq, ErtsMigrationPath *mp)
 		Port *prt;
 		prt = erts_dequeue_port(rq);
 		if (prt)
-		    RUNQ_SET_RQ(&prt->run_queue, c_rq);
+                    erts_set_runq_port(prt, c_rq);
 		erts_runq_unlock(rq);
 		if (prt) {
-		    /* port might terminate while we have no lock... */
 		    rq = erts_port_runq(prt);
-		    if (rq) {
-			if (rq != c_rq)
-			    erts_exit(ERTS_ABORT_EXIT,
-				     "%s:%d:%s(): Internal error",
-				     __FILE__, __LINE__, __func__);
-			erts_enqueue_port(c_rq, prt);
-			if (!iflag)
-			    return; /* done */
-			erts_runq_unlock(c_rq);
-		    }
+                    if (rq != c_rq)
+                        ERTS_INTERNAL_ERROR("Unexpected run-queue");
+                    erts_enqueue_port(c_rq, prt);
+                    if (!iflag)
+                        return; /* done */
+                    erts_runq_unlock(c_rq);
 		}
 	    }
 	    else {
@@ -3968,12 +3933,11 @@ immigrate(ErtsRunQueue *c_rq, ErtsMigrationPath *mp)
 		while (proc) {
 		    erts_aint32_t state;
 		    state = erts_atomic32_read_acqb(&proc->state);
-		    if (!(ERTS_PSFLG_BOUND & state)
-			&& (prio == (int) ERTS_PSFLGS_GET_PRQ_PRIO(state))) {
+		    if (prio == (int) ERTS_PSFLGS_GET_PRQ_PRIO(state)
+                        && erts_try_change_runq_proc(proc, c_rq)) {
 			ErtsRunQueueInfo *rqi = &rq->procs.prio_info[prio];
 			unqueue_process(rq, rpq, rqi, prio, prev_proc, proc);
 			erts_runq_unlock(rq);
-			RUNQ_SET_RQ(&proc->run_queue, c_rq);
 			rq_locked = 0;
 
 			erts_runq_lock(c_rq);
@@ -4154,21 +4118,13 @@ evacuate_run_queue(ErtsRunQueue *rq,
 	while (prt) {
 	    ErtsRunQueue *prt_rq;
 	    prt = erts_dequeue_port(rq);
-	    RUNQ_SET_RQ(&prt->run_queue, to_rq);
+            erts_set_runq_port(prt, to_rq);
 	    erts_runq_unlock(rq);
-	    /*
-	     * The port might terminate while
-	     * we have no lock on it...
-	     */
 	    prt_rq = erts_port_runq(prt);
-	    if (prt_rq) {
-		if (prt_rq != to_rq)
-		    erts_exit(ERTS_ABORT_EXIT,
-			     "%s:%d:%s() internal error\n",
-			     __FILE__, __LINE__, __func__);
-		erts_enqueue_port(to_rq, prt);
-		erts_runq_unlock(to_rq);
-	    }
+            if (prt_rq != to_rq)
+                ERTS_INTERNAL_ERROR("Unexpected run-queue");
+            erts_enqueue_port(to_rq, prt);
+            erts_runq_unlock(to_rq);
 	    erts_runq_lock(rq);
 	    prt = rq->ports.start;
 	}
@@ -4191,14 +4147,13 @@ evacuate_run_queue(ErtsRunQueue *rq,
 	while (proc) {
 	    Process *real_proc;
 	    int prio;
-	    erts_aint32_t max_qbit, qbit, real_state;
+	    erts_aint32_t max_qbit, qbit;
 
 	    prio = ERTS_PSFLGS_GET_PRQ_PRIO(state);
 	    qbit = ((erts_aint32_t) 1) << prio;
 
 	    if (!(state & ERTS_PSFLG_PROXY)) {
 		real_proc = proc;
-		real_state = state;
 	    }
 	    else {
 		real_proc = erts_proc_lookup_raw(proc->common.id);
@@ -4206,7 +4161,6 @@ evacuate_run_queue(ErtsRunQueue *rq,
 		    free_proxy_proc(proc);
 		    goto handle_next_proc;
 		}
-		real_state =  erts_atomic32_read_acqb(&real_proc->state);
 	    }
 
 	    max_qbit = (state >> ERTS_PSFLGS_IN_PRQ_MASK_OFFSET);
@@ -4241,7 +4195,7 @@ evacuate_run_queue(ErtsRunQueue *rq,
 		goto handle_next_proc;
 	    }
 
-	    if (ERTS_PSFLG_BOUND & real_state) {
+	    if (!erts_try_change_runq_proc(proc, to_rq)) {
 		/* Bound processes get stuck here... */
 		proc->next = NULL;
 		if (sbpp->last)
@@ -4255,7 +4209,6 @@ evacuate_run_queue(ErtsRunQueue *rq,
 		erts_runq_unlock(rq);
 
                 to_rq = mp->prio[prio].runq;
-		RUNQ_SET_RQ(&proc->run_queue, to_rq);
 
 		erts_runq_lock(to_rq);
 		enqueue_process(to_rq, prio, proc);
@@ -4323,14 +4276,13 @@ try_steal_task_from_victim(ErtsRunQueue *rq, int *rq_lockedp, ErtsRunQueue *vrq,
 	proc = rpq->first;
 
 	while (proc) {
-	    erts_aint32_t state = erts_atomic32_read_acqb(&proc->state);
-	    if (!(ERTS_PSFLG_BOUND & state)) {
+	    if (erts_try_change_runq_proc(proc, rq)) {
+                erts_aint32_t state = erts_atomic32_read_acqb(&proc->state);
 		/* Steal process */
 		int prio = (int) ERTS_PSFLGS_GET_PRQ_PRIO(state);
 		ErtsRunQueueInfo *rqi = &vrq->procs.prio_info[prio];
 		unqueue_process(vrq, rpq, rqi, prio, prev_proc, proc);
 		erts_runq_unlock(vrq);
-		RUNQ_SET_RQ(&proc->run_queue, rq);
 
 		erts_runq_lock(rq);
 		*rq_lockedp = 1;
@@ -4355,26 +4307,14 @@ no_procs:
     if (vrq->ports.start) {
 	ErtsRunQueue *prt_rq;
 	Port *prt = erts_dequeue_port(vrq);
-	RUNQ_SET_RQ(&prt->run_queue, rq);
+	erts_set_runq_port(prt, rq);
 	erts_runq_unlock(vrq);
-
-	/*
-	 * The port might terminate while
-	 * we have no lock on it...
-	 */
-
 	prt_rq = erts_port_runq(prt);
-	if (!prt_rq)
-	    return 0;
-	else {
-	    if (prt_rq != rq)
-		erts_exit(ERTS_ABORT_EXIT,
-			 "%s:%d:%s() internal error\n",
-			 __FILE__, __LINE__, __func__);
-	    *rq_lockedp = 1;
-	    erts_enqueue_port(rq, prt);
-	    return !0;
-	}
+        if (prt_rq != rq)
+            ERTS_INTERNAL_ERROR("Unexpected run-queue");
+        *rq_lockedp = 1;
+        erts_enqueue_port(rq, prt);
+        return !0;
     }
 
     erts_runq_unlock(vrq);
@@ -6130,7 +6070,8 @@ make_proxy_proc(Process *prev_proxy, Process *proc, erts_aint32_t prio)
 {
     erts_aint32_t state;
     Process *proxy;
-    ErtsRunQueue *rq = RUNQ_READ_RQ(&proc->run_queue);
+    int bound;
+    ErtsRunQueue *rq = erts_get_runq_proc(proc, &bound);
 
     state = (ERTS_PSFLG_PROXY
 	     | ERTS_PSFLG_IN_RUNQ
@@ -6143,7 +6084,7 @@ make_proxy_proc(Process *prev_proxy, Process *proc, erts_aint32_t prio)
 	proxy = prev_proxy;
 	ASSERT(erts_atomic32_read_nob(&proxy->state) & ERTS_PSFLG_PROXY);
 	erts_atomic32_set_nob(&proxy->state, state);
-	RUNQ_SET_RQ(&proc->run_queue, rq);
+        (void) erts_set_runq_proc(proc, rq, &bound);
     }
     else {
 	proxy = erts_alloc(ERTS_ALC_T_PROC, sizeof(Process));
@@ -6156,8 +6097,7 @@ make_proxy_proc(Process *prev_proxy, Process *proc, erts_aint32_t prio)
 	}
 #endif
 	erts_atomic32_init_nob(&proxy->state, state);
-	erts_atomic_init_nob(&proxy->run_queue,
-				 erts_atomic_read_nob(&proc->run_queue));
+        erts_init_runq_proc(proc, rq, bound);
     }
 
     proxy->common.id = proc->common.id;
@@ -6348,18 +6288,21 @@ select_enqueue_run_queue(int enqueue, int enq_prio, Process *p, erts_aint32_t st
 
     default: {
 	ErtsRunQueue* runq;
+        int bound;
 
 	ASSERT(enqueue == ERTS_ENQUEUE_NORMAL_QUEUE
 	       || enqueue == -ERTS_ENQUEUE_NORMAL_QUEUE);
 
-	runq = erts_get_runq_proc(p);
+	runq = erts_get_runq_proc(p, &bound);
 
-	if (!(ERTS_PSFLG_BOUND & state)) {
+	if (!bound) {
 	    ErtsRunQueue *new_runq = erts_check_emigration_need(runq, enq_prio);
-	    if (new_runq) {
-		RUNQ_SET_RQ(&p->run_queue, new_runq);
-		runq = new_runq;
-	    }
+            if (new_runq) {
+                if (erts_try_change_runq_proc(p, new_runq))
+                    runq = new_runq;
+                else
+                    runq = erts_get_runq_proc(p, NULL);
+            }
 	}
 
 	ASSERT(runq);
@@ -11476,6 +11419,7 @@ typedef struct {
     Process *proc;
     erts_aint32_t state;
     ErtsRunQueue *run_queue;
+    int bound;
 } ErtsEarlyProcInit;
 
 static void early_init_process_struct(void *varg, Eterm data)
@@ -11486,9 +11430,8 @@ static void early_init_process_struct(void *varg, Eterm data)
     proc->common.id = make_internal_pid(data);
     erts_atomic32_init_nob(&proc->dirty_state, 0);
     proc->dirty_sys_tasks = NULL;
+    erts_init_runq_proc(proc, arg->run_queue, arg->bound);
     erts_atomic32_init_relb(&proc->state, arg->state);
-
-    RUNQ_SET_RQ(&proc->run_queue, arg->run_queue);
 
     erts_proc_lock_init(proc); /* All locks locked */
 
@@ -11498,7 +11441,7 @@ static void early_init_process_struct(void *varg, Eterm data)
 ** Allocate process and find out where to place next process.
 */
 static Process*
-alloc_process(ErtsRunQueue *rq, erts_aint32_t state)
+alloc_process(ErtsRunQueue *rq, int bound, erts_aint32_t state)
 {
     ErtsEarlyProcInit init_arg;
     Process *p;
@@ -11507,9 +11450,12 @@ alloc_process(ErtsRunQueue *rq, erts_aint32_t state)
     if (!p)
 	return NULL;
 
+    ASSERT(rq);
+
     init_arg.proc = (Process *) p;
-    init_arg.run_queue = rq;
     init_arg.state = state;
+    init_arg.run_queue = rq;
+    init_arg.bound = bound;
 
     ERTS_CT_ASSERT(offsetof(Process,common) == 0);
 
@@ -11544,6 +11490,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 		   Eterm args,	/* Arguments for function (must be well-formed list). */
 		   ErlSpawnOpts* so) /* Options for spawn. */
 {
+    int bound = 0;
     Uint flags = 0;
     ErtsRunQueue *rq = NULL;
     Process *p;
@@ -11580,7 +11527,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	    ASSERT(0 <= ix && ix < erts_no_run_queues);
 	    rq = ERTS_RUNQ_IX(ix);
 	    /* Unsupported feature... */
-	    state |= ERTS_PSFLG_BOUND;
+            bound = !0;
 	}
 	prio = (erts_aint32_t) so->priority;
     }
@@ -11599,10 +11546,10 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     ASSERT((flags & F_ON_HEAP_MSGQ) || (flags & F_OFF_HEAP_MSGQ));
 
     if (!rq)
-	rq = erts_get_runq_proc(parent);
+	rq = erts_get_runq_proc(parent, NULL);
 
-    p = alloc_process(rq, state); /* All proc locks are locked by this thread
-				     on success */
+    p = alloc_process(rq, bound, state); /* All proc locks are locked by this thread
+                                            on success */
     if (!p) {
 	erts_send_error_to_logger_str(parent->group_leader,
 				      "Too many processes\n");
@@ -11984,7 +11931,7 @@ void erts_init_empty_process(Process *p)
     p->pending_exit.bp = NULL;
     erts_proc_lock_init(p);
     erts_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
-    RUNQ_SET_RQ(&p->run_queue, ERTS_RUNQ_IX(0));
+    erts_init_runq_proc(p, ERTS_RUNQ_IX(0), 0);
 
 #if !defined(NO_FPE_SIGNALS) || defined(HIPE)
     p->fp_exception = 0;
@@ -12306,7 +12253,7 @@ save_pending_exiter(Process *p, ErtsProcList *plp)
 
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_STATUS & erts_proc_lc_my_proc_locks(p));
 
-    rq = RUNQ_READ_RQ(&p->run_queue);
+    rq = erts_get_runq_proc(p, NULL);
     ASSERT(rq && !ERTS_RUNQ_IX_IS_DIRTY(rq->ix));
 
     if (!plp)
