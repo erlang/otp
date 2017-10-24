@@ -21,10 +21,10 @@
       limitations under the License.
     </legalnotice>
 
-    <title>maps</title>
+    <title>uri_string</title>
     <prepared>Péter Dimitrov</prepared>
     <docno>1</docno>
-    <date>2017-10-20</date>
+    <date>2017-10-24</date>
     <rev>A</rev>
   </header>
   <module>uri_string</module>
