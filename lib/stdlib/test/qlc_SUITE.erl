@@ -1695,28 +1695,7 @@ sort(Config) when is_list(Config) ->
           [true || I <- lists:seq(1, 50000), not ets:insert(E, {I, I})],
           H = qlc:q([{X,Y} || X <- [a,b], Y <- qlc:sort(ets:table(E))]),
           100000 = length(qlc:e(H)),
-          ets:delete(E)">>,
-
-       begin
-       TmpDir = ?privdir,
-       [<<"TE = process_flag(trap_exit, true),
-           E = ets:new(foo, []),
-           [true || I <- lists:seq(1, 50000), not ets:insert(E, {I, I})],
-           Ports = erlang:ports(),
-           H = qlc:q([{X,Y} || X <- [a,b], 
-                               begin
-                                   [P] = erlang:ports() -- Ports,
-                                   exit(P, port_exit),
-                                   true
-                               end,
-                               Y <- qlc:sort(ets:table(E),
-                                             [{tmpdir,\"">>, 
-                                               TmpDir, <<"\"}])]),
-           {error, qlc, {file_error, _, _}} = (catch qlc:e(H)),
-           receive {'EXIT', _, port_exit} -> ok end,
-           ets:delete(E),
-           process_flag(trap_exit, TE)">>]
-       end
+          ets:delete(E)">>
 
         ],
     run(Config, Ts),
