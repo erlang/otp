@@ -4687,7 +4687,7 @@ RealSystem = system + MissedSystem</code>
         <p>The default <c>message_queue_data</c> process flag is determined
           by command-line argument <seealso marker="erl#+hmqd">
           <c>+hmqd</c></seealso> in <c>erl(1)</c>.</p>
-        <p>If the process potentially can get many messages,
+        <p>If the process potentially can get many messages in its queue,
           you are advised to set the flag to <c>off_heap</c>. This
           because a garbage collection with many messages placed on
           the heap can become extremely expensive and the process can
@@ -4960,11 +4960,15 @@ RealSystem = system + MissedSystem</code>
           <tag><c>{binary, <anno>BinInfo</anno>}</c></tag>
           <item>
             <p><c><anno>BinInfo</anno></c> is a list containing miscellaneous
-              information about binaries currently referred to by this
-              process. This <c><anno>InfoTuple</anno></c> can be changed or
+              information about binaries on the heap of this
+              process.
+              This <c><anno>InfoTuple</anno></c> can be changed or
               removed without prior notice. In the current implementation
               <c><anno>BinInfo</anno></c> is a list of tuples. The tuples
               contain; <c>BinaryId</c>, <c>BinarySize</c>, <c>BinaryRefcCount</c>.</p>
+            <p>The message queue is on the heap depending on the
+              process flag <seealso marker="#process_flag_message_queue_data">
+            <c>message_queue_data</c></seealso>.</p>
           </item>
           <tag><c>{catchlevel, <anno>CatchLevel</anno>}</c></tag>
           <item>
