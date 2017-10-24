@@ -171,7 +171,7 @@ $(ERL_TOP)/bin/no_dot_erlang.script:
 	  $(ERLC) $(SCRIPT_PATH) +no_warn_sasl +otp_build +no_dot_erlang -o $@ $(SS_ROOT)/no_dot_erlang.rel )
 
 ## Special target used from system/build/Makefile for source code release bootstrap.
-bootstrap_scripts: $(SS_ROOT)/start_clean.rel
+bootstrap_scripts: $(SS_ROOT)/start_clean.rel $(SS_ROOT)/no_dot_erlang.rel
 	$(V_at)$(INSTALL_DIR) $(TESTROOT)/bin
 	$(V_at)$(INSTALL_DIR) $(SS_TMP)
 	$(V_at)( cd $(SS_TMP) && \
