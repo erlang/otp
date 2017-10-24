@@ -2955,7 +2955,10 @@ os_prompt%</pre>
             <p>The total amount of memory currently allocated for
               the emulator that is not directly related to any Erlang
               process. Memory presented as <c>processes</c> is not
-              included in this memory.</p>
+              included in this memory. <seealso marker="tools:instrument">
+              <c>instrument(3)</c></seealso> can be used to
+              get a more detailed breakdown of what memory is part
+              of this type.</p>
           </item>
           <tag><c>atom</c></tag>
           <item>
