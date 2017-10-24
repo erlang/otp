@@ -779,8 +779,13 @@ esi(Type, Port, Host, Node) ->
 				       [{statuscode, 200},
 					{no_header, "cache-control"},
 					{version, "HTTP/1.0"}]),
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Node,
+				       "GET /cgi-bin/erl/httpd_example:new_status_and_location"
+				       " HTTP/1.1\r\n\r\n",
+				       [{statuscode, 201},
+                                        {header, "Location"},
+					{version, "HTTP/1.1"}]),
     ok.
-
 
 %%--------------------------------------------------------------------
 get(Type, Port, Host, Node) ->
