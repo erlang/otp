@@ -830,10 +830,15 @@ compose_query(_Config) ->
     "foo=1&amp;bar=2" = uri_string:compose_query([{"foo","1"}, {"bar", "2"}],[{separator,escaped_amp}]),
     "foo=1&bar=2" = uri_string:compose_query([{"foo","1"}, {"bar", "2"}],[{separator,amp}]),
     "foo=1;bar=2" = uri_string:compose_query([{"foo","1"}, {"bar", "2"}],[{separator,semicolon}]),
-    "foo+bar=1&amp;%C3%B6=2" = uri_string:compose_query([{"foo bar","1"}, {"ö", "2"}]).
+    "foo+bar=1&amp;%C3%B6=2" = uri_string:compose_query([{"foo bar","1"}, {"ö", "2"}]),
+    "foo+bar=1&amp;%C3%B6=2" = uri_string:compose_query([{<<"foo bar">>,<<"1">>}, {"ö", <<"2">>}]),
+    <<"foo+bar=1&amp;%C3%B6=2">> =
+        uri_string:compose_query([{<<"foo bar">>,<<"1">>}, {<<"ö"/utf8>>, <<"2">>}]).
 
 compose_query_negative(_Config) ->
-    {error,badarg,4} = uri_string:compose_query([{"",4}]).
+    {error,badarg,4} = uri_string:compose_query([{"",4}]),
+    {error,badarg,5} = uri_string:compose_query([{5,""}]),
+    {error,invalid_utf8,<<"ö">>} = uri_string:compose_query([{"foo bar","1"}, {<<"ö">>, "2"}]).
 
 dissect_query(_Config) ->
     [] = uri_string:dissect_query(""),

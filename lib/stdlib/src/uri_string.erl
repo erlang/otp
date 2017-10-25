@@ -396,19 +396,24 @@ compose_query(List) ->
 compose_query([],_Options) ->
     [];
 compose_query(List, Options) ->
-    try compose_query(List, Options, []) of
+    try compose_query(List, Options, false, <<>>) of
         Result -> Result
     catch
       throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end.
 %%
-compose_query([{Key,Value}|Rest], Options, Acc) ->
-    Separator = get_separator(Options, Acc),
+compose_query([{Key,Value}|Rest], Options, IsList, Acc) ->
+    Separator = get_separator(Options, Rest),
     K = form_urlencode(Key),
     V = form_urlencode(Value),
-    compose_query(Rest, Options, Acc ++ Separator ++ K ++ "=" ++ V);
-compose_query([], _Options, Acc) ->
-    Acc.
+    Flag = is_list(Key) orelse is_list(Value),
+    IsListNew = IsList orelse Flag,
+    compose_query(Rest, Options, IsListNew, <<Acc/binary,K/binary,"=",V/binary,Separator/binary>>);
+compose_query([], _Options, IsList, Acc) ->
+    case IsList of
+        true -> convert_list(Acc, utf8);
+        false -> Acc
+    end.
 
 
 %%-------------------------------------------------------------------------
@@ -1711,43 +1716,41 @@ percent_encode_segment(Segment) ->
 %%-------------------------------------------------------------------------
 
 %% Returns separator to be used between key-value pairs
-get_separator(_, Acc) when length(Acc) =:= 0 ->
-    [];
-get_separator([], _Acc) ->
-    "&amp;";
-get_separator([{separator, amp}], _Acc) ->
-    "&";
-get_separator([{separator, escaped_amp}], _Acc) ->
-    "&amp;";
-get_separator([{separator, semicolon}], _Acc) ->
-    ";".
+get_separator(_, L) when length(L) =:= 0 ->
+    <<>>;
+get_separator([], _L) ->
+    <<"&amp;">>;
+get_separator([{separator, amp}], _L) ->
+    <<"&">>;
+get_separator([{separator, escaped_amp}], _L) ->
+    <<"&amp;">>;
+get_separator([{separator, semicolon}], _L) ->
+    <<";">>.
 
 
 %% Form-urlencode input based on RFC 1866 [8.2.1]
-form_urlencode(Cs) when is_binary(Cs) ->
-    L = convert_list(Cs, utf8),
-    form_urlencode(L, []);
+form_urlencode(Cs) when is_list(Cs) ->
+    B = convert_binary(Cs, utf8, utf8),
+    form_urlencode(B, <<>>);
 form_urlencode(Cs) ->
-    L = flatten_list(Cs, utf8),
-    form_urlencode(L, []).
+    form_urlencode(Cs, <<>>).
 %%
-form_urlencode([], Acc) ->
-    lists:reverse(Acc);
-form_urlencode([$ |T], Acc) ->
-    form_urlencode(T, [$+|Acc]);
-form_urlencode([H|T], Acc) ->
+form_urlencode(<<>>, Acc) ->
+    Acc;
+form_urlencode(<<$ ,T/binary>>, Acc) ->
+    form_urlencode(T, <<Acc/binary,$+>>);
+form_urlencode(<<H/utf8,T/binary>>, Acc) ->
     case is_url_char(H) of
         true ->
-            form_urlencode(T, [H|Acc]);
+            form_urlencode(T, <<Acc/binary,H>>);
         false ->
-            E = urlencode_char(H),
-            form_urlencode(T, lists:reverse(E) ++ Acc)
-    end.
-
-
-urlencode_char(C) ->
-    B = percent_encode_binary(C),
-    unicode:characters_to_list(B).
+            E = percent_encode_binary(H),
+            form_urlencode(T, <<Acc/binary,E/binary>>)
+    end;
+form_urlencode(<<H,_T/binary>>, _Acc) ->
+    throw({error,invalid_utf8,<<H>>});
+form_urlencode(H, _Acc) ->
+    throw({error,badarg, H}).
 
 
 %% Return true if input char can appear in URL according to
