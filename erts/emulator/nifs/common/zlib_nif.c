@@ -106,6 +106,7 @@ typedef struct {
     int inflateChunk_buffer_size;
 
     ErlNifPid controlling_process;
+    ErlNifMutex *controller_lock;
 
     ErlNifIOQueue *input_queue;
 
@@ -117,6 +118,8 @@ typedef struct {
 
 static ERL_NIF_TERM zlib_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_close(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM zlib_set_controller(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
+
 static ERL_NIF_TERM zlib_deflateInit(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_deflateSetDictionary(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM zlib_deflateReset(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
@@ -143,6 +146,11 @@ static ERL_NIF_TERM zlib_setBufSize(ErlNifEnv *env, int argc, const ERL_NIF_TERM
 static ERL_NIF_TERM zlib_enqueue_input(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]);
 
 static ErlNifFunc nif_funcs[] = {
+    {"close_nif", 1, zlib_close},
+    {"open_nif", 0, zlib_open},
+
+    {"set_controller_nif", 2, zlib_set_controller},
+
     /* deflate */
     {"deflateInit_nif", 6, zlib_deflateInit},
     {"deflateSetDictionary_nif", 2, zlib_deflateSetDictionary},
@@ -161,10 +169,6 @@ static ErlNifFunc nif_funcs[] = {
 
     /* running checksum */
     {"crc32_nif", 1, zlib_crc32},
-
-    /* open & close */
-    {"close_nif", 1, zlib_close},
-    {"open_nif", 0, zlib_open},
 
     /* The stash keeps a single term alive across calls, and is used in
      * exception_on_need_dict/1 to retain the old error behavior, and for
@@ -281,9 +285,7 @@ static ERL_NIF_TERM zlib_return(ErlNifEnv *env, int code) {
     return reason;
 }
 
-static void gc_zlib(ErlNifEnv *env, void* data) {
-    zlib_data_t *d = (zlib_data_t*)data;
-
+static void zlib_internal_close(zlib_data_t *d) {
     if(d->state == ST_DEFLATE) {
         deflateEnd(&d->s);
     } else if(d->state == ST_INFLATE) {
@@ -291,8 +293,6 @@ static void gc_zlib(ErlNifEnv *env, void* data) {
     }
 
     if(d->state != ST_CLOSED) {
-        enif_ioq_destroy(d->input_queue);
-
         if(d->stash_env != NULL) {
             enif_free_env(d->stash_env);
         }
@@ -301,17 +301,36 @@ static void gc_zlib(ErlNifEnv *env, void* data) {
     }
 }
 
+static void gc_zlib(ErlNifEnv *env, void* data) {
+    zlib_data_t *d = (zlib_data_t*)data;
+
+    enif_mutex_destroy(d->controller_lock);
+    enif_ioq_destroy(d->input_queue);
+
+    zlib_internal_close(d);
+
+    (void)env;
+}
+
 static int get_zlib_data(ErlNifEnv *env, ERL_NIF_TERM opaque, zlib_data_t **d) {
     return enif_get_resource(env, opaque, rtype_zlib, (void **)d);
 }
 
 static int zlib_process_check(ErlNifEnv *env, zlib_data_t *d) {
+    int is_controlling_process;
     ErlNifPid current_process;
 
     enif_self(env, &current_process);
 
-    return enif_is_identical(enif_make_pid(env, &current_process),
+    enif_mutex_lock(d->controller_lock);
+
+    is_controlling_process = enif_is_identical(
+        enif_make_pid(env, &current_process),
         enif_make_pid(env, &d->controlling_process));
+
+    enif_mutex_unlock(d->controller_lock);
+
+    return is_controlling_process;
 }
 
 static void zlib_reset_input(zlib_data_t *d) {
@@ -516,6 +535,8 @@ static ERL_NIF_TERM zlib_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
 
     d->input_queue = enif_ioq_create(ERL_NIF_IOQ_NORMAL);
 
+    d->controller_lock = enif_mutex_create("zlib_controller_lock");
+
     d->s.zalloc = zlib_alloc;
     d->s.zfree  = zlib_free;
     d->s.opaque = d;
@@ -556,7 +577,28 @@ static ERL_NIF_TERM zlib_close(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
         return enif_raise_exception(env, am_not_initialized);
     }
 
-    gc_zlib(env, d);
+    zlib_internal_close(d);
+
+    return am_ok;
+}
+
+static ERL_NIF_TERM zlib_set_controller(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
+    zlib_data_t *d;
+
+    ErlNifPid new_owner;
+
+    if(argc != 2 || !get_zlib_data(env, argv[0], &d)
+                 || !enif_get_local_pid(env, argv[1], &new_owner)) {
+        return enif_make_badarg(env);
+    } else if(!zlib_process_check(env, d)) {
+        return enif_raise_exception(env, am_not_on_controlling_process);
+    }
+
+    enif_mutex_lock(d->controller_lock);
+
+    d->controlling_process = new_owner;
+
+    enif_mutex_unlock(d->controller_lock);
 
     return am_ok;
 }
