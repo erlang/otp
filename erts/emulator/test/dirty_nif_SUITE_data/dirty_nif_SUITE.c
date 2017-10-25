@@ -217,9 +217,9 @@ dirty_sleeper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     }
 
 #ifdef __WIN32__
-    Sleep(6000);
+    Sleep(2000);
 #else
-    sleep(6);
+    sleep(2);
 #endif
 
     if (argc == 1) {

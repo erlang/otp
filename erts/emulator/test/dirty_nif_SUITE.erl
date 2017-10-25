@@ -291,9 +291,9 @@ access_dirty_heap(Dirty, RGL, N, R) ->
 %% dirty NIF where the main lock is needed for that access do not get
 %% blocked. Each test passes its pid to dirty_sleeper, which sends a
 %% 'ready' message when it's running on a dirty scheduler and just before
-%% it starts a 6 second sleep. When it receives the message, it verifies
+%% it starts a 2 second sleep. When it receives the message, it verifies
 %% that access to the dirty process is as it expects.  After the dirty
-%% process finishes its 6 second sleep but before it returns from the dirty
+%% process finishes its 2 second sleep but before it returns from the dirty
 %% scheduler, it sends a 'done' message. If the tester already received
 %% that message, the test fails because it means attempting to access the
 %% dirty process waited for that process to return to a regular scheduler,
@@ -357,7 +357,7 @@ dirty_process_trace(Config) when is_list(Config) ->
 			      error(missing_trace_return_message)
 		      end
 	      after
-		  6500 ->
+		  2500 ->
 		      error(missing_done_message)
 	      end,
 	      ok
@@ -384,7 +384,7 @@ code_purge(Config) when is_list(Config) ->
     Start = erlang:monotonic_time(),
     {Pid1, Mon1} = spawn_monitor(fun () ->
 				       dirty_code_test:func(fun () ->
-								    %% Sleep for 6 seconds
+								    %% Sleep for 2 seconds
 								    %% in dirty nif...
 								    dirty_sleeper()
 							    end)
@@ -392,7 +392,7 @@ code_purge(Config) when is_list(Config) ->
     {module, dirty_code_test} = erlang:load_module(dirty_code_test, Bin),
     {Pid2, Mon2} = spawn_monitor(fun () ->
 				       dirty_code_test:func(fun () ->
-								    %% Sleep for 6 seconds
+								    %% Sleep for 2 seconds
 								    %% in dirty nif...
 								    dirty_sleeper()
 							    end)
@@ -494,7 +494,7 @@ test_dirty_process_access(Start, Test, Finish) ->
 			 ok
 		 end
 	 after
-	     3000 ->
+	     1000 ->
 		 error(timeout)
 	 end,
     ok = Finish(NifPid).
