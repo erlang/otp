@@ -151,6 +151,11 @@ dirty_scheduler_exit(Config) when is_list(Config) ->
     [ok] = mcall(Node,
                  [fun() ->
                           ok = erlang:load_nif(NifLib, []),
+                          %% Perform a dry run to ensure that all required code
+                          %% is loaded. Otherwise the test will fail since code
+                          %% loading is done through dirty IO and it won't make
+                          %% any progress during this test.
+                          _DryRun = test_dirty_scheduler_exit(),
 			  Start = erlang:monotonic_time(millisecond),
                           ok = test_dirty_scheduler_exit(),
 			  End = erlang:monotonic_time(millisecond),
@@ -171,19 +176,18 @@ test_dse(N,Pids) ->
     test_dse(N-1,[Pid|Pids]).
 
 kill_dse([],Killed) ->
-    wait_dse(Killed);
+    wait_dse(Killed, ok);
 kill_dse([Pid|Pids],AlreadyKilled) ->
     exit(Pid,kill),
     kill_dse(Pids,[Pid|AlreadyKilled]).
 
-wait_dse([]) ->
-    ok;
-wait_dse([Pid|Pids]) ->
+wait_dse([], Result) ->
+    Result;
+wait_dse([Pid|Pids], Result) ->
     receive
-        {'EXIT',Pid,Reason} ->
-	    killed = Reason
-    end,
-    wait_dse(Pids).
+        {'EXIT', Pid, killed} -> wait_dse(Pids, Result);
+        {'EXIT', Pid, _Other} -> wait_dse(Pids, failed)
+    end.
 
 dirty_call_while_terminated(Config) when is_list(Config) ->
     Me = self(),
