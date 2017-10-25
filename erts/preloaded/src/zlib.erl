@@ -20,7 +20,8 @@
 
 -module(zlib).
 
--export([open/0,close/1,deflateInit/1,deflateInit/2,deflateInit/6,
+-export([open/0,close/1,set_controlling_process/2,
+         deflateInit/1,deflateInit/2,deflateInit/6,
          deflateSetDictionary/2,deflateReset/1,deflateParams/3,
          deflate/2,deflate/3,deflateEnd/1,
          inflateInit/1,inflateInit/2,inflateInit/3,
@@ -126,6 +127,14 @@ open_nif() ->
 close(Z) ->
     close_nif(Z).
 close_nif(_Z) ->
+    erlang:nif_error(undef).
+
+-spec set_controlling_process(Z, Pid) -> 'ok' when
+      Z :: zstream(),
+      Pid :: pid().
+set_controlling_process(Z, Pid) ->
+    set_controller_nif(Z, Pid).
+set_controller_nif(_Z, _Pid) ->
     erlang:nif_error(undef).
 
 -spec deflateInit(Z) -> 'ok' when

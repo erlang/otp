@@ -43,6 +43,23 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A fault introduced in diameter 2.1 could cause decode
+	    errors to be ignored in AVPs following the header of a
+	    Grouped AVP.</p>
+          <p>
+	    Own Id: OTP-14684 Aux Id: ERIERL-85 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
