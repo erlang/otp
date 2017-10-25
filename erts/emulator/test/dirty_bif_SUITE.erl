@@ -251,7 +251,7 @@ test_dse(0,Pids) ->
     timer:sleep(100),
     kill_dse(Pids,[]);
 test_dse(N,Pids) ->
-    Pid = spawn_link(fun () -> erts_debug:dirty_io(wait, 5000) end),
+    Pid = spawn_link(fun () -> erts_debug:dirty_io(wait, 1000) end),
     test_dse(N-1,[Pid|Pids]).
 
 kill_dse([],Killed) ->
