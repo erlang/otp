@@ -28,7 +28,7 @@
 	 extract_from_open_file/1, symlinks/1, open_add_close/1, cooked_compressed/1,
 	 memory/1,unicode/1,read_other_implementations/1,
          sparse/1, init/1, leading_slash/1, dotdot/1,
-         roundtrip_metadata/1]).
+         roundtrip_metadata/1, apply_file_info_opts/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -42,7 +42,8 @@ all() ->
      extract_filtered,
      symlinks, open_add_close, cooked_compressed, memory, unicode,
      read_other_implementations,
-     sparse,init,leading_slash,dotdot,roundtrip_metadata].
+     sparse,init,leading_slash,dotdot,roundtrip_metadata,
+     apply_file_info_opts].
 
 groups() -> 
     [].
@@ -989,6 +990,31 @@ do_roundtrip_metadata(Dir, File) ->
             ok
     end.
 
+apply_file_info_opts(Config) when is_list(Config) ->
+    ok = file:set_cwd(proplists:get_value(priv_dir, Config)),
+
+    ok = file:make_dir("empty_directory"),
+    ok = file:write_file("file", "contents"),
+
+    Opts = [{atime, 0}, {mtime, 0}, {ctime, 0}, {uid, 0}, {gid, 0}],
+    TarFile = "reproducible.tar",
+    {ok, Tar} = erl_tar:open(TarFile, [write]),
+    ok = erl_tar:add(Tar, "file", Opts),
+    ok = erl_tar:add(Tar, "empty_directory", Opts),
+    ok = erl_tar:add(Tar, <<"contents">>, "memory_file", Opts),
+    erl_tar:close(Tar),
+
+    ok = file:make_dir("extracted"),
+    erl_tar:extract(TarFile, [{cwd, "extracted"}]),
+
+    {ok, #file_info{mtime=0}} =
+        file:read_file_info("extracted/empty_directory", [{time, posix}]),
+    {ok, #file_info{mtime=0}} =
+        file:read_file_info("extracted/file", [{time, posix}]),
+    {ok, #file_info{mtime=0}} =
+        file:read_file_info("extracted/memory_file", [{time, posix}]),
+
+    ok.
 
 %% Delete the given list of files.
 delete_files([]) -> ok;

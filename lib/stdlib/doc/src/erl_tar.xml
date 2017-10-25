@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2003</year><year>2017</year>
+      <year>2003</year><year>2018</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -136,6 +136,9 @@
         <v>Filename = filename()|{NameInArchive,FilenameOrBin}</v>
         <v>Options = [Option]</v>
         <v>Option = dereference|verbose|{chunks,ChunkSize}</v>
+           <v>|{atime,non_neg_integer()}|{mtime,non_neg_integer()}</v>
+           <v>|{ctime,non_neg_integer()}|{uid,non_neg_integer()}</v>
+           <v>|{gid,non_neg_integer()}</v>
         <v>ChunkSize = positive_integer()</v>
         <v>RetValue = ok|{error,{Filename,Reason}}</v>
         <v>Reason = term()</v>
@@ -166,6 +169,42 @@
               on a remote machine over SFTP, see
               <seealso marker="ssh:ssh_sftp#open_tar/3">
               <c>ssh_sftp:open_tar/3</c></seealso>.</p>
+          </item>
+          <tag><c>{atime,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the last time, as
+	            <seealso marker="erts:time_correction#POSIX_Time">
+              POSIX time</seealso>, when the file was read. See also
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
+          </item>
+          <tag><c>{mtime,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the last time, as
+	            <seealso marker="erts:time_correction#POSIX_Time">
+              POSIX time</seealso>, when the file was written. See also
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
+          </item>
+          <tag><c>{ctime,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the time, as
+	            <seealso marker="erts:time_correction#POSIX_Time">
+              POSIX time</seealso>, when the file was created. See also
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
+          </item>
+          <tag><c>{uid,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the file owner.
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
+          </item>
+          <tag><c>{gid,non_neg_integer()}</c></tag>
+          <item>
+            <p>Sets the group that the file owner belongs to.
+              <seealso marker="kernel:file#read_file_info/1">
+              <c>file:read_file_info/1</c></seealso>.</p>
           </item>
         </taglist>
       </desc>
