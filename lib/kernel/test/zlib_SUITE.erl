@@ -978,23 +978,37 @@ split_bin(Last,Acc) ->
 
 only_allow_owner(Config) when is_list(Config) ->
     Z = zlib:open(),
+    Owner = self(),
 
     ?m(ok, zlib:inflateInit(Z)),
     ?m(ok, zlib:inflateReset(Z)),
 
     {Pid, Ref} = spawn_monitor(
         fun() ->
-            ?m(?EXIT(not_on_controlling_process), zlib:inflateReset(Z))
+            ?m(?EXIT(not_on_controlling_process), zlib:inflateReset(Z)),
+            Owner ! '$transfer_ownership',
+            receive
+                '$ownership_transferred' ->
+                    ?m(ok, zlib:inflateReset(Z))
+            after 200 ->
+                ct:fail("Never received transfer signal.")
+            end
         end),
+    ownership_transfer_check(Z, Pid, Ref).
 
+ownership_transfer_check(Z, WorkerPid, Ref) ->
     receive
-        {'DOWN', Ref, process, Pid, _Reason} ->
-            ok
+        '$transfer_ownership' ->
+            zlib:set_controlling_process(Z, WorkerPid),
+            WorkerPid ! '$ownership_transferred',
+            ownership_transfer_check(Z, WorkerPid, Ref);
+        {'DOWN', Ref, process, WorkerPid, normal} ->
+            ok;
+        {'DOWN', Ref, process, WorkerPid, Reason} ->
+            ct:fail("Spawned worker crashed with reason ~p.", [Reason])
     after 200 ->
         ct:fail("Spawned worker timed out.")
-    end,
-
-    ?m(ok, zlib:inflateReset(Z)).
+    end.
 
 sub_heap_binaries(Config) when is_list(Config) ->
     Compressed = zlib:compress(<<"gurka">>),
