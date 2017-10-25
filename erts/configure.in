@@ -603,6 +603,8 @@ AS_HELP_STRING([--enable-pgo],
   esac
 ],enable_pgo=default)
 
+LM_CHECK_ENABLE_CFLAG([-fprofile-use -fprofile-correction -Werror],[PROFILE_CORRECTION])
+
 USE_PGO=false
 AC_MSG_CHECKING([whether to do PGO of erts])
 if test $enable_pgo = no; then
@@ -615,22 +617,16 @@ elif test $CROSS_COMPILING = yes; then
   fi
 elif test "X$host" = "Xwin32"; then
   AC_MSG_RESULT([no, not supported in windows])
-elif test "X$PROFILE_GENERATE" = "Xtrue" -a "X$PROFILE_USE" = "Xtrue"; then
+elif test "X$PROFILE_GENERATE" = "Xtrue" -a "X$PROFILE_USE" = "Xtrue" -a "X$PROFILE_CORRECTION" = "Xtrue"; then
+  ## We need -fprofile-generate and -fprofile-correction support to use PGO with
+  ## gcc as multiple threads run within the executed object files
   USE_PGO=true
-  AC_MSG_RESULT([yes, using -fprofile-generate])
   PROFILE_COMPILER=gcc
-# check if $CC accepts -fprofile-correction, if so we can use PGO on multi-threaded files.
-  LM_CHECK_ENABLE_CFLAG([-fprofile-use -fprofile-correction -Werror],[PROFILE_CORRECTION])
-  if test "X$PROFILE_CORRECTION" = "Xtrue"; then
-    PROFILE_CORRECTION="-fprofile-correction"
-  else
-    PROFILE_CORRECTION=""
-  fi
-  AC_SUBST(PROFILE_CORRECTION)
+  AC_MSG_RESULT([yes, using -fprofile-generate -fprofile-correction])
 elif test "X$PROFILE_INSTR_GENERATE" = "Xtrue" -a "X$PROFILE_INSTR_USE" = "Xtrue"; then
   USE_PGO=true
-  AC_MSG_RESULT([yes, using -fprofile-instr-generate])
   PROFILE_COMPILER=clang
+  AC_MSG_RESULT([yes, using -fprofile-instr-generate])
 else
   if $enable_pgo = yes; then
     AC_MSG_ERROR(cannot use PGO with this compiler)
