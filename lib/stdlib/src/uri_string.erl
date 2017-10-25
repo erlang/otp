@@ -423,18 +423,21 @@ compose_query([], _Options, IsList, Acc) ->
       QueryString :: uri_string(),
       QueryList :: [{string(), string()}]
                  | {error, atom(), list() | binary()}.
+dissect_query(<<>>) ->
+    [];
 dissect_query([]) ->
     [];
-dissect_query(QueryString) when is_binary(QueryString) ->
-    L = convert_list(QueryString, utf8),
-    try dissect_query_key(L, [], [], []) of
+dissect_query(QueryString) when is_list(QueryString) ->
+    try
+        B = convert_binary(QueryString, utf8, utf8),
+        dissect_query_key(B, true, [], <<>>, <<>>)
+    of
         Result -> Result
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end;
 dissect_query(QueryString) ->
-    L = flatten_list(QueryString, utf8),
-    try dissect_query_key(L, [], [], []) of
+    try dissect_query_key(QueryString, false, [], <<>>, <<>>) of
         Result -> Result
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
@@ -1706,7 +1709,6 @@ flatten_list(Arg, _, _) ->
     throw({error, badarg, Arg}).
 
 
-
 percent_encode_segment(Segment) ->
     percent_encode_binary(Segment, <<>>).
 
@@ -1790,50 +1792,48 @@ is_unsafe(_) -> false.
 %%-------------------------------------------------------------------------
 %% Helper functions for dissect_query
 %%-------------------------------------------------------------------------
-dissect_query_key([$=|T], Acc, Key, Value) ->
-    dissect_query_value(T, Acc, Key, Value);
-dissect_query_key([H|T], Acc, Key, Value) ->
-    dissect_query_key(T, Acc, [H|Key], Value);
-dissect_query_key(L, _, _, _) ->
-    throw({error, missing_value, L}).
+dissect_query_key(<<$=,T/binary>>, IsList, Acc, Key, Value) ->
+    dissect_query_value(T, IsList, Acc, Key, Value);
+dissect_query_key(<<H,T/binary>>, IsList, Acc, Key, Value) ->
+    dissect_query_key(T, IsList, Acc, <<Key/binary,H>>, Value);
+dissect_query_key(B, _, _, _, _) ->
+    throw({error, missing_value, B}).
 
 
-dissect_query_value([$&|_] = L, Acc, Key, Value) ->
-    K = form_urldecode(lists:reverse(Key)),
-    V = form_urldecode(lists:reverse(Value)),
-    dissect_query_separator_amp(L, [{K,V}|Acc], [], []);
-dissect_query_value([$;|_] = L, Acc, Key, Value) ->
-    K = form_urldecode(lists:reverse(Key)),
-    V = form_urldecode(lists:reverse(Value)),
-    dissect_query_separator_semicolon(L, [{K,V}|Acc], [], []);
-dissect_query_value([H|T], Acc, Key, Value) ->
-    dissect_query_value(T, Acc, Key, [H|Value]);
-dissect_query_value([], Acc, Key, Value) ->
-    K = form_urldecode(lists:reverse(Key)),
-    V = form_urldecode(lists:reverse(Value)),
+dissect_query_value(<<$&,_/binary>> = B, IsList, Acc, Key, Value) ->
+    K = form_urldecode(IsList, Key),
+    V = form_urldecode(IsList, Value),
+    dissect_query_separator_amp(B, IsList, [{K,V}|Acc], <<>>, <<>>);
+dissect_query_value(<<$;,_/binary>> = B, IsList, Acc, Key, Value) ->
+    K = form_urldecode(IsList, Key),
+    V = form_urldecode(IsList, Value),
+    dissect_query_separator_semicolon(B, IsList, [{K,V}|Acc], <<>>, <<>>);
+dissect_query_value(<<H,T/binary>>, IsList, Acc, Key, Value) ->
+    dissect_query_value(T, IsList, Acc, Key, <<Value/binary,H>>);
+dissect_query_value(<<>>, IsList, Acc, Key, Value) ->
+    K = form_urldecode(IsList, Key),
+    V = form_urldecode(IsList, Value),
     lists:reverse([{K,V}|Acc]).
 
 
-dissect_query_separator_amp("&amp;" ++ T, Acc, Key, Value) ->
-    dissect_query_key(T, Acc, Key, Value);
-dissect_query_separator_amp("&" ++ T, Acc, Key, Value) ->
-    dissect_query_key(T, Acc, Key, Value);
-dissect_query_separator_amp(L, _, _, _) ->
-    throw({error, invalid_separator, L}).
+dissect_query_separator_amp(<<"&amp;",T/binary>>, IsList, Acc, Key, Value) ->
+    dissect_query_key(T, IsList, Acc, Key, Value);
+dissect_query_separator_amp(<<$&,T/binary>>, IsList, Acc, Key, Value) ->
+    dissect_query_key(T, IsList, Acc, Key, Value).
 
 
-dissect_query_separator_semicolon([$;|T], Acc, Key, Value) ->
-    dissect_query_key(T, Acc, Key, Value).
+dissect_query_separator_semicolon(<<$;,T/binary>>, IsList, Acc, Key, Value) ->
+    dissect_query_key(T, IsList, Acc, Key, Value).
 
 
 %% Form-urldecode input based on RFC 1866 [8.2.1]
-form_urldecode(Cs) ->
-    B = convert_binary(Cs, utf8, utf8),
+form_urldecode(true, B) ->
     Result = form_urldecode(B, <<>>),
-    convert_list(Result, utf8).
-%%
+    convert_list(Result, utf8);
+form_urldecode(false, B) ->
+    form_urldecode(B, <<>>);
 form_urldecode(<<>>, Acc) ->
-    convert_list(Acc, utf8);
+    Acc;
 form_urldecode(<<$+,T/binary>>, Acc) ->
     form_urldecode(T, <<Acc/binary,$ >>);
 form_urldecode(<<$%,C0,C1,T/binary>>, Acc) ->
@@ -1843,13 +1843,14 @@ form_urldecode(<<$%,C0,C1,T/binary>>, Acc) ->
             form_urldecode(T, <<Acc/binary, V>>);
         false ->
             L = convert_list(<<$%,C0,C1,T/binary>>, utf8),
-            throw({error, urldecode, L})
+            throw({error, invalid_percent_encoding, L})
     end;
-form_urldecode(<<H,T/binary>>, Acc) ->
+form_urldecode(<<H/utf8,T/binary>>, Acc) ->
     case is_url_char(H) of
         true ->
             form_urldecode(T, <<Acc/binary,H>>);
         false ->
-            L = convert_list(<<H,T/binary>>, utf8),
-            throw({error, urldecode, L})
-    end.
+            throw({error, invalid_character, [H]})
+    end;
+form_urldecode(<<H,_/binary>>, _Acc) ->
+    throw({error, invalid_character, [H]}).

@@ -846,13 +846,21 @@ dissect_query(_Config) ->
     [{"foo","1"}, {"bar", "2"}] = uri_string:dissect_query("foo=1&bar=2"),
     [{"foo","1"}, {"bar", "2"}] = uri_string:dissect_query("foo=1;bar=2"),
     [{"foo","1"}, {"bar", "222"}] = uri_string:dissect_query([<<"foo=1;bar=2">>,"22"]),
-    [{"foo","ö"}, {"bar", "2"}] = uri_string:dissect_query("foo=%C3%B6&amp;bar=2").
+    [{"foo","ö"}, {"bar", "2"}] = uri_string:dissect_query("foo=%C3%B6&amp;bar=2"),
+    [{<<"foo">>,<<"ö"/utf8>>}, {<<"bar">>, <<"2">>}] =
+        uri_string:dissect_query(<<"foo=%C3%B6&amp;bar=2">>),
+    [{"foo bar","1"},{"ö","2"}] =
+        uri_string:dissect_query([<<"foo+bar=1&amp;">>,<<"%C3%B6=2">>]).
 
 dissect_query_negative(_Config) ->
-    {error,urldecode,";bar"} =
+    {error,invalid_character,";"} =
         uri_string:dissect_query("foo=1&ap;bar=2"),
-    {error,urldecode,"&amp;bar"} =
+    {error,invalid_character,"&"} =
         uri_string:dissect_query("foo1&amp;bar=2"),
-    {error,urldecode,"%XX%B6"} = uri_string:dissect_query("foo=%XX%B6&amp;bar=2"),
+    {error,invalid_percent_encoding,"%XX%B6"} = uri_string:dissect_query("foo=%XX%B6&amp;bar=2"),
     {error,invalid_input,<<153,182>>} =
-        uri_string:dissect_query("foo=%99%B6&amp;bar=2").
+        uri_string:dissect_query("foo=%99%B6&amp;bar=2"),
+    {error,invalid_character,"ö"} = uri_string:dissect_query("föo+bar=1&amp;%C3%B6=2"),
+    {error,invalid_character,"ö"} = uri_string:dissect_query(<<"föo+bar=1&amp;%C3%B6=2">>),
+    {error,invalid_input,<<"ö">>} =
+        uri_string:dissect_query([<<"foo+bar=1&amp;">>,<<"%C3%B6=2ö">>]).
