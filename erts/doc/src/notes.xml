@@ -31,6 +31,29 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Added zlib:set_controlling_process/2 to move a
+	    zstream() between processes.</p>
+          <p>
+	    Own Id: OTP-14672 Aux Id: ERL-494 </p>
+        </item>
+        <item>
+          <p>
+	    Fix so that schedulers are bound correctly when the first
+	    available cpu is not the first detected cpu. e.g. when
+	    using "taskset -c X..Y" when X is not equal to 0.</p>
+          <p>
+	    Own Id: OTP-14694</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

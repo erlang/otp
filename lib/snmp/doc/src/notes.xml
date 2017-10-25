@@ -34,7 +34,23 @@
   </header>
 
 
-  <section><title>SNMP 5.2.7</title>
+  <section><title>SNMP 5.2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <c>recbuf</c> configuration option was not propagated
+	    correctly to the socket for the SNMP Manager.</p>
+          <p>
+	    Own Id: OTP-13372 Aux Id: ERIERL-73 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.2.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
