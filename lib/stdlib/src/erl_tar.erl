@@ -1650,8 +1650,12 @@ write_file(Name, Bin) ->
     case file:write_file(Name, Bin) of
         ok -> ok;
         {error,enoent} ->
-            ok = make_dirs(Name, file),
-            write_file(Name, Bin);
+            case make_dirs(Name, file) of
+                ok ->
+                    write_file(Name, Bin);
+                {error,Reason} ->
+                    throw({error, Reason})
+            end;
         {error,Reason} ->
             throw({error, Reason})
     end.
