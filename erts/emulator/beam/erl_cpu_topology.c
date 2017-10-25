@@ -608,7 +608,7 @@ write_schedulers_bind_change(erts_cpu_topology_t *cpudata, int size)
 
 	cpu_bind_order_sort(cpudata, size, cpu_bind_order, 1);
 
-	for (cpu_ix = 0; cpu_ix < size && cpu_ix < erts_no_schedulers; cpu_ix++)
+	for (cpu_ix = 0; cpu_ix < size && s_ix <= erts_no_schedulers; cpu_ix++)
 	    if (erts_is_cpu_available(cpuinfo, cpudata[cpu_ix].logical))
 		scheduler2cpu_map[s_ix++].bind_id = cpudata[cpu_ix].logical;
     }
