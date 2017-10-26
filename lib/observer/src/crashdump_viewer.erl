@@ -26,10 +26,25 @@
 %% Tables
 %% ------
 %% cdv_dump_index_table: This table holds all tags read from the
-%% crashdump.  Each tag indicates where the information about a
-%% specific item starts.  The table entry for a tag includes the start
-%% position for this item-information. In a crash dump file, all tags
-%% start with a "=" at the beginning of a line.
+%% crashdump, except the 'binary' tag.  Each tag indicates where the
+%% information about a specific item starts.  The table entry for a
+%% tag includes the start position for this item-information. In a
+%% crash dump file, all tags start with a "=" at the beginning of a
+%% line.
+%%
+%% cdv_binary_index_table: This table holds all 'binary' tags. The hex
+%% address for each binary is converted to its integer value before
+%% storing Address -> Start Position in this table. The hex value of
+%% the address is never used for lookup.
+%%
+%% cdv_reg_proc_table: This table holds mappings between pid and
+%% registered name. This is used for timers and monitors.
+%%
+%% cdv_heap_file_chars: For each 'proc_heap' and 'literals' tag, this
+%% table contains the number of characters to read from the crash dump
+%% file. This is used for giving an indication in percent of the
+%% progress when parsing this data.
+%%
 %%
 %% Process state
 %% -------------
