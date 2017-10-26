@@ -25,7 +25,7 @@
 %% Test functions
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 start_stop/1,load_file/1,not_found_items/1,
-	 non_existing/1,not_a_crashdump/1,old_crashdump/1]).
+	 non_existing/1,not_a_crashdump/1,old_crashdump/1,new_crashdump/1]).
 -export([init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -83,6 +83,7 @@ all() ->
      non_existing,
      not_a_crashdump,
      old_crashdump,
+     new_crashdump,
      load_file,
      not_found_items
     ].
@@ -210,6 +211,25 @@ not_a_crashdump(Config) when is_list(Config) ->
     {error,ExpReason1} = start_backend(F1),
     {error,ExpReason2} = start_backend(F2),
 
+    ok = crashdump_viewer:stop().
+
+%% Try to load a file with newer version than this crashdump viewer can handle
+new_crashdump(Config) ->
+    Dump = hd(?config(dumps,Config)),
+    ok = start_backend(Dump),
+    {ok,{MaxVsn,CurrentVsn}} = crashdump_viewer:get_dump_versions(),
+    if MaxVsn =/= CurrentVsn ->
+            ct:fail("Current dump version is not equal to cdv's max version");
+       true ->
+            ok
+    end,
+    ok = crashdump_viewer:stop(),
+    NewerVsn = lists:join($.,[integer_to_list(X+1) || X <- MaxVsn]),
+    PrivDir = ?config(priv_dir,Config),
+    NewDump = filename:join(PrivDir,"new_erl_crash.dump"),
+    ok = file:write_file(NewDump,"=erl_crash_dump:"++NewerVsn++"\n"),
+    {error, Reason} = start_backend(NewDump),
+    "This Crashdump Viewer is too old" ++_ = Reason,
     ok = crashdump_viewer:stop().
 
 %% Load files into the tool and view all pages
