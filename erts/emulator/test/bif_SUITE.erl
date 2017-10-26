@@ -781,14 +781,20 @@ is_builtin(_Config) ->
 		       {F,A} <- M:module_info(exports)],
     Exp = ordsets:from_list(Exp0),
 
-    %% erlang:apply/3 is considered to be built-in, but is not
-    %% implemented as other BIFs.
+    %% Built-ins implemented as special instructions.
+    Instructions = [{erlang,apply,2},{erlang,apply,3},{erlang,yield,0}],
 
-    Builtins0 = [{erlang,apply,3}|erlang:system_info(snifs)],
+    Builtins0 = Instructions ++ erlang:system_info(snifs),
     Builtins = ordsets:from_list(Builtins0),
-    NotBuiltin = ordsets:subtract(Exp, Builtins),
-    _ = [true = erlang:is_builtin(M, F, A) || {M,F,A} <- Builtins],
-    _ = [false = erlang:is_builtin(M, F, A) || {M,F,A} <- NotBuiltin],
+
+    Fakes = [{M,F,42} || {M,F,_} <- Instructions],
+    All = ordsets:from_list(Fakes ++ Exp),
+    NotBuiltin = ordsets:subtract(All, Builtins),
+
+    _ = [{true,_} = {erlang:is_builtin(M, F, A),MFA} ||
+            {M,F,A}=MFA <- Builtins],
+    _ = [{false,_} = {erlang:is_builtin(M, F, A),MFA} ||
+            {M,F,A}=MFA <- NotBuiltin],
 
     ok.
 
