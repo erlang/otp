@@ -129,7 +129,7 @@ groups() ->
      {http_1_1, [],
       [host, chunked, expect, cgi, cgi_chunked_encoding_test,
        trace, range, if_modified_since, mod_esi_chunk_timeout,
-       esi_put] ++ http_head() ++ http_get() ++ load()},
+       esi_put, esi_post] ++ http_head() ++ http_get() ++ load()},
      {http_1_0, [], [host, cgi, trace] ++ http_head() ++ http_get() ++ load()},
      {http_0_9, [], http_head() ++ http_get() ++ load()}
     ].
@@ -932,7 +932,20 @@ esi_put() ->
 esi_put(Config) when is_list(Config) ->
     ok = http_status("PUT /cgi-bin/erl/httpd_example/put/123342234123 ",
 		     Config, [{statuscode, 200}]).
- 
+%%-------------------------------------------------------------------------
+esi_post() ->
+    [{doc, "Test mod_esi POST"}].
+
+esi_post(Config) when is_list(Config) ->
+    Chunk = "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ",
+    Data = lists:duplicate(10000, Chunk),
+    Length = lists:flatlength(Data),
+    ok = http_status("POST /cgi-bin/erl/httpd_example/post ",
+                     {"Content-Length:" ++ integer_to_list(Length) ++ "\r\n",
+                      Data},
+                     [{http_version, "HTTP/1.1"} |Config], 
+                     [{statuscode, 200}]).
+
 %%-------------------------------------------------------------------------
 mod_esi_chunk_timeout(Config) when is_list(Config) -> 
     ok = httpd_1_1:mod_esi_chunk_timeout(proplists:get_value(type, Config), 
