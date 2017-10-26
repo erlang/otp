@@ -306,10 +306,10 @@ add_chunk([<<>>, Body, Length, MaxChunk]) ->
 add_chunk([More, Body, Length, MaxChunk]) ->
     body_chunk(<<Body/binary, More/binary>>, Length, MaxChunk).
 
-body_chunk(<<>> = Body, Length, MaxChunk) ->
-    {ok, {continue, ?MODULE, add_chunk, [Body, Length, MaxChunk]}};
 body_chunk(Body, Length, nolimit) ->
     whole_body(Body, Length); 
+body_chunk(<<>> = Body, Length, MaxChunk) ->
+    {ok, {continue, ?MODULE, add_chunk, [Body, Length, MaxChunk]}};
 
 body_chunk(Body, Length, MaxChunk) when Length > MaxChunk ->
     case size(Body) >= MaxChunk of 

@@ -516,6 +516,15 @@ handle_body(#state{headers = Headers, body = Body,
 	    case ((Length =< MaxBodySize) or (MaxBodySize == nolimit)) of
 		true ->
 		    case httpd_request:body_chunk_first(Body, Length, MaxChunk) of 
+                        %% This is the case that the we need more data to complete
+                        %% the body but chunking to the mod_esi user is not enabled.
+                        {Module, add_chunk = Function,  Args} ->  
+                            http_transport:setopts(ModData#mod.socket_type, 
+						   ModData#mod.socket, 
+						   [{active, once}]),
+			    {noreply, State#state{mfa = 
+						      {Module, Function, Args}}};
+                        %% Chunking to mod_esi user is enabled
                         {ok, {continue, Module, Function, Args}} ->
                                 http_transport:setopts(ModData#mod.socket_type, 
 						   ModData#mod.socket, 
@@ -525,6 +534,8 @@ handle_body(#state{headers = Headers, body = Body,
                         {ok, {{continue, Chunk}, Module, Function, Args}} ->
                             handle_internal_chunk(State#state{chunk =  chunk_start(MaxChunk), 
                                                               body = Chunk}, Module, Function, Args);                   
+                        %% Whole body delivered, if chunking mechanism is enabled the whole
+                        %% body fits in one chunk.
                         {ok, NewBody} ->
                             handle_response(State#state{chunk = chunk_finish(ChunkState, 
                                                                              CbState, MaxChunk),
