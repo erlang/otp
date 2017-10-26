@@ -1122,7 +1122,7 @@ get_proc_details(File,Pid,WS,DumpVsn) ->
 	    {{Stack,MsgQ,Dict},TW} =
 		case truncated_warning([{?proc,Pid}]) of
 		    [] ->
-			{expand_memory(Fd,Pid,DumpVsn),[]};
+                        expand_memory(Fd,Pid,DumpVsn);
 		    TW0 ->
 			{{[],[],[]},TW0}
 		end,
@@ -1457,7 +1457,15 @@ expand_memory(Fd,Pid,DumpVsn) ->
 		read_messages(Fd,Pid,BinAddrAdj,Dict),
 		read_dictionary(Fd,Pid,BinAddrAdj,Dict)},
     erase(fd),
-    Expanded.
+    IncompleteWarning =
+        case erase(incomplete_heap) of
+            undefined ->
+                [];
+            true ->
+                ["WARNING: This process has an incomplete heap. "
+                 "Some information might be missing."]
+        end,
+    {Expanded,IncompleteWarning}.
 
 read_literals(Fd) ->
     case lookup_index(?literals,[]) of
@@ -2784,6 +2792,7 @@ deref_ptr(Ptr, Line, BinAddrAdj, D0) ->
 	none ->
 	    case get(fd) of
 		end_of_heap ->
+                    put(incomplete_heap,true),
 		    {['#CDVIncompleteHeap'],Line,D0};
 		Fd ->
 		    case bytes(Fd) of

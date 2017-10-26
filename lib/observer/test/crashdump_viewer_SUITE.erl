@@ -348,7 +348,7 @@ browse_file(File) ->
 
     io:format("  info read",[]),
 
-    lookat_all_pids(Procs),
+    lookat_all_pids(Procs,is_truncated(File),incomplete_allowed(File)),
     io:format("  pids ok",[]),
     lookat_all_ports(Ports),
     io:format("  ports ok",[]),
@@ -358,6 +358,21 @@ browse_file(File) ->
     io:format("  nodes ok",[]),
 
     Procs. % used as second arg to special/2
+
+is_truncated(File) ->
+    case filename:extension(File) of
+        ".trunc"++_ ->
+            true;
+        _ ->
+            false
+    end.
+
+incomplete_allowed(File) ->
+    %% Incomplete heap is allowed for native libs, since some literals
+    %% are not dumped - and for pre OTP-20 (really pre 20.2) releases,
+    %% since literals were not dumped at all then.
+    Rel = get_rel_from_dump_name(File),
+    Rel < 20 orelse test_server:is_native(lists).
 
 special(File,Procs) ->
     case filename:extension(File) of
@@ -548,7 +563,7 @@ special(File,Procs) ->
 	    io:format("  process details ok",[]),
 
 	    #proc{dict=Dict} = ProcDetails,
-            io:format("~p\n", [Dict]),
+            %% io:format("~p\n", [Dict]),
             Maps = crashdump_helper:create_maps(),
             Maps = proplists:get_value(maps,Dict),
             io:format("  maps ok",[]),
@@ -568,14 +583,25 @@ verify_binaries([Bin|T1], [['#CDVBin',Offset,Size,Pos]|T2]) ->
 verify_binaries([], []) ->
     ok.
 
-lookat_all_pids([]) ->
+lookat_all_pids([],_,_) ->
     ok;
-lookat_all_pids([#proc{pid=Pid0}|Procs]) ->
+lookat_all_pids([#proc{pid=Pid0}|Procs],TruncAllowed,IncompAllowed) ->
     Pid = pid_to_list(Pid0),
-    {ok,_ProcDetails=#proc{},_ProcTW} = crashdump_viewer:proc_details(Pid),
-    {ok,_Ets,_EtsTW} = crashdump_viewer:ets_tables(Pid),
-    {ok,_Timers,_TimersTW} = crashdump_viewer:timers(Pid),
-    lookat_all_pids(Procs).
+    {ok,_ProcDetails=#proc{},ProcTW} = crashdump_viewer:proc_details(Pid),
+    {ok,_Ets,EtsTW} = crashdump_viewer:ets_tables(Pid),
+    {ok,_Timers,TimersTW} = crashdump_viewer:timers(Pid),
+    case {ProcTW,EtsTW,TimersTW} of
+        {[],[],[]} ->
+            ok;
+        {["WARNING: This process has an incomplete heap."++_],[],[]}
+          when IncompAllowed ->
+            ok;  % native libs, literals might not be included in dump
+        _ when TruncAllowed ->
+            ok; % truncated dump
+        TWs ->
+            ct:fail({unexpected_warning,TWs})
+    end,
+    lookat_all_pids(Procs,TruncAllowed,IncompAllowed).
 
 lookat_all_ports([]) ->
     ok;
@@ -813,6 +839,11 @@ dump_prefix(current) ->
     dump_prefix(erlang:system_info(otp_release));
 dump_prefix(Rel) ->
     lists:concat(["r",Rel,"_dump."]).
+
+get_rel_from_dump_name(File) ->
+    Name = filename:basename(File),
+    ["r"++Rel|_] = string:split(Name,"_"),
+    list_to_integer(Rel).
 
 compat_rel(current) ->
     "";
