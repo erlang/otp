@@ -499,6 +499,10 @@ static int term2point(ErlNifEnv* env, ERL_NIF_TERM term,
 #endif
 static ERL_NIF_TERM bin_from_bn(ErlNifEnv* env, const BIGNUM *bn);
 
+#ifdef HAS_ENGINE_SUPPORT
+static int zero_terminate(ErlNifBinary bin, char **buf);
+#endif
+
 static int library_refc = 0; /* number of users of this dynamic library */
 
 static ErlNifFunc nif_funcs[] = {
@@ -663,7 +667,12 @@ static ERL_NIF_TERM atom_engine_method_store;
 static ERL_NIF_TERM atom_engine_method_pkey_meths;
 static ERL_NIF_TERM atom_engine_method_pkey_asn1_meths;
 static ERL_NIF_TERM atom_engine_method_ec;
+
+static ERL_NIF_TERM atom_engine;
+static ERL_NIF_TERM atom_key_id;
+static ERL_NIF_TERM atom_password;
 #endif
+
 static ErlNifResourceType* hmac_context_rtype;
 struct hmac_context
 {
@@ -1063,6 +1072,10 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     atom_engine_method_pkey_meths = enif_make_atom(env,"engine_method_pkey_meths");
     atom_engine_method_pkey_asn1_meths = enif_make_atom(env,"engine_method_pkey_asn1_meths");
     atom_engine_method_ec = enif_make_atom(env,"engine_method_ec");
+
+    atom_engine = enif_make_atom(env,"engine");
+    atom_key_id = enif_make_atom(env,"key_id");
+    atom_password = enif_make_atom(env,"password");
 #endif
 
     init_digest_types(env);
@@ -3920,9 +3933,69 @@ static int get_pkey_sign_options(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF
 }
 
 
+#ifdef HAS_ENGINE_SUPPORT
+static int get_engine_and_key_id(ErlNifEnv *env, ERL_NIF_TERM key, char ** id, ENGINE **e)
+{
+    ERL_NIF_TERM engine_res, key_id_term;
+    struct engine_ctx *ctx;
+    ErlNifBinary key_id_bin;
+
+    if (!enif_get_map_value(env, key, atom_engine, &engine_res) ||
+        !enif_get_resource(env, engine_res, engine_ctx_rtype, (void**)&ctx) ||
+        !enif_get_map_value(env, key, atom_key_id, &key_id_term) ||
+        !enif_inspect_binary(env, key_id_term, &key_id_bin)) {
+        return 0;
+    }
+    else {
+        *e = ctx->engine;
+        return zero_terminate(key_id_bin, id);
+    }
+}
+
+
+static char *get_key_password(ErlNifEnv *env, ERL_NIF_TERM key) {
+    ERL_NIF_TERM tmp_term;
+    ErlNifBinary pwd_bin;
+    char *pwd;
+    if (enif_get_map_value(env, key, atom_password, &tmp_term) &&
+        enif_inspect_binary(env, tmp_term, &pwd_bin) &&
+        zero_terminate(pwd_bin, &pwd)
+        ) return pwd;
+
+    return NULL;
+}
+
+static int zero_terminate(ErlNifBinary bin, char **buf) {
+    *buf = enif_alloc(bin.size+1);
+    if (!*buf)
+        return 0;
+    memcpy(*buf, bin.data, bin.size);
+    *(*buf+bin.size) = 0;
+    return 1;
+}
+#endif
+
 static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key, EVP_PKEY **pkey)
 {
-    if (algorithm == atom_rsa) {
+    if (enif_is_map(env, key)) {
+#ifdef HAS_ENGINE_SUPPORT
+        /* Use key stored in engine */
+        ENGINE *e;
+        char *id;
+        char *password;
+
+        if (!get_engine_and_key_id(env, key, &id, &e))
+            return PKEY_BADARG;
+        password = get_key_password(env, key);
+        *pkey = ENGINE_load_private_key(e, id, NULL, password);
+        if (!pkey)
+            return PKEY_BADARG;
+        enif_free(id);
+#else
+        return PKEY_BADARG;
+#endif
+    }
+    else if (algorithm == atom_rsa) {
 	RSA *rsa = RSA_new();
 
 	if (!get_rsa_private_key(env, key, rsa)) {
@@ -3983,7 +4056,24 @@ static int get_pkey_private_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_
 static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_TERM key,
 			       EVP_PKEY **pkey)
 {
-    if (algorithm == atom_rsa) {
+    if (enif_is_map(env, key)) {
+#ifdef HAS_ENGINE_SUPPORT
+        /* Use key stored in engine */
+        ENGINE *e;
+        char *id;
+        char *password;
+
+        if (!get_engine_and_key_id(env, key, &id, &e))
+            return PKEY_BADARG;
+        password = get_key_password(env, key);
+        *pkey = ENGINE_load_public_key(e, id, NULL, password);
+        if (!pkey)
+            return PKEY_BADARG;
+        enif_free(id);
+#else
+        return PKEY_BADARG;
+#endif
+    } else  if (algorithm == atom_rsa) {
 	RSA *rsa = RSA_new();
 
 	if (!get_rsa_public_key(env, key, rsa)) {
@@ -4041,7 +4131,7 @@ static int get_pkey_public_key(ErlNifEnv *env, ERL_NIF_TERM algorithm, ERL_NIF_T
 }
 
 static ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
-{/* (Algorithm, Type, Data|{digest,Digest}, Key, Options) */
+{/* (Algorithm, Type, Data|{digest,Digest}, Key|#{}, Options) */
     int i;
     const EVP_MD *md = NULL;
     unsigned char md_value[EVP_MAX_MD_SIZE];
@@ -4061,6 +4151,13 @@ enif_get_atom(env,argv[0],buf,1024,ERL_NIF_LATIN1); printf("algo=%s ",buf);
 enif_get_atom(env,argv[1],buf,1024,ERL_NIF_LATIN1); printf("hash=%s ",buf);
 printf("\r\n");
 */
+
+#ifndef HAS_ENGINE_SUPPORT
+    if (enif_is_map(env, argv[3])) {
+        return atom_notsup;
+    }
+#endif
+
     i = get_pkey_sign_digest(env, argv[0], argv[1], argv[2], md_value, &md, &tbs, &tbslen);
     if (i != PKEY_OK) {
 	if (i == PKEY_NOTSUP)
@@ -4082,10 +4179,9 @@ printf("\r\n");
     }
 
 #ifdef HAS_EVP_PKEY_CTX
-/* printf("EVP interface\r\n");
- */
     ctx = EVP_PKEY_CTX_new(pkey, NULL);
     if (!ctx) goto badarg;
+
     if (EVP_PKEY_sign_init(ctx) <= 0) goto badarg;
     if (md != NULL && EVP_PKEY_CTX_set_signature_md(ctx, md) <= 0) goto badarg;
 
@@ -4186,6 +4282,12 @@ static ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     ErlNifBinary sig_bin; /* signature */
     unsigned char *tbs; /* data to be signed */
     size_t tbslen;
+
+#ifndef HAS_ENGINE_SUPPORT
+    if (enif_is_map(env, argv[4])) {
+        return atom_notsup;
+    }
+#endif
 
     if (!enif_inspect_binary(env, argv[3], &sig_bin)) {
 	return enif_make_badarg(env);
@@ -4397,7 +4499,13 @@ static ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM 
     int algo_init = 0;
 
 /* char algo[1024]; */
-   
+
+#ifndef HAS_ENGINE_SUPPORT
+    if (enif_is_map(env, argv[2])) {
+        return atom_notsup;
+    }
+#endif
+
     if (!enif_inspect_binary(env, argv[1], &in_bin)) {
 	return enif_make_badarg(env);
     }

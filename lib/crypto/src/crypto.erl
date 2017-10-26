@@ -430,12 +430,13 @@ sign(Algorithm, Type, Data, Key, Options) ->
 
 
 -type pk_algs() :: rsa | ecdsa | dss .
--type pk_opt() :: list() | rsa_padding() .
+-type pk_key()  :: map() | [integer() | binary()] .
+-type pk_opt()  :: list() | rsa_padding() .
 
--spec public_encrypt(pk_algs(),  binary(), [binary()],             pk_opt()) -> binary().
--spec public_decrypt(pk_algs(),  binary(), [integer() | binary()], pk_opt()) -> binary().
--spec private_encrypt(pk_algs(), binary(), [integer() | binary()], pk_opt()) -> binary().
--spec private_decrypt(pk_algs(), binary(), [integer() | binary()], pk_opt()) -> binary().
+-spec public_encrypt(pk_algs(),  binary(), pk_key(), pk_opt()) -> binary().
+-spec public_decrypt(pk_algs(),  binary(), pk_key(), pk_opt()) -> binary().
+-spec private_encrypt(pk_algs(), binary(), pk_key(), pk_opt()) -> binary().
+-spec private_decrypt(pk_algs(), binary(), pk_key(), pk_opt()) -> binary().
 
 public_encrypt(Algorithm, In, Key, Options) when is_list(Options) ->
     case pkey_crypt_nif(Algorithm, In, format_pkey(Algorithm, Key), Options, false, true) of
@@ -1107,6 +1108,11 @@ ensure_int_as_bin(Int) when is_integer(Int) ->
 ensure_int_as_bin(Bin) ->
     Bin.
 
+format_pkey(_Alg, #{engine:=_, key_id:=T}=M) when is_binary(T) -> format_pwd(M);
+format_pkey(_Alg, #{engine:=_, key_id:=T}=M) when is_list(T) -> format_pwd(M#{key_id:=list_to_binary(T)});
+format_pkey(_Alg, #{engine:=_           }=M) -> error({bad_key_id, M});
+format_pkey(_Alg, #{}=M) -> error({bad_engine_map, M});
+%%%
 format_pkey(rsa, Key) ->
     map_ensure_int_as_bin(Key);
 format_pkey(ecdsa, [Key, Curve]) ->
@@ -1115,6 +1121,9 @@ format_pkey(dss, Key) ->
     map_ensure_int_as_bin(Key);
 format_pkey(_, Key) ->
     Key.
+
+format_pwd(#{password := Pwd}=M) when is_list(Pwd) -> M#{password := list_to_binary(Pwd)};
+format_pwd(M) -> M.
 
 %%--------------------------------------------------------------------
 %%
