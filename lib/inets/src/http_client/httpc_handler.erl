@@ -736,7 +736,7 @@ maybe_send_answer(Request, Answer, State) ->
     answer_request(Request, Answer, State).
 
 deliver_answer(#request{from = From} = Request) 
-  when is_pid(From) ->
+  when From =/= answer_sent ->
     Response = httpc_response:error(Request, socket_closed_remotely),
     httpc_response:send(From, Response);
 deliver_answer(_Request) ->
