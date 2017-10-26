@@ -30,10 +30,13 @@
   <module>uri_string</module>
   <modulesummary>URI processing functions.</modulesummary>
   <description>
-    <p>This module contains functions for parsing and handling URIs (RFC 3986) and
-    form-urlencoded query strings (RFC 1866).</p>
+    <p>This module contains functions for parsing and handling URIs
+    (<url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>) and
+    form-urlencoded query strings (<url href="https://www.ietf.org/rfc/rfc1866.txt">RFC 1866</url>).
+    </p>
     <p>A URI is an identifier consisting of a sequence of characters   matching the syntax
-    rule named <em>URI</em> in <em>RFC 3986</em>.</p>
+    rule named <em>URI</em> in <url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>.
+    </p>
     <p>  The generic URI syntax consists of a hierarchical sequence of components referred
     to as the scheme, authority, path, query, and fragment:</p>
     <pre>
@@ -55,16 +58,24 @@
     </pre><br></br>
     <p>The interpretation of a URI depends only on the characters used and not on how those
     characters are represented in a network protocol.</p>
-    <p>The functions implemented by this module covers the following use cases:</p>
+    <p>The functions implemented by this module cover the following use cases:</p>
     <list type="bulleted">
-      <item>Parsing URIs<br></br>
-      <c>parse/1</c></item>
-      <item>Recomposing URIs<br></br>
-      <c>recompose/2</c></item>
-      <item>Transcoding URIs<br></br>
-      <c>transcode/2</c></item>
-      <item>Working with form-urlencoded query strings<br></br>
-      <c>compose_query/[1,2], dissect_query/1</c></item>
+      <item>Parsing URIs into its components and returing a map<br></br>
+      <seealso marker="#parse/1"><c>parse/1</c></seealso>
+      </item>
+      <item>Recomposing a map of URI components into a URI string<br></br>
+      <seealso marker="#recompose/1"><c>recompose/1</c></seealso>
+      </item>
+      <item>Changing inbound binary and percent-encoding of URIs<br></br>
+      <seealso marker="#transcode/2"><c>transcode/2</c></seealso>
+      </item>
+      <item>Composing form-urlencoded query strings from a list of key-value pairs<br></br>
+      <seealso marker="#compose_query/1"><c>compose_query/1</c></seealso><br></br>
+      <seealso marker="#compose_query/2"><c>compose_query/2</c></seealso>
+      </item>
+      <item>Dissecting form-urlencoded query strings into a list of key-value pairs<br></br>
+      <seealso marker="#dissect_query/1"><c>dissect_query/1</c></seealso>
+      </item>
     </list>
     <p>There are four different encodings present during the handling of URIs:</p>
     <list type="bulleted">
@@ -75,14 +86,29 @@
     </list>
     <p>Unless otherwise specified the return value type and encoding are the same as the input
     type and encoding. That is, binary input returns binary output, list input returns a list
-    output but mixed input returns list output. Input and output encodings are the same except
-    for <c>transcode/2</c>.</p>
+    output but mixed input returns list output.</p>
     <p>All of the functions but <c>transcode/2</c> expects input as unicode codepoints in
     lists, UTF-8 encoding in binaries and UTF-8 encoding in percent-encoded URI parts.
     <c>transcode/2</c> provides the means to convert between the supported URI encodings.</p>
   </description>
 
   <datatypes>
+    <datatype>
+      <name name="error"/>
+      <desc>
+        <p>Error tuple indicating the type of error. Possible values of the second component:</p>
+	    <list type="bulleted">
+	      <item><c>invalid_character</c></item>
+	      <item><c>invalid_input</c></item>
+	      <item><c>invalid_map</c></item>
+	      <item><c>invalid_percent_encoding</c></item>
+	      <item><c>invalid_scheme</c></item>
+	      <item><c>invalid_uri</c></item>
+	      <item><c>invalid_utf8</c></item>
+	      <item><c>missing_value</c></item>
+	    </list>
+      </desc>
+    </datatype>
     <datatype>
       <name name="uri_map"/>
       <desc>
@@ -93,7 +119,8 @@
       <name name="uri_string"/>
       <desc>
         <p>List of unicode codepoints, UTF-8 encoded binary, or a mix of the two,
-        representing an RFC 3986 compliant URI (<em>percent-encoded form</em>).
+        representing an <url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>
+	compliant URI (<em>percent-encoded form</em>).
         A URI is a sequence of characters from a very limited set: the letters of
         the basic Latin alphabet, digits, and a few special characters.</p>
       </desc>
@@ -109,13 +136,21 @@
         <p>Composes a form-urlencoded <c><anno>QueryString</anno></c> based on a
 	<c><anno>QueryList</anno></c>, a list of unescaped key-value pairs.
 	Media type <c>application/x-www-form-urlencoded</c> is defined in section
-	8.2.1 of <c>RFC 1866</c> (HTML 2.0). Reserved and unsafe characters, as
-	defined by RFC 1738 (Uniform Resource Locators), are percent-encoded.
+	8.2.1 of <url href="https://www.ietf.org/rfc/rfc1866.txt">RFC 1866</url>
+	(HTML 2.0). Reserved and unsafe characters, as
+	defined by <url href="https://www.ietf.org/rfc/rfc1738.txt">RFC 1738</url>
+	(Uniform Resource Locators), are percent-encoded.</p>
+	<p>See also the opposite operation <seealso marker="#dissect_query/1">
+	<c>dissect_query/1</c></seealso>.
 	</p>
         <p><em>Example:</em></p>
         <pre>
-1> <input>uri_string:compose_query([{"foo bar","1"},{"city","örebro"}]).</input>
-<![CDATA["foo+bar=1&amp;city=%C3%B6rebro"]]>
+1> <input>uri_string:compose_query([{"foo bar","1"},{"city","örebro"}],</input>
+1> [{separator, semicolon}]).
+"foo+bar=1;city=%C3%B6rebro"
+2> <![CDATA[uri_string:compose_query([{<<"foo bar">>,<<"1">>},
+2> {<<"city">>,<<"örebro"/utf8>>}]).]]>
+<![CDATA[<<"foo+bar=1&amp;city=%C3%B6rebro">>]]>
 	</pre>
       </desc>
     </func>
@@ -127,11 +162,14 @@
         <p>Same as <c>compose_query/1</c> but with an additional
 	<c><anno>Options</anno></c> parameter, that controls the type of separator used
 	between key-value pairs. There are three supported separator types: <c>amp</c> (<![CDATA[&]]>), <c>escaped_amp</c> (<![CDATA[&amp;]]>) and <c>semicolon</c> (;). If the parameter <c><anno>Options</anno></c> is empty, separator takes the default value (<c>escaped_amp</c>).</p>
+	<p>See also the opposite operation <seealso marker="#dissect_query/1">
+	<c>dissect_query/1</c></seealso>.
+	</p>
         <p><em>Example:</em></p>
         <pre>
 1> <input>uri_string:compose_query([{"foo bar","1"},{"city","örebro"}],</input>
-2> [{separator, semicolon}]).
-"foo+bar=1;city=%C3%B6rebro"
+1> [{separator, amp}]).
+<![CDATA["foo+bar=1&city=%C3%B6rebro"]]>
 	</pre>
       </desc>
     </func>
@@ -143,13 +181,19 @@
         <p>Dissects an urlencoded <c><anno>QueryString</anno></c> and returns a
 	<c><anno>QueryList</anno></c>, a list of unescaped key-value pairs.
 	Media type <c>application/x-www-form-urlencoded</c> is defined in section
-	8.2.1 of <c>RFC 1866</c> (HTML 2.0). Percent-encoded segments are decoded
-	as defined by RFC 1738 (Uniform Resource Locators).
+	8.2.1 of <url href="https://www.ietf.org/rfc/rfc1866.txt">RFC 1866</url>
+	(HTML 2.0). Percent-encoded segments are decoded
+	as defined by <url href="https://www.ietf.org/rfc/rfc1738.txt">RFC 1738</url>
+	(Uniform Resource Locators).</p>
+	<p>See also the opposite operation <seealso marker="#compose_query/1">
+	<c>compose_query/1</c></seealso>.
 	</p>
         <p><em>Example:</em></p>
         <pre>
 1> <input>uri_string:dissect_query("foo+bar=1;city=%C3%B6rebro").</input>
 [{"foo bar","1"},{"city","örebro"}]
+2> <![CDATA[uri_string:dissect_query(<<"foo+bar=1;city=%C3%B6rebro">>).]]>
+<![CDATA[[{<<"foo bar">>,<<"1">>},{<<"city">>,<<"örebro"/utf8>>}] ]]>
 	</pre>
       </desc>
     </func>
@@ -159,14 +203,19 @@
       <fsummary>Parse URI into a map.</fsummary>
       <desc>
         <p>Returns a <c>URIMap</c>, that is a <em>uri_map()</em> with the parsed components
-	of the <c><anno>URIString</anno></c>.</p>
-        <p>If parsing fails, an error tuple is returned.</p>
+	of the <c><anno>URIString</anno></c>. If parsing fails, an error tuple is returned.</p>
+	<p>See also the opposite operation <seealso marker="#recompose/1">
+	<c>recompose/1</c></seealso>.</p>
         <p><em>Example:</em></p>
         <pre>
 1> <input>uri_string:parse("foo://user@example.com:8042/over/there?name=ferret#nose").</input>
 #{fragment => "nose",host => "example.com",
   path => "/over/there",port => 8042,query => "name=ferret",
   scheme => foo,userinfo => "user"}
+2> <![CDATA[uri_string:parse(<<"foo://user@example.com:8042/over/there?name=ferret">>).]]>
+<![CDATA[#{host => <<"example.com">>,path => <<"/over/there">>,
+  port => 8042,query => <<"name=ferret">>,scheme => <<"foo">>,
+  userinfo => <<"user">>}]]>
 	</pre>
       </desc>
     </func>
@@ -175,12 +224,15 @@
       <name name="recompose" arity="1"/>
       <fsummary>Recompose URI.</fsummary>
       <desc>
-        <p>Returns an RFC 3986 compliant <c><anno>URIString</anno></c> (percent-encoded).</p>
-	<p>If the <c><anno>URIMap</anno></c> is invalid, an error tuple is returned.</p>
+        <p>Returns an <url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url> compliant
+	<c><anno>URIString</anno></c> (percent-encoded).
+	If the <c><anno>URIMap</anno></c> is invalid, an error tuple is returned.</p>
+	<p>See also the opposite operation <seealso marker="#parse/1">
+	<c>parse/1</c></seealso>.</p>
         <p><em>Example:</em></p>
         <pre>
 1> <input>URIMap = #{fragment => "nose", host => "example.com", path => "/over/there",</input>
-port => 8042, query => "name=ferret", scheme => "foo", userinfo => "user"}.
+1> port => 8042, query => "name=ferret", scheme => "foo", userinfo => "user"}.
 #{fragment => "top",host => "example.com",
   path => "/over/there",port => 8042,query => "?name=ferret",
   scheme => foo,userinfo => "user"}
@@ -194,14 +246,15 @@ port => 8042, query => "name=ferret", scheme => "foo", userinfo => "user"}.
       <name name="transcode" arity="2"/>
       <fsummary>Transcode URI.</fsummary>
       <desc>
-        <p>Transcodes an RFC 3986 compliant <c><anno>URIString</anno></c>,
+        <p>Transcodes an <url href="https://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>
+	compliant <c><anno>URIString</anno></c>,
 	where <c><anno>Options</anno></c> is a list of tagged tuples, specifying the inbound
-	(<c>in_encoding</c>) and outbound (<c>out_encoding</c>) encodings.</p>
-	<p>If an argument is invalid, an error tuple is returned.</p>
+	(<c>in_encoding</c>) and outbound (<c>out_encoding</c>) encodings.
+	If an argument is invalid, an error tuple is returned.</p>
         <p><em>Example:</em></p>
         <pre>
 1> <input><![CDATA[uri_string:transcode(<<"foo%00%00%00%F6bar"/utf32>>,]]></input>
-2> [{in_encoding, utf32},{out_encoding, utf8}]).
+1> [{in_encoding, utf32},{out_encoding, utf8}]).
 <![CDATA[<<"foo%C3%B6bar"/utf8>>]]>
 	</pre>
       </desc>

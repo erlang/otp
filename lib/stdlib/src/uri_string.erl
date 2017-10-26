@@ -229,7 +229,7 @@
 -export([compose_query/1, compose_query/2,
          dissect_query/1, parse/1,
          recompose/1, transcode/2]).
--export_type([uri_map/0, uri_string/0]).
+-export_type([error/0, uri_map/0, uri_string/0]).
 
 
 %%-------------------------------------------------------------------------
@@ -273,6 +273,8 @@
 %%   %x96    `    grave / accent
 %%-------------------------------------------------------------------------
 -type uri_string() :: iodata().
+-type error() :: {error, atom(), list() | binary()}.
+
 
 %%-------------------------------------------------------------------------
 %% RFC 3986, Chapter 3. Syntax Components
@@ -292,7 +294,7 @@
 -spec parse(URIString) -> URIMap when
       URIString :: uri_string(),
       URIMap :: uri_map()
-              | {error, atom(), list() | binary()}.
+              | error().
 parse(URIString) when is_binary(URIString) ->
     try parse_uri_reference(URIString, #{}) of
         Result -> Result
@@ -317,7 +319,7 @@ parse(URIString) when is_list(URIString) ->
 -spec recompose(URIMap) -> URIString when
       URIMap :: uri_map(),
       URIString :: uri_string()
-                 | {error, atom(), list() | binary()}.
+                 | error().
 recompose(Map) ->
     case is_valid_map(Map) of
         false ->
@@ -346,7 +348,7 @@ recompose(Map) ->
       URIString :: uri_string(),
       Options :: [{in_encoding, unicode:encoding()}|{out_encoding, unicode:encoding()}],
       Result :: uri_string()
-              | {error, atom(), list() | binary()}.
+              | error().
 transcode(URIString, Options) when is_binary(URIString) ->
     try
         InEnc = proplists:get_value(in_encoding, Options, utf8),
@@ -357,7 +359,7 @@ transcode(URIString, Options) when is_binary(URIString) ->
     of
         Result -> Result
     catch
-        throw:{error, _, RestData} -> {error, invalid_input, RestData}
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end;
 transcode(URIString, Options) when is_list(URIString) ->
     InEnc = proplists:get_value(in_encoding, Options, utf8),
@@ -366,7 +368,7 @@ transcode(URIString, Options) when is_list(URIString) ->
     try transcode(Flattened, [], InEnc, OutEnc) of
         Result -> Result
     catch
-        throw:{error, _, RestData} -> {error, invalid_input, RestData}
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end.
 
 
@@ -382,8 +384,8 @@ transcode(URIString, Options) when is_list(URIString) ->
 %%-------------------------------------------------------------------------
 -spec compose_query(QueryList) -> QueryString when
       QueryList :: [{uri_string(), uri_string()}],
-      QueryString :: string()
-                   | {error, atom(), list() | binary()}.
+      QueryString :: uri_string()
+                   | error().
 compose_query(List) ->
     compose_query(List, []).
 
@@ -391,8 +393,8 @@ compose_query(List) ->
 -spec compose_query(QueryList, Options) -> QueryString when
       QueryList :: [{uri_string(), uri_string()}],
       Options :: [{separator, atom()}],
-      QueryString :: string()
-                   | {error, atom(), list() | binary()}.
+      QueryString :: uri_string()
+                   | error().
 compose_query([],_Options) ->
     [];
 compose_query(List, Options) ->
@@ -421,8 +423,8 @@ compose_query([], _Options, IsList, Acc) ->
 %%-------------------------------------------------------------------------
 -spec dissect_query(QueryString) -> QueryList when
       QueryString :: uri_string(),
-      QueryList :: [{string(), string()}]
-                 | {error, atom(), list() | binary()}.
+      QueryList :: [{uri_string(), uri_string()}]
+                 | error().
 dissect_query(<<>>) ->
     [];
 dissect_query([]) ->
@@ -1249,9 +1251,9 @@ decode_fragment(Cs) ->
 check_utf8(Cs) ->
     case unicode:characters_to_list(Cs) of
         {incomplete,_,_} ->
-            throw({error,non_utf8,Cs});
+            throw({error,invalid_utf8,Cs});
         {error,_,_} ->
-            throw({error,non_utf8,Cs});
+            throw({error,invalid_utf8,Cs});
         _ -> Cs
     end.
 
@@ -1304,12 +1306,12 @@ decode(<<$%,C0,C1,Cs/binary>>, Fun, Acc) ->
         true ->
             B = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
             decode(Cs, Fun, <<Acc/binary, B>>);
-        false -> throw({error,percent_decode,<<$%,C0,C1>>})
+        false -> throw({error,invalid_percent_encoding,<<$%,C0,C1>>})
     end;
 decode(<<C,Cs/binary>>, Fun, Acc) ->
     case Fun(C) of
         true -> decode(Cs, Fun, <<Acc/binary, C>>);
-        false -> throw({error,percent_decode,<<C,Cs/binary>>})
+        false -> throw({error,invalid_percent_encoding,<<C,Cs/binary>>})
     end;
 decode(<<>>, _Fun, Acc) ->
     Acc.
@@ -1339,7 +1341,7 @@ encode(<<Char/utf8, Rest/binary>>, Fun, Acc) ->
     C = encode_codepoint_binary(Char, Fun),
     encode(Rest, Fun, <<Acc/binary,C/binary>>);
 encode(<<Char, Rest/binary>>, _Fun, _Acc) ->
-    throw({error,percent_encode,<<Char,Rest/binary>>});
+    throw({error,invalid_input,<<Char,Rest/binary>>});
 encode(<<>>, _Fun, Acc) ->
     Acc.
 
@@ -1647,12 +1649,12 @@ transcode([], Acc, List, _InEncoding, _OutEncoding) ->
 
 
 %% Transcode percent-encoded segment
-transcode_pct([$%,C0,C1|Rest], Acc, B, InEncoding, OutEncoding) ->
+transcode_pct([$%,C0,C1|Rest] = L, Acc, B, InEncoding, OutEncoding) ->
     case is_hex_digit(C0) andalso is_hex_digit(C1) of
         true ->
             Int = ?HEX2DEC(C0)*16+?HEX2DEC(C1),
             transcode_pct(Rest, Acc, <<B/binary, Int>>, InEncoding, OutEncoding);
-        false -> throw({error, lists:reverse(Acc),[C0,C1]})
+        false -> throw({error, invalid_percent_encoding,L})
     end;
 transcode_pct([_C|_Rest] = L, Acc, B, InEncoding, OutEncoding) ->
     OutBinary = convert_binary(B, InEncoding, OutEncoding),
@@ -1706,7 +1708,7 @@ flatten_list([H|T], InEnc, Acc) ->
 flatten_list([], _InEnc, Acc) ->
     lists:reverse(Acc);
 flatten_list(Arg, _, _) ->
-    throw({error, badarg, Arg}).
+    throw({error, invalid_input, Arg}).
 
 
 percent_encode_segment(Segment) ->
@@ -1752,7 +1754,7 @@ form_urlencode(<<H/utf8,T/binary>>, Acc) ->
 form_urlencode(<<H,_T/binary>>, _Acc) ->
     throw({error,invalid_utf8,<<H>>});
 form_urlencode(H, _Acc) ->
-    throw({error,badarg, H}).
+    throw({error,invalid_input, H}).
 
 
 %% Return true if input char can appear in URL according to
