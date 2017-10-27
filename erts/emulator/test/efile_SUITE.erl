@@ -37,6 +37,12 @@ all() ->
 %%
 
 iter_max_files(Config) when is_list(Config) ->
+    case os:type() of
+        {win32, _} -> {skip, "Windows lacks a hard limit on file handles"};
+        _ -> iter_max_files_1(Config)
+    end.
+
+iter_max_files_1(Config) ->
     DataDir = proplists:get_value(data_dir,Config),
     TestFile = filename:join(DataDir, "existing_file"),
     N = 10,
