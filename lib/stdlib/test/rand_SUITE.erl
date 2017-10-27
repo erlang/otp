@@ -489,19 +489,21 @@ stats_standard_normal(Fun, S) ->
           4.0), % probability erfc(4/sqrt(2)) (1/15787) to fail a bucket
 %%%
     ct:timetrap({seconds, Seconds + 120}),
-    %% InvDelta and Buckets are chosen so that the probability to land
-    %% in the central bucket (closest to 0) is about the same as
-    %% the probability to land in the top catch-all-outside bucket.
+    %% Buckets is chosen to get a range where the the probability to land
+    %% in the top catch-all bucket is not vanishingly low, but with
+    %% these values it is about 1/25 of the probability for the low bucket
+    %% (closest to 0).
     %%
-    %% Rounds is calculated so the expected value for the central
+    %% Rounds is calculated so the expected value for the low
     %% bucket will be at least TargetHits.
     %%
     InvDelta = 512,
-    W = InvDelta * math:sqrt(2),
-    Buckets = 1619, % erf-1(erfc(1 / W)) * W
+    Buckets = 4 * InvDelta, % 4 std devs range
     TargetHits = 1024,
-    InvP0 = floor(math:ceil(1 / (0.5 * math:erf(1 / W)))),
-    Rounds = 2 * TargetHits * InvP0,
+    Sqrt2 = math:sqrt(2.0),
+    W = InvDelta * Sqrt2,
+    P0 = math:erf(1 / W),
+    Rounds = TargetHits * ceil(1.0 / P0),
     Histogram = array:new({default, 0}),
     StopTime = erlang:monotonic_time(second) + Seconds,
     ct:pal(
@@ -511,20 +513,25 @@ stats_standard_normal(Fun, S) ->
         stats_standard_normal(
           InvDelta, Buckets, Histogram, Histogram, 0.0,
           Fun, S, Rounds, StopTime, Rounds, 0),
-    Precision = math:sqrt(TotalRounds / InvP0) / StdDevs,
+    Precision = math:sqrt(TotalRounds * P0) / StdDevs,
+    TopP = math:erfc(Buckets / W),
+    TopPrecision = math:sqrt(TotalRounds * TopP) / StdDevs,
+    OutlierProbability = math:erfc(Outlier / Sqrt2) * TotalRounds,
+    InvOP = 1.0 / OutlierProbability,
     ct:pal(
-      "Total rounds: ~w, tolerance: 1/~.2f, outlier: ~.2f.",
-      [TotalRounds, Precision, Outlier]),
-    ResultingTargetHits = floor(TotalRounds / 2 / InvP0),
+      "Total rounds: ~w, tolerance: 1/~.2f..1/~.2f, "
+      "outlier: ~.2f, probability 1/~.2f.",
+      [TotalRounds, Precision, TopPrecision, Outlier, InvOP]),
     {TotalRounds, [], []} =
         {TotalRounds,
          check_histogram(
-           W, Buckets, ResultingTargetHits, TotalRounds,
-           StdDevs, PositiveHistogram),
+           W, TotalRounds, StdDevs, PositiveHistogram, Buckets),
          check_histogram(
-           W, Buckets, ResultingTargetHits, TotalRounds,
-           StdDevs, NegativeHistogram)},
-    ok.
+           W, TotalRounds, StdDevs, NegativeHistogram, Buckets)},
+    %% If the probability for getting this Outlier is lower than 1/20,
+    %% then this is fishy!
+    true = (1/20 =< OutlierProbability),
+    {comment, {tp, TopPrecision, op, InvOP}}.
 %%
 stats_standard_normal(
   InvDelta, Buckets, PositiveHistogram, NegativeHistogram, Outlier,
@@ -563,54 +570,50 @@ stats_standard_normal(
 increment_bucket(Bucket, Array) ->
     array:set(Bucket, array:get(Bucket, Array) + 1, Array).
 
-check_histogram(W, Buckets, TargetHits, Rounds, StdDevs, Histogram) ->
+check_histogram(W, Rounds, StdDevs, Histogram, Buckets) ->
     %%PrevBucket = 512,
     %%Bucket = PrevBucket - 1,
     %%P = 0.5 * math:erfc(PrevBucket / W),
-    PrevBucket = Buckets,
-    Bucket = PrevBucket,
+    TargetP = 0.5 * math:erfc(Buckets / W),
     P = 0.0,
     N = 0,
     check_histogram(
-      W, Bucket, TargetHits, Rounds, StdDevs, Histogram,
-      PrevBucket, P, N).
+      W, Rounds, StdDevs, Histogram, TargetP,
+      Buckets, Buckets, P, N).
 %%
 check_histogram(
-  _W, _Bucket, _TargetHits, _Rounds, _StdDevs, _Histogram,
-  0, _PrevP, _PrevN) ->
+  _W, _Rounds, _StdDevs, _Histogram, _TargetP,
+  0, _PrevBucket, _PrevP, _PrevN) ->
     [];
 check_histogram(
-  W, Bucket, TargetHits, Rounds, StdDevs, Histogram,
-  PrevBucket, PrevP, PrevN) ->
+  W, Rounds, StdDevs, Histogram, TargetP,
+  Bucket, PrevBucket, PrevP, PrevN) ->
     N = PrevN + array:get(Bucket, Histogram),
     P = 0.5 * math:erfc(Bucket / W),
-    DP = P - PrevP,
-    Exp = DP * Rounds,
+    BucketP = P - PrevP,
     if
-        TargetHits =< Exp ->
-            %% Check N
-            Err = N - Exp,
-            AbsErr = abs(Err),
-            Var = Rounds * DP*(1.0 - DP),
-            Limit = StdDevs * math:sqrt(Var),
+        TargetP =< BucketP ->
+            check_histogram(
+              W, Rounds, StdDevs, Histogram, TargetP,
+              Bucket - 1, PrevBucket, PrevP, N);
+        true ->
+            Exp = BucketP * Rounds,
+            Var = Rounds * BucketP*(1.0 - BucketP),
+            Threshold = StdDevs * math:sqrt(Var),
+            LowerLimit = floor(Exp - Threshold),
+            UpperLimit = ceil(Exp + Threshold),
             if
-                Limit =< AbsErr ->
-                    [#{bucket => {Bucket, PrevBucket},
-                       n => N, exp => Exp, err => Err, limit => Limit} |
+                N < LowerLimit; UpperLimit < N ->
+                    [#{bucket => {Bucket, PrevBucket}, n => N, exp => Exp,
+                       lower => LowerLimit, upper => UpperLimit} |
                      check_histogram(
-                       W, Bucket - 1, TargetHits, Rounds, StdDevs, Histogram,
-                       Bucket, P, 0)];
-                    %% ct:fail(
-                    %%   {bucket, Bucket, PrevBucket, N, Exp, Err, Limit});
+                       W, Rounds, StdDevs, Histogram, TargetP,
+                       Bucket - 1, Bucket, P, 0)];
                 true ->
                     check_histogram(
-                      W, Bucket - 1, TargetHits, Rounds, StdDevs, Histogram,
-                      Bucket, P, 0)
-            end;
-        true ->
-            check_histogram(
-              W, Bucket - 1, TargetHits, Rounds, StdDevs, Histogram,
-              PrevBucket, PrevP, N)
+                      W, Rounds, StdDevs, Histogram, TargetP,
+                      Bucket - 1, Bucket, P, 0)
+            end
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
