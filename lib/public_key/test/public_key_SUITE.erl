@@ -97,14 +97,27 @@ end_per_group(_GroupName, Config) ->
     Config.
 %%-------------------------------------------------------------------
 
-init_per_testcase(Case, Config) when Case == pkix_test_data_all_default;
-                                     Case == gen_ec_param ->
+init_per_testcase(pkix_test_data_all_default, Config) ->
      case crypto:ec_curves() of
          [] ->
              {skip, missing_ecc_support};
          _ ->
-               init_common_per_testcase(Config)
+             init_common_per_testcase(Config)
      end;
+
+init_per_testcase(gen_ec_param, Config) ->
+    case crypto:ec_curves() of
+         [] ->
+             {skip, missing_ecc_support};
+         Curves ->
+            case lists:member(secp521r1, Curves) of
+                true ->
+                    init_common_per_testcase(Config);
+                false ->
+                    {skip, missing_ecc_secp52r1_support}
+            end
+    end;
+
 init_per_testcase(TestCase, Config) ->
     case TestCase of
 	ssh_hostkey_fingerprint_md5_implicit -> init_fingerprint_testcase([md5], Config);
