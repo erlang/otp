@@ -283,7 +283,7 @@
   #{fragment => unicode:chardata(),
     host => unicode:chardata(),
     path => unicode:chardata(),
-    port => non_neg_integer(),
+    port => non_neg_integer() | undefined,
     query => unicode:chardata(),
     scheme => unicode:chardata(),
     userinfo => unicode:chardata()} | #{}.
@@ -807,7 +807,7 @@ is_userinfo(Char) -> is_unreserved(Char) orelse is_sub_delim(Char).
 parse_host(?STRING_REST($:, Rest), URI) ->
     {T, URI1} = parse_port(Rest, URI),
     H = calculate_parsed_host_port(Rest, T),
-    Port = binary_to_integer(H),
+    Port = get_port(H),
     {Rest, URI1#{port => Port}};
 parse_host(?STRING_REST($/, Rest), URI) ->
     {T, URI1} = parse_segment(Rest, URI),  % path-abempty
@@ -836,7 +836,7 @@ parse_host(?STRING_EMPTY, URI) ->
 parse_reg_name(?STRING_REST($:, Rest), URI) ->
     {T, URI1} = parse_port(Rest, URI),
     H = calculate_parsed_host_port(Rest, T),
-    Port = binary_to_integer(H),
+    Port = get_port(H),
     {Rest, URI1#{port => Port}};
 parse_reg_name(?STRING_REST($/, Rest), URI) ->
     {T, URI1} = parse_segment(Rest, URI),  % path-abempty
@@ -869,7 +869,7 @@ parse_ipv4_bin(?STRING_REST($:, Rest), Acc, URI) ->
     _ = validate_ipv4_address(lists:reverse(Acc)),
     {T, URI1} = parse_port(Rest, URI),
     H = calculate_parsed_host_port(Rest, T),
-    Port = binary_to_integer(H),
+    Port = get_port(H),
     {Rest, URI1#{port => Port}};
 parse_ipv4_bin(?STRING_REST($/, Rest), Acc, URI) ->
     _ = validate_ipv4_address(lists:reverse(Acc)),
@@ -932,7 +932,7 @@ is_ipv6(Char) -> is_hex_digit(Char).
 parse_ipv6_bin_end(?STRING_REST($:, Rest), URI) ->
     {T, URI1} = parse_port(Rest, URI),
     H = calculate_parsed_host_port(Rest, T),
-    Port = binary_to_integer(H),
+    Port = get_port(H),
     {Rest, URI1#{port => Port}};
 parse_ipv6_bin_end(?STRING_REST($/, Rest), URI) ->
     {T, URI1} = parse_segment(Rest, URI),  % path-abempty
@@ -1148,7 +1148,7 @@ calculate_parsed_userinfo(Input, Unparsed) ->
 
 -spec calculate_parsed_host_port(binary(), binary()) -> binary().
 calculate_parsed_host_port(Input, <<>>) ->
-    strip_last_char(Input, [$?,$#,$/]);
+    strip_last_char(Input, [$:,$?,$#,$/]);
 calculate_parsed_host_port(Input, Unparsed) ->
     get_parsed_binary(Input, Unparsed).
 
@@ -1157,6 +1157,18 @@ calculate_parsed_query_fragment(Input, <<>>) ->
     strip_last_char(Input, [$#]);
 calculate_parsed_query_fragment(Input, Unparsed) ->
     get_parsed_binary(Input, Unparsed).
+
+
+get_port(<<>>) ->
+    undefined;
+get_port(B) ->
+    try binary_to_integer(B) of
+        Port ->
+            Port
+    catch
+        error:badarg ->
+            throw({error, invalid_uri, B})
+    end.
 
 
 %% Strip last char if it is in list
@@ -1184,6 +1196,19 @@ strip_last_char(Input, [C0,C1,C2]) ->
         C1 ->
             init_binary(Input);
         C2 ->
+            init_binary(Input);
+        _Else ->
+            Input
+    end;
+strip_last_char(Input, [C0,C1,C2,C3]) ->
+    case binary:last(Input) of
+        C0 ->
+            init_binary(Input);
+        C1 ->
+            init_binary(Input);
+        C2 ->
+            init_binary(Input);
+        C3 ->
             init_binary(Input);
         _Else ->
             Input
@@ -1530,6 +1555,8 @@ update_host(#{}, URI) ->
 
 
 %% URI cannot be empty for ports. E.g. ":8080" is not a valid URI
+update_port(#{port := undefined}, URI) ->
+    concat(URI, <<":">>);
 update_port(#{port := Port}, URI) ->
     concat(URI,add_colon(encode_port(Port)));
 update_port(#{}, URI) ->

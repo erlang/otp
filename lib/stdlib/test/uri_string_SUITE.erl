@@ -692,7 +692,9 @@ parse_special2(_Config) ->
     #{host := [],path := [],userinfo := []} = uri_string:parse("//@"),
     #{host := [],path := [],scheme := "foo",userinfo := []} = uri_string:parse("foo://@"),
     #{host := [],path := "/",userinfo := []} = uri_string:parse("//@/"),
-    #{host := [],path := "/",scheme := "foo",userinfo := []} = uri_string:parse("foo://@/").
+    #{host := [],path := "/",scheme := "foo",userinfo := []} = uri_string:parse("foo://@/"),
+    #{host := "localhost",path := "/",port := undefined} = uri_string:parse("//localhost:/"),
+    #{host := [],path := [],port := undefined} = uri_string:parse("//:").
 
 parse_negative(_Config) ->
     {error,invalid_uri,"å"} = uri_string:parse("å"),
@@ -702,7 +704,8 @@ parse_negative(_Config) ->
     {error,invalid_uri,"ö"} = uri_string:parse("//host/path#foö"),
     {error,invalid_uri,"127.256.0.1"} = uri_string:parse("//127.256.0.1"),
     {error,invalid_uri,":::127.0.0.1"} = uri_string:parse("//[:::127.0.0.1]"),
-    {error,non_utf8,<<0,0,0,246>>} = uri_string:parse("//%00%00%00%F6").
+    {error,invalid_utf8,<<0,0,0,246>>} = uri_string:parse("//%00%00%00%F6"),
+    {error,invalid_uri,"A"} = uri_string:parse("//localhost:A8").
 
 
 %%-------------------------------------------------------------------------
@@ -836,8 +839,8 @@ compose_query(_Config) ->
         uri_string:compose_query([{<<"foo bar">>,<<"1">>}, {<<"ö"/utf8>>, <<"2">>}]).
 
 compose_query_negative(_Config) ->
-    {error,badarg,4} = uri_string:compose_query([{"",4}]),
-    {error,badarg,5} = uri_string:compose_query([{5,""}]),
+    {error,invalid_input,4} = uri_string:compose_query([{"",4}]),
+    {error,invalid_input,5} = uri_string:compose_query([{5,""}]),
     {error,invalid_utf8,<<"ö">>} = uri_string:compose_query([{"foo bar","1"}, {<<"ö">>, "2"}]).
 
 dissect_query(_Config) ->

@@ -267,8 +267,9 @@ host_uri() ->
 %% Port, Query, Fragment
 %%-------------------------------------------------------------------------
 port() ->
-    range(1,65535).
-
+    frequency([{10, undefined},
+               {10, range(1,65535)}
+              ]).
 
 query_map() ->
     unicode().
